@@ -9,30 +9,172 @@ const WALL_HIT_SOUND_PATH := "res://assets/sounds/wall_hit.wav"
 const DASH_SOUND_PATH := "res://assets/sounds/dash.wav"
 const HALF_DASH_SOUND_PATH := "res://assets/sounds/halfdash.wav"
 const DASH_DELAY_SOUND_PATH := "res://assets/sounds/dashdelay.wav"
+const DASH_CHARGE_SOUND_PATH := "res://assets/sounds/dashcharge.wav"
+const BUST_UP_DASH_SOUND_PATH := "res://assets/sounds/bustup.wav"
+const BOOST_CHARGING_SOUND_PATH := "res://assets/sounds/boostcharging.wav"
+const SOUL_BURST_DASH_SOUND_PATH := "res://assets/sounds/soulbust.wav"
+const DASH_SPIRIT_DELETE_SOUND_PATH := "res://assets/sounds/dashspiritdelete.wav"
 const DRIVE_SOUND_PATH := "res://assets/sounds/drive.wav"
+const PLASMA_CHARGE_SOUND_PATH := "res://assets/sounds/plazmacharge.wav"
+const PLASMA_SHOOT_SOUND_PATH := "res://assets/sounds/plazmashoot.wav"
+const PLASMA_SHOCK_SOUND_PATH := "res://assets/sounds/plazmashock.wav"
+const PLASMA_CHARGE_GAIN_DB := 0.0
+const PLASMA_SHOOT_GAIN_DB := -6.0206
+const PLASMA_SHOCK_GAIN_DB := -4.4370
+const RECOVERY_SOUND_PATH := "res://assets/sounds/recovery.wav"
+const CLEANSE_SOUND_PATH := "res://assets/sounds/cleanse.wav"
+const WARP_GATE_SOUND_PATH := "res://assets/sounds/warpgate.wav"
+const MAGNUM_GRIP_SOUND_PATH := "res://assets/sounds/magnumgrip.wav"
+const SMASHER_WHEEL_SOUND_PATH := "res://assets/sounds/smasherwheel.wav"
+const SHIELD_KITING_WIND_UP_SOUND_PATH := "res://assets/sounds/shieldcating1.wav"
+const SHIELD_KITING_LAUNCH_SOUND_PATH := "res://assets/sounds/shieldcating2.wav"
+const SHIELD_KITING_HIT_SOUND_PATH := "res://assets/sounds/shieldcating3.wav"
 const WHIP_SOUND_PATH := "res://assets/sounds/whip_effect.wav"
+const VIPER_JETPACK_SOUND_PATH := "res://assets/sounds/jetpack.wav"
+const VIPER_BACKSTEP_SOUND_PATH := "res://assets/sounds/backstep.wav"
+const VIPER_SHADOW_KICK_SOUND_PATH := "res://assets/sounds/shadowkick.wav"
+const VIPER_DIVE_PREP_SOUND_PATH := "res://assets/sounds/beforedivestrike.wav"
+const VIPER_DIVE_STRIKE_SOUND_PATH := "res://assets/sounds/divestrike.wav"
+const VIPER_DIVE_PREP_GAIN_DB := -4.4370
+const VIPER_DIVE_STRIKE_GAIN_DB := -4.4370
+const VIPER_IGNITION_AURA_SOUND_PATH := "res://assets/sounds/beforedivestrike.wav"
+const VIPER_IGNITION_AURA_FALLBACK_SOUND_PATH := "res://assets/sounds/backstep.wav"
+const VIPER_IGNITION_AURA_GAIN_DB := -3.0980
+const VIPER_PHANTOM_SHOW_SOUND_PATH := "res://assets/sounds/bypershow.wav"
+const VIPER_PHANTOM_KICK_HIT_SOUND_PATH := "res://assets/sounds/pentomkick.wav"
+const VIPER_BLADE_SOUND_PATH := "res://assets/sounds/blade.wav"
+const VIPER_BLADE_SPIN_SOUND_PATH := "res://assets/sounds/bladeafter.wav"
+const VIPER_VENOM_MOVING_SOUND_PATH := "res://assets/sounds/venommoving.wav"
+const VIPER_VENOM_ATTACK_SOUND_PATH := "res://assets/sounds/venomattack.wav"
+const VIPER_HWARANG_KICK_SOUND_PATH := "res://assets/sounds/hwarangkick.wav"
+const VIPER_KICK_GUARD_KNOCKBACK_SOUND_PATH := "res://assets/sounds/nuckbackball.wav"
+const CHAOS_SPEAR_WINDUP_SOUND_PATH := "res://assets/sounds/chaosphase1.wav"
+const CHAOS_SPEAR_FLYING_SOUND_PATH := "res://assets/sounds/chaosphase2.wav"
+const CHAOS_SPEAR_IMPACT_SOUND_PATH := "res://assets/sounds/chaosphase3.wav"
+const CHAOS_SPEAR_BLACKHOLE_SOUND_PATH := "res://assets/sounds/gravityaccel.wav"
+const COMMANDO_SUPPLY_RADIO_SOUND_PATH := "res://assets/sounds/radio.wav"
+const COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH := "res://assets/sounds/airplane.wav"
+const COMMANDO_SLINGSHOT_FIRE_SOUND_PATH := "res://assets/sounds/shurikenthrow.wav"
+const COMMANDO_PISTOL_READY_SOUND_PATH := "res://assets/sounds/gunroad.wav"
+const COMMANDO_PISTOL_FIRE_SOUND_PATH := "res://assets/sounds/gunshot.wav"
+const COMMANDO_PISTOL_RELOAD_START_SOUND_PATH := "res://assets/sounds/pistolreloadstart.wav"
+const COMMANDO_PISTOL_RELOAD_SOUND_PATH := "res://assets/sounds/pistolreload.wav"
+const COMMANDO_AK47_FIRE_SOUND_PATH := "res://assets/sounds/ak47.wav"
+const COMMANDO_BAZOOKA_FIRE_SOUND_PATH := "res://assets/sounds/bazukagoing.wav"
+const COMMANDO_NET_CAPTURE_SOUND_PATH := "res://assets/sounds/net.wav"
+const COMMANDO_BOWLING_TRAP_INSTALL_SOUND_PATH := "res://assets/sounds/ballingtrapsetup.wav"
+const COMMANDO_BOWLING_TRAP_SNAP_SOUND_PATH := "res://assets/sounds/ballingtrapgrap.wav"
+const COMMANDO_SUICIDE_DRONE_SOUND_PATH := "res://assets/sounds/drone.wav"
+const COMMANDO_SLINGSHOT_FIRE_GAIN_DB := -4.4370
+const COMMANDO_PISTOL_READY_GAIN_DB := -3.0980
+const COMMANDO_PISTOL_FIRE_GAIN_DB := -6.0206
+const COMMANDO_PISTOL_RELOAD_GAIN_DB := -6.0206
+const COMMANDO_AK47_FIRE_GAIN_DB := -6.0206
+const COMMANDO_AK47_FIRE_POOL_SIZE := 4
+const COMMANDO_BAZOOKA_FIRE_GAIN_DB := -4.4370
+const COMMANDO_NET_CAPTURE_GAIN_DB := -6.0206
+const COMMANDO_BOWLING_TRAP_GAIN_DB := -3.0980
+const COMMANDO_SUICIDE_DRONE_GAIN_DB := 0.0
 const ITEM_GET_SOUND_PATH := "res://assets/sounds/itemget.wav"
 const DRINK_SOUND_PATH := "res://assets/sounds/drink.wav"
 const ACTIVE_ITEM_SOUND_PATH := "res://assets/sounds/activeitem.wav"
+const ALCHEMY_SOUND_PATH := "res://assets/sounds/alchemy.wav"
+const PANDORA_SOUND_PATH := "res://assets/sounds/pandora.wav"
+const LUCKY_COIN_SPAWN_SOUND_PATH := "res://assets/sounds/lucky_coin_spawn.wav"
+const FOUL_WHISTLE_SOUND_PATH := "res://assets/sounds/foul_whistle.wav"
+const MEGINGJORD_SOUND_PATH := "res://assets/sounds/megin.wav"
+const LEGENDARY_OPEN_SOUND_PATH := "res://assets/sounds/legendopen.wav"
+const LEGENDARY_AFTER_SOUND_PATH := "res://assets/sounds/legendafter.wav"
+const LEGENDARY_ENDING_SOUND_PATH := "res://assets/sounds/legendending.wav"
+const RAGNAROK_SHOT_SOUND_PATH := "res://assets/sounds/ragnarokshot.wav"
+const RAGNAROK_BOOM_SOUND_PATH := "res://assets/sounds/ragnarokboom.wav"
+const RAGNAROK_SHOCK_SOUND_PATH := "res://assets/sounds/ragnarokshock.wav"
+const ELECTRIC_SHOCK_SOUND_PATH := "res://assets/sounds/electricshock.wav"
+const POSEIDON_WAVE_SOUND_PATH := "res://assets/sounds/poseidon.wav"
+const POSEIDON_CHARGE_SOUND_PATH := "res://assets/sounds/poseidoncharge.wav"
+const TIMEWATCH_SOUND_PATH := "res://assets/sounds/timewatch.wav"
 const THROW_BEFORE_SOUND_PATH := "res://assets/sounds/throwbefore.wav"
 const THROW_SOUND_PATH := "res://assets/sounds/throw.wav"
 const GRENADE_SOUND_PATH := "res://assets/sounds/grenade.wav"
 const FLASHBOMB_SOUND_PATH := "res://assets/sounds/flashbomb.wav"
+const SMOKEBOMB_SOUND_PATH := "res://assets/sounds/smokebomb.wav"
+const DYNAMITE_FUSE_SOUND_PATH := "res://assets/sounds/bombfuse.wav"
+const FIREBOMB_SOUND_PATH := "res://assets/sounds/firebomb.wav"
+const BOOMERANG_SOUND_PATH := "res://assets/sounds/boomerang.wav"
+const BOOMERANG_HIT_SOUND_PATH := "res://assets/sounds/boomeranghit.wav"
+const SHRAPNEL_ARMOR_FIRE_SOUND_PATH := "res://assets/sounds/arrow.wav"
+const SHRAPNEL_ARMOR_HIT_SOUND_PATH := "res://assets/sounds/bullethit.wav"
+const BANANA_THROW_SOUND_PATH := "res://assets/sounds/throwingbanana.wav"
+const BANANA_SLIP_SOUND_PATH := "res://assets/sounds/bananastep.wav"
+const SOAP_THROW_SOUND_PATH := "res://assets/sounds/oil.wav"
+const SOAP_LAND_SOUND_PATH := "res://assets/sounds/shootoil.wav"
+const SOAP_SLIP_SOUND_PATH := "res://assets/sounds/bananastep.wav"
+const SPIDER_MINE_WALK_SOUND_PATH := "res://assets/sounds/spiderminewalk.wav"
+const SPIDER_MINE_SETUP_SOUND_PATH := "res://assets/sounds/spiderminesetup.wav"
 const POWER_SMASH_SOUND_PATH := "res://assets/sounds/power_smash.wav"
 const POWER_SMASH_LAUNCH_SOUND_PATH := "res://assets/sounds/power_smash_launch.wav"
 const ROUND_SET_SOUND_PATH := "res://assets/sounds/roundset.wav"
+const BALL_SPAWN_INTRO_SOUND_PATH := "res://assets/sounds/stagestart_godot_short.wav"
+const BALLOON_POP_SOUND_PATH := "res://assets/sounds/balloonboom.wav"
+const STAGE1_BALLOON_DOOR_SOUND_PATH := "res://assets/sounds/stage1door.wav"
+const STAGE1_BALLOON_MACHINE_SOUND_PATH := "res://assets/sounds/stage1muchine.wav"
+const STAR_COLLECT_SOUND_PATH := "res://assets/sounds/star.wav"
+const STAGE2_HYDRO_SOUND_PATH := "res://assets/sounds/hydro.wav"
+const STAGE2_STONEBREAK_SOUND_PATH := "res://assets/sounds/stonebreak2.wav"
+const STAGE2_ROCKHIT_SOUND_PATH := "res://assets/sounds/rockhit.wav"
+const STAGE2_ROCK_SPAWN_SOUND_PATH := "res://assets/sounds/rock_spawn.wav"
+const STAGE2_QUAKE_SOUND_PATH := "res://assets/sounds/quake_sound.wav"
+const STAGE2_BOSS_CRY_SOUND_PATH := "res://assets/sounds/cry.wav"
+const STAGE2_SPEED_DEFENSE_START_SOUND_PATH := "res://assets/sounds/speed_defense_start.wav"
+const STAGE2_SPEED_DEFENSE_HIT_SOUND_PATH := "res://assets/sounds/defense_hit.wav"
+const STAGE2_SPEED_DEFENSE_BLOCK_SOUND_PATH := "res://assets/sounds/blocking.wav"
+const STAGE3_TAIL_SOUND_PATH := "res://assets/sounds/stage3tail.wav"
+const STAGE3_PSYCHOBALL_SOUND_PATH := "res://assets/sounds/psychoball.wav"
+const STAGE3_DOLLCURSE_SOUND_PATH := "res://assets/sounds/dollcurse.wav"
+const STAGE3_TEARS_SOUND_PATH := "res://assets/sounds/tears.wav"
+const STAGE3_CHEST_LAND_SOUND_PATH := "res://assets/sounds/bonemake.wav"
+const STAGE3_CURSE_EXPLODE_SOUND_PATH := "res://assets/sounds/weakexplosion.wav"
+const STAGE3_KUROMI_AWAKE_SOUND_PATH := "res://assets/sounds/kuromiawake.wav"
+const STAGE3_KUROMI_STONEBREAK_SOUND_PATH := "res://assets/sounds/stonebreak_large.wav"
+const STAGE3_KUROMI_TONGUE_SOUND_PATH := "res://assets/sounds/kuromitongue.wav"
+const STAGE3_KUROMI_SWALLOW_SOUND_PATH := "res://assets/sounds/kuromiswallow.wav"
+const STAGE4_MOON_SHOOT_SOUND_PATH := "res://assets/sounds/stage4moonshoot.wav"
+const STAGE4_FRAGMENT_SHOOT_SOUND_PATH := "res://assets/sounds/stage4moonshoot2.wav"
+const STAGE4_TEMPLE_HIT_SOUND_PATH := "res://assets/sounds/stage4hitting.wav"
+const STAGE4_BIRDKILL_SOUND_PATH := "res://assets/sounds/birdkill.wav"
+const STAGE4_MAGNETIC_SOUND_PATH := "res://assets/sounds/magnetic.wav"
+const STAGE4_MEDITATION_SOUND_PATH := "res://assets/sounds/ponkmeditation.wav"
+const STAGE4_MEDITATION_AFTER_SOUND_PATH := "res://assets/sounds/meditationafter.wav"
+const LEAF_SHIELD_SOUND_PATH := "res://assets/sounds/leaf.wav"
 const STAGE1_BGM_PATH := "res://assets/bgm/stage1bgm.mp3"
+const STAGE2_BGM_PATH := "res://assets/bgm/stage2bgm.mp3"
+const STAGE2_ALT_BGM_PATH := "res://assets/bgm/stage2bgm2.mp3"
+const STAGE3_BGM_PATH := "res://assets/bgm/stage3bgm.wav"
+const STAGE4_BGM_PATH := "res://assets/bgm/stage4bgm.wav"
+const STAGE4_PHASE2_BGM_PATH := "res://assets/bgm/stage4bgm-phase2.mp3"
 const PADDLE_HIT_SOUND_COOLDOWN := 0.06
 const WALL_HIT_SOUND_COOLDOWN := 0.035
 const SCOREBOARD_SOUND_VOLUME_DB := -8.0
 const DEFAULT_BGM_VOLUME := 0.4
+const DEFAULT_SFX_VOLUME := 0.7
 const STAGE1_BGM_GAIN := 0.75
+const STAGE2_BGM_GAIN := 1.0
+const STAGE3_BGM_GAIN := 0.9
+const STAGE4_BGM_GAIN := 0.9
+const STAGE2_BGM_NAMES := ["stage2", "stage2_alt"]
+const BGM_BUS_NAME := "BGM"
+const SFX_BUS_NAME := "SFX"
 
 var owner_node: Node
 var player_factory: Object = GameAudioPlayerFactory.new()
 var paddle_sound_cooldown := 0.0
 var wall_sound_cooldown := 0.0
 var current_bgm_name := ""
+var primed_bgm_volumes: Dictionary = {}
+var bgm_volume := DEFAULT_BGM_VOLUME
+var sfx_volume := DEFAULT_SFX_VOLUME
+var bgm_muted := false
+var muted_bgm_name := ""
 var paddle_hit_sfx: AudioStreamPlayer
 var serve_sfx: AudioStreamPlayer
 var pingpong_serve_sfx: AudioStreamPlayer
@@ -40,23 +182,176 @@ var wall_hit_sfx: AudioStreamPlayer
 var dash_sfx: AudioStreamPlayer
 var half_dash_sfx: AudioStreamPlayer
 var dash_delay_sfx: AudioStreamPlayer
+var dash_charge_sfx: AudioStreamPlayer
+var bust_up_dash_sfx: AudioStreamPlayer
+var boost_charging_sfx: AudioStreamPlayer
+var soul_burst_dash_sfx: AudioStreamPlayer
+var dash_spirit_delete_sfx: AudioStreamPlayer
 var drive_sfx: AudioStreamPlayer
+var plasma_charge_sfx: AudioStreamPlayer
+var plasma_shoot_sfx: AudioStreamPlayer
+var plasma_shock_sfx: AudioStreamPlayer
+var recovery_sfx: AudioStreamPlayer
+var cleanse_sfx: AudioStreamPlayer
+var warp_gate_sfx: AudioStreamPlayer
+var magnum_grip_sfx: AudioStreamPlayer
+var smasher_wheel_sfx: AudioStreamPlayer
+var shield_kiting_wind_up_sfx: AudioStreamPlayer
+var shield_kiting_launch_sfx: AudioStreamPlayer
+var shield_kiting_hit_sfx: AudioStreamPlayer
 var whip_sfx: AudioStreamPlayer
+var viper_jetpack_sfx: AudioStreamPlayer
+var viper_backstep_sfx: AudioStreamPlayer
+var viper_shadow_kick_sfx: AudioStreamPlayer
+var viper_marshal_kick_sfx: AudioStreamPlayer
+var viper_dive_prep_sfx: AudioStreamPlayer
+var viper_dive_strike_sfx: AudioStreamPlayer
+var viper_ignition_aura_sfx: AudioStreamPlayer
+var viper_ignition_aura_fallback_sfx: AudioStreamPlayer
+var viper_phantom_show_sfx: AudioStreamPlayer
+var viper_phantom_kick_hit_sfx: AudioStreamPlayer
+var viper_blade_sfx: AudioStreamPlayer
+var viper_blade_spin_sfx: AudioStreamPlayer
+var viper_venom_moving_sfx: AudioStreamPlayer
+var viper_venom_attack_sfx: AudioStreamPlayer
+var viper_hwarang_kick_sfx: AudioStreamPlayer
+var viper_kick_guard_knockback_sfx: AudioStreamPlayer
+var chaos_spear_windup_sfx: AudioStreamPlayer
+var chaos_spear_flying_sfx: AudioStreamPlayer
+var chaos_spear_impact_sfx: AudioStreamPlayer
+var chaos_spear_blackhole_sfx: AudioStreamPlayer
+var commando_supply_radio_sfx: AudioStreamPlayer
+var commando_supply_aircraft_sfx: AudioStreamPlayer
+var commando_fire_support_radio_sfx: AudioStreamPlayer
+var commando_fire_support_aircraft_sfx: AudioStreamPlayer
+var commando_slingshot_fire_sfx: AudioStreamPlayer
+var commando_pistol_ready_sfx: AudioStreamPlayer
+var commando_pistol_fire_sfx: AudioStreamPlayer
+var commando_pistol_reload_start_sfx: AudioStreamPlayer
+var commando_pistol_reload_sfx: AudioStreamPlayer
+var commando_ak47_fire_sfx: AudioStreamPlayer
+var commando_ak47_fire_sfx_layers: Array = []
+var commando_ak47_fire_sfx_cursor := 0
+var commando_bazooka_fire_sfx: AudioStreamPlayer
+var commando_net_capture_sfx: AudioStreamPlayer
+var commando_bowling_trap_install_sfx: AudioStreamPlayer
+var commando_bowling_trap_snap_sfx: AudioStreamPlayer
+var commando_suicide_drone_sfx: AudioStreamPlayer
 var item_get_sfx: AudioStreamPlayer
 var drink_sfx: AudioStreamPlayer
 var active_item_sfx: AudioStreamPlayer
+var alchemy_sfx: AudioStreamPlayer
+var pandora_sfx: AudioStreamPlayer
+var lucky_coin_spawn_sfx: AudioStreamPlayer
+var foul_whistle_sfx: AudioStreamPlayer
+var megingjord_sfx: AudioStreamPlayer
+var legendary_open_sfx: AudioStreamPlayer
+var legendary_after_sfx: AudioStreamPlayer
+var legendary_ending_sfx: AudioStreamPlayer
+var ragnarok_shot_sfx: AudioStreamPlayer
+var ragnarok_boom_sfx: AudioStreamPlayer
+var ragnarok_shock_sfx: AudioStreamPlayer
+var electric_shock_sfx: AudioStreamPlayer
+var poseidon_wave_sfx: AudioStreamPlayer
+var poseidon_charge_sfx: AudioStreamPlayer
+var timewatch_sfx: AudioStreamPlayer
 var throw_before_sfx: AudioStreamPlayer
 var throw_sfx: AudioStreamPlayer
 var grenade_sfx: AudioStreamPlayer
 var flashbomb_sfx: AudioStreamPlayer
+var smokebomb_sfx: AudioStreamPlayer
+var firebomb_sfx: AudioStreamPlayer
+var boomerang_sfx: AudioStreamPlayer
+var boomerang_hit_sfx: AudioStreamPlayer
+var shrapnel_armor_fire_sfx: AudioStreamPlayer
+var shrapnel_armor_hit_sfx: AudioStreamPlayer
+var banana_throw_sfx: AudioStreamPlayer
+var banana_slip_sfx: AudioStreamPlayer
+var soap_throw_sfx: AudioStreamPlayer
+var soap_land_sfx: AudioStreamPlayer
+var soap_slip_sfx: AudioStreamPlayer
+var spider_mine_walk_sfx: AudioStreamPlayer
+var spider_mine_setup_sfx: AudioStreamPlayer
 var power_smash_sfx: AudioStreamPlayer
 var power_smash_launch_sfx: AudioStreamPlayer
 var round_set_sfx: AudioStreamPlayer
+var ball_spawn_intro_sfx: AudioStreamPlayer
+var balloon_pop_sfx: AudioStreamPlayer
+var stage1_balloon_door_sfx: AudioStreamPlayer
+var stage1_balloon_machine_sfx: AudioStreamPlayer
+var star_collect_sfx: AudioStreamPlayer
+var stage2_hydro_sfx: AudioStreamPlayer
+var stage2_stonebreak_sfx: AudioStreamPlayer
+var stage2_rockhit_sfx: AudioStreamPlayer
+var stage2_rock_spawn_sfx: AudioStreamPlayer
+var stage2_quake_sfx: AudioStreamPlayer
+var stage2_boss_cry_sfx: AudioStreamPlayer
+var stage2_speed_defense_start_sfx: AudioStreamPlayer
+var stage2_speed_defense_hit_sfx: AudioStreamPlayer
+var stage2_speed_defense_block_sfx: AudioStreamPlayer
+var stage3_tail_sfx: AudioStreamPlayer
+var stage3_psychoball_sfx: AudioStreamPlayer
+var stage3_dollcurse_sfx: AudioStreamPlayer
+var stage3_tears_sfx: AudioStreamPlayer
+var stage3_chest_land_sfx: AudioStreamPlayer
+var stage3_curse_explode_sfx: AudioStreamPlayer
+var stage3_kuromi_awake_sfx: AudioStreamPlayer
+var stage3_kuromi_stonebreak_sfx: AudioStreamPlayer
+var stage3_kuromi_tongue_sfx: AudioStreamPlayer
+var stage3_kuromi_swallow_sfx: AudioStreamPlayer
+var stage4_moon_shoot_sfx: AudioStreamPlayer
+var stage4_fragment_shoot_sfx: AudioStreamPlayer
+var stage4_temple_hit_sfx: AudioStreamPlayer
+var stage4_birdkill_sfx: AudioStreamPlayer
+var stage4_magnetic_sfx: AudioStreamPlayer
+var stage4_meditation_sfx: AudioStreamPlayer
+var stage4_meditation_after_sfx: AudioStreamPlayer
+var leaf_shield_sfx: AudioStreamPlayer
 var stage1_bgm: AudioStreamPlayer
+var stage2_bgm: AudioStreamPlayer
+var stage2_alt_bgm: AudioStreamPlayer
+var stage3_bgm: AudioStreamPlayer
+var stage4_bgm: AudioStreamPlayer
+var stage4_phase2_bgm: AudioStreamPlayer
+var _audio_setup_step := 0
 
 
 func setup(parent: Node) -> void:
-	owner_node = parent
+	while not setup_step(parent):
+		pass
+
+
+func setup_step(parent: Node) -> bool:
+	if owner_node == parent and _is_setup_complete():
+		return true
+	if owner_node != parent:
+		owner_node = parent
+		_audio_setup_step = 0
+
+	match _audio_setup_step:
+		0:
+			_setup_core_ball_sfx()
+		1:
+			_setup_smasher_skill_sfx()
+		2:
+			_setup_commando_skill_sfx()
+		3:
+			_setup_item_command_sfx()
+		4:
+			_setup_projectile_item_sfx()
+		5:
+			_setup_stage_feedback_sfx()
+		6:
+			_setup_bgm_players()
+		_:
+			return _is_setup_complete()
+
+	_apply_audio_buses_and_volumes()
+	_audio_setup_step += 1
+	return _is_setup_complete()
+
+
+func _setup_core_ball_sfx() -> void:
 	paddle_hit_sfx = player_factory.create(owner_node, "PaddleHitSfx", PADDLE_HIT_SOUND_PATH, -5.0)
 	serve_sfx = player_factory.create(owner_node, "ServeSfx", SERVE_SOUND_PATH, -5.0)
 	pingpong_serve_sfx = player_factory.create(owner_node, "PingpongServeSfx", PINGPONG_SERVE_SOUND_PATH, -5.0)
@@ -65,25 +360,220 @@ func setup(parent: Node) -> void:
 	half_dash_sfx = player_factory.create(owner_node, "HalfDashSfx", HALF_DASH_SOUND_PATH, -6.0)
 	dash_delay_sfx = player_factory.create(owner_node, "DashDelaySfx", DASH_DELAY_SOUND_PATH, 0.0)
 	_enable_loop(dash_delay_sfx)
+	dash_charge_sfx = player_factory.create(owner_node, "DashChargeSfx", DASH_CHARGE_SOUND_PATH, -5.0)
+	bust_up_dash_sfx = player_factory.create(owner_node, "BustUpDashSfx", BUST_UP_DASH_SOUND_PATH, -5.0)
+	boost_charging_sfx = player_factory.create(owner_node, "BoostChargingSfx", BOOST_CHARGING_SOUND_PATH, -5.0)
+	soul_burst_dash_sfx = player_factory.create(owner_node, "SoulBurstDashSfx", SOUL_BURST_DASH_SOUND_PATH, -5.0)
+	dash_spirit_delete_sfx = player_factory.create(owner_node, "DashSpiritDeleteSfx", DASH_SPIRIT_DELETE_SOUND_PATH, -5.0)
+
+
+func _setup_smasher_skill_sfx() -> void:
 	drive_sfx = player_factory.create(owner_node, "DriveSfx", DRIVE_SOUND_PATH, -5.0)
+	plasma_charge_sfx = player_factory.create(owner_node, "PlasmaChargeSfx", PLASMA_CHARGE_SOUND_PATH, PLASMA_CHARGE_GAIN_DB)
+	plasma_shoot_sfx = player_factory.create(owner_node, "PlasmaShootSfx", PLASMA_SHOOT_SOUND_PATH, PLASMA_SHOOT_GAIN_DB)
+	plasma_shock_sfx = player_factory.create(owner_node, "PlasmaShockSfx", PLASMA_SHOCK_SOUND_PATH, PLASMA_SHOCK_GAIN_DB)
+	_enable_loop(plasma_charge_sfx)
+	_enable_loop(plasma_shock_sfx)
+	recovery_sfx = player_factory.create(owner_node, "RecoverySfx", RECOVERY_SOUND_PATH, -5.0)
+	cleanse_sfx = player_factory.create(owner_node, "CleanseSfx", CLEANSE_SOUND_PATH, -5.0)
+	warp_gate_sfx = player_factory.create(owner_node, "WarpGateSfx", WARP_GATE_SOUND_PATH, -5.0)
+	_enable_loop(warp_gate_sfx)
+	magnum_grip_sfx = player_factory.create(owner_node, "MagnumGripSfx", MAGNUM_GRIP_SOUND_PATH, -5.0)
+	_enable_loop(magnum_grip_sfx)
+	smasher_wheel_sfx = player_factory.create(owner_node, "SmasherWheelSfx", SMASHER_WHEEL_SOUND_PATH, -5.0)
+	_enable_loop(smasher_wheel_sfx)
+	shield_kiting_wind_up_sfx = player_factory.create(owner_node, "ShieldKitingWindUpSfx", SHIELD_KITING_WIND_UP_SOUND_PATH, -5.0)
+	shield_kiting_launch_sfx = player_factory.create(owner_node, "ShieldKitingLaunchSfx", SHIELD_KITING_LAUNCH_SOUND_PATH, -5.0)
+	shield_kiting_hit_sfx = player_factory.create(owner_node, "ShieldKitingHitSfx", SHIELD_KITING_HIT_SOUND_PATH, -4.0)
 	whip_sfx = player_factory.create(owner_node, "WhipSfx", WHIP_SOUND_PATH, -5.0)
+	viper_jetpack_sfx = player_factory.create(owner_node, "ViperJetpackSfx", VIPER_JETPACK_SOUND_PATH, -8.5)
+	_enable_loop(viper_jetpack_sfx)
+	viper_backstep_sfx = player_factory.create(owner_node, "ViperBackstepSfx", VIPER_BACKSTEP_SOUND_PATH, -6.0)
+	viper_shadow_kick_sfx = player_factory.create(owner_node, "ViperShadowKickSfx", VIPER_SHADOW_KICK_SOUND_PATH, -4.4)
+	viper_marshal_kick_sfx = player_factory.create(owner_node, "ViperMarshalKickSfx", VIPER_SHADOW_KICK_SOUND_PATH, -4.4)
+	viper_dive_prep_sfx = player_factory.create(owner_node, "ViperDivePrepSfx", VIPER_DIVE_PREP_SOUND_PATH, VIPER_DIVE_PREP_GAIN_DB)
+	viper_dive_strike_sfx = player_factory.create(owner_node, "ViperDiveStrikeSfx", VIPER_DIVE_STRIKE_SOUND_PATH, VIPER_DIVE_STRIKE_GAIN_DB)
+	viper_ignition_aura_sfx = player_factory.create(owner_node, "ViperIgnitionAuraSfx", VIPER_IGNITION_AURA_SOUND_PATH, VIPER_IGNITION_AURA_GAIN_DB)
+	viper_ignition_aura_fallback_sfx = player_factory.create(owner_node, "ViperIgnitionAuraFallbackSfx", VIPER_IGNITION_AURA_FALLBACK_SOUND_PATH, VIPER_IGNITION_AURA_GAIN_DB)
+	viper_phantom_show_sfx = player_factory.create(owner_node, "ViperPhantomShowSfx", VIPER_PHANTOM_SHOW_SOUND_PATH, -1.5)
+	viper_phantom_kick_hit_sfx = player_factory.create(owner_node, "ViperPhantomKickHitSfx", VIPER_PHANTOM_KICK_HIT_SOUND_PATH, -2.5)
+	viper_blade_sfx = player_factory.create(owner_node, "ViperBladeSfx", VIPER_BLADE_SOUND_PATH, -6.0)
+	viper_blade_spin_sfx = player_factory.create(owner_node, "ViperBladeSpinSfx", VIPER_BLADE_SPIN_SOUND_PATH, -3.0)
+	viper_venom_moving_sfx = player_factory.create(owner_node, "ViperVenomMovingSfx", VIPER_VENOM_MOVING_SOUND_PATH, -4.4)
+	viper_venom_attack_sfx = player_factory.create(owner_node, "ViperVenomAttackSfx", VIPER_VENOM_ATTACK_SOUND_PATH, -4.4)
+	viper_hwarang_kick_sfx = player_factory.create(owner_node, "ViperHwarangKickSfx", VIPER_HWARANG_KICK_SOUND_PATH, -3.2)
+	viper_kick_guard_knockback_sfx = player_factory.create(owner_node, "ViperKickGuardKnockbackSfx", VIPER_KICK_GUARD_KNOCKBACK_SOUND_PATH, -4.0)
+	chaos_spear_windup_sfx = player_factory.create(owner_node, "ChaosSpearWindupSfx", CHAOS_SPEAR_WINDUP_SOUND_PATH, -4.4)
+	chaos_spear_flying_sfx = player_factory.create(owner_node, "ChaosSpearFlyingSfx", CHAOS_SPEAR_FLYING_SOUND_PATH, -4.4)
+	chaos_spear_impact_sfx = player_factory.create(owner_node, "ChaosSpearImpactSfx", CHAOS_SPEAR_IMPACT_SOUND_PATH, -4.4)
+	chaos_spear_blackhole_sfx = player_factory.create(owner_node, "ChaosSpearBlackholeSfx", CHAOS_SPEAR_BLACKHOLE_SOUND_PATH, -5.5)
+	_enable_loop(chaos_spear_blackhole_sfx)
+
+
+func _setup_commando_skill_sfx() -> void:
+	commando_supply_radio_sfx = _create_optional_sfx("CommandoSupplyRadioSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -6.0)
+	commando_supply_aircraft_sfx = _create_optional_sfx("CommandoSupplyAircraftSfx", COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH, -8.0)
+	_enable_loop(commando_supply_aircraft_sfx)
+	commando_fire_support_radio_sfx = _create_optional_sfx("CommandoFireSupportRadioSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -5.5)
+	commando_fire_support_aircraft_sfx = _create_optional_sfx("CommandoFireSupportAircraftSfx", COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH, -7.5)
+	_enable_loop(commando_fire_support_aircraft_sfx)
+	commando_slingshot_fire_sfx = _create_optional_sfx("CommandoSlingshotFireSfx", COMMANDO_SLINGSHOT_FIRE_SOUND_PATH, COMMANDO_SLINGSHOT_FIRE_GAIN_DB)
+	commando_pistol_ready_sfx = _create_optional_sfx("CommandoPistolReadySfx", COMMANDO_PISTOL_READY_SOUND_PATH, COMMANDO_PISTOL_READY_GAIN_DB)
+	commando_pistol_fire_sfx = _create_optional_sfx("CommandoPistolFireSfx", COMMANDO_PISTOL_FIRE_SOUND_PATH, COMMANDO_PISTOL_FIRE_GAIN_DB)
+	commando_pistol_reload_start_sfx = _create_optional_sfx("CommandoPistolReloadStartSfx", COMMANDO_PISTOL_RELOAD_START_SOUND_PATH, COMMANDO_PISTOL_RELOAD_GAIN_DB)
+	commando_pistol_reload_sfx = _create_optional_sfx("CommandoPistolReloadSfx", COMMANDO_PISTOL_RELOAD_SOUND_PATH, COMMANDO_PISTOL_RELOAD_GAIN_DB)
+	commando_ak47_fire_sfx = _create_optional_sfx("CommandoAk47FireSfx", COMMANDO_AK47_FIRE_SOUND_PATH, COMMANDO_AK47_FIRE_GAIN_DB)
+	commando_ak47_fire_sfx_layers = _create_optional_sfx_layers("CommandoAk47FireSfxLayer", COMMANDO_AK47_FIRE_SOUND_PATH, COMMANDO_AK47_FIRE_GAIN_DB, COMMANDO_AK47_FIRE_POOL_SIZE - 1)
+	commando_ak47_fire_sfx_cursor = 0
+	commando_bazooka_fire_sfx = _create_optional_sfx("CommandoBazookaFireSfx", COMMANDO_BAZOOKA_FIRE_SOUND_PATH, COMMANDO_BAZOOKA_FIRE_GAIN_DB)
+	commando_net_capture_sfx = _create_optional_sfx("CommandoNetCaptureSfx", COMMANDO_NET_CAPTURE_SOUND_PATH, COMMANDO_NET_CAPTURE_GAIN_DB)
+	commando_bowling_trap_install_sfx = _create_optional_sfx("CommandoBowlingTrapInstallSfx", COMMANDO_BOWLING_TRAP_INSTALL_SOUND_PATH, COMMANDO_BOWLING_TRAP_GAIN_DB)
+	commando_bowling_trap_snap_sfx = _create_optional_sfx("CommandoBowlingTrapSnapSfx", COMMANDO_BOWLING_TRAP_SNAP_SOUND_PATH, COMMANDO_BOWLING_TRAP_GAIN_DB)
+	commando_suicide_drone_sfx = _create_optional_sfx("CommandoSuicideDroneSfx", COMMANDO_SUICIDE_DRONE_SOUND_PATH, COMMANDO_SUICIDE_DRONE_GAIN_DB)
+	_enable_loop(commando_suicide_drone_sfx)
+
+
+func _setup_item_command_sfx() -> void:
 	item_get_sfx = player_factory.create(owner_node, "ItemGetSfx", ITEM_GET_SOUND_PATH, -5.0)
 	drink_sfx = player_factory.create(owner_node, "DrinkSfx", DRINK_SOUND_PATH, -5.0)
 	active_item_sfx = player_factory.create(owner_node, "ActiveItemSfx", ACTIVE_ITEM_SOUND_PATH, -5.0)
+	alchemy_sfx = player_factory.create(owner_node, "AlchemySfx", ALCHEMY_SOUND_PATH, -4.5)
+	pandora_sfx = player_factory.create(owner_node, "PandoraSfx", PANDORA_SOUND_PATH, -5.0)
+	lucky_coin_spawn_sfx = player_factory.create(owner_node, "LuckyCoinSpawnSfx", LUCKY_COIN_SPAWN_SOUND_PATH, -5.0)
+	foul_whistle_sfx = player_factory.create(owner_node, "FoulWhistleSfx", FOUL_WHISTLE_SOUND_PATH, -4.0)
+	megingjord_sfx = player_factory.create(owner_node, "MegingjordSfx", MEGINGJORD_SOUND_PATH, -5.0)
+	legendary_open_sfx = player_factory.create(owner_node, "LegendaryOpenSfx", LEGENDARY_OPEN_SOUND_PATH, -5.0)
+	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
+	legendary_ending_sfx = player_factory.create(owner_node, "LegendaryEndingSfx", LEGENDARY_ENDING_SOUND_PATH, -5.0)
+	ragnarok_shot_sfx = player_factory.create(owner_node, "RagnarokShotSfx", RAGNAROK_SHOT_SOUND_PATH, -4.0)
+	ragnarok_boom_sfx = player_factory.create(owner_node, "RagnarokBoomSfx", RAGNAROK_BOOM_SOUND_PATH, -3.5)
+	ragnarok_shock_sfx = player_factory.create(owner_node, "RagnarokShockSfx", RAGNAROK_SHOCK_SOUND_PATH, -5.5)
+	electric_shock_sfx = player_factory.create(owner_node, "ElectricShockSfx", ELECTRIC_SHOCK_SOUND_PATH, -6.0)
+	poseidon_wave_sfx = player_factory.create(owner_node, "PoseidonWaveSfx", POSEIDON_WAVE_SOUND_PATH, -5.0)
+	poseidon_charge_sfx = player_factory.create(owner_node, "PoseidonChargeSfx", POSEIDON_CHARGE_SOUND_PATH, -5.0)
+	_enable_loop(ragnarok_shock_sfx)
+	_enable_loop(electric_shock_sfx)
+	timewatch_sfx = player_factory.create(owner_node, "TimewatchSfx", TIMEWATCH_SOUND_PATH, -5.0)
 	throw_before_sfx = player_factory.create(owner_node, "ThrowBeforeSfx", THROW_BEFORE_SOUND_PATH, -5.0)
 	throw_sfx = player_factory.create(owner_node, "ThrowSfx", THROW_SOUND_PATH, -5.0)
+
+
+func _setup_projectile_item_sfx() -> void:
 	grenade_sfx = player_factory.create(owner_node, "GrenadeSfx", GRENADE_SOUND_PATH, -4.0)
 	flashbomb_sfx = player_factory.create(owner_node, "FlashbombSfx", FLASHBOMB_SOUND_PATH, -4.0)
+	smokebomb_sfx = player_factory.create(owner_node, "SmokebombSfx", SMOKEBOMB_SOUND_PATH, -5.0)
+	firebomb_sfx = player_factory.create(owner_node, "FirebombSfx", FIREBOMB_SOUND_PATH, -4.0)
+	boomerang_sfx = player_factory.create(owner_node, "BoomerangSfx", BOOMERANG_SOUND_PATH, -8.0)
+	boomerang_hit_sfx = player_factory.create(owner_node, "BoomerangHitSfx", BOOMERANG_HIT_SOUND_PATH, -5.0)
+	shrapnel_armor_fire_sfx = player_factory.create(owner_node, "ShrapnelArmorFireSfx", SHRAPNEL_ARMOR_FIRE_SOUND_PATH, -5.0)
+	shrapnel_armor_hit_sfx = player_factory.create(owner_node, "ShrapnelArmorHitSfx", SHRAPNEL_ARMOR_HIT_SOUND_PATH, -5.0)
+	_enable_loop(boomerang_sfx)
+	banana_throw_sfx = player_factory.create(owner_node, "BananaThrowSfx", BANANA_THROW_SOUND_PATH, -6.0)
+	banana_slip_sfx = player_factory.create(owner_node, "BananaSlipSfx", BANANA_SLIP_SOUND_PATH, -4.0)
+	soap_throw_sfx = player_factory.create(owner_node, "SoapThrowSfx", SOAP_THROW_SOUND_PATH, -7.0)
+	soap_land_sfx = player_factory.create(owner_node, "SoapLandSfx", SOAP_LAND_SOUND_PATH, -8.0)
+	soap_slip_sfx = player_factory.create(owner_node, "SoapSlipSfx", SOAP_SLIP_SOUND_PATH, -4.0)
+	spider_mine_walk_sfx = player_factory.create(owner_node, "SpiderMineWalkSfx", SPIDER_MINE_WALK_SOUND_PATH, -6.5)
+	spider_mine_setup_sfx = player_factory.create(owner_node, "SpiderMineSetupSfx", SPIDER_MINE_SETUP_SOUND_PATH, -5.0)
+	_enable_loop(spider_mine_walk_sfx)
+
+
+func _setup_stage_feedback_sfx() -> void:
 	power_smash_sfx = player_factory.create(owner_node, "PowerSmashSfx", POWER_SMASH_SOUND_PATH, -4.0)
 	power_smash_launch_sfx = player_factory.create(owner_node, "PowerSmashLaunchSfx", POWER_SMASH_LAUNCH_SOUND_PATH, -4.0)
 	round_set_sfx = player_factory.create(owner_node, "RoundSetSfx", ROUND_SET_SOUND_PATH, SCOREBOARD_SOUND_VOLUME_DB)
+	ball_spawn_intro_sfx = player_factory.create(owner_node, "BallSpawnIntroSfx", BALL_SPAWN_INTRO_SOUND_PATH, -4.0)
+	balloon_pop_sfx = player_factory.create(owner_node, "BalloonPopSfx", BALLOON_POP_SOUND_PATH, -5.0)
+	stage1_balloon_door_sfx = player_factory.create(owner_node, "Stage1BalloonDoorSfx", STAGE1_BALLOON_DOOR_SOUND_PATH, -6.0)
+	stage1_balloon_machine_sfx = player_factory.create(owner_node, "Stage1BalloonMachineSfx", STAGE1_BALLOON_MACHINE_SOUND_PATH, -7.0)
+	star_collect_sfx = player_factory.create(owner_node, "StarCollectSfx", STAR_COLLECT_SOUND_PATH, -4.0)
+	stage2_hydro_sfx = player_factory.create(owner_node, "Stage2HydroSfx", STAGE2_HYDRO_SOUND_PATH, -5.0)
+	stage2_stonebreak_sfx = player_factory.create(owner_node, "Stage2StonebreakSfx", STAGE2_STONEBREAK_SOUND_PATH, -5.0)
+	stage2_rockhit_sfx = player_factory.create(owner_node, "Stage2RockhitSfx", STAGE2_ROCKHIT_SOUND_PATH, -5.0)
+	stage2_rock_spawn_sfx = player_factory.create(owner_node, "Stage2RockSpawnSfx", STAGE2_ROCK_SPAWN_SOUND_PATH, -5.0)
+	stage2_quake_sfx = player_factory.create(owner_node, "Stage2QuakeSfx", STAGE2_QUAKE_SOUND_PATH, -7.0)
+	stage2_boss_cry_sfx = player_factory.create(owner_node, "Stage2BossCrySfx", STAGE2_BOSS_CRY_SOUND_PATH, -6.0)
+	stage2_speed_defense_start_sfx = player_factory.create(owner_node, "Stage2SpeedDefenseStartSfx", STAGE2_SPEED_DEFENSE_START_SOUND_PATH, -4.5)
+	stage2_speed_defense_hit_sfx = player_factory.create(owner_node, "Stage2SpeedDefenseHitSfx", STAGE2_SPEED_DEFENSE_HIT_SOUND_PATH, -5.0)
+	stage2_speed_defense_block_sfx = player_factory.create(owner_node, "Stage2SpeedDefenseBlockSfx", STAGE2_SPEED_DEFENSE_BLOCK_SOUND_PATH, -5.0)
+	stage3_tail_sfx = player_factory.create(owner_node, "Stage3TailSfx", STAGE3_TAIL_SOUND_PATH, -4.5)
+	stage3_psychoball_sfx = player_factory.create(owner_node, "Stage3PsychoballSfx", STAGE3_PSYCHOBALL_SOUND_PATH, -6.0)
+	stage3_dollcurse_sfx = player_factory.create(owner_node, "Stage3DollcurseSfx", STAGE3_DOLLCURSE_SOUND_PATH, -5.0)
+	stage3_tears_sfx = player_factory.create(owner_node, "Stage3TearsSfx", STAGE3_TEARS_SOUND_PATH, -7.0)
+	stage3_chest_land_sfx = player_factory.create(owner_node, "Stage3ChestLandSfx", STAGE3_CHEST_LAND_SOUND_PATH, -5.0)
+	stage3_curse_explode_sfx = player_factory.create(owner_node, "Stage3CurseExplodeSfx", STAGE3_CURSE_EXPLODE_SOUND_PATH, -5.0)
+	stage3_kuromi_awake_sfx = player_factory.create(owner_node, "Stage3KuromiAwakeSfx", STAGE3_KUROMI_AWAKE_SOUND_PATH, -3.0)
+	stage3_kuromi_stonebreak_sfx = _create_optional_sfx("Stage3KuromiStonebreakSfx", STAGE3_KUROMI_STONEBREAK_SOUND_PATH, -4.0)
+	stage3_kuromi_tongue_sfx = player_factory.create(owner_node, "Stage3KuromiTongueSfx", STAGE3_KUROMI_TONGUE_SOUND_PATH, -4.5)
+	stage3_kuromi_swallow_sfx = player_factory.create(owner_node, "Stage3KuromiSwallowSfx", STAGE3_KUROMI_SWALLOW_SOUND_PATH, -5.0)
+	stage4_moon_shoot_sfx = player_factory.create(owner_node, "Stage4MoonShootSfx", STAGE4_MOON_SHOOT_SOUND_PATH, -4.0)
+	stage4_fragment_shoot_sfx = player_factory.create(owner_node, "Stage4FragmentShootSfx", STAGE4_FRAGMENT_SHOOT_SOUND_PATH, -5.0)
+	stage4_temple_hit_sfx = player_factory.create(owner_node, "Stage4TempleHitSfx", STAGE4_TEMPLE_HIT_SOUND_PATH, -5.0)
+	stage4_birdkill_sfx = player_factory.create(owner_node, "Stage4BirdkillSfx", STAGE4_BIRDKILL_SOUND_PATH, -5.0)
+	stage4_magnetic_sfx = player_factory.create(owner_node, "Stage4MagneticSfx", STAGE4_MAGNETIC_SOUND_PATH, -7.0)
+	stage4_meditation_sfx = player_factory.create(owner_node, "Stage4MeditationSfx", STAGE4_MEDITATION_SOUND_PATH, -5.0)
+	stage4_meditation_after_sfx = player_factory.create(owner_node, "Stage4MeditationAfterSfx", STAGE4_MEDITATION_AFTER_SOUND_PATH, -5.0)
+	leaf_shield_sfx = player_factory.create(owner_node, "LeafShieldSfx", LEAF_SHIELD_SOUND_PATH, -4.5)
+	_enable_loop(stage2_quake_sfx)
+	_enable_loop(stage3_psychoball_sfx)
+	_enable_loop(stage4_magnetic_sfx)
+
+
+func _setup_bgm_players() -> void:
 	stage1_bgm = player_factory.create(
 		owner_node,
 		"Stage1Bgm",
 		STAGE1_BGM_PATH,
-		linear_to_db(DEFAULT_BGM_VOLUME * STAGE1_BGM_GAIN)
+		_volume_to_db(STAGE1_BGM_GAIN)
 	)
+	stage2_bgm = player_factory.create(
+		owner_node,
+		"Stage2Bgm",
+		STAGE2_BGM_PATH,
+		_volume_to_db(STAGE2_BGM_GAIN)
+	)
+	stage2_alt_bgm = player_factory.create(
+		owner_node,
+		"Stage2AltBgm",
+		STAGE2_ALT_BGM_PATH,
+		_volume_to_db(STAGE2_BGM_GAIN)
+	)
+	stage3_bgm = player_factory.create(
+		owner_node,
+		"Stage3Bgm",
+		STAGE3_BGM_PATH,
+		_volume_to_db(STAGE3_BGM_GAIN)
+	)
+	stage4_bgm = player_factory.create(
+		owner_node,
+		"Stage4Bgm",
+		STAGE4_BGM_PATH,
+		_volume_to_db(STAGE4_BGM_GAIN)
+	)
+	stage4_phase2_bgm = player_factory.create(
+		owner_node,
+		"Stage4Phase2Bgm",
+		STAGE4_PHASE2_BGM_PATH,
+		_volume_to_db(STAGE4_BGM_GAIN)
+	)
+	_apply_audio_buses_and_volumes()
 	_enable_loop(stage1_bgm)
+	_enable_loop(stage2_bgm)
+	_enable_loop(stage2_alt_bgm)
+	_enable_loop(stage3_bgm)
+	_enable_loop(stage4_bgm)
+	_enable_loop(stage4_phase2_bgm)
+
+
+func _is_setup_complete() -> bool:
+	return (
+		_is_owned_player_ready(stage1_bgm)
+		and _is_owned_player_ready(stage2_bgm)
+		and _is_owned_player_ready(stage2_alt_bgm)
+		and _is_owned_player_ready(stage3_bgm)
+		and _is_owned_player_ready(stage4_bgm)
+		and _is_owned_player_ready(stage4_phase2_bgm)
+	)
 
 
 func update(delta: float) -> void:
@@ -95,6 +585,135 @@ func play_drive() -> void:
 	_play_with_pitch(drive_sfx, randf_range(0.98, 1.02))
 
 
+func play_plasma_charge() -> void:
+	if plasma_charge_sfx == null or plasma_charge_sfx.stream == null:
+		return
+	if plasma_charge_sfx.playing:
+		return
+	plasma_charge_sfx.pitch_scale = 1.0
+	plasma_charge_sfx.play()
+
+
+func stop_plasma_charge() -> void:
+	if plasma_charge_sfx != null and plasma_charge_sfx.playing:
+		plasma_charge_sfx.stop()
+
+
+func sync_plasma_charge(active: bool) -> void:
+	if active:
+		play_plasma_charge()
+	else:
+		stop_plasma_charge()
+
+
+func play_plasma_shoot() -> void:
+	_play_with_pitch(plasma_shoot_sfx, randf_range(0.98, 1.02))
+
+
+func play_plasma_shock() -> void:
+	if plasma_shock_sfx == null or plasma_shock_sfx.stream == null:
+		return
+	if plasma_shock_sfx.playing:
+		return
+	plasma_shock_sfx.pitch_scale = 1.0
+	plasma_shock_sfx.play()
+
+
+func stop_plasma_shock() -> void:
+	if plasma_shock_sfx != null and plasma_shock_sfx.playing:
+		plasma_shock_sfx.stop()
+
+
+func sync_plasma_shock(active: bool) -> void:
+	if active:
+		play_plasma_shock()
+	else:
+		stop_plasma_shock()
+
+
+func play_recovery() -> void:
+	_play_with_pitch(recovery_sfx, randf_range(0.98, 1.02))
+
+
+func play_cleanse() -> void:
+	_play_with_pitch(cleanse_sfx, randf_range(0.98, 1.02))
+
+
+func play_warp_gate_loop() -> void:
+	if warp_gate_sfx == null or warp_gate_sfx.stream == null:
+		return
+	if warp_gate_sfx.playing:
+		return
+	warp_gate_sfx.pitch_scale = 1.0
+	warp_gate_sfx.play()
+
+
+func stop_warp_gate_loop() -> void:
+	if warp_gate_sfx != null and warp_gate_sfx.playing:
+		warp_gate_sfx.stop()
+
+
+func sync_warp_gate_loop(active: bool) -> void:
+	if active:
+		play_warp_gate_loop()
+	else:
+		stop_warp_gate_loop()
+
+
+func play_magnum_grip() -> void:
+	if magnum_grip_sfx == null or magnum_grip_sfx.stream == null:
+		return
+	if magnum_grip_sfx.playing:
+		return
+	magnum_grip_sfx.pitch_scale = 1.0
+	magnum_grip_sfx.play()
+
+
+func stop_magnum_grip() -> void:
+	if magnum_grip_sfx != null and magnum_grip_sfx.playing:
+		magnum_grip_sfx.stop()
+
+
+func sync_magnum_grip(active: bool) -> void:
+	if active:
+		play_magnum_grip()
+	else:
+		stop_magnum_grip()
+
+
+func play_smasher_wheel_loop() -> void:
+	if smasher_wheel_sfx == null or smasher_wheel_sfx.stream == null:
+		return
+	if smasher_wheel_sfx.playing:
+		return
+	smasher_wheel_sfx.pitch_scale = 1.0
+	smasher_wheel_sfx.play()
+
+
+func stop_smasher_wheel_loop() -> void:
+	if smasher_wheel_sfx != null and smasher_wheel_sfx.playing:
+		smasher_wheel_sfx.stop()
+
+
+func sync_smasher_wheel_loop(active: bool) -> void:
+	if active:
+		play_smasher_wheel_loop()
+	else:
+		stop_smasher_wheel_loop()
+
+
+func play_shield_kiting_wind_up() -> void:
+	_play_with_pitch(shield_kiting_wind_up_sfx, randf_range(0.98, 1.02))
+
+
+func play_shield_kiting_launch() -> void:
+	_play_with_pitch(shield_kiting_launch_sfx, randf_range(0.98, 1.02))
+
+
+func play_shield_kiting_hit() -> void:
+	_play_with_pitch(shield_kiting_hit_sfx, randf_range(0.98, 1.02))
+
+
 func play_whip() -> void:
 	_play_with_pitch(whip_sfx, randf_range(0.98, 1.02))
 
@@ -102,6 +721,339 @@ func play_whip() -> void:
 func stop_whip() -> void:
 	if whip_sfx != null and whip_sfx.playing:
 		whip_sfx.stop()
+
+
+func play_viper_jetpack_loop() -> void:
+	if viper_jetpack_sfx == null or viper_jetpack_sfx.stream == null:
+		return
+	if viper_jetpack_sfx.playing:
+		return
+	viper_jetpack_sfx.pitch_scale = 1.0
+	viper_jetpack_sfx.play()
+
+
+func stop_viper_jetpack_loop() -> void:
+	if viper_jetpack_sfx != null and viper_jetpack_sfx.playing:
+		viper_jetpack_sfx.stop()
+
+
+func sync_viper_jetpack_loop(active: bool) -> void:
+	if active:
+		play_viper_jetpack_loop()
+	else:
+		stop_viper_jetpack_loop()
+
+
+func play_viper_backstep() -> void:
+	if not _play_with_pitch(viper_backstep_sfx, randf_range(0.98, 1.02)):
+		play_dash_start(true)
+
+
+func play_viper_shadow_kick() -> void:
+	_play_with_pitch(viper_shadow_kick_sfx, randf_range(0.98, 1.02))
+
+
+func play_viper_marshal_kick() -> void:
+	_play_with_pitch(viper_marshal_kick_sfx, randf_range(0.98, 1.02))
+
+
+func play_viper_dive_prep() -> void:
+	_play_with_pitch(viper_dive_prep_sfx, randf_range(0.98, 1.02))
+
+
+func play_viper_dive_strike() -> void:
+	_play_with_pitch(viper_dive_strike_sfx, randf_range(0.98, 1.02))
+
+
+func play_viper_ignition_aura() -> void:
+	if not _play_with_pitch(viper_ignition_aura_sfx, 1.0):
+		_play_with_pitch(viper_ignition_aura_fallback_sfx, 1.0)
+
+
+func play_viper_phantom_show() -> void:
+	_play_with_pitch(viper_phantom_show_sfx, randf_range(0.98, 1.02))
+
+
+func play_viper_phantom_kick_hit() -> void:
+	_play_with_pitch(viper_phantom_kick_hit_sfx, randf_range(0.98, 1.02))
+
+
+func play_viper_blade() -> void:
+	_play_with_pitch(viper_blade_sfx, randf_range(0.98, 1.02))
+
+
+func play_viper_blade_spin() -> void:
+	_play_with_pitch(viper_blade_spin_sfx, randf_range(0.98, 1.02))
+
+
+func stop_viper_blade_spin() -> void:
+	if viper_blade_spin_sfx != null and viper_blade_spin_sfx.playing:
+		viper_blade_spin_sfx.stop()
+
+
+func play_viper_venom_moving() -> void:
+	_play_with_pitch(viper_venom_moving_sfx, randf_range(0.98, 1.02))
+
+
+func play_viper_venom_attack() -> void:
+	_play_with_pitch(viper_venom_attack_sfx, randf_range(0.98, 1.02))
+
+
+func play_viper_hwarang_kick() -> void:
+	if not _play_with_pitch(viper_hwarang_kick_sfx, randf_range(0.98, 1.02)):
+		play_viper_marshal_kick()
+
+
+func play_viper_kick_guard_knockback() -> void:
+	if not _play_with_pitch(viper_kick_guard_knockback_sfx, randf_range(0.98, 1.02)):
+		play_stage2_speed_defense_hit()
+
+
+func play_chaos_spear_windup() -> void:
+	_play_with_pitch(chaos_spear_windup_sfx, randf_range(0.98, 1.02))
+
+
+func stop_chaos_spear_windup() -> void:
+	if chaos_spear_windup_sfx != null and chaos_spear_windup_sfx.playing:
+		chaos_spear_windup_sfx.stop()
+
+
+func play_chaos_spear_flying() -> void:
+	_play_with_pitch(chaos_spear_flying_sfx, randf_range(0.98, 1.02))
+
+
+func stop_chaos_spear_flying() -> void:
+	if chaos_spear_flying_sfx != null and chaos_spear_flying_sfx.playing:
+		chaos_spear_flying_sfx.stop()
+
+
+func play_chaos_spear_impact() -> void:
+	_play_with_pitch(chaos_spear_impact_sfx, randf_range(0.98, 1.02))
+
+
+func stop_chaos_spear_impact() -> void:
+	if chaos_spear_impact_sfx != null and chaos_spear_impact_sfx.playing:
+		chaos_spear_impact_sfx.stop()
+
+
+func play_chaos_spear_blackhole_loop() -> void:
+	if chaos_spear_blackhole_sfx == null or chaos_spear_blackhole_sfx.stream == null:
+		return
+	if chaos_spear_blackhole_sfx.playing:
+		return
+	chaos_spear_blackhole_sfx.pitch_scale = 1.0
+	chaos_spear_blackhole_sfx.play()
+
+
+func stop_chaos_spear_blackhole_loop() -> void:
+	if chaos_spear_blackhole_sfx != null and chaos_spear_blackhole_sfx.playing:
+		chaos_spear_blackhole_sfx.stop()
+
+
+func sync_chaos_spear_blackhole_loop(active: bool) -> void:
+	if active:
+		play_chaos_spear_blackhole_loop()
+	else:
+		stop_chaos_spear_blackhole_loop()
+
+
+func play_commando_supply_radio() -> void:
+	if not _play_with_pitch(commando_supply_radio_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
+
+
+func play_commando_supply_aircraft_loop() -> void:
+	if commando_supply_aircraft_sfx == null or commando_supply_aircraft_sfx.stream == null:
+		return
+	if commando_supply_aircraft_sfx.playing:
+		return
+	commando_supply_aircraft_sfx.pitch_scale = 1.0
+	commando_supply_aircraft_sfx.play()
+
+
+func stop_commando_supply_aircraft_loop() -> void:
+	if commando_supply_aircraft_sfx != null and commando_supply_aircraft_sfx.playing:
+		commando_supply_aircraft_sfx.stop()
+
+
+func sync_commando_supply_aircraft_loop(active: bool) -> void:
+	if active:
+		play_commando_supply_aircraft_loop()
+	else:
+		stop_commando_supply_aircraft_loop()
+
+
+func play_commando_supply_drop() -> void:
+	if not _play_with_pitch(item_get_sfx, randf_range(0.96, 1.03)):
+		play_active_item()
+
+
+func play_commando_fire_support_radio() -> void:
+	if not _play_with_pitch(commando_fire_support_radio_sfx, randf_range(0.98, 1.02)):
+		play_commando_supply_radio()
+
+
+func play_commando_fire_support_aircraft_loop() -> void:
+	if commando_fire_support_aircraft_sfx == null or commando_fire_support_aircraft_sfx.stream == null:
+		return
+	if commando_fire_support_aircraft_sfx.playing:
+		return
+	commando_fire_support_aircraft_sfx.pitch_scale = 1.0
+	commando_fire_support_aircraft_sfx.play()
+
+
+func stop_commando_fire_support_aircraft_loop() -> void:
+	if commando_fire_support_aircraft_sfx != null and commando_fire_support_aircraft_sfx.playing:
+		commando_fire_support_aircraft_sfx.stop()
+
+
+func sync_commando_fire_support_aircraft_loop(active: bool) -> void:
+	if active:
+		play_commando_fire_support_aircraft_loop()
+	else:
+		stop_commando_fire_support_aircraft_loop()
+
+
+func play_commando_firearm_fire(weapon_id: String) -> void:
+	match weapon_id:
+		"pistol":
+			play_commando_pistol_fire()
+		"bazooka":
+			play_commando_bazooka_fire()
+		"fire_support":
+			play_commando_fire_support_radio()
+		"suicide_drone":
+			play_commando_suicide_drone_launch()
+		"net_gun":
+			play_commando_net_gun_fire()
+		"bowling_trap":
+			play_commando_bowling_trap_install()
+		"ak47", "commando_pistol":
+			if weapon_id == "ak47":
+				play_commando_ak47_fire()
+			else:
+				play_commando_pistol_fire()
+		_:
+			play_active_item()
+
+
+func play_commando_firearm_impact(weapon_id: String) -> void:
+	match weapon_id:
+		"pistol":
+			play_commando_bullet_impact()
+		"bazooka":
+			play_commando_bazooka_impact()
+		"fire_support":
+			play_commando_fire_support_bomb()
+		"suicide_drone":
+			play_commando_suicide_drone_explosion()
+		"net_gun":
+			play_commando_net_gun_capture()
+		"bowling_trap":
+			play_commando_bowling_trap_snap()
+		"ak47", "commando_pistol":
+			play_commando_bullet_impact()
+		_:
+			play_paddle_hit()
+
+
+func play_commando_slingshot_fire() -> void:
+	if not _play_with_pitch(commando_slingshot_fire_sfx, randf_range(0.96, 1.04)):
+		play_throw()
+
+
+func play_commando_pistol_fire() -> void:
+	if not _play_with_pitch(commando_pistol_fire_sfx, randf_range(0.98, 1.02)):
+		play_shrapnel_armor_fire()
+
+
+func play_commando_pistol_ready() -> void:
+	if not _play_with_pitch(commando_pistol_ready_sfx, randf_range(0.98, 1.02)):
+		play_throw_before()
+
+
+func play_commando_pistol_reload_start() -> void:
+	if not _play_with_pitch(commando_pistol_reload_start_sfx, randf_range(0.98, 1.02)):
+		if not _play_with_pitch(commando_pistol_reload_sfx, randf_range(0.98, 1.02)):
+			play_active_item()
+
+
+func play_commando_pistol_reload_round() -> void:
+	if not _play_with_pitch(commando_pistol_reload_sfx, randf_range(0.98, 1.02)):
+		play_commando_pistol_reload_start()
+
+
+func play_commando_ak47_fire() -> void:
+	if not _play_commando_ak47_fire_layer(randf_range(0.98, 1.03)):
+		play_shrapnel_armor_fire()
+
+
+func play_commando_bazooka_fire() -> void:
+	if not _play_with_pitch(commando_bazooka_fire_sfx, randf_range(0.98, 1.02)):
+		play_ragnarok_shot()
+
+
+func play_commando_net_gun_fire() -> void:
+	if not _play_with_pitch(throw_sfx, randf_range(0.90, 0.97)):
+		play_throw()
+
+
+func play_commando_bowling_trap_install() -> void:
+	if not _play_with_pitch(commando_bowling_trap_install_sfx, randf_range(0.98, 1.02)):
+		play_stage2_rockhit()
+
+
+func play_commando_suicide_drone_launch() -> void:
+	if commando_suicide_drone_sfx != null and commando_suicide_drone_sfx.stream != null:
+		if not commando_suicide_drone_sfx.playing:
+			commando_suicide_drone_sfx.pitch_scale = 1.0
+			commando_suicide_drone_sfx.play()
+		return
+	if not _play_with_pitch(ragnarok_shot_sfx, randf_range(1.05, 1.12)):
+		play_active_item()
+
+
+func stop_commando_suicide_drone_loop() -> void:
+	if commando_suicide_drone_sfx != null and commando_suicide_drone_sfx.playing:
+		commando_suicide_drone_sfx.stop()
+
+
+func sync_commando_suicide_drone_loop(active: bool) -> void:
+	if active:
+		play_commando_suicide_drone_launch()
+	else:
+		stop_commando_suicide_drone_loop()
+
+
+func play_commando_bullet_impact() -> void:
+	play_shrapnel_armor_hit()
+
+
+func play_commando_slingshot_impact() -> void:
+	play_stage2_rockhit()
+
+
+func play_commando_bazooka_impact() -> void:
+	play_grenade_explosion()
+
+
+func play_commando_fire_support_bomb() -> void:
+	play_grenade_explosion()
+
+
+func play_commando_net_gun_capture() -> void:
+	if not _play_with_pitch(commando_net_capture_sfx, randf_range(0.98, 1.02)):
+		play_boomerang_hit()
+
+
+func play_commando_bowling_trap_snap() -> void:
+	if not _play_with_pitch(commando_bowling_trap_snap_sfx, randf_range(0.98, 1.02)):
+		play_stage2_rockhit()
+
+
+func play_commando_suicide_drone_explosion() -> void:
+	stop_commando_suicide_drone_loop()
+	play_grenade_explosion()
 
 
 func play_item_get() -> void:
@@ -116,6 +1068,127 @@ func play_active_item() -> void:
 	_play_with_pitch(active_item_sfx, randf_range(0.98, 1.02))
 
 
+func play_alchemy() -> void:
+	if not _play_with_pitch(alchemy_sfx, randf_range(0.98, 1.04)):
+		play_active_item()
+
+
+func play_pandora() -> void:
+	if not _play_with_pitch(pandora_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
+
+
+func play_lucky_coin_spawn() -> void:
+	if not _play_with_pitch(lucky_coin_spawn_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
+
+
+func play_foul_whistle() -> void:
+	if not _play_with_pitch(foul_whistle_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
+
+
+func play_leaf_shield() -> void:
+	if not _play_with_pitch(leaf_shield_sfx, randf_range(0.96, 1.04)):
+		play_active_item()
+
+
+func play_megingjord() -> void:
+	if not _play_with_pitch(megingjord_sfx, randf_range(0.98, 1.02)):
+		play_pandora()
+
+
+func play_legendary_open() -> void:
+	if not _play_with_pitch(legendary_open_sfx, randf_range(0.98, 1.02)):
+		play_pandora()
+
+
+func play_legendary_after() -> void:
+	if not _play_with_pitch(legendary_after_sfx, randf_range(0.98, 1.02)):
+		play_pandora()
+
+
+func stop_legendary_after() -> void:
+	if legendary_after_sfx != null and legendary_after_sfx.playing:
+		legendary_after_sfx.stop()
+
+
+func play_legendary_ending() -> void:
+	if not _play_with_pitch(legendary_ending_sfx, randf_range(0.98, 1.02)):
+		play_item_get()
+
+
+func play_rainbow_fur_glove() -> void:
+	if not _play_with_pitch(active_item_sfx, randf_range(1.16, 1.28)):
+		play_active_item()
+
+
+func play_poseidon_wave() -> void:
+	if not _play_with_pitch(poseidon_wave_sfx, randf_range(0.97, 1.03)):
+		play_active_item()
+
+
+func play_poseidon_charge() -> void:
+	if not _play_with_pitch(poseidon_charge_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
+
+
+func play_ragnarok_shot() -> void:
+	if not _play_with_pitch(ragnarok_shot_sfx, randf_range(0.98, 1.02)):
+		play_active_item()
+
+
+func play_ragnarok_boom() -> void:
+	if not _play_with_pitch(ragnarok_boom_sfx, randf_range(0.96, 1.03)):
+		play_grenade_explosion()
+
+
+func play_ragnarok_shock_loop() -> void:
+	if ragnarok_shock_sfx == null or ragnarok_shock_sfx.stream == null:
+		return
+	if ragnarok_shock_sfx.playing:
+		return
+	ragnarok_shock_sfx.pitch_scale = 1.0
+	ragnarok_shock_sfx.play()
+
+
+func stop_ragnarok_shock_loop() -> void:
+	if ragnarok_shock_sfx != null and ragnarok_shock_sfx.playing:
+		ragnarok_shock_sfx.stop()
+
+
+func sync_ragnarok_shock_loop(active: bool) -> void:
+	if active:
+		play_ragnarok_shock_loop()
+	else:
+		stop_ragnarok_shock_loop()
+
+
+func play_electric_shock_loop() -> void:
+	if electric_shock_sfx == null or electric_shock_sfx.stream == null:
+		return
+	if electric_shock_sfx.playing:
+		return
+	electric_shock_sfx.pitch_scale = 1.0
+	electric_shock_sfx.play()
+
+
+func stop_electric_shock_loop() -> void:
+	if electric_shock_sfx != null and electric_shock_sfx.playing:
+		electric_shock_sfx.stop()
+
+
+func sync_electric_shock_loop(active: bool) -> void:
+	if active:
+		play_electric_shock_loop()
+	else:
+		stop_electric_shock_loop()
+
+
+func play_timewatch() -> void:
+	_play_with_pitch(timewatch_sfx, randf_range(0.98, 1.02))
+
+
 func play_throw_before() -> void:
 	_play_with_pitch(throw_before_sfx, randf_range(0.98, 1.02))
 
@@ -128,8 +1201,125 @@ func play_grenade_explosion() -> void:
 	_play_with_pitch(grenade_sfx, randf_range(0.98, 1.02))
 
 
+func play_dynamite_fuse() -> AudioStreamPlayer:
+	if owner_node == null:
+		return null
+	var player: AudioStreamPlayer = player_factory.create(owner_node, "DynamiteFuseSfx", DYNAMITE_FUSE_SOUND_PATH, -4.0)
+	if player == null or player.stream == null:
+		if player != null:
+			player.queue_free()
+		return null
+	_configure_sfx_player(player)
+	player.finished.connect(Callable(player, "queue_free"))
+	player.pitch_scale = randf_range(0.98, 1.02)
+	player.play()
+	return player
+
+
+func stop_dynamite_fuse(player: Variant) -> void:
+	if typeof(player) != TYPE_OBJECT or not is_instance_valid(player):
+		return
+	if not (player is AudioStreamPlayer):
+		return
+	var fuse_player: AudioStreamPlayer = player
+	if fuse_player.playing:
+		fuse_player.stop()
+	if fuse_player.is_inside_tree():
+		fuse_player.queue_free()
+
+
+func play_dynamite_explosion() -> void:
+	_play_with_pitch(grenade_sfx, randf_range(0.88, 0.96))
+
+
+func play_molotov_explosion() -> void:
+	_play_with_pitch(firebomb_sfx, randf_range(0.95, 1.04))
+
+
 func play_flashbomb() -> void:
 	_play_with_pitch(flashbomb_sfx, randf_range(0.98, 1.02))
+
+
+func play_smokebomb() -> void:
+	if not _play_with_pitch(smokebomb_sfx, randf_range(0.96, 1.04)):
+		play_active_item()
+
+
+func play_boomerang_loop() -> void:
+	if boomerang_sfx == null or boomerang_sfx.stream == null:
+		return
+	if boomerang_sfx.playing:
+		return
+	boomerang_sfx.pitch_scale = 1.0
+	boomerang_sfx.play()
+
+
+func stop_boomerang_loop() -> void:
+	if boomerang_sfx != null and boomerang_sfx.playing:
+		boomerang_sfx.stop()
+
+
+func play_boomerang_hit() -> void:
+	_play_with_pitch(boomerang_hit_sfx, randf_range(0.98, 1.02))
+
+
+func play_boomerang_break() -> void:
+	_play_with_pitch(boomerang_hit_sfx, randf_range(0.86, 0.94))
+
+
+func play_shrapnel_armor_fire() -> void:
+	if not _play_with_pitch(shrapnel_armor_fire_sfx, randf_range(0.96, 1.04)):
+		play_throw()
+
+
+func play_shrapnel_armor_hit() -> void:
+	if not _play_with_pitch(shrapnel_armor_hit_sfx, randf_range(0.96, 1.05)):
+		play_boomerang_hit()
+
+
+func play_banana_throw() -> void:
+	_play_with_pitch(banana_throw_sfx, randf_range(0.94, 1.02))
+
+
+func play_banana_slip() -> void:
+	_play_with_pitch(banana_slip_sfx, randf_range(0.92, 1.06))
+
+
+func play_soap_throw() -> void:
+	_play_with_pitch(soap_throw_sfx, randf_range(0.94, 1.02))
+
+
+func play_soap_land() -> void:
+	_play_with_pitch(soap_land_sfx, randf_range(0.96, 1.04))
+
+
+func play_soap_slip() -> void:
+	_play_with_pitch(soap_slip_sfx, randf_range(0.92, 1.06))
+
+
+func play_spider_mine_walk_loop() -> void:
+	if spider_mine_walk_sfx == null or spider_mine_walk_sfx.stream == null:
+		return
+	if spider_mine_walk_sfx.playing:
+		return
+	spider_mine_walk_sfx.pitch_scale = 1.0
+	spider_mine_walk_sfx.play()
+
+
+func stop_spider_mine_walk_loop() -> void:
+	if spider_mine_walk_sfx != null and spider_mine_walk_sfx.playing:
+		spider_mine_walk_sfx.stop()
+
+
+func sync_spider_mine_walk_loop(active: bool) -> void:
+	if active:
+		play_spider_mine_walk_loop()
+	else:
+		stop_spider_mine_walk_loop()
+
+
+func play_spider_mine_setup() -> void:
+	_play_with_pitch(spider_mine_setup_sfx, randf_range(0.98, 1.02))
 
 
 func play_power_smash() -> void:
@@ -157,6 +1347,29 @@ func play_serve(ball_visual_type: String = "") -> void:
 func play_dash_start(is_half: bool) -> void:
 	var player: AudioStreamPlayer = half_dash_sfx if is_half else dash_sfx
 	_play_with_pitch(player, randf_range(0.98, 1.02))
+
+
+func play_burst_up_dash() -> void:
+	if not _play_with_pitch(bust_up_dash_sfx, randf_range(0.98, 1.03)):
+		play_dash_start(false)
+
+
+func play_dash_charge() -> void:
+	_play_with_pitch(dash_charge_sfx, randf_range(0.98, 1.04))
+
+
+func play_boost_charging() -> void:
+	if not _play_with_pitch(boost_charging_sfx, randf_range(0.98, 1.04)):
+		play_dash_charge()
+
+
+func play_soul_burst_dash() -> void:
+	if not _play_with_pitch(soul_burst_dash_sfx, randf_range(0.98, 1.03)):
+		play_dash_start(false)
+
+
+func play_dash_spirit_delete() -> void:
+	_play_with_pitch(dash_spirit_delete_sfx, randf_range(0.98, 1.02))
 
 
 func sync_dash_delay(recovering: bool) -> void:
@@ -196,23 +1409,276 @@ func play_round_set() -> void:
 	round_set_sfx.play()
 
 
+func play_ball_spawn_intro() -> void:
+	if ball_spawn_intro_sfx == null or ball_spawn_intro_sfx.stream == null:
+		return
+	if ball_spawn_intro_sfx.playing:
+		ball_spawn_intro_sfx.stop()
+	ball_spawn_intro_sfx.pitch_scale = 1.0
+	ball_spawn_intro_sfx.play()
+
+
+func stop_ball_spawn_intro() -> void:
+	if ball_spawn_intro_sfx != null and ball_spawn_intro_sfx.playing:
+		ball_spawn_intro_sfx.stop()
+
+
+func play_stage1_balloon_pop() -> void:
+	_play_with_pitch(balloon_pop_sfx, randf_range(0.98, 1.04))
+
+
+func play_stage1_balloon_door() -> void:
+	_play_with_pitch(stage1_balloon_door_sfx, randf_range(0.98, 1.02))
+
+
+func play_stage1_balloon_machine() -> void:
+	_play_with_pitch(stage1_balloon_machine_sfx, randf_range(0.98, 1.02))
+
+
+func play_starpoint_collect() -> void:
+	_play_with_pitch(star_collect_sfx, randf_range(0.98, 1.04))
+
+
+func play_stage2_hydro() -> void:
+	_play_with_pitch(stage2_hydro_sfx, randf_range(0.98, 1.03))
+
+
+func play_stage2_stonebreak() -> void:
+	_play_with_pitch(stage2_stonebreak_sfx, randf_range(0.94, 1.06))
+
+
+func play_stage2_stonebreak_for_size(size: float) -> void:
+	var pitch := 1.0
+	if size <= 45.0:
+		pitch = 1.12
+	elif size <= 65.0:
+		pitch = 1.0
+	else:
+		pitch = 0.88
+	_play_with_pitch(stage2_stonebreak_sfx, pitch + randf_range(-0.04, 0.04))
+
+
+func play_stage2_rockhit() -> void:
+	_play_with_pitch(stage2_rockhit_sfx, randf_range(0.94, 1.08))
+
+
+func play_stage2_rock_spawn() -> void:
+	_play_with_pitch(stage2_rock_spawn_sfx, randf_range(0.95, 1.04))
+
+
+func play_stage2_boss_cry() -> void:
+	_play_with_pitch(stage2_boss_cry_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage2_speed_defense_start() -> void:
+	_play_with_pitch(stage2_speed_defense_start_sfx, randf_range(0.97, 1.03))
+
+
+func play_stage2_speed_defense_hit() -> void:
+	_play_with_pitch(stage2_speed_defense_hit_sfx, randf_range(0.97, 1.04))
+
+
+func play_stage2_speed_defense_block() -> void:
+	_play_with_pitch(stage2_speed_defense_block_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage2_quake_loop() -> void:
+	if stage2_quake_sfx == null or stage2_quake_sfx.stream == null:
+		return
+	if stage2_quake_sfx.playing:
+		return
+	stage2_quake_sfx.pitch_scale = 1.0
+	stage2_quake_sfx.play()
+
+
+func stop_stage2_quake_loop() -> void:
+	if stage2_quake_sfx != null and stage2_quake_sfx.playing:
+		stage2_quake_sfx.stop()
+
+
+func sync_stage2_quake_loop(active: bool) -> void:
+	if active:
+		play_stage2_quake_loop()
+	else:
+		stop_stage2_quake_loop()
+
+
+func play_stage3_tail() -> void:
+	_play_with_pitch(stage3_tail_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage3_dollcurse() -> void:
+	_play_with_pitch(stage3_dollcurse_sfx, randf_range(0.97, 1.03))
+
+
+func play_stage3_tears() -> void:
+	_play_with_pitch(stage3_tears_sfx, randf_range(0.95, 1.06))
+
+
+func play_stage3_chest_land() -> void:
+	_play_with_pitch(stage3_chest_land_sfx, randf_range(0.94, 1.04))
+
+
+func play_stage3_curse_explode() -> void:
+	_play_with_pitch(stage3_curse_explode_sfx, randf_range(0.94, 1.06))
+
+
+func play_stage3_kuromi_awake() -> void:
+	_play_with_pitch(stage3_kuromi_awake_sfx, 1.0)
+
+
+func play_stage3_kuromi_stonebreak() -> void:
+	_play_with_pitch(stage3_kuromi_stonebreak_sfx, 1.0)
+
+
+func play_stage3_kuromi_tongue() -> void:
+	_play_with_pitch(stage3_kuromi_tongue_sfx, randf_range(0.97, 1.03))
+
+
+func play_stage3_kuromi_swallow() -> void:
+	_play_with_pitch(stage3_kuromi_swallow_sfx, randf_range(0.97, 1.03))
+
+
+func play_stage3_psychoball_loop() -> void:
+	if stage3_psychoball_sfx == null or stage3_psychoball_sfx.stream == null:
+		return
+	if stage3_psychoball_sfx.playing:
+		return
+	stage3_psychoball_sfx.pitch_scale = 1.0
+	stage3_psychoball_sfx.play()
+
+
+func stop_stage3_psychoball_loop() -> void:
+	if stage3_psychoball_sfx != null and stage3_psychoball_sfx.playing:
+		stage3_psychoball_sfx.stop()
+
+
+func sync_stage3_psychoball_loop(active: bool) -> void:
+	if active:
+		play_stage3_psychoball_loop()
+	else:
+		stop_stage3_psychoball_loop()
+
+
+func play_stage4_moon_shoot() -> void:
+	_play_with_pitch(stage4_moon_shoot_sfx, randf_range(0.97, 1.03))
+
+
+func play_stage4_fragment_shoot() -> void:
+	_play_with_pitch(stage4_fragment_shoot_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage4_temple_hit() -> void:
+	_play_with_pitch(stage4_temple_hit_sfx, randf_range(0.94, 1.05))
+
+
+func play_stage4_birdkill() -> void:
+	_play_with_pitch(stage4_birdkill_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage4_meditation() -> void:
+	_play_with_pitch(stage4_meditation_sfx, 1.0)
+
+
+func play_stage4_meditation_after() -> void:
+	_play_with_pitch(stage4_meditation_after_sfx, 1.0)
+
+
+func play_stage4_magnetic_loop() -> void:
+	if stage4_magnetic_sfx == null or stage4_magnetic_sfx.stream == null:
+		return
+	if stage4_magnetic_sfx.playing:
+		return
+	stage4_magnetic_sfx.pitch_scale = 1.0
+	stage4_magnetic_sfx.play()
+
+
+func stop_stage4_magnetic_loop() -> void:
+	if stage4_magnetic_sfx != null and stage4_magnetic_sfx.playing:
+		stage4_magnetic_sfx.stop()
+
+
+func sync_stage4_magnetic_loop(active: bool) -> void:
+	if active:
+		play_stage4_magnetic_loop()
+	else:
+		stop_stage4_magnetic_loop()
+
+
+func play_stage4_phase2_bgm() -> bool:
+	return play_bgm("stage4_phase2")
+
+
 func play_stage_bgm(stage: int) -> bool:
 	if stage == 1:
 		return play_bgm("stage1")
+	if stage == 2:
+		return play_bgm(_select_stage2_bgm_name())
+	if stage == 3:
+		return play_bgm("stage3")
+	if stage == 4:
+		return play_bgm("stage4")
 	stop_bgm()
 	return false
+
+
+func prime_stage_bgm(stage: int) -> bool:
+	if stage == 1:
+		return prime_bgm("stage1")
+	if stage == 2:
+		return prime_bgm(_select_stage2_bgm_name())
+	if stage == 3:
+		return prime_bgm("stage3")
+	if stage == 4:
+		return prime_bgm("stage4")
+	return false
+
+
+func prime_bgm(bgm_name: String) -> bool:
+	var player: AudioStreamPlayer = _get_bgm_player(bgm_name)
+	if player == null or player.stream == null:
+		return false
+	if bgm_muted:
+		current_bgm_name = bgm_name
+		muted_bgm_name = bgm_name
+		return true
+	if player.playing:
+		return true
+	if not primed_bgm_volumes.has(bgm_name):
+		primed_bgm_volumes[bgm_name] = player.volume_db
+	player.volume_db = -80.0
+	player.pitch_scale = 1.0
+	player.play()
+	current_bgm_name = bgm_name
+	return true
 
 
 func play_bgm(bgm_name: String) -> bool:
 	var player: AudioStreamPlayer = _get_bgm_player(bgm_name)
 	if player == null or player.stream == null:
 		return false
+	var target_volume_db: float = player.volume_db
+	if primed_bgm_volumes.has(bgm_name):
+		target_volume_db = float(primed_bgm_volumes[bgm_name])
+	if bgm_muted:
+		if player.playing:
+			player.stop()
+		player.volume_db = target_volume_db
+		current_bgm_name = bgm_name
+		muted_bgm_name = bgm_name
+		primed_bgm_volumes.erase(bgm_name)
+		return true
 	if current_bgm_name == bgm_name and player.playing:
+		player.seek(0.0)
+		player.volume_db = target_volume_db
+		primed_bgm_volumes.erase(bgm_name)
 		return true
 	stop_bgm()
+	player.volume_db = target_volume_db
 	player.pitch_scale = 1.0
 	player.play()
 	current_bgm_name = bgm_name
+	primed_bgm_volumes.erase(bgm_name)
 	return true
 
 
@@ -220,7 +1686,69 @@ func stop_bgm() -> void:
 	var player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
 	if player != null and player.playing:
 		player.stop()
+	if primed_bgm_volumes.has(current_bgm_name):
+		if player != null:
+			player.volume_db = float(primed_bgm_volumes[current_bgm_name])
+		primed_bgm_volumes.erase(current_bgm_name)
 	current_bgm_name = ""
+	muted_bgm_name = ""
+
+
+func toggle_bgm() -> bool:
+	return set_bgm_muted(not bgm_muted)
+
+
+func set_bgm_muted(muted: bool) -> bool:
+	if bgm_muted == muted:
+		return bgm_muted
+	bgm_muted = muted
+	if bgm_muted:
+		muted_bgm_name = current_bgm_name
+		var muted_player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
+		if muted_player != null and muted_player.playing:
+			muted_player.stop()
+		if primed_bgm_volumes.has(current_bgm_name):
+			if muted_player != null:
+				muted_player.volume_db = float(primed_bgm_volumes[current_bgm_name])
+			primed_bgm_volumes.erase(current_bgm_name)
+		return true
+
+	var target_bgm_name: String = muted_bgm_name
+	if target_bgm_name.is_empty():
+		target_bgm_name = current_bgm_name
+	muted_bgm_name = ""
+	if not target_bgm_name.is_empty():
+		current_bgm_name = ""
+		play_bgm(target_bgm_name)
+	return false
+
+
+func is_bgm_muted() -> bool:
+	return bgm_muted
+
+
+func get_current_bgm_name() -> String:
+	return current_bgm_name
+
+
+func get_bgm_volume() -> float:
+	return bgm_volume
+
+
+func set_bgm_volume(value: float) -> float:
+	bgm_volume = clampf(value, 0.0, 1.0)
+	_apply_bgm_bus_volume()
+	return bgm_volume
+
+
+func get_sfx_volume() -> float:
+	return sfx_volume
+
+
+func set_sfx_volume(value: float) -> float:
+	sfx_volume = clampf(value, 0.0, 1.0)
+	_apply_sfx_bus_volume()
+	return sfx_volume
 
 
 func _play_with_pitch(player: AudioStreamPlayer, pitch: float) -> bool:
@@ -233,10 +1761,276 @@ func _play_with_pitch(player: AudioStreamPlayer, pitch: float) -> bool:
 	return true
 
 
+func _play_commando_ak47_fire_layer(pitch: float) -> bool:
+	var players := [commando_ak47_fire_sfx]
+	players.append_array(commando_ak47_fire_sfx_layers)
+	var valid_players: Array[AudioStreamPlayer] = []
+	for value in players:
+		if value is AudioStreamPlayer and (value as AudioStreamPlayer).stream != null:
+			valid_players.append(value as AudioStreamPlayer)
+	if valid_players.is_empty():
+		return false
+	for offset in range(valid_players.size()):
+		var index: int = (commando_ak47_fire_sfx_cursor + offset) % valid_players.size()
+		var player: AudioStreamPlayer = valid_players[index]
+		if not player.playing:
+			commando_ak47_fire_sfx_cursor = (index + 1) % valid_players.size()
+			player.pitch_scale = pitch
+			player.play()
+			return true
+	var fallback_index: int = commando_ak47_fire_sfx_cursor % valid_players.size()
+	var fallback_player: AudioStreamPlayer = valid_players[fallback_index]
+	commando_ak47_fire_sfx_cursor = (fallback_index + 1) % valid_players.size()
+	fallback_player.pitch_scale = pitch
+	fallback_player.stop()
+	fallback_player.play()
+	return true
+
+
+func _create_optional_sfx(name: String, path: String, volume_db: float) -> AudioStreamPlayer:
+	if FileAccess.file_exists(path) or FileAccess.file_exists("%s.import" % path):
+		return _configure_sfx_player(player_factory.create(owner_node, name, path, volume_db))
+	var player := AudioStreamPlayer.new()
+	player.name = name
+	player.volume_db = volume_db
+	if owner_node != null:
+		owner_node.add_child(player)
+	return _configure_sfx_player(player)
+
+
+func _create_optional_sfx_layers(name_prefix: String, path: String, volume_db: float, count: int) -> Array:
+	var players: Array = []
+	for index in range(max(0, count)):
+		players.append(_create_optional_sfx("%s%d" % [name_prefix, index + 2], path, volume_db))
+	return players
+
+
 func _get_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 	if bgm_name == "stage1":
 		return stage1_bgm
+	if bgm_name == "stage2":
+		return stage2_bgm
+	if bgm_name == "stage2_alt":
+		return stage2_alt_bgm
+	if bgm_name == "stage3":
+		return stage3_bgm
+	if bgm_name == "stage4":
+		return stage4_bgm
+	if bgm_name == "stage4_phase2":
+		return stage4_phase2_bgm
 	return null
+
+
+func _apply_audio_buses_and_volumes() -> void:
+	_ensure_audio_bus(BGM_BUS_NAME)
+	_ensure_audio_bus(SFX_BUS_NAME)
+	_apply_bgm_bus_to_players()
+	_apply_sfx_bus_to_players()
+	_apply_bgm_bus_volume()
+	_apply_sfx_bus_volume()
+
+
+func _apply_bgm_bus_to_players() -> void:
+	for player in [stage1_bgm, stage2_bgm, stage2_alt_bgm, stage3_bgm, stage4_bgm, stage4_phase2_bgm]:
+		if player is AudioStreamPlayer:
+			(player as AudioStreamPlayer).bus = BGM_BUS_NAME
+
+
+func _apply_sfx_bus_to_players() -> void:
+	for player in _get_sfx_players():
+		if player is AudioStreamPlayer:
+			(player as AudioStreamPlayer).bus = SFX_BUS_NAME
+
+
+func _configure_sfx_player(player: AudioStreamPlayer) -> AudioStreamPlayer:
+	if player != null:
+		_ensure_audio_bus(SFX_BUS_NAME)
+		player.bus = SFX_BUS_NAME
+		_apply_sfx_bus_volume()
+	return player
+
+
+func _apply_bgm_bus_volume() -> void:
+	var bus_index: int = _ensure_audio_bus(BGM_BUS_NAME)
+	if bus_index >= 0:
+		AudioServer.set_bus_volume_db(bus_index, _volume_to_db(bgm_volume))
+
+
+func _apply_sfx_bus_volume() -> void:
+	var bus_index: int = _ensure_audio_bus(SFX_BUS_NAME)
+	if bus_index >= 0:
+		AudioServer.set_bus_volume_db(bus_index, _volume_to_db(sfx_volume))
+
+
+func _ensure_audio_bus(bus_name: String) -> int:
+	var bus_index: int = AudioServer.get_bus_index(bus_name)
+	if bus_index >= 0:
+		return bus_index
+	AudioServer.add_bus(AudioServer.get_bus_count())
+	bus_index = AudioServer.get_bus_count() - 1
+	AudioServer.set_bus_name(bus_index, bus_name)
+	return bus_index
+
+
+func _volume_to_db(volume: float) -> float:
+	var clamped: float = clampf(volume, 0.0, 1.0)
+	if clamped <= 0.0:
+		return -80.0
+	return linear_to_db(clamped)
+
+
+func _get_sfx_players() -> Array:
+	return [
+		paddle_hit_sfx,
+		serve_sfx,
+		pingpong_serve_sfx,
+		wall_hit_sfx,
+		dash_sfx,
+		half_dash_sfx,
+		dash_delay_sfx,
+		dash_charge_sfx,
+		bust_up_dash_sfx,
+		boost_charging_sfx,
+		soul_burst_dash_sfx,
+		dash_spirit_delete_sfx,
+		drive_sfx,
+		plasma_charge_sfx,
+		plasma_shoot_sfx,
+		plasma_shock_sfx,
+		recovery_sfx,
+		cleanse_sfx,
+		warp_gate_sfx,
+		magnum_grip_sfx,
+		smasher_wheel_sfx,
+		shield_kiting_wind_up_sfx,
+		shield_kiting_launch_sfx,
+		shield_kiting_hit_sfx,
+		whip_sfx,
+		viper_jetpack_sfx,
+		viper_backstep_sfx,
+		viper_shadow_kick_sfx,
+		viper_marshal_kick_sfx,
+		viper_dive_prep_sfx,
+		viper_dive_strike_sfx,
+		viper_ignition_aura_sfx,
+		viper_ignition_aura_fallback_sfx,
+		viper_phantom_show_sfx,
+		viper_phantom_kick_hit_sfx,
+		viper_blade_sfx,
+		viper_blade_spin_sfx,
+		viper_venom_moving_sfx,
+		viper_venom_attack_sfx,
+		viper_hwarang_kick_sfx,
+		viper_kick_guard_knockback_sfx,
+		chaos_spear_windup_sfx,
+		chaos_spear_flying_sfx,
+		chaos_spear_impact_sfx,
+		chaos_spear_blackhole_sfx,
+		commando_supply_radio_sfx,
+		commando_supply_aircraft_sfx,
+		commando_fire_support_radio_sfx,
+		commando_fire_support_aircraft_sfx,
+		commando_slingshot_fire_sfx,
+		commando_pistol_ready_sfx,
+		commando_pistol_fire_sfx,
+		commando_pistol_reload_start_sfx,
+		commando_pistol_reload_sfx,
+		commando_ak47_fire_sfx,
+		commando_bazooka_fire_sfx,
+		commando_net_capture_sfx,
+		commando_bowling_trap_install_sfx,
+		commando_bowling_trap_snap_sfx,
+		commando_suicide_drone_sfx,
+		item_get_sfx,
+		drink_sfx,
+		active_item_sfx,
+		alchemy_sfx,
+		pandora_sfx,
+		lucky_coin_spawn_sfx,
+		foul_whistle_sfx,
+		megingjord_sfx,
+		legendary_open_sfx,
+		legendary_after_sfx,
+		legendary_ending_sfx,
+		ragnarok_shot_sfx,
+		ragnarok_boom_sfx,
+		ragnarok_shock_sfx,
+		electric_shock_sfx,
+		poseidon_wave_sfx,
+		poseidon_charge_sfx,
+		timewatch_sfx,
+		throw_before_sfx,
+		throw_sfx,
+		grenade_sfx,
+		flashbomb_sfx,
+		smokebomb_sfx,
+		firebomb_sfx,
+		boomerang_sfx,
+		boomerang_hit_sfx,
+		shrapnel_armor_fire_sfx,
+		shrapnel_armor_hit_sfx,
+		banana_throw_sfx,
+		banana_slip_sfx,
+		soap_throw_sfx,
+		soap_land_sfx,
+		soap_slip_sfx,
+		spider_mine_walk_sfx,
+		spider_mine_setup_sfx,
+		power_smash_sfx,
+		power_smash_launch_sfx,
+		round_set_sfx,
+		ball_spawn_intro_sfx,
+		balloon_pop_sfx,
+		stage1_balloon_door_sfx,
+		stage1_balloon_machine_sfx,
+		star_collect_sfx,
+		stage2_hydro_sfx,
+		stage2_stonebreak_sfx,
+		stage2_rockhit_sfx,
+		stage2_rock_spawn_sfx,
+		stage2_quake_sfx,
+		stage2_boss_cry_sfx,
+		stage2_speed_defense_start_sfx,
+		stage2_speed_defense_hit_sfx,
+		stage2_speed_defense_block_sfx,
+		stage3_tail_sfx,
+		stage3_psychoball_sfx,
+		stage3_dollcurse_sfx,
+		stage3_tears_sfx,
+		stage3_chest_land_sfx,
+		stage3_curse_explode_sfx,
+		stage3_kuromi_awake_sfx,
+		stage3_kuromi_stonebreak_sfx,
+		stage3_kuromi_tongue_sfx,
+		stage3_kuromi_swallow_sfx,
+		stage4_moon_shoot_sfx,
+		stage4_fragment_shoot_sfx,
+		stage4_temple_hit_sfx,
+		stage4_birdkill_sfx,
+		stage4_magnetic_sfx,
+		stage4_meditation_sfx,
+		stage4_meditation_after_sfx,
+		leaf_shield_sfx,
+	] + commando_ak47_fire_sfx_layers
+
+
+func _select_stage2_bgm_name() -> String:
+	if STAGE2_BGM_NAMES.has(current_bgm_name):
+		var current_player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
+		if bgm_muted or (current_player != null and current_player.playing):
+			return current_bgm_name
+	var candidates: Array[String] = []
+	for bgm_name in STAGE2_BGM_NAMES:
+		var player: AudioStreamPlayer = _get_bgm_player(str(bgm_name))
+		if player != null and player.stream != null:
+			candidates.append(str(bgm_name))
+	if candidates.is_empty():
+		return "stage2"
+	return candidates[randi() % candidates.size()]
+
+
+func _is_owned_player_ready(player: AudioStreamPlayer) -> bool:
+	return player != null and is_instance_valid(player) and player.get_parent() == owner_node
 
 
 func _enable_loop(player: AudioStreamPlayer) -> void:
