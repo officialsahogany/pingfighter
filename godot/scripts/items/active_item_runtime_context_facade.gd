@@ -2,27 +2,41 @@ extends RefCounted
 
 
 func is_throw_windup_active(runtime: Object) -> bool:
+	if runtime.throw_controller == null or not runtime.throw_controller.has_method("is_throw_windup_active"):
+		return false
 	return bool(runtime.throw_controller.is_throw_windup_active())
 
 
 func is_player_control_locked(runtime: Object) -> bool:
-	return bool(runtime.throw_controller.is_player_control_locked()) or bool(runtime.effect_controller.is_wall_installing())
+	var throw_locked := false
+	if runtime.throw_controller != null and runtime.throw_controller.has_method("is_player_control_locked"):
+		throw_locked = bool(runtime.throw_controller.is_player_control_locked())
+	var wall_installing := false
+	if runtime.effect_controller != null and runtime.effect_controller.has_method("is_wall_installing"):
+		wall_installing = bool(runtime.effect_controller.is_wall_installing())
+	return throw_locked or wall_installing
 
 
 func get_player_paddle_scale(runtime: Object) -> float:
+	if runtime.effect_controller == null or not runtime.effect_controller.has_method("get_player_paddle_scale"):
+		return 1.0
 	return float(runtime.effect_controller.get_player_paddle_scale())
 
 
 func get_player_paddle_width(runtime: Object, base_width: float) -> float:
+	if runtime.effect_controller == null or not runtime.effect_controller.has_method("get_player_paddle_width"):
+		return base_width
 	return float(runtime.effect_controller.get_player_paddle_width(base_width))
 
 
 func get_player_paddle_height(runtime: Object, base_height: float) -> float:
+	if runtime.effect_controller == null or not runtime.effect_controller.has_method("get_player_paddle_height"):
+		return base_height
 	return float(runtime.effect_controller.get_player_paddle_height(base_height))
 
 
 func get_player_speed_multiplier(runtime: Object) -> float:
-	if runtime.effect_controller.has_method("get_player_speed_multiplier"):
+	if runtime.effect_controller != null and runtime.effect_controller.has_method("get_player_speed_multiplier"):
 		return float(runtime.effect_controller.get_player_speed_multiplier())
 	return 1.0
 
@@ -31,7 +45,7 @@ func get_actor_draw_context(runtime: Object) -> Dictionary:
 	var context: Dictionary = {}
 	if _has_throw_actor_draw_context(runtime):
 		context = runtime.throw_controller.get_actor_draw_context()
-	if _is_aipill_actor_draw_active(runtime):
+	if _is_aipill_actor_draw_active(runtime) and runtime.effect_controller.has_method("get_aipill_context"):
 		var aipill_context: Dictionary = runtime.effect_controller.get_aipill_context()
 		context["active_item_aipill_active"] = true
 		context["active_item_aipill_phase"] = float(aipill_context.get("phase", 0.0))
@@ -62,6 +76,8 @@ func has_actor_draw_context(runtime: Object) -> bool:
 
 
 func is_aipill_active(runtime: Object) -> bool:
+	if runtime.effect_controller == null or not runtime.effect_controller.has_method("is_aipill_active"):
+		return false
 	return bool(runtime.effect_controller.is_aipill_active())
 
 
@@ -80,18 +96,22 @@ func is_doping_potion_active(runtime: Object) -> bool:
 
 
 func get_doping_potion_context(runtime: Object) -> Dictionary:
-	if runtime.effect_controller.has_method("get_doping_potion_context"):
+	if runtime.effect_controller != null and runtime.effect_controller.has_method("get_doping_potion_context"):
 		return runtime.effect_controller.get_doping_potion_context()
 	return {}
 
 
 func _has_throw_actor_draw_context(runtime: Object) -> bool:
+	if runtime.throw_controller == null:
+		return false
 	if runtime.throw_controller.has_method("has_actor_draw_context"):
 		return bool(runtime.throw_controller.has_actor_draw_context())
 	return runtime.throw_controller.has_method("get_actor_draw_context")
 
 
 func _is_aipill_actor_draw_active(runtime: Object) -> bool:
+	if runtime.effect_controller == null:
+		return false
 	if runtime.effect_controller.has_method("is_aipill_active"):
 		return bool(runtime.effect_controller.is_aipill_active())
 	if runtime.effect_controller.has_method("get_aipill_context"):
@@ -100,7 +120,7 @@ func _is_aipill_actor_draw_active(runtime: Object) -> bool:
 
 
 func _is_doping_potion_actor_draw_active(runtime: Object) -> bool:
-	if not runtime.effect_controller.has_method("get_doping_potion_context"):
+	if runtime.effect_controller == null or not runtime.effect_controller.has_method("get_doping_potion_context"):
 		return false
 	if runtime.effect_controller.has_method("is_doping_potion_active"):
 		return bool(runtime.effect_controller.is_doping_potion_active())
@@ -128,35 +148,63 @@ func apply_aipill_player_control(
 	config: Dictionary,
 	delta: float
 ) -> Dictionary:
+	if runtime.effect_controller == null or not runtime.effect_controller.has_method("apply_aipill_player_control"):
+		return {"player_pos": player_pos}
 	return runtime.effect_controller.apply_aipill_player_control(player_pos, player_speed, config, delta)
 
 
 func apply_aipill_guard_drain(runtime: Object, special_gauge: float, context: Dictionary, deps: Dictionary) -> float:
+	if runtime.effect_controller == null or not runtime.effect_controller.has_method("apply_aipill_guard_drain"):
+		return special_gauge
 	return float(runtime.effect_controller.apply_aipill_guard_drain(special_gauge, context, deps))
 
 
 func get_boss_ai_context(runtime: Object) -> Dictionary:
-	var context: Dictionary = runtime.throw_controller.get_boss_ai_context()
-	context["active_item_stopwatch_freeze_active"] = bool(runtime.effect_controller.is_time_frozen())
+	var context: Dictionary = {}
+	if runtime.throw_controller != null and runtime.throw_controller.has_method("get_boss_ai_context"):
+		context = runtime.throw_controller.get_boss_ai_context()
+	context["active_item_stopwatch_freeze_active"] = _is_time_frozen(runtime)
 	return context
 
 
 func get_ball_collision_context(runtime: Object) -> Dictionary:
-	var context: Dictionary = runtime.effect_controller.get_holy_barrier_collision_context()
-	context.merge(runtime.effect_controller.get_brick_wall_collision_context(), true)
-	context.merge(runtime.effect_controller.get_stopwatch_ball_context(), true)
+	var context: Dictionary = {}
+	if runtime.effect_controller == null:
+		return context
+	if runtime.effect_controller.has_method("get_holy_barrier_collision_context"):
+		context.merge(runtime.effect_controller.get_holy_barrier_collision_context(), true)
+	if runtime.effect_controller.has_method("get_brick_wall_collision_context"):
+		context.merge(runtime.effect_controller.get_brick_wall_collision_context(), true)
+	if runtime.effect_controller.has_method("get_stopwatch_ball_context"):
+		context.merge(runtime.effect_controller.get_stopwatch_ball_context(), true)
 	return context
 
 
 func apply_magnet_field_ball_pull(runtime: Object, fps_scale: float, context: Dictionary) -> Dictionary:
-	if bool(runtime.effect_controller.is_time_frozen()):
+	if runtime.effect_controller == null:
+		return {}
+	if _is_time_frozen(runtime):
+		return {}
+	if not runtime.effect_controller.has_method("apply_magnet_field_ball_pull"):
 		return {}
 	return runtime.effect_controller.apply_magnet_field_ball_pull(fps_scale, context)
 
 
 func notify_holy_barrier_hit(runtime: Object, impact_pos: Vector2) -> void:
+	if runtime.effect_controller == null or not runtime.effect_controller.has_method("notify_holy_barrier_hit"):
+		return
 	runtime.effect_controller.notify_holy_barrier_hit(impact_pos)
 
 
 func notify_brick_wall_hit(runtime: Object, wall_index: int, impact_pos: Vector2) -> Dictionary:
+	if runtime.effect_controller == null or not runtime.effect_controller.has_method("notify_brick_wall_hit"):
+		return {}
 	return runtime.effect_controller.notify_brick_wall_hit(wall_index, impact_pos)
+
+
+func _is_time_frozen(runtime: Object) -> bool:
+	return (
+		runtime.effect_controller != null
+		and runtime.effect_controller.has_method("is_time_frozen")
+		and bool(runtime.effect_controller.is_time_frozen())
+	)

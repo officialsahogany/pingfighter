@@ -10,12 +10,14 @@ const ActiveItemBoomerangReturnHandler := preload("res://scripts/items/active_it
 const ActiveItemDebugSpawnMenu := preload("res://scripts/items/active_item_debug_spawn_menu.gd")
 const ActiveItemDebugInventory := preload("res://scripts/items/active_item_debug_inventory.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const ActiveItemRuntimeContextFacade := preload("res://scripts/items/active_item_runtime_context_facade.gd")
 const ActiveItemRuntimeDebugFacade := preload("res://scripts/items/active_item_runtime_debug_facade.gd")
 const ActiveItemFieldRenderer := preload("res://scripts/items/active_item_field_renderer.gd")
 const ActiveItemThrowRenderer := preload("res://scripts/items/active_item_throw_renderer.gd")
 const ActiveItemEffectRenderer := preload("res://scripts/items/active_item_effect_renderer.gd")
 
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
+const PLAYER_BASE_PADDLE_HEIGHT := 50.0
 
 var slot_controller: Object = ActiveItemSlotController.new()
 var field_spawn_controller: Object = ActiveItemFieldSpawnController.new()
@@ -27,6 +29,7 @@ var boomerang_return_handler: Object = ActiveItemBoomerangReturnHandler.new()
 var debug_spawn_menu: Object = ActiveItemDebugSpawnMenu.new()
 var debug_inventory: Object = ActiveItemDebugInventory.new()
 var item_catalog: Object = ActiveItemCatalog.new()
+var context_facade: Object = ActiveItemRuntimeContextFacade.new()
 var debug_facade: Object = ActiveItemRuntimeDebugFacade.new()
 var field_renderer: Object = ActiveItemFieldRenderer.new()
 var throw_renderer: Object = ActiveItemThrowRenderer.new()
@@ -130,25 +133,37 @@ func is_debug_spawn_menu_open() -> bool:
 
 
 func is_throw_windup_active() -> bool:
-	return throw_controller.is_throw_windup_active()
+	return context_facade.is_throw_windup_active(self)
 
 
 func is_player_control_locked() -> bool:
-	return throw_controller.is_player_control_locked()
+	return context_facade.is_player_control_locked(self)
 
 
 func get_player_paddle_scale() -> float:
-	return effect_controller.get_player_paddle_scale()
+	return context_facade.get_player_paddle_scale(self)
 
 
 func get_player_paddle_width(base_width: float = PLAYER_BASE_PADDLE_WIDTH) -> float:
-	return effect_controller.get_player_paddle_width(base_width)
+	return context_facade.get_player_paddle_width(self, base_width)
+
+
+func get_player_paddle_height(base_height: float = PLAYER_BASE_PADDLE_HEIGHT) -> float:
+	return context_facade.get_player_paddle_height(self, base_height)
+
+
+func get_player_speed_multiplier() -> float:
+	return context_facade.get_player_speed_multiplier(self)
+
+
+func has_actor_draw_context() -> bool:
+	if context_facade.has_method("has_actor_draw_context"):
+		return context_facade.has_actor_draw_context(self)
+	return context_facade.has_method("get_actor_draw_context")
 
 
 func get_actor_draw_context() -> Dictionary:
-	var context: Dictionary = throw_controller.get_actor_draw_context()
-	context["player_paddle_scale"] = effect_controller.get_player_paddle_scale()
-	return context
+	return context_facade.get_actor_draw_context(self)
 
 
 func handle_debug_spawn_menu_click(
@@ -224,7 +239,55 @@ func _apply_item_effect(item_data: Dictionary, owner: Object, registry: Object) 
 
 
 func get_boss_ai_context() -> Dictionary:
-	return throw_controller.get_boss_ai_context()
+	return context_facade.get_boss_ai_context(self)
+
+
+func get_ball_collision_context() -> Dictionary:
+	return context_facade.get_ball_collision_context(self)
+
+
+func is_aipill_active() -> bool:
+	return context_facade.is_aipill_active(self)
+
+
+func is_stopwatch_active() -> bool:
+	return context_facade.is_stopwatch_active(self)
+
+
+func is_doping_potion_active() -> bool:
+	return context_facade.is_doping_potion_active(self)
+
+
+func get_doping_potion_context() -> Dictionary:
+	return context_facade.get_doping_potion_context(self)
+
+
+func is_holy_barrier_active() -> bool:
+	return context_facade.is_holy_barrier_active(self)
+
+
+func is_magnet_field_active() -> bool:
+	return context_facade.is_magnet_field_active(self)
+
+
+func apply_aipill_player_control(player_pos: Vector2, player_speed: float, config: Dictionary, delta: float) -> Dictionary:
+	return context_facade.apply_aipill_player_control(self, player_pos, player_speed, config, delta)
+
+
+func apply_aipill_guard_drain(special_gauge: float, context: Dictionary, deps: Dictionary) -> float:
+	return context_facade.apply_aipill_guard_drain(self, special_gauge, context, deps)
+
+
+func apply_magnet_field_ball_pull(fps_scale: float, context: Dictionary) -> Dictionary:
+	return context_facade.apply_magnet_field_ball_pull(self, fps_scale, context)
+
+
+func notify_holy_barrier_hit(impact_pos: Vector2) -> void:
+	context_facade.notify_holy_barrier_hit(self, impact_pos)
+
+
+func notify_brick_wall_hit(wall_index: int, impact_pos: Vector2) -> Dictionary:
+	return context_facade.notify_brick_wall_hit(self, wall_index, impact_pos)
 
 
 func _store_active_item(field_item: Dictionary, active_item_slots: Array, registry: Object) -> bool:
