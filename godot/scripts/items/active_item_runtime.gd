@@ -13,9 +13,7 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemRuntimeContextFacade := preload("res://scripts/items/active_item_runtime_context_facade.gd")
 const ActiveItemRuntimeDebugFacade := preload("res://scripts/items/active_item_runtime_debug_facade.gd")
 const ActiveItemRuntimeLifecycleFacade := preload("res://scripts/items/active_item_runtime_lifecycle_facade.gd")
-const ActiveItemFieldRenderer := preload("res://scripts/items/active_item_field_renderer.gd")
-const ActiveItemThrowRenderer := preload("res://scripts/items/active_item_throw_renderer.gd")
-const ActiveItemEffectRenderer := preload("res://scripts/items/active_item_effect_renderer.gd")
+const ActiveItemRuntimeRenderFacade := preload("res://scripts/items/active_item_runtime_render_facade.gd")
 
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
@@ -33,9 +31,7 @@ var item_catalog: Object = ActiveItemCatalog.new()
 var context_facade: Object = ActiveItemRuntimeContextFacade.new()
 var debug_facade: Object = ActiveItemRuntimeDebugFacade.new()
 var lifecycle_facade: Object = ActiveItemRuntimeLifecycleFacade.new()
-var field_renderer: Object = ActiveItemFieldRenderer.new()
-var throw_renderer: Object = ActiveItemThrowRenderer.new()
-var effect_renderer: Object = ActiveItemEffectRenderer.new()
+var render_facade: Object = ActiveItemRuntimeRenderFacade.new()
 
 
 func _init() -> void:
@@ -83,39 +79,18 @@ func update(owner: Object, registry: Object, delta: float) -> Dictionary:
 
 
 func draw_field_items(canvas: CanvasItem, registry: Object, shake_offset: Vector2 = Vector2.ZERO) -> void:
-	if canvas == null:
-		return
-
-	field_renderer.draw(
+	render_facade.draw_field_items(
 		canvas,
-		field_spawn_controller.get_item_spawn_portals(),
-		field_spawn_controller.get_spawned_items(),
-		shake_offset
-	)
-
-	throw_renderer.draw(
-		canvas,
-		throw_controller.get_pending_throws(),
-		throw_controller.get_grenades(),
-		throw_controller.get_flares(),
-		throw_controller.get_boomerangs(),
-		throw_controller.get_boomerang_particles(),
-		throw_controller.get_explosion_zones(),
-		throw_controller.get_flare_zones(),
-		shake_offset
-	)
-	effect_renderer.draw_field_effects(
-		canvas,
-		effect_controller.get_pickup_particles(),
-		effect_controller.get_regeneration_potion_rings(),
-		effect_controller.get_regeneration_potion_particles(),
-		effect_controller.get_long_boost_timer_context(),
+		registry,
+		field_spawn_controller,
+		throw_controller,
+		effect_controller,
 		shake_offset
 	)
 
 
 func draw_pickup_effect(canvas: CanvasItem, registry: Object) -> void:
-	effect_renderer.draw_pickup_effect(canvas, registry, effect_controller.get_pickup_effect())
+	render_facade.draw_pickup_effect(canvas, registry, effect_controller)
 
 
 func toggle_debug_spawn_menu() -> void:
