@@ -268,8 +268,53 @@ class FakeEffectRenderer:
 		last_pickup_effect = pickup_effect
 
 
+class FakeLegacyThrowRenderer:
+	extends RefCounted
+
+	var draw_count := 0
+	var last_pending_throws: Array = []
+	var last_boomerangs: Array = []
+
+	func draw(
+		_canvas: CanvasItem,
+		pending_throws: Array,
+		_grenades: Array,
+		_flares: Array,
+		boomerangs: Array,
+		_boomerang_particles: Array,
+		_explosion_zones: Array,
+		_flare_zones: Array,
+		_shake_offset: Vector2 = Vector2.ZERO
+	) -> void:
+		draw_count += 1
+		last_pending_throws = pending_throws
+		last_boomerangs = boomerangs
+
+
+class FakeLegacyEffectRenderer:
+	extends RefCounted
+
+	var field_draw_count := 0
+	var last_long_boost_timer_context: Dictionary = {}
+
+	func draw_field_effects(
+		_canvas: CanvasItem,
+		_pickup_particles: Array,
+		_regeneration_potion_rings: Array,
+		_regeneration_potion_particles: Array,
+		long_boost_timer_context: Dictionary,
+		_shake_offset: Vector2 = Vector2.ZERO
+	) -> void:
+		field_draw_count += 1
+		last_long_boost_timer_context = long_boost_timer_context
+
+	func draw_pickup_effect(_canvas: CanvasItem, _registry: Object, _pickup_effect: Dictionary) -> void:
+		pass
+
+
 func _init() -> void:
 	_verify_facade_draw_dispatch()
+	_verify_facade_legacy_renderer_dispatch()
 	_verify_facade_pickup_draw_gate()
 
 	if _failures.is_empty():
@@ -312,6 +357,27 @@ func _verify_facade_draw_dispatch() -> void:
 	_expect(field_renderer.draw_count == 1, "hidden field items should not draw")
 	_expect(throw_renderer.draw_count == 1, "hidden throw effects should not draw")
 	_expect(effect_renderer.field_draw_count == 1, "hidden field effects should not draw")
+	canvas.free()
+
+
+func _verify_facade_legacy_renderer_dispatch() -> void:
+	var facade: Object = ActiveItemRuntimeRenderFacade.new()
+	var legacy_throw_renderer := FakeLegacyThrowRenderer.new()
+	var legacy_effect_renderer := FakeLegacyEffectRenderer.new()
+	facade.field_renderer = FakeFieldRenderer.new()
+	facade.throw_renderer = legacy_throw_renderer
+	facade.effect_renderer = legacy_effect_renderer
+	var field_spawn := FakeFieldSpawnController.new()
+	field_spawn.visible = false
+	var throw_controller := FakeThrowController.new()
+	var effect_controller := FakeEffectController.new()
+	var registry := FakeRegistry.new()
+	var canvas := Node2D.new()
+
+	facade.draw_field_items(canvas, registry, field_spawn, throw_controller, effect_controller)
+	_expect(legacy_throw_renderer.draw_count == 1, "render facade should support legacy throw renderer draw arity")
+	_expect(legacy_throw_renderer.last_pending_throws.size() == 1, "legacy throw renderer should receive pending throws")
+	_expect(legacy_effect_renderer.field_draw_count == 1, "render facade should support legacy effect renderer draw arity")
 	canvas.free()
 
 
