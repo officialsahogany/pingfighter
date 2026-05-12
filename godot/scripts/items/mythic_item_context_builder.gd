@@ -169,18 +169,12 @@ func get_boss_ai_context(runtime: Object, constants: Dictionary) -> Dictionary:
 
 
 func get_actor_draw_context(runtime: Object, constants: Dictionary) -> Dictionary:
+	if not has_actor_draw_context(runtime):
+		return {}
 	var ragnarok_boss_stun_frame_msec: int = int(constants.get("ragnarok_boss_stun_frame_msec", 100))
 	var stun_active: bool = runtime.ragnarok_boss_stun_timer_frames > 0.0
 	var shrapnel_stun_active: bool = runtime.shrapnel_armor_boss_stun_timer_frames > 0.0
 	var soul_burst_visible: bool = runtime.soul_burst_dash_active or runtime.soul_burst_effect_timer_frames > 0.0
-	if (
-		not soul_burst_visible
-		and not stun_active
-		and not shrapnel_stun_active
-		and runtime.ragnarok_boss_knockback_timer_frames <= 0.0
-		and runtime.shrapnel_armor_boss_knockback_timer_frames <= 0.0
-	):
-		return {}
 	var context := {}
 	if stun_active or runtime.ragnarok_boss_knockback_timer_frames > 0.0:
 		context["ragnarok_hammer_boss_stun_active"] = stun_active
@@ -206,13 +200,44 @@ func get_actor_draw_context(runtime: Object, constants: Dictionary) -> Dictionar
 	return context
 
 
+func has_actor_draw_context(runtime: Object) -> bool:
+	return (
+		runtime.soul_burst_dash_active
+		or runtime.soul_burst_effect_timer_frames > 0.0
+		or runtime.ragnarok_boss_stun_timer_frames > 0.0
+		or runtime.shrapnel_armor_boss_stun_timer_frames > 0.0
+		or runtime.ragnarok_boss_knockback_timer_frames > 0.0
+		or runtime.shrapnel_armor_boss_knockback_timer_frames > 0.0
+	)
+
+
 func get_ball_draw_context(runtime: Object) -> Dictionary:
-	var context := {
-		"ragnarok_hammer_ball_active": runtime.ragnarok_stun_ball_active,
-		"ragnarok_hammer_ball_elapsed": runtime._ragnarok_ball_elapsed(),
-		"poseidon_trident_ball_active": runtime.poseidon_capture_active or runtime.poseidon_water_trail_active or runtime.poseidon_vortex_affected,
-	}
+	if not has_ball_draw_context(runtime):
+		return {}
+	var context := {}
+	if runtime.ragnarok_stun_ball_active:
+		context["ragnarok_hammer_ball_active"] = true
+		context["ragnarok_hammer_ball_elapsed"] = runtime._ragnarok_ball_elapsed()
+	if _is_poseidon_ball_draw_active(runtime):
+		context["poseidon_trident_ball_active"] = true
 	if runtime.venom_mist_ball_poisoned:
 		context["poisoned_ball_overlay_active"] = true
 	runtime.baal_boots_combat_state.merge_ball_draw_context(context)
 	return context
+
+
+func has_ball_draw_context(runtime: Object) -> bool:
+	return (
+		runtime.ragnarok_stun_ball_active
+		or _is_poseidon_ball_draw_active(runtime)
+		or runtime.venom_mist_ball_poisoned
+		or _is_baal_boots_ball_mark_active(runtime)
+	)
+
+
+func _is_poseidon_ball_draw_active(runtime: Object) -> bool:
+	return runtime.poseidon_capture_active or runtime.poseidon_water_trail_active or runtime.poseidon_vortex_affected
+
+
+func _is_baal_boots_ball_mark_active(runtime: Object) -> bool:
+	return runtime.baal_boots_combat_state.ball_mark_timer_frames > 0.0 and runtime.baal_boots_combat_state.ball_mark_type != ""
