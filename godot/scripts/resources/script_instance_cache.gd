@@ -24,10 +24,27 @@ func create_ref_counted(path: String, label: String):
 
 func get_instance(path: String, label: String):
 	if instance_cache.has(path):
-		return instance_cache[path]
+		var cached_instance: Variant = instance_cache[path]
+		if cached_instance == null:
+			return null
+		if typeof(cached_instance) == TYPE_OBJECT and is_instance_valid(cached_instance):
+			return cached_instance
+		instance_cache.erase(path)
 	var instance = create_ref_counted(path, label)
 	instance_cache[path] = instance
 	return instance
+
+
+func get_cached_instance(path: String):
+	if not instance_cache.has(path):
+		return null
+	var cached_instance: Variant = instance_cache[path]
+	if cached_instance == null:
+		return null
+	if typeof(cached_instance) == TYPE_OBJECT and is_instance_valid(cached_instance):
+		return cached_instance
+	instance_cache.erase(path)
+	return null
 
 
 func clear_instances() -> void:
