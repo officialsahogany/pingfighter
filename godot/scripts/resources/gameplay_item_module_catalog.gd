@@ -13,6 +13,10 @@ const MODULES := {
 		"path": "res://scripts/items/mythic_item_runtime.gd",
 		"label": "mythic item runtime",
 	},
+	"treasure_hunt_runtime": {
+		"path": "res://scripts/items/treasure_hunt_runtime.gd",
+		"label": "treasure hunt runtime",
+	},
 }
 
 
