@@ -5,6 +5,10 @@ const MODULES := {
 		"path": "res://scripts/items/active_item_runtime.gd",
 		"label": "active item runtime",
 	},
+	"mythic_item_catalog": {
+		"path": "res://scripts/items/mythic_item_catalog.gd",
+		"label": "mythic item catalog",
+	},
 }
 
 
