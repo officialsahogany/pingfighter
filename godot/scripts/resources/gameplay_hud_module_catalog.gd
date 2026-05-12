@@ -53,6 +53,10 @@ const MODULES := {
 		"path": "res://scripts/hud/active_item_hud_renderer.gd",
 		"label": "active item HUD renderer",
 	},
+	"horizontal_timer_gauge_stack": {
+		"path": "res://scripts/hud/horizontal_timer_gauge_stack.gd",
+		"label": "horizontal timer gauge stack",
+	},
 	"smasher_skill_orb_renderer": {
 		"path": "res://scripts/hud/smasher_skill_orb_renderer.gd",
 		"label": "smasher skill orb renderer",
@@ -60,6 +64,26 @@ const MODULES := {
 	"smasher_skill_orb_tooltip_renderer": {
 		"path": "res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd",
 		"label": "smasher skill orb tooltip renderer",
+	},
+	"skill_orb_tooltip_effect_preview_renderer": {
+		"path": "res://scripts/hud/skill_orb_tooltip_effect_preview_renderer.gd",
+		"label": "skill orb tooltip effect preview renderer",
+	},
+	"commando_firearm_selector_renderer": {
+		"path": "res://scripts/hud/commando_firearm_selector_renderer.gd",
+		"label": "commando firearm selector renderer",
+	},
+	"commando_firearm_tooltip_renderer": {
+		"path": "res://scripts/hud/commando_firearm_tooltip_renderer.gd",
+		"label": "commando firearm tooltip renderer",
+	},
+	"skill_orb_tooltip_overlay_host": {
+		"path": "res://scripts/hud/skill_orb_tooltip_overlay_host.gd",
+		"label": "skill orb tooltip overlay host",
+	},
+	"skill_orb_tooltip_hover_state": {
+		"path": "res://scripts/hud/skill_orb_tooltip_hover_state.gd",
+		"label": "skill orb tooltip hover state",
 	},
 	"runtime_perk_overlay_renderer": {
 		"path": "res://scripts/hud/runtime_perk_overlay_renderer.gd",
@@ -69,9 +93,21 @@ const MODULES := {
 		"path": "res://scripts/hud/runtime_perk_icon_renderer.gd",
 		"label": "runtime perk icon renderer",
 	},
+	"runtime_perk_debug_picker": {
+		"path": "res://scripts/hud/runtime_perk_debug_picker.gd",
+		"label": "runtime perk debug picker",
+	},
 	"character_info_overlay": {
 		"path": "res://scripts/hud/character_info_overlay.gd",
 		"label": "character info overlay",
+	},
+	"pause_menu_overlay": {
+		"path": "res://scripts/hud/pause_menu_overlay.gd",
+		"label": "pause menu overlay",
+	},
+	"ball_speed_debug_overlay": {
+		"path": "res://scripts/hud/ball_speed_debug_overlay.gd",
+		"label": "ball speed debug overlay",
 	},
 }
 
