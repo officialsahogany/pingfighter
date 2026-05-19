@@ -19,13 +19,25 @@ const ENCOUNTER_REVEAL_BANDS := 18
 
 const STAGE_BACKGROUND_PATHS := {
 	1: "res://assets/sprites/hud/stage1_landing_zoom_background_cyber_joseon_imagegen_v2_realesrgan_animev3_2x.png",
+	3: "res://assets/sprites/hud/stage3_landing_zoom_background_imagegen_v1.png",
+	4: "res://assets/sprites/hud/stage4_landing_zoom_background_imagegen_v1.png",
 }
 
 const STAGE_INFO := {
 	1: {
 		"title": "STAGE 1",
-		"subtitle": "議곗꽑 怨⑤ぉ",
+		"subtitle": "조선 골목",
 		"color": Color(1.0, 0.86, 0.86, 1.0),
+	},
+	3: {
+		"title": "STAGE 3",
+		"subtitle": "멘헤라 인형극장",
+		"color": Color(1.0, 0.72, 0.92, 1.0),
+	},
+	4: {
+		"title": "STAGE 4",
+		"subtitle": "소림사",
+		"color": Color(1.0, 0.66, 0.32, 1.0),
 	},
 }
 
