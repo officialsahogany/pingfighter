@@ -15,15 +15,16 @@ const SHAKE_SEC := 14.0 / 60.0
 const CAMERA_ZOOM_EXTRA := 1.8
 const ARENA_START_SCALE := 0.12
 const ARENA_HOLD_RATIO := 0.15
+const ENCOUNTER_REVEAL_BANDS := 18
 
 const STAGE_BACKGROUND_PATHS := {
-	1: "res://assets/sprites/hud/stage1_landing_zoom_background_imagegen_v2.png",
+	1: "res://assets/sprites/hud/stage1_landing_zoom_background_cyber_joseon_imagegen_v2_realesrgan_animev3_2x.png",
 }
 
 const STAGE_INFO := {
 	1: {
 		"title": "STAGE 1",
-		"subtitle": "JOSEON : WINDING STREET",
+		"subtitle": "議곗꽑 怨⑤ぉ",
 		"color": Color(1.0, 0.86, 0.86, 1.0),
 	},
 }
@@ -42,6 +43,10 @@ var current_stage := 1
 var background_texture: Texture2D = null
 var cached_game_rect_view_size := Vector2(-1.0, -1.0)
 var cached_game_rect := Rect2()
+
+
+func prewarm_assets(stage: int = 1) -> void:
+	_load_stage_background(stage)
 
 
 func begin(owner: Object, registry: Object) -> bool:
@@ -121,16 +126,19 @@ func _draw_descent(canvas: CanvasItem, owner: Object, registry: Object, view_siz
 
 
 func _draw_landing_shake(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector2) -> void:
-	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color.BLACK)
+	_draw_zoomed_background(canvas, view_size, 1.0 + CAMERA_ZOOM_EXTRA)
 	var final_rect: Rect2 = _get_game_rect(registry, view_size)
 	var shake_elapsed: float = clamp(elapsed_sec - DURATION_SEC, 0.0, SHAKE_SEC)
+	var reveal_progress: float = clamp(shake_elapsed / max(0.001, SHAKE_SEC), 0.0, 1.0)
 	var decay: float = 1.0 - shake_elapsed / max(0.001, SHAKE_SEC)
+	@warning_ignore("shadowed_global_identifier")
 	var seed: float = float(Time.get_ticks_msec()) * 0.011
 	var offset := Vector2(
 		sin(seed * 2.7 + float(current_stage)) * 8.0 * decay,
 		cos(seed * 3.1 + float(current_stage) * 0.7) * 8.0 * decay
 	)
 	_draw_game_preview(canvas, owner, Rect2(final_rect.position + offset, final_rect.size))
+	_draw_encounter_reveal_overlay(canvas, final_rect, reveal_progress)
 
 
 func _draw_zoomed_background(canvas: CanvasItem, view_size: Vector2, camera_zoom: float) -> void:
@@ -190,6 +198,58 @@ func _draw_arena_border(canvas: CanvasItem, rect: Rect2, arena_scale: float) -> 
 	canvas.draw_rect(rect, outer, false, max(1.0, 5.0 * arena_scale))
 	canvas.draw_rect(rect.grow(-6.0 * arena_scale), red, false, max(1.0, 2.0 * arena_scale))
 	canvas.draw_rect(rect.grow(3.0 * arena_scale), inner, false, max(1.0, 1.5 * arena_scale))
+
+
+func _draw_encounter_reveal_overlay(canvas: CanvasItem, game_rect: Rect2, progress: float) -> void:
+	var eased: float = _ease_out_cubic(progress)
+	var band_h: float = max(4.0, game_rect.size.y / float(ENCOUNTER_REVEAL_BANDS))
+	var center_x: float = game_rect.get_center().x
+	for band_idx in range(ENCOUNTER_REVEAL_BANDS):
+		var row_t: float = float(band_idx) / max(1.0, float(ENCOUNTER_REVEAL_BANDS - 1))
+		var local_progress: float = clamp((progress - row_t * 0.18) / 0.82, 0.0, 1.0)
+		var row_open: float = _ease_out_cubic(local_progress)
+		var cover_w: float = game_rect.size.x * (1.0 - row_open)
+		if cover_w <= 1.0:
+			continue
+		var row_y: float = game_rect.position.y + float(band_idx) * band_h
+		var row_h: float = max(2.0, band_h * (0.86 + 0.08 * sin(float(band_idx) * 1.9)))
+		var band_alpha: float = (0.74 - 0.42 * eased) * (1.0 - row_open * 0.35)
+		var band_color := Color(0.005, 0.018, 0.035, clamp(band_alpha, 0.0, 0.74))
+		var edge_color := Color(0.0, 0.88, 1.0, clamp(0.22 * (1.0 - row_open), 0.0, 0.22))
+		var side_w: float = cover_w * 0.5
+		var left_rect := Rect2(game_rect.position.x, row_y, side_w, row_h)
+		var right_rect := Rect2(game_rect.end.x - side_w, row_y, side_w, row_h)
+		canvas.draw_rect(left_rect, band_color)
+		canvas.draw_rect(right_rect, band_color)
+		canvas.draw_line(Vector2(center_x - side_w, row_y), Vector2(center_x - side_w, row_y + row_h), edge_color, 1.0)
+		canvas.draw_line(Vector2(center_x + side_w, row_y), Vector2(center_x + side_w, row_y + row_h), edge_color, 1.0)
+
+	var pulse_alpha: float = sin(progress * PI) * 0.32
+	if pulse_alpha > 0.01:
+		var center := game_rect.get_center()
+		var radius: float = max(game_rect.size.x, game_rect.size.y) * (0.10 + eased * 0.62)
+		canvas.draw_arc(center, radius, 0.0, TAU, 128, Color(0.0, 0.95, 1.0, pulse_alpha), 3.0)
+		canvas.draw_arc(center, radius * 0.72, 0.0, TAU, 96, Color(1.0, 0.88, 0.34, pulse_alpha * 0.55), 2.0)
+		for ray_idx in range(14):
+			var ray_y: float = game_rect.position.y + fposmod(float(ray_idx) * 73.0 + progress * 180.0, game_rect.size.y)
+			var pull: float = 1.0 - eased
+			var line_alpha: float = pulse_alpha * (0.35 + 0.35 * sin(float(ray_idx) * 1.3 + progress * 6.0))
+			canvas.draw_line(
+				Vector2(game_rect.position.x, ray_y),
+				Vector2(center.x - 60.0 * pull, center.y + (ray_y - center.y) * 0.18),
+				Color(0.0, 0.85, 1.0, line_alpha),
+				1.0
+			)
+			canvas.draw_line(
+				Vector2(game_rect.end.x, ray_y),
+				Vector2(center.x + 60.0 * pull, center.y + (ray_y - center.y) * 0.18),
+				Color(0.0, 0.85, 1.0, line_alpha),
+				1.0
+			)
+
+	if progress < 0.18:
+		var flash_alpha: float = 0.20 * (1.0 - progress / 0.18)
+		canvas.draw_rect(game_rect, Color(0.72, 0.92, 1.0, flash_alpha))
 
 
 func _draw_stage_text(canvas: CanvasItem, view_size: Vector2, t: float) -> void:

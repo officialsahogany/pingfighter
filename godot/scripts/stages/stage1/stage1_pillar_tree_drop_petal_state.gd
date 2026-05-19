@@ -1,6 +1,8 @@
 extends RefCounted
 
-const TREE_DROP_PETAL_MAX := 48
+const TREE_DROP_PETAL_MAX := 18
+const TREE_DROP_PETAL_SPAWN_MIN := 1
+const TREE_DROP_PETAL_SPAWN_MAX := 2
 
 var tree_drop_petals: Array[Dictionary] = []
 var last_view_size := Vector2.ZERO
@@ -19,7 +21,7 @@ func update_layout(view_size: Vector2, game_offset: Vector2, game_size: Vector2)
 
 
 func update(delta: float, fps_scale: float, current_time: float) -> void:
-	var remove_indices: Array[int] = []
+	var write_idx: int = 0
 	for i in range(tree_drop_petals.size()):
 		var petal: Dictionary = tree_drop_petals[i]
 		var life: float = float(petal["life"]) - delta
@@ -31,10 +33,10 @@ func update(delta: float, fps_scale: float, current_time: float) -> void:
 		petal["y"] = float(petal["y"]) + vy * delta
 		petal["rotation"] = float(petal["rotation"]) + float(petal["rot_speed"]) * delta
 		petal["vx"] = float(petal["vx"]) * pow(0.985, fps_scale)
-		tree_drop_petals[i] = petal
-		if life <= 0.0 or float(petal["y"]) > last_view_size.y + 30.0:
-			remove_indices.append(i)
-	_remove_indices(tree_drop_petals, remove_indices)
+		if life > 0.0 and float(petal["y"]) <= last_view_size.y + 30.0:
+			tree_drop_petals[write_idx] = petal
+			write_idx += 1
+	tree_drop_petals.resize(write_idx)
 
 
 func spawn(
@@ -67,7 +69,7 @@ func spawn(
 		Color(248.0 / 255.0, 239.0 / 255.0, 204.0 / 255.0, 1.0),
 		Color(1.0, 218.0 / 255.0, 226.0 / 255.0, 1.0),
 	]
-	var count: int = randi_range(3, 6)
+	var count: int = randi_range(TREE_DROP_PETAL_SPAWN_MIN, TREE_DROP_PETAL_SPAWN_MAX)
 	var clamped_strength: float = clamp(strength, 0.25, 1.0)
 	for _i in range(count):
 		var burst: float = 0.75 + clamped_strength * 0.6
@@ -93,9 +95,3 @@ func spawn(
 
 func get_petals() -> Array[Dictionary]:
 	return tree_drop_petals
-
-
-func _remove_indices(items: Array[Dictionary], remove_indices: Array[int]) -> void:
-	remove_indices.reverse()
-	for idx in remove_indices:
-		items.remove_at(idx)

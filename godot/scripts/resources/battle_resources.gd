@@ -16,6 +16,17 @@ const PLAYER_WALK_LEFT_SPRITE_PATH := "res://assets/sprites/characters/smasher/s
 const PLAYER_WALK_RIGHT_SPRITE_PATH := "res://assets/sprites/characters/smasher/smasher_subculture_right_walk_sheet.png"
 const SMASHER_IDLE_SHEET_PATH := "res://assets/sprites/characters/smasher/smasher_subculture_idle_sheet.png"
 const PLAYER_IDLE_SPRITE_PATH := "res://assets/sprites/characters/smasher/smasher_subculture_idle_sheet.png"
+const SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH := "res://assets/sprites/characters/smasher/customization_debug/smasher_debug_paddle_overlay_sheet.png"
+const OPTIMUS_PLAYER_IDLE_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_idle_sheet.png"
+const OPTIMUS_PLAYER_WALK_LEFT_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_walk_left_sheet.png"
+const OPTIMUS_PLAYER_WALK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_walk_right_sheet.png"
+const OPTIMUS_PLAYER_ATTACK_LEFT_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_attack_left_sheet.png"
+const OPTIMUS_PLAYER_ATTACK_RIGHT_SHEET_PATH := "res://assets/sprites/characters/optimus/optimus_attack_right_sheet.png"
+const OPTIMUS_OVERLAY_PADDLE_PATH := "res://assets/sprites/characters/optimus/overlays/optimus_paddle_energy_overlay_sheet.png"
+const OPTIMUS_OVERLAY_CORE_GLOW_PATH := "res://assets/sprites/characters/optimus/overlays/optimus_core_glow_overlay_sheet.png"
+const OPTIMUS_OVERLAY_BACK_PATH := "res://assets/sprites/characters/optimus/overlays/optimus_back_unit_overlay_sheet.png"
+const OPTIMUS_OVERLAY_ACCESSORY_PATH := "res://assets/sprites/characters/optimus/overlays/optimus_accessory_overlay_sheet.png"
+const OPTIMUS_OVERLAY_OUTFIT_ACCENT_PATH := "res://assets/sprites/characters/optimus/overlays/optimus_outfit_accent_overlay_sheet.png"
 const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_victory_fullhelmet_64f_autosprite_v3.png"
 const SMASHER_WHEEL_BODY_SHEET_PATH := SMASHER_VICTORY_SHEET_PATH
 const SMASHER_DEFEAT_SHEET_PATH := "res://assets/sprites/smasher/smasher_defeat_sheet_autosprite_v1.png"
@@ -113,6 +124,7 @@ const COMMANDO_WEAPON_B2V2_SUICIDE_DRONE_PATH := "res://assets/sprites/character
 const DEFAULT_CHARACTER_TYPE := "smasher"
 const VIPER_CHARACTER_TYPE := "viper"
 const COMMANDO_CHARACTER_TYPE := "soldier"
+const OPTIMUS_CHARACTER_TYPE := "optimus"
 
 # Smasher directional attack sheets: 4x4 grids, 16 frames, cell 160x160.
 # Authored from the current subculture left/right walk sprites so colors,
@@ -146,6 +158,10 @@ const STAGE3_MENHERA_BOSS_ATTACK_PATH := "res://assets/sprites/stage3/menhera_bo
 const STAGE3_MENHERA_BOSS_DASH_PATH := "res://assets/sprites/stage3/menhera_boss_dash.png"
 const STAGE3_MENHERA_BOSS_VICTORY_PATH := "res://assets/sprites/stage3/menhera_boss_victory.png"
 const STAGE3_MENHERA_BOSS_DEFEAT_PATH := "res://assets/sprites/stage3/menhera_boss_defeat.png"
+const STAGE5_HONGRYUN_BOSS_SHEET_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_sheet.png"
+const STAGE5_HONGRYUN_BOSS_ATTACK_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_attack.png"
+const STAGE5_HONGRYUN_BOSS_DASH_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_dash.png"
+const STAGE5_HONGRYUN_BOSS_TURN_PATH := "res://assets/sprites/stage5/stage5_hongryun_boss_turn.png"
 
 const SMASHER_SKILL_ICON_PATHS := {
 	"drive": "res://assets/sprites/skills/smasher_drive_skill_orb.png",
@@ -186,6 +202,13 @@ const COMMANDO_SKILL_ICON_PATHS := {
 }
 
 var _resource_cache: Dictionary = {}
+var _transition_texture_prewarm_key: String = ""
+var _transition_texture_prewarm_step_index: int = 0
+var _transition_skill_icon_map_cache: Dictionary = {}
+var _result_texture_prewarm_jobs: Array = []
+var _result_texture_prewarm_current: Dictionary = {}
+var _result_texture_prewarm_path: String = ""
+var _result_texture_prewarm_active: bool = false
 
 
 func prewarm_core_textures(_context: Dictionary = {}) -> void:
@@ -242,24 +265,132 @@ func load_all(context: Dictionary = {}) -> Dictionary:
 	return _resource_cache
 
 
-func ensure_result_textures(character_type: String = DEFAULT_CHARACTER_TYPE, current_stage: int = 1) -> Dictionary:
-	var selected_character_type := _normalize_character_type(character_type)
-	if selected_character_type == DEFAULT_CHARACTER_TYPE:
-		_resource_cache["player_victory_sheet"] = _load_texture_resource(SMASHER_VICTORY_SHEET_PATH)
-		_resource_cache["player_defeat_sheet"] = _load_texture_resource(SMASHER_DEFEAT_SHEET_PATH)
-	elif selected_character_type == VIPER_CHARACTER_TYPE:
-		_resource_cache["player_victory_sheet"] = _load_texture_resource(VIPER_VICTORY_SHEET_PATH)
-		_resource_cache["player_defeat_sheet"] = _load_texture_resource(VIPER_DEFEAT_SHEET_PATH)
-	if current_stage == 1:
-		_resource_cache["boss_victory_sheet"] = _load_texture_resource(DALJI_BOSS_VICTORY_PATH)
-		_resource_cache["boss_defeat_sheet"] = _load_texture_resource(DALJI_BOSS_DEFEAT_PATH)
-	if current_stage == 2:
-		_resource_cache["boss_victory_sheet"] = _load_texture_resource(STAGE2_BOSS_VICTORY_PATH)
-		_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE2_BOSS_DEFEAT_PATH)
-	if current_stage == 3:
-		_resource_cache["boss_victory_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_VICTORY_PATH)
-		_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_DEFEAT_PATH)
+func get_resource_cache() -> Dictionary:
 	return _resource_cache
+
+
+func reset_transition_texture_prewarm() -> void:
+	_transition_texture_prewarm_key = ""
+	_transition_texture_prewarm_step_index = 0
+	_transition_skill_icon_map_cache.clear()
+
+
+func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
+	var character_type: String = _get_selected_character_type(context)
+	var current_stage: int = _get_current_stage(context)
+	var include_result_sheets: bool = _should_include_result_sheets(context)
+	var include_all_characters: bool = _should_include_all_characters(context)
+	var include_all_stages: bool = _should_include_all_stages(context)
+	if include_all_characters or include_all_stages:
+		load_all(context)
+		reset_transition_texture_prewarm()
+		return true
+
+	var prewarm_key := "%s:%d:%s" % [character_type, current_stage, str(include_result_sheets)]
+	if _transition_texture_prewarm_key != prewarm_key:
+		_transition_texture_prewarm_key = prewarm_key
+		_transition_texture_prewarm_step_index = 0
+		_transition_skill_icon_map_cache.clear()
+
+	var core_step_count := _get_core_texture_step_count()
+	var player_step_count := _get_player_texture_step_count(character_type, include_result_sheets)
+	var boss_step_count := _get_stage_boss_texture_step_count(current_stage, include_result_sheets)
+	var skill_icon_step_count := _get_selected_skill_icon_texture_step_count(character_type)
+	var total_step_count := core_step_count + player_step_count + boss_step_count + skill_icon_step_count
+	var step_index := _transition_texture_prewarm_step_index
+	if step_index < core_step_count:
+		_load_core_texture_step(step_index)
+	elif step_index < core_step_count + player_step_count:
+		_load_player_texture_step(character_type, include_result_sheets, step_index - core_step_count)
+	elif step_index < core_step_count + player_step_count + boss_step_count:
+		_load_stage_boss_texture_step(
+			current_stage,
+			include_result_sheets,
+			step_index - core_step_count - player_step_count
+		)
+	elif step_index < total_step_count:
+		_load_selected_skill_icon_texture_step(
+			character_type,
+			step_index - core_step_count - player_step_count - boss_step_count
+		)
+	else:
+		reset_transition_texture_prewarm()
+		return true
+
+	_transition_texture_prewarm_step_index += 1
+	if _transition_texture_prewarm_step_index >= total_step_count:
+		reset_transition_texture_prewarm()
+		return true
+	return false
+
+
+func ensure_result_textures(
+	character_type: String = DEFAULT_CHARACTER_TYPE,
+	current_stage: int = 1,
+	result_context: Dictionary = {}
+) -> Dictionary:
+	var selected_character_type := _normalize_character_type(character_type)
+	for spec in _get_result_texture_specs(selected_character_type, current_stage, result_context):
+		if not _is_texture_spec_loaded(spec):
+			_load_texture_spec(spec)
+			return _resource_cache
+	return _resource_cache
+
+
+func sync_cached_result_textures(
+	character_type: String = DEFAULT_CHARACTER_TYPE,
+	current_stage: int = 1,
+	result_context: Dictionary = {}
+) -> Dictionary:
+	var selected_character_type := _normalize_character_type(character_type)
+	for spec in _get_result_texture_specs(selected_character_type, current_stage, result_context):
+		if _is_texture_spec_loaded(spec):
+			continue
+		_try_store_cached_texture_spec(spec)
+	return _resource_cache
+
+
+func begin_result_texture_prewarm(
+	character_type: String = DEFAULT_CHARACTER_TYPE,
+	current_stage: int = 1,
+	result_context: Dictionary = {}
+) -> void:
+	_result_texture_prewarm_jobs.clear()
+	_result_texture_prewarm_current = {}
+	_result_texture_prewarm_path = ""
+	_result_texture_prewarm_active = false
+
+	var queued_paths: Dictionary = {}
+	var selected_character_type := _normalize_character_type(character_type)
+	for spec in _get_result_texture_specs(selected_character_type, current_stage, result_context):
+		if _is_texture_spec_loaded(spec):
+			continue
+		if _try_store_cached_texture_spec(spec):
+			continue
+		var path := str(spec.get("path", ""))
+		if path == "" or queued_paths.has(path) or not _is_thread_loadable_texture_path(path):
+			continue
+		queued_paths[path] = true
+		_result_texture_prewarm_jobs.append(spec)
+	_request_next_result_texture_prewarm_job()
+
+
+func update_result_texture_prewarm() -> bool:
+	if not _result_texture_prewarm_active:
+		return _result_texture_prewarm_jobs.is_empty()
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(_result_texture_prewarm_path, progress_values)
+	match status:
+		ResourceLoader.THREAD_LOAD_LOADED:
+			_finish_result_texture_threaded_job(ResourceLoader.load_threaded_get(_result_texture_prewarm_path))
+			_request_next_result_texture_prewarm_job()
+		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			_request_next_result_texture_prewarm_job()
+	return not _result_texture_prewarm_active and _result_texture_prewarm_jobs.is_empty()
+
+
+func has_result_texture_prewarm_work() -> bool:
+	return _result_texture_prewarm_active or not _result_texture_prewarm_jobs.is_empty()
 
 
 func _load_texture_resource(path: String) -> Texture2D:
@@ -268,6 +399,163 @@ func _load_texture_resource(path: String) -> Texture2D:
 		"Missing sprite at %s",
 		"Failed to load texture at %s"
 	)
+
+
+func _load_optional_texture_resource(path: String) -> Texture2D:
+	return ProjectResourceLoader.load_texture(path, "", "")
+
+
+func _texture_spec(keys: Array, path: String, optional: bool = false) -> Dictionary:
+	return {
+		"keys": keys,
+		"path": path,
+		"optional": optional,
+	}
+
+
+func _get_result_texture_specs(character_type: String, current_stage: int, result_context: Dictionary) -> Array:
+	var player_victory_specs: Array = []
+	var player_defeat_specs: Array = []
+	if character_type == DEFAULT_CHARACTER_TYPE:
+		player_victory_specs.append(_texture_spec(["player_victory_sheet"], SMASHER_VICTORY_SHEET_PATH))
+		player_defeat_specs.append(_texture_spec(["player_defeat_sheet"], SMASHER_DEFEAT_SHEET_PATH))
+	elif character_type == VIPER_CHARACTER_TYPE:
+		player_victory_specs.append(_texture_spec(["player_victory_sheet"], VIPER_VICTORY_SHEET_PATH))
+		player_defeat_specs.append(_texture_spec(["player_defeat_sheet"], VIPER_DEFEAT_SHEET_PATH))
+
+	var boss_victory_specs: Array = []
+	var boss_defeat_specs: Array = []
+	if current_stage == 1:
+		boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], DALJI_BOSS_VICTORY_PATH))
+		boss_defeat_specs.append(_texture_spec(["boss_defeat_sheet"], DALJI_BOSS_DEFEAT_PATH))
+	elif current_stage == 2:
+		boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], STAGE2_BOSS_VICTORY_PATH))
+		boss_defeat_specs.append(_texture_spec(["boss_defeat_sheet"], STAGE2_BOSS_DEFEAT_PATH))
+	elif current_stage == 3:
+		boss_victory_specs.append(_texture_spec(["boss_victory_sheet"], STAGE3_MENHERA_BOSS_VICTORY_PATH))
+		boss_defeat_specs.append(_texture_spec(["boss_defeat_sheet"], STAGE3_MENHERA_BOSS_DEFEAT_PATH))
+
+	var player_scored: bool = (
+		bool(result_context.get("player_victory_active", false))
+		or bool(result_context.get("boss_defeat_active", false))
+	)
+	var boss_scored: bool = (
+		bool(result_context.get("player_defeat_active", false))
+		or bool(result_context.get("boss_victory_active", false))
+	)
+	if player_scored:
+		return player_victory_specs + boss_defeat_specs + player_defeat_specs + boss_victory_specs
+	if boss_scored:
+		return player_defeat_specs + boss_victory_specs + player_victory_specs + boss_defeat_specs
+	return player_victory_specs + player_defeat_specs + boss_victory_specs + boss_defeat_specs
+
+
+func _is_texture_spec_loaded(spec: Dictionary) -> bool:
+	var keys_value: Variant = spec.get("keys", [])
+	if not (keys_value is Array):
+		return true
+	for key_value in keys_value:
+		if not (_resource_cache.get(str(key_value), null) is Texture2D):
+			return false
+	return true
+
+
+func _try_store_cached_texture_spec(spec: Dictionary) -> bool:
+	var path := str(spec.get("path", ""))
+	if path == "":
+		return false
+	var texture: Texture2D = ProjectResourceLoader.get_cached_texture(path)
+	if texture == null:
+		return false
+	_store_texture_spec(spec, texture)
+	return true
+
+
+func _request_next_result_texture_prewarm_job() -> void:
+	_result_texture_prewarm_active = false
+	_result_texture_prewarm_current = {}
+	_result_texture_prewarm_path = ""
+	while not _result_texture_prewarm_jobs.is_empty():
+		var spec_value: Variant = _result_texture_prewarm_jobs.pop_front()
+		if not (spec_value is Dictionary):
+			continue
+		var spec: Dictionary = spec_value
+		if _is_texture_spec_loaded(spec):
+			continue
+		if _try_store_cached_texture_spec(spec):
+			continue
+		var path := str(spec.get("path", ""))
+		if path == "" or not _is_thread_loadable_texture_path(path):
+			continue
+		var request_error := ResourceLoader.load_threaded_request(path, "Texture2D", true)
+		if request_error == OK or request_error == ERR_BUSY:
+			_result_texture_prewarm_current = spec
+			_result_texture_prewarm_path = path
+			_result_texture_prewarm_active = true
+			return
+
+
+func _finish_result_texture_threaded_job(resource: Resource) -> void:
+	var texture := resource as Texture2D
+	if texture == null:
+		return
+	ProjectResourceLoader.store_texture(_result_texture_prewarm_path, texture)
+	_store_texture_spec(_result_texture_prewarm_current, texture)
+
+
+func _is_thread_loadable_texture_path(path: String) -> bool:
+	return FileAccess.file_exists("%s.import" % path) or ResourceLoader.exists(path, "Texture2D")
+
+
+func _clear_smasher_player_fallback_spec() -> Dictionary:
+	return {"clear_smasher_player_fallbacks": true}
+
+
+func _load_texture_spec(spec: Dictionary) -> void:
+	if bool(spec.get("clear_smasher_player_fallbacks", false)):
+		_clear_smasher_player_fallback_textures()
+		return
+	var path := str(spec.get("path", ""))
+	if path == "":
+		return
+	var texture: Texture2D = (
+		_load_optional_texture_resource(path)
+		if bool(spec.get("optional", false))
+		else _load_texture_resource(path)
+	)
+	_store_texture_spec(spec, texture)
+
+
+func _store_texture_spec(spec: Dictionary, texture: Texture2D) -> void:
+	var keys_value: Variant = spec.get("keys", [])
+	if not (keys_value is Array):
+		return
+	for key_value in keys_value:
+		_resource_cache[str(key_value)] = texture
+
+
+func _get_core_texture_specs() -> Array:
+	return [
+		_texture_spec(["pingpong_ball_texture"], PINGPONG_BALL_TEXTURE_PATH),
+		_texture_spec(["gauge_orb_frame_texture"], GAUGE_ORB_FRAME_TEXTURE_PATH),
+		_texture_spec(["dash_token_frame_texture"], DASH_TOKEN_FRAME_TEXTURE_PATH),
+		_texture_spec(["skill_orb_frame_texture"], SKILL_ORB_FRAME_TEXTURE_PATH),
+		_texture_spec(["smasher_skill_cluster_frame_texture"], SMASHER_SKILL_CLUSTER_FRAME_TEXTURE_PATH),
+		_texture_spec(["viper_skill_cluster_frame_texture"], VIPER_SKILL_CLUSTER_FRAME_TEXTURE_PATH),
+		_texture_spec(["stage1_center_background_texture"], STAGE1_CENTER_BACKGROUND_PATH),
+		_texture_spec(["stage1_center_border_texture"], STAGE1_CENTER_BORDER_PATH),
+	]
+
+
+func _get_core_texture_step_count() -> int:
+	return _get_core_texture_specs().size()
+
+
+func _load_core_texture_step(step_index: int) -> void:
+	var specs := _get_core_texture_specs()
+	if step_index < 0 or step_index >= specs.size():
+		return
+	_load_texture_spec(specs[step_index])
 
 
 func _load_core_textures() -> void:
@@ -288,14 +576,151 @@ func _load_player_textures(character_type: String, include_all_characters: bool,
 		_load_viper_player_textures(include_result_sheets and character_type == VIPER_CHARACTER_TYPE)
 	if include_all_characters or character_type == COMMANDO_CHARACTER_TYPE:
 		_load_commando_player_textures()
+	if include_all_characters or character_type == OPTIMUS_CHARACTER_TYPE:
+		_load_optimus_player_textures(character_type == OPTIMUS_CHARACTER_TYPE)
+
+
+func _get_player_texture_step_count(character_type: String, include_result_sheets: bool) -> int:
+	return _get_player_texture_specs(character_type, include_result_sheets).size()
+
+
+func _load_player_texture_step(character_type: String, include_result_sheets: bool, step_index: int) -> void:
+	var specs := _get_player_texture_specs(character_type, include_result_sheets)
+	if step_index < 0 or step_index >= specs.size():
+		return
+	_load_texture_spec(specs[step_index])
+
+
+func _get_player_texture_specs(character_type: String, include_result_sheets: bool) -> Array:
+	match character_type:
+		DEFAULT_CHARACTER_TYPE:
+			return _get_smasher_player_texture_specs(include_result_sheets)
+		VIPER_CHARACTER_TYPE:
+			return _get_viper_player_texture_specs(include_result_sheets)
+		COMMANDO_CHARACTER_TYPE:
+			return _get_commando_player_texture_specs()
+		OPTIMUS_CHARACTER_TYPE:
+			return _get_optimus_player_texture_specs(true)
+	return _get_smasher_player_texture_specs(include_result_sheets)
+
+
+func _get_smasher_player_texture_specs(include_result_sheets: bool) -> Array:
+	var specs := [
+		_texture_spec(["player_sprite_texture"], PLAYER_SPRITE_PATH),
+		_texture_spec(["player_walk_left_texture"], PLAYER_WALK_LEFT_SPRITE_PATH),
+		_texture_spec(["player_walk_right_texture"], PLAYER_WALK_RIGHT_SPRITE_PATH),
+		_texture_spec(["player_idle_back_sheet", "player_idle_sprite_texture"], SMASHER_IDLE_SHEET_PATH),
+		_texture_spec(["player_hit_sprite_texture"], PLAYER_HIT_SPRITE_PATH),
+		_texture_spec(["player_hit_left_strip_texture"], PLAYER_HIT_LEFT_STRIP_PATH),
+		_texture_spec(["player_hit_right_strip_texture"], PLAYER_HIT_RIGHT_STRIP_PATH),
+		_texture_spec(["player_attack_left_sheet"], SMASHER_ATTACK_LEFT_SHEET_PATH),
+		_texture_spec(["player_attack_right_sheet"], SMASHER_ATTACK_RIGHT_SHEET_PATH),
+		_texture_spec(["player_attack_sheet"], SMASHER_ATTACK_SHEET_PATH),
+		_texture_spec(["player_wheel_spin_sheet"], SMASHER_WHEEL_BODY_SHEET_PATH),
+		_texture_spec(["smasher_debug_paddle_overlay_sheet"], SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH),
+	]
+	if include_result_sheets:
+		specs.append(_texture_spec(["player_victory_sheet"], SMASHER_VICTORY_SHEET_PATH))
+		specs.append(_texture_spec(["player_defeat_sheet"], SMASHER_DEFEAT_SHEET_PATH))
+	return specs
+
+
+func _get_viper_player_texture_specs(include_result_sheets: bool) -> Array:
+	var specs := [
+		_texture_spec(["viper_player_sprite_texture"], VIPER_PLAYER_SPRITE_PATH),
+		_texture_spec(["viper_player_idle_sprite_texture"], VIPER_PLAYER_IDLE_SPRITE_PATH),
+		_texture_spec(["viper_player_idle_sheet"], VIPER_PLAYER_IDLE_SHEET_PATH),
+		_texture_spec(["viper_player_walk_left_sheet"], VIPER_PLAYER_WALK_LEFT_SHEET_PATH),
+		_texture_spec(["viper_player_walk_right_sheet"], VIPER_PLAYER_WALK_RIGHT_SHEET_PATH),
+		_texture_spec(["viper_player_attack_left_sheet"], VIPER_PLAYER_ATTACK_LEFT_SHEET_PATH),
+		_texture_spec(["viper_player_attack_right_sheet"], VIPER_PLAYER_ATTACK_RIGHT_SHEET_PATH),
+		_texture_spec(["viper_player_wall_cling_left_sheet"], VIPER_PLAYER_WALL_CLING_LEFT_SHEET_PATH),
+		_texture_spec(["viper_player_wall_cling_right_sheet"], VIPER_PLAYER_WALL_CLING_RIGHT_SHEET_PATH),
+		_texture_spec(["viper_player_wall_flight_left_sheet"], VIPER_PLAYER_WALL_FLIGHT_LEFT_SHEET_PATH),
+		_texture_spec(["viper_player_wall_flight_right_sheet"], VIPER_PLAYER_WALL_FLIGHT_RIGHT_SHEET_PATH),
+		_texture_spec(["viper_player_flying_kick_left_sheet"], VIPER_PLAYER_FLYING_KICK_LEFT_SHEET_PATH),
+		_texture_spec(["viper_player_flying_kick_right_sheet"], VIPER_PLAYER_FLYING_KICK_RIGHT_SHEET_PATH),
+		_texture_spec(["viper_player_tumble_sheet"], VIPER_PLAYER_TUMBLE_SHEET_PATH),
+		_texture_spec(["viper_player_blade_fire_sheet"], VIPER_PLAYER_BLADE_FIRE_SHEET_PATH),
+		_texture_spec(["viper_player_throw_sheet"], VIPER_PLAYER_THROW_SHEET_PATH),
+		_texture_spec(["viper_player_hover_left_sheet"], VIPER_PLAYER_HOVER_LEFT_SHEET_PATH),
+		_texture_spec(["viper_player_hover_right_sheet"], VIPER_PLAYER_HOVER_RIGHT_SHEET_PATH),
+		_texture_spec(["viper_player_up_kick_left_sheet"], VIPER_PLAYER_UP_KICK_LEFT_SHEET_PATH),
+		_texture_spec(["viper_player_up_kick_right_sheet"], VIPER_PLAYER_UP_KICK_RIGHT_SHEET_PATH),
+		_texture_spec(["viper_player_stun_sheet"], VIPER_PLAYER_STUN_SHEET_PATH),
+		_texture_spec(["viper_player_confusion_sheet"], VIPER_PLAYER_CONFUSION_SHEET_PATH),
+		_texture_spec(["viper_player_venom_edge_dash_sheet"], VIPER_PLAYER_VENOM_EDGE_DASH_SHEET_PATH),
+		_texture_spec(["viper_player_venom_edge_strike_sheet"], VIPER_PLAYER_VENOM_EDGE_STRIKE_SHEET_PATH),
+		_texture_spec(["viper_player_hit_left_strip_texture"], VIPER_PLAYER_HIT_LEFT_STRIP_PATH),
+		_texture_spec(["viper_player_hit_right_strip_texture"], VIPER_PLAYER_HIT_RIGHT_STRIP_PATH),
+	]
+	if include_result_sheets:
+		specs.append(_texture_spec(["player_victory_sheet"], VIPER_VICTORY_SHEET_PATH))
+		specs.append(_texture_spec(["player_defeat_sheet"], VIPER_DEFEAT_SHEET_PATH))
+	return specs
+
+
+func _get_commando_player_texture_specs() -> Array:
+	return [
+		_texture_spec(["commando_player_legacy_idle_sheet"], COMMANDO_PLAYER_IDLE_SHEET_PATH),
+		_texture_spec(["commando_player_legacy_walk_left_sheet"], COMMANDO_PLAYER_WALK_LEFT_SHEET_PATH),
+		_texture_spec(["commando_player_legacy_walk_right_sheet"], COMMANDO_PLAYER_WALK_RIGHT_SHEET_PATH),
+		_texture_spec(["commando_player_idle_sheet"], COMMANDO_PLAYER_BASE_GRIP_IDLE_BACK_SHEET_PATH),
+		_texture_spec(["commando_player_walk_left_sheet"], COMMANDO_PLAYER_BASE_GRIP_WALK_LEFT_SHEET_PATH),
+		_texture_spec(["commando_player_walk_right_sheet"], COMMANDO_PLAYER_BASE_GRIP_WALK_RIGHT_SHEET_PATH),
+		_texture_spec(["commando_player_walk_back_sheet"], COMMANDO_PLAYER_WALK_BACK_SHEET_PATH),
+		_texture_spec(["commando_player_pistol_fire_sheet"], COMMANDO_PLAYER_PISTOL_FIRE_SHEET_PATH),
+		_texture_spec(["commando_player_ak47_fire_sheet"], COMMANDO_PLAYER_AK47_FIRE_SHEET_PATH),
+		_texture_spec(["commando_player_bazooka_fire_sheet"], COMMANDO_PLAYER_BAZOOKA_FIRE_SHEET_PATH),
+		_texture_spec(["commando_player_net_gun_fire_sheet"], COMMANDO_PLAYER_NET_GUN_FIRE_SHEET_PATH),
+		_texture_spec(["commando_player_bowling_trap_place_sheet"], COMMANDO_PLAYER_BOWLING_TRAP_PLACE_SHEET_PATH),
+		_texture_spec(["commando_player_suicide_drone_control_sheet"], COMMANDO_PLAYER_SUICIDE_DRONE_CONTROL_SHEET_PATH),
+		_texture_spec(["commando_player_attack_sheet"], COMMANDO_PLAYER_ATTACK_SHEET_PATH),
+		_texture_spec(["commando_weapon_overlay_ak47"], COMMANDO_WEAPON_OVERLAY_AK47_PATH),
+		_texture_spec(["commando_weapon_overlay_bazooka"], COMMANDO_WEAPON_OVERLAY_BAZOOKA_PATH),
+		_texture_spec(["commando_weapon_overlay_net_gun"], COMMANDO_WEAPON_OVERLAY_NET_GUN_PATH),
+		_texture_spec(["commando_weapon_overlay_bowling_trap"], COMMANDO_WEAPON_OVERLAY_BOWLING_TRAP_PATH),
+		_texture_spec(["commando_weapon_overlay_suicide_drone"], COMMANDO_WEAPON_OVERLAY_SUICIDE_DRONE_PATH),
+		_texture_spec(["commando_weapon_b2_pistol"], COMMANDO_WEAPON_B2_PISTOL_PATH),
+		_texture_spec(["commando_weapon_b2_ak47"], COMMANDO_WEAPON_B2_AK47_PATH),
+		_texture_spec(["commando_weapon_b2_bazooka"], COMMANDO_WEAPON_B2_BAZOOKA_PATH),
+		_texture_spec(["commando_weapon_b2_net_gun"], COMMANDO_WEAPON_B2_NET_GUN_PATH),
+		_texture_spec(["commando_weapon_b2_bowling_trap"], COMMANDO_WEAPON_B2_BOWLING_TRAP_PATH),
+		_texture_spec(["commando_weapon_b2_suicide_drone"], COMMANDO_WEAPON_B2_SUICIDE_DRONE_PATH),
+		_texture_spec(["commando_weapon_b2v2_pistol"], COMMANDO_WEAPON_B2V2_PISTOL_PATH),
+		_texture_spec(["commando_weapon_b2v2_ak47"], COMMANDO_WEAPON_B2V2_AK47_PATH),
+		_texture_spec(["commando_weapon_b2v2_bazooka"], COMMANDO_WEAPON_B2V2_BAZOOKA_PATH),
+		_texture_spec(["commando_weapon_b2v2_net_gun"], COMMANDO_WEAPON_B2V2_NET_GUN_PATH),
+		_texture_spec(["commando_weapon_b2v2_bowling_trap"], COMMANDO_WEAPON_B2V2_BOWLING_TRAP_PATH),
+		_texture_spec(["commando_weapon_b2v2_suicide_drone"], COMMANDO_WEAPON_B2V2_SUICIDE_DRONE_PATH),
+	]
+
+
+func _get_optimus_player_texture_specs(clear_generic_player_fallbacks: bool) -> Array:
+	var specs := [
+		_texture_spec(["optimus_player_idle_sheet"], OPTIMUS_PLAYER_IDLE_SHEET_PATH, true),
+		_texture_spec(["optimus_player_walk_left_sheet"], OPTIMUS_PLAYER_WALK_LEFT_SHEET_PATH, true),
+		_texture_spec(["optimus_player_walk_right_sheet"], OPTIMUS_PLAYER_WALK_RIGHT_SHEET_PATH, true),
+		_texture_spec(["optimus_player_attack_left_sheet"], OPTIMUS_PLAYER_ATTACK_LEFT_SHEET_PATH, true),
+		_texture_spec(["optimus_player_attack_right_sheet"], OPTIMUS_PLAYER_ATTACK_RIGHT_SHEET_PATH, true),
+		_texture_spec(["optimus_overlay_paddle"], OPTIMUS_OVERLAY_PADDLE_PATH, true),
+		_texture_spec(["optimus_overlay_core_glow"], OPTIMUS_OVERLAY_CORE_GLOW_PATH, true),
+		_texture_spec(["optimus_overlay_back"], OPTIMUS_OVERLAY_BACK_PATH, true),
+		_texture_spec(["optimus_overlay_accessory"], OPTIMUS_OVERLAY_ACCESSORY_PATH, true),
+		_texture_spec(["optimus_overlay_outfit_accent"], OPTIMUS_OVERLAY_OUTFIT_ACCENT_PATH, true),
+	]
+	if clear_generic_player_fallbacks:
+		specs.append(_clear_smasher_player_fallback_spec())
+	return specs
 
 
 func _load_smasher_player_textures(include_result_sheets: bool) -> void:
 	_resource_cache["player_sprite_texture"] = _load_texture_resource(PLAYER_SPRITE_PATH)
 	_resource_cache["player_walk_left_texture"] = _load_texture_resource(PLAYER_WALK_LEFT_SPRITE_PATH)
 	_resource_cache["player_walk_right_texture"] = _load_texture_resource(PLAYER_WALK_RIGHT_SPRITE_PATH)
-	_resource_cache["player_idle_back_sheet"] = _load_texture_resource(SMASHER_IDLE_SHEET_PATH)
-	_resource_cache["player_idle_sprite_texture"] = _load_texture_resource(PLAYER_IDLE_SPRITE_PATH)
+	var idle_sheet: Texture2D = _load_texture_resource(SMASHER_IDLE_SHEET_PATH)
+	_resource_cache["player_idle_back_sheet"] = idle_sheet
+	_resource_cache["player_idle_sprite_texture"] = idle_sheet
 	_resource_cache["player_hit_sprite_texture"] = _load_texture_resource(PLAYER_HIT_SPRITE_PATH)
 	_resource_cache["player_hit_left_strip_texture"] = _load_texture_resource(PLAYER_HIT_LEFT_STRIP_PATH)
 	_resource_cache["player_hit_right_strip_texture"] = _load_texture_resource(PLAYER_HIT_RIGHT_STRIP_PATH)
@@ -303,6 +728,7 @@ func _load_smasher_player_textures(include_result_sheets: bool) -> void:
 	_resource_cache["player_attack_right_sheet"] = _load_texture_resource(SMASHER_ATTACK_RIGHT_SHEET_PATH)
 	_resource_cache["player_attack_sheet"] = _load_texture_resource(SMASHER_ATTACK_SHEET_PATH)
 	_resource_cache["player_wheel_spin_sheet"] = _load_texture_resource(SMASHER_WHEEL_BODY_SHEET_PATH)
+	_resource_cache["smasher_debug_paddle_overlay_sheet"] = _load_texture_resource(SMASHER_DEBUG_PADDLE_OVERLAY_SHEET_PATH)
 	if include_result_sheets:
 		_resource_cache["player_victory_sheet"] = _load_texture_resource(SMASHER_VICTORY_SHEET_PATH)
 		_resource_cache["player_defeat_sheet"] = _load_texture_resource(SMASHER_DEFEAT_SHEET_PATH)
@@ -374,9 +800,43 @@ func _load_commando_player_textures() -> void:
 	_resource_cache["commando_weapon_b2v2_suicide_drone"] = _load_texture_resource(COMMANDO_WEAPON_B2V2_SUICIDE_DRONE_PATH)
 
 
+func _load_optimus_player_textures(clear_generic_player_fallbacks: bool) -> void:
+	_resource_cache["optimus_player_idle_sheet"] = _load_optional_texture_resource(OPTIMUS_PLAYER_IDLE_SHEET_PATH)
+	_resource_cache["optimus_player_walk_left_sheet"] = _load_optional_texture_resource(OPTIMUS_PLAYER_WALK_LEFT_SHEET_PATH)
+	_resource_cache["optimus_player_walk_right_sheet"] = _load_optional_texture_resource(OPTIMUS_PLAYER_WALK_RIGHT_SHEET_PATH)
+	_resource_cache["optimus_player_attack_left_sheet"] = _load_optional_texture_resource(OPTIMUS_PLAYER_ATTACK_LEFT_SHEET_PATH)
+	_resource_cache["optimus_player_attack_right_sheet"] = _load_optional_texture_resource(OPTIMUS_PLAYER_ATTACK_RIGHT_SHEET_PATH)
+	_resource_cache["optimus_overlay_paddle"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_PADDLE_PATH)
+	_resource_cache["optimus_overlay_core_glow"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_CORE_GLOW_PATH)
+	_resource_cache["optimus_overlay_back"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_BACK_PATH)
+	_resource_cache["optimus_overlay_accessory"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_ACCESSORY_PATH)
+	_resource_cache["optimus_overlay_outfit_accent"] = _load_optional_texture_resource(OPTIMUS_OVERLAY_OUTFIT_ACCENT_PATH)
+	if clear_generic_player_fallbacks:
+		_clear_smasher_player_fallback_textures()
+
+
+func _clear_smasher_player_fallback_textures() -> void:
+	for key in [
+		"player_sprite_texture",
+		"player_walk_left_texture",
+		"player_walk_right_texture",
+		"player_idle_back_sheet",
+		"player_idle_sprite_texture",
+		"player_hit_sprite_texture",
+		"player_hit_left_strip_texture",
+		"player_hit_right_strip_texture",
+		"player_attack_left_sheet",
+		"player_attack_right_sheet",
+		"player_attack_sheet",
+		"player_wheel_spin_sheet",
+		"smasher_debug_paddle_overlay_sheet",
+	]:
+		_resource_cache[key] = null
+
+
 func _load_stage_textures(current_stage: int, include_all_stages: bool, include_result_sheets: bool) -> void:
 	if include_all_stages:
-		var stage_order := [1, 2, 3]
+		var stage_order := [1, 2, 3, 5]
 		for stage_id in stage_order:
 			var normalized_stage := int(stage_id)
 			if normalized_stage == current_stage:
@@ -394,6 +854,8 @@ func _load_stage_boss_textures(stage_id: int, include_result_sheets: bool) -> vo
 		_load_stage2_boss_textures(include_result_sheets)
 	elif stage_id == 3:
 		_load_stage3_boss_textures(include_result_sheets)
+	elif stage_id == 5:
+		_load_stage5_hongryun_boss_textures()
 
 
 func _load_stage1_boss_textures(include_result_sheets: bool) -> void:
@@ -444,6 +906,131 @@ func _load_stage3_boss_textures(include_result_sheets: bool = false) -> void:
 		_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_DEFEAT_PATH)
 
 
+func _get_stage_boss_texture_step_count(stage_id: int, include_result_sheets: bool) -> int:
+	match stage_id:
+		1:
+			return 8 + (2 if include_result_sheets else 0)
+		2:
+			return 4 + (2 if include_result_sheets else 0)
+		3:
+			return 3 + (2 if include_result_sheets else 0)
+		5:
+			return 4
+	return 0
+
+
+func _load_stage_boss_texture_step(stage_id: int, include_result_sheets: bool, step_index: int) -> void:
+	match stage_id:
+		1:
+			_load_stage1_boss_texture_step(include_result_sheets, step_index)
+		2:
+			_load_stage2_boss_texture_step(include_result_sheets, step_index)
+		3:
+			_load_stage3_boss_texture_step(include_result_sheets, step_index)
+		5:
+			_load_stage5_hongryun_boss_texture_step(include_result_sheets, step_index)
+
+
+func _load_stage1_boss_texture_step(include_result_sheets: bool, step_index: int) -> void:
+	match step_index:
+		0:
+			_resource_cache["boss_walk_left_sheet"] = _load_texture_resource(DALJI_BOSS_WALK_LEFT_PATH)
+		1:
+			var walk_right: Texture2D = _load_texture_resource(DALJI_BOSS_WALK_RIGHT_PATH)
+			_resource_cache["boss_walk_right_sheet"] = walk_right
+			_resource_cache["boss_sprite_sheet"] = walk_right
+		2:
+			_resource_cache["boss_idle_sheet"] = _load_texture_resource(DALJI_BOSS_IDLE_PATH)
+		3:
+			var attack: Texture2D = _load_texture_resource(DALJI_BOSS_ATTACK_PATH)
+			_resource_cache["boss_attack_sheet"] = attack
+			_resource_cache["boss_hit_sprite_sheet"] = attack
+		4:
+			_resource_cache["boss_dash_sheet"] = _load_texture_resource(DALJI_BOSS_DASH_PATH)
+		5:
+			_resource_cache["boss_stun_sheet"] = _load_texture_resource(DALJI_BOSS_STUN_PATH)
+		6:
+			_resource_cache["boss_whip_sheet"] = _load_texture_resource(DALJI_BOSS_WHIP_PATH)
+		7:
+			_resource_cache["boss_paengi_top_whip_sheet"] = _load_texture_resource(DALJI_BOSS_PAENGI_TOP_WHIP_PATH)
+		8:
+			if include_result_sheets:
+				_resource_cache["boss_victory_sheet"] = _load_texture_resource(DALJI_BOSS_VICTORY_PATH)
+		9:
+			if include_result_sheets:
+				_resource_cache["boss_defeat_sheet"] = _load_texture_resource(DALJI_BOSS_DEFEAT_PATH)
+
+
+func _load_stage2_boss_texture_step(include_result_sheets: bool, step_index: int) -> void:
+	match step_index:
+		0:
+			_resource_cache["boss_walk_left_sheet"] = _load_texture_resource(STAGE2_BOSS_WALK_LEFT_PATH)
+		1:
+			var walk_right: Texture2D = _load_texture_resource(STAGE2_BOSS_WALK_RIGHT_PATH)
+			_resource_cache["boss_walk_right_sheet"] = walk_right
+			_resource_cache["boss_sprite_sheet"] = walk_right
+		2:
+			_resource_cache["boss_idle_sheet"] = _load_texture_resource(STAGE2_BOSS_IDLE_PATH)
+		3:
+			var attack: Texture2D = _load_texture_resource(STAGE2_BOSS_ATTACK_PATH)
+			_resource_cache["boss_attack_sheet"] = attack
+			_resource_cache["boss_hit_sprite_sheet"] = attack
+		4:
+			if include_result_sheets:
+				_resource_cache["boss_victory_sheet"] = _load_texture_resource(STAGE2_BOSS_VICTORY_PATH)
+		5:
+			if include_result_sheets:
+				_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE2_BOSS_DEFEAT_PATH)
+
+
+func _load_stage3_boss_texture_step(include_result_sheets: bool, step_index: int) -> void:
+	match step_index:
+		0:
+			var walk: Texture2D = _load_texture_resource(STAGE3_MENHERA_BOSS_WALK_PATH)
+			_resource_cache["boss_sprite_sheet"] = walk
+		1:
+			var attack: Texture2D = _load_texture_resource(STAGE3_MENHERA_BOSS_ATTACK_PATH)
+			_resource_cache["boss_attack_sheet"] = attack
+			_resource_cache["boss_hit_sprite_sheet"] = attack
+		2:
+			_resource_cache["boss_dash_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_DASH_PATH)
+		3:
+			if include_result_sheets:
+				_resource_cache["boss_victory_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_VICTORY_PATH)
+		4:
+			if include_result_sheets:
+				_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_DEFEAT_PATH)
+
+
+func _load_stage5_hongryun_boss_texture_step(_include_result_sheets: bool, step_index: int) -> void:
+	match step_index:
+		0:
+			var walk: Texture2D = _load_texture_resource(STAGE5_HONGRYUN_BOSS_SHEET_PATH)
+			_resource_cache["boss_walk_left_sheet"] = walk
+			_resource_cache["boss_walk_right_sheet"] = walk
+			_resource_cache["boss_sprite_sheet"] = walk
+		1:
+			var attack: Texture2D = _load_texture_resource(STAGE5_HONGRYUN_BOSS_ATTACK_PATH)
+			_resource_cache["boss_attack_sheet"] = attack
+			_resource_cache["boss_hit_sprite_sheet"] = attack
+		2:
+			_resource_cache["boss_dash_sheet"] = _load_texture_resource(STAGE5_HONGRYUN_BOSS_DASH_PATH)
+		3:
+			_resource_cache["boss_turn_sheet"] = _load_texture_resource(STAGE5_HONGRYUN_BOSS_TURN_PATH)
+
+
+func _load_stage5_hongryun_boss_textures() -> void:
+	var walk: Texture2D = _load_texture_resource(STAGE5_HONGRYUN_BOSS_SHEET_PATH)
+	var attack: Texture2D = _load_texture_resource(STAGE5_HONGRYUN_BOSS_ATTACK_PATH)
+	_resource_cache["boss_walk_left_sheet"] = walk
+	_resource_cache["boss_walk_right_sheet"] = walk
+	_resource_cache["boss_sprite_sheet"] = walk
+	_resource_cache["boss_attack_sheet"] = attack
+	_resource_cache["boss_hit_sprite_sheet"] = attack
+	_resource_cache["boss_dash_sheet"] = _load_texture_resource(STAGE5_HONGRYUN_BOSS_DASH_PATH)
+	_resource_cache["boss_turn_sheet"] = _load_texture_resource(STAGE5_HONGRYUN_BOSS_TURN_PATH)
+
+
 func _load_skill_icon_textures(character_type: String, include_all_characters: bool) -> void:
 	if include_all_characters or character_type == DEFAULT_CHARACTER_TYPE:
 		_resource_cache["smasher_skill_icon_textures"] = _load_skill_icon_map(SMASHER_SKILL_ICON_PATHS)
@@ -470,6 +1057,67 @@ func _load_skill_icon_map(paths: Dictionary) -> Dictionary:
 	return skill_icons
 
 
+func _get_selected_skill_icon_texture_step_count(character_type: String) -> int:
+	return max(1, _get_selected_skill_icon_paths(character_type).size())
+
+
+func _load_selected_skill_icon_texture_step(character_type: String, step_index: int) -> void:
+	_ensure_inactive_skill_icon_maps(character_type)
+	var paths := _get_selected_skill_icon_paths(character_type)
+	var cache_key := _get_selected_skill_icon_cache_key(character_type)
+	if cache_key == "":
+		return
+	if not _transition_skill_icon_map_cache.has(cache_key):
+		var existing_icons: Variant = _resource_cache.get(cache_key, {})
+		_transition_skill_icon_map_cache[cache_key] = existing_icons if existing_icons is Dictionary else {}
+	var skill_names := paths.keys()
+	if step_index < 0 or step_index >= skill_names.size():
+		_resource_cache[cache_key] = _transition_skill_icon_map_cache[cache_key]
+		return
+	var skill_id := str(skill_names[step_index])
+	var skill_icons: Dictionary = {}
+	var cached_icons: Variant = _transition_skill_icon_map_cache.get(cache_key, {})
+	if cached_icons is Dictionary:
+		skill_icons = cached_icons
+	skill_icons[skill_id] = SkillOrbTextureNormalizer.normalize(
+		skill_id,
+		_load_texture_resource(str(paths[skill_id]))
+	)
+	_transition_skill_icon_map_cache[cache_key] = skill_icons
+	_resource_cache[cache_key] = skill_icons
+
+
+func _get_selected_skill_icon_paths(character_type: String) -> Dictionary:
+	match character_type:
+		DEFAULT_CHARACTER_TYPE:
+			return SMASHER_SKILL_ICON_PATHS
+		VIPER_CHARACTER_TYPE:
+			return VIPER_SKILL_ICON_PATHS
+		COMMANDO_CHARACTER_TYPE:
+			return COMMANDO_SKILL_ICON_PATHS
+	return {}
+
+
+func _get_selected_skill_icon_cache_key(character_type: String) -> String:
+	match character_type:
+		DEFAULT_CHARACTER_TYPE:
+			return "smasher_skill_icon_textures"
+		VIPER_CHARACTER_TYPE:
+			return "viper_skill_icon_textures"
+		COMMANDO_CHARACTER_TYPE:
+			return "commando_skill_icon_textures"
+	return ""
+
+
+func _ensure_inactive_skill_icon_maps(character_type: String) -> void:
+	if character_type != DEFAULT_CHARACTER_TYPE and not _resource_cache.has("smasher_skill_icon_textures"):
+		_resource_cache["smasher_skill_icon_textures"] = {}
+	if character_type != VIPER_CHARACTER_TYPE and not _resource_cache.has("viper_skill_icon_textures"):
+		_resource_cache["viper_skill_icon_textures"] = {}
+	if character_type != COMMANDO_CHARACTER_TYPE and not _resource_cache.has("commando_skill_icon_textures"):
+		_resource_cache["commando_skill_icon_textures"] = {}
+
+
 func _get_selected_character_type(context: Dictionary) -> String:
 	return _normalize_character_type(context.get("selected_character_type", DEFAULT_CHARACTER_TYPE))
 
@@ -482,6 +1130,8 @@ func _normalize_character_type(value: Variant) -> String:
 	var normalized: String = str(value).strip_edges().to_lower()
 	if normalized == COMMANDO_CHARACTER_TYPE or normalized == "commando":
 		return COMMANDO_CHARACTER_TYPE
+	if normalized == OPTIMUS_CHARACTER_TYPE or normalized == "io":
+		return OPTIMUS_CHARACTER_TYPE
 	if normalized == VIPER_CHARACTER_TYPE:
 		return VIPER_CHARACTER_TYPE
 	return DEFAULT_CHARACTER_TYPE

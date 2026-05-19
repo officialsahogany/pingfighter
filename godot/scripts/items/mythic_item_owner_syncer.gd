@@ -176,6 +176,14 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 	owner.set("rainbow_fur_glove_trigger_chance_pct", runtime.get_rainbow_fur_glove_trigger_chance_pct())
 	owner.set("rainbow_fur_glove_cooldown_reduction_pct", runtime.get_rainbow_fur_glove_cooldown_reduction_pct())
 	owner.set("rainbow_fur_glove_context", runtime.get_rainbow_fur_glove_context())
+	owner.set("adversity_armor_equipped", runtime.is_adversity_armor_equipped())
+	owner.set("adversity_armor_active", runtime.is_adversity_armor_active())
+	owner.set("adversity_armor_trigger_chance_pct", runtime.get_adversity_armor_trigger_chance_pct())
+	owner.set("adversity_armor_invincible_duration_sec", runtime.get_adversity_armor_invincible_duration_sec())
+	owner.set("adversity_armor_serve_speed_bonus_pct", runtime.get_adversity_armor_serve_speed_bonus_pct())
+	owner.set("adversity_armor_pending_invincible", runtime.adversity_armor_pending_invincible)
+	owner.set("adversity_armor_invincible", runtime.is_adversity_armor_invincible())
+	owner.set("adversity_armor_context", runtime.get_adversity_armor_context())
 	owner.set("shrapnel_armor_equipped", runtime.is_shrapnel_armor_equipped())
 	owner.set("shrapnel_armor_active", runtime.is_shrapnel_armor_active())
 	owner.set("shrapnel_armor_trigger_chance_pct", runtime.get_shrapnel_armor_trigger_chance_pct())
@@ -295,14 +303,16 @@ func sync_bulkup_paddle_scale(runtime: Object, owner: Object, registry: Object, 
 	var field_height: float = float(constants.get("field_height", 750.0))
 	var base_paddle_width: float = float(constants.get("player_base_paddle_width", 155.0))
 	var base_paddle_height: float = float(constants.get("player_base_paddle_height", 50.0))
+	var runtime_base_width: float = max(1.0, float(runtime._safe_owner_get(owner, "runtime_paddle_base_width", base_paddle_width)))
+	var runtime_base_height: float = max(1.0, float(runtime._safe_owner_get(owner, "runtime_paddle_base_height", base_paddle_height)))
 	var runtime_paddle_scale: float = max(0.1, float(runtime._safe_owner_get(owner, "runtime_paddle_scale", 1.0)))
 	var active_item_scale: float = get_active_item_paddle_scale(runtime, registry)
 	var bulkup_scale: float = runtime.get_player_paddle_scale()
 	var final_scale: float = max(0.1, runtime_paddle_scale * active_item_scale * bulkup_scale)
 	var current_width: float = max(1.0, float(runtime._safe_owner_get(owner, "player_paddle_width", base_paddle_width)))
 	var current_height: float = max(1.0, float(runtime._safe_owner_get(owner, "player_paddle_height", base_paddle_height)))
-	var next_width: float = base_paddle_width * final_scale
-	var next_height: float = base_paddle_height * final_scale
+	var next_width: float = runtime_base_width * final_scale
+	var next_height: float = runtime_base_height * final_scale
 	var player_pos_value: Variant = runtime._safe_owner_get(owner, "player_pos", Vector2.ZERO)
 	if player_pos_value is Vector2 and (not is_equal_approx(current_width, next_width) or not is_equal_approx(current_height, next_height)):
 		var player_pos: Vector2 = player_pos_value
@@ -315,7 +325,7 @@ func sync_bulkup_paddle_scale(runtime: Object, owner: Object, registry: Object, 
 		owner.set("player_pos", player_pos)
 	owner.set("player_paddle_width", next_width)
 	owner.set("player_paddle_height", next_height)
-	owner.set("player_paddle_scale", final_scale)
+	owner.set("player_paddle_scale", max(0.1, next_width / base_paddle_width))
 
 
 func get_active_item_paddle_scale(runtime: Object, registry: Object) -> float:

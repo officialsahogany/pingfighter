@@ -24,6 +24,7 @@ static func load_texture(path: String, missing_warning: String = "", failed_warn
 		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
 		if image != null and not image.is_empty():
 			var raw_texture: Texture2D = ImageTexture.create_from_image(image)
+			raw_texture.resource_path = path
 			_texture_cache[path] = raw_texture
 			return raw_texture
 
@@ -151,18 +152,27 @@ static func _can_load_imported_resource(path: String) -> bool:
 
 	var remap_path: Variant = import_config.get_value("remap", "path", "")
 	if remap_path is String and remap_path != "":
-		return FileAccess.file_exists(remap_path)
+		return _has_non_empty_file(remap_path)
 
 	var dest_files: Variant = import_config.get_value("deps", "dest_files", [])
 	if dest_files is Array:
 		if dest_files.is_empty():
 			return false
 		for dest_file in dest_files:
-			if not (dest_file is String) or not FileAccess.file_exists(dest_file):
+			if not (dest_file is String) or not _has_non_empty_file(dest_file):
 				return false
 		return true
 
 	return true
+
+
+static func _has_non_empty_file(path: String) -> bool:
+	if not FileAccess.file_exists(path):
+		return false
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return false
+	return file.get_length() > 0
 
 
 static func clear_caches() -> void:

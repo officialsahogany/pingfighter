@@ -2,11 +2,12 @@ extends Node2D
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
-const BACKPLATE_TEXTURE := preload("res://assets/sprites/effects/mythic_acquisition/mythic_backplate.png")
-const SHARD_TEXTURE := preload("res://assets/sprites/effects/mythic_acquisition/mythic_shard.png")
-const ARC_TEXTURE := preload("res://assets/sprites/effects/mythic_acquisition/mythic_arc_ribbon.png")
 const WRITHE_SHADER := preload("res://shaders/mythic_writhe.gdshader")
 const ARC_SHADER := preload("res://shaders/mythic_arc_flow.gdshader")
+
+const BACKPLATE_TEXTURE_PATH := "res://assets/sprites/effects/mythic_acquisition/mythic_backplate.png"
+const SHARD_TEXTURE_PATH := "res://assets/sprites/effects/mythic_acquisition/mythic_shard.png"
+const ARC_TEXTURE_PATH := "res://assets/sprites/effects/mythic_acquisition/mythic_arc_ribbon.png"
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -47,6 +48,9 @@ var rng := RandomNumberGenerator.new()
 var legend_after_played := false
 var legend_after_stop_timer := 0.0
 var absorb_started := false
+var _backplate_texture: Texture2D = null
+var _shard_texture: Texture2D = null
+var _arc_texture: Texture2D = null
 
 var _backplate: Sprite2D = null
 var _backplate_mat: ShaderMaterial = null
@@ -107,12 +111,31 @@ func _ready() -> void:
 	top_level = true
 	visible = false
 	rng.randomize()
+	_load_effect_textures()
 	_build_node_tree()
+
+
+func _load_effect_textures() -> void:
+	_backplate_texture = ProjectResourceLoader.load_texture(
+		BACKPLATE_TEXTURE_PATH,
+		"Missing mythic acquisition backplate texture: %s",
+		"Failed to load mythic acquisition backplate texture: %s"
+	)
+	_shard_texture = ProjectResourceLoader.load_texture(
+		SHARD_TEXTURE_PATH,
+		"Missing mythic acquisition shard texture: %s",
+		"Failed to load mythic acquisition shard texture: %s"
+	)
+	_arc_texture = ProjectResourceLoader.load_texture(
+		ARC_TEXTURE_PATH,
+		"Missing mythic acquisition arc texture: %s",
+		"Failed to load mythic acquisition arc texture: %s"
+	)
 
 
 func _build_node_tree() -> void:
 	_backplate = Sprite2D.new()
-	_backplate.texture = BACKPLATE_TEXTURE
+	_backplate.texture = _backplate_texture
 	_backplate.centered = true
 	_backplate.position = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5)
 	_backplate.modulate = Color(1.0, 1.0, 1.0, 0.0)
@@ -130,7 +153,7 @@ func _build_node_tree() -> void:
 	_backplate_mat.set_shader_parameter("core_dim_softness", 0.20)
 	_backplate.material = _backplate_mat
 	# Scale base sprite so it covers ~620 px regardless of source resolution
-	var bp_w: float = max(1.0, float(BACKPLATE_TEXTURE.get_width()))
+	var bp_w: float = max(1.0, float(_backplate_texture.get_width()) if _backplate_texture != null else BACKPLATE_BASE_SIZE)
 	var bp_unit: float = BACKPLATE_BASE_SIZE / bp_w
 	_backplate.set_meta("base_unit", bp_unit)
 	_backplate.scale = Vector2(bp_unit * 0.6, bp_unit * 0.6)
@@ -138,7 +161,7 @@ func _build_node_tree() -> void:
 
 	for i in range(4):
 		var arc := Sprite2D.new()
-		arc.texture = ARC_TEXTURE
+		arc.texture = _arc_texture
 		arc.centered = true
 		arc.position = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5)
 		arc.rotation = float(i) * (PI * 0.5) + PI * 0.25
@@ -189,7 +212,7 @@ func _build_ambient_particles() -> GPUParticles2D:
 	gp.lifetime = 1.35
 	gp.preprocess = 0.45
 	gp.randomness = 0.6
-	gp.texture = SHARD_TEXTURE
+	gp.texture = _shard_texture
 	gp.position = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5)
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
@@ -236,7 +259,7 @@ func _build_burst_particles() -> GPUParticles2D:
 	gp.one_shot = true
 	gp.explosiveness = 1.0
 	gp.randomness = 0.4
-	gp.texture = SHARD_TEXTURE
+	gp.texture = _shard_texture
 	gp.position = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5)
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINT
@@ -275,7 +298,7 @@ func _build_absorb_particles() -> GPUParticles2D:
 	gp.lifetime = 1.3
 	gp.preprocess = 0.0
 	gp.randomness = 0.45
-	gp.texture = SHARD_TEXTURE
+	gp.texture = _shard_texture
 	gp.position = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5)
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
@@ -585,6 +608,7 @@ func get_snapshot() -> Dictionary:
 		"elapsed": elapsed,
 		"item_name": str(item_data.get("name", "")),
 		"display_name": display_name,
+		"player_center": player_center,
 		"waiting_for_click": is_waiting_for_click(),
 		"absorb_started": absorb_started,
 		"icon_alpha": _icon_alpha,

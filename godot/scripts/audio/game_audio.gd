@@ -1,6 +1,7 @@
 extends RefCounted
 
 const GameAudioPlayerFactory := preload("res://scripts/audio/game_audio_player_factory.gd")
+const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 
 const PADDLE_HIT_SOUND_PATH := "res://assets/sounds/paddle_hit.wav"
 const SERVE_SOUND_PATH := "res://assets/sounds/serve.wav"
@@ -54,6 +55,7 @@ const CHAOS_SPEAR_IMPACT_SOUND_PATH := "res://assets/sounds/chaosphase3.wav"
 const CHAOS_SPEAR_BLACKHOLE_SOUND_PATH := "res://assets/sounds/gravityaccel.wav"
 const COMMANDO_SUPPLY_RADIO_SOUND_PATH := "res://assets/sounds/radio.wav"
 const COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH := "res://assets/sounds/airplane.wav"
+const COMMANDO_SUPPLY_AIRCRAFT_GAIN_DB := -3.0980
 const COMMANDO_SLINGSHOT_FIRE_SOUND_PATH := "res://assets/sounds/shurikenthrow.wav"
 const COMMANDO_PISTOL_READY_SOUND_PATH := "res://assets/sounds/gunroad.wav"
 const COMMANDO_PISTOL_FIRE_SOUND_PATH := "res://assets/sounds/gunshot.wav"
@@ -84,6 +86,7 @@ const LUCKY_COIN_SPAWN_SOUND_PATH := "res://assets/sounds/lucky_coin_spawn.wav"
 const FOUL_WHISTLE_SOUND_PATH := "res://assets/sounds/foul_whistle.wav"
 const MEGINGJORD_SOUND_PATH := "res://assets/sounds/megin.wav"
 const LEGENDARY_OPEN_SOUND_PATH := "res://assets/sounds/legendopen.wav"
+const RESULT_BOX_OPEN_SOUND_PATH := "res://assets/sounds/boxopen.wav"
 const LEGENDARY_AFTER_SOUND_PATH := "res://assets/sounds/legendafter.wav"
 const LEGENDARY_ENDING_SOUND_PATH := "res://assets/sounds/legendending.wav"
 const RAGNAROK_SHOT_SOUND_PATH := "res://assets/sounds/ragnarokshot.wav"
@@ -145,6 +148,14 @@ const STAGE4_BIRDKILL_SOUND_PATH := "res://assets/sounds/birdkill.wav"
 const STAGE4_MAGNETIC_SOUND_PATH := "res://assets/sounds/magnetic.wav"
 const STAGE4_MEDITATION_SOUND_PATH := "res://assets/sounds/ponkmeditation.wav"
 const STAGE4_MEDITATION_AFTER_SOUND_PATH := "res://assets/sounds/meditationafter.wav"
+const STAGE5_HONGRYUN_FIREBALL_SOUND_PATH := "res://assets/sounds/stage5_hongryun_fireball.wav"
+const STAGE5_HONGRYUN_CHARGE_SOUND_PATH := "res://assets/sounds/stage5_hongryun_charge.wav"
+const STAGE5_HONGRYUN_SHOOT_SOUND_PATH := "res://assets/sounds/stage5_hongryun_shoot.wav"
+const STAGE5_HONGRYUN_HURT_SOUND_PATHS := [
+	"res://assets/sounds/stage5_hongryun_hurt_1.wav",
+	"res://assets/sounds/stage5_hongryun_hurt_2.wav",
+	"res://assets/sounds/stage5_hongryun_hurt_3.wav",
+]
 const LEAF_SHIELD_SOUND_PATH := "res://assets/sounds/leaf.wav"
 const STAGE1_BGM_PATH := "res://assets/bgm/stage1bgm.mp3"
 const STAGE2_BGM_PATH := "res://assets/bgm/stage2bgm.mp3"
@@ -152,6 +163,7 @@ const STAGE2_ALT_BGM_PATH := "res://assets/bgm/stage2bgm2.mp3"
 const STAGE3_BGM_PATH := "res://assets/bgm/stage3bgm.wav"
 const STAGE4_BGM_PATH := "res://assets/bgm/stage4bgm.wav"
 const STAGE4_PHASE2_BGM_PATH := "res://assets/bgm/stage4bgm-phase2.mp3"
+const STAGE5_BGM_PATH := "res://assets/bgm/stage5_hongryun_bgm.wav"
 const PADDLE_HIT_SOUND_COOLDOWN := 0.06
 const WALL_HIT_SOUND_COOLDOWN := 0.035
 const SCOREBOARD_SOUND_VOLUME_DB := -8.0
@@ -161,6 +173,7 @@ const STAGE1_BGM_GAIN := 0.75
 const STAGE2_BGM_GAIN := 1.0
 const STAGE3_BGM_GAIN := 0.9
 const STAGE4_BGM_GAIN := 0.9
+const STAGE5_BGM_GAIN := 0.9
 const STAGE2_BGM_NAMES := ["stage2", "stage2_alt"]
 const BGM_BUS_NAME := "BGM"
 const SFX_BUS_NAME := "SFX"
@@ -173,6 +186,7 @@ var current_bgm_name := ""
 var primed_bgm_volumes: Dictionary = {}
 var bgm_volume := DEFAULT_BGM_VOLUME
 var sfx_volume := DEFAULT_SFX_VOLUME
+var audio_bus_volumes_adopted := false
 var bgm_muted := false
 var muted_bgm_name := ""
 var paddle_hit_sfx: AudioStreamPlayer
@@ -221,6 +235,7 @@ var chaos_spear_flying_sfx: AudioStreamPlayer
 var chaos_spear_impact_sfx: AudioStreamPlayer
 var chaos_spear_blackhole_sfx: AudioStreamPlayer
 var commando_supply_radio_sfx: AudioStreamPlayer
+var commando_supply_radio_loop_sfx: AudioStreamPlayer
 var commando_supply_aircraft_sfx: AudioStreamPlayer
 var commando_fire_support_radio_sfx: AudioStreamPlayer
 var commando_fire_support_aircraft_sfx: AudioStreamPlayer
@@ -246,6 +261,7 @@ var lucky_coin_spawn_sfx: AudioStreamPlayer
 var foul_whistle_sfx: AudioStreamPlayer
 var megingjord_sfx: AudioStreamPlayer
 var legendary_open_sfx: AudioStreamPlayer
+var result_box_open_sfx: AudioStreamPlayer
 var legendary_after_sfx: AudioStreamPlayer
 var legendary_ending_sfx: AudioStreamPlayer
 var ragnarok_shot_sfx: AudioStreamPlayer
@@ -306,6 +322,10 @@ var stage4_birdkill_sfx: AudioStreamPlayer
 var stage4_magnetic_sfx: AudioStreamPlayer
 var stage4_meditation_sfx: AudioStreamPlayer
 var stage4_meditation_after_sfx: AudioStreamPlayer
+var stage5_hongryun_fireball_sfx: AudioStreamPlayer
+var stage5_hongryun_charge_sfx: AudioStreamPlayer
+var stage5_hongryun_shoot_sfx: AudioStreamPlayer
+var stage5_hongryun_hurt_sfx: Array = []
 var leaf_shield_sfx: AudioStreamPlayer
 var stage1_bgm: AudioStreamPlayer
 var stage2_bgm: AudioStreamPlayer
@@ -313,7 +333,9 @@ var stage2_alt_bgm: AudioStreamPlayer
 var stage3_bgm: AudioStreamPlayer
 var stage4_bgm: AudioStreamPlayer
 var stage4_phase2_bgm: AudioStreamPlayer
+var stage5_bgm: AudioStreamPlayer
 var _audio_setup_step := 0
+var _bgm_setup_step := 0
 
 
 func setup(parent: Node) -> void:
@@ -327,6 +349,7 @@ func setup_step(parent: Node) -> bool:
 	if owner_node != parent:
 		owner_node = parent
 		_audio_setup_step = 0
+		_bgm_setup_step = 0
 
 	match _audio_setup_step:
 		0:
@@ -342,7 +365,9 @@ func setup_step(parent: Node) -> bool:
 		5:
 			_setup_stage_feedback_sfx()
 		6:
-			_setup_bgm_players()
+			if not _setup_bgm_players_step():
+				_apply_audio_buses_and_volumes()
+				return false
 		_:
 			return _is_setup_complete()
 
@@ -412,7 +437,11 @@ func _setup_smasher_skill_sfx() -> void:
 
 func _setup_commando_skill_sfx() -> void:
 	commando_supply_radio_sfx = _create_optional_sfx("CommandoSupplyRadioSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -6.0)
-	commando_supply_aircraft_sfx = _create_optional_sfx("CommandoSupplyAircraftSfx", COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH, -8.0)
+	commando_supply_radio_loop_sfx = _create_optional_sfx("CommandoSupplyRadioLoopSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -7.0)
+	if commando_supply_radio_loop_sfx != null and commando_supply_radio_loop_sfx.stream != null:
+		commando_supply_radio_loop_sfx.stream = commando_supply_radio_loop_sfx.stream.duplicate(true)
+	_enable_loop(commando_supply_radio_loop_sfx)
+	commando_supply_aircraft_sfx = _create_optional_sfx("CommandoSupplyAircraftSfx", COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH, COMMANDO_SUPPLY_AIRCRAFT_GAIN_DB)
 	_enable_loop(commando_supply_aircraft_sfx)
 	commando_fire_support_radio_sfx = _create_optional_sfx("CommandoFireSupportRadioSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -5.5)
 	commando_fire_support_aircraft_sfx = _create_optional_sfx("CommandoFireSupportAircraftSfx", COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH, -7.5)
@@ -443,6 +472,7 @@ func _setup_item_command_sfx() -> void:
 	foul_whistle_sfx = player_factory.create(owner_node, "FoulWhistleSfx", FOUL_WHISTLE_SOUND_PATH, -4.0)
 	megingjord_sfx = player_factory.create(owner_node, "MegingjordSfx", MEGINGJORD_SOUND_PATH, -5.0)
 	legendary_open_sfx = player_factory.create(owner_node, "LegendaryOpenSfx", LEGENDARY_OPEN_SOUND_PATH, -5.0)
+	result_box_open_sfx = player_factory.create(owner_node, "ResultBoxOpenSfx", RESULT_BOX_OPEN_SOUND_PATH, -4.0)
 	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
 	legendary_ending_sfx = player_factory.create(owner_node, "LegendaryEndingSfx", LEGENDARY_ENDING_SOUND_PATH, -5.0)
 	ragnarok_shot_sfx = player_factory.create(owner_node, "RagnarokShotSfx", RAGNAROK_SHOT_SOUND_PATH, -4.0)
@@ -513,6 +543,17 @@ func _setup_stage_feedback_sfx() -> void:
 	stage4_magnetic_sfx = player_factory.create(owner_node, "Stage4MagneticSfx", STAGE4_MAGNETIC_SOUND_PATH, -7.0)
 	stage4_meditation_sfx = player_factory.create(owner_node, "Stage4MeditationSfx", STAGE4_MEDITATION_SOUND_PATH, -5.0)
 	stage4_meditation_after_sfx = player_factory.create(owner_node, "Stage4MeditationAfterSfx", STAGE4_MEDITATION_AFTER_SOUND_PATH, -5.0)
+	stage5_hongryun_fireball_sfx = player_factory.create(owner_node, "Stage5HongryunFireballSfx", STAGE5_HONGRYUN_FIREBALL_SOUND_PATH, -5.0)
+	stage5_hongryun_charge_sfx = player_factory.create(owner_node, "Stage5HongryunChargeSfx", STAGE5_HONGRYUN_CHARGE_SOUND_PATH, -5.0)
+	stage5_hongryun_shoot_sfx = player_factory.create(owner_node, "Stage5HongryunShootSfx", STAGE5_HONGRYUN_SHOOT_SOUND_PATH, -5.0)
+	stage5_hongryun_hurt_sfx.clear()
+	for index in range(STAGE5_HONGRYUN_HURT_SOUND_PATHS.size()):
+		stage5_hongryun_hurt_sfx.append(player_factory.create(
+			owner_node,
+			"Stage5HongryunHurtSfx%d" % (index + 1),
+			str(STAGE5_HONGRYUN_HURT_SOUND_PATHS[index]),
+			-5.0
+		))
 	leaf_shield_sfx = player_factory.create(owner_node, "LeafShieldSfx", LEAF_SHIELD_SOUND_PATH, -4.5)
 	_enable_loop(stage2_quake_sfx)
 	_enable_loop(stage3_psychoball_sfx)
@@ -520,52 +561,84 @@ func _setup_stage_feedback_sfx() -> void:
 
 
 func _setup_bgm_players() -> void:
-	stage1_bgm = player_factory.create(
-		owner_node,
-		"Stage1Bgm",
-		STAGE1_BGM_PATH,
-		_volume_to_db(STAGE1_BGM_GAIN)
-	)
-	stage2_bgm = player_factory.create(
-		owner_node,
-		"Stage2Bgm",
-		STAGE2_BGM_PATH,
-		_volume_to_db(STAGE2_BGM_GAIN)
-	)
-	stage2_alt_bgm = player_factory.create(
-		owner_node,
-		"Stage2AltBgm",
-		STAGE2_ALT_BGM_PATH,
-		_volume_to_db(STAGE2_BGM_GAIN)
-	)
-	stage3_bgm = player_factory.create(
-		owner_node,
-		"Stage3Bgm",
-		STAGE3_BGM_PATH,
-		_volume_to_db(STAGE3_BGM_GAIN)
-	)
-	stage4_bgm = player_factory.create(
-		owner_node,
-		"Stage4Bgm",
-		STAGE4_BGM_PATH,
-		_volume_to_db(STAGE4_BGM_GAIN)
-	)
-	stage4_phase2_bgm = player_factory.create(
-		owner_node,
-		"Stage4Phase2Bgm",
-		STAGE4_PHASE2_BGM_PATH,
-		_volume_to_db(STAGE4_BGM_GAIN)
-	)
+	for bgm_name in ["stage1", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5"]:
+		_ensure_bgm_player(str(bgm_name))
+	_bgm_setup_step = 8
+	_restore_bgm_muted()
 	_apply_audio_buses_and_volumes()
-	_enable_loop(stage1_bgm)
-	_enable_loop(stage2_bgm)
-	_enable_loop(stage2_alt_bgm)
-	_enable_loop(stage3_bgm)
-	_enable_loop(stage4_bgm)
-	_enable_loop(stage4_phase2_bgm)
+
+
+func _setup_bgm_players_step() -> bool:
+	match _bgm_setup_step:
+		0:
+			if _should_setup_bgm_player("stage1"):
+				_ensure_bgm_player("stage1")
+		1:
+			if _should_setup_bgm_player("stage2"):
+				_ensure_bgm_player("stage2")
+		2:
+			if _should_setup_bgm_player("stage2_alt"):
+				_ensure_bgm_player("stage2_alt")
+		3:
+			if _should_setup_bgm_player("stage3"):
+				_ensure_bgm_player("stage3")
+		4:
+			if _should_setup_bgm_player("stage4"):
+				_ensure_bgm_player("stage4")
+		5:
+			if _should_setup_bgm_player("stage4_phase2"):
+				_ensure_bgm_player("stage4_phase2")
+		6:
+			if _should_setup_bgm_player("stage5"):
+				_ensure_bgm_player("stage5")
+		7:
+			_restore_bgm_muted()
+		_:
+			return true
+	_bgm_setup_step += 1
+	return _bgm_setup_step > 7
 
 
 func _is_setup_complete() -> bool:
+	if _bgm_setup_step > 7 and _are_all_bgm_players_ready():
+		return true
+	return _audio_setup_step > 6 and _bgm_setup_step > 7 and _is_required_bgm_player_ready()
+
+
+func _should_setup_bgm_player(bgm_name: String) -> bool:
+	var setup_stage := _get_owner_current_stage()
+	if setup_stage == 1:
+		return bgm_name == "stage1"
+	if setup_stage == 2:
+		return bgm_name == "stage2" or bgm_name == "stage2_alt"
+	if setup_stage == 3:
+		return bgm_name == "stage3"
+	if setup_stage == 4:
+		return bgm_name == "stage4" or bgm_name == "stage4_phase2"
+	if setup_stage == 5:
+		return bgm_name == "stage5"
+	return true
+
+
+func _is_required_bgm_player_ready() -> bool:
+	if _should_setup_bgm_player("stage1") and not _is_owned_player_ready(stage1_bgm):
+		return false
+	if _should_setup_bgm_player("stage2") and not _is_owned_player_ready(stage2_bgm):
+		return false
+	if _should_setup_bgm_player("stage2_alt") and not _is_owned_player_ready(stage2_alt_bgm):
+		return false
+	if _should_setup_bgm_player("stage3") and not _is_owned_player_ready(stage3_bgm):
+		return false
+	if _should_setup_bgm_player("stage4") and not _is_owned_player_ready(stage4_bgm):
+		return false
+	if _should_setup_bgm_player("stage4_phase2") and not _is_owned_player_ready(stage4_phase2_bgm):
+		return false
+	if _should_setup_bgm_player("stage5") and not _is_owned_player_ready(stage5_bgm):
+		return false
+	return true
+
+
+func _are_all_bgm_players_ready() -> bool:
 	return (
 		_is_owned_player_ready(stage1_bgm)
 		and _is_owned_player_ready(stage2_bgm)
@@ -573,7 +646,19 @@ func _is_setup_complete() -> bool:
 		and _is_owned_player_ready(stage3_bgm)
 		and _is_owned_player_ready(stage4_bgm)
 		and _is_owned_player_ready(stage4_phase2_bgm)
+		and _is_owned_player_ready(stage5_bgm)
 	)
+
+
+func _get_owner_current_stage() -> int:
+	if owner_node == null:
+		return 1
+	var value: Variant = owner_node.get("current_stage")
+	if typeof(value) == TYPE_INT:
+		return int(value)
+	if typeof(value) == TYPE_FLOAT:
+		return int(value)
+	return 1
 
 
 func update(delta: float) -> void:
@@ -862,6 +947,27 @@ func play_commando_supply_radio() -> void:
 		play_active_item()
 
 
+func play_commando_supply_radio_loop() -> void:
+	if commando_supply_radio_loop_sfx == null or commando_supply_radio_loop_sfx.stream == null:
+		return
+	if commando_supply_radio_loop_sfx.playing:
+		return
+	commando_supply_radio_loop_sfx.pitch_scale = 1.0
+	commando_supply_radio_loop_sfx.play()
+
+
+func stop_commando_supply_radio_loop() -> void:
+	if commando_supply_radio_loop_sfx != null and commando_supply_radio_loop_sfx.playing:
+		commando_supply_radio_loop_sfx.stop()
+
+
+func sync_commando_supply_radio_loop(active: bool) -> void:
+	if active:
+		play_commando_supply_radio_loop()
+	else:
+		stop_commando_supply_radio_loop()
+
+
 func play_commando_supply_aircraft_loop() -> void:
 	if commando_supply_aircraft_sfx == null or commando_supply_aircraft_sfx.stream == null:
 		return
@@ -1101,6 +1207,11 @@ func play_megingjord() -> void:
 func play_legendary_open() -> void:
 	if not _play_with_pitch(legendary_open_sfx, randf_range(0.98, 1.02)):
 		play_pandora()
+
+
+func play_result_box_open() -> void:
+	if not _play_with_pitch(result_box_open_sfx, randf_range(0.98, 1.03)):
+		play_legendary_open()
 
 
 func play_legendary_after() -> void:
@@ -1439,6 +1550,11 @@ func play_starpoint_collect() -> void:
 	_play_with_pitch(star_collect_sfx, randf_range(0.98, 1.04))
 
 
+func play_runtime_perk_choice_open() -> void:
+	if not _play_with_pitch(star_collect_sfx, randf_range(1.02, 1.08)):
+		play_legendary_open()
+
+
 func play_stage2_hydro() -> void:
 	_play_with_pitch(stage2_hydro_sfx, randf_range(0.98, 1.03))
 
@@ -1605,6 +1721,43 @@ func sync_stage4_magnetic_loop(active: bool) -> void:
 		stop_stage4_magnetic_loop()
 
 
+func play_stage5_hongryun_fireball() -> void:
+	_play_with_pitch(stage5_hongryun_fireball_sfx, randf_range(0.96, 1.04))
+
+
+func stop_stage5_hongryun_fireball() -> void:
+	if stage5_hongryun_fireball_sfx != null and stage5_hongryun_fireball_sfx.playing:
+		stage5_hongryun_fireball_sfx.stop()
+
+
+func play_stage5_hongryun_charge() -> void:
+	_play_with_pitch(stage5_hongryun_charge_sfx, randf_range(0.97, 1.03))
+
+
+func stop_stage5_hongryun_charge() -> void:
+	if stage5_hongryun_charge_sfx != null and stage5_hongryun_charge_sfx.playing:
+		stage5_hongryun_charge_sfx.stop()
+
+
+func play_stage5_hongryun_shoot() -> void:
+	_play_with_pitch(stage5_hongryun_shoot_sfx, randf_range(0.96, 1.04))
+
+
+func stop_stage5_hongryun_shoot() -> void:
+	if stage5_hongryun_shoot_sfx != null and stage5_hongryun_shoot_sfx.playing:
+		stage5_hongryun_shoot_sfx.stop()
+
+
+func play_stage5_hongryun_hurt() -> void:
+	var valid_players: Array[AudioStreamPlayer] = []
+	for value in stage5_hongryun_hurt_sfx:
+		if value is AudioStreamPlayer and (value as AudioStreamPlayer).stream != null:
+			valid_players.append(value as AudioStreamPlayer)
+	if valid_players.is_empty():
+		return
+	_play_with_pitch(valid_players[randi() % valid_players.size()], randf_range(0.96, 1.04))
+
+
 func play_stage4_phase2_bgm() -> bool:
 	return play_bgm("stage4_phase2")
 
@@ -1618,6 +1771,8 @@ func play_stage_bgm(stage: int) -> bool:
 		return play_bgm("stage3")
 	if stage == 4:
 		return play_bgm("stage4")
+	if stage == 5:
+		return play_bgm("stage5")
 	stop_bgm()
 	return false
 
@@ -1630,12 +1785,16 @@ func prime_stage_bgm(stage: int) -> bool:
 	if stage == 3:
 		return prime_bgm("stage3")
 	if stage == 4:
-		return prime_bgm("stage4")
+		var stage4_ready: bool = prime_bgm("stage4")
+		var phase2_ready: bool = prime_bgm("stage4_phase2")
+		return stage4_ready or phase2_ready
+	if stage == 5:
+		return prime_bgm("stage5")
 	return false
 
 
 func prime_bgm(bgm_name: String) -> bool:
-	var player: AudioStreamPlayer = _get_bgm_player(bgm_name)
+	var player: AudioStreamPlayer = _ensure_bgm_player(bgm_name)
 	if player == null or player.stream == null:
 		return false
 	if bgm_muted:
@@ -1654,7 +1813,7 @@ func prime_bgm(bgm_name: String) -> bool:
 
 
 func play_bgm(bgm_name: String) -> bool:
-	var player: AudioStreamPlayer = _get_bgm_player(bgm_name)
+	var player: AudioStreamPlayer = _ensure_bgm_player(bgm_name)
 	if player == null or player.stream == null:
 		return false
 	var target_volume_db: float = player.volume_db
@@ -1700,8 +1859,9 @@ func toggle_bgm() -> bool:
 
 func set_bgm_muted(muted: bool) -> bool:
 	if bgm_muted == muted:
+		BgmMuteState.set_muted(_get_owner_tree(), bgm_muted)
 		return bgm_muted
-	bgm_muted = muted
+	bgm_muted = BgmMuteState.set_muted(_get_owner_tree(), muted)
 	if bgm_muted:
 		muted_bgm_name = current_bgm_name
 		var muted_player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
@@ -1725,6 +1885,19 @@ func set_bgm_muted(muted: bool) -> bool:
 
 func is_bgm_muted() -> bool:
 	return bgm_muted
+
+
+func _restore_bgm_muted() -> void:
+	bgm_muted = BgmMuteState.is_muted(_get_owner_tree())
+
+
+func _get_owner_tree() -> SceneTree:
+	if owner_node != null and owner_node.is_inside_tree():
+		return owner_node.get_tree()
+	var main_loop := Engine.get_main_loop()
+	if main_loop is SceneTree:
+		return main_loop as SceneTree
+	return null
 
 
 func get_current_bgm_name() -> String:
@@ -1805,6 +1978,44 @@ func _create_optional_sfx_layers(name_prefix: String, path: String, volume_db: f
 	return players
 
 
+func _ensure_bgm_player(bgm_name: String) -> AudioStreamPlayer:
+	var player: AudioStreamPlayer = _get_bgm_player(bgm_name)
+	if _is_owned_player_ready(player):
+		return player
+	match bgm_name:
+		"stage1":
+			stage1_bgm = _create_bgm_player("Stage1Bgm", STAGE1_BGM_PATH, STAGE1_BGM_GAIN)
+			return stage1_bgm
+		"stage2":
+			stage2_bgm = _create_bgm_player("Stage2Bgm", STAGE2_BGM_PATH, STAGE2_BGM_GAIN)
+			return stage2_bgm
+		"stage2_alt":
+			stage2_alt_bgm = _create_bgm_player("Stage2AltBgm", STAGE2_ALT_BGM_PATH, STAGE2_BGM_GAIN)
+			return stage2_alt_bgm
+		"stage3":
+			stage3_bgm = _create_bgm_player("Stage3Bgm", STAGE3_BGM_PATH, STAGE3_BGM_GAIN)
+			return stage3_bgm
+		"stage4":
+			stage4_bgm = _create_bgm_player("Stage4Bgm", STAGE4_BGM_PATH, STAGE4_BGM_GAIN)
+			return stage4_bgm
+		"stage4_phase2":
+			stage4_phase2_bgm = _create_bgm_player("Stage4Phase2Bgm", STAGE4_PHASE2_BGM_PATH, STAGE4_BGM_GAIN)
+			return stage4_phase2_bgm
+		"stage5":
+			stage5_bgm = _create_bgm_player("Stage5Bgm", STAGE5_BGM_PATH, STAGE5_BGM_GAIN)
+			return stage5_bgm
+	return null
+
+
+func _create_bgm_player(name: String, path: String, gain: float) -> AudioStreamPlayer:
+	var player: AudioStreamPlayer = player_factory.create(owner_node, name, path, _volume_to_db(gain))
+	_enable_loop(player)
+	if player != null:
+		player.bus = BGM_BUS_NAME
+	_apply_bgm_bus_volume()
+	return player
+
+
 func _get_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 	if bgm_name == "stage1":
 		return stage1_bgm
@@ -1818,10 +2029,13 @@ func _get_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 		return stage4_bgm
 	if bgm_name == "stage4_phase2":
 		return stage4_phase2_bgm
+	if bgm_name == "stage5":
+		return stage5_bgm
 	return null
 
 
 func _apply_audio_buses_and_volumes() -> void:
+	_adopt_existing_audio_bus_volumes()
 	_ensure_audio_bus(BGM_BUS_NAME)
 	_ensure_audio_bus(SFX_BUS_NAME)
 	_apply_bgm_bus_to_players()
@@ -1830,8 +2044,26 @@ func _apply_audio_buses_and_volumes() -> void:
 	_apply_sfx_bus_volume()
 
 
+func _adopt_existing_audio_bus_volumes() -> void:
+	if audio_bus_volumes_adopted:
+		return
+	audio_bus_volumes_adopted = true
+	bgm_volume = _get_existing_audio_bus_volume(BGM_BUS_NAME, bgm_volume)
+	sfx_volume = _get_existing_audio_bus_volume(SFX_BUS_NAME, sfx_volume)
+
+
+func _get_existing_audio_bus_volume(bus_name: String, fallback: float) -> float:
+	var bus_index: int = AudioServer.get_bus_index(bus_name)
+	if bus_index < 0:
+		return fallback
+	var volume_db: float = AudioServer.get_bus_volume_db(bus_index)
+	if volume_db <= -79.0:
+		return 0.0
+	return clampf(db_to_linear(volume_db), 0.0, 1.0)
+
+
 func _apply_bgm_bus_to_players() -> void:
-	for player in [stage1_bgm, stage2_bgm, stage2_alt_bgm, stage3_bgm, stage4_bgm, stage4_phase2_bgm]:
+	for player in [stage1_bgm, stage2_bgm, stage2_alt_bgm, stage3_bgm, stage4_bgm, stage4_phase2_bgm, stage5_bgm]:
 		if player is AudioStreamPlayer:
 			(player as AudioStreamPlayer).bus = BGM_BUS_NAME
 
@@ -1927,6 +2159,7 @@ func _get_sfx_players() -> Array:
 		chaos_spear_impact_sfx,
 		chaos_spear_blackhole_sfx,
 		commando_supply_radio_sfx,
+		commando_supply_radio_loop_sfx,
 		commando_supply_aircraft_sfx,
 		commando_fire_support_radio_sfx,
 		commando_fire_support_aircraft_sfx,
@@ -1950,6 +2183,7 @@ func _get_sfx_players() -> Array:
 		foul_whistle_sfx,
 		megingjord_sfx,
 		legendary_open_sfx,
+		result_box_open_sfx,
 		legendary_after_sfx,
 		legendary_ending_sfx,
 		ragnarok_shot_sfx,
@@ -2010,8 +2244,11 @@ func _get_sfx_players() -> Array:
 		stage4_magnetic_sfx,
 		stage4_meditation_sfx,
 		stage4_meditation_after_sfx,
+		stage5_hongryun_fireball_sfx,
+		stage5_hongryun_charge_sfx,
+		stage5_hongryun_shoot_sfx,
 		leaf_shield_sfx,
-	] + commando_ak47_fire_sfx_layers
+	] + commando_ak47_fire_sfx_layers + stage5_hongryun_hurt_sfx
 
 
 func _select_stage2_bgm_name() -> String:

@@ -198,6 +198,10 @@ sounds/*.asd
 *.asd
 screenshots/screenshot_*.png
 screenshots/pingfighter_*.png
+
+# Local generated previews and scratch work
+.tmp/
+preview_outputs/
 screenshots/arena_test_*.png
 .tmp/automation/latest/
 .tmp/automation/*/prompt.md

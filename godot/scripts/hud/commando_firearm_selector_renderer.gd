@@ -3,15 +3,92 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const HUD_FRAME_TEXTURE_PATH := "res://assets/ui/commando_firearm_hud_frame_v1.png"
+const PISTOL_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_pistol_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png"
+const PISTOL_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_pistol_firearm_fire_recoil_sheet_autosprite_v1_realesrgan_animev3_hq1024.png"
+const AK47_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_ak47_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png"
+const AK47_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_ak47_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png"
+const BAZOOKA_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_bazooka_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png"
+const BAZOOKA_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_bazooka_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png"
+const BOWLING_TRAP_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_bowling_trap_firearm_icon_imagegen_v1.png"
+const BOWLING_TRAP_INSTALL_SHEET_PATH := "res://assets/sprites/hud/commando_bowling_trap_firearm_install_sheet_autosprite_v1.png"
+const BOWLING_TRAP_CAPTURE_SHEET_PATH := "res://assets/sprites/effects/commando_bowling_trap_capture_sheet_autosprite_v1.png"
 const PANEL_SIZE := Vector2(68.0, 112.0)
 const ICON_SIZE := Vector2(50.0, 50.0)
 const AMMO_AREA_SIZE := Vector2(58.0, 24.0)
 const HUD_AMMO_TRAY_OFFSET := Vector2(8.0, 90.0)
 const HUD_AMMO_TRAY_SIZE := Vector2(52.0, 15.0)
 const SLINGSHOT_METER_GRADIENT_SEGMENTS := 12
+const PISTOL_FIRE_RECOIL_GRID_COLS := 4
+const PISTOL_FIRE_RECOIL_GRID_ROWS := 4
+const PISTOL_FIRE_RECOIL_FRAME_COUNT := 16
+const PISTOL_FIRE_RECOIL_WINDUP_FRAME_COUNT := 4
+const PISTOL_FIRE_RECOIL_POST_FRAME_COUNT := 12
+const PISTOL_HUD_PICTURE_SCALE := 1.22
+const PISTOL_HUD_PICTURE_Y_OFFSET := 6.0
+const AK47_FIRE_RECOIL_GRID_COLS := 4
+const AK47_FIRE_RECOIL_GRID_ROWS := 4
+const AK47_FIRE_RECOIL_FRAME_COUNT := 16
+const AK47_HUD_PICTURE_SCALE := 1.16
+const AK47_HUD_PICTURE_Y_OFFSET := 2.0
+const AK47_FIRE_RECOIL_DRAW_SCALE := 1.24
+const AK47_HUD_RECOIL_PIVOT_RATIO := Vector2(0.24, 0.70)
+const AK47_HUD_RECOIL_ROTATION_DEGREES_BY_FRAME := [
+	0.0,
+	-2.5,
+	-5.5,
+	-8.0,
+	-5.5,
+	-2.5,
+	-8.5,
+	-5.5,
+	-3.0,
+	-7.0,
+	-4.0,
+	-2.0,
+	-1.0,
+	-0.4,
+	0.0,
+	0.0,
+]
+const BAZOOKA_FIRE_RECOIL_GRID_COLS := 4
+const BAZOOKA_FIRE_RECOIL_GRID_ROWS := 4
+const BAZOOKA_FIRE_RECOIL_FRAME_COUNT := 16
+const BAZOOKA_HUD_PICTURE_SCALE := 1.16
+const BAZOOKA_HUD_PICTURE_Y_OFFSET := 2.0
+const BAZOOKA_FIRE_RECOIL_DRAW_SCALE := 1.42
+const BOWLING_TRAP_HUD_PICTURE_SCALE := 1.20
+const BOWLING_TRAP_HUD_PICTURE_Y_OFFSET := 0.0
+const BOWLING_TRAP_INSTALL_GRID_COLS := 4
+const BOWLING_TRAP_INSTALL_GRID_ROWS := 4
+const BOWLING_TRAP_INSTALL_FRAME_COUNT := 16
+const BOWLING_TRAP_HUD_INSTALL_DRAW_SCALE := 1.12
+const BOWLING_TRAP_CAPTURE_GRID_COLS := 4
+const BOWLING_TRAP_CAPTURE_GRID_ROWS := 4
+const BOWLING_TRAP_CAPTURE_FRAME_COUNT := 16
+const BOWLING_TRAP_HUD_CAPTURE_DRAW_SCALE := 1.10
+const BOWLING_TRAP_HUD_MOTION_PIVOT_RATIO := Vector2(0.5, 0.62)
 
 var _hud_frame_texture_checked := false
 var _hud_frame_texture: Texture2D = null
+var _weapon_texture_checked: Dictionary = {}
+var _weapon_texture_cache: Dictionary = {}
+
+
+func prewarm_assets() -> void:
+	_get_hud_frame_texture()
+	_get_cached_weapon_texture(PISTOL_ICON_TEXTURE_PATH)
+	_get_cached_weapon_texture(PISTOL_FIRE_RECOIL_SHEET_PATH)
+	_get_cached_weapon_texture(AK47_ICON_TEXTURE_PATH)
+	_get_cached_weapon_texture(AK47_FIRE_RECOIL_SHEET_PATH)
+	_get_cached_weapon_texture(BAZOOKA_ICON_TEXTURE_PATH)
+	_get_cached_weapon_texture(BAZOOKA_FIRE_RECOIL_SHEET_PATH)
+	_get_cached_weapon_texture(BOWLING_TRAP_ICON_TEXTURE_PATH)
+	_get_cached_weapon_texture(BOWLING_TRAP_INSTALL_SHEET_PATH)
+	_get_cached_weapon_texture(BOWLING_TRAP_CAPTURE_SHEET_PATH)
+
+
+func prewarm_textures() -> void:
+	prewarm_assets()
 
 
 func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary) -> Dictionary:
@@ -41,10 +118,24 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 	)
 	var ammo_icon_state: Dictionary = build_ammo_icon_state(weapon, current_weapon_id)
 	var status_text: String = str(weapon.get("ammo_text", ""))
+	var pistol_state: Dictionary = _get_dict(context.get("commando_firearm_pistol_state", {}))
+	var weapon_fire_state: Dictionary = _get_dict(context.get("commando_firearm_weapon_fire_sheet_state", {}))
+	var bowling_trap_state: Dictionary = _get_dict(context.get("commando_firearm_bowling_trap_state", {}))
+	var bowling_traps: Array = _get_array(context.get("commando_firearm_bowling_traps", []))
+	var hud_highlight_state: Dictionary = _get_dict(snapshot.get("hud_highlight_state", context.get("commando_firearm_hud_highlight_state", {})))
 	return {
 		"panel_count": 1,
 		"rect": rect,
 		"hud_frame_path": HUD_FRAME_TEXTURE_PATH,
+		"pistol_icon_path": PISTOL_ICON_TEXTURE_PATH,
+		"pistol_fire_recoil_sheet_path": PISTOL_FIRE_RECOIL_SHEET_PATH,
+		"ak47_icon_path": AK47_ICON_TEXTURE_PATH,
+		"ak47_fire_recoil_sheet_path": AK47_FIRE_RECOIL_SHEET_PATH,
+		"bazooka_icon_path": BAZOOKA_ICON_TEXTURE_PATH,
+		"bazooka_fire_recoil_sheet_path": BAZOOKA_FIRE_RECOIL_SHEET_PATH,
+		"bowling_trap_icon_path": BOWLING_TRAP_ICON_TEXTURE_PATH,
+		"bowling_trap_install_sheet_path": BOWLING_TRAP_INSTALL_SHEET_PATH,
+		"bowling_trap_capture_sheet_path": BOWLING_TRAP_CAPTURE_SHEET_PATH,
 		"hud_frame_rect": rect,
 		"icon_rect": icon_rect,
 		"meter_rect": ammo_rect,
@@ -61,6 +152,32 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 		"can_fire": bool(weapon.get("can_fire", true)),
 		"color": color,
 		"slingshot_state": slingshot_state,
+		"pistol_state": pistol_state,
+		"weapon_fire_state": weapon_fire_state,
+		"bowling_trap_state": bowling_trap_state,
+		"bowling_traps": bowling_traps,
+		"hud_highlight_state": hud_highlight_state,
+		"hud_highlight_active": _is_hud_highlight_active(current_weapon_id, hud_highlight_state),
+		"hud_highlight_ratio": _get_hud_highlight_ratio(hud_highlight_state),
+		"pistol_fire_recoil_active": _is_pistol_fire_animation_active(current_weapon_id, pistol_state),
+		"pistol_fire_recoil_frame": _get_pistol_fire_recoil_frame(pistol_state),
+		"pistol_fire_recoil_frame_count": PISTOL_FIRE_RECOIL_FRAME_COUNT,
+		"ak47_fire_recoil_active": _is_ak47_fire_animation_active(current_weapon_id, weapon_fire_state),
+		"ak47_fire_recoil_frame": _get_ak47_fire_recoil_frame(weapon_fire_state),
+		"ak47_fire_recoil_frame_count": AK47_FIRE_RECOIL_FRAME_COUNT,
+		"ak47_fire_recoil_draw_scale": AK47_FIRE_RECOIL_DRAW_SCALE,
+		"ak47_fire_recoil_rotation_degrees": _get_ak47_fire_recoil_rotation_degrees(current_weapon_id, weapon_fire_state),
+		"bazooka_fire_recoil_active": _is_bazooka_fire_animation_active(current_weapon_id, weapon_fire_state),
+		"bazooka_fire_recoil_frame": _get_bazooka_fire_recoil_frame(weapon_fire_state),
+		"bazooka_fire_recoil_frame_count": BAZOOKA_FIRE_RECOIL_FRAME_COUNT,
+		"bazooka_fire_recoil_draw_scale": BAZOOKA_FIRE_RECOIL_DRAW_SCALE,
+		"bowling_trap_ui_animation_active": _is_bowling_trap_ui_animation_active(current_weapon_id, bowling_trap_state, bowling_traps),
+		"bowling_trap_ui_install_animation_active": _is_bowling_trap_install_ui_animation_active(current_weapon_id, bowling_trap_state, bowling_traps),
+		"bowling_trap_ui_install_animation_frame": _get_bowling_trap_install_ui_animation_frame(bowling_trap_state, bowling_traps),
+		"bowling_trap_ui_install_animation_frame_count": BOWLING_TRAP_INSTALL_FRAME_COUNT,
+		"bowling_trap_ui_capture_animation_active": _is_bowling_trap_capture_ui_animation_active(current_weapon_id, bowling_traps),
+		"bowling_trap_ui_animation_frame": _get_bowling_trap_ui_animation_frame(bowling_traps),
+		"bowling_trap_ui_animation_frame_count": BOWLING_TRAP_CAPTURE_FRAME_COUNT,
 		"ammo_icon_state": ammo_icon_state,
 	}
 
@@ -80,10 +197,15 @@ func draw(canvas: CanvasItem, center: Vector2, scale_factor: float, context: Dic
 	var _badge: String = str(panel_state.get("badge", ""))
 	var rental: bool = bool(panel_state.get("rental", false))
 	var can_fire: bool = bool(panel_state.get("can_fire", true))
+	var pistol_state: Dictionary = _get_dict(panel_state.get("pistol_state", {}))
+	var weapon_fire_state: Dictionary = _get_dict(panel_state.get("weapon_fire_state", {}))
+	var bowling_trap_state: Dictionary = _get_dict(panel_state.get("bowling_trap_state", {}))
+	var bowling_traps: Array = _get_array(panel_state.get("bowling_traps", []))
 	var safe_scale: float = max(0.55, float(panel_state.get("resolved_scale", scale_factor)))
 	var font: Font = ThemeDB.fallback_font
 
 	_draw_hud_frame(canvas, rect, safe_scale)
+	_draw_hud_highlight(canvas, rect, safe_scale, panel_state)
 	if rental:
 		canvas.draw_string(
 			font,
@@ -104,10 +226,37 @@ func draw(canvas: CanvasItem, center: Vector2, scale_factor: float, context: Dic
 		Color(0.82, 0.84, 0.82, 0.96) if not rental else Color(0.98, 0.94, 0.38, 0.96)
 	)
 
-	_draw_weapon_slot(canvas, icon_rect, current_weapon_id, color, can_fire, rental, safe_scale)
+	_draw_weapon_slot(canvas, icon_rect, current_weapon_id, color, can_fire, rental, safe_scale, pistol_state, weapon_fire_state, bowling_trap_state, bowling_traps)
 	var ammo_icon_state: Dictionary = _get_dict(panel_state.get("ammo_icon_state", {}))
 	if not ammo_icon_state.is_empty():
 		_draw_ammo_icon_display(canvas, meter_rect, safe_scale, ammo_icon_state, color)
+
+
+func _draw_hud_highlight(canvas: CanvasItem, rect: Rect2, scale_factor: float, panel_state: Dictionary) -> void:
+	if not bool(panel_state.get("hud_highlight_active", false)):
+		return
+	var ratio: float = clamp(float(panel_state.get("hud_highlight_ratio", 0.0)), 0.0, 1.0)
+	if ratio <= 0.0:
+		return
+	var highlight_state: Dictionary = _get_dict(panel_state.get("hud_highlight_state", {}))
+	var timer_frames: float = float(highlight_state.get("timer_frames", 0.0))
+	var pulse: float = 0.5 + 0.5 * sin(timer_frames * 0.30)
+	var strength: float = clamp(ratio * (0.55 + 0.45 * pulse), 0.0, 1.0)
+	var glow_color := Color(1.0, 0.50 + 0.38 * pulse, 0.04, 1.0)
+	canvas.draw_rect(rect.grow(-6.0 * scale_factor), Color(0.34, 0.25, 0.04, 0.10 * strength), true)
+	for i in range(3, 0, -1):
+		var grow: float = float(i) * 4.0 * scale_factor
+		var layer_alpha: float = strength * (0.06 + float(4 - i) * 0.035)
+		canvas.draw_rect(
+			rect.grow(grow),
+			Color(glow_color.r, glow_color.g, glow_color.b, layer_alpha),
+			false,
+			max(1.0, float(i + 1) * scale_factor)
+		)
+	var inner := rect.grow(-5.0 * scale_factor)
+	canvas.draw_rect(inner, Color(1.0, 0.82, 0.18, 0.32 * strength), false, max(1.0, 2.0 * scale_factor))
+	canvas.draw_line(inner.position, Vector2(inner.end.x, inner.position.y), Color(1.0, 0.95, 0.55, 0.45 * strength), max(1.0, scale_factor), true)
+	canvas.draw_line(inner.position, Vector2(inner.position.x, inner.end.y), Color(1.0, 0.95, 0.55, 0.30 * strength), max(1.0, scale_factor), true)
 
 
 func _draw_hud_frame(canvas: CanvasItem, rect: Rect2, scale_factor: float) -> void:
@@ -137,43 +286,501 @@ func _get_hud_frame_texture() -> Texture2D:
 	return _hud_frame_texture
 
 
-func _draw_weapon_slot(canvas: CanvasItem, icon_rect: Rect2, weapon_id: String, color: Color, can_fire: bool, rental: bool, scale_factor: float) -> void:
-	var shadow_rect := icon_rect.grow(2.0 * scale_factor)
-	canvas.draw_rect(shadow_rect, Color(0.0, 0.0, 0.0, 0.34), true)
-	canvas.draw_rect(icon_rect, Color(0.13, 0.13, 0.13, 0.92), true)
-	var border_color := Color(0.62, 0.64, 0.64, 0.90)
-	if rental:
-		border_color = Color(1.0, 0.10, 0.08, 0.96)
-	elif not can_fire:
-		border_color = Color(0.44, 0.44, 0.46, 0.84)
-	canvas.draw_rect(icon_rect, border_color, false, max(1.0, 2.0 * scale_factor))
-	_draw_weapon_picture(canvas, icon_rect.grow(-4.0 * scale_factor), weapon_id, color, can_fire, scale_factor)
+func _draw_weapon_slot(canvas: CanvasItem, icon_rect: Rect2, weapon_id: String, color: Color, can_fire: bool, _rental: bool, scale_factor: float, pistol_state: Dictionary = {}, weapon_fire_state: Dictionary = {}, bowling_trap_state: Dictionary = {}, bowling_traps: Array = []) -> void:
+	_draw_weapon_picture(canvas, _get_weapon_picture_rect(icon_rect, weapon_id, scale_factor), weapon_id, color, can_fire, scale_factor, pistol_state, weapon_fire_state, bowling_trap_state, bowling_traps)
 	if not can_fire:
 		canvas.draw_rect(icon_rect, Color(0.0, 0.0, 0.0, 0.34), true)
 		canvas.draw_line(icon_rect.position + Vector2(5.0, 5.0) * scale_factor, icon_rect.end - Vector2(5.0, 5.0) * scale_factor, Color(0.78, 0.20, 0.20, 0.90), max(1.0, 2.0 * scale_factor), true)
 
 
-func _draw_weapon_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, color: Color, active: bool, scale_factor: float) -> void:
+func _get_weapon_picture_rect(icon_rect: Rect2, weapon_id: String, scale_factor: float) -> Rect2:
+	if weapon_id == "pistol" or weapon_id == "commando_pistol":
+		var draw_size := icon_rect.size * PISTOL_HUD_PICTURE_SCALE
+		var position := Vector2(
+			icon_rect.position.x + (icon_rect.size.x - draw_size.x) * 0.5,
+			icon_rect.position.y + PISTOL_HUD_PICTURE_Y_OFFSET * scale_factor
+		)
+		return Rect2(position, draw_size)
+	if weapon_id == "ak47":
+		var draw_size := icon_rect.size * AK47_HUD_PICTURE_SCALE
+		var position := Vector2(
+			icon_rect.position.x + (icon_rect.size.x - draw_size.x) * 0.5,
+			icon_rect.position.y + (icon_rect.size.y - draw_size.y) * 0.5 + AK47_HUD_PICTURE_Y_OFFSET * scale_factor
+		)
+		return Rect2(position, draw_size)
+	if weapon_id == "bazooka":
+		var draw_size := icon_rect.size * BAZOOKA_HUD_PICTURE_SCALE
+		var position := Vector2(
+			icon_rect.position.x + (icon_rect.size.x - draw_size.x) * 0.5,
+			icon_rect.position.y + (icon_rect.size.y - draw_size.y) * 0.5 + BAZOOKA_HUD_PICTURE_Y_OFFSET * scale_factor
+		)
+		return Rect2(position, draw_size)
+	if weapon_id == "bowling_trap":
+		var draw_size := icon_rect.size * BOWLING_TRAP_HUD_PICTURE_SCALE
+		var position := Vector2(
+			icon_rect.position.x + (icon_rect.size.x - draw_size.x) * 0.5,
+			icon_rect.position.y + (icon_rect.size.y - draw_size.y) * 0.5 + BOWLING_TRAP_HUD_PICTURE_Y_OFFSET * scale_factor
+		)
+		return Rect2(position, draw_size)
+	return icon_rect.grow(-4.0 * scale_factor)
+
+
+func _draw_weapon_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, color: Color, active: bool, scale_factor: float, pistol_state: Dictionary = {}, weapon_fire_state: Dictionary = {}, bowling_trap_state: Dictionary = {}, bowling_traps: Array = []) -> void:
 	var base_alpha: float = 1.0 if active else 0.48
 	match weapon_id:
 		"pistol":
+			if _draw_pistol_png_picture(canvas, rect, weapon_id, base_alpha, pistol_state):
+				return
 			_draw_pistol_picture(canvas, rect, base_alpha, scale_factor)
 		"ak47":
+			if _draw_ak47_png_picture(canvas, rect, weapon_id, base_alpha, weapon_fire_state):
+				return
 			_draw_ak47_picture(canvas, rect, base_alpha, scale_factor)
 		"commando_pistol":
+			if _draw_pistol_png_picture(canvas, rect, weapon_id, base_alpha, pistol_state):
+				return
 			_draw_beretta_picture(canvas, rect, base_alpha, scale_factor)
 		"net_gun":
 			_draw_net_gun_picture(canvas, rect, base_alpha, scale_factor)
 		"bazooka":
+			if _draw_bazooka_png_picture(canvas, rect, weapon_id, base_alpha, weapon_fire_state):
+				return
 			_draw_bazooka_picture(canvas, rect, base_alpha, scale_factor)
 		"fire_support":
 			_draw_fire_support_picture(canvas, rect, base_alpha, scale_factor)
 		"bowling_trap":
+			if _draw_bowling_trap_png_picture(canvas, rect, base_alpha, bowling_trap_state, bowling_traps, scale_factor):
+				return
 			_draw_bowling_trap_picture(canvas, rect, base_alpha, scale_factor)
 		"suicide_drone":
 			_draw_drone_picture(canvas, rect, base_alpha, scale_factor)
 		_:
 			canvas.draw_circle(rect.get_center(), min(rect.size.x, rect.size.y) * 0.25, Color(color.r, color.g, color.b, base_alpha))
+
+
+func _draw_pistol_png_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, alpha: float, pistol_state: Dictionary) -> bool:
+	if _is_pistol_fire_animation_active(weapon_id, pistol_state):
+		var sheet: Texture2D = _get_cached_weapon_texture(PISTOL_FIRE_RECOIL_SHEET_PATH)
+		if sheet is Texture2D:
+			var frame: int = _get_pistol_fire_recoil_frame(pistol_state)
+			canvas.draw_texture_rect_region(
+				sheet,
+				rect,
+				_get_pistol_fire_recoil_source_rect(sheet, frame),
+				Color(1.0, 1.0, 1.0, alpha),
+				false,
+				true
+			)
+			return true
+	var icon: Texture2D = _get_cached_weapon_texture(PISTOL_ICON_TEXTURE_PATH)
+	if icon is Texture2D:
+		canvas.draw_texture_rect(icon, rect, false, Color(1.0, 1.0, 1.0, alpha))
+		return true
+	return false
+
+
+func _draw_ak47_png_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, alpha: float, weapon_fire_state: Dictionary) -> bool:
+	if _is_ak47_fire_animation_active(weapon_id, weapon_fire_state):
+		var sheet: Texture2D = _get_cached_weapon_texture(AK47_FIRE_RECOIL_SHEET_PATH)
+		if sheet is Texture2D:
+			var frame: int = _get_ak47_fire_recoil_frame(weapon_fire_state)
+			var source_rect: Rect2 = _get_ak47_fire_recoil_source_rect(sheet, frame)
+			var modulate := Color(1.0, 1.0, 1.0, alpha)
+			var fire_rect: Rect2 = _scale_rect_around_pivot(rect, AK47_FIRE_RECOIL_DRAW_SCALE, AK47_HUD_RECOIL_PIVOT_RATIO)
+			var rotation_degrees: float = _get_ak47_fire_recoil_rotation_degrees(weapon_id, weapon_fire_state)
+			if abs(rotation_degrees) > 0.01:
+				_draw_texture_rect_region_rotated(
+					canvas,
+					sheet,
+					source_rect,
+					fire_rect,
+					modulate,
+					deg_to_rad(rotation_degrees),
+					AK47_HUD_RECOIL_PIVOT_RATIO
+				)
+			else:
+				canvas.draw_texture_rect_region(sheet, fire_rect, source_rect, modulate, false, true)
+			return true
+	var icon: Texture2D = _get_cached_weapon_texture(AK47_ICON_TEXTURE_PATH)
+	if icon is Texture2D:
+		canvas.draw_texture_rect(icon, rect, false, Color(1.0, 1.0, 1.0, alpha))
+		return true
+	return false
+
+
+func _draw_bazooka_png_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, alpha: float, weapon_fire_state: Dictionary) -> bool:
+	if _is_bazooka_fire_animation_active(weapon_id, weapon_fire_state):
+		var sheet: Texture2D = _get_cached_weapon_texture(BAZOOKA_FIRE_RECOIL_SHEET_PATH)
+		if sheet is Texture2D:
+			var frame: int = _get_bazooka_fire_recoil_frame(weapon_fire_state)
+			var fire_rect: Rect2 = _scale_rect_around_pivot(rect, BAZOOKA_FIRE_RECOIL_DRAW_SCALE, Vector2(0.5, 0.5))
+			canvas.draw_texture_rect_region(
+				sheet,
+				fire_rect,
+				_get_bazooka_fire_recoil_source_rect(sheet, frame),
+				Color(1.0, 1.0, 1.0, alpha),
+				false,
+				true
+			)
+			return true
+	var icon: Texture2D = _get_cached_weapon_texture(BAZOOKA_ICON_TEXTURE_PATH)
+	if icon is Texture2D:
+		canvas.draw_texture_rect(icon, rect, false, Color(1.0, 1.0, 1.0, alpha))
+		return true
+	return false
+
+
+func _draw_bowling_trap_png_picture(canvas: CanvasItem, rect: Rect2, alpha: float, bowling_trap_state: Dictionary, bowling_traps: Array, scale_factor: float) -> bool:
+	var hud_trap: Dictionary = _get_bowling_trap_hud_trap(bowling_traps)
+	if str(hud_trap.get("state", "")) == "installing":
+		var install_sheet: Texture2D = _get_cached_weapon_texture(BOWLING_TRAP_INSTALL_SHEET_PATH)
+		if install_sheet is Texture2D:
+			var install_frame: int = _get_bowling_trap_install_ui_animation_frame(bowling_trap_state, bowling_traps)
+			var install_rect: Rect2 = _scale_rect_around_pivot(rect, BOWLING_TRAP_HUD_INSTALL_DRAW_SCALE, Vector2(0.5, 0.5))
+			canvas.draw_texture_rect_region(
+				install_sheet,
+				install_rect,
+				_get_bowling_trap_install_source_rect(install_sheet, install_frame),
+				Color(1.0, 1.0, 1.0, alpha),
+				false,
+				true
+			)
+			return true
+	if str(hud_trap.get("state", "")) == "capturing":
+		var sheet: Texture2D = _get_cached_weapon_texture(BOWLING_TRAP_CAPTURE_SHEET_PATH)
+		if sheet is Texture2D:
+			var frame: int = _get_bowling_trap_ui_animation_frame(bowling_traps)
+			var capture_rect: Rect2 = _scale_rect_around_pivot(rect, BOWLING_TRAP_HUD_CAPTURE_DRAW_SCALE, Vector2(0.5, 0.5))
+			canvas.draw_texture_rect_region(
+				sheet,
+				capture_rect,
+				_get_bowling_trap_capture_source_rect(sheet, frame),
+				Color(1.0, 1.0, 1.0, alpha),
+				false,
+				true
+			)
+			return true
+	var icon: Texture2D = _get_cached_weapon_texture(BOWLING_TRAP_ICON_TEXTURE_PATH)
+	if icon is Texture2D:
+		var draw_rect: Rect2 = rect
+		var rotation: float = 0.0
+		if _is_bowling_trap_ui_animation_active("bowling_trap", bowling_trap_state, bowling_traps):
+			draw_rect = _get_bowling_trap_motion_rect(rect, bowling_trap_state, hud_trap, scale_factor)
+			rotation = _get_bowling_trap_motion_rotation(bowling_trap_state, hud_trap)
+		if abs(rotation) > 0.001:
+			_draw_texture_rect_region_rotated(
+				canvas,
+				icon,
+				Rect2(Vector2.ZERO, icon.get_size()),
+				draw_rect,
+				Color(1.0, 1.0, 1.0, alpha),
+				rotation,
+				BOWLING_TRAP_HUD_MOTION_PIVOT_RATIO
+			)
+		else:
+			canvas.draw_texture_rect(icon, draw_rect, false, Color(1.0, 1.0, 1.0, alpha))
+		return true
+	return false
+
+
+func _is_hud_highlight_active(weapon_id: String, highlight_state: Dictionary) -> bool:
+	if not bool(highlight_state.get("active", false)):
+		return false
+	if float(highlight_state.get("timer_frames", 0.0)) <= 0.0:
+		return false
+	var highlighted_weapon_id: String = str(highlight_state.get("weapon_id", ""))
+	return highlighted_weapon_id.is_empty() or highlighted_weapon_id == weapon_id
+
+
+func _get_hud_highlight_ratio(highlight_state: Dictionary) -> float:
+	if not bool(highlight_state.get("active", false)):
+		return 0.0
+	var explicit_ratio: float = float(highlight_state.get("ratio", -1.0))
+	if explicit_ratio >= 0.0:
+		return clamp(explicit_ratio, 0.0, 1.0)
+	var timer_frames: float = max(0.0, float(highlight_state.get("timer_frames", 0.0)))
+	var timer_max_frames: float = max(1.0, float(highlight_state.get("timer_max_frames", 1.0)))
+	return clamp(timer_frames / timer_max_frames, 0.0, 1.0)
+
+
+func _is_pistol_fire_animation_active(weapon_id: String, pistol_state: Dictionary) -> bool:
+	if weapon_id != "pistol" and weapon_id != "commando_pistol":
+		return false
+	return (
+		float(pistol_state.get("fire_delay_frames", 0.0)) > 0.0
+		or float(pistol_state.get("post_fire_animation_frames", 0.0)) > 0.0
+	)
+
+
+func _is_ak47_fire_animation_active(weapon_id: String, weapon_fire_state: Dictionary) -> bool:
+	return (
+		weapon_id == "ak47"
+		and bool(weapon_fire_state.get("active", false))
+		and str(weapon_fire_state.get("weapon_id", "")) == "ak47"
+		and float(weapon_fire_state.get("timer_frames", 0.0)) > 0.0
+	)
+
+
+func _is_bazooka_fire_animation_active(weapon_id: String, weapon_fire_state: Dictionary) -> bool:
+	return (
+		weapon_id == "bazooka"
+		and bool(weapon_fire_state.get("active", false))
+		and str(weapon_fire_state.get("weapon_id", "")) == "bazooka"
+		and float(weapon_fire_state.get("timer_frames", 0.0)) > 0.0
+	)
+
+
+func _is_bowling_trap_ui_animation_active(weapon_id: String, bowling_trap_state: Dictionary, bowling_traps: Array) -> bool:
+	if weapon_id != "bowling_trap":
+		return false
+	if _get_bowling_trap_hud_trap(bowling_traps).is_empty() and not bool(bowling_trap_state.get("installing", false)):
+		return false
+	return (
+		bool(bowling_trap_state.get("installing", false))
+		or float(bowling_trap_state.get("install_pose_frames", 0.0)) > 0.0
+		or float(bowling_trap_state.get("control_lock_frames", 0.0)) > 0.0
+		or not _get_bowling_trap_hud_trap(bowling_traps).is_empty()
+	)
+
+
+func _is_bowling_trap_capture_ui_animation_active(weapon_id: String, bowling_traps: Array) -> bool:
+	if weapon_id != "bowling_trap":
+		return false
+	return str(_get_bowling_trap_hud_trap(bowling_traps).get("state", "")) == "capturing"
+
+
+func _is_bowling_trap_install_ui_animation_active(weapon_id: String, bowling_trap_state: Dictionary, bowling_traps: Array) -> bool:
+	if weapon_id != "bowling_trap":
+		return false
+	return (
+		str(_get_bowling_trap_hud_trap(bowling_traps).get("state", "")) == "installing"
+		or bool(bowling_trap_state.get("installing", false))
+	)
+
+
+func _get_pistol_fire_recoil_frame(pistol_state: Dictionary) -> int:
+	var fire_delay_frames: float = float(pistol_state.get("fire_delay_frames", 0.0))
+	var fire_delay_max_frames: float = max(1.0, float(pistol_state.get("fire_delay_max_frames", 1.0)))
+	if fire_delay_frames > 0.0:
+		var windup_progress: float = clamp(1.0 - fire_delay_frames / fire_delay_max_frames, 0.0, 1.0)
+		return clampi(
+			int(windup_progress * float(PISTOL_FIRE_RECOIL_WINDUP_FRAME_COUNT)),
+			0,
+			PISTOL_FIRE_RECOIL_WINDUP_FRAME_COUNT - 1
+		)
+	var post_fire_frames: float = float(pistol_state.get("post_fire_animation_frames", 0.0))
+	var post_fire_max_frames: float = max(1.0, float(pistol_state.get("post_fire_animation_max_frames", 1.0)))
+	if post_fire_frames > 0.0:
+		var post_progress: float = clamp(1.0 - post_fire_frames / post_fire_max_frames, 0.0, 1.0)
+		return clampi(
+			PISTOL_FIRE_RECOIL_WINDUP_FRAME_COUNT + int(post_progress * float(PISTOL_FIRE_RECOIL_POST_FRAME_COUNT)),
+			PISTOL_FIRE_RECOIL_WINDUP_FRAME_COUNT,
+			PISTOL_FIRE_RECOIL_FRAME_COUNT - 1
+		)
+	return 0
+
+
+func _get_ak47_fire_recoil_frame(weapon_fire_state: Dictionary) -> int:
+	var timer_frames: float = max(0.0, float(weapon_fire_state.get("timer_frames", 0.0)))
+	var timer_max_frames: float = max(1.0, float(weapon_fire_state.get("timer_max_frames", 1.0)))
+	var progress: float = clamp(1.0 - timer_frames / timer_max_frames, 0.0, 1.0)
+	return clampi(int(progress * float(AK47_FIRE_RECOIL_FRAME_COUNT)), 0, AK47_FIRE_RECOIL_FRAME_COUNT - 1)
+
+
+func _get_ak47_fire_recoil_rotation_degrees(weapon_id: String, weapon_fire_state: Dictionary) -> float:
+	if not _is_ak47_fire_animation_active(weapon_id, weapon_fire_state):
+		return 0.0
+	var frame: int = _get_ak47_fire_recoil_frame(weapon_fire_state)
+	return float(AK47_HUD_RECOIL_ROTATION_DEGREES_BY_FRAME[clampi(frame, 0, AK47_FIRE_RECOIL_FRAME_COUNT - 1)])
+
+
+func _get_bazooka_fire_recoil_frame(weapon_fire_state: Dictionary) -> int:
+	var timer_frames: float = max(0.0, float(weapon_fire_state.get("timer_frames", 0.0)))
+	var timer_max_frames: float = max(1.0, float(weapon_fire_state.get("timer_max_frames", 1.0)))
+	var progress: float = clamp(1.0 - timer_frames / timer_max_frames, 0.0, 1.0)
+	return clampi(int(progress * float(BAZOOKA_FIRE_RECOIL_FRAME_COUNT)), 0, BAZOOKA_FIRE_RECOIL_FRAME_COUNT - 1)
+
+
+func _get_bowling_trap_ui_animation_frame(bowling_traps: Array) -> int:
+	var hud_trap: Dictionary = _get_bowling_trap_hud_trap(bowling_traps)
+	if str(hud_trap.get("state", "")) != "capturing":
+		return 0
+	var raw_progress: float = float(hud_trap.get("capture_progress", -1.0))
+	var progress: float = clamp(raw_progress, 0.0, 1.0)
+	if raw_progress < 0.0:
+		var timer_frames: float = max(0.0, float(hud_trap.get("timer_frames", 0.0)))
+		var timer_max_frames: float = max(1.0, float(hud_trap.get("max_timer_frames", 1.0)))
+		progress = clamp(1.0 - timer_frames / timer_max_frames, 0.0, 1.0)
+	return clampi(int(progress * float(BOWLING_TRAP_CAPTURE_FRAME_COUNT)), 0, BOWLING_TRAP_CAPTURE_FRAME_COUNT - 1)
+
+
+func _get_bowling_trap_install_ui_animation_frame(bowling_trap_state: Dictionary, bowling_traps: Array) -> int:
+	var hud_trap: Dictionary = _get_bowling_trap_hud_trap(bowling_traps)
+	var raw_progress: float = float(hud_trap.get("install_progress", bowling_trap_state.get("install_progress", -1.0)))
+	var progress: float = clamp(raw_progress, 0.0, 1.0)
+	if raw_progress < 0.0:
+		var timer_frames: float = max(0.0, float(hud_trap.get("timer_frames", 0.0)))
+		var timer_max_frames: float = max(1.0, float(hud_trap.get("max_timer_frames", 1.0)))
+		progress = clamp(1.0 - timer_frames / timer_max_frames, 0.0, 1.0)
+	return clampi(int(progress * float(BOWLING_TRAP_INSTALL_FRAME_COUNT)), 0, BOWLING_TRAP_INSTALL_FRAME_COUNT - 1)
+
+
+func _get_bowling_trap_hud_trap(bowling_traps: Array) -> Dictionary:
+	for preferred_state in ["capturing", "installing", "waiting"]:
+		for trap_value in bowling_traps:
+			var trap: Dictionary = _get_dict(trap_value)
+			if str(trap.get("state", "")) == preferred_state:
+				return trap
+	return {}
+
+
+func _get_bowling_trap_motion_rect(rect: Rect2, bowling_trap_state: Dictionary, hud_trap: Dictionary, scale_factor: float) -> Rect2:
+	var trap_state: String = str(hud_trap.get("state", ""))
+	if trap_state == "installing":
+		var install_progress: float = clamp(float(hud_trap.get("install_progress", bowling_trap_state.get("install_progress", 0.0))), 0.0, 1.0)
+		var install_scale: float = 0.92 + 0.12 * sin(install_progress * PI * 0.5)
+		var install_y: float = (1.0 - install_progress) * 4.0 * scale_factor
+		return _scale_rect_around_pivot(Rect2(rect.position + Vector2(0.0, install_y), rect.size), install_scale, BOWLING_TRAP_HUD_MOTION_PIVOT_RATIO)
+	var phase: float = float(Time.get_ticks_msec()) * 0.012
+	var pulse: float = 0.5 + 0.5 * sin(phase)
+	var bob: float = -1.8 * sin(phase) * scale_factor
+	return _scale_rect_around_pivot(Rect2(rect.position + Vector2(0.0, bob), rect.size), 1.0 + 0.035 * pulse, BOWLING_TRAP_HUD_MOTION_PIVOT_RATIO)
+
+
+func _get_bowling_trap_motion_rotation(bowling_trap_state: Dictionary, hud_trap: Dictionary) -> float:
+	var trap_state: String = str(hud_trap.get("state", ""))
+	if trap_state == "installing":
+		var install_progress: float = clamp(float(hud_trap.get("install_progress", bowling_trap_state.get("install_progress", 0.0))), 0.0, 1.0)
+		return lerpf(-0.08, 0.03, install_progress)
+	return sin(float(Time.get_ticks_msec()) * 0.012) * 0.045
+
+
+func _get_pistol_fire_recoil_source_rect(sheet: Texture2D, frame: int) -> Rect2:
+	var frame_index: int = clampi(frame, 0, PISTOL_FIRE_RECOIL_FRAME_COUNT - 1)
+	var texture_size: Vector2 = sheet.get_size()
+	var cell_w: float = texture_size.x / float(PISTOL_FIRE_RECOIL_GRID_COLS)
+	var cell_h: float = texture_size.y / float(PISTOL_FIRE_RECOIL_GRID_ROWS)
+	var col: int = frame_index % PISTOL_FIRE_RECOIL_GRID_COLS
+	@warning_ignore("integer_division")
+	var row: int = int(frame_index / PISTOL_FIRE_RECOIL_GRID_COLS)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
+func _get_ak47_fire_recoil_source_rect(sheet: Texture2D, frame: int) -> Rect2:
+	var frame_index: int = clampi(frame, 0, AK47_FIRE_RECOIL_FRAME_COUNT - 1)
+	var texture_size: Vector2 = sheet.get_size()
+	var cell_w: float = texture_size.x / float(AK47_FIRE_RECOIL_GRID_COLS)
+	var cell_h: float = texture_size.y / float(AK47_FIRE_RECOIL_GRID_ROWS)
+	var col: int = frame_index % AK47_FIRE_RECOIL_GRID_COLS
+	@warning_ignore("integer_division")
+	var row: int = int(frame_index / AK47_FIRE_RECOIL_GRID_COLS)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
+func _get_bazooka_fire_recoil_source_rect(sheet: Texture2D, frame: int) -> Rect2:
+	var frame_index: int = clampi(frame, 0, BAZOOKA_FIRE_RECOIL_FRAME_COUNT - 1)
+	var texture_size: Vector2 = sheet.get_size()
+	var cell_w: float = texture_size.x / float(BAZOOKA_FIRE_RECOIL_GRID_COLS)
+	var cell_h: float = texture_size.y / float(BAZOOKA_FIRE_RECOIL_GRID_ROWS)
+	var col: int = frame_index % BAZOOKA_FIRE_RECOIL_GRID_COLS
+	@warning_ignore("integer_division")
+	var row: int = int(frame_index / BAZOOKA_FIRE_RECOIL_GRID_COLS)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
+func _get_bowling_trap_install_source_rect(sheet: Texture2D, frame: int) -> Rect2:
+	var frame_index: int = clampi(frame, 0, BOWLING_TRAP_INSTALL_FRAME_COUNT - 1)
+	var texture_size: Vector2 = sheet.get_size()
+	var cell_w: float = texture_size.x / float(BOWLING_TRAP_INSTALL_GRID_COLS)
+	var cell_h: float = texture_size.y / float(BOWLING_TRAP_INSTALL_GRID_ROWS)
+	var col: int = frame_index % BOWLING_TRAP_INSTALL_GRID_COLS
+	@warning_ignore("integer_division")
+	var row: int = int(frame_index / BOWLING_TRAP_INSTALL_GRID_COLS)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
+func _get_bowling_trap_capture_source_rect(sheet: Texture2D, frame: int) -> Rect2:
+	var frame_index: int = clampi(frame, 0, BOWLING_TRAP_CAPTURE_FRAME_COUNT - 1)
+	var texture_size: Vector2 = sheet.get_size()
+	var cell_w: float = texture_size.x / float(BOWLING_TRAP_CAPTURE_GRID_COLS)
+	var cell_h: float = texture_size.y / float(BOWLING_TRAP_CAPTURE_GRID_ROWS)
+	var col: int = frame_index % BOWLING_TRAP_CAPTURE_GRID_COLS
+	@warning_ignore("integer_division")
+	var row: int = int(frame_index / BOWLING_TRAP_CAPTURE_GRID_COLS)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
+func _get_cached_weapon_texture(path: String) -> Texture2D:
+	if path.is_empty():
+		return null
+	if bool(_weapon_texture_checked.get(path, false)):
+		var cached = _weapon_texture_cache.get(path, null)
+		if cached is Texture2D:
+			return cached
+		return null
+	_weapon_texture_checked[path] = true
+	var texture: Texture2D = ProjectResourceLoader.load_texture(path, "", "")
+	_weapon_texture_cache[path] = texture
+	return texture
+
+
+func _scale_rect_around_pivot(rect: Rect2, scale: float, pivot_ratio: Vector2) -> Rect2:
+	if is_equal_approx(scale, 1.0):
+		return rect
+	var safe_scale: float = max(0.01, scale)
+	var pivot := rect.position + Vector2(
+		rect.size.x * pivot_ratio.x,
+		rect.size.y * pivot_ratio.y
+	)
+	var scaled_size := rect.size * safe_scale
+	var scaled_position := pivot - Vector2(
+		scaled_size.x * pivot_ratio.x,
+		scaled_size.y * pivot_ratio.y
+	)
+	return Rect2(scaled_position, scaled_size)
+
+
+func _draw_texture_rect_region_rotated(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	source_rect: Rect2,
+	target_rect: Rect2,
+	modulate: Color,
+	rotation_radians: float,
+	pivot_ratio: Vector2
+) -> void:
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var pivot := target_rect.position + Vector2(
+		target_rect.size.x * pivot_ratio.x,
+		target_rect.size.y * pivot_ratio.y
+	)
+	var cos_r: float = cos(rotation_radians)
+	var sin_r: float = sin(rotation_radians)
+	var corners := [
+		target_rect.position,
+		Vector2(target_rect.end.x, target_rect.position.y),
+		target_rect.end,
+		Vector2(target_rect.position.x, target_rect.end.y),
+	]
+	var points := PackedVector2Array()
+	for corner in corners:
+		var offset: Vector2 = corner - pivot
+		points.append(pivot + Vector2(
+			offset.x * cos_r - offset.y * sin_r,
+			offset.x * sin_r + offset.y * cos_r
+		))
+	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
+	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
+	var uvs := PackedVector2Array([
+		Vector2(uv_min.x, uv_min.y),
+		Vector2(uv_max.x, uv_min.y),
+		Vector2(uv_max.x, uv_max.y),
+		Vector2(uv_min.x, uv_max.y),
+	])
+	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
+	canvas.draw_polygon(points, colors, uvs, texture)
 
 
 func _draw_slingshot_picture(canvas: CanvasItem, rect: Rect2, color: Color, alpha: float, scale_factor: float) -> void:

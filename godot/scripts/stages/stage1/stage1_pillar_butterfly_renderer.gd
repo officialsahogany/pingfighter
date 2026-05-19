@@ -4,6 +4,7 @@ const Stage1PillarLayerGeometry := preload("res://scripts/stages/stage1/stage1_p
 
 const BUTTERFLY_FRAME_COUNT := 4
 const BUTTERFLY_COLOR_COUNT := 4
+const LOD_BUTTERFLY_STRIDE := 3
 
 var geometry: Object = Stage1PillarLayerGeometry.new()
 
@@ -16,13 +17,22 @@ func draw(
 	game_offset: Vector2,
 	game_size: Vector2,
 	scale_factor: float,
-	time: float
+	time: float,
+	quality_scale: float = 1.0
 ) -> void:
 	if butterfly_sheet_texture == null:
 		return
-	for butterfly in butterflies:
+	var cell_w: float = float(butterfly_sheet_texture.get_width()) / float(BUTTERFLY_FRAME_COUNT)
+	var cell_h: float = float(butterfly_sheet_texture.get_height()) / float(BUTTERFLY_COLOR_COUNT)
+	if cell_w <= 0.0 or cell_h <= 0.0:
+		return
+	var stride: int = LOD_BUTTERFLY_STRIDE if _is_lod_active(quality_scale) else 1
+	var left_rect: Rect2 = geometry.get_side_rect("left", view_size, game_offset, game_size)
+	var right_rect: Rect2 = geometry.get_side_rect("right", view_size, game_offset, game_size)
+	for index in range(0, butterflies.size(), stride):
+		var butterfly: Dictionary = butterflies[index]
 		var side: String = str(butterfly.get("side", "left"))
-		var side_rect: Rect2 = geometry.get_side_rect(side, view_size, game_offset, game_size)
+		var side_rect: Rect2 = left_rect if side == "left" else right_rect
 		if side_rect.size.x <= 24.0:
 			continue
 		var phase: float = float(butterfly.get("phase", 0.0))
@@ -36,8 +46,6 @@ func draw(
 		var anim_t: float = fmod(time * wing_speed + phase, TAU)
 		var frame_index: int = int((anim_t / TAU) * float(BUTTERFLY_FRAME_COUNT)) % BUTTERFLY_FRAME_COUNT
 		var color_index: int = int(butterfly.get("color_index", 0)) % BUTTERFLY_COLOR_COUNT
-		var cell_w: float = float(butterfly_sheet_texture.get_width()) / float(BUTTERFLY_FRAME_COUNT)
-		var cell_h: float = float(butterfly_sheet_texture.get_height()) / float(BUTTERFLY_COLOR_COUNT)
 		var source_region := Rect2(cell_w * float(frame_index), cell_h * float(color_index), cell_w, cell_h)
 		var target_size: float = max(18.0, 44.0 * max(0.4, float(butterfly.get("size", 1.0))) * scale_factor)
 		geometry.draw_texture_region(
@@ -46,3 +54,7 @@ func draw(
 			Rect2(draw_pos - Vector2(target_size, target_size) * 0.5, Vector2(target_size, target_size)),
 			source_region
 		)
+
+
+func _is_lod_active(quality_scale: float) -> bool:
+	return quality_scale < 0.85

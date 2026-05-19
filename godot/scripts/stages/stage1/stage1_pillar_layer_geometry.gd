@@ -1,5 +1,7 @@
 extends RefCounted
 
+var _unit_ellipse_points_cache: Dictionary = {}
+
 
 func get_tree_rect(side: String, view_size: Vector2, game_offset: Vector2, game_size: Vector2) -> Rect2:
 	var side_rect: Rect2 = get_side_rect(side, view_size, game_offset, game_size)
@@ -35,8 +37,11 @@ func get_sheet_region(texture: Texture2D, cols: int, rows: int, index: int) -> R
 	var sheet_w: int = texture.get_width()
 	var sheet_h: int = texture.get_height()
 	var col: int = index % cols
+	@warning_ignore("integer_division")
 	var row: int = int(index / cols) % rows
+	@warning_ignore("integer_division")
 	var cell_w: int = int(sheet_w / cols)
+	@warning_ignore("integer_division")
 	var cell_h: int = int(sheet_h / rows)
 	var x: int = col * cell_w
 	var y: int = row * cell_h
@@ -74,7 +79,18 @@ func build_ellipse_points(rect: Rect2, segments: int = 24) -> PackedVector2Array
 	var rx: float = rect.size.x * 0.5
 	var ry: float = rect.size.y * 0.5
 	var safe_segments: int = max(8, segments)
-	for i in range(safe_segments):
-		var angle: float = (float(i) / float(safe_segments)) * TAU
-		points.append(center + Vector2(cos(angle) * rx, sin(angle) * ry))
+	var unit_points: PackedVector2Array = _get_unit_ellipse_points(safe_segments)
+	for point in unit_points:
+		points.append(center + Vector2(point.x * rx, point.y * ry))
+	return points
+
+
+func _get_unit_ellipse_points(segments: int) -> PackedVector2Array:
+	if _unit_ellipse_points_cache.has(segments):
+		return _unit_ellipse_points_cache[segments]
+	var points := PackedVector2Array()
+	for i in range(segments):
+		var angle: float = (float(i) / float(segments)) * TAU
+		points.append(Vector2(cos(angle), sin(angle)))
+	_unit_ellipse_points_cache[segments] = points
 	return points

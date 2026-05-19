@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+
 
 func draw(
 	canvas: CanvasItem,
@@ -26,5 +28,10 @@ func draw(
 		bool(score_snapshot.get("deuce_mode", false)),
 		scoreboard_state.get_top_mini_score_sparkle_timer() if scoreboard_state != null else 0.0,
 		float(context.get("top_mini_score_sparkle_duration", 0.35)),
-		time_seconds
+		time_seconds,
+		_get_top_mini_quality_scale(context)
 	)
+
+
+func _get_top_mini_quality_scale(context: Dictionary) -> float:
+	return BattleRenderQuality.effect_scale(context)

@@ -5,6 +5,7 @@ const BOSS_GAUGE_MAX := 500.0
 const BOSS_GAUGE_GAIN_ON_HIT := 50.0
 const WHIP_GAUGE_COST := 200.0
 const WHIP_ACTIVATION_CHANCE := 0.12
+const SPINNING_TOP_GAUGE_COST := 150.0
 const WHIP_DURATION_FRAMES := 260.0
 const WHIP_WAVE_SPEED := 0.30
 const WHIP_WAVE_AMPLITUDE := 15.0
@@ -16,8 +17,13 @@ const WHIP_DEACTIVATION_END_SPEED_MULT := 0.2
 const WHIP_POST_STUN_FRAMES := 30.0
 const WHIP_FRAME_COUNT := 8
 const MIN_DOWNWARD_SPEED_ON_CAST := 8.0
+const MAX_DOWNWARD_SPEED_ON_CAST := 8.8
 const MIN_ACTIVE_DOWNWARD_SPEED := 5.0
+const MAX_ACTIVE_DOWNWARD_SPEED := 8.8
 const MIN_COUNTER_UPWARD_SPEED := 8.0
+const WHIP_CAST_IMPACT_BOOST := 1.0
+const WHIP_CAST_BOOST_DECAY_RATE := 0.975
+const WHIP_CAST_MIN_BOOST := 0.70
 const WHIP_GUARD_COUNTER_MAX_SPEED := 10.5
 const WHIP_GUARD_COUNTER_IMPACT_BOOST := 1.0
 const WHIP_GUARD_COUNTER_BOOST_DECAY_RATE := 0.975
@@ -61,7 +67,6 @@ func register_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary 
 	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID:
 		return {}
 
-	boss_special_gauge = min(boss_special_gauge + BOSS_GAUGE_GAIN_ON_HIT, BOSS_GAUGE_MAX)
 	var next_ball_vel: Vector2 = ball_vel
 	var activated := false
 	var deactivated := false
@@ -74,16 +79,20 @@ func register_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary 
 			"whip_activated": activated,
 			"whip_deactivated": deactivated,
 		}
-	if _can_activate():
-		if randf() <= WHIP_ACTIVATION_CHANCE:
-			next_ball_vel = _activate(next_ball_vel, deps)
-			activated = true
-	return {
+	if _can_activate() and _consume_whip_hit_cooldown(context, deps):
+		next_ball_vel = _activate(next_ball_vel, deps)
+		activated = true
+	var result := {
 		"ball_vel": next_ball_vel,
 		"boss_special_gauge": boss_special_gauge,
 		"whip_activated": activated,
 		"whip_deactivated": deactivated,
 	}
+	if activated:
+		result["ball_impact_boost"] = WHIP_CAST_IMPACT_BOOST
+		result["ball_boost_decay_rate"] = WHIP_CAST_BOOST_DECAY_RATE
+		result["ball_min_boost"] = WHIP_CAST_MIN_BOOST
+	return result
 
 
 func register_player_hit(ball_vel: Vector2, context: Dictionary) -> Dictionary:
@@ -139,12 +148,19 @@ func update_ball_motion(
 				next_ball_vel.y = abs(original_ball_y_speed) if original_ball_y_speed != 0.0 else 10.0
 			if abs(next_ball_vel.y) < MIN_ACTIVE_DOWNWARD_SPEED:
 				next_ball_vel.y = MIN_ACTIVE_DOWNWARD_SPEED
+			next_ball_vel.y = min(next_ball_vel.y, MAX_ACTIVE_DOWNWARD_SPEED)
 		else:
 			if next_ball_vel.y > 0.0:
 				next_ball_vel.y = -abs(next_ball_vel.y)
 			if abs(next_ball_vel.y) < MIN_COUNTER_UPWARD_SPEED:
 				next_ball_vel.y = -MIN_COUNTER_UPWARD_SPEED
-	return {"ball_vel": next_ball_vel}
+	return {
+		"ball_vel": next_ball_vel,
+		"ball_impact_boost": WHIP_CAST_IMPACT_BOOST,
+		"ball_boost_decay_rate": WHIP_CAST_BOOST_DECAY_RATE,
+		"ball_min_boost": WHIP_CAST_MIN_BOOST,
+		"stage1_dalji_whip_controls_speed": true,
+	}
 
 
 func get_ai_context() -> Dictionary:
@@ -206,21 +222,34 @@ func is_movement_locked() -> bool:
 	return deactivation_active or post_stun_timer_frames > 0.0
 
 
+func is_active() -> bool:
+	return active
+
+
 func get_boss_special_gauge() -> float:
 	return boss_special_gauge
 
 
+func drain_boss_special_gauge(amount: float) -> void:
+	boss_special_gauge = max(0.0, boss_special_gauge - max(0.0, amount))
+
+
 func _can_activate() -> bool:
 	return (
-		boss_special_gauge >= WHIP_GAUGE_COST
-		and not active
+		not active
 		and not deactivation_active
 		and post_stun_timer_frames <= 0.0
 	)
 
 
+func _consume_whip_hit_cooldown(context: Dictionary, deps: Dictionary) -> bool:
+	var cooldown_state: Object = deps.get("stage1_dalji_boss_skill_cooldown_state", null)
+	if cooldown_state == null or not cooldown_state.has_method("consume_on_hit"):
+		return false
+	return bool(cooldown_state.consume_on_hit("whip", context, deps))
+
+
 func _activate(ball_vel: Vector2, deps: Dictionary) -> Vector2:
-	boss_special_gauge = max(0.0, boss_special_gauge - WHIP_GAUGE_COST)
 	active = true
 	timer_frames = WHIP_DURATION_FRAMES
 	wave_phase = 0.0
@@ -232,9 +261,10 @@ func _activate(ball_vel: Vector2, deps: Dictionary) -> Vector2:
 	post_stun_timer_frames = 0.0
 	whip_audio = deps.get("audio", null)
 
-	var next_ball_vel := Vector2(0.0, abs(ball_vel.y) * 0.75)
-	if next_ball_vel.y < MIN_DOWNWARD_SPEED_ON_CAST:
-		next_ball_vel.y = MIN_DOWNWARD_SPEED_ON_CAST
+	var next_ball_vel := Vector2(
+		0.0,
+		clamp(abs(ball_vel.y) * 0.75, MIN_DOWNWARD_SPEED_ON_CAST, MAX_DOWNWARD_SPEED_ON_CAST)
+	)
 
 	_play_whip_sound()
 	return next_ball_vel

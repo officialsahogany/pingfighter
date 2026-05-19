@@ -1,22 +1,17 @@
 extends RefCounted
 
 const PILLAR_GOLD_BRIGHT := Color(0.92, 0.79, 0.46)
+const GAME_BORDER_SHINE_LAYERS := 2
+const GAME_BORDER_SHINE_LAYERS_LOD := 1
+const GAME_BORDER_SHINE_LOD_THRESHOLD := 0.85
 
 
 func draw_hanji_subtle_borders(canvas: CanvasItem, view_size: Vector2, game_rect: Rect2, scale_factor: float) -> void:
 	var s: float = max(1.0, round(scale_factor))
-	var border_specs: Array[Dictionary] = [
-		{"inset": 8.0 * s, "color": Color(239.0 / 255.0, 226.0 / 255.0, 190.0 / 255.0, 88.0 / 255.0), "width": max(1.0, s)},
-		{"inset": 12.0 * s, "color": Color(72.0 / 255.0, 64.0 / 255.0, 47.0 / 255.0, 96.0 / 255.0), "width": max(1.0, s)},
-		{"inset": 18.0 * s, "color": Color(35.0 / 255.0, 58.0 / 255.0, 82.0 / 255.0, 70.0 / 255.0), "width": max(1.0, s)},
-	]
-	for spec in border_specs:
-		var inset: float = float(spec["inset"])
-		var line_color: Color = spec["color"]
-		var line_width: float = float(spec["width"])
-		var rect := Rect2(Vector2(inset, inset), view_size - Vector2(inset * 2.0, inset * 2.0))
-		if rect.size.x > 0.0 and rect.size.y > 0.0:
-			canvas.draw_rect(rect, line_color, false, line_width)
+	var line_width: float = max(1.0, s)
+	_draw_view_border(canvas, view_size, 8.0 * s, Color(239.0 / 255.0, 226.0 / 255.0, 190.0 / 255.0, 88.0 / 255.0), line_width)
+	_draw_view_border(canvas, view_size, 12.0 * s, Color(72.0 / 255.0, 64.0 / 255.0, 47.0 / 255.0, 96.0 / 255.0), line_width)
+	_draw_view_border(canvas, view_size, 18.0 * s, Color(35.0 / 255.0, 58.0 / 255.0, 82.0 / 255.0, 70.0 / 255.0), line_width)
 
 	var frame_rect: Rect2 = game_rect.grow(10.0 * s)
 	canvas.draw_rect(frame_rect, Color(56.0 / 255.0, 48.0 / 255.0, 34.0 / 255.0, 108.0 / 255.0), false, max(2.0, 2.0 * s))
@@ -31,10 +26,17 @@ func draw_hanji_subtle_borders(canvas: CanvasItem, view_size: Vector2, game_rect
 		)
 
 
-func draw_game_border_shine(canvas: CanvasItem, game_rect: Rect2, scale_factor: float, time: float) -> void:
+func _draw_view_border(canvas: CanvasItem, view_size: Vector2, inset: float, line_color: Color, line_width: float) -> void:
+	var rect := Rect2(Vector2(inset, inset), view_size - Vector2(inset * 2.0, inset * 2.0))
+	if rect.size.x > 0.0 and rect.size.y > 0.0:
+		canvas.draw_rect(rect, line_color, false, line_width)
+
+
+func draw_game_border_shine(canvas: CanvasItem, game_rect: Rect2, scale_factor: float, time: float, quality_scale: float = 1.0) -> void:
 	var shine: float = (30.0 + 15.0 * sin(time * 2.0)) / 255.0
 	var s: float = max(1.0, scale_factor)
-	for i in range(3):
+	var layer_count: int = GAME_BORDER_SHINE_LAYERS_LOD if quality_scale < GAME_BORDER_SHINE_LOD_THRESHOLD else GAME_BORDER_SHINE_LAYERS
+	for i in range(layer_count):
 		var alpha: float = shine - float(i) * (10.0 / 255.0)
 		if alpha <= 0.0:
 			continue

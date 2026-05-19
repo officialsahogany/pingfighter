@@ -2,9 +2,56 @@ extends RefCounted
 
 const Stage1ActiveItemHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_active_item_hud_scene_drawer.gd")
 const Stage1TopMiniScoreboardSceneDrawer := preload("res://scripts/stages/stage1/stage1_top_mini_scoreboard_scene_drawer.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 var active_item_drawer: Object = Stage1ActiveItemHudSceneDrawer.new()
 var top_mini_scoreboard_drawer: Object = Stage1TopMiniScoreboardSceneDrawer.new()
+var character_runtime: Object = PlayerCharacterRuntime.new()
+
+
+func prewarm_assets(module_getter: Callable, selected_character_type: String = "smasher") -> void:
+	var character_type: String = character_runtime.normalize(selected_character_type)
+	_prewarm_modules(module_getter, [
+		"scoreboard_renderer",
+		"match_score_state",
+		"scoreboard_state",
+		"stage1_pillar_ui_renderer",
+		"pillar_orb_drawer",
+		"smasher_skill_orb_renderer",
+		"pillar_status_orb_renderer",
+		"active_item_hud_layout",
+		"active_item_hud_renderer",
+		"active_item_hud_state",
+		"active_item_hud_visuals",
+		"round_flow_state",
+		"battle_feedback_state",
+		"orb_hud_state",
+		"boss_ai_state",
+		"runtime_perk_state",
+		"mythic_item_runtime",
+		"stage1_dalji_boss_skill_cooldown_state",
+	])
+	var skill_config_key: String = character_runtime.get_skill_config_key(character_type)
+	var dash_state_key: String = character_runtime.get_dash_state_key(character_type)
+	var combo_key: String = character_runtime.get_combo_state_key(character_type)
+	var skill_state_key: String = character_runtime.get_skill_state_key(character_type)
+	for character_key in [skill_config_key, dash_state_key, combo_key, skill_state_key]:
+		if character_key != "":
+			_get_module(module_getter, character_key)
+	if combo_key != "":
+		_get_module(module_getter, "smasher_combo_renderer")
+	var skill_hud: Object = _get_module(module_getter, "stage1_dalji_boss_skill_hud_renderer")
+	if skill_hud != null and skill_hud.has_method("prewarm_assets"):
+		skill_hud.prewarm_assets()
+	var status_orb_renderer: Object = _get_module(module_getter, "pillar_status_orb_renderer")
+	if status_orb_renderer != null and status_orb_renderer.has_method("prewarm_caches"):
+		status_orb_renderer.prewarm_caches()
+	if character_type == "soldier":
+		var firearm_selector: Object = _get_module(module_getter, "commando_firearm_selector_renderer")
+		if firearm_selector != null and firearm_selector.has_method("prewarm_assets"):
+			firearm_selector.prewarm_assets()
+		_get_module(module_getter, "commando_weapon_controller")
+		_get_module(module_getter, "commando_firearm_runtime")
 
 
 func draw(
@@ -12,14 +59,36 @@ func draw(
 	context: Dictionary,
 	registry: Object,
 	states: Dictionary,
-	view_size: Vector2,
+	_view_size: Vector2,
 	game_offset: Vector2,
 	game_size: Vector2,
 	time_seconds: float
 ) -> void:
+	var perf_logger: Object = context.get("battle_perf_logger", null)
+	var sample_start: int = _perf_begin(perf_logger)
 	top_mini_scoreboard_drawer.draw(canvas, context, registry, states, game_offset, game_size, time_seconds)
-	active_item_drawer.draw(canvas, context, registry, view_size, game_offset, game_size)
+	_perf_end(perf_logger, "stage1.pillar.top_mini_scoreboard", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_draw_stage1_pillar_ui(canvas, context, registry, states, game_offset, game_size, time_seconds)
+	_perf_end(perf_logger, "stage1.pillar.ui_total", sample_start)
+
+
+func draw_active_item_hud(
+	canvas: CanvasItem,
+	context: Dictionary,
+	registry: Object,
+	view_size: Vector2,
+	game_offset: Vector2,
+	game_size: Vector2
+) -> void:
+	var perf_logger: Object = context.get("battle_perf_logger", null)
+	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
+	var sample_start: int = _perf_begin(perf_logger)
+	active_item_drawer.draw(canvas, context, registry, view_size, game_offset, game_size)
+	_perf_end(perf_logger, "stage1.pillar.active_item_hud", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_stage1_dalji_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size, time_seconds)
+	_perf_end(perf_logger, "stage1.pillar.dalji_boss_hud", sample_start)
 
 
 func _draw_stage1_pillar_ui(
@@ -31,39 +100,160 @@ func _draw_stage1_pillar_ui(
 	game_size: Vector2,
 	time_seconds: float
 ) -> void:
-	var renderer: Object = registry.get_instance("stage1_pillar_ui_renderer")
+	var perf_logger: Object = context.get("battle_perf_logger", null)
+	var renderer: Object = _get_cached_module(registry, "stage1_pillar_ui_renderer")
 	if renderer == null:
 		return
+	var prep_start: int = _perf_begin(perf_logger)
 	var textures: Dictionary = _get_dict(context.get("textures", {}))
-	var skill_config: Object = registry.get_instance("smasher_skill_config")
-	var feedback: Object = registry.get_instance("battle_feedback_state")
+	var character_type: String = character_runtime.normalize(context.get("selected_character_type", "smasher"))
+	var skill_config_key: String = character_runtime.get_skill_config_key(character_type)
+	var dash_state_key: String = character_runtime.get_dash_state_key(character_type)
+	var combo_key: String = character_runtime.get_combo_state_key(character_type)
+	var skill_state_key: String = character_runtime.get_skill_state_key(character_type)
+	var skill_config: Object = _get_cached_module(registry, skill_config_key) if skill_config_key != "" else null
+	var skill_config_snapshot: Dictionary = skill_config.get_snapshot() if skill_config != null else {}
+	var max_skill_slots: int = int(skill_config_snapshot.get("max_slots", 5))
+	var skill_cluster_frame_key: String = character_runtime.get_skill_cluster_frame_texture_key(character_type, max_skill_slots)
+	var feedback: Object = _get_cached_module(registry, "battle_feedback_state")
 	var orb_state: Object = states.get("orb_hud_state", null)
-	var dash_state: Object = registry.get_instance("smasher_dash_state")
+	var dash_state: Object = _get_cached_module(registry, dash_state_key)
 	var dash_snapshot: Dictionary = dash_state.get_snapshot() if dash_state != null else {}
+	var boss_ai_state: Object = _get_cached_module(registry, "boss_ai_state")
+	var boss_dash_snapshot: Dictionary = _build_default_boss_dash_snapshot()
+	if boss_ai_state != null and boss_ai_state.has_method("get_dash_token_snapshot"):
+		boss_dash_snapshot = boss_ai_state.get_dash_token_snapshot()
+	var cleanse_status_active := false
+	if _skill_snapshot_has_skill(skill_config_snapshot, "cleanse"):
+		cleanse_status_active = _is_cleanse_status_active(registry)
+	var now_msec: int = Time.get_ticks_msec()
+	var pillar_drawer: Object = _get_cached_module(registry, "pillar_orb_drawer")
+	var skill_orb_renderer: Object = _get_cached_module(registry, "smasher_skill_orb_renderer")
+	var status_orb_renderer: Object = _get_cached_module(registry, "pillar_status_orb_renderer")
+	var combo_renderer: Object = _get_cached_module(registry, "smasher_combo_renderer") if combo_key != "" else null
+	var combo_state: Object = _get_cached_module(registry, combo_key) if combo_key != "" else null
+	var skill_state: Object = _get_cached_module(registry, skill_state_key) if skill_state_key != "" else null
+	var commando_firearm_selector_renderer: Object = _get_cached_module(registry, "commando_firearm_selector_renderer") if character_type == "soldier" else null
+	var commando_weapon_controller: Object = _get_cached_module(registry, "commando_weapon_controller") if character_type == "soldier" else null
+	var commando_firearm_runtime: Object = _get_cached_module(registry, "commando_firearm_runtime") if character_type == "soldier" else null
+	var commando_firearm_context: Dictionary = {}
+	if commando_firearm_runtime != null and commando_firearm_runtime.has_method("get_actor_draw_context"):
+		commando_firearm_context = commando_firearm_runtime.get_actor_draw_context()
+	var mythic_item_runtime: Object = _get_cached_module(registry, "mythic_item_runtime")
+	var sensor_context: Dictionary = mythic_item_runtime.get_sensor_context() if mythic_item_runtime != null and mythic_item_runtime.has_method("get_sensor_context") else {}
+	_perf_end(perf_logger, "stage1.pillar.ui_prepare", prep_start)
+	var renderer_start: int = _perf_begin(perf_logger)
 	renderer.draw(canvas, game_offset, game_size, time_seconds, {
+		"battle_perf_logger": perf_logger,
 		"height": float(context.get("height", 750.0)),
-		"pillar_drawer": registry.get_instance("pillar_orb_drawer"),
-		"skill_orb_renderer": registry.get_instance("smasher_skill_orb_renderer"),
-		"status_orb_renderer": registry.get_instance("pillar_status_orb_renderer"),
-		"combo_renderer": registry.get_instance("smasher_combo_renderer"),
-		"combo_state": registry.get_instance("smasher_combo_state"),
-		"cluster_frame_texture": _get_value(textures, "smasher_skill_cluster_frame_texture"),
+		"selected_character_type": character_type,
+		"pillar_drawer": pillar_drawer,
+		"skill_orb_renderer": skill_orb_renderer,
+		"status_orb_renderer": status_orb_renderer,
+		"commando_firearm_selector_renderer": commando_firearm_selector_renderer,
+		"commando_weapon_controller": commando_weapon_controller,
+		"commando_firearm_slingshot_state": _get_dict(commando_firearm_context.get("commando_firearm_slingshot_state", context.get("commando_firearm_slingshot_state", {}))),
+		"commando_firearm_pistol_state": _get_dict(commando_firearm_context.get("commando_firearm_pistol_state", context.get("commando_firearm_pistol_state", {}))),
+		"commando_firearm_weapon_fire_sheet_state": _get_dict(commando_firearm_context.get("commando_firearm_weapon_fire_sheet_state", context.get("commando_firearm_weapon_fire_sheet_state", {}))),
+		"combo_renderer": combo_renderer,
+		"combo_state": combo_state,
+		"cluster_frame_texture": _get_value(textures, skill_cluster_frame_key),
+		"cluster_frame_slots": max_skill_slots,
 		"skill_orb_frame_texture": _get_value(textures, "skill_orb_frame_texture"),
 		"skill_icons": context.get("skill_icons", {}),
-		"skill_state": registry.get_instance("smasher_skill_state"),
-		"skill_config_snapshot": skill_config.get_snapshot() if skill_config != null else {},
+		"skill_state": skill_state,
+		"skill_config_snapshot": skill_config_snapshot,
+		"cleanse_status_active": cleanse_status_active,
 		"special_gauge": float(context.get("special_gauge", 0.0)),
 		"gauge_max": float(context.get("gauge_max", 500.0)),
 		"gauge_flash_timer": feedback.get_gauge_flash_timer() if feedback != null else 0.0,
 		"gauge_flash_duration": feedback.get_gauge_flash_duration() if feedback != null else 0.45,
 		"gauge_frame_texture": _get_value(textures, "gauge_orb_frame_texture"),
-		"gauge_frame_spin_angle": orb_state.get_gauge_spin_angle(Time.get_ticks_msec()) if orb_state != null else 0.0,
+		"gauge_frame_spin_angle": orb_state.get_gauge_spin_angle(now_msec) if orb_state != null else 0.0,
 		"dash_snapshot": dash_snapshot,
 		"dash_flash_timer": feedback.get_dash_flash_timer() if feedback != null else 0.0,
 		"dash_flash_duration": feedback.get_dash_flash_duration() if feedback != null else 0.55,
 		"dash_divider_anim_progress": feedback.get_dash_divider_anim_progress() if feedback != null else 1.0,
 		"dash_frame_texture": _get_value(textures, "dash_token_frame_texture"),
-		"dash_frame_spin_angle": orb_state.get_dash_token_spin_angle(Time.get_ticks_msec()) if orb_state != null else 0.0,
+		"dash_frame_spin_angle": orb_state.get_dash_token_spin_angle(now_msec) if orb_state != null else 0.0,
+		"sensor_context": sensor_context,
+		"boss_dash_visible": not bool(context.get("arena_mode_enabled", false)),
+		"boss_dash_snapshot": boss_dash_snapshot,
+		"boss_dash_frame_texture": null,
+		"boss_dash_frame_spin_angle": 0.0,
+	})
+	_perf_end(perf_logger, "stage1.pillar.ui_renderer", renderer_start)
+
+
+func _draw_stage1_dalji_boss_skill_hud(
+	canvas: CanvasItem,
+	context: Dictionary,
+	registry: Object,
+	view_size: Vector2,
+	game_offset: Vector2,
+	game_size: Vector2,
+	time_seconds: float
+) -> void:
+	var renderer: Object = _get_cached_module(registry, "stage1_dalji_boss_skill_hud_renderer")
+	if renderer == null or not renderer.has_method("draw"):
+		return
+	var cooldown_state: Object = _get_cached_module(registry, "stage1_dalji_boss_skill_cooldown_state")
+	if cooldown_state == null or not cooldown_state.has_method("get_hud_context"):
+		return
+	var hud_context: Dictionary = context.duplicate()
+	hud_context.merge(cooldown_state.get_hud_context(), true)
+	hud_context["view_size"] = view_size
+	hud_context["game_offset"] = game_offset
+	hud_context["game_size"] = game_size
+	hud_context["time_seconds"] = time_seconds
+	var firearm_panel_state: Dictionary = _build_commando_firearm_panel_state_for_boss_hud(
+		context,
+		registry,
+		game_offset,
+		game_size
+	)
+	var firearm_panel_rect: Rect2 = _get_rect(firearm_panel_state.get("rect", Rect2()))
+	if firearm_panel_rect.size.x > 0.0 and firearm_panel_rect.size.y > 0.0:
+		hud_context["commando_firearm_panel_rect"] = firearm_panel_rect
+	renderer.draw(canvas, hud_context)
+
+
+func _build_commando_firearm_panel_state_for_boss_hud(
+	context: Dictionary,
+	registry: Object,
+	game_offset: Vector2,
+	game_size: Vector2
+) -> Dictionary:
+	if registry == null:
+		return {}
+	var character_type: String = character_runtime.normalize(context.get("selected_character_type", "smasher"))
+	if character_type != "soldier":
+		return {}
+	var pillar_renderer: Object = _get_cached_module(registry, "stage1_pillar_ui_renderer")
+	if pillar_renderer == null or not pillar_renderer.has_method("build_commando_firearm_panel_state"):
+		return {}
+	var selector_renderer: Object = _get_cached_module(registry, "commando_firearm_selector_renderer")
+	var weapon_controller: Object = _get_cached_module(registry, "commando_weapon_controller")
+	if selector_renderer == null or weapon_controller == null:
+		return {}
+	var skill_config_key: String = character_runtime.get_skill_config_key(character_type)
+	var skill_config: Object = _get_cached_module(registry, skill_config_key) if skill_config_key != "" else null
+	var skill_config_snapshot: Dictionary = skill_config.get_snapshot() if skill_config != null and skill_config.has_method("get_snapshot") else {}
+	var commando_firearm_runtime: Object = _get_cached_module(registry, "commando_firearm_runtime")
+	var commando_firearm_context: Dictionary = {}
+	if commando_firearm_runtime != null and commando_firearm_runtime.has_method("get_actor_draw_context"):
+		commando_firearm_context = commando_firearm_runtime.get_actor_draw_context()
+	return pillar_renderer.build_commando_firearm_panel_state(game_offset, game_size, {
+		"height": float(context.get("height", 750.0)),
+		"selected_character_type": character_type,
+		"pillar_drawer": _get_cached_module(registry, "pillar_orb_drawer"),
+		"skill_orb_renderer": _get_cached_module(registry, "smasher_skill_orb_renderer"),
+		"commando_firearm_selector_renderer": selector_renderer,
+		"commando_weapon_controller": weapon_controller,
+		"commando_firearm_slingshot_state": _get_dict(commando_firearm_context.get("commando_firearm_slingshot_state", context.get("commando_firearm_slingshot_state", {}))),
+		"commando_firearm_pistol_state": _get_dict(commando_firearm_context.get("commando_firearm_pistol_state", context.get("commando_firearm_pistol_state", {}))),
+		"commando_firearm_weapon_fire_sheet_state": _get_dict(commando_firearm_context.get("commando_firearm_weapon_fire_sheet_state", context.get("commando_firearm_weapon_fire_sheet_state", {}))),
+		"skill_config_snapshot": skill_config_snapshot,
 	})
 
 
@@ -75,3 +265,80 @@ func _get_dict(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _get_rect(value: Variant) -> Rect2:
+	if value is Rect2:
+		return value
+	return Rect2()
+
+
+func _skill_snapshot_has_skill(skill_config_snapshot: Dictionary, skill_id: String) -> bool:
+	var equipped: Variant = skill_config_snapshot.get("equipped_skills", [])
+	if not (equipped is Array):
+		return false
+	return (equipped as Array).has(skill_id)
+
+
+func _is_cleanse_status_active(registry: Object) -> bool:
+	if registry == null:
+		return false
+	var cleanse_state: Object = _get_cached_module(registry, "smasher_cleanse_state")
+	if cleanse_state == null or not cleanse_state.has_method("has_status_effect"):
+		return false
+	return bool(cleanse_state.has_status_effect({
+		"movement_state": _get_cached_module(registry, "player_movement_state"),
+		"active_item_runtime": _get_cached_module(registry, "active_item_runtime"),
+	}))
+
+
+func _build_default_boss_dash_snapshot() -> Dictionary:
+	return {
+		"tokens": 1,
+		"max_tokens": 1,
+		"charge_timer": 0.0,
+		"recharge_frames": 1.0,
+		"charge_progress": 1.0,
+		"available_timer": 1.0,
+		"active": false,
+		"recovering": false,
+		"stun_timer": 0.0,
+	}
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
+
+
+func _prewarm_modules(module_getter: Callable, keys: Array) -> void:
+	for key_value in keys:
+		_get_module(module_getter, str(key_value))
+
+
+func _get_module(module_getter: Callable, key: String) -> Object:
+	if not module_getter.is_valid():
+		return null
+	var value: Variant = module_getter.call(key)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
+
+
+func _get_cached_module(registry: Object, key: String) -> Object:
+	if registry == null:
+		return null
+	if registry.has_method("get_cached_instance"):
+		var cached: Variant = registry.get_cached_instance(key)
+		if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
+			return cached as Object
+		return null
+	if registry.has_method("get_instance"):
+		return registry.get_instance(key)
+	return null

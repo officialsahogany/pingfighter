@@ -2,7 +2,8 @@ extends RefCounted
 
 const Stage1PillarTreeDropPetalState := preload("res://scripts/stages/stage1/stage1_pillar_tree_drop_petal_state.gd")
 
-const FLOATING_PETAL_MAX := 15
+const FLOATING_PETAL_MAX := 8
+const FLOATING_PETAL_SPAWN_RATE := 0.72
 
 var floating_petals: Array[Dictionary] = []
 var last_view_size := Vector2.ZERO
@@ -25,7 +26,7 @@ func update_layout(view_size: Vector2, game_offset: Vector2, game_size: Vector2)
 
 func update(delta: float, current_time: float) -> void:
 	var fps_scale: float = delta * 60.0
-	if floating_petals.size() < FLOATING_PETAL_MAX and randf() < 1.20 * delta:
+	if floating_petals.size() < FLOATING_PETAL_MAX and randf() < FLOATING_PETAL_SPAWN_RATE * delta:
 		_spawn_floating_petal()
 	_update_floating_petals(fps_scale, current_time)
 	tree_drop_state.update(delta, fps_scale, current_time)
@@ -49,23 +50,17 @@ func get_tree_drop_petals() -> Array[Dictionary]:
 
 
 func _update_floating_petals(fps_scale: float, current_time: float) -> void:
-	var remove_indices: Array[int] = []
+	var write_idx: int = 0
 	for i in range(floating_petals.size()):
 		var petal: Dictionary = floating_petals[i]
 		var wave: float = sin(current_time * 2.0 + float(petal["rotation"]) * 0.1) * 0.3
 		petal["x"] = float(petal["x"]) + (float(petal["vx"]) + wave) * fps_scale
 		petal["y"] = float(petal["y"]) + float(petal["vy"]) * fps_scale
 		petal["rotation"] = float(petal["rotation"]) + float(petal["rot_speed"]) * fps_scale
-		floating_petals[i] = petal
-		if float(petal["y"]) > last_view_size.y + 24.0:
-			remove_indices.append(i)
-	_remove_indices(floating_petals, remove_indices)
-
-
-func _remove_indices(items: Array[Dictionary], remove_indices: Array[int]) -> void:
-	remove_indices.reverse()
-	for idx in remove_indices:
-		items.remove_at(idx)
+		if float(petal["y"]) <= last_view_size.y + 24.0:
+			floating_petals[write_idx] = petal
+			write_idx += 1
+	floating_petals.resize(write_idx)
 
 
 func _spawn_floating_petal() -> void:

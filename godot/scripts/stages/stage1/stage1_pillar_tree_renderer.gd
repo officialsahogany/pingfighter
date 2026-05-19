@@ -5,6 +5,8 @@ const Stage1PillarLayerGeometry := preload("res://scripts/stages/stage1/stage1_p
 const TREE_SHAKE_DURATION := 0.28
 const TREE_SHAKE_BASE_PIXELS := 3.0
 const TREE_SHAKE_FREQUENCY := 34.0
+const LEFT_TREE_REGION := Rect2(20.0, 25.0, 580.0, 925.0)
+const RIGHT_TREE_REGION := Rect2(1048.0, 25.0, 576.0, 925.0)
 
 var geometry: Object = Stage1PillarLayerGeometry.new()
 
@@ -20,19 +22,32 @@ func draw(
 ) -> void:
 	if tree_sprite_texture == null:
 		return
-	var tree_regions: Dictionary = {
-		"left": Rect2(88.0, 15.0, 446.0, 882.0),
-		"right": Rect2(1130.0, 16.0, 478.0, 898.0),
-	}
-	for side in ["left", "right"]:
-		var bounds: Rect2 = geometry.clip_rect(geometry.get_tree_rect(side, view_size, game_offset, game_size), view_size)
-		if bounds.size.x <= 2.0 or bounds.size.y <= 2.0:
-			continue
-		var source_region: Rect2 = tree_regions.get(side, Rect2())
-		var fit: Rect2 = geometry.fit_region_rect(source_region, bounds, Vector2(0.5, 0.5))
-		fit.position.y = bounds.end.y - fit.size.y
-		fit.position += get_tree_shake_offset(side, scale_factor, tree_shakes)
-		geometry.draw_texture_region(canvas, tree_sprite_texture, fit, source_region, 248.0 / 255.0, false)
+	_draw_tree_side(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, tree_shakes, "left", LEFT_TREE_REGION)
+	_draw_tree_side(canvas, tree_sprite_texture, view_size, game_offset, game_size, scale_factor, tree_shakes, "right", RIGHT_TREE_REGION)
+
+
+func _draw_tree_side(
+	canvas: CanvasItem,
+	tree_sprite_texture: Texture2D,
+	view_size: Vector2,
+	game_offset: Vector2,
+	game_size: Vector2,
+	scale_factor: float,
+	tree_shakes: Dictionary,
+	side: String,
+	source_region: Rect2
+) -> void:
+	var bounds: Rect2 = geometry.clip_rect(geometry.get_tree_rect(side, view_size, game_offset, game_size), view_size)
+	if bounds.size.x <= 2.0 or bounds.size.y <= 2.0:
+		return
+	var fit: Rect2 = geometry.fit_region_rect(source_region, bounds, Vector2(0.5, 0.5))
+	if side == "left":
+		fit.position.x = bounds.position.x
+	else:
+		fit.position.x = bounds.end.x - fit.size.x
+	fit.position.y = bounds.end.y - fit.size.y
+	fit.position += get_tree_shake_offset(side, scale_factor, tree_shakes)
+	geometry.draw_texture_region(canvas, tree_sprite_texture, fit, source_region, 248.0 / 255.0, false)
 
 
 func get_tree_shake_offset(side: String, scale_factor: float, tree_shakes: Dictionary) -> Vector2:
