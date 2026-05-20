@@ -278,4 +278,5 @@ godot/assets/sprites/effects/**/*_manifest.json
 godot/assets/sprites/effects/**/*_atlas.json
 godot/assets/sprites/effects/**/*_meta.json
 godot/assets/sprites/effects/**/*_source.png*
+godot/assets/sprites/effects/**/*_alpha.png*
 godot/assets/sprites/smasher_subculture_left_walk_sheet_mirrored_right.png*
