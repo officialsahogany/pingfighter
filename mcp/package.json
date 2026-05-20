@@ -4,6 +4,7 @@
     "@modelcontextprotocol/inspector-cli": "^0.16.8",
     "@modelcontextprotocol/server-filesystem": "^2025.8.21",
     "@modelcontextprotocol/server-slack": "^2025.4.25",
+    "@rlabs-inc/gemini-mcp": "^0.8.1",
     "@upstash/context7-mcp": "^1.0.20"
   }
 }

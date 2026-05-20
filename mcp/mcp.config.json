@@ -1,6 +1,13 @@
 {
   "$schema": "https://modelcontextprotocol.io/schemas/v0.1/client-config.schema.json",
   "mcpServers": {
+    "gemini": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "d:\\main\\bosspong\\.claude\\gemini_mcp_launcher.mjs"
+      ],
+      "transport": "stdio"
+    },
     "filesystem": {
       "command": "npx",
       "args": [
@@ -34,6 +41,19 @@
       ],
       "env": {
         "YOUTUBE_API_KEY": "${YOUTUBE_API_KEY}"
+      },
+      "transport": "stdio"
+    },
+    "elevenlabs": {
+      "command": "py",
+      "args": [
+        "-3",
+        "d:\\main\\bosspong\\.claude\\elevenlabs_mcp_launcher.py"
+      ],
+      "env": {
+        "ELEVENLABS_API_KEY": "${ELEVENLABS_API_KEY}",
+        "ELEVENLABS_MCP_OUTPUT_MODE": "files",
+        "ELEVENLABS_MCP_BASE_PATH": "D:\\main\\bosspong\\generated_audio\\elevenlabs"
       },
       "transport": "stdio"
     }
