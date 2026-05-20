@@ -196,6 +196,19 @@ func spawn_field_item(item_name: String, position: Variant = null) -> bool:
 		return field_spawn_controller.debug_spawn_item_at(item_name, position)
 	return field_spawn_controller.debug_spawn_item(item_name)
 
+func spawn_field_item_data(item_data: Dictionary, position: Variant = null) -> bool:
+	if field_spawn_controller.has_method("debug_spawn_item_data"):
+		return field_spawn_controller.debug_spawn_item_data(item_data, position)
+	var item_name: String = str(item_data.get("name", ""))
+	if item_name == "":
+		return false
+	return spawn_field_item(item_name, position)
+
+
+func get_field_spawned_items() -> Array[Dictionary]:
+	return field_spawn_controller.get_spawned_items()
+
+
 
 func draw_debug_spawn_menu(canvas: CanvasItem, view_size: Vector2, owner: Object = null) -> void:
 	debug_facade.draw_debug_spawn_menu(self, canvas, view_size, owner)

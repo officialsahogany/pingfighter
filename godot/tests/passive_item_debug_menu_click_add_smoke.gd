@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 
 const POSEIDON_TRIDENT_ICON_SHEET_PATH := "res://assets/sprites/items/poseidon_trident_icon_sheet.png"
@@ -52,8 +53,9 @@ func _init() -> void:
 
 func _verify_click_adds_passive_items_without_wheel_quantity() -> void:
 	var runtime: Object = MythicItemRuntime.new()
+	var active_runtime: Object = ActiveItemRuntime.new()
 	var owner := FakeOwner.new()
-	var registry := FakeRegistry.new(runtime)
+	var registry := FakeRegistry.new(runtime, active_runtime)
 	var view_size := Vector2(900.0, 720.0)
 
 	runtime.prewarm_assets()
@@ -102,6 +104,23 @@ func _verify_click_adds_passive_items_without_wheel_quantity() -> void:
 	_send_mouse_button(menu, cell_center, MOUSE_BUTTON_WHEEL_UP, view_size, owner, registry)
 	_send_mouse_button(menu, cell_center, MOUSE_BUTTON_WHEEL_DOWN, view_size, owner, registry)
 	_expect(_inventory_count(runtime, item_name) == 2, "mouse wheel over the item grid should not adjust passive item quantity")
+
+	var spawn_button: Rect2 = menu._get_action_button_rect(panel_rect, 1)
+	_send_mouse_button(menu, spawn_button.get_center(), MOUSE_BUTTON_LEFT, view_size, owner, registry)
+	_expect(menu.action_mode == "spawn", "spawn button should switch the F3 menu to field-spawn mode")
+	_send_mouse_button(menu, cell_center, MOUSE_BUTTON_LEFT, view_size, owner, registry)
+	_expect(_inventory_count(runtime, item_name) == 2, "spawn mode click should not add directly to passive inventory")
+	var spawned_items: Array = active_runtime.get_field_spawned_items()
+	_expect(spawned_items.size() == 1, "spawn mode click should create a field item through active item runtime")
+	var field_item: Dictionary = {}
+	if spawned_items[0] is Dictionary:
+		field_item = spawned_items[0]
+	var spawned_item_value: Variant = field_item.get("item_data", {})
+	var spawned_item: Dictionary = {}
+	if spawned_item_value is Dictionary:
+		spawned_item = spawned_item_value
+	_expect(str(spawned_item.get("name", "")) == item_name, "spawned field item should match the clicked passive item")
+	_expect_close(_roll_value_from_item(spawned_item, option_key), expected_value, "spawned passive item should preserve the edited roll")
 
 
 func _find_roll_edit_target(items: Array) -> Dictionary:
@@ -171,6 +190,11 @@ func _inventory_roll_value(runtime: Object, item_name: String, option_key: Strin
 		var rolls: Dictionary = item_value.get("rolls", {}) if item_value.get("rolls", {}) is Dictionary else {}
 		return float(rolls.get(option_key, 0.0))
 	return 0.0
+
+
+func _roll_value_from_item(item_data: Dictionary, option_key: String) -> float:
+	var rolls: Dictionary = item_data.get("rolls", {}) if item_data.get("rolls", {}) is Dictionary else {}
+	return float(rolls.get(option_key, 0.0))
 
 
 func _expect_close(actual: float, expected: float, message: String) -> void:
