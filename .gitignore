@@ -249,6 +249,7 @@ godot/*.tmp
 *.bak
 *.bak_pre_sync_*
 tmp_*.png
+/smasher_combo_*.gd
 
 # Godot asset iteration trails
 godot/assets/ui/character_live2d/_rejected_free_parts_v1/
