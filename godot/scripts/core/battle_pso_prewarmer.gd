@@ -566,9 +566,10 @@ func _prewarm_common_starpoint_drop_shader() -> void:
 	if _starpoint_fx_host == null or not _starpoint_fx_host.has_method("begin_frame"):
 		return
 	_starpoint_fx_host.begin_frame()
-	# State A: normal pink-palette drop with iridescent body shimmer
-	# (Stage 1/2/3 default). Exercises the iridescent_shimmer_intensity
-	# shader branch that the live wiring turns on.
+	# State A: normal pink-palette drop with iridescent body shimmer + cross
+	# sparkle rays (Stage 1/2/3 default). Exercises both the
+	# iridescent_shimmer_intensity and sparkle_ray_intensity shader branches
+	# that the live wiring turns on.
 	_starpoint_fx_host.sync_drop({
 		"pos": Vector2(60.0, 360.0),
 		"size": 12.0,
@@ -581,6 +582,7 @@ func _prewarm_common_starpoint_drop_shader() -> void:
 		"fill_color": Color(1.0, 0.42, 0.78, 1.0),
 		"outline_color": Color(1.0, 1.0, 0.0, 1.0),
 		"iridescent_shimmer_intensity": 1.0,
+		"sparkle_ray_intensity": 1.0,
 	})
 	# State B: star-detector bonus drop with cyan shimmer rim.
 	_starpoint_fx_host.sync_drop({

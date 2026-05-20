@@ -421,6 +421,7 @@ func _draw_starpoint_drops(canvas: CanvasItem, context: Dictionary, shake_offset
 				"fill_color": Color(0.16, 0.82, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 0.42, 0.78, 1.0),
 				"outline_color": Color(1.0, 1.0, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 1.0, 0.0, 1.0),
 				"iridescent_shimmer_intensity": 0.0 if is_star_detector_bonus else 1.0,
+				"sparkle_ray_intensity": 0.0 if is_star_detector_bonus else 1.0,
 			})
 		host.end_frame()
 		return

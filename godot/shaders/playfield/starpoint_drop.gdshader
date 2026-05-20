@@ -35,6 +35,11 @@ uniform float detector_shimmer_intensity : hint_range(0.0, 1.0) = 0.0;
 // normal pink drops read as "multicolor shining" rather than flat solid pink.
 // 0 disables (used by stages that want a pure single-color fill).
 uniform float iridescent_shimmer_intensity : hint_range(0.0, 1.0) = 0.0;
+// Cross-shaped sparkle rays around the star: 4 cardinal + 4 diagonal beams of
+// light that slowly rotate, pulse in brightness, and cycle through rainbow
+// hues. Gives the "shining jewel / lens flare" feel that a flat glow halo
+// alone cannot deliver. 0 disables (gold-palette stages keep it off).
+uniform float sparkle_ray_intensity : hint_range(0.0, 1.0) = 0.0;
 
 // N-tip star SDF based on distance to actual polygon edges (tip->valley line
 // segments). Returns negative inside the star, positive outside. The earlier
@@ -147,6 +152,40 @@ void fragment() {
 	float dot_alpha = alpha * glow_intensity * dot_mask;
 	col = mix(col, vec3(1.0), dot_alpha);
 	total_alpha = max(total_alpha, dot_alpha);
+
+	// --- Cross-shaped sparkle rays (lens flare "shining" highlight) ---
+	// 4 cardinal + 4 diagonal rays radiate from the star center, slowly rotate,
+	// pulse in brightness, and cycle through rainbow hues. This is what makes
+	// the drop read as "shining jewel" rather than just "softly glowing star."
+	// Each ray is an exp() falloff: tight perpendicular = thin line, loose
+	// along-ray = long extension. Drawn additively on top of everything else
+	// (rays should brighten over the body, not be hidden by it).
+	if (sparkle_ray_intensity > 0.001) {
+		float ray_rot = elapsed * 0.45;
+		float rc = cos(ray_rot);
+		float rs = sin(ray_rot);
+		vec2 pr = vec2(p.x * rc + p.y * rs, -p.x * rs + p.y * rc);
+		float perp_falloff = 220.0;
+		float length_falloff = 3.2;
+		float ray_h = exp(-abs(pr.y) * perp_falloff) * exp(-abs(pr.x) * length_falloff);
+		float ray_v = exp(-abs(pr.x) * perp_falloff) * exp(-abs(pr.y) * length_falloff);
+		vec2 pd = vec2(pr.x + pr.y, -pr.x + pr.y) * 0.70710678;
+		float ray_d1 = exp(-abs(pd.y) * perp_falloff * 1.35) * exp(-abs(pd.x) * length_falloff * 1.55);
+		float ray_d2 = exp(-abs(pd.x) * perp_falloff * 1.35) * exp(-abs(pd.y) * length_falloff * 1.55);
+		float total_ray = (ray_h + ray_v) * 0.72 + (ray_d1 + ray_d2) * 0.42;
+		float pulse = 0.55 + 0.45 * sin(elapsed * 2.7);
+		float hue = fract(elapsed * 0.32);
+		vec3 ray_color = vec3(
+			0.6 + 0.4 * cos(hue * TAU + 0.0),
+			0.6 + 0.4 * cos(hue * TAU + 2.0944),
+			0.6 + 0.4 * cos(hue * TAU + 4.1888)
+		);
+		// Boost ray center toward white-hot so the highlight pops.
+		vec3 ray_rgb = mix(ray_color, vec3(1.0), clamp(total_ray * 1.5, 0.0, 1.0));
+		float ray_signal = total_ray * pulse * sparkle_ray_intensity * alpha;
+		col += ray_rgb * ray_signal;
+		total_alpha = max(total_alpha, ray_signal * 0.7);
+	}
 
 	// --- Star detector shimmer (optional) ---
 	// Adds a cyan rim that pulses at ~5Hz over the star outline. Only fires

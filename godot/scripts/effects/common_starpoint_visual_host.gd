@@ -197,6 +197,11 @@ func _apply_slot(slot: Sprite2D, mat: ShaderMaterial, state: Dictionary) -> void
 	# competing hue cycling.
 	var iridescent: float = clampf(float(state.get("iridescent_shimmer_intensity", 0.0)), 0.0, 1.0)
 	mat.set_shader_parameter("iridescent_shimmer_intensity", iridescent)
+	# Cross-shaped sparkle ray "shining" highlight. Stages that want the
+	# jewel-like sparkle pass 1.0; gold-palette / detector drops can suppress
+	# it by passing 0 so their identity (gold / cyan rim) reads cleanly.
+	var sparkle: float = clampf(float(state.get("sparkle_ray_intensity", 0.0)), 0.0, 1.0)
+	mat.set_shader_parameter("sparkle_ray_intensity", sparkle)
 
 
 func _as_vector2(value: Variant) -> Vector2:
