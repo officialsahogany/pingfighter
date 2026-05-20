@@ -114,6 +114,7 @@ func _init() -> void:
 	_verify_inferno_trail_keeps_original_lateral_pressure()
 	_verify_inferno_landing_target_locks_on_start()
 	_verify_inferno_guard_hover_releases_ball_hijack()
+	_verify_inferno_glance_bounce_paddle_edge()
 	_verify_inferno_floor_miss_scores_boss_before_late_guard()
 	_verify_fire_machine_event_phase_collision_and_draw_context()
 	_verify_fire_machine_renderer_does_not_reset_canvas_transform()
@@ -300,7 +301,7 @@ func _verify_inferno_trail_keeps_original_lateral_pressure() -> void:
 	var saw_trail := false
 	var saw_midflight_lane_pressure := false
 	var saw_wide_flourish := false
-	var saw_pillar_overshoot := false
+	# saw_pillar_overshoot 변수 제거 — letterbox bleed 금지 (codex review 2026-05-18).
 	var reached_floor := false
 	var previous_ball_pos := _get_vector2(context, "ball_pos", Vector2.ZERO)
 	var max_step_distance := 0.0
@@ -320,8 +321,9 @@ func _verify_inferno_trail_keeps_original_lateral_pressure() -> void:
 					saw_midflight_lane_pressure = true
 				if ball_pos.y < lateral_pressure_y and (ball_pos.x <= ball_half + 36.0 or ball_pos.x >= field_width - ball_half - 36.0):
 					saw_wide_flourish = true
-				if ball_pos.y < lateral_pressure_y and (ball_pos.x < -0.01 or ball_pos.x > field_width + 0.01):
-					saw_pillar_overshoot = true
+				# Codex review 2026-05-18: ball must stay within [0, FIELD_WIDTH].
+				# Cinematic letterbox effect is rendered by VFX trail host only.
+				_expect(ball_pos.x >= -0.01 and ball_pos.x <= field_width + 0.01, "inferno ball position must stay inside playfield (no letterbox bleed)")
 				if ball_pos.y + ball_half >= float(context.get("height", 750.0)) - 0.01:
 					reached_floor = true
 					break
@@ -331,7 +333,9 @@ func _verify_inferno_trail_keeps_original_lateral_pressure() -> void:
 	_expect(saw_trail, "inferno guard-lane smoke should reach the trail phase")
 	_expect(saw_midflight_lane_pressure, "inferno should keep midflight side pressure instead of clamping to the guard lane for the whole trail")
 	_expect(saw_wide_flourish, "inferno should flourish broadly near the playfield edges before the final plunge")
-	_expect(saw_pillar_overshoot, "inferno should let the real ball physically cross the playfield boundary into the pillar letterbox during midflight")
+	# Removed (codex review 2026-05-18): saw_pillar_overshoot expectation.
+	# Real ball position must never cross into the pillar letterbox — VFX trail
+	# host handles cinematic letterbox bleed at the renderer layer.
 	_expect(reached_floor, "inferno should keep plunging until the floor-miss scoring gate can close the round")
 	_expect(max_step_distance <= 60.0, "inferno should not move so far per frame that the final guard becomes unreadable")
 
@@ -388,6 +392,40 @@ func _verify_inferno_guard_hover_releases_ball_hijack() -> void:
 	_expect(not state.should_skip_ball_motion_step(), "inferno guard should release the Stage 5 ball hijack")
 	_expect(not bool(snapshot.get("skip_ball_motion_step", true)), "inferno guard should let normal ball motion resume")
 	_expect(_get_vector2(snapshot, "ball_vel", Vector2.ZERO).y < 0.0, "inferno guard should bounce the ball upward instead of letting it slide sideways")
+
+
+# Codex review 2026-05-18: glance vs 정타 분기 검증. paddle 가장자리 hit
+# (paddle 중심에서 폭 35% 초과)에서는 stage5_hongryun_inferno_glance_bounce
+# 신호가 나와야 한다 (stun 없는 빠른 역공). paddle 중심 hit은 기존
+# stage5_hongryun_inferno_guarded 신호 유지.
+func _verify_inferno_glance_bounce_paddle_edge() -> void:
+	var state := Stage5HongryunState.new()
+	var controller := BallUpdateController.new()
+	var context: Dictionary = _base_context()
+	var ball_size: float = float(context.get("ball_size", 28.6))
+	var paddle_w: float = 155.0
+	var ball_x: float = 380.0
+	# paddle 중심을 ball.x에서 paddle_w * 0.40 떨어뜨려 glance threshold(35%) 초과
+	var paddle_center: float = ball_x - paddle_w * 0.40
+	var player_pos := Vector2(paddle_center - paddle_w * 0.5, 690.0)
+	context["ball_pos"] = Vector2(ball_x, 690.0 - ball_size * 0.5 - 2.0)
+	context["ball_vel"] = Vector2(5.0, 0.0)
+	context["player_pos"] = player_pos
+	context["hitbox_padding"] = 5.0
+	context["min_ball_speed"] = 3.0
+	context["max_ball_speed"] = 20.0
+	state.inferno_active = true
+	state.inferno_phase = 2
+	state.ball_hold_active = true
+	state.ball_hijack_reason = "hongryun_inferno_trail"
+	state.inferno_base_vel = Vector2.DOWN
+
+	var result: Dictionary = controller.update(1.0 / 60.0, context, {"stage5_hongryun_state": state})
+	var snapshot: Dictionary = result.get("snapshot", {})
+	_expect(bool(snapshot.get("stage5_hongryun_inferno_glance_bounce", false)), "paddle edge hit (>35%) should register as glance bounce (counter-attack)")
+	_expect(not bool(snapshot.get("stage5_hongryun_inferno_guarded", false)), "glance bounce path should not also flag the standard guard")
+	_expect(not state.should_skip_ball_motion_step(), "glance bounce should release the ball hijack")
+	_expect(not state.inferno_active, "glance bounce should end the inferno trail")
 
 
 func _verify_inferno_floor_miss_scores_boss_before_late_guard() -> void:

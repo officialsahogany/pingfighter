@@ -41,14 +41,19 @@ const DRAGON_ORB_MAX := 5
 # `flame_trail_positions.pop(0)` 30개 컷오프와 동일.
 const INFERNO_CHARGE_SEC := 1.4
 const INFERNO_TRAIL_MAX_LEN := 30
-const INFERNO_MAX_SPEED := 5.2
-const INFERNO_ACCEL_TIME_SEC := 4.0
+# Trail speed/amplitude는 원본 패리티 (pingfighter.py:185751-185756, 2026-05-18
+# 코덱스 리뷰 복구). 원본 동작:
+#   max_speed = 6.0, accel_time = 6.0
+#   amplitude_x = min(40, 10 + t * 6)
+#   amplitude_y = min(20, 5 + t * 3)
+const INFERNO_MAX_SPEED := 6.0
+const INFERNO_ACCEL_TIME_SEC := 6.0
 const INFERNO_BASE_AMPLITUDE_X := 10.0
 const INFERNO_BASE_AMPLITUDE_Y := 5.0
-const INFERNO_MAX_AMPLITUDE_X := 36.0
-const INFERNO_MAX_AMPLITUDE_Y := 16.0
-const INFERNO_AMPLITUDE_X_GROWTH_PER_SEC := 14.0
-const INFERNO_AMPLITUDE_Y_GROWTH_PER_SEC := 6.0
+const INFERNO_MAX_AMPLITUDE_X := 40.0
+const INFERNO_MAX_AMPLITUDE_Y := 20.0
+const INFERNO_AMPLITUDE_X_GROWTH_PER_SEC := 6.0
+const INFERNO_AMPLITUDE_Y_GROWTH_PER_SEC := 3.0
 # Pillar excursion is a slow, large-amplitude lateral velocity term that
 # integrates to a wide position swing so the ball physically drifts into the
 # pillar letterbox. The high-freq wobble above keeps short jitter while this
@@ -56,7 +61,10 @@ const INFERNO_AMPLITUDE_Y_GROWTH_PER_SEC := 6.0
 # before final landing so the plunge funnels into the central guard lane.
 const INFERNO_PILLAR_SWEEP_AMPLITUDE := 4.0
 const INFERNO_PILLAR_SWEEP_FREQ_HZ := 0.35
-const INFERNO_PILLAR_OVERSHOOT_X := 240.0
+# Ball physics는 playfield 캔버스(0~FIELD_WIDTH) 안에 머무른다 — 메모리
+# "Godot 플레이필드 = 풀 캔버스, 필러는 레터박스" 규칙. cinematic letterbox
+# 침범 효과는 VFX trail / pillar wisp renderer가 시각 측에서만 처리하고
+# 실제 ball 좌표는 절대 letterbox로 보내지 않는다 (코덱스 리뷰 2026-05-18).
 const INFERNO_SAFETY_MAX_SEC := 8.0
 # Removed (2026-05-18): INFERNO_TARGET_STEER_PER_SEC — was the auto-steering
 # strength for trail base_vel. Original game has no auto-steer.
@@ -318,9 +326,26 @@ func register_boss_paddle_contact(ball_vel: Vector2, deps: Dictionary = {}, cont
 	return {}
 
 
-func resolve_inferno_player_guard(pos: Vector2, deps: Dictionary = {}) -> Dictionary:
+func resolve_inferno_player_guard(pos: Vector2, deps: Dictionary = {}, paddle_x: float = INF, paddle_w: float = 0.0) -> Dictionary:
 	if not inferno_active:
 		return {}
+	# Glance vs 정타 분기 (사용자 손맛 요청 — paddle 가장자리로 받으면
+	# stun 없이 normal physics bounce로 빠른 역공). paddle 정보가 없으면
+	# (legacy caller) 기존 단순 가드 동작 유지.
+	if not is_inf(paddle_x) and paddle_w > 0.0:
+		var paddle_center_x: float = paddle_x + paddle_w * 0.5
+		var hit_offset_x: float = absf(pos.x - paddle_center_x)
+		var glance_threshold: float = paddle_w * 0.35
+		if hit_offset_x > glance_threshold:
+			# Glance hit — trail 종료 + stun 없음 + ball_vel 그대로
+			# (직전 frame_move의 inferno 속도가 normal physics에 상속됨 →
+			# controller.bounce()가 보스 쪽으로 빠르게 반사).
+			_register_fireball_impact(pos, "inferno_glance", deps, 1.2)
+			_stop_inferno(deps)
+			return {
+				"skip_ball_motion_step": false,
+				"stage5_hongryun_inferno_glance_bounce": true,
+			}
 	_register_fireball_impact(pos, "inferno_guard", deps, 1.35)
 	_stop_inferno(deps)
 	return {
@@ -579,27 +604,9 @@ func _enter_inferno_trail_phase(deps: Dictionary) -> void:
 
 
 func _resolve_inferno_player_hit(pos: Vector2, context: Dictionary, deps: Dictionary, result: Dictionary) -> void:
-	# 원본은 단순 rect 충돌로 trail 종료 + stun. ball amplitude 진동이 커서
-	# paddle 중심에 정확히 맞기 어려우면 자연스럽게 "빗나가" trail 유지되는
-	# 경험을 줬음. 이를 명시적으로 reproduce: paddle 중심에서 충돌 X offset이
-	# 패들 폭의 35% 이상이면 (가장자리 hit) trail을 끝내지 않고 normal physics
-	# bounce 처리 → ball이 현재 frame_move 속도로 반사되어 보스 쪽 역공.
-	# Paddle 중심 35% 이내 (정타) hit이면 기존 stun + trail 종료 처리.
-	var player_rect: Rect2 = _get_player_rect(context)
-	var paddle_center_x: float = player_rect.position.x + player_rect.size.x * 0.5
-	var hit_offset_x: float = absf(pos.x - paddle_center_x)
-	var glance_threshold: float = player_rect.size.x * 0.35
-	if hit_offset_x > glance_threshold:
-		# Glance hit (가장자리) → counter-attack 패턴. trail 종료 + stun 없이
-		# 자연스러운 paddle bounce. ball_vel은 마지막 frame_move 그대로 남아서
-		# 그 시점의 inferno trail 속도로 보스 쪽 역공.
-		_register_fireball_impact(pos, "inferno_glance", deps, 1.2)
-		_stop_inferno(deps)
-		result["skip_ball_motion_step"] = false
-		result["stage5_hongryun_inferno_glance_bounce"] = true
-		# burst VFX는 정타 hit에만 트리거 (glance는 단순 bounce 느낌 유지).
-		return
-
+	# 가장자리 vs 정타 분기는 `resolve_inferno_player_guard()` 안으로
+	# 옮김 (그쪽이 ball_update_controller가 호출하는 실제 entry point).
+	# 이 내부 helper는 phase 2 self-hit fallback용으로 단순 유지.
 	_register_fireball_impact(pos, "inferno_player", deps, 1.7)
 	_apply_player_stun_and_knockback(
 		"flame_trail",
@@ -665,21 +672,18 @@ func _get_locked_inferno_guard_target(context: Dictionary) -> Vector2:
 
 
 func _clamp_inferno_ball_pos(pos: Vector2, context: Dictionary, _previous_pos: Vector2 = Vector2.INF) -> Vector2:
-	# 원본 패리티 (pingfighter.py:185763-185764):
-	# 원본은 ball position을 단순히 base_vel + sin/cos amplitude + noise로
-	# 갱신하고 별도 X 제한이 없다. 이전 구현은 landing zone에서 player 가드
-	# 영역으로 funnel하는 분기를 두어 player가 사실상 자동 가드되었음.
-	# Funnel 제거 → ball amplitude 진동이 그대로 살아 dodge / hit 변동성
-	# 회복. 화면 외곽은 INFERNO_PILLAR_OVERSHOOT_X 까지만 허용 (필러
-	# letterbox에 살짝 침범 가능; VFX host는 별도 letterbox clamp 적용됨).
+	# 원본 패리티 + Godot 플레이필드 규칙 (코덱스 리뷰 2026-05-18):
+	# 이전 구현은 landing zone funnel + INFERNO_PILLAR_OVERSHOOT_X로 ball
+	# 좌표를 letterbox 영역(-240..width+240)까지 보냈는데 두 가지 모두 제거.
+	# (1) Funnel 제거 → ball amplitude 진동이 자연스럽게 dodge/hit 변동성을
+	#     만든다 (사용자 손맛 요청).
+	# (2) Letterbox overshoot 제거 → ball 좌표는 항상 [0, FIELD_WIDTH] 안.
+	#     필러 letterbox cinematic 효과는 trail VFX renderer가 시각 측에서만
+	#     표현하고 실제 물리 좌표는 절대 넘기지 않는다.
 	var ball_half: float = _get_ball_half_size(context)
 	var field_width: float = _get_field_width(context)
-	var x_bounds := Vector2(
-		-INFERNO_PILLAR_OVERSHOOT_X,
-		maxf(-INFERNO_PILLAR_OVERSHOOT_X, field_width + INFERNO_PILLAR_OVERSHOOT_X)
-	)
 	return Vector2(
-		clampf(pos.x, x_bounds.x, x_bounds.y),
+		clampf(pos.x, ball_half, maxf(ball_half, field_width - ball_half)),
 		clampf(pos.y, ball_half, _get_field_height(context) - ball_half)
 	)
 

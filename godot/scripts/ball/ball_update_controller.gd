@@ -174,7 +174,9 @@ func _try_release_stage5_hongryun_player_paddle_hit(
 
 	var ball_pos: Vector2 = _get_vector2(scene, "ball_pos", Vector2.ZERO)
 	if stage5_hongryun_state.has_method("resolve_inferno_player_guard"):
-		var guard_result: Dictionary = stage5_hongryun_state.resolve_inferno_player_guard(ball_pos, deps)
+		var paddle_x: float = float(contact.get("paddle_x", INF))
+		var paddle_w: float = float(contact.get("paddle_w", 0.0))
+		var guard_result: Dictionary = stage5_hongryun_state.resolve_inferno_player_guard(ball_pos, deps, paddle_x, paddle_w)
 		scene.merge(guard_result, true)
 
 	var controller: Object = deps.get("paddle_bounce_controller", null)
@@ -201,7 +203,8 @@ func _try_release_stage5_hongryun_player_paddle_hit(
 		_apply_chaos_player_contact_fallback(scene, context, contact)
 	scene["skip_ball_motion_step"] = false
 	scene["player_collision_cooldown"] = max(6.0, float(scene.get("player_collision_cooldown", 0.0)))
-	scene["stage5_hongryun_inferno_guarded"] = true
+	if not bool(scene.get("stage5_hongryun_inferno_glance_bounce", false)):
+		scene["stage5_hongryun_inferno_guarded"] = true
 	return true
 
 
