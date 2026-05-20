@@ -1,30 +1,69 @@
 extends RefCounted
 
+const PADDLE_HIT_ENERGY_SCALE := 0.52
+const PADDLE_HIT_SHAKE_AMOUNT := 0.075
+const PADDLE_HIT_SHAKE_INTENSITY := 2.2
+const BALL_CONTACT_RADIUS := 14.3
+
 
 func register(
 	ball_pos: Vector2,
 	ball_vel: Vector2,
 	is_player: bool,
 	power_activated: bool,
-	deps: Dictionary
+	deps: Dictionary,
+	context: Dictionary = {}
 ) -> void:
 	var ball_intensity = deps.get("ball_intensity", null)
+	var intensity: float = 0.0
 	if ball_intensity != null:
 		ball_intensity.register_hit("player" if is_player else "boss")
+		intensity = float(ball_intensity.calculate(ball_vel))
+
+	var ball_effects = deps.get("ball_effects", null)
+	var pulse_registered := false
+	if ball_effects != null and ball_effects.has_method("register_hit_pulse"):
+		var contact_pos: Vector2 = _get_paddle_contact_pos(ball_pos, is_player)
+		var pulse_kind: String = str(context.get(
+			"paddle_hit_pulse_kind",
+			"player_paddle" if is_player else "boss_paddle"
+		))
+		var pulse_intensity: float = clamp(float(context.get("paddle_hit_pulse_intensity", intensity)), 0.0, 1.0)
+		ball_effects.register_hit_pulse(contact_pos, ball_vel, pulse_intensity, pulse_kind)
+		pulse_registered = true
 
 	var impact_effects = deps.get("impact_effects", null)
-	if impact_effects != null:
-		var intensity: float = 0.0
-		if ball_intensity != null:
-			intensity = float(ball_intensity.calculate(ball_vel))
-		impact_effects.create_energy_explosion(ball_pos, 0.8, intensity)
-		impact_effects.spawn_paddle_hit_particles(ball_pos, is_player)
+	if not pulse_registered and impact_effects != null:
+		var fallback_contact_pos: Vector2 = _get_paddle_contact_pos(ball_pos, is_player)
+		impact_effects.create_energy_explosion(fallback_contact_pos, PADDLE_HIT_ENERGY_SCALE, intensity)
+		impact_effects.spawn_paddle_hit_particles(fallback_contact_pos, is_player, ball_vel, intensity)
 
 	var feedback = deps.get("feedback", null)
 	if feedback != null:
-		feedback.set_screen_shake(0.10, 3.0)
+		if feedback.has_method("max_screen_shake"):
+			feedback.max_screen_shake(PADDLE_HIT_SHAKE_AMOUNT, PADDLE_HIT_SHAKE_INTENSITY)
+		elif feedback.has_method("set_screen_shake"):
+			feedback.set_screen_shake(PADDLE_HIT_SHAKE_AMOUNT, PADDLE_HIT_SHAKE_INTENSITY)
 
-	if not power_activated:
+	if not power_activated and not _should_suppress_paddle_hit_audio(is_player, context, deps):
 		var audio = deps.get("audio", null)
 		if audio != null:
 			audio.play_paddle_hit()
+
+
+func _should_suppress_paddle_hit_audio(is_player: bool, context: Dictionary, deps: Dictionary) -> bool:
+	if is_player or int(context.get("current_stage", 0)) != 2:
+		return false
+	if bool(context.get("stage2_speed_defense_active", false)):
+		return true
+	var stage2_skill_state: Object = deps.get("stage2_boss_skill_state", null)
+	return (
+		stage2_skill_state != null
+		and stage2_skill_state.has_method("is_speed_defense_active")
+		and bool(stage2_skill_state.is_speed_defense_active())
+	)
+
+
+func _get_paddle_contact_pos(ball_pos: Vector2, is_player: bool) -> Vector2:
+	var y_offset: float = BALL_CONTACT_RADIUS if is_player else -BALL_CONTACT_RADIUS
+	return ball_pos + Vector2(0.0, y_offset)

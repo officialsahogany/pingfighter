@@ -9,11 +9,13 @@ const SERVE_MAX_BASE_MULT := 1.6
 const JUNIOR_BALL_SPEED_MULT := 0.65
 const SPEED_DAMPEN_K := 0.6
 const JUNIOR_SPEED_INCREASE_MULT := 0.6
-const DEFAULT_RALLY_SPEED_MULT := 0.084
+const DEFAULT_RALLY_SPEED_MULT := 0.1008
 const ARENA_RALLY_SPEED_MULT := 2.24
 const WEATHER_RALLY_SPEED_MULT := 1.6
+const FIRE_RALLY_SPEED_MULT := 2.0
+const FIRE_BASE_SPEED_MULT := 1.07
 const MIN_BOUNCE_ANGLE_DEG := 25.0
-const SPEED_SCALE_THRESHOLD := 51.0
+const SPEED_SCALE_THRESHOLD := 20.0
 
 
 func build_serve_velocity(player_serves: bool, context: Dictionary) -> Vector2:
@@ -33,6 +35,8 @@ func build_serve_velocity(player_serves: bool, context: Dictionary) -> Vector2:
 	var junior_ball_mult: float = get_junior_ball_speed_multiplier(context)
 	if junior_ball_mult != 1.0:
 		velocity *= junior_ball_mult
+	if bool(context.get("weather_active", false)) and str(context.get("weather_type", "")) == "fire":
+		velocity *= FIRE_BASE_SPEED_MULT
 	return velocity
 
 
@@ -40,6 +44,8 @@ func get_minimum_rally_speed(context: Dictionary) -> float:
 	var stage_multiplier: float = _get_serve_stage_multiplier(context)
 	var serve_speed: float = Vector2(SERVE_SIDE_SPEED, BALL_BASE_SPEED).length()
 	serve_speed *= stage_multiplier * SERVE_SPEED_SCALE
+	if bool(context.get("weather_active", false)) and str(context.get("weather_type", "")) == "fire":
+		serve_speed *= FIRE_BASE_SPEED_MULT
 	var max_serve_speed: float = BALL_BASE_SPEED * SERVE_MAX_BASE_MULT * SERVE_SPEED_SCALE
 	serve_speed = min(serve_speed, max_serve_speed)
 	return serve_speed * get_junior_ball_speed_multiplier(context)
@@ -74,6 +80,8 @@ func get_rally_speed_increase_multiplier(context: Dictionary) -> float:
 	if bool(context.get("arena_mode_enabled", false)):
 		return ARENA_RALLY_SPEED_MULT
 	var weather_type: String = str(context.get("weather_type", ""))
+	if bool(context.get("weather_active", false)) and weather_type == "fire":
+		return DEFAULT_RALLY_SPEED_MULT * FIRE_RALLY_SPEED_MULT
 	if bool(context.get("weather_active", false)) and (weather_type == "breeze" or weather_type == "gust"):
 		return DEFAULT_RALLY_SPEED_MULT * WEATHER_RALLY_SPEED_MULT
 	return DEFAULT_RALLY_SPEED_MULT
@@ -122,6 +130,14 @@ func cap_base_speed(velocity: Vector2) -> Vector2:
 	var base_speed: float = velocity.length()
 	if base_speed > SPEED_SCALE_THRESHOLD:
 		return velocity.normalized() * SPEED_SCALE_THRESHOLD
+	return velocity
+
+
+func cap_effective_speed(velocity: Vector2, impact_boost: float) -> Vector2:
+	var boost: float = max(1.0, impact_boost)
+	var effective_speed: float = velocity.length() * boost
+	if effective_speed > SPEED_SCALE_THRESHOLD:
+		return velocity.normalized() * (SPEED_SCALE_THRESHOLD / boost)
 	return velocity
 
 

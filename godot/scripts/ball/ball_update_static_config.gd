@@ -5,19 +5,26 @@ const BallPhysics := preload("res://scripts/ball/ball_physics.gd")
 const WIDTH := 760.0
 const HEIGHT := 750.0
 const BALL_SIZE := 28.6
-const BALL_RENDER_RADIUS := 16.9
+const BALL_VISUAL_SCALE := 1.575
+const BALL_RENDER_RADIUS := 16.9 * BALL_VISUAL_SCALE
 const BALL_MAX_STEP_DISTANCE := 12.0
 const MIN_BALL_SPEED := 3.0
-const MAX_BALL_SPEED := 60.0
+const MAX_BALL_SPEED := 26.0
+const POWER_SMASH_MAX_BALL_SPEED := 35.0
+const IMPACT_BOOST_MAX_BALL_SPEED := 26.0
+const MYTHIC_MAX_BALL_SPEED := 32.0
+const FIRE_WEATHER_MAX_BALL_SPEED := 35.0
+const RALLY_SPEED_CAP_INCREASE_PER_HIT := 0.5
 const MAX_BOUNCE_ANGLE := 60.0
 const DRIVE_GAUGE_COST := 150.0
 const DRIVE_PERFECT_COOLDOWN_FRAMES := 30.0
 const DRIVE_GLOBAL_COOLDOWN_FRAMES := 120.0
 const DRIVE_TEXT_DURATION_FRAMES := 30.0
 const POWER_SMASH_GAUGE_COST := 300.0
-const POWER_SMASH_FREEZE_DURATION := 0.70
+const POWER_SMASH_FREEZE_DURATION := 0.55
 const POWER_SMASH_TEXT_DURATION_FRAMES := 48.0
-const POWER_SMASH_GRAVITY_EFFECT := 0.035
+const POWER_SMASH_EFFECT_MULT := 1.0
+const POWER_SMASH_GRAVITY_EFFECT := 0.035 * POWER_SMASH_EFFECT_MULT
 const POWER_SMASH_BOOST_DURATION := 0.50
 const SMASHER_COMBO_MIN_SKILL_COUNT := 2
 const PADDLE_WIDTH := 155.0
@@ -35,6 +42,7 @@ const GAUGE_CHARGE_PER_HIT := 50.0
 func build_update_config() -> Dictionary:
 	return {
 		"ball_size": BALL_SIZE,
+		"ball_render_radius": BALL_RENDER_RADIUS,
 		"width": WIDTH,
 		"height": HEIGHT,
 		"max_step_distance": BALL_MAX_STEP_DISTANCE,
@@ -58,6 +66,11 @@ func build_update_config() -> Dictionary:
 		"max_bounce_angle": MAX_BOUNCE_ANGLE,
 		"min_ball_speed": MIN_BALL_SPEED,
 		"max_ball_speed": MAX_BALL_SPEED,
+		"power_smash_max_ball_speed": POWER_SMASH_MAX_BALL_SPEED,
+		"impact_boost_max_ball_speed": IMPACT_BOOST_MAX_BALL_SPEED,
+		"mythic_max_ball_speed": MYTHIC_MAX_BALL_SPEED,
+		"fire_weather_max_ball_speed": FIRE_WEATHER_MAX_BALL_SPEED,
+		"rally_speed_cap_increase_per_hit": RALLY_SPEED_CAP_INCREASE_PER_HIT,
 		"base_ball_speed": BallPhysics.BALL_BASE_SPEED,
 		"power_smash_freeze_duration": POWER_SMASH_FREEZE_DURATION,
 		"power_smash_gravity_effect": POWER_SMASH_GRAVITY_EFFECT,
@@ -71,6 +84,7 @@ func build_reset_config(player_pos: Vector2, boss_pos: Vector2) -> Dictionary:
 		"height": HEIGHT,
 		"player_pos": player_pos,
 		"boss_pos": boss_pos,
+		"player_y": PLAYER_Y,
 		"player_paddle_width": PADDLE_WIDTH,
 		"boss_paddle_width": BOSS_PADDLE_WIDTH,
 	}

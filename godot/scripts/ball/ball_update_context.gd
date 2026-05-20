@@ -15,15 +15,18 @@ func build_update_context(owner: Object) -> Dictionary:
 	_apply_player_paddle_owner_state(static_update_context, owner)
 	for key in static_update_context:
 		update_context[key] = static_update_context[key]
+	_apply_league_speed_policy(update_context)
+	_apply_weather_speed_policy(update_context)
+	_apply_rally_speed_cap_bonus(update_context)
 	return update_context
 
 
-func build_update_deps(registry) -> Dictionary:
-	return dependency_context.build_update_deps(registry)
+func build_update_deps(registry, runtime_context: Dictionary = {}) -> Dictionary:
+	return dependency_context.build_update_deps(registry, runtime_context)
 
 
-func build_round_deps(registry) -> Dictionary:
-	return dependency_context.build_round_deps(registry)
+func build_round_deps(registry, runtime_context: Dictionary = {}) -> Dictionary:
+	return dependency_context.build_round_deps(registry, runtime_context)
 
 
 func build_reset_config(owner: Object) -> Dictionary:
@@ -53,3 +56,42 @@ func _apply_player_paddle_owner_state(context: Dictionary, owner: Object) -> voi
 	var paddle_height: float = max(1.0, float(owner_snapshot.get_owner_value(owner, "player_paddle_height", default_size.y)))
 	context["player_paddle_size"] = Vector2(paddle_width, paddle_height)
 	context["paddle_width"] = paddle_width
+	context["gauge_max"] = max(1.0, float(owner_snapshot.get_owner_value(owner, "special_gauge_max", context.get("gauge_max", 500.0))))
+	var player_pos: Vector2 = owner_snapshot.get_owner_vector2(
+		owner,
+		"player_pos",
+		Vector2(0.0, float(context.get("player_y", 700.0)))
+	)
+	context["player_y"] = player_pos.y
+
+
+func _apply_league_speed_policy(context: Dictionary) -> void:
+	if str(context.get("ai_mode", "champion")) != "mythic":
+		return
+	var mythic_speed_limit: float = float(context.get("mythic_max_ball_speed", 32.0))
+	context["max_ball_speed"] = mythic_speed_limit
+	context["impact_boost_max_ball_speed"] = mythic_speed_limit
+	context["speed_limit_disabled"] = false
+
+
+func _apply_weather_speed_policy(context: Dictionary) -> void:
+	if _is_fire_weather_active(context):
+		var fire_speed_limit: float = float(context.get("fire_weather_max_ball_speed", 35.0))
+		context["max_ball_speed"] = fire_speed_limit
+		context["impact_boost_max_ball_speed"] = fire_speed_limit
+		context["fire_weather_speed_cap_active"] = true
+		context["speed_limit_disabled"] = false
+
+
+func _apply_rally_speed_cap_bonus(context: Dictionary) -> void:
+	var bonus: float = max(0.0, float(context.get("rally_speed_cap_bonus", 0.0)))
+	if bonus <= 0.0:
+		return
+	context["max_ball_speed"] = float(context.get("max_ball_speed", 26.0)) + bonus
+	context["impact_boost_max_ball_speed"] = float(context.get("impact_boost_max_ball_speed", 26.0)) + bonus
+	if bool(context.get("fire_weather_speed_cap_active", false)):
+		context["fire_weather_max_ball_speed"] = float(context.get("fire_weather_max_ball_speed", 35.0)) + bonus
+
+
+func _is_fire_weather_active(context: Dictionary) -> bool:
+	return bool(context.get("weather_active", false)) and str(context.get("weather_type", "")) == "fire"

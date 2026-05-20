@@ -123,6 +123,10 @@ func cap_base_speed(velocity: Vector2) -> Vector2:
 	return speed_policy.cap_base_speed(velocity)
 
 
+func cap_effective_speed(velocity: Vector2, impact_boost: float) -> Vector2:
+	return speed_policy.cap_effective_speed(velocity, impact_boost)
+
+
 func _build_context() -> Dictionary:
 	return {
 		"current_stage": current_stage,
