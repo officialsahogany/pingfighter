@@ -233,3 +233,5 @@ godot/assets/sprites/hud/*_alpha.png*
 godot/assets/sprites/hud/*_manifest.json
 godot/assets/sprites/hud/*_atlas.json
 godot/assets/sprites/hud/*_autosprite_*.json
+godot/assets/sprites/smasher/*_manifest.json
+godot/assets/sprites/smasher/*_pipeline-meta.json
