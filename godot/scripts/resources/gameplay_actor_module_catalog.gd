@@ -33,6 +33,10 @@ const MODULES := {
 		"path": "res://scripts/characters/runtime_perk_state.gd",
 		"label": "runtime perk state",
 	},
+	"smasher_shield_kiting_state": {
+		"path": "res://scripts/characters/smasher_shield_kiting_state.gd",
+		"label": "smasher shield kiting state",
+	},
 	"smasher_player_controller": {
 		"path": "res://scripts/characters/smasher_player_controller.gd",
 		"label": "smasher player controller",
