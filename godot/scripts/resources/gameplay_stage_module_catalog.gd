@@ -5,6 +5,14 @@ const MODULES := {
 		"path": "res://scripts/stages/stage_runtime_router.gd",
 		"label": "stage runtime router",
 	},
+	"weather_event_state": {
+		"path": "res://scripts/stages/common/weather_event_state.gd",
+		"label": "common weather event state",
+	},
+	"weather_event_renderer": {
+		"path": "res://scripts/stages/common/weather_event_renderer.gd",
+		"label": "common weather event renderer",
+	},
 	"stage1_fallback_pillar_renderer": {
 		"path": "res://scripts/stages/stage1/stage1_fallback_pillar_renderer.gd",
 		"label": "stage1 fallback pillar renderer",

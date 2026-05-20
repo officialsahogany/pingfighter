@@ -9,6 +9,18 @@ const MODULES := {
 		"path": "res://scripts/core/battle_scene_lifecycle.gd",
 		"label": "battle scene lifecycle",
 	},
+	"battle_scene_modal_gate_controller": {
+		"path": "res://scripts/core/battle_scene_modal_gate_controller.gd",
+		"label": "battle scene modal gate controller",
+	},
+	"battle_scene_overlay_input_controller": {
+		"path": "res://scripts/core/battle_scene_overlay_input_controller.gd",
+		"label": "battle scene overlay input controller",
+	},
+	"weather_debug_picker": {
+		"path": "res://scripts/core/weather_debug_picker.gd",
+		"label": "weather debug picker",
+	},
 	"penguin_logo_intro": {
 		"path": "res://scripts/core/penguin_logo_intro.gd",
 		"label": "penguin logo intro",
@@ -64,6 +76,10 @@ const MODULES := {
 	"battle_scene_actor_update_driver": {
 		"path": "res://scripts/core/battle_scene_actor_update_driver.gd",
 		"label": "battle scene actor update driver",
+	},
+	"battle_scene_weather_update_driver": {
+		"path": "res://scripts/core/battle_scene_weather_update_driver.gd",
+		"label": "battle scene weather update driver",
 	},
 	"battle_scene_ball_update_driver": {
 		"path": "res://scripts/core/battle_scene_ball_update_driver.gd",
