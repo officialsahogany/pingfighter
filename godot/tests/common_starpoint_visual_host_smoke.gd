@@ -84,6 +84,7 @@ func _verify_shader_resource_path_and_uniforms() -> void:
 		"fill_color",
 		"outline_color",
 		"detector_shimmer_intensity",
+		"iridescent_shimmer_intensity",
 		"elapsed",
 		"star_tip_count",
 	]:

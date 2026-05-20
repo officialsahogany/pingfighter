@@ -604,7 +604,10 @@ func _spawn_starpoint_drop_at(
 		"vel": Vector2(randf_range(1.5, 3.0) * direction, randf_range(-4.0, -2.5)),
 		"size": STARPOINT_DROP_SIZE * (0.94 if star_detector_bonus else 1.0),
 		"rotation": randf_range(0.0, TAU),
-		"rotation_speed": randf_range(0.05, 0.1),
+		# Reduced from (0.05, 0.1) so the iridescent pink star tumbles slowly
+		# during its fall (closer to "drifting jewel" than "spinning sparkle"),
+		# matching the user's "slowly rotating while falling" direction.
+		"rotation_speed": randf_range(0.02, 0.045),
 		"glow_intensity": 1.0,
 		"glow_timer": 0.0,
 		"life": STARPOINT_DROP_LIFETIME,
@@ -974,16 +977,15 @@ func _draw_starpoint_drops(
 				"glow_intensity": float(drop.get("glow_intensity", 1.0)),
 				"star_detector_bonus": is_star_detector_bonus,
 				"elapsed": elapsed,
-				# Stage 1's original (pre-optimization) drop used the same
-				# 10-vertex / 5-tip star as Stage 2/3/4 (`for i in range(10):
-				# angle = i * PI / 5`). The current STARPOINT_DROP_STAR_POINTS
-				# constant collapsed it to 8 vertices = 4-tip sparkle as part of
-				# the perf optimization the user flagged as visual regression.
-				# Use the shader's default 5-tip shape (no override) to match
-				# the original look across all four stages.
+				# Use the shader's default 5-tip shape (matches the original
+				# pre-optimization look across stages 1/2/3/4).
+				# Normal drops: vivid pink body with iridescent multicolor
+				# shimmer + pink 4-layer glow halo + yellow outline. Detector
+				# bonus drops keep the cyan/white palette + cyan rim shimmer.
 				"glow_color": Color(0.30, 0.92, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 0.45, 0.74, 1.0),
-				"fill_color": Color(0.16, 0.82, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 0.0, 0.0, 1.0),
+				"fill_color": Color(0.16, 0.82, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 0.42, 0.78, 1.0),
 				"outline_color": Color(1.0, 1.0, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 1.0, 0.0, 1.0),
+				"iridescent_shimmer_intensity": 0.0 if is_star_detector_bonus else 1.0,
 			})
 		host.end_frame()
 		return

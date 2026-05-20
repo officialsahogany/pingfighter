@@ -60,9 +60,12 @@ func draw_starpoint_drops(
 				"glow_intensity": float(drop.get("glow_intensity", 1.0)),
 				"star_detector_bonus": is_star_detector_bonus,
 				"elapsed": elapsed,
+				# Stage 2 shares Stage 1's pink + iridescent palette for normal
+				# scrap-tone drops. Detector bonus stays cyan/white.
 				"glow_color": Color(0.30, 0.92, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 0.45, 0.74, 1.0),
-				"fill_color": Color(0.16, 0.82, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 0.0, 0.0, 1.0),
+				"fill_color": Color(0.16, 0.82, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 0.42, 0.78, 1.0),
 				"outline_color": Color(1.0, 1.0, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 1.0, 0.0, 1.0),
+				"iridescent_shimmer_intensity": 0.0 if is_star_detector_bonus else 1.0,
 			})
 		host.end_frame()
 		return

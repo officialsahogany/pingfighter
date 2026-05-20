@@ -31,6 +31,10 @@ uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
 // Star detector bonus drops shimmer with an extra cyan rim to read as the
 // special variant; intensity=0 disables the shimmer for normal drops.
 uniform float detector_shimmer_intensity : hint_range(0.0, 1.0) = 0.0;
+// Iridescent shimmer cycles the star body fill through nearby hues so the
+// normal pink drops read as "multicolor shining" rather than flat solid pink.
+// 0 disables (used by stages that want a pure single-color fill).
+uniform float iridescent_shimmer_intensity : hint_range(0.0, 1.0) = 0.0;
 
 // N-tip star SDF based on distance to actual polygon edges (tip->valley line
 // segments). Returns negative inside the star, positive outside. The earlier
@@ -102,7 +106,25 @@ void fragment() {
 	// Anti-aliased fill (smoothstep narrows on smaller stars; the 0.012 band
 	// is calibrated against a 12px-radius drop at 1x scale).
 	float fill_mask = smoothstep(0.012, -0.012, d);
-	col = mix(col, fill_color.rgb, fill_mask * fill_color.a * alpha);
+
+	// Iridescent multi-frequency hue shimmer modulates the base fill toward
+	// adjacent hues so the pink drop reads as "multicolor shining" instead of
+	// flat solid pink. The phase combines time + 2D position so each pixel
+	// inside the star catches the rainbow at a slightly different moment.
+	vec3 fill_rgb = fill_color.rgb;
+	if (iridescent_shimmer_intensity > 0.001 && fill_mask > 0.01) {
+		float shimmer_phase = elapsed * 1.6 + p.x * 7.0 + p.y * 5.0;
+		float h = fract(shimmer_phase * 0.16);
+		vec3 rainbow = vec3(
+			0.5 + 0.5 * cos(h * TAU + 0.0),
+			0.5 + 0.5 * cos(h * TAU + 2.0944),
+			0.5 + 0.5 * cos(h * TAU + 4.1888)
+		);
+		// Gentle 38% blend keeps the dominant pink identity while letting the
+		// multicolor highlights cycle visibly across the body.
+		fill_rgb = mix(fill_color.rgb, rainbow, iridescent_shimmer_intensity * 0.38);
+	}
+	col = mix(col, fill_rgb, fill_mask * fill_color.a * alpha);
 	total_alpha = max(total_alpha, fill_mask * fill_color.a * alpha);
 
 	// Outline band traces the polygon perimeter. The original CPU draw uses

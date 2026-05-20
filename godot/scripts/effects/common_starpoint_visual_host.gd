@@ -192,6 +192,11 @@ func _apply_slot(slot: Sprite2D, mat: ShaderMaterial, state: Dictionary) -> void
 	mat.set_shader_parameter("star_tip_count", tip_count)
 	var shimmer: float = 1.0 if bool(state.get("star_detector_bonus", false)) else 0.0
 	mat.set_shader_parameter("detector_shimmer_intensity", shimmer)
+	# Iridescent body shimmer for the normal pink drops; detector drops can
+	# still pass a smaller value (or zero) so the cyan rim isn't washed out by
+	# competing hue cycling.
+	var iridescent: float = clampf(float(state.get("iridescent_shimmer_intensity", 0.0)), 0.0, 1.0)
+	mat.set_shader_parameter("iridescent_shimmer_intensity", iridescent)
 
 
 func _as_vector2(value: Variant) -> Vector2:

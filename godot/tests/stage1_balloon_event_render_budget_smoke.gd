@@ -105,8 +105,11 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"starpoint drop outlines should use one polyline draw instead of per-edge draw calls"
 	)
 	_expect(
-		source.find("func draw_foreground(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, perf_logger: Object = null)") >= 0,
-		"balloon foreground draw should accept the shared perf logger"
+		source.find("func draw_foreground(") >= 0
+			and source.find("perf_logger: Object = null") >= 0
+			and source.find("game_offset: Vector2 = Vector2.ZERO") >= 0
+			and source.find("render_scale: float = 1.0") >= 0,
+		"balloon foreground draw should accept the shared perf logger and playfield render transform"
 	)
 	_expect(
 		source.find("func draw_background(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, perf_logger: Object = null)") >= 0,
@@ -127,8 +130,8 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"playfield scene drawer should forward BattlePerf to balloon background"
 	)
 	_expect(
-		scene_drawer_source.find("balloon_event.draw_foreground(canvas, shake_offset, perf_logger)") >= 0,
-		"playfield scene drawer should forward BattlePerf to balloon foreground"
+		scene_drawer_source.find("balloon_event.draw_foreground(canvas, shake_offset, perf_logger, game_offset, render_scale)") >= 0,
+		"playfield scene drawer should forward BattlePerf and render transform to balloon foreground"
 	)
 
 
