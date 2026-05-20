@@ -3341,6 +3341,13 @@ This section is intentionally long; use search to find the nearest owner.
   keeps all input side effects, weapon firing gates, manual-control velocity
   mutation, and detonation logic while delegating only these snapshot /
   controller-state reads.
+- `scripts/characters/commando_firearm_lingering_effect_state.gd`
+  Owns pure Commando lingering-effect base state: duration / size resolution,
+  base effect and spawn-result payloads, timer / phase / rope-snap arithmetic,
+  active / fire-zone predicates, and boss-clamp result merge helpers. The
+  runtime keeps active effect storage, projectile impact ownership, fire-zone
+  flame updates, status application, and net dash-break mutation while
+  delegating deterministic base lingering-effect math here.
 - `scripts/characters/commando_firearm_lingering_fire_flame_state.gd`
   Owns pure Commando lingering fire-zone flame state: deterministic flame
   seeding, effect-size fallback reads, ring / size / lifetime patterns,

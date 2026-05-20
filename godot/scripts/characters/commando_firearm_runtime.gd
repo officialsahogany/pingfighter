@@ -11,6 +11,7 @@ const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_f
 const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
+const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
 const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
@@ -3170,9 +3171,12 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 
 
 func _get_lingering_effect_duration(profile: Dictionary, is_net: bool, dissolve: bool) -> float:
-	if is_net and dissolve:
-		return max(1.0, float(profile.get("dissolve_frames", NET_GUN_DISSOLVE_FRAMES)))
-	return max(1.0, float(profile.get("duration_frames", 1.0)))
+	return CommandoFirearmLingeringEffectState.get_duration(
+		profile,
+		is_net,
+		dissolve,
+		NET_GUN_DISSOLVE_FRAMES
+	)
 
 
 func _get_lingering_effect_size(
@@ -3181,12 +3185,12 @@ func _get_lingering_effect_size(
 	context: Dictionary,
 	is_net: bool
 ) -> Vector2:
-	if is_net:
-		return Vector2(NET_GUN_WIDTH, _get_net_effect_height(profile, context))
-	var impact_radius: float = float(projectile.get("impact_radius", 24.0))
-	return Vector2(
-		float(profile.get("width", impact_radius * 2.0)),
-		float(profile.get("height", impact_radius * 1.2))
+	return CommandoFirearmLingeringEffectState.get_size(
+		profile,
+		projectile,
+		is_net,
+		NET_GUN_WIDTH,
+		_get_net_effect_height(profile, context)
 	)
 
 
@@ -3206,28 +3210,19 @@ func _build_lingering_effect(
 	effect_size: Vector2,
 	duration: float
 ) -> Dictionary:
-	return {
-		"id": effect_id,
-		"weapon_id": weapon_id,
-		"kind": str(profile.get("kind", "field")),
-		"pos": pos,
-		"width": effect_size.x,
-		"height": effect_size.y,
-		"timer_frames": duration,
-		"max_timer_frames": duration,
-		"phase": 0.0,
-		"color": profile.get("color", projectile.get("color", Color.WHITE)),
-		"secondary": profile.get("secondary", projectile.get("secondary", Color(1.0, 0.5, 0.2))),
-		"source": "commando_firearm_%s_lingering_%d" % [weapon_id, effect_id],
-	}
+	return CommandoFirearmLingeringEffectState.build_effect(
+		weapon_id,
+		profile,
+		projectile,
+		pos,
+		effect_id,
+		effect_size,
+		duration
+	)
 
 
 func _build_lingering_spawn_result(effect: Dictionary, duration: float) -> Dictionary:
-	return {
-		"kind": str(effect.get("kind", "")),
-		"duration_frames": duration,
-		"source": str(effect.get("source", "")),
-	}
+	return CommandoFirearmLingeringEffectState.build_spawn_result(effect, duration)
 
 
 func _apply_lingering_effect_status_fields(effect: Dictionary, profile: Dictionary, dissolve: bool) -> void:
@@ -3601,74 +3596,67 @@ func _advance_lingering_effect_frame(effect: Dictionary, fps_scale: float) -> vo
 
 
 func _advance_lingering_effect_timers(effect: Dictionary, fps_scale: float) -> void:
-	var step: float = _get_lingering_effect_timer_step(fps_scale)
-	effect["timer_frames"] = _get_next_lingering_effect_timer(effect, step)
-	effect["phase"] = _get_next_lingering_effect_phase(effect, step)
-	if _should_advance_lingering_rope_snap_timer(effect):
-		effect["rope_snap_timer"] = _get_next_lingering_rope_snap_timer(effect, step)
+	CommandoFirearmLingeringEffectState.advance_timers(effect, fps_scale, LINGERING_EFFECT_PHASE_STEP)
 
 
 func _get_lingering_effect_timer_step(fps_scale: float) -> float:
-	return max(0.0, fps_scale)
+	return CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
 
 
 func _get_next_lingering_effect_timer(effect: Dictionary, step: float) -> float:
-	return max(0.0, _get_lingering_effect_timer(effect) - step)
+	return CommandoFirearmLingeringEffectState.get_next_timer(effect, step)
 
 
 func _get_next_lingering_effect_phase(effect: Dictionary, step: float) -> float:
-	return _get_lingering_effect_phase(effect) + _get_lingering_effect_phase_step(step)
+	return CommandoFirearmLingeringEffectState.get_next_phase(effect, step, LINGERING_EFFECT_PHASE_STEP)
 
 
 func _get_lingering_effect_timer(effect: Dictionary) -> float:
-	return float(effect.get("timer_frames", 0.0))
+	return CommandoFirearmLingeringEffectState.get_timer(effect)
 
 
 func _get_lingering_effect_phase(effect: Dictionary) -> float:
-	return float(effect.get("phase", 0.0))
+	return CommandoFirearmLingeringEffectState.get_phase(effect)
 
 
 func _get_lingering_effect_phase_step(step: float) -> float:
-	return LINGERING_EFFECT_PHASE_STEP * step
+	return CommandoFirearmLingeringEffectState.get_phase_step(step, LINGERING_EFFECT_PHASE_STEP)
 
 
 func _should_advance_lingering_rope_snap_timer(effect: Dictionary) -> bool:
-	return bool(effect.get("rope_broken", false))
+	return CommandoFirearmLingeringEffectState.should_advance_rope_snap_timer(effect)
 
 
 func _get_next_lingering_rope_snap_timer(effect: Dictionary, step: float) -> float:
-	return max(0.0, _get_lingering_rope_snap_timer(effect) - step)
+	return CommandoFirearmLingeringEffectState.get_next_rope_snap_timer(effect, step)
 
 
 func _get_lingering_rope_snap_timer(effect: Dictionary) -> float:
-	return float(effect.get("rope_snap_timer", 0.0))
+	return CommandoFirearmLingeringEffectState.get_rope_snap_timer(effect)
 
 
 func _is_lingering_fire_zone(effect: Dictionary) -> bool:
-	return str(effect.get("kind", "")) == "fire_zone"
+	return CommandoFirearmLingeringEffectState.is_fire_zone(effect)
 
 
 func _is_lingering_effect_active(effect: Dictionary) -> bool:
-	return _has_lingering_effect_timer(_get_lingering_effect_timer(effect))
+	return CommandoFirearmLingeringEffectState.is_active(effect)
 
 
 func _has_lingering_effect_timer(timer_frames: float) -> bool:
-	return timer_frames > 0.0
+	return CommandoFirearmLingeringEffectState.has_timer(timer_frames)
 
 
 func _merge_lingering_clamp_result(result: Dictionary, context: Dictionary, clamp_result: Dictionary) -> void:
-	if not _has_lingering_clamp_result(clamp_result):
-		return
-	_apply_lingering_clamp_payload(result, clamp_result)
-	_apply_lingering_clamp_payload(context, clamp_result)
+	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
 
 
 func _has_lingering_clamp_result(clamp_result: Dictionary) -> bool:
-	return not clamp_result.is_empty()
+	return CommandoFirearmLingeringEffectState.has_clamp_result(clamp_result)
 
 
 func _apply_lingering_clamp_payload(target: Dictionary, clamp_result: Dictionary) -> void:
-	target.merge(clamp_result, true)
+	CommandoFirearmLingeringEffectState.apply_clamp_payload(target, clamp_result)
 
 
 func _apply_active_lingering_effect(
