@@ -233,6 +233,8 @@ brochure_assets_current/
 # Repo-local tool mirrors and dependency installs
 .agents/skills/
 mcp/node_modules/
+tools/realesrgan/
+tools/codex_phrase_picker/
 
 # Legacy item-generation iteration trails
 items/sprite_candidates/
