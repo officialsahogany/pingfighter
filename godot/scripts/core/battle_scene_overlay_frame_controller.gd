@@ -1,0 +1,501 @@
+extends RefCounted
+
+const CLEAN_CAPTURE_ENV := "PINGFIGHTER_BATTLE_PERF_CLEAN_CAPTURE"
+const CLEAN_CAPTURE_FLAG_PATH := "res://battle_perf_clean_capture.flag"
+
+var _clean_capture_checked := false
+var _clean_capture_enabled := false
+
+
+func process_idle(
+	delta: float,
+	owner: Object,
+	_registry: Object,
+	module_getter: Callable
+) -> bool:
+	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
+	var sample_start: int = _perf_begin(perf_logger)
+	if _is_clean_capture_enabled():
+		if _close_clean_capture_overlays(owner, module_getter):
+			_queue_redraw(owner)
+	_perf_end(perf_logger, "process.overlay.clean_capture", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	var passive_module_getter: Callable = _get_passive_module_getter(_registry, module_getter)
+	var modal_gate: Object = _get_modal_gate(passive_module_getter)
+	var perk_choice_active: bool = _is_runtime_perk_choice_active(passive_module_getter, modal_gate)
+	var perk_feedback_active: bool = _is_runtime_perk_feedback_active(passive_module_getter, modal_gate)
+	var process_overlay_activity: String = _get_blocking_process_overlay_activity(passive_module_getter, modal_gate)
+	_perf_end(perf_logger, "process.overlay.modal_scan", sample_start)
+	if not perk_choice_active and not perk_feedback_active and process_overlay_activity == "":
+		return false
+
+	if perk_choice_active or perk_feedback_active:
+		var runtime_perk_state: Object = _get_module(module_getter, "runtime_perk_state")
+		if runtime_perk_state != null and runtime_perk_state.has_method("update"):
+			sample_start = _perf_begin(perf_logger)
+			if runtime_perk_state.has_method("update_with_perf"):
+				runtime_perk_state.update_with_perf(delta, _get_view_size(owner), owner, _registry, perf_logger)
+			else:
+				runtime_perk_state.update(delta, _get_view_size(owner), owner, _registry)
+			_perf_end(perf_logger, "process.overlay.runtime_perk_update", sample_start)
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.runtime_perk_queue_redraw", sample_start)
+	if perk_choice_active:
+		return true
+
+	match process_overlay_activity:
+		"character_debug":
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.character_debug", sample_start)
+			return true
+		"perk_debug":
+			var perk_debug_picker: Object = _get_module(module_getter, "runtime_perk_debug_picker")
+			if perk_debug_picker != null and perk_debug_picker.has_method("update"):
+				sample_start = _perf_begin(perf_logger)
+				perk_debug_picker.update(delta)
+				_perf_end(perf_logger, "process.overlay.perk_debug_update", sample_start)
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.perk_debug_queue_redraw", sample_start)
+			return true
+		"stage_debug":
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.stage_debug", sample_start)
+			return true
+		"weather_debug":
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.weather_debug", sample_start)
+			return true
+		"mythic_management":
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.mythic_management", sample_start)
+			return true
+		"pandora_legacy":
+			var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
+			if mythic_item_runtime != null and mythic_item_runtime.has_method("update_pandora_legacy_selection_overlay"):
+				sample_start = _perf_begin(perf_logger)
+				mythic_item_runtime.update_pandora_legacy_selection_overlay(delta)
+				_perf_end(perf_logger, "process.overlay.pandora_legacy_update", sample_start)
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.pandora_legacy_queue_redraw", sample_start)
+			return true
+		"active_item_debug":
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.active_item_debug", sample_start)
+			return true
+		"pause":
+			var pause_menu: Object = _get_module(module_getter, "pause_menu_overlay")
+			if pause_menu != null and pause_menu.has_method("update"):
+				sample_start = _perf_begin(perf_logger)
+				pause_menu.update(delta)
+				_perf_end(perf_logger, "process.overlay.pause_update", sample_start)
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.pause_queue_redraw", sample_start)
+			return true
+		"elixir":
+			var elixir_runtime_module: Object = _get_module(module_getter, "active_item_runtime")
+			if elixir_runtime_module != null and elixir_runtime_module.has_method("update_elixir_cinematic"):
+				sample_start = _perf_begin(perf_logger)
+				elixir_runtime_module.update_elixir_cinematic(delta)
+				_perf_end(perf_logger, "process.overlay.elixir_update", sample_start)
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.elixir_queue_redraw", sample_start)
+			return true
+		"character_info":
+			var character_info: Object = _get_module(module_getter, "character_info_overlay")
+			var should_redraw := true
+			if character_info != null and character_info.has_method("update"):
+				var update_start: int = _perf_begin(perf_logger)
+				var update_result: Variant = character_info.update(delta)
+				_perf_end(perf_logger, "process.overlay.character_info_update", update_start)
+				if typeof(update_result) == TYPE_BOOL:
+					should_redraw = bool(update_result)
+			if should_redraw:
+				var redraw_start: int = _perf_begin(perf_logger)
+				_queue_redraw(owner)
+				_perf_end(perf_logger, "process.overlay.character_info_queue_redraw", redraw_start)
+			return true
+		"ball_speed":
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.ball_speed", sample_start)
+	return false
+
+
+func draw(
+	canvas: CanvasItem,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable,
+	view_size: Vector2
+) -> void:
+	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
+	var sample_start: int = 0
+	var passive_module_getter: Callable = _get_passive_module_getter(registry, module_getter)
+	var modal_gate: Object = _get_modal_gate(passive_module_getter)
+	var draw_overlay_activity: String = _get_primary_draw_overlay_activity(passive_module_getter, modal_gate)
+	if draw_overlay_activity == "":
+		return
+
+	match draw_overlay_activity:
+		"character_debug":
+			sample_start = _perf_begin(perf_logger)
+			var character_debug_picker: Object = _get_module(module_getter, "character_debug_picker")
+			if character_debug_picker != null and character_debug_picker.has_method("draw"):
+				character_debug_picker.draw(canvas, owner, view_size)
+			_perf_end(perf_logger, "draw.overlay.character_debug", sample_start)
+			return
+		"perk_debug":
+			sample_start = _perf_begin(perf_logger)
+			var perk_debug_picker: Object = _get_module(module_getter, "runtime_perk_debug_picker")
+			if perk_debug_picker != null and perk_debug_picker.has_method("draw"):
+				perk_debug_picker.draw(canvas, owner, registry, view_size)
+			_perf_end(perf_logger, "draw.overlay.perk_debug", sample_start)
+			return
+		"stage_debug":
+			sample_start = _perf_begin(perf_logger)
+			var stage_debug_picker: Object = _get_module(module_getter, "stage_debug_picker")
+			if stage_debug_picker != null and stage_debug_picker.has_method("draw"):
+				stage_debug_picker.draw(canvas, owner, view_size)
+			_perf_end(perf_logger, "draw.overlay.stage_debug", sample_start)
+			return
+		"weather_debug":
+			sample_start = _perf_begin(perf_logger)
+			var weather_debug_picker: Object = _get_module(module_getter, "weather_debug_picker")
+			if weather_debug_picker != null and weather_debug_picker.has_method("draw"):
+				weather_debug_picker.draw(canvas, owner, registry, view_size)
+			_perf_end(perf_logger, "draw.overlay.weather_debug", sample_start)
+			return
+		"mythic_management":
+			sample_start = _perf_begin(perf_logger)
+			var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
+			if mythic_item_runtime != null and mythic_item_runtime.has_method("draw_debug_management_menu"):
+				mythic_item_runtime.draw_debug_management_menu(canvas, owner, registry, view_size)
+			_perf_end(perf_logger, "draw.overlay.mythic_management", sample_start)
+			return
+		"pandora_legacy":
+			sample_start = _perf_begin(perf_logger)
+			var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
+			if mythic_item_runtime != null and mythic_item_runtime.has_method("draw_pandora_legacy_selection"):
+				mythic_item_runtime.draw_pandora_legacy_selection(canvas, owner, registry, view_size)
+			_perf_end(perf_logger, "draw.overlay.pandora_legacy", sample_start)
+			return
+		"pause":
+			sample_start = _perf_begin(perf_logger)
+			var pause_menu: Object = _get_module(module_getter, "pause_menu_overlay")
+			if pause_menu != null and pause_menu.has_method("draw"):
+				pause_menu.draw(canvas, owner, registry, view_size)
+			_perf_end(perf_logger, "draw.overlay.pause", sample_start)
+			return
+		"elixir":
+			sample_start = _perf_begin(perf_logger)
+			var elixir_runtime_module: Object = _get_module(module_getter, "active_item_runtime")
+			if elixir_runtime_module != null and elixir_runtime_module.has_method("draw_elixir_cinematic"):
+				elixir_runtime_module.draw_elixir_cinematic(canvas, view_size)
+			_perf_end(perf_logger, "draw.overlay.elixir", sample_start)
+			return
+		"character_info":
+			sample_start = _perf_begin(perf_logger)
+			var character_info: Object = _get_module(module_getter, "character_info_overlay")
+			if character_info != null and character_info.has_method("draw"):
+				character_info.draw(canvas, owner, registry, view_size)
+			_perf_end(perf_logger, "draw.overlay.character_info", sample_start)
+			return
+		"active_item_debug":
+			sample_start = _perf_begin(perf_logger)
+			var active_item_runtime: Object = _get_module(module_getter, "active_item_runtime")
+			if active_item_runtime != null and active_item_runtime.has_method("draw_debug_spawn_menu"):
+				active_item_runtime.draw_debug_spawn_menu(canvas, view_size, owner)
+			_perf_end(perf_logger, "draw.overlay.active_item_debug", sample_start)
+			if _is_ball_speed_debug_active(module_getter):
+				_draw_ball_speed_debug(canvas, owner, registry, module_getter, view_size, perf_logger)
+			return
+		"ball_speed":
+			_draw_ball_speed_debug(canvas, owner, registry, module_getter, view_size, perf_logger)
+			return
+
+
+func _draw_ball_speed_debug(
+	canvas: CanvasItem,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable,
+	view_size: Vector2,
+	perf_logger: Object
+) -> void:
+	var sample_start: int = _perf_begin(perf_logger)
+	var ball_speed_debug: Object = _get_module(module_getter, "ball_speed_debug_overlay")
+	if ball_speed_debug != null and ball_speed_debug.has_method("draw"):
+		ball_speed_debug.draw(canvas, owner, view_size, registry)
+	_perf_end(perf_logger, "draw.overlay.ball_speed_debug", sample_start)
+
+
+func _is_runtime_perk_choice_active(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_runtime_perk_choice_active", false, modal_gate)
+
+
+func _is_runtime_perk_feedback_active(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_runtime_perk_feedback_active", false, modal_gate)
+
+
+func _is_character_debug_picker_open(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_character_debug_picker_open", false, modal_gate)
+
+
+func _is_perk_debug_picker_open(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_perk_debug_picker_open", false, modal_gate)
+
+
+func _is_mythic_management_menu_open(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_mythic_management_menu_open", false, modal_gate)
+
+
+func _is_pandora_legacy_selection_active(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_pandora_legacy_selection_active", false, modal_gate)
+
+
+func _is_stage_debug_picker_open(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_stage_debug_picker_open", false, modal_gate)
+
+
+func _is_weather_debug_picker_open(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_weather_debug_picker_open", false, modal_gate)
+
+
+func _is_active_item_debug_spawn_menu_open(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_active_item_debug_spawn_menu_open", false, modal_gate)
+
+
+func _is_character_info_active(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_character_info_active", false, modal_gate)
+
+
+func _is_pause_menu_active(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_pause_menu_active", false, modal_gate)
+
+
+func _is_elixir_cinematic_active(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_elixir_cinematic_active", false, modal_gate)
+
+
+func _is_ball_speed_debug_active(module_getter: Callable) -> bool:
+	var ball_speed_debug: Object = _get_module(module_getter, "ball_speed_debug_overlay")
+	if ball_speed_debug == null or not ball_speed_debug.has_method("is_active"):
+		return false
+	return bool(ball_speed_debug.is_active())
+
+
+func _has_process_overlay_activity(module_getter: Callable) -> bool:
+	var modal_gate: Object = _get_modal_gate(module_getter)
+	return (
+		_is_runtime_perk_choice_active(module_getter, modal_gate)
+		or _is_runtime_perk_feedback_active(module_getter, modal_gate)
+		or _get_blocking_process_overlay_activity(module_getter, modal_gate) != ""
+	)
+
+
+func _get_blocking_process_overlay_activity(module_getter: Callable, modal_gate: Object = null) -> String:
+	if _is_character_debug_picker_open(module_getter, modal_gate):
+		return "character_debug"
+	if _is_perk_debug_picker_open(module_getter, modal_gate):
+		return "perk_debug"
+	if _is_stage_debug_picker_open(module_getter, modal_gate):
+		return "stage_debug"
+	if _is_weather_debug_picker_open(module_getter, modal_gate):
+		return "weather_debug"
+	if _is_mythic_management_menu_open(module_getter, modal_gate):
+		return "mythic_management"
+	if _is_pandora_legacy_selection_active(module_getter, modal_gate):
+		return "pandora_legacy"
+	if _is_active_item_debug_spawn_menu_open(module_getter, modal_gate):
+		return "active_item_debug"
+	if _is_pause_menu_active(module_getter, modal_gate):
+		return "pause"
+	if _is_elixir_cinematic_active(module_getter, modal_gate):
+		return "elixir"
+	if _is_character_info_active(module_getter, modal_gate):
+		return "character_info"
+	if _is_ball_speed_debug_active(module_getter):
+		return "ball_speed"
+	return ""
+
+
+func _has_draw_overlay_activity(module_getter: Callable) -> bool:
+	return _get_primary_draw_overlay_activity(module_getter, _get_modal_gate(module_getter)) != ""
+
+
+func _get_primary_draw_overlay_activity(module_getter: Callable, modal_gate: Object = null) -> String:
+	if _is_character_debug_picker_open(module_getter, modal_gate):
+		return "character_debug"
+	if _is_perk_debug_picker_open(module_getter, modal_gate):
+		return "perk_debug"
+	if _is_stage_debug_picker_open(module_getter, modal_gate):
+		return "stage_debug"
+	if _is_weather_debug_picker_open(module_getter, modal_gate):
+		return "weather_debug"
+	if _is_mythic_management_menu_open(module_getter, modal_gate):
+		return "mythic_management"
+	if _is_pandora_legacy_selection_active(module_getter, modal_gate):
+		return "pandora_legacy"
+	if _is_pause_menu_active(module_getter, modal_gate):
+		return "pause"
+	if _is_elixir_cinematic_active(module_getter, modal_gate):
+		return "elixir"
+	if _is_character_info_active(module_getter, modal_gate):
+		return "character_info"
+	if _is_active_item_debug_spawn_menu_open(module_getter, modal_gate):
+		return "active_item_debug"
+	if _is_ball_speed_debug_active(module_getter):
+		return "ball_speed"
+	return ""
+
+
+func _get_passive_module_getter(registry: Object, module_getter: Callable) -> Callable:
+	if registry != null and registry.has_method("get_cached_instance"):
+		return Callable(self, "_get_cached_or_core_module").bind(registry, module_getter)
+	return module_getter
+
+
+func _get_cached_or_core_module(key: String, registry: Object, module_getter: Callable) -> Object:
+	if key == "battle_scene_modal_gate_controller" or key == "battle_perf_logger":
+		return _get_module(module_getter, key)
+	var cached: Variant = registry.get_cached_instance(key)
+	if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
+		return cached as Object
+	return null
+
+
+func _is_clean_capture_enabled() -> bool:
+	if _clean_capture_checked:
+		return _clean_capture_enabled
+	_clean_capture_checked = true
+	var env_value: String = OS.get_environment(CLEAN_CAPTURE_ENV).strip_edges().to_lower()
+	if env_value in ["0", "false", "no", "off"]:
+		_clean_capture_enabled = false
+		return _clean_capture_enabled
+	_clean_capture_enabled = env_value in ["1", "true", "yes", "on"] or FileAccess.file_exists(CLEAN_CAPTURE_FLAG_PATH)
+	return _clean_capture_enabled
+
+
+func _close_clean_capture_overlays(owner: Object, module_getter: Callable) -> bool:
+	var closed_any := false
+	if _is_character_debug_picker_open(module_getter):
+		closed_any = _close_overlay_menu("character_debug_picker", "close", module_getter) or closed_any
+	if _is_perk_debug_picker_open(module_getter):
+		closed_any = _close_overlay_menu("runtime_perk_debug_picker", "close", module_getter) or closed_any
+	if _is_stage_debug_picker_open(module_getter):
+		closed_any = _close_overlay_menu("stage_debug_picker", "close", module_getter) or closed_any
+	if _is_weather_debug_picker_open(module_getter):
+		closed_any = _close_overlay_menu("weather_debug_picker", "close", module_getter) or closed_any
+	if _is_mythic_management_menu_open(module_getter):
+		closed_any = _close_mythic_management_debug_menu(module_getter) or closed_any
+	if _is_active_item_debug_spawn_menu_open(module_getter):
+		closed_any = _close_active_item_debug_menu(module_getter) or closed_any
+	if _is_ball_speed_debug_active(module_getter):
+		closed_any = _close_ball_speed_debug(module_getter) or closed_any
+	if _is_character_info_active(module_getter):
+		closed_any = _close_overlay_menu("character_info_overlay", "close", module_getter) or closed_any
+	if owner != null and bool(owner.get("player_customization_debug_overlay_enabled")):
+		owner.set("player_customization_debug_overlay_enabled", false)
+		closed_any = true
+	return closed_any
+
+
+func _close_active_item_debug_menu(module_getter: Callable) -> bool:
+	var active_item_runtime: Object = _get_module(module_getter, "active_item_runtime")
+	if active_item_runtime == null:
+		return false
+	if active_item_runtime.has_method("close_debug_spawn_menu"):
+		active_item_runtime.close_debug_spawn_menu()
+		return true
+	if _is_active_item_debug_spawn_menu_open(module_getter) and active_item_runtime.has_method("toggle_debug_spawn_menu"):
+		active_item_runtime.toggle_debug_spawn_menu()
+		return true
+	return false
+
+
+func _close_mythic_management_debug_menu(module_getter: Callable) -> bool:
+	var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
+	if mythic_item_runtime == null:
+		return false
+	if mythic_item_runtime.has_method("close_debug_management_menu"):
+		mythic_item_runtime.close_debug_management_menu()
+		return true
+	if _is_mythic_management_menu_open(module_getter) and mythic_item_runtime.has_method("toggle_debug_management_menu"):
+		mythic_item_runtime.toggle_debug_management_menu()
+		return true
+	return false
+
+
+func _close_ball_speed_debug(module_getter: Callable) -> bool:
+	var ball_speed_debug: Object = _get_module(module_getter, "ball_speed_debug_overlay")
+	if ball_speed_debug == null:
+		return false
+	if ball_speed_debug.has_method("close"):
+		ball_speed_debug.close()
+		return true
+	if _is_ball_speed_debug_active(module_getter) and ball_speed_debug.has_method("toggle"):
+		ball_speed_debug.toggle()
+		return true
+	return false
+
+
+func _close_overlay_menu(module_key: String, close_method: String, module_getter: Callable) -> bool:
+	var module: Object = _get_module(module_getter, module_key)
+	if module != null and module.has_method(close_method):
+		module.call(close_method)
+		return true
+	return false
+
+
+func _get_modal_gate(module_getter: Callable) -> Object:
+	return _get_module(module_getter, "battle_scene_modal_gate_controller")
+
+
+func _call_modal_gate_bool(module_getter: Callable, method_name: String, fallback: bool = false, modal_gate: Object = null) -> bool:
+	if modal_gate == null:
+		modal_gate = _get_modal_gate(module_getter)
+	if modal_gate == null or not modal_gate.has_method(method_name):
+		return fallback
+	return bool(modal_gate.call(method_name, module_getter))
+
+
+func _get_module(module_getter: Callable, key: String) -> Object:
+	if not module_getter.is_valid():
+		return null
+	var value: Variant = module_getter.call(key)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
+
+
+func _queue_redraw(owner: Object) -> void:
+	if owner != null and owner.has_method("queue_redraw"):
+		owner.queue_redraw()
+
+
+func _get_view_size(owner: Object) -> Vector2:
+	if owner != null and owner.has_method("get_viewport_rect"):
+		return owner.get_viewport_rect().size
+	return Vector2.ZERO
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
