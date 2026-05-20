@@ -155,6 +155,11 @@ Desktop.ini
 # Build artifacts
 build/
 dist/
+build_log.txt
+build_stdout.txt
+build_stderr.txt
+build_onedir_stdout.txt
+build_onedir_stderr.txt
 *.exe
 *.app
 *.pkg
