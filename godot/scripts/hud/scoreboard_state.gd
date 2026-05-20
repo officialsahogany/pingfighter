@@ -15,6 +15,7 @@ var animation_frame: int = 0
 var player_points: int = 0
 var boss_points: int = 0
 var pending_game_reset: bool = false
+var last_scoring_side: String = ""
 var top_mini_score_sparkle_timer: float = 0.0
 
 
@@ -25,13 +26,20 @@ func reset() -> void:
 	player_points = 0
 	boss_points = 0
 	pending_game_reset = false
+	last_scoring_side = ""
 	top_mini_score_sparkle_timer = 0.0
 
 
-func start(new_player_points: int, new_boss_points: int, new_pending_game_reset: bool) -> void:
+func start(
+	new_player_points: int,
+	new_boss_points: int,
+	new_pending_game_reset: bool,
+	new_last_scoring_side: String = ""
+) -> void:
 	player_points = new_player_points
 	boss_points = new_boss_points
 	pending_game_reset = new_pending_game_reset
+	last_scoring_side = new_last_scoring_side
 	timer = 0.0
 	animation_frame = 0
 	active = true
@@ -92,6 +100,10 @@ func get_boss_points() -> int:
 
 func has_pending_game_reset() -> bool:
 	return pending_game_reset
+
+
+func get_last_scoring_side() -> String:
+	return last_scoring_side
 
 
 func get_top_mini_score_sparkle_timer() -> float:

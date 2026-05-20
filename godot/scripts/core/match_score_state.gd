@@ -20,12 +20,31 @@ func reset() -> void:
 	deuce_goal = DEUCE_GOAL_1
 
 
+func force_score(new_player_score: int, new_boss_score: int) -> Dictionary:
+	player_score = max(0, new_player_score)
+	boss_score = max(0, new_boss_score)
+	deuce_mode = player_score >= DEUCE_TRIGGER and boss_score >= DEUCE_TRIGGER
+	deuce_goal = DEUCE_GOAL_2 if player_score >= 5 and boss_score >= 5 else DEUCE_GOAL_1
+	return _score_result(_is_match_finished())
+
+
 func player_scored() -> Dictionary:
 	return score_for(SIDE_PLAYER)
 
 
 func boss_scored() -> Dictionary:
 	return score_for(SIDE_BOSS)
+
+
+func would_score_finish(scoring_side: String) -> bool:
+	var next_player_score := player_score + (1 if scoring_side == SIDE_PLAYER else 0)
+	var next_boss_score := boss_score + (1 if scoring_side == SIDE_BOSS else 0)
+	if deuce_mode:
+		var next_deuce_goal := deuce_goal
+		if next_player_score == 5 and next_boss_score == 5:
+			next_deuce_goal = DEUCE_GOAL_2
+		return next_player_score >= next_deuce_goal or next_boss_score >= next_deuce_goal
+	return next_player_score >= WIN_GOAL or next_boss_score >= WIN_GOAL
 
 
 func score_for(scoring_side: String) -> Dictionary:
@@ -76,3 +95,9 @@ func _update_deuce_score_state() -> bool:
 	if player_score == 5 and boss_score == 5:
 		deuce_goal = DEUCE_GOAL_2
 	return player_score >= deuce_goal or boss_score >= deuce_goal
+
+
+func _is_match_finished() -> bool:
+	if deuce_mode:
+		return player_score >= deuce_goal or boss_score >= deuce_goal
+	return player_score >= WIN_GOAL or boss_score >= WIN_GOAL
