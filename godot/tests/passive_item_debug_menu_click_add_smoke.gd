@@ -2,6 +2,8 @@ extends SceneTree
 
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 
+const POSEIDON_TRIDENT_ICON_SHEET_PATH := "res://assets/sprites/items/poseidon_trident_icon_sheet.png"
+
 var _failures: Array[String] = []
 
 
@@ -56,6 +58,10 @@ func _verify_click_adds_passive_items_without_wheel_quantity() -> void:
 
 	runtime.prewarm_assets()
 	_expect(runtime.debug_management_menu._icons_prewarmed, "debug management prewarm should mark menu icons ready")
+	_expect(
+		runtime.debug_management_menu.icon_renderer._icon_sheet_cache.has(POSEIDON_TRIDENT_ICON_SHEET_PATH),
+		"debug management prewarm should cache Poseidon Trident animated icon sheet before first draw"
+	)
 	runtime.prewarm_assets()
 	_expect(runtime.debug_management_menu._icons_prewarmed, "debug management prewarm should be idempotent")
 
