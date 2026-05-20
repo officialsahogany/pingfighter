@@ -117,3 +117,70 @@ static func build_pistol_shot_queued_result(
 		"special_gauge": special_gauge,
 		"skill_gold_award": 0,
 	}
+
+
+static func build_ak47_holding_result(
+	special_gauge: float,
+	fire_interval_frames: float,
+	burst_shots_remaining: int,
+	movement_speed_multiplier: float
+) -> Dictionary:
+	return {
+		"handled": true,
+		"weapon_id": "ak47",
+		"holding": true,
+		"fire_interval_frames": fire_interval_frames,
+		"burst_shots_remaining": burst_shots_remaining,
+		"movement_speed_multiplier": movement_speed_multiplier,
+		"special_gauge": special_gauge,
+	}
+
+
+static func build_ak47_fired_result(
+	remaining_ammo: int,
+	ammo_max: int,
+	updated_weapon: Dictionary,
+	duration_default: float,
+	fire_interval_frames: float,
+	burst_shots_remaining: int,
+	recoil_accumulation: float,
+	movement_speed_multiplier: float,
+	special_gauge: float
+) -> Dictionary:
+	return {
+		"handled": true,
+		"weapon_id": "ak47",
+		"fired": true,
+		"holding": true,
+		"ammo_current": remaining_ammo,
+		"ammo_max": ammo_max,
+		"duration_frames": float(updated_weapon.get("duration_frames", duration_default)),
+		"duration_max_frames": float(updated_weapon.get("duration_max_frames", duration_default)),
+		"fire_interval_frames": fire_interval_frames,
+		"burst_shots_remaining": burst_shots_remaining,
+		"recoil_accumulation": recoil_accumulation,
+		"movement_speed_multiplier": movement_speed_multiplier,
+		"special_gauge": special_gauge,
+		"skill_gold_award": 0,
+	}
+
+
+static func build_ammo_weapon_fired_result(
+	weapon_id: String,
+	updated_weapon: Dictionary,
+	fallback_ammo_current: int,
+	ammo_max_default: int,
+	special_gauge: float,
+	extra_fields: Dictionary = {}
+) -> Dictionary:
+	var result := {
+		"handled": true,
+		"weapon_id": weapon_id,
+		"fired": true,
+		"ammo_current": int(updated_weapon.get("ammo_current", fallback_ammo_current)),
+		"ammo_max": int(updated_weapon.get("ammo_max", ammo_max_default)),
+		"special_gauge": special_gauge,
+		"skill_gold_award": 0,
+	}
+	result.merge(extra_fields, true)
+	return result

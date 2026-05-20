@@ -1185,15 +1185,12 @@ func _update_ak47_input(
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		current_weapon = weapon_controller.get_current_weapon_data()
 	if ak47_fire_interval_frames > 0.0:
-		return {
-			"handled": true,
-			"weapon_id": "ak47",
-			"holding": true,
-			"fire_interval_frames": ak47_fire_interval_frames,
-			"burst_shots_remaining": ak47_burst_shots_remaining,
-			"movement_speed_multiplier": AK47_MOVEMENT_SPEED_MULTIPLIER,
-			"special_gauge": special_gauge,
-		}
+		return CommandoFirearmFireResultState.build_ak47_holding_result(
+			special_gauge,
+			ak47_fire_interval_frames,
+			ak47_burst_shots_remaining,
+			AK47_MOVEMENT_SPEED_MULTIPLIER
+		)
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
 			_clear_ak47_trigger_state()
@@ -1218,22 +1215,17 @@ func _update_ak47_input(
 	var ammo_max_result: int = int(updated_weapon.get("ammo_max", current_weapon.get("ammo_max", AK47_AMMO_MAX)))
 	if str(updated_weapon.get("weapon_id", "ak47")) != "ak47":
 		ammo_max_result = int(current_weapon.get("ammo_max", AK47_AMMO_MAX))
-	return {
-		"handled": true,
-		"weapon_id": "ak47",
-		"fired": true,
-		"holding": true,
-		"ammo_current": remaining_ammo,
-		"ammo_max": ammo_max_result,
-		"duration_frames": float(updated_weapon.get("duration_frames", AK47_DURATION_FRAMES)),
-		"duration_max_frames": float(updated_weapon.get("duration_max_frames", AK47_DURATION_FRAMES)),
-		"fire_interval_frames": ak47_fire_interval_frames,
-		"burst_shots_remaining": ak47_burst_shots_remaining,
-		"recoil_accumulation": ak47_recoil_accumulation,
-		"movement_speed_multiplier": movement_multiplier,
-		"special_gauge": special_gauge,
-		"skill_gold_award": 0,
-	}
+	return CommandoFirearmFireResultState.build_ak47_fired_result(
+		remaining_ammo,
+		ammo_max_result,
+		updated_weapon,
+		AK47_DURATION_FRAMES,
+		ak47_fire_interval_frames,
+		ak47_burst_shots_remaining,
+		ak47_recoil_accumulation,
+		movement_multiplier,
+		special_gauge
+	)
 
 
 func _ak47_fire_failed(special_gauge: float, reason: String) -> Dictionary:
@@ -1316,20 +1308,20 @@ func _update_bazooka_input(
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
-	return {
-		"handled": true,
-		"weapon_id": "bazooka",
-		"fired": true,
-		"ammo_current": int(updated_weapon.get("ammo_current", max(0, ammo_current - 1))),
-		"ammo_max": int(updated_weapon.get("ammo_max", BAZOOKA_AMMO_MAX)),
-		"cooldown_frames": bazooka_cooldown_frames,
-		"control_lock_frames": bazooka_control_lock_frames,
-		"fire_animation_frames": bazooka_fire_animation_frames,
-		"firing_pose_frames": bazooka_firing_pose_frames,
-		"muzzle_flash_frames": bazooka_muzzle_flash_frames,
-		"special_gauge": special_gauge,
-		"skill_gold_award": 0,
-	}
+	return CommandoFirearmFireResultState.build_ammo_weapon_fired_result(
+		"bazooka",
+		updated_weapon,
+		max(0, ammo_current - 1),
+		BAZOOKA_AMMO_MAX,
+		special_gauge,
+		{
+			"cooldown_frames": bazooka_cooldown_frames,
+			"control_lock_frames": bazooka_control_lock_frames,
+			"fire_animation_frames": bazooka_fire_animation_frames,
+			"firing_pose_frames": bazooka_firing_pose_frames,
+			"muzzle_flash_frames": bazooka_muzzle_flash_frames,
+		}
+	)
 
 
 func _bazooka_fire_failed(special_gauge: float, reason: String) -> Dictionary:
@@ -1391,19 +1383,19 @@ func _update_net_gun_input(
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
-	return {
-		"handled": true,
-		"weapon_id": "net_gun",
-		"fired": true,
-		"ammo_current": int(updated_weapon.get("ammo_current", max(0, ammo_current - 1))),
-		"ammo_max": int(updated_weapon.get("ammo_max", NET_GUN_AMMO_MAX)),
-		"cooldown_frames": net_gun_cooldown_frames,
-		"control_lock_frames": net_gun_control_lock_frames,
-		"throw_pose_frames": net_gun_throw_pose_frames,
-		"harpoon_flash_frames": net_gun_harpoon_flash_frames,
-		"special_gauge": special_gauge,
-		"skill_gold_award": 0,
-	}
+	return CommandoFirearmFireResultState.build_ammo_weapon_fired_result(
+		"net_gun",
+		updated_weapon,
+		max(0, ammo_current - 1),
+		NET_GUN_AMMO_MAX,
+		special_gauge,
+		{
+			"cooldown_frames": net_gun_cooldown_frames,
+			"control_lock_frames": net_gun_control_lock_frames,
+			"throw_pose_frames": net_gun_throw_pose_frames,
+			"harpoon_flash_frames": net_gun_harpoon_flash_frames,
+		}
+	)
 
 
 func _net_gun_fire_failed(special_gauge: float, reason: String) -> Dictionary:
@@ -1499,19 +1491,19 @@ func _update_bowling_trap_input(
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
-	return {
-		"handled": true,
-		"weapon_id": "bowling_trap",
-		"fired": true,
-		"ammo_current": int(updated_weapon.get("ammo_current", max(0, ammo_current - 1))),
-		"ammo_max": int(updated_weapon.get("ammo_max", BOWLING_TRAP_AMMO_MAX)),
-		"cooldown_frames": bowling_trap_cooldown_frames,
-		"control_lock_frames": bowling_trap_control_lock_frames,
-		"install_pose_frames": bowling_trap_install_pose_frames,
-		"install_progress": 0.0,
-		"special_gauge": special_gauge,
-		"skill_gold_award": 0,
-	}
+	return CommandoFirearmFireResultState.build_ammo_weapon_fired_result(
+		"bowling_trap",
+		updated_weapon,
+		max(0, ammo_current - 1),
+		BOWLING_TRAP_AMMO_MAX,
+		special_gauge,
+		{
+			"cooldown_frames": bowling_trap_cooldown_frames,
+			"control_lock_frames": bowling_trap_control_lock_frames,
+			"install_pose_frames": bowling_trap_install_pose_frames,
+			"install_progress": 0.0,
+		}
+	)
 
 
 func _bowling_trap_fire_failed(special_gauge: float, reason: String) -> Dictionary:

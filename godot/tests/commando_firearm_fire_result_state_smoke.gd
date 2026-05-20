@@ -89,6 +89,43 @@ func _verify_direct_fire_result_state() -> void:
 	_expect(bool(queued.get("doping_potion_active", false)), "queued pistol result should preserve doping state")
 	_expect(is_equal_approx(float(queued.get("doping_potion_head_leg_multiplier", 0.0)), 2.0), "queued pistol result should preserve doping multiplier")
 
+	var ak47_holding: Dictionary = CommandoFirearmFireResultState.build_ak47_holding_result(400.0, 6.0, 1, 0.5)
+	_expect(bool(ak47_holding.get("holding", false)), "AK-47 holding result should expose holding state")
+	_expect(is_equal_approx(float(ak47_holding.get("movement_speed_multiplier", 0.0)), 0.5), "AK-47 holding result should preserve movement multiplier")
+
+	var ak47_fired: Dictionary = CommandoFirearmFireResultState.build_ak47_fired_result(
+		12,
+		60,
+		{
+			"duration_frames": 120.0,
+			"duration_max_frames": 180.0,
+		},
+		1800.0,
+		6.0,
+		0,
+		0.06,
+		0.5,
+		400.0
+	)
+	_expect(bool(ak47_fired.get("fired", false)), "AK-47 fired result should expose fired state")
+	_expect(int(ak47_fired.get("ammo_current", -1)) == 12, "AK-47 fired result should preserve remaining ammo")
+	_expect(is_equal_approx(float(ak47_fired.get("duration_frames", 0.0)), 120.0), "AK-47 fired result should preserve duration")
+
+	var ammo_weapon: Dictionary = CommandoFirearmFireResultState.build_ammo_weapon_fired_result(
+		"bazooka",
+		{
+			"ammo_current": 3,
+			"ammo_max": 4,
+		},
+		2,
+		4,
+		350.0,
+		{"muzzle_flash_frames": 5.0}
+	)
+	_expect(str(ammo_weapon.get("weapon_id", "")) == "bazooka", "ammo weapon fired result should preserve weapon id")
+	_expect(int(ammo_weapon.get("ammo_current", -1)) == 3, "ammo weapon fired result should preserve ammo")
+	_expect(is_equal_approx(float(ammo_weapon.get("muzzle_flash_frames", 0.0)), 5.0), "ammo weapon fired result should merge weapon timer fields")
+
 
 func _verify_runtime_delegates_fire_result_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
