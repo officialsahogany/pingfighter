@@ -135,6 +135,15 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	_expect(str(guard_state.get("source", "")) == "commando_bowling_trap_guard_9", "guard state helper should build stable guard sources")
 	_expect(is_equal_approx(float(guard_state.get("restore_speed", 0.0)), 4.2), "guard state helper should apply speed reduction")
 	_expect(not bool(CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state().get("armed", true)), "cleared guard helper should disarm the guard")
+	var status_data: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_status_data(22.0, 6.0, 0.8, "guard")
+	_expect(bool(status_data.get("knockback_active", false)), "guard status data should mark active knockback")
+	_expect(str(status_data.get("source", "")) == "guard", "guard status data should preserve source")
+	var immune_result: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_immune_result(Vector2(0.0, 4.0))
+	_expect(bool(immune_result.get("boss_status_immune", false)), "guard immune result should expose boss immunity")
+	_expect(not bool(immune_result.get("commando_bowling_trap_guard_hit", true)), "guard immune result should not mark a guard hit")
+	var hit_result: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_hit_result(Vector2(0.0, 4.0), 22.0, "guard", 60.0, 4.2)
+	_expect(bool(hit_result.get("commando_bowling_trap_guard_hit", false)), "guard hit result should mark a guard hit")
+	_expect(is_equal_approx(float(hit_result.get("commando_bowling_trap_guard_consumed_restore_speed", 0.0)), 4.2), "guard hit result should preserve restore speed")
 
 	var trap := {"pos": Vector2(100.0, 100.0), "width": 60.0}
 	var hit_context := {"ball_pos": Vector2(100.0, 110.0), "ball_vel": Vector2(0.0, 5.0), "ball_size": 20.0}

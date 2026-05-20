@@ -279,6 +279,63 @@ static func build_cleared_guard_state() -> Dictionary:
 	}
 
 
+static func build_guard_status_data(
+	knockback_vel: float,
+	knockback_frames: float,
+	knockback_decay_per_frame: float,
+	source: String
+) -> Dictionary:
+	return {
+		"knockback_vel": knockback_vel,
+		"knockback_active": abs(knockback_vel) > 0.001,
+		"knockback_frames": knockback_frames,
+		"knockback_decay_per_frame": knockback_decay_per_frame,
+		"knockback_stop_threshold": 0.3,
+		"source": source,
+	}
+
+
+static func build_guard_immune_result(ball_vel: Vector2) -> Dictionary:
+	return {
+		"ball_vel": ball_vel,
+		"commando_bowling_trap_guard_consumed": true,
+		"commando_bowling_trap_guarded": false,
+		"commando_bowling_trap_guard_hit": false,
+		"commando_bowling_trap_guard_armed": false,
+		"commando_bowling_trap_guard_source": "",
+		"commando_bowling_trap_guard_knockback_power": 0.0,
+		"commando_bowling_trap_guard_stun_frames": 0.0,
+		"commando_bowling_trap_guard_restore_speed": 0.0,
+		"boss_status_immune": true,
+	}
+
+
+static func build_guard_hit_result(
+	ball_vel: Vector2,
+	knockback_vel: float,
+	source: String,
+	stun_frames: float,
+	restore_speed: float
+) -> Dictionary:
+	return {
+		"ball_vel": ball_vel,
+		"boss_vel": knockback_vel,
+		"commando_bowling_trap_guard_consumed": true,
+		"commando_bowling_trap_guarded": true,
+		"commando_bowling_trap_guard_hit": true,
+		"boss_status_immune": false,
+		"commando_bowling_trap_guard_armed": false,
+		"commando_bowling_trap_guard_source": "",
+		"commando_bowling_trap_guard_status_source": source,
+		"commando_bowling_trap_guard_knockback_power": 0.0,
+		"commando_bowling_trap_guard_knockback_vel": knockback_vel,
+		"commando_bowling_trap_guard_stun_frames": 0.0,
+		"commando_bowling_trap_guard_restore_speed": 0.0,
+		"commando_bowling_trap_guard_consumed_stun_frames": stun_frames,
+		"commando_bowling_trap_guard_consumed_restore_speed": restore_speed,
+	}
+
+
 static func soften_guard_ball(ball_vel: Vector2, restore_speed: float) -> Vector2:
 	var speed: float = max(1.0, restore_speed)
 	if ball_vel.length() <= 0.001:

@@ -3287,12 +3287,12 @@ This section is intentionally long; use search to find the nearest owner.
   helpers: install position / payload / marker dictionaries, install and
   player-field eligibility, install / carryover / draw-state summary helpers,
   capture timer progression, capture result handoff, release motion and
-  pseudo-projectile dictionaries, guard state payloads, guard ball-speed
-  restoration, guard knockback side, deterministic launch direction, and
-  trap-vs-ball rectangle hits. `commando_firearm_runtime.gd` keeps the trap
-  array, ammo / cooldown gates, capture / release side effects, audio, VFX,
-  and guard state variable ownership while delegating deterministic
-  bowling-trap state math to this helper.
+  pseudo-projectile dictionaries, guard state / status / result payloads,
+  guard ball-speed restoration, guard knockback side, deterministic launch
+  direction, and trap-vs-ball rectangle hits. `commando_firearm_runtime.gd`
+  keeps the trap array, ammo / cooldown gates, capture / release side effects,
+  audio, VFX, status application, and guard state variable ownership while
+  delegating deterministic bowling-trap state math to this helper.
 - `scripts/characters/commando_firearm_control_state.gd`
   Owns pure Commando firearm control-state decisions: effect-update gating,
   player-control lock aggregation, and movement-speed multiplier calculation

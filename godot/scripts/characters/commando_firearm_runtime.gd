@@ -798,18 +798,7 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 
 	var next_ball_vel: Vector2 = _soften_bowling_trap_guard_ball(ball_vel, restore_speed)
 	if _is_stage2_speed_defense_boss_immune(context, deps):
-		return {
-			"ball_vel": next_ball_vel,
-			"commando_bowling_trap_guard_consumed": true,
-			"commando_bowling_trap_guarded": false,
-			"commando_bowling_trap_guard_hit": false,
-			"commando_bowling_trap_guard_armed": false,
-			"commando_bowling_trap_guard_source": "",
-			"commando_bowling_trap_guard_knockback_power": 0.0,
-			"commando_bowling_trap_guard_stun_frames": 0.0,
-			"commando_bowling_trap_guard_restore_speed": 0.0,
-			"boss_status_immune": true,
-		}
+		return CommandoFirearmBowlingTrapGeometry.build_guard_immune_result(next_ball_vel)
 
 	var boss_center: Vector2 = _get_boss_target_pos(context)
 	var knockback_vel: float = _get_bowling_trap_guard_knockback_velocity(boss_center, context)
@@ -822,14 +811,12 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 			"boss",
 			"stun",
 			BOWLING_TRAP_GUARD_STUN_FRAMES,
-			{
-				"knockback_vel": knockback_vel,
-				"knockback_active": abs(knockback_vel) > 0.001,
-				"knockback_frames": BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES,
-				"knockback_decay_per_frame": BOWLING_TRAP_GUARD_KNOCKBACK_DECAY,
-				"knockback_stop_threshold": 0.3,
-				"source": source,
-			},
+			CommandoFirearmBowlingTrapGeometry.build_guard_status_data(
+				knockback_vel,
+				BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES,
+				BOWLING_TRAP_GUARD_KNOCKBACK_DECAY,
+				source
+			),
 			source
 		)
 		applied_status = true
@@ -853,23 +840,13 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 	_trigger_hit_feedback(feedback_profile, deps)
 	_trigger_boss_hit_animation(context, deps)
 	_register_ball_hit_pulse(boss_center, next_ball_vel, 0.9, "bowling_trap_guard", deps)
-	return {
-		"ball_vel": next_ball_vel,
-		"boss_vel": knockback_vel,
-		"commando_bowling_trap_guard_consumed": true,
-		"commando_bowling_trap_guarded": true,
-		"commando_bowling_trap_guard_hit": true,
-		"boss_status_immune": false,
-		"commando_bowling_trap_guard_armed": false,
-		"commando_bowling_trap_guard_source": "",
-		"commando_bowling_trap_guard_status_source": source,
-		"commando_bowling_trap_guard_knockback_power": 0.0,
-		"commando_bowling_trap_guard_knockback_vel": knockback_vel,
-		"commando_bowling_trap_guard_stun_frames": 0.0,
-		"commando_bowling_trap_guard_restore_speed": 0.0,
-		"commando_bowling_trap_guard_consumed_stun_frames": BOWLING_TRAP_GUARD_STUN_FRAMES,
-		"commando_bowling_trap_guard_consumed_restore_speed": restore_speed,
-	}
+	return CommandoFirearmBowlingTrapGeometry.build_guard_hit_result(
+		next_ball_vel,
+		knockback_vel,
+		source,
+		BOWLING_TRAP_GUARD_STUN_FRAMES,
+		restore_speed
+	)
 
 
 func is_fire_support_aircraft_audio_active() -> bool:
