@@ -162,6 +162,138 @@ static func explosive_wall_impact_hits_boss(projectile: Dictionary, profile: Dic
 	return circle_intersects_rect(pos, get_explosion_radius(projectile, profile), boss_rect)
 
 
+static func get_projectile_impact_reason(
+	projectile: Dictionary,
+	target: Vector2,
+	weapon_id: String,
+	profile: Dictionary,
+	boss_rect: Rect2,
+	field_size: Vector2,
+	field_width: float
+) -> String:
+	var direct_hit_reason: String = get_direct_hit_impact_reason(projectile, profile, boss_rect)
+	if direct_hit_reason != "":
+		return direct_hit_reason
+	var fire_support_target_y_reason: String = get_fire_support_target_y_impact_reason(
+		weapon_id,
+		projectile,
+		profile,
+		boss_rect
+	)
+	if fire_support_target_y_reason != "":
+		return fire_support_target_y_reason
+	var wall_impact_reason: String = get_explosive_wall_impact_reason(
+		projectile,
+		profile,
+		boss_rect,
+		field_width
+	)
+	if wall_impact_reason != "":
+		return wall_impact_reason
+	var target_reached_reason: String = get_target_reached_impact_reason(
+		weapon_id,
+		projectile,
+		profile,
+		boss_rect,
+		target
+	)
+	if target_reached_reason != "":
+		return target_reached_reason
+	var net_passed_target_reason: String = get_net_passed_target_impact_reason(weapon_id, projectile, target)
+	if net_passed_target_reason != "":
+		return net_passed_target_reason
+	return get_projectile_terminal_impact_reason(projectile, field_size)
+
+
+static func get_direct_hit_impact_reason(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> String:
+	if projectile_hitbox_hits_boss(projectile, profile, boss_rect):
+		return "target"
+	return ""
+
+
+static func get_fire_support_target_y_impact_reason(
+	weapon_id: String,
+	projectile: Dictionary,
+	profile: Dictionary,
+	boss_rect: Rect2
+) -> String:
+	if not is_fire_support_weapon(weapon_id):
+		return ""
+	if support_bomb_reached_target_y(projectile, profile, boss_rect):
+		return "target"
+	if support_bomb_target_y_already_reached(projectile):
+		return "expired"
+	return ""
+
+
+static func get_net_passed_target_impact_reason(weapon_id: String, projectile: Dictionary, target: Vector2) -> String:
+	if not is_net_gun_weapon(weapon_id):
+		return ""
+	if net_projectile_passed_target(projectile, target):
+		return "expired"
+	return ""
+
+
+static func get_explosive_wall_impact_reason(
+	projectile: Dictionary,
+	profile: Dictionary,
+	boss_rect: Rect2,
+	field_width: float
+) -> String:
+	if not is_explosive_wall_impact(projectile, profile, field_width):
+		return ""
+	clamp_explosive_wall_impact(projectile, profile, field_width)
+	if explosive_wall_impact_hits_boss(projectile, profile, boss_rect, field_width):
+		return "target"
+	return "wall"
+
+
+static func get_target_reached_impact_reason(
+	weapon_id: String,
+	projectile: Dictionary,
+	profile: Dictionary,
+	boss_rect: Rect2,
+	target: Vector2
+) -> String:
+	if not projectile_reached_target(projectile, target):
+		return ""
+	if target_reached_hitbox_hits_boss(projectile, profile, boss_rect):
+		return "target"
+	return get_target_reached_expire_reason(weapon_id, profile)
+
+
+static func get_projectile_terminal_impact_reason(projectile: Dictionary, field_size: Vector2) -> String:
+	if projectile_life_expired(projectile):
+		return "expired"
+	if projectile_out_of_bounds(projectile, field_size):
+		return "out_of_bounds"
+	return ""
+
+
+static func get_target_reached_expire_reason(weapon_id: String, profile: Dictionary) -> String:
+	if weapon_id == "bazooka":
+		return ""
+	if str(profile.get("kind", "")) in ["rocket", "support", "drone"]:
+		return "expired"
+	return ""
+
+
+static func is_fire_support_weapon(weapon_id: String) -> bool:
+	return weapon_id == "fire_support"
+
+
+static func is_net_gun_weapon(weapon_id: String) -> bool:
+	return weapon_id == "net_gun"
+
+
+static func support_bomb_target_y_already_reached(projectile: Dictionary) -> bool:
+	return float(projectile.get("support_target_y_reached", 0.0)) > 0.0
+
+
+static func projectile_life_expired(projectile: Dictionary) -> bool:
+	return float(projectile.get("life_frames", 0.0)) <= 0.0
+
+
 static func get_hit_knockback_velocity(
 	profile: Dictionary,
 	pos: Vector2,

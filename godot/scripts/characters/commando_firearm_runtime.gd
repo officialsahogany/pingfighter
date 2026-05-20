@@ -2932,33 +2932,15 @@ func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) 
 	var weapon_id: String = _get_projectile_weapon_id(projectile)
 	var profile: Dictionary = _get_weapon_profile(weapon_id)
 	var boss_rect: Rect2 = _get_boss_rect(context)
-	var direct_hit_reason: String = _get_direct_hit_impact_reason(projectile, profile, boss_rect)
-	if direct_hit_reason != "":
-		return direct_hit_reason
-	var fire_support_target_y_reason: String = _get_fire_support_target_y_impact_reason(
-		weapon_id,
+	return CommandoFirearmHitGeometry.get_projectile_impact_reason(
 		projectile,
-		profile,
-		boss_rect
-	)
-	if fire_support_target_y_reason != "":
-		return fire_support_target_y_reason
-	var wall_impact_reason: String = _get_explosive_wall_impact_reason(projectile, profile, boss_rect)
-	if wall_impact_reason != "":
-		return wall_impact_reason
-	var target_reached_reason: String = _get_target_reached_impact_reason(
+		target,
 		weapon_id,
-		projectile,
 		profile,
 		boss_rect,
-		target
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		FIELD_WIDTH
 	)
-	if target_reached_reason != "":
-		return target_reached_reason
-	var net_passed_target_reason: String = _get_net_passed_target_impact_reason(weapon_id, projectile, target)
-	if net_passed_target_reason != "":
-		return net_passed_target_reason
-	return _get_projectile_terminal_impact_reason(projectile)
 
 
 func _support_bomb_reached_target_y(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> bool:
@@ -2966,9 +2948,7 @@ func _support_bomb_reached_target_y(projectile: Dictionary, profile: Dictionary,
 
 
 func _get_direct_hit_impact_reason(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> String:
-	if _projectile_hitbox_hits_boss(projectile, profile, boss_rect):
-		return "target"
-	return ""
+	return CommandoFirearmHitGeometry.get_direct_hit_impact_reason(projectile, profile, boss_rect)
 
 
 func _get_fire_support_target_y_impact_reason(
@@ -2977,30 +2957,25 @@ func _get_fire_support_target_y_impact_reason(
 	profile: Dictionary,
 	boss_rect: Rect2
 ) -> String:
-	if not _is_fire_support_weapon(weapon_id):
-		return ""
-	if _support_bomb_reached_target_y(projectile, profile, boss_rect):
-		return "target"
-	if _support_bomb_target_y_already_reached(projectile):
-		return "expired"
-	return ""
+	return CommandoFirearmHitGeometry.get_fire_support_target_y_impact_reason(
+		weapon_id,
+		projectile,
+		profile,
+		boss_rect
+	)
 
 
 func _get_net_passed_target_impact_reason(weapon_id: String, projectile: Dictionary, target: Vector2) -> String:
-	if not _is_net_gun_weapon(weapon_id):
-		return ""
-	if _net_projectile_passed_target(projectile, target):
-		return "expired"
-	return ""
+	return CommandoFirearmHitGeometry.get_net_passed_target_impact_reason(weapon_id, projectile, target)
 
 
 func _get_explosive_wall_impact_reason(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> String:
-	if not _is_explosive_wall_impact(projectile, profile):
-		return ""
-	_clamp_explosive_wall_impact(projectile, profile)
-	if _explosive_wall_impact_hits_boss(projectile, profile, boss_rect):
-		return "target"
-	return "wall"
+	return CommandoFirearmHitGeometry.get_explosive_wall_impact_reason(
+		projectile,
+		profile,
+		boss_rect,
+		FIELD_WIDTH
+	)
 
 
 func _get_target_reached_impact_reason(
@@ -3010,19 +2985,20 @@ func _get_target_reached_impact_reason(
 	boss_rect: Rect2,
 	target: Vector2
 ) -> String:
-	if not _projectile_reached_target(projectile, target):
-		return ""
-	if _target_reached_hitbox_hits_boss(projectile, profile, boss_rect):
-		return "target"
-	return _get_target_reached_expire_reason(weapon_id, profile)
+	return CommandoFirearmHitGeometry.get_target_reached_impact_reason(
+		weapon_id,
+		projectile,
+		profile,
+		boss_rect,
+		target
+	)
 
 
 func _get_projectile_terminal_impact_reason(projectile: Dictionary) -> String:
-	if _projectile_life_expired(projectile):
-		return "expired"
-	if _projectile_out_of_bounds(projectile):
-		return "out_of_bounds"
-	return ""
+	return CommandoFirearmHitGeometry.get_projectile_terminal_impact_reason(
+		projectile,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT)
+	)
 
 
 func _projectile_reached_target(projectile: Dictionary, target: Vector2) -> bool:
@@ -3034,23 +3010,23 @@ func _projectile_out_of_bounds(projectile: Dictionary) -> bool:
 
 
 func _get_target_reached_expire_reason(weapon_id: String, profile: Dictionary) -> String:
-	return CommandoFirearmValueUtils.get_target_reached_expire_reason(weapon_id, profile)
+	return CommandoFirearmHitGeometry.get_target_reached_expire_reason(weapon_id, profile)
 
 
 func _is_fire_support_weapon(weapon_id: String) -> bool:
-	return CommandoFirearmValueUtils.is_fire_support_weapon(weapon_id)
+	return CommandoFirearmHitGeometry.is_fire_support_weapon(weapon_id)
 
 
 func _is_net_gun_weapon(weapon_id: String) -> bool:
-	return CommandoFirearmValueUtils.is_net_gun_weapon(weapon_id)
+	return CommandoFirearmHitGeometry.is_net_gun_weapon(weapon_id)
 
 
 func _support_bomb_target_y_already_reached(projectile: Dictionary) -> bool:
-	return CommandoFirearmValueUtils.support_bomb_target_y_already_reached(projectile)
+	return CommandoFirearmHitGeometry.support_bomb_target_y_already_reached(projectile)
 
 
 func _projectile_life_expired(projectile: Dictionary) -> bool:
-	return CommandoFirearmValueUtils.projectile_life_expired(projectile)
+	return CommandoFirearmHitGeometry.projectile_life_expired(projectile)
 
 
 func _get_projectile_target(projectile: Dictionary, context: Dictionary) -> Vector2:

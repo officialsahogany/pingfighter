@@ -207,6 +207,29 @@ func _verify_direct_geometry_helpers() -> void:
 		"weapon_id": "ak47",
 		"pos": Vector2(360.0, 18.0),
 	}, {"kind": "bullet"}, 760.0), "non-rocket projectiles should not count as explosive wall impacts")
+	var full_reason_wall_projectile := {
+		"weapon_id": "bazooka",
+		"pos": Vector2(-5.0, 500.0),
+	}
+	_expect(CommandoFirearmHitGeometry.get_projectile_impact_reason(
+		full_reason_wall_projectile,
+		Vector2(380.0, 70.0),
+		"bazooka",
+		{"kind": "rocket", "explosion_radius": 20.0},
+		Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0)),
+		Vector2(760.0, 750.0),
+		760.0
+	) == "wall", "full impact reason helper should preserve wall-impact priority and result")
+	_expect(is_equal_approx(float(CommandoFirearmHitGeometry.get_vector2(full_reason_wall_projectile.get("pos", Vector2.ZERO), Vector2.ZERO).x), 10.0), "full impact reason helper should preserve wall clamp side effects")
+	_expect(CommandoFirearmHitGeometry.get_projectile_impact_reason(
+		{"weapon_id": "ak47", "life_frames": 0.0, "pos": Vector2(100.0, 100.0)},
+		Vector2(380.0, 70.0),
+		"ak47",
+		{"kind": "bullet", "hitbox_size": Vector2(6.0, 6.0)},
+		net_boss_rect,
+		Vector2(760.0, 750.0),
+		760.0
+	) == "expired", "full impact reason helper should preserve terminal expired fallback")
 
 	var knockback_profile := {
 		"knockback_power": 8.0,
