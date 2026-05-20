@@ -1,6 +1,26 @@
 extends RefCounted
 
+const MAX_RENDERED_VENOM_MIST_PARTICLES := 32
+const MAX_RENDERED_RAINBOW_FUR_GLOVE_PARTICLES := 20
 const MAX_RENDERED_ADVERSITY_ARMOR_PARTICLES := 28
+const MAX_RENDERED_SHRAPNEL_ARMOR_SHARDS := 10
+const MAX_RENDERED_SHRAPNEL_ARMOR_TRAIL_POINTS := 2
+const MAX_RENDERED_SHRAPNEL_ARMOR_DUST_PARTICLES := 32
+const MAX_RENDERED_KNEE_PADS_PARTICLES := 16
+const MAX_RENDERED_SOUL_BURST_WIND_TRAILS := 4
+const MAX_RENDERED_SOUL_BURST_SHOCKWAVES := 3
+const MAX_RENDERED_SOUL_BURST_PARTICLES := 16
+const MAX_RENDERED_POSEIDON_WATER_TRAIL := 8
+const MAX_RENDERED_POSEIDON_PARTICLES := 16
+const MAX_RENDERED_POSEIDON_EXPLOSION_PARTICLES := 4
+const MAX_RENDERED_RAGNAROK_SPARKS := 18
+const SHRAPNEL_ARMOR_FLASH_ARC_SEGMENTS := 12
+const SHRAPNEL_ARMOR_BOSS_IMPACT_ARC_SEGMENTS := 18
+const KNEE_PADS_RING_SEGMENTS := 44
+const RAINBOW_FUR_GLOVE_RING_SEGMENTS := 44
+const SOUL_BURST_ELLIPSE_SEGMENTS := 48
+const MAX_POSEIDON_TRAIL_ARCS := 2
+const POSEIDON_TRAIL_ARC_SEGMENTS := 6
 
 
 func draw_field_effects(
@@ -8,7 +28,8 @@ func draw_field_effects(
 	canvas: CanvasItem,
 	shake_offset: Vector2,
 	ragnarok_impact_effect_duration: float,
-	ragnarok_electric_stun_intensity: float
+	ragnarok_electric_stun_intensity: float,
+	perf_logger: Object = null
 ) -> void:
 	if canvas == null or runtime == null:
 		return
@@ -34,41 +55,77 @@ func draw_field_effects(
 	var acquisition_visible: bool = runtime.acquisition_cinematic != null and runtime.acquisition_cinematic.is_active()
 	if not impact_active and not stun_active and runtime.ragnarok_sparks.is_empty() and not poseidon_visible and not knee_pads_visible and not soul_burst_visible and not foul_whistle_visible and not revival_visible and not sensor_visible and not venom_mist_visible and not rainbow_glove_visible and not adversity_armor_visible and not shrapnel_armor_visible and not celestial_armor_visible and not hermes_visible and not baal_visible and not acquisition_visible:
 		return
+	var detail_perf_logger: Object = perf_logger if _should_sample_detail(perf_logger, "mythic.field_effects") else null
 	if baal_visible:
+		var baal_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_baal_boots_effects(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.baal_boots", baal_sample_start)
 	if hermes_visible:
+		var hermes_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_hermes_shoes_effect(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.hermes_shoes", hermes_sample_start)
 	if venom_mist_visible:
+		var venom_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_venom_mist_effect(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.venom_mist", venom_sample_start)
 	if rainbow_glove_visible:
+		var rainbow_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_rainbow_fur_glove_effect(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.rainbow_fur_glove", rainbow_sample_start)
 	if adversity_armor_visible:
+		var adversity_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_adversity_armor_effect(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.adversity_armor", adversity_sample_start)
 	if shrapnel_armor_visible:
+		var shrapnel_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_shrapnel_armor_effect(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.shrapnel_armor", shrapnel_sample_start)
 	if celestial_armor_visible:
+		var celestial_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_celestial_armor_effect(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.celestial_armor", celestial_sample_start)
 	if poseidon_visible:
+		var poseidon_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_poseidon_effects(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.poseidon", poseidon_sample_start)
 	if knee_pads_visible:
+		var knee_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_knee_pads_effects(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.knee_pads", knee_sample_start)
 	if soul_burst_visible:
+		var soul_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_soul_burst_effects(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.soul_burst", soul_sample_start)
 	if foul_whistle_visible:
+		var foul_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_foul_whistle_effect(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.foul_whistle", foul_sample_start)
 	if revival_visible:
+		var revival_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_revival_effect(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.revival", revival_sample_start)
 	if sensor_visible:
+		var sensor_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_sensor_auto_dash_effect(canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.sensor", sensor_sample_start)
 	var center: Vector2 = runtime.ragnarok_impact_center + shake_offset
 	if impact_active:
+		var impact_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_ragnarok_impact_rings(canvas, center, impact_elapsed)
+		_perf_end(detail_perf_logger, "mythic.ragnarok_impact", impact_sample_start)
 	if stun_active:
+		var stun_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime._draw_ragnarok_electric_stun_overlay(canvas, center, runtime.ragnarok_stun_target_size, ragnarok_electric_stun_intensity)
-	runtime._draw_ragnarok_sparks(canvas, center, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.ragnarok_stun", stun_sample_start)
+	if not runtime.ragnarok_sparks.is_empty():
+		var sparks_sample_start: int = _perf_begin(detail_perf_logger)
+		runtime._draw_ragnarok_sparks(canvas, center, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.ragnarok_sparks", sparks_sample_start)
 	if acquisition_visible:
 		if runtime.acquisition_cinematic != null:
+			var acquisition_sample_start: int = _perf_begin(detail_perf_logger)
 			runtime.acquisition_cinematic.draw(canvas, shake_offset)
+			_perf_end(detail_perf_logger, "mythic.acquisition_cinematic", acquisition_sample_start)
 
 
 func draw_hermes_shoes_effect(
@@ -246,7 +303,8 @@ func draw_venom_mist_effect(
 			0.18 * ratio * alpha
 		)
 		canvas.draw_circle(center, layer_radius, fill)
-	for particle_value in particles:
+	for particle_index in range(_recent_start(particles, MAX_RENDERED_VENOM_MIST_PARTICLES), particles.size()):
+		var particle_value = particles[particle_index]
 		var particle: Dictionary = _as_dict(particle_value)
 		var offset: Vector2 = _as_vector2(particle.get("offset", Vector2.ZERO), Vector2.ZERO)
 		var life_ratio: float = clamp(float(particle.get("life", 0.0)) / max(1.0, float(particle.get("max_life", 1.0))), 0.0, 1.0)
@@ -289,8 +347,8 @@ func draw_rainbow_fur_glove_effect(
 			var base_color: Color = _as_color(colors[idx], Color.WHITE)
 			var wobble: float = sin(aura_phase + float(idx) * TAU / float(color_count)) * 6.0
 			var radius: float = max(4.0, ring_base + (float(idx) - 2.0) * 4.0 + wobble)
-			canvas.draw_arc(center, radius + 2.0, 0.0, TAU, 72, Color(base_color.r, base_color.g, base_color.b, 0.16 * fade), thickness + 6.0, true)
-			canvas.draw_arc(center, radius, 0.0, TAU, 72, Color(base_color.r, base_color.g, base_color.b, 0.70 * fade), thickness, true)
+			canvas.draw_arc(center, radius + 2.0, 0.0, TAU, RAINBOW_FUR_GLOVE_RING_SEGMENTS, Color(base_color.r, base_color.g, base_color.b, 0.16 * fade), thickness + 6.0, true)
+			canvas.draw_arc(center, radius, 0.0, TAU, RAINBOW_FUR_GLOVE_RING_SEGMENTS, Color(base_color.r, base_color.g, base_color.b, 0.70 * fade), thickness, true)
 		canvas.draw_circle(center, max(2.0, 18.0 * fade), Color(1.0, 1.0, 1.0, 0.62 * fade))
 		for ray_idx in range(12):
 			var angle: float = float(ray_idx) * TAU / 12.0 + aura_phase
@@ -299,7 +357,8 @@ func draw_rainbow_fur_glove_effect(
 			var end_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * (ring_base + 30.0 * fade)
 			canvas.draw_line(start_pos, end_pos, Color(color.r, color.g, color.b, 0.58 * fade), max(1.0, 3.0 * fade), true)
 
-	for particle_value in particles:
+	for particle_index in range(_recent_start(particles, MAX_RENDERED_RAINBOW_FUR_GLOVE_PARTICLES), particles.size()):
+		var particle_value = particles[particle_index]
 		var particle: Dictionary = _as_dict(particle_value)
 		var life: float = float(particle.get("life", 0.0))
 		var max_life: float = max(1.0, float(particle.get("max_life", 1.0)))
@@ -393,6 +452,7 @@ func _draw_adversity_armor_particle(
 	canvas.draw_circle(pos, size, Color(base_color.r, base_color.g, base_color.b, 0.72 * alpha))
 	canvas.draw_circle(pos, max(0.6, size * 0.35), Color(1.0, 0.96, 0.72, 0.72 * alpha))
 
+
 func draw_shrapnel_armor_effect(
 	canvas: CanvasItem,
 	shake_offset: Vector2,
@@ -411,11 +471,11 @@ func draw_shrapnel_armor_effect(
 	if flash_timer_frames > 0.0:
 		var fade: float = clamp(flash_timer_frames / flash_frames, 0.0, 1.0)
 		var center: Vector2 = flash_center + shake_offset
-		canvas.draw_arc(center, 22.0 + 14.0 * (1.0 - fade), PI, TAU * 2.0, 32, Color(1.0, 0.66, 0.22, 0.58 * fade), 3.0, true)
+		canvas.draw_arc(center, 22.0 + 14.0 * (1.0 - fade), PI, TAU * 2.0, SHRAPNEL_ARMOR_FLASH_ARC_SEGMENTS, Color(1.0, 0.66, 0.22, 0.58 * fade), 3.0, true)
 		canvas.draw_circle(center, 13.0 + 8.0 * (1.0 - fade), Color(1.0, 0.48, 0.12, 0.18 * fade))
 
-	for shard_value in shards:
-		var shard: Dictionary = _as_dict(shard_value)
+	for shard_index in range(_recent_start(shards, MAX_RENDERED_SHRAPNEL_ARMOR_SHARDS), shards.size()):
+		var shard: Dictionary = _as_dict(shards[shard_index])
 		var life: float = float(shard.get("life", 0.0))
 		var max_life: float = max(1.0, float(shard.get("max_life", shard_life_frames)))
 		var alpha: float = clamp(life / max_life, 0.0, 1.0)
@@ -423,9 +483,11 @@ func draw_shrapnel_armor_effect(
 		var color_shift: float = float(shard.get("color_shift", 0.0)) / 255.0
 		var shard_color := Color(1.0, clamp(0.48 + color_shift, 0.25, 0.75), 0.10, 0.92 * alpha)
 		var trail: Array = _as_array(shard.get("trail", []))
-		for trail_index in range(trail.size()):
+		var trail_start: int = _recent_start(trail, MAX_RENDERED_SHRAPNEL_ARMOR_TRAIL_POINTS)
+		var rendered_trail_count: int = max(1, trail.size() - trail_start)
+		for trail_index in range(trail_start, trail.size()):
 			var trail_pos: Vector2 = _as_vector2(trail[trail_index], Vector2.ZERO) + shake_offset
-			var trail_alpha: float = 0.08 + 0.20 * float(trail_index + 1) / max(1.0, float(trail.size()))
+			var trail_alpha: float = 0.08 + 0.20 * float(trail_index - trail_start + 1) / float(rendered_trail_count)
 			canvas.draw_circle(trail_pos, max(1.0, size * 0.48), Color(1.0, 0.52, 0.12, trail_alpha * alpha))
 		var position: Vector2 = _as_vector2(shard.get("position", Vector2.ZERO), Vector2.ZERO) + shake_offset
 		var rotation: float = float(shard.get("rotation", 0.0))
@@ -439,11 +501,12 @@ func draw_shrapnel_armor_effect(
 		])
 		canvas.draw_circle(position, size + 4.0, Color(1.0, 0.42, 0.08, 0.18 * alpha))
 		canvas.draw_colored_polygon(points, shard_color)
-		for point_index in range(points.size()):
-			canvas.draw_line(points[point_index], points[(point_index + 1) % points.size()], Color(1.0, 0.92, 0.54, 0.62 * alpha), 1.0, true)
+		var outline := PackedVector2Array([points[0], points[1], points[2], points[3], points[0]])
+		canvas.draw_polyline(outline, Color(1.0, 0.92, 0.54, 0.62 * alpha), 1.0, true)
 		canvas.draw_circle(position, max(0.8, size * 0.35), Color(1.0, 0.95, 0.72, 0.76 * alpha))
 
-	for particle_value in dust_particles:
+	for particle_index in range(_recent_start(dust_particles, MAX_RENDERED_SHRAPNEL_ARMOR_DUST_PARTICLES), dust_particles.size()):
+		var particle_value = dust_particles[particle_index]
 		var particle: Dictionary = _as_dict(particle_value)
 		var life: float = float(particle.get("life", 0.0))
 		var max_life: float = max(1.0, float(particle.get("max_life", 1.0)))
@@ -459,7 +522,7 @@ func draw_shrapnel_armor_effect(
 		var impact_center: Vector2 = boss_impact_center + shake_offset
 		for ring_index in range(2):
 			var radius: float = 28.0 + (1.0 - impact_fade) * 42.0 + float(ring_index) * 13.0
-			canvas.draw_arc(impact_center, radius, 0.0, TAU, 44, Color(1.0, 0.54, 0.12, 0.54 * impact_fade), max(1.0, 3.0 - float(ring_index)), true)
+			canvas.draw_arc(impact_center, radius, 0.0, TAU, SHRAPNEL_ARMOR_BOSS_IMPACT_ARC_SEGMENTS, Color(1.0, 0.54, 0.12, 0.54 * impact_fade), max(1.0, 3.0 - float(ring_index)), true)
 
 
 func draw_knee_pads_effects(
@@ -479,7 +542,7 @@ func draw_knee_pads_effects(
 		for ring_index in range(3):
 			var radius: float = 16.0 + progress * 74.0 + float(ring_index) * 13.0
 			var ring_alpha: float = max(0.0, alpha * (0.62 - float(ring_index) * 0.13))
-			canvas.draw_arc(center, radius, 0.0, TAU, 72, Color(1.0, 0.86, 0.12, ring_alpha), 3.0, true)
+			canvas.draw_arc(center, radius, 0.0, TAU, KNEE_PADS_RING_SEGMENTS, Color(1.0, 0.86, 0.12, ring_alpha), 3.0, true)
 		for ray_index in range(8):
 			var angle: float = float(ray_index) / 8.0 * TAU + progress * 1.7
 			var ray_len: float = 24.0 + progress * 48.0
@@ -490,8 +553,8 @@ func draw_knee_pads_effects(
 		canvas.draw_circle(center, 30.0 * alpha + 6.0, Color(1.0, 0.86, 0.0, alpha * 0.24))
 		canvas.draw_circle(center, 7.0 + 6.0 * (1.0 - progress), Color.WHITE, alpha * 0.88)
 
-	for particle_value in particles:
-		var particle: Dictionary = _as_dict(particle_value)
+	for particle_index in range(_recent_start(particles, MAX_RENDERED_KNEE_PADS_PARTICLES), particles.size()):
+		var particle: Dictionary = _as_dict(particles[particle_index])
 		var life: float = max(0.0, float(particle.get("life", 0.0)))
 		var max_life: float = max(0.1, float(particle.get("max_life", 30.0)))
 		var particle_alpha: float = clamp(life / max_life, 0.0, 1.0)
@@ -522,8 +585,8 @@ func draw_soul_burst_effects(
 	if abs(direction) <= 0.01:
 		direction = 1.0
 
-	for trail_value in wind_trails:
-		var trail: Dictionary = _as_dict(trail_value)
+	for trail_index in range(_recent_start(wind_trails, MAX_RENDERED_SOUL_BURST_WIND_TRAILS), wind_trails.size()):
+		var trail: Dictionary = _as_dict(wind_trails[trail_index])
 		var life: float = float(trail.get("life", 0.0))
 		var max_life: float = max(0.1, float(trail.get("max_life", 1.0)))
 		var alpha: float = clamp(life / max_life, 0.0, 1.0)
@@ -539,8 +602,8 @@ func draw_soul_burst_effects(
 		canvas.draw_line(start_pos, end_pos, Color(180.0 / 255.0, 86.0 / 255.0, 1.0, 0.58 * alpha), width + 1.2, true)
 		canvas.draw_line(start_pos.lerp(end_pos, 0.38), end_pos, Color(245.0 / 255.0, 220.0 / 255.0, 1.0, 0.42 * alpha), max(1.0, width * 0.45), true)
 
-	for wave_value in shockwaves:
-		var wave: Dictionary = _as_dict(wave_value)
+	for wave_index in range(_recent_start(shockwaves, MAX_RENDERED_SOUL_BURST_SHOCKWAVES), shockwaves.size()):
+		var wave: Dictionary = _as_dict(shockwaves[wave_index])
 		var life: float = float(wave.get("life", 0.0))
 		var max_life: float = max(0.1, float(wave.get("max_life", 1.0)))
 		var progress: float = 1.0 - clamp(life / max_life, 0.0, 1.0)
@@ -550,11 +613,12 @@ func draw_soul_burst_effects(
 		var radius: float = lerp(float(wave.get("start_radius", 20.0)), float(wave.get("max_radius", 92.0)), progress)
 		var squeeze: float = float(wave.get("squeeze", 0.72))
 		var ring_color := Color(165.0 / 255.0, 72.0 / 255.0, 1.0, 0.62 * alpha)
-		canvas.draw_arc(center, radius, 0.0, TAU, 76, Color(45.0 / 255.0, 0.0, 80.0 / 255.0, 0.18 * alpha), 7.0, true)
+		canvas.draw_arc(center, radius, 0.0, TAU, SOUL_BURST_ELLIPSE_SEGMENTS, Color(45.0 / 255.0, 0.0, 80.0 / 255.0, 0.18 * alpha), 7.0, true)
 		draw_soul_burst_ellipse_arc(canvas, center, radius, radius * squeeze, ring_color, 3.0)
 		draw_soul_burst_ellipse_arc(canvas, center, radius * 0.74, radius * squeeze * 0.74, Color(1.0, 230.0 / 255.0, 1.0, 0.35 * alpha), 1.2)
 
-	for particle_value in particles:
+	for particle_index in range(_recent_start(particles, MAX_RENDERED_SOUL_BURST_PARTICLES), particles.size()):
+		var particle_value = particles[particle_index]
 		var particle: Dictionary = _as_dict(particle_value)
 		var life: float = float(particle.get("life", 0.0))
 		var max_life: float = max(0.1, float(particle.get("max_life", 1.0)))
@@ -580,8 +644,8 @@ func draw_soul_burst_ellipse_arc(
 	if canvas == null:
 		return
 	var points := PackedVector2Array()
-	for idx in range(73):
-		var angle: float = TAU * float(idx) / 72.0
+	for idx in range(SOUL_BURST_ELLIPSE_SEGMENTS + 1):
+		var angle: float = TAU * float(idx) / float(SOUL_BURST_ELLIPSE_SEGMENTS)
 		points.append(center + Vector2(cos(angle) * radius_x, sin(angle) * radius_y))
 	canvas.draw_polyline(points, color, width, true)
 
@@ -614,7 +678,10 @@ func draw_poseidon_effects(
 func draw_poseidon_water_trail(canvas: CanvasItem, shake_offset: Vector2, water_trail: Array) -> void:
 	if canvas == null or water_trail.is_empty():
 		return
-	for droplet_value in water_trail:
+	var render_start: int = _recent_start(water_trail, MAX_RENDERED_POSEIDON_WATER_TRAIL)
+	var arc_start: int = max(render_start, water_trail.size() - MAX_POSEIDON_TRAIL_ARCS)
+	for droplet_index in range(render_start, water_trail.size()):
+		var droplet_value = water_trail[droplet_index]
 		var droplet: Dictionary = _as_dict(droplet_value)
 		var life: float = float(droplet.get("life", 0.0))
 		var alpha: float = clamp(life * 8.5 / 255.0, 0.0, 1.0)
@@ -631,13 +698,13 @@ func draw_poseidon_water_trail(canvas: CanvasItem, shake_offset: Vector2, water_
 				size / 2.5,
 				Color(220.0 / 255.0, 240.0 / 255.0, 1.0, highlight_alpha)
 			)
-		if size > 3.0:
+		if size > 3.0 and droplet_index >= arc_start:
 			canvas.draw_arc(
 				pos,
 				size,
 				0.0,
 				TAU,
-				24,
+				POSEIDON_TRAIL_ARC_SEGMENTS,
 				Color(50.0 / 255.0, 120.0 / 255.0, 200.0 / 255.0, alpha / 3.0),
 				1.0
 			)
@@ -646,7 +713,8 @@ func draw_poseidon_water_trail(canvas: CanvasItem, shake_offset: Vector2, water_
 func draw_poseidon_particles(canvas: CanvasItem, shake_offset: Vector2, particles: Array) -> void:
 	if canvas == null:
 		return
-	for particle_value in particles:
+	for particle_index in range(_recent_start(particles, MAX_RENDERED_POSEIDON_PARTICLES), particles.size()):
+		var particle_value = particles[particle_index]
 		var particle: Dictionary = _as_dict(particle_value)
 		var size: float = max(0.5, float(particle.get("size", 4.0)))
 		var life: float = float(particle.get("life", 0.0))
@@ -657,7 +725,7 @@ func draw_poseidon_particles(canvas: CanvasItem, shake_offset: Vector2, particle
 		var color: Color = _as_color(particle.get("color", Color(50.0 / 255.0, 200.0 / 255.0, 1.0)), Color(50.0 / 255.0, 200.0 / 255.0, 1.0))
 		canvas.draw_circle(pos, size, Color(color.r, color.g, color.b, alpha))
 		var highlight_size: float = size / 3.0
-		if highlight_size >= 0.5:
+		if highlight_size >= 0.75 and particle_index % 2 == 0:
 			canvas.draw_circle(
 				pos - Vector2(highlight_size, highlight_size),
 				highlight_size,
@@ -683,7 +751,8 @@ func draw_poseidon_water_explosion(
 		var flash_size: float = 30.0 + flash_progress * 90.0
 		canvas.draw_circle(center, flash_size, Color(120.0 / 255.0, 200.0 / 255.0, 1.0, flash_alpha * 0.5))
 		canvas.draw_circle(center, flash_size * 0.5, Color(180.0 / 255.0, 230.0 / 255.0, 1.0, flash_alpha))
-	for p_value in explosion_particles:
+	for p_index in range(_recent_start(explosion_particles, MAX_RENDERED_POSEIDON_EXPLOSION_PARTICLES), explosion_particles.size()):
+		var p_value = explosion_particles[p_index]
 		var p: Dictionary = _as_dict(p_value)
 		var life: float = float(p.get("life", 0.0))
 		var max_life: float = max(0.01, float(p.get("max_life", 1.0)))
@@ -827,8 +896,8 @@ func draw_ragnarok_sparks(
 ) -> void:
 	if canvas == null:
 		return
-	for spark_value in sparks:
-		var spark: Dictionary = _as_dict(spark_value)
+	for spark_index in range(_recent_start(sparks, MAX_RENDERED_RAGNAROK_SPARKS), sparks.size()):
+		var spark: Dictionary = _as_dict(sparks[spark_index])
 		var life: float = float(spark.get("life", 0.0))
 		var max_life: float = max(0.01, float(spark.get("max_life", 1.0)))
 		var alpha: float = clamp(life / max_life, 0.0, 1.0)
@@ -869,13 +938,49 @@ func _as_color(value: Variant, fallback: Color) -> Color:
 	return fallback
 
 
+func _array_color(values: Array, fallback: Color) -> Color:
+	if values.is_empty():
+		return fallback
+	return _as_color(values[randi() % values.size()], fallback)
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
+
+
+func _should_sample_detail(perf_logger: Object, label: String) -> bool:
+	if perf_logger == null or not perf_logger.has_method("should_sample_detail"):
+		return false
+	return bool(perf_logger.should_sample_detail(label))
+
+
 func _recent_start(source: Array, render_limit: int) -> int:
 	if render_limit < 0:
 		return 0
 	return max(0, source.size() - max(0, render_limit))
 
 
-func _array_color(values: Array, fallback: Color) -> Color:
-	if values.is_empty():
-		return fallback
-	return _as_color(values[randi() % values.size()], fallback)
+func get_render_budget_status() -> Dictionary:
+	return {
+		"venom_mist_particle_render_limit": MAX_RENDERED_VENOM_MIST_PARTICLES,
+		"rainbow_fur_glove_particle_render_limit": MAX_RENDERED_RAINBOW_FUR_GLOVE_PARTICLES,
+		"shrapnel_armor_shard_render_limit": MAX_RENDERED_SHRAPNEL_ARMOR_SHARDS,
+		"shrapnel_armor_trail_render_limit": MAX_RENDERED_SHRAPNEL_ARMOR_TRAIL_POINTS,
+		"shrapnel_armor_dust_render_limit": MAX_RENDERED_SHRAPNEL_ARMOR_DUST_PARTICLES,
+		"knee_pads_particle_render_limit": MAX_RENDERED_KNEE_PADS_PARTICLES,
+		"soul_burst_wind_trail_render_limit": MAX_RENDERED_SOUL_BURST_WIND_TRAILS,
+		"soul_burst_shockwave_render_limit": MAX_RENDERED_SOUL_BURST_SHOCKWAVES,
+		"soul_burst_particle_render_limit": MAX_RENDERED_SOUL_BURST_PARTICLES,
+		"poseidon_water_trail_render_limit": MAX_RENDERED_POSEIDON_WATER_TRAIL,
+		"poseidon_particle_render_limit": MAX_RENDERED_POSEIDON_PARTICLES,
+		"poseidon_explosion_particle_render_limit": MAX_RENDERED_POSEIDON_EXPLOSION_PARTICLES,
+		"ragnarok_spark_render_limit": MAX_RENDERED_RAGNAROK_SPARKS,
+		"poseidon_trail_arc_render_limit": MAX_POSEIDON_TRAIL_ARCS,
+	}
