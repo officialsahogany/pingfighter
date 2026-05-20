@@ -271,6 +271,9 @@ godot/assets/sprites/characters/**/*_manifest.json
 godot/assets/sprites/characters/**/*_pipeline-meta.json
 godot/assets/sprites/characters/**/*_source*.png*
 godot/assets/sprites/characters/**/*_source_raw.jpeg*
+godot/assets/sprites/characters/viper/viper_subculture_defeat_autosprite_v1_64f.png*
+godot/assets/sprites/characters/viper/viper_subculture_victory_autosprite_v[1-3]_64f.png*
+godot/assets/sprites/characters/viper/viper_subculture_*_naruto_run_sheet.png*
 godot/assets/sprites/effects/**/*_manifest.json
 godot/assets/sprites/effects/**/*_atlas.json
 godot/assets/sprites/effects/**/*_meta.json
