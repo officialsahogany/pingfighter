@@ -17,7 +17,8 @@ func draw_top_mini(
 	deuce_mode: bool,
 	sparkle_timer: float,
 	sparkle_duration: float,
-	t: float
+	t: float,
+	quality_scale: float = 1.0
 ) -> void:
 	top_mini_renderer.draw(
 		canvas,
@@ -29,7 +30,8 @@ func draw_top_mini(
 		deuce_mode,
 		sparkle_timer,
 		sparkle_duration,
-		t
+		t,
+		quality_scale
 	)
 
 

@@ -1,10 +1,13 @@
 extends RefCounted
 
+const EMBER_COUNT := 4
+
 
 func draw(canvas: CanvasItem, rect: Rect2, scale_factor: float, t: float) -> void:
-	for j in range(10):
+	var ember_spacing_divisor: float = float(max(1, EMBER_COUNT - 1))
+	for j in range(EMBER_COUNT):
 		var particle_phase: float = fmod(t * (4.0 + float(j) * 0.8) + float(j) * 0.7, 1.0)
-		var particle_x: float = rect.position.x + 5.0 * scale_factor + float(j) * (rect.size.x - 10.0 * scale_factor) / 9.0
+		var particle_x: float = rect.position.x + 5.0 * scale_factor + float(j) * (rect.size.x - 10.0 * scale_factor) / ember_spacing_divisor
 		particle_x += sin(t * 10.0 + float(j) * 1.2) * 5.0 * scale_factor
 		var particle_y: float = rect.position.y - 5.0 * scale_factor - particle_phase * 35.0 * scale_factor
 		var size_factor: float = 1.0 - particle_phase * 0.7

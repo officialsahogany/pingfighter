@@ -17,14 +17,15 @@ func draw(
 	deuce_mode: bool,
 	sparkle_timer: float,
 	sparkle_duration: float,
-	t: float
+	t: float,
+	quality_scale: float = 1.0
 ) -> void:
 	if canvas == null or game_offset.y < 20.0:
 		return
 
 	var scale_factor: float = game_size.x / gameplay_width
-	var box_width: float = max(80.0, floor(140.0 * scale_factor))
-	var box_height: float = max(28.0, floor(44.0 * scale_factor))
+	var box_width: float = max(96.0, floor(146.0 * scale_factor))
+	var box_height: float = max(30.0, floor(38.0 * scale_factor))
 	var box_rect := Rect2(
 		game_offset.x + (game_size.x - box_width) * 0.5,
 		max(2.0, (game_offset.y - box_height) * 0.5),
@@ -44,6 +45,6 @@ func draw(
 
 	var is_deuce := deuce_mode or (player_score >= 4 and boss_score >= 4 and player_score == boss_score)
 	if is_deuce:
-		deuce_renderer.draw(canvas, box_rect, scale_factor, t, sparkle_intensity, player_score, boss_score)
+		deuce_renderer.draw(canvas, box_rect, scale_factor, t, sparkle_intensity, player_score, boss_score, quality_scale)
 	else:
-		normal_renderer.draw(canvas, box_rect, scale_factor, sparkle_progress, sparkle_intensity, player_score, boss_score)
+		normal_renderer.draw(canvas, box_rect, scale_factor, sparkle_progress, sparkle_intensity, player_score, boss_score, quality_scale)
