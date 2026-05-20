@@ -42,6 +42,11 @@ func reset() -> void:
 	lifecycle_facade.reset(self)
 
 
+func reset_round() -> void:
+	if throw_controller != null and throw_controller.has_method("clear_round_boss_status_effects"):
+		throw_controller.clear_round_boss_status_effects()
+
+
 func build_starting_slots() -> Array:
 	return lifecycle_facade.build_starting_slots(self)
 
