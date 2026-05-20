@@ -103,6 +103,29 @@ func get_rainbow_fur_glove_context(runtime: Object) -> Dictionary:
 	}
 
 
+func get_adversity_armor_context(runtime: Object) -> Dictionary:
+	return {
+		"equipped": runtime.is_adversity_armor_equipped(),
+		"active": runtime.is_adversity_armor_active(),
+		"trigger_chance_pct": runtime.get_adversity_armor_trigger_chance_pct(),
+		"invincible_duration_sec": runtime.get_adversity_armor_invincible_duration_sec(),
+		"serve_speed_bonus_pct": runtime.get_adversity_armor_serve_speed_bonus_pct(),
+		"pending_invincible": runtime.adversity_armor_pending_invincible,
+		"serve_speed_boost_pending": runtime.adversity_armor_serve_speed_boost_pending,
+		"invincible": runtime.is_adversity_armor_invincible(),
+		"timer_frames": runtime.adversity_armor_invincible_timer_frames,
+		"total_timer_frames": runtime.adversity_armor_invincible_total_frames,
+		"timer_ratio": runtime._get_adversity_armor_timer_ratio(),
+		"barrier_y": runtime._get_adversity_armor_barrier_y(),
+		"flash_timer_frames": runtime.adversity_armor_flash_timer_frames,
+		"flash_frames": 30.0,
+		"phase": runtime.adversity_armor_phase,
+		"last_trigger_roll_pct": runtime.adversity_armor_last_trigger_roll_pct,
+		"last_triggered": runtime.adversity_armor_last_triggered,
+		"last_reflect_center": runtime.adversity_armor_last_reflect_center,
+	}
+
+
 func get_shrapnel_armor_context(runtime: Object) -> Dictionary:
 	return {
 		"equipped": runtime.is_shrapnel_armor_equipped(),

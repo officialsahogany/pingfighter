@@ -5,6 +5,7 @@ const BallMotionCollisionDetector := preload("res://scripts/ball/ball_motion_col
 const EVENT_NONE := "none"
 const EVENT_PLAYER_SCORED := "player_scored"
 const EVENT_BOSS_SCORED := "boss_scored"
+const EVENT_ADVERSITY_ARMOR := "adversity_armor"
 
 var collision_detector: Object = BallMotionCollisionDetector.new()
 
@@ -31,6 +32,16 @@ func step(ball_pos: Vector2, effective_move: Vector2, ball_vel: Vector2, context
 		if not paddle_result.is_empty():
 			paddle_result["ball_pos"] = ball_pos
 			return paddle_result
+
+		if bool(context.get("adversity_armor_invincible", false)) and ball_vel.y > 0.0:
+			var barrier_y: float = clamp(float(context.get("adversity_armor_barrier_y", height - ball_size * 0.5)), 0.0, height)
+			if ball_pos.y >= barrier_y:
+				ball_pos.y = min(ball_pos.y, barrier_y)
+				return {
+					"event": EVENT_ADVERSITY_ARMOR,
+					"ball_pos": ball_pos,
+					"impact_pos": Vector2(ball_pos.x, barrier_y),
+				}
 
 		if ball_pos.y < 0.0:
 			return {"event": EVENT_PLAYER_SCORED, "ball_pos": ball_pos}

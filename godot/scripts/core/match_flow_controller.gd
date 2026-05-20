@@ -7,6 +7,7 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 		return
 
 	var score_result: Dictionary = score_state.score_for(scoring_side)
+	_queue_adversity_armor_after_loss(scoring_side, score_result, deps)
 	var round_state = deps.get("round_state", null)
 	if round_state != null:
 		round_state.set_player_serves(bool(score_result.get("next_player_serves", scoring_side == "boss")))
@@ -34,6 +35,16 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 			audio.stop_dash_delay()
 		audio.play_round_set()
 
+
+func _queue_adversity_armor_after_loss(scoring_side: String, score_result: Dictionary, deps: Dictionary) -> void:
+	if scoring_side != "boss":
+		return
+	if bool(score_result.get("match_finished", false)):
+		return
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("try_queue_adversity_armor_after_loss"):
+		return
+	mythic_item_runtime.try_queue_adversity_armor_after_loss(deps)
 
 func update_scoreboard(delta: float, deps: Dictionary, callbacks: Dictionary, config: Dictionary) -> void:
 	var scoreboard_state = deps.get("scoreboard_state", null)

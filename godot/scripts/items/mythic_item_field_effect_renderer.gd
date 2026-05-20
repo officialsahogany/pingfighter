@@ -1,5 +1,7 @@
 extends RefCounted
 
+const MAX_RENDERED_ADVERSITY_ARMOR_PARTICLES := 28
+
 
 func draw_field_effects(
 	runtime: Object,
@@ -21,6 +23,7 @@ func draw_field_effects(
 	var sensor_visible: bool = runtime.sensor_auto_dash_effect_timer_frames > 0.0
 	var venom_mist_visible: bool = runtime.venom_mist_field_active or not runtime.venom_mist_particles.is_empty()
 	var rainbow_glove_visible: bool = runtime.rainbow_fur_glove_aura_timer_frames > 0.0 or not runtime.rainbow_fur_glove_particles.is_empty()
+	var adversity_armor_visible: bool = runtime._is_adversity_armor_effect_active()
 	var shrapnel_armor_visible: bool = runtime._is_shrapnel_armor_effect_active()
 	var celestial_armor_visible: bool = runtime.celestial_armor_state.is_wave_active()
 	var hermes_visible: bool = runtime.hermes_shoes_state.is_visible(runtime.is_hermes_shoes_active())
@@ -29,7 +32,7 @@ func draw_field_effects(
 		runtime.baal_boots_weather_state.round_effect_active
 	)
 	var acquisition_visible: bool = runtime.acquisition_cinematic != null and runtime.acquisition_cinematic.is_active()
-	if not impact_active and not stun_active and runtime.ragnarok_sparks.is_empty() and not poseidon_visible and not knee_pads_visible and not soul_burst_visible and not foul_whistle_visible and not revival_visible and not sensor_visible and not venom_mist_visible and not rainbow_glove_visible and not shrapnel_armor_visible and not celestial_armor_visible and not hermes_visible and not baal_visible and not acquisition_visible:
+	if not impact_active and not stun_active and runtime.ragnarok_sparks.is_empty() and not poseidon_visible and not knee_pads_visible and not soul_burst_visible and not foul_whistle_visible and not revival_visible and not sensor_visible and not venom_mist_visible and not rainbow_glove_visible and not adversity_armor_visible and not shrapnel_armor_visible and not celestial_armor_visible and not hermes_visible and not baal_visible and not acquisition_visible:
 		return
 	if baal_visible:
 		runtime._draw_baal_boots_effects(canvas, shake_offset)
@@ -39,6 +42,8 @@ func draw_field_effects(
 		runtime._draw_venom_mist_effect(canvas, shake_offset)
 	if rainbow_glove_visible:
 		runtime._draw_rainbow_fur_glove_effect(canvas, shake_offset)
+	if adversity_armor_visible:
+		runtime._draw_adversity_armor_effect(canvas, shake_offset)
 	if shrapnel_armor_visible:
 		runtime._draw_shrapnel_armor_effect(canvas, shake_offset)
 	if celestial_armor_visible:
@@ -308,6 +313,85 @@ func draw_rainbow_fur_glove_effect(
 		canvas.draw_circle(pos, size, Color(color.r, color.g, color.b, 0.86 * alpha))
 		canvas.draw_circle(pos, max(0.8, size * 0.38), Color(1.0, 1.0, 1.0, 0.68 * alpha))
 
+
+func draw_adversity_armor_effect(
+	canvas: CanvasItem,
+	shake_offset: Vector2,
+	context: Dictionary,
+	aura_particles: Array,
+	barrier_particles: Array
+) -> void:
+	if canvas == null:
+		return
+	var active: bool = bool(context.get("invincible", false))
+	var barrier_y: float = float(context.get("barrier_y", 732.0))
+	var phase: float = float(context.get("phase", 0.0))
+	var timer_ratio: float = clamp(float(context.get("timer_ratio", 0.0)), 0.0, 1.0)
+	var flash_timer: float = float(context.get("flash_timer_frames", 0.0))
+	var flash_frames: float = max(1.0, float(context.get("flash_frames", 30.0)))
+	var flash: float = clamp(flash_timer / flash_frames, 0.0, 1.0)
+	if active:
+		var line_y: float = barrier_y + shake_offset.y
+		var core_color := Color(1.0, 0.92, 0.45, 0.68 + 0.18 * sin(phase * 2.1))
+		var glow_color := Color(1.0, 0.55, 0.14, 0.18 + 0.12 * timer_ratio)
+		canvas.draw_line(Vector2(14.0 + shake_offset.x, line_y), Vector2(746.0 + shake_offset.x, line_y), glow_color, 12.0, true)
+		canvas.draw_line(Vector2(24.0 + shake_offset.x, line_y), Vector2(736.0 + shake_offset.x, line_y), core_color, 4.2, true)
+		for wave_index in range(3):
+			var wave_offset: float = sin(phase + float(wave_index) * 1.7) * (3.0 + float(wave_index))
+			var alpha: float = 0.34 - float(wave_index) * 0.07
+			canvas.draw_line(
+				Vector2(40.0 + shake_offset.x, line_y - 9.0 - float(wave_index) * 7.0 + wave_offset),
+				Vector2(720.0 + shake_offset.x, line_y - 9.0 - float(wave_index) * 7.0 - wave_offset),
+				Color(1.0, 0.78, 0.22, alpha * timer_ratio),
+				max(1.0, 2.4 - float(wave_index) * 0.3),
+				true
+			)
+		var fill_width: float = 190.0 * timer_ratio
+		var gauge_origin := Vector2(285.0, barrier_y - 28.0) + shake_offset
+		canvas.draw_rect(Rect2(gauge_origin, Vector2(190.0, 5.0)), Color(0.15, 0.09, 0.02, 0.34), true)
+		canvas.draw_rect(Rect2(gauge_origin, Vector2(fill_width, 5.0)), Color(1.0, 0.74, 0.24, 0.72), true)
+	if flash > 0.0:
+		var center: Vector2 = _as_vector2(context.get("last_reflect_center", Vector2(380.0, barrier_y)), Vector2(380.0, barrier_y)) + shake_offset
+		for ring_index in range(3):
+			var radius: float = 26.0 + (1.0 - flash) * 86.0 + float(ring_index) * 18.0
+			canvas.draw_arc(center, radius, PI, TAU, 56, Color(1.0, 0.78, 0.25, flash * (0.48 - float(ring_index) * 0.10)), 3.0, true)
+
+	for particle_index in range(_recent_start(aura_particles, MAX_RENDERED_ADVERSITY_ARMOR_PARTICLES), aura_particles.size()):
+		_draw_adversity_armor_particle(
+			canvas,
+			_as_dict(aura_particles[particle_index]),
+			shake_offset,
+			Color(1.0, 0.80, 0.28, 1.0),
+			true
+		)
+	for particle_index in range(_recent_start(barrier_particles, MAX_RENDERED_ADVERSITY_ARMOR_PARTICLES), barrier_particles.size()):
+		_draw_adversity_armor_particle(
+			canvas,
+			_as_dict(barrier_particles[particle_index]),
+			shake_offset,
+			Color(1.0, 0.68, 0.18, 1.0),
+			false
+		)
+
+
+func _draw_adversity_armor_particle(
+	canvas: CanvasItem,
+	particle: Dictionary,
+	shake_offset: Vector2,
+	base_color: Color,
+	aura: bool
+) -> void:
+	var life: float = float(particle.get("life", 0.0))
+	var max_life: float = max(1.0, float(particle.get("max_life", 1.0)))
+	var alpha: float = clamp(life / max_life, 0.0, 1.0)
+	if alpha <= 0.02:
+		return
+	var pos: Vector2 = _as_vector2(particle.get("position", Vector2.ZERO), Vector2.ZERO) + shake_offset
+	var size: float = max(0.8, float(particle.get("size", 2.0)))
+	var glow_alpha: float = 0.16 if aura else 0.22
+	canvas.draw_circle(pos, size + 3.0, Color(base_color.r, base_color.g, base_color.b, glow_alpha * alpha))
+	canvas.draw_circle(pos, size, Color(base_color.r, base_color.g, base_color.b, 0.72 * alpha))
+	canvas.draw_circle(pos, max(0.6, size * 0.35), Color(1.0, 0.96, 0.72, 0.72 * alpha))
 
 func draw_shrapnel_armor_effect(
 	canvas: CanvasItem,
@@ -783,6 +867,12 @@ func _as_color(value: Variant, fallback: Color) -> Color:
 	if value is Color:
 		return value
 	return fallback
+
+
+func _recent_start(source: Array, render_limit: int) -> int:
+	if render_limit < 0:
+		return 0
+	return max(0, source.size() - max(0, render_limit))
 
 
 func _array_color(values: Array, fallback: Color) -> Color:

@@ -47,6 +47,7 @@ const ITEM_MASTER := "master"
 const ITEM_GOLD_DIGGER := "gold_digger"
 const ITEM_GOLD_BAR := "gold_bar"
 const ITEM_LUCKY_COIN := "lucky_coin"
+const ITEM_ADVERSITY_ARMOR := "adversity_armor"
 const ITEM_SHRAPNEL_ARMOR := "shrapnel_armor"
 const ITEM_SAGE_RING := "sage_ring"
 const ITEM_COOLTIME := "cooltime"
@@ -279,6 +280,12 @@ const RAINBOW_FUR_GLOVE_MAX_COOLDOWN_REDUCTION_PCT := 95.0
 const RAINBOW_FUR_GLOVE_AURA_FRAMES := 36.0
 const RAINBOW_FUR_GLOVE_PARTICLE_COUNT := 18
 const RAINBOW_FUR_GLOVE_PARTICLE_MAX := 42
+const ADVERSITY_ARMOR_MAX_TRIGGER_CHANCE_PCT := 100.0
+const ADVERSITY_ARMOR_DEFAULT_SERVE_SPEED_BONUS_PCT := 20.0
+const ADVERSITY_ARMOR_FLASH_FRAMES := 30.0
+const ADVERSITY_ARMOR_AURA_PARTICLE_MAX := 48
+const ADVERSITY_ARMOR_BARRIER_PARTICLE_MAX := 72
+const ADVERSITY_ARMOR_BARRIER_Y_OFFSET := 18.0
 const SHRAPNEL_ARMOR_MAX_TRIGGER_CHANCE_PCT := 100.0
 const SHRAPNEL_ARMOR_MAX_SHARD_COUNT := 24
 const SHRAPNEL_ARMOR_MAX_GAUGE_COST := 200.0
@@ -443,6 +450,17 @@ var rainbow_fur_glove_aura_center := Vector2.ZERO
 var rainbow_fur_glove_aura_phase := 0.0
 var rainbow_fur_glove_particles: Array = []
 var rainbow_fur_glove_last_reduction_pct := 0.0
+var adversity_armor_pending_invincible := false
+var adversity_armor_serve_speed_boost_pending := false
+var adversity_armor_invincible_timer_frames := 0.0
+var adversity_armor_invincible_total_frames := 0.0
+var adversity_armor_flash_timer_frames := 0.0
+var adversity_armor_phase := 0.0
+var adversity_armor_last_trigger_roll_pct := -1.0
+var adversity_armor_last_triggered := false
+var adversity_armor_last_reflect_center := Vector2.ZERO
+var adversity_armor_aura_particles: Array = []
+var adversity_armor_barrier_particles: Array = []
 var shrapnel_armor_shards: Array = []
 var shrapnel_armor_dust_particles: Array = []
 var shrapnel_armor_flash_timer_frames := 0.0
@@ -494,6 +512,7 @@ func reset() -> void:
 	_clear_smartphone_runtime()
 	_clear_venom_mist_runtime()
 	_clear_rainbow_fur_glove_runtime()
+	_clear_adversity_armor_runtime()
 	_clear_shrapnel_armor_runtime()
 	_clear_celestial_armor_runtime()
 	_clear_hermes_shoes_runtime()
@@ -539,6 +558,7 @@ func reset_round(registry: Object = null) -> void:
 	_clear_sensor_round_state()
 	_clear_venom_mist_round_state()
 	_clear_rainbow_fur_glove_round_state()
+	_clear_adversity_armor_round_state()
 	_clear_shrapnel_armor_round_state()
 	_clear_celestial_armor_round_state()
 	_clear_hermes_shoes_round_state()
@@ -666,6 +686,8 @@ func equip_inventory_item(index: int, owner: Object, registry: Object = null) ->
 		_clear_venom_mist_runtime()
 	if str(item_data.get("name", "")) == ITEM_RAINBOW_FUR_GLOVE:
 		_clear_rainbow_fur_glove_runtime()
+	if str(item_data.get("name", "")) == ITEM_ADVERSITY_ARMOR:
+		_clear_adversity_armor_runtime()
 	if str(item_data.get("name", "")) == ITEM_SHRAPNEL_ARMOR:
 		_clear_shrapnel_armor_runtime()
 	if str(item_data.get("name", "")) == ITEM_CELESTIAL_ARMOR:
@@ -676,6 +698,8 @@ func equip_inventory_item(index: int, owner: Object, registry: Object = null) ->
 		_clear_hermes_shoes_runtime()
 	if str(item_data.get("name", "")) == ITEM_RAINBOW_FUR_GLOVE:
 		_clear_rainbow_fur_glove_round_state()
+	if str(item_data.get("name", "")) == ITEM_ADVERSITY_ARMOR:
+		_clear_adversity_armor_round_state()
 	if str(item_data.get("name", "")) == ITEM_SHRAPNEL_ARMOR:
 		_clear_shrapnel_armor_round_state()
 	if str(item_data.get("name", "")) == ITEM_BAAL_BOOTS:
@@ -720,6 +744,8 @@ func unequip_inventory_item(index: int, owner: Object, registry: Object = null) 
 		_clear_venom_mist_runtime()
 	if str(item_data.get("name", "")) == ITEM_RAINBOW_FUR_GLOVE:
 		_clear_rainbow_fur_glove_runtime()
+	if str(item_data.get("name", "")) == ITEM_ADVERSITY_ARMOR:
+		_clear_adversity_armor_runtime()
 	if str(item_data.get("name", "")) == ITEM_SHRAPNEL_ARMOR:
 		_clear_shrapnel_armor_runtime()
 	if str(item_data.get("name", "")) == ITEM_CELESTIAL_ARMOR:
@@ -781,6 +807,8 @@ func discard_inventory_item(index: int, owner: Object, registry: Object = null) 
 		_clear_venom_mist_runtime()
 	if str(item_data.get("name", "")) == ITEM_RAINBOW_FUR_GLOVE and not is_rainbow_fur_glove_equipped():
 		_clear_rainbow_fur_glove_runtime()
+	if str(item_data.get("name", "")) == ITEM_ADVERSITY_ARMOR and not is_adversity_armor_equipped():
+		_clear_adversity_armor_runtime()
 	if str(item_data.get("name", "")) == ITEM_SHRAPNEL_ARMOR and not is_shrapnel_armor_equipped():
 		_clear_shrapnel_armor_runtime()
 	if str(item_data.get("name", "")) == ITEM_CELESTIAL_ARMOR and not is_celestial_armor_equipped():
@@ -2178,6 +2206,119 @@ func try_proc_rainbow_fur_glove_player_hit(
 	}
 
 
+func is_adversity_armor_equipped() -> bool:
+	return _has_equipped_item_name(ITEM_ADVERSITY_ARMOR)
+
+
+func is_adversity_armor_active() -> bool:
+	return is_adversity_armor_equipped()
+
+
+func is_adversity_armor_invincible() -> bool:
+	return is_adversity_armor_equipped() and adversity_armor_invincible_timer_frames > 0.0
+
+
+func get_adversity_armor_trigger_chance_pct() -> float:
+	if not is_adversity_armor_equipped():
+		return 0.0
+	return clamp(
+		_get_equipped_roll_value(ITEM_ADVERSITY_ARMOR, "trigger_chance_pct"),
+		0.0,
+		ADVERSITY_ARMOR_MAX_TRIGGER_CHANCE_PCT
+	)
+
+
+func get_adversity_armor_invincible_duration_sec() -> float:
+	if not is_adversity_armor_equipped():
+		return 0.0
+	return max(0.0, _get_equipped_roll_value(ITEM_ADVERSITY_ARMOR, "invincible_duration_sec"))
+
+
+func get_adversity_armor_serve_speed_bonus_pct() -> float:
+	return ADVERSITY_ARMOR_DEFAULT_SERVE_SPEED_BONUS_PCT if is_adversity_armor_equipped() else 0.0
+
+
+func get_adversity_armor_context() -> Dictionary:
+	return context_builder.get_adversity_armor_context(self)
+
+
+func get_ball_collision_context() -> Dictionary:
+	if not is_adversity_armor_invincible():
+		return {"adversity_armor_invincible": false}
+	return {
+		"adversity_armor_invincible": true,
+		"adversity_armor_barrier_y": _get_adversity_armor_barrier_y(),
+	}
+
+
+func try_queue_adversity_armor_after_loss(deps: Dictionary = {}) -> bool:
+	if not is_adversity_armor_equipped():
+		_clear_adversity_armor_runtime()
+		return false
+	var chance_pct: float = get_adversity_armor_trigger_chance_pct()
+	if chance_pct <= 0.0:
+		adversity_armor_last_trigger_roll_pct = -1.0
+		adversity_armor_last_triggered = false
+		return false
+	if adversity_armor_pending_invincible:
+		return true
+	var roll_pct: float = randf() * 100.0
+	adversity_armor_last_trigger_roll_pct = roll_pct
+	adversity_armor_last_triggered = roll_pct <= chance_pct
+	if not adversity_armor_last_triggered:
+		_sync_owner(_get_dict(deps).get("owner", null), _get_dict(deps).get("registry", null))
+		return false
+	adversity_armor_pending_invincible = true
+	adversity_armor_serve_speed_boost_pending = true
+	_sync_owner(_get_dict(deps).get("owner", null), _get_dict(deps).get("registry", null))
+	return true
+
+
+func on_round_start(owner: Object, registry: Object = null) -> void:
+	if not is_adversity_armor_equipped():
+		_clear_adversity_armor_runtime()
+		_sync_owner(owner, registry)
+		return
+	if not adversity_armor_pending_invincible:
+		return
+	adversity_armor_pending_invincible = false
+	var duration_frames: float = get_adversity_armor_invincible_duration_sec() * 60.0
+	adversity_armor_invincible_timer_frames = max(0.0, duration_frames)
+	adversity_armor_invincible_total_frames = adversity_armor_invincible_timer_frames
+	adversity_armor_flash_timer_frames = ADVERSITY_ARMOR_FLASH_FRAMES
+	adversity_armor_last_reflect_center = Vector2(FIELD_WIDTH * 0.5, _get_adversity_armor_barrier_y())
+	_spawn_adversity_armor_barrier_particles(adversity_armor_last_reflect_center, 22, false)
+	_play_adversity_armor_activate_audio(registry)
+	_apply_ragnarok_feedback({"registry": registry}, 0.05, 1.7)
+	_sync_owner(owner, registry)
+	if owner != null and owner.has_method("queue_redraw"):
+		owner.queue_redraw()
+
+
+func consume_adversity_armor_serve_speed_bonus() -> float:
+	if not is_adversity_armor_equipped():
+		adversity_armor_serve_speed_boost_pending = false
+		return 0.0
+	if not adversity_armor_serve_speed_boost_pending:
+		return 0.0
+	adversity_armor_serve_speed_boost_pending = false
+	return get_adversity_armor_serve_speed_bonus_pct() / 100.0
+
+
+func notify_adversity_armor_barrier_hit(
+	impact_pos: Vector2,
+	ball_vel: Vector2 = Vector2.ZERO,
+	deps: Dictionary = {}
+) -> void:
+	if not is_adversity_armor_invincible():
+		return
+	adversity_armor_last_reflect_center = impact_pos
+	adversity_armor_flash_timer_frames = max(adversity_armor_flash_timer_frames, ADVERSITY_ARMOR_FLASH_FRAMES * 0.55)
+	_spawn_adversity_armor_barrier_particles(impact_pos, 18, true)
+	_play_adversity_armor_reflect_audio(_get_dict(deps).get("registry", null), abs(ball_vel.y))
+	_apply_ragnarok_feedback(deps, 0.06, 2.4)
+	_sync_owner(_get_dict(deps).get("owner", null), _get_dict(deps).get("registry", null))
+
 func is_shrapnel_armor_equipped() -> bool:
 	return _has_equipped_item_name(ITEM_SHRAPNEL_ARMOR)
 
@@ -2686,6 +2827,7 @@ func update(owner: Object, registry: Object, delta: float) -> void:
 	_update_sensor_runtime(fps_scale)
 	_update_venom_mist_runtime(owner, registry, fps_scale)
 	_update_rainbow_fur_glove_runtime(fps_scale)
+	_update_adversity_armor_runtime(owner, registry, fps_scale)
 	_update_shrapnel_armor_runtime(owner, registry, fps_scale)
 	_update_poseidon_runtime(owner, registry, fps_scale)
 	_update_celestial_armor_runtime(fps_scale)
@@ -3325,6 +3467,27 @@ func _clear_rainbow_fur_glove_round_state() -> void:
 	rainbow_fur_glove_particles.clear()
 
 
+func _clear_adversity_armor_runtime() -> void:
+	adversity_armor_pending_invincible = false
+	adversity_armor_serve_speed_boost_pending = false
+	adversity_armor_last_trigger_roll_pct = -1.0
+	adversity_armor_last_triggered = false
+	_clear_adversity_armor_active_state()
+
+
+func _clear_adversity_armor_round_state() -> void:
+	_clear_adversity_armor_active_state()
+
+
+func _clear_adversity_armor_active_state() -> void:
+	adversity_armor_invincible_timer_frames = 0.0
+	adversity_armor_invincible_total_frames = 0.0
+	adversity_armor_flash_timer_frames = 0.0
+	adversity_armor_phase = 0.0
+	adversity_armor_last_reflect_center = Vector2.ZERO
+	adversity_armor_aura_particles.clear()
+	adversity_armor_barrier_particles.clear()
+
 func _clear_shrapnel_armor_runtime() -> void:
 	shrapnel_armor_shards.clear()
 	shrapnel_armor_dust_particles.clear()
@@ -3859,6 +4022,135 @@ func _draw_rainbow_fur_glove_effect(canvas: CanvasItem, shake_offset: Vector2) -
 		RAINBOW_FUR_GLOVE_COLORS
 	)
 
+
+func _get_adversity_armor_barrier_y() -> float:
+	return FIELD_HEIGHT - ADVERSITY_ARMOR_BARRIER_Y_OFFSET
+
+
+func _get_adversity_armor_timer_ratio() -> float:
+	if adversity_armor_invincible_total_frames <= 0.0:
+		return 0.0
+	return clamp(adversity_armor_invincible_timer_frames / adversity_armor_invincible_total_frames, 0.0, 1.0)
+
+
+func _update_adversity_armor_runtime(owner: Object, _registry: Object, fps_scale: float) -> void:
+	if not is_adversity_armor_equipped():
+		if _is_adversity_armor_effect_active() or adversity_armor_pending_invincible or adversity_armor_serve_speed_boost_pending:
+			_clear_adversity_armor_runtime()
+		return
+	var step: float = max(0.0, fps_scale)
+	var was_invincible: bool = adversity_armor_invincible_timer_frames > 0.0
+	if adversity_armor_invincible_timer_frames > 0.0:
+		adversity_armor_invincible_timer_frames = max(0.0, adversity_armor_invincible_timer_frames - step)
+		adversity_armor_phase += 0.09 * step
+		_spawn_adversity_armor_idle_particles(owner)
+	if was_invincible and adversity_armor_invincible_timer_frames <= 0.0:
+		adversity_armor_invincible_total_frames = 0.0
+	if adversity_armor_flash_timer_frames > 0.0:
+		adversity_armor_flash_timer_frames = max(0.0, adversity_armor_flash_timer_frames - step)
+	_update_adversity_armor_particles(step)
+
+
+func _spawn_adversity_armor_idle_particles(owner: Object) -> void:
+	var player_center: Vector2 = _resolve_adversity_armor_player_center(owner)
+	while adversity_armor_aura_particles.size() < min(12, ADVERSITY_ARMOR_AURA_PARTICLE_MAX):
+		adversity_armor_aura_particles.append({
+			"position": player_center + Vector2(randf_range(-48.0, 48.0), randf_range(-30.0, 22.0)),
+			"velocity": Vector2(randf_range(-0.24, 0.24), randf_range(-0.62, -0.18)),
+			"life": randf_range(18.0, 38.0),
+			"max_life": 38.0,
+			"size": randf_range(1.4, 3.4),
+		})
+	while adversity_armor_barrier_particles.size() < min(18, ADVERSITY_ARMOR_BARRIER_PARTICLE_MAX):
+		adversity_armor_barrier_particles.append({
+			"position": Vector2(randf_range(26.0, FIELD_WIDTH - 26.0), _get_adversity_armor_barrier_y() + randf_range(-4.0, 4.0)),
+			"velocity": Vector2(randf_range(-0.65, 0.65), randf_range(-0.26, 0.26)),
+			"life": randf_range(20.0, 44.0),
+			"max_life": 44.0,
+			"size": randf_range(1.3, 3.2),
+		})
+
+
+func _spawn_adversity_armor_barrier_particles(center: Vector2, count: int, impact: bool) -> void:
+	for _i in range(max(0, count)):
+		var angle: float = randf_range(PI, TAU) if impact else randf_range(0.0, TAU)
+		var speed: float = randf_range(2.0, 6.2) if impact else randf_range(0.7, 2.4)
+		adversity_armor_barrier_particles.append({
+			"position": center + Vector2(randf_range(-18.0, 18.0), randf_range(-5.0, 5.0)),
+			"velocity": Vector2(cos(angle), sin(angle)) * speed,
+			"life": randf_range(16.0, 34.0) if impact else randf_range(20.0, 42.0),
+			"max_life": 34.0 if impact else 42.0,
+			"size": randf_range(1.8, 4.8) if impact else randf_range(1.2, 3.0),
+			"impact": impact,
+		})
+	while adversity_armor_barrier_particles.size() > ADVERSITY_ARMOR_BARRIER_PARTICLE_MAX:
+		adversity_armor_barrier_particles.pop_front()
+
+
+func _update_adversity_armor_particles(step: float) -> void:
+	var aura_write_index := 0
+	for read_index in range(adversity_armor_aura_particles.size()):
+		var particle: Dictionary = _get_dict(adversity_armor_aura_particles[read_index])
+		var life: float = float(particle.get("life", 0.0)) - step
+		if life <= 0.0:
+			continue
+		var position: Vector2 = _get_vector2(particle.get("position", Vector2.ZERO))
+		var velocity: Vector2 = _get_vector2(particle.get("velocity", Vector2.ZERO))
+		position += velocity * step
+		velocity.x *= pow(0.985, step)
+		particle["position"] = position
+		particle["velocity"] = velocity
+		particle["life"] = life
+		adversity_armor_aura_particles[aura_write_index] = particle
+		aura_write_index += 1
+	if aura_write_index < adversity_armor_aura_particles.size():
+		adversity_armor_aura_particles.resize(aura_write_index)
+
+	var barrier_write_index := 0
+	for read_index in range(adversity_armor_barrier_particles.size()):
+		var particle: Dictionary = _get_dict(adversity_armor_barrier_particles[read_index])
+		var life: float = float(particle.get("life", 0.0)) - step
+		if life <= 0.0:
+			continue
+		var position: Vector2 = _get_vector2(particle.get("position", Vector2.ZERO))
+		var velocity: Vector2 = _get_vector2(particle.get("velocity", Vector2.ZERO))
+		position += velocity * step
+		velocity *= pow(0.965, step)
+		particle["position"] = position
+		particle["velocity"] = velocity
+		particle["life"] = life
+		barrier_write_index += 1
+		adversity_armor_barrier_particles[barrier_write_index - 1] = particle
+	if barrier_write_index < adversity_armor_barrier_particles.size():
+		adversity_armor_barrier_particles.resize(barrier_write_index)
+
+
+func _resolve_adversity_armor_player_center(owner: Object) -> Vector2:
+	if owner == null:
+		return Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5)
+	var player_pos: Vector2 = _get_vector2(_safe_owner_get(owner, "player_pos", Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT)))
+	var player_width: float = max(1.0, float(_safe_owner_get(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH)))
+	var player_height: float = max(1.0, float(_safe_owner_get(owner, "player_paddle_height", PLAYER_BASE_PADDLE_HEIGHT)))
+	return player_pos + Vector2(player_width * 0.5, player_height * 0.5)
+
+
+func _is_adversity_armor_effect_active() -> bool:
+	return (
+		adversity_armor_invincible_timer_frames > 0.0
+		or adversity_armor_flash_timer_frames > 0.0
+		or not adversity_armor_aura_particles.is_empty()
+		or not adversity_armor_barrier_particles.is_empty()
+	)
+
+
+func _draw_adversity_armor_effect(canvas: CanvasItem, shake_offset: Vector2) -> void:
+	field_effect_renderer.draw_adversity_armor_effect(
+		canvas,
+		shake_offset,
+		get_adversity_armor_context(),
+		adversity_armor_aura_particles,
+		adversity_armor_barrier_particles
+	)
 
 func _get_shrapnel_armor_current_gauge(context: Dictionary, deps: Dictionary) -> float:
 	var owner: Object = _get_dict(deps).get("owner", context.get("owner", null))
@@ -5413,6 +5705,13 @@ func _play_venom_mist_spawn_audio(registry: Object) -> void:
 func _play_rainbow_fur_glove_audio(registry: Object) -> void:
 	audio_router.play_rainbow_fur_glove_audio(self, registry)
 
+
+func _play_adversity_armor_activate_audio(registry: Object) -> void:
+	audio_router.play_adversity_armor_activate_audio(self, registry)
+
+
+func _play_adversity_armor_reflect_audio(registry: Object, impact_speed: float) -> void:
+	audio_router.play_adversity_armor_reflect_audio(self, registry, impact_speed)
 
 func _play_shrapnel_armor_fire_audio(registry: Object) -> void:
 	audio_router.play_shrapnel_armor_fire_audio(self, registry)

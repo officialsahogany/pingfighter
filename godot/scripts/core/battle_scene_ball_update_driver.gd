@@ -25,9 +25,12 @@ func serve_ball(owner: Object, registry: Object) -> void:
 	var context_builder: Object = _get_instance(registry, "ball_update_context")
 	if owner == null or controller == null or context_builder == null:
 		return
+	var round_deps: Dictionary = _get_ball_round_deps(registry)
+	round_deps["owner"] = owner
+	round_deps["registry"] = registry
 	controller.serve_ball(
 		context_builder.build_serve_config(owner),
-		_get_ball_round_deps(registry),
+		round_deps,
 		{"apply_ball_snapshot": Callable(self, "_apply_current_owner_snapshot").bind(owner)}
 	)
 

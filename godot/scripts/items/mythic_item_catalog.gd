@@ -88,6 +88,9 @@ const GOLD_BAR_SELL_PRICE := 2000
 const LUCKY_COIN := "lucky_coin"
 const LUCKY_COIN_ICON_PATH := "res://assets/sprites/items/lucky_coin.png"
 const LUCKY_COIN_FIELD_CHANCE := 0.004
+const ADVERSITY_ARMOR := "adversity_armor"
+const ADVERSITY_ARMOR_ICON_PATH := "res://assets/sprites/items/adversity_armor.png"
+const ADVERSITY_ARMOR_FIELD_CHANCE := 0.004
 const SHRAPNEL_ARMOR := "shrapnel_armor"
 const SHRAPNEL_ARMOR_ICON_PATH := "res://assets/sprites/items/shrapnel_armor.png"
 const SHRAPNEL_ARMOR_FIELD_CHANCE := 0.004
@@ -170,6 +173,7 @@ const FIELD_SPAWN_ORDER := [
 	GOLD_DIGGER,
 	GOLD_BAR,
 	LUCKY_COIN,
+	ADVERSITY_ARMOR,
 	SHRAPNEL_ARMOR,
 	SAGE_RING,
 	COOLTIME,
@@ -218,6 +222,7 @@ const DEBUG_ITEM_ORDER := [
 	GOLD_DIGGER,
 	GOLD_BAR,
 	LUCKY_COIN,
+	ADVERSITY_ARMOR,
 	SHRAPNEL_ARMOR,
 	SAGE_RING,
 	COOLTIME,
@@ -625,6 +630,27 @@ const LUCKY_COIN_ROLL_OPTIONS := [
 		"step": 1.0,
 		"unit": "%",
 		"prefix": "",
+		"default": 10.0,
+	},
+]
+
+const ADVERSITY_ARMOR_ROLL_OPTIONS := [
+	{
+		"key": "trigger_chance_pct",
+		"label": "발동 확률",
+		"min": 20.0,
+		"max": 30.0,
+		"step": 1.0,
+		"unit": "%",
+		"default": 25.0,
+	},
+	{
+		"key": "invincible_duration_sec",
+		"label": "보호 지속시간",
+		"min": 8.0,
+		"max": 15.0,
+		"step": 1.0,
+		"unit": "초",
 		"default": 10.0,
 	},
 ]
@@ -1082,6 +1108,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			return _build_gold_bar()
 		LUCKY_COIN:
 			return _build_lucky_coin()
+		ADVERSITY_ARMOR:
+			return _build_adversity_armor()
 		SHRAPNEL_ARMOR:
 			return _build_shrapnel_armor()
 		SAGE_RING:
@@ -1215,6 +1243,8 @@ func get_roll_options(item_name: String) -> Array:
 			return []
 		LUCKY_COIN:
 			return LUCKY_COIN_ROLL_OPTIONS.duplicate(true)
+		ADVERSITY_ARMOR:
+			return ADVERSITY_ARMOR_ROLL_OPTIONS.duplicate(true)
 		SHRAPNEL_ARMOR:
 			return SHRAPNEL_ARMOR_ROLL_OPTIONS.duplicate(true)
 		SAGE_RING:
@@ -1639,6 +1669,26 @@ func _build_lucky_coin() -> Dictionary:
 		"roll_options": LUCKY_COIN_ROLL_OPTIONS.duplicate(true),
 		"rolled_options": build_rolled_options(LUCKY_COIN, rolls),
 		"color": Color(1.0, 223.0 / 255.0, 0.0),
+	}
+
+
+func _build_adversity_armor() -> Dictionary:
+	var rolls: Dictionary = build_default_rolls(ADVERSITY_ARMOR)
+	return {
+		"name": ADVERSITY_ARMOR,
+		"display_name": "역경의 갑옷",
+		"korean_name": "역경의 갑옷",
+		"type": "passive",
+		"rarity": "passive",
+		"effect": ADVERSITY_ARMOR,
+		"slot": "top",
+		"icon_path": ADVERSITY_ARMOR_ICON_PATH,
+		"chance": ADVERSITY_ARMOR_FIELD_CHANCE,
+		"description": "실점 후 그다음 라운드에 일정 확률로 사용자를 보호하는 무적의 벽이 생성됩니다. 다음 서브 시 공 속도도 증가합니다.",
+		"rolls": rolls,
+		"roll_options": ADVERSITY_ARMOR_ROLL_OPTIONS.duplicate(true),
+		"rolled_options": build_rolled_options(ADVERSITY_ARMOR, rolls),
+		"color": Color(0.96, 0.58, 0.18),
 	}
 
 
