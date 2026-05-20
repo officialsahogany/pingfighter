@@ -96,13 +96,7 @@ func _draw_grenades(canvas: CanvasItem, grenades: Array, shake_offset: Vector2) 
 		if not (grenade_value is Dictionary):
 			continue
 		var grenade: Dictionary = grenade_value
-		var trail: Array = grenade.get("trail", [])
-		for i in range(trail.size()):
-			var trail_pos: Variant = trail[i]
-			if not (trail_pos is Vector2):
-				continue
-			var alpha: float = float(i + 1) / float(max(1, trail.size())) * 0.28
-			canvas.draw_circle(trail_pos + shake_offset, 3.0, Color(1.0, 190.0 / 255.0, 80.0 / 255.0, alpha))
+		_draw_projectile_trail(canvas, grenade.get("trail", []), shake_offset, 3.0, Color(1.0, 190.0 / 255.0, 80.0 / 255.0, 1.0), 0.28)
 
 		var center: Vector2 = _get_vector2(grenade, "position", Vector2.ZERO) + shake_offset
 		var angle: float = float(grenade.get("rotation_degrees", 0.0))
@@ -135,13 +129,7 @@ func _draw_flares(canvas: CanvasItem, flares: Array, shake_offset: Vector2) -> v
 			canvas.draw_circle(center, 8.0, Color(1.0, 200.0 / 255.0, 0.0, 1.0), false, 2.0)
 			continue
 
-		var trail: Array = flare.get("trail", [])
-		for i in range(trail.size()):
-			var trail_pos: Variant = trail[i]
-			if not (trail_pos is Vector2):
-				continue
-			var alpha: float = float(i + 1) / float(max(1, trail.size())) * 0.34
-			canvas.draw_circle(trail_pos + shake_offset, 3.5, Color(1.0, 1.0, 180.0 / 255.0, alpha))
+		_draw_projectile_trail(canvas, flare.get("trail", []), shake_offset, 3.5, Color(1.0, 1.0, 180.0 / 255.0, 1.0), 0.34)
 
 		var angle: float = float(flare.get("rotation_degrees", 0.0))
 		if texture != null:
@@ -155,6 +143,20 @@ func _draw_flares(canvas: CanvasItem, flares: Array, shake_offset: Vector2) -> v
 			)
 		else:
 			canvas.draw_circle(center, 10.0, Color(1.0, 1.0, 200.0 / 255.0, 1.0))
+
+
+func _draw_projectile_trail(canvas: CanvasItem, trail: Array, shake_offset: Vector2, radius: float, color: Color, alpha_scale: float) -> void:
+	var trail_count: int = trail.size()
+	if trail_count <= 0:
+		return
+	var stride: int = 2 if trail_count > 5 else 1
+	for i in range(0, trail_count, stride):
+		var trail_pos: Variant = trail[i]
+		if not (trail_pos is Vector2):
+			continue
+		var trail_point: Vector2 = trail_pos
+		var alpha: float = float(i + 1) / float(trail_count) * alpha_scale
+		canvas.draw_circle(trail_point + shake_offset, radius, Color(color.r, color.g, color.b, alpha))
 
 
 func _draw_boomerangs(canvas: CanvasItem, boomerangs: Array, shake_offset: Vector2) -> void:
