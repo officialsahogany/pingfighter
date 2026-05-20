@@ -233,6 +233,14 @@ godot/assets/sprites/hud/*_alpha.png*
 godot/assets/sprites/hud/*_manifest.json
 godot/assets/sprites/hud/*_atlas.json
 godot/assets/sprites/hud/*_autosprite_*.json
+godot/assets/sprites/hud/commando_*_firearm_icon_imagegen_v1.png*
+godot/assets/sprites/hud/commando_*_firearm_fire_recoil_sheet_autosprite_v1.png*
+godot/assets/sprites/hud/commando_*_firearm_fire_recoil_sheet_autosprite_v2.png*
+godot/assets/sprites/hud/stage1_landing_zoom_background_lingpia_hd_imagegen_v1_realesrgan_animev3_2x.png*
+godot/assets/sprites/hud/stage2_speed_defense_skillcard_imagegen_v[1-2].png*
+godot/assets/sprites/hud/stage5_hongryun_fireball_source_imagegen_v1.png*
+godot/assets/sprites/hud/stage5_hongryun_inferno_flame_dragon_sheet_*.png*
+godot/assets/sprites/hud/stage5_hongryun_vase_lantern_sprites_imagegen_v1.png*
 godot/assets/sprites/smasher/*_manifest.json
 godot/assets/sprites/smasher/*_pipeline-meta.json
 godot/assets/ui/loading/*_manifest.json
