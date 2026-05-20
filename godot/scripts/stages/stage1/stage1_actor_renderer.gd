@@ -14,6 +14,10 @@ var spinning_top_renderer: Object = Stage1DaljiSpinningTopRenderer.new()
 var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
 
 
+func prewarm_assets() -> void:
+	Stage1CommandoFirearmRenderer.prewarm_assets()
+
+
 func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -> void:
 	if canvas == null:
 		return

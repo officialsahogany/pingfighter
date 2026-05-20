@@ -280,6 +280,14 @@ func _restart_impact_particles(anchor: Dictionary) -> void:
 	_impact_particles.emitting = true
 
 
+func prewarm_node_pipeline() -> void:
+	prewarm_assets()
+	if _additive_material == null:
+		_additive_material = _make_additive_material()
+	_build_children()
+	set_active(false)
+
+
 func _get_anchor() -> Dictionary:
 	var draw_items: Dictionary = _state.get("draw_items", {})
 	var impact_flashes: Array = _get_array(draw_items.get("impact_flashes", []))

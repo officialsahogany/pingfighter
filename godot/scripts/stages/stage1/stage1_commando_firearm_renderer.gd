@@ -61,6 +61,10 @@ static func prewarm_assets() -> void:
 	ImpactFlareTextureCache.prewarm()
 	ImpactShockwaveTextureCache.prewarm()
 	Stage1CommandoFirearmFxHost.prewarm_assets()
+	var fx_probe: Node = Stage1CommandoFirearmFxHost.new()
+	if fx_probe != null and fx_probe.has_method("prewarm_node_pipeline"):
+		fx_probe.prewarm_node_pipeline()
+		fx_probe.free()
 	_get_slingshot_stone_texture()
 	_get_bowling_trap_installed_texture()
 	_get_bowling_trap_capture_sheet_texture()
