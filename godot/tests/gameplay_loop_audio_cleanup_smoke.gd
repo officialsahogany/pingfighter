@@ -1,5 +1,6 @@
 extends SceneTree
 
+const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 
 class FakeAudio:
@@ -35,6 +36,10 @@ func _init() -> void:
 		"stop_stage5_hongryun_shoot",
 	]:
 		_expect(audio.calls.has(method), "gameplay loop cleanup should call %s" % method)
+
+	var game_audio := GameAudio.new()
+	_expect(game_audio.has_method("stop_shield_kiting_wind_up"), "GameAudio should expose shield wind-up cleanup")
+	_expect(game_audio.has_method("is_shield_kiting_wind_up_playing"), "GameAudio should expose shield wind-up playing query")
 
 	GameplayLoopAudioCleanup.stop_all(null)
 

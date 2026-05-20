@@ -791,6 +791,15 @@ func play_shield_kiting_wind_up() -> void:
 	_play_with_pitch(shield_kiting_wind_up_sfx, randf_range(0.98, 1.02))
 
 
+func stop_shield_kiting_wind_up() -> void:
+	if shield_kiting_wind_up_sfx != null and shield_kiting_wind_up_sfx.playing:
+		shield_kiting_wind_up_sfx.stop()
+
+
+func is_shield_kiting_wind_up_playing() -> bool:
+	return shield_kiting_wind_up_sfx != null and shield_kiting_wind_up_sfx.playing
+
+
 func play_shield_kiting_launch() -> void:
 	_play_with_pitch(shield_kiting_launch_sfx, randf_range(0.98, 1.02))
 
