@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
 
 const GRENADE_ICON_PATH := ActiveItemCatalog.GRENADE_ICON_PATH
 const FLARE_ICON_PATH := ActiveItemCatalog.FLARE_ICON_PATH
@@ -236,55 +237,7 @@ func _draw_explosion_zones(canvas: CanvasItem, explosion_zones: Array, shake_off
 		if not (zone_value is Dictionary):
 			continue
 		var zone: Dictionary = zone_value
-		if not bool(zone.get("active", true)):
-			continue
-		var center: Vector2 = _get_vector2(zone, "position", Vector2.ZERO) + shake_offset
-		var radius: float = float(zone.get("radius", GRENADE_EXPLOSION_RADIUS))
-		var max_duration: float = max(1.0, float(zone.get("max_duration_frames", GRENADE_EXPLOSION_DURATION_FRAMES)))
-		var remaining: float = clamp(float(zone.get("duration_frames", max_duration)), 0.0, max_duration)
-		var elapsed: float = max_duration - remaining
-		var life: float = remaining / max_duration
-
-		var shockwave_radius: float = radius + elapsed * 6.0
-		if shockwave_radius < radius * 2.5:
-			canvas.draw_arc(center, shockwave_radius, 0.0, TAU, 72, Color(1.0, 1.0, 1.0, 0.18 * life), 4.0)
-
-		var fire_scale: float = min(1.0, (elapsed + 1.0) / 3.0) if elapsed < 4.0 else max(0.0, 1.0 - (elapsed - 4.0) / 21.0)
-		var fire_radius: float = radius * fire_scale
-		if fire_radius > 3.0:
-			for step in range(0, 12):
-				var ratio: float = 1.0 - float(step) / 12.0
-				var ring_radius: float = max(2.0, fire_radius * ratio)
-				var color: Color
-				if remaining > max_duration * 0.65:
-					color = Color(1.0, lerp(155.0 / 255.0, 1.0, ratio), lerp(50.0 / 255.0, 200.0 / 255.0, ratio), 0.78 * life * ratio)
-				elif remaining > max_duration * 0.3:
-					color = Color(1.0, lerp(50.0 / 255.0, 150.0 / 255.0, ratio), lerp(10.0 / 255.0, 50.0 / 255.0, ratio), 0.72 * life * ratio)
-				else:
-					color = Color(lerp(100.0 / 255.0, 200.0 / 255.0, ratio), lerp(10.0 / 255.0, 50.0 / 255.0, ratio), 30.0 / 255.0, 0.58 * life * ratio)
-				canvas.draw_circle(center, ring_radius, color)
-
-		var smoke_radius: float = radius * 0.6 + elapsed * 3.0
-		for j in range(6):
-			var angle: float = float(j) * TAU / 6.0 + elapsed * 0.09
-			var distance: float = 16.0 + float((j * 17) % 31)
-			var offset := Vector2(cos(angle), sin(angle)) * distance + Vector2(0.0, -elapsed * 1.5)
-			var smoke_alpha: float = 0.22 * life
-			var tone: float = 0.22 + float(j % 3) * 0.04
-			canvas.draw_circle(center + offset, smoke_radius * (0.42 + float(j % 2) * 0.08), Color(tone, tone * 0.9, tone * 0.78, smoke_alpha))
-
-		if elapsed < 6.0:
-			var spark_alpha: float = 0.78 * (1.0 - elapsed / 6.0)
-			for k in range(10):
-				var angle: float = float(k) * TAU / 10.0 + sin(float(k) * 2.17 + elapsed) * 0.22
-				var end_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * (radius * 0.7 + float((k * 11) % 21))
-				canvas.draw_line(center, end_pos, Color(1.0, 1.0, 200.0 / 255.0, spark_alpha), 2.0)
-				canvas.draw_circle(end_pos, 4.0, Color(1.0, 1.0, 220.0 / 255.0, spark_alpha * 0.6))
-
-		if elapsed < 3.0:
-			var flash_alpha: float = 0.78 * (1.0 - elapsed / 3.0)
-			canvas.draw_circle(center, radius * 0.4, Color(1.0, 250.0 / 255.0, 230.0 / 255.0, flash_alpha))
-
+		GrenadeExplosionDrawer.draw_zone(canvas, zone, shake_offset)
 
 func _draw_flare_zones(canvas: CanvasItem, flare_zones: Array, shake_offset: Vector2) -> void:
 	if flare_zones.is_empty():
