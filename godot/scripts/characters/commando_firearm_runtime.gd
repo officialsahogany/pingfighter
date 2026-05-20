@@ -2266,56 +2266,29 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 	for index in range(support_calls.size() - 1, -1, -1):
 		@warning_ignore("shadowed_variable_base_class")
 		var call: Dictionary = _get_dict(support_calls[index])
-		var call_timer: float = max(0.0, float(call.get("call_timer_frames", 0.0)) - step)
-		call["call_timer_frames"] = call_timer
-		call["radio_timer_frames"] = call_timer
-		call["radio_active"] = call_timer > 0.0
-		if call_timer > 0.0:
-			call["state"] = "calling"
-			support_calls[index] = call
-			continue
-
-		var delay: float = max(0.0, float(call.get("delay_frames", 0.0)) - step)
-		call["delay_frames"] = delay
-		call["radio_timer_frames"] = 0.0
-		call["radio_active"] = false
-		if delay > 0.0:
-			call["state"] = "inbound"
-			support_calls[index] = call
-			continue
-
-		call["state"] = "striking"
-		if not bool(call.get("aircraft_active", false)):
-			call["aircraft_active"] = true
-			call["aircraft_pos"] = Vector2(-140.0, SUPPORT_AIRCRAFT_Y)
-			call["aircraft_velocity"] = Vector2(SUPPORT_AIRCRAFT_SPEED, 0.0)
-			call["aircraft_spawn_timer"] = 0.0
+		var advance_result: Dictionary = _advance_support_call(call, step)
+		call = _get_dict(advance_result.get("call", call))
+		if bool(advance_result.get("started_aircraft", false)):
 			_start_support_aircraft_audio(call, deps)
-
-		var aircraft_pos: Vector2 = _get_vector2(call.get("aircraft_pos", Vector2(-140.0, SUPPORT_AIRCRAFT_Y)), Vector2(-140.0, SUPPORT_AIRCRAFT_Y))
-		var aircraft_velocity: Vector2 = _get_vector2(call.get("aircraft_velocity", Vector2(SUPPORT_AIRCRAFT_SPEED, 0.0)), Vector2(SUPPORT_AIRCRAFT_SPEED, 0.0))
-		aircraft_pos += aircraft_velocity * step
-		call["aircraft_pos"] = aircraft_pos
-		var aircraft_spawn_timer: float = max(0.0, float(call.get("aircraft_spawn_timer", 0.0)) + step)
-		call["aircraft_spawn_timer"] = aircraft_spawn_timer
-		var can_drop: bool = aircraft_spawn_timer >= float(call.get("aircraft_drop_arm_frames", SUPPORT_AIRCRAFT_DROP_ARM_FRAMES))
-
-		var bombs_remaining: int = max(0, int(call.get("bombs_remaining", 0)))
-		var bomb_timer: float = max(0.0, float(call.get("bomb_timer_frames", 0.0)) - step)
-		if can_drop and bombs_remaining > 0 and bomb_timer <= 0.0:
-			var spawned: int = int(call.get("bombs_spawned", 0))
-			_spawn_support_bomb(call, profile, context, spawned)
-			call["bombs_spawned"] = spawned + 1
-			call["bombs_remaining"] = bombs_remaining - 1
-			bomb_timer = SUPPORT_BOMB_INTERVAL_FRAMES
-		call["bomb_timer_frames"] = bomb_timer
-
-		var aircraft_finished: bool = aircraft_pos.x > FIELD_WIDTH + 150.0
-		if int(call.get("bombs_remaining", 0)) <= 0 and aircraft_finished:
+		if bool(advance_result.get("spawn_bomb", false)):
+			_spawn_support_bomb(call, profile, context, int(advance_result.get("spawn_index", 0)))
+		if bool(advance_result.get("finished", false)):
 			_stop_support_aircraft_audio(call, deps)
 			support_calls.remove_at(index)
 		else:
 			support_calls[index] = call
+
+
+func _advance_support_call(call_data: Dictionary, step: float) -> Dictionary:
+	return CommandoFirearmSupportCallResolver.advance_call(
+		call_data,
+		step,
+		Vector2(-140.0, SUPPORT_AIRCRAFT_Y),
+		Vector2(SUPPORT_AIRCRAFT_SPEED, 0.0),
+		SUPPORT_BOMB_INTERVAL_FRAMES,
+		FIELD_WIDTH,
+		150.0
+	)
 
 
 @warning_ignore("shadowed_variable_base_class")

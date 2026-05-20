@@ -65,6 +65,75 @@ func _verify_direct_support_call_resolver() -> void:
 		CommandoFirearmSupportCallResolver.get_bomb_target(target, 2, 760.0, 750.0) == Vector2(320.0, 214.0),
 		"support bomb target should preserve deterministic offset spread"
 	)
+	var calling: Dictionary = CommandoFirearmSupportCallResolver.advance_call(
+		{"state": "calling", "call_timer_frames": 42.0, "delay_frames": 120.0},
+		10.0,
+		Vector2(-140.0, 116.0),
+		Vector2(8.0, 0.0),
+		18.0,
+		760.0,
+		150.0
+	)
+	var calling_payload: Dictionary = _get_dict(calling.get("call", {}))
+	_expect(str(calling_payload.get("state", "")) == "calling", "support advance should keep active call locks in calling state")
+	_expect(is_equal_approx(float(calling_payload.get("call_timer_frames", 0.0)), 32.0), "support advance should decrement call lock timers")
+	_expect(not bool(calling.get("started_aircraft", true)), "support advance should not start aircraft during call lock")
+	var inbound: Dictionary = CommandoFirearmSupportCallResolver.advance_call(
+		{"state": "calling", "call_timer_frames": 0.0, "delay_frames": 20.0},
+		5.0,
+		Vector2(-140.0, 116.0),
+		Vector2(8.0, 0.0),
+		18.0,
+		760.0,
+		150.0
+	)
+	var inbound_payload: Dictionary = _get_dict(inbound.get("call", {}))
+	_expect(str(inbound_payload.get("state", "")) == "inbound", "support advance should enter inbound while delay remains")
+	_expect(is_equal_approx(float(inbound_payload.get("delay_frames", 0.0)), 15.0), "support advance should decrement inbound delay")
+	var striking: Dictionary = CommandoFirearmSupportCallResolver.advance_call(
+		{
+			"state": "inbound",
+			"call_timer_frames": 0.0,
+			"delay_frames": 0.0,
+			"bomb_timer_frames": 0.0,
+			"bombs_remaining": 2,
+			"bombs_spawned": 0,
+			"aircraft_active": false,
+			"aircraft_drop_arm_frames": 18.0,
+		},
+		20.0,
+		Vector2(-140.0, 116.0),
+		Vector2(8.0, 0.0),
+		18.0,
+		760.0,
+		150.0
+	)
+	var striking_payload: Dictionary = _get_dict(striking.get("call", {}))
+	_expect(str(striking_payload.get("state", "")) == "striking", "support advance should enter striking when delay is done")
+	_expect(bool(striking.get("started_aircraft", false)), "support advance should report aircraft startup once")
+	_expect(bool(striking.get("spawn_bomb", false)), "support advance should request a bomb after drop arm")
+	_expect(int(striking.get("spawn_index", -1)) == 0, "support advance should report the bomb spawn index")
+	_expect(int(striking_payload.get("bombs_remaining", 0)) == 1, "support advance should decrement remaining bomb count")
+	_expect(striking_payload.get("aircraft_pos", Vector2.ZERO) == Vector2(20.0, 116.0), "support advance should move aircraft by velocity and step")
+	var finished: Dictionary = CommandoFirearmSupportCallResolver.advance_call(
+		{
+			"state": "striking",
+			"call_timer_frames": 0.0,
+			"delay_frames": 0.0,
+			"bomb_timer_frames": 5.0,
+			"bombs_remaining": 0,
+			"aircraft_active": true,
+			"aircraft_pos": Vector2(900.0, 116.0),
+			"aircraft_velocity": Vector2(20.0, 0.0),
+		},
+		1.0,
+		Vector2(-140.0, 116.0),
+		Vector2(8.0, 0.0),
+		18.0,
+		760.0,
+		150.0
+	)
+	_expect(bool(finished.get("finished", false)), "support advance should finish after all bombs and offscreen aircraft")
 
 
 func _verify_runtime_delegates_support_call_resolver() -> void:
@@ -74,8 +143,26 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 	_expect(is_equal_approx(runtime._get_support_call_delay_frames(4, target), 148.0), "runtime delay wrapper should delegate")
 	_expect(runtime._get_support_bomb_count(4, target) == 7, "runtime bomb-count wrapper should delegate")
 	_expect(runtime._get_support_bomb_target(target, 2) == Vector2(320.0, 214.0), "runtime bomb-target wrapper should delegate")
+	var advance_result: Dictionary = runtime._advance_support_call({
+		"call_timer_frames": 0.0,
+		"delay_frames": 0.0,
+		"bombs_remaining": 1,
+		"bombs_spawned": 0,
+		"aircraft_active": false,
+		"aircraft_drop_arm_frames": 18.0,
+	}, 20.0)
+	var advanced_call: Dictionary = _get_dict(advance_result.get("call", {}))
+	_expect(bool(advance_result.get("started_aircraft", false)), "runtime support advance wrapper should report aircraft startup")
+	_expect(bool(advance_result.get("spawn_bomb", false)), "runtime support advance wrapper should report bomb spawn")
+	_expect(advanced_call.get("aircraft_pos", Vector2.ZERO) == Vector2(-104.0, 52.0), "runtime support advance wrapper should use runtime aircraft lane and speed")
 
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _get_dict(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}

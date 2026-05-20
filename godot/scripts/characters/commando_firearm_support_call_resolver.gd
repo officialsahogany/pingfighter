@@ -101,3 +101,75 @@ static func get_bomb_target(target: Vector2, spawn_index: int, field_width: floa
 		clamp(target.x + offset, 54.0, field_width - 54.0),
 		clamp(target.y + target_y_offset, 42.0, field_height - 64.0)
 	)
+
+
+static func advance_call(
+	call_data: Dictionary,
+	step: float,
+	aircraft_spawn_pos: Vector2,
+	aircraft_velocity: Vector2,
+	bomb_interval_frames: float,
+	field_width: float,
+	aircraft_finish_margin: float
+) -> Dictionary:
+	var next_call: Dictionary = call_data.duplicate(true)
+	var result := {
+		"call": next_call,
+		"started_aircraft": false,
+		"spawn_bomb": false,
+		"spawn_index": -1,
+		"finished": false,
+	}
+	var safe_step: float = max(0.0, step)
+	var call_timer: float = max(0.0, float(next_call.get("call_timer_frames", 0.0)) - safe_step)
+	next_call["call_timer_frames"] = call_timer
+	next_call["radio_timer_frames"] = call_timer
+	next_call["radio_active"] = call_timer > 0.0
+	if call_timer > 0.0:
+		next_call["state"] = "calling"
+		return result
+
+	var delay: float = max(0.0, float(next_call.get("delay_frames", 0.0)) - safe_step)
+	next_call["delay_frames"] = delay
+	next_call["radio_timer_frames"] = 0.0
+	next_call["radio_active"] = false
+	if delay > 0.0:
+		next_call["state"] = "inbound"
+		return result
+
+	next_call["state"] = "striking"
+	if not bool(next_call.get("aircraft_active", false)):
+		next_call["aircraft_active"] = true
+		next_call["aircraft_pos"] = aircraft_spawn_pos
+		next_call["aircraft_velocity"] = aircraft_velocity
+		next_call["aircraft_spawn_timer"] = 0.0
+		result["started_aircraft"] = true
+
+	var aircraft_pos: Vector2 = _get_vector2(next_call.get("aircraft_pos", aircraft_spawn_pos), aircraft_spawn_pos)
+	var current_velocity: Vector2 = _get_vector2(next_call.get("aircraft_velocity", aircraft_velocity), aircraft_velocity)
+	aircraft_pos += current_velocity * safe_step
+	next_call["aircraft_pos"] = aircraft_pos
+	var aircraft_spawn_timer: float = max(0.0, float(next_call.get("aircraft_spawn_timer", 0.0)) + safe_step)
+	next_call["aircraft_spawn_timer"] = aircraft_spawn_timer
+	var can_drop: bool = aircraft_spawn_timer >= float(next_call.get("aircraft_drop_arm_frames", 0.0))
+
+	var bombs_remaining: int = max(0, int(next_call.get("bombs_remaining", 0)))
+	var bomb_timer: float = max(0.0, float(next_call.get("bomb_timer_frames", 0.0)) - safe_step)
+	if can_drop and bombs_remaining > 0 and bomb_timer <= 0.0:
+		var spawned: int = int(next_call.get("bombs_spawned", 0))
+		result["spawn_bomb"] = true
+		result["spawn_index"] = spawned
+		next_call["bombs_spawned"] = spawned + 1
+		next_call["bombs_remaining"] = bombs_remaining - 1
+		bomb_timer = bomb_interval_frames
+	next_call["bomb_timer_frames"] = bomb_timer
+
+	var aircraft_finished: bool = aircraft_pos.x > field_width + aircraft_finish_margin
+	result["finished"] = int(next_call.get("bombs_remaining", 0)) <= 0 and aircraft_finished
+	return result
+
+
+static func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
+	if value is Vector2:
+		return value
+	return fallback

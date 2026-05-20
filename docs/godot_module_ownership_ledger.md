@@ -3402,10 +3402,11 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Commando fire-support call math: deterministic support-call
   seed generation, aircraft-entry delay selection, bomb-count selection,
   initial call payload construction, support-marker flash payloads, and
-  deterministic per-bomb target selection. `commando_firearm_runtime.gd`
-  keeps support-call array mutation, aircraft audio lifecycle, projectile
-  spawning, and draw / damage handoff while delegating only these deterministic
-  payload / target decisions.
+  deterministic per-bomb target selection, plus pure per-frame call-state
+  advancement flags for aircraft start, bomb spawn, and call completion.
+  `commando_firearm_runtime.gd` keeps support-call array mutation, aircraft
+  audio lifecycle, projectile spawning, and draw / damage handoff while
+  delegating only deterministic payload / target / lifecycle-step decisions.
 - `scripts/characters/commando_firearm_support_projectile_resolver.gd`
   Owns pure Commando fire-support projectile construction: deterministic
   drop row, target-y clamping, horizontal jitter velocity, projectile
