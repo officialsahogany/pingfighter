@@ -202,12 +202,33 @@ screenshots/pingfighter_*.png
 # Local generated previews and scratch work
 .tmp/
 preview_outputs/
+.codex_tmp/
+tmp/
 screenshots/arena_test_*.png
 .tmp/automation/latest/
 .tmp/automation/*/prompt.md
 .tmp/automation/*/response.txt
 .tmp/automation/*/stderr.txt
 .tmp/automation/*/job.json
+
+# Local asset-generation and handoff workspaces
+trailer_exports/
+handoff/
+generated_audio/
+promo_work/
+pitch_deck_aicon_2026/
+brochure_assets_current/
+
+# Repo-local tool mirrors and dependency installs
+.agents/skills/
+mcp/node_modules/
+
+# Legacy item-generation iteration trails
+items/sprite_candidates/
+items/archive_*/
+items/*_backup_*.png
+items/*.bak_*
+items/*.v1_magenta_backup
 
 # Godot local/editor generated files
 godot/.godot/
