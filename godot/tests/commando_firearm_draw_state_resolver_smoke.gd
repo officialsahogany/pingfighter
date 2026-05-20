@@ -12,6 +12,7 @@ func _init() -> void:
 	_verify_direct_weapon_fire_sheet_state()
 	_verify_direct_weapon_draw_states()
 	_verify_direct_actor_context()
+	_verify_direct_visibility_gate()
 	_verify_runtime_delegates_draw_state()
 
 	if _failures.is_empty():
@@ -172,8 +173,21 @@ func _verify_direct_actor_context() -> void:
 	_expect((visible_context.get("commando_firearm_support_calls", []) as Array).size() == 1, "visible actor context should include support-call arrays")
 
 
+func _verify_direct_visibility_gate() -> void:
+	_expect(CommandoFirearmDrawStateResolver.has_visible_effects([[{"id": 1}], []], [0.0]), "visibility gate should detect non-empty effect arrays")
+	_expect(CommandoFirearmDrawStateResolver.has_visible_effects([[], []], [0.0, 2.0]), "visibility gate should detect active timers")
+	_expect(not CommandoFirearmDrawStateResolver.has_visible_effects([[], []], [0.0, 0.0]), "visibility gate should stay false for empty arrays and inactive timers")
+
+
 func _verify_runtime_delegates_draw_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
+	_expect(not runtime.has_visible_effects(), "runtime visibility gate should default to false")
+	runtime.pistol_fire_delay_frames = 1.0
+	_expect(runtime.has_visible_effects(), "runtime visibility gate should delegate active timer checks")
+	runtime.pistol_fire_delay_frames = 0.0
+	runtime.projectiles = [{"id": 1}]
+	_expect(runtime.has_visible_effects(), "runtime visibility gate should delegate effect array checks")
+	runtime.projectiles.clear()
 	runtime.slingshot_charging = true
 	runtime.slingshot_charge_timer_frames = 45.0
 	runtime.slingshot_charge_level = 2

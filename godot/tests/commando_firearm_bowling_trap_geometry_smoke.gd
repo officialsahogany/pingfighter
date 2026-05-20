@@ -35,6 +35,24 @@ func _verify_direct_bowling_trap_geometry() -> void:
 		) == Vector2(30.0, 450.0),
 		"bowling-trap install position should clamp to field and minimum install row"
 	)
+	_expect(
+		CommandoFirearmBowlingTrapGeometry.is_install_in_player_field(
+			{"player_pos": Vector2(380.0, 690.0), "paddle_height": 50.0},
+			760.0,
+			750.0,
+			0.6
+		),
+		"bowling-trap install field helper should accept lower-field installs"
+	)
+	_expect(
+		not CommandoFirearmBowlingTrapGeometry.is_install_in_player_field(
+			{"player_pos": Vector2(380.0, 100.0), "paddle_height": 50.0},
+			760.0,
+			750.0,
+			0.6
+		),
+		"bowling-trap install field helper should reject upper-field installs"
+	)
 
 	_expect(
 		CommandoFirearmBowlingTrapGeometry.soften_guard_ball(Vector2.ZERO, 8.0) == Vector2(0.0, 8.0),
@@ -77,6 +95,16 @@ func _verify_direct_bowling_trap_geometry() -> void:
 		CommandoFirearmBowlingTrapGeometry.update_install_state(install_trap, 48.0, 48.0)["state"] == "waiting",
 		"install state update should enter waiting state when timer expires"
 	)
+	var carryover: Array = CommandoFirearmBowlingTrapGeometry.build_round_carryover([
+		{"id": 1, "state": "installing", "pos": Vector2(100.0, 200.0)},
+		{"id": 2, "state": "capturing", "pos": Vector2(200.0, 300.0), "captured_original_speed": 9.0},
+		{"id": 3, "state": "launching", "pos": Vector2(300.0, 400.0)},
+	], Vector2(0.0, -15.0))
+	_expect(carryover.size() == 2, "round carryover should skip launching / inactive trap bodies")
+	_expect(str((carryover[0] as Dictionary).get("state", "")) == "waiting", "round carryover should normalize traps to waiting")
+	_expect((carryover[0] as Dictionary).get("captured_ball_pos", Vector2.ZERO) == Vector2(100.0, 185.0), "round carryover should rebuild captured-ball anchor")
+	_expect(CommandoFirearmBowlingTrapGeometry.has_installing_trap([install_trap]), "installing trap helper should detect installing states")
+	_expect(is_equal_approx(CommandoFirearmBowlingTrapGeometry.get_install_progress([{"state": "installing", "install_progress": 0.4}]), 0.4), "install progress helper should read installing progress")
 
 	var capture_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.build_capture_state(
 		install_trap,
@@ -102,6 +130,11 @@ func _verify_direct_bowling_trap_geometry() -> void:
 		is_equal_approx(float(CommandoFirearmBowlingTrapGeometry.build_release_result(release_motion, "guard", 22.0, 60.0, 0.7)["commando_bowling_trap_guard_restore_speed"]), 4.2),
 		"release result should expose reduced guard restore speed"
 	)
+	var guard_state: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_state({"id": 9}, 6.0, 0.7)
+	_expect(bool(guard_state.get("armed", false)), "guard state helper should arm the guard")
+	_expect(str(guard_state.get("source", "")) == "commando_bowling_trap_guard_9", "guard state helper should build stable guard sources")
+	_expect(is_equal_approx(float(guard_state.get("restore_speed", 0.0)), 4.2), "guard state helper should apply speed reduction")
+	_expect(not bool(CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state().get("armed", true)), "cleared guard helper should disarm the guard")
 
 	var trap := {"pos": Vector2(100.0, 100.0), "width": 60.0}
 	var hit_context := {"ball_pos": Vector2(100.0, 110.0), "ball_vel": Vector2(0.0, 5.0), "ball_size": 20.0}
@@ -119,6 +152,18 @@ func _verify_direct_bowling_trap_geometry() -> void:
 func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	_expect(runtime._get_bowling_trap_install_pos({}) == Vector2(457.5, 735.0), "runtime install-position wrapper should delegate")
+	_expect(runtime._is_bowling_trap_install_in_player_field({"player_pos": Vector2(380.0, 690.0), "paddle_height": 50.0}), "runtime install-field wrapper should delegate lower-field installs")
+	_expect(not runtime._is_bowling_trap_install_in_player_field({"player_pos": Vector2(380.0, 100.0), "paddle_height": 50.0}), "runtime install-field wrapper should delegate upper-field rejection")
+	runtime.bowling_traps = [{"id": 1, "state": "installing", "pos": Vector2(100.0, 200.0), "install_progress": 0.4}]
+	_expect(runtime._has_installing_bowling_trap(), "runtime installing-trap wrapper should delegate")
+	_expect(is_equal_approx(float(runtime._get_bowling_trap_draw_state().get("install_progress", 0.0)), 0.4), "runtime draw state should use delegated install progress")
+	var runtime_carryover: Array = runtime._build_bowling_trap_round_carryover()
+	_expect(runtime_carryover.size() == 1 and str((runtime_carryover[0] as Dictionary).get("state", "")) == "waiting", "runtime round carryover wrapper should delegate")
+	var guard_source: String = runtime._arm_bowling_trap_guard({"id": 9}, 6.0)
+	_expect(guard_source == "commando_bowling_trap_guard_9", "runtime guard arm wrapper should return delegated source")
+	_expect(runtime.is_bowling_trap_guard_armed(), "runtime guard arm wrapper should apply armed state")
+	runtime._clear_bowling_trap_guard()
+	_expect(not runtime.is_bowling_trap_guard_armed(), "runtime guard clear wrapper should apply cleared state")
 	_expect(runtime._soften_bowling_trap_guard_ball(Vector2(3.0, 4.0), 10.0) == Vector2(6.0, 8.0), "runtime guard-soften wrapper should delegate")
 	_expect(is_equal_approx(runtime._get_bowling_trap_guard_knockback_velocity(Vector2(500.0, 0.0), {}), -22.0), "runtime guard-knockback wrapper should delegate")
 	_expect(runtime._get_bowling_trap_launch_direction(9) == 1, "runtime launch-direction wrapper should delegate")

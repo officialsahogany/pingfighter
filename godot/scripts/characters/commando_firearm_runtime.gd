@@ -714,30 +714,34 @@ func reset_round(deps: Dictionary = {}) -> void:
 
 
 func has_visible_effects() -> bool:
-	return (
-		not projectiles.is_empty()
-		or not muzzle_flashes.is_empty()
-		or not impact_flashes.is_empty()
-		or not lingering_effects.is_empty()
-		or not shell_casings.is_empty()
-		or not pistol_feedbacks.is_empty()
-		or not support_calls.is_empty()
-		or not bowling_traps.is_empty()
-		or slingshot_control_lock_frames > 0.0
-		or pistol_fire_delay_frames > 0.0
-		or pistol_post_fire_animation_frames > 0.0
-		or weapon_fire_sheet_timer_frames > 0.0
-		or pistol_control_lock_frames > 0.0
-		or bazooka_control_lock_frames > 0.0
-		or bazooka_fire_animation_frames > 0.0
-		or bazooka_firing_pose_frames > 0.0
-		or bazooka_muzzle_flash_frames > 0.0
-		or net_gun_control_lock_frames > 0.0
-		or net_gun_throw_pose_frames > 0.0
-		or net_gun_harpoon_flash_frames > 0.0
-		or bowling_trap_control_lock_frames > 0.0
-		or bowling_trap_install_pose_frames > 0.0
-		or suicide_drone_cooldown_frames > 0.0
+	return CommandoFirearmDrawStateResolver.has_visible_effects(
+		[
+			projectiles,
+			muzzle_flashes,
+			impact_flashes,
+			lingering_effects,
+			shell_casings,
+			pistol_feedbacks,
+			support_calls,
+			bowling_traps,
+		],
+		[
+			slingshot_control_lock_frames,
+			pistol_fire_delay_frames,
+			pistol_post_fire_animation_frames,
+			weapon_fire_sheet_timer_frames,
+			pistol_control_lock_frames,
+			bazooka_control_lock_frames,
+			bazooka_fire_animation_frames,
+			bazooka_firing_pose_frames,
+			bazooka_muzzle_flash_frames,
+			net_gun_control_lock_frames,
+			net_gun_throw_pose_frames,
+			net_gun_harpoon_flash_frames,
+			bowling_trap_control_lock_frames,
+			bowling_trap_install_pose_frames,
+			suicide_drone_cooldown_frames,
+		]
 	)
 
 
@@ -1555,49 +1559,26 @@ func _bowling_trap_fire_failed(special_gauge: float, reason: String) -> Dictiona
 
 
 func _is_bowling_trap_install_in_player_field(config: Dictionary) -> bool:
-	var player_pos: Vector2 = _get_vector2(config.get("player_pos", Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - 70.0)), Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - 70.0))
-	var paddle_height: float = max(1.0, float(config.get("paddle_height", 50.0)))
-	var trap_y: float = player_pos.y + paddle_height + 5.0
-	return trap_y >= FIELD_HEIGHT * BOWLING_TRAP_MIN_FIELD_Y_RATIO
+	return CommandoFirearmBowlingTrapGeometry.is_install_in_player_field(
+		config,
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		BOWLING_TRAP_MIN_FIELD_Y_RATIO
+	)
 
 
 func _has_installing_bowling_trap() -> bool:
-	for value in bowling_traps:
-		var trap: Dictionary = _get_dict(value)
-		if str(trap.get("state", "")) == "installing":
-			return true
-	return false
+	return CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps)
 
 
 func _build_bowling_trap_round_carryover() -> Array:
-	var carried: Array = []
-	for value in bowling_traps:
-		var trap: Dictionary = _get_dict(value)
-		var state: String = str(trap.get("state", "waiting"))
-		if state == "inactive" or state == "launching":
-			continue
-		var normalized: Dictionary = trap.duplicate(true)
-		normalized["state"] = "waiting"
-		normalized["timer_frames"] = 0.0
-		normalized["max_timer_frames"] = 1.0
-		normalized["install_progress"] = 1.0
-		normalized["capture_progress"] = 0.0
-		normalized["claw_angle"] = 0.0
-		normalized["captured_original_speed"] = 0.0
-		normalized["captured_original_vel"] = Vector2.ZERO
-		var trap_pos: Vector2 = _get_vector2(normalized.get("pos", Vector2.ZERO), Vector2.ZERO)
-		normalized["captured_ball_pos"] = trap_pos + BOWLING_TRAP_CAPTURE_BALL_OFFSET
-		carried.append(normalized)
-	return carried
+	return CommandoFirearmBowlingTrapGeometry.build_round_carryover(
+		bowling_traps,
+		BOWLING_TRAP_CAPTURE_BALL_OFFSET
+	)
 
 
 func _get_bowling_trap_draw_state() -> Dictionary:
-	var install_progress := 0.0
-	for value in bowling_traps:
-		var trap: Dictionary = _get_dict(value)
-		if str(trap.get("state", "")) == "installing":
-			install_progress = clamp(float(trap.get("install_progress", 0.0)), 0.0, 1.0)
-			break
 	return CommandoFirearmDrawStateResolver.build_bowling_trap_state(
 		bowling_trap_cooldown_frames,
 		BOWLING_TRAP_COOLDOWN_FRAMES,
@@ -1606,7 +1587,7 @@ func _get_bowling_trap_draw_state() -> Dictionary:
 		bowling_trap_install_pose_frames,
 		BOWLING_TRAP_INSTALL_FRAMES,
 		_has_installing_bowling_trap(),
-		install_progress
+		CommandoFirearmBowlingTrapGeometry.get_install_progress(bowling_traps)
 	)
 
 
@@ -2398,19 +2379,24 @@ func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dic
 
 
 func _arm_bowling_trap_guard(trap: Dictionary, original_speed: float) -> String:
-	var source: String = "commando_bowling_trap_guard_%d" % int(trap.get("id", 0))
-	bowling_trap_guard_armed = true
-	bowling_trap_guard_original_speed = max(1.0, original_speed)
-	bowling_trap_guard_restore_speed = bowling_trap_guard_original_speed * BOWLING_TRAP_GUARD_SPEED_REDUCTION
-	bowling_trap_guard_source = source
-	return source
+	var guard_state: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_state(
+		trap,
+		original_speed,
+		BOWLING_TRAP_GUARD_SPEED_REDUCTION
+	)
+	_apply_bowling_trap_guard_state(guard_state)
+	return str(guard_state.get("source", ""))
 
 
 func _clear_bowling_trap_guard() -> void:
-	bowling_trap_guard_armed = false
-	bowling_trap_guard_original_speed = 0.0
-	bowling_trap_guard_restore_speed = 0.0
-	bowling_trap_guard_source = ""
+	_apply_bowling_trap_guard_state(CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state())
+
+
+func _apply_bowling_trap_guard_state(guard_state: Dictionary) -> void:
+	bowling_trap_guard_armed = bool(guard_state.get("armed", false))
+	bowling_trap_guard_original_speed = float(guard_state.get("original_speed", 0.0))
+	bowling_trap_guard_restore_speed = float(guard_state.get("restore_speed", 0.0))
+	bowling_trap_guard_source = str(guard_state.get("source", ""))
 
 
 func _soften_bowling_trap_guard_ball(ball_vel: Vector2, restore_speed: float) -> Vector2:

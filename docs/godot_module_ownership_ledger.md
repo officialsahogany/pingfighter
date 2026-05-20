@@ -3285,12 +3285,14 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_bowling_trap_geometry.gd`
   Owns pure Commando bowling-trap geometry, state payloads, and kinematic
   helpers: install position / payload / marker dictionaries, install and
+  player-field eligibility, install / carryover / draw-state summary helpers,
   capture timer progression, capture result handoff, release motion and
-  pseudo-projectile dictionaries, guard ball-speed restoration, guard
-  knockback side, deterministic launch direction, and trap-vs-ball rectangle
-  hits. `commando_firearm_runtime.gd` keeps the trap array, ammo / cooldown
-  gates, capture / release side effects, audio, VFX, and guard arming while
-  delegating deterministic bowling-trap state math to this helper.
+  pseudo-projectile dictionaries, guard state payloads, guard ball-speed
+  restoration, guard knockback side, deterministic launch direction, and
+  trap-vs-ball rectangle hits. `commando_firearm_runtime.gd` keeps the trap
+  array, ammo / cooldown gates, capture / release side effects, audio, VFX,
+  and guard state variable ownership while delegating deterministic
+  bowling-trap state math to this helper.
 - `scripts/characters/commando_firearm_fire_sheet_resolver.gd`
   Owns pure Commando firearm weapon-fire sheet lookup behavior: which
   weapons use the shared authored fire sheet overlay, which use the long
@@ -3308,10 +3310,10 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Commando firearm renderer-facing draw-state dictionary scaffolding
   for slingshot charge, pistol fire pose, shared weapon-fire sheet overlay,
   AK-47, bazooka, net gun, bowling trap, suicide drone payloads, and the
-  actor draw-context payload shape. The runtime keeps timer ownership,
-  weapon-fire sheet / projectile / trap lifecycle, visible-effect gating,
-  actor-context publication, and private wrapper names while delegating the
-  stable draw payload shape to this helper.
+  actor draw-context payload shape, plus the pure visible-effect gate over
+  effect arrays and draw timers. The runtime keeps timer ownership, weapon-fire
+  sheet / projectile / trap lifecycle, actor-context publication, and private
+  wrapper names while delegating the stable draw payload shape to this helper.
 - `scripts/characters/commando_firearm_impact_flash_resolver.gd`
   Owns pure Commando impact-flash dictionary construction: bullet / non-
   bullet timers, fire-support grenade visual kind and duration, explosion

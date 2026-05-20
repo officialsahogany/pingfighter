@@ -179,7 +179,7 @@ static func build_suicide_drone_state(
 
 
 static func build_actor_context(
-	has_visible_effects: bool,
+	effects_visible: bool,
 	projectiles: Array,
 	muzzle_flashes: Array,
 	impact_flashes: Array,
@@ -198,12 +198,12 @@ static func build_actor_context(
 	bowling_traps: Array
 ) -> Dictionary:
 	return {
-		"commando_firearm_projectiles": projectiles.duplicate(true) if has_visible_effects else [],
-		"commando_firearm_muzzle_flashes": muzzle_flashes.duplicate(true) if has_visible_effects else [],
-		"commando_firearm_impact_flashes": impact_flashes.duplicate(true) if has_visible_effects else [],
-		"commando_firearm_lingering_effects": lingering_effects.duplicate(true) if has_visible_effects else [],
-		"commando_firearm_shell_casings": shell_casings.duplicate(true) if has_visible_effects else [],
-		"commando_firearm_pistol_feedbacks": pistol_feedbacks.duplicate(true) if has_visible_effects else [],
+		"commando_firearm_projectiles": projectiles.duplicate(true) if effects_visible else [],
+		"commando_firearm_muzzle_flashes": muzzle_flashes.duplicate(true) if effects_visible else [],
+		"commando_firearm_impact_flashes": impact_flashes.duplicate(true) if effects_visible else [],
+		"commando_firearm_lingering_effects": lingering_effects.duplicate(true) if effects_visible else [],
+		"commando_firearm_shell_casings": shell_casings.duplicate(true) if effects_visible else [],
+		"commando_firearm_pistol_feedbacks": pistol_feedbacks.duplicate(true) if effects_visible else [],
 		"commando_firearm_pistol_state": pistol_state,
 		"commando_firearm_slingshot_state": slingshot_state,
 		"commando_firearm_ak47_state": ak47_state,
@@ -212,6 +212,16 @@ static func build_actor_context(
 		"commando_firearm_bowling_trap_state": bowling_trap_state,
 		"commando_firearm_suicide_drone_state": suicide_drone_state,
 		"commando_firearm_weapon_fire_sheet_state": weapon_fire_sheet_state,
-		"commando_firearm_support_calls": support_calls.duplicate(true) if has_visible_effects else [],
-		"commando_firearm_bowling_traps": bowling_traps.duplicate(true) if has_visible_effects else [],
+		"commando_firearm_support_calls": support_calls.duplicate(true) if effects_visible else [],
+		"commando_firearm_bowling_traps": bowling_traps.duplicate(true) if effects_visible else [],
 	}
+
+
+static func has_visible_effects(effect_arrays: Array, timer_values: Array) -> bool:
+	for value in effect_arrays:
+		if value is Array and not (value as Array).is_empty():
+			return true
+	for value in timer_values:
+		if float(value) > 0.0:
+			return true
+	return false

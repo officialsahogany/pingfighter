@@ -23,6 +23,19 @@ static func get_install_pos(
 	)
 
 
+static func is_install_in_player_field(
+	config: Dictionary,
+	field_width: float,
+	field_height: float,
+	min_field_y_ratio: float
+) -> bool:
+	var fallback_player_pos := Vector2(field_width * 0.5, field_height - 70.0)
+	var player_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(config.get("player_pos", fallback_player_pos), fallback_player_pos)
+	var paddle_height: float = max(1.0, float(config.get("paddle_height", 50.0)))
+	var trap_y: float = player_pos.y + paddle_height + 5.0
+	return trap_y >= field_height * min_field_y_ratio
+
+
 static func build_install_trap(
 	trap_pos: Vector2,
 	profile: Dictionary,
@@ -81,6 +94,44 @@ static func update_install_state(trap: Dictionary, fps_scale: float, install_fra
 		next_trap["install_progress"] = 1.0
 		next_trap["claw_angle"] = 0.0
 	return next_trap
+
+
+static func has_installing_trap(traps: Array) -> bool:
+	for value in traps:
+		var trap: Dictionary = CommandoFirearmValueUtils.get_dict(value)
+		if str(trap.get("state", "")) == "installing":
+			return true
+	return false
+
+
+static func get_install_progress(traps: Array) -> float:
+	for value in traps:
+		var trap: Dictionary = CommandoFirearmValueUtils.get_dict(value)
+		if str(trap.get("state", "")) == "installing":
+			return clamp(float(trap.get("install_progress", 0.0)), 0.0, 1.0)
+	return 0.0
+
+
+static func build_round_carryover(traps: Array, capture_ball_offset: Vector2) -> Array:
+	var carried: Array = []
+	for value in traps:
+		var trap: Dictionary = CommandoFirearmValueUtils.get_dict(value)
+		var state: String = str(trap.get("state", "waiting"))
+		if state == "inactive" or state == "launching":
+			continue
+		var normalized: Dictionary = trap.duplicate(true)
+		normalized["state"] = "waiting"
+		normalized["timer_frames"] = 0.0
+		normalized["max_timer_frames"] = 1.0
+		normalized["install_progress"] = 1.0
+		normalized["capture_progress"] = 0.0
+		normalized["claw_angle"] = 0.0
+		normalized["captured_original_speed"] = 0.0
+		normalized["captured_original_vel"] = Vector2.ZERO
+		var trap_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(normalized.get("pos", Vector2.ZERO), Vector2.ZERO)
+		normalized["captured_ball_pos"] = trap_pos + capture_ball_offset
+		carried.append(normalized)
+	return carried
 
 
 static func build_capture_state(
@@ -206,6 +257,25 @@ static func build_release_result(
 		"commando_bowling_trap_guard_knockback_power": guard_knockback_power,
 		"commando_bowling_trap_guard_stun_frames": guard_stun_frames,
 		"commando_bowling_trap_guard_restore_speed": original_speed * guard_speed_reduction,
+	}
+
+
+static func build_guard_state(trap: Dictionary, original_speed: float, guard_speed_reduction: float) -> Dictionary:
+	var safe_original_speed: float = max(1.0, original_speed)
+	return {
+		"armed": true,
+		"original_speed": safe_original_speed,
+		"restore_speed": safe_original_speed * guard_speed_reduction,
+		"source": "commando_bowling_trap_guard_%d" % int(trap.get("id", 0)),
+	}
+
+
+static func build_cleared_guard_state() -> Dictionary:
+	return {
+		"armed": false,
+		"original_speed": 0.0,
+		"restore_speed": 0.0,
+		"source": "",
 	}
 
 
