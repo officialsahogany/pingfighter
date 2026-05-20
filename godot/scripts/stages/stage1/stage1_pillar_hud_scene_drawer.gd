@@ -4,54 +4,103 @@ const Stage1ActiveItemHudSceneDrawer := preload("res://scripts/stages/stage1/sta
 const Stage1TopMiniScoreboardSceneDrawer := preload("res://scripts/stages/stage1/stage1_top_mini_scoreboard_scene_drawer.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
+const BASE_PREWARM_MODULE_KEYS := [
+	"scoreboard_renderer",
+	"match_score_state",
+	"scoreboard_state",
+	"stage1_pillar_ui_renderer",
+	"pillar_orb_drawer",
+	"smasher_skill_orb_renderer",
+	"pillar_status_orb_renderer",
+	"active_item_hud_layout",
+	"active_item_hud_renderer",
+	"active_item_hud_state",
+	"active_item_hud_visuals",
+	"round_flow_state",
+	"battle_feedback_state",
+	"orb_hud_state",
+	"boss_ai_state",
+	"runtime_perk_state",
+	"mythic_item_runtime",
+	"stage1_dalji_boss_skill_cooldown_state",
+]
+
 var active_item_drawer: Object = Stage1ActiveItemHudSceneDrawer.new()
 var top_mini_scoreboard_drawer: Object = Stage1TopMiniScoreboardSceneDrawer.new()
 var character_runtime: Object = PlayerCharacterRuntime.new()
+var _prewarm_step_index := 0
+var _prewarm_character_type := ""
+var _prewarm_finished_for := ""
 
 
 func prewarm_assets(module_getter: Callable, selected_character_type: String = "smasher") -> void:
+	while not prewarm_assets_step(module_getter, selected_character_type):
+		pass
+
+
+func prewarm_assets_step(module_getter: Callable, selected_character_type: String = "smasher") -> bool:
 	var character_type: String = character_runtime.normalize(selected_character_type)
-	_prewarm_modules(module_getter, [
-		"scoreboard_renderer",
-		"match_score_state",
-		"scoreboard_state",
-		"stage1_pillar_ui_renderer",
-		"pillar_orb_drawer",
-		"smasher_skill_orb_renderer",
-		"pillar_status_orb_renderer",
-		"active_item_hud_layout",
-		"active_item_hud_renderer",
-		"active_item_hud_state",
-		"active_item_hud_visuals",
-		"round_flow_state",
-		"battle_feedback_state",
-		"orb_hud_state",
-		"boss_ai_state",
-		"runtime_perk_state",
-		"mythic_item_runtime",
-		"stage1_dalji_boss_skill_cooldown_state",
-	])
-	var skill_config_key: String = character_runtime.get_skill_config_key(character_type)
-	var dash_state_key: String = character_runtime.get_dash_state_key(character_type)
-	var combo_key: String = character_runtime.get_combo_state_key(character_type)
-	var skill_state_key: String = character_runtime.get_skill_state_key(character_type)
-	for character_key in [skill_config_key, dash_state_key, combo_key, skill_state_key]:
-		if character_key != "":
-			_get_module(module_getter, character_key)
-	if combo_key != "":
-		_get_module(module_getter, "smasher_combo_renderer")
-	var skill_hud: Object = _get_module(module_getter, "stage1_dalji_boss_skill_hud_renderer")
-	if skill_hud != null and skill_hud.has_method("prewarm_assets"):
-		skill_hud.prewarm_assets()
-	var status_orb_renderer: Object = _get_module(module_getter, "pillar_status_orb_renderer")
-	if status_orb_renderer != null and status_orb_renderer.has_method("prewarm_caches"):
-		status_orb_renderer.prewarm_caches()
-	if character_type == "soldier":
-		var firearm_selector: Object = _get_module(module_getter, "commando_firearm_selector_renderer")
-		if firearm_selector != null and firearm_selector.has_method("prewarm_assets"):
-			firearm_selector.prewarm_assets()
-		_get_module(module_getter, "commando_weapon_controller")
-		_get_module(module_getter, "commando_firearm_runtime")
+	if _prewarm_finished_for == character_type:
+		return true
+	if _prewarm_character_type != character_type:
+		_prewarm_character_type = character_type
+		_prewarm_step_index = 0
+
+	var character_keys: Array = _get_character_prewarm_keys(character_type)
+	var base_count := BASE_PREWARM_MODULE_KEYS.size()
+	if _prewarm_step_index < base_count:
+		_get_module(module_getter, str(BASE_PREWARM_MODULE_KEYS[_prewarm_step_index]))
+		_prewarm_step_index += 1
+		return false
+
+	var character_step := _prewarm_step_index - base_count
+	if character_step < character_keys.size():
+		_get_module(module_getter, str(character_keys[character_step]))
+		_prewarm_step_index += 1
+		return false
+
+	var special_step := character_step - character_keys.size()
+	match special_step:
+		0:
+			var skill_hud: Object = _get_module(module_getter, "stage1_dalji_boss_skill_hud_renderer")
+			if skill_hud != null and skill_hud.has_method("prewarm_assets_step"):
+				if not bool(skill_hud.prewarm_assets_step()):
+					return false
+			elif skill_hud != null and skill_hud.has_method("prewarm_assets"):
+				skill_hud.prewarm_assets()
+		1:
+			var status_orb_renderer: Object = _get_module(module_getter, "pillar_status_orb_renderer")
+			if status_orb_renderer != null and status_orb_renderer.has_method("prewarm_caches_step"):
+				if not bool(status_orb_renderer.prewarm_caches_step()):
+					return false
+			elif status_orb_renderer != null and status_orb_renderer.has_method("prewarm_caches"):
+				status_orb_renderer.prewarm_caches()
+		2:
+			if character_type == "soldier":
+				var firearm_selector: Object = _get_module(module_getter, "commando_firearm_selector_renderer")
+				if firearm_selector != null and firearm_selector.has_method("prewarm_assets_step"):
+					if not bool(firearm_selector.prewarm_assets_step()):
+						return false
+				elif firearm_selector != null and firearm_selector.has_method("prewarm_assets"):
+					firearm_selector.prewarm_assets()
+		3:
+			if character_type == "soldier":
+				_get_module(module_getter, "commando_weapon_controller")
+		4:
+			if character_type == "soldier":
+				_get_module(module_getter, "commando_firearm_runtime")
+		_:
+			_prewarm_finished_for = character_type
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
+
+
+func reset_prewarm_cache() -> void:
+	_prewarm_step_index = 0
+	_prewarm_character_type = ""
+	_prewarm_finished_for = ""
 
 
 func draw(
@@ -147,6 +196,7 @@ func _draw_stage1_pillar_ui(
 		"battle_perf_logger": perf_logger,
 		"height": float(context.get("height", 750.0)),
 		"selected_character_type": character_type,
+		"pillar_hud_static_lod": bool(context.get("pillar_hud_static_lod", false)),
 		"pillar_drawer": pillar_drawer,
 		"skill_orb_renderer": skill_orb_renderer,
 		"status_orb_renderer": status_orb_renderer,
@@ -315,6 +365,20 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
+
+
+func _get_character_prewarm_keys(character_type: String) -> Array:
+	var keys: Array = []
+	var skill_config_key: String = character_runtime.get_skill_config_key(character_type)
+	var dash_state_key: String = character_runtime.get_dash_state_key(character_type)
+	var combo_key: String = character_runtime.get_combo_state_key(character_type)
+	var skill_state_key: String = character_runtime.get_skill_state_key(character_type)
+	for character_key in [skill_config_key, dash_state_key, combo_key, skill_state_key]:
+		if character_key != "" and not keys.has(character_key):
+			keys.append(character_key)
+	if combo_key != "":
+		keys.append("smasher_combo_renderer")
+	return keys
 
 
 func _prewarm_modules(module_getter: Callable, keys: Array) -> void:

@@ -4,12 +4,38 @@ const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
 var hud_scene_drawer: Object = Stage1PillarHudSceneDrawer.new()
+var _prewarm_step_index := 0
+var _prewarm_finished_for := ""
 
 
 func prewarm_assets(module_getter: Callable, selected_character_type: String = "smasher") -> void:
-	if hud_scene_drawer != null and hud_scene_drawer.has_method("prewarm_assets"):
-		hud_scene_drawer.prewarm_assets(module_getter, selected_character_type)
-	_get_module(module_getter, "stage1_fallback_pillar_renderer")
+	while not prewarm_assets_step(module_getter, selected_character_type):
+		pass
+
+
+func prewarm_assets_step(module_getter: Callable, selected_character_type: String = "smasher") -> bool:
+	if _prewarm_finished_for == selected_character_type:
+		return true
+	if _prewarm_step_index == 0:
+		if hud_scene_drawer != null and hud_scene_drawer.has_method("prewarm_assets_step"):
+			if not bool(hud_scene_drawer.prewarm_assets_step(module_getter, selected_character_type)):
+				return false
+		elif hud_scene_drawer != null and hud_scene_drawer.has_method("prewarm_assets"):
+			hud_scene_drawer.prewarm_assets(module_getter, selected_character_type)
+		_prewarm_step_index = 1
+		return false
+	if _prewarm_step_index == 1:
+		_get_module(module_getter, "stage1_fallback_pillar_renderer")
+	_prewarm_finished_for = selected_character_type
+	_prewarm_step_index = 0
+	return true
+
+
+func reset_prewarm_cache() -> void:
+	_prewarm_step_index = 0
+	_prewarm_finished_for = ""
+	if hud_scene_drawer != null and hud_scene_drawer.has_method("reset_prewarm_cache"):
+		hud_scene_drawer.reset_prewarm_cache()
 
 
 func draw(canvas: CanvasItem, context: Dictionary, registry, states: Dictionary) -> void:
