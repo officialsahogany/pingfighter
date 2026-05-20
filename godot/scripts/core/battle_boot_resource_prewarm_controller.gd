@@ -53,6 +53,7 @@ var stage_runtime_resources_prewarmed_for_stage: int = 0
 var stage_runtime_prewarm_step_stage: int = 0
 var stage_runtime_prewarm_step_index: int = 0
 var battle_pso_prewarmer_attached: bool = false
+var battle_pso_prewarmer_stage_ids: Dictionary = {}
 
 
 class ModuleGetterRegistryAdapter:
@@ -456,11 +457,13 @@ func _run_stage5_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 # once per session is enough - the PSO cache survives across stages within
 # the session.
 func _attach_battle_pso_prewarmer(owner: Object) -> void:
-	if battle_pso_prewarmer_attached:
+	var stage_id: int = max(1, _get_current_stage(owner))
+	if bool(battle_pso_prewarmer_stage_ids.get(stage_id, false)):
 		return
 	if owner == null or not (owner is Node) or not (owner as Node).is_inside_tree():
 		return
 	battle_pso_prewarmer_attached = true
+	battle_pso_prewarmer_stage_ids[stage_id] = true
 	var prewarmer := BattlePsoPrewarmer.new()
 	prewarmer.name = "BattlePsoPrewarmer"
 	(owner as Node).add_child(prewarmer)
