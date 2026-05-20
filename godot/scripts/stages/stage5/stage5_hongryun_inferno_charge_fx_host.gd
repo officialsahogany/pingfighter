@@ -13,6 +13,11 @@ const EMBER_PARTICLE_AMOUNT := 36
 const PARTICLE_FIXED_FPS := 30
 const PEAK_RATIO_THRESHOLD := 0.65
 const HEAT_TEXTURE_SIZE := 192
+const DRAGON_RING_BASE_SIZE := 320.0
+const DRAGON_RING_MIN_SIZE := 168.0
+const DRAGON_RING_TEXTURE_SIZE := 192
+const DRAGON_RING_ROTATION_SPEED_BASE := 1.45
+const DRAGON_RING_ROTATION_SPEED_PEAK := 2.6
 
 var elapsed_sec := 0.0
 
@@ -22,8 +27,11 @@ var _heat_material: ShaderMaterial = null
 var _ember_particles: GPUParticles2D = null
 var _additive_material: CanvasItemMaterial = null
 var _current_preset := ""
+var _dragon_ring_sprite: Sprite2D = null
+var _dragon_ring_material: ShaderMaterial = null
 
 static var _heat_texture: ImageTexture = null
+static var _dragon_ring_texture: ImageTexture = null
 static var _prewarmed := false
 
 
@@ -33,6 +41,7 @@ static func prewarm_assets() -> void:
 	ImpactFlareTextureCache.prewarm()
 	WritheEmber.prewarm()
 	_get_heat_texture()
+	_get_dragon_ring_texture()
 	_prewarmed = true
 
 
@@ -45,6 +54,10 @@ static func build_pipeline_status() -> Dictionary:
 		),
 		"stage5_hongryun_inferno_charge_heat_texture_ready": _get_heat_texture() != null,
 		"stage5_hongryun_inferno_charge_particle_amount": EMBER_PARTICLE_AMOUNT,
+		"stage5_hongryun_inferno_charge_dragon_ring_shader_ready":
+			WritheEmber.has_preset("hongryun_inferno_dragon_ring"),
+		"stage5_hongryun_inferno_charge_dragon_ring_texture_ready":
+			_get_dragon_ring_texture() != null,
 	}
 
 
@@ -80,6 +93,8 @@ func set_active(active: bool) -> void:
 			_heat_sprite.visible = false
 		if _ember_particles != null:
 			_ember_particles.emitting = false
+		if _dragon_ring_sprite != null:
+			_dragon_ring_sprite.visible = false
 		_current_preset = ""
 		return
 
@@ -97,6 +112,8 @@ func get_debug_status() -> Dictionary:
 		"heat_texture_ready": _get_heat_texture() != null,
 		"shader_ready": _heat_material != null and WritheEmber.is_material_using_shader(_heat_material),
 		"ember_emitting": _ember_particles != null and _ember_particles.emitting,
+		"dragon_ring_texture_ready": _get_dragon_ring_texture() != null,
+		"dragon_ring_visible": _dragon_ring_sprite != null and _dragon_ring_sprite.visible,
 	}
 
 
@@ -162,6 +179,35 @@ func _apply_state() -> void:
 			process_mat.emission_ring_radius = ring_radius
 			process_mat.emission_ring_inner_radius = max(8.0, ring_radius - 22.0)
 
+	# Layer 3 — rotating dragon scale ring. Compresses inward in sync with the
+	# heat sprite and rotates faster as charge ratio approaches 1.0.
+	if _dragon_ring_sprite != null:
+		var ring_size: float = lerp(DRAGON_RING_BASE_SIZE, DRAGON_RING_MIN_SIZE, _ease_in_cubic(ratio))
+		_dragon_ring_sprite.position = ball_pos
+		var ring_tex := _get_dragon_ring_texture()
+		if ring_tex != null:
+			var ring_tex_size: Vector2 = ring_tex.get_size()
+			if ring_tex_size.x > 0.0 and ring_tex_size.y > 0.0:
+				_dragon_ring_sprite.scale = Vector2(
+					ring_size / ring_tex_size.x,
+					ring_size / ring_tex_size.y
+				)
+		var rot_speed: float = lerp(
+			DRAGON_RING_ROTATION_SPEED_BASE,
+			DRAGON_RING_ROTATION_SPEED_PEAK,
+			ratio
+		)
+		_dragon_ring_sprite.rotation = elapsed_sec * rot_speed
+		var ring_alpha: float = 0.18 + ratio * 0.62
+		if enraged:
+			ring_alpha = min(1.0, ring_alpha + 0.10)
+		ring_alpha *= 0.55 + 0.45 * quality_scale
+		_dragon_ring_sprite.modulate = Color(1.0, 1.0, 1.0, clamp(ring_alpha, 0.0, 1.0))
+		_dragon_ring_sprite.visible = true
+		if _dragon_ring_material != null:
+			_dragon_ring_material.set_shader_parameter("elapsed", elapsed_sec)
+			_dragon_ring_material.set_shader_parameter("intensity", 0.85 + ratio * 0.45)
+
 
 func _build_children() -> void:
 	if _additive_material == null:
@@ -178,6 +224,17 @@ func _build_children() -> void:
 		add_child(_heat_sprite)
 		_heat_material = _heat_sprite.material as ShaderMaterial
 		_current_preset = "hongryun_inferno_charge"
+
+	if _dragon_ring_sprite == null:
+		_dragon_ring_sprite = Sprite2D.new()
+		_dragon_ring_sprite.name = "InfernoChargeDragonRing"
+		_dragon_ring_sprite.centered = true
+		_dragon_ring_sprite.texture = _get_dragon_ring_texture()
+		_dragon_ring_sprite.material = WritheEmber.build_material("hongryun_inferno_dragon_ring")
+		_dragon_ring_sprite.visible = false
+		_dragon_ring_sprite.z_index = 1
+		add_child(_dragon_ring_sprite)
+		_dragon_ring_material = _dragon_ring_sprite.material as ShaderMaterial
 
 	if _ember_particles == null:
 		_ember_particles = GPUParticles2D.new()
@@ -262,6 +319,51 @@ static func _get_heat_texture() -> ImageTexture:
 			image.set_pixel(x, y, Color(r, g, b, alpha))
 	_heat_texture = ImageTexture.create_from_image(image)
 	return _heat_texture
+
+
+# Procedural dragon scale ring pattern. Diamond tessellation tiled angularly
+# (18 cells) across a thin ring band (radius 0.32~0.95), with inner/outer
+# alpha falloff so the WritheEmber shader can warp the scale edges without
+# baked square fringes. Rotated and scale-compressed by _apply_state.
+static func _get_dragon_ring_texture() -> ImageTexture:
+	if _dragon_ring_texture != null:
+		return _dragon_ring_texture
+	var size := DRAGON_RING_TEXTURE_SIZE
+	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var center: float = (float(size) - 1.0) * 0.5
+	var max_dist: float = max(1.0, center)
+	for y in range(size):
+		var dy: float = (float(y) - center) / max_dist
+		for x in range(size):
+			var dx: float = (float(x) - center) / max_dist
+			var dist: float = sqrt(dx * dx + dy * dy)
+			if dist < 0.32 or dist > 0.95:
+				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+				continue
+			var angle: float = atan2(dy, dx)
+			var radial_band: float = clamp((dist - 0.32) / 0.63, 0.0, 1.0)
+			var scale_idx: float = floor(radial_band * 4.0)
+			var scale_phase_angular: float = angle * 18.0 + scale_idx * PI * 0.5
+			var local_angular: float = fposmod(scale_phase_angular, TAU) / TAU
+			var local_radial: float = fposmod(radial_band * 4.0, 1.0)
+			var dxx: float = local_angular - 0.5
+			var dyy: float = local_radial - 0.5
+			var diamond: float = 1.0 - (abs(dxx) + abs(dyy)) * 2.2
+			diamond = clamp(diamond, 0.0, 1.0)
+			diamond = pow(diamond, 1.6)
+			var inner_falloff: float = clamp((dist - 0.32) / 0.08, 0.0, 1.0)
+			var outer_falloff: float = clamp((0.95 - dist) / 0.10, 0.0, 1.0)
+			var ring_alpha: float = diamond * inner_falloff * outer_falloff
+			# Core glow band so middle of the ring reads hottest.
+			var core_band: float = 1.0 - abs(radial_band - 0.5) * 2.0
+			core_band = clamp(core_band, 0.0, 1.0)
+			ring_alpha *= 0.55 + 0.45 * core_band
+			var r: float = 1.0
+			var g: float = clamp(0.42 + 0.38 * core_band, 0.0, 1.0)
+			var b: float = clamp(0.08 + 0.12 * (1.0 - core_band), 0.0, 1.0)
+			image.set_pixel(x, y, Color(r, g, b, ring_alpha))
+	_dragon_ring_texture = ImageTexture.create_from_image(image)
+	return _dragon_ring_texture
 
 
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:

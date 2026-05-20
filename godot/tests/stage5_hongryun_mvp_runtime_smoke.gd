@@ -111,11 +111,12 @@ func _init() -> void:
 	_verify_fireball_hit_and_parry()
 	_verify_round_reset_preserves_dragon_orbs()
 	_verify_inferno_phase_machine_and_cleanup()
-	_verify_inferno_trail_keeps_midflight_pressure_and_final_guard_lane()
+	_verify_inferno_trail_keeps_original_lateral_pressure()
 	_verify_inferno_landing_target_locks_on_start()
 	_verify_inferno_guard_hover_releases_ball_hijack()
 	_verify_inferno_floor_miss_scores_boss_before_late_guard()
 	_verify_fire_machine_event_phase_collision_and_draw_context()
+	_verify_fire_machine_renderer_does_not_reset_canvas_transform()
 	_verify_inferno_flame_dragon_renderer_removed()
 	_verify_inferno_pillar_flourish_renderer_contract()
 	_verify_ball_update_hijack_query_clears_stale_skip()
@@ -255,13 +256,14 @@ func _verify_inferno_phase_machine_and_cleanup() -> void:
 	_expect(background.inferno_modes == [true], "inferno start should enable background inferno mode")
 
 	var result: Dictionary = {}
-	for _i in range(61):
+	var charge_steps := int(ceil(Stage5HongryunState.INFERNO_CHARGE_SEC * 60.0)) + 1
+	for _i in range(charge_steps):
 		result = state.update(1.0 / 60.0, context, deps)
 		if result.has("ball_pos"):
 			context["ball_pos"] = result["ball_pos"]
 		if result.has("ball_vel"):
 			context["ball_vel"] = result["ball_vel"]
-	_expect(int(result.get("stage5_hongryun_inferno_phase", 0)) == 2, "inferno should transition from charge to trail after one second")
+	_expect(int(result.get("stage5_hongryun_inferno_phase", 0)) == 2, "inferno should transition from charge to trail after the configured charge window")
 	_expect(audio.shoot_count == 1, "inferno trail phase should play the shoot cue once")
 	_expect(state.should_skip_ball_motion_step(), "inferno trail should still own ball motion")
 
@@ -277,7 +279,7 @@ func _verify_inferno_phase_machine_and_cleanup() -> void:
 	_expect(state.fireball_projectiles.is_empty(), "result reset should clear Hongryun fireballs")
 
 
-func _verify_inferno_trail_keeps_midflight_pressure_and_final_guard_lane() -> void:
+func _verify_inferno_trail_keeps_original_lateral_pressure() -> void:
 	var state := Stage5HongryunState.new()
 	var context: Dictionary = _base_context()
 	context["ball_pos"] = Vector2(745.0, 220.0)
@@ -294,11 +296,9 @@ func _verify_inferno_trail_keeps_midflight_pressure_and_final_guard_lane() -> vo
 	var guard_max_x := float(context.get("width", 760.0)) - player_half_width
 	var ball_half := float(context.get("ball_size", 28.6)) * 0.5
 	var field_width := float(context.get("width", 760.0))
-	var landing_guard_y := _get_vector2(context, "player_pos", Vector2.ZERO).y - float(state.INFERNO_GUARD_LANE_Y_MARGIN)
+	var lateral_pressure_y := _get_vector2(context, "player_pos", Vector2.ZERO).y - 140.0
 	var saw_trail := false
 	var saw_midflight_lane_pressure := false
-	var saw_final_guard_zone := false
-	var saw_final_guard_lane := false
 	var saw_wide_flourish := false
 	var saw_pillar_overshoot := false
 	var reached_floor := false
@@ -316,19 +316,14 @@ func _verify_inferno_trail_keeps_midflight_pressure_and_final_guard_lane() -> vo
 			if state.inferno_phase == 2:
 				saw_trail = true
 				_expect(ball_pos.y >= ball_half - 0.01 and ball_pos.y <= float(context.get("height", 750.0)) - ball_half + 0.01, "inferno trail should stay inside the playfield vertically")
-				if ball_pos.y < landing_guard_y and (ball_pos.x < guard_min_x - 0.01 or ball_pos.x > guard_max_x + 0.01):
+				if ball_pos.y < lateral_pressure_y and (ball_pos.x < guard_min_x - 0.01 or ball_pos.x > guard_max_x + 0.01):
 					saw_midflight_lane_pressure = true
-				if ball_pos.y < landing_guard_y and (ball_pos.x <= ball_half + 36.0 or ball_pos.x >= field_width - ball_half - 36.0):
+				if ball_pos.y < lateral_pressure_y and (ball_pos.x <= ball_half + 36.0 or ball_pos.x >= field_width - ball_half - 36.0):
 					saw_wide_flourish = true
-				if ball_pos.y < landing_guard_y and (ball_pos.x < -0.01 or ball_pos.x > field_width + 0.01):
+				if ball_pos.y < lateral_pressure_y and (ball_pos.x < -0.01 or ball_pos.x > field_width + 0.01):
 					saw_pillar_overshoot = true
-				if ball_pos.y >= landing_guard_y:
-					saw_final_guard_zone = true
-					if ball_pos.x >= guard_min_x - 0.01 and ball_pos.x <= guard_max_x + 0.01:
-						saw_final_guard_lane = true
 				if ball_pos.y + ball_half >= float(context.get("height", 750.0)) - 0.01:
 					reached_floor = true
-					_expect(ball_pos.x >= guard_min_x - 0.01 and ball_pos.x <= guard_max_x + 0.01, "inferno floor plunge should finish inside the player-guardable center lane")
 					break
 		if result.has("ball_vel"):
 			context["ball_vel"] = result["ball_vel"]
@@ -337,8 +332,6 @@ func _verify_inferno_trail_keeps_midflight_pressure_and_final_guard_lane() -> vo
 	_expect(saw_midflight_lane_pressure, "inferno should keep midflight side pressure instead of clamping to the guard lane for the whole trail")
 	_expect(saw_wide_flourish, "inferno should flourish broadly near the playfield edges before the final plunge")
 	_expect(saw_pillar_overshoot, "inferno should let the real ball physically cross the playfield boundary into the pillar letterbox during midflight")
-	_expect(saw_final_guard_zone, "inferno should enter the final guardable lane before resolving")
-	_expect(saw_final_guard_lane, "inferno should visibly settle into the guardable lane before the floor-miss gate resolves")
 	_expect(reached_floor, "inferno should keep plunging until the floor-miss scoring gate can close the round")
 	_expect(max_step_distance <= 60.0, "inferno should not move so far per frame that the final guard becomes unreadable")
 
@@ -493,6 +486,13 @@ func _verify_fire_machine_event_phase_collision_and_draw_context() -> void:
 	_expect(event.fire_zones.is_empty(), "fire machine result reset should clear fire zones")
 
 
+func _verify_fire_machine_renderer_does_not_reset_canvas_transform() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_hongryun_playfield_renderer.gd")
+	_expect(source.find("func _draw_fire_machine_dragon_head") >= 0, "Stage 5 fire machine dragon head renderer should exist")
+	_expect(source.find("draw_set_transform") < 0, "Stage 5 playfield renderer must not reset CanvasItem transform while drawing fire machine dragons")
+	_expect(source.find("_draw_rotated_texture_region") >= 0, "Stage 5 fire machine dragon head should use transform-free rotated texture polygons")
+
+
 func _verify_inferno_pillar_flourish_renderer_contract() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_hongryun_pillar_scene_drawer.gd")
 	_expect(source.find("func _draw_inferno_pillar_flourish") >= 0, "Stage 5 pillar scene drawer should expose an inferno pillar flourish pass")
@@ -551,14 +551,7 @@ func _player_center(context: Dictionary) -> Vector2:
 
 
 func _inferno_expected_target(context: Dictionary) -> Vector2:
-	var player_center := _player_center(context)
-	var player_half_width := _get_vector2(context, "player_paddle_size", Vector2(155.0, 50.0)).x * 0.5
-	var field_width := float(context.get("width", 760.0))
-	var ball_half := float(context.get("ball_size", 28.6)) * 0.5
-	return Vector2(
-		clampf(player_center.x, player_half_width, field_width - player_half_width),
-		float(context.get("height", 750.0)) - ball_half
-	)
+	return _player_center(context)
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

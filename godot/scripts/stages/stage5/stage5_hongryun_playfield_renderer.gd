@@ -3,6 +3,8 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const InfernoChargeFxHost := preload("res://scripts/stages/stage5/stage5_hongryun_inferno_charge_fx_host.gd")
+const InfernoTrailFxHost := preload("res://scripts/stages/stage5/stage5_hongryun_inferno_trail_fx_host.gd")
+const InfernoBurstFxHost := preload("res://scripts/stages/stage5/stage5_hongryun_inferno_burst_fx_host.gd")
 
 const FIREBALL_ATLAS_PATH := "res://assets/sprites/hud/stage5_hongryun_fireball_sheet_autosprite_v1.png"
 const FIREBALL_FALLBACK_ATLAS_PATH := "res://assets/sprites/hud/stage5_hongryun_motion_sprites_imagegen_v1.png"
@@ -10,9 +12,13 @@ const TRAIL_HEAD_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_layer
 const TRAIL_NODE_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_layered_cyber_base_imagegen_v2.png"
 const FIRE_MACHINE_DRAGON_HEAD_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_dragon_head_sheet_imagegen_v3_16f.png"
 const INFERNO_CHARGE_FX_HOST_NAME := "Stage5HongryunInfernoChargeFxHost"
+const INFERNO_TRAIL_FX_HOST_NAME := "Stage5HongryunInfernoTrailFxHost"
+const INFERNO_BURST_FX_HOST_NAME := "Stage5HongryunInfernoBurstFxHost"
 # Below this quality LOD we skip the node-backed shader/particle FX
 # entirely and rely on the direct-draw aura fallback only.
 const INFERNO_CHARGE_NODE_FX_QUALITY_GATE := 0.45
+const INFERNO_TRAIL_NODE_FX_QUALITY_GATE := 0.45
+const INFERNO_BURST_NODE_FX_QUALITY_GATE := 0.40
 
 const FIREBALL_COLS := 4
 const FIREBALL_ROWS := 4
@@ -39,11 +45,17 @@ var time_sec := 0.0
 var _last_draw_msec := 0
 var _inferno_charge_fx_host: Node = null
 var _inferno_charge_fx_host_add_pending := false
+var _inferno_trail_fx_host: Node = null
+var _inferno_trail_fx_host_add_pending := false
+var _inferno_burst_fx_host: Node = null
+var _inferno_burst_fx_host_add_pending := false
 
 
 func prewarm_assets() -> void:
 	_ensure_textures()
 	InfernoChargeFxHost.prewarm_assets()
+	InfernoTrailFxHost.prewarm_assets()
+	InfernoBurstFxHost.prewarm_assets()
 
 
 func reset() -> void:
@@ -51,6 +63,10 @@ func reset() -> void:
 	_last_draw_msec = 0
 	if _is_valid_fx_host(_inferno_charge_fx_host) and _inferno_charge_fx_host.has_method("tear_down"):
 		_inferno_charge_fx_host.tear_down(false)
+	if _is_valid_fx_host(_inferno_trail_fx_host) and _inferno_trail_fx_host.has_method("tear_down"):
+		_inferno_trail_fx_host.tear_down(false)
+	if _is_valid_fx_host(_inferno_burst_fx_host) and _inferno_burst_fx_host.has_method("tear_down"):
+		_inferno_burst_fx_host.tear_down(false)
 
 
 func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, perf_logger: Object = null) -> void:
@@ -71,6 +87,8 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, perf_l
 
 	sample_start = _perf_begin(perf_logger)
 	_sync_inferno_charge_fx_host(canvas, context, shake_offset, quality_scale)
+	_sync_inferno_trail_fx_host(canvas, context, shake_offset, quality_scale)
+	_sync_inferno_burst_fx_host(canvas, context, shake_offset, quality_scale)
 	_draw_inferno_charge_aura(canvas, context, shake_offset)
 	_draw_inferno_trail(canvas, context, shake_offset, quality_scale)
 	_perf_end(perf_logger, "stage5.playfield.inferno", sample_start)
@@ -95,6 +113,8 @@ func get_imagegen_asset_status() -> Dictionary:
 		"trail_render_limit_severe_lod": TRAIL_RENDER_LIMIT_SEVERE_LOD,
 	}
 	status.merge(InfernoChargeFxHost.build_pipeline_status(), true)
+	status.merge(InfernoTrailFxHost.build_pipeline_status(), true)
+	status.merge(InfernoBurstFxHost.build_pipeline_status(), true)
 	return status
 
 
@@ -240,16 +260,16 @@ func _draw_fire_machine_dragon_head(canvas: CanvasItem, head: Vector2, angle: fl
 		var texture_size := fire_machine_dragon_head_texture.get_size()
 		var frame_size := Vector2(texture_size.x / float(FIRE_MACHINE_DRAGON_HEAD_FRAMES), texture_size.y)
 		var source_rect := Rect2(Vector2(frame_size.x * float(frame), 0.0), frame_size)
-		canvas.draw_set_transform(head, angle, Vector2.ONE)
-		canvas.draw_texture_rect_region(
+		_draw_rotated_texture_region(
+			canvas,
 			fire_machine_dragon_head_texture,
-			Rect2(-draw_size * Vector2(0.36, 0.50), draw_size),
 			source_rect,
-			Color(1.0, 0.70, 0.56, 0.96),
-			false,
-			true
+			head,
+			draw_size,
+			angle,
+			Vector2(0.36, 0.50),
+			Color(1.0, 0.70, 0.56, 0.96)
 		)
-		canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
 	var dir := Vector2(cos(angle), sin(angle))
 	var side := dir.orthogonal()
@@ -338,6 +358,40 @@ func _draw_rotated_rect(canvas: CanvasItem, center: Vector2, size: Vector2, angl
 	canvas.draw_colored_polygon(points, fill)
 	points.append(points[0])
 	canvas.draw_polyline(points, outline, 1.2, true)
+
+
+func _draw_rotated_texture_region(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	source_rect: Rect2,
+	center: Vector2,
+	size: Vector2,
+	angle: float,
+	pivot_ratio: Vector2,
+	modulate: Color
+) -> void:
+	var texture_size := texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var local_top_left := -size * pivot_ratio
+	var local_bottom_right := local_top_left + size
+	var local_corners := [
+		local_top_left,
+		Vector2(local_bottom_right.x, local_top_left.y),
+		local_bottom_right,
+		Vector2(local_top_left.x, local_bottom_right.y),
+	]
+	var points := PackedVector2Array()
+	for corner in local_corners:
+		points.append(center + corner.rotated(angle))
+	var uvs := PackedVector2Array([
+		source_rect.position,
+		Vector2(source_rect.end.x, source_rect.position.y),
+		source_rect.end,
+		Vector2(source_rect.position.x, source_rect.end.y),
+	])
+	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
+	canvas.draw_polygon(points, colors, uvs, texture)
 
 
 func _get_fire_machine_dragon_frame(emergence: float, jaw_open: float, jaw_phase: String) -> int:
@@ -515,7 +569,21 @@ func _sync_inferno_charge_fx_host(canvas: CanvasItem, context: Dictionary, shake
 	var host: Node = _get_or_create_inferno_charge_fx_host(canvas)
 	if host == null or not host.has_method("sync_state"):
 		return
-	var ball_pos := _as_vector2(context.get("ball_pos", Vector2(380.0, 375.0)), Vector2(380.0, 375.0)) + shake_offset
+	# InfernoChargeFxHost is parented to the outer root canvas (not the
+	# transformed playfield canvas), so playfield-coordinate ball_pos must be
+	# shifted by game_offset to land inside the rendered playfield. Without
+	# this, the VFX renders into the letterbox pillars whenever the ball/boss
+	# sits near the playfield edge (left-pillar "preparation animation" bug).
+	# Then clamp X so the dragon ring's outer radius cannot bleed back into the
+	# letterbox on either side.
+	var game_offset := _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+	var game_size := _as_vector2(context.get("game_size", Vector2(760.0, 750.0)), Vector2(760.0, 750.0))
+	var raw_ball_pos := _as_vector2(context.get("ball_pos", Vector2(380.0, 375.0)), Vector2(380.0, 375.0))
+	var safe_margin: float = InfernoChargeFxHost.DRAGON_RING_BASE_SIZE * 0.5
+	var min_x: float = safe_margin
+	var max_x: float = maxf(safe_margin, game_size.x - safe_margin)
+	var clamped_ball_pos := Vector2(clampf(raw_ball_pos.x, min_x, max_x), raw_ball_pos.y)
+	var ball_pos := clamped_ball_pos + game_offset + shake_offset
 	var charge_ratio := clampf(float(context.get("stage5_hongryun_inferno_charge_ratio", 0.0)), 0.0, 1.0)
 	var enraged := bool(context.get("stage5_hongryun_inferno_enraged", false))
 	var state := {
@@ -555,3 +623,101 @@ func _get_or_create_inferno_charge_fx_host(canvas: CanvasItem) -> Node:
 
 func _is_valid_fx_host(host: Node) -> bool:
 	return host != null and is_instance_valid(host) and not host.is_queued_for_deletion()
+
+
+# Trail head VFX — phase 2 (snake trail). Charge phase 패턴과 동일한
+# letterbox-safe matrix: ball_pos는 playfield 좌표라 game_offset 더하고,
+# dragon ring 반지름만큼 X clamp.
+func _sync_inferno_trail_fx_host(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, quality_scale: float) -> void:
+	var inferno_active := bool(context.get("stage5_hongryun_inferno_active", false))
+	var inferno_phase := int(context.get("stage5_hongryun_inferno_phase", 0))
+	var trail_phase: bool = inferno_active and inferno_phase == 2
+	if not trail_phase or quality_scale < INFERNO_TRAIL_NODE_FX_QUALITY_GATE:
+		_hide_inferno_trail_fx_host()
+		return
+	var trail: Array = _as_array(context.get("stage5_hongryun_inferno_trail", []))
+	if trail.is_empty():
+		_hide_inferno_trail_fx_host()
+		return
+	var host: Node = _get_or_create_inferno_trail_fx_host(canvas)
+	if host == null or not host.has_method("sync_state"):
+		return
+	var game_offset := _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+	var game_size := _as_vector2(context.get("game_size", Vector2(760.0, 750.0)), Vector2(760.0, 750.0))
+	var raw_head := _as_vector2(trail[trail.size() - 1], Vector2(380.0, 375.0))
+	var safe_margin: float = InfernoChargeFxHost.DRAGON_RING_BASE_SIZE * 0.5
+	var min_x: float = safe_margin
+	var max_x: float = maxf(safe_margin, game_size.x - safe_margin)
+	var clamped_head := Vector2(clampf(raw_head.x, min_x, max_x), raw_head.y)
+	var head_pos := clamped_head + game_offset + shake_offset
+	var trail_elapsed := float(context.get("stage5_hongryun_inferno_trail_elapsed_sec", 0.0))
+	var enraged := bool(context.get("stage5_hongryun_inferno_enraged", false))
+	var state := {
+		"phase_active": true,
+		"head_pos": head_pos,
+		"trail_elapsed_sec": trail_elapsed,
+		"enraged": enraged,
+		"quality_scale": quality_scale,
+	}
+	host.sync_state(state, true)
+
+
+func _hide_inferno_trail_fx_host() -> void:
+	if _is_valid_fx_host(_inferno_trail_fx_host) and _inferno_trail_fx_host.has_method("set_active"):
+		_inferno_trail_fx_host.set_active(false)
+
+
+func _get_or_create_inferno_trail_fx_host(canvas: CanvasItem) -> Node:
+	if _is_valid_fx_host(_inferno_trail_fx_host):
+		return _inferno_trail_fx_host
+	if not (canvas is Node):
+		return null
+	var parent: Node = canvas as Node
+	var existing: Node = parent.get_node_or_null(INFERNO_TRAIL_FX_HOST_NAME)
+	if _is_valid_fx_host(existing):
+		_inferno_trail_fx_host = existing
+		_inferno_trail_fx_host_add_pending = false
+		return _inferno_trail_fx_host
+	_inferno_trail_fx_host = InfernoTrailFxHost.new()
+	_inferno_trail_fx_host.name = INFERNO_TRAIL_FX_HOST_NAME
+	_inferno_trail_fx_host.visible = false
+	if not _inferno_trail_fx_host_add_pending:
+		_inferno_trail_fx_host_add_pending = true
+		parent.call_deferred("add_child", _inferno_trail_fx_host)
+	return _inferno_trail_fx_host
+
+
+# One-shot burst — pending flag는 state.gd가 hit / safety expire 한 프레임만 true.
+# trigger_burst() 한 번이면 host 자체 tween으로 페이드인/아웃 진행.
+func _sync_inferno_burst_fx_host(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, quality_scale: float) -> void:
+	var pending := bool(context.get("stage5_hongryun_inferno_burst_pending", false))
+	if not pending or quality_scale < INFERNO_BURST_NODE_FX_QUALITY_GATE:
+		return
+	var host: Node = _get_or_create_inferno_burst_fx_host(canvas)
+	if host == null or not host.has_method("trigger_burst"):
+		return
+	var game_offset := _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+	var raw_burst_pos := _as_vector2(context.get("stage5_hongryun_inferno_burst_pos", Vector2(380.0, 375.0)), Vector2(380.0, 375.0))
+	var burst_pos := raw_burst_pos + game_offset + shake_offset
+	var enraged := bool(context.get("stage5_hongryun_inferno_enraged", false))
+	host.trigger_burst(burst_pos, enraged, quality_scale)
+
+
+func _get_or_create_inferno_burst_fx_host(canvas: CanvasItem) -> Node:
+	if _is_valid_fx_host(_inferno_burst_fx_host):
+		return _inferno_burst_fx_host
+	if not (canvas is Node):
+		return null
+	var parent: Node = canvas as Node
+	var existing: Node = parent.get_node_or_null(INFERNO_BURST_FX_HOST_NAME)
+	if _is_valid_fx_host(existing):
+		_inferno_burst_fx_host = existing
+		_inferno_burst_fx_host_add_pending = false
+		return _inferno_burst_fx_host
+	_inferno_burst_fx_host = InfernoBurstFxHost.new()
+	_inferno_burst_fx_host.name = INFERNO_BURST_FX_HOST_NAME
+	_inferno_burst_fx_host.visible = false
+	if not _inferno_burst_fx_host_add_pending:
+		_inferno_burst_fx_host_add_pending = true
+		parent.call_deferred("add_child", _inferno_burst_fx_host)
+	return _inferno_burst_fx_host

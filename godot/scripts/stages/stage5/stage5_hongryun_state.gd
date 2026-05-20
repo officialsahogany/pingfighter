@@ -36,9 +36,10 @@ const FIELD_HEIGHT := 750.0
 const DRAGON_ORB_MAX := 5
 
 # === 홍련폭염 (inferno burst) ===
-# charge 1초 → snake-trail 가속 → 충돌 시 폭발. trail max length는 원본
+# charge 1.4초 (원본 1.0초 + cinematic VFX 강도와 맞춤, 2026-05-18 결정)
+# → snake-trail 가속 → 충돌 시 폭발. trail max length는 원본
 # `flame_trail_positions.pop(0)` 30개 컷오프와 동일.
-const INFERNO_CHARGE_SEC := 1.0
+const INFERNO_CHARGE_SEC := 1.4
 const INFERNO_TRAIL_MAX_LEN := 30
 const INFERNO_MAX_SPEED := 5.2
 const INFERNO_ACCEL_TIME_SEC := 4.0
@@ -57,11 +58,12 @@ const INFERNO_PILLAR_SWEEP_AMPLITUDE := 4.0
 const INFERNO_PILLAR_SWEEP_FREQ_HZ := 0.35
 const INFERNO_PILLAR_OVERSHOOT_X := 240.0
 const INFERNO_SAFETY_MAX_SEC := 8.0
-const INFERNO_TARGET_STEER_PER_SEC := 3.6
-const INFERNO_LANDING_FOCUS_DISTANCE := 210.0
-const INFERNO_LANDING_MIN_WOBBLE_SCALE := 0.42
-const INFERNO_GUARD_LANE_Y_MARGIN := 140.0
-const INFERNO_LANDING_MAX_X_CORRECTION_PER_FRAME := 28.0
+# Removed (2026-05-18): INFERNO_TARGET_STEER_PER_SEC — was the auto-steering
+# strength for trail base_vel. Original game has no auto-steer.
+# Removed (2026-05-18): INFERNO_LANDING_FOCUS_DISTANCE,
+# INFERNO_LANDING_MIN_WOBBLE_SCALE, INFERNO_GUARD_LANE_Y_MARGIN,
+# INFERNO_LANDING_MAX_X_CORRECTION_PER_FRAME — used by auto-steer / wobble /
+# funnel helpers that sapped variability. Phase 2 now matches original parity.
 const PLAYER_STUN_FRAMES := 18.0
 const PLAYER_FIREBALL_STUN_IMMUNITY_FRAMES := 24.0
 const PLAYER_FIREBALL_KNOCKBACK := 12.0
@@ -77,6 +79,8 @@ var fireball_cooldown := FIREBALL_INITIAL_DELAY_SEC
 var fireball_cooldown_total := FIREBALL_INITIAL_DELAY_SEC
 var fireball_projectiles: Array = []  # [{pos: Vector2, vel: Vector2, ...}]
 var fireball_impact_events: Array = []  # transient draw/VFX hints
+var pending_inferno_burst_active := false  # transient — true for one frame on inferno hit
+var pending_inferno_burst_pos := Vector2.ZERO  # playfield coords; only valid when active
 var boss_throwing_windup_active := false
 var boss_throwing_windup_timer := 0.0
 var player_fireball_stun_immunity_timer := 0.0
@@ -153,6 +157,8 @@ func reset_for_result() -> void:
 func _clear_combat_state() -> void:
 	fireball_projectiles.clear()
 	fireball_impact_events.clear()
+	pending_inferno_burst_active = false
+	pending_inferno_burst_pos = Vector2.ZERO
 	boss_throwing_windup_active = false
 	boss_throwing_windup_timer = 0.0
 	player_fireball_stun_immunity_timer = 0.0
@@ -185,6 +191,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	var result := {}
 	var sample_start: int = _perf_begin(perf_logger)
 	fireball_impact_events.clear()
+	pending_inferno_burst_active = false
 	_tick_player_fireball_immunity(fps_scale)
 	_perf_end(perf_logger, "physics.stage5.hongryun.immunity", sample_start)
 
@@ -265,6 +272,8 @@ func get_actor_draw_context() -> Dictionary:
 		"stage5_hongryun_inferno_charge_ratio": 1.0 - charge_remaining,
 		"stage5_hongryun_inferno_trail": inferno_trail_positions.duplicate(),
 		"stage5_hongryun_inferno_trail_elapsed_sec": inferno_trail_elapsed_sec,
+		"stage5_hongryun_inferno_burst_pending": pending_inferno_burst_active,
+		"stage5_hongryun_inferno_burst_pos": pending_inferno_burst_pos,
 		"stage5_hongryun_dragon_orb_count": dragon_orb_count,
 		"stage5_hongryun_boss_throwing": boss_throwing_windup_active,
 		"stage5_hongryun_boss_throw_progress": _get_boss_throw_progress(),
@@ -514,37 +523,25 @@ func _update_inferno(delta: float, fps_scale: float, context: Dictionary, deps: 
 	var accel_elapsed: float = inferno_trail_elapsed_sec
 	var current_speed: float = INFERNO_MAX_SPEED * min(1.0, accel_elapsed / INFERNO_ACCEL_TIME_SEC)
 	current_speed = max(0.001, pow(current_speed, 1.2))
-	var target_center: Vector2 = _get_locked_inferno_guard_target(context)
-	var target_dir: Vector2 = target_center - ball_pos
-	var distance_to_target: float = ball_pos.distance_to(target_center)
-	if target_dir.length() > 0.001:
-		var steer_weight: float = _get_inferno_landing_steer_weight(distance_to_target, delta)
-		if steer_weight > 0.0:
-			inferno_base_vel = inferno_base_vel.normalized().lerp(target_dir.normalized(), steer_weight).normalized()
+	# 원본 패리티 (pingfighter.py:185763-185764). 이전 구현은 auto-steering /
+	# wobble_scale / landing_progress의 3중 도와주기 보정으로 player에 가까워질수록
+	# 진동 + noise를 자동 축소해 사실상 자동 가드되었음. 원본은 base_vel +
+	# sin/cos + 균등 noise 그대로 진행해 "쫄깃한 맛"을 유지한다.
+	# pillar_excursion(cinematic letterbox sweep)만 유지.
 	var base_dir: Vector2 = inferno_base_vel.normalized()
-	var wobble_scale: float = clampf(
-		distance_to_target / maxf(1.0, INFERNO_LANDING_FOCUS_DISTANCE),
-		INFERNO_LANDING_MIN_WOBBLE_SCALE,
-		1.0
-	)
-	var landing_progress: float = _get_inferno_landing_progress(distance_to_target)
-	var flourish_scale: float = lerpf(1.24, 1.0, landing_progress)
 	var amplitude_x: float = min(
 		INFERNO_MAX_AMPLITUDE_X,
 		INFERNO_BASE_AMPLITUDE_X + accel_elapsed * INFERNO_AMPLITUDE_X_GROWTH_PER_SEC
-	) * wobble_scale * flourish_scale
+	)
 	var amplitude_y: float = min(
 		INFERNO_MAX_AMPLITUDE_Y,
 		INFERNO_BASE_AMPLITUDE_Y + accel_elapsed * INFERNO_AMPLITUDE_Y_GROWTH_PER_SEC
-	) * wobble_scale * flourish_scale
-	# Mid-flight pillar excursion: drive the ball laterally into (and past) the
-	# pillar letterbox during the early trail so the cast reads as wild and free,
-	# then fade out as landing_progress approaches the catch line.
+	)
 	var pillar_sweep_phase: float = TAU * INFERNO_PILLAR_SWEEP_FREQ_HZ * accel_elapsed
-	var pillar_excursion: float = sin(pillar_sweep_phase) * INFERNO_PILLAR_SWEEP_AMPLITUDE * (1.0 - landing_progress) * wobble_scale
+	var pillar_excursion: float = sin(pillar_sweep_phase) * INFERNO_PILLAR_SWEEP_AMPLITUDE
 	var frame_move := Vector2(
-		base_dir.x * current_speed + sin(accel_elapsed * 6.0) * amplitude_x + pillar_excursion + rng.randf_range(-2.0, 2.0) * wobble_scale,
-		base_dir.y * current_speed + cos(accel_elapsed * 3.0) * amplitude_y + rng.randf_range(-1.0, 1.0) * wobble_scale
+		base_dir.x * current_speed + sin(accel_elapsed * 6.0) * amplitude_x + pillar_excursion + rng.randf_range(-2.0, 2.0),
+		base_dir.y * current_speed + cos(accel_elapsed * 3.0) * amplitude_y + rng.randf_range(-1.0, 1.0)
 	)
 	var previous_pos := ball_pos
 	ball_pos = _clamp_inferno_ball_pos(ball_pos + frame_move * fps_scale, context, previous_pos)
@@ -582,6 +579,27 @@ func _enter_inferno_trail_phase(deps: Dictionary) -> void:
 
 
 func _resolve_inferno_player_hit(pos: Vector2, context: Dictionary, deps: Dictionary, result: Dictionary) -> void:
+	# 원본은 단순 rect 충돌로 trail 종료 + stun. ball amplitude 진동이 커서
+	# paddle 중심에 정확히 맞기 어려우면 자연스럽게 "빗나가" trail 유지되는
+	# 경험을 줬음. 이를 명시적으로 reproduce: paddle 중심에서 충돌 X offset이
+	# 패들 폭의 35% 이상이면 (가장자리 hit) trail을 끝내지 않고 normal physics
+	# bounce 처리 → ball이 현재 frame_move 속도로 반사되어 보스 쪽 역공.
+	# Paddle 중심 35% 이내 (정타) hit이면 기존 stun + trail 종료 처리.
+	var player_rect: Rect2 = _get_player_rect(context)
+	var paddle_center_x: float = player_rect.position.x + player_rect.size.x * 0.5
+	var hit_offset_x: float = absf(pos.x - paddle_center_x)
+	var glance_threshold: float = player_rect.size.x * 0.35
+	if hit_offset_x > glance_threshold:
+		# Glance hit (가장자리) → counter-attack 패턴. trail 종료 + stun 없이
+		# 자연스러운 paddle bounce. ball_vel은 마지막 frame_move 그대로 남아서
+		# 그 시점의 inferno trail 속도로 보스 쪽 역공.
+		_register_fireball_impact(pos, "inferno_glance", deps, 1.2)
+		_stop_inferno(deps)
+		result["skip_ball_motion_step"] = false
+		result["stage5_hongryun_inferno_glance_bounce"] = true
+		# burst VFX는 정타 hit에만 트리거 (glance는 단순 bounce 느낌 유지).
+		return
+
 	_register_fireball_impact(pos, "inferno_player", deps, 1.7)
 	_apply_player_stun_and_knockback(
 		"flame_trail",
@@ -594,6 +612,13 @@ func _resolve_inferno_player_hit(pos: Vector2, context: Dictionary, deps: Dictio
 	_stop_inferno(deps)
 	result["skip_ball_motion_step"] = false
 	result["stage5_hongryun_inferno_hit_player"] = true
+	# One-shot burst VFX at the impact location (playfield coords). Pending
+	# flag lives for one frame; playfield_renderer consumes it via
+	# get_actor_draw_context() and triggers stage5_hongryun_inferno_burst_fx_host.
+	pending_inferno_burst_active = true
+	pending_inferno_burst_pos = pos
+	result["stage5_hongryun_inferno_burst_trigger"] = true
+	result["stage5_hongryun_inferno_burst_pos"] = pos
 
 
 func _stop_inferno(deps: Dictionary) -> void:
@@ -622,13 +647,14 @@ func _append_inferno_trail(pos: Vector2) -> void:
 
 
 func _get_inferno_guard_target(context: Dictionary) -> Vector2:
+	# 원본 패리티 (pingfighter.py:185727-185730):
+	# `flame_trail_base_vel = (PLAYER.center - BALL.center).normalize()`
+	# 원본은 player center를 그대로 target으로 잡고, X clamp / Y 화면 바닥
+	# 보정을 하지 않는다. 이전 구현은 두 보정 모두 적용해 target이 항상
+	# player가 가드 가능한 위치로 funnel되어 "쫄깃한 맛"이 사라졌었음
+	# (2026-05-18 user feedback 기준 원본 패리티로 복귀).
 	var player_rect: Rect2 = _get_player_rect(context)
-	var target := player_rect.get_center()
-	var guard_x_bounds := _get_inferno_guard_x_bounds(context, player_rect)
-	var ball_half: float = _get_ball_half_size(context)
-	target.x = clampf(target.x, guard_x_bounds.x, guard_x_bounds.y)
-	target.y = _get_field_height(context) - ball_half
-	return target
+	return player_rect.get_center()
 
 
 func _get_locked_inferno_guard_target(context: Dictionary) -> Vector2:
@@ -638,65 +664,30 @@ func _get_locked_inferno_guard_target(context: Dictionary) -> Vector2:
 	return inferno_guard_target
 
 
-func _clamp_inferno_ball_pos(pos: Vector2, context: Dictionary, previous_pos: Vector2 = Vector2.INF) -> Vector2:
-	var player_rect: Rect2 = _get_player_rect(context)
+func _clamp_inferno_ball_pos(pos: Vector2, context: Dictionary, _previous_pos: Vector2 = Vector2.INF) -> Vector2:
+	# 원본 패리티 (pingfighter.py:185763-185764):
+	# 원본은 ball position을 단순히 base_vel + sin/cos amplitude + noise로
+	# 갱신하고 별도 X 제한이 없다. 이전 구현은 landing zone에서 player 가드
+	# 영역으로 funnel하는 분기를 두어 player가 사실상 자동 가드되었음.
+	# Funnel 제거 → ball amplitude 진동이 그대로 살아 dodge / hit 변동성
+	# 회복. 화면 외곽은 INFERNO_PILLAR_OVERSHOOT_X 까지만 허용 (필러
+	# letterbox에 살짝 침범 가능; VFX host는 별도 letterbox clamp 적용됨).
 	var ball_half: float = _get_ball_half_size(context)
 	var field_width: float = _get_field_width(context)
-	var x_bounds: Vector2
-	var in_landing_zone := _is_inferno_landing_guard_zone(pos, context, player_rect)
-	if _is_inferno_landing_guard_zone(pos, context, player_rect):
-		# Final plunge funnels back into the player-guardable center lane so the
-		# landing stays on the central playfield floor.
-		x_bounds = _get_inferno_guard_x_bounds(context, player_rect)
-	else:
-		# Mid-flight excursion is allowed to overshoot the playfield by
-		# INFERNO_PILLAR_OVERSHOOT_X on either side so the ball physically flies
-		# into the pillar letterbox. The pillar scene drawer renders the head and
-		# trail in screen space so the ball stays visible while it is there.
-		x_bounds = Vector2(
-			-INFERNO_PILLAR_OVERSHOOT_X,
-			maxf(-INFERNO_PILLAR_OVERSHOOT_X, field_width + INFERNO_PILLAR_OVERSHOOT_X)
-		)
+	var x_bounds := Vector2(
+		-INFERNO_PILLAR_OVERSHOOT_X,
+		maxf(-INFERNO_PILLAR_OVERSHOOT_X, field_width + INFERNO_PILLAR_OVERSHOOT_X)
+	)
 	return Vector2(
-		_get_inferno_clamped_x(pos.x, previous_pos.x, x_bounds, in_landing_zone),
+		clampf(pos.x, x_bounds.x, x_bounds.y),
 		clampf(pos.y, ball_half, _get_field_height(context) - ball_half)
 	)
 
 
-func _get_inferno_clamped_x(raw_x: float, previous_x: float, x_bounds: Vector2, in_landing_zone: bool) -> float:
-	var target_x := clampf(raw_x, x_bounds.x, x_bounds.y)
-	if not in_landing_zone or is_inf(previous_x):
-		return target_x
-	return previous_x + clampf(
-		target_x - previous_x,
-		-INFERNO_LANDING_MAX_X_CORRECTION_PER_FRAME,
-		INFERNO_LANDING_MAX_X_CORRECTION_PER_FRAME
-	)
-
-
-func _get_inferno_landing_steer_weight(distance_to_target: float, delta: float) -> float:
-	var landing_progress: float = _get_inferno_landing_progress(distance_to_target)
-	if landing_progress <= 0.0:
-		return 0.0
-	return clampf(delta * INFERNO_TARGET_STEER_PER_SEC * landing_progress * landing_progress, 0.0, 1.0)
-
-
-func _get_inferno_landing_progress(distance_to_target: float) -> float:
-	return 1.0 - clampf(
-		distance_to_target / maxf(1.0, INFERNO_LANDING_FOCUS_DISTANCE),
-		0.0,
-		1.0
-	)
-
-
-func _is_inferno_landing_guard_zone(pos: Vector2, _context: Dictionary, player_rect: Rect2) -> bool:
-	return pos.y >= player_rect.position.y - INFERNO_GUARD_LANE_Y_MARGIN
-
-
-func _get_inferno_guard_x_bounds(context: Dictionary, player_rect: Rect2) -> Vector2:
-	var half_player_width: float = maxf(1.0, player_rect.size.x * 0.5)
-	var field_width: float = _get_field_width(context)
-	return Vector2(half_player_width, maxf(half_player_width, field_width - half_player_width))
+# Auto-steering / landing zone funnel / wobble scale helpers were removed
+# (2026-05-18) — they made trail ball converge onto player center automatically,
+# which sapped the "쫄깃한 맛" the original game had. Phase 2 now uses simple
+# base_vel + sin/cos + flat noise (pingfighter.py:185763-185764 parity).
 
 
 func _get_ball_half_size(context: Dictionary) -> float:

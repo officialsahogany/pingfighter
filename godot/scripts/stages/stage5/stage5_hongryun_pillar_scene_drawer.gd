@@ -11,9 +11,22 @@ const LOTUS_PULSE_PATH := "res://assets/sprites/hud/stage5_hongryun_snake_pot_lo
 const CYBER_SNAKE_PATH := "res://assets/sprites/hud/stage5_hongryun_cyber_snake_sheet_imagegen_v2.png"
 const MOTION_SPRITES_PATH := "res://assets/sprites/hud/stage5_hongryun_motion_sprites_imagegen_v2.png"
 
-const SHEET_COLS := 4
-const SHEET_ROWS := 4
-const SHEET_FRAME_COUNT := SHEET_COLS * SHEET_ROWS
+# Per-asset atlas grid. Each migrated PNG has a different layout — vase_lantern
+# is a 2-cell mirror pair, lotus_pulse is an 8-frame row, cyber_snake is a
+# 16-frame row, motion_sprites is a 3x2 mini-atlas. A single 4x4 assumption
+# slices every asset incorrectly and produces box/row fragments in-game.
+const VASE_LANTERN_COLS := 2
+const VASE_LANTERN_ROWS := 1
+const VASE_LANTERN_FRAMES := VASE_LANTERN_COLS * VASE_LANTERN_ROWS
+const LOTUS_PULSE_COLS := 8
+const LOTUS_PULSE_ROWS := 1
+const LOTUS_PULSE_FRAMES := LOTUS_PULSE_COLS * LOTUS_PULSE_ROWS
+const CYBER_SNAKE_COLS := 16
+const CYBER_SNAKE_ROWS := 1
+const CYBER_SNAKE_FRAMES := CYBER_SNAKE_COLS * CYBER_SNAKE_ROWS
+const MOTION_SPRITES_COLS := 3
+const MOTION_SPRITES_ROWS := 2
+const MOTION_SPRITES_FRAMES := MOTION_SPRITES_COLS * MOTION_SPRITES_ROWS
 const LOTUS_FRAME_INTERVAL_SEC := 1.0 / 12.0
 const SNAKE_FRAME_INTERVAL_SEC := 1.0 / 10.0
 const INFERNO_PILLAR_TRAIL_RENDER_LIMIT := 14
@@ -26,14 +39,14 @@ const INFERNO_PILLAR_EDGE_BIAS_MIN := 0.18
 const INFERNO_PILLAR_AURA_OUTSIDE_MARGIN := 12.0
 
 const LEFT_PILLAR_SPECS := [
-	{"kind": "lantern", "anchor": Vector2(0.55, 0.16), "size": Vector2(76.0, 76.0), "frame": 1, "alpha": 0.82},
-	{"kind": "lantern", "anchor": Vector2(0.36, 0.31), "size": Vector2(62.0, 62.0), "frame": 4, "alpha": 0.68},
+	{"kind": "lantern", "anchor": Vector2(0.55, 0.16), "size": Vector2(76.0, 76.0), "frame": 0, "alpha": 0.82},
+	{"kind": "lantern", "anchor": Vector2(0.36, 0.31), "size": Vector2(62.0, 62.0), "frame": 1, "alpha": 0.68},
 	{"kind": "pot", "anchor": Vector2(0.52, 0.61), "size": Vector2(118.0, 128.0), "alpha": 0.82},
 	{"kind": "wallmount", "anchor": Vector2(0.64, 0.39), "size": Vector2(86.0, 88.0), "alpha": 0.72},
 ]
 const RIGHT_PILLAR_SPECS := [
-	{"kind": "lantern", "anchor": Vector2(0.46, 0.18), "size": Vector2(72.0, 72.0), "frame": 2, "alpha": 0.78},
-	{"kind": "lantern", "anchor": Vector2(0.67, 0.34), "size": Vector2(58.0, 58.0), "frame": 5, "alpha": 0.66},
+	{"kind": "lantern", "anchor": Vector2(0.46, 0.18), "size": Vector2(72.0, 72.0), "frame": 1, "alpha": 0.78},
+	{"kind": "lantern", "anchor": Vector2(0.67, 0.34), "size": Vector2(58.0, 58.0), "frame": 0, "alpha": 0.66},
 	{"kind": "pot", "anchor": Vector2(0.50, 0.64), "size": Vector2(120.0, 130.0), "alpha": 0.82},
 ]
 
@@ -216,13 +229,13 @@ func _draw_pillar_specs(
 		var alpha := clampf(float(spec.get("alpha", 1.0)) * alpha_scale, 0.0, 1.0)
 		match kind:
 			"lantern":
-				_draw_sheet_frame(canvas, vase_lantern_texture, int(spec.get("frame", 0)), rect, Color(1.0, 0.82 + inferno_blend * 0.12, 0.62, alpha), flip_h)
+				_draw_sheet_frame(canvas, vase_lantern_texture, int(spec.get("frame", 0)), rect, Color(1.0, 0.82 + inferno_blend * 0.12, 0.62, alpha), flip_h, VASE_LANTERN_COLS, VASE_LANTERN_ROWS)
 			"pot":
 				_draw_texture(canvas, snake_pot_texture, rect, Color(0.86 + inferno_blend * 0.14, 0.68, 0.58, alpha), flip_h)
 				if inferno_blend > 0.02:
 					var lotus_rect := Rect2(rect.get_center() - rect.size * 0.39, rect.size * 0.78)
-					var lotus_frame := int(floor(time_seconds / LOTUS_FRAME_INTERVAL_SEC)) % SHEET_FRAME_COUNT
-					_draw_sheet_frame(canvas, lotus_pulse_texture, lotus_frame, lotus_rect, Color(1.0, 0.42, 0.24, 0.58 * inferno_blend), flip_h)
+					var lotus_frame := int(floor(time_seconds / LOTUS_FRAME_INTERVAL_SEC)) % LOTUS_PULSE_FRAMES
+					_draw_sheet_frame(canvas, lotus_pulse_texture, lotus_frame, lotus_rect, Color(1.0, 0.42, 0.24, 0.58 * inferno_blend), flip_h, LOTUS_PULSE_COLS, LOTUS_PULSE_ROWS)
 			"wallmount":
 				_draw_texture(canvas, wallmount_texture, rect, Color(0.90, 0.68 + inferno_blend * 0.12, 0.58, alpha), flip_h)
 
@@ -238,9 +251,9 @@ func _draw_motion_sparks(canvas: CanvasItem, pillar_rect: Rect2, time_seconds: f
 			pillar_rect.size.y * (0.18 + 0.55 * fposmod(phase * 0.11 + float(idx) * 0.23, 1.0))
 		)
 		var size := Vector2.ONE * (18.0 + float(idx % 2) * 8.0)
-		var frame := (idx + int(floor(time_seconds * 9.0))) % SHEET_FRAME_COUNT
+		var frame := (idx + int(floor(time_seconds * 9.0))) % MOTION_SPRITES_FRAMES
 		var alpha := 0.22 + inferno_blend * 0.28
-		_draw_sheet_frame(canvas, motion_sprites_texture, frame, Rect2(center - size * 0.5, size), Color(1.0, 0.48, 0.18, alpha), false)
+		_draw_sheet_frame(canvas, motion_sprites_texture, frame, Rect2(center - size * 0.5, size), Color(1.0, 0.48, 0.18, alpha), false, MOTION_SPRITES_COLS, MOTION_SPRITES_ROWS)
 
 
 func _draw_inferno_chrome(canvas: CanvasItem, pillar_rect: Rect2, flip_h: bool, time_seconds: float, inferno_blend: float) -> void:
@@ -252,8 +265,8 @@ func _draw_inferno_chrome(canvas: CanvasItem, pillar_rect: Rect2, flip_h: bool, 
 	)
 	var center := pillar_rect.position + Vector2(pillar_rect.size.x * 0.52, pillar_rect.size.y * 0.48)
 	center.y += sin(time_seconds * 2.4) * 6.0
-	var frame := int(floor(time_seconds / SNAKE_FRAME_INTERVAL_SEC)) % SHEET_FRAME_COUNT
-	_draw_sheet_frame(canvas, cyber_snake_texture, frame, Rect2(center - snake_size * 0.5, snake_size), Color(1.0, 0.28, 0.14, 0.70 * inferno_blend), flip_h)
+	var frame := int(floor(time_seconds / SNAKE_FRAME_INTERVAL_SEC)) % CYBER_SNAKE_FRAMES
+	_draw_sheet_frame(canvas, cyber_snake_texture, frame, Rect2(center - snake_size * 0.5, snake_size), Color(1.0, 0.28, 0.14, 0.70 * inferno_blend), flip_h, CYBER_SNAKE_COLS, CYBER_SNAKE_ROWS)
 
 
 func _draw_inferno_pillar_flourish(
@@ -333,9 +346,9 @@ func _draw_inferno_pillar_wisp(
 	canvas.draw_circle(center, size.y * 0.92, Color(1.0, 0.07, 0.02, alpha * 0.22))
 	canvas.draw_circle(center, size.y * 0.42, Color(1.0, 0.78, 0.20, alpha * 0.46))
 	if motion_sprites_texture != null and idx % 2 == 0:
-		var frame := (idx + int(floor(time_seconds * 12.0))) % SHEET_FRAME_COUNT
+		var frame := (idx + int(floor(time_seconds * 12.0))) % MOTION_SPRITES_FRAMES
 		var rect := Rect2(center - size * 0.5, size)
-		_draw_sheet_frame(canvas, motion_sprites_texture, frame, rect, Color(1.0, 0.36, 0.12, minf(0.75, alpha * 1.8)), right_side)
+		_draw_sheet_frame(canvas, motion_sprites_texture, frame, rect, Color(1.0, 0.36, 0.12, minf(0.75, alpha * 1.8)), right_side, MOTION_SPRITES_COLS, MOTION_SPRITES_ROWS)
 	if t > 0.72:
 		canvas.draw_arc(center, size.x * 0.38, -time_seconds * 5.0, PI * 1.35 - time_seconds * 5.0, 30, Color(1.0, 0.86, 0.26, alpha * 0.82), 2.0, true)
 
@@ -417,18 +430,30 @@ func _draw_texture(canvas: CanvasItem, texture: Texture2D, rect: Rect2, modulate
 		canvas.draw_texture_rect(texture, rect, false, modulate)
 
 
-func _draw_sheet_frame(canvas: CanvasItem, texture: Texture2D, frame: int, rect: Rect2, modulate: Color, flip_h: bool) -> void:
+func _draw_sheet_frame(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	frame: int,
+	rect: Rect2,
+	modulate: Color,
+	flip_h: bool,
+	cols: int,
+	rows: int
+) -> void:
 	if texture == null:
 		_draw_missing_prop(canvas, rect, modulate)
 		return
 	var texture_size := texture.get_size()
 	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
 		return
-	var cell_size := Vector2(texture_size.x / float(SHEET_COLS), texture_size.y / float(SHEET_ROWS))
-	var frame_idx := clampi(frame, 0, SHEET_FRAME_COUNT - 1)
-	var col := frame_idx % SHEET_COLS
+	var safe_cols: int = maxi(1, cols)
+	var safe_rows: int = maxi(1, rows)
+	var frame_count: int = safe_cols * safe_rows
+	var cell_size := Vector2(texture_size.x / float(safe_cols), texture_size.y / float(safe_rows))
+	var frame_idx := clampi(frame, 0, frame_count - 1)
+	var col := frame_idx % safe_cols
 	@warning_ignore("integer_division")
-	var row := int(frame_idx / SHEET_COLS)
+	var row := int(frame_idx / safe_cols)
 	var source_rect := Rect2(Vector2(float(col) * cell_size.x, float(row) * cell_size.y), cell_size)
 	if flip_h:
 		_draw_flipped_texture_region(canvas, texture, source_rect, rect, modulate)
