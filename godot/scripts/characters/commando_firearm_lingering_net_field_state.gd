@@ -25,6 +25,26 @@ static func mark_hooked_field_broken(effect: Dictionary, dash_break_frames: floa
 	effect["status_id"] = ""
 
 
+static func get_dash_trigger_result(context: Dictionary, deps: Dictionary, last_dash_active: bool) -> Dictionary:
+	var dash_active: bool = is_player_dash_active(context, deps)
+	return {
+		"dash_active": dash_active,
+		"dash_triggered": dash_active and not last_dash_active,
+	}
+
+
+static func is_player_dash_active(context: Dictionary, deps: Dictionary = {}) -> bool:
+	var dash_snapshot: Variant = context.get("dash_snapshot", {})
+	if dash_snapshot is Dictionary:
+		return bool((dash_snapshot as Dictionary).get("active", false))
+	var dash_state: Object = deps.get("dash_state", null)
+	if dash_state != null and dash_state.has_method("get_snapshot"):
+		var snapshot: Variant = dash_state.get_snapshot()
+		if snapshot is Dictionary:
+			return bool((snapshot as Dictionary).get("active", false))
+	return false
+
+
 static func get_rope_snap_duration(profile: Dictionary, default_dash_break_frames: float) -> float:
 	return float(profile.get("dash_break_frames", default_dash_break_frames))
 

@@ -1301,6 +1301,12 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(runtime.lingering_effects.size() == 2, "lingering remove helper should remove exactly one effect")
 	_expect(str(runtime._get_dict(runtime.lingering_effects[0]).get("id", "")) == "first", "lingering remove helper should preserve earlier effects")
 	_expect(str(runtime._get_dict(runtime.lingering_effects[1]).get("id", "")) == "last", "lingering remove helper should preserve later effects")
+	_expect(CommandoFirearmLingeringNetFieldState.is_player_dash_active({"dash_snapshot": {"active": true}}), "direct net dash helper should read active dash snapshots")
+	_expect(not CommandoFirearmLingeringNetFieldState.is_player_dash_active({"dash_snapshot": {"active": false}}), "direct net dash helper should read inactive dash snapshots")
+	var direct_dash_trigger: Dictionary = CommandoFirearmLingeringNetFieldState.get_dash_trigger_result({"dash_snapshot": {"active": true}}, {}, false)
+	_expect(bool(direct_dash_trigger.get("dash_triggered", false)), "direct net dash trigger helper should fire on rising dash state")
+	var direct_dash_repeat: Dictionary = CommandoFirearmLingeringNetFieldState.get_dash_trigger_result({"dash_snapshot": {"active": true}}, {}, true)
+	_expect(not bool(direct_dash_repeat.get("dash_triggered", false)), "direct net dash trigger helper should reject repeated active dash state")
 	runtime.net_gun_last_dash_active = false
 	_expect(runtime._consume_net_gun_dash_trigger({"dash_snapshot": {"active": true}}), "net dash trigger helper should fire on a new active dash")
 	_expect(runtime.net_gun_last_dash_active, "net dash trigger helper should store active dash state")

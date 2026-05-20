@@ -3582,10 +3582,13 @@ func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dict
 
 
 func _consume_net_gun_dash_trigger(context: Dictionary, deps: Dictionary = {}) -> bool:
-	var dash_active: bool = _is_player_dash_active(context, deps)
-	var dash_triggered: bool = dash_active and not net_gun_last_dash_active
-	net_gun_last_dash_active = dash_active
-	return dash_triggered
+	var trigger_result: Dictionary = CommandoFirearmLingeringNetFieldState.get_dash_trigger_result(
+		context,
+		deps,
+		net_gun_last_dash_active
+	)
+	net_gun_last_dash_active = bool(trigger_result.get("dash_active", false))
+	return bool(trigger_result.get("dash_triggered", false))
 
 
 func _advance_lingering_effect_frame(effect: Dictionary, fps_scale: float) -> void:
@@ -3732,15 +3735,7 @@ func _apply_net_field_boss_clamp(effect: Dictionary, context: Dictionary) -> Dic
 
 
 func _is_player_dash_active(context: Dictionary, deps: Dictionary = {}) -> bool:
-	var dash_snapshot: Variant = context.get("dash_snapshot", {})
-	if dash_snapshot is Dictionary:
-		return bool((dash_snapshot as Dictionary).get("active", false))
-	var dash_state: Object = deps.get("dash_state", null)
-	if dash_state != null and dash_state.has_method("get_snapshot"):
-		var snapshot: Variant = dash_state.get_snapshot()
-		if snapshot is Dictionary:
-			return bool((snapshot as Dictionary).get("active", false))
-	return false
+	return CommandoFirearmLingeringNetFieldState.is_player_dash_active(context, deps)
 
 
 func _has_hooked_net_field() -> bool:
