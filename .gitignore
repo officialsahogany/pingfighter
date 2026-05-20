@@ -235,3 +235,11 @@ godot/assets/sprites/hud/*_atlas.json
 godot/assets/sprites/hud/*_autosprite_*.json
 godot/assets/sprites/smasher/*_manifest.json
 godot/assets/sprites/smasher/*_pipeline-meta.json
+godot/assets/ui/loading/*_manifest.json
+godot/assets/ui/loading/*_reveal_preview_*.png*
+godot/assets/ui/loading/*nano_mosaic*.png*
+godot/assets/ui/loading/stage1_loading_stained_glass_*.png*
+godot/assets/ui/loading/stage2_loading_stained_glass_*.png*
+godot/assets/ui/loading/stage1_loading_cyber_stained_glass_reveal_mask_v[4-5].png*
+godot/assets/ui/loading/stage2_loading_cyber_stained_glass_fullcolor_imagegen_v3.png*
+godot/assets/ui/loading/stage2_loading_cyber_stained_glass_reveal_mask_v3.png*
