@@ -7,6 +7,8 @@ const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/comm
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
 const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
+const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
+const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
 const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
@@ -35,38 +37,6 @@ const LINGERING_STATUS_DEFAULT_SOURCE := "commando_firearm_lingering"
 const LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER := 1.0
 const LINGERING_STATUS_MIN_SLOW_MULTIPLIER := 0.0
 const LINGERING_STATUS_MAX_SLOW_MULTIPLIER := 1.0
-const LINGERING_FIRE_FLAME_COUNT := 15
-const LINGERING_FIRE_DEFAULT_WIDTH := 150.0
-const LINGERING_FIRE_DEFAULT_HEIGHT := 60.0
-const LINGERING_FIRE_FLAME_PHASE_STEP := 0.08
-const LINGERING_FIRE_FLAME_DRIFT_WAVE_SPEED := 0.22
-const LINGERING_FIRE_FLAME_DRIFT_RISE_SPEED := 0.16
-const LINGERING_FIRE_FLAME_OFFSET_BOUND_RATIO := 0.48
-const LINGERING_FIRE_FLAME_DEFAULT_DRIFT_SIZE := 10.0
-const LINGERING_FIRE_FLAME_SIZE_DECAY_RATE := 0.985
-const LINGERING_FIRE_FLAME_MIN_DRIFT_SIZE := 3.0
-const LINGERING_FIRE_FLAME_RING_BASE := 0.26
-const LINGERING_FIRE_FLAME_RING_RANGE := 0.68
-const LINGERING_FIRE_FLAME_RING_PATTERN_STEP := 7
-const LINGERING_FIRE_FLAME_RING_PATTERN_MODULO := 11
-const LINGERING_FIRE_FLAME_RING_FACTOR_DIVISOR := 10.0
-const LINGERING_FIRE_FLAME_SIZE_BASE := 8.0
-const LINGERING_FIRE_FLAME_SIZE_PATTERN_STEP := 5
-const LINGERING_FIRE_FLAME_SIZE_PATTERN_MODULO := 13
-const LINGERING_FIRE_FLAME_LIFETIME_BASE := 22.0
-const LINGERING_FIRE_FLAME_LIFETIME_PATTERN_STEP := 3
-const LINGERING_FIRE_FLAME_LIFETIME_PATTERN_MODULO := 18
-const LINGERING_FIRE_FLAME_RESET_SIZE_BASE := 9.0
-const LINGERING_FIRE_FLAME_RESET_SIZE_PATTERN_STEP := 7
-const LINGERING_FIRE_FLAME_RESET_SIZE_PATTERN_MODULO := 14
-const LINGERING_FIRE_FLAME_RESET_LIFETIME_BASE := 24.0
-const LINGERING_FIRE_FLAME_RESET_LIFETIME_PATTERN_STEP := 5
-const LINGERING_FIRE_FLAME_RESET_LIFETIME_PATTERN_MODULO := 16
-const LINGERING_FIRE_FLAME_PHASE_SPACING := 0.67
-const LINGERING_FIRE_FLAME_MAX_LIFETIME := 40.0
-const LINGERING_FIRE_FLAME_RESET_RADIUS_X_RATIO := 0.34
-const LINGERING_FIRE_FLAME_RESET_RADIUS_Y_RATIO := 0.38
-const LINGERING_FIRE_FLAME_SPAWN_RADIUS_RATIO := 0.5
 const SUPPORT_CALL_LIMIT := 4
 const SUPPORT_CALL_LOCK_FRAMES := 42.0
 const SUPPORT_CALL_DELAY_MIN_FRAMES := 120.0
@@ -3635,29 +3605,34 @@ func _apply_lingering_net_fields(
 	effect_id: int,
 	dissolve: bool
 ) -> void:
-	_apply_lingering_net_lifecycle_fields(effect, dissolve)
-	_apply_lingering_net_profile_fields(effect, profile, projectile, context)
-	_apply_lingering_net_geometry_fields(effect, pos, effect_size, effect_id)
+	CommandoFirearmLingeringNetFieldState.apply_net_fields(
+		effect,
+		profile,
+		projectile,
+		_get_net_gun_aim_origin(context),
+		pos,
+		effect_size,
+		effect_id,
+		dissolve,
+		NET_GUN_DASH_BREAK_FRAMES,
+		NET_GUN_PLAYER_SLOW_MULTIPLIER
+	)
 
 
 func _apply_lingering_net_lifecycle_fields(effect: Dictionary, dissolve: bool) -> void:
-	effect["dissolve"] = dissolve
-	effect["boss_trapped"] = not dissolve
-	effect["hooked_player"] = not dissolve
-	effect["rope_broken"] = dissolve
-	effect["rope_snap_timer"] = 0.0
+	CommandoFirearmLingeringNetFieldState.apply_lifecycle_fields(effect, dissolve)
 
 
 func _get_lingering_net_rope_snap_duration(profile: Dictionary) -> float:
-	return float(profile.get("dash_break_frames", NET_GUN_DASH_BREAK_FRAMES))
+	return CommandoFirearmLingeringNetFieldState.get_rope_snap_duration(profile, NET_GUN_DASH_BREAK_FRAMES)
 
 
 func _get_lingering_net_origin(projectile: Dictionary, context: Dictionary) -> Variant:
-	return projectile.get("origin", _get_net_gun_aim_origin(context))
+	return CommandoFirearmLingeringNetFieldState.get_origin(projectile, _get_net_gun_aim_origin(context))
 
 
 func _get_lingering_net_player_slow_multiplier(profile: Dictionary) -> float:
-	return float(profile.get("player_slow_multiplier", NET_GUN_PLAYER_SLOW_MULTIPLIER))
+	return CommandoFirearmLingeringNetFieldState.get_player_slow_multiplier(profile, NET_GUN_PLAYER_SLOW_MULTIPLIER)
 
 
 func _apply_lingering_net_profile_fields(
@@ -3666,32 +3641,34 @@ func _apply_lingering_net_profile_fields(
 	projectile: Dictionary,
 	context: Dictionary
 ) -> void:
-	effect["rope_snap_duration"] = _get_lingering_net_rope_snap_duration(profile)
-	effect["origin"] = _get_lingering_net_origin(projectile, context)
-	effect["player_slow_multiplier"] = _get_lingering_net_player_slow_multiplier(profile)
+	CommandoFirearmLingeringNetFieldState.apply_profile_fields(
+		effect,
+		profile,
+		projectile,
+		_get_net_gun_aim_origin(context),
+		NET_GUN_DASH_BREAK_FRAMES,
+		NET_GUN_PLAYER_SLOW_MULTIPLIER
+	)
 
 
 func _apply_lingering_net_geometry_fields(effect: Dictionary, pos: Vector2, effect_size: Vector2, effect_id: int) -> void:
-	effect["deploy_x"] = _get_lingering_net_deploy_x(pos)
-	effect["net_rect"] = _get_lingering_net_rect(pos, effect_size)
-	effect["constrict_factor"] = _get_lingering_net_initial_constrict_factor()
-	effect["shape"] = _build_lingering_net_shape(effect_size, effect_id)
+	CommandoFirearmLingeringNetFieldState.apply_geometry_fields(effect, pos, effect_size, effect_id)
 
 
 func _get_lingering_net_deploy_x(pos: Vector2) -> float:
-	return pos.x
+	return CommandoFirearmLingeringNetFieldState.get_deploy_x(pos)
 
 
 func _get_lingering_net_rect(pos: Vector2, effect_size: Vector2) -> Rect2:
-	return Rect2(pos - effect_size * 0.5, effect_size)
+	return CommandoFirearmLingeringNetFieldState.get_net_rect(pos, effect_size)
 
 
 func _get_lingering_net_initial_constrict_factor() -> float:
-	return 1.0
+	return CommandoFirearmLingeringNetFieldState.get_initial_constrict_factor()
 
 
 func _build_lingering_net_shape(effect_size: Vector2, effect_id: int) -> Array:
-	return _generate_net_shape(effect_size.x, effect_size.y, effect_id)
+	return CommandoFirearmLingeringNetFieldState.build_net_shape(effect_size, effect_id)
 
 
 func _seed_lingering_fire_flames(effect: Dictionary) -> void:
@@ -3707,41 +3684,35 @@ func _spawn_net_dissolve_effect(projectile: Dictionary, context: Dictionary) -> 
 
 
 func _generate_net_shape(width: float, height: float, seed_value: int) -> Array:
-	# Deterministic organic outline matching item_effects/net_gun.py:
-	# 36 polygon points around the cell center with sin-noise driven scale.
-	var points: Array = []
-	var seed_phase: float = _get_net_shape_seed_phase(seed_value)
-	var steps: int = 36
-	for i in range(steps):
-		points.append(_get_net_shape_point(width, height, i, steps, seed_phase))
-	return points
+	return CommandoFirearmLingeringNetFieldState.generate_net_shape(width, height, seed_value)
 
 
 func _get_net_shape_seed_phase(seed_value: int) -> float:
-	return fposmod(float(seed_value) * 0.61803398875, 1.0)
+	return CommandoFirearmLingeringNetFieldState.get_net_shape_seed_phase(seed_value)
 
 
 func _get_net_shape_scale(angle: float, seed_phase: float) -> float:
-	var noise: float = sin(angle * 3.0 + seed_phase * TAU) * 0.18
-	noise += sin(angle * 7.0 + seed_phase * 5.0) * 0.08
-	return 0.82 + noise
+	return CommandoFirearmLingeringNetFieldState.get_net_shape_scale(angle, seed_phase)
 
 
 func _get_net_shape_point(width: float, height: float, point_index: int, point_count: int, seed_phase: float) -> Vector2:
-	var angle: float = TAU * float(point_index) / float(point_count)
-	var scale: float = _get_net_shape_scale(angle, seed_phase)
-	return Vector2(
-		cos(angle) * width * 0.5 * scale,
-		sin(angle) * height * 0.5 * scale
-	)
+	return CommandoFirearmLingeringNetFieldState.get_net_shape_point(width, height, point_index, point_count, seed_phase)
 
 
 func _get_lingering_effect_pos(profile: Dictionary, projectile: Dictionary, context: Dictionary) -> Vector2:
-	var kind: String = str(profile.get("kind", ""))
 	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	if kind == "net_field":
-		return _get_net_lingering_effect_pos(profile, projectile, context, pos)
-	return _get_default_lingering_effect_pos(profile, pos)
+	return CommandoFirearmLingeringNetFieldState.get_lingering_effect_pos(
+		profile,
+		projectile,
+		context,
+		pos,
+		_get_boss_target_pos(context),
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		NET_GUN_WIDTH,
+		NET_GUN_MIN_HEIGHT,
+		NET_GUN_HEIGHT
+	)
 
 
 func _get_net_lingering_effect_pos(
@@ -3750,181 +3721,151 @@ func _get_net_lingering_effect_pos(
 	context: Dictionary,
 	pos: Vector2
 ) -> Vector2:
-	var boss_target: Vector2 = _get_boss_target_pos(context)
-	var target: Vector2 = _get_vector2(projectile.get("target", boss_target), boss_target)
-	var width: float = float(profile.get("width", NET_GUN_WIDTH))
-	var height: float = _get_net_effect_height(profile, context)
-	return Vector2(
-		clamp(pos.x, width * 0.5, FIELD_WIDTH - width * 0.5),
-		clamp(target.y, 20.0 + height * 0.5, FIELD_HEIGHT - height * 0.5 - 20.0)
+	return CommandoFirearmLingeringNetFieldState.get_net_lingering_effect_pos(
+		profile,
+		projectile,
+		context,
+		pos,
+		_get_boss_target_pos(context),
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		NET_GUN_WIDTH,
+		NET_GUN_MIN_HEIGHT,
+		NET_GUN_HEIGHT
 	)
 
 
 func _get_default_lingering_effect_pos(profile: Dictionary, pos: Vector2) -> Vector2:
-	var width: float = float(profile.get("width", 80.0))
-	return Vector2(
-		clamp(pos.x, width * 0.5, FIELD_WIDTH - width * 0.5),
-		clamp(pos.y, 18.0, FIELD_HEIGHT - 18.0)
-	)
+	return CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos(profile, pos, FIELD_WIDTH, FIELD_HEIGHT)
 
 
 func _get_net_effect_height(profile: Dictionary, context: Dictionary) -> float:
-	var height_limits: Vector2 = _get_net_effect_height_limits(profile)
-	return clamp(_get_net_effect_desired_height(context), height_limits.x, height_limits.y)
+	return CommandoFirearmLingeringNetFieldState.get_net_effect_height(
+		profile,
+		context,
+		NET_GUN_MIN_HEIGHT,
+		NET_GUN_HEIGHT
+	)
 
 
 func _get_net_effect_desired_height(context: Dictionary) -> float:
-	var boss_height: float = max(1.0, float(context.get("boss_hitbox_height", 40.0)))
-	return boss_height * 1.1
+	return CommandoFirearmLingeringNetFieldState.get_net_effect_desired_height(context)
 
 
 func _get_net_effect_height_limits(profile: Dictionary) -> Vector2:
-	return Vector2(
-		max(1.0, float(profile.get("min_height", NET_GUN_MIN_HEIGHT))),
-		max(1.0, float(profile.get("height", NET_GUN_HEIGHT)))
+	return CommandoFirearmLingeringNetFieldState.get_net_effect_height_limits(
+		profile,
+		NET_GUN_MIN_HEIGHT,
+		NET_GUN_HEIGHT
 	)
 
 
 func _build_lingering_fire_flames(effect: Dictionary) -> Array:
-	var flames: Array = []
-	var effect_size: Vector2 = _get_lingering_fire_effect_size(effect)
-	for i in range(_get_lingering_fire_flame_count()):
-		flames.append(_build_lingering_fire_flame(i, effect_size.x, effect_size.y))
-	return flames
+	return CommandoFirearmLingeringFireFlameState.build_flames(effect)
 
 
 func _get_lingering_fire_flame_count() -> int:
-	return LINGERING_FIRE_FLAME_COUNT
+	return CommandoFirearmLingeringFireFlameState.get_flame_count()
 
 
 func _get_lingering_fire_effect_size(effect: Dictionary) -> Vector2:
-	return Vector2(
-		_get_lingering_fire_effect_width(effect),
-		_get_lingering_fire_effect_height(effect)
-	)
+	return CommandoFirearmLingeringFireFlameState.get_effect_size(effect)
 
 
 func _get_lingering_fire_effect_width(effect: Dictionary) -> float:
-	return _get_lingering_fire_effect_dimension(effect, "width", LINGERING_FIRE_DEFAULT_WIDTH)
+	return CommandoFirearmLingeringFireFlameState.get_effect_width(effect)
 
 
 func _get_lingering_fire_effect_height(effect: Dictionary) -> float:
-	return _get_lingering_fire_effect_dimension(effect, "height", LINGERING_FIRE_DEFAULT_HEIGHT)
+	return CommandoFirearmLingeringFireFlameState.get_effect_height(effect)
 
 
 func _get_lingering_fire_effect_dimension(effect: Dictionary, dimension_key: String, default_value: float) -> float:
-	return max(1.0, float(effect.get(dimension_key, default_value)))
+	return CommandoFirearmLingeringFireFlameState.get_effect_dimension(effect, dimension_key, default_value)
 
 
 func _build_lingering_fire_flame(flame_index: int, width: float, height: float) -> Dictionary:
-	var angle: float = _get_lingering_fire_flame_angle(flame_index)
-	return {
-		"offset": _get_lingering_fire_flame_offset(flame_index, width, height, angle),
-		"size": _get_lingering_fire_flame_size(flame_index),
-		"lifetime": _get_lingering_fire_flame_lifetime(flame_index),
-		"max_lifetime": _get_lingering_fire_flame_max_lifetime(),
-		"phase": _get_lingering_fire_flame_phase(flame_index),
-	}
+	return CommandoFirearmLingeringFireFlameState.build_flame(flame_index, width, height)
 
 
 func _get_lingering_fire_flame_angle(flame_index: int) -> float:
-	return _get_lingering_fire_flame_cycle_angle(flame_index)
+	return CommandoFirearmLingeringFireFlameState.get_flame_angle(flame_index)
 
 
 func _get_lingering_fire_flame_cycle_angle(angle_index: int) -> float:
-	return TAU * float(angle_index) / float(_get_lingering_fire_flame_count())
+	return CommandoFirearmLingeringFireFlameState.get_flame_cycle_angle(angle_index)
 
 
 func _get_lingering_fire_flame_ring(flame_index: int) -> float:
-	return (
-		LINGERING_FIRE_FLAME_RING_BASE
-		+ LINGERING_FIRE_FLAME_RING_RANGE * _get_lingering_fire_flame_ring_factor(flame_index)
-	)
+	return CommandoFirearmLingeringFireFlameState.get_flame_ring(flame_index)
 
 
 func _get_lingering_fire_flame_ring_factor(flame_index: int) -> float:
-	return float(_get_lingering_fire_flame_ring_pattern_value(flame_index)) / LINGERING_FIRE_FLAME_RING_FACTOR_DIVISOR
+	return CommandoFirearmLingeringFireFlameState.get_flame_ring_factor(flame_index)
 
 
 func _get_lingering_fire_flame_ring_pattern_value(flame_index: int) -> int:
-	return _get_lingering_fire_flame_pattern_value(
-		flame_index,
-		LINGERING_FIRE_FLAME_RING_PATTERN_STEP,
-		LINGERING_FIRE_FLAME_RING_PATTERN_MODULO
-	)
+	return CommandoFirearmLingeringFireFlameState.get_flame_ring_pattern_value(flame_index)
 
 
 func _get_lingering_fire_flame_pattern_value(flame_index: int, pattern_step: int, pattern_modulo: int) -> int:
-	return (flame_index * pattern_step) % pattern_modulo
+	return CommandoFirearmLingeringFireFlameState.get_flame_pattern_value(flame_index, pattern_step, pattern_modulo)
 
 
 func _get_lingering_fire_flame_offset(flame_index: int, width: float, height: float, angle: float) -> Vector2:
-	var ring: float = _get_lingering_fire_flame_ring(flame_index)
-	var radius: Vector2 = _get_lingering_fire_flame_spawn_radius(width, height, ring)
-	return _get_lingering_fire_flame_offset_from_radius(angle, radius)
+	return CommandoFirearmLingeringFireFlameState.get_flame_offset(flame_index, width, height, angle)
 
 
 func _get_lingering_fire_flame_spawn_radius(width: float, height: float, ring: float) -> Vector2:
-	return Vector2(
-		_get_lingering_fire_flame_spawn_radius_x(width, ring),
-		_get_lingering_fire_flame_spawn_radius_y(height, ring)
-	)
+	return CommandoFirearmLingeringFireFlameState.get_flame_spawn_radius(width, height, ring)
 
 
 func _get_lingering_fire_flame_spawn_radius_x(width: float, ring: float) -> float:
-	return width * LINGERING_FIRE_FLAME_SPAWN_RADIUS_RATIO * ring
+	return CommandoFirearmLingeringFireFlameState.get_flame_spawn_radius_x(width, ring)
 
 
 func _get_lingering_fire_flame_spawn_radius_y(height: float, ring: float) -> float:
-	return height * LINGERING_FIRE_FLAME_SPAWN_RADIUS_RATIO * ring
+	return CommandoFirearmLingeringFireFlameState.get_flame_spawn_radius_y(height, ring)
 
 
 func _get_lingering_fire_flame_offset_from_radius(angle: float, radius: Vector2) -> Vector2:
-	return Vector2(cos(angle) * radius.x, sin(angle) * radius.y)
+	return CommandoFirearmLingeringFireFlameState.get_flame_offset_from_radius(angle, radius)
 
 
 func _get_lingering_fire_flame_size(flame_index: int) -> float:
-	return LINGERING_FIRE_FLAME_SIZE_BASE + float(_get_lingering_fire_flame_size_offset(flame_index))
+	return CommandoFirearmLingeringFireFlameState.get_flame_size(flame_index)
 
 
 func _get_lingering_fire_flame_size_offset(flame_index: int) -> int:
-	return _get_lingering_fire_flame_size_pattern_value(flame_index)
+	return CommandoFirearmLingeringFireFlameState.get_flame_size_offset(flame_index)
 
 
 func _get_lingering_fire_flame_size_pattern_value(flame_index: int) -> int:
-	return _get_lingering_fire_flame_pattern_value(
-		flame_index,
-		LINGERING_FIRE_FLAME_SIZE_PATTERN_STEP,
-		LINGERING_FIRE_FLAME_SIZE_PATTERN_MODULO
-	)
+	return CommandoFirearmLingeringFireFlameState.get_flame_size_pattern_value(flame_index)
 
 
 func _get_lingering_fire_flame_lifetime(flame_index: int) -> float:
-	return LINGERING_FIRE_FLAME_LIFETIME_BASE + float(_get_lingering_fire_flame_lifetime_offset(flame_index))
+	return CommandoFirearmLingeringFireFlameState.get_flame_lifetime(flame_index)
 
 
 func _get_lingering_fire_flame_lifetime_offset(flame_index: int) -> int:
-	return _get_lingering_fire_flame_lifetime_pattern_value(flame_index)
+	return CommandoFirearmLingeringFireFlameState.get_flame_lifetime_offset(flame_index)
 
 
 func _get_lingering_fire_flame_lifetime_pattern_value(flame_index: int) -> int:
-	return _get_lingering_fire_flame_pattern_value(
-		flame_index,
-		LINGERING_FIRE_FLAME_LIFETIME_PATTERN_STEP,
-		LINGERING_FIRE_FLAME_LIFETIME_PATTERN_MODULO
-	)
+	return CommandoFirearmLingeringFireFlameState.get_flame_lifetime_pattern_value(flame_index)
 
 
 func _get_lingering_fire_flame_phase(flame_index: int) -> float:
-	return float(flame_index) * _get_lingering_fire_flame_phase_spacing()
+	return CommandoFirearmLingeringFireFlameState.get_flame_phase(flame_index)
 
 
 func _get_lingering_fire_flame_phase_spacing() -> float:
-	return LINGERING_FIRE_FLAME_PHASE_SPACING
+	return CommandoFirearmLingeringFireFlameState.get_flame_phase_spacing()
 
 
 func _get_lingering_fire_flame_max_lifetime() -> float:
-	return LINGERING_FIRE_FLAME_MAX_LIFETIME
+	return CommandoFirearmLingeringFireFlameState.get_flame_max_lifetime()
 
 
 func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -4097,15 +4038,12 @@ func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps
 
 
 func _apply_net_field_boss_clamp(effect: Dictionary, context: Dictionary) -> Dictionary:
-	if not _is_boss_clamping_net_field(effect):
-		return {}
-	var pos: Vector2 = _get_net_field_pos(effect)
-	var width: float = _get_net_field_effect_width(effect)
-	var height: float = _get_net_field_effect_height(effect)
-	var boss_pos: Vector2 = _get_net_field_boss_pos(context)
-	var boss_width: float = _get_net_field_boss_width(context)
-	var clamp_rect: Rect2 = _get_net_field_clamp_rect(effect, pos, width, height, boss_width)
-	return _build_net_field_boss_clamp_result(boss_pos, boss_width, clamp_rect)
+	return CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(
+		effect,
+		context,
+		NET_GUN_WIDTH,
+		NET_GUN_MIN_HEIGHT
+	)
 
 
 func _is_player_dash_active(context: Dictionary, deps: Dictionary = {}) -> bool:
@@ -4129,19 +4067,19 @@ func _has_hooked_net_field() -> bool:
 
 
 func _is_net_gun_effect(effect: Dictionary) -> bool:
-	return _is_net_gun_weapon(str(effect.get("weapon_id", "")))
+	return CommandoFirearmLingeringNetFieldState.is_net_gun_effect(effect)
 
 
 func _is_active_hooked_net_field(effect: Dictionary) -> bool:
-	return _is_net_gun_effect(effect) and bool(effect.get("hooked_player", false)) and not bool(effect.get("dissolve", false))
+	return CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect)
 
 
 func _is_boss_clamping_net_field(effect: Dictionary) -> bool:
-	return _is_net_gun_effect(effect) and bool(effect.get("boss_trapped", false)) and not bool(effect.get("dissolve", false))
+	return CommandoFirearmLingeringNetFieldState.is_boss_clamping_net_field(effect)
 
 
 func _is_net_constrict_candidate(effect: Dictionary) -> bool:
-	return _is_active_hooked_net_field(effect) and _get_net_constrict_factor(effect) > NET_CONSTRICT_MIN
+	return CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate(effect, NET_CONSTRICT_MIN)
 
 
 func _get_net_constrict_candidate_indices() -> Array[int]:
@@ -4154,26 +4092,36 @@ func _get_net_constrict_candidate_indices() -> Array[int]:
 
 
 func _get_net_constrict_input_direction(input_snapshot: Dictionary) -> int:
-	var left_input: bool = bool(input_snapshot.get("left_pressed", false))
-	var right_input: bool = bool(input_snapshot.get("right_pressed", false))
-	return (-1 if left_input else 0) + (1 if right_input else 0)
+	return CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction(input_snapshot)
 
 
 func _should_record_net_constrict_input(dir_input: int) -> bool:
-	return dir_input != 0 and dir_input != net_constrict_last_dir
+	return CommandoFirearmLingeringNetFieldState.should_record_net_constrict_input(dir_input, net_constrict_last_dir)
 
 
 func _should_apply_net_constrict_input(dir_input: int, now_msec: int) -> bool:
-	return _should_record_net_constrict_input(dir_input) and now_msec - net_constrict_last_tick_msec <= NET_CONSTRICT_WINDOW_MSEC
+	return CommandoFirearmLingeringNetFieldState.should_apply_net_constrict_input(
+		dir_input,
+		now_msec,
+		net_constrict_last_dir,
+		net_constrict_last_tick_msec,
+		NET_CONSTRICT_WINDOW_MSEC
+	)
 
 
 func _get_next_net_constrict_factor(effect: Dictionary) -> float:
-	var current: float = _get_net_constrict_factor(effect)
-	return max(NET_CONSTRICT_MIN, current - NET_CONSTRICT_STEP)
+	return CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor(
+		effect,
+		NET_CONSTRICT_MIN,
+		NET_CONSTRICT_STEP
+	)
 
 
 func _get_net_constrict_factor(effect: Dictionary) -> float:
-	return float(effect.get("constrict_factor", _get_lingering_net_initial_constrict_factor()))
+	return CommandoFirearmLingeringNetFieldState.get_net_constrict_factor(
+		effect,
+		_get_lingering_net_initial_constrict_factor()
+	)
 
 
 func _apply_net_constrict_to_indices(active_indices: Array[int]) -> void:
@@ -4190,44 +4138,35 @@ func _play_net_constrict_audio(deps: Dictionary) -> void:
 
 
 func _get_net_field_pos(effect: Dictionary) -> Vector2:
-	return _get_vector2(effect.get("pos", Vector2.ZERO), Vector2.ZERO)
+	return CommandoFirearmLingeringNetFieldState.get_net_field_pos(effect)
 
 
 func _get_net_field_effect_width(effect: Dictionary) -> float:
-	return max(1.0, float(effect.get("width", NET_GUN_WIDTH)))
+	return CommandoFirearmLingeringNetFieldState.get_net_field_effect_width(effect, NET_GUN_WIDTH)
 
 
 func _get_net_field_effect_height(effect: Dictionary) -> float:
-	return max(1.0, float(effect.get("height", NET_GUN_MIN_HEIGHT)))
+	return CommandoFirearmLingeringNetFieldState.get_net_field_effect_height(effect, NET_GUN_MIN_HEIGHT)
 
 
 func _get_net_field_boss_pos(context: Dictionary) -> Vector2:
-	return _get_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
+	return CommandoFirearmLingeringNetFieldState.get_net_field_boss_pos(context)
 
 
 func _get_net_field_boss_width(context: Dictionary) -> float:
-	return max(1.0, float(context.get("boss_paddle_width", context.get("boss_width", 100.0))))
+	return CommandoFirearmLingeringNetFieldState.get_net_field_boss_width(context)
 
 
 func _get_net_field_clamp_width(effect: Dictionary, width: float, boss_width: float) -> float:
-	var safe_width: float = max(1.0, width)
-	if not _is_active_hooked_net_field(effect):
-		return safe_width
-	var constrict_factor: float = _get_net_constrict_factor(effect)
-	if constrict_factor >= 1.0:
-		return safe_width
-	return max(
-		_get_net_field_min_boss_clamp_width(boss_width),
-		_get_net_field_constricted_width(safe_width, constrict_factor)
-	)
+	return CommandoFirearmLingeringNetFieldState.get_net_field_clamp_width(effect, width, boss_width)
 
 
 func _get_net_field_min_boss_clamp_width(boss_width: float) -> float:
-	return max(1.0, boss_width) + 10.0
+	return CommandoFirearmLingeringNetFieldState.get_net_field_min_boss_clamp_width(boss_width)
 
 
 func _get_net_field_constricted_width(width: float, constrict_factor: float) -> float:
-	return max(1.0, width) * constrict_factor
+	return CommandoFirearmLingeringNetFieldState.get_net_field_constricted_width(width, constrict_factor)
 
 
 func _get_net_field_clamp_rect(
@@ -4237,57 +4176,43 @@ func _get_net_field_clamp_rect(
 	height: float,
 	boss_width: float
 ) -> Rect2:
-	var clamp_size: Vector2 = _get_net_field_clamp_size(effect, width, height, boss_width)
-	return Rect2(_get_net_field_clamp_origin(pos, clamp_size), clamp_size)
+	return CommandoFirearmLingeringNetFieldState.get_net_field_clamp_rect(effect, pos, width, height, boss_width)
 
 
 func _get_net_field_clamp_size(effect: Dictionary, width: float, height: float, boss_width: float) -> Vector2:
-	return Vector2(_get_net_field_clamp_width(effect, width, boss_width), max(1.0, height))
+	return CommandoFirearmLingeringNetFieldState.get_net_field_clamp_size(effect, width, height, boss_width)
 
 
 func _get_net_field_clamp_origin(pos: Vector2, clamp_size: Vector2) -> Vector2:
-	return pos - clamp_size * 0.5
+	return CommandoFirearmLingeringNetFieldState.get_net_field_clamp_origin(pos, clamp_size)
 
 
 func _get_net_field_clamped_boss_x(boss_x: float, boss_width: float, clamp_rect: Rect2) -> float:
-	return clamp(
-		boss_x,
-		_get_net_field_boss_clamp_min_x(clamp_rect),
-		_get_net_field_boss_clamp_max_x(boss_width, clamp_rect)
-	)
+	return CommandoFirearmLingeringNetFieldState.get_net_field_clamped_boss_x(boss_x, boss_width, clamp_rect)
 
 
 func _get_net_field_safe_boss_width(boss_width: float) -> float:
-	return max(1.0, boss_width)
+	return CommandoFirearmLingeringNetFieldState.get_net_field_safe_boss_width(boss_width)
 
 
 func _get_net_field_boss_clamp_min_x(clamp_rect: Rect2) -> float:
-	return clamp_rect.position.x
+	return CommandoFirearmLingeringNetFieldState.get_net_field_boss_clamp_min_x(clamp_rect)
 
 
 func _get_net_field_boss_clamp_max_x(boss_width: float, clamp_rect: Rect2) -> float:
-	return clamp_rect.end.x - _get_net_field_safe_boss_width(boss_width)
+	return CommandoFirearmLingeringNetFieldState.get_net_field_boss_clamp_max_x(boss_width, clamp_rect)
 
 
 func _get_net_field_clamped_boss_pos(boss_pos: Vector2, boss_width: float, clamp_rect: Rect2) -> Vector2:
-	var clamped_pos: Vector2 = boss_pos
-	clamped_pos.x = _get_net_field_clamped_boss_x(boss_pos.x, boss_width, clamp_rect)
-	return clamped_pos
+	return CommandoFirearmLingeringNetFieldState.get_net_field_clamped_boss_pos(boss_pos, boss_width, clamp_rect)
 
 
 func _should_emit_net_field_boss_clamp_result(boss_pos: Vector2, clamped_pos: Vector2) -> bool:
-	return not is_equal_approx(clamped_pos.x, boss_pos.x)
+	return CommandoFirearmLingeringNetFieldState.should_emit_net_field_boss_clamp_result(boss_pos, clamped_pos)
 
 
 func _build_net_field_boss_clamp_result(boss_pos: Vector2, boss_width: float, clamp_rect: Rect2) -> Dictionary:
-	var clamped_pos: Vector2 = _get_net_field_clamped_boss_pos(boss_pos, boss_width, clamp_rect)
-	if not _should_emit_net_field_boss_clamp_result(boss_pos, clamped_pos):
-		return {}
-	return {
-		"boss_pos": clamped_pos,
-		"commando_net_gun_boss_clamped": true,
-		"commando_net_gun_clamp_rect": clamp_rect,
-	}
+	return CommandoFirearmLingeringNetFieldState.build_net_field_boss_clamp_result(boss_pos, boss_width, clamp_rect)
 
 
 func _update_lingering_fire_flames(effect: Dictionary, fps_scale: float) -> void:
@@ -4295,33 +4220,23 @@ func _update_lingering_fire_flames(effect: Dictionary, fps_scale: float) -> void
 
 
 func _get_lingering_fire_flames_for_frame(effect: Dictionary, fps_scale: float) -> Array:
-	var flames: Array = _get_lingering_fire_flames(effect)
-	if _should_seed_lingering_fire_flames(flames):
-		return _build_lingering_fire_flames(effect)
-	return _advance_lingering_fire_flames(flames, effect, fps_scale)
+	return CommandoFirearmLingeringFireFlameState.get_flames_for_frame(effect, fps_scale)
 
 
 func _get_lingering_fire_flames(effect: Dictionary) -> Array:
-	return _get_array(effect.get("flames", []))
+	return CommandoFirearmLingeringFireFlameState.get_flames(effect)
 
 
 func _should_seed_lingering_fire_flames(flames: Array) -> bool:
-	return flames.is_empty()
+	return CommandoFirearmLingeringFireFlameState.should_seed_flames(flames)
 
 
 func _advance_lingering_fire_flames(flames: Array, effect: Dictionary, fps_scale: float) -> Array:
-	var next_flames: Array = []
-	var effect_size: Vector2 = _get_lingering_fire_effect_size(effect)
-	for i in range(flames.size()):
-		var flame: Dictionary = _get_lingering_fire_flame_at_index(flames, i)
-		next_flames.append(_advance_lingering_fire_flame(flame, i, effect, fps_scale, effect_size.x, effect_size.y))
-	return next_flames
+	return CommandoFirearmLingeringFireFlameState.advance_flames(flames, effect, fps_scale)
 
 
 func _get_lingering_fire_flame_at_index(flames: Array, flame_index: int) -> Dictionary:
-	if flame_index < 0 or flame_index >= flames.size():
-		return {}
-	return _get_dict(flames[flame_index])
+	return CommandoFirearmLingeringFireFlameState.get_flame_at_index(flames, flame_index)
 
 
 func _advance_lingering_fire_flame(
@@ -4332,16 +4247,11 @@ func _advance_lingering_fire_flame(
 	width: float,
 	height: float
 ) -> Dictionary:
-	var lifetime: float = _get_lingering_fire_flame_next_lifetime(flame, fps_scale)
-	var phase: float = _get_lingering_fire_flame_next_phase(flame, fps_scale)
-	lifetime = _apply_lingering_fire_flame_motion(flame, flame_index, effect, lifetime, phase, fps_scale, width, height)
-	return _apply_lingering_fire_flame_frame_values(flame, lifetime, phase)
+	return CommandoFirearmLingeringFireFlameState.advance_flame(flame, flame_index, effect, fps_scale, width, height)
 
 
 func _apply_lingering_fire_flame_frame_values(flame: Dictionary, lifetime: float, phase: float) -> Dictionary:
-	flame["lifetime"] = lifetime
-	flame["phase"] = phase
-	return flame
+	return CommandoFirearmLingeringFireFlameState.apply_flame_frame_values(flame, lifetime, phase)
 
 
 func _apply_lingering_fire_flame_motion(
@@ -4354,9 +4264,16 @@ func _apply_lingering_fire_flame_motion(
 	width: float,
 	height: float
 ) -> float:
-	if _should_reset_lingering_fire_flame(lifetime):
-		return _apply_lingering_fire_flame_reset_motion(flame, flame_index, effect, width, height)
-	return _apply_lingering_fire_flame_drift_motion(flame, phase, fps_scale, width, height, lifetime)
+	return CommandoFirearmLingeringFireFlameState.apply_flame_motion(
+		flame,
+		flame_index,
+		effect,
+		lifetime,
+		phase,
+		fps_scale,
+		width,
+		height
+	)
 
 
 func _apply_lingering_fire_flame_reset_motion(
@@ -4366,7 +4283,7 @@ func _apply_lingering_fire_flame_reset_motion(
 	width: float,
 	height: float
 ) -> float:
-	return _reset_lingering_fire_flame(flame, flame_index, effect, width, height)
+	return CommandoFirearmLingeringFireFlameState.apply_flame_reset_motion(flame, flame_index, effect, width, height)
 
 
 func _apply_lingering_fire_flame_drift_motion(
@@ -4377,32 +4294,31 @@ func _apply_lingering_fire_flame_drift_motion(
 	height: float,
 	lifetime: float
 ) -> float:
-	_drift_lingering_fire_flame(flame, phase, fps_scale, width, height)
-	return lifetime
+	return CommandoFirearmLingeringFireFlameState.apply_flame_drift_motion(flame, phase, fps_scale, width, height, lifetime)
 
 
 func _should_reset_lingering_fire_flame(lifetime: float) -> bool:
-	return lifetime <= 0.0
+	return CommandoFirearmLingeringFireFlameState.should_reset_flame(lifetime)
 
 
 func _get_lingering_fire_flame_next_lifetime(flame: Dictionary, fps_scale: float) -> float:
-	return _get_lingering_fire_flame_current_lifetime(flame) - fps_scale
+	return CommandoFirearmLingeringFireFlameState.get_flame_next_lifetime(flame, fps_scale)
 
 
 func _get_lingering_fire_flame_next_phase(flame: Dictionary, fps_scale: float) -> float:
-	return _get_lingering_fire_flame_current_phase(flame) + _get_lingering_fire_flame_phase_step(fps_scale)
+	return CommandoFirearmLingeringFireFlameState.get_flame_next_phase(flame, fps_scale)
 
 
 func _get_lingering_fire_flame_current_lifetime(flame: Dictionary) -> float:
-	return float(flame.get("lifetime", 0.0))
+	return CommandoFirearmLingeringFireFlameState.get_flame_current_lifetime(flame)
 
 
 func _get_lingering_fire_flame_current_phase(flame: Dictionary) -> float:
-	return float(flame.get("phase", 0.0))
+	return CommandoFirearmLingeringFireFlameState.get_flame_current_phase(flame)
 
 
 func _get_lingering_fire_flame_phase_step(fps_scale: float) -> float:
-	return LINGERING_FIRE_FLAME_PHASE_STEP * fps_scale
+	return CommandoFirearmLingeringFireFlameState.get_flame_phase_step(fps_scale)
 
 
 func _reset_lingering_fire_flame(
@@ -4412,8 +4328,7 @@ func _reset_lingering_fire_flame(
 	width: float,
 	height: float
 ) -> float:
-	_apply_lingering_fire_flame_reset_values(flame, flame_index, effect, width, height)
-	return _get_lingering_fire_flame_reset_lifetime(flame_index)
+	return CommandoFirearmLingeringFireFlameState.reset_flame(flame, flame_index, effect, width, height)
 
 
 func _apply_lingering_fire_flame_reset_values(
@@ -4423,20 +4338,19 @@ func _apply_lingering_fire_flame_reset_values(
 	width: float,
 	height: float
 ) -> void:
-	flame["offset"] = _get_lingering_fire_flame_reset_offset(flame_index, effect, width, height)
-	flame["size"] = _get_lingering_fire_flame_reset_size(flame_index)
+	CommandoFirearmLingeringFireFlameState.apply_flame_reset_values(flame, flame_index, effect, width, height)
 
 
 func _get_lingering_fire_flame_reset_angle(flame_index: int, effect: Dictionary) -> float:
-	return _get_lingering_fire_flame_cycle_angle(_get_lingering_fire_flame_reset_angle_index(flame_index, effect))
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_angle(flame_index, effect)
 
 
 func _get_lingering_fire_flame_reset_angle_index(flame_index: int, effect: Dictionary) -> int:
-	return flame_index + _get_lingering_fire_effect_id(effect)
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_angle_index(flame_index, effect)
 
 
 func _get_lingering_fire_effect_id(effect: Dictionary) -> int:
-	return int(effect.get("id", 0))
+	return CommandoFirearmLingeringFireFlameState.get_effect_id(effect)
 
 
 func _get_lingering_fire_flame_reset_offset(
@@ -4445,61 +4359,47 @@ func _get_lingering_fire_flame_reset_offset(
 	width: float,
 	height: float
 ) -> Vector2:
-	var angle: float = _get_lingering_fire_flame_reset_angle(flame_index, effect)
-	var radius: Vector2 = _get_lingering_fire_flame_reset_radius(width, height)
-	return _get_lingering_fire_flame_offset_from_radius(angle, radius)
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_offset(flame_index, effect, width, height)
 
 
 func _get_lingering_fire_flame_reset_radius(width: float, height: float) -> Vector2:
-	return Vector2(
-		_get_lingering_fire_flame_reset_radius_x(width),
-		_get_lingering_fire_flame_reset_radius_y(height)
-	)
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_radius(width, height)
 
 
 func _get_lingering_fire_flame_reset_radius_x(width: float) -> float:
-	return width * LINGERING_FIRE_FLAME_RESET_RADIUS_X_RATIO
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_radius_x(width)
 
 
 func _get_lingering_fire_flame_reset_radius_y(height: float) -> float:
-	return height * LINGERING_FIRE_FLAME_RESET_RADIUS_Y_RATIO
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_radius_y(height)
 
 
 func _get_lingering_fire_flame_reset_size(flame_index: int) -> float:
-	return LINGERING_FIRE_FLAME_RESET_SIZE_BASE + float(_get_lingering_fire_flame_reset_size_offset(flame_index))
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_size(flame_index)
 
 
 func _get_lingering_fire_flame_reset_size_offset(flame_index: int) -> int:
-	return _get_lingering_fire_flame_reset_size_pattern_value(flame_index)
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_size_offset(flame_index)
 
 
 func _get_lingering_fire_flame_reset_size_pattern_value(flame_index: int) -> int:
-	return _get_lingering_fire_flame_pattern_value(
-		flame_index,
-		LINGERING_FIRE_FLAME_RESET_SIZE_PATTERN_STEP,
-		LINGERING_FIRE_FLAME_RESET_SIZE_PATTERN_MODULO
-	)
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_size_pattern_value(flame_index)
 
 
 func _get_lingering_fire_flame_reset_lifetime(flame_index: int) -> float:
-	return LINGERING_FIRE_FLAME_RESET_LIFETIME_BASE + float(_get_lingering_fire_flame_reset_lifetime_offset(flame_index))
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_lifetime(flame_index)
 
 
 func _get_lingering_fire_flame_reset_lifetime_offset(flame_index: int) -> int:
-	return _get_lingering_fire_flame_reset_lifetime_pattern_value(flame_index)
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_lifetime_offset(flame_index)
 
 
 func _get_lingering_fire_flame_reset_lifetime_pattern_value(flame_index: int) -> int:
-	return _get_lingering_fire_flame_pattern_value(
-		flame_index,
-		LINGERING_FIRE_FLAME_RESET_LIFETIME_PATTERN_STEP,
-		LINGERING_FIRE_FLAME_RESET_LIFETIME_PATTERN_MODULO
-	)
+	return CommandoFirearmLingeringFireFlameState.get_flame_reset_lifetime_pattern_value(flame_index)
 
 
 func _drift_lingering_fire_flame(flame: Dictionary, phase: float, fps_scale: float, width: float, height: float) -> void:
-	flame["offset"] = _get_lingering_fire_flame_drift_offset(flame, phase, fps_scale, width, height)
-	flame["size"] = _get_lingering_fire_flame_drift_size(flame, fps_scale)
+	CommandoFirearmLingeringFireFlameState.drift_flame(flame, phase, fps_scale, width, height)
 
 
 func _get_lingering_fire_flame_drift_offset(
@@ -4509,64 +4409,55 @@ func _get_lingering_fire_flame_drift_offset(
 	width: float,
 	height: float
 ) -> Vector2:
-	var offset: Vector2 = _get_lingering_fire_flame_unclamped_drift_offset(flame, phase, fps_scale)
-	return _clamp_lingering_fire_flame_offset(offset, width, height)
+	return CommandoFirearmLingeringFireFlameState.get_flame_drift_offset(flame, phase, fps_scale, width, height)
 
 
 func _get_lingering_fire_flame_current_offset(flame: Dictionary) -> Vector2:
-	return _get_vector2(flame.get("offset", Vector2.ZERO), Vector2.ZERO)
+	return CommandoFirearmLingeringFireFlameState.get_flame_current_offset(flame)
 
 
 func _get_lingering_fire_flame_unclamped_drift_offset(flame: Dictionary, phase: float, fps_scale: float) -> Vector2:
-	return _get_lingering_fire_flame_current_offset(flame) + _get_lingering_fire_flame_drift_step(phase, fps_scale)
+	return CommandoFirearmLingeringFireFlameState.get_flame_unclamped_drift_offset(flame, phase, fps_scale)
 
 
 func _get_lingering_fire_flame_drift_step(phase: float, fps_scale: float) -> Vector2:
-	return Vector2(
-		_get_lingering_fire_flame_drift_wave_offset(phase, fps_scale),
-		_get_lingering_fire_flame_drift_rise_offset(fps_scale)
-	)
+	return CommandoFirearmLingeringFireFlameState.get_flame_drift_step(phase, fps_scale)
 
 
 func _get_lingering_fire_flame_drift_wave_offset(phase: float, fps_scale: float) -> float:
-	return sin(phase) * LINGERING_FIRE_FLAME_DRIFT_WAVE_SPEED * fps_scale
+	return CommandoFirearmLingeringFireFlameState.get_flame_drift_wave_offset(phase, fps_scale)
 
 
 func _get_lingering_fire_flame_drift_rise_offset(fps_scale: float) -> float:
-	return -LINGERING_FIRE_FLAME_DRIFT_RISE_SPEED * fps_scale
+	return CommandoFirearmLingeringFireFlameState.get_flame_drift_rise_offset(fps_scale)
 
 
 func _clamp_lingering_fire_flame_offset(offset: Vector2, width: float, height: float) -> Vector2:
-	var x_bound: float = _get_lingering_fire_flame_offset_bound(width)
-	var y_bound: float = _get_lingering_fire_flame_offset_bound(height)
-	return Vector2(
-		clamp(offset.x, -x_bound, x_bound),
-		clamp(offset.y, -y_bound, y_bound)
-	)
+	return CommandoFirearmLingeringFireFlameState.clamp_flame_offset(offset, width, height)
 
 
 func _get_lingering_fire_flame_offset_bound(length: float) -> float:
-	return length * LINGERING_FIRE_FLAME_OFFSET_BOUND_RATIO
+	return CommandoFirearmLingeringFireFlameState.get_flame_offset_bound(length)
 
 
 func _get_lingering_fire_flame_drift_size(flame: Dictionary, fps_scale: float) -> float:
-	return _clamp_lingering_fire_flame_drift_size(_get_lingering_fire_flame_unclamped_drift_size(flame, fps_scale))
+	return CommandoFirearmLingeringFireFlameState.get_flame_drift_size(flame, fps_scale)
 
 
 func _get_lingering_fire_flame_current_size(flame: Dictionary) -> float:
-	return float(flame.get("size", LINGERING_FIRE_FLAME_DEFAULT_DRIFT_SIZE))
+	return CommandoFirearmLingeringFireFlameState.get_flame_current_size(flame)
 
 
 func _get_lingering_fire_flame_unclamped_drift_size(flame: Dictionary, fps_scale: float) -> float:
-	return _get_lingering_fire_flame_current_size(flame) * _get_lingering_fire_flame_size_decay(fps_scale)
+	return CommandoFirearmLingeringFireFlameState.get_flame_unclamped_drift_size(flame, fps_scale)
 
 
 func _get_lingering_fire_flame_size_decay(fps_scale: float) -> float:
-	return pow(LINGERING_FIRE_FLAME_SIZE_DECAY_RATE, fps_scale)
+	return CommandoFirearmLingeringFireFlameState.get_flame_size_decay(fps_scale)
 
 
 func _clamp_lingering_fire_flame_drift_size(size: float) -> float:
-	return max(LINGERING_FIRE_FLAME_MIN_DRIFT_SIZE, size)
+	return CommandoFirearmLingeringFireFlameState.clamp_flame_drift_size(size)
 
 
 func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, deps: Dictionary, fps_scale: float) -> void:
