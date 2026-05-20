@@ -11,13 +11,17 @@ config_version=5
 [application]
 
 config/name="pingfighter"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/boot_flow.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
+run/max_fps=48
 config/icon="res://icon.svg"
 
 [autoload]
 
 GameSelectionState="*res://scripts/core/game_selection_state.gd"
+ScreenshotCapture="*res://scripts/core/screenshot_capture.gd"
+FullscreenToggle="*res://scripts/core/fullscreen_toggle.gd"
+DisplayRefreshManager="*res://scripts/core/display_refresh_manager.gd"
 
 [display]
 
@@ -26,11 +30,11 @@ window/size/viewport_height=1246
 window/size/window_width_override=2020
 window/size/window_height_override=1246
 window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [physics]
 
+common/physics_ticks_per_second=72
+common/physics_jitter_fix=0.0
 3d/physics_engine="Jolt Physics"
-
-[rendering]
-
-rendering_device/driver.windows="d3d12"
+common/physics_interpolation=true
