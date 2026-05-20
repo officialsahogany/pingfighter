@@ -42,6 +42,16 @@ class FakeEffectGate:
 		return true
 
 
+class FakeCountingInventory:
+	extends RefCounted
+
+	var count_calls := 0
+
+	func get_debug_item_counts(_owner: Object) -> Dictionary:
+		count_calls += 1
+		return {}
+
+
 class FakeRuntime:
 	extends RefCounted
 
@@ -58,6 +68,7 @@ class FakeRuntime:
 
 
 func _init() -> void:
+	_verify_closed_debug_draw_skips_inventory_counts()
 	_verify_menu_state_and_inventory_actions()
 	_verify_spawn_mode_uses_field_spawn_path()
 
@@ -78,6 +89,15 @@ func _build_runtime() -> FakeRuntime:
 	runtime.slot_controller = ActiveItemSlotController.new()
 	runtime.effect_controller = FakeEffectGate.new()
 	return runtime
+
+
+func _verify_closed_debug_draw_skips_inventory_counts() -> void:
+	var facade := ActiveItemRuntimeDebugFacade.new()
+	var runtime := _build_runtime()
+	var counting_inventory := FakeCountingInventory.new()
+	runtime.debug_inventory = counting_inventory
+	facade.draw_debug_spawn_menu(runtime, null, Vector2(900.0, 720.0), FakeOwner.new())
+	_expect(counting_inventory.count_calls == 0, "closed debug menu draw should not scan active item counts")
 
 
 func _verify_menu_state_and_inventory_actions() -> void:

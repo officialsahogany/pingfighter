@@ -47,6 +47,7 @@ func _init() -> void:
 
 func _verify_debug_facade_menu_state_and_inventory() -> void:
 	var runtime: Object = ActiveItemRuntime.new()
+	_finish_runtime_initialization(runtime)
 	var facade: Object = ActiveItemRuntimeDebugFacade.new()
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new()
@@ -76,6 +77,7 @@ func _verify_debug_facade_menu_state_and_inventory() -> void:
 
 func _verify_runtime_delegates_debug_lifecycle() -> void:
 	var runtime: Object = ActiveItemRuntime.new()
+	_finish_runtime_initialization(runtime)
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new()
 
@@ -95,3 +97,12 @@ func _verify_runtime_delegates_debug_lifecycle() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _finish_runtime_initialization(runtime: Object) -> void:
+	var guard := 0
+	while runtime != null and runtime.has_method("prewarm_initialization_step") and not bool(runtime.prewarm_initialization_step()):
+		guard += 1
+		if guard > 64:
+			_failures.append("active item runtime staged initialization did not finish")
+			return

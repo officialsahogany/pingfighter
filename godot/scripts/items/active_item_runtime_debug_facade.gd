@@ -141,4 +141,8 @@ func debug_spawn_item(runtime: Object, item_name: String, owner: Object = null, 
 
 
 func draw_debug_spawn_menu(runtime: Object, canvas: CanvasItem, view_size: Vector2, owner: Object = null) -> void:
+	if runtime == null or runtime.debug_spawn_menu == null:
+		return
+	if runtime.debug_spawn_menu.has_method("is_open") and not bool(runtime.debug_spawn_menu.is_open()):
+		return
 	runtime.debug_spawn_menu.draw(canvas, view_size, get_debug_item_counts(runtime, owner))
