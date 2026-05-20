@@ -1,0 +1,26 @@
+// PingFighter Godot Windows depot build.
+// Uploads dist/PingFighter_Godot_Steam/ as the depot root.
+
+"DepotBuildConfig"
+{
+    "DepotID"          "481"
+    "ContentRoot"      "..\dist\PingFighter_Godot_Steam\"
+
+    "FileMapping"
+    {
+        "LocalPath"    "*"
+        "DepotPath"    "."
+        "recursive"    "1"
+    }
+
+    "FileExclusion"    "*.pdb"
+    "FileExclusion"    "*.log"
+    "FileExclusion"    "*.map"
+    "FileExclusion"    "logs\*"
+    "FileExclusion"    "screenshots\*"
+    "FileExclusion"    "__pycache__\*"
+    "FileExclusion"    "*.pyc"
+    "FileExclusion"    "crash_dumps\*"
+    "FileExclusion"    "*.bak"
+    "FileExclusion"    "steam_appid.txt"
+}

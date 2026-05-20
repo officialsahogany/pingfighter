@@ -1,0 +1,19 @@
+// PingFighter Godot SteamPipe app build script.
+// Replace AppID/DepotID with the real Steamworks IDs before upload.
+
+"AppBuild"
+{
+    "AppID"           "480"
+    "Desc"            "PingFighter Godot Windows build"
+
+    "BuildOutput"     "..\build\steam_build_output_godot\"
+    "ContentRoot"     "..\dist\PingFighter_Godot_Steam\"
+    "SetLive"         ""
+    "Preview"         "1"
+    "Local"           ""
+
+    "Depots"
+    {
+        "481"  "depot_build_godot_windows.vdf"
+    }
+}
