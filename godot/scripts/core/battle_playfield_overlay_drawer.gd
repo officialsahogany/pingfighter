@@ -25,7 +25,14 @@ func draw_skill_banners(
 		serve_wait_renderer.draw(canvas, width, height, draw_context, draw_deps)
 
 
-func draw_scoreboard_overlay(canvas: CanvasItem, registry: Object, width: float, height: float) -> void:
+func draw_scoreboard_overlay(
+	canvas: CanvasItem,
+	registry: Object,
+	width: float,
+	height: float,
+	draw_context: Dictionary = {},
+	perf_logger: Object = null
+) -> void:
 	var scoreboard_state: Object = _get_instance(registry, "scoreboard_state")
 	if scoreboard_state == null or not scoreboard_state.is_active():
 		return
@@ -39,7 +46,9 @@ func draw_scoreboard_overlay(canvas: CanvasItem, registry: Object, width: float,
 		width,
 		height,
 		match_score_state.get_win_goal() if match_score_state != null else 5,
-		ScoreboardState.SCOREBOARD_FADE_IN_DURATION
+		ScoreboardState.SCOREBOARD_FADE_IN_DURATION,
+		draw_context,
+		perf_logger
 	)
 
 

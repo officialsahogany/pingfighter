@@ -20,20 +20,20 @@ func build_pillar_scene_context(
 	return scene_context.build_pillar_scene_context(owner, view_size, layout, top_mini_score_sparkle_duration)
 
 
-func build_pillar_scene_states(registry) -> Dictionary:
-	return scene_context.build_pillar_scene_states(registry)
+func build_pillar_scene_states(registry, current_stage: int = 1) -> Dictionary:
+	return scene_context.build_pillar_scene_states(registry, current_stage)
 
 
 func build_scene_context(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 	return scene_context.build_scene_context(owner, shake_offset, registry)
 
 
-func build_scene_deps(registry, feedback, power_state) -> Dictionary:
-	return scene_context.build_scene_deps(registry, feedback, power_state)
+func build_scene_deps(registry, feedback, power_state, draw_context: Dictionary = {}) -> Dictionary:
+	return scene_context.build_scene_deps(registry, feedback, power_state, draw_context)
 
 
-func build_actor_context(context: Dictionary, deps: Dictionary) -> Dictionary:
-	return actor_context.build(context, deps)
+func build_actor_context(context: Dictionary, deps: Dictionary, perf_logger: Object = null) -> Dictionary:
+	return actor_context.build(context, deps, perf_logger)
 
 
 func build_ball_effects_context(context: Dictionary, deps: Dictionary) -> Dictionary:
