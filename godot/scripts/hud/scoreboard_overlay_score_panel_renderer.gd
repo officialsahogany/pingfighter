@@ -58,7 +58,8 @@ func draw(
 		led_size,
 		dot_radius,
 		0.4 + combined_pulse,
-		alpha
+		alpha,
+		3
 	)
 	led_digits.draw_number(
 		canvas,
@@ -68,7 +69,8 @@ func draw(
 		led_size,
 		dot_radius,
 		0.4 + combined_pulse,
-		alpha
+		alpha,
+		3
 	)
 
 	var vs_rect: Rect2 = Rect2(center_x - 28.0, score_area.position.y + score_area.size.y * 0.5 - 22.0, 56.0, 44.0)

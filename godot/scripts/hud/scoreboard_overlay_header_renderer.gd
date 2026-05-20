@@ -7,10 +7,8 @@ func draw(canvas: CanvasItem, header_rect: Rect2, alpha: float) -> void:
 
 	var p_logo := Vector2(header_rect.position.x + 50.0, header_rect.position.y + 30.0)
 	var b_logo := Vector2(header_rect.position.x + header_rect.size.x - 50.0, header_rect.position.y + 30.0)
-	for glow_idx in range(4, 0, -1):
-		var glow_alpha: float = (50.0 / 255.0) / float(glow_idx) * alpha
-		canvas.draw_circle(p_logo, 22.0 + float(glow_idx) * 4.0, _rgb(50.0, 120.0, 200.0, glow_alpha))
-		canvas.draw_circle(b_logo, 22.0 + float(glow_idx) * 4.0, _rgb(200.0, 80.0, 80.0, glow_alpha))
+	canvas.draw_circle(p_logo, 28.0, _rgb(50.0, 120.0, 200.0, 36.0 / 255.0 * alpha))
+	canvas.draw_circle(b_logo, 28.0, _rgb(200.0, 80.0, 80.0, 36.0 / 255.0 * alpha))
 
 	canvas.draw_circle(p_logo, 22.0, _rgb(30.0, 80.0, 180.0, alpha))
 	canvas.draw_circle(p_logo, 18.0, _rgb(80.0, 140.0, 255.0, alpha))
