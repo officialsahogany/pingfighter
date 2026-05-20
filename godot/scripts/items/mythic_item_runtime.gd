@@ -520,6 +520,10 @@ func reset() -> void:
 	_clear_pandora_legacy_runtime()
 
 
+func prewarm_assets() -> void:
+	if debug_management_menu != null and debug_management_menu.has_method("prewarm_assets"):
+		debug_management_menu.prewarm_assets(self)
+
 func build_starting_equipment_slots() -> Dictionary:
 	return {}
 
@@ -865,6 +869,7 @@ func get_debug_item_entries() -> Array:
 
 
 func toggle_debug_management_menu() -> void:
+	prewarm_assets()
 	debug_management_menu.toggle(0)
 
 

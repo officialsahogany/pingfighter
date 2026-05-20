@@ -36,6 +36,7 @@ var roll_editor_open := false
 var roll_editor_inventory_index := -1
 var roll_editor_item_name := ""
 var debug_roll_overrides: Dictionary = {}
+var _icons_prewarmed := false
 
 
 func reset() -> void:
@@ -49,6 +50,27 @@ func toggle(initial_tab: int = 0) -> void:
 	open = not open
 	if open:
 		selected_tab = clampi(initial_tab, 0, 1)
+
+
+func prewarm_assets(runtime: Object = null) -> void:
+	if _icons_prewarmed:
+		return
+	_icons_prewarmed = true
+	if icon_visuals != null and icon_visuals.has_method("prewarm_catalog_icons"):
+		icon_visuals.prewarm_catalog_icons()
+	var items: Array = _get_debug_items(runtime)
+	if icon_renderer != null and icon_renderer.has_method("prewarm_item_icons"):
+		icon_renderer.prewarm_item_icons(items, icon_visuals)
+		return
+	for item_value in items:
+		var item_data: Dictionary = _get_dict(item_value)
+		if item_data.is_empty():
+			continue
+		if icon_visuals != null and icon_visuals.has_method("get_icon_texture"):
+			var texture: Variant = icon_visuals.get_icon_texture(item_data)
+			if texture is Texture2D:
+				var texture_2d: Texture2D = texture as Texture2D
+				texture_2d.get_size()
 
 
 func close() -> void:
