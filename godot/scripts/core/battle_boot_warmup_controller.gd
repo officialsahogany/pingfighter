@@ -1,0 +1,539 @@
+extends RefCounted
+
+const BOOT_WARMUP_TOTAL_STEPS := 20
+const BOOT_WARMUP_STATUS_BY_STEP := {
+	0: "전투 화면 준비 중",
+	1: "인트로 리소스 확인 중",
+	2: "핵심 전투 리소스 불러오는 중",
+	3: "플레이어 리소스 불러오는 중",
+	4: "보스 리소스 불러오는 중",
+	5: "스매셔 스킬 아이콘 준비 중",
+	6: "바이퍼 스킬 아이콘 준비 중",
+	7: "전투 캐시 정리 중",
+	8: "오디오 장치 준비 중",
+	9: "스테이지 BGM 준비 중",
+	10: "전투 리소스 마무리 중",
+	11: "시작 모듈 준비 중",
+	12: "아이템 런타임 준비 중",
+	13: "업데이트 런타임 준비 중",
+	14: "공 물리 런타임 준비 중",
+	15: "드로우 런타임 준비 중",
+	16: "스테이지 인트로 준비 중",
+	17: "스테이지 런타임 준비 중",
+	18: "전투 상태 초기화 중",
+	19: "첫 프레임 정리 중",
+}
+
+const BOOT_WARMUP_SAMPLE_LABEL_BY_STEP := {
+	0: "00_idle",
+	1: "01_logo_assets",
+	2: "02_texture_resources",
+	3: "03_player_resources",
+	4: "04_boss_resources",
+	5: "05_smasher_skill_icons",
+	6: "06_viper_skill_icons",
+	7: "07_finalize_texture_cache",
+	8: "08_audio_setup",
+	9: "09_bgm_prime",
+	10: "10_finish_resources",
+	11: "11_modules_battle_startup",
+	12: "12_modules_item_runtime",
+	13: "13_modules_update_runtime",
+	14: "14_modules_ball_runtime",
+	15: "15_modules_draw_runtime",
+	16: "16_stage_intro_resources",
+	17: "17_stage_runtime_resources",
+	18: "18_initialize_battle",
+	19: "19_first_redraw",
+}
+const STAGE_RUNTIME_COMMON_SAMPLE_LABELS := [
+	"00_weather_renderer",
+	"01_active_item_runtime",
+	"02_mythic_item_runtime_deferred",
+	"03_runtime_perk_overlay",
+	"04_runtime_perk_debug_deferred",
+	"05_character_info_deferred",
+	"06_selected_character",
+	"07_ball_update_deps",
+	"08_stage_clear_result_deferred",
+]
+const STAGE1_RUNTIME_SAMPLE_LABELS := [
+	"stage1_00_pillar_background",
+	"stage1_01_pillar_scene_drawer",
+	"stage1_02_balloon_event",
+	"stage1_03_boss_skill_hud",
+	"stage1_04_commando_firearm",
+]
+const STAGE2_RUNTIME_SAMPLE_LABELS := [
+	"stage2_00_pillar_background",
+	"stage2_01_playfield_resources",
+	"stage2_02_boss_skill_hud",
+	"stage2_03_monkey_event",
+]
+const STAGE3_RUNTIME_SAMPLE_LABELS := [
+	"stage3_00_pillar_background",
+	"stage3_01_playfield_resources",
+	"stage3_02_boss_skill_hud",
+]
+const STAGE4_RUNTIME_SAMPLE_LABELS := [
+	"stage4_00_pillar_background",
+	"stage4_01_playfield_resources",
+	"stage4_02_gauge_hud",
+	"stage4_03_bird_event",
+	"stage4_04_brazier_monk_event",
+	"stage4_05_moon_event",
+	"stage4_06_ponk_skill_state",
+	"stage4_07_boss_skill_hud",
+]
+const STAGE5_RUNTIME_SAMPLE_LABELS := [
+	"stage5_00_pillar_background",
+	"stage5_01_actor_renderer",
+	"stage5_02_pillar_scene_drawer",
+	"stage5_03_boss_skill_hud",
+]
+
+var prewarmed_module_groups: Dictionary = {}
+var prewarm_module_group_indices: Dictionary = {}
+var boot_warmup_step: int = 0
+var boot_warmup_finished: bool = false
+
+
+class ModuleGetterRegistryAdapter:
+	extends RefCounted
+
+	var module_getter: Callable = Callable()
+
+	func _init(p_module_getter: Callable = Callable()) -> void:
+		module_getter = p_module_getter
+
+	func get_instance(key: String) -> Object:
+		if not module_getter.is_valid():
+			return null
+		var value: Variant = module_getter.call(key)
+		if value is Object:
+			return value
+		return null
+
+
+func is_finished() -> bool:
+	return boot_warmup_finished
+
+
+func get_progress() -> float:
+	if boot_warmup_finished:
+		return 1.0
+	return clampf(float(boot_warmup_step) / float(BOOT_WARMUP_TOTAL_STEPS), 0.0, 0.99)
+
+
+func get_status_text() -> String:
+	if boot_warmup_finished:
+		return "전투 준비 완료"
+	return str(BOOT_WARMUP_STATUS_BY_STEP.get(boot_warmup_step, "전투 데이터 준비 중"))
+
+
+func get_total_steps() -> int:
+	return BOOT_WARMUP_TOTAL_STEPS
+
+
+func prewarm_battle_resources(owner: Object, module_getter: Callable) -> void:
+	var resource_prewarm: Object = _get_resource_prewarm_controller(module_getter)
+	if resource_prewarm != null and resource_prewarm.has_method("prewarm_battle_resources"):
+		resource_prewarm.prewarm_battle_resources(owner, module_getter)
+
+
+func run_boot_warmup_step(
+	owner: Object,
+	module_getter: Callable,
+	initialize_battle: Callable,
+	request_redraw: Callable = Callable()
+) -> void:
+	if boot_warmup_finished:
+		return
+	var logo_intro: Object = _get_module(module_getter, "penguin_logo_intro")
+	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
+	var perf_label: String = _get_boot_warmup_sample_label(owner, module_getter)
+	var perf_start: int = _perf_begin(perf_logger)
+	var should_advance := true
+	match boot_warmup_step:
+		0:
+			pass
+		1:
+			if logo_intro != null and logo_intro.has_method("prewarm_assets"):
+				logo_intro.prewarm_assets()
+		2:
+			should_advance = _call_resource_prewarm_bool(owner, module_getter, "prewarm_battle_texture_resources_step")
+		3:
+			_call_resource_prewarm_with_owner(owner, module_getter, "prewarm_battle_player_resources")
+		4:
+			_call_resource_prewarm_with_owner(owner, module_getter, "prewarm_battle_boss_resources")
+		5:
+			_call_resource_prewarm_with_owner(owner, module_getter, "prewarm_battle_smasher_skill_icons")
+		6:
+			_call_resource_prewarm_with_owner(owner, module_getter, "prewarm_battle_viper_skill_icons")
+		7:
+			_call_resource_prewarm_with_owner(owner, module_getter, "finalize_battle_resource_cache")
+		8:
+			should_advance = _call_resource_prewarm_bool(owner, module_getter, "prewarm_battle_audio_setup_step")
+		9:
+			_call_resource_prewarm_with_owner(owner, module_getter, "prime_battle_bgm")
+		10:
+			_call_resource_prewarm_with_owner(owner, module_getter, "finish_battle_resource_prewarm")
+		11:
+			should_advance = _prewarm_module_group_step(owner, module_getter, "battle_startup")
+		12:
+			should_advance = _prewarm_module_group_step(owner, module_getter, "item_runtime")
+		13:
+			should_advance = _prewarm_module_group_step(owner, module_getter, "update_runtime")
+			if should_advance:
+				should_advance = _prewarm_update_runtime_step(owner, module_getter)
+		14:
+			should_advance = _prewarm_module_group_step(owner, module_getter, "ball_runtime")
+		15:
+			should_advance = _prewarm_module_group_step(owner, module_getter, "draw_runtime")
+		16:
+			should_advance = _call_resource_prewarm_bool(owner, module_getter, "prewarm_stage_intro_resources_step")
+		17:
+			should_advance = _call_resource_prewarm_bool(owner, module_getter, "prewarm_stage_runtime_resources_step")
+		18:
+			if initialize_battle.is_valid():
+				initialize_battle.call(false)
+		19:
+			if request_redraw.is_valid():
+				request_redraw.call()
+		_:
+			boot_warmup_finished = true
+	_perf_end(perf_logger, perf_label, perf_start)
+	if not should_advance:
+		return
+	boot_warmup_step += 1
+
+
+func run_logo_intro_warmup_step(module_getter: Callable) -> void:
+	if boot_warmup_finished:
+		return
+	if boot_warmup_step > 1:
+		return
+	var logo_intro: Object = _get_module(module_getter, "penguin_logo_intro")
+	match boot_warmup_step:
+		0:
+			pass
+		1:
+			if logo_intro != null and logo_intro.has_method("prewarm_assets"):
+				logo_intro.prewarm_assets()
+	boot_warmup_step += 1
+
+
+func _prewarm_module_group(owner: Object, module_getter: Callable, group_name: String) -> void:
+	if prewarmed_module_groups.has(group_name):
+		return
+	var module_keys: Array = _get_warmup_module_group_for_owner(owner, module_getter, group_name)
+	for module_key in module_keys:
+		_get_module(module_getter, str(module_key))
+	prewarmed_module_groups[group_name] = true
+	prewarm_module_group_indices.erase(group_name)
+
+
+func _prewarm_module_group_step(owner: Object, module_getter: Callable, group_name: String) -> bool:
+	if prewarmed_module_groups.has(group_name):
+		return true
+	var module_keys: Array = _get_warmup_module_group_for_owner(owner, module_getter, group_name)
+	if module_keys.is_empty():
+		prewarmed_module_groups[group_name] = true
+		prewarm_module_group_indices.erase(group_name)
+		return true
+	var module_index := int(prewarm_module_group_indices.get(group_name, 0))
+	if module_index >= module_keys.size():
+		prewarmed_module_groups[group_name] = true
+		prewarm_module_group_indices.erase(group_name)
+		return true
+	var module: Object = _get_module(module_getter, str(module_keys[module_index]))
+	if not _prewarm_module_initialization_step(group_name, module):
+		prewarm_module_group_indices[group_name] = module_index
+		return false
+	module_index += 1
+	if module_index >= module_keys.size():
+		prewarmed_module_groups[group_name] = true
+		prewarm_module_group_indices.erase(group_name)
+		return true
+	prewarm_module_group_indices[group_name] = module_index
+	return false
+
+
+func _prewarm_module_initialization_step(group_name: String, module: Object) -> bool:
+	if group_name != "item_runtime":
+		return true
+	if module == null or not module.has_method("prewarm_initialization_step"):
+		return true
+	return bool(module.prewarm_initialization_step())
+
+
+func _get_warmup_module_group(module_getter: Callable, group_name: String) -> Array:
+	var warmup_plan: Object = _get_module(module_getter, "battle_boot_warmup_plan")
+	if warmup_plan == null or not warmup_plan.has_method("get_module_group"):
+		return []
+	return warmup_plan.get_module_group(group_name)
+
+
+func _get_warmup_module_group_for_owner(owner: Object, module_getter: Callable, group_name: String) -> Array:
+	return _filter_current_stage_module_group(owner, group_name, _get_warmup_module_group(module_getter, group_name))
+
+
+func _filter_current_stage_module_group(owner: Object, group_name: String, module_keys: Array) -> Array:
+	if group_name != "update_runtime" and group_name != "draw_runtime":
+		return module_keys
+	var current_stage := _get_current_stage(owner)
+	var filtered_keys: Array = []
+	for module_key_value in module_keys:
+		var module_key := str(module_key_value)
+		if _is_stage_scoped_module_key(module_key) and not _is_module_key_for_stage(module_key, current_stage):
+			continue
+		filtered_keys.append(module_key_value)
+	return filtered_keys
+
+
+func _is_stage_scoped_module_key(module_key: String) -> bool:
+	return (
+		module_key.begins_with("stage1_")
+		or module_key.begins_with("stage2_")
+		or module_key.begins_with("stage3_")
+		or module_key.begins_with("stage4_")
+		or module_key.begins_with("stage5_")
+	)
+
+
+func _is_module_key_for_stage(module_key: String, current_stage: int) -> bool:
+	match current_stage:
+		1:
+			return module_key.begins_with("stage1_")
+		2:
+			return module_key.begins_with("stage2_")
+		3:
+			return module_key.begins_with("stage3_")
+		4:
+			return module_key.begins_with("stage4_")
+		5:
+			return module_key.begins_with("stage5_")
+	return true
+
+
+func _call_resource_prewarm(module_getter: Callable, method_name: String) -> void:
+	var resource_prewarm: Object = _get_resource_prewarm_controller(module_getter)
+	if resource_prewarm != null and resource_prewarm.has_method(method_name):
+		resource_prewarm.call(method_name, module_getter)
+
+
+func _call_resource_prewarm_with_owner(owner: Object, module_getter: Callable, method_name: String) -> void:
+	var resource_prewarm: Object = _get_resource_prewarm_controller(module_getter)
+	if resource_prewarm != null and resource_prewarm.has_method(method_name):
+		resource_prewarm.call(method_name, owner, module_getter)
+
+
+func _call_resource_prewarm_bool(owner: Object, module_getter: Callable, method_name: String) -> bool:
+	var resource_prewarm: Object = _get_resource_prewarm_controller(module_getter)
+	if resource_prewarm == null or not resource_prewarm.has_method(method_name):
+		return true
+	return bool(resource_prewarm.call(method_name, owner, module_getter))
+
+
+func _get_boot_warmup_sample_label(owner: Object, module_getter: Callable) -> String:
+	var label := str(BOOT_WARMUP_SAMPLE_LABEL_BY_STEP.get(
+		boot_warmup_step,
+		"%02d_unknown" % boot_warmup_step
+	))
+	match boot_warmup_step:
+		2:
+			var resources: Object = _get_module(module_getter, "battle_resources")
+			var texture_step := _get_int_property(resources, "_transition_texture_prewarm_step_index", -1)
+			if texture_step >= 0:
+				label += ".sub_%02d" % texture_step
+		8:
+			var audio: Object = _get_module(module_getter, "game_audio")
+			var audio_step := _get_int_property(audio, "_audio_setup_step", -1)
+			if audio_step >= 0:
+				label += ".sub_%02d" % audio_step
+			if audio_step == 6:
+				var bgm_step := _get_int_property(audio, "_bgm_setup_step", -1)
+				if bgm_step >= 0:
+					label += ".%s" % _get_bgm_setup_sample_label(bgm_step)
+		11:
+			label += _get_module_group_sample_suffix(owner, module_getter, "battle_startup")
+		12:
+			label += _get_module_group_sample_suffix(owner, module_getter, "item_runtime")
+		13:
+			var update_prewarm: Object = _get_module(module_getter, "battle_scene_update_prewarm_driver")
+			if _get_bool_property(update_prewarm, "battle_update_prewarmed", false):
+				label += ".prewarm_update.done"
+			elif prewarmed_module_groups.has("update_runtime"):
+				var update_step := _get_int_property(update_prewarm, "update_prewarm_step_index", 0)
+				label += ".prewarm_update.%02d" % update_step
+				var update_detail := _get_update_prewarm_detail_label(update_prewarm, owner)
+				if update_detail != "":
+					label += "_%s" % _sanitize_sample_token(update_detail)
+			else:
+				label += _get_module_group_sample_suffix(owner, module_getter, "update_runtime")
+		14:
+			label += _get_module_group_sample_suffix(owner, module_getter, "ball_runtime")
+		15:
+			label += _get_module_group_sample_suffix(owner, module_getter, "draw_runtime")
+		16:
+			var resource_prewarm_intro: Object = _get_resource_prewarm_controller(module_getter)
+			var stage_intro_step := _get_int_property(resource_prewarm_intro, "stage_intro_resources_prewarm_step_index", -1)
+			if stage_intro_step >= 0:
+				label += ".%s" % _get_stage_intro_sample_label(stage_intro_step)
+		17:
+			var resource_prewarm: Object = _get_resource_prewarm_controller(module_getter)
+			var stage_step := _get_int_property(resource_prewarm, "stage_runtime_prewarm_step_index", -1)
+			if stage_step >= 0:
+				label += ".%s" % _get_stage_runtime_sample_label(_get_current_stage(owner), stage_step)
+	return "process.intro.boot_warmup_step.%s" % label
+
+
+func _get_module_group_sample_suffix(owner: Object, module_getter: Callable, group_name: String) -> String:
+	var module_keys: Array = _get_warmup_module_group_for_owner(owner, module_getter, group_name)
+	if module_keys.is_empty():
+		return ".empty"
+	var module_index := int(prewarm_module_group_indices.get(group_name, 0))
+	if module_index >= module_keys.size():
+		return ".done"
+	return ".%02d_%s" % [module_index, _sanitize_sample_token(str(module_keys[module_index]))]
+
+
+func _sanitize_sample_token(value: String) -> String:
+	return value.replace("/", "_").replace("\\", "_").replace(":", "_").replace(" ", "_")
+
+
+func _get_bgm_setup_sample_label(step_index: int) -> String:
+	match step_index:
+		0:
+			return "bgm_00_stage1"
+		1:
+			return "bgm_01_stage2"
+		2:
+			return "bgm_02_stage2_alt"
+		3:
+			return "bgm_03_stage3"
+		4:
+			return "bgm_04_stage4"
+		5:
+			return "bgm_05_stage4_phase2"
+		6:
+			return "bgm_06_stage5"
+		7:
+			return "bgm_07_finalize"
+	return "bgm_%02d" % step_index
+
+
+func _get_stage_intro_sample_label(step_index: int) -> String:
+	match step_index:
+		0:
+			return "00_landing_intro"
+		1:
+			return "01_ball_spawn_intro"
+	return "done"
+
+
+func _get_stage_runtime_sample_label(current_stage: int, step_index: int) -> String:
+	if step_index >= 0 and step_index < STAGE_RUNTIME_COMMON_SAMPLE_LABELS.size():
+		return str(STAGE_RUNTIME_COMMON_SAMPLE_LABELS[step_index])
+	var stage_step := step_index - STAGE_RUNTIME_COMMON_SAMPLE_LABELS.size()
+	var labels: Array = []
+	match current_stage:
+		1:
+			labels = STAGE1_RUNTIME_SAMPLE_LABELS
+		2:
+			labels = STAGE2_RUNTIME_SAMPLE_LABELS
+		3:
+			labels = STAGE3_RUNTIME_SAMPLE_LABELS
+		4:
+			labels = STAGE4_RUNTIME_SAMPLE_LABELS
+		5:
+			labels = STAGE5_RUNTIME_SAMPLE_LABELS
+	if stage_step >= 0 and stage_step < labels.size():
+		return str(labels[stage_step])
+	return "stage_%d_pso_prewarmer" % current_stage
+
+
+func _get_current_stage(owner: Object) -> int:
+	if owner == null:
+		return 1
+	var value: Variant = owner.get("current_stage")
+	if typeof(value) == TYPE_INT:
+		return int(value)
+	if typeof(value) == TYPE_FLOAT:
+		return int(value)
+	return 1
+
+
+func _get_int_property(source: Object, property_name: String, fallback: int) -> int:
+	if source == null:
+		return fallback
+	var value: Variant = source.get(property_name)
+	if typeof(value) == TYPE_INT:
+		return int(value)
+	if typeof(value) == TYPE_FLOAT:
+		return int(value)
+	return fallback
+
+
+func _get_bool_property(source: Object, property_name: String, fallback: bool) -> bool:
+	if source == null:
+		return fallback
+	var value: Variant = source.get(property_name)
+	if typeof(value) == TYPE_BOOL:
+		return bool(value)
+	return fallback
+
+
+func _get_string_property(source: Object, property_name: String, fallback: String) -> String:
+	if source == null:
+		return fallback
+	var value: Variant = source.get(property_name)
+	if typeof(value) == TYPE_STRING:
+		return str(value)
+	return fallback
+
+
+func _get_update_prewarm_detail_label(update_prewarm: Object, owner: Object) -> String:
+	if update_prewarm == null:
+		return ""
+	if update_prewarm.has_method("get_update_prewarm_detail_label"):
+		var value: Variant = update_prewarm.get_update_prewarm_detail_label(owner)
+		if typeof(value) == TYPE_STRING:
+			return str(value)
+	return _get_string_property(update_prewarm, "update_prewarm_detail_label", "")
+
+
+func _prewarm_update_runtime_step(owner: Object, module_getter: Callable) -> bool:
+	var prewarm_driver: Object = _get_module(module_getter, "battle_scene_update_prewarm_driver")
+	if prewarm_driver == null:
+		return true
+	var registry := ModuleGetterRegistryAdapter.new(module_getter)
+	if prewarm_driver.has_method("prewarm_update_step"):
+		return bool(prewarm_driver.prewarm_update_step(owner, registry))
+	if prewarm_driver.has_method("prewarm_update"):
+		prewarm_driver.prewarm_update(owner, registry)
+	return true
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
+
+
+func _get_resource_prewarm_controller(module_getter: Callable) -> Object:
+	return _get_module(module_getter, "battle_boot_resource_prewarm_controller")
+
+
+func _get_module(module_getter: Callable, key: String) -> Object:
+	if not module_getter.is_valid():
+		return null
+	var module: Variant = module_getter.call(key)
+	if typeof(module) == TYPE_OBJECT and is_instance_valid(module):
+		return module as Object
+	return null
