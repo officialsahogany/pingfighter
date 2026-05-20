@@ -69,6 +69,10 @@ const MODULES := {
 		"path": "res://scripts/core/battle_playfield_scene_drawer.gd",
 		"label": "battle playfield scene drawer",
 	},
+	"battle_perf_logger": {
+		"path": "res://scripts/core/battle_perf_logger.gd",
+		"label": "battle performance logger",
+	},
 	"battle_scene_update_driver": {
 		"path": "res://scripts/core/battle_scene_update_driver.gd",
 		"label": "battle scene update driver",
