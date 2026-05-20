@@ -244,6 +244,8 @@ godot/assets/sprites/hud/stage2_speed_defense_skillcard_imagegen_v[1-2].png*
 godot/assets/sprites/hud/stage5_hongryun_fireball_source_imagegen_v1.png*
 godot/assets/sprites/hud/stage5_hongryun_inferno_flame_dragon_sheet_*.png*
 godot/assets/sprites/hud/stage5_hongryun_vase_lantern_sprites_imagegen_v1.png*
+godot/assets/sprites/hud/stage5_hongryun_cyber_snake_sheet_imagegen_v1.png*
+godot/assets/sprites/hud/stage5_hongryun_dragon_head_sheet_imagegen_v[1-2].png*
 godot/assets/sprites/smasher/*_manifest.json
 godot/assets/sprites/smasher/*_pipeline-meta.json
 godot/assets/ui/loading/*_manifest.json
