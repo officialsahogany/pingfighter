@@ -1,6 +1,7 @@
 extends RefCounted
 
-const BALL_SIZE := 28.6
+const BALL_VISUAL_SCALE := 1.575
+const BALL_SIZE := 28.6 * BALL_VISUAL_SCALE
 
 var pingpong_ball_angle: float = 0.0
 
