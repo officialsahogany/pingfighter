@@ -9,6 +9,7 @@ func _init() -> void:
 	_verify_render_budgets()
 	_verify_recent_start_helper()
 	_verify_draw_paths_use_render_caps()
+	_verify_idle_draw_gate_avoids_mythic_reflection()
 
 	if _failures.is_empty():
 		print("mythic_item_field_render_budget_smoke: ok")
@@ -131,6 +132,25 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(
 		_function_body(source, "func draw_ragnarok_sparks").find("_recent_start(sparks, MAX_RENDERED_RAGNAROK_SPARKS)") >= 0,
 		"Ragnarok spark draw should cap decorative sparks"
+	)
+
+
+func _verify_idle_draw_gate_avoids_mythic_reflection() -> void:
+	var drawer_source := FileAccess.get_file_as_string("res://scripts/core/battle_playfield_scene_drawer.gd")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	_expect(drawer_source != "", "playfield drawer source should be readable")
+	_expect(runtime_source != "", "mythic runtime source should be readable")
+	_expect(
+		_function_body(drawer_source, "func _draw_mythic_item_field_effects").find("has_visible_field_effects") >= 0,
+		"Playfield mythic draw should skip the idle field path before method-list reflection"
+	)
+	_expect(
+		drawer_source.find("_mythic_draw_field_effects_accepts_perf_logger") >= 0,
+		"Playfield mythic draw should cache the perf-logger signature check"
+	)
+	_expect(
+		_function_body(runtime_source, "func has_visible_field_effects").find("acquisition_cinematic") >= 0,
+		"Mythic runtime should expose a focused field-effect visibility gate"
 	)
 
 
