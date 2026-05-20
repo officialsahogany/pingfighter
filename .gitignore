@@ -261,6 +261,13 @@ godot/assets/sprites/stage1/dalji/*_meta.json
 godot/assets/sprites/stage1/dalji/dalji_result_*_autosprite_v[1-5]*.png*
 godot/assets/sprites/stage1/dalji/dalji_result_*_autosprite_v6.png*
 godot/assets/sprites/stage1/dalji/dalji_result_defeat_clean_anchor_imagegen_v2.png*
+godot/assets/sprites/stage2/*_source.png*
+godot/assets/sprites/stage2/*_pipeline-meta.json
+godot/assets/sprites/stage2/boss_stage2_speed.png*
+godot/assets/sprites/stage2/boss_stage2_speed_imagegen_v[2-3].png*
+godot/assets/sprites/stage2/stage2_boss_idle.png*
+godot/assets/sprites/stage2/stage2_boss_idle_front_breath_autosprite_v1_8f.png*
+godot/assets/sprites/stage2/stage2_boss_walk_left.png*
 godot/assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v[6-9]*.png*
 godot/assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v1[0-6]*.png*
 godot/assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v[6-9]*.png*
