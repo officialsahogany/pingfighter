@@ -3276,6 +3276,12 @@ This section is intentionally long; use search to find the nearest owner.
   selected-firearm input, ammo, cooldown, audio, VFX, projectile removal, and
   result handoff paths while delegating deterministic impact classification to
   this helper.
+- `scripts/characters/commando_firearm_hit_result_state.gd`
+  Owns pure Commando firearm hit-result dictionary scaffolding: base hit-result
+  payloads plus stun / slow status-data dictionaries. `commando_firearm_runtime.gd`
+  keeps hit classification side effects, status application calls, feedback,
+  damage / gauge queueing, and weapon-specific hit counters while delegating
+  stable hit-result payload shapes here.
 - `scripts/characters/commando_firearm_audio_resolver.gd`
   Owns pure Commando firearm audio-name lookup behavior: ball-hit pulse
   kind names, weapon-specific fire cue method lists, and weapon-specific

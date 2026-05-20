@@ -8,6 +8,7 @@ const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/comm
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
+const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
@@ -2947,10 +2948,7 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 	var source: String = "commando_firearm_%s" % weapon_id
 	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
-	var result := {
-		"source": source,
-		"damage_units": int(profile.get("damage_units", 0)),
-	}
+	var result: Dictionary = CommandoFirearmHitResultState.build_base_result(source, int(profile.get("damage_units", 0)))
 	_apply_slingshot_hit_effects(weapon_id, projectile, result)
 	_apply_pistol_hit_effects(weapon_id, projectile, context, result)
 	_apply_ak47_accumulated_boss_damage(weapon_id, result)
@@ -2968,20 +2966,11 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 		if knockback_profile.has("knockback_decay_per_frame"):
 			result["knockback_decay_per_frame"] = float(knockback_profile.get("knockback_decay_per_frame", 1.0))
 		if status_effect_state != null and status_effect_state.has_method("apply_status"):
-			var status_data := {
-				"knockback_vel": knockback_vel,
-				"knockback_active": abs(knockback_vel) > 0.001,
-				"source": stun_source,
-			}
-			if result.has("knockback_frames"):
-				status_data["knockback_frames"] = float(result.get("knockback_frames", 0.0))
-			if result.has("knockback_decay_per_frame"):
-				status_data["knockback_decay_per_frame"] = float(result.get("knockback_decay_per_frame", 1.0))
 			status_effect_state.apply_status(
 				"boss",
 				"stun",
 				stun_frames,
-				status_data,
+				CommandoFirearmHitResultState.build_stun_status_data(knockback_vel, stun_source, result),
 				stun_source
 			)
 			result["stun_applied"] = true
@@ -3011,10 +3000,7 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 				"boss",
 				"slow",
 				slow_frames,
-				{
-					"multiplier": slow_multiplier,
-					"source": slow_source,
-				},
+				CommandoFirearmHitResultState.build_slow_status_data(slow_multiplier, slow_source),
 				slow_source
 			)
 			result["slow_applied"] = true
