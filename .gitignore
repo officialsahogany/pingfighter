@@ -250,3 +250,8 @@ godot/assets/sprites/stage1/dalji/*_meta.json
 godot/assets/sprites/stage1/dalji/dalji_result_*_autosprite_v[1-5]*.png*
 godot/assets/sprites/stage1/dalji/dalji_result_*_autosprite_v6.png*
 godot/assets/sprites/stage1/dalji/dalji_result_defeat_clean_anchor_imagegen_v2.png*
+godot/assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v[6-9]*.png*
+godot/assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v1[0-6]*.png*
+godot/assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v[6-9]*.png*
+godot/assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v1[0-6]*.png*
+godot/assets/sprites/result_scroll/*_chromakey.png*
