@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://dmc2r2yfyj1tp"]
+
+[ext_resource type="Script" path="res://scripts/ui/stage_clear_result_scene.gd" id="1_6n2kq"]
+
+[node name="StageClearResult" type="Control"]
+mouse_filter = 0
+script = ExtResource("1_6n2kq")
