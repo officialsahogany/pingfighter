@@ -14,6 +14,7 @@ const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/co
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmPistolFeedbackState := preload("res://scripts/characters/commando_firearm_pistol_feedback_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
+const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/commando_firearm_projectile_motion_state.gd")
 const CommandoFirearmShellCasingState := preload("res://scripts/characters/commando_firearm_shell_casing_state.gd")
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
@@ -2594,28 +2595,20 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 func _apply_pistol_side_wall_bounce(projectile: Dictionary, pos: Vector2, velocity: Vector2, context: Dictionary) -> bool:
 	if not _is_wall_bouncing_pistol(projectile):
 		return false
-	if int(projectile.get("wall_bounces", 0)) >= PISTOL_WALL_BOUNCE_MAX:
-		return false
 	var field_width: float = max(PISTOL_WALL_BOUNCE_MARGIN * 2.0, float(context.get("width", FIELD_WIDTH)))
-	var left_margin := PISTOL_WALL_BOUNCE_MARGIN
-	var right_margin := field_width - PISTOL_WALL_BOUNCE_MARGIN
-	var bounced := false
-	if pos.x <= left_margin:
-		pos.x = left_margin
-		velocity.x = abs(velocity.x) * PISTOL_WALL_BOUNCE_DAMPING
-		projectile["wall_bounce_side"] = "left"
-		bounced = true
-	elif pos.x >= right_margin:
-		pos.x = right_margin
-		velocity.x = -abs(velocity.x) * PISTOL_WALL_BOUNCE_DAMPING
-		projectile["wall_bounce_side"] = "right"
-		bounced = true
-	if not bounced:
+	var bounce_result: Dictionary = CommandoFirearmProjectileMotionState.apply_pistol_side_wall_bounce(
+		projectile,
+		pos,
+		velocity,
+		field_width,
+		PISTOL_WALL_BOUNCE_MARGIN,
+		PISTOL_WALL_BOUNCE_MAX,
+		PISTOL_WALL_BOUNCE_DAMPING
+	)
+	if not bool(bounce_result.get("bounced", false)):
 		return false
-	projectile["wall_bounces"] = int(projectile.get("wall_bounces", 0)) + 1
-	projectile["pos"] = pos
-	projectile["velocity"] = velocity
-	projectile["speed"] = velocity.length()
+	projectile.clear()
+	projectile.merge(_get_dict(bounce_result.get("projectile", projectile)), true)
 	return true
 
 
@@ -2624,34 +2617,29 @@ func _is_wall_bouncing_pistol(projectile: Dictionary) -> bool:
 
 
 func _update_rocket_motion(projectile: Dictionary, pos: Vector2, velocity: Vector2, step: float) -> Vector2:
-	var direction: Vector2 = velocity.normalized() if velocity.length() > 0.001 else Vector2.UP
-	var speed: float = float(projectile.get("speed", velocity.length()))
-	var acceleration: float = max(0.0, float(projectile.get("acceleration", BAZOOKA_ACCELERATION)))
-	var max_speed: float = max(speed, float(projectile.get("max_speed", BAZOOKA_MAX_SPEED)))
-	var smoke_trail: Array = _get_array(projectile.get("smoke_trail", []))
-	var should_append_smoke := smoke_trail.is_empty()
-	if not should_append_smoke:
-		var last_smoke: Vector2 = _get_vector2(smoke_trail.back(), pos)
-		should_append_smoke = last_smoke.distance_to(pos) > 5.0
-	if should_append_smoke:
-		smoke_trail.append(pos)
-		var smoke_limit: int = max(1, int(projectile.get("smoke_trail_limit", BAZOOKA_SMOKE_TRAIL_LIMIT)))
-		while smoke_trail.size() > smoke_limit:
-			smoke_trail.pop_front()
-		projectile["smoke_trail"] = smoke_trail
-	speed = min(max_speed, speed + acceleration * max(0.0, step))
-	projectile["speed"] = speed
-	return direction * speed
+	var motion_result: Dictionary = CommandoFirearmProjectileMotionState.update_rocket_motion(
+		projectile,
+		pos,
+		velocity,
+		step,
+		BAZOOKA_ACCELERATION,
+		BAZOOKA_MAX_SPEED,
+		BAZOOKA_SMOKE_TRAIL_LIMIT
+	)
+	projectile.clear()
+	projectile.merge(_get_dict(motion_result.get("projectile", projectile)), true)
+	return _get_vector2(motion_result.get("velocity", velocity), velocity)
 
 
 func _update_net_projectile_rope(projectile: Dictionary, pos: Vector2, context: Dictionary) -> void:
-	projectile["origin"] = _get_net_gun_aim_origin(context)
-	var rope_points: Array = _get_array(projectile.get("rope_points", []))
-	rope_points.append(pos)
-	var rope_limit: int = max(1, int(projectile.get("rope_trail_limit", NET_GUN_ROPE_TRAIL_LIMIT)))
-	while rope_points.size() > rope_limit:
-		rope_points.pop_front()
-	projectile["rope_points"] = rope_points
+	var next_projectile: Dictionary = CommandoFirearmProjectileMotionState.update_net_projectile_rope(
+		projectile,
+		pos,
+		_get_net_gun_aim_origin(context),
+		NET_GUN_ROPE_TRAIL_LIMIT
+	)
+	projectile.clear()
+	projectile.merge(next_projectile, true)
 
 
 func _spawn_ak47_shell_casing(origin: Vector2, direction: Vector2, config: Dictionary, shot_id: int) -> void:
