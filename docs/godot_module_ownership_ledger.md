@@ -3322,9 +3322,10 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_input_resolver.gd`
   Owns tiny pure Commando firearm input reads: suicide-drone directional
   vector construction and the legacy `action_just_pressed` fallback to
-  `action_pressed`. `commando_firearm_runtime.gd` keeps all input side
-  effects, weapon firing gates, manual-control velocity mutation, and
-  detonation logic while delegating only these snapshot reads.
+  `action_pressed`, plus post-switch fire-suppression checks. `commando_firearm_runtime.gd`
+  keeps all input side effects, weapon firing gates, manual-control velocity
+  mutation, and detonation logic while delegating only these snapshot /
+  controller-state reads.
 - `scripts/characters/commando_firearm_lingering_fire_flame_state.gd`
   Owns pure Commando lingering fire-zone flame state: deterministic flame
   seeding, effect-size fallback reads, ring / size / lifetime patterns,
@@ -3381,10 +3382,11 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the pure origin / anchor math for Commando firearm runtime:
   generic player muzzle position, authored weapon-fire sheet world anchors,
   player paddle dimensions / scale reads, fallback player position, and
-  boss target center resolution. `commando_firearm_runtime.gd` keeps its
-  existing private wrapper names and weapon-selection decisions while
-  delegating the coordinate math here, so projectile timing, ammo,
-  cooldown, audio, and hit-result handoff remain unchanged.
+  boss target center resolution, plus weapon/profile based firearm origin
+  selection and aim-origin projection. `commando_firearm_runtime.gd` keeps
+  its existing private wrapper names while delegating the coordinate and
+  origin-selection math here, so projectile timing, ammo, cooldown, audio,
+  and hit-result handoff remain unchanged.
 - `scripts/characters/commando_firearm_profile_resolver.gd`
   Owns pure Commando firearm profile lookup behavior: weapon-id
   normalization, fallback profile selection, deep-copy protection,
@@ -3403,10 +3405,11 @@ This section is intentionally long; use search to find the nearest owner.
   seed generation, aircraft-entry delay selection, bomb-count selection,
   initial call payload construction, support-marker flash payloads, and
   deterministic per-bomb target selection, plus pure per-frame call-state
-  advancement flags for aircraft start, bomb spawn, and call completion.
-  `commando_firearm_runtime.gd` keeps support-call array mutation, aircraft
-  audio lifecycle, projectile spawning, and draw / damage handoff while
-  delegating only deterministic payload / target / lifecycle-step decisions.
+  advancement flags for aircraft start, bomb spawn, call completion, and
+  active radio/call-lock lookup. `commando_firearm_runtime.gd` keeps
+  support-call array mutation, aircraft audio lifecycle, projectile spawning,
+  and draw / damage handoff while delegating only deterministic payload /
+  target / lifecycle-step decisions.
 - `scripts/characters/commando_firearm_support_projectile_resolver.gd`
   Owns pure Commando fire-support projectile construction: deterministic
   drop row, target-y clamping, horizontal jitter velocity, projectile
@@ -3439,6 +3442,7 @@ This section is intentionally long; use search to find the nearest owner.
   Owns tiny pure Commando firearm value helpers: limited append eviction
   safe Variant-to-Vector2 / Color / Dictionary / Array fallback reads,
   doping-potion context normalization / dependency reads / config projection,
+  pending pistol-fire geometry refresh, generic timed-effect array advancement,
   and registry instance fallback lookup. `commando_firearm_runtime.gd` keeps
   its private wrapper names so callers stay unchanged; shot-id state remains
   in the runtime.

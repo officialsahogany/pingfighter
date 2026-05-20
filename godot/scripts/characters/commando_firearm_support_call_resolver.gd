@@ -169,7 +169,21 @@ static func advance_call(
 	return result
 
 
+static func has_active_lock(support_calls: Array) -> bool:
+	for value in support_calls:
+		var call_data: Dictionary = _get_dict(value)
+		if bool(call_data.get("radio_active", false)) or float(call_data.get("call_timer_frames", 0.0)) > 0.0:
+			return true
+	return false
+
+
 static func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
 	return fallback
+
+
+static func _get_dict(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}

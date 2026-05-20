@@ -775,12 +775,7 @@ func is_bowling_trap_guard_armed() -> bool:
 
 
 func _has_active_support_call_lock() -> bool:
-	for value in support_calls:
-		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = _get_dict(value)
-		if bool(call.get("radio_active", false)) or float(call.get("call_timer_frames", 0.0)) > 0.0:
-			return true
-	return false
+	return CommandoFirearmSupportCallResolver.has_active_lock(support_calls)
 
 
 func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
@@ -1027,11 +1022,11 @@ func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: flo
 
 
 func _refresh_pending_pistol_fire_geometry(config: Dictionary) -> void:
-	if pistol_pending_config.is_empty():
-		return
-	for key in PISTOL_PENDING_FIRE_GEOMETRY_KEYS:
-		if config.has(key):
-			pistol_pending_config[key] = config[key]
+	CommandoFirearmValueUtils.refresh_pending_fire_geometry(
+		pistol_pending_config,
+		config,
+		PISTOL_PENDING_FIRE_GEOMETRY_KEYS
+	)
 
 
 func _update_pistol_input(
@@ -4678,30 +4673,19 @@ func _is_suicide_drone_projectile(projectile: Dictionary) -> bool:
 
 
 func _update_muzzle_flashes(fps_scale: float) -> void:
-	for index in range(muzzle_flashes.size() - 1, -1, -1):
-		var flash: Dictionary = _get_dict(muzzle_flashes[index])
-		flash["timer_frames"] = max(0.0, float(flash.get("timer_frames", 0.0)) - max(0.0, fps_scale))
-		muzzle_flashes[index] = flash
-		if float(flash.get("timer_frames", 0.0)) <= 0.0:
-			muzzle_flashes.remove_at(index)
+	muzzle_flashes = CommandoFirearmValueUtils.advance_timed_effects(muzzle_flashes, fps_scale)
 
 
 func _update_impact_flashes(fps_scale: float) -> void:
-	for index in range(impact_flashes.size() - 1, -1, -1):
-		var flash: Dictionary = _get_dict(impact_flashes[index])
-		flash["timer_frames"] = max(0.0, float(flash.get("timer_frames", 0.0)) - max(0.0, fps_scale))
-		impact_flashes[index] = flash
-		if float(flash.get("timer_frames", 0.0)) <= 0.0:
-			impact_flashes.remove_at(index)
+	impact_flashes = CommandoFirearmValueUtils.advance_timed_effects(impact_flashes, fps_scale)
 
 
 func _is_fire_suppressed_after_switch(weapon_controller: Object, now_msec: int) -> bool:
-	if weapon_controller == null:
-		return false
-	if not weapon_controller.has_method("get_last_switch_msec"):
-		return false
-	var last_switch: int = int(weapon_controller.get_last_switch_msec())
-	return now_msec - last_switch < SWITCH_FIRE_SUPPRESS_MSEC
+	return CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		weapon_controller,
+		now_msec,
+		SWITCH_FIRE_SUPPRESS_MSEC
+	)
 
 
 func _get_player_muzzle_pos(config: Dictionary) -> Vector2:
@@ -4709,19 +4693,22 @@ func _get_player_muzzle_pos(config: Dictionary) -> Vector2:
 
 
 func _get_firearm_origin(weapon_id: String, config: Dictionary, profile: Dictionary) -> Vector2:
-	if _is_pistol_weapon(weapon_id) and not bool(profile.get("slingshot", false)):
-		return _get_pistol_fire_muzzle_pos(config)
-	if bool(profile.get("vertical_launch", false)):
-		return _get_bazooka_muzzle_pos(config)
-	if weapon_id == "net_gun":
-		return _get_net_gun_projectile_pos(config)
-	return _get_player_muzzle_pos(config)
+	return CommandoFirearmOriginGeometry.get_firearm_origin(
+		weapon_id,
+		config,
+		profile,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+		COMMANDO_PISTOL_FIRE_MUZZLE_SOURCE,
+		COMMANDO_BAZOOKA_FIRE_MUZZLE_SOURCE,
+		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+		BASE_WEAPON_ID
+	)
 
 
 func _get_firearm_aim_origin(weapon_id: String, _config: Dictionary, origin: Vector2) -> Vector2:
-	if weapon_id == "net_gun":
-		return origin
-	return origin
+	return CommandoFirearmOriginGeometry.get_firearm_aim_origin(weapon_id, origin)
 
 
 func _get_bazooka_muzzle_pos(config: Dictionary) -> Vector2:

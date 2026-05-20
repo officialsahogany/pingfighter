@@ -124,6 +124,29 @@ static func apply_doping_potion_to_pistol_config(
 	))
 
 
+static func refresh_pending_fire_geometry(
+	pending_config: Dictionary,
+	config: Dictionary,
+	geometry_keys: Array
+) -> void:
+	if pending_config.is_empty():
+		return
+	for key in geometry_keys:
+		if config.has(key):
+			pending_config[key] = config[key]
+
+
+static func advance_timed_effects(effects: Array, fps_scale: float, timer_key: String = "timer_frames") -> Array:
+	var step: float = max(0.0, fps_scale)
+	var next_effects: Array = []
+	for value in effects:
+		var effect: Dictionary = get_dict(value).duplicate(true)
+		effect[timer_key] = max(0.0, float(effect.get(timer_key, 0.0)) - step)
+		if float(effect.get(timer_key, 0.0)) > 0.0:
+			next_effects.append(effect)
+	return next_effects
+
+
 static func is_pistol_weapon(weapon_id: String, base_weapon_id: String = "pistol") -> bool:
 	return weapon_id == base_weapon_id or weapon_id == "commando_pistol"
 

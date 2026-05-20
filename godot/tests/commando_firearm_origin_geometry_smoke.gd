@@ -70,6 +70,26 @@ func _verify_direct_origin_geometry() -> void:
 		"boss_hitbox_height": 40.0,
 	}, 760.0)
 	_expect(boss_target == Vector2(380.0, 70.0), "boss target should use the center of the configured boss hitbox")
+	_expect(
+		CommandoFirearmOriginGeometry.get_firearm_origin("commando_pistol", config, {}, field_size, cell_size, foot_offset, pistol_source, bazooka_source, net_source, "pistol") == Vector2(535.5, 638.0),
+		"firearm origin should use the authored pistol source for Commando pistol shots"
+	)
+	_expect(
+		CommandoFirearmOriginGeometry.get_firearm_origin("pistol", config, {"slingshot": true}, field_size, cell_size, foot_offset, pistol_source, bazooka_source, net_source, "pistol") == Vector2(497.5, 671.0),
+		"firearm origin should use the generic muzzle for slingshot profile shots"
+	)
+	_expect(
+		CommandoFirearmOriginGeometry.get_firearm_origin("bazooka", config, {"vertical_launch": true}, field_size, cell_size, foot_offset, pistol_source, bazooka_source, net_source, "pistol") == Vector2(551.5, 625.0),
+		"firearm origin should use the authored bazooka source for vertical launches"
+	)
+	_expect(
+		CommandoFirearmOriginGeometry.get_firearm_origin("net_gun", config, {}, field_size, cell_size, foot_offset, pistol_source, bazooka_source, net_source, "pistol") == Vector2(523.5, 638.0),
+		"firearm origin should use the authored net-gun source"
+	)
+	_expect(
+		CommandoFirearmOriginGeometry.get_firearm_aim_origin("net_gun", Vector2(12.0, 34.0)) == Vector2(12.0, 34.0),
+		"firearm aim origin should preserve the resolved origin"
+	)
 
 
 func _verify_runtime_delegates_origin_geometry() -> void:
@@ -92,6 +112,11 @@ func _verify_runtime_delegates_origin_geometry() -> void:
 	_expect(runtime._get_net_gun_projectile_pos(config) == CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(config, Vector2(106.0, 82.0), field_size, cell_size, foot_offset), "runtime net gun muzzle wrapper should delegate")
 	_expect(runtime._get_player_pos_from_config(config) == CommandoFirearmOriginGeometry.get_player_pos_from_config(config, field_size), "runtime player-position wrapper should delegate")
 	_expect(runtime._get_boss_target_pos(config) == CommandoFirearmOriginGeometry.get_boss_target_pos(config, 760.0), "runtime boss target wrapper should delegate")
+	_expect(runtime._get_firearm_origin("commando_pistol", config, {}) == runtime._get_pistol_fire_muzzle_pos(config), "runtime firearm origin wrapper should delegate pistol origin")
+	_expect(runtime._get_firearm_origin("pistol", config, {"slingshot": true}) == runtime._get_player_muzzle_pos(config), "runtime firearm origin wrapper should delegate slingshot fallback origin")
+	_expect(runtime._get_firearm_origin("bazooka", config, {"vertical_launch": true}) == runtime._get_bazooka_muzzle_pos(config), "runtime firearm origin wrapper should delegate bazooka origin")
+	_expect(runtime._get_firearm_origin("net_gun", config, {}) == runtime._get_net_gun_projectile_pos(config), "runtime firearm origin wrapper should delegate net-gun origin")
+	_expect(runtime._get_firearm_aim_origin("net_gun", config, Vector2(12.0, 34.0)) == Vector2(12.0, 34.0), "runtime firearm aim-origin wrapper should delegate")
 
 
 func _expect(condition: bool, message: String) -> void:

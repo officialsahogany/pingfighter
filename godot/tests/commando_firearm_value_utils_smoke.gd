@@ -162,6 +162,33 @@ func _verify_direct_value_utils() -> void:
 	var inactive_doping_config: Dictionary = {}
 	CommandoFirearmValueUtils.apply_doping_potion_to_pistol_config(inactive_doping_config, {}, doping_defaults)
 	_expect(not bool(inactive_doping_config.get("active_item_doping_potion_active", true)), "doping config helper should mark inactive contexts")
+	var pending_geometry := {
+		"player_pos": Vector2(1.0, 2.0),
+		"boss_pos": Vector2(3.0, 4.0),
+	}
+	CommandoFirearmValueUtils.refresh_pending_fire_geometry(
+		pending_geometry,
+		{
+			"player_pos": Vector2(10.0, 20.0),
+			"paddle_width": 123.0,
+			"ignored": true,
+		},
+		["player_pos", "paddle_width", "boss_pos"]
+	)
+	_expect(pending_geometry.get("player_pos", Vector2.ZERO) == Vector2(10.0, 20.0), "pending geometry helper should refresh present geometry keys")
+	_expect(is_equal_approx(float(pending_geometry.get("paddle_width", 0.0)), 123.0), "pending geometry helper should copy newly present geometry keys")
+	_expect(pending_geometry.get("boss_pos", Vector2.ZERO) == Vector2(3.0, 4.0), "pending geometry helper should preserve keys missing from the source config")
+	var empty_pending_geometry := {}
+	CommandoFirearmValueUtils.refresh_pending_fire_geometry(empty_pending_geometry, {"player_pos": Vector2.ONE}, ["player_pos"])
+	_expect(empty_pending_geometry.is_empty(), "pending geometry helper should ignore empty pending configs")
+	var timed_effects: Array = CommandoFirearmValueUtils.advance_timed_effects([
+		{"id": "alive", "timer_frames": 3.0},
+		{"id": "expired", "timer_frames": 1.0},
+		"bad",
+	], 1.0)
+	_expect(timed_effects.size() == 1, "timed effect helper should remove expired and invalid effects")
+	_expect(str(CommandoFirearmValueUtils.get_dict(timed_effects[0]).get("id", "")) == "alive", "timed effect helper should preserve live effects")
+	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(timed_effects[0]).get("timer_frames", 0.0)), 2.0), "timed effect helper should decrement live timers")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("pistol", {}, false, 60.0, 46.0, 30.0), 60.0), "base pistol cooldown should use base frames")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", {}, false, 60.0, 46.0, 30.0), 46.0), "commando pistol cooldown should use Beretta frames")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", {"pistol_cooldown_frames": 22.0}, true, 60.0, 46.0, 30.0), 22.0), "active doping cooldown should override weapon cooldown")
@@ -262,6 +289,25 @@ func _verify_runtime_delegates_value_utils() -> void:
 	var runtime_applied_config: Dictionary = {}
 	runtime._apply_doping_potion_to_pistol_config(runtime_applied_config, runtime_deps_doping)
 	_expect(bool(runtime_applied_config.get("active_item_doping_potion_active", false)), "runtime doping config apply wrapper should delegate active flag")
+	runtime.pistol_pending_config = {
+		"player_pos": Vector2(1.0, 2.0),
+		"boss_pos": Vector2(3.0, 4.0),
+	}
+	runtime._refresh_pending_pistol_fire_geometry({
+		"player_pos": Vector2(10.0, 20.0),
+		"paddle_width": 123.0,
+	})
+	_expect(runtime._get_vector2(runtime.pistol_pending_config.get("player_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(10.0, 20.0), "runtime pending geometry wrapper should refresh player position")
+	_expect(is_equal_approx(float(runtime.pistol_pending_config.get("paddle_width", 0.0)), 123.0), "runtime pending geometry wrapper should copy paddle width")
+	_expect(runtime._get_vector2(runtime.pistol_pending_config.get("boss_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(3.0, 4.0), "runtime pending geometry wrapper should preserve absent boss position")
+	runtime.muzzle_flashes = [{"id": "muzzle", "timer_frames": 2.0}]
+	runtime._update_muzzle_flashes(1.0)
+	_expect(is_equal_approx(float(runtime._get_dict(runtime.muzzle_flashes[0]).get("timer_frames", 0.0)), 1.0), "runtime muzzle flash timer wrapper should delegate decrement")
+	runtime._update_muzzle_flashes(1.0)
+	_expect(runtime.muzzle_flashes.is_empty(), "runtime muzzle flash timer wrapper should remove expired flashes")
+	runtime.impact_flashes = [{"id": "impact", "timer_frames": 2.0}]
+	runtime._update_impact_flashes(2.0)
+	_expect(runtime.impact_flashes.is_empty(), "runtime impact flash timer wrapper should remove expired flashes")
 	_expect(is_equal_approx(runtime._get_pistol_cooldown_frames("pistol", {}, false), 60.0), "runtime base pistol cooldown wrapper should delegate")
 	_expect(runtime._get_pistol_cooldown_frames("commando_pistol", {}, false) < 60.0, "runtime commando pistol cooldown wrapper should keep faster Beretta timing")
 	_expect(is_equal_approx(runtime._get_pistol_cooldown_frames("commando_pistol", runtime_doping, true), 18.0), "runtime active doping cooldown wrapper should delegate")

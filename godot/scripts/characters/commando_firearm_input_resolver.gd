@@ -22,3 +22,12 @@ static func input_action_just_pressed(input_snapshot: Dictionary) -> bool:
 	if input_snapshot.has("action_just_pressed"):
 		return bool(input_snapshot.get("action_just_pressed", false))
 	return bool(input_snapshot.get("action_pressed", false))
+
+
+static func is_fire_suppressed_after_switch(weapon_controller: Object, now_msec: int, suppress_msec: int) -> bool:
+	if weapon_controller == null:
+		return false
+	if not weapon_controller.has_method("get_last_switch_msec"):
+		return false
+	var last_switch: int = int(weapon_controller.get_last_switch_msec())
+	return now_msec - last_switch < suppress_msec

@@ -134,6 +134,18 @@ func _verify_direct_support_call_resolver() -> void:
 		150.0
 	)
 	_expect(bool(finished.get("finished", false)), "support advance should finish after all bombs and offscreen aircraft")
+	_expect(
+		CommandoFirearmSupportCallResolver.has_active_lock([{"radio_active": true}]),
+		"support active-lock helper should detect active radio calls"
+	)
+	_expect(
+		CommandoFirearmSupportCallResolver.has_active_lock([{"call_timer_frames": 1.0}]),
+		"support active-lock helper should detect active call timers"
+	)
+	_expect(
+		not CommandoFirearmSupportCallResolver.has_active_lock([{"radio_active": false, "call_timer_frames": 0.0}, "bad"]),
+		"support active-lock helper should ignore inactive and invalid calls"
+	)
 
 
 func _verify_runtime_delegates_support_call_resolver() -> void:
@@ -155,6 +167,10 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 	_expect(bool(advance_result.get("started_aircraft", false)), "runtime support advance wrapper should report aircraft startup")
 	_expect(bool(advance_result.get("spawn_bomb", false)), "runtime support advance wrapper should report bomb spawn")
 	_expect(advanced_call.get("aircraft_pos", Vector2.ZERO) == Vector2(-104.0, 52.0), "runtime support advance wrapper should use runtime aircraft lane and speed")
+	runtime.support_calls = [{"call_timer_frames": 1.0}]
+	_expect(runtime._has_active_support_call_lock(), "runtime support active-lock wrapper should delegate active calls")
+	runtime.support_calls = [{"call_timer_frames": 0.0, "radio_active": false}]
+	_expect(not runtime._has_active_support_call_lock(), "runtime support active-lock wrapper should delegate inactive calls")
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -58,6 +58,53 @@ static func get_boss_target_pos(config: Dictionary, field_width: float) -> Vecto
 	)
 
 
+static func get_firearm_origin(
+	weapon_id: String,
+	config: Dictionary,
+	profile: Dictionary,
+	field_size: Vector2,
+	source_cell_size: Vector2,
+	player_foot_y_offset: float,
+	pistol_muzzle_source: Vector2,
+	bazooka_muzzle_source: Vector2,
+	net_gun_muzzle_source: Vector2,
+	base_weapon_id: String
+) -> Vector2:
+	if is_pistol_weapon(weapon_id, base_weapon_id) and not bool(profile.get("slingshot", false)):
+		return get_commando_fire_sheet_world_pos(
+			config,
+			pistol_muzzle_source,
+			field_size,
+			source_cell_size,
+			player_foot_y_offset
+		)
+	if bool(profile.get("vertical_launch", false)):
+		return get_commando_fire_sheet_world_pos(
+			config,
+			bazooka_muzzle_source,
+			field_size,
+			source_cell_size,
+			player_foot_y_offset
+		)
+	if weapon_id == "net_gun":
+		return get_commando_fire_sheet_world_pos(
+			config,
+			net_gun_muzzle_source,
+			field_size,
+			source_cell_size,
+			player_foot_y_offset
+		)
+	return get_player_muzzle_pos(config, field_size)
+
+
+static func get_firearm_aim_origin(_weapon_id: String, origin: Vector2) -> Vector2:
+	return origin
+
+
+static func is_pistol_weapon(weapon_id: String, base_weapon_id: String) -> bool:
+	return weapon_id == base_weapon_id or weapon_id == "commando_pistol"
+
+
 static func get_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
