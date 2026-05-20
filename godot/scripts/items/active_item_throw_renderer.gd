@@ -22,6 +22,12 @@ var flare_icon_texture: Texture2D
 var boomerang_icon_texture: Texture2D
 
 
+func prewarm_assets() -> void:
+	_touch_texture(_get_grenade_icon_texture())
+	_touch_texture(_get_flare_icon_texture())
+	_touch_texture(_get_boomerang_icon_texture())
+
+
 func draw(
 	canvas: CanvasItem,
 	pending_throws: Array,
@@ -386,6 +392,11 @@ func _get_throw_item_icon_texture(item_name: String) -> Texture2D:
 	if item_name == "boomerang":
 		return _get_boomerang_icon_texture()
 	return _get_grenade_icon_texture()
+
+
+func _touch_texture(texture: Texture2D) -> void:
+	if texture != null:
+		texture.get_size()
 
 
 func _get_throw_item_draw_size(item_name: String) -> float:

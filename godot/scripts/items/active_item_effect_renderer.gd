@@ -46,12 +46,18 @@ var _text_size_cache: Dictionary = {}
 
 
 func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
-	_touch_texture(_get_long_boost_icon_texture())
-	_touch_texture(_get_vitamin_pill_icon_texture())
-	_touch_texture(_get_strange_vial_icon_texture())
-	_touch_texture(_get_magnet_field_icon_texture())
-	_touch_texture(_get_holy_barrier_icon_texture())
-	_touch_texture(_get_dash_boost_icon_texture())
+	if ResourceLoader.exists(LONG_BOOST_ICON_PATH):
+		_touch_texture(_get_long_boost_icon_texture())
+	if ResourceLoader.exists(VITAMIN_PILL_ICON_PATH):
+		_touch_texture(_get_vitamin_pill_icon_texture())
+	if ResourceLoader.exists(STRANGE_VIAL_ICON_PATH):
+		_touch_texture(_get_strange_vial_icon_texture())
+	if ResourceLoader.exists(MAGNET_FIELD_ICON_PATH):
+		_touch_texture(_get_magnet_field_icon_texture())
+	if ResourceLoader.exists(HOLY_BARRIER_ICON_PATH):
+		_touch_texture(_get_holy_barrier_icon_texture())
+	if ResourceLoader.exists(DASH_BOOST_ICON_PATH):
+		_touch_texture(_get_dash_boost_icon_texture())
 	if active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons"):
 		active_item_hud_visuals.prewarm_catalog_icons()
 	_prewarm_pickup_text()

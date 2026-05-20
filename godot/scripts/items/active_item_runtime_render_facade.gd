@@ -9,6 +9,12 @@ var throw_renderer: Object = ActiveItemThrowRenderer.new()
 var effect_renderer: Object = ActiveItemEffectRenderer.new()
 
 
+func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
+	_call_prewarm_assets(field_renderer)
+	_call_prewarm_assets(throw_renderer)
+	_call_prewarm_assets(effect_renderer, [active_item_hud_visuals])
+
+
 func draw_field_items(
 	canvas: CanvasItem,
 	registry: Object,
@@ -166,6 +172,16 @@ func _call_effect_renderer_draw_field_effects(
 		shake_offset,
 		_get_instance(registry, "horizontal_timer_gauge_stack")
 	)
+
+
+func _call_prewarm_assets(target: Object, args: Array = []) -> void:
+	if target == null or not target.has_method("prewarm_assets"):
+		return
+	var argument_count: int = _get_method_argument_count(target, "prewarm_assets")
+	if argument_count <= 0:
+		target.prewarm_assets()
+		return
+	target.callv("prewarm_assets", args.slice(0, argument_count))
 
 
 func _get_array_method(target: Object, method_name: String) -> Array:

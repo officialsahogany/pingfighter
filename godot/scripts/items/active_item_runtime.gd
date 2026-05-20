@@ -51,6 +51,11 @@ func build_starting_slots() -> Array:
 	return lifecycle_facade.build_starting_slots(self)
 
 
+func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
+	if render_facade != null and render_facade.has_method("prewarm_assets"):
+		render_facade.prewarm_assets(active_item_hud_visuals)
+
+
 func update(owner: Object, registry: Object, delta: float) -> Dictionary:
 	if owner == null:
 		return {}

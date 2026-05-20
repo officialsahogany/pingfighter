@@ -23,6 +23,12 @@ var unknown_item_sheet_texture: Texture2D
 var unknown_item_fallback_texture: Texture2D
 
 
+func prewarm_assets() -> void:
+	_touch_texture(_get_portal_sheet_texture())
+	_touch_texture(_get_unknown_item_sheet_texture())
+	_touch_texture(_get_unknown_item_fallback_texture())
+
+
 func draw(canvas: CanvasItem, portals: Array, field_items: Array, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	if canvas == null:
 		return
@@ -331,6 +337,11 @@ func _get_unknown_item_fallback_texture() -> Texture2D:
 			"Failed to load unknown item fallback icon at %s"
 		)
 	return unknown_item_fallback_texture
+
+
+func _touch_texture(texture: Texture2D) -> void:
+	if texture != null:
+		texture.get_size()
 
 
 func _get_item_color(item_data: Dictionary) -> Color:
