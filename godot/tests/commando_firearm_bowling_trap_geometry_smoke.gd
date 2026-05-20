@@ -61,6 +61,48 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	_expect(CommandoFirearmBowlingTrapGeometry.get_launch_direction(9) == 1, "shot id modulo 5 == 4 should launch right")
 	_expect(CommandoFirearmBowlingTrapGeometry.get_launch_direction(7) == 0, "middle modulo values should launch straight")
 
+	var install_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.build_install_trap(
+		Vector2(120.0, 640.0),
+		{"color": Color.RED, "secondary": Color.BLUE},
+		"bowling_trap",
+		9,
+		60.0,
+		20.0,
+		48.0,
+		Vector2(0.0, -15.0)
+	)
+	_expect(install_trap["state"] == "installing", "install trap payload should start in installing state")
+	_expect(install_trap["captured_ball_pos"] == Vector2(120.0, 625.0), "install trap payload should preseed captured ball anchor")
+	_expect(
+		CommandoFirearmBowlingTrapGeometry.update_install_state(install_trap, 48.0, 48.0)["state"] == "waiting",
+		"install state update should enter waiting state when timer expires"
+	)
+
+	var capture_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.build_capture_state(
+		install_trap,
+		{"ball_vel": Vector2(0.0, 6.0)},
+		90.0,
+		Vector2(0.0, -15.0)
+	)
+	_expect(capture_trap["state"] == "capturing", "capture state payload should enter capturing state")
+	_expect(is_equal_approx(float(capture_trap["captured_original_speed"]), 6.0), "capture state payload should preserve original speed")
+	var updated_capture: Dictionary = CommandoFirearmBowlingTrapGeometry.update_capture_state(capture_trap, 45.0, 90.0)
+	_expect(is_equal_approx(float(updated_capture["capture_progress"]), 0.5), "capture state update should expose capture progress")
+	_expect(not CommandoFirearmBowlingTrapGeometry.is_capture_complete(updated_capture), "halfway capture should not be complete")
+	_expect(CommandoFirearmBowlingTrapGeometry.build_capture_result(updated_capture)["skip_ball_motion_step"], "capture result should pause normal ball motion")
+	var release_motion: Dictionary = CommandoFirearmBowlingTrapGeometry.build_release_motion(
+		capture_trap,
+		Vector2(0.0, -15.0),
+		4.0,
+		PI / 8.0
+	)
+	_expect(is_equal_approx(float(release_motion["launch_speed"]), 24.0), "release motion should multiply original ball speed")
+	_expect(is_equal_approx((release_motion["launch_vel"] as Vector2).length(), 24.0), "release motion velocity should match launch speed")
+	_expect(
+		is_equal_approx(float(CommandoFirearmBowlingTrapGeometry.build_release_result(release_motion, "guard", 22.0, 60.0, 0.7)["commando_bowling_trap_guard_restore_speed"]), 4.2),
+		"release result should expose reduced guard restore speed"
+	)
+
 	var trap := {"pos": Vector2(100.0, 100.0), "width": 60.0}
 	var hit_context := {"ball_pos": Vector2(100.0, 110.0), "ball_vel": Vector2(0.0, 5.0), "ball_size": 20.0}
 	_expect(CommandoFirearmBowlingTrapGeometry.hits_ball(trap, hit_context, 20.0, 40.0, 60.0), "downward ball should hit overlapping bowling trap")

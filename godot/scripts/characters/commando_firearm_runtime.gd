@@ -9,6 +9,7 @@ const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/co
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
+const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
 const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
@@ -2174,42 +2175,50 @@ func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, 
 	while support_calls.size() >= max(1, SUPPORT_CALL_LIMIT):
 		var evicted: Dictionary = _get_dict(support_calls.pop_front())
 		_stop_support_aircraft_audio(evicted, deps)
-	support_calls.append({
-		"id": call_id,
-		"weapon_id": weapon_id,
-		"origin": origin,
-		"target": target,
-		"state": "calling",
-		"call_timer_frames": SUPPORT_CALL_LOCK_FRAMES,
-		"radio_active": true,
-		"radio_timer_frames": SUPPORT_CALL_LOCK_FRAMES,
-		"radio_sound_played": true,
-		"delay_frames": delay_frames,
-		"delay_total_frames": delay_frames,
-		"bomb_timer_frames": 0.0,
-		"bombs_remaining": bomb_count,
-		"bombs_total": bomb_count,
-		"bombs_spawned": 0,
-		"aircraft_active": false,
-		"aircraft_audio_active": false,
-		"aircraft_spawn_timer": 0.0,
-		"aircraft_drop_arm_frames": SUPPORT_AIRCRAFT_DROP_ARM_FRAMES,
-		"aircraft_pos": Vector2(-140.0, SUPPORT_AIRCRAFT_Y),
-		"aircraft_velocity": Vector2(SUPPORT_AIRCRAFT_SPEED, 0.0),
-		"color": profile.get("color", Color(1.0, 0.34, 0.16)),
-		"secondary": profile.get("secondary", Color(1.0, 0.82, 0.25)),
-	})
+	support_calls.append(_build_support_call_payload(
+		call_id,
+		origin,
+		target,
+		profile,
+		weapon_id,
+		delay_frames,
+		bomb_count
+	))
 	_play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
-	_append_limited(impact_flashes, {
-		"weapon_id": weapon_id,
-		"kind": "support_marker",
-		"pos": target,
-		"radius": float(profile.get("impact_radius", 54.0)) * 0.74,
-		"timer_frames": SUPPORT_CALL_LOCK_FRAMES,
-		"max_timer_frames": SUPPORT_CALL_LOCK_FRAMES,
-		"color": profile.get("secondary", Color(1.0, 0.82, 0.25)),
-		"secondary": profile.get("color", Color(1.0, 0.34, 0.16)),
-	}, FLASH_LIMIT)
+	_append_limited(impact_flashes, _build_support_marker_flash(weapon_id, target, profile), FLASH_LIMIT)
+
+
+func _build_support_call_payload(
+	call_id: int,
+	origin: Vector2,
+	target: Vector2,
+	profile: Dictionary,
+	weapon_id: String,
+	delay_frames: float,
+	bomb_count: int
+) -> Dictionary:
+	return CommandoFirearmSupportCallResolver.build_call_payload(
+		call_id,
+		origin,
+		target,
+		profile,
+		weapon_id,
+		delay_frames,
+		bomb_count,
+		SUPPORT_CALL_LOCK_FRAMES,
+		SUPPORT_AIRCRAFT_DROP_ARM_FRAMES,
+		SUPPORT_AIRCRAFT_Y,
+		SUPPORT_AIRCRAFT_SPEED
+	)
+
+
+func _build_support_marker_flash(weapon_id: String, target: Vector2, profile: Dictionary) -> Dictionary:
+	return CommandoFirearmSupportCallResolver.build_marker_flash(
+		weapon_id,
+		target,
+		profile,
+		SUPPORT_CALL_LOCK_FRAMES
+	)
 
 
 func _get_support_call_delay_frames(call_id: int, target: Vector2) -> float:
@@ -2237,36 +2246,17 @@ func _support_call_seed(call_id: int, target: Vector2) -> int:
 func _start_bowling_trap_install(config: Dictionary, profile: Dictionary, weapon_id: String) -> void:
 	var trap_pos: Vector2 = _get_bowling_trap_install_pos(config)
 	var trap_id: int = _next_shot_id()
-	_append_limited(bowling_traps, {
-		"id": trap_id,
-		"weapon_id": weapon_id,
-		"kind": "bowling_trap",
-		"state": "installing",
-		"pos": trap_pos,
-		"width": BOWLING_TRAP_WIDTH,
-		"height": BOWLING_TRAP_HEIGHT,
-		"timer_frames": BOWLING_TRAP_INSTALL_FRAMES,
-		"max_timer_frames": BOWLING_TRAP_INSTALL_FRAMES,
-		"install_progress": 0.0,
-		"capture_progress": 0.0,
-		"claw_angle": 1.0,
-		"captured_ball_pos": trap_pos + BOWLING_TRAP_CAPTURE_BALL_OFFSET,
-		"captured_original_speed": 0.0,
-		"captured_original_vel": Vector2.ZERO,
-		"launch_direction": 0,
-		"color": profile.get("color", Color(0.95, 0.18, 0.24)),
-		"secondary": profile.get("secondary", Color(0.22, 0.10, 0.12)),
-	}, BOWLING_TRAP_LIMIT)
-	_append_limited(impact_flashes, {
-		"weapon_id": weapon_id,
-		"kind": "trap_install_marker",
-		"pos": trap_pos,
-		"radius": 24.0,
-		"timer_frames": 14.0,
-		"max_timer_frames": 14.0,
-		"color": profile.get("secondary", Color(0.22, 0.10, 0.12)),
-		"secondary": profile.get("color", Color(0.95, 0.18, 0.24)),
-	}, FLASH_LIMIT)
+	_append_limited(bowling_traps, _build_bowling_trap_install_payload(
+		trap_pos,
+		profile,
+		weapon_id,
+		trap_id
+	), BOWLING_TRAP_LIMIT)
+	_append_limited(impact_flashes, _build_bowling_trap_install_marker_flash(
+		trap_pos,
+		profile,
+		weapon_id
+	), FLASH_LIMIT)
 
 
 func _get_bowling_trap_install_pos(config: Dictionary) -> Vector2:
@@ -2278,6 +2268,28 @@ func _get_bowling_trap_install_pos(config: Dictionary) -> Vector2:
 		BOWLING_TRAP_HEIGHT,
 		BOWLING_TRAP_MIN_FIELD_Y_RATIO
 	)
+
+
+func _build_bowling_trap_install_payload(
+	trap_pos: Vector2,
+	profile: Dictionary,
+	weapon_id: String,
+	trap_id: int
+) -> Dictionary:
+	return CommandoFirearmBowlingTrapGeometry.build_install_trap(
+		trap_pos,
+		profile,
+		weapon_id,
+		trap_id,
+		BOWLING_TRAP_WIDTH,
+		BOWLING_TRAP_HEIGHT,
+		BOWLING_TRAP_INSTALL_FRAMES,
+		BOWLING_TRAP_CAPTURE_BALL_OFFSET
+	)
+
+
+func _build_bowling_trap_install_marker_flash(trap_pos: Vector2, profile: Dictionary, weapon_id: String) -> Dictionary:
+	return CommandoFirearmBowlingTrapGeometry.build_install_marker_flash(trap_pos, profile, weapon_id)
 
 
 func _spawn_support_round(target: Vector2, profile: Dictionary, weapon_id: String, call_id: int = 0, spawn_index: int = 0) -> void:
@@ -2384,13 +2396,7 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 @warning_ignore("shadowed_variable_base_class")
 func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Dictionary, spawn_index: int) -> void:
 	var target: Vector2 = _get_vector2(call.get("target", _get_boss_target_pos(context)), _get_boss_target_pos(context))
-	var offsets := [-96.0, -48.0, 0.0, 48.0, 96.0, -24.0, 72.0]
-	var offset: float = float(offsets[spawn_index % offsets.size()])
-	var target_y_offset: float = float(((spawn_index * 37) % 81) - 40)
-	var bomb_target := Vector2(
-		clamp(target.x + offset, 54.0, FIELD_WIDTH - 54.0),
-		clamp(target.y + target_y_offset, 42.0, FIELD_HEIGHT - 64.0)
-	)
+	var bomb_target: Vector2 = _get_support_bomb_target(target, spawn_index)
 	_spawn_support_round(
 		bomb_target,
 		profile,
@@ -2398,6 +2404,10 @@ func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Diction
 		int(call.get("id", 0)),
 		spawn_index
 	)
+
+
+func _get_support_bomb_target(target: Vector2, spawn_index: int) -> Vector2:
+	return CommandoFirearmSupportCallResolver.get_bomb_target(target, spawn_index, FIELD_WIDTH, FIELD_HEIGHT)
 
 
 func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -2425,105 +2435,73 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 
 
 func _update_bowling_trap_install(index: int, trap: Dictionary, fps_scale: float) -> void:
-	var timer: float = max(0.0, float(trap.get("timer_frames", BOWLING_TRAP_INSTALL_FRAMES)) - fps_scale)
-	trap["timer_frames"] = timer
-	trap["max_timer_frames"] = BOWLING_TRAP_INSTALL_FRAMES
-	trap["install_progress"] = 1.0 - timer / BOWLING_TRAP_INSTALL_FRAMES
-	if timer <= 0.0:
-		trap["state"] = "waiting"
-		trap["timer_frames"] = 0.0
-		trap["max_timer_frames"] = 1.0
-		trap["install_progress"] = 1.0
-		trap["claw_angle"] = 0.0
-	bowling_traps[index] = trap
+	bowling_traps[index] = CommandoFirearmBowlingTrapGeometry.update_install_state(
+		trap,
+		fps_scale,
+		BOWLING_TRAP_INSTALL_FRAMES
+	)
 
 
 func _capture_bowling_trap_ball(index: int, trap: Dictionary, context: Dictionary, deps: Dictionary) -> void:
-	var ball_vel: Vector2 = _get_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
-	var trap_pos: Vector2 = _get_vector2(trap.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var original_speed: float = max(1.0, ball_vel.length())
-	trap["state"] = "capturing"
-	trap["timer_frames"] = BOWLING_TRAP_CAPTURE_FRAMES
-	trap["max_timer_frames"] = BOWLING_TRAP_CAPTURE_FRAMES
-	trap["capture_progress"] = 0.0
-	trap["claw_angle"] = 1.0
-	trap["captured_ball_pos"] = trap_pos + BOWLING_TRAP_CAPTURE_BALL_OFFSET
-	trap["captured_original_speed"] = original_speed
-	trap["captured_original_vel"] = ball_vel
-	trap["launch_direction"] = _get_bowling_trap_launch_direction(int(trap.get("id", 0)))
-	bowling_traps[index] = trap
+	var captured_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.build_capture_state(
+		trap,
+		context,
+		BOWLING_TRAP_CAPTURE_FRAMES,
+		BOWLING_TRAP_CAPTURE_BALL_OFFSET
+	)
+	var ball_vel: Vector2 = _get_vector2(captured_trap.get("captured_original_vel", Vector2.ZERO), Vector2.ZERO)
+	var captured_pos: Vector2 = _get_vector2(captured_trap.get("captured_ball_pos", Vector2.ZERO), Vector2.ZERO)
+	bowling_traps[index] = captured_trap
 	_trigger_hit_feedback(_get_hit_feedback_profile("bowling_trap"), deps)
-	_register_ball_hit_pulse(trap_pos + BOWLING_TRAP_CAPTURE_BALL_OFFSET, ball_vel, 0.62, "bowling_trap_capture", deps)
+	_register_ball_hit_pulse(captured_pos, ball_vel, 0.62, "bowling_trap_capture", deps)
 	_play_impact_audio("bowling_trap", deps)
 
 
 func _update_bowling_trap_capture(index: int, trap: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var timer: float = max(0.0, float(trap.get("timer_frames", BOWLING_TRAP_CAPTURE_FRAMES)) - fps_scale)
-	var progress: float = 1.0 - timer / BOWLING_TRAP_CAPTURE_FRAMES
-	trap["timer_frames"] = timer
-	trap["max_timer_frames"] = BOWLING_TRAP_CAPTURE_FRAMES
-	trap["capture_progress"] = progress
-	if progress < 0.2:
-		trap["claw_angle"] = 1.0 - progress / 0.2
-	elif progress < 0.5:
-		trap["claw_angle"] = 0.0
-	else:
-		trap["claw_angle"] = -0.3 * ((progress - 0.5) / 0.5)
-	if timer <= 0.0:
-		var launch_result: Dictionary = _release_bowling_trap_ball(trap, context, deps)
+	var next_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.update_capture_state(
+		trap,
+		fps_scale,
+		BOWLING_TRAP_CAPTURE_FRAMES
+	)
+	if CommandoFirearmBowlingTrapGeometry.is_capture_complete(next_trap):
+		var launch_result: Dictionary = _release_bowling_trap_ball(next_trap, context, deps)
 		bowling_traps.remove_at(index)
 		return launch_result
-	bowling_traps[index] = trap
-	return _build_bowling_trap_capture_result(trap)
+	bowling_traps[index] = next_trap
+	return _build_bowling_trap_capture_result(next_trap)
 
 
 func _build_bowling_trap_capture_result(trap: Dictionary) -> Dictionary:
-	var captured_pos: Vector2 = _get_vector2(trap.get("captured_ball_pos", Vector2.ZERO), Vector2.ZERO)
-	return {
-		"ball_pos": captured_pos,
-		"ball_vel": Vector2.ZERO,
-		"skip_ball_motion_step": true,
-		"commando_bowling_trap_captured": true,
-		"commando_bowling_trap_capture_progress": float(trap.get("capture_progress", 0.0)),
-	}
+	return CommandoFirearmBowlingTrapGeometry.build_capture_result(trap)
 
 
 func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var trap_pos: Vector2 = _get_vector2(trap.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var captured_pos: Vector2 = _get_vector2(trap.get("captured_ball_pos", trap_pos + BOWLING_TRAP_CAPTURE_BALL_OFFSET), trap_pos + BOWLING_TRAP_CAPTURE_BALL_OFFSET)
-	var original_speed: float = max(1.0, float(trap.get("captured_original_speed", 0.0)))
-	var launch_speed: float = original_speed * BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER
-	var launch_direction: int = int(trap.get("launch_direction", 0))
-	var launch_angle: float = -PI * 0.5 + float(launch_direction) * BOWLING_TRAP_LAUNCH_ANGLE_STEP
-	var launch_vel: Vector2 = Vector2(cos(launch_angle), sin(launch_angle)) * launch_speed
+	var motion: Dictionary = CommandoFirearmBowlingTrapGeometry.build_release_motion(
+		trap,
+		BOWLING_TRAP_CAPTURE_BALL_OFFSET,
+		BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
+		BOWLING_TRAP_LAUNCH_ANGLE_STEP
+	)
 	var profile: Dictionary = _get_weapon_profile("bowling_trap")
-	var pseudo_projectile := {
-		"id": int(trap.get("id", 0)),
-		"weapon_id": "bowling_trap",
-		"kind": "trap",
-		"pos": trap_pos,
-		"velocity": launch_vel,
-		"impact_radius": float(profile.get("impact_radius", 30.0)) * 1.5,
-		"color": profile.get("color", Color(0.95, 0.18, 0.24)),
-		"secondary": profile.get("secondary", Color(0.22, 0.10, 0.12)),
-	}
+	var pseudo_projectile: Dictionary = CommandoFirearmBowlingTrapGeometry.build_release_pseudo_projectile(
+		trap,
+		motion,
+		profile
+	)
 	_spawn_impact_flash(pseudo_projectile)
 	_spawn_lingering_effect("bowling_trap", pseudo_projectile, context)
 	_trigger_hit_feedback(_get_hit_feedback_profile("bowling_trap"), deps)
+	var captured_pos: Vector2 = _get_vector2(motion.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
+	var launch_vel: Vector2 = _get_vector2(motion.get("launch_vel", Vector2.ZERO), Vector2.ZERO)
 	_register_ball_hit_pulse(captured_pos, launch_vel, 0.86, "bowling_trap_launch", deps)
-	var guard_source: String = _arm_bowling_trap_guard(trap, original_speed)
-	return {
-		"ball_pos": captured_pos,
-		"ball_vel": launch_vel,
-		"skip_ball_motion_step": false,
-		"commando_bowling_trap_released": true,
-		"commando_bowling_trap_guard_armed": true,
-		"commando_bowling_trap_guard_source": guard_source,
-		"commando_bowling_trap_launch_speed": launch_speed,
-		"commando_bowling_trap_guard_knockback_power": BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
-		"commando_bowling_trap_guard_stun_frames": BOWLING_TRAP_GUARD_STUN_FRAMES,
-		"commando_bowling_trap_guard_restore_speed": original_speed * BOWLING_TRAP_GUARD_SPEED_REDUCTION,
-	}
+	var guard_source: String = _arm_bowling_trap_guard(trap, float(motion.get("original_speed", 1.0)))
+	return CommandoFirearmBowlingTrapGeometry.build_release_result(
+		motion,
+		guard_source,
+		BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
+		BOWLING_TRAP_GUARD_STUN_FRAMES,
+		BOWLING_TRAP_GUARD_SPEED_REDUCTION
+	)
 
 
 func _arm_bowling_trap_guard(trap: Dictionary, original_speed: float) -> String:
@@ -3548,51 +3526,71 @@ func _build_lingering_spawn_result(effect: Dictionary, duration: float) -> Dicti
 
 
 func _apply_lingering_effect_status_fields(effect: Dictionary, profile: Dictionary, dissolve: bool) -> void:
-	var status_id: String = _get_lingering_status_profile_id(profile)
-	if not _should_apply_lingering_effect_status_fields(status_id, dissolve):
-		return
-	_apply_lingering_status_profile_base_fields(effect, profile, status_id)
-	_apply_lingering_status_profile_slow_multiplier(effect, profile)
+	CommandoFirearmLingeringStatusState.apply_effect_status_fields(
+		effect,
+		profile,
+		dissolve,
+		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+		LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
+		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
+	)
 
 
 func _apply_lingering_status_profile_base_fields(effect: Dictionary, profile: Dictionary, status_id: String) -> void:
-	effect["status_id"] = status_id
-	effect["status_duration_frames"] = _get_lingering_status_profile_duration(profile)
-	effect["status_interval_frames"] = _get_lingering_status_profile_interval(profile)
-	effect["status_cooldown_frames"] = _get_lingering_status_initial_cooldown()
+	CommandoFirearmLingeringStatusState.apply_profile_base_fields(
+		effect,
+		profile,
+		status_id,
+		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+		LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES
+	)
 
 
 func _apply_lingering_status_profile_slow_multiplier(effect: Dictionary, profile: Dictionary) -> void:
-	if _has_lingering_status_profile_slow_multiplier(profile):
-		effect["slow_multiplier"] = _get_lingering_status_profile_slow_multiplier(profile)
+	CommandoFirearmLingeringStatusState.apply_profile_slow_multiplier(
+		effect,
+		profile,
+		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
+	)
 
 
 func _get_lingering_status_profile_id(profile: Dictionary) -> String:
-	return str(profile.get("status_id", ""))
+	return CommandoFirearmLingeringStatusState.get_profile_id(profile)
 
 
 func _get_lingering_status_profile_duration(profile: Dictionary) -> float:
-	return float(profile.get("status_duration_frames", LINGERING_STATUS_DEFAULT_DURATION_FRAMES))
+	return CommandoFirearmLingeringStatusState.get_profile_duration(
+		profile,
+		LINGERING_STATUS_DEFAULT_DURATION_FRAMES
+	)
 
 
 func _get_lingering_status_profile_interval(profile: Dictionary) -> float:
-	return float(profile.get("status_interval_frames", LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES))
+	return CommandoFirearmLingeringStatusState.get_profile_interval(
+		profile,
+		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES
+	)
 
 
 func _get_lingering_status_initial_cooldown() -> float:
-	return LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES
+	return CommandoFirearmLingeringStatusState.get_initial_cooldown(LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES)
 
 
 func _has_lingering_status_profile_slow_multiplier(profile: Dictionary) -> bool:
-	return profile.has("slow_multiplier")
+	return CommandoFirearmLingeringStatusState.has_profile_slow_multiplier(profile)
 
 
 func _get_lingering_status_profile_slow_multiplier(profile: Dictionary) -> float:
-	return float(profile.get("slow_multiplier", LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER))
+	return CommandoFirearmLingeringStatusState.get_profile_slow_multiplier(
+		profile,
+		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
+	)
 
 
 func _should_apply_lingering_effect_status_fields(status_id: String, dissolve: bool) -> bool:
-	return status_id != "" and not dissolve
+	return CommandoFirearmLingeringStatusState.should_apply_effect_status_fields(status_id, dissolve)
 
 
 func _apply_lingering_net_fields(
@@ -4478,58 +4476,43 @@ func _apply_lingering_status_application(effect: Dictionary, status_application:
 
 
 func _get_lingering_status_id(effect: Dictionary) -> String:
-	return str(effect.get("status_id", ""))
+	return CommandoFirearmLingeringStatusState.get_status_id(effect)
 
 
 func _get_lingering_status_effect_state(deps: Dictionary) -> Object:
-	var status_effect_state: Object = deps.get("status_effect_state", null)
-	if _is_lingering_status_effect_state(status_effect_state):
-		return status_effect_state
-	return null
+	return CommandoFirearmLingeringStatusState.get_status_effect_state(deps)
 
 
 func _get_lingering_status_application(effect: Dictionary, deps: Dictionary) -> Dictionary:
-	var status_id: String = _get_lingering_status_id(effect)
-	if status_id == "":
-		return {}
-	var status_effect_state: Object = _get_lingering_status_effect_state(deps)
-	if status_effect_state == null:
-		return {}
-	return {
-		"status_id": status_id,
-		"status_effect_state": status_effect_state,
-	}
+	return CommandoFirearmLingeringStatusState.get_status_application(effect, deps)
 
 
 func _has_lingering_status_application(status_application: Dictionary) -> bool:
-	return (
-		_get_lingering_status_application_id(status_application) != ""
-		and _get_lingering_status_application_state(status_application) != null
-	)
+	return CommandoFirearmLingeringStatusState.has_status_application(status_application)
 
 
 func _get_lingering_status_application_id(status_application: Dictionary) -> String:
-	return str(status_application.get("status_id", ""))
+	return CommandoFirearmLingeringStatusState.get_status_application_id(status_application)
 
 
 func _get_lingering_status_application_state(status_application: Dictionary) -> Object:
-	var status_effect_state: Object = status_application.get("status_effect_state", null)
-	if _is_lingering_status_effect_state(status_effect_state):
-		return status_effect_state
-	return null
+	return CommandoFirearmLingeringStatusState.get_status_application_state(status_application)
 
 
 func _is_lingering_status_effect_state(status_effect_state: Object) -> bool:
-	return status_effect_state != null and status_effect_state.has_method("apply_status")
+	return CommandoFirearmLingeringStatusState.is_status_effect_state(status_effect_state)
 
 
 func _can_apply_lingering_status(effect: Dictionary, context: Dictionary, fps_scale: float) -> bool:
-	var cooldown: float = _advance_lingering_status_cooldown(effect, fps_scale)
-	return _is_lingering_status_ready_to_apply(cooldown, effect, context)
+	return CommandoFirearmLingeringStatusState.can_apply_status(
+		effect,
+		context,
+		_get_lingering_effect_timer_step(fps_scale)
+	)
 
 
 func _is_lingering_status_ready_to_apply(cooldown: float, effect: Dictionary, context: Dictionary) -> bool:
-	return _is_lingering_status_cooldown_ready(cooldown) and _lingering_effect_hits_boss(effect, context)
+	return CommandoFirearmLingeringStatusState.is_status_ready_to_apply(cooldown, effect, context)
 
 
 func _apply_ready_lingering_status(effect: Dictionary, status_effect_state: Object, status_id: String) -> void:
@@ -4554,124 +4537,137 @@ func _apply_lingering_status_to_boss(
 
 
 func _get_lingering_status_target() -> String:
-	return LINGERING_STATUS_TARGET
+	return CommandoFirearmLingeringStatusState.get_status_target(LINGERING_STATUS_TARGET)
 
 
 func _get_lingering_status_duration(effect: Dictionary) -> float:
-	return float(effect.get("status_duration_frames", LINGERING_STATUS_DEFAULT_DURATION_FRAMES))
+	return CommandoFirearmLingeringStatusState.get_status_duration(
+		effect,
+		LINGERING_STATUS_DEFAULT_DURATION_FRAMES
+	)
 
 
 func _get_lingering_status_source(effect: Dictionary) -> String:
-	return str(effect.get("source", LINGERING_STATUS_DEFAULT_SOURCE))
+	return CommandoFirearmLingeringStatusState.get_status_source(effect, LINGERING_STATUS_DEFAULT_SOURCE)
 
 
 func _build_lingering_status_data(effect: Dictionary, status_id: String) -> Dictionary:
-	var data := {
-		"source": _get_lingering_status_data_source(effect),
-	}
-	if _should_include_lingering_status_slow_multiplier(status_id):
-		data["multiplier"] = _get_lingering_status_slow_multiplier(effect)
-	return data
+	return CommandoFirearmLingeringStatusState.build_status_data(
+		effect,
+		status_id,
+		LINGERING_STATUS_ID_SLOW,
+		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+		LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
+		LINGERING_STATUS_MAX_SLOW_MULTIPLIER
+	)
 
 
 func _should_include_lingering_status_slow_multiplier(status_id: String) -> bool:
-	return status_id == LINGERING_STATUS_ID_SLOW
+	return CommandoFirearmLingeringStatusState.should_include_status_slow_multiplier(
+		status_id,
+		LINGERING_STATUS_ID_SLOW
+	)
 
 
 func _get_lingering_status_data_source(effect: Dictionary) -> String:
-	return str(effect.get("source", ""))
+	return CommandoFirearmLingeringStatusState.get_status_data_source(effect)
 
 
 func _get_lingering_status_slow_multiplier(effect: Dictionary) -> float:
-	return clamp(
-		float(effect.get("slow_multiplier", LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER)),
+	return CommandoFirearmLingeringStatusState.get_status_slow_multiplier(
+		effect,
+		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
 		LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
 		LINGERING_STATUS_MAX_SLOW_MULTIPLIER
 	)
 
 
 func _reset_lingering_status_cooldown(effect: Dictionary) -> float:
-	var cooldown: float = _get_lingering_status_interval(effect)
-	return _set_lingering_status_cooldown(effect, cooldown)
+	return CommandoFirearmLingeringStatusState.reset_status_cooldown(
+		effect,
+		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES
+	)
 
 
 func _get_lingering_status_interval(effect: Dictionary) -> float:
-	return max(1.0, float(effect.get("status_interval_frames", LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES)))
+	return CommandoFirearmLingeringStatusState.get_status_interval(
+		effect,
+		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES
+	)
 
 
 func _advance_lingering_status_cooldown(effect: Dictionary, fps_scale: float) -> float:
-	var cooldown: float = _get_next_lingering_status_cooldown(effect, fps_scale)
-	return _set_lingering_status_cooldown(effect, cooldown)
+	return CommandoFirearmLingeringStatusState.advance_status_cooldown(
+		effect,
+		_get_lingering_effect_timer_step(fps_scale)
+	)
 
 
 func _set_lingering_status_cooldown(effect: Dictionary, cooldown: float) -> float:
-	effect["status_cooldown_frames"] = cooldown
-	return cooldown
+	return CommandoFirearmLingeringStatusState.set_status_cooldown(effect, cooldown)
 
 
 func _get_lingering_status_cooldown(effect: Dictionary) -> float:
-	return max(0.0, float(effect.get("status_cooldown_frames", 0.0)))
+	return CommandoFirearmLingeringStatusState.get_status_cooldown(effect)
 
 
 func _get_next_lingering_status_cooldown(effect: Dictionary, fps_scale: float) -> float:
-	var step: float = _get_lingering_effect_timer_step(fps_scale)
-	return max(0.0, _get_lingering_status_cooldown(effect) - step)
+	return CommandoFirearmLingeringStatusState.get_next_status_cooldown(
+		effect,
+		_get_lingering_effect_timer_step(fps_scale)
+	)
 
 
 func _is_lingering_status_cooldown_ready(cooldown: float) -> bool:
-	return cooldown <= 0.0
+	return CommandoFirearmLingeringStatusState.is_status_cooldown_ready(cooldown)
 
 
 func _lingering_effect_hits_boss(effect: Dictionary, context: Dictionary) -> bool:
-	var effect_rect: Rect2 = _get_lingering_effect_rect(effect)
-	var boss_rect: Rect2 = _get_lingering_boss_rect(context)
-	return _do_lingering_rects_intersect(effect_rect, boss_rect)
+	return CommandoFirearmLingeringStatusState.lingering_effect_hits_boss(effect, context)
 
 
 func _do_lingering_rects_intersect(effect_rect: Rect2, boss_rect: Rect2) -> bool:
-	return effect_rect.intersects(boss_rect)
+	return CommandoFirearmLingeringStatusState.do_lingering_rects_intersect(effect_rect, boss_rect)
 
 
 func _get_lingering_effect_rect(effect: Dictionary) -> Rect2:
-	var pos: Vector2 = _get_lingering_effect_rect_pos(effect)
-	var size: Vector2 = _get_lingering_effect_rect_size(effect)
-	return Rect2(pos - size * 0.5, size)
+	return CommandoFirearmLingeringStatusState.get_lingering_effect_rect(effect)
 
 
 func _get_lingering_effect_rect_pos(effect: Dictionary) -> Vector2:
-	return _get_vector2(effect.get("pos", Vector2.ZERO), Vector2.ZERO)
+	return CommandoFirearmLingeringStatusState.get_lingering_effect_rect_pos(effect)
 
 
 func _get_lingering_effect_rect_width(effect: Dictionary) -> float:
-	return max(1.0, float(effect.get("width", 80.0)))
+	return CommandoFirearmLingeringStatusState.get_lingering_effect_rect_width(effect)
 
 
 func _get_lingering_effect_rect_height(effect: Dictionary) -> float:
-	return max(1.0, float(effect.get("height", 40.0)))
+	return CommandoFirearmLingeringStatusState.get_lingering_effect_rect_height(effect)
 
 
 func _get_lingering_effect_rect_size(effect: Dictionary) -> Vector2:
-	return Vector2(_get_lingering_effect_rect_width(effect), _get_lingering_effect_rect_height(effect))
+	return CommandoFirearmLingeringStatusState.get_lingering_effect_rect_size(effect)
 
 
 func _get_lingering_boss_rect(context: Dictionary) -> Rect2:
-	return Rect2(_get_lingering_boss_rect_pos(context), _get_lingering_boss_rect_size(context))
+	return CommandoFirearmLingeringStatusState.get_lingering_boss_rect(context)
 
 
 func _get_lingering_boss_rect_pos(context: Dictionary) -> Vector2:
-	return _get_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
+	return CommandoFirearmLingeringStatusState.get_lingering_boss_rect_pos(context)
 
 
 func _get_lingering_boss_rect_width(context: Dictionary) -> float:
-	return max(1.0, float(context.get("boss_paddle_width", context.get("boss_width", 100.0))))
+	return CommandoFirearmLingeringStatusState.get_lingering_boss_rect_width(context)
 
 
 func _get_lingering_boss_rect_height(context: Dictionary) -> float:
-	return max(1.0, float(context.get("boss_hitbox_height", 40.0)))
+	return CommandoFirearmLingeringStatusState.get_lingering_boss_rect_height(context)
 
 
 func _get_lingering_boss_rect_size(context: Dictionary) -> Vector2:
-	return Vector2(_get_lingering_boss_rect_width(context), _get_lingering_boss_rect_height(context))
+	return CommandoFirearmLingeringStatusState.get_lingering_boss_rect_size(context)
 
 
 func _get_hit_knockback_velocity(profile: Dictionary, pos: Vector2, velocity: Vector2, context: Dictionary) -> float:

@@ -25,6 +25,15 @@ func _verify_prewarm_idempotence() -> void:
 	Stage1CommandoFirearmFxHost.reset_prewarm_cache_for_test()
 	_expect(not Stage1CommandoFirearmRenderer._prewarmed, "renderer prewarm flag should start false after reset")
 	_expect(not Stage1CommandoFirearmFxHost._prewarmed, "fx_host prewarm flag should start false after reset")
+	_expect(not Stage1CommandoFirearmRenderer.prewarm_assets_step(), "renderer staged prewarm should expose its first chunk")
+	_expect(not Stage1CommandoFirearmRenderer._prewarmed, "renderer staged prewarm should not latch after one chunk")
+	var staged_guard := 0
+	while not Stage1CommandoFirearmRenderer.prewarm_assets_step() and staged_guard < 40:
+		staged_guard += 1
+	_expect(staged_guard < 40, "renderer staged prewarm should finish within its declared chunks")
+	_expect(Stage1CommandoFirearmRenderer._prewarmed, "renderer staged prewarm should latch true when chunks finish")
+	Stage1CommandoFirearmRenderer.reset_prewarm_cache_for_test()
+	Stage1CommandoFirearmFxHost.reset_prewarm_cache_for_test()
 	Stage1CommandoFirearmRenderer.prewarm_assets()
 	_expect(Stage1CommandoFirearmRenderer._prewarmed, "renderer prewarm flag should latch true after first call")
 	_expect(Stage1CommandoFirearmFxHost._prewarmed, "fx_host prewarm flag should latch true via the renderer prewarm dispatch")

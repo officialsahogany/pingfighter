@@ -48,6 +48,7 @@ static var bowling_trap_installed_texture: Texture2D = null
 static var bowling_trap_capture_sheet_texture: Texture2D = null
 static var bowling_trap_launch_sheet_texture: Texture2D = null
 static var _prewarmed: bool = false
+static var _prewarm_step_index: int = 0
 
 
 # Idempotent. All underlying caches (ImpactFlareTextureCache, ImpactShockwaveTextureCache,
@@ -55,24 +56,48 @@ static var _prewarmed: bool = false
 # themselves cached, but skipping the dispatch entirely once `_prewarmed` is true avoids
 # the per-frame method-call overhead on every actor render pass.
 static func prewarm_assets() -> void:
+	while not prewarm_assets_step():
+		pass
+
+
+static func prewarm_assets_step() -> bool:
 	if _prewarmed:
-		return
-	_prewarmed = true
-	ImpactFlareTextureCache.prewarm()
-	ImpactShockwaveTextureCache.prewarm()
-	Stage1CommandoFirearmFxHost.prewarm_assets()
-	var fx_probe: Node = Stage1CommandoFirearmFxHost.new()
-	if fx_probe != null and fx_probe.has_method("prewarm_node_pipeline"):
-		fx_probe.prewarm_node_pipeline()
-		fx_probe.free()
-	_get_slingshot_stone_texture()
-	_get_bowling_trap_installed_texture()
-	_get_bowling_trap_capture_sheet_texture()
-	_get_bowling_trap_launch_sheet_texture()
+		return true
+	match _prewarm_step_index:
+		0:
+			ImpactFlareTextureCache.prewarm()
+		1:
+			ImpactShockwaveTextureCache.prewarm()
+		2:
+			Stage1CommandoFirearmFxHost.prewarm_assets()
+		3:
+			var fx_probe: Node = Stage1CommandoFirearmFxHost.new()
+			if fx_probe != null and fx_probe.has_method("prewarm_node_pipeline"):
+				fx_probe.prewarm_node_pipeline()
+				fx_probe.free()
+		4:
+			_get_slingshot_stone_texture()
+		5:
+			_get_bowling_trap_installed_texture()
+		6:
+			_get_bowling_trap_capture_sheet_texture()
+		7:
+			_get_bowling_trap_launch_sheet_texture()
+		_:
+			_prewarmed = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	if _prewarm_step_index > 7:
+		_prewarmed = true
+		_prewarm_step_index = 0
+		return true
+	return false
 
 
 static func reset_prewarm_cache_for_test() -> void:
 	_prewarmed = false
+	_prewarm_step_index = 0
 
 
 # True iff any commando firearm runtime arrays in `context` carry at least one
