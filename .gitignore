@@ -239,9 +239,17 @@ tools/codex_phrase_picker/
 # Legacy item-generation iteration trails
 items/sprite_candidates/
 items/archive_*/
+items/**/backup/
 items/*_backup_*.png
 items/*.bak_*
 items/*.v1_magenta_backup
+items/**/*_source*.png
+items/**/*_alpha_raw.png
+items/**/*.jpeg
+items/**/*.necklace_backup
+images/**/*_source*.png
+assets/*_preview.gif
+assets/*.jpeg
 
 # Godot local/editor generated files
 godot/.godot/
