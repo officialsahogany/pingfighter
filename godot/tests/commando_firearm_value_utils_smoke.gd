@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 var _failures: Array[String] = []
@@ -1310,6 +1311,21 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(runtime._consume_net_gun_dash_trigger({"dash_snapshot": null}, {"dash_state": fake_dash_state}), "net dash trigger helper should read dash state dependencies")
 	fake_dash_state.active = false
 	_expect(not runtime._consume_net_gun_dash_trigger({"dash_snapshot": null}, {"dash_state": fake_dash_state}), "net dash trigger helper should clear dependency dash state without firing")
+	var direct_marked_broken_net := {
+		"weapon_id": "net_gun",
+		"hooked_player": true,
+		"dissolve": false,
+		"rope_broken": false,
+		"timer_frames": 90.0,
+		"max_timer_frames": 90.0,
+		"rope_snap_timer": 0.0,
+		"status_id": "net_capture",
+	}
+	CommandoFirearmLingeringNetFieldState.mark_hooked_field_broken(direct_marked_broken_net, 24.0)
+	_expect(not bool(direct_marked_broken_net.get("hooked_player", true)), "direct net broken helper should clear hooked state")
+	_expect(bool(direct_marked_broken_net.get("dissolve", false)), "direct net broken helper should start dissolve")
+	_expect(is_equal_approx(float(direct_marked_broken_net.get("timer_frames", 0.0)), 24.0), "direct net broken helper should use dash-break timer")
+	_expect(str(direct_marked_broken_net.get("status_id", "missing")).is_empty(), "direct net broken helper should clear active status")
 	var marked_broken_net := {
 		"weapon_id": "net_gun",
 		"hooked_player": true,

@@ -3357,12 +3357,13 @@ This section is intentionally long; use search to find the nearest owner.
   facing fire-particle state math.
 - `scripts/characters/commando_firearm_lingering_net_field_state.gd`
   Owns pure Commando lingering net-field state: live / dissolve lifecycle
-  payloads, profile-derived rope / origin / player-slow fields, deterministic
-  net outline generation, net-field position and height clamping, alternating
-  constrict input predicates, and boss clamp rectangle / result math. The
-  runtime keeps projectile impact ownership, active lingering-effect storage,
-  dash-break mutation, audio side effects, and its existing private wrapper
-  names while delegating only deterministic net-field calculations here.
+  payloads, dash-break rope-broken payloads, profile-derived rope / origin /
+  player-slow fields, deterministic net outline generation, net-field position
+  and height clamping, alternating constrict input predicates, and boss clamp
+  rectangle / result math. The runtime keeps projectile impact ownership,
+  active lingering-effect storage, dash-trigger detection, audio side effects,
+  and its existing private wrapper names while delegating deterministic
+  net-field calculations here.
 - `scripts/characters/commando_firearm_lingering_status_state.gd`
   Owns pure Commando lingering status state: profile-derived status payload
   fields, status application candidate dictionaries, slow-multiplier status

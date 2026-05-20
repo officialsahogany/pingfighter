@@ -3703,13 +3703,7 @@ func _break_hooked_net_fields() -> void:
 
 
 func _mark_hooked_net_field_broken(effect: Dictionary) -> void:
-	effect["hooked_player"] = false
-	effect["dissolve"] = true
-	effect["rope_broken"] = true
-	effect["timer_frames"] = NET_GUN_DASH_BREAK_FRAMES
-	effect["max_timer_frames"] = NET_GUN_DASH_BREAK_FRAMES
-	effect["rope_snap_timer"] = NET_GUN_DASH_BREAK_FRAMES
-	effect["status_id"] = ""
+	CommandoFirearmLingeringNetFieldState.mark_hooked_field_broken(effect, NET_GUN_DASH_BREAK_FRAMES)
 
 
 func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps: Dictionary) -> void:

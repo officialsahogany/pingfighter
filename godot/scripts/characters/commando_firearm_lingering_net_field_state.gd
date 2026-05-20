@@ -15,6 +15,16 @@ static func apply_lifecycle_fields(effect: Dictionary, dissolve: bool) -> void:
 	effect["rope_snap_timer"] = 0.0
 
 
+static func mark_hooked_field_broken(effect: Dictionary, dash_break_frames: float) -> void:
+	effect["hooked_player"] = false
+	effect["dissolve"] = true
+	effect["rope_broken"] = true
+	effect["timer_frames"] = dash_break_frames
+	effect["max_timer_frames"] = dash_break_frames
+	effect["rope_snap_timer"] = dash_break_frames
+	effect["status_id"] = ""
+
+
 static func get_rope_snap_duration(profile: Dictionary, default_dash_break_frames: float) -> float:
 	return float(profile.get("dash_break_frames", default_dash_break_frames))
 
