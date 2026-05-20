@@ -16,6 +16,8 @@ const GRENADE_EXPLOSION_DURATION_FRAMES := 25.0
 const FLARE_THROW_WINDUP_MSEC := 600
 const FLARE_DRAW_SIZE := 34.0
 const FLARE_RADIUS := 180.0
+const FLARE_FLASH_LAYERS := 1
+const FLARE_GLOW_LAYERS := 1
 const BOOMERANG_DRAW_SIZE := 42.0
 
 var grenade_icon_texture: Texture2D
@@ -254,17 +256,17 @@ func _draw_flare_zones(canvas: CanvasItem, flare_zones: Array, shake_offset: Vec
 
 		if bool(zone.get("flash", false)):
 			canvas.draw_rect(Rect2(shake_offset, Vector2(FIELD_WIDTH, FIELD_HEIGHT)), Color(1.0, 1.0, 230.0 / 255.0, (180.0 / 255.0) * intensity))
-			for i in range(5):
-				var layer_radius: float = radius * (1.0 - float(i) * 0.15)
-				var alpha: float = intensity * (1.0 - float(i) * 0.20)
+			for i in range(FLARE_FLASH_LAYERS):
+				var layer_radius: float = radius * (1.0 - float(i) * 0.18)
+				var alpha: float = intensity * (1.0 - float(i) * 0.28)
 				if alpha > 0.0 and layer_radius > 1.0:
 					canvas.draw_circle(center, layer_radius, Color(1.0, 1.0, 240.0 / 255.0, alpha))
-			if intensity > 0.7:
+			if intensity > 0.85:
 				var cross_length: float = radius * 2.0
 				canvas.draw_line(center + Vector2(-cross_length, 0.0), center + Vector2(cross_length, 0.0), Color.WHITE, 5.0)
 				canvas.draw_line(center + Vector2(0.0, -cross_length), center + Vector2(0.0, cross_length), Color.WHITE, 5.0)
 		else:
-			for i in range(3):
+			for i in range(FLARE_GLOW_LAYERS):
 				var layer_radius: float = radius * (1.0 - float(i) * 0.2)
 				var alpha: float = (100.0 / 255.0) * intensity * (1.0 - float(i) * 0.3)
 				if alpha > 0.0 and layer_radius > 1.0:
