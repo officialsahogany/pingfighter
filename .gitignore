@@ -219,3 +219,6 @@ godot/*.tmp
 # Godot asset iteration trails
 godot/assets/ui/character_live2d/_rejected_free_parts_v1/
 godot/assets/ui/character_live2d/smasher_live2d_rig_v[1-5]*
+godot/assets/ui/character_live2d/*_atlas.json
+godot/assets/ui/character_live2d/*_manifest.json
+godot/assets/ui/character_live2d/*_qc.json
