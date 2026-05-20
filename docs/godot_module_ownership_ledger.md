@@ -3306,10 +3306,11 @@ This section is intentionally long; use search to find the nearest owner.
   shape to this helper.
 - `scripts/characters/commando_firearm_draw_state_resolver.gd`
   Owns pure Commando firearm renderer-facing draw-state dictionary scaffolding
-  for the pistol fire pose and shared weapon-fire sheet overlay. The runtime
-  keeps timer ownership, weapon-fire sheet lifecycle, actor-context publication,
-  and private wrapper names while delegating the stable draw payload shape to
-  this helper.
+  for slingshot charge, pistol fire pose, shared weapon-fire sheet overlay,
+  AK-47, bazooka, net gun, bowling trap, and suicide drone payloads. The
+  runtime keeps timer ownership, weapon-fire sheet / projectile / trap
+  lifecycle, actor-context publication, and private wrapper names while
+  delegating the stable draw payload shape to this helper.
 - `scripts/characters/commando_firearm_impact_flash_resolver.gd`
   Owns pure Commando impact-flash dictionary construction: bullet / non-
   bullet timers, fire-support grenade visual kind and duration, explosion

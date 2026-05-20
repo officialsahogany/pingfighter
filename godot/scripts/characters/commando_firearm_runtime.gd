@@ -1637,16 +1637,16 @@ func _get_bowling_trap_draw_state() -> Dictionary:
 		if str(trap.get("state", "")) == "installing":
 			install_progress = clamp(float(trap.get("install_progress", 0.0)), 0.0, 1.0)
 			break
-	return {
-		"cooldown_frames": bowling_trap_cooldown_frames,
-		"cooldown_max_frames": BOWLING_TRAP_COOLDOWN_FRAMES,
-		"control_lock_frames": bowling_trap_control_lock_frames,
-		"control_lock_max_frames": BOWLING_TRAP_CONTROL_LOCK_FRAMES,
-		"install_pose_frames": bowling_trap_install_pose_frames,
-		"install_pose_max_frames": BOWLING_TRAP_INSTALL_FRAMES,
-		"installing": _has_installing_bowling_trap(),
-		"install_progress": install_progress,
-	}
+	return CommandoFirearmDrawStateResolver.build_bowling_trap_state(
+		bowling_trap_cooldown_frames,
+		BOWLING_TRAP_COOLDOWN_FRAMES,
+		bowling_trap_control_lock_frames,
+		BOWLING_TRAP_CONTROL_LOCK_FRAMES,
+		bowling_trap_install_pose_frames,
+		BOWLING_TRAP_INSTALL_FRAMES,
+		_has_installing_bowling_trap(),
+		install_progress
+	)
 
 
 func _update_suicide_drone_input(
@@ -1799,14 +1799,14 @@ func _get_suicide_drone_input_vector(input_snapshot: Dictionary) -> Vector2:
 func _get_suicide_drone_draw_state() -> Dictionary:
 	var index: int = _get_active_suicide_drone_index()
 	var projectile: Dictionary = _get_dict(projectiles[index]) if index >= 0 else {}
-	return {
-		"active": index >= 0,
-		"cooldown_frames": suicide_drone_cooldown_frames,
-		"cooldown_max_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
-		"grace_frames": float(projectile.get("grace_timer_frames", 0.0)),
-		"pos": _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
-		"velocity": _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO),
-	}
+	return CommandoFirearmDrawStateResolver.build_suicide_drone_state(
+		index >= 0,
+		suicide_drone_cooldown_frames,
+		SUICIDE_DRONE_COOLDOWN_FRAMES,
+		float(projectile.get("grace_timer_frames", 0.0)),
+		_get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
+		_get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+	)
 
 
 func _input_action_just_pressed(input_snapshot: Dictionary) -> bool:
@@ -1969,18 +1969,18 @@ func _get_slingshot_fire_profile(charge_level: int) -> Dictionary:
 
 
 func _get_slingshot_draw_state() -> Dictionary:
-	return {
-		"charging": slingshot_charging,
-		"charge_timer_frames": slingshot_charge_timer_frames,
-		"charge_level": slingshot_charge_level,
-		"charge_ratio": clamp(slingshot_charge_timer_frames / SLINGSHOT_CHARGE_THRESHOLD_3, 0.0, 1.0),
-		"charge_tick_ratio": fmod(max(0.0, slingshot_charge_timer_frames), SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES) / SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES,
-		"cooldown_frames": slingshot_cooldown_frames,
-		"cooldown_max_frames": SLINGSHOT_COOLDOWN_FRAMES,
-		"gauge_spent": slingshot_gauge_spent,
-		"control_lock_frames": slingshot_control_lock_frames,
-		"control_lock_max_frames": SLINGSHOT_CONTROL_LOCK_FRAMES,
-	}
+	return CommandoFirearmDrawStateResolver.build_slingshot_state(
+		slingshot_charging,
+		slingshot_charge_timer_frames,
+		slingshot_charge_level,
+		SLINGSHOT_CHARGE_THRESHOLD_3,
+		SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES,
+		slingshot_cooldown_frames,
+		SLINGSHOT_COOLDOWN_FRAMES,
+		slingshot_gauge_spent,
+		slingshot_control_lock_frames,
+		SLINGSHOT_CONTROL_LOCK_FRAMES
+	)
 
 
 func _get_pistol_draw_state() -> Dictionary:
@@ -2006,46 +2006,44 @@ func _get_weapon_fire_sheet_draw_state() -> Dictionary:
 
 
 func _get_ak47_draw_state() -> Dictionary:
-	return {
-		"trigger_held": ak47_trigger_held,
-		"fire_interval_frames": ak47_fire_interval_frames,
-		"fire_interval_max_frames": AK47_FIRE_INTERVAL_FRAMES,
-		"burst_shots_remaining": ak47_burst_shots_remaining,
-		"recoil_accumulation": ak47_recoil_accumulation,
-		"movement_speed_multiplier": get_movement_speed_multiplier(),
-	}
+	return CommandoFirearmDrawStateResolver.build_ak47_state(
+		ak47_trigger_held,
+		ak47_fire_interval_frames,
+		AK47_FIRE_INTERVAL_FRAMES,
+		ak47_burst_shots_remaining,
+		ak47_recoil_accumulation,
+		get_movement_speed_multiplier()
+	)
 
 
 func _get_bazooka_draw_state() -> Dictionary:
-	return {
-		"cooldown_frames": bazooka_cooldown_frames,
-		"cooldown_max_frames": BAZOOKA_COOLDOWN_FRAMES,
-		"control_lock_frames": bazooka_control_lock_frames,
-		"control_lock_max_frames": BAZOOKA_CONTROL_LOCK_FRAMES,
-		"fire_animation_frames": bazooka_fire_animation_frames,
-		"fire_animation_max_frames": BAZOOKA_FIRE_ANIMATION_FRAMES,
-		"firing_pose_frames": bazooka_firing_pose_frames,
-		"firing_pose_max_frames": BAZOOKA_FIRING_POSE_FRAMES,
-		"muzzle_flash_frames": bazooka_muzzle_flash_frames,
-		"muzzle_flash_max_frames": BAZOOKA_MUZZLE_FLASH_FRAMES,
-		"firing_pose": bazooka_firing_pose_frames > 0.0,
-	}
+	return CommandoFirearmDrawStateResolver.build_bazooka_state(
+		bazooka_cooldown_frames,
+		BAZOOKA_COOLDOWN_FRAMES,
+		bazooka_control_lock_frames,
+		BAZOOKA_CONTROL_LOCK_FRAMES,
+		bazooka_fire_animation_frames,
+		BAZOOKA_FIRE_ANIMATION_FRAMES,
+		bazooka_firing_pose_frames,
+		BAZOOKA_FIRING_POSE_FRAMES,
+		bazooka_muzzle_flash_frames,
+		BAZOOKA_MUZZLE_FLASH_FRAMES
+	)
 
 
 func _get_net_gun_draw_state() -> Dictionary:
-	return {
-		"cooldown_frames": net_gun_cooldown_frames,
-		"cooldown_max_frames": NET_GUN_COOLDOWN_FRAMES,
-		"control_lock_frames": net_gun_control_lock_frames,
-		"control_lock_max_frames": NET_GUN_CONTROL_LOCK_FRAMES,
-		"throw_pose_frames": net_gun_throw_pose_frames,
-		"throw_pose_max_frames": NET_GUN_THROW_POSE_FRAMES,
-		"harpoon_flash_frames": net_gun_harpoon_flash_frames,
-		"harpoon_flash_max_frames": NET_GUN_HARPOON_FLASH_FRAMES,
-		"throw_pose": net_gun_throw_pose_frames > 0.0,
-		"player_slow_multiplier": get_movement_speed_multiplier(),
-		"hooked_net_active": _has_hooked_net_field(),
-	}
+	return CommandoFirearmDrawStateResolver.build_net_gun_state(
+		net_gun_cooldown_frames,
+		NET_GUN_COOLDOWN_FRAMES,
+		net_gun_control_lock_frames,
+		NET_GUN_CONTROL_LOCK_FRAMES,
+		net_gun_throw_pose_frames,
+		NET_GUN_THROW_POSE_FRAMES,
+		net_gun_harpoon_flash_frames,
+		NET_GUN_HARPOON_FLASH_FRAMES,
+		get_movement_speed_multiplier(),
+		_has_hooked_net_field()
+	)
 
 
 func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictionary, profile_override: Dictionary = {}) -> void:
