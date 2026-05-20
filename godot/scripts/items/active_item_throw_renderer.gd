@@ -281,26 +281,22 @@ func _draw_rotated_texture_region(
 	draw_size: Vector2,
 	angle_degrees: float
 ) -> void:
+	if draw_size.x <= 0.0 or draw_size.y <= 0.0:
+		return
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var angle: float = deg_to_rad(angle_degrees)
 	var half_size: Vector2 = draw_size * 0.5
-	var radians: float = deg_to_rad(angle_degrees)
-	var cos_a: float = cos(radians)
-	var sin_a: float = sin(radians)
-	var offsets := [
+	var local_corners := [
 		Vector2(-half_size.x, -half_size.y),
 		Vector2(half_size.x, -half_size.y),
 		Vector2(half_size.x, half_size.y),
 		Vector2(-half_size.x, half_size.y),
 	]
 	var points := PackedVector2Array()
-	for offset in offsets:
-		points.append(center + Vector2(
-			offset.x * cos_a - offset.y * sin_a,
-			offset.x * sin_a + offset.y * cos_a
-		))
-
-	var texture_size: Vector2 = texture.get_size()
-	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
-		return
+	for corner in local_corners:
+		points.append(_rotated_local(center, corner, angle))
 	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
 	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
 	var uvs := PackedVector2Array([
@@ -309,8 +305,7 @@ func _draw_rotated_texture_region(
 		Vector2(uv_max.x, uv_max.y),
 		Vector2(uv_min.x, uv_max.y),
 	])
-	var colors := PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE])
-	canvas.draw_polygon(points, colors, uvs, texture)
+	canvas.draw_polygon(points, PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE]), uvs, texture)
 
 
 func _get_grenade_icon_texture() -> Texture2D:
@@ -363,6 +358,12 @@ func _get_throw_item_draw_size(item_name: String) -> float:
 		return BOOMERANG_DRAW_SIZE
 	return GRENADE_DRAW_SIZE
 
+
+func _rotated_local(center: Vector2, local: Vector2, angle: float) -> Vector2:
+	return center + Vector2(
+		local.x * cos(angle) - local.y * sin(angle),
+		local.x * sin(angle) + local.y * cos(angle)
+	)
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
 	var value: Variant = source.get(key, fallback)
