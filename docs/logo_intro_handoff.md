@@ -1,9 +1,19 @@
-# Logo Intro Handoff — Penguin Wave Sprite Sheet
+# Legacy Logo Intro Handoff — Penguin Wave Sprite Sheet
 
-This document hands off the completed 24-frame logo intro asset to Codex for
-runtime integration. Asset generation / nukki / identity QA is done. Only
-the implementation (loader, fade state machine, startup sequence wiring,
-caching, PyInstaller path handling) remains.
+This is a frozen Python/Pygame PingFighter handoff. Keep it as provenance
+for the old 24-frame penguin logo intro asset and as a parity reference only.
+Current DiskHearts - Ringpia logo / intro work belongs in the repo-local
+Godot project, especially `godot/scripts/core/penguin_logo_intro.gd`,
+`godot/scripts/resources/gameplay_core_module_catalog.gd`, and the relevant
+`godot/assets/ui/...` logo asset folders.
+
+Do not follow the Python/Pygame integration steps below for new work unless
+the user explicitly asks for original PingFighter source changes.
+
+Original handoff summary: asset generation / nukki / identity QA was done.
+The remaining implementation notes below describe the old Python loader,
+fade state machine, startup sequence wiring, caching, and PyInstaller path
+handling.
 
 Scope of this handoff:
 - What the assets are and where they live

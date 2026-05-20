@@ -1,11 +1,16 @@
-# Commando Firearm Overhaul
+# Commando Firearm Overhaul Port Reference
 
-Agreed implementation handoff for the `soldier` / Commando firearm-system
-rework in `pingfighter.py`.
+Current target: Godot **디스크하츠 - 링피아**.
 
-This document turns the agreed design into a runtime implementation spec
-that can be executed against the current codebase without re-deciding the
-system shape mid-implementation.
+This document preserves the agreed design for the `soldier` / Commando
+firearm-system rework. The original anchors below were captured from
+`pingfighter.py`; treat them as frozen Python/Pygame PingFighter parity
+references. New runtime work belongs under `godot/` unless the user
+explicitly asks for original PingFighter source changes.
+
+When using this document now, map each legacy anchor to the current Godot
+Commando owner module, firearm runtime, renderer, audio owner, tooltip path,
+save/load state, and smoke test before implementing.
 
 Companion references:
 
@@ -18,7 +23,8 @@ Companion references:
   not the owner of this runtime skill work unless boss-sprite runtime is
   also touched
 
-Current code anchors in `pingfighter.py` (snapshot used for this spec):
+Legacy Python code anchors in `pingfighter.py` (snapshot used for this
+spec; audit current Godot owners before implementation):
 
 - `SOLDIER_SKILL_ICONS_DATA` near `pingfighter.py:12469`
 - `_draw_soldier_skill_icons()` near `pingfighter.py:12715`
@@ -700,6 +706,27 @@ Before calling the overhaul done, verify all of the following.
       confirm the once-per-stage lock remains
 - [ ] advance to the next stage and confirm rentals are gone while
       permanent firearms refill
+
+### 9.8. Firearm hit geometry / radial CC
+
+- [ ] For explosive / radial firearms (`bazooka`, `fire_support`,
+      `suicide_drone`, and any future explosive rental / permanent
+      firearm), compare the live Godot hit primitive against the Python
+      reference before signing off. Python bazooka, grenade-style fire
+      support, and suicide drone boss CC use boss-center distance for the
+      stun / knockback result; Godot must not promote a visual
+      circle-vs-rect edge touch into a boss status hit.
+- [ ] Keep projectile-body collision, net / trap capture geometry, and
+      visual explosion overlap separate from status-result geometry. A
+      helper such as `circle_intersects_rect()` is valid for physical
+      overlap and some hazards, but center-distance effects should use a
+      center helper such as `circle_contains_rect_center()`.
+- [ ] Add focused smoke coverage for each result-applying radial path:
+      target-reached explosion, wall impact, support-bomb target Y,
+      manual drone detonation, ball / boss-contact detonation, and any
+      future cleanup-triggered detonation. Include center-hit, full-miss,
+      and edge-only cases where the boss rect edge is inside the visual
+      radius while the boss center is outside.
 
 ---
 

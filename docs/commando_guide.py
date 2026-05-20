@@ -3,6 +3,11 @@
 """
 코만도(Commando) 캐릭터 공략 PDF 생성기
 핑파이터 게임 공략 자료
+
+Legacy reference tool only. The active project is the Godot game
+디스크하츠 - 링피아 under godot/. This script describes / generates old
+Python/Pygame PingFighter guide material and should not be treated as a
+current runtime integration target.
 """
 
 import os

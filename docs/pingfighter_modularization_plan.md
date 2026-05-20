@@ -1,4 +1,12 @@
-# pingfighter.py 모듈화 1차 계획 (2025-09-22)
+# Legacy pingfighter.py Modularization Plan (2025-09-22)
+
+Current target: Godot **디스크하츠 - 링피아**.
+
+This is a frozen Python/Pygame PingFighter planning document. Keep it as
+historical context only. Do not use it as a current refactor plan unless the
+user explicitly asks for original PingFighter source work. Current
+architecture and module-boundary work belongs in `godot/` and
+`docs/godot_port_architecture.md`.
 
 ## 현황 개요
 - 파일 길이: 50,952 라인 / 최상위 함수 392개, 클래스 2개.
@@ -50,4 +58,3 @@
 - [ ] `pingfighter.py` 내 상수 및 전역 선언 영향도 정리 (컨텍스트 설계 초안 문서화).
 - [ ] `GameContext` 설계 초안 작성 및 최소 참조 리스트 추출.
 - [ ] `game_loop()` 호출부를 컨텍스트 기반 구조로 리팩터링하는 작은 패치 초안 준비.
-

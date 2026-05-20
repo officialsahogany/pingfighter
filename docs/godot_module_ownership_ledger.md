@@ -3297,6 +3297,19 @@ This section is intentionally long; use search to find the nearest owner.
   duration, and which authored source frame should be the starting pose.
   `commando_firearm_runtime.gd` keeps timer state, replay suppression, and
   draw-state publication while delegating only these mapping decisions.
+- `scripts/characters/commando_firearm_fire_result_state.gd`
+  Owns pure Commando firearm result dictionary scaffolding for weapon-fire
+  failure payloads: handled / weapon-id / fire-failed / reason / special-gauge
+  base fields plus caller-provided timer fields. `commando_firearm_runtime.gd`
+  keeps the input gates, ammo / cooldown mutations, reload side effects, audio
+  cues, and current timer reads while delegating the shared failure-result
+  shape to this helper.
+- `scripts/characters/commando_firearm_draw_state_resolver.gd`
+  Owns pure Commando firearm renderer-facing draw-state dictionary scaffolding
+  for the pistol fire pose and shared weapon-fire sheet overlay. The runtime
+  keeps timer ownership, weapon-fire sheet lifecycle, actor-context publication,
+  and private wrapper names while delegating the stable draw payload shape to
+  this helper.
 - `scripts/characters/commando_firearm_impact_flash_resolver.gd`
   Owns pure Commando impact-flash dictionary construction: bullet / non-
   bullet timers, fire-support grenade visual kind and duration, explosion

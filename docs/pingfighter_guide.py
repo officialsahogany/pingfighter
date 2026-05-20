@@ -3,6 +3,11 @@
 """
 핑파이터(PingFighter) 기본 조작법 및 팁 가이드 PDF 생성기
 나무위키 스타일 문서
+
+Legacy reference tool only. The active project is the Godot game
+디스크하츠 - 링피아 under godot/. This script describes / generates old
+Python/Pygame PingFighter guide material and should not be treated as a
+current runtime integration target.
 """
 
 import os

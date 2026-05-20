@@ -1,4 +1,16 @@
-# 코만도 화기류 시스템 개발 가이드
+# Legacy 코만도 화기류 시스템 개발 가이드
+
+현재 대상: Godot **디스크하츠 - 링피아**.
+
+이 문서는 frozen Python/Pygame PingFighter의 코만도 화기류 구현
+가이드다. 아래 `pingfighter.py` / `pygame` 예시는 레거시 참고용이며,
+새 화기류 또는 런타임 수정은 `docs/commando_godot_port_plan.md`,
+`docs/commando_firearm_overhaul.md`, `docs/character_skill_perk_checklist.md`
+를 함께 열고 `godot/`의 코만도 owner module, renderer, audio owner,
+HUD tooltip, save/load state, smoke test에 매핑해서 진행한다.
+
+원본 PingFighter 소스 작업을 명시적으로 요청받은 경우에만 아래
+Python 체크리스트를 실행 기준으로 사용한다.
 
 ## 개요
 신규 화기류 추가 시 반드시 따라야 할 체크리스트와 구현 가이드입니다.

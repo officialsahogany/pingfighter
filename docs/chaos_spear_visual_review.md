@@ -1,7 +1,15 @@
-# 카오스 스피어 비주얼 / 연출 코드 리뷰 문서
+# 카오스 스피어 비주얼 / 연출 포팅 참고 문서
+
+현재 대상: Godot **디스크하츠 - 링피아**.
+
+이 문서는 frozen Python/Pygame PingFighter의 `chaos_spear` 구현을
+분석한 레거시 리뷰다. 아래 `pingfighter.py` 라인과 `pygame` 예시는
+Godot 포팅을 위한 타이밍 / 상태 / 시각 의도 참고로만 사용한다.
+새 구현은 `godot/`의 바이퍼 스킬 owner module, renderer, VFX host,
+audio owner, smoke test에 매핑한 뒤 진행한다.
 
 > 대상: 바이퍼 캐릭터 전용 5구슬 스킬 `chaos_spear`
-> 파일: `pingfighter.py`
+> 원본 참고 파일: `pingfighter.py`
 > 검토 범위: 시각 이펙트, 상태머신, 오브젝트 흡수 연출
 > (게이지/쿨타임/입력 처리 등 게임 로직은 부가 설명만 포함)
 

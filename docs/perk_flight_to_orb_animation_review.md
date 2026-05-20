@@ -1,9 +1,15 @@
-# 퍽 선택 → 스킬 슬롯 비행 연출 코드 리뷰 패킷 (Gemini용)
+# 퍽 선택 → 스킬 슬롯 비행 연출 포팅 참고 패킷
 
 **작성일:** 2026-04-19
 **최종 갱신:** 2026-04-21 (R2 — 2초 단축 + 코덱스 리뷰 반영)
-**대상 파일:** `pingfighter.py`
-**리뷰 목적:** "unlock_* 액티브 스킬 퍽 획득 시 오로라 파티클이 좌측 필러 빈 스킬 슬롯으로 날아가는 2초 연출" 의 구현 리뷰.
+**현재 대상:** Godot **디스크하츠 - 링피아**
+**원본 참고 파일:** `pingfighter.py`
+**리뷰 목적:** frozen Python/Pygame PingFighter의 "unlock_* 액티브 스킬 퍽 획득 시 오로라 파티클이 좌측 필러 빈 스킬 슬롯으로 날아가는 2초 연출" 구현 리뷰.
+
+이 문서는 레거시 구현 리뷰다. 아래 `pingfighter.py` 라인과 `pygame`
+예시는 Godot 포팅의 타이밍 / 좌표계 / 연출 의도 참고로만 사용한다.
+새 구현은 `godot/`의 퍽 선택 UI, 스킬 오브 HUD, VFX host, audio owner,
+smoke test에 매핑한 뒤 진행한다.
 
 **2026-04-21 R2 갱신 내역 (코덱스 리뷰 반영):**
 - **총 길이 3.4s → 2.0s 단축.** 선택→진입 대기 25 frame → 10 frame, 연출 본체 180 frame → 110 frame.
@@ -674,10 +680,10 @@ R2 에서 다루지 않은 것:
 
 ---
 
-## 11. 실행/검증 방법
+## 11. Legacy Python 실행/검증 방법
 
 ```bash
-# 게임 실행
+# 원본 PingFighter 소스 작업을 명시적으로 요청받은 경우에만 사용
 py pingfighter.py
 
 # 1. 튜토리얼 이후 아무 스테이지 진입
@@ -686,6 +692,10 @@ py pingfighter.py
 # 4. 2초간 오로라 비행 연출 + itemget.wav + 슬롯에 맺히는 코어 오브 확인
 # 5. 연출 종료 후 좌측 필러의 스킬 구슬 슬롯에 해당 스킬이 맺힌 코어 오브 위에 이어서 뜨는지 확인
 ```
+
+Current Godot work should instead map this scenario to the Godot perk-choice
+UI, skill-orb HUD renderer, VFX host, audio owner, and focused smoke / visual
+check before sign-off.
 
 대조군:
 - 일반 퍽 (예: `dash_lightweight` 레벨업) 선택 시 연출 없이 기존 flow 그대로.
