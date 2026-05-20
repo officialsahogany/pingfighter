@@ -215,3 +215,7 @@ godot/builds/
 godot/*.log
 godot/*.tmp
 *.bak
+
+# Godot asset iteration trails
+godot/assets/ui/character_live2d/_rejected_free_parts_v1/
+godot/assets/ui/character_live2d/smasher_live2d_rig_v[1-5]*
