@@ -12,11 +12,15 @@ depends on. When these documents disagree with this skill, they win
 |---|---|---|
 | [CLAUDE.md](../../../CLAUDE.md) | Claude-side project standing rules | Stage Order Reference (stage code vs real stage), screen coordinate standards, boss sprite routing, identity + scale invariants |
 | [AGENTS.md](../../../AGENTS.md) | Runtime / code-integration rules (Codex territory) | Boss Sprite Workflow, Runtime Performance Rules, Stage Integration Checklist, Testing Guidelines |
+| [docs/sprites/boss_sprite_runtime_contract.md](../../../docs/sprites/boss_sprite_runtime_contract.md) | Shared runtime state vocabulary | Attack-vs-stun semantics, Godot texture keys, verification checklist |
+| [docs/sprites/stage1_dalji.md](../../../docs/sprites/stage1_dalji.md) | Stage 1 Dalji compact runtime contract | Accepted asset set, Python/Godot mapping, regression checks |
 
 Rule of precedence:
 
 - Asset-generation procedure (prompts, nukki, output naming, QA) -> this skill
 - Runtime integration (loader, caching, render loop, trigger wiring) -> `AGENTS.md`
+- Runtime state vocabulary and legacy key semantics -> `docs/sprites/boss_sprite_runtime_contract.md`
+- Stage 1 Dalji compact runtime mapping -> `docs/sprites/stage1_dalji.md`
 - Claude-side standing invariants and routing -> `CLAUDE.md`
 
 If a conflict arises inside this skill about runtime behavior, `AGENTS.md`
@@ -50,17 +54,24 @@ the wrong boss.
 ## File paths (duplicated here and in CLAUDE.md on purpose)
 
 Codex reads `CLAUDE.md` and `AGENTS.md`, not this skill. So file path
-conventions are intentionally duplicated in CLAUDE.md so Codex can find
+conventions are intentionally duplicated in CLAUDE.md so Codex can route
 assets without loading this skill.
+
+Use `items/` as an asset-generation scratch / staging convention only.
+Accepted runtime assets for the current project must be copied into the
+repo-local Godot asset tree and wired from the owning Godot module. The
+original Python/Pygame sprite class paths are legacy porting references only.
 
 | File | Path |
 |---|---|
-| Walk (raw / nukki) | `items/[name]_boss_sheet.{jpeg,png}` |
-| Attack (raw / nukki) | `items/[name]_boss_attack.{jpeg,png}` |
-| Dash (raw / nukki) | `items/[name]_boss_dash.{jpeg,png}` |
-| Turn (optional, raw / nukki) | `items/[name]_boss_turn.{jpeg,png}` |
-| Sprite class | `entities/[name]_boss_sprite.py` |
-| Background | `backgrounds/stage[N]_*.jpeg` |
+| Walk (raw / nukki staging) | `items/[name]_boss_sheet.{jpeg,png}` |
+| Attack (raw / nukki staging) | `items/[name]_boss_attack.{jpeg,png}` |
+| Dash (raw / nukki staging) | `items/[name]_boss_dash.{jpeg,png}` |
+| Turn (optional, raw / nukki staging) | `items/[name]_boss_turn.{jpeg,png}` |
+| Godot runtime boss assets | `godot/assets/sprites/bosses/[name]/...` or the stage owner's established asset folder |
+| Godot runtime owner | `godot/scripts/...` owning stage / boss / renderer module |
+| Legacy Python sprite class reference | `entities/[name]_boss_sprite.py` |
+| Legacy Python background reference | `backgrounds/stage[N]_*.jpeg` |
 
 ---
 

@@ -1,15 +1,20 @@
 # Boss Sprite Runtime Contract
 
 This document is the shared runtime vocabulary for boss sprite sheets in
-PingFighter. It exists to keep asset names, gameplay events, and renderer
-keys from drifting apart across the Python runtime and the Godot port.
+DiskHearts - Ringpia. It exists to keep asset names, gameplay events, and
+Godot renderer keys from drifting apart while porting behavior from the
+frozen Python/Pygame PingFighter reference.
+
+Current development target: the repo-local Godot project under `godot/`.
+The Python/Pygame runtime is reference-only unless the user explicitly asks
+for original PingFighter source work.
 
 Authority split:
 - Asset generation, prompts, nukki, and sheet QA:
   `.claude/skills/sprite-generation/`.
-- Python runtime integration, performance, and gameplay verification:
+- Godot runtime integration, performance, and gameplay verification:
   `AGENTS.md`.
-- Godot module boundaries and mirror/live sync rules:
+- Godot module boundaries and current live-project rules:
   `docs/godot_port_architecture.md`.
 - Per-boss accepted sheet notes:
   `docs/sprites/stage1_dalji.md` and future `docs/sprites/stageN_*.md`
@@ -47,7 +52,8 @@ handlers. Do not infer semantics from a historical variable name alone.
   may fall back to `boss_hit_sprite_sheet` only because older modules use
   that name for ball-contact animation.
 
-Before signing off a boss sprite port, search both Python and Godot for:
+Before signing off a boss sprite port, search the current Godot code and,
+when doing parity work, the frozen Python reference for:
 
 ```text
 boss_hit_sprite_sheet
@@ -87,6 +93,8 @@ Godot modules should prefer explicit texture keys:
 | `boss_walk_right_sheet` | movement-right walk sheet |
 | `boss_idle_sheet` | idle loop |
 | `boss_attack_sheet` | ball-contact attack |
+| `boss_victory_sheet` | boss win result animation |
+| `boss_defeat_sheet` | boss loss result animation |
 | `boss_stun_sheet` | real stun/electrocution loop |
 | `boss_hit_sprite_sheet` | legacy compatibility alias for ball-contact attack only |
 
@@ -98,13 +106,15 @@ If a Godot port introduces a real stun renderer, it must read
 
 For every boss sprite runtime integration or Godot port:
 
-- Asset paths resolve through the runtime loader (`resource_path()` in
-  Python, `res://` plus `ProjectResourceLoader` in Godot).
+- Asset paths resolve through the Godot runtime loader (`res://` plus
+  `ProjectResourceLoader` where applicable). Use Python `resource_path()`
+  only for explicit legacy-source work.
 - Every sheet is sliced with its real grid/cell size; do not drop a new
   4x2 sheet onto an old slicer.
 - Attack and stun are tested as separate events.
 - Stable movement still uses walk sheets, not turn sheets.
-- Runtime mirror/live Godot files are hash-matched when the live project
-  is outside the repo.
+- Runtime assets live in the repo-local Godot project. If a future external
+  live project is introduced again, restore the mirror/hash-check workflow
+  from `docs/godot_port_architecture.md`.
 - A headless load check has proven the runtime can load the selected
   textures.

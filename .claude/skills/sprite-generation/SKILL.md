@@ -1,14 +1,15 @@
 ---
 name: sprite-generation
 description: |
-  Boss/character sprite sheet creation pipeline for PingFighter. Covers walk,
+  Boss/character sprite sheet creation pipeline for DiskHearts - Ringpia. Covers walk,
   attack, dash, and turn (facing transition) sheets, character identity lock
   across sheets, body scale lock (+/-5%), color palette drift prevention,
-  Gemini MCP / FLUX Kontext / AutoSprite prompt-and-reference workflows,
+  AutoSprite-MCP-first sprite-sheet workflows (Gemini/FLUX/built-in imagegen are not final sheet generators),
   content-filter bypass vocabulary, background removal (nukki) via a 2-step
   hard-edge algorithm on JPEG to PNG, file naming and output paths,
-  reject/regenerate QA checklists, and hand-off to Codex for runtime
-  integration (AGENTS.md). Use this skill whenever the
+  reject/regenerate QA checklists, and end-to-end implementing-agent-owned runtime
+  promotion (the current agent commits the final apply; previous cross-agent hand-off
+  step is removed). Use this skill whenever the
   user asks to create, regenerate, reshoot, redraw, or fix a boss sprite
   sheet, walking sheet, attack sheet, dash sheet, turn sheet, or item icon,
   or to run background removal / nukki on a generated PNG or JPEG. 한국어
@@ -16,21 +17,32 @@ description: |
   재생성, 스프라이트 시트, 보스 이미지, 배경 제거.
 ---
 
-# Sprite Generation Pipeline (PingFighter)
+# Sprite Generation Pipeline (DiskHearts - Ringpia)
 
-Asset-generation plays for boss and character sprite sheets. Runtime
-integration is NOT covered here -- hand off to Codex using `AGENTS.md`
-after sheet acceptance. The runtime side lives in `AGENTS.md` and should
-not be duplicated into this skill.
+Asset-generation plays for boss and character sprite sheets.
+Current runtime target is the Godot project **디스크하츠 - 링피아** under
+`godot/`. Original Python/Pygame PingFighter sprite/runtime paths are legacy
+porting references only.
+**Updated 2026-05-03: the implementing agent owns the full pipeline end-to-end —
+generation, QA, repo asset-tree commit, loader / cache wiring, runtime
+scaling, and in-game QA. The previous cross-agent hand-off step is
+removed.** `AGENTS.md` remains as a continuity reference for prior
+boss-sprite runtime invariants, but it is no longer the single source of
+truth for runtime promotion: the current agent commits the final apply.
 
 Companion files in this skill directory:
 
 - `remove_bg.py` -- runnable CLI nukki script (`py remove_bg.py <src.jpeg> <dst.png>`)
 - `prompts/walk.md` / `attack.md` / `dash.md` / `turn.md` -- copy-paste prompt templates
-- `prompts/handoff_codex.md` -- final Codex integration request
+- `prompts/handoff_codex.md` -- legacy / cross-agent integration request
+  template; current default is direct Godot runtime promotion
 - `checklists.md` -- reject/regenerate QA tables
 - `examples.md` -- canonical references (Tauren / Menhera / Honglyeon)
 - `references.md` -- links back to CLAUDE.md invariants and AGENTS.md
+- `../../../docs/sprites/boss_sprite_runtime_contract.md` -- runtime
+  state vocabulary such as attack-vs-stun semantics
+- `../../../docs/sprites/stage1_dalji.md` -- compact Stage 1 Dalji
+  Python/Godot sheet mapping
 
 ---
 
@@ -38,64 +50,125 @@ Companion files in this skill directory:
 
 Trigger on any of these user intents:
 
+- If the user says "그려줘", "그려달라", "draw", or "redraw" for a sprite,
+  sheet, boss image, or character image, use the image-generation path
+  first. Do not replace that request with procedural / code-native art
+  unless the user explicitly asks for it or accepts a fallback after
+  imagegen is blocked.
 - Create a new boss/character sprite sheet (walk/attack/dash/turn/icon)
 - Regenerate or re-shoot an existing sheet (identity drift, scale drift, bad frames)
 - Run background removal / nukki on a generated JPEG into PNG
-- Reuse or adapt a Gemini MCP / FLUX Kontext / AutoSprite prompt or
-  reference workflow for a different boss
+- Reuse or adapt an AutoSprite MCP prompt / reference workflow for a
+  different boss (Gemini / FLUX / built-in imagegen may assist planning
+  only; see Section 2.1)
 - Debug why a generated sheet looks wrong (palette drift, oversized body, painterly rendering)
 
-If the user is working on `pingfighter.py` loader, render loop, or runtime
-scaling, that is AGENTS.md territory -- do NOT drive it from this skill.
+If the user is working on Godot loader, render loop, or runtime scaling, use
+`AGENTS.md` and the relevant Godot architecture docs for integration. If the
+user mentions `pingfighter.py`, treat it as a legacy behavior reference unless
+they explicitly request original Python source edits.
+The same routing applies if the report is actually a runtime orb-tooltip
+bug discovered during sprite work (for example: `\n` line breaks being
+flattened, or a newly added synergy line disappearing because a shared
+bonus-line budget is already saturated). Route that to
+`docs/character_skill_perk_checklist.md` + `CLAUDE.md`, not this skill.
 
 ---
 
-## 2. Role split -- Claude vs Codex
+## 2. Role split (updated 2026-05-14 — implementing-agent end-to-end)
 
-- **Claude (this skill):** prompt design, sheet layout, style calls, content-filter wording, nukki pipeline, output file naming, reject/regenerate judgment, canonical-reference continuity. Also authors the standalone `entities/[name]_boss_sprite.py` scaffold when creating a new sprite class.
-- **Codex (AGENTS.md):** `pingfighter.py` import/init/reset wiring, stage render branch, loader caching, runtime scaling, per-frame hot-path performance, turn-vs-walk priority in update logic.
+- **Current implementing agent + this skill:** prompt design, sheet
+  layout, style calls, content-filter wording, nukki pipeline, output
+  file naming, reject/regenerate judgment, canonical-reference
+  continuity, Godot runtime module scaffold (`godot/scripts/...`), runtime integration
+  (loader / cache wiring, per-frame scaling, render branch, turn-vs-
+  walk priority), performance audit, and **final apply (commit the
+  PNGs to the runtime asset path and verify they are loaded
+  in-game)**. Legacy Python sprite classes such as
+  `entities/[name]_boss_sprite.py` are touched only when the user
+  explicitly asks for original PingFighter source work. There is no
+  default cross-agent hand-off step.
+- **AGENTS.md:** continuity reference for prior boss-sprite runtime
+  invariants and shipped-art provenance. Read it before promotion to
+  avoid breaking an existing invariant; do NOT treat it as the single
+  source of truth for new runtime work — the current implementing agent
+  commits the apply.
 
-Claude writes the sheets and the sprite class skeleton; Codex welds the sprite class into the game loop.
+Performance + clone-overlay audit notes that used to be cross-agent hand-off
+bullets are now implementing-agent self-checks before promotion:
 
-Claude also owns the asset-side performance handoff note: when a motion set
-is accepted, explicitly tell Codex how many sheets are new, what their
-source resolution is, and whether a runtime-ready export should be
-considered because the combined load cost or transparent effect area is
-large.
+- Track sheet count, source resolution, and whether a runtime-ready
+  smaller export is needed because combined load cost or transparent
+  effect area is large.
+- If the accepted art will be used as a runtime clone, afterimage,
+  glitch copy, or other tinted duplicate of the live sprite, ensure
+  additive / scanline / damage / fade overlays are clipped to the
+  non-transparent silhouette of the source sprite. Otherwise the
+  transparent canvas shows up in gameplay as a visible rectangular box
+  around the clone.
 
 ### 2.1. Tool routing inside this skill
 
-These tools are not interchangeable by default. Route deliberately:
+**AutoSprite MCP is the required generation source for sprite sheets.**
+For any final boss / character / player / runtime VFX / animated item or perk
+sprite sheet, call `mcp__autosprite__*` first and keep the accepted source
+frames AutoSprite-derived.
 
-- **FLUX Kontext**: preferred for reference-conditioned image-to-image work
-  such as peak-pose correction, narrow prop touch-ups, and frame-expansion
-  passes after a strong anchor already exists.
-- **Gemini MCP**: known-good path for fresh full-sheet generation and for
-  cases where FLUX or AutoSprite drift on pixel class, clarity class, or
-  identity lock.
-- **AutoSprite**: motion ideation, pose blocking, and structural probes.
-  Do NOT promote AutoSprite output to final renderer status unless it
-  independently passes the same pixel / identity / clarity QA as the rest
-  of the set.
-- **AutoSprite + FLUX best practice**: use AutoSprite to find motion /
-  peak acting, then pass the strongest single pose into FLUX to lock a
-  canonical peak anchor, then expand the remaining frames in FLUX.
-  Do NOT assume `AutoSprite full-sheet -> FLUX full-sheet` will keep the
-  same acting intensity.
+This applies to every sub-task, not just fresh full-sheet generation:
+
+| Task | Required route |
+|------|----------------|
+| Fresh full-sheet generation | AutoSprite MCP |
+| Single peak-pose discovery that will become a sheet | AutoSprite MCP |
+| Reference-conditioned touch-up / frame expansion | AutoSprite regeneration or AutoSprite-derived deterministic postprocess |
+| Motion ideation / pose blocking | AutoSprite MCP |
+| QA comparison input only | Gemini analyze or local visual/QC tools are OK |
+
+Why the consolidation: project direction now requires production sprite
+sheets to be generated through AutoSprite so provenance, motion intent, and
+future regeneration are consistent. Do not replace AutoSprite output with
+local interpolation, old 8-frame anchors, runtime drawing, Gemini, FLUX, or
+built-in imagegen and describe the result as an AutoSprite sheet.
+
+Allowed post-processing after AutoSprite:
+
+```
+1. Clean background / alpha / nukki.
+2. Slice, align, scale, and export runtime-sized cells.
+3. Expand or reduce frame count only from AutoSprite source frames.
+4. Mirror or re-layout only when directionality, anatomy, and user approval
+   are explicit; document it in the handoff.
+```
+
+Upscaling request rule:
+- If the user says "upscale", "upscaling", "hires", "업스케일",
+  "업스케일링", or "real / Real-ESRGAN처럼", route the accepted bitmap
+  through the Real-ESRGAN upscale gate in `checklists.md` §0.1.
+- Do not answer an upscale request with only runtime draw-size changes,
+  simple resize, Godot import filtering, or a fresh imagegen redraw.
+- For transparent sheets, split by frame or cell, alpha-bleed RGB before
+  Real-ESRGAN, recombine the resized source alpha afterward, and reassemble
+  the original grid with updated cell-size metadata.
+
+If AutoSprite is not connected, fix MCP first or ask the user before using a
+fallback. A fallback can be a temporary placeholder or still concept, not a
+final sprite sheet.
+
 - **Legacy motion-master caution**: if an old victory or other legacy
-  sheet starts leaking obsolete design branches into FLUX, remove it from
-  the generation stack and use it only as QA comparison, not as an input
-  motion master.
+  sheet starts leaking obsolete design branches into new AutoSprite briefs,
+  use it only as QA comparison, not as a motion master.
+
+Historical accepted-sheet notes elsewhere in this skill and in `CLAUDE.md`
+may mention FLUX Kontext, Gemini, or earlier non-AutoSprite routes. Those
+describe already-shipped provenance only. Future regeneration follows the
+AutoSprite MCP rule above.
 
 Current repo-specific note:
-- **Stage 3 Menhera turn branch** currently uses FLUX Kontext as the
-  preferred renderer candidate, AutoSprite as motion ideation only, and
-  Gemini MCP as the alternate known-good route.
-- **Stage 3 Menhera victory branch** now treats AutoSprite as victory
-  motion-block / peak-pose discovery only, then uses FLUX to lock the
-  canonical peak and expand the rest of the sheet. Direct FLUX
-  full-sheet passes were either too flat, or leaked legacy identity when
-  old victory art was used as a strong reference.
+- **Stage 3 Menhera turn / victory branches**: shipped sheets remain as
+  accepted. Any future Menhera regeneration uses AutoSprite MCP.
+- **Stage 1 Dalji attack v2 (sangmo whip)**: the v2 sheet is the
+  current accepted asset. Future Dalji attack regeneration uses
+  AutoSprite MCP; old Gemini/FLUX anchor notes are provenance only.
 
 ### 2.2. Workflow mode switch (`fast` vs `precise`)
 
@@ -119,6 +192,59 @@ Rule:
 - If the user does not explicitly request depth, default to `fast`.
 - If a branch has already proven itself and the user wants to ship it,
   switch to `precise`.
+
+---
+
+## 2.3. Runtime skill-effect sprite sheets
+
+When this skill is used for gameplay VFX instead of a boss body sheet
+(boss fields, character skill auras, projectiles, cast loops, impact
+loops, shield / refraction / magnetic / elemental fields, and similar
+live effects), the default deliverable is a **16-frame sprite sheet**.
+
+Default composition:
+- `4x4` grid, exactly 16 equal cells.
+- Read order is left-to-right, top-to-bottom.
+- The effect keeps the same center, scale, circular / directional
+  silhouette, palette family, and alpha style across all frames.
+- Frame 16 must connect cleanly back to frame 1 for a smooth loop.
+- Use 2-frame / 4-frame / 8-frame sheets only for explicit rough concepts,
+  icon-only animations, or deliberately short one-shot effects.
+
+Required prompt fragment for runtime skill effects:
+
+```
+Create exactly 16 equal cells arranged in a 4x4 sprite sheet, read
+left-to-right and top-to-bottom as a smooth looping game VFX animation.
+Keep the same center, scale, silhouette, palette, and effect identity in
+every frame. Frame 16 must loop cleanly back to frame 1. Leave generous
+flat chroma-key or transparent margin on all four sides of every cell.
+No spark, arc, glow, ripple, halo, trail, or ornament may touch or cross
+any cell edge.
+```
+
+QA before handoff:
+- Check all 16 frames for edge-touching VFX, scale drift, center drift,
+  and accidental detached debris.
+- Keep the accepted source PNG and a runtime-ready transparent PNG with
+  versioned filenames.
+- Tell Codex the sheet grid, frame count, intended frame interval, blend
+  style (normal alpha vs additive), and any desired softness / opacity
+  tuning so runtime can cache and render it correctly.
+
+### 2.4. Character Live2D source-art background rule
+
+For character Live2D source illustrations / 원화 / full-body anchors that will
+later need nukki, rigging, sheet generation, or runtime cutout use, generate
+the raw source on a perfectly flat solid chroma-key background. Default to
+`#ff00ff` magenta; switch to `#00ff00` green only when magenta conflicts with
+the character palette. Do not request black, white, dark studio, scenic,
+gradient, checkerboard, or "transparent-looking" backgrounds for these
+production anchors.
+
+Use the checklist gate in `checklists.md` §0.4 before accepting the source
+art. Keep both the raw chroma-key source and the cleaned alpha PNG, and record
+the key color plus cleanup method in the handoff / manifest.
 
 ---
 
@@ -185,7 +311,7 @@ If a generated sheet fails this at gameplay scale, reject and regenerate
 rather than scheduling a separate "polish" pass.
 
 Frontal face readability also drives the walk design choice in Section
-7.1 (front-biased walk): for PingFighter ping-pong framing, human /
+7.1 (front-biased walk): for DiskHearts - Ringpia ping-pong framing, human /
 chibi bosses keep the face mostly readable from the front during walk
 cycles, not turned to the side.
 
@@ -246,30 +372,58 @@ This is a small chibi boss sprite, NOT a full-body portrait.
 Do NOT mix weapon wording ("paddle-wielding", etc.) into this block. Weapon
 identity belongs in Section 6.
 
-### 4.1. Baseline size reference -- petite human / chibi bosses
+### 4.1. Standard size reference -- Stage 3 Menhera body class
 
-The current Stage 3 Menhera in-game body class, after her latest +10%
-upscale, is the preferred baseline reference for petite human /
-chibi-proportion bosses. When designing a new human-shaped chibi boss
-without a specific oversize / undersize design concept, aim so the final
-in-game rendering lands in roughly that silhouette class.
+**Stage 3 Menhera's in-game body class is the STANDARD size for boss
+sprites in DiskHearts - Ringpia, not just a "preferred baseline".** Every
+new boss must land at this size class unless the boss is explicitly listed
+under "Out of scope" below. Sprite sheets ship across the codebase with
+visibly drifting body sizes when this rule is treated as a soft preference,
+so every runtime promotion must verify the size match before the work is
+considered done.
 
-This is a **baseline reference, not a universal hard rule.** Explicitly
-out of scope:
+Concrete runtime reference (from `pingfighter.py` Menhera init):
+
+| Reference | Value | Source |
+|---|---|---|
+| `BOSS_IMG_WIDTH` | `160` | base width constant |
+| `BOSS_IMG_HEIGHT` | `80` | base height constant |
+| Menhera target frame canvas | `width = round(BOSS_IMG_WIDTH * 1.1) = 176`, `height = round(BOSS_IMG_HEIGHT * 1.1) = 88` | Menhera's `+10%` upscale |
+| Menhera class-default args | `width=79, height=88` | LEGACY default; do NOT use as the size reference |
+
+Use **176 x 88** as the parity target frame canvas / body-read reference
+for any new petite human / chibi boss. In the current Godot runtime, encode
+the equivalent canvas, source-rect, stage-scale, and cadence metadata in
+the owning renderer or catalog rather than editing a Python init call. Body
+silhouette, head, face, and torso must read at the same gameplay-size class
+as Menhera. Do NOT carry the legacy `79 x 88` class default into a new
+Godot boss configuration -- it produces a sub-Menhera body class.
+
+Pure-pixel size matching is not enough by itself. Visible body read
+matters more than canvas dimensions: a sheet whose figure fills only
+60% of the canvas reads smaller in-game than one that fills 80%. After
+runtime install, the gameplay-size body of the new boss must match
+Menhera's body class side by side (head height, face size, torso
+silhouette).
+
+Out of scope (size-class exceptions, must be design-led, must be
+documented per boss):
 
 | Out of scope | Why |
 |---|---|
-| Large-frame bosses (e.g. Tauren) | Bigger body class is correct on purpose |
-| Tall vertical-silhouette bosses (e.g. Honglyeon) | Taller silhouette is correct on purpose |
+| Large-frame bosses (e.g. Tauren) | Bigger body class is the design intent |
+| Tall vertical-silhouette bosses (e.g. Honglyeon) | Taller silhouette is the design intent |
 | Deliberate oversized / undersized concept bosses | Design-led sizing wins |
 
-Use this baseline to avoid accidental drift where similar-silhouette
-human / chibi bosses end up visibly smaller or larger than Menhera for
-no design reason. Do NOT hard-code it as an absolute pixel rule inside
-prompts; describe it as the default target class.
+If a boss falls into one of those exceptions, record the size override
+explicitly: state the Godot canvas / scale target and the design reason
+both in the implementation / handoff note and in `CLAUDE.md` under that
+boss's per-boss policy section. Never let a size override slip in
+implicitly via a copied legacy class default.
 
-Runtime-side guardrails for this same idea live in `AGENTS.md` (Boss
-Sprite Workflow).
+Runtime-side guardrails for the same rule live in `AGENTS.md`. The
+runtime promotion path requires an explicit Menhera-tier body-read match
+check, and the size-tier QA gate is in `checklists.md` §10.
 
 ---
 
@@ -328,9 +482,9 @@ Required per-cell discipline (include verbatim in prompt):
 - Keep foot/baseline position consistent across frames
 ```
 
-### 7.1. Front-biased walk for human / chibi bosses (PingFighter default)
+### 7.1. Front-biased walk for human / chibi bosses (DiskHearts default)
 
-For PingFighter boss gameplay, human / chibi bosses should usually keep
+For DiskHearts - Ringpia boss gameplay, human / chibi bosses should usually keep
 a **front-biased walk** rather than a full side-facing walk. This is the
 default baseline, confirmed via the Stage 3 Menhera walk iteration.
 
@@ -451,7 +605,7 @@ in-game. If the cycle preserves frontal lock but reads like the torso is
 nailed in place while only feet / paws shuffle underneath, it has
 failed the walk brief and must be regenerated.
 
-Walk-sheet hard gate before any publish / Codex handoff:
+Walk-sheet hard gate before any publish / runtime promotion:
 
 - Inspect the direct `f1..f8` strip side by side, not only a stitched
   preview, gameplay-scale mockup, or runtime loop.
@@ -472,7 +626,7 @@ frames. Express lateral movement through legs, arm swing, hair, ribbons,
 cloth, tail, and accessories -- NOT by turning the torso to the side.
 Preserve frontal combat readability: the boss should still look like it
 is facing the player and the ball in every frame, even while moving
-laterally. Full side-facing walk is NOT the default for PingFighter
+laterally. Full side-facing walk is NOT the default for DiskHearts - Ringpia
 bosses.
 
 Front-facing but lively: do NOT restrict motion to limb wiggle only.
@@ -711,7 +865,7 @@ Normal locomotion keeps using the main walking sheet.
 
 ### 9.1.1. Core rule -- turn is not an angle-rotation chart
 
-For PingFighter's front-biased / front-facing bosses, turn no longer
+For DiskHearts - Ringpia's front-biased / front-facing bosses, turn no longer
 means "rotate the body through a camera-angle chart." The walk sheet is
 already front-facing, so the direction-change sheet should stay visually
 connected to that frontal read and express the direction change through a
@@ -882,12 +1036,45 @@ If the turn sheet reads as a different character, reject and regenerate.
   isolation.
 - If large trails, halos, or ambient effects force a lot of dead
   transparent area around a small body, flag that a runtime-ready export
-  may be better than asking Python to absorb the cost at startup.
+  may be better than asking the Godot startup / prewarm path to absorb the
+  cost.
 - Prefer the smallest delivery asset that preserves gameplay-scale
   readability, identity lock, and body-scale lock.
-- The handoff to Codex should mention total sheet count, source
-  resolution, and whether stage-entry hitch / aggregate load cost should
-  be checked.
+- The runtime promotion note should mention total sheet count, source
+  resolution, and whether stage-entry hitch / aggregate load cost should be
+  checked.
+
+### 10.2. Gemini chat-history limit guardrail
+
+- A `2K` Gemini generation may succeed, then cause the *next* request in
+  the same chat to fail as a `many-image request` if the `2048` result is
+  still attached in conversation history.
+- The trigger is the client-side `>2000 px` long-side limit, not a prompt
+  failure or a broken generation candidate.
+- For iterative same-session work, prefer `1536` or `1024`; reserve `2K`
+  for single-shot high-detail passes or a fresh session.
+- If a `2048` result must be reused in chat for analysis or continuation,
+  resize it to `<=2000 px` first.
+
+### 10.3. Gemini MCP connection-stability guardrail
+
+If Gemini MCP reports `connection timed out after 30000ms`, diagnose the
+MCP server launch path before changing prompts or abandoning the tool:
+
+- Prefer `.claude/gemini_mcp_launcher.mjs` launched by an absolute
+  `node.exe` path over `npx -y @rlabs-inc/gemini-mcp`; `npx` can spend the
+  whole MCP startup budget on package resolution.
+- Keep `@rlabs-inc/gemini-mcp` pinned in `mcp/package.json` and reinstall
+  `mcp/node_modules` cleanly if package folders are missing their `dist`,
+  `build`, or `lib` contents.
+- Startup must not wait on a Gemini API probe. Let the MCP transport
+  initialize first; real API failures should surface on the actual tool
+  call.
+- MCP stdout is JSON-RPC only. Route startup / progress logging to stderr
+  or quiet mode, otherwise the client can close the connection as corrupt
+  stdio.
+- After a fix, verify `initialize`, `listTools`, and one lightweight tool
+  call before resuming sheet generation.
 
 ---
 
@@ -948,6 +1135,156 @@ identity props before moving on to promotion or runtime handoff.
 - In that case, do **not** continue to canonical promotion or runtime
   handoff until the asset is repaired or regenerated.
 
+### 11.6. AI pastel-halo residue trap (item icons especially)
+
+`remove_bg.py` 의 기본 임계값 (`WHITISH_LUM >= 200`, `WHITISH_SAT <= 30`,
+`HALO_SAT <= 40`, `MILD_SAT <= 60`) 은 Gemini JPEG compression fringe를
+타깃으로 튜닝돼 있다. 하지만 AI 이미지 생성기는 아이콘을 흰 배경 위에
+그릴 때 자주 **피사체 바깥으로 저채도 파스텔 halo / aura / glow** 를
+의도적으로 그려낸다 (예: cyan fairy aura, red fury glow, yellow vitamin
+shimmer). 이 halo는:
+
+- 파스텔이라 완전히 흰색이 아니다 (`WHITISH_SAT <= 30` 을 벗어남) →
+  border flood-fill이 절대 halo를 배경으로 못 인식함.
+- 반대로 `lum` 은 220 이상으로 충분히 밝아서 피사체 본체보다는 확실히
+  약하다 → 본체 silhouette 에는 영향 없이 halo 만 따로 구별 가능.
+
+표준 3-step nukki 가 끝나도 **halo 는 semi-opaque pastel ring 으로
+아이콘 주변에 남는다**. 1024 원본에서는 예쁜 발광 효과처럼 보이지만,
+32px HUD 아이콘으로 다운샘플되면 아이콘 가장자리에 `1~2px 컬러 envelope
+border` 로 변한다. dev 모드 / 획득 연출 / 슬롯 HUD 에서 아이콘 테두리가
+이상하다고 느끼면 거의 이 패턴이다.
+
+**두 가지 대응책 — 같이 써라:**
+
+1. **생성 단계 — 프롬프트에서 halo 금지.** HUD 아이템 아이콘을 만들 때
+   프롬프트에 `no glow halo`, `no aura`, `no soft shimmer around the
+   object` 를 명시하고, 불가피하면 halo를 본체 실루엣 *안쪽* 에 그리게
+   유도한다 (예: "flame only around the bottle cork, not in the
+   background"). AI 는 여전히 halo 를 그려낼 수 있으므로 2단계가 필요.
+
+2. **누끼 단계 — halo strip 2차 패스 돌려라.** `remove_bg.py` 출력에
+   halo 가 남아 있는 게 확인되면 `remove_bg.py` 의 `WHITISH_SAT` /
+   `HALO_SAT` 를 직접 낮추지 말고, 별도의 보조 스크립트를 돌린다.
+   낮추면 보스 스프라이트의 고채도 하이라이트가 배경으로 오인돼 먹힌다.
+
+   정식 CLI:
+   ```
+   py .claude/skills/sprite-generation/halo_strip.py <src.png> <dst.png>
+   ```
+
+   동작:
+   ```
+   기존 투명 픽셀에서 BFS 확장
+     → 이웃 픽셀이 `V >= 220 AND (maxRGB - minRGB) <= 110` 이면 같이 투명화
+     → 이 조건은 "밝고 저채도" 파스텔 halo 만 잡음
+   실루엣 내부의 채도 있는 픽셀은 BFS 가 도달 못 해서 안전
+   ```
+
+   파이프라인:
+   ```
+   <src.jpeg> → remove_bg.py → <nukki.png> → halo_strip.py → <clean.png> → resample
+   ```
+
+**QA 순서 — 순서를 꼭 지켜라:**
+- 1024 `*_nukki_1024.png` 를 **원본 해상도로 먼저 본다.** AI halo가
+  여기서 파스텔 envelope 로 이미 보이면 2차 strip 없이 32px 로
+  내리면 안 된다.
+- 32px / 64px 다운샘플은 halo strip 후 생성해라. 다운샘플된 결과만
+  보고 판정하면 halo 잔재가 1~2px 만큼 미묘하게 남아 있어도 그냥
+  "에지 anti-alias" 로 착각해서 통과시킬 수 있다.
+- 게임 안에서 **어두운 HUD 배경 위에 띄워보는 게 최종 QA.** 흰색
+  에디터 배경 위에서는 halo 가 안 보인다.
+
+이 트랩은 아이템 아이콘 쪽에서 특히 자주 터진다 (repair_kit,
+berserk_potion, vitamin_pill, weather_capsule 사례). 보스 스프라이트는
+피사체가 프레임을 꽉 채우고 halo 를 안 그리는 프롬프트가 이미 많아서
+덜 터지지만, 풀 바디 + 발광 이펙트를 같은 프레임에 넣을 때 (예: 승리
+포즈에 aura 를 넣으면) 그 때 똑같이 터진다.
+
+### 11.7. Enclosed near-white pocket residue (legs / arms / shield-arm gap)
+
+`remove_bg.py` 의 border flood-fill 과 `halo_strip.py` 의 BFS 확장은 모두
+**외부 alpha=0 영역에서 도달 가능한** near-white 픽셀만 제거한다.
+캐릭터의 silhouette 이 닫힌 모양으로 둘러싸 외부와 cut off 된
+enclosed pocket — 다리 사이, 팔과 몸 사이, 방패와 어깨 사이, 호버보드
+위 두 발 사이의 좁은 V 형 구역 — 은 두 알고리즘이 모두 못 잡는다.
+흰 에디터 배경 위에서는 안 보이지만, **어두운 인게임 배경 (스테이지
+바닥, 보스전 BG) 위에 띄우면 흰 박스 / 흰 사다리꼴 잔여물로 보인다.**
+
+자동 후처리로 enclosed pocket 을 잡으려는 시도는 **두 가지 알고리즘
+모두 silhouette-internal 의도적 흰 panel 을 함께 잡아버리는 한계가
+있다.** 어느 쪽이든 단독으로는 안전하지 않다:
+
+**Approach A — Connected-components + size threshold.**
+```
+(alpha=255 AND near-white) 픽셀의 connected-component size 측정,
+<= MAX_POCKET_SIZE (예: 400px) 면 누끼 잔여로 간주 → 제거.
+> threshold 면 의도적 흰 panel 로 간주 → 보존.
+```
+- 한계: 큰 enclosed pocket (예: SD chibi 다리 사이가 가로 100 x 세로 50
+  = 5000px 넘는 경우, 또는 팔과 몸 사이의 큰 V 자 구역) 은 size 만
+  으로는 캐릭터의 진짜 흰 panel 과 구분이 안 된다. Smasher subculture
+  idle 의 1차 cleanup 에서 다리 사이 + 6번 프레임 방패 뒤 잔여가 이
+  threshold (400px) 를 넘어서 통과해 버린 사례가 있다.
+
+**Approach B — Outer-BFS connectivity (외부 alpha=0 도달성).**
+```
+이미지 border 의 모든 alpha<임계값 픽셀에서 BFS 로 외부 영역 expand.
+(alpha=255 AND near-white) 픽셀 중 외부 영역에 도달 불가능한 것은
+모두 enclosed pocket → size 무관하게 제거.
+```
+- 한계: silhouette **안쪽**의 의도적 흰 panel — 캐릭터 등 spine 의 흰
+  부분, 호버보드 아래 cyan/white hover light pool, 패들 흰 face,
+  바디수트 흰 트림 — 도 BFS 기준 "외부에서 도달 불가능" 이라 enclosed
+  pocket 과 구분되지 않는다. 컬러 outline 으로 둘러싸여 있어서 자동
+  으로 보호되리라는 가정은 **틀렸다**: outline 은 BFS-connectivity 의
+  도달성을 막을 뿐, near-white 마스크 안의 panel 자체는 그대로
+  enclosed 로 분류된다. Smasher subculture walk 시트의 등 흰 spine
+  panel + 호버보드 hover light pool 이 BFS-cleanup 으로 통째 날아간
+  사례가 있다.
+
+**자동 cleanup 의 안전한 default 는 "둘 다 사용하지 않고 nukki +
+halo_strip 까지만 적용" 이다.** 누끼 잔여가 보이면:
+
+- 작은 잔여물 (다리 사이 < 400px, 팔 사이 좁은 통로) → Approach A
+  를 보수적 threshold (300~400px) 로 적용해도 비교적 안전. 단, 캐릭터
+  silhouette 안쪽에 작은 흰 디테일 (작은 흰 점 highlight, 작은 흰
+  로고 등) 이 있으면 그것도 함께 제거되니 사전 검증 필수.
+- 큰 잔여물 (Smasher 다리 사이, 방패 뒤 큰 V 자 등) → 자동 알고리즘
+  으로는 의도적 panel 과 구분이 어렵다. **외부 도구 (Codex 같은
+  agent 가 frame-by-frame 으로 의도적 panel 위치를 알고 마스크 처리)
+  에 위임하는 것이 가장 안전**. PingFighter 의 Smasher idle 시트는
+  이 방식으로 정합성 처리됐다.
+- 중간 케이스 (size 가 모호하거나 캐릭터 디자인이 silhouette 안쪽
+  흰 panel 을 많이 가진 경우) → 자동 cleanup 시도하지 말고 nukki +
+  halo_strip 만 적용 후 인게임 QA. 사용자가 어두운 BG 에서 보고
+  거슬리는 영역을 명확히 짚어주면 그때 마스크 처리.
+
+QA:
+- **흰 배경 위에서는 절대 검증하지 말 것.** false negative 가 크다.
+- 어두운 인게임 배경 (스테이지 바닥, 보스전 BG) 또는 디버그 용
+  체커보드 / 단색 어두운 패널 위에 띄워서 다리 / 팔 / 무기 사이에
+  흰 박스 / 흰 사다리꼴 잔여물이 안 보이는지 8 프레임 모두 확인.
+- **자동 cleanup 적용 후에는 의도적 흰 panel 도 같이 점검**: spine
+  panel, 패들 face, 호버보드 hover light pool, 바디수트 트림 등이
+  사라지지 않았는지 sample 픽셀로 검증 (PIL 로 raw vs cleaned 비교
+  pixel diff). 자동 알고리즘은 의도적 panel 을 의외로 자주 잡는다.
+- 잔여 픽셀 수를 직접 카운트하는 자동 검사도 도움이 된다 (PIL 로
+  `(alpha=255) AND (V>=220) AND (S<=30) AND (외부 alpha=0 에 BFS-도달
+  불가)` 픽셀 0 개인지 검사). 단, 이것이 0 이라고 해서 자동 cleanup
+  이 안전했다는 뜻은 아니다 — 의도적 panel 도 같이 0 이 됐을 수 있다.
+
+이 트랩은 SD chibi 캐릭터 시트에서 특히 자주 터진다 — 다리 사이가
+호버보드 위에 좁게 닫혀 있거나, 패들 / 쉴드를 양 옆으로 들고 있을 때
+팔과 몸 사이가 cut off 되거나, 방패와 어깨 사이 작은 enclosed
+구역이 생기는 패턴. Viper / Commando / Smasher 같은 백뷰 idle / walk
+시트 post-process 시 자동 cleanup 의 default 는 **적용하지 않음**.
+nukki + halo_strip 만 거친 결과를 인게임에서 QA 하고, 잔여가 발견되면
+크기와 위치에 따라 위 결정 트리로 처리한다. **자동 cleanup 한 번 돌리고
+의도적 panel 이 살아있는지 별도 점검하지 않으면 등 흰 spine / 호버
+글로우 / 패들 face 가 통째 날아가는 회귀가 발생한다.**
+
 ---
 
 ## 12. Gemini content-filter bypass vocabulary
@@ -970,17 +1307,98 @@ sheet into two generations and manually merge.
 
 ## 13. File placement convention
 
+Walk sheets are now produced as a **separate left-walk + right-walk pair**
+(Section 13.1). The single-sheet + runtime-flip pattern is deprecated.
+
+`items/` paths below are asset-generation scratch / staging outputs. For
+the current DiskHearts - Ringpia runtime, accepted PNGs must be copied into
+the repo-local Godot asset tree and wired from the owning Godot module under
+`godot/scripts/`. Legacy Python paths remain porting references only.
+
 | File | Path | Example |
 |---|---|---|
-| Walk sheet (raw) | `items/[name]_boss_sheet.jpeg` | `items/tauren_boss_sheet.jpeg` |
-| Walk sheet (nukki) | `items/[name]_boss_sheet.png` | `items/tauren_boss_sheet.png` |
-| Attack sheet | `items/[name]_boss_attack.{jpeg,png}` | `items/tauren_boss_attack.png` |
-| Dash sheet | `items/[name]_boss_dash.{jpeg,png}` | `items/honglyeon_boss_dash.png` |
-| Turn sheet (optional) | `items/[name]_boss_turn.{jpeg,png}` | `items/menhera_boss_turn.png` |
-| Background image | `backgrounds/stage[N]_*.jpeg` | `backgrounds/stage9_pillar_left.jpeg` |
-| Sprite class | `entities/[name]_boss_sprite.py` | `entities/tauren_boss_sprite.py` |
+| Walk sheet LEFT (raw staging) | `items/[name]_boss_walk_left.jpeg` | `items/tauren_boss_walk_left.jpeg` |
+| Walk sheet LEFT (nukki staging) | `items/[name]_boss_walk_left.png` | `items/tauren_boss_walk_left.png` |
+| Walk sheet RIGHT (raw staging) | `items/[name]_boss_walk_right.jpeg` | `items/tauren_boss_walk_right.jpeg` |
+| Walk sheet RIGHT (nukki staging) | `items/[name]_boss_walk_right.png` | `items/tauren_boss_walk_right.png` |
+| Attack sheet (staging) | `items/[name]_boss_attack.{jpeg,png}` | `items/tauren_boss_attack.png` |
+| Dash sheet (staging) | `items/[name]_boss_dash.{jpeg,png}` | `items/honglyeon_boss_dash.png` |
+| Turn sheet (optional staging) | `items/[name]_boss_turn.{jpeg,png}` | `items/menhera_boss_turn.png` |
+| Godot runtime boss assets | `godot/assets/sprites/bosses/[name]/...` or the stage owner's established asset folder | `godot/assets/sprites/bosses/menhera/...` |
+| Godot runtime owner | `godot/scripts/...` owning stage / boss / renderer module | `godot/scripts/stages/...` |
+| Legacy Python background reference | `backgrounds/stage[N]_*.jpeg` | `backgrounds/stage9_pillar_left.jpeg` |
+| Legacy Python sprite class reference | `entities/[name]_boss_sprite.py` | `entities/tauren_boss_sprite.py` |
 
 Keep BOTH jpeg and png -- see Section 11.3.
+
+Stage-1 Dalji exception: per `CLAUDE.md`, Dalji uses
+`assets/dalji_boss_walk_left.png` and `assets/dalji_boss_walk_right.png`
+instead of `items/...`. The legacy `assets/dalji_boss_walk.png`
+single-sheet asset is preserved on disk only as a runtime rollback
+reference until the loader migration completes.
+
+### 13.1. Separate L/R walk pair model (current convention)
+
+The current DiskHearts - Ringpia walk-sheet convention is a **separate left-walk
+sheet + separate right-walk sheet pair**. This replaces the older
+"single combined sheet + runtime horizontal flip" pattern.
+
+Why this matters:
+
+- Direction-asymmetric props (a hair flower pinned to one specific side
+  of the head, an instrument carried on one specific hip, an arm-mounted
+  weapon, a sash hanging on one specific side) cannot be safely produced
+  by mirroring a single-direction source. A blind runtime horizontal
+  flip puts those props on the WRONG anatomical side for the mirrored
+  direction, which silently regresses character identity.
+- Sash, ribbon, hair, and cloth physics also trail OPPOSITE the motion
+  direction. A runtime mirror of a right-walker swaps left and right
+  but does not reverse motion physics, so the trail visually pops at
+  direction transitions.
+- Drawing both directions natively keeps every prop on the same
+  anatomical body side and keeps every physics trail in the correct
+  direction relative to motion.
+
+Default deliverable for any new walk-sheet brief:
+
+| Sheet | Layout | Frames | Facing | File |
+|---|---|---|---|---|
+| Walk LEFT | 4x2 grid | 8 | All cells off-frontal toward viewer's LEFT | `[name]_boss_walk_left.{jpeg,png}` |
+| Walk RIGHT | 4x2 grid | 8 | All cells off-frontal toward viewer's RIGHT | `[name]_boss_walk_right.{jpeg,png}` |
+
+Cross-sheet QA is now a hard gate, not optional polish:
+
+- Both sheets must read as the SAME chibi character at the SAME scale.
+  Run the §3.1.1 cross-sheet clarity check on the L/R pair, not just on
+  walk-vs-attack.
+- Identity-fixed props must stay on the same anatomical body side in
+  both sheets. Mentally label each prop (flower, drum, weapon, sash) by
+  the character's anatomy (her left vs her right), not by viewer-side.
+  At taste-judge time, verify the prop appears on the matching anatomy
+  side in both sheets.
+- Ribbon / sash / hair trails must trail OPPOSITE the motion direction
+  in each sheet (left-walker trails toward viewer-right, right-walker
+  trails toward viewer-left).
+- Walk energy (knee lift height, body bob amplitude, stride length)
+  should match across the pair. If one sheet is bouncy and the other
+  is calm, that asymmetry will visibly pop on direction change.
+
+Prompt-family rule:
+
+- The stronger pair comes from a SHARED prompt family. Use the same
+  chibi-style lock, anti-grid wording, ribbon-length lock, clothing-
+  color lock, and prop-visibility lock in BOTH sheet prompts. Only the
+  facing direction and per-prop anatomical-side wording flip between
+  the two prompts.
+- After accepting one sheet, reuse its accepted prompt verbatim for the
+  companion sheet, with only the facing / anatomy flips edited. This
+  is the proven way to keep cross-sheet identity drift low (the v8
+  Dalji pair was promoted on c5-LEFT + c7-RIGHT after 6 rejections,
+  most of which were single-side regenerations that drifted).
+
+Do NOT use the deprecated single-sheet + runtime-flip pattern for new
+work. Existing shipped sheets that still use the old pattern remain as
+historical record until they are individually regenerated.
 
 ---
 
@@ -995,14 +1413,14 @@ See `prompts/` in this skill directory. Each template has `[name]`,
 | Attack sheet | `prompts/attack.md` |
 | Dash sheet | `prompts/dash.md` |
 | Turn sheet | `prompts/turn.md` |
-| Codex hand-off | `prompts/handoff_codex.md` |
+| Legacy / cross-agent hand-off | `prompts/handoff_codex.md` |
 
 Every sheet template must include the Section 3.1 readability fragment
 at first generation, and petite human / chibi bosses should lean on the
 Section 4.1 baseline size reference rather than reinventing size targets
 per boss. Walk templates for human / chibi bosses must also include the
 Section 7.1 front-biased walk fragment -- front-biased walk is the
-PingFighter default, full side-facing walk is optional and special-case.
+DiskHearts - Ringpia default, full side-facing walk is optional and special-case.
 
 Stage mapping reminder: code `current_stage == 5` is Stage 6 Honglyeon,
 code `current_stage == 6` is Stage 5 Nemesis. Always state both the real
@@ -1014,7 +1432,9 @@ disagree. Full mapping lives in `CLAUDE.md`.
 ## 15. QA checklists & reject/regenerate
 
 See `checklists.md` in this skill directory for the full tables
-(identity lock, scale lock, palette drift, turn sheet).
+(AutoSprite source gate, Real-ESRGAN upscale gate, character Live2D
+source-art chroma-key gate, character-select Live2D card loop gate,
+identity lock, scale lock, palette drift, turn sheet).
 
 Global rule: if any fixed element (Section 8.2) drifts, reject and
 regenerate. Do not paper over with post-processing.
@@ -1041,14 +1461,21 @@ hand off turn disable / hop-only fallback.
 
 ---
 
-## 16. Hand-off to Codex after sheet acceptance
+## 16. Runtime promotion after sheet acceptance
 
-Once a sheet passes QA and nukki is committed, use
-`prompts/handoff_codex.md` to request Codex integration per AGENTS.md.
-Typical payload: list of new assets, expected sprite class name, notes on
-body-scale reference, preferred impact frame for attack sheets when
-relevant, whether anticipatory / pre-contact attack triggering is
-recommended, any dash/attack/turn priority nuances.
+Once a sheet passes QA and nukki is committed, promote it directly into the
+current Godot asset tree and update the owning Godot renderer / catalog per
+AGENTS.md. If a separate cross-agent note is still needed, use
+`prompts/handoff_codex.md` as a legacy template but keep the target Godot-
+first. Typical payload: list of new assets, owning Godot module, notes on
+body-scale reference, preferred impact frame for attack sheets when relevant,
+whether anticipatory / pre-contact attack triggering is recommended, any
+dash/attack/turn priority nuances.
+
+If the promotion can touch attack, stun, or Godot texture keys, include
+`docs/sprites/boss_sprite_runtime_contract.md`. For Stage 1 Dalji work,
+also include `docs/sprites/stage1_dalji.md` so the implementation does not
+infer state meanings from legacy names such as `boss_hit_sprite_sheet`.
 
 If a turn sheet changed layout (for example `8x1` -> `4x2`), call out the
 required loader-grid and frame-order changes explicitly in the handoff.
@@ -1057,11 +1484,188 @@ the handoff too.
 
 ---
 
+## 17. Character / Boss standard sheet set
+
+When creating a new boss or character, use this standard sheet set as the
+checklist. Established during the Stage 1 Dalji buildout (2026-04-28) and
+validated against Menhera (Stage 3) and other shipped bosses.
+
+All sheets share the same standard layout:
+- Canvas: **1536x1024 PNG**, 4 cols x 2 rows grid, cell **384x512** (the
+  Dalji family standard; matches attack / turn / whip / dash / victory /
+  defeat / stun / idle / paengi loaders so no per-sheet geometry change is
+  needed). Walk pair is the one exception — uses **1376x768**, cell
+  344x384 (slightly more compact since walk has no overhead structure).
+- Frame count: **8 frames** per sheet (a single 4x4 grid is reserved for
+  16-frame VFX effect sheets — see Section 2.3 for that case).
+- Identity locks (Section 8.2) preserved across every sheet of the same
+  character.
+
+### 17.1. Basic 7 — required for every character / boss
+
+| # | Sheet | Filename | When it shows |
+|---|---|---|---|
+| 1 | Walk LEFT | `[name]_boss_walk_left.png` | Boss moving leftward |
+| 2 | Walk RIGHT | `[name]_boss_walk_right.png` | Boss moving rightward |
+| 3 | Idle / breathing | `[name]_boss_idle.png` | Boss stationary, no other animation |
+| 4 | Dash | `[name]_boss_dash.png` | Boss in fast slide / dash motion |
+| 5 | Victory | `[name]_boss_victory.png` | Boss won the round / game |
+| 6 | Defeat | `[name]_boss_defeat.png` | Boss lost the round / game |
+| 7 | Stun | `[name]_boss_stun.png` | Boss is stunned / electrocuted |
+
+### 17.2. Boss combat (recommended for any boss that hits the ball)
+
+| # | Sheet | Filename | When it shows |
+|---|---|---|---|
+| 8 | Attack | `[name]_boss_attack.png` | Boss strikes the ball |
+
+Plain paddle / minor characters that just bounce the ball without an
+explicit strike pose can skip this. Bosses with personality should always
+include it (Section 8.4.1 anticipatory contact-hit alignment applies).
+
+### 17.3. Optional / per-character
+
+| # | Sheet | Filename | When it shows |
+|---|---|---|---|
+| 9 | Turn / facing transition | `[name]_boss_turn.png` | Brief left<->right facing change accent |
+| 10+ | Skill-specific | `[name]_boss_<skill_id>.png` | Each unique boss skill (one sheet per skill) |
+
+Turn is the most-skipped optional sheet. For front-biased walk
+characters (Section 7.1, the DiskHearts default), a runtime hop-only
+fallback is acceptable instead of a real turn sheet — see Section 9.1.4.
+
+Skill-specific sheets are added per-boss. Examples from the Dalji buildout:
+- `dalji_boss_whip.png` — sangmo (상모돌리기) yaw rotation skill
+- `dalji_boss_paengi.png` — top-whip (팽이치기) strike skill
+
+### 17.4. Per-sheet post-processing pattern
+
+Each sheet category uses a different post-processing pattern after
+nukki, depending on what kind of variance it carries:
+
+| Sheet | Per-cell scale? | Feet anchor | Reasoning |
+|---|---|---|---|
+| Walk pair | none | natural cycle | Walk-cycle bob is the feature |
+| Idle / breathing | **single** uniform scale | grounded uniform | Breathing variance is the feature — per-cell would erase it |
+| Attack (with overhead arc) | per-cell silhouette + chibi-face upscale (v9 → v11 pattern) | per-cell preserved | Silhouette uniformity then chibi walk-match midpoint |
+| Turn | per-cell uniform | grounded uniform | Pose drift is artist noise, normalize away |
+| Dash | per-cell uniform | grounded uniform + slide-sustained mapping | Slide pose dominates progress 0.18-0.99 |
+| Victory | per-cell uniform | **per-cell preserved (jump arc)** | Jump frames keep their lifted feet y |
+| Defeat | per-cell uniform | grounded uniform | Collapse is artist noise, normalize |
+| Stun | per-cell uniform | grounded uniform | Vibration variance is artist noise |
+| Skill (overhead VFX, e.g. spinning halo) | per-cell uniform + chibi-face upscale to walk-alpha+ | grounded uniform | Halo dominance shrinks chibi visually — over-correct upscale |
+| Skill (strike, e.g. paengi) | per-cell uniform + chibi-face midpoint upscale | per-cell preserved | Same as attack — pose variance natural |
+
+The chibi-face upscale step (per attack v9 → v11 / idle v1 → v2 / whip
+v1 → v2 / victory v1 → v2 / paengi v1 patterns) targets:
+- **Default**: chibi body gp at midpoint between walk-chibi (~78 gp)
+  and walk-alpha (~89 gp) — about **84 gp**
+- **Overhead VFX sheets** (spinning halo, aura ring, charge field):
+  chibi body gp at walk-alpha or slightly above — about **88-92 gp**
+  (over-correct for VFX visual contrast that shrinks the chibi)
+
+### 17.5. Per-sheet runtime mapping pattern
+
+| Sheet | Lifecycle owner | Frame mapping |
+|---|---|---|
+| Walk L / R | direction state | per-frame index advance |
+| Idle | wall-clock time | `(get_ticks() // 250) % 8` (2 sec breath cycle) |
+| Attack | internal timer + Menhera-style trigger | F5 = strike apex, anticipatory pre-contact |
+| Turn | facing-edge triggered | short subset of frames, returns to walk |
+| Dash | external timer (`boss_dash_timer`) | slide-sustained: F1/F2 brief intro, F3/F4 dominate |
+| Victory | internal timer + Menhera-style trigger | plays once, holds on F8 |
+| Defeat | internal timer + Menhera-style trigger | plays once, holds on F8; trigger_defeat clears is_victorious |
+| Stun | external timer (`boss_stunned_timer`) | `(get_ticks() // 80) % 8` (640ms loop) |
+| Skill (external-driven, e.g. whip / paengi) | existing skill timer | progress-based or angle-based mapping |
+| Skill (internal-driven, e.g. spin) | new internal timer | one-shot, holds on last frame |
+
+### 17.6. Render priority chain (highest first)
+
+```
+defeat > victory > stun > dash > skill-specific > walk/attack/turn > idle
+```
+
+- Defeat at the top — boss who just lost cannot suddenly celebrate
+  or dash. `trigger_defeat()` should actively clear `is_victorious`
+  to enforce this.
+- Game-end animations (defeat/victory) ALWAYS win.
+- Stun beats movement and skills (a stunned boss can't act).
+- Dash beats walk/attack (slide pose during high-velocity travel).
+- Skill-specific sheets (e.g. paengi strike, whip yaw rotation) beat
+  walk/attack/turn for their active window.
+- Idle is the floor — fallback for "nothing else is happening".
+
+### 17.7. Sprite class wiring template
+
+For each new sheet beyond walk pair, the sprite class needs:
+
+Legacy Python/Pygame reference template only. For current runtime promotion,
+map the same sheet metadata to the owning Godot renderer/catalog and asset
+path under `godot/`.
+
+```python
+# In __init__:
+self.frames_<name> = []
+self._scaled_frames_<name> = []
+self.<name>_total_frames = 8
+# Internal-timer sheets also need:
+self.is_<name> = False
+self.<name>_frame = 0
+self.<name>_timer = 0.0
+self.<name>_animation_speed = 0.18  # sec per frame
+self.<name>_finished = False
+
+# Also in __init__:
+<name>_path = resource_path(os.path.join("assets", "[name]_boss_<name>.png"))
+self.load_<name>_sprite_sheet(<name>_path)
+
+# Loader: copy the load_attack_sprite_sheet() / load_turn_sprite_sheet() pattern.
+# Getter: copy the get_dash_frame() / get_stun_frame() / get_victory_frame() pattern
+# depending on whether the sheet is external-timer or internal-timer driven.
+# Cache: extend _build_scaled_cache() with one more rebuild flag + branch.
+```
+
+For internal-timer sheets (attack/victory/defeat), also add a branch
+to `update()` that advances the frame and clamps when finished. For
+victory/defeat specifically, victory_finished/defeat_finished and the
+mutual-exclusion check (defeat clears is_victorious) are required.
+
+### 17.8. Legacy Python reference — `pingfighter.py` wiring template
+
+Each non-walk sheet overrides `boss_img` in the stage's render branch:
+
+```python
+if <skill_active_condition>:
+    _img = boss_sprite.get_<name>_frame(<args>, (boss_w, boss_h))
+    if _img is not None:
+        boss_img = _img
+        boss_img_prescaled = True
+```
+
+Place the override blocks in **reverse priority order** (lowest priority
+first, highest priority last) so each higher-priority condition writes
+on top of the previous boss_img.
+
+### 17.9. Runtime promotion / hand-off requirements
+
+For each new sheet, the runtime promotion note or legacy cross-agent
+hand-off (`prompts/handoff_codex.md` template) must include:
+- Asset path + md5
+- Sheet category (basic 7 / boss combat / optional / skill-specific)
+- Post-processing pattern used (which row of §17.4)
+- Runtime mapping pattern (which row of §17.5)
+- Priority position (where it sits in §17.6 chain)
+- Identity locks vs walk pair anchor
+- Cross-sheet QA result (gp body match)
+- Backup file paths
+
+---
+
 ## Appendix A. Angled walk / full side-facing walk -- interesting experiment, not preferred default
 
 Angled walk sheets (multiple facing directions inside the walking cycle)
 and full side-facing walk sheets are treated as **interesting experiments,
-not the preferred default** for PingFighter human / chibi bosses.
+not the preferred default** for DiskHearts - Ringpia human / chibi bosses.
 
 Background: the Stage 3 Menhera iteration showed that front-biased walk
 reads better in the ping-pong boss framing than a natural side-scroller

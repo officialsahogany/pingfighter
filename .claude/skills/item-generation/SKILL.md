@@ -1,12 +1,12 @@
 ---
 name: item-generation
 description: |
-  Item visual generation pipeline for PingFighter. Covers active item icons,
+  Item visual generation pipeline for DiskHearts - Ringpia. Covers active item icons,
   passive item icons, legendary / mythic item icons (empty_legendary
   frame rules), character paddle-part equip visuals, mood-based glow /
   border / particle rules, Claude-ready copy-paste prompts, and the
   reject / regenerate QA checklist. This skill ONLY owns visual asset
-  creation for items. Runtime integration (items.py registration, shop /
+  creation for items. Runtime integration (Godot item registration, shop /
   gacha / crane / treasure hunt, active vs passive routing, roll
   options, polish perks, enhancement buffs, equip visual wiring) lives
   in docs/item_runtime_checklist.md and is NOT covered here. Boss /
@@ -19,9 +19,12 @@ description: |
   아이템 비주얼, 아이템 프롬프트, 아이템 제작.
 ---
 
-# Item Generation Pipeline (PingFighter)
+# Item Generation Pipeline (DiskHearts - Ringpia)
 
 Asset-generation plays for **item icons** and **character equip visuals**.
+Current runtime target is the Godot project **디스크하츠 - 링피아** under
+`godot/`. Original Python/Pygame PingFighter item paths are legacy porting
+references only.
 Runtime integration is NOT covered here — hand off to
 `docs/item_runtime_checklist.md` after the asset is accepted.
 
@@ -45,15 +48,26 @@ Runtime character perk / skill work does NOT belong here. Use
 save/load/reset audits, and use `CLAUDE.md` for the companion
 `draw_skill_icon_mini()` and perk-text path invariants.
 
-If the report is "a skill / perk icon still looks too small" or "the HUD
-version and perk-card version do not match," treat that as runtime
-character perk / skill integration, not item-asset work. The fix belongs
-in `docs/character_skill_perk_checklist.md` + `CLAUDE.md` and must audit:
+If the report is "an invested passive should also show synergy text in
+the affected active-skill / orb tooltip," treat that as runtime
+character perk / skill integration too. It belongs in
+`docs/character_skill_perk_checklist.md` + `CLAUDE.md`, not in this
+item-asset skill.
+
+If the report is "a skill / perk icon still looks too small," "the HUD
+version and perk-card version do not match," or "the skill orb rim /
+alpha edge looks dirty in the live HUD," treat that as runtime character
+perk / skill integration, not item-asset work. The fix belongs in
+`docs/character_skill_perk_checklist.md` + `CLAUDE.md` and must audit:
 
 - `draw_skill_icon_mini()`
 - `_draw_skill_icon_symbol()`
 - live id aliases (`perk id`, unlock id, runtime skill id, legacy id)
+- unlock-style alias pairs (`unlock_*` perk-card id plus equipped
+  5-orb skill id), including any unlock badge overlay expected on the
+  card / offer path
 - perceived subject size at the smallest real UI box
+- PNG alpha / padding / draw-size behavior in the real HUD orb slot
 
 A generated mockup, PNG, or one successful large-card preview is not
 enough to call a runtime character perk / skill icon "done."
@@ -73,15 +87,91 @@ Routing override:
   `docs/character_skill_perk_checklist.md` + `CLAUDE.md`, not this skill.
 - That review must cover mini icon rendering, orb symbol rendering, live id
   aliases, and the smallest real UI box where the icon appears.
+- If the asset was created with imagegen for a runtime perk / skill icon,
+  do not stop at the generated preview. Copy the selected PNG into the repo,
+  wire a PNG-first loader/cache path, and verify no procedural fallback or
+  special-case early return bypasses the new file.
+- If the visual request is for a one-shot / instant-trigger runtime perk
+  (`instant_*` ids or similar immediate reward effects), treat the default
+  deliverable as an 8-frame horizontal PNG icon sheet, not a static-only
+  icon, unless the user explicitly asks for a still. Preserve the accepted
+  static PNG as the identity anchor and fallback; animate charge, glow,
+  sweep, sparkle, portal, reward, or item-spill motion around that motif.
+  Save the sibling sheet as `items/<perk_id>_perk_icon_sheet.png` and hand
+  off the runtime requirement: sheet-first loader/cache, static PNG
+  fallback, procedural fallback last, plus alpha / small-grid label checks.
+- For generated PNG perk / skill icons, validate the smallest live UI box,
+  especially 32 px TAB character-info perk cells and academy / NPC offer
+  grids. Clamp the draw size to the owning cell; a large-card
+  `scale_multiplier` must not let the icon bleed outside its box or cover
+  the bottom level label. In the TAB character-info perk tab, use the
+  current `dash_module_control` / `모듈제어` icon as the preferred small-cell
+  size reference: present and polished, but not overlapping `Lv.1` /
+  `Lv.5` text.
+- When the runtime renderer is `draw_skill_icon_mini()`, prefer the repo's
+  per-id small-cell sizing helper (currently
+  `_get_small_cell_perk_icon_size()`) or an equivalent clamp for generated
+  PNGs before scaling them. Baked circular rims / glows and source padding
+  need their own draw-size check in both directions: shrink if the rim or
+  glow crowds labels, enlarge if the central motif reads smaller than
+  neighboring icons. Verify both `Lv.1` and `Lv.5` labels, because a good
+  large-card preview can still hide the TAB-level text or a too-small
+  subject-fill read.
+- Before producing or selecting a runtime perk / skill icon asset, classify
+  the visual family and hand that classification to the runtime checklist:
+  character-exclusive active-skill / unlock perk, character passive /
+  enhancer skill perk, or basic shared perk. Character-exclusive active and
+  passive/enhancer skill perks should keep the established round / orb-style
+  language; basic shared perks may use freer object / symbol silhouettes.
+- For a 5-orb skill unlocked by a perk, that review must cover both the
+  runtime skill id shown in the orb HUD and the `unlock_*` perk id shown
+  in perk cards, academy / NPC offers, and swap / status panels. Reusing
+  the accepted PNG for only the orb HUD while leaving the unlock card on
+  stale procedural art is incomplete.
+- Any runtime character perk / skill tooltip-synergy fix should also
+  route there. Audit the target orb tooltip / bonus-line helper, the
+  effective values that feed it, and the limited shared line budget when
+  multiple enhancers can affect the same skill.
+- If the symptom is "after adding synergy text, the control hint or
+  effect preview became hard to read," that is still runtime character
+  perk / skill work. Route it to
+  `docs/character_skill_perk_checklist.md` + `CLAUDE.md` and audit the
+  tooltip's real rendered-height / section-layout budget, not only the
+  text copy.
+- If the symptom is "the TAB character-info perk tooltip clips when the
+  perk is in the first row / panel edge," that is also runtime
+  character perk / skill work. Route it to
+  `docs/character_skill_perk_checklist.md` + `CLAUDE.md` and audit the
+  grid-hover tooltip's rect-anchored placement, wrap width, and panel /
+  viewport clamp behavior.
+- If the symptom is "the tooltip string contains `\\n` but renders like
+  one flattened paragraph" or "a newly appended synergy line exists in
+  the list but is invisible on screen," that is still runtime character
+  perk / skill work. Route it to
+  `docs/character_skill_perk_checklist.md` + `CLAUDE.md` and audit the
+  shared `_get_wrapped_tooltip_lines()` path plus the real rendered
+  shared-budget / max-invested tooltip state.
+
+Upscaling override:
+- If the user asks to "upscale", "upscaling", "hires", "업스케일",
+  "업스케일링", or "real / Real-ESRGAN처럼" for an item icon, perk icon,
+  skill icon, equip visual, or item animation sheet, run the Real-ESRGAN
+  upscale gate in `.claude/skills/sprite-generation/checklists.md` §0.1.
+- Do not treat icon draw-size tuning, Godot import filtering, ordinary
+  resampling, or imagegen repainting as completion of an upscale request.
+- Preserve transparent corners by upscaling RGB separately from alpha and
+  recombining the resized source alpha before final 32 / 64 px HUD-scale QA.
 
 Legacy wording note: the Viper-specific row in the table above is
 representative only. For any runtime character perk / skill integration
 work, use `docs/character_skill_perk_checklist.md` first, with
 `CLAUDE.md` as the companion icon / UI trap reference.
 
-**Do not import sprite-sheet rules (scale lock, turn-sheet layout,
-front-biased walk, etc.) into this skill.** Item icons are flat 32 or
-64 px single-cell renders; cross-sheet identity lock is not relevant.
+**Do not import boss / character sprite-sheet rules (scale lock,
+turn-sheet layout, front-biased walk, etc.) into this skill.** Item icons
+are flat 32 or 64 px single-cell renders; cross-sheet identity lock is not
+relevant. The instant-trigger perk icon sheet exception above is a runtime
+perk-icon handoff rule, not a boss sprite or normal item-icon rule.
 
 ---
 
@@ -89,6 +179,11 @@ front-biased walk, etc.) into this skill.** Item icons are flat 32 or
 
 Trigger on any of these user intents:
 
+- If the user says "그려줘", "그려달라", "draw", or "make an icon" for an
+  item / perk / skill icon or equip visual, use imagegen to create or edit
+  a bitmap asset first. Do not substitute procedural code-drawn art or a
+  placeholder unless the user explicitly asks for code-drawn art or accepts a
+  fallback after imagegen is blocked.
 - Create a new item icon (active / passive / legendary / mythic)
 - Regenerate or repaint an item icon that reads poorly in HUD
 - Draw a character paddle-part equip visual for a new passive item
@@ -96,14 +191,25 @@ Trigger on any of these user intents:
 - Prepare a Claude-ready prompt to hand to Gemini MCP for an item asset
 - Resolve the `empty_legendary` frame convention for a new legendary icon
 
-If the user is wiring the item into `items.py`, the shop, the gacha, the
-crane, treasure hunt, reset flow, or roll options — that is
+If the user is wiring item runtime behavior, acquisition routes, shop / gacha
+/ crane / treasure-hunt equivalents, reset flow, or roll options — that is
 **`docs/item_runtime_checklist.md`** territory. Do not drive it from here.
+Legacy Python files such as `items.py` are reference anchors only unless the
+user explicitly asks for original PingFighter source work.
+The same routing applies when the report is "runtime item scaling uses
+the wrong level basis / wrong per-level constant" or "`Lv.6+`
+description text dropped one of a perk's multiple effects." Those are
+runtime item-integration bugs, not visual-asset bugs.
 If the user is wiring a runtime character perk, unlock skill, 5-orb
 skill HUD path, or deciding a new character skill's gold reward /
 anti-double-pay behavior, that is
 **`docs/character_skill_perk_checklist.md`** territory. Do not drive it
 from here either.
+The same routing applies when the task is "show this passive's runtime
+synergy on the affected orb tooltip" rather than a new visual asset.
+The same routing also applies when the task is "show this timed skill /
+buff in the standard right-bottom horizontal timer bar" rather than a
+new visual asset.
 
 ---
 
@@ -115,10 +221,47 @@ from here either.
 | `docs/item_runtime_checklist.md` | Every code location that must be touched to make the item work at runtime |
 | `CLAUDE.md` | Thin routing rule pointing at both of the above |
 
+### 2.1. Gemini session-size guardrail
+
+Gemini can generate a `2048x2048` item candidate successfully and still
+make the *next* request fail if that image remains attached in the same
+chat/session. The common error is a `many-image request` rejection caused
+by the client-side `>2000 px` long-side limit, not by a bad prompt.
+
+Rules:
+
+- For iterative item-icon work in the same session, default to `1536` or
+  `1024` square.
+- Treat `2K` as an explicit escalation for a final/detail pass or for a
+  fresh session, not the default for batch exploration.
+- If a previous `2048` result must be reattached, analyzed, or continued
+  in chat, resize it to `<=2000 px` first.
+- If generation succeeded but the next turn fails immediately with that
+  error, diagnose it as a session-history/image-size issue before
+  blaming the prompt or model.
+
 Do not copy runtime rules into this skill. Do not copy icon / prompt
 rules into `docs/item_runtime_checklist.md`. If the two documents
 conflict, the runtime checklist wins for runtime behavior; this skill
 wins for visual asset decisions.
+
+### 2.2. Gemini MCP connection-stability guardrail
+
+If Gemini MCP alternates between connected and disconnected, or reports
+`connection timed out after 30000ms`, check the MCP launcher before
+changing item prompts:
+
+- Prefer the repo launcher `.claude/gemini_mcp_launcher.mjs` through an
+  absolute `node.exe` path instead of `npx -y @rlabs-inc/gemini-mcp`.
+- Keep `@rlabs-inc/gemini-mcp` installed under `mcp/package.json`; if
+  dependency folders are half-installed, reinstall `mcp/node_modules`
+  cleanly.
+- Do not let startup block on a Gemini API test call. The server should
+  initialize first and report API problems only when a real tool runs.
+- Keep MCP stdout clean for JSON-RPC; noisy startup/progress logs belong
+  on stderr or quiet mode.
+- Verify with `initialize`, `listTools`, and one lightweight tool call
+  before continuing item-icon generation.
 
 ---
 
@@ -185,6 +328,138 @@ Rules:
   pattern, route it through the checker-aware nukki path in
   `.claude/skills/sprite-generation/remove_bg.py` instead of accepting
   the asset as-is.
+- **Nukki inspection must be numerical, not visual.** A 1024 px nukki
+  output can look transparent in any PNG viewer — including VS Code's
+  own transparency checker — while still carrying low-alpha
+  (`alpha<230`) mid-gray (`saturation<14, luminance 55–160`) pixels
+  from the baked checker. These pixels are invisible at source size
+  but `LANCZOS` downsample blends them into an opaque gray square at
+  32 px. The viewer's own transparency indicator masks the failure.
+- **Verify alpha distribution of the FINAL 32 px PNG numerically.**
+  Count `opaque (a>200)`, `semi (8<a<=200)`, and `transparent (a<=8)`
+  pixels over the 1024-pixel canvas. For a well-cut item icon, `semi`
+  should be at most ~5 % (roughly `<50`). A `semi` count in the 500s
+  means checker residue survived and will render as a gray square on
+  the in-game inventory cell, even though the file looks clean in a
+  viewer.
+- **If residue is detected, re-run cleanup on the 1024 source AND on
+  every intermediate resize step before `NEAREST` to 32.** The
+  canonical cleanup band is:
+  `alpha < 230 AND saturation < 14 AND 55 < luminance < 160 -> alpha 0`,
+  applied to the source and after each resample. A single pre-resize
+  cleanup is not enough, because `LANCZOS` can promote near-invisible
+  fringe back above the threshold during downscale.
+- **Final-size QA must happen against a dark inventory-like
+  background, not a viewer's transparency checker.** Blit the 32 px
+  PNG onto a solid navy / charcoal surface (for example `(28, 36, 64)`)
+  at 1x and 4–8x before shipping. The viewer's transparency indicator
+  and the in-game dark inventory cell reveal completely different
+  failures; only the dark preview catches the checker-survived case.
+- **Do not rely on global color-band cleanup when the icon contains
+  intentional low-saturation interior detail.** Embossed letters,
+  engraved runes, pill imprints, or pale interior symbols can live in
+  the same `low-sat / mid-luminance / low-alpha` band as checker residue
+  after nukki + LANCZOS. In those cases, prefer a location-gated cleanup:
+  build a silhouette/body mask from the clearly-opaque subject, preserve
+  everything inside that mask, and only hard-clear residue outside it.
+  Otherwise the cleanup can erase the intended interior motif together
+  with the checker fringe.
+- **Color glow / halo residue is a separate failure class from checker
+  residue, and body-mask cleanup does not catch it.** If the Gemini
+  render paints a soft outer glow (faint magenta / cyan / gold aura
+  radiating beyond the intended silhouette), those pixels are
+  opaque-colored and survive both the color-band checker cleanup AND
+  the dilate-based body-mask cleanup from the previous bullet — the
+  dilate simply captures the glow as part of the "body". They render
+  as a faint square / round halo against a dark inventory cell even
+  though the file corners look transparent. When glow residue is
+  detected, pivot to **outline-boundary flood-fill**: detect the black
+  silhouette outline at source resolution, morph-close any 1–2 px
+  gaps, flood from the image borders through non-outline pixels, and
+  keep only the outline plus the enclosed interior. Anything reachable
+  by the border flood — including opaque colored glow — is discarded.
+  This also handles checker residue in the same pass.
+- **Outline-boundary flood-fill discards subject elements that have
+  no dark outline of their own.** Flames, plasma, magical auras,
+  energy bursts, light beams, and other colored-fill-only subject
+  parts are often painted by Gemini as pure color layers without a
+  black outline. The border flood therefore reaches them freely and
+  marks them as "outside", so the cleanup deletes the flame / aura
+  together with the checker residue. The bottle survives because it
+  has an outline; the flame above it vanishes. Detect this by visual
+  QA on the 32 / 64 px output — if a defining subject element is
+  missing after cleanup, pivot to a **hybrid body mask**: union the
+  outline-enclosed region with any clearly-opaque saturated pixel
+  (`alpha > 180 AND (saturation > 40 OR luminance > 180)`). Such
+  pixels are unambiguously subject content, not background residue,
+  so keeping them is safe. Apply a 1 px dilate to the union to cover
+  anti-aliasing fringe, then resample as usual.
+- **Hybrid body mask 후에도 AI 파스텔 halo 는 살아남는다 — 추가
+  strip 패스가 필요하다.** 위의 hybrid body mask 규칙
+  (`alpha > 180 AND (saturation > 40 OR luminance > 180)`) 은
+  의도한 flame / aura / 발광 요소를 지키기 위해 `luminance > 180` 분기를
+  포함한다. 바로 그 분기가 **AI 가 아이콘 바깥으로 뿌린 저채도 파스텔
+  halo 까지 "subject" 로 인정해서 남겨버린다** (repair_kit 의 cyan fairy
+  aura, berserk_potion 의 red glow, vitamin_pill 의 yellow shimmer,
+  weather_capsule 의 cyan halo 사례). 1024 에서는 예쁜 발광으로 보여도
+  32px 로 리샘플되면 아이콘 주변에 `1~2px 컬러 envelope border` 로
+  변한다. 이걸 잡으려면 hybrid body mask 다음에 **halo strip 2차 패스**
+  를 돌려라. 기존 투명 픽셀에서 BFS 확장, `V >= 220 AND (maxRGB -
+  minRGB) <= 110` 인 이웃만 같이 투명화. 실루엣 내부의 채도 있는 본체는
+  BFS 가 도달 못 해서 안전. 정식 CLI:
+  `py .claude/skills/sprite-generation/halo_strip.py <src.png> <dst.png>`.
+  자세한 내용과 QA 순서 (1024 먼저 보기, 어두운 HUD 위에서 최종 QA) 는
+  `.claude/skills/sprite-generation/SKILL.md` §11.6 "AI pastel-halo
+  residue trap" 참고.
+- **Gemini 가 baked-checker 를 아이콘 픽셀에 구워버릴 때 hybrid body
+  mask 의 `luminance > X` 분기는 light-square 체커와 충돌한다.** 기본
+  `remove_bg.py` 가 잡는 체커는 `CHECKER_LUM=100` 이하 밝기의 연한
+  체커만이고, Gemini 는 session / style 에 따라 전혀 다른 두 종류의
+  체커를 굽는다: **어두운 체커 variant** (dark square `lum 70-100`,
+  light square `lum 100-130`) 와 **밝은 체커 variant** (dark square
+  `lum 195-200`, light square `lum 244-247`). 둘 다 subject mask 에
+  `lum > 180` / `lum > 230` 같은 bright-highlight 분기를 넣으면
+  **light-square 체커까지 subject 로 인정**되어 square halo 로
+  잔존한다 (dowsing_pendulum / speedboots 사례). 해결 순서:
+  1. 가장 먼저 raw JPEG 의 배경 corner 픽셀 (`(20,20)`, `(500,20)`
+     등) 을 numerical probe 해서 실제 체커 luminance band 를 알아낸다.
+  2. Subject mask 에서 bright-highlight 분기를 제거하고 `sat > 25 OR
+     lum < 35` 만 사용해서 **채도 있는 색 + 진짜 검은 outline** 만
+     subject 로 정의한다. 흰 sole / 흰 lace / 흰 highlight 처럼 의도한
+     밝은 영역은 outline 으로 enclose 되어 있어서 flood-fill 이 도달
+     못 해 자동 보존된다.
+  3. Outline threshold 도 체커 dark-square 와 구분되도록 잡아라.
+     어두운 체커 variant 에서는 `lum < 35` 정도로 매우 타이트해야
+     체커가 outline 으로 오분류되어 flood 를 막지 않는다.
+  4. border-seeded flood 로 non-subject 전부 죽이고, enclosed
+     non-subject (`sat <= 15`) 도 추가로 쓸어라 (체인 링 내부, 아크
+     사이, 턱 스트랩 opening 등).
+  글로우 / 발광 / flame 처럼 밝은 highlight 를 본체로 쓰는 경우는 §3.2
+  상단의 "hybrid body mask" 규칙 (`sat > 40 OR lum > 180`) 그대로
+  쓰고, outline-enclosed subject (헬멧 / 신발 / 펜들럼 등) 는 이 `sat
+  + outline` 타이트 규칙을 쓰면 된다.
+
+### 3.3. Large acquisition / showcase scaling trap
+
+Some item icons pass HUD-scale QA and still fail when the game enlarges
+them inside pickup popups, treasure-hunt reveals, or legendary /
+showcase-style acquisition effects. The common failure pattern is not the
+main silhouette -- it is the leftover transparent padding or a faint
+background residue around the icon, which becomes visible as a square /
+rectangular ghost only at large presentation size.
+
+Rules:
+
+- Keep the real subject tightly centered; do not waste large transparent
+  margin on one side of the canvas.
+- Reject icons with faint off-black, off-white, checkerboard, or halo
+  residue in the corners even if they look harmless in the small HUD.
+- Before sign-off, imagine the icon enlarged 2x~4x inside an acquisition
+  popup. If the empty margin is doing most of the work, the icon needs to
+  be regenerated or re-nukkied.
+- If the item is likely to appear in a big reveal effect, prefer a clean
+  visible-bounds crop / recenter pass rather than shipping a loose icon and
+  hoping runtime scaling hides it.
 
 ---
 
@@ -360,10 +635,12 @@ Rules:
   name at least one coexistence QA pair in the hand-off (for example
   `technical_vest + timer_belt` or `bulkup + megingjord`).
 
-Runtime hook is
-`entities/body_parts/item_parts_registry.apply_item_to_skin()`
-(see `docs/item_runtime_checklist.md`). This skill only owns the
-asset; the wiring belongs in the runtime checklist.
+Current runtime wiring belongs in the owning Godot item / player-visual
+module under `godot/scripts/` (see `docs/item_runtime_checklist.md`).
+Legacy Python hooks such as
+`entities/body_parts/item_parts_registry.apply_item_to_skin()` are
+porting references only. This skill only owns the asset; the wiring
+belongs in the runtime checklist.
 
 Copy-paste prompt: `references/equip_visual_prompt.md`.
 
@@ -371,16 +648,21 @@ Copy-paste prompt: `references/equip_visual_prompt.md`.
 
 ## 8. File naming & output paths
 
-All item assets live under `items/`.
+For current DiskHearts - Ringpia work, `items/` is the legacy
+Python/Pygame path and may be used only as a staging / parity reference
+unless the user explicitly asks for original PingFighter source work.
+Accepted runtime assets must be copied into the repo-local Godot asset
+tree and wired through the owning Godot module.
 
 | Asset | Path | Notes |
 |---|---|---|
-| Active item icon | `items/[name].png` or `items/[name]_icon.png` | 32 × 32 px, transparent BG |
-| Passive item icon | `items/[name].png` or `items/[name]_icon.png` | 32 × 32 px, transparent BG |
-| Legendary item icon | `items/[name].png` or `items/[name]_icon.png` | 32 × 32 px, legendary frame stack baked in |
-| Legendary animation frames (if any) | `items/[name]_frame_0.png` … `items/[name]_frame_7.png` | 8 frames, baked into PNGs |
-| Equip visual (paddle-part) | `items/[name]_equip.png` or `entities/body_parts/[name].png` | Pose-locked overlay |
-| Unknown-item placeholder | `items/unknown_item.png` | Already exists — do NOT overwrite |
+| Godot active item icon | `godot/assets/...` item icon folder used by the current item catalog | 32 × 32 px, transparent BG unless the catalog requires another size |
+| Godot passive / legendary icon | `godot/assets/...` item icon folder used by the current item catalog | Preserve rarity frame / animation expectations from the runtime owner |
+| Godot legendary animation frames / sheet | `godot/assets/...` item VFX or icon folder used by the current item owner | Document frame count and cadence beside the loader |
+| Godot equip visual | `godot/assets/...` player / equipment visual folder used by the current visual owner | Pose-locked overlay, slot documented in the runtime note |
+| Legacy Python item icon reference | `items/[name].png` or `items/[name]_icon.png` | Reference / staging only |
+| Legacy Python equip visual reference | `items/[name]_equip.png` or `entities/body_parts/[name].png` | Reference / staging only |
+| Legacy unknown-item placeholder | `items/unknown_item.png` | Already exists — do NOT overwrite |
 
 **Do NOT overwrite `items/unknown_item.png`.** It is the fallback icon
 for anything without a loaded texture. If a new item fails to load,
@@ -388,10 +670,10 @@ the HUD falls back to this asset.
 
 **Do NOT generate an asset file named `empty_legendary*.png`.** See §6.2.
 
-**Match the existing runtime loader key exactly.** If the repo already
-expects `items/[name].png`, do not silently save `items/[name]_v2.png`
-or another variant unless the runtime hand-off explicitly includes the
-loader update.
+**Match the existing Godot runtime loader key exactly.** Do not silently
+save a variant filename unless the runtime note explicitly includes the
+catalog / loader update. For explicit legacy Python work, the same rule
+applies to existing `items/[name].png` expectations.
 
 ---
 
@@ -408,11 +690,13 @@ Apply before accepting any item asset.
 | 5 | Passive icons read as wearable gear | a passive icon looks like a bottle or bomb |
 | 6 | Legendary icons have the full frame stack baked in | frame missing, corners missing, or frame drawn at runtime |
 | 7 | No stray text / numerals / watermarks | any letters or numbers inside the canvas |
-| 8 | Transparent background (non-legendary) | any off-white fringe, JPEG halo, or baked gray checkerboard transparency pattern |
+| 8 | Transparent background (non-legendary), verified BOTH on a dark inventory-like preview AND via numerical alpha distribution on the final 32 px PNG | any off-white fringe, JPEG halo, baked gray checkerboard transparency pattern, OR `semi-transparent (8<a<=200)` pixel count exceeding ~5 % of the 1024-pixel canvas on the final 32 px PNG (see §3.2) |
 | 9 | If legendary: 8 frames consistent, only frame-color animates | subject drifts between frames |
 | 10 | If equip visual: pose-locked to player rig, outline matches paddle | freestanding portrait or different outline weight |
 | 11 | No painterly rendering / anti-aliased blur | soft gradient or oil-paint feel |
 | 12 | Runtime loader precedence sanity check for replacements | the repo still shows an old/procedural icon because a special-case branch returns before reading the new PNG |
+| 13 | Enlarged acquisition / showcase presentation stays clean | faint square padding box, leftover transparency indicator, or halo residue appears only when the icon is shown large |
+| 14 | If the user asked for upscaling, the Real-ESRGAN gate was completed and recorded | the final asset only changed draw size, import filtering, local resize, or imagegen repaint |
 
 If any check fails, regenerate — do not patch with post-processing.
 
@@ -449,6 +733,25 @@ Typical hand-off payload to include in the follow-up message:
   replace the placeholder strings themselves.
 - Whether duplicates are allowed (affects `PASSIVE_DUPLICATE_ALLOWED`
   and `skip_append` rules - see runtime checklist)
+- For legendary / mythic runtime hand-off, list each intended
+  acquisition path separately instead of saying only "shop / gacha /
+  crane / treasure hunt": field drop, Nemesis chest, treasure-hunt
+  legendary pool, the stage-clear gacha candidate builder in
+  `pingfighter.py`, `gacha.py` item classification / display sets,
+  crane prize pool, crane reward routing, and Pandora routing decision.
+- For any route that can award both passive and active items, state the
+  required grant path explicitly (`store_passive_item()` vs
+  `store_active_item()`). If the mythic is active, call out any needed
+  legendary-active rarity bucket instead of assuming the common / epic
+  active path will surface it.
+- If stage-clear gacha should be one-time, say explicitly that the gate
+  must use ownership / obtained state rather than current equipped-state
+  sync flags.
+- If the item is a protection / immunity item, state the intended target
+  set and explicit exclusions in the hand-off (for example: boss
+  non-ball skills yes, weather / event hazards no, ordinary ball path
+  no), and call out whether runtime should add a new semantic helper
+  instead of widening an existing geometry / VFX helper.
 - If the item can visually coexist with a neighboring wearable family,
   name at least one coexistence QA pair for runtime verification.
 - For icon replacements or regenerations, explicitly require a runtime
@@ -462,6 +765,10 @@ Typical hand-off payload to include in the follow-up message:
   countdown text, cooldown wedge timing, and tooltip cooldown line to
   the **final effective value**, not only the underlying gameplay
   cooldown logic.
+- If a character skill / buff needs a HUD-visible active-duration timer,
+  route that request to runtime and explicitly call for the shared
+  right-bottom horizontal timer-gauge stack plus the matching effective-
+  duration / teardown audit.
 
 Do not attempt the runtime wiring from this skill. Point to the
 checklist and stop.

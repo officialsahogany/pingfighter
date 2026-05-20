@@ -3266,13 +3266,16 @@ This section is intentionally long; use search to find the nearest owner.
   Godot-native VFX remaster path; remaining work is live visual tuning and
   weapon-feel QA.
 - `scripts/characters/commando_firearm_hit_geometry.gd`
-  Owns the pure hit-geometry helpers for Commando firearm runtime:
-  boss-hitbox rect construction, projectile hitbox rect construction,
-  explosion-radius fallback resolution, rect expansion, circle-vs-rect
-  checks, and segment-vs-rect checks. `commando_firearm_runtime.gd` keeps
-  its existing private wrapper names and delegates to this helper so the
-  selected-firearm input, ammo, cooldown, audio, and result handoff paths
-  stay untouched while hit geometry can be smoke-tested independently.
+  Owns the pure hit-geometry and projectile impact-reason helpers for
+  Commando firearm runtime: boss-hitbox rect construction, projectile hitbox
+  rect construction, explosion-radius fallback resolution, rect expansion,
+  circle-vs-rect checks, segment-vs-rect checks, direct-hit / support-target-Y
+  / wall-impact / target-reached / net-pass / terminal reason priority, and
+  the small terminal classification helpers those reason paths need.
+  `commando_firearm_runtime.gd` keeps its existing private wrapper names plus
+  selected-firearm input, ammo, cooldown, audio, VFX, projectile removal, and
+  result handoff paths while delegating deterministic impact classification to
+  this helper.
 - `scripts/characters/commando_firearm_audio_resolver.gd`
   Owns pure Commando firearm audio-name lookup behavior: ball-hit pulse
   kind names, weapon-specific fire cue method lists, and weapon-specific
@@ -3280,12 +3283,14 @@ This section is intentionally long; use search to find the nearest owner.
   side effects, fallback generic calls, and fire-support radio suppression
   in the runtime while delegating only the string mapping here.
 - `scripts/characters/commando_firearm_bowling_trap_geometry.gd`
-  Owns pure Commando bowling-trap geometry and kinematic helpers: install
-  position clamping, guard ball-speed restoration, guard knockback side,
-  deterministic launch direction, and trap-vs-ball rectangle hits.
-  `commando_firearm_runtime.gd` keeps trap state transitions, capture /
-  release side effects, audio, VFX, and result handoff while delegating only
-  these deterministic decisions.
+  Owns pure Commando bowling-trap geometry, state payloads, and kinematic
+  helpers: install position / payload / marker dictionaries, install and
+  capture timer progression, capture result handoff, release motion and
+  pseudo-projectile dictionaries, guard ball-speed restoration, guard
+  knockback side, deterministic launch direction, and trap-vs-ball rectangle
+  hits. `commando_firearm_runtime.gd` keeps the trap array, ammo / cooldown
+  gates, capture / release side effects, audio, VFX, and guard arming while
+  delegating deterministic bowling-trap state math to this helper.
 - `scripts/characters/commando_firearm_fire_sheet_resolver.gd`
   Owns pure Commando firearm weapon-fire sheet lookup behavior: which
   weapons use the shared authored fire sheet overlay, which use the long
@@ -3305,12 +3310,58 @@ This section is intentionally long; use search to find the nearest owner.
   `action_pressed`. `commando_firearm_runtime.gd` keeps all input side
   effects, weapon firing gates, manual-control velocity mutation, and
   detonation logic while delegating only these snapshot reads.
+- `scripts/characters/commando_firearm_lingering_fire_flame_state.gd`
+  Owns pure Commando lingering fire-zone flame state: deterministic flame
+  seeding, effect-size fallback reads, ring / size / lifetime patterns,
+  per-frame drift / reset motion, and safe flame array reads. The runtime
+  keeps lingering-effect ownership, fire-zone activation, status application,
+  and its existing private wrapper names while delegating only this renderer-
+  facing fire-particle state math.
+- `scripts/characters/commando_firearm_lingering_net_field_state.gd`
+  Owns pure Commando lingering net-field state: live / dissolve lifecycle
+  payloads, profile-derived rope / origin / player-slow fields, deterministic
+  net outline generation, net-field position and height clamping, alternating
+  constrict input predicates, and boss clamp rectangle / result math. The
+  runtime keeps projectile impact ownership, active lingering-effect storage,
+  dash-break mutation, audio side effects, and its existing private wrapper
+  names while delegating only deterministic net-field calculations here.
+- `scripts/characters/commando_firearm_lingering_status_state.gd`
+  Owns pure Commando lingering status state: profile-derived status payload
+  fields, status application candidate dictionaries, slow-multiplier status
+  data, cooldown arithmetic, and lingering-effect / boss-rect overlap tests.
+  The runtime keeps the actual `status_effect_state.apply_status()` side
+  effect, cooldown reset sequencing, active lingering-effect storage, and its
+  existing private wrapper names while delegating deterministic status
+  calculations here.
 - `scripts/characters/commando_firearm_muzzle_flash_resolver.gd`
   Owns pure Commando muzzle-flash dictionary construction: profile kind,
   radius / timer clamps, origin / direction, and secondary-color fallback.
   `commando_firearm_runtime.gd` keeps muzzle-flash array limits, lifetime
   updates, draw-state publication, and weapon firing side effects while
   delegating only this visual payload construction.
+- `scripts/characters/commando_firearm_pistol_feedback_state.gd`
+  Owns pure Commando pistol headshot / legshot feedback state: supported hit
+  kind filtering, text / wave anchor placement from the boss rect, timer
+  payloads, and per-frame timer advancement. `commando_firearm_runtime.gd`
+  keeps the `pistol_feedbacks` array limit, append / remove ownership, draw
+  context publication, and hit-result side effects while delegating only this
+  short-lived feedback payload math.
+- `scripts/characters/commando_firearm_projectile_motion_state.gd`
+  Owns pure Commando projectile motion state for small projectile-local
+  updates: pistol side-wall bounce payloads, bazooka rocket acceleration and
+  smoke-trail trimming, and net-gun rope trail origin / point trimming.
+  `commando_firearm_runtime.gd` keeps projectile array ownership,
+  weapon-kind dispatch, collision / impact handling, audio, VFX, and result
+  handoff while delegating deterministic per-projectile motion dictionaries to
+  this helper.
+- `scripts/characters/commando_firearm_shell_casing_state.gd`
+  Owns pure Commando shell-casing state: AK-47 / pistol ejection payloads,
+  deterministic seed-derived velocity / rotation values, paddle-floor
+  clamping, per-frame gravity / bounce / lifetime advancement, and
+  out-of-bounds deactivation. `commando_firearm_runtime.gd` keeps the
+  `shell_casings` array limit, append / remove ownership, draw-state
+  publication, and weapon fire side effects while delegating deterministic
+  casing payload and motion updates to this helper.
 - `scripts/characters/commando_firearm_origin_geometry.gd`
   Owns the pure origin / anchor math for Commando firearm runtime:
   generic player muzzle position, authored weapon-fire sheet world anchors,
@@ -3334,10 +3385,12 @@ This section is intentionally long; use search to find the nearest owner.
   delegating only these geometry decisions.
 - `scripts/characters/commando_firearm_support_call_resolver.gd`
   Owns pure Commando fire-support call math: deterministic support-call
-  seed generation, aircraft-entry delay selection, and bomb-count selection.
-  `commando_firearm_runtime.gd` keeps support-call state creation, aircraft
-  audio lifecycle, projectile spawning, and draw / damage handoff while
-  delegating only these numeric decisions.
+  seed generation, aircraft-entry delay selection, bomb-count selection,
+  initial call payload construction, support-marker flash payloads, and
+  deterministic per-bomb target selection. `commando_firearm_runtime.gd`
+  keeps support-call array mutation, aircraft audio lifecycle, projectile
+  spawning, and draw / damage handoff while delegating only these deterministic
+  payload / target decisions.
 - `scripts/characters/commando_firearm_support_projectile_resolver.gd`
   Owns pure Commando fire-support projectile construction: deterministic
   drop row, target-y clamping, horizontal jitter velocity, projectile
@@ -3357,6 +3410,15 @@ This section is intentionally long; use search to find the nearest owner.
   `commando_firearm_runtime.gd` keeps manual-control velocity mutation,
   detonation, cooldown, audio, VFX, and result handoff while delegating only
   these deterministic geometry decisions.
+- `scripts/characters/commando_firearm_suicide_drone_state.gd`
+  Owns pure Commando suicide-drone state payloads: manual-control projectile
+  dictionaries, input-derived velocity / rotor speed, grace / rotor frame
+  advancement, field-bound clamping, non-manual homing velocity, and fire /
+  fire-failed / active-input / detonation result dictionaries.
+  `commando_firearm_runtime.gd` keeps projectile-array ownership, input gate
+  side effects, detonation removal, cooldown mutation, audio, VFX, boss-hit
+  application, lingering effect spawning, and ball-boost merge sequencing
+  while delegating deterministic drone state math to this helper.
 - `scripts/characters/commando_firearm_value_utils.gd`
   Owns tiny pure Commando firearm value helpers: limited append eviction
   and safe Variant-to-Vector2 / Color / Dictionary / Array fallback reads.

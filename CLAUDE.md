@@ -1,23 +1,44 @@
 # CLAUDE.md
 
-This file is the standing rulebook for Claude working on PingFighter. It
-captures invariants and hidden-knowledge bug patterns that cannot be safely
-re-derived from the code. Procedural setup (how to run, how to build, how to
-test) is intentionally NOT listed here -- read the repo state, `AGENTS.md`,
-or `README.md` when needed.
+This repository now develops the Godot project **디스크하츠 - 링피아** only.
+The original Python/Pygame PingFighter codebase is frozen and is kept as a
+porting reference.
+
+This file is the standing hidden-knowledge rulebook for work that may need
+legacy PingFighter context. Many older sections mention `pingfighter.py`,
+Pygame, Python item routes, or original runtime UI paths; treat those sections
+as reference material for porting unless they explicitly describe current
+Godot behavior. New gameplay, UI, VFX, audio, item, character, boss, save-data,
+menu, and runtime work belongs in `godot/` by default.
+
+Procedural setup (how to run, how to build, how to test) is intentionally NOT
+listed here -- read the repo state, `AGENTS.md`, or `README.md` when needed.
 
 ## 0. Implementation Boundary with `AGENTS.md` and asset / item docs
 
 - `CLAUDE.md` (this file) = Claude-side project standing rules and
   routing. Kept thin on purpose -- detailed playbooks live in the skill
   and doc directories.
-- `AGENTS.md` = runtime integration, performance, and implementation source
-  of truth for Codex/agent work **on boss sprite sheets**. Item runtime
-  is NOT owned by `AGENTS.md` -- see `docs/item_runtime_checklist.md`.
+- `AGENTS.md` = Godot-first runtime routing, integration, performance, and
+  implementation source of truth for Codex/agent work. Legacy Python rules in
+  `AGENTS.md` are porting references unless the user explicitly requests
+  original PingFighter edits.
+- `docs/sprites/boss_sprite_runtime_contract.md` = shared boss-sprite
+  runtime vocabulary and state-to-sheet mappings across Python / Godot.
+- `docs/sprites/stage1_dalji.md` = compact Stage 1 Dalji per-boss runtime
+  sheet contract and Godot key mapping.
+- `docs/sprites/legacy_accepted_sheet_archive.md` = old Menhera / Dalji
+  accepted-sheet provenance archive, reference-only.
 - `.claude/skills/sprite-generation/` = the full boss / character sprite
   sheet pipeline (prompts, nukki, QA).
 - `.claude/skills/item-generation/` = the full item-visual pipeline (icon
   prompts, legendary frame rules, equip visuals, icon QA).
+- `.claude/skills/ui-hud-generation/` = fullscreen / pillar HUD frame and
+  backplate image-generation pipeline (prompting, transparent prep,
+  source anchors, and hand-off notes for runtime alignment).
+- `.claude/skills/` is the canonical repo skill tree. `.agents/skills/` may
+  exist as a Codex loader mirror only; do not edit both trees by hand. Update
+  `.claude/skills/` first, then refresh the mirror only if the loader needs it.
 - `docs/item_runtime_checklist.md` = source of truth for every code
   location that must be touched when adding, removing, or modifying an
   item (active / passive / legendary / mythic).
@@ -25,60 +46,396 @@ or `README.md` when needed.
   code location and QA checkpoint that must be touched when adding,
   removing, or modifying a runtime character perk, unlock perk, or
   player-skill / 5-orb skill.
+- `docs/current_development_boundary.md` = one-page summary of the current
+  Godot-vs-legacy boundary.
+- Legacy design / review packets such as `docs/four_poisons_handoff.md`,
+  `docs/dual_glitch_clone_replication_handoff.md`,
+  `docs/dual_glitch_clone_hp_handoff.md`,
+  `docs/commando_firearm_overhaul.md`, `docs/WEAPON_SYSTEM_GUIDE.md`,
+  `docs/chaos_spear_visual_review.md`,
+  `docs/perk_flight_to_orb_animation_review.md`,
+  `docs/logo_intro_handoff.md`, and
+  `docs/pingfighter_modularization_plan.md` preserve old PingFighter
+  design decisions / review notes. Treat them as parity references and map
+  them to Godot owners before implementation.
 
 If the documents conflict:
 - Boss-sprite runtime / performance -> `AGENTS.md` wins.
+- Boss-sprite runtime state vocabulary / attack-vs-stun key semantics ->
+  `docs/sprites/boss_sprite_runtime_contract.md` wins.
+- Stage 1 Dalji compact runtime mapping -> `docs/sprites/stage1_dalji.md`
+  wins.
 - Boss-sprite generation details -> the `sprite-generation` skill wins.
 - Item visual / icon details -> the `item-generation` skill wins.
+- Fullscreen / pillar HUD frame asset details -> the
+  `ui-hud-generation` skill wins.
 - Item runtime integration -> `docs/item_runtime_checklist.md` wins.
 - Character runtime perk / skill integration ->
   `docs/character_skill_perk_checklist.md` wins.
+- Legacy handoff / review packets lose to the current Godot owner module,
+  `AGENTS.md`, `docs/godot_port_architecture.md`, and the relevant runtime
+  checklist.
 - Everything else (hidden-knowledge rules, coordinate standards, stage
   mapping) -> this file wins.
 
+## Fast Reading Map
+
+For current 디스크하츠 - 링피아 work, do not read this file front-to-back as an
+implementation checklist. Use it as a routing and hidden-knowledge index:
+
+| Need | Read / follow |
+|---|---|
+| Godot implementation, runtime checks, test commands | `AGENTS.md` |
+| Godot port wiring and module boundaries | `docs/godot_port_checklist.md`, then `docs/godot_port_architecture.md` |
+| Item runtime work | `docs/item_runtime_checklist.md` |
+| Character skill / perk runtime work | `docs/character_skill_perk_checklist.md` |
+| Sprite generation / nukki / sheet QA | `.claude/skills/sprite-generation/` |
+| Item visual generation | `.claude/skills/item-generation/` |
+| HUD frame generation | `.claude/skills/ui-hud-generation/` |
+| Old PingFighter coordinates, stage-number traps, Pygame icon chains | Legacy sections in this file, reference-only |
+
+Sections beginning with `Legacy`, old per-boss history blocks, and references
+to `pingfighter.py`, `entities/`, `pygame`, `resource_path()`, or historical
+`handoff_codex` files are not default edit instructions. Translate the hidden
+trap or parity fact to the current Godot owner before changing code.
+
 **Do not mix skill scopes.** Boss sprite rules do not belong in the
-`item-generation` skill, and item icon rules do not belong in the
-`sprite-generation` skill. Item runtime rules do not belong in this
-file or in `AGENTS.md` -- they live in `docs/item_runtime_checklist.md`.
-Character runtime perk / skill code-location checklists also do not
-belong in `AGENTS.md` -- they live in
-`docs/character_skill_perk_checklist.md`, with the companion hidden-
+`item-generation` skill, item icon rules do not belong in the
+`sprite-generation` skill, and fullscreen HUD frame / pillar backplate
+rules do not belong in either of those skills. Use
+`ui-hud-generation` for large HUD frame art. Item runtime rules do not
+belong in this file or in `AGENTS.md` -- they live in
+`docs/item_runtime_checklist.md`. Character runtime perk / skill
+code-location checklists also do not belong in `AGENTS.md` -- they live
+in `docs/character_skill_perk_checklist.md`, with the companion hidden-
 knowledge UI invariants staying in this file.
+
+For future character passive / scaling perk work, treat effective-level
+overflow as opt-out rather than opt-in. If `transcendent_crown`,
+`sage_ring`, ignition-style buffs, or future perk-level increase effects
+can raise a perk above `Lv.5` / `max_level`, assume the perk's real
+numeric gameplay behavior should continue scaling unless the design
+explicitly says the perk is boolean-only or intentionally hard-capped.
+Any exception must be explicit in gameplay code, tooltip wording, and
+the runtime checklist notes.
+
+## Post-fix checklist backfill policy
+
+After fixing a bug, regression, UI trap, or integration miss, also decide
+whether the failure happened because an important rule was missing from the
+repo's standing checklists / hidden-knowledge docs. Automatically backfill
+the docs without waiting for a separate user request only when **all** of
+the following are true:
+
+- The failure pattern is plausibly repeatable.
+- The missing safeguard is not safely re-derivable from reading the code
+  alone.
+- The issue is not just a typo, one-off data mistake, or other isolated
+  accident.
+- No existing rule already covers it well enough, or an existing rule needs
+  to be strengthened.
+
+Backfill routing:
+- Boss-sprite runtime / performance / integration invariant ->
+  `AGENTS.md`.
+- Item runtime integration invariant ->
+  `docs/item_runtime_checklist.md`.
+- Character perk / skill runtime invariant ->
+  `docs/character_skill_perk_checklist.md`.
+- Hidden UI trap, coordinate rule, stage-mapping rule, or resource-loading
+  invariant that belongs in standing memory -> this file.
+- Asset-generation / pipeline rule -> the relevant `SKILL.md`; for
+  fullscreen bottom HUD, pillar HUD, orb collar, active-slot tray, dash
+  token frame, or other large HUD frame art, route to
+  `.claude/skills/ui-hud-generation/SKILL.md`.
+
+Do **not** backfill:
+- Typos.
+- One-off data-entry mistakes.
+- Simple fix recipes that are adequately explained by the code diff or
+  commit message.
+
+When a similar rule already exists, prefer updating / tightening the
+existing rule instead of appending a near-duplicate bullet.
+
+If the repeatable bug is easy to misroute (for example, a runtime
+tooltip-wrap / bonus-line-budget regression discovered while doing asset
+or general integration work), tighten the route note in the first-entry
+doc too (`AGENTS.md` or the relevant `SKILL.md`) instead of updating
+only this file.
+
+Repeatable legendary / mythic route omissions count as checklist bugs,
+not isolated data mistakes. If a fix touched any special reward path,
+backfill the runtime checklist and the item-generation hand-off so
+future work explicitly audits independent candidate pools and payout
+paths such as Nemesis chest, treasure-hunt legendary pools, the
+stage-clear gacha builder, `gacha.py` item metadata / display sets, and
+crane spawn-vs-reward routing.
+
+Before ending the task, explicitly tell the user in one short line that the
+checklist / rulebook was updated and what kind of safeguard was added.
+
+## Godot ConfigFile UTF-8 BOM Trap
+
+Godot `ConfigFile.load()` can silently miss the first section when a settings
+file starts with a UTF-8 BOM (`0xEF 0xBB 0xBF`). PowerShell `Out-File`,
+Notepad, and some editors may add this BOM while the file still looks normal
+in text viewers. If the first section is `[graphics]`, Godot can treat the
+BOM as part of the section header, skip those keys, and fall back to defaults
+such as windowed mode or Auto / off VSync even though the visible file content
+looks correct.
+
+For Godot settings / save-data code using `ConfigFile`, suspect BOM first
+when logs show `exists=on` / `load OK` but the first section's keys are
+missing. Read raw bytes, strip a leading UTF-8 BOM, then parse the cleaned
+text and rewrite the file without BOM. For player-facing settings, keep a
+`last_good` backup or equivalent recovery path so schema-only / partial
+settings files can be repaired instead of silently reverting to defaults.
+
+## Godot High-Refresh Pacing Trap
+
+The 144Hz divisor-lock display hypothesis has been tested and rejected for the
+current Godot 4 + Windows + NVIDIA path. `72_FPS` / `48_FPS` on a 144Hz monitor
+looks like a clean 1/2 or 1/3 divisor on paper, but the tested combinations
+(`VSync On`, `VSync Off`, and `Auto` / adaptive in exclusive fullscreen) did
+not reproduce the smooth 60Hz lock. `VSync On` plus `Engine.max_fps` creates
+two pacing layers, while driver-only adaptive present did not make a stable
+72Hz half-rate lock either.
+
+For release-quality smoothness, treat `60Hz monitor + 60 FPS + VSync On` as the
+known-good display setup. If a high-refresh display needs to feel smoother,
+route the work to frame interpolation or heavy-event reduction; do not assume
+another display-setting matrix will fix it. Player-facing helpers may recommend
+opening Windows display settings, but automatic refresh-rate switching must be
+explicit opt-in because it affects the whole desktop.
+
+The shipped project default is intentionally the **"48 stable preset"**:
+`run/max_fps=48` plus `physics_ticks_per_second=72` in `godot/project.godot`,
+mirrored by `RENDER_FPS_CAP_STABILITY := 48` and
+`RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABILITY` in
+`godot/scripts/core/battle_view_layout.gd` (with the same constants mirrored
+in `godot/scripts/hud/pause_menu_overlay.gd`), and a regression assertion in
+`godot/tests/project_boot_flow_settings_smoke.gd` that locks the "48 FPS
+stable 144Hz-divisor preset". This 48 default is **not** an attempt to revive
+the rejected 144Hz divisor-lock smoothness hypothesis above -- it is a
+stability floor chosen so players see fewer hitches on arbitrary refresh-rate
+hardware without having to tune Windows display settings first. Players on a
+60Hz display still get a smoother feel from the `60Hz + 60 FPS + VSync On`
+known-good setup, and the runtime options screen exposes 60 / 72 / Unlimited
+as explicit alternatives.
+
+Before changing the shipped default, move all of these together:
+`RENDER_FPS_CAP_STABILITY` / `RENDER_FPS_CAP_DEFAULT` in
+`battle_view_layout.gd` (and the mirrored constants in
+`pause_menu_overlay.gd`), `run/max_fps` in `project.godot`, and the
+"48 FPS stable 144Hz-divisor preset" assertion in
+`project_boot_flow_settings_smoke.gd`. Touching only one of them silently
+desynchronizes the shipped default from the regression test and from the live
+runtime cap, which is exactly how this section first drifted out of step with
+the project default.
+
+## Godot Hot-Path Lazy Init Trap
+
+Do not lazy-instantiate modules, resources, textures, scene nodes, draw hosts,
+or large caches from Godot hot paths (`_physics_process`, `_process`, `_draw`,
+or helpers reached from them). A first call that looks cheap can turn into a
+100ms+ hitch when it creates a module, loads a texture, builds icon/layout
+caches, or instantiates an overlay.
+
+Use one of these instead:
+- Create or prewarm before entering the visible / hot state.
+- Use cached-only lookups for "is this open / active?" gates.
+- Stage heavy work across loading / intro frames.
+- Document the path as low-cost lazy only after measurement.
+
+Known repeats of this exact class include F3 mythic-management first icon
+creation, score-result texture ensure during draw, desktop mobile-touch first
+draw module creation, Stage 1 pillar mythic runtime lookup during draw,
+perk-debug overlay first visible draw, and the modal-gate physics regression
+where closed overlay checks lazy-created modules for a 158ms spike.
+
+## Direct Draw Request Routing
+
+When the user asks to "draw" something -- including Korean wording such
+as "그려줘" or "그려달라" -- treat that as an imagegen asset-generation
+request first. Use the relevant image-generation path / skill and produce
+or edit a real bitmap asset before doing runtime wiring.
+
+Do not silently replace a draw request with a procedural drawing branch,
+SVG/vector placeholder, CSS shape, or other code-native visual.
+Those are acceptable only when the user explicitly asks for a code-drawn
+fallback, or when imagegen is blocked and the user accepts a fallback.
+
+After the generated asset is accepted, copy it into the repo asset tree,
+wire the PNG-first loader/cache path, and verify that no procedural
+fallback or special-case early return bypasses the new file.
+
+## Character Live2D Source Art Backgrounds
+
+For character Live2D source illustrations / 원화 / full-body anchors that will
+later need nukki, rigging, sheet generation, or runtime cutout use, the raw
+generation must use a perfectly flat solid chroma-key background. Default to
+`#ff00ff` magenta; use `#00ff00` green only when magenta conflicts with the
+character palette. Do not use black, white, dark studio, scenic, gradient,
+checkerboard, or "transparent-looking" backgrounds for production anchors.
+
+The raw chroma-key source is not the final asset. Keep both the raw source
+and cleaned alpha PNG, record the key color and cleanup method, and verify
+alpha channel, transparent corners, non-edge-touching alpha bbox, and no
+magenta / green fringe on dark and light preview backgrounds. The required
+checklist is `.claude/skills/sprite-generation/checklists.md` §0.4.
+
+## Upscale Request Routing
+
+When the user says "upscale", "upscaling", "hires", "업스케일",
+"업스케일링", or "real / Real-ESRGAN처럼", treat that as a request for
+actual Real-ESRGAN processing on the bitmap asset. This applies to item
+icons, HUD assets, boss / character sprites, Live2D-style sheets, runtime
+VFX, and animated item / perk sheets.
+
+Do not satisfy an upscale request with only runtime draw-scale changes,
+Godot import filtering, Lanczos / nearest resize, CSS / UI scale changes,
+or a new imagegen redraw. Use `tools/realesrgan/realesrgan-ncnn-vulkan.exe`
+with `realesr-animevideov3` and `-s 2` by default unless the user gives a
+different scale. For transparent PNGs, upscale RGB separately and recombine
+the resized source alpha afterward so corners, holes, and sheet cell
+margins stay clean.
+
+The required checklist is `.claude/skills/sprite-generation/checklists.md`
+§0.1 "Real-ESRGAN upscale gate"; item-generation and ui-hud-generation both
+route their upscale work to that gate.
+
+## Runtime Skill-Effect Sprite Sheets
+
+When the requested bitmap is a gameplay skill effect rather than a static
+icon or HUD frame -- for example a boss field, character aura, projectile,
+cast loop, impact loop, shield, refraction field, magnetic field, or other
+live VFX -- default future asset work to a **16-frame sprite sheet**. The
+standard composition is a 4x4 sheet read left-to-right, top-to-bottom as a
+smooth loop.
+
+Sprite-sheet generator rule: final runtime skill-effect sheets also follow
+the repo-wide AutoSprite MCP requirement. Use Gemini / imagegen only for
+still concepts, prompt analysis, or explicit user-approved fallbacks, not as
+the final sheet source.
+
+Prompt and asset-prep expectations:
+- Ask for exactly 16 equal cells, a stable center / scale / silhouette
+  across every frame, and loop continuity from frame 16 back to frame 1.
+- Require generous flat chroma-key or transparent margins so no spark,
+  ring, glow, halo, trail, or ornament touches a cell edge.
+- Keep source and runtime-ready PNGs versioned in the repo asset tree.
+- Use shorter 2-frame / 4-frame / 8-frame outputs only when the user asks
+  for a rough concept, a tiny icon-only animation, or a deliberately short
+  one-shot effect.
+
+Runtime wiring, cache policy, and final load checks remain `AGENTS.md`
+responsibilities after the 16-frame sheet is accepted.
+
+## Fullscreen / Pillar HUD Frame Work
+
+Any work involving large HUD frame art -- bottom unified HUD frames,
+pillar backplates, orb collars, active-item slot trays, dash-token
+decorative frames, or other generated UI chrome -- must use the
+**`ui-hud-generation` skill** at `.claude/skills/ui-hud-generation/`.
+That skill owns prompt wording, style boundaries, chroma-key / alpha prep,
+source-anchor handoff notes, and reject / regenerate checks for HUD frame
+assets.
+
+Runtime integration for those assets remains an `AGENTS.md` concern:
+PNG-first loading, cache strategy, measured source anchors, actual
+fullscreen coordinates, active-slot compatibility, and screenshot /
+preview QA must be handled there after the asset is accepted.
+
+When HUD frame work also depends on player skill orbs or dash-token orbs,
+remember that those positions are not static decoration. The live layout
+uses shared runtime constants for pillar X/Y margins, internal surface
+insets, skill-orb radius / gap, dash-token inset, and a special Heavenly
+Cape 6-orb dial. The asset-side handoff must say which live layout it was
+designed around, and the runtime side must re-check the perk-flight target
+animation plus player / boss dash-token alignment after any coordinate
+retune.
 
 ## Boss Sprite Work
 
 Any work involving boss/character sprite sheets -- creation, regeneration,
 walk / attack / dash / turn (facing transition) sheets, background removal
-(nukki), or Gemini MCP / FLUX Kontext / AutoSprite image generation or
-editing -- must be handled via the
-**`sprite-generation` skill** at `.claude/skills/sprite-generation/`. That
-skill owns the full pipeline: prompt templates, identity and scale lock
-rules, content-filter bypass vocabulary, the nukki algorithm, and the
-reject/regenerate QA checklists.
+(nukki), or Gemini MCP image generation or editing -- must be handled via
+the **`sprite-generation` skill** at `.claude/skills/sprite-generation/`.
+That skill owns the full pipeline: prompt templates, identity and scale
+lock rules, content-filter bypass vocabulary, the nukki algorithm, and
+the reject/regenerate QA checklists.
 
 **If the skill is not auto-triggered, explicitly invoke
 `/sprite-generation` before proceeding.** Do not recreate sprite rules
 from memory -- always route through the skill so identity and scale lock
 stay consistent across bosses.
 
+**Standard sheet set for new bosses / characters:** the
+`sprite-generation` skill §17 defines the canonical 7 basic sheets
+(walk_left, walk_right, idle, dash, victory, defeat, stun) plus
+optional / boss-combat / skill-specific categories. Use that section
+as the planning checklist when starting a new boss build. The Stage 1
+Dalji buildout is the reference implementation (10 sheets total: basic
+7 + attack + turn + 2 skill-specific). Each category has a different
+post-processing pattern (per-cell vs single uniform scale, feet
+anchored vs preserved) and runtime mapping pattern (direction-based
+vs internal-timer vs external-timer) — full matrix in §17.4 / §17.5
+of that skill.
+
+Runtime state vocabulary is now centralized in
+`docs/sprites/boss_sprite_runtime_contract.md`. Stage 1 Dalji's compact
+runtime mapping is in `docs/sprites/stage1_dalji.md`; the detailed
+historical notes below remain for provenance and hidden-knowledge
+asset decisions until they are gradually split into per-boss files.
+
 Tool-routing note inside that skill:
-- **FLUX Kontext** is the preferred path for reference-conditioned
-  image-to-image work: peak-pose correction, narrow touch-ups, and
-  frame-expansion passes after a strong anchor already exists.
-- **Gemini MCP** remains a known-good path for fresh full-sheet generation
-  and for cases where FLUX or AutoSprite drift on pixel class or identity.
-- **AutoSprite** is primarily for motion ideation, pose blocking, and
-  structural probes unless it independently proves the same pixel /
-  identity class at QA.
-- **AutoSprite + FLUX** works best as a role-split pipeline, not a
-  sheet-to-sheet relay. Use AutoSprite to discover motion / peak acting,
-  then lock a canonical FLUX peak from the strongest single pose and
-  expand the surrounding frames in FLUX. Do NOT assume
-  `AutoSprite full-sheet -> FLUX full-sheet` will preserve the acting
-  beat.
+- **AutoSprite MCP is the required generation source for all new
+  sprite-sheet assets.** Boss sheets, character sheets, player movement /
+  result sheets, runtime VFX sheets, and animated perk / item sheets must
+  start from `mcp__autosprite__*` output unless the user explicitly grants
+  a one-off exception. Do not ship a sprite sheet generated only through
+  Gemini, FLUX, built-in imagegen, local frame interpolation, runtime
+  drawing, or manual recomposition and call it an AutoSprite sheet.
+- Deterministic post-processing is still allowed after AutoSprite
+  generation: background cleanup, alpha/nukki, frame slicing, edge-touch
+  correction, cell layout, scale alignment, preview GIFs, and runtime-sized
+  exports. The source animation frames must remain AutoSprite-derived, and
+  the handoff must record the AutoSprite source/job plus any expansion or
+  mirroring done afterward.
+- If AutoSprite is unavailable, stop sprite-sheet production and fix the
+  MCP connection or ask the user before using a fallback. A fallback may be
+  acceptable for a still icon, mockup, or temporary placeholder, but not for
+  a final sprite sheet.
+- Gemini MCP may still be used for prompt analysis, reference critique, or
+  text planning around sprite work, but not as the final sheet generator.
+- **Gemini MCP session-history trap:** a `2048x2048` generation can
+  succeed normally, then cause the *next* in-chat request to fail as a
+  `many-image request` if that image is still attached in conversation
+  history. The practical trigger is the client-side `>2000 px` long-side
+  limit, not a prompt failure. For iterative work in the same session,
+  default to `1536` or `1024`; reserve `2K` for one-shot generations or a
+  fresh session. If a `2048` result must be reused in chat, resize it to
+  `<=2000 px` first.
+- **Gemini MCP connection stability:** if the MCP server starts timing
+  out at `30000ms`, do not treat it as a prompt/model problem. First
+  check the local MCP launch path. Prefer the repo launcher
+  `.claude/gemini_mcp_launcher.mjs` through a fixed `node.exe` path over
+  `npx -y @rlabs-inc/gemini-mcp`, keep `@rlabs-inc/gemini-mcp` installed
+  under `mcp/package.json`, skip startup API probe work, and keep stdout
+  reserved for MCP JSON-RPC. Verify recovery with `initialize`,
+  `listTools`, and one lightweight tool call before resuming asset work.
+- **Historical accepted-sheet notes elsewhere in this file may still
+  reference FLUX, Gemini, or older AutoSprite usage.** Those entries describe how
+  already-shipped sheets were originally produced (e.g. Stage 3 Menhera
+  turn / victory FLUX-derived sheets, Stage 1 Dalji attack v2 FLUX
+  expansion). Regenerate future sprite sheets through AutoSprite MCP per
+  the required source rule above. The historical record stays as-is so
+  the provenance of shipped art is auditable.
 - **Legacy victory / motion sheets can leak obsolete identity branches.**
   If an old sheet starts pushing outdated hair / ribbon / cap language
-  back into FLUX, remove it from the generation stack and keep it as QA
+  back into Gemini MCP edit sessions, remove it from the generation
+  stack and keep it as QA
   comparison only, not as a motion master.
 
 ### Sprite Workflow Mode
@@ -105,9 +462,12 @@ Utility:
 
 ### Invariants that remain here (do not re-derive from the skill)
 
-- **Canonical reference = walking sheet.** `items/[name]_boss_sheet.png`
-  is the identity anchor for every subsequent sheet of the same boss.
-  Attack, dash, and turn sheets must read as the same character.
+- **Canonical reference = walking sheet.** During asset generation,
+  `items/[name]_boss_sheet.png` is the staging identity anchor for every
+  subsequent sheet of the same boss. Accepted runtime PNGs for the current
+  project must still be copied into the repo-local Godot asset tree and
+  wired from the owning Godot module. Attack, dash, and turn sheets must
+  read as the same character.
 - **Keep "canonical identity anchor" separate from "runtime-accepted
   auxiliary sheet."** A turn sheet may be accepted for runtime playback
   while still remaining a non-anchor asset. If that happens, document the
@@ -135,6 +495,26 @@ Utility:
 - **Body scale lock (+/-5%).** Head, torso, and pelvis must stay within
   +/-5% of the walking sheet. Express speed with pose, lean, effects, and
   motion lines -- never by resizing the body.
+- **Cross-boss size standard: Stage 3 Menhera body class is the
+  STANDARD, not just a baseline.** The legacy parity measurement is a
+  `176 x 88` target frame canvas (`BOSS_IMG_WIDTH = 160`,
+  `BOSS_IMG_HEIGHT = 80`, `+10%` width scaling in `pingfighter.py`).
+  Every new petite human / chibi boss must hit that size class in the
+  current Godot runtime. Treat `176 x 88` as a visible body-read and
+  renderer-metadata reference, not as an instruction to edit Python.
+  **Do NOT rely on legacy sprite class default constructor args for
+  sizing** -- many class-default values (Menhera `79 x 88`, Tauren
+  `83 x 92`, Honglyeon `100 x 88`) are legacy / per-boss tuned and
+  would each push a new boss into a different size class if copied.
+  In Godot, record the intended canvas / source-rect / stage-scale
+  settings in the owning boss renderer or catalog, then verify visible
+  body read in-game next to Menhera before considering the integration
+  done. Exceptions (large-frame Tauren, vertical Honglyeon, deliberate
+  oversized / undersized concept bosses) must be documented per-boss
+  with the Godot size override and the design reason recorded both in
+  the implementation / handoff note and in the per-boss policy section
+  here. Asset-side details in `sprite-generation` skill §4.1 and
+  `checklists.md` §10; runtime-side details in `AGENTS.md`.
 - **Attack sheets should assume anticipatory runtime triggering by default.**
   For contact-based melee / strike attacks, prompt for a readable prep ->
   impact -> recovery arc, because Codex may start the sheet slightly
@@ -214,41 +594,47 @@ Utility:
   background must not show through. Use a rear hair layer behind the
   shoulders if needed. Details in the `sprite-generation` skill.
 - **File path convention:**
-  - Walk:   `items/[name]_boss_sheet.{jpeg,png}`
-  - Attack: `items/[name]_boss_attack.{jpeg,png}`
-  - Dash:   `items/[name]_boss_dash.{jpeg,png}`
-  - Turn:   `items/[name]_boss_turn.{jpeg,png}` (optional aux sheet)
-  - Class:  `entities/[name]_boss_sprite.py`
-- **Current Stage 3 Menhera turn policy (R1 accepted):**
-  `items/menhera_boss_sheet.png` remains the sole identity anchor.
-  FLUX-derived turn V3 is accepted only as a runtime playback auxiliary
-  sheet and is explicitly **non-anchor**. Do NOT use Menhera turn V3 or
-  V4 as regeneration reference for attack / dash / victory / defeat.
-- **Current Stage 3 Menhera victory policy (P3A accepted):**
-  `items/menhera_boss_sheet.png` remains the sole identity anchor.
-  FLUX frame-expansion victory publish V2 is accepted only as a runtime
-  playback auxiliary sheet and is explicitly **non-anchor**. Do NOT use
-  the applied Menhera victory runtime sheet, the older victory backup,
-  or rejected V3 variants as regeneration reference for future attack /
-  dash / turn / defeat / victory work.
-- **Offline nukki is a runnable CLI.** The algorithm lives in
-  `.claude/skills/sprite-generation/remove_bg.py` and runs as
-  `py .claude/skills/sprite-generation/remove_bg.py <src.jpeg> <dst.png>`.
-  The in-class JPEG cleanup inside sprite classes is a runtime safety
-  net only; the offline PNG is the source of truth.
+  - Staging walk:   `items/[name]_boss_sheet.{jpeg,png}`
+  - Staging attack: `items/[name]_boss_attack.{jpeg,png}`
+  - Staging dash:   `items/[name]_boss_dash.{jpeg,png}`
+  - Staging turn:   `items/[name]_boss_turn.{jpeg,png}` (optional aux sheet)
+  - Godot runtime assets: `godot/assets/sprites/bosses/[name]/...` or the
+    stage owner's established asset folder
+  - Godot runtime owner: `godot/scripts/...` stage / boss / renderer module
+  - Legacy Python class reference only: `entities/[name]_boss_sprite.py`
 
-### Role split with `AGENTS.md`
+### Legacy Accepted-Sheet Archive
 
-- **Claude + this skill:** sheet generation, prompt design, nukki,
-  offline PNG preparation, standalone sprite class scaffold.
-- **Codex + `AGENTS.md`:** `pingfighter.py` import/init/reset wiring,
-  stage render branch, loader caching, runtime scaling, per-frame
-  performance. Runtime integration is `AGENTS.md`'s source of truth
-  and is not duplicated into the skill.
+The long Menhera / Dalji accepted-sheet archive was moved to
+`docs/sprites/legacy_accepted_sheet_archive.md` to keep this routing file
+readable. Use that archive only for provenance, identity locks, and legacy
+Python/Pygame parity research. For current work, route through the
+`sprite-generation` skill, `docs/sprites/boss_sprite_runtime_contract.md`,
+`docs/sprites/stage1_dalji.md`, and the owning Godot module.
+
+### Role split (updated 2026-05-14 — implementing-agent end-to-end ownership)
+
+- **Current implementing agent + sprite-generation skill:** sheet generation,
+  prompt design, nukki, offline PNG preparation, repo asset-tree commit under
+  the current Godot asset path (`godot/assets/sprites/...` or the stage
+  owner's established folder), Godot owner-module wiring under
+  `godot/scripts/...`, loader caching, runtime scaling, performance audit,
+  in-game QA, and **final apply**.
+- **Legacy Python paths** such as `assets/`, `items/`, `pingfighter.py`, and
+  `entities/[name]_boss_sprite.py` are provenance / parity references unless
+  the user explicitly asks for original PingFighter source work.
+- **`AGENTS.md`:** current Godot-first runtime guardrails and verification
+  policy. Read it before promotion to avoid breaking an existing invariant.
+
+Historical "Codex hand-off" notes elsewhere in this file (per-boss policy
+sections, `.tmp/.../handoff_codex.md` references, etc.) describe how shipped
+sheets were originally promoted under the prior process. They stay as-is for
+auditability. Future sheet work follows the implementing-agent end-to-end
+model above.
 
 ---
 
-## Item Work
+## Item Work (Godot-first; legacy Python paths are reference-only)
 
 Any work on **item visuals** (active / passive / legendary / mythic
 icons, character paddle-part equip overlays, item mood / theme art)
@@ -259,14 +645,17 @@ pipeline: per-tier prompt templates, legendary frame stack routing
 equip-visual prompts, mood / glow / particle rules, and the icon
 reject/regenerate QA checklist.
 
-Any work on **item runtime integration** (registering a new item in
-`items.py`, routing it correctly through active / passive / legendary
-paths, wiring shop / gacha / crane / treasure hunt, hooking roll
-options / polish perks / enhancement buffs, handling reset on death /
-main menu return, auto-equipping into body-part slots, and keeping
-every hardcoded list in sync) must be handled via
+Any work on **item runtime integration** must be handled via
 **`docs/item_runtime_checklist.md`**. That document is the single
-source of truth for the code locations that must be touched.
+source of truth for Godot item runtime wiring and for legacy Python
+reference paths to inspect during ports.
+Legacy Python examples in this section (`items.py`, `pingfighter.py`,
+`legendary_items.py`, `gacha.py`, `downtown/`, etc.) are reference-only
+unless the user explicitly asks for original PingFighter edits.
+The same routing applies when the bug is "item runtime scaling uses the
+wrong level basis / wrong per-level constant" or "`Lv.6+` description
+text dropped one of a perk's effects." Those are runtime item-
+integration bugs, not asset-work bugs.
 
 **If a skill or doc is not auto-triggered, explicitly invoke it
 before proceeding.** Do not recreate item rules from memory -- always
@@ -278,11 +667,13 @@ so new items land cleanly.
 - **`item-generation` skill:** icon generation, legendary frame stack
   decisions, equip-visual assets, mood / palette / particle theme,
   icon QA. Does NOT own any runtime code location.
-- **`docs/item_runtime_checklist.md`:** every runtime code location
-  that must be touched when an item is added, removed, or modified.
-  Covers `items.py`, `pingfighter.py`, `legendary_items.py`, `gacha.py`,
-  `downtown/`, `item_state_manager.py`, equip-visual registry, and
-  the Pandora exclusion list. Does NOT own visual asset decisions.
+- **`docs/item_runtime_checklist.md`:** every Godot runtime location and
+  every legacy reference path that must be audited when an item is added,
+  removed, ported, or modified. It covers current Godot item owners plus
+  legacy references such as `items.py`, `pingfighter.py`,
+  `legendary_items.py`, `gacha.py`, `downtown/`,
+  `item_state_manager.py`, equip-visual registry, and the Pandora
+  exclusion list. Does NOT own visual asset decisions.
 - **This file (`CLAUDE.md`):** thin routing rule (this section).
 
 ### Invariants that remain here (do not re-derive from the checklist)
@@ -291,9 +682,9 @@ These are the rules most likely to cause silent, hard-to-trace bugs
 if re-derived from memory. Keep them in mind even while the full
 checklist is open.
 
-- **Item work never goes into `AGENTS.md`.** Item runtime lives in
-  `docs/item_runtime_checklist.md`; `AGENTS.md` is for boss-sprite
-  runtime only.
+- **Item runtime does not live in asset skills.** Current item runtime
+  belongs in Godot owner modules and `docs/item_runtime_checklist.md`;
+  `AGENTS.md` provides top-level Godot-first routing.
 - **Legendaries are always passive, never active.** They must be in
   `store_active_item()`'s passive-filter list or they misroute on
   pickup.
@@ -326,6 +717,24 @@ checklist is open.
   equip visual, and any roll / polish / enhancement sync should turn on
   only while the item is actually equipped, and must shut off on
   unequip or reset.
+- **Runtime-skill-driven item behavior must use one canonical helper
+  path.** If item gameplay depends on academy / downtown / item-tree
+  runtime skills, keep gameplay math, tooltip text, and any preview /
+  debug readout on the same level basis and helper path
+  (`get_runtime_skill_level()`, `get_runtime_skill_bonus()`, or a
+  dedicated `get_effective_*` helper). Do not let one path read raw
+  `runtime_skill_levels.get()` while another path uses effective-level
+  helpers unless base-only behavior is an explicit design choice.
+- **Per-level constants for item runtime skill scaling should not be
+  re-typed ad hoc in effect modules.** If a perk is defined as `+30% /
+  level`, `+3% / level`, or similar, prefer the shared helper / source
+  table over hand-coding another constant in each consumer. Otherwise
+  gameplay, tooltip, and balance data can silently drift.
+- **Multi-effect item perks need full `Lv.6+` description coverage.**
+  When one runtime perk changes more than one item-facing number, the
+  dynamic description path above the base cap must keep all scaling
+  lanes visible. A fallback that only mentions the first effect is an
+  incomplete integration, even if the gameplay math is correct.
 - **A written icon file is not "done" until runtime precedence is
   verified.** If `items.py`, `pingfighter.py`, or another loader has a
   special-case icon branch, procedural fallback, or cache
@@ -393,6 +802,168 @@ checklist is open.
   repositions the ball (e.g. `BALL.centery = PLAYER.top - 20`), do
   the landing reset BEFORE the ball reposition. Full code-location
   checklist lives in `docs/item_runtime_checklist.md` §7.
+- **Chained revival transforms must release the prior form's active
+  state when a later revival takes over.** Yachaman Soul (passive)
+  and Odin's Eye (legendary) both revive on score loss, and Odin's
+  Eye is checked first in the loss handler. If Odin's Eye revives
+  while Yachaman is already active, Odin's success branch returns
+  before the Yachaman block runs, so `yachaman_active` and
+  bomb-spin visuals stay True. When the Odin's Eye form then dies,
+  only `odins_eye.reset_for_new_round()` runs in the death-anim
+  complete block, so `yachaman_active` leaks into the next round
+  and the player re-appears as Yachaman instead of the original
+  character. Fix in two places: (a) at Odin's Eye revival takeover
+  (regular + deuce branches), inline clear `yachaman_active = False`
+  and `reset_bomb_spin()` immediately after `start_revival_animation`;
+  (b) at Odin's Eye death-anim complete, call
+  `yachaman_soul.reset_for_new_round()` alongside the odin reset so
+  `*_used_this_round` flags are cleanly re-initialized. Full
+  checklist in `docs/item_runtime_checklist.md` §7.7.
+- **Freeze actors that zero `ball_vel` must be aware of each other's
+  snapshot paths.** If actor A is mid-freeze and has `ball_vel ==
+  [0, 0]`, any actor B that does `snapshot = ball_vel.copy()` during
+  its own activation will persist zero as the "original" speed, and
+  its recovery ramp / restore path will leave the ball permanently
+  stopped. Current freeze actors that zero or hold `ball_vel`:
+  `yachaman_soul`, `odins_eye`, `horn_strawberry_mask` transform,
+  `smartphone`, `stopwatch`, viper DMK wall-dive freeze, and the perk
+  selection resume safety timer (`_perk_resume_original_ball_vel`).
+  Two safe patterns: (a) defer actor B's activation so it cannot fire
+  while actor A is zeroing `ball_vel` -- the perk safety timer does
+  this by only arming after the last queued perk choice, so chained
+  perk picks do not corrupt each other; (b) make actor B prefer an
+  upstream actor's saved original when its own read shows near-zero
+  -- `stopwatch` falls back to `_perk_resume_original_ball_vel` if it
+  activates mid-freeze. When adding a new freeze actor, audit BOTH
+  directions: "does my snapshot survive an existing freeze being
+  active?" and "does every existing freeze actor's snapshot survive
+  mine?"
+- **Freeze actors that zero `ball_vel` must also extend the existing
+  physics collision / hold guards, not only flag their own state.**
+  When an activation zeros `ball_vel` while the ball's position
+  already overlaps the player paddle (common for mid-rally modals
+  such as perk pick, since the hook fires whatever frame the modal
+  closes), the next frame's regular collision path will reflect the
+  stationary ball upward and effectively cancel the freeze after a
+  couple of frames. Stopwatch gates four separate physics spots on
+  `stopwatch_active and stopwatch_timer > 0`: main player-paddle
+  collision, `handle_ball()` hold branch, smartphone / floor-bounce /
+  score handlers, and the backup paddle-collision path. Any new
+  freeze actor (perk-resume safety, future modal-pause freezes) must
+  extend each of those guards with its own "in freeze" predicate, or
+  the ball will jump out of the freeze on pre-existing overlap.
+  Setting a short one-shot `player_collision_cooldown` at activation
+  also helps cover the initial overlap edge before the per-frame
+  guards take effect.
+- **Godot ball-owning skills must clear `skip_ball_motion_step` on every
+  release path.** If a skill hides, captures, teleports, or manually
+  advances the ball by returning `skip_ball_motion_step=true` and often
+  `ball_vel = Vector2.ZERO`, then every resume / release / final-fire /
+  cancel path must explicitly return `skip_ball_motion_step=false` plus a
+  real resumed velocity where play should continue. This applies even when
+  the skill remains active after a short teleport. The Ghost Shot regression
+  is the reference failure: a performance teleport and final fire restored
+  position / velocity but left the shared skip flag stuck, so the ball
+  appeared stopped. In the Godot renderer, the true -> false transition also
+  drives `ball_render_interpolation.gd`'s one-frame interpolation reset, so a
+  missing release now risks both frozen motion and visible high-refresh
+  rubber-banding. Keep a focused Godot smoke like
+  `smasher_ghost_shot_motion_skip_smoke.gd` for any character skill that
+  owns this flag.
+- **Godot ball-owning skills must preserve intentional paddle contact while
+  `skip_ball_motion_step` is true.** The shared skip flag bypasses normal
+  `BallMotionCollisionDetector` / paddle-bounce processing, so cleanup is
+  not enough. If an owned-ball phase can visually overlap the player or boss
+  paddle, add a release / bounce path that reuses or mirrors the normal
+  paddle context (`hitbox_padding`, `player_collision_cooldown`, mirror /
+  clone rects, dash / jetpack / warp / stopwatch recovery context, expanded
+  paddle hitboxes). Smoke-test descending overlap, horizontal slide / hover
+  at the paddle Y-band, and upward overlap after freeze / recovery. The
+  Hongryun Inferno guard regression is the reference failure: the inferno
+  owned the ball and skipped normal motion, while its local collision was too
+  narrow, so the ball visibly slid along the player Y-band without a paddle
+  hit.
+- **Godot boss-side strong knockback handlers must signal
+  `suppress_paddle_hit_knockback` on the same frame.** `boss_ai_state.start_paddle_hit_knockback`
+  takes `replace_current=true` from every caller, so the regular paddle hit
+  knockback applied by `paddle_bounce_event_router._apply_paddle_hit_knockback`
+  during `register_rally_feedback` will OVERWRITE any stronger knockback
+  queued earlier in the same frame from `paddle_bounce_boss_post_hit_handler`.
+  Any post-hit handler that calls `start_paddle_hit_knockback` with a
+  special / fire-style velocity (kick guard, bowling trap guard, future
+  shoulder slam / charge perks, etc.) must return a consumed-flag in its
+  result dict, the boss-post-hit handler must propagate that flag, and
+  `paddle_bounce_post_hit_handler` must set `context["suppress_paddle_hit_knockback"] = true`
+  before `register_rally_feedback` runs. The Viper kick_enhance Lv3+
+  knockback ball regression is the reference failure: the visual overlay
+  rendered (~57 px/frame queued) but the regular paddle knockback (~13 px/frame)
+  immediately overwrote it because the suppress flag wasn't wired, so the
+  player saw the special ball but felt only the regular knockback.
+  `commando_bowling_trap_guard_hit` is the canonical correct precedent.
+- **Wall-clock active-item cooldowns leak through internal-event-loop
+  modals.** Active item slot cooldowns are checked against
+  `pygame.time.get_ticks() - last_item_use_time` (and per-item
+  `item["last_use"]`), so they advance in real time. Modals such as
+  `show_runtime_skill_choices()` and `show_stage_clear_choices()` run
+  their own `local_clock.tick(60)` loop that pauses the main game loop
+  but NOT wall clock, so any cooldown that was mid-recharge when the
+  modal opens silently ticks down (or fully expires) while the player
+  is picking a perk. Frame-counter cooldowns (`dash_cooldown -= 1` etc)
+  pause naturally because they live inside the main loop; wall-clock
+  anchors do not. Fix is at the modal call site: capture
+  `pygame.time.get_ticks()` before the modal call and call
+  `_shift_active_item_cooldowns_after_modal_pause(open_ms)` after it
+  returns so the anchors shift forward by the modal's duration. Any
+  new internal-event-loop modal (perk choice, stage-clear choice,
+  future pause overlays) must do the same shift, and any new
+  wall-clock-anchored cooldown system (Optimus-style `until` timestamps,
+  per-item `last_use`, etc.) must either be added to that helper or
+  freeze through an equivalent shift.
+- **Boss-skill / boss-event state cleanup must happen in `show_result()`,
+  not only in `go_to_next_round()`.** The score-loss handler in
+  `pingfighter.py` only calls `go_to_next_round()` for ongoing rounds.
+  When `check_deuce_system()` returns `boss_win` (or `player_win`), the
+  branch runs `show_result(False)` (or `show_result(True)`) and
+  `return`s WITHOUT calling `go_to_next_round()`. So any boss-owned
+  globals that persist visible / physical state across rounds must be
+  reset BOTH in `go_to_next_round()` (per-round path) AND in
+  `show_result()` (game-end path). Otherwise the global stays alive
+  after the game ends and the next new game inherits stale state even
+  though the player is back on Stage 1. Two failure classes seen so
+  far: (a) **ball-physics hijack** — legacy Honglyeon / current Godot Stage 5 홍련폭염
+  (`flame_trail_active` + `flame_trail_*` + `fireballs` +
+  `boss_throwing` + `hongryun_hit_count` + `hongryun_ready` +
+  `animated_bg_stage5.set_inferno_mode(False)`) where the global
+  hijacks per-frame ball updates; (b) **summoned-entity / event
+  state leak** — Stage 2 두더지왕 친구두더지 (`friend_moles_pending` +
+  `friend_moles_active` + `friend_moles_triggered` +
+  `friend_moles_round_count` + `friend_moles_list` +
+  `friend_moles_dirt_particles` + `friend_moles_*_timer` +
+  `friend_moles_all_golden` + `friend_moles_spawn_total_count`) where
+  leftover minions / dirt particles render in the next session as soon
+  as the player re-enters that stage, because the renderer
+  (`draw_friend_moles()` in the Stage 2 branch) does not gate on
+  boss name. The same trap applies to any future boss skill or
+  boss-summoned hazard that appends to `_stage6_ball_last_hold_reasons`,
+  sets `ball_vel = [0, 0]` for a charged release, routes per-frame
+  ball updates through its own branch, or maintains a list of
+  spawned minions / projectiles / persistent VFX that survives across
+  rounds via globals (whip / psycho / curse_chest / cotton_* are
+  already handled in `show_result()` — use that pattern). Audit by
+  comparing the `flame_trail`/`hongryun`/`friend_moles`-style reset
+  block in `go_to_next_round()` against the same variable's reset in
+  `show_result()`; any boss-skill or boss-event reset present in only
+  one path is a latent leak. Stage-init resets in `main()` that are
+  gated on `current_stage == N and current_boss_name == "X"` do NOT
+  count as a substitute, because at game-start `current_stage` is 1
+  and the gate is False.
+
+  Godot Honglyeon ports must start from a single owner cleanup method
+  (for example `stage5_hongryun_state.reset()` / `clear_all()`) and call
+  that same method from round-end, result / game-end, and stage-leave
+  paths. Do not split `flame_trail_active`, `fireballs`,
+  `boss_throwing`, `hongryun_hit_count`, or `hongryun_ready` cleanup
+  across separate call sites.
 
 Full per-tier checklists, hardcoded-list audits, and the smoke test
 live in `docs/item_runtime_checklist.md`.
@@ -464,18 +1035,22 @@ Otherwise, make the most conservative repo-consistent assumption and continue.
 
 ---
 
-## Character Skill / Perk Work
+## Character Skill / Perk Work (Godot-first; legacy Python paths are reference-only)
 
 Any work on **runtime character perks / skills** -- adding or modifying
 character-exclusive perks, unlock-style perks such as `unlock_*`,
 player-skill / 5-orb HUD entries, active-skill tooltip text, effective-
 level behavior under `transcendent_crown` or `sage_ring`, cooldown HUD
-sync, skill-specific gold bonus policy, or save/load/reset handling for
-character skill state -- must be
+sync, duration / timer HUD sync, skill-specific gold bonus policy, or
+save/load/reset handling for character skill state -- must be
 handled via **`docs/character_skill_perk_checklist.md`**.
 
 That checklist is the single source of truth for the code locations and
 verification path required to land runtime character skill work cleanly.
+Legacy Python names in the sections below (`draw_skill_icon_mini()`,
+`pingfighter.py`, old perk pools, and old tooltip functions) are hidden-
+knowledge references for porting and parity. Current implementation belongs
+under `godot/` unless the user explicitly asks for original PingFighter edits.
 
 Companion-rule split:
 
@@ -483,13 +1058,13 @@ Companion-rule split:
   integration checklist for character perks / skills, including unlock /
   equip flow, 5-orb slot behavior, academy / NPC offer flows, actual
   gameplay effect wiring, skill-gold reward wiring,
-  tooltip sync, effective-level QA, save/load, and reset.
+  tooltip sync, duration-bar HUD sync, effective-level QA, save/load,
+  and reset.
 - **This file (`CLAUDE.md`):** hidden-knowledge rules that are easy to
   miss while following the checklist, especially the `draw_skill_icon_mini()`
   trap, the seven perk / skill text render paths, and the final-cooldown
   HUD rule.
-- **`AGENTS.md`:** not the source of truth for this work unless the task
-  also touches boss-sprite runtime.
+- **`AGENTS.md`:** top-level Godot-first routing and shared guardrails.
 
 **If the checklist is not already open, explicitly open it before
 proceeding.** Do not recreate character perk / skill integration rules
@@ -509,6 +1084,11 @@ These are easy to miss even when the runtime checklist is open:
   active skills.** Any academy / NPC "show an unowned skill" flow must
   filter against "ever unlocked / owned", not merely "currently not
   equipped", or old swapped-out skills can reappear as false-new offers.
+- **Canceled slot-full swap must be a true no-op.** If taking an
+  unlock-style perk can open a swap dialog, do not write
+  `runtime_skill_levels`, unlock flags, ownership registries, or weapon
+  inventory before the dialog returns a successful swap result. Cancel
+  should leave the player's state untouched.
 - **Nested interior modals must refresh the background after the launcher
   dialog closes.** If a confirm dialog opens a second modal and that
   second modal snapshots the old frame, the first dialog can remain as a
@@ -528,15 +1108,14 @@ These are easy to miss even when the runtime checklist is open:
   actual on-screen labels / tab names (`BGM 볼륨`, `효과음 볼륨`,
   `사운드`, `설정`) and trace the reachable call path instead of assuming
   a legacy `option.py`-style module is the active menu.
-- **Silent freetype failure can make the whole dialog look blank.** A
-  helper that catches `font.render()` exceptions and returns `None`
-  without a visible fallback can hide a bad font path entirely. For
-  Korean UI, verify the actual repo path exists under `resource_path()`
-  before trusting the dialog.
-- **Repo font reality beats guessed subpaths.** In this repo,
-  `NanumSquareB.ttf` exists at the repo root, while `fonts/NanumSquareB.ttf`
-  may not. Do not assume a `fonts/` subpath exists just because other
-  modules use fonts under `fonts/`.
+- **Silent font/resource failure can make the whole dialog look blank.** A
+  helper that catches render/load exceptions and returns `None` without a
+  visible fallback can hide a bad font path entirely. For current Godot Korean
+  UI, verify the actual `res://` font/resource path and keep a visible
+  fallback before trusting the dialog. Legacy Python used `resource_path()`.
+- **Repo font reality beats guessed subpaths.** Verify the actual font asset in
+  the current Godot project or legacy repo before choosing a path. Do not
+  assume a `fonts/` subpath exists just because another module used one.
 - **When helper modules mutate `pingfighter.downtown_gold`, manager-side
   player state must be resynced after the modal closes.** Otherwise the
   next manager tick or exit path can overwrite the spent / gained value.
@@ -555,6 +1134,47 @@ These are easy to miss even when the runtime checklist is open:
   skill-owned gold bonus, also inspect the generic rally-gold path and
   any character-local same-frame guard / hit-consume flags so one skill
   event cannot pay twice through primary + fallback logic.
+- **Combo-window skills need a predecessor trigger matrix, not a single
+  happy-path cast test.** If a skill can be opened by prior hits,
+  follow-up windows, return-motion handoffs, cancels, or multiple named
+  predecessor skills, list every predecessor and verify opener event,
+  input priority, window lifetime, consumption, expiry, and focused smoke
+  coverage. Viper Dark Blade is the reference trap: Air Blade coverage
+  alone does not prove Shadow Step, Marshal Kick, Phantom Kick, and
+  Hwarang/Core Flip hit paths are wired.
+- **Transparent-canvas overlay trap on copied runtime surfaces is real.**
+  If a glitch clone, afterimage, low-HP variant, or other runtime copy is
+  built from `base_surface.copy()` plus `BLEND_RGB_ADD` /
+  `BLEND_RGBA_ADD`, any tint / noise / scanline / fade overlay applied to
+  the whole canvas can light up the fully transparent margin and render as
+  a visible rectangular box in gameplay. Mask or clip each overlay to the
+  visible sprite silhouette before blitting, and live-check the weakest /
+  faded state in-game instead of trusting the normal full-opacity state.
+- **Large acquisition/showcase icon scaling can reveal box residue even when
+  the HUD looks fine.** A raw icon with too much transparent padding or a
+  faint leftover background can look acceptable at 24 px HUD scale but turn
+  into a square/rectangular ghost when enlarged in pickup, treasure, or
+  legendary-acquisition effects. For icons intended to appear in big reveal
+  UIs, trim to visible bounds, re-center on a clean transparent canvas, and
+  QA the enlarged acquisition presentation rather than trusting the small HUD
+  alone.
+- **In-game pause modals should default to a frozen `SCREEN.copy()`
+  snapshot as their background, not a live stage re-render.** The
+  helper `_render_stage_background_for_overlay()` looks like it
+  renders the current gameplay frame, but it actually draws only
+  the stage background plus paddles and ball. Field items, projectiles,
+  particles, HUD timers, pillars, and many stage-specific effect
+  layers are NOT rendered by it, so a modal that opens against a
+  "live" background will briefly look like a stripped-down copy of
+  the scene -- the player sees a one-frame "different screen" flash
+  as the previously-visible content disappears. `show_runtime_skill_choices()`
+  takes a `live_background` parameter for this reason, and the
+  mid-gameplay starpoint trigger passes `live_background=False`
+  so the captured snapshot is used. Live background mode is only
+  appropriate right after a sequence that was already rendering the
+  live stage (e.g. victory / stage-clear effects in
+  `show_*_victory_effect()`). When adding a new pause modal or
+  overlay that can trigger mid-round, default to the snapshot path.
 
 ### Hidden-knowledge rules for orb-slot / stage-transition integration
 
@@ -572,6 +1192,46 @@ acquisition. They are easy to miss even when
   reductions, not the raw constant. Optimus uses an `until`-timestamp
   path, so audit it separately even when the other characters share a
   common reduction chain.
+- **Active-skill enhancers need target-tooltip sync, not just perk-card
+  text.** If an invested passive changes another orb skill's prep,
+  duration, projectile size, hidden damage / speed multiplier, clone HP,
+  super armor, combo scaling, or similar runtime-only behavior, the
+  target orb tooltip should expose that change in a concise synergy lane
+  using live effective values. Updating only the perk choice card or the
+  perk detail panel is not enough once the player is in a match.
+- **Character knockback should start from the shipped fire-event
+  baseline, not a brand-new ad-hoc path.** If a perk / skill adds boss
+  or player knockback -- especially guard reactions, special-ball
+  follow-up knockback, or hit-confirm knockback bonuses -- prefer the
+  existing fire-event velocity / timer / decay / hitstop channels as the
+  gameplay baseline and tune multipliers from there. Viper
+  `kick_enhance` guard knockback is the current reference pattern. If a
+  design truly needs a different feel, document that exception in
+  gameplay code, tooltip text, and the runtime checklist notes instead
+  of silently forking a parallel knockback system.
+- **Radial CC hit geometry must name its primitive, not inherit the
+  prettiest overlap helper.** Commando bazooka, grenade-style fire
+  support, and suicide drone boss CC use boss-center distance in the
+  Python reference. In Godot, do not let a visual blast circle touching
+  the boss rect edge become a stun / slow / knockback hit unless the
+  design explicitly calls for rect overlap. Add an edge-only regression
+  case whenever a radial status path is added or ported.
+- **Duration-type orb skills need shared timer-bar HUD sync, not only
+  gameplay state.** If a character skill or buff gives the player a
+  meaningful active-duration, startup-hold, or timed-persistence window
+  to track, default to the existing right-bottom horizontal timer-gauge
+  stack used by shipped duration bars. Match the established size, stack
+  behavior, and cleanup semantics instead of inventing a bespoke timer
+  widget unless the user explicitly asks for different UX.
+- **Procedural curved VFX need rotated cross-sections, not only shifted
+  centers.** For runtime-drawn fan / wave / slash projectiles that are
+  meant to read as homing or snake-curved, moving only each point's X
+  center while leaving Y and the cross-section horizontal still reads as
+  a vertical projectile sliding sideways. Build a centerline from tail
+  to head and rotate each slice / arc cross-section along that curve's
+  tangent. For a rightward bend, the right arc corner should land lower
+  on screen and the left arc corner higher; add a small geometry test for
+  that invariant when this class of helper is touched.
 - **`reset_round()` and the real stage-transition hook are not
   interchangeable.** `reset_round()` fires every lost-point round.
   Resets that should only happen on stage boundaries -- rental /
@@ -640,40 +1300,56 @@ acquisition. They are easy to miss even when
 
 ---
 
-## CRITICAL: Stage Order Reference (code stage != real stage)
+## Legacy Stage Order Reference + Current Godot Decision
 
-Stage 5 and Stage 6 were swapped in code variable names. The code name and
-the user-facing stage number do not agree. This is the single biggest
-source of "wrong stage edited" bugs.
+This section records two separate facts that must not be collapsed:
 
-| Stage | Boss           | Theme                   | Pillar               | Code name (mismatch alert)   |
-|-------|----------------|-------------------------|----------------------|------------------------------|
-| 1     | Pungakboi      | Korean traditional      | pillar_stadium       | stage1                       |
-| 2     | Akeojanggun    | Jungle / swamp          | pillar_jungle        | stage2                       |
-| 3     | Menheragirl    | Menhera / doll          | pillar_menhera       | stage3                       |
-| 4     | Pongk          | Temple                  | pillar_temple        | stage4                       |
-| **5** | **Nemesis**    | **Ocean / Battleship**  | pillar_nemesis_ocean | **animated_bg_stage6** !!    |
-| **6** | **Honglyeon**  | **Chinese fire**        | (TBD)                | **animated_bg_stage5** !!    |
-| 7     | Tetriser       | Tetris arena            | -                    | stage7 / `game_logic/stage7_tetriser.py`, `stages/stage7_boss.py` |
-| 8     | Akamu Rigo     | Shadow dojo (reuses stage7_field) | -          | stage8 / `entities/stage8_boss_sprite.py` |
+1. The frozen Python/Pygame source has a historical Stage 5 / Stage 6
+   naming mismatch.
+2. The current Godot porting decision is to exclude original Nemesis for
+   now and make original Honglyeon the user-facing Godot Stage 5.
 
-### Code names vs real stage mapping
+Current Godot rule:
 
-- Code `stage5`, `animated_bg_stage5`, `Stage5ChineseMarket` = **real Stage 6 Honglyeon (fire)**
-- Code `stage6`, `animated_bg_stage6`, `AnimatedBackgroundStage6` = **real Stage 5 Nemesis (ocean)**
-- Runtime stage comparisons must use the named code-ID constants from
-  `config/constants.py`: `STAGE_HONGLYEON_FIRE = 5` and
-  `STAGE_NEMESIS_OCEAN = 6`. Do not add new raw `current_stage == 5`,
-  `current_stage == 6`, `stage == 5`, or `stage == 6` checks; the
-  registry coverage safety check rejects those magic-number comparisons.
+- `current_stage == 5` is **Stage 5 Honglyeon / 홍련**.
+- Original Nemesis / ocean / battleship content is excluded from the
+  current stage sequence unless the user explicitly reopens it.
+- Do not add a new Stage 6 Honglyeon route in Godot. Stage 6 stays absent
+  / unselectable until a future stage-order decision is made.
+- When copying legacy Honglyeon assets into Godot, rename them to
+  `stage5_hongryun_*` (for example under `godot/assets/...`). Do not keep
+  Python `stage6_hongryeon_*` filenames as live Godot asset names. Leave
+  the old source path in the module header, manifest, or asset note.
 
-When the user says "work on stage 5" they mean Nemesis (ocean). When they
-say "work on stage 6" they mean Honglyeon (fire). Do not trust the
-variable name -- always confirm by theme.
+Frozen Python reference mapping:
+
+| Python code ID | Legacy code names | Theme / boss | Current Godot use |
+|---|---|---|---|
+| `STAGE_HONGLYEON_FIRE = 5` | `stage5`, `animated_bg_stage5`, `Stage5ChineseMarket` | Honglyeon / Chinese fire | Port to user-facing Godot Stage 5 |
+| `STAGE_NEMESIS_OCEAN = 6` | `stage6`, `animated_bg_stage6`, `AnimatedBackgroundStage6` | Nemesis / ocean / battleship | Excluded / reference-only |
+
+Historical Python docs or UI may still say "Stage 5 = Nemesis" and
+"Stage 6 = Honglyeon". Treat that wording as legacy-only. For current
+Godot work, user-facing "Stage 5" means Honglyeon unless the user
+explicitly asks for the old Nemesis slot.
 
 ---
 
-## CRITICAL: Screen Coordinate Standards
+## Legacy Python Screen Coordinate Standards
+
+This section records the original Python/Pygame coordinate conventions. Current
+Godot work should follow the Godot playfield / viewport layout helpers and
+owner modules; use these numbers only as parity references during ports.
+
+**Do NOT carry the legacy `PILLAR_UI_WIDTH = 80` band into Godot as a
+playfield inset.** In the Godot runtime, the playfield is the FULL 760x750
+game canvas (game x=0..WIDTH), and pillar chrome is drawn OUTSIDE the game
+canvas in the screen letterbox margins. Anyone clipping an intro / overlay /
+cinematic to game x=80..680 in Godot is cropping real playfield pixels and is
+applying a Python-only rule. The full Godot-side rule (including the safe
+intro / overlay clip routing pattern) lives in `AGENTS.md` under
+"Godot Playfield / Pillar / Overlay Clip Reality". Read that section before
+shrinking any clip below the full game canvas.
 
 All items, skills, projectiles, and effects must follow this coordinate
 contract. Key point: the game physics area is the **full screen 0 to WIDTH**.
@@ -746,18 +1422,59 @@ spawn_x = GAME_AREA_OFFSET_X + random(0, GAME_PLAY_WIDTH)  # 80 - 680
 
 ---
 
-## Resource Loading and Korean Text
+## Legacy Python Resource Loading and Korean Text
 
-- **Always** load assets via `resource_path(relative)`. Never hardcode
-  absolute paths. Use `os.path.join` for path construction. This is what
-  makes PyInstaller builds work on both Windows and macOS.
-- Render Korean text with `pygame.freetype` + `fonts/NanumSquareB.ttf`.
+This section records frozen Python/Pygame resource-loading and Korean text
+traps. For current Godot work, use `res://` paths, Godot font resources, and
+the current Godot UI renderers; use the Python notes below only when porting
+or comparing legacy behavior.
+
+- **Legacy Python rule:** load assets via `resource_path(relative)`. Never
+  hardcode absolute paths. Use `os.path.join` for path construction. This is
+  what made old PyInstaller builds work on both Windows and macOS.
+- Legacy Python Korean text rendered with `pygame.freetype` +
+  `fonts/NanumSquareB.ttf`.
   The default pygame font does not cover Hangul.
 - Open text files with `encoding="utf-8"`.
+- **Decorative unicode symbols (`✦ ✧ ✺ ♛` 등)은 한국어 폰트 스택에서
+  tofu 박스(`□`)로 렌더될 수 있다.** `malgungothic` /
+  `NanumSquareB` 모두 BMP 기호 영역 커버리지가 들쭉날쭉해서,
+  글리프가 없으면 `font.render()`가 소리 없이 네모 박스를 그린다.
+  축하 배너 / 리빌 텍스트 / 타이틀 장식 등에 unicode 심볼을 넣기 전에
+  실제 인게임에서 확인하거나, `pygame.draw.polygon()` 같은 도형
+  그리기로 직접 장식을 만들어라. `★` (U+2605)는 대체로 안전하지만
+  이것도 인게임 QA 후 확정할 것. 엘릭서 오브 마스터리 축하 배너의
+  `✦` (U+2726)이 이 실패 패턴에 걸린 대표 사례다.
+- **`pygame.font.Font.render(text, antialias, (r, g, b, a))`의 알파
+  채널은 무시된다.** 색 튜플의 4번째 값은 텍스트 렌더 단계에서 쓰이지
+  않으므로, `font.render(..., (r, g, b, blink))`처럼 써도 결과
+  서페이스는 풀 알파에 가깝게 나온다. 페이드 / 블링크 / 펄스가 필요하면
+  렌더 후 `surf.set_alpha(value)`를 쓰거나 `SRCALPHA` 서페이스에
+  먼저 그린 뒤 블릿해라. 색 튜플의 알파 값에 의존해 텍스트를 깜빡이게
+  만들려고 하지 말 것.
+- **툴팁 설명문의 `\n`은 char-by-char wrap 루프가 자동으로 처리하지
+  않는다.** `pygame.freetype` / `pygame.font` 모두 `\n`을 0폭 혹은
+  소리 없이 무시하는 글리프로 렌더하기 때문에, `for char in description:`
+  형태로 단순 문자 단위 width 측정을 하면 여러 문장이 한 줄로 flatten되어
+  엉뚱한 지점에서 wrap된다 (증상: 한 문장 끝과 다음 문장 시작이 붙어
+  보이거나, 뒤 문장이 앞 문장 중간에 섞여 나오는 것처럼 읽힘 -- 에어
+  블레이드 `발사합니다.\n검기에` 사례가 대표). 새 툴팁에서 설명문을
+  문자 단위로 wrap해야 한다면 공용 헬퍼
+  `_get_wrapped_tooltip_lines(text, font, max_width, max_lines=...)`
+  (pingfighter.py)를 써라. 이 헬퍼는 먼저 `\n`으로 segment를 쪼갠 뒤
+  각 segment를 wrap하며, `pygame.font` / `pygame.freetype` 양쪽
+  폭 측정 경로를 모두 지원한다. 직접 `for char in description:` 루프를
+  새로 작성하지 말 것. 회귀 방지 테스트는
+  `tests/test_tooltip_wrap.py`에 있다.
 
 ---
 
-## CRITICAL: Perk Icon Rendering (hidden elif chains)
+## Legacy Python Perk Icon Rendering (hidden elif chains)
+
+This section explains the old Python/Pygame icon trap. For current Godot work,
+map these alias and fallback issues to Godot renderers such as
+`runtime_perk_icon_renderer.gd` and the relevant skill-orb renderer. Do not
+edit `pingfighter.py` unless the user explicitly requests legacy-source work.
 
 ### The elif-chain trap
 
@@ -850,6 +1567,93 @@ Sign-off rule:
   rings, or ghost layers.
 - Audit both `draw_skill_icon_mini()` and `_draw_skill_icon_symbol()` under
   the actual runtime ids used by perk acquisition, unlock, and HUD metadata.
+- For unlock-style active skills, explicitly test the `unlock_*` perk id
+  and the equipped skill id as separate inputs. A successful HUD orb check
+  does not prove the perk-choice card, academy / NPC offer, TAB / ESC grid,
+  or swap dialog is showing the same accepted motif.
+- For on-disk PNG orb icons, inspect the alpha channel as part of QA:
+  corners should be truly transparent, the visible alpha bounds should
+  not touch the canvas edge, and no baked square, dark fringe, or rough
+  generated rim should appear after downscaling into the live orb HUD.
+- PNG orbs that already contain their own circular frame / glow, or have
+  extra source padding around the motif, may need a per-id draw-size
+  override rather than the default procedural-symbol size. Do not assume
+  `size + N` scaling is safe: shrink if the rim crowds labels, enlarge if
+  the main motif reads smaller than adjacent shipped icons, then compare
+  the final HUD / grid read again.
+- For imagegen-created perk / skill PNGs, the generated image is only the
+  source asset. It is not complete until the selected file is copied into
+  the repo, the PNG loader/cache path is wired, and the runtime branch
+  attempts that PNG before any procedural fallback or special-case early
+  return.
+- For large PNG-backed perk / skill icons, the loader/cache path must cache
+  the decoded source image separately from scaled `(size, active)` outputs.
+  Choice-card hover / selection animation can request many nearby sizes;
+  that path must not reload a 512px+ / 1254px+ PNG from disk for every size.
+  The source-cache capacity must cover the real number of icons that can be
+  visible at once, or a TAB / academy-style grid can still evict and reload
+  icons every frame.
+- If a PNG-backed perk icon is rendered through `draw_skill_icon_mini()`,
+  audit every callsite with custom `scale_multiplier` values. Large choice
+  cards may intentionally upscale the icon, but 32 px TAB character-info
+  perk cells, academy / NPC offer boxes, swap dialogs, and status grids need
+  label-safe sizing. A slight intentional bleed like existing energetic icons
+  is acceptable, but the icon must not cover bottom level text such as
+  `Lv.5`, and that level text must remain readable at the smallest real box
+  size.
+- Repo pattern: small-grid PNG-backed perk icon sizing should go through
+  `_get_small_cell_perk_icon_size()` or an equivalent per-id clamp before
+  the PNG is loaded / scaled. Do not reuse a procedural-symbol size blindly
+  for imagegen PNGs with baked circular rims, glow frames, or source
+  padding. Use the first real grid screenshot / preview to tune the per-id
+  multiplier up or down; alpha-clean and PNG-first wiring can still pass
+  while the icon's subject-fill reads too small. Check `Lv.1` as well as
+  `Lv.5`; `Lv.1` often exposes overlap first because the label sits low
+  in the cell.
+- In the TAB character-info perk tab, use the current `dash_module_control`
+  / `모듈제어` icon as the small-cell size reference. The target read is
+  polished and confidently filled, but still leaves the bottom level label
+  (`Lv.1`, `Lv.5`, etc.) unobstructed. If a new icon looks larger than that
+  reference in the live panel, reduce the PNG draw size / padding or the
+  callsite `scale_multiplier` instead of accepting label overlap.
+- Before designing a new runtime perk icon, classify its visual family:
+  character-exclusive active-skill / unlock perk, character passive /
+  enhancer skill perk, or basic shared perk. Character-exclusive active
+  and passive/enhancer skill perks should preserve the established round /
+  orb-style language; basic shared perks may use freer item / symbol
+  silhouettes. Do not let the family choice override the TAB
+  `dash_module_control` / `모듈제어` small-cell size reference.
+
+### Instant-trigger perk icon animation rule
+
+For one-shot / instant-trigger runtime perks (`instant_*` ids and similar
+immediate reward effects), the default asset request is now an animated
+8-frame horizontal PNG sheet unless the user explicitly asks for a static
+icon only.
+
+Asset-side rule:
+- Preserve the accepted static PNG as the identity anchor. Animate charge,
+  glow, sweep, sparkle, portal, reward, or item-spill motion around that
+  motif instead of redesigning the perk from scratch.
+- Save the deliverable as a sibling sheet named
+  `items/<perk_id>_perk_icon_sheet.png`, with 8 equal square frames in one
+  horizontal row. Keep the static `items/<perk_id>_perk_icon.png` as the
+  fallback source.
+- Keep generous transparent padding; animated glow or rotation must not
+  touch frame edges or bake in a square background.
+
+Runtime handoff rule:
+- The renderer must try the sheet first, then the static PNG, then the
+  existing procedural fallback. A generated sheet is incomplete until that
+  precedence is wired in the current runtime icon helper. In legacy Python
+  this was `draw_skill_icon_mini()`.
+- Use one-time sheet slicing plus cached scaled `(size, active, frame)`
+  surfaces. Do not slice or rescale the full sheet in the hot path.
+- Sign-off must include alpha-corner / alpha-bbox validation, smallest
+  real-grid label checks (`Lv.1` and `Lv.5`), Godot resource import/load,
+  and the relevant focused smoke or visible UI review. Use legacy
+  `py_compile` / Pygame `convert_alpha()` checks only for explicit original
+  PingFighter source work.
 
 ### New-perk registration checklist
 
@@ -860,8 +1664,12 @@ Sign-off rule:
 | 3 | **Add `_MINI_SKILL_ICON_REGISTRY` entry or bespoke `draw_skill_icon_mini()` elif -- required, or icon breaks** |
 | 4 | **Audit every live id alias (`perk_id`, unlock id, runtime skill id, legacy id) so all relevant UIs hit the intended branch** |
 | 5 | **Check perceived subject-fill size in the smallest real icon box, not only the large choice card** |
-| 6 | Apply the actual gameplay effect via `runtime_skill_levels.get("perk_id", 0)` |
-| 7 | Add `global` declarations in every function that mutates perk-related globals |
+| 6 | For imagegen / PNG-backed icons, wire repo asset -> PNG loader/cache -> PNG-first renderer, with procedural fallback only after load failure |
+| 7 | Clamp PNG draw size in 32 px / small-grid UI callsites so `scale_multiplier` cannot hide level text such as `Lv.1` / `Lv.5`; use the TAB `dash_module_control` / `모듈제어` icon as the preferred small-cell size reference |
+| 7b | For one-shot / instant-trigger perks (`instant_*` or similar immediate effects), produce and wire an 8-frame horizontal PNG sheet as the default visual, with static PNG fallback |
+| 7c | Classify the icon family first: character-exclusive active / unlock and passive / enhancer skill perks use the round / orb-style language; basic shared perks may use freer silhouettes |
+| 8 | Apply the actual gameplay effect via `runtime_skill_levels.get("perk_id", 0)` |
+| 9 | Add `global` declarations in every function that mutates perk-related globals |
 
 ### General perk vs skill-type perk (5-orb slot)
 
@@ -885,7 +1693,10 @@ if choice_id == "new_skill_perk":
     equip_result = equip_viper_skill("new_skill_perk")
     if not equip_result:
         removed = _show_viper_skill_swap_dialog("new_skill_perk")
+        if not removed:
+            return False
         swap_viper_skill(removed, "new_skill_perk")
+    # Cancel must be a true no-op; only persist ownership / levels after success.
     runtime_skill_levels["new_skill_perk"] = 1
     return True
 ```
@@ -939,10 +1750,110 @@ Tooltip-format rule:
 - For active-skill / orb tooltips, preserve the established field order:
   header, state tag, cost / cooldown, description, then input / usage
   guidance.
+- If a passive / enhancer perk changes another active skill's runtime
+  behavior, do not leave the target orb tooltip static unless the
+  changing information is already made obvious elsewhere. Surface the
+  affected runtime-only modifiers in the target skill tooltip using
+  concise synergy text with live effective values.
+- If runtime synergy / bonus-line text changes the tooltip's vertical
+  content size, do not keep a stale fixed-height layout. Recompute the
+  tooltip height / section anchors from the real rendered content so the
+  `how_to_use` block, control hint, and effect-preview panel remain
+  fully readable in the invested state too.
+- If an active-skill / orb tooltip family already ships an effect-
+  preview panel, treat that panel as required content rather than
+  decorative chrome. A new skill or new `effect_type` / preview key must
+  either reuse a genuinely matching existing preview path or add a new
+  renderer branch; do not ship a framed "effect preview" box that ends
+  up visually empty.
+- A populated effect-preview panel still fails QA if the scene is not
+  panel-contained. Apply a panel-local clip / subsurface or equivalent
+  containment so slashes, halos, particles, and clone afterimages cannot
+  bleed above / below the preview box into description copy, synergy
+  lines, or control hints.
+- Do not let new preview branches regress into low-effort placeholders
+  when neighboring shipped previews are scene-based. If the existing bar
+  is character silhouette + timing cue + visible result, match that same
+  visual class instead of filling the box with a couple of generic
+  circles or lines.
+- When preview scenes include a rendered character body, compare the
+  character's visible body class against neighboring shipped previews in
+  the same tooltip family. Do not let one character read materially
+  larger than peers just because its cached pose surface uses a looser
+  fit box; normalize the preview body scale unless a larger body is the
+  explicit design intent.
+- For procedurally rendered characters used inside tooltip previews,
+  prefer cached neutral preview poses / surfaces and keep preview
+  generation isolated from live combat animation timers. Hovering a
+  tooltip should not inherit whatever slash / hit / kick timer happened
+  to be active in gameplay at that moment.
+- Effect-preview keycap helpers (`_draw_smasher_skill_keycap` and the
+  shared `_draw_input_keycap_row` / `_draw_input_keycap_with_hold_badge`
+  / `_draw_input_keycap_with_combo_badge` helpers) carry an explicit
+  allowed-letter elif chain and silently render an empty keycap box for
+  any unsupported letter -- the box draws unconditionally before the
+  letter dispatch, so a missing branch manifests as a blank keycap in
+  the preview, not as a runtime error. When adding a new effect-preview
+  branch (or a new character / new skill) that needs a keycap for a key
+  not already in the helper's allowed set (currently W / A / D / S),
+  extend the elif chain first and QA both the small grid and the live
+  tooltip render to confirm the glyph reads. This is the same trap
+  pattern as `draw_skill_icon_mini()`'s elif chain, but at the keycap
+  letter level rather than the skill_id level.
+- Effect-preview keycap displays should follow the established Smasher
+  rhythm: visible only during the prep / input window of the animation
+  cycle, then hidden during the actual effect playback. Always-on
+  keycaps make the preview read as a static instruction overlay rather
+  than a "press -> effect" replay. New character preview branches
+  should reuse the time-gated dispatcher (`_draw_viper_skill_input_overlay`
+  with `_VIPER_INPUT_CYCLE_MS` / `_VIPER_INPUT_VISIBLE_RATIO` for
+  `hold` / `combo` / `plus` kinds, and the keys-with-blank-gap pattern
+  for `sequence` kinds) rather than calling the keycap helpers directly
+  without a visibility window.
+- If a skill gains a player-visible timed active state, audit the shared
+  duration-bar HUD path and the tooltip together. The timer bar, active
+  state, and any duration text should all read from the same effective
+  runtime duration source and share the same teardown policy.
+- If a character already has a dedicated orb-tooltip bonus-line lane
+  for one invested enhancer, treat that as a UI contract for future
+  enhancers in the same family. New enhancers should join the shared
+  helper / bonus-line path rather than creating one-off special cases
+  that make only one passive look "smart" in the orb HUD.
+- When multiple enhancers can affect the same orb tooltip, merge them
+  into a bounded shared line budget and define a stable priority /
+  compression rule. Do not keep appending ad hoc extra text until the
+  tooltip layout breaks or the old bonus lane silently disappears.
+- **Shared-budget clip trap: a single bonus line that wraps to N visual
+  lines at max-invested consumes N slots of the shared budget by itself.**
+  The Viper orb tooltip shares a 2-line budget through
+  `_render_runtime_bonus_lines(..., max_lines=2)`, and an existing
+  `검기 증폭: ...` line already wraps to 2 visual lines at Lv.5 --
+  so simply appending a new `검기 증폭 Lv3+: 공 유도 ...` line silently
+  disappears even though the list contains it. Before appending a new
+  synergy line to a shared-budget tooltip, measure the wrapped-line
+  count of every existing line at the fully invested state. If the
+  budget is already saturated, prefer folding the new information into
+  the existing line (same perk family) or raising / compressing the
+  shared budget deliberately. Do not "verify by reading the list" --
+  verify by rendering the max-invested state and confirming every
+  intended line is actually visible.
+- A tooltip that looks correct in the uninvested state is not enough.
+  QA the fully invested / max-visible bonus-line state too, because the
+  most common regression is lower tooltip sections becoming partially
+  hidden after new synergy text is added.
+- TAB character-info perk tooltips and similar grid-hover tooltips are a
+  separate failure class from orb tooltips. Do not rely on raw
+  mouse-relative placement alone: use the hovered cell / rect and the
+  owning panel bounds, wrap long text, and clamp / flip the tooltip so
+  first-row entries can open below and edge entries stay fully visible.
 
 ---
 
-## CRITICAL: Perk/Skill UI Text Audit -- seven render paths
+## Legacy Python Perk/Skill UI Text Audit -- seven render paths
+
+This section records the old Python UI surfaces that could drift. Current
+Godot work must map the same audit idea to the relevant Godot overlays,
+tooltip renderers, academy/NPC panels, character-info panels, and debug menus.
 
 When changing perk level display, name, or tooltip text, fix **all seven**
 render paths below. Fixing one leaves stale text in the other six.
@@ -961,6 +1872,12 @@ Why the duplication: each screen composes its own `f"Lv.{level}"` instead
 of sharing a renderer. Also check data-passing helpers like
 `get_acquired_skills()` for the fields downstream branches expect.
 
+Layout trap to remember: screen `#5` (TAB character info perk grid) and
+screen `#6` (`draw_tooltip()` / `draw_skill_tooltip_mini()`) often share
+data but not placement code. Fixing the text without auditing the
+grid-hover clamp / flip behavior still leaves first-row and edge-column
+tooltips vulnerable to clipping.
+
 Quick audit before calling the work done:
 
 ```bash
@@ -969,9 +1886,207 @@ grep -n 'name_line\|tooltip_name\|perk_name.*Lv' pingfighter.py
 grep -n 'character_restriction' pingfighter.py | grep -v '#\|print\|CLAUDE'
 ```
 
+### 5-orb active-skill tooltip standard format
+
+Per-character orb tooltips (`_draw_smasher_skill_tooltip()` /
+`_draw_viper_skill_tooltip()` / `_draw_soldier_skill_tooltip()`) follow a
+fixed contract. Honor it when adding or modifying any 5-orb active skill,
+otherwise the orb tooltip drifts away from the rest of the family.
+
+- **Skill data fields owned by the orb tooltip path:**
+  - `description` (3-line max) — effect + brief flavor / story + optional
+    constraint. **Do NOT recap input keys** (the control hint box owns
+    that) and **do NOT recap cooldown** (the header row owns that).
+  - `how_to_use` — single plain sentence used by the *non-orb* tooltip
+    paths (ESC perk status `draw_tooltip()`, TAB info perk grid,
+    Soldier/Commando `_draw_skill_tooltip_mini()`). Must be a complete
+    sentence, never contain `\n` (those paths render with a single
+    `font.render()` call, not the wrap-aware helper, so newlines render
+    as zero-width tofu — see the `\n` trap in §Resource Loading).
+  - `motion_hint` — single short line describing what the skill **looks
+    like** in motion (visual / motion verb), rendered as a dim row under
+    the input rows. **Not a stat summary.** Never bake in numbers that a
+    perk can change (durations modified by `extension_gear`, gauge costs
+    modified by future scaling perks, etc.). For fixed numbers, prefer
+    descriptive verbs anyway — `motion_hint` is a glance, not a spec.
+- **Control hint rows** (`_get_<character>_control_hint_rows()`):
+  - Hold ONLY input visualization (key boxes, mouse icon, accent /
+    text / dim tokens that label the input pattern). Pure-prose dim
+    rows describing outcome belong in `motion_hint`, not here.
+  - The last input row ends with `("accent", "발동")` (or the activation
+    word folded into the existing accent — e.g. `"홀드 후 손 떼면 발동"`,
+    `"좌회전 발동"`). Skip this only when an alt-input row already carries
+    the activation word, since duplicating "발동" in adjacent rows reads
+    awkwardly.
+  - When the trigger context text is too long for one row at the
+    tooltip width (~260px usable for viper/smasher), split into a
+    text-only row 1 + keys-bearing row 2 (current `marshal_kick`,
+    `dark_blade`, `nerve_strike`, `core_flip` pattern). Keep keys with
+    a connector word like `"사용 후"` / `"착지 전"` / `"타격 후"`, not
+    bare keys on their own line.
+- **Layout function signature contract:**
+  - `_get_<character>_tooltip_control_layout(skill_name, how_to_use,
+    motion_hint, font, max_width)` returns
+    `(rows, fallback_lines, box_height)`. When structured rows exist,
+    the layout appends `motion_hint` as wrapped dim rows below them.
+    The `how_to_use` parameter is only consumed when no structured rows
+    exist (legacy fallback). Always pass `motion_hint` from
+    `skill_data.get("motion_hint", "")`.
+- **`_get_smasher_tooltip_height()` takes `skill_name`, not `how_to_use`.**
+  Earlier versions special-cased `how_to_use in ("drive",
+  "power_smashing")` for compact height. That coupled tooltip height to
+  a magic-string sentinel inside `how_to_use`; the current path passes
+  `skill_name` instead so `how_to_use` can be a normal sentence.
+- **Perk-affected numbers must be abstracted in `description`.** When a
+  perk like `extension_gear` multiplies a duration / cost / radius (see
+  `_get_smasher_extension_gear_effective_level()` consumers), the
+  description should read `"일정 기간"` / `"일정 범위"` rather than the
+  raw constant. Fixed constants (e.g. `RECOVERY_SPEED_BOOST_PERCENT = 0.30`,
+  `SMASHER_WHEEL_DURATION_MS = 1200` — confirmed not multiplied) stay as
+  literal numbers. When in doubt, grep for the constant being multiplied
+  by an `_ext_gear_mult` / `_get_*_effective_level()` factor.
+
+Reference implementations (current canonical pattern):
+
+- Viper `marshal_kick`: long trigger context split into 2 rows, ends in
+  `("accent", "발동")`, motion_hint `"벽점프 후 공 쪽으로 돌진"`.
+- Viper `phantom_kick` description: chain constraint
+  (`"쉐도우 백스텝 연계 시 공중 백스텝만 가능."`) lives in description
+  line 3, not in motion_hint or control rows — rule-of-thumb is that
+  hard activation prerequisites belong in description, while
+  motion_hint stays purely visual.
+- Smasher `recovery`: motion_hint `"녹색 빛으로 후딜 제거 + 가속"`
+  (no `+30%` because the duration above it is perk-affected and the
+  amount doesn't belong in a glance summary anyway).
+- Smasher `warp_gate`: description leads with `"일정 기간"` because
+  `WARP_GATE_DURATION_MS` is multiplied by `extension_gear`.
+
 ---
 
-## CRITICAL: Graphics & Effects Performance
+## Legacy / Porting Reference: Boss Slow Debuff Kinematics
+
+Boss slow effects (leg_shot, spider_mine, plasma, venom_mist_gauntlet,
+arena oil/tentacle, fire zone, etc.) are applied in a single shared
+helper `_apply_common_boss_slow_effects()` used by every boss AI
+function (`handle_boss`, `handle_boss_mythic`, `handle_boss_junior`,
+`handle_boss_pro`, `handle_boss_champion`).
+
+- **Per-frame pinning is intentional, not a double-application bug.**
+  The helper multiplies `boss_current_speed *= slow_multiplier` every
+  frame in addition to reducing `accel` / `max_speed` / `decel`. Every
+  frame the AI re-accelerates `boss_current_speed` via `enhanced_accel`,
+  then this multiply pins it back down. That pinning is what produces
+  the "뚝 느려지는" feel during acceleration, deceleration, and
+  direction changes -- not only when the boss is at peak velocity.
+- **Do NOT "fix" this as a perceived double-count.** Replacing the
+  per-frame multiply with a one-shot clamp (`if boss_current_speed >
+  max_speed: boss_current_speed = max_speed`) is mathematically a
+  no-op once the first frame clamps, and regresses the debuff feel: it
+  only bites at peak speed, and is effectively zero during mid-speed
+  accel / decel / turn. Commit `89836d86` (2026-02-07) removed the
+  multiply under exactly this misdiagnosis, and the follow-up soft
+  clamp in `ab929ca9` did not restore the feel -- only the restored
+  per-frame multiply does.
+- **If the slow feels too strong, tune `slow_amount` values instead of
+  changing the kinematic model.** Change the magnitudes
+  (`LEG_SHOT_SPEED_REDUCTION`, `SPIDER_MINE_SLOW_FACTOR`,
+  `_boss_slow_amount` in `venom_mist_gauntlet.py`, arena
+  `top_paddle_slow_amount`), not the application mode.
+- **Do not mix the two slow-value conventions.** `*_SPEED_REDUCTION` /
+  `*_SLOW_FACTOR` are direct multipliers (`0.3` means 70% slower), but
+  `*_slow_amount` is subtracted inside the helper (`slow_multiplier *=
+  (1.0 - slow_amount)`), so `0.7` means 70% slower and `0.3` means only
+  30% slower.
+- **When adding a new boss slow source, add it inside
+  `_apply_common_boss_slow_effects()` and nowhere else.** Copy-pasting
+  a per-handler slow block is how this system drifted in the first
+  place (plasma + venom_mist were added only to `handle_boss()` and
+  silently never applied in league AI before the unification). Every
+  AI path must share the same helper. Also extend
+  `tests/test_boss_slow_kinematics.py` with a case for the new source
+  -- that test is the sealing mechanism that prevents the helper from
+  silently regressing to clamp-only or losing a source again.
+- **Arena-only boss state (stun, steam barrier freeze, paddle shrink,
+  confusion) still lives in `handle_boss()` prologue,** because it can
+  `return` early and must run before the slow helper. The helper
+  itself stays purely kinematic.
+
+## Legacy / Porting Reference: Player Dash Effect Path Unification
+
+`pingfighter.py` does NOT have a single `start_dash()` function. Player
+dash execution is duplicated across at least 5 nearly-identical inline
+blocks: general left dash, general right dash, post-stun consecutive
+left, post-stun consecutive right, and the half-dash early-trigger
+path (plus soul burst variants). Each block independently re-derives
+token consumption (right-to-left), `_next_charge_idx` (left-to-right),
+cooldown timer, and any per-effect post-processing. The vestigial
+`_execute_dash()` helper in the file is defined but never called --
+do NOT trust it as the live path.
+
+This duplication caused the boost charging silent-divergence bug
+(2026-04-30): the general dash path applied "90% cooldown discount"
+while the post-stun consecutive path applied "instant token refund,"
+and the tooltip claimed "instant token charge." Because consecutive
+dash is allowed after only 200ms (line 3980 `CONSECUTIVE_DASH_START_DELAY_MS`)
+while the discounted timer ran ~30 frames (~500ms), the second dash
+overwrote `_charging_state` to a different slot before the first
+dash's boost benefit landed -- the player paid for the perk and got
+nothing visible or numeric on the general path.
+
+Standing rules:
+
+- **A new effect that touches dash token consumption, cooldown, or
+  refund must route through a shared helper, not be copy-pasted into
+  each block.** The boost charging fix introduced
+  `arm_/has_/consume_/reset_/try_arm_boost_charging_pending_dash_refund()`
+  helpers (line 51738~51781) as the canonical pattern. Any future
+  dash-affecting perk / item / legendary effect that fires "next dash
+  is free / cheaper / different" should follow the same arm-on-event
+  / consume-in-execution / reset-on-round-end shape.
+- **Effects whose payoff window is shorter than the consecutive-dash
+  re-trigger window (200ms) WILL be invisibly clobbered** if they
+  store state in `_charging_state` or per-slot timers without
+  pending-flag protection. Prefer pending-flag designs over
+  charge-state mutations for "next dash"-class effects.
+- **The pending flag must be honored by every dash entry gate, not
+  only the one being added.** The boost charging fix had to update
+  every `current_charges > 0` / `rolling_charges > 0` /
+  `_early_rolling_charges > 0` predicate to also accept
+  `has_boost_charging_pending_dash_refund()`. Grep the predicate
+  family before declaring the integration done.
+- **Reset on round end, game end, main-menu return, and any
+  state-reinit path.** The fix added `reset_*` calls at 6 sites
+  (88429, 183020, 197793, 198226, 200711, 203716). A new pending-
+  flag effect must mirror the same coverage, or the flag leaks
+  across rounds / sessions and produces a free dash at the worst
+  possible time.
+- **The "free dash" path must NOT re-roll the same proc, or the
+  effect chains infinitely.** The boost charging fix relies on the
+  fact that `try_arm_*` is gated inside `if _next_charge_idx >= 0:`
+  -- a free dash consumed the pending flag instead of a token, so
+  no slot becomes empty, so the charging block (and the `try_arm_*`
+  call inside it) is skipped. Future "next dash" effects must build
+  in equivalent re-roll suppression.
+- **When auditing dash effect work, list all entry points before
+  editing.** The five inline blocks today are: general left
+  (line ~110476), general right (line ~110768), post-stun left
+  (line ~109308), post-stun right (line ~109520), half-dash early
+  trigger (line ~108830-ish), plus soul burst dash variants. Line
+  numbers drift; the reliable anchor is searching for `_next_charge_idx`
+  and `token_states[idx] = False` together.
+- **Tooltip text must match the unified behavior.** The detail string
+  in `apply_runtime_skill_effect()` / `VIPER_EXCLUSIVE_SKILLS` /
+  related perk dicts is the player-facing contract; if the runtime
+  pattern changes from "instant refund" to "next dash free" or
+  similar, the tooltip is part of the integration, not a
+  documentation cleanup task to defer.
+
+## Legacy Python Graphics & Effects Performance
+
+This section is mainly about Python/Pygame hot paths. For current Godot work,
+apply the same intent through Godot resource caching, texture reuse, node/host
+lifecycle cleanup, shader/particle cost checks, and the repo-local Godot smoke
+tools.
 
 Rendering pipeline today:
 - **Windowed:** `pygame.SCALED` + GPU 2x upscale. No per-frame CPU scaling.
@@ -1036,7 +2151,7 @@ alpha work.
 
 ---
 
-## CRITICAL: Safe Git Rollback
+## Legacy Safe Git Rollback Notes
 
 **Never run `git reset --hard` with uncommitted changes.** Work will be
 lost silently.

@@ -81,18 +81,21 @@ Please integrate per AGENTS.md with these constraints:
 6. Keep turn body size matched to the walking-sheet body read; do not let the
    new turn read smaller than walk in gameplay.
 7. If needed, export or assemble a runtime-ready turn sheet from the approved
-   source frames before wiring it to `items/menhera_boss_turn.png`.
+   source frames before wiring it to the Godot Menhera boss sprite asset
+   path.
 8. Only re-enable visible turn playback after the loader matches the new asset
    format and one real gameplay sanity check passes.
 
 Recommended runtime tasks:
-- update `entities/menhera_boss_sprite.py` to parse the new Menhera turn format
+- update the owning Godot Menhera boss sprite / renderer module to parse the
+  new Menhera turn format
 - remove or bypass old angle-chart assumptions for Menhera's turn playback
 - keep a safe fallback path: if the new turn asset is missing or rejected at
   load time, remain on hop-only frontal walk transitions
-- run:
-  `py -3 -m py_compile pingfighter.py entities\\menhera_boss_sprite.py`
-- run one headless sprite-load smoke test
+- run the repo-local Godot checks from `godot/`:
+  `.\tools\run_headless_load_check.ps1`
+  `.\tools\run_warning_scan.ps1`
+- run one focused Godot sprite-load smoke test
 - run one real in-game visual check focused on:
   - walk -> turn -> walk readability
   - turn body scale vs walk

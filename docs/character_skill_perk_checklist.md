@@ -1,23 +1,32 @@
 # Character Runtime Skill / Perk Integration Checklist
 
-Single source of truth for the code locations and QA checkpoints that
-must be touched when adding, removing, or modifying a runtime character
+Current development target: Godot **디스크하츠 - 링피아**.
+
+The original Python/Pygame PingFighter character skill and perk system is
+frozen. Use Python-side sections in this checklist as legacy porting
+references only: they are useful for behavior, timing, balance, UI text,
+tooltip formatting, offer flows, and parity audits, but they are not default
+edit targets. New character skill / perk implementation, bug fixes, UI, VFX,
+audio, save/load, and runtime wiring belong under `godot/` unless the user
+explicitly asks for a legacy Python source edit.
+
+Single source of truth for the code locations and QA checkpoints that must be
+touched when adding, removing, porting, or modifying a runtime character
 perk, character-exclusive skill, unlock-style perk, or player-skill /
-5-orb skill in PingFighter, including academy / NPC perk-offer and
-skill-swap flows.
+5-orb skill, including academy / NPC perk-offer and skill-swap flows.
 
 Four-way role split:
 
 | Document | Owns |
 |---|---|
-| **this file** | Every runtime code location and verification checkpoint for character perks / skills |
+| **this file** | Every Godot runtime code location, legacy reference path, and verification checkpoint for character perks / skills |
 | `CLAUDE.md` | Hidden-knowledge rules: icon-render traps, seven UI text paths, final-cooldown HUD rule, routing |
-| `AGENTS.md` | Boss-sprite runtime only; not the source of truth for character perk / skill integration |
+| `AGENTS.md` | Top-level Godot-first routing and shared runtime guardrails |
 | `docs/item_runtime_checklist.md` | Item runtime only; use it when the change is item-driven rather than perk-driven |
 
-Character perk / skill runtime does NOT belong in `AGENTS.md`. Boss
-sprite runtime lives there; character perk / skill integration lives
-here.
+Character perk / skill runtime does not belong in asset-generation skills.
+Character perk / skill integration lives here, with `AGENTS.md` providing
+the top-level Godot-first routing.
 
 If this file and `CLAUDE.md` appear to overlap:
 
@@ -26,6 +35,32 @@ If this file and `CLAUDE.md` appear to overlap:
 - **`CLAUDE.md` wins** for the hidden-knowledge UI traps it calls out
   explicitly (`draw_skill_icon_mini()`, seven render paths, cooldown
   display consistency).
+
+## How to use this file without reviving Python development
+
+For current 디스크하츠 - 링피아 work, follow this route:
+
+1. Start at Section 0.
+2. Classify and wire through the Godot path:
+   - registration / pool / runtime effect: Sections 1-2
+   - active skill / 5-orb system: Section 3
+   - Commando / Soldier permanent firearm: Section 3.3a plus
+     Sections 4, 6, 7, and 9
+   - icon, HUD, tooltip, modal UI: Section 4
+   - effective level and cooldown display: Section 5
+   - gameplay effect / VFX / audio / reward wiring: Section 6
+   - persistence / reset lifecycle: Section 7
+   - final integration map and smoke test: Sections 8-9
+3. Treat Python names and old file anchors as parity vocabulary only. Do not
+   edit Python/Pygame files unless the user explicitly asks for a legacy-source
+   change.
+
+Legacy Python reference surfaces are embedded mostly in Sections 2, 4, 6, 7,
+and 8. When a bullet names `pingfighter.py`, `draw_skill_icon_mini()`,
+`apply_runtime_skill_effect()`, `recalculate_skill_effects()`,
+`resource_path()`, or Pygame font behavior, translate the intent to the
+matching Godot catalog, owner module, renderer, tooltip helper, or resource
+loader before implementing.
 
 ---
 
@@ -48,6 +83,11 @@ Before adding ANY runtime character perk / skill, confirm:
       owned reward event, the skill-gold policy is specified:
       appropriate payout amount / cadence / bonus conditions, or an
       explicit no-gold exception
+- [ ] If this adds or retunes player / boss knockback, decide whether it
+      should reuse the shipped fire-event knockback baseline. Default:
+      yes -- tune from the fire-event path (current reference: Viper
+      `kick_enhance` guard knockback) rather than inventing an unrelated
+      velocity / decay / hitstop system.
 - [ ] If this is offered through an academy / NPC / downtown modal:
       visit scope, reroll policy, exhausted-after-success policy,
       ownership-vs-equipped filtering, and currency/AP sync target are
@@ -55,8 +95,19 @@ Before adding ANY runtime character perk / skill, confirm:
 - [ ] If this changes player-skill cooldowns:
       decide whether it affects only gameplay, or gameplay + all HUD
       readouts (default: both)
+- [ ] If this is an active-skill enhancer / passive that modifies an
+      existing orb skill, decide whether the target orb tooltip needs a
+      dedicated runtime synergy / bonus-line summary. Default: yes when
+      the effect is not already obvious from the normal cost / cooldown
+      lines alone.
 - [ ] Decide whether `transcendent_crown` / `sage_ring` should change
       the behavior at effective levels above the base cap
+- [ ] If future perk-level buff sources can raise the effective level
+      above `Lv.5` / `max_level` (for example `transcendent_crown`,
+      `sage_ring`, ignition-style buffs, or future level-buff effects),
+      decide whether the perk keeps gaining real numeric power above the
+      base cap. Default: yes for invested passive / scaling perks;
+      explicit hard caps are exceptions and must be documented.
 - [ ] Decide whether the effect is boolean-only (`unlock_*` style) or
       scales with level
 
@@ -78,6 +129,26 @@ Unless the user explicitly overrides them, use these defaults:
 - If a perk modifies an existing active skill's cost / damage / size /
   cooldown / duration, the **player-facing tooltip and HUD must reflect
   the final effective value** when that value is shown to the player.
+- If a skill or buff gives the player a meaningful active duration,
+  startup-hold timer, or other persistent timed window to track, default
+  to the shared right-bottom horizontal timer-gauge stack. Match the
+  shipped size / frame / spacing / stack behavior instead of inventing a
+  one-off timer widget unless the user explicitly asks for a different
+  HUD pattern. The lowest active timer bar owns stack index `0` and sits
+  on the bottom baseline; additional simultaneously active timer bars
+  stack upward only because lower active bars exist. Do not hardcode a
+  nonzero stack index for a timer that may be the only active bar, or it
+  will appear to float above the floor.
+- If a perk modifies another active skill through runtime-only or
+  otherwise hidden behavior (prep, duration, clone HP, super armor,
+  combo scaling, projectile reach, etc.), assume the target orb tooltip
+  needs a concise runtime synergy lane. Do not stop at the perk card or
+  perk-detail text unless the user explicitly asks for static-only copy.
+- Unless the user explicitly asks otherwise, new character perk / skill
+  knockback should inherit the shipped fire-event knockback feel.
+  Prefer tuning multipliers, timers, decay, or short hitstop / release
+  behavior on top of the existing fire-event channels instead of adding
+  a parallel knockback system.
 - Unless the user explicitly asks otherwise, a new active skill with a
   clear owned reward moment should have an intentional skill-gold bonus
   policy. Default to a moderate payout consistent with comparable
@@ -88,8 +159,20 @@ Unless the user explicitly overrides them, use these defaults:
   equivalent by default in gameplay and UI. Do not ship a new
   directional skill that only listens to one key family unless the user
   explicitly asked for that restriction.
+- If a skill is opened by another skill, hit-confirm, combo window,
+  return motion, cancel, or other predecessor state, build a
+  **predecessor trigger matrix** before coding. Do not accept "the skill
+  works from one path" as enough. List every source that can open the
+  window, what exact event opens it, what state allows the follow-up
+  input, what consumes / expires it, and which focused smoke covers that
+  row.
 - If the perk is an invested runtime perk, assume it must be audited
   under `transcendent_crown` and `sage_ring`.
+- Unless the user explicitly asks otherwise, a new invested passive /
+  scaling perk that can receive effective-level bonuses should keep
+  gaining real runtime stats above `Lv.5` / `max_level` when those
+  bonuses raise its effective level. Treat hard caps as an explicit
+  design exception, not as the silent default.
 - If the perk is `max_level == 1` and is meant to stay boolean-only,
   verify that bonus items do **not** accidentally create bogus `Lv.2`
   gameplay expectations in UI text.
@@ -97,6 +180,13 @@ Unless the user explicitly overrides them, use these defaults:
   runtime active state** for character skills. Active buffs, remaining
   duration, command buffers, charge state, temporary spawned entities,
   and transient FX should not silently carry into the next round.
+- In the Godot port, any character skill / perk sound that loops or is
+  driven by a `sync_*` method must be treated as part of round-transition
+  runtime state. Add the matching `stop_*` method to
+  `scripts/audio/gameplay_loop_audio_cleanup.gd`, and verify score
+  event, scoreboard-active frames, serve wait, round restart, and game
+  reset cannot leave the loop playing or immediately re-arm it from
+  `battle_effects_update_controller.gd`.
 - By default, **cooldown-state reset and runtime-state reset are separate
   responsibilities**. A helper that clears cooldowns should not also
   terminate or preserve active runtime state unless that behavior is
@@ -105,6 +195,18 @@ Unless the user explicitly overrides them, use these defaults:
   default. Only add it when the user or design explicitly wants that
   gameplay identity, and document the dedicated pause/resume path
   separately from the hard reset path.
+- Commando `bowling_trap` is an explicit carryover exception: round reset
+  preserves placed traps by normalizing them to `waiting`, while full
+  reset / character-switch cleanup clears them.
+- In the Godot port, the orb-tooltip hover pause/resume exception is
+  routed through `scripts/core/battle_scene_skill_tooltip_driver.gd`.
+  Keep tooltip-driven cooldown pause/resume separate from character
+  runtime-state reset and from `battle_scene_update_callbacks.gd` fanout.
+- In the Godot port, the post-perk-choice ball resume-safety frame tick is
+  routed through `scripts/core/battle_scene_runtime_perk_update_driver.gd`.
+  Keep the actual freeze / recovery state in
+  `scripts/characters/runtime_perk_state.gd`; the core driver is only the
+  frame-callback bridge.
 - Keep **round-transition reset** and **real stage-transition reset**
   separate. Stage-scoped ammo refills, rental / temporary cleanup, and
   "once per stage" reset rules belong on the actual stage-entry /
@@ -122,7 +224,8 @@ request directly conflicts with one of these defaults.
 | General perk | Passive runtime bonus, no new active input | pool entry, level-up effect, UI text, effective level |
 | Unlock perk | Grants an active skill or orb slot entry | unlock flow, auto-equip / swap, save/load, actual skill gating |
 | 5-orb skill | Active skill shown in the left-side orb HUD | metadata row, icon, cooldown, tooltip, gauge cost, gameplay trigger |
-| Active-skill enhancer | Perk that modifies another active skill | effect path, target-skill tooltip, cooldown / cost display |
+| Permanent firearm | Commando / Soldier weapon unlocked into the firearm selector | weapon controller entry, ammo / cooldown, firearm HUD art, fire / impact / deployed VFX, audio routing, reset / stage policy |
+| Active-skill enhancer | Perk that modifies another active skill | effect path, target-skill tooltip, cooldown / cost display, runtime synergy-line policy |
 | Cooldown modifier | Perk or skill that changes player-skill cooldowns | final cooldown helper path, orb wedge, countdown text, tooltip |
 
 Do not treat all of these as the same problem. The common bug pattern is
@@ -133,9 +236,17 @@ skill system."
 
 ## 2. Common runtime registration
 
+Current Godot-first rule:
+- Implement new character perk / skill runtime work under `godot/` by
+  default.
+- Python names in this section describe legacy PingFighter concepts to map
+  during a port. In Godot, find the matching catalog, runtime state, owner
+  module, HUD renderer, tooltip renderer, save/load state, and debug menu
+  before editing.
+
 ### 2.1. Add the perk to the correct pool
 
-- [ ] Add the entry to the correct dict:
+- [ ] Add the entry to the correct current registry. In legacy Python this was:
       `RUNTIME_SKILL_POOL` or the matching character-exclusive pool
       such as `SMASHER_EXCLUSIVE_SKILLS`, `VIPER_EXCLUSIVE_SKILLS`,
       `SOLDIER_EXCLUSIVE_SKILLS`, or `OPTIMUS_EXCLUSIVE_SKILLS`.
@@ -150,11 +261,13 @@ skill system."
 
 ### 2.2. Register the actual effect
 
-- [ ] `apply_runtime_skill_effect()` must handle the new id.
+- [ ] The current runtime effect applier must handle the new id. In legacy
+      Python this was `apply_runtime_skill_effect()`.
 - [ ] If the effect needs special unlock / equip / give-item /
       immediate-apply behavior, implement it here rather than relying
       on the generic `runtime_skill_levels[id] += 1` fallback.
-- [ ] `recalculate_skill_effects()` must mirror any special behavior
+- [ ] The current recalculation / load-sync path must mirror any special
+      behavior. In legacy Python this was `recalculate_skill_effects()`.
       that can be reached via debug level edits, load-time sync, or
       bonus-state recalculation.
 - [ ] If the perk mutates globals or caches, add the needed `global`
@@ -165,13 +278,29 @@ skill system."
 ### 2.3. Effective-level support
 
 - [ ] If the perk can exceed its base cap because of
-      `transcendent_crown` or `sage_ring`, confirm
+      `transcendent_crown`, `sage_ring`, or other perk-level buff
+      sources, confirm
       `get_runtime_skill_level()` is the number the gameplay path reads.
+- [ ] If a temporary effective-level buff source such as an ignition-
+      style aura can toggle during live play, confirm every owner-cached
+      consumer is resynced on both activation and expiry, not only
+      pull-based helpers. In the Godot port this includes cached paddle
+      size / scale, accessory-slot bonuses, active-item / mythic sync
+      composition, skill cooldown config caches, collision context, and
+      HUD readouts.
+- [ ] For a passive / scaling perk, do **not** silently clamp gameplay
+      math back to `min(max_level, effective_level)` unless an explicit
+      design exception says the perk should hard-cap. The default policy
+      is that effective levels above `Lv.5` keep increasing real
+      numeric performance.
 - [ ] If the displayed description must change at `Lv.6+`, add a
       pattern or special case to `get_runtime_skill_description()`.
 - [ ] If the perk is intentionally boolean-only, verify the gameplay
       path still behaves as boolean-only even when the effective level
       becomes 2+ from bonus items.
+- [ ] If the perk is intentionally hard-capped despite overflow levels,
+      make that cap explicit in gameplay code, tooltip text, and
+      checklist notes so players do not infer fake `Lv.6+` scaling.
 
 ---
 
@@ -180,13 +309,43 @@ skill system."
 Only do this section when the change touches a character's active skill
 HUD, unlock perk, or orb-slot system.
 
+Current Godot-first rule:
+- For current work, wire skill metadata, cooldown, unlock/equip state,
+  tooltip, icon, activation, audio, VFX, save/load, and swap behavior through
+  the Godot character owner modules and HUD renderers.
+- Use Python function and registry names below as legacy reference names
+  only when mapping old behavior into Godot.
+
 ### 3.1. If the perk grants a new active skill
 
 - [ ] Add a metadata row to the character's orb-skill data list
       (`*_SKILL_ICONS_DATA`) with:
       `name`, `korean`, `cost`, `color`, `cooldown`, `key`,
-      `description`, `how_to_use`, and any extra flags the tooltip or
-      renderer needs.
+      `description`, `how_to_use`, `motion_hint`, `effect_type`, and any
+      extra flags the tooltip or renderer needs.
+- [ ] `description` is 3 lines max and follows the orb-tooltip standard
+      format (CLAUDE.md §"5-orb active-skill tooltip standard format"):
+      effect + brief flavor / story + optional constraint, **no input
+      key recap**, **no cooldown recap**. Perk-affected numbers
+      (`extension_gear`-multiplied durations etc.) must be abstracted to
+      `"일정 기간"` / `"일정 범위"`; fixed numbers stay literal.
+- [ ] `how_to_use` is a single plain sentence with no `\n` (it feeds
+      `font.render(f"▶ {how_to_use}")` paths in ESC perk status / TAB
+      info, where newlines render as zero-width tofu). Do NOT use
+      legacy magic-string sentinels like `"drive"` / `"power_smashing"`
+      / `"warp_gate"` — those were only consumed by the old
+      `_get_smasher_tooltip_height()` height switch, which now keys off
+      `skill_name` instead.
+- [ ] `motion_hint` is a single short line describing what the skill
+      **looks like** in motion (visual / motion verb), rendered as a
+      dim row under the input rows. Not a stat summary. Never bake in
+      perk-affected numbers; prefer descriptive verbs even for fixed
+      numbers (motion_hint is a glance, not a spec).
+- [ ] If that metadata row introduces an `effect_type`, preview key, or
+      other tooltip-preview dispatch value, confirm the orb-tooltip
+      preview renderer already covers it or add the matching branch /
+      shared mapping in the same task. Metadata-only registration is not
+      enough if the tooltip family already shows an effect-preview box.
 - [ ] Add the skill to the character's cooldown registry.
 - [ ] Add the skill to activation-time / active-state registries if the
       HUD glow or activity effect depends on them.
@@ -197,6 +356,10 @@ HUD, unlock perk, or orb-slot system.
 - [ ] Mirror that unlock map inside `recalculate_skill_effects()`.
 - [ ] Use the existing swap dialog when slots are full; do NOT silently
       drop the unlocked skill.
+- [ ] If slot-full unlock flow can open a swap dialog, treat cancel as a
+      true no-op. Do not dirty `runtime_skill_levels`, unlocked-state
+      flags, ownership registries, or controller inventory until the
+      swap actually succeeds.
 - [ ] Save and restore both the unlocked-state dict and equipped-skill
       list.
 - [ ] If the character participates in "hide unlock perks when slots
@@ -264,9 +427,69 @@ HUD, unlock perk, or orb-slot system.
       by `skill_id`; the owning unlock perk, unlock flag, weapon
       ownership, and controller inventory must be cleared together.
 
-### 3.2. Smasher concrete audit points in the current repo
+### 3.1a. Combo / predecessor trigger matrix
 
-When the work is Smasher-specific, audit all of these current anchors:
+Do this for any active skill that is not purely direct-cast. This covers
+follow-up slashes, kick chains, hit-confirm windows, cancel windows,
+return-motion handoffs, and skills whose tooltip says "after X" or
+"within N seconds after hitting".
+
+- [ ] Start from the Python reference, current Godot code, skill tooltip,
+      perk-detail text, and any design note. Write down every
+      predecessor source, not only the first one that already works.
+- [ ] For each predecessor, record the exact opener event:
+      cast start / projectile fire / ball hit / boss hit / object
+      absorb / release burst / return phase / cancel phase / timeout.
+- [ ] For each predecessor, record whether miss, blocked, guard, cancel,
+      early return, death / round transition, or cooldown failure should
+      leave the follow-up window closed.
+- [ ] For each predecessor, record the required state at follow-up input:
+      airborne, grounded, wall-dive active, return active, specific
+      phase, held input, edge input, direction-neutral, cooldown-ready,
+      gauge-ready, and target skill equipped.
+- [ ] If the follow-up may start while the predecessor motion is still
+      active, check input priority before the predecessor update consumes
+      the edge. A motion update that returns early can silently block the
+      follow-up even when the window flag is true.
+- [ ] If the follow-up cancels or hands off from the predecessor, clear
+      the predecessor's visual, audio, particle, freeze, aura, rope,
+      projectile, and temporary runtime state intentionally. Do not leave
+      ghost active flags that keep drawing, blocking input, or preserving
+      stale collision state.
+- [ ] For Godot ball-owning handoffs, audit the shared motion contract:
+      any skill that returns `skip_ball_motion_step=true`, hides the ball,
+      captures the ball, or temporarily returns `ball_vel = Vector2.ZERO`
+      must return `skip_ball_motion_step=false` plus a real nonzero
+      release velocity on every resume / release / final-fire / cancel
+      path. Focused smoke coverage must prove the shared skip flag does
+      not remain stuck after the handoff.
+- [ ] Verify both window creation and window lifetime:
+      duration value, pause / update path, active-motion exceptions,
+      airborne / grounded expiry, and cleanup on cast / hit / reset.
+- [ ] If the predecessor id, unlock perk id, and equipped orb skill id
+      differ, check all aliases in the matrix. `double_marshal_kick ->
+      phantom_kick` style ids are not optional coverage.
+- [ ] Mirror the complete predecessor list in player-facing text:
+      orb tooltip, non-orb tooltip `how_to_use`, perk card `detail`, and
+      academy / NPC offer text if present.
+- [ ] Add focused smoke coverage for every predecessor family. It is
+      acceptable to group equivalent rows, but a direct-cast success test
+      does not cover hit-confirm, return-motion handoff, or cancel
+      handoff paths.
+- [ ] For Godot ports, put the matrix coverage in the owning runtime
+      smoke file or a narrowly named companion smoke. The test should
+      assert the window flag opens, the follow-up input activates the
+      intended skill, the old motion is consumed when applicable, and
+      the target skill cooldown / gauge path is triggered.
+- [ ] Keep a concrete example in mind: Viper Dark Blade is opened by
+      Shadow Step hit, Air Blade follow-up timing, Marshal Kick hit,
+      Phantom Kick hit, and Core Flip / Hwarang Kick hit. Testing only
+      Air Blade proves Dark Blade exists, but not that the combo graph is
+      complete.
+
+### 3.2. Smasher Godot audit points
+
+When the work is Smasher-specific, audit all of these current Godot anchors:
 
 - [ ] `SMASHER_SKILL_ICONS_DATA`
 - [ ] `_smasher_skill_cooldowns`
@@ -282,6 +505,12 @@ When the work is Smasher-specific, audit all of these current anchors:
 - [ ] `is_smasher_skill_unlocked()`
 - [ ] `_show_smasher_skill_swap_dialog()` / themed swap flow
 - [ ] `_draw_smasher_skill_tooltip()`
+- [ ] Godot `smasher_ghost_shot_state.gd` motion ownership:
+      performance teleports may set `skip_ball_motion_step=true`, but
+      rise / chaos resume and the final fire must explicitly clear it.
+      Keep or extend `godot/tests/smasher_ghost_shot_motion_skip_smoke.gd`
+      when touching Ghost Shot, power-smash motion, or shared ball-update
+      skip handling.
 - [ ] save/load keys:
       `smasher_skill_unlocked`, `smasher_equipped_skills`
 
@@ -295,7 +524,7 @@ Important current behavior:
   Cleanse, and Ghost Shot each have separate gameplay trigger paths.
   A new skill must have its own real trigger/update path too.
 
-### 3.3. Viper concrete audit points in the current repo
+### 3.3. Viper Godot audit points
 
 When the work is Viper-specific, audit the equivalent registries:
 
@@ -313,6 +542,81 @@ When the work is Viper-specific, audit the equivalent registries:
 If another character uses a different active-skill model, follow that
 character's existing pattern rather than forcing the Smasher/Viper
 5-orb model where it does not belong.
+
+### 3.3a. Commando / Soldier permanent firearm production pipeline
+
+Use this section for any new or substantially rebuilt Commando / Soldier
+firearm (`pistol`, `commando_pistol`, `ak47`, `bazooka`, `net_gun`,
+`fire_support`, `bowling_trap`, `suicide_drone`, or future entries). A
+firearm is not complete when the orb unlock exists; it needs the weapon
+controller, runtime, HUD card, VFX, audio, and lifecycle route together.
+
+- [ ] Register the weapon in the current Godot firearm owner stack:
+      `commando_skill_config.gd`, `commando_weapon_controller.gd`, the
+      runtime input / effect owner (`commando_firearm_runtime.gd` or the
+      focused module if split), and any save / load or rental / temporary
+      grant path. Keep Python firearm names as parity vocabulary only.
+- [ ] Define ammo, magazine / charge count, cooldown, control-lock /
+      windup, stage refill, rental depletion, and swap behavior in one
+      canonical controller path. If academy / NPC / perk-pickup grants
+      can unlock the same firearm, they must call the same per-instance
+      initializer so ammo, active flag, equipped flag, and cooldown table
+      cannot diverge.
+- [ ] If the user asks to draw or remake the firearm UI art, create a
+      real bitmap first. Default shape: static firearm-HUD picture via
+      imagegen, not a skill-orb icon and not a procedural-only fallback.
+      Copy the accepted PNG into the Godot asset tree, preserve alpha,
+      verify transparent corners / alpha bbox, and add it to the firearm
+      HUD resource path before any procedural branch can win.
+- [ ] For firearm HUD motion, ship sheet-first. Use AutoSprite for final
+      fire / recoil / install / deploy / capture / launch UI sheets,
+      normally `4x4`, 16 frames, with explicit grid constants, frame
+      count, draw-scale compensation, and cached source-region slicing in
+      `commando_firearm_selector_renderer.gd` or the focused HUD owner.
+      Static-rest / animated-active state must be intentional.
+- [ ] If the firearm creates a visible deployed object, projectile, field,
+      capture, launch, detonation, or lingering impact, create / wire the
+      playfield visual separately from the HUD card art. Use imagegen for
+      accepted still props and AutoSprite for final animated sheets. Keep
+      source and runtime PNGs versioned, record grid / frame interval /
+      postprocess scale, and verify no runtime frame edge-touches.
+- [ ] Add all generated assets to a manifest near the asset family:
+      generator, prompt summary, source path, runtime path, atlas path
+      when present, AutoSprite asset / job / spritesheet ids, grid,
+      frame count, SHA256, transparent-corner QA, edge-touch QA, and any
+      per-cell scale / alpha cleanup. Generation alone is not runtime
+      integration.
+- [ ] Route audio through `commando_firearm_audio_resolver.gd` and
+      `game_audio.gd` with phase-specific names: install / ready / fire,
+      capture / snap, launch, flight loop, impact / explosion, and
+      cancel / cleanup where applicable. Do not reuse a long
+      capture-launch sequence as a later boss-hit or guard-impact cue;
+      otherwise the audible sequence can replay after the real launch.
+- [ ] If any firearm audio loops or is driven by a `sync_*` method, add
+      the stop method to `gameplay_loop_audio_cleanup.gd` and verify
+      score event, scoreboard, serve wait, round restart, and game reset
+      cannot leave it playing or re-arm it.
+- [ ] Wire runtime result ownership completely: `update_input()` /
+      `update_effects()`, actor draw context, battle effects result
+      applier, ball ownership (`ball_pos`, `ball_vel`,
+      `skip_ball_motion_step`), boss damage / status, and special-gauge
+      or skill-gold results. A deployed firearm that captures or holds
+      the ball must clear motion-skip on every release / cancel / reset
+      exit path.
+- [ ] For boss knockback / stun caused by a firearm, default to the
+      shipped fire-event knockback feel: high initial velocity, decay,
+      finite motion window, and status-source cleanup. Do not add a
+      constant-speed shove unless that is an explicit design exception.
+- [ ] Decide the lifecycle policy explicitly. Default firearm active
+      state clears on round transition; cross-round carryover is an
+      exception and must document the normalized carryover state plus the
+      separate hard-reset / character-switch cleanup route.
+- [ ] Add focused smoke coverage for every surface touched: firearm
+      controller ammo / cooldown, HUD selector state and asset prewarm,
+      runtime VFX / ball lifecycle, audio resolver / routing, boss-hit
+      handoff when relevant, round / stage reset behavior, and generated
+      PNG alpha / edge QA. After any `.gd` edit, still run the repo-local
+      headless load check and warning scan.
 
 ### 3.4. Academy / NPC offer flows for unlock-style perks
 
@@ -337,12 +641,33 @@ downtown / academy / NPC interaction instead of the standard perk cards.
 - [ ] If a parent confirm dialog opens a child perk / skill modal, make
       sure the parent UI is fully closed and the interior is redrawn
       before the child modal snapshots the background.
+- [ ] If the perk unlocks a permanent consumable-backed resource
+      (ammo, magazine, charge pool, drone count, activation-timer, or
+      any per-instance field that lives on a singleton weapon / effect
+      instance), confirm the academy / NPC purchase and swap paths run
+      the **same per-instance initializer** as the in-game perk-pickup
+      path. It is a common failure mode to have `unlock_*_skill()`,
+      `equip_*_skill()`, and `*_controller.unlock_permanent_weapon()`
+      set ownership flags on the academy path while the per-instance
+      `reload()` / `equip()` / ammo-global reset / cooldown-table
+      refresh only runs inside the perk-pool path. When this split
+      exists, extract the instance init into a shared helper (e.g.
+      `_initialize_permanent_soldier_firearm_instance`) and call it
+      from every acquisition path so an academy-acquired unlock does
+      not enter the next match with ammo 0 or a stale cooldown.
 
 ---
 
 ## 4. Icon rendering, HUD, and tooltip audits
 
 ### 4.1. Generic perk icon rendering
+
+Current Godot-first rule:
+- Current icon rendering belongs in Godot HUD / perk icon renderers such as
+  `runtime_perk_icon_renderer.gd` and the relevant skill-orb renderers.
+- Legacy Python names in this section (`draw_skill_icon_mini()`,
+  `_MINI_SKILL_ICON_REGISTRY`, etc.) are reference surfaces for parity and
+  alias auditing, not default edit targets.
 
 - [ ] Add a `_MINI_SKILL_ICON_REGISTRY` entry when the icon can reuse an
       existing PNG / orb-symbol path; otherwise add the bespoke
@@ -375,6 +700,11 @@ downtown / academy / NPC interaction instead of the standard perk cards.
       perk-pool id, unlock id, runtime skill id, and any legacy alias.
       If perk choice uses one name and the live HUD uses another, both
       must land in an intentional bespoke branch.
+- [ ] For unlock-style active skills, verify the `unlock_*` perk id and
+      the equipped orb skill id render the same accepted motif
+      intentionally. If the orb uses a PNG, the unlock card / academy
+      offer / NPC offer path should usually use that same PNG plus the
+      established unlock badge rather than an older procedural drawing.
 - [ ] Do NOT stop at a placeholder symbol or minimal debug shape.
       Draw a bespoke polished icon that matches the existing in-game
       icon language: readable silhouette, layered highlights, clean
@@ -391,6 +721,44 @@ downtown / academy / NPC interaction instead of the standard perk cards.
       box sizes into `draw_skill_icon_mini()`, test them all. Passing in
       the large choice card does not guarantee the 32 px perk grid,
       academy offer, or status-panel version is readable.
+- [ ] If the accepted icon came from imagegen or another generated PNG,
+      copy it into the repo asset tree and wire a PNG-first loader/cache
+      path. The live branch must attempt the PNG before any procedural
+      fallback or special-case early return.
+- [ ] For large PNG-backed perk / skill icons, cache the decoded source
+      image separately from scaled `(size, active)` outputs. Animated
+      choice cards and hover / selection scale changes must not reload
+      the 512px+ / 1254px+ PNG from disk for every new draw size. Size the
+      source cache for the real number of icons that can be visible in a
+      perk grid / academy offer panel; a cache smaller than the simultaneous
+      draw set can still thrash every frame.
+- [ ] For one-shot / instant-trigger runtime perks (`instant_*` ids or
+      similar immediate reward effects), default the visual to an
+      8-frame horizontal PNG sheet unless the user explicitly requests a
+      static icon only. Keep the static PNG as the identity anchor and
+      fallback, wire sheet-first -> static PNG -> procedural fallback,
+      cache source frames plus scaled `(size, active, frame)` surfaces,
+      and validate alpha corners, alpha bbox, `Lv.1` / `Lv.5` small-cell
+      labels, Godot resource import/load, and the focused Godot smoke or
+      visible UI review for the touched renderer.
+- [ ] Clamp PNG-backed perk icons in small-grid UIs so they preserve
+      readability without hiding UI labels. A slight intentional bleed
+      like existing energetic icons is acceptable, but the icon must not
+      cover the bottom level text such as `Lv.5`, and the player must be
+      able to read the level at the smallest real box size.
+- [ ] In the TAB character-info perk tab (`draw_character_info_panel()`),
+      compare the rendered small-cell result against the current
+      `dash_module_control` / `모듈제어` icon. Treat that as the preferred
+      size feel: not tiny, not oversized, and never covering the bottom
+      level label such as `Lv.1` or `Lv.5`.
+- [ ] Before creating or replacing a runtime perk icon, classify the
+      visual family: character-exclusive active-skill / unlock perk,
+      character passive / enhancer skill perk, or basic shared perk.
+      Character-exclusive active and passive/enhancer skill perks should
+      keep the established round / orb-style language; basic shared perks
+      may use freer object / symbol silhouettes. The family choice does
+      not override the TAB `dash_module_control` / `모듈제어` small-cell
+      size reference.
 - [ ] Treat the `CLAUDE.md` "Perk Icon Rendering" section as a
       companion invariant while doing this work.
 
@@ -405,12 +773,30 @@ downtown / academy / NPC interaction instead of the standard perk cards.
 - [ ] If the HUD uses a different name from the unlock perk or perk-pool
       entry, cover both names explicitly or normalize the dispatch path
       before sign-off.
+- [ ] If a PNG-backed orb replaces a procedural symbol, trace the
+      matching unlock map (`perk_id -> skill_id`) and update the generic
+      mini-icon path for the perk id in the same task. Do not leave the
+      5-orb HUD on the new PNG while the perk-card path still renders
+      stale art.
 - [ ] The orb icon should feel like a premium HUD symbol, not a scaled
       copy of a rough menu icon. Keep it bold, centered, and instantly
       readable at small size.
 - [ ] Judge the orb by the visible main subject, not by total effect
       area. Rings, glows, ghost layers, and particle dots do not count
       as acceptable size if the central motif still reads tiny.
+- [ ] If the orb uses an on-disk PNG, verify the source alpha before
+      sign-off: transparent corners must stay alpha 0, the visible alpha
+      bounds should leave a few pixels of breathing room, and no baked
+      square / black halo / rough outer ring should survive into the
+      smallest HUD orb.
+- [ ] Do not blindly reuse the procedural-symbol draw size for a PNG orb.
+      If the PNG already includes its own circular rim, glow, or frame,
+      extra `size + N` scaling can press that rim into the live HUD frame
+      and make the edge look dirty. Judge the final draw size in the real
+      orb slot beside neighboring shipped icons.
+- [ ] When dimming inactive / cooldown PNG orbs, preserve the source alpha.
+      Prefer an RGB-multiply style dim over filling or blending the whole
+      `SRCALPHA` canvas in a way that can re-light transparent corners.
 - [ ] If the orb icon has animated motion, audit its behavior by state
       instead of using one always-on loop for everything.
 - [ ] Default expectation:
@@ -427,16 +813,60 @@ downtown / academy / NPC interaction instead of the standard perk cards.
       motion before the skill is actually ready.
 - [ ] Cooldown or low-gauge states should not look falsely "ready" just
       because the icon keeps spinning or sparkling all the time.
+- [ ] If the skill owns a player-visible active duration, startup-hold,
+      or timed persistence window, add or audit the shared right-bottom
+      horizontal timer-gauge entry instead of inventing a bespoke timer
+      widget.
+- [ ] Match the existing duration-bar family: horizontal layout, shared
+      stack behavior, same visual weight, and the real effective
+      duration value that gameplay uses.
+- [ ] Verify the timed bar is removed on every teardown path that ends
+      the real runtime state: timeout, cancel, round reset, stage
+      transition, death, and main-menu return as applicable.
 
 ### 4.3. Orb tooltip rendering
+
+Current Godot-first rule:
+- For current work, update the Godot skill-orb tooltip renderer and any
+  character-specific tooltip data source. Legacy Python tooltip function
+  names below are reference names for parity and layout traps only.
 
 - [ ] Audit the character-specific orb tooltip renderer
       (`_draw_smasher_skill_tooltip()` and similar paths).
 - [ ] Match the existing active-skill tooltip structure instead of
       inventing a new layout. The default format is:
       Korean skill name in the header, `ACTIVE` tag, gauge-cost line,
-      cooldown line, main description body, and the existing
-      `how_to_use` / control-hint block style.
+      cooldown line, main description body, and the standard control
+      hint block (CLAUDE.md §"5-orb active-skill tooltip standard
+      format"): structured input rows from
+      `_get_<character>_control_hint_rows()` followed by `motion_hint`
+      rendered as a dim row.
+- [ ] Verify the control hint block follows the standard contract:
+      - Last input row ends with `("accent", "발동")` or an
+        activation-word-folded accent (`"홀드 후 손 떼면 발동"`,
+        `"좌회전 발동"`, etc.). Skip only when an alt-input row already
+        carries the activation word.
+      - Pure-prose dim rows describing outcome are NOT allowed inside
+        `_get_<character>_control_hint_rows()`. Move them to
+        `motion_hint` on the skill metadata row.
+      - When the trigger context is too long for one row at the
+        tooltip's usable width (~260px for viper/smasher), split into
+        a text-only row 1 + keys-bearing row 2 with a connector word
+        like `"사용 후"` / `"착지 전"` / `"타격 후"`.
+- [ ] Pass `motion_hint` through the layout function:
+      `_get_<character>_tooltip_control_layout(skill_name, how_to_use,
+      motion_hint, font, max_width)`. Reading `motion_hint` from
+      `skill_data.get("motion_hint", "")` is mandatory; the orb
+      tooltip otherwise drops the dim glance line silently.
+- [ ] If this tooltip family ships an effect-preview panel, treat it as
+      required content, not decorative chrome. A new skill or new
+      `effect_type` / preview key must render a meaningful preview scene
+      there instead of leaving an empty framed box.
+- [ ] Contain the preview scene to the preview panel itself. Use a
+      panel-local clip / subsurface or equivalent so slashes, halos,
+      particles, clone ghosts, and other animated elements cannot paint
+      outside the framed effect-preview box and leak into description
+      text, synergy lines, or control-hint UI.
 - [ ] If the skill supports both letter keys and arrow keys, show both
       mappings in the `how_to_use` / control-hint block using the same
       existing visual style instead of documenting only one key family.
@@ -444,9 +874,62 @@ downtown / academy / NPC interaction instead of the standard perk cards.
       tooltips: concise action-first wording, same field order, same
       color emphasis, and no one-off sentence style that reads like a
       different UI system.
+- [ ] When choosing between reusing an existing preview scene and adding
+      a dedicated branch, match semantics and visual class. If nearby
+      shipped previews are scene-based (character silhouette + cue +
+      result), do not downgrade the new skill to a generic placeholder
+      just because a box is present.
+- [ ] If the preview scene includes a rendered character body, compare
+      its visible body class against neighboring shipped previews in the
+      same tooltip family. Do not let one character consume
+      disproportionately more of the preview box just because its pose
+      cache or fit box ended up larger.
 - [ ] If the skill's player-facing numbers change with effective level,
       cooldown reduction, or another perk, make sure the orb tooltip
       line does not stay stale on the original metadata string.
+- [ ] If a passive / enhancer perk changes this skill through runtime-
+      only or otherwise hidden behavior, expose that in the target orb
+      tooltip with concise synergy text instead of assuming the player
+      will remember the perk description mid-run.
+- [ ] If one enhancer already uses a dedicated bonus-line / synergy lane
+      for this character, route new enhancers through the same shared
+      helper / renderer instead of making only one perk appear in the
+      orb tooltip.
+- [ ] If multiple enhancers can affect the same skill, define and audit
+      the shared line budget / priority rule explicitly so the tooltip
+      remains readable when more than one perk is invested.
+- [ ] Before appending a new synergy / bonus line to a shared-budget
+      tooltip, measure the **wrapped-line count of every existing line
+      at the fully invested state**. A single existing line can wrap to
+      N visual lines and consume N slots of the budget by itself, which
+      silently drops the appended line (Viper `검기 증폭` Lv.5
+      `공 유도` append regression is the canonical failure mode). If the
+      budget is saturated, prefer folding the new info into the existing
+      line from the same perk family, or raise / compress the shared
+      budget deliberately.
+- [ ] Verify the invested-state bonus lines by **rendering** the
+      max-invested tooltip and confirming every intended line is
+      actually visible. "The bonus-line list contains it" is not proof
+      that the player sees it.
+- [ ] If the tooltip description contains `\n`, render it through the
+      shared wrapped-tooltip helper. In legacy Python this was
+      `_get_wrapped_tooltip_lines()` in `pingfighter.py`.
+      Do not write a new `for char in description:` char-wrap loop --
+      raw char iteration silently swallows `\n` on both `pygame.font`
+      and `pygame.freetype`, flattening multi-sentence descriptions
+      into one flowing line that wraps at the wrong spot.
+- [ ] If bonus-line / synergy text changes the tooltip's vertical
+      content height, recalculate the tooltip height / section anchors
+      from the real rendered content instead of leaving a stale fixed
+      layout.
+- [ ] In the invested state, verify the `how_to_use` / control-hint
+      block, lower description lines, and effect-preview panel still
+      have clean separation. No overlap, clipping, or text-hidden-
+      behind-preview regression.
+- [ ] If the effect preview uses a procedurally drawn character, prefer
+      cached neutral preview poses / surfaces over rebuilding the full
+      character every hover frame, and verify the preview does not pick
+      up live combat-only slash / hit / kick timer state by accident.
 - [ ] If the orb tooltip is intentionally static flavor text, confirm
       that any changing numeric values are shown somewhere else
       consistently.
@@ -454,6 +937,11 @@ downtown / academy / NPC interaction instead of the standard perk cards.
 ### 4.4. Perk / skill UI text audit
 
 Run the full `CLAUDE.md` text audit for every new perk / skill:
+
+Godot-first note:
+- For current work, map each legacy Python UI path below to the relevant
+  Godot overlay, card, HUD, tooltip, academy/NPC, victory, and debug-menu
+  renderer. Do not edit Python UI paths unless explicitly asked.
 
 - [ ] Perk choice card: `show_runtime_skill_choices()`
 - [ ] Stage clear perk choice: `show_stage_clear_choices()`
@@ -468,13 +956,29 @@ data objects. If one path still reads from raw `descriptions[base_level]`
 or stale metadata while another uses `get_runtime_skill_description()`,
 the UI is not fully integrated.
 
+- [ ] Treat TAB character-info perk hovers and other grid-hover tooltip
+      paths as separate placement systems, not just copies of orb
+      tooltips. Audit their own anchor / clamp logic explicitly.
+- [ ] In `draw_character_info_panel()` and similar grid views, verify
+      long perk descriptions stay readable on first-row, last-row,
+      left-edge, and right-edge cells. The tooltip should flip / clamp
+      instead of clipping against the panel top, panel sides, or screen
+      edge.
+
 ### 4.5. Modal UI rendering / input audit
 
 Use this when the perk or skill introduces a new popup, academy screen,
 NPC choice window, or other perk-adjacent modal.
 
+Godot-first note:
+- For current work, modal ownership belongs in the Godot UI / overlay /
+  modal-gate modules. Legacy `resource_path()` and font-render notes below
+  are Python reference traps; in Godot, verify `res://` font/resource paths
+  and scene-tree-safe modal lifecycle.
+
 - [ ] Verify the actual font path exists in the repo and resolves through
-      `resource_path()` at runtime.
+      the current runtime resource path (`res://` in Godot; legacy Python
+      used `resource_path()`).
 - [ ] Do not rely on a silent `font.render()` failure path; if the font
       load fails, the UI must still remain visibly debuggable.
 - [ ] Check text visibility in-game, not just compile success.
@@ -484,6 +988,9 @@ NPC choice window, or other perk-adjacent modal.
 - [ ] If the modal opens on top of another dialog, verify the background
       snapshot is taken after the launcher dialog is gone so old text
       does not remain as a ghosted layer.
+- [ ] For panel / modal grid hover tooltips, position from the hovered
+      cell / rect and audit panel-aware clamping. Top-row entries must
+      be able to open below, and edge entries must stay fully visible.
 
 ### 4.6. Tooltip writing style
 
@@ -496,34 +1003,56 @@ NPC choice window, or other perk-adjacent modal.
       understands what the new orb does.
 - [ ] If the perk modifies another active skill, mention the target
       skill name explicitly instead of assuming the player will infer it.
+- [ ] For runtime synergy / bonus lines on a target orb tooltip, keep
+      the wording short, number-forward, and combat-meaningful. Do not
+      dump the full perk-card paragraph into the orb tooltip.
 - [ ] Avoid dumping raw implementation jargon into the tooltip unless
       the surrounding UI already uses that term.
 
 ---
 
-## 5. Effective level, `transcendent_crown`, `sage_ring`, and `Lv.5+`
+## 5. Effective level, `transcendent_crown`, `sage_ring`, other perk-level buffs, and `Lv.5+`
 
 This is the most common "looks right in one place, wrong in three other
 places" bug category.
 
+Current Godot-first rule:
+- For current work, effective-level math must flow through the Godot
+  runtime perk / item / character owner helpers that gameplay actually
+  consumes. Legacy helper names below are reference concepts.
+
 - [ ] Confirm whether the perk is supposed to scale from effective level
-      (`get_runtime_skill_level()`) or from base invested level only.
+      (legacy Python: `get_runtime_skill_level()`) or from base invested
+      level only.
 - [ ] If the perk is supposed to scale, make sure the **gameplay path**
       reads the effective level too, not just the UI.
+- [ ] For new invested passive / scaling perks, the default is that
+      effective levels above `Lv.5` keep increasing real numeric power.
+      Do not ship a silent overflow clamp unless the design explicitly
+      calls for a hard cap.
 - [ ] If the perk is NOT supposed to scale even when effective level
-      rises because of `transcendent_crown` / `sage_ring`, make the
-      UI wording reflect that clearly.
+      rises because of `transcendent_crown`, `sage_ring`, or another
+      perk-level buff source, make the UI wording reflect that clearly.
 - [ ] If the perk can exceed `max_level` in a player-visible way, add
-      a `get_runtime_skill_description()` path for `Lv.6+` or the
-      relevant overflow range.
+      a dynamic description path for `Lv.6+` or the relevant overflow
+      range. In legacy Python this was `get_runtime_skill_description()`.
 - [ ] If the perk modifies another active skill's numbers, audit the
-      target skill's tooltip and HUD too.
+  target skill's tooltip and HUD too.
+- [ ] If the perk modifies another active skill through hidden runtime
+  behavior rather than a plainly visible metadata number, audit the
+  target skill's runtime synergy / bonus-line text too.
+- [ ] For a multi-effect active-skill enhancer that has both an unlock
+      threshold and scaling chance / overflow behavior (for example
+      Viper `blade_amp`: `Lv.1-2` no homing, `Lv.3+` fixed homing plus
+      scaling follow-up blade chance), verify `Lv.1-2`, `Lv.3`, `Lv.5`,
+      and `Lv.6+` gameplay, description text, target orb tooltip bonus
+      lines, proc gating, and recursive-spawn prevention together.
 
 ### 5.1. Cooldown-display rule
 
 If the change affects player-skill cooldowns:
 
-- [ ] Use the final effective cooldown helper path
+- [ ] Use the final effective cooldown helper path. Legacy Python names:
       (`_get_effective_player_skill_cooldown_seconds()` /
       `_get_effective_player_skill_cooldown_ms()`).
 - [ ] If you are moving a character or a newly unlocked skill into the
@@ -552,9 +1081,19 @@ Unlock perks (`unlock_*`) are easy to misread under bonus items:
 The perk is not done when it appears in the choice UI. It is done when
 the gameplay event actually uses it.
 
+Current Godot-first rule:
+- For current work, wire the real trigger, resource gates, cooldowns,
+  effect state, audio, VFX, reward, cleanup, and save/load behavior through
+  the Godot character owner module and shared battle drivers.
+- Python/Pygame references in this section are timing and parity references
+  only.
+
 - [ ] Find the real trigger path:
       input poll / charge path / collision path / passive stat read /
       spawn hook / hit-confirm hook.
+- [ ] If the trigger is a combo / follow-up window, complete Section
+      3.1a's predecessor trigger matrix before declaring the effect
+      wired. Do not stop after the easiest source path works.
 - [ ] If the trigger is directional input, wire the equivalent
       directional key families into the same command path by default
       (for example `A/W/D` and `LEFT/UP/RIGHT`) unless the design
@@ -564,11 +1103,127 @@ the gameplay event actually uses it.
 - [ ] Gate the skill with the correct gauge / resource predicate.
 - [ ] Apply the real effect:
       projectile, buff, cleanse, pull, shield, spawn, damage mod, etc.
+- [ ] If the effect applies damage, stun, slow, confusion, knockback, or
+      another gameplay result through a circular / elliptical / explosion
+      / aura radius, write down the intended **hit primitive** before
+      coding: boss / player center-point distance, full rect overlap,
+      closest-point circle-vs-rect overlap, projectile body contact, or
+      field occupancy. Do not reuse a visual-overlap helper by default.
+      The visual blast / glow radius and the gameplay status radius may
+      share a number while still using different hit semantics.
+- [ ] For boss / player CC copied from legacy Python, check whether the
+      source used `get_center_pos(BOSS)`, `BOSS.centerx`, or another
+      center-point distance. If so, the Godot port should test the live
+      hitbox center against the radius, not `circle_intersects_rect()` or
+      a rect-edge overlap. Add an edge-only regression case where the
+      rectangle edge is inside the visual radius but the center is outside.
+- [ ] For every radial status / damage effect, focused smoke coverage
+      should include at least: center inside radius, fully outside radius,
+      and edge-only overlap with center outside radius. If the effect has
+      separate target-reached, wall-impact, manual-detonation, lingering
+      field, or round-cleanup paths, cover each path that can apply the
+      gameplay result.
+- [ ] If the effect applies knockback, wire it through the real
+      fire-event knockback consumption path or a thin wrapper over it.
+      Avoid display-only nudges, unrelated one-off velocity globals, or
+      a second decay system unless the design explicitly calls for a
+      different gameplay identity.
 - [ ] Start and end the cooldown in the same character-specific system
       as the existing skills.
+- [ ] If the skill starts or syncs looped audio, wire both the ordinary
+      lifecycle stop and the Godot round-boundary stop. The loop must stop
+      on effect expiry / cancel / reset, and its `stop_*` method must be
+      registered in `scripts/audio/gameplay_loop_audio_cleanup.gd` so
+      scoreboards, serve wait, round restart, and game reset cannot leave
+      stale sound alive.
+- [ ] If that loop is synced from `battle_effects_update_controller.gd`
+      or another effect update path that still runs while the scoreboard
+      is visible, gate the sync or pass muted audio deps during round
+      boundaries. A one-shot stop at score time is insufficient if the
+      active state can immediately sync the loop back on.
+- [ ] If the skill has a player-visible active duration, startup-hold,
+      or timed persistence window, wire the shared right-bottom
+      horizontal timer bar to the same runtime state transitions and the
+      same effective duration source that owns the real effect.
+- [ ] For that timer bar, verify the bottom-most active entry uses stack
+      index `0` / the bottom baseline, and that extra active timers stack
+      upward dynamically. A lone duration bar must not reserve a higher
+      slot or appear suspended above the bottom HUD.
 - [ ] If the skill owns a hit / absorb / consume reward moment, wire any
       skill-specific gold bonus at that real event path instead of at
       mere cast start or windup start.
+- [ ] If the skill can be activated while a predecessor motion is still
+      active, verify the input-edge check runs before that predecessor's
+      update path returns, and verify the predecessor state is cancelled
+      or handed off cleanly.
+- [ ] If the skill throws a tracking / boomerang / recall projectile,
+      audit the obvious-miss branch too. Once the projectile has
+      clearly passed above / beside the target and the cast is no
+      longer realistically hittable, abort outbound promptly and
+      transition into the intended return / cleanup path instead of
+      lingering at the apex on stale homing.
+- [ ] If the skill renders a procedural homing / curved fan, wave, slash,
+      or similar projectile VFX, verify the visual geometry curves too.
+      Do not rely on changing only the projectile X position or only
+      shifting point centers while every cross-section stays horizontal.
+      The body / tail / head should follow the intended curve, and each
+      slice or arc cross-section should rotate along the curve tangent.
+- [ ] If homing / curve behavior is unlocked by an enhancer level or
+      other runtime condition, gate both the real projectile steering and
+      the visual aim / bend path through that same condition. The
+      uninvested base skill should remain straight in movement and in
+      rendered body posture.
+- [ ] For curved fan / wave / slash helpers, add or update a focused
+      geometry invariant test when feasible. Example: for a rightward
+      bend, the right arc corner should move lower on screen, the left
+      arc corner should move higher, and the visible Y delta should be
+      large enough to prevent a "vertical projectile sliding sideways"
+      read. Audit player, clone, replica, and remote/online render paths
+      that may duplicate the same VFX.
+- [ ] If the skill uses a detached Godot FX host (`Node2D`, `ColorRect`,
+      `GPUParticles2D`, shader quad, sprite host, or similar) instead of
+      direct playfield `canvas.draw_*()` calls, route layout explicitly.
+      Direct playfield draws are already under the 760x750 playfield
+      transform, but detached hosts need viewport-space coordinates:
+      `game_offset + (playfield_pos + shake_offset) * render_scale`, and
+      host sizes must also multiply by `render_scale`. Keep a direct
+      canvas fallback correct until a deferred-added host is inside the
+      tree. Live-check a scaled/windowed layout so top-left `0,0` leaks
+      are caught.
+- [ ] For detached character-skill FX hosts, do not rely on a final
+      inactive draw to hide the node. The battle effect draw fanout skips
+      skills once `has_visible_effects()` is false, so `reset_round()`,
+      score / serve-wait cancellation, full reset, character swap, and
+      skill cancel paths must directly call the owner's host hide /
+      teardown helper. Add or update a focused smoke test that activates
+      the host, crosses a round boundary immediately, and verifies the host
+      is inactive plus any windup / flight / impact / loop audio is stopped.
+- [ ] For Godot character-skill VFX ports, do not stop at a direct copy of
+      the Python / Pygame procedural draw path. Preserve the original phase
+      timing and gameplay state, then remaster the visible effect through
+      texture pieces or sprite sheets, `ShaderMaterial`, `GPUParticles2D`,
+      and `Tween` or `AnimationPlayer` unless the effect is intentionally
+      tiny or only a fallback accent. Drive all visual layers from the same
+      skill phase clock so windup / release / hit / linger / cleanup stay
+      synced with audio, cooldown, hitstop, and HUD timers.
+- [ ] Use the Godot-wide **modular VFX layering** pattern for substantial
+      character-skill effects: texture fragments + runtime composition +
+      shader uniform presets. Record the layer stack (backplate / glyph /
+      projectile / trail / impact / residue / particles), z-order, blend
+      mode, phase ownership, and normal-vs-boosted uniform values near the
+      FX host or in the owning module notes.
+- [ ] Before generating a new animation sheet for a subtle motion variant,
+      check whether the accepted texture can be animated by shader uniform
+      tuning instead: UV displacement, `lateral_strength` / tangent-side
+      displacement for writhing lightning, cracks, roots, ropes, streams,
+      and branching energy, noise flicker, flow bands, chromatic
+      aberration, breath alpha, rim pulse, dissolve, or color ramp swaps.
+      Prefer a reusable shader family plus per-skill uniforms when it
+      preserves the intended read.
+- [ ] If a character-skill VFX still ships as direct `canvas.draw_*()` only,
+      document the exception in the handoff and identify whether it is a
+      temporary parity scaffold, a deterministic geometry helper, or an
+      intentionally low-cost final effect.
 - [ ] Size the gold payout against comparable existing skills for the
       same character unless the design explicitly calls for unusually
       high / low reward or no reward.
@@ -577,6 +1232,31 @@ the gameplay event actually uses it.
       twice through primary + fallback hit logic.
 - [ ] If the effect spawns persistent entities, clear them on reset and
       state transitions.
+- [ ] If the skill captures, hides, teleports, or manually advances the
+      ball in Godot, treat `skip_ball_motion_step` as owned runtime state,
+      not a one-frame visual hint. Every exit path must clear the flag
+      before normal ball motion resumes, including natural expiry,
+      hit-release, final shot, round cancel, serve-wait cancel, and full
+      reset. Add or update a focused smoke that starts with the flag true
+      or observes it become true, then verifies it returns false with a
+      real resumed velocity.
+- [ ] If the skill changes legal player movement bounds, mirrored paddle
+      collision, `player_pos.x`, or player paddle size / scale, audit the
+      full Godot owner-sync chain. Movement and the skill module are not
+      enough: active-item sync, runtime-perk sync, mythic/passive equipment
+      sync, match-flow mergeback, draw context, and collision context can
+      all rewrite or consume the same coordinates. Smasher `warp_gate`
+      intentionally permits offscreen left / right wall-riding while
+      active; every paddle-size or position sync must preserve those bounds
+      instead of falling back to a plain `0..FIELD_WIDTH - paddle_width`
+      clamp. Extend `godot/tests/warp_gate_port_smoke.gd` or the focused
+      equivalent whenever this contract is touched.
+- [ ] If the skill renders runtime clones, afterimages, low-HP variants,
+      or other copied sprite / paddle surfaces with additive tint /
+      noise / scanline / fade layers, clip every overlay to the visible
+      silhouette of the source surface. Do not let transparent canvas
+      receive the overlay, or a rectangular box can appear around the
+      sprite in gameplay.
 - [ ] If the perk modifies an existing active skill rather than adding a
       new one, test both the source perk and the target skill flow.
 
@@ -589,6 +1269,13 @@ If the answer is unclear, the runtime wiring is incomplete.
 ---
 
 ## 7. Persistence and lifecycle
+
+Current Godot-first rule:
+- Current persistence and lifecycle work belongs in Godot save/load state,
+  character runtime state, round cleanup, stage-transition cleanup, and
+  reset/menu-return paths.
+- Legacy Python names below describe old gate predicates and timing traps to
+  preserve during a port.
 
 - [ ] Reset on new run / main menu return.
 - [ ] Reset runtime active state on round transition by default unless an
@@ -622,17 +1309,20 @@ If the answer is unclear, the runtime wiring is incomplete.
 - [ ] If the effect depends on currently equipped items or transformed
       states, verify post-load resync still lands in the right state.
 - [ ] If a debug or editor path can directly change levels,
-      `recalculate_skill_effects()` must keep the runtime consistent.
+      the current recalculation / resync path must keep the runtime
+      consistent. In legacy Python this was `recalculate_skill_effects()`.
 - [ ] If the perk / skill is a **character-transformation** that flips
       any character-gate predicate (for example anything routed through
       `is_odins_eye_transformed()`, `is_yachaman_transformed()`, or
       `_viper_original_skills_blocked`), the transform finalize frame
       must force the paddle to land. A Viper who is mid-jetpack when
       the gate flips will otherwise walk in mid-air because the
-      jetpack update block at `pingfighter.py:~83498` is gated off
+      legacy Python jetpack update block at `pingfighter.py:~83498` was
+      gated off
       after finalize and `_viper_jetpack_offset_y` stays negative. On
-      the exact finalize frame, call `_reset_viper_jetpack_state()`
-      (Viper only) followed by `apply_equipment_paddle_modifiers()`.
+      the exact finalize frame, run the current Godot equivalent of
+      `_reset_viper_jetpack_state()` (Viper only) followed by the current
+      paddle/equipment resync path.
       Full checklist (finalize-edge detection, ball-reposition
       ordering, reverse-path handling, current in-repo callsites)
       lives in `docs/item_runtime_checklist.md` §7. Character-
@@ -641,9 +1331,11 @@ If the answer is unclear, the runtime wiring is incomplete.
 
 ---
 
-## 8. Hardcoded integration points audit
+## 8. Godot integration points and legacy Python reference audit
 
-Use this as the scan list before shipping.
+Use this as the scan list before shipping. For current work, map every
+legacy Python anchor to the relevant Godot catalog, owner module, renderer,
+save/load state, and smoke test before deciding the feature is complete.
 
 | # | File / anchor | Purpose |
 |---|---|---|
@@ -671,6 +1363,10 @@ Use this as the scan list before shipping.
 | 22 | Actual gameplay trigger / update functions | Real effect path |
 | 23 | `draw_skill_icon_mini()` callsites with custom `scale_multiplier` / box size | Small-box readability and alias-path audit |
 | 24 | Skill-owned `add_ingame_gold()` / local duplicate-prevention path | Intentional skill reward and no double-pay against rally gold |
+| 25 | `_CHARACTER_UNLOCK_PERKS`, `_are_character_skill_slots_full()`, `filter_full_slot_unlock_perks_strict()`, `_weighted_perk_sample()`, `_active_perk_weight()`, `enforce_full_slot_perk_cap()` | Full-slot filtering, weighted active-perk offers, tutorial-vs-runtime split, and card-count preservation |
+| 26 | `perk_id -> skill_id` icon alias pairs (`unlock_*` id plus equipped orb id) | Same accepted motif in perk-choice / academy / NPC / swap-card path and 5-orb HUD path |
+| 27 | Godot `runtime_perk_icon_renderer.gd` `UNLOCK_ALIASES` / `COMMANDO_UNLOCK_BADGE_IDS` | Godot perk-card alias to real skill-orb PNG path plus unlock-badge policy |
+| 28 | Godot firearm owner stack: `commando_skill_config.gd`, `commando_weapon_controller.gd`, `commando_firearm_runtime.gd`, `commando_firearm_selector_renderer.gd`, `commando_firearm_audio_resolver.gd`, generated firearm asset manifest | Permanent firearm controller, HUD art / AutoSprite sheets, audio phase routing, lifecycle, and smoke-test ownership |
 
 If you added a new hardcoded list not present here, add it to this table
 in the same PR.
@@ -680,6 +1376,13 @@ in the same PR.
 ## 9. Smoke test before shipping
 
 For every new character perk / skill, run this manual QA pass:
+
+Godot-first note:
+- For current work, include the repo-local Godot load check and warning scan
+  after `.gd` edits, plus a focused smoke or visible review for the touched
+  character / HUD / tooltip / VFX path.
+- Python-specific call names in this list are legacy behavior references
+  unless the user explicitly requested original PingFighter source work.
 
 1. The perk appears only for the correct character and in the correct
    choice pool.
@@ -695,6 +1398,17 @@ For every new character perk / skill, run this manual QA pass:
    no first-letter fallback icon appears, no alias path lands in the
    wrong bespoke branch, and the main motif does not read materially
    smaller than adjacent shipped icons in the smallest relevant box.
+   In the TAB character-info perk tab, the `dash_module_control` /
+   `모듈제어` icon is the preferred small-cell size reference: polished
+   and present, but not covering the bottom `Lv.1` / level label.
+   For unlock-style active skills, verify both the `unlock_*` card /
+   offer path and the equipped orb skill path. If the orb was converted
+   to a PNG, the unlock card should not silently remain on old
+   procedural art.
+   In the Godot port, if the Python orb loader uses a PNG crop / zoom /
+   circular-mask path such as `crop_outer_frame`, mirror that runtime
+   normalization instead of drawing the oversized source texture
+   directly into the slot.
 6. If the orb icon is animated, cooldown / unusable / ready / active
    states are visually distinct and do not misread as "always active."
 7. If the design uses a static-rest / ready-animate pattern, the orb is
@@ -703,46 +1417,126 @@ For every new character perk / skill, run this manual QA pass:
 8. TAB / ESC / stage-clear / victory / tooltip text all show the same
    intended name and description, using the existing tooltip format for
    that UI path instead of a one-off layout or wording style.
-9. With `transcendent_crown` and/or `sage_ring` equipped:
-   the effective level changes where intended, the description changes
-   where intended, and the real gameplay effect follows the same rule.
-10. If the perk is boolean-only, bonus items do not create fake
-   `Lv.2+` expectations in UI or gameplay.
-11. The actual input / trigger fires the real effect in gameplay.
-12. If the skill uses directional input, both supported key families
+9. In TAB character info and any other grid-based perk panel, first-row
+   and edge-column hover tooltips with long descriptions remain fully
+   readable and do not clip against the panel top or side edges.
+10. With `transcendent_crown`, `sage_ring`, and/or any other intended
+    perk-level bonus source equipped:
+    the effective level changes where intended, the description changes
+    where intended, and the real gameplay effect follows the same rule.
+    For scaling perks, verify overflow effective levels above `Lv.5`
+    still change the real numbers unless an explicit hard-cap exception
+    was documented.
+11. If the perk is boolean-only, bonus items do not create fake
+    `Lv.2+` expectations in UI or gameplay.
+12. The actual input / trigger fires the real effect in gameplay.
+    For combo-window skills, this means every predecessor family in the
+    trigger matrix opens the same intended follow-up or is explicitly
+    documented as excluded.
+13. If the skill uses procedural homing / curved fan, wave, slash, or
+    similar VFX, the live render reads as a real curve rather than a
+    vertical projectile sliding sideways. Check the body / tail / head
+    curve and the rotated cross-section behavior in every affected path
+    (player, clone, replica, and remote/online renderers when present).
+14. If the skill uses a detached Godot GPU / node FX host, the live
+    render appears at the intended playfield position in a layout where
+    `game_offset` / `render_scale` are non-identity. It must not appear
+    at the viewport top-left, stay one frame behind at `0,0`, or use an
+    unscaled size relative to the playfield.
+15. If the perk / skill changes knockback, live-check that direction,
+    decay, wall behavior, and any short hitstop / release feel match the
+    intended fire-event baseline or the explicitly documented
+    exception.
+16. If the skill uses directional input, both supported key families
     (for example `WASD` and arrow keys) trigger the same intended
     command path and match the tooltip hint.
-13. Gauge cost, cooldown start, cooldown end, orb wedge, orb countdown
+    If the skill is a follow-up entered during another active motion,
+    include at least one smoke that proves the handoff input is not
+    swallowed by the predecessor update.
+17. Gauge cost, cooldown start, cooldown end, orb wedge, orb countdown
     text, and tooltip cooldown line all agree with each other.
-14. If the skill owns a gold reward, the payout amount / tick cadence /
+18. If the skill owns a player-visible active duration, startup-hold, or
+    timed persistence window, the shared right-bottom horizontal timer
+    bar appears, uses the real effective duration, stacks sanely with
+    other active bars, and clears on timeout / cancel / reset /
+    menu-return paths that end the real runtime state.
+19. If the perk is an active-skill enhancer, the affected target orb
+    tooltip shows the intended runtime synergy text with live effective
+    values, and the same helper / bonus-line lane still behaves sanely
+    when multiple enhancers compete for limited space. Verify that
+    every intended bonus line is actually **rendered on screen** at
+    the fully invested state, not merely present in the bonus-line
+    list. Shared-budget tooltips silently drop extra lines once a
+    single wrapped line saturates the budget.
+    For multi-effect enhancers with `Lv.3+` unlock behavior plus
+    scaling / overflow chance behavior, also verify the target orb
+    tooltip and gameplay hit path at the disabled, unlock, max-invested,
+    and overflow states.
+20. If that tooltip gained bonus-line / synergy text, the invested-state
+    layout still keeps the control hint and effect-preview section fully
+    readable with no overlap or clipping. Multi-sentence description
+    text (containing `\n`) must also render as real line breaks rather
+    than one flattened paragraph; confirm by rendering the tooltip, not
+    only by reading the source string.
+21. If the skill owns a gold reward, the payout amount / tick cadence /
     object bonus matches the design intent, and the same event does not
     also pay generic rally gold or a fallback reward path on top.
-15. Save the game, load it, and confirm unlocked / equipped state
+22. Save the game, load it, and confirm unlocked / equipped state
     remains correct.
-16. If the design includes stage-only temporary / rental state or a
+23. If the design includes stage-only temporary / rental state or a
     once-per-stage skill, save and load within the same stage and
     confirm both the temporary state and the used-this-stage flag are
     preserved correctly.
-17. Cross a real stage boundary and confirm stage-only cleanup / refill
+24. If the orb tooltip family includes an effect-preview panel, every
+    affected active skill shows a populated preview scene there. New
+    `effect_type` / preview keys do not leave an empty box, the scene
+    stays clipped to the preview panel instead of bleeding into nearby
+    tooltip sections, and the new preview still matches the quality /
+    readability bar of neighboring shipped skills.
+25. If those preview scenes include rendered character bodies, compare
+    them against the nearest shipped reference in the same tooltip
+    family and confirm one character does not read a full size class
+    larger than peers unless that difference is intentional.
+26. Cross a real stage boundary and confirm stage-only cleanup / refill
     rules happen there and not on ordinary round resets.
-18. Die mid-run or return to the main menu, then confirm the character
+27. Die mid-run or return to the main menu, then confirm the character
     starts fresh with the correct reset state.
-19. Cross a round boundary and confirm runtime active state follows the
+28. Cross a round boundary and confirm runtime active state follows the
     intended policy: default = ends on round transition, exception =
     explicitly documented carryover / pause-resume only.
-20. If a debug or direct-level-edit path exists for the perk, confirm
+    If the skill owns looped audio, force the score while the loop is
+    active and confirm it stays silent through scoreboard, serve wait,
+    round restart, and game reset.
+29. If the skill uses runtime clones / afterimages / damaged-state
+    sprite copies, check the weakest / faded / critical state in live
+    gameplay and verify transparent margins stay invisible. No full
+    rectangular tint / noise / scanline box should appear around the
+    sprite.
+30. If a debug or direct-level-edit path exists for the perk, confirm
     `recalculate_skill_effects()` restores a consistent runtime state.
-21. If the perk / skill is obtained through an academy / NPC modal,
+31. If the perk / skill is obtained through an academy / NPC modal,
     confirm the text actually renders in-game with the intended font and
     does not appear blank or nearly invisible.
-22. For academy / NPC offer flows, confirm same-visit reroll,
+32. For academy / NPC offer flows, confirm same-visit reroll,
     repurchase, and reswap behavior matches the design:
     cached if intended, exhausted after success if intended, reset only
     at the intended visit boundary.
-23. For nested confirm -> offer flows, confirm the opened modal does not
+33. For nested confirm -> offer flows, confirm the opened modal does not
     keep the previous dialog as a dim background ghost.
-24. If the modal changes gold / AP / other visit currency, confirm the
+34. If the modal changes gold / AP / other visit currency, confirm the
     spent or granted amount persists correctly after closing the modal
     and after leaving the building.
+
+Special QA for slot-full unlock / swap offer flows:
+
+- [ ] Canceling the swap dialog leaves ownership, unlock flags,
+      `runtime_skill_levels`, and controller / inventory state unchanged.
+- [ ] Tutorial / fixed-choice flows still use strict full-slot
+      suppression if that is the design, while normal random perk offers
+      use the intended weighted / capped swap-offer path.
+- [ ] If a full-slot cap trims sampled actives, the refill path restores
+      the intended final card count before gold-conversion is appended.
+- [ ] If AI / autoplay can resolve or cancel the offer, failure / cancel
+      preserves the pending-choice count and matches manual semantics.
 
 Any failure = back to the checklist.
