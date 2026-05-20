@@ -96,11 +96,11 @@ func _init() -> void:
 	_expect(str(status.get("dalji_dialogue", "")) == "건들지마", "Dalji click dialogue should be the requested line")
 
 	_expect(
-		load("res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v17_joy_realesrgan_animev3_hq1408.png").get_size() == Vector2(15488.0, 12672.0),
+		load("res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png").get_size() == Vector2(15488.0, 12672.0),
 		"Smasher result base Live2D should use the identity-locked Real-ESRGAN hq1408 11x9 98-frame sheet"
 	)
 	_expect(
-		load("res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v17_joy_realesrgan_animev3_hq1408.png").get_size() == Vector2(15488.0, 12672.0),
+		load("res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png").get_size() == Vector2(15488.0, 12672.0),
 		"Smasher result click Live2D should use the identity-locked Real-ESRGAN hq1408 11x9 98-frame sheet"
 	)
 	_expect(bool(status.get("player_victory_sheet_loaded", false)), "Smasher result base Live2D should load")
