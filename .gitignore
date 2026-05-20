@@ -185,6 +185,11 @@ auto_save.pid
 # Auto-commit state
 .autocommit/
 
+# Local agent / IDE connector settings
+.mcp.json
+.vscode/mcp.json
+.claude/settings.local.json
+
 # Background remover build files (too large for GitHub)
 background_remover/dist/
 background_remover/dist2/
