@@ -41,7 +41,9 @@ func draw_overlay(
 	gameplay_width: float,
 	gameplay_height: float,
 	win_goal: int,
-	fade_in_duration: float
+	fade_in_duration: float,
+	draw_context: Dictionary = {},
+	perf_logger: Object = null
 ) -> void:
 	overlay_renderer.draw(
 		canvas,
@@ -49,5 +51,7 @@ func draw_overlay(
 		gameplay_width,
 		gameplay_height,
 		win_goal,
-		fade_in_duration
+		fade_in_duration,
+		draw_context,
+		perf_logger
 	)
