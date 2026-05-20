@@ -1,0 +1,52 @@
+extends SceneTree
+
+const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
+
+class FakeAudio:
+	var calls: Array[String] = []
+
+	func stop_shield_kiting_wind_up() -> void:
+		calls.append("stop_shield_kiting_wind_up")
+
+	func stop_commando_supply_radio_loop() -> void:
+		calls.append("stop_commando_supply_radio_loop")
+
+	func stop_stage5_hongryun_fireball() -> void:
+		calls.append("stop_stage5_hongryun_fireball")
+
+	func stop_stage5_hongryun_charge() -> void:
+		calls.append("stop_stage5_hongryun_charge")
+
+	func stop_stage5_hongryun_shoot() -> void:
+		calls.append("stop_stage5_hongryun_shoot")
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	var audio := FakeAudio.new()
+	GameplayLoopAudioCleanup.stop_all(audio)
+
+	for method in [
+		"stop_shield_kiting_wind_up",
+		"stop_commando_supply_radio_loop",
+		"stop_stage5_hongryun_fireball",
+		"stop_stage5_hongryun_charge",
+		"stop_stage5_hongryun_shoot",
+	]:
+		_expect(audio.calls.has(method), "gameplay loop cleanup should call %s" % method)
+
+	GameplayLoopAudioCleanup.stop_all(null)
+
+	if _failures.is_empty():
+		print("gameplay_loop_audio_cleanup_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

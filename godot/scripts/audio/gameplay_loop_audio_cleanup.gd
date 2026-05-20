@@ -9,11 +9,13 @@ const STOP_METHODS := [
 	"stop_warp_gate_loop",
 	"stop_magnum_grip",
 	"stop_smasher_wheel_loop",
+	"stop_shield_kiting_wind_up",
 	"stop_viper_jetpack_loop",
 	"stop_chaos_spear_windup",
 	"stop_chaos_spear_flying",
 	"stop_chaos_spear_impact",
 	"stop_chaos_spear_blackhole_loop",
+	"stop_commando_supply_radio_loop",
 	"stop_commando_supply_aircraft_loop",
 	"stop_commando_fire_support_aircraft_loop",
 	"stop_commando_suicide_drone_loop",
@@ -22,6 +24,9 @@ const STOP_METHODS := [
 	"stop_stage2_quake_loop",
 	"stop_stage3_psychoball_loop",
 	"stop_stage4_magnetic_loop",
+	"stop_stage5_hongryun_fireball",
+	"stop_stage5_hongryun_charge",
+	"stop_stage5_hongryun_shoot",
 ]
 
 
