@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 
 const LONG_BOOST_ICON_PATH := ActiveItemCatalog.LONG_BOOST_ICON_PATH
 const VITAMIN_PILL_ICON_PATH := ActiveItemCatalog.VITAMIN_PILL_ICON_PATH
@@ -1302,10 +1303,15 @@ func _prewarm_pickup_text() -> void:
 	if font == null:
 		return
 	_get_text_size(font, PICKUP_NOTICE_TEXT, PICKUP_NOTICE_FONT_SIZE)
-	var catalog := ActiveItemCatalog.new()
-	for item_name in ActiveItemCatalog.FIELD_SPAWN_ORDER:
-		_get_text_size(font, catalog.get_display_name(str(item_name)), PICKUP_DISPLAY_FONT_SIZE)
-	for item_name in EXTRA_PICKUP_TEXT_PREWARM_ITEMS:
+	var active_catalog: Object = ActiveItemCatalog.new()
+	_prewarm_catalog_pickup_text(font, active_catalog, ActiveItemCatalog.FIELD_SPAWN_ORDER)
+	_prewarm_catalog_pickup_text(font, active_catalog, EXTRA_PICKUP_TEXT_PREWARM_ITEMS)
+	var passive_mythic_catalog: Object = MythicItemCatalog.new()
+	_prewarm_catalog_pickup_text(font, passive_mythic_catalog, MythicItemCatalog.FIELD_SPAWN_ORDER)
+
+
+func _prewarm_catalog_pickup_text(font: Font, catalog: Object, item_names: Array) -> void:
+	for item_name in item_names:
 		_get_text_size(font, catalog.get_display_name(str(item_name)), PICKUP_DISPLAY_FONT_SIZE)
 
 

@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 
 const DEFAULT_ITEM_COLOR := Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0)
 const EXTRA_ICON_PREWARM_ITEMS := [
@@ -18,11 +19,11 @@ func clear_cache() -> void:
 
 
 func prewarm_catalog_icons() -> void:
-	var catalog: Object = ActiveItemCatalog.new()
-	for item_name in ActiveItemCatalog.FIELD_SPAWN_ORDER:
-		_prewarm_catalog_icon(catalog, str(item_name))
-	for item_name in EXTRA_ICON_PREWARM_ITEMS:
-		_prewarm_catalog_icon(catalog, str(item_name))
+	var active_catalog: Object = ActiveItemCatalog.new()
+	_prewarm_catalog_icons(active_catalog, ActiveItemCatalog.FIELD_SPAWN_ORDER)
+	_prewarm_catalog_icons(active_catalog, EXTRA_ICON_PREWARM_ITEMS)
+	var passive_mythic_catalog: Object = MythicItemCatalog.new()
+	_prewarm_catalog_icons(passive_mythic_catalog, MythicItemCatalog.FIELD_SPAWN_ORDER)
 
 
 func get_icon_texture(item_data: Dictionary) -> Texture2D:
@@ -63,9 +64,9 @@ func _prewarm_catalog_icon(catalog: Object, item_name: String) -> void:
 	_touch_texture(get_icon_texture(item_data))
 
 
-func _touch_texture(texture: Texture2D) -> void:
-	if texture != null:
-		texture.get_size()
+func _prewarm_catalog_icons(catalog: Object, item_names: Array) -> void:
+	for item_name in item_names:
+		_prewarm_catalog_icon(catalog, str(item_name))
 
 
 func _load_texture_resource(path: String) -> Texture2D:
@@ -74,3 +75,8 @@ func _load_texture_resource(path: String) -> Texture2D:
 		"Missing active item icon at %s",
 		"Failed to load active item icon at %s"
 	)
+
+
+func _touch_texture(texture: Texture2D) -> void:
+	if texture != null:
+		texture.get_size()
