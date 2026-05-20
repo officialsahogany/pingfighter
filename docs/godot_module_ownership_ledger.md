@@ -3313,11 +3313,10 @@ This section is intentionally long; use search to find the nearest owner.
   draw-state publication while delegating only these mapping decisions.
 - `scripts/characters/commando_firearm_fire_result_state.gd`
   Owns pure Commando firearm result dictionary scaffolding for weapon-fire
-  failure payloads: handled / weapon-id / fire-failed / reason / special-gauge
-  base fields plus caller-provided timer fields. `commando_firearm_runtime.gd`
-  keeps the input gates, ammo / cooldown mutations, reload side effects, audio
-  cues, and current timer reads while delegating the shared failure-result
-  shape to this helper.
+  failure payloads plus pistol delayed-shot, shot-queued, delayed-fire, and
+  reload-started payloads. `commando_firearm_runtime.gd` keeps the input gates,
+  ammo / cooldown mutations, reload side effects, audio cues, and current timer
+  reads while delegating stable result payload shapes to this helper.
 - `scripts/characters/commando_firearm_draw_state_resolver.gd`
   Owns pure Commando firearm renderer-facing draw-state dictionary scaffolding
   for slingshot charge, pistol fire pose, shared weapon-fire sheet overlay,

@@ -977,13 +977,11 @@ func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: flo
 	_refresh_pending_pistol_fire_geometry(config)
 	pistol_fire_delay_frames = max(0.0, pistol_fire_delay_frames - step)
 	if pistol_fire_delay_frames > 0.0:
-		return {
-			"handled": true,
-			"weapon_id": str(pistol_pending_weapon_id if pistol_pending_weapon_id != "" else "commando_pistol"),
-			"shot_pending": true,
-			"fire_delay_frames": pistol_fire_delay_frames,
-			"control_lock_frames": pistol_control_lock_frames,
-		}
+		return CommandoFirearmFireResultState.build_pistol_shot_pending_result(
+			str(pistol_pending_weapon_id if pistol_pending_weapon_id != "" else "commando_pistol"),
+			pistol_fire_delay_frames,
+			pistol_control_lock_frames
+		)
 	var shot_config: Dictionary = pistol_pending_config.duplicate(true)
 	if shot_config.is_empty():
 		shot_config = config
@@ -997,15 +995,11 @@ func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: flo
 	# flash) is the first cell shown during this window, so it lines up with
 	# `_play_fire_audio()` above.
 	pistol_post_fire_animation_frames = PISTOL_POST_FIRE_ANIMATION_FRAMES
-	return {
-		"handled": true,
-		"weapon_id": shot_weapon_id,
-		"fired": true,
-		"fire_delay_frames": 0.0,
-		"cooldown_frames": pistol_cooldown_frames,
-		"control_lock_frames": pistol_control_lock_frames,
-		"skill_gold_award": 0,
-	}
+	return CommandoFirearmFireResultState.build_pistol_delayed_fire_result(
+		shot_weapon_id,
+		pistol_cooldown_frames,
+		pistol_control_lock_frames
+	)
 
 
 func _refresh_pending_pistol_fire_geometry(config: Dictionary) -> void:
@@ -1048,14 +1042,11 @@ func _update_pistol_input(
 		if weapon_id == "commando_pistol" and magazines_current > 0 and weapon_controller != null and weapon_controller.has_method("start_current_weapon_reload"):
 			if bool(weapon_controller.start_current_weapon_reload()):
 				_play_first_audio_method(deps, ["play_commando_pistol_reload_start"])
-				return {
-					"handled": true,
-					"weapon_id": weapon_id,
-					"fire_failed": true,
-					"reload_started": true,
-					"failure_reason": "pistol_reload_started",
-					"special_gauge": special_gauge,
-				}
+				return CommandoFirearmFireResultState.build_pistol_reload_started_result(
+					weapon_id,
+					special_gauge,
+					"pistol_reload_started"
+				)
 		return _pistol_fire_failed(special_gauge, "pistol_empty", weapon_id)
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
@@ -1075,23 +1066,19 @@ func _update_pistol_input(
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
-	return {
-		"handled": true,
-		"weapon_id": weapon_id,
-		"shot_queued": true,
-		"ammo_current": int(updated_weapon.get("ammo_current", max(0, ammo_current - 1))),
-		"ammo_max": int(updated_weapon.get("ammo_max", PISTOL_AMMO_MAX)),
-		"magazines_current": int(updated_weapon.get("magazines_current", magazines_current)),
-		"magazines_max": int(updated_weapon.get("magazines_max", 0)),
-		"cooldown_frames": pistol_cooldown_frames,
-		"control_lock_frames": pistol_control_lock_frames,
-		"fire_delay_frames": pistol_fire_delay_frames,
-		"doping_potion_active": doping_active,
-		"doping_potion_head_leg_multiplier": float(doping_context.get("head_leg_multiplier", 1.0)),
-		"doping_potion_pistol_speed_multiplier": float(doping_context.get("pistol_speed_multiplier", 1.0)),
-		"special_gauge": special_gauge,
-		"skill_gold_award": 0,
-	}
+	return CommandoFirearmFireResultState.build_pistol_shot_queued_result(
+		weapon_id,
+		updated_weapon,
+		max(0, ammo_current - 1),
+		PISTOL_AMMO_MAX,
+		magazines_current,
+		pistol_cooldown_frames,
+		pistol_control_lock_frames,
+		pistol_fire_delay_frames,
+		doping_context,
+		doping_active,
+		special_gauge
+	)
 
 
 func _reload_base_pistol_from_fire_input(special_gauge: float, deps: Dictionary) -> Dictionary:
@@ -1107,20 +1094,14 @@ func _reload_base_pistol_from_fire_input(special_gauge: float, deps: Dictionary)
 		updated_weapon = weapon_controller.get_current_weapon_data()
 	_play_first_audio_method(deps, ["play_commando_pistol_reload_start"])
 	var next_gauge: float = max(0.0, special_gauge - PISTOL_EMPTY_RELOAD_GAUGE_COST)
-	return {
-		"handled": true,
-		"weapon_id": BASE_WEAPON_ID,
-		"fire_failed": true,
-		"reload_started": true,
-		"failure_reason": "base_pistol_empty_reload_started",
-		"ammo_current": int(updated_weapon.get("ammo_current", 0)),
-		"ammo_max": int(updated_weapon.get("ammo_max", PISTOL_AMMO_MAX)),
-		"reload_display_ammo": int(updated_weapon.get("reload_display_ammo", updated_weapon.get("ammo_current", 0))),
-		"reload_timer_frames": float(updated_weapon.get("reload_timer_frames", PISTOL_FIRE_DELAY_FRAMES)),
-		"special_gauge": next_gauge,
-		"commando_pistol_reload_gauge_cost": PISTOL_EMPTY_RELOAD_GAUGE_COST,
-		"skill_gold_award": 0,
-	}
+	return CommandoFirearmFireResultState.build_base_pistol_reload_started_result(
+		BASE_WEAPON_ID,
+		next_gauge,
+		updated_weapon,
+		PISTOL_AMMO_MAX,
+		PISTOL_FIRE_DELAY_FRAMES,
+		PISTOL_EMPTY_RELOAD_GAUGE_COST
+	)
 
 
 func _pistol_fire_failed(special_gauge: float, reason: String, weapon_id: String = "commando_pistol") -> Dictionary:

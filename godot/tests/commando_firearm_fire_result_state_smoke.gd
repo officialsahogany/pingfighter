@@ -33,6 +33,62 @@ func _verify_direct_fire_result_state() -> void:
 	_expect(is_equal_approx(float(result.get("special_gauge", 0.0)), 500.0), "fire failed result should preserve gauge")
 	_expect(is_equal_approx(float(result.get("cooldown_frames", 0.0)), 12.0), "fire failed result should merge extra fields")
 
+	var pending: Dictionary = CommandoFirearmFireResultState.build_pistol_shot_pending_result("commando_pistol", 12.0, 4.0)
+	_expect(bool(pending.get("shot_pending", false)), "pending pistol result should expose shot-pending state")
+	_expect(is_equal_approx(float(pending.get("fire_delay_frames", 0.0)), 12.0), "pending pistol result should preserve fire delay")
+
+	var delayed_fire: Dictionary = CommandoFirearmFireResultState.build_pistol_delayed_fire_result("commando_pistol", 30.0, 9.0)
+	_expect(bool(delayed_fire.get("fired", false)), "delayed pistol result should expose fired state")
+	_expect(is_equal_approx(float(delayed_fire.get("fire_delay_frames", -1.0)), 0.0), "delayed pistol result should clear fire delay")
+	_expect(int(delayed_fire.get("skill_gold_award", -1)) == 0, "delayed pistol result should keep zero skill gold")
+
+	var reload: Dictionary = CommandoFirearmFireResultState.build_pistol_reload_started_result("commando_pistol", 240.0, "pistol_reload_started")
+	_expect(bool(reload.get("reload_started", false)), "pistol reload result should expose reload-started state")
+	_expect(str(reload.get("failure_reason", "")) == "pistol_reload_started", "pistol reload result should preserve reason")
+
+	var base_reload: Dictionary = CommandoFirearmFireResultState.build_base_pistol_reload_started_result(
+		"pistol",
+		350.0,
+		{
+			"ammo_current": 0,
+			"ammo_max": 4,
+			"reload_display_ammo": 2,
+			"reload_timer_frames": 18.0,
+		},
+		4,
+		24.0,
+		150.0
+	)
+	_expect(str(base_reload.get("failure_reason", "")) == "base_pistol_empty_reload_started", "base pistol reload result should preserve reason")
+	_expect(int(base_reload.get("reload_display_ammo", -1)) == 2, "base pistol reload result should preserve display ammo")
+	_expect(is_equal_approx(float(base_reload.get("commando_pistol_reload_gauge_cost", 0.0)), 150.0), "base pistol reload result should preserve gauge cost")
+
+	var queued: Dictionary = CommandoFirearmFireResultState.build_pistol_shot_queued_result(
+		"commando_pistol",
+		{
+			"ammo_current": 2,
+			"ammo_max": 4,
+			"magazines_current": 1,
+			"magazines_max": 2,
+		},
+		1,
+		4,
+		0,
+		30.0,
+		9.0,
+		24.0,
+		{
+			"head_leg_multiplier": 2.0,
+			"pistol_speed_multiplier": 1.2,
+		},
+		true,
+		500.0
+	)
+	_expect(bool(queued.get("shot_queued", false)), "queued pistol result should expose shot-queued state")
+	_expect(int(queued.get("ammo_current", -1)) == 2, "queued pistol result should preserve updated ammo")
+	_expect(bool(queued.get("doping_potion_active", false)), "queued pistol result should preserve doping state")
+	_expect(is_equal_approx(float(queued.get("doping_potion_head_leg_multiplier", 0.0)), 2.0), "queued pistol result should preserve doping multiplier")
+
 
 func _verify_runtime_delegates_fire_result_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
