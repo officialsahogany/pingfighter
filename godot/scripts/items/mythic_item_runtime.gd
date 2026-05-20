@@ -2792,6 +2792,9 @@ func get_dash_token_capacity(base_tokens: int = 1, runtime_perk_state: Object = 
 
 
 func update(owner: Object, registry: Object, delta: float) -> void:
+	if not _has_runtime_update_work():
+		_poll_idle_poseidon_dash_trigger(owner, registry)
+		return
 	var fps_scale: float = max(0.0, delta * 60.0)
 	if acquisition_cinematic != null:
 		acquisition_cinematic.update(delta, registry)
@@ -2834,6 +2837,95 @@ func update(owner: Object, registry: Object, delta: float) -> void:
 	_update_hermes_shoes_runtime(owner, fps_scale)
 	_update_baal_boots_runtime(owner, registry, fps_scale)
 	_sync_owner(owner, registry)
+
+
+func _has_runtime_update_work() -> bool:
+	if acquisition_cinematic != null and acquisition_cinematic.has_method("is_active") and bool(acquisition_cinematic.is_active()):
+		return true
+	if pandora_legacy_selection_state.is_active():
+		return true
+	return _has_transient_runtime_update_work()
+
+
+func _has_transient_runtime_update_work() -> bool:
+	if is_activation_effect_active():
+		return true
+	if (
+		ragnarok_stun_ball_active
+		or ragnarok_stun_attempted_this_rally
+		or ragnarok_boss_stun_timer_frames > 0.0
+		or ragnarok_boss_knockback_timer_frames > 0.0
+		or abs(ragnarok_boss_knockback_vel) > 0.0
+		or ragnarok_shock_loop_active
+		or not ragnarok_sparks.is_empty()
+	):
+		return true
+	if (
+		poseidon_effect_cooldown_frames > 0.0
+		or poseidon_vortex_active
+		or poseidon_vortex_reentry_cooldown_frames > 0.0
+		or poseidon_water_trail_active
+		or poseidon_explosion_active
+		or poseidon_capture_active
+		or not poseidon_particles.is_empty()
+		or not poseidon_water_trail.is_empty()
+		or not poseidon_explosion_particles.is_empty()
+	):
+		return true
+	if knee_pads_flash_timer_frames > 0.0 or not knee_pads_particles.is_empty():
+		return true
+	if (
+		soul_burst_effect_timer_frames > 0.0
+		or soul_burst_dash_active
+		or not soul_burst_particles.is_empty()
+		or not soul_burst_shockwaves.is_empty()
+		or not soul_burst_wind_trails.is_empty()
+	):
+		return true
+	if foul_whistle_state.animation_active or foul_whistle_state.pending_round_reset:
+		return true
+	if revival_state.is_effect_active():
+		return true
+	if sensor_cooldown_timer_frames > 0.0 or sensor_auto_dash_effect_timer_frames > 0.0:
+		return true
+	if smartphone_cooldown_frames > 0.0:
+		return true
+	if venom_mist_field_active or not venom_mist_particles.is_empty():
+		return true
+	if rainbow_fur_glove_aura_timer_frames > 0.0 or not rainbow_fur_glove_particles.is_empty():
+		return true
+	if _is_adversity_armor_effect_active():
+		return true
+	if (
+		not shrapnel_armor_shards.is_empty()
+		or not shrapnel_armor_dust_particles.is_empty()
+		or shrapnel_armor_flash_timer_frames > 0.0
+		or shrapnel_armor_boss_impact_timer_frames > 0.0
+		or shrapnel_armor_boss_knockback_timer_frames > 0.0
+		or shrapnel_armor_boss_stun_timer_frames > 0.0
+	):
+		return true
+	if celestial_armor_state.is_wave_active():
+		return true
+	if hermes_shoes_state.is_visible(false):
+		return true
+	if (
+		baal_boots_weather_state.has_round_activity()
+		or baal_boots_effect_state.is_visible(
+			baal_boots_weather_state.cinematic_active,
+			baal_boots_weather_state.round_effect_active
+		)
+	):
+		return true
+	return false
+
+
+func _poll_idle_poseidon_dash_trigger(owner: Object, registry: Object) -> void:
+	if not is_equipped(ITEM_POSEIDON_TRIDENT):
+		return
+	_update_poseidon_dash_trigger(owner, registry)
+	if _has_transient_runtime_update_work():
+		_sync_owner(owner, registry)
 
 
 func try_apply_ragnarok_player_hit(
@@ -3070,6 +3162,52 @@ func has_ball_draw_context() -> bool:
 
 func get_ball_draw_context() -> Dictionary:
 	return context_builder.get_ball_draw_context(self)
+
+
+func has_visible_field_effects() -> bool:
+	if _ragnarok_impact_elapsed() < RAGNAROK_IMPACT_EFFECT_DURATION:
+		return true
+	if ragnarok_boss_stun_timer_frames > 0.0 or not ragnarok_sparks.is_empty():
+		return true
+	if (
+		poseidon_capture_active
+		or poseidon_vortex_active
+		or not poseidon_particles.is_empty()
+		or not poseidon_water_trail.is_empty()
+		or poseidon_explosion_active
+	):
+		return true
+	if knee_pads_flash_timer_frames > 0.0 or not knee_pads_particles.is_empty():
+		return true
+	if (
+		soul_burst_effect_timer_frames > 0.0
+		or not soul_burst_particles.is_empty()
+		or not soul_burst_shockwaves.is_empty()
+		or not soul_burst_wind_trails.is_empty()
+	):
+		return true
+	if foul_whistle_state.animation_active:
+		return true
+	if revival_state.is_effect_active():
+		return true
+	if sensor_auto_dash_effect_timer_frames > 0.0:
+		return true
+	if venom_mist_field_active or not venom_mist_particles.is_empty():
+		return true
+	if rainbow_fur_glove_aura_timer_frames > 0.0 or not rainbow_fur_glove_particles.is_empty():
+		return true
+	if _is_adversity_armor_effect_active() or _is_shrapnel_armor_effect_active():
+		return true
+	if celestial_armor_state.is_wave_active():
+		return true
+	if hermes_shoes_state.is_visible(is_hermes_shoes_active()):
+		return true
+	if baal_boots_effect_state.is_visible(
+		baal_boots_weather_state.cinematic_active,
+		baal_boots_weather_state.round_effect_active
+	):
+		return true
+	return acquisition_cinematic != null and acquisition_cinematic.is_active()
 
 
 func draw_field_effects(canvas: CanvasItem, _registry: Object, shake_offset: Vector2) -> void:
