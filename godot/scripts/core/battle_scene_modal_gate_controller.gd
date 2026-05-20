@@ -1,0 +1,138 @@
+extends RefCounted
+
+
+func should_block_battle_physics(module_getter: Callable) -> bool:
+	return _should_block_battle_physics(module_getter, null)
+
+
+func should_block_battle_physics_with_perf(module_getter: Callable, perf_logger: Object = null) -> bool:
+	return _should_block_battle_physics(module_getter, perf_logger)
+
+
+func should_block_mobile_controls(module_getter: Callable) -> bool:
+	return (
+		should_block_battle_physics(module_getter)
+		or is_active_item_debug_spawn_menu_open(module_getter)
+	)
+
+
+func is_runtime_perk_choice_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "runtime_perk_state", "is_choice_active")
+
+
+func is_runtime_perk_feedback_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "runtime_perk_state", "has_feedback")
+
+
+func is_character_debug_picker_open(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "character_debug_picker", "is_open")
+
+
+func is_perk_debug_picker_open(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "runtime_perk_debug_picker", "is_open")
+
+
+func is_stage_debug_picker_open(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "stage_debug_picker", "is_open")
+
+
+func is_weather_debug_picker_open(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "weather_debug_picker", "is_open")
+
+
+func is_mythic_management_menu_open(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "mythic_item_runtime", "is_debug_management_menu_open")
+
+
+func is_pandora_legacy_selection_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "mythic_item_runtime", "is_pandora_legacy_selection_active")
+
+
+func is_character_info_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "character_info_overlay", "is_active")
+
+
+func is_pause_menu_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "pause_menu_overlay", "is_active")
+
+
+func is_active_item_debug_spawn_menu_open(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "active_item_runtime", "is_debug_spawn_menu_open")
+
+
+func is_elixir_cinematic_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "active_item_runtime", "is_elixir_cinematic_active")
+
+
+func _should_block_battle_physics(module_getter: Callable, perf_logger: Object = null) -> bool:
+	if _timed_module_bool(perf_logger, "physics.modal_gate.runtime_perk_choice", module_getter, "runtime_perk_state", "is_choice_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.character_debug", module_getter, "character_debug_picker", "is_open"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.perk_debug", module_getter, "runtime_perk_debug_picker", "is_open"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.stage_debug", module_getter, "stage_debug_picker", "is_open"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.weather_debug", module_getter, "weather_debug_picker", "is_open"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.mythic_management", module_getter, "mythic_item_runtime", "is_debug_management_menu_open"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.pandora_legacy", module_getter, "mythic_item_runtime", "is_pandora_legacy_selection_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.active_item_debug", module_getter, "active_item_runtime", "is_debug_spawn_menu_open"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.pause_menu", module_getter, "pause_menu_overlay", "is_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.character_info", module_getter, "character_info_overlay", "is_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.elixir_cinematic", module_getter, "active_item_runtime", "is_elixir_cinematic_active"):
+		return true
+	return false
+
+
+func _timed_module_bool(
+	perf_logger: Object,
+	label: String,
+	module_getter: Callable,
+	key: String,
+	method_name: String
+) -> bool:
+	var sample_start: int = _perf_begin(perf_logger)
+	var result: bool = _module_bool(module_getter, key, method_name)
+	_perf_end(perf_logger, label, sample_start)
+	return result
+
+
+func _module_bool(module_getter: Callable, key: String, method_name: String) -> bool:
+	var module: Object = _get_module(module_getter, key)
+	return module != null and module.has_method(method_name) and bool(module.call(method_name))
+
+
+func _get_module(module_getter: Callable, key: String) -> Object:
+	if not module_getter.is_valid():
+		return null
+	var callable_owner: Object = module_getter.get_object()
+	if callable_owner != null and is_instance_valid(callable_owner):
+		if callable_owner.has_method("_get_cached_module"):
+			return _as_object(callable_owner.call("_get_cached_module", key))
+		if callable_owner.has_method("get_cached_instance"):
+			return _as_object(callable_owner.call("get_cached_instance", key))
+	var value: Variant = module_getter.call(key)
+	return _as_object(value)
+
+
+func _as_object(value: Variant) -> Object:
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)

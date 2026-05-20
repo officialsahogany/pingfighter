@@ -8,10 +8,22 @@ const SOUND_SLIDER_SFX := "sfx"
 const OPTIONS_TAB_SOUND := "sound"
 const OPTIONS_TAB_DISPLAY := "display"
 const DISPLAY_MODE_FULLSCREEN := "fullscreen"
+const DISPLAY_MODE_EXCLUSIVE_FULLSCREEN := "exclusive_fullscreen"
 const DISPLAY_MODE_WINDOWED := "windowed"
+const RENDER_FPS_CAP_UNLIMITED := 0
+const RENDER_FPS_CAP_STABILITY := 48
+const RENDER_FPS_CAP_SMOOTH := 60
+const RENDER_FPS_CAP_BALANCED := 72
+const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABILITY
+const RENDER_FPS_CAP_MONITOR := -1
+const RENDER_FPS_CAP_STABLE_MONITOR := -2
+const VSYNC_MODE_AUTO := -1
+const VSYNC_MODE_DISABLED := 0
+const VSYNC_MODE_ENABLED := 1
+const VSYNC_MODE_MAILBOX := 3
 
 const MAIN_PANEL_SIZE := Vector2(360.0, 320.0)
-const OPTIONS_PANEL_SIZE := Vector2(900.0, 360.0)
+const OPTIONS_PANEL_SIZE := Vector2(900.0, 500.0)
 const BUTTON_SIZE := Vector2(250.0, 48.0)
 const BUTTON_GAP := 14.0
 const TITLE_HEIGHT := 82.0
@@ -20,7 +32,7 @@ const SLIDER_HIT_HEIGHT := 34.0
 const SLIDER_HANDLE_RADIUS := 8.0
 const VOLUME_STEP := 0.05
 const SOUND_FOCUS_COUNT := 3
-const DISPLAY_FOCUS_COUNT := 4
+const DISPLAY_FOCUS_COUNT := 9
 
 const PANEL_COLOR := Color(16.0 / 255.0, 20.0 / 255.0, 32.0 / 255.0, 0.96)
 const PANEL_BORDER := Color(82.0 / 255.0, 165.0 / 255.0, 220.0 / 255.0, 0.86)
@@ -45,6 +57,14 @@ var dragging_slider := ""
 var options_tab := OPTIONS_TAB_SOUND
 var display_mode := DISPLAY_MODE_WINDOWED
 var remember_display_mode := false
+var auto_refresh_rate_60hz := false
+var render_fps_cap := RENDER_FPS_CAP_DEFAULT
+var vsync_mode := VSYNC_MODE_AUTO
+var options_only := false
+var _synced_display_mode := DISPLAY_MODE_WINDOWED
+var _synced_remember_display_mode := false
+var _synced_auto_refresh_rate_60hz := false
+var _display_preference_dirty := false
 
 
 func is_active() -> bool:
@@ -58,6 +78,7 @@ func is_options_open() -> bool:
 func open() -> void:
 	active = true
 	options_open = false
+	options_only = false
 	animation_time = 0.0
 	selected_index = 0
 	options_focus = 0
@@ -68,6 +89,7 @@ func open() -> void:
 func close() -> void:
 	active = false
 	options_open = false
+	options_only = false
 	selected_index = 0
 	options_focus = 0
 	dragging_slider = ""
@@ -79,6 +101,13 @@ func toggle() -> void:
 		close()
 	else:
 		open()
+
+
+func open_options(owner: Object, registry: Object, direct_options_only: bool = false) -> void:
+	active = true
+	options_only = direct_options_only
+	animation_time = 0.0
+	_open_options(owner, registry)
 
 
 func update(delta: float) -> void:
@@ -138,11 +167,7 @@ func _handle_key_input(key_event: InputEventKey, owner: Object, registry: Object
 
 func _handle_options_key_input(key_event: InputEventKey, owner: Object, registry: Object) -> Dictionary:
 	if _is_key(key_event, KEY_ESCAPE):
-		options_open = false
-		selected_index = 0
-		options_focus = 0
-		dragging_slider = ""
-		return {"handled": true}
+		return _close_options_page()
 	if _is_key(key_event, KEY_TAB):
 		_switch_options_tab()
 		return {"handled": true}
@@ -166,8 +191,7 @@ func _handle_sound_key_input(key_event: InputEventKey, registry: Object) -> Dict
 		return {"handled": true}
 	if _is_key(key_event, KEY_ENTER) or _is_key(key_event, KEY_KP_ENTER) or _is_key(key_event, KEY_SPACE):
 		if options_focus == 2:
-			options_open = false
-			selected_index = 0
+			return _close_options_page()
 		return {"handled": true}
 	return {"handled": true}
 
@@ -181,19 +205,34 @@ func _handle_display_key_input(key_event: InputEventKey, owner: Object, registry
 		return {"handled": true}
 	if _is_key(key_event, KEY_LEFT) or _is_key(key_event, KEY_RIGHT):
 		if options_focus == 0:
-			_toggle_display_mode()
+			_cycle_display_mode(-1 if _is_key(key_event, KEY_LEFT) else 1)
+		elif options_focus == 1:
+			_cycle_render_fps_cap(-1 if _is_key(key_event, KEY_LEFT) else 1, owner, registry)
+		elif options_focus == 2:
+			_cycle_vsync_mode(-1 if _is_key(key_event, KEY_LEFT) else 1, owner, registry)
 		return {"handled": true}
 	if _is_key(key_event, KEY_ENTER) or _is_key(key_event, KEY_KP_ENTER) or _is_key(key_event, KEY_SPACE):
 		match options_focus:
 			0:
-				_toggle_display_mode()
+				_cycle_display_mode(1)
 			1:
-				remember_display_mode = not remember_display_mode
+				_cycle_render_fps_cap(1, owner, registry)
 			2:
-				_save_display_options(owner, registry)
+				_cycle_vsync_mode(1, owner, registry)
 			3:
-				options_open = false
-				selected_index = 0
+				remember_display_mode = not remember_display_mode
+				_display_preference_dirty = true
+			4:
+				auto_refresh_rate_60hz = not auto_refresh_rate_60hz
+				_display_preference_dirty = true
+			5:
+				_apply_recommended_display_settings(owner, registry)
+			6:
+				_apply_60hz_now(owner, registry)
+			7:
+				_save_display_options(owner, registry)
+			8:
+				return _close_options_page()
 		return {"handled": true}
 	return {"handled": true}
 
@@ -204,11 +243,7 @@ func _handle_mouse_button(mouse_event: InputEventMouseButton, owner: Object, reg
 		return {"handled": true}
 	if mouse_event.button_index == MOUSE_BUTTON_RIGHT:
 		if options_open:
-			options_open = false
-			selected_index = 0
-			options_focus = 0
-			dragging_slider = ""
-			return {"handled": true}
+			return _close_options_page()
 		close()
 		return {"handled": true, "action": MENU_CONTINUE}
 	if mouse_event.button_index != MOUSE_BUTTON_LEFT:
@@ -251,11 +286,7 @@ func _handle_options_click(position: Vector2, owner: Object, registry: Object, v
 
 func _handle_sound_click(position: Vector2, registry: Object, view_size: Vector2, panel_rect: Rect2) -> Dictionary:
 	if _get_back_button_rect(panel_rect).has_point(position):
-		options_open = false
-		selected_index = 0
-		options_focus = 0
-		dragging_slider = ""
-		return {"handled": true}
+		return _close_options_page()
 	if _get_slider_hit_rect(SOUND_SLIDER_BGM, view_size).has_point(position):
 		options_focus = 0
 		dragging_slider = SOUND_SLIDER_BGM
@@ -271,27 +302,49 @@ func _handle_sound_click(position: Vector2, registry: Object, view_size: Vector2
 
 func _handle_display_click(position: Vector2, owner: Object, registry: Object, panel_rect: Rect2) -> Dictionary:
 	if _get_display_fullscreen_rect(panel_rect).has_point(position):
-		display_mode = DISPLAY_MODE_FULLSCREEN
+		_set_display_mode_option(DISPLAY_MODE_FULLSCREEN)
+		options_focus = 0
+		return {"handled": true}
+	if _get_display_exclusive_fullscreen_rect(panel_rect).has_point(position):
+		_set_display_mode_option(DISPLAY_MODE_EXCLUSIVE_FULLSCREEN)
 		options_focus = 0
 		return {"handled": true}
 	if _get_display_windowed_rect(panel_rect).has_point(position):
-		display_mode = DISPLAY_MODE_WINDOWED
+		_set_display_mode_option(DISPLAY_MODE_WINDOWED)
 		options_focus = 0
+		return {"handled": true}
+	if _get_display_fps_cap_row_rect(panel_rect).has_point(position):
+		_cycle_render_fps_cap(1, owner, registry)
+		options_focus = 1
+		return {"handled": true}
+	if _get_display_vsync_row_rect(panel_rect).has_point(position):
+		_cycle_vsync_mode(1, owner, registry)
+		options_focus = 2
 		return {"handled": true}
 	if _get_display_default_row_rect(panel_rect).has_point(position):
 		remember_display_mode = not remember_display_mode
-		options_focus = 1
+		_display_preference_dirty = true
+		options_focus = 3
+		return {"handled": true}
+	if _get_display_auto_refresh_row_rect(panel_rect).has_point(position):
+		auto_refresh_rate_60hz = not auto_refresh_rate_60hz
+		_display_preference_dirty = true
+		options_focus = 4
+		return {"handled": true}
+	if _get_display_recommended_button_rect(panel_rect).has_point(position):
+		options_focus = 5
+		_apply_recommended_display_settings(owner, registry)
+		return {"handled": true}
+	if _get_display_apply_60hz_button_rect(panel_rect).has_point(position):
+		options_focus = 6
+		_apply_60hz_now(owner, registry)
 		return {"handled": true}
 	if _get_display_save_button_rect(panel_rect).has_point(position):
-		options_focus = 2
+		options_focus = 7
 		_save_display_options(owner, registry)
 		return {"handled": true}
 	if _get_display_back_button_rect(panel_rect).has_point(position):
-		options_open = false
-		selected_index = 0
-		options_focus = 0
-		dragging_slider = ""
-		return {"handled": true}
+		return _close_options_page()
 	return {"handled": true}
 
 
@@ -330,45 +383,257 @@ func _open_options(owner: Object, registry: Object) -> void:
 	_sync_display_settings(owner, registry)
 
 
+func _close_options_page() -> Dictionary:
+	options_open = false
+	selected_index = 0
+	options_focus = 0
+	dragging_slider = ""
+	if options_only:
+		close()
+	return {"handled": true}
+
+
 func _switch_options_tab() -> void:
 	options_tab = OPTIONS_TAB_DISPLAY if options_tab == OPTIONS_TAB_SOUND else OPTIONS_TAB_SOUND
 	options_focus = 0
 	dragging_slider = ""
 
 
-func _toggle_display_mode() -> void:
-	display_mode = DISPLAY_MODE_WINDOWED if display_mode == DISPLAY_MODE_FULLSCREEN else DISPLAY_MODE_FULLSCREEN
+func _cycle_display_mode(direction: int) -> void:
+	var options: Array[String] = [
+		DISPLAY_MODE_FULLSCREEN,
+		DISPLAY_MODE_EXCLUSIVE_FULLSCREEN,
+		DISPLAY_MODE_WINDOWED,
+	]
+	var index: int = options.find(display_mode)
+	if index < 0:
+		index = 0
+	var step: int = 1 if direction >= 0 else -1
+	_set_display_mode_option(options[(index + step + options.size()) % options.size()])
+
+
+func _set_display_mode_option(mode: String) -> void:
+	var normalized := _normalize_display_mode(mode)
+	if normalized != display_mode:
+		display_mode = normalized
+		_display_preference_dirty = true
+
+
+func _cycle_render_fps_cap(direction: int, owner: Object, registry: Object) -> void:
+	var options: Array[int] = _get_render_fps_cap_options(registry)
+	var index: int = options.find(render_fps_cap)
+	if index < 0:
+		index = 0
+	var step: int = 1 if direction >= 0 else -1
+	render_fps_cap = int(options[(index + step + options.size()) % options.size()])
+	var view_layout: Object = _get_instance(registry, "battle_view_layout")
+	if view_layout != null and view_layout.has_method("apply_render_fps_cap"):
+		render_fps_cap = int(view_layout.apply_render_fps_cap(_get_owner_window(owner), render_fps_cap, vsync_mode))
+	if vsync_mode == VSYNC_MODE_AUTO and view_layout != null and view_layout.has_method("apply_vsync_mode"):
+		vsync_mode = int(view_layout.apply_vsync_mode(vsync_mode, _get_owner_window(owner)))
+
+
+func _cycle_vsync_mode(direction: int, owner: Object, registry: Object) -> void:
+	var options: Array[int] = _get_vsync_mode_options(registry)
+	var index: int = options.find(vsync_mode)
+	if index < 0:
+		index = 0
+	var step: int = 1 if direction >= 0 else -1
+	vsync_mode = int(options[(index + step + options.size()) % options.size()])
+	var view_layout: Object = _get_instance(registry, "battle_view_layout")
+	if view_layout != null and view_layout.has_method("apply_vsync_mode"):
+		vsync_mode = int(view_layout.apply_vsync_mode(vsync_mode, _get_owner_window(owner)))
+	if view_layout != null and view_layout.has_method("apply_render_fps_cap"):
+		render_fps_cap = int(view_layout.apply_render_fps_cap(_get_owner_window(owner), render_fps_cap, vsync_mode))
 
 
 func _sync_display_settings(owner: Object, registry: Object) -> void:
 	var view_layout: Object = _get_instance(registry, "battle_view_layout")
 	var window: Object = _get_owner_window(owner)
-	if view_layout != null and view_layout.has_method("get_display_mode"):
-		display_mode = _normalize_display_mode(str(view_layout.get_display_mode(window)))
-	elif view_layout != null and view_layout.has_method("is_fullscreen"):
-		display_mode = DISPLAY_MODE_FULLSCREEN if bool(view_layout.is_fullscreen(window)) else DISPLAY_MODE_WINDOWED
 	if view_layout != null and view_layout.has_method("get_remember_display_mode"):
 		remember_display_mode = bool(view_layout.get_remember_display_mode())
+	if view_layout != null and view_layout.has_method("get_display_mode"):
+		if remember_display_mode and view_layout.has_method("get_saved_display_mode"):
+			display_mode = _normalize_display_mode(str(view_layout.get_saved_display_mode()))
+		else:
+			display_mode = _normalize_display_mode(str(view_layout.get_display_mode(window)))
+	elif view_layout != null and view_layout.has_method("is_fullscreen"):
+		display_mode = DISPLAY_MODE_FULLSCREEN if bool(view_layout.is_fullscreen(window)) else DISPLAY_MODE_WINDOWED
+	if view_layout != null and view_layout.has_method("get_saved_render_fps_cap"):
+		render_fps_cap = int(view_layout.get_saved_render_fps_cap())
+	elif view_layout != null and view_layout.has_method("get_render_fps_cap"):
+		render_fps_cap = int(view_layout.get_render_fps_cap(window))
+	if view_layout != null and view_layout.has_method("get_saved_vsync_mode"):
+		vsync_mode = int(view_layout.get_saved_vsync_mode())
+	elif view_layout != null and view_layout.has_method("get_vsync_mode"):
+		vsync_mode = int(view_layout.get_vsync_mode())
+	if view_layout != null and view_layout.has_method("get_auto_refresh_rate_enabled"):
+		auto_refresh_rate_60hz = bool(view_layout.get_auto_refresh_rate_enabled())
+	_synced_display_mode = display_mode
+	_synced_remember_display_mode = remember_display_mode
+	_synced_auto_refresh_rate_60hz = auto_refresh_rate_60hz
+	_display_preference_dirty = false
 
 
 func _save_display_options(owner: Object, registry: Object) -> void:
 	display_mode = _normalize_display_mode(display_mode)
 	var view_layout: Object = _get_instance(registry, "battle_view_layout")
 	var window: Object = _get_owner_window(owner)
-	if view_layout != null and view_layout.has_method("apply_display_mode"):
-		display_mode = _normalize_display_mode(str(view_layout.apply_display_mode(window, display_mode)))
-	elif view_layout != null and view_layout.has_method("toggle_fullscreen"):
-		var current_mode := DISPLAY_MODE_WINDOWED
-		if view_layout.has_method("get_display_mode"):
-			current_mode = _normalize_display_mode(str(view_layout.get_display_mode(window)))
-		if current_mode != display_mode:
-			view_layout.toggle_fullscreen(window)
-	if view_layout != null and view_layout.has_method("save_display_mode_default"):
-		view_layout.save_display_mode_default(display_mode, remember_display_mode)
+	var should_save_display := (
+		_display_preference_dirty
+		or display_mode != _synced_display_mode
+		or remember_display_mode != _synced_remember_display_mode
+		or auto_refresh_rate_60hz != _synced_auto_refresh_rate_60hz
+		or remember_display_mode
+		or display_mode != DISPLAY_MODE_WINDOWED
+	)
+	if should_save_display:
+		if view_layout != null and view_layout.has_method("apply_display_mode"):
+			display_mode = _normalize_display_mode(str(view_layout.apply_display_mode(window, display_mode)))
+		elif view_layout != null and view_layout.has_method("toggle_fullscreen"):
+			var current_mode := DISPLAY_MODE_WINDOWED
+			if view_layout.has_method("get_display_mode"):
+				current_mode = _normalize_display_mode(str(view_layout.get_display_mode(window)))
+			if current_mode != display_mode:
+				view_layout.toggle_fullscreen(window)
+		if view_layout != null and view_layout.has_method("save_display_mode_default"):
+			view_layout.save_display_mode_default(display_mode, remember_display_mode)
+		_synced_display_mode = display_mode
+		_synced_remember_display_mode = remember_display_mode
+		_synced_auto_refresh_rate_60hz = auto_refresh_rate_60hz
+		_display_preference_dirty = false
+	if view_layout != null and view_layout.has_method("apply_render_fps_cap"):
+		render_fps_cap = int(view_layout.apply_render_fps_cap(window, render_fps_cap, vsync_mode))
+	if view_layout != null and view_layout.has_method("save_render_fps_cap_default"):
+		view_layout.save_render_fps_cap_default(render_fps_cap)
+	if view_layout != null and view_layout.has_method("apply_vsync_mode"):
+		vsync_mode = int(view_layout.apply_vsync_mode(vsync_mode, window))
+	if view_layout != null and view_layout.has_method("save_vsync_mode_default"):
+		view_layout.save_vsync_mode_default(vsync_mode)
+	if view_layout != null and view_layout.has_method("save_auto_refresh_rate_default"):
+		view_layout.save_auto_refresh_rate_default(auto_refresh_rate_60hz, window)
+	elif view_layout != null and view_layout.has_method("apply_auto_refresh_rate"):
+		view_layout.apply_auto_refresh_rate(window, auto_refresh_rate_60hz)
+
+
+func _apply_recommended_display_settings(owner: Object, registry: Object) -> void:
+	display_mode = DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
+	remember_display_mode = true
+	render_fps_cap = RENDER_FPS_CAP_SMOOTH
+	vsync_mode = VSYNC_MODE_ENABLED
+	_display_preference_dirty = true
+	_save_display_options(owner, registry)
+
+
+func _apply_60hz_now(owner: Object, registry: Object) -> void:
+	var view_layout: Object = _get_instance(registry, "battle_view_layout")
+	var window: Object = _get_owner_window(owner)
+	var applied := false
+	auto_refresh_rate_60hz = true
+	_synced_auto_refresh_rate_60hz = true
+	if view_layout != null and view_layout.has_method("save_auto_refresh_rate_default"):
+		applied = bool(view_layout.save_auto_refresh_rate_default(true, window))
+	elif view_layout != null and view_layout.has_method("apply_auto_refresh_rate"):
+		applied = bool(view_layout.apply_auto_refresh_rate(window, true))
+	if not applied:
+		_open_system_display_settings(registry)
 
 
 func _normalize_display_mode(mode: String) -> String:
-	return DISPLAY_MODE_FULLSCREEN if mode.strip_edges().to_lower() == DISPLAY_MODE_FULLSCREEN else DISPLAY_MODE_WINDOWED
+	var normalized := mode.strip_edges().to_lower()
+	if normalized == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN or normalized == "exclusive":
+		return DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
+	if normalized == DISPLAY_MODE_FULLSCREEN:
+		return DISPLAY_MODE_FULLSCREEN
+	return DISPLAY_MODE_WINDOWED
+
+
+func _get_display_mode_description() -> String:
+	if display_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN:
+		return "DWM 합성을 우회하는 독점 전체화면으로 표시합니다"
+	if display_mode == DISPLAY_MODE_FULLSCREEN:
+		return "네이티브 해상도 전체화면으로 표시합니다"
+	return "필러 배경 포함 창모드로 표시합니다"
+
+
+func _get_render_fps_cap_options(registry: Object) -> Array[int]:
+	var view_layout: Object = _get_instance(registry, "battle_view_layout")
+	if view_layout != null and view_layout.has_method("get_render_fps_cap_options"):
+		var raw_options: Variant = view_layout.get_render_fps_cap_options()
+		if raw_options is Array:
+			var options: Array[int] = []
+			for raw_value in raw_options:
+				options.append(int(raw_value))
+			if not options.is_empty():
+				return options
+	return [
+		RENDER_FPS_CAP_UNLIMITED,
+		RENDER_FPS_CAP_STABILITY,
+		RENDER_FPS_CAP_SMOOTH,
+		RENDER_FPS_CAP_BALANCED,
+		RENDER_FPS_CAP_STABLE_MONITOR,
+		RENDER_FPS_CAP_MONITOR,
+	]
+
+
+func _get_render_fps_cap_label(registry: Object) -> String:
+	var view_layout: Object = _get_instance(registry, "battle_view_layout")
+	if view_layout != null and view_layout.has_method("get_render_fps_cap_label"):
+		return str(view_layout.get_render_fps_cap_label(render_fps_cap, null))
+	if render_fps_cap == RENDER_FPS_CAP_STABLE_MONITOR:
+		return "Stable 48 FPS"
+	if render_fps_cap == RENDER_FPS_CAP_UNLIMITED:
+		return "제한 없음"
+	if render_fps_cap == RENDER_FPS_CAP_MONITOR:
+		return "모니터 Hz"
+	return "%d FPS" % render_fps_cap
+
+
+func _get_vsync_mode_options(registry: Object) -> Array[int]:
+	var view_layout: Object = _get_instance(registry, "battle_view_layout")
+	if view_layout != null and view_layout.has_method("get_vsync_mode_options"):
+		var raw_options: Variant = view_layout.get_vsync_mode_options()
+		if raw_options is Array:
+			var options: Array[int] = []
+			for raw_value in raw_options:
+				options.append(int(raw_value))
+			if not options.is_empty():
+				return options
+	return [
+		VSYNC_MODE_AUTO,
+		VSYNC_MODE_ENABLED,
+		VSYNC_MODE_MAILBOX,
+		VSYNC_MODE_DISABLED,
+	]
+
+
+func _get_vsync_mode_label(registry: Object) -> String:
+	var view_layout: Object = _get_instance(registry, "battle_view_layout")
+	if view_layout != null and view_layout.has_method("get_vsync_mode_label"):
+		return str(view_layout.get_vsync_mode_label(vsync_mode))
+	if vsync_mode == VSYNC_MODE_AUTO:
+		return "Auto"
+	if vsync_mode == VSYNC_MODE_DISABLED:
+		return "VSync Off"
+	if vsync_mode == VSYNC_MODE_MAILBOX:
+		return "Mailbox"
+	return "VSync On"
+
+
+func _get_display_pacing_recommendation(registry: Object) -> String:
+	var view_layout: Object = _get_instance(registry, "battle_view_layout")
+	if view_layout != null and view_layout.has_method("get_display_pacing_recommendation"):
+		return str(view_layout.get_display_pacing_recommendation(null, display_mode, render_fps_cap, vsync_mode))
+	return "60Hz 모니터 + 60 FPS + VSync On을 권장합니다.\n독점 전체화면은 페이싱 안정성을 높입니다."
+
+
+func _open_system_display_settings(registry: Object) -> void:
+	var view_layout: Object = _get_instance(registry, "battle_view_layout")
+	if view_layout != null and view_layout.has_method("open_system_display_settings"):
+		view_layout.open_system_display_settings()
+		return
+	if OS.get_name() == "Windows":
+		OS.shell_open("ms-settings:display")
 
 
 func _get_owner_window(owner: Object) -> Object:
@@ -399,7 +664,7 @@ func _set_volume_from_slider(slider_key: String, mouse_x: float, registry: Objec
 
 func _draw_main_menu(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
 	_draw_text_centered(canvas, font, "일시정지", panel_rect.position + Vector2(panel_rect.size.x * 0.5, 47.0), 28, Color.WHITE)
-	_draw_text_centered(canvas, font, "핑파이터 - 링피아", panel_rect.position + Vector2(panel_rect.size.x * 0.5, 72.0), 12, TEXT_DIM)
+	_draw_text_centered(canvas, font, "디스크하츠 - 링피아", panel_rect.position + Vector2(panel_rect.size.x * 0.5, 72.0), 12, TEXT_DIM)
 	var entries: Array = _get_main_entries()
 	for index in range(entries.size()):
 		_draw_button(canvas, font, _get_button_rect(panel_rect, index, entries.size()), str(entries[index].get("label", "")), index == selected_index, mouse_pos)
@@ -409,21 +674,21 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 	var header_rect := Rect2(panel_rect.position, Vector2(panel_rect.size.x, 62.0))
 	canvas.draw_rect(header_rect, HEADER_COLOR)
 	canvas.draw_line(panel_rect.position + Vector2(14.0, 62.0), Vector2(panel_rect.end.x - 14.0, panel_rect.position.y + 62.0), PANEL_BORDER, 2.0)
-	_draw_text(canvas, font, "옵션", panel_rect.position + Vector2(28.0, 40.0), 24, Color.WHITE)
+	_draw_text(canvas, font, "설정", panel_rect.position + Vector2(28.0, 40.0), 24, Color.WHITE)
 	_draw_tab(canvas, font, _get_sound_tab_rect(panel_rect), "사운드", options_tab == OPTIONS_TAB_SOUND)
 	_draw_tab(canvas, font, _get_display_tab_rect(panel_rect), "디스플레이", options_tab == OPTIONS_TAB_DISPLAY)
 
-	var content_rect := Rect2(panel_rect.position + Vector2(28.0, 84.0), Vector2(panel_rect.size.x - 56.0, 178.0))
+	var content_rect := Rect2(panel_rect.position + Vector2(28.0, 84.0), Vector2(panel_rect.size.x - 56.0, panel_rect.size.y - 166.0))
 	_draw_panel(canvas, content_rect, SECTION_COLOR, Color(PANEL_BORDER.r, PANEL_BORDER.g, PANEL_BORDER.b, 0.42), 1.0)
 	if options_tab == OPTIONS_TAB_DISPLAY:
-		_draw_display_tab(canvas, font, panel_rect, mouse_pos)
+		_draw_display_tab(canvas, font, panel_rect, mouse_pos, registry)
 	else:
 		_draw_volume_slider(canvas, font, SOUND_SLIDER_BGM, "BGM 볼륨", _get_bgm_volume(registry), ACCENT_BLUE, options_focus == 0, mouse_pos, panel_rect)
 		_draw_volume_slider(canvas, font, SOUND_SLIDER_SFX, "효과음 볼륨", _get_sfx_volume(registry), ACCENT_GREEN, options_focus == 1, mouse_pos, panel_rect)
 
 	if options_tab == OPTIONS_TAB_SOUND:
 		var back_rect: Rect2 = _get_back_button_rect(panel_rect)
-		_draw_button(canvas, font, back_rect, "뒤로가기", options_focus == 2, mouse_pos)
+		_draw_button(canvas, font, back_rect, _get_options_back_label(), options_focus == 2, mouse_pos)
 
 
 func _draw_tab(canvas: CanvasItem, font: Font, rect: Rect2, label: String, active_tab: bool) -> void:
@@ -456,19 +721,36 @@ func _draw_volume_slider(
 	_draw_text(canvas, font, percent, Vector2(slider_rect.end.x + 18.0, row_center_y + 6.0), 15, accent)
 
 
-func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
+func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object) -> void:
 	var label_pos := panel_rect.position + Vector2(54.0, 137.0)
 	_draw_text(canvas, font, "화면 모드", label_pos, 19, Color.WHITE)
 	_draw_mode_pill(canvas, font, _get_display_fullscreen_rect(panel_rect), "전체화면", display_mode == DISPLAY_MODE_FULLSCREEN, options_focus == 0, mouse_pos)
+	_draw_mode_pill(canvas, font, _get_display_exclusive_fullscreen_rect(panel_rect), "독점", display_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN, options_focus == 0, mouse_pos)
 	_draw_mode_pill(canvas, font, _get_display_windowed_rect(panel_rect), "창모드", display_mode == DISPLAY_MODE_WINDOWED, options_focus == 0, mouse_pos)
 
-	var desc := "네이티브 해상도 전체화면으로 표시합니다" if display_mode == DISPLAY_MODE_FULLSCREEN else "필러 배경 포함 창모드로 표시합니다"
+	var desc := _get_display_mode_description()
 	_draw_text_centered(canvas, font, desc, panel_rect.position + Vector2(panel_rect.size.x * 0.5, 176.0), 14, TEXT_DIM)
+
+	var fps_row_rect: Rect2 = _get_display_fps_cap_row_rect(panel_rect)
+	var fps_value_rect: Rect2 = _get_display_fps_cap_value_rect(panel_rect)
+	var fps_hovered: bool = fps_row_rect.has_point(mouse_pos)
+	var fps_border := ACCENT_BLUE if options_focus == 1 or fps_hovered else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.42)
+	_draw_text(canvas, font, "렌더 FPS", fps_row_rect.position + Vector2(0.0, 27.0), 18, Color.WHITE)
+	_draw_panel(canvas, fps_value_rect, BUTTON_HOVER if fps_hovered else BUTTON_COLOR, fps_border, 1.0)
+	_draw_text_in_rect(canvas, font, _get_render_fps_cap_label(registry), fps_value_rect, 16, Color.WHITE)
+
+	var vsync_row_rect: Rect2 = _get_display_vsync_row_rect(panel_rect)
+	var vsync_value_rect: Rect2 = _get_display_vsync_value_rect(panel_rect)
+	var vsync_hovered: bool = vsync_row_rect.has_point(mouse_pos)
+	var vsync_border := ACCENT_BLUE if options_focus == 2 or vsync_hovered else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.42)
+	_draw_text(canvas, font, "VSync", vsync_row_rect.position + Vector2(0.0, 27.0), 18, Color.WHITE)
+	_draw_panel(canvas, vsync_value_rect, BUTTON_HOVER if vsync_hovered else BUTTON_COLOR, vsync_border, 1.0)
+	_draw_text_in_rect(canvas, font, _get_vsync_mode_label(registry), vsync_value_rect, 16, Color.WHITE)
 
 	var checkbox_rect: Rect2 = _get_display_default_checkbox_rect(panel_rect)
 	var row_rect: Rect2 = _get_display_default_row_rect(panel_rect)
 	var row_hovered: bool = row_rect.has_point(mouse_pos)
-	var border := ACCENT_BLUE if options_focus == 1 or row_hovered else Color(150.0 / 255.0, 160.0 / 255.0, 176.0 / 255.0)
+	var border := ACCENT_BLUE if options_focus == 3 or row_hovered else Color(150.0 / 255.0, 160.0 / 255.0, 176.0 / 255.0)
 	var fill := Color(60.0 / 255.0, 90.0 / 255.0, 130.0 / 255.0, 0.95) if remember_display_mode else Color(45.0 / 255.0, 55.0 / 255.0, 70.0 / 255.0, 0.95)
 	_draw_panel(canvas, checkbox_rect, fill, border, 2.0)
 	if remember_display_mode:
@@ -477,8 +759,23 @@ func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_
 		canvas.draw_line(center + Vector2(-2.0, 5.0), center + Vector2(8.0, -6.0), ACCENT_BLUE, 3.0)
 	_draw_text(canvas, font, "해당 화면설정을 기본으로 저장", Vector2(checkbox_rect.end.x + 14.0, checkbox_rect.position.y + 23.0), 19, Color.WHITE)
 
-	_draw_button(canvas, font, _get_display_save_button_rect(panel_rect), "저장", options_focus == 2, mouse_pos)
-	_draw_button(canvas, font, _get_display_back_button_rect(panel_rect), "뒤로가기", options_focus == 3, mouse_pos)
+	var auto_checkbox_rect: Rect2 = _get_display_auto_refresh_checkbox_rect(panel_rect)
+	var auto_row_rect: Rect2 = _get_display_auto_refresh_row_rect(panel_rect)
+	var auto_row_hovered: bool = auto_row_rect.has_point(mouse_pos)
+	var auto_border := ACCENT_BLUE if options_focus == 4 or auto_row_hovered else Color(150.0 / 255.0, 160.0 / 255.0, 176.0 / 255.0)
+	var auto_fill := Color(60.0 / 255.0, 90.0 / 255.0, 130.0 / 255.0, 0.95) if auto_refresh_rate_60hz else Color(45.0 / 255.0, 55.0 / 255.0, 70.0 / 255.0, 0.95)
+	_draw_panel(canvas, auto_checkbox_rect, auto_fill, auto_border, 2.0)
+	if auto_refresh_rate_60hz:
+		var auto_center := auto_checkbox_rect.get_center()
+		canvas.draw_line(auto_center + Vector2(-6.0, 0.0), auto_center + Vector2(-2.0, 5.0), ACCENT_BLUE, 3.0)
+		canvas.draw_line(auto_center + Vector2(-2.0, 5.0), auto_center + Vector2(8.0, -6.0), ACCENT_BLUE, 3.0)
+	_draw_text(canvas, font, "게임 중 60Hz 자동 전환", Vector2(auto_checkbox_rect.end.x + 14.0, auto_checkbox_rect.position.y + 23.0), 19, Color.WHITE)
+
+	_draw_recommendation_block(canvas, font, _get_display_pacing_recommendation_rect(panel_rect), _get_display_pacing_recommendation(registry))
+	_draw_button(canvas, font, _get_display_recommended_button_rect(panel_rect), "권장값 적용", options_focus == 5, mouse_pos)
+	_draw_button(canvas, font, _get_display_apply_60hz_button_rect(panel_rect), "지금 60Hz", options_focus == 6, mouse_pos)
+	_draw_button(canvas, font, _get_display_save_button_rect(panel_rect), "저장", options_focus == 7, mouse_pos)
+	_draw_button(canvas, font, _get_display_back_button_rect(panel_rect), _get_options_back_label(), options_focus == 8, mouse_pos)
 
 
 func _draw_mode_pill(
@@ -508,6 +805,13 @@ func _draw_button(canvas: CanvasItem, font: Font, rect: Rect2, text: String, sel
 	if selected:
 		canvas.draw_rect(Rect2(rect.position + Vector2(8.0, 10.0), Vector2(4.0, rect.size.y - 20.0)), ACCENT_GOLD)
 	_draw_text_in_rect(canvas, font, text, rect, 18, Color.WHITE)
+
+
+func _draw_recommendation_block(canvas: CanvasItem, font: Font, rect: Rect2, text: String) -> void:
+	_draw_panel(canvas, rect, Color(20.0 / 255.0, 28.0 / 255.0, 42.0 / 255.0, 0.92), Color(ACCENT_GOLD.r, ACCENT_GOLD.g, ACCENT_GOLD.b, 0.45), 1.0)
+	var lines := text.split("\n", false)
+	for index in range(min(lines.size(), 2)):
+		_draw_text(canvas, font, str(lines[index]), rect.position + Vector2(16.0, 22.0 + float(index) * 21.0), 14, Color(230.0 / 255.0, 236.0 / 255.0, 246.0 / 255.0))
 
 
 func _draw_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float) -> void:
@@ -591,15 +895,35 @@ func _get_back_button_rect(panel_rect: Rect2) -> Rect2:
 
 
 func _get_display_fullscreen_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(250.0, 103.0), Vector2(150.0, 42.0))
+	return Rect2(panel_rect.position + Vector2(214.0, 103.0), Vector2(138.0, 42.0))
+
+
+func _get_display_exclusive_fullscreen_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(368.0, 103.0), Vector2(138.0, 42.0))
 
 
 func _get_display_windowed_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(424.0, 103.0), Vector2(150.0, 42.0))
+	return Rect2(panel_rect.position + Vector2(522.0, 103.0), Vector2(138.0, 42.0))
+
+
+func _get_display_fps_cap_row_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(250.0, 165.0), Vector2(390.0, 40.0))
+
+
+func _get_display_fps_cap_value_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(424.0, 166.0), Vector2(150.0, 38.0))
+
+
+func _get_display_vsync_row_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(250.0, 214.0), Vector2(390.0, 40.0))
+
+
+func _get_display_vsync_value_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(424.0, 215.0), Vector2(150.0, 38.0))
 
 
 func _get_display_default_checkbox_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(250.0, 202.0), Vector2(28.0, 28.0))
+	return Rect2(panel_rect.position + Vector2(250.0, 268.0), Vector2(28.0, 28.0))
 
 
 func _get_display_default_row_rect(panel_rect: Rect2) -> Rect2:
@@ -607,12 +931,37 @@ func _get_display_default_row_rect(panel_rect: Rect2) -> Rect2:
 	return Rect2(checkbox_rect.position + Vector2(0.0, -6.0), Vector2(390.0, 40.0))
 
 
+func _get_display_auto_refresh_checkbox_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(250.0, 302.0), Vector2(28.0, 28.0))
+
+
+func _get_display_auto_refresh_row_rect(panel_rect: Rect2) -> Rect2:
+	var checkbox_rect: Rect2 = _get_display_auto_refresh_checkbox_rect(panel_rect)
+	return Rect2(checkbox_rect.position + Vector2(0.0, -6.0), Vector2(390.0, 40.0))
+
+
+func _get_display_pacing_recommendation_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(250.0, 342.0), Vector2(560.0, 52.0))
+
+
+func _get_display_recommended_button_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(Vector2(panel_rect.get_center().x - 376.0, panel_rect.end.y - 72.0), Vector2(170.0, 48.0))
+
+
+func _get_display_apply_60hz_button_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(Vector2(panel_rect.get_center().x - 188.0, panel_rect.end.y - 72.0), Vector2(170.0, 48.0))
+
+
 func _get_display_save_button_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(Vector2(panel_rect.get_center().x - 196.0, panel_rect.end.y - 72.0), Vector2(170.0, 48.0))
+	return Rect2(Vector2(panel_rect.get_center().x, panel_rect.end.y - 72.0), Vector2(170.0, 48.0))
 
 
 func _get_display_back_button_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(Vector2(panel_rect.get_center().x + 26.0, panel_rect.end.y - 72.0), Vector2(170.0, 48.0))
+	return Rect2(Vector2(panel_rect.get_center().x + 188.0, panel_rect.end.y - 72.0), Vector2(170.0, 48.0))
+
+
+func _get_options_back_label() -> String:
+	return "닫기" if options_only else "뒤로가기"
 
 
 func _get_main_entries() -> Array:

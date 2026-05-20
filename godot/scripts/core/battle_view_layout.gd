@@ -11,7 +11,8 @@ const DISPLAY_MODE_FULLSCREEN := "fullscreen"
 const DISPLAY_MODE_EXCLUSIVE_FULLSCREEN := "exclusive_fullscreen"
 const DISPLAY_MODE_WINDOWED := "windowed"
 const SETTINGS_PATH := "user://display_settings.cfg"
-const SETTINGS_SCHEMA_VERSION := 3
+const SETTINGS_BACKUP_PATH := "user://display_settings.last_good.cfg"
+const SETTINGS_SCHEMA_VERSION := 4
 const RENDER_FPS_CAP_UNLIMITED := 0
 const RENDER_FPS_CAP_STABILITY := 48
 const RENDER_FPS_CAP_SMOOTH := 60
@@ -23,6 +24,12 @@ const RENDER_FPS_CAP_STABLE_MAX := 90
 const RENDER_FPS_CAP_STABLE_MIN := 45
 const RENDER_FPS_CAP_STABLE_PREFERRED_MAX := 60
 const RENDER_FPS_DRIVER_PRESENT_MIN_HZ := 120
+const HIGH_REFRESH_RECOMMENDATION_MIN_HZ := 120
+const WINDOWS_DISPLAY_SETTINGS_URI := "ms-settings:display"
+const PHYSICS_TICKS_SETTING := "physics/common/physics_ticks_per_second"
+const PHYSICS_TICKS_PROJECT_DEFAULT := 72
+const PHYSICS_TICKS_SYNC_MIN := 30
+const PHYSICS_TICKS_SYNC_MAX := 120
 const VSYNC_MODE_AUTO := -1
 const VSYNC_MODE_OPTIONS: Array[int] = [
 	VSYNC_MODE_AUTO,
@@ -38,13 +45,26 @@ const RENDER_FPS_CAP_OPTIONS: Array[int] = [
 	RENDER_FPS_CAP_STABLE_MONITOR,
 	RENDER_FPS_CAP_MONITOR,
 ]
+const DISPLAY_SETTINGS_GRAPHICS_KEYS: Array[String] = [
+	"remember_display_mode",
+	"display_mode",
+	"render_fps_cap",
+	"vsync_mode",
+	"auto_60hz_refresh_rate",
+]
 
 var _last_windowed_size := Vector2i.ZERO
 var _last_windowed_position := Vector2i.ZERO
 static var _runtime_render_fps_cap := RENDER_FPS_CAP_DEFAULT
+static var _runtime_physics_ticks_per_second := PHYSICS_TICKS_PROJECT_DEFAULT
+static var _project_physics_ticks_per_second := PHYSICS_TICKS_PROJECT_DEFAULT
+static var _project_physics_ticks_initialized := false
 static var _configure_window_count := 0
 static var _last_configure_window_summary := "not_called"
 static var _last_settings_save_summary := "not_saved"
+static var _settings_load_count := 0
+static var _last_settings_load_summary := "not_loaded"
+static var _last_good_backup_written := false
 
 
 func configure_window(window: Window) -> void:
@@ -56,6 +76,7 @@ func configure_window(window: Window) -> void:
 	var remember_display_mode := get_remember_display_mode()
 	var saved_vsync_mode: int = get_saved_vsync_mode()
 	var saved_render_cap: int = get_saved_render_fps_cap()
+	var settings_load_summary := get_settings_load_summary()
 	if can_manage_window:
 		if remember_display_mode:
 			apply_display_mode(window, saved_display_mode)
@@ -65,9 +86,10 @@ func configure_window(window: Window) -> void:
 				window.size = target_rect.size
 				window.position = target_rect.position
 				_remember_windowed_geometry(window)
+	apply_auto_refresh_rate(window, get_auto_refresh_rate_enabled())
 	apply_render_fps_cap(window, saved_render_cap, saved_vsync_mode)
 	apply_vsync_mode(saved_vsync_mode, window)
-	_last_configure_window_summary = "count=%d can_manage=%s saved_window=%s remember=%s saved_cap=%s saved_vsync=%s actual_window=%s actual_vsync=%s" % [
+	_last_configure_window_summary = "count=%d can_manage=%s saved_window=%s remember=%s saved_cap=%s saved_vsync=%s actual_window=%s actual_vsync=%s config=%s" % [
 		_configure_window_count,
 		"on" if can_manage_window else "off",
 		saved_display_mode,
@@ -76,6 +98,7 @@ func configure_window(window: Window) -> void:
 		get_vsync_mode_label(saved_vsync_mode).replace(" ", "_"),
 		get_display_mode(window),
 		get_vsync_mode_label(get_vsync_mode()).replace(" ", "_"),
+		settings_load_summary,
 	]
 
 
@@ -155,6 +178,8 @@ func save_display_mode_default(mode: String, remember_default: bool) -> bool:
 		config.erase_section_key("graphics", "display_mode")
 	var result := config.save(SETTINGS_PATH)
 	_record_settings_save("display", config, result)
+	if result == OK:
+		_save_last_good_display_settings(config)
 	return result == OK
 
 
@@ -186,12 +211,18 @@ func get_render_fps_cap_options() -> Array[int]:
 func apply_render_fps_cap(window: Window, cap: int, vsync_mode: int = VSYNC_MODE_AUTO) -> int:
 	var normalized_cap: int = _normalize_render_fps_cap(cap)
 	_runtime_render_fps_cap = normalized_cap
-	Engine.set("max_fps", _resolve_render_fps_cap(window, normalized_cap, vsync_mode))
+	var engine_cap: int = _resolve_render_fps_cap(window, normalized_cap, vsync_mode)
+	Engine.set("max_fps", engine_cap)
+	_apply_physics_ticks_for_render_cap(normalized_cap, engine_cap)
 	return normalized_cap
 
 
 static func get_runtime_render_fps_cap() -> int:
 	return _runtime_render_fps_cap
+
+
+static func get_runtime_physics_ticks_per_second() -> int:
+	return _runtime_physics_ticks_per_second
 
 
 static func get_configure_window_summary() -> String:
@@ -202,6 +233,10 @@ static func get_settings_save_summary() -> String:
 	return _last_settings_save_summary
 
 
+static func get_settings_load_summary() -> String:
+	return _last_settings_load_summary
+
+
 func save_render_fps_cap_default(cap: int) -> bool:
 	var normalized_cap: int = _normalize_render_fps_cap(cap)
 	_runtime_render_fps_cap = normalized_cap
@@ -210,6 +245,8 @@ func save_render_fps_cap_default(cap: int) -> bool:
 	config.set_value("graphics", "render_fps_cap", normalized_cap)
 	var result := config.save(SETTINGS_PATH)
 	_record_settings_save("render_cap", config, result)
+	if result == OK:
+		_save_last_good_display_settings(config)
 	return result == OK
 
 
@@ -238,6 +275,42 @@ func save_vsync_mode_default(mode: int) -> bool:
 	config.set_value("graphics", "vsync_mode", _normalize_vsync_mode(mode))
 	var result := config.save(SETTINGS_PATH)
 	_record_settings_save("vsync", config, result)
+	if result == OK:
+		_save_last_good_display_settings(config)
+	return result == OK
+
+
+func get_auto_refresh_rate_enabled() -> bool:
+	var config := _load_display_settings()
+	return bool(config.get_value("graphics", "auto_60hz_refresh_rate", false))
+
+
+func apply_auto_refresh_rate(window: Window, enabled: bool) -> bool:
+	var refresh_manager := _get_display_refresh_manager()
+	if refresh_manager == null:
+		return false
+	if not enabled:
+		if refresh_manager.has_method("restore_refresh_rate"):
+			return bool(refresh_manager.restore_refresh_rate())
+		return false
+	var screen_index: int = DisplayServer.SCREEN_OF_MAIN_WINDOW
+	if window != null:
+		screen_index = window.current_screen
+	if refresh_manager.has_method("apply_auto_60hz"):
+		return bool(refresh_manager.apply_auto_60hz(screen_index))
+	return false
+
+
+func save_auto_refresh_rate_default(enabled: bool, window: Window = null) -> bool:
+	var config := _load_display_settings()
+	_stamp_display_settings_schema(config)
+	config.set_value("graphics", "auto_60hz_refresh_rate", enabled)
+	var result := config.save(SETTINGS_PATH)
+	_record_settings_save("auto_refresh", config, result)
+	if result == OK:
+		_save_last_good_display_settings(config)
+		if not enabled or window != null:
+			apply_auto_refresh_rate(window, enabled)
 	return result == OK
 
 
@@ -263,6 +336,44 @@ func get_render_fps_cap_label(cap: int, window: Window = null) -> String:
 	if normalized_cap == RENDER_FPS_CAP_MONITOR:
 		return "%d Hz" % _get_monitor_refresh_rate(window)
 	return "%d FPS" % normalized_cap
+
+
+func get_monitor_refresh_rate(window: Window = null) -> int:
+	return _get_monitor_refresh_rate(window)
+
+
+func is_high_refresh_monitor(window: Window = null) -> bool:
+	return get_monitor_refresh_rate(window) >= HIGH_REFRESH_RECOMMENDATION_MIN_HZ
+
+
+func get_display_pacing_recommendation(
+	window: Window = null,
+	selected_display_mode: String = DISPLAY_MODE_WINDOWED,
+	selected_cap: int = RENDER_FPS_CAP_DEFAULT,
+	selected_vsync_mode: int = VSYNC_MODE_AUTO
+) -> String:
+	var monitor_rate: int = get_monitor_refresh_rate(window)
+	var normalized_mode := _normalize_display_mode(selected_display_mode)
+	var normalized_cap: int = _normalize_render_fps_cap(selected_cap)
+	var normalized_vsync: int = _normalize_vsync_mode(selected_vsync_mode)
+	var game_settings_ready := (
+		normalized_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
+		and normalized_cap == RENDER_FPS_CAP_SMOOTH
+		and normalized_vsync == DisplayServer.VSYNC_ENABLED
+	)
+	if monitor_rate >= HIGH_REFRESH_RECOMMENDATION_MIN_HZ:
+		if game_settings_ready:
+			return "%dHz 모니터 감지: 게임 설정은 60 FPS + VSync On입니다.\nWindows 주사율만 60Hz로 낮추면 가장 안정적입니다." % monitor_rate
+		return "%dHz 모니터 감지: Windows 60Hz를 권장합니다.\n게임은 독점 전체화면 + 60 FPS + VSync On이 가장 안정적입니다." % monitor_rate
+	if game_settings_ready:
+		return "%dHz 모니터: 권장 게임 설정입니다.\n60 FPS + VSync On 페이싱을 유지합니다." % monitor_rate
+	return "%dHz 모니터: 60 FPS + VSync On을 권장합니다.\n독점 전체화면은 페이싱 안정성을 높입니다." % monitor_rate
+
+
+func open_system_display_settings() -> int:
+	if OS.get_name() != "Windows":
+		return ERR_UNAVAILABLE
+	return OS.shell_open(WINDOWS_DISPLAY_SETTINGS_URI)
 
 
 func is_fullscreen(window: Window) -> bool:
@@ -313,6 +424,39 @@ func _resolve_render_fps_cap(window: Window, cap: int, vsync_mode: int = VSYNC_M
 	return normalized_cap
 
 
+func _apply_physics_ticks_for_render_cap(cap: int, engine_cap: int) -> int:
+	var physics_ticks: int = _resolve_physics_ticks_per_second(cap, engine_cap)
+	Engine.physics_ticks_per_second = physics_ticks
+	_runtime_physics_ticks_per_second = physics_ticks
+	return physics_ticks
+
+
+func _resolve_physics_ticks_per_second(cap: int, engine_cap: int) -> int:
+	var normalized_cap: int = _normalize_render_fps_cap(cap)
+	if normalized_cap == RENDER_FPS_CAP_SMOOTH:
+		return RENDER_FPS_CAP_SMOOTH
+	if normalized_cap == RENDER_FPS_CAP_BALANCED:
+		return RENDER_FPS_CAP_BALANCED
+	if (
+		normalized_cap == RENDER_FPS_CAP_STABLE_MONITOR
+		or normalized_cap == RENDER_FPS_CAP_MONITOR
+	):
+		if engine_cap >= PHYSICS_TICKS_SYNC_MIN and engine_cap <= PHYSICS_TICKS_SYNC_MAX:
+			return engine_cap
+	return _get_project_physics_ticks_per_second()
+
+
+static func _get_project_physics_ticks_per_second() -> int:
+	if not _project_physics_ticks_initialized:
+		_project_physics_ticks_per_second = clampi(
+			int(ProjectSettings.get_setting(PHYSICS_TICKS_SETTING, PHYSICS_TICKS_PROJECT_DEFAULT)),
+			PHYSICS_TICKS_SYNC_MIN,
+			PHYSICS_TICKS_SYNC_MAX
+		)
+		_project_physics_ticks_initialized = true
+	return _project_physics_ticks_per_second
+
+
 func _should_use_driver_present_for_cap(window: Window, cap: int, vsync_mode: int = VSYNC_MODE_AUTO) -> bool:
 	var normalized_vsync: int = _normalize_vsync_mode(vsync_mode)
 	var can_delegate_present: bool = (
@@ -348,6 +492,19 @@ func _get_monitor_refresh_rate(window: Window = null) -> int:
 	return max(30, int(round(refresh_rate)))
 
 
+func _get_display_refresh_manager() -> Object:
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if not main_loop is SceneTree:
+		return null
+	var root := (main_loop as SceneTree).root
+	if root == null:
+		return null
+	var manager := root.get_node_or_null("DisplayRefreshManager")
+	if manager != null and is_instance_valid(manager):
+		return manager
+	return null
+
+
 func _get_stable_monitor_refresh_rate(window: Window = null) -> int:
 	var monitor_rate: int = _get_monitor_refresh_rate(window)
 	if monitor_rate <= RENDER_FPS_CAP_STABLE_MAX:
@@ -372,11 +529,34 @@ func _get_stable_monitor_refresh_rate(window: Window = null) -> int:
 
 func _load_display_settings() -> ConfigFile:
 	var config := ConfigFile.new()
-	if FileAccess.file_exists(SETTINGS_PATH):
-		var result := config.load(SETTINGS_PATH)
-		if result != OK:
-			return ConfigFile.new()
-		_migrate_display_settings(config)
+	_settings_load_count += 1
+	var exists := FileAccess.file_exists(SETTINGS_PATH)
+	if not exists:
+		_record_settings_load("missing", exists, ERR_FILE_NOT_FOUND, config)
+		return config
+	var load_state := "ok"
+	var load_result := _load_config_file(config)
+	var result: int = int(load_result.get("result", OK))
+	load_state = str(load_result.get("state", load_state))
+	if result != OK:
+		_record_settings_load(load_state, exists, result, config)
+		return ConfigFile.new()
+	var repair_reason := _repair_empty_display_settings_payload(config)
+	_migrate_display_settings(config)
+	var completion_reason := _complete_missing_display_settings(config)
+	if repair_reason != "" or completion_reason != "":
+		var reason := repair_reason if repair_reason != "" else completion_reason
+		var repair_result := config.save(SETTINGS_PATH)
+		_record_settings_save(reason, config, repair_result)
+		if repair_result == OK:
+			_save_last_good_display_settings(config)
+	elif not _last_good_backup_written and not FileAccess.file_exists(SETTINGS_BACKUP_PATH):
+		_save_last_good_display_settings(config)
+	if repair_reason != "":
+		load_state = "%s_%s" % [load_state, repair_reason]
+	elif completion_reason != "":
+		load_state = "%s_%s" % [load_state, completion_reason]
+	_record_settings_load(load_state, exists, result, config)
 	return config
 
 
@@ -419,14 +599,132 @@ func _record_settings_save(reason: String, config: ConfigFile, result: int) -> v
 	var remember := bool(config.get_value("graphics", "remember_display_mode", false))
 	var saved_cap := _normalize_render_fps_cap(int(config.get_value("graphics", "render_fps_cap", RENDER_FPS_CAP_DEFAULT)))
 	var saved_vsync := _normalize_vsync_mode(int(config.get_value("graphics", "vsync_mode", VSYNC_MODE_AUTO)))
-	_last_settings_save_summary = "%s_ok=%s_window=%s_remember=%s_cap=%s_vsync=%s" % [
+	var auto_refresh := bool(config.get_value("graphics", "auto_60hz_refresh_rate", false))
+	_last_settings_save_summary = "%s_ok=%s_window=%s_remember=%s_cap=%s_vsync=%s_auto60=%s" % [
 		reason,
 		"on" if result == OK else "off",
 		saved_mode,
 		"on" if remember else "off",
 		str(get_render_fps_cap_label(saved_cap, null)).replace(" ", "_"),
 		get_vsync_mode_label(saved_vsync).replace(" ", "_"),
+		"on" if auto_refresh else "off",
 	]
+
+
+func _load_config_file(config: ConfigFile) -> Dictionary:
+	var raw_bytes := FileAccess.get_file_as_bytes(SETTINGS_PATH)
+	if _has_utf8_bom(raw_bytes):
+		var clean_bytes := raw_bytes.slice(3)
+		var clean_text := clean_bytes.get_string_from_utf8()
+		var parse_result := config.parse(clean_text)
+		if parse_result == OK:
+			var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
+			if file != null:
+				file.store_string(clean_text)
+				file.close()
+		return {
+			"result": parse_result,
+			"state": "ok_clean_bom" if parse_result == OK else "error_clean_bom",
+		}
+	var result := config.load(SETTINGS_PATH)
+	return {
+		"result": result,
+		"state": "ok" if result == OK else "error",
+	}
+
+
+func _has_utf8_bom(bytes: PackedByteArray) -> bool:
+	return bytes.size() >= 3 and bytes[0] == 0xEF and bytes[1] == 0xBB and bytes[2] == 0xBF
+
+
+func _repair_empty_display_settings_payload(config: ConfigFile) -> String:
+	if _has_display_settings_payload(config):
+		return ""
+	var backup_config := ConfigFile.new()
+	if FileAccess.file_exists(SETTINGS_BACKUP_PATH) and backup_config.load(SETTINGS_BACKUP_PATH) == OK:
+		if _has_display_settings_payload(backup_config):
+			_copy_display_settings_payload(backup_config, config)
+			return "repair_backup"
+	config.set_value("graphics", "remember_display_mode", false)
+	config.set_value("graphics", "render_fps_cap", RENDER_FPS_CAP_DEFAULT)
+	config.set_value("graphics", "vsync_mode", VSYNC_MODE_AUTO)
+	config.set_value("graphics", "auto_60hz_refresh_rate", false)
+	return "repair_defaults"
+
+
+func _complete_missing_display_settings(config: ConfigFile) -> String:
+	var changed := false
+	if not config.has_section_key("graphics", "remember_display_mode"):
+		var saved_mode := _normalize_display_mode(str(config.get_value("graphics", "display_mode", DISPLAY_MODE_WINDOWED)))
+		config.set_value("graphics", "remember_display_mode", saved_mode != DISPLAY_MODE_WINDOWED)
+		changed = true
+	if not config.has_section_key("graphics", "render_fps_cap"):
+		config.set_value("graphics", "render_fps_cap", RENDER_FPS_CAP_DEFAULT)
+		changed = true
+	if not config.has_section_key("graphics", "vsync_mode"):
+		config.set_value("graphics", "vsync_mode", VSYNC_MODE_AUTO)
+		changed = true
+	if not config.has_section_key("graphics", "auto_60hz_refresh_rate"):
+		config.set_value("graphics", "auto_60hz_refresh_rate", false)
+		changed = true
+	if bool(config.get_value("graphics", "remember_display_mode", false)):
+		var saved_display_mode := _normalize_display_mode(str(config.get_value("graphics", "display_mode", DISPLAY_MODE_WINDOWED)))
+		if not config.has_section_key("graphics", "display_mode") or saved_display_mode == "":
+			config.set_value("graphics", "display_mode", DISPLAY_MODE_WINDOWED)
+			changed = true
+	return "repair_partial" if changed else ""
+
+
+func _has_display_settings_payload(config: ConfigFile) -> bool:
+	for key in DISPLAY_SETTINGS_GRAPHICS_KEYS:
+		if config.has_section_key("graphics", key):
+			return true
+	return false
+
+
+func _copy_display_settings_payload(source: ConfigFile, target: ConfigFile) -> void:
+	for key in DISPLAY_SETTINGS_GRAPHICS_KEYS:
+		if source.has_section_key("graphics", key):
+			target.set_value("graphics", key, source.get_value("graphics", key))
+
+
+func _save_last_good_display_settings(config: ConfigFile) -> void:
+	if not _has_display_settings_payload(config):
+		return
+	var backup_config := ConfigFile.new()
+	_copy_display_settings_payload(config, backup_config)
+	_stamp_display_settings_schema(backup_config)
+	if backup_config.save(SETTINGS_BACKUP_PATH) == OK:
+		_last_good_backup_written = true
+
+
+func _record_settings_load(state: String, exists: bool, result: int, config: ConfigFile) -> void:
+	_last_settings_load_summary = "count=%d_state=%s_exists=%s_result=%s_schema=%s_window=%s_remember=%s_cap=%s_vsync=%s_auto60=%s" % [
+		_settings_load_count,
+		state,
+		"on" if exists else "off",
+		_error_token(result),
+		_config_token(config, "meta", "settings_schema_version"),
+		_config_token(config, "graphics", "display_mode"),
+		_config_token(config, "graphics", "remember_display_mode"),
+		_config_token(config, "graphics", "render_fps_cap"),
+		_config_token(config, "graphics", "vsync_mode"),
+		_config_token(config, "graphics", "auto_60hz_refresh_rate"),
+	]
+
+
+func _config_token(config: ConfigFile, section: String, key: String) -> String:
+	if config == null or not config.has_section_key(section, key):
+		return "missing"
+	return str(config.get_value(section, key, "missing")).strip_edges().replace(" ", "_")
+
+
+func _error_token(result: int) -> String:
+	if result == OK:
+		return "OK"
+	if result == ERR_FILE_NOT_FOUND:
+		return "ERR_FILE_NOT_FOUND"
+	return str(result)
 
 
 func _build_default_window_rect() -> Rect2i:
