@@ -1,10 +1,20 @@
 extends RefCounted
 
+const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+
+const MAX_RENDERED_COMBO_PARTICLES := 42
+
+
+func _init() -> void:
+	ImpactFlareTextureCache.prewarm()
+
 
 func draw(canvas: CanvasItem, combo_particles: Array[Dictionary], effect_count: int, shake_offset: Vector2) -> void:
 	if canvas == null:
 		return
-	for particle in combo_particles:
+	var particle_start: int = max(0, combo_particles.size() - MAX_RENDERED_COMBO_PARTICLES)
+	for index in range(particle_start, combo_particles.size()):
+		var particle: Dictionary = combo_particles[index]
 		var particle_life: float = max(0.0, float(particle["life"]))
 		if particle_life <= 0.0:
 			continue
@@ -13,18 +23,22 @@ func draw(canvas: CanvasItem, combo_particles: Array[Dictionary], effect_count: 
 		var particle_color: Color = particle["color"]
 		var particle_pos: Vector2 = particle["pos"] + shake_offset
 		var particle_size: float = max(1.0, float(particle["size"]) * particle_alpha)
-		canvas.draw_circle(
+		ImpactFlareTextureCache.draw_glow(
+			canvas,
 			particle_pos,
 			particle_size * 2.0,
-			Color(particle_color.r, particle_color.g, particle_color.b, 0.22 * particle_alpha)
+			particle_color,
+			0.16 * particle_alpha
 		)
 		if int(particle.get("shape", 0)) == 1:
 			_draw_star_particle(canvas, particle_pos, particle_size, particle_color, particle_alpha, effect_count)
 		else:
-			canvas.draw_circle(
+			ImpactFlareTextureCache.draw_sparkle(
+				canvas,
 				particle_pos,
 				particle_size,
-				Color(particle_color.r, particle_color.g, particle_color.b, 0.92 * particle_alpha)
+				particle_color,
+				0.68 * particle_alpha
 			)
 
 
@@ -54,4 +68,4 @@ func _draw_star_particle(
 			Color(1.0, 1.0, 1.0, 0.58 * particle_alpha),
 			max(1.0, star_width * 0.7)
 		)
-	canvas.draw_circle(particle_pos, particle_size * 0.62, Color(1.0, 1.0, 0.82, 0.96 * particle_alpha))
+	ImpactFlareTextureCache.draw_sparkle(canvas, particle_pos, particle_size * 0.86, Color(1.0, 1.0, 0.82), 0.80 * particle_alpha)

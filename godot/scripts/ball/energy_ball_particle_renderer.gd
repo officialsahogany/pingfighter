@@ -1,7 +1,11 @@
 extends RefCounted
 
-const BALL_RENDER_RADIUS := 16.9
-const ENERGY_BALL_MAX_PARTICLES := 20
+const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+
+const BALL_VISUAL_SCALE := 1.575
+const BALL_RENDER_RADIUS := 16.9 * BALL_VISUAL_SCALE
+const BALL_PARTICLE_BRIGHTNESS := 0.68
+const ENERGY_BALL_MAX_PARTICLES := 12
 const ENERGY_BALL_PARTICLE_COLORS: Array[Color] = [
 	Color(235.0 / 255.0, 248.0 / 255.0, 1.0),
 	Color(215.0 / 255.0, 238.0 / 255.0, 1.0),
@@ -12,17 +16,22 @@ const ENERGY_BALL_PARTICLE_COLORS: Array[Color] = [
 var particles: Array[Dictionary] = []
 
 
+func _init() -> void:
+	ImpactFlareTextureCache.prewarm()
+
+
 func clear() -> void:
 	particles.clear()
 
 
-func draw(canvas: CanvasItem, pos: Vector2) -> void:
-	_spawn_particles()
-	_draw_particles(canvas, pos)
+func draw(canvas: CanvasItem, pos: Vector2, fx_lod_scale: float = 1.0) -> void:
+	var lod_scale: float = clamp(fx_lod_scale, 0.35, 1.0)
+	_spawn_particles(lod_scale)
+	_draw_particles(canvas, pos, lod_scale)
 
 
-func _spawn_particles() -> void:
-	if randf() >= 0.4:
+func _spawn_particles(lod_scale: float) -> void:
+	if randf() >= 0.24 * lod_scale:
 		return
 	var spawn_angle: float = randf_range(0.0, TAU)
 	var spawn_dist: float = BALL_RENDER_RADIUS * randf_range(0.867, 1.445)
@@ -37,14 +46,15 @@ func _spawn_particles() -> void:
 		"color": ENERGY_BALL_PARTICLE_COLORS[randi_range(0, ENERGY_BALL_PARTICLE_COLORS.size() - 1)]
 	})
 
-	while particles.size() > ENERGY_BALL_MAX_PARTICLES:
+	var particle_limit: int = max(5, int(ceil(float(ENERGY_BALL_MAX_PARTICLES) * lod_scale)))
+	while particles.size() > particle_limit:
 		particles.pop_front()
 
 
-func _draw_particles(canvas: CanvasItem, pos: Vector2) -> void:
-	var new_particles: Array[Dictionary] = []
-	for particle in particles:
-		var p: Dictionary = particle
+func _draw_particles(canvas: CanvasItem, pos: Vector2, lod_scale: float) -> void:
+	var write_idx: int = 0
+	for particle_index in range(particles.size()):
+		var p: Dictionary = particles[particle_index]
 		var px: float = float(p["x"]) + float(p["vx"])
 		var py: float = float(p["y"]) + float(p["vy"])
 		var life: float = float(p["life"]) - 1.0
@@ -60,8 +70,9 @@ func _draw_particles(canvas: CanvasItem, pos: Vector2) -> void:
 			var alpha: float = (200.0 * (life / max_life)) / 255.0
 			var size: float = max(1.0, floor(base_size * (life / max_life)))
 			var particle_pos: Vector2 = pos + Vector2(px, py)
-			canvas.draw_circle(particle_pos, size + 2.0, Color(color.r, color.g, color.b, alpha * 0.33))
-			canvas.draw_circle(particle_pos, size, Color(color.r, color.g, color.b, alpha))
-			new_particles.append(p)
+			ImpactFlareTextureCache.draw_glow(canvas, particle_pos, size + 2.0, color, alpha * 0.22 * BALL_PARTICLE_BRIGHTNESS * lod_scale)
+			ImpactFlareTextureCache.draw_sparkle(canvas, particle_pos, size, color, alpha * 0.72 * BALL_PARTICLE_BRIGHTNESS)
+			particles[write_idx] = p
+			write_idx += 1
 
-	particles = new_particles
+	particles.resize(write_idx)

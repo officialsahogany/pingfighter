@@ -25,9 +25,9 @@ func build_effects_context(owner: Object, registry: Object) -> Dictionary:
 	return effects_context.build_context(owner, registry)
 
 
-func build_effects_deps(registry: Object) -> Dictionary:
-	return effects_context.build_deps(registry)
+func build_effects_deps(registry: Object, current_stage: int = 1, character_type: String = "") -> Dictionary:
+	return effects_context.build_deps(registry, current_stage, character_type)
 
 
-func build_match_flow_deps(registry: Object) -> Dictionary:
-	return match_flow_context.build_deps(registry)
+func build_match_flow_deps(registry: Object, current_stage: int = 1) -> Dictionary:
+	return match_flow_context.build_deps(registry, current_stage)

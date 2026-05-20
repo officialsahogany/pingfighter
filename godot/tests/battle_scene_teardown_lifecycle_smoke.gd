@@ -1,0 +1,108 @@
+extends SceneTree
+
+const BattleSceneStartupController := preload("res://scripts/core/battle_scene_startup_controller.gd")
+const BattleSceneTeardownLifecycle := preload("res://scripts/core/battle_scene_teardown_lifecycle.gd")
+
+var _failures: Array[String] = []
+var _fake_modules: Dictionary = {}
+var _clear_module_cache_calls := 0
+
+
+class FakeLogoIntro:
+	extends RefCounted
+
+	var cleanup_calls := 0
+
+	func cleanup() -> void:
+		cleanup_calls += 1
+
+
+class FakeAudio:
+	extends RefCounted
+
+	var stop_bgm_calls := 0
+
+	func stop_bgm() -> void:
+		stop_bgm_calls += 1
+
+
+class FakeRegistry:
+	extends RefCounted
+
+	var clear_all_calls := 0
+
+	func clear_all() -> void:
+		clear_all_calls += 1
+
+
+class FakeTeardownLifecycle:
+	extends RefCounted
+
+	var calls := 0
+
+	func exit_tree(_owner: Node, _registry: Object, _cached_module_getter: Callable, _callbacks: Dictionary) -> void:
+		calls += 1
+
+
+func _init() -> void:
+	_verify_teardown_lifecycle_cleans_runtime_surfaces()
+	_verify_startup_controller_delegates_exit_tree_surface()
+
+	if _failures.is_empty():
+		print("battle_scene_teardown_lifecycle_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _verify_teardown_lifecycle_cleans_runtime_surfaces() -> void:
+	var lifecycle: Object = BattleSceneTeardownLifecycle.new()
+	var logo := FakeLogoIntro.new()
+	var audio := FakeAudio.new()
+	var registry := FakeRegistry.new()
+	var owner := Node.new()
+	_fake_modules = {
+		"penguin_logo_intro": logo,
+		"game_audio": audio,
+	}
+	_clear_module_cache_calls = 0
+
+	lifecycle.exit_tree(owner, registry, Callable(self, "_get_fake_module"), {
+		"clear_module_cache": Callable(self, "_on_clear_module_cache"),
+	})
+
+	_expect(logo.cleanup_calls == 1, "teardown lifecycle should cleanup logo intro")
+	_expect(audio.stop_bgm_calls == 1, "teardown lifecycle should stop battle BGM")
+	_expect(registry.clear_all_calls == 1, "teardown lifecycle should clear the gameplay registry")
+	_expect(_clear_module_cache_calls == 1, "teardown lifecycle should call clear-module-cache callback")
+	owner.free()
+
+
+func _verify_startup_controller_delegates_exit_tree_surface() -> void:
+	var startup: Object = BattleSceneStartupController.new()
+	var fake := FakeTeardownLifecycle.new()
+	var owner := Node.new()
+	startup.teardown_lifecycle = fake
+
+	startup.exit_tree(owner, FakeRegistry.new(), Callable(self, "_get_fake_module"), {})
+
+	_expect(fake.calls == 1, "startup controller should delegate exit_tree to teardown lifecycle")
+	owner.free()
+
+
+func _get_fake_module(key: String) -> Object:
+	var value: Variant = _fake_modules.get(key, null)
+	if typeof(value) == TYPE_OBJECT:
+		return value as Object
+	return null
+
+
+func _on_clear_module_cache() -> void:
+	_clear_module_cache_calls += 1
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

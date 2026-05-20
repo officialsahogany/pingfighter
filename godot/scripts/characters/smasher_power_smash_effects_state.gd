@@ -51,3 +51,7 @@ func get_trails() -> Array[Dictionary]:
 
 func get_particles() -> Array[Dictionary]:
 	return particle_state.get_particles()
+
+
+func has_effects() -> bool:
+	return trail_state.has_trails() or particle_state.has_particles()

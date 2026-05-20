@@ -4,12 +4,17 @@ const SmasherDashMotionUpdateResolver := preload("res://scripts/characters/smash
 
 const DASH_DURATION: float = 15.0
 const HALF_DASH_DURATION: float = 11.0
+const PLAYER_BASE_PADDLE_HEIGHT: float = 50.0
 
 var update_resolver: Object = SmasherDashMotionUpdateResolver.new()
 var dash_active: bool = false
 var dash_timer: float = 0.0
 var dash_direction: float = 0.0
 var dash_is_half: bool = false
+var dash_acceleration_bonus: float = 0.0
+var dash_acceleration_height_bonus: float = 0.0
+var dash_acceleration_skill_level: int = 0
+var dash_skip_recovery: bool = false
 var dash_stun_timer: float = 0.0
 var dash_recovery_total_frames: float = 0.0
 var dash_available_timer: float = 0.0
@@ -21,6 +26,10 @@ func reset_round() -> void:
 	dash_timer = 0.0
 	dash_direction = 0.0
 	dash_is_half = false
+	dash_acceleration_bonus = 0.0
+	dash_acceleration_height_bonus = 0.0
+	dash_acceleration_skill_level = 0
+	dash_skip_recovery = false
 	dash_stun_timer = 0.0
 	dash_recovery_total_frames = 0.0
 	dash_available_timer = 0.0
@@ -35,6 +44,29 @@ func is_recovering() -> bool:
 	return dash_stun_timer > 0.0
 
 
+func clear_recovery() -> void:
+	dash_skip_recovery = false
+	dash_stun_timer = 0.0
+	dash_recovery_total_frames = 0.0
+	dash_available_timer = 0.0
+
+
+func cancel_active_without_recovery() -> bool:
+	if not dash_active:
+		return false
+	dash_active = false
+	dash_timer = 0.0
+	dash_elapsed_frames = 0.0
+	dash_acceleration_bonus = 0.0
+	dash_acceleration_height_bonus = 0.0
+	dash_acceleration_skill_level = 0
+	dash_skip_recovery = false
+	dash_stun_timer = 0.0
+	dash_recovery_total_frames = 0.0
+	dash_available_timer = 0.0
+	return true
+
+
 func can_chain(direction: float, has_full_token: bool, start_delay_frames: float) -> bool:
 	return (
 		dash_active
@@ -45,23 +77,40 @@ func can_chain(direction: float, has_full_token: bool, start_delay_frames: float
 	)
 
 
+func can_chain_from_recovery(direction: float, has_chain_token: bool) -> bool:
+	return dash_stun_timer > 0.0 and has_chain_token and direction != 0.0
+
+
 func can_start(direction: float, key_released_since_last: bool) -> bool:
 	return direction != 0.0 and dash_available_timer <= 0.0 and key_released_since_last
 
 
-func start(direction: float, is_half: bool) -> bool:
+func start(
+	direction: float,
+	is_half: bool,
+	duration_frames: float = DASH_DURATION,
+	acceleration_bonus: float = 0.0,
+	acceleration_level: int = 0,
+	base_paddle_height: float = PLAYER_BASE_PADDLE_HEIGHT,
+	skip_recovery: bool = false
+) -> bool:
 	if direction == 0.0:
 		return false
 	dash_active = true
 	dash_direction = direction
 	dash_is_half = is_half
+	dash_acceleration_bonus = max(0.0, acceleration_bonus)
+	dash_acceleration_skill_level = max(0, acceleration_level)
+	dash_acceleration_height_bonus = max(0.0, float(base_paddle_height)) * dash_acceleration_bonus
+	dash_skip_recovery = bool(skip_recovery)
 	dash_elapsed_frames = 0.0
 	dash_stun_timer = 0.0
 	dash_recovery_total_frames = 0.0
+	dash_available_timer = 0.0
 	if is_half:
-		dash_timer = HALF_DASH_DURATION
+		dash_timer = max(1.0, duration_frames * (HALF_DASH_DURATION / DASH_DURATION))
 	else:
-		dash_timer = DASH_DURATION
+		dash_timer = max(1.0, duration_frames)
 	return true
 
 
@@ -70,17 +119,24 @@ func update(
 	player_pos: Vector2,
 	play_left: float,
 	play_right: float,
-	paddle_width: float
+	paddle_width: float,
+	recovery_frames: float = 42.0
 ) -> Dictionary:
-	return update_resolver.update(self, fps_scale, player_pos, play_left, play_right, paddle_width)
+	return update_resolver.update(self, fps_scale, player_pos, play_left, play_right, paddle_width, recovery_frames)
 
 
 func get_snapshot() -> Dictionary:
+	var acceleration_active: bool = dash_active and dash_acceleration_height_bonus > 0.0
 	return {
 		"active": dash_active,
 		"timer": dash_timer,
 		"direction": dash_direction,
 		"is_half": dash_is_half,
+		"dash_acceleration_active": acceleration_active,
+		"dash_acceleration_bonus": dash_acceleration_bonus if acceleration_active else 0.0,
+		"dash_acceleration_height_bonus": dash_acceleration_height_bonus if acceleration_active else 0.0,
+		"dash_acceleration_skill_level": dash_acceleration_skill_level if acceleration_active else 0,
+		"skip_recovery": dash_skip_recovery,
 		"recovering": dash_stun_timer > 0.0,
 		"stun_timer": dash_stun_timer,
 		"recovery_total_frames": dash_recovery_total_frames,

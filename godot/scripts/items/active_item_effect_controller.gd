@@ -1,137 +1,336 @@
 extends RefCounted
 
-const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const ActiveItemEffectStateApplier := preload("res://scripts/items/active_item_effect_state_applier.gd")
+const ActiveItemPaddleSync := preload("res://scripts/items/active_item_paddle_sync.gd")
+const ActiveItemHolyBarrierParticles := preload("res://scripts/items/active_item_holy_barrier_particles.gd")
+const ActiveItemHolyBarrierRuntime := preload("res://scripts/items/active_item_holy_barrier_runtime.gd")
+const ActiveItemDashBoostParticles := preload("res://scripts/items/active_item_dash_boost_particles.gd")
+const ActiveItemDashBoostRuntime := preload("res://scripts/items/active_item_dash_boost_runtime.gd")
+const ActiveItemMagnetFieldParticles := preload("res://scripts/items/active_item_magnet_field_particles.gd")
+const ActiveItemMagnetFieldRuntime := preload("res://scripts/items/active_item_magnet_field_runtime.gd")
+const ActiveItemAipillRuntime := preload("res://scripts/items/active_item_aipill_runtime.gd")
+const ActiveItemPickupEffectState := preload("res://scripts/items/active_item_pickup_effect_state.gd")
+const ActiveItemBrickWallGeometry := preload("res://scripts/items/active_item_brick_wall_geometry.gd")
+const ActiveItemBrickWallParticles := preload("res://scripts/items/active_item_brick_wall_particles.gd")
+const ActiveItemBrickWallInstallation := preload("res://scripts/items/active_item_brick_wall_installation.gd")
+const ActiveItemPlayerCenterReader := preload("res://scripts/items/active_item_player_center_reader.gd")
+const ActiveItemRegenerationPotionEffect := preload("res://scripts/items/active_item_regeneration_potion_effect.gd")
+const ActiveItemTimedPaddleEffects := preload("res://scripts/items/active_item_timed_paddle_effects.gd")
+const ActiveItemLifeElixirParticles := preload("res://scripts/items/active_item_life_elixir_particles.gd")
+const ActiveItemEffectFeedback := preload("res://scripts/items/active_item_effect_feedback.gd")
+const ActiveItemGaugeRuntime := preload("res://scripts/items/active_item_gauge_runtime.gd")
+const ActiveItemStopwatchRuntime := preload("res://scripts/items/active_item_stopwatch_runtime.gd")
+const ActiveItemStopwatchOwnerEffects := preload("res://scripts/items/active_item_stopwatch_owner_effects.gd")
+const ActiveItemEffectReset := preload("res://scripts/items/active_item_effect_reset.gd")
+const ActiveItemTransientEffectUpdater := preload("res://scripts/items/active_item_transient_effect_updater.gd")
+const ActiveItemEffectUpdateDriver := preload("res://scripts/items/active_item_effect_update_driver.gd")
+const ActiveItemEffectQuery := preload("res://scripts/items/active_item_effect_query.gd")
+const ActiveItemEffectActionFacade := preload("res://scripts/items/active_item_effect_action_facade.gd")
+const ActiveItemEffectInteractionFacade := preload("res://scripts/items/active_item_effect_interaction_facade.gd")
+const ActiveItemCommandoSupplyActions := preload("res://scripts/items/active_item_commando_supply_actions.gd")
+const ElixirOfMasteryRuntime := preload("res://scripts/items/elixir_of_mastery_runtime.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
-const GAUGE_MAX := 500.0
-const GAUGE_CHARGE_AMOUNT := 200.0
-const PICKUP_EFFECT_DURATION_SEC := 2.0
-const PICKUP_FADE_DURATION_SEC := 1.0
-const PICKUP_TARGET := Vector2(100.0, FIELD_HEIGHT * 0.5)
-const LONG_BOOST_DURATION_FRAMES := 480.0
-const LONG_BOOST_TRANSITION_FRAMES := 60.0
-const LONG_BOOST_TARGET_SCALE := 1.5
-const REGENERATION_POTION_PARTICLE_DURATION_SEC := 0.78
-const REGENERATION_POTION_RING_DURATION_SEC := 0.58
+const BRICK_WALL_DESTROY_HITS := 2
 
 var regeneration_potion_particles: Array[Dictionary] = []
 var regeneration_potion_rings: Array[Dictionary] = []
+var holy_barrier_particles: Array[Dictionary] = []
 var pickup_particles: Array[Dictionary] = []
 var pickup_effect: Dictionary = {}
+var aipill_active: bool = false
+var aipill_phase: float = 0.0
+var aipill_flash_timer_frames: float = 0.0
 var long_boost_active: bool = false
 var long_boost_timer_frames: float = 0.0
 var long_boost_initial_timer_frames: float = 0.0
 var long_boost_scale: float = 1.0
+var vitamin_pill_active: bool = false
+var vitamin_pill_timer_frames: float = 0.0
+var vitamin_pill_initial_timer_frames: float = 0.0
+var vitamin_pill_phase: float = 0.0
+var vitamin_pill_flash_timer_frames: float = 0.0
+var vitamin_pill_player_center: Vector2 = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5)
+var strange_vial_active: bool = false
+var strange_vial_timer_frames: float = 0.0
+var strange_vial_initial_timer_frames: float = 0.0
+var strange_vial_effect_type: String = ""
+var strange_vial_scale: float = 1.0
+var strange_vial_target_scale: float = 1.0
+var strange_vial_speed_multiplier: float = 1.0
+var strange_vial_target_speed_multiplier: float = 1.0
+var strange_vial_phase: float = 0.0
+var strange_vial_flash_timer_frames: float = 0.0
+var strange_vial_player_center: Vector2 = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5)
+var doping_potion_active: bool = false
+var doping_potion_timer_frames: float = 0.0
+var doping_potion_initial_timer_frames: float = 0.0
+var doping_potion_phase: float = 0.0
+var doping_potion_flash_timer_frames: float = 0.0
+var doping_potion_player_center: Vector2 = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5)
+var doping_potion_use_count: int = 0
+var stopwatch_active: bool = false
+var stopwatch_timer_frames: float = 0.0
+var stopwatch_initial_timer_frames: float = 0.0
+var stopwatch_recovery_timer_frames: float = 0.0
+var stopwatch_post_recovery_grace_frames: float = 0.0
+var stopwatch_original_ball_vel: Vector2 = Vector2.ZERO
+var stopwatch_flash_timer_frames: float = 0.0
+var stopwatch_clock_angle: float = 0.0
+var magnet_field_active: bool = false
+var magnet_field_timer_frames: float = 0.0
+var magnet_field_initial_timer_frames: float = 0.0
+var magnet_field_phase: float = 0.0
+var magnet_field_player_center: Vector2 = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5)
+var magnet_field_particle_accumulator_frames: float = 0.0
+var magnet_field_particles: Array[Dictionary] = []
+var holy_barrier_active: bool = false
+var holy_barrier_timer_frames: float = 0.0
+var holy_barrier_initial_timer_frames: float = 0.0
+var holy_barrier_glow_phase: float = 0.0
+var holy_barrier_particle_accumulator_frames: float = 0.0
+var dash_boost_active: bool = false
+var dash_boost_timer_frames: float = 0.0
+var dash_boost_initial_timer_frames: float = 0.0
+var dash_boost_glow_phase: float = 0.0
+var dash_boost_particle_accumulator_frames: float = 0.0
+var dash_boost_player_center: Vector2 = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5)
+var dash_boost_particles: Array[Dictionary] = []
+var brick_walls: Array[Dictionary] = []
+var pending_brick_wall: Dictionary = {}
+var brick_wall_installing: bool = false
+var brick_wall_install_timer_frames: float = 0.0
+var brick_wall_install_initial_frames: float = 0.0
+var brick_particles: Array[Dictionary] = []
+var _state_applier: Object = ActiveItemEffectStateApplier.new()
+var _paddle_sync: Object = ActiveItemPaddleSync.new()
+var _holy_barrier_particles: Object = ActiveItemHolyBarrierParticles.new()
+var _holy_barrier_runtime: Object = ActiveItemHolyBarrierRuntime.new()
+var _dash_boost_particles: Object = ActiveItemDashBoostParticles.new()
+var _dash_boost_runtime: Object = ActiveItemDashBoostRuntime.new()
+var _magnet_field_particles: Object = ActiveItemMagnetFieldParticles.new()
+var _magnet_field_runtime: Object = ActiveItemMagnetFieldRuntime.new()
+var _aipill_runtime: Object = ActiveItemAipillRuntime.new()
+var _pickup_effect_state: Object = ActiveItemPickupEffectState.new()
+var _brick_wall_geometry: Object = ActiveItemBrickWallGeometry.new()
+var _brick_wall_particles: Object = ActiveItemBrickWallParticles.new()
+var _brick_wall_installation: Object = ActiveItemBrickWallInstallation.new()
+var _player_center_reader: Object = ActiveItemPlayerCenterReader.new()
+var _regeneration_potion_effect: Object = ActiveItemRegenerationPotionEffect.new()
+var _timed_paddle_effects: Object = ActiveItemTimedPaddleEffects.new()
+var _life_elixir_particles: Object = ActiveItemLifeElixirParticles.new()
+var _effect_feedback: Object = ActiveItemEffectFeedback.new()
+var _gauge_runtime: Object = ActiveItemGaugeRuntime.new()
+var _stopwatch_runtime: Object = ActiveItemStopwatchRuntime.new()
+var _stopwatch_owner_effects: Object = ActiveItemStopwatchOwnerEffects.new()
+var _effect_reset: Object = ActiveItemEffectReset.new()
+var _transient_effect_updater: Object = ActiveItemTransientEffectUpdater.new()
+var _effect_update_driver: Object = ActiveItemEffectUpdateDriver.new()
+var _effect_query: Object = ActiveItemEffectQuery.new()
+var _effect_action_facade: Object = ActiveItemEffectActionFacade.new()
+var _effect_interaction_facade: Object = ActiveItemEffectInteractionFacade.new()
+var _commando_supply_actions: Object = ActiveItemCommandoSupplyActions.new()
+var _elixir_of_mastery_runtime: Object = ElixirOfMasteryRuntime.new()
+
+
+func _init() -> void:
+	_effect_update_driver.configure({
+		"state_applier": _state_applier,
+		"paddle_sync": _paddle_sync,
+		"player_center_reader": _player_center_reader,
+		"aipill_runtime": _aipill_runtime,
+		"stopwatch_runtime": _stopwatch_runtime,
+		"stopwatch_owner_effects": _stopwatch_owner_effects,
+		"magnet_field_runtime": _magnet_field_runtime,
+		"magnet_field_particles": _magnet_field_particles,
+		"timed_paddle_effects": _timed_paddle_effects,
+		"holy_barrier_runtime": _holy_barrier_runtime,
+		"holy_barrier_particles": _holy_barrier_particles,
+		"dash_boost_runtime": _dash_boost_runtime,
+		"dash_boost_particles": _dash_boost_particles,
+		"brick_wall_installation": _brick_wall_installation,
+		"brick_wall_particles": _brick_wall_particles,
+		"transient_effect_updater": _transient_effect_updater,
+		"regeneration_potion_effect": _regeneration_potion_effect,
+		"pickup_effect_state": _pickup_effect_state,
+		"commando_supply_actions": _commando_supply_actions,
+	})
 
 
 func reset() -> void:
-	regeneration_potion_particles.clear()
-	regeneration_potion_rings.clear()
-	pickup_particles.clear()
-	pickup_effect.clear()
-	long_boost_active = false
-	long_boost_timer_frames = 0.0
-	long_boost_initial_timer_frames = 0.0
-	long_boost_scale = 1.0
+	_effect_reset.apply(
+		self,
+		_state_applier,
+		_aipill_runtime,
+		_timed_paddle_effects,
+		_stopwatch_runtime,
+		_magnet_field_runtime,
+		_holy_barrier_runtime,
+		_dash_boost_runtime,
+		_brick_wall_installation,
+		_commando_supply_actions
+	)
 
 
-func update(owner: Object, delta: float) -> void:
-	_update_long_boost(delta)
-	sync_long_boost_owner_state(owner)
-	_update_regeneration_potion_effect(delta)
-	_update_pickup_particles(delta)
-	_update_pickup_effect(delta)
+func update(
+	owner: Object,
+	delta: float,
+	warp_gate_state: Object = null,
+	mythic_item_runtime: Object = null,
+	perf_logger: Object = null
+) -> void:
+	_effect_update_driver.apply_update(self, owner, delta, warp_gate_state, mythic_item_runtime, perf_logger)
 
 
 func apply_gauge_charge(item_data: Dictionary, owner: Object, registry: Object) -> bool:
-	var gauge_gain: float = float(item_data.get("gauge_gain", GAUGE_CHARGE_AMOUNT))
-	var gauge_max: float = _get_effective_gauge_max(owner, item_data)
-	var current_gauge: float = float(BattleSceneOwnerReader.get_value(owner, "special_gauge", 0.0))
-	var next_gauge: float = min(gauge_max, current_gauge + gauge_gain)
-	owner.set("special_gauge", next_gauge)
+	return _effect_action_facade.apply_gauge_charge(self, item_data, owner, registry, _gauge_runtime, _effect_feedback)
 
-	var feedback: Object = _get_instance(registry, "battle_feedback_state")
-	if feedback != null:
-		if feedback.has_method("trigger_gauge_flash"):
-			feedback.trigger_gauge_flash()
-		if feedback.has_method("max_screen_shake"):
-			feedback.max_screen_shake(0.06, 1.6)
 
-	var audio: Object = _get_instance(registry, "game_audio")
-	if audio != null and audio.has_method("play_drink"):
-		audio.play_drink()
+func apply_life_elixir(item_data: Dictionary, owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.apply_life_elixir(
+		self, item_data, owner, registry, _gauge_runtime,
+		_player_center_reader, _life_elixir_particles, _effect_feedback
+	)
 
-	return true
+
+func apply_ammo_box(item_data: Dictionary, owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.apply_ammo_box(
+		self,
+		item_data,
+		owner,
+		registry,
+		_commando_supply_actions,
+		_effect_feedback
+	)
+
+
+func activate_doping_potion(item_data: Dictionary, owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_doping_potion(
+		self,
+		item_data,
+		owner,
+		registry,
+		_commando_supply_actions,
+		_state_applier,
+		_player_center_reader,
+		_effect_feedback
+	)
+
+
+func activate_vitamin_pill(owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_vitamin_pill(
+		self,
+		owner,
+		registry,
+		_state_applier,
+		_player_center_reader,
+		_effect_feedback
+	)
+
+
+func activate_strange_vial(owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_strange_vial(
+		self,
+		owner,
+		registry,
+		_state_applier,
+		_paddle_sync,
+		_player_center_reader,
+		_effect_feedback,
+		randf() < 0.5
+	)
 
 
 func activate_long_boost(owner: Object, registry: Object) -> bool:
-	if long_boost_active:
-		return false
+	return _effect_action_facade.activate_long_boost(
+		self,
+		owner,
+		registry,
+		_state_applier,
+		_paddle_sync,
+		_effect_feedback
+	)
 
-	long_boost_active = true
-	long_boost_timer_frames = LONG_BOOST_DURATION_FRAMES
-	long_boost_initial_timer_frames = long_boost_timer_frames
-	long_boost_scale = 1.0
-	sync_long_boost_owner_state(owner)
 
-	var audio: Object = _get_instance(registry, "game_audio")
-	if audio != null:
-		if audio.has_method("play_active_item"):
-			audio.play_active_item()
-		elif audio.has_method("play_drink"):
-			audio.play_drink()
-
-	return true
+func activate_aipill(_owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_aipill(self, registry, _state_applier, _effect_feedback)
 
 
 func apply_regeneration_potion(owner: Object, registry: Object) -> bool:
-	_reset_skill_cooldowns(_get_instance(registry, "smasher_skill_state"))
-	_reset_skill_cooldowns(_get_instance(registry, "viper_skill_state"))
+	return _effect_action_facade.apply_regeneration_potion(
+		self,
+		owner,
+		registry,
+		_player_center_reader,
+		_regeneration_potion_effect,
+		_effect_feedback
+	)
 
-	var drive_input_state: Object = _get_instance(registry, "smasher_drive_input_state")
-	if drive_input_state != null and drive_input_state.has_method("reset_cooldowns"):
-		drive_input_state.reset_cooldowns()
 
-	var dash_state: Object = _get_instance(registry, "smasher_dash_state")
-	var dash_snapshot: Dictionary = {}
-	if dash_state != null:
-		if dash_state.has_method("refill_tokens"):
-			dash_state.refill_tokens()
-		if dash_state.has_method("get_snapshot"):
-			dash_snapshot = dash_state.get_snapshot()
+func activate_stopwatch(owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_stopwatch(
+		self,
+		owner,
+		registry,
+		_player_center_reader,
+		_stopwatch_runtime,
+		_state_applier,
+		_effect_feedback
+	)
 
-	var orb_hud_state: Object = _get_instance(registry, "orb_hud_state")
-	if orb_hud_state != null and orb_hud_state.has_method("reset_dash_tokens"):
-		orb_hud_state.reset_dash_tokens(int(dash_snapshot.get("tokens", 1)))
 
-	var feedback: Object = _get_instance(registry, "battle_feedback_state")
-	if feedback != null:
-		if feedback.has_method("trigger_dash_flash"):
-			feedback.trigger_dash_flash()
-		if feedback.has_method("trigger_gauge_flash"):
-			feedback.trigger_gauge_flash()
-		if feedback.has_method("max_screen_shake"):
-			feedback.max_screen_shake(0.04, 1.25)
+func activate_magnet_field(owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_magnet_field(
+		self,
+		owner,
+		registry,
+		_player_center_reader,
+		_magnet_field_runtime,
+		_state_applier,
+		_effect_feedback
+	)
 
-	_spawn_regeneration_potion_effect(owner)
 
-	var audio: Object = _get_instance(registry, "game_audio")
-	if audio != null:
-		if audio.has_method("play_drink"):
-			audio.play_drink()
-		if audio.has_method("play_active_item"):
-			audio.play_active_item()
+func activate_holy_barrier(_owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_holy_barrier(
+		self,
+		registry,
+		_holy_barrier_runtime,
+		_state_applier,
+		_effect_feedback
+	)
 
-	return true
+
+func activate_dash_boost(owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_dash_boost(
+		self,
+		owner,
+		registry,
+		_player_center_reader,
+		_dash_boost_runtime,
+		_state_applier,
+		_effect_feedback
+	)
+
+
+func activate_wall(owner: Object, registry: Object) -> bool:
+	return _effect_action_facade.activate_wall(
+		self,
+		owner,
+		registry,
+		_brick_wall_geometry,
+		_brick_wall_installation,
+		_brick_wall_particles,
+		_state_applier,
+		_effect_feedback
+	)
 
 
 func can_store_item(item_name: String) -> bool:
-	if item_name == "long_boost" and long_boost_active:
-		return false
-	return true
+	return _effect_query.can_store_item(self, item_name)
 
 
 func trigger_pickup_effect(
@@ -140,243 +339,259 @@ func trigger_pickup_effect(
 	item_color: Color,
 	registry: Object
 ) -> void:
-	var item_data: Dictionary = _get_dictionary(field_item, "item_data").duplicate(true)
-	var start_pos: Vector2 = _get_vector2(field_item, "position", Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5))
-	pickup_effect = {
-		"item_data": item_data,
-		"display_name": display_name,
-		"timer": PICKUP_EFFECT_DURATION_SEC,
-		"alpha": 180.0 / 255.0,
-		"position": start_pos,
-		"start_position": start_pos,
-	}
-	_create_balloon_pop_particles(start_pos, item_color)
-
-	var audio: Object = _get_instance(registry, "game_audio")
-	if audio != null and audio.has_method("play_item_get"):
-		audio.play_item_get()
-
-
-func sync_long_boost_owner_state(owner: Object) -> void:
-	if owner == null:
-		return
-
-	var next_width: float = get_player_paddle_width(PLAYER_BASE_PADDLE_WIDTH)
-	var current_width: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH)))
-	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(
-		owner,
-		"player_pos",
-		Vector2(FIELD_WIDTH * 0.5 - current_width * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT)
+	_effect_action_facade.trigger_pickup_effect(
+		self, field_item, display_name, item_color, registry,
+		_pickup_effect_state, _effect_feedback
 	)
-	var center_x: float = player_pos.x + current_width * 0.5
-	player_pos.x = clamp(center_x - next_width * 0.5, 0.0, max(0.0, FIELD_WIDTH - next_width))
-	owner.set("player_pos", player_pos)
-	owner.set("player_paddle_width", next_width)
-	owner.set("player_paddle_height", PLAYER_BASE_PADDLE_HEIGHT)
-	owner.set("player_paddle_scale", long_boost_scale)
+
+
+func sync_long_boost_owner_state(owner: Object, warp_gate_state: Object = null, mythic_item_runtime: Object = null) -> void:
+	_paddle_sync.sync_owner_state(owner, get_player_paddle_scale(), warp_gate_state, mythic_item_runtime)
 
 
 func get_player_paddle_scale() -> float:
-	return long_boost_scale
+	return _effect_query.get_player_paddle_scale(self)
 
 
 func get_player_paddle_width(base_width: float = PLAYER_BASE_PADDLE_WIDTH) -> float:
-	return max(1.0, base_width * long_boost_scale)
+	return _effect_query.get_player_paddle_width(self, base_width)
+
+
+func get_player_paddle_height(base_height: float = PLAYER_BASE_PADDLE_HEIGHT) -> float:
+	return _effect_query.get_player_paddle_height(self, base_height)
 
 
 func get_pickup_effect() -> Dictionary:
-	return pickup_effect
+	return _effect_query.get_pickup_effect(self)
+
+
+func has_pickup_effect() -> bool:
+	return _effect_query.has_pickup_effect(self)
+
+
+func has_field_effects() -> bool:
+	return _effect_query.has_field_effects(self)
 
 
 func get_pickup_particles() -> Array[Dictionary]:
-	return pickup_particles
+	return _effect_query.get_pickup_particles(self)
 
 
 func get_regeneration_potion_particles() -> Array[Dictionary]:
-	return regeneration_potion_particles
+	return _effect_query.get_regeneration_potion_particles(self)
 
 
 func get_regeneration_potion_rings() -> Array[Dictionary]:
-	return regeneration_potion_rings
+	return _effect_query.get_regeneration_potion_rings(self)
+
+
+func get_magnet_field_particles() -> Array[Dictionary]:
+	return _effect_query.get_magnet_field_particles(self)
+
+
+func get_holy_barrier_particles() -> Array[Dictionary]:
+	return _effect_query.get_holy_barrier_particles(self)
+
+
+func get_dash_boost_particles() -> Array[Dictionary]:
+	return _effect_query.get_dash_boost_particles(self)
+
+
+func get_field_effect_draw_context() -> Dictionary:
+	return _effect_query.get_field_effect_draw_context(self)
+
+
+func get_brick_wall_context() -> Dictionary:
+	return _effect_query.get_brick_wall_context(self)
 
 
 func get_long_boost_timer_context() -> Dictionary:
-	return {
-		"active": long_boost_active,
-		"timer_frames": long_boost_timer_frames,
-		"initial_timer_frames": long_boost_initial_timer_frames,
-	}
+	return _effect_query.get_long_boost_timer_context(self)
 
 
-func _reset_skill_cooldowns(skill_state: Object) -> void:
-	if skill_state == null:
-		return
-	if skill_state.has_method("reset_cooldowns"):
-		skill_state.reset_cooldowns()
-	elif skill_state.has_method("reset"):
-		skill_state.reset()
+func get_vitamin_pill_timer_context() -> Dictionary:
+	return _effect_query.get_vitamin_pill_timer_context(self)
 
 
-func _spawn_regeneration_potion_effect(owner: Object) -> void:
-	var fallback_pos := Vector2(FIELD_WIDTH * 0.5 - PLAYER_BASE_PADDLE_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT)
-	var player_pos: Vector2 = BattleSceneOwnerReader.get_vector2(owner, "player_pos", fallback_pos)
-	var paddle_width: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH)))
-	var paddle_height: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "player_paddle_height", PLAYER_BASE_PADDLE_HEIGHT)))
-	var center := player_pos + Vector2(paddle_width * 0.5, paddle_height * 0.45)
-
-	regeneration_potion_rings.append({
-		"position": center,
-		"age": 0.0,
-		"duration": REGENERATION_POTION_RING_DURATION_SEC,
-	})
-
-	var colors := [
-		Color(1.0, 215.0 / 255.0, 0.0, 1.0),
-		Color(1.0, 230.0 / 255.0, 80.0 / 255.0, 1.0),
-		Color(1.0, 200.0 / 255.0, 50.0 / 255.0, 1.0),
-		Color(1.0, 1.0, 100.0 / 255.0, 1.0),
-		Color(1.0, 180.0 / 255.0, 30.0 / 255.0, 1.0),
-	]
-	for _i in range(25):
-		var angle: float = randf_range(0.0, TAU)
-		var radius: float = randf_range(6.0, 48.0)
-		var start_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
-		regeneration_potion_particles.append({
-			"position": start_pos,
-			"velocity": Vector2(randf_range(-34.0, 34.0), randf_range(-104.0, -34.0)),
-			"radius": randf_range(2.4, 5.2),
-			"age": 0.0,
-			"lifetime": randf_range(0.42, REGENERATION_POTION_PARTICLE_DURATION_SEC),
-			"color": colors[randi() % colors.size()],
-		})
+func get_strange_vial_timer_context() -> Dictionary:
+	return _effect_query.get_strange_vial_timer_context(self)
 
 
-func _get_effective_gauge_max(owner: Object, item_data: Dictionary) -> float:
-	var fallback_max: float = max(1.0, float(item_data.get("gauge_max", GAUGE_MAX)))
-	return max(1.0, float(BattleSceneOwnerReader.get_value(owner, "special_gauge_max", fallback_max)))
+func get_doping_potion_context() -> Dictionary:
+	return _effect_query.get_doping_potion_context(self)
 
 
-func _update_pickup_particles(delta: float) -> void:
-	if pickup_particles.is_empty():
-		return
-	var survivors: Array[Dictionary] = []
-	for particle in pickup_particles:
-		var age: float = float(particle.get("age", 0.0)) + delta
-		var lifetime: float = max(0.01, float(particle.get("lifetime", 0.45)))
-		if age >= lifetime:
-			continue
-		particle["age"] = age
-		particle["position"] = _get_vector2(particle, "position", Vector2.ZERO) + _get_vector2(particle, "velocity", Vector2.ZERO) * delta
-		particle["velocity"] = _get_vector2(particle, "velocity", Vector2.ZERO) * 0.94
-		survivors.append(particle)
-	pickup_particles = survivors
+func get_player_speed_multiplier() -> float:
+	return _effect_query.get_player_speed_multiplier(self)
 
 
-func _update_pickup_effect(delta: float) -> void:
-	if pickup_effect.is_empty():
-		return
-	var timer: float = float(pickup_effect.get("timer", 0.0)) - delta
-	if timer <= 0.0:
-		pickup_effect.clear()
-		return
-	pickup_effect["timer"] = timer
-	var progress: float = 1.0 - (timer / PICKUP_EFFECT_DURATION_SEC)
-	var ease_progress: float = 1.0 - pow(1.0 - clamp(progress, 0.0, 1.0), 2.0)
-	var start_pos: Vector2 = _get_vector2(pickup_effect, "start_position", Vector2.ZERO)
-	pickup_effect["position"] = start_pos.lerp(PICKUP_TARGET, ease_progress)
-	if timer < PICKUP_FADE_DURATION_SEC:
-		pickup_effect["alpha"] = clamp(timer / PICKUP_FADE_DURATION_SEC, 0.0, 1.0)
-	else:
-		pickup_effect["alpha"] = 180.0 / 255.0
+func get_aipill_context() -> Dictionary:
+	return _effect_query.get_aipill_context(self)
 
 
-func _update_regeneration_potion_effect(delta: float) -> void:
-	if not regeneration_potion_particles.is_empty():
-		var particle_survivors: Array[Dictionary] = []
-		for particle in regeneration_potion_particles:
-			var age: float = float(particle.get("age", 0.0)) + delta
-			var lifetime: float = max(0.001, float(particle.get("lifetime", REGENERATION_POTION_PARTICLE_DURATION_SEC)))
-			if age >= lifetime:
-				continue
-			var pos: Vector2 = _get_vector2(particle, "position", Vector2.ZERO)
-			var velocity: Vector2 = _get_vector2(particle, "velocity", Vector2.ZERO)
-			pos += velocity * delta
-			velocity = velocity.lerp(Vector2.ZERO, min(1.0, delta * 1.8))
-			velocity.y += 18.0 * delta
-			particle["age"] = age
-			particle["position"] = pos
-			particle["velocity"] = velocity
-			particle_survivors.append(particle)
-		regeneration_potion_particles = particle_survivors
-
-	if not regeneration_potion_rings.is_empty():
-		var ring_survivors: Array[Dictionary] = []
-		for ring in regeneration_potion_rings:
-			var age: float = float(ring.get("age", 0.0)) + delta
-			var duration: float = max(0.001, float(ring.get("duration", REGENERATION_POTION_RING_DURATION_SEC)))
-			if age >= duration:
-				continue
-			ring["age"] = age
-			ring_survivors.append(ring)
-		regeneration_potion_rings = ring_survivors
+func get_stopwatch_context() -> Dictionary:
+	return _effect_query.get_stopwatch_context(self)
 
 
-func _update_long_boost(delta: float) -> void:
-	if not long_boost_active:
-		long_boost_timer_frames = 0.0
-		long_boost_initial_timer_frames = 0.0
-		long_boost_scale = 1.0
-		return
-
-	var fps_scale: float = delta * 60.0
-	long_boost_timer_frames = max(0.0, long_boost_timer_frames - fps_scale)
-	var elapsed_frames: float = max(0.0, long_boost_initial_timer_frames - long_boost_timer_frames)
-	if elapsed_frames < LONG_BOOST_TRANSITION_FRAMES:
-		var grow_progress: float = elapsed_frames / LONG_BOOST_TRANSITION_FRAMES
-		long_boost_scale = lerp(1.0, LONG_BOOST_TARGET_SCALE, grow_progress)
-	elif long_boost_timer_frames <= LONG_BOOST_TRANSITION_FRAMES:
-		var shrink_progress: float = long_boost_timer_frames / LONG_BOOST_TRANSITION_FRAMES
-		long_boost_scale = lerp(1.0, LONG_BOOST_TARGET_SCALE, shrink_progress)
-	else:
-		long_boost_scale = LONG_BOOST_TARGET_SCALE
-
-	if long_boost_timer_frames <= 0.0:
-		long_boost_active = false
-		long_boost_timer_frames = 0.0
-		long_boost_initial_timer_frames = 0.0
-		long_boost_scale = 1.0
+func get_magnet_field_context() -> Dictionary:
+	return _effect_query.get_magnet_field_context(self)
 
 
-func _create_balloon_pop_particles(center: Vector2, item_color: Color) -> void:
-	for i in range(22):
-		var angle: float = randf_range(0.0, TAU)
-		var speed: float = randf_range(90.0, 250.0)
-		var color := item_color.lerp(Color.WHITE, randf_range(0.15, 0.55))
-		pickup_particles.append({
-			"position": center,
-			"velocity": Vector2(cos(angle), sin(angle)) * speed,
-			"radius": randf_range(2.0, 4.5),
-			"age": 0.0,
-			"lifetime": randf_range(0.28, 0.62),
-			"color": color,
-		})
+func get_holy_barrier_context() -> Dictionary:
+	return _effect_query.get_holy_barrier_context(self)
 
 
-func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
-	var value: Variant = source.get(key, {})
-	if value is Dictionary:
-		return value
-	return {}
+func get_holy_barrier_collision_context() -> Dictionary:
+	return _effect_query.get_holy_barrier_collision_context(self)
 
 
-func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
-	var value: Variant = source.get(key, fallback)
-	if value is Vector2:
-		return value
-	return fallback
+func get_dash_boost_context() -> Dictionary:
+	return _effect_query.get_dash_boost_context(self)
 
 
-func _get_instance(registry: Object, key: String) -> Object:
+func get_dash_boost_timer_context() -> Dictionary:
+	return _effect_query.get_dash_boost_timer_context(self)
+
+
+func get_brick_wall_collision_context() -> Dictionary:
+	return _effect_query.get_brick_wall_collision_context(self)
+
+
+func get_stopwatch_ball_context() -> Dictionary:
+	return _effect_query.get_stopwatch_ball_context(self)
+
+
+func is_time_frozen() -> bool:
+	return _effect_query.is_time_frozen(self)
+
+
+func is_aipill_active() -> bool:
+	return _effect_query.is_aipill_active(self)
+
+
+func is_stopwatch_active() -> bool:
+	return _effect_query.is_stopwatch_active(self)
+
+
+func is_doping_potion_active() -> bool:
+	return _effect_query.is_doping_potion_active(self)
+
+
+func is_holy_barrier_active() -> bool:
+	return _effect_query.is_holy_barrier_active(self)
+
+
+func is_dash_boost_active() -> bool:
+	return _effect_query.is_dash_boost_active(self)
+
+
+func get_dash_cost_multiplier() -> float:
+	return _dash_boost_runtime.get_cost_multiplier(_effect_query.is_dash_boost_active(self))
+
+
+func get_dash_cooldown_multiplier() -> float:
+	return _dash_boost_runtime.get_cooldown_multiplier(_effect_query.is_dash_boost_active(self))
+
+
+func get_dash_boost_remaining_ratio() -> float:
+	return _effect_query.get_dash_boost_remaining_ratio(self)
+
+
+func get_dash_boost_remaining_time() -> float:
+	return _effect_query.get_dash_boost_remaining_time(self)
+
+
+func force_stopwatch_recovery_upward(min_upward_speed: float = 7.65) -> void:
+	_effect_interaction_facade.force_stopwatch_recovery_upward(self, min_upward_speed, _stopwatch_owner_effects)
+
+
+func is_magnet_field_active() -> bool:
+	return _effect_query.is_magnet_field_active(self)
+
+
+func is_wall_installing() -> bool:
+	return _effect_query.is_wall_installing(self)
+
+
+func apply_magnet_field_ball_pull(fps_scale: float, context: Dictionary) -> Dictionary:
+	return _effect_interaction_facade.apply_magnet_field_ball_pull(self, fps_scale, context)
+
+
+func notify_holy_barrier_hit(impact_pos: Vector2) -> void:
+	_effect_interaction_facade.notify_holy_barrier_hit(self, impact_pos, _holy_barrier_particles)
+
+
+func notify_brick_wall_hit(wall_index: int, impact_pos: Vector2) -> Dictionary:
+	return _effect_interaction_facade.notify_brick_wall_hit(self, wall_index, impact_pos, BRICK_WALL_DESTROY_HITS)
+
+
+func apply_aipill_player_control(player_pos: Vector2, player_speed: float, config: Dictionary, delta: float) -> Dictionary:
+	return _effect_interaction_facade.apply_aipill_player_control(self, player_pos, player_speed, config, delta)
+
+
+func apply_aipill_guard_drain(special_gauge: float, context: Dictionary, deps: Dictionary) -> float:
+	return _effect_interaction_facade.apply_aipill_guard_drain(
+		self,
+		special_gauge,
+		context,
+		deps,
+		_state_applier,
+		_effect_feedback
+	)
+
+
+func cancel_aipill_if_neural_helmet_direction_pressed(
+	mythic_item_runtime: Object,
+	direction_pressed: bool = true
+) -> bool:
+	return _effect_interaction_facade.cancel_aipill_if_neural_helmet_direction_pressed(
+		self,
+		mythic_item_runtime,
+		direction_pressed,
+		_state_applier,
+		_aipill_runtime
+	)
+
+
+func _get_stopwatch_recovery_speed_ratio() -> float:
+	return _effect_query.get_stopwatch_recovery_speed_ratio(self)
+
+
+@warning_ignore("unused_parameter")
+func activate_elixir_of_mastery(owner: Object, registry: Object) -> bool:
+	if _elixir_of_mastery_runtime.cinematic_active:
+		return false
 	if registry == null or not registry.has_method("get_instance"):
-		return null
-	return registry.get_instance(key)
+		return false
+	var perk_state: Object = registry.get_instance("runtime_perk_state")
+	var perk_catalog: Object = registry.get_instance("runtime_perk_catalog")
+	if perk_state == null or perk_catalog == null:
+		return false
+	if not perk_catalog.has_method("get_all_perk_data") or not perk_state.has_method("apply_choice"):
+		return false
+	var runtime_skill_levels: Dictionary = perk_state.runtime_skill_levels if "runtime_skill_levels" in perk_state else {}
+	var all_skill_pools: Array = [perk_catalog.get_all_perk_data()]
+	var apply_func: Callable = func(skill_id: String) -> void:
+		var perk_data: Dictionary = perk_catalog.get_perk_data(skill_id) if perk_catalog.has_method("get_perk_data") else {}
+		if perk_data.is_empty():
+			return
+		var choice: Dictionary = perk_data.duplicate(true)
+		choice["id"] = skill_id
+		perk_state.apply_choice(choice, owner, registry)
+	return _elixir_of_mastery_runtime.activate(runtime_skill_levels, all_skill_pools, apply_func)
+
+
+func get_elixir_of_mastery_runtime() -> Object:
+	return _elixir_of_mastery_runtime
+
+
+func is_elixir_cinematic_active() -> bool:
+	return _elixir_of_mastery_runtime.cinematic_active
+
+
+func update_elixir_cinematic(dt: float) -> void:
+	_elixir_of_mastery_runtime.update(dt)
+
+
+func handle_elixir_confirm() -> bool:
+	return _elixir_of_mastery_runtime.handle_confirm()

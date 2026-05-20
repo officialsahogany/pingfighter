@@ -23,15 +23,30 @@ func step(ball_pos: Vector2, effective_move: Vector2, ball_vel: Vector2, context
 	var step_move: Vector2 = effective_move / float(num_steps)
 	for _step in range(num_steps):
 		ball_pos += step_move
+		var sand_result: Dictionary = collision_detector.check_sand_terrain(ball_pos, ball_vel, ball_size, context)
+		if not sand_result.is_empty():
+			sand_result["ball_pos"] = sand_result.get("ball_pos", ball_pos)
+			return sand_result
+
 		var wall_result: Dictionary = collision_detector.check_wall(ball_pos, ball_size, width)
 		if not wall_result.is_empty():
 			wall_result["ball_pos"] = wall_result.get("ball_pos", ball_pos)
 			return wall_result
 
+		var brick_wall_result: Dictionary = collision_detector.check_brick_wall(ball_pos, ball_vel, ball_size, context)
+		if not brick_wall_result.is_empty():
+			brick_wall_result["ball_pos"] = brick_wall_result.get("ball_pos", ball_pos)
+			return brick_wall_result
+
 		var paddle_result: Dictionary = collision_detector.check_paddles(ball_pos, ball_vel, ball_size, context)
 		if not paddle_result.is_empty():
 			paddle_result["ball_pos"] = ball_pos
 			return paddle_result
+
+		var holy_barrier_result: Dictionary = collision_detector.check_holy_barrier(ball_pos, ball_vel, ball_size, context)
+		if not holy_barrier_result.is_empty():
+			holy_barrier_result["ball_pos"] = holy_barrier_result.get("ball_pos", ball_pos)
+			return holy_barrier_result
 
 		if bool(context.get("adversity_armor_invincible", false)) and ball_vel.y > 0.0:
 			var barrier_y: float = clamp(float(context.get("adversity_armor_barrier_y", height - ball_size * 0.5)), 0.0, height)
@@ -46,6 +61,9 @@ func step(ball_pos: Vector2, effective_move: Vector2, ball_vel: Vector2, context
 		if ball_pos.y < 0.0:
 			return {"event": EVENT_PLAYER_SCORED, "ball_pos": ball_pos}
 		if ball_pos.y > height:
+			if bool(context.get("stopwatch_score_blocking", false)) or bool(context.get("perk_resume_score_blocking", false)):
+				ball_pos.y = min(ball_pos.y, height - ball_size * 0.5)
+				return {"event": EVENT_NONE, "ball_pos": ball_pos}
 			return {"event": EVENT_BOSS_SCORED, "ball_pos": ball_pos}
 
 	return {"event": EVENT_NONE, "ball_pos": ball_pos}

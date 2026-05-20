@@ -37,6 +37,10 @@ func apply_motion(ball_vel: Vector2, fps_scale: float, context: Dictionary, deps
 	var power_state = deps.get("power_state", null)
 	if power_state == null:
 		return {}
+	if power_state.has_method("is_ghost_shot_motion_active") and bool(power_state.is_ghost_shot_motion_active()):
+		var scene_value: Variant = context.get("scene", {})
+		if scene_value is Dictionary and power_state.has_method("apply_ghost_shot_motion"):
+			return power_state.apply_ghost_shot_motion(scene_value, fps_scale, context, deps)
 	return {
 		"ball_vel": power_state.apply_motion(
 			ball_vel,

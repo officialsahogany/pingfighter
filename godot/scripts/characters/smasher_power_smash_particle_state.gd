@@ -1,6 +1,6 @@
 extends RefCounted
 
-const POWER_SMASH_MAX_EFFECT_PARTICLES: int = 180
+const POWER_SMASH_MAX_EFFECT_PARTICLES: int = 82
 const PARTICLE_VELOCITY_DECAY: float = 0.92
 const PARTICLE_GRAVITY_PER_FRAME: float = 0.1
 const ENERGY_BURST_COLOR: Color = Color(150.0 / 255.0, 200.0 / 255.0, 1.0)
@@ -44,10 +44,10 @@ func spawn(pos: Vector2, count: int, _combo_count: int = 0) -> void:
 
 
 func spawn_initial_burst(pos: Vector2) -> void:
-	for i in range(20):
-		var angle: float = (float(i) / 20.0) * TAU
+	for i in range(10):
+		var angle: float = (float(i) / 10.0) * TAU
 		_append_particle(pos, angle, randf_range(4.0, 6.0), 40.0, ENERGY_BURST_COLOR, "energy", randf_range(2.0, 4.0))
-	for _i in range(15):
+	for _i in range(6):
 		_append_particle(pos, randf_range(0.0, TAU), randf_range(5.0, 10.0), 30.0, SPARK_COLOR, "spark", randf_range(2.0, 4.0))
 
 
@@ -68,9 +68,11 @@ func spawn_ambient_spark(pos: Vector2) -> void:
 
 
 func update(fps_scale: float) -> void:
-	var updated_particles: Array[Dictionary] = []
-	for particle in particles:
-		var p: Dictionary = particle
+	if particles.is_empty():
+		return
+	var write_idx: int = 0
+	for i in range(particles.size()):
+		var p: Dictionary = particles[i]
 		var particle_pos: Vector2 = p["pos"]
 		var particle_vel: Vector2 = p["vel"]
 		var lifetime: float = float(p["lifetime"]) + fps_scale
@@ -82,12 +84,17 @@ func update(fps_scale: float) -> void:
 			p["pos"] = particle_pos
 			p["vel"] = particle_vel
 			p["lifetime"] = lifetime
-			updated_particles.append(p)
-	particles = updated_particles
+			particles[write_idx] = p
+			write_idx += 1
+	particles.resize(write_idx)
 
 
 func get_particles() -> Array[Dictionary]:
 	return particles
+
+
+func has_particles() -> bool:
+	return not particles.is_empty()
 
 
 func _append_particle(

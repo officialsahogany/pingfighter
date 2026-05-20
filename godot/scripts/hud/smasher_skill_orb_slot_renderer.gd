@@ -4,6 +4,9 @@ const SmasherSkillOrbCooldownRenderer := preload("res://scripts/hud/smasher_skil
 const SmasherSkillOrbSocketRenderer := preload("res://scripts/hud/smasher_skill_orb_socket_renderer.gd")
 const SmasherSkillOrbSymbolRenderer := preload("res://scripts/hud/smasher_skill_orb_symbol_renderer.gd")
 
+const TEXTURE_ORB_EDGE_FILL_EXTRA := 2.0
+const TEXTURE_ORB_Y_NUDGE := -1.0
+
 var cooldown_renderer: Object = SmasherSkillOrbCooldownRenderer.new()
 var socket_renderer: Object = SmasherSkillOrbSocketRenderer.new()
 var symbol_renderer: Object = SmasherSkillOrbSymbolRenderer.new()
@@ -42,6 +45,7 @@ func draw(
 	var skill_state: Object = context.get("skill_state", null)
 	var cooldown_seconds: Dictionary = context.get("cooldown_seconds", {})
 	var pillar_drawer: Object = context.get("pillar_drawer", null)
+	var static_hud_lod := bool(context.get("pillar_hud_static_lod", false))
 
 	for i in range(equipped_count):
 		var skill_name: String = str(equipped_skills[i])
@@ -49,10 +53,14 @@ func draw(
 		var skill_color: Color = skill_colors.get(skill_name, Color.WHITE)
 		var cooldown_ratio: float = _get_cooldown_remaining(skill_state, skill_name, time_now, cooldown_seconds)
 		var is_on_cooldown: bool = cooldown_ratio > 0.0
-		var is_active: bool = special_gauge >= float(skill_costs.get(skill_name, 0.0)) and not is_on_cooldown
+		var is_active: bool = (
+			special_gauge >= float(skill_costs.get(skill_name, 0.0))
+			and not is_on_cooldown
+			and _is_activation_condition_met(skill_name, context)
+		)
 
 		var activation_elapsed: int = _update_activation_state(skill_state, skill_name, is_active, time_now)
-		var symbol_animate: bool = is_active and activation_elapsed < 400
+		var symbol_animate: bool = is_active and activation_elapsed < 400 and not static_hud_lod
 		if symbol_animate:
 			var progress: float = float(activation_elapsed) / 400.0
 			socket_renderer.draw_activation_flash(canvas, slot_pos, icon_radius, scale_factor, progress, skill_color)
@@ -67,16 +75,20 @@ func draw(
 			border_color = Color(80.0 / 255.0, 80.0 / 255.0, 80.0 / 255.0, 180.0 / 255.0)
 		socket_renderer.draw_socket(canvas, slot_pos, icon_radius, socket_overlap, bg_color, border_color)
 
-		if is_active and not is_on_cooldown:
+		if is_active and not is_on_cooldown and not static_hud_lod:
 			socket_renderer.draw_ready_ring(canvas, slot_pos, icon_radius + socket_overlap * scale_factor, t, float(i) * 0.6, skill_color)
 
 		var icon_texture: Variant = skill_icons.get(skill_name, null)
 		var icon_size: float = icon_radius * 2.0 + 2.0 * scale_factor
-		var icon_rect: Rect2 = Rect2(slot_pos - Vector2(icon_size, icon_size) * 0.5, Vector2(icon_size, icon_size))
 		if icon_texture is Texture2D:
 			var modulate: Color = Color.WHITE if is_active else Color(0.45, 0.45, 0.45, 0.78)
 			var texture: Texture2D = icon_texture
-			canvas.draw_texture_rect(texture, icon_rect, false, modulate)
+			var texture_size: float = icon_size + TEXTURE_ORB_EDGE_FILL_EXTRA * scale_factor
+			var texture_rect := Rect2(
+				slot_pos - Vector2(texture_size, texture_size) * 0.5 + Vector2(0.0, TEXTURE_ORB_Y_NUDGE * scale_factor),
+				Vector2(texture_size, texture_size)
+			)
+			canvas.draw_texture_rect(texture, texture_rect, false, modulate)
 		else:
 			symbol_renderer.draw(canvas, slot_pos, icon_radius, skill_name, skill_color, is_active)
 
@@ -94,3 +106,9 @@ func _update_activation_state(skill_state: Object, skill_name: String, is_active
 	if skill_state != null and skill_state.has_method("update_activation_state"):
 		return int(skill_state.update_activation_state(skill_name, is_active, time_now))
 	return 100000
+
+
+func _is_activation_condition_met(skill_name: String, context: Dictionary) -> bool:
+	if skill_name == "cleanse":
+		return bool(context.get("cleanse_status_active", false))
+	return true

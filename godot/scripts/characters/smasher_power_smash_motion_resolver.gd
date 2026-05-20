@@ -1,5 +1,8 @@
 extends RefCounted
 
+const POWER_SMASH_EFFECT_MULT := 1.0
+const POWER_SMASH_INITIAL_DECAY_FACTOR := 0.89024
+
 
 func apply(
 	power_state: Object,
@@ -26,12 +29,12 @@ func apply(
 
 	if elapsed < 1.8:
 		var base_lift: float = gravity_effect * 1.5 * (1.8 - elapsed) / 1.8
-		var vertical_chaos: float = cos(elapsed * 5.0) * 0.015
+		var vertical_chaos: float = cos(elapsed * 5.0) * 0.015 * POWER_SMASH_EFFECT_MULT
 		var vertical_lift: float = base_lift + vertical_chaos
 		ball_velocity.y -= vertical_lift * fps_scale
 	else:
 		var base_pull: float = gravity_effect * 1.2 * (elapsed - 1.8)
-		var descent_chaos: float = sin(elapsed * 7.0) * 0.015
+		var descent_chaos: float = sin(elapsed * 7.0) * 0.015 * POWER_SMASH_EFFECT_MULT
 		var vertical_pull: float = base_pull + descent_chaos
 		ball_velocity.y += vertical_pull * fps_scale
 
@@ -44,7 +47,7 @@ func _apply_initial_boost(power_state: Object, ball_velocity: Vector2, elapsed: 
 	var target_speed: float = float(power_state.get_target_speed())
 	var boosted_speed: float = float(power_state.get_boosted_speed())
 	var initial_boosted_speed: float = boosted_speed if boosted_speed > 0.0 else target_speed
-	var interpolated_speed: float = initial_boosted_speed - (initial_boosted_speed - target_speed) * boost_progress
+	var interpolated_speed: float = initial_boosted_speed - (initial_boosted_speed - target_speed) * boost_progress * POWER_SMASH_INITIAL_DECAY_FACTOR
 	if current_speed > 0.0:
 		ball_velocity *= interpolated_speed / current_speed
 		if boost_progress >= 1.0:

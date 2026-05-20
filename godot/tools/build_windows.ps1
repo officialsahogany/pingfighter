@@ -106,7 +106,7 @@ function Write-PackLauncher {
     $launcher = @(
         "@echo off",
         "set `"GODOT_EXE=$GuiGodotPath`"",
-        "`"%GODOT_EXE%`" --main-pack `"%~dp0PingFighter.pck`"",
+        "`"%GODOT_EXE%`" --main-pack `"%~dp0DiskHearts_Ringpia.pck`"",
         "if errorlevel 1 pause"
     )
     Set-Content -LiteralPath $LauncherPath -Value $launcher -Encoding ASCII
@@ -118,7 +118,7 @@ function Copy-PackRuntime {
         [string]$TargetDir
     )
 
-    $runtimePath = Join-Path $TargetDir "PingFighter_Godot_Runtime.exe"
+    $runtimePath = Join-Path $TargetDir "DiskHearts_Ringpia_Runtime.exe"
     Copy-Item -LiteralPath $GuiGodotPath -Destination $runtimePath -Force
     return $runtimePath
 }
@@ -147,8 +147,8 @@ Write-Host "Mode: $effectiveMode"
 Write-Host "Output: $targetDir"
 
 if ($effectiveMode -eq "Pack") {
-    $pckPath = Join-Path $targetDir "PingFighter.pck"
-    $launcherPath = Join-Path $targetDir "PingFighter_Godot_Launcher.cmd"
+    $pckPath = Join-Path $targetDir "DiskHearts_Ringpia.pck"
+    $launcherPath = Join-Path $targetDir "DiskHearts_Ringpia_Launcher.cmd"
     $launcherGodotPath = $godotGuiPath
     Invoke-GodotCommand -GodotPath $godotPath -Arguments @(
         "--headless",
@@ -166,7 +166,7 @@ if ($effectiveMode -eq "Pack") {
     exit 0
 }
 
-$exePath = Join-Path $targetDir "PingFighter.exe"
+$exePath = Join-Path $targetDir "DiskHearts_Ringpia.exe"
 $exportFlag = if ($Mode -eq "Debug") { "--export-debug" } else { "--export-release" }
 Invoke-GodotCommand -GodotPath $godotPath -Arguments @(
     "--headless",

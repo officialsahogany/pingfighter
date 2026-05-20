@@ -25,11 +25,24 @@ class FakeRegistry:
 		return null
 
 
+class FakePerfLogger:
+	extends RefCounted
+
+	var labels: Array[String] = []
+
+	func begin_sample() -> int:
+		return Time.get_ticks_usec()
+
+	func finish_sample(label: String, _start_usec: int) -> void:
+		labels.append(label)
+
+
 func _init() -> void:
 	_verify_pickup_flow_stores_and_writes_owner_slots()
 	_verify_pickup_flow_keeps_item_when_store_rejects()
 	_verify_pickup_flow_collects_near_items()
 	_verify_controller_delegates_pickup_flow()
+	_verify_pickup_flow_perf_labels()
 
 	if _failures.is_empty():
 		print("active_item_field_pickup_flow_smoke: ok")
@@ -127,6 +140,35 @@ func _verify_controller_delegates_pickup_flow() -> void:
 	_expect(controller.get_spawned_items().is_empty(), "controller should delegate stored pickup removal")
 	_expect(owner.active_item_slots.size() == 1, "controller delegated pickup should write owner slots")
 	_expect(_pickup_count == 1, "controller delegated pickup should trigger pickup callback")
+
+
+func _verify_pickup_flow_perf_labels() -> void:
+	var flow: Object = ActiveItemFieldPickupFlow.new()
+	var motion: Object = ActiveItemFieldItemMotion.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	var perf_logger := FakePerfLogger.new()
+	_pickup_count = 0
+	_store_accept = true
+	var field_items: Array[Dictionary] = [_build_field_item("banana", Vector2(120.0, 120.0))]
+
+	var survivors: Array[Dictionary] = flow.update_field_items(
+		owner,
+		registry,
+		field_items,
+		motion,
+		1.0 / 60.0,
+		Callable(self, "_store_field_item"),
+		Callable(self, "_record_pickup"),
+		perf_logger
+	)
+
+	_expect(survivors.is_empty(), "perf-labelled pickup flow should still collect the item")
+	_expect(perf_logger.labels.has("physics.callback.active_items.field_spawn.field_items.prepare"), "pickup flow perf should label prepare")
+	_expect(perf_logger.labels.has("physics.callback.active_items.field_spawn.field_items.motion"), "pickup flow perf should label item motion")
+	_expect(perf_logger.labels.has("physics.callback.active_items.field_spawn.field_items.store"), "pickup flow perf should label item storage")
+	_expect(perf_logger.labels.has("physics.callback.active_items.field_spawn.field_items.pickup_feedback"), "pickup flow perf should label pickup feedback")
+	_expect(perf_logger.labels.has("physics.callback.active_items.field_spawn.field_items.owner_slots"), "pickup flow perf should label owner slot writeback")
 
 
 func _store_field_item(

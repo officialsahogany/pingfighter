@@ -23,6 +23,35 @@ const VIPER_ONLY_PASSIVE_SPAWN_NAMES := {
 
 var item_catalog: Object = ActiveItemCatalog.new()
 var passive_mythic_catalog: Object = MythicItemCatalog.new()
+var _active_spawn_template_cache: Array[Dictionary] = []
+var _passive_mythic_spawn_template_cache: Array[Dictionary] = []
+var _active_spawn_template_source: Object = null
+var _passive_mythic_spawn_template_source: Object = null
+var _active_spawn_template_cache_ready := false
+var _passive_mythic_spawn_template_cache_ready := false
+
+
+func clear_spawn_candidate_cache() -> void:
+	_active_spawn_template_cache.clear()
+	_passive_mythic_spawn_template_cache.clear()
+	_active_spawn_template_source = null
+	_passive_mythic_spawn_template_source = null
+	_active_spawn_template_cache_ready = false
+	_passive_mythic_spawn_template_cache_ready = false
+
+
+func prewarm_spawn_candidate_templates(perf_logger: Object = null) -> void:
+	_get_active_spawn_candidate_templates()
+	_get_passive_mythic_spawn_candidate_templates(perf_logger)
+
+
+func get_spawn_candidate_cache_status() -> Dictionary:
+	return {
+		"active_ready": _active_spawn_template_cache_ready,
+		"passive_mythic_ready": _passive_mythic_spawn_template_cache_ready,
+		"active_count": _active_spawn_template_cache.size(),
+		"passive_mythic_count": _passive_mythic_spawn_template_cache.size(),
+	}
 
 
 func build_catalog_item(item_name: String) -> Dictionary:
@@ -52,35 +81,65 @@ func get_field_spawn_candidate_names(registry: Object = null, owner: Object = nu
 	return names
 
 
-func build_random_spawn_item(registry: Object = null, owner: Object = null) -> Dictionary:
-	return build_weighted_spawn_item(build_spawn_candidates(registry, owner), {}, registry)
+func build_random_spawn_item(
+	registry: Object = null,
+	owner: Object = null,
+	perf_logger: Object = null
+) -> Dictionary:
+	var sample_start: int = _perf_begin(perf_logger)
+	var candidates: Array[Dictionary] = build_spawn_candidates(registry, owner, perf_logger)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.random.candidates", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	var item_data: Dictionary = build_weighted_spawn_item(candidates, {}, registry, perf_logger)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.random.weighted", sample_start)
+	return item_data
 
 
-func build_lucky_coin_bonus_spawn_item(registry: Object = null, owner: Object = null) -> Dictionary:
+func build_lucky_coin_bonus_spawn_item(
+	registry: Object = null,
+	owner: Object = null,
+	perf_logger: Object = null
+) -> Dictionary:
+	var sample_start: int = _perf_begin(perf_logger)
 	var mythic_item_runtime := _get_instance(registry, "mythic_item_runtime")
 	if mythic_item_runtime == null or not mythic_item_runtime.has_method("should_lucky_coin_double_spawn"):
+		_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.lucky.check", sample_start)
 		return {}
 	if not bool(mythic_item_runtime.should_lucky_coin_double_spawn()):
+		_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.lucky.check", sample_start)
 		return {}
-	return build_weighted_spawn_item(build_spawn_candidates(registry, owner), {LUCKY_COIN_ITEM_NAME: true}, registry)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.lucky.check", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	var candidates: Array[Dictionary] = build_spawn_candidates(registry, owner, perf_logger)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.lucky.candidates", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	var item_data: Dictionary = build_weighted_spawn_item(candidates, {LUCKY_COIN_ITEM_NAME: true}, registry, perf_logger)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.lucky.weighted", sample_start)
+	return item_data
 
 
 func build_weighted_spawn_item(
 	candidates: Array[Dictionary],
 	excluded_names: Dictionary = {},
-	registry: Object = null
+	registry: Object = null,
+	perf_logger: Object = null
 ) -> Dictionary:
+	var sample_start: int = _perf_begin(perf_logger)
 	var weighted_candidates: Array[Dictionary] = build_group_scaled_spawn_weights(
 		candidates,
 		excluded_names,
-		registry
+		registry,
+		perf_logger
 	)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.weighted.scale", sample_start)
 	if weighted_candidates.is_empty():
 		return {}
+	sample_start = _perf_begin(perf_logger)
 	var total_weight: float = 0.0
 	for entry in weighted_candidates:
 		total_weight += max(0.0, float(entry.get("weight", 0.0)))
 	if total_weight <= 0.0:
+		_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.weighted.roll", sample_start)
 		return {}
 
 	var roll: float = randf() * total_weight
@@ -89,17 +148,23 @@ func build_weighted_spawn_item(
 		if roll <= 0.0:
 			var selected_item: Variant = entry.get("item", {})
 			if selected_item is Dictionary:
-				return selected_item.duplicate(true)
+				var selected_item_data: Dictionary = selected_item
+				_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.weighted.roll", sample_start)
+				return _prepare_selected_spawn_item(selected_item_data, perf_logger)
 	var fallback_item: Variant = weighted_candidates.back().get("item", {})
 	if fallback_item is Dictionary:
-		return fallback_item.duplicate(true)
+		var fallback_item_data: Dictionary = fallback_item
+		_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.weighted.roll", sample_start)
+		return _prepare_selected_spawn_item(fallback_item_data, perf_logger)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.weighted.roll", sample_start)
 	return {}
 
 
 func build_group_scaled_spawn_weights(
 	candidates: Array[Dictionary],
 	excluded_names: Dictionary = {},
-	registry: Object = null
+	registry: Object = null,
+	perf_logger: Object = null
 ) -> Array[Dictionary]:
 	var base_entries: Array[Dictionary] = []
 	var group_sums := {
@@ -122,7 +187,9 @@ func build_group_scaled_spawn_weights(
 			"group": group,
 		})
 
+	var sample_start: int = _perf_begin(perf_logger)
 	var targets: Dictionary = get_spawn_group_target_shares(group_sums, registry)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.weighted.target_shares", sample_start)
 	var scaled_entries: Array[Dictionary] = []
 	for entry in base_entries:
 		var group: String = str(entry.get("group", "active"))
@@ -182,21 +249,109 @@ func get_spawn_group_target_shares(group_sums: Dictionary, registry: Object = nu
 	}
 
 
-func build_spawn_candidates(registry: Object = null, owner: Object = null) -> Array[Dictionary]:
+func build_spawn_candidates(
+	registry: Object = null,
+	owner: Object = null,
+	perf_logger: Object = null
+) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
+	var sample_start: int = _perf_begin(perf_logger)
+	for active_template in _get_active_spawn_candidate_templates():
+		# _apply_passive_spawn_weight returns the original template unchanged for
+		# every name except wall/boomerang/aipill; only those three allocate a
+		# duplicate. The downstream weighted picker reads candidates without
+		# mutating, and the eventual winner is deep-copied in
+		# _prepare_selected_spawn_item, so propagating template references here
+		# avoids 48+ unused duplicate(true) calls per field spawn.
+		candidates.append(_apply_passive_spawn_weight(active_template, registry))
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.candidates.active", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	for passive_template in _get_passive_mythic_spawn_candidate_templates(perf_logger):
+		if passive_template.is_empty():
+			continue
+		if _should_skip_passive_spawn_candidate(passive_template, registry, owner):
+			continue
+		candidates.append(passive_template)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.candidates.passive_mythic", sample_start)
+	return candidates
+
+
+func _get_active_spawn_candidate_templates() -> Array[Dictionary]:
+	if _active_spawn_template_cache_ready and _active_spawn_template_source == item_catalog:
+		return _active_spawn_template_cache
+	_active_spawn_template_cache.clear()
+	_active_spawn_template_source = item_catalog
+	_active_spawn_template_cache_ready = true
+	if item_catalog == null or not item_catalog.has_method("build_item_by_name"):
+		return _active_spawn_template_cache
 	for item_name_value in ActiveItemCatalog.FIELD_SPAWN_ORDER:
 		var item_data: Dictionary = item_catalog.build_item_by_name(str(item_name_value))
 		if not item_data.is_empty():
-			item_data = _apply_passive_spawn_weight(item_data, registry)
-			candidates.append(item_data)
-	if passive_mythic_catalog != null and passive_mythic_catalog.has_method("get_field_spawn_items"):
+			_active_spawn_template_cache.append(item_data.duplicate(true))
+	return _active_spawn_template_cache
+
+
+func _get_passive_mythic_spawn_candidate_templates(perf_logger: Object = null) -> Array[Dictionary]:
+	if (
+		_passive_mythic_spawn_template_cache_ready
+		and _passive_mythic_spawn_template_source == passive_mythic_catalog
+	):
+		return _passive_mythic_spawn_template_cache
+	_passive_mythic_spawn_template_cache.clear()
+	_passive_mythic_spawn_template_source = passive_mythic_catalog
+	_passive_mythic_spawn_template_cache_ready = true
+	if passive_mythic_catalog == null:
+		return _passive_mythic_spawn_template_cache
+
+	var sample_start: int = _perf_begin(perf_logger)
+	if passive_mythic_catalog.has_method("build_item_by_name"):
+		for item_name_value in MythicItemCatalog.FIELD_SPAWN_ORDER:
+			var item_data: Dictionary = passive_mythic_catalog.build_item_by_name(str(item_name_value))
+			if not item_data.is_empty():
+				item_data = _prepare_passive_mythic_template(item_data)
+				_passive_mythic_spawn_template_cache.append(item_data)
+	elif passive_mythic_catalog.has_method("get_field_spawn_items"):
 		for item_value in passive_mythic_catalog.get_field_spawn_items():
 			var item_data: Dictionary = _get_dict(item_value)
 			if not item_data.is_empty():
-				if _should_skip_passive_spawn_candidate(item_data, registry, owner):
-					continue
-				candidates.append(item_data)
-	return candidates
+				_passive_mythic_spawn_template_cache.append(item_data.duplicate(true))
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.candidates.passive_mythic.source", sample_start)
+	return _passive_mythic_spawn_template_cache
+
+
+func _prepare_passive_mythic_template(item_data: Dictionary) -> Dictionary:
+	var result: Dictionary = item_data.duplicate(true)
+	result.erase("rolls")
+	result.erase("roll_options")
+	result.erase("rolled_options")
+	result.erase("name_prefix")
+	result.erase("quality_tier")
+	result.erase("quality_color")
+	result.erase("qualified_display_name")
+	result["_field_spawn_randomize_rolls"] = true
+	return result
+
+
+func _prepare_selected_spawn_item(item_data: Dictionary, perf_logger: Object = null) -> Dictionary:
+	var result: Dictionary = item_data.duplicate(true)
+	var should_randomize_rolls := bool(result.get("_field_spawn_randomize_rolls", false))
+	result.erase("_field_spawn_randomize_rolls")
+	if not should_randomize_rolls and not _get_dict(result.get("rolls", {})).is_empty():
+		return result
+	if _get_spawn_group(result) == "active":
+		return result
+	if passive_mythic_catalog == null:
+		return result
+	var item_name: String = str(result.get("name", ""))
+	if item_name == "":
+		return result
+	var sample_start: int = _perf_begin(perf_logger)
+	if passive_mythic_catalog.has_method("build_random_rolls"):
+		result["rolls"] = passive_mythic_catalog.build_random_rolls(item_name)
+	if passive_mythic_catalog.has_method("sync_roll_fields"):
+		result = passive_mythic_catalog.sync_roll_fields(result, false)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.pool.weighted.finalize_selected", sample_start)
+	return result
 
 
 func _apply_passive_spawn_weight(item_data: Dictionary, registry: Object) -> Dictionary:
@@ -289,3 +444,14 @@ func _get_dict(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)

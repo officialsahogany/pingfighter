@@ -1,0 +1,174 @@
+extends SceneTree
+
+const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
+const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
+const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
+
+
+class FakeOwner:
+	extends RefCounted
+
+	var data: Dictionary = {}
+
+	func _init(initial_data: Dictionary) -> void:
+		data = initial_data.duplicate(true)
+
+	func _get(property: StringName) -> Variant:
+		return data.get(str(property), null)
+
+	func _set(property: StringName, value: Variant) -> bool:
+		data[str(property)] = value
+		return true
+
+	func queue_redraw() -> void:
+		pass
+
+
+class FakeRegistry:
+	var runtime_perk_state: Object
+	var active_item_runtime: Object
+	var mythic_item_runtime: Object
+
+	func _init(perk_state: Object, active_runtime: Object, mythic_runtime: Object) -> void:
+		runtime_perk_state = perk_state
+		active_item_runtime = active_runtime
+		mythic_item_runtime = mythic_runtime
+
+	func get_instance(key: String) -> Object:
+		match key:
+			"runtime_perk_state":
+				return runtime_perk_state
+			"active_item_runtime":
+				return active_item_runtime
+			"mythic_item_runtime":
+				return mythic_item_runtime
+		return null
+
+
+class CooldownPenaltyRuntime:
+	extends RefCounted
+
+	func get_active_item_cooldown_msec(base_cooldown_msec: float) -> float:
+		return float(base_cooldown_msec) * 1.25
+
+
+func _init() -> void:
+	var overlay: Object = CharacterInfoOverlay.new()
+	var perk_state: Object = RuntimePerkState.new()
+	var active_runtime: Object = ActiveItemRuntime.new()
+	_finish_active_runtime_initialization(active_runtime)
+	var mythic_runtime: Object = MythicItemRuntime.new()
+	var registry := FakeRegistry.new(perk_state, active_runtime, mythic_runtime)
+	var owner := FakeOwner.new({
+		"selected_character_type": "smasher",
+		"special_gauge": 120.0,
+		"special_gauge_max": 500.0,
+		"player_paddle_width": 155.0,
+		"active_item_slots": [],
+	})
+
+	perk_state.runtime_skill_levels["common_swiftness"] = 2
+	perk_state.runtime_skill_levels["common_bulk_up"] = 1
+	perk_state.runtime_skill_levels["item_cooldown_mastery"] = 1
+	_expect(active_runtime.effect_controller.activate_vitamin_pill(owner, registry), "vitamin pill should activate for the smoke test")
+
+	var stats: Array = overlay._build_stats(owner, registry)
+	_expect(
+		abs(_stat_float(stats, "이동 속도") - 10.08) < 0.02,
+		"TAB move speed should include common swiftness and active-item speed buffs"
+	)
+	_expect(
+		_is_buff_color(_stat_color(stats, "이동 속도")),
+		"TAB move speed buffs should be highlighted as a buff color"
+	)
+	_expect(
+		abs(_stat_seconds(stats, "아이템쿨타임") - 8.70) < 0.02,
+		"TAB active-item cooldown should include runtime perk reductions"
+	)
+	_expect(
+		_is_buff_color(_stat_color(stats, "아이템쿨타임")),
+		"TAB active-item cooldown reductions should be highlighted as a buff color"
+	)
+
+	active_runtime.effect_controller.long_boost_active = true
+	active_runtime.effect_controller.long_boost_scale = 1.5
+	stats = overlay._build_stats(owner, registry)
+	_expect(
+		_stat_pixels(stats, "몸집크기") >= 246.0,
+		"TAB body size should read live perk and active-item paddle scale, not only the cached owner width"
+	)
+	_expect(
+		_is_buff_color(_stat_color(stats, "몸집크기")),
+		"TAB body size increases should be highlighted as a buff color"
+	)
+
+	_expect(
+		int(mythic_runtime.acquire_item("slot_add", owner, registry, {"slot_add_count": 2.0}, true, false)) >= 0,
+		"slot_add passive should be acquired and equipped"
+	)
+	stats = overlay._build_stats(owner, registry)
+	_expect(
+		str(_find_stat(stats, "액티브 아이템").get("value", "")) == "0 / 5",
+		"TAB active item capacity should include passive item slot bonuses"
+	)
+
+	var debuff_active_runtime: Object = ActiveItemRuntime.new()
+	_finish_active_runtime_initialization(debuff_active_runtime)
+	var debuff_registry := FakeRegistry.new(RuntimePerkState.new(), debuff_active_runtime, CooldownPenaltyRuntime.new())
+	var debuff_stats: Array = overlay._build_stats(owner, debuff_registry)
+	_expect(
+		_is_debuff_color(_stat_color(debuff_stats, "아이템쿨타임")),
+		"TAB active-item cooldown increases should be highlighted as a debuff color"
+	)
+
+	print("character_info_live_stats_smoke: ok")
+	quit(0)
+
+
+func _finish_active_runtime_initialization(runtime: Object) -> void:
+	if runtime == null or not runtime.has_method("prewarm_initialization_step"):
+		return
+	while not bool(runtime.prewarm_initialization_step()):
+		pass
+
+
+func _find_stat(stats: Array, label: String) -> Dictionary:
+	for value in stats:
+		if value is Dictionary:
+			var stat: Dictionary = value
+			if str(stat.get("label", "")) == label:
+				return stat
+	return {}
+
+
+func _stat_float(stats: Array, label: String) -> float:
+	return float(str(_find_stat(stats, label).get("value", "0")))
+
+
+func _stat_seconds(stats: Array, label: String) -> float:
+	return float(str(_find_stat(stats, label).get("value", "0")).replace("초", ""))
+
+
+func _stat_pixels(stats: Array, label: String) -> float:
+	return float(str(_find_stat(stats, label).get("value", "0")).replace("px", ""))
+
+
+func _stat_color(stats: Array, label: String) -> Color:
+	var color: Variant = _find_stat(stats, label).get("color", Color.WHITE)
+	return color if color is Color else Color.WHITE
+
+
+func _is_buff_color(color: Color) -> bool:
+	return color.g > color.r and color.g > color.b
+
+
+func _is_debuff_color(color: Color) -> bool:
+	return color.r > color.g and color.r > color.b
+
+
+func _expect(condition: bool, message: String) -> void:
+	if condition:
+		return
+	push_error(message)
+	quit(1)

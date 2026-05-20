@@ -12,25 +12,25 @@ func draw(
 	time_seconds: float,
 	ball_radius: float,
 	ball_ring_color: Color,
-	ball_inner_color: Color
+	ball_inner_color: Color,
+	fx_lod_scale: float = 1.0
 ) -> void:
+	var lod_scale: float = clamp(fx_lod_scale, 0.35, 1.0)
 	var ring_angles: Array[float] = [
 		fmod(current_time_ms * 0.15, 360.0),
 		fmod(360.0 - current_time_ms * 0.12, 360.0),
-		fmod(current_time_ms * 0.15, 360.0),
 	]
 	var ring_tilts: Array[float] = [
-		20.0 + sin(current_time_ms * 0.002) * 10.0,
-		45.0 + sin(current_time_ms * 0.0015 + 1.0) * 12.0,
-		70.0 + sin(current_time_ms * 0.001 + 2.0) * 8.0,
+		24.0 + sin(current_time_ms * 0.002) * 9.0,
+		62.0 + sin(current_time_ms * 0.0015 + 1.0) * 10.0,
 	]
 	var ring_radii: Array[float] = [
-		ball_radius * 1.156,
-		ball_radius * 1.264,
-		ball_radius * 1.372,
+		ball_radius * 1.18,
+		ball_radius * 1.34,
 	]
 
-	for ring_idx in range(ring_radii.size()):
+	var ring_count: int = ring_radii.size() if lod_scale >= 0.82 else 1
+	for ring_idx in range(ring_count):
 		ring_renderer.draw_ring(
 			canvas,
 			pos,
@@ -40,5 +40,6 @@ func draw(
 			ring_angles[ring_idx],
 			ring_tilts[ring_idx],
 			ring_radii[ring_idx],
-			ring_idx
+			ring_idx,
+			lod_scale
 		)

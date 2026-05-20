@@ -1,0 +1,440 @@
+extends RefCounted
+
+var _state_applier: Object
+var _paddle_sync: Object
+var _player_center_reader: Object
+var _aipill_runtime: Object
+var _stopwatch_runtime: Object
+var _stopwatch_owner_effects: Object
+var _magnet_field_runtime: Object
+var _magnet_field_particles: Object
+var _timed_paddle_effects: Object
+var _holy_barrier_runtime: Object
+var _holy_barrier_particles: Object
+var _dash_boost_runtime: Object
+var _dash_boost_particles: Object
+var _brick_wall_installation: Object
+var _brick_wall_particles: Object
+var _transient_effect_updater: Object
+var _regeneration_potion_effect: Object
+var _pickup_effect_state: Object
+var _commando_supply_actions: Object
+
+
+func configure(deps: Dictionary) -> void:
+	_state_applier = deps.get("state_applier")
+	_paddle_sync = deps.get("paddle_sync")
+	_player_center_reader = deps.get("player_center_reader")
+	_aipill_runtime = deps.get("aipill_runtime")
+	_stopwatch_runtime = deps.get("stopwatch_runtime")
+	_stopwatch_owner_effects = deps.get("stopwatch_owner_effects")
+	_magnet_field_runtime = deps.get("magnet_field_runtime")
+	_magnet_field_particles = deps.get("magnet_field_particles")
+	_timed_paddle_effects = deps.get("timed_paddle_effects")
+	_holy_barrier_runtime = deps.get("holy_barrier_runtime")
+	_holy_barrier_particles = deps.get("holy_barrier_particles")
+	_dash_boost_runtime = deps.get("dash_boost_runtime")
+	_dash_boost_particles = deps.get("dash_boost_particles")
+	_brick_wall_installation = deps.get("brick_wall_installation")
+	_brick_wall_particles = deps.get("brick_wall_particles")
+	_transient_effect_updater = deps.get("transient_effect_updater")
+	_regeneration_potion_effect = deps.get("regeneration_potion_effect")
+	_pickup_effect_state = deps.get("pickup_effect_state")
+	_commando_supply_actions = deps.get("commando_supply_actions")
+
+
+func apply_update(
+	target: Object,
+	owner: Object,
+	delta: float,
+	warp_gate_state: Object = null,
+	mythic_item_runtime: Object = null,
+	perf_logger: Object = null
+) -> void:
+	var detail_perf_logger: Object = _detail_perf_logger(perf_logger, "active_item.effects.update")
+	var sample_start := 0
+	if _should_update_aipill(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_aipill(target, owner, delta, mythic_item_runtime)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.aipill", sample_start)
+	if _should_update_stopwatch(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_stopwatch(target, owner, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.stopwatch", sample_start)
+	if _should_update_magnet_field(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_magnet_field(target, owner, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.magnet_field", sample_start)
+	if _should_update_long_boost(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_long_boost(target, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.long_boost", sample_start)
+	if _should_update_vitamin_pill(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_vitamin_pill(target, owner, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.vitamin_pill", sample_start)
+	if _should_update_strange_vial(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_strange_vial(target, owner, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.strange_vial", sample_start)
+	if _should_update_doping_potion(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_doping_potion(target, owner, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.doping_potion", sample_start)
+	sample_start = _perf_begin(detail_perf_logger)
+	_sync_paddle_owner_state(target, owner, warp_gate_state, mythic_item_runtime)
+	_perf_end(detail_perf_logger, "physics.callback.active_items.paddle_sync", sample_start)
+	if _should_update_holy_barrier(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_holy_barrier(target, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.holy_barrier", sample_start)
+	if _should_update_dash_boost(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_dash_boost(target, owner, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.dash_boost", sample_start)
+	if _should_update_brick_wall(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_brick_wall_installation(target, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.brick_wall", sample_start)
+	if _should_update_transient_effects(target):
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_transient_effects(target, delta)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.transient_effects", sample_start)
+
+
+func _update_aipill(
+	target: Object,
+	owner: Object,
+	delta: float,
+	mythic_item_runtime: Object = null
+) -> void:
+	if (
+		target.has_method("cancel_aipill_if_neural_helmet_direction_pressed")
+		and bool(target.cancel_aipill_if_neural_helmet_direction_pressed(mythic_item_runtime, _is_direction_input_pressed()))
+	):
+		return
+	_aipill_runtime.apply_update(
+		target,
+		owner,
+		bool(target.get("aipill_active")),
+		float(target.get("aipill_phase")),
+		float(target.get("aipill_flash_timer_frames")),
+		delta,
+		_state_applier
+	)
+
+
+func _is_direction_input_pressed() -> bool:
+	return (
+		Input.is_action_pressed("ui_left")
+		or Input.is_action_pressed("ui_right")
+		or Input.is_action_pressed("ui_up")
+		or Input.is_action_pressed("ui_down")
+		or Input.is_key_pressed(KEY_A)
+		or Input.is_key_pressed(KEY_D)
+		or Input.is_key_pressed(KEY_W)
+		or Input.is_key_pressed(KEY_S)
+		or Input.is_key_pressed(KEY_LEFT)
+		or Input.is_key_pressed(KEY_RIGHT)
+		or Input.is_key_pressed(KEY_UP)
+		or Input.is_key_pressed(KEY_DOWN)
+	)
+
+
+func _update_stopwatch(target: Object, owner: Object, delta: float) -> void:
+	_stopwatch_runtime.apply_update(
+		target,
+		owner,
+		bool(target.get("stopwatch_active")),
+		float(target.get("stopwatch_timer_frames")),
+		float(target.get("stopwatch_initial_timer_frames")),
+		float(target.get("stopwatch_recovery_timer_frames")),
+		float(target.get("stopwatch_post_recovery_grace_frames")),
+		_get_vector2_property(target, "stopwatch_original_ball_vel"),
+		float(target.get("stopwatch_flash_timer_frames")),
+		float(target.get("stopwatch_clock_angle")),
+		delta,
+		_state_applier,
+		_stopwatch_owner_effects
+	)
+
+
+func _update_magnet_field(target: Object, owner: Object, delta: float) -> void:
+	_magnet_field_runtime.apply_update(
+		target,
+		target.get("magnet_field_particles"),
+		bool(target.get("magnet_field_active")),
+		float(target.get("magnet_field_timer_frames")),
+		float(target.get("magnet_field_initial_timer_frames")),
+		float(target.get("magnet_field_phase")),
+		_read_player_center(owner, _get_vector2_property(target, "magnet_field_player_center")),
+		float(target.get("magnet_field_particle_accumulator_frames")),
+		owner != null,
+		delta,
+		_state_applier,
+		_magnet_field_particles
+	)
+
+
+func _update_long_boost(target: Object, delta: float) -> void:
+	_timed_paddle_effects.apply_update_long_boost(
+		target,
+		bool(target.get("long_boost_active")),
+		float(target.get("long_boost_timer_frames")),
+		float(target.get("long_boost_initial_timer_frames")),
+		delta,
+		_state_applier
+	)
+
+
+func _update_vitamin_pill(target: Object, owner: Object, delta: float) -> void:
+	_timed_paddle_effects.apply_update_vitamin_pill(
+		target,
+		bool(target.get("vitamin_pill_active")),
+		float(target.get("vitamin_pill_timer_frames")),
+		float(target.get("vitamin_pill_initial_timer_frames")),
+		float(target.get("vitamin_pill_phase")),
+		float(target.get("vitamin_pill_flash_timer_frames")),
+		_read_player_center(owner, _get_vector2_property(target, "vitamin_pill_player_center")),
+		delta,
+		_state_applier
+	)
+
+
+func _update_strange_vial(target: Object, owner: Object, delta: float) -> void:
+	_timed_paddle_effects.apply_update_strange_vial(
+		target,
+		bool(target.get("strange_vial_active")),
+		float(target.get("strange_vial_timer_frames")),
+		float(target.get("strange_vial_initial_timer_frames")),
+		str(target.get("strange_vial_effect_type")),
+		float(target.get("strange_vial_target_scale")),
+		float(target.get("strange_vial_target_speed_multiplier")),
+		float(target.get("strange_vial_phase")),
+		float(target.get("strange_vial_flash_timer_frames")),
+		_read_player_center(owner, _get_vector2_property(target, "strange_vial_player_center")),
+		delta,
+		_state_applier
+	)
+
+
+func _update_doping_potion(target: Object, owner: Object, delta: float) -> void:
+	_commando_supply_actions.apply_update_doping_potion(
+		target,
+		bool(target.get("doping_potion_active")),
+		float(target.get("doping_potion_timer_frames")),
+		float(target.get("doping_potion_initial_timer_frames")),
+		float(target.get("doping_potion_phase")),
+		float(target.get("doping_potion_flash_timer_frames")),
+		_read_player_center(owner, _get_vector2_property(target, "doping_potion_player_center")),
+		delta,
+		_state_applier
+	)
+
+
+func _sync_paddle_owner_state(
+	target: Object,
+	owner: Object,
+	warp_gate_state: Object,
+	mythic_item_runtime: Object
+) -> void:
+	var active_item_scale: float = _paddle_sync.get_player_paddle_scale(
+		float(target.get("long_boost_scale")),
+		float(target.get("strange_vial_scale"))
+	)
+	_paddle_sync.sync_owner_state(owner, active_item_scale, warp_gate_state, mythic_item_runtime)
+
+
+func _update_holy_barrier(target: Object, delta: float) -> void:
+	_holy_barrier_runtime.apply_update(
+		target,
+		target.get("holy_barrier_particles"),
+		bool(target.get("holy_barrier_active")),
+		float(target.get("holy_barrier_timer_frames")),
+		float(target.get("holy_barrier_initial_timer_frames")),
+		float(target.get("holy_barrier_glow_phase")),
+		float(target.get("holy_barrier_particle_accumulator_frames")),
+		delta,
+		_state_applier,
+		_holy_barrier_particles
+	)
+
+
+func _update_dash_boost(target: Object, owner: Object, delta: float) -> void:
+	_dash_boost_runtime.apply_update(
+		target,
+		target.get("dash_boost_particles"),
+		bool(target.get("dash_boost_active")),
+		float(target.get("dash_boost_timer_frames")),
+		float(target.get("dash_boost_initial_timer_frames")),
+		float(target.get("dash_boost_glow_phase")),
+		float(target.get("dash_boost_particle_accumulator_frames")),
+		_read_player_center(owner, _get_vector2_property(target, "dash_boost_player_center")),
+		delta,
+		_state_applier,
+		_dash_boost_particles
+	)
+
+
+func _update_brick_wall_installation(target: Object, delta: float) -> void:
+	_brick_wall_installation.apply_update(
+		target,
+		bool(target.get("brick_wall_installing")),
+		float(target.get("brick_wall_install_timer_frames")),
+		float(target.get("brick_wall_install_initial_frames")),
+		_get_dictionary_property(target, "pending_brick_wall"),
+		target.get("brick_walls"),
+		target.get("brick_particles"),
+		delta,
+		_state_applier,
+		_brick_wall_particles
+	)
+
+
+func _update_transient_effects(target: Object, delta: float) -> void:
+	_transient_effect_updater.apply_update(
+		target.get("brick_particles"),
+		target.get("regeneration_potion_particles"),
+		target.get("regeneration_potion_rings"),
+		target.get("pickup_particles"),
+		_get_dictionary_property(target, "pickup_effect"),
+		delta,
+		_brick_wall_particles,
+		_regeneration_potion_effect,
+		_pickup_effect_state
+	)
+
+
+func _read_player_center(owner: Object, fallback: Vector2) -> Vector2:
+	if owner == null:
+		return fallback
+	return _player_center_reader.get_player_center(owner)
+
+
+func _get_dictionary_property(target: Object, key: String) -> Dictionary:
+	var value: Variant = target.get(key)
+	if value is Dictionary:
+		return value
+	return {}
+
+
+func _get_vector2_property(target: Object, key: String) -> Vector2:
+	var value: Variant = target.get(key)
+	if value is Vector2:
+		return value
+	return Vector2.ZERO
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
+
+
+func _detail_perf_logger(perf_logger: Object, label: String) -> Object:
+	if perf_logger == null:
+		return null
+	if perf_logger.has_method("should_sample_detail"):
+		return perf_logger if bool(perf_logger.should_sample_detail(label)) else null
+	return perf_logger
+
+
+func _should_update_aipill(target: Object) -> bool:
+	return bool(target.get("aipill_active")) or float(target.get("aipill_flash_timer_frames")) > 0.0
+
+
+func _should_update_stopwatch(target: Object) -> bool:
+	return (
+		bool(target.get("stopwatch_active"))
+		or float(target.get("stopwatch_timer_frames")) > 0.0
+		or float(target.get("stopwatch_recovery_timer_frames")) > 0.0
+		or float(target.get("stopwatch_post_recovery_grace_frames")) > 0.0
+		or float(target.get("stopwatch_flash_timer_frames")) > 0.0
+	)
+
+
+func _should_update_magnet_field(target: Object) -> bool:
+	return (
+		bool(target.get("magnet_field_active"))
+		or float(target.get("magnet_field_timer_frames")) > 0.0
+		or _has_array_items(target.get("magnet_field_particles"))
+	)
+
+
+func _should_update_long_boost(target: Object) -> bool:
+	return (
+		bool(target.get("long_boost_active"))
+		or float(target.get("long_boost_timer_frames")) > 0.0
+		or not is_equal_approx(float(target.get("long_boost_scale")), 1.0)
+	)
+
+
+func _should_update_vitamin_pill(target: Object) -> bool:
+	return (
+		bool(target.get("vitamin_pill_active"))
+		or float(target.get("vitamin_pill_timer_frames")) > 0.0
+		or float(target.get("vitamin_pill_flash_timer_frames")) > 0.0
+	)
+
+
+func _should_update_strange_vial(target: Object) -> bool:
+	return (
+		bool(target.get("strange_vial_active"))
+		or float(target.get("strange_vial_timer_frames")) > 0.0
+		or float(target.get("strange_vial_flash_timer_frames")) > 0.0
+		or not is_equal_approx(float(target.get("strange_vial_scale")), 1.0)
+		or not is_equal_approx(float(target.get("strange_vial_speed_multiplier")), 1.0)
+	)
+
+
+func _should_update_doping_potion(target: Object) -> bool:
+	return (
+		bool(target.get("doping_potion_active"))
+		or float(target.get("doping_potion_timer_frames")) > 0.0
+		or float(target.get("doping_potion_flash_timer_frames")) > 0.0
+	)
+
+
+func _should_update_holy_barrier(target: Object) -> bool:
+	return (
+		bool(target.get("holy_barrier_active"))
+		or float(target.get("holy_barrier_timer_frames")) > 0.0
+		or _has_array_items(target.get("holy_barrier_particles"))
+	)
+
+
+func _should_update_dash_boost(target: Object) -> bool:
+	return (
+		bool(target.get("dash_boost_active"))
+		or float(target.get("dash_boost_timer_frames")) > 0.0
+		or _has_array_items(target.get("dash_boost_particles"))
+	)
+
+
+func _should_update_brick_wall(target: Object) -> bool:
+	return (
+		bool(target.get("brick_wall_installing"))
+		or float(target.get("brick_wall_install_timer_frames")) > 0.0
+		or not _get_dictionary_property(target, "pending_brick_wall").is_empty()
+	)
+
+
+func _should_update_transient_effects(target: Object) -> bool:
+	return (
+		_has_array_items(target.get("brick_particles"))
+		or _has_array_items(target.get("regeneration_potion_particles"))
+		or _has_array_items(target.get("regeneration_potion_rings"))
+		or _has_array_items(target.get("pickup_particles"))
+		or not _get_dictionary_property(target, "pickup_effect").is_empty()
+	)
+
+
+func _has_array_items(value: Variant) -> bool:
+	if not (value is Array):
+		return false
+	return not (value as Array).is_empty()

@@ -1,20 +1,23 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://b7rs5h8ujaoxo"]
 
 [ext_resource type="Script" path="res://scripts/ui/character_select_screen.gd" id="1_c1x7b"]
 [ext_resource type="Script" path="res://scripts/ui/character_live_preview.gd" id="2_pv5md"]
 
-[node name="CharacterSelect" type="Control"]
+[node name="CharacterSelect" type="Control" unique_id=1791971240]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
 script = ExtResource("1_c1x7b")
 
-[node name="LivePreview" type="Control" parent="."]
-layout_mode = 0
-mouse_filter = 2
+[node name="LivePreview" type="Control" parent="." unique_id=1718825427]
 clip_contents = true
+anchors_preset = 0
+offset_left = 258.0
+offset_top = 159.61
+offset_right = 874.0
+offset_bottom = 719.61
+mouse_filter = 2
 script = ExtResource("2_pv5md")

@@ -22,7 +22,10 @@ const COLS := 6
 const CELL_W := 965.0
 const CELL_H := 961.0
 const FPS := 15.0
-const BOOTSTRAP_HOLD_SECONDS := 0.40
+const BOOTSTRAP_HOLD_SECONDS := 0.0
+const LOGO_SOUND_SECONDS := 2.69025
+const LOGO_DIAMETER_SCALE := 0.80
+const LOGO_MIN_DIAMETER := 128.0
 const SCALE_IN_SECONDS := 0.30
 const SCALE_IN_START := 0.82
 const FADE_OUT_SECONDS := 0.30
@@ -32,6 +35,8 @@ const TEXT_GLINT_SECONDS := 0.60
 const TEXT_SIZE_RATIO := 0.17
 const TEXT_GAP_MIN := 16.0
 const TEXT_GAP_RATIO := 0.06
+const TEXT_LIFT_MIN := 18.0
+const TEXT_LIFT_RATIO := 0.045
 const TEXT_TRACKING_STEPS := 18
 const TEXT_TRACKING_START_RATIO := 0.055
 const TEXT_DRIFT_RATIO := 0.015
@@ -47,6 +52,7 @@ const GLINT_FLARE_ALPHA := 0.90
 
 var active: bool = false
 var elapsed_seconds: float = 0.0
+var start_msec: int = 0
 var sheet_texture: Texture2D
 var logo_sound: AudioStreamPlayer
 var sheet_load_attempted: bool = false
@@ -57,27 +63,55 @@ var studio_text_font_path: String = ""
 func begin(owner: Node) -> bool:
 	if active:
 		return true
+	_load_sheet()
+	_get_studio_text_font()
+	if sheet_texture == null:
+		return false
 	elapsed_seconds = 0.0
-	sheet_load_attempted = sheet_texture != null
-	active = true
+	sheet_load_attempted = true
 	_play_sound(owner)
+	start_msec = Time.get_ticks_msec()
+	active = true
 	return true
+
+
+func prewarm_assets() -> void:
+	_load_sheet()
+	if not _is_headless_run():
+		ProjectResourceLoader.load_audio_stream(
+			LOGO_SOUND_PATH,
+			"Missing penguin logo intro sound: %s",
+			"Failed to load penguin logo intro sound: %s"
+		)
+	_get_studio_text_font()
 
 
 func is_active() -> bool:
 	return active
 
 
-func update(delta: float) -> void:
+func is_audio_playing() -> bool:
+	return logo_sound != null and is_instance_valid(logo_sound) and logo_sound.playing
+
+
+func cleanup() -> void:
+	active = false
+	start_msec = 0
+	if logo_sound != null and is_instance_valid(logo_sound):
+		if logo_sound.playing:
+			logo_sound.stop()
+		logo_sound.stream = null
+		logo_sound.free()
+	logo_sound = null
+	sheet_texture = null
+	studio_text_font = null
+	studio_text_font_path = ""
+
+
+func update(_delta: float) -> void:
 	if not active:
 		return
-	elapsed_seconds += max(0.0, delta)
-	if elapsed_seconds >= BOOTSTRAP_HOLD_SECONDS and sheet_texture == null and not sheet_load_attempted:
-		sheet_load_attempted = true
-		_load_sheet()
-		if sheet_texture == null:
-			active = false
-			return
+	_refresh_elapsed_seconds()
 	if elapsed_seconds >= _total_seconds():
 		active = false
 
@@ -121,6 +155,8 @@ func _load_sheet() -> void:
 func _play_sound(owner: Node) -> void:
 	if owner == null:
 		return
+	if _is_headless_run():
+		return
 	if logo_sound == null:
 		logo_sound = AudioStreamPlayer.new()
 		logo_sound.name = "PenguinLogoIntroSfx"
@@ -138,6 +174,10 @@ func _play_sound(owner: Node) -> void:
 		logo_sound.stop()
 	logo_sound.pitch_scale = 1.0
 	logo_sound.play()
+
+
+func _is_headless_run() -> bool:
+	return DisplayServer.get_name().to_lower() == "headless"
 
 
 func _get_studio_text_font() -> Font:
@@ -172,7 +212,8 @@ func _draw_bootstrap_logo(canvas: CanvasItem, view_size: Vector2) -> void:
 
 
 func _build_layout(view_size: Vector2) -> Dictionary:
-	var diameter: float = max(160.0, round(min(view_size.x * 0.44, view_size.y * 0.60)))
+	var base_diameter: float = min(view_size.x * 0.44, view_size.y * 0.60)
+	var diameter: float = max(LOGO_MIN_DIAMETER, round(base_diameter * LOGO_DIAMETER_SCALE))
 	var pad_x: float = max(24.0, diameter / 12.0)
 	var pad_y: float = max(24.0, diameter / 12.0)
 	var logo_local: Vector2 = Vector2(diameter + pad_x * 2.0, diameter + pad_y * 2.0)
@@ -221,6 +262,7 @@ func _draw_wave_frame(
 	if alpha <= 0.0:
 		return
 	var col: int = frame_index % COLS
+	@warning_ignore("integer_division")
 	var row: int = int(frame_index / COLS)
 	var source: Rect2 = Rect2(Vector2(float(col) * CELL_W, float(row) * CELL_H), Vector2(CELL_W, CELL_H))
 	var dest: Rect2 = Rect2(center - frame_size * 0.5, frame_size)
@@ -255,8 +297,9 @@ func _draw_studio_text(canvas: CanvasItem, view_size: Vector2, layout: Dictionar
 	var gap: float = max(TEXT_GAP_MIN, diameter * TEXT_GAP_RATIO)
 	var center: Vector2 = layout.get("center", view_size * 0.5)
 	var local_size: Vector2 = layout.get("local_size", Vector2.ZERO)
+	var text_lift: float = max(TEXT_LIFT_MIN, diameter * TEXT_LIFT_RATIO)
 	var text_top: float = min(
-		center.y + local_size.y * 0.5 + gap,
+		center.y + local_size.y * 0.5 + gap - text_lift,
 		view_size.y - text_size.y - 8.0
 	)
 	text_top = max(8.0, text_top)
@@ -489,7 +532,7 @@ func _logo_scale() -> float:
 
 func _logo_alpha() -> float:
 	var anim_elapsed: float = _animation_elapsed()
-	var fade_start: float = _animation_seconds()
+	var fade_start: float = _animation_seconds() + _hold_after_animation_seconds()
 	if anim_elapsed < fade_start:
 		return 1.0
 	var fade_t: float = clamp((anim_elapsed - fade_start) / FADE_OUT_SECONDS, 0.0, 1.0)
@@ -500,6 +543,12 @@ func _animation_elapsed() -> float:
 	return max(0.0, elapsed_seconds - BOOTSTRAP_HOLD_SECONDS)
 
 
+func _refresh_elapsed_seconds() -> void:
+	if start_msec <= 0:
+		return
+	elapsed_seconds = max(0.0, float(Time.get_ticks_msec() - start_msec) / 1000.0)
+
+
 func _is_bootstrap_phase() -> bool:
 	return elapsed_seconds < BOOTSTRAP_HOLD_SECONDS
 
@@ -508,8 +557,12 @@ func _animation_seconds() -> float:
 	return FRAME_COUNT / FPS
 
 
+func _hold_after_animation_seconds() -> float:
+	return max(0.0, LOGO_SOUND_SECONDS - _animation_seconds() - FADE_OUT_SECONDS)
+
+
 func _total_seconds() -> float:
-	return BOOTSTRAP_HOLD_SECONDS + _animation_seconds() + FADE_OUT_SECONDS
+	return BOOTSTRAP_HOLD_SECONDS + _animation_seconds() + _hold_after_animation_seconds() + FADE_OUT_SECONDS
 
 
 func _smoothstep(t: float) -> float:

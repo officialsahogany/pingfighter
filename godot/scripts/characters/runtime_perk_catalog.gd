@@ -99,6 +99,62 @@ const COMMON_PERKS := {
 		"icon_color": Color(150.0 / 255.0, 1.0, 100.0 / 255.0),
 		"tree": "item",
 	},
+	"item_caffeine": {
+		"name": "카페인",
+		"max_level": 5,
+		"descriptions": {
+			1: "타이머형 아이템 지속 30% 증가",
+			2: "타이머형 아이템 지속 60% 증가",
+			3: "타이머형 아이템 지속 90% 증가",
+			4: "타이머형 아이템 지속 120% 증가",
+			5: "타이머형 아이템 지속 150% 증가",
+		},
+		"detail": "카페인 부스트로 지속시간형 액티브 아이템 효과가 더 오래 지속됩니다.",
+		"icon_color": Color(139.0 / 255.0, 69.0 / 255.0, 19.0 / 255.0),
+		"tree": "item",
+	},
+	"item_polish": {
+		"name": "연마",
+		"max_level": 5,
+		"descriptions": {
+			1: "패시브 롤옵션 효율 12% 증가",
+			2: "패시브 롤옵션 효율 24% 증가",
+			3: "패시브 롤옵션 효율 36% 증가",
+			4: "패시브 롤옵션 효율 48% 증가",
+			5: "패시브 롤옵션 효율 60% 증가",
+		},
+		"detail": "아이템을 연마하여 패시브 효과가 강화됩니다.",
+		"icon_color": Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0),
+		"tree": "item",
+	},
+	"item_recycle": {
+		"name": "연금술",
+		"max_level": 5,
+		"descriptions": {
+			1: "아이템 유지 확률 7%",
+			2: "아이템 유지 확률 14%",
+			3: "아이템 유지 확률 21%",
+			4: "아이템 유지 확률 28%",
+			5: "아이템 유지 확률 35%",
+		},
+		"detail": "연금술로 사용한 아이템이 확률적으로 유지됩니다.",
+		"icon_color": Color(148.0 / 255.0, 0.0, 211.0 / 255.0),
+		"tree": "item",
+	},
+	"downtown_treasure_map": {
+		"name": "보물지도",
+		"max_level": 5,
+		"descriptions": {
+			1: "신화 확률 +150%, 패시브 드랍 +3%, 보물탐색 신화 +3%",
+			2: "신화 확률 +300%, 패시브 드랍 +6%, 보물탐색 신화 +6%",
+			3: "신화 확률 +450%, 패시브 드랍 +9%, 보물탐색 신화 +9%",
+			4: "신화 확률 +600%, 패시브 드랍 +12%, 보물탐색 신화 +12%",
+			5: "신화 확률 +750%, 패시브 드랍 +15%, 보물탐색 신화 +15%",
+		},
+		"detail": "신화 아이템 획득 확률과 패시브 아이템 드랍 비율이 증가합니다. 즉시형 퍽 '보물탐색'의 신화 보상 확률도 레벨당 3% 증가합니다.",
+		"icon_color": Color(1.0, 223.0 / 255.0, 0.0),
+		"tree": "downtown",
+	},
 	"item_bag_expansion": {
 		"name": "가방확장",
 		"max_level": 5,
@@ -156,14 +212,28 @@ const COMMON_PERKS := {
 		"name": "부스트차징",
 		"max_level": 5,
 		"descriptions": {
-			1: "부스트차징 발동확률 +7%",
-			2: "부스트차징 발동확률 +14%",
-			3: "부스트차징 발동확률 +21%",
-			4: "부스트차징 발동확률 +28%",
-			5: "부스트차징 발동확률 +35%",
+			1: "확률 +7%, 발동 시 다음 대쉬 무료 + 토큰 충전 -90%",
+			2: "확률 +14%, 발동 시 다음 대쉬 무료 + 토큰 충전 -90%",
+			3: "확률 +21%, 발동 시 다음 대쉬 무료 + 토큰 충전 -90%",
+			4: "확률 +28%, 발동 시 다음 대쉬 무료 + 토큰 충전 -90%",
+			5: "확률 +35%, 발동 시 다음 대쉬 무료 + 토큰 충전 -90%",
 		},
-		"detail": "다음 대쉬의 토큰 소모를 무효화할 확률이 생깁니다.",
+		"detail": "발동 시 다음 대쉬의 토큰 소모를 1회 무효화하고, 충전 중인 대쉬 토큰 1개의 남은 충전 쿨타임을 90% 줄입니다.",
 		"icon_color": Color(80.0 / 255.0, 160.0 / 255.0, 1.0),
+		"tree": "common",
+	},
+	"perk_laurel_shield": {
+		"name": "월계수잎",
+		"max_level": 5,
+		"descriptions": {
+			1: "월계수 잎 1개 보호",
+			2: "월계수 잎 2개 보호",
+			3: "월계수 잎 3개 보호",
+			4: "월계수 잎 4개 보호",
+			5: "월계수 잎 5개 보호",
+		},
+		"detail": "공을 막아주는 신성한 월계수잎이 주변을 보호합니다.",
+		"icon_color": Color(100.0 / 255.0, 200.0 / 255.0, 100.0 / 255.0),
 		"tree": "common",
 	},
 	"common_training": {
@@ -183,6 +253,21 @@ const COMMON_PERKS := {
 }
 
 const SMASHER_PERKS := {
+	"dash_acceleration": {
+		"name": "버스트업",
+		"max_level": 5,
+		"descriptions": {
+			1: "대쉬시 패들 크기 70% 증가",
+			2: "대쉬시 패들 크기 140% 증가",
+			3: "대쉬시 패들 크기 210% 증가",
+			4: "대쉬시 패들 크기 280% 증가",
+			5: "대쉬시 패들 크기 350% 증가",
+		},
+		"detail": "대쉬 순간 패들이 폭발적으로 확장되어 더 넓은 범위의 공을 받아냅니다.",
+		"icon_color": Color(1.0, 100.0 / 255.0, 50.0 / 255.0),
+		"tree": "smasher",
+		"character_restriction": "smasher",
+	},
 	"dash_spirit": {
 		"name": "대쉬스피릿",
 		"max_level": 5,
@@ -197,6 +282,16 @@ const SMASHER_PERKS := {
 		"icon_color": Color(0.0, 1.0, 1.0),
 		"tree": "smasher",
 		"character_restriction": "smasher",
+	},
+	"unlock_magnum_grip": {
+		"name": "매그넘 그립 해금",
+		"max_level": 1,
+		"descriptions": {1: "매그넘 그립 스킬 해금"},
+		"detail": "좌+우 동시 입력으로 자기장을 형성해 공을 끌어당기는 스킬을 해금합니다.",
+		"icon_color": Color(200.0 / 255.0, 140.0 / 255.0, 1.0),
+		"tree": "smasher_unlock",
+		"character_restriction": "smasher",
+		"unlocks_skill": "magnum_grip",
 	},
 	"unlock_plasma": {
 		"name": "플라즈마 해금",
@@ -238,6 +333,36 @@ const SMASHER_PERKS := {
 		"character_restriction": "smasher",
 		"unlocks_skill": "shield_kiting",
 	},
+	"unlock_ghost_shot": {
+		"name": "고스트샷 해금",
+		"max_level": 1,
+		"descriptions": {1: "고스트샷 스킬 해금"},
+		"detail": "게이지 420 이상에서 파워스매싱 입력으로 공을 기괴하게 난무시키고 보스 쪽으로 재발사하는 스킬을 해금합니다.",
+		"icon_color": Color(120.0 / 255.0, 50.0 / 255.0, 180.0 / 255.0),
+		"tree": "smasher_unlock",
+		"character_restriction": "smasher",
+		"unlocks_skill": "ghost_shot",
+	},
+	"unlock_warp_gate": {
+		"name": "워프게이트 해금",
+		"max_level": 1,
+		"descriptions": {1: "워프게이트 스킬 해금"},
+		"detail": "S 또는 ↓ 키를 0.5초 이상 홀드하면 좌/우 벽을 타넘어 반대편으로 순간이동하는 차원 포털 스킬을 해금합니다. 벽 통과는 추가 게이지를 소모하지 않습니다.",
+		"icon_color": Color(200.0 / 255.0, 110.0 / 255.0, 1.0),
+		"tree": "smasher_unlock",
+		"character_restriction": "smasher",
+		"unlocks_skill": "warp_gate",
+	},
+	"unlock_smasher_wheel": {
+		"name": "스매셔휠 해금",
+		"max_level": 1,
+		"descriptions": {1: "스매셔휠 스킬 해금"},
+		"detail": "A→W→D 또는 D→W→A 순서 입력으로 1.2초간 회전하며, 공에 닿으면 고속 커브샷으로 재발사하는 스킬을 해금합니다.",
+		"icon_color": Color(1.0, 165.0 / 255.0, 60.0 / 255.0),
+		"tree": "smasher_unlock",
+		"character_restriction": "smasher",
+		"unlocks_skill": "smasher_wheel",
+	},
 	"extension_gear": {
 		"name": "연장기어",
 		"max_level": 5,
@@ -257,10 +382,10 @@ const SMASHER_PERKS := {
 
 const VIPER_PERKS := {
 	"unlock_nerve_strike": {
-		"name": "베놈킥 해금",
+		"name": "베놈 엣지 해금",
 		"max_level": 1,
-		"descriptions": {1: "베놈킥 스킬 해금"},
-		"detail": "연계 중 보스 뒤를 파고드는 추격 스킬을 장착합니다.",
+		"descriptions": {1: "베놈 엣지 스킬 해금"},
+		"detail": "에어 블레이드 연계기 '베놈 엣지'를 장착합니다.",
 		"icon_color": Color(180.0 / 255.0, 0.0, 220.0 / 255.0),
 		"tree": "viper_unlock",
 		"character_restriction": "viper",
@@ -306,6 +431,38 @@ const VIPER_PERKS := {
 		"character_restriction": "viper",
 		"unlocks_skill": "ignition_aura",
 	},
+	"double_marshal_kick": {
+		"name": "팬텀 킥",
+		"max_level": 1,
+		"descriptions": {1: "마샬 킥 적중 후 팬텀 킥 발동 가능"},
+		"detail": "마샬 킥으로 공을 맞힌 뒤 S/아래 입력으로 2차 연계 팬텀 킥을 사용할 수 있습니다. 게이지 60, 쿨타임 50초.",
+		"icon_color": Color(180.0 / 255.0, 0.0, 1.0),
+		"tree": "viper_unlock",
+		"character_restriction": "viper",
+		"unlocks_skill": "phantom_kick",
+	},
+	"core_flip": {
+		"name": "화랑 킥",
+		"max_level": 1,
+		"descriptions": {
+			1: "대쉬로 공을 맞춘 뒤 0.7초 이내 A+D 동시 입력으로 화랑 킥 발동",
+		},
+		"detail": "대쉬로 공을 맞춘 뒤 0.7초 이내에 A+D(또는 ←+→)를 동시에 누르면 화랑 킥이 발동됩니다.\n벽을 타고 반사각으로 공을 차며, 적중 시 마샬 킥(→팬텀 킥) 연계가 열립니다.\n게이지 120, 쿨타임 25초.",
+		"icon_color": Color(1.0, 110.0 / 255.0, 200.0 / 255.0),
+		"tree": "viper_unlock",
+		"character_restriction": "viper",
+		"unlocks_skill": "core_flip",
+	},
+	"dark_blade": {
+		"name": "다크 블레이드",
+		"max_level": 1,
+		"descriptions": {1: "공 타격 후 3초 내 공중 W/↑로 다크 블레이드 발동"},
+		"detail": "쉐도우 백스텝, 마샬 킥, 팬텀 킥, 화랑 킥으로 공을 맞히면 3초간 다크 블레이드 연계 윈도우가 열립니다.\n그 안에 공중에서 W/↑를 누르면 검붉은 강화 검기를 발사합니다.\n검기가 공을 맞히면 마샬 킥 윈도우가 열리지만 팬텀 킥 윈도우는 직접 열지 않습니다.\n게이지 200, 쿨타임 45초.",
+		"icon_color": Color(120.0 / 255.0, 0.0, 30.0 / 255.0),
+		"tree": "viper_unlock",
+		"character_restriction": "viper",
+		"unlocks_skill": "dark_blade",
+	},
 	"jetpack_enhance": {
 		"name": "제트팩 강화",
 		"max_level": 5,
@@ -325,13 +482,13 @@ const VIPER_PERKS := {
 		"name": "킥 강화",
 		"max_level": 5,
 		"descriptions": {
-			1: "킥 발사 정밀도 +8%, 공속 +12%",
-			2: "킥 발사 정밀도 +16%, 공속 +24%",
-			3: "킥 발사 정밀도 +24%, 공속 +36%, 준비동작 감소",
-			4: "킥 발사 정밀도 +32%, 공속 +48%, 준비동작 감소",
-			5: "킥 발사 정밀도 +40%, 공속 +60%, 용광로 넉백볼",
+			1: "킥 발사 정밀도 +8%, 공속 +12%, 준비 -7%",
+			2: "킥 발사 정밀도 +16%, 공속 +24%, 준비 -14%",
+			3: "킥 발사 정밀도 +24%, 공속 +36%, 준비 -21%, 용광로 넉백볼 10%",
+			4: "킥 발사 정밀도 +32%, 공속 +48%, 준비 -28%, 용광로 넉백볼 20%",
+			5: "킥 발사 정밀도 +40%, 공속 +60%, 준비 -35%, 용광로 넉백볼 30%",
 		},
-		"detail": "바이퍼 킥 계열 스킬의 타격 품질이 좋아집니다.",
+		"detail": "바이퍼 킥 계열 스킬의 정밀도, 공속, 준비동작을 강화합니다. Lv.3부터 킥 적중 시 확률로 공이 용광로 넉백볼이 되며, 보스가 가드하면 화재형 넉백 150%를 1회 적용합니다.",
 		"icon_color": Color(1.0, 90.0 / 255.0, 130.0 / 255.0),
 		"tree": "viper",
 		"character_restriction": "viper",
@@ -355,16 +512,103 @@ const VIPER_PERKS := {
 		"name": "사독",
 		"max_level": 5,
 		"descriptions": {
-			1: "EMP/카오스 준비 -8%, 베놈 혼란 +12%",
-			2: "EMP/카오스 준비 -16%, 베놈 혼란 +24%",
-			3: "EMP/카오스 준비 -25%, 듀얼 HP 증가, 슈퍼아머",
-			4: "EMP/카오스 준비 -33%, 4스킬 쿨 -15%",
-			5: "EMP/카오스 준비 -40%, 분신 스킬 복제",
+			1: "EMP/카오스 준비 -8%, EMP 수면 +5%, 베놈 혼란 +12%, 듀얼 지속 +7%",
+			2: "EMP/카오스 준비 -16%, EMP 수면 +10%, 베놈 혼란 +24%, 듀얼 지속 +14%",
+			3: "EMP/카오스 준비 -25%, EMP 수면 +15%, 베놈 혼란 +36%, 듀얼 지속 +20%, 듀얼 HP 3, 4스킬 쿨 -10%, 슈퍼아머",
+			4: "EMP/카오스 준비 -33%, EMP 수면 +20%, 베놈 혼란 +48%, 듀얼 지속 +27%, 듀얼 HP 3, 4스킬 쿨 -15%, 슈퍼아머",
+			5: "EMP/카오스 준비 -40%, EMP 수면 +25%, 베놈 혼란 +70%, 듀얼 지속 +20%, 듀얼 HP 4, 4스킬 쿨 -20%, 슈퍼아머, 분신 복제",
 		},
-		"detail": "EMP, 베놈, 카오스, 듀얼 글리치를 묶어 강화합니다.",
+		"detail": "EMP 스트라이크, 베놈 엣지, 카오스 스피어, 듀얼 글리치를 묶어 강화합니다.\nEMP/카오스 준비와 EMP 수면, 베놈 혼란, 듀얼 지속시간을 올립니다.\nLv.3부터 준비동작 슈퍼아머와 4스킬 쿨감이 켜지고 듀얼 분신 HP가 3이 됩니다.\nLv.5부터 듀얼 분신 HP 4, 분신 스킬 복제가 적용됩니다. 복제는 추가 게이지/쿨/골드를 만들지 않습니다.",
 		"icon_color": Color(215.0 / 255.0, 70.0 / 255.0, 1.0),
 		"tree": "viper",
 		"character_restriction": "viper",
+	},
+}
+
+const SOLDIER_PERKS := {
+	"soldier_unlock_net_gun": {
+		"name": "그물덫총",
+		"max_level": 1,
+		"descriptions": {1: "그물덫총 해금"},
+		"detail": "그물덫총을 영구 해금하고 코만도 스킬구슬에 추가합니다. 탄환은 재장전 스킬로 1발씩 다시 채웁니다.",
+		"icon_color": Color(100.0 / 255.0, 180.0 / 255.0, 100.0 / 255.0),
+		"tree": "soldier_unlock",
+		"character_restriction": "soldier",
+		"is_weapon_unlock": true,
+		"weapon_name": "net_gun",
+		"unlocks_skill": "net_gun",
+	},
+	"soldier_unlock_fire_support": {
+		"name": "화력지원",
+		"max_level": 1,
+		"descriptions": {1: "화력지원 해금"},
+		"detail": "화력지원을 영구 해금하고 코만도 스킬구슬에 추가합니다. 호출권은 재장전 게이지가 끝까지 차면 보충됩니다.",
+		"icon_color": Color(1.0, 100.0 / 255.0, 50.0 / 255.0),
+		"tree": "soldier_unlock",
+		"character_restriction": "soldier",
+		"is_weapon_unlock": true,
+		"weapon_name": "fire_support",
+		"unlocks_skill": "fire_support",
+	},
+	"soldier_unlock_bowling_trap": {
+		"name": "볼링트랩",
+		"max_level": 1,
+		"descriptions": {1: "볼링트랩 해금"},
+		"detail": "볼링트랩을 영구 해금하고 코만도 스킬구슬에 추가합니다. 탄환은 재장전 스킬로 1발씩 다시 채웁니다.",
+		"icon_color": Color(200.0 / 255.0, 80.0 / 255.0, 80.0 / 255.0),
+		"tree": "soldier_unlock",
+		"character_restriction": "soldier",
+		"is_weapon_unlock": true,
+		"weapon_name": "bowling_trap",
+		"unlocks_skill": "bowling_trap",
+	},
+	"soldier_unlock_suicide_drone": {
+		"name": "자폭드론",
+		"max_level": 1,
+		"descriptions": {1: "자폭드론 해금"},
+		"detail": "자폭드론을 영구 해금하고 코만도 스킬구슬에 추가합니다. 탄환은 재장전 스킬로 1발씩 다시 채웁니다.",
+		"icon_color": Color(1.0, 100.0 / 255.0, 50.0 / 255.0),
+		"tree": "soldier_unlock",
+		"character_restriction": "soldier",
+		"is_weapon_unlock": true,
+		"weapon_name": "suicide_drone",
+		"unlocks_skill": "suicide_drone",
+	},
+	"soldier_unlock_bazooka": {
+		"name": "바주카포",
+		"max_level": 1,
+		"descriptions": {1: "바주카포 해금"},
+		"detail": "바주카포를 영구 해금하고 코만도 스킬구슬에 추가합니다. 탄약은 재장전 스킬로 1발씩 다시 채웁니다.",
+		"icon_color": Color(220.0 / 255.0, 120.0 / 255.0, 70.0 / 255.0),
+		"tree": "soldier_unlock",
+		"character_restriction": "soldier",
+		"is_weapon_unlock": true,
+		"weapon_name": "bazooka",
+		"unlocks_skill": "bazooka",
+	},
+	"soldier_unlock_ak47": {
+		"name": "AK-47",
+		"max_level": 1,
+		"descriptions": {1: "AK-47 해금"},
+		"detail": "AK-47을 영구 해금하고 코만도 스킬구슬에 추가합니다. 탄약과 지속시간은 재장전 게이지가 끝까지 차면 보충됩니다.",
+		"icon_color": Color(110.0 / 255.0, 135.0 / 255.0, 85.0 / 255.0),
+		"tree": "soldier_unlock",
+		"character_restriction": "soldier",
+		"is_weapon_unlock": true,
+		"weapon_name": "ak47",
+		"unlocks_skill": "ak47",
+	},
+	"soldier_pistol_perk": {
+		"name": "베레타",
+		"max_level": 1,
+		"descriptions": {1: "베레타 해금"},
+		"detail": "기본 권총은 유지한 채 베레타를 별도 영구 화기류로 해금합니다. 베레타는 권총보다 연사 30%, 탄속 20%가 빠르고 총 12발(장전 4발 + 예비 탄창 2개)을 운용합니다.",
+		"icon_color": Color(140.0 / 255.0, 130.0 / 255.0, 120.0 / 255.0),
+		"tree": "soldier_unlock",
+		"character_restriction": "soldier",
+		"is_weapon_unlock": true,
+		"weapon_name": "commando_pistol",
+		"unlocks_skill": "commando_pistol",
 	},
 }
 
@@ -380,7 +624,7 @@ const INSTANT_PERKS := {
 	"instant_dimension_gate": {
 		"name": "차원개방",
 		"description": "잠시 아이템 스폰 흐름을 강화",
-		"detail": "현재 Godot 포트에서는 선택 피드백을 먼저 제공하며, 필드 스폰 강화는 아이템 포트 확장 때 연결됩니다.",
+		"detail": "3초 동안 중앙 차원문에서 아이템이 0.5~1초 간격으로 쏟아집니다.",
 		"icon_color": Color(1.0, 100.0 / 255.0, 1.0),
 		"tree": "instant",
 		"is_instant": true,
@@ -388,7 +632,7 @@ const INSTANT_PERKS := {
 	"instant_treasure_hunt": {
 		"name": "보물탐색",
 		"description": "보물을 탐색하여 보상을 노립니다",
-		"detail": "현재 Godot 포트에서는 선택 피드백을 먼저 제공하며, 보상 연출은 아이템 포트 확장 때 연결됩니다.",
+		"detail": "고대의 보물지도를 따라 보상을 탐색합니다. 신화 아이템 20%, 패시브 아이템 60%, 꽝 20%를 기본으로 하며, 보물지도 레벨당 신화 보상 확률이 3% 증가합니다.",
 		"icon_color": Color(1.0, 215.0 / 255.0, 0.0),
 		"tree": "instant",
 		"is_instant": true,
@@ -430,12 +674,19 @@ const GOLD_CHOICE := {
 }
 
 const UNLOCK_SLOT_BUDGET := {
-	"smasher": 2,
+	"smasher": 3,
 	"viper": 2,
+	"soldier": 3,
 }
 
 
-func get_choices(character_type: String, runtime_levels: Dictionary, exclude_instant: bool = false) -> Array:
+func get_choices(
+	character_type: String,
+	runtime_levels: Dictionary,
+	exclude_instant: bool = false,
+	base_choice_count: int = BASE_CHOICE_COUNT
+) -> Array:
+	var target_choice_count: int = max(0, int(base_choice_count))
 	var choices: Array = []
 	_append_pool_choices(choices, COMMON_PERKS, runtime_levels, "")
 
@@ -444,6 +695,8 @@ func get_choices(character_type: String, runtime_levels: Dictionary, exclude_ins
 		_append_pool_choices(choices, SMASHER_PERKS, runtime_levels, "smasher")
 	elif normalized == "viper":
 		_append_pool_choices(choices, VIPER_PERKS, runtime_levels, "viper")
+	elif normalized == "soldier":
+		_append_pool_choices(choices, SOLDIER_PERKS, runtime_levels, "soldier")
 
 	choices = _filter_unlock_slot_budget(choices, normalized, runtime_levels)
 	if not exclude_instant:
@@ -452,16 +705,16 @@ func get_choices(character_type: String, runtime_levels: Dictionary, exclude_ins
 	choices.shuffle()
 	var result: Array = []
 	for choice in choices:
-		if result.size() >= BASE_CHOICE_COUNT:
+		if result.size() >= target_choice_count:
 			break
 		result.append(choice)
 
-	if not exclude_instant and result.size() < BASE_CHOICE_COUNT:
+	if not exclude_instant and result.size() < target_choice_count:
 		var filler: Array = []
 		_append_instant_choices(filler)
 		filler.shuffle()
 		for instant_choice in filler:
-			if result.size() >= BASE_CHOICE_COUNT:
+			if result.size() >= target_choice_count:
 				break
 			if not _has_choice_id(result, str(instant_choice.get("id", ""))):
 				result.append(instant_choice)
@@ -475,6 +728,7 @@ func get_all_perk_data() -> Dictionary:
 	data.merge(COMMON_PERKS, true)
 	data.merge(SMASHER_PERKS, true)
 	data.merge(VIPER_PERKS, true)
+	data.merge(SOLDIER_PERKS, true)
 	return data
 
 
@@ -489,6 +743,21 @@ func get_perk_data(skill_id: String) -> Dictionary:
 	if skill_id == "convert_to_gold":
 		return GOLD_CHOICE.duplicate(true)
 	return {}
+
+
+func get_debug_perk_entries(_character_type: String = "") -> Array:
+	var entries: Array = []
+	_append_debug_pool_entries(entries, COMMON_PERKS, "common")
+	_append_debug_pool_entries(entries, SMASHER_PERKS, "smasher")
+	_append_debug_pool_entries(entries, VIPER_PERKS, "viper")
+	_append_debug_pool_entries(entries, SOLDIER_PERKS, "soldier")
+	_append_debug_pool_entries(entries, INSTANT_PERKS, "instant")
+	var gold_choice: Dictionary = GOLD_CHOICE.duplicate(true)
+	gold_choice["id"] = "convert_to_gold"
+	gold_choice["debug_group"] = "instant"
+	entries.append(gold_choice)
+	entries.sort_custom(func(a, b): return _debug_sort_key(a) < _debug_sort_key(b))
+	return entries
 
 
 func _append_pool_choices(output: Array, pool: Dictionary, runtime_levels: Dictionary, character_restriction: String) -> void:
@@ -515,6 +784,26 @@ func _append_instant_choices(output: Array) -> void:
 		output.append(choice)
 
 
+func _append_debug_pool_entries(output: Array, pool: Dictionary, debug_group: String) -> void:
+	for skill_id in pool.keys():
+		var data: Dictionary = pool[skill_id].duplicate(true)
+		data["id"] = skill_id
+		data["debug_group"] = debug_group
+		output.append(data)
+
+
+func _debug_sort_key(entry: Dictionary) -> String:
+	var group: String = str(entry.get("debug_group", ""))
+	var group_order := {
+		"common": "0",
+		"smasher": "1",
+		"viper": "2",
+		"soldier": "3",
+		"instant": "4",
+	}
+	return "%s:%s" % [str(group_order.get(group, "9")), str(entry.get("id", ""))]
+
+
 func _build_level_choice(
 	skill_id: String,
 	skill_data: Dictionary,
@@ -536,6 +825,8 @@ func _build_level_choice(
 
 
 func _filter_unlock_slot_budget(choices: Array, character_type: String, runtime_levels: Dictionary) -> Array:
+	if character_type == "soldier":
+		return choices
 	var budget: int = int(UNLOCK_SLOT_BUDGET.get(character_type, 99))
 	if budget >= 99:
 		return choices
@@ -563,6 +854,10 @@ func _has_choice_id(choices: Array, skill_id: String) -> bool:
 
 func _normalize_character(character_type: String) -> String:
 	var normalized: String = character_type.strip_edges().to_lower()
+	if normalized == "soldier" or normalized == "commando":
+		return "soldier"
+	if normalized == "optimus" or normalized == "io":
+		return "optimus"
 	if normalized == "viper":
 		return "viper"
 	return "smasher"

@@ -15,7 +15,8 @@ func draw_slots(
 	active_item_slots: Array,
 	round_start_time_msec: int,
 	hud_state,
-	visuals
+	visuals,
+	registry: Object = null
 ) -> void:
 	if canvas == null or not bool(layout.get("visible", false)):
 		return
@@ -28,6 +29,7 @@ func draw_slots(
 	var current_time: int = Time.get_ticks_msec()
 	var time_since_round_start: int = slot_context_builder.get_time_since_round_start(current_time, round_start_time_msec)
 	var main_box_rect: Rect2 = layout["main_box_rect"]
+	var runtime_perk_state: Object = registry.get_instance("runtime_perk_state") if registry != null and registry.has_method("get_instance") else null
 
 	panel_renderer.draw_slot_panel(
 		canvas,
@@ -44,6 +46,8 @@ func draw_slots(
 			Color(60.0 / 255.0, 60.0 / 255.0, 80.0 / 255.0, 100.0 / 255.0)
 		)
 
+	var cooldown_group_remaining_ratio := 0.0
+	var cooldown_frame_rect: Rect2 = _get_cooldown_frame_rect(layout)
 	for i in range(slot_rects.size()):
 		var slot_rect: Rect2 = slot_rects[i]
 		var item_data: Dictionary = slot_context_builder.get_item_data(active_item_slots, i, actual_item_count)
@@ -52,9 +56,11 @@ func draw_slots(
 			i,
 			item_data,
 			current_time,
-			time_since_round_start
+			time_since_round_start,
+			registry,
+			runtime_perk_state
 		)
-		slot_renderer.draw_slot(
+		var remaining_ratio: float = slot_renderer.draw_slot(
 			canvas,
 			slot_rect,
 			item_data,
@@ -65,3 +71,22 @@ func draw_slots(
 			bool(slot_overflow_flags[i]),
 			str(i + 1)
 		)
+		cooldown_group_remaining_ratio = max(cooldown_group_remaining_ratio, remaining_ratio)
+
+	if cooldown_group_remaining_ratio > 0.0:
+		slot_renderer.draw_group_cooldown_frame(canvas, cooldown_frame_rect, cooldown_group_remaining_ratio, scale_factor)
+
+
+func _get_cooldown_frame_rect(layout: Dictionary) -> Rect2:
+	var frame_rect: Rect2 = _get_rect(layout.get("main_box_rect", Rect2()))
+	if bool(layout.get("overflow_visible", false)):
+		var overflow_rect: Rect2 = _get_rect(layout.get("overflow_box_rect", Rect2()))
+		if overflow_rect.size.x > 0.0 and overflow_rect.size.y > 0.0:
+			frame_rect = frame_rect.merge(overflow_rect)
+	return frame_rect
+
+
+func _get_rect(value: Variant) -> Rect2:
+	if value is Rect2:
+		return value
+	return Rect2()

@@ -23,6 +23,18 @@ class FakeRegistry:
 		return null
 
 
+class FakePerfLogger:
+	extends RefCounted
+
+	var labels: Array[String] = []
+
+	func begin_sample() -> int:
+		return Time.get_ticks_usec()
+
+	func finish_sample(label: String, _start_usec: int) -> void:
+		labels.append(label)
+
+
 class FakeEffectController:
 	extends RefCounted
 
@@ -58,9 +70,18 @@ class FakeFieldSpawnController:
 
 	var update_calls := 0
 	var collect_callable_used := false
+	var saw_perf_logger: Object = null
 
-	func update(_owner: Object, _registry: Object, _delta: float, store_callback: Callable, pickup_callback: Callable) -> void:
+	func update(
+		_owner: Object,
+		_registry: Object,
+		_delta: float,
+		store_callback: Callable,
+		pickup_callback: Callable,
+		perf_logger: Object = null
+	) -> void:
 		update_calls += 1
+		saw_perf_logger = perf_logger
 		if store_callback.is_valid() and pickup_callback.is_valid():
 			pass
 
@@ -180,6 +201,7 @@ func _verify_driver_runs_normal_frame_lifecycle() -> void:
 	var driver: Object = ActiveItemRuntimeUpdateDriver.new()
 	var runtime := FakeRuntime.new()
 	var registry := FakeRegistry.new()
+	var perf_logger := FakePerfLogger.new()
 
 	var result: Dictionary = driver.apply_update(
 		runtime,
@@ -189,11 +211,13 @@ func _verify_driver_runs_normal_frame_lifecycle() -> void:
 		Callable(self, "_store_item"),
 		Callable(self, "_pickup_item"),
 		Callable(self, "_apply_item_effect"),
-		Callable(self, "_backup_pending_use")
+		Callable(self, "_backup_pending_use"),
+		perf_logger
 	)
 
 	_expect(runtime.effect_controller.update_calls == 1, "update driver should update effects first")
 	_expect(runtime.field_spawn_controller.update_calls == 1, "update driver should update field spawns when time is not frozen")
+	_expect(runtime.field_spawn_controller.saw_perf_logger == perf_logger, "update driver should pass perf logger to field spawns")
 	_expect(runtime.throw_controller.update_calls == 1, "update driver should update throws when time is not frozen")
 	_expect(runtime.pending_throw_recovery.clear_calls == 1, "update driver should clear pending throw backup after throw update")
 	_expect(runtime.slot_controller.update_calls == 1, "update driver should update slots")
@@ -203,6 +227,12 @@ func _verify_driver_runs_normal_frame_lifecycle() -> void:
 	_expect(result.get("used_slot", -1) == 2, "update driver should return slot update result")
 	_expect(runtime.effect_controller.saw_warp_gate_state == registry.warp_gate_state, "update driver should pass warp gate state")
 	_expect(runtime.effect_controller.saw_mythic_item_runtime == registry.mythic_item_runtime, "update driver should pass mythic runtime")
+	_expect(perf_logger.labels.has("physics.callback.active_items.effect_controller"), "update driver should time active item effects")
+	_expect(perf_logger.labels.has("physics.callback.active_items.field_spawn"), "update driver should time field spawns")
+	_expect(perf_logger.labels.has("physics.callback.active_items.throws"), "update driver should time throw updates")
+	_expect(perf_logger.labels.has("physics.callback.active_items.pending_throw_recovery"), "update driver should time pending throw recovery")
+	_expect(perf_logger.labels.has("physics.callback.active_items.slots"), "update driver should time active item slot polling")
+	_expect(perf_logger.labels.has("physics.callback.active_items.owner_sync"), "update driver should time owner sync")
 
 
 func _verify_driver_preserves_time_frozen_skip() -> void:

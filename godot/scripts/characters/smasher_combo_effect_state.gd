@@ -28,16 +28,16 @@ func update(fps_scale: float) -> void:
 	particle_state.update(fps_scale)
 
 
-func start(pos: Vector2, new_combo_count: int, combo_color: Color) -> void:
-	effect_active = true
-	effect_timer_frames = SMASHER_COMBO_EFFECT_DURATION_FRAMES
-	effect_pos = pos + Vector2(0.0, -50.0)
-	effect_count = new_combo_count
-	particle_state.spawn_effect_particles(pos, new_combo_count, combo_color)
+func start(_pos: Vector2, _new_combo_count: int, _combo_color: Color) -> void:
+	reset()
 
 
 func is_active() -> bool:
 	return effect_active
+
+
+func has_particles() -> bool:
+	return particle_state.has_particles()
 
 
 func get_timer_frames() -> float:

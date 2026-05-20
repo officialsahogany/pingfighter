@@ -7,18 +7,25 @@ func build(context: Dictionary, deps: Dictionary) -> Dictionary:
 	var dash_context: Dictionary = _get_dict(context.get("dash_snapshot", {}))
 	var power_state = deps.get("power_state", null)
 	var round_state = deps.get("round_state", null)
-	var skill_costs: Dictionary = _get_skill_costs(deps.get("skill_config", null))
+	var skill_config: Object = deps.get("skill_config", null)
+	var skill_state: Object = deps.get("skill_state", null)
+	var current_msec: int = Time.get_ticks_msec()
+	var skill_costs: Dictionary = _get_skill_costs(skill_config)
 	return {
 		"shake_offset": _get_vector2(context, "shake_offset", Vector2.ZERO),
+		"selected_character_type": str(context.get("selected_character_type", "smasher")),
 		"ball_active": bool(context.get("ball_active", false)),
 		"ball_pos": _get_vector2(context, "ball_pos", Vector2.ZERO),
 		"ball_vel": _get_vector2(context, "ball_vel", Vector2.ZERO),
-		"ball_render_radius": float(context.get("ball_render_radius", 16.9)),
+		"ball_render_radius": float(context.get("ball_render_radius", 26.6175)),
 		"player_pos": _get_vector2(context, "player_pos", Vector2.ZERO),
 		"player_paddle_width": float(context.get("player_paddle_width", 155.0)),
 		"special_gauge": float(context.get("special_gauge", 0.0)),
 		"drive_gauge_cost": float(skill_costs.get("drive", 150.0)),
 		"power_smash_gauge_cost": float(skill_costs.get("power_smashing", 300.0)),
+		"drive_cooldown_remaining": _get_configured_cooldown_remaining(skill_state, "drive", current_msec, skill_config),
+		"power_smash_cooldown_remaining": _get_configured_cooldown_remaining(skill_state, "power_smashing", current_msec, skill_config),
+		"drive_frame_cooldown_blocked": _is_drive_frame_cooldown_blocked(deps.get("drive_input_state", null)),
 		"waiting_for_serve": round_state == null or round_state.is_waiting_for_serve(),
 		"dash_active": dash_context.get("active", false),
 		"dash_is_half": dash_context.get("is_half", false),
@@ -45,3 +52,15 @@ func _get_skill_costs(skill_config: Object) -> Dictionary:
 			if costs is Dictionary:
 				return costs
 	return {}
+
+
+func _get_configured_cooldown_remaining(skill_state: Object, skill_name: String, current_msec: int, skill_config: Object) -> float:
+	if skill_state != null and skill_state.has_method("get_configured_cooldown_remaining"):
+		return float(skill_state.get_configured_cooldown_remaining(skill_name, current_msec, skill_config))
+	return 0.0
+
+
+func _is_drive_frame_cooldown_blocked(drive_input_state: Object) -> bool:
+	if drive_input_state != null and drive_input_state.has_method("is_frame_cooldown_blocked"):
+		return bool(drive_input_state.is_frame_cooldown_blocked())
+	return false

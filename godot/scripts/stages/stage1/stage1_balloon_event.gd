@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 
 const STAGE_ID := 1
 const WIDTH := 760.0
@@ -10,6 +11,7 @@ const SPECIAL_BALLOON_SHEET_PATH := "res://assets/sprites/stage1/balloon/stage1_
 const NORMAL_BALLOON_BODY_YAW_SHEET_PATH := "res://assets/sprites/stage1/balloon/stage1_joseon_balloon_body_yaw_sheet_imagegen_v4.png"
 const SPECIAL_BALLOON_BODY_YAW_SHEET_PATH := "res://assets/sprites/stage1/balloon/stage1_joseon_star_balloon_gold_body_yaw_sheet_v1.png"
 const BALLOON_POP_SHEET_PATH := "res://assets/sprites/stage1/balloon/stage1_joseon_balloon_pop_sheet_imagegen_v1.png"
+const BALLOON_TEXTURE_PREWARM_STEPS := 5
 const NORMAL_BALLOON_FRAME_COUNT := 8
 const SPECIAL_BALLOON_FRAME_COUNT := 4
 const BALLOON_YAW_FRAME_COUNT := 16
@@ -92,10 +94,10 @@ var special_balloon_sheet: Texture2D
 var normal_balloon_body_yaw_sheet: Texture2D
 var special_balloon_body_yaw_sheet: Texture2D
 var balloon_pop_sheet: Texture2D
+var _prewarm_texture_step_index := 0
 
 
 func _init() -> void:
-	_ensure_textures()
 	_set_next_cooldown()
 
 
@@ -206,10 +208,17 @@ func draw_background(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, p
 	_perf_end(perf_logger, "stage1.balloon_bg.machine", sample_start)
 
 
-func draw_foreground(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, perf_logger: Object = null) -> void:
+func draw_foreground(
+	canvas: CanvasItem,
+	shake_offset: Vector2 = Vector2.ZERO,
+	perf_logger: Object = null,
+	game_offset: Vector2 = Vector2.ZERO,
+	render_scale: float = 1.0
+) -> void:
 	if canvas == null:
 		return
-	_ensure_textures()
+	if balloons.is_empty() and pop_effects.is_empty() and starpoint_particles.is_empty() and starpoint_drops.is_empty():
+		return
 	var sample_start: int = _perf_begin(perf_logger)
 	for balloon in balloons:
 		_draw_balloon(canvas, balloon, shake_offset)
@@ -221,7 +230,7 @@ func draw_foreground(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, p
 	_draw_starpoint_particles(canvas, shake_offset)
 	_perf_end(perf_logger, "stage1.balloon_fg.star_particles", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_starpoint_drops(canvas, shake_offset)
+	_draw_starpoint_drops(canvas, shake_offset, game_offset, render_scale)
 	_perf_end(perf_logger, "stage1.balloon_fg.star_drops", sample_start)
 
 
@@ -246,6 +255,7 @@ func _activate() -> void:
 
 
 func _update_machine(fps_scale: float, deps: Dictionary) -> void:
+	_prewarm_active_event_assets()
 	var phase_started := timer_frames <= 0.0
 	timer_frames += fps_scale
 
@@ -892,6 +902,8 @@ func _draw_pop_effects(canvas: CanvasItem, shake_offset: Vector2) -> void:
 		match str(effect.get("type", "")):
 			"sprite":
 				if balloon_pop_sheet == null:
+					balloon_pop_sheet = _load_texture(BALLOON_POP_SHEET_PATH)
+				if balloon_pop_sheet == null:
 					continue
 				var frame_width: float = float(balloon_pop_sheet.get_width()) / float(BALLOON_POP_FRAME_COUNT)
 				var frame_height: float = float(balloon_pop_sheet.get_height())
@@ -930,7 +942,51 @@ func _draw_starpoint_particles(canvas: CanvasItem, shake_offset: Vector2) -> voi
 		canvas.draw_circle(pos, max(1.0, float(particle.get("size", 2.0))), color)
 
 
-func _draw_starpoint_drops(canvas: CanvasItem, shake_offset: Vector2) -> void:
+func _draw_starpoint_drops(
+	canvas: CanvasItem,
+	shake_offset: Vector2,
+	game_offset: Vector2 = Vector2.ZERO,
+	render_scale: float = 1.0
+) -> void:
+	# Common host owns the GPU-shader path with full 4-layer glow (the original
+	# CPU constant STARPOINT_DROP_GLOW_LAYERS=1 collapsed it to one layer under
+	# the prior optimization; the shader restores all 4 at near-zero CPU cost).
+	# CPU loop below remains as the early-boot / headless fallback.
+	#
+	# The host is a child of the outer canvas (BattleSceneShell), NOT the
+	# transformed playfield canvas. Playfield-coordinate drop positions and
+	# sizes must be shifted and scaled into rendered-playfield screen space.
+	# Without this, drops appeared at the screen left edge instead of from the
+	# balloon pop site (see CLAUDE.md draw_set_transform trap).
+	var host: Node = CommonStarpointVisualHost.get_or_create_on_canvas(canvas)
+	if host != null and host.has_method("sync_drop"):
+		host.begin_frame()
+		var elapsed: float = float(Time.get_ticks_msec()) / 1000.0
+		var scale: float = maxf(0.001, render_scale)
+		for drop in starpoint_drops:
+			var is_star_detector_bonus: bool = bool(drop.get("star_detector_bonus", false))
+			var playfield_pos: Vector2 = _get_vector2(drop, "pos", Vector2.ZERO) + shake_offset
+			host.sync_drop({
+				"pos": game_offset + playfield_pos * scale,
+				"size": float(drop.get("size", STARPOINT_DROP_SIZE)) * scale,
+				"life": float(drop.get("life", 0.0)),
+				"rotation": float(drop.get("rotation", 0.0)),
+				"glow_intensity": float(drop.get("glow_intensity", 1.0)),
+				"star_detector_bonus": is_star_detector_bonus,
+				"elapsed": elapsed,
+				# Stage 1's original (pre-optimization) drop used the same
+				# 10-vertex / 5-tip star as Stage 2/3/4 (`for i in range(10):
+				# angle = i * PI / 5`). The current STARPOINT_DROP_STAR_POINTS
+				# constant collapsed it to 8 vertices = 4-tip sparkle as part of
+				# the perf optimization the user flagged as visual regression.
+				# Use the shader's default 5-tip shape (no override) to match
+				# the original look across all four stages.
+				"glow_color": Color(0.30, 0.92, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 0.45, 0.74, 1.0),
+				"fill_color": Color(0.16, 0.82, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 0.0, 0.0, 1.0),
+				"outline_color": Color(1.0, 1.0, 1.0, 1.0) if is_star_detector_bonus else Color(1.0, 1.0, 0.0, 1.0),
+			})
+		host.end_frame()
+		return
 	for drop in starpoint_drops:
 		var pos: Vector2 = _get_vector2(drop, "pos", Vector2.ZERO) + shake_offset
 		var size: float = max(1.0, float(drop.get("size", STARPOINT_DROP_SIZE)))
@@ -973,7 +1029,36 @@ func _get_starpoint_particle_color(color_shift: float, alpha: float) -> Color:
 
 
 func prewarm_assets() -> void:
-	_ensure_textures()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_texture_step_index >= BALLOON_TEXTURE_PREWARM_STEPS:
+		return true
+	match _prewarm_texture_step_index:
+		0:
+			if normal_balloon_sheet == null:
+				normal_balloon_sheet = _load_texture(NORMAL_BALLOON_SHEET_PATH)
+		1:
+			if special_balloon_sheet == null:
+				special_balloon_sheet = _load_texture(SPECIAL_BALLOON_SHEET_PATH)
+		2:
+			if normal_balloon_body_yaw_sheet == null:
+				normal_balloon_body_yaw_sheet = _load_texture(NORMAL_BALLOON_BODY_YAW_SHEET_PATH)
+		3:
+			if special_balloon_body_yaw_sheet == null:
+				special_balloon_body_yaw_sheet = _load_texture(SPECIAL_BALLOON_BODY_YAW_SHEET_PATH)
+		4:
+			if balloon_pop_sheet == null:
+				balloon_pop_sheet = _load_texture(BALLOON_POP_SHEET_PATH)
+	_prewarm_texture_step_index += 1
+	return _prewarm_texture_step_index >= BALLOON_TEXTURE_PREWARM_STEPS
+
+
+func _prewarm_active_event_assets() -> void:
+	if _prewarm_texture_step_index < BALLOON_TEXTURE_PREWARM_STEPS:
+		prewarm_assets_step()
 
 
 func _ensure_textures() -> void:
@@ -994,13 +1079,23 @@ func _load_texture(path: String) -> Texture2D:
 
 
 func _get_balloon_texture(kind: String) -> Texture2D:
-	_ensure_textures()
-	return special_balloon_sheet if kind == "special" else normal_balloon_sheet
+	if kind == "special":
+		if special_balloon_sheet == null:
+			special_balloon_sheet = _load_texture(SPECIAL_BALLOON_SHEET_PATH)
+		return special_balloon_sheet
+	if normal_balloon_sheet == null:
+		normal_balloon_sheet = _load_texture(NORMAL_BALLOON_SHEET_PATH)
+	return normal_balloon_sheet
 
 
 func _get_body_yaw_texture(kind: String) -> Texture2D:
-	_ensure_textures()
-	return special_balloon_body_yaw_sheet if kind == "special" else normal_balloon_body_yaw_sheet
+	if kind == "special":
+		if special_balloon_body_yaw_sheet == null:
+			special_balloon_body_yaw_sheet = _load_texture(SPECIAL_BALLOON_BODY_YAW_SHEET_PATH)
+		return special_balloon_body_yaw_sheet
+	if normal_balloon_body_yaw_sheet == null:
+		normal_balloon_body_yaw_sheet = _load_texture(NORMAL_BALLOON_BODY_YAW_SHEET_PATH)
+	return normal_balloon_body_yaw_sheet
 
 
 func _build_shuffled_indices(count: int) -> Array[int]:
@@ -1128,6 +1223,7 @@ func get_render_budget_status() -> Dictionary:
 		"machine_joint_arc_segments": MACHINE_JOINT_ARC_SEGMENTS,
 		"machine_barrel_count": MACHINE_BARREL_COUNT,
 		"machine_barrel_arc_segments": MACHINE_BARREL_ARC_SEGMENTS,
+		"balloon_texture_prewarm_steps": BALLOON_TEXTURE_PREWARM_STEPS,
 	}
 
 

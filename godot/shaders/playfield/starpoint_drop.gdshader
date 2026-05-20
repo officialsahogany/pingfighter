@@ -32,16 +32,45 @@ uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
 // special variant; intensity=0 disables the shimmer for normal drops.
 uniform float detector_shimmer_intensity : hint_range(0.0, 1.0) = 0.0;
 
-// N-tip star SDF using polar reduction. Returns negative inside the star,
-// positive outside. The boundary is piecewise linear between consecutive
-// tip / valley vertices (2*tips vertices alternating outer/inner radius).
+// N-tip star SDF based on distance to actual polygon edges (tip->valley line
+// segments). Returns negative inside the star, positive outside. The earlier
+// version interpolated the boundary radius linearly in polar coordinates,
+// which smoothly curved the edge and produced rounded petal shapes instead
+// of straight-edged star tips. This version folds the point into one
+// half-sector centered on a tip, mirrors it over the sector's bisector, and
+// measures the perpendicular distance to the tip->valley line segment —
+// matching what `draw_colored_polygon` renders on the CPU.
 float star_sdf(vec2 p, float r_outer, float r_inner, float star_rotation, int tips) {
-	float theta = atan(p.y, p.x) - star_rotation;
-	float sector = TAU / float(max(3, tips));
-	float local_theta = mod(theta + sector * 0.5, sector) - sector * 0.5;
-	float t = abs(local_theta) / (sector * 0.5);
-	float boundary = mix(r_outer, r_inner, t);
-	return length(p) - boundary;
+	int n = max(3, tips);
+	float sector = TAU / float(n);
+	float half_sector = sector * 0.5;
+
+	// Rotate p so the first tip aligns with the positive x-axis.
+	float c = cos(-star_rotation);
+	float s = sin(-star_rotation);
+	vec2 q = vec2(p.x * c - p.y * s, p.x * s + p.y * c);
+
+	// Fold theta into the nearest tip-centered sector, then mirror y so we
+	// only have to consider the upper half (tip at right, valley up-right).
+	float r = length(q);
+	float theta = atan(q.y, q.x);
+	float local_theta = mod(theta + half_sector, sector) - half_sector;
+	q = vec2(r * cos(local_theta), abs(r * sin(local_theta)));
+
+	// Edge segment from tip (r_outer, 0) to the upper valley vertex.
+	vec2 tip = vec2(r_outer, 0.0);
+	vec2 valley = vec2(r_inner * cos(half_sector), r_inner * sin(half_sector));
+	vec2 edge = valley - tip;
+	float edge_len_sq = max(0.000001, dot(edge, edge));
+	float h = clamp(dot(q - tip, edge) / edge_len_sq, 0.0, 1.0);
+	vec2 closest_pt = tip + edge * h;
+	float dist = length(q - closest_pt);
+
+	// Outward-pointing normal of the tip->valley edge: rotate edge -90 degrees.
+	// q is OUTSIDE the star when dot(q - tip, normal) > 0, INSIDE when < 0.
+	vec2 normal = vec2(edge.y, -edge.x);
+	float side = dot(q - tip, normal);
+	return dist * sign(side);
 }
 
 void fragment() {
@@ -76,12 +105,17 @@ void fragment() {
 	col = mix(col, fill_color.rgb, fill_mask * fill_color.a * alpha);
 	total_alpha = max(total_alpha, fill_mask * fill_color.a * alpha);
 
-	// Outline band at |sdf| ~ outline_thickness. Increased from 0.020 so the
-	// yellow rim reads clearly at the 12px scale and the star no longer looks
-	// like a flat red blob (the CPU draw_polyline used a 2.5px solid line; at
-	// the GPU smoothstep falloff a 0.032 band gives a comparable visual width).
-	float outline_thickness = 0.032;
-	float outline_mask = smoothstep(outline_thickness, outline_thickness * 0.3, abs(d));
+	// Outline band traces the polygon perimeter. The original CPU draw uses
+	// `draw_line(points, color, 3.0)` for Stage 1 / `draw_polyline(..., 2.5)`
+	// for Stage 2/3/4 (close enough to share one width). On a ~96px quad
+	// (size 12 * QUAD_SIZE_FACTOR=4) that's ~1.5 px half-width = 0.016
+	// normalized. We use 2*outline_half_width = ~3.1 px total visible width.
+	// Going thicker than this (e.g. the earlier 0.032 trial) made the SDF's
+	// natural corner rounding visible as a 4-leaf clover / petal shape, so
+	// stay close to the CPU's original line width.
+	float outline_half_width = 0.016;
+	float outline_aa = 0.003;
+	float outline_mask = 1.0 - smoothstep(outline_half_width - outline_aa, outline_half_width + outline_aa, abs(d));
 	col = mix(col, outline_color.rgb, outline_mask * outline_color.a * alpha);
 	total_alpha = max(total_alpha, outline_mask * outline_color.a * alpha);
 

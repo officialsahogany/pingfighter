@@ -7,7 +7,8 @@ const HEIGHT := 750.0
 const PLAY_LEFT := 0.0
 const PLAY_RIGHT := WIDTH
 const BALL_SIZE := 28.6
-const BALL_RENDER_RADIUS := 16.9
+const BALL_VISUAL_SCALE := 1.575
+const BALL_RENDER_RADIUS := 16.9 * BALL_VISUAL_SCALE
 const DRIVE_TEXT_DURATION_FRAMES := 30.0
 const POWER_SMASH_TEXT_DURATION_FRAMES := 48.0
 const PADDLE_WIDTH := 155.0
@@ -20,35 +21,77 @@ const BOSS_HITBOX_HEIGHT := BOSS_PADDLE_HEIGHT
 
 
 func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
+	var current_msec: int = Time.get_ticks_msec()
 	var player_paddle_width: float = max(1.0, float(_get_owner_value(owner, "player_paddle_width", PADDLE_WIDTH)))
 	var player_paddle_height: float = max(1.0, float(_get_owner_value(owner, "player_paddle_height", PADDLE_HEIGHT)))
 	var player_paddle_scale: float = max(0.1, float(_get_owner_value(owner, "player_paddle_scale", player_paddle_width / PADDLE_WIDTH)))
+	var layout: Dictionary = _build_game_layout(owner, registry, WIDTH, HEIGHT)
+	var dash_snapshot: Dictionary = _get_dash_snapshot(registry)
+	var viper_knockback_overlay_active: bool = bool(_get_owner_value(owner, "viper_knockback_overlay_active", false))
+	var viper_skill_runtime: Object = registry.get_instance("viper_skill_runtime") if registry != null and registry.has_method("get_instance") else null
+	if viper_skill_runtime != null and viper_skill_runtime.has_method("is_kick_skill_knockback_ball_active"):
+		viper_knockback_overlay_active = viper_knockback_overlay_active or bool(viper_skill_runtime.is_kick_skill_knockback_ball_active())
+	var viper_jetpack_active: bool = false
+	var viper_jetpack_airborne: bool = false
+	var viper_air_strike_flash_timer: float = 0.0
+	var viper_jetpack_state: Object = registry.get_instance("viper_jetpack_state") if registry != null and registry.has_method("get_instance") else null
+	if viper_jetpack_state != null:
+		if "active" in viper_jetpack_state:
+			viper_jetpack_active = bool(viper_jetpack_state.active)
+		if viper_jetpack_state.has_method("is_airborne"):
+			viper_jetpack_airborne = bool(viper_jetpack_state.is_airborne(0.1))
+		if "air_strike_flash_timer" in viper_jetpack_state:
+			viper_air_strike_flash_timer = float(viper_jetpack_state.air_strike_flash_timer)
 	return {
 		"shake_offset": shake_offset,
+		"current_msec": current_msec,
 		"width": WIDTH,
 		"height": HEIGHT,
+		"game_offset": _get_layout_vector2(layout, "game_offset", Vector2.ZERO),
+		"game_size": _get_layout_vector2(layout, "game_size", Vector2(WIDTH, HEIGHT)),
+		"render_scale": max(0.001, float(layout.get("render_scale", 1.0))),
 		"selected_character_type": str(_get_owner_value(owner, "selected_character_type", "smasher")),
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"play_left": PLAY_LEFT,
 		"play_right": PLAY_RIGHT,
-		"dash_snapshot": _get_dash_snapshot(registry),
+		"dash_snapshot": dash_snapshot,
 		"textures": _get_owner_dict(owner, "battle_textures"),
+		"player_customization_overlays_enabled": bool(_get_owner_value(owner, "player_customization_overlays_enabled", true)),
+		"player_customization_debug_overlay_enabled": bool(_get_owner_value(owner, "player_customization_debug_overlay_enabled", false)),
+		"player_customization_overlay_slots": _get_owner_dict(owner, "player_customization_overlay_slots"),
+		"player_customization_overlay_textures": _get_owner_dict(owner, "player_customization_overlay_textures"),
 		"player_pos": _get_owner_vector2(owner, "player_pos", Vector2.ZERO),
 		"player_speed": float(_get_owner_value(owner, "player_speed", 0.0)),
 		"player_paddle_size": Vector2(player_paddle_width, player_paddle_height),
 		"player_paddle_scale": player_paddle_scale,
 		"boss_pos": _get_owner_vector2(owner, "boss_pos", Vector2.ZERO),
+		"boss_pos_prev": _get_owner_vector2(owner, "boss_pos_prev", _get_owner_vector2(owner, "boss_pos", Vector2.ZERO)),
+		"boss_interp_last_physics_usec": int(_get_owner_value(owner, "boss_interp_last_physics_usec", 0)),
+		"boss_render_interpolation_enabled": bool(_get_owner_value(owner, "boss_render_interpolation_enabled", true)),
 		"boss_paddle_size": Vector2(BOSS_PADDLE_WIDTH, BOSS_PADDLE_HEIGHT),
 		"boss_hitbox_height": BOSS_HITBOX_HEIGHT,
+		"boss_max_health": max(0, int(_get_owner_value(owner, "boss_max_health", 0))),
+		"boss_current_health": max(0, int(_get_owner_value(owner, "boss_current_health", 0))),
+		"boss_health_damage_units": max(0, int(_get_owner_value(owner, "boss_health_damage_units", 0))),
+		"boss_last_damage_source": str(_get_owner_value(owner, "boss_last_damage_source", "")),
+		"boss_defeated_by_health": bool(_get_owner_value(owner, "boss_defeated_by_health", false)),
 		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
 		"ball_pos": _get_owner_vector2(owner, "ball_pos", Vector2.ZERO),
+		"ball_pos_prev": _get_owner_vector2(owner, "ball_pos_prev", _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)),
+		"ball_interp_reset_requested": bool(_get_owner_value(owner, "ball_interp_reset_requested", false)),
+		"ball_interp_last_physics_usec": int(_get_owner_value(owner, "ball_interp_last_physics_usec", 0)),
+		"ball_render_interpolation_enabled": bool(_get_owner_value(owner, "ball_render_interpolation_enabled", true)),
 		"ball_vel": _get_owner_vector2(owner, "ball_vel", Vector2.ZERO),
+		"stage3_kuromi_ball_hidden": bool(_get_owner_value(owner, "stage3_kuromi_ball_hidden", false)),
 		"ball_size": BALL_SIZE,
 		"ball_visual_type": str(_get_owner_value(owner, "ball_visual_type", "energy")),
 		"bomb_ball_loaded": bool(_get_owner_value(owner, "bomb_ball_loaded", false)),
 		"poisoned_ball_overlay_active": bool(_get_owner_value(owner, "poisoned_ball_overlay_active", false)),
-		"viper_knockback_overlay_active": bool(_get_owner_value(owner, "viper_knockback_overlay_active", false)),
-		"boost_charging_active": bool(_get_owner_value(owner, "boost_charging_active", false)),
+		"viper_knockback_overlay_active": viper_knockback_overlay_active,
+		"viper_jetpack_active": viper_jetpack_active,
+		"viper_jetpack_airborne": viper_jetpack_airborne,
+		"viper_air_strike_flash_timer": viper_air_strike_flash_timer,
+		"boost_charging_active": bool(dash_snapshot.get("boost_charging_active", _get_owner_value(owner, "boost_charging_active", false))),
 		"drive_ball_active": bool(_get_owner_value(owner, "drive_ball_active", false)),
 		"player_y": PLAYER_Y,
 		"boss_y": BOSS_Y,
@@ -60,6 +103,27 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"drive_text_duration_frames": DRIVE_TEXT_DURATION_FRAMES,
 		"power_smash_text_duration_frames": POWER_SMASH_TEXT_DURATION_FRAMES,
 	}
+
+
+func _build_game_layout(owner: Object, registry, width: float, height: float) -> Dictionary:
+	var view_size := Vector2(width, height)
+	if owner != null and owner.has_method("get_viewport_rect"):
+		view_size = owner.get_viewport_rect().size
+	var layout_module: Object = registry.get_instance("battle_view_layout") if registry != null and registry.has_method("get_instance") else null
+	if layout_module != null and layout_module.has_method("build_game_layout"):
+		return layout_module.build_game_layout(view_size, width, height)
+	return {
+		"game_offset": Vector2.ZERO,
+		"game_size": Vector2(width, height),
+		"render_scale": 1.0,
+	}
+
+
+func _get_layout_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
+	var value: Variant = source.get(key, fallback)
+	if value is Vector2:
+		return value
+	return fallback
 
 
 func _get_dash_snapshot(registry) -> Dictionary:
@@ -78,7 +142,13 @@ func _get_dash_snapshot(registry) -> Dictionary:
 		"recovery_progress": 1.0,
 		"available_timer": 0.0,
 		"charge_timer": 0.0,
-		"recharge_frames": 90.0,
+		"recharge_frames": 300.0,
+		"boost_charging_pending_dash_refund": false,
+		"boost_charging_active": false,
+		"boost_charging_timer": 0.0,
+		"boost_charging_effect_timer": 0.0,
+		"boost_charging_effect_duration": 12.0,
+		"boost_charging_token_index": -1,
 	}
 
 

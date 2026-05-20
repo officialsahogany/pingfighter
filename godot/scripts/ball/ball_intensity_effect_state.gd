@@ -17,7 +17,8 @@ func update(
 	ball_velocity: Vector2,
 	fps_scale: float,
 	intensity: float,
-	colors: Array[Color]
+	colors: Array[Color],
+	effect_lod_scale: float = 1.0
 ) -> void:
 	if intensity < 0.1:
 		particle_state.update_low_intensity(fps_scale)
@@ -31,8 +32,8 @@ func update(
 			Color(60.0 / 255.0, 140.0 / 255.0, 1.0),
 		]
 
-	particle_state.update(ball_center, ball_velocity, fps_scale, intensity, safe_colors)
-	trail_state.update(ball_center, fps_scale, intensity, safe_colors)
+	particle_state.update(ball_center, ball_velocity, fps_scale, intensity, safe_colors, effect_lod_scale)
+	trail_state.update(ball_center, fps_scale, intensity, safe_colors, effect_lod_scale)
 
 
 func get_particles() -> Array[Dictionary]:

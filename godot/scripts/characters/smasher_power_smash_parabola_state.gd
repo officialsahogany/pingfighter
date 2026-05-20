@@ -28,6 +28,11 @@ func start() -> void:
 	elapsed = 0.0
 
 
+func finish() -> void:
+	active = false
+	elapsed = 0.0
+
+
 func step(fps_scale: float) -> bool:
 	if not active:
 		return false

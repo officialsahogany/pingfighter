@@ -14,6 +14,13 @@ func apply(
 	var next_ball_pos: Vector2 = _snap_player_hit_ball_pos(ball_pos, context)
 	var player_speed: float = float(context.get("player_speed", 0.0))
 	var boss_vel: float = float(context.get("boss_vel", 0.0))
+	var magnum_state: Object = deps.get("smasher_magnum_grip_state", null)
+	var magnum_release_hit: bool = false
+	if magnum_state != null and magnum_state.has_method("consume_release_hit_speed_cap"):
+		magnum_release_hit = bool(magnum_state.consume_release_hit_speed_cap())
+	if magnum_state != null and magnum_state.has_method("deactivate"):
+		magnum_state.deactivate()
+
 	var power_state: Object = deps.get("power_state", null)
 	if power_activated and power_state != null:
 		power_state.lock_freeze_pose(next_ball_pos)
@@ -32,12 +39,22 @@ func apply(
 			context,
 			deps
 		)
-	return {
+	var stage_background: Object = deps.get("stage_background", null)
+	if (
+		int(context.get("current_stage", 1)) == 2
+		and stage_background != null
+		and stage_background.has_method("force_end_quake_on_player_hit")
+	):
+		stage_background.force_end_quake_on_player_hit(deps)
+	var result := {
 		"ball_pos": next_ball_pos,
 		"special_gauge": updated_gauge,
 		"player_speed": player_speed,
 		"boss_vel": boss_vel,
 	}
+	if magnum_release_hit:
+		result["magnum_grip_release_hit"] = true
+	return result
 
 
 func _snap_player_hit_ball_pos(ball_pos: Vector2, context: Dictionary) -> Vector2:

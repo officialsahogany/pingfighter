@@ -11,6 +11,9 @@ const FIELD_ITEM_COLLISION_SIZE := 30.0
 const SPAWN_VELOCITY_CHOICES := [-4.0, -3.0, 3.0, 4.0]
 const SPAWN_SPARK_DURATION_SEC := 1.0
 const LUCKY_COIN_BONUS_OFFSET_CHOICES := [-40.0, -30.0, 30.0, 40.0]
+const ADVANCE_SKIPPED_ALIVE := 0
+const ADVANCE_ALIVE := 1
+const ADVANCE_DEAD := 2
 
 
 func roll_field_item_position() -> Vector2:
@@ -95,14 +98,19 @@ func get_dowsing_pendulum_context(registry: Object) -> Dictionary:
 
 
 func advance_field_item(field_item: Dictionary, player_rect: Rect2, dowsing_context: Dictionary, delta: float) -> Dictionary:
+	var advance_state: int = advance_field_item_in_place(field_item, player_rect, dowsing_context, delta)
+	return {
+		"field_item": field_item,
+		"skipped": advance_state == ADVANCE_SKIPPED_ALIVE,
+		"alive": advance_state != ADVANCE_DEAD,
+		"item_rect": Rect2() if advance_state == ADVANCE_SKIPPED_ALIVE else get_field_item_rect(field_item),
+	}
+
+
+func advance_field_item_in_place(field_item: Dictionary, player_rect: Rect2, dowsing_context: Dictionary, delta: float) -> int:
 	if bool(field_item.get("spawn_skip_update_once", false)):
 		field_item["spawn_skip_update_once"] = false
-		return {
-			"field_item": field_item,
-			"skipped": true,
-			"alive": true,
-			"item_rect": Rect2(),
-		}
+		return ADVANCE_SKIPPED_ALIVE
 
 	var fps_scale: float = delta * 60.0
 	var item_pos: Vector2 = _get_vector2(field_item, "position", Vector2.ZERO)
@@ -126,16 +134,16 @@ func advance_field_item(field_item: Dictionary, player_rect: Rect2, dowsing_cont
 	field_item["angle_degrees"] = fmod(float(field_item.get("angle_degrees", 0.0)) + 2.0 * fps_scale, 360.0)
 	field_item["spawn_spark_timer"] = max(0.0, float(field_item.get("spawn_spark_timer", 0.0)) - delta)
 
+	return ADVANCE_ALIVE if bounce_count < int(field_item.get("max_bounces", 10)) else ADVANCE_DEAD
+
+
+func get_field_item_rect(field_item: Dictionary) -> Rect2:
+	var item_pos: Vector2 = _get_vector2(field_item, "position", Vector2.ZERO)
 	var item_rect := Rect2(
 		item_pos - Vector2(FIELD_ITEM_COLLISION_SIZE, FIELD_ITEM_COLLISION_SIZE) * 0.5,
 		Vector2(FIELD_ITEM_COLLISION_SIZE, FIELD_ITEM_COLLISION_SIZE)
 	)
-	return {
-		"field_item": field_item,
-		"skipped": false,
-		"alive": bounce_count < int(field_item.get("max_bounces", 10)),
-		"item_rect": item_rect,
-	}
+	return item_rect
 
 
 func apply_dowsing_pendulum_attraction(

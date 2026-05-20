@@ -22,19 +22,47 @@ func reset() -> void:
 	spawn_scheduler.reset()
 
 
+func prewarm_spawn_candidate_templates(perf_logger: Object = null) -> void:
+	if spawn_pool != null and spawn_pool.has_method("prewarm_spawn_candidate_templates"):
+		spawn_pool.prewarm_spawn_candidate_templates(perf_logger)
+
+
+func get_spawn_candidate_cache_status() -> Dictionary:
+	if spawn_pool != null and spawn_pool.has_method("get_spawn_candidate_cache_status"):
+		return spawn_pool.get_spawn_candidate_cache_status()
+	return {}
+
+
 func update(
 	owner: Object,
 	registry: Object,
 	delta: float,
 	store_item_callback: Callable,
-	pickup_callback: Callable
+	pickup_callback: Callable,
+	perf_logger: Object = null
 ) -> void:
-	_update_dimension_gate(owner, registry)
+	_record_counter(perf_logger, "active_item.field_items.before", float(spawned_items.size()))
+	_record_counter(perf_logger, "active_item.spawn_portals", float(spawn_portals.get_item_spawn_portals().size()))
+	_record_counter(perf_logger, "active_item.spawn_pending", float(spawn_portals.get_pending_spawn_items().size()))
+	var detail_perf_logger: Object = _detail_perf_logger(perf_logger, "active_item.field_spawn.update")
+	var sample_start: int = _perf_begin(detail_perf_logger)
+	_update_dimension_gate(owner, registry, detail_perf_logger)
+	_perf_end(detail_perf_logger, "physics.callback.active_items.field_spawn.dimension_gate", sample_start)
 	if not spawn_portals.is_dimension_gate_active():
-		_update_spawn_timer(owner, registry)
+		sample_start = _perf_begin(detail_perf_logger)
+		_update_spawn_timer(owner, registry, detail_perf_logger)
+		_perf_end(detail_perf_logger, "physics.callback.active_items.field_spawn.spawn_timer", sample_start)
+	sample_start = _perf_begin(detail_perf_logger)
 	_release_pending_spawn_items()
+	_perf_end(detail_perf_logger, "physics.callback.active_items.field_spawn.release_pending", sample_start)
+	sample_start = _perf_begin(detail_perf_logger)
 	_update_item_spawn_portals()
-	_update_field_items(owner, registry, delta, store_item_callback, pickup_callback)
+	_perf_end(detail_perf_logger, "physics.callback.active_items.field_spawn.portal_update", sample_start)
+	_record_counter(perf_logger, "active_item.field_items.released", float(spawned_items.size()))
+	sample_start = _perf_begin(detail_perf_logger)
+	_update_field_items(owner, registry, delta, store_item_callback, pickup_callback, detail_perf_logger)
+	_perf_end(detail_perf_logger, "physics.callback.active_items.field_spawn.field_items", sample_start)
+	_record_counter(perf_logger, "active_item.field_items.after", float(spawned_items.size()))
 
 
 func debug_spawn_item(item_name: String) -> bool:
@@ -110,19 +138,32 @@ func collect_items_near(center: Vector2, radius: float) -> Array[Dictionary]:
 	return _get_dictionary_array(result, "picked_items")
 
 
-func _update_spawn_timer(owner: Object, registry: Object) -> void:
-	if spawn_scheduler.consume_regular_spawn_due(
+func _update_spawn_timer(owner: Object, registry: Object, perf_logger: Object = null) -> void:
+	var sample_start: int = _perf_begin(perf_logger)
+	var spawn_due: bool = spawn_scheduler.consume_regular_spawn_due(
 		owner,
 		registry,
 		not spawned_items.is_empty(),
 		spawn_portals.has_pending_spawn_or_portals()
-	):
-		_queue_item_after_portal(owner, registry)
+	)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.spawn_timer.scheduler", sample_start)
+	if spawn_due:
+		sample_start = _perf_begin(perf_logger)
+		_queue_item_after_portal(owner, registry, perf_logger)
+		_perf_end(perf_logger, "physics.callback.active_items.field_spawn.spawn_timer.queue_regular", sample_start)
 
 
-func _update_dimension_gate(owner: Object, registry: Object) -> void:
-	if spawn_portals.update_dimension_gate(spawn_scheduler.is_item_spawn_blocked(owner)):
-		_queue_dimension_gate_item(owner, registry)
+func _update_dimension_gate(owner: Object, registry: Object, perf_logger: Object = null) -> void:
+	var sample_start: int = _perf_begin(perf_logger)
+	var spawn_blocked: bool = spawn_scheduler.is_item_spawn_blocked(owner)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.dimension_gate.block_check", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	var should_queue_item: bool = spawn_portals.update_dimension_gate(spawn_blocked)
+	_perf_end(perf_logger, "physics.callback.active_items.field_spawn.dimension_gate.portal_update", sample_start)
+	if should_queue_item:
+		sample_start = _perf_begin(perf_logger)
+		_queue_dimension_gate_item(owner, registry, perf_logger)
+		_perf_end(perf_logger, "physics.callback.active_items.field_spawn.dimension_gate.queue_item", sample_start)
 
 
 func _update_field_items(
@@ -130,36 +171,51 @@ func _update_field_items(
 	registry: Object,
 	delta: float,
 	store_item_callback: Callable,
-	pickup_callback: Callable
+	pickup_callback: Callable,
+	perf_logger: Object = null
 ) -> void:
-	spawned_items = field_pickup_flow.update_field_items(
-		owner,
-		registry,
-		spawned_items,
-		field_item_motion,
-		delta,
-		store_item_callback,
-		pickup_callback
-	)
+	if _get_method_argument_count(field_pickup_flow, "update_field_items") >= 8:
+		spawned_items = field_pickup_flow.update_field_items(
+			owner,
+			registry,
+			spawned_items,
+			field_item_motion,
+			delta,
+			store_item_callback,
+			pickup_callback,
+			perf_logger
+		)
+	else:
+		spawned_items = field_pickup_flow.update_field_items(
+			owner,
+			registry,
+			spawned_items,
+			field_item_motion,
+			delta,
+			store_item_callback,
+			pickup_callback
+		)
 
 
-func _queue_item_after_portal(owner: Object = null, registry: Object = null) -> void:
+func _queue_item_after_portal(owner: Object = null, registry: Object = null, perf_logger: Object = null) -> void:
 	spawn_queue.queue_item_after_portal(
 		owner,
 		registry,
 		spawn_pool,
 		field_item_motion,
-		spawn_portals
+		spawn_portals,
+		perf_logger
 	)
 
 
-func _queue_dimension_gate_item(owner: Object = null, registry: Object = null) -> void:
+func _queue_dimension_gate_item(owner: Object = null, registry: Object = null, perf_logger: Object = null) -> void:
 	spawn_queue.queue_dimension_gate_item(
 		owner,
 		registry,
 		spawn_pool,
 		field_item_motion,
-		spawn_portals
+		spawn_portals,
+		perf_logger
 	)
 
 
@@ -223,3 +279,41 @@ func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dictionary]
 			if item_value is Dictionary:
 				items.append(item_value)
 	return items
+
+
+func _get_method_argument_count(target: Object, method_name: String) -> int:
+	if target == null:
+		return 0
+	for method_info in target.get_method_list():
+		if not (method_info is Dictionary):
+			continue
+		if str(method_info.get("name", "")) != method_name:
+			continue
+		var args_value: Variant = method_info.get("args", [])
+		if args_value is Array:
+			return args_value.size()
+	return 0
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
+
+
+func _record_counter(perf_logger: Object, label: String, value: float) -> void:
+	if perf_logger != null and perf_logger.has_method("record_counter_sample"):
+		perf_logger.record_counter_sample(label, value)
+
+
+func _detail_perf_logger(perf_logger: Object, label: String) -> Object:
+	if perf_logger == null:
+		return null
+	if perf_logger.has_method("should_sample_detail"):
+		return perf_logger if bool(perf_logger.should_sample_detail(label)) else null
+	return perf_logger

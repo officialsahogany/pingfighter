@@ -1,5 +1,9 @@
 extends RefCounted
 
+const SEVERE_LOD_SCALE_THRESHOLD := 0.50
+const SEVERE_LOD_MAX_PARTICLES := 18
+const SEVERE_LOD_SPAWN_CHANCE_MULTIPLIER := 0.45
+
 var intensity_particles: Array[Dictionary] = []
 
 
@@ -8,9 +12,11 @@ func clear() -> void:
 
 
 func update_low_intensity(fps_scale: float) -> void:
-	var low_particles: Array[Dictionary] = []
-	for particle in intensity_particles:
-		var p: Dictionary = particle
+	if intensity_particles.is_empty():
+		return
+	var write_idx: int = 0
+	for i in range(intensity_particles.size()):
+		var p: Dictionary = intensity_particles[i]
 		var particle_pos: Vector2 = p["pos"]
 		var particle_vel: Vector2 = p["vel"]
 		var particle_life: float = float(p["life"]) - fps_scale
@@ -22,8 +28,9 @@ func update_low_intensity(fps_scale: float) -> void:
 			p["vel"] = particle_vel
 			p["life"] = particle_life
 			p["size"] = particle_size
-			low_particles.append(p)
-	intensity_particles = low_particles
+			intensity_particles[write_idx] = p
+			write_idx += 1
+	intensity_particles.resize(write_idx)
 
 
 func update(
@@ -31,10 +38,15 @@ func update(
 	ball_velocity: Vector2,
 	fps_scale: float,
 	intensity: float,
-	colors: Array[Color]
+	colors: Array[Color],
+	effect_lod_scale: float = 1.0
 ) -> void:
-	var particle_count: int = int(1.0 + intensity * 4.0) if intensity <= 0.5 else max(1, int(3.0 - (intensity - 0.5) * 4.0))
-	var spawn_chance: float = 0.3 + intensity * 0.3 if intensity <= 0.5 else 0.45 - (intensity - 0.5) * 0.3
+	var severe_lod: bool = effect_lod_scale <= SEVERE_LOD_SCALE_THRESHOLD
+	var particle_count: int = int(1.0 + intensity * 2.0) if intensity <= 0.5 else max(1, int(2.0 - (intensity - 0.5) * 2.0))
+	var spawn_chance: float = 0.12 + intensity * 0.16 if intensity <= 0.5 else 0.24 - (intensity - 0.5) * 0.14
+	if severe_lod:
+		particle_count = 1
+		spawn_chance *= SEVERE_LOD_SPAWN_CHANCE_MULTIPLIER
 	for _i in range(particle_count):
 		if randf() < spawn_chance:
 			var angle: float = atan2(-ball_velocity.y, -ball_velocity.x) + randf_range(-0.5, 0.5)
@@ -49,9 +61,9 @@ func update(
 				"type": "flame" if randf() < 0.7 else "spark",
 			})
 
-	var updated_particles: Array[Dictionary] = []
-	for particle in intensity_particles:
-		var p: Dictionary = particle
+	var write_idx: int = 0
+	for i in range(intensity_particles.size()):
+		var p: Dictionary = intensity_particles[i]
 		var particle_pos: Vector2 = p["pos"]
 		var particle_vel: Vector2 = p["vel"]
 		var particle_life: float = float(p["life"]) - fps_scale
@@ -68,13 +80,16 @@ func update(
 			p["vel"] = particle_vel
 			p["life"] = particle_life
 			p["size"] = particle_size
-			updated_particles.append(p)
-	intensity_particles = updated_particles
+			intensity_particles[write_idx] = p
+			write_idx += 1
+	intensity_particles.resize(write_idx)
 
-	var max_particles: int = int(150.0 - intensity * 90.0) if intensity > 0.5 else 150
+	var max_particles: int = int(42.0 - intensity * 18.0) if intensity > 0.5 else 42
+	if severe_lod:
+		max_particles = min(max_particles, SEVERE_LOD_MAX_PARTICLES)
 	while intensity_particles.size() > max_particles:
 		intensity_particles.pop_front()
 
 
 func get_particles() -> Array[Dictionary]:
-	return intensity_particles.duplicate()
+	return intensity_particles

@@ -27,7 +27,10 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const HorizontalTimerGaugeStack := preload("res://scripts/hud/horizontal_timer_gauge_stack.gd")
 const PillarOrbDrawer := preload("res://scripts/hud/pillar_orb_drawer.gd")
 const PillarStatusOrbRenderer := preload("res://scripts/hud/pillar_status_orb_renderer.gd")
+const ActiveItemThrowRenderer := preload("res://scripts/items/active_item_throw_renderer.gd")
 const WeatherEventRenderer := preload("res://scripts/stages/common/weather_event_renderer.gd")
+const Stage2PillarAssets := preload("res://scripts/stages/stage2/stage2_pillar_assets.gd")
+const Stage3PillarBackground := preload("res://scripts/stages/stage3/stage3_pillar_background.gd")
 
 const VIPER_HOVER_LEFT_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_hover_sheet.png"
 const VIPER_HOVER_RIGHT_PATH := "res://assets/sprites/characters/viper/viper_subculture_right_hover_sheet.png"
@@ -39,7 +42,7 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 10
+const WARMUP_DRAW_STEPS := 12
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
@@ -164,6 +167,10 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_stage2_leaf_primitives()
 		9:
 			_prewarm_common_starpoint_drop_shader()
+		10:
+			_prewarm_stage2_pillar_background_textures()
+		11:
+			_prewarm_stage3_pillar_background_textures()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -450,6 +457,106 @@ func _prewarm_stage2_leaf_primitives() -> void:
 	draw_line(center + Vector2(-9.0, 0.0), center + Vector2(11.0, 0.0), Color(0.42, 0.82, 0.32, 0.66), 1.0, true)
 
 
+func _prewarm_stage2_pillar_background_textures() -> void:
+	var base := _get_texture(Stage2PillarAssets.BASE_TEXTURE_PATH)
+	if base != null:
+		draw_texture_rect(base, Rect2(0.0, 1560.0, 220.0, 180.0), false, Color(1.0, 1.0, 1.0, 0.72))
+	var tree := _get_texture(Stage2PillarAssets.TREE_TEXTURE_PATH)
+	if tree != null:
+		draw_texture_rect_region(
+			tree,
+			Rect2(240.0, 1560.0, 86.0, 270.0),
+			Stage2PillarAssets.TREE_SOURCE_REGION_DATA.get("left", Rect2()),
+			Color(1.0, 1.0, 1.0, 0.72),
+			false,
+			true
+		)
+		draw_texture_rect_region(
+			tree,
+			Rect2(340.0, 1560.0, 86.0, 270.0),
+			Stage2PillarAssets.TREE_SOURCE_REGION_DATA.get("right", Rect2()),
+			Color(1.0, 1.0, 1.0, 0.72),
+			false,
+			true
+		)
+	var game_frame := _get_texture(Stage2PillarAssets.GAME_FRAME_TEXTURE_PATH)
+	if game_frame != null:
+		draw_texture_rect(game_frame, Rect2(450.0, 1560.0, 240.0, 140.0), false, Color(1.0, 1.0, 1.0, 0.72))
+	var leaf := _get_texture(Stage2PillarAssets.LEAF_TEXTURE_PATH)
+	if leaf != null:
+		draw_texture_rect_region(
+			leaf,
+			Rect2(710.0, 1560.0, 70.0, 70.0),
+			Stage2PillarAssets.LEAF_SOURCE_REGION_DATA[0],
+			Color(1.0, 1.0, 1.0, 0.72),
+			false,
+			true
+		)
+	var rock := _get_texture(Stage2PillarAssets.ROCK_TEXTURE_PATH)
+	if rock != null:
+		draw_texture_rect_region(
+			rock,
+			Rect2(790.0, 1560.0, 64.0, 64.0),
+			Stage2PillarAssets.ROCK_SOURCE_REGION_DATA[0],
+			Color(1.0, 1.0, 1.0, 0.72),
+			false,
+			true
+		)
+	var debris := _get_texture(Stage2PillarAssets.ROCK_DEBRIS_TEXTURE_PATH)
+	if debris != null:
+		draw_texture_rect_region(
+			debris,
+			Rect2(870.0, 1560.0, 48.0, 48.0),
+			Stage2PillarAssets.ROCK_DEBRIS_SOURCE_REGION_DATA[0],
+			Color(1.0, 1.0, 1.0, 0.72),
+			false,
+			true
+		)
+
+
+func _prewarm_stage3_pillar_background_textures() -> void:
+	var base := _get_texture(Stage3PillarBackground.BASE_TEXTURE_PATH)
+	if base != null:
+		draw_texture_rect(base, Rect2(0.0, 1860.0, 220.0, 180.0), false, Color(1.0, 1.0, 1.0, 0.72))
+	var ambient := _get_texture(Stage3PillarBackground.AMBIENT_TEXTURE_PATH)
+	if ambient != null:
+		var regions: Array = Stage3PillarBackground.AMBIENT_SOURCE_REGIONS
+		for idx in range(mini(4, regions.size())):
+			var source: Rect2 = regions[idx]
+			draw_texture_rect_region(
+				ambient,
+				Rect2(240.0 + float(idx) * 78.0, 1860.0, 66.0, 66.0),
+				source,
+				Color(1.0, 1.0, 1.0, 0.72),
+				false,
+				true
+			)
+	var center_frame := _get_texture(Stage3PillarBackground.CENTER_FRAME_TEXTURE_PATH)
+	if center_frame != null:
+		var window: Rect2 = Stage3PillarBackground.CENTER_FRAME_WINDOW_RECT
+		var source_size: Vector2 = center_frame.get_size()
+		var source_right: float = window.position.x + window.size.x
+		var source_bottom: float = window.position.y + window.size.y
+		var pieces: Array = [
+			Rect2(0.0, 0.0, source_size.x, window.position.y),
+			Rect2(0.0, window.position.y, window.position.x, window.size.y),
+			Rect2(source_right, window.position.y, source_size.x - source_right, window.size.y),
+			Rect2(0.0, source_bottom, source_size.x, source_size.y - source_bottom),
+		]
+		for idx in range(pieces.size()):
+			var source: Rect2 = pieces[idx]
+			if source.size.x <= 0.0 or source.size.y <= 0.0:
+				continue
+			draw_texture_rect_region(
+				center_frame,
+				Rect2(560.0 + float(idx) * 88.0, 1860.0, 80.0, 70.0),
+				source,
+				Color(1.0, 1.0, 1.0, 0.72),
+				false,
+				true
+			)
+
+
 # Exercise both common-starpoint shader branches (normal scrap palette and the
 # star-detector cyan shimmer) so the GPU compiles each variant of
 # starpoint_drop.gdshader before the first balloon / rock / menhera / bird
@@ -567,6 +674,13 @@ func _prewarm_playfield_primitives() -> void:
 			]),
 			ball
 		)
+	var ellipse_transform := Transform2D(Vector2(32.0, 0.0), Vector2(0.0, 9.0), Vector2(330.0, 1260.0))
+	draw_mesh(
+		ActiveItemThrowRenderer._get_filled_ellipse_mesh(),
+		null,
+		ellipse_transform,
+		Color(1.0, 0.92, 0.20, 0.32)
+	)
 
 
 func _prewarm_stage2_center_primitives() -> void:

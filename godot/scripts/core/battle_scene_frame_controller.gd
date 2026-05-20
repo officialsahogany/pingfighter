@@ -1,0 +1,431 @@
+extends RefCounted
+
+func process_idle(
+	delta: float,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable,
+	callbacks: Dictionary
+) -> void:
+	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
+	var total_start: int = _perf_begin(perf_logger)
+	var sample_start: int = _perf_begin(perf_logger)
+	_call(callbacks, "sync_mobile_touch_controls_enabled")
+	_perf_end(perf_logger, "process.frame.sync_mobile_touch", sample_start)
+	var match_event_driver: Object = _get_match_event_driver(module_getter)
+	if _is_stage_transition_loading_active(match_event_driver):
+		if match_event_driver.has_method("update_stage_transition_loading"):
+			sample_start = _perf_begin(perf_logger)
+			match_event_driver.update_stage_transition_loading(delta, owner, registry)
+			_perf_end(perf_logger, "process.frame.stage_transition_loading", sample_start)
+		_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
+	var intro_frame: Object = _get_intro_frame_controller(module_getter)
+	if intro_frame != null and intro_frame.has_method("process_idle"):
+		sample_start = _perf_begin(perf_logger)
+		if bool(intro_frame.process_idle(delta, owner, registry, module_getter, callbacks)):
+			_perf_end(perf_logger, "process.frame.intro", sample_start)
+			_perf_end(perf_logger, "process.frame.total", total_start)
+			return
+		_perf_end(perf_logger, "process.frame.intro", sample_start)
+
+	if _is_intro_or_warmup_blocking(module_getter, callbacks):
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
+
+	var result_screen: Object = _get_stage_clear_result_screen(module_getter)
+	if _is_stage_clear_result_active(result_screen):
+		if result_screen.has_method("update"):
+			sample_start = _perf_begin(perf_logger)
+			result_screen.update(delta)
+			_perf_end(perf_logger, "process.frame.result_screen", sample_start)
+		if _is_runtime_perk_choice_active(module_getter):
+			var runtime_perk_overlay_frame: Object = _get_overlay_frame_controller(module_getter)
+			if runtime_perk_overlay_frame != null and runtime_perk_overlay_frame.has_method("process_idle"):
+				sample_start = _perf_begin(perf_logger)
+				runtime_perk_overlay_frame.process_idle(delta, owner, registry, module_getter)
+				_perf_end(perf_logger, "process.frame.runtime_perk_overlay", sample_start)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.frame.total", total_start)
+			return
+		_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
+
+	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
+	if overlay_frame != null and overlay_frame.has_method("process_idle"):
+		sample_start = _perf_begin(perf_logger)
+		if bool(overlay_frame.process_idle(delta, owner, registry, module_getter)):
+			_perf_end(perf_logger, "process.frame.overlay", sample_start)
+			_perf_end(perf_logger, "process.frame.total", total_start)
+			return
+		_perf_end(perf_logger, "process.frame.overlay", sample_start)
+
+	var update_driver: Object = _get_module(module_getter, "battle_scene_update_driver")
+	if update_driver != null:
+		sample_start = _perf_begin(perf_logger)
+		update_driver.update_scoreboard_visuals(owner, registry, delta)
+		_perf_end(perf_logger, "process.frame.scoreboard_visuals", sample_start)
+	_update_result_texture_prewarm(module_getter, perf_logger)
+	# Manual render interpolation needs a fresh draw on render frames, not only
+	# on 60 Hz physics frames.
+	_queue_redraw(owner)
+	var scoreboard_state: Object = _get_module(module_getter, "scoreboard_state")
+	if scoreboard_state == null or not scoreboard_state.is_active():
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
+	if update_driver != null:
+		sample_start = _perf_begin(perf_logger)
+		update_driver.update_scoreboard_overlay(owner, registry, delta)
+		_perf_end(perf_logger, "process.frame.scoreboard_overlay_update", sample_start)
+	_perf_end(perf_logger, "process.frame.total", total_start)
+
+
+func process_physics(
+	delta: float,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable,
+	callbacks: Dictionary
+) -> void:
+	var total_start: int = Time.get_ticks_usec()
+	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
+	_perf_end(perf_logger, "physics.frame.perf_logger_lookup", total_start)
+	var sample_start: int = _perf_begin(perf_logger)
+	if _is_logo_intro_active(module_getter):
+		_perf_end(perf_logger, "physics.frame.gate.logo_intro", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.logo_intro", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if not _call_bool(callbacks, "is_battle_initialized"):
+		_perf_end(perf_logger, "physics.frame.gate.battle_initialized", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.battle_initialized", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if not _is_boot_warmup_finished(module_getter):
+		_perf_end(perf_logger, "physics.frame.gate.boot_warmup", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.boot_warmup", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if not _call_bool(callbacks, "is_stage_landing_intro_started"):
+		_perf_end(perf_logger, "physics.frame.gate.stage_landing_started", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.stage_landing_started", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if _is_stage_landing_intro_active(module_getter):
+		_perf_end(perf_logger, "physics.frame.gate.stage_landing_intro", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.stage_landing_intro", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if _is_ball_spawn_intro_active(module_getter):
+		_perf_end(perf_logger, "physics.frame.gate.ball_spawn_intro", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.ball_spawn_intro", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if _is_stage_transition_loading_active(_get_match_event_driver(module_getter)):
+		_perf_end(perf_logger, "physics.frame.gate.stage_transition_loading", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.stage_transition_loading", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if _is_stage_clear_result_active(_get_stage_clear_result_screen(module_getter)):
+		_perf_end(perf_logger, "physics.frame.gate.stage_clear_result", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.stage_clear_result", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if _should_block_battle_physics(module_getter, perf_logger):
+		_perf_end(perf_logger, "physics.frame.gate.modal_block", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.modal_block", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	var update_driver: Object = _get_module(module_getter, "battle_scene_update_driver")
+	_perf_end(perf_logger, "physics.frame.update_driver_lookup", sample_start)
+	if update_driver != null:
+		sample_start = _perf_begin(perf_logger)
+		update_driver.update(owner, registry, delta)
+		_perf_end(perf_logger, "physics.frame.update_driver", sample_start)
+	_perf_end(perf_logger, "physics.frame.total", total_start)
+
+
+func draw(
+	canvas: CanvasItem,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable,
+	callbacks: Dictionary
+) -> void:
+	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
+	var total_start: int = _perf_begin(perf_logger)
+	var view_size: Vector2 = _get_view_size(owner)
+	var match_event_driver: Object = _get_match_event_driver(module_getter)
+	if _is_stage_transition_loading_active(match_event_driver):
+		if match_event_driver.has_method("draw_stage_transition_loading"):
+			var transition_start: int = _perf_begin(perf_logger)
+			if bool(match_event_driver.draw_stage_transition_loading(
+				canvas,
+				owner,
+				registry,
+				module_getter,
+				view_size
+			)):
+				_perf_end(perf_logger, "draw.frame.stage_transition_loading", transition_start)
+				_perf_end(perf_logger, "draw.frame.total", total_start)
+				_perf_maybe_log(perf_logger)
+				return
+			_perf_end(perf_logger, "draw.frame.stage_transition_loading", transition_start)
+		var black_start: int = _perf_begin(perf_logger)
+		_draw_black(canvas, view_size)
+		_perf_end(perf_logger, "draw.frame.black", black_start)
+		_perf_end(perf_logger, "draw.frame.total", total_start)
+		_perf_maybe_log(perf_logger)
+		return
+
+	var intro_frame: Object = _get_intro_frame_controller(module_getter)
+	if intro_frame != null and intro_frame.has_method("draw_intro_or_boot"):
+		var intro_start: int = _perf_begin(perf_logger)
+		if bool(intro_frame.draw_intro_or_boot(canvas, owner, registry, module_getter, callbacks, view_size)):
+			_perf_end(perf_logger, "draw.frame.intro_or_boot", intro_start)
+			_perf_end(perf_logger, "draw.frame.total", total_start)
+			_perf_maybe_log(perf_logger)
+			return
+		_perf_end(perf_logger, "draw.frame.intro_or_boot", intro_start)
+	elif _is_intro_or_warmup_blocking(module_getter, callbacks):
+		var black_start: int = _perf_begin(perf_logger)
+		_draw_black(canvas, view_size)
+		_perf_end(perf_logger, "draw.frame.black", black_start)
+		_perf_end(perf_logger, "draw.frame.total", total_start)
+		_perf_maybe_log(perf_logger)
+		return
+
+	var result_screen: Object = _get_stage_clear_result_screen(module_getter)
+	if _is_stage_clear_result_active(result_screen):
+		if result_screen.has_method("draw"):
+			var result_start: int = _perf_begin(perf_logger)
+			result_screen.draw(canvas, owner, registry, view_size)
+			_perf_end(perf_logger, "draw.frame.result_screen", result_start)
+		_perf_end(perf_logger, "draw.frame.total", total_start)
+		_perf_maybe_log(perf_logger)
+		return
+
+	var ball_spawn_overlay_active := (
+		intro_frame != null
+		and intro_frame.has_method("is_ball_spawn_overlay_active")
+		and bool(intro_frame.is_ball_spawn_overlay_active(module_getter))
+	)
+	var should_restore_spawn_pillars := (
+		ball_spawn_overlay_active
+		and (
+			not intro_frame.has_method("should_restore_ball_spawn_pillar_overlay")
+			or bool(intro_frame.should_restore_ball_spawn_pillar_overlay(module_getter))
+		)
+	)
+	var split_spawn_overlay_pass := (
+		should_restore_spawn_pillars
+		and _has_callback(callbacks, "draw_battle_pillar_overlay")
+	)
+	if split_spawn_overlay_pass:
+		var battle_scene_start: int = _perf_begin(perf_logger)
+		_call(callbacks, "draw_battle_scene")
+		_perf_end(perf_logger, "draw.frame.battle_scene", battle_scene_start)
+		if intro_frame != null and intro_frame.has_method("draw_ball_spawn_overlay"):
+			var ball_spawn_start: int = _perf_begin(perf_logger)
+			intro_frame.draw_ball_spawn_overlay(canvas, owner, registry, module_getter, view_size)
+			_perf_end(perf_logger, "draw.frame.ball_spawn_overlay", ball_spawn_start)
+		var pillar_start: int = _perf_begin(perf_logger)
+		_call(callbacks, "draw_battle_pillar_overlay")
+		_perf_end(perf_logger, "draw.frame.pillar_overlay", pillar_start)
+	else:
+		var battle_scene_start: int = _perf_begin(perf_logger)
+		_call(callbacks, "draw_battle_scene")
+		_perf_end(perf_logger, "draw.frame.battle_scene", battle_scene_start)
+		if intro_frame != null and intro_frame.has_method("draw_ball_spawn_overlay"):
+			var ball_spawn_start: int = _perf_begin(perf_logger)
+			intro_frame.draw_ball_spawn_overlay(canvas, owner, registry, module_getter, view_size)
+			_perf_end(perf_logger, "draw.frame.ball_spawn_overlay", ball_spawn_start)
+	var mobile_touch_start: int = _perf_begin(perf_logger)
+	_call(callbacks, "draw_mobile_touch_controls")
+	_perf_end(perf_logger, "draw.frame.mobile_touch", mobile_touch_start)
+
+	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
+	if overlay_frame != null and overlay_frame.has_method("draw"):
+		var overlay_start: int = _perf_begin(perf_logger)
+		overlay_frame.draw(canvas, owner, registry, module_getter, view_size)
+		_perf_end(perf_logger, "draw.frame.overlay", overlay_start)
+	_perf_end(perf_logger, "draw.frame.total", total_start)
+	_perf_maybe_log(perf_logger)
+
+
+func _is_logo_intro_active(module_getter: Callable) -> bool:
+	return _call_readiness_bool(module_getter, "is_logo_intro_active")
+
+
+func _is_boot_warmup_finished(module_getter: Callable) -> bool:
+	return _call_readiness_bool(module_getter, "is_boot_warmup_finished", true)
+
+
+func _is_stage_landing_intro_active(module_getter: Callable) -> bool:
+	return _call_readiness_bool(module_getter, "is_stage_landing_intro_active")
+
+
+func _is_ball_spawn_intro_active(module_getter: Callable) -> bool:
+	return _call_readiness_bool(module_getter, "is_ball_spawn_intro_active")
+
+
+func _is_intro_or_warmup_blocking(module_getter: Callable, callbacks: Dictionary) -> bool:
+	var readiness: Object = _get_readiness_controller(module_getter)
+	if readiness == null or not readiness.has_method("is_intro_or_warmup_blocking"):
+		return true
+	return bool(readiness.is_intro_or_warmup_blocking(
+		module_getter,
+		_call_bool(callbacks, "is_battle_initialized"),
+		_call_bool(callbacks, "is_stage_landing_intro_started")
+	))
+
+
+func _get_readiness_controller(module_getter: Callable) -> Object:
+	return _get_module(module_getter, "battle_scene_readiness_controller")
+
+
+func _get_intro_frame_controller(module_getter: Callable) -> Object:
+	return _get_module(module_getter, "battle_scene_intro_frame_controller")
+
+
+func _get_overlay_frame_controller(module_getter: Callable) -> Object:
+	return _get_module(module_getter, "battle_scene_overlay_frame_controller")
+
+
+func _get_match_event_driver(module_getter: Callable) -> Object:
+	return _get_module(module_getter, "battle_scene_match_event_driver")
+
+
+func _get_stage_clear_result_screen(module_getter: Callable) -> Object:
+	return _get_module(module_getter, "stage_clear_result_screen")
+
+
+func _is_stage_clear_result_active(result_screen: Object) -> bool:
+	return result_screen != null and result_screen.has_method("is_active") and bool(result_screen.is_active())
+
+
+func _is_runtime_perk_choice_active(module_getter: Callable) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_runtime_perk_choice_active")
+
+
+func _is_stage_transition_loading_active(match_event_driver: Object) -> bool:
+	return (
+		match_event_driver != null
+		and match_event_driver.has_method("is_stage_transition_loading_active")
+		and bool(match_event_driver.is_stage_transition_loading_active())
+	)
+
+
+func _update_result_texture_prewarm(module_getter: Callable, perf_logger: Object) -> void:
+	var resources: Object = _get_module(module_getter, "battle_resources")
+	if resources == null or not resources.has_method("update_result_texture_prewarm"):
+		return
+	if resources.has_method("has_result_texture_prewarm_work") and not bool(resources.has_result_texture_prewarm_work()):
+		return
+	var sample_start: int = _perf_begin(perf_logger)
+	resources.update_result_texture_prewarm()
+	_perf_end(perf_logger, "process.frame.result_texture_prewarm", sample_start)
+
+
+func _call_readiness_bool(module_getter: Callable, method_name: String, fallback: bool = false) -> bool:
+	var readiness: Object = _get_readiness_controller(module_getter)
+	if readiness == null or not readiness.has_method(method_name):
+		return fallback
+	return bool(readiness.call(method_name, module_getter))
+
+
+func _should_block_battle_physics(module_getter: Callable, perf_logger: Object = null) -> bool:
+	var modal_gate: Object = _get_module(module_getter, "battle_scene_modal_gate_controller")
+	if modal_gate == null:
+		return false
+	if modal_gate.has_method("should_block_battle_physics_with_perf"):
+		return bool(modal_gate.should_block_battle_physics_with_perf(module_getter, perf_logger))
+	if modal_gate.has_method("should_block_battle_physics"):
+		return bool(modal_gate.should_block_battle_physics(module_getter))
+	return false
+
+
+func _call_modal_gate_bool(module_getter: Callable, method_name: String, fallback: bool = false) -> bool:
+	var modal_gate: Object = _get_module(module_getter, "battle_scene_modal_gate_controller")
+	if modal_gate == null or not modal_gate.has_method(method_name):
+		return fallback
+	return bool(modal_gate.call(method_name, module_getter))
+
+
+func _get_module(module_getter: Callable, key: String) -> Object:
+	if not module_getter.is_valid():
+		return null
+	var value: Variant = module_getter.call(key)
+	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+		return value as Object
+	return null
+
+
+func _call(callbacks: Dictionary, key: String) -> void:
+	var callback: Callable = callbacks.get(key, Callable())
+	if callback.is_valid():
+		callback.call()
+
+
+func _has_callback(callbacks: Dictionary, key: String) -> bool:
+	var callback: Callable = callbacks.get(key, Callable())
+	return callback.is_valid()
+
+
+func _call_bool(callbacks: Dictionary, key: String) -> bool:
+	var callback: Callable = callbacks.get(key, Callable())
+	if not callback.is_valid():
+		return false
+	return bool(callback.call())
+
+
+func _draw_black(canvas: CanvasItem, view_size: Vector2) -> void:
+	if canvas != null:
+		canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color.BLACK)
+
+
+func _queue_redraw(owner: Object) -> void:
+	if owner != null and owner.has_method("queue_redraw"):
+		owner.queue_redraw()
+
+
+func _get_view_size(owner: Object) -> Vector2:
+	if owner != null and owner.has_method("get_viewport_rect"):
+		return owner.get_viewport_rect().size
+	return Vector2.ZERO
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
+
+
+func _perf_maybe_log(perf_logger: Object) -> void:
+	if perf_logger != null and perf_logger.has_method("maybe_log"):
+		perf_logger.maybe_log()

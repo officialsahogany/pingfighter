@@ -16,15 +16,21 @@ func update_velocity(
 	boss_vel: float,
 	fps_scale: float,
 	ball_approaching_boss: bool,
-	reaction_multiplier: float = 1.0
+	reaction_multiplier: float = 1.0,
+	decel_multiplier: float = 1.0,
+	movement_context: Dictionary = {}
 ) -> float:
-	var accel: float = BOSS_ACCEL * max(0.0, reaction_multiplier)
-	var max_speed: float = BOSS_MAX_SPEED * max(0.0, reaction_multiplier)
+	var base_accel: float = max(0.0, float(movement_context.get("boss_movement_accel", BOSS_ACCEL)))
+	var base_decel: float = max(0.0, float(movement_context.get("boss_movement_decel", BOSS_DECEL)))
+	var base_max_speed: float = max(0.0, float(movement_context.get("boss_movement_max_speed", BOSS_MAX_SPEED)))
+	var accel: float = base_accel * max(0.0, reaction_multiplier)
+	var max_speed: float = base_max_speed * max(0.0, reaction_multiplier)
+	var decel: float = base_decel * max(0.0, decel_multiplier)
 	var target_dir: int = _get_target_direction(future_x, boss_center)
 	var reversing: bool = _is_reversing(target_dir, boss_vel)
 	if reversing:
 		return _sanitize_velocity(
-			_brake_through_reversal(target_dir, boss_vel, fps_scale, ball_approaching_boss, accel),
+			_brake_through_reversal(target_dir, boss_vel, fps_scale, ball_approaching_boss, accel, decel),
 			max_speed
 		)
 
@@ -33,7 +39,7 @@ func update_velocity(
 	elif target_dir > 0:
 		boss_vel = _accelerate_right(boss_vel, fps_scale, accel, max_speed)
 	else:
-		boss_vel = _decelerate_to_stop(boss_vel, fps_scale)
+		boss_vel = _decelerate_to_stop(boss_vel, fps_scale, decel)
 
 	return _sanitize_velocity(boss_vel, max_speed)
 
@@ -43,10 +49,11 @@ func _brake_through_reversal(
 	boss_vel: float,
 	fps_scale: float,
 	ball_approaching_boss: bool,
-	accel: float
+	accel: float,
+	decel: float
 ) -> float:
 	var slide_brake_mult: float = TURN_APPROACH_SLIDE_BRAKE_MULT if ball_approaching_boss else TURN_SLIDE_BRAKE_MULT
-	var brake_step: float = BOSS_DECEL * slide_brake_mult * fps_scale
+	var brake_step: float = decel * slide_brake_mult * fps_scale
 	var current_speed: float = abs(boss_vel)
 	if current_speed > brake_step:
 		return move_toward(boss_vel, 0.0, brake_step)
@@ -76,8 +83,8 @@ func _accelerate_right(boss_vel: float, fps_scale: float, accel: float, max_spee
 	return min(max_speed, boss_vel + accel * fps_scale)
 
 
-func _decelerate_to_stop(boss_vel: float, fps_scale: float) -> float:
-	return move_toward(boss_vel, 0.0, BOSS_DECEL * fps_scale)
+func _decelerate_to_stop(boss_vel: float, fps_scale: float, decel: float) -> float:
+	return move_toward(boss_vel, 0.0, decel * fps_scale)
 
 
 func _get_target_direction(future_x: float, boss_center: float) -> int:

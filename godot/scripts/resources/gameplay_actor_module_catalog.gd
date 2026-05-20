@@ -17,13 +17,45 @@ const MODULES := {
 		"path": "res://scripts/characters/viper_skill_state.gd",
 		"label": "viper skill state",
 	},
+	"commando_skill_state": {
+		"path": "res://scripts/characters/commando_skill_state.gd",
+		"label": "commando skill state",
+	},
+	"commando_weapon_controller": {
+		"path": "res://scripts/characters/commando_weapon_controller.gd",
+		"label": "commando weapon controller",
+	},
+	"commando_emergency_supply_state": {
+		"path": "res://scripts/characters/commando_emergency_supply_state.gd",
+		"label": "commando emergency supply state",
+	},
+	"commando_firearm_runtime": {
+		"path": "res://scripts/characters/commando_firearm_runtime.gd",
+		"label": "commando firearm runtime",
+	},
+	"commando_supply_drop_state": {
+		"path": "res://scripts/characters/commando_supply_drop_state.gd",
+		"label": "commando supply drop state",
+	},
 	"viper_skill_runtime": {
 		"path": "res://scripts/characters/viper_skill_runtime.gd",
 		"label": "viper skill runtime",
 	},
+	"viper_jetpack_state": {
+		"path": "res://scripts/characters/viper_jetpack_state.gd",
+		"label": "viper jetpack state",
+	},
+	"optimus_energy_state": {
+		"path": "res://scripts/characters/optimus_energy_state.gd",
+		"label": "optimus energy state",
+	},
 	"player_character_runtime": {
 		"path": "res://scripts/characters/player_character_runtime.gd",
 		"label": "player character runtime",
+	},
+	"player_customization_overlay_renderer": {
+		"path": "res://scripts/characters/player_customization_overlay_renderer.gd",
+		"label": "player customization overlay renderer",
 	},
 	"runtime_perk_catalog": {
 		"path": "res://scripts/characters/runtime_perk_catalog.gd",
@@ -33,9 +65,45 @@ const MODULES := {
 		"path": "res://scripts/characters/runtime_perk_state.gd",
 		"label": "runtime perk state",
 	},
+	"smasher_plasma_state": {
+		"path": "res://scripts/characters/smasher_plasma_state.gd",
+		"label": "smasher plasma state",
+	},
+	"smasher_recovery_state": {
+		"path": "res://scripts/characters/smasher_recovery_state.gd",
+		"label": "smasher recovery state",
+	},
+	"smasher_cleanse_state": {
+		"path": "res://scripts/characters/smasher_cleanse_state.gd",
+		"label": "smasher cleanse state",
+	},
+	"smasher_warp_gate_state": {
+		"path": "res://scripts/characters/smasher_warp_gate_state.gd",
+		"label": "smasher warp gate state",
+	},
+	"smasher_wheel_state": {
+		"path": "res://scripts/characters/smasher_wheel_state.gd",
+		"label": "smasher wheel state",
+	},
+	"smasher_magnum_grip_state": {
+		"path": "res://scripts/characters/smasher_magnum_grip_state.gd",
+		"label": "smasher magnum grip state",
+	},
+	"smasher_dash_spirit_state": {
+		"path": "res://scripts/characters/smasher_dash_spirit_state.gd",
+		"label": "smasher dash spirit state",
+	},
 	"smasher_shield_kiting_state": {
 		"path": "res://scripts/characters/smasher_shield_kiting_state.gd",
 		"label": "smasher shield kiting state",
+	},
+	"monkey_blessing_delivery_state": {
+		"path": "res://scripts/characters/monkey_blessing_delivery_state.gd",
+		"label": "monkey blessing delivery state",
+	},
+	"laurel_leaf_shield_state": {
+		"path": "res://scripts/characters/laurel_leaf_shield_state.gd",
+		"label": "laurel leaf shield state",
 	},
 	"smasher_player_controller": {
 		"path": "res://scripts/characters/smasher_player_controller.gd",
@@ -45,6 +113,14 @@ const MODULES := {
 		"path": "res://scripts/characters/viper_player_controller.gd",
 		"label": "viper player controller",
 	},
+	"commando_player_controller": {
+		"path": "res://scripts/characters/commando_player_controller.gd",
+		"label": "commando player controller",
+	},
+	"optimus_player_controller": {
+		"path": "res://scripts/characters/optimus_player_controller.gd",
+		"label": "optimus player controller",
+	},
 	"smasher_input_reader": {
 		"path": "res://scripts/characters/smasher_input_reader.gd",
 		"label": "smasher input reader",
@@ -52,6 +128,10 @@ const MODULES := {
 	"viper_input_reader": {
 		"path": "res://scripts/characters/viper_input_reader.gd",
 		"label": "viper input reader",
+	},
+	"commando_input_reader": {
+		"path": "res://scripts/characters/commando_input_reader.gd",
+		"label": "commando input reader",
 	},
 	"smasher_drive_input_state": {
 		"path": "res://scripts/characters/smasher_drive_input_state.gd",
@@ -108,6 +188,10 @@ const MODULES := {
 	"viper_skill_config": {
 		"path": "res://scripts/characters/viper_skill_config.gd",
 		"label": "viper skill config",
+	},
+	"commando_skill_config": {
+		"path": "res://scripts/characters/commando_skill_config.gd",
+		"label": "commando skill config",
 	},
 	"player_movement_state": {
 		"path": "res://scripts/characters/player_movement_state.gd",

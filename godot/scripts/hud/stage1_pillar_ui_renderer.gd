@@ -2,52 +2,305 @@ extends RefCounted
 
 const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 const Stage1PillarStatusOrbContextBuilder := preload("res://scripts/hud/stage1_pillar_status_orb_context_builder.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_host.gd")
+
+const COMMANDO_FIREARM_SELECTOR_OFFSET := Vector2(28.0, -64.0)
+const SENSOR_FRAME_ARC_SEGMENTS := 16
+const SENSOR_FRAME_ARC_SEGMENTS_LOD := 12
+const SENSOR_PROGRESS_ARC_SEGMENTS := 16
+const SENSOR_PROGRESS_ARC_SEGMENTS_LOD := 12
+const SENSOR_READY_WAVE_COUNT := 1
+const SENSOR_READY_WAVE_SEGMENTS := 12
+const SENSOR_READY_WAVE_SEGMENTS_LOD := 8
+const BOOST_FX_HOST_NAME := "DashTokenBoostFxHost"
 
 var layout_helper: Object = Stage1PillarUiLayout.new()
 var status_context_builder: Object = Stage1PillarStatusOrbContextBuilder.new()
+var _boost_fx_host_pending: Node = null
+
+
+func build_commando_firearm_panel_state(game_offset: Vector2, game_size: Vector2, context: Dictionary) -> Dictionary:
+	var renderer: Object = context.get("commando_firearm_selector_renderer", null)
+	if renderer == null or not renderer.has_method("build_panel_state"):
+		return {}
+	var layout: Dictionary = layout_helper.build_layout(game_offset, game_size, context)
+	var scale_factor: float = float(layout["scale_factor"])
+	var left_center: Vector2 = layout["left_center"]
+	var orb_radius: float = float(layout["orb_radius"])
+	var skill_orb_renderer: Object = context.get("skill_orb_renderer", null)
+	var skill_orb_context: Dictionary = layout_helper.build_skill_orb_context(context, context.get("pillar_drawer", null))
+	var panel_center: Vector2 = _get_commando_firearm_panel_center(
+		left_center,
+		orb_radius,
+		scale_factor,
+		skill_orb_renderer,
+		skill_orb_context
+	)
+	return renderer.build_panel_state(panel_center, scale_factor, context)
 
 
 func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_seconds: float, context: Dictionary) -> void:
 	if canvas == null:
 		return
 
+	var perf_logger: Object = context.get("battle_perf_logger", null)
+	var total_start: int = _perf_begin(perf_logger)
+	var sample_start: int = _perf_begin(perf_logger)
 	var layout: Dictionary = layout_helper.build_layout(game_offset, game_size, context)
 	var scale_factor: float = float(layout["scale_factor"])
 	var left_center: Vector2 = layout["left_center"]
 	var right_center: Vector2 = layout["right_center"]
+	var boss_right_top_center: Vector2 = layout["boss_right_top_center"]
 	var orb_radius: float = float(layout["orb_radius"])
 	var orb_drawer: Object = context.get("pillar_drawer", null)
 	var skill_orb_renderer: Object = context.get("skill_orb_renderer", null)
 	var status_orb_renderer: Object = context.get("status_orb_renderer", null)
 	var combo_renderer: Object = context.get("combo_renderer", null)
+	var commando_firearm_selector_renderer: Object = context.get("commando_firearm_selector_renderer", null)
+	var status_context: Dictionary = _build_status_context(context)
+	var hud_lod_scale: float = float(status_context.get("hud_lod_scale", 1.0))
+	var static_hud_lod := bool(context.get("pillar_hud_static_lod", false))
+	_perf_end(perf_logger, "stage1.pillar_ui.layout", sample_start)
 
+	sample_start = _perf_begin(perf_logger)
 	var skill_orb_context: Dictionary = layout_helper.build_skill_orb_context(context, orb_drawer)
+	_perf_end(perf_logger, "stage1.pillar_ui.skill_context", sample_start)
 	if skill_orb_renderer != null:
+		sample_start = _perf_begin(perf_logger)
 		skill_orb_renderer.draw_underlay(canvas, left_center, orb_radius, scale_factor, skill_orb_context)
+		_perf_end(perf_logger, "stage1.pillar_ui.skill_underlay", sample_start)
 
 	if status_orb_renderer != null:
+		sample_start = _perf_begin(perf_logger)
 		status_orb_renderer.draw_gauge_orb(
 			canvas,
 			left_center,
 			orb_radius,
 			time_seconds,
 			scale_factor,
-			status_context_builder.build_gauge_orb_context(context, orb_drawer)
+			status_context_builder.build_gauge_orb_context(status_context, orb_drawer)
 		)
+		_perf_end(perf_logger, "stage1.pillar_ui.gauge_orb", sample_start)
 
 	if skill_orb_renderer != null:
+		sample_start = _perf_begin(perf_logger)
 		skill_orb_renderer.draw_orbs(canvas, left_center, orb_radius, time_seconds, scale_factor, skill_orb_context)
+		_perf_end(perf_logger, "stage1.pillar_ui.skill_orbs", sample_start)
+
+	# Boost / sector / half-ready overlays moved to the GPU shader host. Look up
+	# (or lazily create) the host once per frame so player + boss dash share the
+	# same slot pool, and bracket the dash orb calls with begin/end_frame so any
+	# slot the previous frame used gets hidden if its owner stopped drawing.
+	var boost_fx_host: Node = _get_or_create_boost_fx_host(canvas)
+	if boost_fx_host != null and boost_fx_host.has_method("begin_frame"):
+		boost_fx_host.begin_frame()
 
 	if status_orb_renderer != null:
+		sample_start = _perf_begin(perf_logger)
+		var player_dash_ctx: Dictionary = status_context_builder.build_dash_orb_context(status_context, orb_drawer)
+		player_dash_ctx["boost_fx_host"] = boost_fx_host
 		status_orb_renderer.draw_dash_orb(
 			canvas,
 			right_center,
 			orb_radius,
 			time_seconds,
 			scale_factor,
-			status_context_builder.build_dash_orb_context(context, orb_drawer)
+			player_dash_ctx
 		)
+		_perf_end(perf_logger, "stage1.pillar_ui.player_dash", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_sensor_cooldown_orb(
+		canvas,
+		right_center,
+		orb_radius,
+		time_seconds,
+		scale_factor,
+		_get_dict(context.get("sensor_context", {})),
+		hud_lod_scale,
+		static_hud_lod
+	)
+	_perf_end(perf_logger, "stage1.pillar_ui.sensor", sample_start)
+
+	if status_orb_renderer != null and bool(context.get("boss_dash_visible", true)):
+		sample_start = _perf_begin(perf_logger)
+		var boss_dash_ctx: Dictionary = status_context_builder.build_boss_dash_orb_context(status_context, orb_drawer)
+		boss_dash_ctx["boost_fx_host"] = boost_fx_host
+		status_orb_renderer.draw_dash_orb(
+			canvas,
+			boss_right_top_center,
+			orb_radius,
+			time_seconds,
+			scale_factor,
+			boss_dash_ctx
+		)
+		_perf_end(perf_logger, "stage1.pillar_ui.boss_dash", sample_start)
+
+	if boost_fx_host != null and boost_fx_host.has_method("end_frame"):
+		boost_fx_host.end_frame()
+
+	if commando_firearm_selector_renderer != null:
+		sample_start = _perf_begin(perf_logger)
+		_draw_commando_firearm_selector(
+			canvas,
+			commando_firearm_selector_renderer,
+			left_center,
+			orb_radius,
+			scale_factor,
+			skill_orb_renderer,
+			skill_orb_context,
+			context
+		)
+		_perf_end(perf_logger, "stage1.pillar_ui.commando_selector", sample_start)
 
 	if combo_renderer != null:
-		var combo_rect: Rect2 = layout_helper.build_combo_rect(game_offset, left_center, scale_factor)
+		sample_start = _perf_begin(perf_logger)
+		var skill_cluster_bounds := Rect2()
+		if skill_orb_renderer != null and skill_orb_renderer.has_method("get_cluster_bounds"):
+			skill_cluster_bounds = skill_orb_renderer.get_cluster_bounds(left_center, orb_radius, scale_factor, skill_orb_context)
+		var combo_rect: Rect2 = layout_helper.build_combo_rect(left_center, scale_factor, skill_cluster_bounds)
 		combo_renderer.draw_hud(canvas, context.get("combo_state", null), combo_rect, scale_factor)
+		_perf_end(perf_logger, "stage1.pillar_ui.combo", sample_start)
+	_perf_end(perf_logger, "stage1.pillar_ui.total", total_start)
+
+
+func _draw_commando_firearm_selector(
+	canvas: CanvasItem,
+	renderer: Object,
+	left_center: Vector2,
+	orb_radius: float,
+	scale_factor: float,
+	skill_orb_renderer: Object,
+	skill_orb_context: Dictionary,
+	context: Dictionary
+) -> void:
+	if renderer == null or not renderer.has_method("draw"):
+		return
+	var panel_center: Vector2 = _get_commando_firearm_panel_center(
+		left_center,
+		orb_radius,
+		scale_factor,
+		skill_orb_renderer,
+		skill_orb_context
+	)
+	renderer.draw(canvas, panel_center, scale_factor, context)
+
+
+func _get_commando_firearm_panel_center(
+	left_center: Vector2,
+	orb_radius: float,
+	scale_factor: float,
+	skill_orb_renderer: Object,
+	skill_orb_context: Dictionary
+) -> Vector2:
+	var cluster_bounds := Rect2()
+	if skill_orb_renderer != null and skill_orb_renderer.has_method("get_cluster_bounds"):
+		cluster_bounds = skill_orb_renderer.get_cluster_bounds(left_center, orb_radius, scale_factor, skill_orb_context)
+	var panel_center := left_center + Vector2(28.0, -180.0) * scale_factor
+	if cluster_bounds.size.x > 0.0 and cluster_bounds.size.y > 0.0:
+		panel_center = Vector2(
+			cluster_bounds.position.x + cluster_bounds.size.x * 0.5,
+			cluster_bounds.position.y
+		) + COMMANDO_FIREARM_SELECTOR_OFFSET * scale_factor
+	return panel_center
+
+
+func _draw_sensor_cooldown_orb(
+	canvas: CanvasItem,
+	dash_center: Vector2,
+	orb_radius: float,
+	time_seconds: float,
+	scale_factor: float,
+	sensor_context: Dictionary,
+	hud_lod_scale: float,
+	static_hud_lod: bool = false
+) -> void:
+	if canvas == null or sensor_context.is_empty() or not bool(sensor_context.get("equipped", false)):
+		return
+	var lod_active := hud_lod_scale < 0.85
+	var frame_arc_segments := SENSOR_FRAME_ARC_SEGMENTS_LOD if lod_active else SENSOR_FRAME_ARC_SEGMENTS
+	var progress_arc_segments := SENSOR_PROGRESS_ARC_SEGMENTS_LOD if lod_active else SENSOR_PROGRESS_ARC_SEGMENTS
+	var ready_wave_segments := SENSOR_READY_WAVE_SEGMENTS_LOD if lod_active else SENSOR_READY_WAVE_SEGMENTS
+	var radius: float = max(10.0, orb_radius * 0.42)
+	var center := dash_center + Vector2(orb_radius * 0.64, -(orb_radius + radius + 18.0 * scale_factor))
+	var progress: float = clamp(float(sensor_context.get("cooldown_progress", 0.0)), 0.0, 1.0)
+	var ready: bool = bool(sensor_context.get("ready", false)) and bool(sensor_context.get("enabled", true))
+	var pulse: float = 0.5 + 0.5 * sin(time_seconds * 7.0)
+	var base_alpha: float = 0.74 if ready else 0.52
+	var glow_alpha: float = 0.12 + 0.08 * pulse if ready else 0.08
+
+	canvas.draw_circle(center, radius + 7.0 * scale_factor, Color(105.0 / 255.0, 70.0 / 255.0, 1.0, glow_alpha))
+	canvas.draw_circle(center, radius, Color(18.0 / 255.0, 12.0 / 255.0, 34.0 / 255.0, 0.92))
+	canvas.draw_arc(center, radius, 0.0, TAU, frame_arc_segments, Color(95.0 / 255.0, 68.0 / 255.0, 150.0 / 255.0, 0.82), max(1.0, 2.0 * scale_factor), true)
+
+	var end_angle: float = -PI * 0.5 + TAU * progress
+	if progress > 0.0:
+		canvas.draw_arc(center, radius + 1.0 * scale_factor, -PI * 0.5, end_angle, progress_arc_segments, Color(180.0 / 255.0, 150.0 / 255.0, 1.0, base_alpha), max(1.0, 3.0 * scale_factor), true)
+	var core_radius: float = radius * (0.30 + 0.22 * progress)
+	canvas.draw_circle(center, core_radius + 4.0 * scale_factor, Color(130.0 / 255.0, 96.0 / 255.0, 1.0, 0.16 + 0.12 * progress))
+	canvas.draw_circle(center, core_radius, Color(210.0 / 255.0, 196.0 / 255.0, 1.0, 0.62 + 0.20 * progress))
+
+	for i in range(3):
+		var angle: float = -PI * 0.5 + float(i - 1) * 0.72
+		var ray_start := center + Vector2(cos(angle), sin(angle)) * (radius * 0.26)
+		var ray_end := center + Vector2(cos(angle), sin(angle)) * (radius * 0.72)
+		canvas.draw_line(ray_start, ray_end, Color(120.0 / 255.0, 94.0 / 255.0, 1.0, 0.55), max(1.0, 1.4 * scale_factor), true)
+
+	if ready and not static_hud_lod:
+		for i in range(SENSOR_READY_WAVE_COUNT):
+			var wave_phase: float = fmod(time_seconds * 1.8 + float(i) * 0.5, 1.0)
+			var wave_radius: float = radius * (0.82 + 0.58 * wave_phase)
+			var wave_alpha: float = 0.22 * (1.0 - wave_phase)
+			canvas.draw_arc(center, wave_radius, 0.0, TAU, ready_wave_segments, Color(196.0 / 255.0, 172.0 / 255.0, 1.0, wave_alpha), max(1.0, 1.5 * scale_factor), true)
+
+
+func _get_dict(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
+
+
+func _build_status_context(context: Dictionary) -> Dictionary:
+	var lod_scale: float = _get_hud_lod_scale(context)
+	if lod_scale >= 0.99:
+		return context
+	var status_context: Dictionary = context.duplicate()
+	status_context["hud_lod_scale"] = lod_scale
+	return status_context
+
+
+func _get_hud_lod_scale(context: Dictionary) -> float:
+	return BattleRenderQuality.effect_scale(context)
+
+
+# Look up the boost FX host by stable name on the canvas's parent node. If it
+# doesn't exist yet, create one and defer the add_child so the new node lands on
+# the next idle frame. We keep `_boost_fx_host_pending` as a strong reference
+# only during the gap between creation and parent attach so subsequent draws
+# within the same frame don't keep instantiating duplicate hosts.
+func _get_or_create_boost_fx_host(canvas: CanvasItem) -> Node:
+	if not (canvas is Node):
+		return null
+	var parent: Node = canvas as Node
+	var existing: Node = parent.get_node_or_null(BOOST_FX_HOST_NAME)
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		_boost_fx_host_pending = null
+		return existing
+	if _boost_fx_host_pending != null and is_instance_valid(_boost_fx_host_pending) and not _boost_fx_host_pending.is_queued_for_deletion():
+		return _boost_fx_host_pending
+	var host: Node = DashTokenBoostFxHost.new()
+	host.name = BOOST_FX_HOST_NAME
+	_boost_fx_host_pending = host
+	parent.call_deferred("add_child", host)
+	return host
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)

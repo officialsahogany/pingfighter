@@ -1,5 +1,9 @@
 extends RefCounted
 
+const MAX_TEXT_SIZE_CACHE_ENTRIES := 48
+
+var _text_size_cache: Dictionary = {}
+
 
 func draw_labels(
 	canvas: Node2D,
@@ -34,24 +38,20 @@ func _draw_centered_text_with_outline(
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
-	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	var text_size: Vector2 = _get_cached_text_size(font, text, font_size)
 	var baseline: Vector2 = Vector2(center.x - text_size.x * 0.5, center.y + text_size.y * 0.35)
 	var clamped_alpha: float = clamp(alpha, 0.0, 1.0)
-	for ox in range(-outline_width, outline_width + 1):
-		for oy in range(-outline_width, outline_width + 1):
-			if ox == 0 and oy == 0:
-				continue
-			if abs(ox) + abs(oy) > outline_width + 1:
-				continue
-			canvas.draw_string(
-				font,
-				baseline + Vector2(float(ox), float(oy)),
-				text,
-				HORIZONTAL_ALIGNMENT_LEFT,
-				-1.0,
-				font_size,
-				Color(outline_color.r, outline_color.g, outline_color.b, outline_color.a * clamped_alpha)
-			)
+	if outline_width > 0 and outline_color.a > 0.0:
+		canvas.draw_string_outline(
+			font,
+			baseline,
+			text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			font_size,
+			outline_width,
+			Color(outline_color.r, outline_color.g, outline_color.b, outline_color.a * clamped_alpha)
+		)
 	canvas.draw_string(
 		font,
 		baseline,
@@ -61,3 +61,15 @@ func _draw_centered_text_with_outline(
 		font_size,
 		Color(color.r, color.g, color.b, color.a * clamped_alpha)
 	)
+
+
+func _get_cached_text_size(font: Font, text: String, font_size: int) -> Vector2:
+	var cache_key: String = "%s|%d" % [text, font_size]
+	var cached: Variant = _text_size_cache.get(cache_key, null)
+	if cached is Vector2:
+		return cached
+	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	if _text_size_cache.size() >= MAX_TEXT_SIZE_CACHE_ENTRIES:
+		_text_size_cache.clear()
+	_text_size_cache[cache_key] = text_size
+	return text_size

@@ -99,6 +99,7 @@ func _init() -> void:
 	_verify_catalog()
 	_verify_runtime_flow()
 	_verify_ball_collision_and_serve_bonus()
+	_verify_timer_gauge_layout()
 
 	if _failures.is_empty():
 		print("adversity_armor_port_smoke: ok")
@@ -199,6 +200,35 @@ func _verify_ball_collision_and_serve_bonus() -> void:
 	_expect(is_equal_approx(_get_vector2(receiver.snapshot.get("ball_vel", Vector2.ZERO)).length(), 12.0), "next player serve should consume the 20% speed boost")
 	_expect(not runtime.adversity_armor_serve_speed_boost_pending, "serve boost should be one-shot")
 	_expect(is_equal_approx(float(receiver.snapshot.get("ball_impact_boost", 0.0)), 1.2), "serve launch boost should be recomputed from boosted velocity")
+
+
+func _verify_timer_gauge_layout() -> void:
+	var field_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_field_effect_renderer.gd")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var drawer_source := FileAccess.get_file_as_string("res://scripts/core/battle_playfield_scene_drawer.gd")
+	_expect(field_source != "", "mythic field renderer source should be readable")
+	_expect(runtime_source != "", "mythic runtime source should be readable")
+	_expect(drawer_source != "", "playfield drawer source should be readable")
+	_expect(
+		field_source.find("Vector2(285.0, barrier_y - 28.0)") < 0,
+		"adversity armor timer gauge should not be anchored at the playfield center"
+	)
+	_expect(
+		field_source.find("timer_stack.claim(ADVERSITY_ARMOR_TIMER_STACK_KEY, true)") >= 0,
+		"adversity armor timer gauge should use the shared horizontal timer stack"
+	)
+	_expect(
+		field_source.find("_get_adversity_armor_timer_bar_position") >= 0,
+		"adversity armor timer gauge should use the right-bottom timer-bar position helper"
+	)
+	_expect(
+		runtime_source.find("_draw_adversity_armor_effect(canvas: CanvasItem, shake_offset: Vector2, timer_stack: Object = null)") >= 0,
+		"mythic runtime should pass the timer stack into the adversity armor renderer"
+	)
+	_expect(
+		drawer_source.find("_mythic_draw_field_effects_uses_timer_stack") >= 0,
+		"playfield drawer should route the shared timer stack into mythic field effects"
+	)
 
 
 func _has_roll_option(options: Array, key: String, expected_min: float, expected_max: float) -> bool:

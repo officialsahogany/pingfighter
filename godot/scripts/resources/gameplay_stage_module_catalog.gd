@@ -53,6 +53,242 @@ const MODULES := {
 		"path": "res://scripts/stages/stage1/stage1_pillar_scene_drawer.gd",
 		"label": "stage1 pillar scene drawer",
 	},
+	"stage2_actor_renderer": {
+		"path": "res://scripts/stages/stage2/stage2_actor_renderer.gd",
+		"label": "stage2 actor renderer",
+	},
+	"stage2_actor_draw_context_builder": {
+		"path": "res://scripts/stages/stage2/stage2_actor_draw_context_builder.gd",
+		"label": "stage2 actor draw context builder",
+	},
+	"stage2_imagegen_asset_status_builder": {
+		"path": "res://scripts/stages/stage2/stage2_imagegen_asset_status_builder.gd",
+		"label": "stage2 imagegen asset status builder",
+	},
+	"stage2_pillar_background": {
+		"path": "res://scripts/stages/stage2/stage2_pillar_background.gd",
+		"label": "stage2 pillar background",
+	},
+	"stage2_perf_logger": {
+		"path": "res://scripts/stages/stage2/stage2_perf_logger.gd",
+		"label": "stage2 performance logger",
+	},
+	"stage2_perf_log_snapshot_builder": {
+		"path": "res://scripts/stages/stage2/stage2_perf_log_snapshot_builder.gd",
+		"label": "stage2 performance log snapshot builder",
+	},
+	"stage2_collision_geometry": {
+		"path": "res://scripts/stages/stage2/stage2_collision_geometry.gd",
+		"label": "stage2 collision geometry helper",
+	},
+	"stage2_playfield_bounds": {
+		"path": "res://scripts/stages/stage2/stage2_playfield_bounds.gd",
+		"label": "stage2 playfield bounds helper",
+	},
+	"stage2_pillar_imagegen_renderer": {
+		"path": "res://scripts/stages/stage2/stage2_pillar_imagegen_renderer.gd",
+		"label": "stage2 pillar imagegen renderer",
+	},
+	"stage2_pillar_imagegen_assets_builder": {
+		"path": "res://scripts/stages/stage2/stage2_pillar_imagegen_assets_builder.gd",
+		"label": "stage2 pillar imagegen assets builder",
+	},
+	"stage2_pillar_obstacle_visual_renderer": {
+		"path": "res://scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd",
+		"label": "stage2 pillar obstacle visual renderer",
+	},
+	"stage2_water_cannon_visual_renderer": {
+		"path": "res://scripts/stages/stage2/stage2_water_cannon_visual_renderer.gd",
+		"label": "stage2 water cannon visual renderer",
+	},
+	"stage2_water_cannon_visual_state_builder": {
+		"path": "res://scripts/stages/stage2/stage2_water_cannon_visual_state_builder.gd",
+		"label": "stage2 water cannon visual state builder",
+	},
+	"stage2_quake_wave_visual_state_builder": {
+		"path": "res://scripts/stages/stage2/stage2_quake_wave_visual_state_builder.gd",
+		"label": "stage2 quake wave visual state builder",
+	},
+	"stage2_water_cannon_geometry": {
+		"path": "res://scripts/stages/stage2/stage2_water_cannon_geometry.gd",
+		"label": "stage2 water cannon geometry helper",
+	},
+	"stage2_water_trail_payload_factory": {
+		"path": "res://scripts/stages/stage2/stage2_water_trail_payload_factory.gd",
+		"label": "stage2 water trail payload factory",
+	},
+	"stage2_fragment_hit_flash_state": {
+		"path": "res://scripts/stages/stage2/stage2_fragment_hit_flash_state.gd",
+		"label": "stage2 fragment hit flash state",
+	},
+	"stage2_water_cannon_payload_factory": {
+		"path": "res://scripts/stages/stage2/stage2_water_cannon_payload_factory.gd",
+		"label": "stage2 water cannon payload factory",
+	},
+	"stage2_water_cannon_payload_config_builder": {
+		"path": "res://scripts/stages/stage2/stage2_water_cannon_payload_config_builder.gd",
+		"label": "stage2 water cannon payload config builder",
+	},
+	"stage2_warning_visual_renderer": {
+		"path": "res://scripts/stages/stage2/stage2_warning_visual_renderer.gd",
+		"label": "stage2 warning visual renderer",
+	},
+	"stage2_skill_warning_state": {
+		"path": "res://scripts/stages/stage2/stage2_skill_warning_state.gd",
+		"label": "stage2 skill warning state",
+	},
+	"stage2_screen_overlay_visual_renderer": {
+		"path": "res://scripts/stages/stage2/stage2_screen_overlay_visual_renderer.gd",
+		"label": "stage2 screen overlay visual renderer",
+	},
+	"stage2_border_flash_state": {
+		"path": "res://scripts/stages/stage2/stage2_border_flash_state.gd",
+		"label": "stage2 border flash state",
+	},
+	"stage2_ambient_visual_renderer": {
+		"path": "res://scripts/stages/stage2/stage2_ambient_visual_renderer.gd",
+		"label": "stage2 ambient visual renderer",
+	},
+	"stage2_ambient_visual_snapshot_builder": {
+		"path": "res://scripts/stages/stage2/stage2_ambient_visual_snapshot_builder.gd",
+		"label": "stage2 ambient visual snapshot builder",
+	},
+	"stage2_ambient_payload_factory": {
+		"path": "res://scripts/stages/stage2/stage2_ambient_payload_factory.gd",
+		"label": "stage2 ambient payload factory",
+	},
+	"stage2_ambient_layout_helper": {
+		"path": "res://scripts/stages/stage2/stage2_ambient_layout_helper.gd",
+		"label": "stage2 ambient layout helper",
+	},
+	"stage2_rustle_payload_factory": {
+		"path": "res://scripts/stages/stage2/stage2_rustle_payload_factory.gd",
+		"label": "stage2 rustle payload factory",
+	},
+	"stage2_rustle_snapshot_builder": {
+		"path": "res://scripts/stages/stage2/stage2_rustle_snapshot_builder.gd",
+		"label": "stage2 rustle snapshot builder",
+	},
+	"stage2_rock_visual_factory": {
+		"path": "res://scripts/stages/stage2/stage2_rock_visual_factory.gd",
+		"label": "stage2 rock visual factory",
+	},
+	"stage2_rock_visual_assets_builder": {
+		"path": "res://scripts/stages/stage2/stage2_rock_visual_assets_builder.gd",
+		"label": "stage2 rock visual assets builder",
+	},
+	"stage2_rock_query": {
+		"path": "res://scripts/stages/stage2/stage2_rock_query.gd",
+		"label": "stage2 rock query helper",
+	},
+	"stage2_rock_fragment_payload_factory": {
+		"path": "res://scripts/stages/stage2/stage2_rock_fragment_payload_factory.gd",
+		"label": "stage2 rock fragment payload factory",
+	},
+	"stage2_rock_fragment_payload_config_builder": {
+		"path": "res://scripts/stages/stage2/stage2_rock_fragment_payload_config_builder.gd",
+		"label": "stage2 rock fragment payload config builder",
+	},
+	"stage2_starpoint_visual_factory": {
+		"path": "res://scripts/stages/stage2/stage2_starpoint_visual_factory.gd",
+		"label": "stage2 starpoint visual factory",
+	},
+	"stage2_boss_skill_state": {
+		"path": "res://scripts/stages/stage2/stage2_boss_skill_state.gd",
+		"label": "stage2 boss skill state",
+	},
+	"stage2_boss_ai_context_builder": {
+		"path": "res://scripts/stages/stage2/stage2_boss_ai_context_builder.gd",
+		"label": "stage2 boss AI context builder",
+	},
+	"stage2_boss_rage_snapshot_builder": {
+		"path": "res://scripts/stages/stage2/stage2_boss_rage_snapshot_builder.gd",
+		"label": "stage2 boss rage snapshot builder",
+	},
+	"stage2_boss_expression_state": {
+		"path": "res://scripts/stages/stage2/stage2_boss_expression_state.gd",
+		"label": "stage2 boss expression state",
+	},
+	"stage2_monkey_banana_event": {
+		"path": "res://scripts/stages/stage2/stage2_monkey_banana_event.gd",
+		"label": "stage2 monkey banana event",
+	},
+	"stage2_boss_skill_hud_renderer": {
+		"path": "res://scripts/stages/stage2/stage2_boss_skill_hud_renderer.gd",
+		"label": "stage2 boss skill HUD renderer",
+	},
+	"stage2_pillar_scene_drawer": {
+		"path": "res://scripts/stages/stage2/stage2_pillar_scene_drawer.gd",
+		"label": "stage2 pillar scene drawer",
+	},
+	"stage3_actor_renderer": {
+		"path": "res://scripts/stages/stage3/stage3_actor_renderer.gd",
+		"label": "stage3 actor renderer",
+	},
+	"stage3_playfield_renderer": {
+		"path": "res://scripts/stages/stage3/stage3_playfield_renderer.gd",
+		"label": "stage3 playfield renderer",
+	},
+	"stage3_boss_skill_state": {
+		"path": "res://scripts/stages/stage3/stage3_boss_skill_state.gd",
+		"label": "stage3 Menhera boss skill state",
+	},
+	"stage3_boss_skill_hud_renderer": {
+		"path": "res://scripts/stages/stage3/stage3_boss_skill_hud_renderer.gd",
+		"label": "stage3 Menhera boss skill HUD renderer",
+	},
+	"stage3_pillar_background": {
+		"path": "res://scripts/stages/stage3/stage3_pillar_background.gd",
+		"label": "stage3 pillar background",
+	},
+	"stage3_pillar_scene_drawer": {
+		"path": "res://scripts/stages/stage3/stage3_pillar_scene_drawer.gd",
+		"label": "stage3 pillar scene drawer",
+	},
+	"stage4_actor_renderer": {
+		"path": "res://scripts/stages/stage4/stage4_actor_renderer.gd",
+		"label": "stage4 actor renderer",
+	},
+	"stage4_playfield_renderer": {
+		"path": "res://scripts/stages/stage4/stage4_playfield_renderer.gd",
+		"label": "stage4 playfield renderer",
+	},
+	"stage4_ponk_boss_actor_renderer": {
+		"path": "res://scripts/stages/stage4/stage4_ponk_boss_actor_renderer.gd",
+		"label": "stage4 Ponk boss actor renderer",
+	},
+	"stage4_pillar_background": {
+		"path": "res://scripts/stages/stage4/stage4_pillar_background.gd",
+		"label": "stage4 pillar background",
+	},
+	"stage4_pillar_scene_drawer": {
+		"path": "res://scripts/stages/stage4/stage4_pillar_scene_drawer.gd",
+		"label": "stage4 pillar scene drawer",
+	},
+	"stage4_map_state": {
+		"path": "res://scripts/stages/stage4/stage4_map_state.gd",
+		"label": "stage4 map state",
+	},
+	"stage4_temple_destruction_event": {
+		"path": "res://scripts/stages/stage4/stage4_temple_destruction_event.gd",
+		"label": "stage4 temple destruction event",
+	},
+	"stage4_moon_event": {
+		"path": "res://scripts/stages/stage4/stage4_moon_event.gd",
+		"label": "stage4 moon event",
+	},
+	"stage4_bird_event": {
+		"path": "res://scripts/stages/stage4/stage4_bird_event.gd",
+		"label": "stage4 star bird event",
+	},
+	"stage4_brazier_monk_event": {
+		"path": "res://scripts/stages/stage4/stage4_brazier_monk_event.gd",
+		"label": "stage4 brazier monk event",
+	},
+	"stage4_ponk_skill_state": {
+		"path": "res://scripts/stages/stage4/stage4_ponk_skill_state.gd",
+		"label": "stage4 Ponk skill state",
+	},
 	"stage5_hongryun_actor_renderer": {
 		"path": "res://scripts/stages/stage5/stage5_hongryun_actor_renderer.gd",
 		"label": "stage5 Hongryun actor renderer",
@@ -88,6 +324,14 @@ const MODULES := {
 	"stage5_hongryun_boss_skill_hud_renderer": {
 		"path": "res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd",
 		"label": "stage5 Hongryun boss skill HUD renderer",
+	},
+	"stage4_ponk_boss_skill_hud_renderer": {
+		"path": "res://scripts/stages/stage4/stage4_ponk_boss_skill_hud_renderer.gd",
+		"label": "stage4 Ponk boss skill HUD renderer",
+	},
+	"stage4_ponk_gauge_hud_renderer": {
+		"path": "res://scripts/stages/stage4/stage4_ponk_gauge_hud_renderer.gd",
+		"label": "stage4 Ponk gauge HUD renderer",
 	},
 }
 

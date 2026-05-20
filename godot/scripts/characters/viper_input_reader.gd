@@ -6,6 +6,7 @@ func get_snapshot() -> Dictionary:
 	var right_pressed: bool = Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D)
 	var up_pressed: bool = Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W)
 	var down_pressed: bool = Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S)
+	var jetpack_pressed: bool = Input.is_key_pressed(KEY_SPACE) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	var action_pressed: bool = (
 		Input.is_action_pressed("ui_accept")
 		or Input.is_key_pressed(KEY_SPACE)
@@ -24,6 +25,7 @@ func get_snapshot() -> Dictionary:
 		"up_pressed": up_pressed,
 		"down_pressed": down_pressed,
 		"action_pressed": action_pressed,
+		"jetpack_pressed": jetpack_pressed,
 		"direction": direction,
 		"power_smash_direction": _get_exclusive_horizontal_direction(left_pressed, right_pressed),
 	}

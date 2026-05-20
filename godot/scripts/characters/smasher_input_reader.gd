@@ -1,16 +1,26 @@
 extends RefCounted
 
+var _last_action_pressed := false
+var _last_middle_pressed := false
+
 
 func get_snapshot() -> Dictionary:
 	var left_pressed: bool = Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A)
 	var right_pressed: bool = Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D)
 	var down_pressed: bool = Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S)
+	var up_pressed: bool = Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W)
 	var action_pressed: bool = (
 		Input.is_action_pressed("ui_accept")
 		or Input.is_key_pressed(KEY_SPACE)
 		or Input.is_key_pressed(KEY_X)
 		or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	)
+	var action_just_pressed: bool = action_pressed and not _last_action_pressed
+	var action_just_released: bool = not action_pressed and _last_action_pressed
+	_last_action_pressed = action_pressed
+	var middle_pressed: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE)
+	var middle_just_pressed: bool = middle_pressed and not _last_middle_pressed
+	_last_middle_pressed = middle_pressed
 	var direction := 0.0
 	if left_pressed:
 		direction -= 1.0
@@ -21,7 +31,13 @@ func get_snapshot() -> Dictionary:
 		"left_pressed": left_pressed,
 		"right_pressed": right_pressed,
 		"down_pressed": down_pressed,
+		"up_pressed": up_pressed,
 		"action_pressed": action_pressed,
+		"action_just_pressed": action_just_pressed,
+		"action_just_released": action_just_released,
+		"mouse_middle_pressed": middle_pressed,
+		"mouse_middle_just_pressed": middle_just_pressed,
+		"firearm_reset_just_pressed": middle_just_pressed,
 		"direction": direction,
 		"power_smash_direction": _get_exclusive_horizontal_direction(left_pressed, right_pressed),
 	}

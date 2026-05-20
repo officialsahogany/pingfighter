@@ -1,0 +1,284 @@
+extends RefCounted
+
+const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
+
+
+func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dictionary) -> void:
+	var score_state: Object = deps.get("score_state", null)
+	if score_state == null:
+		return
+	if _try_negate_boss_score(scoring_side, score_state, deps, callbacks):
+		return
+	if _try_trigger_revival(scoring_side, score_state, deps, callbacks):
+		return
+
+	var score_result: Dictionary = score_state.score_for(scoring_side)
+	_queue_pandora_legacy_selection(scoring_side, deps)
+	_queue_adversity_armor_after_loss(scoring_side, score_result, deps)
+	_apply_stage_score_reaction(scoring_side, deps)
+	_apply_stage3_kuromi_score_reaction(scoring_side, score_result, deps)
+	_apply_stage4_score_reaction(scoring_side, score_result, deps)
+	_start_score_result_texture_prewarm(scoring_side, deps)
+	_sync_next_server(scoring_side, score_result, deps)
+	_start_scoreboard_or_reset_ball(scoring_side, score_result, deps, callbacks)
+	_start_scoreboard_wait(deps)
+	_play_score_audio(deps)
+
+
+func _start_score_result_texture_prewarm(scoring_side: String, deps: Dictionary) -> void:
+	var resources: Object = _get_battle_resources(deps)
+	if resources == null or not resources.has_method("begin_result_texture_prewarm"):
+		return
+	var result_context: Dictionary = _build_score_result_texture_context(scoring_side)
+	if result_context.is_empty():
+		return
+	resources.begin_result_texture_prewarm(
+		_get_selected_character_type(deps),
+		_get_current_stage(deps),
+		result_context
+	)
+
+
+func _build_score_result_texture_context(scoring_side: String) -> Dictionary:
+	if scoring_side == "player":
+		return {
+			"player_victory_active": true,
+			"boss_defeat_active": true,
+		}
+	if scoring_side == "boss":
+		return {
+			"player_defeat_active": true,
+			"boss_victory_active": true,
+		}
+	return {}
+
+
+func _sync_next_server(scoring_side: String, score_result: Dictionary, deps: Dictionary) -> void:
+	var round_state: Object = deps.get("round_state", null)
+	if round_state != null and round_state.has_method("set_player_serves"):
+		round_state.set_player_serves(bool(score_result.get("next_player_serves", scoring_side == "boss")))
+
+
+func _start_scoreboard_or_reset_ball(
+	scoring_side: String,
+	score_result: Dictionary,
+	deps: Dictionary,
+	callbacks: Dictionary
+) -> void:
+	var scoreboard_state: Object = deps.get("scoreboard_state", null)
+	if scoreboard_state == null:
+		_call_callback(callbacks, "reset_ball")
+		return
+	if scoreboard_state.has_method("trigger_top_mini_sparkle"):
+		scoreboard_state.trigger_top_mini_sparkle()
+	if scoreboard_state.has_method("start"):
+		scoreboard_state.start(
+			int(score_result.get("player_score", 0)),
+			int(score_result.get("boss_score", 0)),
+			bool(score_result.get("match_finished", false)),
+			scoring_side
+		)
+
+
+func _start_scoreboard_wait(deps: Dictionary) -> void:
+	var round_state: Object = deps.get("round_state", null)
+	if round_state != null and round_state.has_method("start_scoreboard_wait"):
+		round_state.start_scoreboard_wait()
+
+
+func _play_score_audio(deps: Dictionary) -> void:
+	var audio: Object = deps.get("audio", null)
+	if audio == null:
+		return
+	_stop_score_audio_loops(audio)
+	if audio.has_method("play_round_set"):
+		audio.play_round_set()
+
+
+func _stop_score_audio_loops(audio: Object) -> void:
+	GameplayLoopAudioCleanup.stop_all(audio)
+
+
+func _queue_pandora_legacy_selection(scoring_side: String, deps: Dictionary) -> void:
+	if scoring_side != "player":
+		return
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("try_queue_pandora_legacy_round_win"):
+		return
+	mythic_item_runtime.try_queue_pandora_legacy_round_win(deps)
+
+
+func _queue_adversity_armor_after_loss(scoring_side: String, score_result: Dictionary, deps: Dictionary) -> void:
+	if scoring_side != "boss":
+		return
+	if bool(score_result.get("match_finished", false)):
+		return
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("try_queue_adversity_armor_after_loss"):
+		return
+	mythic_item_runtime.try_queue_adversity_armor_after_loss(deps)
+
+
+func _try_negate_boss_score(scoring_side: String, score_state: Object, deps: Dictionary, callbacks: Dictionary) -> bool:
+	if scoring_side != "boss":
+		return false
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("try_trigger_foul_whistle"):
+		return false
+	var loss_type: String = "deuce" if _is_deuce_mode(score_state) else "round"
+	if not bool(mythic_item_runtime.try_trigger_foul_whistle(loss_type, deps)):
+		return false
+	var audio: Object = deps.get("audio", null)
+	if audio != null:
+		_stop_score_audio_loops(audio)
+	_start_boss_score_cancel_round_hold(deps, callbacks)
+	return true
+
+
+func _try_trigger_revival(scoring_side: String, score_state: Object, deps: Dictionary, callbacks: Dictionary) -> bool:
+	if scoring_side != "boss" or not _would_score_finish(score_state, scoring_side):
+		return false
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("try_trigger_revival"):
+		return false
+	var loss_type: String = "deuce" if _is_deuce_mode(score_state) else "round"
+	if not bool(mythic_item_runtime.try_trigger_revival(loss_type, deps)):
+		return false
+	var audio: Object = deps.get("audio", null)
+	if audio != null:
+		_stop_score_audio_loops(audio)
+	_start_boss_score_cancel_stage_hold(deps, callbacks)
+	return true
+
+
+func _would_score_finish(score_state: Object, scoring_side: String) -> bool:
+	if score_state != null and score_state.has_method("would_score_finish"):
+		return bool(score_state.would_score_finish(scoring_side))
+	var snapshot: Dictionary = score_state.get_snapshot() if score_state != null and score_state.has_method("get_snapshot") else {}
+	var player_score := int(snapshot.get("player_score", 0))
+	var boss_score := int(snapshot.get("boss_score", 0))
+	var win_goal := int(snapshot.get("win_goal", 5))
+	var deuce_goal := int(snapshot.get("deuce_goal", 6))
+	if scoring_side == "player":
+		player_score += 1
+	elif scoring_side == "boss":
+		boss_score += 1
+	if bool(snapshot.get("deuce_mode", false)):
+		if player_score == 5 and boss_score == 5:
+			deuce_goal = 7
+		return player_score >= deuce_goal or boss_score >= deuce_goal
+	return player_score >= win_goal or boss_score >= win_goal
+
+
+func _is_deuce_mode(score_state: Object) -> bool:
+	if score_state != null and score_state.has_method("get_snapshot"):
+		var snapshot: Dictionary = score_state.get_snapshot()
+		return bool(snapshot.get("deuce_mode", false))
+	var value: Variant = score_state.get("deuce_mode") if score_state != null else false
+	return bool(value) if value != null else false
+
+
+func _start_boss_score_cancel_round_hold(deps: Dictionary, callbacks: Dictionary) -> void:
+	var round_state: Object = deps.get("round_state", null)
+	if round_state == null:
+		_call_callback(callbacks, "reset_ball")
+		return
+	if round_state.has_method("set_player_serves"):
+		round_state.set_player_serves(true)
+	if round_state.has_method("reset_round_wait"):
+		round_state.reset_round_wait()
+	if round_state.has_method("start_round_restart_notice"):
+		round_state.start_round_restart_notice()
+
+
+func _start_boss_score_cancel_stage_hold(deps: Dictionary, callbacks: Dictionary) -> void:
+	# Pygame canonical 윤회의 부적: revert the lethal point, then call
+	# main(restart_stage) which resets player_score / boss_score / round_wins /
+	# round_losses to 0 and clears stage-level skill / weather state, while
+	# leaving inventory, equipment, perks, and dash tokens intact.
+	var score_state: Object = deps.get("score_state", null)
+	if score_state != null and score_state.has_method("reset"):
+		score_state.reset()
+	var scoreboard_state: Object = deps.get("scoreboard_state", null)
+	if scoreboard_state != null and scoreboard_state.has_method("reset"):
+		scoreboard_state.reset()
+	var match_reset_controller: Object = deps.get("match_reset_controller", null)
+	if match_reset_controller != null and match_reset_controller.has_method("reset_stage_state"):
+		match_reset_controller.reset_stage_state(deps)
+	var round_state: Object = deps.get("round_state", null)
+	if round_state != null:
+		if round_state.has_method("set_player_serves"):
+			round_state.set_player_serves(true)
+		if round_state.has_method("reset_round_wait"):
+			round_state.reset_round_wait()
+		if round_state.has_method("start_round_restart_notice"):
+			round_state.start_round_restart_notice()
+	_call_callback(callbacks, "reset_ball")
+
+
+func _apply_stage_score_reaction(scoring_side: String, deps: Dictionary) -> void:
+	var stage_background: Object = deps.get("stage_background", null)
+	if stage_background == null or not stage_background.has_method("set_expression"):
+		return
+	if scoring_side == "player":
+		stage_background.set_expression("sad")
+	elif scoring_side == "boss":
+		stage_background.set_expression("happy")
+
+
+func _apply_stage3_kuromi_score_reaction(scoring_side: String, score_result: Dictionary, deps: Dictionary) -> void:
+	if int(deps.get("current_stage", 1)) != 3:
+		return
+	var stage3_boss_skill_state: Object = deps.get("stage3_boss_skill_state", null)
+	if stage3_boss_skill_state != null and stage3_boss_skill_state.has_method("handle_score_event"):
+		stage3_boss_skill_state.handle_score_event(scoring_side, score_result, deps)
+
+
+func _apply_stage4_score_reaction(scoring_side: String, score_result: Dictionary, deps: Dictionary) -> void:
+	if int(deps.get("current_stage", 1)) != 4:
+		return
+	var stage4_map_state: Object = deps.get("stage4_map_state", null)
+	if stage4_map_state != null and stage4_map_state.has_method("handle_score_event"):
+		stage4_map_state.handle_score_event(scoring_side, score_result, deps)
+
+
+func _get_battle_resources(deps: Dictionary) -> Object:
+	var resources_value: Variant = deps.get("battle_resources", null)
+	if typeof(resources_value) == TYPE_OBJECT and is_instance_valid(resources_value):
+		return resources_value as Object
+	var registry_value: Variant = deps.get("registry", null)
+	if typeof(registry_value) == TYPE_OBJECT and is_instance_valid(registry_value):
+		var registry: Object = registry_value as Object
+		if registry.has_method("get_instance"):
+			var registry_resources: Variant = registry.get_instance("battle_resources")
+			if typeof(registry_resources) == TYPE_OBJECT and is_instance_valid(registry_resources):
+				return registry_resources as Object
+	return null
+
+
+func _get_selected_character_type(deps: Dictionary) -> String:
+	var explicit_value: String = str(deps.get("selected_character_type", "")).strip_edges().to_lower()
+	if explicit_value != "":
+		return explicit_value
+	return str(_get_owner_value(deps, "selected_character_type", "smasher")).strip_edges().to_lower()
+
+
+func _get_current_stage(deps: Dictionary) -> int:
+	if deps.has("current_stage"):
+		return int(deps.get("current_stage", 1))
+	return int(_get_owner_value(deps, "current_stage", 1))
+
+
+func _get_owner_value(deps: Dictionary, key: String, fallback: Variant) -> Variant:
+	var owner_value: Variant = deps.get("owner", null)
+	if not (typeof(owner_value) == TYPE_OBJECT and is_instance_valid(owner_value)):
+		return fallback
+	var owner: Object = owner_value as Object
+	var value: Variant = owner.get(key)
+	return value if value != null else fallback
+
+
+func _call_callback(callbacks: Dictionary, key: String) -> void:
+	var callback: Callable = callbacks.get(key, Callable())
+	if callback.is_valid():
+		callback.call()

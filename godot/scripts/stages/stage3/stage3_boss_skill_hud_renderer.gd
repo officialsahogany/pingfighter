@@ -1,0 +1,172 @@
+extends RefCounted
+
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
+
+const SKILLCARD_ATLAS_PATH := "res://assets/sprites/stage3/menhera_boss_skill_cards_imagegen_v1.png"
+const SKILLCARD_ID_TO_INDEX := {
+	"tear_shower": 0,
+	"curse_chest": 1,
+	"psycho_ball": 2,
+}
+const SKILLCARD_ATLAS_COLUMNS := 4
+
+var _skillcard_atlas: Texture2D = null
+
+
+func prewarm_assets() -> void:
+	_get_skillcard_atlas()
+
+
+func get_debug_card_metrics(pillar_width: float) -> Dictionary:
+	return BossSkillCardHudSpec.get_card_metrics(pillar_width)
+
+
+func draw(canvas: CanvasItem, context: Dictionary) -> void:
+	if canvas == null or int(context.get("current_stage", 1)) != 3:
+		return
+	if not bool(context.get("stage3_boss_skill_hud_active", false)):
+		return
+	var skills: Array = _get_array(context.get("stage3_boss_skill_hud_skills", []))
+	if skills.is_empty():
+		return
+	var game_offset: Vector2 = _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+	var game_size: Vector2 = _as_vector2(context.get("game_size", Vector2.ZERO), Vector2.ZERO)
+	if game_offset.x <= 0.0 or game_size.y <= 0.0:
+		return
+	var pillar_w: float = max(0.0, game_offset.x)
+	var metrics: Dictionary = BossSkillCardHudSpec.get_card_metrics(pillar_w)
+	var scale_factor: float = float(metrics.get("scale_factor", 1.0))
+	var card_size: Vector2 = _as_vector2(metrics.get("card_size", Vector2(34.0, 10.0)), Vector2(34.0, 10.0))
+	var card_w: float = card_size.x
+	var card_h: float = card_size.y
+	var card_gap: float = float(metrics.get("card_gap", 2.0))
+	var margin_x: float = float(metrics.get("margin_x", 3.0))
+	var margin_y: float = float(metrics.get("margin_y", 5.0))
+	var total_h: float = float(skills.size()) * (card_h + card_gap) - card_gap
+	var start_y: float = game_offset.y + max(margin_y, floor((game_size.y - total_h) * 0.5))
+	var card_x: float = max(1.0, pillar_w - card_w - margin_x)
+	for i in range(skills.size()):
+		if not (skills[i] is Dictionary):
+			continue
+		var skill: Dictionary = skills[i]
+		var rect := Rect2(Vector2(card_x, start_y + float(i) * (card_h + card_gap)), Vector2(card_w, card_h))
+		_draw_card(canvas, rect, skill, scale_factor)
+	if bool(context.get("stage3_boss_skill_hud_show_boss_gauge", true)):
+		_draw_wand_gauge(canvas, context, game_offset, scale_factor)
+
+
+func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float) -> void:
+	var status: String = str(skill.get("status", "charging"))
+	var ready: bool = bool(skill.get("ready", false)) or status == "ready"
+	var active: bool = status == "casting"
+	var locked: bool = status == "locked"
+	var progress: float = clamp(float(skill.get("progress", 0.0)), 0.0, 1.0)
+	var skill_color: Color = _as_color(skill.get("color", Color(1.0, 0.38, 0.68, 1.0)), Color(1.0, 0.38, 0.68, 1.0))
+	var fill_ratio: float = 1.0 if active or ready else progress
+	if locked:
+		fill_ratio = 0.0
+	_draw_skillcard_gauge(canvas, rect, str(skill.get("id", "")), fill_ratio, skill_color)
+	var shine_x: float = rect.position.x + rect.size.x * fill_ratio
+	if fill_ratio > 0.0 and fill_ratio < 1.0:
+		canvas.draw_line(Vector2(shine_x, rect.position.y + 1.0), Vector2(shine_x, rect.end.y - 1.0), Color(1.0, 0.82, 0.94, 0.58), 1.0)
+	var border := Color(0.30, 0.20, 0.28, 0.72)
+	if active:
+		border = Color(1.0, 0.72, 0.92, 0.95)
+	elif ready:
+		border = Color(0.64, 1.0, 0.72, 0.84)
+	elif locked:
+		border = Color(0.36, 0.34, 0.38, 0.60)
+	canvas.draw_rect(rect, border, false, max(1.0, round(scale_factor)))
+	canvas.draw_rect(Rect2(rect.position + Vector2(0.0, 1.0), Vector2(max(1.0, 2.0 * scale_factor), rect.size.y - 2.0)), Color(1.0, 0.28, 0.58, 0.70))
+
+
+func _draw_skillcard_gauge(canvas: CanvasItem, rect: Rect2, skill_id: String, fill_ratio: float, fallback_color: Color) -> void:
+	var clamped_fill: float = clamp(fill_ratio, 0.0, 1.0)
+	var atlas: Texture2D = _get_skillcard_atlas()
+	canvas.draw_rect(rect, Color(0.055, 0.035, 0.060, 0.94))
+	if atlas == null or not SKILLCARD_ID_TO_INDEX.has(skill_id):
+		if clamped_fill > 0.0:
+			canvas.draw_rect(
+				Rect2(rect.position, Vector2(rect.size.x * clamped_fill, rect.size.y)),
+				Color(fallback_color.r * 0.62, fallback_color.g * 0.55, fallback_color.b * 0.62, 0.78)
+			)
+		return
+	var texture_size: Vector2 = atlas.get_size()
+	var source_w: float = texture_size.x / float(SKILLCARD_ATLAS_COLUMNS)
+	var source_rect := Rect2(
+		Vector2(source_w * float(SKILLCARD_ID_TO_INDEX[skill_id]), 0.0),
+		Vector2(source_w, texture_size.y)
+	)
+	canvas.draw_texture_rect_region(atlas, rect, source_rect, Color(0.22, 0.20, 0.22, 1.0))
+	if clamped_fill <= 0.0:
+		return
+	canvas.draw_texture_rect_region(
+		atlas,
+		Rect2(rect.position, Vector2(rect.size.x * clamped_fill, rect.size.y)),
+		Rect2(source_rect.position, Vector2(source_rect.size.x * clamped_fill, source_rect.size.y)),
+		Color(1.0, 0.96, 1.0, 1.0)
+	)
+
+
+func _draw_wand_gauge(canvas: CanvasItem, context: Dictionary, game_offset: Vector2, scale_factor: float) -> void:
+	var gauge: float = clamp(float(context.get("stage3_boss_skill_hud_boss_gauge", 0.0)), 0.0, float(context.get("stage3_boss_skill_hud_boss_gauge_max", 500.0)))
+	var gauge_max: float = max(1.0, float(context.get("stage3_boss_skill_hud_boss_gauge_max", 500.0)))
+	var fill_ratio: float = clamp(gauge / gauge_max, 0.0, 1.0)
+	var wand_x: float = game_offset.x + 760.0 * scale_factor - 48.0 * scale_factor
+	var wand_y: float = game_offset.y + 30.0 * scale_factor
+	var moon_r: float = 12.0 * scale_factor
+	canvas.draw_circle(Vector2(wand_x, wand_y), moon_r + 2.0 * scale_factor, Color(1.0, 0.82, 0.12, 0.90))
+	canvas.draw_circle(Vector2(wand_x, wand_y), moon_r, Color(1.0, 1.0, 0.80, 0.92))
+	canvas.draw_circle(Vector2(wand_x + 5.0 * scale_factor, wand_y), moon_r - 2.0 * scale_factor, Color(0.16, 0.16, 0.12, 0.95))
+	var gem_h: float = 60.0 * scale_factor
+	var gem_w: float = 24.0 * scale_factor
+	var gem_y: float = wand_y + 25.0 * scale_factor
+	var gem := PackedVector2Array([
+		Vector2(wand_x, gem_y),
+		Vector2(wand_x + gem_w * 0.5, gem_y + gem_h / 3.0),
+		Vector2(wand_x + gem_w * 0.5, gem_y + gem_h * 2.0 / 3.0),
+		Vector2(wand_x, gem_y + gem_h),
+		Vector2(wand_x - gem_w * 0.5, gem_y + gem_h * 2.0 / 3.0),
+		Vector2(wand_x - gem_w * 0.5, gem_y + gem_h / 3.0),
+	])
+	canvas.draw_colored_polygon(gem, Color(0.06, 0.03, 0.08, 0.86))
+	canvas.draw_polyline(gem, Color(1.0, 0.82, 0.16, 0.88), 2.0 * scale_factor, true)
+	var fill_h: float = (gem_h - 6.0 * scale_factor) * fill_ratio
+	if fill_h > 1.0:
+		canvas.draw_rect(
+			Rect2(Vector2(wand_x - gem_w * 0.34, gem_y + gem_h - 3.0 * scale_factor - fill_h), Vector2(gem_w * 0.68, fill_h)),
+			Color(1.0, 0.32 + 0.40 * fill_ratio, 1.0, 0.76)
+		)
+	var ribbon_y: float = gem_y + gem_h + 5.0 * scale_factor
+	canvas.draw_circle(Vector2(wand_x, ribbon_y + 4.0 * scale_factor), 5.0 * scale_factor, Color(1.0, 0.42, 0.72, 0.90))
+	canvas.draw_rect(Rect2(Vector2(wand_x - 15.0 * scale_factor, ribbon_y), Vector2(30.0 * scale_factor, 8.0 * scale_factor)), Color(1.0, 0.08, 0.58, 0.72))
+
+
+func _get_skillcard_atlas() -> Texture2D:
+	if _skillcard_atlas != null:
+		return _skillcard_atlas
+	_skillcard_atlas = ProjectResourceLoader.load_texture(
+		SKILLCARD_ATLAS_PATH,
+		"[Stage3MenheraSkillHud] missing skillcard atlas: %s",
+		"[Stage3MenheraSkillHud] failed to load skillcard atlas: %s"
+	)
+	return _skillcard_atlas
+
+
+func _get_array(value: Variant) -> Array:
+	if value is Array:
+		return value
+	return []
+
+
+func _as_color(value: Variant, fallback: Color) -> Color:
+	if value is Color:
+		return value
+	return fallback
+
+
+func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
+	if value is Vector2:
+		return value
+	return fallback

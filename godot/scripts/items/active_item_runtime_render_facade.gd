@@ -7,6 +7,15 @@ const ActiveItemEffectRenderer := preload("res://scripts/items/active_item_effec
 var field_renderer: Object = ActiveItemFieldRenderer.new()
 var throw_renderer: Object = ActiveItemThrowRenderer.new()
 var effect_renderer: Object = ActiveItemEffectRenderer.new()
+var _cached_field_renderer: Object
+var _cached_field_draw_argument_count := -1
+var _cached_field_accepts_perf_logger := false
+var _cached_throw_renderer: Object
+var _cached_throw_draw_argument_count := -1
+var _cached_throw_accepts_perf_logger := false
+var _cached_effect_renderer: Object
+var _cached_effect_draw_argument_count := -1
+var _cached_effect_accepts_perf_logger := false
 
 
 func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
@@ -21,32 +30,49 @@ func draw_field_items(
 	field_spawn_controller: Object,
 	throw_controller: Object,
 	effect_controller: Object,
-	shake_offset: Vector2 = Vector2.ZERO
+	shake_offset: Vector2 = Vector2.ZERO,
+	perf_logger: Object = null
 ) -> void:
 	if canvas == null:
 		return
 
 	if _has_visible_field_items(field_spawn_controller):
-		field_renderer.draw(
+		var sample_start: int = _perf_begin(perf_logger)
+		_call_field_renderer_draw(
 			canvas,
 			field_spawn_controller.get_item_spawn_portals(),
 			field_spawn_controller.get_spawned_items(),
-			shake_offset
+			shake_offset,
+			perf_logger
 		)
+		_perf_end(perf_logger, "active_item.field_items", sample_start)
 
 	if _has_visible_throw_effects(throw_controller):
-		_call_throw_renderer_draw(canvas, throw_controller, shake_offset)
+		var sample_start: int = _perf_begin(perf_logger)
+		_call_throw_renderer_draw(canvas, throw_controller, shake_offset, perf_logger)
+		_perf_end(perf_logger, "active_item.throw_effects", sample_start)
 
 	if _has_field_effects(effect_controller):
-		_call_effect_renderer_draw_field_effects(canvas, registry, effect_controller, shake_offset)
+		var sample_start: int = _perf_begin(perf_logger)
+		_call_effect_renderer_draw_field_effects(canvas, registry, effect_controller, shake_offset, perf_logger)
+		_perf_end(perf_logger, "active_item.field_effects", sample_start)
 
 
-func draw_pickup_effect(canvas: CanvasItem, registry: Object, effect_controller: Object) -> void:
+func draw_pickup_effect(
+	canvas: CanvasItem,
+	registry: Object,
+	effect_controller: Object,
+	perf_logger: Object = null
+) -> void:
 	if canvas == null:
 		return
 	if effect_controller.has_method("has_pickup_effect") and not bool(effect_controller.has_pickup_effect()):
 		return
-	effect_renderer.draw_pickup_effect(canvas, registry, effect_controller.get_pickup_effect())
+	var pickup_effect: Dictionary = effect_controller.get_pickup_effect()
+	if _get_method_argument_count(effect_renderer, "draw_pickup_effect") >= 4:
+		effect_renderer.draw_pickup_effect(canvas, registry, pickup_effect, perf_logger)
+	else:
+		effect_renderer.draw_pickup_effect(canvas, registry, pickup_effect)
 
 
 func _has_visible_field_items(field_spawn_controller: Object) -> bool:
@@ -92,8 +118,28 @@ func _get_instance(registry: Object, key: String) -> Object:
 	return registry.get_instance(key)
 
 
-func _call_throw_renderer_draw(canvas: CanvasItem, throw_controller: Object, shake_offset: Vector2) -> void:
-	var argument_count: int = _get_method_argument_count(throw_renderer, "draw")
+func _call_field_renderer_draw(
+	canvas: CanvasItem,
+	portals: Array,
+	field_items: Array,
+	shake_offset: Vector2,
+	perf_logger: Object
+) -> void:
+	_refresh_field_renderer_cache()
+	if _cached_field_accepts_perf_logger and _cached_field_draw_argument_count >= 5:
+		field_renderer.draw(canvas, portals, field_items, shake_offset, perf_logger)
+		return
+	field_renderer.draw(canvas, portals, field_items, shake_offset)
+
+
+func _call_throw_renderer_draw(
+	canvas: CanvasItem,
+	throw_controller: Object,
+	shake_offset: Vector2,
+	perf_logger: Object
+) -> void:
+	_refresh_throw_renderer_cache()
+	var argument_count: int = _cached_throw_draw_argument_count
 	if argument_count <= 9:
 		throw_renderer.draw(
 			canvas,
@@ -105,6 +151,36 @@ func _call_throw_renderer_draw(canvas: CanvasItem, throw_controller: Object, sha
 			_get_array_method(throw_controller, "get_explosion_zones"),
 			_get_array_method(throw_controller, "get_flare_zones"),
 			shake_offset
+		)
+		return
+	if _cached_throw_accepts_perf_logger:
+		throw_renderer.draw(
+			canvas,
+			_get_array_method(throw_controller, "get_pending_throws"),
+			_get_array_method(throw_controller, "get_grenades"),
+			_get_array_method(throw_controller, "get_flares"),
+			_get_array_method(throw_controller, "get_tear_gas_projectiles"),
+			_get_array_method(throw_controller, "get_tear_gas_zones"),
+			_get_array_method(throw_controller, "get_dynamites"),
+			_get_array_method(throw_controller, "get_placed_dynamites"),
+			_get_array_method(throw_controller, "get_molotovs"),
+			_get_array_method(throw_controller, "get_molotov_fire_zones"),
+			_get_array_method(throw_controller, "get_boomerangs"),
+			_get_array_method(throw_controller, "get_banana_projectiles"),
+			_get_array_method(throw_controller, "get_landed_bananas"),
+			_get_array_method(throw_controller, "get_soap_projectiles"),
+			_get_array_method(throw_controller, "get_landed_soaps"),
+			_get_array_method(throw_controller, "get_boomerang_particles"),
+			_get_array_method(throw_controller, "get_banana_particles"),
+			_get_array_method(throw_controller, "get_soap_particles"),
+			_get_array_method(throw_controller, "get_soap_foam_trails"),
+			_get_array_method(throw_controller, "get_spider_mines"),
+			_get_array_method(throw_controller, "get_spider_mine_particles"),
+			_get_array_method(throw_controller, "get_dynamite_explosions"),
+			_get_array_method(throw_controller, "get_explosion_zones"),
+			_get_array_method(throw_controller, "get_flare_zones"),
+			shake_offset,
+			perf_logger
 		)
 		return
 	throw_renderer.draw(
@@ -140,48 +216,90 @@ func _call_effect_renderer_draw_field_effects(
 	canvas: CanvasItem,
 	registry: Object,
 	effect_controller: Object,
-	shake_offset: Vector2
+	shake_offset: Vector2,
+	perf_logger: Object
 ) -> void:
-	var argument_count: int = _get_method_argument_count(effect_renderer, "draw_field_effects")
+	_refresh_effect_renderer_cache()
+	var argument_count: int = _cached_effect_draw_argument_count
+	var detail_perf_logger: Object = perf_logger if _should_sample_detail(perf_logger, "active_item.field") else null
+	var context_start: int = _perf_begin(detail_perf_logger)
+	var draw_context: Dictionary = _get_field_effect_draw_context(effect_controller)
+	_perf_end(detail_perf_logger, "active_item.field.context", context_start)
 	if argument_count <= 6:
 		effect_renderer.draw_field_effects(
 			canvas,
-			_get_array_method(effect_controller, "get_pickup_particles"),
-			_get_array_method(effect_controller, "get_regeneration_potion_rings"),
-			_get_array_method(effect_controller, "get_regeneration_potion_particles"),
-			_get_dictionary_method(effect_controller, "get_long_boost_timer_context"),
+			_get_context_array(draw_context, "pickup_particles"),
+			_get_context_array(draw_context, "regeneration_potion_rings"),
+			_get_context_array(draw_context, "regeneration_potion_particles"),
+			_get_context_dictionary(draw_context, "long_boost_timer_context"),
 			shake_offset
+		)
+		return
+	if _cached_effect_accepts_perf_logger:
+		effect_renderer.draw_field_effects(
+			canvas,
+			_get_context_array(draw_context, "pickup_particles"),
+			_get_context_array(draw_context, "regeneration_potion_rings"),
+			_get_context_array(draw_context, "regeneration_potion_particles"),
+			_get_context_dictionary(draw_context, "stopwatch_context"),
+			_get_context_dictionary(draw_context, "magnet_field_context"),
+			_get_context_array(draw_context, "magnet_field_particles"),
+			_get_context_dictionary(draw_context, "holy_barrier_context"),
+			_get_context_array(draw_context, "holy_barrier_particles"),
+			_get_context_dictionary(draw_context, "brick_wall_context"),
+			_get_context_dictionary(draw_context, "long_boost_timer_context"),
+			_get_context_dictionary(draw_context, "vitamin_pill_timer_context"),
+			_get_context_dictionary(draw_context, "strange_vial_timer_context"),
+			_get_context_dictionary(draw_context, "dash_boost_context"),
+			_get_context_array(draw_context, "dash_boost_particles"),
+			shake_offset,
+			_get_instance(registry, "horizontal_timer_gauge_stack"),
+			perf_logger
 		)
 		return
 	effect_renderer.draw_field_effects(
 		canvas,
-		_get_array_method(effect_controller, "get_pickup_particles"),
-		_get_array_method(effect_controller, "get_regeneration_potion_rings"),
-		_get_array_method(effect_controller, "get_regeneration_potion_particles"),
-		_get_dictionary_method(effect_controller, "get_stopwatch_context"),
-		_get_dictionary_method(effect_controller, "get_magnet_field_context"),
-		_get_array_method(effect_controller, "get_magnet_field_particles"),
-		_get_dictionary_method(effect_controller, "get_holy_barrier_context"),
-		_get_array_method(effect_controller, "get_holy_barrier_particles"),
-		_get_dictionary_method(effect_controller, "get_brick_wall_context"),
-		_get_dictionary_method(effect_controller, "get_long_boost_timer_context"),
-		_get_dictionary_method(effect_controller, "get_vitamin_pill_timer_context"),
-		_get_dictionary_method(effect_controller, "get_strange_vial_timer_context"),
-		_get_dictionary_method(effect_controller, "get_dash_boost_context"),
-		_get_array_method(effect_controller, "get_dash_boost_particles"),
+		_get_context_array(draw_context, "pickup_particles"),
+		_get_context_array(draw_context, "regeneration_potion_rings"),
+		_get_context_array(draw_context, "regeneration_potion_particles"),
+		_get_context_dictionary(draw_context, "stopwatch_context"),
+		_get_context_dictionary(draw_context, "magnet_field_context"),
+		_get_context_array(draw_context, "magnet_field_particles"),
+		_get_context_dictionary(draw_context, "holy_barrier_context"),
+		_get_context_array(draw_context, "holy_barrier_particles"),
+		_get_context_dictionary(draw_context, "brick_wall_context"),
+		_get_context_dictionary(draw_context, "long_boost_timer_context"),
+		_get_context_dictionary(draw_context, "vitamin_pill_timer_context"),
+		_get_context_dictionary(draw_context, "strange_vial_timer_context"),
+		_get_context_dictionary(draw_context, "dash_boost_context"),
+		_get_context_array(draw_context, "dash_boost_particles"),
 		shake_offset,
 		_get_instance(registry, "horizontal_timer_gauge_stack")
 	)
 
 
-func _call_prewarm_assets(target: Object, args: Array = []) -> void:
-	if target == null or not target.has_method("prewarm_assets"):
+func _refresh_field_renderer_cache() -> void:
+	if field_renderer == _cached_field_renderer:
 		return
-	var argument_count: int = _get_method_argument_count(target, "prewarm_assets")
-	if argument_count <= 0:
-		target.prewarm_assets()
+	_cached_field_renderer = field_renderer
+	_cached_field_draw_argument_count = _get_method_argument_count(field_renderer, "draw")
+	_cached_field_accepts_perf_logger = _renderer_accepts_perf_logger(field_renderer)
+
+
+func _refresh_throw_renderer_cache() -> void:
+	if throw_renderer == _cached_throw_renderer:
 		return
-	target.callv("prewarm_assets", args.slice(0, argument_count))
+	_cached_throw_renderer = throw_renderer
+	_cached_throw_draw_argument_count = _get_method_argument_count(throw_renderer, "draw")
+	_cached_throw_accepts_perf_logger = _renderer_accepts_perf_logger(throw_renderer)
+
+
+func _refresh_effect_renderer_cache() -> void:
+	if effect_renderer == _cached_effect_renderer:
+		return
+	_cached_effect_renderer = effect_renderer
+	_cached_effect_draw_argument_count = _get_method_argument_count(effect_renderer, "draw_field_effects")
+	_cached_effect_accepts_perf_logger = _renderer_accepts_perf_logger(effect_renderer)
 
 
 func _get_array_method(target: Object, method_name: String) -> Array:
@@ -202,6 +320,43 @@ func _get_dictionary_method(target: Object, method_name: String) -> Dictionary:
 	return {}
 
 
+func _get_field_effect_draw_context(effect_controller: Object) -> Dictionary:
+	if effect_controller != null and effect_controller.has_method("get_field_effect_draw_context"):
+		var value: Variant = effect_controller.call("get_field_effect_draw_context")
+		if value is Dictionary:
+			return value
+	return {
+		"pickup_particles": _get_array_method(effect_controller, "get_pickup_particles"),
+		"regeneration_potion_rings": _get_array_method(effect_controller, "get_regeneration_potion_rings"),
+		"regeneration_potion_particles": _get_array_method(effect_controller, "get_regeneration_potion_particles"),
+		"stopwatch_context": _get_dictionary_method(effect_controller, "get_stopwatch_context"),
+		"magnet_field_context": _get_dictionary_method(effect_controller, "get_magnet_field_context"),
+		"magnet_field_particles": _get_array_method(effect_controller, "get_magnet_field_particles"),
+		"holy_barrier_context": _get_dictionary_method(effect_controller, "get_holy_barrier_context"),
+		"holy_barrier_particles": _get_array_method(effect_controller, "get_holy_barrier_particles"),
+		"brick_wall_context": _get_dictionary_method(effect_controller, "get_brick_wall_context"),
+		"long_boost_timer_context": _get_dictionary_method(effect_controller, "get_long_boost_timer_context"),
+		"vitamin_pill_timer_context": _get_dictionary_method(effect_controller, "get_vitamin_pill_timer_context"),
+		"strange_vial_timer_context": _get_dictionary_method(effect_controller, "get_strange_vial_timer_context"),
+		"dash_boost_context": _get_dictionary_method(effect_controller, "get_dash_boost_context"),
+		"dash_boost_particles": _get_array_method(effect_controller, "get_dash_boost_particles"),
+	}
+
+
+func _get_context_array(context: Dictionary, key: String) -> Array:
+	var value: Variant = context.get(key, [])
+	if value is Array:
+		return value
+	return []
+
+
+func _get_context_dictionary(context: Dictionary, key: String) -> Dictionary:
+	var value: Variant = context.get(key, {})
+	if value is Dictionary:
+		return value
+	return {}
+
+
 func _get_method_argument_count(target: Object, method_name: String) -> int:
 	if target == null:
 		return 0
@@ -214,3 +369,34 @@ func _get_method_argument_count(target: Object, method_name: String) -> int:
 		if args_value is Array:
 			return args_value.size()
 	return 0
+
+
+func _renderer_accepts_perf_logger(target: Object) -> bool:
+	return target != null and target.has_method("_perf_begin")
+
+
+func _call_prewarm_assets(target: Object, args: Array = []) -> void:
+	if target == null or not target.has_method("prewarm_assets"):
+		return
+	var argument_count: int = _get_method_argument_count(target, "prewarm_assets")
+	if argument_count <= 0:
+		target.prewarm_assets()
+		return
+	target.callv("prewarm_assets", args.slice(0, argument_count))
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
+
+
+func _should_sample_detail(perf_logger: Object, label: String) -> bool:
+	if perf_logger == null or not perf_logger.has_method("should_sample_detail"):
+		return false
+	return bool(perf_logger.should_sample_detail(label))

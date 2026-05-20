@@ -171,6 +171,14 @@ class FakeRegistry:
 	var stage3_bg := FakePrewarmModule.new()
 	var stage3_actor_renderer := FakeStagedPrewarmModule.new()
 	var stage3_skill_hud := FakePrewarmModule.new()
+	var stage4_bg := FakeStagedPrewarmModule.new()
+	var stage4_actor_renderer := FakeStagedPrewarmModule.new()
+	var stage4_gauge_hud := FakePrewarmModule.new()
+	var stage4_bird_event := FakePrewarmModule.new()
+	var stage4_brazier_monk_event := FakePrewarmModule.new()
+	var stage4_moon_event := FakePrewarmModule.new()
+	var stage4_ponk_skill_state := FakeStagedPrewarmModule.new()
+	var stage4_boss_skill_hud := FakePrewarmModule.new()
 	var stage5_bg := FakePrewarmModule.new()
 	var stage5_actor_renderer := FakePrewarmModule.new()
 	var stage5_pillar_scene := FakePillarSceneModule.new()
@@ -226,6 +234,22 @@ class FakeRegistry:
 				return stage3_actor_renderer
 			"stage3_boss_skill_hud_renderer":
 				return stage3_skill_hud
+			"stage4_pillar_background":
+				return stage4_bg
+			"stage4_actor_renderer":
+				return stage4_actor_renderer
+			"stage4_ponk_gauge_hud_renderer":
+				return stage4_gauge_hud
+			"stage4_bird_event":
+				return stage4_bird_event
+			"stage4_brazier_monk_event":
+				return stage4_brazier_monk_event
+			"stage4_moon_event":
+				return stage4_moon_event
+			"stage4_ponk_skill_state":
+				return stage4_ponk_skill_state
+			"stage4_ponk_boss_skill_hud_renderer":
+				return stage4_boss_skill_hud
 			"stage5_hongryun_pillar_background":
 				return stage5_bg
 			"stage5_hongryun_actor_renderer":
@@ -273,6 +297,7 @@ func _init() -> void:
 	_verify_stage1_soldier_commando_prewarm()
 	_verify_stage2_staged_playfield_prewarm()
 	_verify_stage3_staged_playfield_prewarm()
+	_verify_stage4_staged_playfield_and_skill_prewarm()
 	_verify_stage5_visual_shell_prewarm()
 	_verify_battle_texture_prewarm_is_staged()
 	_verify_boot_warmup_uses_staged_runtime_prewarm()
@@ -405,6 +430,52 @@ func _verify_stage3_staged_playfield_prewarm() -> void:
 	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 3 skill HUD chunk should run after playfield completion")
 	_expect(_registry.stage3_skill_hud.prewarm_count == 1, "stage 3 skill HUD should prewarm once")
 	_expect(controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 3 prewarm should finish after the PSO prewarmer chunk")
+
+
+func _verify_stage4_staged_playfield_and_skill_prewarm() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 4
+	var guard := 0
+	while _registry.stage4_bg.step_calls == 0 and guard < 80:
+		_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 prewarm should not finish before playfield work")
+		guard += 1
+	_expect(guard < 80, "stage 4 prewarm should reach the pillar background chunk")
+	_expect(_registry.stage4_bg.step_calls == 1, "stage 4 runtime prewarm should advance one pillar background chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 pillar background prewarm should keep staging")
+	_expect(_registry.stage4_bg.step_calls == 2, "stage 4 pillar background should continue staging")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 pillar background should complete before playfield")
+	_expect(_registry.stage4_bg.step_calls == 3, "stage 4 pillar background should complete through the step API")
+	_expect(_registry.stage4_bg.monolithic_calls == 0, "stage 4 pillar background should avoid monolithic prewarm when staged")
+	_expect(_registry.stage4_actor_renderer.step_calls == 0, "stage 4 actor renderer should wait for its staged playfield chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 actor renderer prewarm should hold on the first chunk")
+	_expect(_registry.stage4_actor_renderer.step_calls == 1, "stage 4 actor renderer should advance one chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 actor renderer prewarm should hold on the second chunk")
+	_expect(_registry.stage4_actor_renderer.step_calls == 2, "stage 4 actor renderer should not skip chunks")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 actor renderer prewarm should finish before the module chunks")
+	_expect(_registry.stage4_actor_renderer.step_calls == 3, "stage 4 actor renderer should complete through the step API")
+	_expect(_registry.stage4_actor_renderer.monolithic_calls == 0, "stage 4 actor renderer should avoid the monolithic prewarm path when staged")
+
+	guard = 0
+	while _registry.stage4_ponk_skill_state.step_calls == 0 and guard < 80:
+		_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 module prewarm should not finish before Ponk skill assets")
+		guard += 1
+	_expect(guard < 80, "stage 4 prewarm should reach the Ponk skill chunk")
+	_expect(_registry.stage4_gauge_hud.prewarm_count == 1, "stage 4 gauge HUD should prewarm before Ponk skill state")
+	_expect(_registry.stage4_bird_event.prewarm_count == 1, "stage 4 bird event should prewarm before Ponk skill state")
+	_expect(_registry.stage4_brazier_monk_event.prewarm_count == 1, "stage 4 monk event should prewarm before Ponk skill state")
+	_expect(_registry.stage4_moon_event.prewarm_count == 1, "stage 4 moon event should prewarm before Ponk skill state")
+	_expect(_registry.stage4_ponk_skill_state.step_calls == 1, "stage 4 Ponk skill prewarm should advance one chunk")
+	_expect(_registry.stage4_ponk_skill_state.monolithic_calls == 0, "stage 4 Ponk skill prewarm should avoid the monolithic path when staged")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 Ponk skill prewarm should keep staging")
+	_expect(_registry.stage4_ponk_skill_state.step_calls == 2, "stage 4 Ponk skill should continue staging")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 Ponk skill prewarm should complete before boss skill HUD")
+	_expect(_registry.stage4_ponk_skill_state.step_calls == 3, "stage 4 Ponk skill should complete through the step API")
+	_expect(_registry.stage4_boss_skill_hud.prewarm_count == 0, "stage 4 boss skill HUD should wait until Ponk skill prewarm completes")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 boss skill HUD chunk should run after Ponk skill completion")
+	_expect(_registry.stage4_boss_skill_hud.prewarm_count == 1, "stage 4 boss skill HUD should prewarm once")
+	_expect(controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 prewarm should finish after the PSO prewarmer chunk")
 
 
 func _verify_stage5_visual_shell_prewarm() -> void:

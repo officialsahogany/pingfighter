@@ -44,6 +44,11 @@ func begin_activation(
 	text_state.begin(text_duration_frames)
 
 
+func finish_motion() -> void:
+	lifecycle_state.finish_motion()
+	speed_state.reset()
+
+
 func lock_freeze_pose(pos: Vector2) -> void:
 	lifecycle_state.lock_freeze_pose(pos)
 

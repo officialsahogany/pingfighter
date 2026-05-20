@@ -1,0 +1,390 @@
+extends SceneTree
+
+const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
+const GameAudio := preload("res://scripts/audio/game_audio.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const Stage1BossActorRenderer := preload("res://scripts/stages/stage1/stage1_boss_actor_renderer.gd")
+const Stage2BossActorRenderer := preload("res://scripts/stages/stage2/stage2_boss_actor_renderer.gd")
+const ViperEmpStrikeFxHost := preload("res://scripts/characters/viper_emp_strike_fx_host.gd")
+const ViperJetpackState := preload("res://scripts/characters/viper_jetpack_state.gd")
+const ViperSkillRuntime := preload("res://scripts/characters/viper_skill_runtime.gd")
+
+
+class FakeInput:
+	var snapshot := {
+		"left_pressed": false,
+		"right_pressed": false,
+		"up_pressed": false,
+		"down_pressed": false,
+		"direction": 0.0,
+	}
+
+	func get_snapshot() -> Dictionary:
+		return snapshot
+
+
+class FakeSkillConfig:
+	func is_skill_equipped(skill_name: String) -> bool:
+		return skill_name == "dive_strike"
+
+	func get_skill_cost(skill_name: String) -> float:
+		return 150.0 if skill_name == "dive_strike" else 0.0
+
+	func get_cooldown_seconds(skill_name: String) -> float:
+		return 70.0 if skill_name == "dive_strike" else 0.0
+
+
+class FakeSkillState:
+	var triggered := ""
+	var cooldown_seconds := -1.0
+
+	func trigger_cooldown(skill_name: String, _now_msec: int, cooldown: float) -> void:
+		triggered = skill_name
+		cooldown_seconds = cooldown
+
+	func get_configured_cooldown_remaining(_skill_name: String, _now_msec: int, _skill_config: Object) -> float:
+		return 0.0
+
+
+class FakeAudio:
+	var prep := 0
+	var strike := 0
+	var jetpack_loop_active := false
+
+	func play_viper_dive_prep() -> void:
+		prep += 1
+
+	func play_viper_dive_strike() -> void:
+		strike += 1
+
+	func sync_viper_jetpack_loop(active: bool) -> void:
+		jetpack_loop_active = active
+
+
+class FakeKickFallbackAudio:
+	var backstep := 0
+	var marshal := 0
+	var shadow := 0
+
+	func play_viper_backstep() -> void:
+		backstep += 1
+
+	func play_viper_marshal_kick() -> void:
+		marshal += 1
+
+	func play_viper_shadow_kick() -> void:
+		shadow += 1
+
+
+class FakeFeedback:
+	var shakes := 0
+
+	func set_screen_shake(_duration: float, _amount: float) -> void:
+		shakes += 1
+
+	func max_screen_shake(_duration: float, _amount: float) -> void:
+		shakes += 1
+
+
+class FakeOrbHud:
+	var spins := 0
+
+	func trigger_gauge_spin(_now_msec: int) -> void:
+		spins += 1
+
+
+class FakePerkState:
+	var four_poisons_level := 0
+	var gold := 0
+
+	func get_runtime_skill_level(skill_id: String) -> int:
+		if skill_id == "four_poisons":
+			return four_poisons_level
+		return 0
+
+	func award_gold(amount: int) -> int:
+		gold += max(0, amount)
+		return gold
+
+
+func _init() -> void:
+	_test_four_poisons_catalog_text_sync()
+	_test_emp_audio_asset_parity()
+	_test_emp_audio_does_not_fall_back_to_kicks()
+	_test_emp_fx_host_remaster_stack()
+	_test_emp_fx_host_reset_hides_detached_runtime()
+	_test_emp_activation_impact_slip_and_four_poisons_scaling()
+	_test_emp_startup_cancel_and_super_armor()
+	print("viper_emp_strike_port_smoke: ok")
+	quit(0)
+
+
+func _test_four_poisons_catalog_text_sync() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	var data: Dictionary = catalog.get_perk_data("four_poisons")
+	var descriptions: Dictionary = data.get("descriptions", {})
+	var lv3: String = str(descriptions.get(3, ""))
+	var lv5: String = str(descriptions.get(5, ""))
+	var detail: String = str(data.get("detail", ""))
+	_expect(lv3.find("EMP 수면 +15%") >= 0, "four_poisons Lv.3 card should mention EMP sleep scaling")
+	_expect(lv3.find("4스킬 쿨 -10%") >= 0, "four_poisons Lv.3 card should mention 4-skill cooldown reduction")
+	_expect(lv3.find("슈퍼아머") >= 0, "four_poisons Lv.3 card should mention startup super armor")
+	_expect(lv5.find("EMP 수면 +25%") >= 0, "four_poisons Lv.5 card should mention max-invested EMP sleep scaling")
+	_expect(lv5.find("듀얼 HP 4") >= 0, "four_poisons Lv.5 card should mention dual glitch clone HP")
+	_expect(lv5.find("분신 복제") >= 0, "four_poisons Lv.5 card should mention clone skill replication")
+	_expect(detail.find("추가 게이지/쿨/골드") >= 0, "four_poisons detail should explain clone replication reward limits")
+
+
+func _test_emp_audio_asset_parity() -> void:
+	_expect(GameAudio.VIPER_DIVE_PREP_SOUND_PATH == "res://assets/sounds/beforedivestrike.wav", "EMP prep should use the Python reference beforedivestrike.wav")
+	_expect(GameAudio.VIPER_DIVE_STRIKE_SOUND_PATH == "res://assets/sounds/divestrike.wav", "EMP landing should use the Python reference divestrike.wav")
+	_expect(FileAccess.file_exists(GameAudio.VIPER_DIVE_PREP_SOUND_PATH), "EMP prep wav should exist in the Godot asset tree")
+	_expect(FileAccess.file_exists(GameAudio.VIPER_DIVE_STRIKE_SOUND_PATH), "EMP landing wav should exist in the Godot asset tree")
+	_expect(ProjectResourceLoader.load_audio_stream(GameAudio.VIPER_DIVE_PREP_SOUND_PATH) != null, "EMP prep wav should load as a Godot audio stream")
+	_expect(ProjectResourceLoader.load_audio_stream(GameAudio.VIPER_DIVE_STRIKE_SOUND_PATH) != null, "EMP landing wav should load as a Godot audio stream")
+	_expect(abs(GameAudio.VIPER_DIVE_PREP_GAIN_DB + 4.4370) <= 0.001, "EMP prep should match Python's 0.6 relative volume")
+	_expect(abs(GameAudio.VIPER_DIVE_STRIKE_GAIN_DB + 4.4370) <= 0.001, "EMP landing should match Python's 0.6 relative volume")
+
+
+func _test_emp_audio_does_not_fall_back_to_kicks() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	var audio := FakeKickFallbackAudio.new()
+	runtime._play_dive_prep_sound({"audio": audio})
+	runtime._play_dive_strike_sound({"audio": audio})
+	_expect(audio.backstep == 0, "EMP prep should stay silent instead of falling back to backstep when its cue is unavailable")
+	_expect(audio.marshal == 0, "EMP landing should not fall back to marshal kick")
+	_expect(audio.shadow == 0, "EMP landing should not fall back to shadow kick")
+
+
+func _test_emp_fx_host_remaster_stack() -> void:
+	ViperEmpStrikeFxHost.prewarm_assets()
+	var host := ViperEmpStrikeFxHost.new()
+	root.add_child(host)
+	host.sync_state({
+		"render_scale": 1.0,
+		"phase": 2,
+		"hold_active": false,
+		"hold_ratio": 0.0,
+		"prep_progress": 1.0,
+		"shockwave_progress": 0.35,
+		"shockwave_alpha": 0.85,
+		"height_ratio": 0.70,
+		"hit_text_timer": 40.0,
+		"hit_text_frames": 50.0,
+		"start_msec": 100,
+		"shockwave_spawn_msec": 200,
+		"hit_spawn_msec": 300,
+		"screen_player_center": Vector2(380.0, 560.0),
+		"screen_foot": Vector2(380.0, 700.0),
+		"screen_shockwave_center": Vector2(380.0, 730.0),
+		"screen_hit_pos": Vector2(380.0, 690.0),
+		"screen_hit_text_pos": Vector2(380.0, 690.0),
+	}, true)
+	var debug: Dictionary = host.get_debug_status()
+	_expect(int(debug.get("shader_layers", 0)) >= 3, "EMP FX host should provide shader-driven layers")
+	_expect(int(debug.get("gpu_particle_layers", 0)) >= 4, "EMP FX host should provide GPU particle layers")
+	_expect(bool(debug.get("texture_pieces_ready", false)), "EMP FX host should prewarm reusable texture pieces")
+	_expect(not bool(debug.get("processing", true)), "EMP FX host should be draw-sync driven without an outside-shell process callback")
+	host.tear_down(true)
+
+
+func _test_emp_fx_host_reset_hides_detached_runtime() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	var host := ViperEmpStrikeFxHost.new()
+	root.add_child(host)
+	runtime.emp_fx_host = host
+	host.sync_state({
+		"render_scale": 1.0,
+		"phase": 2,
+		"hold_active": false,
+		"hold_ratio": 0.0,
+		"prep_progress": 1.0,
+		"shockwave_progress": 0.35,
+		"shockwave_alpha": 0.85,
+		"height_ratio": 0.70,
+		"hit_text_timer": 40.0,
+		"hit_text_frames": 50.0,
+		"start_msec": 100,
+		"shockwave_spawn_msec": 200,
+		"hit_spawn_msec": 300,
+		"screen_player_center": Vector2(380.0, 560.0),
+		"screen_foot": Vector2(380.0, 700.0),
+		"screen_shockwave_center": Vector2(380.0, 730.0),
+		"screen_hit_pos": Vector2(380.0, 690.0),
+		"screen_hit_text_pos": Vector2(380.0, 690.0),
+	}, true)
+	var active_debug: Dictionary = host.get_debug_status()
+	_expect(bool(active_debug.get("active", false)), "EMP FX host should be active before reset")
+	_expect(not bool(active_debug.get("processing", true)), "active EMP FX host should not register a script process callback")
+	runtime.reset_round()
+	var reset_debug: Dictionary = host.get_debug_status()
+	_expect(not bool(reset_debug.get("active", true)), "round reset should hide the detached EMP FX host")
+	_expect(not bool(reset_debug.get("processing", true)), "round reset should keep the EMP FX host out of process callbacks")
+	_expect(not bool(reset_debug.get("charge_emitting", true)), "round reset should stop EMP charge particles")
+	_expect(not bool(reset_debug.get("jet_emitting", true)), "round reset should stop EMP jet particles")
+	_expect(not bool(reset_debug.get("shockwave_emitting", true)), "round reset should stop EMP shockwave particles")
+	_expect(not bool(reset_debug.get("hit_emitting", true)), "round reset should stop EMP hit particles")
+	host.tear_down(true)
+
+
+func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var audio := FakeAudio.new()
+	var orb := FakeOrbHud.new()
+	var feedback := FakeFeedback.new()
+	var perk_state := FakePerkState.new()
+	perk_state.four_poisons_level = 5
+	var jetpack := ViperJetpackState.new()
+	jetpack.set_offset_y(-120.0, {"audio": audio})
+	var deps := _deps(input, skill_config, skill_state, audio, orb, feedback, perk_state, jetpack)
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 580.0)
+
+	input.snapshot["down_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, deps)
+	_expect(not bool(result.get("activated", false)), "EMP should require a 0.3s down hold before activation")
+	runtime.dive_hold_start_msec = Time.get_ticks_msec() - 301
+	result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, deps)
+	_expect(bool(result.get("activated", false)), "EMP should activate after the down-hold requirement")
+	_expect(str(result.get("skill_name", "")) == "dive_strike", "EMP activation should report dive_strike")
+	_expect(abs(float(result.get("special_gauge", 0.0)) - 350.0) < 0.01, "EMP should spend 150 gauge")
+	_expect(str(skill_state.triggered) == "dive_strike", "EMP should trigger its own cooldown")
+	_expect(abs(skill_state.cooldown_seconds - 56.0) < 0.01, "Lv.5 four_poisons should reduce EMP cooldown by 20%")
+	_expect(audio.prep == 1 and orb.spins == 1, "EMP startup should play prep audio and spin the orb")
+	var startup_snap: Dictionary = runtime.get_snapshot()
+	_expect(abs(float(startup_snap.get("dive_prep_frames", 0.0)) - 14.4) < 0.01, "Lv.5 four_poisons should shorten EMP prep visuals to the effective startup")
+
+	player_pos = _get_vector2(result, "player_pos", player_pos)
+	for _i in range(30):
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 350.0)), config, deps)
+		if result.has("player_pos"):
+			player_pos = _get_vector2(result, "player_pos", player_pos)
+	var snap: Dictionary = runtime.get_snapshot()
+	_expect(bool(snap.get("dive_active", false)), "EMP should remain active during the landing shockwave window")
+	_expect(int(snap.get("dive_phase", -1)) == 2, "EMP should land and enter the shockwave phase")
+	_expect(audio.strike == 1, "EMP landing should play the strike audio")
+
+	var scene := {
+		"ball_pos": Vector2(380.0, 690.0),
+		"ball_vel": Vector2(3.0, 4.0),
+		"player_collision_cooldown": 0.0,
+		"ball_impact_boost": 1.0,
+	}
+	var motion_context: Dictionary = config.duplicate(true)
+	motion_context.merge(scene, true)
+	var impact: Dictionary = runtime.apply_emp_strike_ball_motion(1.0, scene, motion_context, deps)
+	_expect(impact.has("ball_vel"), "EMP shockwave should hit a ball inside the vertical pulse band")
+	_expect(_get_vector2(impact, "ball_vel", Vector2.ZERO).y < 0.0, "EMP shockwave should reflect the ball upward")
+	_expect(perk_state.gold == 20 and int(impact.get("runtime_perk_gold", 0)) == 20, "EMP shockwave hit should grant 20 skill gold")
+	_expect(float(runtime.get_snapshot().get("dive_slip_timer", 0.0)) > 90.0, "Lv.5 four_poisons should extend EMP slip duration")
+	var hit_feedback_snap: Dictionary = runtime.get_snapshot()
+	_expect(float(hit_feedback_snap.get("dive_hit_text_timer", 0.0)) > 0.0, "EMP shockwave hit should start hit text feedback")
+	_expect(_get_vector2(hit_feedback_snap, "dive_hit_text_pos", Vector2.ZERO).distance_to(scene["ball_pos"]) < 0.01, "EMP hit text should anchor to the impacted ball")
+	runtime.update_effects(10.0, Time.get_ticks_msec(), config, deps)
+	_expect(float(runtime.get_snapshot().get("dive_hit_text_timer", 0.0)) < float(hit_feedback_snap.get("dive_hit_text_timer", 0.0)), "EMP hit text should tick down through the effect update path")
+	var actor_context: Dictionary = runtime.get_actor_draw_context()
+	_expect(bool(actor_context.get("viper_emp_slip_active", false)), "EMP slip should expose a boss draw overlay state")
+	_expect(float(actor_context.get("viper_emp_slip_ratio", 0.0)) > 0.0, "EMP boss draw overlay should expose remaining slip ratio")
+	var stage1_renderer := Stage1BossActorRenderer.new()
+	var stage2_renderer := Stage2BossActorRenderer.new()
+	_expect(float(stage1_renderer._get_emp_status_intensity(actor_context)) > 0.0, "Stage 1 boss renderer should consume EMP overlay intensity")
+	_expect(float(stage2_renderer._get_emp_status_intensity(actor_context)) > 0.0, "Stage 2 boss renderer should consume EMP overlay intensity")
+
+	var boss_ai := BossAiState.new()
+	var boss_context: Dictionary = config.duplicate(true)
+	boss_context.merge(runtime.get_boss_ai_context(), true)
+	var boss_result: Dictionary = boss_ai.update(1.0 / 60.0, Vector2(300.0, 25.0), 0.0, boss_context)
+	_expect(_get_vector2(boss_result, "boss_pos", Vector2.ZERO).x > 300.0, "EMP slip should move the boss paddle away from the hit side")
+
+
+func _test_emp_startup_cancel_and_super_armor() -> void:
+	var low_poison := _activated_runtime_with_poison_level(0)
+	var runtime: Object = low_poison["runtime"]
+	runtime.register_player_ball_contact(low_poison["deps"], _base_config())
+	_expect(not bool(runtime.get_snapshot().get("dive_active", true)), "EMP startup should cancel on player-ball contact without four_poisons super armor")
+
+	var armored := _activated_runtime_with_poison_level(3)
+	runtime = armored["runtime"]
+	runtime.register_player_ball_contact(armored["deps"], _base_config())
+	_expect(bool(runtime.get_snapshot().get("dive_active", false)), "Lv.3 four_poisons super armor should preserve EMP startup")
+
+
+func _activated_runtime_with_poison_level(level: int) -> Dictionary:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var audio := FakeAudio.new()
+	var orb := FakeOrbHud.new()
+	var feedback := FakeFeedback.new()
+	var perk_state := FakePerkState.new()
+	perk_state.four_poisons_level = level
+	var jetpack := ViperJetpackState.new()
+	jetpack.set_offset_y(-80.0, {"audio": audio})
+	var deps := _deps(input, skill_config, skill_state, audio, orb, feedback, perk_state, jetpack)
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 620.0)
+	input.snapshot["down_pressed"] = true
+	runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, deps)
+	runtime.dive_hold_start_msec = Time.get_ticks_msec() - 301
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, deps)
+	_expect(bool(result.get("activated", false)), "test setup should activate EMP")
+	return {
+		"runtime": runtime,
+		"deps": deps,
+	}
+
+
+func _deps(
+	input: Object,
+	skill_config: Object,
+	skill_state: Object,
+	audio: Object,
+	orb: Object,
+	feedback: Object,
+	perk_state: Object,
+	jetpack: Object
+) -> Dictionary:
+	return {
+		"input_reader": input,
+		"skill_config": skill_config,
+		"skill_state": skill_state,
+		"audio": audio,
+		"orb_hud_state": orb,
+		"feedback": feedback,
+		"runtime_perk_state": perk_state,
+		"viper_jetpack_state": jetpack,
+	}
+
+
+func _base_config() -> Dictionary:
+	return {
+		"ball_active": true,
+		"width": 760.0,
+		"height": 750.0,
+		"play_left": 0.0,
+		"play_right": 760.0,
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"player_floor_y": 700.0,
+		"boss_pos": Vector2(300.0, 25.0),
+		"boss_paddle_width": 100.0,
+	}
+
+
+func _expect(condition: bool, message: String) -> void:
+	if condition:
+		return
+	push_error(message)
+	quit(1)
+
+
+func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
+	var value: Variant = source.get(key, fallback)
+	if value is Vector2:
+		return value
+	return fallback

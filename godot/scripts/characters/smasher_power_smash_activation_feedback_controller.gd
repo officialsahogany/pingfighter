@@ -5,11 +5,12 @@ func apply_pre_activation_feedback(
 	context: Dictionary,
 	deps: Dictionary,
 	callbacks: Dictionary,
-	current_msec: int
+	current_msec: int,
+	skill_name: String = "power_smashing"
 ) -> void:
 	var skill_state: Object = deps.get("skill_state", null)
 	if skill_state != null:
-		skill_state.trigger_configured_cooldown("power_smashing", current_msec, deps.get("skill_config", null))
+		skill_state.trigger_configured_cooldown(skill_name, current_msec, deps.get("skill_config", null))
 
 	var orb_hud_state: Object = deps.get("orb_hud_state", null)
 	if orb_hud_state != null:

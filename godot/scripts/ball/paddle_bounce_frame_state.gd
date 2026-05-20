@@ -3,6 +3,7 @@ extends RefCounted
 const ANGLE_ACCEL_REDUCTION_START_DEG := 20.0
 const ANGLE_ACCEL_REDUCTION_FULL_DEG := 60.0
 const ANGLE_ACCEL_MIN_MULT := 0.45
+const SMASHER_DRIVE_IMPACT_BOOST_MULT := 0.8
 
 
 func build(
@@ -27,6 +28,7 @@ func build(
 		"drive_hit_boss": bool(context.get("drive_hit_boss", false)),
 		"special_gauge": float(context.get("special_gauge", 0.0)),
 		"drive_text_timer_frames": float(context.get("drive_text_timer_frames", 0.0)),
+		"smasher_wheel_speed_cap": float(context.get("smasher_wheel_speed_cap", 0.0)),
 		"accel_scale": accel_scale,
 		"ball_impact_boost": float(impact.get("boost", context.get("ball_impact_boost", 1.0))),
 		"ball_boost_decay_rate": float(impact.get("decay_rate", context.get("ball_boost_decay_rate", 0.975))),
@@ -42,19 +44,26 @@ func apply_skill_result(frame: Dictionary, skill_result: Dictionary) -> void:
 	frame["drive_hit_boss"] = bool(skill_result.get("drive_hit_boss", frame["drive_hit_boss"]))
 	frame["special_gauge"] = float(skill_result.get("special_gauge", frame["special_gauge"]))
 	frame["drive_text_timer_frames"] = float(skill_result.get("drive_text_timer_frames", frame["drive_text_timer_frames"]))
+	if bool(skill_result.get("drive_activated", false)):
+		var boost: float = float(frame["ball_impact_boost"])
+		frame["ball_impact_boost"] = 1.0 + ((boost - 1.0) * SMASHER_DRIVE_IMPACT_BOOST_MULT)
 
 
 func apply_bounce_result(frame: Dictionary, bounce_result: Dictionary) -> void:
 	frame["vertical_bounce_count"] = int(bounce_result.get("vertical_bounce_count", frame["vertical_bounce_count"]))
 	frame["drive_speed_increase"] = float(bounce_result.get("drive_speed_increase", frame["drive_speed_increase"]))
 	frame["ball_spin_strength"] = float(bounce_result.get("ball_spin_strength", frame["ball_spin_strength"]))
+	frame["ball_spin_direction"] = int(bounce_result.get("ball_spin_direction", frame["ball_spin_direction"]))
 
 
 func apply_post_hit_result(frame: Dictionary, post_hit_result: Dictionary) -> void:
 	frame["ball_spin_strength"] = float(post_hit_result.get("ball_spin_strength", frame["ball_spin_strength"]))
+	frame["ball_spin_direction"] = int(post_hit_result.get("ball_spin_direction", frame["ball_spin_direction"]))
 	frame["drive_speed_increase"] = float(post_hit_result.get("drive_speed_increase", frame["drive_speed_increase"]))
+	frame["drive_ball_active"] = bool(post_hit_result.get("drive_ball_active", frame["drive_ball_active"]))
 	frame["drive_hit_boss"] = bool(post_hit_result.get("drive_hit_boss", frame["drive_hit_boss"]))
 	frame["special_gauge"] = float(post_hit_result.get("special_gauge", frame["special_gauge"]))
+	frame["smasher_wheel_speed_cap"] = float(post_hit_result.get("smasher_wheel_speed_cap", frame["smasher_wheel_speed_cap"]))
 	if post_hit_result.has("ball_impact_boost"):
 		frame["ball_impact_boost"] = float(post_hit_result["ball_impact_boost"])
 	if post_hit_result.has("ball_boost_decay_rate"):
@@ -70,7 +79,7 @@ func build_result_snapshot(
 	player_speed: float,
 	boss_vel: float
 ) -> Dictionary:
-	return {
+	var result := {
 		"ball_pos": ball_pos,
 		"ball_vel": ball_vel,
 		"ball_impact_boost": float(frame["ball_impact_boost"]),
@@ -87,6 +96,9 @@ func build_result_snapshot(
 		"player_speed": player_speed,
 		"boss_vel": boss_vel,
 	}
+	if float(frame.get("smasher_wheel_speed_cap", 0.0)) > 0.0:
+		result["smasher_wheel_speed_cap"] = float(frame["smasher_wheel_speed_cap"])
+	return result
 
 
 func _compute_dynamic_impact_boost(

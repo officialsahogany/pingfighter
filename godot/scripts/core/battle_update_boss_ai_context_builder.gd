@@ -1,0 +1,239 @@
+extends RefCounted
+
+const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+
+const WIDTH: float = 760.0
+const PLAY_LEFT: float = 0.0
+const PLAY_RIGHT: float = WIDTH
+const PADDLE_WIDTH: float = 155.0
+const BOSS_PADDLE_WIDTH: float = 100.0
+const BALL_SIZE: float = 28.6
+const BOSS_Y: float = 25.0
+const BOSS_HITBOX_HEIGHT: float = 40.0
+const HITBOX_PADDING: float = 5.0
+const DEFAULT_BOSS_MISTAKE_CHANCE: float = 0.10
+const STAGE2_BOSS_MISTAKE_CHANCE: float = 0.09
+const STAGE3_MENHERA_MISTAKE_CHANCE: float = 0.08
+const STAGE4_PONK_MISTAKE_CHANCE: float = 0.07
+const BASE_BOSS_ACCEL: float = 0.798
+const BASE_BOSS_DECEL: float = 0.798
+const BASE_BOSS_MAX_SPEED: float = 6.3175
+const BASE_BOSS_DASH_MAX_DISTANCE: float = 316.8
+const BASE_BOSS_DASH_COOLDOWN_MIN_SECONDS: float = 40.0
+const BASE_BOSS_DASH_COOLDOWN_MAX_SECONDS: float = 55.0
+const CHAMPION_BOSS_SPEED_MULTIPLIER: float = 1.5
+const BOSS_STAGE_SPEED_RATE: float = 0.03
+const BOSS_STAGE_SPEED_CAP: float = 0.50
+const BOSS_DASH_DISTANCE_STAGE_RATE: float = 0.05
+const BOSS_DASH_COOLDOWN_STAGE_RATE: float = 0.05
+const BOSS_DASH_COOLDOWN_MIN_MULTIPLIER: float = 0.20
+
+var character_runtime: Object = PlayerCharacterRuntime.new()
+
+
+func build_context(owner: Object, registry: Object) -> Dictionary:
+	var current_stage: int = int(_get_owner_value(owner, "current_stage", 1))
+	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
+	var context: Dictionary = _build_base_context(owner, registry, current_stage, character_type)
+	_merge_shared_context(context, registry, character_type)
+	_merge_stage_context(context, registry, current_stage)
+	_merge_character_context(context, registry, character_type)
+	return context
+
+
+func _build_base_context(owner: Object, registry: Object, current_stage: int, character_type: String) -> Dictionary:
+	var round_state: Object = _get_instance(registry, "round_flow_state")
+	var power_state: Object = _get_instance(registry, "smasher_power_smash_state") if _is_smasher(character_type) else null
+	var boss_movement_profile: Dictionary = _build_boss_movement_profile(current_stage)
+	var boss_dash_profile: Dictionary = _build_boss_dash_profile(current_stage)
+	return {
+		"width": WIDTH,
+		"play_left": PLAY_LEFT,
+		"play_right": PLAY_RIGHT,
+		"current_stage": current_stage,
+		"ai_mode": str(_get_owner_value(owner, "ai_mode", "champion")),
+		"boss_paddle_width": BOSS_PADDLE_WIDTH,
+		"boss_stage_speed_multiplier": boss_movement_profile["boss_stage_speed_multiplier"],
+		"boss_max_speed": boss_movement_profile["boss_max_speed"],
+		"boss_movement_accel": boss_movement_profile["boss_movement_accel"],
+		"boss_movement_decel": boss_movement_profile["boss_movement_decel"],
+		"boss_movement_max_speed": boss_movement_profile["boss_movement_max_speed"],
+		"boss_dash_enabled": _is_boss_dash_enabled(current_stage),
+		"boss_dash_max_tokens": 1,
+		"boss_dash_stage_distance_multiplier": boss_dash_profile["boss_dash_stage_distance_multiplier"],
+		"boss_dash_stage_cooldown_multiplier": boss_dash_profile["boss_dash_stage_cooldown_multiplier"],
+		"boss_dash_max_distance": boss_dash_profile["boss_dash_max_distance"],
+		"boss_dash_trigger_chance": 0.30,
+		"boss_dash_cooldown_min_seconds": boss_dash_profile["boss_dash_cooldown_min_seconds"],
+		"boss_dash_cooldown_max_seconds": boss_dash_profile["boss_dash_cooldown_max_seconds"],
+		"boss_dash_stun_seconds": 0.60,
+		"boss_mistake_chance": _get_stage_boss_mistake_chance(current_stage),
+		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
+		"waiting_for_serve": _is_waiting_for_serve(round_state),
+		"player_serves": _does_player_serve(round_state),
+		"boss_serve_timer": _get_round_snapshot_float(round_state, "serve_timer", 0.0),
+		"boss_serve_target_delay": _get_round_snapshot_float(round_state, "serve_delay", 1.0),
+		"player_pos": _get_owner_vector2(owner, "player_pos", Vector2.ZERO),
+		"player_paddle_width": PADDLE_WIDTH,
+		"ball_pos": _get_owner_vector2(owner, "ball_pos", Vector2.ZERO),
+		"ball_vel": _get_owner_vector2(owner, "ball_vel", Vector2.ZERO),
+		"ball_impact_boost": float(_get_owner_value(owner, "ball_impact_boost", 1.0)),
+		"ball_boost_decay_rate": float(_get_owner_value(owner, "ball_boost_decay_rate", 0.975)),
+		"ball_min_boost": float(_get_owner_value(owner, "ball_min_boost", 0.70)),
+		"ball_size": BALL_SIZE,
+		"boss_y": BOSS_Y,
+		"boss_hitbox_height": BOSS_HITBOX_HEIGHT,
+		"hitbox_padding": HITBOX_PADDING,
+		"power_smashing_parabola_active": power_state != null and power_state.has_method("is_parabola_active") and power_state.is_parabola_active(),
+		"power_smashing_combo_consumed": int(power_state.get_combo_consumed()) if power_state != null and power_state.has_method("get_combo_consumed") else 0,
+		"audio": _get_instance(registry, "game_audio"),
+	}
+
+
+func _merge_shared_context(context: Dictionary, registry: Object, character_type: String) -> void:
+	for key in [
+		"active_item_runtime",
+		"mythic_item_runtime",
+	]:
+		var source: Object = _get_instance(registry, key)
+		if source != null and source.has_method("get_boss_ai_context"):
+			context.merge(source.get_boss_ai_context(), true)
+	if _is_smasher(character_type):
+		var plasma_state: Object = _get_instance(registry, "smasher_plasma_state")
+		if plasma_state != null and plasma_state.has_method("get_boss_ai_context"):
+			context.merge(plasma_state.get_boss_ai_context(), true)
+	var status_effect_state: Object = _get_instance(registry, "status_effect_state")
+	if status_effect_state != null and status_effect_state.has_method("get_boss_ai_context"):
+		context.merge(status_effect_state.get_boss_ai_context(), true)
+
+
+func _merge_stage_context(context: Dictionary, registry: Object, current_stage: int) -> void:
+	if current_stage == 1:
+		var whip_state: Object = _get_instance(registry, "stage1_dalji_whip_skill_state")
+		if whip_state != null and whip_state.has_method("get_ai_context"):
+			context.merge(whip_state.get_ai_context(), true)
+		return
+	if current_stage == 5:
+		var stage5_hongryun_state: Object = _get_instance(registry, "stage5_hongryun_state")
+		if stage5_hongryun_state != null and stage5_hongryun_state.has_method("get_boss_ai_context"):
+			context.merge(stage5_hongryun_state.get_boss_ai_context(), true)
+		return
+	if current_stage != 2:
+		return
+	var stage_background: Object = _get_stage_instance(registry, current_stage, "stage_background", "stage2_pillar_background")
+	var stage2_skill_state: Object = _get_instance(registry, "stage2_boss_skill_state")
+	if stage2_skill_state != null and stage2_skill_state.has_method("get_boss_ai_context"):
+		context.merge(stage2_skill_state.get_boss_ai_context(stage_background), true)
+	elif stage_background != null and stage_background.has_method("get_boss_ai_context"):
+		context.merge(stage_background.get_boss_ai_context(), true)
+	var monkey_event: Object = _get_instance(registry, "stage2_monkey_banana_event")
+	if monkey_event != null and monkey_event.has_method("get_boss_ai_context"):
+		context.merge(monkey_event.get_boss_ai_context(), true)
+
+
+func _merge_character_context(context: Dictionary, registry: Object, character_type: String) -> void:
+	if not character_runtime.is_viper(character_type):
+		return
+	var viper_skill_runtime: Object = _get_instance(registry, "viper_skill_runtime")
+	if viper_skill_runtime != null and viper_skill_runtime.has_method("get_boss_ai_context"):
+		context.merge(viper_skill_runtime.get_boss_ai_context(), true)
+
+
+func _is_smasher(character_type: String) -> bool:
+	return character_type == "smasher"
+
+
+func _get_stage_boss_mistake_chance(current_stage: int) -> float:
+	if current_stage == 2:
+		return STAGE2_BOSS_MISTAKE_CHANCE
+	if current_stage == 3:
+		return STAGE3_MENHERA_MISTAKE_CHANCE
+	if current_stage == 4:
+		return STAGE4_PONK_MISTAKE_CHANCE
+	return DEFAULT_BOSS_MISTAKE_CHANCE
+
+
+func _build_boss_movement_profile(current_stage: int) -> Dictionary:
+	var stage_multiplier: float = _get_boss_stage_speed_multiplier(current_stage)
+	return {
+		"boss_stage_speed_multiplier": stage_multiplier,
+		"boss_max_speed": BASE_BOSS_MAX_SPEED * stage_multiplier,
+		"boss_movement_accel": BASE_BOSS_ACCEL * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier,
+		"boss_movement_decel": BASE_BOSS_DECEL * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier,
+		"boss_movement_max_speed": BASE_BOSS_MAX_SPEED * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier,
+	}
+
+
+func _build_boss_dash_profile(current_stage: int) -> Dictionary:
+	var stage_offset: int = _get_stage_offset(current_stage)
+	var distance_multiplier: float = 1.0 + float(stage_offset) * BOSS_DASH_DISTANCE_STAGE_RATE
+	var cooldown_multiplier: float = max(BOSS_DASH_COOLDOWN_MIN_MULTIPLIER, 1.0 - float(stage_offset) * BOSS_DASH_COOLDOWN_STAGE_RATE)
+	return {
+		"boss_dash_stage_distance_multiplier": distance_multiplier,
+		"boss_dash_stage_cooldown_multiplier": cooldown_multiplier,
+		"boss_dash_max_distance": BASE_BOSS_DASH_MAX_DISTANCE * distance_multiplier,
+		"boss_dash_cooldown_min_seconds": BASE_BOSS_DASH_COOLDOWN_MIN_SECONDS * cooldown_multiplier,
+		"boss_dash_cooldown_max_seconds": BASE_BOSS_DASH_COOLDOWN_MAX_SECONDS * cooldown_multiplier,
+	}
+
+
+func _get_boss_stage_speed_multiplier(current_stage: int) -> float:
+	var stage_offset: int = _get_stage_offset(current_stage)
+	return 1.0 + min(float(stage_offset) * BOSS_STAGE_SPEED_RATE, BOSS_STAGE_SPEED_CAP)
+
+
+func _get_stage_offset(current_stage: int) -> int:
+	if current_stage == 50:
+		return 0
+	return max(0, current_stage - 1)
+
+
+func _is_boss_dash_enabled(current_stage: int) -> bool:
+	return current_stage != 50
+
+
+func _is_waiting_for_serve(round_state: Object) -> bool:
+	if round_state == null or not round_state.has_method("is_waiting_for_serve"):
+		return true
+	return bool(round_state.is_waiting_for_serve())
+
+
+func _does_player_serve(round_state: Object) -> bool:
+	if round_state == null or not round_state.has_method("does_player_serve"):
+		return true
+	return bool(round_state.does_player_serve())
+
+
+func _get_round_snapshot_float(round_state: Object, key: String, fallback: float) -> float:
+	if round_state == null or not round_state.has_method("get_snapshot"):
+		return fallback
+	var snapshot: Variant = round_state.get_snapshot()
+	if snapshot is Dictionary:
+		return float(snapshot.get(key, fallback))
+	return fallback
+
+
+func _get_stage_instance(registry: Object, current_stage: int, role: String, fallback_key: String) -> Object:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	var router: Object = registry.get_instance("stage_runtime_router")
+	if router != null and router.has_method("get_instance"):
+		var routed: Object = router.get_instance(registry, current_stage, role)
+		if routed != null:
+			return routed
+	return registry.get_instance(fallback_key)
+
+
+func _get_instance(registry: Object, key: String) -> Object:
+	if registry == null or key == "" or not registry.has_method("get_instance"):
+		return null
+	return registry.get_instance(key)
+
+
+func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
+	return BattleSceneOwnerReader.get_value(owner, key, fallback)
+
+
+func _get_owner_vector2(owner: Object, key: String, fallback: Vector2) -> Vector2:
+	return BattleSceneOwnerReader.get_vector2(owner, key, fallback)

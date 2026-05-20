@@ -9,8 +9,19 @@ if (-not (Test-Path -LiteralPath $GodotExe -PathType Leaf)) {
     throw "Godot executable not found: $GodotExe"
 }
 
-if (-not (Test-Path -LiteralPath (Join-Path $ProjectDir "project.godot") -PathType Leaf)) {
+$ProjectFile = Join-Path $ProjectDir "project.godot"
+
+if (-not (Test-Path -LiteralPath $ProjectFile -PathType Leaf)) {
     throw "Godot project.godot not found in: $ProjectDir"
+}
+
+if ((Get-Item -LiteralPath $ProjectFile).Length -le 0) {
+    throw "Godot project.godot is empty. Restore project settings before opening Godot: $ProjectFile"
+}
+
+$projectText = [System.IO.File]::ReadAllText($ProjectFile, [System.Text.Encoding]::UTF8)
+if ($projectText -notmatch '(?m)^run/main_scene="res://scenes/boot_flow\.tscn"$') {
+    throw "Godot project.godot does not point at boot_flow.tscn. Restore the boot flow settings before opening Godot."
 }
 
 $arguments = @(

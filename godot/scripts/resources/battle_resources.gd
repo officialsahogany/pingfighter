@@ -205,6 +205,9 @@ var _resource_cache: Dictionary = {}
 var _transition_texture_prewarm_key: String = ""
 var _transition_texture_prewarm_step_index: int = 0
 var _transition_skill_icon_map_cache: Dictionary = {}
+var _transition_texture_prewarm_current: Dictionary = {}
+var _transition_texture_prewarm_path: String = ""
+var _transition_texture_prewarm_active: bool = false
 var _result_texture_prewarm_jobs: Array = []
 var _result_texture_prewarm_current: Dictionary = {}
 var _result_texture_prewarm_path: String = ""
@@ -273,6 +276,7 @@ func reset_transition_texture_prewarm() -> void:
 	_transition_texture_prewarm_key = ""
 	_transition_texture_prewarm_step_index = 0
 	_transition_skill_icon_map_cache.clear()
+	_clear_transition_texture_prewarm_thread()
 
 
 func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
@@ -291,6 +295,7 @@ func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 		_transition_texture_prewarm_key = prewarm_key
 		_transition_texture_prewarm_step_index = 0
 		_transition_skill_icon_map_cache.clear()
+		_clear_transition_texture_prewarm_thread()
 
 	var core_step_count := _get_core_texture_step_count()
 	var player_step_count := _get_player_texture_step_count(character_type, include_result_sheets)
@@ -298,12 +303,13 @@ func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 	var skill_icon_step_count := _get_selected_skill_icon_texture_step_count(character_type)
 	var total_step_count := core_step_count + player_step_count + boss_step_count + skill_icon_step_count
 	var step_index := _transition_texture_prewarm_step_index
+	var step_done := true
 	if step_index < core_step_count:
-		_load_core_texture_step(step_index)
+		step_done = _prewarm_core_texture_step(step_index)
 	elif step_index < core_step_count + player_step_count:
-		_load_player_texture_step(character_type, include_result_sheets, step_index - core_step_count)
+		step_done = _prewarm_player_texture_step(character_type, include_result_sheets, step_index - core_step_count)
 	elif step_index < core_step_count + player_step_count + boss_step_count:
-		_load_stage_boss_texture_step(
+		step_done = _prewarm_stage_boss_texture_step(
 			current_stage,
 			include_result_sheets,
 			step_index - core_step_count - player_step_count
@@ -317,6 +323,8 @@ func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 		reset_transition_texture_prewarm()
 		return true
 
+	if not step_done:
+		return false
 	_transition_texture_prewarm_step_index += 1
 	if _transition_texture_prewarm_step_index >= total_step_count:
 		reset_transition_texture_prewarm()
@@ -471,6 +479,66 @@ func _try_store_cached_texture_spec(spec: Dictionary) -> bool:
 	return true
 
 
+func _prewarm_texture_spec_step(spec: Dictionary) -> bool:
+	if bool(spec.get("clear_smasher_player_fallbacks", false)):
+		_clear_smasher_player_fallback_textures()
+		return true
+	if _is_texture_spec_loaded(spec):
+		return true
+	if _try_store_cached_texture_spec(spec):
+		return true
+
+	var path := str(spec.get("path", ""))
+	if path == "":
+		return true
+	if not _is_thread_loadable_texture_path(path):
+		_load_texture_spec(spec)
+		return true
+	if _transition_texture_prewarm_active:
+		return _update_transition_texture_prewarm_thread()
+
+	var request_error := ResourceLoader.load_threaded_request(path, "Texture2D", true)
+	if request_error != OK and request_error != ERR_BUSY:
+		_load_texture_spec(spec)
+		return true
+	_transition_texture_prewarm_current = spec
+	_transition_texture_prewarm_path = path
+	_transition_texture_prewarm_active = true
+	return false
+
+
+func _update_transition_texture_prewarm_thread() -> bool:
+	if not _transition_texture_prewarm_active:
+		return true
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(_transition_texture_prewarm_path, progress_values)
+	match status:
+		ResourceLoader.THREAD_LOAD_LOADED:
+			_finish_transition_texture_threaded_job(ResourceLoader.load_threaded_get(_transition_texture_prewarm_path))
+			_clear_transition_texture_prewarm_thread()
+			return true
+		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			var failed_spec := _transition_texture_prewarm_current.duplicate(true)
+			_clear_transition_texture_prewarm_thread()
+			_load_texture_spec(failed_spec)
+			return true
+	return false
+
+
+func _finish_transition_texture_threaded_job(resource: Resource) -> void:
+	var texture := resource as Texture2D
+	if texture == null:
+		return
+	ProjectResourceLoader.store_texture(_transition_texture_prewarm_path, texture)
+	_store_texture_spec(_transition_texture_prewarm_current, texture)
+
+
+func _clear_transition_texture_prewarm_thread() -> void:
+	_transition_texture_prewarm_current = {}
+	_transition_texture_prewarm_path = ""
+	_transition_texture_prewarm_active = false
+
+
 func _request_next_result_texture_prewarm_job() -> void:
 	_result_texture_prewarm_active = false
 	_result_texture_prewarm_current = {}
@@ -558,6 +626,13 @@ func _load_core_texture_step(step_index: int) -> void:
 	_load_texture_spec(specs[step_index])
 
 
+func _prewarm_core_texture_step(step_index: int) -> bool:
+	var specs := _get_core_texture_specs()
+	if step_index < 0 or step_index >= specs.size():
+		return true
+	return _prewarm_texture_spec_step(specs[step_index])
+
+
 func _load_core_textures() -> void:
 	_resource_cache["pingpong_ball_texture"] = _load_texture_resource(PINGPONG_BALL_TEXTURE_PATH)
 	_resource_cache["gauge_orb_frame_texture"] = _load_texture_resource(GAUGE_ORB_FRAME_TEXTURE_PATH)
@@ -589,6 +664,13 @@ func _load_player_texture_step(character_type: String, include_result_sheets: bo
 	if step_index < 0 or step_index >= specs.size():
 		return
 	_load_texture_spec(specs[step_index])
+
+
+func _prewarm_player_texture_step(character_type: String, include_result_sheets: bool, step_index: int) -> bool:
+	var specs := _get_player_texture_specs(character_type, include_result_sheets)
+	if step_index < 0 or step_index >= specs.size():
+		return true
+	return _prewarm_texture_spec_step(specs[step_index])
 
 
 func _get_player_texture_specs(character_type: String, include_result_sheets: bool) -> Array:
@@ -906,17 +988,72 @@ func _load_stage3_boss_textures(include_result_sheets: bool = false) -> void:
 		_resource_cache["boss_defeat_sheet"] = _load_texture_resource(STAGE3_MENHERA_BOSS_DEFEAT_PATH)
 
 
-func _get_stage_boss_texture_step_count(stage_id: int, include_result_sheets: bool) -> int:
+func _get_stage_boss_texture_specs(stage_id: int, include_result_sheets: bool) -> Array:
 	match stage_id:
 		1:
-			return 8 + (2 if include_result_sheets else 0)
+			return _get_stage1_boss_texture_specs(include_result_sheets)
 		2:
-			return 4 + (2 if include_result_sheets else 0)
+			return _get_stage2_boss_texture_specs(include_result_sheets)
 		3:
-			return 3 + (2 if include_result_sheets else 0)
+			return _get_stage3_boss_texture_specs(include_result_sheets)
 		5:
-			return 4
-	return 0
+			return _get_stage5_hongryun_boss_texture_specs()
+	return []
+
+
+func _get_stage1_boss_texture_specs(include_result_sheets: bool) -> Array:
+	var specs := [
+		_texture_spec(["boss_walk_left_sheet"], DALJI_BOSS_WALK_LEFT_PATH),
+		_texture_spec(["boss_walk_right_sheet", "boss_sprite_sheet"], DALJI_BOSS_WALK_RIGHT_PATH),
+		_texture_spec(["boss_idle_sheet"], DALJI_BOSS_IDLE_PATH),
+		_texture_spec(["boss_attack_sheet", "boss_hit_sprite_sheet"], DALJI_BOSS_ATTACK_PATH),
+		_texture_spec(["boss_dash_sheet"], DALJI_BOSS_DASH_PATH),
+		_texture_spec(["boss_stun_sheet"], DALJI_BOSS_STUN_PATH),
+		_texture_spec(["boss_whip_sheet"], DALJI_BOSS_WHIP_PATH),
+		_texture_spec(["boss_paengi_top_whip_sheet"], DALJI_BOSS_PAENGI_TOP_WHIP_PATH),
+	]
+	if include_result_sheets:
+		specs.append(_texture_spec(["boss_victory_sheet"], DALJI_BOSS_VICTORY_PATH))
+		specs.append(_texture_spec(["boss_defeat_sheet"], DALJI_BOSS_DEFEAT_PATH))
+	return specs
+
+
+func _get_stage2_boss_texture_specs(include_result_sheets: bool) -> Array:
+	var specs := [
+		_texture_spec(["boss_walk_left_sheet"], STAGE2_BOSS_WALK_LEFT_PATH),
+		_texture_spec(["boss_walk_right_sheet", "boss_sprite_sheet"], STAGE2_BOSS_WALK_RIGHT_PATH),
+		_texture_spec(["boss_idle_sheet"], STAGE2_BOSS_IDLE_PATH),
+		_texture_spec(["boss_attack_sheet", "boss_hit_sprite_sheet"], STAGE2_BOSS_ATTACK_PATH),
+	]
+	if include_result_sheets:
+		specs.append(_texture_spec(["boss_victory_sheet"], STAGE2_BOSS_VICTORY_PATH))
+		specs.append(_texture_spec(["boss_defeat_sheet"], STAGE2_BOSS_DEFEAT_PATH))
+	return specs
+
+
+func _get_stage3_boss_texture_specs(include_result_sheets: bool) -> Array:
+	var specs := [
+		_texture_spec(["boss_sprite_sheet"], STAGE3_MENHERA_BOSS_WALK_PATH),
+		_texture_spec(["boss_attack_sheet", "boss_hit_sprite_sheet"], STAGE3_MENHERA_BOSS_ATTACK_PATH),
+		_texture_spec(["boss_dash_sheet"], STAGE3_MENHERA_BOSS_DASH_PATH),
+	]
+	if include_result_sheets:
+		specs.append(_texture_spec(["boss_victory_sheet"], STAGE3_MENHERA_BOSS_VICTORY_PATH))
+		specs.append(_texture_spec(["boss_defeat_sheet"], STAGE3_MENHERA_BOSS_DEFEAT_PATH))
+	return specs
+
+
+func _get_stage5_hongryun_boss_texture_specs() -> Array:
+	return [
+		_texture_spec(["boss_walk_left_sheet", "boss_walk_right_sheet", "boss_sprite_sheet"], STAGE5_HONGRYUN_BOSS_SHEET_PATH),
+		_texture_spec(["boss_attack_sheet", "boss_hit_sprite_sheet"], STAGE5_HONGRYUN_BOSS_ATTACK_PATH),
+		_texture_spec(["boss_dash_sheet"], STAGE5_HONGRYUN_BOSS_DASH_PATH),
+		_texture_spec(["boss_turn_sheet"], STAGE5_HONGRYUN_BOSS_TURN_PATH),
+	]
+
+
+func _get_stage_boss_texture_step_count(stage_id: int, include_result_sheets: bool) -> int:
+	return _get_stage_boss_texture_specs(stage_id, include_result_sheets).size()
 
 
 func _load_stage_boss_texture_step(stage_id: int, include_result_sheets: bool, step_index: int) -> void:
@@ -929,6 +1066,13 @@ func _load_stage_boss_texture_step(stage_id: int, include_result_sheets: bool, s
 			_load_stage3_boss_texture_step(include_result_sheets, step_index)
 		5:
 			_load_stage5_hongryun_boss_texture_step(include_result_sheets, step_index)
+
+
+func _prewarm_stage_boss_texture_step(stage_id: int, include_result_sheets: bool, step_index: int) -> bool:
+	var specs := _get_stage_boss_texture_specs(stage_id, include_result_sheets)
+	if step_index < 0 or step_index >= specs.size():
+		return true
+	return _prewarm_texture_spec_step(specs[step_index])
 
 
 func _load_stage1_boss_texture_step(include_result_sheets: bool, step_index: int) -> void:

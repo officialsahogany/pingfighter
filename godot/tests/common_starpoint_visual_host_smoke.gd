@@ -101,9 +101,23 @@ func _verify_shader_resource_path_and_uniforms() -> void:
 	# shader must NOT hardcode TAU / 5.0 in the star SDF or that breaks the
 	# per-stage shape parity.
 	_expect(
-		shader_source.find("TAU / float(max(3, tips))") >= 0
+		shader_source.find("TAU / float(n)") >= 0
+			and shader_source.find("max(3, tips)") >= 0
 			and shader_source.find("TAU / 5.0") < 0,
 		"star SDF must be parameterized by tip count (no hardcoded TAU / 5.0)"
+	)
+	# The SDF must measure distance to actual polygon edges (line segments
+	# between tip and valley) rather than interpolating the boundary radius
+	# in polar coordinates. The polar interpolation form rendered as rounded
+	# petal shapes instead of sharp star tips.
+	_expect(
+		shader_source.find("vec2 tip = vec2(r_outer, 0.0)") >= 0
+			and shader_source.find("vec2 valley = vec2(r_inner * cos(half_sector)") >= 0,
+		"star SDF must use line-segment distance to (tip, valley) vertices, not polar mix(r_outer, r_inner, t)"
+	)
+	_expect(
+		shader_source.find("mix(r_outer, r_inner, t)") < 0,
+		"star SDF must not fall back to polar radius interpolation (produces rounded petal shapes)"
 	)
 
 

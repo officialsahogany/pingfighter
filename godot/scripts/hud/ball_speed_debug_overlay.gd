@@ -33,9 +33,10 @@ func draw(canvas: CanvasItem, owner: Object, _view_size: Vector2, registry: Obje
 	var ball_vel: Vector2 = _get_owner_vector2(owner, "ball_vel", Vector2.ZERO)
 	var impact_boost: float = max(1.0, _get_owner_float(owner, "ball_impact_boost", 1.0))
 	var smasher_wheel_speed_cap: float = _get_owner_float(owner, "smasher_wheel_speed_cap", 0.0)
+	var rally_speed_cap_bonus: float = _get_owner_float(owner, "rally_speed_cap_bonus", 0.0)
 	var base_speed: float = ball_vel.length()
 	var effective_speed: float = base_speed * impact_boost
-	var max_speed: float = _get_max_ball_speed(_is_power_smash_active(registry), impact_boost, _get_league_mode(owner), registry, smasher_wheel_speed_cap)
+	var max_speed: float = _get_max_ball_speed(_is_power_smash_active(registry), impact_boost, _get_league_mode(owner), registry, smasher_wheel_speed_cap, rally_speed_cap_bonus)
 	var ratio: float = 0.0 if max_speed <= 0.0 else effective_speed / max(0.001, max_speed)
 	var state_text: String = "\uc774\ub3d9 \uc911" if bool(_get_owner_value(owner, "ball_active", false)) else "\uc11c\ube0c \ub300\uae30"
 	var speed_color: Color = _speed_color(ratio)
@@ -68,7 +69,14 @@ func _speed_color(ratio: float) -> Color:
 	return Color(0.48, 1.0, 0.62)
 
 
-func _get_max_ball_speed(power_smash_active: bool = false, impact_boost: float = 1.0, league_mode: String = "champion", registry: Object = null, smasher_wheel_speed_cap: float = 0.0) -> float:
+func _get_max_ball_speed(
+	power_smash_active: bool = false,
+	impact_boost: float = 1.0,
+	league_mode: String = "champion",
+	registry: Object = null,
+	smasher_wheel_speed_cap: float = 0.0,
+	rally_speed_cap_bonus: float = 0.0
+) -> float:
 	var update_config: Dictionary = static_config.build_update_config()
 	if power_smash_active:
 		return max(
@@ -80,6 +88,7 @@ func _get_max_ball_speed(power_smash_active: bool = false, impact_boost: float =
 	var speed_cap: float = float(update_config.get("mythic_max_ball_speed", 32.0)) if league_mode == "mythic" else float(update_config.get("max_ball_speed", 26.0))
 	if impact_boost > 1.001 and league_mode != "mythic":
 		speed_cap = max(speed_cap, float(update_config.get("impact_boost_max_ball_speed", 26.0)))
+	speed_cap += max(0.0, rally_speed_cap_bonus)
 	speed_cap = max(speed_cap, max(0.0, smasher_wheel_speed_cap))
 	speed_cap = max(speed_cap, _get_magnum_grip_speed_cap(registry))
 	speed_cap = max(speed_cap, _get_viper_blade_speed_cap(registry))

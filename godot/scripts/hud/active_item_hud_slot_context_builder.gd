@@ -27,7 +27,9 @@ func get_slot_status(
 	slot_index: int,
 	item_data: Dictionary,
 	current_time_msec: int,
-	time_since_round_start_msec: int
+	time_since_round_start_msec: int,
+	registry: Object = null,
+	runtime_perk_state: Object = null
 ) -> Dictionary:
 	if item_data.is_empty():
 		return {}
@@ -36,7 +38,9 @@ func get_slot_status(
 			slot_index,
 			item_data,
 			current_time_msec,
-			time_since_round_start_msec
+			time_since_round_start_msec,
+			registry,
+			runtime_perk_state
 		)
 	return {
 		"cooldown_remaining_ratio": 0.0,

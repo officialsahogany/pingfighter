@@ -1,0 +1,216 @@
+extends SceneTree
+
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
+const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoSupplyDropState := preload("res://scripts/characters/commando_supply_drop_state.gd")
+const CommandoWeaponController := preload("res://scripts/characters/commando_weapon_controller.gd")
+
+var _failures: Array[String] = []
+
+
+class FakeOwner:
+	extends RefCounted
+
+	var active_item_slots: Array = []
+	var player_pos := Vector2(302.5, 700.0)
+	var player_paddle_width := 155.0
+	var player_paddle_height := 50.0
+
+
+class FakeRegistry:
+	extends RefCounted
+
+	var weapon_controller: Object
+	var active_item_runtime: Object
+
+	func _init(controller: Object = null, runtime: Object = null) -> void:
+		weapon_controller = controller
+		active_item_runtime = runtime
+
+	func get_instance(key: String) -> Object:
+		if key == "commando_weapon_controller":
+			return weapon_controller
+		if key == "active_item_runtime":
+			return active_item_runtime
+		return null
+
+
+func _init() -> void:
+	_verify_catalog_builds_supply_only_items()
+	_verify_supply_drop_filters_python_item_candidates()
+	_verify_ammo_box_refills_owned_permanent_only()
+	_verify_doping_potion_uses_base_pistol_access()
+	_verify_doping_potion_enhances_commando_pistol()
+
+	if _failures.is_empty():
+		print("commando_supply_drop_item_candidates_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _verify_catalog_builds_supply_only_items() -> void:
+	var catalog: Object = ActiveItemCatalog.new()
+	var ammo_box: Dictionary = catalog.build_item_by_name("ammo_box")
+	var doping_potion: Dictionary = catalog.build_item_by_name("doping_potion")
+	_expect(str(ammo_box.get("display_name", "")) == "탄약상자", "ammo_box catalog entry should use Korean display text")
+	_expect(str(ammo_box.get("icon_path", "")).ends_with("ammo_box.png"), "ammo_box should expose its copied Godot icon path")
+	_expect(load(str(ammo_box.get("icon_path", ""))) != null, "ammo_box icon should load as a Godot texture")
+	_expect(bool(ammo_box.get("supply_drop_only", false)), "ammo_box should be supply-drop only, not normal field-spawn")
+	_expect(str(doping_potion.get("display_name", "")) == "도핑주사기", "doping_potion catalog entry should use Korean display text")
+	_expect(load(str(doping_potion.get("icon_path", ""))) != null, "doping_potion icon should load as a Godot texture")
+	_expect(int(doping_potion.get("duration", 0)) == 480, "doping_potion should preserve the Python 8-second duration")
+	_expect(not ActiveItemCatalog.FIELD_SPAWN_ORDER.has("ammo_box"), "ammo_box should not enter the ordinary field spawn order")
+	_expect(not ActiveItemCatalog.FIELD_SPAWN_ORDER.has("doping_potion"), "doping_potion should not enter the ordinary field spawn order")
+
+
+func _verify_supply_drop_filters_python_item_candidates() -> void:
+	var supply_state: Object = CommandoSupplyDropState.new()
+	var controller: Object = CommandoWeaponController.new()
+	var deps := {"commando_weapon_controller": controller}
+	var ids_without_permanent: Array = _candidate_ids(supply_state._get_field_item_drop_candidates(deps))
+	_expect(not ids_without_permanent.has("ammo_box"), "ammo_box should be hidden when no permanent firearm can be reloaded")
+	_expect(ids_without_permanent.has("doping_potion"), "doping_potion should be eligible because the base pistol is always available")
+
+	controller.unlock_permanent_weapon("ak47", true)
+	var ids_with_ak: Array = _candidate_ids(supply_state._get_field_item_drop_candidates(deps))
+	_expect(ids_with_ak.has("ammo_box"), "ammo_box should become eligible once any permanent firearm exists")
+	_expect(ids_with_ak.has("doping_potion"), "doping_potion should stay eligible with only the base pistol")
+
+	controller.unlock_permanent_weapon("commando_pistol", true)
+	var ids_with_pistol: Array = _candidate_ids(supply_state._get_field_item_drop_candidates(deps))
+	_expect(ids_with_pistol.has("ammo_box"), "ammo_box should remain eligible with the pistol unlocked")
+	_expect(ids_with_pistol.has("doping_potion"), "doping_potion should become eligible when commando_pistol is permanent")
+
+
+func _verify_ammo_box_refills_owned_permanent_only() -> void:
+	var catalog: Object = ActiveItemCatalog.new()
+	var active_runtime: Object = ActiveItemRuntime.new()
+	var controller: Object = CommandoWeaponController.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new(controller, active_runtime)
+
+	controller.unlock_permanent_weapon("ak47", true)
+	controller.set_current_weapon("ak47")
+	controller.consume_current_weapon_ammo(12)
+	controller.consume_current_weapon_duration(240.0)
+	controller.unlock_permanent_weapon("commando_pistol", true)
+	controller.set_current_weapon("commando_pistol")
+	controller.consume_current_weapon_ammo(2)
+	controller.start_current_weapon_reload()
+	controller.add_rental_weapon("bazooka", 1, 1)
+
+	var used: bool = bool(active_runtime._apply_item_effect(catalog.build_item_by_name("ammo_box"), owner, registry))
+	_expect(used, "ammo_box should use successfully when at least one permanent firearm is below max")
+	var ak47: Dictionary = controller.get_weapon_data("ak47")
+	var pistol: Dictionary = controller.get_weapon_data("commando_pistol")
+	var rental: Dictionary = controller.get_weapon_data("bazooka")
+	_expect(int(ak47.get("ammo_current", 0)) == 60, "ammo_box should refill AK-47 ammo")
+	_expect(is_equal_approx(float(ak47.get("duration_frames", 0.0)), 1800.0), "ammo_box should refill AK-47 duration")
+	_expect(int(pistol.get("ammo_current", 0)) == 4, "ammo_box should refill commando_pistol ammo")
+	_expect(int(pistol.get("magazines_current", 0)) == 2, "ammo_box should refill Beretta spare magazines")
+	_expect(not bool(pistol.get("reloading", false)), "ammo_box should cancel pistol reload after refilling")
+	_expect(str(rental.get("kind", "")) == "rental" and int(rental.get("ammo_current", 0)) == 1, "ammo_box should not refill rental firearms")
+
+
+func _verify_doping_potion_uses_base_pistol_access() -> void:
+	var catalog: Object = ActiveItemCatalog.new()
+	var active_runtime: Object = ActiveItemRuntime.new()
+	var controller: Object = CommandoWeaponController.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new(controller, active_runtime)
+	var activated: bool = bool(active_runtime._apply_item_effect(catalog.build_item_by_name("doping_potion"), owner, registry))
+	_expect(activated, "doping_potion should activate with the always-available base pistol")
+	var firearm_runtime: Object = CommandoFirearmRuntime.new()
+	var fire_result: Dictionary = firearm_runtime.update_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		_fire_config(),
+		{
+			"commando_weapon_controller": controller,
+			"active_item_runtime": active_runtime,
+		}
+	)
+	_expect(str(fire_result.get("weapon_id", "")) == "pistol", "doped base pistol fire should keep the base pistol id")
+	_expect(bool(fire_result.get("shot_queued", false)), "doped base pistol input should queue the delayed shot")
+	_expect(is_equal_approx(float(fire_result.get("cooldown_frames", 0.0)), 30.0), "base pistol doping should use the Python 30-frame cooldown")
+	_expect(is_equal_approx(float(fire_result.get("control_lock_frames", 0.0)), 9.0), "base pistol doping should use the Python 9-frame control lock")
+	_expect(bool(fire_result.get("doping_potion_active", false)), "base pistol fire result should expose the active doping flag")
+
+
+func _verify_doping_potion_enhances_commando_pistol() -> void:
+	var catalog: Object = ActiveItemCatalog.new()
+	var active_runtime: Object = ActiveItemRuntime.new()
+	var controller: Object = CommandoWeaponController.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new(controller, active_runtime)
+	controller.unlock_permanent_weapon("commando_pistol", true)
+	controller.set_current_weapon("commando_pistol")
+
+	var activated: bool = bool(active_runtime._apply_item_effect(catalog.build_item_by_name("doping_potion"), owner, registry))
+	_expect(activated, "doping_potion should activate when commando_pistol is permanent")
+	var context: Dictionary = active_runtime.get_doping_potion_context()
+	_expect(bool(context.get("active", false)), "doping context should become active")
+	_expect(is_equal_approx(float(context.get("timer_frames", 0.0)), 480.0), "doping timer should start at Python 480 frames")
+	_expect(is_equal_approx(float(context.get("head_leg_multiplier", 0.0)), 2.0), "doping should double head/leg chances")
+
+	var firearm_runtime: Object = CommandoFirearmRuntime.new()
+	var fire_result: Dictionary = firearm_runtime.update_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		_fire_config(),
+		{
+			"commando_weapon_controller": controller,
+			"active_item_runtime": active_runtime,
+		}
+	)
+	_expect(bool(fire_result.get("shot_queued", false)), "doped commando_pistol input should still queue the delayed shot")
+	_expect(is_equal_approx(float(fire_result.get("cooldown_frames", 0.0)), 30.0), "doping should use the Python 30-frame pistol cooldown")
+	_expect(is_equal_approx(float(fire_result.get("control_lock_frames", 0.0)), 9.0), "doping should use the Python 9-frame pistol control lock")
+	_expect(bool(fire_result.get("doping_potion_active", false)), "fire result should expose the active doping flag")
+	var pistol_draw_state: Dictionary = firearm_runtime.get_actor_draw_context().get("commando_firearm_pistol_state", {})
+	_expect(is_equal_approx(float(pistol_draw_state.get("cooldown_max_frames", 0.0)), 30.0), "doped pistol HUD state should use the 30-frame cooldown max")
+	_expect(is_equal_approx(float(pistol_draw_state.get("control_lock_max_frames", 0.0)), 9.0), "doped pistol HUD state should use the 9-frame lock max")
+
+	var hit_result: Dictionary = {}
+	firearm_runtime._apply_pistol_hit_effects(
+		"commando_pistol",
+		{
+			"active_item_doping_potion_active": true,
+			"active_item_doping_potion_head_leg_multiplier": 2.0,
+		},
+		{"commando_pistol_shot_roll": 0.21},
+		hit_result
+	)
+	_expect(str(hit_result.get("pistol_hit_kind", "")) == "legshot", "doping should turn a 0.21 roll into a legshot")
+	_expect(is_equal_approx(float(hit_result.get("pistol_head_chance", 0.0)), 0.20), "doping should double headshot chance")
+	_expect(is_equal_approx(float(hit_result.get("pistol_leg_chance", 0.0)), 0.24), "doping should double legshot chance")
+
+	active_runtime.update(owner, registry, 8.1)
+	_expect(not active_runtime.is_doping_potion_active(), "doping should expire after its timer elapses")
+
+
+func _candidate_ids(candidates: Array) -> Array:
+	var ids: Array = []
+	for candidate_value in candidates:
+		var candidate: Dictionary = candidate_value if candidate_value is Dictionary else {}
+		ids.append(str(candidate.get("item_id", "")))
+	return ids
+
+
+func _fire_config() -> Dictionary:
+	return {
+		"player_pos": Vector2(350.0, 700.0),
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"boss_pos": Vector2(380.0, 110.0),
+		"boss_size": Vector2(120.0, 80.0),
+	}
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

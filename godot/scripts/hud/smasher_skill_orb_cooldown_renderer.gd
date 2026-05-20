@@ -1,5 +1,8 @@
 extends RefCounted
 
+const COOLDOWN_SECTOR_SEGMENTS := 14
+const COOLDOWN_RING_SEGMENTS := 14
+
 
 func draw(
 	canvas: CanvasItem,
@@ -13,18 +16,43 @@ func draw(
 	if clamped_ratio > 0.0:
 		var points: PackedVector2Array
 		if pillar_drawer != null and pillar_drawer.has_method("build_sector_points"):
-			points = pillar_drawer.build_sector_points(center, radius, -PI * 0.5, -PI * 0.5 + TAU * clamped_ratio, 32)
+			points = pillar_drawer.build_sector_points(center, radius, -PI * 0.5, -PI * 0.5 + TAU * clamped_ratio, COOLDOWN_SECTOR_SEGMENTS)
 		else:
-			points = _build_sector_points(center, radius, -PI * 0.5, -PI * 0.5 + TAU * clamped_ratio, 32)
+			points = _build_sector_points(center, radius, -PI * 0.5, -PI * 0.5 + TAU * clamped_ratio, COOLDOWN_SECTOR_SEGMENTS)
 		canvas.draw_colored_polygon(points, Color(0.0, 0.0, 0.0, 0.42))
+	var ring_radius: float = radius + 1.5
+	var ring_width: float = max(4.0, floor(radius * 0.17))
+	var start_angle := -PI * 0.5
+	var end_angle := start_angle + TAU * clamped_ratio
 	canvas.draw_arc(
 		center,
-		radius + 1.0,
-		-PI * 0.5,
-		-PI * 0.5 + TAU * (1.0 - clamped_ratio),
-		28,
-		Color(0.65, 0.88, 1.0, 0.78),
-		2.0
+		ring_radius,
+		start_angle,
+		end_angle,
+		COOLDOWN_RING_SEGMENTS,
+		Color(0.0, 0.0, 0.0, 0.72),
+		ring_width + 3.0,
+		true
+	)
+	canvas.draw_arc(
+		center,
+		ring_radius + 0.5,
+		start_angle,
+		end_angle,
+		COOLDOWN_RING_SEGMENTS,
+		Color(0.12, 0.72, 1.0, 0.24),
+		ring_width + 6.0,
+		true
+	)
+	canvas.draw_arc(
+		center,
+		ring_radius,
+		start_angle,
+		end_angle,
+		COOLDOWN_RING_SEGMENTS,
+		Color(0.72, 0.95, 1.0, 0.96),
+		ring_width,
+		true
 	)
 
 

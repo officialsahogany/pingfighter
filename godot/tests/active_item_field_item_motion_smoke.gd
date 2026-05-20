@@ -44,6 +44,7 @@ class FakeDowsingRuntime:
 
 func _init() -> void:
 	_verify_spawn_skip_and_bounce()
+	_verify_in_place_advance_matches_legacy_state()
 	_verify_max_bounce_culling()
 	_verify_dowsing_attraction()
 	_verify_collect_items_near()
@@ -75,6 +76,20 @@ func _verify_spawn_skip_and_bounce() -> void:
 	_expect(_get_vector2(item, "velocity").x > 0.0, "field item should bounce X velocity at the wall")
 	_expect(int(item.get("bounce_count", 0)) == 1, "field item should increment bounce count")
 	_expect(bool(advanced.get("alive", false)), "field item should remain alive below max bounces")
+
+
+func _verify_in_place_advance_matches_legacy_state() -> void:
+	var motion: Object = ActiveItemFieldItemMotion.new()
+	var player_rect := Rect2(Vector2(200.0, 200.0), Vector2(50.0, 50.0))
+	var item: Dictionary = motion.build_field_item({"name": "banana"}, Vector2(16.0, 100.0))
+	item["velocity"] = Vector2(-4.0, 0.0)
+	item["max_bounces"] = 5
+
+	var skipped_state: int = motion.advance_field_item_in_place(item, player_rect, {}, 1.0 / 60.0)
+	_expect(skipped_state == ActiveItemFieldItemMotion.ADVANCE_SKIPPED_ALIVE, "in-place advance should expose first-frame skip state")
+	var alive_state: int = motion.advance_field_item_in_place(item, player_rect, {}, 1.0 / 60.0)
+	_expect(alive_state == ActiveItemFieldItemMotion.ADVANCE_ALIVE, "in-place advance should expose alive state below max bounces")
+	_expect(motion.get_field_item_rect(item).intersects(Rect2(Vector2.ZERO, Vector2(40.0, 140.0))), "in-place advance should expose the current item rect")
 
 
 func _verify_max_bounce_culling() -> void:

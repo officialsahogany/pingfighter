@@ -15,12 +15,23 @@ func clear_all() -> void:
 	energy_state.clear()
 
 
-func spawn_hit_particles(pos: Vector2, color: Color) -> void:
-	paddle_state.spawn_hit_particles(pos, color)
+func spawn_hit_particles(
+	pos: Vector2,
+	color: Color,
+	direction: Vector2 = Vector2.ZERO,
+	intensity: float = 0.0,
+	impact_speed: float = 0.0
+) -> void:
+	paddle_state.spawn_hit_particles(pos, color, direction, intensity, impact_speed)
 
 
-func spawn_paddle_hit_particles(pos: Vector2, is_player: bool) -> void:
-	paddle_state.spawn_paddle_hit_particles(pos, is_player)
+func spawn_paddle_hit_particles(
+	pos: Vector2,
+	is_player: bool,
+	ball_vel: Vector2 = Vector2.ZERO,
+	intensity: float = 0.0
+) -> void:
+	paddle_state.spawn_paddle_hit_particles(pos, is_player, ball_vel, intensity)
 
 
 func create_energy_explosion(pos: Vector2, scale: float, intensity: float) -> void:
@@ -46,8 +57,24 @@ func get_hit_particles() -> Array[Dictionary]:
 	return paddle_state.get_hit_particles()
 
 
+func get_hit_rings() -> Array[Dictionary]:
+	return paddle_state.get_hit_rings()
+
+
+func get_hit_streaks() -> Array[Dictionary]:
+	return paddle_state.get_hit_streaks()
+
+
+func get_hit_flashes() -> Array[Dictionary]:
+	return paddle_state.get_hit_flashes()
+
+
 func get_wall_impact_particles() -> Array[Dictionary]:
 	return wall_state.get_wall_impact_particles()
+
+
+func get_wall_impact_rings() -> Array[Dictionary]:
+	return wall_state.get_wall_impact_rings()
 
 
 func get_wall_impact_flash_timer() -> float:
@@ -58,5 +85,29 @@ func get_wall_impact_position() -> Vector2:
 	return wall_state.get_wall_impact_position()
 
 
+func get_wall_border_flash_timer() -> float:
+	return wall_state.get_wall_border_flash_timer()
+
+
+func get_wall_border_flash_duration() -> float:
+	return wall_state.get_wall_border_flash_duration()
+
+
+func get_wall_border_flash_position() -> Vector2:
+	return wall_state.get_wall_border_flash_position()
+
+
+func get_wall_border_flash_side() -> String:
+	return wall_state.get_wall_border_flash_side()
+
+
+func get_wall_border_flash_speed() -> float:
+	return wall_state.get_wall_border_flash_speed()
+
+
 func get_energy_explosion_particles() -> Array[Dictionary]:
 	return energy_state.get_energy_explosion_particles()
+
+
+func has_visible_effects() -> bool:
+	return paddle_state.has_hit_effects() or wall_state.has_wall_impact_effects() or energy_state.has_energy_explosion_particles()

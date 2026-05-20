@@ -38,7 +38,30 @@ func draw_boss_status_overlays(
 			float(context.get("active_item_boss_spider_slow_ratio", context.get("status_boss_slow_ratio", 1.0))),
 			options
 		)
+	draw_boss_cooldown_pause_marker(canvas, context, boss_pos, boss_paddle_size, boss_hitbox_height, shake_offset, options)
 	boss_health_bar_renderer.draw(canvas, context, boss_pos, boss_paddle_size, boss_hitbox_height, shake_offset)
+
+
+func draw_boss_cooldown_pause_marker(
+	canvas: CanvasItem,
+	context: Dictionary,
+	boss_pos: Vector2,
+	boss_paddle_size: Vector2,
+	boss_hitbox_height: float,
+	shake_offset: Vector2,
+	options: Dictionary = {}
+) -> void:
+	if canvas == null or not _is_boss_cooldown_pause_marker_active(context):
+		return
+	_draw_boss_cooldown_pause_marker(canvas, boss_pos, boss_paddle_size, boss_hitbox_height, shake_offset, options)
+
+
+func _is_boss_cooldown_pause_marker_active(context: Dictionary) -> bool:
+	return (
+		bool(context.get("active_item_boss_tear_gas_pause_active", false))
+		or bool(context.get("active_item_boss_skill_cooldown_paused", false))
+		or bool(context.get("active_item_tear_gas_cooldown_pause_active", false))
+	)
 
 
 func _draw_boss_stun_stars(
@@ -175,6 +198,32 @@ func _draw_boss_slow_wave(
 		Color(110.0 / 255.0, 170.0 / 255.0, 1.0, 0.18 * intensity),
 		3.0
 	)
+
+
+func _draw_boss_cooldown_pause_marker(
+	canvas: CanvasItem,
+	boss_pos: Vector2,
+	boss_paddle_size: Vector2,
+	boss_hitbox_height: float,
+	shake_offset: Vector2,
+	options: Dictionary
+) -> void:
+	var center := Vector2(
+		boss_pos.x + boss_paddle_size.x * 0.5 + shake_offset.x,
+		boss_pos.y
+		+ boss_hitbox_height * 0.5
+		+ float(options.get("cooldown_pause_center_y_offset", -30.0))
+		+ shake_offset.y
+		+ float(options.get("extra_y_offset", 0.0))
+	)
+	var phase: float = float(Time.get_ticks_msec()) * 0.006
+	var pulse: float = 0.55 + 0.45 * sin(phase)
+	canvas.draw_circle(center, 19.0 + pulse * 3.0, Color(0.56, 0.75, 0.42, 0.16))
+	canvas.draw_circle(center, 16.0, Color(0.12, 0.16, 0.12, 0.62))
+	canvas.draw_arc(center, 18.0, -PI * 0.5 + phase, PI * 1.5 + phase, 32, Color(0.78, 0.95, 0.52, 0.76), 2.5)
+	var bar_color := Color(0.84, 1.0, 0.64, 0.92)
+	canvas.draw_rect(Rect2(center + Vector2(-6.0, -8.0), Vector2(4.0, 16.0)), bar_color)
+	canvas.draw_rect(Rect2(center + Vector2(2.0, -8.0), Vector2(4.0, 16.0)), bar_color)
 
 
 func _draw_ellipse_outline(canvas: CanvasItem, rect: Rect2, color: Color, width: float) -> void:

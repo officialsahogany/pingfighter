@@ -4,8 +4,9 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 
 const DEFAULT_COOLDOWN_MSEC := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
-const SLOT_KEY_CODES := [KEY_1, KEY_2, KEY_3]
+const SLOT_KEY_CODES := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9]
 const MAX_ACTIVE_ITEM_SLOTS := 3
+const ALCHEMY_NOTICE_DURATION_MSEC := 1000
 
 var slot_key_pressed: Dictionary = {}
 var last_item_use_msec: int = -1000000
@@ -20,7 +21,14 @@ func build_starting_slots() -> Array:
 	return []
 
 
-func update(owner: Object, registry: Object, input_locked: bool, apply_item_effect_callback: Callable) -> Dictionary:
+func update(
+	owner: Object,
+	registry: Object,
+	input_locked: bool,
+	apply_item_effect_callback: Callable,
+	pending_use_backup_callback: Callable = Callable(),
+	perf_logger: Object = null
+) -> Dictionary:
 	if owner == null:
 		return {}
 
@@ -31,15 +39,28 @@ func update(owner: Object, registry: Object, input_locked: bool, apply_item_effe
 			"used_slot": -1,
 		}
 
-	var slots_copy: Array = active_item_slots.duplicate(true)
+	var slots_copy: Array = []
+	var slots_copy_created: bool = false
 	var used_slot: int = -1
-	var key_count: int = int(min(slots_copy.size(), SLOT_KEY_CODES.size()))
+	var key_count: int = int(min(active_item_slots.size(), SLOT_KEY_CODES.size()))
 	for i in range(SLOT_KEY_CODES.size()):
 		var pressed: bool = Input.is_key_pressed(int(SLOT_KEY_CODES[i]))
 		var was_pressed: bool = bool(slot_key_pressed.get(i, false))
 		slot_key_pressed[i] = pressed
 		if i < key_count and pressed and not was_pressed:
-			if _try_use_slot(i, slots_copy, owner, registry, apply_item_effect_callback):
+			if not slots_copy_created:
+				slots_copy = _copy_slots_for_use(active_item_slots)
+				slots_copy_created = true
+			if _try_use_slot(
+				i,
+				slots_copy,
+				owner,
+				registry,
+				apply_item_effect_callback,
+				pending_use_backup_callback,
+				false,
+				perf_logger
+			):
 				used_slot = i
 				break
 
@@ -51,13 +72,89 @@ func update(owner: Object, registry: Object, input_locked: bool, apply_item_effe
 	}
 
 
+func use_slot(
+	slot_index: int,
+	owner: Object,
+	registry: Object,
+	input_locked: bool,
+	apply_item_effect_callback: Callable,
+	pending_use_backup_callback: Callable = Callable(),
+	perf_logger: Object = null
+) -> bool:
+	if owner == null:
+		return false
+	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	if active_item_slots.is_empty() or input_locked:
+		_sync_slot_key_states()
+		return false
+
+	var slots_copy: Array = active_item_slots.duplicate(true)
+	var used: bool = _try_use_slot(
+		slot_index,
+		slots_copy,
+		owner,
+		registry,
+		apply_item_effect_callback,
+		pending_use_backup_callback,
+		false,
+		perf_logger
+	)
+	if used:
+		owner.set("active_item_slots", slots_copy)
+	_sync_slot_key_states()
+	return used
+
+
+func use_first_matching_item(
+	item_names: Array,
+	owner: Object,
+	registry: Object,
+	input_locked: bool,
+	apply_item_effect_callback: Callable,
+	pending_use_backup_callback: Callable = Callable(),
+	ignore_cooldown: bool = false,
+	perf_logger: Object = null
+) -> String:
+	if owner == null or item_names.is_empty():
+		return ""
+	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	if active_item_slots.is_empty() or input_locked:
+		_sync_slot_key_states()
+		return ""
+
+	var slots_copy: Array = active_item_slots.duplicate(true)
+	for target_name_value in item_names:
+		var target_name: String = str(target_name_value)
+		if target_name == "":
+			continue
+		for i in range(slots_copy.size()):
+			var item_value: Variant = slots_copy[i]
+			if not _slot_matches_item(item_value, target_name):
+				continue
+			if _try_use_slot(
+				i,
+				slots_copy,
+				owner,
+				registry,
+				apply_item_effect_callback,
+				pending_use_backup_callback,
+				ignore_cooldown,
+				perf_logger
+			):
+				owner.set("active_item_slots", slots_copy)
+				_sync_slot_key_states()
+				return target_name
+	_sync_slot_key_states()
+	return ""
+
+
 func store_active_item(
 	field_item: Dictionary,
 	active_item_slots: Array,
 	registry: Object,
 	can_store_item_callback: Callable
 ) -> bool:
-	if active_item_slots.size() >= MAX_ACTIVE_ITEM_SLOTS:
+	if active_item_slots.size() >= _get_max_active_item_slots(registry):
 		return false
 
 	var source_item_data: Dictionary = _get_dictionary(field_item, "item_data")
@@ -68,6 +165,7 @@ func store_active_item(
 	source_item_data["revealed"] = true
 	field_item["item_data"] = source_item_data
 	var item_data: Dictionary = source_item_data.duplicate(true)
+	item_data = _apply_item_runtime_visual_overrides(item_data, registry)
 	item_data["revealed"] = true
 	item_data["last_use_msec"] = last_item_use_msec
 	active_item_slots.append(item_data)
@@ -89,10 +187,11 @@ func append_item_data(
 		return false
 
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
-	if active_item_slots.size() >= MAX_ACTIVE_ITEM_SLOTS and not allow_overflow:
+	if active_item_slots.size() >= _get_max_active_item_slots(registry) and not allow_overflow:
 		return false
 
 	var next_item: Dictionary = item_data.duplicate(true)
+	next_item = _apply_item_runtime_visual_overrides(next_item, registry)
 	next_item["revealed"] = true
 	next_item["last_use_msec"] = last_item_use_msec
 	active_item_slots.append(next_item)
@@ -106,7 +205,10 @@ func _try_use_slot(
 	active_item_slots: Array,
 	owner: Object,
 	registry: Object,
-	apply_item_effect_callback: Callable
+	apply_item_effect_callback: Callable,
+	pending_use_backup_callback: Callable = Callable(),
+	ignore_cooldown: bool = false,
+	perf_logger: Object = null
 ) -> bool:
 	if slot_index < 0 or slot_index >= active_item_slots.size():
 		return false
@@ -119,17 +221,32 @@ func _try_use_slot(
 	_select_slot(registry, slot_index)
 
 	var now_msec: int = Time.get_ticks_msec()
-	if not _is_item_ready(item_data, now_msec):
+	if not ignore_cooldown and not _is_item_ready(item_data, now_msec, registry):
 		return false
 
 	if not apply_item_effect_callback.is_valid():
 		return false
-	if not bool(apply_item_effect_callback.call(item_data, owner, registry)):
+	var item_label: String = _build_item_label(item_data)
+	var sample_start: int = _perf_begin(perf_logger)
+	var applied: bool = bool(apply_item_effect_callback.call(item_data, owner, registry))
+	_perf_end(perf_logger, "physics.callback.active_items.use.%s" % item_label, sample_start)
+	if not applied:
 		return false
+	sample_start = _perf_begin(perf_logger)
+	_apply_active_item_use_gauge_bonus(owner, registry)
+	_perf_end(perf_logger, "physics.callback.active_items.use_gauge_bonus", sample_start)
+	var consumable: bool = bool(item_data.get("consumable", true))
+	var recycle_triggered: bool = consumable and _should_recycle_used_item(registry)
+	if consumable and not recycle_triggered and pending_use_backup_callback.is_valid():
+		pending_use_backup_callback.call(item_data.duplicate(true), slot_index, owner, registry)
 
 	item_data["last_use_msec"] = now_msec
 	last_item_use_msec = now_msec
-	if bool(item_data.get("consumable", true)):
+	if recycle_triggered:
+		_mark_alchemy_notice(item_data, now_msec)
+		active_item_slots[slot_index] = item_data
+		_play_alchemy_feedback(registry)
+	elif consumable:
 		active_item_slots.remove_at(slot_index)
 		_select_slot(registry, max(0, min(slot_index, active_item_slots.size() - 1)))
 	else:
@@ -143,19 +260,123 @@ func _try_use_slot(
 	return true
 
 
+func _copy_slots_for_use(active_item_slots: Array) -> Array:
+	return active_item_slots.duplicate(true)
+
+
+func _slot_matches_item(item_value: Variant, item_name: String) -> bool:
+	if not (item_value is Dictionary):
+		return false
+	var item_data: Dictionary = item_value
+	return str(item_data.get("name", "")) == item_name or str(item_data.get("effect", "")) == item_name
+
+
+func _build_item_label(item_data: Dictionary) -> String:
+	var raw_label: String = str(item_data.get("name", item_data.get("effect", "unknown")))
+	if raw_label == "":
+		raw_label = "unknown"
+	return raw_label.strip_edges().to_lower().replace(" ", "_").replace("-", "_")
+
+
 func _sync_slot_key_states() -> void:
 	for i in range(SLOT_KEY_CODES.size()):
 		slot_key_pressed[i] = Input.is_key_pressed(int(SLOT_KEY_CODES[i]))
 
 
-func _is_item_ready(item_data: Dictionary, now_msec: int) -> bool:
-	var cooldown_msec: int = max(0, int(item_data.get("cooldown_msec", DEFAULT_COOLDOWN_MSEC)))
+func _is_item_ready(item_data: Dictionary, now_msec: int, registry: Object) -> bool:
+	var cooldown_msec: int = _get_effective_active_item_cooldown_msec(item_data, registry)
 	if now_msec - last_item_use_msec < cooldown_msec:
 		return false
 	var last_use_msec: int = int(item_data.get("last_use_msec", item_data.get("last_use", -1)))
 	if last_use_msec < 0:
 		return true
 	return now_msec - last_use_msec >= cooldown_msec
+
+
+func _get_effective_active_item_cooldown_msec(item_data: Dictionary, registry: Object) -> int:
+	var base_cooldown_msec: int = max(0, int(item_data.get("cooldown_msec", item_data.get("cooldown_ms", DEFAULT_COOLDOWN_MSEC))))
+	var cooldown_msec: int = base_cooldown_msec
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_active_item_cooldown_msec"):
+		cooldown_msec = int(runtime_perk_state.get_active_item_cooldown_msec(cooldown_msec))
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_active_item_cooldown_msec"):
+		cooldown_msec = int(mythic_item_runtime.get_active_item_cooldown_msec(cooldown_msec))
+	return max(0, cooldown_msec)
+
+
+func _should_recycle_used_item(registry: Object) -> bool:
+	var chance: float = _get_active_item_recycle_chance(registry)
+	return chance > 0.0 and randf() < chance
+
+
+func _get_active_item_recycle_chance(registry: Object) -> float:
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_active_item_recycle_chance"):
+		return clamp(float(runtime_perk_state.get_active_item_recycle_chance()), 0.0, 0.90)
+	return 0.0
+
+
+func _mark_alchemy_notice(item_data: Dictionary, now_msec: int) -> void:
+	item_data["alchemy_notice_until_msec"] = now_msec + ALCHEMY_NOTICE_DURATION_MSEC
+	item_data["alchemy_notice_started_msec"] = now_msec
+
+
+func _play_alchemy_feedback(registry: Object) -> void:
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio != null:
+		if audio.has_method("play_alchemy"):
+			audio.play_alchemy()
+		elif audio.has_method("play_active_item"):
+			audio.play_active_item()
+
+
+func _get_max_active_item_slots(registry: Object) -> int:
+	var capacity: int = MAX_ACTIVE_ITEM_SLOTS
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_active_item_slot_capacity"):
+		capacity = int(runtime_perk_state.get_active_item_slot_capacity(capacity))
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_active_item_slot_capacity"):
+		capacity = int(mythic_item_runtime.get_active_item_slot_capacity(capacity))
+	return max(1, capacity)
+
+
+func _apply_active_item_use_gauge_bonus(owner: Object, registry: Object) -> void:
+	if owner == null:
+		return
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state == null or not runtime_perk_state.has_method("get_active_item_use_gauge_bonus"):
+		return
+	var gauge_bonus: float = float(runtime_perk_state.get_active_item_use_gauge_bonus())
+	if gauge_bonus <= 0.0:
+		return
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_gold_digger_gauge_bonus"):
+		gauge_bonus = float(mythic_item_runtime.apply_gold_digger_gauge_bonus(gauge_bonus))
+	var current_gauge: float = float(BattleSceneOwnerReader.get_value(owner, "special_gauge", 0.0))
+	var gauge_max: float = max(1.0, float(BattleSceneOwnerReader.get_value(owner, "special_gauge_max", 500.0)))
+	owner.set("special_gauge", min(gauge_max, current_gauge + gauge_bonus))
+	var feedback: Object = _get_instance(registry, "battle_feedback_state")
+	if feedback != null and feedback.has_method("trigger_gauge_flash"):
+		feedback.trigger_gauge_flash()
+
+
+func _apply_item_runtime_visual_overrides(item_data: Dictionary, registry: Object) -> Dictionary:
+	var item_name: String = str(item_data.get("name", item_data.get("effect", "")))
+	var effect_name: String = str(item_data.get("effect", ""))
+	if item_name != "boomerang" and effect_name != "boomerang":
+		return item_data
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("is_reinforced_boomerang_gauntlet_equipped"):
+		return item_data
+	if not bool(mythic_item_runtime.is_reinforced_boomerang_gauntlet_equipped()):
+		return item_data
+	var result: Dictionary = item_data.duplicate(true)
+	result["icon_path"] = ActiveItemCatalog.BOOMERANG_METAL_ICON_PATH
+	result["color"] = Color(150.0 / 255.0, 220.0 / 255.0, 1.0)
+	result["visual_variant"] = "metal"
+	return result
 
 
 func _select_slot(registry: Object, slot_index: int) -> void:
@@ -175,3 +396,14 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)

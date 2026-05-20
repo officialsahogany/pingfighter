@@ -19,6 +19,7 @@ const ENCOUNTER_REVEAL_BANDS := 18
 
 const STAGE_BACKGROUND_PATHS := {
 	1: "res://assets/sprites/hud/stage1_landing_zoom_background_cyber_joseon_imagegen_v2_realesrgan_animev3_2x.png",
+	2: "res://assets/sprites/hud/stage2_landing_zoom_background_imagegen_v1.png",
 	3: "res://assets/sprites/hud/stage3_landing_zoom_background_imagegen_v1.png",
 	4: "res://assets/sprites/hud/stage4_landing_zoom_background_imagegen_v1.png",
 }
@@ -28,6 +29,11 @@ const STAGE_INFO := {
 		"title": "STAGE 1",
 		"subtitle": "조선 골목",
 		"color": Color(1.0, 0.86, 0.86, 1.0),
+	},
+	2: {
+		"title": "STAGE 2",
+		"subtitle": "정글 지진",
+		"color": Color(0.58, 1.0, 0.66, 1.0),
 	},
 	3: {
 		"title": "STAGE 3",

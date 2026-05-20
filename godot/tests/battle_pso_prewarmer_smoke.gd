@@ -81,6 +81,8 @@ func _verify_second_pass_warmup_scope() -> void:
 	_expect(prewarmer.has_method("_prewarm_playfield_primitives"), "prewarmer should cover Stage 1 playfield texture and primitive PSOs")
 	_expect(prewarmer.has_method("_prewarm_stage2_center_primitives"), "prewarmer should cover Stage 2 center playfield primitives")
 	_expect(prewarmer.has_method("_prewarm_stage2_leaf_primitives"), "prewarmer should cover Stage 2 falling-leaf polygon PSOs")
+	_expect(prewarmer.has_method("_prewarm_stage2_pillar_background_textures"), "prewarmer should cover Stage 2 pillar background texture draws")
+	_expect(prewarmer.has_method("_prewarm_stage3_pillar_background_textures"), "prewarmer should cover Stage 3 pillar background texture draws")
 	_expect(prewarmer.has_method("_prewarm_dash_token_boost_shader_states"), "prewarmer should cover dash token boost shader-state PSOs")
 	_expect(prewarmer.has_method("_prewarm_common_starpoint_drop_shader"), "prewarmer should cover common starpoint drop shader PSOs")
 	_expect(prewarmer.has_method("_prewarm_draw_step"), "prewarmer should stage warmup families across multiple draw frames")
@@ -89,6 +91,7 @@ func _verify_second_pass_warmup_scope() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/core/battle_pso_prewarmer.gd")
 	_expect(source.find("compact_fallback_frame") >= 0, "prewarmer should exercise the compact boss-dash fallback frame")
 	_expect(source.find("VIPER_SKILL_ICON_PATHS") >= 0, "prewarmer should draw selected-character skill icon texture families")
+	_expect(source.find("draw_mesh") >= 0 and source.find("_get_filled_ellipse_mesh") >= 0, "prewarmer should exercise the active-item filled ellipse mesh path")
 	# The three live dash-orb boost shader paths must each be exercised so the
 	# GPU compiles every branch of dash_token_boost_ring.gdshader before the
 	# first real boost event lands in gameplay.
@@ -150,9 +153,16 @@ func _verify_attach_helper_idempotence() -> void:
 	controller._attach_battle_pso_prewarmer(owner)
 	var prewarmer_children: int = 0
 	for child in owner.get_children():
-		if child.name == "BattlePsoPrewarmer":
+		if child is BattlePsoPrewarmer:
 			prewarmer_children += 1
 	_expect(prewarmer_children == 1, "attach helper must be idempotent so repeated stage transitions never duplicate the prewarmer")
+	owner.current_stage = 2
+	controller._attach_battle_pso_prewarmer(owner)
+	prewarmer_children = 0
+	for child in owner.get_children():
+		if child is BattlePsoPrewarmer:
+			prewarmer_children += 1
+	_expect(prewarmer_children == 2, "attach helper should re-arm the PSO prewarmer once for a newly entered stage")
 	owner.queue_free()
 
 

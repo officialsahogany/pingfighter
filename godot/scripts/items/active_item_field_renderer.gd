@@ -17,6 +17,25 @@ const ITEM_SPAWN_PORTAL_DRAW_SIZE := 104.0
 const SUSTAINED_OPEN_FRAME_INDEX := ITEM_SPAWN_PORTAL_RELEASE_FRAME
 const SUSTAINED_OPENING_DURATION_MSEC := 438
 const SUSTAINED_CLOSING_DURATION_MSEC := 500
+const ITEM_SPAWN_PORTAL_RENDER_LIMIT := 4
+const FIELD_ITEM_SPAWN_SPARK_RENDER_LIMIT := 3
+const SPAWN_SPARK_RAY_COUNT := 4
+const SPAWN_SPARK_SEGMENT_COUNT := 2
+const DIMENSION_GATE_ARC_POINT_COUNT := 14
+const DIMENSION_GATE_RING_RENDER_LIMIT := 3
+const LUCKY_COIN_BONUS_SPARK_COUNT := 3
+const FIELD_ITEM_DETAIL_LOD_THRESHOLD := 12
+const FIELD_ITEM_DECORATIVE_GLOW_RENDER_LIMIT := 12
+const FIELD_ITEM_LUCKY_GLOW_RENDER_LIMIT := 4
+const DIMENSION_GATE_RAINBOW_COLORS := [
+	Color(1.0, 0.0, 0.0),
+	Color(1.0, 127.0 / 255.0, 0.0),
+	Color(1.0, 1.0, 0.0),
+	Color(0.0, 1.0, 0.0),
+	Color(0.0, 0.0, 1.0),
+	Color(75.0 / 255.0, 0.0, 130.0 / 255.0),
+	Color(148.0 / 255.0, 0.0, 211.0 / 255.0),
+]
 
 var portal_sheet_texture: Texture2D
 var unknown_item_sheet_texture: Texture2D
@@ -29,34 +48,68 @@ func prewarm_assets() -> void:
 	_touch_texture(_get_unknown_item_fallback_texture())
 
 
-func draw(canvas: CanvasItem, portals: Array, field_items: Array, shake_offset: Vector2 = Vector2.ZERO) -> void:
+func draw(
+	canvas: CanvasItem,
+	portals: Array,
+	field_items: Array,
+	shake_offset: Vector2 = Vector2.ZERO,
+	perf_logger: Object = null
+) -> void:
 	if canvas == null:
 		return
 
-	_draw_item_spawn_portals(canvas, portals, shake_offset)
+	var now_msec: int = Time.get_ticks_msec()
+	var remaining_spawn_sparks := FIELD_ITEM_SPAWN_SPARK_RENDER_LIMIT
+	var detail_perf_logger: Object = perf_logger if _should_sample_detail(perf_logger, "active_item.field_items") else null
+	var sample_start: int = _perf_begin(detail_perf_logger)
+	_draw_item_spawn_portals(canvas, portals, shake_offset, now_msec)
+	_perf_end(detail_perf_logger, "active_item.field_items.portals", sample_start)
+	sample_start = _perf_begin(detail_perf_logger)
+	var field_item_count: int = field_items.size()
+	var decorative_glow_start: int = _recent_start(field_items, FIELD_ITEM_DECORATIVE_GLOW_RENDER_LIMIT) if field_item_count > FIELD_ITEM_DETAIL_LOD_THRESHOLD else 0
+	var lucky_glow_remaining := FIELD_ITEM_LUCKY_GLOW_RENDER_LIMIT
+	var item_index := -1
 	for item_value in field_items:
+		item_index += 1
 		if not (item_value is Dictionary):
 			continue
 		var item: Dictionary = item_value
-		_draw_spawn_electric_spark(canvas, item, shake_offset)
-		_draw_field_item(canvas, item, shake_offset)
+		if remaining_spawn_sparks > 0 and float(item.get("spawn_spark_timer", 0.0)) > 0.0:
+			var spark_start: int = _perf_begin(detail_perf_logger)
+			_draw_spawn_electric_spark(canvas, item, shake_offset, now_msec)
+			_perf_end(detail_perf_logger, "active_item.field_items.spawn_sparks", spark_start)
+			remaining_spawn_sparks -= 1
+		var draw_decorative_glow: bool = item_index >= decorative_glow_start
+		var draw_lucky_glow: bool = draw_decorative_glow and lucky_glow_remaining > 0
+		_draw_field_item(canvas, item, shake_offset, now_msec, draw_decorative_glow, draw_lucky_glow)
+		if draw_lucky_glow and bool(item.get("lucky_bonus", false)):
+			lucky_glow_remaining -= 1
+	_perf_end(detail_perf_logger, "active_item.field_items.items", sample_start)
 
 
-func _draw_field_item(canvas: CanvasItem, field_item: Dictionary, shake_offset: Vector2) -> void:
+func _draw_field_item(
+	canvas: CanvasItem,
+	field_item: Dictionary,
+	shake_offset: Vector2,
+	now_msec: int,
+	draw_decorative_glow: bool = true,
+	draw_lucky_glow: bool = true
+) -> void:
 	var center: Vector2 = _get_vector2(field_item, "position", Vector2.ZERO) + shake_offset
 	var item_data: Dictionary = _get_dictionary(field_item, "item_data")
 	var item_color: Color = _get_item_color(item_data)
-	var t: float = Time.get_ticks_msec() / 1000.0
-	var pulse: float = 0.5 + 0.5 * sin(t * 5.2)
-	var glow_radius: float = FIELD_ITEM_DRAW_SIZE * (0.38 + pulse * 0.05)
-	canvas.draw_circle(center, glow_radius, Color(item_color.r, item_color.g, item_color.b, 0.20))
-	if bool(field_item.get("lucky_bonus", false)):
+	var t: float = float(now_msec) / 1000.0
+	if draw_decorative_glow:
+		var pulse: float = 0.5 + 0.5 * sin(t * 5.2)
+		var glow_radius: float = FIELD_ITEM_DRAW_SIZE * (0.38 + pulse * 0.05)
+		canvas.draw_circle(center, glow_radius, Color(item_color.r, item_color.g, item_color.b, 0.20))
+	if draw_lucky_glow and bool(field_item.get("lucky_bonus", false)):
 		_draw_lucky_coin_bonus_glow(canvas, center, t)
 	canvas.draw_circle(center, FIELD_ITEM_DRAW_SIZE * 0.31, Color(0.08, 0.10, 0.18, 0.48))
-	_draw_unknown_item_icon(canvas, center, float(field_item.get("angle_degrees", 0.0)))
+	_draw_unknown_item_icon(canvas, center, float(field_item.get("angle_degrees", 0.0)), now_msec)
 
 
-func _draw_unknown_item_icon(canvas: CanvasItem, center: Vector2, angle_degrees: float) -> void:
+func _draw_unknown_item_icon(canvas: CanvasItem, center: Vector2, angle_degrees: float, now_msec: int) -> void:
 	var icon_size := Vector2(FIELD_ITEM_DRAW_SIZE, FIELD_ITEM_DRAW_SIZE)
 	var sheet: Texture2D = _get_unknown_item_sheet_texture()
 	if sheet != null:
@@ -64,8 +117,7 @@ func _draw_unknown_item_icon(canvas: CanvasItem, center: Vector2, angle_degrees:
 		var frame_size: float = sheet_size.y
 		var frame_count: int = int(floor(sheet_size.x / frame_size)) if frame_size > 0.0 else 0
 		if frame_count > 0:
-			@warning_ignore("integer_division")
-			var frame_index: int = int(Time.get_ticks_msec() / UNKNOWN_ITEM_FRAME_MSEC) % frame_count
+			var frame_index: int = int(floor(float(now_msec) / float(UNKNOWN_ITEM_FRAME_MSEC))) % frame_count
 			var source_rect := Rect2(float(frame_index) * frame_size, 0.0, frame_size, frame_size)
 			_draw_rotated_texture_region(canvas, sheet, source_rect, center, icon_size, angle_degrees)
 			return
@@ -83,18 +135,18 @@ func _draw_lucky_coin_bonus_glow(canvas: CanvasItem, center: Vector2, t: float) 
 	var pulse: float = 0.5 + 0.5 * sin(t * 7.0)
 	canvas.draw_circle(center, FIELD_ITEM_DRAW_SIZE * (0.48 + 0.06 * pulse), Color(1.0, 0.78, 0.14, 0.26))
 	canvas.draw_circle(center, FIELD_ITEM_DRAW_SIZE * (0.40 + 0.04 * pulse), Color(1.0, 0.95, 0.35, 0.18))
-	for i in range(6):
-		var angle: float = t * 2.4 + float(i) * TAU / 6.0
+	for i in range(LUCKY_COIN_BONUS_SPARK_COUNT):
+		var angle: float = t * 2.4 + float(i) * TAU / float(LUCKY_COIN_BONUS_SPARK_COUNT)
 		var spark_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * FIELD_ITEM_DRAW_SIZE * (0.43 + 0.05 * pulse)
 		canvas.draw_circle(spark_pos, 2.0 + pulse * 1.2, Color(1.0, 0.92, 0.36, 0.72))
 
 
-func _draw_item_spawn_portals(canvas: CanvasItem, portals: Array, shake_offset: Vector2) -> void:
+func _draw_item_spawn_portals(canvas: CanvasItem, portals: Array, shake_offset: Vector2, now_msec: int) -> void:
 	if portals.is_empty():
 		return
-	var now_msec: int = Time.get_ticks_msec()
 	var sheet: Texture2D = _get_portal_sheet_texture()
-	for portal_value in portals:
+	for portal_index in range(_recent_start(portals, ITEM_SPAWN_PORTAL_RENDER_LIMIT), portals.size()):
+		var portal_value: Variant = portals[portal_index]
 		if not (portal_value is Dictionary):
 			continue
 		var portal: Dictionary = portal_value
@@ -170,48 +222,42 @@ func _draw_dimension_gate_rainbow_effect(
 	var start_msec: int = int(portal.get("start_msec", now_msec))
 	var animation_frame: float = max(0.0, float(now_msec - start_msec) * 0.06)
 	var center: Vector2 = _get_vector2(portal, "position", Vector2.ZERO) + shake_offset
-	var rainbow_colors := [
-		Color(1.0, 0.0, 0.0),
-		Color(1.0, 127.0 / 255.0, 0.0),
-		Color(1.0, 1.0, 0.0),
-		Color(0.0, 1.0, 0.0),
-		Color(0.0, 0.0, 1.0),
-		Color(75.0 / 255.0, 0.0, 130.0 / 255.0),
-		Color(148.0 / 255.0, 0.0, 211.0 / 255.0),
-	]
-	for i in range(rainbow_colors.size()):
-		var color: Color = rainbow_colors[i]
-		var angle: float = deg_to_rad(fmod(animation_frame * 3.0 + float(i) * 360.0 / float(rainbow_colors.size()), 360.0))
+	var color_count: int = DIMENSION_GATE_RAINBOW_COLORS.size()
+	var ring_count: int = min(DIMENSION_GATE_RING_RENDER_LIMIT, color_count)
+	for ring_index in range(ring_count):
+		var color_index: int = int(round(float(ring_index) * float(color_count - 1) / float(max(1, ring_count - 1))))
+		var color: Color = DIMENSION_GATE_RAINBOW_COLORS[color_index]
+		var angle: float = deg_to_rad(fmod(animation_frame * 3.0 + float(ring_index) * 360.0 / float(ring_count), 360.0))
 		var pulse: float = sin(animation_frame * 0.1) * 10.0
-		var radius: float = 50.0 + pulse + float(i) * 8.0
-		var alpha: float = (100.0 + 55.0 * sin(animation_frame * 0.05 + float(i))) / 255.0
+		var radius: float = 50.0 + pulse + float(ring_index) * 9.5
+		var alpha: float = (100.0 + 55.0 * sin(animation_frame * 0.05 + float(ring_index))) / 255.0
 		var offset := Vector2(cos(angle), sin(angle)) * 20.0
 		var ring_color := Color(color.r, color.g, color.b, clamp(alpha, 0.0, 1.0))
-		canvas.draw_arc(center + offset, max(1.0, radius), 0.0, TAU, 72, ring_color, 3.0)
+		canvas.draw_arc(center + offset, max(1.0, radius), 0.0, TAU, DIMENSION_GATE_ARC_POINT_COUNT, ring_color, 2.5)
 
 	var glow_radius: float = 30.0 + sin(animation_frame * 0.15) * 10.0
 	var glow_alpha: float = (150.0 + 50.0 * sin(animation_frame * 0.2)) / 255.0
 	canvas.draw_circle(center, max(1.0, glow_radius), Color(1.0, 1.0, 1.0, clamp(glow_alpha, 0.0, 1.0)))
 
 
-func _draw_spawn_electric_spark(canvas: CanvasItem, field_item: Dictionary, shake_offset: Vector2) -> void:
+func _draw_spawn_electric_spark(canvas: CanvasItem, field_item: Dictionary, shake_offset: Vector2, now_msec: int) -> void:
 	var remaining: float = float(field_item.get("spawn_spark_timer", 0.0))
 	if remaining <= 0.0:
 		return
 	var progress: float = 1.0 - (remaining / SPAWN_SPARK_DURATION_SEC)
 	var alpha_scale: float = pow(1.0 - clamp(progress, 0.0, 1.0), 0.65)
 	var center: Vector2 = _get_vector2(field_item, "position", Vector2.ZERO) + shake_offset
-	var now: float = Time.get_ticks_msec() / 1000.0
+	var now: float = float(now_msec) / 1000.0
 	var ring_radius: float = 25.0 + 8.0 * sin(now * 35.0)
 	canvas.draw_arc(center, max(18.0, ring_radius), 0.0, TAU, 34, Color(70.0 / 255.0, 210.0 / 255.0, 1.0, 0.34 * alpha_scale), 2.0)
 
-	for i in range(8):
-		var angle: float = now * 7.0 + float(i) * TAU / 8.0 + sin(now * 3.0 + float(i)) * 0.18
+	for i in range(SPAWN_SPARK_RAY_COUNT):
+		var angle: float = now * 7.0 + float(i) * TAU / float(SPAWN_SPARK_RAY_COUNT) + sin(now * 3.0 + float(i)) * 0.18
 		var inner: float = 16.0 + fmod(float(i) * 4.7, 11.0)
 		var outer: float = 32.0 + fmod(float(i) * 6.1, 13.0)
 		var prev: Vector2 = center + Vector2(cos(angle), sin(angle)) * inner
-		for segment in range(1, 4):
-			var ratio: float = float(segment) / 3.0
+		for segment in range(1, SPAWN_SPARK_SEGMENT_COUNT + 1):
+			var ratio: float = float(segment) / float(SPAWN_SPARK_SEGMENT_COUNT)
 			var jitter: float = sin(now * 13.0 + float(i * 5 + segment)) * 0.22
 			var point: Vector2 = center + Vector2(cos(angle + jitter), sin(angle + jitter)) * lerp(inner, outer, ratio)
 			var spark_color: Color = Color(0.66, 0.86, 1.0, 0.72 * alpha_scale)
@@ -344,6 +390,12 @@ func _touch_texture(texture: Texture2D) -> void:
 		texture.get_size()
 
 
+func _recent_start(source: Array, render_limit: int) -> int:
+	if render_limit <= 0:
+		return source.size()
+	return max(0, source.size() - render_limit)
+
+
 func _get_item_color(item_data: Dictionary) -> Color:
 	return _get_color(
 		item_data.get("color", Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0)),
@@ -371,3 +423,20 @@ func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
+
+
+func _should_sample_detail(perf_logger: Object, label: String) -> bool:
+	if perf_logger == null or not perf_logger.has_method("should_sample_detail"):
+		return false
+	return bool(perf_logger.should_sample_detail(label))

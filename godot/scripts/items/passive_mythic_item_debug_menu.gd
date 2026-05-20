@@ -263,13 +263,14 @@ func _draw_selected_item_grid(
 ) -> void:
 	var items: Array = _get_selected_tab_items(runtime)
 	var inventory: Array = _get_inventory(runtime)
+	var inventory_lookup: Dictionary = _build_inventory_lookup(inventory)
 	var hovered_index: int = _get_cell_index_at(mouse_pos, panel_rect)
 	for index in range(GRID_CAPACITY):
 		var cell_rect: Rect2 = _get_cell_rect(panel_rect, index)
 		if index < items.size():
 			var item_data: Dictionary = _get_dict(items[index])
 			var item_name: String = str(item_data.get("name", ""))
-			_draw_item_cell(canvas, cell_rect, item_data, inventory, index == hovered_index, _get_inventory_item_count(item_name, inventory))
+			_draw_item_cell(canvas, cell_rect, item_data, inventory_lookup, index == hovered_index, _get_inventory_item_count_from_lookup(item_name, inventory_lookup))
 		else:
 			_draw_empty_cell(canvas, cell_rect, index == hovered_index)
 	if items.is_empty():
@@ -278,11 +279,19 @@ func _draw_selected_item_grid(
 	if hovered_index >= 0 and hovered_index < items.size():
 		var hovered_item_data: Dictionary = _get_dict(items[hovered_index])
 		var hovered_item_name: String = str(hovered_item_data.get("name", ""))
-		_draw_hover_tooltip(canvas, font, hovered_item_data, inventory, _get_cell_rect(panel_rect, hovered_index), view_size, _get_inventory_item_count(hovered_item_name, inventory))
+		_draw_hover_tooltip(
+			canvas,
+			font,
+			hovered_item_data,
+			inventory_lookup,
+			_get_cell_rect(panel_rect, hovered_index),
+			view_size,
+			_get_inventory_item_count_from_lookup(hovered_item_name, inventory_lookup)
+		)
 
 
-func _draw_item_cell(canvas: CanvasItem, cell_rect: Rect2, item_data: Dictionary, inventory: Array, hovered: bool, item_count: int = 0) -> void:
-	var display_item: Dictionary = _get_display_item_data(item_data, inventory)
+func _draw_item_cell(canvas: CanvasItem, cell_rect: Rect2, item_data: Dictionary, inventory_lookup: Dictionary, hovered: bool, item_count: int = 0) -> void:
+	var display_item: Dictionary = _get_display_item_data_from_lookup(item_data, inventory_lookup)
 	var rarity: String = str(item_data.get("rarity", item_data.get("type", ""))).to_lower()
 	var base := Color(0.095, 0.115, 0.150, 0.96)
 	var border := Color(0.24, 0.35, 0.48, 0.70)
@@ -302,8 +311,8 @@ func _draw_item_cell(canvas: CanvasItem, cell_rect: Rect2, item_data: Dictionary
 	_draw_item_icon(canvas, icon_rect, item_data)
 
 	var item_name: String = str(item_data.get("name", ""))
-	var equipped: bool = _is_inventory_item_equipped(item_name, inventory)
-	var owned: bool = _get_inventory_index_for_item_name_in_inventory(inventory, item_name) >= 0
+	var equipped: bool = _is_inventory_item_equipped_from_lookup(item_name, inventory_lookup)
+	var owned: bool = _is_inventory_item_owned_from_lookup(item_name, inventory_lookup)
 	if equipped:
 		canvas.draw_circle(cell_rect.position + Vector2(cell_rect.size.x - 7.0, 7.0), 4.0, Color(0.42, 1.0, 0.62, 0.96))
 	elif owned:
@@ -344,7 +353,7 @@ func _draw_hover_tooltip(
 	canvas: CanvasItem,
 	font: Font,
 	item_data: Dictionary,
-	inventory: Array,
+	inventory_lookup: Dictionary,
 	cell_rect: Rect2,
 	view_size: Vector2,
 	item_count: int = 0
@@ -358,12 +367,12 @@ func _draw_hover_tooltip(
 	tooltip_pos.x = clamp(tooltip_pos.x, 8.0, max(8.0, view_size.x - tooltip_size.x - 8.0))
 	tooltip_pos.y = clamp(tooltip_pos.y, 8.0, max(8.0, view_size.y - tooltip_size.y - 8.0))
 
-	var display_item: Dictionary = _get_display_item_data(item_data, inventory)
+	var display_item: Dictionary = _get_display_item_data_from_lookup(item_data, inventory_lookup)
 	var item_name: String = str(item_data.get("name", ""))
 	var display_name: String = PassiveItemQuality.format_item_display_name(display_item)
 	var title_color: Color = PassiveItemQuality.get_item_quality_color(display_item, Color(0.94, 0.98, 1.0))
 	var slot_label: String = _slot_display_label(str(item_data.get("slot", "")))
-	var status_text: String = _catalog_item_status(item_name, inventory)
+	var status_text: String = _catalog_item_status_from_lookup(item_name, inventory_lookup)
 	if item_count > 0:
 		status_text = "%s x%d" % [status_text, item_count]
 	var description: String = str(item_data.get("description", ""))
@@ -800,6 +809,74 @@ func _get_display_item_data(catalog_item: Dictionary, inventory: Array) -> Dicti
 			if str(inventory_item.get("name", "")) == item_name:
 				return inventory_item
 	return catalog_item
+
+
+func _build_inventory_lookup(inventory: Array) -> Dictionary:
+	var items_by_name: Dictionary = {}
+	var counts_by_name: Dictionary = {}
+	var equipped_by_name: Dictionary = {}
+	var owned_by_name: Dictionary = {}
+	for item_value in inventory:
+		var item_data: Dictionary = _get_dict(item_value)
+		var item_name: String = str(item_data.get("name", ""))
+		if item_name == "":
+			continue
+		if not items_by_name.has(item_name):
+			items_by_name[item_name] = item_data
+		counts_by_name[item_name] = int(counts_by_name.get(item_name, 0)) + 1
+		owned_by_name[item_name] = true
+		if bool(item_data.get("equipped", false)) or str(item_data.get("_equipped_slot", "")) != "":
+			equipped_by_name[item_name] = true
+	return {
+		"items_by_name": items_by_name,
+		"counts_by_name": counts_by_name,
+		"equipped_by_name": equipped_by_name,
+		"owned_by_name": owned_by_name,
+	}
+
+
+func _get_display_item_data_from_lookup(catalog_item: Dictionary, inventory_lookup: Dictionary) -> Dictionary:
+	var item_name: String = str(catalog_item.get("name", ""))
+	if item_name == "":
+		return catalog_item
+	var items_by_name: Dictionary = _get_dict(inventory_lookup.get("items_by_name", {}))
+	var item_value: Variant = items_by_name.get(item_name, null)
+	if item_value is Dictionary:
+		return item_value
+	return catalog_item
+
+
+func _get_inventory_item_count_from_lookup(item_name: String, inventory_lookup: Dictionary) -> int:
+	if item_name == "":
+		return 0
+	var counts_by_name: Dictionary = _get_dict(inventory_lookup.get("counts_by_name", {}))
+	return int(counts_by_name.get(item_name, 0))
+
+
+func _is_inventory_item_equipped_from_lookup(item_name: String, inventory_lookup: Dictionary) -> bool:
+	if item_name == "":
+		return false
+	var equipped_by_name: Dictionary = _get_dict(inventory_lookup.get("equipped_by_name", {}))
+	return bool(equipped_by_name.get(item_name, false))
+
+
+func _is_inventory_item_owned_from_lookup(item_name: String, inventory_lookup: Dictionary) -> bool:
+	if item_name == "":
+		return false
+	var owned_by_name: Dictionary = _get_dict(inventory_lookup.get("owned_by_name", {}))
+	return bool(owned_by_name.get(item_name, false))
+
+
+func _catalog_item_status_from_lookup(item_name: String, inventory_lookup: Dictionary) -> String:
+	var item_data: Dictionary = _get_display_item_data_from_lookup({"name": item_name}, inventory_lookup).duplicate(true)
+	if item_data.is_empty():
+		item_data["name"] = item_name
+	if _is_inventory_item_equipped_from_lookup(item_name, inventory_lookup):
+		item_data["equipped"] = true
+		return _catalog_item_status(item_name, [item_data])
+	if _is_inventory_item_owned_from_lookup(item_name, inventory_lookup):
+		return _catalog_item_status(item_name, [item_data])
+	return _catalog_item_status(item_name, [])
 
 
 func _filter_debug_items(items: Array, rarity_filter: String) -> Array:

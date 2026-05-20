@@ -11,7 +11,8 @@ func update(
 	player_pos: Vector2,
 	play_left: float,
 	play_right: float,
-	paddle_width: float
+	paddle_width: float,
+	recovery_frames: float = 42.0
 ) -> Dictionary:
 	var player_speed_zero: bool = false
 
@@ -41,7 +42,8 @@ func update(
 		paddle_width,
 		float(state.get("dash_direction")),
 		float(state.get("dash_timer")),
-		bool(state.get("dash_is_half"))
+		bool(state.get("dash_is_half")),
+		recovery_frames
 	)
 	player_pos = active_update.get("player_pos", player_pos)
 	state.set("dash_timer", float(active_update.get("timer", state.get("dash_timer"))))
@@ -50,11 +52,14 @@ func update(
 	if bool(active_update.get("ended", false)):
 		player_speed_zero = true
 		var recovery_timer: float = float(active_update.get("recovery_timer", 0.0))
+		if bool(state.get("dash_skip_recovery")):
+			recovery_timer = 0.0
 		state.set("dash_active", false)
 		state.set("dash_elapsed_frames", 0.0)
 		state.set("dash_stun_timer", recovery_timer)
 		state.set("dash_recovery_total_frames", recovery_timer)
 		state.set("dash_available_timer", float(state.get("dash_stun_timer")))
+		state.set("dash_skip_recovery", false)
 
 	return {
 		"player_pos": player_pos,

@@ -1,33 +1,64 @@
 extends RefCounted
 
-const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
-const MythicItemAudioRouter := preload("res://scripts/items/mythic_item_audio_router.gd")
-const MythicItemContextBuilder := preload("res://scripts/items/mythic_item_context_builder.gd")
-const MythicItemDebugInventory := preload("res://scripts/items/mythic_item_debug_inventory.gd")
-const MythicItemEquipmentIndex := preload("res://scripts/items/mythic_item_equipment_index.gd")
-const MythicItemOwnerSyncer := preload("res://scripts/items/mythic_item_owner_syncer.gd")
-const MythicItemPickupBonus := preload("res://scripts/items/mythic_item_pickup_bonus.gd")
-const MythicItemRollQuery := preload("res://scripts/items/mythic_item_roll_query.gd")
-const MythicItemStageImmunity := preload("res://scripts/items/mythic_item_stage_immunity.gd")
-const PassiveMythicItemDebugMenu := preload("res://scripts/items/passive_mythic_item_debug_menu.gd")
-const MythicItemAcquisitionCinematicV2 := preload("res://scripts/items/mythic_item_acquisition_cinematic_v2.gd")
-const MythicItemSnapshotBuilder := preload("res://scripts/items/mythic_item_snapshot_builder.gd")
-const BaalBootsCombatState := preload("res://scripts/items/baal_boots_combat_state.gd")
-const BaalBootsEffectRenderer := preload("res://scripts/items/baal_boots_effect_renderer.gd")
-const BaalBootsEffectState := preload("res://scripts/items/baal_boots_effect_state.gd")
-const BaalBootsWeatherState := preload("res://scripts/items/baal_boots_weather_state.gd")
-const CelestialArmorState := preload("res://scripts/items/celestial_armor_state.gd")
-const FoulWhistleState := preload("res://scripts/items/foul_whistle_state.gd")
-const HermesShoesState := preload("res://scripts/items/hermes_shoes_state.gd")
-const MegingjordActivationEffectRenderer := preload("res://scripts/items/mythic_item_activation_effect_renderer.gd")
-const MythicItemFieldEffectRenderer := preload("res://scripts/items/mythic_item_field_effect_renderer.gd")
-const MythicItemSupportEffectRenderer := preload("res://scripts/items/mythic_item_support_effect_renderer.gd")
-const PandoraLegacyChoiceBuilder := preload("res://scripts/items/pandora_legacy_choice_builder.gd")
-const PandoraLegacyGrantRouter := preload("res://scripts/items/pandora_legacy_grant_router.gd")
-const PandoraLegacyPoolBuilder := preload("res://scripts/items/pandora_legacy_pool_builder.gd")
-const PandoraLegacySelectionRenderer := preload("res://scripts/items/mythic_item_pandora_selection_renderer.gd")
-const PandoraLegacySelectionState := preload("res://scripts/items/pandora_legacy_selection_state.gd")
-const RevivalState := preload("res://scripts/items/revival_state.gd")
+const HELPER_INIT_ORDER := [
+	"catalog",
+	"audio_router",
+	"context_builder",
+	"debug_inventory",
+	"equipment_index",
+	"owner_syncer",
+	"pickup_bonus",
+	"roll_query",
+	"stage_immunity",
+	"debug_management_menu",
+	"activation_effect_renderer",
+	"field_effect_renderer",
+	"support_effect_renderer",
+	"snapshot_builder",
+	"foul_whistle_state",
+	"revival_state",
+	"celestial_armor_state",
+	"hermes_shoes_state",
+	"baal_boots_effect_renderer",
+	"baal_boots_weather_state",
+	"baal_boots_effect_state",
+	"baal_boots_combat_state",
+	"pandora_legacy_choice_builder",
+	"pandora_legacy_grant_router",
+	"pandora_legacy_pool_builder",
+	"pandora_legacy_selection_renderer",
+	"pandora_legacy_selection_state",
+]
+const HELPER_SCRIPT_PATHS := {
+	"catalog": "res://scripts/items/mythic_item_catalog.gd",
+	"audio_router": "res://scripts/items/mythic_item_audio_router.gd",
+	"context_builder": "res://scripts/items/mythic_item_context_builder.gd",
+	"debug_inventory": "res://scripts/items/mythic_item_debug_inventory.gd",
+	"equipment_index": "res://scripts/items/mythic_item_equipment_index.gd",
+	"owner_syncer": "res://scripts/items/mythic_item_owner_syncer.gd",
+	"pickup_bonus": "res://scripts/items/mythic_item_pickup_bonus.gd",
+	"roll_query": "res://scripts/items/mythic_item_roll_query.gd",
+	"stage_immunity": "res://scripts/items/mythic_item_stage_immunity.gd",
+	"debug_management_menu": "res://scripts/items/passive_mythic_item_debug_menu.gd",
+	"activation_effect_renderer": "res://scripts/items/mythic_item_activation_effect_renderer.gd",
+	"field_effect_renderer": "res://scripts/items/mythic_item_field_effect_renderer.gd",
+	"support_effect_renderer": "res://scripts/items/mythic_item_support_effect_renderer.gd",
+	"snapshot_builder": "res://scripts/items/mythic_item_snapshot_builder.gd",
+	"foul_whistle_state": "res://scripts/items/foul_whistle_state.gd",
+	"revival_state": "res://scripts/items/revival_state.gd",
+	"celestial_armor_state": "res://scripts/items/celestial_armor_state.gd",
+	"hermes_shoes_state": "res://scripts/items/hermes_shoes_state.gd",
+	"baal_boots_effect_renderer": "res://scripts/items/baal_boots_effect_renderer.gd",
+	"baal_boots_weather_state": "res://scripts/items/baal_boots_weather_state.gd",
+	"baal_boots_effect_state": "res://scripts/items/baal_boots_effect_state.gd",
+	"baal_boots_combat_state": "res://scripts/items/baal_boots_combat_state.gd",
+	"pandora_legacy_choice_builder": "res://scripts/items/pandora_legacy_choice_builder.gd",
+	"pandora_legacy_grant_router": "res://scripts/items/pandora_legacy_grant_router.gd",
+	"pandora_legacy_pool_builder": "res://scripts/items/pandora_legacy_pool_builder.gd",
+	"pandora_legacy_selection_renderer": "res://scripts/items/mythic_item_pandora_selection_renderer.gd",
+	"pandora_legacy_selection_state": "res://scripts/items/pandora_legacy_selection_state.gd",
+}
+const ACQUISITION_CINEMATIC_SCRIPT_PATH := "res://scripts/items/mythic_item_acquisition_cinematic_v2.gd"
 
 const ITEM_MEGINGJORD := "megingjord"
 const ITEM_DOWSING_PENDULUM := "dowsing_pendulum"
@@ -347,20 +378,20 @@ const CONTEXT_CONSTANTS := {
 	"ragnarok_boss_stun_frame_msec": RAGNAROK_BOSS_STUN_FRAME_MSEC,
 }
 
-var catalog: Object = MythicItemCatalog.new()
-var audio_router: Object = MythicItemAudioRouter.new()
-var context_builder: Object = MythicItemContextBuilder.new()
-var debug_inventory: Object = MythicItemDebugInventory.new()
-var equipment_index: Object = MythicItemEquipmentIndex.new()
-var owner_syncer: Object = MythicItemOwnerSyncer.new()
-var pickup_bonus: Object = MythicItemPickupBonus.new()
-var roll_query: Object = MythicItemRollQuery.new()
-var stage_immunity: Object = MythicItemStageImmunity.new()
-var debug_management_menu: Object = PassiveMythicItemDebugMenu.new()
-var activation_effect_renderer: Object = MegingjordActivationEffectRenderer.new()
-var field_effect_renderer: Object = MythicItemFieldEffectRenderer.new()
-var support_effect_renderer: Object = MythicItemSupportEffectRenderer.new()
-var snapshot_builder: Object = MythicItemSnapshotBuilder.new()
+var catalog: Object = null
+var audio_router: Object = null
+var context_builder: Object = null
+var debug_inventory: Object = null
+var equipment_index: Object = null
+var owner_syncer: Object = null
+var pickup_bonus: Object = null
+var roll_query: Object = null
+var stage_immunity: Object = null
+var debug_management_menu: Object = null
+var activation_effect_renderer: Object = null
+var field_effect_renderer: Object = null
+var support_effect_renderer: Object = null
+var snapshot_builder: Object = null
 var acquisition_cinematic: Object = null
 var inventory_items: Array = []
 var equipped_items: Dictionary = {}
@@ -427,8 +458,8 @@ var soul_burst_direction := 0.0
 var soul_burst_particles: Array = []
 var soul_burst_shockwaves: Array = []
 var soul_burst_wind_trails: Array = []
-var foul_whistle_state: Object = FoulWhistleState.new()
-var revival_state: Object = RevivalState.new()
+var foul_whistle_state: Object = null
+var revival_state: Object = null
 var sensor_enabled := true
 var sensor_cooldown_timer_frames := 0.0
 var sensor_last_dash_direction := 0.0
@@ -472,23 +503,40 @@ var shrapnel_armor_boss_knockback_vel := 0.0
 var shrapnel_armor_boss_stun_timer_frames := 0.0
 var shrapnel_armor_last_proc_shard_count := 0
 var shrapnel_armor_last_gauge_cost := 0.0
-var celestial_armor_state: Object = CelestialArmorState.new()
-var hermes_shoes_state: Object = HermesShoesState.new()
-var baal_boots_effect_renderer: Object = BaalBootsEffectRenderer.new()
-var baal_boots_weather_state: Object = BaalBootsWeatherState.new()
-var baal_boots_effect_state: Object = BaalBootsEffectState.new()
-var baal_boots_combat_state: Object = BaalBootsCombatState.new()
+var celestial_armor_state: Object = null
+var hermes_shoes_state: Object = null
+var baal_boots_effect_renderer: Object = null
+var baal_boots_weather_state: Object = null
+var baal_boots_effect_state: Object = null
+var baal_boots_combat_state: Object = null
 var synced_special_gauge_max := BASE_SPECIAL_GAUGE_MAX
 var runtime_perk_state_ref: Object = null
-var pandora_legacy_choice_builder: Object = PandoraLegacyChoiceBuilder.new()
-var pandora_legacy_grant_router: Object = PandoraLegacyGrantRouter.new()
-var pandora_legacy_pool_builder: Object = PandoraLegacyPoolBuilder.new()
-var pandora_legacy_selection_renderer: Object = PandoraLegacySelectionRenderer.new()
-var pandora_legacy_selection_state: Object = PandoraLegacySelectionState.new()
+var pandora_legacy_choice_builder: Object = null
+var pandora_legacy_grant_router: Object = null
+var pandora_legacy_pool_builder: Object = null
+var pandora_legacy_selection_renderer: Object = null
+var pandora_legacy_selection_state: Object = null
 var pandora_legacy_icon_texture_cache: Dictionary = {}
+var _helper_init_step_index := 0
+var _helpers_initialized := false
+
+
+func prewarm_initialization_step(perform_reset: bool = true) -> bool:
+	if _helpers_initialized:
+		return true
+	if _helper_init_step_index < HELPER_INIT_ORDER.size():
+		_init_helper(str(HELPER_INIT_ORDER[_helper_init_step_index]))
+		_helper_init_step_index += 1
+		return false
+	_helpers_initialized = true
+	_helper_init_step_index = 0
+	if perform_reset:
+		reset()
+	return true
 
 
 func reset() -> void:
+	_ensure_helpers_ready(false)
 	debug_management_menu.reset()
 	if acquisition_cinematic != null:
 		acquisition_cinematic.reset()
@@ -521,18 +569,22 @@ func reset() -> void:
 
 
 func prewarm_assets() -> void:
+	_ensure_helpers_ready()
 	if debug_management_menu != null and debug_management_menu.has_method("prewarm_assets"):
 		debug_management_menu.prewarm_assets(self)
 
 func build_starting_equipment_slots() -> Dictionary:
+	_ensure_helpers_ready()
 	return {}
 
 
 func build_starting_inventory() -> Array:
+	_ensure_helpers_ready()
 	return []
 
 
 func has_owned_item_name(item_name: String) -> bool:
+	_ensure_helpers_ready()
 	for item_value in inventory_items:
 		var item_data: Dictionary = _get_dict(item_value)
 		if str(item_data.get("name", "")) == item_name:
@@ -541,6 +593,7 @@ func has_owned_item_name(item_name: String) -> bool:
 
 
 func should_skip_one_time_passive_spawn(item_name: String) -> bool:
+	_ensure_helpers_ready()
 	var normalized_name := str(item_name)
 	match normalized_name:
 		ITEM_REVIVAL:
@@ -552,6 +605,7 @@ func should_skip_one_time_passive_spawn(item_name: String) -> bool:
 
 
 func reset_round(registry: Object = null) -> void:
+	_ensure_helpers_ready()
 	if acquisition_cinematic != null:
 		acquisition_cinematic.reset(registry)
 	_clear_ragnarok_runtime(registry)
@@ -570,6 +624,7 @@ func reset_round(registry: Object = null) -> void:
 
 
 func refresh_runtime_perk_scaling(owner: Object = null, registry: Object = null) -> void:
+	_ensure_helpers_ready()
 	_sync_runtime_perk_state_ref(registry)
 	if owner != null:
 		_sync_owner(owner, registry)
@@ -584,6 +639,7 @@ func acquire_item(
 	play_pickup_sound: bool = false,
 	acquired_item_data: Dictionary = {}
 ) -> int:
+	_ensure_helpers_ready()
 	var item_data: Dictionary = catalog.build_item_by_name(item_name)
 	if item_data.is_empty():
 		return -1
@@ -622,6 +678,7 @@ func equip_item(
 	roll_overrides: Dictionary = {},
 	play_pickup_sound: bool = false
 ) -> bool:
+	_ensure_helpers_ready()
 	var index: int = _find_inventory_index_by_name(item_name)
 	if index < 0:
 		index = acquire_item(item_name, owner, registry, roll_overrides, false, play_pickup_sound)
@@ -636,6 +693,7 @@ func equip_item(
 
 
 func unequip_item(item_name: String, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	var index: int = _find_equipped_inventory_index_by_name(item_name)
 	if index < 0:
 		return false
@@ -643,6 +701,7 @@ func unequip_item(item_name: String, owner: Object, registry: Object = null) -> 
 
 
 func equip_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	if index < 0 or index >= inventory_items.size():
 		return false
 	if not (inventory_items[index] is Dictionary):
@@ -717,6 +776,7 @@ func equip_inventory_item(index: int, owner: Object, registry: Object = null) ->
 
 
 func unequip_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	if index < 0 or index >= inventory_items.size():
 		return false
 	if not (inventory_items[index] is Dictionary):
@@ -766,6 +826,7 @@ func unequip_inventory_item(index: int, owner: Object, registry: Object = null) 
 
 
 func toggle_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	if index < 0 or index >= inventory_items.size():
 		return false
 	var item_data: Dictionary = _get_dict(inventory_items[index])
@@ -777,6 +838,7 @@ func toggle_inventory_item(index: int, owner: Object, registry: Object = null) -
 
 
 func unequip_slot(slot_key: String, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	var index: int = _find_equipped_inventory_index_by_slot(slot_key)
 	if index < 0:
 		return false
@@ -784,6 +846,7 @@ func unequip_slot(slot_key: String, owner: Object, registry: Object = null) -> b
 
 
 func discard_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	if index < 0 or index >= inventory_items.size():
 		return false
 	var item_data: Dictionary = _get_dict(inventory_items[index])
@@ -826,34 +889,42 @@ func discard_inventory_item(index: int, owner: Object, registry: Object = null) 
 
 
 func debug_toggle_megingjord(owner: Object, registry: Object) -> bool:
+	_ensure_helpers_ready()
 	return debug_inventory.debug_toggle_megingjord(self, owner, registry, CONTEXT_CONSTANTS)
 
 
 func debug_toggle_item(item_name: String, owner: Object, registry: Object) -> bool:
+	_ensure_helpers_ready()
 	return debug_inventory.debug_toggle_item(self, item_name, owner, registry)
 
 
 func debug_add_item_to_inventory(item_name: String, owner: Object, registry: Object, roll_overrides: Dictionary = {}) -> bool:
+	_ensure_helpers_ready()
 	return debug_inventory.debug_add_item_to_inventory(self, item_name, owner, registry, roll_overrides)
 
 
 func debug_build_roll_editor_item(item_name: String, roll_overrides: Dictionary = {}) -> Dictionary:
+	_ensure_helpers_ready()
 	return debug_inventory.debug_build_roll_editor_item(self, item_name, roll_overrides)
 
 
 func get_debug_item_counts() -> Dictionary:
+	_ensure_helpers_ready()
 	return debug_inventory.get_debug_item_counts(self)
 
 
 func debug_ensure_item_for_roll_editor(item_name: String, owner: Object, registry: Object) -> int:
+	_ensure_helpers_ready()
 	return debug_inventory.debug_ensure_item_for_roll_editor(self, item_name, owner, registry)
 
 
 func debug_get_inventory_item(index: int) -> Dictionary:
+	_ensure_helpers_ready()
 	return debug_inventory.debug_get_inventory_item(self, index)
 
 
 func get_inventory_item(index: int) -> Dictionary:
+	_ensure_helpers_ready()
 	if index < 0 or index >= inventory_items.size():
 		return {}
 	var item_data: Dictionary = _get_dict(inventory_items[index])
@@ -861,49 +932,60 @@ func get_inventory_item(index: int) -> Dictionary:
 
 
 func debug_adjust_inventory_roll(index: int, option_key: String, delta_steps: int, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	return debug_inventory.debug_adjust_inventory_roll(self, index, option_key, delta_steps, owner, registry, CONTEXT_CONSTANTS)
 
 
 func get_debug_item_entries() -> Array:
+	_ensure_helpers_ready()
 	return debug_inventory.get_debug_item_entries(self)
 
 
 func toggle_debug_management_menu() -> void:
+	_ensure_helpers_ready()
 	prewarm_assets()
 	debug_management_menu.toggle(0)
 
 
 func close_debug_management_menu() -> void:
+	_ensure_helpers_ready()
 	debug_management_menu.close()
 
 
 func is_debug_management_menu_open() -> bool:
+	_ensure_helpers_ready()
 	return debug_management_menu.is_open()
 
 
 func handle_debug_management_menu_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
+	_ensure_helpers_ready()
 	return debug_management_menu.handle_input(event, owner, registry, view_size)
 
 
 func draw_debug_management_menu(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector2) -> void:
+	_ensure_helpers_ready()
 	debug_management_menu.draw(canvas, owner, registry, view_size)
 
 
 func is_equipped(item_name: String = ITEM_MEGINGJORD) -> bool:
+	_ensure_helpers_ready()
 	return equipped_items.has(item_name)
 
 
 func on_new_perk_choice_batch(owner: Object = null) -> void:
+	_ensure_helpers_ready()
 	megingjord_extra_pick_count = 0
 	dowsing_goggles_bonus_triggered = false
 	_sync_owner(owner)
 
 
 func should_check_extra_pick(choice_id: String) -> bool:
+	_ensure_helpers_ready()
 	return choice_id != "common_refresh"
 
 
 func try_after_perk_choice(choice_id: String, owner: Object, registry: Object) -> bool:
+	_ensure_helpers_ready()
 	if not should_check_extra_pick(choice_id):
 		return false
 	if not is_equipped(ITEM_MEGINGJORD):
@@ -921,6 +1003,7 @@ func try_after_perk_choice(choice_id: String, owner: Object, registry: Object) -
 
 
 func get_megingjord_extra_pick_chance() -> float:
+	_ensure_helpers_ready()
 	if not equipped_items.has(ITEM_MEGINGJORD):
 		return 0.0
 	var item_data: Dictionary = _get_dict(equipped_items[ITEM_MEGINGJORD])
@@ -929,34 +1012,41 @@ func get_megingjord_extra_pick_chance() -> float:
 
 
 func is_dowsing_pendulum_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_DOWSING_PENDULUM)
 
 
 func get_dowsing_pendulum_range() -> float:
+	_ensure_helpers_ready()
 	if not equipped_items.has(ITEM_DOWSING_PENDULUM):
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_DOWSING_PENDULUM, "attraction_range"), 0.0, 600.0)
 
 
 func get_dowsing_pendulum_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_dowsing_pendulum_context(self, CONTEXT_CONSTANTS)
 
 
 func is_dowsing_goggles_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_DOWSING_GOGGLES)
 
 
 func is_dowsing_goggles_active() -> bool:
+	_ensure_helpers_ready()
 	return is_dowsing_goggles_equipped()
 
 
 func get_dowsing_goggles_bonus_perk_chance_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_dowsing_goggles_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_DOWSING_GOGGLES, "bonus_perk_chance"), 0.0, 100.0)
 
 
 func get_runtime_perk_choice_count_bonus(owner: Object = null, registry: Object = null) -> int:
+	_ensure_helpers_ready()
 	dowsing_goggles_bonus_triggered = false
 	var chance_pct: float = get_dowsing_goggles_bonus_perk_chance_pct()
 	if chance_pct <= 0.0:
@@ -971,65 +1061,79 @@ func get_runtime_perk_choice_count_bonus(owner: Object = null, registry: Object 
 
 
 func was_dowsing_goggles_bonus_triggered() -> bool:
+	_ensure_helpers_ready()
 	return dowsing_goggles_bonus_triggered
 
 
 func clear_dowsing_goggles_bonus_trigger(owner: Object = null, registry: Object = null) -> void:
+	_ensure_helpers_ready()
 	dowsing_goggles_bonus_triggered = false
 	_sync_owner(owner, registry)
 
 
 func is_speedboots_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_SPEEDBOOTS)
 
 
 func get_speedboots_speed_bonus_pct() -> float:
+	_ensure_helpers_ready()
 	if not equipped_items.has(ITEM_SPEEDBOOTS):
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_SPEEDBOOTS, "speed_bonus_pct"), 0.0, 200.0)
 
 
 func is_speedgear_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_SPEEDGEAR)
 
 
 func is_gravitybelt_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_GRAVITYBELT)
 
 
 func is_gravitybelt_active() -> bool:
+	_ensure_helpers_ready()
 	return is_gravitybelt_equipped()
 
 
 func apply_player_movement_config(config: Dictionary) -> void:
+	_ensure_helpers_ready()
 	config["gravitybelt_active"] = is_gravitybelt_active()
 	config["gravitybelt_instant_movement"] = is_gravitybelt_active()
 
 
 func get_speedgear_turn_decel_multiplier() -> float:
+	_ensure_helpers_ready()
 	if not is_speedgear_equipped():
 		return 1.0
 	return SPEEDGEAR_TURN_DECEL_MULTIPLIER
 
 
 func get_player_turn_decel_multiplier() -> float:
+	_ensure_helpers_ready()
 	return get_speedgear_turn_decel_multiplier()
 
 
 func is_sensor_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_SENSOR)
 
 
 func is_sensor_enabled() -> bool:
+	_ensure_helpers_ready()
 	return sensor_enabled
 
 
 func set_sensor_enabled(enabled: bool, owner: Object = null, registry: Object = null) -> void:
+	_ensure_helpers_ready()
 	sensor_enabled = bool(enabled)
 	_sync_owner(owner, registry)
 
 
 func get_sensor_cooldown_seconds() -> float:
+	_ensure_helpers_ready()
 	if not is_sensor_equipped():
 		return SENSOR_DEFAULT_COOLDOWN_SEC
 	var seconds: float = _get_equipped_roll_value(ITEM_SENSOR, "sensor_cooldown_sec")
@@ -1039,14 +1143,17 @@ func get_sensor_cooldown_seconds() -> float:
 
 
 func get_sensor_cooldown_frames() -> float:
+	_ensure_helpers_ready()
 	return get_sensor_cooldown_seconds() * 60.0
 
 
 func get_sensor_cooldown_remaining_seconds() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, sensor_cooldown_timer_frames / 60.0)
 
 
 func get_sensor_cooldown_progress() -> float:
+	_ensure_helpers_ready()
 	if not is_sensor_equipped():
 		return 0.0
 	var cooldown_frames: float = max(1.0, get_sensor_cooldown_frames())
@@ -1054,14 +1161,17 @@ func get_sensor_cooldown_progress() -> float:
 
 
 func is_sensor_auto_dash_ready() -> bool:
+	_ensure_helpers_ready()
 	return is_sensor_equipped() and sensor_enabled and sensor_cooldown_timer_frames <= 0.0
 
 
 func get_sensor_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_sensor_context(self)
 
 
 func build_sensor_auto_dash_request(player_pos: Vector2, config: Dictionary, deps: Dictionary = {}) -> Dictionary:
+	_ensure_helpers_ready()
 	if not is_sensor_auto_dash_ready():
 		return {"should_dash": false, "reason": "cooldown_or_inactive"}
 	if _is_sensor_runtime_blocked(config, deps):
@@ -1105,6 +1215,7 @@ func build_sensor_auto_dash_request(player_pos: Vector2, config: Dictionary, dep
 
 
 func notify_sensor_auto_dash_started(player_center: Vector2, direction: float, deps: Dictionary = {}) -> void:
+	_ensure_helpers_ready()
 	if not is_sensor_equipped():
 		return
 	var registry: Object = _get_dict(deps).get("registry", null)
@@ -1162,14 +1273,17 @@ func _is_sensor_umbrella_blocked(config: Dictionary, deps: Dictionary) -> bool:
 
 
 func is_hermes_shoes_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_HERMES_SHOES)
 
 
 func is_hermes_shoes_active() -> bool:
+	_ensure_helpers_ready()
 	return is_hermes_shoes_equipped()
 
 
 func get_hermes_shoes_speed_bonus_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_hermes_shoes_equipped():
 		return 0.0
 	return clamp(
@@ -1180,102 +1294,124 @@ func get_hermes_shoes_speed_bonus_pct() -> float:
 
 
 func get_hermes_shoes_speed_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 + get_hermes_shoes_speed_bonus_pct() / 100.0)
 
 
 func get_hermes_shoes_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_hermes_shoes_context(self)
 
 
 func get_player_speed_multiplier() -> float:
+	_ensure_helpers_ready()
 	var multiplier: float = max(0.0, 1.0 + get_speedboots_speed_bonus_pct() / 100.0)
 	return max(0.0, multiplier * get_hermes_shoes_speed_multiplier() * get_gold_bar_speed_multiplier() * get_sage_ring_speed_multiplier() * _get_baal_boots_player_speed_multiplier())
 
 
 func is_bulkup_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_BULKUP)
 
 
 func get_bulkup_body_size_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_bulkup_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_BULKUP, "body_size_pct"), 0.0, 500.0)
 
 
 func get_player_paddle_scale() -> float:
+	_ensure_helpers_ready()
 	return max(0.1, 1.0 + get_bulkup_body_size_pct() / 100.0 - get_sage_ring_body_penalty_pct() / 100.0)
 
 
 func get_player_paddle_width(base_width: float = PLAYER_BASE_PADDLE_WIDTH) -> float:
+	_ensure_helpers_ready()
 	return max(1.0, float(base_width) * get_player_paddle_scale())
 
 
 func get_player_paddle_height(base_height: float = PLAYER_BASE_PADDLE_HEIGHT) -> float:
+	_ensure_helpers_ready()
 	return max(1.0, float(base_height) * get_player_paddle_scale())
 
 
 func is_spikeboots_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_SPIKEBOOTS)
 
 
 func get_spikeboots_dash_afterdelay_reduction_pct() -> float:
+	_ensure_helpers_ready()
 	if not equipped_items.has(ITEM_SPIKEBOOTS):
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_SPIKEBOOTS, "dash_afterdelay_pct"), 0.0, 95.0)
 
 
 func get_spikeboots_dash_cooldown_reduction_pct() -> float:
+	_ensure_helpers_ready()
 	if not equipped_items.has(ITEM_SPIKEBOOTS):
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_SPIKEBOOTS, "dash_cooldown_pct"), 0.0, 95.0)
 
 
 func is_bulletproof_hat_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_BULLETPROOF_HAT)
 
 
 func get_bulletproof_hat_stun_resist_pct() -> float:
+	_ensure_helpers_ready()
 	if not equipped_items.has(ITEM_BULLETPROOF_HAT):
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_BULLETPROOF_HAT, "stun_resist_pct"), 0.0, 100.0)
 
 
 func get_player_stun_resist_pct() -> float:
+	_ensure_helpers_ready()
 	return get_bulletproof_hat_stun_resist_pct()
 
 
 func get_player_stun_duration_seconds(base_seconds: float) -> float:
+	_ensure_helpers_ready()
 	var resist_scale: float = max(0.0, 1.0 - get_player_stun_resist_pct() / 100.0)
 	return max(0.0, float(base_seconds) * resist_scale)
 
 
 func is_spiked_helmet_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_SPIKED_HELMET)
 
 
 func get_spiked_helmet_knockback_resist_pct() -> float:
+	_ensure_helpers_ready()
 	if not equipped_items.has(ITEM_SPIKED_HELMET):
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_SPIKED_HELMET, "knockback_resist_pct"), 0.0, 100.0)
 
 
 func get_player_knockback_resist_pct() -> float:
+	_ensure_helpers_ready()
 	return get_spiked_helmet_knockback_resist_pct()
 
 
 func get_player_knockback_resist_scale() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 - get_player_knockback_resist_pct() / 100.0)
 
 
 func is_celestial_armor_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_CELESTIAL_ARMOR)
 
 
 func is_celestial_armor_active() -> bool:
+	_ensure_helpers_ready()
 	return is_celestial_armor_equipped()
 
 
 func get_celestial_armor_trigger_chance_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_celestial_armor_equipped():
 		return 0.0
 	return clamp(
@@ -1286,6 +1422,7 @@ func get_celestial_armor_trigger_chance_pct() -> float:
 
 
 func get_celestial_armor_gauge_cost() -> float:
+	_ensure_helpers_ready()
 	if not is_celestial_armor_equipped():
 		return 0.0
 	return clamp(
@@ -1296,36 +1433,44 @@ func get_celestial_armor_gauge_cost() -> float:
 
 
 func get_celestial_armor_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_celestial_armor_context(self)
 
 
 func is_baal_boots_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_BAAL_BOOTS)
 
 
 func is_baal_boots_active() -> bool:
+	_ensure_helpers_ready()
 	return is_baal_boots_equipped()
 
 
 func get_baal_boots_gauge_recovery() -> float:
+	_ensure_helpers_ready()
 	if not is_baal_boots_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_BAAL_BOOTS, "gauge_recovery"), 0.0, 2000.0)
 
 
 func get_baal_boots_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_baal_boots_context(self)
 
 
 func should_pause_game() -> bool:
+	_ensure_helpers_ready()
 	return baal_boots_weather_state.cinematic_active or (acquisition_cinematic != null and acquisition_cinematic.is_active()) or pandora_legacy_selection_state.is_active()
 
 
 func is_baal_boots_cinematic_active() -> bool:
+	_ensure_helpers_ready()
 	return baal_boots_weather_state.cinematic_active
 
 
 func is_acquisition_cinematic_active() -> bool:
+	_ensure_helpers_ready()
 	return acquisition_cinematic != null and acquisition_cinematic.is_active()
 
 
@@ -1333,8 +1478,10 @@ func start_acquisition_cinematic(
 	acquired_item_data: Dictionary,
 	pickup_position: Vector2,
 	owner: Object,
-	registry: Object = null
+	registry: Object = null,
+	target_player_center_override: Vector2 = Vector2.INF
 ) -> bool:
+	_ensure_helpers_ready()
 	if acquired_item_data.is_empty():
 		return false
 	if not _should_use_acquisition_cinematic(acquired_item_data):
@@ -1342,65 +1489,78 @@ func start_acquisition_cinematic(
 	if acquisition_cinematic == null:
 		if not (owner is Node):
 			return false
-		var node: Node2D = MythicItemAcquisitionCinematicV2.new()
+		var cinematic_script: Variant = load(ACQUISITION_CINEMATIC_SCRIPT_PATH)
+		if cinematic_script == null:
+			return false
+		var node: Node2D = cinematic_script.new()
 		(owner as Node).add_child(node)
 		acquisition_cinematic = node
 	acquisition_cinematic.trigger(
 		acquired_item_data,
 		pickup_position,
-		_resolve_acquisition_player_center(owner),
+		_resolve_acquisition_player_center(owner) if target_player_center_override == Vector2.INF else target_player_center_override,
 		registry
 	)
 	return true
 
 
 func handle_acquisition_cinematic_input(event: InputEvent, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	if acquisition_cinematic == null:
 		return false
 	return acquisition_cinematic.handle_input(event, registry)
 
 
 func get_acquisition_cinematic_snapshot() -> Dictionary:
+	_ensure_helpers_ready()
 	if acquisition_cinematic == null:
 		return {}
 	return acquisition_cinematic.get_snapshot()
 
 
 func is_pandora_legacy_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_PANDORA_LEGACY)
 
 
 func is_pandora_legacy_active() -> bool:
+	_ensure_helpers_ready()
 	return is_pandora_legacy_equipped()
 
 
 func get_pandora_legacy_selection_quality() -> float:
+	_ensure_helpers_ready()
 	if not is_pandora_legacy_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_PANDORA_LEGACY, "selection_quality"), 0.0, 100.0)
 
 
 func get_pandora_legacy_trigger_chance() -> float:
+	_ensure_helpers_ready()
 	if not is_pandora_legacy_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_PANDORA_LEGACY, "trigger_chance"), 0.0, 100.0)
 
 
 func is_pandora_legacy_selection_active() -> bool:
+	_ensure_helpers_ready()
 	return pandora_legacy_selection_state.is_active()
 
 
 func update_pandora_legacy_selection_overlay(delta: float) -> void:
+	_ensure_helpers_ready()
 	if not pandora_legacy_selection_state.is_active():
 		return
 	pandora_legacy_selection_state.advance_timer(max(0.0, delta * 60.0))
 
 
 func has_pending_pandora_legacy_selection() -> bool:
+	_ensure_helpers_ready()
 	return pandora_legacy_selection_state.has_pending()
 
 
 func try_queue_pandora_legacy_round_win(deps: Dictionary = {}) -> bool:
+	_ensure_helpers_ready()
 	pandora_legacy_selection_state.reset_trigger_result()
 	if not is_pandora_legacy_active():
 		return false
@@ -1421,6 +1581,7 @@ func try_queue_pandora_legacy_round_win(deps: Dictionary = {}) -> bool:
 
 
 func start_pending_pandora_legacy_selection(owner: Object = null, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	if not pandora_legacy_selection_state.start_pending():
 		return false
 	_sync_owner(owner, registry)
@@ -1429,6 +1590,7 @@ func start_pending_pandora_legacy_selection(owner: Object = null, registry: Obje
 
 
 func start_pandora_legacy_selection(choices: Array, owner: Object = null, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	if not pandora_legacy_selection_state.start(choices):
 		return false
 	_sync_owner(owner, registry)
@@ -1437,6 +1599,7 @@ func start_pandora_legacy_selection(choices: Array, owner: Object = null, regist
 
 
 func confirm_pandora_legacy_selection(index: int, owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	if not pandora_legacy_selection_state.is_active():
 		return false
 	var selected_item: Dictionary = pandora_legacy_selection_state.get_selected_item(index)
@@ -1452,10 +1615,12 @@ func confirm_pandora_legacy_selection(index: int, owner: Object, registry: Objec
 
 
 func cancel_pandora_legacy_selection(owner: Object, registry: Object = null) -> bool:
+	_ensure_helpers_ready()
 	return confirm_pandora_legacy_selection(0, owner, registry)
 
 
 func generate_pandora_legacy_selection_choices(owner: Object = null, _registry: Object = null) -> Array:
+	_ensure_helpers_ready()
 	var quality_bonus: float = get_pandora_legacy_selection_quality() / 100.0
 	return pandora_legacy_choice_builder.generate_choices(
 		pandora_legacy_pool_builder.build_active_pool(owner),
@@ -1473,6 +1638,7 @@ func handle_pandora_legacy_selection_input(
 	registry: Object,
 	view_size: Vector2
 ) -> bool:
+	_ensure_helpers_ready()
 	if not pandora_legacy_selection_state.is_active():
 		return false
 	if event is InputEventMouseMotion:
@@ -1517,6 +1683,7 @@ func draw_pandora_legacy_selection(
 	registry: Object,
 	view_size: Vector2
 ) -> void:
+	_ensure_helpers_ready()
 	if canvas == null or not pandora_legacy_selection_state.is_active():
 		return
 	var font: Font = ThemeDB.fallback_font
@@ -1550,6 +1717,7 @@ func draw_pandora_legacy_selection(
 
 
 func on_weather_round_start(owner: Object, registry: Object, weather_type: String = "") -> void:
+	_ensure_helpers_ready()
 	_clear_baal_boots_round_state(registry)
 	if weather_type != "":
 		_try_arm_baal_boots_from_weather(owner, registry, weather_type)
@@ -1562,6 +1730,7 @@ func try_consume_celestial_armor_immunity(
 	effect_type: String = "",
 	deps: Dictionary = {}
 ) -> bool:
+	_ensure_helpers_ready()
 	var normalized_effect_type: String = effect_type.strip_edges().to_lower() if effect_type != "" else "generic"
 	if normalized_effect_type != "stun":
 		return false
@@ -1593,20 +1762,24 @@ func try_consume_celestial_armor_immunity(
 
 
 func get_dash_recovery_frames(base_frames: float) -> float:
+	_ensure_helpers_ready()
 	var reduction_pct: float = get_spikeboots_dash_afterdelay_reduction_pct()
 	return max(1.0, float(base_frames) * max(0.0, 1.0 - reduction_pct / 100.0))
 
 
 func get_dash_recharge_frames(base_frames: float) -> float:
+	_ensure_helpers_ready()
 	var reduction_pct: float = get_spikeboots_dash_cooldown_reduction_pct()
 	return max(1.0, float(base_frames) * max(0.0, 1.0 - reduction_pct / 100.0))
 
 
 func is_slot_add_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_SLOT_ADD)
 
 
 func get_slot_add_active_item_slot_bonus() -> int:
+	_ensure_helpers_ready()
 	if not equipped_items.has(ITEM_SLOT_ADD):
 		return 0
 	var item_data: Dictionary = _get_dict(equipped_items[ITEM_SLOT_ADD])
@@ -1622,20 +1795,24 @@ func get_slot_add_active_item_slot_bonus() -> int:
 
 
 func get_active_item_slot_capacity(base_slots: int = 3) -> int:
+	_ensure_helpers_ready()
 	return max(1, int(base_slots) + get_slot_add_active_item_slot_bonus())
 
 
 func is_chargebag_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_CHARGEBAG)
 
 
 func get_chargebag_wall_bounce_gauge_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_chargebag_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_CHARGEBAG, "chargebag_pct"), 0.0, 500.0)
 
 
 func apply_chargebag_wall_bounce_gauge(special_gauge: float, context: Dictionary, deps: Dictionary) -> float:
+	_ensure_helpers_ready()
 	if not is_chargebag_equipped() or _is_aipill_active_from_deps(deps):
 		return special_gauge
 	var bonus_pct: float = get_chargebag_wall_bounce_gauge_pct()
@@ -1656,16 +1833,19 @@ func apply_chargebag_wall_bounce_gauge(special_gauge: float, context: Dictionary
 
 
 func is_battery_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_BATTERY)
 
 
 func get_battery_gauge_preserve_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_battery_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_BATTERY, "gauge_preserve_pct"), 0.0, 100.0)
 
 
 func get_stage_transition_gauge(current_gauge: float, gauge_max: float = 500.0, aipill_active: bool = false) -> float:
+	_ensure_helpers_ready()
 	var safe_max: float = max(0.0, gauge_max)
 	var safe_gauge: float = clamp(float(current_gauge), 0.0, safe_max)
 	if aipill_active:
@@ -1677,10 +1857,12 @@ func get_stage_transition_gauge(current_gauge: float, gauge_max: float = 500.0, 
 
 
 func is_knee_pads_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_KNEE_PADS)
 
 
 func get_knee_pads_charge_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_knee_pads_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_KNEE_PADS, "knee_charge_pct"), 0.0, 500.0)
@@ -1692,6 +1874,7 @@ func try_apply_knee_pads_player_hit(
 	context: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
+	_ensure_helpers_ready()
 	if not is_knee_pads_equipped():
 		knee_pads_half_dash_consumed = false
 		return {}
@@ -1723,62 +1906,75 @@ func try_apply_knee_pads_player_hit(
 
 
 func is_fuel_pouch_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_FUEL_POUCH)
 
 
 func get_fuel_pouch_gauge_bonus() -> float:
+	_ensure_helpers_ready()
 	if not is_fuel_pouch_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_FUEL_POUCH, "fuel_bonus_flat"), 0.0, 1000.0)
 
 
 func get_effective_special_gauge_max(base_max: float = BASE_SPECIAL_GAUGE_MAX) -> float:
+	_ensure_helpers_ready()
 	return max(1.0, float(base_max) + get_fuel_pouch_gauge_bonus())
 
 
 func is_bluetooth_ring_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_BLUETOOTH_RING)
 
 
 func is_bluetooth_ring_active() -> bool:
+	_ensure_helpers_ready()
 	return is_bluetooth_ring_equipped()
 
 
 func get_bluetooth_ring_gauge_gain_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_bluetooth_ring_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_BLUETOOTH_RING, "gauge_gain_pct"), 0.0, 500.0)
 
 
 func get_bluetooth_ring_gauge_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 + get_bluetooth_ring_gauge_gain_pct() / 100.0)
 
 
 func calculate_bluetooth_ring_gauge_charge(base_charge: float) -> float:
+	_ensure_helpers_ready()
 	if not is_bluetooth_ring_equipped():
 		return float(base_charge)
 	return floor(max(0.0, float(base_charge)) * get_bluetooth_ring_gauge_multiplier())
 
 
 func is_star_detector_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_STAR_DETECTOR)
 
 
 func is_star_detector_active() -> bool:
+	_ensure_helpers_ready()
 	return is_star_detector_equipped()
 
 
 func get_star_detector_star_bonus_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_star_detector_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_STAR_DETECTOR, "star_bonus_pct"), 0.0, 100.0)
 
 
 func get_star_detector_bonus_chance() -> float:
+	_ensure_helpers_ready()
 	return get_star_detector_star_bonus_pct() / 100.0
 
 
 func roll_star_detector_bonus_drop_count() -> int:
+	_ensure_helpers_ready()
 	var chance: float = get_star_detector_bonus_chance()
 	if chance <= 0.0:
 		return 0
@@ -1786,24 +1982,29 @@ func roll_star_detector_bonus_drop_count() -> int:
 
 
 func is_sage_ring_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_SAGE_RING)
 
 
 func is_sage_ring_active() -> bool:
+	_ensure_helpers_ready()
 	return is_sage_ring_equipped()
 
 
 func get_sage_ring_count() -> int:
+	_ensure_helpers_ready()
 	return _count_equipped_item_name(ITEM_SAGE_RING)
 
 
 func get_sage_ring_perk_level_bonus() -> int:
+	_ensure_helpers_ready()
 	if not is_sage_ring_equipped():
 		return 0
 	return get_sage_ring_count() * SAGE_RING_PERK_LEVEL_BONUS
 
 
 func get_sage_ring_speed_penalty_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_sage_ring_equipped():
 		return 0.0
 	return clamp(
@@ -1814,6 +2015,7 @@ func get_sage_ring_speed_penalty_pct() -> float:
 
 
 func get_sage_ring_body_penalty_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_sage_ring_equipped():
 		return 0.0
 	return clamp(
@@ -1824,34 +2026,42 @@ func get_sage_ring_body_penalty_pct() -> float:
 
 
 func get_sage_ring_speed_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 - get_sage_ring_speed_penalty_pct() / 100.0)
 
 
 func is_smartphone_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_SMARTPHONE)
 
 
 func is_smartphone_active() -> bool:
+	_ensure_helpers_ready()
 	return is_smartphone_equipped()
 
 
 func get_smartphone_count() -> int:
+	_ensure_helpers_ready()
 	return _count_equipped_item_name(ITEM_SMARTPHONE)
 
 
 func is_neural_helmet_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_NEURAL_HELMET)
 
 
 func is_neural_helmet_active() -> bool:
+	_ensure_helpers_ready()
 	return is_neural_helmet_equipped()
 
 
 func get_neural_helmet_count() -> int:
+	_ensure_helpers_ready()
 	return _count_equipped_item_name(ITEM_NEURAL_HELMET)
 
 
 func get_neural_helmet_aipill_gauge_reduction() -> float:
+	_ensure_helpers_ready()
 	if not is_neural_helmet_equipped():
 		return 0.0
 	return clamp(
@@ -1862,6 +2072,7 @@ func get_neural_helmet_aipill_gauge_reduction() -> float:
 
 
 func get_neural_helmet_aipill_spawn_bonus_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_neural_helmet_equipped():
 		return 0.0
 	return clamp(
@@ -1872,34 +2083,42 @@ func get_neural_helmet_aipill_spawn_bonus_pct() -> float:
 
 
 func get_aipill_gauge_drain(base_drain: float = 90.0) -> float:
+	_ensure_helpers_ready()
 	return max(0.0, float(base_drain) - get_neural_helmet_aipill_gauge_reduction())
 
 
 func get_aipill_item_spawn_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 + get_neural_helmet_aipill_spawn_bonus_pct() / 100.0)
 
 
 func get_aipill_item_spawn_chance(base_chance: float) -> float:
+	_ensure_helpers_ready()
 	return max(0.0, float(base_chance) * get_aipill_item_spawn_multiplier())
 
 
 func should_cancel_aipill_on_direction_key() -> bool:
+	_ensure_helpers_ready()
 	return is_neural_helmet_equipped()
 
 
 func is_venom_mist_gauntlet_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_VENOM_MIST_GAUNTLET)
 
 
 func is_venom_mist_gauntlet_active() -> bool:
+	_ensure_helpers_ready()
 	return is_venom_mist_gauntlet_equipped()
 
 
 func get_venom_mist_gauntlet_count() -> int:
+	_ensure_helpers_ready()
 	return _count_equipped_item_name(ITEM_VENOM_MIST_GAUNTLET)
 
 
 func get_venom_mist_trigger_chance_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_venom_mist_gauntlet_equipped():
 		return 0.0
 	return clamp(
@@ -1910,10 +2129,12 @@ func get_venom_mist_trigger_chance_pct() -> float:
 
 
 func get_venom_mist_trigger_chance() -> float:
+	_ensure_helpers_ready()
 	return get_venom_mist_trigger_chance_pct() / 100.0
 
 
 func get_venom_mist_duration_sec() -> float:
+	_ensure_helpers_ready()
 	if not is_venom_mist_gauntlet_equipped():
 		return 0.0
 	var duration_sec: float = _get_equipped_roll_max(ITEM_VENOM_MIST_GAUNTLET, "mist_duration_sec")
@@ -1923,26 +2144,32 @@ func get_venom_mist_duration_sec() -> float:
 
 
 func get_venom_mist_boss_slow_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.05, 1.0 - VENOM_MIST_BOSS_SLOW_AMOUNT)
 
 
 func is_venom_mist_ball_poisoned() -> bool:
+	_ensure_helpers_ready()
 	return venom_mist_ball_poisoned
 
 
 func is_venom_mist_field_active() -> bool:
+	_ensure_helpers_ready()
 	return venom_mist_field_active
 
 
 func is_boss_in_venom_mist() -> bool:
+	_ensure_helpers_ready()
 	return venom_mist_field_active and venom_mist_boss_in_field
 
 
 func get_venom_mist_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_venom_mist_context(self, CONTEXT_CONSTANTS)
 
 
 func try_venom_mist_poison_ball(deps: Dictionary = {}) -> bool:
+	_ensure_helpers_ready()
 	if not is_venom_mist_gauntlet_equipped():
 		venom_mist_ball_poisoned = false
 		return false
@@ -1957,6 +2184,7 @@ func try_venom_mist_poison_ball(deps: Dictionary = {}) -> bool:
 
 
 func consume_venom_mist_ball_poison(boss_center: Vector2, deps: Dictionary = {}) -> bool:
+	_ensure_helpers_ready()
 	if not venom_mist_ball_poisoned:
 		return false
 	venom_mist_ball_poisoned = false
@@ -1968,6 +2196,7 @@ func try_spawn_venom_mist_at_boss(
 	deps: Dictionary = {},
 	force: bool = false
 ) -> bool:
+	_ensure_helpers_ready()
 	if not is_venom_mist_gauntlet_equipped():
 		return false
 	if not force:
@@ -1979,22 +2208,27 @@ func try_spawn_venom_mist_at_boss(
 
 
 func clear_venom_mist_round_state() -> void:
+	_ensure_helpers_ready()
 	_clear_venom_mist_round_state()
 
 
 func is_reinforced_boomerang_gauntlet_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_REINFORCED_BOOMERANG_GAUNTLET)
 
 
 func is_reinforced_boomerang_gauntlet_active() -> bool:
+	_ensure_helpers_ready()
 	return is_reinforced_boomerang_gauntlet_equipped()
 
 
 func get_reinforced_boomerang_gauntlet_count() -> int:
+	_ensure_helpers_ready()
 	return _count_equipped_item_name(ITEM_REINFORCED_BOOMERANG_GAUNTLET)
 
 
 func get_boomerang_launch_speed_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_reinforced_boomerang_gauntlet_equipped():
 		return 0.0
 	return clamp(
@@ -2005,6 +2239,7 @@ func get_boomerang_launch_speed_pct() -> float:
 
 
 func get_boomerang_homing_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_reinforced_boomerang_gauntlet_equipped():
 		return 0.0
 	return clamp(
@@ -2015,6 +2250,7 @@ func get_boomerang_homing_pct() -> float:
 
 
 func get_boomerang_spawn_bonus_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_reinforced_boomerang_gauntlet_equipped():
 		return 0.0
 	return clamp(
@@ -2025,42 +2261,52 @@ func get_boomerang_spawn_bonus_pct() -> float:
 
 
 func get_boomerang_launch_speed_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 + get_boomerang_launch_speed_pct() / 100.0)
 
 
 func get_boomerang_homing_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 + get_boomerang_homing_pct() / 100.0)
 
 
 func get_boomerang_item_spawn_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 + get_boomerang_spawn_bonus_pct() / 100.0)
 
 
 func get_boomerang_item_spawn_chance(base_chance: float) -> float:
+	_ensure_helpers_ready()
 	return max(0.0, float(base_chance) * get_boomerang_item_spawn_multiplier())
 
 
 func get_boomerang_knockback_multiplier() -> float:
+	_ensure_helpers_ready()
 	return REINFORCED_BOOMERANG_KNOCKBACK_MULTIPLIER if is_reinforced_boomerang_gauntlet_equipped() else 1.0
 
 
 func get_boomerang_stun_multiplier() -> float:
+	_ensure_helpers_ready()
 	return REINFORCED_BOOMERANG_STUN_MULTIPLIER if is_reinforced_boomerang_gauntlet_equipped() else 1.0
 
 
 func is_commando_arm_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_COMMANDO_ARM)
 
 
 func is_commando_arm_active() -> bool:
+	_ensure_helpers_ready()
 	return is_commando_arm_equipped()
 
 
 func get_commando_arm_count() -> int:
+	_ensure_helpers_ready()
 	return min(COMMANDO_ARM_MAX_STACKS, _count_equipped_item_name(ITEM_COMMANDO_ARM))
 
 
 func get_commando_arm_throw_speed_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_commando_arm_equipped():
 		return 0.0
 	return clamp(
@@ -2071,6 +2317,7 @@ func get_commando_arm_throw_speed_pct() -> float:
 
 
 func get_commando_arm_explosion_range_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_commando_arm_equipped():
 		return 0.0
 	return clamp(
@@ -2081,6 +2328,7 @@ func get_commando_arm_explosion_range_pct() -> float:
 
 
 func get_commando_arm_smoke_duration_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_commando_arm_equipped():
 		return 0.0
 	return clamp(
@@ -2091,6 +2339,7 @@ func get_commando_arm_smoke_duration_pct() -> float:
 
 
 func get_commando_arm_prep_reduction_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_commando_arm_equipped():
 		return 0.0
 	return clamp(
@@ -2101,6 +2350,7 @@ func get_commando_arm_prep_reduction_pct() -> float:
 
 
 func get_commando_arm_prep_multiplier() -> float:
+	_ensure_helpers_ready()
 	if not is_commando_arm_equipped():
 		return 1.0
 	var multiplier := 1.0
@@ -2111,12 +2361,14 @@ func get_commando_arm_prep_multiplier() -> float:
 
 
 func get_commando_arm_windup_msec(base_msec: int) -> int:
+	_ensure_helpers_ready()
 	if not is_commando_arm_equipped():
 		return max(1, int(base_msec))
 	return max(1, int(floor(float(base_msec) * get_commando_arm_prep_multiplier())))
 
 
 func get_commando_arm_throw_speed_multiplier(use_rolled_speed: bool = false) -> float:
+	_ensure_helpers_ready()
 	if not is_commando_arm_equipped():
 		return 1.0
 	if use_rolled_speed:
@@ -2125,34 +2377,42 @@ func get_commando_arm_throw_speed_multiplier(use_rolled_speed: bool = false) -> 
 
 
 func get_commando_arm_range_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 + get_commando_arm_explosion_range_pct() / 100.0)
 
 
 func get_commando_arm_range_value(base_value: float) -> float:
+	_ensure_helpers_ready()
 	return max(0.0, float(base_value) * get_commando_arm_range_multiplier())
 
 
 func get_commando_arm_smoke_duration_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 + get_commando_arm_smoke_duration_pct() / 100.0)
 
 
 func get_commando_arm_duration_frames(base_frames: float) -> float:
+	_ensure_helpers_ready()
 	return max(0.0, float(base_frames) * get_commando_arm_smoke_duration_multiplier())
 
 
 func get_commando_arm_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_commando_arm_context(self)
 
 
 func is_rainbow_fur_glove_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_RAINBOW_FUR_GLOVE)
 
 
 func is_rainbow_fur_glove_active() -> bool:
+	_ensure_helpers_ready()
 	return is_rainbow_fur_glove_equipped()
 
 
 func get_rainbow_fur_glove_trigger_chance_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_rainbow_fur_glove_equipped():
 		return 0.0
 	return clamp(
@@ -2163,6 +2423,7 @@ func get_rainbow_fur_glove_trigger_chance_pct() -> float:
 
 
 func get_rainbow_fur_glove_cooldown_reduction_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_rainbow_fur_glove_equipped():
 		return 0.0
 	return clamp(
@@ -2173,6 +2434,7 @@ func get_rainbow_fur_glove_cooldown_reduction_pct() -> float:
 
 
 func get_rainbow_fur_glove_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_rainbow_fur_glove_context(self)
 
 
@@ -2181,6 +2443,7 @@ func try_proc_rainbow_fur_glove_player_hit(
 	context: Dictionary = {},
 	deps: Dictionary = {}
 ) -> Dictionary:
+	_ensure_helpers_ready()
 	if not is_rainbow_fur_glove_equipped():
 		_clear_rainbow_fur_glove_runtime()
 		return {"activated": false}
@@ -2212,18 +2475,22 @@ func try_proc_rainbow_fur_glove_player_hit(
 
 
 func is_adversity_armor_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_ADVERSITY_ARMOR)
 
 
 func is_adversity_armor_active() -> bool:
+	_ensure_helpers_ready()
 	return is_adversity_armor_equipped()
 
 
 func is_adversity_armor_invincible() -> bool:
+	_ensure_helpers_ready()
 	return is_adversity_armor_equipped() and adversity_armor_invincible_timer_frames > 0.0
 
 
 func get_adversity_armor_trigger_chance_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_adversity_armor_equipped():
 		return 0.0
 	return clamp(
@@ -2234,20 +2501,24 @@ func get_adversity_armor_trigger_chance_pct() -> float:
 
 
 func get_adversity_armor_invincible_duration_sec() -> float:
+	_ensure_helpers_ready()
 	if not is_adversity_armor_equipped():
 		return 0.0
 	return max(0.0, _get_equipped_roll_value(ITEM_ADVERSITY_ARMOR, "invincible_duration_sec"))
 
 
 func get_adversity_armor_serve_speed_bonus_pct() -> float:
+	_ensure_helpers_ready()
 	return ADVERSITY_ARMOR_DEFAULT_SERVE_SPEED_BONUS_PCT if is_adversity_armor_equipped() else 0.0
 
 
 func get_adversity_armor_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_adversity_armor_context(self)
 
 
 func get_ball_collision_context() -> Dictionary:
+	_ensure_helpers_ready()
 	if not is_adversity_armor_invincible():
 		return {"adversity_armor_invincible": false}
 	return {
@@ -2257,6 +2528,7 @@ func get_ball_collision_context() -> Dictionary:
 
 
 func try_queue_adversity_armor_after_loss(deps: Dictionary = {}) -> bool:
+	_ensure_helpers_ready()
 	if not is_adversity_armor_equipped():
 		_clear_adversity_armor_runtime()
 		return false
@@ -2280,6 +2552,7 @@ func try_queue_adversity_armor_after_loss(deps: Dictionary = {}) -> bool:
 
 
 func on_round_start(owner: Object, registry: Object = null) -> void:
+	_ensure_helpers_ready()
 	if not is_adversity_armor_equipped():
 		_clear_adversity_armor_runtime()
 		_sync_owner(owner, registry)
@@ -2301,6 +2574,7 @@ func on_round_start(owner: Object, registry: Object = null) -> void:
 
 
 func consume_adversity_armor_serve_speed_bonus() -> float:
+	_ensure_helpers_ready()
 	if not is_adversity_armor_equipped():
 		adversity_armor_serve_speed_boost_pending = false
 		return 0.0
@@ -2315,6 +2589,7 @@ func notify_adversity_armor_barrier_hit(
 	ball_vel: Vector2 = Vector2.ZERO,
 	deps: Dictionary = {}
 ) -> void:
+	_ensure_helpers_ready()
 	if not is_adversity_armor_invincible():
 		return
 	adversity_armor_last_reflect_center = impact_pos
@@ -2325,14 +2600,17 @@ func notify_adversity_armor_barrier_hit(
 	_sync_owner(_get_dict(deps).get("owner", null), _get_dict(deps).get("registry", null))
 
 func is_shrapnel_armor_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_SHRAPNEL_ARMOR)
 
 
 func is_shrapnel_armor_active() -> bool:
+	_ensure_helpers_ready()
 	return is_shrapnel_armor_equipped()
 
 
 func get_shrapnel_armor_trigger_chance_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_shrapnel_armor_equipped():
 		return 0.0
 	return clamp(
@@ -2343,6 +2621,7 @@ func get_shrapnel_armor_trigger_chance_pct() -> float:
 
 
 func get_shrapnel_armor_shard_count() -> int:
+	_ensure_helpers_ready()
 	if not is_shrapnel_armor_equipped():
 		return 0
 	return clampi(
@@ -2353,12 +2632,14 @@ func get_shrapnel_armor_shard_count() -> int:
 
 
 func get_shrapnel_armor_knockback_level() -> int:
+	_ensure_helpers_ready()
 	if not is_shrapnel_armor_equipped():
 		return 0
 	return max(1, int(round(_get_equipped_roll_value(ITEM_SHRAPNEL_ARMOR, "knockback_level"))))
 
 
 func get_shrapnel_armor_gauge_cost() -> float:
+	_ensure_helpers_ready()
 	if not is_shrapnel_armor_equipped():
 		return 0.0
 	return clamp(
@@ -2369,6 +2650,7 @@ func get_shrapnel_armor_gauge_cost() -> float:
 
 
 func get_shrapnel_armor_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_shrapnel_armor_context(self)
 
 
@@ -2377,6 +2659,7 @@ func try_proc_shrapnel_armor_player_hit(
 	context: Dictionary = {},
 	deps: Dictionary = {}
 ) -> Dictionary:
+	_ensure_helpers_ready()
 	if not is_shrapnel_armor_equipped():
 		_clear_shrapnel_armor_runtime()
 		return {"activated": false}
@@ -2423,24 +2706,29 @@ func try_proc_shrapnel_armor_player_hit(
 
 
 func is_foul_whistle_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_FOUL_WHISTLE)
 
 
 func is_foul_whistle_active() -> bool:
+	_ensure_helpers_ready()
 	return is_foul_whistle_equipped()
 
 
 func get_foul_whistle_negate_chance_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_foul_whistle_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_FOUL_WHISTLE, "negate_chance_pct"), 0.0, 100.0)
 
 
 func get_foul_whistle_negate_chance() -> float:
+	_ensure_helpers_ready()
 	return get_foul_whistle_negate_chance_pct() / 100.0
 
 
 func try_trigger_foul_whistle(loss_type: String = "round", audio_source: Variant = null) -> bool:
+	_ensure_helpers_ready()
 	if not is_foul_whistle_equipped() or foul_whistle_state.animation_active:
 		return false
 	var chance: float = get_foul_whistle_negate_chance()
@@ -2452,30 +2740,37 @@ func try_trigger_foul_whistle(loss_type: String = "round", audio_source: Variant
 
 
 func consume_foul_whistle_reset_ready() -> bool:
+	_ensure_helpers_ready()
 	return foul_whistle_state.consume_reset_ready()
 
 
 func is_foul_whistle_effect_active() -> bool:
+	_ensure_helpers_ready()
 	return foul_whistle_state.animation_active
 
 
 func is_revival_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_REVIVAL)
 
 
 func is_revival_available() -> bool:
+	_ensure_helpers_ready()
 	return revival_state.is_available(is_revival_equipped())
 
 
 func has_revival_used() -> bool:
+	_ensure_helpers_ready()
 	return revival_state.used
 
 
 func is_revival_effect_active() -> bool:
+	_ensure_helpers_ready()
 	return revival_state.is_effect_active()
 
 
 func try_trigger_revival(loss_type: String = "round", context: Dictionary = {}) -> bool:
+	_ensure_helpers_ready()
 	if not is_revival_available():
 		return false
 	revival_state.start(loss_type, REVIVAL_EFFECT_FRAMES)
@@ -2486,131 +2781,159 @@ func try_trigger_revival(loss_type: String = "round", context: Dictionary = {}) 
 
 
 func is_gold_digger_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_GOLD_DIGGER)
 
 
 func get_gold_digger_count() -> int:
+	_ensure_helpers_ready()
 	return _count_equipped_item_name(ITEM_GOLD_DIGGER)
 
 
 func get_gold_digger_gold_bonus_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_gold_digger_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_GOLD_DIGGER, "gold_bonus_pct"), 0.0, 2000.0)
 
 
 func get_gold_digger_multiplier() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, 1.0 + get_gold_digger_gold_bonus_pct() / 100.0)
 
 
 func apply_gold_digger_gauge_bonus(gauge_gain: float) -> float:
+	_ensure_helpers_ready()
 	if not is_gold_digger_equipped():
 		return float(gauge_gain)
 	return floor(max(0.0, float(gauge_gain)) * get_gold_digger_multiplier())
 
 
 func apply_gold_digger_gold_bonus(amount: int) -> int:
+	_ensure_helpers_ready()
 	if not is_gold_digger_equipped():
 		return max(0, amount)
 	return int(floor(float(max(0, amount)) * get_gold_digger_multiplier()))
 
 
 func is_gold_bar_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_GOLD_BAR)
 
 
 func is_gold_bar_owned() -> bool:
+	_ensure_helpers_ready()
 	return get_gold_bar_count() > 0
 
 
 func is_gold_bar_active() -> bool:
+	_ensure_helpers_ready()
 	return is_gold_bar_owned()
 
 
 func get_gold_bar_count() -> int:
+	_ensure_helpers_ready()
 	return _count_owned_item_name(ITEM_GOLD_BAR)
 
 
 func get_gold_bar_sell_price() -> int:
+	_ensure_helpers_ready()
 	return GOLD_BAR_SELL_PRICE if is_gold_bar_active() else 0
 
 
 func get_gold_bar_total_sell_price() -> int:
+	_ensure_helpers_ready()
 	return get_gold_bar_count() * GOLD_BAR_SELL_PRICE
 
 
 func get_gold_bar_speed_penalty_pct() -> float:
+	_ensure_helpers_ready()
 	return GOLD_BAR_SPEED_PENALTY_PCT if is_gold_bar_active() else 0.0
 
 
 func get_gold_bar_speed_multiplier() -> float:
+	_ensure_helpers_ready()
 	if not is_gold_bar_active():
 		return 1.0
 	return max(0.0, 1.0 - GOLD_BAR_SPEED_PENALTY_PCT / 100.0)
 
 
 func is_lucky_coin_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_LUCKY_COIN)
 
 
 func is_lucky_coin_active() -> bool:
+	_ensure_helpers_ready()
 	return is_lucky_coin_equipped()
 
 
 func get_lucky_coin_double_spawn_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_lucky_coin_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_LUCKY_COIN, "double_spawn_pct"), 0.0, 100.0)
 
 
 func get_lucky_coin_double_spawn_chance() -> float:
+	_ensure_helpers_ready()
 	return get_lucky_coin_double_spawn_pct() / 100.0
 
 
 func should_lucky_coin_double_spawn() -> bool:
+	_ensure_helpers_ready()
 	var chance: float = get_lucky_coin_double_spawn_chance()
 	return chance > 0.0 and randf() < chance
 
 
 func is_master_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_MASTER)
 
 
 func get_master_wall_length_bonus_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_master_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_MASTER, "wall_length_pct"), 0.0, 500.0)
 
 
 func get_master_item_cooldown_reduction_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_master_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_MASTER, "item_cooldown_pct"), 0.0, 95.0)
 
 
 func get_master_wall_spawn_bonus_pct() -> float:
+	_ensure_helpers_ready()
 	if not is_master_equipped():
 		return 0.0
 	return clamp(_get_equipped_roll_sum(ITEM_MASTER, "wall_spawn_bonus_pct"), 0.0, 2000.0)
 
 
 func get_brick_wall_width(base_width: float) -> float:
+	_ensure_helpers_ready()
 	return max(1.0, float(base_width) * (1.0 + get_master_wall_length_bonus_pct() / 100.0))
 
 
 func get_wall_item_spawn_chance(base_chance: float) -> float:
+	_ensure_helpers_ready()
 	return max(0.0, float(base_chance) * (1.0 + get_master_wall_spawn_bonus_pct() / 100.0))
 
 
 func is_cooltime_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_COOLTIME)
 
 
 func get_cooltime_active_item_cooldown_reduction_pct() -> float:
+	_ensure_helpers_ready()
 	return clamp(_get_equipped_roll_sum(ITEM_COOLTIME, "active_cooldown_pct"), 0.0, 95.0)
 
 
 func get_total_active_item_cooldown_reduction_pct() -> float:
+	_ensure_helpers_ready()
 	var multiplier := 1.0
 	multiplier *= max(0.0, 1.0 - get_master_item_cooldown_reduction_pct() / 100.0)
 	multiplier *= max(0.0, 1.0 - get_cooltime_active_item_cooldown_reduction_pct() / 100.0)
@@ -2618,6 +2941,7 @@ func get_total_active_item_cooldown_reduction_pct() -> float:
 
 
 func get_active_item_cooldown_msec(base_cooldown_msec: int) -> int:
+	_ensure_helpers_ready()
 	var adjusted: float = float(max(0, base_cooldown_msec))
 	var master_reduction_pct: float = get_master_item_cooldown_reduction_pct()
 	if master_reduction_pct > 0.0:
@@ -2629,64 +2953,78 @@ func get_active_item_cooldown_msec(base_cooldown_msec: int) -> int:
 
 
 func is_timer_belt_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_TIMER_BELT)
 
 
 func get_timer_belt_skill_cooldown_reduction_pct() -> float:
+	_ensure_helpers_ready()
 	return clamp(_get_equipped_roll_sum(ITEM_TIMER_BELT, "skill_cooldown_pct"), 0.0, 95.0)
 
 
 func is_sacred_laurel_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_SACRED_LAUREL)
 
 
 func get_sacred_laurel_leaf_bonus() -> int:
+	_ensure_helpers_ready()
 	if not is_sacred_laurel_equipped():
 		return 0
 	return max(0, int(round(_get_equipped_roll_sum(ITEM_SACRED_LAUREL, "leaf_count"))))
 
 
 func get_sacred_laurel_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_sacred_laurel_context(self)
 
 
 func is_transcendent_crown_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_TRANSCENDENT_CROWN)
 
 
 func get_transcendent_crown_skill_bonus() -> int:
+	_ensure_helpers_ready()
 	if not is_transcendent_crown_equipped():
 		return 0
 	return max(0, int(_get_equipped_roll_value(ITEM_TRANSCENDENT_CROWN, "skill_bonus")))
 
 
 func get_total_item_perk_level_bonus() -> int:
+	_ensure_helpers_ready()
 	return max(0, get_sage_ring_perk_level_bonus() + get_transcendent_crown_skill_bonus())
 
 
 func get_transcendent_crown_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_transcendent_crown_context(self)
 
 
 func is_heavenly_cape_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_HEAVENLY_CAPE)
 
 
 func get_heavenly_cape_skill_cooldown_reduction_pct() -> float:
+	_ensure_helpers_ready()
 	return clamp(_get_equipped_roll_sum(ITEM_HEAVENLY_CAPE, "skill_cooldown_reduction"), 0.0, 95.0)
 
 
 func get_heavenly_cape_skill_slot_bonus() -> int:
+	_ensure_helpers_ready()
 	if not is_heavenly_cape_equipped():
 		return 0
 	return 1
 
 
 func get_player_skill_max_slots(base_slots: int = 5) -> int:
+	_ensure_helpers_ready()
 	return max(1, int(base_slots) + get_heavenly_cape_skill_slot_bonus())
 
 
 func get_player_skill_cooldown_multiplier() -> float:
+	_ensure_helpers_ready()
 	var multiplier := 1.0
 	var timer_reduction_pct: float = get_timer_belt_skill_cooldown_reduction_pct()
 	if timer_reduction_pct > 0.0:
@@ -2698,43 +3036,52 @@ func get_player_skill_cooldown_multiplier() -> float:
 
 
 func get_player_skill_cooldown_seconds(base_cooldown_seconds: float) -> float:
+	_ensure_helpers_ready()
 	return max(0.0, float(base_cooldown_seconds) * get_player_skill_cooldown_multiplier())
 
 
 func is_dashgear_equipped() -> bool:
+	_ensure_helpers_ready()
 	return is_equipped(ITEM_DASHGEAR)
 
 
 func get_dashgear_dash_distance_bonus_pct() -> float:
+	_ensure_helpers_ready()
 	if not equipped_items.has(ITEM_DASHGEAR):
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_DASHGEAR, "dash_distance_pct"), 0.0, 200.0)
 
 
 func get_dashgear_boost_charge_chance_pct() -> float:
+	_ensure_helpers_ready()
 	if not equipped_items.has(ITEM_DASHGEAR):
 		return 0.0
 	return clamp(_get_equipped_roll_value(ITEM_DASHGEAR, "boost_charge_pct"), 0.0, 100.0)
 
 
 func get_dash_duration_frames(base_frames: float) -> float:
+	_ensure_helpers_ready()
 	var bonus_pct: float = get_dashgear_dash_distance_bonus_pct()
 	return max(1.0, float(base_frames) * (1.0 + bonus_pct / 100.0))
 
 
 func get_boost_charge_chance_pct() -> float:
+	_ensure_helpers_ready()
 	return max(0.0, get_dashgear_boost_charge_chance_pct())
 
 
 func is_soul_burst_equipped() -> bool:
+	_ensure_helpers_ready()
 	return _has_equipped_item_name(ITEM_SOUL_BURST)
 
 
 func is_soul_burst_active() -> bool:
+	_ensure_helpers_ready()
 	return is_soul_burst_equipped()
 
 
 func get_soul_burst_gauge_cost() -> float:
+	_ensure_helpers_ready()
 	if not is_soul_burst_equipped():
 		return SOUL_BURST_DEFAULT_GAUGE_COST
 	var cost: float = _get_equipped_roll_value(ITEM_SOUL_BURST, "soul_burst_gauge_cost")
@@ -2744,6 +3091,7 @@ func get_soul_burst_gauge_cost() -> float:
 
 
 func can_soul_burst_dash(special_gauge: float) -> bool:
+	_ensure_helpers_ready()
 	return is_soul_burst_equipped() and float(special_gauge) + 0.001 >= get_soul_burst_gauge_cost()
 
 
@@ -2753,6 +3101,7 @@ func try_consume_soul_burst_dash(
 	direction: float,
 	registry: Object = null
 ) -> Dictionary:
+	_ensure_helpers_ready()
 	var current_gauge: float = max(0.0, float(special_gauge))
 	if not can_soul_burst_dash(current_gauge):
 		return {
@@ -2770,6 +3119,7 @@ func try_consume_soul_burst_dash(
 
 
 func trigger_soul_burst_effect(player_center: Vector2, direction: float, registry: Object = null) -> void:
+	_ensure_helpers_ready()
 	soul_burst_center = player_center
 	soul_burst_direction = sign(direction)
 	if abs(soul_burst_direction) <= 0.01:
@@ -2782,14 +3132,17 @@ func trigger_soul_burst_effect(player_center: Vector2, direction: float, registr
 
 
 func is_dashholder_equipped() -> bool:
+	_ensure_helpers_ready()
 	return get_dashholder_dash_token_bonus() > 0
 
 
 func get_dashholder_dash_token_bonus() -> int:
+	_ensure_helpers_ready()
 	return max(0, _count_equipped_item_name(ITEM_DASHHOLDER))
 
 
 func get_dash_token_capacity(base_tokens: int = 1, runtime_perk_state: Object = null) -> int:
+	_ensure_helpers_ready()
 	var capacity: int = max(1, int(base_tokens)) + get_dashholder_dash_token_bonus()
 	if runtime_perk_state != null and runtime_perk_state.has_method("get_runtime_skill_bonus"):
 		capacity += int(runtime_perk_state.get_runtime_skill_bonus("dash_amplification"))
@@ -2797,8 +3150,18 @@ func get_dash_token_capacity(base_tokens: int = 1, runtime_perk_state: Object = 
 
 
 func update(owner: Object, registry: Object, delta: float) -> void:
+	_ensure_helpers_ready()
 	if not _has_runtime_update_work():
+		var idle_fps_scale: float = max(0.0, delta * 60.0)
 		_poll_idle_poseidon_dash_trigger(owner, registry)
+		var previous_smartphone_item := smartphone_last_auto_item
+		var previous_smartphone_cooldown := smartphone_cooldown_frames
+		_update_smartphone_runtime(owner, registry, idle_fps_scale)
+		if (
+			previous_smartphone_item != smartphone_last_auto_item
+			or not is_equal_approx(previous_smartphone_cooldown, smartphone_cooldown_frames)
+		):
+			_sync_owner(owner, registry)
 		return
 	var fps_scale: float = max(0.0, delta * 60.0)
 	if acquisition_cinematic != null:
@@ -2939,6 +3302,7 @@ func try_apply_ragnarok_player_hit(
 	_context: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
+	_ensure_helpers_ready()
 	if not is_equipped(ITEM_RAGNAROK_HAMMER):
 		return {}
 	if ragnarok_stun_ball_active or ragnarok_stun_attempted_this_rally:
@@ -2970,6 +3334,7 @@ func try_apply_ragnarok_player_hit(
 
 
 func apply_ragnarok_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary) -> Dictionary:
+	_ensure_helpers_ready()
 	if not is_equipped(ITEM_RAGNAROK_HAMMER):
 		_clear_ragnarok_rally_state()
 		return {}
@@ -3017,6 +3382,7 @@ func apply_ragnarok_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dicti
 
 
 func apply_poseidon_wave_to_ball(scene: Dictionary, fps_scale: float, _context: Dictionary, deps: Dictionary) -> Dictionary:
+	_ensure_helpers_ready()
 	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", Vector2.ZERO))
 	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", Vector2.ZERO))
 	if poseidon_capture_active:
@@ -3044,6 +3410,7 @@ func apply_poseidon_wave_to_ball(scene: Dictionary, fps_scale: float, _context: 
 
 
 func apply_poseidon_boss_hit(ball_vel: Vector2) -> Dictionary:
+	_ensure_helpers_ready()
 	if not poseidon_vortex_affected:
 		return {}
 	poseidon_vortex_affected = false
@@ -3058,6 +3425,7 @@ func apply_poseidon_boss_hit(ball_vel: Vector2) -> Dictionary:
 
 
 func apply_baal_boots_player_hit(ball_pos: Vector2, ball_vel: Vector2, context: Dictionary, deps: Dictionary) -> Dictionary:
+	_ensure_helpers_ready()
 	var round_weather_type: String = baal_boots_weather_state.round_weather_type
 	if not baal_boots_weather_state.round_effect_active or round_weather_type == "":
 		return {}
@@ -3082,6 +3450,7 @@ func apply_baal_boots_player_hit(ball_pos: Vector2, ball_vel: Vector2, context: 
 
 
 func apply_baal_boots_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary) -> Dictionary:
+	_ensure_helpers_ready()
 	if baal_boots_combat_state.ball_mark_timer_frames <= 0.0 or baal_boots_combat_state.ball_mark_type == "":
 		return {}
 	var mark_type: String = baal_boots_combat_state.consume_ball_mark()
@@ -3105,34 +3474,42 @@ func apply_baal_boots_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dic
 
 
 func get_ragnarok_trigger_chance() -> float:
+	_ensure_helpers_ready()
 	return clamp(_get_equipped_roll_value(ITEM_RAGNAROK_HAMMER, "trigger_chance"), 0.0, 100.0)
 
 
 func get_ragnarok_stun_duration() -> float:
+	_ensure_helpers_ready()
 	return clamp(_get_equipped_roll_value(ITEM_RAGNAROK_HAMMER, "stun_duration"), 0.8, 1.2)
 
 
 func get_ragnarok_speed_boost() -> float:
+	_ensure_helpers_ready()
 	return clamp(_get_equipped_roll_value(ITEM_RAGNAROK_HAMMER, "speed_boost"), 0.0, 100.0)
 
 
 func get_ragnarok_gauge_cost() -> float:
+	_ensure_helpers_ready()
 	return clamp(_get_equipped_roll_value(ITEM_RAGNAROK_HAMMER, "gauge_cost"), 0.0, 100.0)
 
 
 func get_poseidon_cooldown() -> float:
+	_ensure_helpers_ready()
 	return clamp(_get_equipped_roll_value(ITEM_POSEIDON_TRIDENT, "cooldown"), 0.1, 30.0)
 
 
 func get_poseidon_gauge_cost() -> float:
+	_ensure_helpers_ready()
 	return clamp(_get_equipped_roll_value(ITEM_POSEIDON_TRIDENT, "gauge_cost"), 0.0, 100.0)
 
 
 func get_poseidon_vortex_size() -> float:
+	_ensure_helpers_ready()
 	return clamp(_get_equipped_roll_value(ITEM_POSEIDON_TRIDENT, "vortex_size"), 60.0, 500.0)
 
 
 func is_poseidon_ball_motion_active() -> bool:
+	_ensure_helpers_ready()
 	if poseidon_capture_active or poseidon_water_trail_active:
 		return true
 	if not is_equipped(ITEM_POSEIDON_TRIDENT):
@@ -3146,30 +3523,37 @@ func is_poseidon_ball_motion_active() -> bool:
 
 
 func get_poseidon_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_poseidon_context(self, CONTEXT_CONSTANTS)
 
 
 func get_boss_ai_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_boss_ai_context(self, CONTEXT_CONSTANTS)
 
 
 func has_actor_draw_context() -> bool:
+	_ensure_helpers_ready()
 	return context_builder.has_actor_draw_context(self)
 
 
 func get_actor_draw_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_actor_draw_context(self, CONTEXT_CONSTANTS)
 
 
 func has_ball_draw_context() -> bool:
+	_ensure_helpers_ready()
 	return context_builder.has_ball_draw_context(self)
 
 
 func get_ball_draw_context() -> Dictionary:
+	_ensure_helpers_ready()
 	return context_builder.get_ball_draw_context(self)
 
 
 func has_visible_field_effects() -> bool:
+	_ensure_helpers_ready()
 	if _ragnarok_impact_elapsed() < RAGNAROK_IMPACT_EFFECT_DURATION:
 		return true
 	if ragnarok_boss_stun_timer_frames > 0.0 or not ragnarok_sparks.is_empty():
@@ -3219,15 +3603,18 @@ func draw_field_effects(
 	canvas: CanvasItem,
 	_registry: Object,
 	shake_offset: Vector2,
-	perf_logger: Object = null
+	perf_logger: Object = null,
+	timer_stack: Object = null
 ) -> void:
+	_ensure_helpers_ready()
 	field_effect_renderer.draw_field_effects(
 		self,
 		canvas,
 		shake_offset,
 		RAGNAROK_IMPACT_EFFECT_DURATION,
 		RAGNAROK_ELECTRIC_STUN_INTENSITY,
-		perf_logger
+		perf_logger,
+		timer_stack
 	)
 
 
@@ -3289,10 +3676,12 @@ func _draw_venom_mist_effect(canvas: CanvasItem, shake_offset: Vector2) -> void:
 
 
 func is_activation_effect_active() -> bool:
+	_ensure_helpers_ready()
 	return _activation_elapsed() < MEGINGJORD_ACTIVATION_DURATION
 
 
 func draw_activation_effect(canvas: CanvasItem, view_size: Vector2) -> void:
+	_ensure_helpers_ready()
 	if canvas == null or not is_activation_effect_active():
 		return
 	activation_effect_renderer.draw_activation_effect(
@@ -3306,6 +3695,7 @@ func draw_activation_effect(canvas: CanvasItem, view_size: Vector2) -> void:
 
 
 func get_snapshot() -> Dictionary:
+	_ensure_helpers_ready()
 	return snapshot_builder.build_snapshot(self, SNAPSHOT_CONSTANTS)
 
 
@@ -3401,10 +3791,12 @@ func _start_activation_effect(owner: Object, registry: Object) -> void:
 
 
 func _build_activation_particles() -> void:
+	_ensure_helpers_ready(false)
 	activation_particles = activation_effect_renderer.build_activation_particles(MEGINGJORD_PARTICLE_COUNT)
 
 
 func _build_activation_bolts() -> void:
+	_ensure_helpers_ready(false)
 	activation_bolts = activation_effect_renderer.build_activation_bolts(MEGINGJORD_BOLT_COUNT)
 
 
@@ -4292,13 +4684,14 @@ func _is_adversity_armor_effect_active() -> bool:
 	)
 
 
-func _draw_adversity_armor_effect(canvas: CanvasItem, shake_offset: Vector2) -> void:
+func _draw_adversity_armor_effect(canvas: CanvasItem, shake_offset: Vector2, timer_stack: Object = null) -> void:
 	field_effect_renderer.draw_adversity_armor_effect(
 		canvas,
 		shake_offset,
 		get_adversity_armor_context(),
 		adversity_armor_aura_particles,
-		adversity_armor_barrier_particles
+		adversity_armor_barrier_particles,
+		timer_stack
 	)
 
 func _get_shrapnel_armor_current_gauge(context: Dictionary, deps: Dictionary) -> float:
@@ -5497,6 +5890,7 @@ func get_item_roll_value(
 	apply_polish: bool = true,
 	registry: Object = null
 ) -> float:
+	_ensure_helpers_ready()
 	return roll_query.get_public_item_roll_value(self, item_data, option_key, apply_polish, registry)
 
 
@@ -5888,12 +6282,39 @@ func _get_instance(registry: Object, key: String) -> Object:
 	return registry.get_instance(key)
 
 
+func _ensure_helpers_ready(perform_reset: bool = false) -> void:
+	while not prewarm_initialization_step(perform_reset):
+		pass
+
+
+func _init_helper(member_name: String) -> void:
+	if get(member_name) is Object:
+		return
+	var path := str(HELPER_SCRIPT_PATHS.get(member_name, ""))
+	if path == "":
+		return
+	var script: Variant = load(path)
+	if script == null:
+		return
+	set(member_name, script.new())
+
+
+func _get_acquisition_cinematic_script() -> Variant:
+	return load(ACQUISITION_CINEMATIC_SCRIPT_PATH)
+
+
 func _should_use_acquisition_cinematic(item_data: Dictionary) -> bool:
-	return MythicItemAcquisitionCinematicV2.should_use_item_data(item_data)
+	var cinematic_script: Variant = _get_acquisition_cinematic_script()
+	if cinematic_script == null:
+		return false
+	return bool(cinematic_script.should_use_item_data(item_data))
 
 
 func _resolve_acquisition_player_center(owner: Object) -> Vector2:
-	return MythicItemAcquisitionCinematicV2.resolve_player_center(owner, CONTEXT_CONSTANTS)
+	var cinematic_script: Variant = _get_acquisition_cinematic_script()
+	if cinematic_script == null:
+		return Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT - PLAYER_BASE_PADDLE_HEIGHT * 0.5)
+	return cinematic_script.resolve_player_center(owner, CONTEXT_CONSTANTS)
 
 
 func _safe_owner_get(owner: Object, key: String, fallback: Variant) -> Variant:

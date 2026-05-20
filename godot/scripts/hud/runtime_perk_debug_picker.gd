@@ -7,17 +7,46 @@ const CARD_HEIGHT := 54.0
 const CARD_GAP := 8.0
 const MIN_CARD_WIDTH := 208.0
 const ICON_SIZE := 36.0
+const MAX_VISIBLE_CARDS := 12
 
 var open := false
 var target_level := 1
 var last_applied_id := ""
 var last_applied_timer := 0.0
+var page_index := 0
+var _icon_prewarmed := false
+var _text_prewarmed := false
+var _text_prewarmed_char_type := ""
+var _cached_entries: Array = []
+var _cached_entries_char_type: String = ""
+var _cached_panel_rect: Rect2 = Rect2()
+var _cached_layout: Dictionary = {}
+var _cached_layout_view_w: float = -1.0
+var _cached_layout_view_h: float = -1.0
+var _cached_layout_entry_count: int = -1
+
+
+func prewarm_assets(catalog: Object = null, owner: Object = null, icon_renderer: Object = null) -> void:
+	if not _icon_prewarmed and icon_renderer != null and icon_renderer.has_method("prewarm_assets"):
+		icon_renderer.prewarm_assets()
+		_icon_prewarmed = true
+	var char_type: String = _get_character_type(owner)
+	var entries: Array = _cached_entries
+	if entries.is_empty() or _cached_entries_char_type != char_type:
+		entries = _get_entries(catalog, owner)
+	_cache_entries_for_owner(owner, entries)
+	if _text_prewarmed and _text_prewarmed_char_type == char_type:
+		return
+	_text_prewarmed = true
+	_text_prewarmed_char_type = char_type
+	_prewarm_text_metrics(entries)
 
 
 func toggle() -> void:
 	open = not open
 	if open:
 		target_level = max(1, target_level)
+		page_index = max(0, page_index)
 
 
 func close() -> void:
@@ -40,6 +69,8 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 			return true
 		if key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE:
 			close()
+			return true
+		if _handle_page_key(key_event, entries.size()):
 			return true
 		return true
 
@@ -82,9 +113,12 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	var catalog: Object = _get_instance(registry, "runtime_perk_catalog")
 	var runtime_state: Object = _get_instance(registry, "runtime_perk_state")
 	var icon_renderer: Object = _get_instance(registry, "runtime_perk_icon_renderer")
-	var entries: Array = _get_entries(catalog, owner)
-	var panel_rect: Rect2 = _get_panel_rect(view_size, entries.size())
-	var layout: Dictionary = _build_grid_layout(panel_rect, entries.size())
+	var entries: Array = _get_cached_entries(catalog, owner)
+	_clamp_page_index(entries.size())
+	var visible_entries: Array = _get_visible_entries(entries)
+	var panel_layout: Dictionary = _get_cached_panel_layout(view_size, visible_entries.size())
+	var panel_rect: Rect2 = panel_layout.get("panel_rect", Rect2())
+	var layout: Dictionary = panel_layout.get("layout", {})
 	var mouse_pos: Vector2 = _get_mouse_position(canvas)
 
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.40))
@@ -100,10 +134,12 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	var level_text := "Target Lv.%d" % target_level
 	var level_size: Vector2 = font.get_string_size(level_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18)
 	canvas.draw_string(font, panel_rect.position + Vector2(panel_rect.size.x - level_size.x - 18.0, 32.0), level_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 18, Color(1.0, 0.84, 0.28))
+	var page_text := "Page %d/%d" % [page_index + 1, _get_page_count(entries.size())]
+	canvas.draw_string(font, panel_rect.position + Vector2(panel_rect.size.x - 112.0, 54.0), page_text, HORIZONTAL_ALIGNMENT_LEFT, 96.0, 12, Color(0.70, 0.84, 0.94))
 
 	var levels: Dictionary = _get_runtime_levels(runtime_state, owner)
-	for index in range(entries.size()):
-		var entry: Dictionary = entries[index]
+	for index in range(visible_entries.size()):
+		var entry: Dictionary = visible_entries[index]
 		var card_rect: Rect2 = _get_card_rect(index, panel_rect, layout)
 		var hovered: bool = card_rect.has_point(mouse_pos)
 		_draw_card(canvas, font, card_rect, entry, hovered, levels, icon_renderer)
@@ -119,7 +155,6 @@ func _draw_card(
 	icon_renderer: Object
 ) -> void:
 	var perk_id: String = str(entry.get("id", ""))
-	var max_level: int = int(entry.get("max_level", 1))
 	var owned_level: int = int(levels.get(perk_id, 0))
 	var apply_level: int = _get_apply_level_for_entry(entry)
 	var is_last: bool = perk_id == last_applied_id and last_applied_timer > 0.0
@@ -145,15 +180,10 @@ func _draw_card(
 	if title.is_empty():
 		title = perk_id
 	canvas.draw_string(font, Vector2(text_x, rect.position.y + 20.0), title, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 106.0, 13, Color(0.94, 0.98, 1.0))
-	var group: String = str(entry.get("debug_group", entry.get("tree", "")))
-	var status: String = group
-	if max_level <= 0 or bool(entry.get("is_instant", false)):
-		status += " / instant"
-	else:
-		status += " / own %d -> Lv.%d/%d" % [owned_level, apply_level, max_level]
+	var status: String = _get_status_text(entry, owned_level, apply_level)
 	canvas.draw_string(font, Vector2(text_x, rect.position.y + 39.0), status, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 106.0, 11, Color(0.68, 0.75, 0.83))
 
-	var level_badge: String = "GO" if max_level <= 0 or bool(entry.get("is_instant", false)) else "Lv.%d" % apply_level
+	var level_badge: String = _get_level_badge(entry, apply_level)
 	var badge_size: Vector2 = font.get_string_size(level_badge, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12)
 	var badge_rect := Rect2(rect.position + Vector2(rect.size.x - badge_size.x - 18.0, rect.size.y * 0.5 - 12.0), Vector2(badge_size.x + 10.0, 22.0))
 	canvas.draw_rect(badge_rect, Color(0.05, 0.09, 0.13, 0.92))
@@ -174,9 +204,14 @@ func _apply_entry(entry: Dictionary, owner: Object, registry: Object, catalog: O
 
 func _adjust_target_level(mouse_event: InputEventMouseButton, entries: Array, view_size: Vector2) -> void:
 	var index: int = _get_entry_index_at(mouse_event.position, view_size, entries)
+	if index < 0:
+		if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			page_index = max(0, page_index - 1)
+		else:
+			page_index = min(_get_page_count(entries.size()) - 1, page_index + 1)
+		return
 	var max_level: int = 5
-	if index >= 0:
-		max_level = max(1, int(entries[index].get("max_level", 1)))
+	max_level = max(1, int(entries[index].get("max_level", 1)))
 	if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP:
 		target_level = min(max_level, target_level + 1)
 	else:
@@ -190,12 +225,30 @@ func _get_apply_level_for_entry(entry: Dictionary) -> int:
 	return clampi(target_level, 1, max_level)
 
 
+func _get_status_text(entry: Dictionary, owned_level: int, apply_level: int) -> String:
+	var max_level: int = int(entry.get("max_level", 1))
+	var group: String = str(entry.get("debug_group", entry.get("tree", "")))
+	if max_level <= 0 or bool(entry.get("is_instant", false)):
+		return "%s / instant" % group
+	return "%s / own %d -> Lv.%d/%d" % [group, owned_level, apply_level, max_level]
+
+
+func _get_level_badge(entry: Dictionary, apply_level: int) -> String:
+	var max_level: int = int(entry.get("max_level", 1))
+	if max_level <= 0 or bool(entry.get("is_instant", false)):
+		return "GO"
+	return "Lv.%d" % apply_level
+
+
 func _get_entry_index_at(position: Vector2, view_size: Vector2, entries: Array) -> int:
-	var panel_rect: Rect2 = _get_panel_rect(view_size, entries.size())
-	var layout: Dictionary = _build_grid_layout(panel_rect, entries.size())
-	for index in range(entries.size()):
+	_clamp_page_index(entries.size())
+	var visible_entries: Array = _get_visible_entries(entries)
+	var panel_rect: Rect2 = _get_panel_rect(view_size, visible_entries.size())
+	var layout: Dictionary = _build_grid_layout(panel_rect, visible_entries.size())
+	var page_start: int = _get_page_start(entries.size())
+	for index in range(visible_entries.size()):
 		if _get_card_rect(index, panel_rect, layout).has_point(position):
-			return index
+			return page_start + index
 	return -1
 
 
@@ -203,6 +256,105 @@ func _get_entries(catalog: Object, owner: Object) -> Array:
 	if catalog != null and catalog.has_method("get_debug_perk_entries"):
 		return catalog.get_debug_perk_entries(_get_character_type(owner))
 	return []
+
+
+func _get_cached_entries(catalog: Object, owner: Object) -> Array:
+	var char_type: String = _get_character_type(owner)
+	if not _cached_entries.is_empty() and char_type == _cached_entries_char_type:
+		return _cached_entries
+	_cache_entries_for_owner(owner, _get_entries(catalog, owner))
+	_clamp_page_index(_cached_entries.size())
+	return _cached_entries
+
+
+func _cache_entries_for_owner(owner: Object, entries: Array) -> void:
+	_cached_entries = entries
+	_cached_entries_char_type = _get_character_type(owner)
+
+
+func _get_visible_entries(entries: Array) -> Array:
+	var result: Array = []
+	var page_start: int = _get_page_start(entries.size())
+	var page_end: int = min(entries.size(), page_start + MAX_VISIBLE_CARDS)
+	for index in range(page_start, page_end):
+		result.append(entries[index])
+	return result
+
+
+func _get_page_start(entry_count: int) -> int:
+	_clamp_page_index(entry_count)
+	return page_index * MAX_VISIBLE_CARDS
+
+
+func _get_page_count(entry_count: int) -> int:
+	return max(1, int(ceil(float(max(0, entry_count)) / float(MAX_VISIBLE_CARDS))))
+
+
+func _clamp_page_index(entry_count: int) -> void:
+	page_index = clampi(page_index, 0, _get_page_count(entry_count) - 1)
+
+
+func _handle_page_key(key_event: InputEventKey, entry_count: int) -> bool:
+	var old_page := page_index
+	match key_event.keycode:
+		KEY_PAGEUP, KEY_LEFT:
+			page_index = max(0, page_index - 1)
+		KEY_PAGEDOWN, KEY_RIGHT:
+			page_index = min(_get_page_count(entry_count) - 1, page_index + 1)
+		KEY_HOME:
+			page_index = 0
+		KEY_END:
+			page_index = _get_page_count(entry_count) - 1
+		_:
+			return false
+	return page_index != old_page
+
+
+func _get_cached_panel_layout(view_size: Vector2, entry_count: int) -> Dictionary:
+	if (
+		entry_count == _cached_layout_entry_count
+		and is_equal_approx(view_size.x, _cached_layout_view_w)
+		and is_equal_approx(view_size.y, _cached_layout_view_h)
+		and _cached_panel_rect.size != Vector2.ZERO
+	):
+		return {"panel_rect": _cached_panel_rect, "layout": _cached_layout}
+	_cached_panel_rect = _get_panel_rect(view_size, entry_count)
+	_cached_layout = _build_grid_layout(_cached_panel_rect, entry_count)
+	_cached_layout_view_w = view_size.x
+	_cached_layout_view_h = view_size.y
+	_cached_layout_entry_count = entry_count
+	return {"panel_rect": _cached_panel_rect, "layout": _cached_layout}
+
+
+func _prewarm_text_metrics(entries: Array) -> void:
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	_touch_font_text(font, "F4 Perk Debug", 18)
+	_touch_font_text(font, "Click a perk to apply. Mouse wheel changes target level. Right click / Esc closes.", 12)
+	for level in range(1, 6):
+		_touch_font_text(font, "Target Lv.%d" % level, 18)
+		_touch_font_text(font, "Lv.%d" % level, 12)
+	_touch_font_text(font, "GO", 12)
+	for entry in entries:
+		if not (entry is Dictionary):
+			continue
+		var entry_data: Dictionary = entry
+		var perk_id: String = str(entry_data.get("id", ""))
+		var title: String = str(entry_data.get("name", perk_id)).strip_edges()
+		if title.is_empty():
+			title = perk_id
+		_touch_font_text(font, title, 13)
+		var max_level: int = max(0, int(entry_data.get("max_level", 1)))
+		var sample_level: int = 0 if max_level <= 0 or bool(entry_data.get("is_instant", false)) else clampi(target_level, 1, max_level)
+		_touch_font_text(font, _get_status_text(entry_data, 0, sample_level), 11)
+		_touch_font_text(font, _get_level_badge(entry_data, sample_level), 12)
+
+
+func _touch_font_text(font: Font, text: String, font_size: int) -> void:
+	if text.is_empty():
+		return
+	font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 
 
 func _get_panel_rect(view_size: Vector2, entry_count: int) -> Rect2:

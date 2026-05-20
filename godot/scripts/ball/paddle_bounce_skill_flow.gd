@@ -41,6 +41,8 @@ func resolve_player_skills(
 
 	if str(context.get("selected_character_type", "smasher")) != "smasher":
 		return state
+	if _is_smasher_wheel_active(deps):
+		return state
 
 	var power_result: Dictionary = skill_router.try_activate_power_smashing(
 		ball_pos,
@@ -89,3 +91,10 @@ func _build_state(
 
 func _build_clear_drive_snapshot(deps: Dictionary, clear_spin: bool) -> Dictionary:
 	return skill_router.build_clear_drive_snapshot(deps.get("ball_spin_state", null), clear_spin)
+
+
+func _is_smasher_wheel_active(deps: Dictionary) -> bool:
+	var wheel_state: Object = deps.get("smasher_wheel_state", null)
+	if wheel_state == null or not wheel_state.has_method("is_active"):
+		return false
+	return bool(wheel_state.is_active())

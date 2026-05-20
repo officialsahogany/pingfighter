@@ -51,6 +51,7 @@ func build_common_snapshot() -> Dictionary:
 		"ball_impact_boost": 1.0,
 		"ball_boost_decay_rate": BALL_IMPACT_BASE_DECAY_RATE,
 		"ball_min_boost": BALL_IMPACT_BASE_MIN_BOOST,
+		"rally_speed_cap_bonus": 0.0,
 		"player_collision_cooldown": 0.0,
 		"boss_collision_cooldown": 0.0,
 		"vertical_bounce_count": 0,
@@ -60,6 +61,15 @@ func build_common_snapshot() -> Dictionary:
 		"drive_hit_boss": false,
 		"drive_speed_increase": 0.0,
 		"drive_text_timer_frames": 0.0,
+		"smasher_wheel_speed_cap": 0.0,
+		"commando_bowling_trap_guard_armed": false,
+		"commando_bowling_trap_guard_source": "",
+		"commando_bowling_trap_guard_knockback_power": 0.0,
+		"commando_bowling_trap_guard_stun_frames": 0.0,
+		"commando_bowling_trap_guard_restore_speed": 0.0,
+		"commando_suicide_drone_ball_boost_active": false,
+		"commando_suicide_drone_ball_restore_speed": 0.0,
+		"commando_suicide_drone_ball_boosted_speed": 0.0,
 	}
 
 

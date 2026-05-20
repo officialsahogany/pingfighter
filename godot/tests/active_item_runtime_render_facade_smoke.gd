@@ -274,7 +274,13 @@ class FakeRuntimeRenderFacade:
 
 	var field_draw_count := 0
 	var pickup_draw_count := 0
+	var prewarm_count := 0
+	var last_prewarm_visuals: Object
 	var last_shake_offset := Vector2.ZERO
+
+	func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
+		prewarm_count += 1
+		last_prewarm_visuals = active_item_hud_visuals
 
 	func draw_field_items(
 		_canvas: CanvasItem,
@@ -295,6 +301,7 @@ func _init() -> void:
 	_verify_facade_draw_dispatch()
 	_verify_facade_pickup_draw_gate()
 	_verify_runtime_public_draw_methods_delegate()
+	_verify_runtime_public_prewarm_delegates()
 
 	if _failures.is_empty():
 		print("active_item_runtime_render_facade_smoke: ok")
@@ -371,6 +378,17 @@ func _verify_runtime_public_draw_methods_delegate() -> void:
 	_expect(fake_facade.last_shake_offset == shake_offset, "runtime should preserve public draw shake offset")
 	_expect(fake_facade.pickup_draw_count == 1, "runtime draw_pickup_effect should delegate to render facade")
 	canvas.free()
+
+
+func _verify_runtime_public_prewarm_delegates() -> void:
+	var runtime: Object = ActiveItemRuntime.new()
+	var fake_facade := FakeRuntimeRenderFacade.new()
+	var visuals := RefCounted.new()
+	runtime.render_facade = fake_facade
+
+	runtime.prewarm_assets(visuals)
+	_expect(fake_facade.prewarm_count == 1, "runtime prewarm_assets should delegate to render facade")
+	_expect(fake_facade.last_prewarm_visuals == visuals, "runtime prewarm_assets should pass HUD visuals")
 
 
 func _expect(condition: bool, message: String) -> void:

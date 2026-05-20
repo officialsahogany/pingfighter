@@ -1,17 +1,20 @@
 extends RefCounted
 
 const PowerSmashEffectsState := preload("res://scripts/characters/smasher_power_smash_effects_state.gd")
+const SmasherGhostShotState := preload("res://scripts/characters/smasher_ghost_shot_state.gd")
 const PowerSmashRuntimeState := preload("res://scripts/characters/smasher_power_smash_runtime_state.gd")
 const PowerSmashVelocityFacade := preload("res://scripts/characters/smasher_power_smash_velocity_facade.gd")
 
 var runtime_state: Object = PowerSmashRuntimeState.new()
 var effects_state: Object = PowerSmashEffectsState.new()
+var ghost_state: Object = SmasherGhostShotState.new()
 var velocity_facade: Object = PowerSmashVelocityFacade.new()
 
 
 func reset(clear_text: bool = true) -> void:
 	runtime_state.reset(clear_text)
 	clear_effects()
+	ghost_state.reset()
 
 
 func can_activate(
@@ -36,10 +39,16 @@ func begin_activation(
 	new_direction: int,
 	new_arc_strength: float,
 	new_combo_consumed: int,
-	text_duration_frames: float
+	text_duration_frames: float,
+	ghost_shot: bool = false,
+	current_msec: int = 0
 ) -> void:
 	runtime_state.begin_activation(new_direction, new_arc_strength, new_combo_consumed, text_duration_frames)
 	clear_effects()
+	if ghost_shot:
+		ghost_state.begin(current_msec if current_msec > 0 else Time.get_ticks_msec())
+	else:
+		ghost_state.reset()
 
 
 func lock_freeze_pose(pos: Vector2) -> void:
@@ -75,8 +84,40 @@ func apply_motion(ball_velocity: Vector2, fps_scale: float, gravity_effect: floa
 	return velocity_facade.apply_motion(runtime_state, ball_velocity, fps_scale, gravity_effect, boost_duration)
 
 
+func apply_ghost_shot_motion(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
+	if not is_ghost_shot_motion_active():
+		return {}
+	if not runtime_state.step_motion(fps_scale, 0.0):
+		return {}
+	var result: Dictionary = ghost_state.apply_motion(
+		scene,
+		fps_scale,
+		runtime_state.get_elapsed(),
+		runtime_state.get_arc_strength(),
+		context,
+		deps
+	)
+	if bool(result.get("finish_power_motion", false)):
+		runtime_state.finish_motion()
+	return result
+
+
+func finish_after_boss_counter(origin: Vector2 = Vector2.ZERO) -> void:
+	var scatter_origin: Vector2 = origin
+	if scatter_origin == Vector2.ZERO:
+		scatter_origin = ghost_state.get_last_visible_ball_pos()
+	var should_scatter_ghosts: bool = ghost_state.is_active() or ghost_state.has_pending_teleport()
+	runtime_state.reset(false)
+	effects_state.clear()
+	if should_scatter_ghosts:
+		ghost_state.scatter_from(scatter_origin)
+	else:
+		ghost_state.reset()
+
+
 func clear_effects() -> void:
 	effects_state.clear()
+	ghost_state.reset()
 
 
 func spawn_trail(pos: Vector2, ball_size: float, combo_count: int = 0) -> void:
@@ -92,15 +133,17 @@ func spawn_initial_burst(pos: Vector2) -> void:
 
 
 func update_effects(fps_scale: float, ball_pos: Vector2, ball_active: bool, ball_size: float) -> void:
+	var ghost_motion_active: bool = is_ghost_shot_motion_active()
 	effects_state.update(
 		fps_scale,
 		ball_pos,
 		ball_active,
 		ball_size,
-		is_parabola_active() or is_freeze_active(),
-		is_parabola_active(),
+		(is_parabola_active() or is_freeze_active()) and not ghost_motion_active,
+		is_parabola_active() and not ghost_motion_active,
 		get_combo_consumed()
 	)
+	ghost_state.update_effects(fps_scale, ball_pos, ball_active, ball_size)
 
 
 func update_text_timer(fps_scale: float) -> void:
@@ -127,6 +170,22 @@ func is_parabola_active() -> bool:
 	return runtime_state.is_parabola_active()
 
 
+func is_ghost_shot_active() -> bool:
+	return ghost_state.is_active()
+
+
+func is_ghost_shot_motion_active() -> bool:
+	return ghost_state.is_motion_active()
+
+
+func has_ghost_shot_pending_teleport() -> bool:
+	return ghost_state.has_pending_teleport()
+
+
+func scatter_ghost_shot_from_boss(origin: Vector2) -> void:
+	ghost_state.scatter_from(origin)
+
+
 func get_original_speed() -> float:
 	return runtime_state.get_original_speed()
 
@@ -145,3 +204,27 @@ func get_trails() -> Array[Dictionary]:
 
 func get_particles() -> Array[Dictionary]:
 	return effects_state.get_particles()
+
+
+func has_visible_effects() -> bool:
+	return effects_state.has_effects() or ghost_state.has_visible_effects()
+
+
+func get_ghost_shot_ghosts() -> Array[Dictionary]:
+	return ghost_state.get_ghosts()
+
+
+func get_ghost_shot_blackhole_effects() -> Array[Dictionary]:
+	return ghost_state.get_blackhole_effects()
+
+
+func get_ghost_shot_trajectory_points() -> Array[Dictionary]:
+	return ghost_state.get_trajectory_points()
+
+
+func get_ghost_shot_last_visible_ball_pos() -> Vector2:
+	return ghost_state.get_last_visible_ball_pos()
+
+
+func has_ghost_shot_visible_aura() -> bool:
+	return ghost_state.has_visible_aura()

@@ -1,18 +1,21 @@
 extends RefCounted
 
+const DRIVE_EFFECT_MULT: float = 0.8
+const DRIVE_MAX_LAUNCH_SPEED_MULT: float = 2.30 * DRIVE_EFFECT_MULT
 const DRIVE_NO_COMBO_SPEED_MULT: float = 0.975
-const DRIVE_NO_COMBO_BASE_SPIN: float = 0.155
-const DRIVE_NO_COMBO_SPEED_SPIN_COEFF: float = 0.009
-const DRIVE_NO_COMBO_SPIN_CAP: float = 0.39
+const DRIVE_NO_COMBO_BASE_SPIN: float = 0.155 * DRIVE_EFFECT_MULT
+const DRIVE_NO_COMBO_SPEED_SPIN_COEFF: float = 0.009 * DRIVE_EFFECT_MULT
+const DRIVE_NO_COMBO_SPIN_CAP: float = 0.39 * DRIVE_EFFECT_MULT
 const DRIVE_BASE_ANGLE_RAD: float = PI / 8.0
 const DRIVE_POSITION_FACTOR_SCALE: float = 0.30
-const SMASHER_DRIVE_COMBO_SPEED_MULT: float = 1.008
-const SMASHER_DRIVE_COMBO_SPIN_PER_COMBO: float = 0.06
-const SMASHER_DRIVE_COMBO_SPIN_CAP: float = 0.36
-const SMASHER_DRIVE_COMBO_SPEED_PER_COMBO: float = 0.008
-const SMASHER_DRIVE_COMBO_SPEED_CAP: float = 0.048
-const SMASHER_DRIVE_COMBO_SPIN_CAP_PER_COMBO: float = 0.045
-const SMASHER_DRIVE_COMBO_SPIN_CAP_BONUS_MAX: float = 0.27
+const SMASHER_DRIVE_COMBO_SPEED_MULT: float = 1.0 + ((1.00576 - 1.0) * DRIVE_EFFECT_MULT)
+const SMASHER_DRIVE_COMBO_SPIN_PER_COMBO: float = 0.06 * DRIVE_EFFECT_MULT
+const SMASHER_DRIVE_COMBO_SPIN_CAP: float = 0.36 * DRIVE_EFFECT_MULT
+const SMASHER_DRIVE_COMBO_SPEED_PER_COMBO: float = 0.00576 * DRIVE_EFFECT_MULT
+const SMASHER_DRIVE_COMBO_SPEED_CAP: float = 0.03456 * DRIVE_EFFECT_MULT
+const SMASHER_DRIVE_COMBO_SPIN_CAP_PER_COMBO: float = 0.04 * DRIVE_EFFECT_MULT
+const SMASHER_DRIVE_COMBO_SPIN_CAP_BONUS_MAX: float = 0.24 * DRIVE_EFFECT_MULT
+const SMASHER_DRIVE_COMBO_PARTICLE_PER_COMBO: int = 3
 
 
 func apply(
@@ -38,13 +41,13 @@ func apply(
 			float(combo_count) * SMASHER_DRIVE_COMBO_SPEED_PER_COMBO,
 			SMASHER_DRIVE_COMBO_SPEED_CAP
 		)
-		drive_base_spin = 0.22
-		drive_speed_spin_coeff = 0.012
-		drive_spin_cap = 0.52 + min(
+		drive_base_spin = 0.22 * DRIVE_EFFECT_MULT
+		drive_speed_spin_coeff = 0.012 * DRIVE_EFFECT_MULT
+		drive_spin_cap = 0.52 * DRIVE_EFFECT_MULT + min(
 			float(combo_count) * SMASHER_DRIVE_COMBO_SPIN_CAP_PER_COMBO,
 			SMASHER_DRIVE_COMBO_SPIN_CAP_BONUS_MAX
 		)
-		drive_particle_count = 8 + combo_count * 4
+		drive_particle_count = 8 + combo_count * SMASHER_DRIVE_COMBO_PARTICLE_PER_COMBO
 
 	var original_speed: float = speed
 	speed *= _apply_dampened_multiplier(ball_physics, speed, drive_speed_mult)
@@ -76,11 +79,18 @@ func apply(
 	var drive_base_multiplier: float = _apply_dampened_multiplier(
 		ball_physics,
 		speed,
-		randf_range(1.0 + 0.02 * accel_scale, 1.0 + 0.07 * accel_scale)
+		randf_range(
+			1.0 + 0.0144 * DRIVE_EFFECT_MULT * accel_scale,
+			1.0 + 0.0504 * DRIVE_EFFECT_MULT * accel_scale
+		)
 	)
 	var drive_base_additional_speed: float = speed * (drive_base_multiplier - 1.0)
 	speed *= drive_base_multiplier
 	speed_increase += drive_base_additional_speed
+	var max_drive_speed: float = max(original_speed, 0.1) * DRIVE_MAX_LAUNCH_SPEED_MULT
+	if speed > max_drive_speed:
+		speed = max_drive_speed
+		speed_increase = max(0.0, speed - original_speed)
 
 	return {
 		"speed": speed,

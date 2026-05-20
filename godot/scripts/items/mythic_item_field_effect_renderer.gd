@@ -21,6 +21,10 @@ const RAINBOW_FUR_GLOVE_RING_SEGMENTS := 44
 const SOUL_BURST_ELLIPSE_SEGMENTS := 48
 const MAX_POSEIDON_TRAIL_ARCS := 2
 const POSEIDON_TRAIL_ARC_SEGMENTS := 6
+const ADVERSITY_ARMOR_TIMER_BAR_SIZE := Vector2(150.0, 12.0)
+const ADVERSITY_ARMOR_TIMER_BAR_MARGIN := Vector2(16.0, 28.0)
+const ADVERSITY_ARMOR_TIMER_STACK_SPACING := 18.0
+const ADVERSITY_ARMOR_TIMER_STACK_KEY := "adversity_armor"
 
 
 func draw_field_effects(
@@ -29,7 +33,8 @@ func draw_field_effects(
 	shake_offset: Vector2,
 	ragnarok_impact_effect_duration: float,
 	ragnarok_electric_stun_intensity: float,
-	perf_logger: Object = null
+	perf_logger: Object = null,
+	timer_stack: Object = null
 ) -> void:
 	if canvas == null or runtime == null:
 		return
@@ -74,7 +79,7 @@ func draw_field_effects(
 		_perf_end(detail_perf_logger, "mythic.rainbow_fur_glove", rainbow_sample_start)
 	if adversity_armor_visible:
 		var adversity_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_adversity_armor_effect(canvas, shake_offset)
+		runtime._draw_adversity_armor_effect(canvas, shake_offset, timer_stack)
 		_perf_end(detail_perf_logger, "mythic.adversity_armor", adversity_sample_start)
 	if shrapnel_armor_visible:
 		var shrapnel_sample_start: int = _perf_begin(detail_perf_logger)
@@ -378,7 +383,8 @@ func draw_adversity_armor_effect(
 	shake_offset: Vector2,
 	context: Dictionary,
 	aura_particles: Array,
-	barrier_particles: Array
+	barrier_particles: Array,
+	timer_stack: Object = null
 ) -> void:
 	if canvas == null:
 		return
@@ -405,10 +411,7 @@ func draw_adversity_armor_effect(
 				max(1.0, 2.4 - float(wave_index) * 0.3),
 				true
 			)
-		var fill_width: float = 190.0 * timer_ratio
-		var gauge_origin := Vector2(285.0, barrier_y - 28.0) + shake_offset
-		canvas.draw_rect(Rect2(gauge_origin, Vector2(190.0, 5.0)), Color(0.15, 0.09, 0.02, 0.34), true)
-		canvas.draw_rect(Rect2(gauge_origin, Vector2(fill_width, 5.0)), Color(1.0, 0.74, 0.24, 0.72), true)
+		_draw_adversity_armor_timer_gauge(canvas, timer_ratio, timer_stack)
 	if flash > 0.0:
 		var center: Vector2 = _as_vector2(context.get("last_reflect_center", Vector2(380.0, barrier_y)), Vector2(380.0, barrier_y)) + shake_offset
 		for ring_index in range(3):
@@ -431,6 +434,51 @@ func draw_adversity_armor_effect(
 			Color(1.0, 0.68, 0.18, 1.0),
 			false
 		)
+
+
+func _draw_adversity_armor_timer_gauge(canvas: CanvasItem, timer_ratio: float, timer_stack: Object = null) -> void:
+	var stack_index: int = 0
+	if timer_stack != null and timer_stack.has_method("claim"):
+		stack_index = int(timer_stack.claim(ADVERSITY_ARMOR_TIMER_STACK_KEY, true))
+	var frame_rect := Rect2(_get_adversity_armor_timer_bar_position(stack_index), ADVERSITY_ARMOR_TIMER_BAR_SIZE)
+	var outer_rect := frame_rect.grow(5.0)
+	var mid_rect := frame_rect.grow(3.0)
+	var border_rect := frame_rect.grow(2.0)
+	canvas.draw_rect(outer_rect, Color(0.0, 0.0, 0.0, 0.28))
+	canvas.draw_rect(outer_rect, Color(0.20, 0.12, 0.03, 0.94))
+	canvas.draw_rect(mid_rect, Color(0.82, 0.48, 0.12, 0.96))
+	canvas.draw_rect(mid_rect, Color(1.0, 0.74, 0.24, 0.90), false, 2.0)
+	canvas.draw_rect(border_rect, Color(0.18, 0.10, 0.02, 0.96))
+	canvas.draw_rect(frame_rect, Color(0.10, 0.06, 0.02, 0.94))
+
+	var fill_width: float = max(1.0, (frame_rect.size.x - 4.0) * clamp(timer_ratio, 0.0, 1.0))
+	var fill_rect := Rect2(frame_rect.position + Vector2(2.0, 2.0), Vector2(fill_width, frame_rect.size.y - 4.0))
+	canvas.draw_rect(fill_rect, Color(1.0, 0.68, 0.18, 0.98))
+	canvas.draw_rect(Rect2(fill_rect.position, Vector2(fill_rect.size.x, max(2.0, fill_rect.size.y * 0.34))), Color(1.0, 0.92, 0.45, 0.92))
+	for tick_index in range(1, 10):
+		var tick_x: float = frame_rect.position.x + 2.0 + (frame_rect.size.x - 4.0) * (float(tick_index) / 10.0)
+		canvas.draw_line(
+			Vector2(tick_x, frame_rect.position.y + frame_rect.size.y - 4.0),
+			Vector2(tick_x, frame_rect.position.y + frame_rect.size.y - 1.0),
+			Color(1.0, 0.80, 0.32, 0.76),
+			1.0
+		)
+
+	if fill_width > 2.0 and fill_width < frame_rect.size.x - 4.0:
+		var glint_x: float = frame_rect.position.x + 2.0 + fill_width
+		canvas.draw_line(
+			Vector2(glint_x, frame_rect.position.y + 2.0),
+			Vector2(glint_x, frame_rect.position.y + frame_rect.size.y - 1.0),
+			Color(1.0, 1.0, 1.0, 0.46),
+			2.0
+		)
+
+
+func _get_adversity_armor_timer_bar_position(stack_index: int) -> Vector2:
+	return Vector2(
+		760.0 - ADVERSITY_ARMOR_TIMER_BAR_SIZE.x - ADVERSITY_ARMOR_TIMER_BAR_MARGIN.x,
+		750.0 - ADVERSITY_ARMOR_TIMER_BAR_MARGIN.y - float(max(0, stack_index)) * ADVERSITY_ARMOR_TIMER_STACK_SPACING
+	)
 
 
 func _draw_adversity_armor_particle(

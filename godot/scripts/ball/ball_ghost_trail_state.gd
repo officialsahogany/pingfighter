@@ -1,8 +1,8 @@
 extends RefCounted
 
-const BALL_GHOST_MAX_LENGTH := 7
+const BALL_GHOST_MAX_LENGTH := 4
 const BALL_GHOST_FADE_SPEED := 0.75
-const BALL_GHOST_MIN_DISTANCE := 4.0
+const BALL_GHOST_MIN_DISTANCE := 8.0
 const BALL_GHOST_INITIAL_ALPHA := 72.0 / 255.0
 
 var ghost_trail: Array[Dictionary] = []
@@ -26,21 +26,22 @@ func update(ball_center: Vector2, ball_size: float, fps_scale: float) -> void:
 	while ghost_trail.size() > BALL_GHOST_MAX_LENGTH:
 		ghost_trail.pop_front()
 
-	var updated: Array[Dictionary] = []
+	var write_idx: int = 0
 	var fade: float = pow(BALL_GHOST_FADE_SPEED, fps_scale)
-	for point in ghost_trail:
-		var p: Dictionary = point
+	for i in range(ghost_trail.size()):
+		var p: Dictionary = ghost_trail[i]
 		var alpha: float = float(p["alpha"]) * fade
 		var age: float = float(p["age"]) + fps_scale
 		if alpha > 3.0 / 255.0:
 			p["alpha"] = alpha
 			p["age"] = age
-			updated.append(p)
-	ghost_trail = updated
+			ghost_trail[write_idx] = p
+			write_idx += 1
+	ghost_trail.resize(write_idx)
 
 
 func get_trail() -> Array[Dictionary]:
-	return ghost_trail.duplicate()
+	return ghost_trail
 
 
 func _append_interpolated_points(ball_center: Vector2, ball_size: float) -> void:
@@ -51,7 +52,7 @@ func _append_interpolated_points(ball_center: Vector2, ball_size: float) -> void
 	if distance < BALL_GHOST_MIN_DISTANCE:
 		return
 	var segments: int = int(distance / BALL_GHOST_MIN_DISTANCE)
-	segments = clampi(segments, 1, 3)
+	segments = clampi(segments, 1, 2)
 	for step in range(1, segments + 1):
 		var t: float = float(step) / float(segments)
 		ghost_trail.append({

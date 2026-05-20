@@ -4,31 +4,123 @@ const BattleContextReader := preload("res://scripts/core/battle_context_reader.g
 
 const BACKGROUND_COLOR := Color(0.02, 0.02, 0.05)
 
+var _arity_cache: Dictionary = {}
+
 
 func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void:
-	if canvas == null or registry == null:
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var total_start: int = _perf_begin(perf_logger)
+	var sample_start: int = _perf_begin(perf_logger)
+	var surface: Dictionary = _build_draw_surface(canvas, registry, config)
+	_perf_end(perf_logger, "draw.scene.surface", sample_start)
+	if surface.is_empty():
+		_perf_end(perf_logger, "draw.scene.total", total_start)
 		return
+	var view_size: Vector2 = _get_vector2(surface, "view_size", Vector2.ZERO)
+	var layout: Dictionary = surface.get("layout", {})
+	sample_start = _perf_begin(perf_logger)
+	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), BACKGROUND_COLOR)
+	_perf_end(perf_logger, "draw.scene.background", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_pillar_scene(canvas, registry, view_size, layout)
+	_perf_end(perf_logger, "draw.scene.pillar_scene", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_transformed_playfield_scene(canvas, registry, surface)
+	_perf_end(perf_logger, "draw.scene.playfield", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_post_playfield_pillar_hud(canvas, registry, view_size, layout)
+	_perf_end(perf_logger, "draw.scene.post_pillar_hud", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_hud_overlays(canvas, registry, view_size, layout)
+	_perf_end(perf_logger, "draw.scene.hud_overlays", sample_start)
+	_perf_end(perf_logger, "draw.scene.total", total_start)
+
+
+func draw_playfield_underlay(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void:
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var total_start: int = _perf_begin(perf_logger)
+	var sample_start: int = _perf_begin(perf_logger)
+	var surface: Dictionary = _build_draw_surface(canvas, registry, config)
+	_perf_end(perf_logger, "draw.scene_underlay.surface", sample_start)
+	if surface.is_empty():
+		_perf_end(perf_logger, "draw.scene_underlay.total", total_start)
+		return
+	var view_size: Vector2 = _get_vector2(surface, "view_size", Vector2.ZERO)
+	sample_start = _perf_begin(perf_logger)
+	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), BACKGROUND_COLOR)
+	_perf_end(perf_logger, "draw.scene_underlay.background", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_transformed_playfield_scene(canvas, registry, surface)
+	_perf_end(perf_logger, "draw.scene_underlay.playfield", sample_start)
+	_perf_end(perf_logger, "draw.scene_underlay.total", total_start)
+
+
+func draw_pillar_overlay(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void:
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var total_start: int = _perf_begin(perf_logger)
+	var sample_start: int = _perf_begin(perf_logger)
+	var surface: Dictionary = _build_draw_surface(canvas, registry, config)
+	_perf_end(perf_logger, "draw.pillar_overlay.surface", sample_start)
+	if surface.is_empty():
+		_perf_end(perf_logger, "draw.pillar_overlay.total", total_start)
+		return
+	var view_size: Vector2 = _get_vector2(surface, "view_size", Vector2.ZERO)
+	var layout: Dictionary = surface.get("layout", {})
+	var context_owner: Object = _get_context_owner(canvas, surface)
+	sample_start = _perf_begin(perf_logger)
+	_draw_pillar_background_overlay(canvas, registry, view_size, layout, context_owner)
+	_perf_end(perf_logger, "draw.pillar_overlay.background", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_pillar_hud_scene(canvas, registry, view_size, layout, context_owner)
+	_perf_end(perf_logger, "draw.pillar_overlay.hud", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_post_playfield_pillar_hud(canvas, registry, view_size, layout, context_owner)
+	_perf_end(perf_logger, "draw.pillar_overlay.post_hud", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_hud_overlays(canvas, registry, view_size, layout)
+	_perf_end(perf_logger, "draw.pillar_overlay.hud_overlays", sample_start)
+	_perf_end(perf_logger, "draw.pillar_overlay.total", total_start)
+
+
+func _draw_transformed_playfield_scene(canvas: CanvasItem, registry: Object, surface: Dictionary) -> void:
+	var width: float = float(surface.get("width", 760.0))
+	var height: float = float(surface.get("height", 750.0))
+	var pillar_width: float = float(surface.get("pillar_width", 80.0))
+	var render_scale: float = float(surface.get("render_scale", 1.0))
+	var game_offset: Vector2 = _get_vector2(surface, "game_offset", Vector2.ZERO)
+	var shake_offset: Vector2 = _get_vector2(surface, "shake_offset", Vector2.ZERO)
+	canvas.draw_set_transform(game_offset + shake_offset * render_scale, 0.0, Vector2(render_scale, render_scale))
+	_draw_playfield_scene(canvas, registry, Vector2.ZERO, width, height, pillar_width)
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _build_draw_surface(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> Dictionary:
+	if canvas == null or registry == null:
+		return {}
 	var scene_config: Dictionary = config
 	if scene_config.is_empty():
 		scene_config = _build_scene_config(registry)
 	var width: float = float(scene_config.get("width", 760.0))
 	var height: float = float(scene_config.get("height", 750.0))
 	var pillar_width: float = float(scene_config.get("pillar_width", 80.0))
-
 	var feedback: Object = _get_instance(registry, "battle_feedback_state")
-	var shake_offset: Vector2 = _get_shake_offset(feedback)
-	var view_size: Vector2 = canvas.get_viewport_rect().size
+	var view_size: Vector2 = _get_vector2(scene_config, "view_size", Vector2.ZERO)
+	if view_size == Vector2.ZERO:
+		view_size = canvas.get_viewport_rect().size
 	var layout: Dictionary = _build_layout(registry, view_size, width, height)
 	var render_scale: float = float(layout.get("render_scale", 1.0))
 	var game_offset: Vector2 = _get_vector2(layout, "game_offset", Vector2.ZERO)
-
-	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), BACKGROUND_COLOR)
-	_draw_pillar_scene(canvas, registry, view_size, layout)
-
-	canvas.draw_set_transform(game_offset, 0.0, Vector2(render_scale, render_scale))
-	_draw_playfield_scene(canvas, registry, shake_offset, width, height, pillar_width)
-	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	_draw_hud_overlays(canvas, registry, view_size, layout)
+	return {
+		"width": width,
+		"height": height,
+		"pillar_width": pillar_width,
+		"view_size": view_size,
+		"layout": layout,
+		"render_scale": render_scale,
+		"game_offset": game_offset,
+		"shake_offset": _get_shake_offset(feedback),
+		"context_owner": config.get("context_owner", canvas),
+	}
 
 
 func _draw_pillar_scene(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary) -> void:
@@ -36,6 +128,20 @@ func _draw_pillar_scene(canvas: CanvasItem, registry: Object, view_size: Vector2
 	if pillar_draw_pass == null:
 		return
 	pillar_draw_pass.draw(canvas, registry, view_size, layout)
+
+
+func _draw_pillar_hud_scene(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary, context_owner: Object = null) -> void:
+	var pillar_draw_pass: Object = _get_instance(registry, "battle_scene_pillar_draw_pass")
+	if pillar_draw_pass == null or not pillar_draw_pass.has_method("draw_hud_overlay"):
+		return
+	pillar_draw_pass.draw_hud_overlay(canvas, registry, view_size, layout, context_owner)
+
+
+func _draw_pillar_background_overlay(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary, context_owner: Object = null) -> void:
+	var pillar_draw_pass: Object = _get_instance(registry, "battle_scene_pillar_draw_pass")
+	if pillar_draw_pass == null or not pillar_draw_pass.has_method("draw_background_overlay"):
+		return
+	pillar_draw_pass.draw_background_overlay(canvas, registry, view_size, layout, context_owner)
 
 
 func _draw_playfield_scene(
@@ -59,28 +165,48 @@ func _draw_playfield_scene(
 	)
 
 
-func _draw_hud_overlays(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary) -> void:
-	var tooltip_renderer: Object = _get_instance(registry, "smasher_skill_orb_tooltip_renderer")
-	var draw_context_builder: Object = _get_instance(registry, "battle_draw_context")
-	if (
-		tooltip_renderer != null
-		and draw_context_builder != null
-		and tooltip_renderer.has_method("draw")
-		and draw_context_builder.has_method("build_pillar_scene_context")
-	):
-		tooltip_renderer.draw(
-			canvas,
-			registry,
-			view_size,
-			layout,
-			draw_context_builder.build_pillar_scene_context(canvas, view_size, layout, 0.0)
-		)
+func _draw_hud_overlays(canvas: CanvasItem, registry: Object, _view_size: Vector2, _layout: Dictionary) -> void:
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var perk_renderer: Object = _get_instance(registry, "runtime_perk_overlay_renderer")
+	if perk_renderer == null or not perk_renderer.has_method("draw"):
+		return
 	var perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	var treasure_hunt_runtime: Object = _get_instance(registry, "treasure_hunt_runtime")
+	if (
+		_method_accepts_argument_count(perk_renderer, "has_visible_effects", 3)
+		and not bool(perk_renderer.has_visible_effects(perk_state, mythic_item_runtime, treasure_hunt_runtime))
+	):
+		return
 	var perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
 	var perk_icon_renderer: Object = _get_instance(registry, "runtime_perk_icon_renderer")
-	if perk_renderer != null and perk_renderer.has_method("draw"):
-		perk_renderer.draw(canvas, perk_state, perk_catalog, view_size, perk_icon_renderer)
+	if _method_accepts_argument_count(perk_renderer, "draw", 8):
+		perk_renderer.draw(canvas, perk_state, perk_catalog, _view_size, perk_icon_renderer, mythic_item_runtime, treasure_hunt_runtime, perf_logger)
+	else:
+		perk_renderer.draw(canvas, perk_state, perk_catalog, _view_size, perk_icon_renderer, mythic_item_runtime, treasure_hunt_runtime)
+
+
+func _draw_post_playfield_pillar_hud(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary, context_owner: Object = null) -> void:
+	var draw_context_builder: Object = _get_instance(registry, "battle_draw_context")
+	var context: Dictionary = {}
+	var context_source: Object = context_owner if context_owner != null else canvas
+	if draw_context_builder != null and draw_context_builder.has_method("build_pillar_scene_context"):
+		context = draw_context_builder.build_pillar_scene_context(context_source, view_size, layout, 0.0)
+	_append_viper_lod_context(context, registry)
+	context["battle_perf_logger"] = _get_instance(registry, "battle_perf_logger")
+	var current_stage: int = int(context.get("current_stage", 1))
+	var pillar_scene_drawer: Object = _get_stage_instance(registry, current_stage, "pillar_scene_drawer", "stage1_pillar_scene_drawer")
+	if (
+		draw_context_builder == null
+		or pillar_scene_drawer == null
+		or not pillar_scene_drawer.has_method("draw_post_playfield_hud")
+	):
+		return
+	pillar_scene_drawer.draw_post_playfield_hud(
+		canvas,
+		context,
+		registry
+	)
 
 
 func _build_layout(registry: Object, view_size: Vector2, width: float, height: float) -> Dictionary:
@@ -94,10 +220,74 @@ func _build_layout(registry: Object, view_size: Vector2, width: float, height: f
 	}
 
 
+func _get_context_owner(canvas: CanvasItem, surface: Dictionary) -> Object:
+	var owner: Variant = surface.get("context_owner", canvas)
+	if typeof(owner) == TYPE_OBJECT and owner != null and is_instance_valid(owner):
+		return owner as Object
+	return canvas
+
+
 func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _append_viper_lod_context(context: Dictionary, registry: Object) -> void:
+	var jetpack_state: Object = _get_instance(registry, "viper_jetpack_state")
+	if jetpack_state == null:
+		return
+	if "active" in jetpack_state:
+		context["viper_jetpack_active"] = bool(jetpack_state.active)
+	if jetpack_state.has_method("is_airborne"):
+		context["viper_jetpack_airborne"] = bool(jetpack_state.is_airborne(0.1))
+	if "air_strike_flash_timer" in jetpack_state:
+		context["viper_air_strike_flash_timer"] = float(jetpack_state.air_strike_flash_timer)
+
+
+func _method_accepts_argument_count(target: Object, method_name: String, arg_count: int) -> bool:
+	if target == null:
+		return false
+	var instance_id: int = target.get_instance_id()
+	var by_instance: Variant = _arity_cache.get(instance_id)
+	if by_instance is Dictionary:
+		var by_method: Variant = (by_instance as Dictionary).get(method_name)
+		if by_method is Dictionary:
+			var cached: Variant = (by_method as Dictionary).get(arg_count)
+			if cached != null:
+				return bool(cached)
+	var result: bool = false
+	for method_info in target.get_method_list():
+		if not (method_info is Dictionary):
+			continue
+		if str(method_info.get("name", "")) != method_name:
+			continue
+		var args_count: int = 0
+		var args_value: Variant = method_info.get("args", [])
+		if args_value is Array:
+			args_count = args_value.size()
+		var default_count: int = 0
+		var default_value: Variant = method_info.get("default_args", [])
+		if default_value is Array:
+			default_count = default_value.size()
+		var min_args_count: int = max(0, args_count - default_count)
+		result = arg_count >= min_args_count and arg_count <= args_count
+		break
+	var instance_cache: Dictionary = _arity_cache.get(instance_id, {})
+	var method_cache: Dictionary = instance_cache.get(method_name, {})
+	method_cache[arg_count] = result
+	instance_cache[method_name] = method_cache
+	_arity_cache[instance_id] = instance_cache
+	return result
+
+
+func _get_stage_instance(registry: Object, current_stage: int, role: String, fallback_key: String) -> Object:
+	var router: Object = _get_instance(registry, "stage_runtime_router")
+	if router != null and router.has_method("get_instance"):
+		var routed: Object = router.get_instance(registry, current_stage, role)
+		if routed != null:
+			return routed
+	return _get_instance(registry, fallback_key)
 
 
 func _build_scene_config(registry: Object) -> Dictionary:
@@ -121,3 +311,14 @@ func _get_shake_offset(feedback: Object) -> Vector2:
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
 	return BattleContextReader.get_vector2(source, key, fallback)
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)

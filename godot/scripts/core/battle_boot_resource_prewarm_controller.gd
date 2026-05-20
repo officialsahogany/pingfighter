@@ -347,7 +347,7 @@ func _run_stage_specific_runtime_prewarm_step(
 		3:
 			return _run_stage3_runtime_prewarm_step(module_getter, stage_step)
 		4:
-			_run_stage4_runtime_prewarm_step(module_getter, stage_step)
+			return _run_stage4_runtime_prewarm_step(module_getter, stage_step)
 		5:
 			_run_stage5_runtime_prewarm_step(owner, module_getter, stage_step)
 	return true
@@ -409,7 +409,7 @@ func _run_stage2_runtime_prewarm_step(module_getter: Callable, stage_step: int) 
 func _run_stage3_runtime_prewarm_step(module_getter: Callable, stage_step: int) -> bool:
 	match stage_step:
 		0:
-			prewarm_stage3_pillar_background(module_getter)
+			return prewarm_stage3_pillar_background_step(module_getter)
 		1:
 			return prewarm_stage3_playfield_resources_step(module_getter)
 		2:
@@ -419,19 +419,16 @@ func _run_stage3_runtime_prewarm_step(module_getter: Callable, stage_step: int) 
 	return true
 
 
-func _run_stage4_runtime_prewarm_step(module_getter: Callable, stage_step: int) -> void:
-	match stage_step:
-		0:
-			prewarm_stage4_pillar_background(module_getter)
-		1:
-			prewarm_stage4_playfield_resources(module_getter)
-		_:
-			var module_index := stage_step - 2
-			if module_index < 0 or module_index >= STAGE4_RUNTIME_PREWARM_MODULE_KEYS.size():
-				return
-			var module: Object = _get_module(module_getter, STAGE4_RUNTIME_PREWARM_MODULE_KEYS[module_index])
-			if module != null and module.has_method("prewarm_assets"):
-				module.prewarm_assets()
+func _run_stage4_runtime_prewarm_step(module_getter: Callable, stage_step: int) -> bool:
+	if stage_step == 0:
+		return prewarm_stage4_pillar_background_step(module_getter)
+	if stage_step == 1:
+		return prewarm_stage4_playfield_resources_step(module_getter)
+	var module_index := stage_step - 2
+	if module_index < 0 or module_index >= STAGE4_RUNTIME_PREWARM_MODULE_KEYS.size():
+		return true
+	var module: Object = _get_module(module_getter, STAGE4_RUNTIME_PREWARM_MODULE_KEYS[module_index])
+	return _prewarm_module_assets_step(module)
 
 
 func _run_stage5_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> void:
@@ -450,12 +447,12 @@ func _run_stage5_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 					module.prewarm_assets()
 
 
-# Attach a hidden offscreen Node2D once per game session so Vulkan / GPU
+# Attach a hidden offscreen Node2D once per stage so Vulkan / GPU
 # compiles the textured-quad PSOs that the air-strike, hover sheet, and
 # pillar HUD paths use before the first real-gameplay frame touches them.
 # The prewarmer self-destructs after its staged draw passes, so attaching
-# once per session is enough - the PSO cache survives across stages within
-# the session.
+# once per stage gives stage-specific pillar atlases a chance to issue their
+# first texture draws during loading instead of the first visible battle frame.
 func _attach_battle_pso_prewarmer(owner: Object) -> void:
 	var stage_id: int = max(1, _get_current_stage(owner))
 	if bool(battle_pso_prewarmer_stage_ids.get(stage_id, false)):
@@ -517,12 +514,21 @@ func prewarm_stage3_runtime_resources(module_getter: Callable) -> void:
 
 
 func prewarm_stage3_pillar_background(module_getter: Callable) -> void:
+	while not prewarm_stage3_pillar_background_step(module_getter):
+		pass
+
+
+func prewarm_stage3_pillar_background_step(module_getter: Callable) -> bool:
 	if battle_stage3_pillar_background_prewarmed:
-		return
-	battle_stage3_pillar_background_prewarmed = true
+		return true
 	var stage_background: Object = _get_module(module_getter, "stage3_pillar_background")
-	if stage_background != null and stage_background.has_method("prewarm_assets"):
+	if stage_background != null and stage_background.has_method("prewarm_assets_step"):
+		if not bool(stage_background.prewarm_assets_step()):
+			return false
+	elif stage_background != null and stage_background.has_method("prewarm_assets"):
 		stage_background.prewarm_assets()
+	battle_stage3_pillar_background_prewarmed = true
+	return true
 
 
 func prewarm_stage3_playfield_resources(module_getter: Callable) -> void:
@@ -556,17 +562,26 @@ func prewarm_stage4_runtime_resources(module_getter: Callable) -> void:
 		"stage4_ponk_boss_skill_hud_renderer",
 	]:
 		var module: Object = _get_module(module_getter, key)
-		if module != null and module.has_method("prewarm_assets"):
-			module.prewarm_assets()
+		while not _prewarm_module_assets_step(module):
+			pass
 
 
 func prewarm_stage4_pillar_background(module_getter: Callable) -> void:
+	while not prewarm_stage4_pillar_background_step(module_getter):
+		pass
+
+
+func prewarm_stage4_pillar_background_step(module_getter: Callable) -> bool:
 	if battle_stage4_pillar_background_prewarmed:
-		return
-	battle_stage4_pillar_background_prewarmed = true
+		return true
 	var stage_background: Object = _get_module(module_getter, "stage4_pillar_background")
-	if stage_background != null and stage_background.has_method("prewarm_assets"):
+	if stage_background != null and stage_background.has_method("prewarm_assets_step"):
+		if not bool(stage_background.prewarm_assets_step()):
+			return false
+	elif stage_background != null and stage_background.has_method("prewarm_assets"):
 		stage_background.prewarm_assets()
+	battle_stage4_pillar_background_prewarmed = true
+	return true
 
 
 func prewarm_stage5_pillar_background(module_getter: Callable) -> void:
@@ -579,12 +594,28 @@ func prewarm_stage5_pillar_background(module_getter: Callable) -> void:
 
 
 func prewarm_stage4_playfield_resources(module_getter: Callable) -> void:
+	while not prewarm_stage4_playfield_resources_step(module_getter):
+		pass
+
+
+func prewarm_stage4_playfield_resources_step(module_getter: Callable) -> bool:
 	if battle_stage4_playfield_resources_prewarmed:
-		return
-	battle_stage4_playfield_resources_prewarmed = true
+		return true
 	var actor_renderer: Object = _get_module(module_getter, "stage4_actor_renderer")
-	if actor_renderer != null and actor_renderer.has_method("prewarm_assets"):
-		actor_renderer.prewarm_assets()
+	if not _prewarm_module_assets_step(actor_renderer):
+		return false
+	battle_stage4_playfield_resources_prewarmed = true
+	return true
+
+
+func _prewarm_module_assets_step(module: Object) -> bool:
+	if module == null:
+		return true
+	if module.has_method("prewarm_assets_step"):
+		return bool(module.prewarm_assets_step())
+	if module.has_method("prewarm_assets"):
+		module.prewarm_assets()
+	return true
 
 
 func prewarm_active_item_runtime_resources(module_getter: Callable) -> void:

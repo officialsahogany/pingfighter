@@ -66,18 +66,27 @@ func draw(canvas: CanvasItem, font: Font, context: Dictionary) -> void:
 
 
 func _build_monitor_state(context: Dictionary) -> Dictionary:
+	if str(context.get("selected_character_type", "smasher")).strip_edges().to_lower() != "smasher":
+		return {"active": false}
 	if bool(context.get("waiting_for_serve", false)):
 		return {"active": false}
 	if not bool(context.get("ball_active", false)):
+		return {"active": false}
+	if bool(context.get("drive_frame_cooldown_blocked", false)):
 		return {"active": false}
 
 	var special_gauge: float = float(context.get("special_gauge", 0.0))
 	var drive_cost: float = float(context.get("drive_gauge_cost", 150.0))
 	var power_cost: float = float(context.get("power_smash_gauge_cost", 300.0))
-	if special_gauge < drive_cost:
-		return {"active": false}
+	var drive_ready: bool = (
+		special_gauge >= drive_cost
+		and float(context.get("drive_cooldown_remaining", 0.0)) <= 0.0
+	)
+	var power_ready: bool = (
+		special_gauge >= power_cost
+		and float(context.get("power_smash_cooldown_remaining", 0.0)) <= 0.0
+	)
 
-	var power_ready: bool = special_gauge >= power_cost
 	var in_input_range: bool = _is_ball_in_monitor_range(context, INPUT_DISTANCE)
 	if power_ready:
 		return {
@@ -85,6 +94,8 @@ func _build_monitor_state(context: Dictionary) -> Dictionary:
 			"color": POWER_MONITOR_COLOR,
 			"text": POWER_TEXT,
 		}
+	if not drive_ready:
+		return {"active": false}
 
 	var velocity: Vector2 = _get_vector2(context, "ball_vel", Vector2.ZERO)
 	var indicator_distance: float = clamp(
@@ -107,7 +118,7 @@ func _is_ball_in_monitor_range(context: Dictionary, distance_limit: float) -> bo
 
 	var player_pos: Vector2 = _get_vector2(context, "player_pos", Vector2.ZERO)
 	var player_paddle_width: float = float(context.get("player_paddle_width", 155.0))
-	var ball_radius: float = float(context.get("ball_render_radius", 16.9))
+	var ball_radius: float = float(context.get("ball_render_radius", 26.6175))
 	var ball_to_paddle_distance: float = player_pos.y - ball_pos.y
 	var player_center_x: float = player_pos.x + player_paddle_width * 0.5
 	var horizontal_limit: float = player_paddle_width * 0.5 + ball_radius + HORIZONTAL_EXTRA_RANGE

@@ -1,12 +1,11 @@
 extends RefCounted
 
-const BOSS_ACCURACY: float = 0.70
+const BOSS_ACCURACY: float = 1.0
 const BOSS_ACCURACY_ERROR: float = 60.0
-const BOSS_MISTAKE_CHANCE: float = 0.08
-const BOSS_MISTAKE_ERROR_MIN: float = 50.0
-const BOSS_MISTAKE_ERROR_MAX: float = 100.0
-const BOSS_FAIL_TIMER_FRAMES: float = 25.0
-const BOSS_FAIL_ERROR: float = 50.0
+const BOSS_MISTAKE_CHANCE: float = 0.10
+const BOSS_MISTAKE_ERROR_MIN: float = 78.0
+const BOSS_MISTAKE_ERROR_MAX: float = 140.0
+const BOSS_MISTAKE_SPEED_SCALE: float = 4.5
 const BOSS_FAST_BALL_SPEED: float = 15.0
 const BOSS_MEDIUM_BALL_SPEED: float = 10.0
 const BOSS_FAST_PREDICT_FRAMES: float = 8.0
@@ -15,17 +14,19 @@ const BOSS_SLOW_PREDICT_FRAMES: float = 20.0
 const WALL_REFLECTION_LIMIT: int = 4
 const PREDICTION_SIMULATION_MAX_FRAMES: int = 120
 
-var boss_fail_timer: float = 0.0
+var approach_decision_active := false
+var approach_mistake_active := false
+var boss_fail_error_offset: float = 0.0
 
 
 func reset() -> void:
-	boss_fail_timer = 0.0
+	_reset_approach_decision()
 
 
 func predict_future_x(
 	ball_pos: Vector2,
 	ball_vel: Vector2,
-	fps_scale: float,
+	_fps_scale: float,
 	play_left: float,
 	play_right: float,
 	boss_paddle_width: float,
@@ -36,10 +37,12 @@ func predict_future_x(
 	var min_center: float = play_left + boss_paddle_width * 0.5
 	var max_center: float = play_right - boss_paddle_width * 0.5
 	var future_x: float = _predict_arrival_x(ball_pos, ball_vel, predict_frame, play_left, play_right, context)
-	if boss_fail_timer > 0.0:
-		future_x = _apply_fail_window_error(future_x, fps_scale)
-	else:
-		future_x = _apply_normal_prediction_error(future_x, effective_ball_vel, context)
+	if ball_vel.y >= -0.001:
+		_reset_approach_decision()
+		return clamp(future_x, min_center, max_center)
+	if not approach_decision_active:
+		_roll_approach_decision(effective_ball_vel, context)
+	future_x = _apply_approach_prediction_error(future_x)
 	return clamp(future_x, min_center, max_center)
 
 
@@ -59,27 +62,36 @@ func predict_exact_arrival_x(
 	return clamp(future_x, min_center, max_center)
 
 
-func _apply_fail_window_error(future_x: float, fps_scale: float) -> float:
-	future_x += randf_range(-BOSS_FAIL_ERROR, BOSS_FAIL_ERROR)
-	boss_fail_timer = max(0.0, boss_fail_timer - fps_scale)
+func _apply_approach_prediction_error(future_x: float) -> float:
+	if approach_mistake_active:
+		return future_x + boss_fail_error_offset
+	if randf() > BOSS_ACCURACY:
+		return future_x + randf_range(-BOSS_ACCURACY_ERROR, BOSS_ACCURACY_ERROR)
 	return future_x
 
 
-func _apply_normal_prediction_error(future_x: float, ball_vel: Vector2, context: Dictionary) -> float:
-	var mistake_chance: float = BOSS_MISTAKE_CHANCE
+func _roll_approach_decision(ball_vel: Vector2, context: Dictionary) -> void:
+	approach_decision_active = true
+	approach_mistake_active = false
+	boss_fail_error_offset = 0.0
+	var mistake_chance: float = clamp(float(context.get("boss_mistake_chance", BOSS_MISTAKE_CHANCE)), 0.0, 1.0)
 	if bool(context.get("power_smashing_parabola_active", false)) and int(context.get("power_smashing_combo_consumed", 0)) >= 3:
 		mistake_chance *= 0.5
 	if randf() < mistake_chance:
 		var current_speed: float = ball_vel.length()
 		var mistake_magnitude: float = min(
 			BOSS_MISTAKE_ERROR_MAX,
-			max(BOSS_MISTAKE_ERROR_MIN, current_speed * 5.0)
+			max(BOSS_MISTAKE_ERROR_MIN, current_speed * BOSS_MISTAKE_SPEED_SCALE)
 		)
-		boss_fail_timer = BOSS_FAIL_TIMER_FRAMES
-		return future_x + randf_range(-mistake_magnitude, mistake_magnitude)
-	if randf() > BOSS_ACCURACY:
-		return future_x + randf_range(-BOSS_ACCURACY_ERROR, BOSS_ACCURACY_ERROR)
-	return future_x
+		var mistake_direction := -1.0 if randf() < 0.5 else 1.0
+		approach_mistake_active = true
+		boss_fail_error_offset = mistake_direction * mistake_magnitude
+
+
+func _reset_approach_decision() -> void:
+	approach_decision_active = false
+	approach_mistake_active = false
+	boss_fail_error_offset = 0.0
 
 
 func _get_predict_frames(ball_vel: Vector2) -> float:

@@ -1,31 +1,153 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const BattleSceneMatchResetResultApplier := preload("res://scripts/core/battle_scene_match_reset_result_applier.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 
+var _fallback_reset_result_applier: Object = BattleSceneMatchResetResultApplier.new()
 
-func handle_score_event(registry: Object, scoring_side: String, reset_ball_callback: Callable) -> void:
+
+func handle_score_event(
+	registry: Object,
+	scoring_side: String,
+	reset_ball_callback: Callable,
+	current_stage: int = 1,
+	owner: Object = null
+) -> void:
 	var controller: Object = _get_instance(registry, "match_flow_controller")
 	if controller == null:
 		return
-	controller.handle_score_event(scoring_side, _get_match_flow_deps(registry), {
+	controller.handle_score_event(scoring_side, _get_match_flow_deps(registry, current_stage, owner), {
 		"reset_ball": reset_ball_callback,
 	})
 
 
-func update_scoreboard(registry: Object, delta: float, reset_game_callback: Callable) -> void:
+func handle_round_restart(registry: Object, reason: String, reset_ball_callback: Callable) -> void:
+	var controller: Object = _get_instance(registry, "match_flow_controller")
+	if controller == null:
+		return
+	controller.handle_round_restart(reason, _get_match_flow_deps(registry), {
+		"reset_ball": reset_ball_callback,
+	})
+
+
+func update_scoreboard(
+	registry: Object,
+	delta: float,
+	reset_game_callback: Callable,
+	reset_ball_callback: Callable,
+	owner: Object = null
+) -> void:
+	var scoreboard_state: Object = _get_instance(registry, "scoreboard_state")
+	if scoreboard_state != null and scoreboard_state.has_method("update_scoreboard"):
+		var update_result: int = int(scoreboard_state.update_scoreboard(delta))
+		if update_result == ScoreboardState.UPDATE_NONE:
+			return
+		_apply_scoreboard_update_result(
+			update_result,
+			registry,
+			owner,
+			reset_game_callback,
+			reset_ball_callback
+		)
+		return
+
 	var controller: Object = _get_instance(registry, "match_flow_controller")
 	if controller == null:
 		return
 	controller.update_scoreboard(
 		delta,
-		_get_match_flow_deps(registry),
-		{"reset_game": reset_game_callback},
+		_get_match_flow_deps(registry, int(_get_owner_value(owner, "current_stage", 1)), owner),
+		{
+			"reset_game": reset_game_callback,
+			"reset_ball": reset_ball_callback,
+			"show_stage_clear_result": Callable(self, "_show_stage_clear_result").bind(registry, reset_game_callback, owner),
+		},
 		{
 			"update_reset_game": ScoreboardState.UPDATE_RESET_GAME,
 			"update_start_serve": ScoreboardState.UPDATE_START_SERVE,
 		}
 	)
+
+
+func apply_scoreboard_update_result(
+	update_result: int,
+	registry: Object,
+	owner: Object,
+	reset_game_callback: Callable,
+	reset_ball_callback: Callable
+) -> void:
+	_apply_scoreboard_update_result(
+		update_result,
+		registry,
+		owner,
+		reset_game_callback,
+		reset_ball_callback
+	)
+
+
+func _apply_scoreboard_update_result(
+	update_result: int,
+	registry: Object,
+	owner: Object,
+	reset_game_callback: Callable,
+	reset_ball_callback: Callable
+) -> void:
+	var deps: Dictionary = _get_match_flow_deps(registry, int(_get_owner_value(owner, "current_stage", 1)), owner)
+	if update_result == ScoreboardState.UPDATE_RESET_GAME:
+		if _show_stage_clear_result(registry, reset_game_callback, owner):
+			return
+		_call_callback(reset_game_callback)
+	elif update_result == ScoreboardState.UPDATE_START_SERVE:
+		_call_callback(reset_ball_callback)
+		var round_state: Object = deps.get("round_state", null)
+		if round_state != null and round_state.has_method("prepare_serve_after_scoreboard"):
+			round_state.prepare_serve_after_scoreboard()
+		_start_stage4_pending_destruction(deps)
+		_start_pending_pandora_legacy_selection(deps)
+
+
+func _call_callback(callback: Callable) -> void:
+	if callback.is_valid():
+		callback.call()
+
+
+func _start_pending_pandora_legacy_selection(deps: Dictionary) -> void:
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("start_pending_pandora_legacy_selection"):
+		return
+	mythic_item_runtime.start_pending_pandora_legacy_selection(
+		deps.get("owner", null),
+		deps.get("registry", null)
+	)
+
+
+func _start_stage4_pending_destruction(deps: Dictionary) -> void:
+	if int(deps.get("current_stage", 1)) != 4:
+		return
+	var stage4_map_state: Object = deps.get("stage4_map_state", null)
+	if stage4_map_state != null and stage4_map_state.has_method("handle_scoreboard_serve_prepare"):
+		stage4_map_state.handle_scoreboard_serve_prepare(deps)
+
+
+func _show_stage_clear_result(registry: Object, reset_game_callback: Callable, owner: Object) -> bool:
+	var result_screen: Object = _get_instance(registry, "stage_clear_result_screen")
+	if result_screen == null or not result_screen.has_method("show_from_scoreboard"):
+		return false
+	var exit_callback := Callable(self, "_exit_to_main_menu").bind(owner)
+	return bool(result_screen.show_from_scoreboard(owner, registry, reset_game_callback, exit_callback))
+
+
+func _exit_to_main_menu(owner: Object) -> void:
+	if not (owner is Node):
+		return
+	var owner_node: Node = owner as Node
+	var tree: SceneTree = owner_node.get_tree()
+	if tree == null:
+		return
+	var error: int = tree.change_scene_to_file("res://scenes/character_select.tscn")
+	if error != OK:
+		push_warning("Failed to change scene to character_select.tscn (error %d)" % error)
 
 
 func reset_game(
@@ -37,43 +159,60 @@ func reset_game(
 	var controller: Object = _get_instance(registry, "match_flow_controller")
 	if controller == null or owner == null:
 		return
-	var result: Dictionary = controller.reset_game(_get_match_flow_deps(registry), {
+	var result: Dictionary = controller.reset_game(_get_match_flow_deps(
+		registry,
+		int(_get_owner_value(owner, "current_stage", 1))
+	), {
 		"reset_drive_input": reset_drive_input_callback,
 		"reset_ball": reset_ball_callback,
 	})
-	owner.set("special_gauge", float(result.get("special_gauge", _get_owner_value(owner, "special_gauge", 0.0))))
-	owner.set("drive_text_timer_frames", float(result.get(
-		"drive_text_timer_frames",
-		_get_owner_value(owner, "drive_text_timer_frames", 0.0)
-	)))
-	owner.set("player_paddle_width", float(result.get(
-		"player_paddle_width",
-		_get_owner_value(owner, "player_paddle_width", 155.0)
-	)))
-	owner.set("player_paddle_height", float(result.get(
-		"player_paddle_height",
-		_get_owner_value(owner, "player_paddle_height", 50.0)
-	)))
-	owner.set("player_paddle_scale", float(result.get(
-		"player_paddle_scale",
-		_get_owner_value(owner, "player_paddle_scale", 1.0)
-	)))
-	var active_item_slots: Variant = result.get("active_item_slots", null)
-	if active_item_slots is Array:
-		owner.set("active_item_slots", active_item_slots)
+	_get_reset_result_applier(registry).apply_reset_result(owner, result)
 
 
-func _get_match_flow_deps(registry: Object) -> Dictionary:
+func reset_for_stage_transition(
+	owner: Object,
+	registry: Object,
+	reset_drive_input_callback: Callable,
+	reset_ball_callback: Callable
+) -> void:
+	var controller: Object = _get_instance(registry, "match_flow_controller")
+	if controller == null or owner == null:
+		return
+	if not controller.has_method("reset_for_stage_transition"):
+		reset_game(owner, registry, reset_drive_input_callback, reset_ball_callback)
+		return
+	var result: Dictionary = controller.reset_for_stage_transition(_get_match_flow_deps(
+		registry,
+		int(_get_owner_value(owner, "current_stage", 1))
+	), {
+		"reset_drive_input": reset_drive_input_callback,
+		"reset_ball": reset_ball_callback,
+	})
+	_get_reset_result_applier(registry).apply_reset_result(owner, result)
+
+
+func _get_match_flow_deps(registry: Object, current_stage: int = 1, owner: Object = null) -> Dictionary:
 	var context_builder: Object = _get_instance(registry, "battle_update_context")
 	if context_builder == null:
 		return {}
-	return context_builder.build_match_flow_deps(registry)
+	var deps: Dictionary = context_builder.build_match_flow_deps(registry, current_stage)
+	deps["registry"] = registry
+	if owner != null:
+		deps["owner"] = owner
+	return deps
 
 
 func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _get_reset_result_applier(registry: Object) -> Object:
+	var applier: Object = _get_instance(registry, "battle_scene_match_reset_result_applier")
+	if applier != null and applier.has_method("apply_reset_result"):
+		return applier
+	return _fallback_reset_result_applier
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

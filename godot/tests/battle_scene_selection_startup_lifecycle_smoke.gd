@@ -1,0 +1,139 @@
+extends SceneTree
+
+const BattleSceneSelectionStartupLifecycle := preload("res://scripts/core/battle_scene_selection_startup_lifecycle.gd")
+const BattleSceneStartupController := preload("res://scripts/core/battle_scene_startup_controller.gd")
+
+var _failures: Array[String] = []
+
+
+class FakeSelectionState:
+	extends RefCounted
+
+	var selection: Dictionary = {}
+
+	func get_selection() -> Dictionary:
+		return selection
+
+
+class FakeOwner:
+	extends RefCounted
+
+	var data: Dictionary = {}
+	var selection_state := FakeSelectionState.new()
+
+	func get_node_or_null(path: NodePath) -> Object:
+		if str(path) == "/root/GameSelectionState":
+			return selection_state
+		return null
+
+	func _set(property: StringName, value: Variant) -> bool:
+		data[str(property)] = value
+		return true
+
+
+class FakeSelectionStartupLifecycle:
+	extends RefCounted
+
+	var apply_calls := 0
+	var normalize_league_calls := 0
+	var normalize_runtime_calls := 0
+
+	func apply_selection_state(_owner: Object) -> void:
+		apply_calls += 1
+
+	func normalize_league_mode(_mode: String) -> String:
+		normalize_league_calls += 1
+		return "champion"
+
+	func normalize_runtime_character_id(_value: Variant) -> String:
+		normalize_runtime_calls += 1
+		return "smasher"
+
+
+func _init() -> void:
+	_verify_selection_startup_lifecycle_applies_battle_state()
+	_verify_selection_startup_lifecycle_normalizes_fallbacks()
+	_verify_selection_startup_lifecycle_accepts_optimus()
+	_verify_startup_controller_delegates_selection_surface()
+
+	if _failures.is_empty():
+		print("battle_scene_selection_startup_lifecycle_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _verify_selection_startup_lifecycle_applies_battle_state() -> void:
+	var lifecycle: Object = BattleSceneSelectionStartupLifecycle.new()
+	var owner := FakeOwner.new()
+	owner.selection_state.selection = {
+		"stage_id": 3,
+		"character_id": "viper",
+		"runtime_character_id": "viper",
+		"character_name": "Viper",
+		"league_mode": "mythic league",
+	}
+
+	lifecycle.apply_selection_state(owner)
+
+	_expect(int(owner.data.get("current_stage", 0)) == 3, "selection startup should apply selected stage")
+	_expect(str(owner.data.get("selected_character_id", "")) == "viper", "selection startup should apply character id")
+	_expect(str(owner.data.get("selected_runtime_character_id", "")) == "viper", "selection startup should apply runtime id")
+	_expect(str(owner.data.get("selected_character_type", "")) == "viper", "selection startup should mirror runtime character type")
+	_expect(str(owner.data.get("selected_character_name", "")) == "Viper", "selection startup should apply character display name")
+	_expect(str(owner.data.get("ai_mode", "")) == "mythic", "selection startup should normalize mythic league")
+
+
+func _verify_selection_startup_lifecycle_normalizes_fallbacks() -> void:
+	var lifecycle: Object = BattleSceneSelectionStartupLifecycle.new()
+	var owner := FakeOwner.new()
+	owner.selection_state.selection = {
+		"stage_id": -5,
+		"character_id": "soldier",
+		"runtime_character_id": "soldier",
+		"league_mode": "unknown",
+	}
+
+	lifecycle.apply_selection_state(owner)
+
+	_expect(int(owner.data.get("current_stage", 0)) == 1, "selection startup should clamp stage to at least one")
+	_expect(str(owner.data.get("selected_runtime_character_id", "")) == "soldier", "selection startup should preserve the supported Commando runtime id")
+	_expect(str(owner.data.get("selected_character_type", "")) == "soldier", "selection startup should mirror the Commando runtime type")
+	_expect(str(owner.data.get("ai_mode", "")) == "champion", "selection startup should fall back unknown league mode")
+
+
+func _verify_selection_startup_lifecycle_accepts_optimus() -> void:
+	var lifecycle: Object = BattleSceneSelectionStartupLifecycle.new()
+	var owner := FakeOwner.new()
+	owner.selection_state.selection = {
+		"stage_id": 2,
+		"character_id": "optimus",
+		"runtime_character_id": "optimus",
+		"character_name": "\uc774\uc624",
+		"league_mode": "champion",
+	}
+
+	lifecycle.apply_selection_state(owner)
+
+	_expect(str(owner.data.get("selected_runtime_character_id", "")) == "optimus", "selection startup should preserve Optimus runtime id")
+	_expect(str(owner.data.get("selected_character_type", "")) == "optimus", "selection startup should mirror Optimus runtime type")
+
+
+func _verify_startup_controller_delegates_selection_surface() -> void:
+	var startup: Object = BattleSceneStartupController.new()
+	var fake := FakeSelectionStartupLifecycle.new()
+	startup.selection_startup_lifecycle = fake
+
+	startup._apply_selection_state(FakeOwner.new())
+	_expect(fake.apply_calls == 1, "startup controller should delegate selection apply")
+	_expect(startup._normalize_league_mode("mythic") == "champion", "startup controller should delegate league normalization")
+	_expect(fake.normalize_league_calls == 1, "selection helper should receive league normalization")
+	_expect(startup._normalize_runtime_character_id("viper") == "smasher", "startup controller should delegate runtime normalization")
+	_expect(fake.normalize_runtime_calls == 1, "selection helper should receive runtime normalization")
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

@@ -72,19 +72,38 @@ var _hud_frame_texture_checked := false
 var _hud_frame_texture: Texture2D = null
 var _weapon_texture_checked: Dictionary = {}
 var _weapon_texture_cache: Dictionary = {}
+var _prewarm_assets_step_index := 0
 
 
 func prewarm_assets() -> void:
-	_get_hud_frame_texture()
-	_get_cached_weapon_texture(PISTOL_ICON_TEXTURE_PATH)
-	_get_cached_weapon_texture(PISTOL_FIRE_RECOIL_SHEET_PATH)
-	_get_cached_weapon_texture(AK47_ICON_TEXTURE_PATH)
-	_get_cached_weapon_texture(AK47_FIRE_RECOIL_SHEET_PATH)
-	_get_cached_weapon_texture(BAZOOKA_ICON_TEXTURE_PATH)
-	_get_cached_weapon_texture(BAZOOKA_FIRE_RECOIL_SHEET_PATH)
-	_get_cached_weapon_texture(BOWLING_TRAP_ICON_TEXTURE_PATH)
-	_get_cached_weapon_texture(BOWLING_TRAP_INSTALL_SHEET_PATH)
-	_get_cached_weapon_texture(BOWLING_TRAP_CAPTURE_SHEET_PATH)
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	var weapon_texture_paths := [
+		PISTOL_ICON_TEXTURE_PATH,
+		PISTOL_FIRE_RECOIL_SHEET_PATH,
+		AK47_ICON_TEXTURE_PATH,
+		AK47_FIRE_RECOIL_SHEET_PATH,
+		BAZOOKA_ICON_TEXTURE_PATH,
+		BAZOOKA_FIRE_RECOIL_SHEET_PATH,
+		BOWLING_TRAP_ICON_TEXTURE_PATH,
+		BOWLING_TRAP_INSTALL_SHEET_PATH,
+		BOWLING_TRAP_CAPTURE_SHEET_PATH,
+	]
+	if _prewarm_assets_step_index == 0:
+		_get_hud_frame_texture()
+	elif _prewarm_assets_step_index <= weapon_texture_paths.size():
+		_get_cached_weapon_texture(str(weapon_texture_paths[_prewarm_assets_step_index - 1]))
+	else:
+		_prewarm_assets_step_index = 0
+		return true
+	_prewarm_assets_step_index += 1
+	if _prewarm_assets_step_index > weapon_texture_paths.size():
+		_prewarm_assets_step_index = 0
+		return true
+	return false
 
 
 func prewarm_textures() -> void:

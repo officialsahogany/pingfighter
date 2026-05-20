@@ -1,5 +1,8 @@
 extends RefCounted
 
+const MAX_GRADIENT_BANDS := 12
+const MIN_GRADIENT_BAND_WIDTH := 3.0
+
 
 func draw_fill(
 	canvas: CanvasItem,
@@ -16,19 +19,21 @@ func draw_fill(
 	var tick_ms: float = float(Time.get_ticks_msec())
 	var fill_rect: Rect2 = Rect2(bar_x, bar_y, fill_w, bar_h)
 	canvas.draw_rect(fill_rect, Color(combo_color.r, combo_color.g, combo_color.b, 0.75 * fill_alpha_mult))
-	for shade_idx in range(int(max(1.0, fill_w))):
-		var shade_t: float = float(shade_idx) / max(1.0, fill_w)
+	var band_count: int = int(clamp(ceil(fill_w / MIN_GRADIENT_BAND_WIDTH), 1.0, float(MAX_GRADIENT_BANDS)))
+	var band_w: float = fill_w / float(band_count)
+	for shade_idx in range(band_count):
+		var shade_t: float = 0.0 if band_count <= 1 else float(shade_idx) / float(band_count - 1)
 		var shade_color: Color = glow_color.lerp(combo_color, shade_t)
-		canvas.draw_line(
-			Vector2(bar_x + float(shade_idx), bar_y + 1.0),
-			Vector2(bar_x + float(shade_idx), bar_y + bar_h - 1.0),
-			Color(shade_color.r, shade_color.g, shade_color.b, 0.32 * fill_alpha_mult),
-			1.0
+		var shade_x: float = bar_x + float(shade_idx) * band_w
+		var shade_w: float = min(band_w + 0.75, bar_x + fill_w - shade_x)
+		canvas.draw_rect(
+			Rect2(shade_x, bar_y + 1.0, max(1.0, shade_w), max(1.0, bar_h - 2.0)),
+			Color(shade_color.r, shade_color.g, shade_color.b, 0.32 * fill_alpha_mult)
 		)
 
 	var wave_points: PackedVector2Array = PackedVector2Array()
 	var wave_amp: float = 1.0 + progress * 2.4
-	var wave_step: int = 4
+	var wave_step: int = max(6, int(5.0 + fill_w / 48.0))
 	for local_x in range(0, int(fill_w) + wave_step, wave_step):
 		var clamped_x: float = min(float(local_x), fill_w)
 		var wave_y: float = bar_y + 3.0 + sin(clamped_x * 0.12 + tick_ms * 0.010) * wave_amp + sin(clamped_x * 0.27 + tick_ms * 0.015) * wave_amp * 0.35
@@ -53,8 +58,9 @@ func draw_sparkles(
 	fill_alpha_mult: float
 ) -> void:
 	var sparkle_count: int = min(14, int(2.0 + progress * 12.0))
+	var tick_ms: float = float(Time.get_ticks_msec())
 	for sparkle_idx in range(sparkle_count):
-		var sparkle_phase: float = fmod(float(Time.get_ticks_msec()) * 0.0017 + float(sparkle_idx) * 0.37, 1.0)
+		var sparkle_phase: float = fmod(tick_ms * 0.0017 + float(sparkle_idx) * 0.37, 1.0)
 		var sparkle_x: float = bar_x + fmod(float(sparkle_idx * 53 + 17) * 0.113, 1.0) * fill_w
 		var sparkle_y: float = bar_y + 2.0 + fmod(float(sparkle_idx * 29 + 7) * 0.131, 1.0) * (bar_h - 4.0) - sparkle_phase * 4.0
 		var sparkle_alpha: float = (1.0 - sparkle_phase) * fill_alpha_mult

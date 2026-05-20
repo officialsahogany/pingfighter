@@ -45,12 +45,52 @@ func apply(
 	var next_ball_vel: Vector2 = _get_vector2(post_hit_result, "ball_vel", ball_vel)
 	var player_speed: float = float(post_hit_result.get("player_speed", context.get("player_speed", 0.0)))
 	var boss_vel: float = float(post_hit_result.get("boss_vel", context.get("boss_vel", 0.0)))
-	return {
+	var result := {
 		"ball_pos": next_ball_pos,
 		"ball_vel": next_ball_vel,
 		"player_speed": player_speed,
 		"boss_vel": boss_vel,
 	}
+	if post_hit_result.has("runtime_perk_gold"):
+		result["runtime_perk_gold"] = int(post_hit_result.get("runtime_perk_gold", 0))
+	for key in [
+		"player_collision_cooldown",
+		"smasher_wheel_speed_cap",
+		"smasher_wheel_hit",
+		"rainbow_fur_glove_activated",
+		"rainbow_fur_glove_cooldown_reduction_pct",
+		"shrapnel_armor_activated",
+		"shrapnel_armor_shard_count",
+		"shrapnel_armor_gauge_cost",
+	]:
+		if post_hit_result.has(key):
+			result[key] = post_hit_result[key]
+	if post_hit_result.has("viper_knockback_overlay_active"):
+		result["viper_knockback_overlay_active"] = bool(post_hit_result.get("viper_knockback_overlay_active", false))
+	if post_hit_result.has("speed_limit_disabled"):
+		result["speed_limit_disabled"] = bool(post_hit_result.get("speed_limit_disabled", false))
+	for key in [
+		"commando_bowling_trap_guard_consumed",
+		"commando_bowling_trap_guarded",
+		"commando_bowling_trap_guard_hit",
+		"commando_bowling_trap_guard_armed",
+		"commando_bowling_trap_guard_source",
+		"commando_bowling_trap_guard_status_source",
+		"commando_bowling_trap_guard_knockback_power",
+		"commando_bowling_trap_guard_knockback_vel",
+		"commando_bowling_trap_guard_stun_frames",
+		"commando_bowling_trap_guard_restore_speed",
+		"commando_bowling_trap_guard_consumed_restore_speed",
+		"commando_suicide_drone_ball_boost_active",
+		"commando_suicide_drone_ball_restore_speed",
+		"commando_suicide_drone_ball_boosted_speed",
+		"commando_suicide_drone_ball_boost_consumed",
+		"commando_suicide_drone_ball_restored_speed",
+		"boss_status_immune",
+	]:
+		if post_hit_result.has(key):
+			result[key] = post_hit_result[key]
+	return result
 
 
 func _build_result(ball_pos: Vector2, ball_vel: Vector2, context: Dictionary) -> Dictionary:

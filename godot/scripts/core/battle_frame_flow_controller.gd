@@ -1,10 +1,46 @@
 extends RefCounted
 
+var _skill_orb_tooltip_pause_active := false
+var _skill_orb_tooltip_pause_key := ""
+
 
 func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 	var scoreboard_state = deps.get("scoreboard_state", null)
 	if scoreboard_state != null and scoreboard_state.is_active():
+		if _skill_orb_tooltip_pause_active:
+			_call(callbacks, "resume_skill_cooldowns")
+		_call(callbacks, "hide_skill_orb_tooltip_overlay")
+		_clear_skill_orb_tooltip_pause()
 		_call_delta(callbacks, "update_effects", delta)
+		return
+
+	if bool(deps.get("skill_orb_tooltip_active", false)):
+		var tooltip_key := str(deps.get("skill_orb_tooltip_key", ""))
+		if not _skill_orb_tooltip_pause_active:
+			_call(callbacks, "pause_skill_cooldowns")
+		_call(callbacks, "queue_skill_orb_tooltip_overlay_redraw")
+		_skill_orb_tooltip_pause_active = true
+		_skill_orb_tooltip_pause_key = tooltip_key
+		return
+	if _skill_orb_tooltip_pause_active:
+		_call(callbacks, "resume_skill_cooldowns")
+		_call(callbacks, "hide_skill_orb_tooltip_overlay")
+	_clear_skill_orb_tooltip_pause()
+
+	var stage3_boss_skill_state = deps.get("stage3_boss_skill_state", null)
+	if (
+		int(deps.get("current_stage", 1)) == 3
+		and stage3_boss_skill_state != null
+		and stage3_boss_skill_state.has_method("is_kuromi_awakening_active")
+		and bool(stage3_boss_skill_state.is_kuromi_awakening_active())
+	):
+		_call_delta(callbacks, "update_effects", delta)
+		_call(callbacks, "queue_redraw")
+		return
+
+	if _is_stage3_psychoball_hitstop_active(deps):
+		_call_delta(callbacks, "update_effects", delta)
+		_call(callbacks, "queue_redraw")
 		return
 
 	var power_state = deps.get("power_state", null)
@@ -14,7 +50,15 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		_call(callbacks, "queue_redraw")
 		return
 
+	_call_delta(callbacks, "update_weather", delta)
+	_call_delta(callbacks, "update_mythic_items", delta)
+	if _is_mythic_pause_active(deps):
+		_call_delta(callbacks, "update_effects", delta)
+		_call(callbacks, "queue_redraw")
+		return
+
 	_call_delta(callbacks, "update_player_control", delta)
+	_call_delta(callbacks, "update_runtime_perk_resume", delta)
 	_call_delta(callbacks, "update_active_items", delta)
 	_call_delta(callbacks, "update_boss_ai", delta)
 
@@ -31,7 +75,8 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		elif round_state.update_waiting(delta):
 			_call(callbacks, "serve_ball")
 	else:
-		_call_delta(callbacks, "update_ball", delta)
+		if not _is_stage3_kuromi_ball_hidden(deps):
+			_call_delta(callbacks, "update_ball", delta)
 
 	_call_delta(callbacks, "update_effects", delta)
 	_call(callbacks, "queue_redraw")
@@ -54,3 +99,41 @@ func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _is_mythic_pause_active(deps: Dictionary) -> bool:
+	var mythic_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_runtime == null:
+		return false
+	if mythic_runtime.has_method("should_pause_game") and bool(mythic_runtime.should_pause_game()):
+		return true
+	if mythic_runtime.has_method("is_baal_boots_cinematic_active") and bool(mythic_runtime.is_baal_boots_cinematic_active()):
+		return true
+	return false
+
+
+func _is_stage3_kuromi_ball_hidden(deps: Dictionary) -> bool:
+	if int(deps.get("current_stage", 1)) != 3:
+		return false
+	var stage3_boss_skill_state = deps.get("stage3_boss_skill_state", null)
+	return (
+		stage3_boss_skill_state != null
+		and stage3_boss_skill_state.has_method("is_kuromi_ball_hidden")
+		and bool(stage3_boss_skill_state.is_kuromi_ball_hidden())
+	)
+
+
+func _is_stage3_psychoball_hitstop_active(deps: Dictionary) -> bool:
+	if int(deps.get("current_stage", 1)) != 3:
+		return false
+	var stage3_boss_skill_state = deps.get("stage3_boss_skill_state", null)
+	return (
+		stage3_boss_skill_state != null
+		and stage3_boss_skill_state.has_method("is_psychoball_hitstop_active")
+		and bool(stage3_boss_skill_state.is_psychoball_hitstop_active())
+	)
+
+
+func _clear_skill_orb_tooltip_pause() -> void:
+	_skill_orb_tooltip_pause_active = false
+	_skill_orb_tooltip_pause_key = ""

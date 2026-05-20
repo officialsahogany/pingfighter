@@ -39,6 +39,11 @@ func begin_activation(new_direction: int, new_arc_strength: float, new_combo_con
 	parabola_state.prepare(new_direction, new_arc_strength, new_combo_consumed)
 
 
+func finish_motion() -> void:
+	freeze_state.reset()
+	parabola_state.finish()
+
+
 func lock_freeze_pose(pos: Vector2) -> void:
 	freeze_state.lock_pose(pos)
 

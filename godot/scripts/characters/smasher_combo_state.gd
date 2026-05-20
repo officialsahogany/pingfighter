@@ -27,15 +27,12 @@ func update_timers(fps_scale: float) -> void:
 	effect_state.update(fps_scale)
 
 
-func register_hit(pos: Vector2) -> void:
-	var new_combo_count: int = progress_state.register_hit()
-	if new_combo_count >= progress_state.get_min_skill_count():
-		start_effect(pos, new_combo_count)
+func register_hit(_pos: Vector2) -> void:
+	progress_state.register_hit()
 
 
-func start_effect(pos: Vector2, new_combo_count: int) -> void:
-	var combo_color: Color = get_combo_color(new_combo_count)
-	effect_state.start(pos, new_combo_count, combo_color)
+func start_effect(_pos: Vector2, _new_combo_count: int) -> void:
+	effect_state.reset()
 
 
 func get_effective_combo() -> int:
@@ -72,6 +69,10 @@ func get_dash_combo_grace_count() -> int:
 
 func is_effect_active() -> bool:
 	return effect_state.is_active()
+
+
+func has_particles() -> bool:
+	return effect_state.has_particles()
 
 
 func get_effect_timer_frames() -> float:

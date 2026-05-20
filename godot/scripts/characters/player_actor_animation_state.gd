@@ -9,6 +9,8 @@ const IDLE_ANIMATION_SPEED := 0.15
 const SPRITE_ANIMATION_SPEED := 0.10
 const HIT_ANIM_DURATION := 0.36
 const HIT_FRAME_COUNT := 4
+const ATTACK_X_TOLERANCE_EXTRA := 18.0
+const ATTACK_ANTICIPATION_MAX_VERTICAL_GAP := 220.0
 
 # Smasher contact-animation durations (Python frame counts / 60 fps).
 const SMASHER_HIT_POSE_DURATION_SEC := 8.0 / 60.0  # Python: SMASHER_HIT_POSE_DURATION = 8 frames
@@ -29,7 +31,12 @@ var hit_timer := 0.0
 var hit_base_duration := HIT_ANIM_DURATION
 var hit_frame := 0
 var hit_side := -1
+var hit_center := false
 var anim_clock := 0.0
+
+# Center-hit threshold: hit_pos is NORMALIZED [-1.0, 1.0] (offset / paddle_half_width).
+# Within +/-0.5 = inner 50% of paddle width = "center hit" zone (used for viper up-kick).
+const HIT_CENTER_THRESHOLD := 0.5
 
 # Smasher attack runtime state (Python `smasher_*` globals).
 var swing_intensity := 1.0
@@ -40,6 +47,7 @@ var left_raise_timer := 0.0    # left-side hit (offset_x < 0)
 # Pending contact offset for power-smash freeze-then-release anticipation.
 var pending_contact_offset := 0.0
 var pending_contact_offset_active := false
+var attack_anticipation_latched := false
 
 
 func reset() -> void:
@@ -59,9 +67,11 @@ func reset() -> void:
 	left_raise_timer = 0.0
 	pending_contact_offset = 0.0
 	pending_contact_offset_active = false
+	attack_anticipation_latched = false
 
 
 func update(delta: float, context: Dictionary) -> void:
+	_maybe_trigger_anticipated_hit(context)
 	anim_clock += delta
 
 	# Tick the auxiliary smasher contact timers every frame (Python lines
@@ -88,7 +98,7 @@ func update(delta: float, context: Dictionary) -> void:
 			if abs(context_hit_duration - hit_base_duration) > 0.001:
 				hit_base_duration = context_hit_duration
 			var hit_progress: float = get_hit_progress(get_effective_hit_duration())
-			var frame_progress: float = _ease_out_cubic(hit_progress)
+			var frame_progress: float = hit_progress if bool(context.get("player_hit_linear_frames", false)) else _ease_out_cubic(hit_progress)
 			hit_frame = min(
 				int(floor(frame_progress * float(context.get("player_hit_frame_count", HIT_FRAME_COUNT)))),
 				max(0, int(context.get("player_hit_frame_count", HIT_FRAME_COUNT)) - 1)
@@ -122,28 +132,123 @@ func trigger_hit(
 	hit_pos: float,
 	has_hit_texture: bool,
 	hit_duration: float = HIT_ANIM_DURATION,
-	intensity: float = INTENSITY_NORMAL
+	intensity: float = INTENSITY_NORMAL,
+	start_frame: int = 0,
+	frame_count: int = HIT_FRAME_COUNT
 ) -> void:
 	if not has_hit_texture:
+		return
+	var next_hit_side: int = _resolve_hit_side(hit_pos)
+	hit_center = abs(hit_pos) <= HIT_CENTER_THRESHOLD
+	if hit_active:
+		apply_hit_side(next_hit_side, intensity)
+		if intensity > swing_intensity:
+			swing_intensity = max(INTENSITY_NORMAL, intensity)
+			hit_base_duration = max(0.001, hit_duration)
+			hit_timer = max(hit_timer, hit_base_duration * swing_intensity * 0.35)
+			hit_pose_timer = max(hit_pose_timer, SMASHER_HIT_POSE_DURATION_SEC * swing_intensity)
+		pending_contact_offset_active = false
+		pending_contact_offset = 0.0
+		attack_anticipation_latched = hit_active
 		return
 	swing_intensity = max(INTENSITY_NORMAL, intensity)
 	hit_base_duration = max(0.001, hit_duration)
 	hit_active = true
-	hit_timer = hit_base_duration * swing_intensity
+	var effective_duration: float = hit_base_duration * swing_intensity
+	var safe_frame_count: int = max(1, frame_count)
+	var start_progress: float = clamp(float(start_frame) / float(safe_frame_count), 0.0, 0.999)
+	hit_timer = max(0.001, effective_duration * (1.0 - start_progress))
 	hit_pose_timer = SMASHER_HIT_POSE_DURATION_SEC * swing_intensity
-	hit_frame = 0
-	hit_side = 1 if hit_pos >= 0.0 else -1
-	# Python: right-side hit raises the shield, left-side hit raises the left
-	# arm (mutually exclusive). The unselected side is force-cleared.
-	if hit_side >= 0:
-		shield_raise_timer = SMASHER_SHIELD_RAISE_DURATION_SEC * swing_intensity
-		left_raise_timer = 0.0
-	else:
-		left_raise_timer = SMASHER_LEFT_RAISE_DURATION_SEC * swing_intensity
-		shield_raise_timer = 0.0
+	hit_frame = int(clamp(start_frame, 0, safe_frame_count - 1))
+	apply_hit_side(next_hit_side, swing_intensity)
 	# Pending offset is one-shot: clear it on every successful trigger.
 	pending_contact_offset_active = false
 	pending_contact_offset = 0.0
+	attack_anticipation_latched = hit_active
+
+
+func apply_hit_side(next_hit_side: int, intensity: float = INTENSITY_NORMAL) -> void:
+	# Sheet side follows the ball contact offset from the paddle center:
+	# negative = left attack sheet, zero / positive = right attack sheet.
+	hit_side = next_hit_side
+	var timer_scale: float = max(INTENSITY_NORMAL, intensity)
+	if hit_side >= 0:
+		shield_raise_timer = max(shield_raise_timer, SMASHER_SHIELD_RAISE_DURATION_SEC * timer_scale)
+		left_raise_timer = 0.0
+	else:
+		left_raise_timer = max(left_raise_timer, SMASHER_LEFT_RAISE_DURATION_SEC * timer_scale)
+		shield_raise_timer = 0.0
+
+
+func _resolve_hit_side(hit_pos: float) -> int:
+	return 1 if hit_pos >= 0.0 else -1
+
+
+func _maybe_trigger_anticipated_hit(context: Dictionary) -> void:
+	if not bool(context.get("ball_active", false)):
+		attack_anticipation_latched = false
+		return
+
+	var ball_vel: Vector2 = _get_vector2(context, "ball_vel", Vector2.ZERO)
+	if ball_vel.y <= 0.0:
+		attack_anticipation_latched = false
+		return
+	if attack_anticipation_latched or hit_active:
+		return
+	if not bool(context.get("player_has_hit_sprite", false)):
+		return
+	if float(context.get("player_collision_cooldown", 0.0)) > 0.0:
+		attack_anticipation_latched = false
+		return
+
+	var ball_pos: Vector2 = _get_vector2(context, "ball_pos", Vector2.ZERO)
+	var player_pos: Vector2 = _get_vector2(context, "player_pos", Vector2.ZERO)
+	var paddle_size: Vector2 = _get_vector2(context, "player_paddle_size", Vector2.ZERO)
+	if paddle_size.x <= 0.0 or paddle_size.y <= 0.0:
+		return
+
+	var ball_size: float = float(context.get("ball_size", 28.6))
+	var vertical_gap: float = player_pos.y - (ball_pos.y + ball_size * 0.5)
+	if vertical_gap < 0.0:
+		return
+	if vertical_gap > ATTACK_ANTICIPATION_MAX_VERTICAL_GAP:
+		return
+
+	var impact_boost: float = max(0.01, float(context.get("ball_impact_boost", 1.0)))
+	var downward_speed: float = max(0.01, ball_vel.y * impact_boost)
+	var frames_to_contact: float = vertical_gap / downward_speed
+	var start_frame: int = _get_anticipatory_start_frame(frames_to_contact)
+	if start_frame < 0:
+		return
+
+	var future_ball_center_x: float = ball_pos.x + ball_vel.x * impact_boost * frames_to_contact
+	var player_center_x: float = player_pos.x + paddle_size.x * 0.5
+	var x_tolerance: float = (paddle_size.x + ball_size) * 0.5 + ATTACK_X_TOLERANCE_EXTRA
+	if abs(future_ball_center_x - player_center_x) > x_tolerance:
+		return
+
+	trigger_hit(
+		future_ball_center_x - player_center_x,
+		true,
+		float(context.get("player_hit_anim_duration", HIT_ANIM_DURATION)),
+		INTENSITY_NORMAL,
+		start_frame,
+		int(context.get("player_hit_frame_count", HIT_FRAME_COUNT))
+	)
+
+
+func _get_anticipatory_start_frame(frames_to_contact: float) -> int:
+	if frames_to_contact >= 16.0 and frames_to_contact <= 18.0:
+		return 0
+	if frames_to_contact >= 12.0 and frames_to_contact < 16.0:
+		return 2
+	if frames_to_contact >= 8.0 and frames_to_contact < 12.0:
+		return 4
+	if frames_to_contact >= 4.0 and frames_to_contact < 8.0:
+		return 6
+	if frames_to_contact >= 0.0 and frames_to_contact < 4.0:
+		return 8
+	return -1
 
 
 func set_pending_contact_offset(offset_x: float) -> void:
@@ -182,6 +287,7 @@ func get_draw_context() -> Dictionary:
 		"player_hit_anim_duration": hit_base_duration,
 		"player_hit_effective_anim_duration": get_effective_hit_duration(),
 		"player_hit_side": hit_side,
+		"player_hit_center": hit_center,
 		"player_hit_frame": hit_frame,
 		"player_idle_frame": idle_frame,
 		"player_sprite_frame": sprite_frame,
@@ -219,6 +325,13 @@ func _hit_pose_ratio(timer: float, duration_sec: float, intensity: float) -> flo
 	if total <= 0.0:
 		return 0.0
 	return clamp(timer / total, 0.0, 1.0)
+
+
+func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
+	var value: Variant = source.get(key, fallback)
+	if value is Vector2:
+		return value
+	return fallback
 
 
 func _ease_out_cubic(value: float) -> float:

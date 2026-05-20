@@ -39,10 +39,23 @@ class FakeRegistry:
 		return null
 
 
+class FakePerfLogger:
+	extends RefCounted
+
+	var labels: Array[String] = []
+
+	func begin_sample() -> int:
+		return Time.get_ticks_usec()
+
+	func finish_sample(label: String, _start_usec: int) -> void:
+		labels.append(label)
+
+
 func _init() -> void:
 	_verify_regular_queue_with_lucky_bonus()
 	_verify_dimension_queue_with_lucky_bonus()
 	_verify_controller_legacy_queue_call_delegates()
+	_verify_queue_perf_labels()
 
 	if _failures.is_empty():
 		print("active_item_field_spawn_queue_smoke: ok")
@@ -92,6 +105,32 @@ func _verify_controller_legacy_queue_call_delegates() -> void:
 	_expect(controller.get_pending_spawn_items().size() == 2, "controller legacy queue call should still include Lucky Coin bonus")
 	_expect(controller.get_item_spawn_portals().size() == 2, "controller legacy queue call should still expose both portals")
 	_expect(registry.audio.lucky_spawn_count == 1, "controller legacy queue call should still play Lucky Coin audio")
+
+
+func _verify_queue_perf_labels() -> void:
+	var queue: Object = ActiveItemFieldSpawnQueue.new()
+	var pool: Object = ActiveItemFieldSpawnPool.new()
+	var motion: Object = ActiveItemFieldItemMotion.new()
+	var portals: Object = ActiveItemFieldSpawnPortals.new()
+	var registry := FakeRegistry.new()
+	var perf_logger := FakePerfLogger.new()
+
+	_expect(
+		queue.queue_item_after_portal(null, registry, pool, motion, portals, perf_logger),
+		"perf-labelled queue should still create a regular field item"
+	)
+	_expect(
+		perf_logger.labels.has("physics.callback.active_items.field_spawn.queue.regular.random_item"),
+		"queue perf should label regular item selection"
+	)
+	_expect(
+		perf_logger.labels.has("physics.callback.active_items.field_spawn.pool.random.candidates"),
+		"queue perf should label random candidate construction"
+	)
+	_expect(
+		perf_logger.labels.has("physics.callback.active_items.field_spawn.queue.regular.lucky_bonus"),
+		"queue perf should label Lucky Coin bonus handling"
+	)
 
 
 func _find_lucky_bonus_pending_item(pending_items: Array) -> Dictionary:

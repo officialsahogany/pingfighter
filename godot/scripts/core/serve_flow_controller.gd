@@ -1,11 +1,13 @@
 extends RefCounted
 
-const BOSS_AUTO_SERVE_DELAY := 1.0
 const PLAYER_AUTO_SERVE_DELAY := 3.0
 const TUTORIAL_STAGE := 50
+const BOSS_SERVE_IMMEDIATE_CHANCE := 0.12
 
 var serve_button_was_pressed := false
 var mouse_button_was_pressed := false
+var boss_serve_delay := 1.0
+var boss_serve_delay_armed := false
 
 
 func sync_current_input_state() -> void:
@@ -19,10 +21,19 @@ func sync_current_input_state() -> void:
 func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dictionary) -> void:
 	var round_state = deps.get("round_state", null)
 	if round_state == null or not round_state.is_waiting_for_serve():
+		boss_serve_delay_armed = false
+		_update_serve_button_edge()
+		return
+
+	if _update_serve_banner(delta, round_state):
+		_update_serve_button_edge()
+		return
+	if _update_round_restart_notice(delta, round_state):
 		_update_serve_button_edge()
 		return
 
 	if round_state.does_player_serve():
+		boss_serve_delay_armed = false
 		_update_player_serve(delta, context, round_state, callbacks)
 	else:
 		_update_boss_serve(delta, round_state, callbacks)
@@ -45,8 +56,43 @@ func _update_player_serve(
 
 func _update_boss_serve(delta: float, round_state: Object, callbacks: Dictionary) -> void:
 	_update_serve_button_edge()
-	if round_state.update_waiting(delta, BOSS_AUTO_SERVE_DELAY):
+	if not boss_serve_delay_armed:
+		boss_serve_delay = _pick_boss_serve_delay()
+		boss_serve_delay_armed = true
+	if round_state.update_waiting(delta, boss_serve_delay):
+		boss_serve_delay_armed = false
 		_call(callbacks, "serve_ball")
+
+
+func _update_serve_banner(delta: float, round_state: Object) -> bool:
+	if round_state == null or not round_state.has_method("is_serve_banner_active"):
+		return false
+	if not bool(round_state.is_serve_banner_active()):
+		return false
+	if round_state.has_method("update_serve_banner"):
+		round_state.update_serve_banner(delta)
+	return bool(round_state.is_serve_banner_active())
+
+
+func _update_round_restart_notice(delta: float, round_state: Object) -> bool:
+	if round_state == null or not round_state.has_method("is_round_restart_notice_active"):
+		return false
+	if not bool(round_state.is_round_restart_notice_active()):
+		return false
+	if round_state.has_method("update_round_restart_notice"):
+		round_state.update_round_restart_notice(delta)
+	return bool(round_state.is_round_restart_notice_active())
+
+
+func _pick_boss_serve_delay() -> float:
+	var roll: float = randf()
+	if roll < BOSS_SERVE_IMMEDIATE_CHANCE:
+		return 0.0
+	if roll < 0.34:
+		return randf_range(0.25, 0.85)
+	if roll < 0.82:
+		return randf_range(0.95, 2.40)
+	return randf_range(2.40, 3.50)
 
 
 func _update_serve_button_edge() -> bool:

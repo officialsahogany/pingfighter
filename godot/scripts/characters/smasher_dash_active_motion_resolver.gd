@@ -14,7 +14,8 @@ func update(
 	paddle_width: float,
 	direction: float,
 	timer: float,
-	is_half: bool
+	is_half: bool,
+	recovery_frames: float = DASH_RECOVERY_FRAMES
 ) -> Dictionary:
 	timer -= fps_scale
 	var current_speed: float = _get_current_speed(timer)
@@ -27,16 +28,17 @@ func update(
 		"timer": timer,
 		"elapsed_delta": fps_scale,
 		"ended": ended,
-		"recovery_timer": _get_recovery_timer(ended, is_half),
+		"recovery_timer": _get_recovery_timer(ended, is_half, recovery_frames),
 	}
 
 
-func _get_recovery_timer(ended: bool, is_half: bool) -> float:
+func _get_recovery_timer(ended: bool, is_half: bool, recovery_frames: float) -> float:
 	if not ended:
 		return 0.0
+	var frames: float = max(1.0, recovery_frames)
 	if is_half:
-		return DASH_RECOVERY_FRAMES * HALF_DASH_RECOVERY_MULT
-	return DASH_RECOVERY_FRAMES
+		return frames * HALF_DASH_RECOVERY_MULT
+	return frames
 
 
 func _get_current_speed(timer: float) -> float:

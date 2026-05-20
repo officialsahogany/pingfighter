@@ -6,7 +6,7 @@ const SKILL_COSTS := {
 	"shadow_step": 100.0,
 	"blade_rush": 200.0,
 	"nerve_strike": 90.0,
-	"dive_strike": 180.0,
+	"dive_strike": 150.0,
 	"marshal_kick": 80.0,
 	"phantom_kick": 60.0,
 	"dark_blade": 200.0,
@@ -34,7 +34,7 @@ const COOLDOWN_SECONDS := {
 	"nerve_strike": 40.0,
 	"dive_strike": 70.0,
 	"marshal_kick": 25.0,
-	"phantom_kick": 65.0,
+	"phantom_kick": 50.0,
 	"dark_blade": 45.0,
 	"chaos_spear": 20.0,
 	"core_flip": 25.0,
@@ -59,7 +59,7 @@ const SKILL_DATA := {
 		"cost": 200.0,
 		"color": Color(200.0 / 255.0, 50.0 / 255.0, 1.0),
 		"cooldown": 20.0,
-		"description": "체공 중 전방으로 검기를 발사합니다.\n발사 전 짧은 준비동작이 있습니다.",
+		"description": "체공 중 전방으로 검기를 발사합니다.\n발사 전 짧은 준비동작이 있습니다.\n검기에 맞은 공은 난이도와 관계없이 공속 상한 40을 적용합니다.",
 		"how_to_use": "체공 중 W키 또는 위쪽 방향키로 발동",
 		"motion_hint": "전방으로 거대한 보라 검기 발사",
 		"effect_type": "slash_purple",
@@ -78,7 +78,7 @@ const SKILL_DATA := {
 	"dive_strike": {
 		"name": "dive_strike",
 		"korean": "EMP 스트라이크",
-		"cost": 180.0,
+		"cost": 150.0,
 		"color": Color(1.0, 120.0 / 255.0, 50.0 / 255.0),
 		"cooldown": 70.0,
 		"description": "강한 충격으로 EMP 펄스를 퍼트립니다.\n체공 높이에 비례해 펄스 강도가 증가합니다.",
@@ -102,7 +102,7 @@ const SKILL_DATA := {
 		"korean": "팬텀 킥",
 		"cost": 60.0,
 		"color": Color(180.0 / 255.0, 0.0, 1.0),
-		"cooldown": 65.0,
+		"cooldown": 50.0,
 		"description": "마샬 킥 반동에 암흑 에너지를 싣습니다.\n쉐도우 백스텝 연계 시 공중 백스텝만 가능합니다.",
 		"how_to_use": "마샬 킥 적중 후 S키 또는 아래쪽 방향키",
 		"motion_hint": "암흑반물질 발차기",
@@ -114,8 +114,8 @@ const SKILL_DATA := {
 		"cost": 200.0,
 		"color": Color(120.0 / 255.0, 0.0, 30.0 / 255.0),
 		"cooldown": 45.0,
-		"description": "공을 타격한 뒤 공중에서 강화 검기를 쏩니다.\n검기 적중 시 마샬 킥 윈도우가 열립니다.\n검붉은 강화 검기를 발사합니다.",
-		"how_to_use": "쉐도우 백스텝, 에어 블레이드, 화랑 킥 발동 후",
+		"description": "공을 타격한 뒤 3초 안에 공중에서 강화 검기를 쏩니다.\n검기 적중 시 마샬 킥 윈도우가 열립니다.\n검붉은 강화 검기에 맞은 공은 난이도와 관계없이 공속 상한 50을 적용합니다.",
+		"how_to_use": "쉐도우 백스텝, 에어 블레이드, 마샬/팬텀/화랑 킥 타격 후",
 		"motion_hint": "공중에서 검붉은 강화 검기 발사",
 		"effect_type": "slash_dark",
 	},
@@ -166,21 +166,45 @@ const SKILL_DATA := {
 }
 
 var equipped_skills: Array = EQUIPPED_SKILLS.duplicate()
+var runtime_cooldown_multiplier := 1.0
+var item_cooldown_multiplier := 1.0
+var item_skill_slot_bonus := 0
 
 
 func get_snapshot() -> Dictionary:
 	return {
-		"max_slots": MAX_SKILL_SLOTS,
+		"max_slots": get_max_skill_slots(),
 		"equipped_skills": equipped_skills.duplicate(),
 		"skill_costs": SKILL_COSTS,
 		"skill_colors": SKILL_COLORS,
-		"cooldown_seconds": COOLDOWN_SECONDS,
-		"skill_data": SKILL_DATA,
+		"runtime_cooldown_multiplier": runtime_cooldown_multiplier,
+		"item_cooldown_multiplier": item_cooldown_multiplier,
+		"item_skill_slot_bonus": item_skill_slot_bonus,
+		"cooldown_multiplier": _get_effective_cooldown_multiplier(),
+		"cooldown_seconds": _get_effective_cooldown_seconds_map(),
+		"skill_data": _get_effective_skill_data_map(),
 	}
 
 
+func get_max_skill_slots() -> int:
+	return max(1, MAX_SKILL_SLOTS + max(0, item_skill_slot_bonus))
+
+
 func get_cooldown_seconds(skill_name: String) -> float:
-	return float(COOLDOWN_SECONDS.get(skill_name, 0.0))
+	return float(COOLDOWN_SECONDS.get(skill_name, 0.0)) * _get_effective_cooldown_multiplier()
+
+
+func set_runtime_cooldown_multiplier(multiplier: float) -> void:
+	runtime_cooldown_multiplier = max(0.0, float(multiplier))
+
+
+func set_item_cooldown_multiplier(multiplier: float) -> void:
+	item_cooldown_multiplier = max(0.0, float(multiplier))
+
+
+func set_item_skill_slot_bonus(slot_bonus: int) -> Array:
+	item_skill_slot_bonus = max(0, int(slot_bonus))
+	return _trim_equipped_skills_to_max()
 
 
 func get_skill_cost(skill_name: String) -> float:
@@ -196,7 +220,7 @@ func unlock_and_equip_skill(skill_name: String) -> bool:
 		return false
 	if equipped_skills.has(skill_name):
 		return true
-	if equipped_skills.size() >= MAX_SKILL_SLOTS:
+	if equipped_skills.size() >= get_max_skill_slots():
 		return false
 	equipped_skills.append(skill_name)
 	return true
@@ -204,11 +228,42 @@ func unlock_and_equip_skill(skill_name: String) -> bool:
 
 func reset_runtime_skills() -> void:
 	equipped_skills = EQUIPPED_SKILLS.duplicate()
+	runtime_cooldown_multiplier = 1.0
+	item_cooldown_multiplier = 1.0
+	item_skill_slot_bonus = 0
 
 
 func get_skill_data(skill_name: String) -> Dictionary:
 	var value: Variant = SKILL_DATA.get(skill_name, {})
 	if value is Dictionary:
 		var data: Dictionary = value
+		data = data.duplicate(true)
+		data["cooldown"] = get_cooldown_seconds(skill_name)
 		return data
 	return {}
+
+
+func _get_effective_cooldown_seconds_map() -> Dictionary:
+	var result: Dictionary = {}
+	for skill_name in COOLDOWN_SECONDS.keys():
+		result[str(skill_name)] = get_cooldown_seconds(str(skill_name))
+	return result
+
+
+func _get_effective_skill_data_map() -> Dictionary:
+	var result: Dictionary = {}
+	for skill_name in SKILL_DATA.keys():
+		result[str(skill_name)] = get_skill_data(str(skill_name))
+	return result
+
+
+func _get_effective_cooldown_multiplier() -> float:
+	return max(0.0, runtime_cooldown_multiplier) * max(0.0, item_cooldown_multiplier)
+
+
+func _trim_equipped_skills_to_max() -> Array:
+	var removed: Array = []
+	var max_slots: int = get_max_skill_slots()
+	while equipped_skills.size() > max_slots:
+		removed.append(equipped_skills.pop_back())
+	return removed

@@ -6,8 +6,15 @@ signal back_requested
 
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const ConfirmFlashOverlay := preload("res://scripts/ui/character_select_confirm_flash_overlay.gd")
+const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
+
+const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
+const BGM_BUS_NAME := "BGM"
+const BGM_TOGGLE_KEY := KEY_B
 
 @export var battle_scene_path: String = "res://scenes/main.tscn"
+@export_file("*.tscn") var main_menu_scene_path: String = "res://scenes/main_menu.tscn"
 @export var auto_start_battle: bool = true
 
 var characters: Array = []
@@ -18,24 +25,68 @@ var hovered_index: int = -1
 var hover_lifts: Array = []
 var hover_scales: Array = []
 var card_rects: Dictionary = {}
+var skill_icon_textures: Dictionary = {}
+var full_body_live2d_textures: Dictionary = {}
+var full_body_live2d_still_textures: Dictionary = {}
 var confirm_rect := Rect2()
 var back_rect := Rect2()
+var champion_rect := Rect2()
+var mythic_rect := Rect2()
+var preview_rect_cache := Rect2()
 var animation_time: float = 0.0
 var preview: Control = null
+var selected_league_mode: String = "champion"
+
+var character_select_bgm_player: AudioStreamPlayer = null
+var character_select_bgm_loop_enabled: bool = false
+var character_select_bgm_muted: bool = false
+var click_motion_voice_player: AudioStreamPlayer = null
+var click_motion_voice_pending: bool = false
+var click_motion_voice_delay_remaining: float = 0.0
+
+var confirm_intro_voice_player: AudioStreamPlayer = null
+var confirm_intro_voice_pending: bool = false
+var confirm_intro_voice_delay_remaining: float = 0.0
+var confirm_intro_active: bool = false
+var confirm_intro_character: Dictionary = {}
+var confirm_intro_elapsed: float = 0.0
+var confirm_intro_pending_scene_path: String = ""
+var confirm_intro_exit_flash_pending: bool = false
+var confirm_intro_exit_flash_hold_remaining: float = 0.0
+var confirm_intro_exit_flash_started: bool = false
+var confirm_intro_exit_flash_overlay: Control = null
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_process(true)
+	_ensure_cache_dictionaries()
 	characters = CharacterSelectData.get_characters()
 	_refresh_visible_indices()
+	_load_selection_state()
 	_prepare_hover_state()
 	_load_portraits()
+	_restore_character_select_bgm_muted()
 	preview = get_node_or_null("LivePreview")
 	if preview != null:
 		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var one_shot_callback := Callable(self, "_on_preview_one_shot_finished")
+		if preview.has_signal("one_shot_finished") and not preview.is_connected("one_shot_finished", one_shot_callback):
+			preview.connect("one_shot_finished", one_shot_callback)
+	_setup_audio_players()
+	_setup_confirm_flash_overlay()
 	_sync_preview()
+	_update_preview_layout()
 	queue_redraw()
+
+
+func _exit_tree() -> void:
+	character_select_bgm_loop_enabled = false
+	_stop_click_motion_voice()
+	_stop_confirm_intro_voice()
+	if character_select_bgm_player != null:
+		character_select_bgm_player.stop()
+		character_select_bgm_player.stream = null
 
 
 func _process(delta: float) -> void:
@@ -43,6 +94,8 @@ func _process(delta: float) -> void:
 	_update_hover_from_mouse(get_local_mouse_position())
 	_update_hover_animation(delta)
 	_update_preview_layout()
+	_update_click_motion_voice(delta)
+	_update_confirm_intro(delta)
 	queue_redraw()
 
 
@@ -52,24 +105,43 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_update_hover_from_mouse(event.position)
 		return
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var pos: Vector2 = event.position
-		if confirm_rect.has_point(pos):
-			_confirm_selection()
+	if not (event is InputEventMouseButton):
+		return
+	var mouse_event := event as InputEventMouseButton
+	if not mouse_event.pressed or mouse_event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	var pos := mouse_event.position
+	if confirm_intro_active:
+		accept_event()
+		return
+	if confirm_rect.has_point(pos):
+		_confirm_selection()
+		accept_event()
+		return
+	if champion_rect.has_point(pos):
+		_select_league_mode("champion")
+		accept_event()
+		return
+	if mythic_rect.has_point(pos):
+		_select_league_mode("mythic")
+		accept_event()
+		return
+	if back_rect.has_point(pos):
+		_go_back()
+		accept_event()
+		return
+	if preview_rect_cache.has_point(pos) and selected_index >= 0 and selected_index < characters.size():
+		_play_preview_click_motion(characters[selected_index])
+		accept_event()
+		return
+	for idx in card_rects.keys():
+		var card_rect: Rect2 = card_rects[idx]
+		if card_rect.has_point(pos):
+			_select_index(int(idx))
+			if mouse_event.double_click:
+				_confirm_selection()
 			accept_event()
 			return
-		if back_rect.has_point(pos):
-			_go_back()
-			accept_event()
-			return
-		for idx in card_rects.keys():
-			var card_rect: Rect2 = card_rects[idx]
-			if card_rect.has_point(pos):
-				_select_index(int(idx))
-				if event.double_click:
-					_confirm_selection()
-				accept_event()
-				return
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -77,47 +149,90 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not (event is InputEventKey):
 		return
-	if not event.pressed or event.echo:
+	var key_event := event as InputEventKey
+	if not key_event.pressed or key_event.echo:
 		return
-	match event.keycode:
-		KEY_LEFT, KEY_A:
+	if _handle_bgm_toggle_input(event):
+		return
+	if confirm_intro_active:
+		if is_inside_tree() and get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		return
+	match key_event.keycode:
+		KEY_LEFT, KEY_A, KEY_UP, KEY_W:
 			_move_selection(-1)
-			get_viewport().set_input_as_handled()
-		KEY_RIGHT, KEY_D:
+			if is_inside_tree() and get_viewport() != null:
+				get_viewport().set_input_as_handled()
+		KEY_RIGHT, KEY_D, KEY_DOWN, KEY_S:
 			_move_selection(1)
-			get_viewport().set_input_as_handled()
+			if is_inside_tree() and get_viewport() != null:
+				get_viewport().set_input_as_handled()
 		KEY_SPACE, KEY_ENTER, KEY_KP_ENTER:
 			_confirm_selection()
-			get_viewport().set_input_as_handled()
+			if is_inside_tree() and get_viewport() != null:
+				get_viewport().set_input_as_handled()
 		KEY_ESCAPE:
 			_go_back()
-			get_viewport().set_input_as_handled()
+			if is_inside_tree() and get_viewport() != null:
+				get_viewport().set_input_as_handled()
 
 
 func _draw() -> void:
-	var view_size := size
-	if view_size.x <= 1.0 or view_size.y <= 1.0:
-		view_size = get_viewport_rect().size
+	_ensure_cache_dictionaries()
+	var view_size := _resolved_view_size()
 	_draw_background(view_size)
 	_draw_header(view_size)
-	var preview_rect := _preview_rect(view_size)
-	var detail_rect := _detail_rect(view_size, preview_rect)
-	_draw_detail_panel(detail_rect)
-	_draw_card_row(view_size)
+	var card_column := _card_column_rect(view_size)
+	var preview_rect_value := _preview_rect(view_size)
+	var info_rect := _info_panel_rect(view_size, preview_rect_value)
+	_draw_card_column(card_column)
+	_draw_preview_frame(preview_rect_value)
+	_draw_info_panel(info_rect)
 	_draw_action_bar(view_size)
+
+
+func _resolved_view_size() -> Vector2:
+	if size.x > 1.0 and size.y > 1.0:
+		return size
+	if is_inside_tree() and get_viewport() != null:
+		return get_viewport_rect().size
+	return Vector2(1920.0, 1080.0)
 
 
 func _refresh_visible_indices() -> void:
 	visible_indices.clear()
 	for i in range(characters.size()):
-		var character: Dictionary = characters[i]
-		if bool(character.get("unlocked", false)):
+		var character_value: Variant = characters[i]
+		if character_value is Dictionary and bool(character_value.get("unlocked", false)):
 			visible_indices.append(i)
 	if visible_indices.is_empty():
 		for i in range(characters.size()):
 			visible_indices.append(i)
-	if not visible_indices.is_empty():
+	if visible_indices.is_empty():
+		selected_index = -1
+		return
+	if not visible_indices.has(selected_index):
 		selected_index = int(visible_indices[0])
+
+
+func _load_selection_state() -> void:
+	var state: Node = get_node_or_null("/root/GameSelectionState")
+	if state == null or not state.has_method("get_selection"):
+		return
+	var selection: Dictionary = state.get_selection()
+	selected_league_mode = "mythic" if str(selection.get("league_mode", "champion")) == "mythic" else "champion"
+	var desired_id := str(selection.get("character_id", ""))
+	var desired_runtime_id := str(selection.get("runtime_character_id", ""))
+	for i in range(characters.size()):
+		var character: Dictionary = characters[i]
+		if str(character.get("id", "")) == desired_id:
+			selected_index = i
+			return
+	for i in range(characters.size()):
+		var character: Dictionary = characters[i]
+		if str(character.get("runtime_id", "")) == desired_runtime_id:
+			selected_index = i
+			return
 
 
 func _prepare_hover_state() -> void:
@@ -129,19 +244,143 @@ func _prepare_hover_state() -> void:
 
 
 func _load_portraits() -> void:
+	_ensure_cache_dictionaries()
 	portrait_textures.clear()
+	full_body_live2d_textures.clear()
+	full_body_live2d_still_textures.clear()
 	for i in range(characters.size()):
 		var character: Dictionary = characters[i]
 		var path := str(character.get("portrait_path", ""))
-		if path == "":
-			continue
-		var texture := ProjectResourceLoader.load_texture(
-			path,
-			"Missing character-select portrait: %s",
-			"Failed to load character-select portrait: %s"
-		)
-		if texture != null:
-			portrait_textures[i] = texture
+		if path != "":
+			var texture := ProjectResourceLoader.load_texture(
+				path,
+				"Missing character-select portrait: %s",
+				"Failed to load character-select portrait: %s"
+			)
+			if texture != null:
+				portrait_textures[i] = texture
+		var loaded_icons: Array = []
+		var icon_paths_value: Variant = character.get("skill_icon_paths", [])
+		if icon_paths_value is Array:
+			for icon_path_value in icon_paths_value:
+				var icon_path := str(icon_path_value)
+				if icon_path == "":
+					continue
+				var icon_texture := ProjectResourceLoader.load_texture(icon_path)
+				if icon_texture != null:
+					loaded_icons.append(icon_texture)
+		skill_icon_textures[i] = loaded_icons
+		var full_body_sheet_path := str(character.get("full_body_live2d_sheet_path", ""))
+		if full_body_sheet_path != "":
+			var full_body_sheet_texture := ProjectResourceLoader.load_texture(full_body_sheet_path)
+			if full_body_sheet_texture != null:
+				full_body_live2d_textures[i] = full_body_sheet_texture
+		var full_body_still_path := str(character.get("full_body_live2d_path", ""))
+		if full_body_still_path != "":
+			var full_body_still_texture := ProjectResourceLoader.load_texture(full_body_still_path)
+			if full_body_still_texture != null:
+				full_body_live2d_still_textures[i] = full_body_still_texture
+
+
+func _setup_audio_players() -> void:
+	if Engine.is_editor_hint():
+		return
+	character_select_bgm_player = AudioStreamPlayer.new()
+	character_select_bgm_player.name = "CharacterSelectBGM"
+	character_select_bgm_player.bus = BGM_BUS_NAME
+	var bgm_finished_callback := Callable(self, "_on_character_select_bgm_finished")
+	if not character_select_bgm_player.is_connected("finished", bgm_finished_callback):
+		character_select_bgm_player.connect("finished", bgm_finished_callback)
+	character_select_bgm_player.stream = ProjectResourceLoader.load_audio_stream(
+		CHARACTER_SELECT_BGM_PATH,
+		"Missing character-select BGM: %s",
+		"Failed to load character-select BGM: %s"
+	)
+	add_child(character_select_bgm_player)
+	if character_select_bgm_player.stream != null:
+		character_select_bgm_loop_enabled = true
+		if not character_select_bgm_muted:
+			character_select_bgm_player.play()
+
+	click_motion_voice_player = AudioStreamPlayer.new()
+	click_motion_voice_player.name = "ClickMotionVoice"
+	click_motion_voice_player.bus = "SFX"
+	add_child(click_motion_voice_player)
+
+	confirm_intro_voice_player = AudioStreamPlayer.new()
+	confirm_intro_voice_player.name = "ConfirmIntroVoice"
+	confirm_intro_voice_player.bus = "SFX"
+	add_child(confirm_intro_voice_player)
+
+
+func _setup_confirm_flash_overlay() -> void:
+	confirm_intro_exit_flash_overlay = ConfirmFlashOverlay.new()
+	confirm_intro_exit_flash_overlay.name = "ConfirmIntroExitFlash"
+	confirm_intro_exit_flash_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	confirm_intro_exit_flash_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	confirm_intro_exit_flash_overlay.z_index = 1000
+	add_child(confirm_intro_exit_flash_overlay)
+	var callback := Callable(self, "_on_confirm_intro_exit_flash_finished")
+	if confirm_intro_exit_flash_overlay.has_signal("finished") and not confirm_intro_exit_flash_overlay.is_connected("finished", callback):
+		confirm_intro_exit_flash_overlay.connect("finished", callback)
+
+
+func _ensure_cache_dictionaries() -> void:
+	if portrait_textures == null:
+		portrait_textures = {}
+	if card_rects == null:
+		card_rects = {}
+	if skill_icon_textures == null:
+		skill_icon_textures = {}
+	if full_body_live2d_textures == null:
+		full_body_live2d_textures = {}
+	if full_body_live2d_still_textures == null:
+		full_body_live2d_still_textures = {}
+
+
+func _on_character_select_bgm_finished() -> void:
+	if not character_select_bgm_loop_enabled:
+		return
+	if character_select_bgm_muted:
+		return
+	if character_select_bgm_player == null or character_select_bgm_player.stream == null:
+		return
+	if not is_inside_tree():
+		return
+	character_select_bgm_player.play()
+
+
+func _handle_bgm_toggle_input(event: InputEvent) -> bool:
+	if not _is_key_pressed(event, BGM_TOGGLE_KEY):
+		return false
+	_toggle_character_select_bgm()
+	if is_inside_tree() and get_viewport() != null:
+		get_viewport().set_input_as_handled()
+	return true
+
+
+func _toggle_character_select_bgm() -> bool:
+	character_select_bgm_muted = BgmMuteState.toggle(get_tree())
+	if character_select_bgm_muted:
+		if character_select_bgm_player != null and character_select_bgm_player.playing:
+			character_select_bgm_player.stop()
+		return true
+	if character_select_bgm_player != null and character_select_bgm_player.stream != null and not character_select_bgm_player.playing:
+		character_select_bgm_player.play()
+	return false
+
+
+func _restore_character_select_bgm_muted() -> void:
+	character_select_bgm_muted = BgmMuteState.is_muted(get_tree())
+
+
+func _is_key_pressed(event: InputEvent, keycode: int) -> bool:
+	if not (event is InputEventKey):
+		return false
+	var key_event: InputEventKey = event
+	if not key_event.pressed or key_event.echo:
+		return false
+	return key_event.keycode == keycode or key_event.physical_keycode == keycode
 
 
 func _update_hover_from_mouse(pos: Vector2) -> void:
@@ -150,21 +389,25 @@ func _update_hover_from_mouse(pos: Vector2) -> void:
 		var card_rect: Rect2 = card_rects[idx]
 		if card_rect.has_point(pos):
 			hovered_index = int(idx)
+			return
 
 
 func _update_hover_animation(delta: float) -> void:
-	var t: float = min(1.0, delta * 11.0)
+	var t: float = min(1.0, delta * 12.0)
 	for i in range(characters.size()):
 		var target_lift := 0.0
 		var target_scale := 1.0
 		if i == selected_index:
-			target_lift += 18.0
-			target_scale = 1.08
+			target_lift += 14.0
+			target_scale = 1.035
 		if i == hovered_index:
-			target_lift += 18.0
-			target_scale = max(target_scale, 1.06)
+			target_lift += 10.0
+			target_scale = max(target_scale, 1.045)
 		hover_lifts[i] = lerp(float(hover_lifts[i]), target_lift, t)
 		hover_scales[i] = lerp(float(hover_scales[i]), target_scale, t)
+	if preview != null and preview.has_method("set_interaction_state"):
+		var preview_hover := 1.0 if preview_rect_cache.has_point(get_local_mouse_position()) else 0.0
+		preview.set_interaction_state(preview_hover, 0.0, preview_hover > 0.0)
 
 
 func _move_selection(delta: int) -> void:
@@ -181,6 +424,7 @@ func _select_index(index: int) -> void:
 	if index < 0 or index >= characters.size() or index == selected_index:
 		return
 	selected_index = index
+	_stop_click_motion_voice()
 	_sync_preview()
 	queue_redraw()
 
@@ -196,13 +440,14 @@ func _sync_preview() -> void:
 func _update_preview_layout() -> void:
 	if preview == null:
 		return
-	var rect := _preview_rect(size if size.x > 1.0 else get_viewport_rect().size)
+	var rect := _preview_rect(_resolved_view_size())
+	preview_rect_cache = rect
 	preview.position = rect.position
 	preview.size = rect.size
 
 
 func _confirm_selection() -> void:
-	if Engine.is_editor_hint():
+	if Engine.is_editor_hint() or confirm_intro_active:
 		return
 	if selected_index < 0 or selected_index >= characters.size():
 		return
@@ -212,67 +457,443 @@ func _confirm_selection() -> void:
 	_store_selection(character)
 	character_confirmed.emit(str(character.get("id", "")), str(character.get("runtime_id", "")))
 	if auto_start_battle and battle_scene_path != "":
-		get_tree().change_scene_to_file(battle_scene_path)
+		if _try_begin_confirm_intro(character, battle_scene_path):
+			return
+		_change_to_battle_scene(battle_scene_path)
 
 
 func _go_back() -> void:
+	if confirm_intro_active:
+		return
 	back_requested.emit()
+	if main_menu_scene_path != "":
+		call_deferred("_change_to_main_menu")
+
+
+func _change_to_main_menu() -> void:
+	if main_menu_scene_path == "" or not is_inside_tree() or get_tree() == null:
+		return
+	get_tree().change_scene_to_file(main_menu_scene_path)
 
 
 func _store_selection(character: Dictionary) -> void:
 	var state: Node = get_node_or_null("/root/GameSelectionState")
 	if state != null and state.has_method("set_character"):
 		state.set_character(character)
+	if state != null and state.has_method("set_league_mode"):
+		state.set_league_mode(selected_league_mode)
+
+
+func _select_league_mode(mode: String) -> void:
+	selected_league_mode = "mythic" if mode == "mythic" else "champion"
+	var state: Node = get_node_or_null("/root/GameSelectionState")
+	if state != null and state.has_method("set_league_mode"):
+		state.set_league_mode(selected_league_mode)
+	queue_redraw()
+
+
+func _try_begin_confirm_intro(character: Dictionary, next_scene_path: String) -> bool:
+	if preview == null or not preview.has_method("play_fullframe_one_shot"):
+		return false
+	var sheet_path := str(character.get("confirm_intro_sheet_path", ""))
+	if sheet_path == "":
+		return false
+	var config := {
+		"path": sheet_path,
+		"cols": int(character.get("confirm_intro_cols", 1)),
+		"rows": int(character.get("confirm_intro_rows", 1)),
+		"count": int(character.get("confirm_intro_count", 1)),
+		"interval": float(character.get("confirm_intro_interval", 0.033)),
+		"min_interval": float(character.get("confirm_intro_min_interval", 0.016)),
+		"min_duration": float(character.get("confirm_intro_min_duration", 0.0)),
+		"trim_transparent_source": bool(character.get("confirm_intro_trim_transparent_source", false)),
+		"trim_rect": character.get("confirm_intro_trim_rect", Rect2()),
+		"float_motion_enabled": bool(character.get("confirm_intro_float_motion_enabled", false)),
+		"align_bottom_to_cutline": bool(character.get("confirm_intro_align_bottom_to_cutline", false)),
+		"transition_duration": float(character.get("confirm_intro_transition_duration", 0.0)),
+		"return_transition_duration": float(character.get("confirm_intro_return_transition_duration", character.get("confirm_intro_transition_duration", 0.0))),
+		"restore_elapsed_mode": str(character.get("confirm_intro_restore_elapsed_mode", "continue")),
+		"stage_scale": float(character.get("confirm_intro_stage_scale", 1.0)),
+		"stage_x_offset_ratio": float(character.get("confirm_intro_stage_x_offset_ratio", 0.0)),
+		"stage_y_offset_ratio": float(character.get("confirm_intro_stage_y_offset_ratio", 0.0)),
+		"restore_after_finish": false,
+	}
+	if not bool(preview.call("play_fullframe_one_shot", config)):
+		return false
+	confirm_intro_active = true
+	confirm_intro_character = character.duplicate(true)
+	confirm_intro_elapsed = 0.0
+	confirm_intro_pending_scene_path = next_scene_path
+	confirm_intro_exit_flash_pending = false
+	confirm_intro_exit_flash_hold_remaining = 0.0
+	confirm_intro_exit_flash_started = false
+	_prepare_confirm_intro_voice(confirm_intro_character)
+	queue_redraw()
+	return true
+
+
+func _play_preview_click_motion(character: Dictionary) -> void:
+	_prepare_click_motion_voice(character)
+	if preview != null and preview.has_method("set_interaction_state"):
+		preview.set_interaction_state(1.0, 1.0, true)
+	if preview == null or not preview.has_method("play_fullframe_one_shot"):
+		return
+	var config := _build_preview_click_motion_config(character)
+	if config.is_empty():
+		return
+	preview.call("play_fullframe_one_shot", config)
+
+
+func _build_preview_click_motion_config(character: Dictionary) -> Dictionary:
+	var sheet_path := str(character.get("click_motion_sheet_path", ""))
+	if sheet_path != "":
+		return {
+			"path": sheet_path,
+			"cols": int(character.get("click_motion_cols", character.get("confirm_intro_cols", 1))),
+			"rows": int(character.get("click_motion_rows", character.get("confirm_intro_rows", 1))),
+			"count": int(character.get("click_motion_count", character.get("confirm_intro_count", 1))),
+			"interval": float(character.get("click_motion_interval", character.get("confirm_intro_interval", 0.033))),
+			"min_interval": float(character.get("click_motion_min_interval", character.get("confirm_intro_min_interval", 0.016))),
+			"min_duration": float(character.get("click_motion_min_duration", character.get("confirm_intro_min_duration", 0.0))),
+			"trim_transparent_source": bool(character.get("click_motion_trim_transparent_source", character.get("confirm_intro_trim_transparent_source", false))),
+			"trim_rect": character.get("click_motion_trim_rect", character.get("confirm_intro_trim_rect", Rect2())),
+			"float_motion_enabled": bool(character.get("click_motion_float_motion_enabled", character.get("confirm_intro_float_motion_enabled", false))),
+			"align_bottom_to_cutline": bool(character.get("click_motion_align_bottom_to_cutline", character.get("confirm_intro_align_bottom_to_cutline", false))),
+			"transition_duration": float(character.get("click_motion_transition_duration", character.get("confirm_intro_transition_duration", 0.0))),
+			"return_transition_duration": float(character.get("click_motion_return_transition_duration", character.get("confirm_intro_return_transition_duration", 0.18))),
+			"restore_elapsed_mode": str(character.get("click_motion_restore_elapsed_mode", character.get("confirm_intro_restore_elapsed_mode", "continue"))),
+			"stage_scale": float(character.get("click_motion_stage_scale", character.get("confirm_intro_stage_scale", 1.0))),
+			"stage_x_offset_ratio": float(character.get("click_motion_stage_x_offset_ratio", character.get("confirm_intro_stage_x_offset_ratio", 0.0))),
+			"stage_y_offset_ratio": float(character.get("click_motion_stage_y_offset_ratio", character.get("confirm_intro_stage_y_offset_ratio", 0.0))),
+			"return_sheet_path": str(character.get("click_motion_return_sheet_path", character.get("confirm_intro_return_sheet_path", ""))),
+			"return_cols": int(character.get("click_motion_return_cols", character.get("confirm_intro_return_cols", 1))),
+			"return_rows": int(character.get("click_motion_return_rows", character.get("confirm_intro_return_rows", 1))),
+			"return_count": int(character.get("click_motion_return_count", character.get("confirm_intro_return_count", 1))),
+			"return_interval": float(character.get("click_motion_return_interval", character.get("confirm_intro_return_interval", 0.033))),
+			"return_min_interval": float(character.get("click_motion_return_min_interval", character.get("confirm_intro_return_min_interval", 0.016))),
+			"return_min_duration": float(character.get("click_motion_return_min_duration", character.get("confirm_intro_return_min_duration", 0.0))),
+			"return_trim_transparent_source": bool(character.get("click_motion_return_trim_transparent_source", character.get("confirm_intro_return_trim_transparent_source", false))),
+			"return_trim_rect": character.get("click_motion_return_trim_rect", character.get("confirm_intro_return_trim_rect", Rect2())),
+			"return_float_motion_enabled": bool(character.get("click_motion_return_float_motion_enabled", character.get("confirm_intro_return_float_motion_enabled", false))),
+			"return_align_bottom_to_cutline": bool(character.get("click_motion_return_align_bottom_to_cutline", character.get("confirm_intro_return_align_bottom_to_cutline", character.get("click_motion_align_bottom_to_cutline", character.get("confirm_intro_align_bottom_to_cutline", false))))),
+			"return_stage_scale": float(character.get("click_motion_return_stage_scale", character.get("confirm_intro_return_stage_scale", character.get("click_motion_stage_scale", character.get("confirm_intro_stage_scale", 1.0))))),
+			"return_stage_x_offset_ratio": float(character.get("click_motion_return_stage_x_offset_ratio", character.get("confirm_intro_return_stage_x_offset_ratio", character.get("click_motion_stage_x_offset_ratio", character.get("confirm_intro_stage_x_offset_ratio", 0.0))))),
+			"return_stage_y_offset_ratio": float(character.get("click_motion_return_stage_y_offset_ratio", character.get("confirm_intro_return_stage_y_offset_ratio", character.get("click_motion_stage_y_offset_ratio", character.get("confirm_intro_stage_y_offset_ratio", 0.0))))),
+			"restore_after_finish": true,
+		}
+	var confirm_path := str(character.get("confirm_intro_sheet_path", ""))
+	if confirm_path != "":
+		return {
+			"path": confirm_path,
+			"cols": int(character.get("confirm_intro_cols", 1)),
+			"rows": int(character.get("confirm_intro_rows", 1)),
+			"count": int(character.get("confirm_intro_count", 1)),
+			"interval": float(character.get("confirm_intro_interval", 0.033)),
+			"min_interval": float(character.get("confirm_intro_min_interval", 0.016)),
+			"min_duration": float(character.get("confirm_intro_min_duration", 0.0)),
+			"trim_transparent_source": bool(character.get("confirm_intro_trim_transparent_source", false)),
+			"trim_rect": character.get("confirm_intro_trim_rect", Rect2()),
+			"float_motion_enabled": bool(character.get("confirm_intro_float_motion_enabled", false)),
+			"align_bottom_to_cutline": bool(character.get("confirm_intro_align_bottom_to_cutline", false)),
+			"transition_duration": float(character.get("confirm_intro_transition_duration", 0.0)),
+			"return_transition_duration": float(character.get("confirm_intro_return_transition_duration", 0.18)),
+			"restore_elapsed_mode": str(character.get("confirm_intro_restore_elapsed_mode", "continue")),
+			"stage_scale": float(character.get("confirm_intro_stage_scale", 1.0)),
+			"stage_x_offset_ratio": float(character.get("confirm_intro_stage_x_offset_ratio", 0.0)),
+			"stage_y_offset_ratio": float(character.get("confirm_intro_stage_y_offset_ratio", 0.0)),
+			"return_sheet_path": str(character.get("confirm_intro_return_sheet_path", "")),
+			"return_cols": int(character.get("confirm_intro_return_cols", 1)),
+			"return_rows": int(character.get("confirm_intro_return_rows", 1)),
+			"return_count": int(character.get("confirm_intro_return_count", 1)),
+			"return_interval": float(character.get("confirm_intro_return_interval", 0.033)),
+			"return_min_interval": float(character.get("confirm_intro_return_min_interval", 0.016)),
+			"return_min_duration": float(character.get("confirm_intro_return_min_duration", 0.0)),
+			"return_trim_transparent_source": bool(character.get("confirm_intro_return_trim_transparent_source", false)),
+			"return_trim_rect": character.get("confirm_intro_return_trim_rect", Rect2()),
+			"return_float_motion_enabled": bool(character.get("confirm_intro_return_float_motion_enabled", false)),
+			"return_align_bottom_to_cutline": bool(character.get("confirm_intro_return_align_bottom_to_cutline", character.get("confirm_intro_align_bottom_to_cutline", false))),
+			"return_stage_scale": float(character.get("confirm_intro_return_stage_scale", character.get("confirm_intro_stage_scale", 1.0))),
+			"return_stage_x_offset_ratio": float(character.get("confirm_intro_return_stage_x_offset_ratio", character.get("confirm_intro_stage_x_offset_ratio", 0.0))),
+			"return_stage_y_offset_ratio": float(character.get("confirm_intro_return_stage_y_offset_ratio", character.get("confirm_intro_stage_y_offset_ratio", 0.0))),
+			"restore_after_finish": true,
+		}
+	var still_path := str(character.get("live2d_preview_still_path", character.get("portrait_path", "")))
+	if still_path == "":
+		return {}
+	return {
+		"path": still_path,
+		"cols": 1,
+		"rows": 1,
+		"count": 1,
+		"interval": 0.016,
+		"return_transition_duration": 0.18,
+		"restore_after_finish": true,
+	}
+
+
+func _request_confirm_intro_finish() -> void:
+	if not confirm_intro_active:
+		return
+	if bool(confirm_intro_character.get("confirm_intro_exit_flash_enabled", false)):
+		confirm_intro_exit_flash_pending = true
+		confirm_intro_exit_flash_hold_remaining = max(0.0, float(confirm_intro_character.get("confirm_intro_exit_flash_hold", 0.0)))
+		if confirm_intro_exit_flash_hold_remaining <= 0.0:
+			_start_confirm_intro_exit_flash()
+	else:
+		_finish_confirm_intro()
+
+
+func _update_confirm_intro(delta: float) -> void:
+	if not confirm_intro_active:
+		return
+	confirm_intro_elapsed += delta
+	_update_confirm_intro_voice(delta)
+	if confirm_intro_exit_flash_pending and not confirm_intro_exit_flash_started:
+		confirm_intro_exit_flash_hold_remaining -= delta
+		if confirm_intro_exit_flash_hold_remaining <= 0.0:
+			_start_confirm_intro_exit_flash()
+
+
+func _start_confirm_intro_exit_flash() -> void:
+	if confirm_intro_exit_flash_overlay == null:
+		_finish_confirm_intro()
+		return
+	confirm_intro_exit_flash_pending = false
+	confirm_intro_exit_flash_started = true
+	var accent := _character_color(confirm_intro_character, "confirm_intro_exit_flash_color", _character_color(confirm_intro_character, "card_color", Color(0.0, 0.9, 1.0)))
+	var glow := _character_color(confirm_intro_character, "confirm_intro_exit_flash_glow_color", _character_color(confirm_intro_character, "glow_color", accent))
+	var secondary := _character_color(confirm_intro_character, "confirm_intro_exit_flash_secondary_color", Color.WHITE)
+	confirm_intro_exit_flash_overlay.size = _resolved_view_size()
+	confirm_intro_exit_flash_overlay.call("play", {
+		"duration": float(confirm_intro_character.get("confirm_intro_exit_flash_duration", 0.45)),
+		"source_rect": preview_rect_cache,
+		"style": str(confirm_intro_character.get("confirm_intro_exit_flash_style", "burst")),
+		"accent": accent,
+		"glow": glow,
+		"secondary": secondary,
+		"field_intensity": float(confirm_intro_character.get("confirm_intro_exit_flash_field_intensity", 1.0)),
+		"card_intensity": float(confirm_intro_character.get("confirm_intro_exit_flash_card_intensity", 1.0)),
+		"white_wash_target": float(confirm_intro_character.get("confirm_intro_exit_flash_white_wash_target", 0.92)),
+		"chroma": float(confirm_intro_character.get("confirm_intro_exit_flash_chroma", 0.012)),
+		"split_intensity": float(confirm_intro_character.get("confirm_intro_exit_flash_split_intensity", 0.85)),
+		"split_count": int(confirm_intro_character.get("confirm_intro_exit_flash_split_count", 10)),
+	})
+
+
+func _finish_confirm_intro() -> void:
+	var next_scene_path := confirm_intro_pending_scene_path
+	confirm_intro_active = false
+	confirm_intro_character.clear()
+	confirm_intro_elapsed = 0.0
+	confirm_intro_pending_scene_path = ""
+	confirm_intro_exit_flash_pending = false
+	confirm_intro_exit_flash_hold_remaining = 0.0
+	confirm_intro_exit_flash_started = false
+	_stop_confirm_intro_voice()
+	if confirm_intro_exit_flash_overlay != null and confirm_intro_exit_flash_overlay.has_method("cancel"):
+		confirm_intro_exit_flash_overlay.call("cancel")
+	if next_scene_path != "":
+		_change_to_battle_scene(next_scene_path)
+
+
+func _on_preview_one_shot_finished() -> void:
+	if confirm_intro_active:
+		_request_confirm_intro_finish()
+
+
+func _on_confirm_intro_exit_flash_finished() -> void:
+	if confirm_intro_active:
+		_finish_confirm_intro()
+
+
+func _change_to_battle_scene(scene_path: String) -> void:
+	if scene_path == "" or not is_inside_tree() or get_tree() == null:
+		return
+	get_tree().change_scene_to_file(scene_path)
+
+
+func _prepare_click_motion_voice(character: Dictionary) -> void:
+	if click_motion_voice_player == null:
+		return
+	var path := str(character.get("click_motion_voice_path", ""))
+	if path == "":
+		path = str(character.get("confirm_intro_voice_path", ""))
+	if path == "":
+		return
+	var stream := ProjectResourceLoader.load_audio_stream(path)
+	if stream == null:
+		return
+	click_motion_voice_player.stop()
+	click_motion_voice_player.stream = stream
+	var volume_value: Variant = character.get("click_motion_voice_volume_db", character.get("confirm_intro_voice_volume_db", -5.0))
+	var delay_value: Variant = character.get("click_motion_voice_delay", character.get("confirm_intro_voice_delay", 0.0))
+	click_motion_voice_player.volume_db = float(volume_value)
+	click_motion_voice_delay_remaining = max(0.0, float(delay_value))
+	click_motion_voice_pending = true
+	if click_motion_voice_delay_remaining <= 0.0:
+		_update_click_motion_voice(0.0)
+
+
+func _update_click_motion_voice(delta: float) -> void:
+	if not click_motion_voice_pending:
+		return
+	click_motion_voice_delay_remaining -= delta
+	if click_motion_voice_delay_remaining > 0.0:
+		return
+	click_motion_voice_pending = false
+	click_motion_voice_delay_remaining = 0.0
+	if click_motion_voice_player != null and click_motion_voice_player.stream != null:
+		click_motion_voice_player.play()
+
+
+func _stop_click_motion_voice() -> void:
+	click_motion_voice_pending = false
+	click_motion_voice_delay_remaining = 0.0
+	if click_motion_voice_player != null:
+		click_motion_voice_player.stop()
+		click_motion_voice_player.stream = null
+
+
+func _prepare_confirm_intro_voice(character: Dictionary) -> void:
+	if confirm_intro_voice_player == null:
+		return
+	var path := str(character.get("confirm_intro_voice_path", ""))
+	if path == "":
+		return
+	var stream := ProjectResourceLoader.load_audio_stream(path)
+	if stream == null:
+		return
+	confirm_intro_voice_player.stop()
+	confirm_intro_voice_player.stream = stream
+	confirm_intro_voice_player.volume_db = float(character.get("confirm_intro_voice_volume_db", -6.0))
+	confirm_intro_voice_delay_remaining = max(0.0, float(character.get("confirm_intro_voice_delay", 0.0)))
+	confirm_intro_voice_pending = true
+	if confirm_intro_voice_delay_remaining <= 0.0:
+		_update_confirm_intro_voice(0.0)
+
+
+func _update_confirm_intro_voice(delta: float) -> void:
+	if not confirm_intro_voice_pending:
+		return
+	confirm_intro_voice_delay_remaining -= delta
+	if confirm_intro_voice_delay_remaining > 0.0:
+		return
+	confirm_intro_voice_pending = false
+	confirm_intro_voice_delay_remaining = 0.0
+	if confirm_intro_voice_player != null and confirm_intro_voice_player.stream != null:
+		confirm_intro_voice_player.play()
+
+
+func _stop_confirm_intro_voice() -> void:
+	confirm_intro_voice_pending = false
+	confirm_intro_voice_delay_remaining = 0.0
+	if confirm_intro_voice_player != null:
+		confirm_intro_voice_player.stop()
+		confirm_intro_voice_player.stream = null
 
 
 func _draw_background(view_size: Vector2) -> void:
-	draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.015, 0.018, 0.032, 1.0))
-	draw_rect(Rect2(Vector2.ZERO, Vector2(view_size.x, view_size.y * 0.38)), Color(0.025, 0.052, 0.073, 0.92))
-	var step: float = max(36.0, view_size.x / 32.0)
-	var offset: float = fmod(animation_time * 18.0, step)
-	var line_color := Color(0.0, 0.85, 1.0, 0.075)
-	var x: float = -view_size.y * 0.22 + offset
+	draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.007, 0.010, 0.016, 1.0))
+	var upper_h: float = view_size.y * 0.39
+	draw_rect(Rect2(0.0, 0.0, view_size.x, upper_h), Color(0.013, 0.030, 0.038, 0.94))
+	draw_rect(Rect2(0.0, upper_h, view_size.x, view_size.y - upper_h), Color(0.009, 0.009, 0.014, 0.97))
+	var step: float = max(40.0, view_size.x / 40.0)
+	var drift: float = fmod(animation_time * 10.0, step)
+	var x: float = -view_size.y * 0.16 + drift
 	while x < view_size.x:
-		draw_line(Vector2(x, 0.0), Vector2(x + view_size.y * 0.22, view_size.y), line_color, 1.0)
+		draw_line(Vector2(x, 0.0), Vector2(x + view_size.y * 0.16, view_size.y), Color(0.0, 0.92, 1.0, 0.055), 1.0)
 		x += step
-	var y: float = fmod(animation_time * 12.0, step)
+	var y: float = 0.0
 	while y < view_size.y:
-		draw_line(Vector2(0.0, y), Vector2(view_size.x, y), Color(1.0, 0.76, 0.26, 0.035), 1.0)
-		y += step
-	var floor_y: float = view_size.y * 0.74
-	draw_rect(Rect2(0.0, floor_y, view_size.x, view_size.y - floor_y), Color(0.02, 0.018, 0.026, 0.74))
-	draw_line(Vector2(0.0, floor_y), Vector2(view_size.x, floor_y), Color(0.0, 0.95, 1.0, 0.24), 2.0)
+		draw_line(Vector2(0.0, y), Vector2(view_size.x, y), Color(0.0, 0.55, 0.64, 0.025), 1.0)
+		y += step * 0.55
+	draw_line(Vector2(0.0, upper_h), Vector2(view_size.x, upper_h), Color(0.0, 0.95, 1.0, 0.22), 1.5)
 
 
 func _draw_header(view_size: Vector2) -> void:
 	var font := ThemeDB.fallback_font
-	_draw_text_center(font, "캐릭터 선택", Vector2(view_size.x * 0.5, 52.0), 38, Color(1.0, 1.0, 1.0, 0.98))
-	_draw_text_center(font, "PINGFIGHTER PLAYER DATABASE", Vector2(view_size.x * 0.5, 88.0), 14, Color(0.0, 0.88, 1.0, 0.80))
+	var column := _card_column_rect(view_size)
+	var title_pos := Vector2(column.position.x + 12.0, 54.0)
+	if view_size.x < 980.0:
+		title_pos = Vector2(34.0, 36.0)
+	_draw_text_left(font, "캐릭터 선택", title_pos, 30 if view_size.x >= 980.0 else 24, Color(1.0, 1.0, 1.0, 0.98))
+	_draw_text_left(font, "SELECT YOUR CHARACTER", title_pos + Vector2(0.0, 34.0), 12, Color(0.0, 0.86, 1.0, 0.88))
 
 
-func _draw_detail_panel(rect: Rect2) -> void:
+func _draw_card_column(rect: Rect2) -> void:
+	var selected_character: Dictionary = characters[selected_index] if selected_index >= 0 and selected_index < characters.size() else {}
+	var accent := _character_color(selected_character, "card_color", Color(0.0, 0.9, 1.0))
+	draw_rect(rect, Color(0.025, 0.080, 0.095, 0.28))
+	draw_rect(Rect2(rect.position.x, rect.position.y, rect.size.x, rect.size.y), Color(accent.r, accent.g, accent.b, 0.10))
+	card_rects = _layout_cards(_resolved_view_size())
+	for idx in visible_indices:
+		_draw_character_card(int(idx), card_rects.get(int(idx), Rect2()))
+
+
+func _draw_character_card(index: int, rect: Rect2) -> void:
+	if rect.size.x <= 1.0 or index < 0 or index >= characters.size():
+		return
+	var character: Dictionary = characters[index]
+	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
+	var glow := _character_color(character, "glow_color", accent)
+	var selected := index == selected_index
+	var hovered := index == hovered_index
+	var font := ThemeDB.fallback_font
+	if selected or hovered:
+		draw_rect(rect.grow(8.0), Color(glow.r, glow.g, glow.b, 0.16 if selected else 0.08))
+	draw_rect(rect, Color(0.006, 0.008, 0.013, 0.98))
+	var image_rect := rect.grow(-6.0)
+	var texture: Texture2D = portrait_textures.get(index, null)
+	if texture != null:
+		var source_rect := _character_card_face_source_rect(texture, image_rect, character)
+		draw_texture_rect_region(texture, image_rect, source_rect, Color(1.0, 1.0, 1.0, 0.96))
+	else:
+		draw_rect(image_rect, Color(accent.r, accent.g, accent.b, 0.22))
+	draw_rect(Rect2(rect.position.x, rect.end.y - 34.0, rect.size.x, 34.0), Color(0.0, 0.0, 0.0, 0.72))
+	var character_name := str(character.get("character_name", character.get("name", "")))
+	_draw_text_center(font, character_name, Vector2(rect.get_center().x, rect.end.y - 17.0), 15, Color.WHITE)
+	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.92 if selected else 0.36), false, 2.0 if selected else 1.0)
+	draw_rect(rect.grow(-5.0), Color(1.0, 1.0, 1.0, 0.10 if selected else 0.06), false, 1.0)
+	if selected:
+		_draw_corner_ticks(rect.grow(6.0), glow, 22.0)
+
+
+func _draw_preview_frame(rect: Rect2) -> void:
+	if selected_index < 0 or selected_index >= characters.size():
+		return
+	var character: Dictionary = characters[selected_index]
+	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
+	var glow := _character_color(character, "glow_color", accent)
+	draw_rect(rect.grow(10.0), Color(glow.r, glow.g, glow.b, 0.09 + sin(animation_time * 2.0) * 0.02))
+	draw_rect(rect.grow(6.0), Color(accent.r, accent.g, accent.b, 0.80), false, 2.0)
+	draw_rect(rect.grow(0.0), Color(0.0, 0.0, 0.0, 0.22), false, 1.0)
+	_draw_corner_ticks(rect.grow(10.0), glow, 40.0)
+
+
+func _draw_info_panel(rect: Rect2) -> void:
+	if selected_index < 0 or selected_index >= characters.size():
+		return
 	var character: Dictionary = characters[selected_index]
 	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
 	var glow := _character_color(character, "glow_color", accent)
 	var font := ThemeDB.fallback_font
-	draw_rect(rect.grow(8.0), Color(glow.r, glow.g, glow.b, 0.10 + sin(animation_time * 2.0) * 0.03))
-	draw_rect(rect, Color(0.025, 0.035, 0.055, 0.94))
-	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.82), false, 2.0)
-	draw_rect(rect.grow(-6.0), Color(1.0, 1.0, 1.0, 0.10), false, 1.0)
-
-	var name := str(character.get("name", ""))
+	draw_rect(rect.grow(8.0), Color(glow.r, glow.g, glow.b, 0.075))
+	draw_rect(rect, Color(0.016, 0.020, 0.031, 0.96))
+	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.76), false, 2.0)
+	draw_rect(rect.grow(-6.0), Color(1.0, 1.0, 1.0, 0.075), false, 1.0)
+	var character_class_name := str(character.get("class_name", character.get("name", "")))
+	var character_name := str(character.get("character_name", character.get("name", "")))
 	var role := str(character.get("role", ""))
-	_draw_text_left(font, role, rect.position + Vector2(28.0, 28.0), 14, Color(accent.r, accent.g, accent.b, 0.92))
-	_draw_text_left(font, name, rect.position + Vector2(28.0, 62.0), 34, Color.WHITE)
-	_draw_emblem(rect.position + Vector2(rect.size.x - 62.0, 70.0), accent, glow)
-
-	var desc_lines := str(character.get("description", "")).split("\n")
-	var desc_y := rect.position.y + 122.0
-	for line_idx in range(desc_lines.size()):
-		_draw_text_left(font, desc_lines[line_idx], Vector2(rect.position.x + 30.0, desc_y + float(line_idx) * 28.0), 18, Color(0.74, 0.86, 0.96, 0.96))
-
-	_draw_text_left(font, str(character.get("special", "")), rect.position + Vector2(30.0, rect.size.y - 94.0), 17, Color(glow.r, glow.g, glow.b, 0.98))
-	_draw_stats(rect.position + Vector2(30.0, rect.size.y - 54.0), rect.size.x - 60.0, character)
+	_draw_text_left(font, role, rect.position + Vector2(26.0, 22.0), 14, Color(accent.r, accent.g, accent.b, 0.94))
+	_draw_text_left(font, character_name, rect.position + Vector2(26.0, 47.0), 31, Color.WHITE)
+	_draw_badge(rect.position + Vector2(96.0, 48.0), character_class_name, accent)
+	_draw_text_left(font, str(character.get("tagline", "")), rect.position + Vector2(26.0, 82.0), 17, Color(0.88, 0.92, 0.97, 0.98))
+	_draw_wrapped_text(font, str(character.get("description", "")), rect.position + Vector2(26.0, 108.0), rect.size.x - 52.0, 14, Color(0.73, 0.82, 0.90, 0.96), 22.0, 2)
+	_draw_difficulty(rect.position + Vector2(26.0, 137.0), int(character.get("difficulty_stars", 1)), accent)
+	_draw_text_left(font, "대표 스킬", rect.position + Vector2(26.0, 160.0), 13, Color(0.82, 0.88, 0.94, 0.92))
+	_draw_skill_icons(Rect2(rect.position + Vector2(26.0, 186.0), Vector2(rect.size.x - 52.0, 56.0)), selected_index, accent, glow)
+	var full_body_rect := Rect2(rect.position + Vector2(22.0, 252.0), Vector2(rect.size.x - 44.0, max(180.0, rect.size.y - 272.0)))
+	_draw_full_body_live2d_panel(full_body_rect, selected_index, character, accent)
 
 
 func _draw_stats(origin: Vector2, max_width: float, character: Dictionary) -> void:
@@ -280,18 +901,314 @@ func _draw_stats(origin: Vector2, max_width: float, character: Dictionary) -> vo
 	if not (stats_value is Dictionary):
 		return
 	var stats: Dictionary = stats_value
+	if stats.is_empty():
+		return
 	var font := ThemeDB.fallback_font
-	var keys: Array = ["속도", "파워", "방어"]
-	var col_w: float = max_width / float(keys.size())
-	for i in range(keys.size()):
-		var key: String = str(keys[i])
+	var keys := stats.keys()
+	var col_count: int = min(3, keys.size())
+	var col_w: float = max_width / float(max(1, col_count))
+	for i in range(col_count):
+		var key := str(keys[i])
 		var value := int(stats.get(key, 0))
 		var x := origin.x + float(i) * col_w
-		_draw_text_left(font, key, Vector2(x, origin.y), 13, Color(0.80, 0.84, 0.88, 0.90))
-		var track := Rect2(x, origin.y + 18.0, col_w - 26.0, 8.0)
-		draw_rect(track, Color(0.0, 0.0, 0.0, 0.42))
-		draw_rect(Rect2(track.position, Vector2(track.size.x * clamp(float(value) / 8.0, 0.0, 1.0), track.size.y)), Color(1.0, 0.76, 0.26, 0.88))
+		_draw_text_left(font, key, Vector2(x, origin.y), 13, Color(0.82, 0.86, 0.90, 0.88))
+		var track := Rect2(x, origin.y + 22.0, col_w - 24.0, 8.0)
+		draw_rect(track, Color(0.0, 0.0, 0.0, 0.45))
+		draw_rect(Rect2(track.position, Vector2(track.size.x * clamp(float(value) / 8.0, 0.0, 1.0), track.size.y)), Color(1.0, 0.76, 0.26, 0.90))
 		draw_rect(track, Color(1.0, 1.0, 1.0, 0.18), false, 1.0)
+
+
+func _draw_action_bar(view_size: Vector2) -> void:
+	var character: Dictionary = characters[selected_index] if selected_index >= 0 and selected_index < characters.size() else {}
+	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
+	var glow := _character_color(character, "glow_color", accent)
+	var bottom_y: float = view_size.y - 98.0
+	back_rect = Rect2(_card_column_rect(view_size).position.x + 14.0, bottom_y + 2.0, 106.0, 34.0)
+	var center_x: float = view_size.x * 0.5
+	champion_rect = Rect2(center_x - 145.0, bottom_y + 2.0, 140.0, 34.0)
+	mythic_rect = Rect2(center_x + 2.0, bottom_y + 2.0, 140.0, 34.0)
+	confirm_rect = Rect2(view_size.x - view_size.x * 0.09 - 214.0, bottom_y - 8.0, 214.0, 50.0)
+	_draw_button(back_rect, "뒤로", Color(0.55, 0.60, 0.68, 0.58), Color(0.08, 0.09, 0.12, 0.88), false)
+	_draw_league_button(champion_rect, "챔피언리그", "champion", Color(0.82, 0.30, 1.0, 1.0))
+	_draw_league_button(mythic_rect, "신화리그", "mythic", Color(1.0, 0.76, 0.26, 1.0))
+	var select_name := str(character.get("character_name", character.get("name", "")))
+	_draw_button(confirm_rect, "%s 선택" % select_name, glow, Color(accent.r * 0.20, accent.g * 0.24, accent.b * 0.24, 0.94), true)
+
+
+func _draw_texture_cover(texture: Texture2D, target: Rect2, texture_modulate: Color = Color.WHITE) -> void:
+	var texture_size := texture.get_size()
+	if texture_size.x <= 1.0 or texture_size.y <= 1.0 or target.size.x <= 1.0 or target.size.y <= 1.0:
+		return
+	var source := Rect2(Vector2.ZERO, texture_size)
+	var texture_aspect: float = texture_size.x / max(1.0, texture_size.y)
+	var target_aspect: float = target.size.x / max(1.0, target.size.y)
+	if texture_aspect > target_aspect:
+		source.size.x = texture_size.y * target_aspect
+		source.position.x = (texture_size.x - source.size.x) * 0.5
+	else:
+		source.size.y = texture_size.x / max(0.01, target_aspect)
+		source.position.y = (texture_size.y - source.size.y) * 0.5
+	draw_texture_rect_region(texture, target, source, texture_modulate)
+
+
+func _draw_corner_ticks(rect: Rect2, color: Color, length: float) -> void:
+	var tick_len: float = min(length, min(rect.size.x, rect.size.y) * 0.35)
+	var thickness := 1.8
+	var tick_color := Color(color.r, color.g, color.b, 0.88)
+	var dim_color := Color(color.r, color.g, color.b, 0.30)
+	draw_line(rect.position, rect.position + Vector2(tick_len, 0.0), tick_color, thickness)
+	draw_line(rect.position, rect.position + Vector2(0.0, tick_len), tick_color, thickness)
+	draw_line(Vector2(rect.end.x, rect.position.y), Vector2(rect.end.x - tick_len, rect.position.y), tick_color, thickness)
+	draw_line(Vector2(rect.end.x, rect.position.y), Vector2(rect.end.x, rect.position.y + tick_len), tick_color, thickness)
+	draw_line(Vector2(rect.position.x, rect.end.y), Vector2(rect.position.x + tick_len, rect.end.y), tick_color, thickness)
+	draw_line(Vector2(rect.position.x, rect.end.y), Vector2(rect.position.x, rect.end.y - tick_len), tick_color, thickness)
+	draw_line(rect.end, rect.end - Vector2(tick_len, 0.0), tick_color, thickness)
+	draw_line(rect.end, rect.end - Vector2(0.0, tick_len), tick_color, thickness)
+	draw_rect(rect.grow(-5.0), dim_color, false, 1.0)
+
+
+func _draw_badge(top_left: Vector2, label: String, accent: Color) -> void:
+	if label.strip_edges() == "":
+		return
+	var font := ThemeDB.fallback_font
+	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14)
+	var badge_rect := Rect2(top_left, Vector2(text_size.x + 22.0, 25.0))
+	draw_rect(badge_rect, Color(accent.r, accent.g, accent.b, 0.16))
+	draw_rect(badge_rect, Color(accent.r, accent.g, accent.b, 0.86), false, 1.0)
+	_draw_text_center(font, label, badge_rect.get_center() + Vector2(0.0, -1.0), 13, Color(0.88, 1.0, 1.0, 0.96))
+
+
+func _draw_difficulty(top_left: Vector2, stars: int, accent: Color) -> void:
+	var font := ThemeDB.fallback_font
+	_draw_text_left(font, "난이도", top_left, 13, Color(0.82, 0.88, 0.94, 0.90))
+	var star_x := top_left.x + 52.0
+	for star_index in range(3):
+		var filled: bool = star_index < int(clamp(stars, 0, 3))
+		var star_color := Color(accent.r, accent.g, accent.b, 0.96) if filled else Color(0.50, 0.58, 0.66, 0.55)
+		_draw_text_left(font, "★", Vector2(star_x + float(star_index) * 21.0, top_left.y - 1.0), 18, star_color)
+
+
+func _draw_skill_icons(rect: Rect2, character_index: int, accent: Color, glow: Color) -> void:
+	_ensure_cache_dictionaries()
+	var icon_size := 50.0
+	var gap := 12.0
+	var icons_value: Variant = skill_icon_textures.get(character_index, [])
+	var icons: Array = icons_value if icons_value is Array else []
+	for icon_index in range(3):
+		var icon_rect := Rect2(rect.position + Vector2(float(icon_index) * (icon_size + gap), 0.0), Vector2(icon_size, icon_size))
+		draw_rect(icon_rect.grow(4.0), Color(glow.r, glow.g, glow.b, 0.12))
+		draw_rect(icon_rect, Color(0.008, 0.010, 0.016, 0.95))
+		if icon_index < icons.size() and icons[icon_index] is Texture2D:
+			_draw_texture_cover(icons[icon_index], icon_rect.grow(-4.0), Color.WHITE)
+		else:
+			draw_circle(icon_rect.get_center(), 14.0, Color(accent.r, accent.g, accent.b, 0.22))
+			draw_circle(icon_rect.get_center(), 6.0, Color(accent.r, accent.g, accent.b, 0.75))
+		draw_rect(icon_rect, Color(accent.r, accent.g, accent.b, 0.86), false, 1.0)
+
+
+func _draw_full_body_live2d_panel(rect: Rect2, character_index: int, character: Dictionary, accent: Color) -> void:
+	_ensure_cache_dictionaries()
+	draw_rect(rect, Color(0.006, 0.009, 0.014, 0.88))
+	var hatch_gap := 14.0
+	var hatch_x: float = rect.position.x - rect.size.y
+	while hatch_x < rect.end.x:
+		draw_line(Vector2(hatch_x, rect.position.y), Vector2(hatch_x + rect.size.y, rect.end.y), Color(accent.r, accent.g, accent.b, 0.055), 1.0)
+		hatch_x += hatch_gap
+	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.36), false, 1.0)
+	var inner_rect := rect.grow(-10.0)
+	var sheet_texture: Texture2D = full_body_live2d_textures.get(character_index, null)
+	if sheet_texture != null:
+		_draw_full_body_live2d_sheet(sheet_texture, inner_rect, character)
+		return
+	var still_texture: Texture2D = full_body_live2d_still_textures.get(character_index, null)
+	if still_texture != null:
+		_draw_texture_contain(still_texture, inner_rect, Color.WHITE)
+		return
+	var font := ThemeDB.fallback_font
+	_draw_text_center(font, "전신 LIVE2D", rect.get_center() + Vector2(0.0, -14.0), 13, Color(0.72, 0.78, 0.86, 0.86))
+	_draw_text_center(font, "준비중", rect.get_center() + Vector2(0.0, 10.0), 13, Color(0.72, 0.78, 0.86, 0.86))
+
+
+func _draw_full_body_live2d_sheet(texture: Texture2D, target: Rect2, character: Dictionary) -> void:
+	var texture_size := texture.get_size()
+	if texture_size.x <= 1.0 or texture_size.y <= 1.0:
+		return
+	var cols: int = max(1, int(character.get("full_body_live2d_cols", 1)))
+	var rows: int = max(1, int(character.get("full_body_live2d_rows", 1)))
+	var frame_count: int = clamp(int(character.get("full_body_live2d_count", cols * rows)), 1, cols * rows)
+	var interval: float = max(0.016, float(character.get("full_body_live2d_interval", 0.033)))
+	var frame_index: int = int(floor(animation_time / interval)) % frame_count
+	var col: int = frame_index % cols
+	var row: int = int(floor(float(frame_index) / float(cols)))
+	var cell_size := Vector2(texture_size.x / float(cols), texture_size.y / float(rows))
+	var source_rect := Rect2(Vector2(float(col) * cell_size.x, float(row) * cell_size.y), cell_size)
+	var trim_value: Variant = character.get("full_body_live2d_trim_rect", Rect2())
+	if trim_value is Rect2:
+		var trim_rect: Rect2 = trim_value
+		if trim_rect.size.x > 1.0 and trim_rect.size.y > 1.0:
+			source_rect = Rect2(source_rect.position + trim_rect.position, trim_rect.size)
+	var fit_rect := _fit_region_rect(source_rect.size, target)
+	var stage_scale: float = max(0.40, float(character.get("full_body_live2d_stage_scale", 1.0)))
+	fit_rect = _scale_rect(fit_rect, stage_scale)
+	fit_rect.position += Vector2(
+		target.size.x * float(character.get("full_body_live2d_stage_x_offset_ratio", 0.0)),
+		target.size.y * float(character.get("full_body_live2d_stage_y_offset_ratio", 0.0))
+	)
+	draw_texture_rect_region(texture, fit_rect, source_rect, Color.WHITE)
+
+
+func _draw_texture_contain(texture: Texture2D, target: Rect2, texture_modulate: Color = Color.WHITE) -> void:
+	var texture_size := texture.get_size()
+	if texture_size.x <= 1.0 or texture_size.y <= 1.0:
+		return
+	var fit_rect := _fit_region_rect(texture_size, target)
+	draw_texture_rect(texture, fit_rect, false, texture_modulate)
+
+
+func _fit_region_rect(content_size: Vector2, target: Rect2) -> Rect2:
+	if content_size.x <= 1.0 or content_size.y <= 1.0 or target.size.x <= 1.0 or target.size.y <= 1.0:
+		return target
+	var scale_factor: float = min(target.size.x / content_size.x, target.size.y / content_size.y)
+	var fitted_size := content_size * scale_factor
+	return Rect2(target.position + (target.size - fitted_size) * 0.5, fitted_size)
+
+
+func _scale_rect(rect: Rect2, scale_factor: float) -> Rect2:
+	var center := rect.get_center()
+	var scaled_size := rect.size * scale_factor
+	return Rect2(center - scaled_size * 0.5, scaled_size)
+
+
+func _draw_button(rect: Rect2, label: String, border: Color, fill: Color, prominent: bool) -> void:
+	var font := ThemeDB.fallback_font
+	draw_rect(rect.grow(5.0), Color(border.r, border.g, border.b, 0.10 if prominent else 0.04))
+	draw_rect(rect, fill)
+	draw_rect(rect, Color(border.r, border.g, border.b, 0.92), false, 2.0 if prominent else 1.0)
+	draw_rect(rect.grow(-5.0), Color(1.0, 1.0, 1.0, 0.08), false, 1.0)
+	_draw_text_center(font, label, rect.get_center(), 20 if prominent else 15, Color.WHITE)
+
+
+func _draw_league_button(rect: Rect2, label: String, mode: String, border_color: Color) -> void:
+	var selected := selected_league_mode == mode
+	var fill_alpha := 0.27 if selected else 0.09
+	var border_alpha := 0.95 if selected else 0.45
+	draw_rect(rect, Color(border_color.r, border_color.g, border_color.b, fill_alpha))
+	draw_rect(rect, Color(border_color.r, border_color.g, border_color.b, border_alpha), false, 1.5 if selected else 1.0)
+	_draw_text_center(ThemeDB.fallback_font, label, rect.get_center(), 14, Color(1.0, 1.0, 1.0, 0.96 if selected else 0.70))
+
+
+func _draw_wrapped_text(font: Font, source_text: String, top_left: Vector2, max_width: float, font_size: int, color: Color, line_step: float, max_lines: int) -> void:
+	var words := source_text.replace("\n", " ").split(" ", false)
+	var lines: Array[String] = []
+	var current_line := ""
+	for word in words:
+		var candidate := word if current_line == "" else "%s %s" % [current_line, word]
+		if font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x <= max_width or current_line == "":
+			current_line = candidate
+		else:
+			lines.append(current_line)
+			current_line = word
+		if lines.size() >= max_lines:
+			break
+	if current_line != "" and lines.size() < max_lines:
+		lines.append(current_line)
+	for line_index in range(lines.size()):
+		_draw_text_left(font, lines[line_index], top_left + Vector2(0.0, float(line_index) * line_step), font_size, color)
+
+
+func _layout_cards(view_size: Vector2) -> Dictionary:
+	var rects: Dictionary = {}
+	var count: int = visible_indices.size()
+	if count <= 0:
+		return rects
+	var column := _card_column_rect(view_size)
+	if view_size.x < 980.0:
+		var mobile_card_w: float = min(172.0, (column.size.x - 18.0) / float(count))
+		var mobile_card_h: float = column.size.y - 26.0
+		var step_x: float = (column.size.x - mobile_card_w) / float(max(1, count - 1))
+		for pos in range(count):
+			var index := int(visible_indices[pos])
+			var scale_factor := float(hover_scales[index])
+			var card_size := Vector2(mobile_card_w, mobile_card_h) * scale_factor
+			var center := Vector2(column.position.x + mobile_card_w * 0.5 + float(pos) * step_x, column.position.y + column.size.y * 0.54 - float(hover_lifts[index]))
+			rects[index] = Rect2(center - card_size * 0.5, card_size)
+		return rects
+	var padding := 8.0
+	var top_pad := 96.0
+	var gap := 12.0
+	var card_w: float = column.size.x - padding * 2.0
+	var available_h: float = column.size.y - top_pad - 92.0 - gap * float(max(0, count - 1))
+	var card_h: float = min(118.0, available_h / float(count))
+	for pos in range(count):
+		var index := int(visible_indices[pos])
+		var scale_factor := float(hover_scales[index])
+		var card_size := Vector2(card_w, card_h) * scale_factor
+		var x := column.position.x + padding
+		var y := column.position.y + top_pad + float(pos) * (card_h + gap) - float(hover_lifts[index]) * 0.35
+		var center := Vector2(x + card_w * 0.5, y + card_h * 0.5)
+		rects[index] = Rect2(center - card_size * 0.5, card_size)
+	return rects
+
+
+func _card_column_rect(view_size: Vector2) -> Rect2:
+	if view_size.x < 980.0:
+		return Rect2(24.0, view_size.y - 248.0, view_size.x - 48.0, 172.0)
+	var top := 106.0
+	var left: float = clamp(view_size.x * 0.085, 86.0, 150.0)
+	var width: float = clamp(view_size.x * 0.114, 178.0, 206.0)
+	return Rect2(left, top, width, view_size.y - top - 84.0)
+
+
+func _preview_rect(view_size: Vector2) -> Rect2:
+	if view_size.x < 980.0:
+		return Rect2(34.0, 108.0, view_size.x - 68.0, max(260.0, view_size.y * 0.44))
+	var card_column := _card_column_rect(view_size)
+	var x := card_column.end.x + 18.0
+	var info_x: float = view_size.x - _layout_right_margin(view_size) - _info_panel_width(view_size)
+	var width: float = clamp(info_x - x - 22.0, 560.0, 1120.0)
+	return Rect2(x, 116.0, width, max(360.0, view_size.y - 238.0))
+
+
+func _info_panel_rect(view_size: Vector2, preview_rect_value: Rect2) -> Rect2:
+	if view_size.x < 980.0:
+		return Rect2(34.0, preview_rect_value.end.y + 16.0, view_size.x - 68.0, min(250.0, view_size.y - preview_rect_value.end.y - 96.0))
+	var width := _info_panel_width(view_size)
+	var x := view_size.x - _layout_right_margin(view_size) - width
+	return Rect2(x, 112.0, width, max(360.0, view_size.y - 234.0))
+
+
+func _layout_right_margin(view_size: Vector2) -> float:
+	return clamp(view_size.x * 0.080, 84.0, 156.0)
+
+
+func _info_panel_width(view_size: Vector2) -> float:
+	return clamp(view_size.x * 0.245, 390.0, 500.0)
+
+
+func _detail_rect(view_size: Vector2, preview_rect_value: Rect2) -> Rect2:
+	return _info_panel_rect(view_size, preview_rect_value)
+
+
+func _character_card_face_source_rect(texture: Texture2D, target: Rect2, character: Dictionary) -> Rect2:
+	var texture_size := texture.get_size()
+	if texture_size.x <= 1.0 or texture_size.y <= 1.0:
+		return Rect2(Vector2.ZERO, texture_size)
+	var target_aspect: float = target.size.x / max(1.0, target.size.y)
+	var focus_value: Variant = character.get("card_face_focus", Vector2(0.5, 0.28))
+	var focus: Vector2 = focus_value if focus_value is Vector2 else Vector2(0.5, 0.28)
+	var height_ratio: float = clamp(float(character.get("card_face_source_height_ratio", 0.38)), 0.24, 0.46)
+	var source_h: float = texture_size.y * height_ratio
+	var source_w: float = source_h * target_aspect
+	if source_w > texture_size.x:
+		source_w = texture_size.x
+		source_h = source_w / max(0.01, target_aspect)
+	var center := Vector2(texture_size.x * clamp(focus.x, 0.0, 1.0), texture_size.y * clamp(focus.y, 0.0, 1.0))
+	var max_y: float = max(0.0, texture_size.y * 0.66 - source_h)
+	var pos := Vector2(
+		clamp(center.x - source_w * 0.5, 0.0, max(0.0, texture_size.x - source_w)),
+		clamp(center.y - source_h * 0.5, 0.0, max_y)
+	)
+	return Rect2(pos, Vector2(source_w, source_h))
 
 
 func _draw_emblem(center: Vector2, accent: Color, glow: Color) -> void:
@@ -306,111 +1223,6 @@ func _draw_emblem(center: Vector2, accent: Color, glow: Color) -> void:
 	])
 	draw_colored_polygon(pts, Color(accent.r, accent.g, accent.b, 0.92))
 	draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color.WHITE, 1.4)
-
-
-func _draw_card_row(view_size: Vector2) -> void:
-	card_rects = _layout_cards(view_size)
-	var ordered := visible_indices.duplicate()
-	ordered.sort()
-	for idx in ordered:
-		_draw_character_card(int(idx), card_rects.get(int(idx), Rect2()))
-
-
-func _draw_character_card(index: int, rect: Rect2) -> void:
-	if rect.size.x <= 1.0:
-		return
-	var character: Dictionary = characters[index]
-	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
-	var glow := _character_color(character, "glow_color", accent)
-	var selected := index == selected_index
-	var hovered := index == hovered_index
-	var alpha := 0.94 if bool(character.get("unlocked", false)) else 0.38
-	if selected or hovered:
-		draw_rect(rect.grow(10.0), Color(glow.r, glow.g, glow.b, 0.18 if selected else 0.10))
-	draw_rect(rect, Color(0.02, 0.025, 0.038, 0.96))
-	var texture: Texture2D = portrait_textures.get(index, null)
-	if texture != null:
-		_draw_texture_cover(texture, rect.grow(-5.0), Color(1.0, 1.0, 1.0, alpha))
-	else:
-		draw_rect(rect.grow(-5.0), Color(accent.r, accent.g, accent.b, 0.22))
-	draw_rect(Rect2(rect.position.x, rect.end.y - 46.0, rect.size.x, 46.0), Color(0.0, 0.0, 0.0, 0.66))
-	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.92 if selected else 0.42), false, 2.0 if selected else 1.0)
-	draw_rect(rect.grow(-4.0), Color(1.0, 1.0, 1.0, 0.16 if selected else 0.08), false, 1.0)
-	var font := ThemeDB.fallback_font
-	_draw_text_center(font, str(character.get("name", "")), Vector2(rect.get_center().x, rect.end.y - 24.0), 18 if selected else 15, Color.WHITE)
-	if selected:
-		draw_line(Vector2(rect.position.x + 12.0, rect.end.y + 10.0), Vector2(rect.end.x - 12.0, rect.end.y + 10.0), Color(glow.r, glow.g, glow.b, 0.92), 3.0)
-
-
-func _draw_action_bar(view_size: Vector2) -> void:
-	var font := ThemeDB.fallback_font
-	var bar_h := 58.0
-	var bar_y := view_size.y - bar_h
-	draw_rect(Rect2(0.0, bar_y, view_size.x, bar_h), Color(0.0, 0.0, 0.0, 0.34))
-	confirm_rect = Rect2(view_size.x - 250.0, bar_y + 12.0, 172.0, 34.0)
-	back_rect = Rect2(78.0, bar_y + 12.0, 132.0, 34.0)
-	var character: Dictionary = characters[selected_index]
-	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
-	draw_rect(back_rect, Color(0.08, 0.09, 0.12, 0.86))
-	draw_rect(back_rect, Color(0.55, 0.62, 0.70, 0.46), false, 1.0)
-	_draw_text_center(font, "뒤로", back_rect.get_center(), 16, Color(0.88, 0.90, 0.94, 0.96))
-	draw_rect(confirm_rect, Color(accent.r * 0.22, accent.g * 0.22, accent.b * 0.22, 0.92))
-	draw_rect(confirm_rect, Color(accent.r, accent.g, accent.b, 0.86), false, 2.0)
-	_draw_text_center(font, "선택 확정", confirm_rect.get_center(), 16, Color.WHITE)
-	_draw_text_center(font, "← →", Vector2(view_size.x * 0.5, bar_y + 31.0), 15, Color(0.76, 0.82, 0.88, 0.78))
-
-
-func _layout_cards(view_size: Vector2) -> Dictionary:
-	var rects: Dictionary = {}
-	var count: int = visible_indices.size()
-	if count <= 0:
-		return rects
-	var base_scale: float = clamp(view_size.y / 1246.0, 0.68, 1.10)
-	var base_w: float = 150.0 * base_scale
-	var base_h: float = 214.0 * base_scale
-	var usable_w: float = max(1.0, view_size.x - 250.0)
-	var step: float = base_w * 0.88
-	if count > 1:
-		step = min(step, usable_w / float(count - 1))
-	var total_w: float = step * float(max(0, count - 1))
-	var first_x: float = view_size.x * 0.5 - total_w * 0.5
-	var base_y: float = view_size.y - 122.0 - base_h * 0.5
-	for pos in range(count):
-		var index := int(visible_indices[pos])
-		var scale_factor := float(hover_scales[index])
-		var card_size := Vector2(base_w, base_h) * scale_factor
-		var center := Vector2(first_x + float(pos) * step, base_y - float(hover_lifts[index]))
-		rects[index] = Rect2(center - card_size * 0.5, card_size)
-	return rects
-
-
-func _preview_rect(view_size: Vector2) -> Rect2:
-	if view_size.x < 980.0:
-		return Rect2(40.0, 108.0, view_size.x - 80.0, view_size.y * 0.34)
-	return Rect2(view_size.x * 0.075, 126.0, min(560.0, view_size.x * 0.31), view_size.y * 0.48)
-
-
-func _detail_rect(view_size: Vector2, preview_rect_value: Rect2) -> Rect2:
-	if view_size.x < 980.0:
-		return Rect2(40.0, preview_rect_value.end.y + 22.0, view_size.x - 80.0, min(270.0, view_size.y * 0.28))
-	var x := preview_rect_value.end.x + 42.0
-	return Rect2(x, preview_rect_value.position.y + 28.0, view_size.x - x - 86.0, min(350.0, preview_rect_value.size.y - 56.0))
-
-
-func _draw_texture_cover(texture: Texture2D, target: Rect2, modulate: Color = Color.WHITE) -> void:
-	var tex_size := texture.get_size()
-	if tex_size.x <= 1.0 or tex_size.y <= 1.0 or target.size.x <= 1.0 or target.size.y <= 1.0:
-		return
-	var source := Rect2(Vector2.ZERO, tex_size)
-	var target_aspect := target.size.x / target.size.y
-	var tex_aspect := tex_size.x / tex_size.y
-	if tex_aspect > target_aspect:
-		source.size.x = tex_size.y * target_aspect
-		source.position.x = (tex_size.x - source.size.x) * 0.5
-	else:
-		source.size.y = tex_size.x / target_aspect
-		source.position.y = (tex_size.y - source.size.y) * 0.5
-	draw_texture_rect_region(texture, target, source, modulate, false, true)
 
 
 func _character_color(character: Dictionary, key: String, fallback: Color) -> Color:
