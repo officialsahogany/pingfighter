@@ -242,6 +242,8 @@ godot/builds/
 godot/*.log
 godot/*.tmp
 *.bak
+*.bak_pre_sync_*
+tmp_*.png
 
 # Godot asset iteration trails
 godot/assets/ui/character_live2d/_rejected_free_parts_v1/
