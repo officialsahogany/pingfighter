@@ -13,6 +13,7 @@ const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/c
 const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
+const CommandoFirearmShellCasingState := preload("res://scripts/characters/commando_firearm_shell_casing_state.gd")
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
 const CommandoFirearmSupportProjectileResolver := preload("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
@@ -2662,61 +2663,26 @@ func _update_net_projectile_rope(projectile: Dictionary, pos: Vector2, context: 
 
 
 func _spawn_ak47_shell_casing(origin: Vector2, direction: Vector2, config: Dictionary, shot_id: int) -> void:
-	var player_pos: Vector2 = _get_vector2(config.get("player_pos", origin), origin)
-	var paddle_height: float = max(1.0, float(config.get("paddle_height", 50.0)))
-	var side: Vector2 = direction.rotated(PI * 0.5)
-	if side.x < 0.0:
-		side = -side
-	@warning_ignore("shadowed_global_identifier")
-	var seed: int = max(1, shot_id)
-	var spawn_pos: Vector2 = origin + side.normalized() * 11.0 + Vector2(0.0, -6.0)
-	var floor_y: float = clamp(player_pos.y + paddle_height + 5.0, 0.0, FIELD_HEIGHT - 4.0)
-	_append_limited(shell_casings, {
-		"id": seed,
-		"weapon_id": "ak47",
-		"pos": spawn_pos,
-		"velocity": Vector2(
-			3.0 + float(seed % 5) * 0.55,
-			-6.8 + float((seed + 2) % 4) * 0.45
-		),
-		"rotation": float((seed * 47) % 360),
-		"rotation_speed": 16.0 + float((seed * 7) % 12),
-		"bounce_count": 0,
-		"floor_y": floor_y,
-		"lifetime_frames": AK47_SHELL_LIFETIME_FRAMES,
-		"max_lifetime_frames": AK47_SHELL_LIFETIME_FRAMES,
-		"length": 8.0,
-		"width": 3.0,
-	}, SHELL_CASING_LIMIT)
+	_append_limited(shell_casings, CommandoFirearmShellCasingState.build_ak47_shell(
+		origin,
+		direction,
+		config,
+		shot_id,
+		FIELD_HEIGHT,
+		AK47_SHELL_LIFETIME_FRAMES
+	), SHELL_CASING_LIMIT)
 
 
 func _spawn_pistol_shell_casing(origin: Vector2, direction: Vector2, config: Dictionary, shot_id: int, weapon_id: String = "commando_pistol") -> void:
-	var player_pos: Vector2 = _get_vector2(config.get("player_pos", origin), origin)
-	var paddle_height: float = max(1.0, float(config.get("paddle_height", 50.0)))
-	var side: Vector2 = direction.rotated(PI * 0.5)
-	if side.x < 0.0:
-		side = -side
-	@warning_ignore("shadowed_global_identifier")
-	var seed: int = max(1, shot_id)
-	var spawn_pos: Vector2 = origin + side.normalized() * 8.0 + Vector2(0.0, -3.0)
-	var floor_y: float = clamp(player_pos.y + paddle_height + 4.0, 0.0, FIELD_HEIGHT - 4.0)
-	_append_limited(shell_casings, {
-		"id": seed,
-		"weapon_id": weapon_id,
-		"pos": spawn_pos,
-		"velocity": Vector2(
-			2.0 + float(seed % 4) * 0.35,
-			-4.6 + float((seed + 1) % 3) * 0.30
-		),
-		"rotation": float((seed * 41) % 360),
-		"rotation_speed": 11.0 + float((seed * 5) % 9),
-		"bounce_count": 0,
-		"floor_y": floor_y,
-		"lifetime_frames": PISTOL_SHELL_LIFETIME_FRAMES,
-		"max_lifetime_frames": PISTOL_SHELL_LIFETIME_FRAMES,
-		"length": 6.0,
-		"width": 2.4,
-	}, SHELL_CASING_LIMIT)
+	_append_limited(shell_casings, CommandoFirearmShellCasingState.build_pistol_shell(
+		origin,
+		direction,
+		config,
+		shot_id,
+		weapon_id,
+		FIELD_HEIGHT,
+		PISTOL_SHELL_LIFETIME_FRAMES
+	), SHELL_CASING_LIMIT)
 
 
 func _update_shell_casings(fps_scale: float) -> void:
@@ -2725,42 +2691,19 @@ func _update_shell_casings(fps_scale: float) -> void:
 		return
 	for index in range(shell_casings.size() - 1, -1, -1):
 		var shell: Dictionary = _get_dict(shell_casings[index])
-		var lifetime: float = max(0.0, float(shell.get("lifetime_frames", 0.0)) - step)
-		if lifetime <= 0.0:
+		var update_result: Dictionary = CommandoFirearmShellCasingState.advance_shell(
+			shell,
+			step,
+			FIELD_WIDTH,
+			FIELD_HEIGHT,
+			AK47_SHELL_GRAVITY,
+			AK47_SHELL_BOUNCE_DECAY,
+			AK47_SHELL_MAX_BOUNCES
+		)
+		if not bool(update_result.get("active", false)):
 			shell_casings.remove_at(index)
 			continue
-		var pos: Vector2 = _get_vector2(shell.get("pos", Vector2.ZERO), Vector2.ZERO)
-		var velocity: Vector2 = _get_vector2(shell.get("velocity", Vector2.ZERO), Vector2.ZERO)
-		velocity.y += AK47_SHELL_GRAVITY * step
-		pos += velocity * step
-		var rotation: float = float(shell.get("rotation", 0.0)) + float(shell.get("rotation_speed", 0.0)) * step
-		var bounce_count: int = int(shell.get("bounce_count", 0))
-		var floor_y: float = float(shell.get("floor_y", FIELD_HEIGHT - 50.0))
-		if pos.y >= floor_y:
-			pos.y = floor_y
-			if bounce_count < AK47_SHELL_MAX_BOUNCES:
-				velocity.y = -abs(velocity.y) * AK47_SHELL_BOUNCE_DECAY
-				velocity.x *= 0.70
-				shell["rotation_speed"] = float(shell.get("rotation_speed", 0.0)) * 0.60
-				bounce_count += 1
-				if abs(velocity.y) < 1.0:
-					velocity.y = 0.0
-					velocity.x *= 0.50
-					shell["rotation_speed"] = 0.0
-			else:
-				velocity.y = 0.0
-				velocity.x *= 0.85
-				shell["rotation_speed"] = 0.0
-				if abs(velocity.x) < 0.30:
-					velocity.x = 0.0
-		shell["pos"] = pos
-		shell["velocity"] = velocity
-		shell["rotation"] = rotation
-		shell["bounce_count"] = bounce_count
-		shell["lifetime_frames"] = lifetime
-		shell_casings[index] = shell
-		if pos.x < -80.0 or pos.x > FIELD_WIDTH + 80.0:
-			shell_casings.remove_at(index)
+		shell_casings[index] = _get_dict(update_result.get("shell", shell))
 
 
 func _spawn_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> void:
