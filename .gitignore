@@ -254,6 +254,11 @@ godot/assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v[6
 godot/assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v1[0-6]*.png*
 godot/assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v[6-9]*.png*
 godot/assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v1[0-6]*.png*
+godot/assets/sprites/smasher/smasher_idle_back_sheet_16f.png*
+godot/assets/sprites/smasher/smasher_idle_front_breath_8f_autosprite_v1.png*
+godot/assets/sprites/smasher/smasher_victory_fullhelmet_32f_autosprite_v2.png*
+godot/assets/sprites/smasher/smasher_victory_sheet_autosprite_v1.png*
+godot/assets/sprites/smasher/smasher_walk_*_fullhelmet_*.png*
 godot/assets/sprites/result_scroll/*_chromakey.png*
 godot/assets/sprites/perks/pipeline-meta.json
 godot/assets/sprites/perks/*_source.png*
