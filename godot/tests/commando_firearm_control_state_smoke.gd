@@ -1,0 +1,58 @@
+extends SceneTree
+
+const CommandoFirearmControlState := preload("res://scripts/characters/commando_firearm_control_state.gd")
+const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	_verify_direct_control_state()
+	_verify_runtime_delegates_control_state()
+
+	if _failures.is_empty():
+		print("commando_firearm_control_state_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _verify_direct_control_state() -> void:
+	_expect(not CommandoFirearmControlState.needs_effect_update(false, 0, 0.0), "effect update gate should default false")
+	_expect(CommandoFirearmControlState.needs_effect_update(true, 0, 0.0), "effect update gate should read visible effects")
+	_expect(CommandoFirearmControlState.needs_effect_update(false, 1, 0.0), "effect update gate should read pending damage")
+	_expect(CommandoFirearmControlState.needs_effect_update(false, 0, 1.0), "effect update gate should read pending gauge")
+
+	_expect(not CommandoFirearmControlState.is_player_control_locked([0.0, 0.0], false, false), "control lock gate should default false")
+	_expect(CommandoFirearmControlState.is_player_control_locked([0.0, 1.0], false, false), "control lock gate should read active timers")
+	_expect(CommandoFirearmControlState.is_player_control_locked([0.0], true, false), "control lock gate should read support-call lock")
+	_expect(CommandoFirearmControlState.is_player_control_locked([0.0], false, true), "control lock gate should read active drone lock")
+
+	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, false, false, 0.5, 0.7), 1.0), "movement multiplier should default neutral")
+	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, true, false, 0.5, 0.7), 0.5), "movement multiplier should read AK-47 hold slow")
+	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, false, true, 0.5, 0.7), 0.7), "movement multiplier should read hooked-net slow")
+	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, true, true, 0.5, 0.7), 0.5), "movement multiplier should use strongest slow")
+	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(true, false, false, 0.5, 0.7), 0.0), "movement multiplier should lock during active suicide drone")
+
+
+func _verify_runtime_delegates_control_state() -> void:
+	var runtime := CommandoFirearmRuntime.new()
+	_expect(not runtime.needs_effect_update(), "runtime effect update gate should default false")
+	runtime.pending_boss_damage_units = 1
+	_expect(runtime.needs_effect_update(), "runtime effect update gate should read pending damage")
+	runtime.pending_boss_damage_units = 0
+	runtime.pistol_control_lock_frames = 1.0
+	_expect(runtime.is_player_control_locked(), "runtime control lock gate should read lock timers")
+	runtime.pistol_control_lock_frames = 0.0
+	runtime.ak47_trigger_held = true
+	_expect(is_equal_approx(runtime.get_movement_speed_multiplier(), 0.5), "runtime movement multiplier should read AK-47 hold slow")
+	runtime.ak47_trigger_held = false
+	runtime.projectiles = [{"weapon_id": "suicide_drone", "kind": "drone"}]
+	_expect(is_equal_approx(runtime.get_movement_speed_multiplier(), 0.0), "runtime movement multiplier should read active drone lock")
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

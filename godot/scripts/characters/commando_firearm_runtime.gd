@@ -3,6 +3,7 @@ extends RefCounted
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmAudioResolver := preload("res://scripts/characters/commando_firearm_audio_resolver.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
+const CommandoFirearmControlState := preload("res://scripts/characters/commando_firearm_control_state.gd")
 const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/commando_firearm_draw_state_resolver.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
@@ -746,32 +747,35 @@ func has_visible_effects() -> bool:
 
 
 func needs_effect_update() -> bool:
-	return (
-		has_visible_effects()
-		or pending_boss_damage_units > 0
-		or pending_special_gauge_gain > 0.0
+	return CommandoFirearmControlState.needs_effect_update(
+		has_visible_effects(),
+		pending_boss_damage_units,
+		pending_special_gauge_gain
 	)
 
 
 func is_player_control_locked() -> bool:
-	return (
-		slingshot_control_lock_frames > 0.0
-		or pistol_control_lock_frames > 0.0
-		or bazooka_control_lock_frames > 0.0
-		or net_gun_control_lock_frames > 0.0
-		or bowling_trap_control_lock_frames > 0.0
-		or _has_active_support_call_lock()
-		or _has_active_suicide_drone_projectile()
+	return CommandoFirearmControlState.is_player_control_locked(
+		[
+			slingshot_control_lock_frames,
+			pistol_control_lock_frames,
+			bazooka_control_lock_frames,
+			net_gun_control_lock_frames,
+			bowling_trap_control_lock_frames,
+		],
+		_has_active_support_call_lock(),
+		_has_active_suicide_drone_projectile()
 	)
 
 
 func get_movement_speed_multiplier() -> float:
-	if _has_active_suicide_drone_projectile():
-		return 0.0
-	var multiplier := AK47_MOVEMENT_SPEED_MULTIPLIER if ak47_trigger_held else 1.0
-	if _has_hooked_net_field():
-		multiplier = min(multiplier, NET_GUN_PLAYER_SLOW_MULTIPLIER)
-	return multiplier
+	return CommandoFirearmControlState.get_movement_speed_multiplier(
+		_has_active_suicide_drone_projectile(),
+		ak47_trigger_held,
+		_has_hooked_net_field(),
+		AK47_MOVEMENT_SPEED_MULTIPLIER,
+		NET_GUN_PLAYER_SLOW_MULTIPLIER
+	)
 
 
 func is_bowling_trap_guard_armed() -> bool:

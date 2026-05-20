@@ -3293,6 +3293,12 @@ This section is intentionally long; use search to find the nearest owner.
   array, ammo / cooldown gates, capture / release side effects, audio, VFX,
   and guard state variable ownership while delegating deterministic
   bowling-trap state math to this helper.
+- `scripts/characters/commando_firearm_control_state.gd`
+  Owns pure Commando firearm control-state decisions: effect-update gating,
+  player-control lock aggregation, and movement-speed multiplier calculation
+  for AK-47 hold fire, hooked net fields, and active suicide-drone control.
+  `commando_firearm_runtime.gd` keeps the actual timer / projectile / lingering
+  state ownership and delegates only these boolean / scalar decisions.
 - `scripts/characters/commando_firearm_fire_sheet_resolver.gd`
   Owns pure Commando firearm weapon-fire sheet lookup behavior: which
   weapons use the shared authored fire sheet overlay, which use the long
