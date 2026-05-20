@@ -6,7 +6,6 @@ const RESET_REQUESTED := "ball_interp_reset_requested"
 const ENABLED := "ball_render_interpolation_enabled"
 const STEP_STARTED_SKIP := "_ball_interp_step_started_skip"
 const LAST_PHYSICS_USEC := "ball_interp_last_physics_usec"
-const DEFAULT_PHYSICS_TICKS_PER_SECOND := 60.0
 
 
 static func begin_physics_step(scene: Dictionary) -> void:
@@ -76,10 +75,7 @@ static func _get_manual_interpolation_fraction(context: Dictionary) -> float:
 	var last_physics_usec: int = int(context.get(LAST_PHYSICS_USEC, 0))
 	if last_physics_usec <= 0:
 		return clampf(Engine.get_physics_interpolation_fraction(), 0.0, 1.0)
-	var tick_rate: float = float(ProjectSettings.get_setting(
-		"physics/common/physics_ticks_per_second",
-		DEFAULT_PHYSICS_TICKS_PER_SECOND
-	))
+	var tick_rate: float = float(Engine.physics_ticks_per_second)
 	var tick_usec: float = 1000000.0 / max(1.0, tick_rate)
 	var elapsed_usec: float = float(Time.get_ticks_usec() - last_physics_usec)
 	return clampf(elapsed_usec / tick_usec, 0.0, 1.0)
