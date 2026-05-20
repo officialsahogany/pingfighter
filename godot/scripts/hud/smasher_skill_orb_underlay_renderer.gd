@@ -14,7 +14,8 @@ func draw(
 	context: Dictionary
 ) -> void:
 	var cluster_frame_texture = context.get("cluster_frame_texture", null)
-	if cluster_frame_texture is Texture2D:
+	var cluster_frame_slots: int = int(context.get("cluster_frame_slots", positions.size()))
+	if cluster_frame_texture is Texture2D and cluster_frame_slots == positions.size():
 		var frame_size: Vector2 = _as_vector2(context.get("cluster_source_size", DEFAULT_SOURCE_SIZE), DEFAULT_SOURCE_SIZE) * scale_factor
 		var gauge_center: Vector2 = _as_vector2(context.get("cluster_gauge_center", DEFAULT_GAUGE_CENTER), DEFAULT_GAUGE_CENTER)
 		var frame_pos: Vector2 = center - gauge_center * scale_factor
