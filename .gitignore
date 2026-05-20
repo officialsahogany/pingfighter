@@ -254,6 +254,9 @@ godot/assets/ui/loading/stage2_loading_stained_glass_*.png*
 godot/assets/ui/loading/stage1_loading_cyber_stained_glass_reveal_mask_v[4-5].png*
 godot/assets/ui/loading/stage2_loading_cyber_stained_glass_fullcolor_imagegen_v3.png*
 godot/assets/ui/loading/stage2_loading_cyber_stained_glass_reveal_mask_v3.png*
+godot/assets/ui/main_menu/disk_hearts_lingpia_logo_*.png*
+godot/assets/ui/main_menu/disk_hearts_lingpia_logo_*.json
+godot/assets/ui/main_menu/lingpia_main_menu_bg.png*
 godot/assets/sprites/stage1/dalji/*_atlas.json
 godot/assets/sprites/stage1/dalji/*_pipeline-meta.json
 godot/assets/sprites/stage1/dalji/*_manifest.json
