@@ -176,3 +176,42 @@ static func build_suicide_drone_state(
 		"pos": pos,
 		"velocity": velocity,
 	}
+
+
+static func build_actor_context(
+	has_visible_effects: bool,
+	projectiles: Array,
+	muzzle_flashes: Array,
+	impact_flashes: Array,
+	lingering_effects: Array,
+	shell_casings: Array,
+	pistol_feedbacks: Array,
+	pistol_state: Dictionary,
+	slingshot_state: Dictionary,
+	ak47_state: Dictionary,
+	bazooka_state: Dictionary,
+	net_gun_state: Dictionary,
+	bowling_trap_state: Dictionary,
+	suicide_drone_state: Dictionary,
+	weapon_fire_sheet_state: Dictionary,
+	support_calls: Array,
+	bowling_traps: Array
+) -> Dictionary:
+	return {
+		"commando_firearm_projectiles": projectiles.duplicate(true) if has_visible_effects else [],
+		"commando_firearm_muzzle_flashes": muzzle_flashes.duplicate(true) if has_visible_effects else [],
+		"commando_firearm_impact_flashes": impact_flashes.duplicate(true) if has_visible_effects else [],
+		"commando_firearm_lingering_effects": lingering_effects.duplicate(true) if has_visible_effects else [],
+		"commando_firearm_shell_casings": shell_casings.duplicate(true) if has_visible_effects else [],
+		"commando_firearm_pistol_feedbacks": pistol_feedbacks.duplicate(true) if has_visible_effects else [],
+		"commando_firearm_pistol_state": pistol_state,
+		"commando_firearm_slingshot_state": slingshot_state,
+		"commando_firearm_ak47_state": ak47_state,
+		"commando_firearm_bazooka_state": bazooka_state,
+		"commando_firearm_net_gun_state": net_gun_state,
+		"commando_firearm_bowling_trap_state": bowling_trap_state,
+		"commando_firearm_suicide_drone_state": suicide_drone_state,
+		"commando_firearm_weapon_fire_sheet_state": weapon_fire_sheet_state,
+		"commando_firearm_support_calls": support_calls.duplicate(true) if has_visible_effects else [],
+		"commando_firearm_bowling_traps": bowling_traps.duplicate(true) if has_visible_effects else [],
+	}

@@ -3307,10 +3307,11 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_draw_state_resolver.gd`
   Owns pure Commando firearm renderer-facing draw-state dictionary scaffolding
   for slingshot charge, pistol fire pose, shared weapon-fire sheet overlay,
-  AK-47, bazooka, net gun, bowling trap, and suicide drone payloads. The
-  runtime keeps timer ownership, weapon-fire sheet / projectile / trap
-  lifecycle, actor-context publication, and private wrapper names while
-  delegating the stable draw payload shape to this helper.
+  AK-47, bazooka, net gun, bowling trap, suicide drone payloads, and the
+  actor draw-context payload shape. The runtime keeps timer ownership,
+  weapon-fire sheet / projectile / trap lifecycle, visible-effect gating,
+  actor-context publication, and private wrapper names while delegating the
+  stable draw payload shape to this helper.
 - `scripts/characters/commando_firearm_impact_flash_resolver.gd`
   Owns pure Commando impact-flash dictionary construction: bullet / non-
   bullet timers, fire-support grenade visual kind and duration, explosion
@@ -3435,9 +3436,11 @@ This section is intentionally long; use search to find the nearest owner.
   while delegating deterministic drone state math to this helper.
 - `scripts/characters/commando_firearm_value_utils.gd`
   Owns tiny pure Commando firearm value helpers: limited append eviction
-  and safe Variant-to-Vector2 / Color / Dictionary / Array fallback reads.
-  `commando_firearm_runtime.gd` keeps its private wrapper names so callers
-  stay unchanged; shot-id state and registry lookup remain in the runtime.
+  safe Variant-to-Vector2 / Color / Dictionary / Array fallback reads,
+  doping-potion context normalization / dependency reads / config projection,
+  and registry instance fallback lookup. `commando_firearm_runtime.gd` keeps
+  its private wrapper names so callers stay unchanged; shot-id state remains
+  in the runtime.
 - `scripts/characters/commando_input_reader.gd`
   Owns Commando raw input on top of the shared Smasher snapshot and adds
   mouse-wheel weapon switching. Wheel events route only when the selected

@@ -941,43 +941,25 @@ func get_recent_hit_events() -> Array:
 
 
 func get_actor_draw_context() -> Dictionary:
-	if not has_visible_effects():
-		return {
-			"commando_firearm_projectiles": [],
-			"commando_firearm_muzzle_flashes": [],
-			"commando_firearm_impact_flashes": [],
-			"commando_firearm_lingering_effects": [],
-			"commando_firearm_shell_casings": [],
-			"commando_firearm_pistol_feedbacks": [],
-			"commando_firearm_pistol_state": _get_pistol_draw_state(),
-			"commando_firearm_slingshot_state": _get_slingshot_draw_state(),
-			"commando_firearm_ak47_state": _get_ak47_draw_state(),
-			"commando_firearm_bazooka_state": _get_bazooka_draw_state(),
-			"commando_firearm_net_gun_state": _get_net_gun_draw_state(),
-			"commando_firearm_bowling_trap_state": _get_bowling_trap_draw_state(),
-			"commando_firearm_suicide_drone_state": _get_suicide_drone_draw_state(),
-			"commando_firearm_weapon_fire_sheet_state": _get_weapon_fire_sheet_draw_state(),
-			"commando_firearm_support_calls": [],
-			"commando_firearm_bowling_traps": [],
-		}
-	return {
-		"commando_firearm_projectiles": projectiles.duplicate(true),
-		"commando_firearm_muzzle_flashes": muzzle_flashes.duplicate(true),
-		"commando_firearm_impact_flashes": impact_flashes.duplicate(true),
-		"commando_firearm_lingering_effects": lingering_effects.duplicate(true),
-		"commando_firearm_shell_casings": shell_casings.duplicate(true),
-		"commando_firearm_pistol_feedbacks": pistol_feedbacks.duplicate(true),
-		"commando_firearm_pistol_state": _get_pistol_draw_state(),
-		"commando_firearm_slingshot_state": _get_slingshot_draw_state(),
-		"commando_firearm_ak47_state": _get_ak47_draw_state(),
-		"commando_firearm_bazooka_state": _get_bazooka_draw_state(),
-		"commando_firearm_net_gun_state": _get_net_gun_draw_state(),
-		"commando_firearm_bowling_trap_state": _get_bowling_trap_draw_state(),
-		"commando_firearm_suicide_drone_state": _get_suicide_drone_draw_state(),
-		"commando_firearm_weapon_fire_sheet_state": _get_weapon_fire_sheet_draw_state(),
-		"commando_firearm_support_calls": support_calls.duplicate(true),
-		"commando_firearm_bowling_traps": bowling_traps.duplicate(true),
-	}
+	return CommandoFirearmDrawStateResolver.build_actor_context(
+		has_visible_effects(),
+		projectiles,
+		muzzle_flashes,
+		impact_flashes,
+		lingering_effects,
+		shell_casings,
+		pistol_feedbacks,
+		_get_pistol_draw_state(),
+		_get_slingshot_draw_state(),
+		_get_ak47_draw_state(),
+		_get_bazooka_draw_state(),
+		_get_net_gun_draw_state(),
+		_get_bowling_trap_draw_state(),
+		_get_suicide_drone_draw_state(),
+		_get_weapon_fire_sheet_draw_state(),
+		support_calls,
+		bowling_traps
+	)
 
 
 func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: float = 1.0) -> Dictionary:
@@ -1179,20 +1161,7 @@ func _get_pistol_cooldown_frames(weapon_id: String, doping_context: Dictionary, 
 
 
 func _get_doping_potion_context_from_deps(deps: Dictionary) -> Dictionary:
-	var active_item_runtime: Object = deps.get("active_item_runtime", null)
-	if active_item_runtime != null:
-		if active_item_runtime.has_method("get_doping_potion_context"):
-			return _normalize_doping_potion_context(active_item_runtime.get_doping_potion_context())
-		if active_item_runtime.has_method("is_doping_potion_active"):
-			return _normalize_doping_potion_context({
-				"active": bool(active_item_runtime.is_doping_potion_active()),
-			})
-	var context_value: Variant = deps.get("active_item_doping_potion_context", {})
-	if context_value is Dictionary:
-		return _normalize_doping_potion_context(context_value)
-	if deps.has("active_item_doping_potion_active"):
-		return _normalize_doping_potion_context(deps)
-	return _normalize_doping_potion_context({})
+	return CommandoFirearmValueUtils.get_doping_potion_context_from_deps(deps, _get_doping_potion_defaults())
 
 
 func _get_doping_potion_context_from_config(config: Dictionary) -> Dictionary:
@@ -1200,14 +1169,11 @@ func _get_doping_potion_context_from_config(config: Dictionary) -> Dictionary:
 
 
 func _apply_doping_potion_to_pistol_config(config: Dictionary, doping_context: Dictionary) -> void:
-	if not bool(doping_context.get("active", false)):
-		config["active_item_doping_potion_active"] = false
-		return
-	config["active_item_doping_potion_active"] = true
-	config["active_item_doping_potion_head_leg_multiplier"] = float(doping_context.get("head_leg_multiplier", DOPING_POTION_HEAD_LEG_MULTIPLIER))
-	config["active_item_doping_potion_pistol_cooldown_frames"] = float(doping_context.get("pistol_cooldown_frames", DOPING_POTION_PISTOL_COOLDOWN_FRAMES))
-	config["active_item_doping_potion_pistol_control_lock_frames"] = float(doping_context.get("pistol_control_lock_frames", DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES))
-	config["active_item_doping_potion_pistol_speed_multiplier"] = float(doping_context.get("pistol_speed_multiplier", DOPING_POTION_PISTOL_SPEED_MULTIPLIER))
+	CommandoFirearmValueUtils.apply_doping_potion_to_pistol_config(
+		config,
+		doping_context,
+		_get_doping_potion_defaults()
+	)
 
 
 func _normalize_doping_potion_context(context: Dictionary) -> Dictionary:
@@ -4873,6 +4839,4 @@ func _get_array(value: Variant) -> Array:
 
 
 func _get_instance(registry: Object, key: String) -> Object:
-	if registry == null or not registry.has_method("get_instance"):
-		return null
-	return registry.get_instance(key)
+	return CommandoFirearmValueUtils.get_instance(registry, key)

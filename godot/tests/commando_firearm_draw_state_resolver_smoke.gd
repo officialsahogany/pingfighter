@@ -11,6 +11,7 @@ func _init() -> void:
 	_verify_direct_pistol_state()
 	_verify_direct_weapon_fire_sheet_state()
 	_verify_direct_weapon_draw_states()
+	_verify_direct_actor_context()
 	_verify_runtime_delegates_draw_state()
 
 	if _failures.is_empty():
@@ -121,6 +122,54 @@ func _verify_direct_weapon_draw_states() -> void:
 	var suicide_drone: Dictionary = CommandoFirearmDrawStateResolver.build_suicide_drone_state(true, 19.0, 90.0, 6.0, Vector2(10.0, 20.0), Vector2(1.0, -2.0))
 	_expect(bool(suicide_drone.get("active", false)), "suicide-drone state should preserve active flag")
 	_expect(_vector_close(suicide_drone.get("pos", Vector2.ZERO), Vector2(10.0, 20.0)), "suicide-drone state should preserve position")
+
+
+func _verify_direct_actor_context() -> void:
+	var pistol_state := {"animation_active": true}
+	var hidden_context: Dictionary = CommandoFirearmDrawStateResolver.build_actor_context(
+		false,
+		[{"id": 1}],
+		[{"id": 2}],
+		[{"id": 3}],
+		[{"id": 4}],
+		[{"id": 5}],
+		[{"id": 6}],
+		pistol_state,
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		[{"id": 7}],
+		[{"id": 8}]
+	)
+	_expect((hidden_context.get("commando_firearm_projectiles", []) as Array).is_empty(), "hidden actor context should suppress projectile arrays")
+	_expect((hidden_context.get("commando_firearm_support_calls", []) as Array).is_empty(), "hidden actor context should suppress support-call arrays")
+	_expect(hidden_context.get("commando_firearm_pistol_state", {}) == pistol_state, "hidden actor context should preserve state dictionaries")
+
+	var visible_context: Dictionary = CommandoFirearmDrawStateResolver.build_actor_context(
+		true,
+		[{"id": 1}],
+		[],
+		[],
+		[],
+		[],
+		[],
+		pistol_state,
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		[{"id": 7}],
+		[{"id": 8}]
+	)
+	_expect((visible_context.get("commando_firearm_projectiles", []) as Array).size() == 1, "visible actor context should include projectile arrays")
+	_expect((visible_context.get("commando_firearm_support_calls", []) as Array).size() == 1, "visible actor context should include support-call arrays")
 
 
 func _verify_runtime_delegates_draw_state() -> void:

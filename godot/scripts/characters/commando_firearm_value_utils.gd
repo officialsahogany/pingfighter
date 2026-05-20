@@ -80,6 +80,50 @@ static func normalize_doping_potion_context(context: Dictionary, defaults: Dicti
 	}
 
 
+static func get_doping_potion_context_from_deps(deps: Dictionary, defaults: Dictionary = {}) -> Dictionary:
+	var active_item_runtime: Object = deps.get("active_item_runtime", null)
+	if active_item_runtime != null:
+		if active_item_runtime.has_method("get_doping_potion_context"):
+			return normalize_doping_potion_context(active_item_runtime.get_doping_potion_context(), defaults)
+		if active_item_runtime.has_method("is_doping_potion_active"):
+			return normalize_doping_potion_context({
+				"active": bool(active_item_runtime.is_doping_potion_active()),
+			}, defaults)
+	var context_value: Variant = deps.get("active_item_doping_potion_context", {})
+	if context_value is Dictionary:
+		return normalize_doping_potion_context(context_value, defaults)
+	if deps.has("active_item_doping_potion_active"):
+		return normalize_doping_potion_context(deps, defaults)
+	return normalize_doping_potion_context({}, defaults)
+
+
+static func apply_doping_potion_to_pistol_config(
+	config: Dictionary,
+	doping_context: Dictionary,
+	defaults: Dictionary = {}
+) -> void:
+	if not bool(doping_context.get("active", false)):
+		config["active_item_doping_potion_active"] = false
+		return
+	config["active_item_doping_potion_active"] = true
+	config["active_item_doping_potion_head_leg_multiplier"] = float(doping_context.get(
+		"head_leg_multiplier",
+		defaults.get("head_leg_multiplier", 2.0)
+	))
+	config["active_item_doping_potion_pistol_cooldown_frames"] = float(doping_context.get(
+		"pistol_cooldown_frames",
+		defaults.get("pistol_cooldown_frames", 30.0)
+	))
+	config["active_item_doping_potion_pistol_control_lock_frames"] = float(doping_context.get(
+		"pistol_control_lock_frames",
+		defaults.get("pistol_control_lock_frames", 9.0)
+	))
+	config["active_item_doping_potion_pistol_speed_multiplier"] = float(doping_context.get(
+		"pistol_speed_multiplier",
+		defaults.get("pistol_speed_multiplier", 1.2)
+	))
+
+
 static func is_pistol_weapon(weapon_id: String, base_weapon_id: String = "pistol") -> bool:
 	return weapon_id == base_weapon_id or weapon_id == "commando_pistol"
 
@@ -173,3 +217,9 @@ static func get_projectile_weapon_id(projectile: Dictionary, fallback_weapon_id:
 
 static func get_projectile_kind(projectile: Dictionary, fallback_kind: String = "") -> String:
 	return str(projectile.get("kind", fallback_kind))
+
+
+static func get_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	return registry.get_instance(key)

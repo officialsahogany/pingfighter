@@ -42,6 +42,42 @@ class FakeStatusEffectState:
 		})
 
 
+class FakeDopingContextRuntime:
+	extends RefCounted
+
+	var context: Dictionary
+
+	func _init(initial_context: Dictionary) -> void:
+		context = initial_context
+
+	func get_doping_potion_context() -> Dictionary:
+		return context
+
+
+class FakeDopingActiveRuntime:
+	extends RefCounted
+
+	var active: bool
+
+	func _init(initial_active: bool) -> void:
+		active = initial_active
+
+	func is_doping_potion_active() -> bool:
+		return active
+
+
+class FakeRegistry:
+	extends RefCounted
+
+	var instances: Dictionary
+
+	func _init(initial_instances: Dictionary) -> void:
+		instances = initial_instances
+
+	func get_instance(key: String) -> Object:
+		return instances.get(key, null)
+
+
 func _init() -> void:
 	_verify_direct_value_utils()
 	_verify_runtime_delegates_value_utils()
@@ -100,6 +136,32 @@ func _verify_direct_value_utils() -> void:
 	_expect(is_equal_approx(float(active_doping.get("pistol_cooldown_frames", 0.0)), 1.0), "doping cooldown should clamp to one frame")
 	_expect(is_equal_approx(float(active_doping.get("pistol_control_lock_frames", -1.0)), 0.0), "doping control lock should clamp to zero")
 	_expect(is_equal_approx(float(active_doping.get("pistol_speed_multiplier", 0.0)), 0.01), "doping speed should clamp to a positive value")
+	var runtime_context_doping: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps({
+		"active_item_runtime": FakeDopingContextRuntime.new({
+			"active": true,
+			"pistol_cooldown_frames": 22.0,
+		}),
+	}, doping_defaults)
+	_expect(bool(runtime_context_doping.get("active", false)), "doping deps helper should read active-item runtime context")
+	_expect(is_equal_approx(float(runtime_context_doping.get("pistol_cooldown_frames", 0.0)), 22.0), "doping deps helper should preserve runtime cooldown")
+	var runtime_active_doping: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps({
+		"active_item_runtime": FakeDopingActiveRuntime.new(true),
+	}, doping_defaults)
+	_expect(bool(runtime_active_doping.get("active", false)), "doping deps helper should read active-item runtime active flag")
+	var direct_context_doping: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps({
+		"active_item_doping_potion_context": {
+			"active": true,
+			"head_leg_multiplier": 3.0,
+		},
+	}, doping_defaults)
+	_expect(is_equal_approx(float(direct_context_doping.get("head_leg_multiplier", 0.0)), 3.0), "doping deps helper should read direct context payloads")
+	var applied_doping_config: Dictionary = {}
+	CommandoFirearmValueUtils.apply_doping_potion_to_pistol_config(applied_doping_config, direct_context_doping, doping_defaults)
+	_expect(bool(applied_doping_config.get("active_item_doping_potion_active", false)), "doping config helper should mark active contexts")
+	_expect(is_equal_approx(float(applied_doping_config.get("active_item_doping_potion_head_leg_multiplier", 0.0)), 3.0), "doping config helper should project head/leg multiplier")
+	var inactive_doping_config: Dictionary = {}
+	CommandoFirearmValueUtils.apply_doping_potion_to_pistol_config(inactive_doping_config, {}, doping_defaults)
+	_expect(not bool(inactive_doping_config.get("active_item_doping_potion_active", true)), "doping config helper should mark inactive contexts")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("pistol", {}, false, 60.0, 46.0, 30.0), 60.0), "base pistol cooldown should use base frames")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", {}, false, 60.0, 46.0, 30.0), 46.0), "commando pistol cooldown should use Beretta frames")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", {"pistol_cooldown_frames": 22.0}, true, 60.0, 46.0, 30.0), 22.0), "active doping cooldown should override weapon cooldown")
@@ -177,6 +239,9 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(runtime._get_dict("bad").is_empty(), "runtime dict wrapper should preserve fallback behavior")
 	_expect(runtime._get_array(["a"]).size() == 1, "runtime array wrapper should delegate to value utils")
 	_expect(runtime._get_array("bad").is_empty(), "runtime array wrapper should preserve fallback behavior")
+	var registry_marker := RefCounted.new()
+	_expect(runtime._get_instance(FakeRegistry.new({"marker": registry_marker}), "marker") == registry_marker, "runtime registry wrapper should delegate to value utils")
+	_expect(runtime._get_instance(RefCounted.new(), "marker") == null, "runtime registry wrapper should reject objects without get_instance")
 	var runtime_doping: Dictionary = runtime._normalize_doping_potion_context({
 		"active": true,
 		"head_leg_multiplier": 3.0,
@@ -185,6 +250,18 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(bool(runtime_doping.get("active", false)), "runtime doping wrapper should preserve active state")
 	_expect(is_equal_approx(float(runtime_doping.get("head_leg_multiplier", 0.0)), 3.0), "runtime doping wrapper should preserve explicit multiplier")
 	_expect(is_equal_approx(float(runtime_doping.get("pistol_cooldown_frames", 0.0)), 18.0), "runtime doping wrapper should preserve explicit cooldown")
+	var runtime_deps_doping: Dictionary = runtime._get_doping_potion_context_from_deps({
+		"active_item_doping_potion_context": runtime_doping,
+	})
+	_expect(bool(runtime_deps_doping.get("active", false)), "runtime doping deps wrapper should delegate direct context reads")
+	var runtime_config_doping: Dictionary = runtime._get_doping_potion_context_from_config({
+		"active_item_doping_potion_active": true,
+		"active_item_doping_potion_pistol_speed_multiplier": 1.4,
+	})
+	_expect(is_equal_approx(float(runtime_config_doping.get("pistol_speed_multiplier", 0.0)), 1.4), "runtime doping config wrapper should delegate config reads")
+	var runtime_applied_config: Dictionary = {}
+	runtime._apply_doping_potion_to_pistol_config(runtime_applied_config, runtime_deps_doping)
+	_expect(bool(runtime_applied_config.get("active_item_doping_potion_active", false)), "runtime doping config apply wrapper should delegate active flag")
 	_expect(is_equal_approx(runtime._get_pistol_cooldown_frames("pistol", {}, false), 60.0), "runtime base pistol cooldown wrapper should delegate")
 	_expect(runtime._get_pistol_cooldown_frames("commando_pistol", {}, false) < 60.0, "runtime commando pistol cooldown wrapper should keep faster Beretta timing")
 	_expect(is_equal_approx(runtime._get_pistol_cooldown_frames("commando_pistol", runtime_doping, true), 18.0), "runtime active doping cooldown wrapper should delegate")
