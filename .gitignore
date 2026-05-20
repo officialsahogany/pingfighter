@@ -228,6 +228,9 @@ godot/assets/ui/character_live2d/*_frame0*.png*
 godot/assets/ui/character_live2d/*_preview*.png*
 godot/assets/ui/character_live2d/*_registered_*.png*
 godot/assets/ui/character_live2d/*_layer_sheet*_alpha.png*
+godot/assets/ui/character_live2d/baltor_kohaku_fullbody_idle_loop49_autosprite*.png*
+godot/assets/ui/character_live2d/baltor_kohaku_fullbody_*_idle_loop49_autosprite*.png*
+godot/assets/ui/character_live2d/viper_serin_fullbody_closed_suit_*.png*
 godot/assets/sprites/hud/*_source.png*
 godot/assets/sprites/hud/*_alpha.png*
 godot/assets/sprites/hud/*_manifest.json
