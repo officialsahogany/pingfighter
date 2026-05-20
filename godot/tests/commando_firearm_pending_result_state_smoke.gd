@@ -1,0 +1,91 @@
+extends SceneTree
+
+const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
+const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	_verify_direct_pending_result_state()
+	_verify_runtime_delegates_pending_result_state()
+
+	if _failures.is_empty():
+		print("commando_firearm_pending_result_state_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _verify_direct_pending_result_state() -> void:
+	var damage_state: Dictionary = CommandoFirearmPendingResultState.queue_boss_damage_state(
+		1,
+		["existing"],
+		{
+			"damage_units": 2,
+			"damage_sources": ["existing", "headshot"],
+		}
+	)
+	_expect(int(damage_state.get("units", 0)) == 3, "boss damage queue should add damage units")
+	_expect((damage_state.get("sources", []) as Array) == ["existing", "headshot"], "boss damage queue should append unique damage sources")
+	var damage_result: Dictionary = CommandoFirearmPendingResultState.build_boss_damage_result(3, ["existing", "headshot"])
+	_expect(int(damage_result.get("commando_firearm_boss_damage_units", 0)) == 3, "boss damage result should expose units")
+	_expect(str(damage_result.get("commando_firearm_last_damage_source", "")) == "headshot", "boss damage result should expose last source")
+	_expect(CommandoFirearmPendingResultState.build_boss_damage_result(0, []).is_empty(), "empty boss damage result should stay empty")
+
+	var gauge_state: Dictionary = CommandoFirearmPendingResultState.queue_special_gauge_state(
+		10.0,
+		["existing"],
+		"normal",
+		3.0,
+		{
+			"commando_firearm_special_gauge_gain": 40.0,
+			"commando_firearm_special_gauge_source": "legshot",
+			"commando_firearm_pistol_hit_kind": "legshot",
+			"commando_firearm_pistol_feedback_timer_frames": 18.0,
+		}
+	)
+	_expect(is_equal_approx(float(gauge_state.get("gain", 0.0)), 50.0), "special gauge queue should add gain")
+	_expect((gauge_state.get("sources", []) as Array) == ["existing", "legshot"], "special gauge queue should append unique sources")
+	_expect(str(gauge_state.get("hit_kind", "")) == "legshot", "special gauge queue should preserve hit kind")
+	_expect(is_equal_approx(float(gauge_state.get("feedback_timer_frames", 0.0)), 18.0), "special gauge queue should preserve max feedback timer")
+	var gauge_result: Dictionary = CommandoFirearmPendingResultState.build_special_gauge_result(50.0, ["existing", "legshot"], "legshot", 18.0)
+	_expect(is_equal_approx(float(gauge_result.get("commando_firearm_special_gauge_gain", 0.0)), 50.0), "special gauge result should expose gain")
+	_expect(str(gauge_result.get("commando_firearm_last_gauge_source", "")) == "legshot", "special gauge result should expose last source")
+	_expect(str(gauge_result.get("commando_firearm_last_pistol_hit_kind", "")) == "legshot", "special gauge result should expose hit kind")
+	_expect(CommandoFirearmPendingResultState.build_special_gauge_result(0.0, [], "", 0.0).is_empty(), "empty special gauge result should stay empty")
+
+
+func _verify_runtime_delegates_pending_result_state() -> void:
+	var runtime := CommandoFirearmRuntime.new()
+	runtime._queue_boss_damage({
+		"damage_units": 2,
+		"damage_sources": ["bazooka"],
+	})
+	runtime._queue_boss_damage({
+		"damage_units": 1,
+		"source": "fire_support",
+	})
+	var damage_result: Dictionary = runtime._consume_pending_boss_damage_result()
+	_expect(int(damage_result.get("commando_firearm_boss_damage_units", 0)) == 3, "runtime boss damage queue should delegate units")
+	_expect((damage_result.get("commando_firearm_boss_damage_sources", []) as Array) == ["bazooka", "fire_support"], "runtime boss damage queue should delegate sources")
+	_expect(runtime._consume_pending_boss_damage_result().is_empty(), "runtime boss damage consume should clear pending state")
+
+	runtime._queue_special_gauge_gain({
+		"commando_firearm_special_gauge_gain": 40.0,
+		"commando_firearm_special_gauge_source": "legshot",
+		"commando_firearm_pistol_hit_kind": "legshot",
+		"commando_firearm_pistol_feedback_timer_frames": 18.0,
+	})
+	var gauge_result: Dictionary = runtime._consume_pending_special_gauge_result()
+	_expect(is_equal_approx(float(gauge_result.get("commando_firearm_special_gauge_gain", 0.0)), 40.0), "runtime special gauge queue should delegate gain")
+	_expect(str(gauge_result.get("commando_firearm_last_gauge_source", "")) == "legshot", "runtime special gauge queue should delegate source")
+	_expect(str(gauge_result.get("commando_firearm_last_pistol_hit_kind", "")) == "legshot", "runtime special gauge queue should delegate hit kind")
+	_expect(runtime._consume_pending_special_gauge_result().is_empty(), "runtime special gauge consume should clear pending state")
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

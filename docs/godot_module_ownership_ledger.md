@@ -3395,6 +3395,13 @@ This section is intentionally long; use search to find the nearest owner.
   its existing private wrapper names while delegating the coordinate and
   origin-selection math here, so projectile timing, ammo, cooldown, audio,
   and hit-result handoff remain unchanged.
+- `scripts/characters/commando_firearm_pending_result_state.gd`
+  Owns pure Commando firearm pending result queue state: boss-health damage
+  unit/source accumulation, special-gauge gain/source/last-hit-kind
+  accumulation, and the one-shot result dictionaries emitted to the battle
+  effects controller. `commando_firearm_runtime.gd` keeps the pending fields
+  and resets them after consume while delegating the deterministic state
+  transitions and payload shapes here.
 - `scripts/characters/commando_firearm_profile_resolver.gd`
   Owns pure Commando firearm profile lookup behavior: weapon-id
   normalization, fallback profile selection, deep-copy protection,

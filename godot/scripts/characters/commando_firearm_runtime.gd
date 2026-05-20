@@ -15,6 +15,7 @@ const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters
 const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
 const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
 const CommandoFirearmPistolFeedbackState := preload("res://scripts/characters/commando_firearm_pistol_feedback_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/commando_firearm_projectile_motion_state.gd")
@@ -3139,60 +3140,50 @@ func _get_pistol_shot_roll(projectile: Dictionary, context: Dictionary) -> float
 
 
 func _queue_boss_damage(combat_result: Dictionary) -> void:
-	var damage_units: int = max(0, int(combat_result.get("damage_units", 0)))
-	if damage_units <= 0:
-		return
-	pending_boss_damage_units += damage_units
-	var damage_sources: Array = _get_array(combat_result.get("damage_sources", []))
-	if not damage_sources.is_empty():
-		for value in damage_sources:
-			var damage_source := str(value)
-			if damage_source != "" and not pending_boss_damage_sources.has(damage_source):
-				pending_boss_damage_sources.append(damage_source)
-		return
-	var source: String = str(combat_result.get("source", "commando_firearm"))
-	if source != "" and not pending_boss_damage_sources.has(source):
-		pending_boss_damage_sources.append(source)
+	var next_state: Dictionary = CommandoFirearmPendingResultState.queue_boss_damage_state(
+		pending_boss_damage_units,
+		pending_boss_damage_sources,
+		combat_result
+	)
+	pending_boss_damage_units = int(next_state.get("units", pending_boss_damage_units))
+	pending_boss_damage_sources = _get_array(next_state.get("sources", pending_boss_damage_sources))
 
 
 func _queue_special_gauge_gain(combat_result: Dictionary) -> void:
-	var gauge_gain: float = max(0.0, float(combat_result.get("commando_firearm_special_gauge_gain", 0.0)))
-	if gauge_gain <= 0.0:
-		return
-	pending_special_gauge_gain += gauge_gain
-	var source: String = str(combat_result.get("commando_firearm_special_gauge_source", combat_result.get("source", "commando_firearm")))
-	if source != "" and not pending_special_gauge_sources.has(source):
-		pending_special_gauge_sources.append(source)
-	pending_special_gauge_hit_kind = str(combat_result.get("commando_firearm_pistol_hit_kind", pending_special_gauge_hit_kind))
-	pending_pistol_feedback_timer_frames = max(
+	var next_state: Dictionary = CommandoFirearmPendingResultState.queue_special_gauge_state(
+		pending_special_gauge_gain,
+		pending_special_gauge_sources,
+		pending_special_gauge_hit_kind,
 		pending_pistol_feedback_timer_frames,
-		float(combat_result.get("commando_firearm_pistol_feedback_timer_frames", 0.0))
+		combat_result
 	)
+	pending_special_gauge_gain = float(next_state.get("gain", pending_special_gauge_gain))
+	pending_special_gauge_sources = _get_array(next_state.get("sources", pending_special_gauge_sources))
+	pending_special_gauge_hit_kind = str(next_state.get("hit_kind", pending_special_gauge_hit_kind))
+	pending_pistol_feedback_timer_frames = float(next_state.get("feedback_timer_frames", pending_pistol_feedback_timer_frames))
 
 
 func _consume_pending_boss_damage_result() -> Dictionary:
-	if pending_boss_damage_units <= 0:
+	var result: Dictionary = CommandoFirearmPendingResultState.build_boss_damage_result(
+		pending_boss_damage_units,
+		pending_boss_damage_sources
+	)
+	if result.is_empty():
 		return {}
-	var result := {
-		"commando_firearm_boss_damage_units": pending_boss_damage_units,
-		"commando_firearm_boss_damage_sources": pending_boss_damage_sources.duplicate(true),
-		"commando_firearm_last_damage_source": str(pending_boss_damage_sources.back()) if not pending_boss_damage_sources.is_empty() else "commando_firearm",
-	}
 	pending_boss_damage_units = 0
 	pending_boss_damage_sources.clear()
 	return result
 
 
 func _consume_pending_special_gauge_result() -> Dictionary:
-	if pending_special_gauge_gain <= 0.0:
+	var result: Dictionary = CommandoFirearmPendingResultState.build_special_gauge_result(
+		pending_special_gauge_gain,
+		pending_special_gauge_sources,
+		pending_special_gauge_hit_kind,
+		pending_pistol_feedback_timer_frames
+	)
+	if result.is_empty():
 		return {}
-	var result := {
-		"commando_firearm_special_gauge_gain": pending_special_gauge_gain,
-		"commando_firearm_special_gauge_sources": pending_special_gauge_sources.duplicate(true),
-		"commando_firearm_last_gauge_source": str(pending_special_gauge_sources.back()) if not pending_special_gauge_sources.is_empty() else "commando_firearm",
-		"commando_firearm_last_pistol_hit_kind": pending_special_gauge_hit_kind,
-		"commando_firearm_pistol_feedback_timer_frames": pending_pistol_feedback_timer_frames,
-	}
 	pending_special_gauge_gain = 0.0
 	pending_special_gauge_sources.clear()
 	pending_special_gauge_hit_kind = ""
