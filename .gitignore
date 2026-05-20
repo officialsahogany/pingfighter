@@ -262,3 +262,12 @@ godot/assets/bgm/main_menu_paradox_prod_bk22.mp3*
 godot/assets/sounds/voice/kohaku_select_confirm_naneun_domangchilggeoya_v3.mp3*
 godot/assets/sprites/skills/smasher_wheel_effect_sheet_imagegen_v1.png*
 godot/assets/ui/launcher/*_source.png*
+godot/assets/sprites/characters/**/*_manifest.json
+godot/assets/sprites/characters/**/*_pipeline-meta.json
+godot/assets/sprites/characters/**/*_source*.png*
+godot/assets/sprites/characters/**/*_source_raw.jpeg*
+godot/assets/sprites/effects/**/*_manifest.json
+godot/assets/sprites/effects/**/*_atlas.json
+godot/assets/sprites/effects/**/*_meta.json
+godot/assets/sprites/effects/**/*_source.png*
+godot/assets/sprites/smasher_subculture_left_walk_sheet_mirrored_right.png*
