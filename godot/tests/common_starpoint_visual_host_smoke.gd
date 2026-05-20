@@ -85,6 +85,7 @@ func _verify_shader_resource_path_and_uniforms() -> void:
 		"outline_color",
 		"detector_shimmer_intensity",
 		"elapsed",
+		"star_tip_count",
 	]:
 		_expect(
 			shader_source.find("uniform") >= 0 and shader_source.find(required_uniform) >= 0,
@@ -95,6 +96,14 @@ func _verify_shader_resource_path_and_uniforms() -> void:
 	_expect(
 		shader_source.find("for (int layer = 0; layer < 4;") >= 0,
 		"shader must iterate 4 outer glow layers (restores Stage 1 glow quality)"
+	)
+	# Stage 1's 4-tip sparkle must remain selectable via star_tip_count; the
+	# shader must NOT hardcode TAU / 5.0 in the star SDF or that breaks the
+	# per-stage shape parity.
+	_expect(
+		shader_source.find("TAU / float(max(3, tips))") >= 0
+			and shader_source.find("TAU / 5.0") < 0,
+		"star SDF must be parameterized by tip count (no hardcoded TAU / 5.0)"
 	)
 
 

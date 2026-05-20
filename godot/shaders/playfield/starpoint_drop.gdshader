@@ -17,6 +17,12 @@ uniform float rotation = 0.0;
 uniform float size_norm : hint_range(0.05, 0.5) = 0.25;
 // Inner radius ratio for the star's valley vertices (CPU code uses 0.5).
 uniform float inner_radius_ratio : hint_range(0.1, 0.9) = 0.5;
+// Number of star tips. Stage 1's original drop uses 4-pointed sparkles
+// (STARPOINT_DROP_STAR_POINTS = 8 vertices = 4 tips), Stage 2/3/4 use 5-pointed
+// stars (10 vertices = 5 tips). The shader keeps this as a uniform so each
+// stage's host call selects its own original shape instead of being forced
+// onto a single hardcoded 5-tip layout.
+uniform int star_tip_count : hint_range(3, 8) = 5;
 // Palette: glow_color (used for the 4-layer outer glow halo), fill_color
 // (interior of the 5-pointed star), outline_color (star perimeter band).
 uniform vec4 glow_color : source_color = vec4(1.0, 0.45, 0.74, 1.0);
@@ -26,13 +32,12 @@ uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.0, 1.0);
 // special variant; intensity=0 disables the shimmer for normal drops.
 uniform float detector_shimmer_intensity : hint_range(0.0, 1.0) = 0.0;
 
-// 5-pointed star SDF using polar reduction. Returns negative inside the star,
+// N-tip star SDF using polar reduction. Returns negative inside the star,
 // positive outside. The boundary is piecewise linear between consecutive
-// tip / valley vertices of a 5-pointed star (= 10 vertices alternating
-// outer/inner radius).
-float star_sdf(vec2 p, float r_outer, float r_inner, float star_rotation) {
+// tip / valley vertices (2*tips vertices alternating outer/inner radius).
+float star_sdf(vec2 p, float r_outer, float r_inner, float star_rotation, int tips) {
 	float theta = atan(p.y, p.x) - star_rotation;
-	float sector = TAU / 5.0;
+	float sector = TAU / float(max(3, tips));
 	float local_theta = mod(theta + sector * 0.5, sector) - sector * 0.5;
 	float t = abs(local_theta) / (sector * 0.5);
 	float boundary = mix(r_outer, r_inner, t);
@@ -61,19 +66,22 @@ void fragment() {
 		total_alpha = max(total_alpha, disc * layer_alpha);
 	}
 
-	// --- 5-pointed star body ---
+	// --- N-tip star body ---
 	float r_outer = size_norm;
 	float r_inner = size_norm * inner_radius_ratio;
-	float d = star_sdf(p, r_outer, r_inner, rotation);
+	float d = star_sdf(p, r_outer, r_inner, rotation, star_tip_count);
 	// Anti-aliased fill (smoothstep narrows on smaller stars; the 0.012 band
 	// is calibrated against a 12px-radius drop at 1x scale).
 	float fill_mask = smoothstep(0.012, -0.012, d);
 	col = mix(col, fill_color.rgb, fill_mask * fill_color.a * alpha);
 	total_alpha = max(total_alpha, fill_mask * fill_color.a * alpha);
 
-	// Outline band at |sdf| ~ outline_thickness.
-	float outline_thickness = 0.020;
-	float outline_mask = smoothstep(outline_thickness, 0.0, abs(d));
+	// Outline band at |sdf| ~ outline_thickness. Increased from 0.020 so the
+	// yellow rim reads clearly at the 12px scale and the star no longer looks
+	// like a flat red blob (the CPU draw_polyline used a 2.5px solid line; at
+	// the GPU smoothstep falloff a 0.032 band gives a comparable visual width).
+	float outline_thickness = 0.032;
+	float outline_mask = smoothstep(outline_thickness, outline_thickness * 0.3, abs(d));
 	col = mix(col, outline_color.rgb, outline_mask * outline_color.a * alpha);
 	total_alpha = max(total_alpha, outline_mask * outline_color.a * alpha);
 

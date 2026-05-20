@@ -185,6 +185,11 @@ func _apply_slot(slot: Sprite2D, mat: ShaderMaterial, state: Dictionary) -> void
 	mat.set_shader_parameter("glow_color", glow_color)
 	mat.set_shader_parameter("fill_color", fill_color)
 	mat.set_shader_parameter("outline_color", outline_color)
+	# Stage 1's original drop uses a 4-tip sparkle (STARPOINT_DROP_STAR_POINTS = 8);
+	# Stage 2/3/4 use 5-tip stars. Per-drop selection lets us keep both shapes
+	# unchanged from the legacy CPU draws.
+	var tip_count: int = clamp(int(state.get("star_tip_count", 5)), 3, 8)
+	mat.set_shader_parameter("star_tip_count", tip_count)
 	var shimmer: float = 1.0 if bool(state.get("star_detector_bonus", false)) else 0.0
 	mat.set_shader_parameter("detector_shimmer_intensity", shimmer)
 
