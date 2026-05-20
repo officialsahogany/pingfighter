@@ -243,3 +243,10 @@ godot/assets/ui/loading/stage2_loading_stained_glass_*.png*
 godot/assets/ui/loading/stage1_loading_cyber_stained_glass_reveal_mask_v[4-5].png*
 godot/assets/ui/loading/stage2_loading_cyber_stained_glass_fullcolor_imagegen_v3.png*
 godot/assets/ui/loading/stage2_loading_cyber_stained_glass_reveal_mask_v3.png*
+godot/assets/sprites/stage1/dalji/*_atlas.json
+godot/assets/sprites/stage1/dalji/*_pipeline-meta.json
+godot/assets/sprites/stage1/dalji/*_manifest.json
+godot/assets/sprites/stage1/dalji/*_meta.json
+godot/assets/sprites/stage1/dalji/dalji_result_*_autosprite_v[1-5]*.png*
+godot/assets/sprites/stage1/dalji/dalji_result_*_autosprite_v6.png*
+godot/assets/sprites/stage1/dalji/dalji_result_defeat_clean_anchor_imagegen_v2.png*
