@@ -19,6 +19,7 @@ const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/co
 const CommandoFirearmSupportProjectileResolver := preload("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
 const CommandoFirearmSuicideDroneBallBoostResolver := preload("res://scripts/characters/commando_firearm_suicide_drone_ball_boost_resolver.gd")
 const CommandoFirearmSuicideDroneGeometry := preload("res://scripts/characters/commando_firearm_suicide_drone_geometry.gd")
+const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 const FIELD_WIDTH := 760.0
@@ -1711,17 +1712,7 @@ func _update_suicide_drone_input(
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
-	return {
-		"handled": true,
-		"weapon_id": "suicide_drone",
-		"fired": true,
-		"drone_active": true,
-		"ammo_current": int(updated_weapon.get("ammo_current", max(0, ammo_current - 1))),
-		"ammo_max": int(updated_weapon.get("ammo_max", SUICIDE_DRONE_AMMO_MAX)),
-		"grace_frames": SUICIDE_DRONE_GRACE_FRAMES,
-		"special_gauge": special_gauge,
-		"skill_gold_award": 0,
-	}
+	return _build_suicide_drone_fire_result(updated_weapon, ammo_current, special_gauge)
 
 
 func _update_active_suicide_drone_input(
@@ -1746,15 +1737,7 @@ func _update_active_suicide_drone_input(
 		var detonate_result: Dictionary = _detonate_suicide_drone_at_index(index, projectile, "manual", config, deps)
 		detonate_result["special_gauge"] = special_gauge
 		return detonate_result
-	return {
-		"handled": true,
-		"weapon_id": "suicide_drone",
-		"drone_active": true,
-		"drone_pos": _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
-		"drone_velocity": _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO),
-		"grace_frames": float(projectile.get("grace_timer_frames", 0.0)),
-		"special_gauge": special_gauge,
-	}
+	return _build_suicide_drone_active_input_result(projectile, special_gauge)
 
 
 func _suicide_drone_fire_failed(special_gauge: float, reason: String) -> Dictionary:
@@ -1772,34 +1755,43 @@ func _spawn_suicide_drone(config: Dictionary) -> void:
 	var profile: Dictionary = _get_weapon_profile("suicide_drone")
 	var origin: Vector2 = _get_suicide_drone_spawn_pos(config)
 	var shot_id: int = _next_shot_id()
-	var projectile := {
-		"id": shot_id,
-		"weapon_id": "suicide_drone",
-		"kind": "drone",
-		"manual_control": true,
-		"pos": origin,
-		"prev_pos": origin,
-		"target": _get_boss_target_pos(config),
-		"velocity": Vector2.ZERO,
-		"speed": 0.0,
-		"max_speed": float(profile.get("max_speed", SUICIDE_DRONE_MAX_SPEED)),
-		"acceleration": float(profile.get("acceleration", SUICIDE_DRONE_ACCEL)),
-		"radius": float(profile.get("radius", 24.0)),
-		"size": SUICIDE_DRONE_SIZE,
-		"trail": float(profile.get("trail", 26.0)),
-		"life_frames": float(profile.get("life_frames", SUICIDE_DRONE_LIFE_FRAMES)),
-		"max_life_frames": float(profile.get("life_frames", SUICIDE_DRONE_LIFE_FRAMES)),
-		"grace_timer_frames": SUICIDE_DRONE_GRACE_FRAMES,
-		"rotor_angle": 0.0,
-		"rotor_speed": SUICIDE_DRONE_ROTOR_BASE_SPEED,
-		"impact_radius": float(profile.get("impact_radius", 40.0)),
-		"explosion_radius": float(profile.get("explosion_radius", 150.0)),
-		"color": profile.get("color", Color(1.0, 0.42, 0.18)),
-		"secondary": profile.get("secondary", Color(0.45, 0.86, 1.0)),
-		"player_lock_pos": _get_player_lock_pos(config),
-	}
-	_append_limited(projectiles, projectile, PROJECTILE_LIMIT)
+	_append_limited(projectiles, _build_suicide_drone_projectile(profile, origin, config, shot_id), PROJECTILE_LIMIT)
 	_spawn_muzzle_flash(origin, Vector2.UP, profile, "suicide_drone")
+
+
+func _build_suicide_drone_fire_result(updated_weapon: Dictionary, ammo_current: int, special_gauge: float) -> Dictionary:
+	return CommandoFirearmSuicideDroneState.build_fire_result(
+		updated_weapon,
+		ammo_current,
+		SUICIDE_DRONE_AMMO_MAX,
+		SUICIDE_DRONE_GRACE_FRAMES,
+		special_gauge
+	)
+
+
+func _build_suicide_drone_active_input_result(projectile: Dictionary, special_gauge: float) -> Dictionary:
+	return CommandoFirearmSuicideDroneState.build_active_input_result(projectile, special_gauge)
+
+
+func _build_suicide_drone_projectile(
+	profile: Dictionary,
+	origin: Vector2,
+	config: Dictionary,
+	shot_id: int
+) -> Dictionary:
+	return CommandoFirearmSuicideDroneState.build_projectile(
+		profile,
+		origin,
+		_get_boss_target_pos(config),
+		shot_id,
+		_get_player_lock_pos(config),
+		SUICIDE_DRONE_SIZE,
+		SUICIDE_DRONE_MAX_SPEED,
+		SUICIDE_DRONE_ACCEL,
+		SUICIDE_DRONE_LIFE_FRAMES,
+		SUICIDE_DRONE_GRACE_FRAMES,
+		SUICIDE_DRONE_ROTOR_BASE_SPEED
+	)
 
 
 func _get_suicide_drone_spawn_pos(config: Dictionary) -> Vector2:
@@ -1812,21 +1804,20 @@ func _get_player_lock_pos(config: Dictionary) -> Vector2:
 
 func _apply_suicide_drone_input_to_projectile(projectile: Dictionary, input_snapshot: Dictionary) -> void:
 	var input_vector: Vector2 = _get_suicide_drone_input_vector(input_snapshot)
-	var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
-	if input_vector.length_squared() <= 0.001:
-		velocity *= 0.90
-		if abs(velocity.x) < 0.05:
-			velocity.x = 0.0
-		if abs(velocity.y) < 0.05:
-			velocity.y = 0.0
-	else:
-		velocity += input_vector * float(projectile.get("acceleration", SUICIDE_DRONE_ACCEL))
-		var max_speed: float = max(1.0, float(projectile.get("max_speed", SUICIDE_DRONE_MAX_SPEED)))
-		if velocity.length() > max_speed:
-			velocity = velocity.normalized() * max_speed
-	projectile["velocity"] = velocity
-	projectile["speed"] = velocity.length()
-	projectile["rotor_speed"] = SUICIDE_DRONE_ROTOR_BASE_SPEED + min(20.0, velocity.length() * SUICIDE_DRONE_ROTOR_SPEED_SCALE)
+	var next_projectile: Dictionary = _get_suicide_drone_input_projectile_state(input_vector, projectile)
+	projectile.clear()
+	projectile.merge(next_projectile, true)
+
+
+func _get_suicide_drone_input_projectile_state(input_vector: Vector2, projectile: Dictionary) -> Dictionary:
+	return CommandoFirearmSuicideDroneState.apply_input(
+		projectile,
+		input_vector,
+		SUICIDE_DRONE_ACCEL,
+		SUICIDE_DRONE_MAX_SPEED,
+		SUICIDE_DRONE_ROTOR_BASE_SPEED,
+		SUICIDE_DRONE_ROTOR_SPEED_SCALE
+	)
 
 
 func _get_suicide_drone_input_vector(input_snapshot: Dictionary) -> Vector2:
@@ -2744,16 +2735,8 @@ func _update_pistol_feedbacks(fps_scale: float) -> void:
 
 
 func _get_drone_velocity(pos: Vector2, projectile: Dictionary, context: Dictionary, fps_scale: float) -> Vector2:
-	if bool(projectile.get("manual_control", false)):
-		return _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	var target: Vector2 = _get_boss_target_pos(context)
-	var speed: float = float(projectile.get("speed", 8.8))
-	var desired: Vector2 = target - pos
-	if desired.length() <= 0.001:
-		return _get_vector2(projectile.get("velocity", Vector2.UP * speed), Vector2.UP * speed)
-	desired = desired.normalized() * speed
-	var current: Vector2 = _get_vector2(projectile.get("velocity", Vector2.UP * speed), Vector2.UP * speed)
-	return current.lerp(desired, clamp(0.08 * max(0.0, fps_scale), 0.0, 0.42))
+	return CommandoFirearmSuicideDroneState.get_homing_velocity(pos, projectile, target, fps_scale)
 
 
 func _resolve_suicide_drone_collision(
@@ -2766,12 +2749,13 @@ func _resolve_suicide_drone_collision(
 	if not bool(projectile.get("manual_control", false)):
 		return {}
 	var step: float = max(0.0, fps_scale)
-	projectile["grace_timer_frames"] = max(0.0, float(projectile.get("grace_timer_frames", 0.0)) - step)
-	projectile["rotor_angle"] = fmod(
-		float(projectile.get("rotor_angle", 0.0)) + float(projectile.get("rotor_speed", SUICIDE_DRONE_ROTOR_BASE_SPEED)) * step,
-		360.0
+	projectile = CommandoFirearmSuicideDroneState.advance_active_projectile(
+		projectile,
+		step,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		SUICIDE_DRONE_SIZE,
+		SUICIDE_DRONE_ROTOR_BASE_SPEED
 	)
-	_clamp_suicide_drone_projectile(projectile)
 	projectiles[index] = projectile
 	if float(projectile.get("grace_timer_frames", 0.0)) > 0.0:
 		return {}
@@ -2787,12 +2771,13 @@ func _resolve_suicide_drone_collision(
 
 
 func _clamp_suicide_drone_projectile(projectile: Dictionary) -> void:
-	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var size: Vector2 = _get_vector2(projectile.get("size", SUICIDE_DRONE_SIZE), SUICIDE_DRONE_SIZE)
-	var half: Vector2 = size * 0.5
-	pos.x = clamp(pos.x, half.x, FIELD_WIDTH - half.x)
-	pos.y = clamp(pos.y, half.y, FIELD_HEIGHT - half.y)
-	projectile["pos"] = pos
+	var next_projectile: Dictionary = CommandoFirearmSuicideDroneState.clamp_projectile(
+		projectile,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		SUICIDE_DRONE_SIZE
+	)
+	projectile.clear()
+	projectile.merge(next_projectile, true)
 
 
 func _detonate_suicide_drone_at_index(
@@ -2817,18 +2802,19 @@ func _detonate_suicide_drone_at_index(
 		_play_impact_audio("suicide_drone", deps)
 	_stop_suicide_drone_audio(deps)
 	suicide_drone_cooldown_frames = SUICIDE_DRONE_COOLDOWN_FRAMES
-	var result := {
-		"handled": true,
-		"weapon_id": "suicide_drone",
-		"commando_suicide_drone_detonated": true,
-		"commando_suicide_drone_reason": reason,
-		"commando_suicide_drone_pos": pos,
-		"commando_suicide_drone_hit_boss": hit_boss,
-		"commando_suicide_drone_cooldown_frames": suicide_drone_cooldown_frames,
-	}
+	var result: Dictionary = _build_suicide_drone_detonation_result(reason, pos, hit_boss)
 	if reason == "ball_hit":
 		result.merge(_build_suicide_drone_ball_boost_result(projectile, context), true)
 	return result
+
+
+func _build_suicide_drone_detonation_result(reason: String, pos: Vector2, hit_boss: bool) -> Dictionary:
+	return CommandoFirearmSuicideDroneState.build_detonation_result(
+		reason,
+		pos,
+		hit_boss,
+		suicide_drone_cooldown_frames
+	)
 
 
 func _build_suicide_drone_ball_boost_result(projectile: Dictionary, context: Dictionary) -> Dictionary:
