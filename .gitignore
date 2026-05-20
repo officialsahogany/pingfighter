@@ -228,3 +228,8 @@ godot/assets/ui/character_live2d/*_frame0*.png*
 godot/assets/ui/character_live2d/*_preview*.png*
 godot/assets/ui/character_live2d/*_registered_*.png*
 godot/assets/ui/character_live2d/*_layer_sheet*_alpha.png*
+godot/assets/sprites/hud/*_source.png*
+godot/assets/sprites/hud/*_alpha.png*
+godot/assets/sprites/hud/*_manifest.json
+godot/assets/sprites/hud/*_atlas.json
+godot/assets/sprites/hud/*_autosprite_*.json
