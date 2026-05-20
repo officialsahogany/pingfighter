@@ -3,6 +3,7 @@ extends RefCounted
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmAudioResolver := preload("res://scripts/characters/commando_firearm_audio_resolver.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
+const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/commando_firearm_draw_state_resolver.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
@@ -1983,28 +1984,25 @@ func _get_slingshot_draw_state() -> Dictionary:
 
 
 func _get_pistol_draw_state() -> Dictionary:
-	return {
-		"cooldown_frames": pistol_cooldown_frames,
-		"cooldown_max_frames": pistol_cooldown_max_frames,
-		"control_lock_frames": pistol_control_lock_frames,
-		"control_lock_max_frames": pistol_control_lock_max_frames,
-		"fire_delay_frames": pistol_fire_delay_frames,
-		"fire_delay_max_frames": PISTOL_FIRE_DELAY_FRAMES,
-		"shot_pending": pistol_fire_delay_frames > 0.0,
-		"post_fire_animation_frames": pistol_post_fire_animation_frames,
-		"post_fire_animation_max_frames": PISTOL_POST_FIRE_ANIMATION_FRAMES,
-		"animation_active": pistol_fire_delay_frames > 0.0 or pistol_post_fire_animation_frames > 0.0,
-	}
+	return CommandoFirearmDrawStateResolver.build_pistol_state(
+		pistol_cooldown_frames,
+		pistol_cooldown_max_frames,
+		pistol_control_lock_frames,
+		pistol_control_lock_max_frames,
+		pistol_fire_delay_frames,
+		PISTOL_FIRE_DELAY_FRAMES,
+		pistol_post_fire_animation_frames,
+		PISTOL_POST_FIRE_ANIMATION_FRAMES
+	)
 
 
 func _get_weapon_fire_sheet_draw_state() -> Dictionary:
-	return {
-		"active": weapon_fire_sheet_timer_frames > 0.0 and weapon_fire_sheet_id != "",
-		"weapon_id": weapon_fire_sheet_id,
-		"timer_frames": weapon_fire_sheet_timer_frames,
-		"timer_max_frames": weapon_fire_sheet_max_frames,
-		"frame_count": COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT,
-	}
+	return CommandoFirearmDrawStateResolver.build_weapon_fire_sheet_state(
+		weapon_fire_sheet_id,
+		weapon_fire_sheet_timer_frames,
+		weapon_fire_sheet_max_frames,
+		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
+	)
 
 
 func _get_ak47_draw_state() -> Dictionary:
