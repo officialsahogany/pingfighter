@@ -62,10 +62,50 @@ if ([string]::IsNullOrWhiteSpace($apiKey)) {
     exit 1
 }
 
-$prefix = if ($apiKey.Length -ge 8) { $apiKey.Substring(0, 8) } else { $apiKey }
 $tracePath = Join-Path $env:TEMP "gemini_mcp_wrapper_trace.log"
-Add-Content -LiteralPath $tracePath -Value ("{0} source={1} prefix={2}" -f (Get-Date).ToString("s"), $source, $prefix)
-[Console]::Error.WriteLine("WRAPPER_START source=$source prefix=$prefix")
+try {
+    Add-Content -LiteralPath $tracePath -Value ("{0} source={1}" -f (Get-Date).ToString("s"), $source)
+}
+catch {
+    # Tracing must never block MCP startup.
+}
 
 $env:GEMINI_API_KEY = $apiKey
-& npx -y @rlabs-inc/gemini-mcp
+$env:GEMINI_MCP_SKIP_STARTUP_CHECK = if ([string]::IsNullOrWhiteSpace($env:GEMINI_MCP_SKIP_STARTUP_CHECK)) { "true" } else { $env:GEMINI_MCP_SKIP_STARTUP_CHECK }
+$env:QUIET = if ([string]::IsNullOrWhiteSpace($env:QUIET)) { "true" } else { $env:QUIET }
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$serverPath = Join-Path $repoRoot "mcp\node_modules\@rlabs-inc\gemini-mcp\dist\index.js"
+
+if (-not (Test-Path -LiteralPath $serverPath)) {
+    Write-Error "Gemini MCP package not found at $serverPath. Run: npm install --prefix mcp @rlabs-inc/gemini-mcp"
+    exit 1
+}
+
+$nodeCommand = Get-Command node -ErrorAction SilentlyContinue
+$nodePath = if ($nodeCommand) { $nodeCommand.Source } else { $null }
+
+if ([string]::IsNullOrWhiteSpace($nodePath)) {
+    $nodeCandidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:ProgramFiles)) {
+        $nodeCandidates += (Join-Path $env:ProgramFiles "nodejs\node.exe")
+    }
+    if (-not [string]::IsNullOrWhiteSpace(${env:ProgramFiles(x86)})) {
+        $nodeCandidates += (Join-Path ${env:ProgramFiles(x86)} "nodejs\node.exe")
+    }
+    $nodeCandidates += "C:\Program Files\nodejs\node.exe"
+    $nodeCandidates += "C:\Program Files (x86)\nodejs\node.exe"
+
+    foreach ($candidate in $nodeCandidates) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path -LiteralPath $candidate)) {
+            $nodePath = $candidate
+            break
+        }
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($nodePath)) {
+    Write-Error "node.exe not found in PATH or standard Program Files locations"
+    exit 1
+}
+
+& $nodePath $serverPath
