@@ -140,6 +140,17 @@ static func build_fire_result(
 	}
 
 
+static func build_fire_failed_result(special_gauge: float, reason: String, cooldown_frames: float) -> Dictionary:
+	return {
+		"handled": true,
+		"weapon_id": "suicide_drone",
+		"fire_failed": true,
+		"failure_reason": reason,
+		"cooldown_frames": cooldown_frames,
+		"special_gauge": special_gauge,
+	}
+
+
 static func build_active_input_result(projectile: Dictionary, special_gauge: float) -> Dictionary:
 	return {
 		"handled": true,

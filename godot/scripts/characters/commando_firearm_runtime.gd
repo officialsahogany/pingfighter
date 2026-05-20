@@ -3,6 +3,7 @@ extends RefCounted
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmAudioResolver := preload("res://scripts/characters/commando_firearm_audio_resolver.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
+const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
 const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
@@ -1158,16 +1159,11 @@ func _reload_base_pistol_from_fire_input(special_gauge: float, deps: Dictionary)
 
 
 func _pistol_fire_failed(special_gauge: float, reason: String, weapon_id: String = "commando_pistol") -> Dictionary:
-	return {
-		"handled": true,
-		"weapon_id": weapon_id,
-		"fire_failed": true,
-		"failure_reason": reason,
-		"special_gauge": special_gauge,
+	return CommandoFirearmFireResultState.build_fire_failed_result(weapon_id, special_gauge, reason, {
 		"cooldown_frames": pistol_cooldown_frames,
 		"control_lock_frames": pistol_control_lock_frames,
 		"fire_delay_frames": pistol_fire_delay_frames,
-	}
+	})
 
 
 func _get_pistol_cooldown_frames(weapon_id: String, doping_context: Dictionary, doping_active: bool) -> float:
@@ -1311,16 +1307,11 @@ func _update_ak47_input(
 
 
 func _ak47_fire_failed(special_gauge: float, reason: String) -> Dictionary:
-	return {
-		"handled": true,
-		"weapon_id": "ak47",
-		"fire_failed": true,
-		"failure_reason": reason,
+	return CommandoFirearmFireResultState.build_fire_failed_result("ak47", special_gauge, reason, {
 		"fire_interval_frames": ak47_fire_interval_frames,
 		"burst_shots_remaining": ak47_burst_shots_remaining,
 		"movement_speed_multiplier": get_movement_speed_multiplier(),
-		"special_gauge": special_gauge,
-	}
+	})
 
 
 func _consume_ak47_duration(weapon_controller: Object, frames: float) -> void:
@@ -1412,18 +1403,13 @@ func _update_bazooka_input(
 
 
 func _bazooka_fire_failed(special_gauge: float, reason: String) -> Dictionary:
-	return {
-		"handled": true,
-		"weapon_id": "bazooka",
-		"fire_failed": true,
-		"failure_reason": reason,
+	return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, reason, {
 		"cooldown_frames": bazooka_cooldown_frames,
 		"control_lock_frames": bazooka_control_lock_frames,
 		"fire_animation_frames": bazooka_fire_animation_frames,
 		"firing_pose_frames": bazooka_firing_pose_frames,
 		"muzzle_flash_frames": bazooka_muzzle_flash_frames,
-		"special_gauge": special_gauge,
-	}
+	})
 
 
 func _get_bazooka_fire_profile() -> Dictionary:
@@ -1491,17 +1477,12 @@ func _update_net_gun_input(
 
 
 func _net_gun_fire_failed(special_gauge: float, reason: String) -> Dictionary:
-	return {
-		"handled": true,
-		"weapon_id": "net_gun",
-		"fire_failed": true,
-		"failure_reason": reason,
+	return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, reason, {
 		"cooldown_frames": net_gun_cooldown_frames,
 		"control_lock_frames": net_gun_control_lock_frames,
 		"throw_pose_frames": net_gun_throw_pose_frames,
 		"harpoon_flash_frames": net_gun_harpoon_flash_frames,
-		"special_gauge": special_gauge,
-	}
+	})
 
 
 func _get_net_gun_fire_profile() -> Dictionary:
@@ -1604,16 +1585,11 @@ func _update_bowling_trap_input(
 
 
 func _bowling_trap_fire_failed(special_gauge: float, reason: String) -> Dictionary:
-	return {
-		"handled": true,
-		"weapon_id": "bowling_trap",
-		"fire_failed": true,
-		"failure_reason": reason,
+	return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, reason, {
 		"cooldown_frames": bowling_trap_cooldown_frames,
 		"control_lock_frames": bowling_trap_control_lock_frames,
 		"install_pose_frames": bowling_trap_install_pose_frames,
-		"special_gauge": special_gauge,
-	}
+	})
 
 
 func _is_bowling_trap_install_in_player_field(config: Dictionary) -> bool:
@@ -1743,14 +1719,7 @@ func _update_active_suicide_drone_input(
 
 
 func _suicide_drone_fire_failed(special_gauge: float, reason: String) -> Dictionary:
-	return {
-		"handled": true,
-		"weapon_id": "suicide_drone",
-		"fire_failed": true,
-		"failure_reason": reason,
-		"cooldown_frames": suicide_drone_cooldown_frames,
-		"special_gauge": special_gauge,
-	}
+	return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, reason, suicide_drone_cooldown_frames)
 
 
 func _spawn_suicide_drone(config: Dictionary) -> void:

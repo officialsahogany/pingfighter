@@ -93,6 +93,7 @@ func _verify_direct_suicide_drone_state() -> void:
 	)
 	_expect(homing_velocity.x > 0.0 and homing_velocity.y < 0.0, "homing velocity should blend current velocity toward target")
 	_expect(bool(CommandoFirearmSuicideDroneState.build_fire_result({}, 4, 4, 6.0, 500.0).get("fired", false)), "fire result should expose fired flag")
+	_expect(str(CommandoFirearmSuicideDroneState.build_fire_failed_result(500.0, "cooldown", 90.0).get("failure_reason", "")) == "cooldown", "fire failed result should expose failure reason")
 	_expect(bool(CommandoFirearmSuicideDroneState.build_active_input_result(steered, 500.0).get("drone_active", false)), "active input result should expose active flag")
 	_expect(bool(CommandoFirearmSuicideDroneState.build_detonation_result("manual", Vector2(1.0, 2.0), false, 90.0).get("commando_suicide_drone_detonated", false)), "detonation result should expose detonation flag")
 
