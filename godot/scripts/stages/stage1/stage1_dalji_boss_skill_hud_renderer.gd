@@ -19,11 +19,24 @@ const TOOLTIP_MIN_LEFT_WIDTH := 120.0
 
 var _skillcard_textures := {}
 var _queue_positions := {}
+var _prewarm_skillcard_step_index := 0
 
 
 func prewarm_assets() -> void:
-	_get_skillcard_texture("whip")
-	_get_skillcard_texture("spinning_top")
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_skillcard_step_index >= 2:
+		return true
+	match _prewarm_skillcard_step_index:
+		0:
+			_get_skillcard_texture("whip")
+		1:
+			_get_skillcard_texture("spinning_top")
+	_prewarm_skillcard_step_index += 1
+	return _prewarm_skillcard_step_index >= 2
 
 
 func get_debug_card_metrics(pillar_width: float) -> Dictionary:
