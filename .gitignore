@@ -202,6 +202,7 @@ screenshots/pingfighter_*.png
 # Local generated previews and scratch work
 .tmp/
 preview_outputs/
+.codex/
 .codex_tmp/
 tmp/
 screenshots/arena_test_*.png
