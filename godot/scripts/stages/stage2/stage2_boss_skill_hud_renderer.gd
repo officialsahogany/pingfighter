@@ -6,14 +6,32 @@ const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_ca
 const JUNGLE_QUAKE_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage2_jungle_quake_skillcard_imagegen_v1.png"
 const SPEED_DEFENSE_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage2_speed_defense_skillcard_imagegen_v3.png"
 const WATER_CANNON_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage2_water_cannon_skillcard_imagegen_v1.png"
+const SKILLCARD_PREWARM_IDS := ["jungle_quake", "speed_defense", "water_cannon"]
 
 var _skillcard_textures := {}
+var _prewarm_done := false
+var _prewarm_step_index := 0
 
 
 func prewarm_assets() -> void:
-	_get_skillcard_texture("jungle_quake")
-	_get_skillcard_texture("speed_defense")
-	_get_skillcard_texture("water_cannon")
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_done:
+		return true
+	if _prewarm_step_index >= SKILLCARD_PREWARM_IDS.size():
+		_prewarm_done = true
+		_prewarm_step_index = 0
+		return true
+	_get_skillcard_texture(str(SKILLCARD_PREWARM_IDS[_prewarm_step_index]))
+	_prewarm_step_index += 1
+	if _prewarm_step_index >= SKILLCARD_PREWARM_IDS.size():
+		_prewarm_done = true
+		_prewarm_step_index = 0
+		return true
+	return false
 
 
 func get_debug_card_metrics(pillar_width: float) -> Dictionary:

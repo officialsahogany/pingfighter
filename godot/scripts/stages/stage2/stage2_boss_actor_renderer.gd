@@ -59,16 +59,43 @@ var victory_texture: Texture2D
 var defeat_texture: Texture2D
 var _unit_stun_star_points := PackedVector2Array()
 var status_overlay_renderer: Object = StatusEffectOverlayRenderer.new()
+var _prewarm_done := false
+var _prewarm_step_index := 0
 
 
 func prewarm_assets() -> void:
-	_get_speed_defense_texture()
-	_get_walk_left_texture()
-	_get_walk_right_texture()
-	_get_attack_texture()
-	_get_idle_texture()
-	_get_victory_texture()
-	_get_defeat_texture()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_done:
+		return true
+	match _prewarm_step_index:
+		0:
+			_get_speed_defense_texture()
+		1:
+			_get_walk_left_texture()
+		2:
+			_get_walk_right_texture()
+		3:
+			_get_attack_texture()
+		4:
+			_get_idle_texture()
+		5:
+			_get_victory_texture()
+		6:
+			_get_defeat_texture()
+		_:
+			_prewarm_done = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	if _prewarm_step_index > 6:
+		_prewarm_done = true
+		_prewarm_step_index = 0
+		return true
+	return false
 
 
 func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:

@@ -392,17 +392,15 @@ func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 func _run_stage2_runtime_prewarm_step(module_getter: Callable, stage_step: int) -> bool:
 	match stage_step:
 		0:
-			prewarm_stage2_pillar_background(module_getter)
+			return prewarm_stage2_pillar_background_step(module_getter)
 		1:
 			return prewarm_stage2_playfield_resources_step(module_getter)
 		2:
 			var skill_hud: Object = _get_module(module_getter, "stage2_boss_skill_hud_renderer")
-			if skill_hud != null and skill_hud.has_method("prewarm_assets"):
-				skill_hud.prewarm_assets()
+			return _prewarm_module_assets_step(skill_hud)
 		3:
 			var monkey_event: Object = _get_module(module_getter, "stage2_monkey_banana_event")
-			if monkey_event != null and monkey_event.has_method("prewarm_assets"):
-				monkey_event.prewarm_assets()
+			return _prewarm_module_assets_step(monkey_event)
 	return true
 
 
@@ -470,20 +468,29 @@ func prewarm_stage2_runtime_resources(module_getter: Callable) -> void:
 	prewarm_stage2_pillar_background(module_getter)
 	prewarm_stage2_playfield_resources(module_getter)
 	var skill_hud: Object = _get_module(module_getter, "stage2_boss_skill_hud_renderer")
-	if skill_hud != null and skill_hud.has_method("prewarm_assets"):
-		skill_hud.prewarm_assets()
+	while not _prewarm_module_assets_step(skill_hud):
+		pass
 	var monkey_event: Object = _get_module(module_getter, "stage2_monkey_banana_event")
-	if monkey_event != null and monkey_event.has_method("prewarm_assets"):
-		monkey_event.prewarm_assets()
+	while not _prewarm_module_assets_step(monkey_event):
+		pass
 
 
 func prewarm_stage2_pillar_background(module_getter: Callable) -> void:
+	while not prewarm_stage2_pillar_background_step(module_getter):
+		pass
+
+
+func prewarm_stage2_pillar_background_step(module_getter: Callable) -> bool:
 	if battle_stage2_pillar_background_prewarmed:
-		return
-	battle_stage2_pillar_background_prewarmed = true
+		return true
 	var stage_background: Object = _get_module(module_getter, "stage2_pillar_background")
-	if stage_background != null and stage_background.has_method("prewarm_assets"):
+	if stage_background != null and stage_background.has_method("prewarm_assets_step"):
+		if not bool(stage_background.prewarm_assets_step()):
+			return false
+	elif stage_background != null and stage_background.has_method("prewarm_assets"):
 		stage_background.prewarm_assets()
+	battle_stage2_pillar_background_prewarmed = true
+	return true
 
 
 func prewarm_stage2_playfield_resources(module_getter: Callable) -> void:

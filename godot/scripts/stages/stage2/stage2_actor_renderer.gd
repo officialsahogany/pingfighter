@@ -30,11 +30,19 @@ func prewarm_assets_step() -> bool:
 				elif playfield_renderer.has_method("prewarm_assets"):
 					playfield_renderer.prewarm_assets()
 		1:
-			if boss_renderer != null and boss_renderer.has_method("prewarm_assets"):
-				boss_renderer.prewarm_assets()
+			if boss_renderer != null:
+				if boss_renderer.has_method("prewarm_assets_step"):
+					if not bool(boss_renderer.prewarm_assets_step()):
+						return false
+				elif boss_renderer.has_method("prewarm_assets"):
+					boss_renderer.prewarm_assets()
 		2:
-			if commando_firearm_renderer != null and commando_firearm_renderer.has_method("prewarm_assets"):
-				commando_firearm_renderer.prewarm_assets()
+			if commando_firearm_renderer != null:
+				if commando_firearm_renderer.has_method("prewarm_assets_step"):
+					if not bool(commando_firearm_renderer.prewarm_assets_step()):
+						return false
+				elif commando_firearm_renderer.has_method("prewarm_assets"):
+					commando_firearm_renderer.prewarm_assets()
 		_:
 			prewarm_done = true
 			prewarm_step_index = 0

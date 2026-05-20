@@ -80,6 +80,8 @@ var throw_sheet: Texture2D = null
 var banana_texture: Texture2D = null
 var tree_source_image: Image = null
 var tree_source_path_cache: Dictionary = {}
+var _prewarm_done := false
+var _prewarm_step_index := 0
 
 
 func _init() -> void:
@@ -103,8 +105,32 @@ func reset() -> void:
 
 
 func prewarm_assets() -> void:
-	_ensure_textures()
-	_prewarm_tree_path_cache()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_done:
+		return true
+	match _prewarm_step_index:
+		0, 1, 2:
+			_prewarm_texture_step(_prewarm_step_index)
+		3:
+			_get_tree_source_image()
+		4:
+			_get_tree_source_path_points("left", TREE_LEFT_SOURCE_REGION)
+		5:
+			_get_tree_source_path_points("right", TREE_RIGHT_SOURCE_REGION)
+		_:
+			_prewarm_done = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	if _prewarm_step_index > 5:
+		_prewarm_done = true
+		_prewarm_step_index = 0
+		return true
+	return false
 
 
 func sync_layout(context: Dictionary) -> void:
@@ -708,12 +734,21 @@ func _viewport_to_game(pos: Vector2) -> Vector2:
 
 
 func _ensure_textures() -> void:
-	if climb_sheet == null:
-		climb_sheet = ProjectResourceLoader.load_texture(MONKEY_CLIMB_SHEET_PATH)
-	if throw_sheet == null:
-		throw_sheet = ProjectResourceLoader.load_texture(MONKEY_THROW_SHEET_PATH)
-	if banana_texture == null:
-		banana_texture = ProjectResourceLoader.load_texture(BANANA_TEXTURE_PATH)
+	for step_index in range(3):
+		_prewarm_texture_step(step_index)
+
+
+func _prewarm_texture_step(step_index: int) -> void:
+	match step_index:
+		0:
+			if climb_sheet == null:
+				climb_sheet = ProjectResourceLoader.load_texture(MONKEY_CLIMB_SHEET_PATH)
+		1:
+			if throw_sheet == null:
+				throw_sheet = ProjectResourceLoader.load_texture(MONKEY_THROW_SHEET_PATH)
+		2:
+			if banana_texture == null:
+				banana_texture = ProjectResourceLoader.load_texture(BANANA_TEXTURE_PATH)
 
 
 func _draw_monkey(canvas: CanvasItem, monkey: Dictionary) -> void:
