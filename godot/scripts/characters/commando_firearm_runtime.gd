@@ -12,6 +12,7 @@ const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters
 const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
 const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmPistolFeedbackState := preload("res://scripts/characters/commando_firearm_pistol_feedback_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmShellCasingState := preload("res://scripts/characters/commando_firearm_shell_casing_state.gd")
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
@@ -2698,26 +2699,22 @@ func _update_shell_casings(fps_scale: float) -> void:
 
 
 func _spawn_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> void:
-	if hit_kind != "headshot" and hit_kind != "legshot":
+	var feedback: Dictionary = _build_pistol_hit_feedback(hit_kind, context)
+	if feedback.is_empty():
 		return
-	var boss_rect: Rect2 = _get_boss_rect(context)
-	var text_pos := Vector2(
-		clamp(boss_rect.position.x - 30.0, 62.0, FIELD_WIDTH - 62.0),
-		clamp(boss_rect.end.y - 20.0, 42.0, FIELD_HEIGHT - 42.0)
-	)
-	var wave_pos := Vector2(
-		clamp(boss_rect.position.x + boss_rect.size.x * 0.5, 60.0, FIELD_WIDTH - 60.0),
-		clamp(boss_rect.position.y + 6.0, 34.0, FIELD_HEIGHT - 34.0)
-	)
-	var feedback := {
-		"kind": hit_kind,
-		"text": "헤드샷!" if hit_kind == "headshot" else "레그샷!",
-		"text_pos": text_pos,
-		"wave_pos": wave_pos,
-		"timer_frames": PISTOL_HIT_TEXT_TIMER_FRAMES,
-		"max_timer_frames": PISTOL_HIT_TEXT_TIMER_FRAMES,
-	}
 	_append_limited(pistol_feedbacks, feedback, PISTOL_FEEDBACK_LIMIT)
+
+
+func _build_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> Dictionary:
+	var boss_rect: Rect2 = _get_boss_rect(context)
+	return CommandoFirearmPistolFeedbackState.build_feedback(
+		hit_kind,
+		boss_rect,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		PISTOL_HIT_TEXT_TIMER_FRAMES,
+		"헤드샷!",
+		"레그샷!"
+	)
 
 
 func _update_pistol_feedbacks(fps_scale: float) -> void:
@@ -2726,12 +2723,11 @@ func _update_pistol_feedbacks(fps_scale: float) -> void:
 		return
 	for index in range(pistol_feedbacks.size() - 1, -1, -1):
 		var feedback: Dictionary = _get_dict(pistol_feedbacks[index])
-		var timer: float = max(0.0, float(feedback.get("timer_frames", 0.0)) - step)
-		if timer <= 0.0:
+		var update_result: Dictionary = CommandoFirearmPistolFeedbackState.advance_feedback(feedback, step)
+		if not bool(update_result.get("active", false)):
 			pistol_feedbacks.remove_at(index)
 			continue
-		feedback["timer_frames"] = timer
-		pistol_feedbacks[index] = feedback
+		pistol_feedbacks[index] = _get_dict(update_result.get("feedback", feedback))
 
 
 func _get_drone_velocity(pos: Vector2, projectile: Dictionary, context: Dictionary, fps_scale: float) -> Vector2:
