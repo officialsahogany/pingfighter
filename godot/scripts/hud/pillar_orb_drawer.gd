@@ -102,9 +102,10 @@ func draw_pillar_liquid_fill(
 	t: float,
 	top_color: Color,
 	bottom_color: Color,
-	wave_glow: Color
+	wave_glow: Color,
+	quality_scale: float = 1.0
 ) -> void:
-	liquid_drawer.draw_pillar_liquid_fill(canvas, center, radius, fill_ratio, t, top_color, bottom_color, wave_glow)
+	liquid_drawer.draw_pillar_liquid_fill(canvas, center, radius, fill_ratio, t, top_color, bottom_color, wave_glow, quality_scale)
 
 
 func draw_dash_sector_liquid(
@@ -115,6 +116,7 @@ func draw_dash_sector_liquid(
 	end_rad: float,
 	progress: float,
 	t: float,
-	scale_factor: float = 1.0
+	scale_factor: float = 1.0,
+	quality_scale: float = 1.0
 ) -> void:
-	liquid_drawer.draw_dash_sector_liquid(canvas, center, inner_radius, start_rad, end_rad, progress, t, scale_factor)
+	liquid_drawer.draw_dash_sector_liquid(canvas, center, inner_radius, start_rad, end_rad, progress, t, scale_factor, quality_scale)

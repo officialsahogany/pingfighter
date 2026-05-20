@@ -8,7 +8,8 @@ func draw(
 	radius: float,
 	t: float,
 	scale_factor: float,
-	full_ratio: float
+	full_ratio: float,
+	context: Dictionary = {}
 ) -> void:
 	if canvas == null or pillar_drawer == null:
 		return
@@ -17,6 +18,10 @@ func draw(
 	var fill_top_color: Color = palette["top"]
 	var fill_bottom_color: Color = palette["bottom"]
 	var wave_glow: Color = palette["glow"]
+	# The static-LOD fallback rendered just a couple of circles + an arc, which read
+	# as broken when the player actually saw it (see "weird liquid fill" report).
+	# Always use the proper liquid wave; the LOD path inside draw_pillar_liquid_fill
+	# already drops detail for Viper-airborne / FPS-cap frames via hud_lod_scale.
 	pillar_drawer.draw_pillar_liquid_fill(
 		canvas,
 		center,
@@ -25,7 +30,8 @@ func draw(
 		t,
 		fill_top_color,
 		fill_bottom_color,
-		wave_glow
+		wave_glow,
+		float(context.get("hud_lod_scale", 1.0))
 	)
 	_draw_fill_glow(canvas, center, radius, full_ratio, wave_glow)
 
@@ -56,3 +62,20 @@ func _draw_fill_glow(canvas: CanvasItem, center: Vector2, radius: float, full_ra
 		return
 	canvas.draw_circle(center, radius * (0.20 + full_ratio * 0.24), Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.12 + full_ratio * 0.16))
 	canvas.draw_circle(center + Vector2(0.0, radius * 0.10), radius * (0.10 + full_ratio * 0.12), Color(1.0, 1.0, 1.0, 0.06 + full_ratio * 0.07))
+
+
+func _draw_static_fill(
+	canvas: CanvasItem,
+	center: Vector2,
+	inner_radius: float,
+	full_ratio: float,
+	fill_top_color: Color,
+	fill_bottom_color: Color,
+	wave_glow: Color
+) -> void:
+	if full_ratio <= 0.0:
+		return
+	var fill_radius: float = inner_radius * (0.28 + 0.58 * sqrt(clamp(full_ratio, 0.0, 1.0)))
+	canvas.draw_circle(center, fill_radius, Color(fill_bottom_color.r, fill_bottom_color.g, fill_bottom_color.b, 0.74))
+	canvas.draw_circle(center + Vector2(0.0, -fill_radius * 0.18), fill_radius * 0.72, Color(fill_top_color.r, fill_top_color.g, fill_top_color.b, 0.38))
+	canvas.draw_arc(center, inner_radius * 0.82, -PI * 0.5, -PI * 0.5 + TAU * full_ratio, 14, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.46), 2.0, true)

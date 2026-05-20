@@ -1,0 +1,873 @@
+extends RefCounted
+
+const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd")
+
+const STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT := 9
+const STAGE4_RUNTIME_PREWARM_MODULE_KEYS := [
+	"stage4_ponk_gauge_hud_renderer",
+	"stage4_bird_event",
+	"stage4_brazier_monk_event",
+	"stage4_moon_event",
+	"stage4_ponk_skill_state",
+	"stage4_ponk_boss_skill_hud_renderer",
+]
+const STAGE5_RUNTIME_PREWARM_MODULE_KEYS := [
+	"stage5_hongryun_actor_renderer",
+	"stage5_hongryun_pillar_scene_drawer",
+	"stage5_hongryun_boss_skill_hud_renderer",
+]
+
+var battle_resources_prewarmed: bool = false
+var battle_core_resources_prewarmed: bool = false
+var battle_player_resources_prewarmed: bool = false
+var battle_boss_resources_prewarmed: bool = false
+var battle_smasher_skill_icons_prewarmed: bool = false
+var battle_viper_skill_icons_prewarmed: bool = false
+var battle_commando_skill_icons_prewarmed: bool = false
+var battle_texture_resources_prewarmed: bool = false
+var battle_resource_cache_finalized: bool = false
+var battle_audio_setup_finished: bool = false
+var battle_bgm_primed: bool = false
+var battle_active_item_runtime_prewarmed: bool = false
+var battle_mythic_item_runtime_prewarmed: bool = false
+var battle_selected_character_runtime_prewarmed: bool = false
+var battle_selected_character_runtime_prewarmed_for := ""
+var selected_character_runtime_prewarm_step_character := ""
+var selected_character_runtime_prewarm_step_index := 0
+var battle_pillar_background_prewarmed: bool = false
+var battle_stage2_pillar_background_prewarmed: bool = false
+var battle_stage2_playfield_resources_prewarmed: bool = false
+var battle_stage3_pillar_background_prewarmed: bool = false
+var battle_stage3_playfield_resources_prewarmed: bool = false
+var battle_stage4_pillar_background_prewarmed: bool = false
+var battle_stage4_playfield_resources_prewarmed: bool = false
+var battle_stage5_pillar_background_prewarmed: bool = false
+var battle_runtime_perk_overlay_prewarmed: bool = false
+var battle_runtime_perk_debug_prewarmed: bool = false
+var battle_character_info_prewarmed: bool = false
+var battle_stage_clear_result_shell_prewarmed: bool = false
+var battle_stage_clear_result_prewarmed: bool = false
+var stage_intro_resources_prewarmed: bool = false
+var stage_intro_resources_prewarm_step_index: int = 0
+var stage_runtime_resources_prewarmed_for_stage: int = 0
+var stage_runtime_prewarm_step_stage: int = 0
+var stage_runtime_prewarm_step_index: int = 0
+var battle_pso_prewarmer_attached: bool = false
+
+
+class ModuleGetterRegistryAdapter:
+	extends RefCounted
+
+	var module_getter: Callable = Callable()
+
+	func _init(p_module_getter: Callable = Callable()) -> void:
+		module_getter = p_module_getter
+
+	func get_instance(key: String) -> Object:
+		if not module_getter.is_valid():
+			return null
+		var value: Variant = module_getter.call(key)
+		if value is Object:
+			return value
+		return null
+
+
+func prewarm_battle_resources(owner: Object, module_getter: Callable) -> void:
+	if battle_resources_prewarmed:
+		return
+	while not prewarm_battle_texture_resources_step(owner, module_getter):
+		pass
+	while not prewarm_battle_audio_setup_step(owner, module_getter):
+		pass
+	prime_battle_bgm(owner, module_getter)
+	finish_battle_resource_prewarm(owner, module_getter)
+
+
+func prewarm_battle_core_resources(owner: Object, module_getter: Callable) -> void:
+	if battle_core_resources_prewarmed:
+		return
+	battle_core_resources_prewarmed = true
+	var resources: Object = _get_module(module_getter, "battle_resources")
+	if resources != null and resources.has_method("prewarm_core_textures"):
+		resources.prewarm_core_textures(_build_resource_context(owner))
+
+
+func prewarm_battle_player_resources(owner: Object, module_getter: Callable) -> void:
+	if battle_player_resources_prewarmed:
+		return
+	battle_player_resources_prewarmed = true
+	var resources: Object = _get_module(module_getter, "battle_resources")
+	if resources != null and resources.has_method("prewarm_player_textures"):
+		resources.prewarm_player_textures(_build_resource_context(owner))
+
+
+func prewarm_battle_boss_resources(owner: Object, module_getter: Callable) -> void:
+	if battle_boss_resources_prewarmed:
+		return
+	battle_boss_resources_prewarmed = true
+	var resources: Object = _get_module(module_getter, "battle_resources")
+	if resources != null and resources.has_method("prewarm_boss_textures"):
+		resources.prewarm_boss_textures(_build_resource_context(owner))
+
+
+func prewarm_battle_smasher_skill_icons(owner: Object, module_getter: Callable) -> void:
+	if battle_smasher_skill_icons_prewarmed:
+		return
+	battle_smasher_skill_icons_prewarmed = true
+	if _get_selected_character_type(owner) != "smasher":
+		return
+	var resources: Object = _get_module(module_getter, "battle_resources")
+	if resources != null and resources.has_method("prewarm_smasher_skill_icons"):
+		resources.prewarm_smasher_skill_icons()
+
+
+func prewarm_battle_viper_skill_icons(owner: Object, module_getter: Callable) -> void:
+	if battle_viper_skill_icons_prewarmed:
+		return
+	battle_viper_skill_icons_prewarmed = true
+	if _get_selected_character_type(owner) != "viper":
+		return
+	var resources: Object = _get_module(module_getter, "battle_resources")
+	if resources != null and resources.has_method("prewarm_viper_skill_icons"):
+		resources.prewarm_viper_skill_icons()
+
+
+func prewarm_battle_commando_skill_icons(owner: Object, module_getter: Callable) -> void:
+	if battle_commando_skill_icons_prewarmed:
+		return
+	battle_commando_skill_icons_prewarmed = true
+	if _get_selected_character_type(owner) != "soldier":
+		return
+	var resources: Object = _get_module(module_getter, "battle_resources")
+	if resources != null and resources.has_method("prewarm_commando_skill_icons"):
+		resources.prewarm_commando_skill_icons()
+
+
+func finalize_battle_resource_cache(owner: Object, module_getter: Callable) -> void:
+	if battle_resource_cache_finalized:
+		return
+	if battle_texture_resources_prewarmed:
+		battle_resource_cache_finalized = true
+		return
+	battle_resource_cache_finalized = true
+	var resources: Object = _get_module(module_getter, "battle_resources")
+	if resources != null and resources.has_method("load_all"):
+		var textures: Variant = resources.load_all(_build_resource_context(owner))
+		if textures is Dictionary:
+			_sync_owner_battle_texture_cache(owner, textures)
+	_mark_battle_texture_resources_prewarmed()
+
+
+func prewarm_battle_texture_resources_step(owner: Object, module_getter: Callable) -> bool:
+	if battle_texture_resources_prewarmed:
+		return true
+	var resources: Object = _get_module(module_getter, "battle_resources")
+	if resources == null:
+		_mark_battle_texture_resources_prewarmed()
+		return true
+
+	var textures: Variant = {}
+	if resources.has_method("prewarm_transition_textures_step"):
+		if not bool(resources.prewarm_transition_textures_step(_build_resource_context(owner))):
+			return false
+		if resources.has_method("get_resource_cache"):
+			textures = resources.get_resource_cache()
+		elif resources.has_method("load_all"):
+			textures = resources.load_all(_build_resource_context(owner))
+	elif resources.has_method("load_all"):
+		textures = resources.load_all(_build_resource_context(owner))
+
+	if textures is Dictionary:
+		_sync_owner_battle_texture_cache(owner, textures)
+	_mark_battle_texture_resources_prewarmed()
+	return true
+
+
+func prewarm_battle_audio_setup_step(owner: Object, module_getter: Callable) -> bool:
+	if battle_audio_setup_finished:
+		return true
+	var audio: Object = _get_module(module_getter, "game_audio")
+	if audio == null:
+		battle_audio_setup_finished = true
+		return true
+	if audio.has_method("setup_step"):
+		battle_audio_setup_finished = bool(audio.setup_step(owner))
+	elif audio.has_method("setup"):
+		audio.setup(owner)
+		battle_audio_setup_finished = true
+	else:
+		battle_audio_setup_finished = true
+	return battle_audio_setup_finished
+
+
+func prime_battle_bgm(owner: Object, module_getter: Callable) -> void:
+	if battle_bgm_primed:
+		return
+	battle_bgm_primed = true
+	var audio: Object = _get_module(module_getter, "game_audio")
+	if audio != null and audio.has_method("prime_stage_bgm"):
+		audio.prime_stage_bgm(_get_current_stage(owner))
+
+
+func finish_battle_resource_prewarm(owner: Object, module_getter: Callable) -> void:
+	if battle_resources_prewarmed:
+		return
+	if _get_current_stage(owner) == 1:
+		prewarm_stage1_pillar_background(module_getter)
+	battle_resources_prewarmed = true
+
+
+func prewarm_stage1_pillar_background(module_getter: Callable) -> void:
+	if battle_pillar_background_prewarmed:
+		return
+	battle_pillar_background_prewarmed = true
+	var stage_background: Object = _get_module(module_getter, "stage1_pillar_background")
+	if stage_background != null and stage_background.has_method("prewarm_assets"):
+		stage_background.prewarm_assets()
+
+
+func prewarm_stage_intro_resources(owner: Object, module_getter: Callable) -> void:
+	while not prewarm_stage_intro_resources_step(owner, module_getter):
+		pass
+
+
+func prewarm_stage_intro_resources_step(owner: Object, module_getter: Callable) -> bool:
+	if stage_intro_resources_prewarmed:
+		return true
+	match stage_intro_resources_prewarm_step_index:
+		0:
+			var current_stage: int = _get_current_stage(owner)
+			var landing_intro: Object = _get_module(module_getter, "stage_landing_intro")
+			if landing_intro != null and landing_intro.has_method("prewarm_assets"):
+				landing_intro.prewarm_assets(current_stage)
+		1:
+			var ball_spawn_intro: Object = _get_module(module_getter, "stage_ball_spawn_intro")
+			if ball_spawn_intro != null and ball_spawn_intro.has_method("prewarm_assets"):
+				ball_spawn_intro.prewarm_assets()
+		_:
+			stage_intro_resources_prewarmed = true
+			stage_intro_resources_prewarm_step_index = 0
+			return true
+	stage_intro_resources_prewarm_step_index += 1
+	return false
+
+
+func prewarm_stage_runtime_resources(owner: Object, module_getter: Callable) -> void:
+	while not prewarm_stage_runtime_resources_step(owner, module_getter):
+		pass
+
+
+func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable) -> bool:
+	var current_stage: int = _get_current_stage(owner)
+	if stage_runtime_resources_prewarmed_for_stage == current_stage:
+		return true
+	if stage_runtime_prewarm_step_stage != current_stage:
+		stage_runtime_prewarm_step_stage = current_stage
+		stage_runtime_prewarm_step_index = 0
+	var total_steps := (
+		STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT
+		+ _get_stage_specific_runtime_prewarm_step_count(owner, current_stage)
+		+ 1
+	)
+	if not _run_stage_runtime_prewarm_step(owner, module_getter, current_stage, stage_runtime_prewarm_step_index):
+		return false
+	stage_runtime_prewarm_step_index += 1
+	if stage_runtime_prewarm_step_index >= total_steps:
+		stage_runtime_resources_prewarmed_for_stage = current_stage
+		stage_runtime_prewarm_step_stage = 0
+		stage_runtime_prewarm_step_index = 0
+		return true
+	return false
+
+
+func _run_stage_runtime_prewarm_step(
+	owner: Object,
+	module_getter: Callable,
+	current_stage: int,
+	step_index: int
+) -> bool:
+	match step_index:
+		0:
+			var weather_renderer: Object = _get_module(module_getter, "weather_event_renderer")
+			if weather_renderer != null and weather_renderer.has_method("prewarm_assets"):
+				weather_renderer.prewarm_assets()
+		1:
+			prewarm_active_item_runtime_resources(module_getter)
+		2:
+			mark_mythic_item_runtime_assets_deferred()
+		3:
+			return prewarm_runtime_perk_overlay_resources_step(module_getter)
+		4:
+			mark_runtime_perk_debug_assets_deferred()
+		5:
+			mark_character_info_assets_deferred()
+		6:
+			return prewarm_selected_character_runtime_resources_step(owner, module_getter)
+		7:
+			return prewarm_ball_update_runtime_resources_step(owner, module_getter)
+		8:
+			mark_stage_clear_result_shell_deferred()
+		_:
+			var stage_step := step_index - STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT
+			var stage_step_count := _get_stage_specific_runtime_prewarm_step_count(owner, current_stage)
+			if stage_step < stage_step_count:
+				return _run_stage_specific_runtime_prewarm_step(owner, module_getter, current_stage, stage_step)
+			else:
+				_attach_battle_pso_prewarmer(owner)
+	return true
+
+
+func _get_stage_specific_runtime_prewarm_step_count(_owner: Object, current_stage: int) -> int:
+	match current_stage:
+		1:
+			return 5
+		2:
+			return 4
+		3:
+			return 3
+		4:
+			return 2 + STAGE4_RUNTIME_PREWARM_MODULE_KEYS.size()
+		5:
+			return 1 + STAGE5_RUNTIME_PREWARM_MODULE_KEYS.size()
+	return 0
+
+
+func _run_stage_specific_runtime_prewarm_step(
+	owner: Object,
+	module_getter: Callable,
+	current_stage: int,
+	stage_step: int
+) -> bool:
+	match current_stage:
+		1:
+			return _run_stage1_runtime_prewarm_step(owner, module_getter, stage_step)
+		2:
+			return _run_stage2_runtime_prewarm_step(module_getter, stage_step)
+		3:
+			return _run_stage3_runtime_prewarm_step(module_getter, stage_step)
+		4:
+			_run_stage4_runtime_prewarm_step(module_getter, stage_step)
+		5:
+			_run_stage5_runtime_prewarm_step(owner, module_getter, stage_step)
+	return true
+
+
+func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> bool:
+	match stage_step:
+		0:
+			prewarm_stage1_pillar_background(module_getter)
+		1:
+			var pillar_scene_drawer: Object = _get_module(module_getter, "stage1_pillar_scene_drawer")
+			if pillar_scene_drawer != null and pillar_scene_drawer.has_method("prewarm_assets_step"):
+				return bool(pillar_scene_drawer.prewarm_assets_step(module_getter, _get_selected_character_type(owner)))
+			if pillar_scene_drawer != null and pillar_scene_drawer.has_method("prewarm_assets"):
+				pillar_scene_drawer.prewarm_assets(module_getter, _get_selected_character_type(owner))
+		2:
+			var balloon_event: Object = _get_module(module_getter, "stage1_balloon_event")
+			if balloon_event != null and balloon_event.has_method("prewarm_assets_step"):
+				return bool(balloon_event.prewarm_assets_step())
+			if balloon_event != null and balloon_event.has_method("prewarm_assets"):
+				balloon_event.prewarm_assets()
+		3:
+			var skill_hud: Object = _get_module(module_getter, "stage1_dalji_boss_skill_hud_renderer")
+			if skill_hud != null and skill_hud.has_method("prewarm_assets_step"):
+				return bool(skill_hud.prewarm_assets_step())
+			if skill_hud != null and skill_hud.has_method("prewarm_assets"):
+				skill_hud.prewarm_assets()
+		4:
+			if _get_selected_character_type(owner) == "soldier":
+				var firearm_selector: Object = _get_module(module_getter, "commando_firearm_selector_renderer")
+				if firearm_selector != null and firearm_selector.has_method("prewarm_assets_step"):
+					if not bool(firearm_selector.prewarm_assets_step()):
+						return false
+				elif firearm_selector != null and firearm_selector.has_method("prewarm_assets"):
+					firearm_selector.prewarm_assets()
+				var actor_renderer: Object = _get_module(module_getter, "stage1_actor_renderer")
+				if actor_renderer != null and actor_renderer.has_method("prewarm_assets"):
+					actor_renderer.prewarm_assets()
+	return true
+
+
+func _run_stage2_runtime_prewarm_step(module_getter: Callable, stage_step: int) -> bool:
+	match stage_step:
+		0:
+			prewarm_stage2_pillar_background(module_getter)
+		1:
+			return prewarm_stage2_playfield_resources_step(module_getter)
+		2:
+			var skill_hud: Object = _get_module(module_getter, "stage2_boss_skill_hud_renderer")
+			if skill_hud != null and skill_hud.has_method("prewarm_assets"):
+				skill_hud.prewarm_assets()
+		3:
+			var monkey_event: Object = _get_module(module_getter, "stage2_monkey_banana_event")
+			if monkey_event != null and monkey_event.has_method("prewarm_assets"):
+				monkey_event.prewarm_assets()
+	return true
+
+
+func _run_stage3_runtime_prewarm_step(module_getter: Callable, stage_step: int) -> bool:
+	match stage_step:
+		0:
+			prewarm_stage3_pillar_background(module_getter)
+		1:
+			return prewarm_stage3_playfield_resources_step(module_getter)
+		2:
+			var skill_hud: Object = _get_module(module_getter, "stage3_boss_skill_hud_renderer")
+			if skill_hud != null and skill_hud.has_method("prewarm_assets"):
+				skill_hud.prewarm_assets()
+	return true
+
+
+func _run_stage4_runtime_prewarm_step(module_getter: Callable, stage_step: int) -> void:
+	match stage_step:
+		0:
+			prewarm_stage4_pillar_background(module_getter)
+		1:
+			prewarm_stage4_playfield_resources(module_getter)
+		_:
+			var module_index := stage_step - 2
+			if module_index < 0 or module_index >= STAGE4_RUNTIME_PREWARM_MODULE_KEYS.size():
+				return
+			var module: Object = _get_module(module_getter, STAGE4_RUNTIME_PREWARM_MODULE_KEYS[module_index])
+			if module != null and module.has_method("prewarm_assets"):
+				module.prewarm_assets()
+
+
+func _run_stage5_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> void:
+	match stage_step:
+		0:
+			prewarm_stage5_pillar_background(module_getter)
+		_:
+			var module_index := stage_step - 1
+			if module_index < 0 or module_index >= STAGE5_RUNTIME_PREWARM_MODULE_KEYS.size():
+				return
+			var module: Object = _get_module(module_getter, STAGE5_RUNTIME_PREWARM_MODULE_KEYS[module_index])
+			if module != null and module.has_method("prewarm_assets"):
+				if STAGE5_RUNTIME_PREWARM_MODULE_KEYS[module_index] == "stage5_hongryun_pillar_scene_drawer":
+					module.prewarm_assets(module_getter, _get_selected_character_type(owner))
+				else:
+					module.prewarm_assets()
+
+
+# Attach a hidden offscreen Node2D once per game session so Vulkan / GPU
+# compiles the textured-quad PSOs that the air-strike, hover sheet, and
+# pillar HUD paths use before the first real-gameplay frame touches them.
+# The prewarmer self-destructs after its staged draw passes, so attaching
+# once per session is enough - the PSO cache survives across stages within
+# the session.
+func _attach_battle_pso_prewarmer(owner: Object) -> void:
+	if battle_pso_prewarmer_attached:
+		return
+	if owner == null or not (owner is Node) or not (owner as Node).is_inside_tree():
+		return
+	battle_pso_prewarmer_attached = true
+	var prewarmer := BattlePsoPrewarmer.new()
+	prewarmer.name = "BattlePsoPrewarmer"
+	(owner as Node).add_child(prewarmer)
+
+
+func prewarm_stage2_runtime_resources(module_getter: Callable) -> void:
+	prewarm_stage2_pillar_background(module_getter)
+	prewarm_stage2_playfield_resources(module_getter)
+	var skill_hud: Object = _get_module(module_getter, "stage2_boss_skill_hud_renderer")
+	if skill_hud != null and skill_hud.has_method("prewarm_assets"):
+		skill_hud.prewarm_assets()
+	var monkey_event: Object = _get_module(module_getter, "stage2_monkey_banana_event")
+	if monkey_event != null and monkey_event.has_method("prewarm_assets"):
+		monkey_event.prewarm_assets()
+
+
+func prewarm_stage2_pillar_background(module_getter: Callable) -> void:
+	if battle_stage2_pillar_background_prewarmed:
+		return
+	battle_stage2_pillar_background_prewarmed = true
+	var stage_background: Object = _get_module(module_getter, "stage2_pillar_background")
+	if stage_background != null and stage_background.has_method("prewarm_assets"):
+		stage_background.prewarm_assets()
+
+
+func prewarm_stage2_playfield_resources(module_getter: Callable) -> void:
+	while not prewarm_stage2_playfield_resources_step(module_getter):
+		pass
+
+
+func prewarm_stage2_playfield_resources_step(module_getter: Callable) -> bool:
+	if battle_stage2_playfield_resources_prewarmed:
+		return true
+	var actor_renderer: Object = _get_module(module_getter, "stage2_actor_renderer")
+	if actor_renderer != null:
+		if actor_renderer.has_method("prewarm_assets_step"):
+			if not bool(actor_renderer.prewarm_assets_step()):
+				return false
+		elif actor_renderer.has_method("prewarm_assets"):
+			actor_renderer.prewarm_assets()
+	battle_stage2_playfield_resources_prewarmed = true
+	return true
+
+
+func prewarm_stage3_runtime_resources(module_getter: Callable) -> void:
+	prewarm_stage3_pillar_background(module_getter)
+	prewarm_stage3_playfield_resources(module_getter)
+	var skill_hud: Object = _get_module(module_getter, "stage3_boss_skill_hud_renderer")
+	if skill_hud != null and skill_hud.has_method("prewarm_assets"):
+		skill_hud.prewarm_assets()
+
+
+func prewarm_stage3_pillar_background(module_getter: Callable) -> void:
+	if battle_stage3_pillar_background_prewarmed:
+		return
+	battle_stage3_pillar_background_prewarmed = true
+	var stage_background: Object = _get_module(module_getter, "stage3_pillar_background")
+	if stage_background != null and stage_background.has_method("prewarm_assets"):
+		stage_background.prewarm_assets()
+
+
+func prewarm_stage3_playfield_resources(module_getter: Callable) -> void:
+	while not prewarm_stage3_playfield_resources_step(module_getter):
+		pass
+
+
+func prewarm_stage3_playfield_resources_step(module_getter: Callable) -> bool:
+	if battle_stage3_playfield_resources_prewarmed:
+		return true
+	var actor_renderer: Object = _get_module(module_getter, "stage3_actor_renderer")
+	if actor_renderer != null:
+		if actor_renderer.has_method("prewarm_assets_step"):
+			if not bool(actor_renderer.prewarm_assets_step()):
+				return false
+		elif actor_renderer.has_method("prewarm_assets"):
+			actor_renderer.prewarm_assets()
+	battle_stage3_playfield_resources_prewarmed = true
+	return true
+
+
+func prewarm_stage4_runtime_resources(module_getter: Callable) -> void:
+	prewarm_stage4_pillar_background(module_getter)
+	prewarm_stage4_playfield_resources(module_getter)
+	for key in [
+		"stage4_ponk_gauge_hud_renderer",
+		"stage4_bird_event",
+		"stage4_brazier_monk_event",
+		"stage4_moon_event",
+		"stage4_ponk_skill_state",
+		"stage4_ponk_boss_skill_hud_renderer",
+	]:
+		var module: Object = _get_module(module_getter, key)
+		if module != null and module.has_method("prewarm_assets"):
+			module.prewarm_assets()
+
+
+func prewarm_stage4_pillar_background(module_getter: Callable) -> void:
+	if battle_stage4_pillar_background_prewarmed:
+		return
+	battle_stage4_pillar_background_prewarmed = true
+	var stage_background: Object = _get_module(module_getter, "stage4_pillar_background")
+	if stage_background != null and stage_background.has_method("prewarm_assets"):
+		stage_background.prewarm_assets()
+
+
+func prewarm_stage5_pillar_background(module_getter: Callable) -> void:
+	if battle_stage5_pillar_background_prewarmed:
+		return
+	battle_stage5_pillar_background_prewarmed = true
+	var stage_background: Object = _get_module(module_getter, "stage5_hongryun_pillar_background")
+	if stage_background != null and stage_background.has_method("prewarm_assets"):
+		stage_background.prewarm_assets()
+
+
+func prewarm_stage4_playfield_resources(module_getter: Callable) -> void:
+	if battle_stage4_playfield_resources_prewarmed:
+		return
+	battle_stage4_playfield_resources_prewarmed = true
+	var actor_renderer: Object = _get_module(module_getter, "stage4_actor_renderer")
+	if actor_renderer != null and actor_renderer.has_method("prewarm_assets"):
+		actor_renderer.prewarm_assets()
+
+
+func prewarm_active_item_runtime_resources(module_getter: Callable) -> void:
+	if battle_active_item_runtime_prewarmed:
+		return
+	battle_active_item_runtime_prewarmed = true
+	var active_item_runtime: Object = _get_module(module_getter, "active_item_runtime")
+	var active_item_hud_visuals: Object = _get_module(module_getter, "active_item_hud_visuals")
+	if active_item_runtime != null and active_item_runtime.has_method("prewarm_assets"):
+		active_item_runtime.prewarm_assets(active_item_hud_visuals)
+	elif active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons"):
+		active_item_hud_visuals.prewarm_catalog_icons()
+
+
+func prewarm_mythic_item_runtime_resources(module_getter: Callable) -> void:
+	if battle_mythic_item_runtime_prewarmed:
+		return
+	battle_mythic_item_runtime_prewarmed = true
+	var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("prewarm_assets"):
+		mythic_item_runtime.prewarm_assets()
+
+
+func mark_mythic_item_runtime_assets_deferred() -> void:
+	battle_mythic_item_runtime_prewarmed = true
+
+
+func prewarm_selected_character_runtime_resources(owner: Object, module_getter: Callable) -> void:
+	while not prewarm_selected_character_runtime_resources_step(owner, module_getter):
+		pass
+
+
+func prewarm_selected_character_runtime_resources_step(owner: Object, module_getter: Callable) -> bool:
+	var character_type := _get_selected_character_type(owner)
+	if battle_selected_character_runtime_prewarmed and battle_selected_character_runtime_prewarmed_for == character_type:
+		return true
+	if selected_character_runtime_prewarm_step_character != character_type:
+		selected_character_runtime_prewarm_step_character = character_type
+		selected_character_runtime_prewarm_step_index = 0
+	var module_keys: Array[String] = _get_selected_character_runtime_module_keys(character_type)
+	if module_keys.is_empty():
+		_mark_selected_character_runtime_prewarmed(character_type)
+		return true
+	if selected_character_runtime_prewarm_step_index >= module_keys.size():
+		_mark_selected_character_runtime_prewarmed(character_type)
+		return true
+	var module: Object = _get_module(module_getter, module_keys[selected_character_runtime_prewarm_step_index])
+	if module != null and module.has_method("prewarm_assets"):
+		module.prewarm_assets()
+	selected_character_runtime_prewarm_step_index += 1
+	if selected_character_runtime_prewarm_step_index >= module_keys.size():
+		_mark_selected_character_runtime_prewarmed(character_type)
+		return true
+	return false
+
+
+func _mark_selected_character_runtime_prewarmed(character_type: String) -> void:
+	battle_selected_character_runtime_prewarmed = true
+	battle_selected_character_runtime_prewarmed_for = character_type
+	selected_character_runtime_prewarm_step_character = ""
+	selected_character_runtime_prewarm_step_index = 0
+
+
+func _get_selected_character_runtime_module_keys(character_type: String) -> Array[String]:
+	match character_type:
+		"smasher":
+			return [
+				"smasher_input_reader",
+				"smasher_power_smash_state",
+				"smasher_drive_input_state",
+				"smasher_combo_state",
+				"smasher_skill_state",
+				"smasher_skill_config",
+				"smasher_drive_bounce_state",
+				"smasher_drive_counter_state",
+				"smasher_drive_activation_controller",
+				"smasher_power_smash_activation_controller",
+				"smasher_power_smash_motion_controller",
+				"smasher_magnum_grip_state",
+				"smasher_recovery_state",
+				"smasher_cleanse_state",
+				"smasher_warp_gate_state",
+				"smasher_wheel_state",
+				"smasher_dash_spirit_state",
+				"smasher_shield_kiting_state",
+				"smasher_dash_state",
+			]
+		"soldier":
+			return [
+				"commando_input_reader",
+				"commando_skill_state",
+				"commando_skill_config",
+				"commando_firearm_runtime",
+				"commando_supply_drop_state",
+				"commando_weapon_controller",
+				"commando_emergency_supply_state",
+			]
+		"viper":
+			return [
+				"viper_input_reader",
+				"viper_skill_runtime",
+				"viper_skill_state",
+				"viper_skill_config",
+				"viper_jetpack_state",
+			]
+	return []
+
+
+func prewarm_ball_update_runtime_resources_step(owner: Object, module_getter: Callable) -> bool:
+	var ball_renderer: Object = _get_module(module_getter, "ball_renderer")
+	if ball_renderer != null and ball_renderer.has_method("prewarm_assets_step"):
+		if not bool(ball_renderer.prewarm_assets_step()):
+			return false
+	elif ball_renderer != null and ball_renderer.has_method("prewarm_assets"):
+		ball_renderer.prewarm_assets()
+	var prewarm_driver: Object = _get_module(module_getter, "battle_scene_update_prewarm_driver")
+	if prewarm_driver == null:
+		return true
+	var registry := ModuleGetterRegistryAdapter.new(module_getter)
+	if prewarm_driver.has_method("prewarm_ball_update_step"):
+		return bool(prewarm_driver.prewarm_ball_update_step(owner, registry))
+	if prewarm_driver.has_method("prewarm_ball_update"):
+		prewarm_driver.prewarm_ball_update(owner, registry)
+	return true
+
+
+func _prewarm_selected_character_runtime_resources_legacy(owner: Object, module_getter: Callable) -> void:
+	if battle_selected_character_runtime_prewarmed:
+		return
+	battle_selected_character_runtime_prewarmed = true
+	var module_keys: Array[String] = []
+	match _get_selected_character_type(owner):
+		"smasher":
+			module_keys = [
+				"smasher_warp_gate_state",
+				"smasher_wheel_state",
+				"smasher_shield_kiting_state",
+			]
+		"soldier":
+			module_keys = [
+				"commando_supply_drop_state",
+			]
+		"viper":
+			module_keys = [
+				"viper_skill_runtime",
+			]
+	for key in module_keys:
+		var module: Object = _get_module(module_getter, key)
+		if module != null and module.has_method("prewarm_assets"):
+			module.prewarm_assets()
+
+
+func prewarm_runtime_perk_overlay_resources_step(module_getter: Callable) -> bool:
+	if battle_runtime_perk_overlay_prewarmed:
+		return true
+	var icon_renderer: Object = _get_module(module_getter, "runtime_perk_icon_renderer")
+	if icon_renderer != null and icon_renderer.has_method("prewarm_assets_step"):
+		if not bool(icon_renderer.prewarm_assets_step()):
+			return false
+	elif icon_renderer != null and icon_renderer.has_method("prewarm_assets"):
+		icon_renderer.prewarm_assets()
+	var overlay_renderer: Object = _get_module(module_getter, "runtime_perk_overlay_renderer")
+	if overlay_renderer != null and overlay_renderer.has_method("prewarm_assets"):
+		overlay_renderer.prewarm_assets()
+	battle_runtime_perk_overlay_prewarmed = true
+	return true
+
+
+func prewarm_runtime_perk_debug_resources(owner: Object, module_getter: Callable) -> void:
+	if battle_runtime_perk_debug_prewarmed:
+		return
+	battle_runtime_perk_debug_prewarmed = true
+	var icon_renderer: Object = _get_module(module_getter, "runtime_perk_icon_renderer")
+	var perk_debug_picker: Object = _get_module(module_getter, "runtime_perk_debug_picker")
+	var catalog: Object = _get_module(module_getter, "runtime_perk_catalog")
+	if perk_debug_picker != null and perk_debug_picker.has_method("prewarm_assets"):
+		perk_debug_picker.prewarm_assets(catalog, owner, icon_renderer)
+	elif icon_renderer != null and icon_renderer.has_method("prewarm_assets"):
+		icon_renderer.prewarm_assets()
+
+
+func mark_runtime_perk_debug_assets_deferred() -> void:
+	battle_runtime_perk_debug_prewarmed = true
+
+
+func prewarm_character_info_resources(owner: Object, module_getter: Callable) -> void:
+	if battle_character_info_prewarmed:
+		return
+	battle_character_info_prewarmed = true
+	var character_info: Object = _get_module(module_getter, "character_info_overlay")
+	if character_info != null and character_info.has_method("prewarm_assets"):
+		character_info.prewarm_assets(owner, null, module_getter, false)
+
+
+func mark_character_info_assets_deferred() -> void:
+	battle_character_info_prewarmed = true
+
+
+func prewarm_stage_clear_result_resources(module_getter: Callable) -> void:
+	while not prewarm_stage_clear_result_resources_step(module_getter):
+		pass
+
+
+func prewarm_stage_clear_result_shell_resources(module_getter: Callable) -> void:
+	if battle_stage_clear_result_shell_prewarmed:
+		return
+	battle_stage_clear_result_shell_prewarmed = true
+	var result_screen: Object = _get_module(module_getter, "stage_clear_result_screen")
+	if result_screen != null and result_screen.has_method("prewarm_scene_shell"):
+		result_screen.prewarm_scene_shell()
+
+
+func mark_stage_clear_result_shell_deferred() -> void:
+	battle_stage_clear_result_shell_prewarmed = true
+
+
+func prewarm_stage_clear_result_resources_step(module_getter: Callable) -> bool:
+	if battle_stage_clear_result_prewarmed:
+		return true
+	var result_screen: Object = _get_module(module_getter, "stage_clear_result_screen")
+	if result_screen != null and result_screen.has_method("prewarm_assets_step"):
+		if not bool(result_screen.prewarm_assets_step()):
+			return false
+	elif result_screen != null and result_screen.has_method("prewarm_assets"):
+		result_screen.prewarm_assets()
+	battle_stage_clear_result_prewarmed = true
+	return true
+
+
+func _sync_owner_battle_texture_cache(owner: Object, textures: Dictionary) -> void:
+	if owner == null:
+		return
+	owner.set("battle_textures", textures)
+	owner.set("smasher_skill_icon_textures", _get_dictionary(textures.get("smasher_skill_icon_textures", {})))
+	owner.set("viper_skill_icon_textures", _get_dictionary(textures.get("viper_skill_icon_textures", {})))
+	owner.set("commando_skill_icon_textures", _get_dictionary(textures.get("commando_skill_icon_textures", {})))
+
+
+func _mark_battle_texture_resources_prewarmed() -> void:
+	battle_core_resources_prewarmed = true
+	battle_player_resources_prewarmed = true
+	battle_boss_resources_prewarmed = true
+	battle_smasher_skill_icons_prewarmed = true
+	battle_viper_skill_icons_prewarmed = true
+	battle_commando_skill_icons_prewarmed = true
+	battle_texture_resources_prewarmed = true
+	battle_resource_cache_finalized = true
+
+
+func _get_dictionary(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
+
+
+func _get_module(module_getter: Callable, key: String) -> Object:
+	if not module_getter.is_valid():
+		return null
+	var module: Variant = module_getter.call(key)
+	if typeof(module) == TYPE_OBJECT and is_instance_valid(module):
+		return module as Object
+	return null
+
+
+func _get_current_stage(owner: Object) -> int:
+	if owner == null:
+		return 1
+	return int(owner.get("current_stage"))
+
+
+func _get_selected_character_type(owner: Object) -> String:
+	if owner == null:
+		return "smasher"
+	var value: String = str(owner.get("selected_character_type")).strip_edges().to_lower()
+	if value == "soldier" or value == "commando":
+		return "soldier"
+	if value == "viper":
+		return "viper"
+	return "smasher"
+
+
+func _build_resource_context(owner: Object) -> Dictionary:
+	return {
+		"selected_character_type": _get_selected_character_type(owner),
+		"current_stage": _get_current_stage(owner),
+		"include_result_sheets": false,
+		"include_all_characters": false,
+		"include_all_stages": false,
+	}

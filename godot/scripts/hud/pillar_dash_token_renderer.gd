@@ -19,7 +19,8 @@ func draw_tokens(
 	scale_factor: float,
 	divider_anim_progress: float,
 	start_angle_offset: float,
-	sector_angle: float
+	sector_angle: float,
+	context: Dictionary
 ) -> void:
 	fill_renderer.draw_tokens(
 		canvas,
@@ -33,9 +34,10 @@ func draw_tokens(
 		scale_factor,
 		divider_anim_progress,
 		start_angle_offset,
-		sector_angle
+		sector_angle,
+		context
 	)
 
 
-func draw_flash(canvas: CanvasItem, center: Vector2, radius: float, flash_progress: float, scale_factor: float) -> void:
-	flash_renderer.draw_flash(canvas, center, radius, flash_progress, scale_factor)
+func draw_flash(canvas: CanvasItem, center: Vector2, radius: float, flash_progress: float, scale_factor: float, context: Dictionary = {}) -> void:
+	flash_renderer.draw_flash(canvas, center, radius, flash_progress, scale_factor, float(context.get("hud_lod_scale", 1.0)))

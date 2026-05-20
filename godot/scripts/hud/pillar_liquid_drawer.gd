@@ -2,6 +2,14 @@ extends RefCounted
 
 const PillarShapeHelper := preload("res://scripts/hud/pillar_shape_helper.gd")
 
+const LIQUID_COLUMN_STEP := 4
+const LIQUID_BAND_STEP := 12
+const LIQUID_MAX_BUBBLES := 2
+const LIQUID_WAVE_GLOW_WIDTH := 1.4
+const DASH_SECTOR_SEGMENTS := 14
+const DASH_INNER_SECTOR_SEGMENTS := 9
+const DASH_PULSE_ARC_POINTS := 9
+
 var shape_helper: Object = PillarShapeHelper.new()
 
 
@@ -13,7 +21,8 @@ func draw_pillar_liquid_fill(
 	t: float,
 	top_color: Color,
 	bottom_color: Color,
-	wave_glow: Color
+	wave_glow: Color,
+	quality_scale: float = 1.0
 ) -> void:
 	if canvas == null:
 		return
@@ -28,7 +37,12 @@ func draw_pillar_liquid_fill(
 	var wave_offset: float = sin(t * 2.3) * wave_amp * 0.5
 	var prev_wave_point: Vector2 = Vector2.ZERO
 	var has_prev: bool = false
-	var step: int = 2
+	var lod_active: bool = quality_scale < 0.85
+	# Non-LOD uses the original 2px column / 4px band liquid sampling so the wave
+	# still feels lively. LOD widens the step for Viper-airborne / FPS-cap frames.
+	var step: int = 4 if lod_active else 2
+	var band_step: int = 12 if lod_active else 4
+	var max_bubbles: int = 2 if lod_active else LIQUID_MAX_BUBBLES
 
 	for ix in range(int(-inner_radius), int(inner_radius) + 1, step):
 		var local_x: float = float(ix)
@@ -46,14 +60,20 @@ func draw_pillar_liquid_fill(
 		canvas.draw_line(Vector2(center.x + local_x, line_top), Vector2(center.x + local_x, line_bottom), fill_color, float(step))
 		var wave_point := Vector2(center.x + local_x, line_top)
 		if has_prev:
-			canvas.draw_line(prev_wave_point, wave_point, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.50), 2.0)
+			canvas.draw_line(
+				prev_wave_point,
+				wave_point,
+				Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.50),
+				LIQUID_WAVE_GLOW_WIDTH,
+				true
+			)
 		prev_wave_point = wave_point
 		has_prev = true
 
 	for band_idx in range(2):
 		var band_ratio: float = 0.28 + float(band_idx) * 0.28
 		var band_center_y: float = center.y + inner_radius - fill_height * band_ratio + sin(t * (2.6 + float(band_idx) * 0.8) + float(band_idx)) * (wave_amp * 1.0)
-		for ix in range(int(-inner_radius) + 4, int(inner_radius) - 3, 4):
+		for ix in range(int(-inner_radius) + 4, int(inner_radius) - 3, band_step):
 			var local_x: float = float(ix)
 			var y_limit: float = sqrt(max(0.0, inner_radius * inner_radius - local_x * local_x))
 			var band_dx_ratio: float = abs(local_x) / max(1.0, inner_radius)
@@ -65,10 +85,11 @@ func draw_pillar_liquid_fill(
 					Vector2(center.x + local_x - band_width * 0.5, line_y),
 					Vector2(center.x + local_x + band_width * 0.5, line_y),
 					Color(wave_glow.r, wave_glow.g, wave_glow.b, band_alpha),
-					1.5
+					1.5,
+					true
 				)
 
-	var bubble_count: int = mini(5, int(round(3.0 + clamped_ratio * 3.0)))
+	var bubble_count: int = mini(max_bubbles, int(round(2.0 + clamped_ratio * 3.0)))
 	for i in range(bubble_count):
 		var phase: float = t * 1.4 + float(i) * 1.26
 		var bubble_x: float = center.x + sin(phase * 0.6 + float(i) * 2.1) * (inner_radius * (0.25 + float(i % 3) * 0.10))
@@ -91,13 +112,49 @@ func draw_dash_sector_liquid(
 	end_rad: float,
 	progress: float,
 	t: float,
-	_scale_factor: float = 1.0
+	_scale_factor: float = 1.0,
+	quality_scale: float = 1.0
 ) -> void:
 	if canvas == null:
 		return
 	var charge_radius: float = inner_radius * progress
-	canvas.draw_colored_polygon(shape_helper.build_sector_points(center, charge_radius, start_rad, end_rad, 20), Color(0.76, 0.26, 0.22, 0.92))
+	var lod_active: bool = quality_scale < 0.85
+	var sector_segments: int = 12 if lod_active else DASH_SECTOR_SEGMENTS
+	var inner_segments: int = 7 if lod_active else DASH_INNER_SECTOR_SEGMENTS
+	var pulse_arc_points: int = 8 if lod_active else DASH_PULSE_ARC_POINTS
+	canvas.draw_colored_polygon(shape_helper.build_sector_points(center, charge_radius, start_rad, end_rad, sector_segments), Color(0.76, 0.26, 0.22, 0.92))
 	if progress > 0.15:
-		canvas.draw_colored_polygon(shape_helper.build_sector_points(center, charge_radius * 0.72, start_rad, end_rad, 14), Color(1.0, 0.58, 0.44, 0.16 + 0.12 * progress))
+		canvas.draw_colored_polygon(shape_helper.build_sector_points(center, charge_radius * 0.72, start_rad, end_rad, inner_segments), Color(1.0, 0.58, 0.44, 0.16 + 0.12 * progress))
 	var pulse_r: float = charge_radius * (0.85 + 0.15 * sin(t * 5.0))
-	canvas.draw_arc(center, pulse_r, start_rad, end_rad, 12, Color(1.0, 0.72, 0.56, 0.28 + 0.18 * sin(t * 4.0)), 2.0)
+	canvas.draw_arc(center, pulse_r, start_rad, end_rad, pulse_arc_points, Color(1.0, 0.72, 0.56, 0.28 + 0.18 * sin(t * 4.0)), 2.0)
+
+
+func _sample_smoothed_liquid_wave_top(
+	local_x: float,
+	inner_radius: float,
+	fill_top: float,
+	wave_amp: float,
+	wave_offset: float,
+	t: float,
+	sample_span: float
+) -> float:
+	var center_y: float = _sample_liquid_wave_top(local_x, inner_radius, fill_top, wave_amp, wave_offset, t)
+	var left_y: float = _sample_liquid_wave_top(local_x - sample_span, inner_radius, fill_top, wave_amp, wave_offset, t)
+	var right_y: float = _sample_liquid_wave_top(local_x + sample_span, inner_radius, fill_top, wave_amp, wave_offset, t)
+	return (left_y + center_y * 2.0 + right_y) * 0.25
+
+
+func _sample_liquid_wave_top(
+	local_x: float,
+	inner_radius: float,
+	fill_top: float,
+	wave_amp: float,
+	wave_offset: float,
+	t: float
+) -> float:
+	var edge_ratio: float = clamp(abs(local_x) / max(1.0, inner_radius), 0.0, 1.0)
+	var edge_fade: float = clamp(1.0 - pow(edge_ratio, 2.2), 0.0, 1.0)
+	var primary_wave: float = sin(local_x * 0.055 + t * 2.55) * wave_amp
+	var secondary_wave: float = sin(local_x * 0.030 - t * 1.85 + 0.7) * wave_amp * 0.34
+	var soft_ripple: float = sin(local_x * 0.095 + t * 2.2 + 1.3) * wave_amp * 0.08
+	return fill_top + (primary_wave + secondary_wave + soft_ripple + wave_offset) * edge_fade

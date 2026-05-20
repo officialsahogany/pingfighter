@@ -73,6 +73,10 @@ const MODULES := {
 		"path": "res://scripts/core/battle_perf_logger.gd",
 		"label": "battle performance logger",
 	},
+	"battle_boot_resource_prewarm_controller": {
+		"path": "res://scripts/core/battle_boot_resource_prewarm_controller.gd",
+		"label": "battle boot resource prewarm controller",
+	},
 	"battle_scene_update_driver": {
 		"path": "res://scripts/core/battle_scene_update_driver.gd",
 		"label": "battle scene update driver",

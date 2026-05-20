@@ -1,0 +1,487 @@
+extends SceneTree
+
+const BattleBootResourcePrewarmController := preload("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
+
+
+class FakeOwner:
+	var current_stage := 1
+	var selected_character_type := "smasher"
+	var battle_textures: Dictionary = {}
+	var smasher_skill_icon_textures: Dictionary = {}
+	var viper_skill_icon_textures: Dictionary = {}
+	var commando_skill_icon_textures: Dictionary = {}
+
+
+class FakePrewarmModule:
+	var prewarm_count := 0
+
+	func prewarm_assets() -> void:
+		prewarm_count += 1
+
+
+class FakeActiveItemRuntime:
+	var prewarm_count := 0
+	var last_visuals: Object
+
+	func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
+		prewarm_count += 1
+		last_visuals = active_item_hud_visuals
+
+
+class FakeMythicItemRuntime:
+	var prewarm_count := 0
+
+	func prewarm_assets() -> void:
+		prewarm_count += 1
+
+
+class FakeStagedPrewarmModule:
+	var step_calls := 0
+	var monolithic_calls := 0
+	var complete_after := 3
+
+	func prewarm_assets_step() -> bool:
+		step_calls += 1
+		return step_calls >= complete_after
+
+	func prewarm_assets() -> void:
+		monolithic_calls += 1
+
+
+class FakeStagedResultScreen:
+	var step_calls := 0
+	var prewarm_count := 0
+	var shell_prewarm_count := 0
+	var complete_after := 4
+
+	func prewarm_scene_shell() -> bool:
+		shell_prewarm_count += 1
+		return true
+
+	func prewarm_assets_step() -> bool:
+		step_calls += 1
+		if step_calls >= complete_after:
+			prewarm_count += 1
+			return true
+		return false
+
+	func prewarm_assets() -> void:
+		prewarm_count += 1
+
+
+class FakeBattleResources:
+	var step_calls := 0
+	var load_all_calls := 0
+	var complete_after := 3
+	var last_context: Dictionary = {}
+	var cache: Dictionary = {
+		"loaded_stage": 1,
+		"smasher_skill_icon_textures": {"wheel": RefCounted.new()},
+		"viper_skill_icon_textures": {},
+		"commando_skill_icon_textures": {},
+	}
+
+	func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
+		step_calls += 1
+		last_context = context.duplicate(true)
+		cache["loaded_stage"] = int(context.get("current_stage", 1))
+		return step_calls >= complete_after
+
+	func get_resource_cache() -> Dictionary:
+		return cache
+
+	func load_all(context: Dictionary = {}) -> Dictionary:
+		load_all_calls += 1
+		last_context = context.duplicate(true)
+		cache["loaded_stage"] = int(context.get("current_stage", 1))
+		return cache
+
+
+class FakePillarSceneModule:
+	var prewarm_count := 0
+	var last_selected_character_type := ""
+	var last_module_getter_valid := false
+
+	func prewarm_assets(module_getter: Callable = Callable(), selected_character_type: String = "smasher") -> void:
+		prewarm_count += 1
+		last_module_getter_valid = module_getter.is_valid()
+		last_selected_character_type = selected_character_type
+
+
+class FakePerkDebugPicker:
+	var prewarm_count := 0
+	var last_catalog: Object
+	var last_owner: Object
+	var last_icon_renderer: Object
+
+	func prewarm_assets(catalog: Object = null, owner: Object = null, icon_renderer: Object = null) -> void:
+		prewarm_count += 1
+		last_catalog = catalog
+		last_owner = owner
+		last_icon_renderer = icon_renderer
+		if icon_renderer != null and icon_renderer.has_method("prewarm_assets"):
+			icon_renderer.prewarm_assets()
+
+
+class FakeCharacterInfo:
+	var prewarm_count := 0
+	var last_owner: Object
+	var last_registry: Object
+	var last_module_getter_valid := false
+	var last_include_shared_icon_assets := true
+
+	func prewarm_assets(
+		owner: Object = null,
+		registry: Object = null,
+		module_getter: Callable = Callable(),
+		include_shared_icon_assets: bool = true
+	) -> void:
+		prewarm_count += 1
+		last_owner = owner
+		last_registry = registry
+		last_module_getter_valid = module_getter.is_valid()
+		last_include_shared_icon_assets = include_shared_icon_assets
+
+
+class FakeRegistry:
+	var battle_resources := FakeBattleResources.new()
+	var weather := FakePrewarmModule.new()
+	var active_item_runtime := FakeActiveItemRuntime.new()
+	var mythic_item_runtime := FakeMythicItemRuntime.new()
+	var active_item_hud_visuals := RefCounted.new()
+	var perk_icon_renderer := FakePrewarmModule.new()
+	var perk_overlay_renderer := FakePrewarmModule.new()
+	var perk_debug_picker := FakePerkDebugPicker.new()
+	var perk_catalog := RefCounted.new()
+	var character_info := FakeCharacterInfo.new()
+	var result_screen := FakeStagedResultScreen.new()
+	var stage1_bg := FakePrewarmModule.new()
+	var stage1_pillar_scene := FakePillarSceneModule.new()
+	var stage1_balloon_event := FakeStagedPrewarmModule.new()
+	var stage1_skill_hud := FakeStagedPrewarmModule.new()
+	var stage1_actor_renderer := FakePrewarmModule.new()
+	var commando_firearm_selector := FakeStagedPrewarmModule.new()
+	var smasher_warp_gate_state := FakePrewarmModule.new()
+	var smasher_wheel_state := FakePrewarmModule.new()
+	var smasher_shield_kiting_state := FakePrewarmModule.new()
+	var stage2_bg := FakePrewarmModule.new()
+	var stage2_actor_renderer := FakeStagedPrewarmModule.new()
+	var stage2_skill_hud := FakePrewarmModule.new()
+	var stage2_monkey_event := FakePrewarmModule.new()
+	var stage3_bg := FakePrewarmModule.new()
+	var stage3_actor_renderer := FakeStagedPrewarmModule.new()
+	var stage3_skill_hud := FakePrewarmModule.new()
+	var stage5_bg := FakePrewarmModule.new()
+	var stage5_actor_renderer := FakePrewarmModule.new()
+	var stage5_pillar_scene := FakePillarSceneModule.new()
+	var stage5_skill_hud := FakePrewarmModule.new()
+
+	func get_instance(key: String) -> Object:
+		match key:
+			"battle_resources":
+				return battle_resources
+			"weather_event_renderer":
+				return weather
+			"active_item_runtime":
+				return active_item_runtime
+			"mythic_item_runtime":
+				return mythic_item_runtime
+			"active_item_hud_visuals":
+				return active_item_hud_visuals
+			"runtime_perk_icon_renderer":
+				return perk_icon_renderer
+			"runtime_perk_overlay_renderer":
+				return perk_overlay_renderer
+			"runtime_perk_debug_picker":
+				return perk_debug_picker
+			"runtime_perk_catalog":
+				return perk_catalog
+			"character_info_overlay":
+				return character_info
+			"stage_clear_result_screen":
+				return result_screen
+			"stage1_pillar_background":
+				return stage1_bg
+			"stage1_pillar_scene_drawer":
+				return stage1_pillar_scene
+			"stage1_balloon_event":
+				return stage1_balloon_event
+			"stage1_dalji_boss_skill_hud_renderer":
+				return stage1_skill_hud
+			"stage1_actor_renderer":
+				return stage1_actor_renderer
+			"commando_firearm_selector_renderer":
+				return commando_firearm_selector
+			"stage2_pillar_background":
+				return stage2_bg
+			"stage2_actor_renderer":
+				return stage2_actor_renderer
+			"stage2_boss_skill_hud_renderer":
+				return stage2_skill_hud
+			"stage2_monkey_banana_event":
+				return stage2_monkey_event
+			"stage3_pillar_background":
+				return stage3_bg
+			"stage3_actor_renderer":
+				return stage3_actor_renderer
+			"stage3_boss_skill_hud_renderer":
+				return stage3_skill_hud
+			"stage5_hongryun_pillar_background":
+				return stage5_bg
+			"stage5_hongryun_actor_renderer":
+				return stage5_actor_renderer
+			"stage5_hongryun_pillar_scene_drawer":
+				return stage5_pillar_scene
+			"stage5_hongryun_boss_skill_hud_renderer":
+				return stage5_skill_hud
+			"smasher_warp_gate_state":
+				return smasher_warp_gate_state
+			"smasher_wheel_state":
+				return smasher_wheel_state
+			"smasher_shield_kiting_state":
+				return smasher_shield_kiting_state
+		return null
+
+
+var _failures: Array[String] = []
+var _registry := FakeRegistry.new()
+
+
+func _init() -> void:
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+
+	controller.prewarm_stage_runtime_resources(owner, Callable(self, "_get_module"))
+	controller.prewarm_stage_runtime_resources(owner, Callable(self, "_get_module"))
+
+	_expect(_registry.active_item_runtime.prewarm_count == 1, "stage runtime prewarm should warm active item assets once")
+	_expect(_registry.active_item_runtime.last_visuals == _registry.active_item_hud_visuals, "active item prewarm should receive HUD visuals")
+	_expect(_registry.mythic_item_runtime.prewarm_count == 0, "stage runtime prewarm should defer mythic debug assets until needed")
+	_expect(_registry.perk_icon_renderer.prewarm_count == 1, "stage runtime prewarm should warm runtime perk choice icons before the first card draw")
+	_expect(_registry.perk_overlay_renderer.prewarm_count == 1, "stage runtime prewarm should warm runtime perk overlay text caches before the first overlay draw")
+	_expect(_registry.perk_debug_picker.prewarm_count == 0, "stage runtime prewarm should defer perk debug picker assets until opened")
+	_expect(_registry.character_info.prewarm_count == 0, "stage runtime prewarm should defer character info assets until opened")
+	_expect(_registry.result_screen.shell_prewarm_count == 0, "stage runtime prewarm should defer the stage-clear result shell until result time")
+	_expect(_registry.result_screen.prewarm_count == 0, "stage runtime prewarm should not load full stage-clear result assets before battle")
+	_expect(_registry.result_screen.step_calls == 0, "stage runtime prewarm should not touch the heavy result staged path before battle")
+	_expect(_registry.smasher_warp_gate_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher warp gate assets once")
+	_expect(_registry.smasher_wheel_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher wheel assets once")
+	_expect(_registry.smasher_shield_kiting_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher shield assets once")
+
+	_verify_full_stage_clear_result_prewarm_remains_staged()
+	_verify_stage1_staged_visual_prewarm()
+	_verify_stage1_soldier_commando_prewarm()
+	_verify_stage2_staged_playfield_prewarm()
+	_verify_stage3_staged_playfield_prewarm()
+	_verify_stage5_visual_shell_prewarm()
+	_verify_battle_texture_prewarm_is_staged()
+	_verify_boot_warmup_uses_staged_runtime_prewarm()
+
+	if _failures.is_empty():
+		print("battle_boot_resource_prewarm_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _get_module(key: String) -> Object:
+	return _registry.get_instance(key)
+
+
+func _verify_full_stage_clear_result_prewarm_remains_staged() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	_expect(
+		not controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module")),
+		"full result prewarm should hold until the staged result screen reports completion"
+	)
+	_expect(_registry.result_screen.step_calls == 1, "full result prewarm should advance one staged result chunk")
+	_expect(
+		not controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module")),
+		"full result prewarm should keep staging result assets"
+	)
+	_expect(
+		not controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module")),
+		"full result prewarm should still hold before the final chunk"
+	)
+	_expect(
+		controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module")),
+		"full result prewarm should complete when the staged result path finishes"
+	)
+	_expect(_registry.result_screen.prewarm_count == 1, "full result prewarm should finish the heavy result asset path once")
+	_expect(_registry.result_screen.step_calls == 4, "full result prewarm should use every staged result chunk")
+	_expect(_registry.result_screen.shell_prewarm_count == 0, "full result prewarm should not be replaced by shell prewarm")
+
+
+func _verify_stage1_staged_visual_prewarm() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 1
+	var guard := 0
+	while _registry.stage1_pillar_scene.prewarm_count == 0 and guard < 80:
+		_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 prewarm should not finish before visual chunks")
+		guard += 1
+	_expect(guard < 80, "stage 1 prewarm should reach the pillar scene chunk")
+	_expect(_registry.stage1_bg.prewarm_count == 1, "stage 1 runtime prewarm should warm pillar background")
+	_expect(_registry.stage1_pillar_scene.prewarm_count == 1, "stage 1 runtime prewarm should warm pillar scene")
+	_expect(_registry.stage1_balloon_event.step_calls == 0, "stage 1 balloon event should wait for its own staged chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 balloon prewarm should hold on first chunk")
+	_expect(_registry.stage1_balloon_event.step_calls == 1, "stage 1 balloon prewarm should advance one texture chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 balloon prewarm should hold on second chunk")
+	_expect(_registry.stage1_balloon_event.step_calls == 2, "stage 1 balloon prewarm should continue staging")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 balloon prewarm should finish its chunk before skill HUD")
+	_expect(_registry.stage1_balloon_event.step_calls == 3, "stage 1 balloon prewarm should finish through the step API")
+	_expect(_registry.stage1_balloon_event.monolithic_calls == 0, "stage 1 balloon prewarm should not use the monolithic asset path when staged")
+	_expect(_registry.stage1_skill_hud.step_calls == 0, "stage 1 skill HUD should wait until balloon prewarm completes")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 skill HUD prewarm should hold on first chunk")
+	_expect(_registry.stage1_skill_hud.step_calls == 1, "stage 1 skill HUD should advance one card chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 skill HUD prewarm should continue staging")
+	_expect(_registry.stage1_skill_hud.step_calls == 2, "stage 1 skill HUD should not skip card chunks")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 skill HUD prewarm should finish its chunk before firearm/PSO")
+	_expect(_registry.stage1_skill_hud.step_calls == 3, "stage 1 skill HUD should finish through the step API")
+	_expect(_registry.stage1_skill_hud.monolithic_calls == 0, "stage 1 skill HUD should not use the monolithic asset path when staged")
+
+
+func _verify_stage1_soldier_commando_prewarm() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 1
+	owner.selected_character_type = "soldier"
+	controller.prewarm_stage_runtime_resources(owner, Callable(self, "_get_module"))
+	_expect(_registry.commando_firearm_selector.step_calls == 3, "soldier Stage 1 prewarm should stage the Commando selector")
+	_expect(_registry.commando_firearm_selector.monolithic_calls == 0, "soldier Stage 1 prewarm should avoid monolithic Commando selector prewarm")
+	_expect(_registry.stage1_actor_renderer.prewarm_count == 1, "soldier Stage 1 prewarm should warm the Commando actor renderer assets")
+
+
+func _verify_stage2_staged_playfield_prewarm() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 2
+	var guard := 0
+	while _registry.stage2_bg.prewarm_count == 0 and guard < 80:
+		_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 2 prewarm should not finish before playfield work")
+		guard += 1
+	_expect(guard < 80, "stage 2 prewarm should reach the pillar background chunk")
+	_expect(_registry.stage2_bg.prewarm_count == 1, "stage 2 runtime prewarm should warm pillar background before playfield")
+	_expect(_registry.stage2_actor_renderer.step_calls == 0, "stage 2 playfield should wait for its own staged chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "incomplete stage 2 playfield prewarm should hold the same chunk")
+	_expect(_registry.stage2_actor_renderer.step_calls == 1, "stage 2 playfield prewarm should advance by one actor chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "second incomplete stage 2 playfield prewarm should still hold")
+	_expect(_registry.stage2_actor_renderer.step_calls == 2, "stage 2 playfield prewarm should not skip actor chunks")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "completed stage 2 playfield should move to the next chunk on the following frame")
+	_expect(_registry.stage2_actor_renderer.step_calls == 3, "stage 2 playfield prewarm should complete through the step API")
+	_expect(_registry.stage2_skill_hud.prewarm_count == 0, "stage 2 skill HUD should wait until playfield prewarm is complete")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 2 skill HUD chunk should run after playfield completion")
+	_expect(_registry.stage2_skill_hud.prewarm_count == 1, "stage 2 skill HUD should prewarm once")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 2 monkey event chunk should run after skill HUD")
+	_expect(_registry.stage2_monkey_event.prewarm_count == 1, "stage 2 monkey event should prewarm once")
+	_expect(controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 2 prewarm should finish after the PSO prewarmer chunk")
+
+
+func _verify_stage3_staged_playfield_prewarm() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 3
+	var guard := 0
+	while _registry.stage3_bg.prewarm_count == 0 and guard < 80:
+		_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 3 prewarm should not finish before playfield work")
+		guard += 1
+	_expect(guard < 80, "stage 3 prewarm should reach the pillar background chunk")
+	_expect(_registry.stage3_bg.prewarm_count == 1, "stage 3 runtime prewarm should warm pillar background before playfield")
+	_expect(_registry.stage3_actor_renderer.step_calls == 0, "stage 3 playfield should wait for its own staged chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "incomplete stage 3 playfield prewarm should hold the same chunk")
+	_expect(_registry.stage3_actor_renderer.step_calls == 1, "stage 3 playfield prewarm should advance by one actor chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "second incomplete stage 3 playfield prewarm should still hold")
+	_expect(_registry.stage3_actor_renderer.step_calls == 2, "stage 3 playfield prewarm should not skip actor chunks")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "completed stage 3 playfield should move to the next chunk on the following frame")
+	_expect(_registry.stage3_actor_renderer.step_calls == 3, "stage 3 playfield prewarm should complete through the step API")
+	_expect(_registry.stage3_skill_hud.prewarm_count == 0, "stage 3 skill HUD should wait until playfield prewarm is complete")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 3 skill HUD chunk should run after playfield completion")
+	_expect(_registry.stage3_skill_hud.prewarm_count == 1, "stage 3 skill HUD should prewarm once")
+	_expect(controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 3 prewarm should finish after the PSO prewarmer chunk")
+
+
+func _verify_stage5_visual_shell_prewarm() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 5
+	owner.selected_character_type = "soldier"
+	controller.prewarm_stage_runtime_resources(owner, Callable(self, "_get_module"))
+	_expect(_registry.stage5_bg.prewarm_count == 1, "stage 5 runtime prewarm should warm Hongryun background")
+	_expect(_registry.stage5_actor_renderer.prewarm_count == 1, "stage 5 runtime prewarm should warm Hongryun actor renderer")
+	_expect(_registry.stage5_pillar_scene.prewarm_count == 1, "stage 5 runtime prewarm should warm Hongryun pillar scene")
+	_expect(_registry.stage5_pillar_scene.last_module_getter_valid, "stage 5 pillar scene prewarm should receive module getter")
+	_expect(_registry.stage5_pillar_scene.last_selected_character_type == "soldier", "stage 5 pillar scene prewarm should receive selected character")
+	_expect(_registry.stage5_skill_hud.prewarm_count == 1, "stage 5 runtime prewarm should warm Hongryun skill HUD")
+
+
+func _verify_battle_texture_prewarm_is_staged() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.current_stage = 1
+	owner.selected_character_type = "smasher"
+
+	_expect(
+		not controller.prewarm_battle_texture_resources_step(owner, Callable(self, "_get_module")),
+		"battle texture prewarm should hold the boot step until the transition texture chunk completes"
+	)
+	_expect(_registry.battle_resources.step_calls == 1, "battle texture prewarm should advance one resource chunk")
+	_expect(not controller.battle_texture_resources_prewarmed, "battle texture prewarm should not mark complete mid-stream")
+	_expect(owner.battle_textures.is_empty(), "owner battle texture cache should wait until resource prewarm completes")
+
+	_expect(
+		not controller.prewarm_battle_texture_resources_step(owner, Callable(self, "_get_module")),
+		"battle texture prewarm should continue staging on the next frame"
+	)
+	_expect(
+		controller.prewarm_battle_texture_resources_step(owner, Callable(self, "_get_module")),
+		"battle texture prewarm should finish when the transition texture API reports complete"
+	)
+	_expect(controller.battle_texture_resources_prewarmed, "battle texture resources should be marked complete after staged load")
+	_expect(controller.battle_resource_cache_finalized, "staged texture prewarm should satisfy the final cache step")
+	_expect(controller.battle_core_resources_prewarmed, "staged texture prewarm should satisfy the old core flag")
+	_expect(controller.battle_player_resources_prewarmed, "staged texture prewarm should satisfy the old player flag")
+	_expect(controller.battle_boss_resources_prewarmed, "staged texture prewarm should satisfy the old boss flag")
+	_expect(_registry.battle_resources.load_all_calls == 0, "staged texture prewarm should use the cached transition path without load_all")
+	_expect(
+		not bool(_registry.battle_resources.last_context.get("include_result_sheets", true)),
+		"first battle texture prewarm should not load result sheets"
+	)
+	_expect(int(owner.battle_textures.get("loaded_stage", 0)) == 1, "owner should receive the battle texture cache")
+	_expect(owner.smasher_skill_icon_textures.has("wheel"), "owner should receive the selected character skill icon cache")
+
+	_expect(
+		controller.prewarm_battle_texture_resources_step(owner, Callable(self, "_get_module")),
+		"completed battle texture prewarm should stay complete"
+	)
+	_expect(_registry.battle_resources.step_calls == 3, "completed battle texture prewarm should not re-run texture chunks")
+
+
+func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_controller.gd")
+	_expect(
+		source.find("\"prewarm_battle_texture_resources_step\"") >= 0,
+		"boot warmup should advance battle texture resource prewarm one chunk per frame"
+	)
+	_expect(
+		source.find("\"prewarm_stage_runtime_resources_step\"") >= 0,
+		"boot warmup should advance stage runtime resource prewarm one chunk per frame"
+	)
+	_expect(
+		source.find("\"prewarm_stage_runtime_resources\")") < 0,
+		"boot warmup should not run the monolithic stage runtime prewarm loop in one process frame"
+	)
+
+
+func _expect(condition: bool, message: String) -> void:
+	if condition:
+		return
+	_failures.append(message)
