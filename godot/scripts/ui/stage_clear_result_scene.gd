@@ -440,7 +440,7 @@ func get_interaction_status() -> Dictionary:
 		"dalji_base_timer": _dalji_base_timer,
 		"dalji_reaction_alpha": _get_dalji_reaction_alpha(),
 		"dalji_dialogue_timer": _dalji_dialogue_timer,
-		"dalji_click_rect": _get_dalji_draw_rect(view_size, scale),
+		"dalji_click_rect": StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale),
 		"dalji_dialogue": DALJI_CLICK_DIALOGUE,
 		"dalji_click_voice_path": DALJI_CLICK_VOICE_PATH,
 		"dalji_click_voice_loaded": _dalji_click_voice_stream != null,
@@ -461,8 +461,12 @@ func get_interaction_status() -> Dictionary:
 		"player_victory_click_total_duration": PLAYER_VICTORY_CLICK_TOTAL_DURATION,
 		"player_victory_click_transition_base_frame": _player_victory_click_transition_base_frame,
 		"player_victory_reaction_alpha": _get_player_victory_reaction_alpha(),
-		"player_victory_draw_rect": _get_player_victory_actor_rect(view_size, scale),
-		"player_victory_click_rect": _get_player_victory_click_rect(view_size, scale),
+		"player_victory_draw_rect": StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, scale),
+		"player_victory_click_rect": StageClearResultLayoutHelper.get_player_victory_click_rect(
+			view_size,
+			scale,
+			PLAYER_VICTORY_CELL_SIZE
+		),
 		"box_count": _boxes.size(),
 		"opened_count": opened_count,
 		"opening_count": opening_count,
@@ -592,7 +596,7 @@ func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
 	if _dalji_defeat_sheet == null:
 		return
 	@warning_ignore("shadowed_variable_base_class")
-	var draw_rect: Rect2 = _get_dalji_draw_rect(view_size, scale)
+	var draw_rect: Rect2 = StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
 	_dalji_click_rect = draw_rect
 	if not _is_dalji_click_reaction_active() or _dalji_click_reaction_sheet == null:
 		_draw_dalji_sheet_frame(_dalji_defeat_sheet, _get_dalji_base_frame(), draw_rect, 0.98)
@@ -611,7 +615,7 @@ func _draw_dalji_click_dialogue(view_size: Vector2, scale: float, font: Font) ->
 	if _dalji_dialogue_timer <= 0.0:
 		return
 	var alpha: float = clamp(_dalji_dialogue_timer / DALJI_CLICK_DIALOGUE_FADE_DURATION, 0.0, 1.0)
-	var boss_rect: Rect2 = _get_dalji_draw_rect(view_size, scale)
+	var boss_rect: Rect2 = StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
 	var bubble_size := Vector2(210.0, 58.0) * scale
 	var bubble_position := Vector2(
 		max(18.0 * scale, boss_rect.position.x + 132.0 * scale),
@@ -632,13 +636,13 @@ func _draw_dalji_click_dialogue(view_size: Vector2, scale: float, font: Font) ->
 func _draw_player_victory(view_size: Vector2, scale: float, font: Font) -> void:
 	if _draw_player_victory_live2d(view_size, scale):
 		return
-	var panel: Rect2 = _get_player_victory_panel_rect(view_size, scale)
+	var panel: Rect2 = StageClearResultLayoutHelper.get_player_victory_panel_rect(view_size, scale)
 	_draw_panel(panel, Color(0.03, 0.75, 0.78, 0.74), Color(0.76, 1.0, 1.0, 0.92), 2.0 * scale, 22.0 * scale)
 
 	if _player_victory_sheet != null:
 		var frame: int = int(floor(timer / PLAYER_VICTORY_FRAME_INTERVAL)) % PLAYER_VICTORY_FRAME_COUNT
 		var source: Rect2 = StageClearResultLayoutHelper.sheet_source_rect(frame, PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE)
-		var actor_rect: Rect2 = _get_player_victory_actor_rect(view_size, scale)
+		var actor_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, scale)
 		draw_texture_rect_region(_player_victory_sheet, actor_rect, source, Color.WHITE, false, true)
 
 	_draw_text(
@@ -668,8 +672,12 @@ func _draw_player_victory_live2d(view_size: Vector2, layout_ratio: float) -> boo
 	if _player_victory_sheet == null:
 		_player_victory_click_rect = Rect2()
 		return true
-	var actor_rect: Rect2 = _get_player_victory_actor_rect(view_size, layout_ratio)
-	_player_victory_click_rect = _get_player_victory_click_rect(view_size, layout_ratio)
+	var actor_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, layout_ratio)
+	_player_victory_click_rect = StageClearResultLayoutHelper.get_player_victory_click_rect(
+		view_size,
+		layout_ratio,
+		PLAYER_VICTORY_CELL_SIZE
+	)
 	if not _is_player_victory_click_reaction_active() or _player_victory_click_reaction_sheet == null:
 		_draw_player_victory_sheet_frame(_player_victory_sheet, _get_player_victory_base_frame(), actor_rect, 1.0)
 		return true
@@ -1313,28 +1321,8 @@ func _get_result_live2d_cinematic_target_position() -> Vector2:
 		view_size = _get_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var actor_rect: Rect2 = _get_player_victory_actor_rect(view_size, scale)
+	var actor_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, scale)
 	var screen_position: Vector2 = actor_rect.get_center() + Vector2(0.0, 20.0 * scale)
-	return _screen_to_acquisition_cinematic_local(screen_position, view_size)
-
-
-func _get_player_victory_actor_rect(view_size: Vector2, layout_ratio: float) -> Rect2:
-	return StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, layout_ratio)
-
-
-func _get_player_victory_click_rect(view_size: Vector2, layout_ratio: float) -> Rect2:
-	return StageClearResultLayoutHelper.get_player_victory_click_rect(
-		view_size,
-		layout_ratio,
-		PLAYER_VICTORY_CELL_SIZE
-	)
-
-
-func _get_player_victory_panel_rect(view_size: Vector2, layout_ratio: float) -> Rect2:
-	return StageClearResultLayoutHelper.get_player_victory_panel_rect(view_size, layout_ratio)
-
-
-func _screen_to_acquisition_cinematic_local(screen_position: Vector2, view_size: Vector2) -> Vector2:
 	var field_size := Vector2(760.0, 750.0)
 	return StageClearResultLayoutHelper.screen_to_acquisition_cinematic_local(screen_position, view_size, field_size)
 
@@ -1913,7 +1901,11 @@ func _handle_player_victory_click(mouse_position: Vector2) -> bool:
 		view_size = _get_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var click_rect: Rect2 = _get_player_victory_click_rect(view_size, scale)
+	var click_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_click_rect(
+		view_size,
+		scale,
+		PLAYER_VICTORY_CELL_SIZE
+	)
 	_player_victory_click_rect = click_rect
 	if not click_rect.has_point(mouse_position):
 		return false
@@ -1932,7 +1924,7 @@ func _handle_dalji_click(mouse_position: Vector2) -> bool:
 		view_size = _get_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var click_rect: Rect2 = _get_dalji_draw_rect(view_size, scale)
+	var click_rect: Rect2 = StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
 	_dalji_click_rect = click_rect
 	if not click_rect.has_point(mouse_position):
 		return false
@@ -2101,11 +2093,6 @@ func _is_dalji_click_return_blend_active() -> bool:
 func _smooth01(value: float) -> float:
 	var t: float = clamp(value, 0.0, 1.0)
 	return t * t * (3.0 - 2.0 * t)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _get_dalji_draw_rect(view_size: Vector2, scale: float) -> Rect2:
-	return StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
 
 
 func _confirm() -> void:
