@@ -17,6 +17,7 @@ const Stage2RockVisualAssetsBuilder := preload("res://scripts/stages/stage2/stag
 const Stage2StarpointVisualFactory := preload("res://scripts/stages/stage2/stage2_starpoint_visual_factory.gd")
 const Stage2StarpointDropMotionState := preload("res://scripts/stages/stage2/stage2_starpoint_drop_motion_state.gd")
 const Stage2StarpointDropQuery := preload("res://scripts/stages/stage2/stage2_starpoint_drop_query.gd")
+const Stage2ChaosRockAbsorbState := preload("res://scripts/stages/stage2/stage2_chaos_rock_absorb_state.gd")
 const Stage2WaterCannonGeometry := preload("res://scripts/stages/stage2/stage2_water_cannon_geometry.gd")
 const Stage2WaterCannonVisualStateBuilder := preload("res://scripts/stages/stage2/stage2_water_cannon_visual_state_builder.gd")
 const Stage2QuakeWaveVisualStateBuilder := preload("res://scripts/stages/stage2/stage2_quake_wave_visual_state_builder.gd")
@@ -1353,27 +1354,24 @@ func _update_chaos_absorbing_rock(rock: Dictionary, delta: float, deps: Dictiona
 
 func _step_chaos_absorbing_rock(rock: Dictionary, center: Vector2, frame_step: float, deps: Dictionary, context: Dictionary = {}) -> bool:
 	var rock_center: Vector2 = _get_rock_center(rock)
-	var offset: Vector2 = rock_center - center
-	var distance: float = offset.length()
-	if distance < CHAOS_ROCK_DESTROY_DISTANCE:
-		_destroy_chaos_absorbed_rock(rock, rock_center, deps, context)
-		return true
-	distance = max(4.0, distance)
-	var spin_dir: float = float(rock.get("chaos_spin_dir", 1.0))
-	var angular_velocity: float = min(CHAOS_ROCK_ANGULAR_SPEED_MAX, CHAOS_ROCK_ANGULAR_SPEED_NUMERATOR / distance) * spin_dir
-	var angle: float = atan2(offset.y, offset.x) + angular_velocity * frame_step
-	var radial_speed: float = clamp(
-		CHAOS_ROCK_RADIAL_SPEED_NUMERATOR / distance,
+	var result: Dictionary = Stage2ChaosRockAbsorbState.step_absorbing_rock(
+		rock,
+		rock_center,
+		center,
+		frame_step,
+		CHAOS_ROCK_DESTROY_DISTANCE,
+		CHAOS_ROCK_ANGULAR_SPEED_MAX,
+		CHAOS_ROCK_ANGULAR_SPEED_NUMERATOR,
 		CHAOS_ROCK_RADIAL_SPEED_MIN,
-		CHAOS_ROCK_RADIAL_SPEED_MAX
+		CHAOS_ROCK_RADIAL_SPEED_MAX,
+		CHAOS_ROCK_RADIAL_SPEED_NUMERATOR,
+		CHAOS_ROCK_SPIN_MULTIPLIER
 	)
-	var next_distance: float = max(0.0, distance - radial_speed * frame_step)
-	var next_center := center + Vector2(cos(angle), sin(angle)) * next_distance
-	_set_rock_center(rock, next_center)
-	rock["rotation"] = float(rock.get("rotation", 0.0)) + angular_velocity * CHAOS_ROCK_SPIN_MULTIPLIER * frame_step
-	rock["phase"] = float(rock.get("phase", 0.0)) + abs(angular_velocity) * 1.6 * frame_step
-	if next_distance < CHAOS_ROCK_DESTROY_DISTANCE:
-		_destroy_chaos_absorbed_rock(rock, next_center, deps, context)
+	var result_center: Vector2 = _get_vector2(result.get("center", rock_center), rock_center)
+	if bool(result.get("moved", false)):
+		_set_rock_center(rock, result_center)
+	if bool(result.get("destroyed", false)):
+		_destroy_chaos_absorbed_rock(rock, result_center, deps, context)
 		return true
 	return false
 
@@ -2136,24 +2134,18 @@ func _apply_quake_boss_launch_guard(
 	ball_vel: Vector2,
 	fps_scale: float
 ) -> Vector2:
-	if quake_boss_launch_guard_timer <= 0.0:
-		return ball_vel
-	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
-	var ball_radius: float = float(context.get("ball_size", 28.6)) * 0.5
-	var boss_pos: Vector2 = _get_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
-	var boss_bottom: float = boss_pos.y + float(context.get("boss_hitbox_height", 40.0))
-	var safe_top: float = boss_bottom + max(6.0, ball_radius + 2.0)
-	var base_speed: float = QUAKE_BALL_REFERENCE_BASE_SPEED
-	var backup_y: float = abs(quake_ball_velocity_backup.y) if quake_ball_velocity_backup_valid else 0.0
-	var min_down_speed: float = min(12.5, max(base_speed * 0.55, backup_y * 0.45, 3.5))
-
-	if ball_pos.y - ball_radius < safe_top:
-		ball_pos.y = safe_top + ball_radius
-		scene["ball_pos"] = ball_pos
-	if ball_vel.y < min_down_speed:
-		ball_vel.y = min_down_speed
-	quake_boss_launch_guard_timer = max(0.0, quake_boss_launch_guard_timer - max(1.0, fps_scale) / 60.0)
-	return ball_vel
+	var result: Dictionary = Stage2QuakeBallMotionState.apply_boss_launch_guard(
+		scene,
+		context,
+		ball_vel,
+		fps_scale,
+		quake_boss_launch_guard_timer,
+		quake_ball_velocity_backup.y,
+		quake_ball_velocity_backup_valid,
+		QUAKE_BALL_REFERENCE_BASE_SPEED
+	)
+	quake_boss_launch_guard_timer = float(result.get("guard_timer", quake_boss_launch_guard_timer))
+	return _get_vector2(result.get("ball_vel", ball_vel), ball_vel)
 
 
 func _was_last_hit_by_boss(deps: Dictionary) -> bool:

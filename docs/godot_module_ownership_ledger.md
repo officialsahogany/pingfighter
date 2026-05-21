@@ -1187,8 +1187,8 @@ This section is intentionally long; use search to find the nearest owner.
   quake-wave renderer visual-state payloads are delegated to
   `stage2_quake_wave_visual_state_builder.gd`; quake screen-shake offset
   calculation is delegated to `stage2_quake_screen_shake_state.gd`;
-  quake ball-motion impulse / player-pull / speed-cap math is delegated to
-  `stage2_quake_ball_motion_state.gd`;
+  quake ball-motion impulse / player-pull / speed-cap / boss-launch guard
+  math is delegated to `stage2_quake_ball_motion_state.gd`;
   skill-warning timer / text state is delegated to
   `stage2_skill_warning_state.gd`;
   border-flash and boss-rage screen tint drawing is delegated to
@@ -1250,8 +1250,9 @@ This section is intentionally long; use search to find the nearest owner.
   and boss movement-lock boolean composition is delegated to
   `stage2_visibility_state.gd`.
   Stage 2 ball / player overlap geometry helpers are delegated to
-  `stage2_collision_geometry.gd`; playfield bounds lookup is delegated to
-  `stage2_playfield_bounds.gd`.
+  `stage2_collision_geometry.gd`; Chaos Spear rock-pull motion is delegated
+  to `stage2_chaos_rock_absorb_state.gd`; playfield bounds lookup is
+  delegated to `stage2_playfield_bounds.gd`.
   The original center-field bush / vine visual rustle now lives in
   `stage2_playfield_renderer`.
 - `scripts/stages/stage2/stage2_render_budget_helper.gd`
@@ -1419,9 +1420,10 @@ This section is intentionally long; use search to find the nearest owner.
   ball physics.
 - `scripts/stages/stage2/stage2_quake_ball_motion_state.gd`
   Owns Stage 2 quake ball-motion stateless helpers: impulse-scale tapering,
-  player-center pull, and original speed-cap enforcement. The background
-  module still owns quake lifecycle, ball velocity backup / restore,
-  boss-launch guard timers, RNG shake injection, and scene mutation timing.
+  player-center pull, original speed-cap enforcement, and boss-launch guard
+  safety-band / minimum downward-speed math. The background module still
+  owns quake lifecycle, ball velocity backup / restore, boss-launch guard
+  timer storage, RNG shake injection, and scene mutation timing.
 - `scripts/stages/stage2/stage2_skill_warning_state.gd`
   Owns Stage 2 skill-warning state: trigger text / kind, minimum duration
   clamp, timer decay, active checks, reset, and renderer snapshot payload.
@@ -1538,6 +1540,13 @@ This section is intentionally long; use search to find the nearest owner.
   alpha fade, lifetime decay, and in-place survivor compaction. The
   background module still owns particle spawning, drop collection timing,
   render fanout, and audio / reward side effects.
+- `scripts/stages/stage2/stage2_chaos_rock_absorb_state.gd`
+  Owns Stage 2 Chaos Spear rock-pull motion math: destroy-threshold checks,
+  angular velocity, radial pull speed, next-center calculation, rotation /
+  phase mutation, and destroyed/moved result payloads. The background module
+  still owns landed-rock selection, center writes through `stage2_rock_query`,
+  fragment / leaf / starpoint side effects, break audio, and absorbed-entry
+  emission.
 - `scripts/stages/stage2/stage2_monkey_banana_event.gd`
   Owns the Stage 2 original monkey-banana side event: first spawn after
   5-10 seconds, repeat spawns after 15-30 seconds, left/right outer-tree
