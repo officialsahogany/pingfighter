@@ -849,18 +849,18 @@ func get_water_splashes_snapshot() -> Array:
 
 
 func get_render_budget_status() -> Dictionary:
-	return {
-		"ambient_falling_leaf_render_limit": AMBIENT_FALLING_LEAF_RENDER_LIMIT,
-		"ambient_falling_leaf_render_limit_severe_lod": AMBIENT_FALLING_LEAF_RENDER_LIMIT_SEVERE_LOD,
-		"leaf_particle_render_limit": LEAF_PARTICLE_RENDER_LIMIT,
-		"leaf_particle_render_limit_severe_lod": LEAF_PARTICLE_RENDER_LIMIT_SEVERE_LOD,
-		"rock_fragment_render_limit": ROCK_FRAGMENT_RENDER_LIMIT,
-		"rock_fragment_render_limit_severe_lod": ROCK_FRAGMENT_RENDER_LIMIT_SEVERE_LOD,
-		"water_splash_render_limit": WATER_SPLASH_RENDER_LIMIT,
-		"water_splash_render_limit_severe_lod": WATER_SPLASH_RENDER_LIMIT_SEVERE_LOD,
-		"starpoint_particle_render_limit": STARPOINT_PARTICLE_RENDER_LIMIT,
-		"starpoint_particle_render_limit_severe_lod": STARPOINT_PARTICLE_RENDER_LIMIT_SEVERE_LOD,
-	}
+	return Stage2RenderBudgetHelper.build_status(
+		AMBIENT_FALLING_LEAF_RENDER_LIMIT,
+		AMBIENT_FALLING_LEAF_RENDER_LIMIT_SEVERE_LOD,
+		LEAF_PARTICLE_RENDER_LIMIT,
+		LEAF_PARTICLE_RENDER_LIMIT_SEVERE_LOD,
+		ROCK_FRAGMENT_RENDER_LIMIT,
+		ROCK_FRAGMENT_RENDER_LIMIT_SEVERE_LOD,
+		WATER_SPLASH_RENDER_LIMIT,
+		WATER_SPLASH_RENDER_LIMIT_SEVERE_LOD,
+		STARPOINT_PARTICLE_RENDER_LIMIT,
+		STARPOINT_PARTICLE_RENDER_LIMIT_SEVERE_LOD
+	)
 
 
 func get_fragment_hit_flash_timer() -> float:

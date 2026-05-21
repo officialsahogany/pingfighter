@@ -86,6 +86,8 @@ func _verify_recent_start_helpers() -> void:
 	var trimmed: Array = values.duplicate()
 	Stage2RenderBudgetHelper.trim_array_from_front(trimmed, 4)
 	_expect(trimmed == [116, 117, 118, 119], "Stage 2 render-budget helper should trim arrays from the front")
+	var helper_status: Dictionary = Stage2RenderBudgetHelper.build_status(5, 0, 16, 8, 16, 12, 8, 6, 12, 6)
+	_expect(int(helper_status.get("water_splash_render_limit_severe_lod", 0)) == 6, "Stage 2 render-budget helper should build status payloads")
 	_expect(background._recent_start(values, 72) == 48, "background recent-start helper should draw only the newest capped entries")
 	_expect(background._recent_start(values, 200) == 0, "background recent-start helper should draw from zero when under budget")
 	_expect(background._recent_start(values, 0) == values.size(), "background zero render budget should draw nothing")

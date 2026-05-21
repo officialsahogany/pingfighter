@@ -1139,7 +1139,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage2/stage2_render_budget_helper.gd`
   Owns stateless Stage 2 render-budget helpers: capped-array trimming,
   newest-entry start-index calculation, `BattleRenderQuality` effect-scale
-  lookup, LOD threshold checks, and LOD / severe-LOD count selection.
+  lookup, LOD threshold checks, LOD / severe-LOD count selection, and render
+  budget status payload construction.
   `stage2_pillar_background.gd` keeps render call sites, live arrays,
   threshold constants, and wrapper names used by existing smoke tests.
 - `scripts/stages/stage2/stage2_pillar_imagegen_renderer.gd`

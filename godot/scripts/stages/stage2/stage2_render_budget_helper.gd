@@ -48,3 +48,29 @@ static func get_lod_count(
 	if not is_lod_active(quality_scale, lod_threshold):
 		return base_count
 	return max(0, min(base_count, lod_count))
+
+
+static func build_status(
+	ambient_falling_leaf_render_limit: int,
+	ambient_falling_leaf_render_limit_severe_lod: int,
+	leaf_particle_render_limit: int,
+	leaf_particle_render_limit_severe_lod: int,
+	rock_fragment_render_limit: int,
+	rock_fragment_render_limit_severe_lod: int,
+	water_splash_render_limit: int,
+	water_splash_render_limit_severe_lod: int,
+	starpoint_particle_render_limit: int,
+	starpoint_particle_render_limit_severe_lod: int
+) -> Dictionary:
+	return {
+		"ambient_falling_leaf_render_limit": ambient_falling_leaf_render_limit,
+		"ambient_falling_leaf_render_limit_severe_lod": ambient_falling_leaf_render_limit_severe_lod,
+		"leaf_particle_render_limit": leaf_particle_render_limit,
+		"leaf_particle_render_limit_severe_lod": leaf_particle_render_limit_severe_lod,
+		"rock_fragment_render_limit": rock_fragment_render_limit,
+		"rock_fragment_render_limit_severe_lod": rock_fragment_render_limit_severe_lod,
+		"water_splash_render_limit": water_splash_render_limit,
+		"water_splash_render_limit_severe_lod": water_splash_render_limit_severe_lod,
+		"starpoint_particle_render_limit": starpoint_particle_render_limit,
+		"starpoint_particle_render_limit_severe_lod": starpoint_particle_render_limit_severe_lod,
+	}
