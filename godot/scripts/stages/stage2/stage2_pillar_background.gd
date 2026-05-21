@@ -39,6 +39,7 @@ const Stage2SkillWarningState := preload("res://scripts/stages/stage2/stage2_ski
 const Stage2BorderFlashState := preload("res://scripts/stages/stage2/stage2_border_flash_state.gd")
 const Stage2FragmentHitFlashState := preload("res://scripts/stages/stage2/stage2_fragment_hit_flash_state.gd")
 const Stage2RockQuery := preload("res://scripts/stages/stage2/stage2_rock_query.gd")
+const Stage2VisibilityState := preload("res://scripts/stages/stage2/stage2_visibility_state.gd")
 
 const MAX_LEAF_PARTICLES := 120
 const LEAF_PARTICLE_RENDER_LIMIT := 16
@@ -781,34 +782,34 @@ func absorb_chaos_spear_objects(center: Vector2, radius: float, _deps: Dictionar
 
 
 func has_visible_effects() -> bool:
-	return (
-		has_visible_playfield_overlay()
-		or has_visible_playfield_obstacles()
-		or _has_active_rustle()
+	return Stage2VisibilityState.has_visible_effects(
+		has_visible_playfield_overlay(),
+		has_visible_playfield_obstacles(),
+		_has_active_rustle()
 	)
 
 
 func has_visible_playfield_overlay() -> bool:
-	return (
-		border_flash_state.is_active()
-		or boss_rage_active
-		or boss_rage_tint > 0.001
-		or skill_warning_state.is_active()
-		or fragment_hit_flash_state.get_timer() > 0.0
-		or not leaf_particles.is_empty()
-		or not starpoint_drops.is_empty()
-		or not starpoint_particles.is_empty()
+	return Stage2VisibilityState.has_visible_playfield_overlay(
+		border_flash_state.is_active(),
+		boss_rage_active,
+		boss_rage_tint,
+		skill_warning_state.is_active(),
+		fragment_hit_flash_state.get_timer(),
+		leaf_particles.size(),
+		starpoint_drops.size(),
+		starpoint_particles.size()
 	)
 
 
 func has_visible_playfield_obstacles() -> bool:
-	return (
-		quake_timer > 0.0
-		or water_cannon_phase != "idle"
-		or not rocks.is_empty()
-		or not rock_fragments.is_empty()
-		or not water_trail.is_empty()
-		or not water_splashes.is_empty()
+	return Stage2VisibilityState.has_visible_playfield_obstacles(
+		quake_timer,
+		water_cannon_phase,
+		rocks.size(),
+		rock_fragments.size(),
+		water_trail.size(),
+		water_splashes.size()
 	)
 
 
@@ -876,7 +877,7 @@ func is_quake_active() -> bool:
 
 
 func is_boss_movement_locked() -> bool:
-	return boss_rage_active or water_cannon_phase in ["charging", "firing"]
+	return Stage2VisibilityState.is_boss_movement_locked(boss_rage_active, water_cannon_phase)
 
 
 func get_boss_ai_context() -> Dictionary:

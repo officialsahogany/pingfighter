@@ -1130,7 +1130,9 @@ This section is intentionally long; use search to find the nearest owner.
   `stage2_perf_logger.gd`; performance log contextual snapshots are
   delegated to `stage2_perf_log_snapshot_builder.gd`; render-budget array
   trimming, recent-entry start indexes, and LOD count decisions are delegated
-  to `stage2_render_budget_helper.gd`.
+  to `stage2_render_budget_helper.gd`; visible-effect / playfield draw-gate
+  and boss movement-lock boolean composition is delegated to
+  `stage2_visibility_state.gd`.
   Stage 2 ball / player overlap geometry helpers are delegated to
   `stage2_collision_geometry.gd`; playfield bounds lookup is delegated to
   `stage2_playfield_bounds.gd`.
@@ -1143,6 +1145,13 @@ This section is intentionally long; use search to find the nearest owner.
   budget status payload construction.
   `stage2_pillar_background.gd` keeps render call sites, live arrays,
   threshold constants, and wrapper names used by existing smoke tests.
+- `scripts/stages/stage2/stage2_visibility_state.gd`
+  Owns stateless Stage 2 visibility and lock predicates: overall visible
+  effect presence, playfield overlay draw gates, playfield obstacle draw
+  gates, and boss movement-lock checks from already-resolved state values.
+  `stage2_pillar_background.gd` keeps live arrays, timer / phase mutation,
+  state object ownership, and public wrapper names used by drawers and smoke
+  tests.
 - `scripts/stages/stage2/stage2_pillar_imagegen_renderer.gd`
   Owns the stateless Stage 2 imagegen pillar draw pass: cover-fitting the
   base PNG, unified translucent viewport edge lines, clipped left / right

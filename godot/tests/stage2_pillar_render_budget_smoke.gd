@@ -2,6 +2,7 @@ extends SceneTree
 
 const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
 const Stage2RenderBudgetHelper := preload("res://scripts/stages/stage2/stage2_render_budget_helper.gd")
+const Stage2VisibilityState := preload("res://scripts/stages/stage2/stage2_visibility_state.gd")
 const Stage2AmbientVisualRenderer := preload("res://scripts/stages/stage2/stage2_ambient_visual_renderer.gd")
 const Stage2PillarObstacleVisualRenderer := preload("res://scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd")
 const BattlePlayfieldSceneDrawer := preload("res://scripts/core/battle_playfield_scene_drawer.gd")
@@ -128,6 +129,18 @@ func _verify_modal_overlay_lod_helpers() -> void:
 
 
 func _verify_playfield_visibility_helpers() -> void:
+	_expect(
+		Stage2VisibilityState.has_visible_playfield_overlay(false, false, 0.0, false, 0.0, 1, 0, 0),
+		"Stage 2 visibility helper should detect overlay leaf particles"
+	)
+	_expect(
+		Stage2VisibilityState.has_visible_playfield_obstacles(0.0, "idle", 1, 0, 0, 0),
+		"Stage 2 visibility helper should detect rock obstacles"
+	)
+	_expect(
+		Stage2VisibilityState.is_boss_movement_locked(false, "charging"),
+		"Stage 2 visibility helper should lock boss movement during cannon charge"
+	)
 	var background := Stage2PillarBackground.new()
 	_expect(not background.has_visible_playfield_overlay(), "fresh Stage 2 background should not draw empty overlay decoration")
 	_expect(not background.has_visible_playfield_obstacles(), "fresh Stage 2 background should not draw empty obstacle decoration")
