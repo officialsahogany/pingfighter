@@ -10,6 +10,7 @@ func _init() -> void:
 	_verify_direct_scroll_phase()
 	_verify_direct_visual_values()
 	_verify_scene_scroll_delegates()
+	_verify_scene_scroll_drag()
 
 	if _failures.is_empty():
 		print("stage_clear_result_scroll_state_smoke: ok")
@@ -76,6 +77,31 @@ func _verify_scene_scroll_delegates() -> void:
 		and source.find("func _get_box_global_alpha") < 0,
 		"result scene should not keep scroll visual pass-through wrappers"
 	)
+	scene.free()
+
+
+func _verify_scene_scroll_drag() -> void:
+	var scene := StageClearResultScene.new()
+	scene.size = Vector2(1920.0, 1080.0)
+	scene._scroll_phase = "visible"
+	scene._scroll_timer = StageClearResultScene.SCROLL_UNFURL_DURATION
+	scene._boxes = [{"state": "opened"}]
+	var base_rect: Rect2 = scene._get_scroll_full_rect(1.0)
+	var grab_point: Vector2 = base_rect.position + Vector2(120.0, 120.0)
+	_expect(scene._start_scroll_drag(grab_point), "visible scroll body should start drag")
+	_expect(bool(scene.get_interaction_status().get("scroll_dragging", false)), "scroll status should expose active drag")
+
+	var drag_to: Vector2 = grab_point + Vector2(80.0, -40.0)
+	scene._update_scroll_drag(drag_to)
+	var dragged_status: Dictionary = scene.get_interaction_status()
+	_expect(dragged_status.get("scroll_position_offset", Vector2.ZERO) == Vector2(80.0, -40.0), "scroll drag should store the dragged offset")
+	var dragged_rect: Rect2 = dragged_status.get("scroll_rect", Rect2())
+	_expect(dragged_rect.position == base_rect.position + Vector2(80.0, -40.0), "scroll rect should move with the stored offset")
+
+	scene._finish_scroll_drag(drag_to)
+	_expect(not bool(scene.get_interaction_status().get("scroll_dragging", true)), "scroll drag should clear on release")
+	scene._refresh_scroll_button_rects()
+	_expect(not scene._start_scroll_drag(scene._next_stage_button_rect.get_center()), "scroll drag should not steal visible button clicks")
 	scene.free()
 
 

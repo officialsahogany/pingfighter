@@ -81,9 +81,11 @@ func _verify_box_state_counts() -> void:
 
 func _verify_scene_delegates_interaction_state() -> void:
 	var scene := StageClearResultScene.new()
-	scene._next_stage_button_rect = Rect2(Vector2(10.0, 10.0), Vector2(100.0, 40.0))
-	scene._exit_button_rect = Rect2(Vector2(130.0, 10.0), Vector2(100.0, 40.0))
-	scene._update_hovered_button(Vector2(150.0, 20.0))
+	scene.size = Vector2(1920.0, 1080.0)
+	scene._scroll_phase = StageClearResultInteractionState.PHASE_VISIBLE
+	scene._scroll_timer = StageClearResultScene.SCROLL_UNFURL_DURATION
+	scene._refresh_scroll_button_rects()
+	scene._update_hovered_button(scene._exit_button_rect.get_center())
 	_expect(str(scene.get_interaction_status().get("hovered_button", "")) == StageClearResultInteractionState.BUTTON_EXIT, "scene hovered-button wrapper should delegate")
 
 	scene._boxes = [{"state": "opened"}, {"state": "opening"}]

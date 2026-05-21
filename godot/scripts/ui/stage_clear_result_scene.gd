@@ -250,6 +250,8 @@ func configure(
 	_exit_button_rect = Rect2()
 	_scroll_phase = "hidden"
 	_scroll_timer = 0.0
+	_scroll_position_offset = Vector2.ZERO
+	_cancel_scroll_drag()
 	timer = 0.0
 	_dalji_base_timer = 0.0
 	_dalji_click_reaction_timer = DALJI_CLICK_TOTAL_DURATION
@@ -301,8 +303,10 @@ func update_result_scene(delta: float) -> void:
 
 func handle_result_input(event: InputEvent) -> bool:
 	if _is_mythic_acquisition_cinematic_active():
+		_cancel_scroll_drag()
 		return _handle_mythic_acquisition_input(event)
 	if _is_runtime_perk_choice_active():
+		_cancel_scroll_drag()
 		return _handle_runtime_perk_input(event)
 
 	if event is InputEventKey:
@@ -317,6 +321,9 @@ func handle_result_input(event: InputEvent) -> bool:
 
 	if event is InputEventMouseMotion:
 		var mouse_motion: InputEventMouseMotion = event
+		if _scroll_dragging:
+			_update_scroll_drag(mouse_motion.position)
+			return true
 		if _scroll_phase == "visible":
 			_update_hovered_button(mouse_motion.position)
 		else:
@@ -325,10 +332,16 @@ func handle_result_input(event: InputEvent) -> bool:
 
 	if event is InputEventMouseButton:
 		var mouse_event: InputEventMouseButton = event
+		if mouse_event.button_index == MOUSE_BUTTON_LEFT and not mouse_event.pressed:
+			if _scroll_dragging:
+				_finish_scroll_drag(mouse_event.position)
+			return true
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
 			if _handle_dalji_click(mouse_event.position):
 				pass
 			elif _handle_player_victory_click(mouse_event.position):
+				pass
+			elif _start_scroll_drag(mouse_event.position):
 				pass
 			elif _handle_button_click(mouse_event.position):
 				pass
@@ -406,6 +419,7 @@ func _exit_to_menu() -> void:
 
 
 func _handle_button_click(mouse_position: Vector2) -> bool:
+	_refresh_scroll_button_rects()
 	var clicked_button: String = StageClearResultInteractionState.get_clicked_button(
 		mouse_position,
 		_next_stage_button_rect,
@@ -422,6 +436,7 @@ func _handle_button_click(mouse_position: Vector2) -> bool:
 
 
 func _update_hovered_button(mouse_position: Vector2) -> void:
+	_refresh_scroll_button_rects()
 	var previous: String = _hovered_button
 	_hovered_button = StageClearResultInteractionState.get_hovered_button(
 		mouse_position,
@@ -430,6 +445,108 @@ func _update_hovered_button(mouse_position: Vector2) -> void:
 	)
 	if previous != _hovered_button:
 		queue_redraw()
+
+
+func _start_scroll_drag(mouse_position: Vector2) -> bool:
+	if _scroll_phase != "visible" or _starpoint_choice_gate_active:
+		return false
+	var view_size: Vector2 = _get_current_view_size()
+	var layout_scale: float = _get_layout_scale(view_size)
+	var scroll_rect: Rect2 = _get_scroll_full_rect(layout_scale)
+	if not scroll_rect.has_point(mouse_position):
+		return false
+	_refresh_scroll_button_rects()
+	if StageClearResultInteractionState.get_hovered_button(
+		mouse_position,
+		_next_stage_button_rect,
+		_exit_button_rect
+	) != StageClearResultInteractionState.BUTTON_NONE:
+		return false
+	_scroll_dragging = true
+	_scroll_drag_grab_offset = mouse_position - scroll_rect.position
+	_hovered_button = StageClearResultInteractionState.BUTTON_NONE
+	queue_redraw()
+	return true
+
+
+func _update_scroll_drag(mouse_position: Vector2) -> void:
+	var view_size: Vector2 = _get_current_view_size()
+	var layout_scale: float = _get_layout_scale(view_size)
+	var base_rect: Rect2 = _get_scroll_base_rect(layout_scale)
+	var candidate_offset: Vector2 = mouse_position - _scroll_drag_grab_offset - base_rect.position
+	_scroll_position_offset = _clamp_scroll_offset(candidate_offset, layout_scale, view_size)
+	_refresh_scroll_button_rects()
+	queue_redraw()
+
+
+func _finish_scroll_drag(mouse_position: Vector2) -> void:
+	_update_scroll_drag(mouse_position)
+	_scroll_dragging = false
+	if _scroll_phase == "visible":
+		_update_hovered_button(mouse_position)
+	else:
+		queue_redraw()
+
+
+func _cancel_scroll_drag() -> void:
+	if not _scroll_dragging:
+		return
+	_scroll_dragging = false
+	queue_redraw()
+
+
+func _refresh_scroll_button_rects() -> void:
+	if _scroll_phase != "visible":
+		_next_stage_button_rect = Rect2()
+		_exit_button_rect = Rect2()
+		return
+	var view_size: Vector2 = _get_current_view_size()
+	var layout_scale: float = _get_layout_scale(view_size)
+	var button_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(
+		_get_scroll_full_rect(layout_scale),
+		layout_scale
+	)
+	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
+	_exit_button_rect = button_layout.get("exit_rect", Rect2())
+
+
+func _get_scroll_base_rect(draw_scale: float) -> Rect2:
+	var left: float = SCROLL_REGION_LEFT * draw_scale
+	var right: float = SCROLL_REGION_RIGHT * draw_scale
+	var top: float = SCROLL_REGION_TOP * draw_scale
+	var full_height: float = (SCROLL_REGION_BOTTOM - SCROLL_REGION_TOP) * draw_scale
+	return Rect2(Vector2(left, top), Vector2(right - left, full_height))
+
+
+func _get_scroll_full_rect(draw_scale: float) -> Rect2:
+	var base_rect: Rect2 = _get_scroll_base_rect(draw_scale)
+	return Rect2(base_rect.position + _scroll_position_offset, base_rect.size)
+
+
+func _clamp_scroll_offset(candidate_offset: Vector2, draw_scale: float, view_size: Vector2) -> Vector2:
+	var base_rect: Rect2 = _get_scroll_base_rect(draw_scale)
+	var keep_visible_margin: float = SCROLL_DRAG_VIEW_MARGIN * draw_scale
+	var min_x: float = keep_visible_margin - base_rect.end.x
+	var max_x: float = view_size.x - keep_visible_margin - base_rect.position.x
+	var min_y: float = keep_visible_margin - base_rect.end.y
+	var max_y: float = view_size.y - keep_visible_margin - base_rect.position.y
+	return Vector2(
+		_clamp_scroll_axis(candidate_offset.x, min_x, max_x),
+		_clamp_scroll_axis(candidate_offset.y, min_y, max_y)
+	)
+
+
+func _clamp_scroll_axis(value: float, min_value: float, max_value: float) -> float:
+	if min_value > max_value:
+		return (min_value + max_value) * 0.5
+	return clampf(value, min_value, max_value)
+
+
+func _get_current_view_size() -> Vector2:
+	var view_size: Vector2 = size
+	if view_size == Vector2.ZERO:
+		view_size = _get_view_size()
+	return view_size
 
 
 func get_interaction_status() -> Dictionary:
@@ -507,6 +624,9 @@ func get_interaction_status() -> Dictionary:
 		"scroll_unfurl_progress": StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION),
 		"scroll_visible": _scroll_phase == "unfurling" or _scroll_phase == "visible",
 		"scroll_texture_loaded": _scroll_texture != null,
+		"scroll_rect": _get_scroll_full_rect(scale),
+		"scroll_position_offset": _scroll_position_offset,
+		"scroll_dragging": _scroll_dragging,
 		"next_stage_button_rect": _next_stage_button_rect,
 		"exit_button_rect": _exit_button_rect,
 		"buttons_clickable": _scroll_phase == "visible",
@@ -1386,9 +1506,10 @@ func _build_perk_info_summary(reward_summary_state: Dictionary) -> Dictionary:
 
 
 @warning_ignore("shadowed_variable_base_class")
-func _draw_scroll(_view_size: Vector2, scale: float, font: Font) -> void:
+func _draw_scroll(view_size: Vector2, scale: float, font: Font) -> void:
 	if _scroll_phase == "hidden":
 		return
+	_scroll_position_offset = _clamp_scroll_offset(_scroll_position_offset, scale, view_size)
 	var unfurl: float = StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
 	if unfurl <= 0.0:
 		return
@@ -1397,12 +1518,8 @@ func _draw_scroll(_view_size: Vector2, scale: float, font: Font) -> void:
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
-	var left: float = SCROLL_REGION_LEFT * scale
-	var right: float = SCROLL_REGION_RIGHT * scale
-	var top: float = SCROLL_REGION_TOP * scale
-	var full_height: float = (SCROLL_REGION_BOTTOM - SCROLL_REGION_TOP) * scale
-	var current_height: float = full_height * unfurl
-	var full_rect := Rect2(Vector2(left, top), Vector2(right - left, full_height))
+	var full_rect: Rect2 = _get_scroll_full_rect(scale)
+	var current_height: float = full_rect.size.y * unfurl
 	var visible_rect := Rect2(full_rect.position, Vector2(full_rect.size.x, current_height))
 
 	_draw_shadow_ellipse(
