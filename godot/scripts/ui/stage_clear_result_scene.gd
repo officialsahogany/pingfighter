@@ -87,6 +87,10 @@ const RESULT_BOX_FRAME_ASSET_GUARD_SCALE := 0.90
 const RESULT_BOX_FRAME_DRAW_SIZE := 100.0 / RESULT_BOX_FRAME_ASSET_GUARD_SCALE
 const RESULT_REWARD_SOURCE_STAGE := "stage"
 const RESULT_REWARD_SOURCE_BOX := "box"
+const RESULT_REWARD_SOURCE_LABELS := {
+	"stage": "인게임",
+	"box": "상자",
+}
 const RESULT_CINEMATIC_FIELD_SIZE := Vector2(760.0, 750.0)
 const REWARD_DETAIL_FALLBACK_TEXT := "획득한 퍽 효과를 적용합니다."
 const REWARD_STARPOINT_TITLE_PREFIX := "퍽 선택권"
@@ -1422,7 +1426,7 @@ func _build_item_summary() -> Array:
 		_boxes,
 		RESULT_REWARD_SOURCE_STAGE,
 		RESULT_REWARD_SOURCE_BOX,
-		_get_result_reward_source_labels()
+		RESULT_REWARD_SOURCE_LABELS
 	)
 
 
@@ -1432,7 +1436,7 @@ func _build_perk_summary() -> Array:
 		_boxes,
 		RESULT_REWARD_SOURCE_STAGE,
 		RESULT_REWARD_SOURCE_BOX,
-		_get_result_reward_source_labels()
+		RESULT_REWARD_SOURCE_LABELS
 	)
 
 
@@ -1442,7 +1446,7 @@ func _build_visible_reward_summary() -> Array:
 		_boxes,
 		RESULT_REWARD_SOURCE_STAGE,
 		RESULT_REWARD_SOURCE_BOX,
-		_get_result_reward_source_labels()
+		RESULT_REWARD_SOURCE_LABELS
 	)
 
 
@@ -1717,8 +1721,8 @@ func _draw_reward_source_chip(font: Font, reward: Dictionary, rect: Rect2, scale
 			source_key,
 			RESULT_REWARD_SOURCE_STAGE,
 			RESULT_REWARD_SOURCE_BOX,
-			"인게임",
-			"상자"
+			str(RESULT_REWARD_SOURCE_LABELS.get(RESULT_REWARD_SOURCE_STAGE, "")),
+			str(RESULT_REWARD_SOURCE_LABELS.get(RESULT_REWARD_SOURCE_BOX, ""))
 		)
 	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_source_chip_visual_state(
 		source_key,
@@ -1783,15 +1787,6 @@ func _draw_fallback_reward_icon(reward: Dictionary, rect: Rect2, alpha: float) -
 	var radius: float = float(visual_state.get("radius", min(rect.size.x, rect.size.y) * 0.42))
 	draw_circle(center, radius, visual_state.get("fill", Color(0.40, 0.32, 0.20, 0.84 * alpha)))
 	draw_arc(center, radius, 0.0, TAU, 28, visual_state.get("ring_color", Color(0.86, 1.0, 1.0, alpha * 0.80)), float(visual_state.get("ring_width", 1.6)))
-
-
-func _get_result_reward_source_labels() -> Dictionary:
-	return StageClearResultRewardVisualResolver.get_result_reward_source_labels(
-		RESULT_REWARD_SOURCE_STAGE,
-		RESULT_REWARD_SOURCE_BOX,
-		"인게임",
-		"상자"
-	)
 
 
 @warning_ignore("shadowed_variable_base_class")

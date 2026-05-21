@@ -216,6 +216,7 @@ func _verify_scene_delegates_visual_resolver() -> void:
 		"func _get_reward_color(",
 		"func _get_reward_badge(",
 		"func _get_result_reward_source_label(",
+		"func _get_result_reward_source_labels(",
 		"func _get_result_reward_source_color(",
 	]:
 		_expect(
