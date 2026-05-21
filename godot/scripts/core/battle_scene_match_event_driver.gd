@@ -107,17 +107,28 @@ func update_stage_transition_loading(delta: float, owner: Object, registry: Obje
 	if _stage_transition_loading_final_reveal_active:
 		_stage_transition_loading_final_reveal_elapsed_sec += safe_delta
 		if _stage_transition_loading_final_reveal_elapsed_sec >= STAGE_TRANSITION_LOADING_FINAL_REVEAL_SECONDS:
+			var finish_perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+			var finish_start: int = _perf_begin(finish_perf_logger)
 			_finish_stage_transition_loading(owner, registry)
+			_perf_end(finish_perf_logger, "process.frame.stage_transition_loading.finish", finish_start)
 			return
 		_queue_redraw(owner)
 		return
 
 	_stage_transition_loading_elapsed_sec += safe_delta
 	if not _stage_transition_loading_work_done:
+		var work_perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+		var work_step: int = _stage_transition_loading_work_step
+		var work_start: int = _perf_begin(work_perf_logger)
 		_stage_transition_loading_work_done = _run_stage_transition_loading_work_step(
 			owner,
 			registry,
 			_stage_transition_loading_next_stage
+		)
+		_perf_end(
+			work_perf_logger,
+			"process.frame.stage_transition_loading.step.%d" % work_step,
+			work_start
 		)
 		_queue_redraw(owner)
 		return
@@ -506,3 +517,14 @@ func _get_dictionary(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)

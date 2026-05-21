@@ -131,6 +131,18 @@ class FakeLoadingRenderer:
 		hide_loading_calls += 1
 
 
+class FakePerfLogger:
+	extends RefCounted
+
+	var labels: Array[String] = []
+
+	func begin_sample() -> int:
+		return Time.get_ticks_usec()
+
+	func finish_sample(label: String, _start_usec: int) -> void:
+		labels.append(label)
+
+
 class FakePrewarmController:
 	extends RefCounted
 
@@ -156,6 +168,7 @@ class FakeRegistry:
 	var battle_resources := FakeBattleResources.new()
 	var game_audio := FakeGameAudio.new()
 	var loading_renderer := FakeLoadingRenderer.new()
+	var perf_logger := FakePerfLogger.new()
 	var prewarm_controller := FakePrewarmController.new()
 
 	func get_instance(key: String) -> Object:
@@ -174,6 +187,8 @@ class FakeRegistry:
 				return game_audio
 			"battle_loading_screen_renderer":
 				return loading_renderer
+			"battle_perf_logger":
+				return perf_logger
 			"battle_boot_resource_prewarm_controller":
 				return prewarm_controller
 		return null
@@ -236,6 +251,7 @@ func _verify_stage_clear_to_stage2_uses_loading_gate() -> void:
 	_expect(registry.ball_physics.configure_calls == 1 and registry.ball_physics.last_stage == 2, "transition work should start with the ball-physics stage chunk")
 	_expect(registry.match_flow_driver.reset_for_stage_transition_calls == 0, "stage-transition reset should be split out of the first work chunk")
 	_expect(registry.battle_resources.load_all_calls == 0, "battle textures should wait for their own transition work chunk")
+	_expect(registry.perf_logger.labels.has("process.frame.stage_transition_loading.step.0"), "transition work should expose the ball-physics chunk timing")
 
 	for _step in range(3):
 		driver.update_stage_transition_loading(0.05, owner, registry)
@@ -254,9 +270,11 @@ func _verify_stage_clear_to_stage2_uses_loading_gate() -> void:
 	driver.update_stage_transition_loading(0.05, owner, registry)
 	_expect(registry.prewarm_controller.step_calls == 3, "staged prewarm should complete after the configured loading chunks")
 	_expect(registry.game_audio.play_stage_bgm_calls == 0, "stage audio restart should run on the next chunk after staged prewarm")
+	_expect(registry.perf_logger.labels.has("process.frame.stage_transition_loading.step.4"), "transition work should expose staged runtime prewarm timing")
 	driver.update_stage_transition_loading(0.05, owner, registry)
 	_expect(registry.game_audio.stop_bgm_calls == 1, "stage-transition work should stop the previous BGM")
 	_expect(registry.game_audio.play_stage_bgm_calls == 1 and registry.game_audio.last_stage == 2, "stage-transition work should start stage 2 BGM")
+	_expect(registry.perf_logger.labels.has("process.frame.stage_transition_loading.step.5"), "transition work should expose stage audio restart timing")
 	_expect(bool(driver.is_stage_transition_loading_active()), "stage-transition loading should stay visible for its minimum duration")
 
 	var second_canvas := Node2D.new()
@@ -296,6 +314,7 @@ func _verify_stage_clear_to_stage2_uses_loading_gate() -> void:
 	driver.update_stage_transition_loading(0.30, owner, registry)
 	_expect(not bool(driver.is_stage_transition_loading_active()), "stage-transition loading should release after the final reveal")
 	_expect(registry.loading_renderer.hide_loading_calls == 1, "finishing transition loading should hide the loading renderer")
+	_expect(registry.perf_logger.labels.has("process.frame.stage_transition_loading.finish"), "transition finish should expose ball-spawn replay timing")
 
 
 func _verify_stage4_clear_to_stage5_uses_loading_gate() -> void:
