@@ -38,6 +38,42 @@ static func apply_original_speed_cap(scene: Dictionary, ball_vel: Vector2, effec
 	return ball_vel
 
 
+static func apply_boss_launch_guard(
+	scene: Dictionary,
+	context: Dictionary,
+	ball_vel: Vector2,
+	fps_scale: float,
+	guard_timer: float,
+	backup_velocity_y: float,
+	backup_velocity_valid: bool,
+	reference_base_speed: float
+) -> Dictionary:
+	if guard_timer <= 0.0:
+		return {
+			"ball_vel": ball_vel,
+			"guard_timer": guard_timer,
+		}
+
+	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+	var ball_radius: float = float(context.get("ball_size", 28.6)) * 0.5
+	var boss_pos: Vector2 = _get_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
+	var boss_bottom: float = boss_pos.y + float(context.get("boss_hitbox_height", 40.0))
+	var safe_top: float = boss_bottom + max(6.0, ball_radius + 2.0)
+	var backup_y: float = abs(backup_velocity_y) if backup_velocity_valid else 0.0
+	var min_down_speed: float = min(12.5, max(reference_base_speed * 0.55, backup_y * 0.45, 3.5))
+
+	if ball_pos.y - ball_radius < safe_top:
+		ball_pos.y = safe_top + ball_radius
+		scene["ball_pos"] = ball_pos
+	if ball_vel.y < min_down_speed:
+		ball_vel.y = min_down_speed
+
+	return {
+		"ball_vel": ball_vel,
+		"guard_timer": max(0.0, guard_timer - max(1.0, fps_scale) / 60.0),
+	}
+
+
 static func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value

@@ -10,6 +10,7 @@ func _init() -> void:
 	_verify_impulse_scale()
 	_verify_player_pull()
 	_verify_original_speed_cap()
+	_verify_boss_launch_guard()
 	_verify_background_delegates_quake_ball_motion()
 
 	if _failures.is_empty():
@@ -61,6 +62,29 @@ func _verify_original_speed_cap() -> void:
 	_expect(is_equal_approx(float(scene.get("impact_boost_max_ball_speed", 0.0)), 5.0), "speed cap should clamp impact-boost max speed")
 
 
+func _verify_boss_launch_guard() -> void:
+	var scene := {"ball_pos": Vector2(120.0, 40.0)}
+	var result: Dictionary = Stage2QuakeBallMotionState.apply_boss_launch_guard(
+		scene,
+		{
+			"ball_size": 28.6,
+			"boss_pos": Vector2(100.0, 30.0),
+			"boss_hitbox_height": 40.0,
+		},
+		Vector2(1.0, 1.0),
+		2.0,
+		0.5,
+		20.0,
+		true,
+		9.0
+	)
+	var guarded_vel: Vector2 = result.get("ball_vel", Vector2.ZERO)
+	var guarded_pos: Vector2 = scene.get("ball_pos", Vector2.ZERO)
+	_expect(guarded_pos.y > 90.0, "boss launch guard should move ball below the boss safety band")
+	_expect(is_equal_approx(guarded_vel.y, 9.0), "boss launch guard should derive minimum down speed from backup velocity")
+	_expect(float(result.get("guard_timer", 0.0)) < 0.5, "boss launch guard should decay timer by frame scale")
+
+
 func _verify_background_delegates_quake_ball_motion() -> void:
 	var background := Stage2PillarBackground.new()
 	_expect(
@@ -71,6 +95,10 @@ func _verify_background_delegates_quake_ball_motion() -> void:
 	_expect(
 		source.find("Stage2QuakeBallMotionState.apply_original_speed_cap") >= 0,
 		"Stage 2 background source should keep quake speed cap delegated"
+	)
+	_expect(
+		source.find("Stage2QuakeBallMotionState.apply_boss_launch_guard") >= 0,
+		"Stage 2 background source should keep boss launch guard delegated"
 	)
 
 
