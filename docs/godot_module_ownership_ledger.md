@@ -1213,7 +1213,9 @@ This section is intentionally long; use search to find the nearest owner.
   `stage2_rock_query.gd`;
   quake-rock spawn payload assembly is delegated to
   `stage2_quake_rock_payload_factory.gd`; quake-rock drop / bounce state
-  updates are delegated to `stage2_quake_rock_drop_state.gd`;
+  updates are delegated to `stage2_quake_rock_drop_state.gd`; quake-rock
+  visual offset decay / shake state is delegated to
+  `stage2_quake_rock_offset_state.gd`;
   rock-fragment payload generation is delegated to
   `stage2_rock_fragment_payload_factory.gd`; normal rock-fragment factory
   config payloads are delegated to
@@ -1322,6 +1324,11 @@ This section is intentionally long; use search to find the nearest owner.
   original frame-stepped falling rocks and timed drop payloads. The
   background module still owns target lookup, list iteration, leaf bursts,
   quake lifecycle, and renderer fanout.
+- `scripts/stages/stage2/stage2_quake_rock_offset_state.gd`
+  Owns Stage 2 quake-rock visual offset state: inactive offset decay, active
+  quake intensity tapering, size / falling scale, and deterministic
+  sinusoidal offset composition. The background module still owns quake
+  timers, rock list iteration, rock centers, and renderer fanout.
 - `scripts/stages/stage2/stage2_water_cannon_visual_renderer.gd`
   Owns the stateless Stage 2 water-cannon draw pass: target-rock
   highlight rings, beam charge / firing visuals, water trail circles,

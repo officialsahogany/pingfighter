@@ -23,6 +23,7 @@ const Stage2RockFragmentPayloadFactory := preload("res://scripts/stages/stage2/s
 const Stage2RockFragmentPayloadConfigBuilder := preload("res://scripts/stages/stage2/stage2_rock_fragment_payload_config_builder.gd")
 const Stage2QuakeRockPayloadFactory := preload("res://scripts/stages/stage2/stage2_quake_rock_payload_factory.gd")
 const Stage2QuakeRockDropState := preload("res://scripts/stages/stage2/stage2_quake_rock_drop_state.gd")
+const Stage2QuakeRockOffsetState := preload("res://scripts/stages/stage2/stage2_quake_rock_offset_state.gd")
 const Stage2AmbientPayloadFactory := preload("res://scripts/stages/stage2/stage2_ambient_payload_factory.gd")
 const Stage2AmbientLayoutHelper := preload("res://scripts/stages/stage2/stage2_ambient_layout_helper.gd")
 const Stage2RustlePayloadFactory := preload("res://scripts/stages/stage2/stage2_rustle_payload_factory.gd")
@@ -1929,40 +1930,7 @@ func _step_original_quake_rock_drop(rock: Dictionary, frame_step: float) -> bool
 
 
 func _update_quake_rock_offset(rock: Dictionary, delta: float) -> void:
-	var current: Vector2 = _get_vector2(rock.get("quake_offset", Vector2.ZERO), Vector2.ZERO)
-	if quake_timer <= 0.0:
-		var decay: float = pow(0.55, max(0.0, delta) * 60.0)
-		current *= decay
-		if abs(current.x) < 0.15:
-			current.x = 0.0
-		if abs(current.y) < 0.15:
-			current.y = 0.0
-		rock["quake_offset"] = current
-		return
-	var elapsed: float = max(0.0, quake_duration - quake_timer) * 60.0
-	var progress: float = clamp(elapsed / max(1.0, quake_duration * 60.0), 0.0, 1.0)
-	var base_intensity: float
-	if progress < 0.16:
-		base_intensity = 6.8
-	elif progress < 0.72:
-		var middle_progress: float = (progress - 0.16) / 0.56
-		base_intensity = 6.8 - middle_progress * 2.4
-	else:
-		var fade_progress: float = (progress - 0.72) / 0.28
-		base_intensity = 4.4 * (1.0 - clamp(fade_progress, 0.0, 1.0))
-	var visual_radius: float = float(rock.get("visual_radius", rock.get("radius", 28.0)))
-	var size_scale: float = clamp(visual_radius / 55.0, 0.78, 1.35)
-	if bool(rock.get("falling", false)):
-		size_scale *= 0.72
-	base_intensity *= size_scale
-	var phase: float = float(rock.get("phase", 0.0))
-	var offset_x: float = sin(elapsed * 1.95 + phase) * base_intensity * 0.95
-	offset_x += sin(elapsed * 4.7 + phase * 1.7) * base_intensity * 0.35
-	var offset_y: float = cos(elapsed * 2.55 + phase * 1.3) * base_intensity * 0.70
-	offset_y += sin(elapsed * 5.3 + phase * 0.9) * base_intensity * 0.22
-	if not bool(rock.get("falling", false)):
-		offset_y += sin(elapsed * 1.4 + phase * 0.5) * base_intensity * 0.18
-	rock["quake_offset"] = Vector2(offset_x, offset_y)
+	Stage2QuakeRockOffsetState.update_offset(rock, delta, quake_timer, quake_duration)
 
 
 func _is_rock_landed(rock: Dictionary) -> bool:
