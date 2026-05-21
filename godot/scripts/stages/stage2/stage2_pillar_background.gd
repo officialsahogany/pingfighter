@@ -14,6 +14,7 @@ const Stage2AmbientVisualRenderer := preload("res://scripts/stages/stage2/stage2
 const Stage2AmbientVisualState := preload("res://scripts/stages/stage2/stage2_ambient_visual_state.gd")
 const Stage2RockVisualFactory := preload("res://scripts/stages/stage2/stage2_rock_visual_factory.gd")
 const Stage2RockVisualAssetsBuilder := preload("res://scripts/stages/stage2/stage2_rock_visual_assets_builder.gd")
+const Stage2RockRuntimeState := preload("res://scripts/stages/stage2/stage2_rock_runtime_state.gd")
 const Stage2StarpointVisualFactory := preload("res://scripts/stages/stage2/stage2_starpoint_visual_factory.gd")
 const Stage2StarpointDropMotionState := preload("res://scripts/stages/stage2/stage2_starpoint_drop_motion_state.gd")
 const Stage2StarpointDropQuery := preload("res://scripts/stages/stage2/stage2_starpoint_drop_query.gd")
@@ -380,9 +381,7 @@ func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> vo
 			continue
 		if not _needs_rock_runtime_update(rock):
 			continue
-		rock["flash"] = max(0.0, float(rock.get("flash", 0.0)) - clamped_delta)
-		rock["water_target_flash"] = max(0.0, float(rock.get("water_target_flash", 0.0)) - clamped_delta)
-		rock["phase"] = float(rock.get("phase", 0.0)) + clamped_delta * 4.0
+		Stage2RockRuntimeState.update_visual_timers(rock, clamped_delta)
 		_update_quake_rock_drop(rock, clamped_delta)
 		_update_quake_rock_offset(rock, clamped_delta)
 		rocks[idx] = rock
@@ -523,7 +522,7 @@ func activate_water_cannon(context: Dictionary = {}, _deps: Dictionary = {}) -> 
 	water_cannon_phase = "charging"
 	water_cannon_timer = WATER_CANNON_CHARGE_SEC
 	water_cannon_delay = -1.0
-	_mark_water_cannon_target()
+	Stage2RockRuntimeState.mark_water_target(rocks, water_cannon_target_id)
 	_trigger_skill_warning("water_charge", "물대포 조준!", WATER_CANNON_CHARGE_SEC + 0.22)
 	return true
 
@@ -760,7 +759,7 @@ func absorb_chaos_spear_objects(center: Vector2, radius: float, _deps: Dictionar
 		rock["chaos_absorbing"] = true
 		rock["chaos_absorb_center"] = center
 		rock["flash"] = max(float(rock.get("flash", 0.0)), 0.12)
-		rock["water_target_flash"] = 0.0
+		Stage2RockRuntimeState.clear_water_target_flash(rock)
 		rocks[idx] = rock
 	var splash_write_index := 0
 	var splash_count := water_splashes.size()
@@ -1711,16 +1710,16 @@ func _update_boss_rage_visuals() -> void:
 
 
 func _emit_boss_rage_stomps(previous_timer: float, current_timer: float, deps: Dictionary) -> void:
-	var previous_step: int = int(floor(previous_timer / BOSS_RAGE_STOMP_INTERVAL_SEC))
-	var current_step: int = int(floor(current_timer / BOSS_RAGE_STOMP_INTERVAL_SEC))
-	if previous_timer >= BOSS_RAGE_BUILDUP_SEC or current_step <= previous_step:
-		return
-	var max_step: int = int(floor(BOSS_RAGE_BUILDUP_SEC / BOSS_RAGE_STOMP_INTERVAL_SEC))
-	for step in range(previous_step + 1, min(current_step, max_step) + 1):
-		if step <= 0 or step > 4:
-			continue
+	var stomp_steps: Array[int] = Stage2BossRageState.get_stomp_steps(
+		previous_timer,
+		current_timer,
+		BOSS_RAGE_STOMP_INTERVAL_SEC,
+		BOSS_RAGE_BUILDUP_SEC,
+		4
+	)
+	for step in stomp_steps:
 		boss_rage_stomp_count += 1
-		boss_rage_offset_y = -18.0 if step % 2 == 1 else 12.0
+		boss_rage_offset_y = Stage2BossRageState.get_stomp_offset_y(step)
 		_play_boss_rage_cry(deps)
 		var feedback: Object = deps.get("feedback", null)
 		if feedback != null and feedback.has_method("max_screen_shake"):
@@ -1830,7 +1829,7 @@ func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -
 	if water_cannon_phase == "charging":
 		water_cannon_current = water_cannon_start
 		water_cannon_timer = max(0.0, water_cannon_timer - delta)
-		_mark_water_cannon_target()
+		Stage2RockRuntimeState.mark_water_target(rocks, water_cannon_target_id)
 		if water_cannon_timer <= 0.0:
 			water_cannon_phase = "firing"
 			water_cannon_timer = WATER_CANNON_FIRE_SEC
@@ -1846,7 +1845,7 @@ func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -
 		water_cannon_progress = clamp(1.0 - water_cannon_timer / max(0.001, WATER_CANNON_FIRE_SEC), 0.0, 1.0)
 		water_cannon_current = water_cannon_start.lerp(water_cannon_target, water_cannon_progress)
 		_add_water_trail(water_cannon_current, water_cannon_progress)
-		_mark_water_cannon_target()
+		Stage2RockRuntimeState.mark_water_target(rocks, water_cannon_target_id)
 		if water_cannon_timer <= 0.0:
 			_finish_water_cannon(context, deps)
 
@@ -1956,15 +1955,6 @@ func _get_rock_by_id(rock_id: int) -> Dictionary:
 
 func _get_rock_index_by_id(rock_id: int) -> int:
 	return rock_query.get_index_by_id(rocks, rock_id)
-
-
-func _mark_water_cannon_target() -> void:
-	var index: int = _get_rock_index_by_id(water_cannon_target_id)
-	if index < 0:
-		return
-	var rock: Dictionary = rocks[index]
-	rock["water_target_flash"] = 1.0
-	rocks[index] = rock
 
 
 func _add_water_trail(pos: Vector2, progress: float) -> void:

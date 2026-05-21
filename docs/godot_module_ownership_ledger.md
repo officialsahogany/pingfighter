@@ -1210,7 +1210,9 @@ This section is intentionally long; use search to find the nearest owner.
   to `stage2_rustle_snapshot_builder.gd`.
   Rock visual payload generation is delegated to
   `stage2_rock_visual_factory.gd`; rock renderer asset payloads are
-  delegated to `stage2_rock_visual_assets_builder.gd`; rock dictionary
+  delegated to `stage2_rock_visual_assets_builder.gd`; short-lived rock
+  visual runtime timers / water-target flash mutation are delegated to
+  `stage2_rock_runtime_state.gd`; rock dictionary
   lookup / landed / center / target queries are delegated to
   `stage2_rock_query.gd`;
   quake-rock random spawn batches are delegated to
@@ -1508,8 +1510,13 @@ This section is intentionally long; use search to find the nearest owner.
   target position, render / collision center, center mutation, and
   spawn-spacing distance tests.
   `stage2_pillar_background.gd` still owns rock array mutation, spawning,
-  HP / collision, quake drop updates, golden-drop behavior, and water-cannon
-  target mutation.
+  HP / collision, quake drop updates, and golden-drop behavior.
+- `scripts/stages/stage2/stage2_rock_runtime_state.gd`
+  Owns Stage 2 short-lived rock visual runtime mutation: hit flash decay,
+  water-cannon target flash decay / mark / clear, and phase advancement.
+  `stage2_pillar_background.gd` still owns rock list iteration, spawning,
+  HP / collision, quake drop updates, golden-drop behavior, and renderer
+  fanout.
 - `scripts/stages/stage2/stage2_rock_fragment_payload_factory.gd`
   Owns Stage 2 normal rock-fragment payload construction after quake /
   crisis rocks break: fragment count, radial velocity, source sprite index,
@@ -1594,7 +1601,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage2/stage2_boss_rage_state.gd`
   Owns stateless Stage 2 boss-rage predicates and visual timing math:
   crisis trigger gating, inactive tint / offset decay, active rage tint /
-  offset calculation, final-stomp threshold checks, and finish checks.
+  offset calculation, buildup stomp-step windows / offsets, final-stomp
+  threshold checks, and finish checks.
   `stage2_pillar_background.gd` keeps the mutable pending / active flags,
   timers, stomp / quake / rock-wall side effects, audio / feedback
   emission, and snapshot publication.

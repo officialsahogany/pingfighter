@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_crisis_gate()
 	_verify_visual_timing()
+	_verify_stomp_step_window()
 	_verify_runtime_delegate()
 
 	if _failures.is_empty():
@@ -59,6 +60,17 @@ func _verify_visual_timing() -> void:
 	_expect(not Stage2BossRageState.should_emit_final_stomp(1.4, 1.5, 1.333), "final stomp should not refire after crossing")
 	_expect(Stage2BossRageState.is_finished(1.7, 1.666), "rage should finish after total duration")
 	_expect(not Stage2BossRageState.is_finished(1.6, 1.666), "rage should stay active before total duration")
+
+
+func _verify_stomp_step_window() -> void:
+	var steps: Array[int] = Stage2BossRageState.get_stomp_steps(0.0, 0.8, 0.25, 1.0, 4)
+	_expect(steps == [1, 2, 3], "rage stomp state should report crossed buildup steps")
+	var capped_steps: Array[int] = Stage2BossRageState.get_stomp_steps(0.9, 1.5, 0.25, 1.0, 4)
+	_expect(capped_steps == [4], "rage stomp state should cap buildup stomp steps")
+	var expired_steps: Array[int] = Stage2BossRageState.get_stomp_steps(1.0, 1.5, 0.25, 1.0, 4)
+	_expect(expired_steps.is_empty(), "rage stomp state should stop after buildup")
+	_expect(Stage2BossRageState.get_stomp_offset_y(1) == -18.0, "odd stomp steps should lift the boss")
+	_expect(Stage2BossRageState.get_stomp_offset_y(2) == 12.0, "even stomp steps should settle the boss")
 
 
 func _verify_runtime_delegate() -> void:

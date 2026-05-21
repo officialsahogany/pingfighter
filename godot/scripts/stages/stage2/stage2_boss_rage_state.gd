@@ -49,5 +49,28 @@ static func should_emit_final_stomp(previous_timer: float, current_timer: float,
 	return previous_timer < final_stomp_sec and current_timer >= final_stomp_sec
 
 
+static func get_stomp_steps(
+	previous_timer: float,
+	current_timer: float,
+	interval_sec: float,
+	buildup_sec: float,
+	max_step_count: int
+) -> Array[int]:
+	var steps: Array[int] = []
+	var previous_step: int = int(floor(previous_timer / interval_sec))
+	var current_step: int = int(floor(current_timer / interval_sec))
+	if previous_timer >= buildup_sec or current_step <= previous_step:
+		return steps
+	var max_step: int = min(int(floor(buildup_sec / interval_sec)), max_step_count)
+	for step in range(previous_step + 1, min(current_step, max_step) + 1):
+		if step > 0:
+			steps.append(step)
+	return steps
+
+
+static func get_stomp_offset_y(step: int) -> float:
+	return -18.0 if step % 2 == 1 else 12.0
+
+
 static func is_finished(timer: float, total_sec: float) -> bool:
 	return timer > total_sec
