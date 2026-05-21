@@ -45,6 +45,14 @@ func _verify_prewarm_idempotence() -> void:
 		bool(status.get("common_starpoint_drop_white_texture_ready", false)),
 		"shared white texture must be created during prewarm_assets()"
 	)
+	_expect(
+		bool(status.get("common_starpoint_soft_halo_shader_ready", false)),
+		"soft halo shader resource must be marked ready after prewarm_assets()"
+	)
+	_expect(
+		bool(status.get("common_starpoint_soft_halo_texture_ready", false)),
+		"soft halo falloff texture must be created during prewarm_assets()"
+	)
 
 
 func _verify_pipeline_status_keys() -> void:
@@ -53,6 +61,8 @@ func _verify_pipeline_status_keys() -> void:
 		"common_starpoint_drop_shader_ready",
 		"common_starpoint_drop_max_slots",
 		"common_starpoint_drop_white_texture_ready",
+		"common_starpoint_soft_halo_shader_ready",
+		"common_starpoint_soft_halo_texture_ready",
 	]:
 		_expect(
 			status.has(required_key),
@@ -70,11 +80,34 @@ func _verify_shader_resource_path_and_uniforms() -> void:
 		host_source.find("res://shaders/playfield/starpoint_drop.gdshader") >= 0,
 		"FX host must load the shader from res://shaders/playfield/ per repo convention"
 	)
+	_expect(
+		host_source.find("res://shaders/playfield/starpoint_soft_halo.gdshader") >= 0,
+		"FX host must load the soft halo shader from res://shaders/playfield/ per repo convention"
+	)
 	var shader_source := FileAccess.get_file_as_string("res://shaders/playfield/starpoint_drop.gdshader")
 	_expect(
 		shader_source != "",
 		"starpoint_drop.gdshader must be present at res://shaders/playfield/"
 	)
+	var halo_shader_source := FileAccess.get_file_as_string("res://shaders/playfield/starpoint_soft_halo.gdshader")
+	_expect(
+		halo_shader_source != "",
+		"starpoint_soft_halo.gdshader must be present at res://shaders/playfield/"
+	)
+	for required_halo_uniform in [
+		"halo_texture",
+		"elapsed",
+		"alpha",
+		"glow_intensity",
+		"spawn_scale",
+		"halo_color",
+		"sparkle_intensity",
+		"iridescent_rim_intensity",
+	]:
+		_expect(
+			halo_shader_source.find("uniform") >= 0 and halo_shader_source.find(required_halo_uniform) >= 0,
+			"starpoint soft halo shader must declare uniform %s" % required_halo_uniform
+		)
 	for required_uniform in [
 		"alpha",
 		"glow_intensity",
@@ -128,6 +161,7 @@ func _verify_instance_slot_pool_and_gating() -> void:
 	get_root().add_child(host)
 	await process_frame
 	_expect(host._slot_count >= 16, "slot pool should be populated after _ready()")
+	_expect(host._halo_slots.size() == host._slot_count, "soft halo slot pool should mirror the star slot pool")
 	# sync_drop with zero life must hide the slot (no wasted GPU work).
 	host.begin_frame()
 	host.sync_drop({"pos": Vector2(40.0, 40.0), "size": 12.0, "life": 0.0})
@@ -152,6 +186,10 @@ func _verify_instance_slot_pool_and_gating() -> void:
 		host._slots[1].visible,
 		"positive-life sync_drop should leave the slot visible for shader render"
 	)
+	_expect(
+		host._halo_slots[1].visible,
+		"positive-life sync_drop should leave the matching soft halo slot visible behind the star"
+	)
 	# end_frame must hide stale slots from previous frames.
 	host.begin_frame()
 	host.end_frame()
@@ -159,6 +197,10 @@ func _verify_instance_slot_pool_and_gating() -> void:
 		_expect(
 			not host._slots[i].visible,
 			"end_frame() must hide all unclaimed slots so stale overlays don't render"
+		)
+		_expect(
+			not host._halo_slots[i].visible,
+			"end_frame() must hide all unclaimed soft halo slots so stale auras don't render"
 		)
 	host.queue_free()
 
