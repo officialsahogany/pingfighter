@@ -44,8 +44,11 @@ static func get_reward_title(
 	reward: Dictionary,
 	perk_data: Dictionary,
 	is_perk_reward: bool,
-	fallback_label: String
+	fallback_label: String,
+	starpoint_title_prefix: String = ""
 ) -> String:
+	if str(reward.get("type", "")) == "starpoint" and starpoint_title_prefix != "":
+		return "%s +%d" % [starpoint_title_prefix, int(reward.get("amount", 0))]
 	var label: String = str(reward.get("label", ""))
 	if label != "":
 		return label
@@ -54,3 +57,18 @@ static func get_reward_title(
 		if perk_name != "":
 			return perk_name
 	return fallback_label
+
+
+static func get_reward_type_fallback_label(reward_type: String) -> String:
+	match reward_type:
+		"active":
+			return "액티브"
+		"passive":
+			return "패시브"
+		"mythic":
+			return "신화"
+		"starpoint":
+			return "스타포인트"
+		"perk", "skill":
+			return "퍽"
+	return "보상"

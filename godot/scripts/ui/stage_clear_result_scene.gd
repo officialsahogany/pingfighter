@@ -9,6 +9,7 @@ const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clea
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
+const StageClearResultRewardIconResolver := preload("res://scripts/ui/stage_clear_result_reward_icon_resolver.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
@@ -1222,47 +1223,11 @@ func _draw_star_polygon_scaled(
 
 
 func _get_reward_icon_texture(reward: Dictionary) -> Texture2D:
-	var item_data_value: Variant = reward.get("item_data", {})
-	var item_data: Dictionary = item_data_value if item_data_value is Dictionary else {}
-
-	var pre_texture: Variant = item_data.get("icon_texture", null)
-	if pre_texture is Texture2D:
-		return pre_texture
-
-	var icon_path: String = str(reward.get("icon_path", ""))
-	if icon_path == "":
-		icon_path = str(item_data.get("icon_path", ""))
-	if icon_path == "":
-		var item_name: String = str(reward.get("item_name", ""))
-		if item_name == "":
-			item_name = str(item_data.get("name", ""))
-		if item_name != "":
-			icon_path = "res://assets/sprites/items/%s.png" % item_name
-
-	if icon_path == "":
-		return null
-	if _reward_icon_cache.has(icon_path):
-		var cached: Variant = _reward_icon_cache[icon_path]
-		return cached if cached is Texture2D else null
-
-	var loaded: Texture2D = ProjectResourceLoader.load_texture(icon_path, "", "")
-	_reward_icon_cache[icon_path] = loaded
-	return loaded
+	return StageClearResultRewardIconResolver.get_reward_icon_texture(reward, _reward_icon_cache)
 
 
 func _reward_type_fallback_label(reward_type: String) -> String:
-	match reward_type:
-		"active":
-			return "액티브"
-		"passive":
-			return "패시브"
-		"mythic":
-			return "신화"
-		"starpoint":
-			return "스타포인트"
-		"perk":
-			return "퍽"
-	return "보상"
+	return StageClearResultRewardTextResolver.get_reward_type_fallback_label(reward_type)
 
 
 func _handle_box_click(mouse_position: Vector2) -> bool:
@@ -1930,13 +1895,12 @@ func _get_reward_perk_data(reward: Dictionary) -> Dictionary:
 
 func _get_reward_title(reward: Dictionary) -> String:
 	var reward_type: String = str(reward.get("type", ""))
-	if reward_type == "starpoint":
-		return "퍽 선택권 +%d" % int(reward.get("amount", 0))
 	return StageClearResultRewardTextResolver.get_reward_title(
 		reward,
 		_get_reward_perk_data(reward),
 		_is_perk_reward(reward),
-		_reward_type_fallback_label(reward_type)
+		_reward_type_fallback_label(reward_type),
+		"퍽 선택권"
 	)
 
 

@@ -22,6 +22,7 @@ class FakePerkCatalog:
 func _init() -> void:
 	_verify_detail_text_resolution()
 	_verify_perk_data_resolution()
+	_verify_type_fallback_labels()
 	_verify_title_resolution()
 	_verify_scene_delegates_text_resolver()
 
@@ -88,6 +89,15 @@ func _verify_perk_data_resolution() -> void:
 	)
 
 
+func _verify_type_fallback_labels() -> void:
+	_expect(StageClearResultRewardTextResolver.get_reward_type_fallback_label("active") == "액티브", "active fallback label should be localized")
+	_expect(StageClearResultRewardTextResolver.get_reward_type_fallback_label("passive") == "패시브", "passive fallback label should be localized")
+	_expect(StageClearResultRewardTextResolver.get_reward_type_fallback_label("mythic") == "신화", "mythic fallback label should be localized")
+	_expect(StageClearResultRewardTextResolver.get_reward_type_fallback_label("starpoint") == "스타포인트", "starpoint fallback label should be localized")
+	_expect(StageClearResultRewardTextResolver.get_reward_type_fallback_label("skill") == "퍽", "skill fallback label should reuse the perk label")
+	_expect(StageClearResultRewardTextResolver.get_reward_type_fallback_label("unknown") == "보상", "unknown fallback label should use the reward fallback")
+
+
 func _verify_title_resolution() -> void:
 	_expect(
 		StageClearResultRewardTextResolver.get_reward_title({"label": "Direct Label"}, {"name": "Perk Name"}, true, "Fallback") == "Direct Label",
@@ -101,12 +111,17 @@ func _verify_title_resolution() -> void:
 		StageClearResultRewardTextResolver.get_reward_title({}, {"name": "Perk Name"}, false, "Fallback") == "Fallback",
 		"non-perk reward title should use fallback label"
 	)
+	_expect(
+		StageClearResultRewardTextResolver.get_reward_title({"type": "starpoint", "amount": 8}, {}, false, "Fallback", "퍽 선택권") == "퍽 선택권 +8",
+		"starpoint rewards should format the amount title in the resolver"
+	)
 
 
 func _verify_scene_delegates_text_resolver() -> void:
 	var scene := StageClearResultScene.new()
 	scene._perk_catalog = FakePerkCatalog.new()
 
+	_expect(scene._reward_type_fallback_label("active") == "액티브", "scene fallback-label wrapper should delegate")
 	_expect(scene._get_reward_title({"type": "starpoint", "amount": 5}).contains("+5"), "scene should keep starpoint amount title formatting")
 	_expect(scene._get_reward_title({"type": "perk", "perk_id": "catalog_perk"}) == "Catalog Perk", "scene title wrapper should use catalog perk names")
 	_expect(scene._get_reward_detail_text({"type": "perk", "perk_id": "catalog_perk"}) == "Catalog Detail", "scene detail wrapper should use catalog perk descriptions")

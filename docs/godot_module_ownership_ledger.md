@@ -899,8 +899,11 @@ This section is intentionally long; use search to find the nearest owner.
   starpoint totals, and perk reward ID classification are delegated to
   `stage_clear_result_summary_builder.gd`; reward card colors, badges, and
   source-chip labels / colors are delegated to
-  `stage_clear_result_reward_visual_resolver.gd`; reward-card title,
-  detail text, and catalog-backed perk-data resolution are delegated to
+  `stage_clear_result_reward_visual_resolver.gd`; reward icon path
+  resolution and scene-local texture caching are delegated to
+  `stage_clear_result_reward_icon_resolver.gd`; reward-card title,
+  starpoint title formatting, fallback type labels, detail text, and
+  catalog-backed perk-data resolution are delegated to
   `stage_clear_result_reward_text_resolver.gd`; result chest layout,
   box-frame policy, reward-card grid layout, and sheet / cover source-rect
   math, floating-box center / AABB / rotate geometry, actor / click / scroll
@@ -954,13 +957,18 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ui/stage_clear_result_reward_visual_resolver.gd`
   Owns stateless stage-clear reward visual classification: reward card base
   colors, reward badge text, and stage-vs-box source-chip labels / colors.
-  The scene still owns icon texture loading and all actual drawing.
+  The scene still owns all actual drawing.
+- `scripts/ui/stage_clear_result_reward_icon_resolver.gd`
+  Owns stage-clear reward icon resolution: direct and nested icon paths,
+  item-name fallback sprite paths, preloaded `icon_texture` handling, and
+  scene-local texture-cache lookups / fills through `ProjectResourceLoader`.
+  The scene still owns the local cache dictionary and actual icon drawing.
 - `scripts/ui/stage_clear_result_reward_text_resolver.gd`
   Owns stateless stage-clear reward text resolution: direct reward label /
   detail precedence, perk description / level-description / detail fallback,
-  catalog-backed perk-data duplication, and perk-name title fallback. The
-  scene still owns localized fallback labels, starpoint title formatting,
-  the catalog instance, icon texture loading, and actual drawing.
+  catalog-backed perk-data duplication, perk-name title fallback, starpoint
+  title formatting, and localized reward type fallback labels. The scene
+  still owns the catalog instance and actual drawing.
 - `scripts/ui/stage_clear_result_text_layout_helper.gd`
   Owns stateless stage-clear result text measurement helpers: centered
   baseline calculation, word wrapping to width / max-lines, and font-size
