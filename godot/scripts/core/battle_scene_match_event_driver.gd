@@ -4,7 +4,10 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const BattleSceneBossHealthFlow := preload("res://scripts/core/battle_scene_boss_health_flow.gd")
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 
-const DEMO_STAGE_SEQUENCE_END := 4
+# Engine code-stage id where the demo sequence stops advancing automatically.
+# Keep this as a code-stage boundary; public stage numbering can differ from
+# the internal stage id mapping documented in AGENTS.md.
+const DEMO_STAGE_SEQUENCE_END := 5
 const STAGE_TRANSITION_LOADING_MIN_SECONDS := 2.20
 const STAGE_TRANSITION_LOADING_START_PROGRESS := 0.0
 const STAGE_TRANSITION_LOADING_PRE_COMPLETE_PROGRESS := 0.92
