@@ -1201,6 +1201,8 @@ This section is intentionally long; use search to find the nearest owner.
   initial population, and falling-leaf spawn cadence helpers are delegated
   to `stage2_ambient_layout_helper.gd`; ambient visual count snapshots are
   delegated to `stage2_ambient_visual_snapshot_builder.gd`;
+  falling-leaf and firefly per-frame motion is delegated to
+  `stage2_ambient_visual_state.gd`;
   rustle bush / vine layout
   payload generation is delegated to `stage2_rustle_payload_factory.gd`;
   rustle trigger / decay mutation and side-wall band predicates are delegated
@@ -1438,14 +1440,20 @@ This section is intentionally long; use search to find the nearest owner.
   Owns Stage 2 ambient payload construction for viewport-side falling
   leaves, fireflies, and leaf particles emitted by wall / rock reactions.
   `stage2_pillar_background.gd` still owns ambient layout invalidation,
-  falling-leaf / firefly updates, particle pruning, rustle state, and
+  falling-leaf / firefly update orchestration, particle pruning, rustle
+  state, and renderer fanout.
+- `scripts/stages/stage2/stage2_ambient_visual_state.gd`
+  Owns Stage 2 ambient per-frame visual mutation for falling leaves and
+  fireflies: y / sway / rotation advancement, off-layout leaf compaction,
+  firefly drift, and side wrapping. The background module still owns layout
+  size fields, spawn cadence, leaf-particle decay, rustle state, and
   renderer fanout.
 - `scripts/stages/stage2/stage2_ambient_layout_helper.gd`
   Owns Stage 2 ambient layout helper decisions: current-layout matching,
   initial falling-leaf / firefly population, falling-leaf spawn chance, and
   max-count guarded leaf append. The background module still owns the live
-  ambient arrays, layout size fields, update physics, particle pruning,
-  rustle state, and renderer fanout.
+  ambient arrays, layout size fields, update orchestration, particle
+  pruning, rustle state, and renderer fanout.
 - `scripts/stages/stage2/stage2_ambient_visual_snapshot_builder.gd`
   Owns the read-only Stage 2 ambient visual snapshot counts for falling
   leaves, fireflies, and available leaf sprites. The background module

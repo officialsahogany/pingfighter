@@ -11,6 +11,7 @@ const Stage2WaterVisualState := preload("res://scripts/stages/stage2/stage2_wate
 const Stage2WarningVisualRenderer := preload("res://scripts/stages/stage2/stage2_warning_visual_renderer.gd")
 const Stage2ScreenOverlayVisualRenderer := preload("res://scripts/stages/stage2/stage2_screen_overlay_visual_renderer.gd")
 const Stage2AmbientVisualRenderer := preload("res://scripts/stages/stage2/stage2_ambient_visual_renderer.gd")
+const Stage2AmbientVisualState := preload("res://scripts/stages/stage2/stage2_ambient_visual_state.gd")
 const Stage2RockVisualFactory := preload("res://scripts/stages/stage2/stage2_rock_visual_factory.gd")
 const Stage2RockVisualAssetsBuilder := preload("res://scripts/stages/stage2/stage2_rock_visual_assets_builder.gd")
 const Stage2StarpointVisualFactory := preload("res://scripts/stages/stage2/stage2_starpoint_visual_factory.gd")
@@ -1228,34 +1229,8 @@ func _update_ambient_visuals(delta: float) -> void:
 	ambient_time += delta
 	if excitement > 0.0:
 		excitement = max(0.0, excitement - delta * 0.5)
-	var leaf_write_index := 0
-	var leaf_count := falling_leaves.size()
-	for idx in range(leaf_count):
-		var leaf: Dictionary = falling_leaves[idx]
-		leaf["y"] = float(leaf.get("y", 0.0)) + float(leaf.get("fall_speed", 0.45)) * delta * 60.0
-		leaf["sway_offset"] = float(leaf.get("sway_offset", 0.0)) + 1.5 * delta
-		leaf["rotation"] = float(leaf.get("rotation", 0.0)) + float(leaf.get("rot_speed", 0.0)) * delta * 60.0
-		if float(leaf.get("y", 0.0)) > ambient_layout_size.y + 25.0:
-			continue
-		falling_leaves[leaf_write_index] = leaf
-		leaf_write_index += 1
-	if leaf_write_index < leaf_count:
-		falling_leaves.resize(leaf_write_index)
-	for idx in range(fireflies.size()):
-		var fly: Dictionary = fireflies[idx]
-		var phase: float = float(fly.get("phase", 0.0)) + float(fly.get("speed", 0.4)) * delta
-		fly["phase"] = phase
-		fly["x"] = float(fly.get("x", 0.0)) + sin(phase) * 0.35 * delta * 60.0
-		fly["y"] = float(fly.get("y", 0.0)) + cos(phase * 0.7) * 0.2 * delta * 60.0
-		if float(fly.get("x", 0.0)) < -25.0:
-			fly["x"] = ambient_layout_size.x + 25.0
-		elif float(fly.get("x", 0.0)) > ambient_layout_size.x + 25.0:
-			fly["x"] = -25.0
-		if float(fly.get("y", 0.0)) < -25.0:
-			fly["y"] = ambient_layout_size.y + 25.0
-		elif float(fly.get("y", 0.0)) > ambient_layout_size.y + 25.0:
-			fly["y"] = -25.0
-		fireflies[idx] = fly
+	Stage2AmbientVisualState.update_falling_leaves(falling_leaves, delta, ambient_layout_size)
+	Stage2AmbientVisualState.update_fireflies(fireflies, delta, ambient_layout_size)
 	if ambient_layout_helper.should_spawn_ambient_leaf(
 		ambient_layout_size,
 		ambient_rng,
