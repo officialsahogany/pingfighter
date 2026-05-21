@@ -63,6 +63,37 @@ static func is_return_blend_active(reaction_timer: float, reaction_duration: flo
 	return reaction_timer >= reaction_duration and reaction_timer < total_duration
 
 
+static func get_reaction_state(
+	base_timer: float,
+	base_frame_interval: float,
+	frame_count: int,
+	reaction_timer: float,
+	reaction_duration: float,
+	click_frame_interval: float,
+	transition_duration: float,
+	transition_base_frame: int,
+	return_hold_duration: float,
+	return_fade_duration: float,
+	total_duration: float
+) -> Dictionary:
+	var base_frame: int = get_base_frame(base_timer, base_frame_interval, frame_count)
+	return {
+		"base_frame": base_frame,
+		"reaction_frame": get_reaction_frame(reaction_timer, reaction_duration, click_frame_interval, frame_count),
+		"transition_base_frame": get_transition_base_frame(reaction_timer, transition_duration, transition_base_frame, base_frame),
+		"reaction_alpha": get_reaction_alpha(
+			reaction_timer,
+			reaction_duration,
+			transition_duration,
+			return_hold_duration,
+			return_fade_duration,
+			total_duration
+		),
+		"reaction_active": is_reaction_active(reaction_timer, total_duration),
+		"return_blend_active": is_return_blend_active(reaction_timer, reaction_duration, total_duration),
+	}
+
+
 static func smooth01(value: float) -> float:
 	var t: float = clamp(value, 0.0, 1.0)
 	return t * t * (3.0 - 2.0 * t)

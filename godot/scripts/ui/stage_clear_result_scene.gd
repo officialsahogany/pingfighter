@@ -271,9 +271,12 @@ func update_result_scene(delta: float) -> void:
 	var safe_delta: float = max(0.0, delta)
 	timer += safe_delta
 	_dalji_base_timer += safe_delta
-	if _is_dalji_click_reaction_active():
+	if StageClearResultClickReactionState.is_reaction_active(_dalji_click_reaction_timer, DALJI_CLICK_TOTAL_DURATION):
 		_dalji_click_reaction_timer = min(DALJI_CLICK_TOTAL_DURATION, _dalji_click_reaction_timer + safe_delta)
-	if _is_player_victory_click_reaction_active():
+	if StageClearResultClickReactionState.is_reaction_active(
+		_player_victory_click_reaction_timer,
+		PLAYER_VICTORY_CLICK_TOTAL_DURATION
+	):
 		_player_victory_click_reaction_timer = min(
 			PLAYER_VICTORY_CLICK_TOTAL_DURATION,
 			_player_victory_click_reaction_timer + safe_delta
@@ -429,16 +432,18 @@ func get_interaction_status() -> Dictionary:
 	var box_counts: Dictionary = StageClearResultInteractionState.get_box_state_counts(_boxes)
 	var opened_count: int = int(box_counts.get("opened_count", 0))
 	var opening_count: int = int(box_counts.get("opening_count", 0))
+	var dalji_reaction_state: Dictionary = _dalji_reaction_state()
+	var player_victory_reaction_state: Dictionary = _player_victory_reaction_state()
 	return {
-		"dalji_click_reaction_active": _is_dalji_click_reaction_active(),
-		"dalji_click_return_blend_active": _is_dalji_click_return_blend_active(),
+		"dalji_click_reaction_active": bool(dalji_reaction_state.get("reaction_active", false)),
+		"dalji_click_return_blend_active": bool(dalji_reaction_state.get("return_blend_active", false)),
 		"dalji_click_reaction_timer": _dalji_click_reaction_timer,
 		"dalji_click_reaction_duration": DALJI_CLICK_REACTION_DURATION,
 		"dalji_click_total_duration": DALJI_CLICK_TOTAL_DURATION,
 		"dalji_click_transition_base_frame": _dalji_click_transition_base_frame,
-		"dalji_base_frame": _get_dalji_base_frame(),
+		"dalji_base_frame": int(dalji_reaction_state.get("base_frame", 0)),
 		"dalji_base_timer": _dalji_base_timer,
-		"dalji_reaction_alpha": _get_dalji_reaction_alpha(),
+		"dalji_reaction_alpha": float(dalji_reaction_state.get("reaction_alpha", 0.0)),
 		"dalji_dialogue_timer": _dalji_dialogue_timer,
 		"dalji_click_rect": StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale),
 		"dalji_dialogue": DALJI_CLICK_DIALOGUE,
@@ -453,14 +458,14 @@ func get_interaction_status() -> Dictionary:
 		"player_victory_frame_count": PLAYER_VICTORY_FRAME_COUNT,
 		"player_victory_grid_cols": PLAYER_VICTORY_GRID_COLS,
 		"player_victory_cell_size": PLAYER_VICTORY_CELL_SIZE,
-		"player_victory_base_frame": _get_player_victory_base_frame(),
-		"player_victory_click_reaction_active": _is_player_victory_click_reaction_active(),
-		"player_victory_click_return_blend_active": _is_player_victory_click_return_blend_active(),
+		"player_victory_base_frame": int(player_victory_reaction_state.get("base_frame", 0)),
+		"player_victory_click_reaction_active": bool(player_victory_reaction_state.get("reaction_active", false)),
+		"player_victory_click_return_blend_active": bool(player_victory_reaction_state.get("return_blend_active", false)),
 		"player_victory_click_reaction_timer": _player_victory_click_reaction_timer,
 		"player_victory_click_reaction_duration": PLAYER_VICTORY_CLICK_REACTION_DURATION,
 		"player_victory_click_total_duration": PLAYER_VICTORY_CLICK_TOTAL_DURATION,
 		"player_victory_click_transition_base_frame": _player_victory_click_transition_base_frame,
-		"player_victory_reaction_alpha": _get_player_victory_reaction_alpha(),
+		"player_victory_reaction_alpha": float(player_victory_reaction_state.get("reaction_alpha", 0.0)),
 		"player_victory_draw_rect": StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, scale),
 		"player_victory_click_rect": StageClearResultLayoutHelper.get_player_victory_click_rect(
 			view_size,
@@ -598,16 +603,17 @@ func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
 	@warning_ignore("shadowed_variable_base_class")
 	var draw_rect: Rect2 = StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
 	_dalji_click_rect = draw_rect
-	if not _is_dalji_click_reaction_active() or _dalji_click_reaction_sheet == null:
-		_draw_dalji_sheet_frame(_dalji_defeat_sheet, _get_dalji_base_frame(), draw_rect, 0.98)
+	var dalji_reaction_state: Dictionary = _dalji_reaction_state()
+	if not bool(dalji_reaction_state.get("reaction_active", false)) or _dalji_click_reaction_sheet == null:
+		_draw_dalji_sheet_frame(_dalji_defeat_sheet, int(dalji_reaction_state.get("base_frame", 0)), draw_rect, 0.98)
 		return
 
-	var reaction_alpha: float = _get_dalji_reaction_alpha()
+	var reaction_alpha: float = float(dalji_reaction_state.get("reaction_alpha", 0.0))
 	var base_alpha: float = 1.0 - reaction_alpha
 	if base_alpha > 0.001:
-		_draw_dalji_sheet_frame(_dalji_defeat_sheet, _get_dalji_transition_base_frame(), draw_rect, 0.98 * base_alpha)
+		_draw_dalji_sheet_frame(_dalji_defeat_sheet, int(dalji_reaction_state.get("transition_base_frame", 0)), draw_rect, 0.98 * base_alpha)
 	if reaction_alpha > 0.001:
-		_draw_dalji_sheet_frame(_dalji_click_reaction_sheet, _get_dalji_reaction_frame(), draw_rect, 0.98 * reaction_alpha)
+		_draw_dalji_sheet_frame(_dalji_click_reaction_sheet, int(dalji_reaction_state.get("reaction_frame", 0)), draw_rect, 0.98 * reaction_alpha)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -678,23 +684,24 @@ func _draw_player_victory_live2d(view_size: Vector2, layout_ratio: float) -> boo
 		layout_ratio,
 		PLAYER_VICTORY_CELL_SIZE
 	)
-	if not _is_player_victory_click_reaction_active() or _player_victory_click_reaction_sheet == null:
-		_draw_player_victory_sheet_frame(_player_victory_sheet, _get_player_victory_base_frame(), actor_rect, 1.0)
+	var player_victory_reaction_state: Dictionary = _player_victory_reaction_state()
+	if not bool(player_victory_reaction_state.get("reaction_active", false)) or _player_victory_click_reaction_sheet == null:
+		_draw_player_victory_sheet_frame(_player_victory_sheet, int(player_victory_reaction_state.get("base_frame", 0)), actor_rect, 1.0)
 		return true
 
-	var reaction_alpha: float = _get_player_victory_reaction_alpha()
+	var reaction_alpha: float = float(player_victory_reaction_state.get("reaction_alpha", 0.0))
 	var base_alpha: float = 1.0 - reaction_alpha
 	if base_alpha > 0.001:
 		_draw_player_victory_sheet_frame(
 			_player_victory_sheet,
-			_get_player_victory_transition_base_frame(),
+			int(player_victory_reaction_state.get("transition_base_frame", 0)),
 			actor_rect,
 			base_alpha
 		)
 	if reaction_alpha > 0.001:
 		_draw_player_victory_sheet_frame(
 			_player_victory_click_reaction_sheet,
-			_get_player_victory_reaction_frame(),
+			int(player_victory_reaction_state.get("reaction_frame", 0)),
 			actor_rect,
 			reaction_alpha
 		)
@@ -1905,10 +1912,17 @@ func _handle_player_victory_click(mouse_position: Vector2) -> bool:
 	_player_victory_click_rect = click_rect
 	if not click_rect.has_point(mouse_position):
 		return false
-	if _is_player_victory_click_reaction_active():
+	if StageClearResultClickReactionState.is_reaction_active(
+		_player_victory_click_reaction_timer,
+		PLAYER_VICTORY_CLICK_TOTAL_DURATION
+	):
 		queue_redraw()
 		return true
-	_player_victory_click_transition_base_frame = _get_player_victory_base_frame()
+	_player_victory_click_transition_base_frame = StageClearResultClickReactionState.get_base_frame(
+		timer,
+		PLAYER_VICTORY_FRAME_INTERVAL,
+		PLAYER_VICTORY_FRAME_COUNT
+	)
 	_player_victory_click_reaction_timer = 0.0
 	queue_redraw()
 	return true
@@ -1924,12 +1938,16 @@ func _handle_dalji_click(mouse_position: Vector2) -> bool:
 	_dalji_click_rect = click_rect
 	if not click_rect.has_point(mouse_position):
 		return false
-	if _is_dalji_click_reaction_active():
+	if StageClearResultClickReactionState.is_reaction_active(_dalji_click_reaction_timer, DALJI_CLICK_TOTAL_DURATION):
 		_dalji_dialogue_timer = DALJI_CLICK_DIALOGUE_DURATION
 		_play_dalji_click_voice()
 		queue_redraw()
 		return true
-	_dalji_click_transition_base_frame = _get_dalji_base_frame()
+	_dalji_click_transition_base_frame = StageClearResultClickReactionState.get_base_frame(
+		_dalji_base_timer,
+		DALJI_FRAME_INTERVAL,
+		DALJI_FRAME_COUNT
+	)
 	_dalji_click_reaction_timer = 0.0
 	_dalji_dialogue_timer = DALJI_CLICK_DIALOGUE_DURATION
 	_play_dalji_click_voice()
@@ -1975,54 +1993,18 @@ func _draw_player_victory_sheet_frame(sheet: Texture2D, frame: int, rect: Rect2,
 	draw_texture_rect_region(sheet, rect, source, Color(1.0, 1.0, 1.0, alpha), false, true)
 
 
-func _get_player_victory_base_frame() -> int:
-	return StageClearResultClickReactionState.get_base_frame(
+func _player_victory_reaction_state() -> Dictionary:
+	return StageClearResultClickReactionState.get_reaction_state(
 		timer,
 		PLAYER_VICTORY_FRAME_INTERVAL,
-		PLAYER_VICTORY_FRAME_COUNT
-	)
-
-
-func _get_player_victory_reaction_frame() -> int:
-	return StageClearResultClickReactionState.get_reaction_frame(
+		PLAYER_VICTORY_FRAME_COUNT,
 		_player_victory_click_reaction_timer,
 		PLAYER_VICTORY_CLICK_REACTION_DURATION,
 		PLAYER_VICTORY_CLICK_FRAME_INTERVAL,
-		PLAYER_VICTORY_FRAME_COUNT
-	)
-
-
-func _get_player_victory_transition_base_frame() -> int:
-	return StageClearResultClickReactionState.get_transition_base_frame(
-		_player_victory_click_reaction_timer,
 		PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
 		_player_victory_click_transition_base_frame,
-		_get_player_victory_base_frame()
-	)
-
-
-func _get_player_victory_reaction_alpha() -> float:
-	return StageClearResultClickReactionState.get_reaction_alpha(
-		_player_victory_click_reaction_timer,
-		PLAYER_VICTORY_CLICK_REACTION_DURATION,
-		PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
 		PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION,
 		PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION,
-		PLAYER_VICTORY_CLICK_TOTAL_DURATION
-	)
-
-
-func _is_player_victory_click_reaction_active() -> bool:
-	return StageClearResultClickReactionState.is_reaction_active(
-		_player_victory_click_reaction_timer,
-		PLAYER_VICTORY_CLICK_TOTAL_DURATION
-	)
-
-
-func _is_player_victory_click_return_blend_active() -> bool:
-	return StageClearResultClickReactionState.is_return_blend_active(
-		_player_victory_click_reaction_timer,
-		PLAYER_VICTORY_CLICK_REACTION_DURATION,
 		PLAYER_VICTORY_CLICK_TOTAL_DURATION
 	)
 
@@ -2034,54 +2016,18 @@ func _draw_dalji_sheet_frame(sheet: Texture2D, frame: int, rect: Rect2, alpha: f
 	draw_texture_rect_region(sheet, rect, source, Color(1.0, 1.0, 1.0, alpha), false, true)
 
 
-func _get_dalji_base_frame() -> int:
-	return StageClearResultClickReactionState.get_base_frame(
+func _dalji_reaction_state() -> Dictionary:
+	return StageClearResultClickReactionState.get_reaction_state(
 		_dalji_base_timer,
 		DALJI_FRAME_INTERVAL,
-		DALJI_FRAME_COUNT
-	)
-
-
-func _get_dalji_reaction_frame() -> int:
-	return StageClearResultClickReactionState.get_reaction_frame(
+		DALJI_FRAME_COUNT,
 		_dalji_click_reaction_timer,
 		DALJI_CLICK_REACTION_DURATION,
 		DALJI_CLICK_FRAME_INTERVAL,
-		DALJI_FRAME_COUNT
-	)
-
-
-func _get_dalji_transition_base_frame() -> int:
-	return StageClearResultClickReactionState.get_transition_base_frame(
-		_dalji_click_reaction_timer,
 		DALJI_CLICK_TRANSITION_DURATION,
 		_dalji_click_transition_base_frame,
-		_get_dalji_base_frame()
-	)
-
-
-func _get_dalji_reaction_alpha() -> float:
-	return StageClearResultClickReactionState.get_reaction_alpha(
-		_dalji_click_reaction_timer,
-		DALJI_CLICK_REACTION_DURATION,
-		DALJI_CLICK_TRANSITION_DURATION,
 		DALJI_CLICK_RETURN_HOLD_DURATION,
 		DALJI_CLICK_RETURN_FADE_DURATION,
-		DALJI_CLICK_TOTAL_DURATION
-	)
-
-
-func _is_dalji_click_reaction_active() -> bool:
-	return StageClearResultClickReactionState.is_reaction_active(
-		_dalji_click_reaction_timer,
-		DALJI_CLICK_TOTAL_DURATION
-	)
-
-
-func _is_dalji_click_return_blend_active() -> bool:
-	return StageClearResultClickReactionState.is_return_blend_active(
-		_dalji_click_reaction_timer,
-		DALJI_CLICK_REACTION_DURATION,
 		DALJI_CLICK_TOTAL_DURATION
 	)
 
