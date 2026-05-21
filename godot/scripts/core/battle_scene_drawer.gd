@@ -67,9 +67,10 @@ func draw_pillar_overlay(canvas: CanvasItem, registry: Object, config: Dictionar
 	var view_size: Vector2 = _get_vector2(surface, "view_size", Vector2.ZERO)
 	var layout: Dictionary = surface.get("layout", {})
 	var context_owner: Object = _get_context_owner(canvas, surface)
-	sample_start = _perf_begin(perf_logger)
-	_draw_pillar_background_overlay(canvas, registry, view_size, layout, context_owner)
-	_perf_end(perf_logger, "draw.pillar_overlay.background", sample_start)
+	if not bool(config.get("skip_background", false)):
+		sample_start = _perf_begin(perf_logger)
+		_draw_pillar_background_overlay(canvas, registry, view_size, layout, context_owner)
+		_perf_end(perf_logger, "draw.pillar_overlay.background", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_pillar_hud_scene(canvas, registry, view_size, layout, context_owner)
 	_perf_end(perf_logger, "draw.pillar_overlay.hud", sample_start)

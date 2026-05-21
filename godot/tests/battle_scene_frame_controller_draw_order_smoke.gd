@@ -162,6 +162,7 @@ func _init() -> void:
 	_verify_handoff_spawn_overlay_skips_pillar_restore()
 	_verify_inactive_spawn_overlay_uses_normal_scene_draw()
 	_verify_pillar_overlay_restores_hud_without_redrawing_pillar_background()
+	_verify_pillar_overlay_can_skip_background_for_detached_host()
 	_verify_inactive_runtime_perk_overlay_skips_draw()
 
 	if _failures.is_empty():
@@ -385,6 +386,35 @@ func _verify_pillar_overlay_restores_hud_without_redrawing_pillar_background() -
 	_expect(perf_logger.labels.has("draw.pillar_overlay.post_hud"), "pillar overlay perf should sample post-playfield HUD restore")
 	_expect(perf_logger.labels.has("draw.pillar_overlay.hud_overlays"), "pillar overlay perf should sample HUD overlays")
 	_expect(perf_logger.labels.has("draw.pillar_overlay.total"), "pillar overlay perf should sample total restore")
+	canvas.free()
+	context_owner.free()
+
+
+func _verify_pillar_overlay_can_skip_background_for_detached_host() -> void:
+	var drawer: Object = BattleSceneDrawer.new()
+	var pillar_pass := FakePillarDrawPass.new()
+	var perf_logger := FakePerfLogger.new()
+	var registry := FakeRegistry.new()
+	registry.modules = {
+		"battle_perf_logger": perf_logger,
+		"battle_scene_pillar_draw_pass": pillar_pass,
+	}
+	var canvas := Node2D.new()
+	var context_owner := Node2D.new()
+	get_root().add_child(canvas)
+	get_root().add_child(context_owner)
+
+	drawer.draw_pillar_overlay(canvas, registry, {
+		"view_size": Vector2(1280.0, 720.0),
+		"context_owner": context_owner,
+		"skip_background": true,
+	})
+
+	_expect(pillar_pass.background_overlay_calls == 0, "detached pillar host should skip already-visible pillar background")
+	_expect(pillar_pass.hud_overlay_calls == 1, "detached pillar host should still restore HUD above the spawn FX host")
+	_expect(not perf_logger.labels.has("draw.pillar_overlay.background"), "skipped pillar background should not be sampled as draw work")
+	_expect(perf_logger.labels.has("draw.pillar_overlay.hud"), "detached pillar host should still sample HUD restore")
+	_expect(perf_logger.labels.has("draw.pillar_overlay.total"), "detached pillar host should still sample total overlay cost")
 	canvas.free()
 	context_owner.free()
 

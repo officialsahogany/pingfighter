@@ -38,4 +38,7 @@ func tear_down(free_self: bool = false) -> void:
 func _draw() -> void:
 	if not active or registry == null:
 		return
-	drawer.draw_pillar_overlay(self, registry, {"context_owner": context_owner})
+	drawer.draw_pillar_overlay(self, registry, {
+		"context_owner": context_owner,
+		"skip_background": true,
+	})

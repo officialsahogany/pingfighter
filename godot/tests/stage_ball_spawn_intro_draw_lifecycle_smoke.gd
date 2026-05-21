@@ -2,6 +2,7 @@ extends SceneTree
 
 const StageBallSpawnIntro := preload("res://scripts/core/stage_ball_spawn_intro.gd")
 const StageBallSpawnIntroDrawLifecycle := preload("res://scripts/core/stage_ball_spawn_intro_draw_lifecycle.gd")
+const StageBallSpawnPillarOverlayHost := preload("res://scripts/core/stage_ball_spawn_pillar_overlay_host.gd")
 
 var _failures: Array[String] = []
 
@@ -64,6 +65,17 @@ class FakePillarOverlayHost:
 	var active := true
 
 
+class FakePillarOverlayDrawer:
+	extends RefCounted
+
+	var draw_calls := 0
+	var last_config: Dictionary = {}
+
+	func draw_pillar_overlay(_canvas: CanvasItem, _registry: Object, config: Dictionary = {}) -> void:
+		draw_calls += 1
+		last_config = config
+
+
 class DrawHarness:
 	extends Node2D
 
@@ -89,6 +101,7 @@ func _run() -> void:
 	_verify_intro_delegates_public_draw_surface()
 	_verify_intro_pillar_restore_stops_after_handoff()
 	_verify_intro_detached_pillar_restore_runs_until_handoff()
+	_verify_detached_pillar_host_skips_background_restore()
 
 	if _failures.is_empty():
 		print("stage_ball_spawn_intro_draw_lifecycle_smoke: ok")
@@ -187,6 +200,21 @@ func _verify_intro_detached_pillar_restore_runs_until_handoff() -> void:
 	intro.overlay_active = true
 	intro.serve_handoff_done = true
 	_expect(not intro._should_use_pillar_overlay_host(), "detached FX pillar restore should not run during residual post-handoff overlay")
+
+
+func _verify_detached_pillar_host_skips_background_restore() -> void:
+	var host: Object = StageBallSpawnPillarOverlayHost.new()
+	var drawer := FakePillarOverlayDrawer.new()
+	var context_owner := Node2D.new()
+	host.drawer = drawer
+	host.begin(FakeRegistry.new(), context_owner)
+	host._draw()
+
+	_expect(drawer.draw_calls == 1, "detached pillar host should draw its overlay once when active")
+	_expect(bool(drawer.last_config.get("skip_background", false)), "detached pillar host should skip the expensive background restore")
+	_expect(drawer.last_config.get("context_owner", null) == context_owner, "detached pillar host should keep the real battle scene context owner")
+	host.free()
+	context_owner.free()
 
 
 func _expect(condition: bool, message: String) -> void:
