@@ -18,6 +18,7 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	_apply_stage_score_reaction(scoring_side, deps)
 	_apply_stage3_kuromi_score_reaction(scoring_side, score_result, deps)
 	_apply_stage4_score_reaction(scoring_side, score_result, deps)
+	_clear_stage4_round_boundary_fx(deps)
 	_start_score_result_texture_prewarm(scoring_side, deps)
 	_sync_next_server(scoring_side, score_result, deps)
 	_start_scoreboard_or_reset_ball(scoring_side, score_result, deps, callbacks)
@@ -240,6 +241,14 @@ func _apply_stage4_score_reaction(scoring_side: String, score_result: Dictionary
 	var stage4_map_state: Object = deps.get("stage4_map_state", null)
 	if stage4_map_state != null and stage4_map_state.has_method("handle_score_event"):
 		stage4_map_state.handle_score_event(scoring_side, score_result, deps)
+
+
+func _clear_stage4_round_boundary_fx(deps: Dictionary) -> void:
+	if int(deps.get("current_stage", 1)) != 4:
+		return
+	var stage4_ponk_skill_state: Object = deps.get("stage4_ponk_skill_state", null)
+	if stage4_ponk_skill_state != null and stage4_ponk_skill_state.has_method("reset_round"):
+		stage4_ponk_skill_state.reset_round(deps)
 
 
 func _get_battle_resources(deps: Dictionary) -> Object:

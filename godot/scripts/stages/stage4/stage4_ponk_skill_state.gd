@@ -166,7 +166,9 @@ func reset() -> void:
 	frame_clock = 0.0
 
 
-func reset_round() -> void:
+func reset_round(deps: Dictionary = {}) -> void:
+	if magnetic_active or magnetic_projectile_active or magnetic_projectile_fade_timer_seconds > 0.0:
+		_stop_magnetic_audio(deps)
 	magnetic_cooldown_seconds = MAGNETIC_COOLDOWN_SEC
 	magnetic_active = false
 	magnetic_timer_frames = 0.0

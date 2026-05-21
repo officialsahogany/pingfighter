@@ -125,6 +125,17 @@ class FakeAudio:
 		play_round_set_calls += 1
 
 
+class FakeStage4PonkSkillState:
+	extends RefCounted
+
+	var reset_round_calls := 0
+	var saw_audio_dep := false
+
+	func reset_round(deps: Dictionary = {}) -> void:
+		reset_round_calls += 1
+		saw_audio_dep = deps.get("audio", null) != null
+
+
 func _init() -> void:
 	var controller: Object = MatchFlowController.new()
 	var score := FakeScoreState.new()
@@ -157,6 +168,20 @@ func _init() -> void:
 	_expect(round_state.scoreboard_wait_calls == 1, "round state should enter scoreboard wait")
 	_expect(_reset_ball_calls == 0, "scoreboard flow should not reset ball immediately")
 	_expect(audio.stopped.size() == 12 and bool(audio.stopped.get("boomerang", false)) and bool(audio.stopped.get("spider_mine", false)) and bool(audio.stopped.get("chaos_blackhole", false)) and audio.play_round_set_calls == 1, "score audio should stop gameplay loops and play round set")
+
+	var stage4_ponk_skill_state := FakeStage4PonkSkillState.new()
+	controller.handle_score_event("player", {
+		"score_state": FakeScoreState.new(),
+		"round_state": FakeRoundState.new(),
+		"scoreboard_state": FakeScoreboardState.new(),
+		"audio": FakeAudio.new(),
+		"current_stage": 4,
+		"stage4_ponk_skill_state": stage4_ponk_skill_state,
+	}, {
+		"reset_ball": Callable(self, "_record_reset_ball"),
+	})
+	_expect(stage4_ponk_skill_state.reset_round_calls == 1, "Stage 4 score boundary should clear Ponk magnetic FX before result overlays")
+	_expect(stage4_ponk_skill_state.saw_audio_dep, "Stage 4 score boundary should pass audio deps to Ponk FX cleanup")
 
 	var boss_stage_background := FakeStageBackground.new()
 	controller.handle_score_event("boss", {

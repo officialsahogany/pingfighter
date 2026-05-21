@@ -73,6 +73,10 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if stage3_boss_skill_state != null and stage3_boss_skill_state.has_method("reset_round"):
 		stage3_boss_skill_state.reset_round()
 
+	var stage4_ponk_skill_state = deps.get("stage4_ponk_skill_state", null)
+	if stage4_ponk_skill_state != null and stage4_ponk_skill_state.has_method("reset_round"):
+		stage4_ponk_skill_state.reset_round(deps)
+
 	var stage5_hongryun_state = deps.get("stage5_hongryun_state", null)
 	if stage5_hongryun_state != null and stage5_hongryun_state.has_method("reset_round"):
 		stage5_hongryun_state.reset_round()
