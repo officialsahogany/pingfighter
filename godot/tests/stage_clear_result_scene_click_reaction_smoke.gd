@@ -359,7 +359,7 @@ func _verify_cyber_scroll_dense_reward_grid_layout() -> void:
 	_expect(scene != null, "stage clear result scene should instantiate for dense reward grid layout")
 	root.add_child(scene)
 	var dense_section_rect := Rect2(Vector2.ZERO, Vector2(538.0, 276.0))
-	var layout: Dictionary = scene._calculate_reward_section_layout(7, dense_section_rect, 1.0)
+	var layout: Dictionary = StageClearResultLayoutHelper.calculate_reward_section_layout(7, dense_section_rect, 1.0)
 	var card_size: Vector2 = layout.get("card_size", Vector2.ZERO)
 	var card_scale: float = float(layout.get("card_scale", 1.0))
 	var gap: float = float(layout.get("gap", 0.0))

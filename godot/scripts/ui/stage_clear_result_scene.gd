@@ -583,7 +583,7 @@ func _draw_background(view_size: Vector2) -> void:
 	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
 		draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.05, 0.07, 0.12, 1.0))
 		return
-	var source: Rect2 = _cover_source_rect(texture_size, view_size)
+	var source: Rect2 = StageClearResultLayoutHelper.cover_source_rect(texture_size, view_size)
 	draw_texture_rect_region(_background_texture, Rect2(Vector2.ZERO, view_size), source, Color.WHITE, false, true)
 
 
@@ -637,7 +637,7 @@ func _draw_player_victory(view_size: Vector2, scale: float, font: Font) -> void:
 
 	if _player_victory_sheet != null:
 		var frame: int = int(floor(timer / PLAYER_VICTORY_FRAME_INTERVAL)) % PLAYER_VICTORY_FRAME_COUNT
-		var source: Rect2 = _sheet_source_rect(frame, PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE)
+		var source: Rect2 = StageClearResultLayoutHelper.sheet_source_rect(frame, PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE)
 		var actor_rect: Rect2 = _get_player_victory_actor_rect(view_size, scale)
 		draw_texture_rect_region(_player_victory_sheet, actor_rect, source, Color.WHITE, false, true)
 
@@ -1531,7 +1531,7 @@ func _draw_cyber_scroll(unfurl: float, scale: float, font: Font) -> void:
 		return
 
 	var content_alpha: float = _smooth01((unfurl - 0.58) / 0.42)
-	_draw_cyber_scroll_contents(_get_scroll_content_rect(full_rect, scale), scale, font, content_alpha)
+	_draw_cyber_scroll_contents(StageClearResultLayoutHelper.get_scroll_content_rect(full_rect, scale, SCROLL_CONTENT_MARGIN), scale, font, content_alpha)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1543,11 +1543,6 @@ func _draw_cyber_scroll_fallback(rect: Rect2, scale: float, alpha: float) -> voi
 	var rod_color := Color(0.04, 0.08, 0.11, 0.94 * alpha)
 	_draw_panel(Rect2(rect.position + Vector2(-18.0 * scale, -rod_height * 0.45), Vector2(rect.size.x + 36.0 * scale, rod_height)), rod_color, border, max(1.0, 1.5 * scale), 13.0 * scale)
 	_draw_panel(Rect2(Vector2(rect.position.x - 18.0 * scale, rect.end.y - rod_height * 0.55), Vector2(rect.size.x + 36.0 * scale, rod_height)), rod_color, border, max(1.0, 1.5 * scale), 13.0 * scale)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _get_scroll_content_rect(scroll_rect: Rect2, scale: float) -> Rect2:
-	return StageClearResultLayoutHelper.get_scroll_content_rect(scroll_rect, scale, SCROLL_CONTENT_MARGIN)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1657,7 +1652,7 @@ func _draw_perk_info_tile(font: Font, rect: Rect2, summary: Dictionary, ui_scale
 func _draw_reward_section(font: Font, title: String, rewards: Array, rect: Rect2, scale: float, alpha: float) -> float:
 	var title_color := Color(0.20, 0.36, 0.42, alpha * 0.90)
 	_draw_text(font, title, rect.position + Vector2(0.0, 24.0 * scale), int(round(22.0 * scale)), title_color)
-	var layout: Dictionary = _calculate_reward_section_layout(rewards.size(), rect, scale)
+	var layout: Dictionary = StageClearResultLayoutHelper.calculate_reward_section_layout(rewards.size(), rect, scale)
 	var gap: float = float(layout.get("gap", 16.0 * scale))
 	var card_size: Vector2 = layout.get("card_size", Vector2(148.0, 112.0) * scale)
 	var card_scale: float = float(layout.get("card_scale", scale))
@@ -1674,14 +1669,6 @@ func _draw_reward_section(font: Font, title: String, rewards: Array, rect: Rect2
 		var reward: Dictionary = rewards[i] if rewards[i] is Dictionary else {}
 		_draw_reward_card(font, reward, card_rect, card_scale, alpha)
 	return rect.position.y + cards_top + float(max(1, rows)) * card_size.y + float(max(0, rows - 1)) * gap
-
-
-func _calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_scale: float) -> Dictionary:
-	return StageClearResultLayoutHelper.calculate_reward_section_layout(reward_count, rect, ui_scale)
-
-
-func _get_reward_section_columns(width: float, card_width: float, gap: float, max_columns: int) -> int:
-	return StageClearResultLayoutHelper.get_reward_section_columns(width, card_width, gap, max_columns)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1996,7 +1983,7 @@ func _stop_dalji_click_voice() -> void:
 func _draw_player_victory_sheet_frame(sheet: Texture2D, frame: int, rect: Rect2, alpha: float) -> void:
 	if sheet == null or alpha <= 0.001:
 		return
-	var source: Rect2 = _sheet_source_rect(frame, PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE)
+	var source: Rect2 = StageClearResultLayoutHelper.sheet_source_rect(frame, PLAYER_VICTORY_GRID_COLS, PLAYER_VICTORY_CELL_SIZE)
 	draw_texture_rect_region(sheet, rect, source, Color(1.0, 1.0, 1.0, alpha), false, true)
 
 
@@ -2055,7 +2042,7 @@ func _is_player_victory_click_return_blend_active() -> bool:
 func _draw_dalji_sheet_frame(sheet: Texture2D, frame: int, rect: Rect2, alpha: float) -> void:
 	if sheet == null or alpha <= 0.001:
 		return
-	var source: Rect2 = _sheet_source_rect(frame, DALJI_GRID_COLS, DALJI_CELL_SIZE)
+	var source: Rect2 = StageClearResultLayoutHelper.sheet_source_rect(frame, DALJI_GRID_COLS, DALJI_CELL_SIZE)
 	draw_texture_rect_region(sheet, rect, source, Color(1.0, 1.0, 1.0, alpha), false, true)
 
 
@@ -2142,14 +2129,6 @@ func _apply_standalone_preview_defaults() -> void:
 		],
 		"reward_count": 3,
 	}
-
-
-func _sheet_source_rect(frame: int, grid_cols: int, cell_size: Vector2) -> Rect2:
-	return StageClearResultLayoutHelper.sheet_source_rect(frame, grid_cols, cell_size)
-
-
-func _cover_source_rect(texture_size: Vector2, target_size: Vector2) -> Rect2:
-	return StageClearResultLayoutHelper.cover_source_rect(texture_size, target_size)
 
 
 func _draw_panel(rect: Rect2, fill_color: Color, border_color: Color, border_width: float, corner_radius: float) -> void:

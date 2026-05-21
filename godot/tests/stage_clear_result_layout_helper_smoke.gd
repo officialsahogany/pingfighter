@@ -138,10 +138,10 @@ func _verify_scene_wrappers() -> void:
 	_expect(StageClearResultLayoutHelper.get_box_aabb(wrapper_box, 2.0, 0.0, Vector2(65.0, 56.0), 1.06, 5.0, 1.4).has_point(Vector2(20.0, 40.0)), "box-aabb helper should preserve scene hitbox policy")
 	_expect(scene._get_player_victory_actor_rect(Vector2(1920.0, 1080.0), 1.0).position == Vector2(1270.0, 213.0), "scene player-victory actor wrapper should delegate")
 	_expect(scene._get_player_victory_panel_rect(Vector2(1920.0, 1080.0), 1.0).size == Vector2(410.0, 750.0), "scene player-victory panel wrapper should delegate")
-	_expect(scene._get_scroll_content_rect(Rect2(Vector2(100.0, 200.0), Vector2(400.0, 300.0)), 1.0).position == Vector2(170.0, 290.0), "scene scroll-content wrapper should delegate")
+	_expect(StageClearResultLayoutHelper.get_scroll_content_rect(Rect2(Vector2(100.0, 200.0), Vector2(400.0, 300.0)), 1.0, Vector4(70.0, 90.0, 70.0, 76.0)).position == Vector2(170.0, 290.0), "scroll-content helper should preserve scene content margins")
 	_expect(scene._get_dalji_draw_rect(Vector2(1920.0, 1080.0), 1.0).size == Vector2(624.0, 624.0), "scene Dalji draw-rect wrapper should delegate")
-	_expect(int(scene._calculate_reward_section_layout(7, Rect2(Vector2.ZERO, Vector2(538.0, 276.0)), 1.0).get("rows", 0)) == 2, "scene reward-layout wrapper should delegate")
-	_expect(scene._sheet_source_rect(15, 4, Vector2(256.0, 256.0)).position == Vector2(768.0, 768.0), "scene sheet-rect wrapper should delegate")
+	_expect(int(StageClearResultLayoutHelper.calculate_reward_section_layout(7, Rect2(Vector2.ZERO, Vector2(538.0, 276.0)), 1.0).get("rows", 0)) == 2, "reward-layout helper should preserve scene dense-grid policy")
+	_expect(StageClearResultLayoutHelper.sheet_source_rect(15, 4, Vector2(256.0, 256.0)).position == Vector2(768.0, 768.0), "sheet-rect helper should preserve scene source-frame policy")
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(
 		source.find("StageClearResultLayoutHelper.get_box_layout") >= 0
@@ -163,6 +163,21 @@ func _verify_scene_wrappers() -> void:
 		and source.find("func _get_box_draw_center") < 0
 		and source.find("func _get_box_aabb") < 0,
 		"stage-clear result scene should not keep box layout pass-through wrappers"
+	)
+	_expect(
+		source.find("StageClearResultLayoutHelper.get_scroll_content_rect") >= 0
+		and source.find("StageClearResultLayoutHelper.calculate_reward_section_layout") >= 0
+		and source.find("StageClearResultLayoutHelper.sheet_source_rect") >= 0
+		and source.find("StageClearResultLayoutHelper.cover_source_rect") >= 0,
+		"stage-clear result scene should call residual layout helpers directly"
+	)
+	_expect(
+		source.find("func _get_scroll_content_rect") < 0
+		and source.find("func _calculate_reward_section_layout") < 0
+		and source.find("func _get_reward_section_columns") < 0
+		and source.find("func _sheet_source_rect") < 0
+		and source.find("func _cover_source_rect") < 0,
+		"stage-clear result scene should not keep residual layout pass-through wrappers"
 	)
 	scene.free()
 
