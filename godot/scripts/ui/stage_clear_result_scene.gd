@@ -468,14 +468,14 @@ func get_interaction_status() -> Dictionary:
 		"opening_count": opening_count,
 		"item_reward_count": _build_item_summary().size(),
 		"perk_reward_count": _build_perk_summary().size(),
-		"stage_active_item_count": _get_stage_summary_array("active_items").size(),
-		"stage_passive_item_count": _get_stage_summary_array("passive_items").size(),
-		"stage_perk_count": _get_stage_summary_array("perks").size(),
-		"item_reward_source_counts": _count_result_reward_sources(_build_item_summary()),
-		"perk_reward_source_counts": _count_result_reward_sources(_build_perk_summary()),
-		"visible_reward_source_counts": _count_result_reward_sources(_build_visible_reward_summary()),
+		"stage_active_item_count": StageClearResultSummaryBuilder.get_stage_summary_array(stage_reward_snapshot, "active_items").size(),
+		"stage_passive_item_count": StageClearResultSummaryBuilder.get_stage_summary_array(stage_reward_snapshot, "passive_items").size(),
+		"stage_perk_count": StageClearResultSummaryBuilder.get_stage_summary_array(stage_reward_snapshot, "perks").size(),
+		"item_reward_source_counts": StageClearResultSummaryBuilder.count_result_reward_sources(_build_item_summary(), [RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]),
+		"perk_reward_source_counts": StageClearResultSummaryBuilder.count_result_reward_sources(_build_perk_summary(), [RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]),
+		"visible_reward_source_counts": StageClearResultSummaryBuilder.count_result_reward_sources(_build_visible_reward_summary(), [RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]),
 		"perk_info": _build_perk_info_summary(),
-		"starpoint_total": _calculate_starpoint_total(),
+		"starpoint_total": StageClearResultSummaryBuilder.calculate_starpoint_total(_boxes),
 		"hovered_box_index": _hovered_box_index,
 		"all_boxes_opened": _boxes.size() > 0 and opened_count == _boxes.size(),
 		"scroll_phase": _scroll_phase,
@@ -1470,10 +1470,6 @@ func _get_box_global_alpha() -> float:
 	return StageClearResultScrollState.get_box_global_alpha(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
 
 
-func _calculate_starpoint_total() -> int:
-	return StageClearResultSummaryBuilder.calculate_starpoint_total(_boxes)
-
-
 func _build_item_summary() -> Array:
 	return StageClearResultSummaryBuilder.build_item_summary(
 		stage_reward_snapshot,
@@ -1504,25 +1500,6 @@ func _build_visible_reward_summary() -> Array:
 	)
 
 
-func _with_result_reward_source(reward: Dictionary, result_source: String) -> Dictionary:
-	return StageClearResultSummaryBuilder.with_result_reward_source(
-		reward,
-		result_source,
-		_get_result_reward_source_labels()
-	)
-
-
-func _count_result_reward_sources(rewards: Array) -> Dictionary:
-	return StageClearResultSummaryBuilder.count_result_reward_sources(
-		rewards,
-		[RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]
-	)
-
-
-func _get_stage_summary_array(key: String) -> Array:
-	return StageClearResultSummaryBuilder.get_stage_summary_array(stage_reward_snapshot, key)
-
-
 func _build_perk_info_summary() -> Dictionary:
 	var perks: Array = _build_perk_summary()
 	var first_perk_title: String = ""
@@ -1533,18 +1510,10 @@ func _build_perk_info_summary() -> Dictionary:
 		first_perk_detail = _get_reward_detail_text(first_perk)
 	return StageClearResultSummaryBuilder.build_perk_info_summary(
 		perks,
-		_calculate_starpoint_total(),
+		StageClearResultSummaryBuilder.calculate_starpoint_total(_boxes),
 		first_perk_title,
 		first_perk_detail
 	)
-
-
-func _is_perk_reward(reward: Dictionary) -> bool:
-	return StageClearResultSummaryBuilder.is_perk_reward(reward)
-
-
-func _get_reward_perk_id(reward: Dictionary) -> String:
-	return StageClearResultSummaryBuilder.get_reward_perk_id(reward)
 
 
 func _get_reward_color(reward_type: String) -> Color:
@@ -1833,8 +1802,8 @@ func _draw_reward_card_icon(reward: Dictionary, rect: Rect2, scale: float, alpha
 	if reward_type == "starpoint":
 		_draw_star_polygon(rect.get_center(), 25.0 * scale, 11.0 * scale, Color(1.0, 0.82, 0.24, alpha), Color(0.50, 0.28, 0.04, alpha), max(1.5, 1.8 * scale))
 		return
-	if _is_perk_reward(reward):
-		var perk_id: String = _get_reward_perk_id(reward)
+	if StageClearResultSummaryBuilder.is_perk_reward(reward):
+		var perk_id: String = StageClearResultSummaryBuilder.get_reward_perk_id(reward)
 		if _perk_icon_renderer != null and _perk_icon_renderer.has_method("draw_icon") and bool(_perk_icon_renderer.draw_icon(self, perk_id, rect, alpha, true)):
 			return
 	var texture: Texture2D = _get_reward_icon_texture(reward)
@@ -1879,7 +1848,7 @@ func _get_reward_perk_data(reward: Dictionary) -> Dictionary:
 	return StageClearResultRewardTextResolver.get_reward_perk_data(
 		reward,
 		_perk_catalog,
-		_get_reward_perk_id(reward)
+		StageClearResultSummaryBuilder.get_reward_perk_id(reward)
 	)
 
 
@@ -1888,7 +1857,7 @@ func _get_reward_title(reward: Dictionary) -> String:
 	return StageClearResultRewardTextResolver.get_reward_title(
 		reward,
 		_get_reward_perk_data(reward),
-		_is_perk_reward(reward),
+		StageClearResultSummaryBuilder.is_perk_reward(reward),
 		_reward_type_fallback_label(reward_type),
 		"퍽 선택권"
 	)

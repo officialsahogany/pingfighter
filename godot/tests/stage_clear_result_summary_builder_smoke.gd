@@ -12,6 +12,7 @@ func _init() -> void:
 	_verify_reward_summaries()
 	_verify_perk_info_summary()
 	_verify_perk_id_resolution()
+	_verify_scene_delegates_summary_builder_directly()
 
 	if _failures.is_empty():
 		print("stage_clear_result_summary_builder_smoke: ok")
@@ -107,6 +108,28 @@ func _verify_perk_id_resolution() -> void:
 		StageClearResultSummaryBuilder.get_stage_summary_array({"perks": "bad"}, "perks").is_empty(),
 		"stage summary arrays should ignore malformed values"
 	)
+
+
+func _verify_scene_delegates_summary_builder_directly() -> void:
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(
+		source.find("StageClearResultSummaryBuilder.count_result_reward_sources") >= 0
+		and source.find("StageClearResultSummaryBuilder.get_stage_summary_array") >= 0
+		and source.find("StageClearResultSummaryBuilder.calculate_starpoint_total") >= 0,
+		"stage-clear result scene should call summary helpers directly for simple summary queries"
+	)
+	for removed_wrapper in [
+		"func _calculate_starpoint_total",
+		"func _with_result_reward_source",
+		"func _count_result_reward_sources",
+		"func _get_stage_summary_array",
+		"func _is_perk_reward",
+		"func _get_reward_perk_id",
+	]:
+		_expect(
+			source.find(removed_wrapper) < 0,
+			"stage-clear result scene should not keep summary pass-through wrapper %s" % removed_wrapper
+		)
 
 
 func _expect(condition: bool, message: String) -> void:
