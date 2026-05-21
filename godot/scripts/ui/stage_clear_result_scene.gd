@@ -1039,7 +1039,7 @@ func _draw_reward_item_icon(reward: Dictionary, anchor: Vector2, scale: float, a
 		float(visual_state.get("ring_width", max(2.0, 2.8 * scale)))
 	)
 
-	var texture: Texture2D = _get_reward_icon_texture(reward)
+	var texture: Texture2D = StageClearResultRewardIconResolver.get_reward_icon_texture(reward, _reward_icon_cache)
 	if texture != null:
 		draw_texture_rect(texture, visual_state.get("icon_rect", Rect2()), false, Color(1.0, 1.0, 1.0, alpha))
 	else:
@@ -1164,10 +1164,6 @@ func _draw_star_polygon_scaled(
 	if outline.a > 0.001 and outline_width > 0.0:
 		var closed: PackedVector2Array = StageClearResultShapeHelper.closed_polyline_points(pts)
 		draw_polyline(closed, outline, outline_width, true)
-
-
-func _get_reward_icon_texture(reward: Dictionary) -> Texture2D:
-	return StageClearResultRewardIconResolver.get_reward_icon_texture(reward, _reward_icon_cache)
 
 
 func _handle_box_click(mouse_position: Vector2) -> bool:
@@ -1757,7 +1753,7 @@ func _draw_reward_card_icon(reward: Dictionary, rect: Rect2, scale: float, alpha
 		var perk_id: String = StageClearResultSummaryBuilder.get_reward_perk_id(reward)
 		if _perk_icon_renderer != null and _perk_icon_renderer.has_method("draw_icon") and bool(_perk_icon_renderer.draw_icon(self, perk_id, rect, alpha, true)):
 			return
-	var texture: Texture2D = _get_reward_icon_texture(reward)
+	var texture: Texture2D = StageClearResultRewardIconResolver.get_reward_icon_texture(reward, _reward_icon_cache)
 	if texture != null:
 		_draw_texture_fit(texture, rect, alpha)
 	else:

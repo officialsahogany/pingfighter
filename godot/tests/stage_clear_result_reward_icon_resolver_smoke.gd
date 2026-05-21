@@ -70,12 +70,27 @@ func _verify_texture_resolution() -> void:
 
 func _verify_scene_delegates_icon_resolver() -> void:
 	var scene := StageClearResultScene.new()
-	var texture: Texture2D = scene._get_reward_icon_texture({"item_data": {"icon_path": SPEEDBOOTS_ICON_PATH}})
-	_expect(texture != null, "result scene icon wrapper should load item_data icon paths")
-	_expect(scene._reward_icon_cache.has(SPEEDBOOTS_ICON_PATH), "result scene icon wrapper should keep its local cache")
+	var texture: Texture2D = StageClearResultRewardIconResolver.get_reward_icon_texture(
+		{"item_data": {"icon_path": SPEEDBOOTS_ICON_PATH}},
+		scene._reward_icon_cache
+	)
+	_expect(texture != null, "result scene icon cache should load item_data icon paths")
+	_expect(scene._reward_icon_cache.has(SPEEDBOOTS_ICON_PATH), "result scene should keep icon resolver cache data")
 	_expect(
-		scene._get_reward_icon_texture({"item_name": "speedboots"}) == texture,
-		"result scene icon wrapper should reuse cached item-name fallback paths"
+		StageClearResultRewardIconResolver.get_reward_icon_texture(
+			{"item_name": "speedboots"},
+			scene._reward_icon_cache
+		) == texture,
+		"result scene icon cache should reuse cached item-name fallback paths"
+	)
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(
+		source.find("StageClearResultRewardIconResolver.get_reward_icon_texture") >= 0,
+		"result scene should call the reward icon resolver directly"
+	)
+	_expect(
+		source.find("func _get_reward_icon_texture") < 0,
+		"result scene should not keep reward icon pass-through wrappers"
 	)
 	scene.free()
 
