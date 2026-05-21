@@ -1,6 +1,7 @@
 extends SceneTree
 
 const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
+const Stage2RenderBudgetHelper := preload("res://scripts/stages/stage2/stage2_render_budget_helper.gd")
 const Stage2AmbientVisualRenderer := preload("res://scripts/stages/stage2/stage2_ambient_visual_renderer.gd")
 const Stage2PillarObstacleVisualRenderer := preload("res://scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd")
 const BattlePlayfieldSceneDrawer := preload("res://scripts/core/battle_playfield_scene_drawer.gd")
@@ -80,6 +81,11 @@ func _verify_recent_start_helpers() -> void:
 	var values: Array = []
 	for index in range(120):
 		values.append(index)
+	_expect(Stage2RenderBudgetHelper.recent_start(values, 72) == 48, "Stage 2 render-budget helper should draw only the newest capped entries")
+	_expect(Stage2RenderBudgetHelper.get_lod_count(10, 7, 3, 0.58, Stage2PillarBackground.LOD_ACTIVE_THRESHOLD, Stage2PillarBackground.SEVERE_LOD_ACTIVE_THRESHOLD) == 3, "Stage 2 render-budget helper should use severe LOD counts")
+	var trimmed: Array = values.duplicate()
+	Stage2RenderBudgetHelper.trim_array_from_front(trimmed, 4)
+	_expect(trimmed == [116, 117, 118, 119], "Stage 2 render-budget helper should trim arrays from the front")
 	_expect(background._recent_start(values, 72) == 48, "background recent-start helper should draw only the newest capped entries")
 	_expect(background._recent_start(values, 200) == 0, "background recent-start helper should draw from zero when under budget")
 	_expect(background._recent_start(values, 0) == values.size(), "background zero render budget should draw nothing")

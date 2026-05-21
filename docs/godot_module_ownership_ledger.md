@@ -1128,12 +1128,20 @@ This section is intentionally long; use search to find the nearest owner.
   payload generation is delegated to `stage2_water_trail_payload_factory.gd`. Stage 2
   performance sample accumulation and opt-in logging is delegated to
   `stage2_perf_logger.gd`; performance log contextual snapshots are
-  delegated to `stage2_perf_log_snapshot_builder.gd`.
+  delegated to `stage2_perf_log_snapshot_builder.gd`; render-budget array
+  trimming, recent-entry start indexes, and LOD count decisions are delegated
+  to `stage2_render_budget_helper.gd`.
   Stage 2 ball / player overlap geometry helpers are delegated to
   `stage2_collision_geometry.gd`; playfield bounds lookup is delegated to
   `stage2_playfield_bounds.gd`.
   The original center-field bush / vine visual rustle now lives in
   `stage2_playfield_renderer`.
+- `scripts/stages/stage2/stage2_render_budget_helper.gd`
+  Owns stateless Stage 2 render-budget helpers: capped-array trimming,
+  newest-entry start-index calculation, `BattleRenderQuality` effect-scale
+  lookup, LOD threshold checks, and LOD / severe-LOD count selection.
+  `stage2_pillar_background.gd` keeps render call sites, live arrays,
+  threshold constants, and wrapper names used by existing smoke tests.
 - `scripts/stages/stage2/stage2_pillar_imagegen_renderer.gd`
   Owns the stateless Stage 2 imagegen pillar draw pass: cover-fitting the
   base PNG, unified translucent viewport edge lines, clipped left / right

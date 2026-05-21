@@ -1,8 +1,8 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
-const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const Stage2PillarAssets := preload("res://scripts/stages/stage2/stage2_pillar_assets.gd")
+const Stage2RenderBudgetHelper := preload("res://scripts/stages/stage2/stage2_render_budget_helper.gd")
 const Stage2PillarImagegenRenderer := preload("res://scripts/stages/stage2/stage2_pillar_imagegen_renderer.gd")
 const Stage2PillarImagegenAssetsBuilder := preload("res://scripts/stages/stage2/stage2_pillar_imagegen_assets_builder.gd")
 const Stage2PillarObstacleVisualRenderer := preload("res://scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd")
@@ -2569,43 +2569,34 @@ func _perf_maybe_log(context: Dictionary) -> void:
 
 
 func _trim_array_from_front(source: Array, max_size: int) -> void:
-	if max_size <= 0:
-		source.clear()
-		return
-	var overflow := source.size() - max_size
-	if overflow <= 0:
-		return
-	var write_index := 0
-	for read_index in range(overflow, source.size()):
-		source[write_index] = source[read_index]
-		write_index += 1
-	source.resize(write_index)
+	Stage2RenderBudgetHelper.trim_array_from_front(source, max_size)
 
 
 func _recent_start(source: Array, render_limit: int) -> int:
-	if render_limit <= 0:
-		return source.size()
-	return max(0, source.size() - render_limit)
+	return Stage2RenderBudgetHelper.recent_start(source, render_limit)
 
 
 func _get_playfield_quality_scale(context: Dictionary) -> float:
-	return BattleRenderQuality.effect_scale(context)
+	return Stage2RenderBudgetHelper.get_playfield_quality_scale(context)
 
 
 func _is_lod_active(quality_scale: float) -> bool:
-	return quality_scale < LOD_ACTIVE_THRESHOLD
+	return Stage2RenderBudgetHelper.is_lod_active(quality_scale, LOD_ACTIVE_THRESHOLD)
 
 
 func _is_severe_lod_active(quality_scale: float) -> bool:
-	return quality_scale < SEVERE_LOD_ACTIVE_THRESHOLD
+	return Stage2RenderBudgetHelper.is_severe_lod_active(quality_scale, SEVERE_LOD_ACTIVE_THRESHOLD)
 
 
 func _get_lod_count(base_count: int, lod_count: int, severe_lod_count: int, quality_scale: float) -> int:
-	if _is_severe_lod_active(quality_scale):
-		return max(0, min(base_count, severe_lod_count))
-	if not _is_lod_active(quality_scale):
-		return base_count
-	return max(0, min(base_count, lod_count))
+	return Stage2RenderBudgetHelper.get_lod_count(
+		base_count,
+		lod_count,
+		severe_lod_count,
+		quality_scale,
+		LOD_ACTIVE_THRESHOLD,
+		SEVERE_LOD_ACTIVE_THRESHOLD
+	)
 
 
 func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
