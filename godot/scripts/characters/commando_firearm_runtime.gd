@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
+const CommandoFirearmAk47HitState := preload("res://scripts/characters/commando_firearm_ak47_hit_state.gd")
 const CommandoFirearmAudioResolver := preload("res://scripts/characters/commando_firearm_audio_resolver.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmControlState := preload("res://scripts/characters/commando_firearm_control_state.gd")
@@ -19,6 +20,7 @@ const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/co
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
 const CommandoFirearmPistolFeedbackState := preload("res://scripts/characters/commando_firearm_pistol_feedback_state.gd")
+const CommandoFirearmPistolHitState := preload("res://scripts/characters/commando_firearm_pistol_hit_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/commando_firearm_projectile_motion_state.gd")
@@ -115,6 +117,20 @@ const PISTOL_BOSS_KNOCKBACK_POWER := 8.0
 const PISTOL_BOSS_KNOCKBACK_FRAMES := 18.0
 const PISTOL_BOSS_KNOCKBACK_DECAY_PER_FRAME := 0.85
 const PISTOL_HIT_TEXT_TIMER_FRAMES := 60.0
+const PISTOL_HIT_TUNING := {
+	"combo_hit_threshold": PISTOL_BOSS_DAMAGE_HIT_THRESHOLD,
+	"normal_gauge_gain": PISTOL_NORMAL_GAUGE_GAIN,
+	"head_gauge_gain": PISTOL_HEAD_SHOT_GAUGE_GAIN,
+	"leg_gauge_gain": PISTOL_LEG_SHOT_GAUGE_GAIN,
+	"base_head_stun_frames": PISTOL_HEAD_SHOT_STUN_FRAMES,
+	"commando_head_stun_frames": COMMANDO_PISTOL_HEAD_SHOT_STUN_FRAMES,
+	"leg_slow_frames": PISTOL_LEG_SHOT_SLOW_FRAMES,
+	"leg_slow_multiplier": PISTOL_LEG_SHOT_SLOW_MULTIPLIER,
+	"normal_knockback_power": PISTOL_BOSS_KNOCKBACK_POWER,
+	"normal_knockback_frames": PISTOL_BOSS_KNOCKBACK_FRAMES,
+	"normal_knockback_decay_per_frame": PISTOL_BOSS_KNOCKBACK_DECAY_PER_FRAME,
+	"hit_text_timer_frames": PISTOL_HIT_TEXT_TIMER_FRAMES,
+}
 const PISTOL_FEEDBACK_LIMIT := 4
 const PISTOL_AMMO_MAX := 4
 const PISTOL_COOLDOWN_FRAMES := 60.0
@@ -1935,15 +1951,13 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 	var origin: Vector2 = _get_firearm_origin(weapon_id, config, profile)
 	var target: Vector2 = _get_boss_target_pos(config)
 	var aim_origin: Vector2 = _get_firearm_aim_origin(weapon_id, config, origin)
-	var direction: Vector2 = Vector2.UP if bool(profile.get("vertical_launch", false)) else target - aim_origin
-	if not bool(profile.get("vertical_launch", false)):
-		if direction.length() <= 0.001:
-			direction = Vector2.UP
-		else:
-			direction = direction.normalized()
 	var angle_offset: float = float(profile.get("angle_offset", 0.0))
-	if abs(angle_offset) > 0.0001:
-		direction = direction.rotated(angle_offset).normalized()
+	var direction: Vector2 = CommandoFirearmProjectileSpawnState.get_fire_direction(
+		target,
+		aim_origin,
+		bool(profile.get("vertical_launch", false)),
+		angle_offset
+	)
 	_spawn_muzzle_flash(origin, direction, profile, weapon_id)
 	if kind == "support":
 		_start_support_call(origin, target, profile, weapon_id, deps)
@@ -2944,75 +2958,38 @@ func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, contex
 	var hit_chances: Dictionary = _get_pistol_hit_chances(context, doping_multiplier)
 	var head_chance: float = float(hit_chances.get("head_chance", 0.0))
 	var leg_chance: float = float(hit_chances.get("leg_chance", 0.0))
-
-	pistol_boss_hit_count += 1
-	var damage_units := 0
-	var damage_sources := []
-	var hit_kind := "normal"
-	var gauge_gain := PISTOL_NORMAL_GAUGE_GAIN
-	if shot_roll < head_chance:
-		hit_kind = "headshot"
-		gauge_gain = PISTOL_HEAD_SHOT_GAUGE_GAIN
-		result["stun_frames"] = COMMANDO_PISTOL_HEAD_SHOT_STUN_FRAMES if weapon_id == "commando_pistol" else PISTOL_HEAD_SHOT_STUN_FRAMES
-		result["stun_source"] = "commando_firearm_pistol_headshot"
-		result["knockback_power"] = 0.0
-		result["knockback_velocity_scale"] = 0.0
-		result["knockback_vel"] = 0.0
-		result["knockback_active"] = false
-		result["commando_firearm_pistol_feedback_timer_frames"] = PISTOL_HIT_TEXT_TIMER_FRAMES
-		_spawn_pistol_hit_feedback(hit_kind, context)
-		damage_units += 1
-		damage_sources.append("commando_firearm_pistol_headshot")
-	elif shot_roll < head_chance + leg_chance:
-		hit_kind = "legshot"
-		gauge_gain = PISTOL_LEG_SHOT_GAUGE_GAIN
-		result["stun_frames"] = 0.0
-		result["slow_frames"] = PISTOL_LEG_SHOT_SLOW_FRAMES
-		result["slow_multiplier"] = PISTOL_LEG_SHOT_SLOW_MULTIPLIER
-		result["slow_source"] = "commando_firearm_pistol_legshot"
-		result["knockback_without_stun"] = true
-		result["knockback_frames"] = 18.0
-		result["commando_firearm_pistol_feedback_timer_frames"] = PISTOL_HIT_TEXT_TIMER_FRAMES
-		_spawn_pistol_hit_feedback(hit_kind, context)
-	else:
-		result["knockback_power"] = PISTOL_BOSS_KNOCKBACK_POWER
-		result["knockback_velocity_scale"] = 0.0
-		result["knockback_frames"] = PISTOL_BOSS_KNOCKBACK_FRAMES
-		result["knockback_decay_per_frame"] = PISTOL_BOSS_KNOCKBACK_DECAY_PER_FRAME
-
-	if pistol_boss_hit_count >= PISTOL_BOSS_DAMAGE_HIT_THRESHOLD:
-		pistol_boss_hit_count = 0
-		damage_units += 1
-		damage_sources.append("commando_firearm_pistol_combo")
-		result["pistol_combo_damage_ready"] = true
-
-	result["pistol_boss_hit_count"] = pistol_boss_hit_count
-	result["pistol_shot_roll"] = shot_roll
-	result["pistol_head_chance"] = head_chance
-	result["pistol_leg_chance"] = leg_chance
-	result["doping_potion_active"] = doping_multiplier > 1.0
-	result["doping_potion_head_leg_multiplier"] = doping_multiplier
-	result["pistol_hit_kind"] = hit_kind
-	result["commando_firearm_pistol_hit_kind"] = hit_kind
-	result["commando_firearm_special_gauge_gain"] = gauge_gain
-	result["commando_firearm_special_gauge_source"] = "commando_firearm_pistol_%s" % hit_kind
-	if damage_units <= 0:
+	var hit_payload: Dictionary = CommandoFirearmPistolHitState.build_hit_payload(
+		weapon_id,
+		pistol_boss_hit_count,
+		shot_roll,
+		head_chance,
+		leg_chance,
+		doping_multiplier,
+		PISTOL_HIT_TUNING
+	)
+	pistol_boss_hit_count = int(hit_payload.get("next_hit_count", pistol_boss_hit_count))
+	result.merge(_get_dict(hit_payload.get("result_fields", {})), true)
+	var feedback_hit_kind: String = str(hit_payload.get("feedback_hit_kind", ""))
+	if feedback_hit_kind != "":
+		_spawn_pistol_hit_feedback(feedback_hit_kind, context)
+	var damage_units_delta: int = int(hit_payload.get("damage_units_delta", 0))
+	if damage_units_delta <= 0:
 		return
-	result["damage_units"] = max(0, int(result.get("damage_units", 0))) + damage_units
-	result["damage_sources"] = damage_sources
+	result["damage_units"] = max(0, int(result.get("damage_units", 0))) + damage_units_delta
+	result["damage_sources"] = _get_array(hit_payload.get("damage_sources", []))
 
 
 func _apply_ak47_accumulated_boss_damage(weapon_id: String, result: Dictionary) -> void:
-	if weapon_id != "ak47":
+	var hit_payload: Dictionary = CommandoFirearmAk47HitState.build_accumulated_damage_payload(
+		weapon_id,
+		ak47_boss_hit_count,
+		int(result.get("damage_units", 0)),
+		AK47_BOSS_DAMAGE_HIT_THRESHOLD
+	)
+	if hit_payload.is_empty():
 		return
-	ak47_boss_hit_count += 1
-	if ak47_boss_hit_count < AK47_BOSS_DAMAGE_HIT_THRESHOLD:
-		result["ak47_boss_hit_count"] = ak47_boss_hit_count
-		return
-	ak47_boss_hit_count = 0
-	result["ak47_boss_hit_count"] = 0
-	result["ak47_accumulated_damage_ready"] = true
-	result["damage_units"] = max(1, int(result.get("damage_units", 0)))
+	ak47_boss_hit_count = int(hit_payload.get("next_hit_count", ak47_boss_hit_count))
+	result.merge(_get_dict(hit_payload.get("result_fields", {})), true)
 
 
 func _is_pistol_weapon(weapon_id: String) -> bool:

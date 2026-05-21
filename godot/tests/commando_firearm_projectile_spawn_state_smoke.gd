@@ -6,6 +6,7 @@ var _failures: Array[String] = []
 
 
 func _init() -> void:
+	_verify_fire_direction_payloads()
 	_verify_direct_projectile_payloads()
 
 	if _failures.is_empty():
@@ -15,6 +16,21 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_fire_direction_payloads() -> void:
+	var upward: Vector2 = CommandoFirearmProjectileSpawnState.get_fire_direction(Vector2(200.0, 200.0), Vector2(100.0, 100.0), true, 0.0)
+	_expect(upward == Vector2.UP, "direction helper should force vertical launches upward")
+
+	var fallback: Vector2 = CommandoFirearmProjectileSpawnState.get_fire_direction(Vector2(100.0, 100.0), Vector2(100.0, 100.0), false, 0.0)
+	_expect(fallback == Vector2.UP, "direction helper should use upward fallback for zero-length aim")
+
+	var diagonal: Vector2 = CommandoFirearmProjectileSpawnState.get_fire_direction(Vector2(3.0, 4.0), Vector2.ZERO, false, 0.0)
+	_expect(is_equal_approx(diagonal.length(), 1.0), "direction helper should normalize non-vertical aim")
+	_expect(is_equal_approx(diagonal.x, 0.6) and is_equal_approx(diagonal.y, 0.8), "direction helper should preserve normalized aim vector")
+
+	var rotated: Vector2 = CommandoFirearmProjectileSpawnState.get_fire_direction(Vector2.RIGHT, Vector2.ZERO, false, PI * 0.5)
+	_expect(is_equal_approx(rotated.x, 0.0) and is_equal_approx(rotated.y, 1.0), "direction helper should apply angle offsets")
 
 
 func _verify_direct_projectile_payloads() -> void:

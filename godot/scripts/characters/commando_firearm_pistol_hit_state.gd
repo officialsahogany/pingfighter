@@ -1,0 +1,78 @@
+extends RefCounted
+
+
+static func build_hit_payload(
+	weapon_id: String,
+	current_hit_count: int,
+	shot_roll: float,
+	head_chance: float,
+	leg_chance: float,
+	doping_multiplier: float,
+	tuning: Dictionary
+) -> Dictionary:
+	var result_fields: Dictionary = {}
+	var next_hit_count: int = max(0, current_hit_count) + 1
+	var damage_units_delta := 0
+	var damage_sources: Array[String] = []
+	var hit_kind := "normal"
+	var feedback_hit_kind := ""
+	var gauge_gain: float = float(tuning.get("normal_gauge_gain", 30.0))
+	if shot_roll < head_chance:
+		hit_kind = "headshot"
+		feedback_hit_kind = hit_kind
+		gauge_gain = float(tuning.get("head_gauge_gain", 50.0))
+		result_fields["stun_frames"] = _get_head_stun_frames(weapon_id, tuning)
+		result_fields["stun_source"] = "commando_firearm_pistol_headshot"
+		result_fields["knockback_power"] = 0.0
+		result_fields["knockback_velocity_scale"] = 0.0
+		result_fields["knockback_vel"] = 0.0
+		result_fields["knockback_active"] = false
+		result_fields["commando_firearm_pistol_feedback_timer_frames"] = float(tuning.get("hit_text_timer_frames", 60.0))
+		damage_units_delta += 1
+		damage_sources.append("commando_firearm_pistol_headshot")
+	elif shot_roll < head_chance + leg_chance:
+		hit_kind = "legshot"
+		feedback_hit_kind = hit_kind
+		gauge_gain = float(tuning.get("leg_gauge_gain", 40.0))
+		result_fields["stun_frames"] = 0.0
+		result_fields["slow_frames"] = float(tuning.get("leg_slow_frames", 132.0))
+		result_fields["slow_multiplier"] = float(tuning.get("leg_slow_multiplier", 0.7))
+		result_fields["slow_source"] = "commando_firearm_pistol_legshot"
+		result_fields["knockback_without_stun"] = true
+		result_fields["knockback_frames"] = 18.0
+		result_fields["commando_firearm_pistol_feedback_timer_frames"] = float(tuning.get("hit_text_timer_frames", 60.0))
+	else:
+		result_fields["knockback_power"] = float(tuning.get("normal_knockback_power", 8.0))
+		result_fields["knockback_velocity_scale"] = 0.0
+		result_fields["knockback_frames"] = float(tuning.get("normal_knockback_frames", 18.0))
+		result_fields["knockback_decay_per_frame"] = float(tuning.get("normal_knockback_decay_per_frame", 0.85))
+
+	if next_hit_count >= max(1, int(tuning.get("combo_hit_threshold", 3))):
+		next_hit_count = 0
+		damage_units_delta += 1
+		damage_sources.append("commando_firearm_pistol_combo")
+		result_fields["pistol_combo_damage_ready"] = true
+
+	result_fields["pistol_boss_hit_count"] = next_hit_count
+	result_fields["pistol_shot_roll"] = shot_roll
+	result_fields["pistol_head_chance"] = head_chance
+	result_fields["pistol_leg_chance"] = leg_chance
+	result_fields["doping_potion_active"] = doping_multiplier > 1.0
+	result_fields["doping_potion_head_leg_multiplier"] = doping_multiplier
+	result_fields["pistol_hit_kind"] = hit_kind
+	result_fields["commando_firearm_pistol_hit_kind"] = hit_kind
+	result_fields["commando_firearm_special_gauge_gain"] = gauge_gain
+	result_fields["commando_firearm_special_gauge_source"] = "commando_firearm_pistol_%s" % hit_kind
+	return {
+		"next_hit_count": next_hit_count,
+		"result_fields": result_fields,
+		"feedback_hit_kind": feedback_hit_kind,
+		"damage_units_delta": damage_units_delta,
+		"damage_sources": damage_sources,
+	}
+
+
+static func _get_head_stun_frames(weapon_id: String, tuning: Dictionary) -> float:
+	if weapon_id == "commando_pistol":
+		return float(tuning.get("commando_head_stun_frames", 108.0))
+	return float(tuning.get("base_head_stun_frames", 90.0))

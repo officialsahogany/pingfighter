@@ -1,6 +1,23 @@
 extends RefCounted
 
 
+static func get_fire_direction(
+	target: Vector2,
+	aim_origin: Vector2,
+	vertical_launch: bool,
+	angle_offset: float
+) -> Vector2:
+	var direction: Vector2 = Vector2.UP if vertical_launch else target - aim_origin
+	if not vertical_launch:
+		if direction.length() <= 0.001:
+			direction = Vector2.UP
+		else:
+			direction = direction.normalized()
+	if abs(angle_offset) > 0.0001:
+		direction = direction.rotated(angle_offset).normalized()
+	return direction
+
+
 static func build_projectile(
 	weapon_id: String,
 	kind: String,
