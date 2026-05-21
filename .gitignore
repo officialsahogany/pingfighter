@@ -230,6 +230,13 @@ promo_work/
 pitch_deck_aicon_2026/
 brochure_assets_current/
 
+# Legacy Python SteamPipe helpers. Godot Steam templates live in steam/*_godot*.
+steam/app_build.vdf
+steam/depot_build_windows.vdf
+steam/build_steam.bat
+steam/upload_steam.bat
+steam/steam_appid.txt
+
 # Repo-local tool mirrors and dependency installs
 .agents/skills/
 mcp/node_modules/
