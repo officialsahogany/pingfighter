@@ -13,6 +13,7 @@ const Stage2AmbientVisualRenderer := preload("res://scripts/stages/stage2/stage2
 const Stage2RockVisualFactory := preload("res://scripts/stages/stage2/stage2_rock_visual_factory.gd")
 const Stage2RockVisualAssetsBuilder := preload("res://scripts/stages/stage2/stage2_rock_visual_assets_builder.gd")
 const Stage2StarpointVisualFactory := preload("res://scripts/stages/stage2/stage2_starpoint_visual_factory.gd")
+const Stage2StarpointDropMotionState := preload("res://scripts/stages/stage2/stage2_starpoint_drop_motion_state.gd")
 const Stage2WaterCannonGeometry := preload("res://scripts/stages/stage2/stage2_water_cannon_geometry.gd")
 const Stage2WaterCannonVisualStateBuilder := preload("res://scripts/stages/stage2/stage2_water_cannon_visual_state_builder.gd")
 const Stage2QuakeWaveVisualStateBuilder := preload("res://scripts/stages/stage2/stage2_quake_wave_visual_state_builder.gd")
@@ -24,6 +25,7 @@ const Stage2RockFragmentPayloadConfigBuilder := preload("res://scripts/stages/st
 const Stage2QuakeRockPayloadFactory := preload("res://scripts/stages/stage2/stage2_quake_rock_payload_factory.gd")
 const Stage2QuakeRockDropState := preload("res://scripts/stages/stage2/stage2_quake_rock_drop_state.gd")
 const Stage2QuakeRockOffsetState := preload("res://scripts/stages/stage2/stage2_quake_rock_offset_state.gd")
+const Stage2StarpointParticleState := preload("res://scripts/stages/stage2/stage2_starpoint_particle_state.gd")
 const Stage2AmbientPayloadFactory := preload("res://scripts/stages/stage2/stage2_ambient_payload_factory.gd")
 const Stage2AmbientLayoutHelper := preload("res://scripts/stages/stage2/stage2_ambient_layout_helper.gd")
 const Stage2RustlePayloadFactory := preload("res://scripts/stages/stage2/stage2_rustle_payload_factory.gd")
@@ -1693,35 +1695,18 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 	var drop_count := starpoint_drops.size()
 	for index in range(drop_count):
 		var d: Dictionary = starpoint_drops[index]
-		d["life"] = float(d.get("life", 0.0)) - fps_scale
-		if float(d.get("life", 0.0)) <= 0.0:
+		if not Stage2StarpointDropMotionState.update_drop(
+			d,
+			fps_scale,
+			play_left,
+			play_right,
+			play_height,
+			STARPOINT_DROP_SIZE,
+			STARPOINT_DROP_MAX_FALL_SPEED,
+			STARPOINT_DROP_ACCELERATION,
+			STARPOINT_DROP_BOUNCE_DAMPING
+		):
 			continue
-
-		var pos: Vector2 = _get_vector2(d.get("pos", Vector2.ZERO), Vector2.ZERO)
-		var vel: Vector2 = _get_vector2(d.get("vel", Vector2.ZERO), Vector2.ZERO)
-		var size: float = max(1.0, float(d.get("size", STARPOINT_DROP_SIZE)))
-		var float_timer: float = float(d.get("float_timer", 0.0)) + 0.05 * fps_scale
-		pos.x += (vel.x + sin(float_timer) * 0.1) * fps_scale
-		pos.y += vel.y * fps_scale
-		vel.y = min(STARPOINT_DROP_MAX_FALL_SPEED, vel.y + STARPOINT_DROP_ACCELERATION * fps_scale)
-
-		if pos.x <= play_left + size:
-			pos.x = play_left + size
-			vel.x = abs(vel.x) * STARPOINT_DROP_BOUNCE_DAMPING
-		elif pos.x >= play_right - size:
-			pos.x = play_right - size
-			vel.x = -abs(vel.x) * STARPOINT_DROP_BOUNCE_DAMPING
-		vel.x *= pow(0.98, fps_scale)
-		if pos.y > play_height:
-			continue
-
-		d["pos"] = pos
-		d["vel"] = vel
-		d["float_timer"] = float_timer
-		d["rotation"] = float(d.get("rotation", 0.0)) + float(d.get("rotation_speed", 0.07)) * fps_scale
-		var glow_timer: float = float(d.get("glow_timer", 0.0)) + 0.1 * fps_scale
-		d["glow_timer"] = glow_timer
-		d["glow_intensity"] = 0.7 + 0.3 * abs(sin(glow_timer))
 
 		if _starpoint_overlaps_any_player(d, player_rects):
 			_collect_starpoint_drop(d, context, deps)
@@ -1768,25 +1753,7 @@ func _spawn_starpoint_particles(pos: Vector2, count: int, intensity: float) -> v
 
 
 func _update_starpoint_particles(fps_scale: float) -> void:
-	if starpoint_particles.is_empty():
-		return
-	var write_index := 0
-	var particle_count := starpoint_particles.size()
-	for index in range(particle_count):
-		var p: Dictionary = starpoint_particles[index]
-		var pos: Vector2 = _get_vector2(p.get("pos", Vector2.ZERO), Vector2.ZERO)
-		var vel: Vector2 = _get_vector2(p.get("vel", Vector2.ZERO), Vector2.ZERO)
-		pos += vel * fps_scale
-		vel.y += 0.1 * fps_scale
-		p["pos"] = pos
-		p["vel"] = vel
-		p["alpha"] = max(0.0, float(p.get("alpha", 1.0)) - float(p.get("fade_speed", 0.05)) * fps_scale)
-		p["life"] = float(p.get("life", 0.0)) - fps_scale
-		if float(p.get("alpha", 0.0)) > 0.0 and float(p.get("life", 0.0)) > 0.0:
-			starpoint_particles[write_index] = p
-			write_index += 1
-	if write_index < particle_count:
-		starpoint_particles.resize(write_index)
+	Stage2StarpointParticleState.update_particles(starpoint_particles, fps_scale)
 
 
 func _play_starpoint_collect_sound(deps: Dictionary) -> void:

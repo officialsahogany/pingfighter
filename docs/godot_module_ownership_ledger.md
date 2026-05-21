@@ -1221,7 +1221,10 @@ This section is intentionally long; use search to find the nearest owner.
   config payloads are delegated to
   `stage2_rock_fragment_payload_config_builder.gd`.
   Starpoint drop / particle payload generation is delegated to
-  `stage2_starpoint_visual_factory.gd`.
+  `stage2_starpoint_visual_factory.gd`; starpoint drop per-frame motion is
+  delegated to `stage2_starpoint_drop_motion_state.gd`; starpoint particle
+  per-frame physics / compacting is delegated to
+  `stage2_starpoint_particle_state.gd`.
   Water-cannon fragment / splash payload generation is delegated to
   `stage2_water_cannon_payload_factory.gd`; water-cannon factory config
   payloads are delegated to
@@ -1477,8 +1480,19 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the Stage 2 starpoint payload factory: initial drop velocity /
   rotation / glow fields and burst particle dictionaries. The background
   module still owns golden-rock gating, Star Detector bonus count and
-  bounds clamp, per-frame drop physics, collection, score/perk rewards,
+  bounds clamp, drop collection, score/perk rewards,
   redraw requests, and collect audio.
+- `scripts/stages/stage2/stage2_starpoint_drop_motion_state.gd`
+  Owns Stage 2 starpoint drop per-frame mutation: lifetime decay, float
+  wobble, velocity / gravity, horizontal bounds bounce, rotation, glow
+  timing, and alive / expired return. The background module still owns
+  drop list compaction, player overlap checks, collection rewards, redraw
+  requests, and collect audio.
+- `scripts/stages/stage2/stage2_starpoint_particle_state.gd`
+  Owns Stage 2 starpoint particle per-frame mutation: position, gravity,
+  alpha fade, lifetime decay, and in-place survivor compaction. The
+  background module still owns particle spawning, drop collection timing,
+  render fanout, and audio / reward side effects.
 - `scripts/stages/stage2/stage2_monkey_banana_event.gd`
   Owns the Stage 2 original monkey-banana side event: first spawn after
   5-10 seconds, repeat spawns after 15-30 seconds, left/right outer-tree
