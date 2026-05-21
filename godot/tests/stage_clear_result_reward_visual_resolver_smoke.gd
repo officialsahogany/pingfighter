@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_reward_colors()
 	_verify_reward_badges()
+	_verify_source_labels()
 	_verify_source_colors()
 	_verify_scene_delegates_visual_resolver()
 
@@ -39,6 +40,24 @@ func _verify_reward_badges() -> void:
 	_expect(StageClearResultRewardVisualResolver.get_reward_badge({"type": "gold"}) == "REWARD", "unknown rewards should use REWARD badge")
 
 
+func _verify_source_labels() -> void:
+	_expect(
+		StageClearResultRewardVisualResolver.get_result_reward_source_label("stage", "stage", "box", "인게임", "상자") == "인게임",
+		"stage reward source should use the in-game chip label"
+	)
+	_expect(
+		StageClearResultRewardVisualResolver.get_result_reward_source_label("box", "stage", "box", "인게임", "상자") == "상자",
+		"box reward source should use the box chip label"
+	)
+	_expect(
+		StageClearResultRewardVisualResolver.get_result_reward_source_label("other", "stage", "box", "인게임", "상자") == "",
+		"unknown reward sources should not expose a chip label"
+	)
+	var labels: Dictionary = StageClearResultRewardVisualResolver.get_result_reward_source_labels("stage", "box", "인게임", "상자")
+	_expect(str(labels.get("stage", "")) == "인게임", "source labels should expose the in-game label")
+	_expect(str(labels.get("box", "")) == "상자", "source labels should expose the box label")
+
+
 func _verify_source_colors() -> void:
 	_expect(
 		StageClearResultRewardVisualResolver.get_result_reward_source_color("stage", "stage", "box") == Color(0.04, 0.32, 0.36, 1.0),
@@ -58,6 +77,7 @@ func _verify_scene_delegates_visual_resolver() -> void:
 	var scene := StageClearResultScene.new()
 	_expect(scene._get_reward_color("mythic") == StageClearResultRewardVisualResolver.get_reward_color("mythic"), "result scene reward color wrapper should delegate")
 	_expect(scene._get_reward_badge({"type": "passive"}) == "PASSIVE", "result scene badge wrapper should delegate")
+	_expect(scene._get_result_reward_source_label("box") == "상자", "result scene source-label wrapper should delegate")
 	_expect(scene._get_result_reward_source_color("stage") == Color(0.04, 0.32, 0.36, 1.0), "result scene source color wrapper should delegate")
 	scene.free()
 

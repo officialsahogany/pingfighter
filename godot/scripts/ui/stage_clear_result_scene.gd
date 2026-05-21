@@ -1945,19 +1945,22 @@ func _get_reward_badge(reward: Dictionary) -> String:
 
 
 func _get_result_reward_source_label(source_key: String) -> String:
-	match source_key:
-		RESULT_REWARD_SOURCE_STAGE:
-			return "인게임"
-		RESULT_REWARD_SOURCE_BOX:
-			return "상자"
-	return ""
+	return StageClearResultRewardVisualResolver.get_result_reward_source_label(
+		source_key,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		"인게임",
+		"상자"
+	)
 
 
 func _get_result_reward_source_labels() -> Dictionary:
-	return {
-		RESULT_REWARD_SOURCE_STAGE: _get_result_reward_source_label(RESULT_REWARD_SOURCE_STAGE),
-		RESULT_REWARD_SOURCE_BOX: _get_result_reward_source_label(RESULT_REWARD_SOURCE_BOX),
-	}
+	return StageClearResultRewardVisualResolver.get_result_reward_source_labels(
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		"인게임",
+		"상자"
+	)
 
 
 func _get_result_reward_source_color(source_key: String) -> Color:
