@@ -12,6 +12,9 @@ func _init() -> void:
 	_verify_reward_label_visual_state()
 	_verify_reward_icon_palettes()
 	_verify_reward_item_icon_visual_state()
+	_verify_reward_card_visual_state()
+	_verify_reward_source_chip_visual_state()
+	_verify_fallback_reward_icon_visual_state()
 	_verify_starpoint_visual_state()
 	_verify_source_labels()
 	_verify_source_colors()
@@ -95,6 +98,58 @@ func _verify_reward_item_icon_visual_state() -> void:
 	_expect(state.get("ring_color", Color.TRANSPARENT) == Color(0.55, 0.92, 1.0, 0.5), "item icon visual state should apply alpha to the rim")
 	_expect(Rect2(state.get("fallback_text_rect", Rect2())).size == Vector2(228.0, 72.0), "item icon fallback text rect should scale with the disc")
 	_expect(int(state.get("fallback_font_preferred_size", 0)) == 44, "item icon fallback preferred font size should scale")
+
+
+func _verify_reward_card_visual_state() -> void:
+	var state: Dictionary = StageClearResultRewardVisualResolver.get_reward_card_visual_state(
+		{"type": "mythic"},
+		Rect2(Vector2(10.0, 20.0), Vector2(148.0, 112.0)),
+		2.0,
+		0.5
+	)
+	_expect(str(state.get("reward_type", "")) == "mythic", "reward card visual state should expose the reward type")
+	_expect(state.get("base_color", Color.TRANSPARENT) == Color(0.32, 0.10, 0.50, 0.09), "reward card visual state should apply alpha to the base color")
+	_expect(Rect2(state.get("badge_rect", Rect2())) == Rect2(Vector2(26.0, 34.0), Vector2(116.0, 40.0)), "reward card badge rect should scale from the card origin")
+	_expect(str(state.get("badge_text", "")) == "MYTHIC", "reward card visual state should include the badge text")
+	_expect(Rect2(state.get("icon_rect", Rect2())) == Rect2(Vector2(94.0, 80.0), Vector2(128.0, 108.0)), "reward card icon rect should scale from the card origin")
+	_expect(Rect2(state.get("label_rect", Rect2())) == Rect2(Vector2(26.0, 188.0), Vector2(116.0, 44.0)), "reward card label rect should scale from the card origin")
+	_expect(int(state.get("label_font_preferred_size", 0)) == 28, "reward card label font size should scale")
+
+
+func _verify_reward_source_chip_visual_state() -> void:
+	var empty_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_source_chip_visual_state(
+		"stage",
+		"",
+		Rect2(Vector2.ZERO, Vector2(148.0, 112.0)),
+		1.0,
+		1.0,
+		"stage",
+		"box"
+	)
+	_expect(empty_state.is_empty(), "source chip visual state should ignore missing labels")
+	var state: Dictionary = StageClearResultRewardVisualResolver.get_reward_source_chip_visual_state(
+		"box",
+		"BOX",
+		Rect2(Vector2(10.0, 20.0), Vector2(148.0, 112.0)),
+		2.0,
+		0.5,
+		"stage",
+		"box"
+	)
+	_expect(Rect2(state.get("rect", Rect2())) == Rect2(Vector2(46.0, 34.0), Vector2(96.0, 40.0)), "source chip rect should anchor to the card top-right")
+	_expect(state.get("fill", Color.TRANSPARENT) == Color(0.46, 0.22, 0.08, 0.36), "source chip fill should apply alpha to the source color")
+	_expect(int(state.get("font_preferred_size", 0)) == 20, "source chip font size should scale")
+
+
+func _verify_fallback_reward_icon_visual_state() -> void:
+	var state: Dictionary = StageClearResultRewardVisualResolver.get_fallback_reward_icon_visual_state(
+		"passive",
+		Rect2(Vector2(10.0, 20.0), Vector2(60.0, 40.0)),
+		0.5
+	)
+	_expect(Vector2(state.get("center", Vector2.ZERO)) == Vector2(40.0, 40.0), "fallback reward icon should use the rect center")
+	_expect(is_equal_approx(float(state.get("radius", 0.0)), 16.8), "fallback reward icon should use the smaller rect axis")
+	_expect(state.get("fill", Color.TRANSPARENT) == Color(0.50, 0.36, 0.10, 0.42), "fallback reward icon should apply alpha to the reward color")
 
 
 func _verify_starpoint_visual_state() -> void:

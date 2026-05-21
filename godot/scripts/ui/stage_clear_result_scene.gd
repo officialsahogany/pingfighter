@@ -1747,24 +1747,49 @@ func _get_reward_section_columns(width: float, card_width: float, gap: float, ma
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float, alpha: float) -> void:
-	var reward_type: String = str(reward.get("type", ""))
-	var base_color: Color = _get_reward_color(reward_type)
-	base_color.a = 0.18 * alpha
-	var border_color: Color = _get_reward_color(reward_type).lerp(Color(0.06, 0.84, 0.96, 1.0), 0.34)
-	border_color.a = 0.78 * alpha
-	_draw_panel(rect, base_color, border_color, max(1.0, 1.6 * scale), 8.0 * scale)
-	var badge_rect := Rect2(rect.position + Vector2(8.0, 7.0) * scale, Vector2(58.0, 20.0) * scale)
-	_draw_panel(badge_rect, Color(0.02, 0.08, 0.11, 0.64 * alpha), border_color, max(1.0, 1.0 * scale), 6.0 * scale)
-	_draw_centered_text(font, _get_reward_badge(reward), badge_rect, int(round(10.0 * scale)), Color(0.86, 1.0, 1.0, alpha))
+	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_card_visual_state(reward, rect, scale, alpha)
+	var border_color: Color = visual_state.get("border_color", Color(0.06, 0.84, 0.96, 0.78 * alpha))
+	_draw_panel(
+		rect,
+		visual_state.get("base_color", Color(0.40, 0.32, 0.20, 0.18 * alpha)),
+		border_color,
+		float(visual_state.get("border_width", max(1.0, 1.6 * scale))),
+		float(visual_state.get("corner_radius", 8.0 * scale))
+	)
+	var badge_rect: Rect2 = visual_state.get("badge_rect", Rect2())
+	_draw_panel(
+		badge_rect,
+		visual_state.get("badge_fill", Color(0.02, 0.08, 0.11, 0.64 * alpha)),
+		border_color,
+		float(visual_state.get("badge_border_width", max(1.0, 1.0 * scale))),
+		float(visual_state.get("badge_corner_radius", 6.0 * scale))
+	)
+	_draw_centered_text(
+		font,
+		str(visual_state.get("badge_text", _get_reward_badge(reward))),
+		badge_rect,
+		int(visual_state.get("badge_font_size", round(10.0 * scale))),
+		visual_state.get("badge_text_color", Color(0.86, 1.0, 1.0, alpha))
+	)
 	_draw_reward_source_chip(font, reward, rect, scale, alpha)
-	var icon_rect := Rect2(rect.position + Vector2(42.0, 30.0) * scale, Vector2(64.0, 54.0) * scale)
-	_draw_reward_card_icon(reward, icon_rect, scale, alpha)
-	var label_rect := Rect2(rect.position + Vector2(8.0, 84.0) * scale, Vector2(rect.size.x - 16.0 * scale, 22.0 * scale))
-	var label_plate := label_rect.grow_individual(2.0 * scale, 0.0, 2.0 * scale, 0.0)
-	_draw_panel(label_plate, Color(0.95, 0.99, 0.96, 0.44 * alpha), Color(0.0, 0.0, 0.0, 0.0), 0.0, 5.0 * scale)
+	_draw_reward_card_icon(reward, visual_state.get("icon_rect", Rect2()), scale, alpha)
+	var label_rect: Rect2 = visual_state.get("label_rect", Rect2())
+	_draw_panel(
+		visual_state.get("label_plate_rect", label_rect),
+		visual_state.get("label_plate_fill", Color(0.95, 0.99, 0.96, 0.44 * alpha)),
+		Color(0.0, 0.0, 0.0, 0.0),
+		0.0,
+		5.0 * scale
+	)
 	var label: String = _get_reward_title(reward)
-	var label_size: int = _fit_font_size(font, label, label_rect.size.x, int(round(14.0 * scale)), int(round(9.0 * scale)))
-	_draw_centered_text(font, label, label_rect, label_size, Color(0.04, 0.08, 0.10, alpha), 0.0)
+	var label_size: int = _fit_font_size(
+		font,
+		label,
+		label_rect.size.x,
+		int(visual_state.get("label_font_preferred_size", round(14.0 * scale))),
+		int(visual_state.get("label_font_min_size", round(9.0 * scale)))
+	)
+	_draw_centered_text(font, label, label_rect, label_size, visual_state.get("label_text_color", Color(0.04, 0.08, 0.10, alpha)), 0.0)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1773,20 +1798,33 @@ func _draw_reward_source_chip(font: Font, reward: Dictionary, rect: Rect2, scale
 	var source_label: String = str(reward.get("_result_reward_source_label", ""))
 	if source_label == "":
 		source_label = _get_result_reward_source_label(source_key)
-	if source_label == "":
-		return
-	var chip_size := Vector2(48.0, 20.0) * scale
-	var chip_rect := Rect2(
-		Vector2(rect.end.x - chip_size.x - 8.0 * scale, rect.position.y + 7.0 * scale),
-		chip_size
+	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_source_chip_visual_state(
+		source_key,
+		source_label,
+		rect,
+		scale,
+		alpha,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX
 	)
-	var chip_color: Color = _get_result_reward_source_color(source_key)
-	chip_color.a = 0.72 * alpha
-	var chip_border: Color = chip_color.lerp(Color(0.86, 1.0, 1.0, 1.0), 0.46)
-	chip_border.a = 0.76 * alpha
-	_draw_panel(chip_rect, chip_color, chip_border, max(1.0, 1.0 * scale), 6.0 * scale)
-	var font_size: int = _fit_font_size(font, source_label, chip_rect.size.x - 6.0 * scale, int(round(10.0 * scale)), int(round(7.0 * scale)))
-	_draw_centered_text(font, source_label, chip_rect, font_size, Color(0.92, 1.0, 1.0, alpha), 0.0)
+	if visual_state.is_empty():
+		return
+	var chip_rect: Rect2 = visual_state.get("rect", Rect2())
+	_draw_panel(
+		chip_rect,
+		visual_state.get("fill", Color(0.18, 0.24, 0.28, 0.72 * alpha)),
+		visual_state.get("border", Color(0.86, 1.0, 1.0, 0.76 * alpha)),
+		float(visual_state.get("border_width", max(1.0, 1.0 * scale))),
+		float(visual_state.get("corner_radius", 6.0 * scale))
+	)
+	var font_size: int = _fit_font_size(
+		font,
+		source_label,
+		chip_rect.size.x - 6.0 * scale,
+		int(visual_state.get("font_preferred_size", round(10.0 * scale))),
+		int(visual_state.get("font_min_size", round(7.0 * scale)))
+	)
+	_draw_centered_text(font, source_label, chip_rect, font_size, visual_state.get("text_color", Color(0.92, 1.0, 1.0, alpha)), 0.0)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1818,10 +1856,11 @@ func _draw_texture_fit(texture: Texture2D, rect: Rect2, alpha: float) -> void:
 
 func _draw_fallback_reward_icon(reward: Dictionary, rect: Rect2, alpha: float) -> void:
 	var reward_type: String = str(reward.get("type", ""))
-	var color: Color = _get_reward_color(reward_type)
-	color.a = 0.84 * alpha
-	draw_circle(rect.get_center(), min(rect.size.x, rect.size.y) * 0.42, color)
-	draw_arc(rect.get_center(), min(rect.size.x, rect.size.y) * 0.42, 0.0, TAU, 28, Color(0.86, 1.0, 1.0, alpha * 0.80), 1.6)
+	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_fallback_reward_icon_visual_state(reward_type, rect, alpha)
+	var center: Vector2 = visual_state.get("center", rect.get_center())
+	var radius: float = float(visual_state.get("radius", min(rect.size.x, rect.size.y) * 0.42))
+	draw_circle(center, radius, visual_state.get("fill", Color(0.40, 0.32, 0.20, 0.84 * alpha)))
+	draw_arc(center, radius, 0.0, TAU, 28, visual_state.get("ring_color", Color(0.86, 1.0, 1.0, alpha * 0.80)), float(visual_state.get("ring_width", 1.6)))
 
 
 func _get_reward_detail_text(reward: Dictionary) -> String:

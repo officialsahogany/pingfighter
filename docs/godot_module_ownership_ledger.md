@@ -898,9 +898,9 @@ This section is intentionally long; use search to find the nearest owner.
   cutscene art. Result-scroll reward summary arrays, source counts,
   perk-info tile payloads, starpoint totals, and perk reward ID
   classification are delegated to `stage_clear_result_summary_builder.gd`;
-  reward card colors, reward label visual state, reward item icon visual
-  state / palettes, starpoint visual state, badges, and source-chip labels /
-  colors are delegated to
+  reward card colors / rects, reward label visual state, reward item icon
+  visual state / palettes, starpoint visual state, badges, fallback reward
+  icon state, and source-chip labels / colors / rects are delegated to
   `stage_clear_result_reward_visual_resolver.gd`; reward icon path
   resolution and scene-local texture caching are delegated to
   `stage_clear_result_reward_icon_resolver.gd`; reward-card title,
@@ -969,9 +969,10 @@ This section is intentionally long; use search to find the nearest owner.
   the live perk catalog instance used by reward text resolution.
 - `scripts/ui/stage_clear_result_reward_visual_resolver.gd`
   Owns stateless stage-clear reward visual classification: reward card base
-  colors, reward label visual state, reward item icon visual state /
-  palettes, starpoint visual state, reward badge text, and stage-vs-box
-  source-chip labels / colors. The scene still owns all actual drawing.
+  colors / rects, reward label visual state, reward item icon visual state /
+  palettes, fallback reward icon state, starpoint visual state, reward badge
+  text, and stage-vs-box source-chip labels / colors / rects. The scene still
+  owns all actual drawing.
 - `scripts/ui/stage_clear_result_reward_icon_resolver.gd`
   Owns stage-clear reward icon resolution: direct and nested icon paths,
   item-name fallback sprite paths, preloaded `icon_texture` handling, and

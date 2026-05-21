@@ -147,6 +147,81 @@ static func get_reward_item_icon_visual_state(reward_type: String, anchor: Vecto
 	}
 
 
+static func get_reward_card_visual_state(reward: Dictionary, rect: Rect2, draw_scale: float, alpha: float) -> Dictionary:
+	var reward_type: String = str(reward.get("type", ""))
+	var base_color: Color = get_reward_color(reward_type)
+	base_color.a = 0.18 * alpha
+	var border_color: Color = get_reward_color(reward_type).lerp(Color(0.06, 0.84, 0.96, 1.0), 0.34)
+	border_color.a = 0.78 * alpha
+	var badge_rect := Rect2(rect.position + Vector2(8.0, 7.0) * draw_scale, Vector2(58.0, 20.0) * draw_scale)
+	var label_rect := Rect2(rect.position + Vector2(8.0, 84.0) * draw_scale, Vector2(rect.size.x - 16.0 * draw_scale, 22.0 * draw_scale))
+	return {
+		"reward_type": reward_type,
+		"base_color": base_color,
+		"border_color": border_color,
+		"border_width": max(1.0, 1.6 * draw_scale),
+		"corner_radius": 8.0 * draw_scale,
+		"badge_text": get_reward_badge(reward),
+		"badge_rect": badge_rect,
+		"badge_fill": Color(0.02, 0.08, 0.11, 0.64 * alpha),
+		"badge_border_width": max(1.0, 1.0 * draw_scale),
+		"badge_corner_radius": 6.0 * draw_scale,
+		"badge_font_size": int(round(10.0 * draw_scale)),
+		"badge_text_color": Color(0.86, 1.0, 1.0, alpha),
+		"icon_rect": Rect2(rect.position + Vector2(42.0, 30.0) * draw_scale, Vector2(64.0, 54.0) * draw_scale),
+		"label_rect": label_rect,
+		"label_plate_rect": label_rect.grow_individual(2.0 * draw_scale, 0.0, 2.0 * draw_scale, 0.0),
+		"label_plate_fill": Color(0.95, 0.99, 0.96, 0.44 * alpha),
+		"label_font_preferred_size": int(round(14.0 * draw_scale)),
+		"label_font_min_size": int(round(9.0 * draw_scale)),
+		"label_text_color": Color(0.04, 0.08, 0.10, alpha),
+	}
+
+
+static func get_reward_source_chip_visual_state(
+	source_key: String,
+	source_label: String,
+	rect: Rect2,
+	draw_scale: float,
+	alpha: float,
+	stage_source: String,
+	box_source: String
+) -> Dictionary:
+	if source_label == "":
+		return {}
+	var chip_size := Vector2(48.0, 20.0) * draw_scale
+	var chip_color: Color = get_result_reward_source_color(source_key, stage_source, box_source)
+	chip_color.a = 0.72 * alpha
+	var chip_border: Color = chip_color.lerp(Color(0.86, 1.0, 1.0, 1.0), 0.46)
+	chip_border.a = 0.76 * alpha
+	return {
+		"rect": Rect2(
+			Vector2(rect.end.x - chip_size.x - 8.0 * draw_scale, rect.position.y + 7.0 * draw_scale),
+			chip_size
+		),
+		"fill": chip_color,
+		"border": chip_border,
+		"border_width": max(1.0, 1.0 * draw_scale),
+		"corner_radius": 6.0 * draw_scale,
+		"font_preferred_size": int(round(10.0 * draw_scale)),
+		"font_min_size": int(round(7.0 * draw_scale)),
+		"text_color": Color(0.92, 1.0, 1.0, alpha),
+	}
+
+
+static func get_fallback_reward_icon_visual_state(reward_type: String, rect: Rect2, alpha: float) -> Dictionary:
+	var radius: float = min(rect.size.x, rect.size.y) * 0.42
+	var fill: Color = get_reward_color(reward_type)
+	fill.a = 0.84 * alpha
+	return {
+		"center": rect.get_center(),
+		"radius": radius,
+		"fill": fill,
+		"ring_color": Color(0.86, 1.0, 1.0, alpha * 0.80),
+		"ring_width": 1.6,
+	}
+
+
 static func get_reward_starpoint_visual_state(
 	amount: int,
 	anchor: Vector2,
