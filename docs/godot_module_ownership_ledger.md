@@ -897,9 +897,20 @@ This section is intentionally long; use search to find the nearest owner.
   result scroll drawing, and scene-local linear texture filtering for
   cutscene art. Result-scroll reward summary arrays, source counts,
   starpoint totals, and perk reward ID classification are delegated to
-  `stage_clear_result_summary_builder.gd`. Keep future reward-pick
-  animation / settlement UI work here rather than adding draw blocks back
-  to the battle shell; do not put grant logic back in this UI scene.
+  `stage_clear_result_summary_builder.gd`; reward card colors, badges, and
+  source-chip colors are delegated to
+  `stage_clear_result_reward_visual_resolver.gd`; result chest layout,
+  box-frame policy, reward-card grid layout, and sheet / cover source-rect
+  math are delegated to `stage_clear_result_layout_helper.gd`. Keep future
+  reward-pick animation / settlement UI work here rather than adding draw
+  blocks back to the battle shell; do not put grant logic back in this UI
+  scene.
+- `scripts/ui/stage_clear_result_layout_helper.gd`
+  Owns stateless stage-clear result layout and frame policy helpers:
+  floating chest anchor layouts, result-box safe-frame selection, reward
+  section card grid fitting, sheet cell source-rect calculation, and
+  cover-fit source cropping. The scene still owns live timers, hover /
+  click state, drawing, texture loading, reward rolling, and callbacks.
 - `scripts/ui/stage_clear_result_summary_builder.gd`
   Owns stateless stage-clear result summary assembly for the UI scene:
   stage-vs-box reward source tagging, item / perk / visible reward arrays,
@@ -907,6 +918,11 @@ This section is intentionally long; use search to find the nearest owner.
   duplication, and perk reward ID classification. The scene still owns
   reward rolling, final grant callbacks, scroll/button input, drawing, and
   catalog-backed reward title / detail text resolution.
+- `scripts/ui/stage_clear_result_reward_visual_resolver.gd`
+  Owns stateless stage-clear reward visual classification: reward card base
+  colors, reward badge text, and stage-vs-box source-chip colors. The scene
+  still owns localized reward labels / detail text, icon texture loading,
+  and all actual drawing.
 - `scripts/core/match_round_restart_controller.gd`
   Owns round-restart fanout below match flow: reset-ball callback dispatch
   or round-wait fallback reset, rematch notice startup, and round-restart

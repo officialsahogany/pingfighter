@@ -5,7 +5,9 @@ const ResultBoxOpenFxHost := preload("res://scripts/effects/result_box_open_fx_h
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
+const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
 const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
@@ -718,31 +720,7 @@ func _build_boxes_from_plan(plan: Dictionary) -> Array:
 
 
 func _get_box_layout(count: int) -> Array:
-	match count:
-		1:
-			return [
-				{"pos": Vector2(950.0, 480.0), "rot": 0.04, "phase": 0.0},
-			]
-		2:
-			return [
-				{"pos": Vector2(760.0, 360.0), "rot": -0.08, "phase": 0.0},
-				{"pos": Vector2(1160.0, 580.0), "rot": 0.10, "phase": 1.6},
-			]
-		3:
-			return [
-				{"pos": Vector2(820.0, 300.0), "rot": 0.04, "phase": 0.0, "amp": 4.0},
-				{"pos": Vector2(820.0, 600.0), "rot": -0.10, "phase": 1.4},
-				{"pos": Vector2(1200.0, 580.0), "rot": 0.14, "phase": 2.8},
-			]
-		4:
-			return [
-				{"pos": Vector2(720.0, 320.0), "rot": -0.10, "phase": 0.0},
-				{"pos": Vector2(1060.0, 280.0), "rot": 0.06, "phase": 1.0},
-				{"pos": Vector2(820.0, 620.0), "rot": -0.08, "phase": 2.0},
-				{"pos": Vector2(1220.0, 560.0), "rot": 0.12, "phase": 3.0},
-			]
-		_:
-			return []
+	return StageClearResultLayoutHelper.get_box_layout(count)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -842,16 +820,14 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 
 
 func _get_result_box_frame_index(state: String, open_progress: float, is_mythic: bool) -> int:
-	var last_safe_frame: int = RESULT_BOX_MYTHIC_SAFE_LAST_FRAME if is_mythic else RESULT_BOX_COMMON_SAFE_LAST_FRAME
-	match state:
-		"idle":
-			return 0
-		"opening":
-			return clamp(int(open_progress * float(RESULT_BOX_SHEET_FRAME_COUNT)), 0, last_safe_frame)
-		"opened":
-			return last_safe_frame
-		_:
-			return 0
+	return StageClearResultLayoutHelper.get_result_box_frame_index(
+		state,
+		open_progress,
+		is_mythic,
+		RESULT_BOX_SHEET_FRAME_COUNT,
+		RESULT_BOX_COMMON_SAFE_LAST_FRAME,
+		RESULT_BOX_MYTHIC_SAFE_LAST_FRAME
+	)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1694,18 +1670,7 @@ func _get_reward_perk_id(reward: Dictionary) -> String:
 
 
 func _get_reward_color(reward_type: String) -> Color:
-	match reward_type:
-		"active":
-			return Color(0.10, 0.52, 0.62, 1.0)
-		"passive":
-			return Color(0.50, 0.36, 0.10, 1.0)
-		"mythic":
-			return Color(0.32, 0.10, 0.50, 1.0)
-		"starpoint":
-			return Color(0.86, 0.52, 0.10, 1.0)
-		"perk", "skill":
-			return Color(0.18, 0.36, 0.58, 1.0)
-	return Color(0.40, 0.32, 0.20, 1.0)
+	return StageClearResultRewardVisualResolver.get_reward_color(reward_type)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1902,37 +1867,11 @@ func _draw_reward_section(font: Font, title: String, rewards: Array, rect: Rect2
 
 
 func _calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_scale: float) -> Dictionary:
-	var gap: float = 16.0 * ui_scale
-	var card_scale: float = ui_scale
-	var card_size := Vector2(148.0, 112.0) * card_scale
-	var columns: int = _get_reward_section_columns(rect.size.x, card_size.x, gap, 4)
-	var rows: int = int(ceil(float(max(1, reward_count)) / float(columns)))
-	var available_height: float = max(1.0, rect.size.y - 42.0 * ui_scale)
-	var required_height: float = float(rows) * card_size.y + float(max(0, rows - 1)) * gap
-	if required_height > available_height:
-		var fitted_height: float = max(64.0 * ui_scale, (available_height - float(max(0, rows - 1)) * gap) / float(rows))
-		var fitted_scale: float = clamp(fitted_height / max(1.0, card_size.y), 0.56, 1.0)
-		card_scale *= fitted_scale
-		card_size = Vector2(148.0, 112.0) * card_scale
-		gap = max(8.0 * ui_scale, gap * fitted_scale)
-		columns = _get_reward_section_columns(rect.size.x, card_size.x, gap, 5)
-		rows = int(ceil(float(max(1, reward_count)) / float(columns)))
-		required_height = float(rows) * card_size.y + float(max(0, rows - 1)) * gap
-	return {
-		"columns": columns,
-		"rows": rows,
-		"gap": gap,
-		"card_size": card_size,
-		"card_scale": card_scale,
-		"cards_top": 38.0 * ui_scale,
-		"available_height": available_height,
-		"required_height": required_height,
-	}
+	return StageClearResultLayoutHelper.calculate_reward_section_layout(reward_count, rect, ui_scale)
 
 
 func _get_reward_section_columns(width: float, card_width: float, gap: float, max_columns: int) -> int:
-	var columns: int = max(1, int(floor((width + gap) / (card_width + gap))))
-	return min(columns, max(1, max_columns))
+	return StageClearResultLayoutHelper.get_reward_section_columns(width, card_width, gap, max_columns)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -2070,19 +2009,7 @@ func _get_reward_title(reward: Dictionary) -> String:
 
 
 func _get_reward_badge(reward: Dictionary) -> String:
-	var reward_type: String = str(reward.get("type", ""))
-	match reward_type:
-		"active":
-			return "ACTIVE"
-		"passive":
-			return "PASSIVE"
-		"mythic":
-			return "MYTHIC"
-		"starpoint":
-			return "PERK"
-		"perk", "skill":
-			return "PERK"
-	return "REWARD"
+	return StageClearResultRewardVisualResolver.get_reward_badge(reward)
 
 
 func _get_result_reward_source_label(source_key: String) -> String:
@@ -2102,12 +2029,11 @@ func _get_result_reward_source_labels() -> Dictionary:
 
 
 func _get_result_reward_source_color(source_key: String) -> Color:
-	match source_key:
-		RESULT_REWARD_SOURCE_STAGE:
-			return Color(0.04, 0.32, 0.36, 1.0)
-		RESULT_REWARD_SOURCE_BOX:
-			return Color(0.46, 0.22, 0.08, 1.0)
-	return Color(0.18, 0.24, 0.28, 1.0)
+	return StageClearResultRewardVisualResolver.get_result_reward_source_color(
+		source_key,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX
+	)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -2398,21 +2324,11 @@ func _apply_standalone_preview_defaults() -> void:
 
 
 func _sheet_source_rect(frame: int, grid_cols: int, cell_size: Vector2) -> Rect2:
-	var safe_cols: int = max(1, grid_cols)
-	var col: int = frame % safe_cols
-	@warning_ignore("integer_division")
-	var row: int = int(frame / safe_cols)
-	return Rect2(Vector2(float(col) * cell_size.x, float(row) * cell_size.y), cell_size)
+	return StageClearResultLayoutHelper.sheet_source_rect(frame, grid_cols, cell_size)
 
 
 func _cover_source_rect(texture_size: Vector2, target_size: Vector2) -> Rect2:
-	var target_ratio: float = target_size.x / max(1.0, target_size.y)
-	var texture_ratio: float = texture_size.x / max(1.0, texture_size.y)
-	if texture_ratio > target_ratio:
-		var width: float = texture_size.y * target_ratio
-		return Rect2(Vector2((texture_size.x - width) * 0.5, 0.0), Vector2(width, texture_size.y))
-	var height: float = texture_size.x / target_ratio
-	return Rect2(Vector2(0.0, (texture_size.y - height) * 0.5), Vector2(texture_size.x, height))
+	return StageClearResultLayoutHelper.cover_source_rect(texture_size, target_size)
 
 
 func _draw_panel(rect: Rect2, fill_color: Color, border_color: Color, border_width: float, corner_radius: float) -> void:
