@@ -1105,10 +1105,6 @@ func _load_rock_debris_texture() -> void:
 		rock_debris_source_regions = Stage2PillarAssets.ROCK_DEBRIS_SOURCE_REGION_DATA.duplicate()
 
 
-func _ensure_texture() -> void:
-	_ensure_textures()
-
-
 func _draw_imagegen_pillars(canvas: CanvasItem, view_size: Vector2, game_offset: Vector2, game_size: Vector2) -> void:
 	var imagegen_assets: Dictionary = imagegen_assets_builder.build_assets(
 		base_texture,

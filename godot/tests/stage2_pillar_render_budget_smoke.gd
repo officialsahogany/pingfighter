@@ -160,6 +160,10 @@ func _verify_draw_paths_use_render_caps() -> void:
 	var pillar_ui_source := FileAccess.get_file_as_string("res://scripts/hud/stage1_pillar_ui_renderer.gd")
 	var status_context_source := FileAccess.get_file_as_string("res://scripts/hud/stage1_pillar_status_orb_context_builder.gd")
 	_expect(background_source != "", "Stage 2 pillar background source should be readable")
+	_expect(
+		background_source.find("func _ensure_texture(") < 0,
+		"Stage 2 pillar background should not keep an unused texture-ensure alias"
+	)
 	_expect(ambient_source != "", "Stage 2 ambient renderer source should be readable")
 	_expect(obstacle_source != "", "Stage 2 obstacle renderer source should be readable")
 	_expect(water_renderer_source != "", "Stage 2 water cannon renderer source should be readable")
