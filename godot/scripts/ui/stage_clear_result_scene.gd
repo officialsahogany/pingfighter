@@ -5,6 +5,7 @@ const ResultBoxOpenFxHost := preload("res://scripts/effects/result_box_open_fx_h
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
 const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
@@ -1601,106 +1602,56 @@ func _get_box_global_alpha() -> float:
 
 
 func _calculate_starpoint_total() -> int:
-	var total: int = 0
-	for box in _boxes:
-		if not (box is Dictionary):
-			continue
-		var reward: Variant = box.get("reward", {})
-		if not (reward is Dictionary):
-			continue
-		var reward_dict: Dictionary = reward
-		if str(reward_dict.get("type", "")) == "starpoint":
-			total += int(reward_dict.get("amount", 0))
-	return total
+	return StageClearResultSummaryBuilder.calculate_starpoint_total(_boxes)
 
 
 func _build_item_summary() -> Array:
-	var items: Array = []
-	for reward in _get_stage_summary_array("passive_items"):
-		if reward is Dictionary:
-			items.append(_with_result_reward_source(reward as Dictionary, RESULT_REWARD_SOURCE_STAGE))
-	for reward in _get_stage_summary_array("active_items"):
-		if reward is Dictionary:
-			items.append(_with_result_reward_source(reward as Dictionary, RESULT_REWARD_SOURCE_STAGE))
-	for box in _boxes:
-		if not (box is Dictionary):
-			continue
-		var reward: Variant = box.get("reward", {})
-		if not (reward is Dictionary):
-			continue
-		var reward_dict: Dictionary = reward
-		var t: String = str(reward_dict.get("type", ""))
-		if t == "active" or t == "passive" or t == "mythic":
-			items.append(_with_result_reward_source(reward_dict, RESULT_REWARD_SOURCE_BOX))
-	return items
+	return StageClearResultSummaryBuilder.build_item_summary(
+		stage_reward_snapshot,
+		_boxes,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		_get_result_reward_source_labels()
+	)
 
 
 func _build_perk_summary() -> Array:
-	var perks: Array = []
-	for reward in _get_stage_summary_array("perks"):
-		if reward is Dictionary:
-			perks.append(_with_result_reward_source(reward as Dictionary, RESULT_REWARD_SOURCE_STAGE))
-	for box in _boxes:
-		if not (box is Dictionary):
-			continue
-		var reward: Variant = box.get("reward", {})
-		if not (reward is Dictionary):
-			continue
-		var reward_dict: Dictionary = reward
-		if _is_perk_reward(reward_dict):
-			perks.append(_with_result_reward_source(reward_dict, RESULT_REWARD_SOURCE_BOX))
-	return perks
+	return StageClearResultSummaryBuilder.build_perk_summary(
+		stage_reward_snapshot,
+		_boxes,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		_get_result_reward_source_labels()
+	)
 
 
 func _build_visible_reward_summary() -> Array:
-	var rewards: Array = []
-	for reward in _get_stage_summary_array("passive_items"):
-		if reward is Dictionary:
-			rewards.append(_with_result_reward_source(reward as Dictionary, RESULT_REWARD_SOURCE_STAGE))
-	for reward in _get_stage_summary_array("active_items"):
-		if reward is Dictionary:
-			rewards.append(_with_result_reward_source(reward as Dictionary, RESULT_REWARD_SOURCE_STAGE))
-	for box in _boxes:
-		if not (box is Dictionary):
-			continue
-		var reward: Variant = box.get("reward", {})
-		if not (reward is Dictionary):
-			continue
-		var reward_dict: Dictionary = reward
-		var reward_type: String = str(reward_dict.get("type", ""))
-		if reward_type == "active" or reward_type == "passive" or reward_type == "mythic" or reward_type == "starpoint":
-			rewards.append(_with_result_reward_source(reward_dict, RESULT_REWARD_SOURCE_BOX))
-	return rewards
+	return StageClearResultSummaryBuilder.build_visible_reward_summary(
+		stage_reward_snapshot,
+		_boxes,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		_get_result_reward_source_labels()
+	)
 
 
 func _with_result_reward_source(reward: Dictionary, result_source: String) -> Dictionary:
-	var copy: Dictionary = reward.duplicate(true)
-	copy["_result_reward_source"] = result_source
-	copy["_result_reward_source_label"] = _get_result_reward_source_label(result_source)
-	return copy
+	return StageClearResultSummaryBuilder.with_result_reward_source(
+		reward,
+		result_source,
+		_get_result_reward_source_labels()
+	)
 
 
 func _count_result_reward_sources(rewards: Array) -> Dictionary:
-	var counts: Dictionary = {
-		RESULT_REWARD_SOURCE_STAGE: 0,
-		RESULT_REWARD_SOURCE_BOX: 0,
-	}
-	for reward_value in rewards:
-		if not (reward_value is Dictionary):
-			continue
-		var reward: Dictionary = reward_value
-		var source_key: String = str(reward.get("_result_reward_source", ""))
-		if source_key == "":
-			continue
-		counts[source_key] = int(counts.get(source_key, 0)) + 1
-	return counts
+	return StageClearResultSummaryBuilder.count_result_reward_sources(
+		rewards,
+		[RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]
+	)
 
 
 func _get_stage_summary_array(key: String) -> Array:
-	var value: Variant = stage_reward_snapshot.get(key, [])
-	if value is Array:
-		return (value as Array).duplicate(true)
-	return []
+	return StageClearResultSummaryBuilder.get_stage_summary_array(stage_reward_snapshot, key)
 
 
 func _build_perk_info_summary() -> Dictionary:
@@ -1735,19 +1686,11 @@ func _build_perk_info_summary() -> Dictionary:
 
 
 func _is_perk_reward(reward: Dictionary) -> bool:
-	var reward_type: String = str(reward.get("type", ""))
-	return reward_type == "perk" or reward_type == "skill" or _get_reward_perk_id(reward) != ""
+	return StageClearResultSummaryBuilder.is_perk_reward(reward)
 
 
 func _get_reward_perk_id(reward: Dictionary) -> String:
-	for key in ["perk_id", "skill_id", "id"]:
-		var value: String = str(reward.get(key, ""))
-		if value != "":
-			return value
-	var perk_data: Variant = reward.get("perk_data", {})
-	if perk_data is Dictionary:
-		return str((perk_data as Dictionary).get("id", ""))
-	return ""
+	return StageClearResultSummaryBuilder.get_reward_perk_id(reward)
 
 
 func _get_reward_color(reward_type: String) -> Color:
@@ -2149,6 +2092,13 @@ func _get_result_reward_source_label(source_key: String) -> String:
 		RESULT_REWARD_SOURCE_BOX:
 			return "상자"
 	return ""
+
+
+func _get_result_reward_source_labels() -> Dictionary:
+	return {
+		RESULT_REWARD_SOURCE_STAGE: _get_result_reward_source_label(RESULT_REWARD_SOURCE_STAGE),
+		RESULT_REWARD_SOURCE_BOX: _get_result_reward_source_label(RESULT_REWARD_SOURCE_BOX),
+	}
 
 
 func _get_result_reward_source_color(source_key: String) -> Color:

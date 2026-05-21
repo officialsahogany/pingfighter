@@ -894,10 +894,19 @@ This section is intentionally long; use search to find the nearest owner.
   Own the visible fullscreen result scene: Stage 1 result-background
   drawing, Dalji defeated cutscene sheet playback, player victory-side
   sheet playback, score-based reward chest animation, result scroll input,
-  and scene-local linear texture filtering for cutscene art. Keep future
-  reward-pick animation / settlement UI work here rather than adding draw
-  blocks back to the battle shell; do not put grant logic back in this UI
-  scene.
+  result scroll drawing, and scene-local linear texture filtering for
+  cutscene art. Result-scroll reward summary arrays, source counts,
+  starpoint totals, and perk reward ID classification are delegated to
+  `stage_clear_result_summary_builder.gd`. Keep future reward-pick
+  animation / settlement UI work here rather than adding draw blocks back
+  to the battle shell; do not put grant logic back in this UI scene.
+- `scripts/ui/stage_clear_result_summary_builder.gd`
+  Owns stateless stage-clear result summary assembly for the UI scene:
+  stage-vs-box reward source tagging, item / perk / visible reward arrays,
+  reward-source count payloads, box starpoint totals, stage-summary array
+  duplication, and perk reward ID classification. The scene still owns
+  reward rolling, final grant callbacks, scroll/button input, drawing, and
+  catalog-backed reward title / detail text resolution.
 - `scripts/core/match_round_restart_controller.gd`
   Owns round-restart fanout below match flow: reset-ball callback dispatch
   or round-wait fallback reset, rematch notice startup, and round-restart
