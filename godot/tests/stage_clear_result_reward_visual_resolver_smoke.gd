@@ -206,12 +206,22 @@ func _verify_source_colors() -> void:
 
 
 func _verify_scene_delegates_visual_resolver() -> void:
-	var scene := StageClearResultScene.new()
-	_expect(scene._get_reward_color("mythic") == StageClearResultRewardVisualResolver.get_reward_color("mythic"), "result scene reward color wrapper should delegate")
-	_expect(scene._get_reward_badge({"type": "passive"}) == "PASSIVE", "result scene badge wrapper should delegate")
-	_expect(scene._get_result_reward_source_label("box") == "상자", "result scene source-label wrapper should delegate")
-	_expect(scene._get_result_reward_source_color("stage") == Color(0.04, 0.32, 0.36, 1.0), "result scene source color wrapper should delegate")
-	scene.free()
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(
+		source.find("StageClearResultRewardVisualResolver.get_reward_badge") >= 0
+		and source.find("StageClearResultRewardVisualResolver.get_result_reward_source_label") >= 0,
+		"result scene should call visual resolver helpers directly"
+	)
+	for removed_wrapper in [
+		"func _get_reward_color(",
+		"func _get_reward_badge(",
+		"func _get_result_reward_source_label(",
+		"func _get_result_reward_source_color(",
+	]:
+		_expect(
+			source.find(removed_wrapper) < 0,
+			"result scene should not keep visual pass-through wrapper %s" % removed_wrapper
+		)
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -1508,10 +1508,6 @@ func _build_perk_info_summary() -> Dictionary:
 	)
 
 
-func _get_reward_color(reward_type: String) -> Color:
-	return StageClearResultRewardVisualResolver.get_reward_color(reward_type)
-
-
 @warning_ignore("shadowed_variable_base_class")
 func _draw_scroll(_view_size: Vector2, scale: float, font: Font) -> void:
 	if _scroll_phase == "hidden":
@@ -1727,7 +1723,7 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 	)
 	_draw_centered_text(
 		font,
-		str(visual_state.get("badge_text", _get_reward_badge(reward))),
+		str(visual_state.get("badge_text", StageClearResultRewardVisualResolver.get_reward_badge(reward))),
 		badge_rect,
 		int(visual_state.get("badge_font_size", round(10.0 * scale))),
 		visual_state.get("badge_text_color", Color(0.86, 1.0, 1.0, alpha))
@@ -1758,7 +1754,13 @@ func _draw_reward_source_chip(font: Font, reward: Dictionary, rect: Rect2, scale
 	var source_key: String = str(reward.get("_result_reward_source", ""))
 	var source_label: String = str(reward.get("_result_reward_source_label", ""))
 	if source_label == "":
-		source_label = _get_result_reward_source_label(source_key)
+		source_label = StageClearResultRewardVisualResolver.get_result_reward_source_label(
+			source_key,
+			RESULT_REWARD_SOURCE_STAGE,
+			RESULT_REWARD_SOURCE_BOX,
+			"인게임",
+			"상자"
+		)
 	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_source_chip_visual_state(
 		source_key,
 		source_label,
@@ -1855,34 +1857,12 @@ func _get_reward_title(reward: Dictionary) -> String:
 	)
 
 
-func _get_reward_badge(reward: Dictionary) -> String:
-	return StageClearResultRewardVisualResolver.get_reward_badge(reward)
-
-
-func _get_result_reward_source_label(source_key: String) -> String:
-	return StageClearResultRewardVisualResolver.get_result_reward_source_label(
-		source_key,
-		RESULT_REWARD_SOURCE_STAGE,
-		RESULT_REWARD_SOURCE_BOX,
-		"인게임",
-		"상자"
-	)
-
-
 func _get_result_reward_source_labels() -> Dictionary:
 	return StageClearResultRewardVisualResolver.get_result_reward_source_labels(
 		RESULT_REWARD_SOURCE_STAGE,
 		RESULT_REWARD_SOURCE_BOX,
 		"인게임",
 		"상자"
-	)
-
-
-func _get_result_reward_source_color(source_key: String) -> Color:
-	return StageClearResultRewardVisualResolver.get_result_reward_source_color(
-		source_key,
-		RESULT_REWARD_SOURCE_STAGE,
-		RESULT_REWARD_SOURCE_BOX
 	)
 
 
