@@ -5,6 +5,7 @@ const ResultBoxOpenFxHost := preload("res://scripts/effects/result_box_open_fx_h
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+const StageClearResultClickReactionState := preload("res://scripts/ui/stage_clear_result_click_reaction_state.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
@@ -834,27 +835,30 @@ func _get_result_box_frame_index(state: String, open_progress: float, is_mythic:
 
 @warning_ignore("shadowed_variable_base_class")
 func _get_box_draw_center(box: Dictionary, scale: float) -> Vector2:
-	var base_pos: Vector2 = box.get("base_pos", Vector2.ZERO)
-	var phase: float = float(box.get("phase", 0.0))
-	var amplitude: float = float(box.get("amplitude", BOX_FLOAT_AMPLITUDE))
-	var speed: float = float(box.get("speed", BOX_FLOAT_SPEED))
-	var float_y: float = sin(timer * speed + phase) * amplitude
-	return (base_pos + Vector2(0.0, float_y)) * scale
+	return StageClearResultLayoutHelper.get_box_draw_center(
+		box,
+		scale,
+		timer,
+		BOX_FLOAT_AMPLITUDE,
+		BOX_FLOAT_SPEED
+	)
 
 
 @warning_ignore("shadowed_variable_base_class")
 func _get_box_aabb(box: Dictionary, scale: float) -> Rect2:
-	var draw_center: Vector2 = _get_box_draw_center(box, scale)
-	var grow: float = BOX_HOVER_GROW
-	var half: Vector2 = BOX_BASE_SIZE * scale * grow * 0.55
-	return Rect2(draw_center - half, half * 2.0)
+	return StageClearResultLayoutHelper.get_box_aabb(
+		box,
+		scale,
+		timer,
+		BOX_BASE_SIZE,
+		BOX_HOVER_GROW,
+		BOX_FLOAT_AMPLITUDE,
+		BOX_FLOAT_SPEED
+	)
 
 
 func _rotate_around(point: Vector2, center: Vector2, angle: float) -> Vector2:
-	var rel: Vector2 = point - center
-	var c: float = cos(angle)
-	var s: float = sin(angle)
-	return Vector2(rel.x * c - rel.y * s, rel.x * s + rel.y * c) + center
+	return StageClearResultLayoutHelper.rotate_around(point, center, angle)
 
 
 func _draw_shadow_ellipse(center: Vector2, radius_x: float, radius_y: float, alpha: float) -> void:
@@ -2167,48 +2171,54 @@ func _draw_player_victory_sheet_frame(sheet: Texture2D, frame: int, rect: Rect2,
 
 
 func _get_player_victory_base_frame() -> int:
-	return int(floor(timer / PLAYER_VICTORY_FRAME_INTERVAL)) % PLAYER_VICTORY_FRAME_COUNT
+	return StageClearResultClickReactionState.get_base_frame(
+		timer,
+		PLAYER_VICTORY_FRAME_INTERVAL,
+		PLAYER_VICTORY_FRAME_COUNT
+	)
 
 
 func _get_player_victory_reaction_frame() -> int:
-	if _player_victory_click_reaction_timer >= PLAYER_VICTORY_CLICK_REACTION_DURATION:
-		return PLAYER_VICTORY_FRAME_COUNT - 1
-	return clampi(
-		int(floor(_player_victory_click_reaction_timer / PLAYER_VICTORY_CLICK_FRAME_INTERVAL)),
-		0,
-		PLAYER_VICTORY_FRAME_COUNT - 1
+	return StageClearResultClickReactionState.get_reaction_frame(
+		_player_victory_click_reaction_timer,
+		PLAYER_VICTORY_CLICK_REACTION_DURATION,
+		PLAYER_VICTORY_CLICK_FRAME_INTERVAL,
+		PLAYER_VICTORY_FRAME_COUNT
 	)
 
 
 func _get_player_victory_transition_base_frame() -> int:
-	if _player_victory_click_reaction_timer <= PLAYER_VICTORY_CLICK_TRANSITION_DURATION:
-		return _player_victory_click_transition_base_frame
-	return _get_player_victory_base_frame()
+	return StageClearResultClickReactionState.get_transition_base_frame(
+		_player_victory_click_reaction_timer,
+		PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
+		_player_victory_click_transition_base_frame,
+		_get_player_victory_base_frame()
+	)
 
 
 func _get_player_victory_reaction_alpha() -> float:
-	if not _is_player_victory_click_reaction_active():
-		return 0.0
-	if _player_victory_click_reaction_timer <= PLAYER_VICTORY_CLICK_TRANSITION_DURATION:
-		return _smooth01(_player_victory_click_reaction_timer / PLAYER_VICTORY_CLICK_TRANSITION_DURATION)
-	if _player_victory_click_reaction_timer >= PLAYER_VICTORY_CLICK_REACTION_DURATION:
-		var blend_elapsed: float = _player_victory_click_reaction_timer - PLAYER_VICTORY_CLICK_REACTION_DURATION
-		if blend_elapsed < PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION:
-			return 1.0
-		var fade_elapsed: float = blend_elapsed - PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION
-		var fade_progress: float = clamp(fade_elapsed / PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION, 0.0, 1.0)
-		return _smooth01(1.0 - fade_progress)
-	return 1.0
+	return StageClearResultClickReactionState.get_reaction_alpha(
+		_player_victory_click_reaction_timer,
+		PLAYER_VICTORY_CLICK_REACTION_DURATION,
+		PLAYER_VICTORY_CLICK_TRANSITION_DURATION,
+		PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION,
+		PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION,
+		PLAYER_VICTORY_CLICK_TOTAL_DURATION
+	)
 
 
 func _is_player_victory_click_reaction_active() -> bool:
-	return _player_victory_click_reaction_timer < PLAYER_VICTORY_CLICK_TOTAL_DURATION
+	return StageClearResultClickReactionState.is_reaction_active(
+		_player_victory_click_reaction_timer,
+		PLAYER_VICTORY_CLICK_TOTAL_DURATION
+	)
 
 
 func _is_player_victory_click_return_blend_active() -> bool:
-	return (
-		_player_victory_click_reaction_timer >= PLAYER_VICTORY_CLICK_REACTION_DURATION
-		and _player_victory_click_reaction_timer < PLAYER_VICTORY_CLICK_TOTAL_DURATION
+	return StageClearResultClickReactionState.is_return_blend_active(
+		_player_victory_click_reaction_timer,
+		PLAYER_VICTORY_CLICK_REACTION_DURATION,
+		PLAYER_VICTORY_CLICK_TOTAL_DURATION
 	)
 
 
@@ -2220,44 +2230,54 @@ func _draw_dalji_sheet_frame(sheet: Texture2D, frame: int, rect: Rect2, alpha: f
 
 
 func _get_dalji_base_frame() -> int:
-	return int(floor(_dalji_base_timer / DALJI_FRAME_INTERVAL)) % DALJI_FRAME_COUNT
+	return StageClearResultClickReactionState.get_base_frame(
+		_dalji_base_timer,
+		DALJI_FRAME_INTERVAL,
+		DALJI_FRAME_COUNT
+	)
 
 
 func _get_dalji_reaction_frame() -> int:
-	if _dalji_click_reaction_timer >= DALJI_CLICK_REACTION_DURATION:
-		return DALJI_FRAME_COUNT - 1
-	return clampi(int(floor(_dalji_click_reaction_timer / DALJI_CLICK_FRAME_INTERVAL)), 0, DALJI_FRAME_COUNT - 1)
+	return StageClearResultClickReactionState.get_reaction_frame(
+		_dalji_click_reaction_timer,
+		DALJI_CLICK_REACTION_DURATION,
+		DALJI_CLICK_FRAME_INTERVAL,
+		DALJI_FRAME_COUNT
+	)
 
 
 func _get_dalji_transition_base_frame() -> int:
-	if _dalji_click_reaction_timer <= DALJI_CLICK_TRANSITION_DURATION:
-		return _dalji_click_transition_base_frame
-	return _get_dalji_base_frame()
+	return StageClearResultClickReactionState.get_transition_base_frame(
+		_dalji_click_reaction_timer,
+		DALJI_CLICK_TRANSITION_DURATION,
+		_dalji_click_transition_base_frame,
+		_get_dalji_base_frame()
+	)
 
 
 func _get_dalji_reaction_alpha() -> float:
-	if not _is_dalji_click_reaction_active():
-		return 0.0
-	if _dalji_click_reaction_timer <= DALJI_CLICK_TRANSITION_DURATION:
-		return _smooth01(_dalji_click_reaction_timer / DALJI_CLICK_TRANSITION_DURATION)
-	if _dalji_click_reaction_timer >= DALJI_CLICK_REACTION_DURATION:
-		var blend_elapsed: float = _dalji_click_reaction_timer - DALJI_CLICK_REACTION_DURATION
-		if blend_elapsed < DALJI_CLICK_RETURN_HOLD_DURATION:
-			return 1.0
-		var fade_elapsed: float = blend_elapsed - DALJI_CLICK_RETURN_HOLD_DURATION
-		var fade_progress: float = clamp(fade_elapsed / DALJI_CLICK_RETURN_FADE_DURATION, 0.0, 1.0)
-		return _smooth01(1.0 - fade_progress)
-	return 1.0
+	return StageClearResultClickReactionState.get_reaction_alpha(
+		_dalji_click_reaction_timer,
+		DALJI_CLICK_REACTION_DURATION,
+		DALJI_CLICK_TRANSITION_DURATION,
+		DALJI_CLICK_RETURN_HOLD_DURATION,
+		DALJI_CLICK_RETURN_FADE_DURATION,
+		DALJI_CLICK_TOTAL_DURATION
+	)
 
 
 func _is_dalji_click_reaction_active() -> bool:
-	return _dalji_click_reaction_timer < DALJI_CLICK_TOTAL_DURATION
+	return StageClearResultClickReactionState.is_reaction_active(
+		_dalji_click_reaction_timer,
+		DALJI_CLICK_TOTAL_DURATION
+	)
 
 
 func _is_dalji_click_return_blend_active() -> bool:
-	return (
-		_dalji_click_reaction_timer >= DALJI_CLICK_REACTION_DURATION
-		and _dalji_click_reaction_timer < DALJI_CLICK_TOTAL_DURATION
+	return StageClearResultClickReactionState.is_return_blend_active(
+		_dalji_click_reaction_timer,
+		DALJI_CLICK_REACTION_DURATION,
+		DALJI_CLICK_TOTAL_DURATION
 	)
 
 

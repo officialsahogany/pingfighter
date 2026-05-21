@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_box_layout()
 	_verify_box_frame_policy()
+	_verify_box_geometry()
 	_verify_reward_section_layout()
 	_verify_source_rects()
 	_verify_scene_wrappers()
@@ -44,6 +45,32 @@ func _verify_box_frame_policy() -> void:
 	)
 
 
+func _verify_box_geometry() -> void:
+	var box := {
+		"base_pos": Vector2(10.0, 20.0),
+		"phase": 0.0,
+		"amplitude": 4.0,
+		"speed": 1.0,
+	}
+	var resting_center: Vector2 = StageClearResultLayoutHelper.get_box_draw_center(box, 2.0, 0.0, 4.0, 1.0)
+	_expect(resting_center == Vector2(20.0, 40.0), "box draw center should scale the base position")
+	var lifted_center: Vector2 = StageClearResultLayoutHelper.get_box_draw_center(box, 2.0, PI * 0.5, 4.0, 1.0)
+	_expect(lifted_center.is_equal_approx(Vector2(20.0, 48.0)), "box draw center should apply timer-driven bobbing before scaling")
+	var aabb: Rect2 = StageClearResultLayoutHelper.get_box_aabb(
+		box,
+		2.0,
+		0.0,
+		Vector2(100.0, 80.0),
+		1.2,
+		4.0,
+		1.0
+	)
+	_expect(aabb.position.is_equal_approx(Vector2(-112.0, -65.6)), "box aabb should use the floated center and hover grow")
+	_expect(aabb.size.is_equal_approx(Vector2(264.0, 211.2)), "box aabb should preserve the expanded box footprint")
+	var rotated: Vector2 = StageClearResultLayoutHelper.rotate_around(Vector2(2.0, 1.0), Vector2(1.0, 1.0), PI * 0.5)
+	_expect(rotated.is_equal_approx(Vector2(1.0, 2.0)), "rotate_around should rotate points around the supplied center")
+
+
 func _verify_reward_section_layout() -> void:
 	var dense_section_rect := Rect2(Vector2.ZERO, Vector2(538.0, 276.0))
 	var layout: Dictionary = StageClearResultLayoutHelper.calculate_reward_section_layout(7, dense_section_rect, 1.0)
@@ -74,6 +101,11 @@ func _verify_scene_wrappers() -> void:
 	var scene := StageClearResultScene.new()
 	_expect(scene._get_box_layout(2).size() == 2, "scene box-layout wrapper should delegate")
 	_expect(scene._get_result_box_frame_index("opened", 1.0, false) == 12, "scene box-frame wrapper should delegate")
+	scene.timer = 0.0
+	var wrapper_box := {"base_pos": Vector2(10.0, 20.0), "phase": 0.0, "amplitude": 4.0, "speed": 1.0}
+	_expect(scene._get_box_draw_center(wrapper_box, 2.0) == Vector2(20.0, 40.0), "scene box-center wrapper should delegate")
+	_expect(scene._get_box_aabb(wrapper_box, 2.0).has_point(Vector2(20.0, 40.0)), "scene box-aabb wrapper should delegate")
+	_expect(scene._rotate_around(Vector2(2.0, 1.0), Vector2(1.0, 1.0), PI * 0.5).is_equal_approx(Vector2(1.0, 2.0)), "scene rotation wrapper should delegate")
 	_expect(int(scene._calculate_reward_section_layout(7, Rect2(Vector2.ZERO, Vector2(538.0, 276.0)), 1.0).get("rows", 0)) == 2, "scene reward-layout wrapper should delegate")
 	_expect(scene._sheet_source_rect(15, 4, Vector2(256.0, 256.0)).position == Vector2(768.0, 768.0), "scene sheet-rect wrapper should delegate")
 	scene.free()

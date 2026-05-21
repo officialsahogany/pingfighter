@@ -47,6 +47,48 @@ static func get_result_box_frame_index(
 	return 0
 
 
+static func get_box_draw_center(
+	box: Dictionary,
+	draw_scale: float,
+	timer: float,
+	default_amplitude: float,
+	default_speed: float
+) -> Vector2:
+	var base_pos: Vector2 = box.get("base_pos", Vector2.ZERO)
+	var phase: float = float(box.get("phase", 0.0))
+	var amplitude: float = float(box.get("amplitude", default_amplitude))
+	var speed: float = float(box.get("speed", default_speed))
+	var float_y: float = sin(timer * speed + phase) * amplitude
+	return (base_pos + Vector2(0.0, float_y)) * draw_scale
+
+
+static func get_box_aabb(
+	box: Dictionary,
+	draw_scale: float,
+	timer: float,
+	base_size: Vector2,
+	hover_grow: float,
+	default_amplitude: float,
+	default_speed: float
+) -> Rect2:
+	var draw_center: Vector2 = get_box_draw_center(
+		box,
+		draw_scale,
+		timer,
+		default_amplitude,
+		default_speed
+	)
+	var half: Vector2 = base_size * draw_scale * hover_grow * 0.55
+	return Rect2(draw_center - half, half * 2.0)
+
+
+static func rotate_around(point: Vector2, center: Vector2, angle: float) -> Vector2:
+	var rel: Vector2 = point - center
+	var c: float = cos(angle)
+	var s: float = sin(angle)
+	return Vector2(rel.x * c - rel.y * s, rel.x * s + rel.y * c) + center
+
+
 static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_scale: float) -> Dictionary:
 	var gap: float = 16.0 * ui_scale
 	var card_scale: float = ui_scale
