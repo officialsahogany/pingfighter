@@ -132,19 +132,27 @@ func _verify_source_rects() -> void:
 
 func _verify_scene_wrappers() -> void:
 	var scene := StageClearResultScene.new()
-	_expect(scene._get_box_layout(2).size() == 2, "scene box-layout wrapper should delegate")
 	_expect(scene._get_result_box_frame_index("opened", 1.0, false) == 12, "scene box-frame wrapper should delegate")
 	scene.timer = 0.0
 	var wrapper_box := {"base_pos": Vector2(10.0, 20.0), "phase": 0.0, "amplitude": 4.0, "speed": 1.0}
 	_expect(scene._get_box_draw_center(wrapper_box, 2.0) == Vector2(20.0, 40.0), "scene box-center wrapper should delegate")
 	_expect(scene._get_box_aabb(wrapper_box, 2.0).has_point(Vector2(20.0, 40.0)), "scene box-aabb wrapper should delegate")
-	_expect(scene._rotate_around(Vector2(2.0, 1.0), Vector2(1.0, 1.0), PI * 0.5).is_equal_approx(Vector2(1.0, 2.0)), "scene rotation wrapper should delegate")
 	_expect(scene._get_player_victory_actor_rect(Vector2(1920.0, 1080.0), 1.0).position == Vector2(1270.0, 213.0), "scene player-victory actor wrapper should delegate")
 	_expect(scene._get_player_victory_panel_rect(Vector2(1920.0, 1080.0), 1.0).size == Vector2(410.0, 750.0), "scene player-victory panel wrapper should delegate")
 	_expect(scene._get_scroll_content_rect(Rect2(Vector2(100.0, 200.0), Vector2(400.0, 300.0)), 1.0).position == Vector2(170.0, 290.0), "scene scroll-content wrapper should delegate")
 	_expect(scene._get_dalji_draw_rect(Vector2(1920.0, 1080.0), 1.0).size == Vector2(624.0, 624.0), "scene Dalji draw-rect wrapper should delegate")
 	_expect(int(scene._calculate_reward_section_layout(7, Rect2(Vector2.ZERO, Vector2(538.0, 276.0)), 1.0).get("rows", 0)) == 2, "scene reward-layout wrapper should delegate")
 	_expect(scene._sheet_source_rect(15, 4, Vector2(256.0, 256.0)).position == Vector2(768.0, 768.0), "scene sheet-rect wrapper should delegate")
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(
+		source.find("StageClearResultLayoutHelper.get_box_layout") >= 0
+		and source.find("StageClearResultLayoutHelper.rotate_around") >= 0,
+		"stage-clear result scene should call simple layout helpers directly"
+	)
+	_expect(
+		source.find("func _get_box_layout") < 0 and source.find("func _rotate_around") < 0,
+		"stage-clear result scene should not keep simple layout pass-through wrappers"
+	)
 	scene.free()
 
 

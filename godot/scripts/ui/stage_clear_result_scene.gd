@@ -699,7 +699,7 @@ func _build_boxes_from_plan(plan: Dictionary) -> Array:
 	var src: Array = boxes_value if boxes_value is Array else []
 	if src.is_empty():
 		return box_list
-	var layout: Array = _get_box_layout(src.size())
+	var layout: Array = StageClearResultLayoutHelper.get_box_layout(src.size())
 	if layout.is_empty():
 		return box_list
 	var count: int = min(src.size(), layout.size())
@@ -720,10 +720,6 @@ func _build_boxes_from_plan(plan: Dictionary) -> Array:
 			"reward_emerge": 0.0,
 		})
 	return box_list
-
-
-func _get_box_layout(count: int) -> Array:
-	return StageClearResultLayoutHelper.get_box_layout(count)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -786,10 +782,10 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 		0.40 * global_alpha
 	)
 
-	var top_left: Vector2 = _rotate_around(Vector2(-hx, -hy), Vector2.ZERO, box_rotation) + draw_center
-	var top_right: Vector2 = _rotate_around(Vector2(hx, -hy), Vector2.ZERO, box_rotation) + draw_center
-	var bot_right: Vector2 = _rotate_around(Vector2(hx, hy), Vector2.ZERO, box_rotation) + draw_center
-	var bot_left: Vector2 = _rotate_around(Vector2(-hx, hy), Vector2.ZERO, box_rotation) + draw_center
+	var top_left: Vector2 = StageClearResultLayoutHelper.rotate_around(Vector2(-hx, -hy), Vector2.ZERO, box_rotation) + draw_center
+	var top_right: Vector2 = StageClearResultLayoutHelper.rotate_around(Vector2(hx, -hy), Vector2.ZERO, box_rotation) + draw_center
+	var bot_right: Vector2 = StageClearResultLayoutHelper.rotate_around(Vector2(hx, hy), Vector2.ZERO, box_rotation) + draw_center
+	var bot_left: Vector2 = StageClearResultLayoutHelper.rotate_around(Vector2(-hx, hy), Vector2.ZERO, box_rotation) + draw_center
 
 	if hover_active:
 		_draw_box_hover_glow(draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, hover_pulse)
@@ -855,10 +851,6 @@ func _get_box_aabb(box: Dictionary, scale: float) -> Rect2:
 		BOX_FLOAT_AMPLITUDE,
 		BOX_FLOAT_SPEED
 	)
-
-
-func _rotate_around(point: Vector2, center: Vector2, angle: float) -> Vector2:
-	return StageClearResultLayoutHelper.rotate_around(point, center, angle)
 
 
 func _draw_shadow_ellipse(center: Vector2, radius_x: float, radius_y: float, alpha: float) -> void:
