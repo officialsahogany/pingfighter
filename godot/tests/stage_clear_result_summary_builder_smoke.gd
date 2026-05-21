@@ -125,6 +125,9 @@ func _verify_scene_delegates_summary_builder_directly() -> void:
 		"func _get_stage_summary_array",
 		"func _is_perk_reward",
 		"func _get_reward_perk_id",
+		"func _build_item_summary",
+		"func _build_perk_summary",
+		"func _build_visible_reward_summary",
 	]:
 		_expect(
 			source.find(removed_wrapper) < 0,

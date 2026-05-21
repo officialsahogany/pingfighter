@@ -439,6 +439,27 @@ func get_interaction_status() -> Dictionary:
 	var opening_count: int = int(box_counts.get("opening_count", 0))
 	var dalji_reaction_state: Dictionary = _dalji_reaction_state()
 	var player_victory_reaction_state: Dictionary = _player_victory_reaction_state()
+	var item_rewards: Array = StageClearResultSummaryBuilder.build_item_summary(
+		stage_reward_snapshot,
+		_boxes,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		RESULT_REWARD_SOURCE_LABELS
+	)
+	var perk_rewards: Array = StageClearResultSummaryBuilder.build_perk_summary(
+		stage_reward_snapshot,
+		_boxes,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		RESULT_REWARD_SOURCE_LABELS
+	)
+	var visible_rewards: Array = StageClearResultSummaryBuilder.build_visible_reward_summary(
+		stage_reward_snapshot,
+		_boxes,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		RESULT_REWARD_SOURCE_LABELS
+	)
 	return {
 		"dalji_click_reaction_active": bool(dalji_reaction_state.get("reaction_active", false)),
 		"dalji_click_return_blend_active": bool(dalji_reaction_state.get("return_blend_active", false)),
@@ -480,14 +501,14 @@ func get_interaction_status() -> Dictionary:
 		"box_count": _boxes.size(),
 		"opened_count": opened_count,
 		"opening_count": opening_count,
-		"item_reward_count": _build_item_summary().size(),
-		"perk_reward_count": _build_perk_summary().size(),
+		"item_reward_count": item_rewards.size(),
+		"perk_reward_count": perk_rewards.size(),
 		"stage_active_item_count": StageClearResultSummaryBuilder.get_stage_summary_array(stage_reward_snapshot, "active_items").size(),
 		"stage_passive_item_count": StageClearResultSummaryBuilder.get_stage_summary_array(stage_reward_snapshot, "passive_items").size(),
 		"stage_perk_count": StageClearResultSummaryBuilder.get_stage_summary_array(stage_reward_snapshot, "perks").size(),
-		"item_reward_source_counts": StageClearResultSummaryBuilder.count_result_reward_sources(_build_item_summary(), [RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]),
-		"perk_reward_source_counts": StageClearResultSummaryBuilder.count_result_reward_sources(_build_perk_summary(), [RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]),
-		"visible_reward_source_counts": StageClearResultSummaryBuilder.count_result_reward_sources(_build_visible_reward_summary(), [RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]),
+		"item_reward_source_counts": StageClearResultSummaryBuilder.count_result_reward_sources(item_rewards, [RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]),
+		"perk_reward_source_counts": StageClearResultSummaryBuilder.count_result_reward_sources(perk_rewards, [RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]),
+		"visible_reward_source_counts": StageClearResultSummaryBuilder.count_result_reward_sources(visible_rewards, [RESULT_REWARD_SOURCE_STAGE, RESULT_REWARD_SOURCE_BOX]),
 		"perk_info": _build_perk_info_summary(),
 		"starpoint_total": StageClearResultSummaryBuilder.calculate_starpoint_total(_boxes),
 		"hovered_box_index": _hovered_box_index,
@@ -1420,38 +1441,14 @@ func _update_scroll(delta: float) -> void:
 	_scroll_timer = float(result.get("timer", _scroll_timer))
 
 
-func _build_item_summary() -> Array:
-	return StageClearResultSummaryBuilder.build_item_summary(
-		stage_reward_snapshot,
-		_boxes,
-		RESULT_REWARD_SOURCE_STAGE,
-		RESULT_REWARD_SOURCE_BOX,
-		RESULT_REWARD_SOURCE_LABELS
-	)
-
-
-func _build_perk_summary() -> Array:
-	return StageClearResultSummaryBuilder.build_perk_summary(
-		stage_reward_snapshot,
-		_boxes,
-		RESULT_REWARD_SOURCE_STAGE,
-		RESULT_REWARD_SOURCE_BOX,
-		RESULT_REWARD_SOURCE_LABELS
-	)
-
-
-func _build_visible_reward_summary() -> Array:
-	return StageClearResultSummaryBuilder.build_visible_reward_summary(
-		stage_reward_snapshot,
-		_boxes,
-		RESULT_REWARD_SOURCE_STAGE,
-		RESULT_REWARD_SOURCE_BOX,
-		RESULT_REWARD_SOURCE_LABELS
-	)
-
-
 func _build_perk_info_summary() -> Dictionary:
-	var perks: Array = _build_perk_summary()
+	var perks: Array = StageClearResultSummaryBuilder.build_perk_summary(
+		stage_reward_snapshot,
+		_boxes,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		RESULT_REWARD_SOURCE_LABELS
+	)
 	var first_perk_title: String = ""
 	var first_perk_detail: String = ""
 	if not perks.is_empty():
@@ -1556,8 +1553,20 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 	)
 	_draw_perk_info_tile(font, info_rect, _build_perk_info_summary(), scale, alpha)
 
-	var perks: Array = _build_perk_summary()
-	var rewards: Array = _build_visible_reward_summary()
+	var perks: Array = StageClearResultSummaryBuilder.build_perk_summary(
+		stage_reward_snapshot,
+		_boxes,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		RESULT_REWARD_SOURCE_LABELS
+	)
+	var rewards: Array = StageClearResultSummaryBuilder.build_visible_reward_summary(
+		stage_reward_snapshot,
+		_boxes,
+		RESULT_REWARD_SOURCE_STAGE,
+		RESULT_REWARD_SOURCE_BOX,
+		RESULT_REWARD_SOURCE_LABELS
+	)
 	var body_top: float = rect.position.y + 198.0 * scale
 	var button_top: float = rect.position.y + rect.size.y - 90.0 * scale
 	var body_rect := Rect2(
