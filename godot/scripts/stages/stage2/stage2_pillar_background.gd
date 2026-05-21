@@ -16,6 +16,7 @@ const Stage2RockVisualFactory := preload("res://scripts/stages/stage2/stage2_roc
 const Stage2RockVisualAssetsBuilder := preload("res://scripts/stages/stage2/stage2_rock_visual_assets_builder.gd")
 const Stage2StarpointVisualFactory := preload("res://scripts/stages/stage2/stage2_starpoint_visual_factory.gd")
 const Stage2StarpointDropMotionState := preload("res://scripts/stages/stage2/stage2_starpoint_drop_motion_state.gd")
+const Stage2StarpointDropQuery := preload("res://scripts/stages/stage2/stage2_starpoint_drop_query.gd")
 const Stage2WaterCannonGeometry := preload("res://scripts/stages/stage2/stage2_water_cannon_geometry.gd")
 const Stage2WaterCannonVisualStateBuilder := preload("res://scripts/stages/stage2/stage2_water_cannon_visual_state_builder.gd")
 const Stage2QuakeWaveVisualStateBuilder := preload("res://scripts/stages/stage2/stage2_quake_wave_visual_state_builder.gd")
@@ -29,6 +30,7 @@ const Stage2QuakeRockPayloadFactory := preload("res://scripts/stages/stage2/stag
 const Stage2CrisisRockWallPayloadFactory := preload("res://scripts/stages/stage2/stage2_crisis_rock_wall_payload_factory.gd")
 const Stage2QuakeRockDropState := preload("res://scripts/stages/stage2/stage2_quake_rock_drop_state.gd")
 const Stage2QuakeRockOffsetState := preload("res://scripts/stages/stage2/stage2_quake_rock_offset_state.gd")
+const Stage2WaterFragmentHitResolver := preload("res://scripts/stages/stage2/stage2_water_fragment_hit_resolver.gd")
 const Stage2StarpointParticleState := preload("res://scripts/stages/stage2/stage2_starpoint_particle_state.gd")
 const Stage2AmbientPayloadFactory := preload("res://scripts/stages/stage2/stage2_ambient_payload_factory.gd")
 const Stage2AmbientLayoutHelper := preload("res://scripts/stages/stage2/stage2_ambient_layout_helper.gd")
@@ -1627,23 +1629,13 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		):
 			continue
 
-		if _starpoint_overlaps_any_player(d, player_rects):
+		if Stage2StarpointDropQuery.overlaps_any_player(d, player_rects, collision_geometry, STARPOINT_DROP_SIZE):
 			_collect_starpoint_drop(d, context, deps)
 			continue
 		starpoint_drops[write_index] = d
 		write_index += 1
 	if write_index < drop_count:
 		starpoint_drops.resize(write_index)
-
-
-func _starpoint_overlaps_any_player(drop: Dictionary, player_rects: Array[Rect2]) -> bool:
-	var pos: Vector2 = _get_vector2(drop.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var size: float = max(1.0, float(drop.get("size", STARPOINT_DROP_SIZE)))
-	var star_radius: float = size * 1.18
-	for rect in player_rects:
-		if collision_geometry.circle_rect_overlap(pos, star_radius, rect):
-			return true
-	return false
 
 
 func _collect_starpoint_drop(drop: Dictionary, context: Dictionary, deps: Dictionary) -> void:
@@ -1900,20 +1892,17 @@ func _resolve_water_fragment_player_hits(context: Dictionary, deps: Dictionary) 
 	if player_rect.size.x <= 0.0 or player_rect.size.y <= 0.0:
 		return
 	var player_rects: Array[Rect2] = collision_geometry.get_player_interaction_rects(player_rect, deps)
-	for idx in range(water_splashes.size()):
-		var splash: Dictionary = water_splashes[idx]
-		if not bool(splash.get("can_hit_player", false)):
-			continue
-		if float(splash.get("hit_cooldown", 0.0)) > 0.0:
-			splash["hit_cooldown"] = max(0.0, float(splash.get("hit_cooldown", 0.0)) - 1.0)
-			water_splashes[idx] = splash
-			continue
-		var pos: Vector2 = _get_vector2(splash.get("pos", Vector2.ZERO), Vector2.ZERO)
-		var radius: float = max(3.0, float(splash.get("hit_radius", float(splash.get("radius", 5.0)) * 1.55)))
-		var hit_rect: Rect2 = collision_geometry.get_first_overlapping_rect(pos, radius, player_rects)
-		if hit_rect.size.x <= 0.0:
-			continue
-		_handle_water_fragment_player_hit(idx, splash, pos, hit_rect, deps, context)
+	var hits: Array = Stage2WaterFragmentHitResolver.resolve_hits(water_splashes, player_rects, collision_geometry)
+	for hit_value in hits:
+		var hit: Dictionary = hit_value
+		_handle_water_fragment_player_hit(
+			int(hit.get("index", -1)),
+			hit.get("splash", {}),
+			_get_vector2(hit.get("pos", Vector2.ZERO), Vector2.ZERO),
+			hit.get("hit_rect", Rect2()),
+			deps,
+			context
+		)
 
 
 func _handle_water_fragment_player_hit(

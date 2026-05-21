@@ -1227,7 +1227,9 @@ This section is intentionally long; use search to find the nearest owner.
   motion is delegated to `stage2_rock_fragment_motion_state.gd`.
   Starpoint drop / particle payload generation is delegated to
   `stage2_starpoint_visual_factory.gd`; starpoint drop per-frame motion is
-  delegated to `stage2_starpoint_drop_motion_state.gd`; starpoint particle
+  delegated to `stage2_starpoint_drop_motion_state.gd`; starpoint drop
+  player-overlap query is delegated to `stage2_starpoint_drop_query.gd`;
+  starpoint particle
   per-frame physics / compacting is delegated to
   `stage2_starpoint_particle_state.gd`.
   Water-cannon fragment / splash payload generation is delegated to
@@ -1369,6 +1371,12 @@ This section is intentionally long; use search to find the nearest owner.
   timer, reset, trigger, and decay. `stage2_pillar_background.gd` still
   owns water-fragment collision, player knockback / immunity effects, and
   passing timer values to `stage2_water_cannon_visual_renderer.gd`.
+- `scripts/stages/stage2/stage2_water_fragment_hit_resolver.gd`
+  Owns Stage 2 water-fragment player-hit candidate resolution: hit-enabled
+  filtering, per-splash cooldown decay, collision radius selection, first
+  overlapping player rect lookup, and hit payload construction. The
+  background module still owns player-rect context assembly, immunity,
+  flash, particles, audio, knockback, and splash handled-state side effects.
 - `scripts/stages/stage2/stage2_water_trail_payload_factory.gd`
   Owns Stage 2 water-cannon trail payload construction: randomized offset,
   life fields, radius scaling by beam progress, and trail color. The
@@ -1517,8 +1525,14 @@ This section is intentionally long; use search to find the nearest owner.
   Owns Stage 2 starpoint drop per-frame mutation: lifetime decay, float
   wobble, velocity / gravity, horizontal bounds bounce, rotation, glow
   timing, and alive / expired return. The background module still owns
-  drop list compaction, player overlap checks, collection rewards, redraw
-  requests, and collect audio.
+  drop list compaction, collection rewards, redraw requests, and collect
+  audio.
+- `scripts/stages/stage2/stage2_starpoint_drop_query.gd`
+  Owns Stage 2 starpoint drop read-only query helpers: collect-radius
+  derivation and player-rect overlap checks through the shared collision
+  geometry helper. The background module still owns player-rect source
+  construction, drop list compaction, collection rewards, redraw requests,
+  and collect audio.
 - `scripts/stages/stage2/stage2_starpoint_particle_state.gd`
   Owns Stage 2 starpoint particle per-frame mutation: position, gravity,
   alpha fade, lifetime decay, and in-place survivor compaction. The
