@@ -1668,19 +1668,6 @@ func _update_quake_rock_drop(rock: Dictionary, delta: float) -> void:
 		_spawn_rock_leaves(land_position, 0.72)
 
 
-func _step_original_quake_rock_drop(rock: Dictionary, frame_step: float) -> bool:
-	var target_pos: Vector2 = rock_query.get_target_pos(rock)
-	var result: Dictionary = Stage2QuakeRockDropState.step_original_drop(
-		rock,
-		target_pos,
-		frame_step,
-		QUAKE_ROCK_LAND_FLASH_SEC
-	)
-	if bool(result.get("landed", false)):
-		_spawn_rock_leaves(target_pos, 0.72)
-	return bool(result.get("continue", false))
-
-
 func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -> void:
 	if water_cannon_phase == "idle":
 		if deps.get("stage2_boss_skill_state", null) != null:

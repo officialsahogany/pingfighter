@@ -73,6 +73,10 @@ func _verify_background_delegates_drop_state() -> void:
 		source.find("Stage2QuakeRockDropState.update_drop") >= 0,
 		"Stage 2 background source should delegate quake rock drop state"
 	)
+	_expect(
+		source.find("func _step_original_quake_rock_drop") < 0,
+		"Stage 2 background should not keep unused original-drop pass-through wrappers"
+	)
 	var target_pos := Vector2(20.0, 30.0)
 	var background := Stage2PillarBackground.new()
 	var rock := {
