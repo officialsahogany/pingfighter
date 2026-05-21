@@ -22,6 +22,7 @@ const Stage2WaterTrailPayloadFactory := preload("res://scripts/stages/stage2/sta
 const Stage2RockFragmentPayloadFactory := preload("res://scripts/stages/stage2/stage2_rock_fragment_payload_factory.gd")
 const Stage2RockFragmentPayloadConfigBuilder := preload("res://scripts/stages/stage2/stage2_rock_fragment_payload_config_builder.gd")
 const Stage2QuakeRockPayloadFactory := preload("res://scripts/stages/stage2/stage2_quake_rock_payload_factory.gd")
+const Stage2QuakeRockDropState := preload("res://scripts/stages/stage2/stage2_quake_rock_drop_state.gd")
 const Stage2AmbientPayloadFactory := preload("res://scripts/stages/stage2/stage2_ambient_payload_factory.gd")
 const Stage2AmbientLayoutHelper := preload("res://scripts/stages/stage2/stage2_ambient_layout_helper.gd")
 const Stage2RustlePayloadFactory := preload("res://scripts/stages/stage2/stage2_rustle_payload_factory.gd")
@@ -1901,75 +1902,30 @@ func _play_boss_rage_cry(deps: Dictionary) -> void:
 
 
 func _update_quake_rock_drop(rock: Dictionary, delta: float) -> void:
-	if rock.has("fall_y") or rock.has("spawn_delay_frames"):
-		var frame_step_total: float = max(0.0, delta) * 60.0
-		var whole_steps: int = int(min(floor(frame_step_total), 240.0))
-		var remainder: float = frame_step_total - float(whole_steps)
-		for _step in range(whole_steps):
-			if not _step_original_quake_rock_drop(rock, 1.0):
-				break
-		if remainder > 0.001:
-			_step_original_quake_rock_drop(rock, remainder)
-		return
-
-	var drop_delay: float = max(0.0, float(rock.get("drop_delay", 0.0)) - delta)
-	rock["drop_delay"] = drop_delay
-	if drop_delay > 0.0 or not bool(rock.get("falling", false)):
-		return
-	var fall_total: float = max(0.001, float(rock.get("fall_total", QUAKE_ROCK_DROP_TIME_SEC)))
-	var fall_timer: float = max(0.0, float(rock.get("fall_timer", fall_total)) - delta)
-	var progress: float = clamp(1.0 - fall_timer / fall_total, 0.0, 1.0)
-	var eased: float = 1.0 - pow(1.0 - progress, 3.0)
-	var start_pos: Vector2 = _get_vector2(rock.get("start_pos", rock.get("pos", Vector2.ZERO)), Vector2.ZERO)
 	var target_pos: Vector2 = _get_rock_target_pos(rock)
-	rock["pos"] = start_pos.lerp(target_pos, eased)
-	rock["fall_timer"] = fall_timer
-	rock["fall_progress"] = progress
-	if fall_timer <= 0.0:
-		rock["falling"] = false
-		rock["pos"] = target_pos
-		rock["flash"] = max(float(rock.get("flash", 0.0)), QUAKE_ROCK_LAND_FLASH_SEC)
-		_spawn_rock_leaves(target_pos, 0.72)
+	var result: Dictionary = Stage2QuakeRockDropState.update_drop(
+		rock,
+		delta,
+		target_pos,
+		QUAKE_ROCK_LAND_FLASH_SEC,
+		QUAKE_ROCK_DROP_TIME_SEC
+	)
+	if bool(result.get("landed", false)):
+		var land_position: Vector2 = _get_vector2(result.get("land_position", target_pos), target_pos)
+		_spawn_rock_leaves(land_position, 0.72)
 
 
 func _step_original_quake_rock_drop(rock: Dictionary, frame_step: float) -> bool:
-	var spawn_delay: float = float(rock.get("spawn_delay_frames", 0.0))
-	var delay_timer: float = float(rock.get("delay_timer_frames", 0.0))
 	var target_pos: Vector2 = _get_rock_target_pos(rock)
-	if delay_timer < spawn_delay:
-		rock["delay_timer_frames"] = min(spawn_delay, delay_timer + frame_step)
-		rock["pos"] = Vector2(target_pos.x, float(rock.get("fall_y", target_pos.y)))
-		return true
-	if not bool(rock.get("falling", false)):
-		rock["pos"] = target_pos
-		return false
-
-	var gravity: float = float(rock.get("gravity", 0.8))
-	var fall_speed: float = float(rock.get("fall_speed", 0.0)) + gravity * frame_step
-	var fall_y: float = float(rock.get("fall_y", target_pos.y)) + fall_speed * frame_step
-	var start_y := -300.0
-	var height_denominator: float = max(1.0, target_pos.y - start_y)
-	var height_ratio: float = clamp((fall_y - start_y) / height_denominator, 0.0, 1.0)
-	rock["shadow_scale"] = 0.2 + 0.8 * height_ratio
-
-	if fall_y >= target_pos.y:
-		fall_y = target_pos.y
-		var bounce_count: int = int(rock.get("bounce_count", 0)) + 1
-		rock["bounce_count"] = bounce_count
-		if bounce_count <= int(rock.get("max_bounces", 1)):
-			fall_speed = -fall_speed * 0.6
-		else:
-			rock["falling"] = false
-			fall_speed = 0.0
-			rock["shadow_scale"] = 1.0
-			rock["flash"] = max(float(rock.get("flash", 0.0)), QUAKE_ROCK_LAND_FLASH_SEC)
-			_spawn_rock_leaves(target_pos, 0.72)
-
-	rock["fall_y"] = fall_y
-	rock["fall_speed"] = fall_speed
-	rock["fall_progress"] = height_ratio
-	rock["pos"] = Vector2(target_pos.x, fall_y)
-	return true
+	var result: Dictionary = Stage2QuakeRockDropState.step_original_drop(
+		rock,
+		target_pos,
+		frame_step,
+		QUAKE_ROCK_LAND_FLASH_SEC
+	)
+	if bool(result.get("landed", false)):
+		_spawn_rock_leaves(target_pos, 0.72)
+	return bool(result.get("continue", false))
 
 
 func _update_quake_rock_offset(rock: Dictionary, delta: float) -> void:
