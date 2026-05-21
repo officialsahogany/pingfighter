@@ -1,0 +1,146 @@
+extends SceneTree
+
+const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	_verify_direct_projectile_payloads()
+
+	if _failures.is_empty():
+		print("commando_firearm_projectile_spawn_state_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _verify_direct_projectile_payloads() -> void:
+	var origin := Vector2(100.0, 620.0)
+	var target := Vector2(380.0, 80.0)
+	var aim_origin := Vector2(104.0, 612.0)
+	var rocket_profile := {
+		"radius": 9.5,
+		"trail": 36.0,
+		"life_frames": 60.0,
+		"impact_radius": 46.0,
+		"explosion_radius": 152.0,
+		"acceleration": 0.8,
+		"max_speed": 18.0,
+		"smoke_trail_limit": 3,
+		"color": Color(1.0, 0.46, 0.18),
+		"secondary": Color(1.0, 0.88, 0.38),
+	}
+	var rocket: Dictionary = CommandoFirearmProjectileSpawnState.build_projectile(
+		"bazooka",
+		"rocket",
+		12,
+		origin,
+		target,
+		Vector2.UP,
+		3.0,
+		0.0,
+		aim_origin,
+		rocket_profile,
+		{},
+		5,
+		6,
+		2.0,
+		1.25
+	)
+	_expect(int(rocket.get("id", 0)) == 12, "projectile helper should preserve projectile id")
+	_expect(str(rocket.get("weapon_id", "")) == "bazooka", "projectile helper should preserve weapon id")
+	_expect(_get_vector2(rocket.get("velocity", Vector2.ZERO)) == Vector2(0.0, -3.0), "projectile helper should multiply direction by speed")
+	_expect(is_equal_approx(float(rocket.get("explosion_radius", 0.0)), 152.0), "projectile helper should copy explosion radius")
+	_expect(is_equal_approx(float(rocket.get("acceleration", 0.0)), 0.8), "projectile helper should copy acceleration")
+	_expect(is_equal_approx(float(rocket.get("max_speed", 0.0)), 18.0), "projectile helper should copy max speed")
+	_expect(int(rocket.get("smoke_trail_limit", 0)) == 3, "projectile helper should preserve smoke trail limit")
+	_expect(_get_array(rocket.get("smoke_trail", [])).is_empty(), "projectile helper should seed empty smoke trail")
+
+	var doped_pistol: Dictionary = CommandoFirearmProjectileSpawnState.build_projectile(
+		"commando_pistol",
+		"bullet",
+		2,
+		origin,
+		target,
+		Vector2.RIGHT,
+		14.0,
+		0.15,
+		aim_origin,
+		{},
+		{"active": true, "head_leg_multiplier": 2.75, "pistol_speed_multiplier": 1.4},
+		5,
+		6,
+		2.0,
+		1.25
+	)
+	_expect(bool(doped_pistol.get("active_item_doping_potion_active", false)), "projectile helper should mark active doping projectiles")
+	_expect(is_equal_approx(float(doped_pistol.get("active_item_doping_potion_head_leg_multiplier", 0.0)), 2.75), "projectile helper should carry doping head/leg multiplier")
+	_expect(is_equal_approx(float(doped_pistol.get("active_item_doping_potion_pistol_speed_multiplier", 0.0)), 1.4), "projectile helper should carry doping speed multiplier")
+
+	var slingshot_profile := {
+		"slingshot": true,
+		"charge_level": 7,
+	}
+	var slingshot: Dictionary = CommandoFirearmProjectileSpawnState.build_projectile(
+		"pistol",
+		"bullet",
+		6,
+		origin,
+		target,
+		Vector2.UP,
+		32.0,
+		0.0,
+		aim_origin,
+		slingshot_profile,
+		{},
+		5,
+		6,
+		2.0,
+		1.25
+	)
+	_expect(bool(slingshot.get("slingshot", false)), "projectile helper should mark slingshot projectiles")
+	_expect(int(slingshot.get("charge_level", 0)) == 3, "projectile helper should clamp slingshot charge level")
+	_expect(int(slingshot.get("slingshot_stone_variant", -1)) == 1, "projectile helper should derive stable slingshot stone variant")
+	_expect(int(slingshot.get("slingshot_stone_frame", -1)) == 9, "projectile helper should derive slingshot sheet frame")
+
+	var net_origin := Vector2(205.0, 500.0)
+	var net: Dictionary = CommandoFirearmProjectileSpawnState.build_projectile(
+		"net_gun",
+		"net",
+		21,
+		origin,
+		target,
+		Vector2.UP,
+		16.0,
+		0.0,
+		net_origin,
+		{"rope_trail_limit": 8},
+		{},
+		5,
+		6,
+		2.0,
+		1.25
+	)
+	_expect(_get_vector2(net.get("origin", Vector2.ZERO)) == net_origin, "projectile helper should preserve net rope origin")
+	_expect(_get_array(net.get("rope_points", [])).is_empty(), "projectile helper should seed empty net rope points")
+	_expect(int(net.get("rope_trail_limit", 0)) == 8, "projectile helper should preserve net rope limit")
+
+
+func _get_array(value: Variant) -> Array:
+	if value is Array:
+		return value
+	return []
+
+
+func _get_vector2(value: Variant) -> Vector2:
+	if value is Vector2:
+		return value
+	return Vector2.ZERO
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

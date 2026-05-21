@@ -3393,6 +3393,20 @@ This section is intentionally long; use search to find the nearest owner.
   weapon-kind dispatch, collision / impact handling, audio, VFX, and result
   handoff while delegating deterministic per-projectile motion dictionaries to
   this helper.
+- `scripts/characters/commando_firearm_projectile_impact_state.gd`
+  Owns pure Commando projectile impact payload scaffolding: boss hit-event
+  dictionaries and environment-impact result dictionaries. The runtime keeps
+  combat-result calculation, boss damage / gauge queueing, particle / feedback
+  / audio side effects, lingering-effect spawning, and hit-event array
+  ownership while delegating stable result payload shapes here.
+- `scripts/characters/commando_firearm_slingshot_state.gd`
+  Owns pure Commando slingshot charge state: charging / not-ready /
+  charge-canceled / release result payloads, charge-level thresholds, interval
+  gauge-drain calculations, charge-derived projectile profile fields, and
+  charge-derived hit-effect payload fields. The runtime keeps input gates,
+  mutable charge fields, projectile spawning, audio, cooldown / control-lock
+  mutation, status application, and hit-result sequencing while delegating
+  deterministic slingshot calculations here.
 - `scripts/characters/commando_firearm_shell_casing_state.gd`
   Owns pure Commando shell-casing state: AK-47 / pistol ejection payloads,
   deterministic seed-derived velocity / rotation values, paddle-floor
@@ -3455,15 +3469,16 @@ This section is intentionally long; use search to find the nearest owner.
   result handoff while delegating only this result dictionary calculation.
 - `scripts/characters/commando_firearm_suicide_drone_geometry.gd`
   Owns pure Commando suicide-drone geometry: spawn and player-lock anchors,
-  centered drone rectangles, ball / boss rectangle hits, and top-wall hits.
-  `commando_firearm_runtime.gd` keeps manual-control velocity mutation,
-  detonation, cooldown, audio, VFX, and result handoff while delegating only
-  these deterministic geometry decisions.
+  centered drone rectangles, ball / boss rectangle hits, explosion-vs-boss
+  center checks, and top-wall hits. `commando_firearm_runtime.gd` keeps
+  manual-control velocity mutation, detonation, cooldown, audio, VFX, and
+  result handoff while delegating only these deterministic geometry decisions.
 - `scripts/characters/commando_firearm_suicide_drone_state.gd`
   Owns pure Commando suicide-drone state payloads: manual-control projectile
   dictionaries, input-derived velocity / rotor speed, grace / rotor frame
-  advancement, field-bound clamping, non-manual homing velocity, and fire /
-  fire-failed / active-input / detonation result dictionaries.
+  advancement, field-bound clamping, non-manual homing velocity, active
+  suicide-drone projectile predicates / lookup, and fire / fire-failed /
+  active-input / detonation result dictionaries.
   `commando_firearm_runtime.gd` keeps projectile-array ownership, input gate
   side effects, detonation removal, cooldown mutation, audio, VFX, boss-hit
   application, lingering effect spawning, and ball-boost merge sequencing

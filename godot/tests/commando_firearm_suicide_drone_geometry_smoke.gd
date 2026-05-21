@@ -64,6 +64,14 @@ func _verify_direct_suicide_drone_geometry() -> void:
 		"suicide drone should miss non-overlapping boss rect"
 	)
 	_expect(
+		CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(projectile, Rect2(110.0, 70.0, 60.0, 40.0), 80.0),
+		"suicide drone explosion should hit when the boss center is inside the blast"
+	)
+	_expect(
+		not CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(projectile, Rect2(240.0, 70.0, 60.0, 40.0), 40.0),
+		"suicide drone explosion should miss when the boss center is outside the blast"
+	)
+	_expect(
 		CommandoFirearmSuicideDroneGeometry.hits_top_wall({"pos": Vector2(80.0, 24.0), "size": drone_size}, drone_size),
 		"suicide drone should hit top wall when its rect reaches y zero"
 	)
@@ -82,6 +90,7 @@ func _verify_runtime_delegates_suicide_drone_geometry() -> void:
 	_expect(runtime._get_suicide_drone_rect(projectile) == Rect2(76.0, 56.0, 48.0, 48.0), "runtime rect wrapper should delegate")
 	_expect(runtime._suicide_drone_hits_ball(projectile, {"ball_pos": Vector2(120.0, 80.0), "ball_size": 20.0}), "runtime ball-hit wrapper should delegate")
 	_expect(runtime._suicide_drone_hits_boss(projectile, {"boss_pos": Vector2(100.0, 80.0), "boss_width": 60.0, "boss_height": 40.0}), "runtime boss-hit wrapper should delegate")
+	_expect(runtime._suicide_drone_explosion_hits_boss(projectile, {"boss_pos": Vector2(110.0, 70.0), "boss_paddle_width": 60.0, "boss_hitbox_height": 40.0}), "runtime explosion-hit wrapper should delegate")
 	_expect(runtime._suicide_drone_hits_top_wall({"pos": Vector2(80.0, 24.0), "size": drone_size}), "runtime top-wall wrapper should delegate")
 
 

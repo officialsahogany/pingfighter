@@ -49,5 +49,11 @@ static func hits_boss_rect(projectile: Dictionary, boss_rect: Rect2, default_siz
 	return get_rect(projectile, default_size).intersects(boss_rect)
 
 
+static func explosion_hits_boss(projectile: Dictionary, boss_rect: Rect2, explosion_radius: float) -> bool:
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var boss_center: Vector2 = boss_rect.position + boss_rect.size * 0.5
+	return pos.distance_squared_to(boss_center) < explosion_radius * explosion_radius
+
+
 static func hits_top_wall(projectile: Dictionary, default_size: Vector2) -> bool:
 	return get_rect(projectile, default_size).position.y <= 0.0

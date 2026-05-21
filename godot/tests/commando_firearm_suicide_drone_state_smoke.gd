@@ -95,6 +95,15 @@ func _verify_direct_suicide_drone_state() -> void:
 	_expect(bool(CommandoFirearmSuicideDroneState.build_fire_result({}, 4, 4, 6.0, 500.0).get("fired", false)), "fire result should expose fired flag")
 	_expect(str(CommandoFirearmSuicideDroneState.build_fire_failed_result(500.0, "cooldown", 90.0).get("failure_reason", "")) == "cooldown", "fire failed result should expose failure reason")
 	_expect(bool(CommandoFirearmSuicideDroneState.build_active_input_result(steered, 500.0).get("drone_active", false)), "active input result should expose active flag")
+	_expect(CommandoFirearmSuicideDroneState.is_projectile({"weapon_id": "suicide_drone", "kind": "drone"}), "projectile predicate should accept live suicide drones")
+	_expect(not CommandoFirearmSuicideDroneState.is_projectile({"weapon_id": "suicide_drone", "kind": "rocket"}), "projectile predicate should reject non-drone kinds")
+	var active_projectiles := [
+		{"weapon_id": "bazooka", "kind": "rocket"},
+		{"weapon_id": "suicide_drone", "kind": "drone"},
+	]
+	_expect(CommandoFirearmSuicideDroneState.get_active_projectile_index(active_projectiles) == 1, "active projectile lookup should return the matching index")
+	_expect(CommandoFirearmSuicideDroneState.has_active_projectile(active_projectiles), "active projectile helper should report active drones")
+	_expect(CommandoFirearmSuicideDroneState.get_active_projectile_index([{"weapon_id": "suicide_drone", "kind": "rocket"}]) == -1, "active projectile lookup should reject non-drone kinds")
 	_expect(bool(CommandoFirearmSuicideDroneState.build_detonation_result("manual", Vector2(1.0, 2.0), false, 90.0).get("commando_suicide_drone_detonated", false)), "detonation result should expose detonation flag")
 
 

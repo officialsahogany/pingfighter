@@ -20,8 +20,11 @@ const CommandoFirearmOriginGeometry := preload("res://scripts/characters/command
 const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
 const CommandoFirearmPistolFeedbackState := preload("res://scripts/characters/commando_firearm_pistol_feedback_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
+const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/commando_firearm_projectile_motion_state.gd")
+const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmShellCasingState := preload("res://scripts/characters/commando_firearm_shell_casing_state.gd")
+const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
 const CommandoFirearmSupportProjectileResolver := preload("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
@@ -1742,72 +1745,60 @@ func _update_slingshot_input(input_snapshot: Dictionary, special_gauge: float, c
 		special_gauge = float(charge_drain_result.get("special_gauge", special_gauge))
 		if bool(charge_drain_result.get("force_release", false)):
 			return _release_slingshot(special_gauge, config, deps, "gauge_empty")
-		return {
-			"handled": true,
-			"weapon_id": BASE_WEAPON_ID,
-			"charging": true,
-			"charge_timer_frames": slingshot_charge_timer_frames,
-			"charge_level": slingshot_charge_level,
-			"special_gauge": special_gauge,
-		}
+		return CommandoFirearmSlingshotState.build_charging_result(
+			BASE_WEAPON_ID,
+			slingshot_charge_timer_frames,
+			slingshot_charge_level,
+			special_gauge
+		)
 	if not action_just_pressed:
 		return {}
 	var now_msec: int = Time.get_ticks_msec()
 	if _is_fire_suppressed_after_switch(deps.get("commando_weapon_controller", null), now_msec):
 		return {}
 	if slingshot_cooldown_frames > 0.0 or special_gauge < SLINGSHOT_GAUGE_COST:
-		return {
-			"handled": true,
-			"weapon_id": BASE_WEAPON_ID,
-			"fire_failed": true,
-			"special_gauge": special_gauge,
-			"failure_reason": "slingshot_not_ready",
-		}
+		return CommandoFirearmSlingshotState.build_not_ready_result(BASE_WEAPON_ID, special_gauge)
 	slingshot_charging = true
 	slingshot_charge_timer_frames = 0.0
 	slingshot_charge_level = 0
 	slingshot_gauge_spent = 0.0
 	var drain_result: Dictionary = _advance_slingshot_charge(special_gauge)
 	special_gauge = float(drain_result.get("special_gauge", special_gauge))
-	return {
-		"handled": true,
-		"weapon_id": BASE_WEAPON_ID,
-		"charging": true,
-		"charge_timer_frames": slingshot_charge_timer_frames,
-		"charge_level": slingshot_charge_level,
-		"special_gauge": special_gauge,
-	}
+	return CommandoFirearmSlingshotState.build_charging_result(
+		BASE_WEAPON_ID,
+		slingshot_charge_timer_frames,
+		slingshot_charge_level,
+		special_gauge
+	)
 
 
 func _advance_slingshot_charge(special_gauge: float) -> Dictionary:
-	slingshot_charge_timer_frames += 1.0
-	var timer_int: int = int(round(slingshot_charge_timer_frames))
-	if timer_int >= int(SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES) and timer_int % int(SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES) == 0:
-		if special_gauge >= SLINGSHOT_GAUGE_COST:
-			special_gauge = max(0.0, special_gauge - SLINGSHOT_GAUGE_COST)
-			slingshot_gauge_spent += SLINGSHOT_GAUGE_COST
-		else:
-			_update_slingshot_charge_level()
-			return {
-				"special_gauge": special_gauge,
-				"force_release": true,
-			}
-	_update_slingshot_charge_level()
+	var charge_result: Dictionary = CommandoFirearmSlingshotState.advance_charge(
+		slingshot_charge_timer_frames,
+		slingshot_gauge_spent,
+		special_gauge,
+		SLINGSHOT_GAUGE_COST,
+		SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES,
+		SLINGSHOT_CHARGE_THRESHOLD_1,
+		SLINGSHOT_CHARGE_THRESHOLD_2,
+		SLINGSHOT_CHARGE_THRESHOLD_3
+	)
+	slingshot_charge_timer_frames = float(charge_result.get("charge_timer_frames", slingshot_charge_timer_frames))
+	slingshot_charge_level = int(charge_result.get("charge_level", slingshot_charge_level))
+	slingshot_gauge_spent = float(charge_result.get("gauge_spent", slingshot_gauge_spent))
 	return {
-		"special_gauge": special_gauge,
-		"force_release": false,
+		"special_gauge": float(charge_result.get("special_gauge", special_gauge)),
+		"force_release": bool(charge_result.get("force_release", false)),
 	}
 
 
 func _update_slingshot_charge_level() -> void:
-	if slingshot_charge_timer_frames >= SLINGSHOT_CHARGE_THRESHOLD_3:
-		slingshot_charge_level = 3
-	elif slingshot_charge_timer_frames >= SLINGSHOT_CHARGE_THRESHOLD_2:
-		slingshot_charge_level = 2
-	elif slingshot_charge_timer_frames >= SLINGSHOT_CHARGE_THRESHOLD_1:
-		slingshot_charge_level = 1
-	else:
-		slingshot_charge_level = 0
+	slingshot_charge_level = CommandoFirearmSlingshotState.get_charge_level(
+		slingshot_charge_timer_frames,
+		SLINGSHOT_CHARGE_THRESHOLD_1,
+		SLINGSHOT_CHARGE_THRESHOLD_2,
+		SLINGSHOT_CHARGE_THRESHOLD_3
+	)
 
 
 func _release_slingshot(special_gauge: float, config: Dictionary, deps: Dictionary, reason: String = "released") -> Dictionary:
@@ -1818,29 +1809,20 @@ func _release_slingshot(special_gauge: float, config: Dictionary, deps: Dictiona
 	slingshot_charge_level = 0
 	slingshot_gauge_spent = 0.0
 	if charge_time < SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES or charge_level < 1:
-		return {
-			"handled": true,
-			"weapon_id": BASE_WEAPON_ID,
-			"charge_canceled": true,
-			"failure_reason": "slingshot_charge_short",
-			"special_gauge": special_gauge,
-		}
+		return CommandoFirearmSlingshotState.build_charge_canceled_result(BASE_WEAPON_ID, special_gauge)
 	_spawn_firearm_effect(BASE_WEAPON_ID, config, deps, _get_slingshot_fire_profile(charge_level))
 	_play_fire_audio(BASE_WEAPON_ID, deps)
 	last_fire_msec = Time.get_ticks_msec()
 	slingshot_cooldown_frames = SLINGSHOT_COOLDOWN_FRAMES
 	slingshot_control_lock_frames = SLINGSHOT_CONTROL_LOCK_FRAMES
-	return {
-		"handled": true,
-		"weapon_id": BASE_WEAPON_ID,
-		"fired": true,
-		"charge_level": charge_level,
-		"charge_time_frames": charge_time,
-		"control_lock_frames": SLINGSHOT_CONTROL_LOCK_FRAMES,
-		"release_reason": reason,
-		"special_gauge": special_gauge,
-		"skill_gold_award": 0,
-	}
+	return CommandoFirearmSlingshotState.build_release_result(
+		BASE_WEAPON_ID,
+		charge_level,
+		charge_time,
+		SLINGSHOT_CONTROL_LOCK_FRAMES,
+		reason,
+		special_gauge
+	)
 
 
 func _cancel_slingshot_charge(special_gauge: float) -> float:
@@ -1852,19 +1834,13 @@ func _cancel_slingshot_charge(special_gauge: float) -> float:
 
 
 func _get_slingshot_fire_profile(charge_level: int) -> Dictionary:
-	var level: int = clampi(charge_level, 1, 3)
-	var profile: Dictionary = _get_weapon_profile(BASE_WEAPON_ID)
-	profile["speed"] = float(SLINGSHOT_PYTHON_SPEED_BY_LEVEL.get(level, SLINGSHOT_BASE_BULLET_SPEED))
-	profile["radius"] = SLINGSHOT_PELLET_SIZE + float(level - 1)
-	profile["charge_level"] = level
-	profile["slingshot"] = true
-	if level >= 3:
-		profile["color"] = Color(1.0, 0.78, 0.36)
-		profile["secondary"] = Color(1.0, 0.92, 0.42)
-	elif level == 2:
-		profile["color"] = Color(0.82, 0.82, 0.88)
-		profile["secondary"] = Color(0.96, 0.96, 1.0)
-	return profile
+	return CommandoFirearmSlingshotState.build_fire_profile(
+		_get_weapon_profile(BASE_WEAPON_ID),
+		charge_level,
+		SLINGSHOT_PYTHON_SPEED_BY_LEVEL,
+		SLINGSHOT_BASE_BULLET_SPEED,
+		SLINGSHOT_PELLET_SIZE
+	)
 
 
 func _get_slingshot_draw_state() -> Dictionary:
@@ -1977,48 +1953,23 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		return
 	var speed: float = float(profile.get("speed", 16.0))
 	var shot_id: int = _next_shot_id()
-	var projectile := {
-		"id": shot_id,
-		"weapon_id": weapon_id,
-		"kind": kind,
-		"pos": origin,
-		"prev_pos": origin,
-		"target": target,
-		"velocity": direction * speed,
-		"speed": speed,
-		"angle_offset": angle_offset,
-		"radius": float(profile.get("radius", 5.0)),
-		"trail": float(profile.get("trail", 24.0)),
-		"life_frames": float(profile.get("life_frames", 45.0)),
-		"max_life_frames": float(profile.get("life_frames", 45.0)),
-		"impact_radius": float(profile.get("impact_radius", 18.0)),
-		"color": profile.get("color", Color.WHITE),
-		"secondary": profile.get("secondary", Color(1.0, 0.5, 0.2)),
-	}
-	if weapon_id == "commando_pistol" and bool(doping_context.get("active", false)):
-		projectile["active_item_doping_potion_active"] = true
-		projectile["active_item_doping_potion_head_leg_multiplier"] = float(doping_context.get("head_leg_multiplier", DOPING_POTION_HEAD_LEG_MULTIPLIER))
-		projectile["active_item_doping_potion_pistol_speed_multiplier"] = float(doping_context.get("pistol_speed_multiplier", DOPING_POTION_PISTOL_SPEED_MULTIPLIER))
-	if bool(profile.get("slingshot", false)):
-		var charge_level: int = clampi(int(profile.get("charge_level", 1)), 1, 3)
-		var stone_variant: int = abs(shot_id - 1) % 4
-		projectile["slingshot"] = true
-		projectile["charge_level"] = charge_level
-		projectile["slingshot_stone_variant"] = stone_variant
-		projectile["slingshot_stone_frame"] = (charge_level - 1) * 4 + stone_variant
-	if profile.has("explosion_radius"):
-		projectile["explosion_radius"] = float(profile.get("explosion_radius", float(profile.get("impact_radius", 18.0))))
-	if profile.has("acceleration"):
-		projectile["acceleration"] = float(profile.get("acceleration", 0.0))
-	if profile.has("max_speed"):
-		projectile["max_speed"] = float(profile.get("max_speed", speed))
-	if profile.has("smoke_trail_limit"):
-		projectile["smoke_trail_limit"] = int(profile.get("smoke_trail_limit", BAZOOKA_SMOKE_TRAIL_LIMIT))
-		projectile["smoke_trail"] = []
-	if weapon_id == "net_gun":
-		projectile["origin"] = aim_origin
-		projectile["rope_points"] = []
-		projectile["rope_trail_limit"] = int(profile.get("rope_trail_limit", NET_GUN_ROPE_TRAIL_LIMIT))
+	var projectile: Dictionary = CommandoFirearmProjectileSpawnState.build_projectile(
+		weapon_id,
+		kind,
+		shot_id,
+		origin,
+		target,
+		direction,
+		speed,
+		angle_offset,
+		aim_origin,
+		profile,
+		doping_context,
+		BAZOOKA_SMOKE_TRAIL_LIMIT,
+		NET_GUN_ROPE_TRAIL_LIMIT,
+		DOPING_POTION_HEAD_LEG_MULTIPLIER,
+		DOPING_POTION_PISTOL_SPEED_MULTIPLIER
+	)
 	_append_limited(projectiles, projectile, PROJECTILE_LIMIT)
 	if weapon_id == "ak47":
 		_spawn_ak47_shell_casing(origin, direction, config, shot_id)
@@ -2670,8 +2621,7 @@ func _suicide_drone_hits_boss(projectile: Dictionary, context: Dictionary) -> bo
 
 func _suicide_drone_explosion_hits_boss(projectile: Dictionary, context: Dictionary) -> bool:
 	var profile: Dictionary = _get_weapon_profile("suicide_drone")
-	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	return _circle_contains_rect_center(pos, _get_explosion_radius(projectile, profile), _get_boss_rect(context))
+	return CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(projectile, _get_boss_rect(context), _get_explosion_radius(projectile, profile))
 
 
 func _suicide_drone_hits_top_wall(projectile: Dictionary) -> bool:
@@ -2878,16 +2828,15 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 	var lingering_result: Dictionary = _spawn_lingering_effect(weapon_id, projectile, context)
 	if not lingering_result.is_empty():
 		combat_result["lingering_effect"] = lingering_result
-	var hit_event := {
-		"id": int(projectile.get("id", 0)),
-		"weapon_id": weapon_id,
-		"kind": _get_projectile_kind(projectile, "bullet"),
-		"target": "boss",
-		"pos": pos,
-		"velocity": velocity,
-		"intensity": intensity,
-		"result": combat_result,
-	}
+	var hit_event: Dictionary = CommandoFirearmProjectileImpactState.build_hit_event(
+		projectile,
+		weapon_id,
+		_get_projectile_kind(projectile, "bullet"),
+		pos,
+		velocity,
+		intensity,
+		combat_result
+	)
 	_append_limited(hit_events, hit_event, HIT_EVENT_LIMIT)
 	_spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
 	_trigger_hit_feedback(feedback_profile, deps)
@@ -2906,12 +2855,7 @@ func _register_projectile_environment_impact(projectile: Dictionary, reason: Str
 	_spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
 	_trigger_hit_feedback(feedback_profile, deps)
 	_play_impact_audio(weapon_id, deps)
-	return {
-		"commando_firearm_environment_impact": true,
-		"commando_firearm_environment_impact_reason": reason,
-		"commando_firearm_environment_impact_weapon_id": weapon_id,
-		"commando_firearm_environment_impact_pos": pos,
-	}
+	return CommandoFirearmProjectileImpactState.build_environment_impact_result(weapon_id, reason, pos)
 
 
 func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -2982,17 +2926,14 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 
 
 func _apply_slingshot_hit_effects(weapon_id: String, projectile: Dictionary, result: Dictionary) -> void:
-	if weapon_id != BASE_WEAPON_ID or not bool(projectile.get("slingshot", false)):
-		return
-	var charge_level: int = clampi(int(projectile.get("charge_level", 1)), 1, 3)
-	var stun_mult: float = float(SLINGSHOT_STUN_MULT.get(charge_level, 1.0))
-	var knockback_mult: float = float(SLINGSHOT_KNOCKBACK_MULT.get(charge_level, 1.0))
-	result["slingshot_charge_level"] = charge_level
-	result["commando_firearm_slingshot_charge_level"] = charge_level
-	result["stun_frames"] = round(18.0 * stun_mult)
-	result["stun_source"] = "commando_firearm_slingshot_charge_%d" % charge_level
-	result["knockback_power"] = 14.0 * knockback_mult
-	result["commando_firearm_special_gauge_source"] = "commando_firearm_slingshot_charge_%d" % charge_level
+	CommandoFirearmSlingshotState.apply_hit_effects(
+		weapon_id,
+		projectile,
+		result,
+		BASE_WEAPON_ID,
+		SLINGSHOT_STUN_MULT,
+		SLINGSHOT_KNOCKBACK_MULT
+	)
 
 
 func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, context: Dictionary, result: Dictionary) -> void:
@@ -4551,19 +4492,15 @@ func _stop_suicide_drone_audio(deps: Dictionary) -> void:
 
 
 func _has_active_suicide_drone_projectile() -> bool:
-	return _get_active_suicide_drone_index() >= 0
+	return CommandoFirearmSuicideDroneState.has_active_projectile(projectiles)
 
 
 func _get_active_suicide_drone_index() -> int:
-	for index in range(projectiles.size()):
-		var projectile: Dictionary = _get_dict(projectiles[index])
-		if _is_suicide_drone_projectile(projectile):
-			return index
-	return -1
+	return CommandoFirearmSuicideDroneState.get_active_projectile_index(projectiles)
 
 
 func _is_suicide_drone_projectile(projectile: Dictionary) -> bool:
-	return _get_projectile_weapon_id(projectile, "") == "suicide_drone" and _get_projectile_kind(projectile) == "drone"
+	return CommandoFirearmSuicideDroneState.is_projectile(projectile)
 
 
 func _update_muzzle_flashes(fps_scale: float) -> void:

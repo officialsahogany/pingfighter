@@ -163,6 +163,25 @@ static func build_active_input_result(projectile: Dictionary, special_gauge: flo
 	}
 
 
+static func has_active_projectile(projectiles: Array) -> bool:
+	return get_active_projectile_index(projectiles) >= 0
+
+
+static func get_active_projectile_index(projectiles: Array) -> int:
+	for index in range(projectiles.size()):
+		var projectile: Dictionary = CommandoFirearmValueUtils.get_dict(projectiles[index])
+		if is_projectile(projectile):
+			return index
+	return -1
+
+
+static func is_projectile(projectile: Dictionary) -> bool:
+	return (
+		CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, "") == "suicide_drone"
+		and CommandoFirearmValueUtils.get_projectile_kind(projectile) == "drone"
+	)
+
+
 static func build_detonation_result(
 	reason: String,
 	pos: Vector2,
