@@ -2,6 +2,9 @@ extends RefCounted
 
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 
+var _method_argument_count_cache: Dictionary = {}
+var _method_acceptance_cache: Dictionary = {}
+
 
 func draw_actors(
 	canvas: CanvasItem,
@@ -415,6 +418,9 @@ func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 func _get_method_argument_count(target: Object, method_name: String) -> int:
 	if target == null:
 		return 0
+	var cache_key := "%d:%s" % [target.get_instance_id(), method_name]
+	if _method_argument_count_cache.has(cache_key):
+		return int(_method_argument_count_cache[cache_key])
 	for method_info in target.get_method_list():
 		if not (method_info is Dictionary):
 			continue
@@ -422,13 +428,19 @@ func _get_method_argument_count(target: Object, method_name: String) -> int:
 			continue
 		var args_value: Variant = method_info.get("args", [])
 		if args_value is Array:
-			return args_value.size()
+			var args_count: int = args_value.size()
+			_method_argument_count_cache[cache_key] = args_count
+			return args_count
+	_method_argument_count_cache[cache_key] = 0
 	return 0
 
 
 func _method_accepts_argument_count(target: Object, method_name: String, requested_count: int) -> bool:
 	if target == null:
 		return false
+	var cache_key := "%d:%s:%d" % [target.get_instance_id(), method_name, requested_count]
+	if _method_acceptance_cache.has(cache_key):
+		return bool(_method_acceptance_cache[cache_key])
 	for method_info in target.get_method_list():
 		if not (method_info is Dictionary):
 			continue
@@ -442,7 +454,10 @@ func _method_accepts_argument_count(target: Object, method_name: String, request
 		var default_count: int = 0
 		if default_args_value is Array:
 			default_count = int((default_args_value as Array).size())
-		return method_arg_count >= requested_count or method_arg_count + default_count >= requested_count
+		var accepts: bool = method_arg_count >= requested_count or method_arg_count + default_count >= requested_count
+		_method_acceptance_cache[cache_key] = accepts
+		return accepts
+	_method_acceptance_cache[cache_key] = false
 	return false
 
 

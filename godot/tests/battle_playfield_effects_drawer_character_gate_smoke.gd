@@ -15,6 +15,20 @@ class RecordingRegistry:
 		return null
 
 
+class Draw2:
+	extends RefCounted
+
+	func draw(_canvas: CanvasItem, _context: Dictionary) -> void:
+		pass
+
+
+class Draw3:
+	extends RefCounted
+
+	func draw(_canvas: CanvasItem, _context: Dictionary, _perf_logger: Object = null) -> void:
+		pass
+
+
 func _init() -> void:
 	var drawer: Object = BattlePlayfieldEffectsDrawer.new()
 	var registry := RecordingRegistry.new()
@@ -65,6 +79,7 @@ func _init() -> void:
 	registry.requested_keys.clear()
 	drawer.draw_smasher_wheel_effects(null, registry, Vector2.ZERO, {"selected_character_type": "optimus"})
 	_expect(not registry.requested_keys.has("smasher_wheel_state"), "explicit non-Smasher characters should skip Smasher wheel state")
+	_verify_draw_arity_cache(drawer)
 
 	if _failures.is_empty():
 		print("battle_playfield_effects_drawer_character_gate_smoke: ok")
@@ -73,6 +88,20 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_draw_arity_cache(drawer: Object) -> void:
+	var draw2 := Draw2.new()
+	var draw3 := Draw3.new()
+	_expect(drawer._get_method_argument_count(draw3, "draw") >= 3, "playfield effects drawer should read draw arity")
+	_expect(drawer.get("_method_argument_count_cache").size() == 1, "playfield effects drawer should cache direct arity lookup")
+	_expect(drawer._get_method_argument_count(draw3, "draw") >= 3, "playfield effects drawer should reuse draw arity")
+	_expect(drawer.get("_method_argument_count_cache").size() == 1, "playfield effects drawer should not grow direct arity cache on repeat")
+	_expect(not drawer._method_accepts_argument_count(draw2, "draw", 3), "playfield effects drawer should reject short draw signatures")
+	_expect(drawer._method_accepts_argument_count(draw3, "draw", 3), "playfield effects drawer should accept perf-aware draw signatures")
+	_expect(drawer.get("_method_acceptance_cache").size() == 2, "playfield effects drawer should cache acceptance by renderer instance")
+	_expect(drawer._method_accepts_argument_count(draw3, "draw", 3), "playfield effects drawer should reuse accepted draw signatures")
+	_expect(drawer.get("_method_acceptance_cache").size() == 2, "playfield effects drawer should not grow acceptance cache on repeat")
 
 
 func _has_any_requested(registry: RecordingRegistry, keys: Array[String]) -> bool:
