@@ -962,8 +962,7 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ui/stage_clear_result_shape_helper.gd`
   Owns stateless result-scene shape point generation: ellipse fill
   polygons, ellipse polylines, radial burst polygons, star polygons, and
-  closed polyline conversion, plus result-box corner brace segments and
-  lock face / center point geometry, and result-box hover glow / sparkle
+  closed polyline conversion, plus result-box hover glow / sparkle
   geometry. The scene still owns actual draw calls, colors, alpha gates,
   and animation timing.
 - `scripts/ui/stage_clear_result_click_reaction_state.gd`

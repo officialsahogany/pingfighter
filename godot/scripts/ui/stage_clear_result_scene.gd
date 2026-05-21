@@ -73,6 +73,7 @@ const SCROLL_REGION_BOTTOM := 850.0
 const SCROLL_REGION_LEFT := 340.0
 const SCROLL_REGION_RIGHT := 1580.0
 const SCROLL_CONTENT_MARGIN := Vector4(70.0, 90.0, 70.0, 76.0)
+const SCROLL_DRAG_VIEW_MARGIN := 72.0
 
 const PLACEHOLDER_GOLD := 1240
 const RESULT_BOX_SHEET_COMMON_PATH := "res://assets/sprites/result_boxes/result_box_common_open_16f.png"
@@ -111,6 +112,9 @@ var _boxes: Array = []
 var _hovered_box_index: int = -1
 var _scroll_phase: String = "hidden"
 var _scroll_timer: float = 0.0
+var _scroll_position_offset: Vector2 = Vector2.ZERO
+var _scroll_dragging: bool = false
+var _scroll_drag_grab_offset: Vector2 = Vector2.ZERO
 var _next_stage_button_rect: Rect2 = Rect2()
 var _exit_button_rect: Rect2 = Rect2()
 var _hovered_button: String = "none"
@@ -903,78 +907,6 @@ func _draw_ellipse_polyline(center: Vector2, radius_x: float, radius_y: float, c
 		return
 	var pts: PackedVector2Array = StageClearResultShapeHelper.ellipse_polyline_points(center, radius_x, radius_y, 56)
 	draw_polyline(pts, color, width, true)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_box_corner_braces(tl: Vector2, tr: Vector2, br: Vector2, bl: Vector2, scale: float, color: Color, width: float) -> void:
-	for segment_value in StageClearResultShapeHelper.corner_brace_segments(tl, tr, br, bl, scale):
-		var segment: Dictionary = segment_value if segment_value is Dictionary else {}
-		draw_line(
-			segment.get("start", Vector2.ZERO),
-			segment.get("end", Vector2.ZERO),
-			color,
-			width
-		)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _draw_box_lock(
-	draw_center: Vector2,
-	lock_offset_y: float,
-	box_rotation: float,
-	scale: float,
-	is_mythic: bool,
-	hovered: bool,
-	alpha: float,
-	trim_color: Color,
-	trim_bright: Color,
-	box_hy: float = 0.0
-) -> void:
-	if alpha <= 0.02:
-		return
-	var lock_size: float = StageClearResultShapeHelper.get_box_lock_size(scale, box_hy)
-	var lock_center: Vector2 = StageClearResultShapeHelper.get_box_lock_center(draw_center, lock_offset_y, box_rotation)
-
-	draw_circle(lock_center + Vector2(0.0, 2.0 * scale), lock_size * 0.95, Color(0.0, 0.0, 0.0, alpha * 0.45))
-
-	var base_metal: Color = Color(0.45, 0.30, 0.10, alpha)
-	draw_circle(lock_center, lock_size * 0.90, base_metal)
-
-	var lock_pts: PackedVector2Array = StageClearResultShapeHelper.get_box_lock_face_points(
-		draw_center,
-		lock_offset_y,
-		lock_size,
-		box_rotation
-	)
-	var lock_face: Color = trim_color
-	lock_face.a = alpha
-	draw_colored_polygon(lock_pts, lock_face)
-
-	var lock_outline: Color = Color(0.55, 0.30, 0.06, alpha)
-	var closed_lock: PackedVector2Array = StageClearResultShapeHelper.closed_polyline_points(lock_pts)
-	draw_polyline(closed_lock, lock_outline, max(1.0, 1.4 * scale), true)
-
-	if is_mythic:
-		_draw_star_polygon(
-			lock_center,
-			lock_size * 0.58,
-			lock_size * 0.24,
-			Color(0.96, 0.34, 0.92, alpha),
-			Color(0.46, 0.10, 0.42, alpha),
-			max(1.0, 1.2 * scale)
-		)
-		if hovered:
-			var sparkle_alpha: float = (sin(timer * 6.0) * 0.5 + 0.5) * alpha
-			draw_circle(lock_center + Vector2(-3.0 * scale, -3.0 * scale), 2.4 * scale, Color(1.0, 0.96, 0.86, sparkle_alpha))
-	else:
-		var keyhole_center: Vector2 = lock_center + Vector2(0.0, scale * 0.5)
-		draw_circle(keyhole_center, lock_size * 0.22, Color(0.18, 0.09, 0.02, alpha))
-		var slit_top: Vector2 = keyhole_center + Vector2(0.0, lock_size * 0.18)
-		var slit_bot: Vector2 = keyhole_center + Vector2(0.0, lock_size * 0.42)
-		draw_line(slit_top, slit_bot, Color(0.18, 0.09, 0.02, alpha), max(1.5, 2.0 * scale))
-		var keyhole_highlight: Color = trim_bright
-		keyhole_highlight.a = alpha * 0.5
-		draw_circle(keyhole_center + Vector2(-1.5 * scale, -1.5 * scale), lock_size * 0.06, keyhole_highlight)
 
 
 @warning_ignore("shadowed_variable_base_class")

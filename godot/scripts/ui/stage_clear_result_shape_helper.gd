@@ -59,66 +59,6 @@ static func closed_polyline_points(points: PackedVector2Array) -> PackedVector2A
 	return closed
 
 
-static func corner_brace_segments(
-	top_left: Vector2,
-	top_right: Vector2,
-	bottom_right: Vector2,
-	bottom_left: Vector2,
-	draw_scale: float
-) -> Array:
-	var brace_len: float = max(8.0, 14.0 * draw_scale)
-	var corners: Array = [
-		{"corner": top_left, "neighbors": [top_right, bottom_left]},
-		{"corner": top_right, "neighbors": [top_left, bottom_right]},
-		{"corner": bottom_right, "neighbors": [top_right, bottom_left]},
-		{"corner": bottom_left, "neighbors": [top_left, bottom_right]},
-	]
-	var segments: Array = []
-	for entry_value in corners:
-		var entry: Dictionary = entry_value
-		var corner: Vector2 = entry["corner"]
-		var neighbors_value: Variant = entry["neighbors"]
-		if not (neighbors_value is Array):
-			continue
-		var neighbors: Array = neighbors_value
-		for neighbor_value in neighbors:
-			if not (neighbor_value is Vector2):
-				continue
-			var neighbor: Vector2 = neighbor_value
-			var direction: Vector2 = neighbor - corner
-			if direction.length_squared() <= 0.001:
-				continue
-			segments.append({
-				"start": corner,
-				"end": corner + direction.normalized() * brace_len,
-			})
-	return segments
-
-
-static func get_box_lock_size(draw_scale: float, box_hy: float) -> float:
-	if box_hy > 0.0:
-		return max(6.0 * draw_scale, box_hy * 0.30)
-	return 22.0 * draw_scale
-
-
-static func get_box_lock_center(draw_center: Vector2, lock_offset_y: float, box_rotation: float) -> Vector2:
-	return rotated_local_point(draw_center, Vector2(0.0, lock_offset_y), box_rotation)
-
-
-static func get_box_lock_face_points(
-	draw_center: Vector2,
-	lock_offset_y: float,
-	lock_size: float,
-	box_rotation: float
-) -> PackedVector2Array:
-	return PackedVector2Array([
-		rotated_local_point(draw_center, Vector2(0.0, lock_offset_y - lock_size), box_rotation),
-		rotated_local_point(draw_center, Vector2(lock_size * 0.72, lock_offset_y), box_rotation),
-		rotated_local_point(draw_center, Vector2(0.0, lock_offset_y + lock_size), box_rotation),
-		rotated_local_point(draw_center, Vector2(-lock_size * 0.72, lock_offset_y), box_rotation),
-	])
-
-
 static func box_hover_glow_layers(radius_x: float, radius_y: float, global_alpha: float, pulse: float, layer_count: int = 4) -> Array:
 	var layers: Array = []
 	var safe_layer_count: int = max(1, layer_count)
@@ -171,11 +111,3 @@ static func box_hover_sparkles(
 		})
 	return sparkles
 
-
-static func rotated_local_point(origin: Vector2, local_point: Vector2, angle: float) -> Vector2:
-	var c: float = cos(angle)
-	var s: float = sin(angle)
-	return origin + Vector2(
-		local_point.x * c - local_point.y * s,
-		local_point.x * s + local_point.y * c
-	)
