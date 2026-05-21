@@ -33,3 +33,32 @@ static func update_fireflies(fireflies: Array, delta: float, layout_size: Vector
 		elif float(fly.get("y", 0.0)) > layout_size.y + 25.0:
 			fly["y"] = -25.0
 		fireflies[index] = fly
+
+
+static func update_leaf_particles(leaf_particles: Array, delta: float) -> void:
+	var write_index := 0
+	var particle_count := leaf_particles.size()
+	for index in range(particle_count):
+		var particle: Dictionary = leaf_particles[index]
+		var life: float = float(particle.get("life", 0.0)) - delta
+		if life <= 0.0:
+			continue
+		var pos: Vector2 = _get_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO)
+		var vel: Vector2 = _get_vector2(particle.get("vel", Vector2.ZERO), Vector2.ZERO)
+		vel.y += 86.0 * delta
+		vel *= pow(0.985, delta * 60.0)
+		pos += vel * delta
+		particle["pos"] = pos
+		particle["vel"] = vel
+		particle["life"] = life
+		particle["rot"] = float(particle.get("rot", 0.0)) + float(particle.get("spin", 0.0)) * delta
+		leaf_particles[write_index] = particle
+		write_index += 1
+	if write_index < particle_count:
+		leaf_particles.resize(write_index)
+
+
+static func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
+	if value is Vector2:
+		return value
+	return fallback
