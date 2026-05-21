@@ -3399,6 +3399,14 @@ This section is intentionally long; use search to find the nearest owner.
   combat-result calculation, boss damage / gauge queueing, particle / feedback
   / audio side effects, lingering-effect spawning, and hit-event array
   ownership while delegating stable result payload shapes here.
+- `scripts/characters/commando_firearm_projectile_spawn_state.gd`
+  Owns pure direct-fire Commando projectile payload scaffolding: base bullet /
+  rocket / net dictionaries plus optional doping, slingshot, explosion,
+  acceleration, smoke-trail, and rope-trail fields. The runtime keeps fire
+  input gates, profile mutation, aim / spread calculation, projectile-array
+  ownership, support-call / bowling-trap dispatch, muzzle flashes, shell
+  casing side effects, and audio while delegating stable projectile field
+  shapes here.
 - `scripts/characters/commando_firearm_slingshot_state.gd`
   Owns pure Commando slingshot charge state: charging / not-ready /
   charge-canceled / release result payloads, charge-level thresholds, interval
