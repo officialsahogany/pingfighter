@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const Stage2PillarAssets := preload("res://scripts/stages/stage2/stage2_pillar_assets.gd")
 const Stage2RenderBudgetHelper := preload("res://scripts/stages/stage2/stage2_render_budget_helper.gd")
+const Stage2AudioRouter := preload("res://scripts/stages/stage2/stage2_audio_router.gd")
 const Stage2PillarImagegenRenderer := preload("res://scripts/stages/stage2/stage2_pillar_imagegen_renderer.gd")
 const Stage2PillarImagegenAssetsBuilder := preload("res://scripts/stages/stage2/stage2_pillar_imagegen_assets_builder.gd")
 const Stage2PillarObstacleVisualRenderer := preload("res://scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd")
@@ -1748,9 +1749,7 @@ func _emit_boss_rage_final_stomp(deps: Dictionary) -> void:
 
 
 func _play_boss_rage_cry(deps: Dictionary) -> void:
-	var audio: Object = _resolve_rage_audio(deps)
-	if audio != null and audio.has_method("play_stage2_boss_cry"):
-		audio.play_stage2_boss_cry()
+	Stage2AudioRouter.play_boss_cry(deps, rage_audio)
 
 
 func _update_quake_rock_drop(rock: Dictionary, delta: float) -> void:
@@ -2002,32 +2001,20 @@ func _is_player_status_immune(deps: Dictionary, context: Dictionary = {}) -> boo
 
 
 func _sync_quake_audio(deps: Dictionary) -> void:
-	if quake_timer > 0.0:
-		_play_quake_audio(deps)
-	elif quake_audio_active:
-		_stop_quake_audio(deps)
+	quake_audio_active = Stage2AudioRouter.sync_quake_loop(
+		quake_timer,
+		quake_audio_active,
+		deps,
+		rage_audio
+	)
 
 
 func _play_quake_audio(deps: Dictionary) -> void:
-	var audio: Object = _resolve_rage_audio(deps)
-	if audio == null or not audio.has_method("play_stage2_quake_loop"):
-		return
-	audio.play_stage2_quake_loop()
-	quake_audio_active = true
+	quake_audio_active = Stage2AudioRouter.play_quake_loop(deps, rage_audio, quake_audio_active)
 
 
 func _stop_quake_audio(deps: Dictionary) -> void:
-	var audio: Object = _resolve_rage_audio(deps)
-	if audio != null and audio.has_method("stop_stage2_quake_loop"):
-		audio.stop_stage2_quake_loop()
-	quake_audio_active = false
-
-
-func _resolve_rage_audio(deps: Dictionary) -> Object:
-	var audio: Object = deps.get("audio", null)
-	if audio != null:
-		return audio
-	return rage_audio
+	quake_audio_active = Stage2AudioRouter.stop_quake_loop(deps, rage_audio)
 
 
 func _get_quake_screen_offset() -> Vector2:

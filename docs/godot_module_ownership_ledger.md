@@ -1189,6 +1189,8 @@ This section is intentionally long; use search to find the nearest owner.
   calculation is delegated to `stage2_quake_screen_shake_state.gd`;
   quake ball-motion impulse / player-pull / speed-cap / boss-launch guard
   math is delegated to `stage2_quake_ball_motion_state.gd`;
+  quake loop and boss-rage cry audio routing is delegated to
+  `stage2_audio_router.gd`;
   skill-warning timer / text state is delegated to
   `stage2_skill_warning_state.gd`;
   border-flash and boss-rage screen tint drawing is delegated to
@@ -1434,6 +1436,11 @@ This section is intentionally long; use search to find the nearest owner.
   safety-band / minimum downward-speed math. The background module still
   owns quake lifecycle, ball velocity backup / restore, boss-launch guard
   timer storage, RNG shake injection, and scene mutation timing.
+- `scripts/stages/stage2/stage2_audio_router.gd`
+  Owns Stage 2 gameplay-audio routing helpers for quake loop start / stop /
+  sync and boss-rage cry playback, including the cached rage-audio fallback
+  used during pre-rally animations. `stage2_pillar_background.gd` still owns
+  quake lifecycle state, the cached audio handle, and when cues are emitted.
 - `scripts/stages/stage2/stage2_skill_warning_state.gd`
   Owns Stage 2 skill-warning state: trigger text / kind, minimum duration
   clamp, timer decay, active checks, reset, and renderer snapshot payload.
