@@ -43,6 +43,7 @@ const Stage2BorderFlashState := preload("res://scripts/stages/stage2/stage2_bord
 const Stage2FragmentHitFlashState := preload("res://scripts/stages/stage2/stage2_fragment_hit_flash_state.gd")
 const Stage2RockQuery := preload("res://scripts/stages/stage2/stage2_rock_query.gd")
 const Stage2VisibilityState := preload("res://scripts/stages/stage2/stage2_visibility_state.gd")
+const Stage2QuakeScreenShakeState := preload("res://scripts/stages/stage2/stage2_quake_screen_shake_state.gd")
 
 const MAX_LEAF_PARTICLES := 120
 const LEAF_PARTICLE_RENDER_LIMIT := 16
@@ -2327,25 +2328,7 @@ func _resolve_rage_audio(deps: Dictionary) -> Object:
 
 
 func _get_quake_screen_offset() -> Vector2:
-	if quake_timer <= 0.0:
-		return Vector2.ZERO
-	var elapsed_frames: float = clamp((quake_duration - quake_timer) * 60.0, 0.0, max(1.0, quake_duration * 60.0))
-	var progress: float = elapsed_frames / max(1.0, quake_duration * 60.0)
-	var base_intensity: float
-	if progress < 0.14:
-		base_intensity = 13.2 + sin(progress / 0.14 * PI) * 1.5
-	elif progress < 0.65:
-		var middle_progress: float = (progress - 0.14) / 0.51
-		base_intensity = 12.0 - middle_progress * 4.1
-	else:
-		var fade_progress: float = (progress - 0.65) / 0.35
-		base_intensity = 7.9 * (1.0 - clamp(fade_progress, 0.0, 1.0))
-	var pulse: float = 1.0 + sin(elapsed_frames * 1.7) * 0.22
-	var wave_x: float = sin(elapsed_frames * 2.2) * base_intensity * 0.52
-	var wave_y: float = cos(elapsed_frames * 2.8) * base_intensity * 0.66
-	var noise_x: float = quake_motion_rng.randf_range(-base_intensity * 0.45, base_intensity * 0.45)
-	var noise_y: float = quake_motion_rng.randf_range(-base_intensity * 0.38, base_intensity * 0.38)
-	return Vector2(round((wave_x + noise_x) * pulse), round((wave_y + noise_y) * pulse))
+	return Stage2QuakeScreenShakeState.get_offset(quake_timer, quake_duration, quake_motion_rng)
 
 
 func _capture_quake_ball_velocity_backup(ball_vel: Vector2, _context: Dictionary) -> void:
