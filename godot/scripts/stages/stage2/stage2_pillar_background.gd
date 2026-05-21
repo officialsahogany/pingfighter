@@ -44,6 +44,7 @@ const Stage2FragmentHitFlashState := preload("res://scripts/stages/stage2/stage2
 const Stage2RockQuery := preload("res://scripts/stages/stage2/stage2_rock_query.gd")
 const Stage2VisibilityState := preload("res://scripts/stages/stage2/stage2_visibility_state.gd")
 const Stage2QuakeScreenShakeState := preload("res://scripts/stages/stage2/stage2_quake_screen_shake_state.gd")
+const Stage2QuakeBallMotionState := preload("res://scripts/stages/stage2/stage2_quake_ball_motion_state.gd")
 
 const MAX_LEAF_PARTICLES := 120
 const LEAF_PARTICLE_RENDER_LIMIT := 16
@@ -2361,46 +2362,15 @@ func _restore_quake_ball_velocity(scene: Dictionary, _context: Dictionary) -> bo
 
 
 func _get_quake_impulse_scale(progress: float) -> float:
-	if progress < 0.18:
-		return 1.0
-	if progress < 0.72:
-		var middle_progress: float = (progress - 0.18) / 0.54
-		return 1.0 - middle_progress * 0.22
-	var fade_progress: float = (progress - 0.72) / 0.28
-	return 0.78 * (1.0 - clamp(fade_progress, 0.0, 1.0))
+	return Stage2QuakeBallMotionState.get_impulse_scale(progress)
 
 
 func _apply_quake_player_pull(ball_vel: Vector2, ball_pos: Vector2, context: Dictionary) -> Vector2:
-	var player_pos: Vector2 = _get_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
-	var player_size: Vector2 = _get_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
-	var player_center: Vector2 = player_pos + player_size * 0.5
-	var delta: Vector2 = player_center - ball_pos
-	var distance: float = delta.length()
-	if distance > 10.0:
-		var influence: float = 0.08 / distance
-		ball_vel += delta * influence * 0.01
-	return ball_vel
+	return Stage2QuakeBallMotionState.apply_player_pull(ball_vel, ball_pos, context)
 
 
 func _apply_quake_original_speed_cap(scene: Dictionary, ball_vel: Vector2) -> Vector2:
-	var impact_boost: float = max(1.0, float(scene.get("ball_impact_boost", 1.0)))
-	var effective_speed: float = ball_vel.length() * impact_boost
-	if effective_speed > QUAKE_BALL_EFFECTIVE_SPEED_CAP and effective_speed > 0.001:
-		ball_vel = ball_vel.normalized() * (QUAKE_BALL_EFFECTIVE_SPEED_CAP / impact_boost)
-
-	var max_speed: float = float(scene.get("max_ball_speed", QUAKE_BALL_EFFECTIVE_SPEED_CAP))
-	if max_speed > 0.0:
-		scene["max_ball_speed"] = min(max_speed, QUAKE_BALL_EFFECTIVE_SPEED_CAP)
-	else:
-		scene["max_ball_speed"] = QUAKE_BALL_EFFECTIVE_SPEED_CAP
-
-	var impact_cap: float = float(scene.get("impact_boost_max_ball_speed", QUAKE_BALL_EFFECTIVE_SPEED_CAP))
-	if impact_cap > 0.0:
-		scene["impact_boost_max_ball_speed"] = min(impact_cap, QUAKE_BALL_EFFECTIVE_SPEED_CAP)
-	else:
-		scene["impact_boost_max_ball_speed"] = QUAKE_BALL_EFFECTIVE_SPEED_CAP
-
-	return ball_vel
+	return Stage2QuakeBallMotionState.apply_original_speed_cap(scene, ball_vel, QUAKE_BALL_EFFECTIVE_SPEED_CAP)
 
 
 func _apply_quake_boss_launch_guard(

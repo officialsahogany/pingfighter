@@ -1187,6 +1187,8 @@ This section is intentionally long; use search to find the nearest owner.
   quake-wave renderer visual-state payloads are delegated to
   `stage2_quake_wave_visual_state_builder.gd`; quake screen-shake offset
   calculation is delegated to `stage2_quake_screen_shake_state.gd`;
+  quake ball-motion impulse / player-pull / speed-cap math is delegated to
+  `stage2_quake_ball_motion_state.gd`;
   skill-warning timer / text state is delegated to
   `stage2_skill_warning_state.gd`;
   border-flash and boss-rage screen tint drawing is delegated to
@@ -1363,6 +1365,11 @@ This section is intentionally long; use search to find the nearest owner.
   duration, and the injected motion RNG. The background module still owns
   quake lifecycle, the RNG instance / seed, feedback dispatch, audio, and
   ball physics.
+- `scripts/stages/stage2/stage2_quake_ball_motion_state.gd`
+  Owns Stage 2 quake ball-motion stateless helpers: impulse-scale tapering,
+  player-center pull, and original speed-cap enforcement. The background
+  module still owns quake lifecycle, ball velocity backup / restore,
+  boss-launch guard timers, RNG shake injection, and scene mutation timing.
 - `scripts/stages/stage2/stage2_skill_warning_state.gd`
   Owns Stage 2 skill-warning state: trigger text / kind, minimum duration
   clamp, timer decay, active checks, reset, and renderer snapshot payload.
