@@ -285,9 +285,9 @@ func _init() -> void:
 	_expect(_registry.perk_overlay_renderer.prewarm_count == 1, "stage runtime prewarm should warm runtime perk overlay text caches before the first overlay draw")
 	_expect(_registry.perk_debug_picker.prewarm_count == 0, "stage runtime prewarm should defer perk debug picker assets until opened")
 	_expect(_registry.character_info.prewarm_count == 0, "stage runtime prewarm should defer character info assets until opened")
-	_expect(_registry.result_screen.shell_prewarm_count == 0, "stage runtime prewarm should defer the stage-clear result shell until result time")
-	_expect(_registry.result_screen.prewarm_count == 0, "stage runtime prewarm should not load full stage-clear result assets before battle")
-	_expect(_registry.result_screen.step_calls == 0, "stage runtime prewarm should not touch the heavy result staged path before battle")
+	_expect(_registry.result_screen.shell_prewarm_count == 0, "stage runtime prewarm should leave the stage-clear result shell for the dedicated result warmup")
+	_expect(_registry.result_screen.prewarm_count == 0, "stage runtime prewarm should leave full stage-clear result assets for the dedicated result warmup")
+	_expect(_registry.result_screen.step_calls == 0, "stage runtime prewarm should not touch the heavy result staged path before its dedicated warmup")
 	_expect(_registry.smasher_warp_gate_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher warp gate assets once")
 	_expect(_registry.smasher_wheel_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher wheel assets once")
 	_expect(_registry.smasher_shield_kiting_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher shield assets once")
@@ -560,8 +560,16 @@ func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:
 		"boot warmup should advance stage runtime resource prewarm one chunk per frame"
 	)
 	_expect(
+		source.find("\"prewarm_stage_clear_result_resources_step\"") >= 0,
+		"boot warmup should advance full stage-clear result prewarm one chunk per frame"
+	)
+	_expect(
 		source.find("\"prewarm_stage_runtime_resources\")") < 0,
 		"boot warmup should not run the monolithic stage runtime prewarm loop in one process frame"
+	)
+	_expect(
+		source.find("\"prewarm_stage_clear_result_resources\")") < 0,
+		"boot warmup should not run the monolithic stage-clear result prewarm loop in one process frame"
 	)
 
 

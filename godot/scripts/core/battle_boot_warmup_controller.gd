@@ -1,6 +1,6 @@
 extends RefCounted
 
-const BOOT_WARMUP_TOTAL_STEPS := 20
+const BOOT_WARMUP_TOTAL_STEPS := 21
 const BOOT_WARMUP_STATUS_BY_STEP := {
 	0: "전투 화면 준비 중",
 	1: "인트로 리소스 확인 중",
@@ -20,8 +20,9 @@ const BOOT_WARMUP_STATUS_BY_STEP := {
 	15: "드로우 런타임 준비 중",
 	16: "스테이지 인트로 준비 중",
 	17: "스테이지 런타임 준비 중",
-	18: "전투 상태 초기화 중",
-	19: "첫 프레임 정리 중",
+	18: "결과 화면 리소스 준비 중",
+	19: "전투 상태 초기화 중",
+	20: "첫 프레임 정리 중",
 }
 
 const BOOT_WARMUP_SAMPLE_LABEL_BY_STEP := {
@@ -43,8 +44,9 @@ const BOOT_WARMUP_SAMPLE_LABEL_BY_STEP := {
 	15: "15_modules_draw_runtime",
 	16: "16_stage_intro_resources",
 	17: "17_stage_runtime_resources",
-	18: "18_initialize_battle",
-	19: "19_first_redraw",
+	18: "18_stage_clear_result_resources",
+	19: "19_initialize_battle",
+	20: "20_first_redraw",
 }
 const STAGE_RUNTIME_COMMON_SAMPLE_LABELS := [
 	"00_weather_renderer",
@@ -195,9 +197,11 @@ func run_boot_warmup_step(
 		17:
 			should_advance = _call_resource_prewarm_bool(owner, module_getter, "prewarm_stage_runtime_resources_step")
 		18:
+			should_advance = _call_resource_prewarm_bool_no_owner(module_getter, "prewarm_stage_clear_result_resources_step")
+		19:
 			if initialize_battle.is_valid():
 				initialize_battle.call(false)
-		19:
+		20:
 			if request_redraw.is_valid():
 				request_redraw.call()
 		_:
@@ -333,6 +337,13 @@ func _call_resource_prewarm_bool(owner: Object, module_getter: Callable, method_
 	if resource_prewarm == null or not resource_prewarm.has_method(method_name):
 		return true
 	return bool(resource_prewarm.call(method_name, owner, module_getter))
+
+
+func _call_resource_prewarm_bool_no_owner(module_getter: Callable, method_name: String) -> bool:
+	var resource_prewarm: Object = _get_resource_prewarm_controller(module_getter)
+	if resource_prewarm == null or not resource_prewarm.has_method(method_name):
+		return true
+	return bool(resource_prewarm.call(method_name, module_getter))
 
 
 func _get_boot_warmup_sample_label(owner: Object, module_getter: Callable) -> String:

@@ -273,10 +273,15 @@ func _verify_loading_snapshot_uses_warmup_status() -> void:
 
 func _verify_warmup_progress_contract() -> void:
 	var warmup: Object = BattleBootWarmupController.new()
-	_expect(int(warmup.get_total_steps()) == 20, "warmup progress should expose the current boot step count")
+	_expect(int(warmup.get_total_steps()) == 21, "warmup progress should expose the current boot step count")
 	_expect(str(warmup.get_status_text()) == "전투 화면 준비 중", "warmup should expose the first loading status")
 	warmup.set("boot_warmup_step", 10)
-	_expect(is_equal_approx(float(warmup.get_progress()), 0.5), "warmup progress should scale by total steps")
+	_expect(
+		is_equal_approx(float(warmup.get_progress()), 10.0 / float(warmup.get_total_steps())),
+		"warmup progress should scale by total steps"
+	)
+	warmup.set("boot_warmup_step", 18)
+	_expect(str(warmup.get_status_text()).contains("결과 화면"), "warmup should expose the stage-clear result prewarm status")
 	warmup.set("boot_warmup_finished", true)
 	_expect(is_equal_approx(float(warmup.get_progress()), 1.0), "finished warmup should report full progress")
 	_expect(str(warmup.get_status_text()) == "전투 준비 완료", "finished warmup should expose completion text")
@@ -287,7 +292,7 @@ func _verify_stage1_stained_glass_loading_path() -> void:
 	var owner := FakeStageNode.new()
 	var canvas := Node2D.new()
 	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", 20)
+	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
 	warmup.set("boot_warmup_finished", true)
 	_modules = {"battle_boot_warmup_controller": warmup}
 
@@ -326,7 +331,7 @@ func _verify_stage2_stained_glass_loading_path() -> void:
 	var owner := FakeStage2Node.new()
 	var canvas := Node2D.new()
 	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", 20)
+	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
 	warmup.set("boot_warmup_finished", true)
 	_modules = {"battle_boot_warmup_controller": warmup}
 
@@ -358,7 +363,7 @@ func _verify_stage3_stained_glass_loading_path() -> void:
 	var owner := FakeStage3Node.new()
 	var canvas := Node2D.new()
 	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", 20)
+	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
 	warmup.set("boot_warmup_finished", true)
 	_modules = {"battle_boot_warmup_controller": warmup}
 
@@ -394,7 +399,7 @@ func _verify_stage4_stained_glass_loading_path() -> void:
 	var owner := FakeStage4Node.new()
 	var canvas := Node2D.new()
 	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", 20)
+	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
 	warmup.set("boot_warmup_finished", true)
 	_modules = {"battle_boot_warmup_controller": warmup}
 
@@ -430,7 +435,7 @@ func _verify_stained_glass_host_released_on_non_stained_stage5() -> void:
 	var owner := FakeStage2Node.new()
 	var canvas := Node2D.new()
 	var warmup: Object = BattleBootWarmupController.new()
-	warmup.set("boot_warmup_step", 20)
+	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
 	warmup.set("boot_warmup_finished", true)
 	_modules = {"battle_boot_warmup_controller": warmup}
 	renderer.prewarm_assets()
