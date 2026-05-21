@@ -116,6 +116,7 @@ func _verify_background_delegates_audio_router() -> void:
 	_expect(source.find("Stage2AudioRouter.play_hydro") >= 0, "Stage 2 background should delegate hydro audio")
 	_expect(source.find("Stage2AudioRouter.play_starpoint_collect") >= 0, "Stage 2 background should delegate starpoint audio")
 	_expect(source.find("func _resolve_rage_audio") < 0, "Stage 2 background should not keep the old rage audio resolver")
+	_expect(source.find("func _play_boss_rage_cry") < 0, "Stage 2 background should not keep the old boss cry audio wrapper")
 	_expect(source.find("func _play_rock_break_audio") < 0, "Stage 2 background should not keep the old rock break audio wrapper")
 
 

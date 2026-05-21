@@ -175,6 +175,11 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Stage 2 overlay draw should pass the leaf severe render cap"
 	)
 	_expect(
+		background_source.find("skill_warning_state.trigger") >= 0
+			and background_source.find("func _trigger_skill_warning") < 0,
+		"Stage 2 background should trigger delegated skill-warning state directly"
+	)
+	_expect(
 		background_source.find("Stage2RenderBudgetHelper.get_playfield_quality_scale") >= 0
 			and background_source.find("Stage2RenderBudgetHelper.get_lod_count") >= 0,
 		"Stage 2 draw paths should call render-budget helpers directly"

@@ -417,7 +417,7 @@ func activate_quake(
 	if spawn_count > 0:
 		_spawn_quake_rocks(spawn_count, deps)
 	water_cannon_delay = WATER_CANNON_AFTER_QUAKE_DELAY_SEC if schedule_water_cannon and not rocks.is_empty() else -1.0
-	_trigger_skill_warning("quake", "정글지진!", 1.35)
+	skill_warning_state.trigger("quake", "정글지진!", 1.35)
 	_play_quake_audio(deps)
 	return true
 
@@ -471,7 +471,7 @@ func start_boss_rage_animation(deps: Dictionary = {}) -> bool:
 	boss_rage_offset_y = 0.0
 	boss_rage_tint = 0.0
 	rage_audio = deps.get("audio", null)
-	_trigger_skill_warning("rage", "악어장군 분노!", 1.25)
+	skill_warning_state.trigger("rage", "악어장군 분노!", 1.25)
 	var feedback: Object = deps.get("feedback", null)
 	if feedback != null and feedback.has_method("max_screen_shake"):
 		feedback.max_screen_shake(0.055, 2.2)
@@ -524,7 +524,7 @@ func activate_water_cannon(context: Dictionary = {}, _deps: Dictionary = {}) -> 
 	water_cannon_timer = WATER_CANNON_CHARGE_SEC
 	water_cannon_delay = -1.0
 	Stage2RockRuntimeState.mark_water_target(rocks, water_cannon_target_id)
-	_trigger_skill_warning("water_charge", "물대포 조준!", WATER_CANNON_CHARGE_SEC + 0.22)
+	skill_warning_state.trigger("water_charge", "물대포 조준!", WATER_CANNON_CHARGE_SEC + 0.22)
 	return true
 
 
@@ -1684,7 +1684,7 @@ func _emit_boss_rage_stomps(previous_timer: float, current_timer: float, deps: D
 	for step in stomp_steps:
 		boss_rage_stomp_count += 1
 		boss_rage_offset_y = Stage2BossRageState.get_stomp_offset_y(step)
-		_play_boss_rage_cry(deps)
+		Stage2AudioRouter.play_boss_cry(deps, rage_audio)
 		var feedback: Object = deps.get("feedback", null)
 		if feedback != null and feedback.has_method("max_screen_shake"):
 			feedback.max_screen_shake(0.060, 2.5 + float(step) * 0.18)
@@ -1703,16 +1703,12 @@ func _emit_boss_rage_final_stomp(deps: Dictionary) -> void:
 	quake_boss_launch_guard_timer = QUAKE_BOSS_LAUNCH_GUARD_SEC
 	quake_affects_ball = false
 	_spawn_crisis_rock_wall(deps)
-	_trigger_skill_warning("rage_wall", "방어벽 낙하!", 1.25)
+	skill_warning_state.trigger("rage_wall", "방어벽 낙하!", 1.25)
 	_play_quake_audio(deps)
-	_play_boss_rage_cry(deps)
+	Stage2AudioRouter.play_boss_cry(deps, rage_audio)
 	var feedback: Object = deps.get("feedback", null)
 	if feedback != null and feedback.has_method("max_screen_shake"):
 		feedback.max_screen_shake(0.082, 4.0)
-
-
-func _play_boss_rage_cry(deps: Dictionary) -> void:
-	Stage2AudioRouter.play_boss_cry(deps, rage_audio)
 
 
 func _update_quake_rock_drop(rock: Dictionary, delta: float) -> void:
@@ -1771,7 +1767,7 @@ func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -
 			water_cannon_phase = "firing"
 			water_cannon_timer = WATER_CANNON_FIRE_SEC
 			water_cannon_progress = 0.0
-			_trigger_skill_warning("water_fire", "물대포 발사!", 0.78)
+			skill_warning_state.trigger("water_fire", "물대포 발사!", 0.78)
 			Stage2AudioRouter.play_hydro(deps)
 		return
 
@@ -1866,7 +1862,7 @@ func _finish_water_cannon(context: Dictionary, deps: Dictionary) -> void:
 	if feedback != null and feedback.has_method("max_screen_shake"):
 		feedback.max_screen_shake(0.060, 3.0)
 	Stage2AudioRouter.play_rock_break(target_rock, deps)
-	_trigger_skill_warning("fragment", "파편 주의!", SKILL_WARNING_FRAGMENT_SEC)
+	skill_warning_state.trigger("fragment", "파편 주의!", SKILL_WARNING_FRAGMENT_SEC)
 	_cancel_water_cannon()
 
 
@@ -2005,10 +2001,6 @@ func _was_last_hit_by_boss(deps: Dictionary) -> bool:
 	if ball_intensity != null and ball_intensity.has_method("get_last_hit_by"):
 		return str(ball_intensity.get_last_hit_by()) == "boss"
 	return false
-
-
-func _trigger_skill_warning(kind: String, text: String, duration: float = SKILL_WARNING_DEFAULT_SEC) -> void:
-	skill_warning_state.trigger(kind, text, duration)
 
 
 func _perf_begin() -> int:
