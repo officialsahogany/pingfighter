@@ -1,6 +1,5 @@
 extends SceneTree
 
-const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 
 var _failures: Array[String] = []
@@ -10,7 +9,7 @@ func _init() -> void:
 	_verify_wrapping()
 	_verify_font_fit()
 	_verify_centered_baseline()
-	_verify_scene_wrappers()
+	_verify_scene_uses_text_layout_helper()
 
 	if _failures.is_empty():
 		print("stage_clear_result_text_layout_helper_smoke: ok")
@@ -50,12 +49,21 @@ func _verify_centered_baseline() -> void:
 	_expect(baseline.y >= rect.position.y and baseline.y <= rect.end.y + 20.0, "centered baseline should stay near the rect vertical center")
 
 
-func _verify_scene_wrappers() -> void:
-	var scene := StageClearResultScene.new()
-	var font: Font = ThemeDB.fallback_font
-	_expect(scene._wrap_words_to_width(font, "alpha beta gamma delta", 18, 80.0, 2).size() <= 2, "result scene wrap wrapper should delegate")
-	_expect(scene._fit_font_size(font, "wide text", 30.0, 22, 9) <= 22, "result scene font-fit wrapper should delegate")
-	scene.free()
+func _verify_scene_uses_text_layout_helper() -> void:
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(
+		source.find("StageClearResultTextLayoutHelper.wrap_words_to_width") >= 0
+		and source.find("StageClearResultTextLayoutHelper.fit_font_size") >= 0,
+		"result scene should call text layout helper directly"
+	)
+	for removed_wrapper in [
+		"func _wrap_words_to_width(",
+		"func _fit_font_size(",
+	]:
+		_expect(
+			source.find(removed_wrapper) < 0,
+			"result scene should not keep text layout pass-through wrapper %s" % removed_wrapper
+		)
 
 
 func _expect(condition: bool, message: String) -> void:

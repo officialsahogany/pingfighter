@@ -121,12 +121,21 @@ func _verify_scene_delegates_text_resolver() -> void:
 	var scene := StageClearResultScene.new()
 	scene._perk_catalog = FakePerkCatalog.new()
 
-	_expect(scene._reward_type_fallback_label("active") == "액티브", "scene fallback-label wrapper should delegate")
 	_expect(scene._get_reward_title({"type": "starpoint", "amount": 5}).contains("+5"), "scene should keep starpoint amount title formatting")
 	_expect(scene._get_reward_title({"type": "perk", "perk_id": "catalog_perk"}) == "Catalog Perk", "scene title wrapper should use catalog perk names")
 	_expect(scene._get_reward_detail_text({"type": "perk", "perk_id": "catalog_perk"}) == "Catalog Detail", "scene detail wrapper should use catalog perk descriptions")
 	_expect(scene._get_reward_detail_text({"perk_data": {"descriptions": {2: "Level 2"}}, "next_level": 2}) == "Level 2", "scene detail wrapper should delegate level descriptions")
 	_expect(scene._get_reward_perk_data({"perk_id": "catalog_perk"}).get("name", "") == "Catalog Perk", "scene perk-data wrapper should delegate catalog lookup")
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(
+		source.find("StageClearResultRewardTextResolver.get_reward_type_fallback_label") >= 0,
+		"scene should call fallback-label resolver directly"
+	)
+	_expect(
+		source.find("func _reward_type_fallback_label") < 0
+		and source.find("func _get_reward_detail_fallback_text") < 0,
+		"scene should not keep text pass-through fallback wrappers"
+	)
 	scene.free()
 
 

@@ -1059,10 +1059,10 @@ func _draw_reward_item_icon(reward: Dictionary, anchor: Vector2, scale: float, a
 	else:
 		var fallback_label: String = str(reward.get("label", ""))
 		if fallback_label == "":
-			fallback_label = _reward_type_fallback_label(reward_type)
+			fallback_label = StageClearResultRewardTextResolver.get_reward_type_fallback_label(reward_type)
 		var font: Font = ThemeDB.fallback_font
 		var text_rect: Rect2 = visual_state.get("fallback_text_rect", Rect2())
-		var font_size: int = _fit_font_size(
+		var font_size: int = StageClearResultTextLayoutHelper.fit_font_size(
 			font,
 			fallback_label,
 			text_rect.size.x,
@@ -1182,10 +1182,6 @@ func _draw_star_polygon_scaled(
 
 func _get_reward_icon_texture(reward: Dictionary) -> Texture2D:
 	return StageClearResultRewardIconResolver.get_reward_icon_texture(reward, _reward_icon_cache)
-
-
-func _reward_type_fallback_label(reward_type: String) -> String:
-	return StageClearResultRewardTextResolver.get_reward_type_fallback_label(reward_type)
 
 
 func _handle_box_click(mouse_position: Vector2) -> bool:
@@ -1657,7 +1653,7 @@ func _draw_perk_info_tile(font: Font, rect: Rect2, summary: Dictionary, ui_scale
 		title_color = Color(0.04, 0.20, 0.44, alpha)
 
 	_draw_text(font, eyebrow, rect.position + Vector2(14.0, 22.0) * ui_scale, int(round(15.0 * ui_scale)), label_color, 0.0)
-	_draw_text(font, title, rect.position + Vector2(14.0, 48.0) * ui_scale, _fit_font_size(font, title, rect.size.x - 28.0 * ui_scale, int(round(22.0 * ui_scale)), int(round(13.0 * ui_scale))), title_color, 0.0)
+	_draw_text(font, title, rect.position + Vector2(14.0, 48.0) * ui_scale, StageClearResultTextLayoutHelper.fit_font_size(font, title, rect.size.x - 28.0 * ui_scale, int(round(22.0 * ui_scale)), int(round(13.0 * ui_scale))), title_color, 0.0)
 	_draw_wrapped_text(
 		font,
 		detail,
@@ -1739,7 +1735,7 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 		5.0 * scale
 	)
 	var label: String = _get_reward_title(reward)
-	var label_size: int = _fit_font_size(
+	var label_size: int = StageClearResultTextLayoutHelper.fit_font_size(
 		font,
 		label,
 		label_rect.size.x,
@@ -1780,7 +1776,7 @@ func _draw_reward_source_chip(font: Font, reward: Dictionary, rect: Rect2, scale
 		float(visual_state.get("border_width", max(1.0, 1.0 * scale))),
 		float(visual_state.get("corner_radius", 6.0 * scale))
 	)
-	var font_size: int = _fit_font_size(
+	var font_size: int = StageClearResultTextLayoutHelper.fit_font_size(
 		font,
 		source_label,
 		chip_rect.size.x - 6.0 * scale,
@@ -1830,12 +1826,8 @@ func _get_reward_detail_text(reward: Dictionary) -> String:
 	return StageClearResultRewardTextResolver.get_reward_detail_text(
 		reward,
 		_get_reward_perk_data(reward),
-		_get_reward_detail_fallback_text()
+		"획득한 퍽 효과를 적용합니다."
 	)
-
-
-func _get_reward_detail_fallback_text() -> String:
-	return "획득한 퍽 효과를 적용합니다."
 
 
 func _get_reward_perk_data(reward: Dictionary) -> Dictionary:
@@ -1852,7 +1844,7 @@ func _get_reward_title(reward: Dictionary) -> String:
 		reward,
 		_get_reward_perk_data(reward),
 		StageClearResultSummaryBuilder.is_perk_reward(reward),
-		_reward_type_fallback_label(reward_type),
+		StageClearResultRewardTextResolver.get_reward_type_fallback_label(reward_type),
 		"퍽 선택권"
 	)
 
@@ -2213,19 +2205,11 @@ func _draw_wrapped_text(
 ) -> void:
 	if text == "" or max_width <= 0.0 or max_lines <= 0:
 		return
-	var lines: Array[String] = _wrap_words_to_width(font, text, font_size, max_width, max_lines)
+	var lines: Array[String] = StageClearResultTextLayoutHelper.wrap_words_to_width(font, text, font_size, max_width, max_lines)
 	for i in range(lines.size()):
 		var line: String = str(lines[i])
-		var fitted_size: int = _fit_font_size(font, line, max_width, font_size, max(9, int(round(font_size * 0.76))))
+		var fitted_size: int = StageClearResultTextLayoutHelper.fit_font_size(font, line, max_width, font_size, max(9, int(round(font_size * 0.76))))
 		_draw_text(font, line, baseline + Vector2(0.0, float(i) * line_height), fitted_size, color, shadow_alpha)
-
-
-func _wrap_words_to_width(font: Font, text: String, font_size: int, max_width: float, max_lines: int) -> Array[String]:
-	return StageClearResultTextLayoutHelper.wrap_words_to_width(font, text, font_size, max_width, max_lines)
-
-
-func _fit_font_size(font: Font, text: String, max_width: float, preferred_size: int, min_size: int) -> int:
-	return StageClearResultTextLayoutHelper.fit_font_size(font, text, max_width, preferred_size, min_size)
 
 
 func _load_textures() -> void:
