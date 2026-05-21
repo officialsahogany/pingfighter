@@ -1,6 +1,5 @@
 extends SceneTree
 
-const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
 const Stage2QuakeRockOffsetState := preload("res://scripts/stages/stage2/stage2_quake_rock_offset_state.gd")
 
 var _failures: Array[String] = []
@@ -48,22 +47,11 @@ func _verify_background_delegates_offset_state() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
 	_expect(
 		source.find("Stage2QuakeRockOffsetState.update_offset") >= 0,
-		"Stage 2 background source should delegate quake-rock offset state"
+		"Stage 2 background source should call quake-rock offset state directly"
 	)
-	var background := Stage2PillarBackground.new()
-	background.quake_timer = 0.5
-	background.quake_duration = 1.0
-	var rock := {
-		"quake_offset": Vector2.ZERO,
-		"radius": 44.0,
-		"visual_radius": 55.0,
-		"phase": 0.35,
-		"falling": false,
-	}
-	background._update_quake_rock_offset(rock, 0.016)
 	_expect(
-		rock.get("quake_offset", Vector2.ZERO).length() > 0.1,
-		"Stage 2 background should use delegated quake-rock offset state"
+		source.find("func _update_quake_rock_offset") < 0,
+		"Stage 2 background source should not keep the quake-rock offset pass-through wrapper"
 	)
 
 

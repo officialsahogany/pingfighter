@@ -1,6 +1,5 @@
 extends SceneTree
 
-const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
 const Stage2QuakeBallMotionState := preload("res://scripts/stages/stage2/stage2_quake_ball_motion_state.gd")
 
 var _failures: Array[String] = []
@@ -86,19 +85,28 @@ func _verify_boss_launch_guard() -> void:
 
 
 func _verify_background_delegates_quake_ball_motion() -> void:
-	var background := Stage2PillarBackground.new()
-	_expect(
-		is_equal_approx(background._get_quake_impulse_scale(0.45), Stage2QuakeBallMotionState.get_impulse_scale(0.45)),
-		"Stage 2 background should delegate quake impulse scale"
-	)
 	var source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
 	_expect(
+		source.find("Stage2QuakeBallMotionState.get_impulse_scale") >= 0,
+		"Stage 2 background source should call quake impulse scale helper directly"
+	)
+	_expect(
+		source.find("Stage2QuakeBallMotionState.apply_player_pull") >= 0,
+		"Stage 2 background source should call quake player-pull helper directly"
+	)
+	_expect(
 		source.find("Stage2QuakeBallMotionState.apply_original_speed_cap") >= 0,
-		"Stage 2 background source should keep quake speed cap delegated"
+		"Stage 2 background source should call quake speed-cap helper directly"
 	)
 	_expect(
 		source.find("Stage2QuakeBallMotionState.apply_boss_launch_guard") >= 0,
 		"Stage 2 background source should keep boss launch guard delegated"
+	)
+	_expect(
+		source.find("func _get_quake_impulse_scale") < 0
+		and source.find("func _apply_quake_player_pull") < 0
+		and source.find("func _apply_quake_original_speed_cap") < 0,
+		"Stage 2 background source should not keep quake ball pass-through wrappers"
 	)
 
 

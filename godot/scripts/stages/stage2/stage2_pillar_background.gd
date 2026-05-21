@@ -341,7 +341,7 @@ func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> vo
 		var feedback: Object = deps.get("feedback", null)
 		if feedback != null:
 			if feedback.has_method("push_fixed_shake_offset"):
-				feedback.push_fixed_shake_offset(_get_quake_screen_offset())
+				feedback.push_fixed_shake_offset(Stage2QuakeScreenShakeState.get_offset(quake_timer, quake_duration, quake_motion_rng))
 			elif feedback.has_method("max_screen_shake"):
 				var ratio: float = quake_timer / max(0.001, quake_duration)
 				feedback.max_screen_shake(0.040 + ratio * 0.025, 1.6 + ratio * 1.2)
@@ -384,7 +384,7 @@ func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> vo
 			continue
 		Stage2RockRuntimeState.update_visual_timers(rock, clamped_delta)
 		_update_quake_rock_drop(rock, clamped_delta)
-		_update_quake_rock_offset(rock, clamped_delta)
+		Stage2QuakeRockOffsetState.update_offset(rock, clamped_delta, quake_timer, quake_duration)
 		rocks[idx] = rock
 	_update_rock_fragments(clamped_delta)
 	_update_water_cannon(clamped_delta, context, deps)
@@ -436,17 +436,17 @@ func apply_quake_ball_motion(scene: Dictionary, context: Dictionary, _deps: Dict
 
 	var effective_timer: float = max(0.0, quake_timer - max(1.0, fps_scale) / 60.0)
 	var quake_progress: float = 1.0 - (effective_timer / max(0.001, quake_duration))
-	var impulse_scale: float = _get_quake_impulse_scale(quake_progress)
+	var impulse_scale: float = Stage2QuakeBallMotionState.get_impulse_scale(quake_progress)
 	var elapsed_frames: float = max(0.0, quake_duration - effective_timer) * 60.0
 	var shake_x: float = quake_ball_rng.randf_range(-7.6, 7.6) * QUAKE_BALL_SHAKE_SCALE * impulse_scale
 	var shake_y: float = quake_ball_rng.randf_range(-5.2, 5.2) * QUAKE_BALL_SHAKE_SCALE * impulse_scale
 	ball_vel.x += shake_x + sin(elapsed_frames * 0.95) * 0.95 * impulse_scale
 	ball_vel.y += shake_y + cos(elapsed_frames * 1.2) * 0.72 * impulse_scale
-	ball_vel = _apply_quake_player_pull(ball_vel, ball_pos, context)
+	ball_vel = Stage2QuakeBallMotionState.apply_player_pull(ball_vel, ball_pos, context)
 	ball_vel.x = clamp(ball_vel.x, -QUAKE_BALL_MAX_SPEED, QUAKE_BALL_MAX_SPEED)
 	ball_vel.y = clamp(ball_vel.y, -QUAKE_BALL_MAX_SPEED, QUAKE_BALL_MAX_SPEED)
 	ball_vel = _apply_quake_boss_launch_guard(scene, context, ball_vel, fps_scale)
-	ball_vel = _apply_quake_original_speed_cap(scene, ball_vel)
+	ball_vel = Stage2QuakeBallMotionState.apply_original_speed_cap(scene, ball_vel, QUAKE_BALL_EFFECTIVE_SPEED_CAP)
 	scene["ball_vel"] = ball_vel
 	return true
 
@@ -493,7 +493,7 @@ func resolve_quake_boss_backstop(scene: Dictionary, context: Dictionary, deps: D
 	quake_boss_launch_guard_timer = max(quake_boss_launch_guard_timer, QUAKE_BOSS_BACKSTOP_SEC)
 	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 	ball_vel = _apply_quake_boss_launch_guard(scene, context, ball_vel, 1.0)
-	ball_vel = _apply_quake_original_speed_cap(scene, ball_vel)
+	ball_vel = Stage2QuakeBallMotionState.apply_original_speed_cap(scene, ball_vel, QUAKE_BALL_EFFECTIVE_SPEED_CAP)
 	ball_pos = _get_vector2(scene.get("ball_pos", ball_pos), ball_pos)
 	if ball_pos.y - ball_radius <= 0.0:
 		var boss_pos: Vector2 = _get_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
@@ -502,7 +502,7 @@ func resolve_quake_boss_backstop(scene: Dictionary, context: Dictionary, deps: D
 		scene["ball_pos"] = ball_pos
 	var base_speed: float = QUAKE_BALL_REFERENCE_BASE_SPEED
 	ball_vel.y = max(abs(ball_vel.y), base_speed * 0.65)
-	ball_vel = _apply_quake_original_speed_cap(scene, ball_vel)
+	ball_vel = Stage2QuakeBallMotionState.apply_original_speed_cap(scene, ball_vel, QUAKE_BALL_EFFECTIVE_SPEED_CAP)
 	scene["ball_vel"] = ball_vel
 	return true
 
@@ -1732,10 +1732,6 @@ func _step_original_quake_rock_drop(rock: Dictionary, frame_step: float) -> bool
 	return bool(result.get("continue", false))
 
 
-func _update_quake_rock_offset(rock: Dictionary, delta: float) -> void:
-	Stage2QuakeRockOffsetState.update_offset(rock, delta, quake_timer, quake_duration)
-
-
 func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -> void:
 	if water_cannon_phase == "idle":
 		if deps.get("stage2_boss_skill_state", null) != null:
@@ -1945,10 +1941,6 @@ func _stop_quake_audio(deps: Dictionary) -> void:
 	quake_audio_active = Stage2AudioRouter.stop_quake_loop(deps, rage_audio)
 
 
-func _get_quake_screen_offset() -> Vector2:
-	return Stage2QuakeScreenShakeState.get_offset(quake_timer, quake_duration, quake_motion_rng)
-
-
 func _capture_quake_ball_velocity_backup(ball_vel: Vector2, _context: Dictionary) -> void:
 	if quake_ball_velocity_backup_valid:
 		return
@@ -1976,18 +1968,6 @@ func _restore_quake_ball_velocity(scene: Dictionary, _context: Dictionary) -> bo
 	quake_boss_launch_guard_timer = 0.0
 	quake_affects_ball = false
 	return true
-
-
-func _get_quake_impulse_scale(progress: float) -> float:
-	return Stage2QuakeBallMotionState.get_impulse_scale(progress)
-
-
-func _apply_quake_player_pull(ball_vel: Vector2, ball_pos: Vector2, context: Dictionary) -> Vector2:
-	return Stage2QuakeBallMotionState.apply_player_pull(ball_vel, ball_pos, context)
-
-
-func _apply_quake_original_speed_cap(scene: Dictionary, ball_vel: Vector2) -> Vector2:
-	return Stage2QuakeBallMotionState.apply_original_speed_cap(scene, ball_vel, QUAKE_BALL_EFFECTIVE_SPEED_CAP)
 
 
 func _apply_quake_boss_launch_guard(

@@ -1,6 +1,5 @@
 extends SceneTree
 
-const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
 const Stage2QuakeScreenShakeState := preload("res://scripts/stages/stage2/stage2_quake_screen_shake_state.gd")
 
 var _failures: Array[String] = []
@@ -37,21 +36,14 @@ func _verify_quake_screen_offset() -> void:
 
 
 func _verify_background_delegates_quake_screen_offset() -> void:
-	var background := Stage2PillarBackground.new()
-	background.quake_duration = 80.0 / 60.0
-	background.quake_timer = 0.5
-	background.quake_motion_rng.seed = 2204
-	var expected_rng := RandomNumberGenerator.new()
-	expected_rng.seed = 2204
-	_expect(
-		background._get_quake_screen_offset() == Stage2QuakeScreenShakeState.get_offset(0.5, 80.0 / 60.0, expected_rng),
-		"Stage 2 background should delegate quake screen offset calculation"
-	)
-
 	var source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
 	_expect(
 		source.find("Stage2QuakeScreenShakeState.get_offset") >= 0,
-		"Stage 2 background source should keep the quake screen offset delegated"
+		"Stage 2 background source should call the quake screen offset helper directly"
+	)
+	_expect(
+		source.find("func _get_quake_screen_offset") < 0,
+		"Stage 2 background source should not keep the quake screen offset pass-through wrapper"
 	)
 
 
