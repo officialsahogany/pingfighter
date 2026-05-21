@@ -901,16 +901,25 @@ This section is intentionally long; use search to find the nearest owner.
   source-chip colors are delegated to
   `stage_clear_result_reward_visual_resolver.gd`; result chest layout,
   box-frame policy, reward-card grid layout, and sheet / cover source-rect
-  math are delegated to `stage_clear_result_layout_helper.gd`. Keep future
-  reward-pick animation / settlement UI work here rather than adding draw
-  blocks back to the battle shell; do not put grant logic back in this UI
-  scene.
+  math are delegated to `stage_clear_result_layout_helper.gd`; centered text
+  baseline, word wrapping, and font-size fitting helpers are delegated to
+  `stage_clear_result_text_layout_helper.gd`; result scroll phase
+  progression, unfurl progress, and background box alpha are delegated to
+  `stage_clear_result_scroll_state.gd`. Keep future reward-pick animation /
+  settlement UI work here rather than adding draw blocks back to the battle
+  shell; do not put grant logic back in this UI scene.
 - `scripts/ui/stage_clear_result_layout_helper.gd`
   Owns stateless stage-clear result layout and frame policy helpers:
   floating chest anchor layouts, result-box safe-frame selection, reward
   section card grid fitting, sheet cell source-rect calculation, and
   cover-fit source cropping. The scene still owns live timers, hover /
   click state, drawing, texture loading, reward rolling, and callbacks.
+- `scripts/ui/stage_clear_result_scroll_state.gd`
+  Owns stateless stage-clear result scroll progression helpers: hidden /
+  delay / unfurling / visible phase transitions, gate-aware update
+  blocking, smooth unfurl progress, and fading the floating boxes behind
+  the opened scroll. The scene still owns the live box array, perk-choice
+  and starpoint-choice gates, input, drawing, and confirmation callbacks.
 - `scripts/ui/stage_clear_result_summary_builder.gd`
   Owns stateless stage-clear result summary assembly for the UI scene:
   stage-vs-box reward source tagging, item / perk / visible reward arrays,
@@ -923,6 +932,11 @@ This section is intentionally long; use search to find the nearest owner.
   colors, reward badge text, and stage-vs-box source-chip colors. The scene
   still owns localized reward labels / detail text, icon texture loading,
   and all actual drawing.
+- `scripts/ui/stage_clear_result_text_layout_helper.gd`
+  Owns stateless stage-clear result text measurement helpers: centered
+  baseline calculation, word wrapping to width / max-lines, and font-size
+  fitting. The scene still owns all actual text drawing, localized copy,
+  and shadow / color choices.
 - `scripts/core/match_round_restart_controller.gd`
   Owns round-restart fanout below match flow: reset-ball callback dispatch
   or round-wait fallback reset, rematch notice startup, and round-restart

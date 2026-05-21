@@ -6,8 +6,10 @@ const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catal
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
+const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
+const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
 const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
@@ -1531,50 +1533,25 @@ func _tear_down_fx_hosts() -> void:
 
 
 func _update_scroll(delta: float) -> void:
-	if delta <= 0.0:
-		return
-	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active():
-		return
-	match _scroll_phase:
-		"hidden":
-			if _all_boxes_opened():
-				_scroll_phase = "delay"
-				_scroll_timer = 0.0
-		"delay":
-			_scroll_timer += delta
-			if _scroll_timer >= SCROLL_DELAY:
-				_scroll_phase = "unfurling"
-				_scroll_timer = 0.0
-		"unfurling":
-			_scroll_timer += delta
-			if _scroll_timer >= SCROLL_UNFURL_DURATION:
-				_scroll_phase = "visible"
-				_scroll_timer = SCROLL_UNFURL_DURATION
-		"visible":
-			pass
+	var result: Dictionary = StageClearResultScrollState.update_phase(
+		_scroll_phase,
+		_scroll_timer,
+		delta,
+		_starpoint_choice_gate_active or _is_runtime_perk_choice_active(),
+		_all_boxes_opened(),
+		SCROLL_DELAY,
+		SCROLL_UNFURL_DURATION
+	)
+	_scroll_phase = str(result.get("phase", _scroll_phase))
+	_scroll_timer = float(result.get("timer", _scroll_timer))
 
 
 func _get_scroll_unfurl_progress() -> float:
-	match _scroll_phase:
-		"hidden", "delay":
-			return 0.0
-		"unfurling":
-			return _smooth01(_scroll_timer / SCROLL_UNFURL_DURATION)
-		"visible":
-			return 1.0
-	return 0.0
+	return StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
 
 
 func _get_box_global_alpha() -> float:
-	match _scroll_phase:
-		"hidden", "delay":
-			return 1.0
-		"unfurling":
-			var t: float = _scroll_timer / SCROLL_UNFURL_DURATION
-			return clamp(1.0 - smoothstep(0.0, 1.0, t) * 0.96, 0.04, 1.0)
-		"visible":
-			return 0.04
-	return 1.0
+	return StageClearResultScrollState.get_box_global_alpha(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
 
 
 func _calculate_starpoint_total() -> int:
@@ -2355,12 +2332,14 @@ func _draw_text(font: Font, text: String, baseline: Vector2, font_size: int, col
 
 
 func _draw_centered_text(font: Font, text: String, rect: Rect2, font_size: int, color: Color, shadow_alpha: float = 0.62) -> void:
-	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
-	var baseline := Vector2(
-		rect.position.x + (rect.size.x - text_size.x) * 0.5,
-		rect.position.y + rect.size.y * 0.5 + text_size.y * 0.35
+	_draw_text(
+		font,
+		text,
+		StageClearResultTextLayoutHelper.get_centered_baseline(font, text, rect, font_size),
+		font_size,
+		color,
+		shadow_alpha
 	)
-	_draw_text(font, text, baseline, font_size, color, shadow_alpha)
 
 
 func _draw_wrapped_text(
@@ -2384,32 +2363,11 @@ func _draw_wrapped_text(
 
 
 func _wrap_words_to_width(font: Font, text: String, font_size: int, max_width: float, max_lines: int) -> Array[String]:
-	var result: Array[String] = []
-	var paragraphs: PackedStringArray = text.split("\n", false)
-	for paragraph in paragraphs:
-		var words: PackedStringArray = str(paragraph).split(" ", false)
-		var line := ""
-		for word in words:
-			var candidate: String = word if line == "" else "%s %s" % [line, word]
-			if font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x <= max_width or line == "":
-				line = candidate
-			else:
-				result.append(line)
-				line = word
-				if result.size() >= max_lines:
-					return result
-		if line != "":
-			result.append(line)
-			if result.size() >= max_lines:
-				return result
-	return result
+	return StageClearResultTextLayoutHelper.wrap_words_to_width(font, text, font_size, max_width, max_lines)
 
 
 func _fit_font_size(font: Font, text: String, max_width: float, preferred_size: int, min_size: int) -> int:
-	var fitted_size: int = max(min_size, preferred_size)
-	while fitted_size > min_size and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fitted_size).x > max_width:
-		fitted_size -= 1
-	return fitted_size
+	return StageClearResultTextLayoutHelper.fit_font_size(font, text, max_width, preferred_size, min_size)
 
 
 func _load_textures() -> void:
