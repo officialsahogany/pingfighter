@@ -1232,7 +1232,9 @@ This section is intentionally long; use search to find the nearest owner.
   visual-state payloads are delegated to
   `stage2_water_cannon_visual_state_builder.gd`; water-cannon start-point
   geometry is delegated to `stage2_water_cannon_geometry.gd`; water-trail
-  payload generation is delegated to `stage2_water_trail_payload_factory.gd`. Stage 2
+  payload generation is delegated to `stage2_water_trail_payload_factory.gd`;
+  water-trail / splash visual state decay and compaction is delegated to
+  `stage2_water_visual_state.gd`. Stage 2
   performance sample accumulation and opt-in logging is delegated to
   `stage2_perf_logger.gd`; performance log contextual snapshots are
   delegated to `stage2_perf_log_snapshot_builder.gd`; render-budget array
@@ -1359,14 +1361,20 @@ This section is intentionally long; use search to find the nearest owner.
   Owns Stage 2 water-cannon trail payload construction: randomized offset,
   life fields, radius scaling by beam progress, and trail color. The
   background module still owns water-trail spawn timing, max-count pruning,
-  per-frame decay, and renderer fanout.
+  and renderer fanout.
+- `scripts/stages/stage2/stage2_water_visual_state.gd`
+  Owns Stage 2 water-cannon trail / splash visual state mutation: trail
+  lifetime compaction, splash lifetime, gravity, damping, position, spin,
+  and in-place survivor compaction. The background module still owns
+  water-cannon phase timing, spawn timing, player-hit collision / side
+  effects, list caps, and renderer fanout.
 - `scripts/stages/stage2/stage2_water_cannon_payload_factory.gd`
   Owns Stage 2 water-cannon impact payload construction: stone fragment
   dictionaries, water splash dictionaries, sprite-index selection, and
   initial velocity / radius / gravity / life fields.
   `stage2_pillar_background.gd` still owns target resolution, rock
-  removal, list pruning, per-frame splash update, player collision /
-  knockback, warnings, audio, and reward routing.
+  removal, list pruning, player collision / knockback, warnings, audio, and
+  reward routing.
 - `scripts/stages/stage2/stage2_water_cannon_payload_config_builder.gd`
   Owns the read-only Stage 2 water-cannon factory config payload: stone
   fragment / water splash counts, lifetimes, and gravity values. The

@@ -7,6 +7,7 @@ const Stage2PillarImagegenRenderer := preload("res://scripts/stages/stage2/stage
 const Stage2PillarImagegenAssetsBuilder := preload("res://scripts/stages/stage2/stage2_pillar_imagegen_assets_builder.gd")
 const Stage2PillarObstacleVisualRenderer := preload("res://scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd")
 const Stage2WaterCannonVisualRenderer := preload("res://scripts/stages/stage2/stage2_water_cannon_visual_renderer.gd")
+const Stage2WaterVisualState := preload("res://scripts/stages/stage2/stage2_water_visual_state.gd")
 const Stage2WarningVisualRenderer := preload("res://scripts/stages/stage2/stage2_warning_visual_renderer.gd")
 const Stage2ScreenOverlayVisualRenderer := preload("res://scripts/stages/stage2/stage2_screen_overlay_visual_renderer.gd")
 const Stage2AmbientVisualRenderer := preload("res://scripts/stages/stage2/stage2_ambient_visual_renderer.gd")
@@ -1967,39 +1968,8 @@ func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -
 
 
 func _update_water_visuals(delta: float) -> void:
-	var trail_write_index := 0
-	var trail_count := water_trail.size()
-	for idx in range(trail_count):
-		var trail: Dictionary = water_trail[idx]
-		var life: float = float(trail.get("life", 0.0)) - delta
-		if life <= 0.0:
-			continue
-		trail["life"] = life
-		water_trail[trail_write_index] = trail
-		trail_write_index += 1
-	if trail_write_index < trail_count:
-		water_trail.resize(trail_write_index)
-
-	var splash_write_index := 0
-	var splash_count := water_splashes.size()
-	for idx in range(splash_count):
-		var splash: Dictionary = water_splashes[idx]
-		var life: float = float(splash.get("life", 0.0)) - delta
-		if life <= 0.0:
-			continue
-		var pos: Vector2 = _get_vector2(splash.get("pos", Vector2.ZERO), Vector2.ZERO)
-		var vel: Vector2 = _get_vector2(splash.get("vel", Vector2.ZERO), Vector2.ZERO)
-		vel.y += float(splash.get("gravity", 300.0)) * delta
-		vel *= pow(0.975, delta * 60.0)
-		pos += vel * delta
-		splash["pos"] = pos
-		splash["vel"] = vel
-		splash["life"] = life
-		splash["rot"] = float(splash.get("rot", 0.0)) + float(splash.get("spin", 0.0)) * delta
-		water_splashes[splash_write_index] = splash
-		splash_write_index += 1
-	if splash_write_index < splash_count:
-		water_splashes.resize(splash_write_index)
+	Stage2WaterVisualState.update_trail(water_trail, delta)
+	Stage2WaterVisualState.update_splashes(water_splashes, delta)
 
 
 func _resolve_water_fragment_player_hits(context: Dictionary, deps: Dictionary) -> void:
