@@ -572,7 +572,7 @@ func draw_playfield_overlay(
 	var battle_sample_start: int
 	if border_flash_state.is_active():
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
-		screen_overlay_visual_renderer.draw_border_flash(canvas, width, height, shake_offset, _get_border_flash_visual_state())
+		screen_overlay_visual_renderer.draw_border_flash(canvas, width, height, shake_offset, border_flash_state.get_snapshot())
 		_battle_perf_end(battle_perf_logger, "stage2.overlay.border_flash", battle_sample_start)
 	if boss_rage_active or boss_rage_tint > 0.001:
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
@@ -1138,10 +1138,6 @@ func _get_quake_wave_visual_state() -> Dictionary:
 		VISUAL_ONLY_QUAKE_WAVE_COUNT,
 		VISUAL_ONLY_QUAKE_WAVE_SEGMENTS
 	)
-
-
-func _get_border_flash_visual_state() -> Dictionary:
-	return border_flash_state.get_snapshot()
 
 
 func _get_game_frame_source_hole() -> Rect2:

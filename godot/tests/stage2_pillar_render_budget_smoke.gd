@@ -277,6 +277,11 @@ func _verify_draw_paths_use_render_caps() -> void:
 			"Stage 2 overlay draw should guard inactive subpass %s" % overlay_gate
 		)
 	_expect(
+		_function_body(background_source, "func draw_playfield_overlay").find("border_flash_state.get_snapshot()") >= 0
+			and background_source.find("func _get_border_flash_visual_state") < 0,
+		"Stage 2 border-flash draw should use delegated state directly without a pass-through wrapper"
+	)
+	_expect(
 		_function_body(scene_drawer_source, "func _draw_stage_playfield_overlay").find("draw_playfield_overlay(canvas, draw_context, shake_offset, perf_logger)") >= 0,
 		"playfield scene drawer should forward BattlePerf logger to overlay owners that accept it"
 	)
