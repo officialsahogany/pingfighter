@@ -53,7 +53,6 @@ func _verify_rustle_mutation_helpers() -> void:
 
 func _verify_background_delegates_rustle_state() -> void:
 	var background := Stage2PillarBackground.new()
-	_expect(background._is_bush_side_wall_hit(80.0, 750.0), "background side-wall wrapper should delegate to rustle state")
 	background.rustle_bushes = [
 		{"area": "player", "pos": Vector2(100.0, 700.0), "amount": 0.0, "angle": 0.0, "phase": 0.0},
 	]
@@ -62,9 +61,31 @@ func _verify_background_delegates_rustle_state() -> void:
 	]
 	background._trigger_bush_rustle("player", 110.0, 18.0, true)
 	background._trigger_vine_rustle(110.0, 18.0, true)
-	_expect(background._has_active_rustle(), "background rustle wrappers should delegate active mutation")
-	background._decay_rustle(1.0)
-	_expect(not background._has_active_rustle(), "background decay wrapper should delegate rustle decay")
+	_expect(
+		Stage2RustleState.has_active(background.rustle_bushes, background.rustle_vines),
+		"background rustle triggers should mutate state owned by rustle helpers"
+	)
+	Stage2RustleState.decay(background.rustle_bushes, background.rustle_vines, 1.0)
+	_expect(
+		not Stage2RustleState.has_active(background.rustle_bushes, background.rustle_vines),
+		"rustle helpers should decay background rustle state"
+	)
+
+	var source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
+	_expect(
+		source.find("Stage2RustleState.is_bush_side_wall_hit") >= 0,
+		"Stage 2 background source should call rustle side-wall helper directly"
+	)
+	_expect(
+		source.find("Stage2RustleState.has_active") >= 0 and source.find("Stage2RustleState.decay") >= 0,
+		"Stage 2 background source should call rustle active and decay helpers directly"
+	)
+	_expect(
+		source.find("func _is_bush_side_wall_hit") < 0
+		and source.find("func _has_active_rustle") < 0
+		and source.find("func _decay_rustle") < 0,
+		"Stage 2 background source should not keep rustle pass-through wrappers"
+	)
 
 
 func _is_close(actual: float, expected: float, tolerance: float = 0.001) -> bool:

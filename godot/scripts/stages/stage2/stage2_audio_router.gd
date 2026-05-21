@@ -40,3 +40,38 @@ static func play_boss_cry(deps: Dictionary, fallback: Object = null) -> void:
 	var audio: Object = resolve_audio(deps, fallback)
 	if audio != null and audio.has_method("play_stage2_boss_cry"):
 		audio.play_stage2_boss_cry()
+
+
+static func play_rock_spawn(deps: Dictionary) -> void:
+	var audio: Object = resolve_audio(deps)
+	if audio != null and audio.has_method("play_stage2_rock_spawn"):
+		audio.play_stage2_rock_spawn()
+
+
+static func play_rock_break(rock: Dictionary, deps: Dictionary) -> void:
+	var audio: Object = resolve_audio(deps)
+	if audio == null:
+		return
+	var size: float = float(rock.get("visual_radius", rock.get("radius", 28.0)))
+	if audio.has_method("play_stage2_stonebreak_for_size"):
+		audio.play_stage2_stonebreak_for_size(size)
+	elif audio.has_method("play_stage2_stonebreak"):
+		audio.play_stage2_stonebreak()
+
+
+static func play_rock_hit(deps: Dictionary) -> void:
+	var audio: Object = resolve_audio(deps)
+	if audio != null and audio.has_method("play_stage2_rockhit"):
+		audio.play_stage2_rockhit()
+
+
+static func play_hydro(deps: Dictionary) -> void:
+	var audio: Object = resolve_audio(deps)
+	if audio != null and audio.has_method("play_stage2_hydro"):
+		audio.play_stage2_hydro()
+
+
+static func play_starpoint_collect(deps: Dictionary) -> void:
+	var audio: Object = resolve_audio(deps)
+	if audio != null and audio.has_method("play_starpoint_collect"):
+		audio.play_starpoint_collect()

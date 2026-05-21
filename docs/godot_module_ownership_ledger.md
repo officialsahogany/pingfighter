@@ -1438,9 +1438,11 @@ This section is intentionally long; use search to find the nearest owner.
   timer storage, RNG shake injection, and scene mutation timing.
 - `scripts/stages/stage2/stage2_audio_router.gd`
   Owns Stage 2 gameplay-audio routing helpers for quake loop start / stop /
-  sync and boss-rage cry playback, including the cached rage-audio fallback
-  used during pre-rally animations. `stage2_pillar_background.gd` still owns
-  quake lifecycle state, the cached audio handle, and when cues are emitted.
+  sync, boss-rage cry playback, rock spawn / break / hit cues, water-cannon
+  hydro cues, and starpoint collection cues, including the cached rage-audio
+  fallback used during pre-rally animations. `stage2_pillar_background.gd`
+  still owns quake lifecycle state, the cached audio handle, and when cues
+  are emitted.
 - `scripts/stages/stage2/stage2_skill_warning_state.gd`
   Owns Stage 2 skill-warning state: trigger text / kind, minimum duration
   clamp, timer decay, active checks, reset, and renderer snapshot payload.

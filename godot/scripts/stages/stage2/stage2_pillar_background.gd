@@ -540,7 +540,7 @@ func trigger_tree_shake(side: String, impact_y: float, impact_speed: float, fiel
 
 	border_flash_state.trigger(resolved_side, y, BORDER_FLASH_DURATION_SEC)
 
-	if not _is_bush_side_wall_hit(y, height):
+	if not Stage2RustleState.is_bush_side_wall_hit(y, height, BUSH_SIDE_WALL_BAND_Y):
 		return
 	var speed_scale: float = clamp(abs(impact_speed) / 520.0, 0.55, 1.65)
 	excitement = min(2.0, max(excitement, 1.0 + speed_scale * 0.35))
@@ -550,10 +550,6 @@ func trigger_tree_shake(side: String, impact_y: float, impact_speed: float, fiel
 	for _i in range(count):
 		_spawn_leaf_particle(Vector2(x, y), resolved_side, speed_scale)
 	Stage2RenderBudgetHelper.trim_array_from_front(leaf_particles, MAX_LEAF_PARTICLES)
-
-
-func _is_bush_side_wall_hit(impact_y: float, field_height: float) -> bool:
-	return Stage2RustleState.is_bush_side_wall_hit(impact_y, field_height, BUSH_SIDE_WALL_BAND_Y)
 
 
 func draw_playfield_overlay(
@@ -786,7 +782,7 @@ func has_visible_effects() -> bool:
 	return Stage2VisibilityState.has_visible_effects(
 		has_visible_playfield_overlay(),
 		has_visible_playfield_obstacles(),
-		_has_active_rustle()
+		Stage2RustleState.has_active(rustle_bushes, rustle_vines)
 	)
 
 
@@ -1299,7 +1295,7 @@ func _update_rustle_reactions(delta: float, context: Dictionary) -> void:
 	prev_player_paddle_center_x = player_center_x
 	player_paddle_center_valid = true
 
-	_decay_rustle(delta)
+	Stage2RustleState.decay(rustle_bushes, rustle_vines, delta)
 
 
 func _trigger_bush_rustle(area: String, paddle_center_x: float, delta_x: float, dash_like: bool) -> void:
@@ -1325,14 +1321,6 @@ func _trigger_vine_rustle(paddle_center_x: float, delta_x: float, dash_like: boo
 		VINE_RUSTLE_NORMAL,
 		VINE_RUSTLE_DASH
 	)
-
-
-func _decay_rustle(delta: float) -> void:
-	Stage2RustleState.decay(rustle_bushes, rustle_vines, delta)
-
-
-func _has_active_rustle() -> bool:
-	return Stage2RustleState.has_active(rustle_bushes, rustle_vines)
 
 
 func _update_chaos_absorbing_rock(rock: Dictionary, delta: float, deps: Dictionary, context: Dictionary = {}) -> bool:
@@ -1378,7 +1366,7 @@ func _destroy_chaos_absorbed_rock(rock: Dictionary, center: Vector2, deps: Dicti
 	_spawn_rock_fragments(rock, center)
 	_spawn_rock_leaves(center, 1.15)
 	_spawn_golden_rock_starpoint_drop(rock, center, deps, context)
-	_play_rock_break_audio(rock, deps)
+	Stage2AudioRouter.play_rock_break(rock, deps)
 	var rock_radius: float = float(rock.get("radius", 28.0))
 	chaos_absorbed_entries.append({
 		"position": center,
@@ -1407,9 +1395,7 @@ func _spawn_quake_rocks(count: int, deps: Dictionary = {}) -> void:
 		var target: Vector2 = _get_vector2(targets[idx] if idx < targets.size() else rock.get("target_pos", Vector2.ZERO), Vector2.ZERO)
 		_spawn_rock_leaves(target, 0.28)
 	rock_next_id = int(batch.get("next_id", rock_next_id + spawned_rocks.size()))
-	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_stage2_rock_spawn"):
-		audio.play_stage2_rock_spawn()
+	Stage2AudioRouter.play_rock_spawn(deps)
 
 
 func _spawn_crisis_rock_wall(deps: Dictionary = {}) -> void:
@@ -1441,9 +1427,7 @@ func _spawn_crisis_rock_wall(deps: Dictionary = {}) -> void:
 	var skill_state: Object = deps.get("stage2_boss_skill_state", null)
 	if skill_state != null and skill_state.has_method("defer_water_cannon_after_rock_spawn"):
 		skill_state.defer_water_cannon_after_rock_spawn()
-	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_stage2_rock_spawn"):
-		audio.play_stage2_rock_spawn()
+	Stage2AudioRouter.play_rock_spawn(deps)
 
 
 func _hit_rock(index: int, deps: Dictionary, context: Dictionary = {}) -> void:
@@ -1460,28 +1444,11 @@ func _hit_rock(index: int, deps: Dictionary, context: Dictionary = {}) -> void:
 	if int(rock.get("hp", 0)) <= 0:
 		_spawn_rock_fragments(rock, center)
 		_spawn_golden_rock_starpoint_drop(rock, center, deps, context)
-		_play_rock_break_audio(rock, deps)
+		Stage2AudioRouter.play_rock_break(rock, deps)
 		rocks.remove_at(index)
 	else:
-		_play_rock_hit_audio(deps)
+		Stage2AudioRouter.play_rock_hit(deps)
 		rocks[index] = rock
-
-
-func _play_rock_break_audio(rock: Dictionary, deps: Dictionary) -> void:
-	var audio: Object = deps.get("audio", null)
-	if audio == null:
-		return
-	var size: float = float(rock.get("visual_radius", rock.get("radius", 28.0)))
-	if audio.has_method("play_stage2_stonebreak_for_size"):
-		audio.play_stage2_stonebreak_for_size(size)
-	elif audio.has_method("play_stage2_stonebreak"):
-		audio.play_stage2_stonebreak()
-
-
-func _play_rock_hit_audio(deps: Dictionary) -> void:
-	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_stage2_rockhit"):
-		audio.play_stage2_rockhit()
 
 
 func _spawn_rock_fragments(rock: Dictionary, center: Vector2) -> void:
@@ -1614,7 +1581,7 @@ func _collect_starpoint_drop(drop: Dictionary, context: Dictionary, deps: Dictio
 		runtime_perk_state.collect_star_points(1, character_type, runtime_perk_catalog, owner, registry)
 	var pos: Vector2 = _get_vector2(drop.get("pos", Vector2.ZERO), Vector2.ZERO)
 	_spawn_starpoint_particles(pos, STARPOINT_PARTICLE_COUNT + 10, 1.4)
-	_play_starpoint_collect_sound(deps)
+	Stage2AudioRouter.play_starpoint_collect(deps)
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
 
@@ -1631,12 +1598,6 @@ func _spawn_starpoint_particles(pos: Vector2, count: int, intensity: float) -> v
 
 func _update_starpoint_particles(fps_scale: float) -> void:
 	Stage2StarpointParticleState.update_particles(starpoint_particles, fps_scale)
-
-
-func _play_starpoint_collect_sound(deps: Dictionary) -> void:
-	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_starpoint_collect"):
-		audio.play_starpoint_collect()
 
 
 func _get_mythic_item_runtime(deps: Dictionary, context: Dictionary = {}) -> Object:
@@ -1775,11 +1736,6 @@ func _update_quake_rock_offset(rock: Dictionary, delta: float) -> void:
 	Stage2QuakeRockOffsetState.update_offset(rock, delta, quake_timer, quake_duration)
 
 
-func _draw_rustle_vegetation(canvas: CanvasItem, width: float, height: float, shake_offset: Vector2) -> void:
-	_ensure_rustle_layout(width, height)
-	ambient_visual_renderer.draw_rustle_vegetation(canvas, rustle_vines, rustle_bushes, shake_offset)
-
-
 func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -> void:
 	if water_cannon_phase == "idle":
 		if deps.get("stage2_boss_skill_state", null) != null:
@@ -1810,9 +1766,7 @@ func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -
 			water_cannon_timer = WATER_CANNON_FIRE_SEC
 			water_cannon_progress = 0.0
 			_trigger_skill_warning("water_fire", "물대포 발사!", 0.78)
-			var audio: Object = deps.get("audio", null)
-			if audio != null and audio.has_method("play_stage2_hydro"):
-				audio.play_stage2_hydro()
+			Stage2AudioRouter.play_hydro(deps)
 		return
 
 	if water_cannon_phase == "firing":
@@ -1874,9 +1828,7 @@ func _handle_water_fragment_player_hit(
 	var impact_effects: Object = deps.get("impact_effects", null)
 	if impact_effects != null and impact_effects.has_method("spawn_hit_particles"):
 		impact_effects.spawn_hit_particles(pos, Color(0.62, 0.90, 1.0, 1.0), vel, 0.8, vel.length())
-	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_stage2_rockhit"):
-		audio.play_stage2_rockhit()
+	Stage2AudioRouter.play_rock_hit(deps)
 	var movement_state: Object = deps.get("movement_state", null)
 	if movement_state == null or not movement_state.has_method("start_knockback"):
 		return
@@ -1907,7 +1859,7 @@ func _finish_water_cannon(context: Dictionary, deps: Dictionary) -> void:
 	var feedback: Object = deps.get("feedback", null)
 	if feedback != null and feedback.has_method("max_screen_shake"):
 		feedback.max_screen_shake(0.060, 3.0)
-	_play_rock_break_audio(target_rock, deps)
+	Stage2AudioRouter.play_rock_break(target_rock, deps)
 	_trigger_skill_warning("fragment", "파편 주의!", SKILL_WARNING_FRAGMENT_SEC)
 	_cancel_water_cannon()
 
