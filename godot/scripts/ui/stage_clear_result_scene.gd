@@ -10,6 +10,7 @@ const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_resu
 const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_result_scroll_state.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
+const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
@@ -1410,34 +1411,24 @@ func _get_result_live2d_cinematic_target_position() -> Vector2:
 
 
 func _get_player_victory_actor_rect(view_size: Vector2, layout_ratio: float) -> Rect2:
-	var actor_size := Vector2(760.0, 760.0) * layout_ratio
-	return Rect2(
-		Vector2(view_size.x - 650.0 * layout_ratio, 213.0 * layout_ratio),
-		actor_size
-	)
+	return StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, layout_ratio)
 
 
 func _get_player_victory_click_rect(view_size: Vector2, layout_ratio: float) -> Rect2:
-	var actor_rect: Rect2 = _get_player_victory_actor_rect(view_size, layout_ratio)
-	var cell_scale: float = actor_rect.size.x / max(1.0, PLAYER_VICTORY_CELL_SIZE.x)
-	var click_rect := Rect2(
-		actor_rect.position + Vector2(240.0, 100.0) * cell_scale,
-		actor_rect.size - Vector2(360.0, 210.0) * cell_scale
+	return StageClearResultLayoutHelper.get_player_victory_click_rect(
+		view_size,
+		layout_ratio,
+		PLAYER_VICTORY_CELL_SIZE
 	)
-	return click_rect.intersection(Rect2(Vector2.ZERO, view_size))
 
 
 func _get_player_victory_panel_rect(view_size: Vector2, layout_ratio: float) -> Rect2:
-	return Rect2(
-		Vector2(view_size.x - 495.0 * layout_ratio, 190.0 * layout_ratio),
-		Vector2(410.0, 750.0) * layout_ratio
-	)
+	return StageClearResultLayoutHelper.get_player_victory_panel_rect(view_size, layout_ratio)
 
 
 func _screen_to_acquisition_cinematic_local(screen_position: Vector2, view_size: Vector2) -> Vector2:
 	var field_size := Vector2(760.0, 750.0)
-	var field_origin: Vector2 = (view_size - field_size) * 0.5
-	return screen_position - field_origin
+	return StageClearResultLayoutHelper.screen_to_acquisition_cinematic_local(screen_position, view_size, field_size)
 
 
 func _all_boxes_opened() -> bool:
@@ -1711,14 +1702,7 @@ func _draw_cyber_scroll_fallback(rect: Rect2, scale: float, alpha: float) -> voi
 
 @warning_ignore("shadowed_variable_base_class")
 func _get_scroll_content_rect(scroll_rect: Rect2, scale: float) -> Rect2:
-	var left: float = SCROLL_CONTENT_MARGIN.x * scale
-	var top: float = SCROLL_CONTENT_MARGIN.y * scale
-	var right: float = SCROLL_CONTENT_MARGIN.z * scale
-	var bottom: float = SCROLL_CONTENT_MARGIN.w * scale
-	return Rect2(
-		scroll_rect.position + Vector2(left, top),
-		Vector2(max(1.0, scroll_rect.size.x - left - right), max(1.0, scroll_rect.size.y - top - bottom))
-	)
+	return StageClearResultLayoutHelper.get_scroll_content_rect(scroll_rect, scale, SCROLL_CONTENT_MARGIN)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1935,58 +1919,35 @@ func _draw_fallback_reward_icon(reward: Dictionary, rect: Rect2, alpha: float) -
 
 
 func _get_reward_detail_text(reward: Dictionary) -> String:
-	for key in ["description", "detail", "effect_text"]:
-		var direct: String = str(reward.get(key, ""))
-		if direct != "":
-			return direct
+	return StageClearResultRewardTextResolver.get_reward_detail_text(
+		reward,
+		_get_reward_perk_data(reward),
+		_get_reward_detail_fallback_text()
+	)
 
-	var perk_data: Dictionary = _get_reward_perk_data(reward)
-	var description: String = str(perk_data.get("description", ""))
-	if description != "":
-		return description
-	var descriptions_value: Variant = perk_data.get("descriptions", {})
-	if descriptions_value is Dictionary:
-		var descriptions: Dictionary = descriptions_value
-		var next_level: int = max(1, int(reward.get("next_level", 1)))
-		if descriptions.has(next_level):
-			return str(descriptions[next_level])
-		if descriptions.has(1):
-			return str(descriptions[1])
-	var detail: String = str(perk_data.get("detail", ""))
-	if detail != "":
-		return detail
 
+func _get_reward_detail_fallback_text() -> String:
 	return "획득한 퍽 효과를 적용합니다."
 
 
 func _get_reward_perk_data(reward: Dictionary) -> Dictionary:
-	var perk_data_value: Variant = reward.get("perk_data", {})
-	if perk_data_value is Dictionary:
-		var perk_data: Dictionary = perk_data_value
-		if not perk_data.is_empty():
-			return perk_data.duplicate(true)
-	var perk_id: String = _get_reward_perk_id(reward)
-	if perk_id == "" or _perk_catalog == null or not _perk_catalog.has_method("get_perk_data"):
-		return {}
-	var catalog_value: Variant = _perk_catalog.call("get_perk_data", perk_id)
-	if catalog_value is Dictionary:
-		var catalog_data: Dictionary = catalog_value
-		return catalog_data.duplicate(true)
-	return {}
+	return StageClearResultRewardTextResolver.get_reward_perk_data(
+		reward,
+		_perk_catalog,
+		_get_reward_perk_id(reward)
+	)
 
 
 func _get_reward_title(reward: Dictionary) -> String:
 	var reward_type: String = str(reward.get("type", ""))
 	if reward_type == "starpoint":
 		return "퍽 선택권 +%d" % int(reward.get("amount", 0))
-	var label: String = str(reward.get("label", ""))
-	if label != "":
-		return label
-	if _is_perk_reward(reward):
-		var perk_name: String = str(_get_reward_perk_data(reward).get("name", ""))
-		if perk_name != "":
-			return perk_name
-	return _reward_type_fallback_label(reward_type)
+	return StageClearResultRewardTextResolver.get_reward_title(
+		reward,
+		_get_reward_perk_data(reward),
+		_is_perk_reward(reward),
+		_reward_type_fallback_label(reward_type)
+	)
 
 
 func _get_reward_badge(reward: Dictionary) -> String:
@@ -2288,13 +2249,7 @@ func _smooth01(value: float) -> float:
 
 @warning_ignore("shadowed_variable_base_class")
 func _get_dalji_draw_rect(view_size: Vector2, scale: float) -> Rect2:
-	var draw_size := Vector2(624.0, 624.0) * scale
-	@warning_ignore("shadowed_variable_base_class")
-	var position := Vector2(-16.0, 471.0) * scale
-	if view_size.x < 1280.0:
-		draw_size = Vector2(520.0, 520.0) * scale
-		position = Vector2(-16.0, 480.0) * scale
-	return Rect2(position, draw_size)
+	return StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, scale)
 
 
 func _confirm() -> void:

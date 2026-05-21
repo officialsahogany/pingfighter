@@ -899,9 +899,12 @@ This section is intentionally long; use search to find the nearest owner.
   starpoint totals, and perk reward ID classification are delegated to
   `stage_clear_result_summary_builder.gd`; reward card colors, badges, and
   source-chip colors are delegated to
-  `stage_clear_result_reward_visual_resolver.gd`; result chest layout,
+  `stage_clear_result_reward_visual_resolver.gd`; reward-card title,
+  detail text, and catalog-backed perk-data resolution are delegated to
+  `stage_clear_result_reward_text_resolver.gd`; result chest layout,
   box-frame policy, reward-card grid layout, and sheet / cover source-rect
-  math plus floating-box center / AABB / rotate geometry are delegated to
+  math, floating-box center / AABB / rotate geometry, actor / click / scroll
+  content rects, and cinematic-local coordinate conversion are delegated to
   `stage_clear_result_layout_helper.gd`; centered text
   baseline, word wrapping, and font-size fitting helpers are delegated to
   `stage_clear_result_text_layout_helper.gd`; result scroll phase
@@ -916,8 +919,10 @@ This section is intentionally long; use search to find the nearest owner.
   floating chest anchor layouts, result-box safe-frame selection, reward
   section card grid fitting, sheet cell source-rect calculation, and
   cover-fit source cropping, plus floating-box draw centers, hover AABBs,
-  and point rotation. The scene still owns live timers, hover / click state,
-  drawing, texture loading, reward rolling, and callbacks.
+  point rotation, player-victory actor / click / panel rects, Dalji draw
+  rects, scroll-content margins, and cinematic-local coordinate conversion.
+  The scene still owns live timers, hover / click state, drawing, texture
+  loading, reward rolling, and callbacks.
 - `scripts/ui/stage_clear_result_scroll_state.gd`
   Owns stateless stage-clear result scroll progression helpers: hidden /
   delay / unfurling / visible phase transitions, gate-aware update
@@ -937,12 +942,17 @@ This section is intentionally long; use search to find the nearest owner.
   reward-source count payloads, box starpoint totals, stage-summary array
   duplication, and perk reward ID classification. The scene still owns
   reward rolling, final grant callbacks, scroll/button input, drawing, and
-  catalog-backed reward title / detail text resolution.
+  the live perk catalog instance used by reward text resolution.
 - `scripts/ui/stage_clear_result_reward_visual_resolver.gd`
   Owns stateless stage-clear reward visual classification: reward card base
   colors, reward badge text, and stage-vs-box source-chip colors. The scene
-  still owns localized reward labels / detail text, icon texture loading,
-  and all actual drawing.
+  still owns icon texture loading and all actual drawing.
+- `scripts/ui/stage_clear_result_reward_text_resolver.gd`
+  Owns stateless stage-clear reward text resolution: direct reward label /
+  detail precedence, perk description / level-description / detail fallback,
+  catalog-backed perk-data duplication, and perk-name title fallback. The
+  scene still owns localized fallback labels, starpoint title formatting,
+  the catalog instance, icon texture loading, and actual drawing.
 - `scripts/ui/stage_clear_result_text_layout_helper.gd`
   Owns stateless stage-clear result text measurement helpers: centered
   baseline calculation, word wrapping to width / max-lines, and font-size

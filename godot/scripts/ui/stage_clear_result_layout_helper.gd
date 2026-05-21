@@ -89,6 +89,60 @@ static func rotate_around(point: Vector2, center: Vector2, angle: float) -> Vect
 	return Vector2(rel.x * c - rel.y * s, rel.x * s + rel.y * c) + center
 
 
+static func get_player_victory_actor_rect(view_size: Vector2, layout_ratio: float) -> Rect2:
+	var actor_size := Vector2(760.0, 760.0) * layout_ratio
+	return Rect2(
+		Vector2(view_size.x - 650.0 * layout_ratio, 213.0 * layout_ratio),
+		actor_size
+	)
+
+
+static func get_player_victory_click_rect(view_size: Vector2, layout_ratio: float, cell_size: Vector2) -> Rect2:
+	var actor_rect: Rect2 = get_player_victory_actor_rect(view_size, layout_ratio)
+	var cell_scale: float = actor_rect.size.x / max(1.0, cell_size.x)
+	var click_rect := Rect2(
+		actor_rect.position + Vector2(240.0, 100.0) * cell_scale,
+		actor_rect.size - Vector2(360.0, 210.0) * cell_scale
+	)
+	return click_rect.intersection(Rect2(Vector2.ZERO, view_size))
+
+
+static func get_player_victory_panel_rect(view_size: Vector2, layout_ratio: float) -> Rect2:
+	return Rect2(
+		Vector2(view_size.x - 495.0 * layout_ratio, 190.0 * layout_ratio),
+		Vector2(410.0, 750.0) * layout_ratio
+	)
+
+
+static func screen_to_acquisition_cinematic_local(
+	screen_position: Vector2,
+	view_size: Vector2,
+	field_size: Vector2
+) -> Vector2:
+	var field_origin: Vector2 = (view_size - field_size) * 0.5
+	return screen_position - field_origin
+
+
+static func get_scroll_content_rect(scroll_rect: Rect2, draw_scale: float, content_margin: Vector4) -> Rect2:
+	var left: float = content_margin.x * draw_scale
+	var top: float = content_margin.y * draw_scale
+	var right: float = content_margin.z * draw_scale
+	var bottom: float = content_margin.w * draw_scale
+	return Rect2(
+		scroll_rect.position + Vector2(left, top),
+		Vector2(max(1.0, scroll_rect.size.x - left - right), max(1.0, scroll_rect.size.y - top - bottom))
+	)
+
+
+static func get_dalji_draw_rect(view_size: Vector2, draw_scale: float) -> Rect2:
+	var draw_size := Vector2(624.0, 624.0) * draw_scale
+	var position := Vector2(-16.0, 471.0) * draw_scale
+	if view_size.x < 1280.0:
+		draw_size = Vector2(520.0, 520.0) * draw_scale
+		position = Vector2(-16.0, 480.0) * draw_scale
+	return Rect2(position, draw_size)
+
+
 static func calculate_reward_section_layout(reward_count: int, rect: Rect2, ui_scale: float) -> Dictionary:
 	var gap: float = 16.0 * ui_scale
 	var card_scale: float = ui_scale

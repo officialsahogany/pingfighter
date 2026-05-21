@@ -10,6 +10,7 @@ func _init() -> void:
 	_verify_box_layout()
 	_verify_box_frame_policy()
 	_verify_box_geometry()
+	_verify_actor_and_scroll_rects()
 	_verify_reward_section_layout()
 	_verify_source_rects()
 	_verify_scene_wrappers()
@@ -71,6 +72,38 @@ func _verify_box_geometry() -> void:
 	_expect(rotated.is_equal_approx(Vector2(1.0, 2.0)), "rotate_around should rotate points around the supplied center")
 
 
+func _verify_actor_and_scroll_rects() -> void:
+	var view_size := Vector2(1920.0, 1080.0)
+	var actor_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, 1.0)
+	_expect(actor_rect.position == Vector2(1270.0, 213.0), "player victory actor rect should preserve the right-side anchor")
+	_expect(actor_rect.size == Vector2(760.0, 760.0), "player victory actor rect should preserve source-sized layout")
+	var click_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_click_rect(view_size, 1.0, Vector2(1408.0, 1408.0))
+	_expect(click_rect.position.is_equal_approx(Vector2(1399.54541015625, 266.9772644042969)), "player victory click rect should map the source-frame hot zone")
+	_expect(click_rect.end.x <= view_size.x, "player victory click rect should clip to the viewport")
+	var panel_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_panel_rect(view_size, 1.0)
+	_expect(panel_rect == Rect2(Vector2(1425.0, 190.0), Vector2(410.0, 750.0)), "player victory panel rect should keep its anchor")
+	var local_position: Vector2 = StageClearResultLayoutHelper.screen_to_acquisition_cinematic_local(
+		Vector2(600.0, 200.0),
+		view_size,
+		Vector2(760.0, 750.0)
+	)
+	_expect(local_position == Vector2(20.0, 35.0), "cinematic local conversion should subtract the centered field origin")
+	var content_rect: Rect2 = StageClearResultLayoutHelper.get_scroll_content_rect(
+		Rect2(Vector2(100.0, 200.0), Vector2(400.0, 300.0)),
+		1.0,
+		Vector4(70.0, 90.0, 70.0, 76.0)
+	)
+	_expect(content_rect == Rect2(Vector2(170.0, 290.0), Vector2(260.0, 134.0)), "scroll content rect should apply scaled margins")
+	_expect(
+		StageClearResultLayoutHelper.get_dalji_draw_rect(view_size, 1.0) == Rect2(Vector2(-16.0, 471.0), Vector2(624.0, 624.0)),
+		"Dalji draw rect should use the desktop layout"
+	)
+	_expect(
+		StageClearResultLayoutHelper.get_dalji_draw_rect(Vector2(1200.0, 800.0), 1.0) == Rect2(Vector2(-16.0, 480.0), Vector2(520.0, 520.0)),
+		"Dalji draw rect should use the compact layout for narrow views"
+	)
+
+
 func _verify_reward_section_layout() -> void:
 	var dense_section_rect := Rect2(Vector2.ZERO, Vector2(538.0, 276.0))
 	var layout: Dictionary = StageClearResultLayoutHelper.calculate_reward_section_layout(7, dense_section_rect, 1.0)
@@ -106,6 +139,10 @@ func _verify_scene_wrappers() -> void:
 	_expect(scene._get_box_draw_center(wrapper_box, 2.0) == Vector2(20.0, 40.0), "scene box-center wrapper should delegate")
 	_expect(scene._get_box_aabb(wrapper_box, 2.0).has_point(Vector2(20.0, 40.0)), "scene box-aabb wrapper should delegate")
 	_expect(scene._rotate_around(Vector2(2.0, 1.0), Vector2(1.0, 1.0), PI * 0.5).is_equal_approx(Vector2(1.0, 2.0)), "scene rotation wrapper should delegate")
+	_expect(scene._get_player_victory_actor_rect(Vector2(1920.0, 1080.0), 1.0).position == Vector2(1270.0, 213.0), "scene player-victory actor wrapper should delegate")
+	_expect(scene._get_player_victory_panel_rect(Vector2(1920.0, 1080.0), 1.0).size == Vector2(410.0, 750.0), "scene player-victory panel wrapper should delegate")
+	_expect(scene._get_scroll_content_rect(Rect2(Vector2(100.0, 200.0), Vector2(400.0, 300.0)), 1.0).position == Vector2(170.0, 290.0), "scene scroll-content wrapper should delegate")
+	_expect(scene._get_dalji_draw_rect(Vector2(1920.0, 1080.0), 1.0).size == Vector2(624.0, 624.0), "scene Dalji draw-rect wrapper should delegate")
 	_expect(int(scene._calculate_reward_section_layout(7, Rect2(Vector2.ZERO, Vector2(538.0, 276.0)), 1.0).get("rows", 0)) == 2, "scene reward-layout wrapper should delegate")
 	_expect(scene._sheet_source_rect(15, 4, Vector2(256.0, 256.0)).position == Vector2(768.0, 768.0), "scene sheet-rect wrapper should delegate")
 	scene.free()
