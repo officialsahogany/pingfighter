@@ -132,11 +132,10 @@ func _verify_source_rects() -> void:
 
 func _verify_scene_wrappers() -> void:
 	var scene := StageClearResultScene.new()
-	_expect(scene._get_result_box_frame_index("opened", 1.0, false) == 12, "scene box-frame wrapper should delegate")
-	scene.timer = 0.0
 	var wrapper_box := {"base_pos": Vector2(10.0, 20.0), "phase": 0.0, "amplitude": 4.0, "speed": 1.0}
-	_expect(scene._get_box_draw_center(wrapper_box, 2.0) == Vector2(20.0, 40.0), "scene box-center wrapper should delegate")
-	_expect(scene._get_box_aabb(wrapper_box, 2.0).has_point(Vector2(20.0, 40.0)), "scene box-aabb wrapper should delegate")
+	_expect(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, false, 16, 12, 15) == 12, "box-frame helper should preserve scene frame policy")
+	_expect(StageClearResultLayoutHelper.get_box_draw_center(wrapper_box, 2.0, 0.0, 5.0, 1.4) == Vector2(20.0, 40.0), "box-center helper should preserve scene geometry policy")
+	_expect(StageClearResultLayoutHelper.get_box_aabb(wrapper_box, 2.0, 0.0, Vector2(65.0, 56.0), 1.06, 5.0, 1.4).has_point(Vector2(20.0, 40.0)), "box-aabb helper should preserve scene hitbox policy")
 	_expect(scene._get_player_victory_actor_rect(Vector2(1920.0, 1080.0), 1.0).position == Vector2(1270.0, 213.0), "scene player-victory actor wrapper should delegate")
 	_expect(scene._get_player_victory_panel_rect(Vector2(1920.0, 1080.0), 1.0).size == Vector2(410.0, 750.0), "scene player-victory panel wrapper should delegate")
 	_expect(scene._get_scroll_content_rect(Rect2(Vector2(100.0, 200.0), Vector2(400.0, 300.0)), 1.0).position == Vector2(170.0, 290.0), "scene scroll-content wrapper should delegate")
@@ -152,6 +151,18 @@ func _verify_scene_wrappers() -> void:
 	_expect(
 		source.find("func _get_box_layout") < 0 and source.find("func _rotate_around") < 0,
 		"stage-clear result scene should not keep simple layout pass-through wrappers"
+	)
+	_expect(
+		source.find("StageClearResultLayoutHelper.get_result_box_frame_index") >= 0
+		and source.find("StageClearResultLayoutHelper.get_box_draw_center") >= 0
+		and source.find("StageClearResultLayoutHelper.get_box_aabb") >= 0,
+		"stage-clear result scene should call box layout helpers directly"
+	)
+	_expect(
+		source.find("func _get_result_box_frame_index") < 0
+		and source.find("func _get_box_draw_center") < 0
+		and source.find("func _get_box_aabb") < 0,
+		"stage-clear result scene should not keep box layout pass-through wrappers"
 	)
 	scene.free()
 

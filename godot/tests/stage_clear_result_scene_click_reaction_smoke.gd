@@ -3,6 +3,7 @@ extends SceneTree
 const RESULT_SCENE := preload("res://scenes/stage_clear_result.tscn")
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
 const RESULT_BOX_COMMON_SHEET := "res://assets/sprites/result_boxes/result_box_common_open_16f.png"
 const RESULT_BOX_MYTHIC_SHEET := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
 const RESULT_BOX_CELL := 256
@@ -240,7 +241,15 @@ func _verify_result_box_open_audio_route() -> void:
 		var click := InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
 		click.pressed = true
-		click.position = scene._get_box_aabb(box, scale).get_center()
+		click.position = StageClearResultLayoutHelper.get_box_aabb(
+			box,
+			scale,
+			scene.timer,
+			Vector2(65.0, 56.0),
+			1.06,
+			5.0,
+			1.4
+		).get_center()
 		_expect(scene.handle_result_input(click), "box click should be consumed by the result scene")
 		_expect(audio.result_box_open_calls == 1, "box click should play the routed result-box open SFX once")
 		_expect(scene.handle_result_input(click), "second box click should still be consumed by the result scene")
@@ -388,13 +397,9 @@ func _verify_result_box_sheet_padding() -> void:
 
 
 func _verify_result_box_frame_policy() -> void:
-	var scene: Control = RESULT_SCENE.instantiate() as Control
-	_expect(scene != null, "stage clear result scene should instantiate for result box frame policy")
-	root.add_child(scene)
-	_expect(int(scene._get_result_box_frame_index("opened", 1.0, false)) == 12, "common result boxes should stop on the last non-truncated open-lid frame")
-	_expect(int(scene._get_result_box_frame_index("opening", 0.98, false)) == 12, "common result box opening animation should not show the truncated late lid frames")
-	_expect(int(scene._get_result_box_frame_index("opened", 1.0, true)) == 15, "mythic result boxes can keep the full final open frame")
-	scene.free()
+	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, false, 16, 12, 15)) == 12, "common result boxes should stop on the last non-truncated open-lid frame")
+	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opening", 0.98, false, 16, 12, 15)) == 12, "common result box opening animation should not show the truncated late lid frames")
+	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, true, 16, 12, 15)) == 15, "mythic result boxes can keep the full final open frame")
 
 
 func _verify_result_box_sheet_image_padding(image: Image, label: String) -> void:

@@ -90,9 +90,18 @@ func _verify_scene_delegates_interaction_state() -> void:
 	var status: Dictionary = scene.get_interaction_status()
 	_expect(int(status.get("opened_count", -1)) == 1, "scene interaction status should use delegated opened count")
 	_expect(int(status.get("opening_count", -1)) == 1, "scene interaction status should use delegated opening count")
-	_expect(not scene._all_boxes_opened(), "scene all-open wrapper should delegate mixed box state")
+	_expect(not StageClearResultInteractionState.all_boxes_opened(scene._boxes), "scene boxes should remain compatible with all-open helper")
 	scene._boxes = [{"state": "opened"}, {"state": "opened"}]
-	_expect(scene._all_boxes_opened(), "scene all-open wrapper should delegate opened box state")
+	_expect(StageClearResultInteractionState.all_boxes_opened(scene._boxes), "scene boxes should report opened state through helper")
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(
+		source.find("StageClearResultInteractionState.all_boxes_opened") >= 0,
+		"result scene should call all-boxes-open helper directly"
+	)
+	_expect(
+		source.find("func _all_boxes_opened") < 0,
+		"result scene should not keep all-boxes-open pass-through wrapper"
+	)
 	scene.free()
 
 

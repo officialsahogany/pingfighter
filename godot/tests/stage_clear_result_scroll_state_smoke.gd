@@ -55,10 +55,27 @@ func _verify_scene_scroll_delegates() -> void:
 	_expect(str(scene._scroll_phase) == "delay", "scene scroll updater should delegate hidden-to-delay transition")
 	scene._update_scroll(0.38)
 	_expect(str(scene._scroll_phase) == "unfurling", "scene scroll updater should delegate delay-to-unfurl transition")
-	_expect(scene._get_scroll_unfurl_progress() == 0.0, "scene unfurl progress wrapper should delegate")
+	_expect(
+		StageClearResultScrollState.get_unfurl_progress(scene._scroll_phase, scene._scroll_timer, StageClearResultScene.SCROLL_UNFURL_DURATION) == 0.0,
+		"scene scroll fields should remain compatible with the delegated unfurl helper"
+	)
 	scene._update_scroll(0.95)
 	_expect(str(scene._scroll_phase) == "visible", "scene scroll updater should delegate unfurl-to-visible transition")
-	_expect(scene._get_box_global_alpha() == 0.04, "scene box alpha wrapper should delegate")
+	_expect(
+		StageClearResultScrollState.get_box_global_alpha(scene._scroll_phase, scene._scroll_timer, StageClearResultScene.SCROLL_UNFURL_DURATION) == 0.04,
+		"scene scroll fields should remain compatible with the delegated box-alpha helper"
+	)
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(
+		source.find("StageClearResultScrollState.get_unfurl_progress") >= 0
+		and source.find("StageClearResultScrollState.get_box_global_alpha") >= 0,
+		"result scene should call scroll visual helpers directly"
+	)
+	_expect(
+		source.find("func _get_scroll_unfurl_progress") < 0
+		and source.find("func _get_box_global_alpha") < 0,
+		"result scene should not keep scroll visual pass-through wrappers"
+	)
 	scene.free()
 
 

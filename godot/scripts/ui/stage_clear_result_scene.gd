@@ -479,7 +479,7 @@ func get_interaction_status() -> Dictionary:
 		"hovered_box_index": _hovered_box_index,
 		"all_boxes_opened": _boxes.size() > 0 and opened_count == _boxes.size(),
 		"scroll_phase": _scroll_phase,
-		"scroll_unfurl_progress": _get_scroll_unfurl_progress(),
+		"scroll_unfurl_progress": StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION),
 		"scroll_visible": _scroll_phase == "unfurling" or _scroll_phase == "visible",
 		"scroll_texture_loaded": _scroll_texture != null,
 		"next_stage_button_rect": _next_stage_button_rect,
@@ -734,7 +734,7 @@ func _draw_floating_boxes(_view_size: Vector2, scale: float) -> void:
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
-	var global_alpha: float = _get_box_global_alpha()
+	var global_alpha: float = StageClearResultScrollState.get_box_global_alpha(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
 	if global_alpha <= 0.02:
 		return
 
@@ -757,7 +757,13 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 			cos(shake_t * 1.3) * 1.2 * shake_intensity * scale
 		)
 
-	var draw_center: Vector2 = _get_box_draw_center(box, scale) + shake_offset
+	var draw_center: Vector2 = StageClearResultLayoutHelper.get_box_draw_center(
+		box,
+		scale,
+		timer,
+		BOX_FLOAT_AMPLITUDE,
+		BOX_FLOAT_SPEED
+	) + shake_offset
 
 	var hover_active: bool = hovered and state == "idle"
 	var hover_pulse: float = 0.0
@@ -790,7 +796,14 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 	if hover_active:
 		_draw_box_hover_glow(draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, hover_pulse)
 
-	var frame_index: int = _get_result_box_frame_index(state, open_progress, is_mythic)
+	var frame_index: int = StageClearResultLayoutHelper.get_result_box_frame_index(
+		state,
+		open_progress,
+		is_mythic,
+		RESULT_BOX_SHEET_FRAME_COUNT,
+		RESULT_BOX_COMMON_SAFE_LAST_FRAME,
+		RESULT_BOX_MYTHIC_SAFE_LAST_FRAME
+	)
 
 	var texture: Texture2D = _result_box_sheet_mythic if is_mythic else _result_box_sheet_common
 	if texture != null:
@@ -816,41 +829,6 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 
 	if state == "opened":
 		_draw_reward_label(box, draw_center, body_hy, scale, global_alpha)
-
-
-func _get_result_box_frame_index(state: String, open_progress: float, is_mythic: bool) -> int:
-	return StageClearResultLayoutHelper.get_result_box_frame_index(
-		state,
-		open_progress,
-		is_mythic,
-		RESULT_BOX_SHEET_FRAME_COUNT,
-		RESULT_BOX_COMMON_SAFE_LAST_FRAME,
-		RESULT_BOX_MYTHIC_SAFE_LAST_FRAME
-	)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _get_box_draw_center(box: Dictionary, scale: float) -> Vector2:
-	return StageClearResultLayoutHelper.get_box_draw_center(
-		box,
-		scale,
-		timer,
-		BOX_FLOAT_AMPLITUDE,
-		BOX_FLOAT_SPEED
-	)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _get_box_aabb(box: Dictionary, scale: float) -> Rect2:
-	return StageClearResultLayoutHelper.get_box_aabb(
-		box,
-		scale,
-		timer,
-		BOX_BASE_SIZE,
-		BOX_HOVER_GROW,
-		BOX_FLOAT_AMPLITUDE,
-		BOX_FLOAT_SPEED
-	)
 
 
 func _draw_shadow_ellipse(center: Vector2, radius_x: float, radius_y: float, alpha: float) -> void:
@@ -1197,7 +1175,15 @@ func _handle_box_click(mouse_position: Vector2) -> bool:
 		var box: Dictionary = _boxes[i] if _boxes[i] is Dictionary else {}
 		if str(box.get("state", "idle")) != "idle":
 			continue
-		if _get_box_aabb(box, scale).has_point(mouse_position):
+		if StageClearResultLayoutHelper.get_box_aabb(
+			box,
+			scale,
+			timer,
+			BOX_BASE_SIZE,
+			BOX_HOVER_GROW,
+			BOX_FLOAT_AMPLITUDE,
+			BOX_FLOAT_SPEED
+		).has_point(mouse_position):
 			_start_opening_box(i)
 			return true
 	return false
@@ -1302,7 +1288,13 @@ func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
 func _get_box_cinematic_pickup_position(box: Dictionary) -> Vector2:
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(size)
-	var draw_center: Vector2 = _get_box_draw_center(box, scale)
+	var draw_center: Vector2 = StageClearResultLayoutHelper.get_box_draw_center(
+		box,
+		scale,
+		timer,
+		BOX_FLOAT_AMPLITUDE,
+		BOX_FLOAT_SPEED
+	)
 	var view_size: Vector2 = size
 	if view_size == Vector2.ZERO:
 		view_size = _get_view_size()
@@ -1347,17 +1339,13 @@ func _screen_to_acquisition_cinematic_local(screen_position: Vector2, view_size:
 	return StageClearResultLayoutHelper.screen_to_acquisition_cinematic_local(screen_position, view_size, field_size)
 
 
-func _all_boxes_opened() -> bool:
-	return StageClearResultInteractionState.all_boxes_opened(_boxes)
-
-
 func _sync_fx_hosts() -> void:
 	if _boxes.is_empty():
 		_deactivate_all_fx_hosts()
 		return
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(size)
-	var global_alpha: float = _get_box_global_alpha()
+	var global_alpha: float = StageClearResultScrollState.get_box_global_alpha(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
 	for i in range(_boxes.size()):
 		var box: Dictionary = _boxes[i] if _boxes[i] is Dictionary else {}
 		var state: String = str(box.get("state", "idle"))
@@ -1367,7 +1355,13 @@ func _sync_fx_hosts() -> void:
 		var host: Node2D = _ensure_fx_host(i)
 		if host == null:
 			continue
-		var draw_center: Vector2 = _get_box_draw_center(box, scale)
+		var draw_center: Vector2 = StageClearResultLayoutHelper.get_box_draw_center(
+			box,
+			scale,
+			timer,
+			BOX_FLOAT_AMPLITUDE,
+			BOX_FLOAT_SPEED
+		)
 		var open_progress: float = float(box.get("open_progress", 0.0))
 		var reward_emerge: float = float(box.get("reward_emerge", 0.0))
 		var is_mythic: bool = str(box.get("kind", "normal")) == "mythic"
@@ -1442,20 +1436,12 @@ func _update_scroll(delta: float) -> void:
 		_scroll_timer,
 		delta,
 		_starpoint_choice_gate_active or _is_runtime_perk_choice_active(),
-		_all_boxes_opened(),
+		StageClearResultInteractionState.all_boxes_opened(_boxes),
 		SCROLL_DELAY,
 		SCROLL_UNFURL_DURATION
 	)
 	_scroll_phase = str(result.get("phase", _scroll_phase))
 	_scroll_timer = float(result.get("timer", _scroll_timer))
-
-
-func _get_scroll_unfurl_progress() -> float:
-	return StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
-
-
-func _get_box_global_alpha() -> float:
-	return StageClearResultScrollState.get_box_global_alpha(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
 
 
 func _build_item_summary() -> Array:
@@ -1508,7 +1494,7 @@ func _build_perk_info_summary() -> Dictionary:
 func _draw_scroll(_view_size: Vector2, scale: float, font: Font) -> void:
 	if _scroll_phase == "hidden":
 		return
-	var unfurl: float = _get_scroll_unfurl_progress()
+	var unfurl: float = StageClearResultScrollState.get_unfurl_progress(_scroll_phase, _scroll_timer, SCROLL_UNFURL_DURATION)
 	if unfurl <= 0.0:
 		return
 	_draw_cyber_scroll(unfurl, scale, font)
@@ -1918,7 +1904,15 @@ func _update_hovered_box(mouse_position: Vector2) -> void:
 	var found: int = -1
 	for i in range(_boxes.size() - 1, -1, -1):
 		var box: Dictionary = _boxes[i] if _boxes[i] is Dictionary else {}
-		if _get_box_aabb(box, scale).has_point(mouse_position):
+		if StageClearResultLayoutHelper.get_box_aabb(
+			box,
+			scale,
+			timer,
+			BOX_BASE_SIZE,
+			BOX_HOVER_GROW,
+			BOX_FLOAT_AMPLITUDE,
+			BOX_FLOAT_SPEED
+		).has_point(mouse_position):
 			found = i
 			break
 	_hovered_box_index = found
