@@ -11,6 +11,7 @@ func _init() -> void:
 	_verify_star_points()
 	_verify_corner_braces()
 	_verify_box_lock_points()
+	_verify_box_hover_effects()
 	_verify_scene_delegates_shape_points()
 
 	if _failures.is_empty():
@@ -90,6 +91,28 @@ func _verify_box_lock_points() -> void:
 	_expect_vec(face_points[1], Vector2(107.2, 120.0), "lock face side should use the 0.72 width factor")
 
 
+func _verify_box_hover_effects() -> void:
+	var glow_layers: Array = StageClearResultShapeHelper.box_hover_glow_layers(10.0, 20.0, 1.0, 0.0)
+	_expect(glow_layers.size() == 4, "box hover glow should expose four default layers")
+	var first_layer: Dictionary = glow_layers[0]
+	_expect(is_equal_approx(float(first_layer.get("radius_x", 0.0)), 19.5), "first glow layer should use the widest x radius")
+	_expect(is_equal_approx(float(first_layer.get("radius_y", 0.0)), 36.0), "first glow layer should use the tallest y radius")
+	_expect(is_equal_approx(float(first_layer.get("alpha", 0.0)), 0.04675), "first glow layer should apply the base alpha multiplier")
+
+	var ring: Dictionary = StageClearResultShapeHelper.box_hover_glow_ring(10.0, 20.0, 2.0, 1.0, 1.0)
+	_expect(is_equal_approx(float(ring.get("radius_x", 0.0)), 12.8), "hover glow ring should scale x radius")
+	_expect(is_equal_approx(float(ring.get("radius_y", 0.0)), 22.8), "hover glow ring should scale y radius")
+	_expect(is_equal_approx(float(ring.get("alpha", 0.0)), 0.36), "hover glow ring should combine pulse and alpha")
+	_expect(is_equal_approx(float(ring.get("width", 0.0)), 4.4), "hover glow ring should scale line width")
+
+	var sparkles: Array = StageClearResultShapeHelper.box_hover_sparkles(Vector2.ZERO, 10.0, 20.0, 1.0, 1.0, 0.0, 0.0)
+	_expect(sparkles.size() == 6, "box hover sparkles should expose the default sparkle count")
+	var first_sparkle: Dictionary = sparkles[0]
+	_expect_vec(first_sparkle.get("position", Vector2.INF), Vector2(11.8, 0.0), "first sparkle should start at the right orbit point")
+	_expect(is_equal_approx(float(first_sparkle.get("alpha", 0.0)), 0.425), "first sparkle should apply the alpha wave")
+	_expect(is_equal_approx(float(first_sparkle.get("size", 0.0)), 3.6), "first sparkle should apply the size wave")
+
+
 func _verify_scene_delegates_shape_points() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(source.find("StageClearResultShapeHelper.ellipse_polygon_points") >= 0, "result scene should delegate filled ellipse point generation")
@@ -98,6 +121,8 @@ func _verify_scene_delegates_shape_points() -> void:
 	_expect(source.find("StageClearResultShapeHelper.star_polygon_points") >= 0, "result scene should delegate star point generation")
 	_expect(source.find("StageClearResultShapeHelper.corner_brace_segments") >= 0, "result scene should delegate corner brace segment generation")
 	_expect(source.find("StageClearResultShapeHelper.get_box_lock_face_points") >= 0, "result scene should delegate lock face point generation")
+	_expect(source.find("StageClearResultShapeHelper.box_hover_glow_layers") >= 0, "result scene should delegate hover glow layer generation")
+	_expect(source.find("StageClearResultShapeHelper.box_hover_sparkles") >= 0, "result scene should delegate hover sparkle generation")
 
 
 func _expect(condition: bool, message: String) -> void:

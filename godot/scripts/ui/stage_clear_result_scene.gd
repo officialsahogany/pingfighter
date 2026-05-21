@@ -871,25 +871,26 @@ func _draw_shadow_ellipse(center: Vector2, radius_x: float, radius_y: float, alp
 @warning_ignore("shadowed_variable_base_class")
 func _draw_box_hover_glow(draw_center: Vector2, hx: float, hy: float, scale: float, is_mythic: bool, global_alpha: float, pulse: float) -> void:
 	var base_color: Color = Color(1.0, 0.92, 0.50, 1.0) if is_mythic else Color(0.62, 0.92, 1.0, 1.0)
-	var layer_count: int = 4
-	for i in range(layer_count):
-		var t: float = float(i) / float(max(1, layer_count - 1))
-		var rx: float = hx * lerp(1.95, 1.18, t)
-		var ry: float = hy * lerp(1.80, 1.08, t)
-		var alpha: float = lerp(0.055, 0.18, t) * global_alpha
-		alpha *= 0.85 + pulse * 0.30
+	for layer_value in StageClearResultShapeHelper.box_hover_glow_layers(hx, hy, global_alpha, pulse):
+		var layer: Dictionary = layer_value if layer_value is Dictionary else {}
 		var c: Color = base_color
-		c.a = clamp(alpha, 0.0, 0.22)
-		_draw_filled_ellipse(draw_center, rx, ry, c)
+		c.a = float(layer.get("alpha", 0.0))
+		_draw_filled_ellipse(
+			draw_center,
+			float(layer.get("radius_x", 0.0)),
+			float(layer.get("radius_y", 0.0)),
+			c
+		)
 
+	var ring: Dictionary = StageClearResultShapeHelper.box_hover_glow_ring(hx, hy, scale, global_alpha, pulse)
 	var ring_color: Color = base_color
-	ring_color.a = clamp((0.24 + pulse * 0.12) * global_alpha, 0.0, 0.42)
+	ring_color.a = float(ring.get("alpha", 0.0))
 	_draw_ellipse_polyline(
 		draw_center,
-		hx * 1.28,
-		hy * 1.14,
+		float(ring.get("radius_x", 0.0)),
+		float(ring.get("radius_y", 0.0)),
 		ring_color,
-		max(1.5, 2.2 * scale)
+		float(ring.get("width", max(1.5, 2.2 * scale)))
 	)
 
 
@@ -982,18 +983,11 @@ func _draw_box_lock(
 @warning_ignore("shadowed_variable_base_class")
 func _draw_box_hover_sparkles(draw_center: Vector2, hx: float, hy: float, scale: float, is_mythic: bool, global_alpha: float, phase: float) -> void:
 	var base_color: Color = Color(1.0, 0.92, 0.50, 1.0) if is_mythic else Color(0.62, 0.92, 1.0, 1.0)
-	var sparkle_count: int = 6
-	var orbit_x: float = hx * 1.18
-	var orbit_y: float = hy * 0.86
-	for i in range(sparkle_count):
-		var t: float = float(i) / float(sparkle_count)
-		var orbit_angle: float = t * TAU + timer * 0.85 + phase
-		var sparkle_pos: Vector2 = draw_center + Vector2(cos(orbit_angle) * orbit_x, sin(orbit_angle) * orbit_y)
-		var local_phase: float = timer * 3.0 + t * TAU
-		var sparkle_alpha: float = (sin(local_phase) * 0.5 + 0.5) * global_alpha * 0.85
-		if sparkle_alpha <= 0.04:
-			continue
-		var sparkle_size: float = max(2.0, (3.6 + sin(local_phase * 1.3) * 1.2) * scale)
+	for sparkle_value in StageClearResultShapeHelper.box_hover_sparkles(draw_center, hx, hy, scale, global_alpha, phase, timer):
+		var sparkle: Dictionary = sparkle_value if sparkle_value is Dictionary else {}
+		var sparkle_alpha: float = float(sparkle.get("alpha", 0.0))
+		var sparkle_size: float = float(sparkle.get("size", 2.0))
+		var sparkle_pos: Vector2 = sparkle.get("position", draw_center)
 		var dot_color: Color = base_color
 		dot_color.a = sparkle_alpha
 		draw_circle(sparkle_pos, sparkle_size, dot_color)
@@ -1017,22 +1011,26 @@ func _draw_radial_burst(center: Vector2, radius: float, color: Color) -> void:
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_reward_label(box: Dictionary, box_draw_center: Vector2, hy: float, scale: float, global_alpha: float) -> void:
-	var reward: Dictionary = box.get("reward", {}) if box.get("reward", {}) is Dictionary else {}
-	if reward.is_empty() or global_alpha <= 0.02:
+	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_label_visual_state(
+		box,
+		box_draw_center,
+		hy,
+		scale,
+		global_alpha,
+		timer,
+		BOX_REWARD_HOVER_OFFSET
+	)
+	if visual_state.is_empty():
 		return
-	var reward_type: String = str(reward.get("type", ""))
-	var emerge: float = float(box.get("reward_emerge", 0.0))
-	var emerge_eased: float = _smooth01(emerge)
-	var combined_alpha: float = emerge_eased * global_alpha
-	if combined_alpha <= 0.02:
-		return
-
-	var rise: float = lerp(20.0 * scale, BOX_REWARD_HOVER_OFFSET * scale, emerge_eased)
-	var bob: float = sin(timer * 2.6 + float(box.get("phase", 0.0))) * 4.0 * scale * emerge_eased
-	var anchor: Vector2 = box_draw_center + Vector2(0.0, -hy - rise + bob)
+	var reward: Dictionary = visual_state.get("reward", {})
+	var reward_type: String = str(visual_state.get("reward_type", ""))
+	var anchor: Vector2 = visual_state.get("anchor", box_draw_center)
+	var combined_alpha: float = float(visual_state.get("alpha", 0.0))
+	var emerge_eased: float = float(visual_state.get("emerge_eased", 0.0))
+	var phase: float = float(visual_state.get("phase", 0.0))
 
 	if reward_type == "starpoint":
-		_draw_reward_starpoint(reward, anchor, scale, combined_alpha, emerge_eased, float(box.get("phase", 0.0)))
+		_draw_reward_starpoint(reward, anchor, scale, combined_alpha, emerge_eased, phase)
 	else:
 		_draw_reward_item_icon(reward, anchor, scale, combined_alpha)
 
@@ -1040,44 +1038,46 @@ func _draw_reward_label(box: Dictionary, box_draw_center: Vector2, hy: float, sc
 @warning_ignore("shadowed_variable_base_class")
 func _draw_reward_item_icon(reward: Dictionary, anchor: Vector2, scale: float, alpha: float) -> void:
 	var reward_type: String = str(reward.get("type", ""))
-	var icon_size: float = 96.0 * scale
-	var disc_radius: float = 60.0 * scale
-
-	var palette: Dictionary = StageClearResultRewardVisualResolver.get_reward_item_icon_palette(reward_type)
-	var disc_color: Color = palette.get("disc_color", Color(0.18, 0.18, 0.24, 0.88))
-	var rim_color: Color = palette.get("rim_color", Color(0.85, 0.85, 0.92, 1.0))
-
-	var glow_color: Color = rim_color
-	glow_color.a = 0.32 * alpha
+	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_item_icon_visual_state(
+		reward_type,
+		anchor,
+		scale,
+		alpha
+	)
+	var disc_radius: float = float(visual_state.get("disc_radius", 60.0 * scale))
+	var glow_color: Color = visual_state.get("glow_color", Color(0.85, 0.85, 0.92, 0.32 * alpha))
 	_draw_radial_burst(anchor, disc_radius * 1.55, glow_color)
 
-	var disc_fill: Color = disc_color
-	disc_fill.a *= alpha
+	var disc_fill: Color = visual_state.get("disc_fill", Color(0.18, 0.18, 0.24, 0.88 * alpha))
 	draw_circle(anchor, disc_radius, disc_fill)
 
-	var ring_color: Color = rim_color
-	ring_color.a *= alpha
-	draw_arc(anchor, disc_radius, 0.0, TAU, 40, ring_color, max(2.0, 2.8 * scale))
+	draw_arc(
+		anchor,
+		disc_radius,
+		0.0,
+		TAU,
+		40,
+		visual_state.get("ring_color", Color(0.85, 0.85, 0.92, alpha)),
+		float(visual_state.get("ring_width", max(2.0, 2.8 * scale)))
+	)
 
 	var texture: Texture2D = _get_reward_icon_texture(reward)
 	if texture != null:
-		var icon_rect := Rect2(anchor - Vector2(icon_size, icon_size) * 0.5, Vector2(icon_size, icon_size))
-		draw_texture_rect(texture, icon_rect, false, Color(1.0, 1.0, 1.0, alpha))
+		draw_texture_rect(texture, visual_state.get("icon_rect", Rect2()), false, Color(1.0, 1.0, 1.0, alpha))
 	else:
 		var fallback_label: String = str(reward.get("label", ""))
 		if fallback_label == "":
 			fallback_label = _reward_type_fallback_label(reward_type)
 		var font: Font = ThemeDB.fallback_font
-		var text_rect := Rect2(anchor - Vector2(disc_radius * 0.95, 18.0 * scale), Vector2(disc_radius * 1.9, 36.0 * scale))
-		var text_color: Color = Color(1.0, 1.0, 1.0, alpha)
+		var text_rect: Rect2 = visual_state.get("fallback_text_rect", Rect2())
 		var font_size: int = _fit_font_size(
 			font,
 			fallback_label,
 			text_rect.size.x,
-			int(round(22.0 * scale)),
-			int(round(13.0 * scale))
+			int(visual_state.get("fallback_font_preferred_size", round(22.0 * scale))),
+			int(visual_state.get("fallback_font_min_size", round(13.0 * scale)))
 		)
-		_draw_centered_text(font, fallback_label, text_rect, font_size, text_color)
+		_draw_centered_text(font, fallback_label, text_rect, font_size, visual_state.get("fallback_text_color", Color(1.0, 1.0, 1.0, alpha)))
 
 
 @warning_ignore("shadowed_variable_base_class")

@@ -90,6 +90,63 @@ static func get_reward_item_icon_palette(reward_type: String) -> Dictionary:
 	}
 
 
+static func get_reward_label_visual_state(
+	box: Dictionary,
+	box_draw_center: Vector2,
+	box_half_y: float,
+	draw_scale: float,
+	global_alpha: float,
+	timer: float,
+	reward_hover_offset: float
+) -> Dictionary:
+	var reward: Dictionary = box.get("reward", {}) if box.get("reward", {}) is Dictionary else {}
+	if reward.is_empty() or global_alpha <= 0.02:
+		return {}
+	var emerge: float = float(box.get("reward_emerge", 0.0))
+	var emerge_eased: float = smooth01(emerge)
+	var combined_alpha: float = emerge_eased * global_alpha
+	if combined_alpha <= 0.02:
+		return {}
+
+	var phase: float = float(box.get("phase", 0.0))
+	var rise: float = lerp(20.0 * draw_scale, reward_hover_offset * draw_scale, emerge_eased)
+	var bob: float = sin(timer * 2.6 + phase) * 4.0 * draw_scale * emerge_eased
+	return {
+		"reward": reward,
+		"reward_type": str(reward.get("type", "")),
+		"anchor": box_draw_center + Vector2(0.0, -box_half_y - rise + bob),
+		"alpha": combined_alpha,
+		"emerge_eased": emerge_eased,
+		"phase": phase,
+	}
+
+
+static func get_reward_item_icon_visual_state(reward_type: String, anchor: Vector2, draw_scale: float, alpha: float) -> Dictionary:
+	var icon_size: float = 96.0 * draw_scale
+	var disc_radius: float = 60.0 * draw_scale
+	var palette: Dictionary = get_reward_item_icon_palette(reward_type)
+	var disc_color: Color = palette.get("disc_color", Color(0.18, 0.18, 0.24, 0.88))
+	var rim_color: Color = palette.get("rim_color", Color(0.85, 0.85, 0.92, 1.0))
+	var glow_color: Color = rim_color
+	glow_color.a = 0.32 * alpha
+	var disc_fill: Color = disc_color
+	disc_fill.a *= alpha
+	var ring_color: Color = rim_color
+	ring_color.a *= alpha
+	return {
+		"icon_rect": Rect2(anchor - Vector2(icon_size, icon_size) * 0.5, Vector2(icon_size, icon_size)),
+		"disc_radius": disc_radius,
+		"glow_color": glow_color,
+		"disc_fill": disc_fill,
+		"ring_color": ring_color,
+		"ring_width": max(2.0, 2.8 * draw_scale),
+		"fallback_text_rect": Rect2(anchor - Vector2(disc_radius * 0.95, 18.0 * draw_scale), Vector2(disc_radius * 1.9, 36.0 * draw_scale)),
+		"fallback_text_color": Color(1.0, 1.0, 1.0, alpha),
+		"fallback_font_preferred_size": int(round(22.0 * draw_scale)),
+		"fallback_font_min_size": int(round(13.0 * draw_scale)),
+	}
+
+
 static func get_reward_starpoint_visual_state(
 	amount: int,
 	anchor: Vector2,
@@ -133,3 +190,8 @@ static func get_reward_starpoint_visual_state(
 		"text_rect": Rect2(anchor + Vector2(-disc_radius, 22.0 * draw_scale), Vector2(disc_radius * 2.0, 30.0 * draw_scale)),
 		"text_color": Color(1.0, 0.97, 0.70, alpha),
 	}
+
+
+static func smooth01(value: float) -> float:
+	var clamped: float = clamp(value, 0.0, 1.0)
+	return clamped * clamped * (3.0 - 2.0 * clamped)

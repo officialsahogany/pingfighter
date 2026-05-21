@@ -119,6 +119,59 @@ static func get_box_lock_face_points(
 	])
 
 
+static func box_hover_glow_layers(radius_x: float, radius_y: float, global_alpha: float, pulse: float, layer_count: int = 4) -> Array:
+	var layers: Array = []
+	var safe_layer_count: int = max(1, layer_count)
+	for i in range(safe_layer_count):
+		var t: float = 0.0 if safe_layer_count <= 1 else float(i) / float(safe_layer_count - 1)
+		var layer_alpha: float = lerpf(0.055, 0.18, t) * global_alpha
+		layer_alpha *= 0.85 + pulse * 0.30
+		layers.append({
+			"radius_x": radius_x * lerpf(1.95, 1.18, t),
+			"radius_y": radius_y * lerpf(1.80, 1.08, t),
+			"alpha": clampf(layer_alpha, 0.0, 0.22),
+		})
+	return layers
+
+
+static func box_hover_glow_ring(radius_x: float, radius_y: float, draw_scale: float, global_alpha: float, pulse: float) -> Dictionary:
+	return {
+		"radius_x": radius_x * 1.28,
+		"radius_y": radius_y * 1.14,
+		"alpha": clampf((0.24 + pulse * 0.12) * global_alpha, 0.0, 0.42),
+		"width": max(1.5, 2.2 * draw_scale),
+	}
+
+
+static func box_hover_sparkles(
+	draw_center: Vector2,
+	radius_x: float,
+	radius_y: float,
+	draw_scale: float,
+	global_alpha: float,
+	phase: float,
+	timer: float,
+	sparkle_count: int = 6
+) -> Array:
+	var sparkles: Array = []
+	var safe_count: int = max(0, sparkle_count)
+	var orbit_x: float = radius_x * 1.18
+	var orbit_y: float = radius_y * 0.86
+	for i in range(safe_count):
+		var t: float = float(i) / float(safe_count)
+		var orbit_angle: float = t * TAU + timer * 0.85 + phase
+		var local_phase: float = timer * 3.0 + t * TAU
+		var sparkle_alpha: float = (sin(local_phase) * 0.5 + 0.5) * global_alpha * 0.85
+		if sparkle_alpha <= 0.04:
+			continue
+		sparkles.append({
+			"position": draw_center + Vector2(cos(orbit_angle) * orbit_x, sin(orbit_angle) * orbit_y),
+			"size": max(2.0, (3.6 + sin(local_phase * 1.3) * 1.2) * draw_scale),
+			"alpha": sparkle_alpha,
+		})
+	return sparkles
+
+
 static func rotated_local_point(origin: Vector2, local_point: Vector2, angle: float) -> Vector2:
 	var c: float = cos(angle)
 	var s: float = sin(angle)

@@ -898,8 +898,8 @@ This section is intentionally long; use search to find the nearest owner.
   cutscene art. Result-scroll reward summary arrays, source counts,
   perk-info tile payloads, starpoint totals, and perk reward ID
   classification are delegated to `stage_clear_result_summary_builder.gd`;
-  reward card colors, reward item
-  icon palettes, starpoint visual state, badges, and source-chip labels /
+  reward card colors, reward label visual state, reward item icon visual
+  state / palettes, starpoint visual state, badges, and source-chip labels /
   colors are delegated to
   `stage_clear_result_reward_visual_resolver.gd`; reward icon path
   resolution and scene-local texture caching are delegated to
@@ -917,8 +917,9 @@ This section is intentionally long; use search to find the nearest owner.
   `stage_clear_result_scroll_state.gd`; result button layout / hit state
   and box opened / opening counts are delegated to
   `stage_clear_result_interaction_state.gd`; reusable ellipse / radial /
-  star polygon point generation is delegated to
-  `stage_clear_result_shape_helper.gd`; player-victory and Dalji
+  star polygon point generation plus result-box ornament / hover geometry
+  is delegated to `stage_clear_result_shape_helper.gd`; player-victory
+  and Dalji
   click-reaction frame / transition / alpha math is delegated to
   `stage_clear_result_click_reaction_state.gd`. Keep future reward-pick
   animation / settlement UI work here rather than adding draw blocks back
@@ -948,8 +949,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns stateless result-scene shape point generation: ellipse fill
   polygons, ellipse polylines, radial burst polygons, star polygons, and
   closed polyline conversion, plus result-box corner brace segments and
-  lock face / center point geometry. The scene still owns actual draw
-  calls, colors, alpha gates, and animation timing.
+  lock face / center point geometry, and result-box hover glow / sparkle
+  geometry. The scene still owns actual draw calls, colors, alpha gates,
+  and animation timing.
 - `scripts/ui/stage_clear_result_click_reaction_state.gd`
   Owns stateless result-scene click-reaction animation math shared by the
   player victory and Dalji result sheets: base frame selection, reaction
@@ -967,9 +969,9 @@ This section is intentionally long; use search to find the nearest owner.
   the live perk catalog instance used by reward text resolution.
 - `scripts/ui/stage_clear_result_reward_visual_resolver.gd`
   Owns stateless stage-clear reward visual classification: reward card base
-  colors, reward item icon palettes, starpoint visual state, reward badge
-  text, and stage-vs-box source-chip labels / colors. The scene still owns
-  all actual drawing.
+  colors, reward label visual state, reward item icon visual state /
+  palettes, starpoint visual state, reward badge text, and stage-vs-box
+  source-chip labels / colors. The scene still owns all actual drawing.
 - `scripts/ui/stage_clear_result_reward_icon_resolver.gd`
   Owns stage-clear reward icon resolution: direct and nested icon paths,
   item-name fallback sprite paths, preloaded `icon_texture` handling, and
