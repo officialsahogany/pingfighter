@@ -19,6 +19,7 @@ var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
 var status_overlay_renderer: Object = StatusEffectOverlayRenderer.new()
 var _prewarm_assets_done := false
 var _prewarm_step_index := 0
+var _method_acceptance_cache: Dictionary = {}
 
 
 func prewarm_assets() -> void:
@@ -152,6 +153,9 @@ func _draw_renderer(
 func _method_accepts_argument_count(target: Object, method_name: String, requested_count: int) -> bool:
 	if target == null:
 		return false
+	var cache_key := "%d:%s:%d" % [target.get_instance_id(), method_name, requested_count]
+	if _method_acceptance_cache.has(cache_key):
+		return bool(_method_acceptance_cache[cache_key])
 	for method_info in target.get_method_list():
 		if not (method_info is Dictionary):
 			continue
@@ -165,7 +169,10 @@ func _method_accepts_argument_count(target: Object, method_name: String, request
 		var default_count: int = 0
 		if default_args_value is Array:
 			default_count = int((default_args_value as Array).size())
-		return method_arg_count >= requested_count or method_arg_count + default_count >= requested_count
+		var accepts: bool = method_arg_count >= requested_count or method_arg_count + default_count >= requested_count
+		_method_acceptance_cache[cache_key] = accepts
+		return accepts
+	_method_acceptance_cache[cache_key] = false
 	return false
 
 

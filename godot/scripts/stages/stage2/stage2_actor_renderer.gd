@@ -11,6 +11,7 @@ var boss_renderer: Object = Stage2BossActorRenderer.new()
 var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
 var prewarm_done := false
 var prewarm_step_index := 0
+var _method_argument_count_cache: Dictionary = {}
 
 
 func prewarm_assets() -> void:
@@ -96,8 +97,14 @@ func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 func _get_method_argument_count(target: Object, method_name: String) -> int:
 	if target == null:
 		return 0
+	var cache_key := "%d:%s" % [target.get_instance_id(), method_name]
+	if _method_argument_count_cache.has(cache_key):
+		return int(_method_argument_count_cache[cache_key])
 	for method_info in target.get_method_list():
 		if str(method_info.get("name", "")) == method_name:
 			var args: Array = method_info.get("args", [])
-			return args.size()
+			var args_count: int = args.size()
+			_method_argument_count_cache[cache_key] = args_count
+			return args_count
+	_method_argument_count_cache[cache_key] = 0
 	return 0

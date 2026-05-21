@@ -13,6 +13,7 @@ var skill_effect_renderer: Object = Stage3MenheraSkillEffectRenderer.new()
 var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
 var _prewarm_assets_done: bool = false
 var _prewarm_step_index: int = 0
+var _method_argument_count_cache: Dictionary = {}
 
 
 func prewarm_assets() -> void:
@@ -118,6 +119,9 @@ func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 func _get_method_argument_count(target: Object, method_name: String) -> int:
 	if target == null:
 		return 0
+	var cache_key := "%d:%s" % [target.get_instance_id(), method_name]
+	if _method_argument_count_cache.has(cache_key):
+		return int(_method_argument_count_cache[cache_key])
 	for method_info in target.get_method_list():
 		if not (method_info is Dictionary):
 			continue
@@ -125,5 +129,8 @@ func _get_method_argument_count(target: Object, method_name: String) -> int:
 			continue
 		var args_value: Variant = method_info.get("args", [])
 		if args_value is Array:
-			return args_value.size()
+			var args_count: int = args_value.size()
+			_method_argument_count_cache[cache_key] = args_count
+			return args_count
+	_method_argument_count_cache[cache_key] = 0
 	return 0
