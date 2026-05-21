@@ -1080,7 +1080,9 @@ This section is intentionally long; use search to find the nearest owner.
   construction is delegated to `stage2_actor_draw_context_builder.gd`.
   Base boss-AI context payload construction is delegated to
   `stage2_boss_ai_context_builder.gd`. Boss-rage snapshots are delegated
-  to `stage2_boss_rage_snapshot_builder.gd`.
+  to `stage2_boss_rage_snapshot_builder.gd`; boss-rage crisis gating,
+  tint / offset visual timing, final-stomp threshold checks, and finish
+  checks are delegated to `stage2_boss_rage_state.gd`.
   Rock / rock-fragment /
   starpoint particle and drop drawing is delegated to
   `stage2_pillar_obstacle_visual_renderer.gd`; water-cannon target rings,
@@ -1316,8 +1318,9 @@ This section is intentionally long; use search to find the nearest owner.
   audio.
 - `scripts/stages/stage2/stage2_rock_query.gd`
   Owns Stage 2 rock dictionary query helpers: id lookup, landed checks,
-  random id selection for water-cannon targeting, target position, render /
-  collision center, and spawn-spacing distance tests.
+  runtime-update predicates, random id selection for water-cannon targeting,
+  target position, render / collision center, center mutation, and
+  spawn-spacing distance tests.
   `stage2_pillar_background.gd` still owns rock array mutation, spawning,
   HP / collision, quake drop updates, golden-drop behavior, and water-cannon
   target mutation.
@@ -1375,6 +1378,13 @@ This section is intentionally long; use search to find the nearest owner.
   flags, timer, stomp count, final-stomp flag, actor Y offset, and tint.
   The background module still owns rage lifecycle updates, stomp emission,
   crisis reservation, and renderer handoff.
+- `scripts/stages/stage2/stage2_boss_rage_state.gd`
+  Owns stateless Stage 2 boss-rage predicates and visual timing math:
+  crisis trigger gating, inactive tint / offset decay, active rage tint /
+  offset calculation, final-stomp threshold checks, and finish checks.
+  `stage2_pillar_background.gd` keeps the mutable pending / active flags,
+  timers, stomp / quake / rock-wall side effects, audio / feedback
+  emission, and snapshot publication.
 - `scripts/stages/stage2/stage2_boss_expression_state.gd`
   Owns the short-lived Stage 2 boss score-expression state: accepted
   expression IDs, neutral fallback, timer decay, reset, and actor /

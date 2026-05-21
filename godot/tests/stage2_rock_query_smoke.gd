@@ -33,6 +33,25 @@ func _verify_direct_rock_query() -> void:
 	rng.seed = 1234
 	var selected_id: int = query.select_random_id(rocks, rng)
 	_expect([10, 20].has(selected_id), "rock query random selection should return an existing id")
+	_expect(not query.needs_runtime_update({}, false), "rock query should ignore inert rocks")
+	_expect(query.needs_runtime_update({"falling": true}, false), "rock query should update falling rocks")
+	_expect(query.needs_runtime_update({"quake_offset": Vector2(0.2, 0.0)}, false), "rock query should update rocks with visible quake offset")
+	_expect(query.needs_runtime_update({}, true), "rock query should update rocks while quake is active")
+	var centered_rock := {
+		"pos": Vector2.ZERO,
+		"target_pos": Vector2(1.0, 2.0),
+		"fall_y": -12.0,
+		"falling": true,
+		"drop_delay": 1.5,
+		"quake_offset": Vector2(4.0, 5.0),
+	}
+	query.set_center(centered_rock, Vector2(44.0, 55.0))
+	_expect(centered_rock.get("pos", Vector2.ZERO) == Vector2(44.0, 55.0), "rock query should set rock position to center")
+	_expect(centered_rock.get("target_pos", Vector2.ZERO) == Vector2(44.0, 55.0), "rock query should set rock target to center")
+	_expect(float(centered_rock.get("fall_y", 0.0)) == 55.0, "rock query should update fall_y when present")
+	_expect(not bool(centered_rock.get("falling", true)), "rock query should clear falling state")
+	_expect(float(centered_rock.get("drop_delay", 0.0)) == 0.0, "rock query should clear drop delay")
+	_expect(centered_rock.get("quake_offset", Vector2.ONE) == Vector2.ZERO, "rock query should clear quake offset")
 
 
 func _verify_background_delegates_rock_query() -> void:
@@ -45,6 +64,17 @@ func _verify_background_delegates_rock_query() -> void:
 	background.rng.seed = 99
 	var selected_id: int = background._select_water_cannon_target_id()
 	_expect([31, 32].has(selected_id), "background water-cannon target wrapper should delegate random id selection")
+	_expect(background._needs_rock_runtime_update({"falling": true}), "background runtime-update wrapper should delegate rock update predicates")
+	var centered_rock := {
+		"pos": Vector2.ZERO,
+		"target_pos": Vector2(1.0, 2.0),
+		"falling": true,
+		"drop_delay": 1.0,
+		"quake_offset": Vector2(4.0, 5.0),
+	}
+	background._set_rock_center(centered_rock, Vector2(12.0, 34.0))
+	_expect(centered_rock.get("pos", Vector2.ZERO) == Vector2(12.0, 34.0), "background center wrapper should delegate rock center mutation")
+	_expect(not bool(centered_rock.get("falling", true)), "background center wrapper should clear falling state")
 
 
 func _expect(condition: bool, message: String) -> void:

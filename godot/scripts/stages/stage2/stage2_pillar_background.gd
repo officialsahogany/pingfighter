@@ -30,6 +30,7 @@ const Stage2ImagegenAssetStatusBuilder := preload("res://scripts/stages/stage2/s
 const Stage2AmbientVisualSnapshotBuilder := preload("res://scripts/stages/stage2/stage2_ambient_visual_snapshot_builder.gd")
 const Stage2BossAiContextBuilder := preload("res://scripts/stages/stage2/stage2_boss_ai_context_builder.gd")
 const Stage2BossRageSnapshotBuilder := preload("res://scripts/stages/stage2/stage2_boss_rage_snapshot_builder.gd")
+const Stage2BossRageState := preload("res://scripts/stages/stage2/stage2_boss_rage_state.gd")
 const Stage2PerfLogSnapshotBuilder := preload("res://scripts/stages/stage2/stage2_perf_log_snapshot_builder.gd")
 const Stage2PerfLogger := preload("res://scripts/stages/stage2/stage2_perf_logger.gd")
 const Stage2CollisionGeometry := preload("res://scripts/stages/stage2/stage2_collision_geometry.gd")
@@ -1396,22 +1397,7 @@ func _has_active_rustle() -> bool:
 
 
 func _needs_rock_runtime_update(rock: Dictionary) -> bool:
-	if bool(rock.get("chaos_absorbing", false)):
-		return true
-	if bool(rock.get("falling", false)):
-		return true
-	if float(rock.get("drop_delay", 0.0)) > 0.0:
-		return true
-	if rock.has("spawn_delay_frames") and float(rock.get("delay_timer_frames", 0.0)) < float(rock.get("spawn_delay_frames", 0.0)):
-		return true
-	if float(rock.get("flash", 0.0)) > 0.0:
-		return true
-	if float(rock.get("water_target_flash", 0.0)) > 0.0:
-		return true
-	if quake_timer > 0.0:
-		return true
-	var quake_offset: Vector2 = _get_vector2(rock.get("quake_offset", Vector2.ZERO), Vector2.ZERO)
-	return quake_offset.length_squared() > 0.03
+	return rock_query.needs_runtime_update(rock, quake_timer > 0.0)
 
 
 func _update_chaos_absorbing_rock(rock: Dictionary, delta: float, deps: Dictionary, context: Dictionary = {}) -> bool:
@@ -1457,13 +1443,7 @@ func _step_chaos_absorbing_rock(rock: Dictionary, center: Vector2, frame_step: f
 
 
 func _set_rock_center(rock: Dictionary, center: Vector2) -> void:
-	rock["pos"] = center
-	rock["target_pos"] = center
-	if rock.has("fall_y"):
-		rock["fall_y"] = center.y
-	rock["falling"] = false
-	rock["drop_delay"] = 0.0
-	rock["quake_offset"] = Vector2.ZERO
+	rock_query.set_center(rock, center)
 
 
 func _destroy_chaos_absorbed_rock(rock: Dictionary, center: Vector2, deps: Dictionary, context: Dictionary = {}) -> void:
@@ -1867,13 +1847,13 @@ func _get_mythic_item_runtime(deps: Dictionary, context: Dictionary = {}) -> Obj
 
 
 func _check_crisis_situation(context: Dictionary) -> bool:
-	if int(context.get("current_stage", 1)) != 2:
-		return false
-	if crisis_triggered or boss_rage_pending or boss_rage_active:
-		return false
-	var player_score: int = int(context.get("player_score", 0))
-	var boss_score: int = int(context.get("boss_score", 0))
-	if player_score != CRISIS_PLAYER_SCORE or boss_score > CRISIS_PLAYER_SCORE:
+	if not Stage2BossRageState.should_trigger_crisis(
+		context,
+		crisis_triggered,
+		boss_rage_pending,
+		boss_rage_active,
+		CRISIS_PLAYER_SCORE
+	):
 		return false
 	crisis_triggered = true
 	boss_rage_pending = true
@@ -1886,16 +1866,21 @@ func _update_boss_expression(delta: float) -> void:
 
 func _update_boss_rage(delta: float, deps: Dictionary) -> void:
 	if not boss_rage_active:
-		boss_rage_offset_y = move_toward(boss_rage_offset_y, 0.0, delta * 120.0)
-		boss_rage_tint = move_toward(boss_rage_tint, 0.0, delta * 2.4)
+		var inactive_visuals: Dictionary = Stage2BossRageState.get_inactive_visuals(
+			boss_rage_offset_y,
+			boss_rage_tint,
+			delta
+		)
+		boss_rage_offset_y = float(inactive_visuals.get("offset_y", boss_rage_offset_y))
+		boss_rage_tint = float(inactive_visuals.get("tint", boss_rage_tint))
 		return
 	var previous_timer := boss_rage_timer
 	boss_rage_timer += delta
 	_update_boss_rage_visuals()
 	_emit_boss_rage_stomps(previous_timer, boss_rage_timer, deps)
-	if previous_timer < BOSS_RAGE_FINAL_STOMP_SEC and boss_rage_timer >= BOSS_RAGE_FINAL_STOMP_SEC:
+	if Stage2BossRageState.should_emit_final_stomp(previous_timer, boss_rage_timer, BOSS_RAGE_FINAL_STOMP_SEC):
 		_emit_boss_rage_final_stomp(deps)
-	if boss_rage_timer > BOSS_RAGE_TOTAL_SEC:
+	if Stage2BossRageState.is_finished(boss_rage_timer, BOSS_RAGE_TOTAL_SEC):
 		boss_rage_active = false
 		boss_rage_timer = 0.0
 		boss_rage_offset_y = 0.0
@@ -1903,14 +1888,15 @@ func _update_boss_rage(delta: float, deps: Dictionary) -> void:
 
 
 func _update_boss_rage_visuals() -> void:
-	if boss_rage_timer <= BOSS_RAGE_BUILDUP_SEC:
-		boss_rage_tint = clamp(boss_rage_timer / BOSS_RAGE_BUILDUP_SEC, 0.0, 1.0)
-	elif boss_rage_timer <= BOSS_RAGE_FINAL_STOMP_SEC:
-		boss_rage_tint = 1.0
-	else:
-		var fade: float = 1.0 - (boss_rage_timer - BOSS_RAGE_FINAL_STOMP_SEC) / max(0.001, BOSS_RAGE_TOTAL_SEC - BOSS_RAGE_FINAL_STOMP_SEC)
-		boss_rage_tint = clamp(fade, 0.0, 1.0)
-	boss_rage_offset_y = move_toward(boss_rage_offset_y, 0.0, 4.0)
+	var visuals: Dictionary = Stage2BossRageState.get_visuals(
+		boss_rage_timer,
+		boss_rage_offset_y,
+		BOSS_RAGE_BUILDUP_SEC,
+		BOSS_RAGE_FINAL_STOMP_SEC,
+		BOSS_RAGE_TOTAL_SEC
+	)
+	boss_rage_tint = float(visuals.get("tint", boss_rage_tint))
+	boss_rage_offset_y = float(visuals.get("offset_y", boss_rage_offset_y))
 
 
 func _emit_boss_rage_stomps(previous_timer: float, current_timer: float, deps: Dictionary) -> void:

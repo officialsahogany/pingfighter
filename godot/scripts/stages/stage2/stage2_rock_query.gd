@@ -23,6 +23,35 @@ func select_random_id(rocks: Array, rng: RandomNumberGenerator) -> int:
 	return int(selected.get("id", -1))
 
 
+func needs_runtime_update(rock: Dictionary, quake_active: bool) -> bool:
+	if bool(rock.get("chaos_absorbing", false)):
+		return true
+	if bool(rock.get("falling", false)):
+		return true
+	if float(rock.get("drop_delay", 0.0)) > 0.0:
+		return true
+	if rock.has("spawn_delay_frames") and float(rock.get("delay_timer_frames", 0.0)) < float(rock.get("spawn_delay_frames", 0.0)):
+		return true
+	if float(rock.get("flash", 0.0)) > 0.0:
+		return true
+	if float(rock.get("water_target_flash", 0.0)) > 0.0:
+		return true
+	if quake_active:
+		return true
+	var quake_offset: Vector2 = _get_vector2(rock.get("quake_offset", Vector2.ZERO), Vector2.ZERO)
+	return quake_offset.length_squared() > 0.03
+
+
+func set_center(rock: Dictionary, center: Vector2) -> void:
+	rock["pos"] = center
+	rock["target_pos"] = center
+	if rock.has("fall_y"):
+		rock["fall_y"] = center.y
+	rock["falling"] = false
+	rock["drop_delay"] = 0.0
+	rock["quake_offset"] = Vector2.ZERO
+
+
 func is_landed(rock: Dictionary) -> bool:
 	if rock.has("spawn_delay_frames") and float(rock.get("delay_timer_frames", 0.0)) < float(rock.get("spawn_delay_frames", 0.0)):
 		return false
