@@ -28,6 +28,7 @@ const Stage2RockFragmentPayloadFactory := preload("res://scripts/stages/stage2/s
 const Stage2RockFragmentPayloadConfigBuilder := preload("res://scripts/stages/stage2/stage2_rock_fragment_payload_config_builder.gd")
 const Stage2RockFragmentMotionState := preload("res://scripts/stages/stage2/stage2_rock_fragment_motion_state.gd")
 const Stage2QuakeRockPayloadFactory := preload("res://scripts/stages/stage2/stage2_quake_rock_payload_factory.gd")
+const Stage2QuakeRockSpawnFactory := preload("res://scripts/stages/stage2/stage2_quake_rock_spawn_factory.gd")
 const Stage2CrisisRockWallPayloadFactory := preload("res://scripts/stages/stage2/stage2_crisis_rock_wall_payload_factory.gd")
 const Stage2QuakeRockDropState := preload("res://scripts/stages/stage2/stage2_quake_rock_drop_state.gd")
 const Stage2QuakeRockOffsetState := preload("res://scripts/stages/stage2/stage2_quake_rock_offset_state.gd")
@@ -182,6 +183,7 @@ var water_trail_payload_factory: Object = Stage2WaterTrailPayloadFactory.new()
 var rock_fragment_payload_factory: Object = Stage2RockFragmentPayloadFactory.new()
 var rock_fragment_payload_config_builder: Object = Stage2RockFragmentPayloadConfigBuilder.new()
 var quake_rock_payload_factory: Object = Stage2QuakeRockPayloadFactory.new()
+var quake_rock_spawn_factory: Object = Stage2QuakeRockSpawnFactory.new()
 var crisis_rock_wall_payload_factory: Object = Stage2CrisisRockWallPayloadFactory.new()
 var ambient_payload_factory: Object = Stage2AmbientPayloadFactory.new()
 var ambient_layout_helper: Object = Stage2AmbientLayoutHelper.new()
@@ -514,7 +516,7 @@ func activate_water_cannon(context: Dictionary = {}, _deps: Dictionary = {}) -> 
 	var target_rock: Dictionary = _get_rock_by_id(water_cannon_target_id)
 	if target_rock.is_empty():
 		return false
-	water_cannon_start = _get_boss_cannon_start(context)
+	water_cannon_start = water_cannon_geometry.get_boss_cannon_start_from_context(context)
 	water_cannon_target = _get_rock_center(target_rock)
 	water_cannon_current = water_cannon_start
 	water_cannon_progress = 0.0
@@ -1394,54 +1396,28 @@ func _destroy_chaos_absorbed_rock(rock: Dictionary, center: Vector2, deps: Dicti
 
 
 func _spawn_quake_rocks(count: int, deps: Dictionary = {}) -> void:
-	var map_x_min := 50
-	var map_x_max := 550
-	var map_y_min := 50
-	var map_y_max := 700
-	for idx in range(clampi(count, 1, MAX_ROCKS)):
-		var target := Vector2(
-			float(rng.randi_range(map_x_min, map_x_max)),
-			float(rng.randi_range(map_y_min, map_y_max))
-		)
-		var attempts := 0
-		while attempts < 10 and _is_quake_rock_too_close(target):
-			target = Vector2(
-				float(rng.randi_range(map_x_min, map_x_max)),
-				float(rng.randi_range(map_y_min, map_y_max))
-			)
-			attempts += 1
-		var size := float(rng.randi_range(25, 90)) * QUAKE_ROCK_SIZE_SCALE
-		var fall_y := -100.0 - float(rng.randi_range(0, 200))
-		var seed_value := rng.randi()
-		var is_golden := rng.randf() < 0.20
-		var rock_visual: Dictionary = _build_rock_visual_data(size, is_golden, seed_value)
-		var rock: Dictionary = quake_rock_payload_factory.build_quake_rock(
-			rock_next_id,
-			idx,
-			target,
-			fall_y,
-			size,
-			0.8 + rng.randf_range(-0.2, 0.2),
-			rng.randi_range(1, 2),
-			seed_value,
-			is_golden,
-			ROCK_LIFE_SEC,
-			rock_visual
-		)
+	var batch: Dictionary = quake_rock_spawn_factory.build_spawn_batch(
+		rocks,
+		count,
+		MAX_ROCKS,
+		rock_next_id,
+		rng,
+		rock_visual_factory,
+		quake_rock_payload_factory,
+		QUAKE_ROCK_SIZE_SCALE,
+		ROCK_LIFE_SEC
+	)
+	var spawned_rocks: Array = batch.get("rocks", [])
+	var targets: Array = batch.get("targets", [])
+	for idx in range(spawned_rocks.size()):
+		var rock: Dictionary = spawned_rocks[idx]
 		rocks.append(rock)
-		rock_next_id += 1
+		var target: Vector2 = _get_vector2(targets[idx] if idx < targets.size() else rock.get("target_pos", Vector2.ZERO), Vector2.ZERO)
 		_spawn_rock_leaves(target, 0.28)
+	rock_next_id = int(batch.get("next_id", rock_next_id + spawned_rocks.size()))
 	var audio: Object = deps.get("audio", null)
 	if audio != null and audio.has_method("play_stage2_rock_spawn"):
 		audio.play_stage2_rock_spawn()
-
-
-func _build_rock_visual_data(size: float, is_golden: bool, seed_value: int) -> Dictionary:
-	return rock_visual_factory.build_visual_data(size, is_golden, seed_value, rng)
-
-
-func _is_quake_rock_too_close(target: Vector2) -> bool:
-	return rock_query.is_target_too_close(rocks, target, 70.0, 70.0)
 
 
 func _spawn_crisis_rock_wall(deps: Dictionary = {}) -> void:
@@ -1602,11 +1578,11 @@ func _roll_star_detector_bonus_drop_count(deps: Dictionary, context: Dictionary)
 func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
 	if starpoint_drops.is_empty() or int(context.get("current_stage", 1)) != 2:
 		return
-	var player_rect := Rect2(
-		_get_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO),
-		_get_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
+	var player_rects: Array[Rect2] = collision_geometry.get_player_interaction_rects_from_context(
+		context,
+		deps,
+		Vector2(155.0, 50.0)
 	)
-	var player_rects: Array[Rect2] = collision_geometry.get_player_interaction_rects(player_rect, deps)
 	var play_left: float = playfield_bounds.get_left(context)
 	var play_right: float = playfield_bounds.get_right(context)
 	var play_height: float = playfield_bounds.get_height(context)
@@ -1849,7 +1825,7 @@ func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -
 		return
 
 	var target_rock: Dictionary = rocks[target_index]
-	water_cannon_start = _get_boss_cannon_start(context)
+	water_cannon_start = water_cannon_geometry.get_boss_cannon_start_from_context(context)
 	water_cannon_target = _get_rock_center(target_rock)
 	if water_cannon_phase == "charging":
 		water_cannon_current = water_cannon_start
@@ -1883,13 +1859,13 @@ func _update_water_visuals(delta: float) -> void:
 func _resolve_water_fragment_player_hits(context: Dictionary, deps: Dictionary) -> void:
 	if int(context.get("current_stage", 1)) != 2 or water_splashes.is_empty():
 		return
-	var player_rect := Rect2(
-		_get_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO),
-		_get_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
+	var player_rects: Array[Rect2] = collision_geometry.get_player_interaction_rects_from_context(
+		context,
+		deps,
+		Vector2(155.0, 50.0)
 	)
-	if player_rect.size.x <= 0.0 or player_rect.size.y <= 0.0:
+	if player_rects.is_empty():
 		return
-	var player_rects: Array[Rect2] = collision_geometry.get_player_interaction_rects(player_rect, deps)
 	var hits: Array = Stage2WaterFragmentHitResolver.resolve_hits(water_splashes, player_rects, collision_geometry)
 	for hit_value in hits:
 		var hit: Dictionary = hit_value
@@ -1989,13 +1965,6 @@ func _mark_water_cannon_target() -> void:
 	var rock: Dictionary = rocks[index]
 	rock["water_target_flash"] = 1.0
 	rocks[index] = rock
-
-
-func _get_boss_cannon_start(context: Dictionary) -> Vector2:
-	var boss_pos: Vector2 = _get_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
-	var boss_width: float = float(context.get("boss_paddle_width", 100.0))
-	var boss_height: float = float(context.get("boss_hitbox_height", 40.0))
-	return water_cannon_geometry.get_boss_cannon_start(boss_pos, boss_width, boss_height)
 
 
 func _add_water_trail(pos: Vector2, progress: float) -> void:

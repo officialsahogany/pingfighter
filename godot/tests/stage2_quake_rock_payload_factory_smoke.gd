@@ -59,8 +59,13 @@ func _verify_background_delegates_quake_rock_payload() -> void:
 	_expect(bool(first_rock.get("falling", false)), "spawned quake rocks should begin falling")
 	var source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
 	_expect(
-		source.find("quake_rock_payload_factory.build_quake_rock") >= 0,
-		"Stage 2 background source should keep quake rock payload construction delegated"
+		source.find("quake_rock_spawn_factory.build_spawn_batch") >= 0,
+		"Stage 2 background source should keep quake rock spawning delegated"
+	)
+	var spawn_factory_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_quake_rock_spawn_factory.gd")
+	_expect(
+		spawn_factory_source.find("quake_rock_payload_factory.build_quake_rock") >= 0,
+		"Stage 2 quake rock spawn factory should keep payload construction delegated"
 	)
 
 

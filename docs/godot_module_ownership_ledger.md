@@ -1213,7 +1213,8 @@ This section is intentionally long; use search to find the nearest owner.
   delegated to `stage2_rock_visual_assets_builder.gd`; rock dictionary
   lookup / landed / center / target queries are delegated to
   `stage2_rock_query.gd`;
-  quake-rock spawn payload assembly is delegated to
+  quake-rock random spawn batches are delegated to
+  `stage2_quake_rock_spawn_factory.gd`; spawn payload assembly is delegated to
   `stage2_quake_rock_payload_factory.gd`; boss-rage crisis-wall rock payload
   assembly is delegated to `stage2_crisis_rock_wall_payload_factory.gd`;
   quake-rock drop / bounce state
@@ -1238,7 +1239,8 @@ This section is intentionally long; use search to find the nearest owner.
   `stage2_water_cannon_payload_config_builder.gd`; water-cannon renderer
   visual-state payloads are delegated to
   `stage2_water_cannon_visual_state_builder.gd`; water-cannon start-point
-  geometry is delegated to `stage2_water_cannon_geometry.gd`; water-trail
+  geometry and context-to-start-point assembly is delegated to
+  `stage2_water_cannon_geometry.gd`; water-trail
   payload generation is delegated to `stage2_water_trail_payload_factory.gd`;
   water-trail / splash visual state decay and compaction is delegated to
   `stage2_water_visual_state.gd`. Stage 2
@@ -1249,7 +1251,7 @@ This section is intentionally long; use search to find the nearest owner.
   to `stage2_render_budget_helper.gd`; visible-effect / playfield draw-gate
   and boss movement-lock boolean composition is delegated to
   `stage2_visibility_state.gd`.
-  Stage 2 ball / player overlap geometry helpers are delegated to
+  Stage 2 ball / player overlap geometry and context-to-player-rect helpers are delegated to
   `stage2_collision_geometry.gd`; Chaos Spear rock-pull motion is delegated
   to `stage2_chaos_rock_absorb_state.gd`; playfield bounds lookup is
   delegated to `stage2_playfield_bounds.gd`.
@@ -1305,7 +1307,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage2/stage2_collision_geometry.gd`
   Owns Stage 2 stateless collision geometry helpers: ball segment vs rock
   circle checks, circle-vs-player-rect checks, first overlapping rect
-  lookup, and Warp Gate mirror interaction rect expansion.
+  lookup, context-to-player-rect assembly, and Warp Gate mirror interaction
+  rect expansion.
   `stage2_pillar_background.gd` still owns collision timing, rock HP
   mutation, starpoint collection, water-fragment hit effects, and status
   immunity handling.
@@ -1330,8 +1333,13 @@ This section is intentionally long; use search to find the nearest owner.
   Owns Stage 2 quake-rock spawn payload assembly: falling start position,
   target position, stagger frames, gravity / bounce fields, radius, seed /
   phase metadata, and merging visual data. The background module still owns
-  target selection, RNG sequencing, rock-id allocation, list insertion,
-  leaf bursts, and spawn audio.
+  list insertion, leaf bursts, and spawn audio.
+- `scripts/stages/stage2/stage2_quake_rock_spawn_factory.gd`
+  Owns Stage 2 random quake-rock spawn batches: target candidate selection,
+  spacing retry against existing / newly-spawned rocks, size / fall-height /
+  seed / golden rolls, visual payload handoff, sequential rock-id assignment,
+  and next-id return. The background module still owns live array insertion,
+  leaf bursts, water-cannon scheduling, and spawn audio.
 - `scripts/stages/stage2/stage2_crisis_rock_wall_payload_factory.gd`
   Owns Stage 2 boss-rage crisis-wall rock payload assembly: lane target
   selection, falling start position, scaled collision radius, drop stagger /
@@ -1364,9 +1372,9 @@ This section is intentionally long; use search to find the nearest owner.
   target selection, trail arrays, constants, and renderer handoff.
 - `scripts/stages/stage2/stage2_water_cannon_geometry.gd`
   Owns the stateless Stage 2 water-cannon geometry helper for deriving the
-  boss muzzle / start point from boss position and hitbox size. The
-  background module still owns context reads, target selection, phase
-  lifecycle, and renderer handoff.
+  boss muzzle / start point from boss position and hitbox size, including
+  the context-to-start-point adapter. The background module still owns
+  target selection, phase lifecycle, and renderer handoff.
 - `scripts/stages/stage2/stage2_fragment_hit_flash_state.gd`
   Owns Stage 2 water-fragment player-hit flash state: duration, active
   timer, reset, trigger, and decay. `stage2_pillar_background.gd` still
