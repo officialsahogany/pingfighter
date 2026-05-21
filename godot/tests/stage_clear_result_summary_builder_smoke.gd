@@ -50,10 +50,14 @@ func _verify_reward_summaries() -> void:
 	var items: Array = StageClearResultSummaryBuilder.build_item_summary(stage_snapshot, boxes, SOURCE_STAGE, SOURCE_BOX, source_labels)
 	var perks: Array = StageClearResultSummaryBuilder.build_perk_summary(stage_snapshot, boxes, SOURCE_STAGE, SOURCE_BOX, source_labels)
 	var visible: Array = StageClearResultSummaryBuilder.build_visible_reward_summary(stage_snapshot, boxes, SOURCE_STAGE, SOURCE_BOX, source_labels)
+	var state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(stage_snapshot, boxes, SOURCE_STAGE, SOURCE_BOX, source_labels)
 	_expect(items.size() == 3, "item summary should include stage active/passive and box item rewards")
 	_expect(perks.size() == 2, "perk summary should include stage perks and box skill rewards")
 	_expect(visible.size() == 4, "visible summary should include visible items and starpoints but ignore gold fallback")
 	_expect(int(StageClearResultSummaryBuilder.calculate_starpoint_total(boxes)) == 3, "starpoint total should add box starpoint rewards")
+	_expect(int(state.get("item_reward_count", 0)) == items.size(), "summary state should expose item reward count")
+	_expect(int(state.get("perk_reward_count", 0)) == perks.size(), "summary state should expose perk reward count")
+	_expect(int(state.get("starpoint_total", 0)) == 3, "summary state should expose starpoint totals")
 
 	var item_counts: Dictionary = StageClearResultSummaryBuilder.count_result_reward_sources(items, [SOURCE_STAGE, SOURCE_BOX])
 	var perk_counts: Dictionary = StageClearResultSummaryBuilder.count_result_reward_sources(perks, [SOURCE_STAGE, SOURCE_BOX])
@@ -113,10 +117,8 @@ func _verify_perk_id_resolution() -> void:
 func _verify_scene_delegates_summary_builder_directly() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(
-		source.find("StageClearResultSummaryBuilder.count_result_reward_sources") >= 0
-		and source.find("StageClearResultSummaryBuilder.get_stage_summary_array") >= 0
-		and source.find("StageClearResultSummaryBuilder.calculate_starpoint_total") >= 0,
-		"stage-clear result scene should call summary helpers directly for simple summary queries"
+		source.find("StageClearResultSummaryBuilder.build_result_summary_state") >= 0,
+		"stage-clear result scene should use the aggregate summary state helper"
 	)
 	for removed_wrapper in [
 		"func _calculate_starpoint_total",
@@ -128,6 +130,11 @@ func _verify_scene_delegates_summary_builder_directly() -> void:
 		"func _build_item_summary",
 		"func _build_perk_summary",
 		"func _build_visible_reward_summary",
+		"StageClearResultSummaryBuilder.build_item_summary",
+		"StageClearResultSummaryBuilder.build_perk_summary",
+		"StageClearResultSummaryBuilder.build_visible_reward_summary",
+		"StageClearResultSummaryBuilder.count_result_reward_sources",
+		"StageClearResultSummaryBuilder.get_stage_summary_array",
 	]:
 		_expect(
 			source.find(removed_wrapper) < 0,

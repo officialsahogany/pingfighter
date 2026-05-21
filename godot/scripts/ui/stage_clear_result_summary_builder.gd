@@ -96,6 +96,33 @@ static func build_visible_reward_summary(
 	return rewards
 
 
+static func build_result_summary_state(
+	stage_reward_snapshot: Dictionary,
+	boxes: Array,
+	stage_source: String,
+	box_source: String,
+	source_labels: Dictionary
+) -> Dictionary:
+	var item_rewards: Array = build_item_summary(stage_reward_snapshot, boxes, stage_source, box_source, source_labels)
+	var perk_rewards: Array = build_perk_summary(stage_reward_snapshot, boxes, stage_source, box_source, source_labels)
+	var visible_rewards: Array = build_visible_reward_summary(stage_reward_snapshot, boxes, stage_source, box_source, source_labels)
+	var known_sources := [stage_source, box_source]
+	return {
+		"item_rewards": item_rewards,
+		"perk_rewards": perk_rewards,
+		"visible_rewards": visible_rewards,
+		"item_reward_count": item_rewards.size(),
+		"perk_reward_count": perk_rewards.size(),
+		"stage_active_item_count": get_stage_summary_array(stage_reward_snapshot, "active_items").size(),
+		"stage_passive_item_count": get_stage_summary_array(stage_reward_snapshot, "passive_items").size(),
+		"stage_perk_count": get_stage_summary_array(stage_reward_snapshot, "perks").size(),
+		"item_reward_source_counts": count_result_reward_sources(item_rewards, known_sources),
+		"perk_reward_source_counts": count_result_reward_sources(perk_rewards, known_sources),
+		"visible_reward_source_counts": count_result_reward_sources(visible_rewards, known_sources),
+		"starpoint_total": calculate_starpoint_total(boxes),
+	}
+
+
 static func build_perk_info_summary(
 	perks: Array,
 	starpoint_total: int,
