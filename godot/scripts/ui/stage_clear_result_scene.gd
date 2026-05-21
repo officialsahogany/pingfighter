@@ -1043,21 +1043,9 @@ func _draw_reward_item_icon(reward: Dictionary, anchor: Vector2, scale: float, a
 	var icon_size: float = 96.0 * scale
 	var disc_radius: float = 60.0 * scale
 
-	var disc_color: Color
-	var rim_color: Color
-	match reward_type:
-		"active":
-			disc_color = Color(0.06, 0.20, 0.28, 0.88)
-			rim_color = Color(0.55, 0.92, 1.0, 1.0)
-		"passive":
-			disc_color = Color(0.22, 0.14, 0.04, 0.88)
-			rim_color = Color(1.0, 0.84, 0.48, 1.0)
-		"mythic":
-			disc_color = Color(0.20, 0.06, 0.34, 0.92)
-			rim_color = Color(1.0, 0.78, 0.30, 1.0)
-		_:
-			disc_color = Color(0.18, 0.18, 0.24, 0.88)
-			rim_color = Color(0.85, 0.85, 0.92, 1.0)
+	var palette: Dictionary = StageClearResultRewardVisualResolver.get_reward_item_icon_palette(reward_type)
+	var disc_color: Color = palette.get("disc_color", Color(0.18, 0.18, 0.24, 0.88))
+	var rim_color: Color = palette.get("rim_color", Color(0.85, 0.85, 0.92, 1.0))
 
 	var glow_color: Color = rim_color
 	glow_color.a = 0.32 * alpha
@@ -1101,64 +1089,78 @@ func _draw_reward_starpoint(
 	emerge_progress: float = 1.0,
 	phase: float = 0.0
 ) -> void:
-	var amount: int = max(1, int(reward.get("amount", 1)))
-	var disc_radius: float = 60.0 * scale
-	var star_radius: float = 42.0 * scale
-	var spin_angle: float = timer * 8.7 + phase * 1.9
-	var yaw_width: float = lerpf(0.16, 1.0, pow(absf(cos(spin_angle)), 0.62))
-	var front_face: bool = cos(spin_angle) >= 0.0
-	var star_center: Vector2 = anchor + Vector2(0.0, -10.0 * scale)
-	var sparkle_alpha: float = clamp(alpha * emerge_progress, 0.0, 1.0)
+	var visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_starpoint_visual_state(
+		int(reward.get("amount", 1)),
+		anchor,
+		scale,
+		alpha,
+		emerge_progress,
+		timer,
+		phase
+	)
+	var amount: int = int(visual_state.get("amount", 1))
+	var disc_radius: float = float(visual_state.get("disc_radius", 60.0 * scale))
+	var star_radius: float = float(visual_state.get("star_radius", 42.0 * scale))
+	var yaw_width: float = float(visual_state.get("yaw_width", 1.0))
+	var star_center: Vector2 = visual_state.get("star_center", anchor)
 
-	var glow_color: Color = Color(1.0, 0.88, 0.36, 0.36 * alpha)
+	var glow_color: Color = visual_state.get("glow_color", Color(1.0, 0.88, 0.36, 0.36 * alpha))
 	_draw_radial_burst(anchor, disc_radius * 1.55, glow_color)
 
-	var disc_fill: Color = Color(0.30, 0.18, 0.04, 0.88 * alpha)
+	var disc_fill: Color = visual_state.get("disc_fill", Color(0.30, 0.18, 0.04, 0.88 * alpha))
 	draw_circle(anchor, disc_radius, disc_fill)
-	draw_arc(anchor, disc_radius, 0.0, TAU, 40, Color(1.0, 0.86, 0.32, alpha), max(2.0, 2.8 * scale))
-
-	var orbit_rect := Rect2(
-		anchor - Vector2(disc_radius * 0.82, disc_radius * 0.42),
-		Vector2(disc_radius * 1.64, disc_radius * 0.84)
+	draw_arc(
+		anchor,
+		disc_radius,
+		0.0,
+		TAU,
+		40,
+		visual_state.get("ring_color", Color(1.0, 0.86, 0.32, alpha)),
+		float(visual_state.get("ring_width", max(2.0, 2.8 * scale)))
 	)
+
+	var orbit_rect: Rect2 = visual_state.get("orbit_rect", Rect2())
 	draw_arc(
 		orbit_rect.get_center(),
 		orbit_rect.size.x * 0.5,
 		-PI * 0.05,
 		PI * 1.05,
 		36,
-		Color(1.0, 0.98, 0.68, 0.22 * sparkle_alpha),
-		max(1.0, 1.4 * scale)
+		visual_state.get("orbit_color", Color(1.0, 0.98, 0.68, 0.0)),
+		float(visual_state.get("orbit_width", max(1.0, 1.4 * scale)))
 	)
 
-	var star_fill := Color(1.0, 0.88, 0.36, alpha) if front_face else Color(0.86, 0.48, 0.08, alpha)
-	var star_outline := Color(0.55, 0.32, 0.04, alpha)
 	_draw_star_polygon_scaled(
 		star_center,
 		star_radius,
 		star_radius * 0.46,
 		yaw_width,
-		star_fill,
-		star_outline,
-		max(1.5, 2.0 * scale)
+		visual_state.get("star_fill", Color(1.0, 0.88, 0.36, alpha)),
+		visual_state.get("star_outline", Color(0.55, 0.32, 0.04, alpha)),
+		float(visual_state.get("star_outline_width", max(1.5, 2.0 * scale)))
 	)
 	if yaw_width <= 0.32:
 		draw_line(
 			star_center + Vector2(0.0, -star_radius * 0.92),
 			star_center + Vector2(0.0, star_radius * 0.92),
 			Color(1.0, 0.98, 0.68, alpha * 0.88),
-			max(2.0, star_radius * 0.13)
+			float(visual_state.get("edge_line_width", max(2.0, star_radius * 0.13)))
 		)
 	else:
 		draw_circle(
 			star_center + Vector2(-star_radius * 0.18 * yaw_width, -star_radius * 0.28),
-			max(1.4, 3.4 * scale),
+			float(visual_state.get("highlight_radius", max(1.4, 3.4 * scale))),
 			Color(1.0, 1.0, 0.92, alpha * 0.72)
 		)
 
 	var font: Font = ThemeDB.fallback_font
-	var text_rect := Rect2(anchor + Vector2(-disc_radius, 22.0 * scale), Vector2(disc_radius * 2.0, 30.0 * scale))
-	_draw_centered_text(font, "x %d" % amount, text_rect, int(round(22.0 * scale)), Color(1.0, 0.97, 0.70, alpha))
+	_draw_centered_text(
+		font,
+		"x %d" % amount,
+		visual_state.get("text_rect", Rect2(anchor + Vector2(-disc_radius, 22.0 * scale), Vector2(disc_radius * 2.0, 30.0 * scale))),
+		int(round(22.0 * scale)),
+		visual_state.get("text_color", Color(1.0, 0.97, 0.70, alpha))
+	)
 
 
 func _draw_star_polygon(center: Vector2, outer_radius: float, inner_radius: float, fill: Color, outline: Color, outline_width: float) -> void:
@@ -1523,33 +1525,18 @@ func _get_stage_summary_array(key: String) -> Array:
 
 func _build_perk_info_summary() -> Dictionary:
 	var perks: Array = _build_perk_summary()
+	var first_perk_title: String = ""
+	var first_perk_detail: String = ""
 	if not perks.is_empty():
-		var reward: Dictionary = perks[0] if perks[0] is Dictionary else {}
-		var title: String = _get_reward_title(reward)
-		if perks.size() > 1:
-			title = "%s 외 %d개" % [title, perks.size() - 1]
-		return {
-			"kind": "perk",
-			"eyebrow": "획득 퍽",
-			"title": title,
-			"detail": _get_reward_detail_text(reward),
-		}
-
-	var star_total: int = _calculate_starpoint_total()
-	if star_total > 0:
-		return {
-			"kind": "starpoint",
-			"eyebrow": "퍽 선택",
-			"title": "퍽 선택권 +%d" % star_total,
-			"detail": "다음 진행 시 획득한 수만큼 퍽 선택창이 열립니다.",
-		}
-
-	return {
-		"kind": "empty",
-		"eyebrow": "퍽 정보",
-		"title": "획득 퍽 없음",
-		"detail": "이번 결과는 아이템 보상만 획득했습니다.",
-	}
+		var first_perk: Dictionary = perks[0] if perks[0] is Dictionary else {}
+		first_perk_title = _get_reward_title(first_perk)
+		first_perk_detail = _get_reward_detail_text(first_perk)
+	return StageClearResultSummaryBuilder.build_perk_info_summary(
+		perks,
+		_calculate_starpoint_total(),
+		first_perk_title,
+		first_perk_detail
+	)
 
 
 func _is_perk_reward(reward: Dictionary) -> bool:

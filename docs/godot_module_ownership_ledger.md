@@ -896,9 +896,11 @@ This section is intentionally long; use search to find the nearest owner.
   sheet playback, score-based reward chest animation, result scroll input,
   result scroll drawing, and scene-local linear texture filtering for
   cutscene art. Result-scroll reward summary arrays, source counts,
-  starpoint totals, and perk reward ID classification are delegated to
-  `stage_clear_result_summary_builder.gd`; reward card colors, badges, and
-  source-chip labels / colors are delegated to
+  perk-info tile payloads, starpoint totals, and perk reward ID
+  classification are delegated to `stage_clear_result_summary_builder.gd`;
+  reward card colors, reward item
+  icon palettes, starpoint visual state, badges, and source-chip labels /
+  colors are delegated to
   `stage_clear_result_reward_visual_resolver.gd`; reward icon path
   resolution and scene-local texture caching are delegated to
   `stage_clear_result_reward_icon_resolver.gd`; reward-card title,
@@ -958,14 +960,16 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ui/stage_clear_result_summary_builder.gd`
   Owns stateless stage-clear result summary assembly for the UI scene:
   stage-vs-box reward source tagging, item / perk / visible reward arrays,
-  reward-source count payloads, box starpoint totals, stage-summary array
-  duplication, and perk reward ID classification. The scene still owns
+  reward-source count payloads, perk-info tile payloads, box starpoint
+  totals, stage-summary array duplication, and perk reward ID
+  classification. The scene still owns
   reward rolling, final grant callbacks, scroll/button input, drawing, and
   the live perk catalog instance used by reward text resolution.
 - `scripts/ui/stage_clear_result_reward_visual_resolver.gd`
   Owns stateless stage-clear reward visual classification: reward card base
-  colors, reward badge text, and stage-vs-box source-chip labels / colors.
-  The scene still owns all actual drawing.
+  colors, reward item icon palettes, starpoint visual state, reward badge
+  text, and stage-vs-box source-chip labels / colors. The scene still owns
+  all actual drawing.
 - `scripts/ui/stage_clear_result_reward_icon_resolver.gd`
   Owns stage-clear reward icon resolution: direct and nested icon paths,
   item-name fallback sprite paths, preloaded `icon_texture` handling, and

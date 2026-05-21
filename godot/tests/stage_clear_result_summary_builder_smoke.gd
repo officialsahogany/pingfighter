@@ -10,6 +10,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_reward_summaries()
+	_verify_perk_info_summary()
 	_verify_perk_id_resolution()
 
 	if _failures.is_empty():
@@ -61,6 +62,34 @@ func _verify_reward_summaries() -> void:
 	_expect(int(perk_counts.get(SOURCE_BOX, 0)) == 1, "perk source counts should include box skill rewards")
 	_expect(str((items[0] as Dictionary).get("_result_reward_source_label", "")) == "stage label", "stage rewards should receive the stage label")
 	_expect(str((items[2] as Dictionary).get("_result_reward_source_label", "")) == "box label", "box rewards should receive the box label")
+
+
+func _verify_perk_info_summary() -> void:
+	var perk_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary(
+		[
+			{"type": "perk", "perk_id": "dash"},
+			{"type": "skill", "skill_id": "guard"},
+		],
+		3,
+		"대시 강화",
+		"대시 충전 속도가 증가합니다."
+	)
+	_expect(str(perk_summary.get("kind", "")) == "perk", "perk info should prefer perk rewards over starpoints")
+	_expect(str(perk_summary.get("eyebrow", "")) == "획득 퍽", "perk info should use the perk eyebrow")
+	_expect(str(perk_summary.get("title", "")) == "대시 강화 외 1개", "perk info should summarize additional perks")
+	_expect(str(perk_summary.get("detail", "")) == "대시 충전 속도가 증가합니다.", "perk info should preserve first perk detail")
+	_expect(
+		str(StageClearResultSummaryBuilder.build_perk_info_summary([{"type": "perk"}], 0, "", "").get("title", "")) == "획득 퍽",
+		"perk info should keep a readable fallback title"
+	)
+
+	var starpoint_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary([], 2, "", "")
+	_expect(str(starpoint_summary.get("kind", "")) == "starpoint", "empty perk info should surface starpoint choices")
+	_expect(str(starpoint_summary.get("title", "")) == "퍽 선택권 +2", "starpoint info should include the earned amount")
+
+	var empty_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary([], 0, "", "")
+	_expect(str(empty_summary.get("kind", "")) == "empty", "empty perk info should report no perk rewards")
+	_expect(str(empty_summary.get("title", "")) == "획득 퍽 없음", "empty perk info should use the no-perk title")
 
 
 func _verify_perk_id_resolution() -> void:

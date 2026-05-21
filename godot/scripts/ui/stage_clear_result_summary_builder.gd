@@ -96,6 +96,41 @@ static func build_visible_reward_summary(
 	return rewards
 
 
+static func build_perk_info_summary(
+	perks: Array,
+	starpoint_total: int,
+	first_perk_title: String,
+	first_perk_detail: String
+) -> Dictionary:
+	if not perks.is_empty():
+		var title: String = first_perk_title
+		if title == "":
+			title = "획득 퍽"
+		if perks.size() > 1:
+			title = "%s 외 %d개" % [title, perks.size() - 1]
+		return {
+			"kind": "perk",
+			"eyebrow": "획득 퍽",
+			"title": title,
+			"detail": first_perk_detail,
+		}
+
+	if starpoint_total > 0:
+		return {
+			"kind": "starpoint",
+			"eyebrow": "퍽 선택",
+			"title": "퍽 선택권 +%d" % starpoint_total,
+			"detail": "다음 진행 시 획득한 수만큼 퍽 선택창이 열립니다.",
+		}
+
+	return {
+		"kind": "empty",
+		"eyebrow": "퍽 정보",
+		"title": "획득 퍽 없음",
+		"detail": "이번 결과는 아이템 보상만 획득했습니다.",
+	}
+
+
 static func with_result_reward_source(reward: Dictionary, result_source: String, source_labels: Dictionary) -> Dictionary:
 	var copy: Dictionary = reward.duplicate(true)
 	copy["_result_reward_source"] = result_source
