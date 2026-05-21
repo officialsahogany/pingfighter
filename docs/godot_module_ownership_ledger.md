@@ -910,7 +910,9 @@ This section is intentionally long; use search to find the nearest owner.
   box-frame policy, reward-card grid layout, and sheet / cover source-rect
   math, floating-box center / AABB / rotate geometry, actor / click / scroll
   content rects, and cinematic-local coordinate conversion are delegated to
-  `stage_clear_result_layout_helper.gd`; centered text
+  `stage_clear_result_layout_helper.gd`; result reward pickup / Live2D
+  target position pairing for mythic acquisition cinematics is delegated to
+  `stage_clear_result_cinematic_position_helper.gd`; centered text
   baseline, word wrapping, and font-size fitting helpers are delegated to
   `stage_clear_result_text_layout_helper.gd`; result scroll phase
   progression, unfurl progress, and background box alpha are delegated to
@@ -933,6 +935,12 @@ This section is intentionally long; use search to find the nearest owner.
   rects, scroll-content margins, and cinematic-local coordinate conversion.
   The scene still owns live timers, hover / click state, drawing, texture
   loading, reward rolling, and callbacks.
+- `scripts/ui/stage_clear_result_cinematic_position_helper.gd`
+  Owns stateless stage-clear result cinematic position assembly for
+  immediate mythic reward grants: floating result-box pickup points,
+  player-victory Live2D target points, field-local conversion, and field
+  clamping. The scene still owns live size / scale lookup, reward mutation,
+  and the immediate-grant callback.
 - `scripts/ui/stage_clear_result_scroll_state.gd`
   Owns stateless stage-clear result scroll progression helpers: hidden /
   delay / unfurling / visible phase transitions, gate-aware update

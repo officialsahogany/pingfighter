@@ -15,6 +15,7 @@ const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clea
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
+const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
 const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
@@ -86,6 +87,7 @@ const RESULT_BOX_FRAME_ASSET_GUARD_SCALE := 0.90
 const RESULT_BOX_FRAME_DRAW_SIZE := 100.0 / RESULT_BOX_FRAME_ASSET_GUARD_SCALE
 const RESULT_REWARD_SOURCE_STAGE := "stage"
 const RESULT_REWARD_SOURCE_BOX := "box"
+const RESULT_CINEMATIC_FIELD_SIZE := Vector2(760.0, 750.0)
 const PREWARM_ASSET_STEP_COUNT := 10
 
 var timer: float = 0.0
@@ -1282,8 +1284,22 @@ func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
 		return
 	reward["box_kind"] = str(box.get("kind", "normal"))
 	reward["box_state"] = str(box.get("state", "opened"))
-	reward["pickup_position"] = _get_box_cinematic_pickup_position(box)
-	reward["target_player_center"] = _get_result_live2d_cinematic_target_position()
+	var view_size: Vector2 = size
+	if view_size == Vector2.ZERO:
+		view_size = _get_view_size()
+	@warning_ignore("shadowed_variable_base_class")
+	var scale: float = _get_layout_scale(view_size)
+	var cinematic_positions: Dictionary = StageClearResultCinematicPositionHelper.get_reward_cinematic_positions(
+		box,
+		view_size,
+		scale,
+		timer,
+		RESULT_CINEMATIC_FIELD_SIZE,
+		BOX_FLOAT_AMPLITUDE,
+		BOX_FLOAT_SPEED
+	)
+	reward["pickup_position"] = cinematic_positions.get("pickup_position", Vector2.ZERO)
+	reward["target_player_center"] = cinematic_positions.get("target_player_center", Vector2.ZERO)
 	var granted: bool = bool(immediate_reward_callback.call(reward, index))
 	if not granted:
 		return
@@ -1294,40 +1310,6 @@ func _try_grant_immediate_reward(index: int, box: Dictionary) -> void:
 		stored_reward["immediate_granted"] = true
 		box["reward"] = stored_reward
 	_boxes[index] = box
-
-
-func _get_box_cinematic_pickup_position(box: Dictionary) -> Vector2:
-	@warning_ignore("shadowed_variable_base_class")
-	var scale: float = _get_layout_scale(size)
-	var draw_center: Vector2 = StageClearResultLayoutHelper.get_box_draw_center(
-		box,
-		scale,
-		timer,
-		BOX_FLOAT_AMPLITUDE,
-		BOX_FLOAT_SPEED
-	)
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
-	var field_size := Vector2(760.0, 750.0)
-	var field_origin: Vector2 = (view_size - field_size) * 0.5
-	var local_position: Vector2 = draw_center - field_origin
-	return Vector2(
-		clamp(local_position.x, 0.0, field_size.x),
-		clamp(local_position.y, 0.0, field_size.y)
-	)
-
-
-func _get_result_live2d_cinematic_target_position() -> Vector2:
-	var view_size: Vector2 = size
-	if view_size == Vector2.ZERO:
-		view_size = _get_view_size()
-	@warning_ignore("shadowed_variable_base_class")
-	var scale: float = _get_layout_scale(view_size)
-	var actor_rect: Rect2 = StageClearResultLayoutHelper.get_player_victory_actor_rect(view_size, scale)
-	var screen_position: Vector2 = actor_rect.get_center() + Vector2(0.0, 20.0 * scale)
-	var field_size := Vector2(760.0, 750.0)
-	return StageClearResultLayoutHelper.screen_to_acquisition_cinematic_local(screen_position, view_size, field_size)
 
 
 func _sync_fx_hosts() -> void:
