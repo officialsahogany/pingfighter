@@ -509,10 +509,10 @@ func resolve_quake_boss_backstop(scene: Dictionary, context: Dictionary, deps: D
 func activate_water_cannon(context: Dictionary = {}, _deps: Dictionary = {}) -> bool:
 	if water_cannon_phase != "idle" or rocks.is_empty():
 		return false
-	water_cannon_target_id = _select_water_cannon_target_id()
+	water_cannon_target_id = rock_query.select_random_id(rocks, rng)
 	if water_cannon_target_id < 0:
 		return false
-	var target_rock: Dictionary = _get_rock_by_id(water_cannon_target_id)
+	var target_rock: Dictionary = rock_query.get_by_id(rocks, water_cannon_target_id)
 	if target_rock.is_empty():
 		return false
 	water_cannon_start = water_cannon_geometry.get_boss_cannon_start_from_context(context)
@@ -1818,7 +1818,7 @@ func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -
 			activate_water_cannon(context, deps)
 		return
 
-	var target_index: int = _get_rock_index_by_id(water_cannon_target_id)
+	var target_index: int = rock_query.get_index_by_id(rocks, water_cannon_target_id)
 	if target_index < 0:
 		_cancel_water_cannon()
 		return
@@ -1918,7 +1918,7 @@ func _handle_water_fragment_player_hit(
 
 
 func _finish_water_cannon(context: Dictionary, deps: Dictionary) -> void:
-	var target_index: int = _get_rock_index_by_id(water_cannon_target_id)
+	var target_index: int = rock_query.get_index_by_id(rocks, water_cannon_target_id)
 	if target_index < 0:
 		_cancel_water_cannon()
 		return
@@ -1943,18 +1943,6 @@ func _cancel_water_cannon() -> void:
 	water_cannon_target_id = -1
 	water_cannon_progress = 0.0
 	water_cannon_current = water_cannon_start
-
-
-func _select_water_cannon_target_id() -> int:
-	return rock_query.select_random_id(rocks, rng)
-
-
-func _get_rock_by_id(rock_id: int) -> Dictionary:
-	return rock_query.get_by_id(rocks, rock_id)
-
-
-func _get_rock_index_by_id(rock_id: int) -> int:
-	return rock_query.get_index_by_id(rocks, rock_id)
 
 
 func _add_water_trail(pos: Vector2, progress: float) -> void:
@@ -1989,7 +1977,7 @@ func _get_water_cannon_payload_config() -> Dictionary:
 func _draw_water_cannon_target_highlight(canvas: CanvasItem, shake_offset: Vector2) -> void:
 	if water_cannon_target_id < 0:
 		return
-	var target_rock: Dictionary = _get_rock_by_id(water_cannon_target_id)
+	var target_rock: Dictionary = rock_query.get_by_id(rocks, water_cannon_target_id)
 	water_cannon_visual_renderer.draw_target_highlight(canvas, target_rock, water_cannon_phase, shake_offset)
 
 

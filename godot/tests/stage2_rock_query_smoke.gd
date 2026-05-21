@@ -56,14 +56,10 @@ func _verify_direct_rock_query() -> void:
 
 func _verify_background_delegates_rock_query() -> void:
 	var background := Stage2PillarBackground.new()
-	_expect(background._select_water_cannon_target_id() == -1, "background water-cannon target wrapper should ignore empty rocks")
 	background.rocks = [
 		{"id": 31, "pos": Vector2(100.0, 200.0)},
 		{"id": 32, "pos": Vector2(200.0, 300.0)},
 	]
-	background.rng.seed = 99
-	var selected_id: int = background._select_water_cannon_target_id()
-	_expect([31, 32].has(selected_id), "background water-cannon target wrapper should delegate random id selection")
 	_expect(background._needs_rock_runtime_update({"falling": true}), "background runtime-update wrapper should delegate rock update predicates")
 	var centered_rock := {
 		"pos": Vector2.ZERO,
@@ -75,6 +71,15 @@ func _verify_background_delegates_rock_query() -> void:
 	background._set_rock_center(centered_rock, Vector2(12.0, 34.0))
 	_expect(centered_rock.get("pos", Vector2.ZERO) == Vector2(12.0, 34.0), "background center wrapper should delegate rock center mutation")
 	_expect(not bool(centered_rock.get("falling", true)), "background center wrapper should clear falling state")
+	var source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
+	_expect(
+		source.find("rock_query.select_random_id") >= 0,
+		"Stage 2 background source should call rock query directly for water-cannon target selection"
+	)
+	_expect(
+		source.find("func _select_water_cannon_target_id") < 0,
+		"Stage 2 background source should not keep the old water-cannon target wrapper"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:
