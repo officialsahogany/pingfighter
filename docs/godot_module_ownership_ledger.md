@@ -1211,6 +1211,8 @@ This section is intentionally long; use search to find the nearest owner.
   delegated to `stage2_rock_visual_assets_builder.gd`; rock dictionary
   lookup / landed / center / target queries are delegated to
   `stage2_rock_query.gd`;
+  quake-rock spawn payload assembly is delegated to
+  `stage2_quake_rock_payload_factory.gd`;
   rock-fragment payload generation is delegated to
   `stage2_rock_fragment_payload_factory.gd`; normal rock-fragment factory
   config payloads are delegated to
@@ -1308,6 +1310,12 @@ This section is intentionally long; use search to find the nearest owner.
   textures, atlas source regions, and the default rock-fragment lifetime.
   The background module still owns texture loading, region slicing, lazy
   preload timing, live rock arrays, and renderer fanout.
+- `scripts/stages/stage2/stage2_quake_rock_payload_factory.gd`
+  Owns Stage 2 quake-rock spawn payload assembly: falling start position,
+  target position, stagger frames, gravity / bounce fields, radius, seed /
+  phase metadata, and merging visual data. The background module still owns
+  target selection, RNG sequencing, rock-id allocation, list insertion,
+  leaf bursts, and spawn audio.
 - `scripts/stages/stage2/stage2_water_cannon_visual_renderer.gd`
   Owns the stateless Stage 2 water-cannon draw pass: target-rock
   highlight rings, beam charge / firing visuals, water trail circles,

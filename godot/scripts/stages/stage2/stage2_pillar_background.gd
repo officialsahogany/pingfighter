@@ -21,6 +21,7 @@ const Stage2WaterCannonPayloadConfigBuilder := preload("res://scripts/stages/sta
 const Stage2WaterTrailPayloadFactory := preload("res://scripts/stages/stage2/stage2_water_trail_payload_factory.gd")
 const Stage2RockFragmentPayloadFactory := preload("res://scripts/stages/stage2/stage2_rock_fragment_payload_factory.gd")
 const Stage2RockFragmentPayloadConfigBuilder := preload("res://scripts/stages/stage2/stage2_rock_fragment_payload_config_builder.gd")
+const Stage2QuakeRockPayloadFactory := preload("res://scripts/stages/stage2/stage2_quake_rock_payload_factory.gd")
 const Stage2AmbientPayloadFactory := preload("res://scripts/stages/stage2/stage2_ambient_payload_factory.gd")
 const Stage2AmbientLayoutHelper := preload("res://scripts/stages/stage2/stage2_ambient_layout_helper.gd")
 const Stage2RustlePayloadFactory := preload("res://scripts/stages/stage2/stage2_rustle_payload_factory.gd")
@@ -169,6 +170,7 @@ var water_cannon_payload_config_builder: Object = Stage2WaterCannonPayloadConfig
 var water_trail_payload_factory: Object = Stage2WaterTrailPayloadFactory.new()
 var rock_fragment_payload_factory: Object = Stage2RockFragmentPayloadFactory.new()
 var rock_fragment_payload_config_builder: Object = Stage2RockFragmentPayloadConfigBuilder.new()
+var quake_rock_payload_factory: Object = Stage2QuakeRockPayloadFactory.new()
 var ambient_payload_factory: Object = Stage2AmbientPayloadFactory.new()
 var ambient_layout_helper: Object = Stage2AmbientLayoutHelper.new()
 var rustle_payload_factory: Object = Stage2RustlePayloadFactory.new()
@@ -1449,32 +1451,19 @@ func _spawn_quake_rocks(count: int, deps: Dictionary = {}) -> void:
 		var seed_value := rng.randi()
 		var is_golden := rng.randf() < 0.20
 		var rock_visual: Dictionary = _build_rock_visual_data(size, is_golden, seed_value)
-		var rock := {
-			"id": rock_next_id,
-			"pos": Vector2(target.x, fall_y),
-			"target_pos": target,
-			"fall_y": fall_y,
-			"quake_offset": Vector2.ZERO,
-			"falling": true,
-			"spawn_delay_frames": float(idx * 10),
-			"delay_timer_frames": 0.0,
-			"fall_speed": 0.0,
-			"gravity": 0.8 + rng.randf_range(-0.2, 0.2),
-			"bounce_count": 0,
-			"max_bounces": rng.randi_range(1, 2),
-			"fall_progress": 0.0,
-			"shadow_scale": 0.2,
-			"radius": size * 0.5,
-			"visual_radius": size,
-			"hp": 1,
-			"life": ROCK_LIFE_SEC,
-			"flash": 0.0,
-			"water_target_flash": 0.0,
-			"phase": float(seed_value % 628) / 100.0,
-			"seed": seed_value,
-			"is_golden": is_golden,
-		}
-		rock.merge(rock_visual, true)
+		var rock: Dictionary = quake_rock_payload_factory.build_quake_rock(
+			rock_next_id,
+			idx,
+			target,
+			fall_y,
+			size,
+			0.8 + rng.randf_range(-0.2, 0.2),
+			rng.randi_range(1, 2),
+			seed_value,
+			is_golden,
+			ROCK_LIFE_SEC,
+			rock_visual
+		)
 		rocks.append(rock)
 		rock_next_id += 1
 		_spawn_rock_leaves(target, 0.28)
