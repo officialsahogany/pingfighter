@@ -269,6 +269,11 @@ godot/.godot/
 godot/builds/
 godot/*.log
 godot/*.tmp
+godot/battle_perf_log.flag
+godot/battle_perf_detail.flag
+godot/battle_perf_samples.flag
+godot/battle_perf_clean_capture.flag
+godot/stage2_perf_log.flag
 *.bak
 *.bak_pre_sync_*
 tmp_*.png
