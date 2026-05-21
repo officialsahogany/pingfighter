@@ -31,7 +31,8 @@ static func update_drop(
 		pos.x = play_right - size
 		vel.x = -abs(vel.x) * bounce_damping
 	vel.x *= pow(0.98, fps_scale)
-	if pos.y > play_height:
+	# Cull when the rendered bottom edge reaches the playfield floor.
+	if pos.y > play_height - size * 0.5:
 		return false
 
 	drop["pos"] = pos

@@ -521,7 +521,8 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 			pos.x = play_right - size
 			vel.x = -absf(vel.x) * STARPOINT_DROP_BOUNCE_DAMPING
 		vel.x *= pow(0.98, fps_scale)
-		if pos.y > play_height:
+		# Cull when the rendered bottom edge reaches the playfield floor.
+		if pos.y > play_height - size * 0.5:
 			continue
 
 		drop["pos"] = pos

@@ -10,6 +10,7 @@ func _init() -> void:
 	_verify_drop_motion_updates_payload()
 	_verify_drop_motion_expires_payload()
 	_verify_drop_motion_bounces_at_bounds()
+	_verify_drop_motion_culls_at_floor_edge()
 	_verify_background_delegates_drop_motion()
 
 	if _failures.is_empty():
@@ -60,6 +61,17 @@ func _verify_drop_motion_bounces_at_bounds() -> void:
 	_expect(alive, "starpoint drop motion should keep bounced drops alive")
 	_expect(is_equal_approx(Vector2(drop.get("pos", Vector2.ZERO)).x, 12.0), "starpoint drop motion should clamp left bound")
 	_expect(Vector2(drop.get("vel", Vector2.ZERO)).x > 0.0, "starpoint drop motion should bounce x velocity inward")
+
+
+func _verify_drop_motion_culls_at_floor_edge() -> void:
+	var drop := {
+		"life": 10.0,
+		"pos": Vector2(100.0, 744.2),
+		"vel": Vector2.ZERO,
+		"size": 12.0,
+	}
+	var alive := Stage2StarpointDropMotionState.update_drop(drop, 0.0, 0.0, 760.0, 750.0, 12.0, 12.0, 0.25, 0.7)
+	_expect(not alive, "starpoint drop motion should cull when the rendered bottom edge reaches the floor")
 
 
 func _verify_background_delegates_drop_motion() -> void:
