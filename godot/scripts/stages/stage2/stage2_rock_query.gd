@@ -16,6 +16,13 @@ func get_index_by_id(rocks: Array, rock_id: int) -> int:
 	return -1
 
 
+func select_random_id(rocks: Array, rng: RandomNumberGenerator) -> int:
+	if rocks.is_empty():
+		return -1
+	var selected: Dictionary = rocks[rng.randi_range(0, rocks.size() - 1)]
+	return int(selected.get("id", -1))
+
+
 func is_landed(rock: Dictionary) -> bool:
 	if rock.has("spawn_delay_frames") and float(rock.get("delay_timer_frames", 0.0)) < float(rock.get("spawn_delay_frames", 0.0)):
 		return false

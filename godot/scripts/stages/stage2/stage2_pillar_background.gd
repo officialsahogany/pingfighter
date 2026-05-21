@@ -2262,15 +2262,7 @@ func _cancel_water_cannon() -> void:
 
 
 func _select_water_cannon_target_id() -> int:
-	if rocks.is_empty():
-		return -1
-	var candidates: Array = []
-	for rock in rocks:
-		candidates.append(rock)
-	if candidates.is_empty():
-		return -1
-	var selected: Dictionary = candidates[rng.randi_range(0, candidates.size() - 1)]
-	return int(selected.get("id", -1))
+	return rock_query.select_random_id(rocks, rng)
 
 
 func _get_rock_by_id(rock_id: int) -> Dictionary:

@@ -1316,10 +1316,11 @@ This section is intentionally long; use search to find the nearest owner.
   audio.
 - `scripts/stages/stage2/stage2_rock_query.gd`
   Owns Stage 2 rock dictionary query helpers: id lookup, landed checks,
-  target position, render / collision center, and spawn-spacing distance
-  tests. `stage2_pillar_background.gd` still owns rock array mutation,
-  spawning, HP / collision, quake drop updates, golden-drop behavior, and
-  water-cannon target mutation.
+  random id selection for water-cannon targeting, target position, render /
+  collision center, and spawn-spacing distance tests.
+  `stage2_pillar_background.gd` still owns rock array mutation, spawning,
+  HP / collision, quake drop updates, golden-drop behavior, and water-cannon
+  target mutation.
 - `scripts/stages/stage2/stage2_rock_fragment_payload_factory.gd`
   Owns Stage 2 normal rock-fragment payload construction after quake /
   crisis rocks break: fragment count, radial velocity, source sprite index,
