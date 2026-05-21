@@ -3282,6 +3282,19 @@ This section is intentionally long; use search to find the nearest owner.
   keeps hit classification side effects, status application calls, feedback,
   damage / gauge queueing, and weapon-specific hit counters while delegating
   stable hit-result payload shapes here.
+- `scripts/characters/commando_firearm_pistol_hit_state.gd`
+  Owns pure Commando pistol hit-roll payload calculation: headshot / legshot /
+  normal-hit result fields, doping-exposed hit chances, gauge gain source,
+  pistol combo-count rollover, damage deltas, and feedback-hit kind requests.
+  `commando_firearm_runtime.gd` keeps the mutable hit counter, feedback spawn
+  side effect, status application sequencing, and damage merge into the shared
+  combat result while delegating deterministic pistol-hit payload math here.
+- `scripts/characters/commando_firearm_ak47_hit_state.gd`
+  Owns pure Commando AK-47 accumulated-hit payload calculation: hit-count
+  increment / rollover, threshold-ready metadata, and accumulated damage-unit
+  fields. `commando_firearm_runtime.gd` keeps the mutable AK-47 hit counter
+  and shared combat-result merge while delegating deterministic AK-47 counter
+  payload math here.
 - `scripts/characters/commando_firearm_audio_resolver.gd`
   Owns pure Commando firearm audio-name lookup behavior: ball-hit pulse
   kind names, weapon-specific fire cue method lists, and weapon-specific
@@ -3402,8 +3415,9 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_projectile_spawn_state.gd`
   Owns pure direct-fire Commando projectile payload scaffolding: base bullet /
   rocket / net dictionaries plus optional doping, slingshot, explosion,
-  acceleration, smoke-trail, and rope-trail fields. The runtime keeps fire
-  input gates, profile mutation, aim / spread calculation, projectile-array
+  acceleration, smoke-trail, and rope-trail fields, plus normalized launch
+  direction / angle-offset calculation. The runtime keeps fire input gates,
+  profile mutation, origin / target calculation, projectile-array
   ownership, support-call / bowling-trap dispatch, muzzle flashes, shell
   casing side effects, and audio while delegating stable projectile field
   shapes here.
