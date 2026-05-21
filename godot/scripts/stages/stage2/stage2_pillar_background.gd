@@ -548,7 +548,7 @@ func trigger_tree_shake(side: String, impact_y: float, impact_speed: float, fiel
 	var count: int = clampi(int(round(10.0 + speed_scale * 9.0)), 10, 26)
 	for _i in range(count):
 		_spawn_leaf_particle(Vector2(x, y), resolved_side, speed_scale)
-	_trim_array_from_front(leaf_particles, MAX_LEAF_PARTICLES)
+	Stage2RenderBudgetHelper.trim_array_from_front(leaf_particles, MAX_LEAF_PARTICLES)
 
 
 func _is_bush_side_wall_hit(impact_y: float, field_height: float) -> bool:
@@ -674,7 +674,7 @@ func draw_playfield_obstacles(
 			ROCK_FRAGMENT_RENDER_LIMIT_SEVERE_LOD,
 			quality_scale
 		)
-		for fragment_index in range(_recent_start(rock_fragments, rock_fragment_render_limit), rock_fragments.size()):
+		for fragment_index in range(Stage2RenderBudgetHelper.recent_start(rock_fragments, rock_fragment_render_limit), rock_fragments.size()):
 			var fragment_value: Variant = rock_fragments[fragment_index]
 			if not (fragment_value is Dictionary):
 				continue
@@ -693,7 +693,7 @@ func draw_playfield_obstacles(
 			WATER_SPLASH_RENDER_LIMIT_SEVERE_LOD,
 			quality_scale
 		)
-		for splash_index in range(_recent_start(water_splashes, water_splash_render_limit), water_splashes.size()):
+		for splash_index in range(Stage2RenderBudgetHelper.recent_start(water_splashes, water_splash_render_limit), water_splashes.size()):
 			var splash_value: Variant = water_splashes[splash_index]
 			if not (splash_value is Dictionary):
 				continue
@@ -1501,7 +1501,7 @@ func _spawn_rock_fragments(rock: Dictionary, center: Vector2) -> void:
 		rng,
 		_get_rock_fragment_payload_config()
 	))
-	_trim_array_from_front(rock_fragments, MAX_ROCK_FRAGMENTS)
+	Stage2RenderBudgetHelper.trim_array_from_front(rock_fragments, MAX_ROCK_FRAGMENTS)
 
 
 func _get_rock_fragment_payload_config() -> Dictionary:
@@ -1517,7 +1517,7 @@ func _spawn_rock_leaves(center: Vector2, strength: float) -> void:
 	for _i in range(count):
 		var side := "left" if rng.randf() < 0.5 else "right"
 		_spawn_leaf_particle(center, side, strength)
-	_trim_array_from_front(leaf_particles, MAX_LEAF_PARTICLES)
+	Stage2RenderBudgetHelper.trim_array_from_front(leaf_particles, MAX_LEAF_PARTICLES)
 
 
 func spawn_starpoint_drop(pos: Vector2, _source_type: String = "", deps: Dictionary = {}, context: Dictionary = {}) -> void:
@@ -1947,7 +1947,7 @@ func _cancel_water_cannon() -> void:
 
 func _add_water_trail(pos: Vector2, progress: float) -> void:
 	water_trail.append(water_trail_payload_factory.build_trail(pos, progress, rng, WATER_TRAIL_LIFE_SEC))
-	_trim_array_from_front(water_trail, WATER_TRAIL_MAX_COUNT)
+	Stage2RenderBudgetHelper.trim_array_from_front(water_trail, WATER_TRAIL_MAX_COUNT)
 
 
 func _spawn_water_cannon_fragments(rock: Dictionary, center: Vector2) -> void:
@@ -1958,7 +1958,7 @@ func _spawn_water_cannon_fragments(rock: Dictionary, center: Vector2) -> void:
 		rng,
 		_get_water_cannon_payload_config()
 	))
-	_trim_array_from_front(water_splashes, WATER_CANNON_MAX_SPLASHES)
+	Stage2RenderBudgetHelper.trim_array_from_front(water_splashes, WATER_CANNON_MAX_SPLASHES)
 
 
 func _get_water_cannon_payload_config() -> Dictionary:
@@ -2164,24 +2164,8 @@ func _perf_maybe_log(context: Dictionary) -> void:
 	))
 
 
-func _trim_array_from_front(source: Array, max_size: int) -> void:
-	Stage2RenderBudgetHelper.trim_array_from_front(source, max_size)
-
-
-func _recent_start(source: Array, render_limit: int) -> int:
-	return Stage2RenderBudgetHelper.recent_start(source, render_limit)
-
-
 func _get_playfield_quality_scale(context: Dictionary) -> float:
 	return Stage2RenderBudgetHelper.get_playfield_quality_scale(context)
-
-
-func _is_lod_active(quality_scale: float) -> bool:
-	return Stage2RenderBudgetHelper.is_lod_active(quality_scale, LOD_ACTIVE_THRESHOLD)
-
-
-func _is_severe_lod_active(quality_scale: float) -> bool:
-	return Stage2RenderBudgetHelper.is_severe_lod_active(quality_scale, SEVERE_LOD_ACTIVE_THRESHOLD)
 
 
 func _get_lod_count(base_count: int, lod_count: int, severe_lod_count: int, quality_scale: float) -> int:
