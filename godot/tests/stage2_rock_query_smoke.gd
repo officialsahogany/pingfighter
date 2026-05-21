@@ -60,16 +60,6 @@ func _verify_background_delegates_rock_query() -> void:
 		{"id": 31, "pos": Vector2(100.0, 200.0)},
 		{"id": 32, "pos": Vector2(200.0, 300.0)},
 	]
-	var centered_rock := {
-		"pos": Vector2.ZERO,
-		"target_pos": Vector2(1.0, 2.0),
-		"falling": true,
-		"drop_delay": 1.0,
-		"quake_offset": Vector2(4.0, 5.0),
-	}
-	background._set_rock_center(centered_rock, Vector2(12.0, 34.0))
-	_expect(centered_rock.get("pos", Vector2.ZERO) == Vector2(12.0, 34.0), "background center wrapper should delegate rock center mutation")
-	_expect(not bool(centered_rock.get("falling", true)), "background center wrapper should clear falling state")
 	var source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
 	_expect(
 		source.find("rock_query.select_random_id") >= 0,
@@ -80,12 +70,30 @@ func _verify_background_delegates_rock_query() -> void:
 		"Stage 2 background source should call rock query directly for runtime-update predicates"
 	)
 	_expect(
+		source.find("rock_query.get_center") >= 0 and source.find("rock_query.set_center") >= 0,
+		"Stage 2 background source should call rock query directly for center lookups and mutation"
+	)
+	_expect(
+		source.find("rock_query.is_landed") >= 0 and source.find("rock_query.get_target_pos") >= 0,
+		"Stage 2 background source should call rock query directly for landed and target-position queries"
+	)
+	_expect(
 		source.find("func _select_water_cannon_target_id") < 0,
 		"Stage 2 background source should not keep the old water-cannon target wrapper"
 	)
 	_expect(
 		source.find("func _needs_rock_runtime_update") < 0,
 		"Stage 2 background source should not keep the old runtime-update wrapper"
+	)
+	_expect(
+		source.find("func _get_rock_center") < 0 and source.find("func _set_rock_center") < 0,
+		"Stage 2 background source should not keep rock center pass-through wrappers"
+	)
+	_expect(
+		source.find("func _is_rock_landed") < 0
+		and source.find("func _get_rock_target_pos") < 0
+		and source.find("func _has_landed_rocks") < 0,
+		"Stage 2 background source should not keep landed or target-position pass-through wrappers"
 	)
 
 

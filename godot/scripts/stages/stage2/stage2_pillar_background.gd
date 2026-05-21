@@ -366,7 +366,7 @@ func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> vo
 		if life >= 0.0:
 			life -= clamped_delta
 			if life <= 0.0:
-				_spawn_rock_leaves(_get_rock_center(rock), 0.70)
+				_spawn_rock_leaves(rock_query.get_center(rock), 0.70)
 				rocks.remove_at(idx)
 				continue
 			rock["life"] = life
@@ -517,7 +517,7 @@ func activate_water_cannon(context: Dictionary = {}, _deps: Dictionary = {}) -> 
 	if target_rock.is_empty():
 		return false
 	water_cannon_start = water_cannon_geometry.get_boss_cannon_start_from_context(context)
-	water_cannon_target = _get_rock_center(target_rock)
+	water_cannon_target = rock_query.get_center(target_rock)
 	water_cannon_current = water_cannon_start
 	water_cannon_progress = 0.0
 	water_cannon_phase = "charging"
@@ -720,9 +720,9 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, deps: Dictio
 	var ball_radius: float = float(context.get("ball_size", 28.6)) * 0.5
 	for idx in range(rocks.size()):
 		var rock: Dictionary = rocks[idx]
-		if not _is_rock_landed(rock):
+		if not rock_query.is_landed(rock):
 			continue
-		var center: Vector2 = _get_rock_center(rock)
+		var center: Vector2 = rock_query.get_center(rock)
 		var radius: float = float(rock.get("radius", 28.0))
 		if not collision_geometry.segment_hits_circle(previous_ball_pos, ball_pos, center, radius + ball_radius):
 			continue
@@ -751,11 +751,11 @@ func absorb_chaos_spear_objects(center: Vector2, radius: float, _deps: Dictionar
 	chaos_rock_absorb_timer = CHAOS_ROCK_PULL_REFRESH_SEC
 	for idx in range(rocks.size()):
 		var rock: Dictionary = rocks[idx]
-		if not _is_rock_landed(rock):
+		if not rock_query.is_landed(rock):
 			continue
-		var rock_center: Vector2 = _get_rock_center(rock)
+		var rock_center: Vector2 = rock_query.get_center(rock)
 		if not bool(rock.get("chaos_absorbing", false)):
-			_set_rock_center(rock, rock_center)
+			rock_query.set_center(rock, rock_center)
 			rock["chaos_spin_dir"] = 1.0 if (int(rock.get("id", idx)) & 1) == 1 else -1.0
 		rock["chaos_absorbing"] = true
 		rock["chaos_absorb_center"] = center
@@ -1351,7 +1351,7 @@ func _update_chaos_absorbing_rock(rock: Dictionary, delta: float, deps: Dictiona
 
 
 func _step_chaos_absorbing_rock(rock: Dictionary, center: Vector2, frame_step: float, deps: Dictionary, context: Dictionary = {}) -> bool:
-	var rock_center: Vector2 = _get_rock_center(rock)
+	var rock_center: Vector2 = rock_query.get_center(rock)
 	var result: Dictionary = Stage2ChaosRockAbsorbState.step_absorbing_rock(
 		rock,
 		rock_center,
@@ -1367,15 +1367,11 @@ func _step_chaos_absorbing_rock(rock: Dictionary, center: Vector2, frame_step: f
 	)
 	var result_center: Vector2 = _get_vector2(result.get("center", rock_center), rock_center)
 	if bool(result.get("moved", false)):
-		_set_rock_center(rock, result_center)
+		rock_query.set_center(rock, result_center)
 	if bool(result.get("destroyed", false)):
 		_destroy_chaos_absorbed_rock(rock, result_center, deps, context)
 		return true
 	return false
-
-
-func _set_rock_center(rock: Dictionary, center: Vector2) -> void:
-	rock_query.set_center(rock, center)
 
 
 func _destroy_chaos_absorbed_rock(rock: Dictionary, center: Vector2, deps: Dictionary, context: Dictionary = {}) -> void:
@@ -1454,7 +1450,7 @@ func _hit_rock(index: int, deps: Dictionary, context: Dictionary = {}) -> void:
 	if index < 0 or index >= rocks.size():
 		return
 	var rock: Dictionary = rocks[index]
-	var center: Vector2 = _get_rock_center(rock)
+	var center: Vector2 = rock_query.get_center(rock)
 	rock["hp"] = int(rock.get("hp", 1)) - 1
 	rock["flash"] = 0.24
 	_spawn_rock_leaves(center, 1.0)
@@ -1749,7 +1745,7 @@ func _play_boss_rage_cry(deps: Dictionary) -> void:
 
 
 func _update_quake_rock_drop(rock: Dictionary, delta: float) -> void:
-	var target_pos: Vector2 = _get_rock_target_pos(rock)
+	var target_pos: Vector2 = rock_query.get_target_pos(rock)
 	var result: Dictionary = Stage2QuakeRockDropState.update_drop(
 		rock,
 		delta,
@@ -1763,7 +1759,7 @@ func _update_quake_rock_drop(rock: Dictionary, delta: float) -> void:
 
 
 func _step_original_quake_rock_drop(rock: Dictionary, frame_step: float) -> bool:
-	var target_pos: Vector2 = _get_rock_target_pos(rock)
+	var target_pos: Vector2 = rock_query.get_target_pos(rock)
 	var result: Dictionary = Stage2QuakeRockDropState.step_original_drop(
 		rock,
 		target_pos,
@@ -1777,22 +1773,6 @@ func _step_original_quake_rock_drop(rock: Dictionary, frame_step: float) -> bool
 
 func _update_quake_rock_offset(rock: Dictionary, delta: float) -> void:
 	Stage2QuakeRockOffsetState.update_offset(rock, delta, quake_timer, quake_duration)
-
-
-func _is_rock_landed(rock: Dictionary) -> bool:
-	return rock_query.is_landed(rock)
-
-
-func _has_landed_rocks() -> bool:
-	return rock_query.has_landed_rocks(rocks)
-
-
-func _get_rock_target_pos(rock: Dictionary) -> Vector2:
-	return rock_query.get_target_pos(rock)
-
-
-func _get_rock_center(rock: Dictionary) -> Vector2:
-	return rock_query.get_center(rock)
 
 
 func _draw_rustle_vegetation(canvas: CanvasItem, width: float, height: float, shake_offset: Vector2) -> void:
@@ -1820,7 +1800,7 @@ func _update_water_cannon(delta: float, context: Dictionary, deps: Dictionary) -
 
 	var target_rock: Dictionary = rocks[target_index]
 	water_cannon_start = water_cannon_geometry.get_boss_cannon_start_from_context(context)
-	water_cannon_target = _get_rock_center(target_rock)
+	water_cannon_target = rock_query.get_center(target_rock)
 	if water_cannon_phase == "charging":
 		water_cannon_current = water_cannon_start
 		water_cannon_timer = max(0.0, water_cannon_timer - delta)
@@ -1918,7 +1898,7 @@ func _finish_water_cannon(context: Dictionary, deps: Dictionary) -> void:
 		_cancel_water_cannon()
 		return
 	var target_rock: Dictionary = rocks[target_index]
-	var center: Vector2 = _get_rock_center(target_rock)
+	var center: Vector2 = rock_query.get_center(target_rock)
 	rocks.remove_at(target_index)
 	_spawn_water_cannon_fragments(target_rock, center)
 	_spawn_rock_fragments(target_rock, center)
