@@ -245,9 +245,15 @@ items/*.bak_*
 items/*.v1_magenta_backup
 items/**/*_source*.png
 items/**/*_alpha_raw.png
+items/**/*_imagegen_v*.png
+items/**/*_frame_[0-9]*.png
 items/**/*.jpeg
 items/**/*.necklace_backup
 images/**/*_source*.png
+images/**/*_imagegen_v*.png
+images/**/*_frame_[0-9]*.png
+images/**/*_mask.png
+images/**/*_patch.png
 assets/*_preview.gif
 assets/*.jpeg
 
