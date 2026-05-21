@@ -1107,8 +1107,9 @@ This section is intentionally long; use search to find the nearest owner.
   delegated to `stage2_ambient_visual_snapshot_builder.gd`;
   rustle bush / vine layout
   payload generation is delegated to `stage2_rustle_payload_factory.gd`;
-  rustle active-count snapshots are delegated to
-  `stage2_rustle_snapshot_builder.gd`.
+  rustle trigger / decay mutation and side-wall band predicates are delegated
+  to `stage2_rustle_state.gd`; rustle active-count snapshots are delegated
+  to `stage2_rustle_snapshot_builder.gd`.
   Rock visual payload generation is delegated to
   `stage2_rock_visual_factory.gd`; rock renderer asset payloads are
   delegated to `stage2_rock_visual_assets_builder.gd`; rock dictionary
@@ -1303,13 +1304,18 @@ This section is intentionally long; use search to find the nearest owner.
   Owns Stage 2 rustle layout payload construction: fixed bush anchors,
   height-dependent player-side bush positions, vine anchors, and initial
   amount / angle / phase fields. `stage2_pillar_background.gd` still owns
-  layout invalidation, paddle-proximity triggers, rustle decay, active
-  visibility checks, snapshots, and renderer fanout.
+  layout invalidation, paddle-proximity trigger orchestration, snapshots,
+  and renderer fanout.
+- `scripts/stages/stage2/stage2_rustle_state.gd`
+  Owns Stage 2 rustle state mutation helpers: side-wall bush-band impact
+  predicates, bush / vine paddle-proximity trigger mutation, decay, and
+  active-visibility checks. `stage2_pillar_background.gd` still owns
+  layout invalidation, paddle-position history, trigger orchestration,
+  snapshots, and renderer fanout.
 - `scripts/stages/stage2/stage2_rustle_snapshot_builder.gd`
   Owns Stage 2 rustle snapshot construction: active bush count, active
   player / boss bush counts, and active vine count. The background module
-  still owns rustle state mutation, decay, visibility checks, and renderer
-  fanout.
+  still owns trigger orchestration, snapshots, and renderer fanout.
 - `scripts/stages/stage2/stage2_rock_visual_factory.gd`
   Owns the Stage 2 rock visual payload factory: style selection, style
   color arrays, seeded fixed polygon points, visual radius, rock seed, and

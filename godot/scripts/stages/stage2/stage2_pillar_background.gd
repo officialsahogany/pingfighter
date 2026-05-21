@@ -25,6 +25,7 @@ const Stage2AmbientPayloadFactory := preload("res://scripts/stages/stage2/stage2
 const Stage2AmbientLayoutHelper := preload("res://scripts/stages/stage2/stage2_ambient_layout_helper.gd")
 const Stage2RustlePayloadFactory := preload("res://scripts/stages/stage2/stage2_rustle_payload_factory.gd")
 const Stage2RustleSnapshotBuilder := preload("res://scripts/stages/stage2/stage2_rustle_snapshot_builder.gd")
+const Stage2RustleState := preload("res://scripts/stages/stage2/stage2_rustle_state.gd")
 const Stage2ActorDrawContextBuilder := preload("res://scripts/stages/stage2/stage2_actor_draw_context_builder.gd")
 const Stage2ImagegenAssetStatusBuilder := preload("res://scripts/stages/stage2/stage2_imagegen_asset_status_builder.gd")
 const Stage2AmbientVisualSnapshotBuilder := preload("res://scripts/stages/stage2/stage2_ambient_visual_snapshot_builder.gd")
@@ -552,8 +553,7 @@ func trigger_tree_shake(side: String, impact_y: float, impact_speed: float, fiel
 
 
 func _is_bush_side_wall_hit(impact_y: float, field_height: float) -> bool:
-	var band: float = min(BUSH_SIDE_WALL_BAND_Y, max(20.0, field_height * 0.24))
-	return impact_y <= band or impact_y >= field_height - band
+	return Stage2RustleState.is_bush_side_wall_hit(impact_y, field_height, BUSH_SIDE_WALL_BAND_Y)
 
 
 func draw_playfield_overlay(
@@ -1329,71 +1329,36 @@ func _update_rustle_reactions(delta: float, context: Dictionary) -> void:
 
 
 func _trigger_bush_rustle(area: String, paddle_center_x: float, delta_x: float, dash_like: bool) -> void:
-	var base_amount: float = BUSH_RUSTLE_DASH if dash_like else BUSH_RUSTLE_NORMAL
-	var direction: float = 1.0 if delta_x >= 0.0 else -1.0
-	var angle_scale: float = 0.60 if dash_like else 0.30
-	for idx in range(rustle_bushes.size()):
-		var bush: Dictionary = rustle_bushes[idx]
-		if str(bush.get("area", "")) != area:
-			continue
-		var pos: Vector2 = _get_vector2(bush.get("pos", Vector2.ZERO), Vector2.ZERO)
-		var distance: float = abs(pos.x - paddle_center_x)
-		if distance >= BUSH_RUSTLE_RANGE:
-			continue
-		var distance_factor: float = (BUSH_RUSTLE_RANGE - distance) / BUSH_RUSTLE_RANGE
-		bush["amount"] = max(float(bush.get("amount", 0.0)), distance_factor * base_amount)
-		bush["angle"] = direction * angle_scale
-		rustle_bushes[idx] = bush
+	Stage2RustleState.trigger_bush_rustle(
+		rustle_bushes,
+		area,
+		paddle_center_x,
+		delta_x,
+		dash_like,
+		BUSH_RUSTLE_RANGE,
+		BUSH_RUSTLE_NORMAL,
+		BUSH_RUSTLE_DASH
+	)
 
 
 func _trigger_vine_rustle(paddle_center_x: float, delta_x: float, dash_like: bool) -> void:
-	var base_amount: float = VINE_RUSTLE_DASH if dash_like else VINE_RUSTLE_NORMAL
-	var direction: float = 1.0 if delta_x >= 0.0 else -1.0
-	var angle_scale: float = 0.62 if dash_like else 0.38
-	for idx in range(rustle_vines.size()):
-		var vine: Dictionary = rustle_vines[idx]
-		var distance: float = abs(float(vine.get("x", 0.0)) - paddle_center_x)
-		if distance >= VINE_RUSTLE_RANGE:
-			continue
-		var distance_factor: float = (VINE_RUSTLE_RANGE - distance) / VINE_RUSTLE_RANGE
-		if float(vine.get("amount", 0.0)) <= 0.01:
-			vine["phase"] = 0.0
-		vine["amount"] = max(float(vine.get("amount", 0.0)), distance_factor * base_amount)
-		vine["angle"] = direction * angle_scale
-		rustle_vines[idx] = vine
+	Stage2RustleState.trigger_vine_rustle(
+		rustle_vines,
+		paddle_center_x,
+		delta_x,
+		dash_like,
+		VINE_RUSTLE_RANGE,
+		VINE_RUSTLE_NORMAL,
+		VINE_RUSTLE_DASH
+	)
 
 
 func _decay_rustle(delta: float) -> void:
-	var bush_decay: float = pow(0.85, delta * 60.0)
-	for idx in range(rustle_bushes.size()):
-		var bush: Dictionary = rustle_bushes[idx]
-		var amount: float = float(bush.get("amount", 0.0)) * bush_decay
-		bush["phase"] = float(bush.get("phase", 0.0)) + delta * 7.5
-		if amount < 0.08:
-			amount = 0.0
-			bush["angle"] = 0.0
-		bush["amount"] = amount
-		rustle_bushes[idx] = bush
-	var vine_decay: float = pow(0.88, delta * 60.0)
-	for idx in range(rustle_vines.size()):
-		var vine: Dictionary = rustle_vines[idx]
-		var amount: float = float(vine.get("amount", 0.0)) * vine_decay
-		vine["phase"] = float(vine.get("phase", 0.0)) + max(0.0, delta) * 8.0
-		if amount < 0.06:
-			amount = 0.0
-			vine["angle"] = 0.0
-		vine["amount"] = amount
-		rustle_vines[idx] = vine
+	Stage2RustleState.decay(rustle_bushes, rustle_vines, delta)
 
 
 func _has_active_rustle() -> bool:
-	for bush in rustle_bushes:
-		if float(bush.get("amount", 0.0)) > 0.05:
-			return true
-	for vine in rustle_vines:
-		if float(vine.get("amount", 0.0)) > 0.05:
-			return true
-	return false
+	return Stage2RustleState.has_active(rustle_bushes, rustle_vines)
 
 
 func _needs_rock_runtime_update(rock: Dictionary) -> bool:
