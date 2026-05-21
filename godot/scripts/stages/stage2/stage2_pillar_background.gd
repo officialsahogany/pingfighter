@@ -1459,19 +1459,16 @@ func _hit_rock(index: int, deps: Dictionary, context: Dictionary = {}) -> void:
 
 func _spawn_rock_fragments(rock: Dictionary, center: Vector2) -> void:
 	var colors: Array = rock.get("style_colors", rock_visual_factory.get_style_colors(str(rock.get("style_type", "gray_stone"))))
+	var payload_config: Dictionary = rock_fragment_payload_config_builder.build_config(ROCK_FRAGMENT_LIFE_SEC)
 	rock_fragments.append_array(rock_fragment_payload_factory.build_fragments(
 		rock,
 		center,
 		rock_debris_source_regions.size(),
 		colors,
 		rng,
-		_get_rock_fragment_payload_config()
+		payload_config
 	))
 	Stage2RenderBudgetHelper.trim_array_from_front(rock_fragments, MAX_ROCK_FRAGMENTS)
-
-
-func _get_rock_fragment_payload_config() -> Dictionary:
-	return rock_fragment_payload_config_builder.build_config(ROCK_FRAGMENT_LIFE_SEC)
 
 
 func _update_rock_fragments(delta: float) -> void:
@@ -1876,18 +1873,7 @@ func _add_water_trail(pos: Vector2, progress: float) -> void:
 
 
 func _spawn_water_cannon_fragments(rock: Dictionary, center: Vector2) -> void:
-	water_splashes.append_array(water_cannon_payload_factory.build_payloads(
-		rock,
-		center,
-		rock_debris_source_regions.size(),
-		rng,
-		_get_water_cannon_payload_config()
-	))
-	Stage2RenderBudgetHelper.trim_array_from_front(water_splashes, WATER_CANNON_MAX_SPLASHES)
-
-
-func _get_water_cannon_payload_config() -> Dictionary:
-	return water_cannon_payload_config_builder.build_config(
+	var payload_config: Dictionary = water_cannon_payload_config_builder.build_config(
 		WATER_CANNON_ROCK_FRAGMENT_MIN_COUNT,
 		WATER_CANNON_ROCK_FRAGMENT_MAX_COUNT,
 		WATER_CANNON_WATER_SPLASH_MIN_COUNT,
@@ -1897,6 +1883,14 @@ func _get_water_cannon_payload_config() -> Dictionary:
 		WATER_CANNON_ROCK_FRAGMENT_GRAVITY,
 		WATER_CANNON_WATER_SPLASH_GRAVITY
 	)
+	water_splashes.append_array(water_cannon_payload_factory.build_payloads(
+		rock,
+		center,
+		rock_debris_source_regions.size(),
+		rng,
+		payload_config
+	))
+	Stage2RenderBudgetHelper.trim_array_from_front(water_splashes, WATER_CANNON_MAX_SPLASHES)
 
 
 func _draw_water_cannon_target_highlight(canvas: CanvasItem, shake_offset: Vector2) -> void:

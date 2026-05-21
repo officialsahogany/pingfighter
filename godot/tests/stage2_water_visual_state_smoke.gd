@@ -57,6 +57,11 @@ func _verify_background_delegates_water_visuals() -> void:
 		source.find("Stage2WaterVisualState.update_splashes") >= 0,
 		"Stage 2 background source should delegate water splash state"
 	)
+	_expect(
+		source.find("water_cannon_payload_config_builder.build_config") >= 0
+			and source.find("func _get_water_cannon_payload_config") < 0,
+		"Stage 2 water cannon fragments should build payload config at the spawn site without a pass-through wrapper"
+	)
 	var background := Stage2PillarBackground.new()
 	background.water_trail = [
 		{"life": 0.5, "pos": Vector2.ZERO},

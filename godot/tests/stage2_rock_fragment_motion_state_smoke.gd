@@ -69,6 +69,11 @@ func _verify_background_delegates_fragment_motion() -> void:
 		source.find("Stage2RockFragmentMotionState.update_fragments") >= 0,
 		"Stage 2 background source should delegate rock fragment motion"
 	)
+	_expect(
+		source.find("rock_fragment_payload_config_builder.build_config") >= 0
+			and source.find("func _get_rock_fragment_payload_config") < 0,
+		"Stage 2 rock fragments should build payload config at the spawn site without a pass-through wrapper"
+	)
 	var background := Stage2PillarBackground.new()
 	background.rock_fragments = [
 		{"life": 2.0, "pos": Vector2(10.0, 20.0), "vel": Vector2(30.0, 40.0), "gravity": 180.0},
