@@ -945,8 +945,9 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ui/stage_clear_result_shape_helper.gd`
   Owns stateless result-scene shape point generation: ellipse fill
   polygons, ellipse polylines, radial burst polygons, star polygons, and
-  closed polyline conversion. The scene still owns actual draw calls,
-  colors, alpha gates, and animation timing.
+  closed polyline conversion, plus result-box corner brace segments and
+  lock face / center point geometry. The scene still owns actual draw
+  calls, colors, alpha gates, and animation timing.
 - `scripts/ui/stage_clear_result_click_reaction_state.gd`
   Owns stateless result-scene click-reaction animation math shared by the
   player victory and Dalji result sheets: base frame selection, reaction

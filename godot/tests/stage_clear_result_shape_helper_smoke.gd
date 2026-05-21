@@ -9,6 +9,8 @@ func _init() -> void:
 	_verify_ellipse_points()
 	_verify_radial_points()
 	_verify_star_points()
+	_verify_corner_braces()
+	_verify_box_lock_points()
 	_verify_scene_delegates_shape_points()
 
 	if _failures.is_empty():
@@ -50,12 +52,52 @@ func _verify_star_points() -> void:
 	_expect_vec(closed[0], closed[closed.size() - 1], "closed polyline should end at its first point")
 
 
+func _verify_corner_braces() -> void:
+	var segments: Array = StageClearResultShapeHelper.corner_brace_segments(
+		Vector2.ZERO,
+		Vector2(20.0, 0.0),
+		Vector2(20.0, 20.0),
+		Vector2(0.0, 20.0),
+		1.0
+	)
+	_expect(segments.size() == 8, "corner braces should expose two segments per corner")
+	var first_segment: Dictionary = segments[0]
+	_expect_vec(first_segment.get("start", Vector2.INF), Vector2.ZERO, "corner brace should start at the first corner")
+	_expect_vec(first_segment.get("end", Vector2.INF), Vector2(14.0, 0.0), "corner brace should use the scaled brace length")
+
+
+func _verify_box_lock_points() -> void:
+	_expect(is_equal_approx(StageClearResultShapeHelper.get_box_lock_size(2.0, 0.0), 44.0), "lock size should use the default scale when box height is absent")
+	_expect(is_equal_approx(StageClearResultShapeHelper.get_box_lock_size(1.0, 80.0), 24.0), "lock size should use box height when available")
+	_expect_vec(
+		StageClearResultShapeHelper.get_box_lock_center(Vector2(100.0, 100.0), 20.0, 0.0),
+		Vector2(100.0, 120.0),
+		"lock center should apply the local vertical offset"
+	)
+	_expect_vec(
+		StageClearResultShapeHelper.get_box_lock_center(Vector2(100.0, 100.0), 20.0, PI * 0.5),
+		Vector2(80.0, 100.0),
+		"lock center should rotate the local offset with the box"
+	)
+	var face_points: PackedVector2Array = StageClearResultShapeHelper.get_box_lock_face_points(
+		Vector2(100.0, 100.0),
+		20.0,
+		10.0,
+		0.0
+	)
+	_expect(face_points.size() == 4, "lock face should be a diamond")
+	_expect_vec(face_points[0], Vector2(100.0, 110.0), "lock face top should preserve local offset")
+	_expect_vec(face_points[1], Vector2(107.2, 120.0), "lock face side should use the 0.72 width factor")
+
+
 func _verify_scene_delegates_shape_points() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(source.find("StageClearResultShapeHelper.ellipse_polygon_points") >= 0, "result scene should delegate filled ellipse point generation")
 	_expect(source.find("StageClearResultShapeHelper.ellipse_polyline_points") >= 0, "result scene should delegate ellipse polyline point generation")
 	_expect(source.find("StageClearResultShapeHelper.radial_polygon_points") >= 0, "result scene should delegate radial burst point generation")
 	_expect(source.find("StageClearResultShapeHelper.star_polygon_points") >= 0, "result scene should delegate star point generation")
+	_expect(source.find("StageClearResultShapeHelper.corner_brace_segments") >= 0, "result scene should delegate corner brace segment generation")
+	_expect(source.find("StageClearResultShapeHelper.get_box_lock_face_points") >= 0, "result scene should delegate lock face point generation")
 
 
 func _expect(condition: bool, message: String) -> void:

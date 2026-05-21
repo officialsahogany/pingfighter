@@ -909,28 +909,14 @@ func _draw_ellipse_polyline(center: Vector2, radius_x: float, radius_y: float, c
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_box_corner_braces(tl: Vector2, tr: Vector2, br: Vector2, bl: Vector2, scale: float, color: Color, width: float) -> void:
-	var brace_len: float = max(8.0, 14.0 * scale)
-	var corners: Array = [
-		{"corner": tl, "neighbors": [tr, bl]},
-		{"corner": tr, "neighbors": [tl, br]},
-		{"corner": br, "neighbors": [tr, bl]},
-		{"corner": bl, "neighbors": [tl, br]},
-	]
-	for entry in corners:
-		var corner: Vector2 = entry["corner"]
-		var neighbors_value: Variant = entry["neighbors"]
-		if not (neighbors_value is Array):
-			continue
-		var neighbors: Array = neighbors_value
-		for neighbor_value in neighbors:
-			if not (neighbor_value is Vector2):
-				continue
-			var neighbor: Vector2 = neighbor_value
-			var direction: Vector2 = (neighbor - corner)
-			if direction.length_squared() <= 0.001:
-				continue
-			var end: Vector2 = corner + direction.normalized() * brace_len
-			draw_line(corner, end, color, width)
+	for segment_value in StageClearResultShapeHelper.corner_brace_segments(tl, tr, br, bl, scale):
+		var segment: Dictionary = segment_value if segment_value is Dictionary else {}
+		draw_line(
+			segment.get("start", Vector2.ZERO),
+			segment.get("end", Vector2.ZERO),
+			color,
+			width
+		)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -948,31 +934,26 @@ func _draw_box_lock(
 ) -> void:
 	if alpha <= 0.02:
 		return
-	var lock_size: float
-	if box_hy > 0.0:
-		lock_size = max(6.0 * scale, box_hy * 0.30)
-	else:
-		lock_size = 22.0 * scale
-	var lock_center: Vector2 = _rotate_around(Vector2(0.0, lock_offset_y), Vector2.ZERO, box_rotation) + draw_center
+	var lock_size: float = StageClearResultShapeHelper.get_box_lock_size(scale, box_hy)
+	var lock_center: Vector2 = StageClearResultShapeHelper.get_box_lock_center(draw_center, lock_offset_y, box_rotation)
 
 	draw_circle(lock_center + Vector2(0.0, 2.0 * scale), lock_size * 0.95, Color(0.0, 0.0, 0.0, alpha * 0.45))
 
 	var base_metal: Color = Color(0.45, 0.30, 0.10, alpha)
 	draw_circle(lock_center, lock_size * 0.90, base_metal)
 
-	var lock_pts := PackedVector2Array([
-		_rotate_around(Vector2(0.0, lock_offset_y - lock_size), Vector2.ZERO, box_rotation) + draw_center,
-		_rotate_around(Vector2(lock_size * 0.72, lock_offset_y), Vector2.ZERO, box_rotation) + draw_center,
-		_rotate_around(Vector2(0.0, lock_offset_y + lock_size), Vector2.ZERO, box_rotation) + draw_center,
-		_rotate_around(Vector2(-lock_size * 0.72, lock_offset_y), Vector2.ZERO, box_rotation) + draw_center,
-	])
+	var lock_pts: PackedVector2Array = StageClearResultShapeHelper.get_box_lock_face_points(
+		draw_center,
+		lock_offset_y,
+		lock_size,
+		box_rotation
+	)
 	var lock_face: Color = trim_color
 	lock_face.a = alpha
 	draw_colored_polygon(lock_pts, lock_face)
 
 	var lock_outline: Color = Color(0.55, 0.30, 0.06, alpha)
-	var closed_lock: PackedVector2Array = lock_pts.duplicate()
-	closed_lock.append(lock_pts[0])
+	var closed_lock: PackedVector2Array = StageClearResultShapeHelper.closed_polyline_points(lock_pts)
 	draw_polyline(closed_lock, lock_outline, max(1.0, 1.4 * scale), true)
 
 	if is_mythic:
