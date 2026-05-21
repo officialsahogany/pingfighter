@@ -1050,59 +1050,33 @@ func _ensure_textures() -> void:
 func _prewarm_texture_step(step_index: int) -> void:
 	match step_index:
 		0:
-			_load_base_texture()
+			if base_texture == null:
+				base_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.BASE_TEXTURE_PATH)
 		1:
-			_load_tree_texture()
+			if tree_texture == null:
+				tree_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.TREE_TEXTURE_PATH)
+			if tree_texture != null and tree_source_regions.is_empty():
+				tree_source_regions = Stage2PillarAssets.TREE_SOURCE_REGION_DATA.duplicate()
 		2:
-			_load_game_frame_texture()
+			if game_frame_texture == null:
+				game_frame_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.GAME_FRAME_TEXTURE_PATH)
 		3:
-			_load_leaf_texture()
+			if leaf_texture == null:
+				leaf_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.LEAF_TEXTURE_PATH)
+			if leaf_texture != null and leaf_source_regions.is_empty():
+				leaf_source_regions = Stage2PillarAssets.LEAF_SOURCE_REGION_DATA.duplicate()
 		4:
-			_load_rock_texture()
+			if rock_texture == null:
+				rock_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.ROCK_TEXTURE_PATH)
+			if rock_texture != null and rock_source_regions.is_empty():
+				rock_source_regions = Stage2PillarAssets.ROCK_SOURCE_REGION_DATA.duplicate()
 		5:
-			_load_rock_debris_texture()
+			if rock_debris_texture == null:
+				rock_debris_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.ROCK_DEBRIS_TEXTURE_PATH)
+			if rock_debris_texture != null and rock_debris_source_regions.is_empty():
+				rock_debris_source_regions = Stage2PillarAssets.ROCK_DEBRIS_SOURCE_REGION_DATA.duplicate()
 	if step_index >= 5:
 		texture_loaded = true
-
-
-func _load_base_texture() -> void:
-	if base_texture != null:
-		return
-	base_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.BASE_TEXTURE_PATH)
-
-
-func _load_tree_texture() -> void:
-	if tree_texture == null:
-		tree_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.TREE_TEXTURE_PATH)
-	if tree_texture != null and tree_source_regions.is_empty():
-		tree_source_regions = Stage2PillarAssets.TREE_SOURCE_REGION_DATA.duplicate()
-
-
-func _load_game_frame_texture() -> void:
-	if game_frame_texture != null:
-		return
-	game_frame_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.GAME_FRAME_TEXTURE_PATH)
-
-
-func _load_leaf_texture() -> void:
-	if leaf_texture == null:
-		leaf_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.LEAF_TEXTURE_PATH)
-	if leaf_texture != null and leaf_source_regions.is_empty():
-		leaf_source_regions = Stage2PillarAssets.LEAF_SOURCE_REGION_DATA.duplicate()
-
-
-func _load_rock_texture() -> void:
-	if rock_texture == null:
-		rock_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.ROCK_TEXTURE_PATH)
-	if rock_texture != null and rock_source_regions.is_empty():
-		rock_source_regions = Stage2PillarAssets.ROCK_SOURCE_REGION_DATA.duplicate()
-
-
-func _load_rock_debris_texture() -> void:
-	if rock_debris_texture == null:
-		rock_debris_texture = ProjectResourceLoader.load_texture(Stage2PillarAssets.ROCK_DEBRIS_TEXTURE_PATH)
-	if rock_debris_texture != null and rock_debris_source_regions.is_empty():
-		rock_debris_source_regions = Stage2PillarAssets.ROCK_DEBRIS_SOURCE_REGION_DATA.duplicate()
 
 
 func _draw_imagegen_pillars(canvas: CanvasItem, view_size: Vector2, game_offset: Vector2, game_size: Vector2) -> void:

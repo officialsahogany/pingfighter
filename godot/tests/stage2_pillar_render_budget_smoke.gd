@@ -338,6 +338,16 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Stage 2 obstacle draw should cap water-splash rendering with severe LOD"
 	)
 	_expect(
+		_function_body(background_source, "func _prewarm_texture_step").find("ProjectResourceLoader.load_texture") >= 0
+			and background_source.find("func _load_base_texture") < 0
+			and background_source.find("func _load_tree_texture") < 0
+			and background_source.find("func _load_game_frame_texture") < 0
+			and background_source.find("func _load_leaf_texture") < 0
+			and background_source.find("func _load_rock_texture") < 0
+			and background_source.find("func _load_rock_debris_texture") < 0,
+		"Stage 2 texture prewarm should load staged texture chunks directly without one-line pass-through wrappers"
+	)
+	_expect(
 		_function_body(background_source, "func draw_playfield_obstacles").find("quake_wave_visual_state_builder.build_state") >= 0
 			and background_source.find("func _get_quake_wave_visual_state") < 0,
 		"Stage 2 quake-wave draw should build delegated visual state directly without a pass-through wrapper"
