@@ -1,0 +1,28 @@
+extends RefCounted
+
+
+static func build_accumulated_damage_payload(
+	weapon_id: String,
+	current_hit_count: int,
+	current_damage_units: int,
+	damage_hit_threshold: int
+) -> Dictionary:
+	if weapon_id != "ak47":
+		return {}
+	var next_hit_count: int = max(0, current_hit_count) + 1
+	var threshold: int = max(1, damage_hit_threshold)
+	var result_fields: Dictionary = {}
+	if next_hit_count < threshold:
+		result_fields["ak47_boss_hit_count"] = next_hit_count
+		return {
+			"next_hit_count": next_hit_count,
+			"result_fields": result_fields,
+		}
+	next_hit_count = 0
+	result_fields["ak47_boss_hit_count"] = 0
+	result_fields["ak47_accumulated_damage_ready"] = true
+	result_fields["damage_units"] = max(1, current_damage_units)
+	return {
+		"next_hit_count": next_hit_count,
+		"result_fields": result_fields,
+	}
