@@ -1154,7 +1154,7 @@ This section is intentionally long; use search to find the nearest owner.
   first Stage 2 wall-hit reaction state:
   border flash and short-lived leaf particles triggered through the shared
   `trigger_tree_shake()` hook. The current MVP also owns Stage 2 temporary
-  crisis-rock spawning / drawing and basic rock-vs-ball reflection. It also
+  crisis-rock list reset / drawing and basic rock-vs-ball reflection. It also
   owns the first 악어장군 water-cannon MVP: delayed post-quake target
   selection, charge/fire VFX, hydro / stone-break / rock-hit audio cues,
   splash fragments, hittable rock-fragment knockback, red hit flash
@@ -1212,7 +1212,9 @@ This section is intentionally long; use search to find the nearest owner.
   lookup / landed / center / target queries are delegated to
   `stage2_rock_query.gd`;
   quake-rock spawn payload assembly is delegated to
-  `stage2_quake_rock_payload_factory.gd`; quake-rock drop / bounce state
+  `stage2_quake_rock_payload_factory.gd`; boss-rage crisis-wall rock payload
+  assembly is delegated to `stage2_crisis_rock_wall_payload_factory.gd`;
+  quake-rock drop / bounce state
   updates are delegated to `stage2_quake_rock_drop_state.gd`; quake-rock
   visual offset decay / shake state is delegated to
   `stage2_quake_rock_offset_state.gd`;
@@ -1324,6 +1326,13 @@ This section is intentionally long; use search to find the nearest owner.
   phase metadata, and merging visual data. The background module still owns
   target selection, RNG sequencing, rock-id allocation, list insertion,
   leaf bursts, and spawn audio.
+- `scripts/stages/stage2/stage2_crisis_rock_wall_payload_factory.gd`
+  Owns Stage 2 boss-rage crisis-wall rock payload assembly: lane target
+  selection, falling start position, scaled collision radius, drop stagger /
+  timer fields, seed / phase metadata, and rock visual data merging. The
+  background module still owns wall activation, live array reset / insertion,
+  rock-id allocation, water-cannon deferral, leaf bursts, warnings, and spawn
+  audio.
 - `scripts/stages/stage2/stage2_quake_rock_drop_state.gd`
   Owns Stage 2 quake-rock drop and bounce mutation helpers for both the
   original frame-stepped falling rocks and timed drop payloads. The

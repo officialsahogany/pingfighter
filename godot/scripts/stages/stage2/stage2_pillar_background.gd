@@ -24,6 +24,7 @@ const Stage2WaterTrailPayloadFactory := preload("res://scripts/stages/stage2/sta
 const Stage2RockFragmentPayloadFactory := preload("res://scripts/stages/stage2/stage2_rock_fragment_payload_factory.gd")
 const Stage2RockFragmentPayloadConfigBuilder := preload("res://scripts/stages/stage2/stage2_rock_fragment_payload_config_builder.gd")
 const Stage2QuakeRockPayloadFactory := preload("res://scripts/stages/stage2/stage2_quake_rock_payload_factory.gd")
+const Stage2CrisisRockWallPayloadFactory := preload("res://scripts/stages/stage2/stage2_crisis_rock_wall_payload_factory.gd")
 const Stage2QuakeRockDropState := preload("res://scripts/stages/stage2/stage2_quake_rock_drop_state.gd")
 const Stage2QuakeRockOffsetState := preload("res://scripts/stages/stage2/stage2_quake_rock_offset_state.gd")
 const Stage2StarpointParticleState := preload("res://scripts/stages/stage2/stage2_starpoint_particle_state.gd")
@@ -176,6 +177,7 @@ var water_trail_payload_factory: Object = Stage2WaterTrailPayloadFactory.new()
 var rock_fragment_payload_factory: Object = Stage2RockFragmentPayloadFactory.new()
 var rock_fragment_payload_config_builder: Object = Stage2RockFragmentPayloadConfigBuilder.new()
 var quake_rock_payload_factory: Object = Stage2QuakeRockPayloadFactory.new()
+var crisis_rock_wall_payload_factory: Object = Stage2CrisisRockWallPayloadFactory.new()
 var ambient_payload_factory: Object = Stage2AmbientPayloadFactory.new()
 var ambient_layout_helper: Object = Stage2AmbientLayoutHelper.new()
 var rustle_payload_factory: Object = Stage2RustlePayloadFactory.new()
@@ -1492,41 +1494,22 @@ func _spawn_crisis_rock_wall(deps: Dictionary = {}) -> void:
 	water_cannon_delay = -1.0
 	water_cannon_phase = "idle"
 	water_cannon_target_id = -1
-	var spacing: float = 620.0 / float(BOSS_RAGE_CRISIS_ROCK_COUNT + 1)
 	for idx in range(BOSS_RAGE_CRISIS_ROCK_COUNT):
-		var target_y := rng.randf_range(CRISIS_ROCK_WALL_Y_MIN, CRISIS_ROCK_WALL_Y_MID)
-		if idx % 2 == 1:
-			target_y = rng.randf_range(CRISIS_ROCK_WALL_Y_MID, CRISIS_ROCK_WALL_Y_MAX)
-		var target := Vector2(
-			70.0 + spacing * float(idx + 1) + rng.randf_range(-18.0, 18.0),
-			target_y
+		var rock: Dictionary = crisis_rock_wall_payload_factory.build_crisis_rock(
+			rock_next_id,
+			idx,
+			BOSS_RAGE_CRISIS_ROCK_COUNT,
+			rng,
+			rock_visual_factory,
+			CRISIS_ROCK_WALL_Y_MIN,
+			CRISIS_ROCK_WALL_Y_MID,
+			CRISIS_ROCK_WALL_Y_MAX,
+			QUAKE_ROCK_DROP_HEIGHT,
+			QUAKE_ROCK_SIZE_SCALE,
+			QUAKE_ROCK_DROP_STAGGER_SEC,
+			QUAKE_ROCK_DROP_TIME_SEC,
+			ROCK_LIFE_SEC
 		)
-		var start := target + Vector2(rng.randf_range(-12.0, 12.0), -QUAKE_ROCK_DROP_HEIGHT - float(idx) * 7.0)
-		var collision_radius := rng.randf_range(25.0, 37.0) * QUAKE_ROCK_SIZE_SCALE
-		var seed_value := rng.randi()
-		var rock_visual: Dictionary = _build_rock_visual_data(collision_radius * 2.0, false, seed_value)
-		var rock := {
-			"id": rock_next_id,
-			"pos": start,
-			"start_pos": start,
-			"target_pos": target,
-			"quake_offset": Vector2.ZERO,
-			"falling": true,
-			"drop_delay": float(idx) * QUAKE_ROCK_DROP_STAGGER_SEC,
-			"fall_timer": QUAKE_ROCK_DROP_TIME_SEC,
-			"fall_total": QUAKE_ROCK_DROP_TIME_SEC,
-			"fall_progress": 0.0,
-			"radius": collision_radius,
-			"visual_radius": collision_radius * 2.0,
-			"hp": 1,
-			"life": ROCK_LIFE_SEC,
-			"flash": 0.0,
-			"water_target_flash": 0.0,
-			"phase": rng.randf_range(0.0, TAU),
-			"seed": seed_value,
-			"crisis_wall": true,
-		}
-		rock.merge(rock_visual, true)
 		rocks.append(rock)
 		rock_next_id += 1
 	_spawn_rock_leaves(Vector2(380.0, (CRISIS_ROCK_WALL_Y_MIN + CRISIS_ROCK_WALL_Y_MAX) * 0.5), 0.90)
