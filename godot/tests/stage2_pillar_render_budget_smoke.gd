@@ -175,6 +175,16 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Stage 2 overlay draw should pass the leaf severe render cap"
 	)
 	_expect(
+		background_source.find("Stage2RenderBudgetHelper.get_playfield_quality_scale") >= 0
+			and background_source.find("Stage2RenderBudgetHelper.get_lod_count") >= 0,
+		"Stage 2 draw paths should call render-budget helpers directly"
+	)
+	_expect(
+		background_source.find("func _get_playfield_quality_scale") < 0
+			and background_source.find("func _get_lod_count") < 0,
+		"Stage 2 background should not keep render-budget pass-through wrappers"
+	)
+	_expect(
 		_function_body(background_source, "func draw(").find("AMBIENT_FALLING_LEAF_RENDER_LIMIT_SEVERE_LOD") >= 0,
 		"Stage 2 pillar background draw should disable ambient falling leaves under severe LOD"
 	)

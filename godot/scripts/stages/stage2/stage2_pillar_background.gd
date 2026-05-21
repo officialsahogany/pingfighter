@@ -568,7 +568,7 @@ func draw_playfield_overlay(
 	_record_playfield_overlay_counters(battle_perf_logger)
 	var width: float = float(context.get("width", 760.0))
 	var height: float = float(context.get("height", 750.0))
-	var quality_scale: float = _get_playfield_quality_scale(context)
+	var quality_scale: float = Stage2RenderBudgetHelper.get_playfield_quality_scale(context)
 	var battle_sample_start: int
 	if border_flash_state.is_active():
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
@@ -580,20 +580,24 @@ func draw_playfield_overlay(
 		_battle_perf_end(battle_perf_logger, "stage2.overlay.rage_tint", battle_sample_start)
 	if not leaf_particles.is_empty():
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
-		ambient_visual_renderer.draw_leaf_particles(canvas, leaf_particles, shake_offset, LEAF_PARTICLE_LIFE_SEC, _get_lod_count(
+		ambient_visual_renderer.draw_leaf_particles(canvas, leaf_particles, shake_offset, LEAF_PARTICLE_LIFE_SEC, Stage2RenderBudgetHelper.get_lod_count(
 			LEAF_PARTICLE_RENDER_LIMIT,
 			LEAF_PARTICLE_RENDER_LIMIT,
 			LEAF_PARTICLE_RENDER_LIMIT_SEVERE_LOD,
-			quality_scale
+			quality_scale,
+			LOD_ACTIVE_THRESHOLD,
+			SEVERE_LOD_ACTIVE_THRESHOLD
 		))
 		_battle_perf_end(battle_perf_logger, "stage2.overlay.leaf_particles", battle_sample_start)
 	if not starpoint_particles.is_empty():
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
-		obstacle_visual_renderer.draw_starpoint_particles(canvas, starpoint_particles, shake_offset, _get_lod_count(
+		obstacle_visual_renderer.draw_starpoint_particles(canvas, starpoint_particles, shake_offset, Stage2RenderBudgetHelper.get_lod_count(
 			STARPOINT_PARTICLE_RENDER_LIMIT,
 			STARPOINT_PARTICLE_RENDER_LIMIT,
 			STARPOINT_PARTICLE_RENDER_LIMIT_SEVERE_LOD,
-			quality_scale
+			quality_scale,
+			LOD_ACTIVE_THRESHOLD,
+			SEVERE_LOD_ACTIVE_THRESHOLD
 		))
 		_battle_perf_end(battle_perf_logger, "stage2.overlay.starpoint_particles", battle_sample_start)
 	if not starpoint_drops.is_empty():
@@ -642,7 +646,7 @@ func draw_playfield_obstacles(
 		return
 	_record_playfield_obstacle_counters(battle_perf_logger)
 	var width: float = float(context.get("width", 760.0))
-	var quality_scale: float = _get_playfield_quality_scale(context)
+	var quality_scale: float = Stage2RenderBudgetHelper.get_playfield_quality_scale(context)
 	var battle_sample_start: int
 	if quake_timer > 0.0:
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
@@ -665,11 +669,13 @@ func draw_playfield_obstacles(
 		_battle_perf_end(battle_perf_logger, "stage2.obstacles.rocks", battle_sample_start)
 	if not rock_fragments.is_empty():
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
-		var rock_fragment_render_limit := _get_lod_count(
+		var rock_fragment_render_limit := Stage2RenderBudgetHelper.get_lod_count(
 			ROCK_FRAGMENT_RENDER_LIMIT,
 			ROCK_FRAGMENT_RENDER_LIMIT,
 			ROCK_FRAGMENT_RENDER_LIMIT_SEVERE_LOD,
-			quality_scale
+			quality_scale,
+			LOD_ACTIVE_THRESHOLD,
+			SEVERE_LOD_ACTIVE_THRESHOLD
 		)
 		for fragment_index in range(Stage2RenderBudgetHelper.recent_start(rock_fragments, rock_fragment_render_limit), rock_fragments.size()):
 			var fragment_value: Variant = rock_fragments[fragment_index]
@@ -684,11 +690,13 @@ func draw_playfield_obstacles(
 		_battle_perf_end(battle_perf_logger, "stage2.obstacles.water_cannon", battle_sample_start)
 	if not water_splashes.is_empty():
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
-		var water_splash_render_limit := _get_lod_count(
+		var water_splash_render_limit := Stage2RenderBudgetHelper.get_lod_count(
 			WATER_SPLASH_RENDER_LIMIT,
 			WATER_SPLASH_RENDER_LIMIT,
 			WATER_SPLASH_RENDER_LIMIT_SEVERE_LOD,
-			quality_scale
+			quality_scale,
+			LOD_ACTIVE_THRESHOLD,
+			SEVERE_LOD_ACTIVE_THRESHOLD
 		)
 		for splash_index in range(Stage2RenderBudgetHelper.recent_start(water_splashes, water_splash_render_limit), water_splashes.size()):
 			var splash_value: Variant = water_splashes[splash_index]
@@ -1003,11 +1011,13 @@ func draw(canvas: CanvasItem, view_size: Vector2, game_offset: Vector2, game_siz
 		ambient_game_offset,
 		ambient_game_size,
 		ambient_time,
-		_get_lod_count(
+		Stage2RenderBudgetHelper.get_lod_count(
 			AMBIENT_MAX_FALLING_LEAVES,
 			AMBIENT_FALLING_LEAF_RENDER_LIMIT,
 			AMBIENT_FALLING_LEAF_RENDER_LIMIT_SEVERE_LOD,
-			quality_scale
+			quality_scale,
+			LOD_ACTIVE_THRESHOLD,
+			SEVERE_LOD_ACTIVE_THRESHOLD
 		)
 	)
 	_perf_end("stage2_pillar_draw", perf_start)
@@ -2057,21 +2067,6 @@ func _perf_maybe_log(context: Dictionary) -> void:
 		water_cannon_phase,
 		skill_warning_state.get_kind()
 	))
-
-
-func _get_playfield_quality_scale(context: Dictionary) -> float:
-	return Stage2RenderBudgetHelper.get_playfield_quality_scale(context)
-
-
-func _get_lod_count(base_count: int, lod_count: int, severe_lod_count: int, quality_scale: float) -> int:
-	return Stage2RenderBudgetHelper.get_lod_count(
-		base_count,
-		lod_count,
-		severe_lod_count,
-		quality_scale,
-		LOD_ACTIVE_THRESHOLD,
-		SEVERE_LOD_ACTIVE_THRESHOLD
-	)
 
 
 func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
