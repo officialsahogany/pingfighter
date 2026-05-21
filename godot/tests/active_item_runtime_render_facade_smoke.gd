@@ -377,6 +377,13 @@ func _verify_runtime_public_draw_methods_delegate() -> void:
 	_expect(fake_facade.field_draw_count == 1, "runtime draw_field_items should delegate to render facade")
 	_expect(fake_facade.last_shake_offset == shake_offset, "runtime should preserve public draw shake offset")
 	_expect(fake_facade.pickup_draw_count == 1, "runtime draw_pickup_effect should delegate to render facade")
+	var arity_cache: Dictionary = runtime.get("_method_argument_count_cache")
+	_expect(arity_cache.size() == 2, "runtime draw methods should cache render facade arities after first dispatch")
+	runtime.draw_field_items(canvas, registry, shake_offset)
+	runtime.draw_pickup_effect(canvas, registry)
+	_expect(fake_facade.field_draw_count == 2, "runtime draw_field_items should keep delegating after arity caching")
+	_expect(fake_facade.pickup_draw_count == 2, "runtime draw_pickup_effect should keep delegating after arity caching")
+	_expect(arity_cache.size() == 2, "runtime draw methods should reuse cached render facade arities")
 	canvas.free()
 
 

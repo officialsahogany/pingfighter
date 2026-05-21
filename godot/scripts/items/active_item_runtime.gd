@@ -68,6 +68,7 @@ var use_facade: Object = null
 var elixir_cinematic_draw: Object = null
 var _helper_init_step_index := 0
 var _helpers_initialized := false
+var _method_argument_count_cache: Dictionary = {}
 
 
 func _init() -> void:
@@ -114,19 +115,30 @@ func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
 
 func update(owner: Object, registry: Object, delta: float, perf_logger: Object = null) -> Dictionary:
 	_ensure_helpers_ready()
-	var update_args := [
-		self,
-		owner,
-		registry,
-		delta,
-		Callable(self, "_store_active_item"),
-		Callable(self, "_trigger_pickup_effect"),
-		Callable(self, "_apply_item_effect"),
-		Callable(self, "_backup_pending_throw_item")
-	]
+	var result: Variant
 	if _get_method_argument_count(update_driver, "apply_update") >= 9:
-		update_args.append(perf_logger)
-	var result: Variant = update_driver.callv("apply_update", update_args)
+		result = update_driver.apply_update(
+			self,
+			owner,
+			registry,
+			delta,
+			Callable(self, "_store_active_item"),
+			Callable(self, "_trigger_pickup_effect"),
+			Callable(self, "_apply_item_effect"),
+			Callable(self, "_backup_pending_throw_item"),
+			perf_logger
+		)
+	else:
+		result = update_driver.apply_update(
+			self,
+			owner,
+			registry,
+			delta,
+			Callable(self, "_store_active_item"),
+			Callable(self, "_trigger_pickup_effect"),
+			Callable(self, "_apply_item_effect"),
+			Callable(self, "_backup_pending_throw_item")
+		)
 	if result is Dictionary:
 		return result
 	return {}
@@ -159,29 +171,33 @@ func draw_field_items(
 	perf_logger: Object = null
 ) -> void:
 	_ensure_helpers_ready()
-	var draw_args := [
-		canvas,
-		registry,
-		field_spawn_controller,
-		throw_controller,
-		effect_controller,
-		shake_offset
-	]
-	if render_facade != null and render_facade.has_method("_perf_begin"):
-		draw_args.append(perf_logger)
-	render_facade.callv("draw_field_items", draw_args)
+	if _get_method_argument_count(render_facade, "draw_field_items") >= 7:
+		render_facade.draw_field_items(
+			canvas,
+			registry,
+			field_spawn_controller,
+			throw_controller,
+			effect_controller,
+			shake_offset,
+			perf_logger
+		)
+	else:
+		render_facade.draw_field_items(
+			canvas,
+			registry,
+			field_spawn_controller,
+			throw_controller,
+			effect_controller,
+			shake_offset
+		)
 
 
 func draw_pickup_effect(canvas: CanvasItem, registry: Object, perf_logger: Object = null) -> void:
 	_ensure_helpers_ready()
-	var draw_args := [
-		canvas,
-		registry,
-		effect_controller,
-	]
-	if render_facade != null and render_facade.has_method("_perf_begin"):
-		draw_args.append(perf_logger)
-	render_facade.callv("draw_pickup_effect", draw_args)
+	if _get_method_argument_count(render_facade, "draw_pickup_effect") >= 4:
+		render_facade.draw_pickup_effect(canvas, registry, effect_controller, perf_logger)
+	else:
+		render_facade.draw_pickup_effect(canvas, registry, effect_controller)
 
 
 func toggle_debug_spawn_menu() -> void:
@@ -500,6 +516,9 @@ func _get_instance(registry: Object, key: String) -> Object:
 func _get_method_argument_count(target: Object, method_name: String) -> int:
 	if target == null:
 		return 0
+	var cache_key := "%d:%s" % [target.get_instance_id(), method_name]
+	if _method_argument_count_cache.has(cache_key):
+		return int(_method_argument_count_cache[cache_key])
 	for method_info in target.get_method_list():
 		if not (method_info is Dictionary):
 			continue
@@ -507,7 +526,10 @@ func _get_method_argument_count(target: Object, method_name: String) -> int:
 			continue
 		var args_value: Variant = method_info.get("args", [])
 		if args_value is Array:
-			return args_value.size()
+			var args_count: int = args_value.size()
+			_method_argument_count_cache[cache_key] = args_count
+			return args_count
+	_method_argument_count_cache[cache_key] = 0
 	return 0
 
 

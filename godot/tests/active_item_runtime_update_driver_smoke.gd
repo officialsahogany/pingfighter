@@ -117,6 +117,7 @@ class FakeSlotController:
 
 	var update_calls := 0
 	var last_input_locked := false
+	var used_slot := 2
 
 	func update(
 		_owner: Object,
@@ -128,7 +129,11 @@ class FakeSlotController:
 		update_calls += 1
 		last_input_locked = input_locked
 		return {
-			"used_slot": 2 if apply_item_effect_callback.is_valid() and pending_use_backup_callback.is_valid() else -1,
+			"used_slot": used_slot if (
+				not input_locked
+				and apply_item_effect_callback.is_valid()
+				and pending_use_backup_callback.is_valid()
+			) else -1,
 		}
 
 
@@ -193,6 +198,7 @@ class FakeUpdateDriver:
 
 func _init() -> void:
 	_verify_update_driver_runs_normal_frame_lifecycle()
+	_verify_update_driver_skips_post_slot_owner_sync_without_use()
 	_verify_update_driver_preserves_time_frozen_skip()
 	_verify_runtime_update_delegates_to_driver()
 
@@ -243,6 +249,30 @@ func _verify_update_driver_runs_normal_frame_lifecycle() -> void:
 	_expect(perf_logger.labels.has("physics.callback.active_items.owner_sync"), "update driver should time owner sync")
 
 
+func _verify_update_driver_skips_post_slot_owner_sync_without_use() -> void:
+	var driver: Object = ActiveItemRuntimeUpdateDriver.new()
+	var runtime := FakeRuntime.new()
+	runtime.slot_controller.used_slot = -1
+	var perf_logger := FakePerfLogger.new()
+
+	var result: Dictionary = driver.apply_update(
+		runtime,
+		FakeOwner.new(),
+		FakeRegistry.new(),
+		1.0 / 60.0,
+		Callable(self, "_store_item"),
+		Callable(self, "_pickup_item"),
+		Callable(self, "_apply_item_effect"),
+		Callable(self, "_backup_pending_use"),
+		perf_logger
+	)
+
+	_expect(runtime.slot_controller.update_calls == 1, "idle update should still poll active item slots")
+	_expect(result.get("used_slot", -1) == -1, "idle update should report no used slot")
+	_expect(runtime.effect_controller.sync_calls == 0, "idle update should skip duplicate post-slot owner sync")
+	_expect(not perf_logger.labels.has("physics.callback.active_items.owner_sync"), "idle update should not time skipped owner sync")
+
+
 func _verify_update_driver_preserves_time_frozen_skip() -> void:
 	var driver: Object = ActiveItemRuntimeUpdateDriver.new()
 	var runtime := FakeRuntime.new()
@@ -265,7 +295,7 @@ func _verify_update_driver_preserves_time_frozen_skip() -> void:
 	_expect(runtime.pending_throw_recovery.clear_calls == 0, "time freeze should skip pending backup clear")
 	_expect(runtime.slot_controller.update_calls == 1, "time freeze should still update slots")
 	_expect(runtime.slot_controller.last_input_locked, "pre-existing throw lock should lock slot input")
-	_expect(runtime.effect_controller.sync_calls == 1, "time freeze should still sync owner paddle state")
+	_expect(runtime.effect_controller.sync_calls == 0, "time freeze should skip duplicate post-slot owner sync when slot input is locked")
 
 
 func _verify_runtime_update_delegates_to_driver() -> void:
@@ -278,6 +308,11 @@ func _verify_runtime_update_delegates_to_driver() -> void:
 	_expect(fake_driver.call_count == 1, "runtime update should delegate to update driver")
 	_expect(fake_driver.callbacks_valid, "runtime update should pass its internal callbacks to update driver")
 	_expect(result.get("used_slot", -1) == 7, "runtime update should return delegated result")
+	var arity_cache: Dictionary = runtime.get("_method_argument_count_cache")
+	_expect(arity_cache.size() == 1, "runtime update should cache the update driver arity after the first dispatch")
+	runtime.update(FakeOwner.new(), FakeRegistry.new(), 1.0 / 60.0)
+	_expect(fake_driver.call_count == 2, "runtime update should keep dispatching after arity caching")
+	_expect(arity_cache.size() == 1, "runtime update should reuse the cached update driver arity")
 
 
 func _store_item(_field_item: Dictionary, _active_item_slots: Array, _registry: Object, _owner: Object) -> bool:

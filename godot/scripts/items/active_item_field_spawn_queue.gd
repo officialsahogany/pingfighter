@@ -1,5 +1,7 @@
 extends RefCounted
 
+var _method_argument_count_cache: Dictionary = {}
+
 
 func queue_item_after_portal(
 	owner: Object,
@@ -174,6 +176,9 @@ func _get_instance(registry: Object, key: String) -> Object:
 func _get_method_argument_count(target: Object, method_name: String) -> int:
 	if target == null:
 		return 0
+	var cache_key := "%d:%s" % [target.get_instance_id(), method_name]
+	if _method_argument_count_cache.has(cache_key):
+		return int(_method_argument_count_cache[cache_key])
 	for method_info in target.get_method_list():
 		if not (method_info is Dictionary):
 			continue
@@ -181,7 +186,10 @@ func _get_method_argument_count(target: Object, method_name: String) -> int:
 			continue
 		var args_value: Variant = method_info.get("args", [])
 		if args_value is Array:
-			return args_value.size()
+			var args_count: int = args_value.size()
+			_method_argument_count_cache[cache_key] = args_count
+			return args_count
+	_method_argument_count_cache[cache_key] = 0
 	return 0
 
 

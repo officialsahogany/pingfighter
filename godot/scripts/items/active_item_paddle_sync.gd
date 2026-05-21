@@ -36,10 +36,10 @@ func sync_owner_state(
 		var current_bottom: float = player_pos.y + current_height
 		if abs(current_bottom - FIELD_HEIGHT) <= max(2.0, current_height * 0.05) or current_bottom > FIELD_HEIGHT:
 			player_pos.y = FIELD_HEIGHT - next_height
-	owner.set("player_pos", player_pos)
-	owner.set("player_paddle_width", next_width)
-	owner.set("player_paddle_height", next_height)
-	owner.set("player_paddle_scale", max(0.1, next_width / PLAYER_BASE_PADDLE_WIDTH))
+	_set_if_changed_vector2(owner, "player_pos", player_pos)
+	_set_if_changed_float(owner, "player_paddle_width", next_width)
+	_set_if_changed_float(owner, "player_paddle_height", next_height)
+	_set_if_changed_float(owner, "player_paddle_scale", max(0.1, next_width / PLAYER_BASE_PADDLE_WIDTH))
 
 
 func get_player_paddle_scale(long_boost_scale: float, strange_vial_scale: float) -> float:
@@ -72,3 +72,17 @@ func _get_runtime_paddle_base_width(owner: Object) -> float:
 
 func _get_runtime_paddle_base_height(owner: Object) -> float:
 	return max(1.0, float(BattleSceneOwnerReader.get_value(owner, "runtime_paddle_base_height", PLAYER_BASE_PADDLE_HEIGHT)))
+
+
+func _set_if_changed_float(owner: Object, key: String, value: float) -> void:
+	var current_value: Variant = owner.get(key)
+	if current_value != null and is_equal_approx(float(current_value), value):
+		return
+	owner.set(key, value)
+
+
+func _set_if_changed_vector2(owner: Object, key: String, value: Vector2) -> void:
+	var current_value: Variant = owner.get(key)
+	if current_value is Vector2 and (current_value as Vector2).is_equal_approx(value):
+		return
+	owner.set(key, value)
