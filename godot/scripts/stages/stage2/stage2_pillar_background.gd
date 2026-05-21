@@ -380,7 +380,7 @@ func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> vo
 				continue
 			rocks[idx] = rock
 			continue
-		if not _needs_rock_runtime_update(rock):
+		if not rock_query.needs_runtime_update(rock, quake_timer > 0.0):
 			continue
 		Stage2RockRuntimeState.update_visual_timers(rock, clamped_delta)
 		_update_quake_rock_drop(rock, clamped_delta)
@@ -1333,10 +1333,6 @@ func _decay_rustle(delta: float) -> void:
 
 func _has_active_rustle() -> bool:
 	return Stage2RustleState.has_active(rustle_bushes, rustle_vines)
-
-
-func _needs_rock_runtime_update(rock: Dictionary) -> bool:
-	return rock_query.needs_runtime_update(rock, quake_timer > 0.0)
 
 
 func _update_chaos_absorbing_rock(rock: Dictionary, delta: float, deps: Dictionary, context: Dictionary = {}) -> bool:

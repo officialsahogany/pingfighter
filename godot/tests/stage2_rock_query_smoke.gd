@@ -60,7 +60,6 @@ func _verify_background_delegates_rock_query() -> void:
 		{"id": 31, "pos": Vector2(100.0, 200.0)},
 		{"id": 32, "pos": Vector2(200.0, 300.0)},
 	]
-	_expect(background._needs_rock_runtime_update({"falling": true}), "background runtime-update wrapper should delegate rock update predicates")
 	var centered_rock := {
 		"pos": Vector2.ZERO,
 		"target_pos": Vector2(1.0, 2.0),
@@ -77,8 +76,16 @@ func _verify_background_delegates_rock_query() -> void:
 		"Stage 2 background source should call rock query directly for water-cannon target selection"
 	)
 	_expect(
+		source.find("rock_query.needs_runtime_update") >= 0,
+		"Stage 2 background source should call rock query directly for runtime-update predicates"
+	)
+	_expect(
 		source.find("func _select_water_cannon_target_id") < 0,
 		"Stage 2 background source should not keep the old water-cannon target wrapper"
+	)
+	_expect(
+		source.find("func _needs_rock_runtime_update") < 0,
+		"Stage 2 background source should not keep the old runtime-update wrapper"
 	)
 
 
