@@ -59,6 +59,23 @@ static func get_reward_title(
 	return fallback_label
 
 
+static func get_reward_text_state(
+	reward: Dictionary,
+	perk_catalog: Object,
+	perk_id: String,
+	is_perk_reward: bool,
+	fallback_label: String,
+	fallback_detail: String,
+	starpoint_title_prefix: String = ""
+) -> Dictionary:
+	var perk_data: Dictionary = get_reward_perk_data(reward, perk_catalog, perk_id)
+	return {
+		"perk_data": perk_data,
+		"title": get_reward_title(reward, perk_data, is_perk_reward, fallback_label, starpoint_title_prefix),
+		"detail": get_reward_detail_text(reward, perk_data, fallback_detail),
+	}
+
+
 static func get_reward_type_fallback_label(reward_type: String) -> String:
 	match reward_type:
 		"active":

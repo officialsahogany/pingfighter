@@ -24,7 +24,8 @@ func _init() -> void:
 	_verify_perk_data_resolution()
 	_verify_type_fallback_labels()
 	_verify_title_resolution()
-	_verify_scene_delegates_text_resolver()
+	_verify_text_state_resolution()
+	_verify_scene_uses_text_resolver()
 
 	if _failures.is_empty():
 		print("stage_clear_result_reward_text_resolver_smoke: ok")
@@ -117,26 +118,59 @@ func _verify_title_resolution() -> void:
 	)
 
 
-func _verify_scene_delegates_text_resolver() -> void:
+func _verify_text_state_resolution() -> void:
 	var scene := StageClearResultScene.new()
 	scene._perk_catalog = FakePerkCatalog.new()
 
-	_expect(scene._get_reward_title({"type": "starpoint", "amount": 5}).contains("+5"), "scene should keep starpoint amount title formatting")
-	_expect(scene._get_reward_title({"type": "perk", "perk_id": "catalog_perk"}) == "Catalog Perk", "scene title wrapper should use catalog perk names")
-	_expect(scene._get_reward_detail_text({"type": "perk", "perk_id": "catalog_perk"}) == "Catalog Detail", "scene detail wrapper should use catalog perk descriptions")
-	_expect(scene._get_reward_detail_text({"perk_data": {"descriptions": {2: "Level 2"}}, "next_level": 2}) == "Level 2", "scene detail wrapper should delegate level descriptions")
-	_expect(scene._get_reward_perk_data({"perk_id": "catalog_perk"}).get("name", "") == "Catalog Perk", "scene perk-data wrapper should delegate catalog lookup")
+	var starpoint_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
+		{"type": "starpoint", "amount": 5},
+		scene._perk_catalog,
+		"",
+		false,
+		StageClearResultRewardTextResolver.get_reward_type_fallback_label("starpoint"),
+		StageClearResultScene.REWARD_DETAIL_FALLBACK_TEXT,
+		StageClearResultScene.REWARD_STARPOINT_TITLE_PREFIX
+	)
+	_expect(str(starpoint_state.get("title", "")).contains("+5"), "text state should keep starpoint amount title formatting")
+	var catalog_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
+		{"type": "perk", "perk_id": "catalog_perk"},
+		scene._perk_catalog,
+		"catalog_perk",
+		true,
+		StageClearResultRewardTextResolver.get_reward_type_fallback_label("perk"),
+		StageClearResultScene.REWARD_DETAIL_FALLBACK_TEXT,
+		StageClearResultScene.REWARD_STARPOINT_TITLE_PREFIX
+	)
+	_expect(str(catalog_state.get("title", "")) == "Catalog Perk", "text state should use catalog perk names")
+	_expect(str(catalog_state.get("detail", "")) == "Catalog Detail", "text state should use catalog perk descriptions")
+	_expect((catalog_state.get("perk_data", {}) as Dictionary).get("name", "") == "Catalog Perk", "text state should expose catalog perk data")
+	var inline_level_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
+		{"perk_data": {"descriptions": {2: "Level 2"}}, "next_level": 2},
+		scene._perk_catalog,
+		"",
+		true,
+		StageClearResultRewardTextResolver.get_reward_type_fallback_label("perk"),
+		StageClearResultScene.REWARD_DETAIL_FALLBACK_TEXT,
+		StageClearResultScene.REWARD_STARPOINT_TITLE_PREFIX
+	)
+	_expect(str(inline_level_state.get("detail", "")) == "Level 2", "text state should delegate level descriptions")
+	scene.free()
+
+
+func _verify_scene_uses_text_resolver() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(
-		source.find("StageClearResultRewardTextResolver.get_reward_type_fallback_label") >= 0,
-		"scene should call fallback-label resolver directly"
+		source.find("StageClearResultRewardTextResolver.get_reward_text_state") >= 0,
+		"scene should call reward text state resolver directly"
 	)
 	_expect(
 		source.find("func _reward_type_fallback_label") < 0
-		and source.find("func _get_reward_detail_fallback_text") < 0,
-		"scene should not keep text pass-through fallback wrappers"
+		and source.find("func _get_reward_detail_fallback_text") < 0
+		and source.find("func _get_reward_detail_text") < 0
+		and source.find("func _get_reward_perk_data") < 0
+		and source.find("func _get_reward_title") < 0,
+		"scene should not keep reward text pass-through wrappers"
 	)
-	scene.free()
 
 
 func _expect(condition: bool, message: String) -> void:

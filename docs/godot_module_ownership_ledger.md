@@ -926,6 +926,12 @@ This section is intentionally long; use search to find the nearest owner.
   `stage_clear_result_click_reaction_state.gd`. Keep future reward-pick
   animation / settlement UI work here rather than adding draw blocks back
   to the battle shell; do not put grant logic back in this UI scene.
+- `scripts/ui/stage_clear_result_asset_loader.gd`
+  Owns stage-clear result asset loading and staged prewarm dispatch:
+  result background / scroll / chest sheets, Dalji and player-victory
+  sheets, Dalji click voice, and result-box FX prewarm. The scene still
+  owns the loaded texture / stream fields and decides when to load or
+  prewarm.
 - `scripts/ui/stage_clear_result_layout_helper.gd`
   Owns stateless stage-clear result layout and frame policy helpers:
   floating chest anchor layouts, result-box safe-frame selection, reward

@@ -1,6 +1,5 @@
 extends Control
 
-const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ResultBoxOpenFxHost := preload("res://scripts/effects/result_box_open_fx_host.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
@@ -16,6 +15,7 @@ const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_
 const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
+const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
 const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
@@ -88,6 +88,8 @@ const RESULT_BOX_FRAME_DRAW_SIZE := 100.0 / RESULT_BOX_FRAME_ASSET_GUARD_SCALE
 const RESULT_REWARD_SOURCE_STAGE := "stage"
 const RESULT_REWARD_SOURCE_BOX := "box"
 const RESULT_CINEMATIC_FIELD_SIZE := Vector2(760.0, 750.0)
+const REWARD_DETAIL_FALLBACK_TEXT := "획득한 퍽 효과를 적용합니다."
+const REWARD_STARPOINT_TITLE_PREFIX := "퍽 선택권"
 const PREWARM_ASSET_STEP_COUNT := 10
 
 var timer: float = 0.0
@@ -156,28 +158,11 @@ static func prewarm_assets() -> Dictionary:
 
 
 static func prewarm_assets_step() -> bool:
-	match _prewarm_asset_step_index:
-		0:
-			_prewarm_asset_status["background_texture"] = ProjectResourceLoader.load_texture(STAGE1_BACKGROUND_PATH) != null
-		1:
-			_prewarm_asset_status["dalji_defeat_sheet"] = ProjectResourceLoader.load_texture(DALJI_DEFEAT_SHEET_PATH) != null
-		2:
-			_prewarm_asset_status["dalji_click_reaction_sheet"] = ProjectResourceLoader.load_texture(DALJI_CLICK_REACTION_SHEET_PATH) != null
-		3:
-			_prewarm_asset_status["player_victory_sheet"] = ProjectResourceLoader.load_texture(SMASHER_VICTORY_SHEET_PATH) != null
-		4:
-			_prewarm_asset_status["player_victory_click_reaction_sheet"] = ProjectResourceLoader.load_texture(SMASHER_CLICK_REACTION_SHEET_PATH) != null
-		5:
-			_prewarm_asset_status["scroll_texture"] = ProjectResourceLoader.load_texture(RESULT_SCROLL_PANEL_PATH) != null
-		6:
-			_prewarm_asset_status["result_box_sheet_common"] = ProjectResourceLoader.load_texture(RESULT_BOX_SHEET_COMMON_PATH) != null
-		7:
-			_prewarm_asset_status["result_box_sheet_mythic"] = ProjectResourceLoader.load_texture(RESULT_BOX_SHEET_MYTHIC_PATH) != null
-		8:
-			_prewarm_asset_status["dalji_click_voice"] = ProjectResourceLoader.load_audio_stream(DALJI_CLICK_VOICE_PATH) != null
-		9:
-			ResultBoxOpenFxHost.prewarm_assets()
-			_prewarm_asset_status["result_box_fx"] = true
+	StageClearResultAssetLoader.prewarm_assets_step(
+		_prewarm_asset_step_index,
+		_prewarm_asset_status,
+		_result_asset_paths()
+	)
 	_prewarm_asset_step_index += 1
 	if _prewarm_asset_step_index >= PREWARM_ASSET_STEP_COUNT:
 		_prewarm_asset_step_index = 0
@@ -192,6 +177,20 @@ static func reset_prewarm_assets_for_test() -> void:
 
 static func get_prewarm_asset_status() -> Dictionary:
 	return _prewarm_asset_status.duplicate()
+
+
+static func _result_asset_paths() -> Dictionary:
+	return {
+		"background_texture": STAGE1_BACKGROUND_PATH,
+		"dalji_defeat_sheet": DALJI_DEFEAT_SHEET_PATH,
+		"dalji_click_reaction_sheet": DALJI_CLICK_REACTION_SHEET_PATH,
+		"player_victory_sheet": SMASHER_VICTORY_SHEET_PATH,
+		"player_victory_click_reaction_sheet": SMASHER_CLICK_REACTION_SHEET_PATH,
+		"scroll_texture": RESULT_SCROLL_PANEL_PATH,
+		"result_box_sheet_common": RESULT_BOX_SHEET_COMMON_PATH,
+		"result_box_sheet_mythic": RESULT_BOX_SHEET_MYTHIC_PATH,
+		"dalji_click_voice": DALJI_CLICK_VOICE_PATH,
+	}
 
 
 func _ready() -> void:
@@ -1453,8 +1452,17 @@ func _build_perk_info_summary() -> Dictionary:
 	var first_perk_detail: String = ""
 	if not perks.is_empty():
 		var first_perk: Dictionary = perks[0] if perks[0] is Dictionary else {}
-		first_perk_title = _get_reward_title(first_perk)
-		first_perk_detail = _get_reward_detail_text(first_perk)
+		var first_perk_text_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
+			first_perk,
+			_perk_catalog,
+			StageClearResultSummaryBuilder.get_reward_perk_id(first_perk),
+			StageClearResultSummaryBuilder.is_perk_reward(first_perk),
+			StageClearResultRewardTextResolver.get_reward_type_fallback_label(str(first_perk.get("type", ""))),
+			REWARD_DETAIL_FALLBACK_TEXT,
+			REWARD_STARPOINT_TITLE_PREFIX
+		)
+		first_perk_title = str(first_perk_text_state.get("title", ""))
+		first_perk_detail = str(first_perk_text_state.get("detail", ""))
 	return StageClearResultSummaryBuilder.build_perk_info_summary(
 		perks,
 		StageClearResultSummaryBuilder.calculate_starpoint_total(_boxes),
@@ -1680,7 +1688,16 @@ func _draw_reward_card(font: Font, reward: Dictionary, rect: Rect2, scale: float
 		0.0,
 		5.0 * scale
 	)
-	var label: String = _get_reward_title(reward)
+	var reward_text_state: Dictionary = StageClearResultRewardTextResolver.get_reward_text_state(
+		reward,
+		_perk_catalog,
+		StageClearResultSummaryBuilder.get_reward_perk_id(reward),
+		StageClearResultSummaryBuilder.is_perk_reward(reward),
+		StageClearResultRewardTextResolver.get_reward_type_fallback_label(str(reward.get("type", ""))),
+		REWARD_DETAIL_FALLBACK_TEXT,
+		REWARD_STARPOINT_TITLE_PREFIX
+	)
+	var label: String = str(reward_text_state.get("title", ""))
 	var label_size: int = StageClearResultTextLayoutHelper.fit_font_size(
 		font,
 		label,
@@ -1766,33 +1783,6 @@ func _draw_fallback_reward_icon(reward: Dictionary, rect: Rect2, alpha: float) -
 	var radius: float = float(visual_state.get("radius", min(rect.size.x, rect.size.y) * 0.42))
 	draw_circle(center, radius, visual_state.get("fill", Color(0.40, 0.32, 0.20, 0.84 * alpha)))
 	draw_arc(center, radius, 0.0, TAU, 28, visual_state.get("ring_color", Color(0.86, 1.0, 1.0, alpha * 0.80)), float(visual_state.get("ring_width", 1.6)))
-
-
-func _get_reward_detail_text(reward: Dictionary) -> String:
-	return StageClearResultRewardTextResolver.get_reward_detail_text(
-		reward,
-		_get_reward_perk_data(reward),
-		"획득한 퍽 효과를 적용합니다."
-	)
-
-
-func _get_reward_perk_data(reward: Dictionary) -> Dictionary:
-	return StageClearResultRewardTextResolver.get_reward_perk_data(
-		reward,
-		_perk_catalog,
-		StageClearResultSummaryBuilder.get_reward_perk_id(reward)
-	)
-
-
-func _get_reward_title(reward: Dictionary) -> String:
-	var reward_type: String = str(reward.get("type", ""))
-	return StageClearResultRewardTextResolver.get_reward_title(
-		reward,
-		_get_reward_perk_data(reward),
-		StageClearResultSummaryBuilder.is_perk_reward(reward),
-		StageClearResultRewardTextResolver.get_reward_type_fallback_label(reward_type),
-		"퍽 선택권"
-	)
 
 
 func _get_result_reward_source_labels() -> Dictionary:
@@ -2097,64 +2087,31 @@ func _draw_wrapped_text(
 
 
 func _load_textures() -> void:
-	if _background_texture == null:
-		_background_texture = ProjectResourceLoader.load_texture(
-			STAGE1_BACKGROUND_PATH,
-			"Missing Stage 1 result background at %s",
-			"Failed to load Stage 1 result background at %s"
-		)
-	if _dalji_defeat_sheet == null:
-		_dalji_defeat_sheet = ProjectResourceLoader.load_texture(
-			DALJI_DEFEAT_SHEET_PATH,
-			"Missing Dalji result defeat sheet at %s",
-			"Failed to load Dalji result defeat sheet at %s"
-		)
-	if _dalji_click_reaction_sheet == null:
-		_dalji_click_reaction_sheet = ProjectResourceLoader.load_texture(
-			DALJI_CLICK_REACTION_SHEET_PATH,
-			"Missing Dalji result click reaction sheet at %s",
-			"Failed to load Dalji result click reaction sheet at %s"
-		)
-	if _player_victory_sheet == null:
-		_player_victory_sheet = ProjectResourceLoader.load_texture(
-			SMASHER_VICTORY_SHEET_PATH,
-			"Missing player victory sheet at %s",
-			"Failed to load player victory sheet at %s"
-		)
-	if _player_victory_click_reaction_sheet == null:
-		_player_victory_click_reaction_sheet = ProjectResourceLoader.load_texture(
-			SMASHER_CLICK_REACTION_SHEET_PATH,
-			"Missing player victory click reaction sheet at %s",
-			"Failed to load player victory click reaction sheet at %s"
-		)
-	if _scroll_texture == null:
-		_scroll_texture = ProjectResourceLoader.load_texture(
-			RESULT_SCROLL_PANEL_PATH,
-			"Missing stage clear cyber scroll panel at %s",
-			"Failed to load stage clear cyber scroll panel at %s"
-		)
-	if _result_box_sheet_common == null:
-		_result_box_sheet_common = ProjectResourceLoader.load_texture(
-			RESULT_BOX_SHEET_COMMON_PATH,
-			"Missing result box common sheet at %s",
-			"Failed to load result box common sheet at %s"
-		)
-	if _result_box_sheet_mythic == null:
-		_result_box_sheet_mythic = ProjectResourceLoader.load_texture(
-			RESULT_BOX_SHEET_MYTHIC_PATH,
-			"Missing result box mythic sheet at %s",
-			"Failed to load result box mythic sheet at %s"
-		)
+	var loaded: Dictionary = StageClearResultAssetLoader.load_textures(
+		{
+			"background_texture": _background_texture,
+			"dalji_defeat_sheet": _dalji_defeat_sheet,
+			"dalji_click_reaction_sheet": _dalji_click_reaction_sheet,
+			"player_victory_sheet": _player_victory_sheet,
+			"player_victory_click_reaction_sheet": _player_victory_click_reaction_sheet,
+			"scroll_texture": _scroll_texture,
+			"result_box_sheet_common": _result_box_sheet_common,
+			"result_box_sheet_mythic": _result_box_sheet_mythic,
+		},
+		_result_asset_paths()
+	)
+	_background_texture = loaded.get("background_texture") as Texture2D
+	_dalji_defeat_sheet = loaded.get("dalji_defeat_sheet") as Texture2D
+	_dalji_click_reaction_sheet = loaded.get("dalji_click_reaction_sheet") as Texture2D
+	_player_victory_sheet = loaded.get("player_victory_sheet") as Texture2D
+	_player_victory_click_reaction_sheet = loaded.get("player_victory_click_reaction_sheet") as Texture2D
+	_scroll_texture = loaded.get("scroll_texture") as Texture2D
+	_result_box_sheet_common = loaded.get("result_box_sheet_common") as Texture2D
+	_result_box_sheet_mythic = loaded.get("result_box_sheet_mythic") as Texture2D
 
 
 func _load_audio() -> void:
-	if _dalji_click_voice_stream != null:
-		return
-	_dalji_click_voice_stream = ProjectResourceLoader.load_audio_stream(
-		DALJI_CLICK_VOICE_PATH,
-		"Missing Dalji result click cry voice at %s",
-		"Failed to load Dalji result click cry voice at %s"
-	)
+	_dalji_click_voice_stream = StageClearResultAssetLoader.load_dalji_click_voice(_dalji_click_voice_stream, DALJI_CLICK_VOICE_PATH)
 
 
 func _as_object(value: Variant) -> Object:
