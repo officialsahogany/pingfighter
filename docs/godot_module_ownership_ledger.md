@@ -1201,7 +1201,7 @@ This section is intentionally long; use search to find the nearest owner.
   initial population, and falling-leaf spawn cadence helpers are delegated
   to `stage2_ambient_layout_helper.gd`; ambient visual count snapshots are
   delegated to `stage2_ambient_visual_snapshot_builder.gd`;
-  falling-leaf and firefly per-frame motion is delegated to
+  falling-leaf, firefly, and leaf-particle per-frame motion is delegated to
   `stage2_ambient_visual_state.gd`;
   rustle bush / vine layout
   payload generation is delegated to `stage2_rustle_payload_factory.gd`;
@@ -1223,7 +1223,8 @@ This section is intentionally long; use search to find the nearest owner.
   rock-fragment payload generation is delegated to
   `stage2_rock_fragment_payload_factory.gd`; normal rock-fragment factory
   config payloads are delegated to
-  `stage2_rock_fragment_payload_config_builder.gd`.
+  `stage2_rock_fragment_payload_config_builder.gd`; rock-fragment per-frame
+  motion is delegated to `stage2_rock_fragment_motion_state.gd`.
   Starpoint drop / particle payload generation is delegated to
   `stage2_starpoint_visual_factory.gd`; starpoint drop per-frame motion is
   delegated to `stage2_starpoint_drop_motion_state.gd`; starpoint particle
@@ -1444,9 +1445,11 @@ This section is intentionally long; use search to find the nearest owner.
   state, and renderer fanout.
 - `scripts/stages/stage2/stage2_ambient_visual_state.gd`
   Owns Stage 2 ambient per-frame visual mutation for falling leaves and
-  fireflies: y / sway / rotation advancement, off-layout leaf compaction,
-  firefly drift, and side wrapping. The background module still owns layout
-  size fields, spawn cadence, leaf-particle decay, rustle state, and
+  fireflies plus short-lived wall-hit leaf particles: y / sway / rotation
+  advancement, off-layout leaf compaction, firefly drift / side wrapping,
+  particle gravity / damping / life decay, and particle compaction. The
+  background module still owns layout size fields, spawn cadence, rustle
+  state, and
   renderer fanout.
 - `scripts/stages/stage2/stage2_ambient_layout_helper.gd`
   Owns Stage 2 ambient layout helper decisions: current-layout matching,
@@ -1494,13 +1497,16 @@ This section is intentionally long; use search to find the nearest owner.
   crisis rocks break: fragment count, radial velocity, source sprite index,
   fallback color, size, rotation, spin, gravity, life, and bounce fields.
   `stage2_pillar_background.gd` still owns rock HP / collision, break
-  routing, golden-rock rewards, list pruning, per-frame fragment physics,
-  and draw fanout.
+  routing, golden-rock rewards, list pruning, and draw fanout.
 - `scripts/stages/stage2/stage2_rock_fragment_payload_config_builder.gd`
   Owns the read-only Stage 2 normal rock-fragment factory config payload,
   currently the fragment lifetime override. The background module still
-  owns the lifetime constant, rock break routing, fragment list pruning,
-  and per-frame fragment physics.
+  owns the lifetime constant, rock break routing, and fragment list pruning.
+- `scripts/stages/stage2/stage2_rock_fragment_motion_state.gd`
+  Owns Stage 2 rock-fragment per-frame mutation: lifetime decay, gravity,
+  floor bounce / horizontal damping, position, rotation, and survivor
+  compaction. The background module still owns fragment spawning, list caps,
+  renderer fanout, and rock break / reward side effects.
 - `scripts/stages/stage2/stage2_starpoint_visual_factory.gd`
   Owns the Stage 2 starpoint payload factory: initial drop velocity /
   rotation / glow fields and burst particle dictionaries. The background

@@ -24,6 +24,7 @@ const Stage2WaterCannonPayloadConfigBuilder := preload("res://scripts/stages/sta
 const Stage2WaterTrailPayloadFactory := preload("res://scripts/stages/stage2/stage2_water_trail_payload_factory.gd")
 const Stage2RockFragmentPayloadFactory := preload("res://scripts/stages/stage2/stage2_rock_fragment_payload_factory.gd")
 const Stage2RockFragmentPayloadConfigBuilder := preload("res://scripts/stages/stage2/stage2_rock_fragment_payload_config_builder.gd")
+const Stage2RockFragmentMotionState := preload("res://scripts/stages/stage2/stage2_rock_fragment_motion_state.gd")
 const Stage2QuakeRockPayloadFactory := preload("res://scripts/stages/stage2/stage2_quake_rock_payload_factory.gd")
 const Stage2CrisisRockWallPayloadFactory := preload("res://scripts/stages/stage2/stage2_crisis_rock_wall_payload_factory.gd")
 const Stage2QuakeRockDropState := preload("res://scripts/stages/stage2/stage2_quake_rock_drop_state.gd")
@@ -346,26 +347,7 @@ func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> vo
 	_sync_quake_audio(deps)
 	chaos_rock_absorb_timer = max(0.0, chaos_rock_absorb_timer - clamped_delta)
 
-	var leaf_write_index := 0
-	var leaf_particle_count := leaf_particles.size()
-	for idx in range(leaf_particle_count):
-		var particle: Dictionary = leaf_particles[idx]
-		var life: float = float(particle.get("life", 0.0)) - clamped_delta
-		if life <= 0.0:
-			continue
-		var pos: Vector2 = _get_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO)
-		var vel: Vector2 = _get_vector2(particle.get("vel", Vector2.ZERO), Vector2.ZERO)
-		vel.y += 86.0 * clamped_delta
-		vel *= pow(0.985, clamped_delta * 60.0)
-		pos += vel * clamped_delta
-		particle["pos"] = pos
-		particle["vel"] = vel
-		particle["life"] = life
-		particle["rot"] = float(particle.get("rot", 0.0)) + float(particle.get("spin", 0.0)) * clamped_delta
-		leaf_particles[leaf_write_index] = particle
-		leaf_write_index += 1
-	if leaf_write_index < leaf_particle_count:
-		leaf_particles.resize(leaf_write_index)
+	Stage2AmbientVisualState.update_leaf_particles(leaf_particles, clamped_delta)
 
 	var fps_scale: float = clamped_delta * 60.0
 	_update_starpoint_drops(fps_scale, context, deps)
@@ -1552,29 +1534,7 @@ func _get_rock_fragment_payload_config() -> Dictionary:
 
 
 func _update_rock_fragments(delta: float) -> void:
-	var write_index := 0
-	var fragment_count := rock_fragments.size()
-	for idx in range(fragment_count):
-		var fragment: Dictionary = rock_fragments[idx]
-		var life: float = float(fragment.get("life", 0.0)) - delta
-		if life <= 0.0:
-			continue
-		var pos: Vector2 = _get_vector2(fragment.get("pos", Vector2.ZERO), Vector2.ZERO)
-		var vel: Vector2 = _get_vector2(fragment.get("vel", Vector2.ZERO), Vector2.ZERO)
-		vel.y += float(fragment.get("gravity", 1800.0)) * delta
-		pos += vel * delta
-		if pos.y > 700.0:
-			pos.y = 700.0
-			vel.y *= -float(fragment.get("bounce", 0.6))
-			vel.x *= 0.8
-		fragment["pos"] = pos
-		fragment["vel"] = vel
-		fragment["life"] = life
-		fragment["rotation"] = float(fragment.get("rotation", 0.0)) + float(fragment.get("spin", 0.0)) * delta
-		rock_fragments[write_index] = fragment
-		write_index += 1
-	if write_index < fragment_count:
-		rock_fragments.resize(write_index)
+	Stage2RockFragmentMotionState.update_fragments(rock_fragments, delta)
 
 
 func _spawn_rock_leaves(center: Vector2, strength: float) -> void:
