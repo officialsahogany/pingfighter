@@ -13,6 +13,7 @@ const StageClearResultRewardIconResolver := preload("res://scripts/ui/stage_clea
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
 const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
+const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
@@ -861,11 +862,9 @@ func _rotate_around(point: Vector2, center: Vector2, angle: float) -> Vector2:
 
 
 func _draw_shadow_ellipse(center: Vector2, radius_x: float, radius_y: float, alpha: float) -> void:
-	var pts := PackedVector2Array()
-	var segments: int = 24
-	for i in range(segments):
-		var angle: float = (float(i) / float(segments)) * TAU
-		pts.append(center + Vector2(cos(angle) * radius_x, sin(angle) * radius_y))
+	var pts: PackedVector2Array = StageClearResultShapeHelper.ellipse_polygon_points(center, radius_x, radius_y, 24)
+	if pts.is_empty():
+		return
 	draw_colored_polygon(pts, Color(0.0, 0.0, 0.0, alpha))
 
 
@@ -897,22 +896,14 @@ func _draw_box_hover_glow(draw_center: Vector2, hx: float, hy: float, scale: flo
 func _draw_filled_ellipse(center: Vector2, radius_x: float, radius_y: float, color: Color) -> void:
 	if radius_x <= 0.0 or radius_y <= 0.0 or color.a <= 0.001:
 		return
-	var pts := PackedVector2Array()
-	var segments: int = 40
-	for i in range(segments):
-		var angle: float = (float(i) / float(segments)) * TAU
-		pts.append(center + Vector2(cos(angle) * radius_x, sin(angle) * radius_y))
+	var pts: PackedVector2Array = StageClearResultShapeHelper.ellipse_polygon_points(center, radius_x, radius_y, 40)
 	draw_colored_polygon(pts, color)
 
 
 func _draw_ellipse_polyline(center: Vector2, radius_x: float, radius_y: float, color: Color, width: float) -> void:
 	if radius_x <= 0.0 or radius_y <= 0.0 or color.a <= 0.001 or width <= 0.0:
 		return
-	var pts := PackedVector2Array()
-	var segments: int = 56
-	for i in range(segments + 1):
-		var angle: float = (float(i) / float(segments)) * TAU
-		pts.append(center + Vector2(cos(angle) * radius_x, sin(angle) * radius_y))
+	var pts: PackedVector2Array = StageClearResultShapeHelper.ellipse_polyline_points(center, radius_x, radius_y, 56)
 	draw_polyline(pts, color, width, true)
 
 
@@ -1034,18 +1025,12 @@ func _draw_radial_burst(center: Vector2, radius: float, color: Color) -> void:
 	var segments: int = 28
 	var outer_color: Color = color
 	outer_color.a = color.a * 0.55
-	var outer_pts := PackedVector2Array()
-	for i in range(segments):
-		var angle: float = (float(i) / float(segments)) * TAU
-		outer_pts.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	var outer_pts: PackedVector2Array = StageClearResultShapeHelper.radial_polygon_points(center, radius, segments)
 	draw_colored_polygon(outer_pts, outer_color)
 	var inner_color: Color = color
 	inner_color.a = color.a * 0.92
-	var inner_pts := PackedVector2Array()
 	var inner_radius: float = radius * 0.55
-	for i in range(segments):
-		var angle: float = (float(i) / float(segments)) * TAU
-		inner_pts.append(center + Vector2(cos(angle), sin(angle)) * inner_radius)
+	var inner_pts: PackedVector2Array = StageClearResultShapeHelper.radial_polygon_points(center, inner_radius, segments)
 	draw_colored_polygon(inner_pts, inner_color)
 
 
@@ -1208,17 +1193,15 @@ func _draw_star_polygon_scaled(
 	outline: Color,
 	outline_width: float
 ) -> void:
-	var num_points: int = 5
-	var pts := PackedVector2Array()
-	var safe_x_scale: float = max(0.04, x_scale)
-	for i in range(num_points * 2):
-		var angle: float = -PI * 0.5 + float(i) * PI / float(num_points)
-		var r: float = outer_radius if i % 2 == 0 else inner_radius
-		pts.append(center + Vector2(cos(angle) * r * safe_x_scale, sin(angle) * r))
+	var pts: PackedVector2Array = StageClearResultShapeHelper.star_polygon_points(
+		center,
+		outer_radius,
+		inner_radius,
+		x_scale
+	)
 	draw_colored_polygon(pts, fill)
 	if outline.a > 0.001 and outline_width > 0.0:
-		var closed: PackedVector2Array = pts.duplicate()
-		closed.append(pts[0])
+		var closed: PackedVector2Array = StageClearResultShapeHelper.closed_polyline_points(pts)
 		draw_polyline(closed, outline, outline_width, true)
 
 

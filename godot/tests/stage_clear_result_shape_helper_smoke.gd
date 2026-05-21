@@ -1,0 +1,68 @@
+extends SceneTree
+
+const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_result_shape_helper.gd")
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	_verify_ellipse_points()
+	_verify_radial_points()
+	_verify_star_points()
+	_verify_scene_delegates_shape_points()
+
+	if _failures.is_empty():
+		print("stage_clear_result_shape_helper_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _verify_ellipse_points() -> void:
+	var ellipse: PackedVector2Array = StageClearResultShapeHelper.ellipse_polygon_points(Vector2(10.0, 20.0), 4.0, 2.0, 4)
+	_expect(ellipse.size() == 4, "ellipse polygon should honor the requested segment count")
+	_expect_vec(ellipse[0], Vector2(14.0, 20.0), "ellipse polygon should start at the right-most point")
+	_expect_vec(ellipse[1], Vector2(10.0, 22.0), "ellipse polygon should advance counter-clockwise")
+	_expect(StageClearResultShapeHelper.ellipse_polygon_points(Vector2.ZERO, -1.0, 2.0, 4).is_empty(), "invalid ellipse radii should return no polygon points")
+
+	var polyline: PackedVector2Array = StageClearResultShapeHelper.ellipse_polyline_points(Vector2.ZERO, 5.0, 3.0, 4)
+	_expect(polyline.size() == 5, "ellipse polyline should include a closing endpoint")
+	_expect_vec(polyline[0], polyline[polyline.size() - 1], "ellipse polyline endpoint should close on the first point")
+
+
+func _verify_radial_points() -> void:
+	var radial: PackedVector2Array = StageClearResultShapeHelper.radial_polygon_points(Vector2(2.0, 3.0), 6.0, 2)
+	_expect(radial.size() == 3, "radial polygon should clamp tiny segment counts")
+	_expect_vec(radial[0], Vector2(8.0, 3.0), "radial polygon should start at the right-most point")
+	_expect(StageClearResultShapeHelper.radial_polygon_points(Vector2.ZERO, 0.0, 8).is_empty(), "invalid radial radius should return no points")
+
+
+func _verify_star_points() -> void:
+	var star: PackedVector2Array = StageClearResultShapeHelper.star_polygon_points(Vector2.ZERO, 10.0, 5.0, 1.0)
+	_expect(star.size() == 10, "star polygon should build alternating outer and inner points")
+	_expect_vec(star[0], Vector2(0.0, -10.0), "star polygon should start at the top outer point")
+	var squashed: PackedVector2Array = StageClearResultShapeHelper.star_polygon_points(Vector2.ZERO, 10.0, 5.0, 0.0)
+	_expect(absf(squashed[1].x) > 0.01, "star polygon should clamp a zero x-scale instead of collapsing fully")
+	var closed: PackedVector2Array = StageClearResultShapeHelper.closed_polyline_points(star)
+	_expect(closed.size() == star.size() + 1, "closed polyline should append one point")
+	_expect_vec(closed[0], closed[closed.size() - 1], "closed polyline should end at its first point")
+
+
+func _verify_scene_delegates_shape_points() -> void:
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(source.find("StageClearResultShapeHelper.ellipse_polygon_points") >= 0, "result scene should delegate filled ellipse point generation")
+	_expect(source.find("StageClearResultShapeHelper.ellipse_polyline_points") >= 0, "result scene should delegate ellipse polyline point generation")
+	_expect(source.find("StageClearResultShapeHelper.radial_polygon_points") >= 0, "result scene should delegate radial burst point generation")
+	_expect(source.find("StageClearResultShapeHelper.star_polygon_points") >= 0, "result scene should delegate star point generation")
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)
+
+
+func _expect_vec(actual: Vector2, expected: Vector2, message: String) -> void:
+	if not actual.is_equal_approx(expected):
+		_failures.append("%s: expected %s got %s" % [message, expected, actual])

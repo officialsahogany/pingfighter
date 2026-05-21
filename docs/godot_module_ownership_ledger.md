@@ -914,7 +914,9 @@ This section is intentionally long; use search to find the nearest owner.
   progression, unfurl progress, and background box alpha are delegated to
   `stage_clear_result_scroll_state.gd`; result button layout / hit state
   and box opened / opening counts are delegated to
-  `stage_clear_result_interaction_state.gd`; player-victory and Dalji
+  `stage_clear_result_interaction_state.gd`; reusable ellipse / radial /
+  star polygon point generation is delegated to
+  `stage_clear_result_shape_helper.gd`; player-victory and Dalji
   click-reaction frame / transition / alpha math is delegated to
   `stage_clear_result_click_reaction_state.gd`. Keep future reward-pick
   animation / settlement UI work here rather than adding draw blocks back
@@ -940,6 +942,11 @@ This section is intentionally long; use search to find the nearest owner.
   opening box counts, and all-boxes-open checks. The scene still owns
   actual input consumption, callback dispatch, hover redraw requests, live
   box mutation, and drawing.
+- `scripts/ui/stage_clear_result_shape_helper.gd`
+  Owns stateless result-scene shape point generation: ellipse fill
+  polygons, ellipse polylines, radial burst polygons, star polygons, and
+  closed polyline conversion. The scene still owns actual draw calls,
+  colors, alpha gates, and animation timing.
 - `scripts/ui/stage_clear_result_click_reaction_state.gd`
   Owns stateless result-scene click-reaction animation math shared by the
   player victory and Dalji result sheets: base frame selection, reaction
