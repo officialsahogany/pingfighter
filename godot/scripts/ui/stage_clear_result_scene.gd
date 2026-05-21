@@ -1818,14 +1818,6 @@ func _draw_footer(view_size: Vector2, scale: float, font: Font) -> void:
 	)
 
 
-func _get_title_text() -> String:
-	if boss_score == 0:
-		return "%d:%d 완승" % [player_score, boss_score]
-	if boss_score <= 1:
-		return "%d:%d 압도 승리" % [player_score, boss_score]
-	return "%d:%d 승리" % [player_score, boss_score]
-
-
 func _update_hovered_box(mouse_position: Vector2) -> void:
 	if _boxes.is_empty():
 		_hovered_box_index = -1

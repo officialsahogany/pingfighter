@@ -153,6 +153,10 @@ func _verify_scene_wrappers() -> void:
 		"stage-clear result scene should call simple layout helpers directly"
 	)
 	_expect(
+		source.find("func _get_title_text") < 0,
+		"stage-clear result scene should not keep unused title text helpers"
+	)
+	_expect(
 		source.find("func _get_box_layout") < 0 and source.find("func _rotate_around") < 0,
 		"stage-clear result scene should not keep simple layout pass-through wrappers"
 	)
