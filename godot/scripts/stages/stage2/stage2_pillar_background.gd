@@ -650,7 +650,16 @@ func draw_playfield_obstacles(
 	var battle_sample_start: int
 	if quake_timer > 0.0:
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
-		warning_visual_renderer.draw_quake_waves(canvas, width, shake_offset, _get_quake_wave_visual_state())
+		var quake_wave_visual_state: Dictionary = quake_wave_visual_state_builder.build_state(
+			quake_timer,
+			quake_duration,
+			quake_affects_ball,
+			QUAKE_WAVE_COUNT,
+			QUAKE_WAVE_SEGMENTS,
+			VISUAL_ONLY_QUAKE_WAVE_COUNT,
+			VISUAL_ONLY_QUAKE_WAVE_SEGMENTS
+		)
+		warning_visual_renderer.draw_quake_waves(canvas, width, shake_offset, quake_wave_visual_state)
 		_battle_perf_end(battle_perf_logger, "stage2.obstacles.quake_waves", battle_sample_start)
 	if water_cannon_target_id >= 0:
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
@@ -660,7 +669,13 @@ func draw_playfield_obstacles(
 	var rock_visual_assets := {}
 	if not rocks.is_empty() or not rock_fragments.is_empty() or not water_splashes.is_empty():
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
-		rock_visual_assets = _get_rock_visual_assets()
+		rock_visual_assets = rock_visual_assets_builder.build_assets(
+			rock_texture,
+			rock_source_regions,
+			rock_debris_texture,
+			rock_debris_source_regions,
+			ROCK_FRAGMENT_LIFE_SEC
+		)
 		_battle_perf_end(battle_perf_logger, "stage2.obstacles.assets", battle_sample_start)
 	if not rocks.is_empty():
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
@@ -1103,41 +1118,6 @@ func _draw_imagegen_pillars(canvas: CanvasItem, view_size: Vector2, game_offset:
 		_get_game_frame_source_hole()
 	)
 	imagegen_renderer.draw(canvas, view_size, game_offset, game_size, imagegen_assets)
-
-
-func _get_rock_visual_assets() -> Dictionary:
-	return rock_visual_assets_builder.build_assets(
-		rock_texture,
-		rock_source_regions,
-		rock_debris_texture,
-		rock_debris_source_regions,
-		ROCK_FRAGMENT_LIFE_SEC
-	)
-
-
-func _get_water_cannon_visual_state() -> Dictionary:
-	return water_cannon_visual_state_builder.build_state(
-		water_cannon_phase,
-		water_cannon_start,
-		water_cannon_target,
-		water_cannon_current,
-		water_cannon_progress,
-		water_cannon_timer,
-		WATER_CANNON_CHARGE_SEC,
-		WATER_TRAIL_LIFE_SEC
-	)
-
-
-func _get_quake_wave_visual_state() -> Dictionary:
-	return quake_wave_visual_state_builder.build_state(
-		quake_timer,
-		quake_duration,
-		quake_affects_ball,
-		QUAKE_WAVE_COUNT,
-		QUAKE_WAVE_SEGMENTS,
-		VISUAL_ONLY_QUAKE_WAVE_COUNT,
-		VISUAL_ONLY_QUAKE_WAVE_SEGMENTS
-	)
 
 
 func _get_game_frame_source_hole() -> Rect2:
@@ -1901,7 +1881,17 @@ func _draw_water_cannon_target_highlight(canvas: CanvasItem, shake_offset: Vecto
 
 
 func _draw_water_cannon(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	water_cannon_visual_renderer.draw_cannon(canvas, _get_water_cannon_visual_state(), water_trail, shake_offset)
+	var visual_state: Dictionary = water_cannon_visual_state_builder.build_state(
+		water_cannon_phase,
+		water_cannon_start,
+		water_cannon_target,
+		water_cannon_current,
+		water_cannon_progress,
+		water_cannon_timer,
+		WATER_CANNON_CHARGE_SEC,
+		WATER_TRAIL_LIFE_SEC
+	)
+	water_cannon_visual_renderer.draw_cannon(canvas, visual_state, water_trail, shake_offset)
 
 
 func _is_player_status_immune(deps: Dictionary, context: Dictionary = {}) -> bool:

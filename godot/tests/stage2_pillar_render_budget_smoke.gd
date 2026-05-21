@@ -333,6 +333,21 @@ func _verify_draw_paths_use_render_caps() -> void:
 		_function_body(background_source, "func draw_playfield_obstacles").find("WATER_SPLASH_RENDER_LIMIT_SEVERE_LOD") >= 0,
 		"Stage 2 obstacle draw should cap water-splash rendering with severe LOD"
 	)
+	_expect(
+		_function_body(background_source, "func draw_playfield_obstacles").find("quake_wave_visual_state_builder.build_state") >= 0
+			and background_source.find("func _get_quake_wave_visual_state") < 0,
+		"Stage 2 quake-wave draw should build delegated visual state directly without a pass-through wrapper"
+	)
+	_expect(
+		_function_body(background_source, "func draw_playfield_obstacles").find("rock_visual_assets_builder.build_assets") >= 0
+			and background_source.find("func _get_rock_visual_assets") < 0,
+		"Stage 2 obstacle assets should build delegated visual assets directly without a pass-through wrapper"
+	)
+	_expect(
+		_function_body(background_source, "func _draw_water_cannon(").find("water_cannon_visual_state_builder.build_state") >= 0
+			and background_source.find("func _get_water_cannon_visual_state") < 0,
+		"Stage 2 water-cannon draw should build delegated visual state directly without a pass-through wrapper"
+	)
 	for label in [
 		"stage2.obstacles.quake_waves",
 		"stage2.obstacles.target_highlight",
