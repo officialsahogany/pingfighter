@@ -909,8 +909,10 @@ This section is intentionally long; use search to find the nearest owner.
   baseline, word wrapping, and font-size fitting helpers are delegated to
   `stage_clear_result_text_layout_helper.gd`; result scroll phase
   progression, unfurl progress, and background box alpha are delegated to
-  `stage_clear_result_scroll_state.gd`; player-victory and Dalji click-
-  reaction frame / transition / alpha math is delegated to
+  `stage_clear_result_scroll_state.gd`; result button layout / hit state
+  and box opened / opening counts are delegated to
+  `stage_clear_result_interaction_state.gd`; player-victory and Dalji
+  click-reaction frame / transition / alpha math is delegated to
   `stage_clear_result_click_reaction_state.gd`. Keep future reward-pick
   animation / settlement UI work here rather than adding draw blocks back
   to the battle shell; do not put grant logic back in this UI scene.
@@ -929,6 +931,12 @@ This section is intentionally long; use search to find the nearest owner.
   blocking, smooth unfurl progress, and fading the floating boxes behind
   the opened scroll. The scene still owns the live box array, perk-choice
   and starpoint-choice gates, input, drawing, and confirmation callbacks.
+- `scripts/ui/stage_clear_result_interaction_state.gd`
+  Owns stateless stage-clear result interaction calculations: scroll-button
+  layout rects, button hover / visible-click hit classification, opened /
+  opening box counts, and all-boxes-open checks. The scene still owns
+  actual input consumption, callback dispatch, hover redraw requests, live
+  box mutation, and drawing.
 - `scripts/ui/stage_clear_result_click_reaction_state.gd`
   Owns stateless result-scene click-reaction animation math shared by the
   player victory and Dalji result sheets: base frame selection, reaction
@@ -1142,7 +1150,9 @@ This section is intentionally long; use search to find the nearest owner.
   `stage2_boss_ai_context_builder.gd`. Boss-rage snapshots are delegated
   to `stage2_boss_rage_snapshot_builder.gd`; boss-rage crisis gating,
   tint / offset visual timing, final-stomp threshold checks, and finish
-  checks are delegated to `stage2_boss_rage_state.gd`.
+  checks are delegated to `stage2_boss_rage_state.gd`. BattlePerf overlay /
+  obstacle counter label writes are delegated to
+  `stage2_perf_counter_recorder.gd`.
   Rock / rock-fragment /
   starpoint particle and drop drawing is delegated to
   `stage2_pillar_obstacle_visual_renderer.gd`; water-cannon target rings,
@@ -1208,6 +1218,10 @@ This section is intentionally long; use search to find the nearest owner.
   budget status payload construction.
   `stage2_pillar_background.gd` keeps render call sites, live arrays,
   threshold constants, and wrapper names used by existing smoke tests.
+- `scripts/stages/stage2/stage2_perf_counter_recorder.gd`
+  Owns stateless Stage 2 BattlePerf counter label writes for playfield
+  overlay and obstacle lanes. `stage2_pillar_background.gd` keeps the live
+  array counts, active-state predicates, draw-pass gates, and timing labels.
 - `scripts/stages/stage2/stage2_visibility_state.gd`
   Owns stateless Stage 2 visibility and lock predicates: overall visible
   effect presence, playfield overlay draw gates, playfield obstacle draw

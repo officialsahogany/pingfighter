@@ -11,6 +11,7 @@ const StageClearResultScrollState := preload("res://scripts/ui/stage_clear_resul
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearResultRewardVisualResolver := preload("res://scripts/ui/stage_clear_result_reward_visual_resolver.gd")
 const StageClearResultRewardTextResolver := preload("res://scripts/ui/stage_clear_result_reward_text_resolver.gd")
+const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
@@ -391,12 +392,16 @@ func _exit_to_menu() -> void:
 
 
 func _handle_button_click(mouse_position: Vector2) -> bool:
-	if _scroll_phase != "visible":
-		return false
-	if _next_stage_button_rect.size.x > 0.0 and _next_stage_button_rect.has_point(mouse_position):
+	var clicked_button: String = StageClearResultInteractionState.get_clicked_button(
+		mouse_position,
+		_next_stage_button_rect,
+		_exit_button_rect,
+		_scroll_phase
+	)
+	if clicked_button == StageClearResultInteractionState.BUTTON_NEXT_STAGE:
 		_confirm()
 		return true
-	if _exit_button_rect.size.x > 0.0 and _exit_button_rect.has_point(mouse_position):
+	if clicked_button == StageClearResultInteractionState.BUTTON_EXIT:
 		_exit_to_menu()
 		return true
 	return false
@@ -404,12 +409,11 @@ func _handle_button_click(mouse_position: Vector2) -> bool:
 
 func _update_hovered_button(mouse_position: Vector2) -> void:
 	var previous: String = _hovered_button
-	if _next_stage_button_rect.size.x > 0.0 and _next_stage_button_rect.has_point(mouse_position):
-		_hovered_button = "next_stage"
-	elif _exit_button_rect.size.x > 0.0 and _exit_button_rect.has_point(mouse_position):
-		_hovered_button = "exit"
-	else:
-		_hovered_button = "none"
+	_hovered_button = StageClearResultInteractionState.get_hovered_button(
+		mouse_position,
+		_next_stage_button_rect,
+		_exit_button_rect
+	)
 	if previous != _hovered_button:
 		queue_redraw()
 
@@ -420,16 +424,9 @@ func get_interaction_status() -> Dictionary:
 		view_size = _get_view_size()
 	@warning_ignore("shadowed_variable_base_class")
 	var scale: float = _get_layout_scale(view_size)
-	var opened_count: int = 0
-	var opening_count: int = 0
-	for box in _boxes:
-		if not (box is Dictionary):
-			continue
-		var state: String = str(box.get("state", "idle"))
-		if state == "opened":
-			opened_count += 1
-		elif state == "opening":
-			opening_count += 1
+	var box_counts: Dictionary = StageClearResultInteractionState.get_box_state_counts(_boxes)
+	var opened_count: int = int(box_counts.get("opened_count", 0))
+	var opening_count: int = int(box_counts.get("opening_count", 0))
 	return {
 		"dalji_click_reaction_active": _is_dalji_click_reaction_active(),
 		"dalji_click_return_blend_active": _is_dalji_click_return_blend_active(),
@@ -1432,14 +1429,7 @@ func _screen_to_acquisition_cinematic_local(screen_position: Vector2, view_size:
 
 
 func _all_boxes_opened() -> bool:
-	if _boxes.is_empty():
-		return false
-	for box in _boxes:
-		if not (box is Dictionary):
-			continue
-		if str(box.get("state", "idle")) != "opened":
-			return false
-	return true
+	return StageClearResultInteractionState.all_boxes_opened(_boxes)
 
 
 func _sync_fx_hosts() -> void:
@@ -1980,14 +1970,9 @@ func _get_result_reward_source_color(source_key: String) -> Color:
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_scroll_buttons(rect: Rect2, scale: float, font: Font, alpha: float) -> void:
-	var button_size := Vector2(280.0, 64.0) * scale
-	var gap: float = 28.0 * scale
-	var total_width: float = button_size.x * 2.0 + gap
-	var start_x: float = rect.position.x + (rect.size.x - total_width) * 0.5
-	var button_y: float = rect.position.y + rect.size.y - 90.0 * scale
-
-	var next_rect := Rect2(Vector2(start_x, button_y), button_size)
-	var exit_rect := Rect2(Vector2(start_x + button_size.x + gap, button_y), button_size)
+	var button_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(rect, scale)
+	var next_rect: Rect2 = button_layout.get("next_stage_rect", Rect2())
+	var exit_rect: Rect2 = button_layout.get("exit_rect", Rect2())
 	_next_stage_button_rect = next_rect
 	_exit_button_rect = exit_rect
 

@@ -34,6 +34,7 @@ const Stage2BossRageSnapshotBuilder := preload("res://scripts/stages/stage2/stag
 const Stage2BossRageState := preload("res://scripts/stages/stage2/stage2_boss_rage_state.gd")
 const Stage2PerfLogSnapshotBuilder := preload("res://scripts/stages/stage2/stage2_perf_log_snapshot_builder.gd")
 const Stage2PerfLogger := preload("res://scripts/stages/stage2/stage2_perf_logger.gd")
+const Stage2PerfCounterRecorder := preload("res://scripts/stages/stage2/stage2_perf_counter_recorder.gd")
 const Stage2CollisionGeometry := preload("res://scripts/stages/stage2/stage2_collision_geometry.gd")
 const Stage2PlayfieldBounds := preload("res://scripts/stages/stage2/stage2_playfield_bounds.gd")
 const Stage2BossExpressionState := preload("res://scripts/stages/stage2/stage2_boss_expression_state.gd")
@@ -2476,26 +2477,28 @@ func _battle_perf_end(battle_perf_logger: Object, label: String, start_usec: int
 
 
 func _record_playfield_overlay_counters(battle_perf_logger: Object) -> void:
-	if battle_perf_logger == null or not battle_perf_logger.has_method("record_counter_sample"):
-		return
-	battle_perf_logger.record_counter_sample("stage2.overlay.leaf_particles", leaf_particles.size())
-	battle_perf_logger.record_counter_sample("stage2.overlay.starpoint_particles", starpoint_particles.size())
-	battle_perf_logger.record_counter_sample("stage2.overlay.starpoint_drops", starpoint_drops.size())
-	battle_perf_logger.record_counter_sample("stage2.overlay.border_flash_active", 1 if border_flash_state.is_active() else 0)
-	battle_perf_logger.record_counter_sample("stage2.overlay.rage_tint_active", 1 if boss_rage_active or boss_rage_tint > 0.001 else 0)
-	battle_perf_logger.record_counter_sample("stage2.overlay.fragment_flash_active", 1 if fragment_hit_flash_state.get_timer() > 0.0 else 0)
-	battle_perf_logger.record_counter_sample("stage2.overlay.skill_warning_active", 1 if skill_warning_state.is_active() else 0)
+	Stage2PerfCounterRecorder.record_playfield_overlay_counters(
+		battle_perf_logger,
+		leaf_particles.size(),
+		starpoint_particles.size(),
+		starpoint_drops.size(),
+		border_flash_state.is_active(),
+		boss_rage_active or boss_rage_tint > 0.001,
+		fragment_hit_flash_state.get_timer() > 0.0,
+		skill_warning_state.is_active()
+	)
 
 
 func _record_playfield_obstacle_counters(battle_perf_logger: Object) -> void:
-	if battle_perf_logger == null or not battle_perf_logger.has_method("record_counter_sample"):
-		return
-	battle_perf_logger.record_counter_sample("stage2.obstacles.rocks", rocks.size())
-	battle_perf_logger.record_counter_sample("stage2.obstacles.rock_fragments", rock_fragments.size())
-	battle_perf_logger.record_counter_sample("stage2.obstacles.water_splashes", water_splashes.size())
-	battle_perf_logger.record_counter_sample("stage2.obstacles.quake_active", 1 if quake_timer > 0.0 else 0)
-	battle_perf_logger.record_counter_sample("stage2.obstacles.water_cannon_active", 1 if water_cannon_phase != "idle" else 0)
-	battle_perf_logger.record_counter_sample("stage2.obstacles.water_trail", water_trail.size())
+	Stage2PerfCounterRecorder.record_playfield_obstacle_counters(
+		battle_perf_logger,
+		rocks.size(),
+		rock_fragments.size(),
+		water_splashes.size(),
+		quake_timer > 0.0,
+		water_cannon_phase != "idle",
+		water_trail.size()
+	)
 
 
 func _perf_maybe_log(context: Dictionary) -> void:

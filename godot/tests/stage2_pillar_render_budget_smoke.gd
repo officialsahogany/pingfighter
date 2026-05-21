@@ -157,6 +157,7 @@ func _verify_draw_paths_use_render_caps() -> void:
 	var obstacle_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd")
 	var water_renderer_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_water_cannon_visual_renderer.gd")
 	var warning_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_warning_visual_renderer.gd")
+	var counter_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_perf_counter_recorder.gd")
 	var pillar_scene_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_scene_drawer.gd")
 	var scene_drawer_source := FileAccess.get_file_as_string("res://scripts/core/battle_playfield_scene_drawer.gd")
 	var warmup_plan_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_plan.gd")
@@ -167,6 +168,7 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(obstacle_source != "", "Stage 2 obstacle renderer source should be readable")
 	_expect(water_renderer_source != "", "Stage 2 water cannon renderer source should be readable")
 	_expect(warning_source != "", "Stage 2 warning renderer source should be readable")
+	_expect(counter_source != "", "Stage 2 perf counter recorder source should be readable")
 	_expect(pillar_scene_source != "", "Stage 2 pillar scene drawer source should be readable")
 	_expect(scene_drawer_source != "", "Battle playfield scene drawer source should be readable")
 	_expect(warmup_plan_source != "", "Battle boot warmup plan source should be readable")
@@ -225,6 +227,10 @@ func _verify_draw_paths_use_render_caps() -> void:
 		_function_body(background_source, "func draw_playfield_overlay").find("_record_playfield_overlay_counters") >= 0,
 		"Stage 2 overlay draw should report lightweight visual counters"
 	)
+	_expect(
+		_function_body(background_source, "func _record_playfield_overlay_counters").find("Stage2PerfCounterRecorder.record_playfield_overlay_counters") >= 0,
+		"Stage 2 overlay counter wrapper should delegate label writes to the counter recorder"
+	)
 	for overlay_counter in [
 		"stage2.overlay.border_flash_active",
 		"stage2.overlay.rage_tint_active",
@@ -232,7 +238,7 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"stage2.overlay.skill_warning_active",
 	]:
 		_expect(
-			background_source.find(overlay_counter) >= 0,
+			counter_source.find(overlay_counter) >= 0,
 			"Stage 2 overlay counters should expose non-particle visible lane %s" % overlay_counter
 		)
 	_expect(
@@ -333,13 +339,17 @@ func _verify_draw_paths_use_render_caps() -> void:
 		_function_body(background_source, "func draw_playfield_obstacles").find("_record_playfield_obstacle_counters") >= 0,
 		"Stage 2 obstacle draw should report lightweight visual counters"
 	)
+	_expect(
+		_function_body(background_source, "func _record_playfield_obstacle_counters").find("Stage2PerfCounterRecorder.record_playfield_obstacle_counters") >= 0,
+		"Stage 2 obstacle counter wrapper should delegate label writes to the counter recorder"
+	)
 	for obstacle_counter in [
 		"stage2.obstacles.quake_active",
 		"stage2.obstacles.water_cannon_active",
 		"stage2.obstacles.water_trail",
 	]:
 		_expect(
-			background_source.find(obstacle_counter) >= 0,
+			counter_source.find(obstacle_counter) >= 0,
 			"Stage 2 obstacle counters should expose non-array visible lane %s" % obstacle_counter
 		)
 	_expect(
