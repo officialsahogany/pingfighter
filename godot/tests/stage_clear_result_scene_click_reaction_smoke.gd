@@ -61,6 +61,7 @@ func _init() -> void:
 	_verify_cyber_scroll_reward_summary()
 	_verify_cyber_scroll_reward_source_tags()
 	_verify_cyber_scroll_dense_reward_grid_layout()
+	_verify_cyber_scroll_drag_repositions_panel()
 	var scene: Control = RESULT_SCENE.instantiate() as Control
 	if scene == null:
 		push_error("stage clear result scene should instantiate")
@@ -387,6 +388,46 @@ func _verify_cyber_scroll_dense_reward_grid_layout() -> void:
 	scene.free()
 
 
+func _verify_cyber_scroll_drag_repositions_panel() -> void:
+	var scene: Control = RESULT_SCENE.instantiate() as Control
+	_expect(scene != null, "stage clear result scene should instantiate for scroll drag")
+	root.add_child(scene)
+	scene.configure({
+		"player_score": 5,
+		"boss_score": 0,
+		"current_stage": 1,
+		"reward_plan": {
+			"summary": "",
+			"boxes": [
+				{"kind": "normal"},
+			],
+			"reward_count": 1,
+		},
+	}, Callable(), Callable(), Callable(FakeResultRoller.new(), "roll_reward"))
+	_expect(scene.handle_result_input(_make_key_event(KEY_ENTER)), "Enter should open the drag smoke reward box")
+	scene.update_result_scene(0.70)
+	scene.update_result_scene(0.40)
+	scene.update_result_scene(1.00)
+	var status: Dictionary = scene.get_interaction_status()
+	_expect(str(status.get("scroll_phase", "")) == "visible", "drag smoke should reach the visible scroll phase")
+	var initial_rect: Rect2 = status.get("scroll_rect", Rect2())
+	var drag_start: Vector2 = initial_rect.position + Vector2(initial_rect.size.x * 0.34, initial_rect.size.y * 0.32)
+	var drag_delta := Vector2(150.0, 42.0)
+	_expect(scene.handle_result_input(_make_mouse_button_event(drag_start, true)), "scroll drag press should be consumed")
+	status = scene.get_interaction_status()
+	_expect(bool(status.get("scroll_dragging", false)), "scroll drag press should start dragging")
+	_expect(scene.handle_result_input(_make_mouse_motion_event(drag_start + drag_delta)), "scroll drag motion should be consumed")
+	status = scene.get_interaction_status()
+	var dragged_rect: Rect2 = status.get("scroll_rect", Rect2())
+	var offset: Vector2 = status.get("scroll_position_offset", Vector2.ZERO)
+	_expect(offset.distance_to(drag_delta) < 0.1, "scroll drag should move the panel by the mouse delta")
+	_expect(dragged_rect.position.distance_to(initial_rect.position + drag_delta) < 0.1, "scroll drag should move the rendered scroll rect")
+	_expect(scene.handle_result_input(_make_mouse_button_event(drag_start + drag_delta, false)), "scroll drag release should be consumed")
+	status = scene.get_interaction_status()
+	_expect(not bool(status.get("scroll_dragging", true)), "scroll drag release should end dragging")
+	scene.free()
+
+
 func _verify_result_box_sheet_padding() -> void:
 	for sheet in [
 		{"label": "common", "path": RESULT_BOX_COMMON_SHEET},
@@ -457,6 +498,20 @@ func _make_key_event(keycode: Key) -> InputEventKey:
 	event.pressed = true
 	event.keycode = keycode
 	event.physical_keycode = keycode
+	return event
+
+
+func _make_mouse_button_event(position: Vector2, pressed: bool) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.position = position
+	return event
+
+
+func _make_mouse_motion_event(position: Vector2) -> InputEventMouseMotion:
+	var event := InputEventMouseMotion.new()
+	event.position = position
 	return event
 
 
