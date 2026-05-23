@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `0253fa901 godot: update demo stage progression smoke`.
-- Code split range through that HEAD contains 80 follow-up commits after the
+  `5763b6895 godot: add knee pads port smoke`.
+- Code split range through that HEAD contains 82 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 81 commits.
+  span through the latest code split contains 83 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 30 visible paths in
+- Current dirty scope before this documentation sync: 25 visible paths in
   `git status --porcelain=v1` (`8` tracked modified / deleted paths and
-  `22` untracked paths).
-- The split notes below are current through the sixty-sixth split. The
+  `17` untracked paths).
+- The split notes below are current through the sixty-seventh split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3430,6 +3430,27 @@ Sixty-sixth split on 2026-05-23:
   audio / prewarm ordering.
 - Validation passed:
   `demo_stage_progression_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Sixty-seventh split on 2026-05-23:
+
+- Commit: `5763b6895 godot: add knee pads port smoke`.
+- Scope: Added the focused Knee Pads port smoke plus missing Godot UID files
+  for several existing focused smokes. The Knee Pads smoke verifies catalog
+  registration, icon load, roll bounds, equip / owner sync, half-dash-only
+  activation, Soldier and Blacksmith gauge charge baselines, audio / feedback /
+  orb HUD cues, one-charge-per-half-dash gating, VFX particle lifetime, and
+  helper constant ownership.
+- Rationale: Knee Pads had runtime helper coverage in the codebase but no
+  tracked focused acceptance test. The UID additions keep existing smokes from
+  remaining as local editor-generated residue.
+- Validation passed:
+  `knee_pads_port_smoke`,
+  `battle_scene_update_driver_scoreboard_defer_smoke`,
+  `stage4_ponk_round_boundary_lifecycle_smoke`,
+  `stage_actor_renderer_arity_cache_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
