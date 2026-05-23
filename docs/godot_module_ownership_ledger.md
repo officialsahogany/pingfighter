@@ -4702,3 +4702,13 @@ This section is intentionally long; use search to find the nearest owner.
   helpers that grant or spend special gauge. `mythic_item_runtime.gd` should
   not reintroduce one-line `_trigger_gauge_feedback` /
   `_trigger_orb_gauge_spin` bridge methods.
+- `scripts/items/mythic_item_owner_syncer.gd`
+  Owns mythic runtime owner synchronization details: runtime-perk state ref
+  sync, active-item paddle scale lookup, owner X clamping, skill cooldown
+  config sync, removed-skill cleanup, dash-token capacity sync, player status
+  resistance sync, Gold Digger runtime-perk sync, item perk-level bonus sync,
+  Fuel Pouch gauge max sync, and Boomerang active-slot visual sync. The
+  runtime facade may keep high-level context-supplying sync entry points, but
+  should not reintroduce one-line private bridges for these detail methods;
+  focused helpers should call this owner directly when they need those
+  behaviors.
