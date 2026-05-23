@@ -2,6 +2,7 @@ extends RefCounted
 
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmAk47HitState := preload("res://scripts/characters/commando_firearm_ak47_hit_state.gd")
+const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmAudioResolver := preload("res://scripts/characters/commando_firearm_audio_resolver.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmControlState := preload("res://scripts/characters/commando_firearm_control_state.gd")
@@ -4664,37 +4665,19 @@ func _play_weapon_audio_method(
 	fallback_method: String,
 	weapon_id: String
 ) -> void:
-	var audio: Object = deps.get("audio", deps.get("game_audio", null))
-	if audio == null:
-		return
-	for method_name in method_names:
-		if audio.has_method(method_name):
-			audio.call(method_name)
-			return
-	if audio.has_method(fallback_method):
-		audio.call(fallback_method, weapon_id)
+	CommandoFirearmAudioDispatcher.play_weapon_audio_method(deps, method_names, fallback_method, weapon_id)
 
 
 func _play_first_audio_method(deps: Dictionary, method_names: Array[String]) -> void:
-	var audio: Object = deps.get("audio", deps.get("game_audio", null))
-	if audio == null:
-		return
-	for method_name in method_names:
-		if audio.has_method(method_name):
-			audio.call(method_name)
-			return
+	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, method_names)
 
 
 func _play_reload_progress_audio(timer_result: Dictionary, deps: Dictionary) -> void:
-	var base_result: Dictionary = _get_dict(timer_result.get("base_pistol", {}))
-	var pistol_result: Dictionary = _get_dict(timer_result.get("commando_pistol", {}))
-	var rounds_added: int = int(base_result.get("reload_rounds_added", 0)) + int(pistol_result.get("reload_rounds_added", 0))
-	for _i in range(max(0, rounds_added)):
-		_play_first_audio_method(deps, ["play_commando_pistol_reload_round", "play_commando_pistol_reload_start"])
+	CommandoFirearmAudioDispatcher.play_reload_progress_audio(timer_result, deps)
 
 
 func _stop_suicide_drone_audio(deps: Dictionary) -> void:
-	_play_first_audio_method(deps, ["stop_commando_suicide_drone_loop"])
+	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 
 
 func _has_active_suicide_drone_projectile() -> bool:
