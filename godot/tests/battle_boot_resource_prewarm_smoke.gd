@@ -21,7 +21,14 @@ class FakePrewarmModule:
 
 class FakeActiveItemRuntime:
 	var prewarm_count := 0
+	var step_calls := 0
 	var last_visuals: Object
+	var complete_after := 3
+
+	func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
+		step_calls += 1
+		last_visuals = active_item_hud_visuals
+		return step_calls >= complete_after
 
 	func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
 		prewarm_count += 1
@@ -30,14 +37,22 @@ class FakeActiveItemRuntime:
 
 class FakeMythicItemRuntime:
 	var prewarm_count := 0
+	var acquisition_prewarm_count := 0
+	var last_acquisition_owner: Object = null
 
 	func prewarm_assets() -> void:
 		prewarm_count += 1
+
+	func prewarm_acquisition_cinematic(owner: Object = null) -> void:
+		acquisition_prewarm_count += 1
+		last_acquisition_owner = owner
 
 
 class FakeStagedPrewarmModule:
 	var step_calls := 0
 	var monolithic_calls := 0
+	var runtime_step_calls := 0
+	var last_runtime_owner: Object = null
 	var complete_after := 3
 
 	func prewarm_assets_step() -> bool:
@@ -46,6 +61,11 @@ class FakeStagedPrewarmModule:
 
 	func prewarm_assets() -> void:
 		monolithic_calls += 1
+
+	func prewarm_runtime_nodes_step(owner: Object = null) -> bool:
+		runtime_step_calls += 1
+		last_runtime_owner = owner
+		return true
 
 
 class FakeStagedResultScreen:
@@ -108,6 +128,25 @@ class FakePillarSceneModule:
 		last_selected_character_type = selected_character_type
 
 
+class FakeStagedPillarSceneModule:
+	var step_calls := 0
+	var monolithic_calls := 0
+	var complete_after := 3
+	var last_selected_character_type := ""
+	var last_module_getter_valid := false
+
+	func prewarm_assets_step(module_getter: Callable = Callable(), selected_character_type: String = "smasher") -> bool:
+		step_calls += 1
+		last_module_getter_valid = module_getter.is_valid()
+		last_selected_character_type = selected_character_type
+		return step_calls >= complete_after
+
+	func prewarm_assets(module_getter: Callable = Callable(), selected_character_type: String = "smasher") -> void:
+		monolithic_calls += 1
+		last_module_getter_valid = module_getter.is_valid()
+		last_selected_character_type = selected_character_type
+
+
 class FakePerkDebugPicker:
 	var prewarm_count := 0
 	var last_catalog: Object
@@ -155,6 +194,7 @@ class FakeRegistry:
 	var perk_catalog := RefCounted.new()
 	var character_info := FakeCharacterInfo.new()
 	var result_screen := FakeStagedResultScreen.new()
+	var monkey_blessing_delivery_state := FakeStagedPrewarmModule.new()
 	var stage1_bg := FakePrewarmModule.new()
 	var stage1_pillar_scene := FakePillarSceneModule.new()
 	var stage1_balloon_event := FakeStagedPrewarmModule.new()
@@ -164,6 +204,11 @@ class FakeRegistry:
 	var smasher_warp_gate_state := FakePrewarmModule.new()
 	var smasher_wheel_state := FakePrewarmModule.new()
 	var smasher_shield_kiting_state := FakePrewarmModule.new()
+	var viper_input_reader := FakePrewarmModule.new()
+	var viper_skill_runtime := FakeStagedPrewarmModule.new()
+	var viper_skill_state := FakePrewarmModule.new()
+	var viper_skill_config := FakePrewarmModule.new()
+	var viper_jetpack_state := FakePrewarmModule.new()
 	var stage2_bg := FakeStagedPrewarmModule.new()
 	var stage2_actor_renderer := FakeStagedPrewarmModule.new()
 	var stage2_skill_hud := FakeStagedPrewarmModule.new()
@@ -179,10 +224,10 @@ class FakeRegistry:
 	var stage4_moon_event := FakePrewarmModule.new()
 	var stage4_ponk_skill_state := FakeStagedPrewarmModule.new()
 	var stage4_boss_skill_hud := FakePrewarmModule.new()
-	var stage5_bg := FakePrewarmModule.new()
-	var stage5_actor_renderer := FakePrewarmModule.new()
-	var stage5_pillar_scene := FakePillarSceneModule.new()
-	var stage5_skill_hud := FakePrewarmModule.new()
+	var stage5_bg := FakeStagedPrewarmModule.new()
+	var stage5_actor_renderer := FakeStagedPrewarmModule.new()
+	var stage5_pillar_scene := FakeStagedPillarSceneModule.new()
+	var stage5_skill_hud := FakeStagedPrewarmModule.new()
 
 	func get_instance(key: String) -> Object:
 		match key:
@@ -208,6 +253,8 @@ class FakeRegistry:
 				return character_info
 			"stage_clear_result_screen":
 				return result_screen
+			"monkey_blessing_delivery_state":
+				return monkey_blessing_delivery_state
 			"stage1_pillar_background":
 				return stage1_bg
 			"stage1_pillar_scene_drawer":
@@ -264,6 +311,16 @@ class FakeRegistry:
 				return smasher_wheel_state
 			"smasher_shield_kiting_state":
 				return smasher_shield_kiting_state
+			"viper_input_reader":
+				return viper_input_reader
+			"viper_skill_runtime":
+				return viper_skill_runtime
+			"viper_skill_state":
+				return viper_skill_state
+			"viper_skill_config":
+				return viper_skill_config
+			"viper_jetpack_state":
+				return viper_jetpack_state
 		return null
 
 
@@ -278,9 +335,12 @@ func _init() -> void:
 	controller.prewarm_stage_runtime_resources(owner, Callable(self, "_get_module"))
 	controller.prewarm_stage_runtime_resources(owner, Callable(self, "_get_module"))
 
-	_expect(_registry.active_item_runtime.prewarm_count == 1, "stage runtime prewarm should warm active item assets once")
+	_expect(_registry.active_item_runtime.step_calls == 3, "stage runtime prewarm should stage active item assets before the first visible draw")
+	_expect(_registry.active_item_runtime.prewarm_count == 0, "stage runtime prewarm should avoid monolithic active item loading when staged")
 	_expect(_registry.active_item_runtime.last_visuals == _registry.active_item_hud_visuals, "active item prewarm should receive HUD visuals")
 	_expect(_registry.mythic_item_runtime.prewarm_count == 0, "stage runtime prewarm should defer mythic debug assets until needed")
+	_expect(_registry.mythic_item_runtime.acquisition_prewarm_count == 1, "stage runtime prewarm should warm mythic field-pickup cinematic once")
+	_expect(_registry.mythic_item_runtime.last_acquisition_owner == owner, "mythic field-pickup cinematic prewarm should receive the battle owner")
 	_expect(_registry.perk_icon_renderer.prewarm_count == 1, "stage runtime prewarm should warm runtime perk choice icons before the first card draw")
 	_expect(_registry.perk_overlay_renderer.prewarm_count == 1, "stage runtime prewarm should warm runtime perk overlay text caches before the first overlay draw")
 	_expect(_registry.perk_debug_picker.prewarm_count == 0, "stage runtime prewarm should defer perk debug picker assets until opened")
@@ -288,6 +348,8 @@ func _init() -> void:
 	_expect(_registry.result_screen.shell_prewarm_count == 0, "stage runtime prewarm should leave the stage-clear result shell for the dedicated result warmup")
 	_expect(_registry.result_screen.prewarm_count == 0, "stage runtime prewarm should leave full stage-clear result assets for the dedicated result warmup")
 	_expect(_registry.result_screen.step_calls == 0, "stage runtime prewarm should not touch the heavy result staged path before its dedicated warmup")
+	_expect(_registry.monkey_blessing_delivery_state.step_calls == 3, "stage runtime prewarm should stage Monkey Blessing delivery assets before the first visible draw")
+	_expect(_registry.monkey_blessing_delivery_state.monolithic_calls == 0, "Monkey Blessing delivery prewarm should avoid monolithic loading when staged")
 	_expect(_registry.smasher_warp_gate_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher warp gate assets once")
 	_expect(_registry.smasher_wheel_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher wheel assets once")
 	_expect(_registry.smasher_shield_kiting_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher shield assets once")
@@ -300,6 +362,7 @@ func _init() -> void:
 	_verify_stage4_staged_playfield_and_skill_prewarm()
 	_verify_stage5_visual_shell_prewarm()
 	_verify_battle_texture_prewarm_is_staged()
+	_verify_viper_runtime_node_prewarm()
 	_verify_boot_warmup_uses_staged_runtime_prewarm()
 
 	if _failures.is_empty():
@@ -469,6 +532,11 @@ func _verify_stage4_staged_playfield_and_skill_prewarm() -> void:
 	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 actor renderer prewarm should finish before the module chunks")
 	_expect(_registry.stage4_actor_renderer.step_calls == 3, "stage 4 actor renderer should complete through the step API")
 	_expect(_registry.stage4_actor_renderer.monolithic_calls == 0, "stage 4 actor renderer should avoid the monolithic prewarm path when staged")
+	_expect(_registry.stage4_actor_renderer.runtime_step_calls == 0, "stage 4 actor runtime host prewarm should wait until actor assets are ready")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 4 actor runtime host prewarm should run before module chunks")
+	_expect(_registry.stage4_actor_renderer.runtime_step_calls == 1, "stage 4 actor renderer should prewarm runtime FX hosts once")
+	_expect(_registry.stage4_actor_renderer.last_runtime_owner == owner, "stage 4 actor runtime prewarm should receive the battle owner")
+	_expect(_registry.stage4_ponk_skill_state.step_calls == 0, "stage 4 Ponk skill assets should wait until runtime FX host prewarm finishes")
 
 	guard = 0
 	while _registry.stage4_ponk_skill_state.step_calls == 0 and guard < 80:
@@ -498,12 +566,16 @@ func _verify_stage5_visual_shell_prewarm() -> void:
 	owner.current_stage = 5
 	owner.selected_character_type = "soldier"
 	controller.prewarm_stage_runtime_resources(owner, Callable(self, "_get_module"))
-	_expect(_registry.stage5_bg.prewarm_count == 1, "stage 5 runtime prewarm should warm Hongryun background")
-	_expect(_registry.stage5_actor_renderer.prewarm_count == 1, "stage 5 runtime prewarm should warm Hongryun actor renderer")
-	_expect(_registry.stage5_pillar_scene.prewarm_count == 1, "stage 5 runtime prewarm should warm Hongryun pillar scene")
+	_expect(_registry.stage5_bg.step_calls == 3, "stage 5 runtime prewarm should stage Hongryun background")
+	_expect(_registry.stage5_bg.monolithic_calls == 0, "stage 5 background prewarm should avoid monolithic loading when staged")
+	_expect(_registry.stage5_actor_renderer.step_calls == 3, "stage 5 runtime prewarm should stage Hongryun actor renderer")
+	_expect(_registry.stage5_actor_renderer.monolithic_calls == 0, "stage 5 actor prewarm should avoid monolithic loading when staged")
+	_expect(_registry.stage5_pillar_scene.step_calls == 3, "stage 5 runtime prewarm should stage Hongryun pillar scene")
+	_expect(_registry.stage5_pillar_scene.monolithic_calls == 0, "stage 5 pillar scene prewarm should avoid monolithic loading when staged")
 	_expect(_registry.stage5_pillar_scene.last_module_getter_valid, "stage 5 pillar scene prewarm should receive module getter")
 	_expect(_registry.stage5_pillar_scene.last_selected_character_type == "soldier", "stage 5 pillar scene prewarm should receive selected character")
-	_expect(_registry.stage5_skill_hud.prewarm_count == 1, "stage 5 runtime prewarm should warm Hongryun skill HUD")
+	_expect(_registry.stage5_skill_hud.step_calls == 3, "stage 5 runtime prewarm should stage Hongryun skill HUD")
+	_expect(_registry.stage5_skill_hud.monolithic_calls == 0, "stage 5 skill HUD prewarm should avoid monolithic loading when staged")
 
 
 func _verify_battle_texture_prewarm_is_staged() -> void:
@@ -547,6 +619,18 @@ func _verify_battle_texture_prewarm_is_staged() -> void:
 		"completed battle texture prewarm should stay complete"
 	)
 	_expect(_registry.battle_resources.step_calls == 3, "completed battle texture prewarm should not re-run texture chunks")
+
+
+func _verify_viper_runtime_node_prewarm() -> void:
+	_registry = FakeRegistry.new()
+	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.selected_character_type = "viper"
+	controller.prewarm_selected_character_runtime_resources(owner, Callable(self, "_get_module"))
+	_expect(_registry.viper_skill_runtime.step_calls == 3, "Viper skill runtime assets should finish before runtime node prewarm")
+	_expect(_registry.viper_skill_runtime.monolithic_calls == 0, "Viper skill runtime prewarm should stay staged")
+	_expect(_registry.viper_skill_runtime.runtime_step_calls == 1, "Viper skill runtime should prewarm FX host nodes once")
+	_expect(_registry.viper_skill_runtime.last_runtime_owner == owner, "Viper FX host node prewarm should receive the battle owner")
 
 
 func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:

@@ -270,7 +270,12 @@ func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable
 		+ _get_stage_specific_runtime_prewarm_step_count(owner, current_stage)
 		+ 1
 	)
-	if not _run_stage_runtime_prewarm_step(owner, module_getter, current_stage, stage_runtime_prewarm_step_index):
+	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
+	var prewarm_step_index := stage_runtime_prewarm_step_index
+	var sample_start: int = _perf_begin(perf_logger)
+	var step_complete := _run_stage_runtime_prewarm_step(owner, module_getter, current_stage, stage_runtime_prewarm_step_index)
+	_perf_end(perf_logger, "process.frame.stage_runtime_prewarm.step.%d" % prewarm_step_index, sample_start)
+	if not step_complete:
 		return false
 	stage_runtime_prewarm_step_index += 1
 	if stage_runtime_prewarm_step_index >= total_steps:
@@ -290,11 +295,14 @@ func _run_stage_runtime_prewarm_step(
 	match step_index:
 		0:
 			var weather_renderer: Object = _get_module(module_getter, "weather_event_renderer")
+			if weather_renderer != null and weather_renderer.has_method("prewarm_assets_step"):
+				return bool(weather_renderer.prewarm_assets_step())
 			if weather_renderer != null and weather_renderer.has_method("prewarm_assets"):
 				weather_renderer.prewarm_assets()
 		1:
-			prewarm_active_item_runtime_resources(module_getter)
+			return prewarm_active_item_runtime_resources_step(module_getter)
 		2:
+			prewarm_mythic_acquisition_cinematic_resources(owner, module_getter)
 			mark_mythic_item_runtime_assets_deferred()
 		3:
 			return prewarm_runtime_perk_overlay_resources_step(module_getter)
@@ -327,7 +335,7 @@ func _get_stage_specific_runtime_prewarm_step_count(_owner: Object, current_stag
 		3:
 			return 3
 		4:
-			return 2 + STAGE4_RUNTIME_PREWARM_MODULE_KEYS.size()
+			return 3 + STAGE4_RUNTIME_PREWARM_MODULE_KEYS.size()
 		5:
 			return 1 + STAGE5_RUNTIME_PREWARM_MODULE_KEYS.size()
 	return 0
@@ -347,9 +355,9 @@ func _run_stage_specific_runtime_prewarm_step(
 		3:
 			return _run_stage3_runtime_prewarm_step(module_getter, stage_step)
 		4:
-			return _run_stage4_runtime_prewarm_step(module_getter, stage_step)
+			return _run_stage4_runtime_prewarm_step(owner, module_getter, stage_step)
 		5:
-			_run_stage5_runtime_prewarm_step(owner, module_getter, stage_step)
+			return _run_stage5_runtime_prewarm_step(owner, module_getter, stage_step)
 	return true
 
 
@@ -417,32 +425,33 @@ func _run_stage3_runtime_prewarm_step(module_getter: Callable, stage_step: int) 
 	return true
 
 
-func _run_stage4_runtime_prewarm_step(module_getter: Callable, stage_step: int) -> bool:
+func _run_stage4_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> bool:
 	if stage_step == 0:
 		return prewarm_stage4_pillar_background_step(module_getter)
 	if stage_step == 1:
 		return prewarm_stage4_playfield_resources_step(module_getter)
-	var module_index := stage_step - 2
+	if stage_step == 2:
+		return prewarm_stage4_actor_runtime_nodes_step(owner, module_getter)
+	var module_index := stage_step - 3
 	if module_index < 0 or module_index >= STAGE4_RUNTIME_PREWARM_MODULE_KEYS.size():
 		return true
 	var module: Object = _get_module(module_getter, STAGE4_RUNTIME_PREWARM_MODULE_KEYS[module_index])
 	return _prewarm_module_assets_step(module)
 
 
-func _run_stage5_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> void:
+func _run_stage5_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> bool:
 	match stage_step:
 		0:
-			prewarm_stage5_pillar_background(module_getter)
+			return prewarm_stage5_pillar_background_step(module_getter)
 		_:
 			var module_index := stage_step - 1
 			if module_index < 0 or module_index >= STAGE5_RUNTIME_PREWARM_MODULE_KEYS.size():
-				return
+				return true
+			var module_key := str(STAGE5_RUNTIME_PREWARM_MODULE_KEYS[module_index])
 			var module: Object = _get_module(module_getter, STAGE5_RUNTIME_PREWARM_MODULE_KEYS[module_index])
-			if module != null and module.has_method("prewarm_assets"):
-				if STAGE5_RUNTIME_PREWARM_MODULE_KEYS[module_index] == "stage5_hongryun_pillar_scene_drawer":
-					module.prewarm_assets(module_getter, _get_selected_character_type(owner))
-				else:
-					module.prewarm_assets()
+			if module_key == "stage5_hongryun_pillar_scene_drawer":
+				return _prewarm_pillar_scene_assets_step(module, module_getter, _get_selected_character_type(owner))
+			return _prewarm_module_assets_step(module)
 
 
 # Attach a hidden offscreen Node2D once per stage so Vulkan / GPU
@@ -592,12 +601,32 @@ func prewarm_stage4_pillar_background_step(module_getter: Callable) -> bool:
 
 
 func prewarm_stage5_pillar_background(module_getter: Callable) -> void:
+	while not prewarm_stage5_pillar_background_step(module_getter):
+		pass
+
+
+func prewarm_stage5_pillar_background_step(module_getter: Callable) -> bool:
 	if battle_stage5_pillar_background_prewarmed:
-		return
-	battle_stage5_pillar_background_prewarmed = true
+		return true
 	var stage_background: Object = _get_module(module_getter, "stage5_hongryun_pillar_background")
-	if stage_background != null and stage_background.has_method("prewarm_assets"):
-		stage_background.prewarm_assets()
+	if not _prewarm_module_assets_step(stage_background):
+		return false
+	battle_stage5_pillar_background_prewarmed = true
+	return true
+
+
+func _prewarm_pillar_scene_assets_step(
+	module: Object,
+	module_getter: Callable,
+	selected_character_type: String
+) -> bool:
+	if module == null:
+		return true
+	if module.has_method("prewarm_assets_step"):
+		return bool(module.prewarm_assets_step(module_getter, selected_character_type))
+	if module.has_method("prewarm_assets"):
+		module.prewarm_assets(module_getter, selected_character_type)
+	return true
 
 
 func prewarm_stage4_playfield_resources(module_getter: Callable) -> void:
@@ -615,6 +644,17 @@ func prewarm_stage4_playfield_resources_step(module_getter: Callable) -> bool:
 	return true
 
 
+func prewarm_stage4_actor_runtime_nodes_step(owner: Object, module_getter: Callable) -> bool:
+	var actor_renderer: Object = _get_module(module_getter, "stage4_actor_renderer")
+	if actor_renderer == null:
+		return true
+	if actor_renderer.has_method("prewarm_runtime_nodes_step"):
+		return bool(actor_renderer.prewarm_runtime_nodes_step(owner))
+	if actor_renderer.has_method("prewarm_runtime_nodes"):
+		actor_renderer.prewarm_runtime_nodes(owner)
+	return true
+
+
 func _prewarm_module_assets_step(module: Object) -> bool:
 	if module == null:
 		return true
@@ -626,15 +666,27 @@ func _prewarm_module_assets_step(module: Object) -> bool:
 
 
 func prewarm_active_item_runtime_resources(module_getter: Callable) -> void:
+	while not prewarm_active_item_runtime_resources_step(module_getter):
+		pass
+
+
+func prewarm_active_item_runtime_resources_step(module_getter: Callable) -> bool:
 	if battle_active_item_runtime_prewarmed:
-		return
-	battle_active_item_runtime_prewarmed = true
+		return true
 	var active_item_runtime: Object = _get_module(module_getter, "active_item_runtime")
 	var active_item_hud_visuals: Object = _get_module(module_getter, "active_item_hud_visuals")
-	if active_item_runtime != null and active_item_runtime.has_method("prewarm_assets"):
+	if active_item_runtime != null and active_item_runtime.has_method("prewarm_assets_step"):
+		if not bool(active_item_runtime.prewarm_assets_step(active_item_hud_visuals)):
+			return false
+	elif active_item_runtime != null and active_item_runtime.has_method("prewarm_assets"):
 		active_item_runtime.prewarm_assets(active_item_hud_visuals)
+	elif active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons_step"):
+		if not bool(active_item_hud_visuals.prewarm_catalog_icons_step()):
+			return false
 	elif active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons"):
 		active_item_hud_visuals.prewarm_catalog_icons()
+	battle_active_item_runtime_prewarmed = true
+	return true
 
 
 func prewarm_mythic_item_runtime_resources(module_getter: Callable) -> void:
@@ -644,6 +696,12 @@ func prewarm_mythic_item_runtime_resources(module_getter: Callable) -> void:
 	var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("prewarm_assets"):
 		mythic_item_runtime.prewarm_assets()
+
+
+func prewarm_mythic_acquisition_cinematic_resources(owner: Object, module_getter: Callable) -> void:
+	var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("prewarm_acquisition_cinematic"):
+		mythic_item_runtime.prewarm_acquisition_cinematic(owner)
 
 
 func mark_mythic_item_runtime_assets_deferred() -> void:
@@ -669,14 +727,28 @@ func prewarm_selected_character_runtime_resources_step(owner: Object, module_get
 	if selected_character_runtime_prewarm_step_index >= module_keys.size():
 		_mark_selected_character_runtime_prewarmed(character_type)
 		return true
-	var module: Object = _get_module(module_getter, module_keys[selected_character_runtime_prewarm_step_index])
-	if module != null and module.has_method("prewarm_assets"):
-		module.prewarm_assets()
+	var module_key := module_keys[selected_character_runtime_prewarm_step_index]
+	var module: Object = _get_module(module_getter, module_key)
+	if not _prewarm_module_assets_step(module):
+		return false
+	if module_key == "viper_skill_runtime":
+		if not _prewarm_selected_character_runtime_nodes_step(owner, module):
+			return false
 	selected_character_runtime_prewarm_step_index += 1
 	if selected_character_runtime_prewarm_step_index >= module_keys.size():
 		_mark_selected_character_runtime_prewarmed(character_type)
 		return true
 	return false
+
+
+func _prewarm_selected_character_runtime_nodes_step(owner: Object, module: Object) -> bool:
+	if module == null:
+		return true
+	if module.has_method("prewarm_runtime_nodes_step"):
+		return bool(module.prewarm_runtime_nodes_step(owner))
+	if module.has_method("prewarm_runtime_nodes"):
+		module.prewarm_runtime_nodes(owner)
+	return true
 
 
 func _mark_selected_character_runtime_prewarmed(character_type: String) -> void:
@@ -687,9 +759,12 @@ func _mark_selected_character_runtime_prewarmed(character_type: String) -> void:
 
 
 func _get_selected_character_runtime_module_keys(character_type: String) -> Array[String]:
+	var keys: Array[String] = [
+		"monkey_blessing_delivery_state",
+	]
 	match character_type:
 		"smasher":
-			return [
+			keys.append_array([
 				"smasher_input_reader",
 				"smasher_power_smash_state",
 				"smasher_drive_input_state",
@@ -709,9 +784,9 @@ func _get_selected_character_runtime_module_keys(character_type: String) -> Arra
 				"smasher_dash_spirit_state",
 				"smasher_shield_kiting_state",
 				"smasher_dash_state",
-			]
+			])
 		"soldier":
-			return [
+			keys.append_array([
 				"commando_input_reader",
 				"commando_skill_state",
 				"commando_skill_config",
@@ -719,16 +794,16 @@ func _get_selected_character_runtime_module_keys(character_type: String) -> Arra
 				"commando_supply_drop_state",
 				"commando_weapon_controller",
 				"commando_emergency_supply_state",
-			]
+			])
 		"viper":
-			return [
+			keys.append_array([
 				"viper_input_reader",
 				"viper_skill_runtime",
 				"viper_skill_state",
 				"viper_skill_config",
 				"viper_jetpack_state",
-			]
-	return []
+			])
+	return keys
 
 
 func prewarm_ball_update_runtime_resources_step(owner: Object, module_getter: Callable) -> bool:
@@ -876,6 +951,17 @@ func _get_dictionary(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _perf_begin(perf_logger: Object) -> int:
+	if perf_logger != null and perf_logger.has_method("begin_sample"):
+		return int(perf_logger.begin_sample())
+	return 0
+
+
+func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
+	if perf_logger != null and perf_logger.has_method("finish_sample"):
+		perf_logger.finish_sample(label, start_usec)
 
 
 func _get_module(module_getter: Callable, key: String) -> Object:
