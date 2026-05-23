@@ -382,6 +382,10 @@ func _get_spider_mine_sheet_frame(mine: Dictionary, state: String) -> int:
 	return _spider_mine_renderer.get_spider_mine_sheet_frame(mine, state)
 
 
+func _get_spider_mine_sheet_angle_degrees(mine: Dictionary, state: String) -> float:
+	return _spider_mine_renderer.get_spider_mine_sheet_angle_degrees(mine, state)
+
+
 func _get_spider_mine_sheet_source_rect(texture: Texture2D, frame_index: int) -> Rect2:
 	return _spider_mine_renderer.get_spider_mine_sheet_source_rect(texture, frame_index)
 

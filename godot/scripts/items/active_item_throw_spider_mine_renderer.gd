@@ -82,7 +82,8 @@ func draw_spider_mines(canvas: CanvasItem, spider_mines: Array, shake_offset: Ve
 			if armed_time >= SPIDER_MINE_SELF_DESTRUCT_WARNING_FRAMES and int(armed_time / flash_interval) % 2 == 0:
 				canvas.draw_circle(center, 24.0 + 4.0 * sin(float(Time.get_ticks_msec()) * 0.02), Color(1.0, 80.0 / 255.0, 110.0 / 255.0, 0.42), false, 3.0)
 
-		var drew_sheet: bool = _draw_spider_mine_sheet(canvas, center, mine, state)
+		var sprite_angle_degrees: float = get_spider_mine_sheet_angle_degrees(mine, state)
+		var drew_sheet: bool = _draw_spider_mine_sheet(canvas, center, mine, state, sprite_angle_degrees)
 		if not drew_sheet:
 			_draw_spider_mine_legs(canvas, center, mine, state)
 			var texture: Texture2D = get_spider_mine_icon_texture()
@@ -93,12 +94,12 @@ func draw_spider_mines(canvas: CanvasItem, spider_mines: Array, shake_offset: Ve
 					Rect2(Vector2.ZERO, texture.get_size()),
 					center,
 					Vector2(SPIDER_MINE_DRAW_SIZE, SPIDER_MINE_DRAW_SIZE),
-					0.0
+					sprite_angle_degrees
 				)
 			else:
-				_draw_spider_mine_fallback(canvas, center, mine, state, float(mine.get("armed_elapsed", 0.0)), 0.0)
+				_draw_spider_mine_fallback(canvas, center, mine, state, float(mine.get("armed_elapsed", 0.0)), sprite_angle_degrees)
 
-		var beacon_center: Vector2 = _get_spider_mine_beacon_center(center, drew_sheet)
+		var beacon_center: Vector2 = _get_spider_mine_beacon_center(center, drew_sheet, sprite_angle_degrees)
 		var flash_timer: float = float(mine.get("flash_timer", 0.0))
 		if flash_timer > 0.0 and int(flash_timer / SPIDER_MINE_FLASH_INTERVAL_FRAMES) % 2 == 0:
 			canvas.draw_circle(beacon_center, 13.0, Color(1.0, 200.0 / 255.0, 120.0 / 255.0, 0.55))
@@ -196,6 +197,12 @@ func get_spider_mine_sheet_frame(mine: Dictionary, state: String) -> int:
 	return _get_spider_mine_loop_frame(glow_elapsed, SPIDER_MINE_IDLE_FRAME_INTERVAL_FRAMES)
 
 
+func get_spider_mine_sheet_angle_degrees(mine: Dictionary, state: String) -> float:
+	if state == "wall" or state == "embedding" or state == "armed":
+		return -90.0 if str(mine.get("side", "left")) == "left" else 90.0
+	return 0.0
+
+
 func get_spider_mine_sheet_source_rect(texture: Texture2D, frame_index: int) -> Rect2:
 	var texture_size: Vector2 = texture.get_size()
 	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
@@ -210,7 +217,13 @@ func get_spider_mine_sheet_source_rect(texture: Texture2D, frame_index: int) -> 
 	return Rect2(Vector2(float(column) * cell_size.x, float(row) * cell_size.y), cell_size)
 
 
-func _draw_spider_mine_sheet(canvas: CanvasItem, center: Vector2, mine: Dictionary, state: String) -> bool:
+func _draw_spider_mine_sheet(
+	canvas: CanvasItem,
+	center: Vector2,
+	mine: Dictionary,
+	state: String,
+	angle_degrees: float
+) -> bool:
 	var texture: Texture2D = get_spider_mine_sheet_texture_for_state(state)
 	if texture == null:
 		return false
@@ -226,7 +239,7 @@ func _draw_spider_mine_sheet(canvas: CanvasItem, center: Vector2, mine: Dictiona
 		source_rect,
 		center,
 		Vector2(SPIDER_MINE_SHEET_DRAW_SIZE, SPIDER_MINE_SHEET_DRAW_SIZE),
-		0.0
+		angle_degrees
 	)
 	return true
 
@@ -235,10 +248,11 @@ func _get_spider_mine_loop_frame(elapsed_frames: float, frame_interval: float) -
 	return int(floor(max(0.0, elapsed_frames) / max(1.0, frame_interval))) % SPIDER_MINE_SHEET_FRAME_COUNT
 
 
-func _get_spider_mine_beacon_center(center: Vector2, using_sheet: bool) -> Vector2:
+func _get_spider_mine_beacon_center(center: Vector2, using_sheet: bool, angle_degrees: float) -> Vector2:
+	var angle: float = deg_to_rad(angle_degrees)
 	if using_sheet:
-		return center + Vector2(0.0, -SPIDER_MINE_SHEET_DRAW_SIZE * 0.26)
-	return center + Vector2(0.0, -2.0)
+		return center + Vector2(0.0, -SPIDER_MINE_SHEET_DRAW_SIZE * 0.26).rotated(angle)
+	return center + Vector2(0.0, -2.0).rotated(angle)
 
 
 func _draw_spider_mine_legs(canvas: CanvasItem, center: Vector2, mine: Dictionary, state: String) -> void:

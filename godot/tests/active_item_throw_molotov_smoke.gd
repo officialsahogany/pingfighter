@@ -55,6 +55,7 @@ func _init() -> void:
 	_verify_direct_fire_zone_clamps_to_visible_center()
 	_verify_fire_zone_clamps_away_from_pillars()
 	_verify_renderer_ellipse_preserves_playfield_transform()
+	_verify_fresh_fire_zone_pushes_on_first_update()
 	_verify_fire_zone_updates_boss_fire_and_push()
 
 	if _failures.is_empty():
@@ -190,6 +191,18 @@ func _verify_renderer_ellipse_preserves_playfield_transform() -> void:
 		body.find("draw_colored_polygon") >= 0 or body.find("draw_mesh") >= 0,
 		"molotov fire-zone ellipse helper should draw in the caller's existing coordinate space"
 	)
+
+
+func _verify_fresh_fire_zone_pushes_on_first_update() -> void:
+	var controller: Object = ActiveItemThrowController.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+
+	controller._trigger_molotov_fire_zone(owner, registry, Vector2(380.0, 75.0))
+	controller._update_molotov_fire_zones(owner, registry, 1.0 / 60.0)
+
+	_expect(owner.boss_pos.x > 330.0, "fresh fire zone should obstruct movement on the first update without relying on slow")
+	_expect(registry.feedback.shakes.size() == 2, "fresh fire-zone trigger and push should request feedback")
 
 
 func _verify_fire_zone_updates_boss_fire_and_push() -> void:

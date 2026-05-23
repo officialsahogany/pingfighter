@@ -118,7 +118,7 @@ func trigger_fire_zone(
 		"max_duration_frames": duration_frames,
 		"flames": [],
 		"spread_timer": 0.0,
-		"push_timer": 0.0,
+		"push_timer": _get_float(controller, "MOLOTOV_FIRE_PUSH_INTERVAL_FRAMES"),
 		"boss_in_fire": false,
 	}
 	seed_flames(controller, fire_zone, zone_center, int(_get_float(controller, "MOLOTOV_FIRE_INITIAL_FLAMES")), 30.0, 10.0)
