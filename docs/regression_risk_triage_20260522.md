@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `974ddb226 godot: prewarm mythic acquisition cinematic`.
-- Code split range through that HEAD contains 74 follow-up commits after the
+  `968a1ff4a godot: tighten mythic field smoke coverage`.
+- Code split range through that HEAD contains 76 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 75 commits.
+  span through the latest code split contains 77 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 53 visible paths in
-  `git status --porcelain=v1` (`11` tracked modified / deleted paths and
+- Current dirty scope before this documentation sync: 51 visible paths in
+  `git status --porcelain=v1` (`9` tracked modified / deleted paths and
   `42` untracked paths).
-- The split notes below are current through the sixty-third split. The
+- The split notes below are current through the sixty-fourth split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3366,6 +3366,26 @@ Sixty-third split on 2026-05-23:
   path as mouse / keyboard / touch users.
 - Validation passed:
   `mythic_item_acquisition_cinematic_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Sixty-fourth split on 2026-05-23:
+
+- Commit: `968a1ff4a godot: tighten mythic field smoke coverage`.
+- Scope: Mythic activation and field-render smokes now assert the split helper
+  contracts instead of old inline runtime methods: activation particles / bolts
+  are built through `mythic_item_activation_effect_runtime.gd`, runtime facade
+  constants stay out of `mythic_item_runtime.gd`, Poseidon draw caps tolerate
+  the current capped strategy, Ragnarok stun draw stays random-free, and
+  field-effect visibility routes through the focused helper that includes
+  acquisition cinematic state.
+- Rationale: the item runtime refactor moved behavior into focused helpers, so
+  tests should guard those ownership boundaries and render-budget contracts
+  directly rather than relying on removed bridge methods.
+- Validation passed:
+  `mythic_item_activation_effect_builder_smoke`,
+  `mythic_item_field_render_budget_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
