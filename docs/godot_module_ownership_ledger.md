@@ -4718,8 +4718,12 @@ This section is intentionally long; use search to find the nearest owner.
   Kick Charger, Soul Burst, Foul Whistle, Revival Charm, Danger Sensor Belt,
   Venom Mist Gauntlet, Rainbow Fur Glove, Celestial Armor, Hermes Shoes, and
   Horn Strawberry Mask. Do not reintroduce private runtime `_update_*`
-  bridges for those paths; any remaining constant-supplying update wrappers
-  should be split only with focused validation for their item constants.
+  bridges for those paths. It also calls `mythic_item_update_gate.gd`
+  directly for runtime-work detection and `mythic_item_poseidon_runtime.gd`
+  directly for the idle Poseidon poll; do not reintroduce private runtime
+  update-gate or idle-poll bridge methods. Any remaining constant-supplying
+  update wrappers should be split only with focused validation for their item
+  constants.
 - `scripts/items/mythic_item_field_effect_visibility.gd`,
   `scripts/items/mythic_item_field_effect_renderer.gd`,
   `scripts/items/mythic_item_context_builder.gd`,

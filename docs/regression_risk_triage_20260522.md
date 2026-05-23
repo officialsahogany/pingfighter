@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `d31bc81b1 godot: route mythic field queries through owners`.
-- The checkpoint span through that HEAD contains 122 follow-up commits after
+  `ffc9bdff7 godot: route mythic update gates through owners`.
+- The checkpoint span through that HEAD contains 124 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 123 commits.
+  contains 125 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `3aa90cb86 docs: record mythic update bridge cleanup`.
+  `0fc66e4fc docs: record mythic field query bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the seventy-ninth split. The broad
+- The split notes below are current through the eightieth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -3937,6 +3937,31 @@ Seventy-ninth split on 2026-05-23:
   `mythic_item_snapshot_builder_smoke`,
   `mythic_item_runtime_idle_update_smoke`,
   `mythic_item_ownership_runtime_smoke`, `celestial_armor_port_smoke`, and
+  `baal_boots_weather_port_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Eightieth split on 2026-05-23:
+
+- Commit: `ffc9bdff7 godot: route mythic update gates through owners`.
+- Scope: `mythic_item_update_runtime.gd` now calls
+  `mythic_item_update_gate.gd` directly for runtime-work detection and calls
+  `poseidon_runtime.poll_idle_dash_trigger()` directly for the idle Poseidon
+  path. `mythic_item_poseidon_runtime.gd` now checks transient update work
+  through `update_gate` directly, and unused private sensor blocker bridge
+  methods were removed from `mythic_item_runtime.gd`.
+- Rationale: update-gate decisions and idle Poseidon polling already have
+  focused owners. Removing the runtime bridge methods keeps the facade from
+  advertising private update helpers that are not scene-facing API.
+- `mythic_item_runtime.gd` line count moved from `2654` to `2618` in this
+  code split.
+- Validation passed:
+  focused update-gate set
+  (`mythic_item_runtime_idle_update_smoke`, `poseidon_trident_port_smoke`,
+  `mythic_item_sensor_auto_defense_runtime_smoke`, `smartphone_port_smoke`,
+  `mythic_item_field_render_budget_smoke`, and
   `baal_boots_weather_port_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
