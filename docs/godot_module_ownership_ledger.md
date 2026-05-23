@@ -373,6 +373,10 @@ This section is intentionally long; use search to find the nearest owner.
   field-spawn item list construction behind the public catalog API;
   debug item construction reuses `FIELD_SPAWN_ORDER` so there is one catalog
   order source for HUD prewarm, pickup, reward, field-spawn, and debug paths.
+  `scripts/items/mythic_item_catalog_spawn_metadata.gd` owns item-name field
+  spawn chance lookup behind the public catalog item-data dictionaries.
+  `mythic_item_catalog.gd` item builders should call `get_field_chance()`
+  instead of duplicating `*_FIELD_CHANCE` constants inline.
   `scripts/items/mythic_item_catalog_rolls.gd` owns the
   catalog roll-option source arrays, item-name roll-option lookup, roll
   defaults, random roll generation, rolled-option decoration, roll-field

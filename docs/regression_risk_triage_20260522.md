@@ -10,22 +10,22 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `510af6c39 godot: move mythic icon paths into metadata helper`.
-- The checkpoint span through that HEAD contains 166 follow-up commits after
+  `5863a6f9a godot: split mythic field chance metadata`.
+- The checkpoint span through that HEAD contains 168 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 167 commits.
+  contains 169 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `2d4436a24 docs: record mythic icon metadata split`.
+  `c4b65d57c docs: record mythic icon path helper split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
   `2001105b6 docs: record final local settings hide`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
-  `godot/` passed on 2026-05-24 with `1286` scripts scanned and no GDScript
+  `godot/` passed on 2026-05-24 with `1287` scripts scanned and no GDScript
   warnings.
 - Current dirty scope before this documentation sync: `git status
   --porcelain=v1 -uall` is clean.
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the 101st split. The broad
+- The split notes below are current through the 102nd split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4495,6 +4495,33 @@ Hundredth split on 2026-05-24:
   `baal_boots_weather_port_smoke`, and `celestial_armor_port_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1286` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
+
+102nd split on 2026-05-24:
+
+- Commit: `5863a6f9a godot: split mythic field chance metadata`.
+- Scope: added `mythic_item_catalog_spawn_metadata.gd` for item-name field
+  spawn chance lookup. `mythic_item_catalog.gd` item builders now hydrate their
+  `"chance"` field through `get_field_chance(item_name)` instead of carrying
+  `*_FIELD_CHANCE` constants inline.
+- Rationale: field-spawn chances are catalog spawn metadata, not item
+  identity definitions. Moving them beside the spawn/list helpers leaves the
+  item builders focused on item identity, slots, roll fields, icons, and text
+  while preserving the public item-data shape used by field spawn, debug,
+  pickup, reward, prewarm, Pandora choice weighting, and treasure routes.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `1167` lines to
+  `1125` lines; the new spawn metadata helper is `56` lines.
+- Validation: focused spawn / reward / pickup / prewarm coverage
+  (`item_field_spawn_pool_smoke`, `passive_item_debug_menu_click_add_smoke`,
+  `active_item_pickup_router_smoke`, `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`,
+  `active_item_runtime_prewarm_smoke`,
+  `active_item_effect_renderer_cache_smoke`, `pandora_legacy_port_smoke`,
+  `treasure_hunt_runtime_smoke`, `treasure_map_perk_port_smoke`,
+  `commando_arm_port_smoke`, `reinforced_boomerang_gauntlet_port_smoke`,
+  `baal_boots_weather_port_smoke`, and `celestial_armor_port_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1287` scripts scanned, no GDScript
   warnings). `git diff --check` passed.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
