@@ -66,11 +66,13 @@ func _verify_draw_paths_use_render_caps() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_field_effect_renderer.gd")
 	var armor_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_armor_field_renderer.gd")
 	var horn_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_horn_strawberry_field_renderer.gd")
+	var momentum_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_momentum_field_renderer.gd")
 	var poseidon_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_poseidon_field_renderer.gd")
 	var ragnarok_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_ragnarok_field_renderer.gd")
 	_expect(source != "", "mythic item field renderer source should be readable")
 	_expect(armor_source != "", "mythic item armor field renderer source should be readable")
 	_expect(horn_source != "", "mythic item Horn Strawberry field renderer source should be readable")
+	_expect(momentum_source != "", "mythic item momentum field renderer source should be readable")
 	_expect(poseidon_source != "", "mythic item Poseidon field renderer source should be readable")
 	_expect(ragnarok_source != "", "mythic item Ragnarok field renderer source should be readable")
 	_expect(
@@ -114,19 +116,19 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Mythic field draw should expose a focused Ragnarok spark perf label"
 	)
 	_expect(
-		_function_body(source, "func draw_knee_pads_effects").find("_recent_start(particles, MAX_RENDERED_KNEE_PADS_PARTICLES)") >= 0,
+		_function_body(momentum_source, "func draw_knee_pads_effects").find("_recent_start(particles, particle_render_limit)") >= 0,
 		"Knee Pads draw should cap decorative flash particles"
 	)
 	_expect(
-		_function_body(source, "func draw_soul_burst_effects").find("_recent_start(wind_trails, MAX_RENDERED_SOUL_BURST_WIND_TRAILS)") >= 0,
+		_function_body(momentum_source, "func draw_soul_burst_effects").find("_recent_start(wind_trails, wind_trail_render_limit)") >= 0,
 		"Soul Burst draw should cap wind trails"
 	)
 	_expect(
-		_function_body(source, "func draw_soul_burst_effects").find("_recent_start(shockwaves, MAX_RENDERED_SOUL_BURST_SHOCKWAVES)") >= 0,
+		_function_body(momentum_source, "func draw_soul_burst_effects").find("_recent_start(shockwaves, shockwave_render_limit)") >= 0,
 		"Soul Burst draw should cap shockwaves"
 	)
 	_expect(
-		_function_body(source, "func draw_soul_burst_effects").find("_recent_start(particles, MAX_RENDERED_SOUL_BURST_PARTICLES)") >= 0,
+		_function_body(momentum_source, "func draw_soul_burst_effects").find("_recent_start(particles, particle_render_limit)") >= 0,
 		"Soul Burst draw should cap decorative dash particles"
 	)
 	_expect(
