@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
 var _method_argument_count_cache: Dictionary = {}
 var _method_acceptance_cache: Dictionary = {}
@@ -295,10 +296,15 @@ func draw_shield_kiting_effects(
 		shield_kiting_state.draw(canvas, shake_offset)
 
 
-func draw_laurel_leaf_shield(canvas: CanvasItem, registry: Object, shake_offset: Vector2) -> void:
+func draw_laurel_leaf_shield(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2,
+	draw_context: Dictionary = {}
+) -> void:
 	var laurel_leaf_shield_state: Object = _get_instance(registry, "laurel_leaf_shield_state")
 	if _has_visible_effects(laurel_leaf_shield_state) and laurel_leaf_shield_state.has_method("draw"):
-		laurel_leaf_shield_state.draw(canvas, shake_offset)
+		laurel_leaf_shield_state.draw(canvas, shake_offset, BattleRenderQuality.effect_scale(draw_context))
 
 
 func draw_plasma_effects(

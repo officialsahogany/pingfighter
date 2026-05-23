@@ -136,7 +136,7 @@ func draw(
 	effects_drawer.draw_shield_kiting_effects(canvas, registry, shake_offset, draw_context)
 	_perf_end(perf_logger, "19.shield_kiting", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	effects_drawer.draw_laurel_leaf_shield(canvas, registry, shake_offset)
+	effects_drawer.draw_laurel_leaf_shield(canvas, registry, shake_offset, draw_context)
 	_perf_end(perf_logger, "20.laurel_leaf_shield", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	effects_drawer.draw_magnum_grip_effects(canvas, registry, draw_context, shake_offset)

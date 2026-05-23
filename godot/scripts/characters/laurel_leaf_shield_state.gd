@@ -11,6 +11,11 @@ const ROTATION_SPEED := 1.8
 const PARTICLE_COUNT := 15
 const FIELD_HEIGHT := 750.0
 const DEFAULT_PLAYER_SIZE := Vector2(155.0, 50.0)
+const LOD_ACTIVE_THRESHOLD := 0.99
+const SEVERE_LOD_ACTIVE_THRESHOLD := 0.66
+const LOD_GLOW_SEGMENTS := 10
+const LOD_PARTICLE_STRIDE := 2
+const SEVERE_LOD_PARTICLE_STRIDE := 3
 
 var active := false
 var leaf_count := 0
@@ -99,9 +104,12 @@ func has_visible_effects() -> bool:
 	return active or not particles.is_empty()
 
 
-func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, effect_lod_scale: float = 1.0) -> void:
 	if canvas == null:
 		return
+	var clamped_lod_scale: float = clamp(effect_lod_scale, 0.0, 1.0)
+	var lod_active: bool = _is_lod_active(clamped_lod_scale)
+	var severe_lod: bool = _is_severe_lod_active(clamped_lod_scale)
 	var draw_order: Array = []
 	if active:
 		for leaf in leaves:
@@ -118,8 +126,11 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 		draw_order.sort_custom(Callable(self, "_sort_leaf_draw_order"))
 
 	for entry in draw_order:
-		_draw_leaf(canvas, entry)
-	_draw_particles(canvas, shake_offset)
+		if lod_active:
+			_draw_leaf_lod(canvas, entry, severe_lod)
+		else:
+			_draw_leaf(canvas, entry)
+	_draw_particles(canvas, shake_offset, clamped_lod_scale)
 
 
 func get_snapshot() -> Dictionary:
@@ -233,6 +244,76 @@ func _draw_leaf(canvas: CanvasItem, entry: Dictionary) -> void:
 			_draw_leaf_type_2(canvas, position, axis, perp, leaf_w, leaf_h, depth_factor)
 		_:
 			_draw_leaf_type_3(canvas, position, axis, perp, leaf_w, leaf_h, depth_factor)
+
+
+func _draw_leaf_lod(canvas: CanvasItem, entry: Dictionary, severe_lod: bool) -> void:
+	var depth: float = float(entry.get("depth", 0.0))
+	var angle: float = float(entry.get("angle", 0.0))
+	var leaf: Dictionary = entry.get("leaf", {})
+	var position: Vector2 = _get_vector2(entry.get("position", Vector2.ZERO), Vector2.ZERO)
+	var depth_factor: float = 0.6 + 0.4 * ((depth + 1.0) * 0.5)
+	var alpha_f: float = 0.5 + 0.5 * ((depth + 1.0) * 0.5)
+	var size_variation: float = float(leaf.get("size_variation", 1.0))
+	var sz: float = max(2.0, LEAF_SIZE * depth_factor * size_variation)
+	var axis := Vector2(cos(angle), sin(angle))
+	var perp := Vector2(-axis.y, axis.x)
+	var leaf_w: float = max(4.0, sz * (2.25 if severe_lod else 2.55))
+	var leaf_h: float = max(3.0, sz * (0.82 if severe_lod else 1.02))
+	var stem: Vector2 = position - axis * leaf_w * 0.46
+	var tip: Vector2 = position + axis * leaf_w * 0.46
+	var leaf_type: int = int(leaf.get("type", 0))
+	var base_color := Color(
+		220.0 / 255.0 * depth_factor,
+		178.0 / 255.0 * depth_factor,
+		54.0 / 255.0 * depth_factor,
+		0.86 * alpha_f
+	)
+	var highlight_color := Color(
+		1.0 * depth_factor,
+		235.0 / 255.0 * depth_factor,
+		120.0 / 255.0 * depth_factor,
+		0.72 * alpha_f
+	)
+	var vein_color := Color(
+		125.0 / 255.0 * depth_factor,
+		92.0 / 255.0 * depth_factor,
+		25.0 / 255.0 * depth_factor,
+		0.84 * alpha_f
+	)
+	if not severe_lod and depth > -0.45:
+		var glow_color := Color(1.0, 215.0 / 255.0, 100.0 / 255.0, (24.0 / 255.0) * alpha_f)
+		_draw_oriented_ellipse(canvas, position, axis, perp, 0.0, 0.0, leaf_w * 0.90, leaf_h * 1.45, glow_color, LOD_GLOW_SEGMENTS)
+
+	var shoulder_x: float = 0.18 if severe_lod else 0.22
+	var shoulder_y: float = 0.46 if severe_lod else 0.54
+	var rear_y: float = 0.30 if leaf_type == 1 else 0.38
+	var stem_y: float = 0.10 if leaf_type == 2 else 0.13
+	var body_points := PackedVector2Array([
+		tip,
+		position + axis * leaf_w * shoulder_x + perp * leaf_h * shoulder_y,
+		position - axis * leaf_w * 0.16 + perp * leaf_h * rear_y,
+		position - axis * leaf_w * 0.38 + perp * leaf_h * stem_y,
+		stem,
+		position - axis * leaf_w * 0.38 - perp * leaf_h * stem_y,
+		position - axis * leaf_w * 0.16 - perp * leaf_h * rear_y,
+		position + axis * leaf_w * shoulder_x - perp * leaf_h * shoulder_y,
+	])
+	canvas.draw_colored_polygon(body_points, base_color)
+	if not severe_lod:
+		var highlight_points := PackedVector2Array([
+			position + axis * leaf_w * 0.28 + perp * leaf_h * 0.12,
+			position + axis * leaf_w * 0.02 + perp * leaf_h * 0.26,
+			position - axis * leaf_w * 0.24 + perp * leaf_h * 0.12,
+			position - axis * leaf_w * 0.08 - perp * leaf_h * 0.02,
+		])
+		canvas.draw_colored_polygon(highlight_points, highlight_color)
+	canvas.draw_line(stem + axis * leaf_w * 0.08, tip - axis * leaf_w * 0.08, vein_color, 1.0, true)
+	if not severe_lod and depth > -0.25:
+		var vein_span: float = leaf_w * 0.22
+		for i in range(2):
+			var anchor: Vector2 = stem + axis * (leaf_w * (0.42 + float(i) * 0.16))
+			canvas.draw_line(anchor, anchor - axis * vein_span + perp * leaf_h * 0.34, vein_color, 1.0, true)
+			canvas.draw_line(anchor, anchor - axis * vein_span - perp * leaf_h * 0.34, vein_color, 1.0, true)
 
 
 # ----- leaf-space drawing helpers ---------------------------------------------
@@ -461,8 +542,12 @@ func _draw_leaf_type_3(canvas: CanvasItem, position: Vector2, axis: Vector2, per
 			w - offset, floor(h * 0.5), w - offset - 5.0, floor(h * 2.0 / 3.0), vein_color, 1.0)
 
 
-func _draw_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for particle in particles:
+func _draw_particles(canvas: CanvasItem, shake_offset: Vector2, effect_lod_scale: float = 1.0) -> void:
+	var stride: int = _get_particle_render_stride(effect_lod_scale)
+	for i in range(particles.size()):
+		if stride > 1 and i % stride != 0:
+			continue
+		var particle: Dictionary = particles[i]
 		var life: float = max(0.0, float(particle.get("life", 0.0)))
 		var max_life: float = max(1.0, float(particle.get("max_life", 40.0)))
 		var ratio: float = clamp(life / max_life, 0.0, 1.0)
@@ -472,6 +557,22 @@ func _draw_particles(canvas: CanvasItem, shake_offset: Vector2) -> void:
 		var color: Color = particle.get("color", Color(1.0, 220.0 / 255.0, 100.0 / 255.0))
 		var radius: float = max(1.0, life / 8.0)
 		canvas.draw_circle(pos, radius, Color(color.r, color.g, color.b, 0.86 * ratio))
+
+
+func _is_lod_active(effect_lod_scale: float) -> bool:
+	return effect_lod_scale < LOD_ACTIVE_THRESHOLD
+
+
+func _is_severe_lod_active(effect_lod_scale: float) -> bool:
+	return effect_lod_scale <= SEVERE_LOD_ACTIVE_THRESHOLD
+
+
+func _get_particle_render_stride(effect_lod_scale: float) -> int:
+	if _is_severe_lod_active(effect_lod_scale):
+		return SEVERE_LOD_PARTICLE_STRIDE
+	if _is_lod_active(effect_lod_scale):
+		return LOD_PARTICLE_STRIDE
+	return 1
 
 
 func _sort_leaf_draw_order(a: Dictionary, b: Dictionary) -> bool:
