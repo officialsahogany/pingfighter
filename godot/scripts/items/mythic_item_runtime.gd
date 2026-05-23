@@ -452,7 +452,7 @@ func prewarm_initialization_step(perform_reset: bool = true) -> bool:
 
 func reset() -> void:
 	_ensure_helpers_ready(false)
-	lifecycle_runtime.reset(self, BASE_SPECIAL_GAUGE_MAX)
+	lifecycle_runtime.reset(self, BASE_SPECIAL_GAUGE_MAX, BAAL_BOOTS_CONSTANTS)
 
 
 func prewarm_assets() -> void:
@@ -488,7 +488,7 @@ func should_skip_one_time_passive_spawn(item_name: String) -> bool:
 
 func reset_round(registry: Object = null) -> void:
 	_ensure_helpers_ready()
-	lifecycle_runtime.reset_round(self, registry)
+	lifecycle_runtime.reset_round(self, registry, BAAL_BOOTS_CONSTANTS)
 
 
 func refresh_runtime_perk_scaling(owner: Object = null, registry: Object = null) -> void:
@@ -516,7 +516,8 @@ func acquire_item(
 		roll_overrides,
 		auto_equip,
 		play_pickup_sound,
-		acquired_item_data
+		acquired_item_data,
+		BAAL_BOOTS_CONSTANTS
 	)
 
 
@@ -528,37 +529,37 @@ func equip_item(
 	play_pickup_sound: bool = false
 ) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.equip_item(self, item_name, owner, registry, roll_overrides, play_pickup_sound)
+	return equipment_facade.equip_item(self, item_name, owner, registry, roll_overrides, play_pickup_sound, BAAL_BOOTS_CONSTANTS)
 
 
 func unequip_item(item_name: String, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.unequip_item(self, item_name, owner, registry)
+	return equipment_facade.unequip_item(self, item_name, owner, registry, BAAL_BOOTS_CONSTANTS)
 
 
 func equip_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.equip_inventory_item(self, index, owner, registry)
+	return equipment_facade.equip_inventory_item(self, index, owner, registry, BAAL_BOOTS_CONSTANTS)
 
 
 func unequip_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.unequip_inventory_item(self, index, owner, registry)
+	return equipment_facade.unequip_inventory_item(self, index, owner, registry, BAAL_BOOTS_CONSTANTS)
 
 
 func toggle_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.toggle_inventory_item(self, index, owner, registry)
+	return equipment_facade.toggle_inventory_item(self, index, owner, registry, BAAL_BOOTS_CONSTANTS)
 
 
 func unequip_slot(slot_key: String, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.unequip_slot(self, slot_key, owner, registry)
+	return equipment_facade.unequip_slot(self, slot_key, owner, registry, BAAL_BOOTS_CONSTANTS)
 
 
 func discard_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.discard_inventory_item(self, index, owner, registry)
+	return equipment_facade.discard_inventory_item(self, index, owner, registry, BAAL_BOOTS_CONSTANTS)
 
 
 func debug_toggle_megingjord(owner: Object, registry: Object) -> bool:
@@ -606,7 +607,16 @@ func get_inventory_item(index: int) -> Dictionary:
 
 func debug_adjust_inventory_roll(index: int, option_key: String, delta_steps: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return debug_inventory.debug_adjust_inventory_roll(self, index, option_key, delta_steps, owner, registry, CONTEXT_CONSTANTS)
+	return debug_inventory.debug_adjust_inventory_roll(
+		self,
+		index,
+		option_key,
+		delta_steps,
+		owner,
+		registry,
+		CONTEXT_CONSTANTS,
+		BAAL_BOOTS_CONSTANTS
+	)
 
 
 func get_debug_item_entries() -> Array:
@@ -1092,11 +1102,8 @@ func draw_pandora_legacy_selection(
 
 func on_weather_round_start(owner: Object, registry: Object, weather_type: String = "") -> void:
 	_ensure_helpers_ready()
-	_clear_baal_boots_round_state(registry)
-	if weather_type != "":
-		_try_arm_baal_boots_from_weather(owner, registry, weather_type)
-	else:
-		_try_arm_baal_boots_from_weather(owner, registry)
+	baal_boots_runtime.clear_round_state(self, registry, BAAL_BOOTS_CONSTANTS)
+	baal_boots_runtime.try_arm_from_weather(self, owner, registry, weather_type, BAAL_BOOTS_CONSTANTS)
 
 
 func try_consume_celestial_armor_immunity(
@@ -2402,22 +2409,6 @@ func draw_activation_effect(canvas: CanvasItem, view_size: Vector2) -> void:
 func get_snapshot() -> Dictionary:
 	_ensure_helpers_ready()
 	return snapshot_builder.build_snapshot(self)
-
-
-func _clear_baal_boots_runtime(registry: Object = null) -> void:
-	baal_boots_runtime.clear_runtime(self, registry, BAAL_BOOTS_CONSTANTS)
-
-
-func _clear_baal_boots_round_state(registry: Object = null) -> void:
-	baal_boots_runtime.clear_round_state(self, registry, BAAL_BOOTS_CONSTANTS)
-
-
-func _try_arm_baal_boots_from_weather(
-	owner: Object,
-	registry: Object,
-	weather_type_override: String = ""
-) -> void:
-	baal_boots_runtime.try_arm_from_weather(self, owner, registry, weather_type_override, BAAL_BOOTS_CONSTANTS)
 
 
 func get_item_roll_value(

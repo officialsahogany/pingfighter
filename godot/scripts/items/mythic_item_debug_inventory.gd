@@ -76,7 +76,8 @@ func debug_adjust_inventory_roll(
 	delta_steps: int,
 	owner: Object,
 	registry: Object,
-	constants: Dictionary
+	constants: Dictionary,
+	baal_boots_constants: Dictionary
 ) -> bool:
 	if index < 0 or index >= runtime.inventory_items.size() or option_key == "" or delta_steps == 0:
 		return false
@@ -109,7 +110,7 @@ func debug_adjust_inventory_roll(
 	item_data = runtime.catalog.sync_roll_fields(item_data, false, true)
 	runtime.inventory_items[index] = item_data
 	runtime._rebuild_equipped_items()
-	_reset_item_runtime_after_roll_adjustment(runtime, item_data, owner, registry, constants)
+	_reset_item_runtime_after_roll_adjustment(runtime, item_data, owner, registry, constants, baal_boots_constants)
 	return true
 
 
@@ -124,7 +125,8 @@ func _reset_item_runtime_after_roll_adjustment(
 	item_data: Dictionary,
 	owner: Object,
 	registry: Object,
-	constants: Dictionary
+	constants: Dictionary,
+	baal_boots_constants: Dictionary
 ) -> void:
 	var item_name: String = str(item_data.get("name", ""))
 	if item_name == str(constants.get("item_megingjord", "megingjord")):
@@ -140,6 +142,6 @@ func _reset_item_runtime_after_roll_adjustment(
 	if item_name == str(constants.get("item_hermes_shoes", "hermes_shoes")):
 		runtime.hermes_shoes_runtime.clear_round_state(runtime)
 	if item_name == str(constants.get("item_baal_boots", "baal_boots")):
-		runtime._clear_baal_boots_round_state(registry)
-		runtime._try_arm_baal_boots_from_weather(owner, registry)
+		runtime.baal_boots_runtime.clear_round_state(runtime, registry, baal_boots_constants)
+		runtime.baal_boots_runtime.try_arm_from_weather(runtime, owner, registry, "", baal_boots_constants)
 	runtime._sync_owner(owner, registry)

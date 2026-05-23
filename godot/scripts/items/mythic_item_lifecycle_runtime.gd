@@ -1,7 +1,7 @@
 extends RefCounted
 
 
-func reset(runtime: Object, base_special_gauge_max: float) -> void:
+func reset(runtime: Object, base_special_gauge_max: float, baal_boots_constants: Dictionary) -> void:
 	runtime.debug_management_menu.reset()
 	runtime.acquisition_cinematic_runtime.reset(runtime)
 	runtime.inventory_items.clear()
@@ -26,12 +26,12 @@ func reset(runtime: Object, base_special_gauge_max: float) -> void:
 	runtime.shrapnel_armor_runtime.clear_runtime(runtime)
 	runtime.celestial_armor_runtime.clear_runtime(runtime)
 	runtime.hermes_shoes_runtime.clear_runtime(runtime)
-	runtime._clear_baal_boots_runtime()
+	runtime.baal_boots_runtime.clear_runtime(runtime, null, baal_boots_constants)
 	runtime.horn_strawberry_mask_runtime.reset(runtime)
 	runtime.pandora_legacy_runtime.clear_runtime(runtime)
 
 
-func reset_round(runtime: Object, registry: Object = null) -> void:
+func reset_round(runtime: Object, registry: Object = null, baal_boots_constants: Dictionary = {}) -> void:
 	runtime.acquisition_cinematic_runtime.reset(runtime, registry)
 	runtime.ragnarok_runtime.clear_runtime(runtime, registry)
 	runtime.poseidon_runtime.clear_runtime(runtime)
@@ -45,5 +45,5 @@ func reset_round(runtime: Object, registry: Object = null) -> void:
 	runtime.shrapnel_armor_runtime.clear_round_state(runtime)
 	runtime.celestial_armor_runtime.clear_round_state(runtime)
 	runtime.hermes_shoes_runtime.clear_round_state(runtime)
-	runtime._clear_baal_boots_round_state(registry)
+	runtime.baal_boots_runtime.clear_round_state(runtime, registry, baal_boots_constants)
 	runtime.horn_strawberry_mask_runtime.reset_round(runtime)
