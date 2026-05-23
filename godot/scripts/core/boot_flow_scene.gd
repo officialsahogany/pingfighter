@@ -5,6 +5,7 @@ const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const CharacterSelectPrewarm := preload("res://scripts/ui/character_select_prewarm.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const LOADING_PERCENT_RATE := 72.0
 const LOADING_FINISH_PERCENT_RATE := 96.0
@@ -107,6 +108,9 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		_begin_character_select_loading()
 		accept_event()
+	elif GamepadInput.is_intro_skip_event(event):
+		_begin_character_select_loading()
+		accept_event()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_SPACE, KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE:
@@ -125,6 +129,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventMouseButton and event.pressed:
+		_begin_character_select_loading()
+		get_viewport().set_input_as_handled()
+	elif GamepadInput.is_intro_skip_event(event):
 		_begin_character_select_loading()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and not event.echo:

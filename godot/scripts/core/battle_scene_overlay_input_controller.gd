@@ -1,5 +1,7 @@
 extends RefCounted
 
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+
 const CHARACTER_DEBUG_KEY := KEY_F1
 const ITEM_SPAWN_DEBUG_KEY := KEY_F2
 const ITEM_MANAGEMENT_DEBUG_KEY := KEY_F3
@@ -170,7 +172,7 @@ func handle_input(
 				_mark_handled(owner)
 		return true
 
-	if _is_key_pressed(event, PAUSE_MENU_KEY):
+	if _is_key_pressed(event, PAUSE_MENU_KEY) or GamepadInput.is_pause_event(event):
 		if pause_menu != null and pause_menu.has_method("open"):
 			_close_all_debug_menus(module_getter)
 			pause_menu.open()
@@ -182,7 +184,7 @@ func handle_input(
 		if character_info != null and character_info.has_method("open"):
 			_close_overlay_menu("pause_menu_overlay", "close", module_getter)
 			_prewarm_character_info(character_info, owner, registry, module_getter)
-			character_info.open()
+			_open_character_info(character_info, owner, registry)
 			_queue_redraw(owner)
 			_mark_handled(owner)
 		return true
@@ -375,6 +377,15 @@ func _prewarm_character_info(character_info: Object, owner: Object, registry: Ob
 		character_info.prewarm_assets(owner, registry, module_getter, true, _get_view_size(owner))
 
 
+func _open_character_info(character_info: Object, owner: Object, registry: Object) -> void:
+	if character_info == null or not character_info.has_method("open"):
+		return
+	if _method_accepts_argument_count(character_info, "open", 2):
+		character_info.open(owner, registry)
+	else:
+		character_info.open()
+
+
 func _should_queue_character_info_input_redraw(character_info: Object) -> bool:
 	if character_info != null and character_info.has_method("consume_input_redraw_request"):
 		return bool(character_info.consume_input_redraw_request())
@@ -453,6 +464,8 @@ func _is_elixir_cinematic_active(module_getter: Callable) -> bool:
 
 
 func _is_elixir_confirm_event(event: InputEvent) -> bool:
+	if GamepadInput.is_confirm_event(event):
+		return true
 	if event is InputEventKey:
 		var key_event: InputEventKey = event
 		if not key_event.pressed or key_event.echo:
@@ -503,7 +516,7 @@ func _handle_pause_menu_action(action: String, owner: Object, registry: Object, 
 			var character_info: Object = _get_module(module_getter, "character_info_overlay")
 			if character_info != null and character_info.has_method("open"):
 				_prewarm_character_info(character_info, owner, registry, module_getter)
-				character_info.open()
+				_open_character_info(character_info, owner, registry)
 		"continue":
 			pass
 	if not action.is_empty():
@@ -539,3 +552,15 @@ func _get_view_size(owner: Object) -> Vector2:
 	if owner != null and owner.has_method("get_viewport_rect"):
 		return owner.get_viewport_rect().size
 	return Vector2.ZERO
+
+
+func _method_accepts_argument_count(target: Object, method_name: String, argument_count: int) -> bool:
+	if target == null:
+		return false
+	for method_value in target.get_method_list():
+		var method_info: Dictionary = method_value if method_value is Dictionary else {}
+		if str(method_info.get("name", "")) != method_name:
+			continue
+		var args: Array = method_info.get("args", [])
+		return args.size() >= argument_count
+	return false

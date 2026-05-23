@@ -8,6 +8,7 @@ const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd"
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ConfirmFlashOverlay := preload("res://scripts/ui/character_select_confirm_flash_overlay.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
 const BGM_BUS_NAME := "BGM"
@@ -55,6 +56,8 @@ var confirm_intro_exit_flash_pending: bool = false
 var confirm_intro_exit_flash_hold_remaining: float = 0.0
 var confirm_intro_exit_flash_started: bool = false
 var confirm_intro_exit_flash_overlay: Control = null
+var gamepad_menu_horizontal_latch: int = 0
+var gamepad_menu_vertical_latch: int = 0
 
 
 func _ready() -> void:
@@ -147,12 +150,15 @@ func _gui_input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
 		return
+	if _handle_bgm_toggle_input(event):
+		return
+	if GamepadInput.is_gamepad_event(event):
+		_handle_gamepad_unhandled_input(event)
+		return
 	if not (event is InputEventKey):
 		return
 	var key_event := event as InputEventKey
 	if not key_event.pressed or key_event.echo:
-		return
-	if _handle_bgm_toggle_input(event):
 		return
 	if confirm_intro_active:
 		if is_inside_tree() and get_viewport() != null:
@@ -175,6 +181,79 @@ func _unhandled_input(event: InputEvent) -> void:
 			_go_back()
 			if is_inside_tree() and get_viewport() != null:
 				get_viewport().set_input_as_handled()
+
+
+func _handle_gamepad_unhandled_input(event: InputEvent) -> void:
+	if confirm_intro_active:
+		if is_inside_tree() and get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		return
+	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
+	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
+	var navigation_direction := _get_gamepad_character_navigation_direction(
+		event,
+		horizontal_direction,
+		vertical_direction
+	)
+	if navigation_direction != 0:
+		_move_selection(navigation_direction)
+		if is_inside_tree() and get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		return
+	if GamepadInput.is_confirm_event(event):
+		_confirm_selection()
+		if is_inside_tree() and get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		return
+	if GamepadInput.is_cancel_event(event):
+		_go_back()
+		if is_inside_tree() and get_viewport() != null:
+			get_viewport().set_input_as_handled()
+
+
+func _get_gamepad_character_navigation_direction(
+	event: InputEvent,
+	horizontal_direction: int,
+	vertical_direction: int
+) -> int:
+	if event is InputEventJoypadMotion:
+		return _consume_gamepad_axis_navigation(event as InputEventJoypadMotion, horizontal_direction, vertical_direction)
+	if horizontal_direction != 0:
+		return horizontal_direction
+	return vertical_direction
+
+
+func _consume_gamepad_axis_navigation(
+	motion_event: InputEventJoypadMotion,
+	horizontal_direction: int,
+	vertical_direction: int
+) -> int:
+	if motion_event.axis == JOY_AXIS_LEFT_X:
+		return _consume_gamepad_axis_latch(motion_event.axis_value, horizontal_direction, true)
+	if motion_event.axis == JOY_AXIS_LEFT_Y:
+		return _consume_gamepad_axis_latch(motion_event.axis_value, vertical_direction, false)
+	if horizontal_direction != 0:
+		return horizontal_direction
+	return vertical_direction
+
+
+func _consume_gamepad_axis_latch(axis_value: float, direction: int, horizontal: bool) -> int:
+	if absf(axis_value) <= GamepadInput.MENU_AXIS_RELEASE_THRESHOLD:
+		if horizontal:
+			gamepad_menu_horizontal_latch = 0
+		else:
+			gamepad_menu_vertical_latch = 0
+		return 0
+	if direction == 0:
+		return 0
+	var current_latch := gamepad_menu_horizontal_latch if horizontal else gamepad_menu_vertical_latch
+	if current_latch == direction:
+		return 0
+	if horizontal:
+		gamepad_menu_horizontal_latch = direction
+	else:
+		gamepad_menu_vertical_latch = direction
+	return direction
 
 
 func _draw() -> void:

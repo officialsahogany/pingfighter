@@ -1,0 +1,59 @@
+extends SceneTree
+
+const CharacterSelectScreen := preload("res://scripts/ui/character_select_screen.gd")
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	var screen: Control = CharacterSelectScreen.new()
+	screen.characters = [
+		{"id": "smasher", "unlocked": true},
+		{"id": "soldier", "unlocked": true},
+		{"id": "viper", "unlocked": true},
+	]
+	screen.visible_indices = [0, 1, 2]
+	screen.selected_index = 0
+
+	screen._handle_gamepad_unhandled_input(_axis(JOY_AXIS_LEFT_X, 0.65))
+	_expect(screen.selected_index == 0, "small left-stick tilt should not move character selection")
+
+	screen._handle_gamepad_unhandled_input(_axis(JOY_AXIS_LEFT_X, 0.86))
+	_expect(screen.selected_index == 1, "firm left-stick tilt should move character selection once")
+
+	screen._handle_gamepad_unhandled_input(_axis(JOY_AXIS_LEFT_X, 0.88))
+	_expect(screen.selected_index == 1, "held left-stick tilt should not repeat character selection")
+
+	screen._handle_gamepad_unhandled_input(_axis(JOY_AXIS_LEFT_X, 0.0))
+	screen._handle_gamepad_unhandled_input(_axis(JOY_AXIS_LEFT_X, 0.86))
+	_expect(screen.selected_index == 2, "left-stick selection should move again after returning to neutral")
+
+	screen.selected_index = 0
+	screen.gamepad_menu_horizontal_latch = 0
+	screen.gamepad_menu_vertical_latch = 0
+	screen._handle_gamepad_unhandled_input(_axis(JOY_AXIS_LEFT_Y, -0.86))
+	_expect(screen.selected_index == 2, "vertical left-stick navigation should wrap backward once")
+
+	screen._handle_gamepad_unhandled_input(_axis(JOY_AXIS_LEFT_Y, -0.88))
+	_expect(screen.selected_index == 2, "held vertical left-stick tilt should not repeat character selection")
+	screen.free()
+
+	if _failures.is_empty():
+		print("character_select_gamepad_navigation_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _axis(axis: JoyAxis, value: float) -> InputEventJoypadMotion:
+	var event := InputEventJoypadMotion.new()
+	event.axis = axis
+	event.axis_value = value
+	return event
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

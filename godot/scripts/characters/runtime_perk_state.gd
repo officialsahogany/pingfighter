@@ -4,6 +4,7 @@ const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const Stage1PillarUILayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_renderer.gd")
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const STARPOINT_PER_SKILL_CHOICE := 1
 const BASE_PERK_CHOICE_COUNT := 3
@@ -85,6 +86,8 @@ var viper_ignition_aura_owner_sync_dirty := false
 var pending_unlock_swap: Dictionary = {}
 var unlock_swap_selected_index := 0
 var choice_flight_effect: Dictionary = {}
+var gamepad_choice_horizontal_latch := 0
+var gamepad_unlock_swap_horizontal_latch := 0
 var _flight_scene_config: Object = BattleSceneConfig.new()
 var _flight_view_layout: Object = BattleViewLayout.new()
 var _flight_pillar_layout: Object = Stage1PillarUILayout.new()
@@ -111,6 +114,8 @@ func reset() -> void:
 	pending_unlock_swap.clear()
 	unlock_swap_selected_index = 0
 	choice_flight_effect.clear()
+	gamepad_choice_horizontal_latch = 0
+	gamepad_unlock_swap_horizontal_latch = 0
 	_clear_resume_safety()
 	resume_pre_choice_ball_vel = Vector2.ZERO
 	resume_has_pre_choice_ball_vel = false
@@ -180,6 +185,7 @@ func open_next_choice(
 		feedback_timer = max(feedback_timer, 1.25)
 
 	selected_index = min(1, current_choices.size() - 1)
+	gamepad_choice_horizontal_latch = 0
 	animation_time = 0.0
 	choice_active = true
 	sample_start = _perf_begin(perf_logger)
@@ -260,6 +266,16 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 		return true
 	if has_pending_unlock_swap():
 		return _handle_unlock_swap_input(event, owner, registry, view_size)
+	if GamepadInput.is_gamepad_event(event):
+		var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
+		var navigation_direction := _consume_gamepad_choice_navigation(event, horizontal_direction)
+		if navigation_direction != 0:
+			move_selection(navigation_direction)
+			return true
+		if GamepadInput.is_confirm_event(event):
+			choose_selected(owner, registry, view_size)
+			return true
+		return true
 	if event is InputEventKey:
 		var key_event: InputEventKey = event
 		if not key_event.pressed or key_event.echo:
@@ -296,7 +312,39 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 func move_selection(delta_index: int) -> void:
 	if current_choices.is_empty():
 		return
-	selected_index = (selected_index + delta_index) % current_choices.size()
+	selected_index = posmod(selected_index + delta_index, current_choices.size())
+
+
+func _consume_gamepad_choice_navigation(event: InputEvent, direction: int) -> int:
+	return _consume_gamepad_horizontal_latch(event, direction, false)
+
+
+func _consume_gamepad_unlock_swap_navigation(event: InputEvent, direction: int) -> int:
+	return _consume_gamepad_horizontal_latch(event, direction, true)
+
+
+func _consume_gamepad_horizontal_latch(event: InputEvent, direction: int, unlock_swap: bool) -> int:
+	if not (event is InputEventJoypadMotion):
+		return direction
+	var motion_event: InputEventJoypadMotion = event
+	if motion_event.axis != JOY_AXIS_LEFT_X:
+		return direction
+	if absf(motion_event.axis_value) <= GamepadInput.MENU_AXIS_RELEASE_THRESHOLD:
+		if unlock_swap:
+			gamepad_unlock_swap_horizontal_latch = 0
+		else:
+			gamepad_choice_horizontal_latch = 0
+		return 0
+	if direction == 0:
+		return 0
+	var current_latch := gamepad_unlock_swap_horizontal_latch if unlock_swap else gamepad_choice_horizontal_latch
+	if current_latch == direction:
+		return 0
+	if unlock_swap:
+		gamepad_unlock_swap_horizontal_latch = direction
+	else:
+		gamepad_choice_horizontal_latch = direction
+	return direction
 
 
 func _get_card_index_at(position: Vector2, view_size: Vector2) -> int:
@@ -360,6 +408,19 @@ func _get_unlock_swap_index_at(position: Vector2, view_size: Vector2) -> int:
 
 
 func _handle_unlock_swap_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
+	if GamepadInput.is_gamepad_event(event):
+		var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
+		var navigation_direction := _consume_gamepad_unlock_swap_navigation(event, horizontal_direction)
+		if navigation_direction != 0:
+			move_unlock_swap_selection(navigation_direction)
+			return true
+		if GamepadInput.is_confirm_event(event):
+			confirm_pending_unlock_swap(owner, registry)
+			return true
+		if GamepadInput.is_cancel_event(event):
+			cancel_pending_unlock_swap(owner)
+			return true
+		return true
 	if event is InputEventKey:
 		var key_event: InputEventKey = event
 		if not key_event.pressed or key_event.echo:
@@ -400,7 +461,7 @@ func move_unlock_swap_selection(delta_index: int) -> void:
 	var candidates: Array = _get_array(pending_unlock_swap.get("candidates", []))
 	if candidates.is_empty():
 		return
-	unlock_swap_selected_index = (unlock_swap_selected_index + delta_index) % candidates.size()
+	unlock_swap_selected_index = posmod(unlock_swap_selected_index + delta_index, candidates.size())
 
 
 func choose_selected(owner: Object, registry: Object, view_size: Vector2 = Vector2.ZERO) -> void:

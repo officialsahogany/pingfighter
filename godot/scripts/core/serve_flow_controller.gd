@@ -1,5 +1,7 @@
 extends RefCounted
 
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+
 const PLAYER_AUTO_SERVE_DELAY := 3.0
 const TUTORIAL_STAGE := 50
 const BOSS_SERVE_IMMEDIATE_CHANCE := 0.12
@@ -11,10 +13,7 @@ var boss_serve_delay_armed := false
 
 
 func sync_current_input_state() -> void:
-	serve_button_was_pressed = (
-		Input.is_action_pressed("ui_accept")
-		or Input.is_key_pressed(KEY_SPACE)
-	)
+	serve_button_was_pressed = _is_serve_action_pressed()
 	mouse_button_was_pressed = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 
 
@@ -96,10 +95,7 @@ func _pick_boss_serve_delay() -> float:
 
 
 func _update_serve_button_edge() -> bool:
-	var serve_button_pressed: bool = (
-		Input.is_action_pressed("ui_accept")
-		or Input.is_key_pressed(KEY_SPACE)
-	)
+	var serve_button_pressed: bool = _is_serve_action_pressed()
 	var mouse_pressed: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	var just_pressed: bool = (
 		(serve_button_pressed and not serve_button_was_pressed)
@@ -108,6 +104,14 @@ func _update_serve_button_edge() -> bool:
 	serve_button_was_pressed = serve_button_pressed
 	mouse_button_was_pressed = mouse_pressed
 	return just_pressed
+
+
+func _is_serve_action_pressed() -> bool:
+	return (
+		Input.is_action_pressed("ui_accept")
+		or Input.is_key_pressed(KEY_SPACE)
+		or GamepadInput.is_primary_action_pressed()
+	)
 
 
 func _call(callbacks: Dictionary, key: String) -> void:

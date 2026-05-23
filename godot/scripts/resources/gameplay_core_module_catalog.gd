@@ -41,6 +41,14 @@ const MODULES := {
 		"path": "res://scripts/core/battle_mobile_touch_controller.gd",
 		"label": "battle mobile touch controller",
 	},
+	"gamepad_input": {
+		"path": "res://scripts/core/gamepad_input.gd",
+		"label": "gamepad input helper",
+	},
+	"gamepad_vibration_settings": {
+		"path": "res://scripts/core/gamepad_vibration_settings.gd",
+		"label": "gamepad vibration settings",
+	},
 	"battle_scene_input_controller": {
 		"path": "res://scripts/core/battle_scene_input_controller.gd",
 		"label": "battle scene input controller",

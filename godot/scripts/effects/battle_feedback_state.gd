@@ -1,8 +1,26 @@
 extends RefCounted
 
+const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
+
 const GAUGE_GAIN_FLASH_DURATION := 0.45
 const DASH_FLASH_DURATION := 0.55
 const DASH_DIVIDER_ANIM_DURATION := 0.60
+const PADDLE_HIT_VIBRATION_BASE_SPEED := 7.65
+const PADDLE_HIT_VIBRATION_MAX_SPEED := 35.0
+const PADDLE_HIT_VIBRATION_MIN_INTERVAL_MSEC := 45
+const PADDLE_HIT_VIBRATION_MIN_DURATION := 0.08
+const PADDLE_HIT_VIBRATION_MAX_DURATION := 0.16
+const PADDLE_HIT_VIBRATION_MIN_WEAK := 0.25
+const PADDLE_HIT_VIBRATION_MAX_WEAK := 0.85
+const PADDLE_HIT_VIBRATION_MIN_STRONG := 0.45
+const PADDLE_HIT_VIBRATION_MAX_STRONG := 1.0
+const PADDLE_HIT_VIBRATION_SPEED_CURVE := 0.75
+const DRIVE_HIT_VIBRATION_WEAK := 0.78
+const DRIVE_HIT_VIBRATION_STRONG := 1.0
+const DRIVE_HIT_VIBRATION_DURATION := 0.18
+const POWER_SMASH_HIT_VIBRATION_WEAK := 1.0
+const POWER_SMASH_HIT_VIBRATION_STRONG := 1.0
+const POWER_SMASH_HIT_VIBRATION_DURATION := 0.28
 
 var screen_shake := 0.0
 var screen_shake_intensity := 0.0
@@ -11,6 +29,7 @@ var gauge_flash_timer := 0.0
 var dash_flash_timer := 0.0
 var dash_divider_anim_progress := 1.0
 var dash_prev_token_max := 1
+var _last_paddle_hit_vibration_msec := -1000000
 
 
 func update(delta: float, dash_token_max: int) -> void:
@@ -31,6 +50,7 @@ func reset_round(dash_token_max: int) -> void:
 	dash_flash_timer = 0.0
 	dash_divider_anim_progress = 1.0
 	dash_prev_token_max = max(1, dash_token_max)
+	stop_gamepad_vibration()
 
 
 func set_screen_shake(amount: float, intensity: float) -> void:
@@ -53,6 +73,84 @@ func trigger_gauge_flash() -> void:
 
 func trigger_dash_flash() -> void:
 	dash_flash_timer = DASH_FLASH_DURATION
+
+
+func trigger_paddle_hit_vibration(
+	ball_speed: float,
+	is_player: bool = true,
+	drive_activated: bool = false,
+	power_activated: bool = false
+) -> bool:
+	var vibration: Dictionary = GamepadVibrationSettings.apply_vibration_sensitivity(
+		build_paddle_hit_vibration(ball_speed, is_player, drive_activated, power_activated)
+	)
+	if vibration.is_empty():
+		return false
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec - _last_paddle_hit_vibration_msec < PADDLE_HIT_VIBRATION_MIN_INTERVAL_MSEC:
+		return false
+	if not _start_gamepad_vibration(vibration):
+		return false
+	_last_paddle_hit_vibration_msec = now_msec
+	return true
+
+
+func build_paddle_hit_vibration(
+	ball_speed: float,
+	is_player: bool = true,
+	drive_activated: bool = false,
+	power_activated: bool = false
+) -> Dictionary:
+	if not is_player or ball_speed <= 0.0:
+		return {}
+	if power_activated:
+		return {
+			"weak": POWER_SMASH_HIT_VIBRATION_WEAK,
+			"strong": POWER_SMASH_HIT_VIBRATION_STRONG,
+			"duration": POWER_SMASH_HIT_VIBRATION_DURATION,
+			"speed_ratio": 1.0,
+			"intensity": 1.0,
+			"profile": "power_smash",
+		}
+	if drive_activated:
+		return {
+			"weak": DRIVE_HIT_VIBRATION_WEAK,
+			"strong": DRIVE_HIT_VIBRATION_STRONG,
+			"duration": DRIVE_HIT_VIBRATION_DURATION,
+			"speed_ratio": 1.0,
+			"intensity": 1.0,
+			"profile": "drive",
+		}
+	var speed_span: float = max(0.001, PADDLE_HIT_VIBRATION_MAX_SPEED - PADDLE_HIT_VIBRATION_BASE_SPEED)
+	var speed_ratio: float = clamp((ball_speed - PADDLE_HIT_VIBRATION_BASE_SPEED) / speed_span, 0.0, 1.0)
+	var intensity: float = pow(speed_ratio, PADDLE_HIT_VIBRATION_SPEED_CURVE)
+	return {
+		"weak": lerp(PADDLE_HIT_VIBRATION_MIN_WEAK, PADDLE_HIT_VIBRATION_MAX_WEAK, intensity),
+		"strong": lerp(PADDLE_HIT_VIBRATION_MIN_STRONG, PADDLE_HIT_VIBRATION_MAX_STRONG, intensity),
+		"duration": lerp(PADDLE_HIT_VIBRATION_MIN_DURATION, PADDLE_HIT_VIBRATION_MAX_DURATION, intensity),
+		"speed_ratio": speed_ratio,
+		"intensity": intensity,
+		"profile": "normal",
+	}
+
+
+func stop_gamepad_vibration() -> void:
+	for joypad in Input.get_connected_joypads():
+		Input.stop_joy_vibration(int(joypad))
+
+
+func _start_gamepad_vibration(vibration: Dictionary) -> bool:
+	var joypads: Array = Input.get_connected_joypads()
+	if joypads.is_empty():
+		return false
+	for joypad in joypads:
+		Input.start_joy_vibration(
+			int(joypad),
+			float(vibration.get("weak", 0.0)),
+			float(vibration.get("strong", 0.0)),
+			float(vibration.get("duration", 0.0))
+		)
+	return true
 
 
 func get_shake_offset() -> Vector2:

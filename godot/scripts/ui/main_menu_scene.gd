@@ -4,6 +4,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const PauseMenuOverlay := preload("res://scripts/hud/pause_menu_overlay.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const DEFAULT_CHARACTER_SELECT_SCENE_PATH := "res://scenes/character_select.tscn"
 const MAIN_MENU_BACKGROUND_PATH := "res://assets/ui/main_menu/lingpia_main_menu_bg_logo.png"
@@ -197,8 +198,14 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if _handle_bgm_toggle_input(event):
 		return
-	if not _is_settings_overlay_active():
+	if _is_settings_overlay_active():
+		_handle_settings_overlay_input(event)
 		return
+	if _handle_main_menu_gamepad_input(event):
+		return
+
+
+func _handle_settings_overlay_input(event: InputEvent) -> void:
 	var result: Variant = main_menu_settings_overlay.handle_input(
 		event,
 		self,
@@ -214,6 +221,39 @@ func _input(event: InputEvent) -> void:
 			viewport.set_input_as_handled()
 
 
+func _handle_main_menu_gamepad_input(event: InputEvent) -> bool:
+	if not GamepadInput.is_gamepad_event(event):
+		return false
+	if transitioning or intro_reveal_active:
+		_mark_input_as_handled()
+		return true
+	if _is_quit_confirmation_open():
+		if GamepadInput.is_confirm_event(event):
+			_on_quit_confirmed()
+			_mark_input_as_handled()
+			return true
+		if GamepadInput.is_cancel_event(event):
+			_on_quit_canceled()
+			_mark_input_as_handled()
+			return true
+		return false
+	if GamepadInput.is_confirm_event(event):
+		_on_start_pressed()
+		_mark_input_as_handled()
+		return true
+	if GamepadInput.is_cancel_event(event):
+		_on_quit_pressed()
+		_mark_input_as_handled()
+		return true
+	return false
+
+
+func _mark_input_as_handled() -> void:
+	var viewport: Viewport = get_viewport()
+	if viewport != null:
+		viewport.set_input_as_handled()
+
+
 func _gui_input(event: InputEvent) -> void:
 	if transitioning:
 		return
@@ -224,8 +264,20 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 		return
 	if _is_quit_confirmation_open():
+		if GamepadInput.is_confirm_event(event):
+			_on_quit_confirmed()
+		elif GamepadInput.is_cancel_event(event):
+			_on_quit_canceled()
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 			_on_quit_canceled()
+		accept_event()
+		return
+	if GamepadInput.is_confirm_event(event):
+		_on_start_pressed()
+		accept_event()
+		return
+	elif GamepadInput.is_cancel_event(event):
+		_on_quit_pressed()
 		accept_event()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:

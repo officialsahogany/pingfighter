@@ -12,7 +12,8 @@ func register(
 	is_player: bool,
 	power_activated: bool,
 	deps: Dictionary,
-	context: Dictionary = {}
+	context: Dictionary = {},
+	drive_activated: bool = false
 ) -> void:
 	var ball_intensity = deps.get("ball_intensity", null)
 	var intensity: float = 0.0
@@ -44,6 +45,8 @@ func register(
 			feedback.max_screen_shake(PADDLE_HIT_SHAKE_AMOUNT, PADDLE_HIT_SHAKE_INTENSITY)
 		elif feedback.has_method("set_screen_shake"):
 			feedback.set_screen_shake(PADDLE_HIT_SHAKE_AMOUNT, PADDLE_HIT_SHAKE_INTENSITY)
+		if is_player and feedback.has_method("trigger_paddle_hit_vibration"):
+			feedback.trigger_paddle_hit_vibration(ball_vel.length(), is_player, drive_activated, power_activated)
 
 	if not power_activated and not _should_suppress_paddle_hit_audio(is_player, context, deps):
 		var audio = deps.get("audio", null)
