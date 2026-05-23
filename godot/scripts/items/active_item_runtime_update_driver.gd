@@ -66,6 +66,7 @@ func apply_update(
 		throw_locked_at_update_start
 		or bool(runtime.is_player_control_locked())
 		or bool(runtime.is_aipill_active())
+		or _is_active_item_use_locked(registry)
 	)
 	sample_start = _perf_begin(detail_perf_logger)
 	var slot_result: Dictionary = _call_slot_controller_update(
@@ -89,6 +90,27 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _is_active_item_use_locked(registry: Object) -> bool:
+	var round_state: Object = _get_instance(registry, "round_flow_state")
+	if round_state != null and round_state.has_method("is_waiting_for_serve"):
+		if bool(round_state.is_waiting_for_serve()):
+			return true
+	return (
+		_is_module_active(_get_cached_instance(registry, "stage_landing_intro"))
+		or _is_module_active(_get_cached_instance(registry, "stage_ball_spawn_intro"))
+	)
+
+
+func _is_module_active(module: Object) -> bool:
+	return module != null and module.has_method("is_active") and bool(module.is_active())
+
+
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry != null and registry.has_method("get_cached_instance"):
+		return registry.get_cached_instance(key)
+	return _get_instance(registry, key)
 
 
 func _call_effect_controller_update(

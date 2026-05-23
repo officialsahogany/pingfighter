@@ -20,7 +20,8 @@ func store_field_item(
 		field_item,
 		active_item_slots,
 		registry,
-		_build_can_store_callback(effect_controller)
+		_build_can_store_callback(effect_controller),
+		owner
 	)
 
 

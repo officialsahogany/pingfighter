@@ -68,6 +68,7 @@ var use_facade: Object = null
 var elixir_cinematic_draw: Object = null
 var _helper_init_step_index := 0
 var _helpers_initialized := false
+var _asset_prewarm_step_index := 0
 var _method_argument_count_cache: Dictionary = {}
 
 
@@ -100,17 +101,41 @@ func reset_round() -> void:
 		throw_controller.clear_round_boss_status_effects()
 
 
+func reset_for_stage_transition(owner: Object = null, _registry: Object = null) -> void:
+	_ensure_helpers_ready(false)
+	if lifecycle_facade != null and lifecycle_facade.has_method("reset_for_stage_transition"):
+		lifecycle_facade.reset_for_stage_transition(self, owner, _registry)
+
+
 func build_starting_slots() -> Array:
 	_ensure_helpers_ready()
 	return lifecycle_facade.build_starting_slots(self)
 
 
 func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
-	_ensure_helpers_ready()
-	if render_facade != null and render_facade.has_method("prewarm_assets"):
-		render_facade.prewarm_assets(active_item_hud_visuals)
-	if field_spawn_controller != null and field_spawn_controller.has_method("prewarm_spawn_candidate_templates"):
-		field_spawn_controller.prewarm_spawn_candidate_templates()
+	while not prewarm_assets_step(active_item_hud_visuals):
+		pass
+
+
+func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
+	match _asset_prewarm_step_index:
+		0:
+			if not prewarm_initialization_step(true):
+				return false
+		1:
+			if render_facade != null and render_facade.has_method("prewarm_assets_step"):
+				if not bool(render_facade.prewarm_assets_step(active_item_hud_visuals)):
+					return false
+			elif render_facade != null and render_facade.has_method("prewarm_assets"):
+				render_facade.prewarm_assets(active_item_hud_visuals)
+		2:
+			if field_spawn_controller != null and field_spawn_controller.has_method("prewarm_spawn_candidate_templates"):
+				field_spawn_controller.prewarm_spawn_candidate_templates()
+		_:
+			_asset_prewarm_step_index = 0
+			return true
+	_asset_prewarm_step_index += 1
+	return false
 
 
 func update(owner: Object, registry: Object, delta: float, perf_logger: Object = null) -> Dictionary:

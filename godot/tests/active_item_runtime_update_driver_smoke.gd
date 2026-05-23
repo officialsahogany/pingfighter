@@ -10,17 +10,44 @@ class FakeOwner:
 	extends RefCounted
 
 
+class FakeRoundState:
+	extends RefCounted
+
+	var waiting_for_serve := false
+
+	func is_waiting_for_serve() -> bool:
+		return waiting_for_serve
+
+
+class FakeIntro:
+	extends RefCounted
+
+	var active := false
+
+	func is_active() -> bool:
+		return active
+
+
 class FakeRegistry:
 	extends RefCounted
 
 	var warp_gate_state := RefCounted.new()
 	var mythic_item_runtime := RefCounted.new()
+	var round_state := FakeRoundState.new()
+	var stage_landing_intro := FakeIntro.new()
+	var stage_ball_spawn_intro := FakeIntro.new()
 
 	func get_instance(key: String) -> Object:
 		if key == "smasher_warp_gate_state":
 			return warp_gate_state
 		if key == "mythic_item_runtime":
 			return mythic_item_runtime
+		if key == "round_flow_state":
+			return round_state
+		if key == "stage_landing_intro":
+			return stage_landing_intro
+		if key == "stage_ball_spawn_intro":
+			return stage_ball_spawn_intro
 		return null
 
 
@@ -200,6 +227,8 @@ func _init() -> void:
 	_verify_update_driver_runs_normal_frame_lifecycle()
 	_verify_update_driver_skips_post_slot_owner_sync_without_use()
 	_verify_update_driver_preserves_time_frozen_skip()
+	_verify_update_driver_locks_slots_while_waiting_for_serve()
+	_verify_update_driver_locks_slots_during_spawn_intro()
 	_verify_runtime_update_delegates_to_driver()
 
 	if _failures.is_empty():
@@ -296,6 +325,50 @@ func _verify_update_driver_preserves_time_frozen_skip() -> void:
 	_expect(runtime.slot_controller.update_calls == 1, "time freeze should still update slots")
 	_expect(runtime.slot_controller.last_input_locked, "pre-existing throw lock should lock slot input")
 	_expect(runtime.effect_controller.sync_calls == 0, "time freeze should skip duplicate post-slot owner sync when slot input is locked")
+
+
+func _verify_update_driver_locks_slots_while_waiting_for_serve() -> void:
+	var driver: Object = ActiveItemRuntimeUpdateDriver.new()
+	var runtime := FakeRuntime.new()
+	var registry := FakeRegistry.new()
+	registry.round_state.waiting_for_serve = true
+
+	var result: Dictionary = driver.apply_update(
+		runtime,
+		FakeOwner.new(),
+		registry,
+		1.0 / 60.0,
+		Callable(self, "_store_item"),
+		Callable(self, "_pickup_item"),
+		Callable(self, "_apply_item_effect"),
+		Callable(self, "_backup_pending_use")
+	)
+
+	_expect(runtime.slot_controller.update_calls == 1, "serve wait should still sync active item slot input")
+	_expect(runtime.slot_controller.last_input_locked, "serve wait should lock active item slot input")
+	_expect(result.get("used_slot", -1) == -1, "serve wait should not consume an active item")
+	_expect(runtime.effect_controller.sync_calls == 0, "serve wait should not run post-use owner sync")
+
+
+func _verify_update_driver_locks_slots_during_spawn_intro() -> void:
+	var driver: Object = ActiveItemRuntimeUpdateDriver.new()
+	var runtime := FakeRuntime.new()
+	var registry := FakeRegistry.new()
+	registry.stage_ball_spawn_intro.active = true
+
+	var result: Dictionary = driver.apply_update(
+		runtime,
+		FakeOwner.new(),
+		registry,
+		1.0 / 60.0,
+		Callable(self, "_store_item"),
+		Callable(self, "_pickup_item"),
+		Callable(self, "_apply_item_effect"),
+		Callable(self, "_backup_pending_use")
+	)
+
+	_expect(runtime.slot_controller.last_input_locked, "ball spawn intro should lock active item slot input")
+	_expect(result.get("used_slot", -1) == -1, "ball spawn intro should not consume an active item")
 
 
 func _verify_runtime_update_delegates_to_driver() -> void:

@@ -14,13 +14,33 @@ class FakeOwner:
 class FakeRegistry:
 	extends RefCounted
 
-	func get_instance(_key: String) -> Object:
+	var hud_state: Object = null
+
+	func _init(hud: Object = null) -> void:
+		hud_state = hud
+
+	func get_instance(key: String) -> Object:
+		if key == "active_item_hud_state":
+			return hud_state
 		return null
+
+
+class FakeHudState:
+	extends RefCounted
+
+	var selected_index := 0
+
+	func set_selected_index(index: int) -> void:
+		selected_index = max(0, index)
+
+	func get_selected_index() -> int:
+		return selected_index
 
 
 func _init() -> void:
 	_verify_idle_polling_avoids_slot_deep_copy()
 	_verify_many_slot_idle_polling_stays_noop()
+	_verify_gamepad_selected_slot_flow()
 
 	if _failures.is_empty():
 		print("active_item_slot_controller_polling_smoke: ok")
@@ -34,13 +54,19 @@ func _init() -> void:
 func _verify_idle_polling_avoids_slot_deep_copy() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/items/active_item_slot_controller.gd")
 	var update_body: String = _extract_function_body(source, "func update(")
+	var selected_use_edge_index: int = update_body.find("if selected_use_just_pressed:")
 	var pressed_edge_index: int = update_body.find("if i < key_count and pressed and not was_pressed:")
 	var copy_call_index: int = update_body.find("_copy_slots_for_use(active_item_slots)")
+	var keyboard_copy_call_index: int = update_body.find("_copy_slots_for_use(active_item_slots)", pressed_edge_index)
 
+	_expect(selected_use_edge_index >= 0, "slot polling should keep edge-triggered gamepad selected-slot use")
 	_expect(pressed_edge_index >= 0, "slot polling should keep edge-triggered key checks")
-	_expect(copy_call_index > pressed_edge_index, "slot polling should copy slots only after a key edge")
+	_expect(copy_call_index > selected_use_edge_index, "slot polling should copy slots only after a selected-use edge")
+	_expect(keyboard_copy_call_index > pressed_edge_index, "keyboard slot polling should copy slots only after a key edge")
 	_expect(update_body.find("active_item_slots.duplicate(true)") < 0, "idle slot polling should not deep-copy every active slot")
 	_expect(source.find("func _copy_slots_for_use(active_item_slots: Array) -> Array:") >= 0, "slot use copies should stay isolated behind a helper")
+	_expect(source.find("GamepadInput.is_active_item_use_pressed()") >= 0, "slot polling should include the gamepad selected-item use button")
+	_expect(source.find("GamepadInput.get_active_item_selection_direction()") >= 0, "slot polling should include gamepad slot selection")
 
 
 func _verify_many_slot_idle_polling_stays_noop() -> void:
@@ -67,6 +93,37 @@ func _verify_many_slot_idle_polling_stays_noop() -> void:
 	_expect(int(result.get("used_slot", -2)) == -1, "idle polling should not use a slot")
 	_expect(owner.active_item_slots.size() == 18, "idle polling should not rewrite or remove slots")
 	_expect(str(owner.active_item_slots[17].get("name", "")) == "test_item_17", "idle polling should keep later slots intact")
+
+
+func _verify_gamepad_selected_slot_flow() -> void:
+	var controller: Object = ActiveItemSlotController.new()
+	var owner := FakeOwner.new()
+	var hud_state := FakeHudState.new()
+	var registry := FakeRegistry.new(hud_state)
+	owner.active_item_slots = [
+		{"name": "first_item"},
+		{"name": "second_item"},
+		{"name": "third_item"},
+	]
+
+	_expect(controller.cycle_selected_slot(1, owner, registry) == 1, "gamepad slot cycle should advance selected active item")
+	_expect(hud_state.selected_index == 1, "HUD state should track the cycled active-item slot")
+	_expect(controller.cycle_selected_slot(1, owner, registry) == 2, "gamepad slot cycle should advance across all slots")
+	_expect(controller.cycle_selected_slot(1, owner, registry) == 0, "gamepad slot cycle should wrap at the end")
+	_expect(controller.cycle_selected_slot(-1, owner, registry) == 2, "gamepad slot cycle should wrap backward")
+
+	var used: bool = controller.use_selected_slot(
+		owner,
+		registry,
+		false,
+		Callable(self, "_apply_item_effect"),
+		Callable(self, "_backup_pending_use")
+	)
+	_expect(used, "selected active-item slot should be usable through the controller")
+	_expect(owner.active_item_slots.size() == 2, "using a consumable selected slot should remove that item")
+	_expect(str(owner.active_item_slots[0].get("name", "")) == "first_item", "selected use should leave earlier slots intact")
+	_expect(str(owner.active_item_slots[1].get("name", "")) == "second_item", "selected use should remove the selected third slot")
+	_expect(hud_state.selected_index == 1, "selected index should clamp after the selected item is consumed")
 
 
 func _extract_function_body(source: String, signature: String) -> String:

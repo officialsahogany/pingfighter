@@ -40,17 +40,44 @@ class FakeHudState:
 		selected_index = index
 
 
+class FakeRoundState:
+	extends RefCounted
+
+	var waiting_for_serve := false
+
+	func is_waiting_for_serve() -> bool:
+		return waiting_for_serve
+
+
+class FakeIntro:
+	extends RefCounted
+
+	var active := false
+
+	func is_active() -> bool:
+		return active
+
+
 class FakeRegistry:
 	extends RefCounted
 
 	var audio := FakeAudio.new()
 	var hud_state := FakeHudState.new()
+	var round_state := FakeRoundState.new()
+	var stage_landing_intro := FakeIntro.new()
+	var stage_ball_spawn_intro := FakeIntro.new()
 
 	func get_instance(key: String) -> Object:
 		if key == "game_audio":
 			return audio
 		if key == "active_item_hud_state":
 			return hud_state
+		if key == "round_flow_state":
+			return round_state
+		if key == "stage_landing_intro":
+			return stage_landing_intro
+		if key == "stage_ball_spawn_intro":
+			return stage_ball_spawn_intro
 		return null
 
 
@@ -118,6 +145,8 @@ class FakeUseFacade:
 
 func _init() -> void:
 	_verify_use_facade_owns_pandora_slot_use()
+	_verify_use_facade_blocks_serve_wait_slot_use()
+	_verify_use_facade_blocks_intro_auto_use()
 	_verify_use_facade_routes_pending_throw_backup()
 	_verify_runtime_round_end_detonates_counting_dynamite()
 	_verify_runtime_delegates_use_surface()
@@ -143,6 +172,35 @@ func _verify_use_facade_owns_pandora_slot_use() -> void:
 	_expect(owner.active_item_slots.is_empty(), "Pandora use should consume the active slot")
 	_expect(runtime.field_spawn_controller.is_dimension_gate_active(), "Pandora use should activate Dimension Gate")
 	_expect(registry.audio.calls == ["play_pandora"], "Pandora use should play the Pandora audio cue")
+
+
+func _verify_use_facade_blocks_serve_wait_slot_use() -> void:
+	var facade: Object = ActiveItemRuntimeUseFacade.new()
+	var runtime: Object = ActiveItemRuntime.new()
+	_finish_runtime_initialization(runtime)
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	registry.round_state.waiting_for_serve = true
+	owner.active_item_slots = [runtime.item_catalog.build_item_by_name("pandora_box")]
+
+	_expect(not facade.use_slot(runtime, 0, owner, registry), "serve wait should block direct active item slot use")
+	_expect(owner.active_item_slots.size() == 1, "serve wait should not consume the active item slot")
+	_expect(not runtime.field_spawn_controller.is_dimension_gate_active(), "serve wait should not apply the item effect")
+	_expect(registry.audio.calls.is_empty(), "serve wait should not play active item audio")
+
+
+func _verify_use_facade_blocks_intro_auto_use() -> void:
+	var facade: Object = ActiveItemRuntimeUseFacade.new()
+	var runtime: Object = ActiveItemRuntime.new()
+	_finish_runtime_initialization(runtime)
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	registry.stage_ball_spawn_intro.active = true
+	owner.active_item_slots = [runtime.item_catalog.build_item_by_name("gauge_charge")]
+
+	_expect(facade.try_smartphone_auto_recovery(runtime, owner, registry) == "", "spawn intro should block smartphone active item auto-use")
+	_expect(owner.active_item_slots.size() == 1, "spawn intro auto-use should not consume the active item slot")
+	_expect(owner.special_gauge == 0.0, "spawn intro auto-use should not apply recovery effects")
 
 
 func _verify_use_facade_routes_pending_throw_backup() -> void:

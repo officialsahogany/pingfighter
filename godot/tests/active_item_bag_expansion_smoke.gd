@@ -101,6 +101,37 @@ func _init() -> void:
 	)
 	_expect(active_slots.size() == 4, "fourth item should be stored in the expanded slot")
 
+	_expect(
+		slot_controller.store_active_item(
+			{"item_data": {"name": "soap"}},
+			active_slots,
+			registry,
+			Callable(policy, "can_store_item")
+		),
+		"slot controller should accept a fifth item when bag expansion exposes five slots"
+	)
+	_expect(active_slots.size() == 5, "fifth item should fill the last expanded slot")
+	_expect(str(active_slots[4].get("name", "")) == "soap", "fifth item should occupy the last expanded slot")
+
+	var placeholder_slots: Array = [
+		{"name": "banana"},
+		{"name": "soap"},
+		{"name": "grenade"},
+		{"name": "flare"},
+		{},
+	]
+	_expect(
+		slot_controller.store_active_item(
+			{"item_data": {"name": "wall"}},
+			placeholder_slots,
+			registry,
+			Callable(policy, "can_store_item")
+		),
+		"slot controller should count real items, not blank placeholder entries, before pickup"
+	)
+	_expect(placeholder_slots.size() == 5, "blank placeholder should be compacted before storing the pickup")
+	_expect(str(placeholder_slots[4].get("name", "")) == "wall", "pickup should fill the compacted empty expanded slot")
+
 	print("active_item_bag_expansion_smoke: ok")
 	quit(0)
 

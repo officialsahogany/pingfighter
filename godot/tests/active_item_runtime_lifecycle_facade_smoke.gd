@@ -19,9 +19,30 @@ class FakeSlotController:
 	extends FakeResetController
 
 	var starting_slots: Array = [{"name": "starter"}]
+	var cooldown_reset_calls := 0
 
 	func build_starting_slots() -> Array:
 		return starting_slots
+
+	func reset_cooldowns_for_stage_transition(active_item_slots: Array) -> Array:
+		cooldown_reset_calls += 1
+		var result: Array = active_item_slots.duplicate(true)
+		for i in range(result.size()):
+			var item_value: Variant = result[i]
+			if item_value is Dictionary:
+				var item_data: Dictionary = item_value
+				item_data["last_use_msec"] = -1
+				result[i] = item_data
+		return result
+
+
+class FakeOwner:
+	extends RefCounted
+
+	var active_item_slots := [
+		{"name": "aipill", "last_use_msec": 12345},
+		{"name": "grenade", "last_use_msec": 23456},
+	]
 
 
 class FakeRuntime:
@@ -39,10 +60,14 @@ class FakeLifecycleFacade:
 	extends RefCounted
 
 	var reset_calls := 0
+	var transition_reset_calls := 0
 	var build_calls := 0
 
 	func reset(_runtime: Object) -> void:
 		reset_calls += 1
+
+	func reset_for_stage_transition(_runtime: Object, _owner: Object, _registry: Object = null) -> void:
+		transition_reset_calls += 1
 
 	func build_starting_slots(_runtime: Object) -> Array:
 		build_calls += 1
@@ -51,6 +76,7 @@ class FakeLifecycleFacade:
 
 func _init() -> void:
 	_verify_lifecycle_facade_resets_runtime_state()
+	_verify_lifecycle_facade_resets_stage_transition_runtime_state_without_losing_slots()
 	_verify_lifecycle_facade_forwards_starting_slots()
 	_verify_runtime_delegates_lifecycle_surface()
 
@@ -77,6 +103,25 @@ func _verify_lifecycle_facade_resets_runtime_state() -> void:
 	_expect(runtime.pending_throw_recovery.reset_calls == 1, "lifecycle facade should reset pending throw recovery")
 
 
+func _verify_lifecycle_facade_resets_stage_transition_runtime_state_without_losing_slots() -> void:
+	var facade: Object = ActiveItemRuntimeLifecycleFacade.new()
+	var runtime := FakeRuntime.new()
+	var owner := FakeOwner.new()
+
+	facade.reset_for_stage_transition(runtime, owner)
+
+	_expect(runtime.field_spawn_controller.reset_calls == 1, "stage transition should reset active item field spawns")
+	_expect(runtime.throw_controller.reset_calls == 1, "stage transition should reset active item throw state")
+	_expect(runtime.effect_controller.reset_calls == 1, "stage transition should reset active item transient effects")
+	_expect(runtime.debug_spawn_menu.reset_calls == 1, "stage transition should reset active item debug menu state")
+	_expect(runtime.pending_throw_recovery.reset_calls == 1, "stage transition should reset pending throw recovery")
+	_expect(runtime.slot_controller.reset_calls == 1, "stage transition should reset slot input/cooldown controller state")
+	_expect(runtime.slot_controller.cooldown_reset_calls == 1, "stage transition should clear stored slot cooldowns")
+	_expect(owner.active_item_slots.size() == 2, "stage transition should preserve active item inventory")
+	_expect(int(owner.active_item_slots[0].get("last_use_msec", 0)) < 0, "stage transition should clear first slot cooldown")
+	_expect(str(owner.active_item_slots[1].get("name", "")) == "grenade", "stage transition should keep slot item identity")
+
+
 func _verify_lifecycle_facade_forwards_starting_slots() -> void:
 	var facade: Object = ActiveItemRuntimeLifecycleFacade.new()
 	var runtime := FakeRuntime.new()
@@ -92,9 +137,11 @@ func _verify_runtime_delegates_lifecycle_surface() -> void:
 	runtime.lifecycle_facade = facade
 
 	runtime.reset()
+	runtime.reset_for_stage_transition(FakeOwner.new(), null)
 	var slots: Array = runtime.build_starting_slots()
 
 	_expect(facade.reset_calls == 1, "runtime reset should delegate to lifecycle facade")
+	_expect(facade.transition_reset_calls == 1, "runtime stage transition reset should delegate to lifecycle facade")
 	_expect(facade.build_calls == 1, "runtime starting slots should delegate to lifecycle facade")
 	_expect(slots.size() == 1, "runtime should return delegated starting slots")
 	_expect(str(slots[0].get("name", "")) == "delegated_starter", "runtime should preserve delegated slot data")

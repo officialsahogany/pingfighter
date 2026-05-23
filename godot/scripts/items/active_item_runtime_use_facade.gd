@@ -4,7 +4,11 @@ extends RefCounted
 func use_slot(runtime: Object, slot_index: int, owner: Object, registry: Object) -> bool:
 	if owner == null:
 		return false
-	var input_locked: bool = bool(runtime.is_player_control_locked()) or bool(runtime.is_aipill_active())
+	var input_locked: bool = (
+		bool(runtime.is_player_control_locked())
+		or bool(runtime.is_aipill_active())
+		or _is_active_item_use_locked(registry)
+	)
 	return bool(runtime.slot_controller.use_slot(
 		slot_index,
 		owner,
@@ -21,6 +25,8 @@ func try_smartphone_auto_recovery(
 	registry: Object,
 	gauge_threshold: float = 120.0
 ) -> String:
+	if _is_active_item_use_locked(registry):
+		return ""
 	return str(runtime.smartphone_auto_use.try_auto_recovery(
 		owner,
 		registry,
@@ -32,6 +38,8 @@ func try_smartphone_auto_recovery(
 
 
 func try_smartphone_auto_defense(runtime: Object, owner: Object, registry: Object) -> String:
+	if _is_active_item_use_locked(registry):
+		return ""
 	return str(runtime.smartphone_auto_use.try_auto_defense(
 		owner,
 		registry,
@@ -106,3 +114,24 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _is_active_item_use_locked(registry: Object) -> bool:
+	var round_state: Object = _get_instance(registry, "round_flow_state")
+	if round_state != null and round_state.has_method("is_waiting_for_serve"):
+		if bool(round_state.is_waiting_for_serve()):
+			return true
+	return (
+		_is_module_active(_get_cached_instance(registry, "stage_landing_intro"))
+		or _is_module_active(_get_cached_instance(registry, "stage_ball_spawn_intro"))
+	)
+
+
+func _is_module_active(module: Object) -> bool:
+	return module != null and module.has_method("is_active") and bool(module.is_active())
+
+
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry != null and registry.has_method("get_cached_instance"):
+		return registry.get_cached_instance(key)
+	return _get_instance(registry, key)

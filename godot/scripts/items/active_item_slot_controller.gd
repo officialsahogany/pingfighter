@@ -2,6 +2,7 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const DEFAULT_COOLDOWN_MSEC := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
 const SLOT_KEY_CODES := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9]
@@ -10,11 +11,31 @@ const ALCHEMY_NOTICE_DURATION_MSEC := 1000
 
 var slot_key_pressed: Dictionary = {}
 var last_item_use_msec: int = -1000000
+var gamepad_selected_use_pressed := false
+var gamepad_slot_cycle_direction := 0
 
 
 func reset() -> void:
 	slot_key_pressed.clear()
 	last_item_use_msec = -1000000
+	gamepad_selected_use_pressed = false
+	gamepad_slot_cycle_direction = 0
+
+
+func reset_cooldowns_for_stage_transition(active_item_slots: Array) -> Array:
+	last_item_use_msec = -1000000
+	var result: Array = active_item_slots.duplicate(true)
+	for i in range(result.size()):
+		var slot: Variant = result[i]
+		if not (slot is Dictionary):
+			continue
+		var item: Dictionary = slot
+		if item.has("last_use_msec"):
+			item["last_use_msec"] = -1
+		if item.has("last_use"):
+			item["last_use"] = -1
+		result[i] = item
+	return result
 
 
 func build_starting_slots() -> Array:
@@ -34,7 +55,7 @@ func update(
 
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
 	if active_item_slots.is_empty() or input_locked:
-		_sync_slot_key_states()
+		_sync_slot_input_states()
 		return {
 			"used_slot": -1,
 		}
@@ -42,27 +63,53 @@ func update(
 	var slots_copy: Array = []
 	var slots_copy_created: bool = false
 	var used_slot: int = -1
+
+	var cycle_direction: int = GamepadInput.get_active_item_selection_direction()
+	if cycle_direction != 0 and cycle_direction != gamepad_slot_cycle_direction:
+		_cycle_selected_slot(registry, active_item_slots, cycle_direction)
+	gamepad_slot_cycle_direction = cycle_direction
+
+	var selected_use_pressed: bool = GamepadInput.is_active_item_use_pressed()
+	var selected_use_just_pressed: bool = selected_use_pressed and not gamepad_selected_use_pressed
+	gamepad_selected_use_pressed = selected_use_pressed
+	if selected_use_just_pressed:
+		var selected_slot: int = _get_selected_slot_index(registry, active_item_slots)
+		slots_copy = _copy_slots_for_use(active_item_slots)
+		slots_copy_created = true
+		if _try_use_slot(
+			selected_slot,
+			slots_copy,
+			owner,
+			registry,
+			apply_item_effect_callback,
+			pending_use_backup_callback,
+			false,
+			perf_logger
+		):
+			used_slot = selected_slot
+
 	var key_count: int = int(min(active_item_slots.size(), SLOT_KEY_CODES.size()))
-	for i in range(SLOT_KEY_CODES.size()):
-		var pressed: bool = Input.is_key_pressed(int(SLOT_KEY_CODES[i]))
-		var was_pressed: bool = bool(slot_key_pressed.get(i, false))
-		slot_key_pressed[i] = pressed
-		if i < key_count and pressed and not was_pressed:
-			if not slots_copy_created:
-				slots_copy = _copy_slots_for_use(active_item_slots)
-				slots_copy_created = true
-			if _try_use_slot(
-				i,
-				slots_copy,
-				owner,
-				registry,
-				apply_item_effect_callback,
-				pending_use_backup_callback,
-				false,
-				perf_logger
-			):
-				used_slot = i
-				break
+	if used_slot < 0:
+		for i in range(SLOT_KEY_CODES.size()):
+			var pressed: bool = Input.is_key_pressed(int(SLOT_KEY_CODES[i]))
+			var was_pressed: bool = bool(slot_key_pressed.get(i, false))
+			slot_key_pressed[i] = pressed
+			if i < key_count and pressed and not was_pressed:
+				if not slots_copy_created:
+					slots_copy = _copy_slots_for_use(active_item_slots)
+					slots_copy_created = true
+				if _try_use_slot(
+					i,
+					slots_copy,
+					owner,
+					registry,
+					apply_item_effect_callback,
+					pending_use_backup_callback,
+					false,
+					perf_logger
+				):
+					used_slot = i
+					break
 
 	if used_slot >= 0:
 		owner.set("active_item_slots", slots_copy)
@@ -85,7 +132,7 @@ func use_slot(
 		return false
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
 	if active_item_slots.is_empty() or input_locked:
-		_sync_slot_key_states()
+		_sync_slot_input_states()
 		return false
 
 	var slots_copy: Array = active_item_slots.duplicate(true)
@@ -101,8 +148,42 @@ func use_slot(
 	)
 	if used:
 		owner.set("active_item_slots", slots_copy)
-	_sync_slot_key_states()
+	_sync_slot_input_states()
 	return used
+
+
+func use_selected_slot(
+	owner: Object,
+	registry: Object,
+	input_locked: bool,
+	apply_item_effect_callback: Callable,
+	pending_use_backup_callback: Callable = Callable(),
+	perf_logger: Object = null
+) -> bool:
+	if owner == null:
+		return false
+	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	if active_item_slots.is_empty() or input_locked:
+		_sync_slot_input_states()
+		return false
+	return use_slot(
+		_get_selected_slot_index(registry, active_item_slots),
+		owner,
+		registry,
+		input_locked,
+		apply_item_effect_callback,
+		pending_use_backup_callback,
+		perf_logger
+	)
+
+
+func cycle_selected_slot(direction: int, owner: Object, registry: Object) -> int:
+	if owner == null:
+		return -1
+	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	if active_item_slots.is_empty():
+		return -1
+	return _cycle_selected_slot(registry, active_item_slots, direction)
 
 
 func use_first_matching_item(
@@ -119,7 +200,7 @@ func use_first_matching_item(
 		return ""
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
 	if active_item_slots.is_empty() or input_locked:
-		_sync_slot_key_states()
+		_sync_slot_input_states()
 		return ""
 
 	var slots_copy: Array = active_item_slots.duplicate(true)
@@ -142,9 +223,9 @@ func use_first_matching_item(
 				perf_logger
 			):
 				owner.set("active_item_slots", slots_copy)
-				_sync_slot_key_states()
+				_sync_slot_input_states()
 				return target_name
-	_sync_slot_key_states()
+	_sync_slot_input_states()
 	return ""
 
 
@@ -152,14 +233,20 @@ func store_active_item(
 	field_item: Dictionary,
 	active_item_slots: Array,
 	registry: Object,
-	can_store_item_callback: Callable
+	can_store_item_callback: Callable,
+	owner: Object = null
 ) -> bool:
+	var compacted: bool = _compact_active_item_slots(active_item_slots)
 	if active_item_slots.size() >= _get_max_active_item_slots(registry):
+		if compacted and owner != null:
+			owner.set("active_item_slots", active_item_slots)
 		return false
 
 	var source_item_data: Dictionary = _get_dictionary(field_item, "item_data")
 	var item_name: String = str(source_item_data.get("name", ""))
 	if can_store_item_callback.is_valid() and not bool(can_store_item_callback.call(item_name)):
+		if compacted and owner != null:
+			owner.set("active_item_slots", active_item_slots)
 		return false
 
 	source_item_data["revealed"] = true
@@ -187,7 +274,10 @@ func append_item_data(
 		return false
 
 	var active_item_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	var compacted: bool = _compact_active_item_slots(active_item_slots)
 	if active_item_slots.size() >= _get_max_active_item_slots(registry) and not allow_overflow:
+		if compacted:
+			owner.set("active_item_slots", active_item_slots)
 		return false
 
 	var next_item: Dictionary = item_data.duplicate(true)
@@ -264,6 +354,35 @@ func _copy_slots_for_use(active_item_slots: Array) -> Array:
 	return active_item_slots.duplicate(true)
 
 
+func _compact_active_item_slots(active_item_slots: Array) -> bool:
+	var write_index := 0
+	var changed := false
+	for read_index in range(active_item_slots.size()):
+		var item_value: Variant = active_item_slots[read_index]
+		if not _is_stored_active_item_value(item_value):
+			changed = true
+			continue
+		if write_index != read_index:
+			active_item_slots[write_index] = item_value
+			changed = true
+		write_index += 1
+	while active_item_slots.size() > write_index:
+		active_item_slots.remove_at(active_item_slots.size() - 1)
+		changed = true
+	return changed
+
+
+func _is_stored_active_item_value(item_value: Variant) -> bool:
+	if not (item_value is Dictionary):
+		return false
+	var item_data: Dictionary = item_value
+	return (
+		str(item_data.get("name", "")) != ""
+		or str(item_data.get("effect", "")) != ""
+		or str(item_data.get("item_name", "")) != ""
+	)
+
+
 func _slot_matches_item(item_value: Variant, item_name: String) -> bool:
 	if not (item_value is Dictionary):
 		return false
@@ -278,9 +397,11 @@ func _build_item_label(item_data: Dictionary) -> String:
 	return raw_label.strip_edges().to_lower().replace(" ", "_").replace("-", "_")
 
 
-func _sync_slot_key_states() -> void:
+func _sync_slot_input_states() -> void:
 	for i in range(SLOT_KEY_CODES.size()):
 		slot_key_pressed[i] = Input.is_key_pressed(int(SLOT_KEY_CODES[i]))
+	gamepad_selected_use_pressed = GamepadInput.is_active_item_use_pressed()
+	gamepad_slot_cycle_direction = GamepadInput.get_active_item_selection_direction()
 
 
 func _is_item_ready(item_data: Dictionary, now_msec: int, registry: Object) -> bool:
@@ -383,6 +504,32 @@ func _select_slot(registry: Object, slot_index: int) -> void:
 	var hud_state: Object = _get_instance(registry, "active_item_hud_state")
 	if hud_state != null and hud_state.has_method("set_selected_index"):
 		hud_state.set_selected_index(slot_index)
+
+
+func _cycle_selected_slot(registry: Object, active_item_slots: Array, direction: int) -> int:
+	if active_item_slots.is_empty():
+		return -1
+	var current_index: int = _get_selected_slot_index(registry, active_item_slots)
+	var step: int = int(sign(direction))
+	if step == 0:
+		return current_index
+	var next_index: int = (current_index + step) % active_item_slots.size()
+	if next_index < 0:
+		next_index += active_item_slots.size()
+	_select_slot(registry, next_index)
+	return next_index
+
+
+func _get_selected_slot_index(registry: Object, active_item_slots: Array) -> int:
+	if active_item_slots.is_empty():
+		return -1
+	var selected_index := 0
+	var hud_state: Object = _get_instance(registry, "active_item_hud_state")
+	if hud_state != null and hud_state.has_method("get_selected_index"):
+		selected_index = int(hud_state.get_selected_index())
+	selected_index = clampi(selected_index, 0, active_item_slots.size() - 1)
+	_select_slot(registry, selected_index)
+	return selected_index
 
 
 func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
