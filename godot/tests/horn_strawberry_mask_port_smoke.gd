@@ -211,11 +211,14 @@ func _verify_runtime_command_transform_and_stage_policy() -> void:
 	_expect(is_equal_approx(float(owner.values.get("special_gauge", -1.0)), 0.0), "transform command should spend 500 gauge")
 	_expect(feedback.gauge_flash_count >= 1, "transform command should trigger gauge feedback")
 	_expect(runtime.is_horn_strawberry_event_playing(), "transform command should start the transform event")
+	_expect(runtime.should_pause_game(), "transform event should freeze gameplay through the mythic pause gate")
 	_expect(bool(runtime.get_horn_strawberry_context().get("used_this_stage", false)), "transform should mark the stage use")
 	_expect(bool(owner.values.get("horn_strawberry_event_playing", false)), "transient owner sync should expose transform event")
 
 	runtime.update(owner, registry, 4.5)
 	_expect(runtime.is_horn_strawberry_transformed(), "transform event should finalize into transformed state")
+	_expect(not runtime.should_pause_game(), "finished transform should release the mythic pause gate")
+	_expect(runtime.has_visible_field_effects(), "transformed horn strawberry should keep the duration timer draw path alive")
 	_expect(runtime.is_horn_strawberry_skills_locked(), "transformed state should lock character skills")
 	_expect(is_equal_approx(float(runtime.get_horn_strawberry_move_speed()), 8.0), "transformed move speed should match the reference")
 	_expect(is_equal_approx(runtime.get_horn_strawberry_gauge_on_hit(), 80.0), "transformed gauge-on-hit should match the reference")
@@ -374,6 +377,14 @@ func _verify_eat_and_field_runtime() -> void:
 	var field_context: Dictionary = runtime.get_horn_strawberry_field_context()
 	_expect(int(field_context.get("barrier_count", 0)) == 1, "strawberry field should spawn one barrier after the hold")
 	_expect(is_equal_approx(float(field_context.get("field_width", 0.0)), 180.0), "strawberry field width should match the reference")
+	var raw_field_barriers: Array = field_context.get("barriers", [])
+	if not raw_field_barriers.is_empty() and raw_field_barriers[0] is Dictionary:
+		var raw_barrier: Dictionary = raw_field_barriers[0]
+		var expected_field_y: float = float(owner.values["player_pos"].y) + float(owner.values["player_paddle_height"]) * 0.5 - 40.0 - 6.0
+		_expect(is_equal_approx(float(raw_barrier.get("rect_y", -999.0)), expected_field_y), "strawberry field should anchor from the paddle center, not the floor/top-left")
+		_expect(_as_array(raw_barrier.get("seeds", [])).size() >= 8, "strawberry field should carry seeded berry-surface visual points")
+	else:
+		_expect(false, "strawberry field should expose raw barrier data for visual placement")
 
 	input_reader.snapshot = {}
 	runtime.update(owner, registry, 0.5)
@@ -490,6 +501,15 @@ func _verify_horn_charge_and_bomb_runtime() -> void:
 	if not bombs.is_empty() and bombs[0] is Dictionary:
 		var first_bomb: Dictionary = bombs[0]
 		var bomb_pos: Vector2 = _get_vector2(first_bomb, "position")
+		var bomb_base_pos: Vector2 = _get_vector2(first_bomb, "base_position")
+		input_reader.snapshot = {}
+		runtime.update(owner, registry, 0.1)
+		var moved_bombs: Array = runtime.get_horn_strawberry_bomb_context().get("bombs", [])
+		if not moved_bombs.is_empty() and moved_bombs[0] is Dictionary:
+			var moved_bomb: Dictionary = moved_bombs[0]
+			_expect(_get_vector2(moved_bomb, "base_position").y <= bomb_base_pos.y, "strawberry bombs should hop upward without gravity drift")
+			_expect(_get_vector2(moved_bomb, "position").y <= bomb_pos.y, "strawberry bomb visual hop should not fall below its launch path")
+			bomb_pos = _get_vector2(moved_bomb, "base_position")
 		owner.values["boss_pos"] = bomb_pos - Vector2(50.0, 20.0)
 		input_reader.snapshot = {}
 		runtime.update(owner, registry, 0.0)
@@ -597,6 +617,12 @@ func _get_vector2(source: Dictionary, key: String) -> Vector2:
 	if value is Vector2:
 		return value
 	return Vector2.ZERO
+
+
+func _as_array(value: Variant) -> Array:
+	if value is Array:
+		return value
+	return []
 
 
 func _expect(condition: bool, message: String) -> void:

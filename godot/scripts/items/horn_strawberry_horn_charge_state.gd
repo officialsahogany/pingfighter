@@ -123,7 +123,7 @@ func consume_boss_hit_suppression(_ball_pos: Vector2, _ball_vel: Vector2, _conte
 
 
 func is_control_locked() -> bool:
-	return active
+	return active and (phase == PHASE_CHARGING or phase == PHASE_IMPACT)
 
 
 func has_runtime_update_work() -> bool:
@@ -169,7 +169,7 @@ func _start_charge(owner: Object) -> void:
 	cooldown_sec = COOLDOWN_SEC
 	player_origin = _get_player_center(owner)
 	player_center = player_origin
-	target_center = _get_boss_center(owner)
+	target_center = _get_charge_target_center(owner)
 	current_offset = Vector2.ZERO
 	trails.clear()
 	_enter_phase(PHASE_CHARGING, CHARGING_SEC)
@@ -186,7 +186,10 @@ func _update_phase_offset() -> void:
 		current_offset = Vector2.ZERO
 		return
 	var progress: float = 1.0 - clamp(phase_timer_sec / max(0.001, phase_duration_sec), 0.0, 1.0)
-	var target_offset := Vector2(0.0, clamp(target_center.y - player_origin.y + 54.0, -640.0, -80.0))
+	var target_offset := Vector2(
+		target_center.x - player_origin.x,
+		clamp(target_center.y - player_origin.y, -640.0, -80.0)
+	)
 	match phase:
 		PHASE_CHARGING:
 			current_offset = target_offset * _ease_in_cubic(progress)
@@ -206,7 +209,7 @@ func _apply_boss_impact(owner: Object, registry: Object, runtime: Object) -> voi
 	if boss_rect.size.x <= 0.0 or boss_rect.size.y <= 0.0:
 		return
 	_play_audio(runtime, registry, "_play_horn_strawberry_horn_impact_audio")
-	target_center = boss_rect.position + boss_rect.size * 0.5
+	target_center = _get_charge_target_center(owner)
 	var direction: float = 1.0 if player_origin.x <= target_center.x else -1.0
 	if abs(player_origin.x - target_center.x) <= 0.01:
 		direction = 1.0 if target_center.x < 380.0 else -1.0
@@ -280,6 +283,14 @@ func _get_boss_center(owner: Object) -> Vector2:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return Vector2(380.0, 55.0)
 	return rect.position + rect.size * 0.5
+
+
+func _get_charge_target_center(owner: Object) -> Vector2:
+	var rect: Rect2 = _get_boss_rect(owner)
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return Vector2(380.0, 60.0)
+	var player_height: float = _get_owner_float(owner, "player_paddle_height", 50.0)
+	return Vector2(rect.position.x + rect.size.x * 0.5, rect.position.y + player_height * 0.5)
 
 
 func _get_boss_rect(owner: Object) -> Rect2:

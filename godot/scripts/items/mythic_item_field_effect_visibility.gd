@@ -46,6 +46,8 @@ func has_visible_field_effects(runtime: Object, ragnarok_impact_duration: float)
 		runtime.baal_boots_weather_state.round_effect_active
 	):
 		return true
+	if runtime.is_horn_strawberry_transformed():
+		return true
 	if runtime.horn_strawberry_mask_runtime.has_visible_effects(runtime):
 		return true
 	return runtime.acquisition_cinematic != null and runtime.acquisition_cinematic.is_active()

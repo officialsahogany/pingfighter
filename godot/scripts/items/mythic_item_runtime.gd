@@ -953,7 +953,12 @@ func get_baal_boots_context() -> Dictionary:
 
 func should_pause_game() -> bool:
 	_ensure_helpers_ready()
-	return baal_boots_weather_state.cinematic_active or is_acquisition_cinematic_active() or pandora_legacy_selection_state.is_active()
+	return (
+		baal_boots_weather_state.cinematic_active
+		or is_acquisition_cinematic_active()
+		or pandora_legacy_selection_state.is_active()
+		or is_horn_strawberry_event_playing()
+	)
 
 
 func is_baal_boots_cinematic_active() -> bool:

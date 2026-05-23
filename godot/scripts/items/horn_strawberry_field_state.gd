@@ -168,8 +168,10 @@ func _cancel_hold() -> void:
 func _spawn_barrier(owner: Object) -> void:
 	var player_pos: Vector2 = _get_player_pos(owner)
 	var paddle_width: float = max(1.0, _get_owner_float(owner, "player_paddle_width", 155.0))
+	var paddle_height: float = max(1.0, _get_owner_float(owner, "player_paddle_height", 50.0))
+	var player_center_y: float = player_pos.y + paddle_height * 0.5
 	var x: float = clamp(player_pos.x + paddle_width * 0.5 - FIELD_WIDTH * 0.5, 0.0, 760.0 - FIELD_WIDTH)
-	var y: float = clamp(player_pos.y + FIELD_OFFSET_Y, 0.0, 750.0 - FIELD_HEIGHT)
+	var y: float = clamp(player_center_y + FIELD_OFFSET_Y - FIELD_HEIGHT * 0.5, 0.0, 750.0 - FIELD_HEIGHT)
 	for barrier in barriers:
 		if bool(barrier.get("alive", false)) and abs(float(barrier.get("rect_y", y)) - y) < 110.0:
 			y = clamp(float(barrier.get("rect_y", y)) - 110.0, 0.0, 750.0 - FIELD_HEIGHT)
@@ -184,6 +186,7 @@ func _spawn_barrier(owner: Object) -> void:
 		"rect_y": y,
 		"width": FIELD_WIDTH,
 		"height": FIELD_HEIGHT,
+		"seeds": _generate_seed_points(int(FIELD_WIDTH), int(FIELD_HEIGHT)),
 	})
 	_next_barrier_id += 1
 
@@ -225,6 +228,20 @@ func _get_owner_float(owner: Object, key: String, fallback: float) -> float:
 	if value == null:
 		return fallback
 	return float(value)
+
+
+func _generate_seed_points(width: int, height: int) -> Array[Vector2]:
+	var seeds: Array[Vector2] = []
+	var count: int = max(8, int(float(width) / 8.0))
+	for i in range(count):
+		var t: float = float(i + 1) / float(count + 1)
+		var jitter_x: float = sin(float(i) * 2.17) * 4.0
+		var jitter_y: float = cos(float(i) * 1.63) * 2.0
+		seeds.append(Vector2(
+			clamp(float(width) * t + jitter_x, 4.0, float(width) - 4.0),
+			clamp(float(height) * 0.5 + jitter_y, 2.0, float(height) - 2.0)
+		))
+	return seeds
 
 
 func _play_audio(runtime: Object, registry: Object, method_name: String) -> void:

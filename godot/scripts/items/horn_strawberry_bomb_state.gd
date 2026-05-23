@@ -11,7 +11,6 @@ const BASE_SPEED := 3.2
 const HOP_HEIGHT := 55.0
 const BOMB_SIZE := 12.0
 const BOMB_LIFE_SEC := 4.0
-const GRAVITY_PER_FRAME := 0.055
 const STUN_SEC := 1.0
 const STUN_FRAMES := STUN_SEC * 60.0
 const KNOCKBACK := 50.0
@@ -203,15 +202,20 @@ func _spawn_bomb(owner: Object) -> void:
 		sweep * 3.9 + wobble * 0.9,
 		-(BASE_SPEED + abs(sweep) * 0.75 + float(thrown_count % 5) * 0.08)
 	)
+	var first_hop_delay: float = 0.05 + _pseudo_unit(_next_bomb_id, 5.1) * (HOP_INTERVAL_SEC * 0.5 - 0.05)
 	bombs.append({
 		"id": _next_bomb_id,
 		"position": spawn_pos,
+		"base_position": spawn_pos,
+		"visual_position": spawn_pos,
 		"velocity": velocity,
 		"age_sec": 0.0,
 		"life_sec": BOMB_LIFE_SEC,
 		"size": BOMB_SIZE,
 		"rotation": wobble,
 		"rot_speed": 0.18 + abs(sweep) * 0.08,
+		"hop_timer_sec": first_hop_delay,
+		"hop_phase_sec": 0.0,
 		"hop_interval_sec": HOP_INTERVAL_SEC,
 		"hop_height": HOP_HEIGHT,
 	})
@@ -226,24 +230,39 @@ func _update_bombs(delta: float, owner: Object, registry: Object, runtime: Objec
 	var survivors: Array[Dictionary] = []
 	for bomb in bombs:
 		var next_bomb: Dictionary = bomb.duplicate(true)
-		var position: Vector2 = _as_vector2(next_bomb.get("position", Vector2.ZERO), Vector2.ZERO)
+		var base_position: Vector2 = _as_vector2(next_bomb.get("base_position", next_bomb.get("position", Vector2.ZERO)), Vector2.ZERO)
 		var velocity: Vector2 = _as_vector2(next_bomb.get("velocity", Vector2.ZERO), Vector2.ZERO)
 		var step: float = delta * 60.0
-		velocity.y += GRAVITY_PER_FRAME * step
-		position += velocity * step
-		if position.x <= BOMB_SIZE or position.x >= 760.0 - BOMB_SIZE:
-			velocity.x *= -0.82
-			position.x = clamp(position.x, BOMB_SIZE, 760.0 - BOMB_SIZE)
-		next_bomb["position"] = position
+		var age_sec: float = float(next_bomb.get("age_sec", 0.0)) + delta
+		var hop_timer_sec: float = float(next_bomb.get("hop_timer_sec", HOP_INTERVAL_SEC)) - delta
+		var hop_phase_sec: float = float(next_bomb.get("hop_phase_sec", 0.0)) + delta
+		if hop_timer_sec <= 0.0:
+			var bomb_id: int = int(next_bomb.get("id", 0))
+			hop_timer_sec += HOP_INTERVAL_SEC
+			velocity.x += -2.0 + _pseudo_unit(bomb_id, age_sec * 8.0 + 1.7) * 4.0
+			velocity.x = clamp(velocity.x, -5.8, 5.8)
+			velocity.y = -(BASE_SPEED + _pseudo_unit(bomb_id, age_sec * 5.0 + 3.3) * 2.0)
+			hop_phase_sec = 0.0
+		base_position += velocity * step
+		if base_position.x <= BOMB_SIZE or base_position.x >= 760.0 - BOMB_SIZE:
+			velocity.x *= -0.90
+			base_position.x = clamp(base_position.x, BOMB_SIZE, 760.0 - BOMB_SIZE)
+		var hop_t: float = clamp(hop_phase_sec / HOP_INTERVAL_SEC, 0.0, 1.0)
+		var visual_position: Vector2 = base_position + Vector2(0.0, -HOP_HEIGHT * sin(hop_t * PI))
+		next_bomb["position"] = visual_position
+		next_bomb["visual_position"] = visual_position
+		next_bomb["base_position"] = base_position
 		next_bomb["velocity"] = velocity
-		next_bomb["age_sec"] = float(next_bomb.get("age_sec", 0.0)) + delta
+		next_bomb["age_sec"] = age_sec
 		next_bomb["life_sec"] = max(0.0, float(next_bomb.get("life_sec", BOMB_LIFE_SEC)) - delta)
+		next_bomb["hop_timer_sec"] = hop_timer_sec
+		next_bomb["hop_phase_sec"] = hop_phase_sec
 		next_bomb["rotation"] = float(next_bomb.get("rotation", 0.0)) + float(next_bomb.get("rot_speed", 0.0)) * step
-		var hit_boss: bool = _bomb_hits_boss(position, boss_rect)
-		var top_expired: bool = boss_rect.size.x > 0.0 and position.y <= boss_rect.position.y + boss_rect.size.y + 40.0
-		var expired: bool = hit_boss or top_expired or float(next_bomb.get("life_sec", 0.0)) <= 0.0 or position.y > 780.0
+		var hit_boss: bool = _bomb_hits_boss(base_position, boss_rect)
+		var top_expired: bool = boss_rect.size.x > 0.0 and base_position.y <= boss_rect.position.y + boss_rect.size.y + 40.0
+		var expired: bool = hit_boss or top_expired or float(next_bomb.get("life_sec", 0.0)) <= 0.0
 		if expired:
-			_create_explosion(position, hit_boss, boss_rect, registry, runtime)
+			_create_explosion(base_position, hit_boss, boss_rect, registry, runtime)
 		else:
 			survivors.append(next_bomb)
 	bombs = survivors
@@ -428,3 +447,7 @@ func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _pseudo_unit(id: int, salt: float) -> float:
+	return abs(sin(float(id) * 12.9898 + salt * 78.233))

@@ -271,12 +271,17 @@ func draw(
 			context.get("yachaman_context", {})
 		)
 	elif horn_strawberry_transformed:
+		var horn_context: Dictionary = _as_dictionary(context.get("horn_strawberry_context", {}))
+		var horn_charge_context: Dictionary = _as_dictionary(horn_context.get("horn_charge", {}))
+		var horn_charge_offset: Vector2 = _as_vector2(horn_charge_context.get("current_offset", Vector2.ZERO), Vector2.ZERO)
 		drawn_player_visual_rect = horn_strawberry_paddle_renderer.draw(
 			canvas,
 			context,
 			player_pos,
 			paddle_size,
-			shake_offset
+			shake_offset,
+			1.0,
+			horn_charge_offset
 		)
 	elif paddle_hologram_active:
 		_draw_player_with_hologram_passes(
@@ -639,6 +644,12 @@ func _ease_in_out_sine(pillar_drawer, t: float) -> float:
 
 func _as_vector2(value, fallback: Vector2) -> Vector2:
 	return Stage1ContextReader.as_vector2(value, fallback)
+
+
+func _as_dictionary(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
 
 
 func _uses_smasher_body_motion(context: Dictionary) -> bool:

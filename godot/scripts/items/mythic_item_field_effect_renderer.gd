@@ -92,7 +92,8 @@ func draw_field_effects(
 	)
 	var horn_strawberry_context: Dictionary = runtime.get_horn_strawberry_context()
 	var horn_strawberry_visible: bool = (
-		runtime.horn_strawberry_mask_runtime.has_visible_effects(runtime)
+		runtime.is_horn_strawberry_transformed()
+		or runtime.horn_strawberry_mask_runtime.has_visible_effects(runtime)
 		or _horn_strawberry_field_renderer.is_transform_visible(horn_strawberry_context)
 	)
 	var acquisition_visible: bool = runtime.acquisition_cinematic != null and runtime.acquisition_cinematic.is_active()
