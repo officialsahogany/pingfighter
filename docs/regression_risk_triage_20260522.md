@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `ffc9bdff7 godot: route mythic update gates through owners`.
-- The checkpoint span through that HEAD contains 124 follow-up commits after
+  `028a0b2de godot: route mythic owner geometry through syncer`.
+- The checkpoint span through that HEAD contains 126 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 125 commits.
+  contains 127 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `0fc66e4fc docs: record mythic field query bridge cleanup`.
+  `f425d0eef docs: record mythic update gate bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the eightieth split. The broad
+- The split notes below are current through the eighty-first split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -3967,6 +3967,32 @@ Eightieth split on 2026-05-23:
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending
   notice for `mythic_item_runtime.gd`.
+
+Eighty-first split on 2026-05-23:
+
+- Commit: `028a0b2de godot: route mythic owner geometry through syncer`.
+- Scope: Poseidon Trident and Baal's Boots now read owner player / boss
+  centers through `mythic_item_owner_syncer.gd` instead of private
+  `_read_owner_player_center()` / `_read_owner_boss_center()` bridge methods
+  on `mythic_item_runtime.gd`. The syncer now exposes explicit
+  `read_owner_player_center()` and `read_owner_boss_center()` helpers for
+  these shared owner-geometry reads.
+- Rationale: center reads are owner geometry concerns already adjacent to
+  paddle sync / owner state handling, and do not need to be private methods
+  on the runtime facade.
+- `mythic_item_runtime.gd` line count moved from `2618` to `2605` in this
+  code split.
+- Validation passed:
+  focused geometry set
+  (`poseidon_trident_port_smoke`, `baal_boots_weather_port_smoke`,
+  `venom_mist_gauntlet_port_smoke`, `mythic_item_runtime_idle_update_smoke`,
+  `mythic_item_ownership_runtime_smoke`, and
+  `mythic_item_field_render_budget_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notices for `mythic_item_runtime.gd` and
+  `mythic_item_baal_boots_runtime.gd`.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 

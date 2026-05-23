@@ -4707,11 +4707,12 @@ This section is intentionally long; use search to find the nearest owner.
   sync, active-item paddle scale lookup, owner X clamping, skill cooldown
   config sync, removed-skill cleanup, dash-token capacity sync, player status
   resistance sync, Gold Digger runtime-perk sync, item perk-level bonus sync,
-  Fuel Pouch gauge max sync, and Boomerang active-slot visual sync. The
+  Fuel Pouch gauge max sync, Boomerang active-slot visual sync, and shared
+  player / boss center reads used by Poseidon Trident and Baal's Boots. The
   runtime facade may keep high-level context-supplying sync entry points, but
-  should not reintroduce one-line private bridges for these detail methods;
-  focused helpers should call this owner directly when they need those
-  behaviors.
+  should not reintroduce one-line private bridges for these detail methods or
+  owner-geometry reads; focused helpers should call this owner directly when
+  they need those behaviors.
 - `scripts/items/mythic_item_update_runtime.gd`
   Owns mythic per-frame update sequencing and idle-update fallback routing.
   It calls constants-free focused update owners directly for Smartphone,
