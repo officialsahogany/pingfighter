@@ -28,6 +28,8 @@ static func build_boost_result(
 		"commando_suicide_drone_ball_restore_speed": restore_speed,
 		"commando_suicide_drone_ball_boosted_speed": boosted_speed,
 		"commando_suicide_drone_ball_boost_angle_deg": angle_deg,
+		"commando_suicide_drone_speed_limit_disabled": true,
+		"speed_limit_disabled": true,
 	}
 
 

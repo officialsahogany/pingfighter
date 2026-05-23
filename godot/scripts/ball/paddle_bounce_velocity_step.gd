@@ -35,7 +35,7 @@ func apply(
 		max_ball_speed = max(max_ball_speed, _get_magnum_grip_pending_speed_cap(deps))
 	if fire_weather_active:
 		max_ball_speed = min(max_ball_speed, float(context.get("fire_weather_max_ball_speed", 35.0)))
-	if bool(context.get("speed_limit_disabled", false)) and not fire_weather_active:
+	if _is_speed_limit_disabled(context) and not fire_weather_active:
 		max_ball_speed = INF
 
 	var bounce_result: Dictionary = paddle_bounce_state.resolve_velocity(
@@ -87,3 +87,10 @@ func _cap_velocity(velocity: Vector2, max_speed: float) -> Vector2:
 
 func _is_fire_weather_active(weather: Object) -> bool:
 	return weather != null and weather.has_method("is_fire_active") and bool(weather.is_fire_active())
+
+
+func _is_speed_limit_disabled(context: Dictionary) -> bool:
+	return (
+		bool(context.get("speed_limit_disabled", false))
+		or bool(context.get("commando_suicide_drone_ball_boost_active", false))
+	)

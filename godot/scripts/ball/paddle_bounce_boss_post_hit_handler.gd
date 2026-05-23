@@ -337,6 +337,8 @@ func _consume_commando_suicide_drone_ball_boost(ball_vel: Vector2, context: Dict
 		"commando_suicide_drone_ball_boosted_speed": 0.0,
 		"commando_suicide_drone_ball_boost_consumed": true,
 		"commando_suicide_drone_ball_restored_speed": restore_speed,
+		"commando_suicide_drone_speed_limit_disabled": false,
+		"speed_limit_disabled": false,
 	}
 
 

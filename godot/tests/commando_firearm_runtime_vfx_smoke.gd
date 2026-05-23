@@ -1725,14 +1725,15 @@ func _verify_suicide_drone_ball_boost_and_boss_restore() -> void:
 	_expect(boosted_vel.y < 0.0 and is_equal_approx(boosted_vel.length(), 27.0), "suicide drone should relaunch the ball upward at 3x speed")
 	_expect(bool(boost_result.get("commando_suicide_drone_ball_boost_active", false)), "suicide drone ball boost should stay active until the boss returns it")
 	_expect(is_equal_approx(float(boost_result.get("commando_suicide_drone_ball_restore_speed", 0.0)), 9.0), "suicide drone should preserve the original ball speed for boss restore")
-	_expect(is_equal_approx(float(boost_result.get("commando_suicide_drone_ball_boosted_speed", 0.0)), 27.0), "suicide drone should expose the boosted speed as a temporary cap")
+	_expect(is_equal_approx(float(boost_result.get("commando_suicide_drone_ball_boosted_speed", 0.0)), 27.0), "suicide drone should expose the boosted speed metadata")
+	_expect(bool(boost_result.get("speed_limit_disabled", false)), "suicide drone ball boost should disable speed caps until the boss returns it")
 
 	var owner := FakeOwner.new()
 	var applier := BattleSceneEffectsUpdateResultApplier.new()
 	applier.apply_effects_result(owner, boost_result)
 	_expect(owner.commando_suicide_drone_ball_boost_active, "effects result applier should persist suicide-drone boost active state")
 	_expect(is_equal_approx(owner.commando_suicide_drone_ball_restore_speed, 9.0), "effects result applier should persist suicide-drone restore speed")
-	_expect(is_equal_approx(owner.commando_suicide_drone_ball_boosted_speed, 27.0), "effects result applier should persist suicide-drone boosted speed cap")
+	_expect(is_equal_approx(owner.commando_suicide_drone_ball_boosted_speed, 27.0), "effects result applier should persist suicide-drone boosted speed metadata")
 
 	var boss_handler := PaddleBounceBossPostHitHandler.new()
 	var boss_context: Dictionary = _fire_config()
@@ -1758,7 +1759,8 @@ func _verify_suicide_drone_ball_boost_and_boss_restore() -> void:
 	_expect(bool(boss_result.get("commando_suicide_drone_ball_boost_consumed", false)), "boss post-hit handler should consume suicide-drone boost state")
 	_expect(not bool(boss_result.get("commando_suicide_drone_ball_boost_active", true)), "boss post-hit handler should clear suicide-drone boost active state")
 	_expect(is_equal_approx(float(boss_result.get("commando_suicide_drone_ball_restore_speed", -1.0)), 0.0), "boss post-hit handler should clear suicide-drone restore speed")
-	_expect(is_equal_approx(float(boss_result.get("commando_suicide_drone_ball_boosted_speed", -1.0)), 0.0), "boss post-hit handler should clear suicide-drone speed cap")
+	_expect(is_equal_approx(float(boss_result.get("commando_suicide_drone_ball_boosted_speed", -1.0)), 0.0), "boss post-hit handler should clear suicide-drone boosted speed metadata")
+	_expect(not bool(boss_result.get("speed_limit_disabled", true)), "boss post-hit handler should restore the speed cap after suicide-drone boost")
 	_expect(is_equal_approx(_get_vector2(boss_result.get("ball_vel", Vector2.ZERO), Vector2.ZERO).length(), 9.0), "boss post-hit handler should restore the boosted ball to original speed")
 
 

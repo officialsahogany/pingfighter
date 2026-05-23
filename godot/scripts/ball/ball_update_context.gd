@@ -18,6 +18,7 @@ func build_update_context(owner: Object) -> Dictionary:
 	_apply_league_speed_policy(update_context)
 	_apply_weather_speed_policy(update_context)
 	_apply_rally_speed_cap_bonus(update_context)
+	_apply_commando_suicide_drone_speed_policy(update_context)
 	return update_context
 
 
@@ -91,6 +92,13 @@ func _apply_rally_speed_cap_bonus(context: Dictionary) -> void:
 	context["impact_boost_max_ball_speed"] = float(context.get("impact_boost_max_ball_speed", 26.0)) + bonus
 	if bool(context.get("fire_weather_speed_cap_active", false)):
 		context["fire_weather_max_ball_speed"] = float(context.get("fire_weather_max_ball_speed", 35.0)) + bonus
+
+
+func _apply_commando_suicide_drone_speed_policy(context: Dictionary) -> void:
+	var active: bool = bool(context.get("commando_suicide_drone_ball_boost_active", false))
+	context["commando_suicide_drone_speed_limit_disabled"] = active
+	if active:
+		context["speed_limit_disabled"] = true
 
 
 func _is_fire_weather_active(context: Dictionary) -> bool:

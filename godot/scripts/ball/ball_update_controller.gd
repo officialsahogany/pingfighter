@@ -595,7 +595,10 @@ func _get_power_smash_effective_speed_cap(scene: Dictionary, context: Dictionary
 
 
 func _is_speed_limit_disabled(context: Dictionary) -> bool:
-	return bool(context.get("speed_limit_disabled", false))
+	return (
+		bool(context.get("speed_limit_disabled", false))
+		or bool(context.get("commando_suicide_drone_ball_boost_active", false))
+	)
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

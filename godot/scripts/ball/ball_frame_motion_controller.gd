@@ -47,7 +47,10 @@ func apply_ball_speed_limits(scene: Dictionary, deps: Dictionary) -> void:
 
 
 func _is_speed_limit_disabled(scene: Dictionary) -> bool:
-	return bool(scene.get("speed_limit_disabled", false))
+	return (
+		bool(scene.get("speed_limit_disabled", false))
+		or bool(scene.get("commando_suicide_drone_ball_boost_active", false))
+	)
 
 
 func _get_effective_speed_cap(scene: Dictionary, impact_boost: float, deps: Dictionary) -> float:
@@ -58,8 +61,6 @@ func _get_effective_speed_cap(scene: Dictionary, impact_boost: float, deps: Dict
 	if meditation_release_cap > 0.0:
 		speed_cap = max(speed_cap, meditation_release_cap)
 	speed_cap = max(speed_cap, float(scene.get("smasher_wheel_speed_cap", 0.0)))
-	if bool(scene.get("commando_suicide_drone_ball_boost_active", false)):
-		speed_cap = max(speed_cap, float(scene.get("commando_suicide_drone_ball_boosted_speed", 0.0)))
 	speed_cap = max(speed_cap, _get_magnum_grip_speed_cap(deps))
 	speed_cap = max(speed_cap, _get_viper_blade_speed_cap(deps))
 	if bool(scene.get("fire_weather_speed_cap_active", false)):
