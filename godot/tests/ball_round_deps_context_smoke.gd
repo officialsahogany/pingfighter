@@ -215,6 +215,7 @@ func _verify_empty_context_keeps_legacy_full_deps() -> void:
 	_expect(registry.requested_keys.has("viper_skill_runtime"), "empty round context should keep the legacy full-deps path")
 	_expect(registry.requested_keys.has("commando_firearm_runtime"), "empty round context should keep commando legacy deps")
 	_expect(registry.requested_keys.has("stage5_hongryun_state"), "empty round context should keep stage 5 legacy deps")
+	_expect(registry.requested_keys.has("stage5_hongryun_actor_renderer"), "empty round context should keep stage 5 actor renderer cleanup deps")
 
 	var perf_only_registry := FakeRegistry.new()
 	deps_context.build_round_deps(perf_only_registry, {

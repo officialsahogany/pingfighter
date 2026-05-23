@@ -163,6 +163,7 @@ func _build_legacy_round_deps(registry) -> Dictionary:
 		"stage4_brazier_monk_event": registry.get_instance("stage4_brazier_monk_event"),
 		"stage4_ponk_skill_state": registry.get_instance("stage4_ponk_skill_state"),
 		"stage5_hongryun_state": registry.get_instance("stage5_hongryun_state"),
+		"stage5_hongryun_actor_renderer": registry.get_instance("stage5_hongryun_actor_renderer"),
 		"stage1_balloon_event": registry.get_instance("stage1_balloon_event"),
 	}
 
@@ -276,6 +277,7 @@ func _append_stage_round_deps(
 			deps["stage4_ponk_skill_state"] = _get_round_instance(registry, "stage4_ponk_skill_state", perf_logger, perf_label_prefix)
 		5:
 			deps["stage5_hongryun_state"] = _get_round_instance(registry, "stage5_hongryun_state", perf_logger, perf_label_prefix)
+			deps["stage5_hongryun_actor_renderer"] = _get_round_instance(registry, "stage5_hongryun_actor_renderer", perf_logger, perf_label_prefix)
 
 
 func _append_character_update_deps(deps: Dictionary, registry, character_type: String) -> void:
