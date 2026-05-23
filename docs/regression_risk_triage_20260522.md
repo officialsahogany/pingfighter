@@ -10,23 +10,21 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `5763b6895 godot: add knee pads port smoke`.
-- Code split range through that HEAD contains 82 follow-up commits after the
+  `97452a115 godot: add fire support aircraft texture`.
+- Code split range through that HEAD contains 91 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 83 commits.
+  span through the latest code split contains 92 commits.
 - Latest docs-only guardrail sync after that code split:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest local-artifact ignore sync after that code split:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note after that code split:
-  `7a432139f docs: record residual local settings hold`.
+  `2001105b6 docs: record final local settings hide`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
-  `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
+  `godot/` passed on 2026-05-23 with `1279` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 2 visible paths in
-  `git status --porcelain=v1` (`2` tracked modified paths and `0`
-  untracked paths). Both are local `.claude` workspace settings and are
-  intentionally held out of the refactor commits.
+- Current dirty scope before this documentation sync: `git status
+  --porcelain=v1 -uall` is clean.
 - Final local cleanup action: applied `git update-index --skip-worktree` to
   `.claude/settings.json` and `.claude/sprite_workflow_settings.json`.
   After that local index hide, `git status --porcelain` is clean. To inspect
@@ -34,16 +32,12 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the sixty-seventh split. The
+- The split notes below are current through the seventieth split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
 Open follow-ups before the next broad sign-off:
 
-- Stage 5 visual-shell smoke has an observed `ObjectDB instances leaked at
-  exit` warning from review. It is not a warning-scan failure, but it still
-  needs a focused verbose leak isolation pass instead of staying as a loose
-  test-output note.
 - Lane ordering drifted during the cleanup sprint. The commits are scoped,
   but the next review should group remaining WIP by owner lane before staging
   more mixed mythic / stage / Commando changes.
@@ -59,6 +53,13 @@ Open follow-ups before the next broad sign-off:
   workflow mode from `fast` to `precise`. Keep both out of gameplay / docs
   refactor commits unless the user explicitly asks to change repo-wide tool
   policy.
+
+Resolved follow-up in the latest pass:
+
+- Stage 5 visual-shell leak note was rechecked with
+  `stage5_hongryun_visual_shell_smoke` on 2026-05-23. The focused run passed
+  without the previous `ObjectDB instances leaked at exit` warning, so it is
+  no longer an open blocker unless it resurfaces in a broader run.
 
 ## Initial Snapshot
 
@@ -3475,4 +3476,68 @@ Sixty-seventh split on 2026-05-23:
   `stage_actor_renderer_arity_cache_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Sixty-eighth split on 2026-05-23:
+
+- Commit: `be3d15b6a godot: add fire support firearm hud icon`.
+- Scope: Commando / Soldier firearm selector now treats Fire Support like the
+  other PNG-backed firearms: it prewarms the imagegen HUD icon, exposes the
+  path in `build_panel_state()`, draws the PNG before the procedural fallback,
+  and keeps a weapon-specific draw rect scale / offset. The selector smoke now
+  verifies the fire-support HUD icon path, loadability, expected 1024x1024
+  dimensions, and transparent corners.
+- Rationale: clean checkouts need the accepted Fire Support HUD icon tracked
+  alongside the code path that expects it. This keeps the fixed left-pillar
+  firearm HUD from falling back to the old procedural silhouette.
+- Validation passed:
+  `commando_firearm_selector_renderer_smoke`,
+  `stage1_dalji_commando_hud_layout_smoke`,
+  `battle_boot_resource_prewarm_smoke`,
+  `stage5_hongryun_visual_shell_smoke` (focused no-repro pass for the old
+  ObjectDB leak note),
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Sixty-ninth split on 2026-05-23:
+
+- Commit: `418356131 godot: add exhibition reset hotkey`.
+- Scope: Added an `ExhibitionResetHandler` autoload that owns F7 as a global
+  booth reset key, returns to `main_menu.tscn`, resets the persistent
+  `GameSelectionState` stage / league defaults, and clears the one-shot battle
+  logo skip flag. The battle overlay input controller no longer binds F7 to
+  the player-customization debug overlay, and the customization overlay smoke
+  now verifies the debug flag behavior directly instead of relying on the old
+  key binding.
+- Rationale: exhibition / showcase builds need a single always-on reset key
+  that works across menus and battle scenes without racing a debug overlay
+  binding.
+- Validation passed:
+  `exhibition_reset_handler_smoke`,
+  `debug_menu_direct_switch_smoke`,
+  `player_customization_debug_overlay_smoke`,
+  `project_boot_flow_settings_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1279` scripts scanned, no GDScript
+  warnings).
+
+Seventieth split on 2026-05-23:
+
+- Commit: `97452a115 godot: add fire support aircraft texture`.
+- Scope: Stage 1 Commando firearm renderer now prewarms and draws the
+  imagegen Fire Support stealth-aircraft texture for active support calls,
+  using the existing procedural aircraft silhouette only as a load-failure
+  fallback. The VFX remaster smoke asserts that the aircraft texture is part
+  of the prewarmed texture-piece plan.
+- Rationale: Fire Support already had runtime support-call and aircraft audio
+  lifecycles; this commit promotes the accepted aircraft silhouette PNG into
+  the renderer so the visual identity no longer depends on procedural
+  placeholder geometry.
+- Validation passed:
+  `commando_firearm_vfx_texture_remaster_smoke`,
+  `commando_firearm_renderer_prewarm_gate_smoke`,
+  `commando_firearm_stage1_visual_qa_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1279` scripts scanned, no GDScript
   warnings).
