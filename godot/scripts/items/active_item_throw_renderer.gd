@@ -2,7 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
-const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
+const GrenadeRenderer := preload("res://scripts/items/active_item_throw_grenade_renderer.gd")
 const FlareRenderer := preload("res://scripts/items/active_item_throw_flare_renderer.gd")
 const MolotovRenderer := preload("res://scripts/items/active_item_throw_molotov_renderer.gd")
 const DynamiteRenderer := preload("res://scripts/items/active_item_throw_dynamite_renderer.gd")
@@ -11,7 +11,6 @@ const BoomerangRenderer := preload("res://scripts/items/active_item_throw_boomer
 const SpiderMineRenderer := preload("res://scripts/items/active_item_throw_spider_mine_renderer.gd")
 const SlipRenderer := preload("res://scripts/items/active_item_throw_slip_renderer.gd")
 
-const GRENADE_ICON_PATH := ActiveItemCatalog.GRENADE_ICON_PATH
 const TEAR_GAS_ICON_PATH := ActiveItemCatalog.TEAR_GAS_ICON_PATH
 const BOOMERANG_ICON_PATH := ActiveItemCatalog.BOOMERANG_ICON_PATH
 const BOOMERANG_METAL_ICON_PATH := ActiveItemCatalog.BOOMERANG_METAL_ICON_PATH
@@ -19,11 +18,6 @@ const BANANA_ICON_PATH := ActiveItemCatalog.BANANA_ICON_PATH
 const SOAP_ICON_PATH := ActiveItemCatalog.SOAP_ICON_PATH
 const GRENADE_THROW_WINDUP_MSEC := 600
 const GRENADE_DRAW_SIZE := 36.0
-const GRENADE_EXPLOSION_RADIUS := 190.0
-const GRENADE_EXPLOSION_DURATION_FRAMES := 25.0
-const GRENADE_EXPLOSION_FIRE_RINGS := 5
-const GRENADE_EXPLOSION_SMOKE_PUFFS := 3
-const GRENADE_EXPLOSION_SPARKS := 4
 const FLARE_THROW_WINDUP_MSEC := 600
 const FLARE_DRAW_SIZE := 34.0
 const TEAR_GAS_THROW_WINDUP_MSEC := 600
@@ -65,6 +59,7 @@ var spider_mine_crawl_sheet_texture: Texture2D
 var spider_mine_installed_idle_sheet_texture: Texture2D
 var spider_mine_deploy_sheet_texture: Texture2D
 
+var _grenade_renderer: Object = GrenadeRenderer.new()
 var _flare_renderer: Object = FlareRenderer.new()
 var _molotov_renderer: Object = MolotovRenderer.new()
 var _dynamite_renderer: Object = DynamiteRenderer.new()
@@ -75,6 +70,8 @@ var _slip_renderer: Object = SlipRenderer.new()
 
 
 func prewarm_assets() -> void:
+	_grenade_renderer.prewarm_assets()
+	grenade_icon_texture = _grenade_renderer.get_grenade_icon_texture()
 	_flare_renderer.prewarm_assets()
 	flare_icon_texture = _flare_renderer.get_flare_icon_texture()
 	_molotov_renderer.prewarm_assets()
@@ -86,7 +83,6 @@ func prewarm_assets() -> void:
 	_spider_mine_renderer.prewarm_assets()
 	_sync_spider_mine_texture_aliases()
 	_slip_renderer.prewarm_assets()
-	_touch_texture(_get_grenade_icon_texture())
 	_touch_texture(_get_tear_gas_icon_texture())
 	_touch_texture(_get_boomerang_icon_texture())
 	_touch_texture(_get_boomerang_icon_texture(true))
@@ -134,7 +130,7 @@ func draw(
 	_draw_grenade_throw_windups(canvas, pending_throws, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.windups", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_grenades(canvas, grenades, shake_offset)
+	_grenade_renderer.draw_grenades(canvas, grenades, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.grenades", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
 	_flare_renderer.draw_flares(canvas, flares, shake_offset)
@@ -194,7 +190,7 @@ func draw(
 	_dynamite_renderer.draw_dynamite_explosions(canvas, dynamite_explosions, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.dynamite_explosions", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_explosion_zones(canvas, explosion_zones, shake_offset)
+	_grenade_renderer.draw_explosion_zones(canvas, explosion_zones, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.explosion_zones", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
 	_flare_renderer.draw_flare_zones(canvas, flare_zones, shake_offset)
@@ -251,55 +247,7 @@ func _draw_grenade_throw_windups(canvas: CanvasItem, pending_throws: Array, shak
 		elif item_name == "spider_mine":
 			_spider_mine_renderer.draw_spider_mine_windup_fallback(canvas, throw_pos)
 		else:
-			canvas.draw_circle(throw_pos, 12.0, Color(80.0 / 255.0, 100.0 / 255.0, 80.0 / 255.0, 1.0))
-
-
-func _draw_grenades(canvas: CanvasItem, grenades: Array, shake_offset: Vector2) -> void:
-	if grenades.is_empty():
-		return
-	var texture: Texture2D = _get_grenade_icon_texture()
-	for grenade_value in grenades:
-		if not (grenade_value is Dictionary):
-			continue
-		var grenade: Dictionary = grenade_value
-		_draw_projectile_trail(canvas, grenade.get("trail", []), shake_offset, 3.0, Color(1.0, 190.0 / 255.0, 80.0 / 255.0, 1.0), 0.28)
-
-		var center: Vector2 = _get_vector2(grenade, "position", Vector2.ZERO) + shake_offset
-		var angle: float = float(grenade.get("rotation_degrees", 0.0))
-		if texture != null:
-			_draw_rotated_texture_region(
-				canvas,
-				texture,
-				Rect2(Vector2.ZERO, texture.get_size()),
-				center,
-				Vector2(GRENADE_DRAW_SIZE, GRENADE_DRAW_SIZE),
-				angle
-			)
-		else:
-			canvas.draw_circle(center, 12.0, Color(80.0 / 255.0, 100.0 / 255.0, 80.0 / 255.0, 1.0))
-
-
-func _draw_projectile_trail(canvas: CanvasItem, trail: Array, shake_offset: Vector2, radius: float, color: Color, alpha_scale: float) -> void:
-	var trail_count: int = trail.size()
-	if trail_count <= 0:
-		return
-	var stride: int = 2 if trail_count > 5 else 1
-	for i in range(0, trail_count, stride):
-		var trail_pos: Variant = trail[i]
-		if not (trail_pos is Vector2):
-			continue
-		var trail_point: Vector2 = trail_pos
-		var alpha: float = float(i + 1) / float(trail_count) * alpha_scale
-		canvas.draw_circle(trail_point + shake_offset, radius, Color(color.r, color.g, color.b, alpha))
-
-func _draw_explosion_zones(canvas: CanvasItem, explosion_zones: Array, shake_offset: Vector2) -> void:
-	if explosion_zones.is_empty():
-		return
-	for zone_value in explosion_zones:
-		if not (zone_value is Dictionary):
-			continue
-		var zone: Dictionary = zone_value
-		GrenadeExplosionDrawer.draw_zone(canvas, zone, shake_offset)
+			_grenade_renderer.draw_grenade_fallback(canvas, throw_pos)
 
 
 func _draw_rotated_texture_region(
@@ -338,12 +286,7 @@ func _draw_rotated_texture_region(
 
 
 func _get_grenade_icon_texture() -> Texture2D:
-	if grenade_icon_texture == null:
-		grenade_icon_texture = ProjectResourceLoader.load_texture(
-			GRENADE_ICON_PATH,
-			"Missing grenade icon at %s",
-			"Failed to load grenade icon at %s"
-		)
+	grenade_icon_texture = _grenade_renderer.get_grenade_icon_texture()
 	return grenade_icon_texture
 
 

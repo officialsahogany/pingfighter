@@ -20,9 +20,11 @@ func _init() -> void:
 
 func _verify_throw_renderer_delegates_grenade_explosion() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_renderer.gd")
-	var body := _function_body(source, "func _draw_explosion_zones")
-	_expect(source.find("const GrenadeExplosionDrawer := preload(\"res://scripts/effects/grenade_explosion_drawer.gd\")") >= 0, "throw renderer should preload shared grenade explosion drawer")
-	_expect(body.find("GrenadeExplosionDrawer.draw_zone") >= 0, "throw renderer should delegate grenade explosion zones to the shared drawer")
+	var grenade_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_grenade_renderer.gd")
+	var body := _function_body(grenade_source, "func draw_explosion_zones")
+	_expect(source.find("_grenade_renderer.draw_explosion_zones") >= 0, "throw renderer should delegate grenade explosion zones to the grenade renderer")
+	_expect(grenade_source.find("const GrenadeExplosionDrawer := preload(\"res://scripts/effects/grenade_explosion_drawer.gd\")") >= 0, "grenade renderer should preload shared grenade explosion drawer")
+	_expect(body.find("GrenadeExplosionDrawer.draw_zone") >= 0, "grenade renderer should delegate grenade explosion zones to the shared drawer")
 	_expect(body.find("for step in range(0, 12)") < 0, "throw renderer should not keep the old dense explosion rings inline")
 	_expect(body.find("for j in range(6)") < 0, "throw renderer should not keep the old dense smoke puffs inline")
 	_expect(body.find("for k in range(10)") < 0, "throw renderer should not keep the old dense sparks inline")
