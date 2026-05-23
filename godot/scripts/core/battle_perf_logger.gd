@@ -48,27 +48,11 @@ const SPIKE_DETAIL_DELTA_TRIGGER_MSEC := 40.0
 const SPIKE_DETAIL_PHYS_TRIGGER_MSEC := 8.0
 const SPIKE_DETAIL_DRAW_TRIGGER_MSEC := 16.0
 const SPIKE_DETAIL_LIMIT := 24
-const SPIKE_WINDOW_DRAW_SHELL_TRIGGER_MSEC := 10.0
-const SPIKE_WINDOW_DRAW_FRAME_TRIGGER_MSEC := 8.0
-const SPIKE_WINDOW_PLAYFIELD_TRIGGER_MSEC := 4.0
-const SPIKE_WINDOW_FOCUS_TRIGGER_MSEC := 3.0
-const SPIKE_WINDOW_ACTIVE_ITEM_TRIGGER_MSEC := 1.0
-const SPIKE_WINDOW_LIMIT := 18
-const SPIKE_WINDOW_FOCUS_LIMIT := 10
-const SPIKE_WINDOW_FOCUS_LABELS := [
-	"01.actors.total",
-	"29.active_item_field",
-	"34.scoreboard_overlay",
-	"stage1.pillar_ui.total",
-	"stage1.pillar_ui.gauge_orb",
-	"stage1.pillar_ui.player_dash",
-	"stage1.pillar_ui.boss_dash",
-	"stage1.pillar_ui.commando_selector",
-]
 const PROCESS_SCAN_VERSION := 2
 const STALE_LOADING_HOST_NAME := "BattleLoadingStainedGlassHost"
 const STALE_LOADING_HOST_SCRIPT := "battle_loading_stained_glass_host.gd"
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const BattlePerfSpikeWindowReporter := preload("res://scripts/core/battle_perf_spike_window_reporter.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 
 var log_checked := false
@@ -91,6 +75,7 @@ var last_context: Dictionary = {}
 var jetpack_state_counts: Dictionary = {"thrust": 0, "glide": 0, "ground": 0}
 var air_strike_event_counts: Dictionary = {"hits": 0, "post_hit_frames": 0}
 var _previous_air_strike_flash_timer: float = 0.0
+var spike_window_reporter: Object = BattlePerfSpikeWindowReporter.new()
 
 
 func set_scene_owner(owner: Node) -> void:
@@ -426,188 +411,12 @@ func _sort_spike_detail_desc(a: Dictionary, b: Dictionary) -> bool:
 
 
 func _build_spike_window_summary() -> String:
-	if not _should_emit_spike_window():
-		return ""
-	return "trigger=%s | max_hot=%s | focus=%s | counters=%s" % [
-		_build_spike_window_trigger_summary(),
-		_build_spike_window_max_summary(SPIKE_WINDOW_LIMIT),
-		_build_spike_window_focus_summary(),
+	return spike_window_reporter.build(
+		samples,
 		_build_counter_summary(),
-	]
-
-
-func _should_emit_spike_window() -> bool:
-	if _sample_max_ms("draw.shell.frame_controller") >= SPIKE_WINDOW_DRAW_SHELL_TRIGGER_MSEC:
-		return true
-	if _sample_max_ms("draw.shell.total") >= SPIKE_WINDOW_DRAW_SHELL_TRIGGER_MSEC:
-		return true
-	if _sample_max_ms("draw.frame.total") >= SPIKE_WINDOW_DRAW_FRAME_TRIGGER_MSEC:
-		return true
-	if _sample_max_ms("draw.frame.battle_scene") >= SPIKE_WINDOW_DRAW_FRAME_TRIGGER_MSEC:
-		return true
-	if _sample_max_ms("00.playfield_frame_total") >= SPIKE_WINDOW_PLAYFIELD_TRIGGER_MSEC:
-		return true
-	for key_value in samples.keys():
-		var label := str(key_value)
-		var max_ms: float = _sample_max_ms(label)
-		if _is_spike_window_active_item_label(label) and max_ms >= SPIKE_WINDOW_ACTIVE_ITEM_TRIGGER_MSEC:
-			return true
-		if _is_spike_window_focus_label(label) and max_ms >= SPIKE_WINDOW_FOCUS_TRIGGER_MSEC:
-			return true
-	return false
-
-
-func _build_spike_window_trigger_summary() -> String:
-	var parts: Array[String] = []
-	var seen: Dictionary = {}
-	_append_spike_window_trigger(parts, seen, "draw.shell.frame_controller", SPIKE_WINDOW_DRAW_SHELL_TRIGGER_MSEC)
-	_append_spike_window_trigger(parts, seen, "draw.shell.total", SPIKE_WINDOW_DRAW_SHELL_TRIGGER_MSEC)
-	_append_spike_window_trigger(parts, seen, "draw.frame.total", SPIKE_WINDOW_DRAW_FRAME_TRIGGER_MSEC)
-	_append_spike_window_trigger(parts, seen, "draw.frame.battle_scene", SPIKE_WINDOW_DRAW_FRAME_TRIGGER_MSEC)
-	_append_spike_window_trigger(parts, seen, "00.playfield_frame_total", SPIKE_WINDOW_PLAYFIELD_TRIGGER_MSEC)
-	for key_value in samples.keys():
-		var label := str(key_value)
-		if seen.has(label):
-			continue
-		var threshold: float = 0.0
-		if _is_spike_window_active_item_label(label):
-			threshold = SPIKE_WINDOW_ACTIVE_ITEM_TRIGGER_MSEC
-		elif _is_spike_window_focus_label(label):
-			threshold = SPIKE_WINDOW_FOCUS_TRIGGER_MSEC
-		if threshold <= 0.0:
-			continue
-		_append_spike_window_trigger(parts, seen, label, threshold)
-	if parts.is_empty():
-		return "-"
-	return "; ".join(parts)
-
-
-func _append_spike_window_trigger(
-	parts: Array[String],
-	seen: Dictionary,
-	label: String,
-	threshold_ms: float
-) -> void:
-	if _sample_max_ms(label) < threshold_ms:
-		return
-	var formatted: String = _format_sample_entry(label)
-	if formatted == "":
-		return
-	seen[label] = true
-	parts.append(formatted)
-
-
-func _build_spike_window_max_summary(limit: int) -> String:
-	var entries: Array[Dictionary] = []
-	for key_value in samples.keys():
-		var label := str(key_value)
-		if not _is_spike_window_hot_label(label):
-			continue
-		entries.append(_sample_entry(label))
-	if entries.is_empty():
-		return "-"
-	entries.sort_custom(Callable(self, "_sort_spike_window_max_desc"))
-	var parts: Array[String] = []
-	var entry_limit: int = min(entries.size(), limit)
-	for index in range(entry_limit):
-		parts.append(_format_sample_entry_from_dict(entries[index]))
-	return "; ".join(parts)
-
-
-func _build_spike_window_focus_summary() -> String:
-	var entries: Array[Dictionary] = []
-	for key_value in samples.keys():
-		var label := str(key_value)
-		if not _is_spike_window_focus_label(label):
-			continue
-		var entry: Dictionary = _sample_entry(label)
-		if float(entry.get("max_ms", 0.0)) <= 0.0:
-			continue
-		entries.append(entry)
-	if entries.is_empty():
-		return "-"
-	entries.sort_custom(Callable(self, "_sort_spike_window_max_desc"))
-	var parts: Array[String] = []
-	var limit: int = min(entries.size(), SPIKE_WINDOW_FOCUS_LIMIT)
-	for index in range(limit):
-		parts.append(_format_sample_entry_from_dict(entries[index]))
-	return "; ".join(parts)
-
-
-func _sample_entry(label: String) -> Dictionary:
-	var sample: Dictionary = samples.get(label, {})
-	var count: int = max(1, int(sample.get("count", 0)))
-	var total_usec: int = int(sample.get("total_usec", 0))
-	var max_usec: int = int(sample.get("max_usec", 0))
-	return {
-		"label": label,
-		"avg_ms": float(total_usec) / float(count) / 1000.0,
-		"max_ms": float(max_usec) / 1000.0,
-		"count": count,
-	}
-
-
-func _format_sample_entry(label: String) -> String:
-	if not samples.has(label):
-		return ""
-	return _format_sample_entry_from_dict(_sample_entry(label))
-
-
-func _format_sample_entry_from_dict(entry: Dictionary) -> String:
-	return "%s=%.2f/%.2fms(n%d)" % [
-		str(entry.get("label", "")),
-		float(entry.get("avg_ms", 0.0)),
-		float(entry.get("max_ms", 0.0)),
-		int(entry.get("count", 0)),
-	]
-
-
-func _sort_spike_window_max_desc(a: Dictionary, b: Dictionary) -> bool:
-	var a_max: float = float(a.get("max_ms", 0.0))
-	var b_max: float = float(b.get("max_ms", 0.0))
-	if not is_equal_approx(a_max, b_max):
-		return a_max > b_max
-	return float(a.get("avg_ms", 0.0)) > float(b.get("avg_ms", 0.0))
-
-
-func _is_spike_window_hot_label(label: String) -> bool:
-	if label.ends_with(".delta"):
-		return false
-	if label in [
-		"physics.shell.total",
-		"physics.frame.total",
-		"process.shell.total",
-		"process.frame.total",
-	]:
-		return false
-	if label.begins_with("draw."):
-		return true
-	if _is_gap_playfield_hot_label(label):
-		return true
-	if _is_gap_stage_hot_label(label):
-		return true
-	if label.begins_with("active_item."):
-		return true
-	if label.begins_with("mythic."):
-		return true
-	if label.begins_with("ball.visual."):
-		return true
-	if label.begins_with("context."):
-		return true
-	return false
-
-
-func _is_spike_window_focus_label(label: String) -> bool:
-	if _is_spike_window_active_item_label(label):
-		return true
-	for focus_label in SPIKE_WINDOW_FOCUS_LABELS:
-		if label == str(focus_label):
-			return true
-	return false
-
-
-func _is_spike_window_active_item_label(label: String) -> bool:
-	return label == "29.active_item_field" or label.begins_with("active_item.")
+		GAP_PLAYFIELD_HOT_PREFIXES,
+		GAP_STAGE_HOT_PREFIXES
+	)
 
 
 # Engine-internal counters that explain the gap between
