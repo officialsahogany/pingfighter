@@ -142,23 +142,12 @@ func get_slot_key(item_name: String) -> String:
 
 
 func _build_speedboots() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(SPEEDBOOTS)
-	return {
-		"name": SPEEDBOOTS,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "스피드부츠",
 		"korean_name": "스피드부츠",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": SPEEDBOOTS,
-		"slot": "shoes",
-		"icon_path": get_icon_path(SPEEDBOOTS),
-		"chance": get_field_chance(SPEEDBOOTS),
 		"description": "장착 중 플레이어의 이동 속도를 롤옵션만큼 높입니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(SPEEDBOOTS),
-		"rolled_options": build_rolled_options(SPEEDBOOTS, rolls),
 		"color": Color(0.0, 1.0, 100.0 / 255.0),
-	}
+	}, self, SPEEDBOOTS, "passive", "shoes", get_field_chance(SPEEDBOOTS))
 
 
 func _build_speedgear() -> Dictionary:
@@ -180,143 +169,66 @@ func _build_gravitybelt() -> Dictionary:
 
 
 func _build_sensor() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(SENSOR)
-	return {
-		"name": SENSOR,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "위험감지벨트",
 		"korean_name": "위험감지벨트",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": SENSOR,
-		"slot": "belt",
-		"icon_path": get_icon_path(SENSOR),
-		"chance": get_field_chance(SENSOR),
 		"description": "위험 상황에서 자동으로 대쉬합니다. 자동대쉬는 게이지와 대쉬토큰을 소모하지 않습니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(SENSOR),
-		"rolled_options": build_rolled_options(SENSOR, rolls),
 		"color": Color(150.0 / 255.0, 150.0 / 255.0, 1.0),
-	}
+	}, self, SENSOR, "passive", "belt", get_field_chance(SENSOR))
 
 
 func _build_spikeboots() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(SPIKEBOOTS)
-	return {
-		"name": SPIKEBOOTS,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "스파이크부츠",
 		"korean_name": "스파이크부츠",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": SPIKEBOOTS,
-		"slot": "shoes",
-		"icon_path": get_icon_path(SPIKEBOOTS),
-		"chance": get_field_chance(SPIKEBOOTS),
 		"description": "대쉬 후딜 시간과 대쉬 토큰 재충전 시간을 롤옵션만큼 줄입니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(SPIKEBOOTS),
-		"rolled_options": build_rolled_options(SPIKEBOOTS, rolls),
 		"color": Color(1.0, 100.0 / 255.0, 1.0),
-	}
+	}, self, SPIKEBOOTS, "passive", "shoes", get_field_chance(SPIKEBOOTS))
 
 
 func _build_dowsing_pendulum() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(DOWSING_PENDULUM)
-	return {
-		"name": DOWSING_PENDULUM,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "다우징팬들럼",
 		"korean_name": "다우징팬들럼",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": DOWSING_PENDULUM,
-		"slot": "belt2",
-		"icon_path": get_icon_path(DOWSING_PENDULUM),
-		"chance": get_field_chance(DOWSING_PENDULUM),
 		"description": "롤옵션 범위 안의 필드 아이템을 플레이어 패들 쪽으로 끌어당깁니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(DOWSING_PENDULUM),
-		"rolled_options": build_rolled_options(DOWSING_PENDULUM, rolls),
 		"color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
-	}
+	}, self, DOWSING_PENDULUM, "passive", "belt2", get_field_chance(DOWSING_PENDULUM))
 
 
 func _build_dowsing_goggles() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(DOWSING_GOGGLES)
-	return {
-		"name": DOWSING_GOGGLES,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "다우징 고글",
 		"korean_name": "다우징 고글",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": DOWSING_GOGGLES,
-		"slot": "head",
-		"icon_path": get_icon_path(DOWSING_GOGGLES),
-		"chance": get_field_chance(DOWSING_GOGGLES),
 		"description": "퍽 선택 화면에서 일정 확률로 일반 퍽 선택지가 1장 추가됩니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(DOWSING_GOGGLES),
-		"rolled_options": build_rolled_options(DOWSING_GOGGLES, rolls),
 		"color": Color(60.0 / 255.0, 200.0 / 255.0, 180.0 / 255.0),
-	}
+	}, self, DOWSING_GOGGLES, "passive", "head", get_field_chance(DOWSING_GOGGLES))
 
 
 func _build_slot_add() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(SLOT_ADD)
-	return {
-		"name": SLOT_ADD,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "배낭",
 		"korean_name": "배낭",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": SLOT_ADD,
-		"slot": "belt2",
-		"icon_path": get_icon_path(SLOT_ADD),
-		"chance": get_field_chance(SLOT_ADD),
 		"description": "장착 중 액티브 아이템 슬롯을 롤옵션만큼 늘립니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(SLOT_ADD),
-		"rolled_options": build_rolled_options(SLOT_ADD, rolls),
 		"color": Color(1.0, 180.0 / 255.0, 80.0 / 255.0),
-	}
+	}, self, SLOT_ADD, "passive", "belt2", get_field_chance(SLOT_ADD))
 
 
 func _build_chargebag() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(CHARGEBAG)
-	return {
-		"name": CHARGEBAG,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "충전가방",
 		"korean_name": "충전가방",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": CHARGEBAG,
-		"slot": "belt2",
-		"icon_path": get_icon_path(CHARGEBAG),
-		"chance": get_field_chance(CHARGEBAG),
 		"description": "장착 중 공이 벽에 닿을 때마다 기본 게이지 충전량의 일부를 추가로 얻습니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(CHARGEBAG),
-		"rolled_options": build_rolled_options(CHARGEBAG, rolls),
 		"color": Color(100.0 / 255.0, 1.0, 100.0 / 255.0),
-	}
+	}, self, CHARGEBAG, "passive", "belt2", get_field_chance(CHARGEBAG))
 
 
 func _build_battery() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(BATTERY)
-	return {
-		"name": BATTERY,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "배터리팩",
 		"korean_name": "배터리팩",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": BATTERY,
-		"slot": "belt2",
-		"icon_path": get_icon_path(BATTERY),
-		"chance": get_field_chance(BATTERY),
 		"description": "장착 중 다음 스테이지로 넘어갈 때 게이지를 롤옵션 비율만큼 보존합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(BATTERY),
-		"rolled_options": build_rolled_options(BATTERY, rolls),
 		"color": Color(1.0, 1.0, 0.0),
-	}
+	}, self, BATTERY, "passive", "belt2", get_field_chance(BATTERY))
 
 
 func _build_revival() -> Dictionary:
