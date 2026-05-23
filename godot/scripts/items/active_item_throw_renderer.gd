@@ -5,6 +5,7 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
 const MolotovFxHost := preload("res://scripts/items/active_item_molotov_fx_host.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
+const SlipRenderer := preload("res://scripts/items/active_item_throw_slip_renderer.gd")
 
 const GRENADE_ICON_PATH := ActiveItemCatalog.GRENADE_ICON_PATH
 const FLARE_ICON_PATH := ActiveItemCatalog.FLARE_ICON_PATH
@@ -131,10 +132,12 @@ var _molotov_view_layout: Object = null
 var _molotov_view_cached_viewport_size: Vector2 = Vector2.ZERO
 var _molotov_view_cached_game_offset: Vector2 = Vector2.ZERO
 var _molotov_view_cached_render_scale: float = 1.0
+var _slip_renderer: Object = SlipRenderer.new()
 
 
 func prewarm_assets() -> void:
 	MolotovFxHost.prewarm_assets()
+	_slip_renderer.prewarm_assets()
 	_touch_texture(_get_grenade_icon_texture())
 	_touch_texture(_get_flare_icon_texture())
 	_touch_texture(_get_tear_gas_icon_texture())
@@ -228,25 +231,25 @@ func draw(
 	_draw_molotovs(canvas, molotovs, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.molotovs", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_landed_bananas(canvas, landed_bananas, shake_offset)
+	_slip_renderer.draw_landed_bananas(canvas, landed_bananas, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.landed_bananas", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_bananas(canvas, banana_projectiles, shake_offset)
+	_slip_renderer.draw_bananas(canvas, banana_projectiles, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.banana_projectiles", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_soap_foam_trails(canvas, soap_foam_trails, shake_offset)
+	_slip_renderer.draw_soap_foam_trails(canvas, soap_foam_trails, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.soap_foam_trails", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_landed_soaps(canvas, landed_soaps, shake_offset)
+	_slip_renderer.draw_landed_soaps(canvas, landed_soaps, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.landed_soaps", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_soaps(canvas, soap_projectiles, shake_offset)
+	_slip_renderer.draw_soaps(canvas, soap_projectiles, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.soap_projectiles", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_banana_particles(canvas, banana_particles, shake_offset)
+	_slip_renderer.draw_banana_particles(canvas, banana_particles, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.banana_particles", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_soap_particles(canvas, soap_particles, shake_offset)
+	_slip_renderer.draw_soap_particles(canvas, soap_particles, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.soap_particles", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
 	_draw_boomerang_particles(canvas, boomerang_particles, shake_offset)
@@ -315,9 +318,9 @@ func _draw_grenade_throw_windups(canvas: CanvasItem, pending_throws: Array, shak
 		elif item_name == "boomerang":
 			_draw_boomerang_fallback(canvas, throw_pos, angle, 1.0)
 		elif item_name == "banana":
-			_draw_banana_fallback(canvas, throw_pos, angle, 1.0)
+			_slip_renderer.draw_banana_fallback(canvas, throw_pos, angle, 1.0)
 		elif item_name == "soap":
-			_draw_soap_fallback(canvas, throw_pos, angle, 1.0)
+			_slip_renderer.draw_soap_fallback(canvas, throw_pos, angle, 1.0)
 		elif item_name == "spider_mine":
 			canvas.draw_circle(throw_pos, 13.0, Color(58.0 / 255.0, 64.0 / 255.0, 90.0 / 255.0, 1.0))
 			canvas.draw_circle(throw_pos + Vector2(0.0, -2.0), 5.0, Color(200.0 / 255.0, 90.0 / 255.0, 130.0 / 255.0, 1.0))
@@ -1215,174 +1218,6 @@ func _draw_molotov_flame(canvas: CanvasItem, flame: Dictionary, shake_offset: Ve
 		canvas.draw_circle(center + Vector2(0.0, -layer_ratio * size * 0.25), layer_size, color)
 
 
-func _draw_bananas(canvas: CanvasItem, banana_projectiles: Array, shake_offset: Vector2) -> void:
-	if banana_projectiles.is_empty():
-		return
-	var texture: Texture2D = _get_banana_icon_texture()
-	for banana_value in banana_projectiles:
-		if not (banana_value is Dictionary):
-			continue
-		var banana: Dictionary = banana_value
-		_draw_projectile_trail(canvas, banana.get("trail", []), shake_offset, 3.0, Color(1.0, 225.0 / 255.0, 70.0 / 255.0, 1.0), 0.24)
-
-		var center: Vector2 = _get_vector2(banana, "position", Vector2.ZERO) + shake_offset
-		var angle: float = float(banana.get("rotation_degrees", 0.0))
-		if texture != null:
-			_draw_rotated_texture_region(
-				canvas,
-				texture,
-				Rect2(Vector2.ZERO, texture.get_size()),
-				center,
-				Vector2(BANANA_DRAW_SIZE, BANANA_DRAW_SIZE),
-				angle
-			)
-		else:
-			_draw_banana_fallback(canvas, center, angle, 1.0)
-
-
-func _draw_landed_bananas(canvas: CanvasItem, landed_bananas: Array, shake_offset: Vector2) -> void:
-	if landed_bananas.is_empty():
-		return
-	var texture: Texture2D = _get_banana_icon_texture()
-	for landed_value in landed_bananas:
-		if not (landed_value is Dictionary):
-			continue
-		var landed: Dictionary = landed_value
-		var timer_frames: int = int(landed.get("timer_frames", BANANA_LAND_DURATION_FRAMES))
-		@warning_ignore("integer_division")
-		if timer_frames < 60 and int(timer_frames / 5) % 2 == 0:
-			continue
-		var center: Vector2 = _get_vector2(landed, "position", Vector2.ZERO) + shake_offset
-		if not bool(landed.get("slip_triggered", false)):
-			_draw_filled_ellipse(canvas, Rect2(center + Vector2(-30.0, 5.0), Vector2(60.0, 10.0)), Color(1.0, 1.0, 0.0, 80.0 / 255.0))
-		if texture != null:
-			_draw_rotated_texture_region(
-				canvas,
-				texture,
-				Rect2(Vector2.ZERO, texture.get_size()),
-				center,
-				Vector2(BANANA_LANDED_DRAW_SIZE, BANANA_LANDED_DRAW_SIZE),
-				15.0
-			)
-		else:
-			_draw_banana_fallback(canvas, center, 15.0, BANANA_LANDED_DRAW_SIZE / BANANA_DRAW_SIZE)
-
-
-func _draw_banana_particles(canvas: CanvasItem, banana_particles: Array, shake_offset: Vector2) -> void:
-	if banana_particles.is_empty():
-		return
-	for particle_value in banana_particles:
-		if not (particle_value is Dictionary):
-			continue
-		var particle: Dictionary = particle_value
-		var life_frames: float = float(particle.get("life_frames", 0.0))
-		var max_life_frames: float = max(1.0, float(particle.get("max_life_frames", 40.0)))
-		var life: float = clamp(life_frames / max_life_frames, 0.0, 1.0)
-		if life <= 0.0:
-			continue
-		var center: Vector2 = _get_vector2(particle, "position", Vector2.ZERO) + shake_offset
-		var size: float = max(1.0, float(particle.get("size", 5.0)) * life)
-		var color: Color = _get_color(particle.get("color", Color(1.0, 225.0 / 255.0, 50.0 / 255.0, 1.0)), Color(1.0, 225.0 / 255.0, 50.0 / 255.0, 1.0))
-		canvas.draw_circle(center, size, Color(color.r, color.g, color.b, color.a * life))
-
-
-func _draw_soaps(canvas: CanvasItem, soap_projectiles: Array, shake_offset: Vector2) -> void:
-	if soap_projectiles.is_empty():
-		return
-	var texture: Texture2D = _get_soap_icon_texture()
-	for soap_value in soap_projectiles:
-		if not (soap_value is Dictionary):
-			continue
-		var soap: Dictionary = soap_value
-		_draw_projectile_trail(canvas, soap.get("trail", []), shake_offset, 3.0, Color(190.0 / 255.0, 230.0 / 255.0, 1.0, 1.0), 0.22)
-
-		var center: Vector2 = _get_vector2(soap, "position", Vector2.ZERO) + shake_offset
-		var angle: float = float(soap.get("rotation_degrees", 0.0))
-		if texture != null:
-			_draw_rotated_texture_region(
-				canvas,
-				texture,
-				Rect2(Vector2.ZERO, texture.get_size()),
-				center,
-				Vector2(SOAP_DRAW_SIZE, SOAP_DRAW_SIZE),
-				angle
-			)
-		else:
-			_draw_soap_fallback(canvas, center, angle, 1.0)
-
-
-func _draw_landed_soaps(canvas: CanvasItem, landed_soaps: Array, shake_offset: Vector2) -> void:
-	if landed_soaps.is_empty():
-		return
-	var texture: Texture2D = _get_soap_icon_texture()
-	for landed_value in landed_soaps:
-		if not (landed_value is Dictionary):
-			continue
-		var landed: Dictionary = landed_value
-		var timer_frames: int = int(landed.get("timer_frames", SOAP_LAND_DURATION_FRAMES))
-		@warning_ignore("integer_division")
-		if timer_frames < 60 and int(timer_frames / 5) % 2 == 0:
-			continue
-		var center: Vector2 = _get_vector2(landed, "position", Vector2.ZERO) + shake_offset
-		var wobble: float = sin(float(landed.get("wobble_phase", 0.0))) * 3.0
-		_draw_soap_puddle(canvas, center + Vector2(0.0, 8.0))
-		if texture != null:
-			_draw_rotated_texture_region(
-				canvas,
-				texture,
-				Rect2(Vector2.ZERO, texture.get_size()),
-				center + Vector2(wobble, 0.0),
-				Vector2(SOAP_LANDED_DRAW_SIZE, SOAP_LANDED_DRAW_SIZE),
-				wobble * 2.0
-			)
-		else:
-			_draw_soap_fallback(canvas, center + Vector2(wobble, 0.0), wobble * 2.0, SOAP_LANDED_DRAW_SIZE / SOAP_DRAW_SIZE)
-
-
-func _draw_soap_particles(canvas: CanvasItem, soap_particles: Array, shake_offset: Vector2) -> void:
-	if soap_particles.is_empty():
-		return
-	for particle_value in soap_particles:
-		if not (particle_value is Dictionary):
-			continue
-		var particle: Dictionary = particle_value
-		var age: float = float(particle.get("age", 0.0))
-		var lifetime: float = max(0.001, float(particle.get("lifetime", 0.8)))
-		var life: float = clamp(1.0 - age / lifetime, 0.0, 1.0)
-		if life <= SOAP_PARTICLE_ALPHA_CUTOFF:
-			continue
-		var center: Vector2 = _get_vector2(particle, "position", Vector2.ZERO) + shake_offset
-		var radius: float = max(1.0, float(particle.get("radius", 4.0))) * (0.65 + life * 0.35)
-		var color: Color = _get_color(particle.get("color", Color(200.0 / 255.0, 230.0 / 255.0, 1.0, 1.0)), Color(200.0 / 255.0, 230.0 / 255.0, 1.0, 1.0))
-		canvas.draw_circle(center, radius, Color(color.r, color.g, color.b, color.a * 0.55 * life), false, max(1.0, radius * 0.22))
-		if life > 0.28:
-			canvas.draw_circle(center + Vector2(-radius * 0.28, -radius * 0.28), max(1.0, radius * 0.24), Color(1.0, 1.0, 1.0, 0.38 * life))
-
-
-func _draw_soap_foam_trails(canvas: CanvasItem, soap_foam_trails: Array, shake_offset: Vector2) -> void:
-	if soap_foam_trails.is_empty():
-		return
-	for foam_value in soap_foam_trails:
-		if not (foam_value is Dictionary):
-			continue
-		var foam: Dictionary = foam_value
-		var life_frames: float = float(foam.get("life_frames", 0.0))
-		var max_life_frames: float = max(1.0, float(foam.get("max_life_frames", 45.0)))
-		var life: float = clamp(life_frames / max_life_frames, 0.0, 1.0)
-		if life <= SOAP_PARTICLE_ALPHA_CUTOFF:
-			continue
-		var center: Vector2 = _get_vector2(foam, "position", Vector2.ZERO) + shake_offset
-		var radius: float = max(1.0, float(foam.get("size", 5.0))) * (0.6 + 0.4 * life)
-		canvas.draw_circle(center, radius, Color(200.0 / 255.0, 230.0 / 255.0, 1.0, 0.46 * life), false, max(1.0, radius * 0.22))
-		if life > 0.22:
-			canvas.draw_circle(center, max(1.0, radius - 1.0), Color(220.0 / 255.0, 240.0 / 255.0, 1.0, 0.15 * life))
-
-
-func _draw_soap_puddle(canvas: CanvasItem, center: Vector2) -> void:
-	_draw_filled_ellipse(canvas, Rect2(center - Vector2(35.0, 8.0), Vector2(70.0, 16.0)), Color(180.0 / 255.0, 220.0 / 255.0, 1.0, 0.24))
-	_draw_filled_ellipse(canvas, Rect2(center - Vector2(25.0, 5.0), Vector2(50.0, 10.0)), Color(200.0 / 255.0, 235.0 / 255.0, 1.0, 0.18))
-
-
 func _draw_spider_mines(canvas: CanvasItem, spider_mines: Array, shake_offset: Vector2) -> void:
 	if spider_mines.is_empty():
 		return
@@ -1843,63 +1678,6 @@ func _draw_boomerang_fallback(canvas: CanvasItem, center: Vector2, angle_degrees
 	canvas.draw_line(center, end1, Color(170.0 / 255.0, 110.0 / 255.0, 55.0 / 255.0, 1.0), arm_width)
 	canvas.draw_line(center, end2, Color(215.0 / 255.0, 165.0 / 255.0, 85.0 / 255.0, 1.0), arm_width)
 	canvas.draw_circle(center, 4.0 * scale, Color(1.0, 210.0 / 255.0, 80.0 / 255.0, 1.0))
-
-
-func _draw_banana_fallback(canvas: CanvasItem, center: Vector2, angle_degrees: float, scale: float) -> void:
-	var angle: float = deg_to_rad(angle_degrees)
-	var cos_a: float = cos(angle)
-	var sin_a: float = sin(angle)
-	var points := PackedVector2Array()
-	for i in range(16):
-		var t: float = float(i) / 15.0
-		var local_x: float = lerp(-20.0, 20.0, t) * scale
-		var local_y: float = (-10.0 * sin(t * PI)) * scale
-		points.append(center + Vector2(
-			local_x * cos_a - local_y * sin_a,
-			local_x * sin_a + local_y * cos_a
-		))
-	for i in range(15, -1, -1):
-		var t: float = float(i) / 15.0
-		var local_x: float = lerp(-20.0, 20.0, t) * scale
-		var local_y: float = (-4.0 * sin(t * PI) + 8.0) * scale
-		points.append(center + Vector2(
-			local_x * cos_a - local_y * sin_a,
-			local_x * sin_a + local_y * cos_a
-		))
-	if points.size() >= 3:
-		canvas.draw_colored_polygon(points, Color(227.0 / 255.0, 189.0 / 255.0, 52.0 / 255.0, 1.0))
-	var stem: Vector2 = center + Vector2(-20.0 * scale * cos_a, -20.0 * scale * sin_a)
-	var tip: Vector2 = center + Vector2(20.0 * scale * cos_a - 2.0 * scale * sin_a, 20.0 * scale * sin_a + 2.0 * scale * cos_a)
-	canvas.draw_circle(stem, 3.0 * scale, Color(154.0 / 255.0, 165.0 / 255.0, 67.0 / 255.0, 1.0))
-	canvas.draw_circle(tip, 2.5 * scale, Color(89.0 / 255.0, 60.0 / 255.0, 31.0 / 255.0, 1.0))
-
-
-func _draw_soap_fallback(canvas: CanvasItem, center: Vector2, angle_degrees: float, scale: float) -> void:
-	var body_size := Vector2(25.0, 17.0) * scale
-	var angle: float = deg_to_rad(angle_degrees)
-	var cos_a: float = cos(angle)
-	var sin_a: float = sin(angle)
-	var corners := [
-		Vector2(-body_size.x * 0.5, -body_size.y * 0.5),
-		Vector2(body_size.x * 0.5, -body_size.y * 0.5),
-		Vector2(body_size.x * 0.5, body_size.y * 0.5),
-		Vector2(-body_size.x * 0.5, body_size.y * 0.5),
-	]
-	var points := PackedVector2Array()
-	for corner in corners:
-		points.append(center + Vector2(
-			corner.x * cos_a - corner.y * sin_a,
-			corner.x * sin_a + corner.y * cos_a
-		))
-	canvas.draw_polygon(points, PackedColorArray([
-		Color(140.0 / 255.0, 200.0 / 255.0, 240.0 / 255.0, 1.0),
-		Color(180.0 / 255.0, 225.0 / 255.0, 1.0, 1.0),
-		Color(110.0 / 255.0, 170.0 / 255.0, 220.0 / 255.0, 1.0),
-		Color(140.0 / 255.0, 200.0 / 255.0, 240.0 / 255.0, 1.0),
-	]))
-	canvas.draw_line(points[0].lerp(points[1], 0.25), points[0].lerp(points[1], 0.75), Color(230.0 / 255.0, 250.0 / 255.0, 1.0, 0.95), max(1.0, 2.0 * scale))
-	canvas.draw_circle(center + Vector2(13.0, -8.0) * scale, 3.0 * scale, Color(220.0 / 255.0, 240.0 / 255.0, 1.0, 0.75), false, max(1.0, scale))
-	canvas.draw_circle(center + Vector2(-14.0, -5.0) * scale, 2.0 * scale, Color(220.0 / 255.0, 240.0 / 255.0, 1.0, 0.75), false, max(1.0, scale))
 
 
 func _draw_explosion_zones(canvas: CanvasItem, explosion_zones: Array, shake_offset: Vector2) -> void:
