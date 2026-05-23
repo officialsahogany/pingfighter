@@ -328,9 +328,11 @@ This section is intentionally long; use search to find the nearest owner.
   dust, and boss-impact drawing while the shared field renderer passes
   runtime state and public render budgets through;
   `scripts/items/mythic_item_hermes_field_renderer.gd` owns Hermes Shoes FX
-  host lookup/creation, deferred attachment, canvas caching, and `sync_state`
-  forwarding while the shared field renderer passes runtime state and perf
-  labeling through;
+  host lookup/creation, deferred attachment, canvas caching, screen-space
+  playfield layout calculation, and `sync_state` forwarding while the shared
+  field renderer passes runtime state and perf labeling through. The host
+  owns the additive underglow, screen-space GPU sparkle particles, cached
+  wake sprites, render-scale application, and explicit teardown/debug status;
   `scripts/items/mythic_item_horn_strawberry_field_renderer.gd` owns Horn
   Strawberry transform cinematic visibility/draw plus stem, field-barrier,
   horn-charge, bomb, explosion, and paint draw helpers while the shared field

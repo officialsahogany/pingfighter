@@ -5241,6 +5241,32 @@ Hundredth split on 2026-05-24:
   `active_item_effect_update_driver_smoke`. `.\tools\run_warning_scan.ps1`
   passed with `1306` scripts scanned and no GDScript warnings.
 
+129th follow-up on 2026-05-24:
+
+- Commit: `f0be618b2 godot: align Hermes shoes fx host layout`.
+- Scope: updated the focused Hermes Shoes field renderer to compute
+  `battle_view_layout` screen-space `game_offset` / `render_scale` before
+  syncing the detached FX host. The host now scales with the playfield,
+  renders above the custom-drawn background, uses screen-space GPU particles,
+  and adds cached sparkle wake sprites so active movement remains visible in
+  letterboxed layouts.
+- Rationale: Hermes Shoes already lived in a detached Node2D FX host, so raw
+  playfield coordinates could be misaligned or visually hidden when the game
+  canvas was centered in the window. This follow-up makes Hermes match the
+  item / stage FX host layout contract: screen-space position plus explicit
+  `render_scale`.
+- Validation: `git diff --check` passed for the Hermes code/test slice.
+  `.\tools\run_headless_load_check.ps1` passed. Focused Hermes / mythic /
+  overlay coverage ran `4` smoke scripts and passed:
+  `hermes_shoes_fx_host_smoke`, `hermes_shoes_port_smoke`,
+  `mythic_item_field_render_budget_smoke`, and
+  `runtime_perk_overlay_theme_smoke`. Horn Strawberry follow-up smokes also
+  passed after concurrent tree changes:
+  `horn_strawberry_audio_vfx_smoke`, `horn_strawberry_mask_port_smoke`,
+  `horn_strawberry_skill_hud_smoke`, and
+  `mythic_item_field_render_budget_smoke`. `.\tools\run_warning_scan.ps1`
+  passed with `1309` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
