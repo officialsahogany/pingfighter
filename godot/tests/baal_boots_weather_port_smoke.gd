@@ -166,6 +166,19 @@ func _verify_sand_absorb_same_frame_clear() -> void:
 	_expect(float(runtime.get_baal_boots_context().get("sand_absorbed_total", 0.0)) >= built_depth * 0.95, "Baal should remember the absorbed sand amount before clearing terrain")
 	runtime.update(owner, registry, 1.0)
 	_expect(float(weather.get_sand_total_depth()) > 0.0, "absorbed sand should rebuild Baal's defensive mound after the cinematic")
+	var player_center_x: float = owner.player_pos.x + owner.player_paddle_width * 0.5
+	var sand_collision: Dictionary = weather.resolve_sand_ball_collision(
+		Vector2(player_center_x, 724.0),
+		Vector2(0.0, 11.0),
+		28.6,
+		{}
+	)
+	_expect(not sand_collision.is_empty(), "absorbed sand mound should collide with an incoming boss ball")
+	var reflected_vel := Vector2.ZERO
+	var reflected_vel_value: Variant = sand_collision.get("ball_vel", Vector2.ZERO)
+	if reflected_vel_value is Vector2:
+		reflected_vel = reflected_vel_value
+	_expect(reflected_vel.y < 0.0, "absorbed sand mound should reflect the boss ball upward")
 
 
 func _array_has_item(items: Array, item_name: String) -> bool:
