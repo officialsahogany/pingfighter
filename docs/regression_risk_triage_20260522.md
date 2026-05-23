@@ -9,16 +9,17 @@ This section was added to make the local triage log usable as cross-agent
 evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
-- Latest code split HEAD before this documentation sync:
-  `0956f6bb8 godot: add spider mine animation sheets`.
-- Code split range through that HEAD contains 93 follow-up commits after the
-  gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 94 commits.
-- Latest docs-only guardrail sync after that code split:
+- Latest code / asset / smoke-fix HEAD before this documentation sync:
+  `56cbe6365 godot: align dual glitch four poisons smoke`.
+- Code / asset / smoke-fix range through that HEAD contains 99 follow-up
+  commits after the gamepad input boot baseline. Including `2c31069ba`
+  itself, the checkpoint span through the latest code / asset / smoke-fix
+  split contains 100 commits.
+- Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
-- Latest local-artifact ignore sync after that code split:
+- Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
-- Latest residual settings hold note after that code split:
+- Latest residual settings hold note before this addendum:
   `2001105b6 docs: record final local settings hide`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1279` scripts scanned and no GDScript
@@ -32,9 +33,11 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the seventy-first split. The
-  top-level initial snapshot remains historical context from the first
-  2026-05-22 triage pass and should not be read as the current worktree size.
+- The split notes below are current through the seventy-first split. The broad
+  smoke addendum below records validation-only asset / smoke fixes made after
+  that split. The top-level initial snapshot remains historical context from
+  the first 2026-05-22 triage pass and should not be read as the current
+  worktree size.
 
 Open follow-ups before the next broad sign-off:
 
@@ -46,13 +49,21 @@ Open follow-ups before the next broad sign-off:
   workflow mode from `fast` to `precise`. Keep both out of gameplay / docs
   refactor commits unless the user explicitly asks to change repo-wide tool
   policy.
+- The segmented broad smoke validation emitted nonfatal `ObjectDB instances
+  leaked at exit` warnings from these otherwise-passing smoke scripts:
+  `boot_flow_bgm_toggle_smoke`, `commando_fullbody_live2d_smoke`,
+  `game_audio_volume_settings_smoke`, `main_menu_quit_confirmation_smoke`, and
+  `stage5_hongryun_visual_shell_smoke`. They did not trip the smoke wrapper,
+  but they should be treated as cleanup follow-ups before claiming a pristine
+  broad-smoke sign-off.
 
 Resolved follow-up in the latest pass:
 
 - Stage 5 visual-shell leak note was rechecked with
   `stage5_hongryun_visual_shell_smoke` on 2026-05-23. The focused run passed
-  without the previous `ObjectDB instances leaked at exit` warning, so it is
-  no longer an open blocker unless it resurfaces in a broader run.
+  without the previous `ObjectDB instances leaked at exit` warning. A later
+  segmented broad smoke run did surface the warning again, so the active
+  follow-up is now tracked in the open broad-smoke warning bullet above.
 - Lane-order drift has a review grouping now: the latest traceability pass
   groups the 2026-05-23 split commits by owner lane, so reviewers do not need
   to reconstruct the mixed mythic / stage / Commando sequence from raw commit
@@ -60,6 +71,49 @@ Resolved follow-up in the latest pass:
 - The feature-commit blocker fixes now have exact current file / line anchors
   below. They are still historically embedded in feature commits, but no
   longer untraceable.
+
+## Broad Smoke Validation Addendum - 2026-05-23
+
+Segmented broad validation covered the full sorted 489-script smoke list from
+`godot/` after the latest asset and smoke harness fixes:
+
+- The first full run found zero-byte local Godot import cache files for
+  `commando_weapon_overlay_net_gun.png` and
+  `commando_weapon_overlay_suicide_drone.png`. The source PNGs were valid;
+  deleting only the exact stale `.godot/imported` cache files and running
+  Godot `--import` regenerated non-empty `.ctex` files. The focused
+  `commando_weapon_overlay_smoke` then passed.
+- `6902b2055 godot: add import metadata for generated sprites` tracks the
+  generated `.import` metadata for the new Fire Support and Spider Mine
+  runtime PNGs.
+- `fe530a339 godot: add elixir smoke ok marker` fixes
+  `elixir_of_mastery_smoke` so the wrapper sees the required
+  `elixir_of_mastery_smoke: ok` marker after its internal 34 checks pass.
+- `e585e2b32 godot: add horn strawberry mask icons` adds the missing
+  `horn_strawberry_mask.png` and 32-frame
+  `horn_strawberry_mask_icon_sheet.png` assets plus import metadata. This
+  resolves the prewarm warnings in `passive_item_debug_menu_click_add_smoke`.
+- `56cbe6365 godot: align dual glitch four poisons smoke` aligns
+  `viper_dual_glitch_port_smoke` with the documented Four Poisons Lv.5 Dual
+  Glitch duration table: base `900` active frames with `+33%` becomes `1197`
+  frames.
+- Focused validation after those fixes passed:
+  `commando_weapon_overlay_smoke`, `elixir_of_mastery_smoke`,
+  `passive_item_debug_menu_click_add_smoke`, `horn_strawberry_mask_port_smoke`,
+  `horn_strawberry_skill_hud_smoke`, `viper_dual_glitch_port_smoke`,
+  `viper_nerve_strike_port_smoke`, and `viper_emp_strike_port_smoke`.
+- Segmented broad coverage completed:
+  the full run reached `passive_item_debug_menu_click_add_smoke` after passing
+  the earlier sorted smoke list; the rerun from
+  `passive_item_debug_menu_click_add_smoke` covered the next 177 scripts until
+  the Dual Glitch expectation mismatch; and the rerun from
+  `viper_dual_glitch_port_smoke` covered the final 17 scripts through
+  `weather_event_state_smoke`. This is full-list coverage, but not a single
+  uninterrupted all-489 pass.
+- Latest wrapper checks after `.gd` edits:
+  `.\tools\run_headless_load_check.ps1` passed, and
+  `.\tools\run_warning_scan.ps1` passed with `1279` scripts and no GDScript
+  warnings.
 
 ## Initial Snapshot
 
