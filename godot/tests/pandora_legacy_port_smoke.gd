@@ -6,6 +6,7 @@ const BattleSceneOverlayFrameController := preload("res://scripts/core/battle_sc
 const MatchScoreboardFlowController := preload("res://scripts/core/match_scoreboard_flow_controller.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemPandoraLegacyRuntime := preload("res://scripts/items/mythic_item_pandora_legacy_runtime.gd")
+const MythicItemPandoraSelectionRenderer := preload("res://scripts/items/mythic_item_pandora_selection_renderer.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
@@ -89,6 +90,7 @@ func _init() -> void:
 	_verify_pandora_runtime_owns_selection_constants()
 
 	var catalog: Object = MythicItemCatalog.new()
+	_verify_selection_renderer_loads_icons_through_project_loader(catalog)
 	var item_data: Dictionary = catalog.build_item_by_name("pandora_legacy")
 	_expect(not item_data.is_empty(), "Pandora Legacy should build from catalog")
 	_expect(str(item_data.get("display_name", "")) == "판도라의 유산", "Pandora Legacy should use Korean display text")
@@ -192,6 +194,18 @@ func _verify_pandora_runtime_owns_selection_constants() -> void:
 	_expect(runtime_source.find("PANDORA_SELECTION_CARD_COUNT") < 0, "mythic runtime should not keep Pandora card-count constants inline")
 	_expect(runtime_source.find("_get_pandora_card_index_at") < 0, "mythic runtime should not keep Pandora card-index bridge methods inline")
 	_expect(runtime_source.find("_clear_pandora_legacy_runtime") < 0, "mythic runtime should not keep Pandora clear bridge methods inline")
+
+
+func _verify_selection_renderer_loads_icons_through_project_loader(catalog: Object) -> void:
+	ProjectResourceLoader.clear_caches()
+	var renderer: Object = MythicItemPandoraSelectionRenderer.new()
+	var item_data: Dictionary = catalog.build_item_by_name("sensor")
+	var icon_path: String = str(item_data.get("icon_path", ""))
+	var cache: Dictionary = {}
+	var texture: Texture2D = renderer.get_choice_icon_texture(item_data, cache)
+	_expect(texture != null, "Pandora selection renderer should load passive icons")
+	_expect(cache.has(icon_path), "Pandora selection renderer should keep its local icon cache")
+	_expect(ProjectResourceLoader.get_cached_texture(icon_path) != null, "Pandora selection renderer should route icon loads through ProjectResourceLoader")
 
 
 func _expect_icon_asset(item_data: Dictionary) -> void:

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+
 
 func draw_selection_overlay(
 	canvas: CanvasItem,
@@ -100,11 +102,7 @@ func get_choice_icon_texture(item_data: Dictionary, icon_texture_cache: Dictiona
 	if icon_texture_cache.has(path):
 		var cached: Variant = icon_texture_cache[path]
 		return cached if cached is Texture2D else null
-	var texture: Texture2D = null
-	if ResourceLoader.exists(path):
-		var loaded: Resource = ResourceLoader.load(path)
-		if loaded is Texture2D:
-			texture = loaded
+	var texture: Texture2D = ProjectResourceLoader.load_texture(path)
 	icon_texture_cache[path] = texture
 	return texture
 
