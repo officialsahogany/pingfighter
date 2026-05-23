@@ -4726,6 +4726,11 @@ This section is intentionally long; use search to find the nearest owner.
   `BAAL_BOOTS_CONSTANTS` into these helpers and call
   `scripts/items/mythic_item_baal_boots_runtime.gd` directly; do not
   reintroduce private runtime Baal clear / arm bridge methods.
+- `scripts/items/mythic_item_stage_immunity.gd`
+  Owns mythic item Stage 2 speed-defense status-immunity queries. Ragnarok
+  Hammer and Shrapnel Armor should call this owner directly for boss /
+  context immunity checks instead of reintroducing private runtime stage-
+  immunity bridge methods.
 - `scripts/items/mythic_item_update_runtime.gd`
   Owns mythic per-frame update sequencing and idle-update fallback routing.
   It calls constants-free focused update owners directly for Smartphone,

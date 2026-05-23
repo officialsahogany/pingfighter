@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `8d9c06e8a godot: pass baal lifecycle constants through item helpers`.
-- The checkpoint span through that HEAD contains 132 follow-up commits after
+  `afc05b321 godot: route mythic stage immunity through owner`.
+- The checkpoint span through that HEAD contains 134 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 133 commits.
+  contains 135 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `de8e29572 docs: record mythic update constants cleanup`.
+  `1283bf3aa docs: record baal lifecycle bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the eighty-fourth split. The broad
+- The split notes below are current through the eighty-fifth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4070,6 +4070,30 @@ Eighty-fourth split on 2026-05-23:
   `mythic_item_runtime_idle_update_smoke`,
   `mythic_item_stat_bonus_runtime_smoke`, and
   `poseidon_trident_port_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Eighty-fifth split on 2026-05-23:
+
+- Commit: `afc05b321 godot: route mythic stage immunity through owner`.
+- Scope: Ragnarok Hammer and Shrapnel Armor now call
+  `mythic_item_stage_immunity.gd` directly for Stage 2 speed-defense boss /
+  context immunity checks. The private
+  `_is_stage2_speed_defense_context_immune()` and
+  `_is_stage2_speed_defense_boss_immune()` bridge methods were removed from
+  `mythic_item_runtime.gd`.
+- Rationale: Stage 2 speed-defense immunity is a focused stage-immunity
+  query owner, not runtime facade behavior. Direct owner calls keep the
+  active item and mythic item stage-immunity paths consistent.
+- `mythic_item_runtime.gd` line count moved from `2577` to `2569` in this
+  code split.
+- Validation passed:
+  focused stage-immunity set
+  (`ragnarok_hammer_port_smoke`, `shrapnel_armor_port_smoke`,
+  `stage2_speed_defense_smoke`, `mythic_item_field_render_budget_smoke`, and
+  `mythic_item_runtime_idle_update_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending
