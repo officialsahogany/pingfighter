@@ -156,9 +156,12 @@ This section is intentionally long; use search to find the nearest owner.
   constants, Speed Boots / Speed Gear / Gravity Belt / Bulk-Up Suit /
   Gold Bar / Dash Gear / Dash Holder stat-query and movement / paddle /
   dash-token composition delegated to
-  `scripts/items/mythic_item_stat_bonus_runtime.gd`, Commando Arm roll item-id
+  `scripts/items/mythic_item_stat_bonus_runtime.gd`, equipped-roll reads,
+  item-roll value reads, owned/equipped counts, and Commando Arm roll item-id
   / stack-cap query ownership delegated to
-  `scripts/items/mythic_item_roll_query.gd`, Poseidon's Trident dash
+  `scripts/items/mythic_item_roll_query.gd` with focused item helpers calling
+  that owner directly instead of private runtime roll-query bridge methods,
+  Poseidon's Trident dash
   trigger, vortex / capture / water-trail / charge-flash particle lifecycle,
   ball reflection, and boss-hit cleanup delegated to
   `scripts/items/mythic_item_poseidon_runtime.gd`, Baal's Boots weather

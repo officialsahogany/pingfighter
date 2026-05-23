@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `16b54b4db godot: drop unused mythic helper bridges`.
-- The checkpoint span through that HEAD contains 114 follow-up commits after
+  `70103509b godot: route mythic roll queries through owner`.
+- The checkpoint span through that HEAD contains 116 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 115 commits.
+  contains 117 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `a71d48b10 docs: record mythic clear bridge split`.
+  `4607cc675 docs: record unused mythic bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the seventy-fifth split. The broad
+- The split notes below are current through the seventy-sixth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -3812,6 +3812,39 @@ Seventy-fifth split on 2026-05-23:
   `soul_burst_port_smoke`, `mythic_item_runtime_idle_update_smoke`,
   `mythic_item_field_render_budget_smoke`, and
   `mythic_item_snapshot_builder_smoke`, plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Seventy-sixth split on 2026-05-23:
+
+- Commit: `70103509b godot: route mythic roll queries through owner`.
+- Scope: Focused mythic helpers now call `mythic_item_roll_query.gd`
+  directly for equipped-roll reads, owned/equipped counts, Commando Arm roll
+  stacks, and item-roll value reads instead of bouncing through private
+  `_get_*` / `_has_*` / `_count_*` bridge methods on
+  `mythic_item_runtime.gd`. Revival Charm's consume-equipped behavior moved
+  to `mythic_item_ownership_runtime.gd` so the trigger path no longer depends
+  on `_consume_equipped_item_name()`.
+- Rationale: roll math and ownership mutation already have focused owners.
+  Keeping private runtime wrappers made item helpers look coupled to the
+  monolith instead of to the actual roll / ownership modules.
+- `mythic_item_runtime.gd` line count moved from `2833` to `2778` in this
+  code split.
+- Validation passed:
+  `mythic_item_stat_bonus_runtime_smoke`,
+  `mythic_item_resource_bonus_runtime_smoke`,
+  `mythic_item_capacity_gauge_runtime_smoke`,
+  `mythic_item_cooldown_gear_runtime_smoke`,
+  `mythic_item_progression_bonus_runtime_smoke`,
+  `mythic_item_ai_assist_runtime_smoke`,
+  `mythic_item_throw_bonus_runtime_smoke`,
+  `mythic_item_ownership_runtime_smoke`,
+  `mythic_item_perk_choice_runtime_smoke`, `revival_port_smoke`,
+  `horn_strawberry_mask_port_smoke`, `baal_boots_weather_port_smoke`,
+  `celestial_armor_port_smoke`, `ragnarok_hammer_port_smoke`, and
+  `poseidon_trident_port_smoke`, plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending
