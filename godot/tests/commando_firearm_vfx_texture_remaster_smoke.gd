@@ -56,6 +56,7 @@ func _verify_texture_piece_remaster_plan() -> void:
 	_expect(bool(plan.get("bowling_trap_installed_texture_ready", false)), "bowling trap installed imagegen texture should prewarm")
 	_expect(bool(plan.get("bowling_trap_capture_sheet_ready", false)), "bowling trap capture AutoSprite sheet should prewarm")
 	_expect(bool(plan.get("bowling_trap_launch_sheet_ready", false)), "bowling trap launch AutoSprite sheet should prewarm")
+	_expect(bool(plan.get("support_aircraft_texture_ready", false)), "fire-support stealth aircraft imagegen texture should prewarm")
 	_expect(int(plan.get("bowling_trap_sheet_frame_count", 0)) == 16, "bowling trap AutoSprite sheets should expose sixteen runtime frames")
 	_expect(int(plan.get("muzzle_texture_layers", 0)) == 2, "one muzzle flash should produce two texture layers")
 	_expect(int(plan.get("impact_texture_layers", 0)) == 9, "impact flashes should count net/support/bullet texture layers while grenade-style fire support uses the shared grenade renderer")

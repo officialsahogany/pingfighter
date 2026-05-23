@@ -18,6 +18,9 @@ const BOWLING_TRAP_LAUNCH_SHEET_PATH := "res://assets/sprites/effects/commando_b
 const BOWLING_TRAP_SHEET_COLS := 4
 const BOWLING_TRAP_SHEET_ROWS := 4
 const BOWLING_TRAP_SHEET_FRAME_COUNT := 16
+const SUPPORT_AIRCRAFT_TEXTURE_PATH := "res://assets/sprites/effects/commando_fire_support_aircraft_stealth_imagegen_v1.png"
+const SUPPORT_AIRCRAFT_SOURCE_RECT := Rect2(Vector2(270.0, 41.0), Vector2(483.0, 430.0))
+const SUPPORT_AIRCRAFT_DRAW_SIZE := Vector2(150.0, 134.0)
 
 const REMASTER_TEXTURE_FAMILIES := [
 	"muzzle_glow",
@@ -47,6 +50,7 @@ static var slingshot_stone_texture: Texture2D = null
 static var bowling_trap_installed_texture: Texture2D = null
 static var bowling_trap_capture_sheet_texture: Texture2D = null
 static var bowling_trap_launch_sheet_texture: Texture2D = null
+static var support_aircraft_texture: Texture2D = null
 static var _prewarmed: bool = false
 static var _prewarm_step_index: int = 0
 
@@ -83,12 +87,14 @@ static func prewarm_assets_step() -> bool:
 			_get_bowling_trap_capture_sheet_texture()
 		7:
 			_get_bowling_trap_launch_sheet_texture()
+		8:
+			_get_support_aircraft_texture()
 		_:
 			_prewarmed = true
 			_prewarm_step_index = 0
 			return true
 	_prewarm_step_index += 1
-	if _prewarm_step_index > 7:
+	if _prewarm_step_index > 8:
 		_prewarmed = true
 		_prewarm_step_index = 0
 		return true
@@ -191,6 +197,7 @@ func build_texture_remaster_plan(context: Dictionary) -> Dictionary:
 		"bowling_trap_installed_texture_ready": _get_bowling_trap_installed_texture() != null,
 		"bowling_trap_capture_sheet_ready": _get_bowling_trap_capture_sheet_texture() != null,
 		"bowling_trap_launch_sheet_ready": _get_bowling_trap_launch_sheet_texture() != null,
+		"support_aircraft_texture_ready": _get_support_aircraft_texture() != null,
 		"bowling_trap_sheet_frame_count": BOWLING_TRAP_SHEET_FRAME_COUNT,
 		"bowling_trap_sheet_cols": BOWLING_TRAP_SHEET_COLS,
 		"bowling_trap_sheet_rows": BOWLING_TRAP_SHEET_ROWS,
@@ -796,6 +803,17 @@ static func _get_bowling_trap_launch_sheet_texture() -> Texture2D:
 	return bowling_trap_launch_sheet_texture
 
 
+static func _get_support_aircraft_texture() -> Texture2D:
+	if support_aircraft_texture != null:
+		return support_aircraft_texture
+	support_aircraft_texture = ProjectResourceLoader.load_texture(
+		SUPPORT_AIRCRAFT_TEXTURE_PATH,
+		"Missing Commando fire-support stealth aircraft texture at %s",
+		"Failed to load Commando fire-support stealth aircraft texture at %s"
+	)
+	return support_aircraft_texture
+
+
 func _draw_rocket(canvas: CanvasItem, projectile: Dictionary, shake_offset: Vector2) -> void:
 	var pos: Vector2 = Stage1ContextReader.as_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
 	var velocity: Vector2 = Stage1ContextReader.as_vector2(projectile.get("velocity", Vector2.UP), Vector2.UP)
@@ -1025,6 +1043,17 @@ func _draw_support_call_marker(canvas: CanvasItem, call: Dictionary, shake_offse
 @warning_ignore("shadowed_variable_base_class")
 func _draw_support_aircraft(canvas: CanvasItem, call: Dictionary, shake_offset: Vector2) -> void:
 	var pos: Vector2 = Stage1ContextReader.as_vector2(call.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+	var texture: Texture2D = _get_support_aircraft_texture()
+	if texture != null:
+		canvas.draw_texture_rect_region(
+			texture,
+			Rect2(pos - SUPPORT_AIRCRAFT_DRAW_SIZE * 0.5, SUPPORT_AIRCRAFT_DRAW_SIZE),
+			SUPPORT_AIRCRAFT_SOURCE_RECT,
+			Color(1.0, 1.0, 1.0, 0.96),
+			false,
+			true
+		)
+		return
 	var color: Color = Color(0.08, 0.09, 0.11, 0.92)
 	var edge: Color = Color(0.34, 0.36, 0.42, 0.70)
 	var glow: Color = Stage1ContextReader.as_color(call.get("secondary", Color(1.0, 0.82, 0.25)), Color(1.0, 0.82, 0.25))
