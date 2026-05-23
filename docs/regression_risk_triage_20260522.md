@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `0e0cf2fd3 godot: add mythic runtime helper smokes`.
-- Code split range through that HEAD contains 78 follow-up commits after the
+  `0253fa901 godot: update demo stage progression smoke`.
+- Code split range through that HEAD contains 80 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 79 commits.
+  span through the latest code split contains 81 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 31 visible paths in
-  `git status --porcelain=v1` (`9` tracked modified / deleted paths and
+- Current dirty scope before this documentation sync: 30 visible paths in
+  `git status --porcelain=v1` (`8` tracked modified / deleted paths and
   `22` untracked paths).
-- The split notes below are current through the sixty-fifth split. The
+- The split notes below are current through the sixty-sixth split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3414,6 +3414,22 @@ Sixty-fifth split on 2026-05-23:
   `mythic_item_foul_whistle_runtime_smoke`,
   `mythic_item_perk_choice_runtime_smoke`,
   `mythic_item_ownership_runtime_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Sixty-sixth split on 2026-05-23:
+
+- Commit: `0253fa901 godot: update demo stage progression smoke`.
+- Scope: Demo stage progression smoke now matches the staged transition
+  contract: gameplay loop cleanup happens before old BGM stop / next-stage BGM
+  start, and Stage 4 player clear advances into the current Stage 5 Hongryun
+  demo loading gate instead of treating Stage 4 as the end of the demo route.
+- Rationale: the live Godot stage mapping has Stage 5 Hongryun as the active
+  next stage, so the smoke should protect that progression and the multi-chunk
+  audio / prewarm ordering.
+- Validation passed:
+  `demo_stage_progression_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
