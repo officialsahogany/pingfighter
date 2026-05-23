@@ -3622,6 +3622,28 @@ This section is intentionally long; use search to find the nearest owner.
   the older direct canvas spear / impact / blackhole draw path as a
   fallback while the host is not inside the scene tree or its PNG slots are
   unavailable.
+- `scripts/characters/viper_skill_visibility_query.gd`
+  Owns Viper skill runtime visibility and read-only derived state queries:
+  visible-effect gates, ball-motion/update gates, timer ratios, Venom Edge
+  and Nerve Strike frame reads, Dual Glitch remaining-frame / clone queries,
+  skill-config / skill-state / dash-state reads, and Stage 2 speed-defense
+  immunity checks. `viper_skill_runtime.gd`, `viper_skill_context_builder.gd`,
+  `viper_skill_snapshot_builder.gd`, and
+  `viper_skill_timer_gauge_renderer.gd` should call this owner directly
+  instead of reintroducing private runtime read bridges.
+- `scripts/characters/viper_skill_context_builder.gd`
+  Owns renderer / ball-collision / boss-AI context dictionaries for Viper
+  skill runtime. It reads derived visibility fields through
+  `viper_skill_visibility_query.gd` while leaving mutable skill state and
+  gameplay timing on `viper_skill_runtime.gd`.
+- `scripts/characters/viper_skill_snapshot_builder.gd`
+  Owns the Viper skill debug / save-style snapshot payload shape and reads
+  Dual Glitch derived remaining-frame state through
+  `viper_skill_visibility_query.gd`.
+- `scripts/characters/viper_skill_timer_gauge_renderer.gd`
+  Owns Viper's right-bottom runtime timer gauges for Ignition Aura and Dual
+  Glitch, including stack claiming, frame/fill drawing, warning coloring, and
+  derived ratio / remaining-frame reads through `viper_skill_visibility_query.gd`.
 - `scripts/characters/viper_chaos_spear_fx_host.gd`
   Owns the node-backed Viper Chaos Spear visual remaster. It composes the
   five image-generated chaos-spear texture pieces (`glyph`, spear

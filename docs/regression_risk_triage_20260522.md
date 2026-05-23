@@ -5636,6 +5636,25 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed; both wrappers still printed the known
   nonfatal Windows root certificate store message from Godot.
 
+155th follow-up on 2026-05-24:
+
+- Commit: `d172c3558 godot: drop Viper visibility read bridges`.
+- Scope: removed four private visibility/read bridges from
+  `viper_skill_runtime.gd`: Ignition Aura ratio, Dual Glitch remaining frames,
+  Venom Edge strike frame, and Nerve Strike freeze frames. The runtime draw
+  path plus `viper_skill_context_builder.gd`,
+  `viper_skill_snapshot_builder.gd`, and
+  `viper_skill_timer_gauge_renderer.gd` now read the already-split
+  `viper_skill_visibility_query.gd` owner directly. The Ignition Aura smoke
+  now guards that these runtime bridge names do not return.
+- Validation: focused Viper coverage passed:
+  `viper_ignition_aura_port_smoke`, `viper_dual_glitch_port_smoke`,
+  `viper_venom_edge_strike_port_smoke`, and
+  `viper_nerve_strike_port_smoke`. `run_warning_scan.ps1` scanned 1322
+  scripts with no GDScript warnings, and `run_headless_load_check.ps1`
+  passed; both wrappers still printed the known nonfatal Windows root
+  certificate store message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
