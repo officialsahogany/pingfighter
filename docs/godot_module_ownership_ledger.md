@@ -336,7 +336,12 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_horn_strawberry_field_renderer.gd` owns Horn
   Strawberry transform cinematic visibility/draw plus stem, field-barrier,
   horn-charge, bomb, explosion, and paint draw helpers while the shared field
-  renderer passes runtime contexts and public render budgets through;
+  renderer passes runtime contexts and public render budgets through.
+  `scripts/items/horn_strawberry_paddle_renderer.gd` owns the transformed
+  strawberry player body / movement / eating / hold animation rendered through
+  the Stage 1 player actor path and transform cinematic landing phase.
+  `scripts/items/horn_strawberry_timer_gauge_renderer.gd` owns the timed
+  transform duration gauge on the shared right-bottom timer stack;
   `scripts/items/mythic_item_momentum_field_renderer.gd` owns Knee Pads flash
   ring/ray/particle drawing and Soul Burst wind-trail, shockwave, ellipse-arc,
   and dash-particle drawing while the shared field renderer passes runtime

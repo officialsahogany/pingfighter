@@ -5267,6 +5267,34 @@ Hundredth split on 2026-05-24:
   `mythic_item_field_render_budget_smoke`. `.\tools\run_warning_scan.ps1`
   passed with `1309` scripts scanned and no GDScript warnings.
 
+130th follow-up on 2026-05-24:
+
+- Commit: `668a1ad3d godot: remaster horn strawberry transform visuals`.
+- Scope: added `horn_strawberry_paddle_renderer.gd` for the transformed
+  strawberry player body, feet, seeds, leaves, horns, eating / hold / movement
+  animation, and mini transform silhouette reuse. Added
+  `horn_strawberry_timer_gauge_renderer.gd` for the right-bottom shared timer
+  stack during the timed transform. The playfield drawer now forwards the
+  player draw context through mythic field effects so the transform cinematic
+  can start from the real paddle position, and Stage 1 player rendering swaps
+  the normal paddle / Commando overlays for the transformed strawberry body.
+- VFX note: this pass is a Godot-native procedural remaster, but it remains
+  direct `canvas.draw_*` rendering intentionally. The transformed player body,
+  transform rings, landing shock rings, and timer gauge are deterministic
+  geometry tied to the existing playfield draw pass; no detached FX host or
+  per-frame texture generation was introduced.
+- Validation: `git diff --check` passed for the Horn Strawberry code / asset
+  slice. `.\tools\run_headless_load_check.ps1` passed. Focused Horn /
+  mythic / actor coverage ran `7` smoke scripts and passed:
+  `horn_strawberry_audio_vfx_smoke`,
+  `horn_strawberry_mask_port_smoke`,
+  `horn_strawberry_skill_hud_smoke`,
+  `horn_strawberry_round_boundary_smoke`,
+  `mythic_item_field_render_budget_smoke`,
+  `stage1_actor_render_budget_smoke`, and
+  `player_sprite_body_motion_policy_smoke`. `.\tools\run_warning_scan.ps1`
+  passed with `1309` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
