@@ -33,6 +33,10 @@ func _verify_render_budgets() -> void:
 	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_POSEIDON_WATER_TRAIL <= 12, "Poseidon water trail should keep a tight droplet budget")
 	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_POSEIDON_PARTICLES <= 24, "Poseidon vortex should keep a tight particle budget")
 	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_POSEIDON_EXPLOSION_PARTICLES <= 6, "Poseidon charge flash should cap rendered explosion particles")
+	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_HORN_STRAWBERRY_PROJECTILES <= 6, "Horn Strawberry stems should cap rendered projectiles")
+	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_HORN_STRAWBERRY_BARRIERS <= 3, "Horn Strawberry field should cap rendered barriers")
+	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_HORN_STRAWBERRY_BOMBS <= 18, "Horn Strawberry bombs should cap rendered bomb sprites")
+	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_HORN_STRAWBERRY_PAINT <= 16, "Horn Strawberry paint should cap rendered splatters")
 	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_RAGNAROK_SPARKS <= 12, "Ragnarok sparks should cap decorative electric particles tightly")
 	_expect(MythicItemFieldEffectRenderer.MAX_POSEIDON_TRAIL_ARCS <= 4, "Poseidon water trail should draw arcs only on newest large droplets")
 
@@ -60,9 +64,11 @@ func _verify_recent_start_helper() -> void:
 
 func _verify_draw_paths_use_render_caps() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_field_effect_renderer.gd")
+	var horn_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_horn_strawberry_field_renderer.gd")
 	var poseidon_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_poseidon_field_renderer.gd")
 	var ragnarok_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_ragnarok_field_renderer.gd")
 	_expect(source != "", "mythic item field renderer source should be readable")
+	_expect(horn_source != "", "mythic item Horn Strawberry field renderer source should be readable")
 	_expect(poseidon_source != "", "mythic item Poseidon field renderer source should be readable")
 	_expect(ragnarok_source != "", "mythic item Ragnarok field renderer source should be readable")
 	_expect(
@@ -116,6 +122,18 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(
 		_function_body(source, "func draw_soul_burst_effects").find("_recent_start(particles, MAX_RENDERED_SOUL_BURST_PARTICLES)") >= 0,
 		"Soul Burst draw should cap decorative dash particles"
+	)
+	_expect(
+		_function_body(horn_source, "func draw_horn_strawberry_effects").find("render_limits.get(\"projectiles\"") >= 0,
+		"Horn Strawberry draw should receive a capped projectile budget"
+	)
+	_expect(
+		_function_body(horn_source, "func _draw_bomb_paint").find("paint_render_limit") >= 0,
+		"Horn Strawberry paint draw should use the render budget"
+	)
+	_expect(
+		_function_body(horn_source, "func _draw_bombs").find("explosion_render_limit") >= 0,
+		"Horn Strawberry bomb draw should cap explosion rings"
 	)
 	_expect(
 		_function_body(poseidon_source, "func draw_poseidon_water_trail").find("_recent_start(water_trail, water_trail_render_limit)") >= 0,
