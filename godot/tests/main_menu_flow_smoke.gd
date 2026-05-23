@@ -272,6 +272,7 @@ func _run() -> void:
 				character_bgm_player.playing,
 				"B key should resume BGM from the character-select screen"
 			)
+	await _cleanup_current_scene()
 	_finish()
 
 
@@ -334,6 +335,32 @@ func _finish_intro_reveal() -> void:
 	var reveal := menu.get_node_or_null("RevealLayer")
 	if reveal != null and reveal.has_method("_finish_reveal"):
 		reveal.call("_finish_reveal")
+
+
+func _cleanup_current_scene() -> void:
+	var scene := current_scene
+	if scene == null:
+		return
+	_cleanup_audio_player(scene.get("main_menu_bgm_player") as AudioStreamPlayer)
+	_cleanup_audio_player(scene.get("start_transition_sfx_player") as AudioStreamPlayer)
+	_cleanup_audio_player(scene.get("character_select_bgm_player") as AudioStreamPlayer)
+	await process_frame
+	if current_scene == scene:
+		current_scene = null
+	scene.queue_free()
+	if scene == menu:
+		menu = null
+	await process_frame
+	await process_frame
+	menu = null
+
+
+func _cleanup_audio_player(player: AudioStreamPlayer) -> void:
+	if player == null:
+		return
+	if player.playing:
+		player.stop()
+	player.stream = null
 
 
 func _expect_background_rect_fills_viewport(rect: Rect2, view_size: Vector2, label: String) -> void:
