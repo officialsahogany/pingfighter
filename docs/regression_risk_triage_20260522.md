@@ -5153,6 +5153,38 @@ Hundredth split on 2026-05-24:
   `.\tools\run_warning_scan.ps1` passed with `1303` scripts scanned and no
   GDScript warnings.
 
+126th split on 2026-05-24:
+
+- Commit: `d0fb13474 godot: split active throw grenade renderer`.
+- Scope: added `active_item_throw_grenade_renderer.gd` for Grenade projectile
+  sprites, trail drawing, explosion-zone dispatch through the shared
+  `GrenadeExplosionDrawer`, fallback grenade dot drawing, icon texture loading,
+  and Grenade asset prewarm. The shared `active_item_throw_renderer.gd` keeps
+  the public draw signature, perf labels, generic windup pose / throw icon
+  cache, and dispatch order while delegating live Grenade projectile and
+  explosion visuals to the focused renderer.
+- Rationale: Grenade was the baseline active-throw branch still embedded in
+  the render facade after Molotov / Flare were split. Moving it leaves the
+  facade responsible for ordering and compatibility only, while keeping
+  projectile-trail budget checks and explosion drawer delegation close to the
+  Grenade visual owner.
+- Renderer size: `active_item_throw_renderer.gd` moved from `546` lines to
+  `489` lines; the new `active_item_throw_grenade_renderer.gd` file is `131`
+  lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused Grenade / Flare / throw-renderer / Commando coverage ran
+  `11` smoke scripts and passed: `active_item_throw_grenade_flare_smoke`,
+  `active_item_throw_activation_smoke`,
+  `active_item_throw_renderer_budget_smoke`,
+  `active_item_throw_explosion_budget_smoke`,
+  `active_item_throw_rotated_texture_smoke`,
+  `active_item_runtime_render_facade_smoke`,
+  `active_item_runtime_render_facade_direct_smoke`,
+  `active_item_runtime_prewarm_smoke`, `commando_firearm_runtime_vfx_smoke`,
+  `stage2_explosion_rock_collision_smoke`, and `commando_arm_port_smoke`.
+  `.\tools\run_warning_scan.ps1` passed with `1304` scripts scanned and no
+  GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

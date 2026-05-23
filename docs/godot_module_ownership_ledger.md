@@ -653,10 +653,13 @@ This section is intentionally long; use search to find the nearest owner.
   for old private windup release calls.
 - `scripts/items/active_item_throw_renderer.gd`
   Owns the active throw render facade: public draw signature, draw-order and
-  perf labels, generic windup pose / throw-icon lookup, direct grenade /
-  projectile drawing, explosion zones, throw-icon texture caches, Tear Gas
-  renderer fallback constants, and compatibility wrappers / texture aliases
-  for Spider Mine sheet smoke tests.
+  perf labels, generic windup pose / throw-icon lookup, throw-icon texture
+  caches, Tear Gas renderer fallback constants, and compatibility wrappers /
+  texture aliases for Spider Mine sheet smoke tests.
+  `scripts/items/active_item_throw_grenade_renderer.gd` owns Grenade
+  projectile sprites / trail drawing, explosion-zone delegation through the
+  shared `GrenadeExplosionDrawer`, fallback grenade dot drawing, icon texture
+  loading, and Grenade asset prewarm.
   `scripts/items/active_item_throw_flare_renderer.gd` owns Flare projectile
   sprites / trail drawing, arrived countdown blink, flare flash / confuse
   zone drawing, flash / glow render budgets, fallback flare dot drawing,
