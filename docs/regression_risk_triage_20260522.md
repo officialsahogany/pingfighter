@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `d9ca4c2e4 godot: remove viper blade ball touch sfx`.
-- Code split range through that HEAD contains 64 follow-up commits after the
+  `b479f5edc godot: smooth pillar gauge liquid fill`.
+- Code split range through that HEAD contains 66 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 65 commits.
+  span through the latest code split contains 67 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 69 visible paths in
-  `git status --porcelain=v1` (`25` tracked modified / deleted paths and
+- Current dirty scope before this documentation sync: 65 visible paths in
+  `git status --porcelain=v1` (`21` tracked modified / deleted paths and
   `44` untracked paths).
-- The split notes below are current through the fifty-eighth split. The
+- The split notes below are current through the fifty-ninth split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3251,3 +3251,25 @@ Fifty-eighth split on 2026-05-23:
   warnings). `game_audio_volume_settings_smoke` still emitted an ObjectDB
   leak warning at process exit; it did not fail the smoke run or the warning
   scan.
+
+Fifty-ninth split on 2026-05-23:
+
+- Commit: `b479f5edc godot: smooth pillar gauge liquid fill`.
+- Scope: Pillar gauge orbs now smooth the displayed liquid ratio between
+  target gauge values, keep the core liquid fill animated even when static
+  HUD LOD trims decorative ornament layers, and draw liquid against a tighter
+  circular edge with bounded edge-search and surface-highlight work.
+- Rationale: gauge liquid is gameplay feedback rather than pure decoration,
+  so static HUD LOD should not freeze it. The display-ratio follower also
+  removes abrupt jumps while keeping rise / fall response bounded for
+  repeated in-battle updates.
+- Validation passed:
+  `stage1_dalji_commando_hud_layout_smoke`,
+  `stage1_pillar_scene_prewarm_smoke`,
+  `pillar_status_orb_prewarm_step_smoke`,
+  `stage2_pillar_render_budget_smoke`,
+  `stage3_pillar_hud_lod_smoke`,
+  `viper_airborne_lod_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
