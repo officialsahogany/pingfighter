@@ -4,6 +4,7 @@ const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout
 const Stage1PillarStatusOrbContextBuilder := preload("res://scripts/hud/stage1_pillar_status_orb_context_builder.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_host.gd")
+const CommandoFirearmHudRainbowFxHost := preload("res://scripts/hud/commando_firearm_hud_rainbow_fx_host.gd")
 
 const COMMANDO_FIREARM_SELECTOR_OFFSET := Vector2(28.0, -64.0)
 const SENSOR_FRAME_ARC_SEGMENTS := 16
@@ -14,10 +15,12 @@ const SENSOR_READY_WAVE_COUNT := 1
 const SENSOR_READY_WAVE_SEGMENTS := 12
 const SENSOR_READY_WAVE_SEGMENTS_LOD := 8
 const BOOST_FX_HOST_NAME := "DashTokenBoostFxHost"
+const COMMANDO_FIREARM_RAINBOW_FX_HOST_NAME := "CommandoFirearmHudRainbowFxHost"
 
 var layout_helper: Object = Stage1PillarUiLayout.new()
 var status_context_builder: Object = Stage1PillarStatusOrbContextBuilder.new()
 var _boost_fx_host_pending: Node = null
+var _firearm_rainbow_fx_host_pending: Node = null
 
 
 func build_commando_firearm_panel_state(game_offset: Vector2, game_size: Vector2, context: Dictionary) -> Dictionary:
@@ -161,6 +164,9 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 
 	if commando_firearm_selector_renderer != null and not horn_strawberry_hud_active:
 		sample_start = _perf_begin(perf_logger)
+		var firearm_rainbow_fx_host: Node = _get_or_create_firearm_rainbow_fx_host(canvas)
+		if firearm_rainbow_fx_host != null and firearm_rainbow_fx_host.has_method("begin_frame"):
+			firearm_rainbow_fx_host.begin_frame()
 		_draw_commando_firearm_selector(
 			canvas,
 			commando_firearm_selector_renderer,
@@ -169,9 +175,15 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 			scale_factor,
 			active_skill_orb_renderer,
 			skill_orb_context,
-			context
+			context,
+			firearm_rainbow_fx_host,
+			time_seconds
 		)
+		if firearm_rainbow_fx_host != null and firearm_rainbow_fx_host.has_method("end_frame"):
+			firearm_rainbow_fx_host.end_frame()
 		_perf_end(perf_logger, "stage1.pillar_ui.commando_selector", sample_start)
+	else:
+		_hide_firearm_rainbow_fx_host(canvas)
 
 	if combo_renderer != null:
 		sample_start = _perf_begin(perf_logger)
@@ -192,7 +204,9 @@ func _draw_commando_firearm_selector(
 	scale_factor: float,
 	skill_orb_renderer: Object,
 	skill_orb_context: Dictionary,
-	context: Dictionary
+	context: Dictionary,
+	firearm_rainbow_fx_host: Node = null,
+	time_seconds: float = 0.0
 ) -> void:
 	if renderer == null or not renderer.has_method("draw"):
 		return
@@ -203,6 +217,17 @@ func _draw_commando_firearm_selector(
 		skill_orb_renderer,
 		skill_orb_context
 	)
+	# Sync the rainbow fx host BEFORE the panel draw so the additive border
+	# quad sits underneath the panel art and the panel frame reads cleanly
+	# on top of the glow.
+	if firearm_rainbow_fx_host != null and firearm_rainbow_fx_host.has_method("sync_panel") and renderer.has_method("build_panel_state"):
+		var panel_state: Dictionary = renderer.build_panel_state(panel_center, scale_factor, context)
+		if not panel_state.is_empty() and bool(panel_state.get("hud_highlight_active", false)):
+			var panel_rect: Rect2 = panel_state.get("rect", Rect2())
+			var ratio: float = float(panel_state.get("hud_highlight_ratio", 0.0))
+			var highlight_state: Dictionary = panel_state.get("hud_highlight_state", {})
+			var weapon_id: String = str(highlight_state.get("weapon_id", panel_state.get("current_weapon_id", "")))
+			firearm_rainbow_fx_host.sync_panel(panel_rect, ratio, weapon_id, time_seconds)
 	renderer.draw(canvas, panel_center, scale_factor, context)
 
 
@@ -280,13 +305,13 @@ func _get_dict(value: Variant) -> Dictionary:
 	return {}
 
 
-
 func _is_horn_strawberry_skill_hud_active(horn_renderer: Object, horn_context: Dictionary) -> bool:
 	if horn_renderer == null:
 		return false
 	if horn_renderer.has_method("is_active"):
 		return bool(horn_renderer.is_active(horn_context))
 	return bool(horn_context.get("transformed", false))
+
 
 func _build_status_context(context: Dictionary) -> Dictionary:
 	var lod_scale: float = _get_hud_lod_scale(context)
@@ -321,6 +346,38 @@ func _get_or_create_boost_fx_host(canvas: CanvasItem) -> Node:
 	_boost_fx_host_pending = host
 	parent.call_deferred("add_child", host)
 	return host
+
+
+# Same lazy-attach pattern as the boost fx host: look up the rainbow border
+# host by stable name on the canvas's parent, create one if missing, and keep
+# a pending strong ref between creation and the deferred add_child so a second
+# call in the same frame doesn't spawn a duplicate host.
+func _get_or_create_firearm_rainbow_fx_host(canvas: CanvasItem) -> Node:
+	if not (canvas is Node):
+		return null
+	var parent: Node = canvas as Node
+	var existing: Node = parent.get_node_or_null(COMMANDO_FIREARM_RAINBOW_FX_HOST_NAME)
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		_firearm_rainbow_fx_host_pending = null
+		return existing
+	if _firearm_rainbow_fx_host_pending != null and is_instance_valid(_firearm_rainbow_fx_host_pending) and not _firearm_rainbow_fx_host_pending.is_queued_for_deletion():
+		return _firearm_rainbow_fx_host_pending
+	var host: Node = CommandoFirearmHudRainbowFxHost.new()
+	host.name = COMMANDO_FIREARM_RAINBOW_FX_HOST_NAME
+	_firearm_rainbow_fx_host_pending = host
+	parent.call_deferred("add_child", host)
+	return host
+
+
+func _hide_firearm_rainbow_fx_host(canvas: CanvasItem) -> void:
+	var host: Node = null
+	if canvas is Node:
+		var parent: Node = canvas as Node
+		host = parent.get_node_or_null(COMMANDO_FIREARM_RAINBOW_FX_HOST_NAME)
+	if host == null and _firearm_rainbow_fx_host_pending != null and is_instance_valid(_firearm_rainbow_fx_host_pending):
+		host = _firearm_rainbow_fx_host_pending
+	if host != null and is_instance_valid(host) and not host.is_queued_for_deletion() and host.has_method("set_active"):
+		host.set_active(false)
 
 
 func _perf_begin(perf_logger: Object) -> int:

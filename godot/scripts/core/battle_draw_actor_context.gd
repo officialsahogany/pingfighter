@@ -541,7 +541,14 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		"commando_weapon_fire_active": commando_weapon_fire_active,
 		"commando_weapon_fire_id": commando_weapon_fire_id if commando_weapon_fire_active else "",
 		"commando_weapon_fire_frame": commando_weapon_fire_frame,
-		"commando_weapon_fire_flip_h": commando_weapon_fire_active and player_walk_direction < 0,
+		"commando_weapon_fire_flip_h": _get_commando_weapon_fire_flip_h(
+			commando_weapon_fire_active,
+			commando_weapon_fire_id,
+			player_walk_direction,
+			player_draw_pos,
+			player_draw_size,
+			commando_firearm_context
+		),
 		"commando_weapon_fire_grid_cols": 4,
 		"commando_weapon_fire_grid_rows": 2,
 		"commando_weapon_fire_frame_count": 8,
@@ -1051,6 +1058,38 @@ func _get_commando_weapon_fire_frame(fire_state: Dictionary) -> int:
 	var timer: float = clamp(float(fire_state.get("timer_frames", 0.0)), 0.0, timer_max)
 	var progress: float = clamp(1.0 - timer / timer_max, 0.0, 1.0)
 	return clamp(int(progress * float(frame_count)), 0, frame_count - 1)
+
+
+func _get_commando_weapon_fire_flip_h(
+	active: bool,
+	weapon_id: String,
+	player_walk_direction: int,
+	player_pos: Vector2,
+	player_size: Vector2,
+	commando_firearm_context: Dictionary
+) -> bool:
+	if not active:
+		return false
+	if weapon_id == "suicide_drone":
+		return _get_commando_suicide_drone_control_flip_h(
+			player_pos,
+			player_size,
+			commando_firearm_context
+		)
+	return player_walk_direction < 0
+
+
+func _get_commando_suicide_drone_control_flip_h(
+	player_pos: Vector2,
+	player_size: Vector2,
+	commando_firearm_context: Dictionary
+) -> bool:
+	var drone_state: Dictionary = _get_dict(commando_firearm_context.get("commando_firearm_suicide_drone_state", {}))
+	if not bool(drone_state.get("active", false)):
+		return false
+	var drone_pos: Vector2 = _get_vector2(drone_state, "pos", player_pos)
+	var player_center_x: float = player_pos.x + max(0.0, player_size.x) * 0.5
+	return drone_pos.x < player_center_x - 0.5
 
 
 func _get_commando_b2_anchor(

@@ -15,6 +15,7 @@ const BOWLING_TRAP_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_bowli
 const BOWLING_TRAP_INSTALL_SHEET_PATH := "res://assets/sprites/hud/commando_bowling_trap_firearm_install_sheet_autosprite_v1.png"
 const BOWLING_TRAP_CAPTURE_SHEET_PATH := "res://assets/sprites/effects/commando_bowling_trap_capture_sheet_autosprite_v1.png"
 const SUICIDE_DRONE_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_suicide_drone_firearm_icon_imagegen_v1.png"
+const SUICIDE_DRONE_HOVER_SHEET_PATH := "res://assets/sprites/hud/commando_suicide_drone_firearm_hover_sheet_autosprite_v1.png"
 const PANEL_SIZE := Vector2(68.0, 112.0)
 const ICON_SIZE := Vector2(50.0, 50.0)
 const AMMO_AREA_SIZE := Vector2(58.0, 24.0)
@@ -94,6 +95,12 @@ const BOWLING_TRAP_CAPTURE_GRID_ROWS := 4
 const BOWLING_TRAP_CAPTURE_FRAME_COUNT := 16
 const BOWLING_TRAP_HUD_CAPTURE_DRAW_SCALE := 1.10
 const BOWLING_TRAP_HUD_MOTION_PIVOT_RATIO := Vector2(0.5, 0.62)
+const SUICIDE_DRONE_HOVER_GRID_COLS := 4
+const SUICIDE_DRONE_HOVER_GRID_ROWS := 4
+const SUICIDE_DRONE_HOVER_FRAME_COUNT := 16
+const SUICIDE_DRONE_HOVER_FRAME_MSEC := 70.0
+const SUICIDE_DRONE_HUD_HOVER_DRAW_SCALE := 1.12
+const SUICIDE_DRONE_HUD_HOVER_Y_OFFSET_RATIO := 0.06
 
 var _hud_frame_texture_checked := false
 var _hud_frame_texture: Texture2D = null
@@ -121,6 +128,7 @@ func prewarm_assets_step() -> bool:
 		BOWLING_TRAP_INSTALL_SHEET_PATH,
 		BOWLING_TRAP_CAPTURE_SHEET_PATH,
 		SUICIDE_DRONE_ICON_TEXTURE_PATH,
+		SUICIDE_DRONE_HOVER_SHEET_PATH,
 	]
 	if _prewarm_assets_step_index == 0:
 		_get_hud_frame_texture()
@@ -171,6 +179,8 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 	var weapon_fire_state: Dictionary = _get_dict(context.get("commando_firearm_weapon_fire_sheet_state", {}))
 	var bowling_trap_state: Dictionary = _get_dict(context.get("commando_firearm_bowling_trap_state", {}))
 	var bowling_traps: Array = _get_array(context.get("commando_firearm_bowling_traps", []))
+	var suicide_drone_state: Dictionary = _get_dict(context.get("commando_firearm_suicide_drone_state", {}))
+	var suicide_drone_hover_active: bool = _is_suicide_drone_hover_sheet_active(current_weapon_id, suicide_drone_state)
 	var hud_highlight_state: Dictionary = _get_dict(snapshot.get("hud_highlight_state", context.get("commando_firearm_hud_highlight_state", {})))
 	return {
 		"panel_count": 1,
@@ -188,6 +198,7 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 		"bowling_trap_install_sheet_path": BOWLING_TRAP_INSTALL_SHEET_PATH,
 		"bowling_trap_capture_sheet_path": BOWLING_TRAP_CAPTURE_SHEET_PATH,
 		"suicide_drone_icon_path": SUICIDE_DRONE_ICON_TEXTURE_PATH,
+		"suicide_drone_hover_sheet_path": SUICIDE_DRONE_HOVER_SHEET_PATH,
 		"hud_frame_rect": rect,
 		"icon_rect": icon_rect,
 		"meter_rect": ammo_rect,
@@ -208,6 +219,7 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 		"weapon_fire_state": weapon_fire_state,
 		"bowling_trap_state": bowling_trap_state,
 		"bowling_traps": bowling_traps,
+		"suicide_drone_state": suicide_drone_state,
 		"hud_highlight_state": hud_highlight_state,
 		"hud_highlight_active": _is_hud_highlight_active(current_weapon_id, hud_highlight_state),
 		"hud_highlight_ratio": _get_hud_highlight_ratio(hud_highlight_state),
@@ -235,6 +247,10 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 		"bowling_trap_ui_capture_animation_active": _is_bowling_trap_capture_ui_animation_active(current_weapon_id, bowling_traps),
 		"bowling_trap_ui_animation_frame": _get_bowling_trap_ui_animation_frame(bowling_traps),
 		"bowling_trap_ui_animation_frame_count": BOWLING_TRAP_CAPTURE_FRAME_COUNT,
+		"suicide_drone_hover_sheet_active": suicide_drone_hover_active,
+		"suicide_drone_hover_frame": _get_suicide_drone_hover_frame() if suicide_drone_hover_active else 0,
+		"suicide_drone_hover_frame_count": SUICIDE_DRONE_HOVER_FRAME_COUNT,
+		"suicide_drone_hover_draw_scale": SUICIDE_DRONE_HUD_HOVER_DRAW_SCALE,
 		"ammo_icon_state": ammo_icon_state,
 	}
 
@@ -258,6 +274,7 @@ func draw(canvas: CanvasItem, center: Vector2, scale_factor: float, context: Dic
 	var weapon_fire_state: Dictionary = _get_dict(panel_state.get("weapon_fire_state", {}))
 	var bowling_trap_state: Dictionary = _get_dict(panel_state.get("bowling_trap_state", {}))
 	var bowling_traps: Array = _get_array(panel_state.get("bowling_traps", []))
+	var suicide_drone_state: Dictionary = _get_dict(panel_state.get("suicide_drone_state", {}))
 	var safe_scale: float = max(0.55, float(panel_state.get("resolved_scale", scale_factor)))
 	var font: Font = ThemeDB.fallback_font
 
@@ -283,7 +300,7 @@ func draw(canvas: CanvasItem, center: Vector2, scale_factor: float, context: Dic
 		Color(0.82, 0.84, 0.82, 0.96) if not rental else Color(0.98, 0.94, 0.38, 0.96)
 	)
 
-	_draw_weapon_slot(canvas, icon_rect, current_weapon_id, color, can_fire, rental, safe_scale, pistol_state, weapon_fire_state, bowling_trap_state, bowling_traps)
+	_draw_weapon_slot(canvas, icon_rect, current_weapon_id, color, can_fire, rental, safe_scale, pistol_state, weapon_fire_state, bowling_trap_state, bowling_traps, suicide_drone_state)
 	var ammo_icon_state: Dictionary = _get_dict(panel_state.get("ammo_icon_state", {}))
 	if not ammo_icon_state.is_empty():
 		_draw_ammo_icon_display(canvas, meter_rect, safe_scale, ammo_icon_state, color)
@@ -417,8 +434,8 @@ func _get_hud_frame_texture() -> Texture2D:
 	return _hud_frame_texture
 
 
-func _draw_weapon_slot(canvas: CanvasItem, icon_rect: Rect2, weapon_id: String, color: Color, can_fire: bool, _rental: bool, scale_factor: float, pistol_state: Dictionary = {}, weapon_fire_state: Dictionary = {}, bowling_trap_state: Dictionary = {}, bowling_traps: Array = []) -> void:
-	_draw_weapon_picture(canvas, _get_weapon_picture_rect(icon_rect, weapon_id, scale_factor), weapon_id, color, can_fire, scale_factor, pistol_state, weapon_fire_state, bowling_trap_state, bowling_traps)
+func _draw_weapon_slot(canvas: CanvasItem, icon_rect: Rect2, weapon_id: String, color: Color, can_fire: bool, _rental: bool, scale_factor: float, pistol_state: Dictionary = {}, weapon_fire_state: Dictionary = {}, bowling_trap_state: Dictionary = {}, bowling_traps: Array = [], suicide_drone_state: Dictionary = {}) -> void:
+	_draw_weapon_picture(canvas, _get_weapon_picture_rect(icon_rect, weapon_id, scale_factor), weapon_id, color, can_fire, scale_factor, pistol_state, weapon_fire_state, bowling_trap_state, bowling_traps, suicide_drone_state)
 	if not can_fire:
 		canvas.draw_rect(icon_rect, Color(0.0, 0.0, 0.0, 0.34), true)
 		canvas.draw_line(icon_rect.position + Vector2(5.0, 5.0) * scale_factor, icon_rect.end - Vector2(5.0, 5.0) * scale_factor, Color(0.78, 0.20, 0.20, 0.90), max(1.0, 2.0 * scale_factor), true)
@@ -463,7 +480,7 @@ func _get_weapon_picture_rect(icon_rect: Rect2, weapon_id: String, scale_factor:
 	return icon_rect.grow(-4.0 * scale_factor)
 
 
-func _draw_weapon_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, color: Color, active: bool, scale_factor: float, pistol_state: Dictionary = {}, weapon_fire_state: Dictionary = {}, bowling_trap_state: Dictionary = {}, bowling_traps: Array = []) -> void:
+func _draw_weapon_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, color: Color, active: bool, scale_factor: float, pistol_state: Dictionary = {}, weapon_fire_state: Dictionary = {}, bowling_trap_state: Dictionary = {}, bowling_traps: Array = [], suicide_drone_state: Dictionary = {}) -> void:
 	var base_alpha: float = 1.0 if active else 0.48
 	match weapon_id:
 		"pistol":
@@ -493,6 +510,8 @@ func _draw_weapon_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, co
 				return
 			_draw_bowling_trap_picture(canvas, rect, base_alpha, scale_factor)
 		"suicide_drone":
+			if _is_suicide_drone_hover_sheet_active(weapon_id, suicide_drone_state) and _draw_suicide_drone_hover_sheet_picture(canvas, rect, base_alpha):
+				return
 			if _draw_suicide_drone_png_picture(canvas, rect, base_alpha):
 				return
 			_draw_drone_picture(canvas, rect, base_alpha, scale_factor)
@@ -655,6 +674,28 @@ func _draw_suicide_drone_png_picture(canvas: CanvasItem, rect: Rect2, alpha: flo
 		canvas.draw_texture_rect(icon, rect, false, Color(1.0, 1.0, 1.0, alpha))
 		return true
 	return false
+
+
+func _draw_suicide_drone_hover_sheet_picture(canvas: CanvasItem, rect: Rect2, alpha: float) -> bool:
+	var sheet: Texture2D = _get_cached_weapon_texture(SUICIDE_DRONE_HOVER_SHEET_PATH)
+	if sheet is Texture2D:
+		var frame: int = _get_suicide_drone_hover_frame()
+		var draw_rect: Rect2 = _scale_rect_around_pivot(rect, SUICIDE_DRONE_HUD_HOVER_DRAW_SCALE, Vector2(0.5, 0.5))
+		draw_rect.position.y += rect.size.y * SUICIDE_DRONE_HUD_HOVER_Y_OFFSET_RATIO
+		canvas.draw_texture_rect_region(
+			sheet,
+			draw_rect,
+			_get_suicide_drone_hover_source_rect(sheet, frame),
+			Color(1.0, 1.0, 1.0, alpha),
+			false,
+			true
+		)
+		return true
+	return false
+
+
+func _is_suicide_drone_hover_sheet_active(weapon_id: String, suicide_drone_state: Dictionary) -> bool:
+	return weapon_id == "suicide_drone" and bool(suicide_drone_state.get("active", false))
 
 
 func _is_hud_highlight_active(weapon_id: String, highlight_state: Dictionary) -> bool:
@@ -822,6 +863,11 @@ func _get_bowling_trap_install_ui_animation_frame(bowling_trap_state: Dictionary
 	return clampi(int(progress * float(BOWLING_TRAP_INSTALL_FRAME_COUNT)), 0, BOWLING_TRAP_INSTALL_FRAME_COUNT - 1)
 
 
+func _get_suicide_drone_hover_frame() -> int:
+	var elapsed_frames: int = int(floor(float(Time.get_ticks_msec()) / SUICIDE_DRONE_HOVER_FRAME_MSEC))
+	return elapsed_frames % SUICIDE_DRONE_HOVER_FRAME_COUNT
+
+
 func _get_bowling_trap_hud_trap(bowling_traps: Array) -> Dictionary:
 	for preferred_state in ["capturing", "installing", "waiting"]:
 		for trap_value in bowling_traps:
@@ -915,6 +961,17 @@ func _get_bowling_trap_capture_source_rect(sheet: Texture2D, frame: int) -> Rect
 	var col: int = frame_index % BOWLING_TRAP_CAPTURE_GRID_COLS
 	@warning_ignore("integer_division")
 	var row: int = int(frame_index / BOWLING_TRAP_CAPTURE_GRID_COLS)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
+func _get_suicide_drone_hover_source_rect(sheet: Texture2D, frame: int) -> Rect2:
+	var frame_index: int = clampi(frame, 0, SUICIDE_DRONE_HOVER_FRAME_COUNT - 1)
+	var texture_size: Vector2 = sheet.get_size()
+	var cell_w: float = texture_size.x / float(SUICIDE_DRONE_HOVER_GRID_COLS)
+	var cell_h: float = texture_size.y / float(SUICIDE_DRONE_HOVER_GRID_ROWS)
+	var col: int = frame_index % SUICIDE_DRONE_HOVER_GRID_COLS
+	@warning_ignore("integer_division")
+	var row: int = int(frame_index / SUICIDE_DRONE_HOVER_GRID_COLS)
 	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
 
 

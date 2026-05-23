@@ -40,6 +40,7 @@ func _init() -> void:
 	_verify_weapon_fire_visual_scale()
 	_verify_actor_context_for_each_weapon()
 	_verify_weapon_fire_flip_follows_movement_direction()
+	_verify_suicide_drone_fire_flip_follows_drone_side()
 	_verify_frame_region_mapping()
 	_verify_pistol_fire_mutex()
 	_verify_non_commando_skips_weapon_fire()
@@ -134,6 +135,13 @@ func _verify_weapon_fire_flip_follows_movement_direction() -> void:
 	_expect(not bool(right_ctx.get("commando_weapon_fire_flip_h", true)), "Commando weapon fire sheet must stay unflipped while firing during right movement")
 
 
+func _verify_suicide_drone_fire_flip_follows_drone_side() -> void:
+	var left_drone_ctx: Dictionary = _build_actor_context("soldier", "suicide_drone", 40.0, false, 3.0, Vector2(260.0, 620.0), true)
+	_expect(bool(left_drone_ctx.get("commando_weapon_fire_flip_h", false)), "Suicide-drone control sheet should flip when the drone is left of the player")
+	var right_drone_ctx: Dictionary = _build_actor_context("soldier", "suicide_drone", 40.0, false, -3.0, Vector2(440.0, 620.0), true)
+	_expect(not bool(right_drone_ctx.get("commando_weapon_fire_flip_h", true)), "Suicide-drone control sheet should keep the right-facing sheet when the drone is right of the player")
+
+
 func _verify_frame_region_mapping() -> void:
 	var textures: Dictionary = _load_commando_textures()
 	var renderer := Stage1PlayerSpriteRenderer.new()
@@ -173,7 +181,9 @@ func _build_actor_context(
 	weapon_id: String,
 	timer_max: float,
 	pistol_also_active: bool,
-	player_speed: float = 0.0
+	player_speed: float = 0.0,
+	drone_pos: Vector2 = Vector2.ZERO,
+	drone_active: bool = false
 ) -> Dictionary:
 	var textures: Dictionary = _load_commando_textures()
 	var draw_builder := BattleDrawActorContext.new()
@@ -181,9 +191,11 @@ func _build_actor_context(
 		"selected_character_type": character_type,
 		"textures": textures,
 		"player_speed": player_speed,
+		"player_pos": Vector2(320.0, 650.0),
+		"player_paddle_size": Vector2(100.0, 50.0),
 	}, {
 		"commando_weapon_controller": FakeWeaponController.new(weapon_id),
-		"commando_firearm_runtime": FakeFirearmRuntime.new(weapon_id, timer_max, pistol_also_active),
+		"commando_firearm_runtime": FakeFirearmRuntime.new(weapon_id, timer_max, pistol_also_active, drone_pos, drone_active),
 	})
 
 
@@ -241,11 +253,21 @@ class FakeFirearmRuntime extends RefCounted:
 	var weapon_id: String
 	var timer_max: float
 	var pistol_also_active: bool
+	var drone_pos: Vector2
+	var drone_active: bool
 
-	func _init(p_weapon_id: String, p_timer_max: float, p_pistol_also_active: bool) -> void:
+	func _init(
+		p_weapon_id: String,
+		p_timer_max: float,
+		p_pistol_also_active: bool,
+		p_drone_pos: Vector2 = Vector2.ZERO,
+		p_drone_active: bool = false
+	) -> void:
 		weapon_id = p_weapon_id
 		timer_max = p_timer_max
 		pistol_also_active = p_pistol_also_active
+		drone_pos = p_drone_pos
+		drone_active = p_drone_active
 
 	func get_actor_draw_context() -> Dictionary:
 		return {
@@ -262,5 +284,11 @@ class FakeFirearmRuntime extends RefCounted:
 				"post_fire_animation_frames": 0.0,
 				"post_fire_animation_max_frames": 18.0,
 				"animation_active": pistol_also_active,
+			},
+			"commando_firearm_suicide_drone_state": {
+				"active": drone_active,
+				"pos": drone_pos,
+				"velocity": Vector2.ZERO,
+				"grace_frames": 0.0,
 			},
 		}

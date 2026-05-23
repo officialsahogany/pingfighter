@@ -38,6 +38,7 @@ func _verify_prewarm_assets() -> void:
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_bowling_trap_firearm_install_sheet_autosprite_v1.png") is Texture2D, "firearm selector prewarm should cache the bowling-trap HUD install sheet")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/effects/commando_bowling_trap_capture_sheet_autosprite_v1.png") is Texture2D, "firearm selector prewarm should cache the bowling-trap HUD capture sheet")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_suicide_drone_firearm_icon_imagegen_v1.png") is Texture2D, "firearm selector prewarm should cache the imagegen suicide-drone HUD icon")
+	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_suicide_drone_firearm_hover_sheet_autosprite_v1.png") is Texture2D, "firearm selector prewarm should cache the AutoSprite suicide-drone HUD hover sheet")
 
 
 func _verify_single_fixed_panel_state() -> void:
@@ -150,8 +151,24 @@ func _verify_single_fixed_panel_state() -> void:
 	_expect(bool(controller.set_current_weapon("suicide_drone")), "suicide drone should be selectable for HUD art smoke")
 	var suicide_drone_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
 	_expect(str(suicide_drone_panel.get("suicide_drone_icon_path", "")) == "res://assets/sprites/hud/commando_suicide_drone_firearm_icon_imagegen_v1.png", "firearm selector should expose the imagegen suicide-drone HUD icon path")
+	_expect(str(suicide_drone_panel.get("suicide_drone_hover_sheet_path", "")) == "res://assets/sprites/hud/commando_suicide_drone_firearm_hover_sheet_autosprite_v1.png", "firearm selector should expose the AutoSprite suicide-drone HUD hover sheet path")
+	_expect(not bool(suicide_drone_panel.get("suicide_drone_hover_sheet_active", true)), "idle selected suicide drone should keep the static HUD icon")
+	_expect(int(suicide_drone_panel.get("suicide_drone_hover_frame_count", 0)) == 16, "suicide-drone HUD hover sheet should expose sixteen frames")
+	_expect(int(suicide_drone_panel.get("suicide_drone_hover_frame", -1)) == 0, "idle selected suicide drone should keep the hover sheet frame at zero")
 	var suicide_drone_ammo: Dictionary = _get_dict(suicide_drone_panel.get("ammo_icon_state", {}))
 	_expect(int(suicide_drone_ammo.get("display_slots", 0)) == 4 and int(suicide_drone_ammo.get("filled_slots", 0)) == 4, "suicide drone ammo icons should expose one filled icon per drone")
+	var active_suicide_drone_panel: Dictionary = renderer.build_panel_state(center, 1.0, {
+		"commando_weapon_controller": controller,
+		"commando_firearm_suicide_drone_state": {
+			"active": true,
+			"pos": Vector2(160.0, 300.0),
+			"velocity": Vector2.RIGHT,
+		},
+	})
+	_expect(bool(active_suicide_drone_panel.get("suicide_drone_hover_sheet_active", false)), "active suicide drone should animate the firearm HUD hover sheet")
+	var suicide_drone_hover_frame: int = int(active_suicide_drone_panel.get("suicide_drone_hover_frame", -1))
+	_expect(suicide_drone_hover_frame >= 0 and suicide_drone_hover_frame < 16, "active suicide-drone HUD hover frame should stay inside the 16-frame sheet")
+	_expect(float(active_suicide_drone_panel.get("suicide_drone_hover_draw_scale", 0.0)) > 1.0, "active suicide-drone HUD hover sheet should retain its centered draw scale")
 
 	_expect(bool(skill_config.swap_equipped_permanent("net_gun", "commando_pistol")), "Commando pistol should equip for ammo icon smoke")
 	controller.sync_equipped_permanent(skill_config)
@@ -398,6 +415,9 @@ func _verify_firearm_png_assets(panel_state: Dictionary) -> void:
 	var suicide_drone_icon_path: String = str(panel_state.get("suicide_drone_icon_path", ""))
 	_expect(suicide_drone_icon_path == "res://assets/sprites/hud/commando_suicide_drone_firearm_icon_imagegen_v1.png", "firearm selector should expose the imagegen suicide-drone HUD icon path")
 	_verify_alpha_png_asset(suicide_drone_icon_path, Vector2i(1024, 1024), "imagegen suicide-drone HUD icon")
+	var suicide_drone_hover_sheet_path: String = str(panel_state.get("suicide_drone_hover_sheet_path", ""))
+	_expect(suicide_drone_hover_sheet_path == "res://assets/sprites/hud/commando_suicide_drone_firearm_hover_sheet_autosprite_v1.png", "firearm selector should expose the AutoSprite suicide-drone HUD hover sheet path")
+	_verify_alpha_png_asset(suicide_drone_hover_sheet_path, Vector2i(1024, 1024), "AutoSprite suicide-drone HUD hover sheet")
 
 
 func _verify_alpha_png_asset(path: String, expected_size: Vector2i, label: String) -> void:

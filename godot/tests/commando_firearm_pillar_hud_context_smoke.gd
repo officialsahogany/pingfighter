@@ -9,7 +9,9 @@ class FakePillarUiRenderer:
 	extends RefCounted
 
 	var draw_calls := 0
+	var build_calls := 0
 	var last_context: Dictionary = {}
+	var last_build_context: Dictionary = {}
 
 	func draw(
 		_canvas: CanvasItem,
@@ -20,6 +22,11 @@ class FakePillarUiRenderer:
 	) -> void:
 		draw_calls += 1
 		last_context = context.duplicate(true)
+
+	func build_commando_firearm_panel_state(_game_offset: Vector2, _game_size: Vector2, context: Dictionary) -> Dictionary:
+		build_calls += 1
+		last_build_context = context.duplicate(true)
+		return {"rect": Rect2(Vector2(10.0, 20.0), Vector2(68.0, 112.0))}
 
 
 class FakeFirearmRuntime:
@@ -42,6 +49,10 @@ class FakeFirearmRuntime:
 				"weapon_id": "ak47",
 				"timer_frames": 20.0,
 				"timer_max_frames": 40.0,
+			},
+			"commando_firearm_suicide_drone_state": {
+				"active": true,
+				"pos": Vector2(10.0, 20.0),
 			},
 		}
 
@@ -112,7 +123,21 @@ func _verify_stage1_pillar_reads_live_pistol_state() -> void:
 	_expect(not bool(pistol_state.get("shot_pending", true)), "base pistol HUD context should preserve pistol shot-pending state")
 	var weapon_fire_state: Dictionary = _get_dict(fake_renderer.last_context.get("commando_firearm_weapon_fire_sheet_state", {}))
 	_expect(str(weapon_fire_state.get("weapon_id", "")) == "ak47", "stage1 pillar HUD should pass live AK-47 weapon fire state from firearm runtime")
+	var suicide_drone_state: Dictionary = _get_dict(fake_renderer.last_context.get("commando_firearm_suicide_drone_state", {}))
+	_expect(bool(suicide_drone_state.get("active", false)), "stage1 pillar HUD should pass live suicide-drone state from firearm runtime")
 	_expect(fake_renderer.last_context.get("battle_perf_logger", null) == fake_perf_logger, "stage1 pillar HUD should forward the perf logger into the pillar UI renderer")
+	drawer.build_commando_firearm_panel_state_for_boss_hud(
+		{
+			"height": 750.0,
+			"selected_character_type": "soldier",
+		},
+		registry,
+		Vector2.ZERO,
+		Vector2(760.0, 750.0)
+	)
+	_expect(fake_renderer.build_calls == 1, "stage1 boss HUD panel-state path should call the pillar UI panel builder")
+	var boss_hud_suicide_drone_state: Dictionary = _get_dict(fake_renderer.last_build_context.get("commando_firearm_suicide_drone_state", {}))
+	_expect(bool(boss_hud_suicide_drone_state.get("active", false)), "stage1 boss HUD panel-state path should pass live suicide-drone state from firearm runtime")
 
 
 func _get_dict(value: Variant) -> Dictionary:
