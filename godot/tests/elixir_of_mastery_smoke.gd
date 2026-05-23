@@ -20,6 +20,7 @@ func _init() -> void:
 		print("FAILED: %d test(s) failed" % _fail_count)
 	else:
 		print("ALL %d TESTS PASSED" % _pass_count)
+		print("elixir_of_mastery_smoke: ok")
 	quit(exit_code)
 
 
