@@ -5396,13 +5396,32 @@ Hundredth split on 2026-05-24:
   field-spawn metadata, roll options, icon asset, runtime helper, state
   machine, gather / burst VFX, transformed player-body renderer, owner-sync
   context, score-event cancellation, post-animation round reset, and skill /
-  control lock integration. `mythic_item_runtime.gd` is now 1799 lines, with
-  the Yachaman runtime, state, effect renderer, and paddle renderer owned by
-  focused helper files.
+  control lock integration. A later `ReadAllLines` recount measured
+  `mythic_item_runtime.gd` at 2540 lines after this commit, with the Yachaman
+  runtime, state, effect renderer, and paddle renderer owned by focused helper
+  files.
 - Validation: focused Yachaman / item coverage passed:
   `yachaman_soul_port_smoke`, `active_item_throw_molotov_smoke`, and
   `item_field_spawn_pool_smoke`. After adding transformed input-lock coverage,
   `yachaman_soul_port_smoke` passed again.
+
+140th follow-up on 2026-05-24:
+
+- Commit: `2c450e9c1 godot: move Shrapnel Armor constants into helper`.
+- Scope: Shrapnel Armor's trigger cap, shard cap, gauge cap, shard lifetime,
+  trail count, dust cap, flash timer, boss stun / knockback timers, and
+  playfield fallbacks now live in
+  `mythic_item_shrapnel_armor_runtime.gd`. `mythic_item_runtime.gd` preloads
+  the helper only for public cap / field-render metadata reads, and
+  `mythic_item_update_runtime.gd` no longer receives a Shrapnel constants
+  dictionary. `shrapnel_armor_port_smoke` now guards against the constants
+  returning to the runtime facade.
+- Runtime facade size: `mythic_item_runtime.gd` moved from 2540 lines to
+  2514 lines by `ReadAllLines` count.
+- Validation: focused Shrapnel / mythic coverage passed:
+  `shrapnel_armor_port_smoke`, `mythic_item_runtime_idle_update_smoke`,
+  `mythic_item_field_render_budget_smoke`,
+  `mythic_item_snapshot_builder_smoke`, and `adversity_armor_port_smoke`.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 

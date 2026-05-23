@@ -142,8 +142,8 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_rainbow_fur_glove_runtime.gd`, Adversity
   Armor constants, next-round shield / serve-speed boost / barrier particle
   lifecycle delegated to `scripts/items/mythic_item_adversity_armor_runtime.gd`,
-  Shrapnel Armor player-hit proc / gauge spend / shard projectile / dust /
-  boss stun-knockback lifecycle delegated to
+  Shrapnel Armor constants, player-hit proc / gauge spend / shard projectile /
+  dust / boss stun-knockback lifecycle delegated to
   `scripts/items/mythic_item_shrapnel_armor_runtime.gd`, Ragnarok Hammer
   player-hit trigger / stun-ball rally state / boss-hit stun-knockback /
   shock-loop audio / spark lifecycle delegated to
@@ -4912,14 +4912,14 @@ This section is intentionally long; use search to find the nearest owner.
   It calls constants-free focused update owners directly for Smartphone,
   Kick Charger, Soul Burst, Foul Whistle, Revival Charm, Danger Sensor Belt,
   Venom Mist Gauntlet, Rainbow Fur Glove, Celestial Armor, Hermes Shoes,
-  Horn Strawberry Mask, and Yachaman Soul. Do not reintroduce private
-  runtime `_update_*` bridges for those paths. It also calls
+  Shrapnel Armor, Horn Strawberry Mask, and Yachaman Soul. Do not reintroduce
+  private runtime `_update_*` bridges for those paths. It also calls
   `mythic_item_update_gate.gd`
   directly for runtime-work detection and `mythic_item_poseidon_runtime.gd`
   directly for the idle Poseidon poll; do not reintroduce private runtime
-  update-gate or idle-poll bridge methods. Ragnarok, Shrapnel Armor,
-  Poseidon, and Baal's Boots update constants should be passed explicitly
-  into this sequencer so it can call those focused owners directly; do not
+  update-gate or idle-poll bridge methods. Ragnarok, Poseidon, and Baal's
+  Boots update constants should be passed explicitly into this sequencer so
+  it can call those focused owners directly; do not
   reintroduce private runtime update wrappers just to bind constant
   dictionaries.
 - `scripts/items/mythic_item_field_effect_visibility.gd`,
