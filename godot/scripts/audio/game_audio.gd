@@ -56,6 +56,8 @@ const CHAOS_SPEAR_BLACKHOLE_SOUND_PATH := "res://assets/sounds/gravityaccel.wav"
 const COMMANDO_SUPPLY_RADIO_SOUND_PATH := "res://assets/sounds/radio.wav"
 const COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH := "res://assets/sounds/airplane.wav"
 const COMMANDO_SUPPLY_AIRCRAFT_GAIN_DB := -3.0980
+const COMMANDO_WEAPON_CHANGE_SOUND_PATH := "res://assets/sounds/weapon.wav"
+const COMMANDO_WEAPON_CHANGE_GAIN_DB := -5.0
 const COMMANDO_SLINGSHOT_FIRE_SOUND_PATH := "res://assets/sounds/shurikenthrow.wav"
 const COMMANDO_PISTOL_READY_SOUND_PATH := "res://assets/sounds/gunroad.wav"
 const COMMANDO_PISTOL_FIRE_SOUND_PATH := "res://assets/sounds/gunshot.wav"
@@ -239,6 +241,7 @@ var chaos_spear_blackhole_sfx: AudioStreamPlayer
 var commando_supply_radio_sfx: AudioStreamPlayer
 var commando_supply_radio_loop_sfx: AudioStreamPlayer
 var commando_supply_aircraft_sfx: AudioStreamPlayer
+var commando_weapon_change_sfx: AudioStreamPlayer
 var commando_fire_support_radio_sfx: AudioStreamPlayer
 var commando_fire_support_aircraft_sfx: AudioStreamPlayer
 var commando_slingshot_fire_sfx: AudioStreamPlayer
@@ -449,6 +452,7 @@ func _setup_commando_skill_sfx() -> void:
 	_enable_loop(commando_supply_radio_loop_sfx)
 	commando_supply_aircraft_sfx = _create_optional_sfx("CommandoSupplyAircraftSfx", COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH, COMMANDO_SUPPLY_AIRCRAFT_GAIN_DB)
 	_enable_loop(commando_supply_aircraft_sfx)
+	commando_weapon_change_sfx = _create_optional_sfx("CommandoWeaponChangeSfx", COMMANDO_WEAPON_CHANGE_SOUND_PATH, COMMANDO_WEAPON_CHANGE_GAIN_DB)
 	commando_fire_support_radio_sfx = _create_optional_sfx("CommandoFireSupportRadioSfx", COMMANDO_SUPPLY_RADIO_SOUND_PATH, -5.5)
 	commando_fire_support_aircraft_sfx = _create_optional_sfx("CommandoFireSupportAircraftSfx", COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH, -7.5)
 	_enable_loop(commando_fire_support_aircraft_sfx)
@@ -1011,6 +1015,11 @@ func play_commando_supply_drop() -> void:
 		play_active_item()
 
 
+func play_commando_weapon_change() -> void:
+	if not _play_with_pitch(commando_weapon_change_sfx, randf_range(0.98, 1.02)):
+		play_commando_supply_drop()
+
+
 func play_commando_fire_support_radio() -> void:
 	if not _play_with_pitch(commando_fire_support_radio_sfx, randf_range(0.98, 1.02)):
 		play_commando_supply_radio()
@@ -1325,7 +1334,6 @@ func play_throw() -> void:
 	_play_with_pitch(throw_sfx, randf_range(0.98, 1.02))
 
 
-
 func play_horn_strawberry_change() -> void:
 	if not _play_with_pitch(horn_strawberry_change_sfx, randf_range(0.98, 1.02)):
 		play_megingjord()
@@ -1367,6 +1375,7 @@ func play_horn_strawberry_bomb_throw() -> void:
 func play_horn_strawberry_bomb_explosion() -> void:
 	if not _play_with_pitch(grenade_sfx, randf_range(1.02, 1.10)):
 		play_active_item()
+
 
 func play_grenade_explosion() -> void:
 	_play_with_pitch(grenade_sfx, randf_range(0.98, 1.02))
@@ -2255,9 +2264,9 @@ func _get_sfx_players() -> Array:
 		timewatch_sfx,
 		throw_before_sfx,
 		throw_sfx,
-		grenade_sfx,
 		horn_strawberry_change_sfx,
 		horn_strawberry_eat_sfx,
+		grenade_sfx,
 		flashbomb_sfx,
 		smokebomb_sfx,
 		firebomb_sfx,

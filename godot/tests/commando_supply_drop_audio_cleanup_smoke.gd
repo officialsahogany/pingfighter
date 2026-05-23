@@ -22,6 +22,7 @@ class FakeAudio:
 	var suicide_drone_loop_stop_calls := 0
 	var drop_calls := 0
 	var item_get_calls := 0
+	var weapon_change_calls := 0
 
 	func play_commando_supply_radio() -> void:
 		radio_calls += 1
@@ -52,6 +53,9 @@ class FakeAudio:
 
 	func play_item_get() -> void:
 		item_get_calls += 1
+
+	func play_commando_weapon_change() -> void:
+		weapon_change_calls += 1
 
 
 func _init() -> void:
@@ -129,6 +133,7 @@ func _verify_supply_drop_audio_lifecycle() -> void:
 	}
 	var pickup_result: Dictionary = supply_state.update(0.01, deps)
 	_expect(bool(pickup_result.get("pickup_resolved", false)), "collectible supply payload should be picked up by the player paddle")
+	_expect(audio.weapon_change_calls == 1, "rental pickup should play weapon.wav for the newly acquired firearm")
 	_expect(audio.item_get_calls == 1, "rental pickup should play the item-get cue")
 	deps.erase("commando_supply_drop_collision_context")
 	supply_state.update(0.6, deps)

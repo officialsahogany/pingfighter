@@ -1199,6 +1199,8 @@ func _collect_drop(drop: Dictionary, deps: Dictionary) -> Dictionary:
 		if weapon_controller != null and weapon_controller.has_method("add_rental_weapon"):
 			var stage: int = int(deps.get("current_stage", 1))
 			granted = bool(weapon_controller.add_rental_weapon(weapon_id, stage, -1, true, true))
+		if granted:
+			_play_audio_method(deps, "play_commando_weapon_change")
 		_play_first_audio_method(deps, ["play_item_get", "play_commando_supply_drop"])
 		return {
 			"type": drop_type,

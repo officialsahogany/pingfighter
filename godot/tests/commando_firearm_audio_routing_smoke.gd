@@ -62,6 +62,9 @@ class FakeSpecificAudio:
 	func play_commando_fire_support_radio() -> void:
 		calls.append("fire_support_radio")
 
+	func play_commando_weapon_change() -> void:
+		calls.append("weapon_change")
+
 	func play_commando_firearm_fire(weapon_id: String) -> void:
 		generic_fire_calls.append(weapon_id)
 
@@ -106,6 +109,7 @@ func _init() -> void:
 	_verify_specific_fire_and_impact_cues_win()
 	_verify_generic_fallback_still_works()
 	_verify_fire_support_activation_uses_radio_only()
+	_verify_firearm_reset_uses_weapon_change_audio()
 	_verify_game_audio_asset_parity()
 
 	if _failures.is_empty():
@@ -195,8 +199,29 @@ func _verify_fire_support_activation_uses_radio_only() -> void:
 	_expect(audio.generic_fire_calls.is_empty(), "fire support should not layer generic firearm fire over the radio cue")
 
 
+func _verify_firearm_reset_uses_weapon_change_audio() -> void:
+	var weapon_controller := CommandoWeaponController.new()
+	var runtime := CommandoFirearmRuntime.new()
+	var audio := FakeSpecificAudio.new()
+	_expect(weapon_controller.unlock_permanent_weapon("net_gun", true), "net gun should unlock for reset audio smoke")
+	_expect(weapon_controller.set_current_weapon("net_gun"), "net gun should be selected before reset audio smoke")
+
+	var result: Dictionary = runtime.update_input(
+		{"firearm_reset_just_pressed": true},
+		500.0,
+		_fire_config(),
+		{
+			"audio": audio,
+			"commando_weapon_controller": weapon_controller,
+		}
+	)
+	_expect(bool(result.get("weapon_switched", false)), "firearm reset should report a real weapon switch")
+	_expect(audio.calls == ["weapon_change"], "firearm reset should play weapon.wav through the runtime input path")
+
+
 func _verify_game_audio_asset_parity() -> void:
 	var expected_paths := {
+		"CommandoWeaponChangeSfx": GameAudio.COMMANDO_WEAPON_CHANGE_SOUND_PATH,
 		"CommandoSlingshotFireSfx": GameAudio.COMMANDO_SLINGSHOT_FIRE_SOUND_PATH,
 		"CommandoPistolReadySfx": GameAudio.COMMANDO_PISTOL_READY_SOUND_PATH,
 		"CommandoPistolFireSfx": GameAudio.COMMANDO_PISTOL_FIRE_SOUND_PATH,
@@ -210,6 +235,7 @@ func _verify_game_audio_asset_parity() -> void:
 		"CommandoSuicideDroneSfx": GameAudio.COMMANDO_SUICIDE_DRONE_SOUND_PATH,
 	}
 	var expected_gains := {
+		"CommandoWeaponChangeSfx": GameAudio.COMMANDO_WEAPON_CHANGE_GAIN_DB,
 		"CommandoSlingshotFireSfx": GameAudio.COMMANDO_SLINGSHOT_FIRE_GAIN_DB,
 		"CommandoPistolReadySfx": GameAudio.COMMANDO_PISTOL_READY_GAIN_DB,
 		"CommandoPistolFireSfx": GameAudio.COMMANDO_PISTOL_FIRE_GAIN_DB,
@@ -255,6 +281,7 @@ func _verify_game_audio_asset_parity() -> void:
 	_expect(_function_body(source, "func play_commando_net_gun_capture() -> void:").find("commando_net_capture_sfx") >= 0, "net capture should use net.wav")
 	_expect(_function_body(source, "func play_commando_bowling_trap_snap() -> void:").find("commando_bowling_trap_snap_sfx") >= 0, "bowling trap snap should use ballingtrapgrap.wav")
 	_expect(_function_body(source, "func play_commando_suicide_drone_explosion() -> void:").find("stop_commando_suicide_drone_loop") >= 0, "suicide drone explosion should stop the drone loop")
+	_expect(_function_body(source, "func play_commando_weapon_change() -> void:").find("commando_weapon_change_sfx") >= 0, "firearm switch/acquire should use weapon.wav")
 	host.free()
 
 
