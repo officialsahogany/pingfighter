@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `3ed396578 godot: apply rolled mythic field helper to passive catalog`.
-- The checkpoint span through that HEAD contains 176 follow-up commits after
+  `e5e3bfc66 godot: apply rolled helper to remaining passive catalog items`.
+- The checkpoint span through that HEAD contains 178 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 177 commits.
+  contains 179 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `b0ed0eaa4 docs: record rolled mythic catalog field split`.
+  `8fb2cf2ba docs: record passive catalog rolled helper split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the 106th split. The broad
+- The split notes below are current through the 107th split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4640,6 +4640,34 @@ Hundredth split on 2026-05-24:
   `mythic_item_ai_assist_runtime_smoke`, `venom_mist_gauntlet_port_smoke`,
   `arm_equipment_slots_port_smoke`, `passive_item_quality_prefix_smoke`,
   `heavenly_cape_port_smoke`, `item_field_spawn_pool_smoke`,
+  `passive_item_debug_menu_click_add_smoke`,
+  `active_item_pickup_router_smoke`, `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`,
+  `active_item_runtime_prewarm_smoke`, and
+  `active_item_effect_renderer_cache_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1288` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
+
+107th split on 2026-05-24:
+
+- Commit: `e5e3bfc66 godot: apply rolled helper to remaining passive catalog items`.
+- Scope: applied `with_rolled_item_base(...)` to the remaining standard
+  passive catalog builders that do not need fixed-option metadata: Commando
+  Arm, Rainbow Fur Glove, Knee Pads, Dash Gear, Soul Burst, Bulk-Up Suit,
+  Bulletproof Hat, and Spiked Helmet.
+- Rationale: after the earlier rolled helper splits, these builders were the
+  remaining passive definitions still carrying the repeated default roll
+  cluster inline. The helper keeps the catalog data shape stable while making
+  item-specific text and color the only visible builder body.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `687` lines to
+  `599` lines; the base metadata helper stayed at `67` lines.
+- Validation: focused passive item / render-budget / reward / prewarm coverage
+  (`commando_arm_port_smoke`, `rainbow_fur_glove_port_smoke`,
+  `knee_pads_port_smoke`, `soul_burst_port_smoke`,
+  `mythic_item_stat_bonus_runtime_smoke`, `head_defense_items_port_smoke`,
+  `neural_helmet_port_smoke`, `arm_equipment_slots_port_smoke`,
+  `mythic_item_field_render_budget_smoke`, `item_field_spawn_pool_smoke`,
   `passive_item_debug_menu_click_add_smoke`,
   `active_item_pickup_router_smoke`, `stage_clear_reward_resolver_smoke`,
   `active_item_hud_visuals_prewarm_step_smoke`,
