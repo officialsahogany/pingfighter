@@ -354,7 +354,9 @@ This section is intentionally long; use search to find the nearest owner.
   Timer Belt, Fuel Pouch, Kick Charger, Bulk-Up Suit, Dash Gear, Dash
   Holder, Gravity Belt, Gold Bar, Reinforced Boomerang Gauntlet, Commando Arm, Megingjord,
   Ragnarok Hammer, Poseidon's Trident, Heavenly Cape, Baal's Boots, and
-  Pandora's Legacy. `scripts/items/mythic_item_catalog_rolls.gd` owns the
+  Pandora's Legacy. `scripts/items/mythic_item_catalog_lists.gd` owns debug
+  item and field-spawn item list construction behind the public catalog API.
+  `scripts/items/mythic_item_catalog_rolls.gd` owns the
   catalog roll defaults, random roll generation, rolled-option decoration,
   roll-field synchronization, default roll lookup, and passive quality prefix
   assignment behind the public `mythic_item_catalog.gd` API.
