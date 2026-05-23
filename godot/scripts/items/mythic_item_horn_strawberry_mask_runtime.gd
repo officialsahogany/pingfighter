@@ -201,12 +201,12 @@ func reset(runtime: Object) -> void:
 	_reset_all_skill_state(runtime)
 
 
-func reset_round(runtime: Object) -> void:
-	var state: Object = runtime.horn_strawberry_mask_state
-	if state != null:
-		state.reset_round()
-	# Round boundaries end the transformed kit but keep detached field/bomb paint lingerers alive.
-	_reset_detransform_skill_state(runtime)
+func reset_round(_runtime: Object) -> void:
+	# Round boundaries keep the command transform alive. Horn Strawberry is a
+	# once-per-stage, timed form; ending it on a lost point makes the 60s kit
+	# evaporate before the player can use it. Stage advance and full reset still
+	# clear the transform and detached field/bomb paint lingerers.
+	pass
 
 
 func on_stage_advance(runtime: Object) -> void:

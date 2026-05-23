@@ -214,8 +214,8 @@ var _reset_ball_calls := 0
 
 func _init() -> void:
 	_verify_score_event_does_not_clear_before_serve_wait()
-	_verify_serve_wait_round_start_clears_transform_event()
-	_verify_serve_wait_round_start_clears_transformed_state()
+	_verify_serve_wait_round_start_preserves_transform_event()
+	_verify_serve_wait_round_start_preserves_transformed_state()
 	_verify_round_restart_preserves_field_and_paint_lingerers()
 	_verify_stage_advance_clears_stage_lock_and_lingerers()
 	_verify_main_menu_reset_clears_everything()
@@ -255,7 +255,7 @@ func _verify_score_event_does_not_clear_before_serve_wait() -> void:
 	_expect(runtime.is_horn_strawberry_transformed(), "score_event should not clear horn strawberry before the serve boundary")
 
 
-func _verify_serve_wait_round_start_clears_transform_event() -> void:
+func _verify_serve_wait_round_start_preserves_transform_event() -> void:
 	var bundle: Dictionary = _make_bundle()
 	var runtime: Object = bundle.get("runtime")
 	var owner: FakeOwner = bundle.get("owner") as FakeOwner
@@ -265,14 +265,14 @@ func _verify_serve_wait_round_start_clears_transform_event() -> void:
 
 	runtime.on_round_start(owner, registry)
 
-	_expect(not runtime.is_horn_strawberry_event_playing(), "serve_wait round start should clear transform event")
-	_expect(not runtime.is_horn_strawberry_transformed(), "serve_wait round start should not leave the player transformed")
+	_expect(runtime.is_horn_strawberry_event_playing(), "serve_wait round start should preserve transform event")
+	_expect(bool(owner.values.get("horn_strawberry_event_playing", false)), "owner sync should preserve horn strawberry event flag")
 	_expect(bool(runtime.get_horn_strawberry_context().get("used_this_stage", false)), "serve_wait round start should preserve used_this_stage")
 	owner.values["special_gauge"] = 500.0
-	_expect(not runtime.try_horn_strawberry_transform(owner, registry), "same-stage transform should stay spent after transform-event round loss")
+	_expect(not runtime.try_horn_strawberry_transform(owner, registry), "same-stage transform should stay spent while the transform event survives a round boundary")
 
 
-func _verify_serve_wait_round_start_clears_transformed_state() -> void:
+func _verify_serve_wait_round_start_preserves_transformed_state() -> void:
 	var bundle: Dictionary = _make_bundle()
 	var runtime: Object = bundle.get("runtime")
 	var owner: FakeOwner = bundle.get("owner") as FakeOwner
@@ -282,10 +282,10 @@ func _verify_serve_wait_round_start_clears_transformed_state() -> void:
 
 	runtime.on_round_start(owner, registry)
 
-	_expect(not runtime.is_horn_strawberry_transformed(), "serve_wait round start should clear transformed state")
-	_expect(not runtime.is_horn_strawberry_skills_locked(), "serve_wait round start should unlock normal character skills")
+	_expect(runtime.is_horn_strawberry_transformed(), "serve_wait round start should preserve transformed state")
+	_expect(runtime.is_horn_strawberry_skills_locked(), "serve_wait round start should keep normal character skills locked")
 	_expect(bool(runtime.get_horn_strawberry_context().get("used_this_stage", false)), "transformed round loss should preserve used_this_stage")
-	_expect(not bool(owner.values.get("horn_strawberry_transformed", false)), "owner sync should clear horn strawberry transformed flag")
+	_expect(bool(owner.values.get("horn_strawberry_transformed", false)), "owner sync should preserve horn strawberry transformed flag")
 
 
 func _verify_round_restart_preserves_field_and_paint_lingerers() -> void:
@@ -308,10 +308,9 @@ func _verify_round_restart_preserves_field_and_paint_lingerers() -> void:
 
 	_expect(_reset_ball_calls == 1, "round_restart should use the reset_ball callback")
 	_expect(round_state.round_restart_notice_calls == 1, "round_restart rematch should start the restart notice")
-	_expect(not runtime.is_horn_strawberry_transformed(), "round_restart should end the transformed kit")
+	_expect(runtime.is_horn_strawberry_transformed(), "round_restart should preserve the transformed kit")
 	_expect(int(runtime.get_horn_strawberry_field_context().get("barrier_count", 0)) >= 1, "round_restart should preserve strawberry field barriers")
 	_expect(int(runtime.get_horn_strawberry_bomb_context().get("paint_count", 0)) >= 1, "round_restart should preserve strawberry bomb paint")
-	_expect(not bool(runtime.get_horn_strawberry_bomb_context().get("throwing", true)), "round_restart should stop active bomb throwing")
 
 
 func _verify_stage_advance_clears_stage_lock_and_lingerers() -> void:

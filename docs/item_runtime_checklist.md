@@ -1566,25 +1566,24 @@ Required boundary matrix for any command-triggered transform item:
 | Boundary event | Transform / cinematic state | Active-skill state | Lingering field / paint / projectiles | `used_this_stage` flag |
 |---|---|---|---|---|
 | `score_event` (point just lost / won) | KEEP — do not interrupt mid-event | KEEP | KEEP | KEEP |
-| `serve_wait` → `on_round_start` (ball reset for next rally) | CLEAR (any of TRANSFORM_EVENT / TRANSFORMED / DETRANSFORM_EVENT) | CLEAR active arming, CLEAR cooldowns of one-shot skills, CANCEL "throwing" loops | KEEP detached lingerers (field barriers, paint splatters, in-flight bombs) | KEEP — same-stage transform stays spent |
-| `round_restart` (deuce reset / debug restart) | CLEAR | CLEAR | KEEP | KEEP |
+| `serve_wait` → `on_round_start` (ball reset for next rally) | KEEP; TRANSFORM_EVENT / TRANSFORMED / DETRANSFORM_EVENT continue from remaining timers | KEEP active arming and skill cooldowns | KEEP detached lingerers (field barriers, paint splatters, in-flight bombs) | KEEP — same-stage transform stays spent |
+| `round_restart` (deuce reset / debug restart) | KEEP | KEEP | KEEP | KEEP |
 | `stage_advance` (next stage begins) | CLEAR | CLEAR | CLEAR all lingerers | CLEAR — next stage's transform is unlocked |
 | `main_menu_reset` / `game_reset` | CLEAR | CLEAR | CLEAR | CLEAR |
 
 Implementation contract:
 
 - [ ] State machine MUST expose at least three named reset methods:
-      `reset_round()` (keep `used_this_stage`, end transform kit but
-      preserve detached lingerers), `on_stage_advance()` (clear
+      `reset_round()` (keep `used_this_stage` and preserve the active
+      transform kit across the next serve), `on_stage_advance()` (clear
       `used_this_stage` AND all lingerers), and `reset_all()` (full
       clear including `used_this_stage`).
 - [ ] Mythic runtime MUST expose a parallel triplet that also tears
       down per-skill detached state with the right preservation policy.
-      Horn Strawberry's reference triplet:
-      `_reset_detransform_skill_state()` (eat reset + horn_charge
-      reset + bomb `cancel_throwing_preserve_lingering()` + field
-      NOT reset) for round boundary, and `_reset_all_skill_state()`
-      for stage / menu boundary.
+      Horn Strawberry's round boundary is intentionally no-op for the
+      transformed kit; `_reset_detransform_skill_state()` is only for
+      natural transform expiry / detransform cleanup, and
+      `_reset_all_skill_state()` is for stage / menu boundary.
 - [ ] `score_event` MUST NOT call `reset_round()` directly — it
       should let scoreboard → serve_wait → ball reset →
       `on_round_start` carry the transform into the round-start
@@ -1598,15 +1597,14 @@ Implementation contract:
       with `_expect` assertions. Reference:
       `godot/tests/horn_strawberry_round_boundary_smoke.gd`. The
       smoke must cover both TRANSFORM_EVENT and TRANSFORMED loss
-      paths separately, because cinematic-state cleanup differs from
-      active-form cleanup (the cinematic finalize path runs through
-      `state.update(delta)` while the active form does not).
-- [ ] The "preserve lingerers across round" decision MUST be
+      paths separately, because both states must survive the serve
+      boundary with owner-sync flags intact.
+- [ ] The "preserve transform + lingerers across round" decision MUST be
       documented inline at the `reset_round()` callsite as an
       intentional divergence (e.g.
-      `# Round boundaries end the transformed kit but keep
-      detached field/bomb paint lingerers alive.`). Future
-      Yachaman / Odin's Eye ports must inherit or explicitly
+      `# Round boundaries keep the command transform alive; stage
+      advance and full reset still clear transform + lingerers.`).
+      Future Yachaman / Odin's Eye ports must inherit or explicitly
       override this comment.
 
 Cross-link: revival transforms (Yachaman Soul, Odin's Eye when
