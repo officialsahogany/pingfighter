@@ -59,6 +59,8 @@ func _verify_commando_full_body_live2d() -> void:
 		_prewarm_has_job(prewarm, sheet_path, "Texture2D"),
 		"Character-select loading screen should prewarm the Commando full-body Live2D sheet"
 	)
+	_cancel_prewarm(prewarm)
+	prewarm = null
 
 
 func _find_character(character_id: String) -> Dictionary:
@@ -81,6 +83,18 @@ func _prewarm_has_job(prewarm: Object, path: String, type_hint: String) -> bool:
 			if str(job.get("path", "")) == path and str(job.get("type", "")) == type_hint:
 				return true
 	return false
+
+
+func _cancel_prewarm(prewarm: Object) -> void:
+	var current_path := str(prewarm.get("current_path"))
+	if current_path != "":
+		ResourceLoader.load_threaded_get(current_path)
+	prewarm.set("jobs", [])
+	prewarm.set("current_job", {})
+	prewarm.set("current_path", "")
+	prewarm.set("loaded_character_select_scene", null)
+	prewarm.set("active", false)
+	prewarm.set("finished", true)
 
 
 func _expect(condition: bool, message: String) -> void:

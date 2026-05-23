@@ -50,6 +50,9 @@ func _run() -> void:
 	_expect(not BgmMuteState.is_muted(self), "GameAudio B toggle should clear the shared BGM mute state")
 	_expect(muted_audio.stage1_bgm.playing, "GameAudio B toggle should resume the remembered stage BGM")
 
+	audio.stop_bgm()
+	muted_audio.stop_bgm()
+	await process_frame
 	_cleanup_player(audio.stage1_bgm)
 	_cleanup_player(audio.stage2_bgm)
 	_cleanup_player(audio.stage2_alt_bgm)
@@ -64,7 +67,14 @@ func _run() -> void:
 	_cleanup_player(muted_audio.stage4_bgm)
 	_cleanup_player(muted_audio.stage4_phase2_bgm)
 	BgmMuteState.set_muted(self, false)
+	await process_frame
 	host.queue_free()
+	audio = null
+	adopted_audio = null
+	muted_audio = null
+	host = null
+	await process_frame
+	await process_frame
 	print("game_audio_volume_settings_smoke: ok")
 	quit(0)
 

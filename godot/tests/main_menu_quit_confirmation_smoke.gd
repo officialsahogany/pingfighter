@@ -73,6 +73,7 @@ func _run() -> void:
 	_expect(quit_sink.quit_calls == 1, "confirming quit should call the quit callback exactly once")
 	_expect(bool(menu.get("transitioning")), "confirming quit should set transitioning")
 
+	await _cleanup_menu()
 	_finish()
 
 
@@ -90,6 +91,28 @@ func _finish_intro_reveal() -> void:
 	var reveal := menu.get_node_or_null("RevealLayer")
 	if reveal != null and reveal.has_method("_finish_reveal"):
 		reveal.call("_finish_reveal")
+
+
+func _cleanup_menu() -> void:
+	if menu == null:
+		return
+	_cleanup_audio_player(menu.get("main_menu_bgm_player") as AudioStreamPlayer)
+	_cleanup_audio_player(menu.get("start_transition_sfx_player") as AudioStreamPlayer)
+	await process_frame
+	if current_scene == menu:
+		current_scene = null
+	menu.queue_free()
+	menu = null
+	await process_frame
+	await process_frame
+
+
+func _cleanup_audio_player(player: AudioStreamPlayer) -> void:
+	if player == null:
+		return
+	if player.playing:
+		player.stop()
+	player.stream = null
 
 
 func _expect(condition: bool, message: String) -> void:

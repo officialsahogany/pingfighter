@@ -39,6 +39,12 @@ func _run() -> void:
 	if player != null:
 		player.queue_free()
 		await process_frame
+	if boot != null:
+		if current_scene == boot:
+			current_scene = null
+		boot.queue_free()
+		boot = null
+		await process_frame
 	get_root().set_meta("main_menu_bgm_muted", false)
 	_finish()
 
