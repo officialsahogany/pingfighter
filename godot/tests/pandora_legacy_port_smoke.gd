@@ -5,6 +5,7 @@ const BattleSceneModalGateController := preload("res://scripts/core/battle_scene
 const BattleSceneOverlayFrameController := preload("res://scripts/core/battle_scene_overlay_frame_controller.gd")
 const MatchScoreboardFlowController := preload("res://scripts/core/match_scoreboard_flow_controller.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
+const MythicItemPandoraLegacyRuntime := preload("res://scripts/items/mythic_item_pandora_legacy_runtime.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
@@ -85,6 +86,8 @@ class CallbackSink:
 
 
 func _init() -> void:
+	_verify_pandora_runtime_owns_selection_constants()
+
 	var catalog: Object = MythicItemCatalog.new()
 	var item_data: Dictionary = catalog.build_item_by_name("pandora_legacy")
 	_expect(not item_data.is_empty(), "Pandora Legacy should build from catalog")
@@ -178,11 +181,30 @@ func _init() -> void:
 	quit(0)
 
 
+func _verify_pandora_runtime_owns_selection_constants() -> void:
+	_expect(MythicItemPandoraLegacyRuntime.CARD_COUNT == 3, "Pandora runtime should own the selection card count")
+	_expect(
+		str(MythicItemPandoraLegacyRuntime.ACTIVE_ITEM_KOREAN_NAMES.get("banana", "")) == "바나나",
+		"Pandora runtime should own active-item Korean names"
+	)
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	_expect(runtime_source.find("PANDORA_ACTIVE_ITEM_KOREAN_NAMES") < 0, "mythic runtime should not keep Pandora active-item names inline")
+	_expect(runtime_source.find("PANDORA_SELECTION_CARD_COUNT") < 0, "mythic runtime should not keep Pandora card-count constants inline")
+	_expect(runtime_source.find("_get_pandora_card_index_at") < 0, "mythic runtime should not keep Pandora card-index bridge methods inline")
+	_expect(runtime_source.find("_clear_pandora_legacy_runtime") < 0, "mythic runtime should not keep Pandora clear bridge methods inline")
+
+
 func _expect_icon_asset(item_data: Dictionary) -> void:
 	var icon: Texture2D = ProjectResourceLoader.load_texture(str(item_data.get("icon_path", "")))
 	_expect(icon != null, "Pandora Legacy icon should load")
 	if icon != null:
 		_expect(icon.get_width() == 32 and icon.get_height() == 32, "Pandora Legacy icon should use the 32px source")
+	_expect(str(item_data.get("icon_sheet_path", "")) != "", "Pandora Legacy should expose an animated icon sheet")
+	_expect(int(item_data.get("icon_frame_count", 0)) == 32, "Pandora Legacy should expose 32 smooth icon frames")
+	_expect(int(item_data.get("icon_frame_msec", 0)) == 33, "Pandora Legacy icon should use the shared mythic frame cadence")
+	_expect(bool(item_data.get("icon_fill_slot", false)), "Pandora Legacy animated icon should fill the mythic slot box")
+	var sheet: Texture2D = ProjectResourceLoader.load_texture(str(item_data.get("icon_sheet_path", "")))
+	_expect(sheet != null and sheet.get_size() == Vector2(1024.0, 32.0), "Pandora Legacy icon sheet should load as 32 smooth 32px frames")
 
 
 func _array_has_item(items: Array, item_name: String) -> bool:
