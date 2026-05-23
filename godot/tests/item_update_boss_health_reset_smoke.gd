@@ -87,6 +87,8 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	_verify_mythic_update_once_when_owner_frame_changes()
+
 	var owner := FakeOwner.new()
 	var mythic := FakeMythicRuntime.new()
 	var ball := FakeBallDriver.new()
@@ -115,6 +117,22 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_mythic_update_once_when_owner_frame_changes() -> void:
+	var owner := FakeOwner.new()
+	var mythic := FakeMythicRuntime.new()
+	mythic.reset_ready = false
+	var registry := FakeRegistry.new({
+		"mythic_item_runtime": mythic,
+	})
+	var driver := BattleSceneItemUpdateDriver.new()
+
+	driver.update_mythic_items(owner, registry, 1.0 / 60.0)
+	owner.set("gameplay_frame_counter", int(owner.get("gameplay_frame_counter")) + 1)
+	driver.update_items(owner, registry, 1.0 / 60.0)
+
+	_expect(mythic.update_calls == 1, "mythic runtime should update once per physics tick even if owner gameplay_frame_counter changes mid-flow")
 
 
 func _expect(condition: bool, message: String) -> void:

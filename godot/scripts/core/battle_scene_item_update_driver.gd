@@ -82,8 +82,8 @@ func _reset_ball_after_foul_whistle(owner: Object, registry: Object) -> void:
 func _update_mythic_once(owner: Object, registry: Object, delta: float, mythic_item_runtime: Object) -> void:
 	if mythic_item_runtime == null or not mythic_item_runtime.has_method("update"):
 		return
-	var frame_key := -1
-	if owner != null:
+	var frame_key: int = int(Engine.get_physics_frames())
+	if frame_key < 0 and owner != null:
 		var value: Variant = owner.get("gameplay_frame_counter")
 		if value != null:
 			frame_key = int(value)
