@@ -27,6 +27,14 @@ func update_items(owner: Object, registry: Object, delta: float) -> void:
 		var reset_start: int = _perf_begin(perf_logger)
 		_reset_ball_after_foul_whistle(owner, registry)
 		_perf_end(perf_logger, "physics.items.foul_whistle_reset", reset_start)
+	if (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("consume_yachaman_revival_reset_ready")
+		and bool(mythic_item_runtime.consume_yachaman_revival_reset_ready())
+	):
+		var yachaman_reset_start: int = _perf_begin(perf_logger)
+		_reset_ball_after_yachaman_revival(owner, registry)
+		_perf_end(perf_logger, "physics.items.yachaman_revival_reset", yachaman_reset_start)
 	_perf_end(perf_logger, "physics.items.active_total", total_start)
 
 
@@ -67,6 +75,19 @@ func _call_active_item_runtime_update(
 
 
 func _reset_ball_after_foul_whistle(owner: Object, registry: Object) -> void:
+	var ball_driver: Object = _get_instance(registry, "battle_scene_ball_update_driver")
+	if ball_driver != null and ball_driver.has_method("reset_ball"):
+		ball_driver.reset_ball(owner, registry)
+	_reset_boss_round_health(owner, registry)
+	var round_state: Object = _get_instance(registry, "round_flow_state")
+	if round_state != null:
+		if round_state.has_method("set_player_serves"):
+			round_state.set_player_serves(true)
+		if round_state.has_method("reset_round_wait"):
+			round_state.reset_round_wait()
+
+
+func _reset_ball_after_yachaman_revival(owner: Object, registry: Object) -> void:
 	var ball_driver: Object = _get_instance(registry, "battle_scene_ball_update_driver")
 	if ball_driver != null and ball_driver.has_method("reset_ball"):
 		ball_driver.reset_ball(owner, registry)

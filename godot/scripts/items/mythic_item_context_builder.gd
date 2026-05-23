@@ -223,6 +223,9 @@ func get_actor_draw_context(runtime: Object, constants: Dictionary) -> Dictionar
 	if runtime.is_horn_strawberry_transformed():
 		context["horn_strawberry_transformed"] = true
 		context["horn_strawberry_context"] = runtime.get_horn_strawberry_context()
+	if runtime.is_yachaman_transformed():
+		context["yachaman_transformed"] = true
+		context["yachaman_context"] = runtime.get_yachaman_context()
 	return context
 
 
@@ -235,6 +238,7 @@ func has_actor_draw_context(runtime: Object) -> bool:
 		or runtime.ragnarok_boss_knockback_timer_frames > 0.0
 		or runtime.shrapnel_armor_boss_knockback_timer_frames > 0.0
 		or runtime.is_horn_strawberry_transformed()
+		or runtime.is_yachaman_transformed()
 	)
 
 

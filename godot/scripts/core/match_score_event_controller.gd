@@ -11,6 +11,8 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 		return
 	if _try_trigger_revival(scoring_side, score_state, deps, callbacks):
 		return
+	if _try_trigger_yachaman_revival(scoring_side, score_state, deps, callbacks):
+		return
 
 	var score_result: Dictionary = score_state.score_for(scoring_side)
 	_queue_pandora_legacy_selection(scoring_side, deps)
@@ -151,6 +153,22 @@ func _try_trigger_revival(scoring_side: String, score_state: Object, deps: Dicti
 	if audio != null:
 		_stop_score_audio_loops(audio)
 	_start_boss_score_cancel_stage_hold(deps, callbacks)
+	return true
+
+
+func _try_trigger_yachaman_revival(scoring_side: String, score_state: Object, deps: Dictionary, callbacks: Dictionary) -> bool:
+	if scoring_side != "boss":
+		return false
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("try_trigger_yachaman_revival"):
+		return false
+	var loss_type: String = "deuce" if _is_deuce_mode(score_state) else "round"
+	if not bool(mythic_item_runtime.try_trigger_yachaman_revival(loss_type, deps)):
+		return false
+	var audio: Object = deps.get("audio", null)
+	if audio != null:
+		_stop_score_audio_loops(audio)
+	_start_boss_score_cancel_round_hold(deps, callbacks)
 	return true
 
 

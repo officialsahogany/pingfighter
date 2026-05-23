@@ -78,6 +78,7 @@ func draw_field_effects(
 	var soul_burst_visible: bool = runtime.soul_burst_effect_timer_frames > 0.0 or not runtime.soul_burst_particles.is_empty() or not runtime.soul_burst_shockwaves.is_empty() or not runtime.soul_burst_wind_trails.is_empty()
 	var foul_whistle_visible: bool = runtime.foul_whistle_state.animation_active
 	var revival_visible: bool = runtime.revival_state.is_effect_active()
+	var yachaman_visible: bool = runtime.yachaman_soul_runtime.has_visible_effects(runtime)
 	var sensor_visible: bool = runtime.sensor_auto_dash_effect_timer_frames > 0.0
 	var venom_mist_visible: bool = runtime.venom_mist_field_active or not runtime.venom_mist_particles.is_empty()
 	var rainbow_glove_visible: bool = runtime.rainbow_fur_glove_aura_timer_frames > 0.0 or not runtime.rainbow_fur_glove_particles.is_empty()
@@ -95,7 +96,7 @@ func draw_field_effects(
 		or _horn_strawberry_field_renderer.is_transform_visible(horn_strawberry_context)
 	)
 	var acquisition_visible: bool = runtime.acquisition_cinematic != null and runtime.acquisition_cinematic.is_active()
-	if not impact_active and not stun_active and runtime.ragnarok_sparks.is_empty() and not poseidon_visible and not knee_pads_visible and not soul_burst_visible and not foul_whistle_visible and not revival_visible and not sensor_visible and not venom_mist_visible and not rainbow_glove_visible and not adversity_armor_visible and not shrapnel_armor_visible and not celestial_armor_visible and not hermes_visible and not baal_visible and not horn_strawberry_visible and not acquisition_visible:
+	if not impact_active and not stun_active and runtime.ragnarok_sparks.is_empty() and not poseidon_visible and not knee_pads_visible and not soul_burst_visible and not foul_whistle_visible and not revival_visible and not yachaman_visible and not sensor_visible and not venom_mist_visible and not rainbow_glove_visible and not adversity_armor_visible and not shrapnel_armor_visible and not celestial_armor_visible and not hermes_visible and not baal_visible and not horn_strawberry_visible and not acquisition_visible:
 		return
 	var detail_perf_logger: Object = perf_logger if _should_sample_detail(perf_logger, "mythic.field_effects") else null
 	var field_size: Vector2 = _as_vector2(constants.get("field_size", Vector2(760.0, 750.0)), Vector2(760.0, 750.0))
@@ -285,6 +286,10 @@ func draw_field_effects(
 		var revival_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime.revival_runtime.draw_effect(runtime, canvas, shake_offset, field_size)
 		_perf_end(detail_perf_logger, "mythic.revival", revival_sample_start)
+	if yachaman_visible:
+		var yachaman_sample_start: int = _perf_begin(detail_perf_logger)
+		runtime.yachaman_soul_runtime.draw_effect(runtime, canvas, shake_offset)
+		_perf_end(detail_perf_logger, "mythic.yachaman_soul", yachaman_sample_start)
 	if sensor_visible:
 		var sensor_sample_start: int = _perf_begin(detail_perf_logger)
 		runtime.support_effect_renderer.draw_sensor_auto_dash_effect(

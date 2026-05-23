@@ -9,6 +9,7 @@ const PaddleHologramGlitchRenderer := preload("res://scripts/effects/paddle_holo
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 const ViperAirborneRenderToggles := preload("res://scripts/core/viper_airborne_render_toggles.gd")
 const HornStrawberryPaddleRenderer := preload("res://scripts/items/horn_strawberry_paddle_renderer.gd")
+const YachamanSoulPaddleRenderer := preload("res://scripts/items/yachaman_soul_paddle_renderer.gd")
 
 # The legacy generated attack sheet uses 344x384 cells and fills most of each cell.
 # Python's Smasher renderer uses a 250x120 character surface whose visible body
@@ -40,6 +41,7 @@ const VIPER_DUAL_GLITCH_GHOST_SHIFT_X := 4.0
 var sprite_renderer: Object = Stage1PlayerSpriteRenderer.new()
 var dash_side_gauge_renderer: Object = Stage1DashSideGaugeRenderer.new()
 var horn_strawberry_paddle_renderer: Object = HornStrawberryPaddleRenderer.new()
+var yachaman_soul_paddle_renderer: Object = YachamanSoulPaddleRenderer.new()
 
 
 func _init() -> void:
@@ -238,6 +240,7 @@ func draw(
 	var paddle_hologram_progress: float = float(context.get("paddle_hologram_progress", 1.0))
 	var paddle_hologram_plan: Dictionary = {}
 	var horn_strawberry_transformed: bool = bool(context.get("horn_strawberry_transformed", false))
+	var yachaman_transformed: bool = bool(context.get("yachaman_transformed", false))
 	if paddle_hologram_active:
 		paddle_hologram_plan = PaddleHologramGlitchRenderer.compute_pass_plan(
 			paddle_hologram_progress, Time.get_ticks_msec()
@@ -258,7 +261,14 @@ func draw(
 	_perf_end(perf_logger, "actors.stage1.player.hover_embers", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	var drawn_player_visual_rect: Rect2 = player_visual_rect
-	if horn_strawberry_transformed:
+	if yachaman_transformed:
+		drawn_player_visual_rect = yachaman_soul_paddle_renderer.draw(
+			canvas,
+			player_pos,
+			paddle_size,
+			shake_offset
+		)
+	elif horn_strawberry_transformed:
 		drawn_player_visual_rect = horn_strawberry_paddle_renderer.draw(
 			canvas,
 			context,
@@ -296,7 +306,7 @@ func draw(
 			paddle_size,
 			shake_offset
 		)
-	if not horn_strawberry_transformed:
+	if not horn_strawberry_transformed and not yachaman_transformed:
 		_draw_commando_weapon_b2_overlay(canvas, sprite_context, player_visual_rect)
 		_draw_commando_weapon_overlay(canvas, sprite_context, player_visual_rect, player_move_active)
 	if curse_reverse_active:
@@ -315,7 +325,7 @@ func draw(
 	sample_start = _perf_begin(perf_logger)
 	dash_side_gauge_renderer.draw(canvas, context, player_pos, paddle_size, shake_offset)
 	_perf_end(perf_logger, "actors.stage1.player.dash_side_gauge", sample_start)
-	if paddle_hologram_active and not horn_strawberry_transformed:
+	if paddle_hologram_active and not horn_strawberry_transformed and not yachaman_transformed:
 		# Scanlines / noise / edge-glow ride on top of the multi-pass sprite
 		# so they read across the whole materializing silhouette, including
 		# the cyan / magenta ghost halos.

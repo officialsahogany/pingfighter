@@ -14,6 +14,7 @@ const FIELD_CHANCES := {
 	"pandora_legacy": 0.00008,
 	"dowsing_pendulum": 0.005,
 	"dowsing_goggles": 0.005,
+	"yachaman_soul": 0.004,
 	"speedboots": 0.005,
 	"speedgear": 0.005,
 	"gravitybelt": 0.002,
