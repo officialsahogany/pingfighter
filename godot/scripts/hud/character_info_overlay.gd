@@ -390,32 +390,37 @@ var _input_redraw_requested := false
 var _last_hover_signature := ""
 var _last_mouse_redraw_position := Vector2.ZERO
 var _has_mouse_redraw_position := false
+var _skill_cooldown_pause_active := false
+var _skill_cooldown_pause_owner: Object = null
+var _skill_cooldown_pause_registry: Object = null
 
 
 func is_active() -> bool:
 	return active
 
 
-func open() -> void:
+func open(owner: Object = null, registry: Object = null) -> void:
 	active = true
 	animation_time = 0.0
 	perk_scroll = 0.0
 	passive_inventory_scroll = 0.0
+	_pause_skill_cooldowns_for_overlay(owner, registry)
 	_reset_mouse_hover_tracking()
 	_request_redraw()
 
 
 func close(from_input: bool = false) -> void:
+	_resume_skill_cooldowns_for_overlay()
 	active = false
 	_reset_mouse_hover_tracking()
 	_request_redraw(from_input)
 
 
-func toggle() -> void:
+func toggle(owner: Object = null, registry: Object = null) -> void:
 	if active:
 		close()
 	else:
-		open()
+		open(owner, registry)
 
 
 func update(delta: float) -> bool:
@@ -453,6 +458,31 @@ func _reset_mouse_hover_tracking() -> void:
 	_last_mouse_redraw_position = Vector2.ZERO
 
 
+func _pause_skill_cooldowns_for_overlay(owner: Object, registry: Object) -> void:
+	if _skill_cooldown_pause_active or owner == null or registry == null:
+		return
+	var skill_tooltip_driver: Object = _get_instance(registry, "battle_scene_skill_tooltip_driver")
+	if skill_tooltip_driver == null or not skill_tooltip_driver.has_method("pause_skill_cooldowns"):
+		return
+	skill_tooltip_driver.pause_skill_cooldowns(owner, registry)
+	_skill_cooldown_pause_active = true
+	_skill_cooldown_pause_owner = owner
+	_skill_cooldown_pause_registry = registry
+
+
+func _resume_skill_cooldowns_for_overlay() -> void:
+	if not _skill_cooldown_pause_active:
+		return
+	var registry: Object = _skill_cooldown_pause_registry
+	var owner: Object = _skill_cooldown_pause_owner
+	_skill_cooldown_pause_active = false
+	_skill_cooldown_pause_owner = null
+	_skill_cooldown_pause_registry = null
+	var skill_tooltip_driver: Object = _get_instance(registry, "battle_scene_skill_tooltip_driver")
+	if skill_tooltip_driver != null and skill_tooltip_driver.has_method("resume_skill_cooldowns"):
+		skill_tooltip_driver.resume_skill_cooldowns(owner, registry)
+
+
 func _should_redraw_for_mouse_motion(mouse_pos: Vector2) -> bool:
 	var hover_signature: String = _get_hover_signature(mouse_pos)
 	var previous_hover_signature: String = _last_hover_signature
@@ -480,7 +510,7 @@ func _hover_signature_has_visual(signature: String) -> bool:
 
 
 func _get_hover_signature(mouse_pos: Vector2) -> String:
-	if _last_hover_signature != "" and _hover_signature_contains_mouse(_last_hover_signature, mouse_pos):
+	if _hover_signature_has_visual(_last_hover_signature) and _hover_signature_contains_mouse(_last_hover_signature, mouse_pos):
 		return _last_hover_signature
 	if _last_equipment_rect.has_point(mouse_pos):
 		var equipment_signature: String = _get_equipment_hover_signature(mouse_pos)
@@ -1211,11 +1241,15 @@ func _prewarm_perk_grid_layout(owner: Object, registry: Object, module_getter: C
 		return
 	var runtime_state: Object = _get_prewarm_instance(registry, module_getter, "runtime_perk_state")
 	var catalog: Object = _get_prewarm_instance(registry, module_getter, "runtime_perk_catalog")
+	var character_type: String = _get_character_type(owner)
+	var skill_config: Object = _get_prewarm_skill_config(registry, module_getter, character_type)
+	var skill_snapshot: Dictionary = skill_config.get_snapshot() if skill_config != null and skill_config.has_method("get_snapshot") else {}
+	var equipped_skills: Array = _get_array(skill_snapshot.get("equipped_skills", []))
 	var snapshot: Dictionary = runtime_state.get_snapshot() if runtime_state != null and runtime_state.has_method("get_snapshot") else {}
 	var levels: Dictionary = _get_dict(snapshot.get("runtime_skill_levels", {}))
 	if levels.is_empty() and not snapshot.has("runtime_skill_levels"):
 		levels = _get_dict(_safe_owner_get(owner, "runtime_perk_levels", {}))
-	var acquired: Array = _build_acquired_perks_cached(levels, catalog, runtime_state, snapshot)
+	var acquired: Array = _build_acquired_perks_cached(levels, catalog, runtime_state, snapshot, equipped_skills)
 	var grid_rect := Rect2(_layout_perk_rect.position.x + 12.0, _layout_perk_rect.position.y + 36.0, _layout_perk_rect.size.x - 24.0, _layout_perk_rect.size.y - 48.0)
 	_last_perk_grid_rect = grid_rect
 	if acquired.is_empty():
@@ -1366,7 +1400,7 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	_perf_end(perf_logger, "character_info.active_items", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	hover_data = _draw_perk_grid(canvas, owner, registry, _layout_perk_rect, font, mouse_pos, hover_data, runtime_state, runtime_perk_icon_renderer, runtime_snapshot, runtime_perk_catalog)
+	hover_data = _draw_perk_grid(canvas, owner, registry, _layout_perk_rect, font, mouse_pos, hover_data, runtime_state, runtime_perk_icon_renderer, runtime_snapshot, runtime_perk_catalog, _get_array(skill_snapshot.get("equipped_skills", [])))
 	_perf_end(perf_logger, "character_info.perks", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
@@ -1938,10 +1972,11 @@ func _draw_perk_grid(
 	runtime_state: Object = null,
 	icon_renderer_override: Object = null,
 	runtime_snapshot_override: Variant = null,
-	catalog_override: Object = null
+	catalog_override: Object = null,
+	equipped_skills_for_filter: Array = []
 ) -> Dictionary:
 	_draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
-	_draw_text_xy(canvas, font, "PERKS", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
+	_draw_text_xy(canvas, font, "퍽", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
 
 	var effective_runtime_state: Object = runtime_state
 	if effective_runtime_state == null:
@@ -1961,7 +1996,7 @@ func _draw_perk_grid(
 	var levels: Dictionary = _get_dict(snapshot.get("runtime_skill_levels", {}))
 	if levels.is_empty() and not snapshot.has("runtime_skill_levels"):
 		levels = _get_dict(_safe_owner_get(owner, "runtime_perk_levels", {}))
-	var acquired: Array = _build_acquired_perks_cached(levels, catalog, effective_runtime_state, snapshot)
+	var acquired: Array = _build_acquired_perks_cached(levels, catalog, effective_runtime_state, snapshot, equipped_skills_for_filter)
 
 	var grid_rect := Rect2(rect.position.x + 12.0, rect.position.y + 36.0, rect.size.x - 24.0, rect.size.y - 48.0)
 	var mouse_in_perk_grid_rect: bool = grid_rect.has_point(mouse_pos)
@@ -3365,7 +3400,7 @@ func _active_item_label_cache_matches(slots: Array) -> bool:
 
 
 func _prewarm_static_text(font: Font, owner: Object) -> void:
-	for text in ["PERKS", "Lv.1", "Lv.2", "Lv.3", "Lv.4", "Lv.5", "0 / 3", "0 / 5", "-", "E"]:
+	for text in ["퍽", "Lv.1", "Lv.2", "Lv.3", "Lv.4", "Lv.5", "0 / 3", "0 / 5", "-", "E"]:
 		for size in [8, 9, 10, 11, 12, 13, 14, 15]:
 			_text_size(font, str(text), int(size))
 	_ensure_equipment_slot_metadata_cache()
@@ -3500,14 +3535,20 @@ func _get_prewarm_instance(registry: Object, module_getter: Callable, key: Strin
 	return null
 
 
-func _build_acquired_perks_cached(levels: Dictionary, catalog: Object, runtime_state: Object = null, runtime_snapshot_override: Variant = null) -> Array:
+func _build_acquired_perks_cached(
+	levels: Dictionary,
+	catalog: Object,
+	runtime_state: Object = null,
+	runtime_snapshot_override: Variant = null,
+	equipped_skills_for_filter: Array = []
+) -> Array:
 	var effective_levels: Dictionary = _get_effective_runtime_perk_levels_from_snapshot(runtime_snapshot_override)
-	var cache_hash: int = _get_acquired_perk_cache_hash(levels, catalog, runtime_state, runtime_snapshot_override, effective_levels)
+	var cache_hash: int = _get_acquired_perk_cache_hash(levels, catalog, runtime_state, runtime_snapshot_override, effective_levels, equipped_skills_for_filter)
 	if _acquired_perk_cache_ready and cache_hash == _acquired_perk_cache_hash:
 		return _acquired_perk_cache
 	_acquired_perk_cache_hash = cache_hash
 	_acquired_perk_cache_ready = true
-	_acquired_perk_cache = _build_acquired_perks(levels, catalog, runtime_state, runtime_snapshot_override, effective_levels)
+	_acquired_perk_cache = _build_acquired_perks(levels, catalog, runtime_state, runtime_snapshot_override, effective_levels, equipped_skills_for_filter)
 	return _acquired_perk_cache
 
 
@@ -3516,22 +3557,26 @@ func _get_acquired_perk_cache_hash(
 	catalog: Object,
 	runtime_state: Object = null,
 	runtime_snapshot_override: Variant = null,
-	effective_levels: Dictionary = {}
+	effective_levels: Dictionary = {},
+	equipped_skills_for_filter: Array = []
 ) -> int:
 	var catalog_id: int = catalog.get_instance_id() if catalog != null else 0
+	var equipped_skills_hash: int = hash(equipped_skills_for_filter)
 	var has_snapshot_effective_levels := runtime_snapshot_override is Dictionary and (runtime_snapshot_override as Dictionary).has("effective_runtime_skill_levels")
 	if runtime_state != null and not has_snapshot_effective_levels:
-		return _get_acquired_perk_runtime_cache_hash(levels, catalog_id, runtime_state, effective_levels)
-	return hash([catalog_id, hash(levels), hash(effective_levels)])
+		return _get_acquired_perk_runtime_cache_hash(levels, catalog_id, runtime_state, effective_levels, equipped_skills_hash)
+	return hash([catalog_id, hash(levels), hash(effective_levels), equipped_skills_hash])
 
 
 func _get_acquired_perk_runtime_cache_hash(
 	levels: Dictionary,
 	catalog_id: int,
 	runtime_state: Object,
-	effective_levels: Dictionary
+	effective_levels: Dictionary,
+	equipped_skills_hash: int
 ) -> int:
 	var result: int = hash(catalog_id)
+	result = hash([result, equipped_skills_hash])
 	for skill_id_value in levels:
 		var skill_id: String = str(skill_id_value)
 		var base_level: int = int(levels.get(skill_id_value, 0))
@@ -3547,12 +3592,14 @@ func _build_acquired_perks(
 	catalog: Object,
 	runtime_state: Object = null,
 	runtime_snapshot_override: Variant = null,
-	effective_levels_override: Dictionary = {}
+	effective_levels_override: Dictionary = {},
+	equipped_skills_for_filter: Array = []
 ) -> Array:
 	var result: Array = []
 	var effective_levels: Dictionary = effective_levels_override
 	if effective_levels.is_empty():
 		effective_levels = _get_effective_runtime_perk_levels_from_snapshot(runtime_snapshot_override)
+	var equipped_skill_lookup: Dictionary = _build_equipped_skill_lookup(equipped_skills_for_filter)
 	for skill_id_value in levels:
 		var skill_id: String = str(skill_id_value)
 		var base_level: int = int(levels.get(skill_id_value, 0))
@@ -3564,6 +3611,8 @@ func _build_acquired_perks(
 			data = catalog.get_perk_data(skill_id)
 		if data.is_empty():
 			data = {"name": skill_id, "icon_color": ACCENT_BLUE, "tree": ""}
+		elif _should_hide_equipped_unlock_perk(data, equipped_skill_lookup):
+			continue
 		data = data.duplicate(true)
 		data["id"] = skill_id
 		data["base_level"] = base_level
@@ -3585,6 +3634,22 @@ func _build_acquired_perks(
 	result.sort_custom(Callable(self, "_sort_perks"))
 	_refresh_acquired_perk_draw_arrays(result)
 	return result
+
+
+func _build_equipped_skill_lookup(equipped_skills: Array) -> Dictionary:
+	var result: Dictionary = {}
+	for skill_id_value in equipped_skills:
+		var skill_id: String = str(skill_id_value)
+		if skill_id != "":
+			result[skill_id] = true
+	return result
+
+
+func _should_hide_equipped_unlock_perk(perk_data: Dictionary, equipped_skill_lookup: Dictionary) -> bool:
+	if equipped_skill_lookup.is_empty():
+		return false
+	var unlocked_skill: String = str(perk_data.get("unlocks_skill", ""))
+	return unlocked_skill != "" and bool(equipped_skill_lookup.get(unlocked_skill, false))
 
 
 func _refresh_acquired_perk_draw_arrays(acquired: Array) -> void:
@@ -3898,7 +3963,7 @@ func _build_passive_item_roll_entries(item_data: Dictionary, registry: Object = 
 			str(fixed_option.get("unit", "")),
 		]
 		var fixed_entry: Dictionary = _get_passive_item_roll_entry_dict(result.size())
-		fixed_entry["text"] = "??%s: %s" % [fixed_label, fixed_text]
+		fixed_entry["text"] = "%s: %s" % [fixed_label, fixed_text]
 		fixed_entry["color"] = STAT_BUFF_COLOR
 		result.append(fixed_entry)
 	for option_value in option_source:
@@ -3915,7 +3980,7 @@ func _build_passive_item_roll_entries(item_data: Dictionary, registry: Object = 
 		var delta_text: String = _format_roll_effective_delta(value, effective_value, option)
 		formatted = "%s%s" % [formatted, delta_text]
 		var option_entry: Dictionary = _get_passive_item_roll_entry_dict(result.size())
-		option_entry["text"] = "??%s: %s" % [label, formatted]
+		option_entry["text"] = "%s: %s" % [label, formatted]
 		option_entry["color"] = _get_color(option.get("color", ACCENT_GOLD))
 		result.append(option_entry)
 	_passive_item_roll_entries_cache_item_hash = item_hash

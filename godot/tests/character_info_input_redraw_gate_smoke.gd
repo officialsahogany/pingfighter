@@ -124,6 +124,15 @@ func _verify_character_info_mouse_motion_is_throttled() -> void:
 	_expect(overlay.handle_input(distant_motion, null, null, Vector2(1280.0, 720.0)), "distant character info mouse motion should be handled")
 	_expect(not overlay.consume_input_redraw_request(), "distant empty mouse motion should still avoid redraw")
 
+	overlay.set("_last_perk_grid_rect", Rect2(Vector2.ZERO, Vector2(140.0, 90.0)))
+	overlay._set_perk_grid_hover_layout(Vector2(10.0, 10.0), 44.0, 52.0, 1, 1)
+	overlay.set("_last_hover_signature", "perk_grid")
+	var perk_hover_motion := _make_motion(Vector2(20.0, 20.0))
+	_expect(overlay.handle_input(perk_hover_motion, null, null, Vector2(1280.0, 720.0)), "perk hover mouse motion should be handled")
+	_expect(overlay.consume_input_redraw_request(), "entering a perk icon from the perk grid background should redraw")
+	overlay._reset_mouse_hover_tracking()
+	overlay.set("_last_perk_grid_rect", Rect2())
+
 	overlay.set("_last_skill_rect", Rect2(Vector2.ZERO, Vector2(140.0, 90.0)))
 	overlay._set_skill_slot_hover_layout(Vector2(10.0, 10.0), 60.0, 66.0, 1)
 	var hover_motion := _make_motion(Vector2(20.0, 20.0))

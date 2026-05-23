@@ -39,9 +39,15 @@ class FakePerkCatalog:
 	extends RefCounted
 
 	var get_calls := 0
+	var data_by_id: Dictionary = {}
 
 	func get_perk_data(skill_id: String) -> Dictionary:
 		get_calls += 1
+		if data_by_id.has(skill_id):
+			var data_value: Variant = data_by_id[skill_id]
+			if data_value is Dictionary:
+				return (data_value as Dictionary).duplicate(true)
+			return {}
 		return {
 			"name": skill_id,
 			"icon_color": Color.WHITE,
@@ -169,13 +175,17 @@ func _init() -> void:
 	_expect(entry_lines_once == entry_lines_twice, "cached character info tooltip entry lines should preserve output")
 	var roll_entries_once: Array = overlay._build_passive_item_roll_entries({
 		"name": "alpha",
+		"fixed_options": [{"label": "Flat", "value": 1, "unit": "%"}],
 		"roll_options": [{"key": "speed", "label": "Speed", "value": 2.0}],
 	})
 	var roll_entries_twice: Array = overlay._build_passive_item_roll_entries({
 		"name": "alpha",
+		"fixed_options": [{"label": "Flat", "value": 1, "unit": "%"}],
 		"roll_options": [{"key": "speed", "label": "Speed", "value": 2.0}],
 	})
 	_expect(roll_entries_once == roll_entries_twice, "cached passive item roll entries should preserve repeated output")
+	_expect(str(roll_entries_twice[0].get("text", "")) == "Flat: 1%", "fixed passive item roll entries should not show placeholder question marks")
+	_expect(str(roll_entries_twice[1].get("text", "")) == "Speed: 2", "random passive item roll entries should not show placeholder question marks")
 	var passive_body_item := {"name": "alpha", "description": "body", "_equipped_slot": "head"}
 	var passive_body_once: String = overlay._build_passive_item_body(passive_body_item)
 	var passive_body_twice: String = overlay._build_passive_item_body(passive_body_item)
@@ -248,6 +258,32 @@ func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
 	_expect(int(snapshot_second[0].get("level", 0)) == 7, "acquired perk cache should rebuild when snapshot effective levels change")
 	_expect(runtime_state.get_level_calls == 0, "snapshot-backed acquired perk rebuild should still avoid runtime level methods")
 	_expect(snapshot_catalog.get_calls == 2, "snapshot effective-level change should rebuild only affected catalog rows")
+
+	var unlock_overlay := CharacterInfoOverlay.new()
+	var unlock_catalog := FakePerkCatalog.new()
+	unlock_catalog.data_by_id = {
+		"soldier_unlock_ak47": {
+			"name": "AK-47",
+			"icon_color": Color.WHITE,
+			"descriptions": {1: "AK-47 해금"},
+			"unlocks_skill": "ak47",
+		},
+		"item_luck": {
+			"name": "아이템 행운",
+			"icon_color": Color.WHITE,
+			"descriptions": {1: "아이템 행운 Lv.1"},
+		},
+	}
+	var unlock_levels := {
+		"soldier_unlock_ak47": 1,
+		"item_luck": 1,
+	}
+	var filtered_unlocks: Array = unlock_overlay._build_acquired_perks_cached(unlock_levels, unlock_catalog, null, {}, ["ak47"])
+	_expect(filtered_unlocks.size() == 1, "equipped unlock-skill perks should be hidden from the acquired perk grid")
+	_expect(str(filtered_unlocks[0].get("id", "")) == "item_luck", "non-unlock acquired perks should remain visible when skill unlocks are hidden")
+	var visible_unlocks: Array = unlock_overlay._build_acquired_perks_cached(unlock_levels, unlock_catalog, null, {}, [])
+	_expect(visible_unlocks.size() == 2, "unequipped unlock-skill perks should remain visible in the acquired perk grid")
+
 	var source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd")
 	_expect(source.find("parts.sort()") < 0, "acquired perk cache signature should not sort every frame")
 	_expect(source.find("var _acquired_perk_cache_hash := 0") >= 0, "acquired perk cache should keep a numeric hash guard")
@@ -256,7 +292,7 @@ func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
 	_expect(source.find("var _perk_level_text_size_cache_values: Array[Vector2] = []") >= 0, "perk grid level text should keep a typed size cache")
 	_expect(source.find("var effective_levels: Dictionary = _get_effective_runtime_perk_levels_from_snapshot(runtime_snapshot_override)") >= 0, "acquired perk cache should compute snapshot effective levels once")
 	_expect(_function_body(source, "func _get_acquired_perk_cache_hash(").find("has_snapshot_effective_levels") >= 0, "acquired perk cache hash should only use the fast snapshot hash when effective levels are present")
-	_expect(_function_body(source, "func _get_acquired_perk_cache_hash(").find("return hash([catalog_id, hash(levels), hash(effective_levels)])") >= 0, "snapshot-backed acquired perk cache should use compact dictionary hashes")
+	_expect(_function_body(source, "func _get_acquired_perk_cache_hash(").find("return hash([catalog_id, hash(levels), hash(effective_levels), equipped_skills_hash])") >= 0, "snapshot-backed acquired perk cache should use compact dictionary hashes")
 	_expect(_function_body(source, "func _get_acquired_perk_cache_hash(").find("for skill_id_value in levels") < 0, "snapshot-backed acquired perk cache hash should not iterate every perk level")
 	_expect(_function_body(source, "func _get_acquired_perk_runtime_cache_hash(").find("var result: int = hash(catalog_id)") >= 0, "direct acquired perk runtime cache should accumulate a numeric hash")
 	_expect(_function_body(source, "func _get_acquired_perk_runtime_cache_hash(").find("for skill_id_value in levels.keys():") < 0, "direct acquired perk runtime cache should not allocate dictionary key arrays")
@@ -268,6 +304,7 @@ func _verify_acquired_perk_cache_reuses_catalog_rows() -> void:
 	_expect(source.find("var draw_color: Color = _get_color(data.get(\"icon_color\", ACCENT_BLUE))") >= 0, "acquired perk cache should compute perk draw color once")
 	_expect(source.find("data[\"_draw_color\"] = draw_color") >= 0, "acquired perk cache should precompute perk draw color")
 	_expect(source.find("data[\"_draw_id\"] = skill_id") >= 0, "acquired perk cache should precompute perk draw id")
+	_expect(source.find("func _should_hide_equipped_unlock_perk(perk_data: Dictionary, equipped_skill_lookup: Dictionary) -> bool:") >= 0, "acquired perk grid should hide equipped active-skill unlock duplicates")
 	_expect(source.find("var _acquired_perk_draw_id_cache: Array[String] = []") >= 0, "acquired perk draw should keep typed id caches")
 	_expect(source.find("var _acquired_perk_draw_color_cache: Array[Color] = []") >= 0, "acquired perk draw should keep typed color caches")
 	_expect(source.find("var _acquired_perk_hover_title_cache: Array[String] = []") >= 0, "acquired perk draw should keep typed hover title caches")
@@ -529,7 +566,7 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info section rects should use scalar Rect2 construction"
 	)
 	_expect(
-		source.find("hover_data = _draw_perk_grid(canvas, owner, registry, _layout_perk_rect, font, mouse_pos, hover_data, runtime_state, runtime_perk_icon_renderer, runtime_snapshot, runtime_perk_catalog)") >= 0,
+		source.find("hover_data = _draw_perk_grid(canvas, owner, registry, _layout_perk_rect, font, mouse_pos, hover_data, runtime_state, runtime_perk_icon_renderer, runtime_snapshot, runtime_perk_catalog, _get_array(skill_snapshot.get(\"equipped_skills\", [])))") >= 0,
 		"character info perk grid should reuse the frame-level runtime perk state, icon renderer, snapshot, and catalog"
 	)
 	_expect(
@@ -537,7 +574,7 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info perk grid should accept the frame-level runtime perk catalog"
 	)
 	_expect(
-		source.find("var acquired: Array = _build_acquired_perks_cached(levels, catalog, effective_runtime_state, snapshot)") >= 0,
+		source.find("var acquired: Array = _build_acquired_perks_cached(levels, catalog, effective_runtime_state, snapshot, equipped_skills_for_filter)") >= 0,
 		"character info perk grid should pass the frame-level snapshot into acquired perk cache"
 	)
 	_expect(
