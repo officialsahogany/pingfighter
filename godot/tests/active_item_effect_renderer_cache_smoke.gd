@@ -30,6 +30,7 @@ func _init() -> void:
 	_verify_pickup_text_prewarm()
 	_verify_pickup_icon_cache()
 	_verify_pickup_effect_direct_icon()
+	_verify_brick_wall_variant_sheet()
 
 	if _failures.is_empty():
 		print("active_item_effect_renderer_cache_smoke: ok")
@@ -82,6 +83,18 @@ func _verify_pickup_effect_direct_icon() -> void:
 	}
 	_expect(renderer._get_pickup_icon_texture(pickup_effect, registry) == texture, "pickup effect should use frozen icon texture before registry lookup")
 	_expect(registry.visuals.calls == 0, "direct pickup icon should avoid HUD visual lookup")
+
+
+func _verify_brick_wall_variant_sheet() -> void:
+	var renderer := ActiveItemEffectRenderer.new()
+	var texture: Texture2D = renderer._get_brick_wall_variant_sheet_texture()
+	_expect(texture != null, "brick wall variant sheet should load")
+	if texture == null:
+		return
+	_expect(texture.get_width() == 1024, "brick wall variant sheet width should match normalized 4x2 sheet")
+	_expect(texture.get_height() == 128, "brick wall variant sheet height should match normalized 4x2 sheet")
+	_expect(renderer._get_brick_wall_variant_index(Rect2(Vector2(12.0, 20.0), Vector2(80.0, 20.0)), 7) == 7, "brick wall visual variant should use stored variant")
+	_expect(renderer._get_brick_wall_variant_source_rect(texture, 7) == Rect2(Vector2(768.0, 64.0), Vector2(256.0, 64.0)), "brick wall variant source rect should address the final cell")
 
 
 func _has_cached_pickup_label(renderer: Object, catalog: Object, item_name: String) -> bool:

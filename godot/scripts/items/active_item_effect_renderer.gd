@@ -11,6 +11,10 @@ const STOPWATCH_ICON_PATH := ActiveItemCatalog.STOPWATCH_ICON_PATH
 const MAGNET_FIELD_ICON_PATH := ActiveItemCatalog.MAGNET_FIELD_ICON_PATH
 const HOLY_BARRIER_ICON_PATH := ActiveItemCatalog.HOLY_BARRIER_ICON_PATH
 const DASH_BOOST_ICON_PATH := "res://assets/sprites/items/dash_boost.png"
+const BRICK_WALL_VARIANT_SHEET_PATH := "res://assets/sprites/effects/brick_wall_installed_variants_imagegen_v1.png"
+const BRICK_WALL_VARIANT_GRID_COLS := 4
+const BRICK_WALL_VARIANT_GRID_ROWS := 2
+const BRICK_WALL_VARIANT_COUNT := BRICK_WALL_VARIANT_GRID_COLS * BRICK_WALL_VARIANT_GRID_ROWS
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const PICKUP_ICON_SIZE := 40.0
@@ -41,27 +45,53 @@ var stopwatch_icon_texture: Texture2D
 var magnet_field_icon_texture: Texture2D
 var holy_barrier_icon_texture: Texture2D
 var dash_boost_icon_texture: Texture2D
+var brick_wall_variant_sheet_texture: Texture2D
 var _font_cache: Font
 var _pickup_icon_cache: Dictionary = {}
 var _text_size_cache: Dictionary = {}
+var _prewarm_step_index := 0
 
 
 func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
-	if ResourceLoader.exists(LONG_BOOST_ICON_PATH):
-		_touch_texture(_get_long_boost_icon_texture())
-	if ResourceLoader.exists(VITAMIN_PILL_ICON_PATH):
-		_touch_texture(_get_vitamin_pill_icon_texture())
-	if ResourceLoader.exists(STRANGE_VIAL_ICON_PATH):
-		_touch_texture(_get_strange_vial_icon_texture())
-	if ResourceLoader.exists(MAGNET_FIELD_ICON_PATH):
-		_touch_texture(_get_magnet_field_icon_texture())
-	if ResourceLoader.exists(HOLY_BARRIER_ICON_PATH):
-		_touch_texture(_get_holy_barrier_icon_texture())
-	if ResourceLoader.exists(DASH_BOOST_ICON_PATH):
-		_touch_texture(_get_dash_boost_icon_texture())
-	if active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons"):
-		active_item_hud_visuals.prewarm_catalog_icons()
-	_prewarm_pickup_text()
+	while not prewarm_assets_step(active_item_hud_visuals):
+		pass
+
+
+func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
+	match _prewarm_step_index:
+		0:
+			if ResourceLoader.exists(LONG_BOOST_ICON_PATH):
+				_touch_texture(_get_long_boost_icon_texture())
+		1:
+			if ResourceLoader.exists(VITAMIN_PILL_ICON_PATH):
+				_touch_texture(_get_vitamin_pill_icon_texture())
+		2:
+			if ResourceLoader.exists(STRANGE_VIAL_ICON_PATH):
+				_touch_texture(_get_strange_vial_icon_texture())
+		3:
+			if ResourceLoader.exists(MAGNET_FIELD_ICON_PATH):
+				_touch_texture(_get_magnet_field_icon_texture())
+		4:
+			if ResourceLoader.exists(HOLY_BARRIER_ICON_PATH):
+				_touch_texture(_get_holy_barrier_icon_texture())
+		5:
+			if ResourceLoader.exists(DASH_BOOST_ICON_PATH):
+				_touch_texture(_get_dash_boost_icon_texture())
+		6:
+			_touch_texture(_get_brick_wall_variant_sheet_texture())
+		7:
+			if active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons_step"):
+				if not bool(active_item_hud_visuals.prewarm_catalog_icons_step()):
+					return false
+			elif active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons"):
+				active_item_hud_visuals.prewarm_catalog_icons()
+		8:
+			_prewarm_pickup_text()
+		_:
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func draw_field_effects(
@@ -429,7 +459,10 @@ func _draw_brick_wall_effect(canvas: CanvasItem, brick_wall_context: Dictionary,
 			_get_rect2(wall, "rect", Rect2()),
 			int(wall.get("crack_level", 0)),
 			1.0,
-			shake_offset
+			shake_offset,
+			int(wall.get("visual_variant", -1)),
+			int(wall.get("crack_seed", 0)),
+			_get_vector2(wall, "crack_origin_ratio", Vector2(-1.0, -1.0))
 		)
 
 	if bool(brick_wall_context.get("installing", false)):
@@ -439,7 +472,14 @@ func _draw_brick_wall_effect(canvas: CanvasItem, brick_wall_context: Dictionary,
 			var timer_frames: float = float(brick_wall_context.get("install_timer_frames", 0.0))
 			var initial_frames: float = max(1.0, float(brick_wall_context.get("install_initial_frames", 30.0)))
 			var progress: float = clamp(1.0 - timer_frames / initial_frames, 0.0, 1.0)
-			_draw_brick_wall(canvas, wall_rect, 0, 0.42 + progress * 0.30, shake_offset)
+			_draw_brick_wall(
+				canvas,
+				wall_rect,
+				0,
+				0.42 + progress * 0.30,
+				shake_offset,
+				int(pending_wall.get("visual_variant", -1))
+			)
 			_draw_brick_install_gauge(canvas, pending_wall, progress, shake_offset)
 
 	var particles: Array = brick_wall_context.get("particles", [])
@@ -453,12 +493,27 @@ func _draw_brick_wall(
 	wall_rect: Rect2,
 	crack_level: int,
 	alpha: float,
-	shake_offset: Vector2
+	shake_offset: Vector2,
+	visual_variant: int = -1,
+	crack_seed: int = 0,
+	crack_origin_ratio: Vector2 = Vector2(-1.0, -1.0)
 ) -> void:
 	if wall_rect.size.x <= 0.0 or wall_rect.size.y <= 0.0:
 		return
 
 	var draw_rect := Rect2(wall_rect.position + shake_offset, wall_rect.size)
+	var variant_sheet: Texture2D = _get_brick_wall_variant_sheet_texture()
+	if variant_sheet != null:
+		var variant_index: int = _get_brick_wall_variant_index(wall_rect, visual_variant)
+		canvas.draw_texture_rect_region(
+			variant_sheet,
+			draw_rect,
+			_get_brick_wall_variant_source_rect(variant_sheet, variant_index),
+			Color(1.0, 1.0, 1.0, alpha)
+		)
+		_draw_brick_cracks(canvas, draw_rect, crack_level, alpha, crack_seed, crack_origin_ratio)
+		return
+
 	var base_color := Color(139.0 / 255.0, 69.0 / 255.0, 19.0 / 255.0, alpha)
 	if crack_level == 1:
 		base_color = Color(120.0 / 255.0, 60.0 / 255.0, 30.0 / 255.0, alpha)
@@ -482,33 +537,146 @@ func _draw_brick_wall(
 		canvas.draw_line(Vector2(x, draw_rect.position.y + y_offset), Vector2(x, draw_rect.end.y), mortar_color, 1.0)
 
 	canvas.draw_rect(draw_rect, Color(35.0 / 255.0, 18.0 / 255.0, 12.0 / 255.0, 0.88 * alpha), false, 2.0)
-	_draw_brick_cracks(canvas, draw_rect, crack_level, alpha)
+	_draw_brick_cracks(canvas, draw_rect, crack_level, alpha, crack_seed, crack_origin_ratio)
 
 
-func _draw_brick_cracks(canvas: CanvasItem, draw_rect: Rect2, crack_level: int, alpha: float) -> void:
+func _draw_brick_cracks(
+	canvas: CanvasItem,
+	draw_rect: Rect2,
+	crack_level: int,
+	alpha: float,
+	crack_seed: int = 0,
+	crack_origin_ratio: Vector2 = Vector2(-1.0, -1.0)
+) -> void:
 	if crack_level <= 0:
 		return
-	var crack_color := Color(20.0 / 255.0, 12.0 / 255.0, 8.0 / 255.0, 0.88 * alpha)
-	var center := draw_rect.position + draw_rect.size * 0.5
-	var crack_a0 := center + Vector2(-4.0, -draw_rect.size.y * 0.45)
-	var crack_a1 := center + Vector2(3.0, -4.0)
-	var crack_a2 := center + Vector2(-10.0, 2.0)
-	var crack_a3 := center + Vector2(-2.0, draw_rect.size.y * 0.42)
-	canvas.draw_line(crack_a0, crack_a1, crack_color, 1.4)
-	canvas.draw_line(crack_a1, crack_a2, crack_color, 1.4)
-	canvas.draw_line(crack_a2, crack_a3, crack_color, 1.4)
-	if crack_level < 2:
+	var seed_value: int = _get_brick_crack_seed(draw_rect, crack_level, crack_seed)
+	var origin_ratio: Vector2 = _get_brick_crack_origin_ratio(seed_value, crack_origin_ratio)
+	var origin := Vector2(
+		draw_rect.position.x + draw_rect.size.x * origin_ratio.x,
+		draw_rect.position.y + draw_rect.size.y * origin_ratio.y
+	)
+	var primary_sign := -1.0 if _brick_crack_random(seed_value, 1) < 0.5 else 1.0
+	var primary_angle: float = (0.0 if primary_sign > 0.0 else PI) + lerpf(-0.34, 0.34, _brick_crack_random(seed_value, 2))
+	var primary_length: float = draw_rect.size.x * lerpf(0.26, 0.42, _brick_crack_random(seed_value, 3))
+	var primary_points: PackedVector2Array = _build_brick_crack_path(draw_rect, origin, primary_angle, primary_length, 5, seed_value, 10)
+	_draw_brick_crack_polyline(canvas, primary_points, alpha, 1.45)
+
+	var counter_angle: float = primary_angle + PI + lerpf(-0.26, 0.26, _brick_crack_random(seed_value, 4))
+	var counter_length: float = draw_rect.size.x * lerpf(0.14, 0.25, _brick_crack_random(seed_value, 5))
+	_draw_brick_crack_polyline(
+		canvas,
+		_build_brick_crack_path(draw_rect, origin, counter_angle, counter_length, 3, seed_value, 30),
+		alpha,
+		1.25
+	)
+
+	var branch_count: int = 4 + min(crack_level, 2) * 2
+	for branch_index in range(branch_count):
+		var branch_anchor: Vector2 = _pick_crack_branch_anchor(primary_points, branch_index, seed_value)
+		var branch_side := -1.0 if branch_index % 2 == 0 else 1.0
+		var branch_angle: float = primary_angle + branch_side * lerpf(0.7, 1.45, _brick_crack_random(seed_value, 50 + branch_index))
+		if _brick_crack_random(seed_value, 70 + branch_index) < 0.32:
+			branch_angle += PI
+		var branch_length: float = draw_rect.size.x * lerpf(0.08, 0.18, _brick_crack_random(seed_value, 90 + branch_index))
+		_draw_brick_crack_polyline(
+			canvas,
+			_build_brick_crack_path(draw_rect, branch_anchor, branch_angle, branch_length, 2 + branch_index % 2, seed_value, 110 + branch_index * 7),
+			alpha,
+			1.05
+		)
+
+	_draw_brick_crack_chips(canvas, draw_rect, origin, seed_value, crack_level, alpha)
+
+
+func _build_brick_crack_path(
+	draw_rect: Rect2,
+	origin: Vector2,
+	angle: float,
+	length: float,
+	segments: int,
+	seed_value: int,
+	salt: int
+) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	points.append(origin)
+	var current: Vector2 = origin
+	var segment_count: int = max(1, segments)
+	for segment_index in range(segment_count):
+		var jitter: float = lerpf(-0.42, 0.42, _brick_crack_random(seed_value, salt + segment_index * 3))
+		var step_length: float = length / float(segment_count) * lerpf(0.72, 1.22, _brick_crack_random(seed_value, salt + segment_index * 3 + 1))
+		current += Vector2(cos(angle + jitter), sin(angle + jitter)) * step_length
+		current.x = clamp(current.x, draw_rect.position.x + 2.0, draw_rect.end.x - 2.0)
+		current.y = clamp(current.y, draw_rect.position.y + 2.0, draw_rect.end.y - 2.0)
+		points.append(current)
+	return points
+
+
+func _draw_brick_crack_polyline(canvas: CanvasItem, points: PackedVector2Array, alpha: float, width: float) -> void:
+	if points.size() < 2:
 		return
-	var crack_b0 := center + Vector2(5.0, -2.0)
-	var crack_b1 := center + Vector2(17.0, -7.0)
-	var crack_b2 := center + Vector2(draw_rect.size.x * 0.36, -1.0)
-	canvas.draw_line(crack_b0, crack_b1, crack_color, 1.2)
-	canvas.draw_line(crack_b1, crack_b2, crack_color, 1.2)
-	var crack_c0 := center + Vector2(-7.0, 4.0)
-	var crack_c1 := center + Vector2(-22.0, 8.0)
-	var crack_c2 := center + Vector2(-draw_rect.size.x * 0.42, 2.0)
-	canvas.draw_line(crack_c0, crack_c1, crack_color, 1.2)
-	canvas.draw_line(crack_c1, crack_c2, crack_color, 1.2)
+	var shadow_color := Color(9.0 / 255.0, 5.0 / 255.0, 3.0 / 255.0, 0.86 * alpha)
+	var inner_color := Color(28.0 / 255.0, 14.0 / 255.0, 8.0 / 255.0, 0.94 * alpha)
+	var highlight_color := Color(214.0 / 255.0, 124.0 / 255.0, 64.0 / 255.0, 0.22 * alpha)
+	for point_index in range(points.size() - 1):
+		canvas.draw_line(points[point_index], points[point_index + 1], shadow_color, width + 0.8)
+	for point_index in range(points.size() - 1):
+		canvas.draw_line(points[point_index], points[point_index + 1], inner_color, width)
+	for point_index in range(points.size() - 1):
+		canvas.draw_line(points[point_index] + Vector2(-0.45, -0.45), points[point_index + 1] + Vector2(-0.45, -0.45), highlight_color, max(0.55, width * 0.42))
+
+
+func _draw_brick_crack_chips(
+	canvas: CanvasItem,
+	draw_rect: Rect2,
+	origin: Vector2,
+	seed_value: int,
+	crack_level: int,
+	alpha: float
+) -> void:
+	var chip_count: int = 3 + min(crack_level, 2) * 2
+	for chip_index in range(chip_count):
+		var chip_pos := origin + Vector2(
+			lerpf(-draw_rect.size.x * 0.16, draw_rect.size.x * 0.16, _brick_crack_random(seed_value, 160 + chip_index * 2)),
+			lerpf(-draw_rect.size.y * 0.34, draw_rect.size.y * 0.34, _brick_crack_random(seed_value, 161 + chip_index * 2))
+		)
+		chip_pos.x = clamp(chip_pos.x, draw_rect.position.x + 3.0, draw_rect.end.x - 3.0)
+		chip_pos.y = clamp(chip_pos.y, draw_rect.position.y + 3.0, draw_rect.end.y - 3.0)
+		var radius: float = lerpf(0.75, 1.75, _brick_crack_random(seed_value, 190 + chip_index))
+		canvas.draw_circle(chip_pos, radius + 0.5, Color(12.0 / 255.0, 7.0 / 255.0, 4.0 / 255.0, 0.42 * alpha))
+		canvas.draw_circle(chip_pos + Vector2(-0.25, -0.25), radius * 0.42, Color(210.0 / 255.0, 112.0 / 255.0, 52.0 / 255.0, 0.22 * alpha))
+
+
+func _pick_crack_branch_anchor(points: PackedVector2Array, branch_index: int, seed_value: int) -> Vector2:
+	if points.size() <= 1:
+		return Vector2.ZERO
+	var min_index: int = 1
+	var max_index: int = maxi(1, points.size() - 2)
+	var anchor_index: int = clampi(min_index + int(floor(_brick_crack_random(seed_value, 130 + branch_index) * float(max_index))), min_index, max_index)
+	return points[anchor_index]
+
+
+func _get_brick_crack_seed(draw_rect: Rect2, crack_level: int, crack_seed: int) -> int:
+	if crack_seed > 0:
+		return crack_seed
+	return int(abs(round(draw_rect.position.x * 17.0 + draw_rect.position.y * 31.0 + draw_rect.size.x * 13.0 + float(crack_level) * 97.0))) + 1
+
+
+func _get_brick_crack_origin_ratio(seed_value: int, crack_origin_ratio: Vector2) -> Vector2:
+	if crack_origin_ratio.x >= 0.0 and crack_origin_ratio.y >= 0.0:
+		return Vector2(
+			clamp(crack_origin_ratio.x, 0.12, 0.88),
+			clamp(crack_origin_ratio.y, 0.18, 0.82)
+		)
+	return Vector2(
+		lerpf(0.26, 0.74, _brick_crack_random(seed_value, 210)),
+		lerpf(0.26, 0.74, _brick_crack_random(seed_value, 211))
+	)
+
+
+func _brick_crack_random(seed_value: int, salt: int) -> float:
+	var raw: float = sin(float(seed_value) * 12.9898 + float(salt) * 78.233) * 43758.5453
+	return fposmod(raw, 1.0)
 
 
 func _draw_brick_install_gauge(
@@ -1296,6 +1464,38 @@ func _get_dash_boost_icon_texture() -> Texture2D:
 			"Failed to load dash boost icon at %s"
 		)
 	return dash_boost_icon_texture
+
+
+func _get_brick_wall_variant_sheet_texture() -> Texture2D:
+	if brick_wall_variant_sheet_texture == null:
+		brick_wall_variant_sheet_texture = ProjectResourceLoader.load_texture(
+			BRICK_WALL_VARIANT_SHEET_PATH,
+			"Missing brick wall variant sheet at %s",
+			"Failed to load brick wall variant sheet at %s"
+		)
+	return brick_wall_variant_sheet_texture
+
+
+func _get_brick_wall_variant_index(wall_rect: Rect2, visual_variant: int) -> int:
+	if visual_variant >= 0:
+		return visual_variant % BRICK_WALL_VARIANT_COUNT
+	var fallback_seed: int = int(round(wall_rect.position.x * 7.0 + wall_rect.position.y * 3.0 + wall_rect.size.x * 5.0))
+	return int(abs(fallback_seed)) % BRICK_WALL_VARIANT_COUNT
+
+
+func _get_brick_wall_variant_source_rect(sheet: Texture2D, variant_index: int) -> Rect2:
+	var texture_size: Vector2 = sheet.get_size()
+	var cell_size := Vector2(
+		texture_size.x / float(BRICK_WALL_VARIANT_GRID_COLS),
+		texture_size.y / float(BRICK_WALL_VARIANT_GRID_ROWS)
+	)
+	var clamped_index: int = clampi(variant_index, 0, BRICK_WALL_VARIANT_COUNT - 1)
+	var source_col: int = clamped_index % BRICK_WALL_VARIANT_GRID_COLS
+	var source_row: int = int(floor(float(clamped_index) / float(BRICK_WALL_VARIANT_GRID_COLS)))
+	return Rect2(
+		Vector2(float(source_col) * cell_size.x, float(source_row) * cell_size.y),
+		cell_size
+	)
 
 
 func _prewarm_pickup_text() -> void:

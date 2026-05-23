@@ -49,6 +49,7 @@ func _verify_direct_installation_state() -> void:
 	var pending_wall: Dictionary = state.get("pending_wall", {})
 	_expect(pending_wall.get("rect", Rect2()) == wall_rect, "brick installation should keep pending wall rect")
 	_expect(pending_wall.get("gauge_center", Vector2.ZERO) == gauge_center, "brick installation should keep pending gauge center")
+	_expect(int(pending_wall.get("visual_variant", -1)) >= 0 and int(pending_wall.get("visual_variant", -1)) < 8, "brick installation should assign a visual variant")
 
 	state = installation.update_installation(true, 30.0, 30.0, pending_wall, 0.25)
 	_expect(bool(state.get("installing", false)), "brick installation should continue before timer ends")
@@ -60,6 +61,7 @@ func _verify_direct_installation_state() -> void:
 	_expect(_get_dictionary(state, "pending_wall").is_empty(), "brick installation should clear pending wall after completion")
 	var completed_wall: Dictionary = _get_dictionary(state, "completed_wall")
 	_expect(completed_wall.get("rect", Rect2()) == wall_rect, "brick installation should expose completed wall rect")
+	_expect(completed_wall.get("visual_variant", -1) == pending_wall.get("visual_variant", -2), "completed brick wall should preserve its visual variant")
 	_expect(not completed_wall.has("gauge_center"), "completed brick wall should drop install-only gauge center")
 
 	var idle_state: Dictionary = installation.update_installation(false, 8.0, 30.0, pending_wall, 1.0 / 60.0)
@@ -80,6 +82,7 @@ func _verify_direct_installation_update_application() -> void:
 		"hit_count": 0,
 		"crack_level": 0,
 		"gauge_center": Vector2(220.0, 670.0),
+		"visual_variant": 5,
 	}
 	var brick_walls: Array[Dictionary] = []
 	var particles: Array[Dictionary] = []
@@ -105,6 +108,7 @@ func _verify_direct_installation_update_application() -> void:
 	_expect(target.pending_brick_wall.is_empty(), "brick installation helper should apply pending-wall cleanup")
 	_expect(brick_walls.size() == 1, "brick installation helper should append completed wall")
 	_expect(brick_walls[0].get("rect", Rect2()) == wall_rect, "brick installation helper should keep completed wall rect")
+	_expect(int(brick_walls[0].get("visual_variant", -1)) == 5, "brick installation helper should preserve completed visual variant")
 	_expect(not brick_walls[0].has("gauge_center"), "brick installation helper should drop install-only gauge center")
 	_expect(particles.size() == 10, "brick installation helper should spawn install-complete particles")
 
@@ -118,6 +122,8 @@ func _verify_controller_delegates_installation_state() -> void:
 	_expect(controller.brick_wall_installing, "controller should apply delegated installation active state")
 	_expect(is_equal_approx(controller.brick_wall_install_timer_frames, 30.0), "controller should apply delegated install timer")
 	_expect(controller.pending_brick_wall.get("gauge_center", Vector2.ZERO) == Vector2(150.0, 670.0), "controller should keep install gauge center while pending")
+	var pending_variant: int = int(controller.pending_brick_wall.get("visual_variant", -1))
+	_expect(pending_variant >= 0 and pending_variant < 8, "controller should assign a pending brick visual variant")
 	_expect(controller.brick_particles.size() == 8, "controller should still spawn install particles")
 
 	controller.brick_wall_install_timer_frames = 1.0
@@ -125,6 +131,7 @@ func _verify_controller_delegates_installation_state() -> void:
 	_expect(not controller.brick_wall_installing, "controller should clear installation after delegated completion")
 	_expect(controller.pending_brick_wall.is_empty(), "controller should clear pending wall after delegated completion")
 	_expect(controller.brick_walls.size() == 1, "controller should append completed brick wall")
+	_expect(int(controller.brick_walls[0].get("visual_variant", -1)) == pending_variant, "controller completed wall should preserve visual variant")
 	_expect(not controller.brick_walls[0].has("gauge_center"), "controller completed wall should not keep install gauge center")
 	_expect(controller.brick_particles.size() == 18, "controller should still spawn install-complete particles")
 

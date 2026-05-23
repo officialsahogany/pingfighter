@@ -16,13 +16,29 @@ var _cached_throw_accepts_perf_logger := false
 var _cached_effect_renderer: Object
 var _cached_effect_draw_argument_count := -1
 var _cached_effect_accepts_perf_logger := false
+var _asset_prewarm_step_index := 0
 var _method_argument_count_cache: Dictionary = {}
 
 
 func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
-	_call_prewarm_assets(field_renderer)
-	_call_prewarm_assets(throw_renderer)
-	_call_prewarm_assets(effect_renderer, [active_item_hud_visuals])
+	while not prewarm_assets_step(active_item_hud_visuals):
+		pass
+
+
+func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
+	match _asset_prewarm_step_index:
+		0:
+			_call_prewarm_assets(field_renderer)
+		1:
+			_call_prewarm_assets(throw_renderer)
+		2:
+			if not _call_prewarm_assets_step(effect_renderer, [active_item_hud_visuals]):
+				return false
+		_:
+			_asset_prewarm_step_index = 0
+			return true
+	_asset_prewarm_step_index += 1
+	return false
 
 
 func draw_field_items(
@@ -390,6 +406,23 @@ func _call_prewarm_assets(target: Object, args: Array = []) -> void:
 		target.prewarm_assets()
 		return
 	target.callv("prewarm_assets", args.slice(0, argument_count))
+
+
+func _call_prewarm_assets_step(target: Object, args: Array = []) -> bool:
+	if target == null:
+		return true
+	if target.has_method("prewarm_assets_step"):
+		var argument_count: int = _get_method_argument_count(target, "prewarm_assets_step")
+		var result: Variant
+		if argument_count <= 0:
+			result = target.prewarm_assets_step()
+		else:
+			result = target.callv("prewarm_assets_step", args.slice(0, argument_count))
+		if result is bool:
+			return bool(result)
+		return true
+	_call_prewarm_assets(target, args)
+	return true
 
 
 func _perf_begin(perf_logger: Object) -> int:

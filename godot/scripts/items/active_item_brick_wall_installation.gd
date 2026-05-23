@@ -1,9 +1,15 @@
 extends RefCounted
 
 const BRICK_WALL_INSTALL_FRAMES := 30.0
+const BRICK_WALL_VARIANT_COUNT := 8
 
 
-func start_installation(wall_rect: Rect2, gauge_center: Vector2) -> Dictionary:
+func start_installation(wall_rect: Rect2, gauge_center: Vector2, visual_variant: int = -1) -> Dictionary:
+	var variant_index: int = visual_variant
+	if variant_index < 0:
+		variant_index = randi() % BRICK_WALL_VARIANT_COUNT
+	else:
+		variant_index = variant_index % BRICK_WALL_VARIANT_COUNT
 	return {
 		"installing": true,
 		"timer_frames": BRICK_WALL_INSTALL_FRAMES,
@@ -13,6 +19,7 @@ func start_installation(wall_rect: Rect2, gauge_center: Vector2) -> Dictionary:
 			"hit_count": 0,
 			"crack_level": 0,
 			"gauge_center": gauge_center,
+			"visual_variant": variant_index,
 		},
 		"completed_wall": {},
 	}

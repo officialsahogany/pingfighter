@@ -32,6 +32,7 @@ func _verify_runtime_prewarm_loads_item_draw_assets() -> void:
 	_expect(runtime.render_facade.field_renderer.unknown_item_sheet_texture != null, "field prewarm should load unknown item sheet")
 	_expect(runtime.render_facade.throw_renderer.grenade_icon_texture != null, "throw prewarm should load throw icons")
 	_expect(runtime.render_facade.effect_renderer.long_boost_icon_texture != null, "effect prewarm should load timer icons")
+	_expect(runtime.render_facade.effect_renderer.brick_wall_variant_sheet_texture != null, "effect prewarm should load Brick Wall variant sheet")
 
 
 func _has_cached_catalog_icon(visuals: Object, catalog: Object, item_name: String) -> bool:

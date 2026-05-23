@@ -31,6 +31,9 @@ func _verify_direct_hit_runtime() -> void:
 	_expect(int(first_hit.get("hit_count", 0)) == 1, "first runtime hit should report hit count")
 	_expect(walls.size() == 1, "first runtime hit should not remove wall")
 	_expect(int(walls[0].get("crack_level", 0)) == 1, "first runtime hit should apply crack level")
+	_expect(int(walls[0].get("crack_seed", 0)) > 0, "first runtime hit should assign a crack seed")
+	var first_origin: Vector2 = _get_vector2(walls[0], "crack_origin_ratio", Vector2.ZERO)
+	_expect(is_equal_approx(first_origin.x, 0.25) and is_equal_approx(first_origin.y, 0.5), "first runtime hit should anchor cracks near impact")
 	_expect(particles.size() == 12, "first runtime hit should spawn hit dust")
 
 	var second_hit: Dictionary = hit_runtime.apply_hit(walls, particles, 0, Vector2(120.0, 710.0))
@@ -40,6 +43,7 @@ func _verify_direct_hit_runtime() -> void:
 	_expect(particles.size() > 12, "destroyed runtime hit should add destruction particles")
 	_expect(particles.size() <= 64, "destroyed runtime hit should respect particle cap")
 	_expect(_has_particle_kind(particles, "brick"), "destroyed runtime hit should include brick fragments")
+	_verify_crack_payload_randomizes_between_hits()
 
 
 func _verify_invalid_hit_keeps_state() -> void:
@@ -63,6 +67,7 @@ func _verify_controller_delegates_hit_runtime() -> void:
 	var first_result: Dictionary = controller.notify_brick_wall_hit(0, Vector2(120.0, 710.0))
 	_expect(not bool(first_result.get("destroyed", true)), "controller first runtime hit should keep wall")
 	_expect(controller.brick_walls.size() == 1, "controller first runtime hit should retain wall")
+	_expect(int(controller.brick_walls[0].get("crack_seed", 0)) > 0, "controller first runtime hit should assign a crack seed")
 	_expect(controller.brick_particles.size() == 12, "controller first runtime hit should spawn hit dust")
 
 	var second_result: Dictionary = controller.notify_brick_wall_hit(0, Vector2(120.0, 710.0))
@@ -80,11 +85,28 @@ func _build_wall() -> Dictionary:
 	}
 
 
+func _verify_crack_payload_randomizes_between_hits() -> void:
+	seed(77)
+	var hit_runtime: Object = ActiveItemBrickWallHitRuntime.new()
+	var walls: Array[Dictionary] = [_build_wall(), _build_wall()]
+	var particles: Array[Dictionary] = []
+	hit_runtime.apply_hit(walls, particles, 0, Vector2(120.0, 710.0))
+	hit_runtime.apply_hit(walls, particles, 1, Vector2(120.0, 710.0))
+	_expect(int(walls[0].get("crack_seed", 0)) != int(walls[1].get("crack_seed", 0)), "separate brick hits should randomize crack seeds")
+
+
 func _has_particle_kind(particles: Array[Dictionary], kind: String) -> bool:
 	for particle in particles:
 		if str(particle.get("kind", "")) == kind:
 			return true
 	return false
+
+
+func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
+	var value: Variant = source.get(key, fallback)
+	if value is Vector2:
+		return value
+	return fallback
 
 
 func _expect(condition: bool, message: String) -> void:
