@@ -68,7 +68,7 @@ const STAGE4_IMAGE_ASSETS := [
 ]
 
 const STAGE4_AUDIO_PATHS := [
-	"res://assets/bgm/stage4bgm.wav",
+	"res://assets/bgm/stage4bgm.ogg",
 	"res://assets/bgm/stage4bgm-phase2.mp3",
 	"res://assets/sounds/stage4moonshoot.wav",
 	"res://assets/sounds/stage4moonshoot2.wav",

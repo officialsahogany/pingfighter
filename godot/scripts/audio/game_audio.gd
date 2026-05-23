@@ -160,12 +160,12 @@ const STAGE5_HONGRYUN_HURT_SOUND_PATHS := [
 ]
 const LEAF_SHIELD_SOUND_PATH := "res://assets/sounds/leaf.wav"
 const STAGE1_BGM_PATH := "res://assets/bgm/stage1bgm.mp3"
-const STAGE2_BGM_PATH := "res://assets/bgm/stage2bgm.mp3"
+const STAGE2_BGM_PATH := "res://assets/bgm/stage2bgm.ogg"
 const STAGE2_ALT_BGM_PATH := "res://assets/bgm/stage2bgm2.mp3"
-const STAGE3_BGM_PATH := "res://assets/bgm/stage3bgm.wav"
-const STAGE4_BGM_PATH := "res://assets/bgm/stage4bgm.wav"
+const STAGE3_BGM_PATH := "res://assets/bgm/stage3bgm.ogg"
+const STAGE4_BGM_PATH := "res://assets/bgm/stage4bgm.ogg"
 const STAGE4_PHASE2_BGM_PATH := "res://assets/bgm/stage4bgm-phase2.mp3"
-const STAGE5_BGM_PATH := "res://assets/bgm/stage5_hongryun_bgm.wav"
+const STAGE5_BGM_PATH := "res://assets/bgm/stage5_hongryun_bgm.ogg"
 const PADDLE_HIT_SOUND_COOLDOWN := 0.06
 const WALL_HIT_SOUND_COOLDOWN := 0.035
 const SCOREBOARD_SOUND_VOLUME_DB := -8.0
@@ -338,6 +338,8 @@ var stage3_bgm: AudioStreamPlayer
 var stage4_bgm: AudioStreamPlayer
 var stage4_phase2_bgm: AudioStreamPlayer
 var stage5_bgm: AudioStreamPlayer
+var stage2_bgm_rng := RandomNumberGenerator.new()
+var stage2_bgm_rng_ready := false
 var _audio_setup_step := 0
 var _bgm_setup_step := 0
 
@@ -2316,14 +2318,24 @@ func _select_stage2_bgm_name() -> String:
 		var current_player: AudioStreamPlayer = _get_bgm_player(current_bgm_name)
 		if bgm_muted or (current_player != null and current_player.playing):
 			return current_bgm_name
-	var candidates: Array[String] = []
-	for bgm_name in STAGE2_BGM_NAMES:
-		var player: AudioStreamPlayer = _get_bgm_player(str(bgm_name))
-		if player != null and player.stream != null:
-			candidates.append(str(bgm_name))
+	var candidates: Array[String] = _get_stage2_bgm_candidates()
 	if candidates.is_empty():
 		return "stage2"
-	return candidates[randi() % candidates.size()]
+	if candidates.size() == 1:
+		return candidates[0]
+	if not stage2_bgm_rng_ready:
+		stage2_bgm_rng.randomize()
+		stage2_bgm_rng_ready = true
+	return candidates[stage2_bgm_rng.randi_range(0, candidates.size() - 1)]
+
+
+func _get_stage2_bgm_candidates() -> Array[String]:
+	var candidates: Array[String] = []
+	for bgm_name in STAGE2_BGM_NAMES:
+		var player: AudioStreamPlayer = _ensure_bgm_player(str(bgm_name))
+		if player != null and player.stream != null:
+			candidates.append(str(bgm_name))
+	return candidates
 
 
 func _is_owned_player_ready(player: AudioStreamPlayer) -> bool:

@@ -4,6 +4,7 @@ const Stage5HongryunState := preload("res://scripts/stages/stage5/stage5_hongryu
 const Stage5HongryunFireMachineEvent := preload("res://scripts/stages/stage5/stage5_hongryun_fire_machine_event.gd")
 const StatusEffectState := preload("res://scripts/status/status_effect_state.gd")
 const BallUpdateController := preload("res://scripts/ball/ball_update_controller.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
 
@@ -106,6 +107,7 @@ class FakePerfLogger:
 
 
 func _init() -> void:
+	_verify_stage5_bgm_asset_loads()
 	_verify_fireball_spawn_and_pause()
 	_verify_stage5_perf_labels()
 	_verify_fireball_hit_and_parry()
@@ -129,6 +131,13 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_stage5_bgm_asset_loads() -> void:
+	_expect(
+		ProjectResourceLoader.load_audio_stream("res://assets/bgm/stage5_hongryun_bgm.ogg") != null,
+		"Stage 5 Hongryun BGM should load from the OGG runtime asset"
+	)
 
 
 func _verify_fireball_spawn_and_pause() -> void:

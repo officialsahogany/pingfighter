@@ -12,7 +12,7 @@ var cleanup_frames_remaining := 0
 
 func _init() -> void:
 	if not _expect(
-		ProjectResourceLoader.load_audio_stream("res://assets/bgm/stage4bgm.wav") != null,
+		ProjectResourceLoader.load_audio_stream("res://assets/bgm/stage4bgm.ogg") != null,
 		"Stage 4 primary BGM should load"
 	):
 		return

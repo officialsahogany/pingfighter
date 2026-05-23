@@ -31,7 +31,7 @@ const MENHERA_BOSS_SHEET_PATHS := [
 	"res://assets/sprites/stage3/menhera_boss_defeat.png",
 ]
 const STAGE3_AUDIO_PATHS := [
-	"res://assets/bgm/stage3bgm.wav",
+	"res://assets/bgm/stage3bgm.ogg",
 	"res://assets/sounds/stage3tail.wav",
 	"res://assets/sounds/psychoball.wav",
 	"res://assets/sounds/dollcurse.wav",
