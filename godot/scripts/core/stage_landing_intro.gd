@@ -2,6 +2,7 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const GAME_WIDTH := 760.0
 const GAME_HEIGHT := 750.0
@@ -93,6 +94,9 @@ func update(delta: float, registry: Object = null) -> void:
 func handle_input(event: InputEvent, registry: Object = null) -> bool:
 	if not active:
 		return false
+	if GamepadInput.is_intro_skip_event(event):
+		_finish(registry)
+		return true
 	if event is InputEventKey:
 		var key_event: InputEventKey = event
 		if key_event.pressed and not key_event.echo and key_event.keycode in [KEY_ESCAPE, KEY_SPACE, KEY_ENTER]:
