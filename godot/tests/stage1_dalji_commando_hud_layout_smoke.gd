@@ -334,8 +334,11 @@ func _verify_status_orb_cache_prewarm() -> void:
 
 
 func _verify_stage1_status_orb_base_render_budgets() -> void:
-	_expect(PillarLiquidDrawer.LIQUID_COLUMN_STEP >= 4, "Stage 1 status-orb liquid fill should keep a coarse default column step")
-	_expect(PillarLiquidDrawer.LIQUID_BAND_STEP >= 12, "Stage 1 status-orb liquid fill bands should keep a coarse default step")
+	_expect(PillarLiquidDrawer.LIQUID_SURFACE_STEP <= 1.5, "Stage 1 status-orb liquid fill should keep high-quality surface sampling")
+	_expect(PillarLiquidDrawer.LIQUID_SURFACE_STEP_LOD >= 4.0, "Stage 1 status-orb liquid fill should still widen surface sampling under HUD LOD")
+	_expect(PillarLiquidDrawer.LIQUID_POLYGON_MAX_POINTS <= 260, "Stage 1 status-orb liquid fill should keep a bounded polygon vertex budget")
+	_expect(PillarLiquidDrawer.LIQUID_ANIMATION_SPEED <= 0.5, "Stage 1 status-orb liquid fill should keep a calm animation cadence")
+	_expect(PillarLiquidDrawer.LIQUID_BAND_STEP_LOD >= 12.0, "Stage 1 status-orb liquid fill bands should keep a coarse LOD step")
 	_expect(PillarLiquidDrawer.LIQUID_MAX_BUBBLES <= 2, "Stage 1 status-orb liquid fill should cap decorative bubbles")
 	_expect(PillarLiquidDrawer.DASH_SECTOR_SEGMENTS <= 14, "Stage 1 dash sector liquid should keep a bounded polygon budget")
 	_expect(PillarLiquidDrawer.DASH_INNER_SECTOR_SEGMENTS <= 9, "Stage 1 dash sector liquid should keep a bounded inner polygon budget")

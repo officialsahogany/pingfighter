@@ -2,10 +2,14 @@ extends RefCounted
 
 const PillarShapeHelper := preload("res://scripts/hud/pillar_shape_helper.gd")
 
-const LIQUID_COLUMN_STEP := 4
-const LIQUID_BAND_STEP := 12
+const LIQUID_SURFACE_STEP := 1.5
+const LIQUID_SURFACE_STEP_LOD := 4.0
+const LIQUID_BAND_STEP := 4.0
+const LIQUID_BAND_STEP_LOD := 12.0
 const LIQUID_MAX_BUBBLES := 2
 const LIQUID_WAVE_GLOW_WIDTH := 1.4
+const LIQUID_POLYGON_MAX_POINTS := 260
+const LIQUID_ANIMATION_SPEED := 0.45
 const DASH_SECTOR_SEGMENTS := 14
 const DASH_INNER_SECTOR_SEGMENTS := 9
 const DASH_PULSE_ARC_POINTS := 9
@@ -34,64 +38,75 @@ func draw_pillar_liquid_fill(
 	var fill_height: float = inner_radius * 2.0 * clamped_ratio
 	var fill_top: float = center.y + inner_radius - fill_height
 	var wave_amp: float = max(3.5, inner_radius * 0.10)
-	var wave_offset: float = sin(t * 2.3) * wave_amp * 0.5
-	var prev_wave_point: Vector2 = Vector2.ZERO
-	var has_prev: bool = false
+	var liquid_t: float = t * LIQUID_ANIMATION_SPEED
+	var wave_offset: float = sin(liquid_t * 2.3) * wave_amp * 0.5
 	var lod_active: bool = quality_scale < 0.85
-	# Non-LOD uses the original 2px column / 4px band liquid sampling so the wave
-	# still feels lively. LOD widens the step for Viper-airborne / FPS-cap frames.
-	var step: int = 4 if lod_active else 2
-	var band_step: int = 12 if lod_active else 4
+	# Draw the fill as a single sampled polygon. The previous vertical-column
+	# fill was cheaper per sample but produced visible block stairs on large orbs.
+	var surface_step: float = LIQUID_SURFACE_STEP_LOD if lod_active else LIQUID_SURFACE_STEP
+	var band_step: float = LIQUID_BAND_STEP_LOD if lod_active else LIQUID_BAND_STEP
 	var max_bubbles: int = 2 if lod_active else LIQUID_MAX_BUBBLES
+	var top_points := PackedVector2Array()
+	var top_colors := PackedColorArray()
+	var bottom_points := PackedVector2Array()
+	var bottom_colors := PackedColorArray()
+	var max_surface_samples: int = floori(float(LIQUID_POLYGON_MAX_POINTS) * 0.5)
+	var requested_surface_samples: int = max(12, int(ceil((inner_radius * 2.0) / max(0.5, surface_step))) + 1)
+	var sample_count: int = mini(max_surface_samples, requested_surface_samples)
 
-	for ix in range(int(-inner_radius), int(inner_radius) + 1, step):
-		var local_x: float = float(ix)
+	for sample_idx in range(sample_count):
+		var sample_t: float = float(sample_idx) / max(1.0, float(sample_count - 1))
+		var local_x: float = lerpf(-inner_radius, inner_radius, sample_t)
 		var y_limit: float = sqrt(max(0.0, inner_radius * inner_radius - local_x * local_x))
-		var primary_wave: float = sin(local_x * 0.08 + t * 3.8) * wave_amp
-		var secondary_wave: float = cos(local_x * 0.05 - t * 4.6) * wave_amp * 0.55
-		var wave_y: float = fill_top + primary_wave + secondary_wave + wave_offset
+		var wave_y: float = _sample_smoothed_liquid_wave_top(local_x, inner_radius, fill_top, wave_amp, wave_offset, liquid_t, surface_step)
 		var line_top: float = clamp(max(center.y - y_limit, wave_y), center.y - y_limit, center.y + y_limit)
 		var line_bottom: float = center.y + y_limit
 		if line_top >= line_bottom:
-			has_prev = false
 			continue
 		var gradient_t: float = clamp((line_top - (center.y - inner_radius)) / max(1.0, inner_radius * 2.0), 0.0, 1.0)
-		var fill_color: Color = top_color.lerp(bottom_color, gradient_t)
-		canvas.draw_line(Vector2(center.x + local_x, line_top), Vector2(center.x + local_x, line_bottom), fill_color, float(step))
-		var wave_point := Vector2(center.x + local_x, line_top)
-		if has_prev:
-			canvas.draw_line(
-				prev_wave_point,
-				wave_point,
-				Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.50),
-				LIQUID_WAVE_GLOW_WIDTH,
-				true
-			)
-		prev_wave_point = wave_point
-		has_prev = true
+		top_points.append(Vector2(center.x + local_x, line_top))
+		top_colors.append(top_color.lerp(bottom_color, gradient_t))
+		bottom_points.append(Vector2(center.x + local_x, line_bottom))
+		bottom_colors.append(bottom_color)
+
+	if top_points.size() < 2:
+		return
+
+	var fill_points := PackedVector2Array()
+	var fill_colors := PackedColorArray()
+	for idx in range(top_points.size()):
+		fill_points.append(top_points[idx])
+		fill_colors.append(top_colors[idx])
+	for idx in range(bottom_points.size() - 1, -1, -1):
+		fill_points.append(bottom_points[idx])
+		fill_colors.append(bottom_colors[idx])
+	canvas.draw_polygon(fill_points, fill_colors)
+	canvas.draw_polyline(top_points, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.22), LIQUID_WAVE_GLOW_WIDTH * 3.0, true)
+	canvas.draw_polyline(top_points, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.58), LIQUID_WAVE_GLOW_WIDTH, true)
 
 	for band_idx in range(2):
 		var band_ratio: float = 0.28 + float(band_idx) * 0.28
-		var band_center_y: float = center.y + inner_radius - fill_height * band_ratio + sin(t * (2.6 + float(band_idx) * 0.8) + float(band_idx)) * (wave_amp * 1.0)
-		for ix in range(int(-inner_radius) + 4, int(inner_radius) - 3, band_step):
-			var local_x: float = float(ix)
+		var band_center_y: float = center.y + inner_radius - fill_height * band_ratio + sin(liquid_t * (2.6 + float(band_idx) * 0.8) + float(band_idx)) * (wave_amp * 1.0)
+		var band_points := PackedVector2Array()
+		var band_sample_count: int = max(8, int(ceil((inner_radius * 2.0) / max(1.0, band_step))) + 1)
+		for sample_idx in range(band_sample_count):
+			var sample_t: float = float(sample_idx) / max(1.0, float(band_sample_count - 1))
+			var local_x: float = lerpf(-inner_radius + 4.0, inner_radius - 4.0, sample_t)
 			var y_limit: float = sqrt(max(0.0, inner_radius * inner_radius - local_x * local_x))
 			var band_dx_ratio: float = abs(local_x) / max(1.0, inner_radius)
-			var band_width: float = (1.0 - band_dx_ratio) * (10.0 + inner_radius * 0.08)
-			var line_y: float = clamp(band_center_y + sin(local_x * 0.09 + t * 2.0 + float(band_idx) * 0.6), center.y - y_limit, center.y + y_limit)
-			var band_alpha: float = 0.06 + (1.0 - band_dx_ratio) * 0.08 * clamped_ratio
+			var line_y: float = clamp(band_center_y + sin(local_x * 0.09 + liquid_t * 2.0 + float(band_idx) * 0.6), center.y - y_limit, center.y + y_limit)
 			if line_y > fill_top + 3.0 and line_y < center.y + y_limit - 2.0:
-				canvas.draw_line(
-					Vector2(center.x + local_x - band_width * 0.5, line_y),
-					Vector2(center.x + local_x + band_width * 0.5, line_y),
-					Color(wave_glow.r, wave_glow.g, wave_glow.b, band_alpha),
-					1.5,
-					true
-				)
+				band_points.append(Vector2(center.x + local_x, line_y))
+			elif band_points.size() > 1:
+				var band_alpha: float = 0.06 + (1.0 - band_dx_ratio) * 0.08 * clamped_ratio
+				canvas.draw_polyline(band_points, Color(wave_glow.r, wave_glow.g, wave_glow.b, band_alpha), 1.5, true)
+				band_points.clear()
+		if band_points.size() > 1:
+			canvas.draw_polyline(band_points, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.08 + 0.06 * clamped_ratio), 1.5, true)
 
 	var bubble_count: int = mini(max_bubbles, int(round(2.0 + clamped_ratio * 3.0)))
 	for i in range(bubble_count):
-		var phase: float = t * 1.4 + float(i) * 1.26
+		var phase: float = liquid_t * 1.4 + float(i) * 1.26
 		var bubble_x: float = center.x + sin(phase * 0.6 + float(i) * 2.1) * (inner_radius * (0.25 + float(i % 3) * 0.10))
 		var bubble_offset_y: float = fmod(phase * (16.0 + float(i % 3) * 4.0) + float(i) * 24.0, max(1.0, fill_height))
 		var bubble_y: float = center.y + inner_radius - bubble_offset_y
