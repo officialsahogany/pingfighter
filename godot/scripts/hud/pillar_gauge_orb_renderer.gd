@@ -15,6 +15,7 @@ const LIQUID_DISPLAY_RISE_RESPONSE := 9.0
 const LIQUID_DISPLAY_FALL_RESPONSE := 18.0
 const LIQUID_DISPLAY_MAX_DELTA_SECONDS := 0.25
 const LIQUID_DISPLAY_SNAP_EPSILON := 0.002
+const FULL_GAUGE_SNAP_THRESHOLD := 0.999
 
 var background_cache: Object = PillarOrbBackgroundCache.new()
 var fill_renderer: Object = PillarGaugeOrbFillRenderer.new()
@@ -140,6 +141,11 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 
 func _update_display_ratio(target_ratio: float, time_seconds: float) -> float:
 	var clamped_target: float = clamp(target_ratio, 0.0, 1.0)
+	if clamped_target >= FULL_GAUGE_SNAP_THRESHOLD:
+		_display_full_ratio = 1.0
+		_display_ratio_last_time = time_seconds
+		_display_ratio_initialized = true
+		return _display_full_ratio
 	if not _display_ratio_initialized or time_seconds < _display_ratio_last_time:
 		_display_full_ratio = clamped_target
 		_display_ratio_last_time = time_seconds

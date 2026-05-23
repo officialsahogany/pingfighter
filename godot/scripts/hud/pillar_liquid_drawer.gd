@@ -12,6 +12,8 @@ const LIQUID_POLYGON_MAX_POINTS := 260
 const LIQUID_ANIMATION_SPEED := 0.45
 const LIQUID_EDGE_SEARCH_STEPS := 8
 const LIQUID_SURFACE_GLOW_MIN_HEIGHT := 2.0
+const LIQUID_STABLE_FULL_THRESHOLD := 0.999
+const LIQUID_STABLE_FULL_SEGMENTS := 48
 const DASH_SECTOR_SEGMENTS := 14
 const DASH_INNER_SECTOR_SEGMENTS := 9
 const DASH_PULSE_ARC_POINTS := 9
@@ -37,6 +39,10 @@ func draw_pillar_liquid_fill(
 		return
 
 	var inner_radius: float = max(4.0, radius)
+	if _is_stable_full_fill_ratio(clamped_ratio):
+		_draw_stable_full_liquid(canvas, center, inner_radius, top_color, bottom_color)
+		return
+
 	var fill_height: float = inner_radius * 2.0 * clamped_ratio
 	var fill_top: float = center.y + inner_radius - fill_height
 	var wave_amp: float = max(3.5, inner_radius * 0.10)
@@ -153,6 +159,22 @@ func draw_pillar_liquid_fill(
 			var bubble_radius: float = 2.0 + float(i % 3) * 0.8
 			canvas.draw_circle(Vector2(bubble_x, bubble_y), bubble_radius, Color(0.86, 0.94, 1.0, bubble_alpha))
 			canvas.draw_circle(Vector2(bubble_x - bubble_radius * 0.3, bubble_y - bubble_radius * 0.4), max(0.8, bubble_radius * 0.4), Color(1.0, 1.0, 1.0, bubble_alpha * 0.55))
+
+
+func _is_stable_full_fill_ratio(fill_ratio: float) -> bool:
+	return fill_ratio >= LIQUID_STABLE_FULL_THRESHOLD
+
+
+func _draw_stable_full_liquid(canvas: CanvasItem, center: Vector2, radius: float, top_color: Color, bottom_color: Color) -> void:
+	var fill_points := PackedVector2Array()
+	var fill_colors := PackedColorArray()
+	for idx in range(LIQUID_STABLE_FULL_SEGMENTS):
+		var angle: float = -PI * 0.5 + TAU * float(idx) / float(LIQUID_STABLE_FULL_SEGMENTS)
+		var point: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
+		var gradient_t: float = clamp((point.y - (center.y - radius)) / max(1.0, radius * 2.0), 0.0, 1.0)
+		fill_points.append(point)
+		fill_colors.append(top_color.lerp(bottom_color, gradient_t))
+	canvas.draw_polygon(fill_points, fill_colors)
 
 
 func draw_dash_sector_liquid(
