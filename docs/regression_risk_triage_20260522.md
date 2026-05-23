@@ -5355,6 +5355,18 @@ Hundredth split on 2026-05-24:
   item renderer modules, mythic field renderers, mythic catalog shards, and
   active item timer gauge renderer so Godot script references stay stable.
 
+136th follow-up on 2026-05-24:
+
+- Commit: `b79c14d26 godot: route Pandora choice icons through project loader`.
+- Scope: Pandora Legacy selection cards now load choice icon textures through
+  `ProjectResourceLoader.load_texture(...)` instead of direct
+  `ResourceLoader.load()`, keeping passive / mythic choice icons on the same
+  raw-first resource path as the rest of the Godot item UI.
+- Validation: focused item icon / Pandora coverage passed:
+  `pandora_legacy_port_smoke`, `gravitybelt_port_smoke`,
+  `revival_port_smoke`, `danger_sensor_belt_port_smoke`, and
+  `speedgear_port_smoke`.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

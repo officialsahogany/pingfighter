@@ -279,7 +279,8 @@ This section is intentionally long; use search to find the nearest owner.
   diagnostics are delegated to
   `scripts/items/pandora_legacy_selection_state.gd`; selection overlay
   backdrop, title / hint text, card layout, badge / icon / title drawing,
-  selected-card marker, and icon texture cache reads are delegated to
+  selected-card marker, raw-first icon loading, and local icon texture cache
+  reads are delegated to
   `scripts/items/mythic_item_pandora_selection_renderer.gd`; Foul
   Whistle constants, equipped / active checks, negate chance math, trigger,
   delayed reset consumption, effect-active query, clear, and update flow are
