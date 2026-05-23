@@ -3,6 +3,7 @@ extends SceneTree
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BattleDrawBallContext := preload("res://scripts/core/battle_draw_ball_context.gd")
 const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module_registry.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const Stage1CommandoFirearmRenderer := preload("res://scripts/stages/stage1/stage1_commando_firearm_renderer.gd")
 const Stage3ActorRenderer := preload("res://scripts/stages/stage3/stage3_actor_renderer.gd")
 const Stage3BossSkillHudRenderer := preload("res://scripts/stages/stage3/stage3_boss_skill_hud_renderer.gd")
@@ -248,6 +249,7 @@ func _init() -> void:
 	_expect(int(playfield_perf.get("kuromi_crack_particle_draw_limit", 999)) <= 36, "Stage 3 Kuromi crack particles should cap per-frame drawing")
 	_expect(int(playfield_perf.get("kuromi_crack_particle_detailed_draw_limit", 999)) <= 10, "Stage 3 Kuromi crack particles should cap detailed polygon drawing")
 	_expect(bool(playfield_perf.get("viper_airborne_lod_supported", false)), "Stage 3 playfield should expose shared Viper airborne LOD support")
+	_expect(bool(playfield_perf.get("shared_render_quality_lod_supported", false)), "Stage 3 playfield should expose shared render-quality LOD support")
 	_expect(int(playfield_perf.get("stadium_circle_segments_severe_lod", 999)) <= 10, "Stage 3 stadium rings should use a severe Viper LOD segment cap")
 	_expect(int(playfield_perf.get("kuromi_tongue_point_max_severe_lod", 999)) <= 10, "Stage 3 Kuromi tongue should use a severe Viper LOD point cap")
 	_expect(int(playfield_perf.get("kuromi_crack_particle_draw_limit_lod", 999)) <= 22, "Stage 3 Kuromi crack particles should tighten during airborne LOD")
@@ -273,7 +275,34 @@ func _init() -> void:
 		"Stage 3 playfield should use severe crack-particle caps after glide hysteresis enters"
 	)
 	ViperAirborneLod.reset_cache_for_test()
+	var old_max_fps: int = int(Engine.get("max_fps"))
+	Engine.set("max_fps", BattleRenderQuality.FPS_CAP_LOD_MAX_FPS)
+	BattleRenderQuality.reset_cache_for_test()
+	var capped_quality: float = direct_playfield._get_playfield_quality_scale({"selected_character_type": "soldier"})
+	_expect(
+		is_equal_approx(capped_quality, BattleRenderQuality.FPS_CAP_EFFECT_SCALE),
+		"Stage 3 Soldier playfield should honor shared 72 FPS-cap render LOD"
+	)
+	_expect(
+		direct_playfield._get_lod_count(
+			Stage3PlayfieldRenderer.KUROMI_CRACK_PARTICLE_DRAW_LIMIT,
+			Stage3PlayfieldRenderer.KUROMI_CRACK_PARTICLE_DRAW_LIMIT_LOD,
+			Stage3PlayfieldRenderer.KUROMI_CRACK_PARTICLE_DRAW_LIMIT_SEVERE_LOD,
+			capped_quality
+		) == Stage3PlayfieldRenderer.KUROMI_CRACK_PARTICLE_DRAW_LIMIT_SEVERE_LOD,
+		"Stage 3 shared FPS-cap quality should reduce crack-particle drawing for Soldier too"
+	)
+	Engine.set("max_fps", old_max_fps)
+	BattleRenderQuality.reset_cache_for_test()
 	_expect(Stage3ActorRenderer.new().has_method("draw"), "Stage 3 actor renderer preload should parse")
+	var stage3_actor_source := FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_actor_renderer.gd")
+	_expect(stage3_actor_source.find("_prewarm_renderer_step(skill_effect_renderer)") >= 0, "Stage 3 actor prewarm should stage skill-effect assets")
+	_expect(stage3_actor_source.find("_prewarm_renderer_step(commando_firearm_renderer)") >= 0, "Stage 3 actor prewarm should stage Commando firearm assets")
+	_expect(stage3_actor_source.find("commando_firearm_renderer.prewarm_assets()") < 0, "Stage 3 actor prewarm should not monolithically warm Commando firearm assets")
+	var stage3_playfield_source := FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_playfield_renderer.gd")
+	_expect(stage3_playfield_source.find("BattleRenderQuality.effect_scale(context)") >= 0, "Stage 3 playfield should route LOD through shared render quality")
+	var stage3_pillar_bg_source := FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_pillar_background.gd")
+	_expect(stage3_pillar_bg_source.find("BattleRenderQuality.effect_scale(context)") >= 0, "Stage 3 pillar background should route LOD through shared render quality")
 	var staged_boss_renderer: Object = Stage3MenheraBossActorRenderer.new()
 	_expect(staged_boss_renderer.has_method("prewarm_assets_step"), "Stage 3 Menhera boss renderer should expose staged prewarm")
 	var boss_prewarm_steps := 0
@@ -292,6 +321,9 @@ func _init() -> void:
 	_expect(bool(boss_asset_status.get("victory", false)), "Stage 3 Menhera victory sheet should be available to the boss renderer")
 	_expect(bool(boss_asset_status.get("defeat", false)), "Stage 3 Menhera defeat sheet should be available to the boss renderer")
 	_expect(int(boss_asset_status.get("walk_frame_count", 0)) == 8, "Stage 3 Menhera walk sheet should slice into eight frames")
+	_expect(bool(boss_asset_status.get("shared_render_quality_lod_supported", false)), "Stage 3 Menhera boss renderer should expose shared render-quality LOD support")
+	var boss_source := FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_menhera_boss_actor_renderer.gd")
+	_expect(boss_source.find("BattleRenderQuality.effect_scale(context)") >= 0, "Stage 3 Menhera boss renderer should honor shared render-quality LOD")
 	var direct_skill_state: Object = Stage3BossSkillState.new()
 	var skill_context := _stage3_runtime_context()
 	skill_context["player_score"] = 0

@@ -22,6 +22,8 @@ const GAP_STAGE_HOT_PREFIXES := [
 	"draw.pillar_overlay.",
 	"stage1.pillar_ui.",
 	"stage2.",
+	"stage3.",
+	"stage5.",
 	"physics.stage5.hongryun.",
 ]
 const GAP_PLAYFIELD_HOT_SAMPLE_LIMIT := 8

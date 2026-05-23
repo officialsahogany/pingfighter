@@ -1,7 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
-const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
 const BASE_TEXTURE_PATH := "res://assets/sprites/hud/stage3_layered_cyber_menhera_base_imagegen_v4.png"
 const AMBIENT_TEXTURE_PATH := "res://assets/sprites/hud/stage3_menhera_ambient_sprites_imagegen_v3.png"
@@ -413,7 +413,7 @@ func _draw_procedural_fallback(canvas: CanvasItem, view_size: Vector2, game_offs
 func _get_pillar_quality_scale(context: Dictionary) -> float:
 	if context.is_empty():
 		return 1.0
-	return ViperAirborneLod.effect_scale(context)
+	return BattleRenderQuality.effect_scale(context)
 
 
 func _is_lod_active() -> bool:

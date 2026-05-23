@@ -26,25 +26,17 @@ func prewarm_assets_step() -> bool:
 		return true
 	match _prewarm_step_index:
 		0:
-			if playfield_renderer != null:
-				if playfield_renderer.has_method("prewarm_assets_step"):
-					if not bool(playfield_renderer.prewarm_assets_step()):
-						return false
-				elif playfield_renderer.has_method("prewarm_assets"):
-					playfield_renderer.prewarm_assets()
+			if not _prewarm_renderer_step(playfield_renderer):
+				return false
 		1:
-			if boss_renderer != null:
-				if boss_renderer.has_method("prewarm_assets_step"):
-					if not bool(boss_renderer.prewarm_assets_step()):
-						return false
-				elif boss_renderer.has_method("prewarm_assets"):
-					boss_renderer.prewarm_assets()
+			if not _prewarm_renderer_step(boss_renderer):
+				return false
 		2:
-			if skill_effect_renderer != null and skill_effect_renderer.has_method("prewarm_assets"):
-				skill_effect_renderer.prewarm_assets()
+			if not _prewarm_renderer_step(skill_effect_renderer):
+				return false
 		3:
-			if commando_firearm_renderer != null and commando_firearm_renderer.has_method("prewarm_assets"):
-				commando_firearm_renderer.prewarm_assets()
+			if not _prewarm_renderer_step(commando_firearm_renderer):
+				return false
 		_:
 			_prewarm_assets_done = true
 			_prewarm_step_index = 0
@@ -114,6 +106,16 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
+
+
+func _prewarm_renderer_step(renderer: Object) -> bool:
+	if renderer == null:
+		return true
+	if renderer.has_method("prewarm_assets_step"):
+		return bool(renderer.prewarm_assets_step())
+	if renderer.has_method("prewarm_assets"):
+		renderer.prewarm_assets()
+	return true
 
 
 func _get_method_argument_count(target: Object, method_name: String) -> int:

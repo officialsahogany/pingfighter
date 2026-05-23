@@ -1,7 +1,13 @@
 extends RefCounted
 
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
+
+# Stage 3's pillar HUD shares the Stage 1 orb renderer. At glide/FPS-cap
+# quality, keeping the readable HUD while suppressing ornamental pulse layers
+# removes the steady 1.4-2.1ms pillar-HUD cost from Viper movement windows.
+const STAGE3_STATIC_HUD_LOD_SCALE := ViperAirborneLod.GLIDE_EFFECT_SCALE
 
 var hud_scene_drawer: Object = Stage1PillarHudSceneDrawer.new()
 
@@ -34,7 +40,16 @@ func draw(canvas: CanvasItem, context: Dictionary, registry: Object, states: Dic
 			_perf_end(perf_logger, "stage3.pillar.fallback", fallback_sample_start)
 
 	var hud_sample_start: int = _perf_begin(perf_logger)
-	hud_scene_drawer.draw(canvas, context, registry, states, view_size, game_offset, game_size, time_seconds)
+	hud_scene_drawer.draw(
+		canvas,
+		_with_stage3_hud_lod_context(context, quality_scale),
+		registry,
+		states,
+		view_size,
+		game_offset,
+		game_size,
+		time_seconds
+	)
 	_perf_end(perf_logger, "stage3.pillar.hud_scene", hud_sample_start)
 
 
@@ -45,7 +60,16 @@ func draw_pillar_hud_overlay(canvas: CanvasItem, context: Dictionary, registry: 
 	var game_offset: Vector2 = _get_vector2(context, "game_offset", Vector2.ZERO)
 	var game_size: Vector2 = _get_vector2(context, "game_size", Vector2.ZERO)
 	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
-	hud_scene_drawer.draw(canvas, context, registry, states, view_size, game_offset, game_size, time_seconds)
+	hud_scene_drawer.draw(
+		canvas,
+		_with_stage3_hud_lod_context(context, _get_pillar_quality_scale(context)),
+		registry,
+		states,
+		view_size,
+		game_offset,
+		game_size,
+		time_seconds
+	)
 
 
 func draw_post_playfield_hud(canvas: CanvasItem, context: Dictionary, registry: Object) -> void:
@@ -88,7 +112,17 @@ func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2
 
 
 func _get_pillar_quality_scale(context: Dictionary) -> float:
-	return ViperAirborneLod.effect_scale(context)
+	return BattleRenderQuality.effect_scale(context)
+
+
+func _with_stage3_hud_lod_context(context: Dictionary, quality_scale: float) -> Dictionary:
+	var high_refresh_lod_active := BattleRenderQuality.is_high_refresh_lod_active()
+	if quality_scale > STAGE3_STATIC_HUD_LOD_SCALE and not high_refresh_lod_active:
+		return context
+	var hud_context: Dictionary = context.duplicate()
+	hud_context["stage3_pillar_hud_static_lod"] = true
+	hud_context["pillar_hud_static_lod"] = true
+	return hud_context
 
 
 func _perf_begin(perf_logger: Object) -> int:

@@ -2,7 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StatusEffectOverlayRenderer := preload("res://scripts/status/status_effect_overlay_renderer.gd")
-const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
 const WALK_TEXTURE_PATH := "res://assets/sprites/stage3/menhera_boss_sheet.png"
 const ATTACK_TEXTURE_PATH := "res://assets/sprites/stage3/menhera_boss_attack.png"
@@ -639,11 +639,12 @@ func get_asset_status() -> Dictionary:
 		"defeat": _get_texture("defeat") != null,
 		"walk_frame_count": _get_frame_source("walk").size(),
 		"viper_airborne_lod_supported": true,
+		"shared_render_quality_lod_supported": true,
 	}
 
 
 func _get_actor_quality_scale(context: Dictionary) -> float:
-	return ViperAirborneLod.effect_scale(context)
+	return BattleRenderQuality.effect_scale(context)
 
 
 func _is_lod_active() -> bool:

@@ -1,6 +1,6 @@
 extends RefCounted
 
-const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 
 const WIDTH := 760.0
@@ -53,11 +53,34 @@ const TAIL_FALLBACK_POINT_COUNT_SEVERE_LOD := 10
 
 var curse_smoke_texture: Texture2D = null
 var tail_draw_points: Array[Vector2] = []
+var _prewarm_assets_done := false
+var _prewarm_step_index := 0
 var _active_quality_scale: float = 1.0
 
 
 func prewarm_assets() -> void:
-	_get_curse_smoke_texture()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_assets_done:
+		return true
+	match _prewarm_step_index:
+		0:
+			_get_curse_smoke_texture()
+		1:
+			CommonStarpointVisualHost.prewarm_assets()
+		_:
+			_prewarm_assets_done = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	if _prewarm_step_index > 1:
+		_prewarm_assets_done = true
+		_prewarm_step_index = 0
+		return true
+	return false
 
 
 func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
@@ -564,7 +587,7 @@ func _get_tail_shadow_step() -> int:
 
 
 func _get_effect_quality_scale(context: Dictionary) -> float:
-	return ViperAirborneLod.effect_scale(context)
+	return BattleRenderQuality.effect_scale(context)
 
 
 func _is_lod_active() -> bool:

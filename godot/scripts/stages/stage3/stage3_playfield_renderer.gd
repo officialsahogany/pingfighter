@@ -1,6 +1,6 @@
 extends RefCounted
 
-const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
 const TILE_SIZE := 50
 const BORDER_THICKNESS := 10.0
@@ -262,6 +262,8 @@ func get_performance_snapshot() -> Dictionary:
 		"kuromi_crack_particle_draw_limit_severe_lod": KUROMI_CRACK_PARTICLE_DRAW_LIMIT_SEVERE_LOD,
 		"kuromi_crack_particle_detailed_draw_limit_lod": KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT_LOD,
 		"kuromi_crack_particle_detailed_draw_limit_severe_lod": KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT_SEVERE_LOD,
+		"shared_render_quality_lod_supported": true,
+		"kuromi_severe_lod_simplified": true,
 	}
 
 
@@ -476,10 +478,89 @@ func _draw_kuromi(canvas: CanvasItem, context: Dictionary, center: Vector2, size
 	if awakening:
 		var progress: float = clampf(float(context.get("stage3_kuromi_awakening_progress", 0.0)), 0.0, 1.0)
 		center += Vector2(sin(time_sec * 58.0) * progress * 2.6, cos(time_sec * 43.0) * progress * 1.8)
+	if _is_severe_lod_active(quality_scale) and not awakening and not bool(context.get("stage3_kuromi_eating_active", false)):
+		_draw_kuromi_severe_lod(canvas, context, center, size, petrified)
+		return
 	if bool(context.get("stage3_kuromi_awakened", false)) and not petrified and not awakening:
 		_draw_awake_kuromi(canvas, context, center, size, quality_scale)
 	else:
 		_draw_petrified_kuromi(canvas, context, center, size, quality_scale)
+
+
+func _draw_kuromi_severe_lod(canvas: CanvasItem, context: Dictionary, center: Vector2, size: float, petrified: bool) -> void:
+	var head_size: float = size * 0.6
+	canvas.draw_circle(center + Vector2(0.0, 10.0), head_size + 4.0, Color(0.23, 0.12, 0.20, 0.08))
+	if petrified:
+		var stone_base := Color(125.0 / 255.0, 125.0 / 255.0, 128.0 / 255.0, 1.0)
+		var stone_dark := Color(76.0 / 255.0, 76.0 / 255.0, 80.0 / 255.0, 1.0)
+		var stone_light := Color(180.0 / 255.0, 180.0 / 255.0, 184.0 / 255.0, 1.0)
+		var petrified_left_ear := PackedVector2Array([
+			center + Vector2(-head_size * 0.54, -head_size * 0.42),
+			center + Vector2(-head_size * 0.78, -head_size * 1.74),
+			center + Vector2(-head_size * 0.18, -head_size * 0.46),
+		])
+		var petrified_right_ear := PackedVector2Array([
+			center + Vector2(head_size * 0.54, -head_size * 0.42),
+			center + Vector2(head_size * 0.78, -head_size * 1.74),
+			center + Vector2(head_size * 0.18, -head_size * 0.46),
+		])
+		canvas.draw_colored_polygon(petrified_left_ear, stone_dark)
+		canvas.draw_colored_polygon(petrified_right_ear, stone_dark)
+		canvas.draw_circle(center + Vector2(0.0, 4.0), head_size, stone_base)
+		canvas.draw_circle(center + Vector2(-head_size * 0.38, -2.0), 5.0, stone_light)
+		canvas.draw_circle(center + Vector2(head_size * 0.38, -2.0), 5.0, stone_light)
+		canvas.draw_circle(center + Vector2(-head_size * 0.38, -1.0), 2.2, stone_dark)
+		canvas.draw_circle(center + Vector2(head_size * 0.38, -1.0), 2.2, stone_dark)
+		canvas.draw_line(center + Vector2(-head_size * 0.14, head_size * 0.28), center + Vector2(head_size * 0.14, head_size * 0.28), stone_dark, 2.0, true)
+		canvas.draw_line(center + Vector2(-head_size * 0.42, -head_size * 0.45), center + Vector2(-head_size * 0.10, -head_size * 0.08), stone_dark, 1.2, true)
+		canvas.draw_line(center + Vector2(head_size * 0.20, -head_size * 0.55), center + Vector2(head_size * 0.42, -head_size * 0.10), stone_dark, 1.2, true)
+		canvas.draw_line(center + Vector2(head_size * 0.58, head_size * 0.42), center + Vector2(head_size * 0.86, head_size * 0.78), stone_dark, 4.0, true)
+		_draw_kuromi_heart(canvas, center + Vector2(head_size * 0.92, head_size * 0.82), 5.5, stone_dark, Color.TRANSPARENT, false)
+		return
+
+	var emotional: int = wrapi(int(context.get("stage3_emotional_phase", emotional_phase)), 0, 3)
+	var face_color := Color(1.0, 248.0 / 255.0, 1.0, 1.0)
+	var ear_wiggle: float = sin(time_sec * 0.48) * 1.5
+	var awake_left_ear := PackedVector2Array([
+		center + Vector2(-head_size * 0.54, -head_size * 0.42),
+		center + Vector2(-head_size * 0.80 + ear_wiggle, -head_size * 1.72),
+		center + Vector2(-head_size * 0.18, -head_size * 0.46),
+	])
+	var awake_right_ear := PackedVector2Array([
+		center + Vector2(head_size * 0.54, -head_size * 0.42),
+		center + Vector2(head_size * 0.80 - ear_wiggle, -head_size * 1.72),
+		center + Vector2(head_size * 0.18, -head_size * 0.46),
+	])
+	canvas.draw_colored_polygon(awake_left_ear, LAVENDER)
+	canvas.draw_colored_polygon(awake_right_ear, LAVENDER)
+	canvas.draw_circle(center + Vector2(0.0, 4.0), head_size, face_color)
+	canvas.draw_arc(center + Vector2(0.0, 4.0), head_size, 0.0, TAU, 12, Color(PASTEL_PINK.r, PASTEL_PINK.g, PASTEL_PINK.b, 0.72), 2.0, true)
+	var skull_center := center + Vector2(0.0, -head_size * 1.12)
+	canvas.draw_circle(skull_center, head_size * 0.18, PASTEL_PINK)
+	canvas.draw_circle(skull_center + Vector2(-head_size * 0.06, -1.0), 1.5, SOFT_BLACK)
+	canvas.draw_circle(skull_center + Vector2(head_size * 0.06, -1.0), 1.5, SOFT_BLACK)
+	var eye_y: float = center.y - head_size * 0.10
+	if emotional == 1:
+		eye_y -= 2.0
+	elif emotional == 2:
+		eye_y += 2.0
+	for side in [-1.0, 1.0]:
+		var eye_center := Vector2(center.x + side * head_size * 0.38, eye_y)
+		canvas.draw_circle(eye_center, head_size * 0.13, WHITE)
+		canvas.draw_circle(eye_center, head_size * 0.075, SOFT_BLACK)
+		canvas.draw_circle(eye_center + Vector2(-1.5, -1.5), head_size * 0.03, WHITE)
+		if emotional == 2:
+			canvas.draw_circle(eye_center + Vector2(0.0, head_size * 0.20), 2.2, BABY_BLUE)
+	_draw_kuromi_heart(canvas, center + Vector2(0.0, head_size * 0.16), 3.0, PASTEL_PINK, Color.TRANSPARENT, false)
+	var mouth_y: float = center.y + head_size * 0.32
+	if emotional == 1:
+		canvas.draw_arc(Vector2(center.x, mouth_y - 3.0), head_size * 0.17, 0.0, PI, 6, SOFT_BLACK, 2.0, true)
+	else:
+		canvas.draw_line(Vector2(center.x - head_size * 0.13, mouth_y), Vector2(center.x + head_size * 0.13, mouth_y), SOFT_BLACK, 2.0, true)
+	var tail_start := center + Vector2(head_size * 0.58, head_size * 0.38)
+	var tail_end := tail_start + Vector2(head_size * 0.34, head_size * 0.32)
+	canvas.draw_line(tail_start, tail_end, LAVENDER, 5.0, true)
+	_draw_kuromi_heart(canvas, tail_end + Vector2(4.0, 2.0), 5.6, PASTEL_PINK, SOFT_BLACK, true)
 
 
 func _draw_petrified_kuromi(canvas: CanvasItem, context: Dictionary, center: Vector2, size: float, quality_scale: float) -> void:
@@ -1411,7 +1492,7 @@ func _as_color(value: Variant, fallback: Color) -> Color:
 
 
 func _get_playfield_quality_scale(context: Dictionary) -> float:
-	return ViperAirborneLod.effect_scale(context)
+	return BattleRenderQuality.effect_scale(context)
 
 
 func _is_lod_active(quality_scale: float) -> bool:

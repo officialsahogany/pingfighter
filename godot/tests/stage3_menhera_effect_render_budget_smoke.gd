@@ -2,12 +2,14 @@ extends SceneTree
 
 const Stage3EffectRenderer := preload("res://scripts/stages/stage3/stage3_menhera_skill_effect_renderer.gd")
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
 var _failures: Array[String] = []
 
 
 func _init() -> void:
 	_verify_render_budgets()
+	_verify_staged_prewarm()
 	_verify_recent_start_helper()
 	_verify_draw_paths_use_render_caps()
 
@@ -76,11 +78,33 @@ func _verify_recent_start_helper() -> void:
 		"Stage 3 effect renderer should use severe caps after glide hysteresis enters"
 	)
 	ViperAirborneLod.reset_cache_for_test()
+	var old_max_fps: int = int(Engine.get("max_fps"))
+	Engine.set("max_fps", BattleRenderQuality.FPS_CAP_LOD_MAX_FPS)
+	BattleRenderQuality.reset_cache_for_test()
+	renderer._active_quality_scale = renderer._get_effect_quality_scale({"selected_character_type": "soldier"})
+	_expect(
+		is_equal_approx(renderer._active_quality_scale, BattleRenderQuality.FPS_CAP_EFFECT_SCALE),
+		"Stage 3 effect renderer should honor shared 72 FPS-cap render LOD for Soldier"
+	)
+	_expect(
+		renderer._get_lod_count(
+			Stage3EffectRenderer.MAX_RENDERED_STARPOINT_PARTICLES,
+			Stage3EffectRenderer.MAX_RENDERED_STARPOINT_PARTICLES_LOD,
+			Stage3EffectRenderer.MAX_RENDERED_STARPOINT_PARTICLES_SEVERE_LOD
+		) == Stage3EffectRenderer.MAX_RENDERED_STARPOINT_PARTICLES_SEVERE_LOD,
+		"Stage 3 shared FPS-cap quality should reduce starpoint particle drawing for Soldier too"
+	)
+	Engine.set("max_fps", old_max_fps)
+	BattleRenderQuality.reset_cache_for_test()
 
 
 func _verify_draw_paths_use_render_caps() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/stages/stage3/stage3_menhera_skill_effect_renderer.gd")
 	_expect(source != "", "Stage 3 Menhera effect renderer source should be readable")
+	_expect(
+		source.find("BattleRenderQuality.effect_scale(context)") >= 0,
+		"Stage 3 Menhera effect renderer should route LOD through shared render quality"
+	)
 	_expect(
 		_function_body(source, "func _draw_psychoball_neutralize_particles").find("_recent_start(particles, render_limit)") >= 0,
 		"psychoball neutralize draw should cap decorative particles"
@@ -124,3 +148,10 @@ func _function_body(source: String, signature: String) -> String:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _verify_staged_prewarm() -> void:
+	var renderer := Stage3EffectRenderer.new()
+	_expect(not renderer.prewarm_assets_step(), "Stage 3 skill-effect prewarm should expose its smoke-texture chunk separately")
+	_expect(renderer.prewarm_assets_step(), "Stage 3 skill-effect prewarm should finish after the shared starpoint-host chunk")
+	_expect(renderer.prewarm_assets_step(), "completed Stage 3 skill-effect prewarm should remain idempotent")
