@@ -88,7 +88,13 @@ func update_molotovs(controller: Object, owner: Object, registry: Object, delta:
 		molotovs.resize(write_index)
 
 
-func trigger_fire_zone(controller: Object, _owner: Object, registry: Object, center: Vector2) -> void:
+func trigger_fire_zone(
+	controller: Object,
+	_owner: Object,
+	registry: Object,
+	center: Vector2,
+	play_feedback_audio: bool = true
+) -> void:
 	var duration_frames: float = _get_float(controller, "MOLOTOV_FIRE_DURATION_FRAMES")
 	var fire_width: float = _get_commando_range_value(controller, registry, _get_float(controller, "MOLOTOV_FIRE_WIDTH"))
 	var fire_height: float = _get_commando_range_value(controller, registry, _get_float(controller, "MOLOTOV_FIRE_HEIGHT"))
@@ -118,12 +124,13 @@ func trigger_fire_zone(controller: Object, _owner: Object, registry: Object, cen
 	seed_flames(controller, fire_zone, zone_center, int(_get_float(controller, "MOLOTOV_FIRE_INITIAL_FLAMES")), 30.0, 10.0)
 	_get_array(controller, "molotov_fire_zones").append(fire_zone)
 
-	var feedback: Object = _get_instance(registry, "battle_feedback_state")
-	if feedback != null and feedback.has_method("max_screen_shake"):
-		feedback.max_screen_shake(0.10, 3.0)
-	var audio: Object = _get_instance(registry, "game_audio")
-	if audio != null and audio.has_method("play_molotov_explosion"):
-		audio.play_molotov_explosion()
+	if play_feedback_audio:
+		var feedback: Object = _get_instance(registry, "battle_feedback_state")
+		if feedback != null and feedback.has_method("max_screen_shake"):
+			feedback.max_screen_shake(0.10, 3.0)
+		var audio: Object = _get_instance(registry, "game_audio")
+		if audio != null and audio.has_method("play_molotov_explosion"):
+			audio.play_molotov_explosion()
 
 
 func update_fire_zones(controller: Object, owner: Object, registry: Object, delta: float) -> void:

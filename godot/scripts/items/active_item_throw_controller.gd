@@ -88,7 +88,6 @@ const MOLOTOV_FIRE_WIDTH := 150.0
 const MOLOTOV_FIRE_HEIGHT := 60.0
 const MOLOTOV_FIRE_MIN_CENTER_Y := 45.0
 const MOLOTOV_FIRE_DURATION_FRAMES := 150.0
-const MOLOTOV_FIRE_SLOW_FACTOR := 0.5
 const MOLOTOV_FIRE_PUSH_INTERVAL_FRAMES := 30.0
 const MOLOTOV_FIRE_PUSH_FORCE := 60.0
 const MOLOTOV_FIRE_INITIAL_FLAMES := 8
@@ -387,6 +386,15 @@ func get_molotov_fire_zones() -> Array[Dictionary]:
 	return molotov_fire_zones
 
 
+func trigger_molotov_fire_zone(
+	owner: Object,
+	registry: Object,
+	center: Vector2,
+	play_feedback_audio: bool = true
+) -> void:
+	throw_molotov.trigger_fire_zone(self, owner, registry, center, play_feedback_audio)
+
+
 func get_boomerangs() -> Array[Dictionary]:
 	return boomerangs
 
@@ -618,8 +626,13 @@ func _update_molotovs(owner: Object, registry: Object, delta: float) -> void:
 	throw_molotov.update_molotovs(self, owner, registry, delta)
 
 
-func _trigger_molotov_fire_zone(owner: Object, registry: Object, center: Vector2) -> void:
-	throw_molotov.trigger_fire_zone(self, owner, registry, center)
+func _trigger_molotov_fire_zone(
+	owner: Object,
+	registry: Object,
+	center: Vector2,
+	play_feedback_audio: bool = true
+) -> void:
+	trigger_molotov_fire_zone(owner, registry, center, play_feedback_audio)
 
 
 func _update_molotov_fire_zones(owner: Object, registry: Object, delta: float) -> void:

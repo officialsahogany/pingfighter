@@ -282,6 +282,17 @@ func get_actor_draw_context() -> Dictionary:
 	return context_facade.get_actor_draw_context(self)
 
 
+func trigger_molotov_fire_zone(
+	center: Vector2,
+	owner: Object = null,
+	registry: Object = null,
+	play_feedback_audio: bool = true
+) -> void:
+	_ensure_helpers_ready()
+	if throw_controller != null and throw_controller.has_method("trigger_molotov_fire_zone"):
+		throw_controller.trigger_molotov_fire_zone(owner, registry, center, play_feedback_audio)
+
+
 func handle_debug_spawn_menu_click(
 	mouse_position: Vector2,
 	view_size: Vector2,

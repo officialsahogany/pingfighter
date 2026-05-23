@@ -41,7 +41,7 @@ class FakeHongryunGauge:
 func _init() -> void:
 	_test_charge_release_projectile_and_audio()
 	_test_stage_gauge_drain_routes()
-	_test_original_slow_stack_math()
+	_test_fire_zone_no_longer_stacks_slow()
 	_test_plasma_audio_relative_gains()
 	print("smasher_plasma_parity_smoke: ok")
 	quit(0)
@@ -162,7 +162,7 @@ func _test_stage_gauge_drain_routes() -> void:
 	_expect(not hongryun_gauge.hongryun_ready, "Hongryun ready flag should clear when plasma drains below max")
 
 
-func _test_original_slow_stack_math() -> void:
+func _test_fire_zone_no_longer_stacks_slow() -> void:
 	var boss_ai: Object = BossAIState.new()
 	var multiplier: float = boss_ai._get_active_item_slow_multiplier({
 		"active_item_molotov_slow_active": true,
@@ -170,7 +170,7 @@ func _test_original_slow_stack_math() -> void:
 		"smasher_plasma_boss_slow_active": true,
 		"smasher_plasma_boss_slow_multiplier": 0.75,
 	})
-	_expect(is_equal_approx(multiplier, 0.375), "boss slows should multiply together like the Python reference")
+	_expect(is_equal_approx(multiplier, 0.75), "molotov fire-zone movement obstruction should no longer stack a boss slow multiplier")
 
 
 func _test_plasma_audio_relative_gains() -> void:

@@ -201,6 +201,23 @@ class FakeAiState:
 		last_replace_current = replace_current
 
 
+class FakeActiveItemRuntime:
+	extends RefCounted
+
+	var molotov_fire_zone_calls: Array = []
+
+	func trigger_molotov_fire_zone(
+		center: Vector2,
+		_owner: Object = null,
+		_registry: Object = null,
+		play_feedback_audio: bool = true
+	) -> void:
+		molotov_fire_zone_calls.append({
+			"center": center,
+			"play_feedback_audio": play_feedback_audio,
+		})
+
+
 class FakeOwner:
 	extends RefCounted
 
@@ -466,7 +483,9 @@ func _verify_suicide_drone_edge_only_blast_does_not_stun() -> void:
 	_expect(not bool(result.get("commando_suicide_drone_hit_boss", true)), "suicide drone edge-only blast should report no boss hit")
 	var status_effect_state: Object = setup.get("status_effect_state", null)
 	var animation_state: Object = setup.get("animation_state", null)
+	var active_item_runtime: Object = setup.get("active_item_runtime", null)
 	_expect(_get_array(status_effect_state.get_calls_for_source("commando_firearm_suicide_drone")).is_empty(), "suicide drone edge-only blast should not apply boss status")
+	_expect(_get_array(active_item_runtime.molotov_fire_zone_calls).size() == 1, "suicide drone edge-only blast should still spawn the molotov fire-zone residue")
 	_expect(animation_state.boss_hit_calls == 0, "suicide drone edge-only blast should not trigger boss hit animation")
 	_expect(_get_array(runtime.get_recent_hit_events()).is_empty(), "suicide drone edge-only blast should not record a boss hit event")
 
@@ -1267,17 +1286,17 @@ func _verify_lingering_field_runtime() -> void:
 	var drone_runtime: Object = drone_setup.get("runtime", null)
 	var drone_deps: Dictionary = drone_setup.get("deps", {})
 	var drone_status: Object = drone_setup.get("status_effect_state", null)
+	var drone_active_items: Object = drone_setup.get("active_item_runtime", null)
 	drone_runtime._register_projectile_hit(_direct_projectile("suicide_drone", Vector2(360.0, 82.0), Vector2(8.0, -8.0)), config, drone_deps)
 	var drone_fields: Array = _get_array(drone_runtime.get_actor_draw_context().get("commando_firearm_lingering_effects", []))
-	_expect(drone_fields.size() == 1, "suicide drone detonation should leave one lingering fire zone")
-	_expect(str(_get_dict(drone_fields[0]).get("kind", "")) == "fire_zone", "suicide drone lingering effect should expose fire_zone kind")
-	_expect(_get_array(_get_dict(drone_fields[0]).get("flames", [])).size() == 15, "fire zone should expose deterministic flame particles for the renderer")
+	_expect(drone_fields.is_empty(), "suicide drone should not create a separate Commando-only fire zone")
+	var fire_zone_calls: Array = _get_array(drone_active_items.molotov_fire_zone_calls)
+	_expect(fire_zone_calls.size() == 1, "suicide drone detonation should register one molotov fire zone")
+	_expect(_get_vector2(_get_dict(fire_zone_calls[0]).get("center", Vector2.ZERO), Vector2.ZERO) == Vector2(360.0, 82.0), "suicide drone molotov fire zone should spawn at the detonation center")
+	_expect(not bool(_get_dict(fire_zone_calls[0]).get("play_feedback_audio", true)), "suicide drone should reuse molotov fire-zone gameplay without double-playing molotov explosion feedback")
 	drone_runtime.update_effects(1.0, Time.get_ticks_msec(), config, drone_deps)
 	var drone_calls_after_tick: Array = _get_array(drone_status.get_calls_for_source("commando_firearm_suicide_drone"))
-	_expect(drone_calls_after_tick.size() == 2, "suicide drone fire zone should tick one extra lingering slow after the initial stun")
-	var drone_lingering_call: Dictionary = _find_call_with_source_fragment(drone_calls_after_tick, "_lingering_")
-	_expect(str(drone_lingering_call.get("status_id", "")) == "slow", "suicide drone fire zone tick should refresh slow")
-	_expect(is_equal_approx(float(_get_dict(drone_lingering_call.get("data", {})).get("multiplier", 0.0)), 0.5), "suicide drone fire zone slow should match the fire-zone first-port multiplier")
+	_expect(drone_calls_after_tick.size() == 1, "suicide drone should not add Commando-only lingering slow on top of the molotov fire-zone path")
 
 
 func _verify_fire_support_call_lifecycle() -> void:
@@ -1654,7 +1673,8 @@ func _verify_suicide_drone_direct_control_lifecycle() -> void:
 	_expect(str(manual.get("commando_suicide_drone_reason", "")) == "manual", "manual suicide drone detonation should preserve its reason")
 	_expect(is_equal_approx(float(manual.get("commando_suicide_drone_cooldown_frames", 0.0)), 90.0), "suicide drone detonation should start the Python 90-frame cooldown")
 	_expect(_get_array(runtime.get_actor_draw_context().get("commando_firearm_projectiles", [])).is_empty(), "detonated suicide drone should remove the drone body")
-	_expect(not _get_array(runtime.get_actor_draw_context().get("commando_firearm_lingering_effects", [])).is_empty(), "suicide drone detonation should leave a fire-zone effect")
+	var active_item_runtime: Object = setup.get("active_item_runtime", null)
+	_expect(_get_array(active_item_runtime.molotov_fire_zone_calls).size() == 1, "suicide drone detonation should leave a molotov fire-zone effect")
 	_expect(audio.suicide_drone_explosion_calls == 1, "suicide drone detonation should play the explosion cue")
 	_expect(audio.suicide_drone_stop_calls >= 1, "suicide drone detonation should stop the loop cue")
 
@@ -1919,6 +1939,7 @@ func _build_setup(weapon_id: String) -> Dictionary:
 	var audio := FakeAudio.new()
 	var status_effect_state := FakeStatusEffectState.new()
 	var ai_state := FakeAiState.new()
+	var active_item_runtime := FakeActiveItemRuntime.new()
 	_expect(bool(config.unlock_and_equip_skill(weapon_id)), "%s should unlock for runtime setup" % weapon_id)
 	controller.sync_equipped_permanent(config)
 	_expect(bool(controller.set_current_weapon(weapon_id)), "%s should become selectable for runtime setup" % weapon_id)
@@ -1934,6 +1955,7 @@ func _build_setup(weapon_id: String) -> Dictionary:
 		"audio": audio,
 		"status_effect_state": status_effect_state,
 		"ai_state": ai_state,
+		"active_item_runtime": active_item_runtime,
 		"deps": {
 			"commando_weapon_controller": controller,
 			"skill_state": state,
@@ -1945,6 +1967,7 @@ func _build_setup(weapon_id: String) -> Dictionary:
 			"audio": audio,
 			"status_effect_state": status_effect_state,
 			"ai_state": ai_state,
+			"active_item_runtime": active_item_runtime,
 		},
 	}
 

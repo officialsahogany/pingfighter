@@ -437,10 +437,6 @@ const WEAPON_LINGERING_EFFECTS := {
 		"duration_frames": 150.0,
 		"width": 150.0,
 		"height": 60.0,
-		"status_id": LINGERING_STATUS_ID_SLOW,
-		"status_duration_frames": 36.0,
-		"status_interval_frames": 30.0,
-		"slow_multiplier": 0.5,
 		"color": Color(1.0, 0.28, 0.08),
 		"secondary": Color(1.0, 0.78, 0.18),
 	},
@@ -2733,7 +2729,7 @@ func _detonate_suicide_drone_at_index(
 	if hit_boss:
 		_register_projectile_hit(projectile, context, deps)
 	else:
-		_spawn_lingering_effect("suicide_drone", projectile, context)
+		_spawn_weapon_lingering_effect("suicide_drone", projectile, context, deps)
 		_spawn_shared_impact_particles(pos, _get_color(projectile.get("color", Color.WHITE), Color.WHITE), _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 1.0, deps)
 		_trigger_hit_feedback(_get_hit_feedback_profile("suicide_drone"), deps)
 		_register_ball_hit_pulse(pos, _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 0.86, "suicide_drone", deps)
@@ -2986,7 +2982,7 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 	var combat_result: Dictionary = _apply_weapon_hit_result(weapon_id, projectile, context, deps)
 	_queue_boss_damage(combat_result)
 	_queue_special_gauge_gain(combat_result)
-	var lingering_result: Dictionary = _spawn_lingering_effect(weapon_id, projectile, context)
+	var lingering_result: Dictionary = _spawn_weapon_lingering_effect(weapon_id, projectile, context, deps)
 	if not lingering_result.is_empty():
 		combat_result["lingering_effect"] = lingering_result
 	var hit_event: Dictionary = CommandoFirearmProjectileImpactState.build_hit_event(
@@ -3285,6 +3281,39 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 	_seed_lingering_fire_flames(effect)
 	_append_limited(lingering_effects, effect, LINGERING_EFFECT_LIMIT)
 	return _build_lingering_spawn_result(effect, duration)
+
+
+func _spawn_weapon_lingering_effect(
+	weapon_id: String,
+	projectile: Dictionary,
+	context: Dictionary,
+	deps: Dictionary
+) -> Dictionary:
+	if weapon_id == "suicide_drone":
+		return _spawn_suicide_drone_fire_zone(projectile, context, deps)
+	return _spawn_lingering_effect(weapon_id, projectile, context)
+
+
+func _spawn_suicide_drone_fire_zone(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
+	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	if _trigger_active_item_molotov_fire_zone(pos, deps):
+		return {
+			"kind": "fire_zone",
+			"duration_frames": ActiveItemThrowController.MOLOTOV_FIRE_DURATION_FRAMES,
+			"source": "active_item_molotov_fire_zone",
+		}
+	return _spawn_lingering_effect("suicide_drone", projectile, context)
+
+
+func _trigger_active_item_molotov_fire_zone(pos: Vector2, deps: Dictionary) -> bool:
+	var active_item_runtime: Object = deps.get("active_item_runtime", null)
+	var registry: Object = deps.get("registry", null)
+	if active_item_runtime == null:
+		active_item_runtime = _get_instance(registry, "active_item_runtime")
+	if active_item_runtime == null or not active_item_runtime.has_method("trigger_molotov_fire_zone"):
+		return false
+	active_item_runtime.trigger_molotov_fire_zone(pos, null, registry, false)
+	return true
 
 
 func _get_lingering_effect_duration(profile: Dictionary, is_net: bool, dissolve: bool) -> float:

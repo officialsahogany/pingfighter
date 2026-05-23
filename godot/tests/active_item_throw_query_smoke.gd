@@ -80,7 +80,8 @@ func _verify_controller_delegates_actor_and_boss_contexts() -> void:
 	_expect(bool(boss_context.get("active_item_grenade_knockback_active", false)), "boss context should expose grenade knockback")
 	_expect(is_equal_approx(float(boss_context.get("active_item_grenade_knockback_vel", 0.0)), -7.5), "boss context should preserve knockback velocity")
 	_expect(bool(boss_context.get("active_item_flare_confusion_active", false)), "boss context should expose flare confusion")
-	_expect(bool(boss_context.get("active_item_molotov_slow_active", false)), "boss context should expose molotov slow")
+	_expect(not bool(boss_context.get("active_item_molotov_slow_active", true)), "molotov fire zone should no longer expose boss slow")
+	_expect(is_equal_approx(float(boss_context.get("active_item_molotov_slow_factor", 0.0)), 1.0), "molotov fire zone slow factor should stay neutral")
 	_expect(bool(boss_context.get("active_item_boss_skill_cooldown_paused", false)), "boss context should expose tear gas cooldown pause")
 	_expect(float(boss_context.get("active_item_banana_slip_speed", 0.0)) > controller.BANANA_SLIP_BASE_SPEED, "boss context should compute banana slip speed")
 

@@ -1028,8 +1028,6 @@ func _update_whip_deactivation_velocity(
 
 func _get_active_item_slow_multiplier(context: Dictionary) -> float:
 	var multiplier := 1.0
-	if bool(context.get("active_item_molotov_slow_active", false)):
-		multiplier *= clamp(float(context.get("active_item_molotov_slow_factor", 0.5)), 0.05, 1.0)
 	if bool(context.get("active_item_spider_mine_slow_active", false)):
 		multiplier *= clamp(float(context.get("active_item_spider_mine_slow_factor", 0.4)), 0.05, 1.0)
 	if bool(context.get("smasher_plasma_boss_slow_active", false)):
