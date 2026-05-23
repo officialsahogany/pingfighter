@@ -10,22 +10,22 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `36f1652ff godot: move mythic polish multiplier into roll query`.
-- The checkpoint span through that HEAD contains 144 follow-up commits after
+  `e05f78aa7 godot: split mythic catalog roll helpers`.
+- The checkpoint span through that HEAD contains 146 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 145 commits.
+  contains 147 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `b841d61fe docs: record mythic owner sync detail cleanup`.
+  `0ff3b6163 docs: record mythic polish multiplier cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
   `2001105b6 docs: record final local settings hide`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
-  `godot/` passed on 2026-05-23 with `1280` scripts scanned and no GDScript
+  `godot/` passed on 2026-05-23 with `1281` scripts scanned and no GDScript
   warnings.
 - Current dirty scope before this documentation sync: `git status
   --porcelain=v1 -uall` is clean.
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the ninetieth split. The broad
+- The split notes below are current through the ninety-first split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4230,6 +4230,28 @@ Ninetieth split on 2026-05-23:
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending
   notice for `mythic_item_runtime.gd`.
+
+Ninety-first split on 2026-05-23:
+
+- Commit: `e05f78aa7 godot: split mythic catalog roll helpers`.
+- Scope: added `mythic_item_catalog_rolls.gd` for mythic/passive catalog roll
+  defaults, random roll generation, rolled-option decoration, roll-field
+  synchronization, default roll lookup, and passive quality prefix assignment.
+  `mythic_item_catalog.gd` keeps the existing public catalog API and delegates
+  those roll helpers to the new owner.
+- Rationale: roll generation / synchronization is a distinct catalog subdomain
+  and can move without changing the public `MythicItemCatalog` constants or
+  caller-facing methods that HUD, reward, pickup, and smoke-test paths use.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `2485` lines to
+  `2418` lines; the new roll helper is `98` lines.
+- Validation: focused catalog / roll / quality coverage
+  (`passive_item_quality_prefix_smoke`, `item_polish_perk_port_smoke`,
+  `item_field_spawn_pool_smoke`, `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`, and
+  `mythic_item_ownership_runtime_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1281` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
