@@ -5495,6 +5495,20 @@ Hundredth split on 2026-05-24:
 - Validation: `commando_firearm_selector_renderer_smoke` passed, including
   prewarm and panel-state coverage for the Fire Support bomb ammo icon.
 
+146th follow-up on 2026-05-24:
+
+- Commit: `df4a14571 godot: split BattlePerf spike window reporter`.
+- Scope: split the focused BattlePerf spike-window formatter out of
+  `battle_perf_logger.gd` into `battle_perf_spike_window_reporter.gd`. The
+  main logger still owns sampling, counters, interval gating, and log
+  emission; the new helper owns pure threshold checks, trigger summaries,
+  max-hot sorting, focus sorting, and counter-summary attachment. This reduced
+  `battle_perf_logger.gd` from 1355 to 1164 lines while preserving the same
+  smoke-visible spike-window string contract.
+- Validation: `battle_perf_logger_smoke` passed. `run_warning_scan.ps1`
+  scanned 1316 scripts with no GDScript warnings; the wrapper still printed
+  the known nonfatal Windows root certificate store message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

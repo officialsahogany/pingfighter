@@ -2947,10 +2947,16 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/core/battle_perf_logger.gd`
   Owns opt-in live battle performance sampling for draw-pass investigation:
   `PINGFIGHTER_BATTLE_PERF_LOG` / `battle_perf_log.flag` enablement,
-  microsecond sub-draw aggregation, focused spike-window summaries, and
-  Godot `Performance` monitor output used to compare actor-body rendering,
-  effect layers, weather, items, and HUD overlays before changing runtime
-  behavior.
+  microsecond sub-draw aggregation, spike / gap / physics monitor routing,
+  and Godot `Performance` monitor output used to compare actor-body
+  rendering, effect layers, weather, items, and HUD overlays before changing
+  runtime behavior.
+- `scripts/core/battle_perf_spike_window_reporter.gd`
+  Owns focused BattlePerf spike-window summary formatting: draw-shell /
+  draw-frame / playfield / active-item / focus-label thresholds, trigger
+  lists, max-hot sorting, focus sorting, and counter-summary attachment.
+  Keep this reporter pure; the main logger owns collection and interval
+  gating.
 - `scripts/core/battle_playfield_overlay_drawer.gd`
   Owns playfield overlay draw helpers inside the transformed pass: skill
   feedback banners, serve-wait indicator dispatch, and scoreboard overlay
