@@ -387,13 +387,14 @@ This section is intentionally long; use search to find the nearest owner.
   spawn chance lookup behind the public catalog item-data dictionaries.
   `mythic_item_catalog.gd` item builders should call `get_field_chance()`
   instead of duplicating `*_FIELD_CHANCE` constants inline.
-  `scripts/items/mythic_item_catalog_rolls.gd` owns the
-  catalog roll-option source arrays, item-name roll-option lookup, roll
+  `scripts/items/mythic_item_catalog_roll_definitions.gd` owns the catalog
+  roll-option source arrays and item-name roll-option lookup table behind the
+  public catalog API. `scripts/items/mythic_item_catalog_rolls.gd` owns roll
   defaults, random roll generation, rolled-option decoration, roll-field
   synchronization, default roll lookup, and passive quality prefix assignment
-  behind the public `mythic_item_catalog.gd` API. Catalog item builders should
-  hydrate `"roll_options"` through `get_roll_options(item_name)` instead of
-  duplicating `*_ROLL_OPTIONS` arrays directly.
+  while delegating option lookup to the definition owner. Catalog item builders
+  should hydrate `"roll_options"` through `get_roll_options(item_name)` instead
+  of duplicating `*_ROLL_OPTIONS` arrays directly.
   Broader mythic shop/gacha routing remains future item-domain work.
 - `scripts/items/mythic_item_acquisition_cinematic_runtime.gd`
   Owns mythic-item acquisition cinematic orchestration: v2 cinematic script

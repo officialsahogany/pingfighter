@@ -4757,6 +4757,30 @@ Hundredth split on 2026-05-24:
   matched by that query. `.\tools\run_warning_scan.ps1` passed with `1288`
   scripts scanned and no GDScript warnings. `git diff --check` passed.
 
+111th split on 2026-05-24:
+
+- Commit: `1b42b5a9f godot: split mythic catalog roll definitions`.
+- Scope: added `mythic_item_catalog_roll_definitions.gd` for the mythic /
+  passive roll-option source arrays and item-name lookup table. The existing
+  `mythic_item_catalog_rolls.gd` helper now keeps roll defaults, random roll
+  generation, rolled-option decoration, roll-field synchronization, default
+  roll lookup, and passive quality prefix assignment while delegating option
+  lookup to the definition owner.
+- Rationale: after the item-builder split, `mythic_item_catalog_rolls.gd`
+  was mostly static data. Moving the option definitions into a data-only owner
+  keeps the public catalog roll helper small and preserves the same
+  `get_roll_options(item_name)` duplicate-return contract for builders,
+  reward flows, debug inventory, and tooltip/UI consumers.
+- Roll helper size: `mythic_item_catalog_rolls.gd` moved from `920` lines to
+  `104` lines; the new `mythic_item_catalog_roll_definitions.gd` file is
+  `821` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused catalog / roll coverage selected by direct catalog, roll,
+  `sync_roll_fields`, `roll_options`, and `rolled_options` references ran
+  `51` smoke scripts and passed, including every direct passive / mythic item
+  port smoke matched by that query. `.\tools\run_warning_scan.ps1` passed with
+  `1289` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
