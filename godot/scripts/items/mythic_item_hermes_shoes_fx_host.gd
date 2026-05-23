@@ -2,9 +2,10 @@ extends Node2D
 
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 
-const Z_INDEX := -1
+const Z_INDEX := 8
 const VISIBILITY_PADDING := 220.0
 const DEFAULT_PADDLE_SIZE := Vector2(155.0, 50.0)
+const WAKE_SPRITE_COUNT := 7
 const TRAIL_PARTICLE_AMOUNT := 56
 const TRAIL_PARTICLE_LIFETIME := 0.55
 const SPARK_PARTICLE_AMOUNT := 24
@@ -21,6 +22,7 @@ static var _prewarm_done := false
 var _additive_material: CanvasItemMaterial = null
 var _glow_rect: ColorRect = null
 var _glow_material: ShaderMaterial = null
+var _wake_sprites: Array[Sprite2D] = []
 var _trail_particles: GPUParticles2D = null
 var _spark_particles: GPUParticles2D = null
 var _trail_process: ParticleProcessMaterial = null
@@ -33,6 +35,7 @@ var _player_size := DEFAULT_PADDLE_SIZE
 var _move_delta := 0.0
 var _motion_intensity := 0.0
 var _elapsed_sec := 0.0
+var _render_scale := 1.0
 
 
 static func prewarm_assets() -> void:
@@ -51,8 +54,9 @@ func _ready() -> void:
 	z_index = Z_INDEX
 	_additive_material = _make_additive_material()
 	_build_children()
-	visible = false
-	set_process(false)
+	visible = _active or _opacity > 0.001
+	_apply_runtime_state()
+	set_process(visible)
 
 
 func _process(_delta: float) -> void:
@@ -68,7 +72,8 @@ func sync_state(
 	active: bool,
 	move_delta_x: float,
 	shake_offset: Vector2,
-	fps_scale: float
+	fps_scale: float,
+	render_scale: float = 1.0
 ) -> void:
 	if _glow_rect == null:
 		_build_children()
@@ -84,6 +89,8 @@ func sync_state(
 	var blend: float = clamp(step * 0.35, 0.0, 1.0)
 	_motion_intensity = lerp(_motion_intensity, motion_target, blend)
 	position = _player_center
+	_render_scale = max(0.001, render_scale)
+	scale = Vector2(_render_scale, _render_scale)
 	if active != was_active:
 		_animate_opacity(1.0 if active else 0.0)
 	_apply_runtime_state()
@@ -115,9 +122,11 @@ func _apply_runtime_state() -> void:
 			_spark_particles.emitting = false
 		if _glow_rect != null:
 			_glow_rect.visible = false
+		_set_wake_visible(false)
 		return
 	modulate = Color(1.0, 1.0, 1.0, alpha)
 	_update_glow(alpha)
+	_update_texture_wake(alpha)
 	_update_trail(alpha)
 	_update_spark(alpha)
 
@@ -154,6 +163,52 @@ func _update_trail(alpha: float) -> void:
 	_trail_particles.speed_scale = 1.0 + _motion_intensity * 0.55
 	if rate <= 0.0:
 		_trail_particles.emitting = false
+
+
+func _update_texture_wake(alpha: float) -> void:
+	if _wake_sprites.is_empty():
+		return
+	var direction: float = sign(_move_delta)
+	var texture_size: float = float(ImpactFlareTextureCache.SPARKLE_TEXTURE_SIZE)
+	if is_zero_approx(direction):
+		for i in range(_wake_sprites.size()):
+			var idle_sprite: Sprite2D = _wake_sprites[i]
+			var idle_side: float = -1.0 if i % 2 == 0 else 1.0
+			var idle_rank: float = floor(float(i) * 0.5)
+			var idle_size: float = 13.0 + idle_rank * 2.5
+			var idle_alpha: float = alpha * (0.16 - idle_rank * 0.018)
+			var idle_pulse: float = 0.72 + 0.28 * sin(_elapsed_sec * 5.7 + float(i) * 1.91)
+			idle_sprite.visible = idle_alpha > 0.015
+			idle_sprite.position = Vector2(
+				idle_side * (_player_size.x * (0.26 + idle_rank * 0.05)),
+				_player_size.y * 0.28 + sin(_elapsed_sec * 4.1 + float(i)) * 2.5
+			)
+			idle_sprite.scale = Vector2.ONE * idle_size / max(1.0, texture_size)
+			idle_sprite.rotation = _elapsed_sec * (0.45 + idle_rank * 0.16) * idle_side
+			idle_sprite.modulate = Color(0.78, 0.94, 1.0, max(0.0, idle_alpha * idle_pulse))
+		return
+	var wake_strength: float = clamp(0.24 + _motion_intensity * 0.88, 0.0, 1.0)
+	for i in range(_wake_sprites.size()):
+		var sprite: Sprite2D = _wake_sprites[i]
+		var t: float = float(i) / max(1.0, float(_wake_sprites.size() - 1))
+		var back_distance: float = _player_size.x * (0.28 + t * 0.68)
+		var side_wave: float = sin(_elapsed_sec * (7.0 + t * 2.0) + float(i) * 1.73)
+		var sprite_size: float = lerp(24.0, 10.0, t) * (0.88 + 0.18 * side_wave)
+		var twinkle: float = 0.66 + 0.34 * sin(_elapsed_sec * (9.0 + t * 4.0) + float(i) * 2.37)
+		var sprite_alpha: float = alpha * wake_strength * pow(1.0 - t * 0.78, 1.35) * twinkle
+		sprite.visible = sprite_alpha > 0.02
+		sprite.position = Vector2(
+			-direction * back_distance,
+			_player_size.y * (0.12 + t * 0.20) + side_wave * (4.0 + t * 6.0)
+		)
+		sprite.scale = Vector2.ONE * sprite_size / max(1.0, texture_size)
+		sprite.rotation = _elapsed_sec * (0.9 + t * 1.8) * direction + t * PI
+		sprite.modulate = Color(
+			lerp(0.70, 1.0, t),
+			lerp(0.92, 0.98, t),
+			1.0,
+			clamp(sprite_alpha, 0.0, 0.76)
+		)
 
 
 func _update_spark(alpha: float) -> void:
@@ -212,6 +267,17 @@ func _build_children() -> void:
 		_glow_rect.z_index = -2
 		_glow_rect.visible = false
 		add_child(_glow_rect)
+	if _wake_sprites.is_empty():
+		for i in range(WAKE_SPRITE_COUNT):
+			var sprite := Sprite2D.new()
+			sprite.name = "HermesShoesWakeSparkle%d" % i
+			sprite.centered = true
+			sprite.texture = ImpactFlareTextureCache.get_sparkle_texture()
+			sprite.material = _additive_material
+			sprite.z_index = 1 + i
+			sprite.visible = false
+			add_child(sprite)
+			_wake_sprites.append(sprite)
 	if _trail_particles == null:
 		_trail_particles = GPUParticles2D.new()
 		_trail_particles.name = "HermesShoesSparkleTrail"
@@ -221,7 +287,7 @@ func _build_children() -> void:
 		_trail_particles.explosiveness = 0.0
 		_trail_particles.randomness = 0.78
 		_trail_particles.fixed_fps = 60
-		_trail_particles.local_coords = true
+		_trail_particles.local_coords = false
 		_trail_particles.visibility_rect = Rect2(
 			-VISIBILITY_PADDING,
 			-VISIBILITY_PADDING,
@@ -232,7 +298,7 @@ func _build_children() -> void:
 		_trail_particles.material = _additive_material
 		_trail_process = _build_trail_process_material()
 		_trail_particles.process_material = _trail_process
-		_trail_particles.z_index = -1
+		_trail_particles.z_index = 0
 		_trail_particles.emitting = false
 		add_child(_trail_particles)
 	if _spark_particles == null:
@@ -244,7 +310,7 @@ func _build_children() -> void:
 		_spark_particles.explosiveness = 0.0
 		_spark_particles.randomness = 0.92
 		_spark_particles.fixed_fps = 60
-		_spark_particles.local_coords = true
+		_spark_particles.local_coords = false
 		_spark_particles.visibility_rect = Rect2(
 			-VISIBILITY_PADDING,
 			-VISIBILITY_PADDING,
@@ -255,7 +321,7 @@ func _build_children() -> void:
 		_spark_particles.material = _additive_material
 		_spark_process = _build_spark_process_material()
 		_spark_particles.process_material = _spark_process
-		_spark_particles.z_index = 0
+		_spark_particles.z_index = 8
 		_spark_particles.emitting = false
 		add_child(_spark_particles)
 
@@ -313,8 +379,8 @@ static func _build_trail_process_material() -> ParticleProcessMaterial:
 	mat.angular_velocity_max = 180.0
 	mat.damping_min = 22.0
 	mat.damping_max = 64.0
-	mat.scale_min = 0.045
-	mat.scale_max = 0.098
+	mat.scale_min = 0.060
+	mat.scale_max = 0.145
 	mat.color = Color(0.84, 0.94, 1.0, 0.74)
 	var alpha_curve := Curve.new()
 	alpha_curve.add_point(Vector2(0.0, 0.0))
@@ -346,8 +412,8 @@ static func _build_spark_process_material() -> ParticleProcessMaterial:
 	mat.angular_velocity_max = 240.0
 	mat.damping_min = 10.0
 	mat.damping_max = 32.0
-	mat.scale_min = 0.022
-	mat.scale_max = 0.060
+	mat.scale_min = 0.040
+	mat.scale_max = 0.105
 	mat.color = Color(1.0, 0.96, 0.62, 0.86)
 	var alpha_curve := Curve.new()
 	alpha_curve.add_point(Vector2(0.0, 0.0))
@@ -357,3 +423,32 @@ static func _build_spark_process_material() -> ParticleProcessMaterial:
 	alpha_texture.curve = alpha_curve
 	mat.alpha_curve = alpha_texture
 	return mat
+
+
+func _set_wake_visible(next_visible: bool) -> void:
+	for sprite in _wake_sprites:
+		if sprite != null and is_instance_valid(sprite):
+			sprite.visible = next_visible
+
+
+func get_debug_status() -> Dictionary:
+	var visible_wake_count := 0
+	for sprite in _wake_sprites:
+		if sprite != null and is_instance_valid(sprite) and sprite.visible:
+			visible_wake_count += 1
+	return {
+		"active": _active,
+		"visible": visible,
+		"opacity": _opacity,
+		"position": position,
+		"scale": scale,
+		"z_index": z_index,
+		"render_scale": _render_scale,
+		"glow_visible": _glow_rect != null and _glow_rect.visible,
+		"wake_sprite_count": _wake_sprites.size(),
+		"wake_visible_count": visible_wake_count,
+		"trail_emitting": _trail_particles != null and _trail_particles.emitting,
+		"trail_local_coords": _trail_particles != null and _trail_particles.local_coords,
+		"spark_emitting": _spark_particles != null and _spark_particles.emitting,
+		"spark_local_coords": _spark_particles != null and _spark_particles.local_coords,
+	}

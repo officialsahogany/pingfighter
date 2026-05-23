@@ -1,11 +1,19 @@
 extends RefCounted
 
+const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const HermesShoesFxHost := preload("res://scripts/items/mythic_item_hermes_shoes_fx_host.gd")
+
 const HERMES_SHOES_FX_HOST_NAME := "MythicHermesShoesFxHost"
+const PLAYFIELD_GAME_WIDTH := 760.0
+const PLAYFIELD_GAME_HEIGHT := 750.0
 
 var _hermes_fx_host: Node = null
 var _hermes_fx_host_canvas: Object = null
 var _hermes_fx_host_add_pending := false
+var _view_layout: Object = null
+var _cached_viewport_size := Vector2.ZERO
+var _cached_game_offset := Vector2.ZERO
+var _cached_render_scale := 1.0
 
 
 func draw_hermes_shoes_effect(
@@ -29,7 +37,11 @@ func draw_hermes_shoes_effect(
 		if delta_value != null:
 			move_delta_x = float(delta_value)
 	if host.has_method("sync_state"):
-		host.sync_state(player_center, player_size, active, move_delta_x, shake_offset, 1.0)
+		var layout: Dictionary = _get_playfield_layout(canvas)
+		var game_offset: Vector2 = _as_vector2(layout.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+		var render_scale: float = max(0.001, float(layout.get("render_scale", 1.0)))
+		var screen_center: Vector2 = game_offset + (player_center + shake_offset) * render_scale
+		host.sync_state(screen_center, player_size, active, move_delta_x, Vector2.ZERO, 1.0, render_scale)
 
 
 func _get_or_create_hermes_fx_host(canvas: CanvasItem) -> Node:
@@ -66,3 +78,26 @@ func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _get_playfield_layout(canvas: CanvasItem) -> Dictionary:
+	if canvas == null:
+		return {"game_offset": Vector2.ZERO, "render_scale": 1.0}
+	var viewport_size: Vector2 = canvas.get_viewport_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return {"game_offset": Vector2.ZERO, "render_scale": 1.0}
+	if not viewport_size.is_equal_approx(_cached_viewport_size) or _view_layout == null:
+		if _view_layout == null:
+			_view_layout = BattleViewLayout.new()
+		var layout: Dictionary = _view_layout.build_game_layout(
+			viewport_size,
+			PLAYFIELD_GAME_WIDTH,
+			PLAYFIELD_GAME_HEIGHT
+		)
+		_cached_viewport_size = viewport_size
+		_cached_game_offset = _as_vector2(layout.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+		_cached_render_scale = max(0.001, float(layout.get("render_scale", 1.0)))
+	return {
+		"game_offset": _cached_game_offset,
+		"render_scale": _cached_render_scale,
+	}
