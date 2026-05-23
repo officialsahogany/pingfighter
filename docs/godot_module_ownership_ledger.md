@@ -1053,17 +1053,25 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/items/active_item_effect_renderer.gd`
   Owns active consumable effect rendering: pickup acquisition popup,
   pickup particles, Regeneration Potion rings / particles, Giant Potion
-  duration gauge, Stopwatch flash / clock overlay, Magnet Field rings /
-  pull lines / particles / duration gauge, Holy Barrier field wall / symbols
-  / particles / duration gauge, HUD-visual pickup icon lookup, duration-effect
-  icon texture caching, and field-effect draw ordering. The runtime passes
-  through the effect controller's exposed state arrays and timer context.
+  field pulses, Stopwatch flash / clock overlay, Magnet Field rings /
+  pull lines / particles, Holy Barrier field wall / symbols / particles,
+  Dash Boost / Vitamin Pill / Strange Vial field VFX, HUD-visual pickup icon
+  lookup, pickup text sizing caches, and field-effect draw ordering. The
+  runtime passes through the effect controller's exposed state arrays and
+  timer context; timer bars are delegated below.
 - `scripts/items/active_item_brick_wall_effect_renderer.gd`
   Owns Brick Wall field visuals: installed wall variant sheet loading,
   crack path / chip drawing, install gauge, hammer cue, dust and fragment
   particles, and Brick Wall asset prewarm. `active_item_effect_renderer.gd`
   keeps compatibility wrappers for cache smoke tests while delegating live
   Brick Wall field drawing here.
+- `scripts/items/active_item_timer_gauge_renderer.gd`
+  Owns active-item duration gauge rendering for Magnet Field, Holy Barrier,
+  Dash Boost, Vitamin Pill, Strange Vial, and Long Boost: right-bottom timer
+  stack positioning, bar frame / fill / warning pulse drawing, duration icon
+  texture loading and prewarm, and the Magnet Field icon fallback.
+  `active_item_effect_renderer.gd` keeps compatibility icon wrappers and
+  timer-stack claim orchestration while delegating gauge drawing here.
 - `scripts/items/active_item_debug_spawn_menu.gd`
   Owns the F2 active-item debug spawn menu: open / close state, panel and
   row geometry, item entries, icon loading for menu rows, hover rendering,

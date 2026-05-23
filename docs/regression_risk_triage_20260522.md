@@ -5215,6 +5215,32 @@ Hundredth split on 2026-05-24:
   `active_item_effect_update_driver_smoke`. `.\tools\run_warning_scan.ps1`
   passed with `1305` scripts scanned and no GDScript warnings.
 
+128th split on 2026-05-24:
+
+- Commit: `5d45c1532 godot: split active item timer gauge renderer`.
+- Scope: added `active_item_timer_gauge_renderer.gd` for Magnet Field, Holy
+  Barrier, Dash Boost, Vitamin Pill, Strange Vial, and Long Boost timer
+  gauges; right-bottom timer-stack positioning; timer icon loading / prewarm;
+  and the Magnet Field icon fallback. The shared
+  `active_item_effect_renderer.gd` keeps field-effect draw ordering, perf
+  labels, pickup popups, pickup icon lookup, and compatibility icon wrappers
+  while delegating duration bars to the focused renderer.
+- Rationale: the active-item effect renderer still owned a large block of
+  mostly self-contained bottom-right timer gauge code after the Brick Wall
+  split. Moving that block isolates duration-bar visual tuning from field VFX
+  and pickup rendering, and keeps the cache smoke enforcing the new owner.
+- Renderer size: `active_item_effect_renderer.gd` moved from `1253` lines to
+  `799` lines; the new `active_item_timer_gauge_renderer.gd` file is `512`
+  lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused active-item effect / facade coverage ran `5` smoke scripts
+  and passed: `active_item_effect_renderer_cache_smoke`,
+  `active_item_runtime_prewarm_smoke`,
+  `active_item_runtime_render_facade_smoke`,
+  `active_item_runtime_render_facade_direct_smoke`, and
+  `active_item_effect_update_driver_smoke`. `.\tools\run_warning_scan.ps1`
+  passed with `1306` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
