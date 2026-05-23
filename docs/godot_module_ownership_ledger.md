@@ -4731,6 +4731,11 @@ This section is intentionally long; use search to find the nearest owner.
   Hammer and Shrapnel Armor should call this owner directly for boss /
   context immunity checks instead of reintroducing private runtime stage-
   immunity bridge methods.
+- `scripts/items/mythic_item_pickup_bonus.gd`
+  Owns acquisition-side pickup bonuses such as Reinforced Boomerang
+  Gauntlet's immediate Boomerang grant. Equipment flow should call this owner
+  directly for bonus-item building and active-slot-controller lookup instead
+  of reintroducing private runtime pickup-bonus bridge methods.
 - `scripts/items/mythic_item_update_runtime.gd`
   Owns mythic per-frame update sequencing and idle-update fallback routing.
   It calls constants-free focused update owners directly for Smartphone,

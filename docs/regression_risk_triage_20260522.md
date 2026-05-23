@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `afc05b321 godot: route mythic stage immunity through owner`.
-- The checkpoint span through that HEAD contains 134 follow-up commits after
+  `3ff03f835 godot: route boomerang pickup bonus through owner`.
+- The checkpoint span through that HEAD contains 136 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 135 commits.
+  contains 137 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `1283bf3aa docs: record baal lifecycle bridge cleanup`.
+  `38f22b7d2 docs: record mythic stage immunity bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the eighty-fifth split. The broad
+- The split notes below are current through the eighty-sixth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4093,6 +4093,30 @@ Eighty-fifth split on 2026-05-23:
   focused stage-immunity set
   (`ragnarok_hammer_port_smoke`, `shrapnel_armor_port_smoke`,
   `stage2_speed_defense_smoke`, `mythic_item_field_render_budget_smoke`, and
+  `mythic_item_runtime_idle_update_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Eighty-sixth split on 2026-05-23:
+
+- Commit: `3ff03f835 godot: route boomerang pickup bonus through owner`.
+- Scope: `mythic_item_equipment_facade.gd` now calls
+  `mythic_item_pickup_bonus.gd` directly when granting Reinforced Boomerang
+  Gauntlet's immediate Boomerang pickup bonus. The private runtime bridge
+  methods for the pickup bonus, bonus-item build, and active-slot-controller
+  lookup were removed from `mythic_item_runtime.gd`.
+- Rationale: this is an acquisition-side pickup bonus owned by the focused
+  pickup helper. Keeping the runtime facade in that path only re-exported
+  helper behavior and hid the real owner from the equipment flow.
+- `mythic_item_runtime.gd` line count moved from `2569` to `2550` in this
+  code split.
+- Validation passed:
+  focused pickup / equipment set
+  (`reinforced_boomerang_gauntlet_port_smoke`,
+  `mythic_item_ownership_runtime_smoke`,
+  `passive_item_debug_menu_click_add_smoke`, and
   `mythic_item_runtime_idle_update_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
