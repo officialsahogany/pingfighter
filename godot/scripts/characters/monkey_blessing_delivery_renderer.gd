@@ -13,6 +13,43 @@ const FALLBACK_BANANA := Color(1.0, 0.88, 0.18, 1.0)
 var right_sheet: Texture2D
 var left_sheet: Texture2D
 var load_attempted := false
+var _prewarm_assets_done := false
+var _prewarm_step_index := 0
+
+
+func prewarm_assets() -> void:
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_assets_done:
+		return true
+	match _prewarm_step_index:
+		0:
+			right_sheet = ProjectResourceLoader.load_texture(
+				RIGHT_SHEET_PATH,
+				"Missing Monkey Blessing delivery sheet at %s",
+				"Failed to load Monkey Blessing delivery sheet at %s"
+			)
+		1:
+			left_sheet = ProjectResourceLoader.load_texture(
+				LEFT_SHEET_PATH,
+				"Missing Monkey Blessing mirrored delivery sheet at %s",
+				"Failed to load Monkey Blessing mirrored delivery sheet at %s"
+			)
+		_:
+			load_attempted = true
+			_prewarm_assets_done = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	if _prewarm_step_index > 1:
+		load_attempted = true
+		_prewarm_assets_done = true
+		_prewarm_step_index = 0
+		return true
+	return false
 
 
 func draw(canvas: CanvasItem, snapshot: Dictionary, shake_offset: Vector2) -> void:
@@ -53,17 +90,7 @@ func draw(canvas: CanvasItem, snapshot: Dictionary, shake_offset: Vector2) -> vo
 func _ensure_textures() -> void:
 	if load_attempted:
 		return
-	load_attempted = true
-	right_sheet = ProjectResourceLoader.load_texture(
-		RIGHT_SHEET_PATH,
-		"Missing Monkey Blessing delivery sheet at %s",
-		"Failed to load Monkey Blessing delivery sheet at %s"
-	)
-	left_sheet = ProjectResourceLoader.load_texture(
-		LEFT_SHEET_PATH,
-		"Missing Monkey Blessing mirrored delivery sheet at %s",
-		"Failed to load Monkey Blessing mirrored delivery sheet at %s"
-	)
+	prewarm_assets()
 
 
 func _draw_fallback_monkey(

@@ -35,6 +35,19 @@ var owner_ref: Object
 var registry_ref: Object
 
 
+func prewarm_assets() -> void:
+	if renderer != null and renderer.has_method("prewarm_assets"):
+		renderer.prewarm_assets()
+
+
+func prewarm_assets_step() -> bool:
+	if renderer != null and renderer.has_method("prewarm_assets_step"):
+		return bool(renderer.prewarm_assets_step())
+	if renderer != null and renderer.has_method("prewarm_assets"):
+		renderer.prewarm_assets()
+	return true
+
+
 func reset() -> void:
 	active = false
 	phase = PHASE_NONE
