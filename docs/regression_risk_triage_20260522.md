@@ -10,22 +10,22 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `ea8703205 godot: reuse mythic field order for debug catalog items`.
-- The checkpoint span through that HEAD contains 154 follow-up commits after
+  `0e3fcda43 godot: split mythic catalog fixed options`.
+- The checkpoint span through that HEAD contains 156 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 155 commits.
+  contains 157 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `2c1c9c0db docs: record mythic catalog roll option helper split`.
+  `88346c70c docs: record mythic debug order cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
   `2001105b6 docs: record final local settings hide`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
-  `godot/` passed on 2026-05-24 with `1283` scripts scanned and no GDScript
+  `godot/` passed on 2026-05-24 with `1284` scripts scanned and no GDScript
   warnings.
 - Current dirty scope before this documentation sync: `git status
   --porcelain=v1 -uall` is clean.
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the ninety-fifth split. The broad
+- The split notes below are current through the ninety-sixth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4341,6 +4341,29 @@ Ninety-fifth split on 2026-05-24:
   `mythic_item_ownership_runtime_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1283` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
+
+Ninety-sixth split on 2026-05-24:
+
+- Commit: `0e3fcda43 godot: split mythic catalog fixed options`.
+- Scope: added `mythic_item_catalog_fixed_options.gd` for fixed-option source
+  arrays and item-name lookup. Catalog item builders now call
+  `get_fixed_options(item_name)` for Speed Gear, Gravity Belt, Revival Charm,
+  Gold Bar, Sage Ring, Reinforced Boomerang Gauntlet, and Dash Holder instead
+  of duplicating fixed-option arrays directly.
+- Rationale: fixed display options are a catalog presentation subdomain and
+  should not sit beside field-spawn constants in the item-definition facade.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `1491` lines to
+  `1434` lines; the new fixed-options helper is `81` lines.
+- Validation: focused fixed-option item coverage (`speedgear_port_smoke`,
+  `gravitybelt_port_smoke`, `revival_port_smoke`, `gold_bar_port_smoke`,
+  `reinforced_boomerang_gauntlet_port_smoke`, and
+  `sage_ring_port_smoke`) plus catalog / pickup / reward coverage
+  (`active_item_pickup_router_smoke`, `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`, and
+  `mythic_item_ownership_runtime_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1284` scripts scanned, no GDScript
   warnings). `git diff --check` passed.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23

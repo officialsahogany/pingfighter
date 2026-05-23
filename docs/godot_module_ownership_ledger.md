@@ -356,7 +356,9 @@ This section is intentionally long; use search to find the nearest owner.
   Ragnarok Hammer, Poseidon's Trident, Heavenly Cape, Baal's Boots, and
   Pandora's Legacy. `scripts/items/mythic_item_catalog_presentation.gd` owns
   display-name lookup, quality-prefix formatting, and quality color lookup
-  behind the public catalog API. `scripts/items/mythic_item_catalog_lists.gd`
+  behind the public catalog API. `scripts/items/mythic_item_catalog_fixed_options.gd`
+  owns fixed-option source arrays and item-name fixed-option lookup behind
+  the public catalog API. `scripts/items/mythic_item_catalog_lists.gd`
   owns debug item and field-spawn item list construction behind the public catalog API;
   debug item construction reuses `FIELD_SPAWN_ORDER` so there is one catalog
   order source for HUD prewarm, pickup, reward, field-spawn, and debug paths.
