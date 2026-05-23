@@ -126,7 +126,18 @@ func _verify_helper_owns_grenade_flare_impact_status() -> void:
 	_expect(is_equal_approx(controller.grenade_boss_knockback_timer_frames, controller.GRENADE_BOSS_KNOCKBACK_FRAMES), "grenade helper should apply boss knockback")
 	_expect(is_equal_approx(controller.grenade_boss_knockback_vel, controller.GRENADE_BOSS_KNOCKBACK_POWER), "grenade helper should apply knockback direction")
 	_expect(registry.audio.calls == ["play_grenade_explosion"], "grenade helper should play explosion audio")
-	_expect(registry.feedback.shakes == [Vector2(0.24, 7.0)], "grenade helper should request explosion shake")
+	_expect(
+		registry.feedback.shakes == [Vector2(controller.GRENADE_SCREEN_SHAKE_AMOUNT, controller.GRENADE_SCREEN_SHAKE_INTENSITY)],
+		"grenade helper should request Python-parity explosion shake"
+	)
+	_expect(
+		is_equal_approx(controller.GRENADE_SCREEN_SHAKE_AMOUNT, 40.0 / 30.0),
+		"grenade explosion shake should preserve the original 40-frame decay"
+	)
+	_expect(
+		is_equal_approx(controller.GRENADE_SCREEN_SHAKE_AMOUNT * controller.GRENADE_SCREEN_SHAKE_INTENSITY, 12.0),
+		"grenade explosion shake should start near the original 12px horizontal offset"
+	)
 
 	helper.update_explosion_zones(controller, 1.0 / 60.0)
 	_expect(

@@ -63,6 +63,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_helper_spawns_dynamite_projectile()
 	_verify_controller_windup_release_delegates_dynamite()
+	_verify_bottom_launch_survives_fractional_frame()
 	_verify_projectile_lands_as_placed_dynamite()
 	_verify_projectile_places_at_target_x_without_left_overshoot()
 	_verify_placed_dynamite_explodes_and_updates_boss_effect()
@@ -118,6 +119,32 @@ func _verify_controller_windup_release_delegates_dynamite() -> void:
 	_expect(controller.get_pending_throws().is_empty(), "dynamite windup release should clear pending queue")
 	_expect(controller.get_dynamites().size() == 1, "dynamite windup release should spawn projectile")
 	_expect(registry.audio.calls == ["play_throw"], "dynamite windup release should play throw audio")
+
+
+func _verify_bottom_launch_survives_fractional_frame() -> void:
+	var helper: Object = ActiveItemThrowDynamite.new()
+	var controller: Object = ActiveItemThrowController.new()
+	var owner := FakeOwner.new()
+	owner.player_pos = Vector2(300.0, 700.0)
+	var registry := FakeRegistry.new()
+	var pending_throw := {
+		"start_position": Vector2(377.5, 725.0),
+		"target_position": Vector2(390.0, controller.DYNAMITE_LAND_Y),
+	}
+
+	helper.throw_dynamite(controller, owner, pending_throw, registry)
+	var start_pos: Vector2 = _get_vector2(controller.get_dynamites()[0], "position")
+
+	controller._update_dynamite_projectiles(registry, 0.25)
+
+	_expect(controller.get_dynamites().size() == 1, "bottom-launched dynamite should not be culled before it visibly rises")
+	_expect(controller.get_placed_dynamites().is_empty(), "bottom-launched dynamite should not instantly become a placed dynamite")
+	if controller.get_dynamites().is_empty():
+		return
+	var dynamite: Dictionary = controller.get_dynamites()[0]
+	var pos: Vector2 = _get_vector2(dynamite, "position")
+	_expect(pos.y < start_pos.y, "bottom-launched dynamite should move upward during the first fractional frame")
+	_expect(pos.y < controller.FIELD_HEIGHT, "bottom-launched dynamite should remain inside the visible playfield")
 
 
 func _verify_projectile_lands_as_placed_dynamite() -> void:

@@ -24,6 +24,8 @@ const GRENADE_TARGET_RANDOM_X := 30.0
 const GRENADE_TARGET_REACHED_DISTANCE := 30.0
 const GRENADE_EXPLOSION_RADIUS := 190.0
 const GRENADE_EXPLOSION_DURATION_FRAMES := 25.0
+const GRENADE_SCREEN_SHAKE_AMOUNT := 40.0 / 30.0
+const GRENADE_SCREEN_SHAKE_INTENSITY := 9.0
 const GRENADE_BOSS_STUN_FRAMES := 126.0
 const GRENADE_BOSS_KNOCKBACK_FRAMES := 18.0
 const GRENADE_BOSS_KNOCKBACK_POWER := 38.4
@@ -182,6 +184,8 @@ var dynamites: Array[Dictionary] = []
 var placed_dynamites: Array[Dictionary] = []
 var molotovs: Array[Dictionary] = []
 var molotov_fire_zones: Array[Dictionary] = []
+@warning_ignore("unused_private_class_variable")
+var _molotov_zone_id_counter: int = 0
 var boomerangs: Array[Dictionary] = []
 var banana_projectiles: Array[Dictionary] = []
 var landed_bananas: Array[Dictionary] = []

@@ -135,6 +135,12 @@ func _verify_projectile_ignites_fire_zone() -> void:
 	_expect(_get_array(zone, "flames").size() == controller.MOLOTOV_FIRE_INITIAL_FLAMES, "fire zone should seed initial flames")
 	_expect(registry.audio.calls == ["play_molotov_explosion"], "fire zone should play molotov explosion audio")
 	_expect(registry.feedback.shakes.size() == 1, "fire zone should request impact shake")
+	# Modular VFX host pool keys fire zones by zone_id, so trigger_fire_zone
+	# must stamp a unique non-zero id on every spawn. age_frames also has to
+	# start at zero so the renderer can detect the first frame and fire the
+	# one-shot explosion burst tween.
+	_expect(int(zone.get("zone_id", 0)) > 0, "fire zone should be stamped with a non-zero zone_id for VFX host matching")
+	_expect(is_equal_approx(float(zone.get("age_frames", -1.0)), 0.0), "fire zone should start with age_frames at 0")
 
 
 func _verify_direct_fire_zone_clamps_to_visible_center() -> void:
@@ -181,7 +187,7 @@ func _verify_renderer_ellipse_preserves_playfield_transform() -> void:
 		"molotov fire-zone ellipse helper should not override the transformed playfield canvas"
 	)
 	_expect(
-		body.find("draw_colored_polygon") >= 0,
+		body.find("draw_colored_polygon") >= 0 or body.find("draw_mesh") >= 0,
 		"molotov fire-zone ellipse helper should draw in the caller's existing coordinate space"
 	)
 

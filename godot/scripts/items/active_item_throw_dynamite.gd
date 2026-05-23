@@ -254,7 +254,7 @@ func _update_projectiles(controller: Object, registry: Object, fps_scale: float)
 			placed_pos.y = _get_float(controller, "DYNAMITE_LAND_Y")
 			place_dynamite(controller, placed_pos, registry)
 			continue
-		if pos.y > field_height - 50.0:
+		if pos.y > field_height + 50.0:
 			continue
 		dynamites[write_index] = dynamite
 		write_index += 1

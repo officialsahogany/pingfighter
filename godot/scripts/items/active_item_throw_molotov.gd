@@ -93,7 +93,18 @@ func trigger_fire_zone(controller: Object, _owner: Object, registry: Object, cen
 	var fire_width: float = _get_commando_range_value(controller, registry, _get_float(controller, "MOLOTOV_FIRE_WIDTH"))
 	var fire_height: float = _get_commando_range_value(controller, registry, _get_float(controller, "MOLOTOV_FIRE_HEIGHT"))
 	var zone_center: Vector2 = _resolve_fire_zone_center(controller, center, fire_width, fire_height)
+	# zone_id is a monotonic counter the renderer uses to match a fire zone
+	# to its modular VFX host across frames. age_frames lets the renderer
+	# detect the first frame so it can fire the one-shot explosion burst.
+	var next_zone_id: int = 1
+	if controller != null:
+		var current_id: Variant = controller.get("_molotov_zone_id_counter")
+		if current_id is int:
+			next_zone_id = int(current_id) + 1
+		controller.set("_molotov_zone_id_counter", next_zone_id)
 	var fire_zone := {
+		"zone_id": next_zone_id,
+		"age_frames": 0.0,
 		"position": zone_center,
 		"width": fire_width,
 		"height": fire_height,
@@ -137,6 +148,7 @@ func update_fire_zones(controller: Object, owner: Object, registry: Object, delt
 		if duration_frames <= 0.0:
 			continue
 		zone["duration_frames"] = duration_frames
+		zone["age_frames"] = float(zone.get("age_frames", 0.0)) + fps_scale
 		var center: Vector2 = _get_vector2(zone, "position", Vector2(field_width * 0.5, 15.0))
 		var width: float = float(zone.get("width", _get_float(controller, "MOLOTOV_FIRE_WIDTH")))
 		var height: float = float(zone.get("height", _get_float(controller, "MOLOTOV_FIRE_HEIGHT")))

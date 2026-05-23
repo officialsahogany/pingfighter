@@ -209,10 +209,14 @@ func trigger_grenade_explosion(controller: Object, owner: Object, registry: Obje
 		"source": "grenade",
 	})
 	apply_grenade_boss_effect(controller, owner, explosion_center, radius)
+	_destroy_stage2_rocks_in_explosion(owner, registry, explosion_center, radius, "grenade")
 
 	var feedback: Object = _get_instance(registry, "battle_feedback_state")
 	if feedback != null and feedback.has_method("max_screen_shake"):
-		feedback.max_screen_shake(0.24, 7.0)
+		feedback.max_screen_shake(
+			_get_float(controller, "GRENADE_SCREEN_SHAKE_AMOUNT", 40.0 / 30.0),
+			_get_float(controller, "GRENADE_SCREEN_SHAKE_INTENSITY", 9.0)
+		)
 
 	var audio: Object = _get_instance(registry, "game_audio")
 	if audio != null and audio.has_method("play_grenade_explosion"):
@@ -241,6 +245,50 @@ func apply_grenade_boss_effect(controller: Object, owner: Object, center: Vector
 	var knockback_vel: float = direction * _get_float(controller, "GRENADE_BOSS_KNOCKBACK_POWER")
 	if abs(knockback_vel) >= abs(_get_float(controller, "grenade_boss_knockback_vel")):
 		_set_float(controller, "grenade_boss_knockback_vel", knockback_vel)
+
+
+func _destroy_stage2_rocks_in_explosion(
+	owner: Object,
+	registry: Object,
+	center: Vector2,
+	radius: float,
+	source: String
+) -> int:
+	if int(BattleSceneOwnerReader.get_value(owner, "current_stage", 1)) != 2:
+		return 0
+	var hit_count := 0
+	var context := {
+		"current_stage": 2,
+		"source": source,
+	}
+	var deps := {
+		"audio": _get_instance(registry, "game_audio"),
+		"feedback": _get_instance(registry, "battle_feedback_state"),
+		"stage2_boss_skill_state": _get_instance(registry, "stage2_boss_skill_state"),
+	}
+	for target in _get_stage2_rock_collision_targets(registry):
+		hit_count += max(0, int(target.resolve_explosion_rock_collision(center, radius, deps, context)))
+	return hit_count
+
+
+func _get_stage2_rock_collision_targets(registry: Object) -> Array:
+	var targets: Array = []
+	_append_stage2_rock_collision_target(targets, _get_instance(registry, "stage2_pillar_background"))
+	var router: Object = _get_instance(registry, "stage_runtime_router")
+	if router != null and router.has_method("get_instance"):
+		_append_stage2_rock_collision_target(targets, router.get_instance(registry, 2, "stage_background"))
+	_append_stage2_rock_collision_target(targets, _get_instance(registry, "stage_background"))
+	return targets
+
+
+func _append_stage2_rock_collision_target(targets: Array, candidate: Object) -> void:
+	if candidate == null or not candidate.has_method("resolve_explosion_rock_collision"):
+		return
+	var candidate_id: int = candidate.get_instance_id()
+	for target in targets:
+		if target is Object and target.get_instance_id() == candidate_id:
+			return
+	targets.append(candidate)
 
 
 func trigger_flare_flash(controller: Object, owner: Object, registry: Object, center: Vector2) -> void:

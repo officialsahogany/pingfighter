@@ -3,6 +3,8 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
+const MolotovFxHost := preload("res://scripts/items/active_item_molotov_fx_host.gd")
+const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 
 const GRENADE_ICON_PATH := ActiveItemCatalog.GRENADE_ICON_PATH
 const FLARE_ICON_PATH := ActiveItemCatalog.FLARE_ICON_PATH
@@ -83,8 +85,42 @@ var spider_mine_icon_texture: Texture2D
 static var _tear_gas_puff_texture: ImageTexture = null
 static var _filled_ellipse_mesh: ArrayMesh = null
 
+# Modular VFX host pool for molotov fire zones. Each fire zone is matched to
+# one host via zone_id; idle hosts stay attached to the canvas with
+# visible=false. Capped at MOLOTOV_FX_HOST_POOL_SIZE so a runaway molotov
+# spam can't blow out the GPU particle budget. Excess zones fall back to the
+# legacy canvas-draw embellishment.
+const MOLOTOV_FX_HOST_POOL_SIZE := 3
+const MOLOTOV_FX_HOST_NAME_PREFIX := "ActiveItemMolotovFxHost"
+const MOLOTOV_FX_HOST_QUALITY_GATE := 0.45
+const MOLOTOV_PLAYFIELD_GAME_WIDTH := 760.0
+const MOLOTOV_PLAYFIELD_GAME_HEIGHT := 750.0
+@warning_ignore("unused_private_class_variable")
+var _molotov_fx_hosts: Array = []
+@warning_ignore("unused_private_class_variable")
+var _molotov_fx_hosts_zone_ids: Array = []
+@warning_ignore("unused_private_class_variable")
+var _molotov_fx_hosts_burst_triggered: Array = []
+@warning_ignore("unused_private_class_variable")
+var _molotov_fx_hosts_canvas: Object = null
+
+# Playfield-letterbox screen-space layout cache. The playfield canvas is drawn
+# via `canvas.draw_set_transform(game_offset + shake * render_scale, render_scale)`
+# every frame in battle_scene_drawer.gd; that transform only affects subsequent
+# `draw_*()` calls and does NOT propagate to child Node2D positions. So host
+# nodes attached to the canvas render in screen space, not game space — they
+# need the same game_offset + render_scale applied manually to land inside the
+# playfield rect instead of leaking into the left/right pillar chrome area.
+# This trap is documented in CLAUDE.md's "Godot Playfield / Pillar / Overlay
+# Clip Reality" section and matched 1:1 by stage5_hongryun_inferno_burst_fx_host.
+var _molotov_view_layout: Object = null
+var _molotov_view_cached_viewport_size: Vector2 = Vector2.ZERO
+var _molotov_view_cached_game_offset: Vector2 = Vector2.ZERO
+var _molotov_view_cached_render_scale: float = 1.0
+
 
 func prewarm_assets() -> void:
+	MolotovFxHost.prewarm_assets()
 	_touch_texture(_get_grenade_icon_texture())
 	_touch_texture(_get_flare_icon_texture())
 	_touch_texture(_get_tear_gas_icon_texture())
@@ -849,6 +885,11 @@ func _draw_molotovs(canvas: CanvasItem, molotovs: Array, shake_offset: Vector2) 
 
 
 func _draw_molotov_fire_zones(canvas: CanvasItem, fire_zones: Array, shake_offset: Vector2) -> void:
+	# Modular VFX host pool owns the heavy shader+particle layers (ember floor,
+	# flame dome, char ring, explosion burst, ember sparks). Sync it first so
+	# the canvas-draw block below knows which zones to fall back on for the
+	# legacy 3-ellipse stack.
+	_sync_molotov_fx_hosts(canvas, fire_zones, shake_offset)
 	if fire_zones.is_empty():
 		return
 	for zone_value in fire_zones:
@@ -861,30 +902,264 @@ func _draw_molotov_fire_zones(canvas: CanvasItem, fire_zones: Array, shake_offse
 		var max_duration: float = max(1.0, float(zone.get("max_duration_frames", MOLOTOV_FIRE_DURATION_FRAMES)))
 		var remaining: float = clamp(float(zone.get("duration_frames", max_duration)), 0.0, max_duration)
 		var life_ratio: float = clamp(remaining / max_duration, 0.0, 1.0)
-		var outer_rect := Rect2(center - Vector2(width * 0.5 + 20.0, height * 0.5 + 15.0), Vector2(width + 40.0, height + 30.0))
-		_draw_filled_ellipse(canvas, outer_rect, Color(20.0 / 255.0, 10.0 / 255.0, 5.0 / 255.0, 0.20 * life_ratio))
-		_draw_filled_ellipse(canvas, Rect2(center - Vector2(width * 0.43, height * 0.43), Vector2(width * 0.86, height * 0.86)), Color(150.0 / 255.0, 40.0 / 255.0, 10.0 / 255.0, 0.30 * life_ratio))
-		_draw_filled_ellipse(canvas, Rect2(center - Vector2(width * 0.30, height * 0.30), Vector2(width * 0.60, height * 0.60)), Color(1.0, 100.0 / 255.0, 20.0 / 255.0, 0.38 * life_ratio))
+		var has_host: bool = _is_zone_handled_by_host(int(zone.get("zone_id", 0)))
 
-		var time_phase: float = float(Time.get_ticks_msec()) / 100.0
-		for wave_i in range(2):
-			var wave_alpha: float = 0.16 * life_ratio * (1.0 - float(wave_i) * 0.18)
-			if wave_alpha <= 0.01:
-				continue
-			var wave_w: float = width * (0.9 - float(wave_i) * 0.1)
-			var wave_h: float = max(2.0, 8.0 - float(wave_i))
-			var wave_y: float = sin(time_phase + float(wave_i) * 0.8) * 3.0
-			_draw_filled_ellipse(
-				canvas,
-				Rect2(center + Vector2(-wave_w * 0.5, -height * 0.5 - 15.0 - float(wave_i) * 8.0 + wave_y), Vector2(wave_w, wave_h)),
-				Color(1.0, 200.0 / 255.0, 100.0 / 255.0, wave_alpha)
-			)
+		if not has_host:
+			# Legacy canvas-draw fallback when the host pool is full or a
+			# render-quality gate (e.g. low-LOD) is active. Same look as
+			# before the modular VFX refactor.
+			var outer_rect := Rect2(center - Vector2(width * 0.5 + 20.0, height * 0.5 + 15.0), Vector2(width + 40.0, height + 30.0))
+			_draw_filled_ellipse(canvas, outer_rect, Color(20.0 / 255.0, 10.0 / 255.0, 5.0 / 255.0, 0.20 * life_ratio))
+			_draw_filled_ellipse(canvas, Rect2(center - Vector2(width * 0.43, height * 0.43), Vector2(width * 0.86, height * 0.86)), Color(150.0 / 255.0, 40.0 / 255.0, 10.0 / 255.0, 0.30 * life_ratio))
+			_draw_filled_ellipse(canvas, Rect2(center - Vector2(width * 0.30, height * 0.30), Vector2(width * 0.60, height * 0.60)), Color(1.0, 100.0 / 255.0, 20.0 / 255.0, 0.38 * life_ratio))
 
+			var time_phase: float = float(Time.get_ticks_msec()) / 100.0
+			for wave_i in range(2):
+				var wave_alpha: float = 0.16 * life_ratio * (1.0 - float(wave_i) * 0.18)
+				if wave_alpha <= 0.01:
+					continue
+				var wave_w: float = width * (0.9 - float(wave_i) * 0.1)
+				var wave_h: float = max(2.0, 8.0 - float(wave_i))
+				var wave_y: float = sin(time_phase + float(wave_i) * 0.8) * 3.0
+				_draw_filled_ellipse(
+					canvas,
+					Rect2(center + Vector2(-wave_w * 0.5, -height * 0.5 - 15.0 - float(wave_i) * 8.0 + wave_y), Vector2(wave_w, wave_h)),
+					Color(1.0, 200.0 / 255.0, 100.0 / 255.0, wave_alpha)
+				)
+
+		# Per-flame embers are kept regardless — they're small bright flickers
+		# riding on top of the shader fire bed, and they carry the gameplay
+		# spawn/spread/lifetime that the host's GPU particles approximate but
+		# do not authoritatively own. When a host is active the host's
+		# ember sparks dominate, but a thin layer of these legacy embers
+		# keeps the silhouette feeling lively even at low quality.
 		var flames: Array = zone.get("flames", [])
+		var flame_alpha_scale: float = 0.55 if has_host else 1.0
 		for flame_value in flames:
 			if not (flame_value is Dictionary):
 				continue
-			_draw_molotov_flame(canvas, flame_value, shake_offset, life_ratio)
+			_draw_molotov_flame(canvas, flame_value, shake_offset, life_ratio * flame_alpha_scale)
+
+
+func _sync_molotov_fx_hosts(canvas: CanvasItem, fire_zones: Array, shake_offset: Vector2) -> void:
+	if canvas == null:
+		return
+	if not _is_molotov_host_quality_ok():
+		# Fast-path: release all hosts.
+		_deactivate_all_molotov_hosts()
+		return
+	_ensure_molotov_host_pool(canvas)
+	if _molotov_fx_hosts.is_empty():
+		return
+	# Compute the same playfield-letterbox transform that battle_scene_drawer
+	# applies via draw_set_transform around _draw_playfield_scene. The canvas
+	# tree transform itself is identity, so child Node2Ds (our hosts) must
+	# project game coords into screen coords manually or they render in the
+	# pillar area off-playfield. See the layout-cache comment block above.
+	var playfield_game_offset: Vector2 = _molotov_view_cached_game_offset
+	var playfield_render_scale: float = _molotov_view_cached_render_scale
+	if not fire_zones.is_empty():
+		var layout: Dictionary = _get_molotov_playfield_layout(canvas)
+		playfield_game_offset = layout.get("game_offset", Vector2.ZERO)
+		playfield_render_scale = max(0.001, float(layout.get("render_scale", 1.0)))
+
+	# Build the slot assignment: each fire zone gets matched to its host by
+	# zone_id (sticky across frames). New zones grab the next free slot. If
+	# the pool is full, extra zones get no host and fall back to canvas-draw.
+	var slot_used: Array = []
+	slot_used.resize(_molotov_fx_hosts.size())
+	for slot_idx in range(slot_used.size()):
+		slot_used[slot_idx] = false
+
+	var assigned: Array = []  # zone_id -> slot_idx
+	assigned.resize(fire_zones.size())
+	for zone_idx in range(fire_zones.size()):
+		assigned[zone_idx] = -1
+		var zone_value: Variant = fire_zones[zone_idx]
+		if not (zone_value is Dictionary):
+			continue
+		var zone_id: int = int(zone_value.get("zone_id", 0))
+		if zone_id <= 0:
+			continue
+		# First pass: keep the existing slot if this zone already had one.
+		for slot_idx in range(_molotov_fx_hosts.size()):
+			if slot_used[slot_idx]:
+				continue
+			if int(_molotov_fx_hosts_zone_ids[slot_idx]) == zone_id:
+				assigned[zone_idx] = slot_idx
+				slot_used[slot_idx] = true
+				break
+
+	for zone_idx in range(fire_zones.size()):
+		if assigned[zone_idx] >= 0:
+			continue
+		var zone_value: Variant = fire_zones[zone_idx]
+		if not (zone_value is Dictionary):
+			continue
+		var zone_id: int = int(zone_value.get("zone_id", 0))
+		if zone_id <= 0:
+			continue
+		# Second pass: take the next free slot for new zones.
+		for slot_idx in range(_molotov_fx_hosts.size()):
+			if slot_used[slot_idx]:
+				continue
+			assigned[zone_idx] = slot_idx
+			slot_used[slot_idx] = true
+			_molotov_fx_hosts_zone_ids[slot_idx] = zone_id
+			_molotov_fx_hosts_burst_triggered[slot_idx] = false
+			break
+
+	# Apply state to every assigned host; deactivate unassigned hosts.
+	for slot_idx in range(_molotov_fx_hosts.size()):
+		var host: Object = _molotov_fx_hosts[slot_idx]
+		if host == null or not is_instance_valid(host):
+			continue
+		if not slot_used[slot_idx]:
+			if host.has_method("set_active"):
+				host.set_active(false)
+			_molotov_fx_hosts_zone_ids[slot_idx] = 0
+			_molotov_fx_hosts_burst_triggered[slot_idx] = false
+
+	for zone_idx in range(fire_zones.size()):
+		var slot_idx: int = assigned[zone_idx]
+		if slot_idx < 0:
+			continue
+		var zone_value: Variant = fire_zones[zone_idx]
+		if not (zone_value is Dictionary):
+			continue
+		var zone: Dictionary = zone_value
+		var host: Object = _molotov_fx_hosts[slot_idx]
+		if host == null or not is_instance_valid(host):
+			continue
+		var center_game: Vector2 = _get_vector2(zone, "position", Vector2.ZERO) + shake_offset
+		var width: float = float(zone.get("width", 150.0))
+		var height: float = float(zone.get("height", 60.0))
+		var max_duration: float = max(1.0, float(zone.get("max_duration_frames", MOLOTOV_FIRE_DURATION_FRAMES)))
+		var remaining: float = clamp(float(zone.get("duration_frames", max_duration)), 0.0, max_duration)
+		var life_ratio: float = clamp(remaining / max_duration, 0.0, 1.0)
+		# Trigger the one-shot explosion burst on the first frame this zone
+		# acquires a host. age_frames is ticked by update_fire_zones so
+		# spawn-frame age is ~0 and it grows from there.
+		var age_frames: float = float(zone.get("age_frames", 0.0))
+		if not bool(_molotov_fx_hosts_burst_triggered[slot_idx]) and age_frames < 4.0:
+			if host.has_method("trigger_explosion_burst"):
+				host.trigger_explosion_burst()
+			_molotov_fx_hosts_burst_triggered[slot_idx] = true
+		# Project game-space zone center into screen-space (host nodes do not
+		# inherit the canvas's draw_set_transform — see layout-cache comment).
+		# render_scale also feeds the host's tree-scale so sprite sizes match
+		# the rest of the playfield's render scaling.
+		var center_screen: Vector2 = playfield_game_offset + center_game * playfield_render_scale
+		var host_state := {
+			"zone_pos": center_screen,
+			"width": width,
+			"height": height,
+			"life_ratio": life_ratio,
+			"age_frames": age_frames,
+			"render_scale": playfield_render_scale,
+			"quality_scale": 1.0,
+		}
+		if host.has_method("sync_state"):
+			host.sync_state(host_state, life_ratio > 0.0)
+
+
+func _is_zone_handled_by_host(zone_id: int) -> bool:
+	if zone_id <= 0:
+		return false
+	for slot_idx in range(_molotov_fx_hosts_zone_ids.size()):
+		if int(_molotov_fx_hosts_zone_ids[slot_idx]) != zone_id:
+			continue
+		var host: Object = _molotov_fx_hosts[slot_idx]
+		if host == null or not is_instance_valid(host):
+			return false
+		return bool(host.visible)
+	return false
+
+
+func _is_molotov_host_quality_ok() -> bool:
+	# A future hook for BattleRenderQuality LOD; for now hosts always run
+	# when the platform supports them. Particles still self-gate via the
+	# host's EMBER_PARTICLE_QUALITY_GATE.
+	return true
+
+
+func _ensure_molotov_host_pool(canvas: CanvasItem) -> void:
+	if _molotov_fx_hosts_canvas == canvas and _molotov_fx_hosts.size() == MOLOTOV_FX_HOST_POOL_SIZE:
+		# Already wired to this canvas; nothing to do.
+		var all_valid := true
+		for host in _molotov_fx_hosts:
+			if host == null or not is_instance_valid(host):
+				all_valid = false
+				break
+		if all_valid:
+			return
+	if not (canvas is Node):
+		return
+	var parent: Node = canvas as Node
+	# Reset pool — if the canvas changed (e.g. scene reload), let stale hosts
+	# auto-free via their queue_free path when the scene is torn down.
+	_molotov_fx_hosts.clear()
+	_molotov_fx_hosts_zone_ids.clear()
+	_molotov_fx_hosts_burst_triggered.clear()
+	_molotov_fx_hosts_canvas = canvas
+	for slot_idx in range(MOLOTOV_FX_HOST_POOL_SIZE):
+		var host_name: String = "%s%d" % [MOLOTOV_FX_HOST_NAME_PREFIX, slot_idx]
+		var existing: Node = parent.get_node_or_null(host_name)
+		var host: Node
+		if existing != null and is_instance_valid(existing):
+			host = existing
+		else:
+			host = MolotovFxHost.new()
+			host.name = host_name
+			host.visible = false
+			parent.call_deferred("add_child", host)
+		_molotov_fx_hosts.append(host)
+		_molotov_fx_hosts_zone_ids.append(0)
+		_molotov_fx_hosts_burst_triggered.append(false)
+
+
+func _deactivate_all_molotov_hosts() -> void:
+	for slot_idx in range(_molotov_fx_hosts.size()):
+		var host: Object = _molotov_fx_hosts[slot_idx]
+		if host != null and is_instance_valid(host) and host.has_method("set_active"):
+			host.set_active(false)
+		_molotov_fx_hosts_zone_ids[slot_idx] = 0
+		_molotov_fx_hosts_burst_triggered[slot_idx] = false
+
+
+func _get_molotov_playfield_layout(canvas: CanvasItem) -> Dictionary:
+	# Mirrors what BattleViewLayout produces in the per-frame draw_context so
+	# host Node2D positions land at the same screen coords as the canvas's
+	# draw_set_transform would have produced. Cached on the viewport size so
+	# the cost is a few floats per frame in steady state. See the layout-cache
+	# comment block at the top of the file for the trap rationale.
+	if canvas == null:
+		return {"game_offset": Vector2.ZERO, "render_scale": 1.0}
+	var viewport_rect: Rect2 = canvas.get_viewport_rect()
+	var viewport_size: Vector2 = viewport_rect.size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return {"game_offset": Vector2.ZERO, "render_scale": 1.0}
+	if (
+		not viewport_size.is_equal_approx(_molotov_view_cached_viewport_size)
+		or _molotov_view_layout == null
+	):
+		if _molotov_view_layout == null:
+			_molotov_view_layout = BattleViewLayout.new()
+		var layout: Dictionary = _molotov_view_layout.build_game_layout(
+			viewport_size,
+			MOLOTOV_PLAYFIELD_GAME_WIDTH,
+			MOLOTOV_PLAYFIELD_GAME_HEIGHT
+		)
+		_molotov_view_cached_viewport_size = viewport_size
+		var layout_offset_value: Variant = layout.get("game_offset", Vector2.ZERO)
+		_molotov_view_cached_game_offset = (
+			layout_offset_value if layout_offset_value is Vector2 else Vector2.ZERO
+		)
+		_molotov_view_cached_render_scale = max(0.001, float(layout.get("render_scale", 1.0)))
+	return {
+		"game_offset": _molotov_view_cached_game_offset,
+		"render_scale": _molotov_view_cached_render_scale,
+	}
 
 
 func _draw_molotov_flame(canvas: CanvasItem, flame: Dictionary, shake_offset: Vector2, zone_life: float) -> void:
