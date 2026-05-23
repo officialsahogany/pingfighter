@@ -10,18 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `b637d9ffa godot: lock pandora legacy icon contract`.
-- Split range: `2c31069ba..HEAD` contains 56 follow-up commits after the
+  `39ca20e11 godot: route suicide drone through molotov fire zone`.
+- Split range: `2c31069ba..HEAD` contains 58 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the current
-  checkpoint span contains 57 commits.
+  checkpoint span contains 59 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 111 visible paths in
-  `git status --porcelain=v1` (`62` tracked modified / deleted paths and
-  `49` untracked paths). Tracked dirty shortstat is `62 files changed,
-  1782 insertions(+), 337 deletions(-)`.
-- The split notes below are current through the fifty-fourth split. The
+- Current dirty scope before this documentation sync: 101 visible paths in
+  `git status --porcelain=v1` (`53` tracked modified / deleted paths and
+  `48` untracked paths).
+- The split notes below are current through the fifty-fifth split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3145,4 +3144,27 @@ Fifty-fourth split on 2026-05-23:
   `mythic_item_runtime_idle_update_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1275` scripts scanned, no GDScript
+  warnings).
+
+Fifty-fifth split on 2026-05-23:
+
+- Commit: `39ca20e11 godot: route suicide drone through molotov fire zone`.
+- Scope: Commando suicide drone residue now routes through the shared
+  Molotov fire-zone path instead of maintaining a separate Commando-only
+  lingering slow field, and the active-item boss-AI context keeps Molotov
+  slow neutral so Smasher plasma and other boss slows no longer multiply
+  with a fire-zone obstruction.
+- Rationale: fire residue should stay visible / collidable through the
+  active-item fire-zone owner, while boss movement slow remains owned by
+  explicit slow sources such as spider mines or Smasher plasma. Reusing the
+  shared Molotov fire-zone API also avoids double-playing Molotov explosion
+  feedback for suicide drone detonations.
+- Validation passed:
+  `active_item_throw_query_smoke`,
+  `active_item_throw_molotov_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_arm_port_smoke`,
+  `smasher_plasma_parity_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
