@@ -668,9 +668,11 @@ func _verify_weapon_hit_status_profiles() -> void:
 
 	runtime._register_projectile_hit(_direct_projectile("suicide_drone", Vector2(360.0, 82.0), Vector2(8.0, -8.0)), config, deps)
 	var drone_calls: Array = _get_array(status_effect_state.get_calls_for_source("commando_firearm_suicide_drone"))
-	_expect(drone_calls.size() == 2, "suicide drone hit should apply stun and fire-zone slow stand-in")
+	_expect(drone_calls.size() == 1, "suicide drone hit should apply only the original 0.8s boss stun")
 	_expect(str(_get_dict(drone_calls[0]).get("status_id", "")) == "stun", "suicide drone should apply boss stun")
-	_expect(str(_get_dict(drone_calls[1]).get("status_id", "")) == "slow", "suicide drone should apply post-explosion slow stand-in")
+	var drone_status_data: Dictionary = _get_dict(_get_dict(drone_calls[0]).get("data", {}))
+	_expect(is_equal_approx(float(drone_status_data.get("knockback_vel", 999.0)), 0.0), "suicide drone stun should not push the boss with the old slow drift knockback")
+	_expect(not bool(drone_status_data.get("knockback_active", true)), "suicide drone stun should freeze without knockback motion")
 
 	var support_projectile: Dictionary = _direct_projectile("fire_support", Vector2(360.0, 82.0), Vector2(0.0, 12.0))
 	support_projectile["kind"] = "support"
@@ -1272,7 +1274,7 @@ func _verify_lingering_field_runtime() -> void:
 	_expect(_get_array(_get_dict(drone_fields[0]).get("flames", [])).size() == 15, "fire zone should expose deterministic flame particles for the renderer")
 	drone_runtime.update_effects(1.0, Time.get_ticks_msec(), config, drone_deps)
 	var drone_calls_after_tick: Array = _get_array(drone_status.get_calls_for_source("commando_firearm_suicide_drone"))
-	_expect(drone_calls_after_tick.size() == 3, "suicide drone fire zone should tick one extra lingering slow after stun plus initial slow")
+	_expect(drone_calls_after_tick.size() == 2, "suicide drone fire zone should tick one extra lingering slow after the initial stun")
 	var drone_lingering_call: Dictionary = _find_call_with_source_fragment(drone_calls_after_tick, "_lingering_")
 	_expect(str(drone_lingering_call.get("status_id", "")) == "slow", "suicide drone fire zone tick should refresh slow")
 	_expect(is_equal_approx(float(_get_dict(drone_lingering_call.get("data", {})).get("multiplier", 0.0)), 0.5), "suicide drone fire zone slow should match the fire-zone first-port multiplier")

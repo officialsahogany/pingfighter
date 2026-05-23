@@ -407,9 +407,7 @@ const WEAPON_HIT_RESULTS := {
 	},
 	"suicide_drone": {
 		"stun_frames": 48.0,
-		"knockback_power": 8.0,
-		"slow_frames": 150.0,
-		"slow_multiplier": 0.65,
+		"knockback_power": 0.0,
 		"damage_units": 0,
 	},
 }
