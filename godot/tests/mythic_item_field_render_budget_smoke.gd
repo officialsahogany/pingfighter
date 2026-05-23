@@ -60,8 +60,10 @@ func _verify_recent_start_helper() -> void:
 
 func _verify_draw_paths_use_render_caps() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_field_effect_renderer.gd")
+	var poseidon_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_poseidon_field_renderer.gd")
 	var ragnarok_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_ragnarok_field_renderer.gd")
 	_expect(source != "", "mythic item field renderer source should be readable")
+	_expect(poseidon_source != "", "mythic item Poseidon field renderer source should be readable")
 	_expect(ragnarok_source != "", "mythic item Ragnarok field renderer source should be readable")
 	_expect(
 		_function_body(source, "func draw_venom_mist_effect").find("_recent_start(particles, MAX_RENDERED_VENOM_MIST_PARTICLES)") >= 0,
@@ -116,19 +118,19 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Soul Burst draw should cap decorative dash particles"
 	)
 	_expect(
-		_function_body(source, "func draw_poseidon_water_trail").find("_recent_start(water_trail, MAX_RENDERED_POSEIDON_WATER_TRAIL)") >= 0,
+		_function_body(poseidon_source, "func draw_poseidon_water_trail").find("_recent_start(water_trail, water_trail_render_limit)") >= 0,
 		"Poseidon water trail draw should cap decorative droplets"
 	)
 	_expect(
-		_function_body(source, "func draw_poseidon_particles").find("MAX_RENDERED_POSEIDON_PARTICLES") >= 0,
-		"Poseidon particle draw should cap vortex particles by the MAX_RENDERED_POSEIDON_PARTICLES budget (recent-N or uniform stride)"
+		_function_body(poseidon_source, "func draw_poseidon_particles").find("particle_render_limit") >= 0,
+		"Poseidon particle draw should cap vortex particles by the provided budget (recent-N or uniform stride)"
 	)
 	_expect(
-		_function_body(source, "func draw_poseidon_water_trail").find("MAX_POSEIDON_TRAIL_ARCS") >= 0,
+		_function_body(poseidon_source, "func draw_poseidon_water_trail").find("trail_arc_render_limit") >= 0,
 		"Poseidon water trail draw should limit decorative arcs"
 	)
 	_expect(
-		_function_body(source, "func draw_poseidon_water_explosion").find("_recent_start(explosion_particles, MAX_RENDERED_POSEIDON_EXPLOSION_PARTICLES)") >= 0,
+		_function_body(poseidon_source, "func draw_poseidon_water_explosion").find("_recent_start(explosion_particles, explosion_particle_render_limit)") >= 0,
 		"Poseidon explosion draw should cap charge particles"
 	)
 	_expect(
