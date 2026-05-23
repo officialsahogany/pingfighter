@@ -311,7 +311,7 @@ func _test_four_poisons_duration_cooldown_and_replication() -> void:
 	var result: Dictionary = _activate_dual_glitch(runtime, input, player_pos, 500.0, config, deps)
 	_expect(bool(result.get("activated", false)), "Four Poisons should not block Dual Glitch activation")
 	var snap: Dictionary = runtime.get_snapshot()
-	_expect(abs(float(snap.get("dual_glitch_active_total_frames", 0.0)) - 1080.0) < 0.01, "Four Poisons Lv5 should extend Dual Glitch active time by 20%")
+	_expect(abs(float(snap.get("dual_glitch_active_total_frames", 0.0)) - 1197.0) < 0.01, "Four Poisons Lv5 should extend Dual Glitch active time by 33%")
 	_expect(abs(float(skill_state.cooldown_seconds.get("dual_glitch", 0.0)) - 36.0) < 0.01, "Four Poisons Lv5 should reduce Dual Glitch cooldown by 20%")
 	_expect(int(((snap.get("dual_glitch_clones", []) as Array)[0] as Dictionary).get("hp", 0)) == 4, "Four Poisons Lv5 should raise clone HP to 4")
 	_advance_dual(runtime, config, deps, player_pos, 49)
