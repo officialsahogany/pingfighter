@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `74bb79772 godot: add commando reload delivery runtime`.
-- Code split range through that HEAD contains 62 follow-up commits after the
+  `d9ca4c2e4 godot: remove viper blade ball touch sfx`.
+- Code split range through that HEAD contains 64 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 63 commits.
+  span through the latest code split contains 65 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 73 visible paths in
-  `git status --porcelain=v1` (`29` tracked modified / deleted paths and
+- Current dirty scope before this documentation sync: 69 visible paths in
+  `git status --porcelain=v1` (`25` tracked modified / deleted paths and
   `44` untracked paths).
-- The split notes below are current through the fifty-seventh split. The
+- The split notes below are current through the fifty-eighth split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -30,9 +30,6 @@ Open follow-ups before the next broad sign-off:
   exit` warning from review. It is not a warning-scan failure, but it still
   needs a focused verbose leak isolation pass instead of staying as a loose
   test-output note.
-- The Viper blade-touch-ball sound deletion / router removal remains dirty
-  WIP and should not be staged into unrelated commits. Focused Viper blade
-  smokes are expected to fail until that lane is either restored or completed.
 - Lane ordering drifted during the cleanup sprint. The commits are scoped,
   but the next review should group remaining WIP by owner lane before staging
   more mixed mythic / stage / Commando changes.
@@ -3228,3 +3225,29 @@ Fifty-seventh split on 2026-05-23:
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
+
+Fifty-eighth split on 2026-05-23:
+
+- Commit: `d9ca4c2e4 godot: remove viper blade ball touch sfx`.
+- Scope: The removed `bladetouchball.wav` asset and import are now fully
+  matched by runtime cleanup: `game_audio.gd` no longer creates a missing
+  `ViperBladeTouchBallSfx` player, the Viper audio router no longer exposes
+  a ball-touch cue helper, and Air Blade / Dark Blade ball-hit motion no
+  longer calls that removed cue. The focused Viper blade smoke now locks the
+  intended contract: projectile launch audio remains on launch only, while
+  ball-hit gameplay, gold, speed caps, follow-up windows, and Stage 2 rock
+  collision behavior stay intact.
+- Rationale: the dirty worktree had already removed the dedicated wav and
+  partial router callsite. Completing the lane avoids missing-asset warnings
+  and keeps blade ball hits from depending on a deleted one-shot sound.
+- Validation passed:
+  `viper_blade_rush_port_smoke`,
+  `stage2_viper_blade_rock_collision_smoke`,
+  `viper_skill_tooltip_preview_smoke`,
+  `game_audio_volume_settings_smoke`,
+  `chaos_spear_hit_release_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings). `game_audio_volume_settings_smoke` still emitted an ObjectDB
+  leak warning at process exit; it did not fail the smoke run or the warning
+  scan.
