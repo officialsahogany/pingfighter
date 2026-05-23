@@ -3,6 +3,7 @@ extends SceneTree
 const GameplayStageModuleCatalog := preload("res://scripts/resources/gameplay_stage_module_catalog.gd")
 const BattleResources := preload("res://scripts/resources/battle_resources.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StageRuntimeRouter := preload("res://scripts/stages/stage_runtime_router.gd")
 const Stage5HongryunState := preload("res://scripts/stages/stage5/stage5_hongryun_state.gd")
 const Stage5HongryunPillarBackground := preload("res://scripts/stages/stage5/stage5_hongryun_pillar_background.gd")
@@ -35,12 +36,17 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	_verify_router_and_catalog()
 	_verify_background_contract()
 	_verify_renderer_asset_status()
 	_verify_stage5_high_refresh_lod_contract()
 	_verify_state_actor_draw_contract()
-	_verify_stage5_boss_texture_prewarm()
+	await _verify_stage5_boss_texture_prewarm()
+	await _cleanup_after_checks()
 
 	if _failures.is_empty():
 		print("stage5_hongryun_visual_shell_smoke: ok")
@@ -215,13 +221,21 @@ func _verify_stage5_boss_texture_prewarm() -> void:
 		})
 		if done:
 			break
-		OS.delay_msec(1)
+		await process_frame
 	_expect(done, "Stage 5 transition prewarm should complete")
 	var stage5_cache: Dictionary = transition_resources.get_resource_cache()
 	_expect(_texture_path(stage5_cache.get("boss_sprite_sheet", null)) == "res://assets/sprites/stage5/stage5_hongryun_boss_sheet.png", "Stage 5 transition prewarm should replace stale walk sheet")
 	_expect(_texture_path(stage5_cache.get("boss_attack_sheet", null)) == "res://assets/sprites/stage5/stage5_hongryun_boss_attack.png", "Stage 5 transition prewarm should replace stale attack sheet")
 	_expect(_texture_path(stage5_cache.get("boss_dash_sheet", null)) == "res://assets/sprites/stage5/stage5_hongryun_boss_dash.png", "Stage 5 transition prewarm should replace stale dash sheet")
 	_expect(_texture_path(stage5_cache.get("boss_turn_sheet", null)) == "res://assets/sprites/stage5/stage5_hongryun_boss_turn.png", "Stage 5 transition prewarm should load turn sheet")
+	transition_resources.reset_transition_texture_prewarm()
+
+
+func _cleanup_after_checks() -> void:
+	BattleRenderQuality.reset_cache_for_test()
+	ProjectResourceLoader.clear_caches()
+	for _idx in range(4):
+		await process_frame
 
 
 func _texture_path(value: Variant) -> String:
