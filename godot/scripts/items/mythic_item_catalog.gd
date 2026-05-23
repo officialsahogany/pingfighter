@@ -141,6 +141,26 @@ func get_slot_key(item_name: String) -> String:
 	return str(item_data.get("slot", ""))
 
 
+func _with_mythic_icon_item(
+	item_data: Dictionary,
+	item_name: String,
+	slot: String,
+	include_fixed_options: bool = false
+) -> Dictionary:
+	return icon_metadata_helper.with_mythic_icon_sheet(
+		base_metadata_helper.with_rolled_item_base(
+			item_data,
+			self,
+			item_name,
+			"mythic",
+			slot,
+			get_field_chance(item_name),
+			include_fixed_options
+		),
+		get_icon_sheet_path(item_name)
+	)
+
+
 func _build_speedboots() -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "스피드부츠",
@@ -477,225 +497,102 @@ func _build_spiked_helmet() -> Dictionary:
 
 
 func _build_pandora_legacy() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(PANDORA_LEGACY)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": PANDORA_LEGACY,
+	return _with_mythic_icon_item({
 		"display_name": "판도라의 유산",
 		"korean_name": "판도라의 유산",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": PANDORA_LEGACY,
-		"slot": "back",
-		"icon_path": get_icon_path(PANDORA_LEGACY),
-		"chance": get_field_chance(PANDORA_LEGACY),
 		"description": "라운드 승리 시 일정 확률로 발동해 3개의 아이템 중 하나를 선택합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(PANDORA_LEGACY),
-		"rolled_options": build_rolled_options(PANDORA_LEGACY, rolls),
 		"color": Color(150.0 / 255.0, 50.0 / 255.0, 200.0 / 255.0),
-	}, get_icon_sheet_path(PANDORA_LEGACY))
+	}, PANDORA_LEGACY, "back")
 
 
 func _build_megingjord() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(MEGINGJORD)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": MEGINGJORD,
+	return _with_mythic_icon_item({
 		"display_name": "메긴교르드",
 		"korean_name": "메긴교르드",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": MEGINGJORD,
-		"slot": "belt",
-		"icon_path": get_icon_path(MEGINGJORD),
-		"chance": get_field_chance(MEGINGJORD),
 		"description": "퍽 선택 시 추가 선택 기회를 얻습니다. 한 선택 묶음에서 최대 2회까지 연속 발동합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(MEGINGJORD),
-		"rolled_options": build_rolled_options(MEGINGJORD, rolls),
 		"color": Color(1.0, 215.0 / 255.0, 75.0 / 255.0),
-	}, get_icon_sheet_path(MEGINGJORD))
+	}, MEGINGJORD, "belt")
 
 
 func _build_ragnarok_hammer() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(RAGNAROK_HAMMER)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": RAGNAROK_HAMMER,
+	return _with_mythic_icon_item({
 		"display_name": "라그나로크 해머",
 		"korean_name": "라그나로크 해머",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": RAGNAROK_HAMMER,
-		"slot": "arm",
-		"icon_path": get_icon_path(RAGNAROK_HAMMER),
-		"chance": get_field_chance(RAGNAROK_HAMMER),
 		"description": "플레이어가 공을 받아칠 때 게이지를 소모해 스턴공을 만들고, 보스가 받아치면 넉백과 스턴을 겁니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(RAGNAROK_HAMMER),
-		"rolled_options": build_rolled_options(RAGNAROK_HAMMER, rolls),
 		"color": Color(120.0 / 255.0, 190.0 / 255.0, 1.0),
-	}, get_icon_sheet_path(RAGNAROK_HAMMER))
+	}, RAGNAROK_HAMMER, "arm")
 
 
 func _build_hermes_shoes() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(HERMES_SHOES)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": HERMES_SHOES,
+	return _with_mythic_icon_item({
 		"display_name": "헤르메스의 신발",
 		"korean_name": "헤르메스의 신발",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": HERMES_SHOES,
-		"slot": "shoes",
-		"icon_path": get_icon_path(HERMES_SHOES),
-		"chance": get_field_chance(HERMES_SHOES),
 		"description": "신들의 전령이 신던 날개 신발입니다. 롤 옵션만큼 플레이어 이동속도를 증가시킵니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(HERMES_SHOES),
-		"rolled_options": build_rolled_options(HERMES_SHOES, rolls),
 		"color": Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
-	}, get_icon_sheet_path(HERMES_SHOES))
+	}, HERMES_SHOES, "shoes")
 
 
 func _build_poseidon_trident() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(POSEIDON_TRIDENT)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": POSEIDON_TRIDENT,
+	return _with_mythic_icon_item({
 		"display_name": "포세이돈의 삼지창",
 		"korean_name": "포세이돈의 삼지창",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": POSEIDON_TRIDENT,
-		"slot": "arm",
-		"icon_path": get_icon_path(POSEIDON_TRIDENT),
-		"chance": get_field_chance(POSEIDON_TRIDENT),
 		"description": "대시 회복 순간 좌우에 거대한 물회오리를 생성하여 보스가 내려친 공을 위쪽으로 강하게 튕겨냅니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(POSEIDON_TRIDENT),
-		"rolled_options": build_rolled_options(POSEIDON_TRIDENT, rolls),
 		"color": Color(70.0 / 255.0, 185.0 / 255.0, 1.0),
-	}, get_icon_sheet_path(POSEIDON_TRIDENT))
+	}, POSEIDON_TRIDENT, "arm")
 
 
 func _build_sacred_laurel() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(SACRED_LAUREL)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": SACRED_LAUREL,
+	return _with_mythic_icon_item({
 		"display_name": "신성 월계수",
 		"korean_name": "신성 월계수",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": SACRED_LAUREL,
-		"slot": "accessory",
-		"icon_path": get_icon_path(SACRED_LAUREL),
-		"chance": get_field_chance(SACRED_LAUREL),
 		"description": "월계수 잎이 플레이어 주변을 회전하며 보호합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(SACRED_LAUREL),
-		"rolled_options": build_rolled_options(SACRED_LAUREL, rolls),
 		"color": Color(105.0 / 255.0, 215.0 / 255.0, 120.0 / 255.0),
-	}, get_icon_sheet_path(SACRED_LAUREL))
+	}, SACRED_LAUREL, "accessory")
 
 
 func _build_transcendent_crown() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(TRANSCENDENT_CROWN)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": TRANSCENDENT_CROWN,
+	return _with_mythic_icon_item({
 		"display_name": "초월자의 관",
 		"korean_name": "초월자의 관",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": TRANSCENDENT_CROWN,
-		"slot": "head",
-		"icon_path": get_icon_path(TRANSCENDENT_CROWN),
-		"chance": get_field_chance(TRANSCENDENT_CROWN),
 		"description": "이미 투자한 모든 퍽의 효과 레벨을 롤 옵션만큼 증가시킵니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(TRANSCENDENT_CROWN),
-		"rolled_options": build_rolled_options(TRANSCENDENT_CROWN, rolls),
 		"color": Color(1.0, 215.0 / 255.0, 100.0 / 255.0),
-	}, get_icon_sheet_path(TRANSCENDENT_CROWN))
+	}, TRANSCENDENT_CROWN, "head")
 
 
 func _build_heavenly_cape() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(HEAVENLY_CAPE)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": HEAVENLY_CAPE,
+	return _with_mythic_icon_item({
 		"display_name": "천상의 망토",
 		"korean_name": "천상의 망토",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": HEAVENLY_CAPE,
-		"slot": "back",
-		"icon_path": get_icon_path(HEAVENLY_CAPE),
-		"chance": get_field_chance(HEAVENLY_CAPE),
 		"description": "스킬 구슬 슬롯을 1칸 늘리고 모든 플레이어 스킬 쿨타임을 줄입니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(HEAVENLY_CAPE),
-		"rolled_options": build_rolled_options(HEAVENLY_CAPE, rolls),
-		"fixed_options": get_fixed_options(HEAVENLY_CAPE),
 		"color": Color(190.0 / 255.0, 225.0 / 255.0, 1.0),
-	}, get_icon_sheet_path(HEAVENLY_CAPE))
+	}, HEAVENLY_CAPE, "back", true)
 
 
 func _build_horn_strawberry_mask() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(HORN_STRAWBERRY_MASK)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": HORN_STRAWBERRY_MASK,
+	return _with_mythic_icon_item({
 		"display_name": "뿔딸기 변신가면",
 		"korean_name": "뿔딸기 변신가면",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": HORN_STRAWBERRY_MASK,
-		"slot": "head",
-		"icon_path": get_icon_path(HORN_STRAWBERRY_MASK),
-		"chance": get_field_chance(HORN_STRAWBERRY_MASK),
 		"description": "A→D→A→D→A→D 커맨드로 1스테이지 1회 뿔딸기로 변신합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(HORN_STRAWBERRY_MASK),
-		"rolled_options": build_rolled_options(HORN_STRAWBERRY_MASK, rolls),
-		"fixed_options": get_fixed_options(HORN_STRAWBERRY_MASK),
 		"color": Color(1.0, 72.0 / 255.0, 90.0 / 255.0),
-	}, get_icon_sheet_path(HORN_STRAWBERRY_MASK))
+	}, HORN_STRAWBERRY_MASK, "head", true)
 
 
 func _build_celestial_armor() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(CELESTIAL_ARMOR)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": CELESTIAL_ARMOR,
+	return _with_mythic_icon_item({
 		"display_name": "천구의 부동 갑주",
 		"korean_name": "천구의 부동 갑주",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": CELESTIAL_ARMOR,
-		"slot": "top",
-		"icon_path": get_icon_path(CELESTIAL_ARMOR),
-		"chance": get_field_chance(CELESTIAL_ARMOR),
 		"description": "스턴이 들어올 때 롤 확률로 무시하고, 발동 시 게이지를 소모합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(CELESTIAL_ARMOR),
-		"rolled_options": build_rolled_options(CELESTIAL_ARMOR, rolls),
 		"color": Color(180.0 / 255.0, 200.0 / 255.0, 1.0),
-	}, get_icon_sheet_path(CELESTIAL_ARMOR))
+	}, CELESTIAL_ARMOR, "top")
 
 
 func _build_baal_boots() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(BAAL_BOOTS)
-	return icon_metadata_helper.with_mythic_icon_sheet({
-		"name": BAAL_BOOTS,
+	return _with_mythic_icon_item({
 		"display_name": "바알의 부츠",
 		"korean_name": "바알의 부츠",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": BAAL_BOOTS,
-		"slot": "shoes",
-		"icon_path": get_icon_path(BAAL_BOOTS),
-		"chance": get_field_chance(BAAL_BOOTS),
 		"description": "날씨 이벤트가 시작되면 바알의 힘으로 현재 날씨를 흡수하고 게이지를 회복합니다. 흡수한 날씨에 따라 이번 라운드 동안 추가 효과가 발동합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(BAAL_BOOTS),
-		"rolled_options": build_rolled_options(BAAL_BOOTS, rolls),
 		"color": Color(1.0, 90.0 / 255.0, 55.0 / 255.0),
-	}, get_icon_sheet_path(BAAL_BOOTS))
+	}, BAAL_BOOTS, "shoes")
 
 
 func _build_elixir_of_mastery() -> Dictionary:
