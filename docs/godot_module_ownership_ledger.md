@@ -359,9 +359,12 @@ This section is intentionally long; use search to find the nearest owner.
   behind the public catalog API. `scripts/items/mythic_item_catalog_lists.gd`
   owns debug item and field-spawn item list construction behind the public catalog API.
   `scripts/items/mythic_item_catalog_rolls.gd` owns the
-  catalog roll defaults, random roll generation, rolled-option decoration,
-  roll-field synchronization, default roll lookup, and passive quality prefix
-  assignment behind the public `mythic_item_catalog.gd` API.
+  catalog roll-option source arrays, item-name roll-option lookup, roll
+  defaults, random roll generation, rolled-option decoration, roll-field
+  synchronization, default roll lookup, and passive quality prefix assignment
+  behind the public `mythic_item_catalog.gd` API. Catalog item builders should
+  hydrate `"roll_options"` through `get_roll_options(item_name)` instead of
+  duplicating `*_ROLL_OPTIONS` arrays directly.
   Broader mythic shop/gacha routing remains future item-domain work.
 - `scripts/items/mythic_item_acquisition_cinematic_runtime.gd`
   Owns mythic-item acquisition cinematic orchestration: v2 cinematic script

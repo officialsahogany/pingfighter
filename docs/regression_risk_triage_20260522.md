@@ -3,29 +3,29 @@
 Current target: Godot `godot/`. Legacy Python/Pygame files are frozen
 reference unless explicitly requested.
 
-## Current Sync Snapshot - 2026-05-23
+## Current Sync Snapshot - 2026-05-24
 
 This section was added to make the local triage log usable as cross-agent
 evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `a69a2cd0b godot: split mythic catalog presentation helpers`.
-- The checkpoint span through that HEAD contains 150 follow-up commits after
+  `066b0de36 godot: move mythic catalog roll options into helper`.
+- The checkpoint span through that HEAD contains 152 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 151 commits.
+  contains 153 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `93b628de2 docs: record mythic catalog list helper split`.
+  `47dd6746f docs: record mythic catalog presentation helper split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
   `2001105b6 docs: record final local settings hide`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
-  `godot/` passed on 2026-05-23 with `1283` scripts scanned and no GDScript
+  `godot/` passed on 2026-05-24 with `1283` scripts scanned and no GDScript
   warnings.
 - Current dirty scope before this documentation sync: `git status
   --porcelain=v1 -uall` is clean.
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the ninety-third split. The broad
+- The split notes below are current through the ninety-fourth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4291,6 +4291,33 @@ Ninety-third split on 2026-05-23:
   `active_item_pickup_router_smoke`,
   `mythic_item_acquisition_cinematic_smoke`, and
   `active_item_hud_visuals_prewarm_step_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1283` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
+
+Ninety-fourth split on 2026-05-24:
+
+- Commit: `066b0de36 godot: move mythic catalog roll options into helper`.
+- Scope: moved the 42 mythic / passive roll-option source arrays and
+  item-name lookup table from `mythic_item_catalog.gd` into
+  `mythic_item_catalog_rolls.gd`. Item builder dictionaries now hydrate their
+  `"roll_options"` through the public `get_roll_options(item_name)` path
+  instead of duplicating roll-option arrays directly.
+- Rationale: roll-option definitions are part of the roll catalog subdomain,
+  not the item-definition facade. Routing builder hydration through the public
+  lookup also leaves one source of truth for default rolls, randomized rolls,
+  rolled-option decoration, and tooltip / reward presentation data.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `2407` lines to
+  `1542` lines; `mythic_item_catalog_rolls.gd` moved from `98` lines to
+  `919` lines while absorbing the option source arrays.
+- Validation: focused catalog / roll / field-spawn / item-specific mythic
+  coverage (`passive_item_quality_prefix_smoke`,
+  `item_polish_perk_port_smoke`, `item_field_spawn_pool_smoke`,
+  `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`,
+  `mythic_item_ownership_runtime_smoke`, `pandora_legacy_port_smoke`,
+  `horn_strawberry_mask_port_smoke`, `baal_boots_weather_port_smoke`, and
+  `commando_arm_port_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1283` scripts scanned, no GDScript
   warnings). `git diff --check` passed.
