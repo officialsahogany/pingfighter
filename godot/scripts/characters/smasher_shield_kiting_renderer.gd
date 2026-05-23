@@ -9,6 +9,7 @@ const MAX_RENDERED_TRAIL_SHIELDS := 3
 const MAX_RENDERED_HIT_SHARDS := 5
 const SHIELD_RENDER_MODE := "procedural_pentagon_v2"
 const CIRCUIT_PATH_COUNT := 8
+const PROJECTILE_VISUAL_SCALE := 0.70
 const OUTER_GLOW_LINE_WIDTH := 9.0
 const OUTER_BEVEL_LINE_WIDTH := 4.8
 
@@ -85,11 +86,11 @@ func _draw_trail_ghost(canvas: CanvasItem, center: Vector2, angle_deg: float, al
 	var c: float = cos(angle)
 	var s: float = sin(angle)
 	var rotation := Vector2(c, s)
-	var points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 1.0)
-	var halo_points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 1.13)
+	var points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, PROJECTILE_VISUAL_SCALE)
+	var halo_points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 1.13 * PROJECTILE_VISUAL_SCALE)
 	canvas.draw_colored_polygon(halo_points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.075 * alpha))
 	canvas.draw_colored_polygon(points, Color(SHIELD_SHADOW.r, SHIELD_SHADOW.g, SHIELD_SHADOW.b, 0.48 * alpha))
-	canvas.draw_polyline(points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.92 * alpha), OUTER_BEVEL_LINE_WIDTH, true)
+	canvas.draw_polyline(points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.92 * alpha), OUTER_BEVEL_LINE_WIDTH * PROJECTILE_VISUAL_SCALE, true)
 
 
 func _draw_shield(canvas: CanvasItem, center: Vector2, angle_deg: float, alpha: float) -> void:
@@ -100,25 +101,25 @@ func _draw_shield(canvas: CanvasItem, center: Vector2, angle_deg: float, alpha: 
 	var s: float = sin(angle)
 	var rotation := Vector2(c, s)
 	var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.021 + angle * 1.7)
-	var points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 1.0)
-	var halo_points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 1.13)
-	var bevel_points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 0.90)
+	var points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, PROJECTILE_VISUAL_SCALE)
+	var halo_points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 1.13 * PROJECTILE_VISUAL_SCALE)
+	var bevel_points: PackedVector2Array = _build_rotated_points(SHIELD_BASE_POINTS, center, rotation, 0.90 * PROJECTILE_VISUAL_SCALE)
 
-	ImpactFlareTextureCache.draw_glow(canvas, center, 46.0 + pulse * 6.0, SHIELD_BLUE, 0.10 * alpha)
+	ImpactFlareTextureCache.draw_glow(canvas, center, (46.0 + pulse * 6.0) * PROJECTILE_VISUAL_SCALE, SHIELD_BLUE, 0.10 * alpha)
 	canvas.draw_colored_polygon(halo_points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.075 * alpha))
-	canvas.draw_polyline(halo_points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.22 * alpha), OUTER_GLOW_LINE_WIDTH, true)
+	canvas.draw_polyline(halo_points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.22 * alpha), OUTER_GLOW_LINE_WIDTH * PROJECTILE_VISUAL_SCALE, true)
 	canvas.draw_colored_polygon(points, Color(SHIELD_SHADOW.r, SHIELD_SHADOW.g, SHIELD_SHADOW.b, 0.48 * alpha))
 	canvas.draw_colored_polygon(bevel_points, Color(SHIELD_DEEP.r, SHIELD_DEEP.g, SHIELD_DEEP.b, 0.62 * alpha))
-	_draw_panel_facets(canvas, center, c, s, alpha)
-	_draw_circuit_lines(canvas, center, c, s, alpha, pulse)
+	_draw_panel_facets(canvas, center, c, s, alpha, PROJECTILE_VISUAL_SCALE)
+	_draw_circuit_lines(canvas, center, c, s, alpha, pulse, PROJECTILE_VISUAL_SCALE)
 
-	var inner_points: PackedVector2Array = _build_rotated_points(SHIELD_INNER_POINTS, center, rotation, 1.0)
-	canvas.draw_polyline(points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.92 * alpha), OUTER_BEVEL_LINE_WIDTH, true)
-	canvas.draw_polyline(points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, (0.70 + pulse * 0.18) * alpha), 1.45, true)
-	canvas.draw_polyline(bevel_points, Color(SHIELD_PANEL.r, SHIELD_PANEL.g, SHIELD_PANEL.b, 0.34 * alpha), 1.2, true)
-	canvas.draw_polyline(inner_points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.54 * alpha), 1.35, true)
-	_draw_corner_nodes(canvas, points, center, alpha, pulse)
-	_draw_center_core(canvas, center, c, s, alpha, pulse)
+	var inner_points: PackedVector2Array = _build_rotated_points(SHIELD_INNER_POINTS, center, rotation, PROJECTILE_VISUAL_SCALE)
+	canvas.draw_polyline(points, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.92 * alpha), OUTER_BEVEL_LINE_WIDTH * PROJECTILE_VISUAL_SCALE, true)
+	canvas.draw_polyline(points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, (0.70 + pulse * 0.18) * alpha), 1.45 * PROJECTILE_VISUAL_SCALE, true)
+	canvas.draw_polyline(bevel_points, Color(SHIELD_PANEL.r, SHIELD_PANEL.g, SHIELD_PANEL.b, 0.34 * alpha), 1.2 * PROJECTILE_VISUAL_SCALE, true)
+	canvas.draw_polyline(inner_points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.54 * alpha), 1.35 * PROJECTILE_VISUAL_SCALE, true)
+	_draw_corner_nodes(canvas, points, center, alpha, pulse, PROJECTILE_VISUAL_SCALE)
+	_draw_center_core(canvas, center, c, s, alpha, pulse, PROJECTILE_VISUAL_SCALE)
 
 
 func _draw_hit_effects(canvas: CanvasItem, effects: Array, shake_offset: Vector2) -> void:
@@ -179,13 +180,13 @@ func _draw_hit_effects(canvas: CanvasItem, effects: Array, shake_offset: Vector2
 			canvas.draw_line(shard_pos, end_pos, Color(color.r, color.g, color.b, 0.82 * alpha), max(1.0, float(shard.get("width", 2.0)) * alpha), true)
 
 
-func _draw_panel_facets(canvas: CanvasItem, center: Vector2, c: float, s: float, alpha: float) -> void:
+func _draw_panel_facets(canvas: CanvasItem, center: Vector2, c: float, s: float, alpha: float, visual_scale: float) -> void:
 	var rotation := Vector2(c, s)
 	var outer: Array[Vector2] = []
 	var inner: Array[Vector2] = []
 	for point in SHIELD_BASE_POINTS:
-		outer.append(center + _rotate_cached(point * 0.86, c, s))
-		inner.append(center + _rotate_cached(point * 0.38, c, s))
+		outer.append(center + _rotate_cached(point * 0.86 * visual_scale, c, s))
+		inner.append(center + _rotate_cached(point * 0.38 * visual_scale, c, s))
 	for index in range(outer.size()):
 		var next_index: int = (index + 1) % outer.size()
 		var shade: float = 0.78 + 0.22 * sin(float(index) * 1.73)
@@ -202,14 +203,14 @@ func _draw_panel_facets(canvas: CanvasItem, center: Vector2, c: float, s: float,
 			inner[next_index],
 		])
 		canvas.draw_colored_polygon(facet, panel_color)
-		canvas.draw_line(inner[index], outer[index], Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.18 * alpha), 1.0, true)
+		canvas.draw_line(inner[index], outer[index], Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.18 * alpha), 1.0 * visual_scale, true)
 	canvas.draw_colored_polygon(
-		_build_rotated_points(SHIELD_INNER_POINTS, center, rotation, 0.72),
+		_build_rotated_points(SHIELD_INNER_POINTS, center, rotation, 0.72 * visual_scale),
 		Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.20 * alpha)
 	)
 
 
-func _draw_circuit_lines(canvas: CanvasItem, center: Vector2, c: float, s: float, alpha: float, pulse: float) -> void:
+func _draw_circuit_lines(canvas: CanvasItem, center: Vector2, c: float, s: float, alpha: float, pulse: float, visual_scale: float) -> void:
 	var paths: Array[Array] = [
 		[Vector2(0.0, -7.0), Vector2(0.0, -19.0), Vector2(7.0, -24.0)],
 		[Vector2(0.0, -7.0), Vector2(0.0, -19.0), Vector2(-7.0, -24.0)],
@@ -224,37 +225,40 @@ func _draw_circuit_lines(canvas: CanvasItem, center: Vector2, c: float, s: float
 	var node_color := Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.40 * alpha)
 	for path in paths:
 		for segment_index in range(path.size() - 1):
-			var a: Vector2 = center + _rotate_cached(path[segment_index], c, s)
-			var b: Vector2 = center + _rotate_cached(path[segment_index + 1], c, s)
-			canvas.draw_line(a, b, line_color, 0.9, true)
-		var node: Vector2 = center + _rotate_cached(path[path.size() - 1], c, s)
-		canvas.draw_circle(node, 1.6, node_color)
-		canvas.draw_circle(node, 0.7, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.72 * alpha))
+			var local_a: Vector2 = path[segment_index]
+			var local_b: Vector2 = path[segment_index + 1]
+			var a: Vector2 = center + _rotate_cached(local_a * visual_scale, c, s)
+			var b: Vector2 = center + _rotate_cached(local_b * visual_scale, c, s)
+			canvas.draw_line(a, b, line_color, 0.9 * visual_scale, true)
+		var local_node: Vector2 = path[path.size() - 1]
+		var node: Vector2 = center + _rotate_cached(local_node * visual_scale, c, s)
+		canvas.draw_circle(node, 1.6 * visual_scale, node_color)
+		canvas.draw_circle(node, 0.7 * visual_scale, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.72 * alpha))
 
 
-func _draw_corner_nodes(canvas: CanvasItem, points: PackedVector2Array, center: Vector2, alpha: float, pulse: float) -> void:
+func _draw_corner_nodes(canvas: CanvasItem, points: PackedVector2Array, center: Vector2, alpha: float, pulse: float, visual_scale: float) -> void:
 	for index in range(points.size()):
 		var point: Vector2 = points[index]
 		var outward: Vector2 = (point - center).normalized()
 		var tangent := Vector2(-outward.y, outward.x)
-		canvas.draw_circle(point, 4.2 + pulse * 0.8, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.24 * alpha))
-		canvas.draw_circle(point, 1.9, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.88 * alpha))
+		canvas.draw_circle(point, (4.2 + pulse * 0.8) * visual_scale, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.24 * alpha))
+		canvas.draw_circle(point, 1.9 * visual_scale, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.88 * alpha))
 		if alpha < 0.45:
 			continue
-		var arc_a: Vector2 = point + outward * (5.0 + pulse * 2.0)
-		var arc_b: Vector2 = arc_a + tangent * (6.0 if index % 2 == 0 else -6.0) + outward * 4.0
-		var arc_c: Vector2 = arc_b + tangent * (-4.5 if index % 2 == 0 else 4.5) + outward * 5.0
-		canvas.draw_line(point, arc_a, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.44 * alpha), 1.0, true)
-		canvas.draw_line(arc_a, arc_b, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.34 * alpha), 0.9, true)
-		canvas.draw_line(arc_b, arc_c, Color(SHIELD_VIOLET.r, SHIELD_VIOLET.g, SHIELD_VIOLET.b, 0.28 * alpha), 0.8, true)
+		var arc_a: Vector2 = point + outward * (5.0 + pulse * 2.0) * visual_scale
+		var arc_b: Vector2 = arc_a + tangent * (6.0 if index % 2 == 0 else -6.0) * visual_scale + outward * 4.0 * visual_scale
+		var arc_c: Vector2 = arc_b + tangent * (-4.5 if index % 2 == 0 else 4.5) * visual_scale + outward * 5.0 * visual_scale
+		canvas.draw_line(point, arc_a, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.44 * alpha), 1.0 * visual_scale, true)
+		canvas.draw_line(arc_a, arc_b, Color(SHIELD_BLUE.r, SHIELD_BLUE.g, SHIELD_BLUE.b, 0.34 * alpha), 0.9 * visual_scale, true)
+		canvas.draw_line(arc_b, arc_c, Color(SHIELD_VIOLET.r, SHIELD_VIOLET.g, SHIELD_VIOLET.b, 0.28 * alpha), 0.8 * visual_scale, true)
 
 
-func _draw_center_core(canvas: CanvasItem, center: Vector2, c: float, s: float, alpha: float, pulse: float) -> void:
-	var core_points: PackedVector2Array = _build_rotated_points(SHIELD_INNER_POINTS, center, Vector2(c, s), 0.34 + pulse * 0.03)
+func _draw_center_core(canvas: CanvasItem, center: Vector2, c: float, s: float, alpha: float, pulse: float, visual_scale: float) -> void:
+	var core_points: PackedVector2Array = _build_rotated_points(SHIELD_INNER_POINTS, center, Vector2(c, s), (0.34 + pulse * 0.03) * visual_scale)
 	canvas.draw_colored_polygon(core_points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.18 * alpha))
-	canvas.draw_polyline(core_points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.62 * alpha), 1.0, true)
-	ImpactFlareTextureCache.draw_glow(canvas, center, 13.0 + pulse * 3.0, SHIELD_CORE, 0.16 * alpha)
-	ImpactFlareTextureCache.draw_sparkle(canvas, center, 7.0 + pulse * 2.0, SHIELD_CORE, 0.52 * alpha)
+	canvas.draw_polyline(core_points, Color(SHIELD_CORE.r, SHIELD_CORE.g, SHIELD_CORE.b, 0.62 * alpha), 1.0 * visual_scale, true)
+	ImpactFlareTextureCache.draw_glow(canvas, center, (13.0 + pulse * 3.0) * visual_scale, SHIELD_CORE, 0.16 * alpha)
+	ImpactFlareTextureCache.draw_sparkle(canvas, center, (7.0 + pulse * 2.0) * visual_scale, SHIELD_CORE, 0.52 * alpha)
 
 
 func _rotate_cached(value: Vector2, c: float, s: float) -> Vector2:
@@ -278,6 +282,7 @@ func get_asset_status() -> Dictionary:
 		"shield_kiting_projectile_points": SHIELD_BASE_POINTS.size(),
 		"shield_kiting_inner_panel_points": SHIELD_INNER_POINTS.size(),
 		"shield_kiting_circuit_paths": CIRCUIT_PATH_COUNT,
+		"shield_kiting_projectile_visual_scale": PROJECTILE_VISUAL_SCALE,
 		"shield_kiting_outer_glow_line_width": OUTER_GLOW_LINE_WIDTH,
 	}
 

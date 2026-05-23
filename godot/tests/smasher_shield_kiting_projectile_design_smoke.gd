@@ -15,6 +15,7 @@ func _init() -> void:
 	_expect(int(status.get("shield_kiting_projectile_points", 0)) == 5, "Shield Kiting projectile should keep a five-point pentagon silhouette")
 	_expect(int(status.get("shield_kiting_inner_panel_points", 0)) == 5, "Shield Kiting inner panel should keep a pentagon motif")
 	_expect(int(status.get("shield_kiting_circuit_paths", 0)) >= 8, "Shield Kiting projectile should include circuit-line detail paths")
+	_expect(is_equal_approx(float(status.get("shield_kiting_projectile_visual_scale", 0.0)), 0.70), "Shield Kiting projectile image should render at 70% of the previous visual size")
 	_expect(float(status.get("shield_kiting_outer_glow_line_width", 0.0)) >= 8.0, "Shield Kiting projectile should keep a strong outer glow bevel")
 	_expect(SmasherShieldKitingRenderer.TRAIL_ALPHA_BASE < 0.40, "Shield Kiting trail ghosts should be lighter than the live shield")
 
