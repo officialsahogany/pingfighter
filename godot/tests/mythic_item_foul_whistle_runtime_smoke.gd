@@ -45,7 +45,7 @@ func _init() -> void:
 	_expect(runtime.foul_whistle_state.pending_round_reset, "Foul Whistle should mark a pending round reset")
 	_expect(not runtime.consume_foul_whistle_reset_ready(), "reset should not be ready before the reset frame")
 
-	runtime._update_foul_whistle_runtime(70.0)
+	runtime.foul_whistle_runtime.update_runtime(runtime, 70.0)
 	_expect(runtime.consume_foul_whistle_reset_ready(), "reset should become consumable at the reset frame")
 	_expect(not runtime.is_foul_whistle_effect_active(), "consume should clear the animation state")
 

@@ -2439,24 +2439,12 @@ func _clear_baal_boots_round_state(registry: Object = null) -> void:
 	baal_boots_runtime.clear_round_state(self, registry, BAAL_BOOTS_CONSTANTS)
 
 
-func _update_smartphone_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
-	auto_defense_runtime.update_smartphone_runtime(self, owner, registry, fps_scale)
-
-
-func _update_venom_mist_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
-	venom_mist_runtime.update_runtime(self, owner, registry, fps_scale)
-
-
 func _read_owner_boss_center(owner: Object) -> Vector2:
 	return venom_mist_runtime.read_owner_boss_center(self, owner)
 
 
 func _get_venom_mist_alpha() -> float:
 	return venom_mist_runtime.get_alpha(self)
-
-
-func _update_rainbow_fur_glove_runtime(fps_scale: float) -> void:
-	rainbow_fur_glove_runtime.update_runtime(self, fps_scale)
 
 
 func _get_adversity_armor_barrier_y() -> float:
@@ -2487,36 +2475,8 @@ func _update_ragnarok_runtime(owner: Object, registry: Object, delta: float, fps
 	ragnarok_runtime.update_runtime(self, owner, registry, delta, fps_scale, RAGNAROK_CONSTANTS)
 
 
-func _update_knee_pads_runtime(fps_scale: float) -> void:
-	knee_pads_runtime.update_runtime(self, fps_scale)
-
-
-func _update_soul_burst_runtime(fps_scale: float) -> void:
-	soul_burst_runtime.update_runtime(self, fps_scale)
-
-
-func _update_foul_whistle_runtime(fps_scale: float) -> void:
-	foul_whistle_runtime.update_runtime(self, fps_scale)
-
-
-func _update_revival_runtime(fps_scale: float) -> void:
-	revival_runtime.update_runtime(self, fps_scale)
-
-
-func _update_sensor_runtime(fps_scale: float) -> void:
-	auto_defense_runtime.update_sensor_runtime(self, fps_scale)
-
-
 func _update_poseidon_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
 	poseidon_runtime.update_runtime(self, owner, registry, fps_scale, POSEIDON_CONSTANTS)
-
-
-func _update_celestial_armor_runtime(fps_scale: float) -> void:
-	celestial_armor_runtime.update_runtime(self, fps_scale)
-
-
-func _update_hermes_shoes_runtime(owner: Object, fps_scale: float) -> void:
-	hermes_shoes_runtime.update_runtime(self, owner, fps_scale)
 
 
 func _try_trigger_poseidon_vortex(owner: Object, registry: Object, direction: float) -> bool:
@@ -2534,10 +2494,6 @@ func _read_owner_player_center(owner: Object) -> Vector2:
 
 func _update_baal_boots_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
 	baal_boots_runtime.update_runtime(self, owner, registry, fps_scale, BAAL_BOOTS_CONSTANTS)
-
-
-func _update_horn_strawberry_mask_runtime(owner: Object, registry: Object, delta: float) -> void:
-	horn_strawberry_mask_runtime.update(self, owner, registry, delta)
 
 
 func _try_arm_baal_boots_from_weather(
@@ -2560,14 +2516,6 @@ func get_item_roll_value(
 ) -> float:
 	_ensure_helpers_ready()
 	return roll_query.get_public_item_roll_value(self, item_data, option_key, apply_polish, registry)
-
-
-func _build_ragnarok_sparks() -> void:
-	ragnarok_runtime.build_sparks(self, RAGNAROK_CONSTANTS)
-
-
-func _update_ragnarok_sparks(delta: float) -> void:
-	ragnarok_runtime.update_sparks(self, delta)
 
 
 func _ragnarok_ball_elapsed() -> float:
