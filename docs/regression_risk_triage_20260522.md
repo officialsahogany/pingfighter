@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `b0d7d0e2b godot: route mythic roll metadata through owner`.
-- The checkpoint span through that HEAD contains 138 follow-up commits after
+  `83b76a318 godot: route mythic equipment indexing through owner`.
+- The checkpoint span through that HEAD contains 140 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 139 commits.
+  contains 141 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `023922f60 docs: record boomerang pickup bridge cleanup`.
+  `f731c58eb docs: record mythic roll metadata bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the eighty-seventh split. The broad
+- The split notes below are current through the eighty-eighth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4144,6 +4144,38 @@ Eighty-seventh split on 2026-05-23:
   `passive_item_debug_menu_click_add_smoke`,
   `mythic_item_perk_choice_runtime_smoke`,
   `baal_boots_weather_port_smoke`, and
+  `mythic_item_runtime_idle_update_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Eighty-eighth split on 2026-05-23:
+
+- Commit: `83b76a318 godot: route mythic equipment indexing through owner`.
+- Scope: equipment, debug, ownership, Revival consume, and owner-sync paths now
+  call `mythic_item_equipment_index.gd` directly for inventory / equipped
+  index lookup, equipped-item rebuilds, slot canonicalization, slot resolution,
+  and accessory-slot enablement. The equipment facade also calls
+  `roll_query.apply_roll_overrides()` directly for roll override application,
+  and runtime public entry points pass `CONTEXT_CONSTANTS` into the focused
+  equipment / Revival helpers. The private `_rebuild_equipped_items()`,
+  `_is_single_equipment_item()`, `_find_inventory_index_by_name()`,
+  `_find_equipped_inventory_index_by_name()`,
+  `_find_equipped_inventory_index_by_slot()`,
+  `_resolve_equipment_slot_key()`, `_canonical_equipment_slot_key()`,
+  `_apply_roll_overrides()`, and `_is_equipment_slot_enabled()` bridges were
+  removed from `mythic_item_runtime.gd`.
+- Rationale: inventory / equipment slot indexing is owned by
+  `mythic_item_equipment_index.gd`; the runtime facade should keep the public
+  item API, not private index and slot-key re-exports.
+- Runtime facade size: `mythic_item_runtime.gd` moved from `2538` lines to
+  `2497` lines.
+- Validation: focused mythic / debug / equipment / Revival coverage
+  (`mythic_item_ownership_runtime_smoke`,
+  `passive_item_debug_menu_click_add_smoke`,
+  `mythic_item_perk_choice_runtime_smoke`,
+  `character_info_equipment_anatomy_smoke`, `revival_port_smoke`, and
   `mythic_item_runtime_idle_update_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
