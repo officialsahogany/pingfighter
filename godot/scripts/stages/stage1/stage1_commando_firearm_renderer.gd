@@ -882,9 +882,26 @@ func _draw_support_shell(canvas: CanvasItem, projectile: Dictionary, shake_offse
 	var color: Color = Stage1ContextReader.as_color(projectile.get("color", Color(1.0, 0.34, 0.16)), Color(1.0, 0.34, 0.16))
 	var secondary: Color = Stage1ContextReader.as_color(projectile.get("secondary", Color(1.0, 0.82, 0.25)), Color(1.0, 0.82, 0.25))
 	var radius: float = float(projectile.get("radius", 7.0))
-	canvas.draw_line(prev_pos, pos, _with_alpha(secondary, 0.72), radius * 0.95, true)
-	canvas.draw_circle(pos, radius, _with_alpha(color, 0.94))
-	canvas.draw_circle(pos, radius * 0.42, _with_alpha(Color(1.0, 0.95, 0.66), 0.92))
+	var velocity: Vector2 = Stage1ContextReader.as_vector2(projectile.get("velocity", Vector2.DOWN), Vector2.DOWN)
+	var dir: Vector2 = velocity.normalized() if velocity.length_squared() > 0.0001 else Vector2.DOWN
+	var side: Vector2 = dir.rotated(PI * 0.5)
+	var shell_length: float = max(19.0, radius * 3.2)
+	var shell_width: float = max(6.0, radius * 0.95)
+	var nose: Vector2 = pos + dir * shell_length * 0.54
+	var tail: Vector2 = pos - dir * shell_length * 0.48
+	canvas.draw_line(prev_pos, pos, _with_alpha(secondary, 0.46), max(2.0, radius * 0.55), true)
+	canvas.draw_line(tail - dir * shell_length * 0.72, tail, _with_alpha(Color(1.0, 0.36, 0.08), 0.54), shell_width * 0.72, true)
+	canvas.draw_line(tail - dir * shell_length * 0.50, tail, _with_alpha(secondary, 0.74), shell_width * 0.38, true)
+	canvas.draw_colored_polygon(PackedVector2Array([
+		nose,
+		pos + side * shell_width * 0.55,
+		tail + side * shell_width * 0.66,
+		tail - side * shell_width * 0.66,
+		pos - side * shell_width * 0.55,
+	]), _with_alpha(color, 0.96))
+	canvas.draw_line(nose - dir * shell_length * 0.22, tail + dir * shell_length * 0.12, _with_alpha(Color(1.0, 0.92, 0.62), 0.78), max(1.0, shell_width * 0.24), true)
+	canvas.draw_line(tail + side * shell_width * 0.72, tail + side * shell_width * 1.35 - dir * shell_length * 0.16, _with_alpha(secondary, 0.82), 1.6, true)
+	canvas.draw_line(tail - side * shell_width * 0.72, tail - side * shell_width * 1.35 - dir * shell_length * 0.16, _with_alpha(secondary, 0.82), 1.6, true)
 
 
 func _draw_trap_ball(canvas: CanvasItem, projectile: Dictionary, shake_offset: Vector2) -> void:

@@ -153,7 +153,7 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 	var target := Vector2(320.0, 180.0)
 	_expect(runtime._support_call_seed(4, target) == 4414083065, "runtime seed wrapper should delegate")
 	_expect(is_equal_approx(runtime._get_support_call_delay_frames(4, target), 148.0), "runtime delay wrapper should delegate")
-	_expect(runtime._get_support_bomb_count(4, target) == 7, "runtime bomb-count wrapper should delegate")
+	_expect(runtime._get_support_bomb_count(4, target) == 2, "runtime bomb-count wrapper should delegate tuned 2-3 bomb count")
 	_expect(runtime._get_support_bomb_target(target, 2) == Vector2(320.0, 214.0), "runtime bomb-target wrapper should delegate")
 	var advance_result: Dictionary = runtime._advance_support_call({
 		"call_timer_frames": 0.0,
@@ -166,7 +166,10 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 	var advanced_call: Dictionary = _get_dict(advance_result.get("call", {}))
 	_expect(bool(advance_result.get("started_aircraft", false)), "runtime support advance wrapper should report aircraft startup")
 	_expect(bool(advance_result.get("spawn_bomb", false)), "runtime support advance wrapper should report bomb spawn")
-	_expect(advanced_call.get("aircraft_pos", Vector2.ZERO) == Vector2(-104.0, 52.0), "runtime support advance wrapper should use runtime aircraft lane and speed")
+	var advanced_pos: Vector2 = _get_vector2(advanced_call.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO)
+	_expect(is_equal_approx(advanced_pos.x, -32.0), "runtime support advance wrapper should use the tuned fast aircraft speed")
+	_expect(advanced_pos.y > 70.0, "runtime support advance wrapper should curve away from the straight aircraft lane")
+	_expect(abs(float(advanced_call.get("aircraft_curve_roll", 0.0))) > 0.0, "runtime support advance wrapper should expose curve roll metadata")
 	runtime.support_calls = [{"call_timer_frames": 1.0}]
 	_expect(runtime._has_active_support_call_lock(), "runtime support active-lock wrapper should delegate active calls")
 	runtime.support_calls = [{"call_timer_frames": 0.0, "radio_active": false}]
@@ -182,3 +185,9 @@ func _get_dict(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
+	if value is Vector2:
+		return value
+	return fallback

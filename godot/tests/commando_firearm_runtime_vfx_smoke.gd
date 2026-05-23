@@ -1323,7 +1323,7 @@ func _verify_fire_support_call_lifecycle() -> void:
 	_expect(bool(initial_call.get("radio_active", false)), "fire support should expose active radio motion during call lock")
 	_expect(float(initial_call.get("delay_frames", 0.0)) >= 120.0 and float(initial_call.get("delay_frames", 0.0)) <= 180.0, "fire support delay should stay in the Python 120-180 frame range")
 	var expected_bomb_total: int = int(initial_call.get("bombs_total", 0))
-	_expect(expected_bomb_total >= 5 and expected_bomb_total <= 7, "fire support should prepare a Python-range 5-7 bomb strike")
+	_expect(expected_bomb_total >= 2 and expected_bomb_total <= 3, "fire support should prepare the tuned 2-3 bomb strike")
 	_expect(not bool(runtime.is_fire_support_aircraft_audio_active()), "fire support aircraft audio should stay inactive before aircraft entry")
 	_expect(_get_array(initial_context.get("commando_firearm_projectiles", [])).is_empty(), "fire support should not drop a bomb on the call frame")
 
@@ -1344,10 +1344,14 @@ func _verify_fire_support_call_lifecycle() -> void:
 	var strike_context: Dictionary = runtime.get_actor_draw_context()
 	var strike_calls: Array = _get_array(strike_context.get("commando_firearm_support_calls", []))
 	_expect(strike_calls.size() == 1 and bool(_get_dict(strike_calls[0]).get("aircraft_active", false)), "fire support should expose the aircraft once the strike starts")
+	var strike_call: Dictionary = _get_dict(strike_calls[0])
+	var aircraft_velocity: Vector2 = _get_vector2(strike_call.get("aircraft_velocity", Vector2.ZERO), Vector2.ZERO)
+	_expect(is_equal_approx(aircraft_velocity.x, 5.4), "fire support aircraft should fly at the tuned 3x speed")
+	_expect(float(strike_call.get("aircraft_curve_amplitude", 0.0)) > 0.0, "fire support aircraft should expose curved flight metadata")
 	_expect(audio.fire_support_aircraft_play_calls == 1, "fire support aircraft entry should start the dedicated aircraft loop")
 	_expect(audio.supply_aircraft_play_calls == 0, "fire support aircraft loop should not use the supply fallback when the dedicated method exists")
 	_expect(bool(runtime.is_fire_support_aircraft_audio_active()), "fire support should expose active aircraft loop state during strike")
-	var aircraft_rect: Rect2 = runtime.get_fire_support_aircraft_collision_rect(int(_get_dict(strike_calls[0]).get("id", 0)))
+	var aircraft_rect: Rect2 = runtime.get_fire_support_aircraft_collision_rect(int(strike_call.get("id", 0)))
 	_expect(aircraft_rect.size.x > 0.0 and aircraft_rect.size.y > 0.0, "fire support aircraft should expose its Python-sized collision rect")
 	var collision_scene: Dictionary = config.duplicate(true)
 	collision_scene["previous_ball_pos"] = aircraft_rect.get_center() + Vector2(0.0, -90.0)
@@ -1358,7 +1362,7 @@ func _verify_fire_support_call_lifecycle() -> void:
 	var post_collision_calls: Array = _get_array(runtime.get_actor_draw_context().get("commando_firearm_support_calls", []))
 	_expect(post_collision_calls.size() == 1 and bool(_get_dict(post_collision_calls[0]).get("aircraft_active", false)), "fire support ball contact should not cancel the bomber")
 	_expect(audio.fire_support_aircraft_stop_calls == 0, "fire support ball contact should not stop the aircraft loop")
-	_expect(_get_array(strike_context.get("commando_firearm_projectiles", [])).is_empty(), "fire support aircraft should wait for the Python drop-arm window before the first bomb")
+	_expect(_get_array(strike_context.get("commando_firearm_projectiles", [])).is_empty(), "fire support aircraft should wait for the tuned drop-arm window before the first bomb")
 
 	for i in range(90):
 		runtime.update_effects(1.0, Time.get_ticks_msec(), config, deps)
@@ -1369,15 +1373,15 @@ func _verify_fire_support_call_lifecycle() -> void:
 	if not first_bombs.is_empty():
 		var first_bomb: Dictionary = _get_dict(first_bombs[0])
 		_expect(str(first_bomb.get("kind", "")) == "support", "fire support falling ordnance should expose support projectile kind")
-		_expect(is_equal_approx(float(first_bomb.get("gravity", 0.0)), 0.35), "fire support bomb should use Python 0.35 gravity")
-		_expect(float(_get_vector2(first_bomb.get("velocity", Vector2.ZERO), Vector2.ZERO).y) >= 2.0, "fire support bomb should start from the Python downward velocity")
+		_expect(is_equal_approx(float(first_bomb.get("gravity", 0.0)), 0.08), "fire support bomb should use the tuned slow-fall gravity")
+		_expect(float(_get_vector2(first_bomb.get("velocity", Vector2.ZERO), Vector2.ZERO).y) >= 1.0, "fire support bomb should start with the tuned slow downward velocity")
 
 	for i in range(620):
 		runtime.update_effects(1.0, Time.get_ticks_msec(), config, deps)
 		if _get_array(runtime.get_recent_hit_events()).size() >= expected_bomb_total:
 			break
 	var hit_events: Array = _get_array(runtime.get_recent_hit_events())
-	_expect(hit_events.size() >= expected_bomb_total, "fire support should resolve every Python-range bomb in the strike")
+	_expect(hit_events.size() >= expected_bomb_total, "fire support should resolve every tuned bomb in the strike")
 	_expect(str(_get_dict(hit_events[0]).get("weapon_id", "")) == "fire_support", "fire support bomb hit should preserve weapon id")
 	_expect(int(_get_dict(_get_dict(hit_events[0]).get("result", {})).get("damage_units", 0)) == 1, "fire support bomb hit should preserve damage metadata")
 	var status_calls: Array = _get_array(status_effect_state.get_calls_for_source("commando_firearm_fire_support"))

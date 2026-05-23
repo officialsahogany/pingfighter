@@ -46,8 +46,12 @@ static func build_call_payload(
 	call_lock_frames: float,
 	aircraft_drop_arm_frames: float,
 	aircraft_y: float,
-	aircraft_speed: float
+	aircraft_speed: float,
+	aircraft_curve_amplitude: float = 0.0,
+	aircraft_curve_frequency: float = 0.0,
+	aircraft_curve_secondary_ratio: float = 0.0
 ) -> Dictionary:
+	var curve_phase: float = float(support_call_seed(call_id + 31, target) % 628) / 100.0
 	return {
 		"id": call_id,
 		"weapon_id": weapon_id,
@@ -68,6 +72,12 @@ static func build_call_payload(
 		"aircraft_audio_active": false,
 		"aircraft_spawn_timer": 0.0,
 		"aircraft_drop_arm_frames": aircraft_drop_arm_frames,
+		"aircraft_base_y": aircraft_y,
+		"aircraft_curve_amplitude": aircraft_curve_amplitude,
+		"aircraft_curve_frequency": aircraft_curve_frequency,
+		"aircraft_curve_secondary_ratio": aircraft_curve_secondary_ratio,
+		"aircraft_curve_phase": curve_phase,
+		"aircraft_curve_roll": 0.0,
 		"aircraft_pos": Vector2(-140.0, aircraft_y),
 		"aircraft_velocity": Vector2(aircraft_speed, 0.0),
 		"color": profile.get("color", Color(1.0, 0.34, 0.16)),
@@ -110,7 +120,10 @@ static func advance_call(
 	aircraft_velocity: Vector2,
 	bomb_interval_frames: float,
 	field_width: float,
-	aircraft_finish_margin: float
+	aircraft_finish_margin: float,
+	aircraft_curve_amplitude: float = 0.0,
+	aircraft_curve_frequency: float = 0.0,
+	aircraft_curve_secondary_ratio: float = 0.0
 ) -> Dictionary:
 	var next_call: Dictionary = call_data.duplicate(true)
 	var result := {
@@ -143,14 +156,22 @@ static func advance_call(
 		next_call["aircraft_pos"] = aircraft_spawn_pos
 		next_call["aircraft_velocity"] = aircraft_velocity
 		next_call["aircraft_spawn_timer"] = 0.0
+		next_call["aircraft_base_y"] = float(next_call.get("aircraft_base_y", aircraft_spawn_pos.y))
+		next_call["aircraft_curve_amplitude"] = float(next_call.get("aircraft_curve_amplitude", aircraft_curve_amplitude))
+		next_call["aircraft_curve_frequency"] = float(next_call.get("aircraft_curve_frequency", aircraft_curve_frequency))
+		next_call["aircraft_curve_secondary_ratio"] = float(next_call.get("aircraft_curve_secondary_ratio", aircraft_curve_secondary_ratio))
+		next_call["aircraft_curve_phase"] = float(next_call.get("aircraft_curve_phase", 0.0))
+		next_call["aircraft_curve_roll"] = 0.0
 		result["started_aircraft"] = true
 
 	var aircraft_pos: Vector2 = _get_vector2(next_call.get("aircraft_pos", aircraft_spawn_pos), aircraft_spawn_pos)
 	var current_velocity: Vector2 = _get_vector2(next_call.get("aircraft_velocity", aircraft_velocity), aircraft_velocity)
 	aircraft_pos += current_velocity * safe_step
-	next_call["aircraft_pos"] = aircraft_pos
 	var aircraft_spawn_timer: float = max(0.0, float(next_call.get("aircraft_spawn_timer", 0.0)) + safe_step)
 	next_call["aircraft_spawn_timer"] = aircraft_spawn_timer
+	aircraft_pos.y = _get_curved_aircraft_y(next_call, aircraft_spawn_pos.y, aircraft_spawn_timer)
+	next_call["aircraft_curve_roll"] = _get_curved_aircraft_roll(next_call, aircraft_spawn_timer)
+	next_call["aircraft_pos"] = aircraft_pos
 	var can_drop: bool = aircraft_spawn_timer >= float(next_call.get("aircraft_drop_arm_frames", 0.0))
 
 	var bombs_remaining: int = max(0, int(next_call.get("bombs_remaining", 0)))
@@ -175,6 +196,31 @@ static func has_active_lock(support_calls: Array) -> bool:
 		if bool(call_data.get("radio_active", false)) or float(call_data.get("call_timer_frames", 0.0)) > 0.0:
 			return true
 	return false
+
+
+static func _get_curved_aircraft_y(call_data: Dictionary, fallback_y: float, aircraft_spawn_timer: float) -> float:
+	var amplitude: float = float(call_data.get("aircraft_curve_amplitude", 0.0))
+	var frequency: float = float(call_data.get("aircraft_curve_frequency", 0.0))
+	if amplitude <= 0.0 or frequency <= 0.0:
+		return fallback_y
+	var base_y: float = float(call_data.get("aircraft_base_y", fallback_y))
+	var phase: float = float(call_data.get("aircraft_curve_phase", 0.0))
+	var secondary_ratio: float = float(call_data.get("aircraft_curve_secondary_ratio", 0.0))
+	var primary: float = sin(aircraft_spawn_timer * frequency + phase)
+	var secondary: float = sin(aircraft_spawn_timer * frequency * 2.15 + phase * 0.5) * secondary_ratio
+	return base_y + (primary + secondary) * amplitude
+
+
+static func _get_curved_aircraft_roll(call_data: Dictionary, aircraft_spawn_timer: float) -> float:
+	var amplitude: float = float(call_data.get("aircraft_curve_amplitude", 0.0))
+	var frequency: float = float(call_data.get("aircraft_curve_frequency", 0.0))
+	if amplitude <= 0.0 or frequency <= 0.0:
+		return 0.0
+	var phase: float = float(call_data.get("aircraft_curve_phase", 0.0))
+	var secondary_ratio: float = float(call_data.get("aircraft_curve_secondary_ratio", 0.0))
+	var primary_slope: float = cos(aircraft_spawn_timer * frequency + phase) * amplitude * frequency
+	var secondary_slope: float = cos(aircraft_spawn_timer * frequency * 2.15 + phase * 0.5) * amplitude * frequency * 2.15 * secondary_ratio
+	return clamp((primary_slope + secondary_slope) * 0.12, -0.22, 0.22)
 
 
 static func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
