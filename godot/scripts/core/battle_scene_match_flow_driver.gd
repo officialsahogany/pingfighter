@@ -189,6 +189,8 @@ func reset_for_stage_transition(
 		"reset_ball": reset_ball_callback,
 	})
 	_get_reset_result_applier(registry).apply_reset_result(owner, result)
+	_reset_active_item_cooldowns_for_stage_transition(owner, registry)
+	_notify_mythic_stage_advance(owner, registry)
 
 
 func _get_match_flow_deps(registry: Object, current_stage: int = 1, owner: Object = null) -> Dictionary:
@@ -217,3 +219,30 @@ func _get_reset_result_applier(registry: Object) -> Object:
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
 	return BattleSceneOwnerReader.get_value(owner, key, fallback)
+
+
+func _reset_active_item_cooldowns_for_stage_transition(owner: Object, registry: Object) -> void:
+	if owner == null:
+		return
+	var active_item_runtime: Object = _get_instance(registry, "active_item_runtime")
+	if active_item_runtime == null:
+		return
+	if active_item_runtime.has_method("reset_for_stage_transition"):
+		active_item_runtime.reset_for_stage_transition(owner, registry)
+		return
+	var slot_controller_value: Variant = active_item_runtime.get("slot_controller")
+	if not (slot_controller_value is Object):
+		return
+	var slot_controller: Object = slot_controller_value
+	if not slot_controller.has_method("reset_cooldowns_for_stage_transition"):
+		return
+	var current_slots: Array = BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	var cleaned_slots: Array = slot_controller.reset_cooldowns_for_stage_transition(current_slots)
+	owner.set("active_item_slots", cleaned_slots)
+
+
+func _notify_mythic_stage_advance(owner: Object, registry: Object) -> void:
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("on_stage_advance"):
+		return
+	mythic_item_runtime.on_stage_advance(owner, registry)

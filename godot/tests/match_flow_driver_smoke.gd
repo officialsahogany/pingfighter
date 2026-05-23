@@ -53,6 +53,7 @@ class FakeController:
 	extends RefCounted
 
 	var reset_calls := 0
+	var stage_transition_reset_calls := 0
 	var result := {
 		"special_gauge": 0.0,
 		"special_gauge_max": 500.0,
@@ -87,6 +88,43 @@ class FakeController:
 		if reset_ball_callback.is_valid():
 			reset_ball_callback.call()
 		return result
+
+	func reset_for_stage_transition(_deps: Dictionary, callbacks: Dictionary) -> Dictionary:
+		stage_transition_reset_calls += 1
+		var reset_drive_input_callback: Callable = callbacks.get("reset_drive_input", Callable())
+		if reset_drive_input_callback.is_valid():
+			reset_drive_input_callback.call()
+		var reset_ball_callback: Callable = callbacks.get("reset_ball", Callable())
+		if reset_ball_callback.is_valid():
+			reset_ball_callback.call()
+		return {
+			"special_gauge": 0.0,
+			"drive_text_timer_frames": 0.0,
+		}
+
+
+class FakeStageTransitionActiveItemRuntime:
+	extends RefCounted
+
+	var reset_for_stage_transition_calls := 0
+	var saw_registry := false
+
+	func reset_for_stage_transition(owner: Object, registry: Object) -> void:
+		reset_for_stage_transition_calls += 1
+		saw_registry = registry != null
+		if owner == null:
+			return
+		var slots_value: Variant = owner.get("active_item_slots")
+		if not (slots_value is Array):
+			return
+		var slots: Array = (slots_value as Array).duplicate(true)
+		for i in range(slots.size()):
+			var item_value: Variant = slots[i]
+			if item_value is Dictionary:
+				var item_data: Dictionary = item_value
+				item_data["last_use_msec"] = -1
+				slots[i] = item_data
+		owner.set("active_item_slots", slots)
 
 
 class FakeScoreboardState:
@@ -128,6 +166,7 @@ class FakeRegistry:
 	var context_builder: Object
 	var controller: Object
 	var scoreboard_state: Object = null
+	var active_item_runtime: Object = null
 
 	func _init(next_context_builder: Object, next_controller: Object) -> void:
 		context_builder = next_context_builder
@@ -141,6 +180,8 @@ class FakeRegistry:
 				return controller
 			"scoreboard_state":
 				return scoreboard_state
+			"active_item_runtime":
+				return active_item_runtime
 			_:
 				return null
 
@@ -213,6 +254,24 @@ func _init() -> void:
 	_expect(_ball_reset_calls == ball_resets_before + 1, "scoreboard completion should start the next serve")
 	_expect(round_state.prepare_calls == 1, "scoreboard completion should prepare serve state")
 	_expect(mythic_runtime.pending_calls == 1 and mythic_runtime.saw_owner and mythic_runtime.saw_registry, "scoreboard completion should preserve pending mythic selection routing")
+
+	var active_item_runtime := FakeStageTransitionActiveItemRuntime.new()
+	registry.active_item_runtime = active_item_runtime
+	owner.active_item_slots = [{"item_id": "reward_item", "last_use_msec": 45678}]
+	var drive_resets_before: int = _drive_reset_calls
+	ball_resets_before = _ball_reset_calls
+	driver.reset_for_stage_transition(
+		owner,
+		registry,
+		Callable(self, "_record_drive_reset"),
+		Callable(self, "_record_ball_reset")
+	)
+	_expect(controller.stage_transition_reset_calls == 1, "stage transition should use the preserving reset path")
+	_expect(_drive_reset_calls == drive_resets_before + 1 and _ball_reset_calls == ball_resets_before + 1, "stage transition should forward reset callbacks")
+	_expect(active_item_runtime.reset_for_stage_transition_calls == 1 and active_item_runtime.saw_registry, "stage transition should reset active item transient runtime state")
+	_expect(owner.active_item_slots.size() == 1, "stage transition should preserve active item slots")
+	_expect(str(owner.active_item_slots[0].get("item_id", "")) == "reward_item", "stage transition should keep active item identity")
+	_expect(int(owner.active_item_slots[0].get("last_use_msec", 0)) < 0, "stage transition should clear active item cooldown fields")
 
 	if _failures.is_empty():
 		print("match_flow_driver_smoke: ok")
