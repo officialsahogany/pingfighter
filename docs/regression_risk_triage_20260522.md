@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `b479f5edc godot: smooth pillar gauge liquid fill`.
-- Code split range through that HEAD contains 66 follow-up commits after the
+  `3998ec141 godot: align commando firearm item text`.
+- Code split range through that HEAD contains 68 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 67 commits.
+  span through the latest code split contains 69 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 65 visible paths in
-  `git status --porcelain=v1` (`21` tracked modified / deleted paths and
+- Current dirty scope before this documentation sync: 60 visible paths in
+  `git status --porcelain=v1` (`16` tracked modified / deleted paths and
   `44` untracked paths).
-- The split notes below are current through the fifty-ninth split. The
+- The split notes below are current through the sixtieth split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3270,6 +3270,29 @@ Fifty-ninth split on 2026-05-23:
   `stage2_pillar_render_budget_smoke`,
   `stage3_pillar_hud_lod_smoke`,
   `viper_airborne_lod_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Sixtieth split on 2026-05-23:
+
+- Commit: `3998ec141 godot: align commando firearm item text`.
+- Scope: Commando / Soldier-facing text now matches the current firearm
+  runtime contract: the Beretta unlock perk describes the separate 8-ammo
+  permanent firearm with 2x fire rate, improved speed / accuracy, and
+  reload-skill-only refill behavior; the Doping Potion localization describes
+  pistol / Beretta headshot and legshot odds plus pistol, Beretta, AK-47, and
+  bazooka fire-rate coverage. Korean item display name now uses
+  `도핑주사기`.
+- Rationale: recent Commando firearm runtime work changed Beretta and Doping
+  Potion behavior beyond the original pistol-only copy, so catalog and
+  localization text needed to stop under-reporting the live effect.
+- Validation passed:
+  `active_item_catalog_korean_names_smoke`,
+  `commando_supply_drop_item_candidates_smoke`,
+  `commando_perk_catalog_smoke`,
+  `commando_ui_text_audit_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
