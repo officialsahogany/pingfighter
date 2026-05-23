@@ -4688,3 +4688,9 @@ This section is intentionally long; use search to find the nearest owner.
   shared screen-shake feedback helpers used by mythic item runtime helpers.
   `mythic_item_runtime.gd` should call this owner or let focused helpers call
   it directly instead of reintroducing one-line `_play_*` bridge methods.
+- `scripts/items/mythic_item_gauge_feedback.gd`
+  Owns shared mythic / passive item gauge feedback routing: battle gauge flash
+  lookup from deps or registry, and orb-HUD gauge-spin triggering for item
+  helpers that grant or spend special gauge. `mythic_item_runtime.gd` should
+  not reintroduce one-line `_trigger_gauge_feedback` /
+  `_trigger_orb_gauge_spin` bridge methods.

@@ -10,20 +10,22 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `5fd3b6a47 godot: route mythic item audio through router`.
-- The checkpoint span through that HEAD contains 108 follow-up commits after
+  `edc57ee10 godot: route mythic gauge feedback through helper`.
+- The checkpoint span through that HEAD contains 110 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 109 commits.
+  contains 111 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
+- Latest docs-only mythic split sync before this addendum:
+  `f823f2f54 docs: record mythic audio router split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
   `2001105b6 docs: record final local settings hide`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
-  `godot/` passed on 2026-05-23 with `1279` scripts scanned and no GDScript
+  `godot/` passed on 2026-05-23 with `1280` scripts scanned and no GDScript
   warnings.
 - Current dirty scope before this documentation sync: `git status
   --porcelain=v1 -uall` is clean.
@@ -34,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the seventy-second split. The broad
+- The split notes below are current through the seventy-third split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -3706,6 +3708,44 @@ Seventy-second split on 2026-05-23:
   `mythic_item_ownership_runtime_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1279` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Seventy-third split on 2026-05-23:
+
+- Commit: `edc57ee10 godot: route mythic gauge feedback through helper`.
+- Scope: Mythic item helpers now call `mythic_item_gauge_feedback.gd`
+  directly for battle gauge flash and orb-gauge spin feedback instead of
+  bouncing through `_trigger_gauge_feedback()` /
+  `_trigger_orb_gauge_spin()` on `mythic_item_runtime.gd`. The new helper is
+  registered through `mythic_item_helper_registry.gd` and currently serves
+  Kick Charger, Charge Bag, Celestial Armor, Shrapnel Armor, Baal's Boots,
+  and Horn Strawberry Mask feedback paths.
+- Rationale: gauge flash / HUD-spin routing is shared visual feedback, not
+  item-runtime orchestration. Moving it behind a focused helper removes the
+  remaining one-line feedback bridges while keeping each item helper's
+  feedback intent explicit.
+- `mythic_item_runtime.gd` line count moved from `3239` to `3226` in this
+  code split.
+- Validation passed:
+  focused gauge-feedback item set
+  (`knee_pads_port_smoke`, `mythic_item_capacity_gauge_runtime_smoke`,
+  `celestial_armor_port_smoke`, `shrapnel_armor_port_smoke`,
+  `baal_boots_weather_port_smoke`, `horn_strawberry_mask_port_smoke`, and
+  `horn_strawberry_skill_hud_smoke`), then the broader mythic helper set
+  (`passive_item_debug_menu_click_add_smoke`,
+  `mythic_item_runtime_idle_update_smoke`,
+  `mythic_item_field_render_budget_smoke`,
+  `mythic_item_snapshot_builder_smoke`,
+  `mythic_item_stat_bonus_runtime_smoke`,
+  `mythic_item_resource_bonus_runtime_smoke`,
+  `mythic_item_cooldown_gear_runtime_smoke`,
+  `mythic_item_progression_bonus_runtime_smoke`,
+  `mythic_item_ai_assist_runtime_smoke`,
+  `mythic_item_throw_bonus_runtime_smoke`, and
+  `mythic_item_ownership_runtime_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending
   notice for `mythic_item_runtime.gd`.
 
