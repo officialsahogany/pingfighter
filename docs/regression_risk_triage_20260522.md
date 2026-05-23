@@ -14,11 +14,13 @@ evidence instead of relying on chat-only status summaries.
 - Code split range through that HEAD contains 82 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
   span through the latest code split contains 83 commits.
+- Latest docs-only guardrail sync after that code split:
+  `6622d30a0 docs: update godot port guardrails`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 25 visible paths in
-  `git status --porcelain=v1` (`8` tracked modified / deleted paths and
+- Current dirty scope before this documentation sync: 19 visible paths in
+  `git status --porcelain=v1` (`2` tracked modified / deleted paths and
   `17` untracked paths).
 - The split notes below are current through the sixty-seventh split. The
   top-level initial snapshot remains historical context from the first
