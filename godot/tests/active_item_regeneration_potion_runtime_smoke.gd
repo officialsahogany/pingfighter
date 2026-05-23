@@ -2,6 +2,8 @@ extends SceneTree
 
 const ActiveItemEffectController := preload("res://scripts/items/active_item_effect_controller.gd")
 const ActiveItemRegenerationPotionRuntime := preload("res://scripts/items/active_item_regeneration_potion_runtime.gd")
+const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
+const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
 
 var _failures: Array[String] = []
 
@@ -95,6 +97,7 @@ class FakeOwner:
 
 func _init() -> void:
 	_verify_direct_regeneration_runtime()
+	_verify_commando_emergency_supply_cooldown_reset()
 	_verify_controller_delegates_regeneration_runtime()
 
 	if _failures.is_empty():
@@ -111,12 +114,14 @@ func _verify_direct_regeneration_runtime() -> void:
 	var registry := FakeRegistry.new()
 	var smasher_skill := FakeCooldownState.new()
 	var viper_skill := FakeResetState.new()
+	var commando_skill := FakeCooldownState.new()
 	var drive_input := FakeCooldownState.new()
 	var dash := FakeDashState.new()
 	var orb := FakeOrbHud.new()
 	registry.instances = {
 		"smasher_skill_state": smasher_skill,
 		"viper_skill_state": viper_skill,
+		"commando_skill_state": commando_skill,
 		"smasher_drive_input_state": drive_input,
 		"smasher_dash_state": dash,
 		"orb_hud_state": orb,
@@ -126,6 +131,7 @@ func _verify_direct_regeneration_runtime() -> void:
 
 	_expect(smasher_skill.reset_cooldowns_calls == 1, "regeneration runtime should reset Smasher skill cooldowns")
 	_expect(viper_skill.reset_calls == 1, "regeneration runtime should support reset fallback for Viper skill state")
+	_expect(commando_skill.reset_cooldowns_calls == 1, "regeneration runtime should reset Commando skill cooldowns")
 	_expect(drive_input.reset_cooldowns_calls == 1, "regeneration runtime should reset drive input cooldowns")
 	_expect(dash.refill_calls == 1, "regeneration runtime should refill dash tokens")
 	_expect(orb.reset_values == [4], "regeneration runtime should sync HUD dash tokens from dash snapshot")
@@ -136,12 +142,36 @@ func _verify_direct_regeneration_runtime() -> void:
 	_expect(int(empty_result.get("dash_tokens", 0)) == 1, "regeneration runtime should preserve legacy default dash token fallback")
 
 
+func _verify_commando_emergency_supply_cooldown_reset() -> void:
+	var runtime: Object = ActiveItemRegenerationPotionRuntime.new()
+	var registry := FakeRegistry.new()
+	var skill_config: Object = CommandoSkillConfig.new()
+	var skill_state: Object = CommandoSkillState.new()
+	registry.instances = {
+		"commando_skill_state": skill_state,
+	}
+
+	skill_state.trigger_configured_cooldown("emergency_supply", 5000, skill_config)
+	_expect(
+		float(skill_state.get_configured_cooldown_remaining("emergency_supply", 5100, skill_config)) > 0.0,
+		"Commando emergency supply should start the regression test on cooldown"
+	)
+
+	runtime.apply(registry)
+
+	_expect(
+		is_equal_approx(float(skill_state.get_configured_cooldown_remaining("emergency_supply", 5100, skill_config)), 0.0),
+		"regeneration runtime should clear Commando emergency supply cooldown"
+	)
+
+
 func _verify_controller_delegates_regeneration_runtime() -> void:
 	seed(303)
 	var controller: Object = ActiveItemEffectController.new()
 	var registry := FakeRegistry.new()
 	var smasher_skill := FakeCooldownState.new()
 	var viper_skill := FakeCooldownState.new()
+	var commando_skill := FakeCooldownState.new()
 	var drive_input := FakeCooldownState.new()
 	var dash := FakeDashState.new()
 	var orb := FakeOrbHud.new()
@@ -150,6 +180,7 @@ func _verify_controller_delegates_regeneration_runtime() -> void:
 	registry.instances = {
 		"smasher_skill_state": smasher_skill,
 		"viper_skill_state": viper_skill,
+		"commando_skill_state": commando_skill,
 		"smasher_drive_input_state": drive_input,
 		"smasher_dash_state": dash,
 		"orb_hud_state": orb,
@@ -160,6 +191,7 @@ func _verify_controller_delegates_regeneration_runtime() -> void:
 	_expect(controller.apply_regeneration_potion(FakeOwner.new(), registry), "controller should apply regeneration potion")
 	_expect(smasher_skill.reset_cooldowns_calls == 1, "controller should delegate Smasher cooldown reset")
 	_expect(viper_skill.reset_cooldowns_calls == 1, "controller should delegate Viper cooldown reset")
+	_expect(commando_skill.reset_cooldowns_calls == 1, "controller should delegate Commando cooldown reset")
 	_expect(drive_input.reset_cooldowns_calls == 1, "controller should delegate drive input cooldown reset")
 	_expect(orb.reset_values == [4], "controller should delegate dash HUD token sync")
 	_expect(feedback.gauge_flashes == 1, "controller should preserve regeneration gauge flash")

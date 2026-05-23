@@ -1,9 +1,15 @@
 extends RefCounted
 
+const PLAYER_SKILL_COOLDOWN_STATE_KEYS := [
+	"smasher_skill_state",
+	"viper_skill_state",
+	"commando_skill_state",
+]
+
 
 func apply(registry: Object) -> Dictionary:
-	_reset_skill_cooldowns(_get_instance(registry, "smasher_skill_state"))
-	_reset_skill_cooldowns(_get_instance(registry, "viper_skill_state"))
+	for state_key in PLAYER_SKILL_COOLDOWN_STATE_KEYS:
+		_reset_skill_cooldowns(_get_instance(registry, str(state_key)))
 
 	var drive_input_state: Object = _get_instance(registry, "smasher_drive_input_state")
 	if drive_input_state != null and drive_input_state.has_method("reset_cooldowns"):
