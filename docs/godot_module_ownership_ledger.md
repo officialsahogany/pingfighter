@@ -359,11 +359,13 @@ This section is intentionally long; use search to find the nearest owner.
   behind the public catalog API. `scripts/items/mythic_item_catalog_fixed_options.gd`
   owns all fixed-option source arrays and item-name fixed-option lookup behind
   the public catalog API. `scripts/items/mythic_item_catalog_icon_metadata.gd`
-  owns the shared 32-frame mythic animated icon metadata used by mythic catalog
-  item builders, including sheet path, frame count / cadence, source inset,
-  fill-slot, and slot-padding fields behind the public item-data dictionaries.
-  `mythic_item_catalog.gd` item builders should call that helper instead of
-  duplicating the `"icon_sheet_path"` / `"icon_frame_count"` field cluster.
+  owns catalog icon path lookup plus the shared 32-frame mythic animated icon
+  metadata used by mythic catalog item builders, including sheet path, frame
+  count / cadence, source inset, fill-slot, and slot-padding fields behind the
+  public item-data dictionaries. `mythic_item_catalog.gd` preserves the public
+  Commando Arm and Reinforced Boomerang Gauntlet icon-path aliases, but item
+  builders should call that helper instead of duplicating icon-path literals or
+  the `"icon_sheet_path"` / `"icon_frame_count"` field cluster.
   `scripts/items/mythic_item_catalog_build_router.gd`
   owns item-name to builder dispatch behind the public
   `build_item_by_name()` catalog API. `scripts/items/mythic_item_catalog_lists.gd`

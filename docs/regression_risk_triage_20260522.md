@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `eef657bed godot: split mythic icon metadata helper`.
-- The checkpoint span through that HEAD contains 164 follow-up commits after
+  `510af6c39 godot: move mythic icon paths into metadata helper`.
+- The checkpoint span through that HEAD contains 166 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 165 commits.
+  contains 167 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `3fe0be6c9 docs: record mythic fixed options completion`.
+  `2d4436a24 docs: record mythic icon metadata split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the hundredth split. The broad
+- The split notes below are current through the 101st split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4462,6 +4462,37 @@ Hundredth split on 2026-05-24:
   `horn_strawberry_mask_port_smoke`, `celestial_armor_port_smoke`,
   `baal_boots_weather_port_smoke`, and
   `active_item_effect_renderer_cache_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1286` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
+
+101st split on 2026-05-24:
+
+- Commit: `510af6c39 godot: move mythic icon paths into metadata helper`.
+- Scope: moved catalog icon-path and mythic icon-sheet path source data into
+  `mythic_item_catalog_icon_metadata.gd`. The catalog facade keeps the two
+  public icon-path aliases used by existing smokes
+  (`COMMANDO_ARM_ICON_PATH` and `REINFORCED_BOOMERANG_GAUNTLET_ICON_PATH`),
+  but item builders now hydrate `"icon_path"` through `get_icon_path(item_name)`
+  and mythic sheets through `get_icon_sheet_path(item_name)`.
+- Rationale: icon source paths are part of the catalog icon metadata surface,
+  not the item-definition body. Keeping lookup data with the animated-icon
+  metadata helper avoids another long literal block in
+  `mythic_item_catalog.gd` while preserving the public item-data dictionaries
+  consumed by pickup, reward, debug, prewarm, HUD, and cinematic paths.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `1217` lines to
+  `1167` lines; `mythic_item_catalog_icon_metadata.gd` moved from `14` lines
+  to `91` lines while absorbing the path lookup tables.
+- Validation: focused icon / field-spawn / reward / pickup / prewarm coverage
+  (`passive_item_quality_prefix_smoke`, `item_field_spawn_pool_smoke`,
+  `passive_item_debug_menu_click_add_smoke`, `active_item_pickup_router_smoke`,
+  `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`,
+  `active_item_runtime_prewarm_smoke`,
+  `active_item_effect_renderer_cache_smoke`, `commando_arm_port_smoke`,
+  `reinforced_boomerang_gauntlet_port_smoke`, `pandora_legacy_port_smoke`,
+  `heavenly_cape_port_smoke`, `horn_strawberry_mask_port_smoke`,
+  `baal_boots_weather_port_smoke`, and `celestial_armor_port_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1286` scripts scanned, no GDScript
   warnings). `git diff --check` passed.
