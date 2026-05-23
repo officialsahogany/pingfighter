@@ -17,6 +17,7 @@ func _init() -> void:
 
 func _verify_shared_projectile_trail_budget() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_renderer.gd")
+	var flare_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_flare_renderer.gd")
 	var dynamite_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_dynamite_renderer.gd")
 	var tear_gas_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_tear_gas_renderer.gd")
 	var molotov_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_molotov_renderer.gd")
@@ -24,6 +25,7 @@ func _verify_shared_projectile_trail_budget() -> void:
 	var spider_mine_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_spider_mine_renderer.gd")
 	var slip_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_slip_renderer.gd")
 	_expect(source != "", "active item throw renderer source should be readable")
+	_expect(flare_source != "", "active item throw flare renderer source should be readable")
 	_expect(dynamite_source != "", "active item throw dynamite renderer source should be readable")
 	_expect(tear_gas_source != "", "active item throw tear gas renderer source should be readable")
 	_expect(molotov_source != "", "active item throw molotov renderer source should be readable")
@@ -31,7 +33,7 @@ func _verify_shared_projectile_trail_budget() -> void:
 	_expect(spider_mine_source != "", "active item throw spider mine renderer source should be readable")
 	_expect(slip_source != "", "active item throw slip renderer source should be readable")
 	var grenade_body := _function_body(source, "func _draw_grenades")
-	var flare_body := _function_body(source, "func _draw_flares")
+	var flare_body := _function_body(flare_source, "func draw_flares")
 	var trail_body := _function_body(source, "func _draw_projectile_trail")
 	var dynamite_body := _function_body(dynamite_source, "func draw_dynamite_explosions")
 	var tear_gas_body := _function_body(tear_gas_source, "func draw_tear_gas_zones")
@@ -43,6 +45,18 @@ func _verify_shared_projectile_trail_budget() -> void:
 	_expect(flare_body.find("_draw_projectile_trail(") >= 0, "flare draw should use the shared trail budget helper")
 	_expect(trail_body.find("var stride: int = 2 if trail_count > 5 else 1") >= 0, "projectile trail helper should thin long trails")
 	_expect(trail_body.find("for i in range(0, trail_count, stride):") >= 0, "projectile trail helper should apply the stride")
+	_expect(
+		_function_body(source, "func draw").find("_flare_renderer.draw_flares") >= 0,
+		"throw renderer should delegate flare projectile drawing to the flare renderer"
+	)
+	_expect(
+		_function_body(source, "func draw").find("_flare_renderer.draw_flare_zones") >= 0,
+		"throw renderer should delegate flare zone drawing to the flare renderer"
+	)
+	_expect(
+		_function_body(source, "func _draw_grenade_throw_windups").find("_flare_renderer.draw_flare_fallback") >= 0,
+		"throw renderer should delegate flare windup fallback drawing to the flare renderer"
+	)
 	_expect(
 		_function_body(source, "func draw").find("_slip_renderer.draw_bananas") >= 0,
 		"throw renderer should delegate banana projectile drawing to the slip renderer"

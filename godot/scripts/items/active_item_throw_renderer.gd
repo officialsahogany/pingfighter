@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
+const FlareRenderer := preload("res://scripts/items/active_item_throw_flare_renderer.gd")
 const MolotovRenderer := preload("res://scripts/items/active_item_throw_molotov_renderer.gd")
 const DynamiteRenderer := preload("res://scripts/items/active_item_throw_dynamite_renderer.gd")
 const TearGasRenderer := preload("res://scripts/items/active_item_throw_tear_gas_renderer.gd")
@@ -11,14 +12,11 @@ const SpiderMineRenderer := preload("res://scripts/items/active_item_throw_spide
 const SlipRenderer := preload("res://scripts/items/active_item_throw_slip_renderer.gd")
 
 const GRENADE_ICON_PATH := ActiveItemCatalog.GRENADE_ICON_PATH
-const FLARE_ICON_PATH := ActiveItemCatalog.FLARE_ICON_PATH
 const TEAR_GAS_ICON_PATH := ActiveItemCatalog.TEAR_GAS_ICON_PATH
 const BOOMERANG_ICON_PATH := ActiveItemCatalog.BOOMERANG_ICON_PATH
 const BOOMERANG_METAL_ICON_PATH := ActiveItemCatalog.BOOMERANG_METAL_ICON_PATH
 const BANANA_ICON_PATH := ActiveItemCatalog.BANANA_ICON_PATH
 const SOAP_ICON_PATH := ActiveItemCatalog.SOAP_ICON_PATH
-const FIELD_WIDTH := 760.0
-const FIELD_HEIGHT := 750.0
 const GRENADE_THROW_WINDUP_MSEC := 600
 const GRENADE_DRAW_SIZE := 36.0
 const GRENADE_EXPLOSION_RADIUS := 190.0
@@ -28,9 +26,6 @@ const GRENADE_EXPLOSION_SMOKE_PUFFS := 3
 const GRENADE_EXPLOSION_SPARKS := 4
 const FLARE_THROW_WINDUP_MSEC := 600
 const FLARE_DRAW_SIZE := 34.0
-const FLARE_RADIUS := 180.0
-const FLARE_FLASH_LAYERS := 1
-const FLARE_GLOW_LAYERS := 1
 const TEAR_GAS_THROW_WINDUP_MSEC := 600
 const TEAR_GAS_DRAW_SIZE := 36.0
 const TEAR_GAS_RADIUS := 180.0
@@ -70,6 +65,7 @@ var spider_mine_crawl_sheet_texture: Texture2D
 var spider_mine_installed_idle_sheet_texture: Texture2D
 var spider_mine_deploy_sheet_texture: Texture2D
 
+var _flare_renderer: Object = FlareRenderer.new()
 var _molotov_renderer: Object = MolotovRenderer.new()
 var _dynamite_renderer: Object = DynamiteRenderer.new()
 var _tear_gas_renderer: Object = TearGasRenderer.new()
@@ -79,6 +75,8 @@ var _slip_renderer: Object = SlipRenderer.new()
 
 
 func prewarm_assets() -> void:
+	_flare_renderer.prewarm_assets()
+	flare_icon_texture = _flare_renderer.get_flare_icon_texture()
 	_molotov_renderer.prewarm_assets()
 	molotov_icon_texture = _molotov_renderer.get_molotov_icon_texture()
 	_dynamite_renderer.prewarm_assets()
@@ -89,7 +87,6 @@ func prewarm_assets() -> void:
 	_sync_spider_mine_texture_aliases()
 	_slip_renderer.prewarm_assets()
 	_touch_texture(_get_grenade_icon_texture())
-	_touch_texture(_get_flare_icon_texture())
 	_touch_texture(_get_tear_gas_icon_texture())
 	_touch_texture(_get_boomerang_icon_texture())
 	_touch_texture(_get_boomerang_icon_texture(true))
@@ -140,7 +137,7 @@ func draw(
 	_draw_grenades(canvas, grenades, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.grenades", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_flares(canvas, flares, shake_offset)
+	_flare_renderer.draw_flares(canvas, flares, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.flares", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
 	_tear_gas_renderer.draw_tear_gas_zones(canvas, tear_gas_zones, shake_offset)
@@ -200,7 +197,7 @@ func draw(
 	_draw_explosion_zones(canvas, explosion_zones, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.explosion_zones", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_flare_zones(canvas, flare_zones, shake_offset)
+	_flare_renderer.draw_flare_zones(canvas, flare_zones, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.flare_zones", sample_start)
 
 
@@ -238,7 +235,7 @@ func _draw_grenade_throw_windups(canvas: CanvasItem, pending_throws: Array, shak
 				angle
 			)
 		elif item_name == "flare":
-			canvas.draw_circle(throw_pos, 11.0, Color(1.0, 1.0, 200.0 / 255.0, 1.0))
+			_flare_renderer.draw_flare_fallback(canvas, throw_pos, 1.1)
 		elif item_name == "tear_gas":
 			_tear_gas_renderer.draw_tear_gas_fallback(canvas, throw_pos, angle, 1.0)
 		elif item_name == "dynamite":
@@ -282,38 +279,6 @@ func _draw_grenades(canvas: CanvasItem, grenades: Array, shake_offset: Vector2) 
 			canvas.draw_circle(center, 12.0, Color(80.0 / 255.0, 100.0 / 255.0, 80.0 / 255.0, 1.0))
 
 
-func _draw_flares(canvas: CanvasItem, flares: Array, shake_offset: Vector2) -> void:
-	if flares.is_empty():
-		return
-	var texture: Texture2D = _get_flare_icon_texture()
-	for flare_value in flares:
-		if not (flare_value is Dictionary):
-			continue
-		var flare: Dictionary = flare_value
-		var center: Vector2 = _get_vector2(flare, "position", Vector2.ZERO) + shake_offset
-		if bool(flare.get("arrived", false)) and not bool(flare.get("exploded", false)):
-			var timer_frames: int = int(flare.get("timer_frames", 0.0))
-			if timer_frames % 10 < 5:
-				canvas.draw_circle(center, 12.0, Color(1.0, 1.0, 100.0 / 255.0, 0.95))
-			canvas.draw_circle(center, 8.0, Color(1.0, 200.0 / 255.0, 0.0, 1.0), false, 2.0)
-			continue
-
-		_draw_projectile_trail(canvas, flare.get("trail", []), shake_offset, 3.5, Color(1.0, 1.0, 180.0 / 255.0, 1.0), 0.34)
-
-		var angle: float = float(flare.get("rotation_degrees", 0.0))
-		if texture != null:
-			_draw_rotated_texture_region(
-				canvas,
-				texture,
-				Rect2(Vector2.ZERO, texture.get_size()),
-				center,
-				Vector2(FLARE_DRAW_SIZE, FLARE_DRAW_SIZE),
-				angle
-			)
-		else:
-			canvas.draw_circle(center, 10.0, Color(1.0, 1.0, 200.0 / 255.0, 1.0))
-
-
 func _draw_projectile_trail(canvas: CanvasItem, trail: Array, shake_offset: Vector2, radius: float, color: Color, alpha_scale: float) -> void:
 	var trail_count: int = trail.size()
 	if trail_count <= 0:
@@ -335,38 +300,6 @@ func _draw_explosion_zones(canvas: CanvasItem, explosion_zones: Array, shake_off
 			continue
 		var zone: Dictionary = zone_value
 		GrenadeExplosionDrawer.draw_zone(canvas, zone, shake_offset)
-
-
-func _draw_flare_zones(canvas: CanvasItem, flare_zones: Array, shake_offset: Vector2) -> void:
-	if flare_zones.is_empty():
-		return
-	for zone_value in flare_zones:
-		if not (zone_value is Dictionary):
-			continue
-		var zone: Dictionary = zone_value
-		var center: Vector2 = _get_vector2(zone, "position", Vector2.ZERO) + shake_offset
-		var radius: float = float(zone.get("radius", FLARE_RADIUS))
-		var intensity: float = clamp(float(zone.get("intensity", 1.0)), 0.0, 1.0)
-		if intensity <= 0.0:
-			continue
-
-		if bool(zone.get("flash", false)):
-			canvas.draw_rect(Rect2(shake_offset, Vector2(FIELD_WIDTH, FIELD_HEIGHT)), Color(1.0, 1.0, 230.0 / 255.0, (180.0 / 255.0) * intensity))
-			for i in range(FLARE_FLASH_LAYERS):
-				var layer_radius: float = radius * (1.0 - float(i) * 0.18)
-				var alpha: float = intensity * (1.0 - float(i) * 0.28)
-				if alpha > 0.0 and layer_radius > 1.0:
-					canvas.draw_circle(center, layer_radius, Color(1.0, 1.0, 240.0 / 255.0, alpha))
-			if intensity > 0.85:
-				var cross_length: float = radius * 2.0
-				canvas.draw_line(center + Vector2(-cross_length, 0.0), center + Vector2(cross_length, 0.0), Color.WHITE, 5.0)
-				canvas.draw_line(center + Vector2(0.0, -cross_length), center + Vector2(0.0, cross_length), Color.WHITE, 5.0)
-		else:
-			for i in range(FLARE_GLOW_LAYERS):
-				var layer_radius: float = radius * (1.0 - float(i) * 0.2)
-				var alpha: float = (100.0 / 255.0) * intensity * (1.0 - float(i) * 0.3)
-				if alpha > 0.0 and layer_radius > 1.0:
-					canvas.draw_circle(center, layer_radius, Color(1.0, 1.0, 200.0 / 255.0, alpha))
 
 
 func _draw_rotated_texture_region(
@@ -415,12 +348,7 @@ func _get_grenade_icon_texture() -> Texture2D:
 
 
 func _get_flare_icon_texture() -> Texture2D:
-	if flare_icon_texture == null:
-		flare_icon_texture = ProjectResourceLoader.load_texture(
-			FLARE_ICON_PATH,
-			"Missing flare icon at %s",
-			"Failed to load flare icon at %s"
-		)
+	flare_icon_texture = _flare_renderer.get_flare_icon_texture()
 	return flare_icon_texture
 
 
