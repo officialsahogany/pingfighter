@@ -119,8 +119,8 @@ func sync_after_update(runtime: Object, owner: Object, registry: Object, update_
 		and not bool(update_scope.get("had_modal_runtime_work", false))
 		and not has_modal_runtime_work
 	):
-		runtime._sync_transient_owner_state(owner)
+		runtime.owner_syncer.sync_transient_owner_state(runtime, owner)
 	elif bool(update_scope.get("had_only_ragnarok_transient_work", false)) and not has_non_ragnarok_transient_work:
-		runtime._sync_ragnarok_transient_owner_state(owner)
+		runtime.owner_syncer.sync_ragnarok_transient_owner_state(runtime, owner)
 	else:
 		runtime._sync_owner(owner, registry)

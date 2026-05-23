@@ -2122,7 +2122,7 @@ func feed_horn_strawberry_command_input(
 
 func add_horn_strawberry_eat_paddle_growth(owner: Object, registry: Object = null, amount_pct: float = 0.20) -> bool:
 	_ensure_helpers_ready()
-	return horn_strawberry_mask_runtime.add_eat_paddle_growth(self, owner, registry, amount_pct)
+	return horn_strawberry_mask_runtime.add_eat_paddle_growth(self, owner, registry, amount_pct, CONTEXT_CONSTANTS)
 
 
 func get_horn_strawberry_eat_context() -> Dictionary:
@@ -2263,7 +2263,8 @@ func update(owner: Object, registry: Object, delta: float) -> void:
 		RAGNAROK_CONSTANTS,
 		SHRAPNEL_ARMOR_CONSTANTS,
 		POSEIDON_CONSTANTS,
-		BAAL_BOOTS_CONSTANTS
+		BAAL_BOOTS_CONSTANTS,
+		CONTEXT_CONSTANTS
 	)
 
 
@@ -2424,18 +2425,6 @@ func get_item_roll_value(
 
 func _sync_owner(owner: Object, registry: Object = null) -> void:
 	owner_syncer.sync_owner(self, owner, registry, CONTEXT_CONSTANTS)
-
-
-func _sync_ragnarok_transient_owner_state(owner: Object) -> void:
-	owner_syncer.sync_ragnarok_transient_owner_state(self, owner)
-
-
-func _sync_transient_owner_state(owner: Object) -> void:
-	owner_syncer.sync_transient_owner_state(self, owner)
-
-
-func _sync_bulkup_paddle_scale(owner: Object, registry: Object) -> void:
-	owner_syncer.sync_bulkup_paddle_scale(self, owner, registry, CONTEXT_CONSTANTS)
 
 
 func _get_polish_multiplier(item_name: String = "") -> float:

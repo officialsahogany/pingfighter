@@ -30,7 +30,13 @@ func has_runtime_update_work(runtime: Object) -> bool:
 	)
 
 
-func update(runtime: Object, owner: Object, registry: Object, delta: float) -> void:
+func update(
+	runtime: Object,
+	owner: Object,
+	registry: Object,
+	delta: float,
+	constants: Dictionary = {}
+) -> void:
 	sync_equipment_state(runtime)
 	var state: Object = runtime.horn_strawberry_mask_state
 	if state == null or not state.active:
@@ -46,12 +52,12 @@ func update(runtime: Object, owner: Object, registry: Object, delta: float) -> v
 	if changed and not was_transformed and state.is_transformed():
 		_reset_transform_skill_state(runtime)
 		_force_viper_jetpack_land(runtime, owner, registry)
-		_sync_paddle_scale(runtime, owner, registry)
+		_sync_paddle_scale(runtime, owner, registry, constants)
 	elif changed and not state.is_transformed():
 		if was_transformed:
 			_play_horn_strawberry_audio(runtime, registry, "_play_horn_strawberry_change_audio")
 		_reset_detransform_skill_state(runtime)
-		_sync_paddle_scale(runtime, owner, registry)
+		_sync_paddle_scale(runtime, owner, registry, constants)
 
 
 func try_transform(runtime: Object, owner: Object, registry: Object = null) -> bool:
@@ -162,12 +168,13 @@ func add_eat_paddle_growth(
 	runtime: Object,
 	owner: Object,
 	registry: Object = null,
-	amount_pct: float = 0.20
+	amount_pct: float = 0.20,
+	constants: Dictionary = {}
 ) -> bool:
 	var state: Object = runtime.horn_strawberry_mask_state
 	if state == null or not state.add_eat_paddle_growth_bonus_pct(amount_pct):
 		return false
-	_sync_paddle_scale(runtime, owner, registry)
+	_sync_paddle_scale(runtime, owner, registry, constants)
 	return true
 
 
@@ -390,9 +397,9 @@ func _play_horn_strawberry_audio(runtime: Object, registry: Object, method_name:
 		audio_router.play_named(runtime, registry, method_name)
 
 
-func _sync_paddle_scale(runtime: Object, owner: Object, registry: Object) -> void:
-	if owner != null and runtime.has_method("_sync_bulkup_paddle_scale"):
-		runtime._sync_bulkup_paddle_scale(owner, registry)
+func _sync_paddle_scale(runtime: Object, owner: Object, registry: Object, constants: Dictionary) -> void:
+	if owner != null:
+		runtime.owner_syncer.sync_bulkup_paddle_scale(runtime, owner, registry, constants)
 
 
 func _force_viper_jetpack_land(runtime: Object, owner: Object, registry: Object) -> void:

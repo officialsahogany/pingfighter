@@ -9,7 +9,8 @@ func update(
 	ragnarok_constants: Dictionary,
 	shrapnel_armor_constants: Dictionary,
 	poseidon_constants: Dictionary,
-	baal_boots_constants: Dictionary
+	baal_boots_constants: Dictionary,
+	context_constants: Dictionary
 ) -> void:
 	if not runtime.update_gate.has_runtime_update_work(runtime):
 		_update_idle(runtime, owner, registry, delta)
@@ -34,7 +35,7 @@ func update(
 	runtime.celestial_armor_runtime.update_runtime(runtime, fps_scale)
 	runtime.hermes_shoes_runtime.update_runtime(runtime, owner, fps_scale)
 	runtime.baal_boots_runtime.update_runtime(runtime, owner, registry, fps_scale, baal_boots_constants)
-	runtime.horn_strawberry_mask_runtime.update(runtime, owner, registry, delta)
+	runtime.horn_strawberry_mask_runtime.update(runtime, owner, registry, delta, context_constants)
 	runtime.update_gate.sync_after_update(runtime, owner, registry, update_scope)
 
 
