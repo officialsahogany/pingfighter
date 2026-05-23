@@ -27,6 +27,7 @@ const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/
 const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmShellCasingState := preload("res://scripts/characters/commando_firearm_shell_casing_state.gd")
 const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
+const CommandoFirearmStage2RockInteractionResolver := preload("res://scripts/characters/commando_firearm_stage2_rock_interaction_resolver.gd")
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
 const CommandoFirearmSupportProjectileResolver := preload("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
@@ -168,7 +169,6 @@ const BERETTA_SPREAD_RADIANS := PISTOL_SPREAD_RADIANS * 0.70
 const PISTOL_WALL_BOUNCE_MARGIN := 10.0
 const PISTOL_WALL_BOUNCE_MAX := 1
 const PISTOL_WALL_BOUNCE_DAMPING := 0.85
-const PISTOL_ROCK_BOUNCE_METHOD := "resolve_pistol_projectile_rock_bounce"
 const PISTOL_EMPTY_RELOAD_GAUGE_COST := 150.0
 const PISTOL_SHELL_LIFETIME_FRAMES := 150.0
 const PISTOL_PENDING_FIRE_GEOMETRY_KEYS := [
@@ -2577,22 +2577,12 @@ func _apply_pistol_side_wall_bounce(projectile: Dictionary, pos: Vector2, veloci
 
 
 func _apply_stage2_pistol_rock_bounce(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
-	if not _is_pistol_weapon(_get_projectile_weapon_id(projectile, "")):
-		return {}
-	if int(context.get("current_stage", deps.get("current_stage", 1))) != 2:
-		return {}
-	var stage_context: Dictionary = context.duplicate()
-	stage_context["current_stage"] = 2
-	for target in _get_stage2_rock_bounce_targets(deps):
-		var bounce_result: Dictionary = _get_dict(target.resolve_pistol_projectile_rock_bounce(projectile, deps, stage_context))
-		if bool(bounce_result.get("consumed", false)):
-			return {"consumed": true}
-		if not bool(bounce_result.get("bounced", false)):
-			continue
-		projectile.clear()
-		projectile.merge(_get_dict(bounce_result.get("projectile", projectile)), true)
-		return {"bounced": true}
-	return {}
+	return CommandoFirearmStage2RockInteractionResolver.apply_pistol_rock_bounce(
+		projectile,
+		context,
+		deps,
+		_is_pistol_weapon(_get_projectile_weapon_id(projectile, ""))
+	)
 
 
 func _is_wall_bouncing_pistol(projectile: Dictionary) -> bool:
@@ -3050,54 +3040,14 @@ func _register_projectile_environment_impact(projectile: Dictionary, reason: Str
 
 func _destroy_stage2_rocks_for_projectile_impact(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> int:
 	var weapon_id: String = _get_projectile_weapon_id(projectile)
-	if not (weapon_id in ["bazooka", "fire_support"]):
-		return 0
-	if int(context.get("current_stage", deps.get("current_stage", 1))) != 2:
-		return 0
 	var profile: Dictionary = _get_weapon_profile(weapon_id)
-	var center: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var radius: float = _get_explosion_radius(projectile, profile)
-	var stage_context: Dictionary = context.duplicate()
-	stage_context["current_stage"] = 2
-	stage_context["source"] = "commando_firearm_%s" % weapon_id
-	var hit_count := 0
-	for target in _get_stage2_rock_collision_targets(deps):
-		hit_count += max(0, int(target.resolve_explosion_rock_collision(center, radius, deps, stage_context)))
-	return hit_count
-
-
-func _get_stage2_rock_collision_targets(deps: Dictionary) -> Array:
-	var targets: Array = []
-	_append_stage2_rock_method_target(targets, deps.get("stage_background", null), "resolve_explosion_rock_collision")
-	_append_stage2_rock_method_target(targets, deps.get("stage2_pillar_background", null), "resolve_explosion_rock_collision")
-	var registry: Object = deps.get("registry", null)
-	_append_stage2_rock_method_target(targets, _get_instance(registry, "stage2_pillar_background"), "resolve_explosion_rock_collision")
-	var router: Object = _get_instance(registry, "stage_runtime_router")
-	if router != null and router.has_method("get_instance"):
-		_append_stage2_rock_method_target(targets, router.get_instance(registry, 2, "stage_background"), "resolve_explosion_rock_collision")
-	return targets
-
-
-func _get_stage2_rock_bounce_targets(deps: Dictionary) -> Array:
-	var targets: Array = []
-	_append_stage2_rock_method_target(targets, deps.get("stage_background", null), PISTOL_ROCK_BOUNCE_METHOD)
-	_append_stage2_rock_method_target(targets, deps.get("stage2_pillar_background", null), PISTOL_ROCK_BOUNCE_METHOD)
-	var registry: Object = deps.get("registry", null)
-	_append_stage2_rock_method_target(targets, _get_instance(registry, "stage2_pillar_background"), PISTOL_ROCK_BOUNCE_METHOD)
-	var router: Object = _get_instance(registry, "stage_runtime_router")
-	if router != null and router.has_method("get_instance"):
-		_append_stage2_rock_method_target(targets, router.get_instance(registry, 2, "stage_background"), PISTOL_ROCK_BOUNCE_METHOD)
-	return targets
-
-
-func _append_stage2_rock_method_target(targets: Array, candidate: Object, method_name: String) -> void:
-	if candidate == null or not candidate.has_method(method_name):
-		return
-	var candidate_id: int = candidate.get_instance_id()
-	for target in targets:
-		if target is Object and target.get_instance_id() == candidate_id:
-			return
-	targets.append(candidate)
+	return CommandoFirearmStage2RockInteractionResolver.destroy_projectile_impact_rocks(
+		projectile,
+		context,
+		deps,
+		weapon_id,
+		_get_explosion_radius(projectile, profile)
+	)
 
 
 func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
