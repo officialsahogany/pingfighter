@@ -36,6 +36,7 @@ var _title_text_line_font_id := 0
 var _text_fit_cache: Dictionary = {}
 var _text_size_cache: Dictionary = {}
 var _text_cache_font_id := 0
+var _back_glow_stylebox: StyleBoxFlat = null
 
 
 func prewarm_assets() -> void:
@@ -393,13 +394,27 @@ func _draw_character_outer_glow(canvas: CanvasItem, rect: Rect2, restriction: St
 	if theme.is_empty():
 		return
 	var main: Color = theme.get("main", Color(0.0, 0.0, 0.0, 0.0))
-	# 7-layer outer halo brightest closest to the card, fading outward.
-	for layer in range(7):
-		var grow: float = 2.0 + float(layer) * 2.0
-		var glow_alpha: float = (0.30 + 0.18 * pulse) * alpha * (1.0 - float(layer) / 7.5)
+	var sb: StyleBoxFlat = _get_back_glow_stylebox()
+	var corner_radius: int = int(clamp(round(rect.size.y * 0.18), 8.0, 16.0))
+	sb.corner_radius_top_left = corner_radius
+	sb.corner_radius_top_right = corner_radius
+	sb.corner_radius_bottom_left = corner_radius
+	sb.corner_radius_bottom_right = corner_radius
+	for grow in [8.0, 6.0, 4.0, 2.0]:
+		var alpha_byte: float = (50.0 - grow * 5.0) + pulse * 25.0
+		var glow_alpha: float = clamp(alpha_byte / 255.0, 0.0, 1.0) * alpha
 		if glow_alpha <= 0.003:
 			continue
-		canvas.draw_rect(rect.grow(grow), Color(main.r, main.g, main.b, glow_alpha), false, max(1.0, 2.4 - float(layer) * 0.2))
+		sb.bg_color = Color(main.r, main.g, main.b, glow_alpha)
+		canvas.draw_style_box(sb, rect.grow(grow))
+
+
+func _get_back_glow_stylebox() -> StyleBoxFlat:
+	if _back_glow_stylebox == null:
+		_back_glow_stylebox = StyleBoxFlat.new()
+		_back_glow_stylebox.anti_aliasing = true
+		_back_glow_stylebox.anti_aliasing_size = 1.0
+	return _back_glow_stylebox
 
 
 func _character_edge_theme(restriction: String, alpha: float = 1.0, pulse: float = 0.5) -> Dictionary:
