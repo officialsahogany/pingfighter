@@ -1,11 +1,13 @@
 extends RefCounted
 
 const MythicItemCatalogLists := preload("res://scripts/items/mythic_item_catalog_lists.gd")
+const MythicItemCatalogBuildRouter := preload("res://scripts/items/mythic_item_catalog_build_router.gd")
 const MythicItemCatalogPresentation := preload("res://scripts/items/mythic_item_catalog_presentation.gd")
 const MythicItemCatalogFixedOptions := preload("res://scripts/items/mythic_item_catalog_fixed_options.gd")
 const MythicItemCatalogRolls := preload("res://scripts/items/mythic_item_catalog_rolls.gd")
 
 var list_helper: Object = MythicItemCatalogLists.new()
+var build_router: Object = MythicItemCatalogBuildRouter.new()
 var presentation_helper: Object = MythicItemCatalogPresentation.new()
 var fixed_options_helper: Object = MythicItemCatalogFixedOptions.new()
 var roll_helper: Object = MythicItemCatalogRolls.new()
@@ -222,106 +224,7 @@ const FIELD_SPAWN_ORDER := [
 ]
 
 func build_item_by_name(item_name: String) -> Dictionary:
-	match item_name:
-		SPEEDBOOTS:
-			return _build_speedboots()
-		SPEEDGEAR:
-			return _build_speedgear()
-		GRAVITYBELT:
-			return _build_gravitybelt()
-		SENSOR:
-			return _build_sensor()
-		SPIKEBOOTS:
-			return _build_spikeboots()
-		DOWSING_PENDULUM:
-			return _build_dowsing_pendulum()
-		DOWSING_GOGGLES:
-			return _build_dowsing_goggles()
-		SLOT_ADD:
-			return _build_slot_add()
-		CHARGEBAG:
-			return _build_chargebag()
-		BATTERY:
-			return _build_battery()
-		REVIVAL:
-			return _build_revival()
-		MASTER:
-			return _build_master()
-		GOLD_DIGGER:
-			return _build_gold_digger()
-		GOLD_BAR:
-			return _build_gold_bar()
-		LUCKY_COIN:
-			return _build_lucky_coin()
-		ADVERSITY_ARMOR:
-			return _build_adversity_armor()
-		SHRAPNEL_ARMOR:
-			return _build_shrapnel_armor()
-		SAGE_RING:
-			return _build_sage_ring()
-		COOLTIME:
-			return _build_cooltime()
-		TIMER_BELT:
-			return _build_timer_belt()
-		FUEL_POUCH:
-			return _build_fuel_pouch()
-		BLUETOOTH_RING:
-			return _build_bluetooth_ring()
-		STAR_DETECTOR:
-			return _build_star_detector()
-		FOUL_WHISTLE:
-			return _build_foul_whistle()
-		SMARTPHONE:
-			return _build_smartphone()
-		NEURAL_HELMET:
-			return _build_neural_helmet()
-		VENOM_MIST_GAUNTLET:
-			return _build_venom_mist_gauntlet()
-		REINFORCED_BOOMERANG_GAUNTLET:
-			return _build_reinforced_boomerang_gauntlet()
-		COMMANDO_ARM:
-			return _build_commando_arm()
-		RAINBOW_FUR_GLOVE:
-			return _build_rainbow_fur_glove()
-		KNEE_PADS:
-			return _build_knee_pads()
-		DASHGEAR:
-			return _build_dashgear()
-		SOUL_BURST:
-			return _build_soul_burst()
-		BULKUP:
-			return _build_bulkup()
-		DASHHOLDER:
-			return _build_dashholder()
-		BULLETPROOF_HAT:
-			return _build_bulletproof_hat()
-		SPIKED_HELMET:
-			return _build_spiked_helmet()
-		PANDORA_LEGACY:
-			return _build_pandora_legacy()
-		MEGINGJORD:
-			return _build_megingjord()
-		RAGNAROK_HAMMER:
-			return _build_ragnarok_hammer()
-		HERMES_SHOES:
-			return _build_hermes_shoes()
-		POSEIDON_TRIDENT:
-			return _build_poseidon_trident()
-		SACRED_LAUREL:
-			return _build_sacred_laurel()
-		TRANSCENDENT_CROWN:
-			return _build_transcendent_crown()
-		HEAVENLY_CAPE:
-			return _build_heavenly_cape()
-		HORN_STRAWBERRY_MASK:
-			return _build_horn_strawberry_mask()
-		CELESTIAL_ARMOR:
-			return _build_celestial_armor()
-		BAAL_BOOTS:
-			return _build_baal_boots()
-		ELIXIR_OF_MASTERY:
-			return _build_elixir_of_mastery()
-	return {}
+	return build_router.build_item_by_name(self, item_name)
 
 
 func get_display_name(item_name: String) -> String:
