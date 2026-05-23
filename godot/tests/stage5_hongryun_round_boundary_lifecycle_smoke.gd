@@ -1,6 +1,7 @@
 extends SceneTree
 
 const BallRoundActorCleanup := preload("res://scripts/ball/ball_round_actor_cleanup.gd")
+const MatchResetController := preload("res://scripts/core/match_reset_controller.gd")
 const Stage5HongryunActorRenderer := preload("res://scripts/stages/stage5/stage5_hongryun_actor_renderer.gd")
 const Stage5HongryunState := preload("res://scripts/stages/stage5/stage5_hongryun_state.gd")
 
@@ -42,6 +43,27 @@ func _run() -> void:
 		_expect(not bool(cleared_status.get("ember_emitting", true)), "Round cleanup should stop Stage 5 inferno charge particles")
 
 	canvas.queue_free()
+	await process_frame
+
+	var reset_canvas := Node2D.new()
+	get_root().add_child(reset_canvas)
+	var reset_actor_renderer := Stage5HongryunActorRenderer.new()
+	var reset_playfield_renderer: Object = reset_actor_renderer.get("playfield_renderer")
+	reset_playfield_renderer.call("_sync_inferno_charge_fx_host", reset_canvas, _build_charge_context(), Vector2.ZERO, 1.0)
+	await process_frame
+	var reset_charge_host: Node = reset_canvas.get_node_or_null("Stage5HongryunInfernoChargeFxHost")
+	_expect(reset_charge_host != null, "Stage 5 reset-stage smoke should attach the FX host")
+
+	MatchResetController.new().reset_stage_state({
+		"stage5_hongryun_actor_renderer": reset_actor_renderer,
+	})
+	await process_frame
+
+	if reset_charge_host != null and is_instance_valid(reset_charge_host):
+		var reset_status: Dictionary = reset_charge_host.get_debug_status()
+		_expect(not bool(reset_status.get("active", true)), "Stage reset should deactivate the Stage 5 actor FX host")
+		_expect(not reset_charge_host.visible, "Stage reset should hide the Stage 5 actor FX host")
+	reset_canvas.queue_free()
 
 	if _failures.is_empty():
 		print("stage5_hongryun_round_boundary_lifecycle_smoke: ok")

@@ -158,6 +158,7 @@ func reset_stage_state(deps: Dictionary) -> void:
 		"stage4_ponk_gauge_hud_renderer",
 		"stage5_hongryun_state",
 		"stage5_hongryun_fire_machine_event",
+		"stage5_hongryun_actor_renderer",
 		"stage5_hongryun_boss_skill_hud_renderer",
 		"stage1_balloon_event",
 		"stage_background",
