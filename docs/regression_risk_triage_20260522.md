@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `c147a276c godot: share mythic catalog base item metadata`.
-- The checkpoint span through that HEAD contains 170 follow-up commits after
+  `81a70856d godot: centralize static mythic item roll fields`.
+- The checkpoint span through that HEAD contains 172 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 171 commits.
+  contains 173 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `a2a9e2f36 docs: record mythic field chance split`.
+  `d988a37b4 docs: record mythic base metadata split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the 103rd split. The broad
+- The split notes below are current through the 104th split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4541,6 +4541,35 @@ Hundredth split on 2026-05-24:
 - Catalog facade size: `mythic_item_catalog.gd` moved from `1125` lines to
   `944` lines; the new base metadata helper is `20` lines.
 - Validation: focused base-field / item-runtime coverage
+  (`speedgear_port_smoke`, `gravitybelt_port_smoke`, `revival_port_smoke`,
+  `gold_bar_port_smoke`, `smartphone_port_smoke`,
+  `active_item_smartphone_auto_use_smoke`, `elixir_of_mastery_smoke`,
+  `item_field_spawn_pool_smoke`, `passive_item_debug_menu_click_add_smoke`,
+  `active_item_pickup_router_smoke`, `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`,
+  `active_item_runtime_prewarm_smoke`,
+  `active_item_effect_renderer_cache_smoke`,
+  `mythic_item_stat_bonus_runtime_smoke`, and
+  `mythic_item_ownership_runtime_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1288` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
+
+104th split on 2026-05-24:
+
+- Commit: `81a70856d godot: centralize static mythic item roll fields`.
+- Scope: extended `mythic_item_catalog_base_metadata.gd` with
+  `with_static_item_base(...)`. The same static/no-roll builders from the
+  base metadata split now receive empty `"rolls"`, empty `"roll_options"`,
+  empty `"rolled_options"`, and optional `"fixed_options"` from the helper
+  instead of repeating those fields inline.
+- Rationale: static item roll metadata is part of the same common catalog
+  boilerplate as name/type/slot/chance hydration for these builders. Keeping
+  it in one helper preserves the public item-data dictionaries while leaving
+  the builder body to show only item-specific text, color, and special flags.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `944` lines to
+  `918` lines; the base metadata helper moved from `20` lines to `36` lines.
+- Validation: focused static-field / item-runtime coverage
   (`speedgear_port_smoke`, `gravitybelt_port_smoke`, `revival_port_smoke`,
   `gold_bar_port_smoke`, `smartphone_port_smoke`,
   `active_item_smartphone_auto_use_smoke`, `elixir_of_mastery_smoke`,
