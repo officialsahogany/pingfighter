@@ -1,6 +1,7 @@
 extends SceneTree
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const ActiveItemBrickWallEffectRenderer := preload("res://scripts/items/active_item_brick_wall_effect_renderer.gd")
 const ActiveItemEffectRenderer := preload("res://scripts/items/active_item_effect_renderer.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 
@@ -31,6 +32,7 @@ func _init() -> void:
 	_verify_pickup_icon_cache()
 	_verify_pickup_effect_direct_icon()
 	_verify_brick_wall_variant_sheet()
+	_verify_brick_wall_renderer_split()
 
 	if _failures.is_empty():
 		print("active_item_effect_renderer_cache_smoke: ok")
@@ -87,14 +89,27 @@ func _verify_pickup_effect_direct_icon() -> void:
 
 func _verify_brick_wall_variant_sheet() -> void:
 	var renderer := ActiveItemEffectRenderer.new()
+	var brick_renderer := ActiveItemBrickWallEffectRenderer.new()
 	var texture: Texture2D = renderer._get_brick_wall_variant_sheet_texture()
+	var brick_texture: Texture2D = brick_renderer.get_brick_wall_variant_sheet_texture()
 	_expect(texture != null, "brick wall variant sheet should load")
+	_expect(brick_texture != null, "focused Brick Wall renderer should load the variant sheet")
 	if texture == null:
 		return
 	_expect(texture.get_width() == 1024, "brick wall variant sheet width should match normalized 4x2 sheet")
 	_expect(texture.get_height() == 128, "brick wall variant sheet height should match normalized 4x2 sheet")
 	_expect(renderer._get_brick_wall_variant_index(Rect2(Vector2(12.0, 20.0), Vector2(80.0, 20.0)), 7) == 7, "brick wall visual variant should use stored variant")
 	_expect(renderer._get_brick_wall_variant_source_rect(texture, 7) == Rect2(Vector2(768.0, 64.0), Vector2(256.0, 64.0)), "brick wall variant source rect should address the final cell")
+
+
+func _verify_brick_wall_renderer_split() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_effect_renderer.gd")
+	var brick_source := FileAccess.get_file_as_string("res://scripts/items/active_item_brick_wall_effect_renderer.gd")
+	_expect(source.find("_brick_wall_renderer.draw_brick_wall_effect") >= 0, "effect renderer should delegate Brick Wall drawing to the focused renderer")
+	_expect(source.find("func _draw_brick_wall(") < 0, "effect renderer should not keep inline Brick Wall wall drawing")
+	_expect(brick_source.find("func draw_brick_wall_effect") >= 0, "Brick Wall renderer should own the field draw entry point")
+	_expect(brick_source.find("func _draw_brick_cracks") >= 0, "Brick Wall renderer should own crack drawing")
+	_expect(brick_source.find("func _draw_brick_install_gauge") >= 0, "Brick Wall renderer should own install gauge drawing")
 
 
 func _has_cached_pickup_label(renderer: Object, catalog: Object, item_name: String) -> bool:
