@@ -115,9 +115,10 @@ func register_rally_feedback(
 	power_activated: bool,
 	deps: Dictionary,
 	context: Dictionary = {},
-	special_gauge: float = -1.0
+	special_gauge: float = -1.0,
+	drive_activated: bool = false
 ) -> Dictionary:
-	rally_feedback_router.register(ball_pos, ball_vel, is_player, power_activated, deps, context)
+	rally_feedback_router.register(ball_pos, ball_vel, is_player, power_activated, deps, context, drive_activated)
 	var status_context: Dictionary = context.duplicate()
 	if special_gauge >= 0.0:
 		status_context["special_gauge"] = special_gauge

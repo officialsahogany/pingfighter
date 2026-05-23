@@ -248,7 +248,8 @@ func apply(
 		power_activated,
 		deps,
 		context,
-		special_gauge
+		special_gauge,
+		drive_activated
 	)
 	_perf_end(perf_logger, "paddle_bounce.post_hit.rally_feedback", rally_start)
 	special_gauge = float(rally_result.get("special_gauge", special_gauge))
@@ -312,12 +313,12 @@ func apply(
 			"commando_suicide_drone_ball_boosted_speed",
 			"commando_suicide_drone_ball_boost_consumed",
 			"commando_suicide_drone_ball_restored_speed",
-			"boss_status_immune",
 			"horn_strawberry_horn_charge_hit",
 			"horn_strawberry_horn_charge_consumed",
 			"horn_strawberry_bomb_hit",
 			"horn_strawberry_bomb_consumed",
 			"suppress_paddle_hit_knockback",
+			"boss_status_immune",
 		]:
 			if boss_result.has(key):
 				result[key] = boss_result[key]
