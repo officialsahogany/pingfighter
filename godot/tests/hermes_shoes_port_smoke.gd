@@ -3,6 +3,7 @@ extends SceneTree
 const BattleScenePlayerControlConfigBuilder := preload("res://scripts/core/battle_scene_player_control_config_builder.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const MythicItemHermesShoesRuntime := preload("res://scripts/items/mythic_item_hermes_shoes_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 
@@ -53,6 +54,8 @@ class FakeControlContextBuilder:
 
 
 func _init() -> void:
+	_verify_runtime_constant_ownership()
+
 	var catalog: Object = MythicItemCatalog.new()
 	var item_data: Dictionary = catalog.build_item_by_name("hermes_shoes")
 	_expect(not item_data.is_empty(), "Hermes Shoes should build from catalog")
@@ -98,6 +101,22 @@ func _init() -> void:
 
 	print("hermes_shoes_port_smoke: ok")
 	quit(0)
+
+
+func _verify_runtime_constant_ownership() -> void:
+	_expect(is_equal_approx(MythicItemHermesShoesRuntime.MAX_SPEED_BONUS_PCT, 300.0), "Hermes Shoes helper should own speed cap")
+	_expect(is_equal_approx(MythicItemHermesShoesRuntime.TRAIL_LIFE_FRAMES, 24.0), "Hermes Shoes helper should own trail lifetime")
+	_expect(MythicItemHermesShoesRuntime.TRAIL_MAX == 5, "Hermes Shoes helper should own trail cap")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_hermes_shoes_runtime.gd")
+	_expect(runtime_source != "", "mythic runtime source should be readable")
+	_expect(helper_source != "", "Hermes Shoes helper source should be readable")
+	_expect(not runtime_source.contains("HERMES_SHOES_CONSTANTS"), "runtime facade should not regain HERMES_SHOES_CONSTANTS")
+	_expect(not runtime_source.contains("const HERMES_SHOES_MAX"), "runtime facade should not regain Hermes speed constants")
+	_expect(not runtime_source.contains("const HERMES_SHOES_TRAIL"), "runtime facade should not regain Hermes trail constants")
+	_expect(not runtime_source.contains("const HERMES_SHOES_MOVE"), "runtime facade should not regain Hermes movement constants")
+	_expect(not runtime_source.contains("const HERMES_SHOES_WING"), "runtime facade should not regain Hermes wing constants")
+	_expect(helper_source.contains("const WING_FLAP_SPEED"), "Hermes Shoes helper should keep wing flap speed")
 
 
 func _expect_rolls(catalog: Object) -> void:

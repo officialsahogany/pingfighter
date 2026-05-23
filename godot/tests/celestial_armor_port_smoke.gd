@@ -2,6 +2,7 @@ extends SceneTree
 
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const MythicItemCelestialArmorRuntime := preload("res://scripts/items/mythic_item_celestial_armor_runtime.gd")
 const PaddleBounceEventRouter := preload("res://scripts/ball/paddle_bounce_event_router.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
@@ -48,6 +49,8 @@ class FakeMovementState:
 
 
 func _init() -> void:
+	_verify_runtime_constant_ownership()
+
 	var catalog: Object = MythicItemCatalog.new()
 	var item_data: Dictionary = catalog.build_item_by_name("celestial_armor")
 	_expect(not item_data.is_empty(), "celestial armor should build from catalog")
@@ -173,6 +176,24 @@ func _init() -> void:
 
 	print("celestial_armor_port_smoke: ok")
 	quit(0)
+
+
+func _verify_runtime_constant_ownership() -> void:
+	_expect(is_equal_approx(MythicItemCelestialArmorRuntime.MAX_TRIGGER_CHANCE_PCT, 100.0), "celestial armor helper should own trigger chance cap")
+	_expect(is_equal_approx(MythicItemCelestialArmorRuntime.WAVE_LIFE_FRAMES, 33.0), "celestial armor helper should own wave lifetime")
+	_expect(MythicItemCelestialArmorRuntime.SHARD_COUNT == 10, "celestial armor helper should own shard count")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_celestial_armor_runtime.gd")
+	_expect(runtime_source != "", "mythic runtime source should be readable")
+	_expect(helper_source != "", "celestial armor helper source should be readable")
+	_expect(not runtime_source.contains("CELESTIAL_ARMOR_CONSTANTS"), "runtime facade should not regain CELESTIAL_ARMOR_CONSTANTS")
+	_expect(not runtime_source.contains("const CELESTIAL_ARMOR_MAX"), "runtime facade should not regain celestial cap constants")
+	_expect(not runtime_source.contains("const CELESTIAL_ARMOR_WAVE"), "runtime facade should not regain celestial wave constants")
+	_expect(not runtime_source.contains("const CELESTIAL_ARMOR_PAIRED"), "runtime facade should not regain celestial paired-proc constants")
+	_expect(not runtime_source.contains("const CELESTIAL_ARMOR_SHARD"), "runtime facade should not regain celestial shard constants")
+	_expect(not runtime_source.contains("const CELESTIAL_ARMOR_ARC"), "runtime facade should not regain celestial arc constants")
+	_expect(not runtime_source.contains("const CELESTIAL_ARMOR_FEEDBACK"), "runtime facade should not regain celestial feedback constants")
+	_expect(helper_source.contains("const FEEDBACK_SHAKE_INTENSITY"), "celestial armor helper should keep feedback constants")
 
 
 func _expect_celestial_rolls(catalog: Object) -> void:

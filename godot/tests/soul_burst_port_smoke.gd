@@ -2,6 +2,7 @@ extends SceneTree
 
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const MythicItemSoulBurstRuntime := preload("res://scripts/items/mythic_item_soul_burst_runtime.gd")
 const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field_spawn_pool.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.gd")
@@ -100,6 +101,8 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	_verify_runtime_constant_ownership()
+
 	var catalog: Object = MythicItemCatalog.new()
 	var item_data: Dictionary = catalog.build_item_by_name("soul_burst")
 	_expect(not item_data.is_empty(), "Soul Burst should be registered in the passive item catalog")
@@ -185,6 +188,21 @@ func _init() -> void:
 
 	print("soul_burst_port_smoke: ok")
 	quit(0)
+
+
+func _verify_runtime_constant_ownership() -> void:
+	_expect(is_equal_approx(MythicItemSoulBurstRuntime.DEFAULT_GAUGE_COST, 160.0), "Soul Burst helper should own default gauge cost")
+	_expect(MythicItemSoulBurstRuntime.PARTICLE_COUNT == 30, "Soul Burst helper should own particle count")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_soul_burst_runtime.gd")
+	_expect(runtime_source != "", "mythic runtime source should be readable")
+	_expect(helper_source != "", "Soul Burst helper source should be readable")
+	_expect(not runtime_source.contains("SOUL_BURST_CONSTANTS"), "runtime facade should not regain SOUL_BURST_CONSTANTS")
+	_expect(not runtime_source.contains("const SOUL_BURST_DEFAULT"), "runtime facade should not regain Soul Burst gauge-cost constants")
+	_expect(not runtime_source.contains("const SOUL_BURST_EFFECT"), "runtime facade should not regain Soul Burst effect timing constants")
+	_expect(not runtime_source.contains("const SOUL_BURST_PARTICLE"), "runtime facade should not regain Soul Burst particle constants")
+	_expect(not runtime_source.contains("const SOUL_BURST_WIND"), "runtime facade should not regain Soul Burst wind-trail constants")
+	_expect(helper_source.contains("const PARTICLE_ALPHA_CUTOFF"), "Soul Burst helper should keep alpha cutoff constants")
 
 
 func _array_has_item(items: Array, item_name: String) -> bool:
