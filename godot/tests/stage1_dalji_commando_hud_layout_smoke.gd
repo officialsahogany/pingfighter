@@ -94,6 +94,7 @@ func _init() -> void:
 	_verify_stage1_pillar_scene_static_hud_lod()
 	_verify_viper_hud_lod_context()
 	_verify_viper_hud_lod_draw_budgets()
+	_verify_gauge_liquid_display_ratio_smoothing()
 	_verify_status_orb_cache_prewarm()
 	_verify_stage1_status_orb_base_render_budgets()
 
@@ -345,18 +346,29 @@ func _verify_viper_hud_lod_draw_budgets() -> void:
 	_expect(
 		status_context_source.find("pillar_hud_static_lod") >= 0
 			and gauge_source.find("static_hud_lod") >= 0
-			and gauge_fill_source.find("if bool(context.get(\"pillar_hud_static_lod\", false)):") >= 0
-			and gauge_fill_source.find("_draw_static_fill") >= 0
-			and gauge_fill_source.find("_draw_static_fill_glow") >= 0
+			and gauge_fill_source.find("draw_pillar_liquid_fill") >= 0
+			and gauge_fill_source.find("_draw_static_fill") < 0
 			and dash_source.find("static_hud_lod") >= 0
 			and dash_body_source.find("static_hud_lod") >= 0
 			and dash_body_source.find("_draw_static_compact_fallback_frame") >= 0
 			and dash_fill_source.find("pillar_hud_static_lod") >= 0
 			and skill_slot_source.find("static_hud_lod") >= 0,
-		"pillar HUD static LOD should keep orbs visible while removing expensive animation layers"
+		"pillar HUD static LOD should keep gauge liquid animated while removing expensive ornamental layers"
 	)
 	_expect(top_mini_drawer_source.find("BattleRenderQuality.effect_scale(context)") >= 0, "top mini scoreboard should reuse the shared render-quality helper")
 	_expect(top_mini_renderer_source.find("quality_scale") >= 0, "top mini scoreboard renderer should forward quality scale to variants")
+
+
+func _verify_gauge_liquid_display_ratio_smoothing() -> void:
+	var renderer := PillarGaugeOrbRenderer.new()
+	var initial_ratio: float = renderer._update_display_ratio(0.20, 0.0)
+	var rising_ratio: float = renderer._update_display_ratio(0.80, 1.0 / 72.0)
+	var later_rising_ratio: float = renderer._update_display_ratio(0.80, 7.0 / 72.0)
+	var falling_ratio: float = renderer._update_display_ratio(0.10, 8.0 / 72.0)
+	_expect(is_equal_approx(initial_ratio, 0.20), "gauge liquid display ratio should snap to the first live value")
+	_expect(rising_ratio > initial_ratio and rising_ratio < 0.80, "gauge liquid display ratio should rise smoothly instead of jumping")
+	_expect(later_rising_ratio > rising_ratio and later_rising_ratio < 0.80, "gauge liquid display ratio should continue following the target")
+	_expect(falling_ratio < later_rising_ratio and falling_ratio > 0.10, "gauge liquid display ratio should fall quickly but smoothly")
 
 
 func _verify_status_orb_cache_prewarm() -> void:
@@ -379,6 +391,8 @@ func _verify_stage1_status_orb_base_render_budgets() -> void:
 	_expect(PillarLiquidDrawer.LIQUID_SURFACE_STEP_LOD >= 4.0, "Stage 1 status-orb liquid fill should still widen surface sampling under HUD LOD")
 	_expect(PillarLiquidDrawer.LIQUID_POLYGON_MAX_POINTS <= 260, "Stage 1 status-orb liquid fill should keep a bounded polygon vertex budget")
 	_expect(PillarLiquidDrawer.LIQUID_ANIMATION_SPEED <= 0.5, "Stage 1 status-orb liquid fill should keep a calm animation cadence")
+	_expect(PillarLiquidDrawer.LIQUID_EDGE_SEARCH_STEPS <= 8, "Stage 1 status-orb liquid fill should keep bounded circular-edge search work")
+	_expect(PillarLiquidDrawer.LIQUID_SURFACE_GLOW_MIN_HEIGHT >= 2.0, "Stage 1 status-orb liquid surface glow should avoid drawing edge-closing seams")
 	_expect(PillarLiquidDrawer.LIQUID_BAND_STEP_LOD >= 12.0, "Stage 1 status-orb liquid fill bands should keep a coarse LOD step")
 	_expect(PillarLiquidDrawer.LIQUID_MAX_BUBBLES <= 2, "Stage 1 status-orb liquid fill should cap decorative bubbles")
 	_expect(PillarLiquidDrawer.DASH_SECTOR_SEGMENTS <= 14, "Stage 1 dash sector liquid should keep a bounded polygon budget")

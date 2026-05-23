@@ -10,6 +10,8 @@ const LIQUID_MAX_BUBBLES := 2
 const LIQUID_WAVE_GLOW_WIDTH := 1.4
 const LIQUID_POLYGON_MAX_POINTS := 260
 const LIQUID_ANIMATION_SPEED := 0.45
+const LIQUID_EDGE_SEARCH_STEPS := 8
+const LIQUID_SURFACE_GLOW_MIN_HEIGHT := 2.0
 const DASH_SECTOR_SEGMENTS := 14
 const DASH_INNER_SECTOR_SEGMENTS := 9
 const DASH_PULSE_ARC_POINTS := 9
@@ -46,28 +48,50 @@ func draw_pillar_liquid_fill(
 	var surface_step: float = LIQUID_SURFACE_STEP_LOD if lod_active else LIQUID_SURFACE_STEP
 	var band_step: float = LIQUID_BAND_STEP_LOD if lod_active else LIQUID_BAND_STEP
 	var max_bubbles: int = 2 if lod_active else LIQUID_MAX_BUBBLES
-	var top_points := PackedVector2Array()
-	var top_colors := PackedColorArray()
-	var bottom_points := PackedVector2Array()
-	var bottom_colors := PackedColorArray()
 	var max_surface_samples: int = floori(float(LIQUID_POLYGON_MAX_POINTS) * 0.5)
 	var requested_surface_samples: int = max(12, int(ceil((inner_radius * 2.0) / max(0.5, surface_step))) + 1)
 	var sample_count: int = mini(max_surface_samples, requested_surface_samples)
+	var first_valid_sample: int = -1
+	var last_valid_sample: int = -1
 
 	for sample_idx in range(sample_count):
 		var sample_t: float = float(sample_idx) / max(1.0, float(sample_count - 1))
 		var local_x: float = lerpf(-inner_radius, inner_radius, sample_t)
+		if _liquid_column_height(local_x, center.y, inner_radius, fill_top, wave_amp, wave_offset, liquid_t, surface_step) > 0.05:
+			if first_valid_sample < 0:
+				first_valid_sample = sample_idx
+			last_valid_sample = sample_idx
+
+	if first_valid_sample < 0 or last_valid_sample < first_valid_sample:
+		return
+
+	var left_invalid_x: float = -inner_radius if first_valid_sample <= 0 else lerpf(-inner_radius, inner_radius, float(first_valid_sample - 1) / max(1.0, float(sample_count - 1)))
+	var left_valid_x: float = lerpf(-inner_radius, inner_radius, float(first_valid_sample) / max(1.0, float(sample_count - 1)))
+	var right_valid_x: float = lerpf(-inner_radius, inner_radius, float(last_valid_sample) / max(1.0, float(sample_count - 1)))
+	var right_invalid_x: float = inner_radius if last_valid_sample >= sample_count - 1 else lerpf(-inner_radius, inner_radius, float(last_valid_sample + 1) / max(1.0, float(sample_count - 1)))
+	var left_edge_x: float = _find_liquid_edge_x(left_invalid_x, left_valid_x, true, center.y, inner_radius, fill_top, wave_amp, wave_offset, liquid_t, surface_step)
+	var right_edge_x: float = _find_liquid_edge_x(right_valid_x, right_invalid_x, false, center.y, inner_radius, fill_top, wave_amp, wave_offset, liquid_t, surface_step)
+	var edge_span: float = max(0.0, right_edge_x - left_edge_x)
+	var draw_sample_count: int = mini(max_surface_samples, max(12, int(ceil(edge_span / max(0.5, surface_step))) + 1))
+	var top_points := PackedVector2Array()
+	var top_colors := PackedColorArray()
+	var surface_points := PackedVector2Array()
+
+	for sample_idx in range(draw_sample_count):
+		var sample_t: float = float(sample_idx) / max(1.0, float(draw_sample_count - 1))
+		var local_x: float = lerpf(left_edge_x, right_edge_x, sample_t)
 		var y_limit: float = sqrt(max(0.0, inner_radius * inner_radius - local_x * local_x))
-		var wave_y: float = _sample_smoothed_liquid_wave_top(local_x, inner_radius, fill_top, wave_amp, wave_offset, liquid_t, surface_step)
-		var line_top: float = clamp(max(center.y - y_limit, wave_y), center.y - y_limit, center.y + y_limit)
+		var circle_top: float = center.y - y_limit
 		var line_bottom: float = center.y + y_limit
-		if line_top >= line_bottom:
-			continue
+		var wave_y: float = _sample_smoothed_liquid_wave_top(local_x, inner_radius, fill_top, wave_amp, wave_offset, liquid_t, surface_step)
+		var line_top: float = clamp(max(circle_top, wave_y), circle_top, line_bottom)
+		if sample_idx == 0 or sample_idx == draw_sample_count - 1:
+			line_top = line_bottom
 		var gradient_t: float = clamp((line_top - (center.y - inner_radius)) / max(1.0, inner_radius * 2.0), 0.0, 1.0)
 		top_points.append(Vector2(center.x + local_x, line_top))
 		top_colors.append(top_color.lerp(bottom_color, gradient_t))
-		bottom_points.append(Vector2(center.x + local_x, line_bottom))
-		bottom_colors.append(bottom_color)
+		if sample_idx > 0 and sample_idx < draw_sample_count - 1 and line_bottom - line_top > LIQUID_SURFACE_GLOW_MIN_HEIGHT:
+			surface_points.append(Vector2(center.x + local_x, line_top))
 
 	if top_points.size() < 2:
 		return
@@ -77,12 +101,24 @@ func draw_pillar_liquid_fill(
 	for idx in range(top_points.size()):
 		fill_points.append(top_points[idx])
 		fill_colors.append(top_colors[idx])
-	for idx in range(bottom_points.size() - 1, -1, -1):
-		fill_points.append(bottom_points[idx])
-		fill_colors.append(bottom_colors[idx])
+	var right_edge: Vector2 = top_points[top_points.size() - 1]
+	var left_edge: Vector2 = top_points[0]
+	var right_angle: float = atan2(right_edge.y - center.y, right_edge.x - center.x)
+	var left_angle: float = atan2(left_edge.y - center.y, left_edge.x - center.x)
+	while left_angle <= right_angle:
+		left_angle += TAU
+	var arc_span: float = left_angle - right_angle
+	var remaining_point_budget: int = max(6, LIQUID_POLYGON_MAX_POINTS - fill_points.size())
+	var arc_sample_count: int = mini(remaining_point_budget, max(8, int(ceil((arc_span * inner_radius) / max(1.0, surface_step))) + 1))
+	for arc_idx in range(1, arc_sample_count - 1):
+		var arc_t: float = float(arc_idx) / max(1.0, float(arc_sample_count - 1))
+		var angle: float = lerpf(right_angle, left_angle, arc_t)
+		fill_points.append(center + Vector2(cos(angle), sin(angle)) * inner_radius)
+		fill_colors.append(bottom_color)
 	canvas.draw_polygon(fill_points, fill_colors)
-	canvas.draw_polyline(top_points, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.22), LIQUID_WAVE_GLOW_WIDTH * 3.0, true)
-	canvas.draw_polyline(top_points, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.58), LIQUID_WAVE_GLOW_WIDTH, true)
+	if surface_points.size() > 1:
+		canvas.draw_polyline(surface_points, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.22), LIQUID_WAVE_GLOW_WIDTH * 3.0, true)
+		canvas.draw_polyline(surface_points, Color(wave_glow.r, wave_glow.g, wave_glow.b, 0.58), LIQUID_WAVE_GLOW_WIDTH, true)
 
 	for band_idx in range(2):
 		var band_ratio: float = 0.28 + float(band_idx) * 0.28
@@ -173,3 +209,44 @@ func _sample_liquid_wave_top(
 	var secondary_wave: float = sin(local_x * 0.030 - t * 1.85 + 0.7) * wave_amp * 0.34
 	var soft_ripple: float = sin(local_x * 0.095 + t * 2.2 + 1.3) * wave_amp * 0.08
 	return fill_top + (primary_wave + secondary_wave + soft_ripple + wave_offset) * edge_fade
+
+
+func _find_liquid_edge_x(
+	valid_or_invalid_a: float,
+	valid_or_invalid_b: float,
+	search_left_edge: bool,
+	center_y: float,
+	inner_radius: float,
+	fill_top: float,
+	wave_amp: float,
+	wave_offset: float,
+	liquid_t: float,
+	sample_span: float
+) -> float:
+	var invalid_x: float = valid_or_invalid_a if search_left_edge else valid_or_invalid_b
+	var valid_x: float = valid_or_invalid_b if search_left_edge else valid_or_invalid_a
+	for _step in range(LIQUID_EDGE_SEARCH_STEPS):
+		var mid_x: float = (invalid_x + valid_x) * 0.5
+		if _liquid_column_height(mid_x, center_y, inner_radius, fill_top, wave_amp, wave_offset, liquid_t, sample_span) > 0.05:
+			valid_x = mid_x
+		else:
+			invalid_x = mid_x
+	return valid_x
+
+
+func _liquid_column_height(
+	local_x: float,
+	center_y: float,
+	inner_radius: float,
+	fill_top: float,
+	wave_amp: float,
+	wave_offset: float,
+	liquid_t: float,
+	sample_span: float
+) -> float:
+	var y_limit: float = sqrt(max(0.0, inner_radius * inner_radius - local_x * local_x))
+	var circle_top: float = center_y - y_limit
+	var line_bottom: float = center_y + y_limit
+	var wave_y: float = _sample_smoothed_liquid_wave_top(local_x, inner_radius, fill_top, wave_amp, wave_offset, liquid_t, sample_span)
+	var line_top: float = clamp(max(circle_top, wave_y), circle_top, line_bottom)
+	return line_bottom - line_top

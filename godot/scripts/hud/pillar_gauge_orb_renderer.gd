@@ -11,9 +11,16 @@ const FLASH_RING_SEGMENTS := 10
 const FLASH_RING_SEGMENTS_LOD := 8
 const IDLE_RING_SEGMENTS := 10
 const IDLE_RING_SEGMENTS_LOD := 8
+const LIQUID_DISPLAY_RISE_RESPONSE := 9.0
+const LIQUID_DISPLAY_FALL_RESPONSE := 18.0
+const LIQUID_DISPLAY_MAX_DELTA_SECONDS := 0.25
+const LIQUID_DISPLAY_SNAP_EPSILON := 0.002
 
 var background_cache: Object = PillarOrbBackgroundCache.new()
 var fill_renderer: Object = PillarGaugeOrbFillRenderer.new()
+var _display_full_ratio := 0.0
+var _display_ratio_initialized := false
+var _display_ratio_last_time := 0.0
 
 
 func prewarm_caches(orb_radius: float, _context: Dictionary = {}) -> void:
@@ -38,13 +45,14 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 	var gauge_value: float = float(context.get("gauge_value", 0.0))
 	var gauge_max: float = max(1.0, float(context.get("gauge_max", 500.0)))
 	var full_ratio: float = clamp(gauge_value / gauge_max, 0.0, 1.0)
+	var display_full_ratio: float = _update_display_ratio(full_ratio, t)
 	var lod_active: bool = float(context.get("hud_lod_scale", 1.0)) < 0.85
 	var static_hud_lod := bool(context.get("pillar_hud_static_lod", false))
 	var flash_duration: float = max(0.001, float(context.get("flash_duration", 1.0)))
 	var flash_timer: float = max(0.0, float(context.get("flash_timer", 0.0)))
 	var pulse: float = 0.5 + 0.5 * sin(t * 4.0)
 	var glow_strength: float = 0.08 + 0.06 * pulse
-	if full_ratio >= 0.999:
+	if display_full_ratio >= 0.999:
 		glow_strength += 0.14 + 0.10 * pulse
 	if flash_timer > 0.0:
 		glow_strength += 0.28 * (flash_timer / flash_duration)
@@ -92,11 +100,11 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 
 	if not static_hud_lod:
 		var core_pulse: float = 0.5 + 0.5 * sin(t * 3.0)
-		var core_alpha: float = 0.06 + 0.05 * core_pulse + full_ratio * 0.08
+		var core_alpha: float = 0.06 + 0.05 * core_pulse + display_full_ratio * 0.08
 		canvas.draw_circle(center, radius * 0.55, Color(0.30, 0.55, 1.0, core_alpha))
 		canvas.draw_circle(center, radius * 0.30, Color(0.50, 0.75, 1.0, core_alpha * 0.7))
 
-	fill_renderer.draw(canvas, pillar_drawer, center, radius, t, scale_factor, full_ratio, context)
+	fill_renderer.draw(canvas, pillar_drawer, center, radius, t, scale_factor, display_full_ratio, context)
 	pillar_drawer.draw_pillar_orb_glass(canvas, center, radius, Color(0.50, 0.74, 1.0, 1.0))
 	if frame_texture is Texture2D:
 		var texture: Texture2D = frame_texture
@@ -120,7 +128,7 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		var idle_ring_segments: int = IDLE_RING_SEGMENTS_LOD if lod_active else IDLE_RING_SEGMENTS
 		canvas.draw_arc(center, ring_r, 0.0, TAU, idle_ring_segments, Color(0.50, 0.74, 1.0, ring_alpha), 1.5)
 
-	canvas.draw_circle(center, radius * 0.40, Color(0.78, 0.90, 1.0, 0.12 + full_ratio * 0.18))
+	canvas.draw_circle(center, radius * 0.40, Color(0.78, 0.90, 1.0, 0.12 + display_full_ratio * 0.18))
 	pillar_drawer.draw_pillar_text_centered(
 		canvas,
 		center,
@@ -128,3 +136,24 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		int(round(16.0 * scale_factor)),
 		Color.WHITE
 	)
+
+
+func _update_display_ratio(target_ratio: float, time_seconds: float) -> float:
+	var clamped_target: float = clamp(target_ratio, 0.0, 1.0)
+	if not _display_ratio_initialized or time_seconds < _display_ratio_last_time:
+		_display_full_ratio = clamped_target
+		_display_ratio_last_time = time_seconds
+		_display_ratio_initialized = true
+		return _display_full_ratio
+
+	var delta_seconds: float = clamp(time_seconds - _display_ratio_last_time, 0.0, LIQUID_DISPLAY_MAX_DELTA_SECONDS)
+	_display_ratio_last_time = time_seconds
+	if delta_seconds <= 0.0:
+		return _display_full_ratio
+
+	var response: float = LIQUID_DISPLAY_RISE_RESPONSE if clamped_target > _display_full_ratio else LIQUID_DISPLAY_FALL_RESPONSE
+	var follow_alpha: float = 1.0 - exp(-response * delta_seconds)
+	_display_full_ratio = lerpf(_display_full_ratio, clamped_target, follow_alpha)
+	if abs(_display_full_ratio - clamped_target) <= LIQUID_DISPLAY_SNAP_EPSILON:
+		_display_full_ratio = clamped_target
+	return _display_full_ratio
