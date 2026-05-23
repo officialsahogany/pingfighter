@@ -3,6 +3,7 @@ extends SceneTree
 const BallMotionStepper := preload("res://scripts/ball/ball_motion_stepper.gd")
 const BallRoundController := preload("res://scripts/ball/ball_round_controller.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
+const MythicItemAdversityArmorRuntime := preload("res://scripts/items/mythic_item_adversity_armor_runtime.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
@@ -96,6 +97,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	seed(7)
+	_verify_runtime_constant_ownership()
 	_verify_catalog()
 	_verify_runtime_flow()
 	_verify_ball_collision_and_serve_bonus()
@@ -108,6 +110,21 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_runtime_constant_ownership() -> void:
+	var helper: Object = MythicItemAdversityArmorRuntime.new()
+	_expect(is_equal_approx(helper.get_barrier_y(), 732.0), "Adversity Armor helper should own barrier y")
+	_expect(MythicItemAdversityArmorRuntime.BARRIER_PARTICLE_MAX == 72, "Adversity Armor helper should own barrier particle cap")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_adversity_armor_runtime.gd")
+	_expect(runtime_source != "", "mythic runtime source should be readable")
+	_expect(helper_source != "", "adversity armor helper source should be readable")
+	_expect(not runtime_source.contains("ADVERSITY_ARMOR_CONSTANTS"), "runtime facade should not regain ADVERSITY_ARMOR_CONSTANTS")
+	_expect(not runtime_source.contains("const ADVERSITY_ARMOR_MAX"), "runtime facade should not regain Adversity Armor cap constants")
+	_expect(not runtime_source.contains("const ADVERSITY_ARMOR_FLASH"), "runtime facade should not regain Adversity Armor flash constants")
+	_expect(not runtime_source.contains("const ADVERSITY_ARMOR_BARRIER"), "runtime facade should not regain Adversity Armor barrier constants")
+	_expect(helper_source.contains("const DEFAULT_SERVE_SPEED_BONUS_PCT"), "Adversity Armor helper should keep serve-speed constants")
 
 
 func _verify_catalog() -> void:
@@ -222,8 +239,9 @@ func _verify_timer_gauge_layout() -> void:
 		"adversity armor timer gauge should use the right-bottom timer-bar position helper"
 	)
 	_expect(
-		runtime_source.find("_draw_adversity_armor_effect(canvas: CanvasItem, shake_offset: Vector2, timer_stack: Object = null)") >= 0,
-		"mythic runtime should pass the timer stack into the adversity armor renderer"
+		field_source.find("func draw_adversity_armor_effect(") >= 0
+		and field_source.find("_draw_adversity_armor_timer_gauge(canvas, timer_ratio, timer_stack)") >= 0,
+		"mythic field renderer should pass the timer stack into the adversity armor timer gauge"
 	)
 	_expect(
 		drawer_source.find("_mythic_draw_field_effects_uses_timer_stack") >= 0,
