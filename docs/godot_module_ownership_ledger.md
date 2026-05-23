@@ -652,16 +652,20 @@ This section is intentionally long; use search to find the nearest owner.
   handlers that spawn projectile state and keeps a compatibility wrapper
   for old private windup release calls.
 - `scripts/items/active_item_throw_renderer.gd`
-  Owns active projectile / deployed-object item rendering: grenade /
-  flare / dynamite / molotov / banana / soap windup lifts, projectile
-  trails, texture-backed grenade / flare / molotov sprites, molotov fire
-  zones, explosion zones, flare flash / confuse zones, throw-icon texture
-  caches, Tear Gas renderer fallback constants, and compatibility wrappers /
-  texture aliases for Spider Mine sheet smoke tests.
+  Owns the active throw render facade: public draw signature, draw-order and
+  perf labels, generic windup pose / throw-icon lookup, direct grenade /
+  flare projectile drawing, explosion zones, flare flash / confuse zones,
+  throw-icon texture caches, Tear Gas renderer fallback constants, and
+  compatibility wrappers / texture aliases for Spider Mine sheet smoke tests.
   `scripts/items/active_item_throw_tear_gas_renderer.gd` owns Tear Gas
   projectile sprites / arming countdowns, smoke-zone haze, shared particle
   draw budget, cached puff texture generation, smoke tone / seed helpers,
   fallback canister drawing, and Tear Gas asset prewarm.
+  `scripts/items/active_item_throw_molotov_renderer.gd` owns Molotov
+  projectile sprites / hot-core trails, fire-zone host pool syncing,
+  playfield-to-screen projection for detached FX hosts, fallback flame
+  ellipses, per-flame ember draws, fallback bottle drawing, icon texture
+  loading, and Molotov asset prewarm.
   `scripts/items/active_item_throw_dynamite_renderer.gd` owns Dynamite
   projectile trails / sprites, placed Dynamite countdown badges, warning
   pulses, fuse flames, explosion shockwaves, smoke clouds, sparks, fire

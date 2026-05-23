@@ -5091,6 +5091,37 @@ Hundredth split on 2026-05-24:
   `commando_arm_port_smoke`. `.\tools\run_warning_scan.ps1` passed with
   `1301` scripts scanned and no GDScript warnings.
 
+124th split on 2026-05-24:
+
+- Commit: `b27c3ccfd godot: split active throw molotov renderer`.
+- Scope: added `active_item_throw_molotov_renderer.gd` for Molotov
+  projectile sprites, hot-core throw trails, fire-zone host-pool syncing,
+  detached FX host playfield projection, fallback flame ellipses, per-flame
+  ember drawing, fallback bottle drawing, icon texture loading, and Molotov
+  asset prewarm. The shared `active_item_throw_renderer.gd` keeps the public
+  draw signature, perf labels, generic windup pose / throw icon cache, and
+  dispatch order while delegating live Molotov visuals to the focused
+  renderer.
+- Rationale: Molotov was the last large VFX-heavy active-throw branch still
+  embedded in the shared renderer, and it owned both direct canvas fallback
+  geometry and detached `Node2D` fire-zone hosts. Moving it localizes the
+  playfield-to-screen projection trap and keeps future Molotov fire tuning out
+  of the throw render facade.
+- Renderer size: `active_item_throw_renderer.gd` moved from `1078` lines to
+  `618` lines; the new `active_item_throw_molotov_renderer.gd` file is `470`
+  lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused Molotov / throw-renderer / PSO-prewarm coverage ran `10`
+  smoke scripts and passed: `active_item_throw_molotov_smoke`,
+  `active_item_molotov_fx_host_smoke`, `active_item_throw_activation_smoke`,
+  `active_item_throw_renderer_budget_smoke`,
+  `active_item_throw_rotated_texture_smoke`,
+  `active_item_runtime_render_facade_smoke`,
+  `active_item_runtime_render_facade_direct_smoke`, `commando_arm_port_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and `battle_pso_prewarmer_smoke`.
+  `.\tools\run_warning_scan.ps1` passed with `1302` scripts scanned and no
+  GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
