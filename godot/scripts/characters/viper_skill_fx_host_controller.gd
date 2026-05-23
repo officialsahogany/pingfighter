@@ -4,6 +4,19 @@ const ChaosSpearFxHost := preload("res://scripts/characters/viper_chaos_spear_fx
 const EmpStrikeFxHost := preload("res://scripts/characters/viper_emp_strike_fx_host.gd")
 
 
+func prewarm_viper_fx_hosts(runtime: Object, owner: Object) -> bool:
+	ChaosSpearFxHost.prewarm_assets()
+	EmpStrikeFxHost.prewarm_assets()
+	if not (owner is Node):
+		return true
+	var parent: Node = owner as Node
+	var chaos_host: Node = _get_or_create_chaos_fx_host_for_prewarm(runtime, parent)
+	_prewarm_host_runtime_nodes(chaos_host)
+	var emp_host: Node = _get_or_create_emp_fx_host_for_prewarm(runtime, parent)
+	_prewarm_host_runtime_nodes(emp_host)
+	return true
+
+
 func sync_emp_strike_fx(
 	runtime: Object,
 	canvas: CanvasItem,
@@ -111,6 +124,45 @@ func get_or_create_chaos_fx_host(runtime: Object, canvas: CanvasItem) -> Node:
 		runtime.chaos_fx_host_add_pending = true
 		parent.call_deferred("add_child", runtime.chaos_fx_host)
 	return runtime.chaos_fx_host
+
+
+func _get_or_create_chaos_fx_host_for_prewarm(runtime: Object, parent: Node) -> Node:
+	if is_valid_fx_host(runtime.chaos_fx_host):
+		return runtime.chaos_fx_host
+	var existing: Node = parent.get_node_or_null("ViperChaosSpearFxHost")
+	if is_valid_fx_host(existing):
+		runtime.chaos_fx_host = existing
+		runtime.chaos_fx_host_add_pending = false
+		return runtime.chaos_fx_host
+	var host: Node = ChaosSpearFxHost.new()
+	host.name = "ViperChaosSpearFxHost"
+	host.visible = false
+	parent.add_child(host)
+	runtime.chaos_fx_host = host
+	runtime.chaos_fx_host_add_pending = false
+	return host
+
+
+func _get_or_create_emp_fx_host_for_prewarm(runtime: Object, parent: Node) -> Node:
+	if is_valid_fx_host(runtime.emp_fx_host):
+		return runtime.emp_fx_host
+	var existing: Node = parent.get_node_or_null("ViperEmpStrikeFxHost")
+	if is_valid_fx_host(existing):
+		runtime.emp_fx_host = existing
+		runtime.emp_fx_host_add_pending = false
+		return runtime.emp_fx_host
+	var host: Node = EmpStrikeFxHost.new()
+	host.name = "ViperEmpStrikeFxHost"
+	host.visible = false
+	parent.add_child(host)
+	runtime.emp_fx_host = host
+	runtime.emp_fx_host_add_pending = false
+	return host
+
+
+func _prewarm_host_runtime_nodes(host: Node) -> void:
+	if is_valid_fx_host(host) and host.has_method("prewarm_runtime_nodes"):
+		host.prewarm_runtime_nodes()
 
 
 func hide_fx_host(host: Node) -> void:

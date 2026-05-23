@@ -66,6 +66,14 @@ func _ready() -> void:
 	set_active(false)
 
 
+func prewarm_runtime_nodes() -> void:
+	prewarm_assets()
+	if _additive_material == null:
+		_additive_material = _make_additive_material()
+	_build_children()
+	set_active(false)
+
+
 func sync_state(next_state: Dictionary, active: bool) -> void:
 	if _prep_quad == null:
 		_additive_material = _make_additive_material()

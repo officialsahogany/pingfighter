@@ -239,6 +239,10 @@ func _verify_viper_skill_context_uses_lod() -> void:
 		"Viper skill renderer should classify Air Strike LOD as severe"
 	)
 	_expect(
+		ViperSkillParticleDrawer.IGNITION_SEVERE_LOD_SCALE_THRESHOLD >= BattleRenderQuality.FPS_CAP_EFFECT_SCALE,
+		"Ignition Aura should use severe draw budgets under the 72 FPS cap LOD"
+	)
+	_expect(
 		ViperSkillParticleDrawer.SEVERE_LOD_DIVE_PARTICLE_DRAW_LIMIT <= 42,
 		"Viper dive particles should keep a tight severe-LOD draw cap"
 	)

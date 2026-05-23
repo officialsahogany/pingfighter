@@ -160,6 +160,11 @@ func _test_emp_audio_does_not_fall_back_to_kicks() -> void:
 func _test_emp_fx_host_remaster_stack() -> void:
 	ViperEmpStrikeFxHost.prewarm_assets()
 	var host := ViperEmpStrikeFxHost.new()
+	_expect(host.has_method("prewarm_runtime_nodes"), "EMP FX host should expose runtime node prewarm")
+	host.prewarm_runtime_nodes()
+	var warm_debug: Dictionary = host.get_debug_status()
+	_expect(bool(warm_debug.get("texture_pieces_ready", false)), "EMP runtime node prewarm should keep reusable texture pieces ready")
+	_expect(not bool(warm_debug.get("active", true)), "EMP runtime node prewarm should leave the hidden host inactive")
 	root.add_child(host)
 	host.sync_state({
 		"render_scale": 1.0,

@@ -222,6 +222,11 @@ func _verify_chaos_spear_fx_pipeline() -> void:
 
 func _verify_chaos_spear_fx_phase_visibility() -> void:
 	var host: Node = ChaosSpearFxHost.new()
+	_expect(host.has_method("prewarm_runtime_nodes"), "Chaos Spear FX host should expose runtime node prewarm")
+	host.prewarm_runtime_nodes()
+	var warm_debug: Dictionary = host.get_debug_status()
+	_expect(bool(warm_debug.get("texture_pieces_ready", false)), "Chaos Spear runtime node prewarm should keep texture pieces ready")
+	_expect(not bool(warm_debug.get("active", true)), "Chaos Spear runtime node prewarm should leave the hidden host inactive")
 	var base_state := {
 		"screen_center": Vector2(380.0, 435.0),
 		"screen_current": Vector2(380.0, 690.0),

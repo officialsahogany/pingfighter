@@ -134,6 +134,7 @@ func _init() -> void:
 	_test_owner_synced_ignition_level_bonus()
 	_test_grounded_hold_blockers_and_reset()
 	_test_tooltip_and_timer_stack_contract()
+	_test_runtime_asset_prewarm_contract()
 	print("viper_ignition_aura_port_smoke: ok")
 	quit(0)
 
@@ -303,8 +304,28 @@ func _test_grounded_hold_blockers_and_reset() -> void:
 	result = runtime.try_activate_before_movement(1.0 / 60.0, Vector2(302.5, 680.0), 500.0, config, deps)
 	_expect(bool(result.get("activated", false)), "Ignition Aura should activate again once blockers are gone")
 	_expect(bool(bundle["perk_state"].is_viper_ignition_aura_active()), "Ignition bonus should be active before reset")
+	var remaining_before_reset: float = float(runtime.get_snapshot().get("ignition_remaining_frames", 0.0))
 	runtime.reset_round(deps)
-	_expect(not bool(bundle["perk_state"].is_viper_ignition_aura_active()), "round reset should clear Ignition's temporary perk bonus")
+	_expect(bool(runtime.get_snapshot().get("ignition_active", false)), "round reset should preserve active Ignition Aura for the next round")
+	_expect(bool(bundle["perk_state"].is_viper_ignition_aura_active()), "round reset should preserve Ignition's temporary perk bonus")
+	_expect(abs(float(runtime.get_snapshot().get("ignition_remaining_frames", 0.0)) - remaining_before_reset) < 0.01, "round reset should preserve Ignition's remaining duration")
+
+	var waiting_context := _base_config()
+	waiting_context["ball_active"] = false
+	waiting_context["waiting_for_serve"] = true
+	waiting_context["player_pos"] = Vector2(302.5, 680.0)
+	waiting_context["player_paddle_size"] = Vector2(155.0, 50.0)
+	runtime.update_effects(120.0, Time.get_ticks_msec(), waiting_context, deps)
+	_expect(bool(runtime.get_snapshot().get("ignition_active", false)), "serve-wait frames should pause, not cancel, cross-round Ignition Aura")
+	_expect(abs(float(runtime.get_snapshot().get("ignition_remaining_frames", 0.0)) - remaining_before_reset) < 0.01, "serve-wait frames should not consume Ignition's remaining duration")
+
+	runtime.update_effects(10.0, Time.get_ticks_msec(), config, deps)
+	_expect(float(runtime.get_snapshot().get("ignition_remaining_frames", 0.0)) < remaining_before_reset, "next live round should resume Ignition's countdown")
+	var hard_reset_deps := deps.duplicate()
+	hard_reset_deps["preserve_ignition_aura"] = false
+	runtime.reset_round(hard_reset_deps)
+	_expect(not bool(runtime.get_snapshot().get("ignition_active", true)), "explicit hard reset should still clear Ignition Aura")
+	_expect(not bool(bundle["perk_state"].is_viper_ignition_aura_active()), "explicit hard reset should clear Ignition's temporary perk bonus")
 
 
 func _test_tooltip_and_timer_stack_contract() -> void:
@@ -324,6 +345,28 @@ func _test_tooltip_and_timer_stack_contract() -> void:
 	_expect(int(stack.claim("dual_glitch", true)) == 1, "a second timer should stack above an already-active Ignition timer")
 	_expect(int(stack.claim("ignition_aura", true)) == 0, "Ignition timer should keep its stack index within the same frame")
 	stack.end_frame()
+
+
+func _test_runtime_asset_prewarm_contract() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	runtime.ignition_aura_effect_texture = null
+	runtime.ignition_aura_effect_load_attempted = false
+	_expect(runtime.has_method("prewarm_assets_step"), "Viper runtime should expose staged runtime asset prewarm")
+	_expect(bool(runtime.prewarm_assets_step()), "Viper runtime prewarm should finish after the Ignition Aura sheet step")
+	_expect(bool(runtime.ignition_aura_effect_load_attempted), "Ignition Aura sheet load gate should be satisfied by prewarm")
+	_expect(runtime.ignition_aura_effect_texture != null, "Ignition Aura effect sheet should be loaded before first draw")
+	_expect(runtime.has_method("prewarm_runtime_nodes_step"), "Viper runtime should expose staged FX host node prewarm")
+	var prewarm_parent := Node2D.new()
+	_expect(bool(runtime.prewarm_runtime_nodes_step(prewarm_parent)), "Viper runtime FX host prewarm should complete in one staged chunk")
+	_expect(prewarm_parent.get_node_or_null("ViperChaosSpearFxHost") != null, "Viper runtime prewarm should attach the Chaos Spear FX host")
+	_expect(prewarm_parent.get_node_or_null("ViperEmpStrikeFxHost") != null, "Viper runtime prewarm should attach the EMP Strike FX host")
+	prewarm_parent.free()
+
+	var source := FileAccess.get_file_as_string("res://scripts/characters/viper_skill_particle_drawer.gd")
+	_expect(
+		source.find("func prewarm_ignition_aura_assets") >= 0,
+		"Ignition Aura should keep sheet loading out of the draw-only path"
+	)
 
 
 func _runtime_bundle() -> Dictionary:

@@ -6,6 +6,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 
 const LOD_PARTICLE_STRIDE_THRESHOLD := 0.66
 const SEVERE_LOD_SCALE_THRESHOLD := 0.50
+const IGNITION_SEVERE_LOD_SCALE_THRESHOLD := 0.60
 const SEVERE_LOD_DIVE_PARTICLE_DRAW_LIMIT := 42
 const SEVERE_LOD_HIT_PARTICLE_DRAW_LIMIT := 40
 const SEVERE_LOD_IGNITION_PARTICLE_DRAW_LIMIT := 48
@@ -417,7 +418,7 @@ func draw_ignition_particle_list(
 	shake_offset: Vector2,
 	effect_lod_scale: float = 1.0
 ) -> void:
-	var severe_lod: bool = effect_lod_scale <= SEVERE_LOD_SCALE_THRESHOLD
+	var severe_lod: bool = _is_ignition_severe_lod(effect_lod_scale)
 	var stride: int = _get_lod_particle_stride(effect_lod_scale)
 	var draw_limit: int = _get_lod_particle_draw_limit(
 		particles.size(),
@@ -497,6 +498,13 @@ func get_ignition_aura_effect_texture(runtime: Object, sheet_path: String) -> Te
 	return runtime.ignition_aura_effect_texture
 
 
+func prewarm_ignition_aura_assets(runtime: Object, sheet_path: String) -> bool:
+	ImpactFlareTextureCache.prewarm()
+	ImpactShockwaveTextureCache.prewarm()
+	get_ignition_aura_effect_texture(runtime, sheet_path)
+	return true
+
+
 func draw_ignition_aura_effects(
 	canvas: CanvasItem,
 	shake_offset: Vector2,
@@ -542,12 +550,13 @@ func draw_ignition_hold_aura(
 	var hold_t: float = clamp(hold_ratio, 0.0, 1.0)
 	var hold_pulse: float = 0.5 + 0.5 * sin(tick_msec * 0.026)
 	ImpactFlareTextureCache.draw_glow(canvas, center, 36.0 + hold_t * 42.0 + hold_pulse * 8.0, Color(1.0, 0.48, 0.10), 0.14 + hold_t * 0.18)
-	var ring_count: int = 2 if effect_lod_scale <= SEVERE_LOD_SCALE_THRESHOLD else 3
+	var severe_lod: bool = _is_ignition_severe_lod(effect_lod_scale)
+	var ring_count: int = 2 if severe_lod else 3
 	for ring_index in range(ring_count):
 		var radius: float = 24.0 + hold_t * 58.0 + float(ring_index) * 13.0
 		var alpha: float = (0.22 + hold_t * 0.16 - float(ring_index) * 0.04) * (0.55 + hold_pulse * 0.45)
 		ImpactShockwaveTextureCache.draw_full_ring(canvas, center, radius, Color(1.0, 0.55, 0.12), alpha)
-	var spoke_count: int = 3 if effect_lod_scale <= SEVERE_LOD_SCALE_THRESHOLD else 6
+	var spoke_count: int = 3 if severe_lod else 6
 	for i in range(spoke_count):
 		var angle: float = TAU * float(i) / float(spoke_count) + tick_msec * 0.004
 		var inner: Vector2 = center + Vector2(cos(angle), sin(angle)) * (14.0 + hold_t * 8.0)
@@ -563,7 +572,7 @@ func draw_ignition_active_aura(
 	remaining_frames: float,
 	effect_lod_scale: float = 1.0
 ) -> void:
-	var severe_lod: bool = effect_lod_scale <= SEVERE_LOD_SCALE_THRESHOLD
+	var severe_lod: bool = _is_ignition_severe_lod(effect_lod_scale)
 	var pulse: float = 0.5 + 0.5 * sin(tick_msec * 0.018)
 	var low_time_boost: float = 0.0 if remaining_frames > 180.0 else 0.12 + pulse * 0.08
 	ImpactFlareTextureCache.draw_glow(canvas, center, 72.0 + pulse * 18.0, Color(1.0, 0.36, 0.08), 0.20 + low_time_boost)
@@ -583,7 +592,8 @@ func draw_ignition_active_aura(
 		canvas.draw_arc(center, arc_radius + float(arc_index % 2) * 11.0, start_angle, end_angle, arc_segments, Color(1.0, 0.82, 0.30, 0.48), 2.2)
 	if ratio < 0.18:
 		var fade_flash: float = (0.18 - ratio) / 0.18
-		canvas.draw_arc(center, 82.0 + pulse * 8.0, 0.0, TAU, 42, Color(1.0, 0.22, 0.08, 0.14 + fade_flash * 0.18), 3.0)
+		var fade_segments: int = 24 if severe_lod else 42
+		canvas.draw_arc(center, 82.0 + pulse * 8.0, 0.0, TAU, fade_segments, Color(1.0, 0.22, 0.08, 0.14 + fade_flash * 0.18), 3.0)
 
 
 func draw_dive_particle_list(
@@ -797,6 +807,10 @@ func _get_lod_particle_draw_limit(source_count: int, severe_limit: int, severe_l
 	if not severe_lod:
 		return source_count
 	return min(source_count, severe_limit)
+
+
+func _is_ignition_severe_lod(effect_lod_scale: float) -> bool:
+	return effect_lod_scale <= IGNITION_SEVERE_LOD_SCALE_THRESHOLD
 
 
 func build_emp_strike_fx_state(

@@ -545,11 +545,32 @@ func _init() -> void:
 	EmpStrikeFxHost.prewarm_assets()
 
 
+func prewarm_assets() -> void:
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	ChaosSpearFxHost.prewarm_assets()
+	EmpStrikeFxHost.prewarm_assets()
+	return bool(particle_drawer.prewarm_ignition_aura_assets(self, IGNITION_AURA_EFFECT_SHEET_PATH))
+
+
+func prewarm_runtime_nodes(owner: Object = null) -> void:
+	fx_host_controller.prewarm_viper_fx_hosts(self, owner)
+
+
+func prewarm_runtime_nodes_step(owner: Object = null) -> bool:
+	prewarm_runtime_nodes(owner)
+	return true
+
+
 func reset() -> void:
-	reset_round()
+	reset_round({"preserve_ignition_aura": false})
 
 
 func reset_round(deps: Dictionary = {}) -> void:
+	var preserve_ignition_aura := _should_preserve_ignition_aura_on_round_reset(deps)
 	previous_down_pressed = false
 	previous_left_pressed = false
 	previous_up_pressed = false
@@ -585,8 +606,11 @@ func reset_round(deps: Dictionary = {}) -> void:
 	_reset_core_flip_runtime(true)
 	_reset_chaos_spear_runtime(true, deps)
 	_reset_dual_glitch_runtime(true)
-	_set_runtime_ignition_aura_bonus(deps, false)
-	_reset_ignition_aura_runtime(true)
+	if preserve_ignition_aura:
+		_preserve_ignition_aura_round_carryover(deps)
+	else:
+		_set_runtime_ignition_aura_bonus(deps, false)
+		_reset_ignition_aura_runtime(true)
 	_reset_nerve_strike_runtime(true)
 	_reset_blade_runtime()
 	_reset_dive_runtime(true)
@@ -2643,12 +2667,15 @@ func _update_ignition_aura_runtime(fps_scale: float, context: Dictionary, deps: 
 	particle_drawer.update_ignition_particle_array(ignition_live_embers, fps_scale)
 	if not ignition_active:
 		return
-	if _should_stop_viper_context_effect(context):
+	if _should_stop_ignition_aura_for_context(context):
 		_finish_ignition_aura(deps)
 		return
+	if _should_pause_ignition_aura_for_round_boundary(context):
+		_sync_ignition_aura_anchor_from_context(context)
+		_set_runtime_ignition_aura_bonus(deps, true)
+		return
 
-	ignition_player_pos = _get_vector2(context.get("player_pos", ignition_player_pos), ignition_player_pos)
-	ignition_paddle_size = _get_vector2(context.get("player_paddle_size", ignition_paddle_size), ignition_paddle_size)
+	_sync_ignition_aura_anchor_from_context(context)
 	_set_runtime_ignition_aura_bonus(deps, true)
 	ignition_remaining_frames = max(0.0, ignition_remaining_frames - fps_scale)
 	ignition_ember_timer -= fps_scale
@@ -2687,6 +2714,37 @@ func _reset_ignition_aura_runtime(clear_hold: bool = true) -> void:
 	ignition_live_embers.clear()
 	ignition_ember_timer = 0.0
 	ignition_start_msec = 0
+
+
+func _should_preserve_ignition_aura_on_round_reset(deps: Dictionary) -> bool:
+	return bool(deps.get("preserve_ignition_aura", true)) and ignition_active and ignition_remaining_frames > 0.0
+
+
+func _preserve_ignition_aura_round_carryover(deps: Dictionary) -> void:
+	# Ignition Aura is an explicit cross-round carryover exception: keep the
+	# timed buff, but clear hold / one-shot particles at the score boundary.
+	_reset_ignition_aura_hold()
+	ignition_burst_particles.clear()
+	ignition_charge_particles.clear()
+	ignition_live_embers.clear()
+	ignition_ember_timer = 0.0
+	_set_runtime_ignition_aura_bonus(deps, true)
+
+
+func _should_stop_ignition_aura_for_context(context: Dictionary) -> bool:
+	if not context.has("selected_character_type"):
+		return false
+	var character_type: String = str(context.get("selected_character_type", "viper")).strip_edges().to_lower()
+	return character_type != "" and character_type != "viper"
+
+
+func _should_pause_ignition_aura_for_round_boundary(context: Dictionary) -> bool:
+	return bool(context.get("waiting_for_serve", false)) or not bool(context.get("ball_active", true))
+
+
+func _sync_ignition_aura_anchor_from_context(context: Dictionary) -> void:
+	ignition_player_pos = _get_vector2(context.get("player_pos", ignition_player_pos), ignition_player_pos)
+	ignition_paddle_size = _get_vector2(context.get("player_paddle_size", ignition_paddle_size), ignition_paddle_size)
 
 
 func _reset_ignition_aura_hold() -> void:

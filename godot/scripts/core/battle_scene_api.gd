@@ -189,7 +189,13 @@ func configure_player_character(owner: Object, registry: Object, character_type:
 			viper_skill_state.reset()
 		var viper_skill_runtime: Object = _get_instance(registry, "viper_skill_runtime")
 		if viper_skill_runtime != null and viper_skill_runtime.has_method("reset_round"):
-			viper_skill_runtime.reset_round({"audio": viper_audio})
+			viper_skill_runtime.reset_round({
+				"audio": viper_audio,
+				"owner": owner,
+				"registry": registry,
+				"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
+				"preserve_ignition_aura": false,
+			})
 		elif viper_skill_runtime != null and viper_skill_runtime.has_method("reset"):
 			viper_skill_runtime.reset()
 	var optimus_energy_state: Object = _get_instance(registry, "optimus_energy_state")
