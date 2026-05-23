@@ -2439,119 +2439,20 @@ func _clear_baal_boots_round_state(registry: Object = null) -> void:
 	baal_boots_runtime.clear_round_state(self, registry, BAAL_BOOTS_CONSTANTS)
 
 
-func _start_poseidon_capture(ball_pos: Vector2, ball_vel: Vector2, vortex_hit: Dictionary) -> void:
-	poseidon_runtime.start_capture(self, ball_pos, ball_vel, vortex_hit, POSEIDON_CONSTANTS)
-
-
-func _update_poseidon_captured_ball(ball_pos: Vector2, fps_scale: float, scene: Dictionary, deps: Dictionary) -> Dictionary:
-	return poseidon_runtime.update_captured_ball(self, ball_pos, fps_scale, scene, deps, POSEIDON_CONSTANTS)
-
-
-func _get_poseidon_capture_position(progress: float) -> Vector2:
-	return poseidon_runtime.get_capture_position(self, progress, POSEIDON_CONSTANTS)
-
-
-func _build_poseidon_release_velocity() -> Vector2:
-	return poseidon_runtime.build_release_velocity(self, POSEIDON_CONSTANTS)
-
-
 func _update_smartphone_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
 	auto_defense_runtime.update_smartphone_runtime(self, owner, registry, fps_scale)
-
-
-func _should_smartphone_auto_defend(owner: Object, registry: Object, active_item_runtime: Object, fps_scale: float) -> bool:
-	return auto_defense_runtime.should_smartphone_auto_defend(self, owner, registry, active_item_runtime, fps_scale)
-
-
-func _is_smartphone_ball_safe_for_player(owner: Object, ball_pos: Vector2, ball_size: float) -> bool:
-	return auto_defense_runtime.is_smartphone_ball_safe_for_player(self, owner, ball_pos, ball_size)
-
-
-func _has_active_slot_item(active_item_slots: Array, item_name: String) -> bool:
-	return auto_defense_runtime.has_active_slot_item(self, active_item_slots, item_name)
-
-
-func _call_smartphone_auto_use(
-	active_item_runtime: Object,
-	method_name: String,
-	owner: Object,
-	registry: Object,
-	extra_arg: Variant = null
-) -> String:
-	return auto_defense_runtime.call_smartphone_auto_use(active_item_runtime, method_name, owner, registry, extra_arg)
 
 
 func _update_venom_mist_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
 	venom_mist_runtime.update_runtime(self, owner, registry, fps_scale)
 
 
-func _start_venom_mist_field(center: Vector2, registry: Object = null) -> void:
-	venom_mist_runtime.start_field(self, center, registry)
-
-
-func _update_venom_mist_boss_gauge_drain(owner: Object, registry: Object, fps_scale: float) -> void:
-	venom_mist_runtime.update_boss_gauge_drain(self, owner, registry, fps_scale)
-
-
-func _drain_boss_special_gauge(registry: Object, amount: float, current_stage: int) -> bool:
-	return venom_mist_runtime.drain_boss_special_gauge(self, registry, amount, current_stage)
-
-
 func _read_owner_boss_center(owner: Object) -> Vector2:
 	return venom_mist_runtime.read_owner_boss_center(self, owner)
 
 
-func _build_venom_mist_particles() -> void:
-	venom_mist_runtime.build_particles(self)
-
-
-func _create_venom_mist_particle(random_life: bool = false) -> Dictionary:
-	return venom_mist_runtime.create_particle(random_life)
-
-
-func _update_venom_mist_particles(fps_scale: float) -> void:
-	venom_mist_runtime.update_particles(self, fps_scale)
-
-
 func _get_venom_mist_alpha() -> float:
 	return venom_mist_runtime.get_alpha(self)
-
-
-func _apply_rainbow_fur_glove_skill_cooldown_reduction(
-	reduction_fraction: float,
-	current_msec: int,
-	deps: Dictionary
-) -> int:
-	return rainbow_fur_glove_runtime.apply_skill_cooldown_reduction(self, reduction_fraction, current_msec, deps)
-
-
-func _collect_player_skill_states(deps: Dictionary) -> Array:
-	return rainbow_fur_glove_runtime.collect_player_skill_states(self, deps)
-
-
-func _resolve_context_msec(context: Dictionary) -> int:
-	return rainbow_fur_glove_runtime.resolve_context_msec(context)
-
-
-func _resolve_rainbow_fur_glove_center(ball_pos: Vector2, context: Dictionary, deps: Dictionary) -> Vector2:
-	return rainbow_fur_glove_runtime.resolve_center(
-		self,
-		ball_pos,
-		context,
-		_get_dict(deps)
-	)
-
-
-func _start_rainbow_fur_glove_aura(center: Vector2) -> void:
-	rainbow_fur_glove_runtime.start_aura(self, center)
-
-
-func _build_rainbow_fur_glove_particles(center: Vector2) -> void:
-	rainbow_fur_glove_runtime.build_particles(self, center)
-
-
-func _create_rainbow_fur_glove_particle(center: Vector2, random_life: bool = false) -> Dictionary:
-	return rainbow_fur_glove_runtime.create_particle(center, random_life)
 
 
 func _update_rainbow_fur_glove_runtime(fps_scale: float) -> void:
@@ -2570,64 +2471,12 @@ func _update_adversity_armor_runtime(owner: Object, _registry: Object, fps_scale
 	adversity_armor_runtime.update_runtime(self, owner, fps_scale)
 
 
-func _spawn_adversity_armor_idle_particles(owner: Object) -> void:
-	adversity_armor_runtime.spawn_idle_particles(self, owner)
-
-
-func _spawn_adversity_armor_barrier_particles(center: Vector2, count: int, impact: bool) -> void:
-	adversity_armor_runtime.spawn_barrier_particles(self, center, count, impact)
-
-
-func _update_adversity_armor_particles(step: float) -> void:
-	adversity_armor_runtime.update_particles(self, step)
-
-
-func _resolve_adversity_armor_player_center(owner: Object) -> Vector2:
-	return adversity_armor_runtime.resolve_player_center(self, owner)
-
-
 func _is_adversity_armor_effect_active() -> bool:
 	return adversity_armor_runtime.is_effect_active(self)
 
 
-func _get_shrapnel_armor_current_gauge(context: Dictionary, deps: Dictionary) -> float:
-	return shrapnel_armor_runtime.current_gauge(self, context, deps)
-
-
-func _consume_shrapnel_armor_gauge(gauge_cost: float, context: Dictionary, deps: Dictionary) -> Dictionary:
-	return shrapnel_armor_runtime.consume_gauge(self, gauge_cost, context, deps)
-
-
-func _resolve_shrapnel_armor_spawn_center(ball_pos: Vector2, context: Dictionary, deps: Dictionary) -> Vector2:
-	return shrapnel_armor_runtime.resolve_spawn_center(self, ball_pos, context, deps, SHRAPNEL_ARMOR_CONSTANTS)
-
-
-func _start_shrapnel_armor_burst(center: Vector2, shard_count: int) -> void:
-	shrapnel_armor_runtime.start_burst(self, center, shard_count, SHRAPNEL_ARMOR_CONSTANTS)
-
-
 func _update_shrapnel_armor_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
 	shrapnel_armor_runtime.update_runtime(self, owner, registry, fps_scale, SHRAPNEL_ARMOR_CONSTANTS)
-
-
-func _update_shrapnel_armor_dust(step: float) -> void:
-	shrapnel_armor_runtime.update_dust(self, step, SHRAPNEL_ARMOR_CONSTANTS)
-
-
-func _spawn_shrapnel_armor_dust(center: Vector2, count: int, impact: bool) -> void:
-	shrapnel_armor_runtime.spawn_dust(self, center, count, impact, SHRAPNEL_ARMOR_CONSTANTS)
-
-
-func _get_shrapnel_armor_boss_rect(owner: Object) -> Rect2:
-	return shrapnel_armor_runtime.get_boss_rect(self, owner)
-
-
-func _apply_shrapnel_armor_boss_hit(hit_pos: Vector2, velocity: Vector2, boss_rect: Rect2, registry: Object) -> void:
-	shrapnel_armor_runtime.apply_boss_hit(self, hit_pos, velocity, boss_rect, registry, SHRAPNEL_ARMOR_CONSTANTS)
-
-
-func _get_shrapnel_armor_knockback_velocity(level: int) -> float:
-	return shrapnel_armor_runtime.get_knockback_velocity(level)
 
 
 func _is_shrapnel_armor_effect_active() -> bool:
@@ -2670,52 +2519,8 @@ func _update_hermes_shoes_runtime(owner: Object, fps_scale: float) -> void:
 	hermes_shoes_runtime.update_runtime(self, owner, fps_scale)
 
 
-func _consume_celestial_armor_gauge(gauge_cost: int, deps: Dictionary) -> bool:
-	return celestial_armor_runtime.consume_gauge(self, gauge_cost, deps)
-
-
-func _start_celestial_armor_wave(center: Vector2, _source: String = "") -> void:
-	celestial_armor_runtime.start_wave(self, center)
-
-
-func _resolve_celestial_armor_player_center(deps: Dictionary) -> Vector2:
-	return celestial_armor_runtime.resolve_player_center(self, deps)
-
-
-func _update_poseidon_dash_trigger(owner: Object, registry: Object) -> void:
-	poseidon_runtime.update_dash_trigger(self, owner, registry)
-
-
 func _try_trigger_poseidon_vortex(owner: Object, registry: Object, direction: float) -> bool:
 	return poseidon_runtime.try_trigger_vortex(self, owner, registry, direction, POSEIDON_CONSTANTS)
-
-
-func _start_poseidon_vortex(owner: Object, direction: float) -> void:
-	poseidon_runtime.start_vortex(self, owner, direction, POSEIDON_CONSTANTS)
-
-
-func _update_poseidon_vortex(fps_scale: float) -> void:
-	poseidon_runtime.update_vortex(self, fps_scale, POSEIDON_CONSTANTS)
-
-
-func _spawn_poseidon_particles(count_per_side: int, initial_burst: bool) -> void:
-	poseidon_runtime.spawn_particles(self, count_per_side, initial_burst, POSEIDON_CONSTANTS)
-
-
-func _make_poseidon_particle(side: int, initial_burst: bool) -> Dictionary:
-	return poseidon_runtime.make_particle(self, side, initial_burst, POSEIDON_CONSTANTS)
-
-
-func _update_poseidon_particles(fps_scale: float) -> void:
-	poseidon_runtime.update_particles(self, fps_scale, POSEIDON_CONSTANTS)
-
-
-func _update_poseidon_water_trail(fps_scale: float) -> void:
-	poseidon_runtime.update_water_trail(self, fps_scale, POSEIDON_CONSTANTS)
-
-
-func _add_poseidon_water_trail(ball_pos: Vector2) -> void:
-	poseidon_runtime.add_water_trail(self, ball_pos, POSEIDON_CONSTANTS)
 
 
 func _read_owner_player_center(owner: Object) -> Vector2:
@@ -2725,14 +2530,6 @@ func _read_owner_player_center(owner: Object) -> Vector2:
 		float(_safe_owner_get(owner, "player_paddle_height", 50.0))
 	)
 	return pos + size * 0.5
-
-
-func _start_poseidon_water_explosion() -> void:
-	poseidon_runtime.start_water_explosion(self, POSEIDON_CONSTANTS)
-
-
-func _update_poseidon_water_explosion(fps_scale: float) -> void:
-	poseidon_runtime.update_water_explosion(self, fps_scale, POSEIDON_CONSTANTS)
 
 
 func _update_baal_boots_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
@@ -2751,92 +2548,8 @@ func _try_arm_baal_boots_from_weather(
 	baal_boots_runtime.try_arm_from_weather(self, owner, registry, weather_type_override, BAAL_BOOTS_CONSTANTS)
 
 
-func _begin_baal_absorb(owner: Object, registry: Object, weather_type: String) -> void:
-	baal_boots_runtime.begin_absorb(self, owner, registry, weather_type, BAAL_BOOTS_CONSTANTS)
-
-
-func _finish_baal_absorb(owner: Object, registry: Object) -> void:
-	baal_boots_runtime.finish_absorb(self, owner, registry, BAAL_BOOTS_CONSTANTS)
-
-
-func _build_baal_absorb_particles(harvested: Array, weather_type: String) -> void:
-	baal_boots_runtime.build_absorb_particles(self, harvested, weather_type, BAAL_BOOTS_CONSTANTS)
-
-
-func _update_baal_absorb_particles(fps_scale: float) -> void:
-	baal_boots_runtime.update_absorb_particles(self, fps_scale)
-
-
-func _spawn_baal_aura_particles(center: Vector2, weather_type: String, count: int) -> void:
-	baal_boots_runtime.spawn_aura_particles(self, center, weather_type, count, BAAL_BOOTS_CONSTANTS)
-
-
-func _update_baal_aura_particles(fps_scale: float) -> void:
-	baal_boots_runtime.update_aura_particles(self, fps_scale)
-
-
-func _spawn_baal_projectiles(ball_pos: Vector2, weather_type: String, context: Dictionary) -> void:
-	baal_boots_runtime.spawn_projectiles(self, ball_pos, weather_type, context, BAAL_BOOTS_CONSTANTS)
-
-
-func _update_baal_projectiles(owner: Object, registry: Object, fps_scale: float) -> void:
-	baal_boots_runtime.update_projectiles(self, owner, registry, fps_scale, BAAL_BOOTS_CONSTANTS)
-
-
-func _apply_baal_projectile_hit(pos: Vector2, weather_type: String, owner: Object, registry: Object) -> void:
-	baal_boots_runtime.apply_projectile_hit(self, pos, weather_type, owner, registry, BAAL_BOOTS_CONSTANTS)
-
-
-func _get_baal_boss_rect(owner: Object) -> Rect2:
-	return baal_boots_runtime.get_boss_rect(self, owner)
-
-
-func _give_baal_boots_gauge(owner: Object, registry: Object) -> void:
-	baal_boots_runtime.give_gauge(self, owner, registry, BAAL_BOOTS_CONSTANTS)
-
-
 func _get_baal_boots_player_speed_multiplier() -> float:
 	return baal_boots_runtime.get_player_speed_multiplier(self, BAAL_BOOTS_CONSTANTS)
-
-
-func _resolve_boss_center_from_context(context: Dictionary) -> Vector2:
-	return baal_boots_runtime.resolve_boss_center_from_context(self, context)
-
-
-func _get_baal_weather_color(weather_type: String) -> Color:
-	return baal_boots_runtime.get_weather_color(weather_type)
-
-
-func _get_poseidon_vortex_hit(ball_pos: Vector2) -> Dictionary:
-	return poseidon_runtime.get_vortex_hit(self, ball_pos, POSEIDON_CONSTANTS)
-
-
-func _soften_ragnarok_counter_ball(ball_vel: Vector2) -> Vector2:
-	return ragnarok_runtime.soften_counter_ball(self, ball_vel)
-
-
-func _compute_ragnarok_knockback_power(ball_speed: float) -> float:
-	return ragnarok_runtime.compute_knockback_power(ball_speed, RAGNAROK_CONSTANTS)
-
-
-func _update_ragnarok_stun_target(owner: Object) -> void:
-	ragnarok_runtime.update_stun_target(self, owner)
-
-
-func _resolve_knee_pads_base_charge(context: Dictionary) -> float:
-	return knee_pads_runtime.resolve_base_charge(context)
-
-
-func _is_knee_pads_half_dash_window_active(deps: Dictionary) -> bool:
-	return knee_pads_runtime.is_half_dash_window_active(self, deps)
-
-
-func _start_knee_pads_effect(ball_pos: Vector2, deps: Dictionary) -> void:
-	knee_pads_runtime.start_effect(self, ball_pos, deps)
-
-
-func _build_soul_burst_effects() -> void:
-	soul_burst_runtime.build_effects(self)
 
 
 func _get_commando_arm_roll_sum(option_key: String) -> float:
@@ -2845,10 +2558,6 @@ func _get_commando_arm_roll_sum(option_key: String) -> float:
 
 func _get_commando_arm_roll_values(option_key: String) -> Array:
 	return roll_query.get_commando_arm_roll_values(self, option_key)
-
-
-func _get_equipped_roll_values(item_name: String, option_key: String, limit: int = -1) -> Array:
-	return roll_query.get_equipped_roll_values(self, item_name, option_key, limit)
 
 
 func _get_equipped_roll_value(item_name: String, option_key: String) -> float:
