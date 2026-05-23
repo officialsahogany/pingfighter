@@ -130,6 +130,12 @@ func get_boss_ai_context(stage_background: Object = null) -> Dictionary:
 func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
 	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID:
 		return {}
+	var stage_background: Object = _resolve_stage_background(deps)
+	var water_cannon_interrupted := false
+	if stage_background != null and stage_background.has_method("interrupt_water_cannon_charge_on_boss_hit"):
+		water_cannon_interrupted = bool(stage_background.interrupt_water_cannon_charge_on_boss_hit())
+	if water_cannon_interrupted:
+		status = _get_idle_status()
 	if speed_defense_active:
 		_play_speed_defense_boss_hit_audio(deps)
 	boss_launch_guard_pending = true
@@ -137,6 +143,7 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 		"boss_special_gauge": boss_special_gauge,
 		"stage2_boss_gauge_gain": 0.0,
 		"stage2_quake_cast": false,
+		"stage2_water_cannon_interrupted": water_cannon_interrupted,
 	}
 
 

@@ -69,6 +69,10 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if stage2_boss_skill_state != null and stage2_boss_skill_state.has_method("reset_round"):
 		stage2_boss_skill_state.reset_round()
 
+	var stage2_background = deps.get("stage2_pillar_background", null)
+	if stage2_background != null and stage2_background.has_method("reset_round"):
+		stage2_background.reset_round(deps)
+
 	var stage3_boss_skill_state = deps.get("stage3_boss_skill_state", null)
 	if stage3_boss_skill_state != null and stage3_boss_skill_state.has_method("reset_round"):
 		stage3_boss_skill_state.reset_round()
@@ -81,7 +85,9 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if stage5_hongryun_state != null and stage5_hongryun_state.has_method("reset_round"):
 		stage5_hongryun_state.reset_round()
 
-	var stage2_background = deps.get("stage2_pillar_background", null)
+	var stage5_hongryun_actor_renderer = deps.get("stage5_hongryun_actor_renderer", null)
+	_reset_stage5_hongryun_round_fx(stage5_hongryun_actor_renderer)
+
 	if stage2_background != null and stage2_background.has_method("start_boss_rage_animation"):
 		stage2_background.start_boss_rage_animation(deps)
 
@@ -103,3 +109,12 @@ func _get_dash_token_max(dash_state) -> int:
 		return 1
 	var dash_snapshot: Dictionary = dash_state.get_snapshot()
 	return int(dash_snapshot.get("max_tokens", 1))
+
+
+func _reset_stage5_hongryun_round_fx(actor_renderer: Object) -> void:
+	if actor_renderer == null:
+		return
+	if actor_renderer.has_method("reset_round_fx"):
+		actor_renderer.reset_round_fx()
+	elif actor_renderer.has_method("reset"):
+		actor_renderer.reset()

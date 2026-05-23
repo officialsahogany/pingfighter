@@ -79,6 +79,17 @@ class FakeStageBackground:
 		expression = next_expression
 
 
+class FakeStage2Background:
+	extends RefCounted
+
+	var reset_round_calls := 0
+	var saw_audio_dep := false
+
+	func reset_round(deps: Dictionary = {}) -> void:
+		reset_round_calls += 1
+		saw_audio_dep = deps.get("audio", null) != null
+
+
 class FakeAudio:
 	extends RefCounted
 
@@ -136,6 +147,24 @@ class FakeStage4PonkSkillState:
 		saw_audio_dep = deps.get("audio", null) != null
 
 
+class FakeStage5HongryunState:
+	extends RefCounted
+
+	var reset_round_calls := 0
+
+	func reset_round() -> void:
+		reset_round_calls += 1
+
+
+class FakeStage5HongryunActorRenderer:
+	extends RefCounted
+
+	var reset_round_fx_calls := 0
+
+	func reset_round_fx() -> void:
+		reset_round_fx_calls += 1
+
+
 func _init() -> void:
 	var controller: Object = MatchFlowController.new()
 	var score := FakeScoreState.new()
@@ -182,6 +211,36 @@ func _init() -> void:
 	})
 	_expect(stage4_ponk_skill_state.reset_round_calls == 1, "Stage 4 score boundary should clear Ponk magnetic FX before result overlays")
 	_expect(stage4_ponk_skill_state.saw_audio_dep, "Stage 4 score boundary should pass audio deps to Ponk FX cleanup")
+
+	var stage2_background := FakeStage2Background.new()
+	controller.handle_score_event("player", {
+		"score_state": FakeScoreState.new(),
+		"round_state": FakeRoundState.new(),
+		"scoreboard_state": FakeScoreboardState.new(),
+		"stage_background": stage2_background,
+		"audio": FakeAudio.new(),
+		"current_stage": 2,
+	}, {
+		"reset_ball": Callable(self, "_record_reset_ball"),
+	})
+	_expect(stage2_background.reset_round_calls == 1, "Stage 2 score boundary should clear jungle quake round effects before the next serve")
+	_expect(stage2_background.saw_audio_dep, "Stage 2 score boundary should pass audio deps to quake cleanup")
+
+	var stage5_hongryun_state := FakeStage5HongryunState.new()
+	var stage5_hongryun_actor_renderer := FakeStage5HongryunActorRenderer.new()
+	controller.handle_score_event("player", {
+		"score_state": FakeScoreState.new(),
+		"round_state": FakeRoundState.new(),
+		"scoreboard_state": FakeScoreboardState.new(),
+		"audio": FakeAudio.new(),
+		"current_stage": 5,
+		"stage5_hongryun_state": stage5_hongryun_state,
+		"stage5_hongryun_actor_renderer": stage5_hongryun_actor_renderer,
+	}, {
+		"reset_ball": Callable(self, "_record_reset_ball"),
+	})
+	_expect(stage5_hongryun_state.reset_round_calls == 1, "Stage 5 score boundary should clear Hongryun inferno state before result overlays")
+	_expect(stage5_hongryun_actor_renderer.reset_round_fx_calls == 1, "Stage 5 score boundary should hide Hongryun detached inferno FX hosts")
 
 	var boss_stage_background := FakeStageBackground.new()
 	controller.handle_score_event("boss", {

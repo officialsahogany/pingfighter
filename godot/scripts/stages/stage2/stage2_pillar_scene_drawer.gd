@@ -15,9 +15,9 @@ const BLOCKING_OVERLAY_LOD_METHODS := [
 	"is_pause_menu_active",
 	"is_active_item_debug_spawn_menu_open",
 ]
-# Keep this below the current Viper Air Strike / 60 FPS safety scales so
-# airborne hits do not momentarily collapse the visible pillar HUD.
-const STAGE2_STATIC_HUD_LOD_SCALE := 0.47
+# Stage 2 reuses the Stage 1 pillar HUD. Trim ornamental orb layers during
+# the same 72 FPS-cap / Viper glide windows that trigger global render LOD.
+const STAGE2_STATIC_HUD_LOD_SCALE := BattleRenderQuality.FPS_CAP_EFFECT_SCALE
 
 var hud_scene_drawer: Object = Stage1PillarHudSceneDrawer.new()
 
@@ -119,7 +119,8 @@ func _draw_stage2_boss_skill_hud(
 
 
 func _with_stage2_hud_lod_context(context: Dictionary, quality_scale: float) -> Dictionary:
-	if quality_scale > STAGE2_STATIC_HUD_LOD_SCALE:
+	var high_refresh_lod_active := BattleRenderQuality.is_high_refresh_lod_active()
+	if quality_scale > STAGE2_STATIC_HUD_LOD_SCALE and not high_refresh_lod_active:
 		return context
 	var hud_context: Dictionary = context.duplicate()
 	hud_context["stage2_pillar_hud_static_lod"] = true

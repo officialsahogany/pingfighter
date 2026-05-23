@@ -18,9 +18,10 @@ const VINE_RUSTLE_DASH := 12.0
 const VINE_RUSTLE_STRIP_COUNT := 1
 const VINE_RENDER_STRIDE_SEVERE_LOD := 2
 const ENABLE_STATIC_BUSH_CLUSTER_CACHE := false
-const MAX_BUSH_TEXTURE_CLUSTERS_PER_BUSH := 1
+const MAX_BUSH_TEXTURE_CLUSTERS_PER_BUSH := 3
 const BUSH_RENDER_STRIDE_SEVERE_LOD := 1
-const PLAYER_BUSH_TEXTURE_CLUSTER_BONUS := 0
+const BUSH_CLUSTER_RENDER_STRIDE_SEVERE_LOD := 2
+const PLAYER_BUSH_TEXTURE_CLUSTER_BONUS := 1
 const FALLING_LEAF_RENDER_LIMIT := 2
 const FALLING_LEAF_RENDER_LIMIT_SEVERE_LOD := 0
 const ELLIPSE_SEGMENTS := 8
@@ -273,6 +274,7 @@ func get_layout_snapshot(_width: float = 760.0, _height: float = 750.0) -> Dicti
 		"bush_draw_cluster_count": _count_bush_draw_clusters(),
 		"max_bush_texture_clusters_per_bush": MAX_BUSH_TEXTURE_CLUSTERS_PER_BUSH,
 		"bush_render_stride_severe_lod": BUSH_RENDER_STRIDE_SEVERE_LOD,
+		"bush_cluster_render_stride_severe_lod": BUSH_CLUSTER_RENDER_STRIDE_SEVERE_LOD,
 		"vine_render_stride_severe_lod": VINE_RENDER_STRIDE_SEVERE_LOD,
 		"player_bush_texture_cluster_bonus": PLAYER_BUSH_TEXTURE_CLUSTER_BONUS,
 		"bush_sprite_count": bush_source_regions.size(),
@@ -859,16 +861,17 @@ func _get_vine_rustle_dx(vine: Dictionary, depth: float, scale_x: float) -> floa
 
 
 func _draw_bushes(canvas: CanvasItem, scale_x: float, scale_y: float, quality_scale: float) -> void:
-	var stride: int = BUSH_RENDER_STRIDE_SEVERE_LOD if _is_severe_lod_active(quality_scale) else 1
+	var severe_lod_active := _is_severe_lod_active(quality_scale)
+	var stride: int = BUSH_RENDER_STRIDE_SEVERE_LOD if severe_lod_active else 1
 	for bush_index in range(bushes.size()):
 		if stride > 1 and bush_index % stride != 0:
 			continue
 		var bush: Dictionary = bushes[bush_index]
-		if not _draw_imagegen_bush(canvas, bush, scale_x, scale_y):
+		if not _draw_imagegen_bush(canvas, bush, scale_x, scale_y, severe_lod_active):
 			_draw_procedural_bush(canvas, bush, scale_x, scale_y)
 
 
-func _draw_imagegen_bush(canvas: CanvasItem, bush: Dictionary, scale_x: float, scale_y: float) -> bool:
+func _draw_imagegen_bush(canvas: CanvasItem, bush: Dictionary, scale_x: float, scale_y: float, severe_lod_active: bool = false) -> bool:
 	if bush_texture == null or bush_source_regions.is_empty():
 		return false
 	var x: float = float(bush.get("x", 0.0)) * scale_x
@@ -903,7 +906,13 @@ func _draw_imagegen_bush(canvas: CanvasItem, bush: Dictionary, scale_x: float, s
 
 	var variant: int = int(bush.get("variant", 0))
 	var draw_clusters: Array = bush.get("draw_clusters", []) if bush.get("draw_clusters", []) is Array else []
+	var cluster_stride: int = BUSH_CLUSTER_RENDER_STRIDE_SEVERE_LOD if severe_lod_active else 1
+	var cluster_draw_index := 0
 	for item in draw_clusters:
+		if cluster_stride > 1 and cluster_draw_index % cluster_stride != 0:
+			cluster_draw_index += 1
+			continue
+		cluster_draw_index += 1
 		var idx: int = int(item["idx"])
 		var offset: Vector2 = _as_vector2(item.get("offset", Vector2.ZERO), Vector2.ZERO)
 		var source: Rect2 = item.get("source", Rect2())

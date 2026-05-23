@@ -32,6 +32,19 @@ func _init() -> void:
 	_expect(renderer_idle != null, "Stage 2 boss actor renderer should load its direct idle texture")
 	_expect(renderer_idle.get_size() == IDLE_SHEET_SIZE, "Stage 2 direct idle texture should use the new 8-frame sheet")
 	_expect(renderer_idle.resource_path == IDLE_SHEET_PATH, "Stage 2 actor renderer should not use the legacy idle sheet")
+	var renderer_source := FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_boss_actor_renderer.gd")
+	_expect(
+		renderer_source.find("expression == \"neutral\" and not hit_active and _draw_idle_sheet") < 0,
+		"Stage 2 score expression should not force the boss actor back to the legacy procedural body"
+	)
+	_expect(
+		renderer_source.find("expression == \"neutral\" and not hit_active and _draw_walk_sheet") < 0,
+		"Stage 2 score expression should not block the accepted walking sheet"
+	)
+	_expect(
+		renderer_source.find("if not hit_active and _draw_idle_sheet") >= 0,
+		"Stage 2 boss actor should keep using the idle sheet while score expressions are active"
+	)
 
 	_expect(IDLE_SHEET_SIZE.x / 4.0 == IDLE_CELL_SIZE.x, "Stage 2 idle cell width should stay 512")
 	_expect(IDLE_SHEET_SIZE.y / 2.0 == IDLE_CELL_SIZE.y, "Stage 2 idle cell height should stay 512")

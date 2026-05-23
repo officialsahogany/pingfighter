@@ -7,6 +7,7 @@ const Stage2AmbientVisualRenderer := preload("res://scripts/stages/stage2/stage2
 const Stage2PillarObstacleVisualRenderer := preload("res://scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd")
 const BattlePlayfieldSceneDrawer := preload("res://scripts/core/battle_playfield_scene_drawer.gd")
 const Stage2PillarSceneDrawer := preload("res://scripts/stages/stage2/stage2_pillar_scene_drawer.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 
 var _failures: Array[String] = []
@@ -44,8 +45,8 @@ func _verify_render_budgets() -> void:
 	_expect(Stage2PillarBackground.QUAKE_WAVE_SEGMENTS <= 8, "Stage 2 quake waves should keep segment count capped")
 	_expect(Stage2PillarBackground.VISUAL_ONLY_QUAKE_WAVE_SEGMENTS <= 5, "Stage 2 visual quake waves should keep segment count capped")
 	_expect(
-		float(Stage2PillarSceneDrawer.STAGE2_STATIC_HUD_LOD_SCALE) < ViperAirborneLod.LOD_EFFECT_SCALE,
-		"Stage 2 pillar HUD static LOD should not hide the HUD during Viper Air Strike frames"
+		float(Stage2PillarSceneDrawer.STAGE2_STATIC_HUD_LOD_SCALE) >= ViperAirborneLod.GLIDE_EFFECT_SCALE,
+		"Stage 2 pillar HUD static LOD should cover Viper glide / 72 FPS-cap render windows"
 	)
 
 	var background := Stage2PillarBackground.new()
@@ -62,6 +63,18 @@ func _verify_render_budgets() -> void:
 	_expect(int(status.get("starpoint_particle_render_limit_severe_lod", 0)) == Stage2PillarBackground.STARPOINT_PARTICLE_RENDER_LIMIT_SEVERE_LOD, "render budget status should expose the severe starpoint cap")
 
 	var pillar_drawer := Stage2PillarSceneDrawer.new()
+	var previous_max_fps: int = int(Engine.get("max_fps"))
+	Engine.set("max_fps", 60)
+	var capped_quality_scale := BattleRenderQuality.effect_scale({"selected_character_type": "smasher"})
+	_expect(
+		is_equal_approx(capped_quality_scale, BattleRenderQuality.FPS_CAP_EFFECT_SCALE),
+		"Stage 2 pillar quality should follow the global 72 FPS-cap render LOD"
+	)
+	var capped_hud_context: Dictionary = pillar_drawer._with_stage2_hud_lod_context({"selected_character_type": "smasher"}, capped_quality_scale)
+	_expect(
+		bool(capped_hud_context.get("pillar_hud_static_lod", false)),
+		"Stage 2 FPS-cap HUD should trim ornamental pillar orb layers even without Viper airborne flags"
+	)
 	var air_strike_hud_context: Dictionary = pillar_drawer._with_stage2_hud_lod_context(
 		{
 			"selected_character_type": "viper",
@@ -72,9 +85,21 @@ func _verify_render_budgets() -> void:
 		ViperAirborneLod.LOD_EFFECT_SCALE
 	)
 	_expect(
-		not bool(air_strike_hud_context.get("pillar_hud_static_lod", false)),
-		"Viper Air Strike should keep Stage 2 pillar gauge / skill / dash HUD on the normal draw path"
+		bool(air_strike_hud_context.get("pillar_hud_static_lod", false)),
+		"Stage 2 Viper Air Strike should trim ornamental pillar HUD layers while keeping readable HUD content"
 	)
+	Engine.set("max_fps", 144)
+	var high_refresh_hud_context: Dictionary = pillar_drawer._with_stage2_hud_lod_context(
+		{
+			"selected_character_type": "viper",
+		},
+		BattleRenderQuality.HIGH_REFRESH_EFFECT_SCALE
+	)
+	_expect(
+		bool(high_refresh_hud_context.get("pillar_hud_static_lod", false)),
+		"144 Hz Stage 2 should trim ornamental pillar HUD layers without hiding readable HUD content"
+	)
+	Engine.set("max_fps", previous_max_fps)
 
 
 func _verify_recent_start_helpers() -> void:
@@ -209,7 +234,7 @@ func _verify_draw_paths_use_render_caps() -> void:
 	)
 	_expect(
 		pillar_ui_source.find("if skill_orb_renderer != null and not static_hud_lod:") < 0
-			and pillar_ui_source.find("if skill_orb_renderer != null:") >= 0,
+			and pillar_ui_source.find("if active_skill_orb_renderer != null:") >= 0,
 		"Stage 2 pillar HUD restore should keep the skill orb underlay visible"
 	)
 	_expect(

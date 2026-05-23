@@ -135,12 +135,12 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 		_draw_emp_status_overlay(canvas, center, ATTACK_DRAW_SIZE, context)
 		_draw_status_overlays(canvas, context, boss_pos, boss_paddle_size, boss_hitbox_height, shake_offset)
 		return
-	if expression == "neutral" and not hit_active and _draw_idle_sheet(canvas, center, context):
+	if not hit_active and _draw_idle_sheet(canvas, center, context):
 		_draw_rage_overlay(canvas, center, rage_tint)
 		_draw_emp_status_overlay(canvas, center, IDLE_DRAW_SIZE, context)
 		_draw_status_overlays(canvas, context, boss_pos, boss_paddle_size, boss_hitbox_height, shake_offset)
 		return
-	if expression == "neutral" and not hit_active and _draw_walk_sheet(canvas, center, context, facing):
+	if not hit_active and _draw_walk_sheet(canvas, center, context, facing):
 		_draw_rage_overlay(canvas, center, rage_tint)
 		_draw_emp_status_overlay(canvas, center, WALK_DRAW_SIZE, context)
 		_draw_status_overlays(canvas, context, boss_pos, boss_paddle_size, boss_hitbox_height, shake_offset)

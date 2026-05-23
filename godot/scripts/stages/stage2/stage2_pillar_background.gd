@@ -78,6 +78,10 @@ const ROCK_FRAGMENT_LIFE_SEC := 45.0 / 60.0
 const BORDER_FLASH_DURATION_SEC := 0.22
 const QUAKE_DURATION_SEC := 80.0 / 60.0
 const QUAKE_INITIAL_COOLDOWN_SEC := 0.0
+const PISTOL_ROCK_BOUNCE_MAX := 2
+const PISTOL_ROCK_BOUNCE_DAMPING := 0.88
+const PISTOL_ROCK_BOUNCE_MIN_SPEED := 6.0
+const PISTOL_ROCK_BOUNCE_EPSILON := 0.1
 const QUAKE_REPEAT_COOLDOWN_SEC := 4.0
 const ROCK_LIFE_SEC := -1.0
 const QUAKE_ROCK_DROP_HEIGHT := 185.0
@@ -145,7 +149,8 @@ const BOSS_RAGE_STOMP_INTERVAL_SEC := 15.0 / 60.0
 const BOSS_RAGE_BUILDUP_SEC := 60.0 / 60.0
 const BOSS_RAGE_FINAL_STOMP_SEC := 80.0 / 60.0
 const BOSS_RAGE_TOTAL_SEC := 100.0 / 60.0
-const BOSS_RAGE_CRISIS_ROCK_COUNT := 5
+const BOSS_RAGE_CRISIS_ROCK_COUNT_CHAMPION := 3
+const BOSS_RAGE_CRISIS_ROCK_COUNT_MYTHIC := 5
 const CRISIS_ROCK_WALL_Y_MIN := 12.0
 const CRISIS_ROCK_WALL_Y_MID := 29.0
 const CRISIS_ROCK_WALL_Y_MAX := 46.0
@@ -263,6 +268,7 @@ var boss_rage_stomp_count := 0
 var boss_rage_final_stomp_done := false
 var boss_rage_offset_y := 0.0
 var boss_rage_tint := 0.0
+var boss_rage_ai_mode := "champion"
 # Cached audio handle: rage / quake start when ball is not yet active (waiting_for_serve),
 # so battle_effects_update_controller passes an effect_deps with audio=null. We capture
 # the live audio reference at activation time and use it as a fallback so the cry / quake
@@ -321,8 +327,18 @@ func reset() -> void:
 	boss_rage_final_stomp_done = false
 	boss_rage_offset_y = 0.0
 	boss_rage_tint = 0.0
+	boss_rage_ai_mode = "champion"
 	rage_audio = null
 	boss_expression_state.reset()
+
+
+func reset_round(deps: Dictionary = {}) -> void:
+	_clear_quake_round_state(deps)
+	water_cannon_delay = -1.0
+	_cancel_water_cannon()
+	water_trail.clear()
+	water_splashes.clear()
+	fragment_hit_flash_state.reset(WATER_FRAGMENT_HIT_FLASH_SEC)
 
 
 func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> void:
@@ -452,6 +468,10 @@ func apply_quake_ball_motion(scene: Dictionary, context: Dictionary, _deps: Dict
 
 
 func force_end_quake_on_player_hit(deps: Dictionary = {}) -> void:
+	_clear_quake_round_state(deps)
+
+
+func _clear_quake_round_state(deps: Dictionary = {}) -> void:
 	quake_timer = 0.0
 	quake_ball_velocity_backup = Vector2.ZERO
 	quake_ball_velocity_backup_valid = false
@@ -763,6 +783,96 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, deps: Dictio
 	return false
 
 
+func resolve_blade_projectile_collision(blade_rect: Rect2, deps: Dictionary = {}, context: Dictionary = {}) -> int:
+	if int(context.get("current_stage", 1)) != 2 or rocks.is_empty():
+		return 0
+	if blade_rect.size.x <= 0.0 or blade_rect.size.y <= 0.0:
+		return 0
+	var hit_count := 0
+	for idx in range(rocks.size() - 1, -1, -1):
+		var rock: Dictionary = rocks[idx]
+		if not rock_query.is_landed(rock):
+			continue
+		var center: Vector2 = rock_query.get_center(rock)
+		var radius: float = float(rock.get("radius", 28.0))
+		if not collision_geometry.circle_rect_overlap(center, radius, blade_rect):
+			continue
+		# Blade projectiles slice Stage 2 rocks outright, even if future rocks gain extra HP.
+		rock["hp"] = 1
+		rocks[idx] = rock
+		_hit_rock(idx, deps, context)
+		hit_count += 1
+	return hit_count
+
+
+func resolve_explosion_rock_collision(center: Vector2, radius: float, deps: Dictionary = {}, context: Dictionary = {}) -> int:
+	if int(context.get("current_stage", 1)) != 2 or rocks.is_empty():
+		return 0
+	if radius <= 0.0:
+		return 0
+	var hit_count := 0
+	for idx in range(rocks.size() - 1, -1, -1):
+		var rock: Dictionary = rocks[idx]
+		if not rock_query.is_landed(rock):
+			continue
+		var rock_center: Vector2 = rock_query.get_center(rock)
+		var rock_radius: float = max(0.0, float(rock.get("radius", float(rock.get("visual_radius", 28.0)) * 0.5)))
+		if rock_center.distance_to(center) > radius + rock_radius:
+			continue
+		# Explosions break touched Stage 2 rocks outright, then reuse the normal reward/audio path.
+		rock["hp"] = 1
+		rocks[idx] = rock
+		_hit_rock(idx, deps, context)
+		hit_count += 1
+	return hit_count
+
+
+func resolve_pistol_projectile_rock_bounce(projectile: Dictionary, deps: Dictionary = {}, context: Dictionary = {}) -> Dictionary:
+	if int(context.get("current_stage", 1)) != 2 or rocks.is_empty():
+		return {"bounced": false}
+	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var prev_pos: Vector2 = _get_vector2(projectile.get("prev_pos", pos), pos)
+	var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+	var projectile_radius: float = max(1.0, float(projectile.get("radius", 5.0)))
+	var projectile_rect := Rect2(
+		pos - Vector2(projectile_radius, projectile_radius),
+		Vector2(projectile_radius * 2.0, projectile_radius * 2.0)
+	)
+	for idx in range(rocks.size()):
+		var rock: Dictionary = rocks[idx]
+		if not rock_query.is_landed(rock):
+			continue
+		var rock_center: Vector2 = rock_query.get_center(rock)
+		var rock_radius: float = max(0.0, float(rock.get("radius", float(rock.get("visual_radius", 28.0)) * 0.5)))
+		var rock_rect := Rect2(
+			rock_center - Vector2(rock_radius, rock_radius),
+			Vector2(rock_radius * 2.0, rock_radius * 2.0)
+		)
+		var rect_hit := projectile_rect.intersects(rock_rect)
+		if not rect_hit and not collision_geometry.segment_hits_circle(prev_pos, pos, rock_center, rock_radius + projectile_radius):
+			continue
+		if int(projectile.get("rock_bounces", 0)) >= PISTOL_ROCK_BOUNCE_MAX:
+			return {"bounced": false, "consumed": true}
+		var hit_side: String = _get_pistol_rock_hit_side(projectile_rect, rock_rect, pos, velocity, rect_hit)
+		var bounced_projectile: Dictionary = _build_pistol_rock_bounce_projectile(
+			projectile,
+			pos,
+			velocity,
+			projectile_radius,
+			rock_rect,
+			hit_side
+		)
+		_mark_rock_ricochet(idx, deps)
+		return {
+			"bounced": true,
+			"projectile": bounced_projectile,
+			"rock_index": idx,
+			"rock_id": int(rock.get("id", idx)),
+			"side": hit_side,
+		}
+	return {"bounced": false}
+
+
 func absorb_chaos_spear_objects(center: Vector2, radius: float, _deps: Dictionary = {}) -> Array:
 	var absorbed: Array = chaos_absorbed_entries.duplicate(true)
 	chaos_absorbed_entries.clear()
@@ -859,6 +969,14 @@ func get_starpoint_drops_snapshot() -> Array:
 
 func get_water_cannon_phase() -> String:
 	return water_cannon_phase
+
+
+func interrupt_water_cannon_charge_on_boss_hit() -> bool:
+	if water_cannon_phase != "charging":
+		return false
+	_cancel_water_cannon()
+	skill_warning_state.trigger("water_cancel", "물대포 중단!", 0.62)
+	return true
 
 
 func get_water_splash_count() -> int:
@@ -1355,17 +1473,17 @@ func _spawn_quake_rocks(count: int, deps: Dictionary = {}) -> void:
 
 
 func _spawn_crisis_rock_wall(deps: Dictionary = {}) -> void:
-	rocks.clear()
 	water_trail.clear()
 	water_splashes.clear()
 	water_cannon_delay = -1.0
 	water_cannon_phase = "idle"
 	water_cannon_target_id = -1
-	for idx in range(BOSS_RAGE_CRISIS_ROCK_COUNT):
+	var crisis_rock_count: int = _get_boss_rage_crisis_rock_count()
+	for idx in range(crisis_rock_count):
 		var rock: Dictionary = crisis_rock_wall_payload_factory.build_crisis_rock(
 			rock_next_id,
 			idx,
-			BOSS_RAGE_CRISIS_ROCK_COUNT,
+			crisis_rock_count,
 			rng,
 			rock_visual_factory,
 			CRISIS_ROCK_WALL_Y_MIN,
@@ -1375,7 +1493,8 @@ func _spawn_crisis_rock_wall(deps: Dictionary = {}) -> void:
 			QUAKE_ROCK_SIZE_SCALE,
 			QUAKE_ROCK_DROP_STAGGER_SEC,
 			QUAKE_ROCK_DROP_TIME_SEC,
-			ROCK_LIFE_SEC
+			ROCK_LIFE_SEC,
+			rocks
 		)
 		rocks.append(rock)
 		rock_next_id += 1
@@ -1405,6 +1524,76 @@ func _hit_rock(index: int, deps: Dictionary, context: Dictionary = {}) -> void:
 	else:
 		Stage2AudioRouter.play_rock_hit(deps)
 		rocks[index] = rock
+
+
+func _mark_rock_ricochet(index: int, deps: Dictionary) -> void:
+	if index < 0 or index >= rocks.size():
+		return
+	var rock: Dictionary = rocks[index]
+	rock["flash"] = max(float(rock.get("flash", 0.0)), 0.16)
+	rocks[index] = rock
+	Stage2AudioRouter.play_rock_hit(deps)
+
+
+func _get_pistol_rock_hit_side(
+	projectile_rect: Rect2,
+	rock_rect: Rect2,
+	pos: Vector2,
+	velocity: Vector2,
+	rect_hit: bool
+) -> String:
+	if rect_hit:
+		var overlap_left: float = projectile_rect.end.x - rock_rect.position.x
+		var overlap_right: float = rock_rect.end.x - projectile_rect.position.x
+		var overlap_top: float = projectile_rect.end.y - rock_rect.position.y
+		var overlap_bottom: float = rock_rect.end.y - projectile_rect.position.y
+		var hit_side := "left"
+		var min_overlap := overlap_left
+		if overlap_right < min_overlap:
+			min_overlap = overlap_right
+			hit_side = "right"
+		if overlap_top < min_overlap:
+			min_overlap = overlap_top
+			hit_side = "top"
+		if overlap_bottom < min_overlap:
+			hit_side = "bottom"
+		return hit_side
+	var relative: Vector2 = pos - (rock_rect.position + rock_rect.size * 0.5)
+	if relative.length_squared() <= 0.001:
+		relative = -velocity
+	if abs(relative.x) > abs(relative.y):
+		return "left" if relative.x <= 0.0 else "right"
+	return "top" if relative.y <= 0.0 else "bottom"
+
+
+func _build_pistol_rock_bounce_projectile(
+	projectile: Dictionary,
+	pos: Vector2,
+	velocity: Vector2,
+	projectile_radius: float,
+	rock_rect: Rect2,
+	hit_side: String
+) -> Dictionary:
+	var next_projectile: Dictionary = projectile.duplicate(true)
+	match hit_side:
+		"left":
+			pos.x = rock_rect.position.x - projectile_radius - PISTOL_ROCK_BOUNCE_EPSILON
+			velocity.x = -max(abs(velocity.x) * PISTOL_ROCK_BOUNCE_DAMPING, PISTOL_ROCK_BOUNCE_MIN_SPEED)
+		"right":
+			pos.x = rock_rect.end.x + projectile_radius + PISTOL_ROCK_BOUNCE_EPSILON
+			velocity.x = max(abs(velocity.x) * PISTOL_ROCK_BOUNCE_DAMPING, PISTOL_ROCK_BOUNCE_MIN_SPEED)
+		"top":
+			pos.y = rock_rect.position.y - projectile_radius - PISTOL_ROCK_BOUNCE_EPSILON
+			velocity.y = -max(abs(velocity.y) * PISTOL_ROCK_BOUNCE_DAMPING, PISTOL_ROCK_BOUNCE_MIN_SPEED)
+		_:
+			pos.y = rock_rect.end.y + projectile_radius + PISTOL_ROCK_BOUNCE_EPSILON
+			velocity.y = max(abs(velocity.y) * PISTOL_ROCK_BOUNCE_DAMPING, PISTOL_ROCK_BOUNCE_MIN_SPEED)
+	next_projectile["rock_bounces"] = int(next_projectile.get("rock_bounces", 0)) + 1
+	next_projectile["pos"] = pos
+	next_projectile["velocity"] = velocity
+	next_projectile["speed"] = velocity.length()
+	next_projectile["stage2_rock_bounce_side"] = hit_side
+	return next_projectile
 
 
 func _spawn_rock_fragments(rock: Dictionary, center: Vector2) -> void:
@@ -1488,7 +1677,13 @@ func _roll_star_detector_bonus_drop_count(deps: Dictionary, context: Dictionary)
 
 
 func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
-	if starpoint_drops.is_empty() or int(context.get("current_stage", 1)) != 2:
+	if int(context.get("current_stage", 1)) != 2:
+		# Drop mid-flight starpoints when the player leaves Stage 2 so they
+		# don't reappear frozen at their last position when the player returns.
+		if not starpoint_drops.is_empty():
+			starpoint_drops.clear()
+		return
+	if starpoint_drops.is_empty():
 		return
 	var player_rects: Array[Rect2] = collision_geometry.get_player_interaction_rects_from_context(
 		context,
@@ -1574,7 +1769,19 @@ func _check_crisis_situation(context: Dictionary) -> bool:
 		return false
 	crisis_triggered = true
 	boss_rage_pending = true
+	boss_rage_ai_mode = _get_crisis_ai_mode(context)
 	return true
+
+
+func _get_boss_rage_crisis_rock_count() -> int:
+	if boss_rage_ai_mode == "mythic":
+		return BOSS_RAGE_CRISIS_ROCK_COUNT_MYTHIC
+	return BOSS_RAGE_CRISIS_ROCK_COUNT_CHAMPION
+
+
+func _get_crisis_ai_mode(context: Dictionary) -> String:
+	var ai_mode: String = str(context.get("ai_mode", context.get("league_mode", "champion")))
+	return "mythic" if ai_mode == "mythic" else "champion"
 
 
 func _update_boss_expression(delta: float) -> void:
@@ -1797,11 +2004,23 @@ func _finish_water_cannon(context: Dictionary, deps: Dictionary) -> void:
 
 
 func _cancel_water_cannon() -> void:
+	_clear_water_cannon_target_flash()
 	water_cannon_phase = "idle"
 	water_cannon_timer = 0.0
 	water_cannon_target_id = -1
 	water_cannon_progress = 0.0
 	water_cannon_current = water_cannon_start
+
+
+func _clear_water_cannon_target_flash() -> void:
+	if water_cannon_target_id < 0:
+		return
+	var target_index: int = rock_query.get_index_by_id(rocks, water_cannon_target_id)
+	if target_index < 0:
+		return
+	var target_rock: Dictionary = rocks[target_index]
+	Stage2RockRuntimeState.clear_water_target_flash(target_rock)
+	rocks[target_index] = target_rock
 
 
 func _add_water_trail(pos: Vector2, progress: float) -> void:

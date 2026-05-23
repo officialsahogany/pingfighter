@@ -472,7 +472,7 @@ func _init() -> void:
 	var rage_snapshot: Dictionary = stage2_background.get_boss_rage_snapshot()
 	_expect(bool(rage_snapshot.get("final_stomp_done", false)), "Stage 2 boss rage should trigger a final stomp")
 	_expect(stage2_background.is_quake_active(), "Stage 2 boss rage final stomp should start quake feedback")
-	_expect(stage2_background.get_rock_count() >= 4, "Stage 2 boss rage final stomp should drop a defensive rock wall")
+	_expect(stage2_background.get_rock_count() >= 3, "Stage 2 boss rage final stomp should drop a defensive rock wall")
 	_expect(rage_skill_state.get_water_cannon_delay() > 6.0, "Stage 2 rage wall should defer water cannon instead of firing immediately")
 	_expect(rage_audio.rock_spawn_count >= 1, "Stage 2 boss rage rock wall should play rock-spawn audio")
 

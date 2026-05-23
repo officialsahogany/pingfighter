@@ -18,7 +18,9 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 	_apply_stage_score_reaction(scoring_side, deps)
 	_apply_stage3_kuromi_score_reaction(scoring_side, score_result, deps)
 	_apply_stage4_score_reaction(scoring_side, score_result, deps)
+	_clear_stage2_round_boundary_fx(deps)
 	_clear_stage4_round_boundary_fx(deps)
+	_clear_stage5_round_boundary_fx(deps)
 	_start_score_result_texture_prewarm(scoring_side, deps)
 	_sync_next_server(scoring_side, score_result, deps)
 	_start_scoreboard_or_reset_ball(scoring_side, score_result, deps, callbacks)
@@ -249,6 +251,31 @@ func _clear_stage4_round_boundary_fx(deps: Dictionary) -> void:
 	var stage4_ponk_skill_state: Object = deps.get("stage4_ponk_skill_state", null)
 	if stage4_ponk_skill_state != null and stage4_ponk_skill_state.has_method("reset_round"):
 		stage4_ponk_skill_state.reset_round(deps)
+
+
+func _clear_stage2_round_boundary_fx(deps: Dictionary) -> void:
+	if int(deps.get("current_stage", 1)) != 2:
+		return
+	var stage2_background: Object = deps.get("stage_background", null)
+	if stage2_background == null:
+		stage2_background = deps.get("stage2_pillar_background", null)
+	if stage2_background != null and stage2_background.has_method("reset_round"):
+		stage2_background.reset_round(deps)
+
+
+func _clear_stage5_round_boundary_fx(deps: Dictionary) -> void:
+	if int(deps.get("current_stage", 1)) != 5:
+		return
+	var stage5_hongryun_state: Object = deps.get("stage5_hongryun_state", null)
+	if stage5_hongryun_state != null and stage5_hongryun_state.has_method("reset_round"):
+		stage5_hongryun_state.reset_round()
+	var stage5_hongryun_actor_renderer: Object = deps.get("stage5_hongryun_actor_renderer", null)
+	if stage5_hongryun_actor_renderer == null:
+		return
+	if stage5_hongryun_actor_renderer.has_method("reset_round_fx"):
+		stage5_hongryun_actor_renderer.reset_round_fx()
+	elif stage5_hongryun_actor_renderer.has_method("reset"):
+		stage5_hongryun_actor_renderer.reset()
 
 
 func _get_battle_resources(deps: Dictionary) -> Object:
