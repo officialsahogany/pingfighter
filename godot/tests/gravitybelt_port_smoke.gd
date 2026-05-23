@@ -146,10 +146,9 @@ func _expect_icon_asset(item_data: Dictionary) -> void:
 	if icon != null:
 		_expect(icon.get_width() == 32 and icon.get_height() == 32, "Gravity Belt icon should be the padded 32px runtime render")
 
-	var image := Image.new()
-	var err: Error = image.load(icon_path)
-	_expect(err == OK, "Gravity Belt icon image should be readable")
-	if err != OK:
+	var image: Image = icon.get_image()
+	_expect(image != null, "Gravity Belt icon image should be readable")
+	if image == null:
 		return
 	for corner in [Vector2i(0, 0), Vector2i(31, 0), Vector2i(0, 31), Vector2i(31, 31)]:
 		_expect(image.get_pixelv(corner).a <= 0.01, "Gravity Belt icon corners should remain transparent")

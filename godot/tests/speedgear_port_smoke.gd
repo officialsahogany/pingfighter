@@ -114,10 +114,9 @@ func _expect_icon_asset(item_data: Dictionary) -> void:
 	if icon != null:
 		_expect(icon.get_width() >= 32 and icon.get_height() >= 32, "Speedgear icon should have usable source resolution")
 
-	var image := Image.new()
-	var err: Error = image.load(icon_path)
-	_expect(err == OK, "Speedgear icon image should be readable")
-	if err != OK:
+	var image: Image = icon.get_image()
+	_expect(image != null, "Speedgear icon image should be readable")
+	if image == null:
 		return
 	var width := image.get_width()
 	var height := image.get_height()
