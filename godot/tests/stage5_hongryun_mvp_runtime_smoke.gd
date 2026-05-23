@@ -153,6 +153,8 @@ func _verify_fireball_spawn_and_pause() -> void:
 	var spawn_result: Dictionary = state.update(1.0 / 60.0, context, deps)
 	_expect(int(spawn_result.get("stage5_hongryun_fireball_spawned", 0)) >= 1, "Hongryun should spawn at least one fireball after cooldown")
 	_expect(state.fireball_projectiles.size() >= 1, "spawned fireballs should be retained for motion")
+	var spawned_projectile: Dictionary = state.fireball_projectiles[0]
+	_expect(is_equal_approx(float(spawned_projectile.get("radius", 0.0)), 12.8), "Hongryun fireball projectile radius should be 20% smaller than 16px")
 	_expect(float(state.fireball_cooldown_total) >= 3.5 and float(state.fireball_cooldown_total) <= 5.0, "next fireball cooldown should be 3.5~5.0 seconds")
 	_expect(bool(spawn_result.get("stage5_hongryun_boss_throwing", false)), "fireball spawn should expose the boss throwing windup")
 	_expect(audio.fireball_count == 1, "fireball volley should play the original Stage 5 fireball cue")
@@ -199,7 +201,7 @@ func _verify_fireball_hit_and_parry() -> void:
 	state.fireball_projectiles = [{
 		"pos": player_center,
 		"vel": Vector2.ZERO,
-		"radius": 8.0,
+		"radius": Stage5HongryunState.FIREBALL_RADIUS,
 	}]
 	var hit_result: Dictionary = state.update(1.0 / 60.0, context, deps)
 	_expect(state.fireball_projectiles.is_empty(), "player collision should remove the fireball")
@@ -214,7 +216,7 @@ func _verify_fireball_hit_and_parry() -> void:
 	immune_state.fireball_projectiles = [{
 		"pos": player_center,
 		"vel": Vector2.ZERO,
-		"radius": 8.0,
+		"radius": Stage5HongryunState.FIREBALL_RADIUS,
 	}]
 	var parry_result: Dictionary = immune_state.update(1.0 / 60.0, context, {"active_item_runtime": immune_runtime})
 	_expect(bool(parry_result.get("stage5_hongryun_fireball_parried", false)), "boss-skill immunity should parry Hongryun fireballs")
@@ -301,7 +303,7 @@ func _verify_inferno_trail_keeps_original_lateral_pressure() -> void:
 	var saw_trail := false
 	var saw_midflight_lane_pressure := false
 	var saw_wide_flourish := false
-	# saw_pillar_overshoot 변수 제거 — letterbox bleed 금지 (codex review 2026-05-18).
+	var saw_pillar_overshoot := false  # 사용자 손맛 요청 — trail phase ball이 letterbox로 자유 침범
 	var reached_floor := false
 	var previous_ball_pos := _get_vector2(context, "ball_pos", Vector2.ZERO)
 	var max_step_distance := 0.0
@@ -321,9 +323,11 @@ func _verify_inferno_trail_keeps_original_lateral_pressure() -> void:
 					saw_midflight_lane_pressure = true
 				if ball_pos.y < lateral_pressure_y and (ball_pos.x <= ball_half + 36.0 or ball_pos.x >= field_width - ball_half - 36.0):
 					saw_wide_flourish = true
-				# Codex review 2026-05-18: ball must stay within [0, FIELD_WIDTH].
-				# Cinematic letterbox effect is rendered by VFX trail host only.
-				_expect(ball_pos.x >= -0.01 and ball_pos.x <= field_width + 0.01, "inferno ball position must stay inside playfield (no letterbox bleed)")
+				# 2026-05-18 사용자 손맛 요청: trail phase ball이 letterbox
+				# 영역으로 자유 침범 (원본 동작 패리티). Codex review에서는
+				# letterbox 위반 우려를 표명했으나 사용자 의도가 우선.
+				if ball_pos.y < lateral_pressure_y and (ball_pos.x < -0.01 or ball_pos.x > field_width + 0.01):
+					saw_pillar_overshoot = true
 				if ball_pos.y + ball_half >= float(context.get("height", 750.0)) - 0.01:
 					reached_floor = true
 					break
@@ -333,9 +337,9 @@ func _verify_inferno_trail_keeps_original_lateral_pressure() -> void:
 	_expect(saw_trail, "inferno guard-lane smoke should reach the trail phase")
 	_expect(saw_midflight_lane_pressure, "inferno should keep midflight side pressure instead of clamping to the guard lane for the whole trail")
 	_expect(saw_wide_flourish, "inferno should flourish broadly near the playfield edges before the final plunge")
-	# Removed (codex review 2026-05-18): saw_pillar_overshoot expectation.
-	# Real ball position must never cross into the pillar letterbox — VFX trail
-	# host handles cinematic letterbox bleed at the renderer layer.
+	# Restored (2026-05-18 사용자 손맛 요청): trail phase ball이 letterbox로
+	# 실제 침범해야 함. 원본 게임 패리티 — 필러 가로지르는 손맛이 핵심.
+	_expect(saw_pillar_overshoot, "inferno should let the real ball physically cross into the pillar letterbox during trail (user 손맛 requirement)")
 	_expect(reached_floor, "inferno should keep plunging until the floor-miss scoring gate can close the round")
 	_expect(max_step_distance <= 60.0, "inferno should not move so far per frame that the final guard becomes unreadable")
 
@@ -526,9 +530,10 @@ func _verify_fire_machine_event_phase_collision_and_draw_context() -> void:
 
 func _verify_fire_machine_renderer_does_not_reset_canvas_transform() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_hongryun_playfield_renderer.gd")
-	_expect(source.find("func _draw_fire_machine_dragon_head") >= 0, "Stage 5 fire machine dragon head renderer should exist")
-	_expect(source.find("draw_set_transform") < 0, "Stage 5 playfield renderer must not reset CanvasItem transform while drawing fire machine dragons")
-	_expect(source.find("_draw_rotated_texture_region") >= 0, "Stage 5 fire machine dragon head should use transform-free rotated texture polygons")
+	var body := _source_function_body(source, "func _draw_fire_machine_dragon_head")
+	_expect(not body.is_empty(), "Stage 5 fire machine dragon head renderer should exist")
+	_expect(body.find("draw_set_transform") < 0, "Stage 5 playfield renderer must not reset CanvasItem transform while drawing fire machine dragons")
+	_expect(body.find("_draw_rotated_texture_region") >= 0, "Stage 5 fire machine dragon head should use transform-free rotated texture polygons")
 
 
 func _verify_inferno_pillar_flourish_renderer_contract() -> void:
@@ -603,6 +608,16 @@ func _as_array(value: Variant) -> Array:
 	if value is Array:
 		return value
 	return []
+
+
+func _source_function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next := source.find("\nfunc ", start + signature.length())
+	if next < 0:
+		return source.substr(start)
+	return source.substr(start, next - start)
 
 
 func _expect(condition: bool, message: String) -> void:

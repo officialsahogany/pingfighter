@@ -58,16 +58,65 @@ var lotus_pulse_texture: Texture2D = null
 var cyber_snake_texture: Texture2D = null
 var motion_sprites_texture: Texture2D = null
 var textures_loaded := false
+var _prewarm_step_index := 0
+var _prewarm_character_type := ""
+var _prewarm_finished_for := ""
 
 
 func prewarm_assets(module_getter: Callable, selected_character_type: String = "smasher") -> void:
-	_ensure_textures()
-	if hud_scene_drawer != null and hud_scene_drawer.has_method("prewarm_assets"):
-		hud_scene_drawer.prewarm_assets(module_getter, selected_character_type)
-	var skill_hud: Object = _get_module(module_getter, "stage5_hongryun_boss_skill_hud_renderer")
-	if skill_hud != null and skill_hud.has_method("prewarm_assets"):
-		skill_hud.prewarm_assets()
-	_get_module(module_getter, "stage1_fallback_pillar_renderer")
+	while not prewarm_assets_step(module_getter, selected_character_type):
+		pass
+
+
+func prewarm_assets_step(module_getter: Callable, selected_character_type: String = "smasher") -> bool:
+	var character_type := str(selected_character_type)
+	if _prewarm_finished_for == character_type:
+		return true
+	if _prewarm_character_type != character_type:
+		_prewarm_character_type = character_type
+		_prewarm_step_index = 0
+
+	match _prewarm_step_index:
+		0:
+			if vase_lantern_texture == null:
+				vase_lantern_texture = ProjectResourceLoader.load_texture(VASE_LANTERN_PATH)
+		1:
+			if snake_pot_texture == null:
+				snake_pot_texture = ProjectResourceLoader.load_texture(SNAKE_POT_PATH)
+		2:
+			if wallmount_texture == null:
+				wallmount_texture = ProjectResourceLoader.load_texture(WALLMOUNT_PATH)
+		3:
+			if lotus_pulse_texture == null:
+				lotus_pulse_texture = ProjectResourceLoader.load_texture(LOTUS_PULSE_PATH)
+		4:
+			if cyber_snake_texture == null:
+				cyber_snake_texture = ProjectResourceLoader.load_texture(CYBER_SNAKE_PATH)
+		5:
+			if motion_sprites_texture == null:
+				motion_sprites_texture = ProjectResourceLoader.load_texture(MOTION_SPRITES_PATH)
+			textures_loaded = true
+		6:
+			if hud_scene_drawer != null and hud_scene_drawer.has_method("prewarm_assets_step"):
+				if not bool(hud_scene_drawer.prewarm_assets_step(module_getter, character_type)):
+					return false
+			elif hud_scene_drawer != null and hud_scene_drawer.has_method("prewarm_assets"):
+				hud_scene_drawer.prewarm_assets(module_getter, character_type)
+		7:
+			var skill_hud: Object = _get_module(module_getter, "stage5_hongryun_boss_skill_hud_renderer")
+			if skill_hud != null and skill_hud.has_method("prewarm_assets_step"):
+				if not bool(skill_hud.prewarm_assets_step()):
+					return false
+			elif skill_hud != null and skill_hud.has_method("prewarm_assets"):
+				skill_hud.prewarm_assets()
+		8:
+			_get_module(module_getter, "stage1_fallback_pillar_renderer")
+		_:
+			_prewarm_finished_for = character_type
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func draw(canvas: CanvasItem, context: Dictionary, registry: Object, states: Dictionary) -> void:
@@ -171,13 +220,13 @@ func get_asset_status() -> Dictionary:
 func _ensure_textures() -> void:
 	if textures_loaded:
 		return
-	textures_loaded = true
 	vase_lantern_texture = ProjectResourceLoader.load_texture(VASE_LANTERN_PATH)
 	snake_pot_texture = ProjectResourceLoader.load_texture(SNAKE_POT_PATH)
 	wallmount_texture = ProjectResourceLoader.load_texture(WALLMOUNT_PATH)
 	lotus_pulse_texture = ProjectResourceLoader.load_texture(LOTUS_PULSE_PATH)
 	cyber_snake_texture = ProjectResourceLoader.load_texture(CYBER_SNAKE_PATH)
 	motion_sprites_texture = ProjectResourceLoader.load_texture(MOTION_SPRITES_PATH)
+	textures_loaded = true
 
 
 func _draw_hongryun_chrome(

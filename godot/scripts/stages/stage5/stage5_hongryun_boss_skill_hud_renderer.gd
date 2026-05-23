@@ -50,13 +50,33 @@ var _queue_positions := {}
 var _last_dragon_orb_gauge := -1.0
 var _orb_fill_anim_slot := -1
 var _orb_fill_anim_started_at := -999.0
+var _prewarm_step_index := 0
+var _prewarmed := false
 
 
 func prewarm_assets() -> void:
-	_get_skill_texture("hongryun_fireball")
-	_get_skill_texture("hongryun_inferno")
-	_get_skill_texture("hongryun_fire_machine")
-	_get_orb_fill_texture()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarmed:
+		return true
+	match _prewarm_step_index:
+		0:
+			_get_skill_texture("hongryun_fireball")
+		1:
+			_get_skill_texture("hongryun_inferno")
+		2:
+			_get_skill_texture("hongryun_fire_machine")
+		3:
+			_get_orb_fill_texture()
+		_:
+			_prewarmed = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func reset() -> void:

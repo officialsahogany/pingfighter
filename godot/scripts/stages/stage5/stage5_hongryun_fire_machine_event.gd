@@ -144,7 +144,7 @@ func get_hud_skill_context() -> Dictionary:
 	var progress: float = 1.0 if active else clampf(1.0 - cooldown_timer / total, 0.0, 1.0)
 	return {
 		"id": "hongryun_fire_machine",
-		"label": "fire_machine",
+		"label": "화염기관",
 		"status": skill_status,
 		"cooldown_remaining": max(0.0, cooldown_timer / 60.0),
 		"cooldown_total": total / 60.0,

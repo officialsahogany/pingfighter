@@ -9,22 +9,55 @@ var playfield_renderer: Object = Stage5HongryunPlayfieldRenderer.new()
 var player_renderer: Object = Stage1PlayerActorRenderer.new()
 var boss_renderer: Object = Stage5HongryunBossActorRenderer.new()
 var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
+var _prewarm_step_index := 0
+var _prewarmed := false
 
 
 func prewarm_assets() -> void:
-	if playfield_renderer != null and playfield_renderer.has_method("prewarm_assets"):
-		playfield_renderer.prewarm_assets()
-	if boss_renderer != null and boss_renderer.has_method("prewarm_assets"):
-		boss_renderer.prewarm_assets()
-	if commando_firearm_renderer != null and commando_firearm_renderer.has_method("prewarm_assets"):
-		commando_firearm_renderer.prewarm_assets()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarmed:
+		return true
+	var done := true
+	match _prewarm_step_index:
+		0:
+			done = _prewarm_module_assets_step(playfield_renderer)
+		1:
+			done = _prewarm_module_assets_step(boss_renderer)
+		2:
+			done = _prewarm_module_assets_step(commando_firearm_renderer)
+		_:
+			_prewarmed = true
+			_prewarm_step_index = 0
+			return true
+	if not done:
+		return false
+	_prewarm_step_index += 1
+	return false
+
+
+func _prewarm_module_assets_step(module: Object) -> bool:
+	if module == null:
+		return true
+	if module.has_method("prewarm_assets_step"):
+		return bool(module.prewarm_assets_step())
+	if module.has_method("prewarm_assets"):
+		module.prewarm_assets()
+	return true
 
 
 func reset() -> void:
-	if playfield_renderer != null and playfield_renderer.has_method("reset"):
-		playfield_renderer.reset()
+	reset_round_fx()
 	if boss_renderer != null and boss_renderer.has_method("reset"):
 		boss_renderer.reset()
+
+
+func reset_round_fx() -> void:
+	if playfield_renderer != null and playfield_renderer.has_method("reset"):
+		playfield_renderer.reset()
 
 
 func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -> void:

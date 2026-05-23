@@ -60,18 +60,23 @@ func _ready() -> void:
 	set_active(false)
 
 
-# 한 번의 폭발 burst를 트리거. position은 root scene 좌표 (caller가
-# game_offset 더한 좌표 전달).
-func trigger_burst(burst_pos: Vector2, enraged: bool = false, quality_scale: float = 1.0) -> void:
+# 한 번의 폭발 burst를 트리거. burst_pos는 playfield_renderer가
+# game_offset + (playfield_pos + shake) * render_scale로 계산해 넘긴
+# screen-space 좌표. render_scale은 host node에 적용해 자식 sprite/
+# particle 크기까지 한 번에 맞춘다 (stage1_commando_firearm_fx_host 패턴).
+func trigger_burst(burst_pos: Vector2, enraged: bool = false, quality_scale: float = 1.0, render_scale: float = 1.0) -> void:
 	if _core_sprite == null:
 		_build_children()
 	_state = {
 		"burst_pos": burst_pos,
 		"enraged": enraged,
 		"quality_scale": clamp(quality_scale, 0.0, 1.0),
+		"render_scale": max(0.01, render_scale),
 	}
 	set_active(true)
-	_position_children(burst_pos)
+	position = burst_pos
+	scale = Vector2(max(0.01, render_scale), max(0.01, render_scale))
+	_position_children(Vector2.ZERO)
 	_kill_active_tween()
 	_intensity = 0.0
 	_ring_rotation = 0.0

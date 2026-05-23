@@ -25,7 +25,7 @@ const FIREBALL_MULTI_SHOT_CHANCE := 0.40
 const FIREBALL_MULTI_SHOT_MIN := 2
 const FIREBALL_MULTI_SHOT_MAX := 3
 const FIREBALL_SPEED := 15.0
-const FIREBALL_RADIUS := 8.0
+const FIREBALL_RADIUS := 12.8
 const FIREBALL_OFFSCREEN_MARGIN := 100.0
 const BOSS_THROW_WINDUP_FRAMES := 25.0
 const FIELD_WIDTH := 760.0
@@ -61,10 +61,13 @@ const INFERNO_AMPLITUDE_Y_GROWTH_PER_SEC := 3.0
 # before final landing so the plunge funnels into the central guard lane.
 const INFERNO_PILLAR_SWEEP_AMPLITUDE := 4.0
 const INFERNO_PILLAR_SWEEP_FREQ_HZ := 0.35
-# Ball physics는 playfield 캔버스(0~FIELD_WIDTH) 안에 머무른다 — 메모리
-# "Godot 플레이필드 = 풀 캔버스, 필러는 레터박스" 규칙. cinematic letterbox
-# 침범 효과는 VFX trail / pillar wisp renderer가 시각 측에서만 처리하고
-# 실제 ball 좌표는 절대 letterbox로 보내지 않는다 (코덱스 리뷰 2026-05-18).
+# 홍련폭염 trail phase 한정으로 ball 좌표가 letterbox로 자유롭게 침범할 수
+# 있게 허용한다 (2026-05-18 사용자 손맛 요청 — 원본 동작 패리티).
+# Charge phase (phase 1)는 보스 옆에서 정지 상태라 letterbox 침범할 일이 없고,
+# Charge VFX host는 별도 letterbox clamp 적용되어 있어 보스 옆 letterbox에는
+# 침범하지 않는다. Trail phase의 ball 위치 = trail_fx_host head 위치이므로
+# trail VFX는 ball 따라 letterbox로 함께 들어간다.
+const INFERNO_PILLAR_OVERSHOOT_X := 240.0
 const INFERNO_SAFETY_MAX_SEC := 8.0
 # Removed (2026-05-18): INFERNO_TARGET_STEER_PER_SEC — was the auto-steering
 # strength for trail base_vel. Original game has no auto-steer.
@@ -487,7 +490,7 @@ func _update_fireball_projectiles(fps_scale: float, context: Dictionary, deps: D
 		if projectile_rect.intersects(player_rect):
 			_resolve_fireball_player_hit(pos, context, deps, result)
 			continue
-		if pos.y >= FIELD_HEIGHT - 10.0:
+		if pos.y + radius >= FIELD_HEIGHT:
 			_register_fireball_impact(pos, "floor", deps)
 			continue
 		if _is_fireball_inside_keepalive_bounds(pos):
@@ -672,18 +675,19 @@ func _get_locked_inferno_guard_target(context: Dictionary) -> Vector2:
 
 
 func _clamp_inferno_ball_pos(pos: Vector2, context: Dictionary, _previous_pos: Vector2 = Vector2.INF) -> Vector2:
-	# 원본 패리티 + Godot 플레이필드 규칙 (코덱스 리뷰 2026-05-18):
-	# 이전 구현은 landing zone funnel + INFERNO_PILLAR_OVERSHOOT_X로 ball
-	# 좌표를 letterbox 영역(-240..width+240)까지 보냈는데 두 가지 모두 제거.
-	# (1) Funnel 제거 → ball amplitude 진동이 자연스럽게 dodge/hit 변동성을
-	#     만든다 (사용자 손맛 요청).
-	# (2) Letterbox overshoot 제거 → ball 좌표는 항상 [0, FIELD_WIDTH] 안.
-	#     필러 letterbox cinematic 효과는 trail VFX renderer가 시각 측에서만
-	#     표현하고 실제 물리 좌표는 절대 넘기지 않는다.
+	# 원본 패리티 + 사용자 손맛 요청 (2026-05-18):
+	# Funnel은 제거되어 있고 (auto-guard 모드 해제), ball 좌표는 trail phase
+	# 동안 INFERNO_PILLAR_OVERSHOOT_X 만큼 letterbox로 자유롭게 침범한다.
+	# 원본 동작에서 ball이 필러 letterbox를 가로지르는 손맛 — trail_fx_host의
+	# head VFX는 ball 좌표 그대로 따라가 letterbox로 함께 들어간다.
+	# Charge phase의 큰 정적 VFX는 별도 letterbox bleed clamp가 host 측에
+	# 걸려 있어 보스 옆 letterbox 침범을 막는다.
 	var ball_half: float = _get_ball_half_size(context)
 	var field_width: float = _get_field_width(context)
+	var x_min: float = -INFERNO_PILLAR_OVERSHOOT_X
+	var x_max: float = maxf(x_min, field_width + INFERNO_PILLAR_OVERSHOOT_X)
 	return Vector2(
-		clampf(pos.x, ball_half, maxf(ball_half, field_width - ball_half)),
+		clampf(pos.x, x_min, x_max),
 		clampf(pos.y, ball_half, _get_field_height(context) - ball_half)
 	)
 

@@ -49,18 +49,51 @@ var _inferno_trail_fx_host: Node = null
 var _inferno_trail_fx_host_add_pending := false
 var _inferno_burst_fx_host: Node = null
 var _inferno_burst_fx_host_add_pending := false
+# phase 전환 감지용 — phase 1 → 2 전환 frame에 charge host를 강제 queue_free
+# (defense in depth, 2026-05-18 사용자 보고: charge VFX stuck after phase 2).
+var _last_seen_inferno_phase := 0
+var _last_seen_inferno_active := false
+var _prewarm_step_index := 0
 
 
 func prewarm_assets() -> void:
-	_ensure_textures()
-	InfernoChargeFxHost.prewarm_assets()
-	InfernoTrailFxHost.prewarm_assets()
-	InfernoBurstFxHost.prewarm_assets()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if textures_loaded:
+		return true
+	match _prewarm_step_index:
+		0:
+			fireball_atlas = ProjectResourceLoader.load_texture(FIREBALL_ATLAS_PATH)
+			if fireball_atlas == null:
+				fireball_atlas = ProjectResourceLoader.load_texture(FIREBALL_FALLBACK_ATLAS_PATH)
+		1:
+			trail_head_texture = ProjectResourceLoader.load_texture(TRAIL_HEAD_TEXTURE_PATH)
+		2:
+			trail_node_texture = ProjectResourceLoader.load_texture(TRAIL_NODE_TEXTURE_PATH)
+		3:
+			fire_machine_dragon_head_texture = ProjectResourceLoader.load_texture(FIRE_MACHINE_DRAGON_HEAD_TEXTURE_PATH)
+		4:
+			InfernoChargeFxHost.prewarm_assets()
+		5:
+			InfernoTrailFxHost.prewarm_assets()
+		6:
+			InfernoBurstFxHost.prewarm_assets()
+		_:
+			textures_loaded = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func reset() -> void:
 	time_sec = 0.0
 	_last_draw_msec = 0
+	_last_seen_inferno_phase = 0
+	_last_seen_inferno_active = false
 	if _is_valid_fx_host(_inferno_charge_fx_host) and _inferno_charge_fx_host.has_method("tear_down"):
 		_inferno_charge_fx_host.tear_down(false)
 	if _is_valid_fx_host(_inferno_trail_fx_host) and _inferno_trail_fx_host.has_method("tear_down"):
@@ -121,13 +154,7 @@ func get_imagegen_asset_status() -> Dictionary:
 func _ensure_textures() -> void:
 	if textures_loaded:
 		return
-	textures_loaded = true
-	fireball_atlas = ProjectResourceLoader.load_texture(FIREBALL_ATLAS_PATH)
-	if fireball_atlas == null:
-		fireball_atlas = ProjectResourceLoader.load_texture(FIREBALL_FALLBACK_ATLAS_PATH)
-	trail_head_texture = ProjectResourceLoader.load_texture(TRAIL_HEAD_TEXTURE_PATH)
-	trail_node_texture = ProjectResourceLoader.load_texture(TRAIL_NODE_TEXTURE_PATH)
-	fire_machine_dragon_head_texture = ProjectResourceLoader.load_texture(FIRE_MACHINE_DRAGON_HEAD_TEXTURE_PATH)
+	prewarm_assets()
 
 
 func _draw_playfield_heat(canvas: CanvasItem, width: float, height: float, context: Dictionary, quality_scale: float) -> void:
@@ -562,7 +589,15 @@ func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 func _sync_inferno_charge_fx_host(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, quality_scale: float) -> void:
 	var inferno_active := bool(context.get("stage5_hongryun_inferno_active", false))
 	var inferno_phase := int(context.get("stage5_hongryun_inferno_phase", 0))
+	# Phase 전환 감지 — charge phase(1) 종료 시 host를 강제 queue_free.
+	# set_active(false)만으로는 시각이 stuck되는 케이스가 발견되어 (2026-05-18
+	# 사용자 보고) 노드 자체를 free해 다음 charge에서 fresh build.
+	var was_charge_phase: bool = _last_seen_inferno_active and _last_seen_inferno_phase == 1
 	var charge_phase: bool = inferno_active and inferno_phase == 1
+	if was_charge_phase and not charge_phase:
+		_tear_down_inferno_charge_fx_host()
+	_last_seen_inferno_active = inferno_active
+	_last_seen_inferno_phase = inferno_phase
 	if not charge_phase or quality_scale < INFERNO_CHARGE_NODE_FX_QUALITY_GATE:
 		_hide_inferno_charge_fx_host()
 		return
@@ -576,19 +611,27 @@ func _sync_inferno_charge_fx_host(canvas: CanvasItem, context: Dictionary, shake
 	# sits near the playfield edge (left-pillar "preparation animation" bug).
 	# Then clamp X so the dragon ring's outer radius cannot bleed back into the
 	# letterbox on either side.
+	#
+	# render_scale must also be propagated so the host can match the playfield
+	# draw_set_transform (game_offset + (pos + shake) * render_scale, scale =
+	# render_scale). Otherwise the FX renders in 1.0x while the ball / direct-
+	# draw trail render at render_scale, causing the "이펙트와 공 위치가 다름"
+	# split when the window is resized away from native 760x750.
 	var game_offset := _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+	var render_scale: float = max(0.01, float(context.get("render_scale", 1.0)))
 	var game_size := _as_vector2(context.get("game_size", Vector2(760.0, 750.0)), Vector2(760.0, 750.0))
 	var raw_ball_pos := _as_vector2(context.get("ball_pos", Vector2(380.0, 375.0)), Vector2(380.0, 375.0))
 	var safe_margin: float = InfernoChargeFxHost.DRAGON_RING_BASE_SIZE * 0.5
 	var min_x: float = safe_margin
 	var max_x: float = maxf(safe_margin, game_size.x - safe_margin)
 	var clamped_ball_pos := Vector2(clampf(raw_ball_pos.x, min_x, max_x), raw_ball_pos.y)
-	var ball_pos := clamped_ball_pos + game_offset + shake_offset
+	var ball_pos := game_offset + (clamped_ball_pos + shake_offset) * render_scale
 	var charge_ratio := clampf(float(context.get("stage5_hongryun_inferno_charge_ratio", 0.0)), 0.0, 1.0)
 	var enraged := bool(context.get("stage5_hongryun_inferno_enraged", false))
 	var state := {
 		"phase_active": true,
 		"ball_pos": ball_pos,
+		"render_scale": render_scale,
 		"charge_ratio": charge_ratio,
 		"enraged": enraged,
 		"quality_scale": quality_scale,
@@ -599,6 +642,19 @@ func _sync_inferno_charge_fx_host(canvas: CanvasItem, context: Dictionary, shake
 func _hide_inferno_charge_fx_host() -> void:
 	if _is_valid_fx_host(_inferno_charge_fx_host) and _inferno_charge_fx_host.has_method("set_active"):
 		_inferno_charge_fx_host.set_active(false)
+
+
+# Phase 1 → 2 전환 시 강제로 노드 자체를 free. set_active(false)만으로는
+# visible이 stuck되는 케이스를 차단 (2026-05-18 사용자 보고: charge VFX가
+# 보스 옆에 큰 dragon ring으로 stuck). 다음 charge 시 fresh 재생성.
+func _tear_down_inferno_charge_fx_host() -> void:
+	if _is_valid_fx_host(_inferno_charge_fx_host):
+		if _inferno_charge_fx_host.has_method("tear_down"):
+			_inferno_charge_fx_host.tear_down(true)
+		else:
+			_inferno_charge_fx_host.queue_free()
+	_inferno_charge_fx_host = null
+	_inferno_charge_fx_host_add_pending = false
 
 
 func _get_or_create_inferno_charge_fx_host(canvas: CanvasItem) -> Node:
@@ -643,18 +699,22 @@ func _sync_inferno_trail_fx_host(canvas: CanvasItem, context: Dictionary, shake_
 	if host == null or not host.has_method("sync_state"):
 		return
 	var game_offset := _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
-	var game_size := _as_vector2(context.get("game_size", Vector2(760.0, 750.0)), Vector2(760.0, 750.0))
+	var render_scale: float = max(0.01, float(context.get("render_scale", 1.0)))
 	var raw_head := _as_vector2(trail[trail.size() - 1], Vector2(380.0, 375.0))
-	var safe_margin: float = InfernoChargeFxHost.DRAGON_RING_BASE_SIZE * 0.5
-	var min_x: float = safe_margin
-	var max_x: float = maxf(safe_margin, game_size.x - safe_margin)
-	var clamped_head := Vector2(clampf(raw_head.x, min_x, max_x), raw_head.y)
-	var head_pos := clamped_head + game_offset + shake_offset
+	# 2026-05-18 사용자 손맛 요청: trail VFX는 ball을 letterbox로 자유롭게
+	# 따라간다. Charge phase의 letterbox bleed clamp는 charge_fx_host에만
+	# 적용되고 trail은 ball 좌표 그대로 사용 — 사용자 보고 "이펙트와 공
+	# 위치 분리" 원인이 이전의 trail head clamp였음.
+	# render_scale은 host node에 그대로 전파해 transformed playfield의
+	# draw_set_transform (scale = render_scale) 과 일치시킨다. 누락 시
+	# 창 크기에 따라 trail head가 공 위치에서 점점 멀어진다.
+	var head_pos := game_offset + (raw_head + shake_offset) * render_scale
 	var trail_elapsed := float(context.get("stage5_hongryun_inferno_trail_elapsed_sec", 0.0))
 	var enraged := bool(context.get("stage5_hongryun_inferno_enraged", false))
 	var state := {
 		"phase_active": true,
 		"head_pos": head_pos,
+		"render_scale": render_scale,
 		"trail_elapsed_sec": trail_elapsed,
 		"enraged": enraged,
 		"quality_scale": quality_scale,
@@ -697,10 +757,11 @@ func _sync_inferno_burst_fx_host(canvas: CanvasItem, context: Dictionary, shake_
 	if host == null or not host.has_method("trigger_burst"):
 		return
 	var game_offset := _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+	var render_scale: float = max(0.01, float(context.get("render_scale", 1.0)))
 	var raw_burst_pos := _as_vector2(context.get("stage5_hongryun_inferno_burst_pos", Vector2(380.0, 375.0)), Vector2(380.0, 375.0))
-	var burst_pos := raw_burst_pos + game_offset + shake_offset
+	var burst_pos := game_offset + (raw_burst_pos + shake_offset) * render_scale
 	var enraged := bool(context.get("stage5_hongryun_inferno_enraged", false))
-	host.trigger_burst(burst_pos, enraged, quality_scale)
+	host.trigger_burst(burst_pos, enraged, quality_scale, render_scale)
 
 
 func _get_or_create_inferno_burst_fx_host(canvas: CanvasItem) -> Node:

@@ -21,10 +21,28 @@ var time_sec := 0.0
 var _last_draw_msec := 0
 var _spiral_bursts: Array = []
 var _fire_impacts: Array = []
+var _prewarm_step_index := 0
 
 
 func prewarm_assets() -> void:
-	_ensure_textures()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if textures_loaded:
+		return true
+	match _prewarm_step_index:
+		0:
+			base_texture = ProjectResourceLoader.load_texture(BASE_TEXTURE_PATH)
+		1:
+			inferno_texture = ProjectResourceLoader.load_texture(INFERNO_TEXTURE_PATH)
+		_:
+			textures_loaded = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func reset() -> void:
@@ -134,9 +152,7 @@ func draw_pillar_background_overlay(
 func _ensure_textures() -> void:
 	if textures_loaded:
 		return
-	textures_loaded = true
-	base_texture = ProjectResourceLoader.load_texture(BASE_TEXTURE_PATH)
-	inferno_texture = ProjectResourceLoader.load_texture(INFERNO_TEXTURE_PATH)
+	prewarm_assets()
 
 
 func _advance_visual_time(delta: float) -> void:

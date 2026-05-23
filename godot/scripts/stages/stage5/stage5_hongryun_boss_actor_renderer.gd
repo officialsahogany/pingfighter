@@ -56,10 +56,34 @@ var _last_draw_msec := 0
 var time_sec := 0.0
 var status_overlay_renderer: Object = StatusEffectOverlayRenderer.new()
 var _active_quality_scale := 1.0
+var _prewarm_step_index := 0
 
 
 func prewarm_assets() -> void:
-	_ensure_textures()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if textures_loaded:
+		return true
+	match _prewarm_step_index:
+		0:
+			walk_texture = ProjectResourceLoader.load_texture(WALK_TEXTURE_PATH)
+		1:
+			attack_texture = ProjectResourceLoader.load_texture(ATTACK_TEXTURE_PATH)
+		2:
+			dash_texture = ProjectResourceLoader.load_texture(DASH_TEXTURE_PATH)
+		3:
+			turn_texture = ProjectResourceLoader.load_texture(TURN_TEXTURE_PATH)
+		4:
+			dragon_head_texture = ProjectResourceLoader.load_texture(DRAGON_HEAD_TEXTURE_PATH)
+		_:
+			textures_loaded = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func reset() -> void:
@@ -98,14 +122,18 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 		center + Vector2(0.0, draw_size.y * 0.40),
 		Vector2(maxf(42.0, draw_size.x * 0.58), 8.0)
 	)
-	if inferno_active:
+	# 2026-05-18 사용자 보고: phase 2(trail)에서는 보스 옆 inferno overlay가
+	# trail VFX(ball 따라감)와 분리되어 stuck처럼 보임. Phase 2 시각 강조는
+	# trail_fx_host에 전적으로 위임하고, boss_actor는 charge phase(보스가
+	# 공을 잡고 응축하는 시점)에만 inferno aura/dragon_head 오버레이를 그림.
+	if inferno_active and inferno_phase == 1:
 		_draw_inferno_aura(canvas, center, inferno_phase)
 	var drawn := _draw_pose(canvas, context, pose, center, draw_size, Color.WHITE)
 	if drawn and (hit_active or bool(context.get("stage5_hongryun_boss_throwing", false))):
 		_draw_pose(canvas, context, pose, center, draw_size, Color(1.0, 0.24, 0.12, 0.28))
 	if not drawn:
 		_draw_fallback(canvas, center, draw_size, hit_active, inferno_active)
-	if inferno_active and inferno_phase == 2:
+	if inferno_active and inferno_phase == 1:
 		_draw_dragon_head(canvas, context, center)
 	_draw_status_overlays(canvas, context, boss_pos, boss_size, boss_hitbox_height, shake_offset)
 
@@ -151,12 +179,7 @@ func get_debug_frame_geometry() -> Dictionary:
 func _ensure_textures() -> void:
 	if textures_loaded:
 		return
-	textures_loaded = true
-	walk_texture = ProjectResourceLoader.load_texture(WALK_TEXTURE_PATH)
-	attack_texture = ProjectResourceLoader.load_texture(ATTACK_TEXTURE_PATH)
-	dash_texture = ProjectResourceLoader.load_texture(DASH_TEXTURE_PATH)
-	turn_texture = ProjectResourceLoader.load_texture(TURN_TEXTURE_PATH)
-	dragon_head_texture = ProjectResourceLoader.load_texture(DRAGON_HEAD_TEXTURE_PATH)
+	prewarm_assets()
 
 
 func _select_pose(context: Dictionary) -> Dictionary:

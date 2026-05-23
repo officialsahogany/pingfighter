@@ -208,13 +208,14 @@ func _verify_stage5_boss_texture_prewarm() -> void:
 	var transition_resources := BattleResources.new()
 	transition_resources.prewarm_boss_textures({"current_stage": 1})
 	var done := false
-	for _idx in range(80):
+	for _idx in range(240):
 		done = transition_resources.prewarm_transition_textures_step({
 			"current_stage": 5,
 			"selected_character_type": "smasher",
 		})
 		if done:
 			break
+		OS.delay_msec(1)
 	_expect(done, "Stage 5 transition prewarm should complete")
 	var stage5_cache: Dictionary = transition_resources.get_resource_cache()
 	_expect(_texture_path(stage5_cache.get("boss_sprite_sheet", null)) == "res://assets/sprites/stage5/stage5_hongryun_boss_sheet.png", "Stage 5 transition prewarm should replace stale walk sheet")

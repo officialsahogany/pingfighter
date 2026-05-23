@@ -110,7 +110,14 @@ func get_debug_status() -> Dictionary:
 func _apply_state() -> void:
 	if _head_sprite == null:
 		return
+	# head_pos는 playfield_renderer가 game_offset + (playfield_pos + shake) * render_scale로
+	# 계산해 넘긴 screen-space 좌표. 호스트는 그 위치에 자기 자신을 두고,
+	# 자식 sprite/particle은 Vector2.ZERO에 두어 host.scale = render_scale가
+	# 크기까지 일치시키게 한다 (stage1_commando_firearm_fx_host 패턴).
 	var head_pos: Vector2 = _as_vector2(_state.get("head_pos", Vector2(380.0, 375.0)), Vector2(380.0, 375.0))
+	var render_scale: float = max(0.01, float(_state.get("render_scale", 1.0)))
+	position = head_pos
+	scale = Vector2(render_scale, render_scale)
 	var trail_elapsed: float = max(0.0, float(_state.get("trail_elapsed_sec", 0.0)))
 	var enraged: bool = bool(_state.get("enraged", false))
 	var quality_scale: float = clamp(float(_state.get("quality_scale", 1.0)), 0.0, 1.0)
@@ -118,7 +125,7 @@ func _apply_state() -> void:
 	# Head sprite grows slightly as trail picks up speed (visual acceleration).
 	var growth: float = clamp(trail_elapsed / 4.0, 0.0, 1.0)
 	var head_size: float = HEAD_QUAD_SIZE * (0.85 + growth * 0.35)
-	_head_sprite.position = head_pos
+	_head_sprite.position = Vector2.ZERO
 	var head_texture := InfernoChargeFxHost._get_heat_texture()
 	if head_texture != null:
 		var tex_size: Vector2 = head_texture.get_size()
@@ -136,7 +143,7 @@ func _apply_state() -> void:
 
 	# Dragon scale ring orbits head + rotates faster with trail age.
 	if _dragon_ring_sprite != null:
-		_dragon_ring_sprite.position = head_pos
+		_dragon_ring_sprite.position = Vector2.ZERO
 		var ring_tex := InfernoChargeFxHost._get_dragon_ring_texture()
 		if ring_tex != null:
 			var ring_tex_size: Vector2 = ring_tex.get_size()
@@ -159,7 +166,7 @@ func _apply_state() -> void:
 
 	# Inward ember particles orbiting head.
 	if _ember_particles != null:
-		_ember_particles.position = head_pos
+		_ember_particles.position = Vector2.ZERO
 		var allow_particles: bool = quality_scale >= 0.55
 		_ember_particles.emitting = allow_particles
 		var process_mat: ParticleProcessMaterial = _ember_particles.process_material
