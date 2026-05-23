@@ -158,19 +158,19 @@ func apply_boss_hit(
 
 
 func get_trigger_chance(runtime: Object) -> float:
-	return clamp(runtime._get_equipped_roll_value(ITEM_RAGNAROK_HAMMER, "trigger_chance"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAGNAROK_HAMMER, "trigger_chance"), 0.0, 100.0)
 
 
 func get_stun_duration(runtime: Object) -> float:
-	return clamp(runtime._get_equipped_roll_value(ITEM_RAGNAROK_HAMMER, "stun_duration"), 0.8, 1.2)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAGNAROK_HAMMER, "stun_duration"), 0.8, 1.2)
 
 
 func get_speed_boost(runtime: Object) -> float:
-	return clamp(runtime._get_equipped_roll_value(ITEM_RAGNAROK_HAMMER, "speed_boost"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAGNAROK_HAMMER, "speed_boost"), 0.0, 100.0)
 
 
 func get_gauge_cost(runtime: Object) -> float:
-	return clamp(runtime._get_equipped_roll_value(ITEM_RAGNAROK_HAMMER, "gauge_cost"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAGNAROK_HAMMER, "gauge_cost"), 0.0, 100.0)
 
 
 func clear_runtime(runtime: Object, registry: Object) -> void:

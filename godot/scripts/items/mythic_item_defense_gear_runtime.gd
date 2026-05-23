@@ -12,13 +12,13 @@ func is_spikeboots_equipped(runtime: Object) -> bool:
 func get_spikeboots_dash_afterdelay_reduction_pct(runtime: Object) -> float:
 	if not runtime.equipped_items.has(ITEM_SPIKEBOOTS):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_SPIKEBOOTS, "dash_afterdelay_pct"), 0.0, 95.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SPIKEBOOTS, "dash_afterdelay_pct"), 0.0, 95.0)
 
 
 func get_spikeboots_dash_cooldown_reduction_pct(runtime: Object) -> float:
 	if not runtime.equipped_items.has(ITEM_SPIKEBOOTS):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_SPIKEBOOTS, "dash_cooldown_pct"), 0.0, 95.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SPIKEBOOTS, "dash_cooldown_pct"), 0.0, 95.0)
 
 
 func get_dash_recovery_frames(runtime: Object, base_frames: float) -> float:
@@ -38,7 +38,7 @@ func is_bulletproof_hat_equipped(runtime: Object) -> bool:
 func get_bulletproof_hat_stun_resist_pct(runtime: Object) -> float:
 	if not runtime.equipped_items.has(ITEM_BULLETPROOF_HAT):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_BULLETPROOF_HAT, "stun_resist_pct"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_BULLETPROOF_HAT, "stun_resist_pct"), 0.0, 100.0)
 
 
 func get_player_stun_resist_pct(runtime: Object) -> float:
@@ -57,7 +57,7 @@ func is_spiked_helmet_equipped(runtime: Object) -> bool:
 func get_spiked_helmet_knockback_resist_pct(runtime: Object) -> float:
 	if not runtime.equipped_items.has(ITEM_SPIKED_HELMET):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_SPIKED_HELMET, "knockback_resist_pct"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SPIKED_HELMET, "knockback_resist_pct"), 0.0, 100.0)
 
 
 func get_player_knockback_resist_pct(runtime: Object) -> float:

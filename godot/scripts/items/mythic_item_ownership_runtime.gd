@@ -12,6 +12,21 @@ func has_owned_item_name(runtime: Object, item_name: String) -> bool:
 	return false
 
 
+func consume_equipped_item_name(
+	runtime: Object,
+	item_name: String,
+	owner: Object = null,
+	registry: Object = null
+) -> bool:
+	var index: int = runtime._find_equipped_inventory_index_by_name(item_name)
+	if index < 0:
+		return false
+	runtime.inventory_items.remove_at(index)
+	runtime._rebuild_equipped_items()
+	runtime._sync_owner(owner, registry)
+	return true
+
+
 func should_skip_one_time_passive_spawn(runtime: Object, item_name: String) -> bool:
 	var normalized_name := str(item_name)
 	match normalized_name:

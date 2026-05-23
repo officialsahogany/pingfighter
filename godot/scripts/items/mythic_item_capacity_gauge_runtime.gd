@@ -29,13 +29,13 @@ func get_active_item_slot_capacity(runtime: Object, base_slots: int = 3) -> int:
 
 
 func is_chargebag_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_CHARGEBAG)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_CHARGEBAG)
 
 
 func get_chargebag_wall_bounce_gauge_pct(runtime: Object) -> float:
 	if not is_chargebag_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_sum(ITEM_CHARGEBAG, "chargebag_pct"), 0.0, 500.0)
+	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_CHARGEBAG, "chargebag_pct"), 0.0, 500.0)
 
 
 func apply_chargebag_wall_bounce_gauge(
@@ -79,13 +79,13 @@ func resolve_chargebag_base_wall_gauge_gain(context: Dictionary) -> float:
 
 
 func is_battery_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_BATTERY)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_BATTERY)
 
 
 func get_battery_gauge_preserve_pct(runtime: Object) -> float:
 	if not is_battery_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_sum(ITEM_BATTERY, "gauge_preserve_pct"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_BATTERY, "gauge_preserve_pct"), 0.0, 100.0)
 
 
 func get_stage_transition_gauge(

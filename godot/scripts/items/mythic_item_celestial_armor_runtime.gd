@@ -17,14 +17,14 @@ const PLAYER_BASE_PADDLE_HEIGHT := 50.0
 
 
 func is_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_CELESTIAL_ARMOR)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_CELESTIAL_ARMOR)
 
 
 func get_trigger_chance_pct(runtime: Object) -> float:
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_equipped_roll_value(ITEM_CELESTIAL_ARMOR, "trigger_chance_pct"),
+		runtime.roll_query.get_equipped_roll_value(runtime, ITEM_CELESTIAL_ARMOR, "trigger_chance_pct"),
 		0.0,
 		MAX_TRIGGER_CHANCE_PCT
 	)
@@ -34,7 +34,7 @@ func get_gauge_cost(runtime: Object) -> float:
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_equipped_roll_value(ITEM_CELESTIAL_ARMOR, "gauge_cost"),
+		runtime.roll_query.get_equipped_roll_value(runtime, ITEM_CELESTIAL_ARMOR, "gauge_cost"),
 		0.0,
 		MAX_GAUGE_COST
 	)

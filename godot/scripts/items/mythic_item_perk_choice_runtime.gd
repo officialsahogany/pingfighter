@@ -35,5 +35,10 @@ func get_megingjord_extra_pick_chance(runtime: Object) -> float:
 	if not runtime.equipped_items.has(ITEM_MEGINGJORD):
 		return 0.0
 	var item_data: Dictionary = runtime._get_dict(runtime.equipped_items[ITEM_MEGINGJORD])
-	var value: float = runtime._get_item_roll_value(item_data, ITEM_MEGINGJORD, "extra_pick_chance")
+	var value: float = runtime.roll_query.get_item_roll_value(
+		runtime,
+		item_data,
+		ITEM_MEGINGJORD,
+		"extra_pick_chance"
+	)
 	return clamp(value, 0.0, 95.0)

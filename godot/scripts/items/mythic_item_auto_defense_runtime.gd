@@ -34,7 +34,7 @@ func set_sensor_enabled(runtime: Object, enabled: bool, owner: Object = null, re
 func get_sensor_cooldown_seconds(runtime: Object) -> float:
 	if not is_sensor_equipped(runtime):
 		return SENSOR_DEFAULT_COOLDOWN_SEC
-	var seconds: float = runtime._get_equipped_roll_value(ITEM_SENSOR, "sensor_cooldown_sec")
+	var seconds: float = runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SENSOR, "sensor_cooldown_sec")
 	if seconds <= 0.0:
 		seconds = SENSOR_DEFAULT_COOLDOWN_SEC
 	return max(SENSOR_MIN_COOLDOWN_SEC, seconds)

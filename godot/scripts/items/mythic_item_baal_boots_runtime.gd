@@ -4,13 +4,13 @@ const ITEM_BAAL_BOOTS := "baal_boots"
 
 
 func is_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_BAAL_BOOTS)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_BAAL_BOOTS)
 
 
 func get_gauge_recovery(runtime: Object) -> float:
 	if not is_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_BAAL_BOOTS, "gauge_recovery"), 0.0, 2000.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_BAAL_BOOTS, "gauge_recovery"), 0.0, 2000.0)
 
 
 func apply_player_hit(

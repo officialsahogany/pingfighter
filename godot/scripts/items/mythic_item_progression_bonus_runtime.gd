@@ -9,7 +9,7 @@ const SAGE_RING_MAX_BODY_PENALTY_PCT := 95.0
 
 
 func is_sage_ring_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_SAGE_RING)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_SAGE_RING)
 
 
 func is_sage_ring_active(runtime: Object) -> bool:
@@ -17,7 +17,7 @@ func is_sage_ring_active(runtime: Object) -> bool:
 
 
 func get_sage_ring_count(runtime: Object) -> int:
-	return runtime._count_equipped_item_name(ITEM_SAGE_RING)
+	return runtime.roll_query.count_equipped_item_name(runtime, ITEM_SAGE_RING)
 
 
 func get_sage_ring_perk_level_bonus(runtime: Object) -> int:
@@ -30,7 +30,7 @@ func get_sage_ring_speed_penalty_pct(runtime: Object) -> float:
 	if not is_sage_ring_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_equipped_roll_sum(ITEM_SAGE_RING, "sage_speed_penalty_pct"),
+		runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_SAGE_RING, "sage_speed_penalty_pct"),
 		0.0,
 		SAGE_RING_MAX_SPEED_PENALTY_PCT
 	)
@@ -40,7 +40,7 @@ func get_sage_ring_body_penalty_pct(runtime: Object) -> float:
 	if not is_sage_ring_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_equipped_roll_sum(ITEM_SAGE_RING, "sage_body_penalty_pct"),
+		runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_SAGE_RING, "sage_body_penalty_pct"),
 		0.0,
 		SAGE_RING_MAX_BODY_PENALTY_PCT
 	)
@@ -51,13 +51,13 @@ func get_sage_ring_speed_multiplier(runtime: Object) -> float:
 
 
 func is_sacred_laurel_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_SACRED_LAUREL)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_SACRED_LAUREL)
 
 
 func get_sacred_laurel_leaf_bonus(runtime: Object) -> int:
 	if not is_sacred_laurel_equipped(runtime):
 		return 0
-	return max(0, int(round(runtime._get_equipped_roll_sum(ITEM_SACRED_LAUREL, "leaf_count"))))
+	return max(0, int(round(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_SACRED_LAUREL, "leaf_count"))))
 
 
 func get_sacred_laurel_context(runtime: Object) -> Dictionary:
@@ -65,13 +65,13 @@ func get_sacred_laurel_context(runtime: Object) -> Dictionary:
 
 
 func is_transcendent_crown_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_TRANSCENDENT_CROWN)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_TRANSCENDENT_CROWN)
 
 
 func get_transcendent_crown_skill_bonus(runtime: Object) -> int:
 	if not is_transcendent_crown_equipped(runtime):
 		return 0
-	return max(0, int(runtime._get_equipped_roll_value(ITEM_TRANSCENDENT_CROWN, "skill_bonus")))
+	return max(0, int(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_TRANSCENDENT_CROWN, "skill_bonus")))
 
 
 func get_total_item_perk_level_bonus(runtime: Object) -> int:

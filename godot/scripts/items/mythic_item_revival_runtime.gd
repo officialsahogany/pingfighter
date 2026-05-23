@@ -5,7 +5,7 @@ const EFFECT_FRAMES := 120.0
 
 
 func is_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_REVIVAL)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_REVIVAL)
 
 
 func is_available(runtime: Object) -> bool:
@@ -26,7 +26,7 @@ func try_trigger(runtime: Object, loss_type: String = "round", context: Dictiona
 	runtime.revival_state.start(loss_type, EFFECT_FRAMES)
 	var owner: Object = runtime._get_dict(context).get("owner", null)
 	var registry: Object = runtime._get_dict(context).get("registry", null)
-	runtime._consume_equipped_item_name(ITEM_REVIVAL, owner, registry)
+	runtime.ownership_runtime.consume_equipped_item_name(runtime, ITEM_REVIVAL, owner, registry)
 	return true
 
 

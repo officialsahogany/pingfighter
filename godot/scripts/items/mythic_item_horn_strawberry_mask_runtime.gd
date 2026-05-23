@@ -9,7 +9,7 @@ func sync_equipment_state(runtime: Object) -> void:
 	var state: Object = runtime.horn_strawberry_mask_state
 	if state == null:
 		return
-	if runtime._has_equipped_item_name(ITEM_HORN_STRAWBERRY_MASK):
+	if runtime.roll_query.has_equipped_item_name(runtime, ITEM_HORN_STRAWBERRY_MASK):
 		state.set_equipped(true, get_transform_duration_sec(runtime))
 	else:
 		state.deactivate_equipment(true)
@@ -91,7 +91,8 @@ func get_transform_duration_sec(runtime: Object) -> float:
 	var item_data: Dictionary = _get_equipped_item_data(runtime)
 	if item_data.is_empty():
 		return 60.0
-	return max(0.1, runtime._get_item_roll_value(
+	return max(0.1, runtime.roll_query.get_item_roll_value(
+		runtime,
 		item_data,
 		ITEM_HORN_STRAWBERRY_MASK,
 		ROLL_TRANSFORM_DURATION,
@@ -113,7 +114,7 @@ func get_context(runtime: Object) -> Dictionary:
 
 
 func is_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_HORN_STRAWBERRY_MASK)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_HORN_STRAWBERRY_MASK)
 
 
 func is_transformed(runtime: Object) -> bool:

@@ -8,7 +8,7 @@ const REFEREE_FRAME_FRAMES := 6.0
 
 
 func is_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_FOUL_WHISTLE)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_FOUL_WHISTLE)
 
 
 func is_active(runtime: Object) -> bool:
@@ -18,7 +18,7 @@ func is_active(runtime: Object) -> bool:
 func get_negate_chance_pct(runtime: Object) -> float:
 	if not is_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_sum(ITEM_FOUL_WHISTLE, "negate_chance_pct"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_FOUL_WHISTLE, "negate_chance_pct"), 0.0, 100.0)
 
 
 func get_negate_chance(runtime: Object) -> float:

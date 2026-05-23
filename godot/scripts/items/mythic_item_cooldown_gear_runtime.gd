@@ -6,25 +6,25 @@ const ITEM_TIMER_BELT := "timer_belt"
 
 
 func is_master_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_MASTER)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_MASTER)
 
 
 func get_master_wall_length_bonus_pct(runtime: Object) -> float:
 	if not is_master_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_sum(ITEM_MASTER, "wall_length_pct"), 0.0, 500.0)
+	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_MASTER, "wall_length_pct"), 0.0, 500.0)
 
 
 func get_master_item_cooldown_reduction_pct(runtime: Object) -> float:
 	if not is_master_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_sum(ITEM_MASTER, "item_cooldown_pct"), 0.0, 95.0)
+	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_MASTER, "item_cooldown_pct"), 0.0, 95.0)
 
 
 func get_master_wall_spawn_bonus_pct(runtime: Object) -> float:
 	if not is_master_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_sum(ITEM_MASTER, "wall_spawn_bonus_pct"), 0.0, 2000.0)
+	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_MASTER, "wall_spawn_bonus_pct"), 0.0, 2000.0)
 
 
 func get_brick_wall_width(runtime: Object, base_width: float) -> float:
@@ -36,11 +36,11 @@ func get_wall_item_spawn_chance(runtime: Object, base_chance: float) -> float:
 
 
 func is_cooltime_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_COOLTIME)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_COOLTIME)
 
 
 func get_cooltime_active_item_cooldown_reduction_pct(runtime: Object) -> float:
-	return clamp(runtime._get_equipped_roll_sum(ITEM_COOLTIME, "active_cooldown_pct"), 0.0, 95.0)
+	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_COOLTIME, "active_cooldown_pct"), 0.0, 95.0)
 
 
 func get_total_active_item_cooldown_reduction_pct(runtime: Object) -> float:
@@ -62,8 +62,8 @@ func get_active_item_cooldown_msec(runtime: Object, base_cooldown_msec: int) -> 
 
 
 func is_timer_belt_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_TIMER_BELT)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_TIMER_BELT)
 
 
 func get_timer_belt_skill_cooldown_reduction_pct(runtime: Object) -> float:
-	return clamp(runtime._get_equipped_roll_sum(ITEM_TIMER_BELT, "skill_cooldown_pct"), 0.0, 95.0)
+	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_TIMER_BELT, "skill_cooldown_pct"), 0.0, 95.0)

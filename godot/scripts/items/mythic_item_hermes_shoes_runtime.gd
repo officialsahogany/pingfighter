@@ -18,7 +18,7 @@ func get_speed_bonus_pct(runtime: Object) -> float:
 	if not is_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_equipped_roll_value(ITEM_HERMES_SHOES, "speed_bonus"),
+		runtime.roll_query.get_equipped_roll_value(runtime, ITEM_HERMES_SHOES, "speed_bonus"),
 		0.0,
 		MAX_SPEED_BONUS_PCT
 	)

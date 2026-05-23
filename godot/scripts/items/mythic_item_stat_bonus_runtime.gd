@@ -19,7 +19,7 @@ func is_speedboots_equipped(runtime: Object) -> bool:
 func get_speedboots_speed_bonus_pct(runtime: Object) -> float:
 	if not runtime.equipped_items.has(ITEM_SPEEDBOOTS):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_SPEEDBOOTS, "speed_bonus_pct"), 0.0, 200.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SPEEDBOOTS, "speed_bonus_pct"), 0.0, 200.0)
 
 
 func is_speedgear_equipped(runtime: Object) -> bool:
@@ -69,13 +69,13 @@ func get_player_speed_multiplier(runtime: Object) -> float:
 
 
 func is_bulkup_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_BULKUP)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_BULKUP)
 
 
 func get_bulkup_body_size_pct(runtime: Object) -> float:
 	if not is_bulkup_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_sum(ITEM_BULKUP, "body_size_pct"), 0.0, 500.0)
+	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_BULKUP, "body_size_pct"), 0.0, 500.0)
 
 
 func get_player_paddle_scale(runtime: Object) -> float:
@@ -98,7 +98,7 @@ func get_player_paddle_height(runtime: Object, base_height: float) -> float:
 
 
 func is_gold_bar_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_GOLD_BAR)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_GOLD_BAR)
 
 
 func is_gold_bar_owned(runtime: Object) -> bool:
@@ -110,7 +110,7 @@ func is_gold_bar_active(runtime: Object) -> bool:
 
 
 func get_gold_bar_count(runtime: Object) -> int:
-	return runtime._count_owned_item_name(ITEM_GOLD_BAR)
+	return runtime.roll_query.count_owned_item_name(runtime, ITEM_GOLD_BAR)
 
 
 func get_gold_bar_sell_price(runtime: Object) -> int:
@@ -138,13 +138,13 @@ func is_dashgear_equipped(runtime: Object) -> bool:
 func get_dashgear_dash_distance_bonus_pct(runtime: Object) -> float:
 	if not runtime.equipped_items.has(ITEM_DASHGEAR):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_DASHGEAR, "dash_distance_pct"), 0.0, 200.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_DASHGEAR, "dash_distance_pct"), 0.0, 200.0)
 
 
 func get_dashgear_boost_charge_chance_pct(runtime: Object) -> float:
 	if not runtime.equipped_items.has(ITEM_DASHGEAR):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_DASHGEAR, "boost_charge_pct"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_DASHGEAR, "boost_charge_pct"), 0.0, 100.0)
 
 
 func get_dash_duration_frames(runtime: Object, base_frames: float) -> float:
@@ -160,7 +160,7 @@ func is_dashholder_equipped(runtime: Object) -> bool:
 
 
 func get_dashholder_dash_token_bonus(runtime: Object) -> int:
-	return max(0, runtime._count_equipped_item_name(ITEM_DASHHOLDER))
+	return max(0, runtime.roll_query.count_equipped_item_name(runtime, ITEM_DASHHOLDER))
 
 
 func get_dash_token_capacity(

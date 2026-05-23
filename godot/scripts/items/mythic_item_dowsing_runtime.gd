@@ -15,7 +15,7 @@ func is_pendulum_equipped(runtime: Object) -> bool:
 func get_pendulum_range(runtime: Object) -> float:
 	if not runtime.equipped_items.has(ITEM_DOWSING_PENDULUM):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_DOWSING_PENDULUM, "attraction_range"), 0.0, 600.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_DOWSING_PENDULUM, "attraction_range"), 0.0, 600.0)
 
 
 func get_pendulum_context(runtime: Object, constants: Dictionary) -> Dictionary:
@@ -33,7 +33,7 @@ func is_goggles_active(runtime: Object) -> bool:
 func get_goggles_bonus_perk_chance_pct(runtime: Object) -> float:
 	if not is_goggles_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_DOWSING_GOGGLES, "bonus_perk_chance"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_DOWSING_GOGGLES, "bonus_perk_chance"), 0.0, 100.0)
 
 
 func get_runtime_perk_choice_count_bonus(

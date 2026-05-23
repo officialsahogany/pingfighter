@@ -40,13 +40,13 @@ func is_active(runtime: Object) -> bool:
 func get_selection_quality(runtime: Object) -> float:
 	if not is_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_PANDORA_LEGACY, "selection_quality"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_PANDORA_LEGACY, "selection_quality"), 0.0, 100.0)
 
 
 func get_trigger_chance(runtime: Object) -> float:
 	if not is_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_equipped_roll_value(ITEM_PANDORA_LEGACY, "trigger_chance"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_PANDORA_LEGACY, "trigger_chance"), 0.0, 100.0)
 
 
 func is_selection_active(runtime: Object) -> bool:

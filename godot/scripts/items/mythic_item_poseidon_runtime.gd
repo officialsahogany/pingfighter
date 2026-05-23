@@ -56,15 +56,15 @@ func apply_boss_hit(runtime: Object, ball_vel: Vector2) -> Dictionary:
 
 
 func get_cooldown(runtime: Object) -> float:
-	return clamp(runtime._get_equipped_roll_value(ITEM_POSEIDON_TRIDENT, "cooldown"), 0.1, 30.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_POSEIDON_TRIDENT, "cooldown"), 0.1, 30.0)
 
 
 func get_gauge_cost(runtime: Object) -> float:
-	return clamp(runtime._get_equipped_roll_value(ITEM_POSEIDON_TRIDENT, "gauge_cost"), 0.0, 100.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_POSEIDON_TRIDENT, "gauge_cost"), 0.0, 100.0)
 
 
 func get_vortex_size(runtime: Object) -> float:
-	return clamp(runtime._get_equipped_roll_value(ITEM_POSEIDON_TRIDENT, "vortex_size"), 60.0, 500.0)
+	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_POSEIDON_TRIDENT, "vortex_size"), 60.0, 500.0)
 
 
 func is_ball_motion_active(runtime: Object, constants: Dictionary) -> bool:

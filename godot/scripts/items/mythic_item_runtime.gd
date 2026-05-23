@@ -1182,14 +1182,14 @@ func get_stage_transition_gauge(current_gauge: float, gauge_max: float = 500.0, 
 
 func is_knee_pads_equipped() -> bool:
 	_ensure_helpers_ready()
-	return _has_equipped_item_name(ITEM_KNEE_PADS)
+	return roll_query.has_equipped_item_name(self, ITEM_KNEE_PADS)
 
 
 func get_knee_pads_charge_pct() -> float:
 	_ensure_helpers_ready()
 	if not is_knee_pads_equipped():
 		return 0.0
-	return clamp(_get_equipped_roll_sum(ITEM_KNEE_PADS, "knee_charge_pct"), 0.0, 500.0)
+	return clamp(roll_query.get_equipped_roll_sum(self, ITEM_KNEE_PADS, "knee_charge_pct"), 0.0, 500.0)
 
 
 func try_apply_knee_pads_player_hit(
@@ -1370,7 +1370,7 @@ func should_cancel_aipill_on_direction_key() -> bool:
 
 func is_venom_mist_gauntlet_equipped() -> bool:
 	_ensure_helpers_ready()
-	return _has_equipped_item_name(ITEM_VENOM_MIST_GAUNTLET)
+	return roll_query.has_equipped_item_name(self, ITEM_VENOM_MIST_GAUNTLET)
 
 
 func is_venom_mist_gauntlet_active() -> bool:
@@ -1380,7 +1380,7 @@ func is_venom_mist_gauntlet_active() -> bool:
 
 func get_venom_mist_gauntlet_count() -> int:
 	_ensure_helpers_ready()
-	return _count_equipped_item_name(ITEM_VENOM_MIST_GAUNTLET)
+	return roll_query.count_equipped_item_name(self, ITEM_VENOM_MIST_GAUNTLET)
 
 
 func get_venom_mist_trigger_chance_pct() -> float:
@@ -1388,7 +1388,7 @@ func get_venom_mist_trigger_chance_pct() -> float:
 	if not is_venom_mist_gauntlet_equipped():
 		return 0.0
 	return clamp(
-		_get_equipped_roll_sum(ITEM_VENOM_MIST_GAUNTLET, "mist_trigger_chance_pct"),
+		roll_query.get_equipped_roll_sum(self, ITEM_VENOM_MIST_GAUNTLET, "mist_trigger_chance_pct"),
 		0.0,
 		VenomMistRuntime.MAX_TRIGGER_CHANCE_PCT
 	)
@@ -1403,7 +1403,7 @@ func get_venom_mist_duration_sec() -> float:
 	_ensure_helpers_ready()
 	if not is_venom_mist_gauntlet_equipped():
 		return 0.0
-	var duration_sec: float = _get_equipped_roll_max(ITEM_VENOM_MIST_GAUNTLET, "mist_duration_sec")
+	var duration_sec: float = roll_query.get_equipped_roll_max(self, ITEM_VENOM_MIST_GAUNTLET, "mist_duration_sec")
 	if duration_sec <= 0.0:
 		duration_sec = VenomMistRuntime.DEFAULT_DURATION_SEC
 	return clamp(duration_sec, 2.0, 5.0)
@@ -1608,7 +1608,7 @@ func get_rainbow_fur_glove_trigger_chance_pct() -> float:
 	if not is_rainbow_fur_glove_equipped():
 		return 0.0
 	return clamp(
-		_get_equipped_roll_value(ITEM_RAINBOW_FUR_GLOVE, "rainbow_glove_trigger_chance_pct"),
+		roll_query.get_equipped_roll_value(self, ITEM_RAINBOW_FUR_GLOVE, "rainbow_glove_trigger_chance_pct"),
 		0.0,
 		RainbowFurGloveRuntime.MAX_TRIGGER_CHANCE_PCT
 	)
@@ -1619,7 +1619,7 @@ func get_rainbow_fur_glove_cooldown_reduction_pct() -> float:
 	if not is_rainbow_fur_glove_equipped():
 		return 0.0
 	return clamp(
-		_get_equipped_roll_value(ITEM_RAINBOW_FUR_GLOVE, "rainbow_glove_cooldown_reduction_pct"),
+		roll_query.get_equipped_roll_value(self, ITEM_RAINBOW_FUR_GLOVE, "rainbow_glove_cooldown_reduction_pct"),
 		0.0,
 		RainbowFurGloveRuntime.MAX_COOLDOWN_REDUCTION_PCT
 	)
@@ -1646,7 +1646,7 @@ func try_proc_rainbow_fur_glove_player_hit(
 
 func is_adversity_armor_equipped() -> bool:
 	_ensure_helpers_ready()
-	return _has_equipped_item_name(ITEM_ADVERSITY_ARMOR)
+	return roll_query.has_equipped_item_name(self, ITEM_ADVERSITY_ARMOR)
 
 
 func is_adversity_armor_active() -> bool:
@@ -1664,7 +1664,7 @@ func get_adversity_armor_trigger_chance_pct() -> float:
 	if not is_adversity_armor_equipped():
 		return 0.0
 	return clamp(
-		_get_equipped_roll_value(ITEM_ADVERSITY_ARMOR, "trigger_chance_pct"),
+		roll_query.get_equipped_roll_value(self, ITEM_ADVERSITY_ARMOR, "trigger_chance_pct"),
 		0.0,
 		AdversityArmorRuntime.MAX_TRIGGER_CHANCE_PCT
 	)
@@ -1674,7 +1674,7 @@ func get_adversity_armor_invincible_duration_sec() -> float:
 	_ensure_helpers_ready()
 	if not is_adversity_armor_equipped():
 		return 0.0
-	return max(0.0, _get_equipped_roll_value(ITEM_ADVERSITY_ARMOR, "invincible_duration_sec"))
+	return max(0.0, roll_query.get_equipped_roll_value(self, ITEM_ADVERSITY_ARMOR, "invincible_duration_sec"))
 
 
 func get_adversity_armor_serve_speed_bonus_pct() -> float:
@@ -1722,7 +1722,7 @@ func notify_adversity_armor_barrier_hit(
 
 func is_shrapnel_armor_equipped() -> bool:
 	_ensure_helpers_ready()
-	return _has_equipped_item_name(ITEM_SHRAPNEL_ARMOR)
+	return roll_query.has_equipped_item_name(self, ITEM_SHRAPNEL_ARMOR)
 
 
 func is_shrapnel_armor_active() -> bool:
@@ -1735,7 +1735,7 @@ func get_shrapnel_armor_trigger_chance_pct() -> float:
 	if not is_shrapnel_armor_equipped():
 		return 0.0
 	return clamp(
-		_get_equipped_roll_value(ITEM_SHRAPNEL_ARMOR, "trigger_chance_pct"),
+		roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "trigger_chance_pct"),
 		0.0,
 		SHRAPNEL_ARMOR_MAX_TRIGGER_CHANCE_PCT
 	)
@@ -1746,7 +1746,7 @@ func get_shrapnel_armor_shard_count() -> int:
 	if not is_shrapnel_armor_equipped():
 		return 0
 	return clampi(
-		int(round(_get_equipped_roll_value(ITEM_SHRAPNEL_ARMOR, "shard_count"))),
+		int(round(roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "shard_count"))),
 		0,
 		SHRAPNEL_ARMOR_MAX_SHARD_COUNT
 	)
@@ -1756,7 +1756,7 @@ func get_shrapnel_armor_knockback_level() -> int:
 	_ensure_helpers_ready()
 	if not is_shrapnel_armor_equipped():
 		return 0
-	return max(1, int(round(_get_equipped_roll_value(ITEM_SHRAPNEL_ARMOR, "knockback_level"))))
+	return max(1, int(round(roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "knockback_level"))))
 
 
 func get_shrapnel_armor_gauge_cost() -> float:
@@ -1764,7 +1764,7 @@ func get_shrapnel_armor_gauge_cost() -> float:
 	if not is_shrapnel_armor_equipped():
 		return 0.0
 	return clamp(
-		_get_equipped_roll_value(ITEM_SHRAPNEL_ARMOR, "gauge_cost"),
+		roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "gauge_cost"),
 		0.0,
 		SHRAPNEL_ARMOR_MAX_GAUGE_COST
 	)
@@ -2198,7 +2198,7 @@ func get_boost_charge_chance_pct() -> float:
 
 func is_soul_burst_equipped() -> bool:
 	_ensure_helpers_ready()
-	return _has_equipped_item_name(ITEM_SOUL_BURST)
+	return roll_query.has_equipped_item_name(self, ITEM_SOUL_BURST)
 
 
 func is_soul_burst_active() -> bool:
@@ -2210,7 +2210,7 @@ func get_soul_burst_gauge_cost() -> float:
 	_ensure_helpers_ready()
 	if not is_soul_burst_equipped():
 		return SoulBurstRuntime.DEFAULT_GAUGE_COST
-	var cost: float = _get_equipped_roll_value(ITEM_SOUL_BURST, "soul_burst_gauge_cost")
+	var cost: float = roll_query.get_equipped_roll_value(self, ITEM_SOUL_BURST, "soul_burst_gauge_cost")
 	if cost <= 0.0:
 		cost = SoulBurstRuntime.DEFAULT_GAUGE_COST
 	return clamp(cost, SoulBurstRuntime.MIN_GAUGE_COST, SoulBurstRuntime.MAX_GAUGE_COST)
@@ -2552,18 +2552,6 @@ func _get_baal_boots_player_speed_multiplier() -> float:
 	return baal_boots_runtime.get_player_speed_multiplier(self, BAAL_BOOTS_CONSTANTS)
 
 
-func _get_commando_arm_roll_sum(option_key: String) -> float:
-	return roll_query.get_commando_arm_roll_sum(self, option_key)
-
-
-func _get_commando_arm_roll_values(option_key: String) -> Array:
-	return roll_query.get_commando_arm_roll_values(self, option_key)
-
-
-func _get_equipped_roll_value(item_name: String, option_key: String) -> float:
-	return roll_query.get_equipped_roll_value(self, item_name, option_key)
-
-
 func get_item_roll_value(
 	item_data: Dictionary,
 	option_key: String,
@@ -2572,49 +2560,6 @@ func get_item_roll_value(
 ) -> float:
 	_ensure_helpers_ready()
 	return roll_query.get_public_item_roll_value(self, item_data, option_key, apply_polish, registry)
-
-
-func _get_item_roll_value(
-	item_data: Dictionary,
-	item_name: String,
-	option_key: String,
-	apply_polish: bool = true
-) -> float:
-	return roll_query.get_item_roll_value(self, item_data, item_name, option_key, apply_polish)
-
-
-func _get_equipped_roll_sum(item_name: String, option_key: String) -> float:
-	return roll_query.get_equipped_roll_sum(self, item_name, option_key)
-
-
-func _get_equipped_roll_max(item_name: String, option_key: String) -> float:
-	return roll_query.get_equipped_roll_max(self, item_name, option_key)
-
-
-func _has_equipped_item_name(item_name: String) -> bool:
-	return roll_query.has_equipped_item_name(self, item_name)
-
-
-func _count_equipped_item_name(item_name: String) -> int:
-	return roll_query.count_equipped_item_name(self, item_name)
-
-
-func _count_owned_item_name(item_name: String) -> int:
-	return roll_query.count_owned_item_name(self, item_name)
-
-
-func _consume_equipped_item_name(item_name: String, owner: Object = null, registry: Object = null) -> bool:
-	var index: int = _find_equipped_inventory_index_by_name(item_name)
-	if index < 0:
-		return false
-	inventory_items.remove_at(index)
-	_rebuild_equipped_items()
-	_sync_owner(owner, registry)
-	return true
-
-
-func _find_catalog_roll_option(item_name: String, option_key: String) -> Dictionary:
-	return roll_query.find_catalog_roll_option(self, item_name, option_key)
 
 
 func _build_ragnarok_sparks() -> void:

@@ -6,12 +6,12 @@ const SKILL_SLOT_BONUS := 1
 
 
 func is_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_HEAVENLY_CAPE)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_HEAVENLY_CAPE)
 
 
 func get_skill_cooldown_reduction_pct(runtime: Object) -> float:
 	return clamp(
-		runtime._get_equipped_roll_sum(ITEM_HEAVENLY_CAPE, "skill_cooldown_reduction"),
+		runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_HEAVENLY_CAPE, "skill_cooldown_reduction"),
 		0.0,
 		MAX_SKILL_COOLDOWN_REDUCTION_PCT
 	)

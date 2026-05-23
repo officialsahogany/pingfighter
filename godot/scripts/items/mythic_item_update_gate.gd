@@ -93,7 +93,7 @@ func has_non_ragnarok_transient_runtime_update_work(runtime: Object) -> bool:
 	):
 		return true
 	if (
-		runtime._has_equipped_item_name("horn_strawberry_mask")
+		runtime.roll_query.has_equipped_item_name(runtime, "horn_strawberry_mask")
 		or runtime.horn_strawberry_mask_runtime.has_runtime_update_work(runtime)
 	):
 		return true

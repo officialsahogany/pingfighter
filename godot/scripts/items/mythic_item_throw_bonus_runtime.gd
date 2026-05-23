@@ -16,7 +16,7 @@ const COMMANDO_ARM_PREP_REDUCTION_CAP_PCT := 95.0
 
 
 func is_reinforced_boomerang_gauntlet_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_REINFORCED_BOOMERANG_GAUNTLET)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_REINFORCED_BOOMERANG_GAUNTLET)
 
 
 func is_reinforced_boomerang_gauntlet_active(runtime: Object) -> bool:
@@ -24,14 +24,14 @@ func is_reinforced_boomerang_gauntlet_active(runtime: Object) -> bool:
 
 
 func get_reinforced_boomerang_gauntlet_count(runtime: Object) -> int:
-	return runtime._count_equipped_item_name(ITEM_REINFORCED_BOOMERANG_GAUNTLET)
+	return runtime.roll_query.count_equipped_item_name(runtime, ITEM_REINFORCED_BOOMERANG_GAUNTLET)
 
 
 func get_boomerang_launch_speed_pct(runtime: Object) -> float:
 	if not is_reinforced_boomerang_gauntlet_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_equipped_roll_sum(ITEM_REINFORCED_BOOMERANG_GAUNTLET, "boomerang_launch_speed_pct"),
+		runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_REINFORCED_BOOMERANG_GAUNTLET, "boomerang_launch_speed_pct"),
 		0.0,
 		REINFORCED_BOOMERANG_LAUNCH_CAP_PCT
 	)
@@ -41,7 +41,7 @@ func get_boomerang_homing_pct(runtime: Object) -> float:
 	if not is_reinforced_boomerang_gauntlet_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_equipped_roll_sum(ITEM_REINFORCED_BOOMERANG_GAUNTLET, "boomerang_homing_pct"),
+		runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_REINFORCED_BOOMERANG_GAUNTLET, "boomerang_homing_pct"),
 		0.0,
 		REINFORCED_BOOMERANG_HOMING_CAP_PCT
 	)
@@ -51,7 +51,7 @@ func get_boomerang_spawn_bonus_pct(runtime: Object) -> float:
 	if not is_reinforced_boomerang_gauntlet_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_equipped_roll_sum(ITEM_REINFORCED_BOOMERANG_GAUNTLET, "boomerang_spawn_bonus_pct"),
+		runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_REINFORCED_BOOMERANG_GAUNTLET, "boomerang_spawn_bonus_pct"),
 		0.0,
 		REINFORCED_BOOMERANG_SPAWN_CAP_PCT
 	)
@@ -82,7 +82,7 @@ func get_boomerang_stun_multiplier(runtime: Object) -> float:
 
 
 func is_commando_arm_equipped(runtime: Object) -> bool:
-	return runtime._has_equipped_item_name(ITEM_COMMANDO_ARM)
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_COMMANDO_ARM)
 
 
 func is_commando_arm_active(runtime: Object) -> bool:
@@ -90,20 +90,20 @@ func is_commando_arm_active(runtime: Object) -> bool:
 
 
 func get_commando_arm_count(runtime: Object) -> int:
-	return min(COMMANDO_ARM_MAX_STACKS, runtime._count_equipped_item_name(ITEM_COMMANDO_ARM))
+	return min(COMMANDO_ARM_MAX_STACKS, runtime.roll_query.count_equipped_item_name(runtime, ITEM_COMMANDO_ARM))
 
 
 func get_commando_arm_throw_speed_pct(runtime: Object) -> float:
 	if not is_commando_arm_equipped(runtime):
 		return 0.0
-	return clamp(runtime._get_commando_arm_roll_sum("throw_speed_pct"), 0.0, COMMANDO_ARM_THROW_SPEED_CAP_PCT)
+	return clamp(runtime.roll_query.get_commando_arm_roll_sum(runtime, "throw_speed_pct"), 0.0, COMMANDO_ARM_THROW_SPEED_CAP_PCT)
 
 
 func get_commando_arm_explosion_range_pct(runtime: Object) -> float:
 	if not is_commando_arm_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_commando_arm_roll_sum("explosion_range_pct"),
+		runtime.roll_query.get_commando_arm_roll_sum(runtime, "explosion_range_pct"),
 		0.0,
 		COMMANDO_ARM_EXPLOSION_RANGE_CAP_PCT
 	)
@@ -113,7 +113,7 @@ func get_commando_arm_smoke_duration_pct(runtime: Object) -> float:
 	if not is_commando_arm_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_commando_arm_roll_sum("smoke_duration_pct"),
+		runtime.roll_query.get_commando_arm_roll_sum(runtime, "smoke_duration_pct"),
 		0.0,
 		COMMANDO_ARM_SMOKE_DURATION_CAP_PCT
 	)
@@ -123,7 +123,7 @@ func get_commando_arm_prep_reduction_pct(runtime: Object) -> float:
 	if not is_commando_arm_equipped(runtime):
 		return 0.0
 	return clamp(
-		runtime._get_commando_arm_roll_sum("prep_reduction_pct"),
+		runtime.roll_query.get_commando_arm_roll_sum(runtime, "prep_reduction_pct"),
 		0.0,
 		COMMANDO_ARM_PREP_REDUCTION_CAP_PCT * COMMANDO_ARM_MAX_STACKS
 	)
@@ -133,7 +133,7 @@ func get_commando_arm_prep_multiplier(runtime: Object) -> float:
 	if not is_commando_arm_equipped(runtime):
 		return 1.0
 	var multiplier := 1.0
-	for reduction_value in runtime._get_commando_arm_roll_values("prep_reduction_pct"):
+	for reduction_value in runtime.roll_query.get_commando_arm_roll_values(runtime, "prep_reduction_pct"):
 		var reduction_pct: float = clamp(float(reduction_value), 0.0, COMMANDO_ARM_PREP_REDUCTION_CAP_PCT)
 		multiplier *= max(0.01, 1.0 - reduction_pct / 100.0)
 	return max(0.01, multiplier)
