@@ -1,6 +1,9 @@
 extends SceneTree
 
 const BattleDrawBannerContext := preload("res://scripts/core/battle_draw_banner_context.gd")
+const SmasherMagnumGripState := preload("res://scripts/characters/smasher_magnum_grip_state.gd")
+const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
+const SmasherSkillState := preload("res://scripts/characters/smasher_skill_state.gd")
 const SmasherSkillTimingMonitorRenderer := preload("res://scripts/characters/smasher_skill_timing_monitor_renderer.gd")
 
 var _failures: Array[String] = []
@@ -50,6 +53,8 @@ class FakeRoundState:
 
 
 func _init() -> void:
+	_verify_magnum_grip_cooldown_contract()
+	_verify_magnum_grip_activation_uses_configured_cooldown()
 	_verify_banner_context_exposes_ready_state()
 	_verify_drive_monitor_requires_ready_drive()
 	_verify_power_monitor_requires_ready_power()
@@ -62,6 +67,53 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_magnum_grip_cooldown_contract() -> void:
+	var config: Object = SmasherSkillConfig.new()
+	var skill_data: Dictionary = config.get_skill_data("magnum_grip")
+	var snapshot: Dictionary = config.get_snapshot()
+	var cooldowns: Dictionary = snapshot.get("cooldown_seconds", {}) as Dictionary
+	var snapshot_skill_data: Dictionary = snapshot.get("skill_data", {}) as Dictionary
+	var snapshot_magnum_data: Dictionary = snapshot_skill_data.get("magnum_grip", {}) as Dictionary
+	_expect(is_equal_approx(config.get_cooldown_seconds("magnum_grip"), 22.0), "Magnum Grip base cooldown should be 22 seconds")
+	_expect(is_equal_approx(float(skill_data.get("cooldown", 0.0)), 22.0), "Magnum Grip tooltip data should expose the 22-second cooldown")
+	_expect(is_equal_approx(float(cooldowns.get("magnum_grip", 0.0)), 22.0), "Magnum Grip orb cooldown map should expose the 22-second cooldown")
+	_expect(is_equal_approx(float(snapshot_magnum_data.get("cooldown", 0.0)), 22.0), "Magnum Grip snapshot skill data should match the orb cooldown map")
+
+
+func _verify_magnum_grip_activation_uses_configured_cooldown() -> void:
+	var config: Object = SmasherSkillConfig.new()
+	var skill_state: Object = SmasherSkillState.new()
+	var magnum_state: Object = SmasherMagnumGripState.new()
+	_expect(config.unlock_and_equip_skill("magnum_grip"), "Magnum Grip should equip for cooldown timing verification")
+	var deps := {
+		"skill_config": config,
+		"skill_state": skill_state,
+	}
+	var first_press: Dictionary = magnum_state.update_input(
+		{"left_pressed": true, "right_pressed": true},
+		1000,
+		100.0,
+		deps
+	)
+	_expect(not bool(first_press.get("activated", false)), "Magnum Grip should wait for the hold threshold before activation")
+	var activated: Dictionary = magnum_state.update_input(
+		{"left_pressed": true, "right_pressed": true},
+		1310,
+		100.0,
+		deps
+	)
+	_expect(bool(activated.get("activated", false)), "Magnum Grip should activate after the hold threshold")
+	_expect(is_equal_approx(float(activated.get("special_gauge", -1.0)), 30.0), "Magnum Grip should spend 70 gauge on activation")
+	_expect(
+		skill_state.get_configured_cooldown_remaining("magnum_grip", 1310 + 15000, config) > 0.30,
+		"Magnum Grip should still be cooling down after the old 15-second window"
+	)
+	_expect(
+		is_equal_approx(skill_state.get_configured_cooldown_remaining("magnum_grip", 1310 + 22000, config), 0.0),
+		"Magnum Grip should finish cooldown at the configured 22-second window"
+	)
 
 
 func _verify_banner_context_exposes_ready_state() -> void:
