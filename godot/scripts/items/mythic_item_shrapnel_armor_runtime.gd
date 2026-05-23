@@ -184,7 +184,10 @@ func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale:
 		runtime.shrapnel_armor_boss_knockback_vel = 0.0
 
 	var boss_rect: Rect2 = get_boss_rect(runtime, owner)
-	var can_hit_boss: bool = boss_rect.size != Vector2.ZERO and not runtime._is_stage2_speed_defense_boss_immune(registry)
+	var can_hit_boss: bool = (
+		boss_rect.size != Vector2.ZERO
+		and not runtime.stage_immunity.is_stage2_speed_defense_boss_immune(runtime, registry)
+	)
 	var write_index := 0
 	for read_index in range(runtime.shrapnel_armor_shards.size()):
 		var shard: Dictionary = runtime._get_dict(runtime.shrapnel_armor_shards[read_index])

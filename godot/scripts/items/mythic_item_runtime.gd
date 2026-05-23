@@ -2519,14 +2519,6 @@ func _get_active_item_slot_controller(registry: Object) -> Object:
 	return pickup_bonus.get_active_item_slot_controller(self, registry)
 
 
-func _is_stage2_speed_defense_context_immune(context: Dictionary, deps: Dictionary = {}) -> bool:
-	return stage_immunity.is_stage2_speed_defense_context_immune(self, context, deps)
-
-
-func _is_stage2_speed_defense_boss_immune(registry: Object) -> bool:
-	return stage_immunity.is_stage2_speed_defense_boss_immune(self, registry)
-
-
 func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null

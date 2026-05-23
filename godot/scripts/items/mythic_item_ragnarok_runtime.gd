@@ -38,7 +38,7 @@ func update_runtime(
 		update_stun_target(runtime, owner)
 	else:
 		runtime.ragnarok_boss_electric_drift_vel = 0.0
-	if runtime._is_stage2_speed_defense_boss_immune(registry):
+	if runtime.stage_immunity.is_stage2_speed_defense_boss_immune(runtime, registry):
 		clear_boss_disable_state(runtime, registry)
 	update_sparks(runtime, delta)
 	if had_stun and runtime.ragnarok_boss_stun_timer_frames <= 0.0:
@@ -106,7 +106,7 @@ func apply_boss_hit(
 	runtime.ragnarok_stun_ball_active = false
 	runtime.ragnarok_stun_attempted_this_rally = false
 	var next_ball_vel: Vector2 = soften_counter_ball(runtime, ball_vel)
-	if runtime._is_stage2_speed_defense_context_immune(context, deps):
+	if runtime.stage_immunity.is_stage2_speed_defense_context_immune(runtime, context, deps):
 		return {
 			"ball_vel": next_ball_vel,
 			"applied": false,
