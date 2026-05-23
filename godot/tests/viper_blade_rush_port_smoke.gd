@@ -49,7 +49,6 @@ class FakeAudio:
 	var blade_spin := 0
 	var blade_spin_stops := 0
 	var blade_fire := 0
-	var blade_touch_ball := 0
 	var dash_start := 0
 	var dash_delay := 0
 	var dash_delay_stops := 0
@@ -63,9 +62,6 @@ class FakeAudio:
 
 	func play_viper_blade() -> void:
 		blade_fire += 1
-
-	func play_viper_blade_touch_ball() -> void:
-		blade_touch_ball += 1
 
 	func play_dash_start(_is_half: bool) -> void:
 		dash_start += 1
@@ -155,7 +151,7 @@ class RealViperRegistry:
 
 func _init() -> void:
 	_test_dark_blade_unlock_catalog_wiring()
-	_test_blade_touch_ball_sound_asset_loads()
+	_test_blade_touch_ball_sound_route_removed()
 	_test_marshal_hit_dark_blade_window_and_handoff()
 	_test_air_blade_activation_hit_and_dark_combo()
 	_test_blade_prep_movement_fall_and_launch_jump()
@@ -186,11 +182,13 @@ func _test_dark_blade_unlock_catalog_wiring() -> void:
 	_expect(skill_config.is_skill_equipped("dark_blade"), "Dark Blade unlock should equip the runtime dark_blade skill")
 
 
-func _test_blade_touch_ball_sound_asset_loads() -> void:
-	_expect(
-		ProjectResourceLoader.load_audio_stream("res://assets/sounds/bladetouchball.wav") != null,
-		"Viper blade ball-touch SFX should load from Godot sound assets"
-	)
+func _test_blade_touch_ball_sound_route_removed() -> void:
+	var audio_source := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
+	var router_source := FileAccess.get_file_as_string("res://scripts/characters/viper_skill_audio_router.gd")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/characters/viper_skill_runtime.gd")
+	_expect(audio_source.find("bladetouchball.wav") < 0, "removed Viper blade ball-touch SFX should not be loaded by GameAudio")
+	_expect(router_source.find("play_blade_touch_ball_sound") < 0, "Viper audio router should not expose the removed ball-touch cue")
+	_expect(runtime_source.find("play_blade_touch_ball_sound") < 0, "Viper blade hit path should not call the removed ball-touch cue")
 
 
 func _test_marshal_hit_dark_blade_window_and_handoff() -> void:
@@ -303,7 +301,7 @@ func _test_air_blade_activation_hit_and_dark_combo() -> void:
 	_expect(float(runtime.get_blade_hit_speed_cap()) == 40.0, "air blade cap should remain active after the blade hit")
 	_expect(_get_vector2(result, "ball_vel", Vector2.ZERO).y < 0.0, "air blade should force the ball upward")
 	_expect(perk_state.gold == 30, "air blade ball hit should grant 30 skill gold")
-	_expect(audio.blade_touch_ball == 1, "air blade ball hit should play the dedicated ball-touch cue")
+	_expect(audio.blade_fire == 1, "air blade ball hit should not replay projectile-launch audio")
 	_expect(not bool(runtime.get_snapshot().get("marshal_ready", false)), "normal air blade should not directly open marshal kick")
 
 	for _i in range(30):
@@ -337,7 +335,7 @@ func _test_air_blade_activation_hit_and_dark_combo() -> void:
 	_expect(result.has("ball_vel"), "dark blade hitbox should strike the ball once")
 	_expect(abs(_get_vector2(result, "ball_vel", Vector2.ZERO).length() - 50.0) <= 0.001, "dark blade should cap ball speed at 50 regardless of league")
 	_expect(float(runtime.get_blade_hit_speed_cap()) == 50.0, "dark blade cap should remain active after the blade hit")
-	_expect(audio.blade_touch_ball == 2, "dark blade ball hit should reuse the dedicated ball-touch cue")
+	_expect(audio.blade_fire == 2, "dark blade ball hit should not replay projectile-launch audio")
 
 
 func _test_blade_prep_movement_fall_and_launch_jump() -> void:
