@@ -656,8 +656,12 @@ This section is intentionally long; use search to find the nearest owner.
   flare / dynamite / molotov / banana / soap windup lifts, projectile
   trails, texture-backed grenade / flare / molotov sprites, molotov fire
   zones, explosion zones, flare flash / confuse zones, throw-icon texture
-  caches, and compatibility wrappers / texture aliases for Spider Mine sheet
-  smoke tests.
+  caches, Tear Gas renderer fallback constants, and compatibility wrappers /
+  texture aliases for Spider Mine sheet smoke tests.
+  `scripts/items/active_item_throw_tear_gas_renderer.gd` owns Tear Gas
+  projectile sprites / arming countdowns, smoke-zone haze, shared particle
+  draw budget, cached puff texture generation, smoke tone / seed helpers,
+  fallback canister drawing, and Tear Gas asset prewarm.
   `scripts/items/active_item_throw_dynamite_renderer.gd` owns Dynamite
   projectile trails / sprites, placed Dynamite countdown badges, warning
   pulses, fuse flames, explosion shockwaves, smoke clouds, sparks, fire

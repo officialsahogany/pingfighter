@@ -5059,6 +5059,38 @@ Hundredth split on 2026-05-24:
   `commando_arm_port_smoke`. `.\tools\run_warning_scan.ps1` passed with
   `1300` scripts scanned and no GDScript warnings.
 
+123rd split on 2026-05-24:
+
+- Commit: `b1bcd4275 godot: split active throw tear gas renderer`.
+- Scope: added `active_item_throw_tear_gas_renderer.gd` for Tear Gas
+  projectile sprites / arming countdowns, smoke-zone haze, shared particle
+  draw budget, cached puff texture generation, smoke tone / seed helpers,
+  fallback canister drawing, and Tear Gas asset prewarm. The shared
+  `active_item_throw_renderer.gd` keeps the public draw signature, perf
+  labels, generic windup / throw icon cache, renderer fallback constants, and
+  dispatch order while delegating live Tear Gas visuals to the focused
+  renderer.
+- Rationale: Tear Gas was the largest remaining canvas-draw branch in the
+  active throw renderer and had its own procedural puff texture, haze mesh,
+  smoke-particle budget, and arming countdown presentation. Moving it
+  localizes future smoke tuning while preserving controller state, cooldown
+  pause behavior, and render-facade contracts.
+- Renderer size: `active_item_throw_renderer.gd` moved from `1477` lines to
+  `1078` lines; the new `active_item_throw_tear_gas_renderer.gd` file is
+  `420` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused Tear Gas / throw-renderer coverage ran `9` smoke scripts
+  and passed: `active_item_throw_tear_gas_smoke`,
+  `active_item_tear_gas_tuning_smoke`,
+  `active_item_throw_activation_smoke`,
+  `active_item_throw_renderer_budget_smoke`,
+  `active_item_throw_rotated_texture_smoke`,
+  `active_item_runtime_render_facade_smoke`,
+  `active_item_runtime_render_facade_direct_smoke`,
+  `active_item_boss_skill_cooldown_pause_smoke`, and
+  `commando_arm_port_smoke`. `.\tools\run_warning_scan.ps1` passed with
+  `1301` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
