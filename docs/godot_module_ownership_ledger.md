@@ -3867,9 +3867,16 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_audio_resolver.gd`
   Owns pure Commando firearm audio-name lookup behavior: ball-hit pulse
   kind names, weapon-specific fire cue method lists, and weapon-specific
-  impact cue method lists. `commando_firearm_runtime.gd` keeps actual audio
-  side effects, fallback generic calls, and fire-support radio suppression
-  in the runtime while delegating only the string mapping here.
+  impact cue method lists. `commando_firearm_runtime.gd` keeps fire-support
+  radio suppression and call-site timing while delegating only the string
+  mapping here.
+- `scripts/characters/commando_firearm_audio_dispatcher.gd`
+  Owns Commando firearm audio dispatch mechanics: audio / game_audio dep
+  lookup, first-available no-arg method calls, weapon-specific cue fallback
+  to generic fire / impact methods, per-round pistol reload cue repetition,
+  and suicide-drone loop stop dispatch. The runtime keeps gameplay timing,
+  support-aircraft active flags, and the small private wrapper names used by
+  current smoke coverage.
 - `scripts/characters/commando_firearm_bowling_trap_geometry.gd`
   Owns pure Commando bowling-trap geometry, state payloads, and kinematic
   helpers: install position / payload / marker dictionaries, install and

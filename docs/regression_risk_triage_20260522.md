@@ -5579,6 +5579,24 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed; both wrappers still printed the known
   nonfatal Windows root certificate store message from Godot.
 
+152nd follow-up on 2026-05-24:
+
+- Commit: `acd4f9f78 godot: split Commando firearm audio dispatch`.
+- Scope: split Commando firearm audio dispatch mechanics out of
+  `commando_firearm_runtime.gd` into
+  `commando_firearm_audio_dispatcher.gd`. The existing audio resolver keeps
+  pure cue-name lookup; the new dispatcher owns audio / game_audio dependency
+  lookup, specific cue priority, generic fire / impact fallback calls,
+  per-round pistol reload cue repetition, and suicide-drone loop stop
+  dispatch. The runtime keeps gameplay timing, fire-support radio suppression,
+  support-aircraft active flags, and the small compatibility wrappers.
+- Validation: `commando_firearm_audio_dispatcher_smoke`,
+  `commando_firearm_audio_routing_smoke`, and
+  `commando_firearm_audio_resolver_smoke` passed. `run_warning_scan.ps1`
+  scanned 1322 scripts with no GDScript warnings, and
+  `run_headless_load_check.ps1` passed; both wrappers still printed the known
+  nonfatal Windows root certificate store message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
