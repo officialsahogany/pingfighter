@@ -322,8 +322,9 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_ragnarok_field_renderer.gd` owns Ragnarok
   impact-ring, electric-stun overlay, stun-aura, and spark drawing while
   `mythic_item_field_effect_renderer.gd` keeps the runtime-state fanout and
-  public render-budget status; Poseidon trail / vortex-particle / explosion
-  draw sequencing is invoked directly by the field renderer from runtime state;
+  public render-budget status; `scripts/items/mythic_item_poseidon_field_renderer.gd`
+  owns Poseidon trail / vortex-particle / explosion draw sequencing while the
+  shared field renderer passes runtime state and public render budgets through;
   Rainbow Fur Glove, Adversity Armor, Shrapnel Armor, Knee Pads, and Soul
   Burst field-effect branches are also invoked directly by the field renderer
   from runtime state and compact draw constants;
@@ -4805,6 +4806,7 @@ This section is intentionally long; use search to find the nearest owner.
   dictionaries.
 - `scripts/items/mythic_item_field_effect_visibility.gd`,
   `scripts/items/mythic_item_field_effect_renderer.gd`,
+  `scripts/items/mythic_item_poseidon_field_renderer.gd`,
   `scripts/items/mythic_item_ragnarok_field_renderer.gd`,
   `scripts/items/mythic_item_context_builder.gd`,
   `scripts/items/mythic_item_snapshot_builder.gd`, and

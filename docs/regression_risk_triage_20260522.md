@@ -4804,6 +4804,28 @@ Hundredth split on 2026-05-24:
   passed. `.\tools\run_warning_scan.ps1` passed with `1290` scripts scanned
   and no GDScript warnings.
 
+113th split on 2026-05-24:
+
+- Commit: `6f5aef901 godot: split Poseidon mythic field renderer`.
+- Scope: added `mythic_item_poseidon_field_renderer.gd` for Poseidon Trident
+  water trail, vortex particle, and water-explosion drawing. The shared
+  `mythic_item_field_effect_renderer.gd` keeps Poseidon visibility fanout,
+  perf labeling, public render-budget constants, and render-budget status
+  reporting while passing those budgets into the focused renderer.
+- Rationale: Poseidon's draw path is a self-contained visual branch with a
+  separate water-trail cap, vortex-particle stride budget, charge-flash
+  explosion cap, and trail-arc budget. Moving the branch keeps the shared
+  field-effect renderer focused on orchestration without changing the public
+  `draw_field_effects(...)` entry point.
+- Renderer size: `mythic_item_field_effect_renderer.gd` moved from `1185`
+  lines to `1067` lines; the new
+  `mythic_item_poseidon_field_renderer.gd` file is `170` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Source-selected Poseidon / field-renderer coverage ran `9` smoke
+  scripts and passed, including `poseidon_trident_port_smoke` and the mythic
+  field render-budget smoke. `.\tools\run_warning_scan.ps1` passed with
+  `1291` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
