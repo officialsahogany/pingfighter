@@ -372,7 +372,9 @@ This section is intentionally long; use search to find the nearest owner.
   `"chance"`, plus empty roll-field hydration and optional fixed-option
   hydration for static builders, and default roll / roll-option /
   rolled-option hydration for selected rolled builders behind the public
-  item-data dictionaries.
+  item-data dictionaries. `mythic_item_catalog.gd` composes that base metadata
+  helper with the icon metadata helper through `_with_mythic_icon_item(...)`
+  for 32-frame mythic icon-sheet builders.
   `scripts/items/mythic_item_catalog_build_router.gd`
   owns item-name to builder dispatch behind the public
   `build_item_by_name()` catalog API. `scripts/items/mythic_item_catalog_lists.gd`
