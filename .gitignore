@@ -211,6 +211,7 @@ screenshots/pingfighter_*.png
 
 # Local generated previews and scratch work
 .tmp/
+temp/
 preview_outputs/
 .codex/
 .codex_tmp/
@@ -336,6 +337,10 @@ godot/assets/sprites/stage2/boss_stage2_speed_imagegen_v[2-3].png*
 godot/assets/sprites/stage2/stage2_boss_idle.png*
 godot/assets/sprites/stage2/stage2_boss_idle_front_breath_autosprite_v1_8f.png*
 godot/assets/sprites/stage2/stage2_boss_walk_left.png*
+godot/assets/sprites/stage2/stage2_alligator_general_result_defeat_live2d_pingpong_98f_autosprite_v1*.png*
+godot/assets/sprites/stage2/stage2_alligator_general_result_defeat_magenta_anchor_v*.png*
+godot/assets/sprites/stage2/stage2_alligator_general_result_defeat_runtime_anchor_v*.png*
+godot/assets/bgm/stage2bgm.wav*
 godot/assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v[6-9]*.png*
 godot/assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v1[0-6]*.png*
 godot/assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v[6-9]*.png*
