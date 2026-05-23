@@ -18,11 +18,13 @@ func _init() -> void:
 func _verify_shared_projectile_trail_budget() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_renderer.gd")
 	var dynamite_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_dynamite_renderer.gd")
+	var tear_gas_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_tear_gas_renderer.gd")
 	var boomerang_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_boomerang_renderer.gd")
 	var spider_mine_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_spider_mine_renderer.gd")
 	var slip_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_slip_renderer.gd")
 	_expect(source != "", "active item throw renderer source should be readable")
 	_expect(dynamite_source != "", "active item throw dynamite renderer source should be readable")
+	_expect(tear_gas_source != "", "active item throw tear gas renderer source should be readable")
 	_expect(boomerang_source != "", "active item throw boomerang renderer source should be readable")
 	_expect(spider_mine_source != "", "active item throw spider mine renderer source should be readable")
 	_expect(slip_source != "", "active item throw slip renderer source should be readable")
@@ -30,6 +32,7 @@ func _verify_shared_projectile_trail_budget() -> void:
 	var flare_body := _function_body(source, "func _draw_flares")
 	var trail_body := _function_body(source, "func _draw_projectile_trail")
 	var dynamite_body := _function_body(dynamite_source, "func draw_dynamite_explosions")
+	var tear_gas_body := _function_body(tear_gas_source, "func draw_tear_gas_zones")
 	var boomerang_body := _function_body(boomerang_source, "func draw_boomerangs")
 	var spider_mine_body := _function_body(spider_mine_source, "func draw_spider_mines")
 	var slip_trail_body := _function_body(slip_source, "func _draw_projectile_trail")
@@ -56,6 +59,18 @@ func _verify_shared_projectile_trail_budget() -> void:
 	_expect(
 		_function_body(source, "func draw").find("_dynamite_renderer.draw_dynamite_explosions") >= 0,
 		"throw renderer should delegate dynamite explosion drawing to the dynamite renderer"
+	)
+	_expect(
+		_function_body(source, "func draw").find("_tear_gas_renderer.draw_tear_gas_zones") >= 0,
+		"throw renderer should delegate tear gas zone drawing to the tear gas renderer"
+	)
+	_expect(
+		_function_body(source, "func draw").find("_tear_gas_renderer.draw_tear_gas_projectiles") >= 0,
+		"throw renderer should delegate tear gas projectile drawing to the tear gas renderer"
+	)
+	_expect(
+		_function_body(source, "func _draw_grenade_throw_windups").find("_tear_gas_renderer.draw_tear_gas_fallback") >= 0,
+		"throw renderer should delegate tear gas windup fallback drawing to the tear gas renderer"
 	)
 	_expect(
 		_function_body(source, "func _draw_grenade_throw_windups").find("_dynamite_renderer.draw_dynamite_fallback") >= 0,
@@ -87,6 +102,8 @@ func _verify_shared_projectile_trail_budget() -> void:
 	)
 	_expect(dynamite_body.find("_draw_dynamite_smoke_clouds") >= 0, "dynamite renderer should own smoke cloud drawing")
 	_expect(dynamite_body.find("_draw_dynamite_fire_particles") >= 0, "dynamite renderer should own fire particle drawing")
+	_expect(tear_gas_body.find("remaining_particle_budget") >= 0, "tear gas renderer should own shared gas particle budget")
+	_expect(tear_gas_body.find("_draw_tear_gas_base_haze") >= 0, "tear gas renderer should own gas haze drawing")
 	_expect(boomerang_body.find("draw_boomerang_fallback") >= 0, "boomerang renderer should retain the fallback boomerang shape")
 	_expect(boomerang_body.find("_get_boomerang_icon_texture(gauntlet_equipped)") >= 0, "boomerang renderer should own normal and metal boomerang texture lookup")
 	_expect(spider_mine_body.find("_draw_spider_mine_sheet") >= 0, "spider mine renderer should own sheet-backed drawing")
