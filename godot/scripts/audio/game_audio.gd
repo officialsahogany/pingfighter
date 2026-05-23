@@ -45,6 +45,7 @@ const VIPER_PHANTOM_SHOW_SOUND_PATH := "res://assets/sounds/bypershow.wav"
 const VIPER_PHANTOM_KICK_HIT_SOUND_PATH := "res://assets/sounds/pentomkick.wav"
 const VIPER_BLADE_SOUND_PATH := "res://assets/sounds/blade.wav"
 const VIPER_BLADE_SPIN_SOUND_PATH := "res://assets/sounds/bladeafter.wav"
+const VIPER_BLADE_TOUCH_BALL_SOUND_PATH := "res://assets/sounds/bladetouchball.wav"
 const VIPER_VENOM_MOVING_SOUND_PATH := "res://assets/sounds/venommoving.wav"
 const VIPER_VENOM_ATTACK_SOUND_PATH := "res://assets/sounds/venomattack.wav"
 const VIPER_HWARANG_KICK_SOUND_PATH := "res://assets/sounds/hwarangkick.wav"
@@ -230,6 +231,7 @@ var viper_phantom_show_sfx: AudioStreamPlayer
 var viper_phantom_kick_hit_sfx: AudioStreamPlayer
 var viper_blade_sfx: AudioStreamPlayer
 var viper_blade_spin_sfx: AudioStreamPlayer
+var viper_blade_touch_ball_sfx: AudioStreamPlayer
 var viper_venom_moving_sfx: AudioStreamPlayer
 var viper_venom_attack_sfx: AudioStreamPlayer
 var viper_hwarang_kick_sfx: AudioStreamPlayer
@@ -433,6 +435,7 @@ func _setup_smasher_skill_sfx() -> void:
 	viper_phantom_kick_hit_sfx = player_factory.create(owner_node, "ViperPhantomKickHitSfx", VIPER_PHANTOM_KICK_HIT_SOUND_PATH, -2.5)
 	viper_blade_sfx = player_factory.create(owner_node, "ViperBladeSfx", VIPER_BLADE_SOUND_PATH, -6.0)
 	viper_blade_spin_sfx = player_factory.create(owner_node, "ViperBladeSpinSfx", VIPER_BLADE_SPIN_SOUND_PATH, -3.0)
+	viper_blade_touch_ball_sfx = player_factory.create(owner_node, "ViperBladeTouchBallSfx", VIPER_BLADE_TOUCH_BALL_SOUND_PATH, -4.0)
 	viper_venom_moving_sfx = player_factory.create(owner_node, "ViperVenomMovingSfx", VIPER_VENOM_MOVING_SOUND_PATH, -4.4)
 	viper_venom_attack_sfx = player_factory.create(owner_node, "ViperVenomAttackSfx", VIPER_VENOM_ATTACK_SOUND_PATH, -4.4)
 	viper_hwarang_kick_sfx = player_factory.create(owner_node, "ViperHwarangKickSfx", VIPER_HWARANG_KICK_SOUND_PATH, -3.2)
@@ -895,6 +898,10 @@ func play_viper_blade_spin() -> void:
 func stop_viper_blade_spin() -> void:
 	if viper_blade_spin_sfx != null and viper_blade_spin_sfx.playing:
 		viper_blade_spin_sfx.stop()
+
+
+func play_viper_blade_touch_ball() -> void:
+	_play_with_pitch(viper_blade_touch_ball_sfx, randf_range(0.96, 1.04))
 
 
 func play_viper_venom_moving() -> void:
@@ -2219,6 +2226,7 @@ func _get_sfx_players() -> Array:
 		viper_phantom_kick_hit_sfx,
 		viper_blade_sfx,
 		viper_blade_spin_sfx,
+		viper_blade_touch_ball_sfx,
 		viper_venom_moving_sfx,
 		viper_venom_attack_sfx,
 		viper_hwarang_kick_sfx,

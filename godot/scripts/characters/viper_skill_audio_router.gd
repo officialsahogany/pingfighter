@@ -176,6 +176,12 @@ func play_blade_fire_sound(deps: Dictionary) -> void:
 		audio.play_viper_blade()
 
 
+func play_blade_touch_ball_sound(deps: Dictionary) -> void:
+	var audio: Object = deps.get("audio", null)
+	if audio != null and audio.has_method("play_viper_blade_touch_ball"):
+		audio.play_viper_blade_touch_ball()
+
+
 func stop_blade_spin_sound(runtime: Object, deps: Dictionary = {}) -> void:
 	if not runtime.blade_spin_sound_active:
 		return

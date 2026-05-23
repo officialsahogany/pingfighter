@@ -4019,6 +4019,7 @@ func _apply_blade_hit(
 	allow_combo: bool,
 	hit_speed_scale: float
 ) -> Dictionary:
+	audio_router.play_blade_touch_ball_sound(deps)
 	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", context.get("ball_vel", Vector2.ZERO)), Vector2.ZERO)
 	var current_speed: float = ball_vel.length()
