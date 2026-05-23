@@ -358,7 +358,13 @@ This section is intentionally long; use search to find the nearest owner.
   display-name lookup, quality-prefix formatting, and quality color lookup
   behind the public catalog API. `scripts/items/mythic_item_catalog_fixed_options.gd`
   owns all fixed-option source arrays and item-name fixed-option lookup behind
-  the public catalog API. `scripts/items/mythic_item_catalog_build_router.gd`
+  the public catalog API. `scripts/items/mythic_item_catalog_icon_metadata.gd`
+  owns the shared 32-frame mythic animated icon metadata used by mythic catalog
+  item builders, including sheet path, frame count / cadence, source inset,
+  fill-slot, and slot-padding fields behind the public item-data dictionaries.
+  `mythic_item_catalog.gd` item builders should call that helper instead of
+  duplicating the `"icon_sheet_path"` / `"icon_frame_count"` field cluster.
+  `scripts/items/mythic_item_catalog_build_router.gd`
   owns item-name to builder dispatch behind the public
   `build_item_by_name()` catalog API. `scripts/items/mythic_item_catalog_lists.gd`
   owns the passive / mythic field-spawn order source plus debug item and
