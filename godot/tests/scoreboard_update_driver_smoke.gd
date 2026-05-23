@@ -127,13 +127,23 @@ func _init() -> void:
 		"handle_scoreboard_update_result": Callable(self, "_record_scoreboard_result"),
 		"queue_redraw": Callable(self, "_record_overlay_redraw"),
 	}, perf_logger)
-	_expect(_scoreboard_result_count == 1, "scoreboard completion should dispatch result callback")
-	_expect(_last_scoreboard_result == 2, "scoreboard completion should forward result code")
+	_expect(_scoreboard_result_count == 0, "scoreboard completion should defer result callback out of idle process")
 	_expect(_overlay_redraw_count == 2, "scoreboard completion should redraw the final overlay frame")
 	_expect(perf_logger.has_label("process.scoreboard_overlay.active_check"), "overlay driver should profile active checks")
 	_expect(perf_logger.has_label("process.scoreboard_overlay.state_update"), "overlay driver should profile scoreboard state updates")
-	_expect(perf_logger.has_label("process.scoreboard_overlay.result_callback"), "overlay driver should profile result callbacks separately")
+	_expect(perf_logger.has_label("process.scoreboard_overlay.result_defer"), "overlay driver should profile result deferral separately")
 	_expect(perf_logger.has_label("process.scoreboard_overlay.queue_redraw"), "overlay driver should profile redraw callbacks")
+	_expect(driver.has_pending_scoreboard_result(), "scoreboard completion should leave a pending physics result")
+	_expect(driver.dispatch_pending_scoreboard_result({
+		"handle_scoreboard_update_result": Callable(self, "_record_scoreboard_result"),
+	}, perf_logger), "pending scoreboard result should dispatch during physics update")
+	_expect(_scoreboard_result_count == 1, "pending scoreboard result should dispatch once")
+	_expect(_last_scoreboard_result == 2, "pending scoreboard result should forward result code")
+	_expect(not driver.has_pending_scoreboard_result(), "pending scoreboard result should clear after dispatch")
+	_expect(not driver.dispatch_pending_scoreboard_result({
+		"handle_scoreboard_update_result": Callable(self, "_record_scoreboard_result"),
+	}, perf_logger), "empty pending scoreboard result should be a no-op")
+	_expect(perf_logger.has_label("physics.scoreboard_overlay.result_callback"), "physics dispatch should profile result callbacks separately")
 
 	scoreboard.sparkle_timer = 0.5
 	driver.update_scoreboard_visuals(owner, registry, 0.1)

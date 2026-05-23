@@ -1,5 +1,7 @@
 extends RefCounted
 
+var _pending_update_result := 0
+
 
 func update_scoreboard_overlay(
 	owner: Object,
@@ -27,8 +29,8 @@ func update_scoreboard_overlay(
 		_perf_end(perf_logger, "process.scoreboard_overlay.state_update", sample_start)
 		if update_result != 0:
 			sample_start = _perf_begin(perf_logger)
-			_call_int(frame_callbacks, "handle_scoreboard_update_result", update_result)
-			_perf_end(perf_logger, "process.scoreboard_overlay.result_callback", sample_start)
+			_pending_update_result = update_result
+			_perf_end(perf_logger, "process.scoreboard_overlay.result_defer", sample_start)
 	else:
 		sample_start = _perf_begin(perf_logger)
 		_call_delta(frame_callbacks, "update_scoreboard", delta)
@@ -53,6 +55,21 @@ func update_scoreboard_visuals(owner: Object, registry: Object, delta: float) ->
 
 	if had_top_mini_sparkle or _is_top_mini_deuce_mode(registry):
 		_queue_redraw(owner)
+
+
+func has_pending_scoreboard_result() -> bool:
+	return _pending_update_result != 0
+
+
+func dispatch_pending_scoreboard_result(frame_callbacks: Dictionary, perf_logger: Object = null) -> bool:
+	if _pending_update_result == 0:
+		return false
+	var update_result := _pending_update_result
+	_pending_update_result = 0
+	var sample_start: int = _perf_begin(perf_logger)
+	_call_int(frame_callbacks, "handle_scoreboard_update_result", update_result)
+	_perf_end(perf_logger, "physics.scoreboard_overlay.result_callback", sample_start)
+	return true
 
 
 func _call(frame_callbacks: Dictionary, key: String) -> void:

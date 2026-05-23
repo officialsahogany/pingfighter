@@ -14,13 +14,19 @@ func update(owner: Object, registry: Object, delta: float) -> void:
 
 	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var total_start: int = _perf_begin(perf_logger)
+	var callbacks_start: int = _perf_begin(perf_logger)
+	var frame_callbacks: Dictionary = _callbacks.build_frame_callbacks(owner, registry)
+	_perf_end(perf_logger, "physics.update_driver.build_callbacks", callbacks_start)
+	var pending_scoreboard_start: int = _perf_begin(perf_logger)
+	if _dispatch_pending_scoreboard_result(registry, frame_callbacks, perf_logger):
+		_perf_end(perf_logger, "physics.update_driver.scoreboard_result", pending_scoreboard_start)
+		_perf_end(perf_logger, "physics.update_driver.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.update_driver.scoreboard_result", pending_scoreboard_start)
 	var deps_start: int = _perf_begin(perf_logger)
 	var deps: Dictionary = _build_frame_flow_deps(owner, registry)
 	_perf_end(perf_logger, "physics.update_driver.build_deps", deps_start)
 	deps["perf_logger"] = perf_logger
-	var callbacks_start: int = _perf_begin(perf_logger)
-	var frame_callbacks: Dictionary = _callbacks.build_frame_callbacks(owner, registry)
-	_perf_end(perf_logger, "physics.update_driver.build_callbacks", callbacks_start)
 	var flow_start: int = _perf_begin(perf_logger)
 	flow_controller.update(delta, deps, frame_callbacks)
 	_perf_end(perf_logger, "physics.update_driver.flow_update", flow_start)
@@ -92,6 +98,17 @@ func _get_scoreboard_update_driver(registry: Object) -> Object:
 
 func _get_update_prewarm_driver(registry: Object) -> Object:
 	return _get_instance(registry, "battle_scene_update_prewarm_driver")
+
+
+func _dispatch_pending_scoreboard_result(
+	registry: Object,
+	frame_callbacks: Dictionary,
+	perf_logger: Object
+) -> bool:
+	var scoreboard_driver: Object = _get_scoreboard_update_driver(registry)
+	if scoreboard_driver == null or not scoreboard_driver.has_method("dispatch_pending_scoreboard_result"):
+		return false
+	return bool(scoreboard_driver.dispatch_pending_scoreboard_result(frame_callbacks, perf_logger))
 
 
 func _perf_begin(perf_logger: Object) -> int:
