@@ -284,7 +284,14 @@ func _init() -> void:
 	_expect(not registry.audio.stopped.has("bgm"), "stage transition audio should wait until staged prewarm completes")
 
 	driver.update_stage_transition_loading(0.05, owner, registry)
-	_expect(registry.audio.stopped.has("dash_delay") and registry.audio.stopped.has("bgm"), "stage transition should stop gameplay loops and old BGM")
+	_expect(registry.audio.stopped.has("dash_delay") and not registry.audio.stopped.has("bgm"), "stage transition should stop gameplay loops before old BGM")
+	_expect(registry.audio.played_stage == 0, "stage transition should wait to start BGM until cleanup chunks finish")
+
+	driver.update_stage_transition_loading(0.05, owner, registry)
+	_expect(registry.audio.stopped.has("bgm"), "stage transition should stop old BGM after gameplay loops")
+	_expect(registry.audio.played_stage == 0, "stage transition should wait one more chunk before starting next-stage BGM")
+
+	driver.update_stage_transition_loading(0.05, owner, registry)
 	_expect(registry.audio.played_stage == 2, "stage transition should start next-stage BGM")
 	_expect(owner.redraw_count >= 3, "stage transition loading should queue redraws through the gate")
 
@@ -311,7 +318,8 @@ func _init() -> void:
 	registry.scoreboard.last_scoring_side = "player"
 	owner.set("current_stage", 4)
 	driver.update_scoreboard(0.1, owner, registry)
-	_expect(int(owner.data.get("current_stage", 0)) == 4, "Stage 4 clear should not advance past the demo sequence")
+	_expect(int(owner.data.get("current_stage", 0)) == 5, "Stage 4 clear should advance to the Hongryun demo stage")
+	_expect(bool(driver.is_stage_transition_loading_active()), "Stage 4 clear should enter the Stage 5 loading gate")
 
 	if _failures.is_empty():
 		print("demo_stage_progression_smoke: ok")
