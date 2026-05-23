@@ -1,6 +1,7 @@
 extends Node2D
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const WRITHE_SHADER := preload("res://shaders/mythic_writhe.gdshader")
 const ARC_SHADER := preload("res://shaders/mythic_arc_flow.gdshader")
@@ -80,11 +81,40 @@ var _vignette_alpha := 0.0
 var _vignette_texture: Texture2D = null
 var _paddle_glow_intensity := 0.0
 
+static var _assets_prewarmed := false
+static var _shared_icon_backdrop_texture: Texture2D = null
+static var _shared_vignette_texture: Texture2D = null
+static var _shared_white_flash_texture: Texture2D = null
+
 
 static func should_use_item_data(source: Dictionary) -> bool:
 	var item_type: String = str(source.get("type", "")).to_lower()
 	var rarity: String = str(source.get("rarity", "")).to_lower()
 	return item_type == "mythic" or item_type == "legendary" or rarity == "mythic" or rarity == "legendary"
+
+
+static func prewarm_assets() -> void:
+	if _assets_prewarmed:
+		return
+	ProjectResourceLoader.load_texture(
+		BACKPLATE_TEXTURE_PATH,
+		"Missing mythic acquisition backplate texture: %s",
+		"Failed to load mythic acquisition backplate texture: %s"
+	)
+	ProjectResourceLoader.load_texture(
+		SHARD_TEXTURE_PATH,
+		"Missing mythic acquisition shard texture: %s",
+		"Failed to load mythic acquisition shard texture: %s"
+	)
+	ProjectResourceLoader.load_texture(
+		ARC_TEXTURE_PATH,
+		"Missing mythic acquisition arc texture: %s",
+		"Failed to load mythic acquisition arc texture: %s"
+	)
+	_get_or_build_icon_backdrop_texture()
+	_get_or_build_soft_vignette_texture()
+	_get_or_build_soft_white_flash_texture()
+	_assets_prewarmed = true
 
 
 static func resolve_player_center(runtime_owner: Object, constants: Dictionary = {}) -> Vector2:
@@ -111,6 +141,7 @@ func _ready() -> void:
 	top_level = true
 	visible = false
 	rng.randomize()
+	prewarm_assets()
 	_load_effect_textures()
 	_build_node_tree()
 
@@ -337,6 +368,12 @@ func _build_absorb_particles() -> GPUParticles2D:
 
 
 func _build_icon_backdrop_texture() -> Texture2D:
+	return _get_or_build_icon_backdrop_texture()
+
+
+static func _get_or_build_icon_backdrop_texture() -> Texture2D:
+	if _shared_icon_backdrop_texture != null:
+		return _shared_icon_backdrop_texture
 	var size: int = 256
 	var image: Image = Image.create(size, size, false, Image.FORMAT_RGBA8)
 	var center: Vector2 = Vector2(float(size) * 0.5, float(size) * 0.5)
@@ -347,10 +384,17 @@ func _build_icon_backdrop_texture() -> Texture2D:
 			var alpha: float = float(clamp(1.0 - smoothstep(0.34, 1.0, d), 0.0, 1.0))
 			alpha = pow(alpha, 1.25) * 0.74
 			image.set_pixel(x, y, Color(0.012, 0.010, 0.024, alpha))
-	return ImageTexture.create_from_image(image)
+	_shared_icon_backdrop_texture = ImageTexture.create_from_image(image)
+	return _shared_icon_backdrop_texture
 
 
 func _build_soft_vignette_texture() -> Texture2D:
+	return _get_or_build_soft_vignette_texture()
+
+
+static func _get_or_build_soft_vignette_texture() -> Texture2D:
+	if _shared_vignette_texture != null:
+		return _shared_vignette_texture
 	var width: int = int(FIELD_WIDTH)
 	var height: int = int(FIELD_HEIGHT)
 	var image: Image = Image.create(width, height, false, Image.FORMAT_RGBA8)
@@ -367,10 +411,17 @@ func _build_soft_vignette_texture() -> Texture2D:
 			var alpha: float = 1.0 - smoothstep(0.62, 1.0, d)
 			alpha = pow(clamp(alpha, 0.0, 1.0), 0.92) * 0.78
 			image.set_pixel(x, y, Color(0.0, 0.0, 0.0, alpha))
-	return ImageTexture.create_from_image(image)
+	_shared_vignette_texture = ImageTexture.create_from_image(image)
+	return _shared_vignette_texture
 
 
 func _build_soft_white_flash_texture() -> Texture2D:
+	return _get_or_build_soft_white_flash_texture()
+
+
+static func _get_or_build_soft_white_flash_texture() -> Texture2D:
+	if _shared_white_flash_texture != null:
+		return _shared_white_flash_texture
 	var width: int = int(FIELD_WIDTH)
 	var height: int = int(FIELD_HEIGHT)
 	var image: Image = Image.create(width, height, false, Image.FORMAT_RGBA8)
@@ -387,7 +438,8 @@ func _build_soft_white_flash_texture() -> Texture2D:
 			var alpha: float = 1.0 - smoothstep(0.54, 1.0, d)
 			alpha = pow(clamp(alpha, 0.0, 1.0), 0.58)
 			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
-	return ImageTexture.create_from_image(image)
+	_shared_white_flash_texture = ImageTexture.create_from_image(image)
+	return _shared_white_flash_texture
 
 
 func _recenter_on_viewport() -> void:
@@ -500,6 +552,8 @@ func handle_input(event: InputEvent, registry: Object = null) -> bool:
 	elif event is InputEventScreenTouch:
 		var touch_event: InputEventScreenTouch = event
 		requested = touch_event.pressed
+	elif GamepadInput.is_confirm_event(event):
+		requested = true
 	elif event is InputEventKey:
 		var key_event: InputEventKey = event
 		requested = key_event.pressed and not key_event.echo and (

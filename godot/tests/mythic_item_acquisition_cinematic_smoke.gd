@@ -59,6 +59,7 @@ func _init() -> void:
 
 
 func _run() -> void:
+	_verify_cinematic_host_prewarm_reused()
 	_verify_cinematic_phase_lifecycle()
 	_verify_cinematic_updates_while_gameplay_frame_is_frozen()
 	_verify_cinematic_reset_round_cleanup()
@@ -70,6 +71,27 @@ func _run() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_cinematic_host_prewarm_reused() -> void:
+	var catalog: Object = MythicItemCatalog.new()
+	var runtime: Object = MythicItemRuntime.new()
+	var owner := FakeOwner.new()
+	var audio := FakeAudio.new()
+	var registry := FakeRegistry.new(audio)
+	var item_data: Dictionary = catalog.build_item_by_name("heavenly_cape")
+	root.add_child(owner)
+
+	runtime.prewarm_acquisition_cinematic(owner, registry)
+	var prewarmed_host: Object = runtime.acquisition_cinematic
+	var prewarmed_node: Node = prewarmed_host as Node
+	_expect(prewarmed_host is Node2D, "acquisition cinematic prewarm should create the hidden Node2D host")
+	_expect(prewarmed_node != null and owner.is_ancestor_of(prewarmed_node), "prewarmed acquisition cinematic host should attach to the owner")
+	_expect(not runtime.is_acquisition_cinematic_active(), "prewarmed acquisition cinematic should stay inactive")
+
+	_expect(runtime.start_acquisition_cinematic(item_data, Vector2(220.0, 330.0), owner, registry), "prewarmed runtime should still start the acquisition cinematic")
+	_expect(runtime.acquisition_cinematic == prewarmed_host, "field pickup should reuse the prewarmed acquisition cinematic host")
+	owner.queue_free()
 
 
 func _verify_cinematic_phase_lifecycle() -> void:
