@@ -184,9 +184,9 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_update_runtime.gd`,
   full-runtime reset and round-reset sequencing delegated to
   `scripts/items/mythic_item_lifecycle_runtime.gd`, with that lifecycle
-  helper and equipment / debug helpers calling item clear owners directly
-  instead of private `_clear_*` runtime bridge methods except for the
-  remaining Baal's Boots constant-supplying bridge,
+  helper and equipment / debug helpers receiving Baal's Boots constants and
+  calling item clear / arm owners directly instead of private `_clear_*` /
+  `_try_arm_*` runtime bridge methods,
   Revival Charm equipped / available / used checks, match-loss trigger,
   consumed-state spawn exclusion, activation effect draw/update, and clear
   lifecycle delegated to `scripts/items/mythic_item_revival_runtime.gd`,
@@ -4718,6 +4718,14 @@ This section is intentionally long; use search to find the nearest owner.
   speed composition should pass Baal's Boots constants directly to
   `scripts/items/mythic_item_baal_boots_runtime.gd` instead of reintroducing
   a private runtime Baal speed getter bridge.
+- `scripts/items/mythic_item_lifecycle_runtime.gd`,
+  `scripts/items/mythic_item_equipment_facade.gd`, and
+  `scripts/items/mythic_item_debug_inventory.gd`
+  Own Baal's Boots clear / round-clear / weather-arm call sites for reset,
+  equip / unequip / remove, and roll-adjustment flows. Pass
+  `BAAL_BOOTS_CONSTANTS` into these helpers and call
+  `scripts/items/mythic_item_baal_boots_runtime.gd` directly; do not
+  reintroduce private runtime Baal clear / arm bridge methods.
 - `scripts/items/mythic_item_update_runtime.gd`
   Owns mythic per-frame update sequencing and idle-update fallback routing.
   It calls constants-free focused update owners directly for Smartphone,
