@@ -5122,6 +5122,37 @@ Hundredth split on 2026-05-24:
   `.\tools\run_warning_scan.ps1` passed with `1302` scripts scanned and no
   GDScript warnings.
 
+125th split on 2026-05-24:
+
+- Commit: `5760849d7 godot: split active throw flare renderer`.
+- Scope: added `active_item_throw_flare_renderer.gd` for Flare projectile
+  sprites, trail drawing, arrived countdown blink, flare flash / confuse zone
+  drawing, flash / glow render budgets, fallback flare dot drawing, icon
+  texture loading, and Flare asset prewarm. The shared
+  `active_item_throw_renderer.gd` keeps the public draw signature, perf
+  labels, generic windup pose / throw icon cache, and dispatch order while
+  delegating live Flare visuals to the focused renderer.
+- Rationale: Flare rendering is a small but cohesive branch with its own
+  projectile, arrived warning, and screen-flash / glow zone budget. Moving it
+  keeps the active throw render facade closer to draw-order orchestration and
+  leaves future Flare visual tuning in one focused owner.
+- Renderer size: `active_item_throw_renderer.gd` moved from `618` lines to
+  `546` lines; the new `active_item_throw_flare_renderer.gd` file is `164`
+  lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused Flare / Grenade-Flare / throw-renderer coverage ran `10`
+  smoke scripts and passed: `active_item_throw_flare_budget_smoke`,
+  `active_item_throw_grenade_flare_smoke`,
+  `active_item_throw_activation_smoke`,
+  `active_item_throw_renderer_budget_smoke`,
+  `active_item_throw_explosion_budget_smoke`,
+  `active_item_throw_rotated_texture_smoke`,
+  `active_item_runtime_render_facade_smoke`,
+  `active_item_runtime_render_facade_direct_smoke`,
+  `active_item_runtime_prewarm_smoke`, and `commando_arm_port_smoke`.
+  `.\tools\run_warning_scan.ps1` passed with `1303` scripts scanned and no
+  GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

@@ -654,9 +654,13 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/items/active_item_throw_renderer.gd`
   Owns the active throw render facade: public draw signature, draw-order and
   perf labels, generic windup pose / throw-icon lookup, direct grenade /
-  flare projectile drawing, explosion zones, flare flash / confuse zones,
-  throw-icon texture caches, Tear Gas renderer fallback constants, and
-  compatibility wrappers / texture aliases for Spider Mine sheet smoke tests.
+  projectile drawing, explosion zones, throw-icon texture caches, Tear Gas
+  renderer fallback constants, and compatibility wrappers / texture aliases
+  for Spider Mine sheet smoke tests.
+  `scripts/items/active_item_throw_flare_renderer.gd` owns Flare projectile
+  sprites / trail drawing, arrived countdown blink, flare flash / confuse
+  zone drawing, flash / glow render budgets, fallback flare dot drawing,
+  icon texture loading, and Flare asset prewarm.
   `scripts/items/active_item_throw_tear_gas_renderer.gd` owns Tear Gas
   projectile sprites / arming countdowns, smoke-zone haze, shared particle
   draw budget, cached puff texture generation, smoke tone / seed helpers,
