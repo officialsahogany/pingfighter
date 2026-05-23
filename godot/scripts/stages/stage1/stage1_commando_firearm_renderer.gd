@@ -21,6 +21,10 @@ const BOWLING_TRAP_SHEET_FRAME_COUNT := 16
 const SUPPORT_AIRCRAFT_TEXTURE_PATH := "res://assets/sprites/effects/commando_fire_support_aircraft_stealth_imagegen_v1.png"
 const SUPPORT_AIRCRAFT_SOURCE_RECT := Rect2(Vector2(270.0, 41.0), Vector2(483.0, 430.0))
 const SUPPORT_AIRCRAFT_DRAW_SIZE := Vector2(150.0, 134.0)
+const SUPPORT_AIRCRAFT_TRAIL_COUNT := 4
+const SUPPORT_AIRCRAFT_SHADOW_OFFSET := Vector2(0.0, 42.0)
+const SUPPORT_MISSILE_LAUNCH_FLASH_FRAMES := 12.0
+const SUPPORT_MISSILE_SMOKE_PUFFS := 5
 
 const REMASTER_TEXTURE_FAMILIES := [
 	"muzzle_glow",
@@ -232,6 +236,7 @@ func build_visual_identity_report(context: Dictionary) -> Dictionary:
 		_add_visual_identity(counts, layers, "fire_support", "radio_target_marker")
 		if bool(call.get("aircraft_active", false)):
 			_add_visual_identity(counts, layers, "fire_support", "aircraft_silhouette")
+			_add_visual_identity(counts, layers, "fire_support", "aircraft_motion_trails")
 	for value in _get_array(draw_items.get("bowling_traps", [])):
 		var trap: Dictionary = _get_dict(value)
 		var state: String = str(trap.get("state", "waiting"))
@@ -889,7 +894,14 @@ func _draw_support_shell(canvas: CanvasItem, projectile: Dictionary, shake_offse
 	var shell_width: float = max(6.0, radius * 0.95)
 	var nose: Vector2 = pos + dir * shell_length * 0.54
 	var tail: Vector2 = pos - dir * shell_length * 0.48
+	var max_life_frames: float = max(1.0, float(projectile.get("max_life_frames", projectile.get("life_frames", 1.0))))
+	var life_frames: float = clamp(float(projectile.get("life_frames", max_life_frames)), 0.0, max_life_frames)
+	var age_frames: float = max_life_frames - life_frames
+	var is_wall_missile: bool = str(projectile.get("support_impact_mode", "")) == "opponent_wall"
 	canvas.draw_line(prev_pos, pos, _with_alpha(secondary, 0.46), max(2.0, radius * 0.55), true)
+	_draw_support_missile_smoke_tail(canvas, tail, dir, side, shell_length, shell_width, secondary, age_frames, is_wall_missile)
+	if is_wall_missile and age_frames <= SUPPORT_MISSILE_LAUNCH_FLASH_FRAMES:
+		_draw_support_missile_launch_flash(canvas, tail, dir, side, shell_length, shell_width, color, secondary, age_frames)
 	canvas.draw_line(tail - dir * shell_length * 0.72, tail, _with_alpha(Color(1.0, 0.36, 0.08), 0.54), shell_width * 0.72, true)
 	canvas.draw_line(tail - dir * shell_length * 0.50, tail, _with_alpha(secondary, 0.74), shell_width * 0.38, true)
 	canvas.draw_colored_polygon(PackedVector2Array([
@@ -902,6 +914,52 @@ func _draw_support_shell(canvas: CanvasItem, projectile: Dictionary, shake_offse
 	canvas.draw_line(nose - dir * shell_length * 0.22, tail + dir * shell_length * 0.12, _with_alpha(Color(1.0, 0.92, 0.62), 0.78), max(1.0, shell_width * 0.24), true)
 	canvas.draw_line(tail + side * shell_width * 0.72, tail + side * shell_width * 1.35 - dir * shell_length * 0.16, _with_alpha(secondary, 0.82), 1.6, true)
 	canvas.draw_line(tail - side * shell_width * 0.72, tail - side * shell_width * 1.35 - dir * shell_length * 0.16, _with_alpha(secondary, 0.82), 1.6, true)
+
+
+func _draw_support_missile_smoke_tail(
+	canvas: CanvasItem,
+	tail: Vector2,
+	dir: Vector2,
+	side: Vector2,
+	shell_length: float,
+	shell_width: float,
+	secondary: Color,
+	age_frames: float,
+	is_wall_missile: bool
+) -> void:
+	var puff_count: int = SUPPORT_MISSILE_SMOKE_PUFFS if is_wall_missile else 3
+	var alpha_scale: float = 1.0 if is_wall_missile else 0.62
+	for i in range(puff_count):
+		var ratio: float = float(i + 1) / float(puff_count)
+		var drift: float = sin(age_frames * 0.23 + float(i) * 1.71) * shell_width * (0.18 + ratio * 0.18)
+		var puff_pos: Vector2 = tail - dir * shell_length * (0.62 + ratio * 1.18) + side * drift
+		var puff_radius: float = shell_width * (0.42 + ratio * 0.54)
+		var alpha: float = alpha_scale * (0.22 - ratio * 0.11)
+		canvas.draw_circle(puff_pos, puff_radius, _with_alpha(Color(0.58, 0.62, 0.68), alpha))
+		canvas.draw_circle(puff_pos - dir * puff_radius * 0.45, puff_radius * 0.48, _with_alpha(secondary, alpha * 0.32))
+
+
+func _draw_support_missile_launch_flash(
+	canvas: CanvasItem,
+	tail: Vector2,
+	dir: Vector2,
+	side: Vector2,
+	shell_length: float,
+	shell_width: float,
+	color: Color,
+	secondary: Color,
+	age_frames: float
+) -> void:
+	var ratio: float = clamp(1.0 - age_frames / SUPPORT_MISSILE_LAUNCH_FLASH_FRAMES, 0.0, 1.0)
+	var flash_center: Vector2 = tail - dir * shell_length * 0.25
+	canvas.draw_circle(flash_center, shell_width * (2.2 + ratio * 1.3), _with_alpha(color, 0.20 * ratio))
+	canvas.draw_circle(flash_center, shell_width * (0.85 + ratio * 0.75), _with_alpha(Color(1.0, 0.96, 0.66), 0.68 * ratio))
+	for i in range(5):
+		var lane: float = float(i) - 2.0
+		var start: Vector2 = flash_center + side * lane * shell_width * 0.43
+		var end: Vector2 = start - dir * shell_length * (0.80 + abs(lane) * 0.18 + ratio * 0.35)
+		var width: float = max(1.2, shell_width * (0.14 + ratio * 0.05))
+		canvas.draw_line(start, end, _with_alpha(secondary, (0.28 - abs(lane) * 0.03) * ratio), width, true)
 
 
 func _draw_trap_ball(canvas: CanvasItem, projectile: Dictionary, shake_offset: Vector2) -> void:
@@ -1060,6 +1118,10 @@ func _draw_support_call_marker(canvas: CanvasItem, call: Dictionary, shake_offse
 @warning_ignore("shadowed_variable_base_class")
 func _draw_support_aircraft(canvas: CanvasItem, call: Dictionary, shake_offset: Vector2) -> void:
 	var pos: Vector2 = Stage1ContextReader.as_vector2(call.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
+	var velocity: Vector2 = Stage1ContextReader.as_vector2(call.get("aircraft_velocity", Vector2.RIGHT), Vector2.RIGHT)
+	var dir: Vector2 = velocity.normalized() if velocity.length_squared() > 0.0001 else Vector2.RIGHT
+	var side: Vector2 = dir.rotated(PI * 0.5)
+	_draw_support_aircraft_motion_fx(canvas, call, pos, dir, side)
 	var texture: Texture2D = _get_support_aircraft_texture()
 	if texture != null:
 		canvas.draw_texture_rect_region(
@@ -1090,6 +1152,34 @@ func _draw_support_aircraft(canvas: CanvasItem, call: Dictionary, shake_offset: 
 	canvas.draw_circle(pos + Vector2(w * 0.22, 0.0), 4.0, _with_alpha(Color(0.12, 0.16, 0.22), 0.90))
 	canvas.draw_line(pos + Vector2(-w * 0.46, -h * 0.25), pos + Vector2(-w * 0.68, -h * 0.25), _with_alpha(glow, 0.34), 4.0, true)
 	canvas.draw_line(pos + Vector2(-w * 0.46, h * 0.25), pos + Vector2(-w * 0.68, h * 0.25), _with_alpha(glow, 0.34), 4.0, true)
+
+
+func _draw_support_aircraft_motion_fx(canvas: CanvasItem, support_call: Dictionary, pos: Vector2, dir: Vector2, side: Vector2) -> void:
+	var secondary: Color = Stage1ContextReader.as_color(support_call.get("secondary", Color(1.0, 0.82, 0.25)), Color(1.0, 0.82, 0.25))
+	var timer: float = float(support_call.get("aircraft_spawn_timer", support_call.get("timer_frames", 0.0)))
+	var wave: float = sin(timer * 0.18)
+	var shadow_pos: Vector2 = pos + SUPPORT_AIRCRAFT_SHADOW_OFFSET + side * wave * 2.0
+	_draw_ellipse(canvas, shadow_pos, SUPPORT_AIRCRAFT_DRAW_SIZE.x * 0.46, SUPPORT_AIRCRAFT_DRAW_SIZE.y * 0.14, Color(0.0, 0.0, 0.0, 0.16))
+	_draw_ellipse(canvas, shadow_pos, SUPPORT_AIRCRAFT_DRAW_SIZE.x * 0.28, SUPPORT_AIRCRAFT_DRAW_SIZE.y * 0.08, Color(0.0, 0.0, 0.0, 0.09))
+	for i in range(SUPPORT_AIRCRAFT_TRAIL_COUNT):
+		var ratio: float = float(i + 1) / float(SUPPORT_AIRCRAFT_TRAIL_COUNT)
+		var lane: float = float(i) - (float(SUPPORT_AIRCRAFT_TRAIL_COUNT) - 1.0) * 0.5
+		var start: Vector2 = pos - dir * SUPPORT_AIRCRAFT_DRAW_SIZE.x * (0.34 + ratio * 0.16) + side * lane * 14.0
+		var end: Vector2 = start - dir * SUPPORT_AIRCRAFT_DRAW_SIZE.x * (0.28 + ratio * 0.36)
+		var alpha: float = (0.18 - ratio * 0.025) * (0.92 + 0.08 * wave)
+		canvas.draw_line(start, end, _with_alpha(Color(0.58, 0.74, 0.92), alpha), 1.2 + ratio * 1.5, true)
+		canvas.draw_line(start + side * 2.0, end + side * 2.0, _with_alpha(secondary, alpha * 0.35), 0.8 + ratio * 0.6, true)
+	for i in range(2):
+		var ratio: float = float(i + 1) / 2.0
+		var ghost_pos: Vector2 = pos - dir * SUPPORT_AIRCRAFT_DRAW_SIZE.x * (0.20 + ratio * 0.14)
+		var ghost_width: float = SUPPORT_AIRCRAFT_DRAW_SIZE.x * (0.36 + ratio * 0.05)
+		var ghost_height: float = SUPPORT_AIRCRAFT_DRAW_SIZE.y * (0.14 + ratio * 0.03)
+		canvas.draw_colored_polygon(PackedVector2Array([
+			ghost_pos + dir * ghost_width * 0.45,
+			ghost_pos + side * ghost_height,
+			ghost_pos - dir * ghost_width * 0.52,
+			ghost_pos - side * ghost_height,
+		]), _with_alpha(Color(0.24, 0.30, 0.40), 0.10 - ratio * 0.025))
 
 
 func _draw_net_field(canvas: CanvasItem, effect: Dictionary, shake_offset: Vector2) -> void:
