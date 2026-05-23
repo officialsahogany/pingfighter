@@ -358,7 +358,9 @@ This section is intentionally long; use search to find the nearest owner.
   display-name lookup, quality-prefix formatting, and quality color lookup
   behind the public catalog API. `scripts/items/mythic_item_catalog_fixed_options.gd`
   owns fixed-option source arrays and item-name fixed-option lookup behind
-  the public catalog API. `scripts/items/mythic_item_catalog_lists.gd`
+  the public catalog API. `scripts/items/mythic_item_catalog_build_router.gd`
+  owns item-name to builder dispatch behind the public
+  `build_item_by_name()` catalog API. `scripts/items/mythic_item_catalog_lists.gd`
   owns debug item and field-spawn item list construction behind the public catalog API;
   debug item construction reuses `FIELD_SPAWN_ORDER` so there is one catalog
   order source for HUD prewarm, pickup, reward, field-spawn, and debug paths.

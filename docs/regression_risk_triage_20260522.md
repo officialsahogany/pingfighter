@@ -10,22 +10,22 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `0e3fcda43 godot: split mythic catalog fixed options`.
-- The checkpoint span through that HEAD contains 156 follow-up commits after
+  `89fdc810f godot: split mythic catalog build router`.
+- The checkpoint span through that HEAD contains 158 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 157 commits.
+  contains 159 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `88346c70c docs: record mythic debug order cleanup`.
+  `b14278eb0 docs: record mythic fixed options helper split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
   `2001105b6 docs: record final local settings hide`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
-  `godot/` passed on 2026-05-24 with `1284` scripts scanned and no GDScript
+  `godot/` passed on 2026-05-24 with `1285` scripts scanned and no GDScript
   warnings.
 - Current dirty scope before this documentation sync: `git status
   --porcelain=v1 -uall` is clean.
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the ninety-sixth split. The broad
+- The split notes below are current through the ninety-seventh split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4364,6 +4364,29 @@ Ninety-sixth split on 2026-05-24:
   `mythic_item_ownership_runtime_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1284` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
+
+Ninety-seventh split on 2026-05-24:
+
+- Commit: `89fdc810f godot: split mythic catalog build router`.
+- Scope: added `mythic_item_catalog_build_router.gd` for item-name to builder
+  dispatch. `mythic_item_catalog.gd` keeps the public `build_item_by_name()`
+  API and delegates the route selection while retaining the existing item
+  builder functions for now.
+- Rationale: build dispatch is separate from item definitions. Moving the
+  match table out first shrinks the facade without rewriting the item data
+  dictionaries or changing the caller-facing catalog API.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `1434` lines to
+  `1337` lines; the new build router is `63` lines.
+- Validation: focused catalog / build / reward coverage
+  (`passive_item_quality_prefix_smoke`,
+  `passive_item_debug_menu_click_add_smoke`, `item_field_spawn_pool_smoke`,
+  `active_item_pickup_router_smoke`, `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`,
+  `mythic_item_ownership_runtime_smoke`, `pandora_legacy_port_smoke`, and
+  `elixir_of_mastery_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1285` scripts scanned, no GDScript
   warnings). `git diff --check` passed.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
