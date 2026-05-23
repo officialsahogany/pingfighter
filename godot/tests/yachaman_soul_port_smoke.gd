@@ -90,9 +90,17 @@ class FakeAudio:
 	extends RefCounted
 
 	var change_calls := 0
+	var throw_calls := 0
+	var grenade_calls := 0
 
 	func play_horn_strawberry_change() -> void:
 		change_calls += 1
+
+	func play_throw() -> void:
+		throw_calls += 1
+
+	func play_grenade_explosion() -> void:
+		grenade_calls += 1
 
 	func stop_dash_delay() -> void:
 		pass
@@ -160,6 +168,33 @@ class FakeBossHealthFlow:
 			owner.set("boss_hp", owner.get("boss_max_hp"))
 
 
+class FakeStatusEffectState:
+	extends RefCounted
+
+	var applied: Array[Dictionary] = []
+
+	func apply_status(target: String, status_id: String, duration_frames: float, data: Dictionary = {}, source: String = "") -> Dictionary:
+		applied.append({
+			"target": target,
+			"status_id": status_id,
+			"duration_frames": duration_frames,
+			"data": data,
+			"source": source,
+		})
+		return applied.back()
+
+
+class FakeFeedback:
+	extends RefCounted
+
+	var shake_amount := 0.0
+	var shake_intensity := 0.0
+
+	func max_screen_shake(amount: float, intensity: float) -> void:
+		shake_amount = max(shake_amount, amount)
+		shake_intensity = max(shake_intensity, intensity)
+
+
 var _failures: Array[String] = []
 
 
@@ -167,6 +202,7 @@ func _init() -> void:
 	_verify_catalog_registration()
 	_verify_score_cancel_revival_flow()
 	_verify_direct_runtime_transform_and_round_reset()
+	_verify_bomb_spin_skill_flow()
 
 	if _failures.is_empty():
 		print("yachaman_soul_port_smoke: ok")
@@ -291,6 +327,81 @@ func _verify_direct_runtime_transform_and_round_reset() -> void:
 	runtime.on_round_start(owner, registry)
 	_expect(not runtime.is_yachaman_transformed(), "Yachaman should clear on the real round boundary")
 	_expect(not bool(runtime.get_yachaman_context().get("used_this_round", true)), "Yachaman once-this-round flag should clear on round start")
+
+
+func _verify_bomb_spin_skill_flow() -> void:
+	var owner := FakeOwner.new()
+	owner.values["ball_pos"] = Vector2(380.0, 634.0)
+	owner.values["ball_vel"] = Vector2(0.0, 8.0)
+	owner.values["ball_size"] = 28.6
+	var runtime: Object = MythicItemRuntime.new()
+	var audio := FakeAudio.new()
+	var input_reader := FakeInputReader.new()
+	var status_state := FakeStatusEffectState.new()
+	var feedback := FakeFeedback.new()
+	var registry := FakeRegistry.new({
+		"smasher_input_reader": input_reader,
+		"game_audio": audio,
+		"status_effect_state": status_state,
+		"battle_feedback_state": feedback,
+	})
+	_expect(
+		runtime.equip_item("yachaman_soul", owner, registry, {"activation_chance_pct": 100.0}, false),
+		"bomb spin smoke should equip Yachaman Soul"
+	)
+	_force_equipped_roll(runtime, "yachaman_soul", "activation_chance_pct", 100.0)
+	_seed_next_roll_at_or_below(runtime.get_yachaman_activation_chance_pct())
+	_expect(runtime.try_trigger_yachaman_revival("round", {"owner": owner, "registry": registry}), "bomb spin smoke should trigger Yachaman revival")
+	runtime.update(owner, registry, 1.5)
+	_expect(runtime.is_yachaman_transformed(), "bomb spin smoke should reach transformed state")
+
+	input_reader.snapshot = {
+		"right_pressed": true,
+		"action_just_pressed": true,
+	}
+	runtime.update(owner, registry, 1.0 / 60.0)
+	var context: Dictionary = runtime.get_yachaman_context()
+	_expect(bool(context.get("bomb_spin_active", false)), "Space/click plus direction should start Yachaman bomb spin")
+	_expect(bool(context.get("helmet_removed", false)), "Bomb spin should remove the helmet from the transformed body")
+	_expect(audio.throw_calls >= 1, "Bomb spin should play a throw-style cue")
+
+	input_reader.snapshot = {}
+	var loaded := bool(runtime.get_ball_draw_context().get("bomb_ball_loaded", false))
+	for _i in range(16):
+		if loaded:
+			break
+		var helmet_pos: Vector2 = runtime.get_yachaman_context().get("bomb_spin_helmet_pos", Vector2.ZERO)
+		if helmet_pos != Vector2.ZERO:
+			owner.values["ball_pos"] = helmet_pos
+			owner.values["ball_vel"] = Vector2(0.0, 8.0)
+		runtime.update(owner, registry, 1.0 / 60.0)
+		loaded = bool(runtime.get_ball_draw_context().get("bomb_ball_loaded", false))
+	_expect(loaded, "Bomb spin helmet collision should load the bomb onto the ball")
+	_expect(runtime.has_ball_draw_context(), "Loaded Yachaman bomb should expose a ball draw context")
+	var loaded_ball_vel: Vector2 = owner.values.get("ball_vel", Vector2.ZERO)
+	_expect(loaded_ball_vel.y < 0.0, "Loaded bomb ball should bounce upward from the helmet")
+
+	var boss_result: Dictionary = runtime.consume_yachaman_bomb_boss_hit(
+		Vector2(380.0, 120.0),
+		Vector2(3.0, -12.0),
+		{
+			"boss_pos": Vector2(330.0, 80.0),
+			"boss_paddle_size": Vector2(100.0, 40.0),
+		},
+		{
+			"registry": registry,
+			"status_effect_state": status_state,
+			"feedback": feedback,
+		}
+	)
+	_expect(bool(boss_result.get("yachaman_bomb_hit", false)), "Boss counter should consume the loaded Yachaman bomb")
+	_expect(not bool(runtime.get_ball_draw_context().get("bomb_ball_loaded", false)), "Bomb ball overlay should clear after boss explosion")
+	_expect(status_state.applied.size() == 1, "Yachaman bomb should apply a boss stun")
+	_expect(is_equal_approx(float(status_state.applied[0].get("duration_frames", 0.0)), 60.0), "Yachaman bomb stun should last 60 frames")
+	_expect(abs(float(boss_result.get("boss_vel", 0.0))) >= 15.0, "Yachaman bomb should return boss knockback power")
+	_expect(bool(boss_result.get("suppress_paddle_hit_knockback", false)), "Yachaman bomb should suppress normal paddle-hit knockback")
+	_expect(audio.grenade_calls >= 1, "Yachaman bomb explosion should play a grenade cue")
+	_expect(feedback.shake_amount > 0.0, "Yachaman bomb explosion should shake the screen")
 
 
 func _verify_skill_input_proxy(runtime: Object) -> void:

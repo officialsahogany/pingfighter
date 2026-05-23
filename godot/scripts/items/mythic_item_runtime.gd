@@ -1876,6 +1876,16 @@ func consume_yachaman_revival_reset_ready() -> bool:
 	return yachaman_soul_runtime.consume_reset_ready(self)
 
 
+func consume_yachaman_bomb_boss_hit(
+	ball_pos: Vector2,
+	ball_vel: Vector2,
+	context: Dictionary = {},
+	deps: Dictionary = {}
+) -> Dictionary:
+	_ensure_helpers_ready()
+	return yachaman_soul_runtime.consume_bomb_boss_hit(self, ball_pos, ball_vel, context, deps)
+
+
 func is_gold_digger_equipped() -> bool:
 	_ensure_helpers_ready()
 	return resource_bonus_runtime.is_gold_digger_equipped(self)

@@ -340,6 +340,20 @@ func play_horn_strawberry_bomb_explosion_audio(runtime: Object, registry: Object
 	)
 
 
+func play_yachaman_bomb_spin_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_throw", "play_active_item"]
+	)
+
+
+func play_yachaman_bomb_explosion_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_grenade_explosion", "play_active_item"]
+	)
+
+
 func play_named(runtime: Object, registry: Object, method_name: String) -> bool:
 	var audio_method := method_name
 	if audio_method.begins_with("_"):

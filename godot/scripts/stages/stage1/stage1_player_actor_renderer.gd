@@ -266,7 +266,9 @@ func draw(
 			canvas,
 			player_pos,
 			paddle_size,
-			shake_offset
+			shake_offset,
+			1.0,
+			context.get("yachaman_context", {})
 		)
 	elif horn_strawberry_transformed:
 		drawn_player_visual_rect = horn_strawberry_paddle_renderer.draw(
