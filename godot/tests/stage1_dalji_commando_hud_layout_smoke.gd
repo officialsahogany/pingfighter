@@ -1,5 +1,6 @@
 extends SceneTree
 
+const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
 const Stage1DaljiBossSkillHudRenderer := preload("res://scripts/stages/stage1/stage1_dalji_boss_skill_hud_renderer.gd")
 const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
 const Stage1PillarUiRenderer := preload("res://scripts/hud/stage1_pillar_ui_renderer.gd")
@@ -86,6 +87,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_pillar_renderer_exposes_commando_panel_state()
 	_verify_cards_avoid_commando_firearm_panel()
+	_verify_post_active_hud_pass_seeds_commando_panel_rect()
 	_verify_scene_drawer_passes_commando_panel_rect()
 	_verify_boss_dash_uses_compact_fallback_frame()
 	_verify_viper_hud_lod_context()
@@ -143,7 +145,7 @@ func _verify_cards_avoid_commando_firearm_panel() -> void:
 	var shifted_layout: Dictionary = renderer.build_card_layout(context)
 	var shifted_stack: Rect2 = _get_rect(shifted_layout.get("stack_rect", Rect2()))
 	var scale_factor: float = float(shifted_layout.get("scale_factor", 1.0))
-	var required_gap: float = max(4.0, round(4.0 * scale_factor))
+	var required_gap: float = BossSkillCardHudSpec.get_commando_firearm_panel_gap(scale_factor)
 	_expect(shifted_stack.end.y <= panel_rect.position.y - required_gap + 0.01, "Commando-safe Dalji cards should sit above the firearm panel")
 	_expect(shifted_stack.position.y < default_stack.position.y, "Commando-safe Dalji card stack should move upward instead of shrinking or staying centered")
 
@@ -151,6 +153,33 @@ func _verify_cards_avoid_commando_firearm_panel() -> void:
 	var far_layout: Dictionary = renderer.build_card_layout(context)
 	var far_stack: Rect2 = _get_rect(far_layout.get("stack_rect", Rect2()))
 	_expect(is_equal_approx(far_stack.position.y, default_stack.position.y), "unrelated left-edge panels should not move the Dalji card stack")
+
+
+func _verify_post_active_hud_pass_seeds_commando_panel_rect() -> void:
+	var boss_renderer := FakeBossSkillRenderer.new()
+	var pillar_renderer := FakePillarUiRenderer.new()
+	var registry := FakeRegistry.new({
+		"stage1_dalji_boss_skill_hud_renderer": boss_renderer,
+		"stage1_dalji_boss_skill_cooldown_state": FakeCooldownState.new(),
+		"stage1_pillar_ui_renderer": pillar_renderer,
+		"commando_firearm_selector_renderer": RefCounted.new(),
+		"commando_weapon_controller": RefCounted.new(),
+	})
+	var drawer := Stage1PillarHudSceneDrawer.new()
+	var context := {
+		"height": 750.0,
+		"selected_character_type": "soldier",
+	}
+	drawer.draw_active_item_hud(
+		null,
+		context,
+		registry,
+		Vector2(2048.0, 1152.0),
+		Vector2(512.0, 64.0),
+		Vector2(1024.0, 1024.0)
+	)
+	var seeded_rect: Rect2 = _get_rect(context.get("commando_firearm_panel_rect", Rect2()))
+	_expect(seeded_rect == pillar_renderer.panel_rect, "post-active HUD pass should seed the Commando firearm panel rect for later boss skill HUD draws")
 
 
 func _verify_scene_drawer_passes_commando_panel_rect() -> void:

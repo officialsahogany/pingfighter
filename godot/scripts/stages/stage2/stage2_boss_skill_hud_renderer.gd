@@ -47,6 +47,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	if skills.is_empty():
 		return
 
+	var view_size: Vector2 = _as_vector2(context.get("view_size", Vector2.ZERO), Vector2.ZERO)
 	var game_offset: Vector2 = _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
 	var game_size: Vector2 = _as_vector2(context.get("game_size", Vector2.ZERO), Vector2.ZERO)
 	if game_offset.x <= 0.0 or game_size.y <= 0.0:
@@ -66,14 +67,44 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var margin_x: float = float(metrics.get("margin_x", 3.0))
 	var margin_y: float = float(metrics.get("margin_y", 5.0))
 	var total_h: float = float(entries.size()) * (card_h + card_gap) - card_gap
-	var start_y: float = game_offset.y + max(margin_y, floor((game_size.y - total_h) * 0.5))
 	var card_x: float = max(1.0, pillar_w - card_w - margin_x)
+	var avoid_rect: Rect2 = _as_rect2(context.get("commando_firearm_panel_rect", Rect2()), Rect2())
+	var start_y: float = BossSkillCardHudSpec.resolve_stack_start_y(
+		game_offset,
+		game_size.y,
+		total_h,
+		margin_y,
+		card_x,
+		card_w,
+		scale_factor,
+		avoid_rect
+	)
 	var font: Font = ThemeDB.fallback_font
+	var mouse_pos: Vector2 = BossSkillCardHudSpec.get_mouse_position(canvas)
+	var hovered_skill: Dictionary = {}
+	var hovered_rect := Rect2()
 
 	for i in range(entries.size()):
 		var skill: Dictionary = entries[i]
 		var rect := Rect2(Vector2(card_x, start_y + float(i) * (card_h + card_gap)), Vector2(card_w, card_h))
 		_draw_card(canvas, rect, skill, scale_factor, font)
+		if rect.has_point(mouse_pos):
+			hovered_skill = skill
+			hovered_rect = rect
+	if not hovered_skill.is_empty():
+		BossSkillCardHudSpec.draw_skill_tooltip(
+			canvas,
+			hovered_skill,
+			hovered_rect,
+			view_size,
+			pillar_w,
+			_get_tooltip_info(str(hovered_skill.get("id", ""))),
+			scale_factor,
+			{
+				"background_color": Color(0.035, 0.050, 0.060, 0.94),
+				"inner_color": Color(0.07, 0.11, 0.13, 0.54),
+			}
+		)
 
 
 func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, font: Font) -> void:
@@ -179,6 +210,31 @@ func _get_skillcard_texture_path(skill_id: String) -> String:
 	return ""
 
 
+func _get_tooltip_info(skill_id: String) -> Dictionary:
+	if skill_id == "jungle_quake":
+		return {
+			"name": "정글지진",
+			"trigger": "자동",
+			"cooldown": "쿨타임 40초",
+			"description": "바닥을 흔들어 바위와 충격을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.",
+		}
+	if skill_id == "water_cannon":
+		return {
+			"name": "물대포",
+			"trigger": "자동 / 바위 등장 후",
+			"cooldown": "쿨타임 30초",
+			"description": "물대포를 충전해 전장을 가로지르는 물줄기를 발사합니다.",
+		}
+	if skill_id == "speed_defense":
+		return {
+			"name": "스피드디펜스",
+			"trigger": "자동",
+			"cooldown": "쿨타임 25초",
+			"description": "짧은 시간 동안 보스 이동과 반응이 빨라지고 상태 이상을 막습니다.",
+		}
+	return {}
+
+
 func _as_color(value: Variant, fallback: Color) -> Color:
 	if value is Color:
 		return value
@@ -187,5 +243,11 @@ func _as_color(value: Variant, fallback: Color) -> Color:
 
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
+		return value
+	return fallback
+
+
+func _as_rect2(value: Variant, fallback: Rect2) -> Rect2:
+	if value is Rect2:
 		return value
 	return fallback

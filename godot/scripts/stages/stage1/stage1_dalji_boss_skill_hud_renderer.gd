@@ -5,7 +5,6 @@ const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_ca
 
 const WHIP_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage1_dalji_whip_skillcard_imagegen_v1.png"
 const SPINNING_TOP_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage1_dalji_spinning_top_skillcard_imagegen_v1.png"
-const COMMANDO_FIREARM_PANEL_GAP_BASE := 4.0
 const QUEUE_LERP_SPEED := 8.0
 const SIDE_STRIP_BASE := 2.0
 const TOOLTIP_WIDTH_BASE := 168.0
@@ -76,15 +75,16 @@ func build_card_layout(context: Dictionary) -> Dictionary:
 	var margin_y: float = float(metrics.get("margin_y", 5.0))
 	var total_h: float = float(entries.size()) * (card_h + card_gap) - card_gap
 	var card_x: float = max(1.0, pillar_w - card_w - margin_x)
-	var start_y: float = _resolve_stack_start_y(
-		context,
+	var avoid_rect: Rect2 = _as_rect2(context.get("commando_firearm_panel_rect", Rect2()), Rect2())
+	var start_y: float = BossSkillCardHudSpec.resolve_stack_start_y(
 		game_offset,
 		pillar_h,
 		total_h,
 		margin_y,
 		card_x,
 		card_w,
-		scale_factor
+		scale_factor,
+		avoid_rect
 	)
 	var rects := []
 	for i in range(entries.size()):
@@ -141,32 +141,6 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	_prune_queue_positions(entries)
 	if not hovered_skill.is_empty():
 		_draw_skill_tooltip(canvas, hovered_skill, hovered_rect, view_size, pillar_w, _get_tooltip_scale(scale_factor))
-
-
-func _resolve_stack_start_y(
-	context: Dictionary,
-	game_offset: Vector2,
-	pillar_h: float,
-	total_h: float,
-	margin_y: float,
-	card_x: float,
-	card_w: float,
-	scale_factor: float
-) -> float:
-	var start_y: float = game_offset.y + max(margin_y, floor((pillar_h - total_h) * 0.5))
-	var avoid_rect: Rect2 = _as_rect2(context.get("commando_firearm_panel_rect", Rect2()), Rect2())
-	if avoid_rect.size.x > 0.0 and avoid_rect.size.y > 0.0:
-		var card_lane := Rect2(Vector2(card_x, game_offset.y), Vector2(card_w, pillar_h))
-		if _rects_overlap_x(card_lane, avoid_rect):
-			var safety_gap: float = max(4.0, round(COMMANDO_FIREARM_PANEL_GAP_BASE * scale_factor))
-			var safe_bottom: float = avoid_rect.position.y - safety_gap
-			if start_y + total_h > safe_bottom:
-				start_y = safe_bottom - total_h
-	return floor(max(game_offset.y + margin_y, start_y))
-
-
-func _rects_overlap_x(a: Rect2, b: Rect2) -> bool:
-	return a.position.x < b.end.x and b.position.x < a.end.x
 
 
 func _union_rects(rects: Array) -> Rect2:

@@ -132,6 +132,7 @@ func draw_active_item_hud(
 ) -> void:
 	var perf_logger: Object = context.get("battle_perf_logger", null)
 	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
+	_sync_commando_firearm_panel_rect_for_boss_hud(context, registry, game_offset, game_size)
 	var sample_start: int = _perf_begin(perf_logger)
 	active_item_drawer.draw(canvas, context, registry, view_size, game_offset, game_size)
 	_perf_end(perf_logger, "stage1.pillar.active_item_hud", sample_start)
@@ -266,6 +267,34 @@ func _draw_stage1_dalji_boss_skill_hud(
 	if firearm_panel_rect.size.x > 0.0 and firearm_panel_rect.size.y > 0.0:
 		hud_context["commando_firearm_panel_rect"] = firearm_panel_rect
 	renderer.draw(canvas, hud_context)
+
+
+func build_commando_firearm_panel_state_for_boss_hud(
+	context: Dictionary,
+	registry: Object,
+	game_offset: Vector2,
+	game_size: Vector2
+) -> Dictionary:
+	return _build_commando_firearm_panel_state_for_boss_hud(context, registry, game_offset, game_size)
+
+
+func _sync_commando_firearm_panel_rect_for_boss_hud(
+	context: Dictionary,
+	registry: Object,
+	game_offset: Vector2,
+	game_size: Vector2
+) -> void:
+	var firearm_panel_state: Dictionary = build_commando_firearm_panel_state_for_boss_hud(
+		context,
+		registry,
+		game_offset,
+		game_size
+	)
+	var firearm_panel_rect: Rect2 = _get_rect(firearm_panel_state.get("rect", Rect2()))
+	if firearm_panel_rect.size.x > 0.0 and firearm_panel_rect.size.y > 0.0:
+		context["commando_firearm_panel_rect"] = firearm_panel_rect
+	else:
+		context.erase("commando_firearm_panel_rect")
 
 
 func _build_commando_firearm_panel_state_for_boss_hud(

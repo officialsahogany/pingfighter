@@ -30,6 +30,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var skills: Array = _get_array(context.get("stage3_boss_skill_hud_skills", []))
 	if skills.is_empty():
 		return
+	var view_size: Vector2 = _as_vector2(context.get("view_size", Vector2.ZERO), Vector2.ZERO)
 	var game_offset: Vector2 = _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
 	var game_size: Vector2 = _as_vector2(context.get("game_size", Vector2.ZERO), Vector2.ZERO)
 	if game_offset.x <= 0.0 or game_size.y <= 0.0:
@@ -44,16 +45,46 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var margin_x: float = float(metrics.get("margin_x", 3.0))
 	var margin_y: float = float(metrics.get("margin_y", 5.0))
 	var total_h: float = float(skills.size()) * (card_h + card_gap) - card_gap
-	var start_y: float = game_offset.y + max(margin_y, floor((game_size.y - total_h) * 0.5))
 	var card_x: float = max(1.0, pillar_w - card_w - margin_x)
+	var avoid_rect: Rect2 = _as_rect2(context.get("commando_firearm_panel_rect", Rect2()), Rect2())
+	var start_y: float = BossSkillCardHudSpec.resolve_stack_start_y(
+		game_offset,
+		game_size.y,
+		total_h,
+		margin_y,
+		card_x,
+		card_w,
+		scale_factor,
+		avoid_rect
+	)
+	var mouse_pos: Vector2 = BossSkillCardHudSpec.get_mouse_position(canvas)
+	var hovered_skill: Dictionary = {}
+	var hovered_rect := Rect2()
 	for i in range(skills.size()):
 		if not (skills[i] is Dictionary):
 			continue
 		var skill: Dictionary = skills[i]
 		var rect := Rect2(Vector2(card_x, start_y + float(i) * (card_h + card_gap)), Vector2(card_w, card_h))
 		_draw_card(canvas, rect, skill, scale_factor)
+		if rect.has_point(mouse_pos):
+			hovered_skill = skill
+			hovered_rect = rect
 	if bool(context.get("stage3_boss_skill_hud_show_boss_gauge", true)):
 		_draw_wand_gauge(canvas, context, game_offset, scale_factor)
+	if not hovered_skill.is_empty():
+		BossSkillCardHudSpec.draw_skill_tooltip(
+			canvas,
+			hovered_skill,
+			hovered_rect,
+			view_size,
+			pillar_w,
+			_get_tooltip_info(str(hovered_skill.get("id", ""))),
+			scale_factor,
+			{
+				"background_color": Color(0.055, 0.035, 0.060, 0.94),
+				"inner_color": Color(0.13, 0.08, 0.13, 0.54),
+			}
+		)
 
 
 func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float) -> void:
@@ -154,6 +185,31 @@ func _get_skillcard_atlas() -> Texture2D:
 	return _skillcard_atlas
 
 
+func _get_tooltip_info(skill_id: String) -> Dictionary:
+	if skill_id == "tear_shower":
+		return {
+			"name": "눈물샤워",
+			"trigger": "자동",
+			"cooldown": "쿨타임 25초",
+			"description": "전장 위로 눈물을 떨어뜨려 공을 둔화시키고 보스 쪽 압박을 만듭니다.",
+		}
+	if skill_id == "curse_chest":
+		return {
+			"name": "저주상자",
+			"trigger": "자동",
+			"cooldown": "쿨타임 35초",
+			"description": "저주 상자를 던져 폭발과 연기를 남기고 공의 흐름을 어지럽힙니다.",
+		}
+	if skill_id == "psycho_ball":
+		return {
+			"name": "사이코볼",
+			"trigger": "보스 타격",
+			"cooldown": "쿨타임 70초",
+			"description": "사이코볼 상태로 전장을 흔들며 공 충돌에 강한 히트스톱을 겁니다.",
+		}
+	return {}
+
+
 func _get_array(value: Variant) -> Array:
 	if value is Array:
 		return value
@@ -168,5 +224,11 @@ func _as_color(value: Variant, fallback: Color) -> Color:
 
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
+		return value
+	return fallback
+
+
+func _as_rect2(value: Variant, fallback: Rect2) -> Rect2:
+	if value is Rect2:
 		return value
 	return fallback

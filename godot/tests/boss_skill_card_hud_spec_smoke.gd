@@ -13,7 +13,10 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_official_dalji_spec()
+	_verify_commando_panel_avoidance_contract()
 	_verify_stage_renderers_share_spec()
+	_verify_stage_renderers_use_commando_avoidance()
+	_verify_stage_renderers_have_hover_tooltips()
 	_verify_stage1_layout_uses_spec()
 	_verify_stage5_layout_and_inferno_contract()
 
@@ -35,6 +38,41 @@ func _verify_official_dalji_spec() -> void:
 	_expect(_vector2_equal(_get_vector2(metrics.get("card_size", Vector2.ZERO)), Vector2(34.0, 10.0)), "official base pillar card rect should resolve to 34x10 after rounding and min clamp")
 
 
+func _verify_commando_panel_avoidance_contract() -> void:
+	var metrics: Dictionary = BossSkillCardHudSpec.get_card_metrics(260.0)
+	var card_size: Vector2 = _get_vector2(metrics.get("card_size", Vector2.ZERO))
+	var card_gap: float = float(metrics.get("card_gap", 0.0))
+	var margin_x: float = float(metrics.get("margin_x", 0.0))
+	var margin_y: float = float(metrics.get("margin_y", 0.0))
+	var scale_factor: float = float(metrics.get("scale_factor", 1.0))
+	var total_h: float = 3.0 * (card_size.y + card_gap) - card_gap
+	var card_x: float = 260.0 - card_size.x - margin_x
+	var game_offset := Vector2(260.0, 25.0)
+	var centered_y: float = BossSkillCardHudSpec.resolve_stack_start_y(
+		game_offset,
+		750.0,
+		total_h,
+		margin_y,
+		card_x,
+		card_size.x,
+		scale_factor
+	)
+	var panel_rect := Rect2(Vector2(card_x + 8.0, centered_y + total_h - 6.0), Vector2(card_size.x, 110.0))
+	var shifted_y: float = BossSkillCardHudSpec.resolve_stack_start_y(
+		game_offset,
+		750.0,
+		total_h,
+		margin_y,
+		card_x,
+		card_size.x,
+		scale_factor,
+		panel_rect
+	)
+	var required_gap: float = BossSkillCardHudSpec.get_commando_firearm_panel_gap(scale_factor)
+	_expect(shifted_y + total_h <= panel_rect.position.y - required_gap + 0.01, "boss skillcard shared layout should clear the Commando firearm panel")
+	_expect(shifted_y < centered_y, "boss skillcard shared layout should move upward when the firearm panel overlaps its lane")
+
+
 func _verify_stage_renderers_share_spec() -> void:
 	var expected: Dictionary = BossSkillCardHudSpec.get_card_metrics(260.0)
 	var renderers := [
@@ -48,6 +86,42 @@ func _verify_stage_renderers_share_spec() -> void:
 		_expect(renderer.has_method("get_debug_card_metrics"), "boss skillcard renderer should expose debug card metrics")
 		var metrics: Dictionary = renderer.get_debug_card_metrics(260.0)
 		_expect(_metrics_equal(metrics, expected), "boss skillcard renderer should use the shared Dalji card metrics")
+
+
+func _verify_stage_renderers_use_commando_avoidance() -> void:
+	var renderer_paths := [
+		"res://scripts/stages/stage1/stage1_dalji_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage2/stage2_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage3/stage3_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage4/stage4_ponk_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd",
+	]
+	for path in renderer_paths:
+		var source := FileAccess.get_file_as_string(path)
+		_expect(source.find("commando_firearm_panel_rect") >= 0, "%s should read the Commando firearm panel rect" % path)
+		_expect(source.find("BossSkillCardHudSpec.resolve_stack_start_y") >= 0, "%s should use the shared avoidant stack layout" % path)
+	var scene_drawer_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
+	_expect(scene_drawer_source.find("build_commando_firearm_panel_state_for_boss_hud") >= 0, "Stage 1 pillar HUD scene drawer should expose the firearm panel rect builder")
+	_expect(scene_drawer_source.find("context[\"commando_firearm_panel_rect\"]") >= 0, "post-active HUD pass should seed the firearm panel rect into the draw context")
+
+
+func _verify_stage_renderers_have_hover_tooltips() -> void:
+	var common_source := FileAccess.get_file_as_string("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
+	_expect(common_source.find("draw_skill_tooltip") >= 0, "boss skillcard shared spec should expose tooltip drawing")
+	var renderer_paths := [
+		"res://scripts/stages/stage1/stage1_dalji_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage2/stage2_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage3/stage3_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage4/stage4_ponk_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd",
+	]
+	for path in renderer_paths:
+		var source := FileAccess.get_file_as_string(path)
+		_expect(source.find("get_mouse_position") >= 0, "%s should read the mouse position for skillcard hover" % path)
+		_expect(source.find("draw_skill_tooltip") >= 0, "%s should draw a skillcard tooltip on hover" % path)
+		_expect(source.find("_get_tooltip_info") >= 0, "%s should provide localized skillcard tooltip copy" % path)
+	var stage5_source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd")
+	_expect(stage5_source.find("hongryun_fire_machine") >= 0 and stage5_source.find("화염기관") >= 0, "Stage 5 fire-machine card should have localized tooltip copy")
 
 
 func _verify_stage1_layout_uses_spec() -> void:

@@ -58,9 +58,22 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var margin_x: float = float(metrics.get("margin_x", 3.0))
 	var margin_y: float = float(metrics.get("margin_y", 5.0))
 	var total_h: float = float(entries.size()) * (card_h + card_gap) - card_gap
-	var start_y: float = game_offset.y + maxf(margin_y, floor((game_size.y - total_h) * 0.5))
 	var card_x: float = maxf(1.0, pillar_w - card_w - margin_x)
+	var avoid_rect: Rect2 = _as_rect2(context.get("commando_firearm_panel_rect", Rect2()), Rect2())
+	var start_y: float = BossSkillCardHudSpec.resolve_stack_start_y(
+		game_offset,
+		game_size.y,
+		total_h,
+		margin_y,
+		card_x,
+		card_w,
+		scale_factor,
+		avoid_rect
+	)
 	var time_seconds: float = float(context.get("time_seconds", Time.get_ticks_msec() / 1000.0))
+	var mouse_pos: Vector2 = BossSkillCardHudSpec.get_mouse_position(canvas)
+	var hovered_skill: Dictionary = {}
+	var hovered_rect := Rect2()
 
 	for idx in range(entries.size()):
 		var entry: Dictionary = entries[idx]
@@ -71,7 +84,24 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		_queue_positions[key] = current_y
 		var rect := Rect2(Vector2(card_x, round(current_y)), Vector2(card_w, card_h))
 		_draw_card(canvas, rect, entry, scale_factor, time_seconds)
+		if rect.has_point(mouse_pos):
+			hovered_skill = entry
+			hovered_rect = rect
 	_prune_queue_positions(entries)
+	if not hovered_skill.is_empty():
+		BossSkillCardHudSpec.draw_skill_tooltip(
+			canvas,
+			hovered_skill,
+			hovered_rect,
+			view_size,
+			pillar_w,
+			_get_tooltip_info(hovered_skill),
+			scale_factor,
+			{
+				"background_color": Color(0.055, 0.045, 0.035, 0.94),
+				"inner_color": Color(0.15, 0.11, 0.07, 0.54),
+			}
+		)
 
 
 func get_asset_status() -> Dictionary:
@@ -170,6 +200,15 @@ func _get_skill_source_rect(skill_id: String, texture: Texture2D) -> Rect2:
 	return Rect2(Vector2(float(col) * cell.x, float(row) * cell.y), cell)
 
 
+func _get_tooltip_info(skill: Dictionary) -> Dictionary:
+	return {
+		"name": str(skill.get("name", skill.get("label", skill.get("short_label", "")))),
+		"trigger": str(skill.get("trigger", "")),
+		"cooldown_seconds": float(skill.get("cooldown_seconds", skill.get("cooldown_total", 0.0))),
+		"description": str(skill.get("description", "")),
+	}
+
+
 func _skill_entries(skills: Array) -> Array:
 	var entries := []
 	for value in skills:
@@ -225,5 +264,11 @@ func _as_color(value: Variant, fallback: Color) -> Color:
 
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
+		return value
+	return fallback
+
+
+func _as_rect2(value: Variant, fallback: Rect2) -> Rect2:
+	if value is Rect2:
 		return value
 	return fallback

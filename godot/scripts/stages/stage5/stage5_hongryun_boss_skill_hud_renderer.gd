@@ -98,8 +98,18 @@ func build_card_layout(context: Dictionary) -> Dictionary:
 	var margin_x: float = float(metrics.get("margin_x", 3.0))
 	var margin_y: float = float(metrics.get("margin_y", 5.0))
 	var total_h: float = float(entries.size()) * (card_h + card_gap) - card_gap
-	var start_y: float = game_offset.y + maxf(margin_y, floor((game_size.y - total_h) * 0.5))
 	var card_x: float = maxf(1.0, pillar_w - card_w - margin_x)
+	var avoid_rect: Rect2 = _as_rect2(context.get("commando_firearm_panel_rect", Rect2()), Rect2())
+	var start_y: float = BossSkillCardHudSpec.resolve_stack_start_y(
+		game_offset,
+		game_size.y,
+		total_h,
+		margin_y,
+		card_x,
+		card_w,
+		scale_factor,
+		avoid_rect
+	)
 	var rects := []
 	for idx in range(entries.size()):
 		rects.append(Rect2(
@@ -492,6 +502,13 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 			"trigger": "구슬 5칸 / 보스 적중",
 			"cooldown": "용 구슬 5칸",
 			"description": "5번 맞으면 홍련이 공을 화염 용처럼 돌진시킵니다. 가드와 진입 각도를 흔듭니다.",
+		}
+	if skill_id == "hongryun_fire_machine":
+		return {
+			"name": "화염기관",
+			"trigger": "자동",
+			"cooldown": "쿨타임 변동",
+			"description": "전장에 화염 장치를 가동해 불길과 연기로 플레이어 진영을 압박합니다.",
 		}
 	return {}
 
