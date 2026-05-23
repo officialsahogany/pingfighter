@@ -2,10 +2,12 @@ extends RefCounted
 
 const MythicItemCatalogLists := preload("res://scripts/items/mythic_item_catalog_lists.gd")
 const MythicItemCatalogPresentation := preload("res://scripts/items/mythic_item_catalog_presentation.gd")
+const MythicItemCatalogFixedOptions := preload("res://scripts/items/mythic_item_catalog_fixed_options.gd")
 const MythicItemCatalogRolls := preload("res://scripts/items/mythic_item_catalog_rolls.gd")
 
 var list_helper: Object = MythicItemCatalogLists.new()
 var presentation_helper: Object = MythicItemCatalogPresentation.new()
+var fixed_options_helper: Object = MythicItemCatalogFixedOptions.new()
 var roll_helper: Object = MythicItemCatalogRolls.new()
 
 const MYTHIC_ICON_FRAME_COUNT := 32
@@ -218,69 +220,6 @@ const FIELD_SPAWN_ORDER := [
 	CELESTIAL_ARMOR,
 	BAAL_BOOTS,
 ]
-const SPEEDGEAR_FIXED_OPTIONS := [
-	{
-		"label": "방향 전환",
-		"value": "+150",
-		"unit": "%",
-	},
-]
-
-const GRAVITYBELT_FIXED_OPTIONS := [
-	{
-		"label": "이동 반응",
-		"value": "즉시",
-		"unit": "",
-	},
-	{
-		"label": "감속",
-		"value": "없음",
-		"unit": "",
-	},
-]
-
-const REVIVAL_FIXED_OPTIONS := [
-	{
-		"label": "패배 방지",
-		"value": "1",
-		"unit": "회",
-	},
-]
-
-const GOLD_BAR_FIXED_OPTIONS := [
-	{
-		"label": "판매가",
-		"value": "2000",
-		"unit": "골드",
-	},
-	{
-		"label": "이동속도",
-		"value": "-30",
-		"unit": "%",
-	},
-]
-
-const REINFORCED_BOOMERANG_GAUNTLET_FIXED_OPTIONS := [
-	{"label": "넉백 거리", "value": "+40", "unit": "%"},
-	{"label": "스턴 시간", "value": "+60", "unit": "%"},
-]
-
-const DASHHOLDER_FIXED_OPTIONS := [
-	{
-		"label": "대쉬 개수",
-		"value": "+1",
-		"unit": "개",
-	},
-]
-
-const SAGE_RING_FIXED_OPTIONS := [
-	{
-		"label": "모든 퍽 레벨",
-		"value": "+1",
-		"unit": "",
-	},
-]
-
 
 func build_item_by_name(item_name: String) -> Dictionary:
 	match item_name:
@@ -405,6 +344,10 @@ func get_field_spawn_items() -> Array:
 	return list_helper.get_field_spawn_items(self, FIELD_SPAWN_ORDER)
 
 
+func get_fixed_options(item_name: String) -> Array:
+	return fixed_options_helper.get_fixed_options(item_name)
+
+
 func get_roll_options(item_name: String) -> Array:
 	return roll_helper.get_roll_options(item_name)
 
@@ -469,7 +412,7 @@ func _build_speedgear() -> Dictionary:
 		"rolls": {},
 		"roll_options": [],
 		"rolled_options": [],
-		"fixed_options": SPEEDGEAR_FIXED_OPTIONS.duplicate(true),
+		"fixed_options": get_fixed_options(SPEEDGEAR),
 		"color": Color(1.0, 150.0 / 255.0, 0.0),
 	}
 
@@ -489,7 +432,7 @@ func _build_gravitybelt() -> Dictionary:
 		"rolls": {},
 		"roll_options": [],
 		"rolled_options": [],
-		"fixed_options": GRAVITYBELT_FIXED_OPTIONS.duplicate(true),
+		"fixed_options": get_fixed_options(GRAVITYBELT),
 		"color": Color(120.0 / 255.0, 90.0 / 255.0, 1.0),
 	}
 
@@ -649,7 +592,7 @@ func _build_revival() -> Dictionary:
 		"rolls": {},
 		"roll_options": [],
 		"rolled_options": [],
-		"fixed_options": REVIVAL_FIXED_OPTIONS.duplicate(true),
+		"fixed_options": get_fixed_options(REVIVAL),
 		"color": Color(1.0, 0.0, 1.0),
 	}
 
@@ -710,7 +653,7 @@ func _build_gold_bar() -> Dictionary:
 		"rolls": {},
 		"roll_options": [],
 		"rolled_options": [],
-		"fixed_options": GOLD_BAR_FIXED_OPTIONS.duplicate(true),
+		"fixed_options": get_fixed_options(GOLD_BAR),
 		"color": Color(1.0, 215.0 / 255.0, 0.0),
 	}
 
@@ -791,7 +734,7 @@ func _build_sage_ring() -> Dictionary:
 		"rolls": rolls,
 		"roll_options": get_roll_options(SAGE_RING),
 		"rolled_options": build_rolled_options(SAGE_RING, rolls),
-		"fixed_options": SAGE_RING_FIXED_OPTIONS.duplicate(true),
+		"fixed_options": get_fixed_options(SAGE_RING),
 		"color": Color(180.0 / 255.0, 140.0 / 255.0, 1.0),
 	}
 
@@ -992,7 +935,7 @@ func _build_reinforced_boomerang_gauntlet() -> Dictionary:
 		"rolls": rolls,
 		"roll_options": get_roll_options(REINFORCED_BOOMERANG_GAUNTLET),
 		"rolled_options": build_rolled_options(REINFORCED_BOOMERANG_GAUNTLET, rolls),
-		"fixed_options": REINFORCED_BOOMERANG_GAUNTLET_FIXED_OPTIONS.duplicate(true),
+		"fixed_options": get_fixed_options(REINFORCED_BOOMERANG_GAUNTLET),
 		"color": Color(150.0 / 255.0, 200.0 / 255.0, 1.0),
 	}
 
@@ -1132,7 +1075,7 @@ func _build_dashholder() -> Dictionary:
 		"rolls": {},
 		"roll_options": [],
 		"rolled_options": [],
-		"fixed_options": DASHHOLDER_FIXED_OPTIONS.duplicate(true),
+		"fixed_options": get_fixed_options(DASHHOLDER),
 		"color": Color(1.0, 150.0 / 255.0, 100.0 / 255.0),
 	}
 
