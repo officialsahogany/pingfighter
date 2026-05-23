@@ -1385,7 +1385,8 @@ This section is intentionally long; use search to find the nearest owner.
   projectile, muzzle-flash, impact-flash, base-slot pistol bullet,
   pistol / AK-47 shell-casing, pistol headshot / legshot feedback text,
   support-marker, fire-support aircraft motion trails / shadows,
-  wall-missile smoke tails / launch flashes, net, rocket, trap, installed
+  wall-missile smoke tails / launch flashes, imagegen fire-support bomb
+  projectile texture projection, net, rocket, trap, installed
   bowling-trap, captured-ball, and drone feedback
   from actor draw context. Muzzle flashes, impact flashes, support markers, and
   lingering fields now add cached glow / burst / sparkle / ring texture-piece
@@ -1396,8 +1397,9 @@ This section is intentionally long; use search to find the nearest owner.
   firearm VFX context goes empty. The renderer also exposes a visual identity
   report that audits the eight Commando firearm families against distinct
   silhouette / FX layers such as aimed bullet, brass casing, rocket smoke,
-  harpoon rope, aircraft marker, trap claw, and drone rotor. Direct draw remains
-  the fallback/detail layer while the host carries the Godot-native remaster path.
+  harpoon rope, aircraft marker, bomb projectile, trap claw, and drone rotor.
+  Direct draw remains the fallback/detail layer while the host carries the
+  Godot-native remaster path.
 - `scripts/stages/stage1/stage1_commando_firearm_fx_host.gd`
   Owns the node-backed Stage 1 Commando firearm FX host: a `ShaderMaterial`
   core glow, muzzle and impact `GPUParticles2D` layers, shared procedural

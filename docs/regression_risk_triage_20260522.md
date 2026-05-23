@@ -5423,6 +5423,27 @@ Hundredth split on 2026-05-24:
   `mythic_item_field_render_budget_smoke`,
   `mythic_item_snapshot_builder_smoke`, and `adversity_armor_port_smoke`.
 
+141st follow-up on 2026-05-24:
+
+- Commit: `601c686a6 godot: draw Commando fire support bombs with texture`.
+- Scope: Stage 1 Commando fire-support projectiles now prewarm and draw the
+  512x256 imagegen bomb projectile texture
+  `commando_fire_support_bomb_projectile_imagegen_v1.png` through the
+  existing playfield polygon projection path. The texture-remaster report now
+  exposes `support_bomb_projectile`, and the procedural shell remains as the
+  fallback when the PNG cannot load.
+- Asset note: source PNG SHA256
+  `BDD4A264490391666A6513F397D8BE126274182621EE40321863BC2DD7FA4265`.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_vfx_texture_remaster_smoke`,
+  `commando_firearm_stage1_visual_qa_smoke`,
+  `commando_firearm_support_aircraft_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_support_projectile_resolver_smoke`,
+  `commando_firearm_hit_geometry_smoke`, and
+  `commando_firearm_audio_resolver_smoke`.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
