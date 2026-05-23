@@ -1385,8 +1385,9 @@ This section is intentionally long; use search to find the nearest owner.
   projectile, muzzle-flash, impact-flash, base-slot pistol bullet,
   pistol / AK-47 shell-casing, pistol headshot / legshot feedback text,
   support-marker, fire-support aircraft motion trails / shadows,
-  wall-missile smoke tails / launch flashes, imagegen fire-support bomb
-  projectile texture projection, net, rocket, trap, installed
+  tuned compact fire-support aircraft draw size, wall-missile smoke tails /
+  launch flashes, imagegen fire-support bomb projectile texture projection,
+  net, rocket, trap, installed
   bowling-trap, captured-ball, and drone feedback
   from actor draw context. Muzzle flashes, impact flashes, support markers, and
   lingering fields now add cached glow / burst / sparkle / ring texture-piece
@@ -3302,7 +3303,8 @@ This section is intentionally long; use search to find the nearest owner.
   text.
 - `scripts/hud/pillar_liquid_drawer.gd`
   Owns reusable orb liquid drawing: circular wave fill, highlight bands,
-  bubbles, and dash-token sector charging liquid.
+  bubbles, dash-token sector charging liquid, and the stable full-gauge
+  circle fill used when a smoothed gauge reaches the near-full threshold.
 - `scripts/hud/pillar_stage1_vignette_drawer.gd`
   Owns Stage 1 inner side vignette drawing and the left / right pillar
   vignette pair helper.
@@ -3313,7 +3315,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/hud/pillar_gauge_orb_renderer.gd`
   Owns left gauge-orb drawing: blue outer glows, fallback frame, glass
   interior, gain flash rings, rotating frame texture, centered gauge
-  label, and liquid-fill renderer delegation.
+  label, near-full display-ratio snapping, and liquid-fill renderer
+  delegation.
 - `scripts/hud/pillar_gauge_orb_fill_renderer.gd`
   Owns left gauge-orb liquid-fill drawing: fill palette selection, liquid
   surface handoff, and inner fill glow.
@@ -4037,7 +4040,8 @@ This section is intentionally long; use search to find the nearest owner.
   seed generation, aircraft-entry delay selection, bomb-count selection
   from the runtime's tuned min / max constants, initial call payload
   construction including configurable aircraft start / curved flight
-  metadata, support-marker flash payloads, and
+  metadata, support-marker flash payloads, tuned drop-arm / bomb-interval /
+  aircraft-speed progression supplied by the runtime, and
   deterministic per-bomb target selection, plus pure per-frame call-state
   advancement flags for aircraft start, bomb spawn, call completion, and
   active radio/call-lock lookup. `commando_firearm_runtime.gd` keeps

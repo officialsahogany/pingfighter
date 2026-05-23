@@ -5535,6 +5535,33 @@ Hundredth split on 2026-05-24:
 - Validation: `commando_firearm_selector_renderer_smoke` passed, including
   prewarm, panel-state, display-slot, and PNG alpha/dimension coverage.
 
+149th follow-up on 2026-05-24:
+
+- Commit: `46bb8898a godot: tighten Commando fire support pass`.
+- Scope: Commando Fire Support now runs a sharper strike pass: the aircraft
+  speed is doubled, the drop-arm window is shortened to 42 frames, the
+  two-bomb interval is shortened to 18 frames, and the Stage 1 renderer draws
+  the stealth aircraft at the tuned compact size while exposing that size in
+  the texture-remaster plan.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_support_call_resolver_smoke`, and
+  `commando_firearm_vfx_texture_remaster_smoke`. The repo-wide
+  `run_warning_scan.ps1` scanned 1318 scripts with no GDScript warnings, and
+  `run_headless_load_check.ps1` passed; both wrappers still printed the known
+  nonfatal Windows root certificate store message from Godot.
+
+150th follow-up on 2026-05-24:
+
+- Commit: `d4dba21a7 godot: stabilize full pillar gauge fill`.
+- Scope: the left pillar gauge orb now snaps its smoothed display ratio to
+  exactly full at the near-full threshold, and the shared liquid drawer uses a
+  stable non-animated circular fill for full / near-full ratios so the full
+  gauge cannot show a thin animated gap. The new smoke locks the snap behavior
+  and threshold split.
+- Validation: `pillar_gauge_orb_stability_smoke` passed. The same post-change
+  repo-wide warning scan and headless load check passed as recorded above.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
