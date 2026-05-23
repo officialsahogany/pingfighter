@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `21106d14e godot: remove unused mythic owner sync bridges`.
-- The checkpoint span through that HEAD contains 118 follow-up commits after
+  `0393ca755 godot: route mythic updates through owners`.
+- The checkpoint span through that HEAD contains 120 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 119 commits.
+  contains 121 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `a18bbfc34 docs: record mythic roll query split`.
+  `488f6cfec docs: record mythic owner sync bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the seventy-seventh split. The broad
+- The split notes below are current through the seventy-eighth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -3876,6 +3876,38 @@ Seventy-seventh split on 2026-05-23:
   `mythic_item_runtime_idle_update_smoke`,
   `passive_item_debug_menu_click_add_smoke`, and
   `horn_strawberry_mask_port_smoke`, plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Seventy-eighth split on 2026-05-23:
+
+- Commit: `0393ca755 godot: route mythic updates through owners`.
+- Scope: `mythic_item_update_runtime.gd` now calls focused update owners
+  directly for Smartphone, Kick Charger, Soul Burst, Foul Whistle, Revival
+  Charm, Danger Sensor Belt, Venom Mist Gauntlet, Rainbow Fur Glove,
+  Celestial Armor, Hermes Shoes, and Horn Strawberry Mask updates instead of
+  bouncing through private `_update_*` bridge methods on
+  `mythic_item_runtime.gd`. The test-only Foul Whistle frame advance now
+  targets `foul_whistle_runtime.update_runtime()` directly, and stale unused
+  Ragnarok spark bridge methods were removed from the runtime facade.
+- Rationale: the update sequencer already owns the per-frame mythic update
+  order. Direct owner calls keep sequencing visible in that module and leave
+  only the remaining constant-supplying compatibility wrappers on the runtime
+  facade for a later, more careful split.
+- `mythic_item_runtime.gd` line count moved from `2734` to `2682` in this
+  code split.
+- Validation passed:
+  focused update / field set
+  (`mythic_item_runtime_idle_update_smoke`,
+  `mythic_item_foul_whistle_runtime_smoke`, `smartphone_port_smoke`,
+  `venom_mist_gauntlet_port_smoke`, `rainbow_fur_glove_port_smoke`,
+  `knee_pads_port_smoke`, `soul_burst_port_smoke`,
+  `celestial_armor_port_smoke`, `hermes_shoes_port_smoke`,
+  `horn_strawberry_mask_port_smoke`, `baal_boots_weather_port_smoke`,
+  `ragnarok_hammer_port_smoke`, `poseidon_trident_port_smoke`, and
+  `mythic_item_field_render_budget_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending

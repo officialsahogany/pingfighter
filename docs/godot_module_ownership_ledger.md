@@ -4712,3 +4712,11 @@ This section is intentionally long; use search to find the nearest owner.
   should not reintroduce one-line private bridges for these detail methods;
   focused helpers should call this owner directly when they need those
   behaviors.
+- `scripts/items/mythic_item_update_runtime.gd`
+  Owns mythic per-frame update sequencing and idle-update fallback routing.
+  It calls constants-free focused update owners directly for Smartphone,
+  Kick Charger, Soul Burst, Foul Whistle, Revival Charm, Danger Sensor Belt,
+  Venom Mist Gauntlet, Rainbow Fur Glove, Celestial Armor, Hermes Shoes, and
+  Horn Strawberry Mask. Do not reintroduce private runtime `_update_*`
+  bridges for those paths; any remaining constant-supplying update wrappers
+  should be split only with focused validation for their item constants.
