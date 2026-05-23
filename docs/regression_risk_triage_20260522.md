@@ -5295,6 +5295,66 @@ Hundredth split on 2026-05-24:
   `player_sprite_body_motion_policy_smoke`. `.\tools\run_warning_scan.ps1`
   passed with `1309` scripts scanned and no GDScript warnings.
 
+131st follow-up batch on 2026-05-24:
+
+- Commits: `6653db98f godot: tune commando fire support strike`,
+  `e6e062175 godot: retarget commando fire support to wall missiles`.
+- Scope: first tuned the Commando fire-support call toward faster aircraft,
+  fewer support rounds, curved aircraft movement, and shaped shell rendering;
+  then retargeted the support rounds into upward opponent-wall missiles with
+  explicit wall-impact metadata and geometry rules that avoid premature
+  direct-hit resolution.
+- Validation: focused Commando support coverage passed:
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_support_projectile_resolver_smoke`,
+  `commando_firearm_hit_geometry_smoke`, and
+  `commando_firearm_support_aircraft_geometry_smoke`.
+
+132nd follow-up on 2026-05-24:
+
+- Commit: `b0c24c91b godot: stop starpoint updates after perk choice`.
+- Scope: Stage 1, Stage 2, Stage 3, and Stage 4 starpoint collection loops now
+  stop same-frame iteration when `runtime_perk_state.collect_star_points()`
+  opens a choice modal or clears the drop arrays. The new compaction smoke
+  covers all four stage owners, and the Stage 2 golden-rock smoke now models
+  the runtime boolean as "choice opened" instead of "point collected".
+- Validation: focused starpoint coverage passed:
+  `starpoint_collection_compaction_smoke`,
+  `stage1_balloon_starpoint_lifecycle_smoke`,
+  `stage2_golden_rock_starpoint_smoke`, `stage3_map_port_smoke`, and
+  `stage4_map_port_smoke`.
+
+133rd follow-up on 2026-05-24:
+
+- Commit: `62c81fdcd godot: restore runtime perk card back glow`.
+- Scope: runtime perk choice cards now use cached rounded filled back-glow
+  layers instead of outline-only halos, preserving the per-character theme
+  color while keeping per-frame allocations out of the draw path.
+- Validation: `runtime_perk_overlay_theme_smoke` and
+  `runtime_perk_active_unlock_flight_smoke` passed.
+
+134th follow-up on 2026-05-24:
+
+- Commit: `a88af204e godot: tighten active throw item feedback`.
+- Scope: Molotov fire zones seed their push timer so a freshly triggered fire
+  zone can obstruct boss movement on the first update. Spider Mine rendering
+  now exposes wall-angle metadata through the throw renderer facade and
+  rotates sheet, icon fallback, fallback body, and beacon placement for left /
+  right wall states.
+- Validation: focused active-throw coverage passed:
+  `active_item_throw_molotov_smoke`, `active_item_molotov_fx_host_smoke`,
+  `active_item_throw_spider_mine_smoke`,
+  `active_item_throw_rotated_texture_smoke`, and
+  `active_item_throw_renderer_budget_smoke`.
+
+135th metadata follow-up on 2026-05-24:
+
+- Commit: `599c4e1a7 godot: add item script uid metadata`.
+- Scope: added the generated `.gd.uid` metadata for the newly split active
+  item renderer modules, mythic field renderers, mythic catalog shards, and
+  active item timer gauge renderer so Godot script references stay stable.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

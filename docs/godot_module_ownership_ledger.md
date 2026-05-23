@@ -613,8 +613,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns molotov projectile construction, flight / wall bounce updates,
   fire-zone creation, flame spawn / animation lifecycle, boss-in-fire
   detection, periodic boss pushback, Commando Arm speed / first-frame
-  launch / fire-size bonuses, and molotov impact / push feedback. The
-  throw controller keeps authoritative arrays / timers and
+  launch / fire-size bonuses, first-update push-timer seeding, and molotov
+  impact / push feedback. The throw controller keeps authoritative arrays /
+  timers and
   compatibility wrappers for the old private molotov methods.
 - `scripts/items/active_item_throw_boomerang.gd`
   Owns boomerang gauntlet launch context, projectile construction,
@@ -689,8 +690,9 @@ This section is intentionally long; use search to find the nearest owner.
   trail glow, break particles, fallback Boomerang shape, and Boomerang asset
   prewarm. `scripts/items/active_item_throw_spider_mine_renderer.gd` owns
   Spider Mine icon and 4x4 sheet prewarm, state-to-sheet / frame selection,
-  spawn / crawl / armed body drawing, leg fallback, armed beacon pulses,
-  explosion drawing, break particles, and windup fallback drawing.
+  wall-angle sheet / fallback rotation, spawn / crawl / armed body drawing,
+  leg fallback, armed beacon pulses, explosion drawing, break particles, and
+  windup fallback drawing.
   `scripts/items/active_item_throw_slip_renderer.gd` owns Banana
   and Soap projectile sprites, landed banana warnings, landed soap puddles,
   banana / soap particles, foam trails, fallback slip shapes, and the slip
@@ -2219,6 +2221,10 @@ This section is intentionally long; use search to find the nearest owner.
   Common scaling perks now include `perk_laurel_shield` / 월계수잎; its
   effective level is exposed as a live leaf count and intentionally keeps
   scaling above Lv.5 when runtime perk-level bonuses apply.
+  The overlay renderer owns the per-character filled card back glow used by
+  runtime perk choice cards, and Stage 1 through Stage 4 starpoint collectors
+  stop same-frame drop iteration when a collection opens a perk choice or
+  clears the in-flight drop arrays.
   The battle scene shell only routes the public starpoint trigger, debug F8
   trigger, modal input,
   modal pause, and draw ordering.
@@ -3779,7 +3785,8 @@ This section is intentionally long; use search to find the nearest owner.
   score flow and the shared boss HP bar live in focused core / status
   helpers, so configured boss health now reaches HUD draw context and
   player-score flow. Fire-support activation is radio-only at call time and
-  each bomb impact uses the Python grenade strike cue. The runtime now routes
+  each wall-missile impact uses the Python grenade strike cue. The runtime
+  now routes
   the Python-reference firearm wavs for pistol ready / fire / one-round reload, AK-47,
   bazooka launch, net capture, bowling-trap install / snap, and the suicide-drone loop,
   with the drone loop stopped on detonation and round-boundary cleanup. It
@@ -3795,8 +3802,9 @@ This section is intentionally long; use search to find the nearest owner.
   Commando firearm runtime: boss-hitbox rect construction, projectile hitbox
   rect construction, explosion-radius fallback resolution, rect expansion,
   circle-vs-rect checks, segment-vs-rect checks, direct-hit / support-target-Y
-  / wall-impact / target-reached / net-pass / terminal reason priority, and
-  the small terminal classification helpers those reason paths need.
+  / wall-impact / target-reached / net-pass / terminal reason priority,
+  opponent-wall fire-support direct-hit suppression, and the small terminal
+  classification helpers those reason paths need.
   `commando_firearm_runtime.gd` keeps its existing private wrapper names plus
   selected-firearm input, ammo, cooldown, audio, VFX, projectile removal, and
   result handoff paths while delegating deterministic impact classification to
@@ -3994,7 +4002,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_support_call_resolver.gd`
   Owns pure Commando fire-support call math: deterministic support-call
   seed generation, aircraft-entry delay selection, bomb-count selection,
-  initial call payload construction, support-marker flash payloads, and
+  initial call payload construction including configurable aircraft start /
+  curved flight metadata, support-marker flash payloads, and
   deterministic per-bomb target selection, plus pure per-frame call-state
   advancement flags for aircraft start, bomb spawn, call completion, and
   active radio/call-lock lookup. `commando_firearm_runtime.gd` keeps
@@ -4003,8 +4012,10 @@ This section is intentionally long; use search to find the nearest owner.
   target / lifecycle-step decisions.
 - `scripts/characters/commando_firearm_support_projectile_resolver.gd`
   Owns pure Commando fire-support projectile construction: deterministic
-  drop row, target-y clamping, horizontal jitter velocity, projectile
-  metadata, and profile/default value projection. `commando_firearm_runtime.gd`
+  drop-row fallback construction, opponent-wall missile construction,
+  target-y / wall-y clamping, horizontal jitter or wall-flight velocity,
+  projectile metadata, and profile/default value projection.
+  `commando_firearm_runtime.gd`
   keeps shot-id allocation, projectile-array limits, aircraft timing, audio,
   VFX, and damage handoff while delegating only this support-round
   dictionary construction.
