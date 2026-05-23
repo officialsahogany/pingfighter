@@ -5562,6 +5562,23 @@ Hundredth split on 2026-05-24:
 - Validation: `pillar_gauge_orb_stability_smoke` passed. The same post-change
   repo-wide warning scan and headless load check passed as recorded above.
 
+151st follow-up on 2026-05-24:
+
+- Commit: `44dabe6e0 godot: split Commando Stage 2 rock interactions`.
+- Scope: moved Commando firearm Stage 2 rock routing out of
+  `commando_firearm_runtime.gd` into
+  `commando_firearm_stage2_rock_interaction_resolver.gd`. The helper owns
+  Stage 2 rock target discovery across deps / registry / stage router,
+  duplicate suppression, bazooka / Fire Support explosion rock-break context,
+  and Commando pistol rock-bounce payload merging. The runtime keeps the
+  projectile update loop, weapon checks, impact effects, audio, and result
+  handoff, dropping the old local target-gathering helpers.
+- Validation: `commando_firearm_stage2_rock_interaction_resolver_smoke` and
+  `stage2_explosion_rock_collision_smoke` passed. `run_warning_scan.ps1`
+  scanned 1320 scripts with no GDScript warnings, and
+  `run_headless_load_check.ps1` passed; both wrappers still printed the known
+  nonfatal Windows root certificate store message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

@@ -4029,6 +4029,13 @@ This section is intentionally long; use search to find the nearest owner.
   lookup. The profile data tables and existing private wrapper names stay
   in `commando_firearm_runtime.gd`, while selected-firearm input, ammo,
   cooldown, projectile timing, audio, and result handoff remain untouched.
+- `scripts/characters/commando_firearm_stage2_rock_interaction_resolver.gd`
+  Owns Commando firearm routing into Stage 2 rock interactions: explosion
+  rock target discovery across direct deps / registry / stage router,
+  duplicate target suppression, bazooka / Fire Support rock-break context
+  stamping, and Commando pistol rock-bounce payload merging. The firearm
+  runtime keeps projectile ownership, weapon-id checks, impact flashes, audio,
+  damage / gauge result handoff, and the surrounding projectile update loop.
 - `scripts/characters/commando_firearm_support_aircraft_geometry.gd`
   Owns pure Commando fire-support aircraft geometry: collision-rect
   construction and ball-path segment intersection against the grown
