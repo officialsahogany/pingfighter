@@ -1,17 +1,20 @@
 extends RefCounted
 
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+
 
 func get_snapshot() -> Dictionary:
-	var left_pressed: bool = Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A)
-	var right_pressed: bool = Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D)
-	var up_pressed: bool = Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W)
-	var down_pressed: bool = Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S)
-	var jetpack_pressed: bool = Input.is_key_pressed(KEY_SPACE) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var left_pressed: bool = Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A) or GamepadInput.is_left_pressed()
+	var right_pressed: bool = Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D) or GamepadInput.is_right_pressed()
+	var up_pressed: bool = Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W) or GamepadInput.is_up_pressed()
+	var down_pressed: bool = Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S) or GamepadInput.is_down_pressed()
+	var jetpack_pressed: bool = Input.is_key_pressed(KEY_SPACE) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or GamepadInput.is_primary_action_pressed()
 	var action_pressed: bool = (
 		Input.is_action_pressed("ui_accept")
 		or Input.is_key_pressed(KEY_SPACE)
 		or Input.is_key_pressed(KEY_X)
 		or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		or GamepadInput.is_primary_action_pressed()
 	)
 	var direction := 0.0
 	if left_pressed:
