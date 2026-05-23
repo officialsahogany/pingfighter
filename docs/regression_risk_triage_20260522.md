@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `39ca20e11 godot: route suicide drone through molotov fire zone`.
-- Split range: `2c31069ba..HEAD` contains 58 follow-up commits after the
-  gamepad input boot baseline. Including `2c31069ba` itself, the current
-  checkpoint span contains 59 commits.
+  `ceb00915e godot: hide stale starpoint visual hosts`.
+- Code split range through that HEAD contains 60 follow-up commits after the
+  gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
+  span through the latest code split contains 61 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 101 visible paths in
-  `git status --porcelain=v1` (`53` tracked modified / deleted paths and
+- Current dirty scope before this documentation sync: 91 visible paths in
+  `git status --porcelain=v1` (`43` tracked modified / deleted paths and
   `48` untracked paths).
-- The split notes below are current through the fifty-fifth split. The
+- The split notes below are current through the fifty-sixth split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3165,6 +3165,32 @@ Fifty-fifth split on 2026-05-23:
   `commando_firearm_runtime_vfx_smoke`,
   `commando_arm_port_smoke`,
   `smasher_plasma_parity_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Fifty-sixth split on 2026-05-23:
+
+- Commit: `ceb00915e godot: hide stale starpoint visual hosts`.
+- Scope: The shared starpoint drop FX host now tracks active host instances
+  and exposes `hide_on_canvas()` / `hide_all_existing_hosts()` cleanup helpers.
+  Stage 1 through Stage 4 starpoint draw and stage-exit paths call those
+  helpers when drops disappear or a stage is left mid-flight.
+- Rationale: starpoint drops render through a detached shader host, so clearing
+  logical drop arrays is not enough. Without a direct host cleanup path, stale
+  Sprite2D slots can remain visible after round boundaries, stage transitions,
+  or empty-drop frames that skip the normal draw fanout.
+- Validation passed:
+  `common_starpoint_visual_host_smoke`,
+  `stage1_balloon_starpoint_lifecycle_smoke`,
+  `stage1_balloon_event_render_budget_smoke`,
+  `stage2_starpoint_drop_motion_state_smoke`,
+  `stage2_starpoint_drop_query_smoke`,
+  `stage2_golden_rock_starpoint_smoke`,
+  `stage3_map_port_smoke`,
+  `stage3_menhera_effect_render_budget_smoke`,
+  `stage4_map_port_smoke`,
+  `stage4_bird_event_render_budget_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
