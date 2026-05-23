@@ -12,6 +12,9 @@ const COMPACT_FRAME_HIGHLIGHT_SEGMENTS := 12
 const COMPACT_FRAME_HIGHLIGHT_SEGMENTS_LOD := 8
 const COMPACT_FRAME_INNER_SEGMENTS := 20
 const COMPACT_FRAME_INNER_SEGMENTS_LOD := 14
+const COMPACT_FRAME_OUTER_SEGMENTS_STATIC_LOD := 10
+const COMPACT_FRAME_HIGHLIGHT_SEGMENTS_STATIC_LOD := 5
+const COMPACT_FRAME_INNER_SEGMENTS_STATIC_LOD := 8
 
 var background_cache: Object = PillarOrbBackgroundCache.new()
 
@@ -106,6 +109,9 @@ func _draw_compact_fallback_frame(
 	var metal_light: Color = _get_color(context, "orb_metal_light", Color(0.70, 0.54, 0.50, 1.0))
 	var gem_core: Color = _get_color(context, "orb_gem_core", Color(0.84, 0.20, 0.20, 1.0))
 	var outer_radius: float = radius + frame_width
+	if bool(context.get("pillar_hud_static_lod", false)):
+		_draw_static_compact_fallback_frame(canvas, center, radius, frame_width, metal_dark, metal_mid, metal_light)
+		return
 	var lod_active: bool = _is_hud_lod_active(context)
 	var outer_segments: int = COMPACT_FRAME_OUTER_SEGMENTS_LOD if lod_active else COMPACT_FRAME_OUTER_SEGMENTS
 	var highlight_segments: int = COMPACT_FRAME_HIGHLIGHT_SEGMENTS_LOD if lod_active else COMPACT_FRAME_HIGHLIGHT_SEGMENTS
@@ -120,6 +126,26 @@ func _draw_compact_fallback_frame(
 		canvas.draw_circle(bolt_pos, frame_width * 0.44, metal_mid)
 		canvas.draw_circle(bolt_pos, frame_width * 0.27, metal_light)
 		canvas.draw_circle(bolt_pos, frame_width * 0.15, gem_core)
+
+
+func _draw_static_compact_fallback_frame(
+	canvas: CanvasItem,
+	center: Vector2,
+	radius: float,
+	frame_width: float,
+	metal_dark: Color,
+	metal_mid: Color,
+	metal_light: Color
+) -> void:
+	var outer_radius: float = radius + frame_width
+	canvas.draw_circle(center, outer_radius, metal_dark)
+	canvas.draw_arc(center, outer_radius - 2.0, 0.0, TAU, COMPACT_FRAME_OUTER_SEGMENTS_STATIC_LOD, Color(metal_mid.r, metal_mid.g, metal_mid.b, 0.86), max(2.0, frame_width * 0.38))
+	canvas.draw_arc(center, outer_radius - frame_width * 0.52, deg_to_rad(212.0), deg_to_rad(328.0), COMPACT_FRAME_HIGHLIGHT_SEGMENTS_STATIC_LOD, Color(metal_light.r, metal_light.g, metal_light.b, 0.36), max(1.0, frame_width * 0.22))
+	canvas.draw_arc(center, radius + 1.0, 0.0, TAU, COMPACT_FRAME_INNER_SEGMENTS_STATIC_LOD, Color(0.08, 0.06, 0.08, 0.68), max(1.0, frame_width * 0.18))
+	for angle_deg in [45.0, 135.0, 225.0, 315.0]:
+		var angle: float = deg_to_rad(angle_deg)
+		var bolt_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * (radius + frame_width * 0.76)
+		canvas.draw_circle(bolt_pos, frame_width * 0.30, metal_mid)
 
 
 func _draw_background(canvas: CanvasItem, center: Vector2, radius: float, context: Dictionary) -> void:

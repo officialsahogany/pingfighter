@@ -3,6 +3,7 @@ extends SceneTree
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
 const Stage1DaljiBossSkillHudRenderer := preload("res://scripts/stages/stage1/stage1_dalji_boss_skill_hud_renderer.gd")
 const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
+const Stage1PillarSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_scene_drawer.gd")
 const Stage1PillarUiRenderer := preload("res://scripts/hud/stage1_pillar_ui_renderer.gd")
 const Stage1PillarStatusOrbContextBuilder := preload("res://scripts/hud/stage1_pillar_status_orb_context_builder.gd")
 const PillarDashOrbBodyRenderer := preload("res://scripts/hud/pillar_dash_orb_body_renderer.gd")
@@ -90,6 +91,7 @@ func _init() -> void:
 	_verify_post_active_hud_pass_seeds_commando_panel_rect()
 	_verify_scene_drawer_passes_commando_panel_rect()
 	_verify_boss_dash_uses_compact_fallback_frame()
+	_verify_stage1_pillar_scene_static_hud_lod()
 	_verify_viper_hud_lod_context()
 	_verify_viper_hud_lod_draw_budgets()
 	_verify_status_orb_cache_prewarm()
@@ -216,6 +218,42 @@ func _verify_boss_dash_uses_compact_fallback_frame() -> void:
 	_expect(bool(boss_context.get("compact_fallback_frame", false)), "Stage 1 boss dash HUD should use the compact procedural fallback frame")
 
 
+func _verify_stage1_pillar_scene_static_hud_lod() -> void:
+	var original_max_fps: int = int(Engine.get("max_fps"))
+	var drawer := Stage1PillarSceneDrawer.new()
+	Engine.set("max_fps", 72)
+	BattleRenderQuality.reset_cache_for_test()
+	ViperAirborneLod.reset_cache_for_test()
+	var capped_context: Dictionary = drawer._with_stage1_hud_lod_context(
+		{"selected_character_type": "soldier"},
+		BattleRenderQuality.effect_scale({"selected_character_type": "soldier"})
+	)
+	_expect(bool(capped_context.get("stage1_pillar_hud_static_lod", false)), "Stage 1 capped-frame HUD should trim ornamental pillar orb layers")
+	_expect(bool(capped_context.get("pillar_hud_static_lod", false)), "Stage 1 capped-frame HUD should use the shared static HUD LOD flag")
+
+	Engine.set("max_fps", 144)
+	BattleRenderQuality.reset_cache_for_test()
+	ViperAirborneLod.reset_cache_for_test()
+	var high_refresh_context: Dictionary = drawer._with_stage1_hud_lod_context(
+		{"selected_character_type": "soldier"},
+		BattleRenderQuality.effect_scale({"selected_character_type": "soldier"})
+	)
+	_expect(bool(high_refresh_context.get("pillar_hud_static_lod", false)), "Stage 1 high-refresh HUD should trim ornamental pillar orb layers")
+
+	Engine.set("max_fps", 0)
+	BattleRenderQuality.reset_cache_for_test()
+	ViperAirborneLod.reset_cache_for_test()
+	var uncapped_source := {"selected_character_type": "soldier"}
+	var uncapped_context: Dictionary = drawer._with_stage1_hud_lod_context(
+		uncapped_source,
+		BattleRenderQuality.effect_scale(uncapped_source)
+	)
+	_expect(uncapped_context == uncapped_source, "Stage 1 normal-quality HUD should keep the original context")
+	Engine.set("max_fps", original_max_fps)
+	BattleRenderQuality.reset_cache_for_test()
+	ViperAirborneLod.reset_cache_for_test()
+
+
 func _verify_viper_hud_lod_context() -> void:
 	var original_max_fps: int = int(Engine.get("max_fps"))
 	Engine.set("max_fps", 72)
@@ -307,9 +345,12 @@ func _verify_viper_hud_lod_draw_budgets() -> void:
 	_expect(
 		status_context_source.find("pillar_hud_static_lod") >= 0
 			and gauge_source.find("static_hud_lod") >= 0
+			and gauge_fill_source.find("if bool(context.get(\"pillar_hud_static_lod\", false)):") >= 0
 			and gauge_fill_source.find("_draw_static_fill") >= 0
+			and gauge_fill_source.find("_draw_static_fill_glow") >= 0
 			and dash_source.find("static_hud_lod") >= 0
 			and dash_body_source.find("static_hud_lod") >= 0
+			and dash_body_source.find("_draw_static_compact_fallback_frame") >= 0
 			and dash_fill_source.find("pillar_hud_static_lod") >= 0
 			and skill_slot_source.find("static_hud_lod") >= 0,
 		"pillar HUD static LOD should keep orbs visible while removing expensive animation layers"
@@ -364,6 +405,9 @@ func _verify_stage1_status_orb_base_render_budgets() -> void:
 	_expect(PillarDashOrbBodyRenderer.AMBIENT_PARTICLE_COUNT_LOD <= 1, "Stage 1 dash orb should keep a tight LOD ambient particle budget")
 	_expect(PillarDashOrbBodyRenderer.COMPACT_FRAME_OUTER_SEGMENTS <= 24, "Stage 1 compact dash orb frame should keep a bounded outer arc budget")
 	_expect(PillarDashOrbBodyRenderer.COMPACT_FRAME_INNER_SEGMENTS <= 20, "Stage 1 compact dash orb frame should keep a bounded inner arc budget")
+	_expect(PillarDashOrbBodyRenderer.COMPACT_FRAME_OUTER_SEGMENTS_STATIC_LOD <= 10, "Stage 1 static compact dash orb frame should keep a tight outer arc budget")
+	_expect(PillarDashOrbBodyRenderer.COMPACT_FRAME_HIGHLIGHT_SEGMENTS_STATIC_LOD <= 5, "Stage 1 static compact dash orb frame should keep a tight highlight arc budget")
+	_expect(PillarDashOrbBodyRenderer.COMPACT_FRAME_INNER_SEGMENTS_STATIC_LOD <= 8, "Stage 1 static compact dash orb frame should keep a tight inner arc budget")
 	_expect(PillarDashOrbRenderer.IDLE_RING_SEGMENTS <= 14, "Stage 1 dash orb idle ring should keep a tight segment budget")
 	_expect(PillarDashOrbRenderer.BOOST_RING_ARC_COUNT <= 3, "Stage 1 dash boost ring should keep a bounded arc count")
 	_expect(PillarDashOrbRenderer.BOOST_RING_ARC_COUNT_LOD <= 2, "Stage 1 dash boost ring should keep a tight LOD arc count")

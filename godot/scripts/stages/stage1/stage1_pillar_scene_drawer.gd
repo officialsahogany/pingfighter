@@ -3,6 +3,10 @@ extends RefCounted
 const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
+# Stage 1 uses the shared pillar HUD directly. Match later-stage behavior by
+# trimming ornamental orb layers during capped-frame and high-refresh LOD windows.
+const STAGE1_STATIC_HUD_LOD_SCALE := BattleRenderQuality.FPS_CAP_EFFECT_SCALE
+
 var hud_scene_drawer: Object = Stage1PillarHudSceneDrawer.new()
 var _prewarm_step_index := 0
 var _prewarm_finished_for := ""
@@ -64,7 +68,16 @@ func draw(canvas: CanvasItem, context: Dictionary, registry, states: Dictionary)
 	_perf_end(perf_logger, "stage1.pillar.background", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	hud_scene_drawer.draw(canvas, context, registry, states, view_size, game_offset, game_size, time_seconds)
+	hud_scene_drawer.draw(
+		canvas,
+		_with_stage1_hud_lod_context(context, quality_scale),
+		registry,
+		states,
+		view_size,
+		game_offset,
+		game_size,
+		time_seconds
+	)
 	_perf_end(perf_logger, "stage1.pillar.hud_scene", sample_start)
 	_perf_end(perf_logger, "stage1.pillar.total", total_start)
 
@@ -79,7 +92,16 @@ func draw_pillar_hud_overlay(canvas: CanvasItem, context: Dictionary, registry, 
 	var game_offset: Vector2 = _get_vector2(context, "game_offset", Vector2.ZERO)
 	var game_size: Vector2 = _get_vector2(context, "game_size", Vector2.ZERO)
 	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
-	hud_scene_drawer.draw(canvas, context, registry, states, view_size, game_offset, game_size, time_seconds)
+	hud_scene_drawer.draw(
+		canvas,
+		_with_stage1_hud_lod_context(context, _get_pillar_quality_scale(context)),
+		registry,
+		states,
+		view_size,
+		game_offset,
+		game_size,
+		time_seconds
+	)
 	_perf_end(perf_logger, "stage1.pillar.hud_overlay_scene", sample_start)
 
 
@@ -121,6 +143,16 @@ func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2
 
 func _get_pillar_quality_scale(context: Dictionary) -> float:
 	return BattleRenderQuality.effect_scale(context)
+
+
+func _with_stage1_hud_lod_context(context: Dictionary, quality_scale: float) -> Dictionary:
+	var high_refresh_lod_active := BattleRenderQuality.is_high_refresh_lod_active()
+	if quality_scale > STAGE1_STATIC_HUD_LOD_SCALE and not high_refresh_lod_active:
+		return context
+	var hud_context: Dictionary = context.duplicate()
+	hud_context["stage1_pillar_hud_static_lod"] = true
+	hud_context["pillar_hud_static_lod"] = true
+	return hud_context
 
 
 func _perf_begin(perf_logger: Object) -> int:
