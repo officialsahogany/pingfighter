@@ -11,7 +11,11 @@ var _failures: Array[String] = []
 class FakeAudio:
 	extends RefCounted
 
+	var reload_calls := 0
 	var reload_round_calls := 0
+
+	func play_commando_reload() -> void:
+		reload_calls += 1
 
 	func play_commando_pistol_reload_round() -> void:
 		reload_round_calls += 1
@@ -82,7 +86,8 @@ func _verify_double_tap_refills_beretta_without_spare_magazines() -> void:
 	_expect(int(weapon.get("magazines_current", -1)) == 0, "Beretta should not gain spare magazines from reload skill")
 	_expect(not bool(weapon.get("reloading", false)), "Beretta reload skill should refill immediately without a magazine timer")
 	_expect(str(weapon.get("ammo_text", "")) == "탄약 8/8", "Beretta ammo text should stay ammo-only after reload skill")
-	_expect(audio.reload_round_calls == 1, "Beretta reload skill should play the reload cue once")
+	_expect(audio.reload_calls == 1, "Beretta reload skill should play the shared reload cue once")
+	_expect(audio.reload_round_calls == 0, "Beretta reload skill should not fall back to the pistol per-round cue when shared reload exists")
 	_expect(skill_state.get_configured_cooldown_remaining("emergency_supply", 1800, skill_config) > 0.0, "Beretta reload skill should trigger cooldown")
 
 
@@ -100,7 +105,8 @@ func _verify_failure_paths_do_not_spend_or_cooldown() -> void:
 	_expect(str(pistol_result.get("weapon_id", "")) == "pistol", "base pistol reload should report the base weapon id")
 	_expect(is_equal_approx(float(pistol_result.get("special_gauge", -1.0)), 350.0), "base pistol reload should spend 150 gauge")
 	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 4, "base pistol reload should refill to max ammo")
-	_expect(audio.reload_round_calls == 1, "base pistol full reload should play the reload-round cue")
+	_expect(audio.reload_calls == 1, "base pistol full reload should play the shared reload cue")
+	_expect(audio.reload_round_calls == 0, "base pistol full reload should not fall back to the pistol per-round cue when shared reload exists")
 	_expect(pistol_skill_state.get_configured_cooldown_remaining("emergency_supply", 2200, skill_config) > 0.0, "base pistol reload should trigger cooldown")
 
 	var rental_state: Object = CommandoEmergencySupplyState.new()

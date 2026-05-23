@@ -227,6 +227,7 @@ func _verify_game_audio_asset_parity() -> void:
 		"CommandoPistolFireSfx": GameAudio.COMMANDO_PISTOL_FIRE_SOUND_PATH,
 		"CommandoPistolReloadStartSfx": GameAudio.COMMANDO_PISTOL_RELOAD_START_SOUND_PATH,
 		"CommandoPistolReloadSfx": GameAudio.COMMANDO_PISTOL_RELOAD_SOUND_PATH,
+		"CommandoReloadSfx": GameAudio.COMMANDO_RELOAD_SOUND_PATH,
 		"CommandoAk47FireSfx": GameAudio.COMMANDO_AK47_FIRE_SOUND_PATH,
 		"CommandoBazookaFireSfx": GameAudio.COMMANDO_BAZOOKA_FIRE_SOUND_PATH,
 		"CommandoNetCaptureSfx": GameAudio.COMMANDO_NET_CAPTURE_SOUND_PATH,
@@ -241,6 +242,7 @@ func _verify_game_audio_asset_parity() -> void:
 		"CommandoPistolFireSfx": GameAudio.COMMANDO_PISTOL_FIRE_GAIN_DB,
 		"CommandoPistolReloadStartSfx": GameAudio.COMMANDO_PISTOL_RELOAD_GAIN_DB,
 		"CommandoPistolReloadSfx": GameAudio.COMMANDO_PISTOL_RELOAD_GAIN_DB,
+		"CommandoReloadSfx": GameAudio.COMMANDO_PISTOL_RELOAD_GAIN_DB,
 		"CommandoAk47FireSfx": GameAudio.COMMANDO_AK47_FIRE_GAIN_DB,
 		"CommandoBazookaFireSfx": GameAudio.COMMANDO_BAZOOKA_FIRE_GAIN_DB,
 		"CommandoNetCaptureSfx": GameAudio.COMMANDO_NET_CAPTURE_GAIN_DB,
@@ -276,6 +278,7 @@ func _verify_game_audio_asset_parity() -> void:
 	_expect(_function_body(source, "func play_commando_bullet_impact() -> void:").find("play_shrapnel_armor_hit") >= 0, "base pistol, Commando pistol, and AK bullet impacts should use the bullet armor hit cue")
 	_expect(_function_body(source, "func play_commando_pistol_reload_start() -> void:").find("commando_pistol_reload_start_sfx") >= 0, "pistol reload start should use pistolreloadstart.wav")
 	_expect(_function_body(source, "func play_commando_pistol_reload_round() -> void:").find("commando_pistol_reload_sfx") >= 0, "pistol per-round reload should keep using pistolreload.wav")
+	_expect(_function_body(source, "func play_commando_reload() -> void:").find("commando_reload_sfx") >= 0, "Emergency Supply reload should use reload.wav")
 	_expect(_function_body(source, "func play_commando_bazooka_impact() -> void:").find("play_grenade_explosion") >= 0, "bazooka impact should use the Python grenade explosion cue")
 	_expect(_function_body(source, "func play_commando_fire_support_bomb() -> void:").find("play_grenade_explosion") >= 0, "fire-support bombs should use the Python grenade explosion cue")
 	_expect(_function_body(source, "func play_commando_net_gun_capture() -> void:").find("commando_net_capture_sfx") >= 0, "net capture should use net.wav")

@@ -116,7 +116,7 @@ func _try_activate(current_msec: int, special_gauge: float, deps: Dictionary) ->
 	var cost: float = _get_skill_cost(deps.get("skill_config", null))
 	_trigger_cooldown(current_msec, deps)
 	_trigger_feedback(deps)
-	_play_reload_audio(deps, weapon_id)
+	_play_reload_audio(deps)
 	return {
 		"special_gauge": max(0.0, special_gauge - cost),
 		"special_gauge_delta": -cost,
@@ -171,13 +171,13 @@ func _refill_current_weapon(weapon_controller: Object, weapon_id: String) -> boo
 	return false
 
 
-func _play_reload_audio(deps: Dictionary, weapon_id: String) -> void:
-	if weapon_id != "pistol" and weapon_id != "commando_pistol":
-		return
+func _play_reload_audio(deps: Dictionary) -> void:
 	var audio: Object = deps.get("audio", null)
 	if audio == null:
 		return
-	if audio.has_method("play_commando_pistol_reload_round"):
+	if audio.has_method("play_commando_reload"):
+		audio.play_commando_reload()
+	elif audio.has_method("play_commando_pistol_reload_round"):
 		audio.play_commando_pistol_reload_round()
 	elif audio.has_method("play_commando_pistol_reload_start"):
 		audio.play_commando_pistol_reload_start()

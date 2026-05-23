@@ -64,6 +64,7 @@ const COMMANDO_PISTOL_READY_SOUND_PATH := "res://assets/sounds/gunroad.wav"
 const COMMANDO_PISTOL_FIRE_SOUND_PATH := "res://assets/sounds/gunshot.wav"
 const COMMANDO_PISTOL_RELOAD_START_SOUND_PATH := "res://assets/sounds/pistolreloadstart.wav"
 const COMMANDO_PISTOL_RELOAD_SOUND_PATH := "res://assets/sounds/pistolreload.wav"
+const COMMANDO_RELOAD_SOUND_PATH := "res://assets/sounds/reload.wav"
 const COMMANDO_AK47_FIRE_SOUND_PATH := "res://assets/sounds/ak47.wav"
 const COMMANDO_BAZOOKA_FIRE_SOUND_PATH := "res://assets/sounds/bazukagoing.wav"
 const COMMANDO_NET_CAPTURE_SOUND_PATH := "res://assets/sounds/net.wav"
@@ -251,6 +252,7 @@ var commando_pistol_ready_sfx: AudioStreamPlayer
 var commando_pistol_fire_sfx: AudioStreamPlayer
 var commando_pistol_reload_start_sfx: AudioStreamPlayer
 var commando_pistol_reload_sfx: AudioStreamPlayer
+var commando_reload_sfx: AudioStreamPlayer
 var commando_ak47_fire_sfx: AudioStreamPlayer
 var commando_ak47_fire_sfx_layers: Array = []
 var commando_ak47_fire_sfx_cursor := 0
@@ -464,6 +466,7 @@ func _setup_commando_skill_sfx() -> void:
 	commando_pistol_fire_sfx = _create_optional_sfx("CommandoPistolFireSfx", COMMANDO_PISTOL_FIRE_SOUND_PATH, COMMANDO_PISTOL_FIRE_GAIN_DB)
 	commando_pistol_reload_start_sfx = _create_optional_sfx("CommandoPistolReloadStartSfx", COMMANDO_PISTOL_RELOAD_START_SOUND_PATH, COMMANDO_PISTOL_RELOAD_GAIN_DB)
 	commando_pistol_reload_sfx = _create_optional_sfx("CommandoPistolReloadSfx", COMMANDO_PISTOL_RELOAD_SOUND_PATH, COMMANDO_PISTOL_RELOAD_GAIN_DB)
+	commando_reload_sfx = _create_optional_sfx("CommandoReloadSfx", COMMANDO_RELOAD_SOUND_PATH, COMMANDO_PISTOL_RELOAD_GAIN_DB)
 	commando_ak47_fire_sfx = _create_optional_sfx("CommandoAk47FireSfx", COMMANDO_AK47_FIRE_SOUND_PATH, COMMANDO_AK47_FIRE_GAIN_DB)
 	commando_ak47_fire_sfx_layers = _create_optional_sfx_layers("CommandoAk47FireSfxLayer", COMMANDO_AK47_FIRE_SOUND_PATH, COMMANDO_AK47_FIRE_GAIN_DB, COMMANDO_AK47_FIRE_POOL_SIZE - 1)
 	commando_ak47_fire_sfx_cursor = 0
@@ -1119,6 +1122,11 @@ func play_commando_pistol_reload_start() -> void:
 
 func play_commando_pistol_reload_round() -> void:
 	if not _play_with_pitch(commando_pistol_reload_sfx, randf_range(0.98, 1.02)):
+		play_commando_pistol_reload_start()
+
+
+func play_commando_reload() -> void:
+	if not _play_with_pitch(commando_reload_sfx, randf_range(0.98, 1.02)):
 		play_commando_pistol_reload_start()
 
 
@@ -2245,6 +2253,7 @@ func _get_sfx_players() -> Array:
 		commando_pistol_fire_sfx,
 		commando_pistol_reload_start_sfx,
 		commando_pistol_reload_sfx,
+		commando_reload_sfx,
 		commando_ak47_fire_sfx,
 		commando_bazooka_fire_sfx,
 		commando_net_capture_sfx,
