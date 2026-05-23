@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `3998ec141 godot: align commando firearm item text`.
-- Code split range through that HEAD contains 68 follow-up commits after the
+  `f18fd43f8 godot: absorb starpoints after perk choices`.
+- Code split range through that HEAD contains 70 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 69 commits.
+  span through the latest code split contains 71 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 60 visible paths in
-  `git status --porcelain=v1` (`16` tracked modified / deleted paths and
+- Current dirty scope before this documentation sync: 57 visible paths in
+  `git status --porcelain=v1` (`13` tracked modified / deleted paths and
   `44` untracked paths).
-- The split notes below are current through the sixtieth split. The
+- The split notes below are current through the sixty-first split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3293,6 +3293,40 @@ Sixtieth split on 2026-05-23:
   `commando_perk_catalog_smoke`,
   `commando_ui_text_audit_smoke`,
   `commando_firearm_runtime_vfx_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Sixty-first split on 2026-05-23:
+
+- Commit: `f18fd43f8 godot: absorb starpoints after perk choices`.
+- Scope: Runtime perk selection now clears in-flight Stage 1 through Stage 4
+  starpoint drop / particle arrays before the mid-round choice modal opens,
+  starts a short post-modal absorption effect when the final queued perk choice
+  closes, keeps that effect visible through the inactive overlay branch, tracks
+  the moving player paddle while the star absorbs, and enriches character-
+  restricted perk-card edge rendering with bounded Smasher / Viper / Optimus /
+  Soldier marker families. Commando / Soldier firearm unlocks also pulse the
+  firearm HUD highlight and play the weapon-change cue when a permanent weapon
+  is granted.
+- Rationale: collected starpoints should not leave frozen detached drops behind
+  the modal, and the choice-to-player feedback should remain visible after the
+  modal closes. The firearm unlock cue now matches rental weapon acquisition
+  feedback, while the card-edge rendering keeps character-only choices legible
+  without adding unbounded draw work.
+- Validation passed:
+  `runtime_perk_active_unlock_flight_smoke`,
+  `runtime_perk_overlay_theme_smoke`,
+  `runtime_perk_update_driver_smoke`,
+  `common_starpoint_visual_host_smoke`,
+  `stage1_balloon_starpoint_lifecycle_smoke`,
+  `stage2_starpoint_drop_motion_state_smoke`,
+  `stage2_starpoint_drop_query_smoke`,
+  `stage2_starpoint_particle_state_smoke`,
+  `stage3_map_port_smoke`,
+  `stage4_bird_event_render_budget_smoke`,
+  `commando_firearm_selector_renderer_smoke`,
+  `commando_runtime_routing_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
