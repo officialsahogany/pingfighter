@@ -42,17 +42,17 @@ func find_equipped_inventory_index_by_name(runtime: Object, item_name: String) -
 
 
 func find_equipped_inventory_index_by_slot(runtime: Object, slot_key: String) -> int:
-	var canonical_slot_key: String = runtime._canonical_equipment_slot_key(slot_key)
+	var canonical_slot_key: String = canonical_equipment_slot_key(slot_key)
 	for i in range(runtime.inventory_items.size()):
 		var item_data: Dictionary = runtime._get_dict(runtime.inventory_items[i])
-		if runtime._canonical_equipment_slot_key(str(item_data.get("_equipped_slot", ""))) == canonical_slot_key:
+		if canonical_equipment_slot_key(str(item_data.get("_equipped_slot", ""))) == canonical_slot_key:
 			return i
 	return -1
 
 
 func resolve_equipment_slot_key(runtime: Object, item_data: Dictionary, owner: Object, constants: Dictionary) -> String:
 	var item_name: String = str(item_data.get("name", ""))
-	var slot_key: String = runtime._canonical_equipment_slot_key(str(item_data.get("slot", runtime.catalog.get_slot_key(item_name))))
+	var slot_key: String = canonical_equipment_slot_key(str(item_data.get("slot", runtime.catalog.get_slot_key(item_name))))
 	if slot_key == "arm":
 		var arm_slot_keys: Array = _get_array(constants.get("arm_slot_keys", ["left_arm", "right_arm"]))
 		for arm_slot in arm_slot_keys:
@@ -72,6 +72,16 @@ func resolve_equipment_slot_key(runtime: Object, item_data: Dictionary, owner: O
 		if find_equipped_inventory_index_by_slot(runtime, key) < 0:
 			return key
 	return ""
+
+
+func canonical_equipment_slot_key(slot_key: String) -> String:
+	match slot_key:
+		"back", "등":
+			return "belt2"
+		"torso":
+			return "top"
+		_:
+			return slot_key
 
 
 func is_equipment_slot_enabled(runtime: Object, slot_key: String, owner: Object) -> bool:

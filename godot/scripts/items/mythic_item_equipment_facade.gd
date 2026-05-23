@@ -30,6 +30,7 @@ func acquire_item(
 	auto_equip: bool = true,
 	play_pickup_sound: bool = false,
 	acquired_item_data: Dictionary = {},
+	context_constants: Dictionary = {},
 	baal_boots_constants: Dictionary = {}
 ) -> int:
 	var item_data: Dictionary = runtime.catalog.build_item_by_name(item_name)
@@ -53,7 +54,7 @@ func acquire_item(
 	runtime.inventory_items.append(item_data)
 	var index: int = runtime.inventory_items.size() - 1
 	if auto_equip:
-		if not equip_inventory_item(runtime, index, owner, registry, baal_boots_constants):
+		if not equip_inventory_item(runtime, index, owner, registry, context_constants, baal_boots_constants):
 			runtime._sync_owner(owner, registry)
 	else:
 		runtime._sync_owner(owner, registry)
@@ -77,9 +78,10 @@ func equip_item(
 	registry: Object = null,
 	roll_overrides: Dictionary = {},
 	play_pickup_sound: bool = false,
+	context_constants: Dictionary = {},
 	baal_boots_constants: Dictionary = {}
 ) -> bool:
-	var index: int = runtime._find_inventory_index_by_name(item_name)
+	var index: int = runtime.equipment_index.find_inventory_index_by_name(runtime, item_name)
 	if index < 0:
 		index = acquire_item(
 			runtime,
@@ -90,40 +92,55 @@ func equip_item(
 			false,
 			play_pickup_sound,
 			{},
+			context_constants,
 			baal_boots_constants
 		)
 		if index < 0:
 			return false
 	else:
-		runtime._apply_roll_overrides(index, roll_overrides)
-	var equipped: bool = equip_inventory_item(runtime, index, owner, registry, baal_boots_constants)
+		runtime.roll_query.apply_roll_overrides(runtime, index, roll_overrides)
+	var equipped: bool = equip_inventory_item(runtime, index, owner, registry, context_constants, baal_boots_constants)
 	if play_pickup_sound and not equipped:
 		runtime.audio_router.play_pickup_audio(runtime, registry)
 	return equipped
 
 
-func unequip_item(runtime: Object, item_name: String, owner: Object, registry: Object = null, baal_boots_constants: Dictionary = {}) -> bool:
-	var index: int = runtime._find_equipped_inventory_index_by_name(item_name)
+func unequip_item(
+	runtime: Object,
+	item_name: String,
+	owner: Object,
+	registry: Object = null,
+	context_constants: Dictionary = {},
+	baal_boots_constants: Dictionary = {}
+) -> bool:
+	var index: int = runtime.equipment_index.find_equipped_inventory_index_by_name(runtime, item_name)
 	if index < 0:
 		return false
-	return unequip_inventory_item(runtime, index, owner, registry, baal_boots_constants)
+	return unequip_inventory_item(runtime, index, owner, registry, context_constants, baal_boots_constants)
 
 
-func equip_inventory_item(runtime: Object, index: int, owner: Object, registry: Object = null, baal_boots_constants: Dictionary = {}) -> bool:
+func equip_inventory_item(
+	runtime: Object,
+	index: int,
+	owner: Object,
+	registry: Object = null,
+	context_constants: Dictionary = {},
+	baal_boots_constants: Dictionary = {}
+) -> bool:
 	if index < 0 or index >= runtime.inventory_items.size():
 		return false
 	if not (runtime.inventory_items[index] is Dictionary):
 		return false
 	var item_data: Dictionary = runtime.inventory_items[index]
 	var item_name: String = str(item_data.get("name", ""))
-	if runtime._is_single_equipment_item(item_name):
-		var equipped_index: int = runtime._find_equipped_inventory_index_by_name(item_name)
+	if runtime.equipment_index.is_single_equipment_item(item_name, context_constants):
+		var equipped_index: int = runtime.equipment_index.find_equipped_inventory_index_by_name(runtime, item_name)
 		if equipped_index >= 0 and equipped_index != index:
 			return false
-	var slot_key: String = runtime._resolve_equipment_slot_key(item_data, owner)
+	var slot_key: String = runtime.equipment_index.resolve_equipment_slot_key(runtime, item_data, owner, context_constants)
 	if slot_key == "":
 		return false
-	if not runtime._is_equipment_slot_enabled(slot_key, owner):
+	if not runtime.equipment_index.is_equipment_slot_enabled(runtime, slot_key, owner):
 		return false
 	for i in range(runtime.inventory_items.size()):
 		if i == index or not (runtime.inventory_items[i] is Dictionary):
@@ -135,14 +152,21 @@ func equip_inventory_item(runtime: Object, index: int, owner: Object, registry: 
 	item_data["equipped"] = true
 	item_data["_equipped_slot"] = slot_key
 	runtime.inventory_items[index] = item_data
-	runtime._rebuild_equipped_items()
+	runtime.equipment_index.rebuild_equipped_items(runtime, context_constants)
 	_clear_on_equip(runtime, item_name, owner, registry, baal_boots_constants)
 	runtime._sync_owner(owner, registry)
 	runtime.audio_router.play_equipment_audio(runtime, registry)
 	return true
 
 
-func unequip_inventory_item(runtime: Object, index: int, owner: Object, registry: Object = null, baal_boots_constants: Dictionary = {}) -> bool:
+func unequip_inventory_item(
+	runtime: Object,
+	index: int,
+	owner: Object,
+	registry: Object = null,
+	context_constants: Dictionary = {},
+	baal_boots_constants: Dictionary = {}
+) -> bool:
 	if index < 0 or index >= runtime.inventory_items.size():
 		return false
 	if not (runtime.inventory_items[index] is Dictionary):
@@ -153,39 +177,60 @@ func unequip_inventory_item(runtime: Object, index: int, owner: Object, registry
 	item_data["equipped"] = false
 	item_data["_equipped_slot"] = ""
 	runtime.inventory_items[index] = item_data
-	runtime._rebuild_equipped_items()
+	runtime.equipment_index.rebuild_equipped_items(runtime, context_constants)
 	_clear_on_unequip(runtime, str(item_data.get("name", "")), registry, baal_boots_constants)
 	runtime._sync_owner(owner, registry)
 	runtime.audio_router.play_equipment_audio(runtime, registry)
 	return true
 
 
-func toggle_inventory_item(runtime: Object, index: int, owner: Object, registry: Object = null, baal_boots_constants: Dictionary = {}) -> bool:
+func toggle_inventory_item(
+	runtime: Object,
+	index: int,
+	owner: Object,
+	registry: Object = null,
+	context_constants: Dictionary = {},
+	baal_boots_constants: Dictionary = {}
+) -> bool:
 	if index < 0 or index >= runtime.inventory_items.size():
 		return false
 	var item_data: Dictionary = runtime._get_dict(runtime.inventory_items[index])
 	if item_data.is_empty():
 		return false
 	if bool(item_data.get("equipped", false)) or str(item_data.get("_equipped_slot", "")) != "":
-		return unequip_inventory_item(runtime, index, owner, registry, baal_boots_constants)
-	return equip_inventory_item(runtime, index, owner, registry, baal_boots_constants)
+		return unequip_inventory_item(runtime, index, owner, registry, context_constants, baal_boots_constants)
+	return equip_inventory_item(runtime, index, owner, registry, context_constants, baal_boots_constants)
 
 
-func unequip_slot(runtime: Object, slot_key: String, owner: Object, registry: Object = null, baal_boots_constants: Dictionary = {}) -> bool:
-	var index: int = runtime._find_equipped_inventory_index_by_slot(slot_key)
+func unequip_slot(
+	runtime: Object,
+	slot_key: String,
+	owner: Object,
+	registry: Object = null,
+	context_constants: Dictionary = {},
+	baal_boots_constants: Dictionary = {}
+) -> bool:
+	var index: int = runtime.equipment_index.find_equipped_inventory_index_by_slot(runtime, slot_key)
 	if index < 0:
 		return false
-	return unequip_inventory_item(runtime, index, owner, registry, baal_boots_constants)
+	return unequip_inventory_item(runtime, index, owner, registry, context_constants, baal_boots_constants)
 
 
-func discard_inventory_item(runtime: Object, index: int, owner: Object, registry: Object = null, baal_boots_constants: Dictionary = {}) -> bool:
+func discard_inventory_item(
+	runtime: Object,
+	index: int,
+	owner: Object,
+	registry: Object = null,
+	context_constants: Dictionary = {},
+	baal_boots_constants: Dictionary = {}
+) -> bool:
 	if index < 0 or index >= runtime.inventory_items.size():
 		return false
 	var item_data: Dictionary = runtime._get_dict(runtime.inventory_items[index])
 	runtime.inventory_items.remove_at(index)
 	var item_name: String = str(item_data.get("name", ""))
 	_clear_on_remove_before_rebuild(runtime, item_name, registry, baal_boots_constants)
-	runtime._rebuild_equipped_items()
+	runtime.equipment_index.rebuild_equipped_items(runtime, context_constants)
 	_clear_on_remove_after_rebuild(runtime, item_name, registry, baal_boots_constants)
 	runtime._sync_owner(owner, registry)
 	return true

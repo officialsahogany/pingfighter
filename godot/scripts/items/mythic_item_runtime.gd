@@ -517,6 +517,7 @@ func acquire_item(
 		auto_equip,
 		play_pickup_sound,
 		acquired_item_data,
+		CONTEXT_CONSTANTS,
 		BAAL_BOOTS_CONSTANTS
 	)
 
@@ -529,37 +530,37 @@ func equip_item(
 	play_pickup_sound: bool = false
 ) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.equip_item(self, item_name, owner, registry, roll_overrides, play_pickup_sound, BAAL_BOOTS_CONSTANTS)
+	return equipment_facade.equip_item(self, item_name, owner, registry, roll_overrides, play_pickup_sound, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
 
 
 func unequip_item(item_name: String, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.unequip_item(self, item_name, owner, registry, BAAL_BOOTS_CONSTANTS)
+	return equipment_facade.unequip_item(self, item_name, owner, registry, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
 
 
 func equip_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.equip_inventory_item(self, index, owner, registry, BAAL_BOOTS_CONSTANTS)
+	return equipment_facade.equip_inventory_item(self, index, owner, registry, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
 
 
 func unequip_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.unequip_inventory_item(self, index, owner, registry, BAAL_BOOTS_CONSTANTS)
+	return equipment_facade.unequip_inventory_item(self, index, owner, registry, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
 
 
 func toggle_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.toggle_inventory_item(self, index, owner, registry, BAAL_BOOTS_CONSTANTS)
+	return equipment_facade.toggle_inventory_item(self, index, owner, registry, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
 
 
 func unequip_slot(slot_key: String, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.unequip_slot(self, slot_key, owner, registry, BAAL_BOOTS_CONSTANTS)
+	return equipment_facade.unequip_slot(self, slot_key, owner, registry, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
 
 
 func discard_inventory_item(index: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return equipment_facade.discard_inventory_item(self, index, owner, registry, BAAL_BOOTS_CONSTANTS)
+	return equipment_facade.discard_inventory_item(self, index, owner, registry, CONTEXT_CONSTANTS, BAAL_BOOTS_CONSTANTS)
 
 
 func debug_toggle_megingjord(owner: Object, registry: Object) -> bool:
@@ -1836,7 +1837,7 @@ func is_revival_effect_active() -> bool:
 
 func try_trigger_revival(loss_type: String = "round", context: Dictionary = {}) -> bool:
 	_ensure_helpers_ready()
-	return revival_runtime.try_trigger(self, loss_type, context)
+	return revival_runtime.try_trigger(self, loss_type, context, CONTEXT_CONSTANTS)
 
 
 func is_gold_digger_equipped() -> bool:
@@ -2444,48 +2445,6 @@ func _get_polish_multiplier(item_name: String = "") -> float:
 	if not runtime_perk_state_ref.has_method(method_name):
 		return 1.0
 	return max(0.0, float(runtime_perk_state_ref.call(method_name)))
-
-
-func _rebuild_equipped_items() -> void:
-	equipment_index.rebuild_equipped_items(self, CONTEXT_CONSTANTS)
-
-
-func _is_single_equipment_item(item_name: String) -> bool:
-	return equipment_index.is_single_equipment_item(item_name, CONTEXT_CONSTANTS)
-
-
-func _find_inventory_index_by_name(item_name: String) -> int:
-	return equipment_index.find_inventory_index_by_name(self, item_name)
-
-
-func _find_equipped_inventory_index_by_name(item_name: String) -> int:
-	return equipment_index.find_equipped_inventory_index_by_name(self, item_name)
-
-
-func _find_equipped_inventory_index_by_slot(slot_key: String) -> int:
-	return equipment_index.find_equipped_inventory_index_by_slot(self, slot_key)
-
-
-func _resolve_equipment_slot_key(item_data: Dictionary, owner: Object) -> String:
-	return equipment_index.resolve_equipment_slot_key(self, item_data, owner, CONTEXT_CONSTANTS)
-
-
-func _canonical_equipment_slot_key(slot_key: String) -> String:
-	match slot_key:
-		"back", "등":
-			return "belt2"
-		"torso":
-			return "top"
-		_:
-			return slot_key
-
-
-func _apply_roll_overrides(index: int, roll_overrides: Dictionary) -> void:
-	roll_query.apply_roll_overrides(self, index, roll_overrides)
-
-
-func _is_equipment_slot_enabled(slot_key: String, owner: Object) -> bool:
-	return equipment_index.is_equipment_slot_enabled(self, slot_key, owner)
 
 
 func _get_instance(registry: Object, key: String) -> Object:

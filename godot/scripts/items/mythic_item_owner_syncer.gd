@@ -18,7 +18,7 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 		var slot_key: String = str(item_data.get("_equipped_slot", ""))
 		if slot_key == "":
 			continue
-		var canonical_slot_key: String = runtime._canonical_equipment_slot_key(slot_key)
+		var canonical_slot_key: String = runtime.equipment_index.canonical_equipment_slot_key(slot_key)
 		var synced_item: Dictionary = item_data.duplicate(true)
 		synced_item["_equipped_slot"] = canonical_slot_key
 		slots[canonical_slot_key] = synced_item

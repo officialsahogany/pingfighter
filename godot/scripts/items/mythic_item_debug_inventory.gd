@@ -3,7 +3,7 @@ extends RefCounted
 
 func debug_toggle_megingjord(runtime: Object, owner: Object, registry: Object, constants: Dictionary) -> bool:
 	var item_megingjord: String = str(constants.get("item_megingjord", "megingjord"))
-	var index: int = runtime._find_inventory_index_by_name(item_megingjord)
+	var index: int = runtime.equipment_index.find_inventory_index_by_name(runtime, item_megingjord)
 	if index < 0:
 		return runtime.acquire_item(item_megingjord, owner, registry, {}, true, true) >= 0
 	return runtime.toggle_inventory_item(index, owner, registry)
@@ -12,7 +12,7 @@ func debug_toggle_megingjord(runtime: Object, owner: Object, registry: Object, c
 func debug_toggle_item(runtime: Object, item_name: String, owner: Object, registry: Object) -> bool:
 	if item_name == "":
 		return false
-	var index: int = runtime._find_inventory_index_by_name(item_name)
+	var index: int = runtime.equipment_index.find_inventory_index_by_name(runtime, item_name)
 	if index < 0:
 		return runtime.acquire_item(item_name, owner, registry, {}, true, true) >= 0
 	return runtime.toggle_inventory_item(index, owner, registry)
@@ -59,7 +59,7 @@ func get_debug_item_counts(runtime: Object) -> Dictionary:
 func debug_ensure_item_for_roll_editor(runtime: Object, item_name: String, owner: Object, registry: Object) -> int:
 	if item_name == "":
 		return -1
-	var index: int = runtime._find_inventory_index_by_name(item_name)
+	var index: int = runtime.equipment_index.find_inventory_index_by_name(runtime, item_name)
 	if index >= 0:
 		return index
 	return runtime.acquire_item(item_name, owner, registry, {}, true, true)
@@ -109,7 +109,7 @@ func debug_adjust_inventory_roll(
 	item_data["rolls"] = rolls
 	item_data = runtime.catalog.sync_roll_fields(item_data, false, true)
 	runtime.inventory_items[index] = item_data
-	runtime._rebuild_equipped_items()
+	runtime.equipment_index.rebuild_equipped_items(runtime, constants)
 	_reset_item_runtime_after_roll_adjustment(runtime, item_data, owner, registry, constants, baal_boots_constants)
 	return true
 

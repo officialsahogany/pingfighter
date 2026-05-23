@@ -20,13 +20,18 @@ func is_effect_active(runtime: Object) -> bool:
 	return runtime.revival_state.is_effect_active()
 
 
-func try_trigger(runtime: Object, loss_type: String = "round", context: Dictionary = {}) -> bool:
+func try_trigger(
+	runtime: Object,
+	loss_type: String = "round",
+	context: Dictionary = {},
+	constants: Dictionary = {}
+) -> bool:
 	if not is_available(runtime):
 		return false
 	runtime.revival_state.start(loss_type, EFFECT_FRAMES)
 	var owner: Object = runtime._get_dict(context).get("owner", null)
 	var registry: Object = runtime._get_dict(context).get("registry", null)
-	runtime.ownership_runtime.consume_equipped_item_name(runtime, ITEM_REVIVAL, owner, registry)
+	runtime.ownership_runtime.consume_equipped_item_name(runtime, ITEM_REVIVAL, owner, registry, constants)
 	return true
 
 

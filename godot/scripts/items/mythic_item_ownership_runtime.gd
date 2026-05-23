@@ -16,13 +16,14 @@ func consume_equipped_item_name(
 	runtime: Object,
 	item_name: String,
 	owner: Object = null,
-	registry: Object = null
+	registry: Object = null,
+	constants: Dictionary = {}
 ) -> bool:
-	var index: int = runtime._find_equipped_inventory_index_by_name(item_name)
+	var index: int = runtime.equipment_index.find_equipped_inventory_index_by_name(runtime, item_name)
 	if index < 0:
 		return false
 	runtime.inventory_items.remove_at(index)
-	runtime._rebuild_equipped_items()
+	runtime.equipment_index.rebuild_equipped_items(runtime, constants)
 	runtime._sync_owner(owner, registry)
 	return true
 
