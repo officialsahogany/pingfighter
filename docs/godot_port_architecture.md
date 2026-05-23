@@ -675,9 +675,9 @@ intentionally excludes these.
   away from 4 (more or fewer) during unrelated work, treat the change as
   a regression signal and bisect from there.
 
-### `Loaded resource as image file` export warnings
+### Cleared: passive-item PNG export warnings
 
-- Symptom: `WARNING: Loaded resource as image file, this will not work on
+- Former symptom: `WARNING: Loaded resource as image file, this will not work on
   export: 'res://...'. Instead, import the image file as an Image
   resource and load it normally as a resource.` (origin
   `core/io/image.cpp:2756`).
@@ -690,24 +690,19 @@ intentionally excludes these.
     `tests/danger_sensor_belt_port_smoke.gd`
   - `res://assets/sprites/items/speedgear.png` — emitted by
     `tests/speedgear_port_smoke.gd`
-- Root cause: each affected smoke (or the runtime path it exercises)
+- Former root cause: each affected smoke (or the runtime path it exercises)
   resolves the PNG with a generic `load()` that falls through to
   `Image.load()` because the PNG lacks a `.import` artifact. The legacy
   in-engine image loader works in editor and headless smoke runs but is
   blocked in exported builds.
-- Status: tracked as known baseline. Headless smokes pass. Not a blocker
-  for ongoing refactors. Real-build risk is real once these items ship,
-  but fixing means either re-importing the four PNGs (write `.import`
-  alongside) or routing them through the existing
-  `ProjectResourceLoader.load_texture(...)` path that already prefers
-  imported resources and falls back to `Image.load_from_file()` (which
-  does NOT trigger this warning because it takes a globalized filesystem
-  path, not a `res://` URI).
-- Re-investigate when: preparing an export build, touching the four
-  affected port runtimes, or generalizing the item icon loader. If new
-  warnings of this exact shape appear for additional paths during
-  unrelated work, treat as a regression and route the new path through
-  `ProjectResourceLoader.load_texture()`.
+- Status on 2026-05-24: cleared. `tests/gravitybelt_port_smoke.gd`,
+  `tests/revival_port_smoke.gd`, `tests/danger_sensor_belt_port_smoke.gd`,
+  and `tests/speedgear_port_smoke.gd` now load those icon paths through
+  `ProjectResourceLoader.load_texture(...)`; the four-smoke sweep passed
+  without the export warning.
+- Regression rule: if this warning shape reappears for item PNGs, route the
+  new path through `ProjectResourceLoader.load_texture()` instead of generic
+  `load(res://*.png)`.
 
 ## Verification Rule
 
