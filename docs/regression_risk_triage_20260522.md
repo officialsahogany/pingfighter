@@ -5444,6 +5444,57 @@ Hundredth split on 2026-05-24:
   `commando_firearm_hit_geometry_smoke`, and
   `commando_firearm_audio_resolver_smoke`.
 
+142nd follow-up on 2026-05-24:
+
+- Commit: `8be753e50 godot: add Yachaman bomb spin skill`.
+- Scope: Yachaman Soul's transformed form now has a direction-plus-action
+  bomb spin that detaches the helmet, moves the transformed body, loads a
+  bomb state onto the ball on helmet collision, renders the bomb ball through
+  the shared ball draw context, consumes the loaded bomb on boss hit, applies
+  boss stun / knockback / screen shake, plays throw / explosion fallback
+  cues, and draws detached helmet / return / explosion VFX through the
+  focused Yachaman helpers. The actor renderer now passes Yachaman context so
+  the transformed body can show the exposed-head state while the helmet is
+  away.
+- Validation: focused Yachaman / shared collision coverage passed:
+  `yachaman_soul_port_smoke`, `horn_strawberry_mask_port_smoke`,
+  `ball_render_toggles_smoke`, `fire_weather_ball_speed_rules_smoke`,
+  `mythic_item_field_render_budget_smoke`, and
+  `mythic_item_snapshot_builder_smoke`.
+
+143rd follow-up on 2026-05-24:
+
+- Commit: `f0e9e6442 godot: tune Commando fire support to two bombs`.
+- Scope: Commando Fire Support now uses a fixed two-bomb strike instead of
+  the previous 2-3 bomb range. The runtime constant and support-call smoke
+  expectations now agree on the smaller strike size.
+- Validation: focused Commando support coverage passed:
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_support_projectile_resolver_smoke`, and
+  `commando_firearm_support_aircraft_geometry_smoke`.
+
+144th follow-up on 2026-05-24:
+
+- Commit: `8d7d56a08 godot: log focused BattlePerf spike windows`.
+- Scope: `BattlePerf` now emits a focused spike-window line when draw-shell,
+  battle-scene, playfield, active-item, mythic, context, or selected HUD /
+  actor labels cross tuned thresholds. The summary includes trigger labels,
+  hottest focused samples, selected focus samples, and counters so stage /
+  item / HUD hitches can be triaged without reading the full detail stream.
+- Validation: `battle_perf_logger_smoke` passed, and the repo-wide
+  `run_warning_scan.ps1` checked 1315 scripts with no GDScript warnings.
+
+145th follow-up on 2026-05-24:
+
+- Commit: `36021674e godot: draw fire support ammo as bombs`.
+- Scope: the Commando left-pillar firearm selector now prewarms the accepted
+  Fire Support bomb projectile PNG for ammo pips, exposes the ammo icon path
+  in the panel state, and renders Fire Support ammunition as compact bomb
+  icons with a procedural fallback instead of generic compact bullets.
+- Validation: `commando_firearm_selector_renderer_smoke` passed, including
+  prewarm and panel-state coverage for the Fire Support bomb ammo icon.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

@@ -2947,9 +2947,10 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/core/battle_perf_logger.gd`
   Owns opt-in live battle performance sampling for draw-pass investigation:
   `PINGFIGHTER_BATTLE_PERF_LOG` / `battle_perf_log.flag` enablement,
-  microsecond sub-draw aggregation, and Godot `Performance` monitor output
-  used to compare actor-body rendering, effect layers, weather, items, and
-  HUD overlays before changing runtime behavior.
+  microsecond sub-draw aggregation, focused spike-window summaries, and
+  Godot `Performance` monitor output used to compare actor-body rendering,
+  effect layers, weather, items, and HUD overlays before changing runtime
+  behavior.
 - `scripts/core/battle_playfield_overlay_drawer.gd`
   Owns playfield overlay draw helpers inside the transformed pass: skill
   feedback banners, serve-wait indicator dispatch, and scoreboard overlay
@@ -3363,8 +3364,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/hud/commando_firearm_selector_renderer.gd`
   Owns the Commando left-pillar firearm selector presentation. It draws one
   fixed panel for the current selected weapon, ammo/status text, owned/rental
-  badge, and mouse-wheel hint; it must not reintroduce per-weapon stacked
-  pillar cards.
+  badge, mouse-wheel hint, and weapon-specific ammo icon styles such as Fire
+  Support bomb pips; it must not reintroduce per-weapon stacked pillar cards.
 - `scripts/hud/commando_firearm_tooltip_renderer.gd`
   Owns the Commando current-firearm panel tooltip surface: Korean title,
   ammo/status text, base/permanent/rental ownership, reload eligibility,
@@ -4020,9 +4021,10 @@ This section is intentionally long; use search to find the nearest owner.
   delegating only these geometry decisions.
 - `scripts/characters/commando_firearm_support_call_resolver.gd`
   Owns pure Commando fire-support call math: deterministic support-call
-  seed generation, aircraft-entry delay selection, bomb-count selection,
-  initial call payload construction including configurable aircraft start /
-  curved flight metadata, support-marker flash payloads, and
+  seed generation, aircraft-entry delay selection, bomb-count selection
+  from the runtime's tuned min / max constants, initial call payload
+  construction including configurable aircraft start / curved flight
+  metadata, support-marker flash payloads, and
   deterministic per-bomb target selection, plus pure per-frame call-state
   advancement flags for aircraft start, bomb spawn, call completion, and
   active radio/call-lock lookup. `commando_firearm_runtime.gd` keeps
@@ -4832,22 +4834,28 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/items/yachaman_soul_state.gd`
   Owns Yachaman Soul's score-prevention state machine: idle, revival-event,
   transformed, 60-frame gather, 30-frame burst, one-use-per-round latch,
-  reset-ready handoff, and transformed-state defeat diagnostics.
+  reset-ready handoff, transformed-state defeat diagnostics, transformed
+  bomb-spin windup / spin / dash / recovery / cooldown state, helmet detach /
+  return timing, loaded-ball flagging, and bomb explosion particles.
 - `scripts/items/mythic_item_yachaman_soul_runtime.gd`
   Owns Yachaman Soul's mythic-runtime facade: equipment sync, rolled
   activation chance, boss-score cancellation, revival-event startup, audio /
   redraw fanout, transformed speed / paddle-size exposure, skill / control
-  lock queries, round reset, and full-runtime clear coordination.
+  lock queries, bomb-spin input polling, owner motion, bomb-ball loading,
+  boss-hit explosion consumption, status / feedback / audio handoff, round
+  reset, and full-runtime clear coordination.
 - `scripts/items/yachaman_soul_effect_renderer.gd`
   Owns Yachaman Soul's direct CanvasItem fallback VFX for revival gather /
-  burst rings, radial sparks, and final flash. It receives a compact context
+  burst rings, radial sparks, final flash, detached spinning helmet trails,
+  helmet return, and bomb explosion particles. It receives a compact context
   from the mythic field renderer and does not allocate textures in the draw
   path.
 - `scripts/items/yachaman_soul_paddle_renderer.gd`
   Owns the transformed Yachaman player-body draw path rendered by
   `stage1_player_actor_renderer.gd`: compact body, helmet highlights, fuse,
-  flame, eye blink, and movement bob. The normal paddle and Commando overlays
-  are suppressed while this transformed body is active.
+  flame, exposed head while the helmet is detached, eye blink, and movement
+  bob. The normal paddle and Commando overlays are suppressed while this
+  transformed body is active.
 - `scripts/items/mythic_item_audio_router.gd`
   Owns mythic / passive item cue routing and fallback order, including
   Ragnarok / Poseidon loop-handle caching, Horn Strawberry skill cues, and the
