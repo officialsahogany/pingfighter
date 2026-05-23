@@ -38,13 +38,6 @@ evidence instead of relying on chat-only status summaries.
 
 Open follow-ups before the next broad sign-off:
 
-- Lane ordering drifted during the cleanup sprint. The commits are scoped,
-  but the next review should group remaining WIP by owner lane before staging
-  more mixed mythic / stage / Commando changes.
-- Several blocker fixes landed inside feature commits rather than standalone
-  `fix` commits. Use exact file / line references in review notes when those
-  fixes need traceability, especially `mythic_item_catalog.gd` and
-  `project_resource_loader.gd`.
 - Residual local settings files after the artifact-ignore sync are
   `.claude/settings.json` and `.claude/sprite_workflow_settings.json`.
   They are locally hidden with `skip-worktree`, not committed or reverted.
@@ -60,6 +53,13 @@ Resolved follow-up in the latest pass:
   `stage5_hongryun_visual_shell_smoke` on 2026-05-23. The focused run passed
   without the previous `ObjectDB instances leaked at exit` warning, so it is
   no longer an open blocker unless it resurfaces in a broader run.
+- Lane-order drift has a review grouping now: the latest traceability pass
+  groups the 2026-05-23 split commits by owner lane, so reviewers do not need
+  to reconstruct the mixed mythic / stage / Commando sequence from raw commit
+  order.
+- The feature-commit blocker fixes now have exact current file / line anchors
+  below. They are still historically embedded in feature commits, but no
+  longer untraceable.
 
 ## Initial Snapshot
 
@@ -3563,3 +3563,68 @@ Seventy-first split on 2026-05-23:
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1279` scripts scanned, no GDScript
   warnings).
+
+## Review Lane Grouping / Blocker Traceability - 2026-05-23
+
+This pass closes the review-only follow-up that the cleanup sprint commits
+were correct but not easy to read by lane. The raw chronological order still
+contains mixed mythic / stage / Commando work, but the review grouping below
+is the intended way to audit the current checkpoint.
+
+Lane grouping for recent follow-up commits:
+
+- Boot / loading / input / menu lane:
+  `a31f02305`, `569f4bc69`, `a5d64bd8`, `cbee457a5`,
+  `12d1ae362`, `b54691e4e`, `40139db4f`, `2a1e45c3e`,
+  `381e7c9a5`, `418356131`.
+- Active item / item VFX / item runtime lane:
+  `8f58b63b0`, `e29fbcef7`, `958cc63e1`, `e8c26f139`,
+  `de4522bb5`, `3fe052261`, `819b96462`, `39ca20e11`,
+  `625c95631`, `0956f6bb8`.
+- Mythic / legendary item lane:
+  `e40423f1e`, `05c1eef12`, `5c209fb7e`, `7a3d0ff4f`,
+  `c484677de`, `04cc78bf2`, `b637d9ffa`, `a47f6dafd`,
+  `974ddb226`, `968a1ff4a`, `0e0cf2fd3`.
+- Character / Commando / perk / HUD lane:
+  `e1a0755fb`, `cb58a93a8`, `6970aded2`, `bf30104ee`,
+  `28858b878`, `9321d2683`, `0e1d39a93`, `d5156a901`,
+  `ff83b6e86`, `87be228ae`, `ce43ccfd7`, `74bb79772`,
+  `3998ec141`, `f18fd43f8`, `be3d15b6a`, `97452a115`.
+- Stage / weather / render lifecycle lane:
+  `02413b540`, `159736f26`, `645518ba0`, `5ad1bbf3d`,
+  `a2961bede`, `e77d413f0`, `52d3c4a02`, `a3641582c`,
+  `7ed0b79af`, `97aba167f`, `5628d5b14`, `65be9f2f1`,
+  `9092e335c`, `8a5e8a0c2`, `12ca98dce`, `0253fa901`,
+  `5763b6895`.
+- Audio / asset / packaging-support lane:
+  `f2b2592f9`, `9c96be588`, `ebe4b380d`, `4c6ccc209`,
+  `a41efcb3c`.
+- Docs / traceability lane:
+  `4c6ccc209`, `ca09326a4`, `fcf2842c0`, `b4e929515`,
+  `1e40d31bf`, `8f026acfb`, `6d50dfd9e`, `c8e28a1ca`,
+  `3d3e888f4`, `b8813e55e`, `cdc0637db`, `01ba8bc48`,
+  `9ab791a84`, `6622d30a0`, `689bc2790`, `7a432139f`,
+  `2001105b6`, `8460db122`, `ccebdcc70`.
+
+Current line anchors for the four blocker fixes that landed inside feature
+commits rather than standalone `fix` commits:
+
+- Pandora Legacy animated mythic icon metadata:
+  `godot/scripts/items/mythic_item_catalog.gd:49` defines
+  `PANDORA_LEGACY_ICON_SHEET_PATH`; `:2151-2155` wires the sheet path,
+  frame count, frame msec, source inset, and fill-slot metadata into the
+  catalog entry.
+- Raw PNG loader / cache-collision hardening:
+  `godot/scripts/resources/project_resource_loader.gd:15-28` checks the
+  existing ResourceLoader cache first, then loads a valid raw source image via
+  `Image.load_from_file()` / `ImageTexture.create_from_image()` and avoids
+  assigning `resource_path` when Godot already has a cached imported resource
+  for that path.
+- Stage 2 pillar HUD renderer name drift:
+  `godot/tests/stage2_pillar_render_budget_smoke.gd:235-238` now rejects the
+  old `skill_orb_renderer` conditional and requires the live
+  `active_skill_orb_renderer` path.
+- Stage 2 boss-rage defensive rock wall count:
+  `godot/tests/stage2_router_smoke.gd:472-477` now asserts the current
+  `>= 3` rock-wall contract and still verifies quake feedback, water-cannon
+  delay, and rock-spawn audio.
