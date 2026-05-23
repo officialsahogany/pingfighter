@@ -10,11 +10,10 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `56cbe6365 godot: align dual glitch four poisons smoke`.
-- Code / asset / smoke-fix range through that HEAD contains 99 follow-up
-  commits after the gamepad input boot baseline. Including `2c31069ba`
-  itself, the checkpoint span through the latest code / asset / smoke-fix
-  split contains 100 commits.
+  `da656fe70 godot: clean up smoke test teardown`.
+- The checkpoint span through that HEAD contains 101 follow-up commits after
+  the gamepad input boot baseline. Including `2c31069ba` itself, the span
+  contains 102 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest local-artifact ignore sync before this addendum:
@@ -49,21 +48,20 @@ Open follow-ups before the next broad sign-off:
   workflow mode from `fast` to `precise`. Keep both out of gameplay / docs
   refactor commits unless the user explicitly asks to change repo-wide tool
   policy.
-- The segmented broad smoke validation emitted nonfatal `ObjectDB instances
-  leaked at exit` warnings from these otherwise-passing smoke scripts:
-  `boot_flow_bgm_toggle_smoke`, `commando_fullbody_live2d_smoke`,
-  `game_audio_volume_settings_smoke`, `main_menu_quit_confirmation_smoke`, and
-  `stage5_hongryun_visual_shell_smoke`. They did not trip the smoke wrapper,
-  but they should be treated as cleanup follow-ups before claiming a pristine
-  broad-smoke sign-off.
+- The previous segmented broad smoke validation was complete by sorted-script
+  coverage, but it was not a single uninterrupted all-489 pass. Run one clean
+  full `.\tools\run_smoke_tests.ps1` pass before claiming pristine broad-smoke
+  sign-off.
 
 Resolved follow-up in the latest pass:
 
-- Stage 5 visual-shell leak note was rechecked with
-  `stage5_hongryun_visual_shell_smoke` on 2026-05-23. The focused run passed
-  without the previous `ObjectDB instances leaked at exit` warning. A later
-  segmented broad smoke run did surface the warning again, so the active
-  follow-up is now tracked in the open broad-smoke warning bullet above.
+- `da656fe70 godot: clean up smoke test teardown` resolves the known nonfatal
+  `ObjectDB instances leaked at exit` cleanup follow-up for
+  `boot_flow_bgm_toggle_smoke`, `commando_fullbody_live2d_smoke`,
+  `game_audio_volume_settings_smoke`, and
+  `main_menu_quit_confirmation_smoke`. The same focused verification set also
+  reran `stage5_hongryun_visual_shell_smoke`; all five passed without the
+  previous exit leak warning.
 - Lane-order drift has a review grouping now: the latest traceability pass
   groups the 2026-05-23 split commits by owner lane, so reviewers do not need
   to reconstruct the mixed mythic / stage / Commando sequence from raw commit
@@ -97,11 +95,19 @@ Segmented broad validation covered the full sorted 489-script smoke list from
   `viper_dual_glitch_port_smoke` with the documented Four Poisons Lv.5 Dual
   Glitch duration table: base `900` active frames with `+33%` becomes `1197`
   frames.
+- `da656fe70 godot: clean up smoke test teardown` drains or cancels the test
+  resources that were still alive at process exit in the previously noted
+  ObjectDB leak warnings.
 - Focused validation after those fixes passed:
   `commando_weapon_overlay_smoke`, `elixir_of_mastery_smoke`,
   `passive_item_debug_menu_click_add_smoke`, `horn_strawberry_mask_port_smoke`,
   `horn_strawberry_skill_hud_smoke`, `viper_dual_glitch_port_smoke`,
   `viper_nerve_strike_port_smoke`, and `viper_emp_strike_port_smoke`.
+- Focused teardown validation after `da656fe70` passed:
+  `boot_flow_bgm_toggle_smoke`, `commando_fullbody_live2d_smoke`,
+  `game_audio_volume_settings_smoke`, `main_menu_quit_confirmation_smoke`, and
+  `stage5_hongryun_visual_shell_smoke`, with no ObjectDB leak warning in the
+  wrapper output.
 - Segmented broad coverage completed:
   the full run reached `passive_item_debug_menu_click_add_smoke` after passing
   the earlier sorted smoke list; the rerun from
