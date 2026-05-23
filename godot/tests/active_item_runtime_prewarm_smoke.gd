@@ -31,8 +31,18 @@ func _verify_runtime_prewarm_loads_item_draw_assets() -> void:
 	_expect(runtime.render_facade.field_renderer.portal_sheet_texture != null, "field prewarm should load portal sheet")
 	_expect(runtime.render_facade.field_renderer.unknown_item_sheet_texture != null, "field prewarm should load unknown item sheet")
 	_expect(runtime.render_facade.throw_renderer.grenade_icon_texture != null, "throw prewarm should load throw icons")
+	_expect(runtime.render_facade.throw_renderer.spider_mine_crawl_sheet_texture != null, "throw prewarm should load spider mine crawl sheet")
+	_expect(runtime.render_facade.throw_renderer.spider_mine_installed_idle_sheet_texture != null, "throw prewarm should load spider mine installed idle sheet")
+	_expect(runtime.render_facade.throw_renderer.spider_mine_deploy_sheet_texture != null, "throw prewarm should load spider mine deploy sheet")
+	_expect(_is_spider_mine_sheet(runtime.render_facade.throw_renderer.spider_mine_crawl_sheet_texture), "spider mine crawl sheet should be a 4x4 512px-cell sheet")
+	_expect(_is_spider_mine_sheet(runtime.render_facade.throw_renderer.spider_mine_installed_idle_sheet_texture), "spider mine installed idle sheet should be a 4x4 512px-cell sheet")
+	_expect(_is_spider_mine_sheet(runtime.render_facade.throw_renderer.spider_mine_deploy_sheet_texture), "spider mine deploy sheet should be a 4x4 512px-cell sheet")
 	_expect(runtime.render_facade.effect_renderer.long_boost_icon_texture != null, "effect prewarm should load timer icons")
 	_expect(runtime.render_facade.effect_renderer.brick_wall_variant_sheet_texture != null, "effect prewarm should load Brick Wall variant sheet")
+
+
+func _is_spider_mine_sheet(texture: Texture2D) -> bool:
+	return texture != null and texture.get_width() == 2048 and texture.get_height() == 2048
 
 
 func _has_cached_catalog_icon(visuals: Object, catalog: Object, item_name: String) -> bool:

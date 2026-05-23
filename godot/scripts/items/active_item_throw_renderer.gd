@@ -16,6 +16,9 @@ const BOOMERANG_METAL_ICON_PATH := ActiveItemCatalog.BOOMERANG_METAL_ICON_PATH
 const BANANA_ICON_PATH := ActiveItemCatalog.BANANA_ICON_PATH
 const SOAP_ICON_PATH := ActiveItemCatalog.SOAP_ICON_PATH
 const SPIDER_MINE_ICON_PATH := ActiveItemCatalog.SPIDER_MINE_ICON_PATH
+const SPIDER_MINE_CRAWL_SHEET_PATH := "res://assets/sprites/items/spider_mine_crawl_sheet.png"
+const SPIDER_MINE_INSTALLED_IDLE_SHEET_PATH := "res://assets/sprites/items/spider_mine_installed_idle_sheet.png"
+const SPIDER_MINE_DEPLOY_SHEET_PATH := "res://assets/sprites/items/spider_mine_deploy_sheet.png"
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const GRENADE_THROW_WINDUP_MSEC := 600
@@ -62,10 +65,18 @@ const SOAP_PARTICLE_ALPHA_CUTOFF := 0.02
 const SPIDER_MINE_DRAW_SIZE := 32.0
 const SPIDER_MINE_THROW_WINDUP_MSEC := 600
 const SPIDER_MINE_EXPLOSION_DURATION_FRAMES := 22.0
+const SPIDER_MINE_START_DELAY_FRAMES := 60.0
 const SPIDER_MINE_EMBED_DELAY_FRAMES := 60.0
 const SPIDER_MINE_SELF_DESTRUCT_WARNING_FRAMES := 120.0
 const SPIDER_MINE_SELF_DESTRUCT_FAST_FRAMES := 180.0
 const SPIDER_MINE_FLASH_INTERVAL_FRAMES := 6.0
+const SPIDER_MINE_SHEET_COLUMNS := 4
+const SPIDER_MINE_SHEET_FRAME_COUNT := 16
+const SPIDER_MINE_SHEET_DRAW_SIZE := 44.0
+const SPIDER_MINE_CRAWL_FRAME_INTERVAL_FRAMES := 4.0
+const SPIDER_MINE_IDLE_FRAME_INTERVAL_FRAMES := 6.0
+const SPIDER_MINE_CRAWL_STEP_PHASE_PER_FRAME := 0.4
+const SPIDER_MINE_GLOW_PHASE_PER_FRAME := 0.08
 const SPIDER_MINE_LEG_DXS := [-12.0, -8.0, -4.0, 4.0, 8.0, 12.0]
 const SPIDER_MINE_LEG_DYS := [8.0, -3.0, 2.0, 2.0, -3.0, 8.0]
 const SPIDER_MINE_LEG_PHASES := [0.0, 1.5, 3.0, 0.8, 2.3, 3.8]
@@ -81,6 +92,9 @@ var boomerang_metal_icon_texture: Texture2D
 var banana_icon_texture: Texture2D
 var soap_icon_texture: Texture2D
 var spider_mine_icon_texture: Texture2D
+var spider_mine_crawl_sheet_texture: Texture2D
+var spider_mine_installed_idle_sheet_texture: Texture2D
+var spider_mine_deploy_sheet_texture: Texture2D
 
 static var _tear_gas_puff_texture: ImageTexture = null
 static var _filled_ellipse_mesh: ArrayMesh = null
@@ -132,7 +146,27 @@ func prewarm_assets() -> void:
 	_touch_texture(_get_banana_icon_texture())
 	_touch_texture(_get_soap_icon_texture())
 	_touch_texture(_get_spider_mine_icon_texture())
+	_touch_texture(_get_spider_mine_crawl_sheet_texture())
+	_touch_texture(_get_spider_mine_installed_idle_sheet_texture())
+	_touch_texture(_get_spider_mine_deploy_sheet_texture())
 	_get_filled_ellipse_mesh()
+
+
+func get_spider_mine_asset_status() -> Dictionary:
+	var crawl_sheet: Texture2D = _get_spider_mine_crawl_sheet_texture()
+	var installed_idle_sheet: Texture2D = _get_spider_mine_installed_idle_sheet_texture()
+	var deploy_sheet: Texture2D = _get_spider_mine_deploy_sheet_texture()
+	return {
+		"crawl_sheet_loaded": crawl_sheet != null,
+		"installed_idle_sheet_loaded": installed_idle_sheet != null,
+		"deploy_sheet_loaded": deploy_sheet != null,
+		"crawl_sheet_path": SPIDER_MINE_CRAWL_SHEET_PATH,
+		"installed_idle_sheet_path": SPIDER_MINE_INSTALLED_IDLE_SHEET_PATH,
+		"deploy_sheet_path": SPIDER_MINE_DEPLOY_SHEET_PATH,
+		"sheet_columns": SPIDER_MINE_SHEET_COLUMNS,
+		"sheet_frame_count": SPIDER_MINE_SHEET_FRAME_COUNT,
+		"sheet_draw_size": SPIDER_MINE_SHEET_DRAW_SIZE,
+	}
 
 
 func draw(
@@ -1352,7 +1386,6 @@ func _draw_soap_puddle(canvas: CanvasItem, center: Vector2) -> void:
 func _draw_spider_mines(canvas: CanvasItem, spider_mines: Array, shake_offset: Vector2) -> void:
 	if spider_mines.is_empty():
 		return
-	var texture: Texture2D = _get_spider_mine_icon_texture()
 	for mine_value in spider_mines:
 		if not (mine_value is Dictionary):
 			continue
@@ -1377,25 +1410,100 @@ func _draw_spider_mines(canvas: CanvasItem, spider_mines: Array, shake_offset: V
 			if armed_time >= SPIDER_MINE_SELF_DESTRUCT_WARNING_FRAMES and int(armed_time / flash_interval) % 2 == 0:
 				canvas.draw_circle(center, 24.0 + 4.0 * sin(float(Time.get_ticks_msec()) * 0.02), Color(1.0, 80.0 / 255.0, 110.0 / 255.0, 0.42), false, 3.0)
 
-		_draw_spider_mine_legs(canvas, center, mine, state)
-		if texture != null:
-			_draw_rotated_texture_region(
-				canvas,
-				texture,
-				Rect2(Vector2.ZERO, texture.get_size()),
-				center,
-				Vector2(SPIDER_MINE_DRAW_SIZE, SPIDER_MINE_DRAW_SIZE),
-				0.0
-			)
-		else:
-			_draw_spider_mine_fallback(canvas, center, mine, state, float(mine.get("armed_elapsed", 0.0)), 0.0)
+		var drew_sheet: bool = _draw_spider_mine_sheet(canvas, center, mine, state)
+		if not drew_sheet:
+			_draw_spider_mine_legs(canvas, center, mine, state)
+			var texture: Texture2D = _get_spider_mine_icon_texture()
+			if texture != null:
+				_draw_rotated_texture_region(
+					canvas,
+					texture,
+					Rect2(Vector2.ZERO, texture.get_size()),
+					center,
+					Vector2(SPIDER_MINE_DRAW_SIZE, SPIDER_MINE_DRAW_SIZE),
+					0.0
+				)
+			else:
+				_draw_spider_mine_fallback(canvas, center, mine, state, float(mine.get("armed_elapsed", 0.0)), 0.0)
 
+		var beacon_center: Vector2 = _get_spider_mine_beacon_center(center, drew_sheet)
 		var flash_timer: float = float(mine.get("flash_timer", 0.0))
 		if flash_timer > 0.0 and int(flash_timer / SPIDER_MINE_FLASH_INTERVAL_FRAMES) % 2 == 0:
-			canvas.draw_circle(center, 13.0, Color(1.0, 200.0 / 255.0, 120.0 / 255.0, 0.55))
+			canvas.draw_circle(beacon_center, 13.0, Color(1.0, 200.0 / 255.0, 120.0 / 255.0, 0.55))
 		if state == "armed":
 			var pulse: float = 0.6 + 0.4 * sin(float(mine.get("armed_elapsed", 0.0)) * 0.18)
-			canvas.draw_circle(center + Vector2(0.0, -2.0), max(3.0, 5.0 * pulse), Color(1.0, 110.0 / 255.0, 140.0 / 255.0, 0.88))
+			canvas.draw_circle(beacon_center, max(3.0, 5.0 * pulse), Color(1.0, 110.0 / 255.0, 140.0 / 255.0, 0.88))
+
+
+func _draw_spider_mine_sheet(canvas: CanvasItem, center: Vector2, mine: Dictionary, state: String) -> bool:
+	var texture: Texture2D = _get_spider_mine_sheet_texture_for_state(state)
+	if texture == null:
+		return false
+	var source_rect: Rect2 = _get_spider_mine_sheet_source_rect(
+		texture,
+		_get_spider_mine_sheet_frame(mine, state)
+	)
+	if source_rect.size.x <= 0.0 or source_rect.size.y <= 0.0:
+		return false
+	_draw_rotated_texture_region(
+		canvas,
+		texture,
+		source_rect,
+		center,
+		Vector2(SPIDER_MINE_SHEET_DRAW_SIZE, SPIDER_MINE_SHEET_DRAW_SIZE),
+		0.0
+	)
+	return true
+
+
+func _get_spider_mine_sheet_texture_for_state(state: String) -> Texture2D:
+	if state == "floor" or state == "wall":
+		return _get_spider_mine_crawl_sheet_texture()
+	if state == "spawn" or state == "embedding":
+		return _get_spider_mine_deploy_sheet_texture()
+	if state == "armed":
+		return _get_spider_mine_installed_idle_sheet_texture()
+	return _get_spider_mine_installed_idle_sheet_texture()
+
+
+func _get_spider_mine_sheet_frame(mine: Dictionary, state: String) -> int:
+	if state == "spawn":
+		var spawn_progress: float = 1.0 - clamp(float(mine.get("delay_timer", 0.0)) / SPIDER_MINE_START_DELAY_FRAMES, 0.0, 1.0)
+		return clamp(int(floor(spawn_progress * float(SPIDER_MINE_SHEET_FRAME_COUNT))), 0, SPIDER_MINE_SHEET_FRAME_COUNT - 1)
+	if state == "embedding":
+		var embed_progress: float = 1.0 - clamp(float(mine.get("embed_timer", 0.0)) / SPIDER_MINE_EMBED_DELAY_FRAMES, 0.0, 1.0)
+		return clamp(int(floor(embed_progress * float(SPIDER_MINE_SHEET_FRAME_COUNT))), 0, SPIDER_MINE_SHEET_FRAME_COUNT - 1)
+	if state == "floor" or state == "wall":
+		var crawl_elapsed: float = float(mine.get("step_phase", 0.0)) / SPIDER_MINE_CRAWL_STEP_PHASE_PER_FRAME
+		return _get_spider_mine_loop_frame(crawl_elapsed, SPIDER_MINE_CRAWL_FRAME_INTERVAL_FRAMES)
+	if state == "armed":
+		return _get_spider_mine_loop_frame(float(mine.get("armed_elapsed", 0.0)), SPIDER_MINE_IDLE_FRAME_INTERVAL_FRAMES)
+	var glow_elapsed: float = float(mine.get("glow_phase", 0.0)) / SPIDER_MINE_GLOW_PHASE_PER_FRAME
+	return _get_spider_mine_loop_frame(glow_elapsed, SPIDER_MINE_IDLE_FRAME_INTERVAL_FRAMES)
+
+
+func _get_spider_mine_loop_frame(elapsed_frames: float, frame_interval: float) -> int:
+	return int(floor(max(0.0, elapsed_frames) / max(1.0, frame_interval))) % SPIDER_MINE_SHEET_FRAME_COUNT
+
+
+func _get_spider_mine_sheet_source_rect(texture: Texture2D, frame_index: int) -> Rect2:
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return Rect2()
+	var frame: int = clamp(frame_index, 0, SPIDER_MINE_SHEET_FRAME_COUNT - 1)
+	var column: int = frame % SPIDER_MINE_SHEET_COLUMNS
+	var row: int = int(floor(float(frame) / float(SPIDER_MINE_SHEET_COLUMNS)))
+	var cell_size := Vector2(
+		texture_size.x / float(SPIDER_MINE_SHEET_COLUMNS),
+		texture_size.y / float(SPIDER_MINE_SHEET_COLUMNS)
+	)
+	return Rect2(Vector2(float(column) * cell_size.x, float(row) * cell_size.y), cell_size)
+
+
+func _get_spider_mine_beacon_center(center: Vector2, using_sheet: bool) -> Vector2:
+	if using_sheet:
+		return center + Vector2(0.0, -SPIDER_MINE_SHEET_DRAW_SIZE * 0.26)
+	return center + Vector2(0.0, -2.0)
 
 
 func _draw_spider_mine_legs(canvas: CanvasItem, center: Vector2, mine: Dictionary, state: String) -> void:
@@ -1968,6 +2076,36 @@ func _get_spider_mine_icon_texture() -> Texture2D:
 			"Failed to load spider mine icon at %s"
 		)
 	return spider_mine_icon_texture
+
+
+func _get_spider_mine_crawl_sheet_texture() -> Texture2D:
+	if spider_mine_crawl_sheet_texture == null:
+		spider_mine_crawl_sheet_texture = ProjectResourceLoader.load_texture(
+			SPIDER_MINE_CRAWL_SHEET_PATH,
+			"Missing spider mine crawl sheet at %s",
+			"Failed to load spider mine crawl sheet at %s"
+		)
+	return spider_mine_crawl_sheet_texture
+
+
+func _get_spider_mine_installed_idle_sheet_texture() -> Texture2D:
+	if spider_mine_installed_idle_sheet_texture == null:
+		spider_mine_installed_idle_sheet_texture = ProjectResourceLoader.load_texture(
+			SPIDER_MINE_INSTALLED_IDLE_SHEET_PATH,
+			"Missing spider mine installed idle sheet at %s",
+			"Failed to load spider mine installed idle sheet at %s"
+		)
+	return spider_mine_installed_idle_sheet_texture
+
+
+func _get_spider_mine_deploy_sheet_texture() -> Texture2D:
+	if spider_mine_deploy_sheet_texture == null:
+		spider_mine_deploy_sheet_texture = ProjectResourceLoader.load_texture(
+			SPIDER_MINE_DEPLOY_SHEET_PATH,
+			"Missing spider mine deploy sheet at %s",
+			"Failed to load spider mine deploy sheet at %s"
+		)
+	return spider_mine_deploy_sheet_texture
 
 
 func _get_throw_item_icon_texture(item_name: String, boomerang_metal: bool = false) -> Texture2D:

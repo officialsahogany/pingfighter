@@ -1,6 +1,7 @@
 extends SceneTree
 
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
+const ActiveItemThrowRenderer := preload("res://scripts/items/active_item_throw_renderer.gd")
 const ActiveItemThrowSpiderMine := preload("res://scripts/items/active_item_throw_spider_mine.gd")
 
 var _failures: Array[String] = []
@@ -63,6 +64,7 @@ func _init() -> void:
 	_verify_mine_state_updates_and_walk_audio()
 	_verify_boss_explosion_applies_effects()
 	_verify_particles_and_slow_decay()
+	_verify_renderer_uses_spider_mine_sheets()
 
 	if _failures.is_empty():
 		print("active_item_throw_spider_mine_smoke: ok")
@@ -180,6 +182,48 @@ func _verify_particles_and_slow_decay() -> void:
 
 	_expect(is_equal_approx(controller.spider_mine_slow_timer_frames, 1.0), "spider mine slow timer should decay by one frame")
 	_expect(is_equal_approx(controller.spider_mine_slow_text_timer_frames, 1.0), "spider mine slow text timer should decay by one frame")
+
+
+func _verify_renderer_uses_spider_mine_sheets() -> void:
+	var renderer := ActiveItemThrowRenderer.new()
+	renderer.prewarm_assets()
+	var status: Dictionary = renderer.get_spider_mine_asset_status()
+	_expect(bool(status.get("crawl_sheet_loaded", false)), "spider mine crawl sheet should prewarm")
+	_expect(bool(status.get("installed_idle_sheet_loaded", false)), "spider mine installed idle sheet should prewarm")
+	_expect(bool(status.get("deploy_sheet_loaded", false)), "spider mine deploy sheet should prewarm")
+	_expect(int(status.get("sheet_columns", 0)) == 4, "spider mine sheets should use a 4-column grid")
+	_expect(int(status.get("sheet_frame_count", 0)) == 16, "spider mine sheets should expose sixteen frames")
+	_expect(is_equal_approx(float(status.get("sheet_draw_size", 0.0)), 44.0), "spider mine sheet draw size should stay compact")
+	_verify_alpha_png_asset(str(status.get("crawl_sheet_path", "")), Vector2i(2048, 2048), "spider mine crawl sheet")
+	_verify_alpha_png_asset(str(status.get("installed_idle_sheet_path", "")), Vector2i(2048, 2048), "spider mine installed idle sheet")
+	_verify_alpha_png_asset(str(status.get("deploy_sheet_path", "")), Vector2i(2048, 2048), "spider mine deploy sheet")
+	_expect(renderer._get_spider_mine_sheet_texture_for_state("spawn") == renderer._get_spider_mine_deploy_sheet_texture(), "spawn spider mines should use the deploy sheet")
+	_expect(renderer._get_spider_mine_sheet_texture_for_state("floor") == renderer._get_spider_mine_crawl_sheet_texture(), "floor spider mines should use the crawl sheet")
+	_expect(renderer._get_spider_mine_sheet_texture_for_state("wall") == renderer._get_spider_mine_crawl_sheet_texture(), "wall spider mines should use the crawl sheet")
+	_expect(renderer._get_spider_mine_sheet_texture_for_state("armed") == renderer._get_spider_mine_installed_idle_sheet_texture(), "armed spider mines should use the installed idle sheet")
+	_expect(renderer._get_spider_mine_sheet_frame({"delay_timer": 60.0}, "spawn") == 0, "fresh spawn spider mine should start at deploy frame 0")
+	_expect(renderer._get_spider_mine_sheet_frame({"delay_timer": 0.0}, "spawn") == 15, "finished spawn delay should reach the final deploy frame")
+	var crawl_source: Rect2 = renderer._get_spider_mine_sheet_source_rect(renderer._get_spider_mine_crawl_sheet_texture(), 15)
+	_expect(crawl_source.position == Vector2(1536.0, 1536.0), "spider mine frame 15 should resolve to the bottom-right 4x4 cell")
+	_expect(crawl_source.size == Vector2(512.0, 512.0), "spider mine 2048 sheet cells should be 512x512")
+
+
+func _verify_alpha_png_asset(path: String, expected_size: Vector2i, label: String) -> void:
+	_expect(FileAccess.file_exists(path), "%s PNG should exist" % label)
+	var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+	_expect(image != null and not image.is_empty(), "%s PNG should load as an image" % label)
+	if image == null or image.is_empty():
+		return
+	_expect(image.get_size() == expected_size, "%s should keep expected size %s" % [label, str(expected_size)])
+	var size: Vector2i = image.get_size()
+	var corner_alpha := [
+		image.get_pixel(0, 0).a,
+		image.get_pixel(size.x - 1, 0).a,
+		image.get_pixel(0, size.y - 1).a,
+		image.get_pixel(size.x - 1, size.y - 1).a,
+	]
+	for alpha in corner_alpha:
+		_expect(alpha <= 0.01, "%s corners should stay transparent" % label)
 
 
 func _get_vector2(source: Dictionary, key: String) -> Vector2:
