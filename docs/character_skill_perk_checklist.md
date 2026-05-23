@@ -1190,6 +1190,15 @@ Current Godot-first rule:
       canvas fallback correct until a deferred-added host is inside the
       tree. Live-check a scaled/windowed layout so top-left `0,0` leaks
       are caught.
+- [ ] For detached character-skill FX hosts, asset prewarm is not enough.
+      Texture / shader / material readiness must be paired with a staged
+      runtime-node prewarm path (`prewarm_runtime_nodes()` or
+      `prewarm_runtime_nodes_step(owner)`) that creates the hidden host and
+      child layers before the first visible skill frame. Avoid first-use
+      `call_deferred("add_child")` host creation when the same frame can also
+      draw a procedural canvas fallback. Add or update smoke coverage that
+      proves the host prewarm leaves the host hidden / inactive and that boot
+      prewarm calls the runtime-node hook for the selected character.
 - [ ] For detached character-skill FX hosts, do not rely on a final
       inactive draw to hide the node. The battle effect draw fanout skips
       skills once `has_visible_effects()` is false, so `reset_round()`,
@@ -1443,6 +1452,11 @@ Godot-first note:
     `game_offset` / `render_scale` are non-identity. It must not appear
     at the viewport top-left, stay one frame behind at `0,0`, or use an
     unscaled size relative to the playfield.
+    Also confirm the host's texture / shader asset prewarm and runtime
+    node prewarm are both wired before the first visible frame. The first
+    live `sync_*_fx()` call should not both create a deferred host and
+    run the expensive canvas fallback because the host is not yet inside
+    the scene tree.
 15. If the perk / skill changes knockback, live-check that direction,
     decay, wall behavior, and any short hitstop / release feel match the
     intended fire-event baseline or the explicitly documented

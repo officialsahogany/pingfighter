@@ -8,7 +8,7 @@
 
 - 기본 `pistol`: 4발 탄창, 좌클릭/SPACE 입력 시 `gunroad.wav` 준비음 후 24프레임 조준 지연을 거쳐 발사, `gunshot.wav` 발사음과 권총 탄환/탄피를 사용한다. 새총 차징/새총 투사체/새총 게이지 UI는 사용하지 않는다.
 - 기본 권총 재장전: 탄약 0 상태에서 좌클릭/SPACE를 누르면 150 게이지를 한 번 소모해 재장전을 시작한다. 재장전 중에는 화기 전환과 권총 발사가 막히며, 탄창이 4발로 가득 찰 때까지 한 발씩 표시/장전음이 진행된다.
-- `commando_pistol`: 별도 해금 영구 화기로 유지하되 표시명은 `베레타`로 분리한다. 4발 장전 탄창과 예비 탄창 2개로 총 12발을 운용하며, 기본 권총보다 연사 30%, 탄속 20%가 빠르다. 재장전, 헤드샷/레그샷/3히트 보스 피해/게이지 보상은 이 베레타 전용 성능이다.
+- `commando_pistol`: 별도 해금 영구 화기로 유지하되 표시명은 `베레타`로 분리한다. 8발 탄약을 운용하며, 기본 권총보다 연사가 2배 빠르고 탄속 20%, 정확도 30%가 향상된다. 기본 화기가 아니므로 탄약 0 상태에서 발사 입력으로 재장전하지 않고, 다른 영구 화기처럼 재장전 스킬로만 탄약을 보충한다. 헤드샷/레그샷/3히트 보스 피해/게이지 보상은 이 베레타 전용 성능이다.
 - 아래 `0A`와 과거 체크리스트의 "기본 군용새총" 항목은 당시 재조사 기록으로만 남긴다. 이후 구현/QA 기준은 이 `0B` 결정을 우선하며, 활성 기본 무기는 권총이다.
 
 ## 0A. 화기 재조사 정정
@@ -28,7 +28,7 @@
 | 화기 | Python 기준 핵심 원리 | 현재 Godot 갭 |
 |---|---|---|
 | 기본 권총 `pistol` | 내부 기본 슬롯. 탄약 4발, 입력 시 `gunroad.wav` 준비음, 24프레임 조준 지연 뒤 탄환/탄피 생성과 `gunshot.wav`, 탄약 0 상태 좌클릭 시 150 게이지로 전체 탄창 재장전 시작, 재장전 중 화기 전환/권총 발사 불가, 일반 명중 42프레임 스턴 + 18프레임 감속 넉백, 헤드샷/레그샷/3히트 보스 피해 lane 공유 | 기본 슬롯을 권총으로 고정했다. 탄약 소모, 준비음과 실제 발사음 분리, 24프레임 지연 발사, 탄피, 권총 특수판정, 빈 탄창 좌클릭 150게이지 전체 재장전 smoke가 들어갔다. 남은 영역은 최종 조준 포즈와 live 사격감 QA다 |
-| 베레타 `commando_pistol` | `soldier_pistol_perk` 해금 후 별도 영구 화기. 장전 4발 + 예비 탄창 2개로 총 12발, 기본 권총보다 30% 빠른 46.15프레임 쿨타임, 기본 권총보다 20% 빠른 탄속 30, 18프레임 후딜, 조준 애니메이션 후 발사, 일반 42프레임 스턴 + 18프레임 감속 넉백, 헤드샷 108프레임 스턴, 헤드샷/레그샷/일반 게이지 50/40/30, 3히트 체력 피해 | headshot/legshot/combo/gauge 결과와 4발/2탄창/120프레임 재장전/46.15프레임 쿨타임/18프레임 후딜 이동 잠금/24프레임 발사 지연 smoke를 `commando_pistol` 전용 경로로 유지했다. 남은 영역은 최종 조준 포즈와 live 사격감 QA다 |
+| 베레타 `commando_pistol` | `soldier_pistol_perk` 해금 후 별도 영구 화기. 탄약 8발, 기본 권총보다 2배 빠른 30프레임 쿨타임, 기본 권총보다 20% 빠른 탄속 30, 권총보다 30% 좁은 탄 퍼짐, 18프레임 후딜, 조준 애니메이션 후 발사, 일반 42프레임 스턴 + 18프레임 감속 넉백, 헤드샷 108프레임 스턴, 헤드샷/레그샷/일반 게이지 50/40/30, 3히트 체력 피해. 탄약은 발사 입력이 아니라 재장전 스킬로만 보충 | headshot/legshot/combo/gauge 결과와 8발 탄약/30프레임 쿨타임/정확도 30% 향상/18프레임 후딜 이동 잠금/24프레임 발사 지연/빈 탄약 발사 실패 smoke를 `commando_pistol` 전용 경로로 유지했다. 남은 영역은 최종 조준 포즈와 live 사격감 QA다 |
 | AK-47 | 탄약 60, 30초 내구, 6프레임 발사 간격, 첫 입력 2발 burst, 홀드 시 자동 연사, 반동 누적/회복, 탄속 16, 수명 60프레임, 발사 중 이동속도 50%, 20히트당 체력 피해 | 전용 hold/burst/auto-fire 상태기계, 탄약/내구 표시, 반동 spread, 이동속도 50% 디버프, 탄속/수명 smoke가 들어갔다. 남은 영역은 최종 연사감/live VFX 체감 QA다 |
 | 바주카포 | 탄약 4, 120프레임 쿨타임, 30프레임 조작 잠금, y=-3으로 시작해 프레임당 0.8 가속, 최대 35, 연기 꼬리 10개, 벽/보스 충돌 폭발 반경 155, 넉백 40, 스턴 90, 발사 포즈/머즐 플래시 | 전용 입력 상태기계로 4발 탄약, 120프레임 내부 쿨타임, 30프레임 제어 잠금/발사 포즈, 수직 가속 로켓, 연기 꼬리, 폭발 반경 155, 넉백 40, 스턴 90 smoke가 들어갔다. 남은 영역은 최종 live 발사 포즈/VFX 체감 QA다 |
 | 그물덫총 | 탄약 3, 120프레임 쿨타임, 30프레임 조작 잠금, 투사체 속도 18, 12x12 투사체, 보스 rect 120x80 inflate 및 segment proximity 6, 성공 시 4초 그물, 실패 시 0.35초 dissolve, 플레이어 대시로 rope break, 보스 X 이동 제한 | 전용 입력 상태기계로 3발 탄약, 120프레임 내부 쿨타임, 30프레임 조작 잠금/throw pose, 속도 18 하푼, rope trail 18개, 성공 그물/실패 dissolve, 대시 rope break, 플레이어 70% 이동속도, 보스 X clamp smoke가 들어갔다. 남은 영역은 최종 rope/net live VFX 체감 QA다 |
@@ -41,7 +41,7 @@
 1. 기본 슬롯 정체성부터 고친다. Godot 내부 id는 호환을 위해 `pistol`을 유지하고, display/fire profile도 기본 권총으로 고정한다.
 2. `commando_firearm_runtime.gd` 안에 단일 `WEAPON_PROFILES`만 키우지 말고, `pistol`, `commando_pistol`, `ak47`, `bazooka`, `net_gun`, `fire_support`, `bowling_trap`, `suicide_drone`별 작은 상태기계를 둔다. 상태기계 소유권은 계속 `commando_firearm_runtime.gd`에 두되, 파일이 비대해지면 `scripts/characters/commando_firearms/` 하위로 무기별 모듈을 분리한다.
 3. 입력을 `pressed` 1회 이벤트만 보지 말고 `action_down`, `action_just_pressed`, `action_just_released`, 이동 입력, 마우스 에지까지 전달한다. 권총의 fresh press 지연 발사, AK 홀드, 자폭드론 수동 폭발에 필요하다.
-4. 탄약/탄창/내구/호출권/설치 gate를 `commando_weapon_controller.gd`의 표시용 값과 런타임 실제 값이 어긋나지 않게 동기화한다. 특히 AK-47은 탄약과 30초 내구가 함께 존재하고, 기본 권총은 4발 탄창, 베레타는 4발 장전 탄창과 예비 탄창 2개가 별개다.
+4. 탄약/탄창/내구/호출권/설치 gate를 `commando_weapon_controller.gd`의 표시용 값과 런타임 실제 값이 어긋나지 않게 동기화한다. 특히 AK-47은 탄약과 30초 내구가 함께 존재하고, 기본 권총은 4발 탄창을 발사 입력으로 재장전하지만, 베레타는 8발 탄약만 보유하고 재장전 스킬로만 보충된다.
 5. 사운드는 `game_audio.gd`를 유지하되, 발사 시작음, 실제 투사체 생성음, 충돌음, 루프음, 취소/만료음을 무기별 원본 타이밍에 맞춰 다시 호출한다.
 6. VFX는 현재 texture-piece/FX host를 활용하되, 임시 원형 projectile이 아니라 권총/AK 탄환, 권총 탄피, 로켓 연기, rope/net dissolve, 항공기/폭탄, 클로/화염 궤적, 드론 rotor/폭발로 identity를 분리한다.
 7. 테스트는 기존 smoke 유지 + 무기별 행동 테스트를 추가한다. 각 테스트는 최소한 발사 조건, 탄약 변화, projectile count/속도, 충돌 결과, 상태이상/보스 체력 result, 오디오 hook, 라운드 cleanup을 확인한다.
@@ -61,10 +61,10 @@
 - `battle_resources.gd`에는 코만도 스킬 오브 PNG 경로와 코만도 idle / walk 스프라이트 경로, prewarm / load 경로가 들어가 있다.
 - `battle_draw_actor_context.gd`와 sprite-context builder 계열은 `selected_character_type == "soldier"`일 때 코만도 스프라이트 texture key를 사용한다.
 - `runtime_perk_catalog.gd`에는 코만도 전용 해금 퍽과 `soldier_pistol_perk -> commando_pistol` 매핑이 들어가 있다.
-- `commando_weapon_controller.gd`는 `permanent_owned`, `equipped_permanent`, `rental_weapons`, `current_weapon_id`, 파생 `weapons` 리스트의 1차 상태 모델과 기본 `pistol`의 4발 탄약, 베레타 `commando_pistol`의 4발 장전 탄약 / 2개 예비 탄창 / 총 12발 / 120프레임 재장전 타이머, 그물덫총의 3발 영구 탄약, 바주카의 4발 영구 탄약, AK-47의 60발 탄약 / 1800프레임 내구 표시와 보충 동기화를 구현한다.
+- `commando_weapon_controller.gd`는 `permanent_owned`, `equipped_permanent`, `rental_weapons`, `current_weapon_id`, 파생 `weapons` 리스트의 1차 상태 모델과 기본 `pistol`의 4발 탄약, 베레타 `commando_pistol`의 8발 탄약 / 발사 입력 재장전 차단 / 재장전 스킬 보충, 그물덫총의 3발 영구 탄약, 바주카의 4발 영구 탄약, AK-47의 60발 탄약 / 1800프레임 내구 표시와 보충 동기화를 구현한다.
 - `commando_emergency_supply_state.gd`는 아래키 더블탭 입력, 좌우 이동 중 무효 처리, 게이지/쿨타임 gate, 현재 선택 영구 화기 보충, 실패 시 비용/쿨타임 미소모를 구현한다.
 - `commando_supply_drop_state.gd`는 홀드 입력, 지연 드롭, 1~3개 payload 큐, Godot 포팅 완료 일반 아이템과 대여 화기가 섞인 weighted payload 테이블, `ammo_box` / `doping_potion`의 Python 조건부 후보 필터, 낙하산 상자 직접 회수, 일반 아이템의 `active_item_runtime` pickup 경로 수납, 항공기 루프/드롭/획득 오디오, 항공기/낙하산 상자/추락 폭발의 texture-piece 레이어와 `commando_supply_drop_fx_host.gd` shader / `GPUParticles2D` / Tween VFX host, 라운드 cleanup, 플레이어 공/플레이어 패들/Brick 벽 기반 항공기 격추/추락/폭발 흐름을 구현한다.
-- `commando_firearm_runtime.gd`는 현재 선택 화기 발사 입력, 탄약 소모, 기본 쿨타임 트리거, 휠 전환 직후 발사 억제, 기본 `pistol`과 베레타 `commando_pistol`의 4발 장전 탄약 소모 / `gunroad.wav` 준비음 / 24프레임 조준 지연 / `gunshot.wav` 실제 발사 / 탄피 context, 기본 `pistol` 탄약 0 상태 좌클릭 150게이지 전체 재장전 / 재장전 중 화기 전환 및 권총 발사 차단 / 발당 장전음, 베레타의 2개 예비 탄창 / 총 12발 / 120프레임 재장전 타이머 / 46.15프레임 발사 쿨타임 / 탄속 30 / 18프레임 후딜 이동 잠금 / 빈 탄창 자동 재장전 시작, 도핑주사기 활성 중 30프레임 권총 쿨타임 / 9프레임 조작 잠금 / 헤드샷·레그샷 확률 2배 / 탄속 1.2배 metadata, 그물덫총의 3발 탄약 / 120프레임 쿨타임 / 30프레임 조작 잠금 / 속도 18 하푼 / rope trail / 성공 4초 그물 / 실패 0.35초 dissolve / 대시 rope break / 플레이어 70% 이동속도 / 보스 X clamp, 바주카의 4발 탄약 / 120프레임 쿨타임 / 30프레임 조작 잠금 / 플레이어 상단 수직 로켓 / 0.8프레임 가속 / 연기 꼬리 / 155 반경 폭발 / 40 넉백 / 90프레임 스턴, AK-47의 6프레임 hold 연사 / 첫 입력 2발 burst / 60발 탄약 / 30초 내구 tick / 반동 spread / 50% 이동속도 디버프 / Python 기준 탄속·수명, 화기별 최소 투사체/머즐/충돌 플래시 상태, Python 기준 화기별 hitbox/폭발 반경 판정, 타깃 명중 이벤트, 공용 피격 파티클/화면 흔들림/보스 피격 애니메이션/공 hit pulse, 화기별 전용 발사·충돌 cue 라우팅, 화기별 1차 보스 상태이상 결과, 권총 헤드샷/레그샷 상태·게이지 result와 피드백 텍스트 context, 보스 체력 피해 result handoff, 권총 헤드샷/3-hit combo 보스 체력 피해, AK-47 20회 누적 보스 체력 피해, 그물장/화염지대/트랩 잔상/폭격 잔광 지속 필드, 화력지원 호출 대기 후 120~180프레임 지연 / 60프레임 항공기 drop-arm / 5~7발 중력 낙탄 생명주기, 전용 무전 cue/항공기 루프 cleanup/공 충돌 no-crash pass-through, 볼링트랩의 3발 탄약 / 120프레임 쿨타임 / 30프레임 조작 잠금 / 하단 60% 설치 gate / 48프레임 설치 게이지 / 하강 공 포획 / 90프레임 고정 / 4배속 상향 재발사, 재발사 공의 보스 가드 시 감속 복구/넉백/스턴 handoff, 자폭드론의 4발 탄약 / 6프레임 grace / 플레이어 고정 수동 조종 / 입력 가속 / 수동 폭발 / 공 3배속 상향 부스트 / 보스 반격 시 원속도 복구를 구현한다.
+- `commando_firearm_runtime.gd`는 현재 선택 화기 발사 입력, 탄약 소모, 기본 쿨타임 트리거, 휠 전환 직후 발사 억제, 기본 `pistol`의 4발 탄약과 베레타 `commando_pistol`의 8발 탄약 소모 / `gunroad.wav` 준비음 / 24프레임 조준 지연 / `gunshot.wav` 실제 발사 / 탄피 context, 기본 `pistol` 탄약 0 상태 좌클릭 150게이지 전체 재장전 / 재장전 중 화기 전환 및 권총 발사 차단 / 발당 장전음, 베레타의 30프레임 발사 쿨타임 / 탄속 30 / 권총보다 30% 좁은 탄 퍼짐 / 18프레임 후딜 이동 잠금 / 빈 탄약 발사 실패와 재장전 스킬 전용 보충, 도핑주사기 활성 중 30프레임 권총 쿨타임 / 9프레임 조작 잠금 / 헤드샷·레그샷 확률 2배 / 탄속 1.2배 metadata, 그물덫총의 3발 탄약 / 120프레임 쿨타임 / 30프레임 조작 잠금 / 속도 18 하푼 / rope trail / 성공 4초 그물 / 실패 0.35초 dissolve / 대시 rope break / 플레이어 70% 이동속도 / 보스 X clamp, 바주카의 4발 탄약 / 120프레임 쿨타임 / 30프레임 조작 잠금 / 플레이어 상단 수직 로켓 / 0.8프레임 가속 / 연기 꼬리 / 155 반경 폭발 / 40 넉백 / 90프레임 스턴, AK-47의 6프레임 hold 연사 / 첫 입력 2발 burst / 60발 탄약 / 30초 내구 tick / 반동 spread / 50% 이동속도 디버프 / Python 기준 탄속·수명, 화기별 최소 투사체/머즐/충돌 플래시 상태, Python 기준 화기별 hitbox/폭발 반경 판정, 타깃 명중 이벤트, 공용 피격 파티클/화면 흔들림/보스 피격 애니메이션/공 hit pulse, 화기별 전용 발사·충돌 cue 라우팅, 화기별 1차 보스 상태이상 결과, 권총 헤드샷/레그샷 상태·게이지 result와 피드백 텍스트 context, 보스 체력 피해 result handoff, 권총 헤드샷/3-hit combo 보스 체력 피해, AK-47 20회 누적 보스 체력 피해, 그물장/화염지대/트랩 잔상/폭격 잔광 지속 필드, 화력지원 호출 대기 후 120~180프레임 지연 / 60프레임 항공기 drop-arm / 5~7발 중력 낙탄 생명주기, 전용 무전 cue/항공기 루프 cleanup/공 충돌 no-crash pass-through, 볼링트랩의 3발 탄약 / 120프레임 쿨타임 / 30프레임 조작 잠금 / 하단 60% 설치 gate / 48프레임 설치 게이지 / 하강 공 포획 / 90프레임 고정 / 4배속 상향 재발사, 재발사 공의 보스 가드 시 감속 복구/넉백/스턴 handoff, 자폭드론의 4발 탄약 / 6프레임 grace / 플레이어 고정 수동 조종 / 입력 가속 / 수동 폭발 / 공 3배속 상향 부스트 / 보스 반격 시 원속도 복구를 구현한다.
 - `stage1_commando_firearm_renderer.gd`는 `commando_firearm_runtime.gd`의 최소 VFX draw context, 지속 필드 context, 권총 헤드샷/레그샷 피드백 context, 볼링트랩 설치/포획 context를 읽어 Stage 1 전투 화면에 화기 피드백을 그리며, direct-draw detail 위에 texture-piece 레이어와 playfield-local FX host를 동기화한다. 또한 visual identity report로 권총/베레타/AK-47/바주카/그물/화력지원/볼링트랩/자폭드론의 서로 다른 silhouette/FX layer를 점검한다.
 - `stage1_commando_firearm_fx_host.gd`는 Stage 1 코만도 화기 머즐/충돌/잔류장의 `ShaderMaterial`, `GPUParticles2D`, pulse `Tween` 레이어를 소유한다.
 - `commando_firearm_selector_renderer.gd`는 좌측 필러에 현재 선택 화기만 보이는 1개 고정 패널을 그린다.
@@ -82,12 +82,12 @@
 - `commando_supply_drop_aircraft_crash_smoke.gd`는 보급 항공기가 플레이어 공에 맞으면 payload 큐를 취소하고 추락/폭발 수명주기로 들어가며, 보스 공은 통과하고 항공기 루프 사운드가 즉시 정리되는지 검증한다.
 - `commando_supply_drop_obstacle_crash_smoke.gd`는 보급 항공기가 플레이어 패들 또는 Brick 벽에 닿으면 같은 추락/폭발 수명주기를 재사용하고, Brick 벽은 소모하지 않는지 검증한다.
 - `commando_supply_drop_vfx_remaster_smoke.gd`는 보급 항공기, 낙하산 상자, 추락 폭발 경로가 texture-piece 레이어, shader host, `GPUParticles2D`, pulse `Tween`을 함께 노출하고, reset에서 FX host가 숨는지 검증한다.
-- `commando_emergency_supply_smoke.gd`는 더블탭 재장전 성공, 기본 `pistol` 1발 보충, 현재 선택 영구 화기 최대 탄약 보충, 대여 화기 실패 시 게이지/쿨타임 미소모, 이동 중 더블탭 무효를 검증한다.
+- `commando_emergency_supply_smoke.gd`는 더블탭 재장전 성공, 기본 `pistol` 최대 보충, 베레타를 포함한 현재 선택 영구 화기 최대 탄약 보충, 대여 화기 실패 시 게이지/쿨타임 미소모, 이동 중 더블탭 무효를 검증한다.
 - `commando_weapon_switch_smoke.gd`는 `soldier` / `commando` alias에서만 마우스 휠 화기 순환이 동작하고 다른 캐릭터에는 새지 않는 것을 검증한다.
 - `commando_runtime_routing_smoke.gd`는 캐릭터 런타임 라우팅, 모듈 카탈로그 등록, 선택 상태의 `soldier` 유지 여부를 검증한다.
 - `commando_resource_sprite_smoke.gd`는 코만도 플레이어 스프라이트와 스킬 오브 PNG가 Godot 리소스 경로에서 로드되고 draw/update context가 스매셔 스프라이트로 fallback하지 않는지 검증한다.
 - `commando_perk_catalog_smoke.gd`는 코만도 해금 퍽 후보, debug 목록, 해금 시 `commando_skill_config`와 `commando_weapon_controller`까지 이어지는 side effect, 공유 슬롯 full 상태의 pending swap, 취소 no-op, 확정 시 이전 unlock cleanup을 검증한다.
-- `commando_firearm_runtime_vfx_smoke.gd`는 화기 발사 시 투사체/머즐/충돌 플래시와 AK-47/권총 탄피 context가 생성되고, AK-47의 60발 탄약/30초 내구/6프레임 연사 간격/첫 입력 2발 burst/홀드 자동 연사/50% 이동속도/탄속 16/수명 60프레임을 확인한다. 기본 `pistol`은 입력 직후 바로 발사하지 않고 탄약 1발을 소비한 뒤 `gunroad.wav` 준비 cue, 24프레임 조준 지연, 권총 탄환/탄피 생성과 `gunshot.wav` 발사 cue로 이어지며, 일반 명중 42프레임 스턴 + 18프레임 감속 넉백과 `slingshot` metadata를 남기지 않는지 확인한다. 또한 베레타 `commando_pistol`의 4발 장전 탄약/2예비 탄창/총 12발/24프레임 지연 발사/46.15프레임 쿨타임/탄속 30/120프레임 재장전 생명주기와 일반/헤드샷/레그샷 확률 경계, 30/50/40 게이지, 42프레임 일반 스턴 + 18프레임 감속 넉백, 108프레임 헤드샷 스턴, 132프레임 레그샷 슬로우를 확인하고, Python 기준 탄환 rect/그물 확장 hitbox/바주카 폭발 반경으로 명중 판정이 갈리는지 확인하며, 타깃 명중 시 공용 피격 피드백, 오디오 hook, 화기별 `status_effect_state` 보스 상태이상 결과, 권총 헤드샷/레그샷 게이지 handoff, 피드백 텍스트 context/timer와 지속 필드 tick이 실행되며, 화력지원이 호출 대기 후 5~7발 폭격으로 이어지고, 전용 무전 cue/항공기 루프/라운드 cleanup과 Python 기준 공 충돌 no-crash pass-through를 검증한다. 볼링트랩은 탄약 3/120프레임 쿨타임/30프레임 조작 잠금/하단 60% 설치 gate/48프레임 설치 게이지, 하강 공 포획, 90프레임 뒤 4배속 재발사, 보스 가드 handoff를 검증하고, 자폭드론은 탄약 4/6프레임 grace/수동 조종/플레이어 이동 잠금/공 3배속 부스트/보스 반격 복구를 검증하며, 보급 홀드/쿨타임/휠 전환 직후 입력에서는 발사와 탄약 소모가 새지 않는지 검증한다.
+- `commando_firearm_runtime_vfx_smoke.gd`는 화기 발사 시 투사체/머즐/충돌 플래시와 AK-47/권총 탄피 context가 생성되고, AK-47의 60발 탄약/30초 내구/6프레임 연사 간격/첫 입력 2발 burst/홀드 자동 연사/50% 이동속도/탄속 16/수명 60프레임을 확인한다. 기본 `pistol`은 입력 직후 바로 발사하지 않고 탄약 1발을 소비한 뒤 `gunroad.wav` 준비 cue, 24프레임 조준 지연, 권총 탄환/탄피 생성과 `gunshot.wav` 발사 cue로 이어지며, 일반 명중 42프레임 스턴 + 18프레임 감속 넉백과 `slingshot` metadata를 남기지 않는지 확인한다. 또한 베레타 `commando_pistol`의 8발 탄약/24프레임 지연 발사/30프레임 쿨타임/탄속 30/권총보다 30% 좁은 탄 퍼짐/빈 탄약 발사 실패와 일반/헤드샷/레그샷 확률 경계, 30/50/40 게이지, 42프레임 일반 스턴 + 18프레임 감속 넉백, 108프레임 헤드샷 스턴, 132프레임 레그샷 슬로우를 확인하고, Python 기준 탄환 rect/그물 확장 hitbox/바주카 폭발 반경으로 명중 판정이 갈리는지 확인하며, 타깃 명중 시 공용 피격 피드백, 오디오 hook, 화기별 `status_effect_state` 보스 상태이상 결과, 권총 헤드샷/레그샷 게이지 handoff, 피드백 텍스트 context/timer와 지속 필드 tick이 실행되며, 화력지원이 호출 대기 후 5~7발 폭격으로 이어지고, 전용 무전 cue/항공기 루프/라운드 cleanup과 Python 기준 공 충돌 no-crash pass-through를 검증한다. 볼링트랩은 탄약 3/120프레임 쿨타임/30프레임 조작 잠금/하단 60% 설치 gate/48프레임 설치 게이지, 하강 공 포획, 90프레임 뒤 4배속 재발사, 보스 가드 handoff를 검증하고, 자폭드론은 탄약 4/6프레임 grace/수동 조종/플레이어 이동 잠금/공 3배속 부스트/보스 반격 복구를 검증하며, 보급 홀드/쿨타임/휠 전환 직후 입력에서는 발사와 탄약 소모가 새지 않는지 검증한다.
 - `commando_firearm_audio_routing_smoke.gd`는 화기별 전용 발사/충돌 cue 메서드가 generic hook보다 우선 호출되고, 전용 cue가 없는 test double에서는 기존 generic fallback이 유지되며, `fire_support` 호출 프레임에는 폭발/발사음 대신 전용 무전 cue만 쓰는지와 Godot `game_audio.gd`가 권총 준비 `gunroad.wav`, 권총 발사 `gunshot.wav`, 권총 1발 재장전 `pistolreload.wav`, Python 기준 화기 wav/gain 및 AK-47 연사용 layered player pool을 로드하는지 검증한다.
 - `commando_firearm_vfx_texture_remaster_smoke.gd`는 Stage 1 코만도 화기 렌더러가 머즐/충돌/잔류장에 캐시된 glow/burst/sparkle/ring texture piece 레이어, shader / GPU particle host pipeline, 권총 피드백 텍스트 pipeline을 함께 노출하는지 검증한다. 추가로 visual identity report가 권총/베레타/AK-47/바주카/그물/화력지원/볼링트랩/자폭드론 8개 화기 family와 aimed bullet, brass casing, rocket smoke, harpoon rope, aircraft marker, trap claw, drone rotor layer를 구분하는지 확인한다.
 - `commando_firearm_stage1_visual_qa_smoke.gd`는 Stage 1 실제 렌더러 draw 경로에서 권총/베레타/AK-47/바주카/그물/화력지원/볼링트랩/자폭드론 8개 화기를 한 화면에 배치한다. headless에서는 draw callback / visual identity context를 검증하고, windowed 실행에서는 viewport pixel signature로 각 무기 영역이 비어 있지 않고 서로 구분되는지 확인한다.
@@ -520,7 +520,7 @@ Godot 포트에서 저장/로드가 해당 런타임까지 확장될 때 아래 
 - 물자보급 호출/드롭/획득
 - 재장전 성공/실패
 
-현재 Godot 1차 상태에서는 화기별 전용 발사/명중 cue 이름을 `commando_firearm_runtime.gd`와 `game_audio.gd`에 연결하고, Python 기준 wav를 우선 로드한다. 기본 권총과 베레타는 준비음 `gunroad.wav`, 실제 발사음 `gunshot.wav`, 재장전 시작음 `pistolreloadstart.wav`, 발당 재장전음 `pistolreload.wav`를 분리해서 사용한다. AK-47은 `ak47.wav`, 바주카 발사 준비는 `bazukagoing.wav`, 그물 포획은 `net.wav`, 볼링트랩 설치/포획은 `ballingtrapsetup.wav` / `ballingtrapgrap.wav`, 자폭드론은 `drone.wav` 루프를 사용한다. `fire_support`는 호출 프레임에 generic 발사음을 겹치지 않고 전용 무전 cue만 사용하며, 바주카/화력지원/자폭드론 폭발은 Python 기준 수류탄 폭발 cue를 탄다. AK-47은 단일 player 재시작으로 앞 발사음을 끊지 않도록 같은 wav/gain을 쓰는 layered player pool로 재생한다.
+현재 Godot 1차 상태에서는 화기별 전용 발사/명중 cue 이름을 `commando_firearm_runtime.gd`와 `game_audio.gd`에 연결하고, Python 기준 wav를 우선 로드한다. 기본 권총과 베레타는 준비음 `gunroad.wav`, 실제 발사음 `gunshot.wav`를 공유하되, 재장전 시작음 `pistolreloadstart.wav`와 발당 재장전음 `pistolreload.wav`는 기본 권총의 발사 입력 재장전 및 재장전 스킬 성공 경로에서만 사용한다. AK-47은 `ak47.wav`, 바주카 발사 준비는 `bazukagoing.wav`, 그물 포획은 `net.wav`, 볼링트랩 설치/포획은 `ballingtrapsetup.wav` / `ballingtrapgrap.wav`, 자폭드론은 `drone.wav` 루프를 사용한다. `fire_support`는 호출 프레임에 generic 발사음을 겹치지 않고 전용 무전 cue만 사용하며, 바주카/화력지원/자폭드론 폭발은 Python 기준 수류탄 폭발 cue를 탄다. AK-47은 단일 player 재시작으로 앞 발사음을 끊지 않도록 같은 wav/gain을 쓰는 layered player pool로 재생한다.
 
 VFX 포팅 기준:
 
@@ -630,7 +630,7 @@ VFX 포팅 기준:
 - [x] `supply_drop` payload는 즉시 지급되지 않고 항공기 아래 보급 위치에서 낙하산 상자로 생성되며, 플레이어 직접 회수 시 지급된다.
 - [x] `supply_drop` 일반 아이템은 슬롯 full 등으로 수납이 거절되면 낙하산 상자를 유지한다.
 - [x] `supply_drop`은 Python 후보였던 `ammo_box` / `doping_potion`을 조건부 후보로 포함하고, 두 아이템 모두 기존 active-item 슬롯 / 사용 경로로 이어진다.
-- [x] `ammo_box`는 대여 화기를 제외한 모든 영구 화기의 탄약 / 탄창 / AK-47 내구를 최대치로 보충한다.
+- [x] `ammo_box`는 대여 화기를 제외한 모든 영구 화기의 탄약과 AK-47 내구를 최대치로 보충한다.
 - [x] `doping_potion`은 `commando_pistol` 보유 시에만 활성화되고, 8초 동안 권총 쿨타임 30프레임, 조작 잠금 9프레임, 헤드샷 / 레그샷 확률 2배, 탄속 1.2배 메타데이터를 제공한다.
 - [x] 물자보급 진행 중 라운드 재시작/스테이지 전환/게임 리셋에서 항공기, 낙하물, 루프 사운드가 남지 않는다.
 - [x] `supply_drop` 항공기는 플레이어 공에 맞으면 보급 payload를 취소하고 추락/폭발 후 사운드와 VFX가 정리된다.
@@ -644,11 +644,11 @@ VFX 포팅 기준:
 - [x] 기본 `pistol` 슬롯은 호환 id를 유지하면서 권총 fire profile을 사용하고, 입력 즉시 투사체를 만들지 않고 준비음 뒤 24프레임 지연 발사한다.
 - [x] 기본 권총은 총 4발 탄약을 보유하고, 발사 입력마다 1발을 소모하며, 실제 투사체/탄피는 지연 발사 프레임에 생성된다.
 - [x] 기본 권총은 휠 전환 직후 이미 눌린 action held 상태를 fresh press로 오인하지 않고, 새 press edge에서만 장전/조준 발사를 시작한다.
-- [x] 기본 권총 명중은 `commando_pistol`과 같은 headshot/legshot/combo/게이지 result lane을 사용하되, 베레타의 예비 탄창/자동 재장전 상태와는 분리된다.
-- [x] `commando_pistol`은 베레타로 표시되며 4발 장전 탄약, 2개 예비 탄창, 총 12발, 24프레임 조준 지연 발사, 46.15프레임 발사 쿨타임, 탄속 30, 18프레임 수평 이동 잠금, 120프레임 재장전 타이머를 별도 영구 화기 경로에서 처리한다.
+- [x] 기본 권총 명중은 `commando_pistol`과 같은 headshot/legshot/combo/게이지 result lane을 사용하되, 베레타의 영구 화기 탄약 보충 규칙과는 분리된다.
+- [x] `commando_pistol`은 베레타로 표시되며 8발 탄약, 24프레임 조준 지연 발사, 30프레임 발사 쿨타임, 탄속 30, 권총보다 30% 좁은 탄 퍼짐, 18프레임 수평 이동 잠금, 빈 탄약 발사 실패, 재장전 스킬 전용 보충을 별도 영구 화기 경로에서 처리한다.
 - [x] 화기 타깃 명중 시 hit event, 공용 피격 파티클, 화면 흔들림, 보스 피격 애니메이션, 공 hit pulse, 발사/명중 오디오 hook이 실행된다.
 - [x] 화기 발사/충돌 오디오는 화기별 전용 cue 메서드를 우선 사용하고, 전용 cue가 없는 환경에서는 기존 generic hook으로 fallback한다.
-- [x] 권총/베레타/AK-47/바주카/그물/볼링트랩/자폭드론은 Python 기준 wav asset을 Godot `game_audio.gd`에서 직접 로드하고, 권총 준비/재장전 cue와 자폭드론 루프 폭발/라운드 cleanup을 처리한다.
+- [x] 권총/베레타/AK-47/바주카/그물/볼링트랩/자폭드론은 Python 기준 wav asset을 Godot `game_audio.gd`에서 직접 로드하고, 권총 준비/기본 권총 재장전 cue와 자폭드론 루프 폭발/라운드 cleanup을 처리한다.
 - [x] AK-47 발사음은 Python 기준 `ak47.wav` / -6dB gain을 유지하면서 연사 중 앞 발사음을 끊지 않는 layered player pool로 재생한다.
 - [x] AK-47 발사 시 Python 기준 3초 수명, 중력, 바운스, 회전이 있는 탄피 context가 생성되고 Stage 1에서 작은 brass casing으로 그려진다.
 - [x] 권총/강화 권총은 Python 기준 일반/헤드샷/레그샷 명중 게이지 30/50/40을 effects result로 넘기고, 시각 잔류 효과가 없는 명중이어도 pending result update 경로를 통해 controller가 현재 게이지에 반영한다.
@@ -685,7 +685,7 @@ VFX 포팅 기준:
 - [x] 기본 슬롯은 UI/tooltip/발사 결과에서 `권총`으로 보이고, `commando_pistol`은 별도 영구 화기 `베레타`로 구분된다.
 - [x] 기본 권총은 총 4발 탄약, 입력 시 `gunroad.wav` 준비음, 24프레임 조준 지연, 지연 프레임의 탄환/탄피 생성과 `gunshot.wav` 발사음을 구현한다. 입력 직후 바로 투사체가 생성되지 않는 smoke로 고정했다.
 - [x] 기본 권총은 탄약 0 상태 좌클릭/SPACE로 150 게이지를 한 번 소모해 전체 탄창 재장전을 시작하고, 재장전 중에는 화기 전환과 권총 발사가 막히며, 4발이 가득 찰 때까지 발당 `pistolreload.wav` 계열 장전음을 재생한다. 대여 화기는 여전히 재장전 대상이 아니다.
-- [x] `commando_pistol`은 별도 영구 화기로만 선택 가능하고, 베레타 표시명, 탄약 4발/예비 탄창 2개/총 12발/재장전 120프레임/46.15프레임 발사 쿨타임/탄속 30/18프레임 후딜/발사 애니메이션 지연을 반영한다. 현재 smoke는 수평 이동 잠금과 탄피/오디오 타이밍까지 확인했고, 최종 권총 조준 포즈 visual QA는 별도 VFX pass로 남긴다.
+- [x] `commando_pistol`은 별도 영구 화기로만 선택 가능하고, 베레타 표시명, 탄약 8발, 발사 입력 재장전 차단, 재장전 스킬 전용 보충, 30프레임 발사 쿨타임, 탄속 30, 권총보다 30% 좁은 탄 퍼짐, 18프레임 후딜, 발사 애니메이션 지연을 반영한다. 현재 smoke는 수평 이동 잠금과 탄피/오디오 타이밍까지 확인했고, 최종 권총 조준 포즈 visual QA는 별도 VFX pass로 남긴다.
 - [x] 권총 일반/헤드샷/레그샷은 원본 확률, 게이지 30/50/40, 스턴/슬로우, 체력형 보스 3히트 combo와 헤드샷 피해를 행동 테스트로 검증한다. 현재 smoke는 10% 헤드샷 / 12% 레그샷 확률 경계, `commando_pistol` 일반 42프레임 스턴 + 18프레임 감속 넉백, 헤드샷 108프레임 스턴, 레그샷 132프레임 70% 슬로우, 일반/헤드/레그 게이지 30/50/40, 헤드샷 즉시 피해, 레그샷 combo-only 피해를 확인한다.
 - [x] AK-47은 탄약 60, 30초 내구, 6프레임 발사 간격, 첫 입력 2발 burst, 홀드 자동 연사, 반동 누적/회복, 발사 중 이동속도 50%, 탄피/연사 사운드 풀을 구현한다. 현재 smoke는 선택 idle 내구 미소모, 탄약/내구 sync, 첫 발/두 번째 burst/이후 auto-fire, 이동속도 clamp, 탄피 3개, rapid-fire cue 3회를 확인한다.
 - [x] AK-47 투사체는 탄속 16, 수명 60프레임, 6x6 충돌, 6프레임 짧은 스턴/넉백, 20히트당 체력 피해를 검증한다. 현재 smoke는 속도/수명과 기존 hitbox/status/boss-health 누적 경로를 함께 고정한다.

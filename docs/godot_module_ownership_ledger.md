@@ -118,21 +118,108 @@ This section is intentionally long; use search to find the nearest owner.
   Dowsing Pendulum, Backpack (`slot_add`), Charge Bag (`chargebag`),
   Battery Pack (`battery`), Repairman Hammer (`master`), Cooling Ball
   (`cooltime`), Timer Belt (`timer_belt`), Fuel Pouch (`fuel_pouch`),
-  Kick Charger (`knee_pads`), Bulk-Up Suit (`bulkup`),
+  Kick Charger (`knee_pads`), Soul Burst (`soul_burst`), Bulk-Up Suit (`bulkup`),
   Dash Gear (`dashgear`), Dash Holder (`dashholder`), Gravity Belt
   (`gravitybelt`), Gold Bar
   (`gold_bar`), Reinforced Boomerang
   Gauntlet (`reinforced_boomerang_gauntlet`), Commando Arm
-  (`commando_arm`), Megingjord, Ragnarok Hammer, Poseidon's Trident,
+  (`commando_arm`), Rainbow Fur Glove, Adversity Armor, Shrapnel Armor,
+  Megingjord, Ragnarok Hammer, Poseidon's Trident,
   Heavenly Cape, Baal's Boots, and Pandora's Legacy:
   body-part slot metadata,
   owned-vs-equipped passive inventory state, debug acquire/equip/toggle
-  state, per-instance roll-option generation / preservation, runtime
+  state, acquire/equip/unequip/toggle/discard orchestration delegated to
+  `scripts/items/mythic_item_equipment_facade.gd`, per-frame mythic update
+  work detection and light/full owner-sync selection delegated to
+  `scripts/items/mythic_item_update_gate.gd`, Danger Sensor Belt /
+  Smartphone auto-defense timing constants, threshold constants, and trigger
+  logic delegated to `scripts/items/mythic_item_auto_defense_runtime.gd`,
+  Venom Mist Gauntlet field constants, poison / mist field / particle /
+  boss-gauge drain logic delegated to
+  `scripts/items/mythic_item_venom_mist_runtime.gd`, Rainbow Fur Glove
+  proc constants, player-skill cooldown reduction, and aura particle
+  lifecycle delegated to
+  `scripts/items/mythic_item_rainbow_fur_glove_runtime.gd`, Adversity
+  Armor constants, next-round shield / serve-speed boost / barrier particle
+  lifecycle delegated to `scripts/items/mythic_item_adversity_armor_runtime.gd`,
+  Shrapnel Armor player-hit proc / gauge spend / shard projectile / dust /
+  boss stun-knockback lifecycle delegated to
+  `scripts/items/mythic_item_shrapnel_armor_runtime.gd`, Ragnarok Hammer
+  player-hit trigger / stun-ball rally state / boss-hit stun-knockback /
+  shock-loop audio / spark lifecycle delegated to
+  `scripts/items/mythic_item_ragnarok_runtime.gd`, Soul Burst constants,
+  gauge spend / zero-token dash replacement / dash VFX lifecycle delegated to
+  `scripts/items/mythic_item_soul_burst_runtime.gd`, Kick Charger constants,
+  half-dash
+  player-hit gauge charging / flash particle lifecycle delegated to
+  `scripts/items/mythic_item_knee_pads_runtime.gd`, Speed Gear / Gold Bar
+  constants, Speed Boots / Speed Gear / Gravity Belt / Bulk-Up Suit /
+  Gold Bar / Dash Gear / Dash Holder stat-query and movement / paddle /
+  dash-token composition delegated to
+  `scripts/items/mythic_item_stat_bonus_runtime.gd`, Commando Arm roll item-id
+  / stack-cap query ownership delegated to
+  `scripts/items/mythic_item_roll_query.gd`, Poseidon's Trident dash
+  trigger, vortex / capture / water-trail / charge-flash particle lifecycle,
+  ball reflection, and boss-hit cleanup delegated to
+  `scripts/items/mythic_item_poseidon_runtime.gd`, Baal's Boots weather
+  arming / absorb cinematic / round effect activation / projectile and boss
+  debuff lifecycle delegated to
+  `scripts/items/mythic_item_baal_boots_runtime.gd`, Celestial Armor constants,
+  trigger chance / gauge spend / paired-proc immunity / wave-start lifecycle delegated
+  to `scripts/items/mythic_item_celestial_armor_runtime.gd`,
+  Hermes Shoes constants, equipped query / speed multiplier /
+  movement-trail update / clear lifecycle delegated to
+  `scripts/items/mythic_item_hermes_shoes_runtime.gd`,
+  Heavenly Cape skill-cooldown reduction, sixth skill-slot bonus, and
+  player-skill cooldown / max-slot composition delegated to
+  `scripts/items/mythic_item_heavenly_cape_runtime.gd`,
+  Megingjord activation effect reset, active query, start/audio/redraw
+  fanout, particle / bolt construction, elapsed timing, and draw forwarding
+  delegated to `scripts/items/mythic_item_activation_effect_runtime.gd`,
+  per-frame mythic update sequencing, idle update branch, modal/transient
+  update fanout, and post-update sync handoff delegated to
+  `scripts/items/mythic_item_update_runtime.gd`,
+  full-runtime reset and round-reset sequencing delegated to
+  `scripts/items/mythic_item_lifecycle_runtime.gd`,
+  Revival Charm equipped / available / used checks, match-loss trigger,
+  consumed-state spawn exclusion, activation effect draw/update, and clear
+  lifecycle delegated to `scripts/items/mythic_item_revival_runtime.gd`,
+  Dowsing Pendulum / Dowsing Goggles equipped checks, attraction range /
+  context, bonus-card chance, and trigger/reset lifecycle delegated to
+  `scripts/items/mythic_item_dowsing_runtime.gd`, Spike Boots dash recovery /
+  recharge reductions and Bulletproof Hat / Spiked Helmet player stun /
+  knockback resistance queries delegated to
+  `scripts/items/mythic_item_defense_gear_runtime.gd`,
+  Backpack active-item slot capacity bonuses, Charge Bag wall-bounce gauge
+  gain application, and Battery Pack stage-transition gauge preservation
+  delegated to `scripts/items/mythic_item_capacity_gauge_runtime.gd`,
+  Fuel Pouch max-special-gauge bonuses, Bluetooth Ring paddle-hit gauge
+  multiplier, Star Detector bonus starpoint drop chance, Gold Digger
+  gauge/gold multipliers, and Lucky Coin double-spawn chance delegated to
+  `scripts/items/mythic_item_resource_bonus_runtime.gd`,
+  Reinforced Boomerang Gauntlet boomerang launch / homing / spawn /
+  knockback / stun bonuses and Commando Arm throw speed / windup / range /
+  smoke-duration bonuses delegated to
+  `scripts/items/mythic_item_throw_bonus_runtime.gd`,
+  Repairman Hammer Brick Wall length / active-item cooldown / wall-spawn
+  weighting bonuses, Cooling Ball active-item cooldown reduction, and Timer
+  Belt player-skill cooldown reduction delegated to
+  `scripts/items/mythic_item_cooldown_gear_runtime.gd`,
+  Sage Ring item perk-level / speed / body penalties, Sacred Laurel leaf
+  bonus/context, and Transcendent Crown item perk-level bonus/context
+  delegated to `scripts/items/mythic_item_progression_bonus_runtime.gd`,
+  Smartphone equipped/count state, Smartphone cooldown clear, Neural Helmet
+  AI Pill gauge/spawn modifiers, and direction-key AI Pill cancel query
+  delegated to `scripts/items/mythic_item_ai_assist_runtime.gd`,
+  field-effect visibility gating for draw fanout delegated to
+  `scripts/items/mythic_item_field_effect_visibility.gd`,
+  per-instance
+  roll-option generation / preservation, runtime
   equipment-slot sync, Speed Boots player movement-speed bonuses,
   Speed Gear player direction-change turn-deceleration bonuses,
-  Danger Sensor Belt incoming-ball danger prediction, no-cost / no-recovery
-  automatic dash, rolled auto-dash cooldown, cooldown HUD orb, and Poseidon
-  Trident sensor-dash trigger,
+  Danger Sensor Belt equipped/enabled/cooldown/context state, incoming-ball
+  danger prediction, no-cost / no-recovery automatic dash, rolled auto-dash
+  cooldown, cooldown HUD orb, and Poseidon Trident sensor-dash trigger,
   Revival Charm one-time match-loss prevention and consumed-state spawn exclusion,
   Spike Boots dash recovery / recharge reduction,
   Dowsing field-item attraction, Backpack active-item
@@ -155,10 +242,7 @@ This section is intentionally long; use search to find the nearest owner.
   Commando Arm duplicate arm-slot stacking, throwable windup reduction,
   Python-parity fixed generic throw-speed boosts, rolled boomerang
   throw-speed boosts, grenade / flare / molotov range boosts, and smoke /
-  tear-gas duration boosts,
-  extra Megingjord runtime perk-choice roll
-  handling, Python-parity `common_refresh` exclusion, max-two chain
-  activation limit, non-blocking activation feedback, and Ragnarok Hammer
+  tear-gas duration boosts, Megingjord activation feedback, and Ragnarok Hammer
   gauge-spend stun-ball / boss knockback-stun feedback with Lightning
   Fury-style electric-stun overlay, normal stun-sheet motion, shock loop,
   screen shake, and slight previous-direction drift while stunned, plus
@@ -180,11 +264,22 @@ This section is intentionally long; use search to find the nearest owner.
   `match_score_event_controller.gd`, opens after scoreboard reset /
   serve-prepare through `match_scoreboard_flow_controller.gd`, and is
   surfaced by the battle input, overlay, modal-gate, and item-update
-  drivers. Pandora's Legacy pending choices, active selection state,
-  selected card index, fade timer, and last trigger diagnostics are
-  delegated to `scripts/items/pandora_legacy_selection_state.gd`; Foul
-  Whistle animation frame, delayed reset readiness, pending round reset
-  flag, and last loss-type diagnostics are delegated to
+  drivers. Pandora's Legacy equipped / active checks, trigger and quality
+  roll reads, round-win queueing, choice generation, selection start /
+  confirm / cancel flow, grant routing, timer advancement, and selection
+  input handling are delegated to
+  `scripts/items/mythic_item_pandora_legacy_runtime.gd`; pending choices,
+  active selection state, selected card index, fade timer, and last trigger
+  diagnostics are delegated to
+  `scripts/items/pandora_legacy_selection_state.gd`; selection overlay
+  backdrop, title / hint text, card layout, badge / icon / title drawing,
+  selected-card marker, and icon texture cache reads are delegated to
+  `scripts/items/mythic_item_pandora_selection_renderer.gd`; Foul
+  Whistle constants, equipped / active checks, negate chance math, trigger,
+  delayed reset consumption, effect-active query, clear, and update flow are
+  delegated to `scripts/items/mythic_item_foul_whistle_runtime.gd`, while
+  its animation frame, delayed reset readiness, pending round reset flag,
+  and last loss-type diagnostics are delegated to
   `scripts/items/foul_whistle_state.gd`; Revival Charm used-state,
   activation effect timer, and last loss-type diagnostics are delegated to
   `scripts/items/revival_state.gd`; the
@@ -208,7 +303,37 @@ This section is intentionally long; use search to find the nearest owner.
   reward selection and choice normalization are delegated to
   `scripts/items/pandora_legacy_choice_builder.gd`; selected-card active
   slot overflow and passive / mythic acquisition routing are delegated to
-  `scripts/items/pandora_legacy_grant_router.gd`; the mythic runtime
+  `scripts/items/pandora_legacy_grant_router.gd`; extra Megingjord runtime
+  perk-choice roll handling, Python-parity `common_refresh` exclusion,
+  max-two chain activation limit, extra-pick chance reads, and new-batch
+  Dowsing trigger cleanup are delegated to
+  `scripts/items/mythic_item_perk_choice_runtime.gd`; owned-item name
+  queries and one-time passive / used-Revival field-spawn skip rules are
+  delegated to `scripts/items/mythic_item_ownership_runtime.gd`; the
+  field-effect renderer now owns the Baal / Hermes / Venom Mist /
+  Celestial Armor / Foul Whistle / Revival / Sensor draw fanout directly
+  instead of bouncing through thin runtime `_draw_*` wrappers; Ragnarok
+  impact rings, electric-stun overlay, and spark rendering are likewise
+  invoked directly by the field renderer from runtime state and renderer-owned
+  visual constants; Poseidon trail / vortex-particle / explosion draw
+  sequencing is invoked directly by the field renderer from runtime state;
+  Rainbow Fur Glove, Adversity Armor, Shrapnel Armor, Knee Pads, and Soul
+  Burst field-effect branches are also invoked directly by the field renderer
+  from runtime state and compact draw constants;
+  helper initialization order, helper script-path lookup, and helper
+  construction are delegated to
+  `scripts/items/mythic_item_helper_registry.gd`;
+  Megingjord activation effect duration, particle / bolt counts, default
+  start / draw / build contracts are delegated to
+  `scripts/items/mythic_item_activation_effect_runtime.gd`;
+  snapshot item-id / radius / gauge defaults are delegated to
+  `scripts/items/mythic_item_snapshot_builder.gd`;
+  Pandora Legacy active-item Korean names, 3-card count, card rect/index
+  routing, and selection overlay draw fanout are delegated to
+  `scripts/items/mythic_item_pandora_legacy_runtime.gd`; Pandora selection
+  input, owner-redraw, and clear/reset call sites now invoke that helper
+  directly instead of bouncing through private runtime bridge methods;
+  the mythic runtime
   keeps the public scene-facing API plus draw and input orchestration.
   Item Polish (`item_polish`) roll scaling is centralized in this runtime's
   shared roll-value helper: normal options multiply, reverse options divide,
@@ -223,12 +348,18 @@ This section is intentionally long; use search to find the nearest owner.
   Ragnarok Hammer, Poseidon's Trident, Heavenly Cape, Baal's Boots, and
   Pandora's Legacy.
   Broader mythic shop/gacha routing remains future item-domain work.
-- `scripts/items/mythic_item_acquisition_cinematic.gd`
-  Owns the spawned mythic-item acquisition cinematic in the Godot port:
-  Python-parity light-beam buildup, burst / white-fade reveal, click or
-  confirm-key handoff, icon absorption into the player paddle, pause-state
-  exposure through `mythic_item_runtime.should_pause_game()`, and
-  legendary acquisition audio cue routing.
+- `scripts/items/mythic_item_acquisition_cinematic_runtime.gd`
+  Owns mythic-item acquisition cinematic orchestration: v2 cinematic script
+  cache / prewarm, hidden Node2D host creation and reuse, start eligibility,
+  target player-center resolution, active/input/snapshot/update forwarding,
+  and reset cleanup. `mythic_item_runtime.gd` keeps the public cinematic API
+  while delegating implementation here.
+- `scripts/items/mythic_item_acquisition_cinematic_v2.gd`
+  Owns the spawned mythic-item acquisition cinematic presentation in the
+  Godot port: Python-parity light-beam buildup, burst / white-fade reveal,
+  click or confirm-key handoff, icon absorption into the player paddle,
+  pause-state exposure through `mythic_item_runtime.should_pause_game()`,
+  and legendary acquisition audio cue routing.
 - `scripts/items/treasure_hunt_runtime.gd`
   Owns the Godot runtime slice for the instant `instant_treasure_hunt`
   perk: reward rolling, `downtown_treasure_map` effective-level chance
@@ -2435,11 +2566,16 @@ This section is intentionally long; use search to find the nearest owner.
   skill feedback paths.
 - `scripts/effects/battle_feedback_state.gd`
   Owns scene-level battle feedback timers: screen shake, gauge-gain flash,
-  dash-token flash, and dash-token divider animation.
+  dash-token flash, dash-token divider animation, and controller rumble
+  dispatch for player paddle hits.
   Gameplay branches still trigger these events, while the battle effects
   update controller advances the timers and draw-time render modules read
   the values. The battle-scene drawer applies the shake offset to the
   transformed playfield pass for full-field impact feedback.
+- `scripts/core/gamepad_vibration_settings.gd`
+  Owns the persisted 1-5 gamepad vibration sensitivity setting. Level 3 is
+  the shipped rumble baseline, while the pause/settings controls tab edits
+  the stored value and `battle_feedback_state.gd` applies it at dispatch time.
 - `scripts/effects/battle_effects_update_controller.gd`
   Owns per-frame battle-effect fanout: battle feedback timers, audio tick,
   dash-recovery loop sync, Drive text timer decay, Power Smashing text /
@@ -4499,6 +4635,12 @@ This section is intentionally long; use search to find the nearest owner.
   Smasher movement / dash controller, disables Smasher-only skill deps
   through the character routing layer, and merges the Optimus energy
   state's scale / gauge result back into the owner result.
+- `scripts/characters/player_skill_lock_input_proxy.gd`
+  Owns the shared transformed-form input gate for player-control deps. It
+  preserves horizontal movement from the source input reader while clearing
+  original character skill inputs such as up/down/action, Viper jetpack,
+  Commando supply hold, firearm reset, and power-smash direction whenever
+  the mythic transform runtime reports skill or control lock.
 - `scripts/characters/player_customization_overlay_renderer.gd`
   Owns the first Godot in-game character customization render path. V1 is
   Smasher-only: it builds pose-locked overlay draw commands for the
@@ -4506,3 +4648,37 @@ This section is intentionally long; use search to find the nearest owner.
   slots, reuses the base sheet `frame_index`, and lets Stage 1 draw back
   overlays before the base sprite and front overlays after it. Missing
   overlay sheets intentionally skip cleanly while real assets are pending.
+- `scripts/items/horn_strawberry_command_listener.gd`
+  Owns the shared A/D edge-sequence detector for Horn Strawberry Mask:
+  command buffer, 2-second timeout, input-edge tracking, and completion
+  reporting independent from any one character input reader.
+- `scripts/items/mythic_item_horn_strawberry_mask_state.gd`
+  Owns Horn Strawberry Mask's Godot transform state machine for the first
+  port slice: IDLE, transform event, transformed, detransform event,
+  one-use-per-stage tracking, rolled duration, and base transformed stat
+  exposure. Skill-specific state remains future item modules.
+- `scripts/items/mythic_item_horn_strawberry_mask_runtime.gd`
+  Owns Horn Strawberry Mask's mythic-runtime facade: equipment sync,
+  command polling through character input readers, gauge spend, transform
+  lifecycle updates, Viper jetpack landing on the finalize edge, paddle
+  growth sync, owner snapshot context, and round-vs-stage reset delegation
+  through `mythic_item_runtime.gd`.
+- `scripts/items/horn_strawberry_eat_state.gd`
+  Owns Horn Strawberry Mask's 딸기먹기 skill state: raw action activation,
+  50-gauge spend, 0.8s eating timer, +20% paddle-growth request, deterministic
+  3-shot stem burst, projectile lifetime, boss stun / knockback application,
+  and lightweight draw context.
+- `scripts/items/horn_strawberry_field_state.gd`
+  Owns Horn Strawberry Mask's 딸기장판 skill state: S-hold gauge drain,
+  1-second hold completion, 180x12 barrier placement, build / death timers,
+  lingering post-transform collision context, and barrier consumption after a
+  ball reflection.
+- `scripts/items/horn_strawberry_horn_charge_state.gd`
+  Owns Horn Strawberry Mask's W horn-charge skill state: 300-gauge activation,
+  20-second cooldown, charge / impact / return / stun phases, direct boss
+  stun / strong knockback, same-frame paddle-hit knockback suppression, and
+  lightweight charge trail draw context.
+- `scripts/items/horn_strawberry_bomb_state.gd`
+  Owns Horn Strawberry Mask's A+D hold bomb skill state: 0.5-second dual-input
+  hold, 400-gauge spend, 30 bombs over 1 second, boss stun / knockback on
+  explosion, 5-second paint splatter slow, and lingering bomb / paint cleanup.

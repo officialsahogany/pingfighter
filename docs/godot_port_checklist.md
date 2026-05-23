@@ -116,6 +116,20 @@ AI 에이전트는 종종 있을 법한 메서드명이나 시그니처를 추�
 - [ ] If a cache is needed, choose an explicit safe path: offline baked
       metadata/assets, owner-module prewarm, staged loading work spread across
       multiple frames, or a documented low-cost lazy path.
+- [ ] Treat asset prewarm and runtime node / host prewarm as separate
+      surfaces. Loading textures, shaders, materials, or sprite sheets is not
+      enough for Node-backed VFX, HUD, overlay, result, or tooltip work. If the
+      feature creates `Node2D`, `Sprite2D`, `ColorRect`, `GPUParticles2D`, or
+      another detached host, expose a `prewarm_runtime_nodes()` /
+      `prewarm_runtime_nodes_step(owner)` path, build the hidden child nodes
+      during staged boot / transition work, and verify the host remains hidden
+      and inactive after prewarm.
+- [ ] Audit the first live `sync_*_fx()` / `sync_*_host()` frame separately
+      from steady-state draw. A deferred `add_child()` host can be valid enough
+      to build state but still return `is_inside_tree() == false`, causing the
+      expensive canvas fallback to draw in the same frame. Pre-create the host
+      before the visible state, or document why the fallback is intentionally
+      cheap and cannot double the first-frame cost.
 - [ ] For controller-driven loading, result, overlay, HUD, and detached FX
       hosts, keep the host's own `_process()` disabled unless it truly owns
       independent timing. Sync animation state from the owner/controller path
@@ -128,6 +142,20 @@ AI 에이전트는 종종 있을 법한 메서드명이나 시그니처를 추�
       values, `process_nodes outside_shell`, or `physics_nodes outside_shell`,
       resolve or document the accepted budget before claiming the feature is
       done.
+- [ ] Read `BattlePerf` max spikes before averages. Low `avg` with a high
+      `max` on labels such as `draw.scene.playfield`, `draw.frame.overlay`,
+      `character_info.tooltip`, `viper.skill.*`, result callbacks, or
+      scoreboard callbacks can still indicate a first-use / transition hitch.
+      Treat `n=1..4` render-heavy samples as useful evidence, not noise, until
+      the open / transition frame has been explained.
+- [ ] Measure overlay / modal / tooltip open-frame cost separately from normal
+      HUD draw. Character info, perk grids, skill tooltips, result panels, and
+      scoreboard overlays may be cheap while closed but expensive on the first
+      hover/open frame.
+- [ ] For LOD or render-budget changes, verify the real state matrix rather
+      than a single idle frame: selected character, airborne / grounded /
+      thrust / glide state, hit-confirm or post-hit state, non-owner character
+      fallback, and the relevant stage-specific HUD / playfield layer.
 
 ## 6. 통합 스모크 테스트
 

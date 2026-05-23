@@ -301,9 +301,16 @@ Sprite workflow mode switch:
   `godot/` as an implementation target.
 
 ## Critical Stage Mapping
-- Code `current_stage == 5` is actual Stage 6 Honglyeon (Chinese Fire)
-- Code `current_stage == 6` is actual Stage 5 Nemesis (Ocean/Battleship)
-- Confirm this mapping before editing stage-specific logic, assets, or event code
+- Godot live runtime: code `current_stage == 5` is user-facing **Stage 5
+  Hongryun / Honglyeon** (`stage5_hongryun_*`, Chinese Fire).
+- Godot live runtime: code `current_stage == 6` is not the active Hongryun
+  route and is not currently the Nemesis route. Do not target it unless a new
+  Stage 6 owner is explicitly introduced.
+- Legacy Python docs may describe the original order as Stage 5 Nemesis and
+  Stage 6 Honglyeon. Treat that numbering as frozen reference-only porting
+  context; do not copy it into Godot runtime routing, tests, or asset names.
+- See `docs/stage5_hongryun_godot_port_plan.md` for the current Godot Stage 5
+  Hongryun policy before editing stage-specific logic, assets, or event code.
 
 ## Godot Playfield / Pillar / Overlay Clip Reality
 The legacy Python `CLAUDE.md` "Legacy Python Screen Coordinate Standards"
@@ -1085,4 +1092,7 @@ Passive/legendary/mythic item runtimes implemented as separate modules.
 - Module registry pattern: use `gameplay_module_registry.gd` for lazy-loaded modules.
 - Korean UI by default; check `localization/ko.json` before writing any visible text.
 - After any `.gd` edit: run headless load check + warning scan before sign-off.
-- Stage mapping trap: code `current_stage == 5` = actual Stage 6 (홍련), `current_stage == 6` = actual Stage 5 (네메시스).
+- Stage mapping rule: in the current Godot runtime, code `current_stage == 5`
+  is user-facing Stage 5 Hongryun / Honglyeon (`stage5_hongryun_*`). Legacy
+  Python numbering that refers to Stage 6 Honglyeon or Stage 5 Nemesis is
+  reference-only and must not drive Godot routing.
