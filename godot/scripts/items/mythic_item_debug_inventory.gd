@@ -132,13 +132,13 @@ func _reset_item_runtime_after_roll_adjustment(
 	if item_name == str(constants.get("item_dowsing_goggles", "dowsing_goggles")):
 		runtime.dowsing_goggles_bonus_triggered = false
 	if item_name == str(constants.get("item_ragnarok_hammer", "ragnarok_hammer")):
-		runtime._clear_ragnarok_runtime(null)
+		runtime.ragnarok_runtime.clear_runtime(runtime, null)
 	if item_name == str(constants.get("item_poseidon_trident", "poseidon_trident")):
-		runtime._clear_poseidon_runtime(null)
+		runtime.poseidon_runtime.clear_runtime(runtime)
 	if item_name == str(constants.get("item_celestial_armor", "celestial_armor")):
-		runtime._clear_celestial_armor_round_state()
+		runtime.celestial_armor_runtime.clear_round_state(runtime)
 	if item_name == str(constants.get("item_hermes_shoes", "hermes_shoes")):
-		runtime._clear_hermes_shoes_round_state()
+		runtime.hermes_shoes_runtime.clear_round_state(runtime)
 	if item_name == str(constants.get("item_baal_boots", "baal_boots")):
 		runtime._clear_baal_boots_round_state(registry)
 		runtime._try_arm_baal_boots_from_weather(owner, registry)

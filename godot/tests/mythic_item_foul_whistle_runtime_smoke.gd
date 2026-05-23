@@ -50,7 +50,7 @@ func _init() -> void:
 	_expect(not runtime.is_foul_whistle_effect_active(), "consume should clear the animation state")
 
 	_expect(runtime.try_trigger_foul_whistle("score", audio), "Foul Whistle should trigger again after clear")
-	runtime._clear_foul_whistle_runtime()
+	runtime.foul_whistle_runtime.clear_runtime(runtime)
 	_expect(not runtime.is_foul_whistle_effect_active(), "clear should stop the animation")
 	_expect(not runtime.foul_whistle_state.pending_round_reset, "clear should remove pending round reset")
 

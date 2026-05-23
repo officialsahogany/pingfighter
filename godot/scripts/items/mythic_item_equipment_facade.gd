@@ -176,38 +176,38 @@ func _clear_on_equip(runtime: Object, item_name: String, owner: Object, registry
 	if item_name == ITEM_DOWSING_GOGGLES:
 		runtime.dowsing_goggles_bonus_triggered = false
 	if item_name == ITEM_RAGNAROK_HAMMER:
-		runtime._clear_ragnarok_runtime(registry)
+		runtime.ragnarok_runtime.clear_runtime(runtime, registry)
 	if item_name == ITEM_POSEIDON_TRIDENT:
-		runtime._clear_poseidon_runtime(registry)
+		runtime.poseidon_runtime.clear_runtime(runtime)
 	if item_name == ITEM_FOUL_WHISTLE:
-		runtime._clear_foul_whistle_runtime()
+		runtime.foul_whistle_runtime.clear_runtime(runtime)
 	if item_name == ITEM_SOUL_BURST:
-		runtime._clear_soul_burst_runtime()
+		runtime.soul_burst_runtime.clear_runtime(runtime)
 	if item_name == ITEM_SENSOR:
 		runtime.sensor_enabled = true
-		runtime._clear_sensor_round_state()
+		runtime.auto_defense_runtime.clear_sensor_round_state(runtime)
 	if item_name == ITEM_SMARTPHONE:
-		runtime._clear_smartphone_runtime()
+		runtime.ai_assist_runtime.clear_smartphone_runtime(runtime)
 	if item_name == ITEM_VENOM_MIST_GAUNTLET and not runtime.is_venom_mist_gauntlet_equipped():
-		runtime._clear_venom_mist_runtime()
+		runtime.venom_mist_runtime.clear_runtime(runtime)
 	if item_name == ITEM_RAINBOW_FUR_GLOVE:
-		runtime._clear_rainbow_fur_glove_runtime()
+		runtime.rainbow_fur_glove_runtime.clear_runtime(runtime)
 	if item_name == ITEM_ADVERSITY_ARMOR:
-		runtime._clear_adversity_armor_runtime()
+		runtime.adversity_armor_runtime.clear_runtime(runtime)
 	if item_name == ITEM_SHRAPNEL_ARMOR:
-		runtime._clear_shrapnel_armor_runtime()
+		runtime.shrapnel_armor_runtime.clear_runtime(runtime)
 	if item_name == ITEM_CELESTIAL_ARMOR:
-		runtime._clear_celestial_armor_round_state()
+		runtime.celestial_armor_runtime.clear_round_state(runtime)
 	if item_name == ITEM_HERMES_SHOES:
-		runtime._clear_hermes_shoes_round_state()
+		runtime.hermes_shoes_runtime.clear_round_state(runtime)
 	elif not runtime.is_hermes_shoes_equipped():
-		runtime._clear_hermes_shoes_runtime()
+		runtime.hermes_shoes_runtime.clear_runtime(runtime)
 	if item_name == ITEM_RAINBOW_FUR_GLOVE:
-		runtime._clear_rainbow_fur_glove_round_state()
+		runtime.rainbow_fur_glove_runtime.clear_round_state(runtime)
 	if item_name == ITEM_ADVERSITY_ARMOR:
-		runtime._clear_adversity_armor_round_state()
+		runtime.adversity_armor_runtime.clear_round_state(runtime)
 	if item_name == ITEM_SHRAPNEL_ARMOR:
-		runtime._clear_shrapnel_armor_round_state()
+		runtime.shrapnel_armor_runtime.clear_round_state(runtime)
 	if item_name == ITEM_BAAL_BOOTS:
 		runtime._clear_baal_boots_round_state(registry)
 		runtime._try_arm_baal_boots_from_weather(owner, registry)
@@ -223,29 +223,29 @@ func _clear_on_unequip(runtime: Object, item_name: String, registry: Object) -> 
 	if item_name == ITEM_DOWSING_GOGGLES:
 		runtime.dowsing_goggles_bonus_triggered = false
 	if item_name == ITEM_RAGNAROK_HAMMER:
-		runtime._clear_ragnarok_runtime(registry)
+		runtime.ragnarok_runtime.clear_runtime(runtime, registry)
 	if item_name == ITEM_POSEIDON_TRIDENT:
-		runtime._clear_poseidon_runtime(registry)
+		runtime.poseidon_runtime.clear_runtime(runtime)
 	if item_name == ITEM_FOUL_WHISTLE:
-		runtime._clear_foul_whistle_runtime()
+		runtime.foul_whistle_runtime.clear_runtime(runtime)
 	if item_name == ITEM_SOUL_BURST:
-		runtime._clear_soul_burst_runtime()
+		runtime.soul_burst_runtime.clear_runtime(runtime)
 	if item_name == ITEM_SENSOR:
-		runtime._clear_sensor_round_state()
+		runtime.auto_defense_runtime.clear_sensor_round_state(runtime)
 	if item_name == ITEM_SMARTPHONE:
-		runtime._clear_smartphone_runtime()
+		runtime.ai_assist_runtime.clear_smartphone_runtime(runtime)
 	if item_name == ITEM_VENOM_MIST_GAUNTLET and not runtime.is_venom_mist_gauntlet_equipped():
-		runtime._clear_venom_mist_runtime()
+		runtime.venom_mist_runtime.clear_runtime(runtime)
 	if item_name == ITEM_RAINBOW_FUR_GLOVE:
-		runtime._clear_rainbow_fur_glove_runtime()
+		runtime.rainbow_fur_glove_runtime.clear_runtime(runtime)
 	if item_name == ITEM_ADVERSITY_ARMOR:
-		runtime._clear_adversity_armor_runtime()
+		runtime.adversity_armor_runtime.clear_runtime(runtime)
 	if item_name == ITEM_SHRAPNEL_ARMOR:
-		runtime._clear_shrapnel_armor_runtime()
+		runtime.shrapnel_armor_runtime.clear_runtime(runtime)
 	if item_name == ITEM_CELESTIAL_ARMOR:
-		runtime._clear_celestial_armor_runtime()
+		runtime.celestial_armor_runtime.clear_runtime(runtime)
 	if item_name == ITEM_HERMES_SHOES:
-		runtime._clear_hermes_shoes_runtime()
+		runtime.hermes_shoes_runtime.clear_runtime(runtime)
 	if item_name == ITEM_BAAL_BOOTS:
 		runtime._clear_baal_boots_runtime(registry)
 	if item_name == ITEM_HORN_STRAWBERRY_MASK:
@@ -260,15 +260,15 @@ func _clear_on_remove_before_rebuild(runtime: Object, item_name: String, registr
 	if item_name == ITEM_DOWSING_GOGGLES:
 		runtime.dowsing_goggles_bonus_triggered = false
 	if item_name == ITEM_RAGNAROK_HAMMER:
-		runtime._clear_ragnarok_runtime(null)
+		runtime.ragnarok_runtime.clear_runtime(runtime, null)
 	if item_name == ITEM_POSEIDON_TRIDENT:
-		runtime._clear_poseidon_runtime(null)
+		runtime.poseidon_runtime.clear_runtime(runtime)
 	if item_name == ITEM_FOUL_WHISTLE:
-		runtime._clear_foul_whistle_runtime()
+		runtime.foul_whistle_runtime.clear_runtime(runtime)
 	if item_name == ITEM_SENSOR:
-		runtime._clear_sensor_round_state()
+		runtime.auto_defense_runtime.clear_sensor_round_state(runtime)
 	if item_name == ITEM_SMARTPHONE:
-		runtime._clear_smartphone_runtime()
+		runtime.ai_assist_runtime.clear_smartphone_runtime(runtime)
 	if item_name == ITEM_BAAL_BOOTS:
 		runtime._clear_baal_boots_runtime(registry)
 	if item_name == ITEM_HORN_STRAWBERRY_MASK:
@@ -279,16 +279,16 @@ func _clear_on_remove_before_rebuild(runtime: Object, item_name: String, registr
 
 func _clear_on_remove_after_rebuild(runtime: Object, item_name: String, registry: Object) -> void:
 	if item_name == ITEM_VENOM_MIST_GAUNTLET and not runtime.is_venom_mist_gauntlet_equipped():
-		runtime._clear_venom_mist_runtime()
+		runtime.venom_mist_runtime.clear_runtime(runtime)
 	if item_name == ITEM_RAINBOW_FUR_GLOVE and not runtime.is_rainbow_fur_glove_equipped():
-		runtime._clear_rainbow_fur_glove_runtime()
+		runtime.rainbow_fur_glove_runtime.clear_runtime(runtime)
 	if item_name == ITEM_ADVERSITY_ARMOR and not runtime.is_adversity_armor_equipped():
-		runtime._clear_adversity_armor_runtime()
+		runtime.adversity_armor_runtime.clear_runtime(runtime)
 	if item_name == ITEM_SHRAPNEL_ARMOR and not runtime.is_shrapnel_armor_equipped():
-		runtime._clear_shrapnel_armor_runtime()
+		runtime.shrapnel_armor_runtime.clear_runtime(runtime)
 	if item_name == ITEM_CELESTIAL_ARMOR and not runtime.is_celestial_armor_equipped():
-		runtime._clear_celestial_armor_runtime()
+		runtime.celestial_armor_runtime.clear_runtime(runtime)
 	if item_name == ITEM_HERMES_SHOES and not runtime.is_hermes_shoes_equipped():
-		runtime._clear_hermes_shoes_runtime()
+		runtime.hermes_shoes_runtime.clear_runtime(runtime)
 	if item_name == ITEM_BAAL_BOOTS and not runtime.is_baal_boots_equipped():
 		runtime._clear_baal_boots_runtime(registry)

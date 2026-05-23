@@ -1455,7 +1455,7 @@ func try_spawn_venom_mist_at_boss(
 
 func clear_venom_mist_round_state() -> void:
 	_ensure_helpers_ready()
-	_clear_venom_mist_round_state()
+	venom_mist_runtime.clear_runtime(self)
 
 
 func is_reinforced_boomerang_gauntlet_equipped() -> bool:
@@ -2431,114 +2431,12 @@ func get_snapshot() -> Dictionary:
 	return snapshot_builder.build_snapshot(self)
 
 
-func _clear_ragnarok_runtime(registry: Object) -> void:
-	ragnarok_runtime.clear_runtime(self, registry)
-
-
-func _clear_ragnarok_boss_disable_state(registry: Object = null) -> void:
-	ragnarok_runtime.clear_boss_disable_state(self, registry)
-
-
-func _clear_poseidon_runtime(_registry: Object) -> void:
-	poseidon_runtime.clear_runtime(self)
-
-
-func _clear_knee_pads_runtime() -> void:
-	knee_pads_runtime.clear_runtime(self)
-
-
-func _clear_soul_burst_runtime() -> void:
-	soul_burst_runtime.clear_runtime(self)
-
-
-func _clear_foul_whistle_runtime() -> void:
-	foul_whistle_runtime.clear_runtime(self)
-
-
-func _clear_revival_runtime(clear_used: bool = false) -> void:
-	revival_runtime.clear_runtime(self, clear_used)
-
-
-func _clear_sensor_runtime(clear_cooldown: bool = true) -> void:
-	auto_defense_runtime.clear_sensor_runtime(self, clear_cooldown)
-
-
-func _clear_sensor_round_state() -> void:
-	auto_defense_runtime.clear_sensor_round_state(self)
-
-
-func _clear_smartphone_runtime() -> void:
-	ai_assist_runtime.clear_smartphone_runtime(self)
-
-
-func _clear_venom_mist_runtime() -> void:
-	venom_mist_runtime.clear_runtime(self)
-
-
-func _clear_venom_mist_round_state() -> void:
-	venom_mist_runtime.clear_runtime(self)
-
-
-func _clear_rainbow_fur_glove_runtime() -> void:
-	rainbow_fur_glove_runtime.clear_runtime(self)
-
-
-func _clear_rainbow_fur_glove_round_state() -> void:
-	rainbow_fur_glove_runtime.clear_round_state(self)
-
-
-func _clear_adversity_armor_runtime() -> void:
-	adversity_armor_runtime.clear_runtime(self)
-
-
-func _clear_adversity_armor_round_state() -> void:
-	adversity_armor_runtime.clear_round_state(self)
-
-
-func _clear_adversity_armor_active_state() -> void:
-	adversity_armor_runtime.clear_active_state(self)
-
-func _clear_shrapnel_armor_runtime() -> void:
-	shrapnel_armor_runtime.clear_runtime(self)
-
-
-func _clear_shrapnel_armor_round_state() -> void:
-	shrapnel_armor_runtime.clear_round_state(self)
-
-
-func _clear_celestial_armor_runtime() -> void:
-	celestial_armor_runtime.clear_runtime(self)
-
-
-func _clear_celestial_armor_round_state() -> void:
-	celestial_armor_runtime.clear_round_state(self)
-
-
-func _clear_hermes_shoes_runtime() -> void:
-	hermes_shoes_runtime.clear_runtime(self)
-
-
-func _clear_hermes_shoes_round_state() -> void:
-	hermes_shoes_runtime.clear_round_state(self)
-
-
 func _clear_baal_boots_runtime(registry: Object = null) -> void:
 	baal_boots_runtime.clear_runtime(self, registry, BAAL_BOOTS_CONSTANTS)
 
 
 func _clear_baal_boots_round_state(registry: Object = null) -> void:
 	baal_boots_runtime.clear_round_state(self, registry, BAAL_BOOTS_CONSTANTS)
-
-
-func _clear_horn_strawberry_mask_runtime(clear_stage_used: bool = false) -> void:
-	if clear_stage_used:
-		horn_strawberry_mask_runtime.reset(self)
-	else:
-		horn_strawberry_mask_runtime.reset_round(self)
-
-
-func _clear_ragnarok_rally_state() -> void:
-	ragnarok_runtime.clear_rally_state(self)
 
 
 func _start_poseidon_capture(ball_pos: Vector2, ball_vel: Vector2, vortex_hit: Dictionary) -> void:

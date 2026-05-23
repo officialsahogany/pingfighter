@@ -67,14 +67,14 @@ func _init() -> void:
 	_expect(bool(context.get("auto_dash_effect_active", false)), "context should expose active sensor effect")
 	_expect_close(float(context.get("last_dash_direction", 0.0)), -1.0, "context should expose last dash direction")
 
-	runtime._clear_sensor_round_state()
+	runtime.auto_defense_runtime.clear_sensor_round_state(runtime)
 	_expect_close(runtime.sensor_cooldown_timer_frames, 390.0, "round clear should preserve cooldown")
 	_expect_close(runtime.sensor_auto_dash_effect_timer_frames, 0.0, "round clear should reset effect timer")
 	_expect_close(runtime.sensor_last_dash_direction, 0.0, "round clear should reset last dash direction")
-	runtime._clear_sensor_runtime(false)
+	runtime.auto_defense_runtime.clear_sensor_runtime(runtime, false)
 	_expect(runtime.sensor_enabled, "runtime clear should re-enable sensor")
 	_expect_close(runtime.sensor_cooldown_timer_frames, 390.0, "runtime clear without cooldown flag should preserve timer")
-	runtime._clear_sensor_runtime(true)
+	runtime.auto_defense_runtime.clear_sensor_runtime(runtime, true)
 	_expect_close(runtime.sensor_cooldown_timer_frames, 0.0, "full runtime clear should reset cooldown")
 
 	print("mythic_item_sensor_auto_defense_runtime_smoke: ok")

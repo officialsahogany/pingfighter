@@ -54,7 +54,7 @@ func _init() -> void:
 
 	runtime.smartphone_cooldown_frames = 13.0
 	runtime.smartphone_last_auto_item = "stopwatch"
-	runtime._clear_smartphone_runtime()
+	runtime.ai_assist_runtime.clear_smartphone_runtime(runtime)
 	_expect_close(runtime.smartphone_cooldown_frames, 0.0, "Smartphone clear should reset cooldown")
 	_expect(runtime.smartphone_last_auto_item == "", "Smartphone clear should reset last auto item")
 
