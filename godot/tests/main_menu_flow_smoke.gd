@@ -37,11 +37,12 @@ func _run() -> void:
 	current_scene = menu
 	await process_frame
 	var background := menu.get_node_or_null("Background") as TextureRect
+	_expect(menu.get_node_or_null("BackgroundFill") == null, "main menu should not draw a cropped duplicate background strip above the title art")
 	_expect(background != null, "main menu should expose the background texture rect")
 	if background != null:
 		_expect(
-			background.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED,
-			"main menu background should cover the full viewport without letterboxing"
+			background.stretch_mode == TextureRect.STRETCH_SCALE,
+			"main menu background should stretch to the viewport with no crop or letterbox"
 		)
 		_expect(background.texture != null, "main menu background texture should load")
 		if background.texture != null:
@@ -53,13 +54,16 @@ func _run() -> void:
 	_expect(reveal != null, "main menu should expose the intro reveal layer")
 	if reveal != null and reveal.has_method("_background_image_rect"):
 		var reveal_rect: Rect2 = reveal.call("_background_image_rect", Vector2(1920.0, 1080.0))
-		_expect(
-			reveal_rect.position.x <= 0.01 and reveal_rect.position.y <= 0.01,
-			"main menu reveal should start at or beyond the viewport origin when covering"
+		_expect_background_rect_fills_viewport(
+			reveal_rect,
+			Vector2(1920.0, 1080.0),
+			"main menu reveal 16:9"
 		)
-		_expect(
-			reveal_rect.end.x >= 1919.99 and reveal_rect.end.y >= 1079.99,
-			"main menu reveal should cover the full viewport without letterboxing"
+		var small_window_reveal_rect: Rect2 = reveal.call("_background_image_rect", Vector2(2020.0, 1246.0))
+		_expect_background_rect_fills_viewport(
+			small_window_reveal_rect,
+			Vector2(2020.0, 1246.0),
+			"main menu reveal small-window"
 		)
 	_expect(
 		menu.get_node_or_null("LogoReveal") == null,
@@ -81,6 +85,13 @@ func _run() -> void:
 			"main menu ambient layer should not intercept input"
 		)
 		if ambient.has_method("_logo_glint_rect"):
+			if ambient.has_method("_background_image_rect"):
+				var small_window_ambient_rect: Rect2 = ambient.call("_background_image_rect", Vector2(2020.0, 1246.0))
+				_expect_background_rect_fills_viewport(
+					small_window_ambient_rect,
+					Vector2(2020.0, 1246.0),
+					"main menu ambient small-window"
+				)
 			var logo_glint_rect: Rect2 = ambient.call("_logo_glint_rect", Vector2(1920.0, 1080.0))
 			_expect(
 				logo_glint_rect.position.x <= 90.0 and logo_glint_rect.position.y <= 240.0,
@@ -224,8 +235,7 @@ func _run() -> void:
 		_send_b_to_menu()
 		await process_frame
 		_expect(not bgm_player.playing, "B key should keep main-menu BGM muted before scene change")
-	if start_button != null:
-		start_button.pressed.emit()
+	_send_gamepad_start_to_menu()
 	await process_frame
 	_expect(bool(menu.get("transitioning")), "start should lock the main menu while the entry animation plays")
 	_expect(current_scene == menu, "start should wait for the entry animation before changing scenes")
@@ -297,6 +307,15 @@ func _send_b_to_menu() -> void:
 	menu._input(event)
 
 
+func _send_gamepad_start_to_menu() -> void:
+	if menu == null:
+		return
+	var event := InputEventJoypadButton.new()
+	event.pressed = true
+	event.button_index = JOY_BUTTON_A
+	menu._input(event)
+
+
 func _send_b_to_character_select(node: Node) -> void:
 	if node == null or not node.has_method("_unhandled_input"):
 		return
@@ -315,6 +334,12 @@ func _finish_intro_reveal() -> void:
 	var reveal := menu.get_node_or_null("RevealLayer")
 	if reveal != null and reveal.has_method("_finish_reveal"):
 		reveal.call("_finish_reveal")
+
+
+func _expect_background_rect_fills_viewport(rect: Rect2, view_size: Vector2, label: String) -> void:
+	var tolerance := 0.05
+	_expect(rect.position.distance_to(Vector2.ZERO) <= tolerance, "%s background rect should start at the viewport origin" % label)
+	_expect(rect.size.distance_to(view_size) <= tolerance, "%s background rect should fill the viewport exactly" % label)
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -210,15 +210,7 @@ func _view_size() -> Vector2:
 
 
 func _background_image_rect(view_size: Vector2) -> Rect2:
-	if texture == null:
-		return Rect2(Vector2.ZERO, view_size)
-	var texture_size := texture.get_size()
-	if texture_size.x <= 1.0 or texture_size.y <= 1.0:
-		return Rect2(Vector2.ZERO, view_size)
-	# Match the scene's Background TextureRect stretch_mode = KEEP_ASPECT_COVERED.
+	# Match the scene's full-viewport Background TextureRect stretch.
 	# The reveal's final frame must land on the same rect, otherwise hiding this
 	# layer creates a visible snap between the animation and static menu.
-	var scale_factor: float = maxf(view_size.x / texture_size.x, view_size.y / texture_size.y)
-	var final_size := texture_size * scale_factor
-	var final_position := (view_size - final_size) * 0.5
-	return Rect2(final_position, final_size)
+	return Rect2(Vector2.ZERO, view_size)

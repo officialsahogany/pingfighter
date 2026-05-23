@@ -247,11 +247,10 @@ func _draw_glint(view_size: Vector2) -> void:
 func _logo_glint_rect(view_size: Vector2) -> Rect2:
 	if view_size.x <= 1.0 or view_size.y <= 1.0:
 		return Rect2()
-	var background_rect := _background_image_rect(view_size)
-	var scale_factor: float = background_rect.size.x / BACKGROUND_SOURCE_SIZE.x
+	var source_scale := _background_source_scale(view_size)
 	var rect := Rect2(
-		background_rect.position + LOGO_GLINT_SOURCE_RECT.position * scale_factor,
-		LOGO_GLINT_SOURCE_RECT.size * scale_factor
+		_source_to_screen(LOGO_GLINT_SOURCE_RECT.position, view_size),
+		LOGO_GLINT_SOURCE_RECT.size * source_scale
 	)
 	return _intersect_rect(rect, Rect2(Vector2.ZERO, view_size))
 
@@ -259,23 +258,37 @@ func _logo_glint_rect(view_size: Vector2) -> Rect2:
 func _logo_orb_effect_rect(view_size: Vector2) -> Rect2:
 	if view_size.x <= 1.0 or view_size.y <= 1.0:
 		return Rect2()
-	var background_rect := _background_image_rect(view_size)
-	var scale_factor: float = background_rect.size.x / BACKGROUND_SOURCE_SIZE.x
+	var source_scale := _background_source_scale(view_size)
 	var rect := Rect2(
-		background_rect.position + LOGO_ORB_EFFECT_SOURCE_RECT.position * scale_factor,
-		LOGO_ORB_EFFECT_SOURCE_RECT.size * scale_factor
+		_source_to_screen(LOGO_ORB_EFFECT_SOURCE_RECT.position, view_size),
+		LOGO_ORB_EFFECT_SOURCE_RECT.size * source_scale
 	)
 	return _intersect_rect(rect, Rect2(Vector2.ZERO, view_size))
 
 
 func _background_image_rect(view_size: Vector2) -> Rect2:
-	var scale_factor: float = maxf(
+	return Rect2(Vector2.ZERO, view_size)
+
+
+func _background_source_scale(view_size: Vector2) -> Vector2:
+	if BACKGROUND_SOURCE_SIZE.x <= 1.0 or BACKGROUND_SOURCE_SIZE.y <= 1.0:
+		return Vector2.ONE
+	return Vector2(
 		view_size.x / BACKGROUND_SOURCE_SIZE.x,
 		view_size.y / BACKGROUND_SOURCE_SIZE.y
 	)
-	var final_size := BACKGROUND_SOURCE_SIZE * scale_factor
-	var final_position := (view_size - final_size) * 0.5
-	return Rect2(final_position, final_size)
+
+
+func _source_to_screen(source_pos: Vector2, view_size: Vector2) -> Vector2:
+	return _background_image_rect(view_size).position + source_pos * _background_source_scale(view_size)
+
+
+func _screen_to_source(screen_pos: Vector2, view_size: Vector2) -> Vector2:
+	var background_rect := _background_image_rect(view_size)
+	var source_scale := _background_source_scale(view_size)
+	if source_scale.x <= 0.0 or source_scale.y <= 0.0:
+		return Vector2.ZERO
+	return (screen_pos - background_rect.position) / source_scale
 
 
 func _intersect_rect(a: Rect2, b: Rect2) -> Rect2:
@@ -359,8 +372,8 @@ func _draw_logo_letter_sparkles(
 	tilt_x: float,
 	sweep_curve: float
 ) -> void:
-	var background_rect := _background_image_rect(view_size)
-	var source_scale: float = background_rect.size.x / BACKGROUND_SOURCE_SIZE.x
+	var source_scale_vec := _background_source_scale(view_size)
+	var source_scale: float = minf(source_scale_vec.x, source_scale_vec.y)
 	if source_scale <= 0.0:
 		return
 	for i in range(GLINT_SPARKLE_COUNT * 2):
@@ -371,7 +384,7 @@ func _draw_logo_letter_sparkles(
 		)
 		if not _is_logo_letter_source_pixel(source_pos):
 			continue
-		var screen_pos := background_rect.position + source_pos * source_scale
+		var screen_pos := _source_to_screen(source_pos, view_size)
 		if not logo_rect.has_point(screen_pos):
 			continue
 		var y_ratio: float = clampf((screen_pos.y - logo_rect.position.y) / maxf(1.0, logo_rect.size.y), 0.0, 1.0)
@@ -403,9 +416,9 @@ func _draw_logo_orb_effects(view_size: Vector2, center_x: float, tilt_x: float, 
 	var orb_rect := _logo_orb_effect_rect(view_size)
 	if orb_rect.size.x <= 4.0 or orb_rect.size.y <= 4.0:
 		return
-	var background_rect := _background_image_rect(view_size)
-	var source_scale: float = background_rect.size.x / BACKGROUND_SOURCE_SIZE.x
-	var orb_center := background_rect.position + LOGO_ORB_SOURCE_CENTER * source_scale
+	var source_scale_vec := _background_source_scale(view_size)
+	var source_scale: float = minf(source_scale_vec.x, source_scale_vec.y)
+	var orb_center := _source_to_screen(LOGO_ORB_SOURCE_CENTER, view_size)
 	var orb_pulse: float = 0.5 + 0.5 * sin(elapsed_time * TAU / LOGO_ORB_PULSE_PERIOD_SEC)
 	var breath_alpha: float = lerpf(0.20, 0.48, orb_pulse)
 	var core_radius: float = 31.0 * source_scale
@@ -470,7 +483,6 @@ func _draw_logo_orb_sparkles(
 	tilt_x: float,
 	sweep_curve: float
 ) -> void:
-	var background_rect := _background_image_rect(view_size)
 	for i in range(LOGO_ORB_SPARKLE_COUNT * 3):
 		var sparkle_seed: float = float(i) + 2.0
 		var source_pos := Vector2(
@@ -479,7 +491,7 @@ func _draw_logo_orb_sparkles(
 		)
 		if not _is_logo_orb_effect_source_pixel(source_pos):
 			continue
-		var screen_pos := background_rect.position + source_pos * source_scale
+		var screen_pos := _source_to_screen(source_pos, view_size)
 		if not orb_rect.has_point(screen_pos):
 			continue
 		var sweep_x_at_y: float = _logo_orb_sweep_x_at_y(screen_pos.y, orb_center.y, center_x, tilt_x, orb_rect)
@@ -578,11 +590,7 @@ func _build_logo_letter_mask() -> void:
 func _is_logo_letter_screen_point(screen_point: Vector2, view_size: Vector2) -> bool:
 	if logo_letter_mask.is_empty():
 		return false
-	var background_rect := _background_image_rect(view_size)
-	if background_rect.size.x <= 1.0:
-		return false
-	var source_scale: float = background_rect.size.x / BACKGROUND_SOURCE_SIZE.x
-	var source_pos := (screen_point - background_rect.position) / source_scale
+	var source_pos := _screen_to_source(screen_point, view_size)
 	return _is_logo_letter_source_pixel(source_pos)
 
 
@@ -598,11 +606,7 @@ func _is_logo_letter_source_pixel(source_pos: Vector2) -> bool:
 func _is_logo_orb_effect_screen_point(screen_point: Vector2, view_size: Vector2) -> bool:
 	if logo_orb_effect_mask.is_empty():
 		return false
-	var background_rect := _background_image_rect(view_size)
-	if background_rect.size.x <= 1.0:
-		return false
-	var source_scale: float = background_rect.size.x / BACKGROUND_SOURCE_SIZE.x
-	var source_pos := (screen_point - background_rect.position) / source_scale
+	var source_pos := _screen_to_source(screen_point, view_size)
 	return _is_logo_orb_effect_source_pixel(source_pos)
 
 
