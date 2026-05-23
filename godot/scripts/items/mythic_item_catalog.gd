@@ -420,123 +420,57 @@ func _build_reinforced_boomerang_gauntlet() -> Dictionary:
 
 
 func _build_commando_arm() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(COMMANDO_ARM)
-	return {
-		"name": COMMANDO_ARM,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "코만도암",
 		"korean_name": "코만도암",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": COMMANDO_ARM,
-		"slot": "arm",
-		"icon_path": get_icon_path(COMMANDO_ARM),
-		"chance": get_field_chance(COMMANDO_ARM),
 		"description": "투척류 아이템을 전투용 팔 장비로 보조합니다. 수류탄, 조명탄, 화염병은 더 빠르게 날아가고 폭발 범위가 넓어지며, 다이너마이트, 바나나, 비누, 부메랑의 준비시간이 줄어듭니다. 연막탄 지속시간도 증가합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(COMMANDO_ARM),
-		"rolled_options": build_rolled_options(COMMANDO_ARM, rolls),
 		"color": Color(60.0 / 255.0, 60.0 / 255.0, 70.0 / 255.0),
-	}
+	}, self, COMMANDO_ARM, "passive", "arm", get_field_chance(COMMANDO_ARM))
 
 
 func _build_rainbow_fur_glove() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(RAINBOW_FUR_GLOVE)
-	return {
-		"name": RAINBOW_FUR_GLOVE,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "무지개털장갑",
 		"korean_name": "무지개털장갑",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": RAINBOW_FUR_GLOVE,
-		"slot": "arm",
-		"icon_path": get_icon_path(RAINBOW_FUR_GLOVE),
-		"chance": get_field_chance(RAINBOW_FUR_GLOVE),
 		"description": "공을 패들로 칠 때 일정 확률로 발동하여 장착한 캐릭터 스킬의 진행 중 쿨타임을 즉시 감소시킵니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(RAINBOW_FUR_GLOVE),
-		"rolled_options": build_rolled_options(RAINBOW_FUR_GLOVE, rolls),
 		"color": Color(1.0, 170.0 / 255.0, 220.0 / 255.0),
-	}
+	}, self, RAINBOW_FUR_GLOVE, "passive", "arm", get_field_chance(RAINBOW_FUR_GLOVE))
 
 
 func _build_knee_pads() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(KNEE_PADS)
-	return {
-		"name": KNEE_PADS,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "킥차져",
 		"korean_name": "킥차져",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": KNEE_PADS,
-		"slot": "knee",
-		"icon_path": get_icon_path(KNEE_PADS),
-		"chance": get_field_chance(KNEE_PADS),
 		"description": "장착 중 하프대쉬로 공을 맞추면 기본 게이지 획득량을 기준으로 롤옵션 비율만큼 충전합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(KNEE_PADS),
-		"rolled_options": build_rolled_options(KNEE_PADS, rolls),
 		"color": Color(80.0 / 255.0, 80.0 / 255.0, 100.0 / 255.0),
-	}
+	}, self, KNEE_PADS, "passive", "knee", get_field_chance(KNEE_PADS))
 
 
 func _build_dashgear() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(DASHGEAR)
-	return {
-		"name": DASHGEAR,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "대쉬기어",
 		"korean_name": "대쉬기어",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": DASHGEAR,
-		"slot": "knee",
-		"icon_path": get_icon_path(DASHGEAR),
-		"chance": get_field_chance(DASHGEAR),
 		"description": "대쉬 거리를 늘리고, 일정 확률로 다음 대쉬 토큰 소모를 무효화합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(DASHGEAR),
-		"rolled_options": build_rolled_options(DASHGEAR, rolls),
 		"color": Color(1.0, 150.0 / 255.0, 100.0 / 255.0),
-	}
+	}, self, DASHGEAR, "passive", "knee", get_field_chance(DASHGEAR))
 
 
 func _build_soul_burst() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(SOUL_BURST)
-	return {
-		"name": SOUL_BURST,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "소울버스트",
 		"korean_name": "소울버스트",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": SOUL_BURST,
-		"slot": "knee",
-		"icon_path": get_icon_path(SOUL_BURST),
-		"chance": get_field_chance(SOUL_BURST),
 		"description": "대쉬 토큰이 없을 때 스페셜 게이지를 소모해 하프대쉬 대신 풀대쉬를 발동합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(SOUL_BURST),
-		"rolled_options": build_rolled_options(SOUL_BURST, rolls),
 		"color": Color(150.0 / 255.0, 80.0 / 255.0, 1.0),
-	}
+	}, self, SOUL_BURST, "passive", "knee", get_field_chance(SOUL_BURST))
 
 
 func _build_bulkup() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(BULKUP)
-	return {
-		"name": BULKUP,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "벌크업슈트",
 		"korean_name": "벌크업슈트",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": BULKUP,
-		"slot": "top",
-		"icon_path": get_icon_path(BULKUP),
-		"chance": get_field_chance(BULKUP),
 		"description": "장착 중 플레이어 패들의 몸집크기를 롤옵션만큼 늘립니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(BULKUP),
-		"rolled_options": build_rolled_options(BULKUP, rolls),
 		"color": Color(1.0, 100.0 / 255.0, 100.0 / 255.0),
-	}
+	}, self, BULKUP, "passive", "top", get_field_chance(BULKUP))
 
 
 func _build_dashholder() -> Dictionary:
@@ -549,43 +483,21 @@ func _build_dashholder() -> Dictionary:
 
 
 func _build_bulletproof_hat() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(BULLETPROOF_HAT)
-	return {
-		"name": BULLETPROOF_HAT,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "방탄모자",
 		"korean_name": "방탄모자",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": BULLETPROOF_HAT,
-		"slot": "head",
-		"icon_path": get_icon_path(BULLETPROOF_HAT),
-		"chance": get_field_chance(BULLETPROOF_HAT),
 		"description": "장착 중 플레이어에게 걸리는 스턴 시간을 롤옵션만큼 줄입니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(BULLETPROOF_HAT),
-		"rolled_options": build_rolled_options(BULLETPROOF_HAT, rolls),
 		"color": Color(0.38, 0.72, 1.0),
-	}
+	}, self, BULLETPROOF_HAT, "passive", "head", get_field_chance(BULLETPROOF_HAT))
 
 
 func _build_spiked_helmet() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(SPIKED_HELMET)
-	return {
-		"name": SPIKED_HELMET,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "가시투구",
 		"korean_name": "가시투구",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": SPIKED_HELMET,
-		"slot": "head",
-		"icon_path": get_icon_path(SPIKED_HELMET),
-		"chance": get_field_chance(SPIKED_HELMET),
 		"description": "장착 중 플레이어가 받는 넉백 속도를 롤옵션만큼 줄입니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(SPIKED_HELMET),
-		"rolled_options": build_rolled_options(SPIKED_HELMET, rolls),
 		"color": Color(1.0, 0.62, 0.32),
-	}
+	}, self, SPIKED_HELMET, "passive", "head", get_field_chance(SPIKED_HELMET))
 
 
 func _build_pandora_legacy() -> Dictionary:
