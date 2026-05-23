@@ -180,12 +180,17 @@ func update_fire_zones(controller: Object, owner: Object, registry: Object, delt
 		var in_fire: bool = x_in_range and y_in_range
 		zone["boss_in_fire"] = in_fire
 		var push_timer: float = float(zone.get("push_timer", 0.0)) + fps_scale
-		if push_timer >= _get_float(controller, "MOLOTOV_FIRE_PUSH_INTERVAL_FRAMES"):
-			push_timer = fmod(push_timer, _get_float(controller, "MOLOTOV_FIRE_PUSH_INTERVAL_FRAMES"))
-			if in_fire:
-				push_boss_from_fire(controller, owner, registry, center, boss_center)
-				boss_pos = BattleSceneOwnerReader.get_vector2(owner, "boss_pos", boss_pos)
-				boss_center = Vector2(boss_pos.x + 50.0, boss_pos.y + 20.0)
+		var push_feedback_ready := false
+		var push_interval: float = _get_float(controller, "MOLOTOV_FIRE_PUSH_INTERVAL_FRAMES")
+		if push_interval > 0.0 and push_timer >= push_interval:
+			push_timer = fmod(push_timer, push_interval)
+			push_feedback_ready = true
+		if in_fire:
+			var push_dir: float = _get_fire_push_direction(owner, zone, center, boss_center)
+			zone["last_push_dir"] = push_dir
+			push_boss_from_fire(controller, owner, registry, center, boss_center, width, push_dir, push_feedback_ready)
+			boss_pos = BattleSceneOwnerReader.get_vector2(owner, "boss_pos", boss_pos)
+			boss_center = Vector2(boss_pos.x + 50.0, boss_pos.y + 20.0)
 		zone["push_timer"] = push_timer
 		fire_zones[write_index] = zone
 		write_index += 1
@@ -249,25 +254,59 @@ func update_flames(zone: Dictionary, fps_scale: float) -> void:
 	zone["flames"] = flames
 
 
-func push_boss_from_fire(controller: Object, owner: Object, registry: Object, center: Vector2, boss_center: Vector2) -> void:
+func push_boss_from_fire(
+	controller: Object,
+	owner: Object,
+	registry: Object,
+	center: Vector2,
+	boss_center: Vector2,
+	fire_width: float = 150.0,
+	push_dir: float = 0.0,
+	play_feedback: bool = true
+) -> void:
 	if owner == null:
 		return
 	var field_width: float = _get_float(controller, "FIELD_WIDTH", 760.0)
+	var boss_width := 100.0
 	var boss_pos: Vector2 = BattleSceneOwnerReader.get_vector2(
 		owner,
 		"boss_pos",
 		Vector2(field_width * 0.5 - 50.0, 25.0)
 	)
-	var push_dir: float = -1.0 if boss_center.x < center.x else 1.0
+	if abs(push_dir) < 0.001:
+		push_dir = -1.0 if boss_center.x < center.x else 1.0
+	var blocked_half_width: float = max(0.0, fire_width * 0.25 + boss_width * 0.5)
+	var target_center_x: float = center.x + push_dir * (blocked_half_width + 0.5)
 	boss_pos.x = clamp(
-		boss_pos.x + push_dir * _get_float(controller, "MOLOTOV_FIRE_PUSH_FORCE"),
+		target_center_x - boss_width * 0.5,
 		0.0,
-		field_width - 100.0
+		field_width - boss_width
 	)
 	owner.set("boss_pos", boss_pos)
+	if not play_feedback:
+		return
 	var feedback: Object = _get_instance(registry, "battle_feedback_state")
 	if feedback != null and feedback.has_method("max_screen_shake"):
 		feedback.max_screen_shake(0.035, 1.1)
+
+
+func _get_fire_push_direction(owner: Object, zone: Dictionary, center: Vector2, boss_center: Vector2) -> float:
+	var center_delta: float = boss_center.x - center.x
+	if abs(center_delta) > 0.001:
+		return -1.0 if center_delta < 0.0 else 1.0
+	var previous_dir: float = float(zone.get("last_push_dir", 0.0))
+	if abs(previous_dir) > 0.001:
+		return sign(previous_dir)
+	var boss_vel_value: Variant = BattleSceneOwnerReader.get_value(owner, "boss_vel", 0.0)
+	var boss_vel_type: int = typeof(boss_vel_value)
+	var boss_vel: float = (
+		float(boss_vel_value)
+		if boss_vel_type == TYPE_INT or boss_vel_type == TYPE_FLOAT
+		else 0.0
+	)
+	if abs(boss_vel) > 0.2:
+		return -sign(boss_vel)
+	return 1.0
 
 
 func _get_player_throw_start(owner: Object, pending_throw: Dictionary, y_offset: float) -> Vector2:

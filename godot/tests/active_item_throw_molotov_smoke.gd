@@ -11,6 +11,7 @@ class FakeOwner:
 
 	var player_pos := Vector2(300.0, 680.0)
 	var boss_pos := Vector2(330.0, 55.0)
+	var boss_vel := 0.0
 
 
 class FakeAudio:
@@ -56,6 +57,7 @@ func _init() -> void:
 	_verify_fire_zone_clamps_away_from_pillars()
 	_verify_renderer_ellipse_preserves_playfield_transform()
 	_verify_fresh_fire_zone_pushes_on_first_update()
+	_verify_fire_zone_blocks_crossing_between_feedback_ticks()
 	_verify_fire_zone_updates_boss_fire_and_push()
 
 	if _failures.is_empty():
@@ -203,6 +205,31 @@ func _verify_fresh_fire_zone_pushes_on_first_update() -> void:
 
 	_expect(owner.boss_pos.x > 330.0, "fresh fire zone should obstruct movement on the first update without relying on slow")
 	_expect(registry.feedback.shakes.size() == 2, "fresh fire-zone trigger and push should request feedback")
+
+
+func _verify_fire_zone_blocks_crossing_between_feedback_ticks() -> void:
+	var controller: Object = ActiveItemThrowController.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	owner.boss_pos = Vector2(330.0, 55.0)
+	owner.boss_vel = 5.0
+	var zones: Array[Dictionary] = [{
+		"position": Vector2(380.0, 75.0),
+		"width": controller.MOLOTOV_FIRE_WIDTH,
+		"height": controller.MOLOTOV_FIRE_HEIGHT,
+		"duration_frames": controller.MOLOTOV_FIRE_DURATION_FRAMES,
+		"max_duration_frames": controller.MOLOTOV_FIRE_DURATION_FRAMES,
+		"flames": [],
+		"spread_timer": 0.0,
+		"push_timer": 0.0,
+		"boss_in_fire": false,
+	}]
+	controller.molotov_fire_zones = zones
+
+	controller._update_molotov_fire_zones(owner, registry, 1.0 / 60.0)
+
+	_expect(owner.boss_pos.x < 260.0, "fire zone should block a boss crossing through the center even between feedback ticks")
+	_expect(registry.feedback.shakes.is_empty(), "between-tick fire-zone obstruction should not spam feedback shake")
 
 
 func _verify_fire_zone_updates_boss_fire_and_push() -> void:
