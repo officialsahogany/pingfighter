@@ -46,8 +46,8 @@ func trigger_effect(
 	runtime.soul_burst_effect_timer_frames = EFFECT_FRAMES
 	runtime.soul_burst_dash_active = true
 	build_effects(runtime)
-	runtime._play_soul_burst_audio(registry)
-	runtime._apply_ragnarok_feedback({"registry": registry}, 0.11, 4.2)
+	runtime.audio_router.play_soul_burst_audio(runtime, registry)
+	runtime.audio_router.apply_ragnarok_feedback(runtime, {"registry": registry}, 0.11, 4.2)
 
 
 func clear_runtime(runtime: Object) -> void:

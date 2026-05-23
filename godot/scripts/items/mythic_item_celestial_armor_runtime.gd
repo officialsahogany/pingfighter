@@ -67,13 +67,14 @@ func try_consume_immunity(
 		normalized_effect_type,
 		PAIRED_PROC_WINDOW_FRAMES
 	)
-	runtime._apply_ragnarok_feedback(
+	runtime.audio_router.apply_ragnarok_feedback(
+		runtime,
 		deps,
 		FEEDBACK_SHAKE_AMOUNT,
 		FEEDBACK_SHAKE_INTENSITY
 	)
 	runtime._trigger_gauge_feedback(deps)
-	runtime._play_celestial_armor_audio(runtime._get_dict(deps).get("registry", null))
+	runtime.audio_router.play_celestial_armor_audio(runtime, runtime._get_dict(deps).get("registry", null))
 	var owner: Object = deps.get("owner", null)
 	if owner != null:
 		runtime._sync_owner(owner, runtime._get_dict(deps).get("registry", null))

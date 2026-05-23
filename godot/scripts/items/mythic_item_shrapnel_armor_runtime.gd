@@ -39,8 +39,8 @@ func try_proc_player_hit(
 	runtime.shrapnel_armor_last_proc_shard_count = shard_count
 	runtime.shrapnel_armor_last_gauge_cost = gauge_cost
 	var deps_dict: Dictionary = runtime._get_dict(deps)
-	runtime._play_shrapnel_armor_fire_audio(deps_dict.get("registry", null))
-	runtime._apply_ragnarok_feedback(deps, 0.045, 1.8)
+	runtime.audio_router.play_shrapnel_armor_fire_audio(runtime, deps_dict.get("registry", null))
+	runtime.audio_router.apply_ragnarok_feedback(runtime, deps, 0.045, 1.8)
 	runtime._trigger_gauge_feedback(deps)
 	runtime._sync_owner(deps_dict.get("owner", null), deps_dict.get("registry", null))
 	return {
@@ -300,7 +300,7 @@ func apply_boss_hit(
 	)
 	runtime.shrapnel_armor_boss_impact_timer_frames = float(constants.get("boss_impact_frames", 15.0))
 	runtime.shrapnel_armor_boss_impact_center = boss_rect.get_center()
-	runtime._play_shrapnel_armor_hit_audio(registry)
+	runtime.audio_router.play_shrapnel_armor_hit_audio(runtime, registry)
 
 
 func get_knockback_velocity(level: int) -> float:

@@ -22,7 +22,7 @@ func try_poison_ball(runtime: Object, deps: Dictionary) -> bool:
 	if chance <= 0.0 or randf() >= chance:
 		return false
 	runtime.venom_mist_ball_poisoned = true
-	runtime._play_venom_mist_poison_audio(runtime._get_dict(deps).get("registry", null))
+	runtime.audio_router.play_venom_mist_poison_audio(runtime, runtime._get_dict(deps).get("registry", null))
 	return true
 
 
@@ -89,7 +89,7 @@ func start_field(runtime: Object, center: Vector2, registry: Object) -> void:
 	runtime.venom_mist_gauge_drain_accumulator = 0.0
 	runtime.venom_mist_boss_in_field = false
 	build_particles(runtime)
-	runtime._play_venom_mist_spawn_audio(registry)
+	runtime.audio_router.play_venom_mist_spawn_audio(runtime, registry)
 
 
 func update_boss_gauge_drain(

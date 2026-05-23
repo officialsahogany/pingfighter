@@ -42,9 +42,9 @@ func update_runtime(
 		clear_boss_disable_state(runtime, registry)
 	update_sparks(runtime, delta)
 	if had_stun and runtime.ragnarok_boss_stun_timer_frames <= 0.0:
-		runtime._stop_ragnarok_shock_audio(registry)
+		runtime.audio_router.stop_ragnarok_shock_audio(runtime, registry)
 	elif runtime.ragnarok_boss_stun_timer_frames > 0.0:
-		runtime._play_ragnarok_shock_audio(registry)
+		runtime.audio_router.play_ragnarok_shock_audio(runtime, registry)
 
 
 func try_apply_player_hit(
@@ -75,8 +75,9 @@ func try_apply_player_hit(
 	runtime.ragnarok_original_speed = original_speed
 	runtime.ragnarok_first_shot_speed = max(original_speed, next_ball_vel.length())
 	runtime.ragnarok_ball_started_msec = Time.get_ticks_msec()
-	runtime._play_ragnarok_shot_audio(runtime._get_dict(deps).get("registry", null))
-	runtime._apply_ragnarok_feedback(
+	runtime.audio_router.play_ragnarok_shot_audio(runtime, runtime._get_dict(deps).get("registry", null))
+	runtime.audio_router.apply_ragnarok_feedback(
+		runtime,
 		deps,
 		float(constants.get("charge_shake_amount", 0.08)),
 		float(constants.get("charge_shake_intensity", 2.4))
@@ -141,10 +142,11 @@ func apply_boss_hit(
 	runtime.ragnarok_impact_center = boss_center
 	runtime.ragnarok_impact_started_msec = Time.get_ticks_msec()
 	build_sparks(runtime, constants)
-	runtime._play_ragnarok_boom_audio(runtime._get_dict(deps).get("registry", null))
+	runtime.audio_router.play_ragnarok_boom_audio(runtime, runtime._get_dict(deps).get("registry", null))
 	if runtime.ragnarok_boss_stun_timer_frames > 0.0:
-		runtime._play_ragnarok_shock_audio(runtime._get_dict(deps).get("registry", null))
-	runtime._apply_ragnarok_feedback(
+		runtime.audio_router.play_ragnarok_shock_audio(runtime, runtime._get_dict(deps).get("registry", null))
+	runtime.audio_router.apply_ragnarok_feedback(
+		runtime,
 		deps,
 		float(constants.get("impact_shake_amount", 1.38)),
 		float(constants.get("impact_shake_intensity", 22.0))
@@ -185,7 +187,7 @@ func clear_runtime(runtime: Object, registry: Object) -> void:
 	runtime.ragnarok_impact_center = Vector2.ZERO
 	runtime.ragnarok_stun_target_size = Vector2(100.0, 40.0)
 	runtime.ragnarok_sparks.clear()
-	runtime._stop_ragnarok_shock_audio(registry)
+	runtime.audio_router.stop_ragnarok_shock_audio(runtime, registry)
 
 
 func clear_boss_disable_state(runtime: Object, registry: Object = null) -> void:
@@ -193,7 +195,7 @@ func clear_boss_disable_state(runtime: Object, registry: Object = null) -> void:
 	runtime.ragnarok_boss_knockback_timer_frames = 0.0
 	runtime.ragnarok_boss_knockback_vel = 0.0
 	runtime.ragnarok_boss_electric_drift_vel = 0.0
-	runtime._stop_ragnarok_shock_audio(registry)
+	runtime.audio_router.stop_ragnarok_shock_audio(runtime, registry)
 
 
 func clear_rally_state(runtime: Object) -> void:

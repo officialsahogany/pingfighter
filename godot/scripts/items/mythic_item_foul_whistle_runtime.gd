@@ -32,7 +32,7 @@ func try_trigger(runtime: Object, loss_type: String = "round", audio_source: Var
 	if chance <= 0.0 or randf() >= chance:
 		return false
 	runtime.foul_whistle_state.start(loss_type)
-	runtime._play_foul_whistle_audio(audio_source)
+	runtime.audio_router.play_foul_whistle_audio(runtime, audio_source)
 	return true
 
 

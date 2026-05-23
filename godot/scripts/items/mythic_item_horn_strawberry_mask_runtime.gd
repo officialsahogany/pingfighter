@@ -382,8 +382,11 @@ func _trigger_feedback(runtime: Object, registry: Object) -> void:
 
 
 func _play_horn_strawberry_audio(runtime: Object, registry: Object, method_name: String) -> void:
-	if runtime != null and runtime.has_method(method_name):
-		runtime.call(method_name, registry)
+	if runtime == null:
+		return
+	var audio_router: Object = runtime.get("audio_router")
+	if audio_router != null and audio_router.has_method("play_named"):
+		audio_router.play_named(runtime, registry, method_name)
 
 
 func _sync_paddle_scale(runtime: Object, owner: Object, registry: Object) -> void:

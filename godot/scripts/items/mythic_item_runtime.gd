@@ -3031,70 +3031,6 @@ func _update_ragnarok_sparks(delta: float) -> void:
 	ragnarok_runtime.update_sparks(self, delta)
 
 
-func _apply_ragnarok_feedback(deps: Dictionary, amount: float, intensity: float) -> void:
-	audio_router.apply_ragnarok_feedback(self, deps, amount, intensity)
-
-
-func _apply_poseidon_feedback(deps: Dictionary, amount: float, intensity: float) -> void:
-	audio_router.apply_poseidon_feedback(self, deps, amount, intensity)
-
-
-func _play_ragnarok_shot_audio(registry: Object) -> void:
-	audio_router.play_ragnarok_shot_audio(self, registry)
-
-
-func _play_ragnarok_boom_audio(registry: Object) -> void:
-	audio_router.play_ragnarok_boom_audio(self, registry)
-
-
-func _play_ragnarok_shock_audio(registry: Object) -> void:
-	audio_router.play_ragnarok_shock_audio(self, registry)
-
-
-func _stop_ragnarok_shock_audio(registry: Object) -> void:
-	audio_router.stop_ragnarok_shock_audio(self, registry)
-
-
-func _get_ragnarok_audio(registry: Object) -> Object:
-	return audio_router.get_ragnarok_audio(self, registry)
-
-
-func _play_poseidon_wave_audio(registry: Object) -> void:
-	audio_router.play_poseidon_wave_audio(self, registry)
-
-
-func _play_poseidon_charge_audio(registry: Object) -> void:
-	audio_router.play_poseidon_charge_audio(self, registry)
-
-
-func _play_knee_pads_audio(registry: Object) -> void:
-	audio_router.play_knee_pads_audio(self, registry)
-
-
-func _play_soul_burst_audio(registry: Object) -> void:
-	audio_router.play_soul_burst_audio(self, registry)
-
-
-func _play_celestial_armor_audio(registry: Object) -> void:
-	audio_router.play_celestial_armor_audio(self, registry)
-
-
-func _play_baal_boots_absorb_audio(registry: Object) -> void:
-	audio_router.play_baal_boots_absorb_audio(self, registry)
-
-
-func _play_baal_boots_pulse_audio(registry: Object) -> void:
-	audio_router.play_baal_boots_pulse_audio(self, registry)
-
-
-func _play_foul_whistle_audio(source: Variant) -> void:
-	audio_router.play_foul_whistle_audio(self, source)
-
-
-func _get_poseidon_audio(registry: Object) -> Object:
-	return audio_router.get_poseidon_audio(self, registry)
-
-
 func _ragnarok_ball_elapsed() -> float:
 	return float(Time.get_ticks_msec() - ragnarok_ball_started_msec) / 1000.0
 
@@ -3226,10 +3162,6 @@ func _is_equipment_slot_enabled(slot_key: String, owner: Object) -> bool:
 	return equipment_index.is_equipment_slot_enabled(self, slot_key, owner)
 
 
-func _play_pickup_audio(registry: Object) -> void:
-	audio_router.play_pickup_audio(self, registry)
-
-
 func _try_grant_reinforced_boomerang_pickup_bonus(item_name: String, owner: Object, registry: Object) -> bool:
 	return pickup_bonus.try_grant_reinforced_boomerang_pickup_bonus(
 		self,
@@ -3247,77 +3179,6 @@ func _build_reinforced_boomerang_bonus_item(registry: Object) -> Dictionary:
 
 func _get_active_item_slot_controller(registry: Object) -> Object:
 	return pickup_bonus.get_active_item_slot_controller(self, registry)
-
-
-func _play_equipment_audio(registry: Object) -> void:
-	audio_router.play_equipment_audio(self, registry)
-
-
-func _play_activation_audio(registry: Object) -> void:
-	audio_router.play_activation_audio(self, registry)
-
-
-func _play_venom_mist_poison_audio(registry: Object) -> void:
-	audio_router.play_venom_mist_poison_audio(self, registry)
-
-
-func _play_venom_mist_spawn_audio(registry: Object) -> void:
-	audio_router.play_venom_mist_spawn_audio(self, registry)
-
-
-func _play_rainbow_fur_glove_audio(registry: Object) -> void:
-	audio_router.play_rainbow_fur_glove_audio(self, registry)
-
-
-func _play_adversity_armor_activate_audio(registry: Object) -> void:
-	audio_router.play_adversity_armor_activate_audio(self, registry)
-
-
-func _play_adversity_armor_reflect_audio(registry: Object, impact_speed: float) -> void:
-	audio_router.play_adversity_armor_reflect_audio(self, registry, impact_speed)
-
-func _play_shrapnel_armor_fire_audio(registry: Object) -> void:
-	audio_router.play_shrapnel_armor_fire_audio(self, registry)
-
-
-func _play_shrapnel_armor_hit_audio(registry: Object) -> void:
-	audio_router.play_shrapnel_armor_hit_audio(self, registry)
-
-
-func _play_horn_strawberry_change_audio(registry: Object) -> void:
-	audio_router.play_horn_strawberry_change_audio(self, registry)
-
-
-func _play_horn_strawberry_eat_audio(registry: Object) -> void:
-	audio_router.play_horn_strawberry_eat_audio(self, registry)
-
-
-func _play_horn_strawberry_stem_fire_audio(registry: Object) -> void:
-	audio_router.play_horn_strawberry_stem_fire_audio(self, registry)
-
-
-func _play_horn_strawberry_stem_hit_audio(registry: Object) -> void:
-	audio_router.play_horn_strawberry_stem_hit_audio(self, registry)
-
-
-func _play_horn_strawberry_field_audio(registry: Object) -> void:
-	audio_router.play_horn_strawberry_field_audio(self, registry)
-
-
-func _play_horn_strawberry_horn_charge_audio(registry: Object) -> void:
-	audio_router.play_horn_strawberry_horn_charge_audio(self, registry)
-
-
-func _play_horn_strawberry_horn_impact_audio(registry: Object) -> void:
-	audio_router.play_horn_strawberry_horn_impact_audio(self, registry)
-
-
-func _play_horn_strawberry_bomb_throw_audio(registry: Object) -> void:
-	audio_router.play_horn_strawberry_bomb_throw_audio(self, registry)
-
-
-func _play_horn_strawberry_bomb_explosion_audio(registry: Object) -> void:
-	audio_router.play_horn_strawberry_bomb_explosion_audio(self, registry)
 
 
 func _is_stage2_speed_defense_context_immune(context: Dictionary, deps: Dictionary = {}) -> bool:

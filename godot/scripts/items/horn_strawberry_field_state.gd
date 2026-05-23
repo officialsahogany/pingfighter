@@ -228,5 +228,8 @@ func _get_owner_float(owner: Object, key: String, fallback: float) -> float:
 
 
 func _play_audio(runtime: Object, registry: Object, method_name: String) -> void:
-	if runtime != null and runtime.has_method(method_name):
-		runtime.call(method_name, registry)
+	if runtime == null:
+		return
+	var audio_router: Object = runtime.get("audio_router")
+	if audio_router != null and audio_router.has_method("play_named"):
+		audio_router.play_named(runtime, registry, method_name)

@@ -36,7 +36,7 @@ func try_apply_player_hit(
 	runtime._trigger_orb_gauge_spin(deps)
 	start_effect(runtime, ball_pos, deps)
 	var registry: Object = runtime._get_dict(deps).get("registry", null)
-	runtime._play_knee_pads_audio(registry)
+	runtime.audio_router.play_knee_pads_audio(runtime, registry)
 	return {
 		"special_gauge": next_gauge,
 		"activated": true,

@@ -32,7 +32,8 @@ func apply_wave_to_ball(
 		return {}
 
 	start_capture(runtime, ball_pos, ball_vel, vortex_hit, constants)
-	runtime._apply_poseidon_feedback(
+	runtime.audio_router.apply_poseidon_feedback(
+		runtime,
 		deps,
 		float(constants.get("feedback_shake_amount", 0.16)) * 0.55,
 		float(constants.get("feedback_shake_intensity", 4.8)) * 0.70
@@ -136,7 +137,7 @@ func update_runtime(
 		and runtime.is_equipped(ITEM_POSEIDON_TRIDENT)
 	):
 		start_water_explosion(runtime, constants)
-		runtime._play_poseidon_charge_audio(registry)
+		runtime.audio_router.play_poseidon_charge_audio(runtime, registry)
 	if runtime.poseidon_vortex_reentry_cooldown_frames > 0.0:
 		runtime.poseidon_vortex_reentry_cooldown_frames = max(
 			0.0,
@@ -192,8 +193,9 @@ func try_trigger_vortex(
 		owner.set("special_gauge", max(0.0, current_gauge - gauge_cost))
 	runtime.poseidon_effect_cooldown_frames = get_cooldown(runtime) * 60.0
 	start_vortex(runtime, owner, direction, constants)
-	runtime._play_poseidon_wave_audio(registry)
-	runtime._apply_poseidon_feedback(
+	runtime.audio_router.play_poseidon_wave_audio(runtime, registry)
+	runtime.audio_router.apply_poseidon_feedback(
+		runtime,
 		{"registry": registry},
 		float(constants.get("feedback_shake_amount", 0.16)) * 0.65,
 		float(constants.get("feedback_shake_intensity", 4.8)) * 0.75
@@ -488,7 +490,8 @@ func update_captured_ball(
 		runtime.poseidon_capture_active = false
 		runtime.poseidon_vortex_affected = true
 		runtime.poseidon_vortex_reentry_cooldown_frames = float(constants.get("reentry_cooldown_frames", 60.0))
-		runtime._apply_poseidon_feedback(
+		runtime.audio_router.apply_poseidon_feedback(
+			runtime,
 			deps,
 			float(constants.get("feedback_shake_amount", 0.16)),
 			float(constants.get("feedback_shake_intensity", 4.8))

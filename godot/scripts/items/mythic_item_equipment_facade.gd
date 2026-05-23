@@ -56,7 +56,7 @@ func acquire_item(
 		runtime._sync_owner(owner, registry)
 	runtime._try_grant_reinforced_boomerang_pickup_bonus(item_name, owner, registry)
 	if play_pickup_sound:
-		runtime._play_pickup_audio(registry)
+		runtime.audio_router.play_pickup_audio(runtime, registry)
 	return index
 
 
@@ -77,7 +77,7 @@ func equip_item(
 		runtime._apply_roll_overrides(index, roll_overrides)
 	var equipped: bool = runtime.equip_inventory_item(index, owner, registry)
 	if play_pickup_sound and not equipped:
-		runtime._play_pickup_audio(registry)
+		runtime.audio_router.play_pickup_audio(runtime, registry)
 	return equipped
 
 
@@ -117,7 +117,7 @@ func equip_inventory_item(runtime: Object, index: int, owner: Object, registry: 
 	runtime._rebuild_equipped_items()
 	_clear_on_equip(runtime, item_name, owner, registry)
 	runtime._sync_owner(owner, registry)
-	runtime._play_equipment_audio(registry)
+	runtime.audio_router.play_equipment_audio(runtime, registry)
 	return true
 
 
@@ -135,7 +135,7 @@ func unequip_inventory_item(runtime: Object, index: int, owner: Object, registry
 	runtime._rebuild_equipped_items()
 	_clear_on_unequip(runtime, str(item_data.get("name", "")), registry)
 	runtime._sync_owner(owner, registry)
-	runtime._play_equipment_audio(registry)
+	runtime.audio_router.play_equipment_audio(runtime, registry)
 	return true
 
 

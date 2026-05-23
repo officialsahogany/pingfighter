@@ -340,6 +340,16 @@ func play_horn_strawberry_bomb_explosion_audio(runtime: Object, registry: Object
 	)
 
 
+func play_named(runtime: Object, registry: Object, method_name: String) -> bool:
+	var audio_method := method_name
+	if audio_method.begins_with("_"):
+		audio_method = audio_method.substr(1)
+	if not has_method(audio_method):
+		return false
+	call(audio_method, runtime, registry)
+	return true
+
+
 func _play_first_available(audio: Object, method_names: Array) -> bool:
 	if audio == null:
 		return false

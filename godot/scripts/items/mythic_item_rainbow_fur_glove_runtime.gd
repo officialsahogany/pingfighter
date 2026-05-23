@@ -39,8 +39,8 @@ func try_proc_player_hit(
 	var changed_count: int = apply_skill_cooldown_reduction(runtime, reduction_fraction, current_msec, deps)
 	runtime.rainbow_fur_glove_last_reduction_pct = reduction_pct
 	start_aura(runtime, resolve_center(runtime, ball_pos, context, deps_dict))
-	runtime._play_rainbow_fur_glove_audio(deps_dict.get("registry", null))
-	runtime._apply_ragnarok_feedback(deps, 0.035, 1.6)
+	runtime.audio_router.play_rainbow_fur_glove_audio(runtime, deps_dict.get("registry", null))
+	runtime.audio_router.apply_ragnarok_feedback(runtime, deps, 0.035, 1.6)
 	runtime._sync_owner(deps_dict.get("owner", null), deps_dict.get("registry", null))
 	return {
 		"activated": true,

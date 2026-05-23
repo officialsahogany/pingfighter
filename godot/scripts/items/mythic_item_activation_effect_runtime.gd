@@ -19,7 +19,7 @@ func start(runtime: Object, owner: Object, registry: Object) -> void:
 	runtime.activation_started_msec = Time.get_ticks_msec()
 	build_particles(runtime)
 	build_bolts(runtime)
-	runtime._play_activation_audio(registry)
+	runtime.audio_router.play_activation_audio(runtime, registry)
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
 

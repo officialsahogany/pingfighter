@@ -31,7 +31,7 @@ func apply_player_hit(
 				float(constants.get("ball_mark_frames", 240.0))
 			)
 			spawn_aura_particles(runtime, ball_pos, round_weather_type, 8, constants)
-			runtime._play_baal_boots_pulse_audio(runtime._get_dict(deps).get("registry", null))
+			runtime.audio_router.play_baal_boots_pulse_audio(runtime, runtime._get_dict(deps).get("registry", null))
 			return {
 				"activated": true,
 				"ball_vel": ball_vel,
@@ -39,7 +39,7 @@ func apply_player_hit(
 			}
 		"rain", "hail":
 			spawn_projectiles(runtime, ball_pos, round_weather_type, context, constants)
-			runtime._play_baal_boots_pulse_audio(runtime._get_dict(deps).get("registry", null))
+			runtime.audio_router.play_baal_boots_pulse_audio(runtime, runtime._get_dict(deps).get("registry", null))
 			return {
 				"activated": true,
 				"ball_vel": ball_vel,
@@ -78,8 +78,8 @@ func apply_boss_hit(
 			runtime.baal_boots_combat_state.apply_slow(float(constants.get("rain_slow_frames", 180.0)))
 			result["boss_slow"] = true
 	spawn_aura_particles(runtime, boss_center, mark_type, 14, constants)
-	runtime._apply_ragnarok_feedback(deps, 0.09, 3.4)
-	runtime._play_baal_boots_pulse_audio(runtime._get_dict(deps).get("registry", null))
+	runtime.audio_router.apply_ragnarok_feedback(runtime, deps, 0.09, 3.4)
+	runtime.audio_router.play_baal_boots_pulse_audio(runtime, runtime._get_dict(deps).get("registry", null))
 	return result
 
 
@@ -200,8 +200,8 @@ func begin_absorb(
 		weather.clear_visual_particles()
 	if active_weather_type == "sand" and weather.has_method("dissolve_sand_terrain"):
 		weather.dissolve_sand_terrain()
-	runtime._apply_ragnarok_feedback({"registry": registry}, 0.14, 5.0)
-	runtime._play_baal_boots_absorb_audio(registry)
+	runtime.audio_router.apply_ragnarok_feedback(runtime, {"registry": registry}, 0.14, 5.0)
+	runtime.audio_router.play_baal_boots_absorb_audio(runtime, registry)
 
 
 func finish_absorb(runtime: Object, owner: Object, registry: Object, constants: Dictionary) -> void:
@@ -324,7 +324,7 @@ func apply_projectile_hit(
 				float(constants.get("knockback_frames", 34.0))
 			)
 	spawn_aura_particles(runtime, pos, weather_type, 12, constants)
-	runtime._apply_ragnarok_feedback({"registry": registry}, 0.06, 2.7)
+	runtime.audio_router.apply_ragnarok_feedback(runtime, {"registry": registry}, 0.06, 2.7)
 
 
 func get_boss_rect(runtime: Object, owner: Object) -> Rect2:

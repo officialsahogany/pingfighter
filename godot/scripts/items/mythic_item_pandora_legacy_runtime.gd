@@ -116,7 +116,7 @@ func confirm_selection(runtime: Object, index: int, owner: Object, registry: Obj
 	var granted: bool = grant_selected_item(runtime, selected_item, owner, registry)
 	clear_selection(runtime, false)
 	if granted:
-		runtime._play_pickup_audio(registry)
+		runtime.audio_router.play_pickup_audio(runtime, registry)
 	runtime._sync_owner(owner, registry)
 	_queue_owner_redraw(owner)
 	return granted

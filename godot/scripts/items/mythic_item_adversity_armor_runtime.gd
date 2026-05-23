@@ -62,8 +62,8 @@ func on_round_start(runtime: Object, owner: Object, registry: Object) -> void:
 		get_barrier_y()
 	)
 	spawn_barrier_particles(runtime, runtime.adversity_armor_last_reflect_center, 22, false)
-	runtime._play_adversity_armor_activate_audio(registry)
-	runtime._apply_ragnarok_feedback({"registry": registry}, 0.05, 1.7)
+	runtime.audio_router.play_adversity_armor_activate_audio(runtime, registry)
+	runtime.audio_router.apply_ragnarok_feedback(runtime, {"registry": registry}, 0.05, 1.7)
 	runtime._sync_owner(owner, registry)
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
@@ -94,8 +94,8 @@ func notify_barrier_hit(
 	)
 	spawn_barrier_particles(runtime, impact_pos, 18, true)
 	var deps_dict: Dictionary = runtime._get_dict(deps)
-	runtime._play_adversity_armor_reflect_audio(deps_dict.get("registry", null), abs(ball_vel.y))
-	runtime._apply_ragnarok_feedback(deps, 0.06, 2.4)
+	runtime.audio_router.play_adversity_armor_reflect_audio(runtime, deps_dict.get("registry", null), abs(ball_vel.y))
+	runtime.audio_router.apply_ragnarok_feedback(runtime, deps, 0.06, 2.4)
 	runtime._sync_owner(deps_dict.get("owner", null), deps_dict.get("registry", null))
 
 
