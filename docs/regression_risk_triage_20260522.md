@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `edc57ee10 godot: route mythic gauge feedback through helper`.
-- The checkpoint span through that HEAD contains 110 follow-up commits after
+  `d1d759f96 godot: remove mythic clear runtime bridges`.
+- The checkpoint span through that HEAD contains 112 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 111 commits.
+  contains 113 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `f823f2f54 docs: record mythic audio router split`.
+  `e07e95e4f docs: record mythic gauge feedback split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the seventy-third split. The broad
+- The split notes below are current through the seventy-fourth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -3744,6 +3744,44 @@ Seventy-third split on 2026-05-23:
   `mythic_item_ai_assist_runtime_smoke`,
   `mythic_item_throw_bonus_runtime_smoke`, and
   `mythic_item_ownership_runtime_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Seventy-fourth split on 2026-05-23:
+
+- Commit: `d1d759f96 godot: remove mythic clear runtime bridges`.
+- Scope: Mythic lifecycle, equipment, debug-roll adjustment, and focused smoke
+  tests now call clear/reset owners directly for Ragnarok, Poseidon, Kick
+  Charger, Soul Burst, Foul Whistle, Revival Charm, Danger Sensor Belt,
+  Smartphone, Venom Mist Gauntlet, Rainbow Fur Glove, Adversity Armor,
+  Shrapnel Armor, Celestial Armor, Hermes Shoes, and Horn Strawberry Mask.
+  The Baal's Boots clear bridge remains on `mythic_item_runtime.gd` because
+  it still supplies `BAAL_BOOTS_CONSTANTS` to the Baal helper.
+- Rationale: reset / round-clear ownership already lives in focused helpers.
+  Keeping private `_clear_*` bridges on the runtime facade obscured the real
+  lifecycle owner and made smoke tests depend on methods that were never part
+  of the scene-facing API.
+- `mythic_item_runtime.gd` line count moved from `3226` to `3124` in this
+  code split.
+- Validation passed:
+  `passive_item_debug_menu_click_add_smoke`,
+  `ragnarok_hammer_port_smoke`, `poseidon_trident_port_smoke`,
+  `knee_pads_port_smoke`, `soul_burst_port_smoke`,
+  `foul_whistle_port_smoke`, `revival_port_smoke`,
+  `danger_sensor_belt_port_smoke`, `smartphone_port_smoke`,
+  `venom_mist_gauntlet_port_smoke`, `rainbow_fur_glove_port_smoke`,
+  `adversity_armor_port_smoke`, `shrapnel_armor_port_smoke`,
+  `celestial_armor_port_smoke`, `hermes_shoes_port_smoke`,
+  `baal_boots_weather_port_smoke`, `horn_strawberry_mask_port_smoke`,
+  `horn_strawberry_round_boundary_smoke`,
+  `mythic_item_ai_assist_runtime_smoke`,
+  `mythic_item_foul_whistle_runtime_smoke`,
+  `mythic_item_sensor_auto_defense_runtime_smoke`,
+  `mythic_item_runtime_idle_update_smoke`,
+  `mythic_item_ownership_runtime_smoke`, and
+  `mythic_item_field_render_budget_smoke`, plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending

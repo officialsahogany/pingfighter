@@ -180,7 +180,10 @@ This section is intentionally long; use search to find the nearest owner.
   update fanout, and post-update sync handoff delegated to
   `scripts/items/mythic_item_update_runtime.gd`,
   full-runtime reset and round-reset sequencing delegated to
-  `scripts/items/mythic_item_lifecycle_runtime.gd`,
+  `scripts/items/mythic_item_lifecycle_runtime.gd`, with that lifecycle
+  helper and equipment / debug helpers calling item clear owners directly
+  instead of private `_clear_*` runtime bridge methods except for the
+  remaining Baal's Boots constant-supplying bridge,
   Revival Charm equipped / available / used checks, match-loss trigger,
   consumed-state spawn exclusion, activation effect draw/update, and clear
   lifecycle delegated to `scripts/items/mythic_item_revival_runtime.gd`,
