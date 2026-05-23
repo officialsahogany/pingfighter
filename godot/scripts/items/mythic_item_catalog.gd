@@ -1,10 +1,11 @@
 extends RefCounted
 
-const PassiveItemQuality := preload("res://scripts/items/passive_item_quality.gd")
 const MythicItemCatalogLists := preload("res://scripts/items/mythic_item_catalog_lists.gd")
+const MythicItemCatalogPresentation := preload("res://scripts/items/mythic_item_catalog_presentation.gd")
 const MythicItemCatalogRolls := preload("res://scripts/items/mythic_item_catalog_rolls.gd")
 
 var list_helper: Object = MythicItemCatalogLists.new()
+var presentation_helper: Object = MythicItemCatalogPresentation.new()
 var roll_helper: Object = MythicItemCatalogRolls.new()
 
 const MYTHIC_ICON_FRAME_COUNT := 32
@@ -1204,16 +1205,15 @@ func build_item_by_name(item_name: String) -> Dictionary:
 
 
 func get_display_name(item_name: String) -> String:
-	var item_data: Dictionary = build_item_by_name(item_name)
-	return str(item_data.get("display_name", item_name))
+	return presentation_helper.get_display_name(self, item_name)
 
 
 func format_item_display_name(item_data: Dictionary) -> String:
-	return PassiveItemQuality.format_item_display_name(item_data)
+	return presentation_helper.format_item_display_name(item_data)
 
 
 func get_item_quality_color(item_data: Dictionary, fallback: Color = Color.WHITE) -> Color:
-	return PassiveItemQuality.get_item_quality_color(item_data, fallback)
+	return presentation_helper.get_item_quality_color(item_data, fallback)
 
 
 func get_debug_items() -> Array:
