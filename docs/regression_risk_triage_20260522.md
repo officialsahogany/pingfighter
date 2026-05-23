@@ -10,10 +10,10 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `97452a115 godot: add fire support aircraft texture`.
-- Code split range through that HEAD contains 91 follow-up commits after the
+  `0956f6bb8 godot: add spider mine animation sheets`.
+- Code split range through that HEAD contains 93 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 92 commits.
+  span through the latest code split contains 94 commits.
 - Latest docs-only guardrail sync after that code split:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest local-artifact ignore sync after that code split:
@@ -32,7 +32,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the seventieth split. The
+- The split notes below are current through the seventy-first split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3538,6 +3538,28 @@ Seventieth split on 2026-05-23:
   `commando_firearm_vfx_texture_remaster_smoke`,
   `commando_firearm_renderer_prewarm_gate_smoke`,
   `commando_firearm_stage1_visual_qa_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1279` scripts scanned, no GDScript
+  warnings).
+
+Seventy-first split on 2026-05-23:
+
+- Commit: `0956f6bb8 godot: add spider mine animation sheets`.
+- Scope: Spider Mine active-item rendering now uses the accepted crawl,
+  deploy, and installed-idle 4x4 PNG sheets before falling back to the old
+  icon / procedural legs path. The renderer prewarms all three sheets, exposes
+  sheet asset status for smoke coverage, maps `spawn` / `embedding` to deploy,
+  `floor` / `wall` to crawl, and `armed` to installed idle, and advances the
+  spawn/deploy frames from the item delay timer.
+- Rationale: Spider Mine already had direct deploy / crawl / embed / armed
+  runtime and loop-audio lifecycle coverage. The new sheets promote its
+  visible runtime from a static icon plus procedural legs to accepted animated
+  item VFX while keeping a load-failure fallback.
+- Validation passed:
+  `active_item_throw_spider_mine_smoke`,
+  `active_item_throw_activation_smoke`,
+  `active_item_throw_query_smoke`,
+  `active_item_runtime_prewarm_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1279` scripts scanned, no GDScript
   warnings).
