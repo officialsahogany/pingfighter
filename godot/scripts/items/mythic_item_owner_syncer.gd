@@ -320,9 +320,9 @@ func sync_transient_owner_state(runtime: Object, owner: Object) -> void:
 	state_changed = _put_state_if_changed(state, "adversity_armor_pending_invincible", runtime.adversity_armor_pending_invincible) or state_changed
 	state_changed = _put_state_if_changed(state, "adversity_armor_serve_speed_boost_pending", runtime.adversity_armor_serve_speed_boost_pending) or state_changed
 	state_changed = _put_state_if_changed(state, "adversity_armor_invincible", runtime.is_adversity_armor_invincible()) or state_changed
-	state_changed = _put_state_if_changed(state, "adversity_armor_timer_ratio", runtime._get_adversity_armor_timer_ratio()) or state_changed
+	state_changed = _put_state_if_changed(state, "adversity_armor_timer_ratio", runtime.adversity_armor_runtime.get_timer_ratio(runtime)) or state_changed
 	state_changed = _put_state_if_changed(state, "adversity_armor_context", adversity_context) or state_changed
-	state_changed = _put_state_if_changed(state, "shrapnel_armor_effect_active", runtime._is_shrapnel_armor_effect_active()) or state_changed
+	state_changed = _put_state_if_changed(state, "shrapnel_armor_effect_active", runtime.shrapnel_armor_runtime.is_effect_active(runtime)) or state_changed
 	state_changed = _put_state_if_changed(state, "shrapnel_armor_active_shards", runtime.shrapnel_armor_shards.size()) or state_changed
 	state_changed = _put_state_if_changed(state, "shrapnel_armor_boss_stun_active", runtime.shrapnel_armor_boss_stun_timer_frames > 0.0) or state_changed
 	state_changed = _put_state_if_changed(state, "shrapnel_armor_boss_knockback_active", runtime.shrapnel_armor_boss_knockback_timer_frames > 0.0 and abs(runtime.shrapnel_armor_boss_knockback_vel) > 0.0) or state_changed

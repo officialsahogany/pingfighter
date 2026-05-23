@@ -69,7 +69,7 @@ func has_non_ragnarok_transient_runtime_update_work(runtime: Object) -> bool:
 		return true
 	if runtime.rainbow_fur_glove_aura_timer_frames > 0.0 or not runtime.rainbow_fur_glove_particles.is_empty():
 		return true
-	if runtime._is_adversity_armor_effect_active():
+	if runtime.adversity_armor_runtime.is_effect_active(runtime):
 		return true
 	if (
 		not runtime.shrapnel_armor_shards.is_empty()

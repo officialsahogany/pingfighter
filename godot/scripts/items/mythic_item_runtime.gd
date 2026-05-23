@@ -2443,32 +2443,12 @@ func _read_owner_boss_center(owner: Object) -> Vector2:
 	return venom_mist_runtime.read_owner_boss_center(self, owner)
 
 
-func _get_venom_mist_alpha() -> float:
-	return venom_mist_runtime.get_alpha(self)
-
-
-func _get_adversity_armor_barrier_y() -> float:
-	return adversity_armor_runtime.get_barrier_y()
-
-
-func _get_adversity_armor_timer_ratio() -> float:
-	return adversity_armor_runtime.get_timer_ratio(self)
-
-
 func _update_adversity_armor_runtime(owner: Object, _registry: Object, fps_scale: float) -> void:
 	adversity_armor_runtime.update_runtime(self, owner, fps_scale)
 
 
-func _is_adversity_armor_effect_active() -> bool:
-	return adversity_armor_runtime.is_effect_active(self)
-
-
 func _update_shrapnel_armor_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
 	shrapnel_armor_runtime.update_runtime(self, owner, registry, fps_scale, SHRAPNEL_ARMOR_CONSTANTS)
-
-
-func _is_shrapnel_armor_effect_active() -> bool:
-	return shrapnel_armor_runtime.is_effect_active(self)
 
 
 func _update_ragnarok_runtime(owner: Object, registry: Object, delta: float, fps_scale: float) -> void:
@@ -2516,14 +2496,6 @@ func get_item_roll_value(
 ) -> float:
 	_ensure_helpers_ready()
 	return roll_query.get_public_item_roll_value(self, item_data, option_key, apply_polish, registry)
-
-
-func _ragnarok_ball_elapsed() -> float:
-	return float(Time.get_ticks_msec() - ragnarok_ball_started_msec) / 1000.0
-
-
-func _ragnarok_impact_elapsed() -> float:
-	return float(Time.get_ticks_msec() - ragnarok_impact_started_msec) / 1000.0
 
 
 func _sync_owner(owner: Object, registry: Object = null) -> void:

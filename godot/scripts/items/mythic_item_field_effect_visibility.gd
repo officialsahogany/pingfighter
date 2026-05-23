@@ -2,7 +2,7 @@ extends RefCounted
 
 
 func has_visible_field_effects(runtime: Object, ragnarok_impact_duration: float) -> bool:
-	if runtime._ragnarok_impact_elapsed() < ragnarok_impact_duration:
+	if runtime.ragnarok_runtime.get_impact_elapsed(runtime) < ragnarok_impact_duration:
 		return true
 	if runtime.ragnarok_boss_stun_timer_frames > 0.0 or not runtime.ragnarok_sparks.is_empty():
 		return true
@@ -33,7 +33,7 @@ func has_visible_field_effects(runtime: Object, ragnarok_impact_duration: float)
 		return true
 	if runtime.rainbow_fur_glove_aura_timer_frames > 0.0 or not runtime.rainbow_fur_glove_particles.is_empty():
 		return true
-	if runtime._is_adversity_armor_effect_active() or runtime._is_shrapnel_armor_effect_active():
+	if runtime.adversity_armor_runtime.is_effect_active(runtime) or runtime.shrapnel_armor_runtime.is_effect_active(runtime):
 		return true
 	if runtime.celestial_armor_state.is_wave_active():
 		return true

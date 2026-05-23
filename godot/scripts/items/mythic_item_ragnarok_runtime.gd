@@ -173,6 +173,14 @@ func get_gauge_cost(runtime: Object) -> float:
 	return clamp(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAGNAROK_HAMMER, "gauge_cost"), 0.0, 100.0)
 
 
+func get_ball_elapsed(runtime: Object) -> float:
+	return float(Time.get_ticks_msec() - runtime.ragnarok_ball_started_msec) / 1000.0
+
+
+func get_impact_elapsed(runtime: Object) -> float:
+	return float(Time.get_ticks_msec() - runtime.ragnarok_impact_started_msec) / 1000.0
+
+
 func clear_runtime(runtime: Object, registry: Object) -> void:
 	runtime.ragnarok_stun_ball_active = false
 	runtime.ragnarok_stun_attempted_this_rally = false

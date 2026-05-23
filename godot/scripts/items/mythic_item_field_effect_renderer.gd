@@ -85,7 +85,7 @@ func draw_field_effects(
 ) -> void:
 	if canvas == null or runtime == null:
 		return
-	var impact_elapsed: float = runtime._ragnarok_impact_elapsed()
+	var impact_elapsed: float = runtime.ragnarok_runtime.get_impact_elapsed(runtime)
 	var impact_active: bool = impact_elapsed < ragnarok_impact_effect_duration
 	var stun_active: bool = runtime.ragnarok_boss_stun_timer_frames > 0.0
 	var poseidon_visible: bool = runtime.poseidon_capture_active or runtime.poseidon_vortex_active or not runtime.poseidon_particles.is_empty() or not runtime.poseidon_water_trail.is_empty() or runtime.poseidon_explosion_active
@@ -96,8 +96,8 @@ func draw_field_effects(
 	var sensor_visible: bool = runtime.sensor_auto_dash_effect_timer_frames > 0.0
 	var venom_mist_visible: bool = runtime.venom_mist_field_active or not runtime.venom_mist_particles.is_empty()
 	var rainbow_glove_visible: bool = runtime.rainbow_fur_glove_aura_timer_frames > 0.0 or not runtime.rainbow_fur_glove_particles.is_empty()
-	var adversity_armor_visible: bool = runtime._is_adversity_armor_effect_active()
-	var shrapnel_armor_visible: bool = runtime._is_shrapnel_armor_effect_active()
+	var adversity_armor_visible: bool = runtime.adversity_armor_runtime.is_effect_active(runtime)
+	var shrapnel_armor_visible: bool = runtime.shrapnel_armor_runtime.is_effect_active(runtime)
 	var celestial_armor_visible: bool = runtime.celestial_armor_state.is_wave_active()
 	var hermes_visible: bool = runtime.hermes_shoes_state.is_visible(runtime.is_hermes_shoes_active())
 	var baal_visible: bool = runtime.baal_boots_effect_state.is_visible(
@@ -159,7 +159,7 @@ func draw_field_effects(
 			runtime.venom_mist_particles,
 			runtime.venom_mist_boss_in_field,
 			float(constants.get("venom_mist_radius", 120.0)),
-			runtime._get_venom_mist_alpha()
+			runtime.venom_mist_runtime.get_alpha(runtime)
 		)
 		_perf_end(detail_perf_logger, "mythic.venom_mist", venom_sample_start)
 	if rainbow_glove_visible:

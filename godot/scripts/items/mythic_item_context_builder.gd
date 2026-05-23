@@ -115,8 +115,8 @@ func get_adversity_armor_context(runtime: Object) -> Dictionary:
 		"invincible": runtime.is_adversity_armor_invincible(),
 		"timer_frames": runtime.adversity_armor_invincible_timer_frames,
 		"total_timer_frames": runtime.adversity_armor_invincible_total_frames,
-		"timer_ratio": runtime._get_adversity_armor_timer_ratio(),
-		"barrier_y": runtime._get_adversity_armor_barrier_y(),
+		"timer_ratio": runtime.adversity_armor_runtime.get_timer_ratio(runtime),
+		"barrier_y": runtime.adversity_armor_runtime.get_barrier_y(),
 		"flash_timer_frames": runtime.adversity_armor_flash_timer_frames,
 		"flash_frames": 30.0,
 		"phase": runtime.adversity_armor_phase,
@@ -134,7 +134,7 @@ func get_shrapnel_armor_context(runtime: Object) -> Dictionary:
 		"shard_count": runtime.get_shrapnel_armor_shard_count(),
 		"knockback_level": runtime.get_shrapnel_armor_knockback_level(),
 		"gauge_cost": runtime.get_shrapnel_armor_gauge_cost(),
-		"effect_active": runtime._is_shrapnel_armor_effect_active(),
+		"effect_active": runtime.shrapnel_armor_runtime.is_effect_active(runtime),
 		"boss_stun_active": runtime.shrapnel_armor_boss_stun_timer_frames > 0.0,
 		"boss_knockback_active": runtime.shrapnel_armor_boss_knockback_timer_frames > 0.0 and abs(runtime.shrapnel_armor_boss_knockback_vel) > 0.0,
 		"boss_knockback_vel": runtime.shrapnel_armor_boss_knockback_vel,
@@ -240,7 +240,7 @@ func get_ball_draw_context(runtime: Object) -> Dictionary:
 	var context := {}
 	if runtime.ragnarok_stun_ball_active:
 		context["ragnarok_hammer_ball_active"] = true
-		context["ragnarok_hammer_ball_elapsed"] = runtime._ragnarok_ball_elapsed()
+		context["ragnarok_hammer_ball_elapsed"] = runtime.ragnarok_runtime.get_ball_elapsed(runtime)
 	if _is_poseidon_ball_draw_active(runtime):
 		context["poseidon_trident_ball_active"] = true
 	if runtime.venom_mist_ball_poisoned:
