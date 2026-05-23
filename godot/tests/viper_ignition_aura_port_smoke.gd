@@ -135,6 +135,7 @@ func _init() -> void:
 	_test_grounded_hold_blockers_and_reset()
 	_test_tooltip_and_timer_stack_contract()
 	_test_runtime_asset_prewarm_contract()
+	_test_visibility_query_bridge_cleanup()
 	print("viper_ignition_aura_port_smoke: ok")
 	quit(0)
 
@@ -198,6 +199,24 @@ func _test_audio_asset_parity() -> void:
 	_expect(body.find("firebomb_sfx") < 0, "Ignition Aura should no longer use firebomb.wav")
 	_expect(body.find("randf_range") < 0, "Ignition Aura should play without pitch randomization like the Python reference")
 	host.free()
+
+
+func _test_visibility_query_bridge_cleanup() -> void:
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/characters/viper_skill_runtime.gd")
+	for bridge_name in [
+		"_get_ignition_aura_ratio",
+		"_get_dual_glitch_remaining_frames",
+		"_get_venom_edge_strike_frame",
+		"_get_nerve_strike_freeze_frames",
+	]:
+		_expect(runtime_source.find(bridge_name) < 0, "Viper runtime should not keep private visibility bridge %s" % bridge_name)
+	for owner_path in [
+		"res://scripts/characters/viper_skill_context_builder.gd",
+		"res://scripts/characters/viper_skill_snapshot_builder.gd",
+		"res://scripts/characters/viper_skill_timer_gauge_renderer.gd",
+	]:
+		var owner_source := FileAccess.get_file_as_string(owner_path)
+		_expect(owner_source.find("ViperSkillVisibilityQuery") >= 0, "%s should read visibility values from the owner query helper" % owner_path)
 
 
 func _test_activation_bonus_gold_and_expiry() -> void:

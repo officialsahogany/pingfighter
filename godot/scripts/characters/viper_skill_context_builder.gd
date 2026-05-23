@@ -1,5 +1,9 @@
 extends RefCounted
 
+const ViperSkillVisibilityQuery := preload("res://scripts/characters/viper_skill_visibility_query.gd")
+
+var _visibility_query := ViperSkillVisibilityQuery.new()
+
 
 func build_actor_draw_context(runtime: Object) -> Dictionary:
 	var rotation_degrees: float = 0.0
@@ -26,7 +30,7 @@ func build_actor_draw_context(runtime: Object) -> Dictionary:
 		"viper_core_flip_attack_phase": runtime.core_flip_attack_phase,
 		"viper_core_flip_spin_angle_degrees": runtime.core_flip_spin_angle_degrees,
 		"viper_ignition_aura_active": runtime.ignition_active,
-		"viper_ignition_aura_ratio": runtime._get_ignition_aura_ratio(),
+		"viper_ignition_aura_ratio": _visibility_query.get_ignition_aura_ratio(runtime),
 		# Wall-cling visual must persist through both phase 1 (initial cling)
 		# AND phase 6 (DMK / phantom-kick pre-kick freeze where the player is
 		# held at marshal_wall_pos waiting for the freeze timer to expire).
@@ -44,7 +48,7 @@ func build_actor_draw_context(runtime: Object) -> Dictionary:
 		"viper_chaos_throw_active": chaos_throw_active,
 		"viper_marshal_wall_side": runtime.marshal_wall_side,
 		"viper_venom_edge_strike_active": runtime.venom_edge_strike_active,
-		"viper_venom_edge_strike_frame": runtime._get_venom_edge_strike_frame(),
+		"viper_venom_edge_strike_frame": _visibility_query.get_venom_edge_strike_frame(runtime, runtime.VENOM_EDGE_STRIKE_TOTAL_FRAMES),
 		"viper_venom_edge_stationary_active": runtime.venom_edge_stationary_active,
 		"viper_dual_glitch_state": runtime.dual_glitch_state,
 		"viper_dual_glitch_phase_frames": runtime.dual_glitch_phase_frames,
@@ -90,7 +94,7 @@ func build_ball_collision_context(runtime: Object) -> Dictionary:
 		"viper_dmk_freeze_active": runtime.dmk_freeze_active,
 		"viper_dmk_freeze_frames": runtime.dmk_freeze_frames,
 		"viper_nerve_strike_freeze_active": runtime.nerve_strike_freeze_active,
-		"viper_nerve_strike_freeze_frames": runtime._get_nerve_strike_freeze_frames(),
+		"viper_nerve_strike_freeze_frames": _visibility_query.get_nerve_strike_freeze_frames(runtime, runtime.NERVE_STRIKE_SLASH_HIT_FRAMES),
 		"viper_core_flip_attack_active": runtime.core_flip_attack_active,
 		"viper_knockback_overlay_active": runtime.is_kick_skill_knockback_ball_active(),
 		"viper_dual_glitch_state": runtime.dual_glitch_state,
@@ -114,7 +118,7 @@ func build_boss_ai_context(runtime: Object) -> Dictionary:
 		"viper_dmk_freeze_active": runtime.dmk_freeze_active,
 		"viper_dmk_freeze_frames": runtime.dmk_freeze_frames,
 		"viper_nerve_strike_freeze_active": runtime.nerve_strike_freeze_active,
-		"viper_nerve_strike_freeze_frames": runtime._get_nerve_strike_freeze_frames(),
+		"viper_nerve_strike_freeze_frames": _visibility_query.get_nerve_strike_freeze_frames(runtime, runtime.NERVE_STRIKE_SLASH_HIT_FRAMES),
 		"viper_emp_slip_active": runtime.dive_slip_timer > 0.0,
 		"viper_emp_slip_runtime": runtime,
 		"viper_emp_slip_vel": runtime.dive_slip_vel,

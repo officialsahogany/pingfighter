@@ -1,6 +1,9 @@
 extends RefCounted
 
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+const ViperSkillVisibilityQuery := preload("res://scripts/characters/viper_skill_visibility_query.gd")
+
+var _visibility_query := ViperSkillVisibilityQuery.new()
 
 
 func draw_ignition_aura_runtime_timer_gauge(
@@ -17,7 +20,7 @@ func draw_ignition_aura_runtime_timer_gauge(
 	draw_ignition_aura_timer_gauge(
 		canvas,
 		timer_stack,
-		runtime._get_ignition_aura_ratio(),
+		_visibility_query.get_ignition_aura_ratio(runtime),
 		runtime.ignition_remaining_frames,
 		bar_size,
 		margin,
@@ -79,7 +82,7 @@ func draw_dual_glitch_runtime_timer_gauge(
 	if runtime.dual_glitch_state not in ["startup", "spawn", "active"]:
 		return
 	var total_frames: float = max(1.0, runtime.dual_glitch_active_total_frames)
-	var remaining_frames: float = runtime._get_dual_glitch_remaining_frames()
+	var remaining_frames: float = _visibility_query.get_dual_glitch_remaining_frames(runtime)
 	var ratio: float = clamp(remaining_frames / total_frames, 0.0, 1.0)
 	var remaining_seconds: float = remaining_frames / 60.0
 	draw_dual_glitch_timer_gauge(

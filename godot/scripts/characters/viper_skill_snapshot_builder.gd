@@ -1,5 +1,9 @@
 extends RefCounted
 
+const ViperSkillVisibilityQuery := preload("res://scripts/characters/viper_skill_visibility_query.gd")
+
+var _visibility_query := ViperSkillVisibilityQuery.new()
+
 
 func build(runtime: Object) -> Dictionary:
 	return {
@@ -90,7 +94,7 @@ func build(runtime: Object) -> Dictionary:
 		"dual_glitch_state": runtime.dual_glitch_state,
 		"dual_glitch_phase_frames": runtime.dual_glitch_phase_frames,
 		"dual_glitch_active_total_frames": runtime.dual_glitch_active_total_frames,
-		"dual_glitch_remaining_frames": runtime._get_dual_glitch_remaining_frames(),
+		"dual_glitch_remaining_frames": _visibility_query.get_dual_glitch_remaining_frames(runtime),
 		"dual_glitch_locked_player_x": runtime.dual_glitch_locked_player_x,
 		"dual_glitch_locked_player_x_valid": runtime.dual_glitch_locked_player_x_valid,
 		"dual_glitch_base_pos": runtime.dual_glitch_base_pos,

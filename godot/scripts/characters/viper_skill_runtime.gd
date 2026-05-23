@@ -1563,7 +1563,7 @@ func draw(
 		)
 	_perf_end(perf_logger, "viper.skill.emp_dive", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	var ignition_aura_ratio: float = _get_ignition_aura_ratio()
+	var ignition_aura_ratio: float = visibility_query.get_ignition_aura_ratio(self)
 	particle_drawer.draw_ignition_aura_effects(
 		canvas,
 		shake_offset,
@@ -1708,10 +1708,6 @@ func draw(
 	_perf_end(perf_logger, "viper.skill.chaos_spear", sample_start)
 
 
-func _get_ignition_aura_ratio() -> float:
-	return visibility_query.get_ignition_aura_ratio(self)
-
-
 func _perf_begin(perf_logger: Object) -> int:
 	if perf_logger != null and perf_logger.has_method("begin_sample"):
 		return int(perf_logger.begin_sample())
@@ -1766,10 +1762,6 @@ func _update_marshal_chain_timers(fps_scale: float, context: Dictionary, deps: D
 func trigger_venom_edge_strike() -> void:
 	venom_edge_strike_active = true
 	venom_edge_strike_elapsed_frames = 0.0
-
-
-func _get_venom_edge_strike_frame() -> int:
-	return visibility_query.get_venom_edge_strike_frame(self, VENOM_EDGE_STRIKE_TOTAL_FRAMES)
 
 
 # Stationary state for the post-arrival, pre-strike pause behind the boss.
@@ -2286,10 +2278,6 @@ func _get_four_poisons_prep_reduction_pct(deps: Dictionary) -> int:
 
 func _get_four_poisons_scaled_pct(deps: Dictionary, values: Array, cap: int, per_extra_level: int) -> int:
 	return skill_scaling.get_four_poisons_scaled_pct(_get_runtime_skill_level(deps, "four_poisons"), values, cap, per_extra_level)
-
-
-func _get_dual_glitch_remaining_frames() -> float:
-	return visibility_query.get_dual_glitch_remaining_frames(self)
 
 
 func _is_dual_glitch_clone_alive(clone: Dictionary) -> bool:
@@ -3508,10 +3496,6 @@ func _get_nerve_strike_boss_center(config: Dictionary) -> Vector2:
 
 func _get_nerve_strike_return_target_pos(config: Dictionary) -> Vector2:
 	return ViperSkillGeometry.nerve_strike_return_target_pos(config)
-
-
-func _get_nerve_strike_freeze_frames() -> float:
-	return visibility_query.get_nerve_strike_freeze_frames(self, NERVE_STRIKE_SLASH_HIT_FRAMES)
 
 
 func _spawn_nerve_strike_slash_feedback(center: Vector2, deps: Dictionary) -> void:
