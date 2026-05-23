@@ -5185,6 +5185,36 @@ Hundredth split on 2026-05-24:
   `.\tools\run_warning_scan.ps1` passed with `1304` scripts scanned and no
   GDScript warnings.
 
+127th split on 2026-05-24:
+
+- Commit: `64f3844ff godot: split active item brick wall renderer`.
+- Scope: added `active_item_brick_wall_effect_renderer.gd` for Brick Wall
+  wall drawing, installed-variant sheet loading, crack path generation, crack
+  chips, install gauge, hammer cue, dust / fragment particles, and Brick Wall
+  asset prewarm. The shared `active_item_effect_renderer.gd` keeps the field
+  effect draw order, perf labels, pickup popups, timer gauges, icon lookup
+  caches, and compatibility wrappers while delegating Brick Wall field visuals
+  to the focused renderer.
+- Rationale: Brick Wall was the largest self-contained branch remaining in
+  the broad active-item effect renderer, and its wall texture / crack / install
+  gauge logic already had focused cache coverage. Moving it keeps future Brick
+  Wall visual tuning out of the shared active consumable renderer.
+- Renderer size: `active_item_effect_renderer.gd` moved from `1603` lines to
+  `1253` lines; the new `active_item_brick_wall_effect_renderer.gd` file is
+  `410` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused active-item effect / Brick Wall coverage ran `9` smoke
+  scripts and passed: `active_item_effect_renderer_cache_smoke`,
+  `active_item_runtime_prewarm_smoke`,
+  `active_item_runtime_render_facade_smoke`,
+  `active_item_runtime_render_facade_direct_smoke`,
+  `active_item_brick_wall_actions_smoke`,
+  `active_item_brick_wall_hit_runtime_smoke`,
+  `active_item_brick_wall_hit_resolver_smoke`,
+  `active_item_brick_wall_particles_smoke`, and
+  `active_item_effect_update_driver_smoke`. `.\tools\run_warning_scan.ps1`
+  passed with `1305` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

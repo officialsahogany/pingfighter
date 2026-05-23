@@ -1055,10 +1055,15 @@ This section is intentionally long; use search to find the nearest owner.
   pickup particles, Regeneration Potion rings / particles, Giant Potion
   duration gauge, Stopwatch flash / clock overlay, Magnet Field rings /
   pull lines / particles / duration gauge, Holy Barrier field wall / symbols
-  / particles / duration gauge, Brick wall / install gauge / hammer cue /
-  crack and debris particles, HUD-visual pickup icon lookup, and
-  duration-effect icon texture caching. The runtime passes through the effect
-  controller's exposed state arrays and timer context.
+  / particles / duration gauge, HUD-visual pickup icon lookup, duration-effect
+  icon texture caching, and field-effect draw ordering. The runtime passes
+  through the effect controller's exposed state arrays and timer context.
+- `scripts/items/active_item_brick_wall_effect_renderer.gd`
+  Owns Brick Wall field visuals: installed wall variant sheet loading,
+  crack path / chip drawing, install gauge, hammer cue, dust and fragment
+  particles, and Brick Wall asset prewarm. `active_item_effect_renderer.gd`
+  keeps compatibility wrappers for cache smoke tests while delegating live
+  Brick Wall field drawing here.
 - `scripts/items/active_item_debug_spawn_menu.gd`
   Owns the F2 active-item debug spawn menu: open / close state, panel and
   row geometry, item entries, icon loading for menu rows, hover rendering,
