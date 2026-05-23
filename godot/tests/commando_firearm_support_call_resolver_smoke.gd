@@ -153,7 +153,7 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 	var target := Vector2(320.0, 180.0)
 	_expect(runtime._support_call_seed(4, target) == 4414083065, "runtime seed wrapper should delegate")
 	_expect(is_equal_approx(runtime._get_support_call_delay_frames(4, target), 148.0), "runtime delay wrapper should delegate")
-	_expect(runtime._get_support_bomb_count(4, target) == 2, "runtime bomb-count wrapper should delegate tuned 2-3 bomb count")
+	_expect(runtime._get_support_bomb_count(4, target) == 2, "runtime bomb-count wrapper should delegate tuned 2-bomb count")
 	_expect(runtime._get_support_bomb_target(target, 2) == Vector2(320.0, 214.0), "runtime bomb-target wrapper should delegate")
 	var advance_result: Dictionary = runtime._advance_support_call({
 		"call_timer_frames": 0.0,

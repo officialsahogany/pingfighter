@@ -1323,7 +1323,7 @@ func _verify_fire_support_call_lifecycle() -> void:
 	_expect(bool(initial_call.get("radio_active", false)), "fire support should expose active radio motion during call lock")
 	_expect(float(initial_call.get("delay_frames", 0.0)) >= 120.0 and float(initial_call.get("delay_frames", 0.0)) <= 180.0, "fire support delay should stay in the Python 120-180 frame range")
 	var expected_bomb_total: int = int(initial_call.get("bombs_total", 0))
-	_expect(expected_bomb_total >= 2 and expected_bomb_total <= 3, "fire support should prepare the tuned 2-3 bomb strike")
+	_expect(expected_bomb_total == 2, "fire support should prepare the tuned 2-bomb strike")
 	_expect(not bool(runtime.is_fire_support_aircraft_audio_active()), "fire support aircraft audio should stay inactive before aircraft entry")
 	_expect(_get_array(initial_context.get("commando_firearm_projectiles", [])).is_empty(), "fire support should not drop a bomb on the call frame")
 
