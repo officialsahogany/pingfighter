@@ -33,7 +33,7 @@ func _verify_render_budgets() -> void:
 	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_POSEIDON_WATER_TRAIL <= 12, "Poseidon water trail should keep a tight droplet budget")
 	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_POSEIDON_PARTICLES <= 24, "Poseidon vortex should keep a tight particle budget")
 	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_POSEIDON_EXPLOSION_PARTICLES <= 6, "Poseidon charge flash should cap rendered explosion particles")
-	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_RAGNAROK_SPARKS <= 18, "Ragnarok sparks should cap decorative electric particles")
+	_expect(MythicItemFieldEffectRenderer.MAX_RENDERED_RAGNAROK_SPARKS <= 12, "Ragnarok sparks should cap decorative electric particles tightly")
 	_expect(MythicItemFieldEffectRenderer.MAX_POSEIDON_TRAIL_ARCS <= 4, "Poseidon water trail should draw arcs only on newest large droplets")
 
 	var renderer := MythicItemFieldEffectRenderer.new()
@@ -118,8 +118,8 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Poseidon water trail draw should cap decorative droplets"
 	)
 	_expect(
-		_function_body(source, "func draw_poseidon_particles").find("_recent_start(particles, MAX_RENDERED_POSEIDON_PARTICLES)") >= 0,
-		"Poseidon particle draw should cap vortex particles"
+		_function_body(source, "func draw_poseidon_particles").find("MAX_RENDERED_POSEIDON_PARTICLES") >= 0,
+		"Poseidon particle draw should cap vortex particles by the MAX_RENDERED_POSEIDON_PARTICLES budget (recent-N or uniform stride)"
 	)
 	_expect(
 		_function_body(source, "func draw_poseidon_water_trail").find("MAX_POSEIDON_TRAIL_ARCS") >= 0,
@@ -133,13 +133,21 @@ func _verify_draw_paths_use_render_caps() -> void:
 		_function_body(source, "func draw_ragnarok_sparks").find("_recent_start(sparks, MAX_RENDERED_RAGNAROK_SPARKS)") >= 0,
 		"Ragnarok spark draw should cap decorative sparks"
 	)
+	var ragnarok_stun_body := _function_body(source, "func draw_ragnarok_electric_stun_overlay")
+	_expect(ragnarok_stun_body.find("randf") < 0, "Ragnarok electric stun draw should not call random float helpers during draw")
+	_expect(ragnarok_stun_body.find("randi") < 0, "Ragnarok electric stun draw should not call random integer helpers during draw")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	_expect(runtime_source.find("const RAGNAROK_SPARK_COUNT := 12") >= 0, "Ragnarok runtime spark count should stay capped")
+	_expect(source.find("const RAGNAROK_ELECTRIC_ELLIPSE_SEGMENTS := 16") >= 0, "Ragnarok electric ellipse should use the reduced segment budget")
 
 
 func _verify_idle_draw_gate_avoids_mythic_reflection() -> void:
 	var drawer_source := FileAccess.get_file_as_string("res://scripts/core/battle_playfield_scene_drawer.gd")
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var visibility_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_field_effect_visibility.gd")
 	_expect(drawer_source != "", "playfield drawer source should be readable")
 	_expect(runtime_source != "", "mythic runtime source should be readable")
+	_expect(visibility_source != "", "mythic field-effect visibility source should be readable")
 	_expect(
 		_function_body(drawer_source, "func _draw_mythic_item_field_effects").find("has_visible_field_effects") >= 0,
 		"Playfield mythic draw should skip the idle field path before method-list reflection"
@@ -149,8 +157,12 @@ func _verify_idle_draw_gate_avoids_mythic_reflection() -> void:
 		"Playfield mythic draw should cache the perf-logger signature check"
 	)
 	_expect(
-		_function_body(runtime_source, "func has_visible_field_effects").find("acquisition_cinematic") >= 0,
-		"Mythic runtime should expose a focused field-effect visibility gate"
+		_function_body(runtime_source, "func has_visible_field_effects").find("field_effect_visibility") >= 0,
+		"Mythic runtime should route field-effect visibility through the focused helper"
+	)
+	_expect(
+		_function_body(visibility_source, "func has_visible_field_effects").find("acquisition_cinematic") >= 0,
+		"Mythic field-effect visibility helper should include acquisition cinematic state"
 	)
 
 
