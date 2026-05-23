@@ -366,6 +366,10 @@ This section is intentionally long; use search to find the nearest owner.
   Commando Arm and Reinforced Boomerang Gauntlet icon-path aliases, but item
   builders should call that helper instead of duplicating icon-path literals or
   the `"icon_sheet_path"` / `"icon_frame_count"` field cluster.
+  `scripts/items/mythic_item_catalog_base_metadata.gd` owns common item-data
+  base-field hydration for selected static/no-roll builders, including
+  `"name"`, `"type"`, `"rarity"`, `"effect"`, `"slot"`, `"icon_path"`, and
+  `"chance"` behind the public item-data dictionaries.
   `scripts/items/mythic_item_catalog_build_router.gd`
   owns item-name to builder dispatch behind the public
   `build_item_by_name()` catalog API. `scripts/items/mythic_item_catalog_lists.gd`

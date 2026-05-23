@@ -10,22 +10,22 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `5863a6f9a godot: split mythic field chance metadata`.
-- The checkpoint span through that HEAD contains 168 follow-up commits after
+  `c147a276c godot: share mythic catalog base item metadata`.
+- The checkpoint span through that HEAD contains 170 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 169 commits.
+  contains 171 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `c4b65d57c docs: record mythic icon path helper split`.
+  `a2a9e2f36 docs: record mythic field chance split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
   `2001105b6 docs: record final local settings hide`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
-  `godot/` passed on 2026-05-24 with `1287` scripts scanned and no GDScript
+  `godot/` passed on 2026-05-24 with `1288` scripts scanned and no GDScript
   warnings.
 - Current dirty scope before this documentation sync: `git status
   --porcelain=v1 -uall` is clean.
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the 102nd split. The broad
+- The split notes below are current through the 103rd split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4522,6 +4522,37 @@ Hundredth split on 2026-05-24:
   `baal_boots_weather_port_smoke`, and `celestial_armor_port_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1287` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
+
+103rd split on 2026-05-24:
+
+- Commit: `c147a276c godot: share mythic catalog base item metadata`.
+- Scope: added `mythic_item_catalog_base_metadata.gd` for the common
+  item-data base-field cluster used by selected static/no-roll catalog
+  builders. Speed Gear, Gravity Belt, Revival Charm, Gold Bar, Smartphone,
+  Dash Holder, and Elixir of Mastery now hydrate `"name"`, `"type"`,
+  `"rarity"`, `"effect"`, `"slot"`, `"icon_path"`, and `"chance"` through
+  `with_item_base(...)` instead of repeating those fields inline.
+- Rationale: these base fields are structural catalog metadata. Pulling the
+  repeated cluster behind one helper keeps the affected builders focused on
+  item-specific display text, fixed options, color, sell/consumable flags, and
+  descriptions while preserving the public item-data dictionary shape consumed
+  by pickup, reward, debug, prewarm, HUD, ownership, and active-mythic paths.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `1125` lines to
+  `944` lines; the new base metadata helper is `20` lines.
+- Validation: focused base-field / item-runtime coverage
+  (`speedgear_port_smoke`, `gravitybelt_port_smoke`, `revival_port_smoke`,
+  `gold_bar_port_smoke`, `smartphone_port_smoke`,
+  `active_item_smartphone_auto_use_smoke`, `elixir_of_mastery_smoke`,
+  `item_field_spawn_pool_smoke`, `passive_item_debug_menu_click_add_smoke`,
+  `active_item_pickup_router_smoke`, `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`,
+  `active_item_runtime_prewarm_smoke`,
+  `active_item_effect_renderer_cache_smoke`,
+  `mythic_item_stat_bonus_runtime_smoke`, and
+  `mythic_item_ownership_runtime_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1288` scripts scanned, no GDScript
   warnings). `git diff --check` passed.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
