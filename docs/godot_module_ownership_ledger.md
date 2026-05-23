@@ -4713,6 +4713,11 @@ This section is intentionally long; use search to find the nearest owner.
   should not reintroduce one-line private bridges for these detail methods or
   owner-geometry reads; focused helpers should call this owner directly when
   they need those behaviors.
+- `scripts/items/mythic_item_stat_bonus_runtime.gd`
+  Owns aggregate player stat composition for mythic / passive items. Player
+  speed composition should pass Baal's Boots constants directly to
+  `scripts/items/mythic_item_baal_boots_runtime.gd` instead of reintroducing
+  a private runtime Baal speed getter bridge.
 - `scripts/items/mythic_item_update_runtime.gd`
   Owns mythic per-frame update sequencing and idle-update fallback routing.
   It calls constants-free focused update owners directly for Smartphone,

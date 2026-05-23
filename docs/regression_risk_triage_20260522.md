@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `028a0b2de godot: route mythic owner geometry through syncer`.
-- The checkpoint span through that HEAD contains 126 follow-up commits after
+  `e11792baf godot: pass baal speed constants to stat bonus owner`.
+- The checkpoint span through that HEAD contains 128 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 127 commits.
+  contains 129 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `f425d0eef docs: record mythic update gate bridge cleanup`.
+  `4ef12b2b3 docs: record mythic owner geometry bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the eighty-first split. The broad
+- The split notes below are current through the eighty-second split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -3993,6 +3993,30 @@ Eighty-first split on 2026-05-23:
   warnings). `git diff --check` reported only the existing line-ending
   notices for `mythic_item_runtime.gd` and
   `mythic_item_baal_boots_runtime.gd`.
+
+Eighty-second split on 2026-05-23:
+
+- Commit: `e11792baf godot: pass baal speed constants to stat bonus owner`.
+- Scope: `mythic_item_stat_bonus_runtime.gd` now receives the Baal's Boots
+  constants needed for player-speed composition and calls
+  `baal_boots_runtime.get_player_speed_multiplier()` directly. The private
+  `_get_baal_boots_player_speed_multiplier()` bridge was removed from
+  `mythic_item_runtime.gd`.
+- Rationale: stat-bonus composition already owns the aggregate player-speed
+  multiplier. Passing the one remaining Baal constants dictionary explicitly
+  keeps that composition in the stat owner without using a runtime facade
+  getter.
+- `mythic_item_runtime.gd` line count moved from `2605` to `2601` in this
+  code split.
+- Validation passed:
+  focused speed / stat set
+  (`mythic_item_stat_bonus_runtime_smoke`, `baal_boots_weather_port_smoke`,
+  `hermes_shoes_port_smoke`, `gold_bar_port_smoke`, and
+  `mythic_item_runtime_idle_update_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
