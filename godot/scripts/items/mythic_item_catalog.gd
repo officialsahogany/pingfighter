@@ -1,8 +1,10 @@
 extends RefCounted
 
 const PassiveItemQuality := preload("res://scripts/items/passive_item_quality.gd")
+const MythicItemCatalogLists := preload("res://scripts/items/mythic_item_catalog_lists.gd")
 const MythicItemCatalogRolls := preload("res://scripts/items/mythic_item_catalog_rolls.gd")
 
+var list_helper: Object = MythicItemCatalogLists.new()
 var roll_helper: Object = MythicItemCatalogRolls.new()
 
 const MYTHIC_ICON_FRAME_COUNT := 32
@@ -1215,24 +1217,11 @@ func get_item_quality_color(item_data: Dictionary, fallback: Color = Color.WHITE
 
 
 func get_debug_items() -> Array:
-	var result: Array = []
-	for item_name in DEBUG_ITEM_ORDER:
-		var item_data: Dictionary = build_item_by_name(str(item_name))
-		if not item_data.is_empty():
-			result.append(item_data)
-	return result
+	return list_helper.get_debug_items(self, DEBUG_ITEM_ORDER)
 
 
 func get_field_spawn_items() -> Array:
-	var result: Array = []
-	for item_name in FIELD_SPAWN_ORDER:
-		var item_data: Dictionary = build_item_by_name(str(item_name))
-		if item_data.is_empty():
-			continue
-		item_data["rolls"] = build_random_rolls(str(item_name))
-		item_data = sync_roll_fields(item_data, false)
-		result.append(item_data)
-	return result
+	return list_helper.get_field_spawn_items(self, FIELD_SPAWN_ORDER)
 
 
 func get_roll_options(item_name: String) -> Array:
