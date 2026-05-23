@@ -296,24 +296,12 @@ func _build_shrapnel_armor() -> Dictionary:
 
 
 func _build_sage_ring() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(SAGE_RING)
-	return {
-		"name": SAGE_RING,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "현자의 반지",
 		"korean_name": "현자의 반지",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": SAGE_RING,
-		"slot": "accessory",
-		"icon_path": get_icon_path(SAGE_RING),
-		"chance": get_field_chance(SAGE_RING),
 		"description": "장착 중 모든 투자된 퍽의 유효 레벨을 1 올립니다. 대신 이동속도와 몸집크기가 롤옵션만큼 감소합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(SAGE_RING),
-		"rolled_options": build_rolled_options(SAGE_RING, rolls),
-		"fixed_options": get_fixed_options(SAGE_RING),
 		"color": Color(180.0 / 255.0, 140.0 / 255.0, 1.0),
-	}
+	}, self, SAGE_RING, "passive", "accessory", get_field_chance(SAGE_RING), true)
 
 
 func _build_cooltime() -> Dictionary:
@@ -399,24 +387,12 @@ func _build_venom_mist_gauntlet() -> Dictionary:
 
 
 func _build_reinforced_boomerang_gauntlet() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(REINFORCED_BOOMERANG_GAUNTLET)
-	return {
-		"name": REINFORCED_BOOMERANG_GAUNTLET,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "강화부메랑 장갑",
 		"korean_name": "강화부메랑 장갑",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": REINFORCED_BOOMERANG_GAUNTLET,
-		"slot": "arm",
-		"icon_path": get_icon_path(REINFORCED_BOOMERANG_GAUNTLET),
-		"chance": get_field_chance(REINFORCED_BOOMERANG_GAUNTLET),
 		"description": "부메랑을 메탈 강화하고 발사속도, 유도성능, 스폰율, 넉백, 스턴 시간을 올립니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(REINFORCED_BOOMERANG_GAUNTLET),
-		"rolled_options": build_rolled_options(REINFORCED_BOOMERANG_GAUNTLET, rolls),
-		"fixed_options": get_fixed_options(REINFORCED_BOOMERANG_GAUNTLET),
 		"color": Color(150.0 / 255.0, 200.0 / 255.0, 1.0),
-	}
+	}, self, REINFORCED_BOOMERANG_GAUNTLET, "passive", "arm", get_field_chance(REINFORCED_BOOMERANG_GAUNTLET), true)
 
 
 func _build_commando_arm() -> Dictionary:
