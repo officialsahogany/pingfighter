@@ -805,18 +805,6 @@ func notify_sensor_auto_dash_started(player_center: Vector2, direction: float, d
 	auto_defense_runtime.notify_sensor_auto_dash_started(self, player_center, direction, deps)
 
 
-func _is_sensor_runtime_blocked(config: Dictionary, deps: Dictionary) -> bool:
-	return auto_defense_runtime.is_sensor_runtime_blocked(self, config, deps)
-
-
-func _is_sensor_player_stunned(deps: Dictionary) -> bool:
-	return auto_defense_runtime.is_sensor_player_stunned(self, _get_dict(deps))
-
-
-func _is_sensor_umbrella_blocked(config: Dictionary, deps: Dictionary) -> bool:
-	return auto_defense_runtime.is_sensor_umbrella_blocked(self, config, _get_dict(deps))
-
-
 func is_hermes_shoes_equipped() -> bool:
 	_ensure_helpers_ready()
 	return hermes_shoes_runtime.is_equipped(self)
@@ -2260,30 +2248,6 @@ func get_dash_token_capacity(base_tokens: int = 1, runtime_perk_state: Object = 
 func update(owner: Object, registry: Object, delta: float) -> void:
 	_ensure_helpers_ready()
 	update_runtime.update(self, owner, registry, delta)
-
-
-func _has_runtime_update_work() -> bool:
-	return update_gate.has_runtime_update_work(self)
-
-
-func _has_modal_runtime_update_work() -> bool:
-	return update_gate.has_modal_runtime_update_work(self)
-
-
-func _has_transient_runtime_update_work() -> bool:
-	return update_gate.has_transient_runtime_update_work(self)
-
-
-func _has_ragnarok_transient_runtime_update_work() -> bool:
-	return update_gate.has_ragnarok_transient_runtime_update_work(self)
-
-
-func _has_non_ragnarok_transient_runtime_update_work() -> bool:
-	return update_gate.has_non_ragnarok_transient_runtime_update_work(self)
-
-
-func _poll_idle_poseidon_dash_trigger(owner: Object, registry: Object) -> void:
-	poseidon_runtime.poll_idle_dash_trigger(self, owner, registry)
 
 
 func try_apply_ragnarok_player_hit(

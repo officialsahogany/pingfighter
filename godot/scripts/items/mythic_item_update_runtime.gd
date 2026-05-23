@@ -2,7 +2,7 @@ extends RefCounted
 
 
 func update(runtime: Object, owner: Object, registry: Object, delta: float) -> void:
-	if not runtime._has_runtime_update_work():
+	if not runtime.update_gate.has_runtime_update_work(runtime):
 		_update_idle(runtime, owner, registry, delta)
 		return
 
@@ -31,7 +31,7 @@ func update(runtime: Object, owner: Object, registry: Object, delta: float) -> v
 
 func _update_idle(runtime: Object, owner: Object, registry: Object, delta: float) -> void:
 	var idle_fps_scale: float = max(0.0, delta * 60.0)
-	runtime._poll_idle_poseidon_dash_trigger(owner, registry)
+	runtime.poseidon_runtime.poll_idle_dash_trigger(runtime, owner, registry)
 	var previous_smartphone_item: String = str(runtime.smartphone_last_auto_item)
 	var previous_smartphone_cooldown: float = float(runtime.smartphone_cooldown_frames)
 	runtime.auto_defense_runtime.update_smartphone_runtime(runtime, owner, registry, idle_fps_scale)

@@ -116,7 +116,7 @@ func poll_idle_dash_trigger(runtime: Object, owner: Object, registry: Object) ->
 	if not runtime.is_equipped(ITEM_POSEIDON_TRIDENT):
 		return
 	update_dash_trigger(runtime, owner, registry)
-	if runtime._has_transient_runtime_update_work():
+	if runtime.update_gate.has_transient_runtime_update_work(runtime):
 		runtime._sync_owner(owner, registry)
 
 
