@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `e11792baf godot: pass baal speed constants to stat bonus owner`.
-- The checkpoint span through that HEAD contains 128 follow-up commits after
+  `ba15e39aa godot: pass mythic update constants to sequencer`.
+- The checkpoint span through that HEAD contains 130 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 129 commits.
+  contains 131 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `4ef12b2b3 docs: record mythic owner geometry bridge cleanup`.
+  `af725442e docs: record baal speed bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the eighty-second split. The broad
+- The split notes below are current through the eighty-third split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4013,6 +4013,35 @@ Eighty-second split on 2026-05-23:
   (`mythic_item_stat_bonus_runtime_smoke`, `baal_boots_weather_port_smoke`,
   `hermes_shoes_port_smoke`, `gold_bar_port_smoke`, and
   `mythic_item_runtime_idle_update_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Eighty-third split on 2026-05-23:
+
+- Commit: `ba15e39aa godot: pass mythic update constants to sequencer`.
+- Scope: `mythic_item_runtime.gd` now passes Ragnarok, Shrapnel Armor,
+  Poseidon, and Baal's Boots constants into `mythic_item_update_runtime.gd`,
+  letting the update sequencer call those focused update owners directly.
+  Sensor auto-dash now passes Poseidon constants into
+  `mythic_item_auto_defense_runtime.gd`, which triggers the Poseidon vortex
+  owner directly. The private update and Poseidon-trigger bridge methods were
+  removed from the runtime facade.
+- Rationale: the update sequencer owns update order, while the focused item
+  owners own their constants-sensitive update calls. Passing constants
+  explicitly avoids retaining runtime bridge methods just to bind constant
+  dictionaries.
+- `mythic_item_runtime.gd` line count moved from `2601` to `2586` in this
+  code split.
+- Validation passed:
+  affected mythic update set
+  (`mythic_item_runtime_idle_update_smoke`, `ragnarok_hammer_port_smoke`,
+  `adversity_armor_port_smoke`, `shrapnel_armor_port_smoke`,
+  `poseidon_trident_port_smoke`, `baal_boots_weather_port_smoke`,
+  `mythic_item_sensor_auto_defense_runtime_smoke`, `smartphone_port_smoke`,
+  `mythic_item_field_render_budget_smoke`, and
+  `horn_strawberry_mask_port_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending

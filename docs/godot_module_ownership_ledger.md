@@ -4727,9 +4727,11 @@ This section is intentionally long; use search to find the nearest owner.
   bridges for those paths. It also calls `mythic_item_update_gate.gd`
   directly for runtime-work detection and `mythic_item_poseidon_runtime.gd`
   directly for the idle Poseidon poll; do not reintroduce private runtime
-  update-gate or idle-poll bridge methods. Any remaining constant-supplying
-  update wrappers should be split only with focused validation for their item
-  constants.
+  update-gate or idle-poll bridge methods. Ragnarok, Shrapnel Armor,
+  Poseidon, and Baal's Boots update constants should be passed explicitly
+  into this sequencer so it can call those focused owners directly; do not
+  reintroduce private runtime update wrappers just to bind constant
+  dictionaries.
 - `scripts/items/mythic_item_field_effect_visibility.gd`,
   `scripts/items/mythic_item_field_effect_renderer.gd`,
   `scripts/items/mythic_item_context_builder.gd`,
