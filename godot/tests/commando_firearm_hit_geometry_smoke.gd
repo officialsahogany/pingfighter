@@ -155,6 +155,52 @@ func _verify_direct_geometry_helpers() -> void:
 	_expect(not CommandoFirearmHitGeometry.support_bomb_reached_target_y(support_edge_only, {
 		"impact_radius": 155.0,
 	}, Rect2(Vector2(350.0, 50.0), Vector2(100.0, 40.0))), "support bomb blast should miss when only the boss edge is inside radius")
+	var support_wall_overlap := {
+		"weapon_id": "fire_support",
+		"support_impact_mode": "opponent_wall",
+		"pos": Vector2(360.0, 70.0),
+		"target_y": 22.0,
+	}
+	_expect(CommandoFirearmHitGeometry.get_direct_hit_impact_reason(support_wall_overlap, {
+		"hitbox_size": Vector2(14.0, 14.0),
+	}, net_boss_rect) == "", "support wall missiles should ignore direct-hit checks before reaching the wall")
+	_expect(CommandoFirearmHitGeometry.get_fire_support_target_y_impact_reason(
+		"fire_support",
+		support_wall_overlap,
+		{"impact_radius": 152.0},
+		net_boss_rect
+	) == "", "support wall missiles should bypass falling-bomb target-y checks")
+	_expect(not support_wall_overlap.has("support_target_y_reached"), "support wall missiles should not inherit falling-bomb reached flags")
+	_expect(CommandoFirearmHitGeometry.get_target_reached_impact_reason(
+		"fire_support",
+		{
+			"weapon_id": "fire_support",
+			"support_impact_mode": "opponent_wall",
+			"pos": Vector2(360.0, 24.0),
+			"target": Vector2(360.0, 22.0),
+			"velocity": Vector2(0.0, -5.0),
+			"radius": 7.0,
+			"explosion_radius": 152.0,
+		},
+		{},
+		net_boss_rect,
+		Vector2(360.0, 22.0)
+	) == "target", "support wall missiles should hit the boss when the wall burst contains the boss center")
+	_expect(CommandoFirearmHitGeometry.get_target_reached_impact_reason(
+		"fire_support",
+		{
+			"weapon_id": "fire_support",
+			"support_impact_mode": "opponent_wall",
+			"pos": Vector2(40.0, 24.0),
+			"target": Vector2(40.0, 22.0),
+			"velocity": Vector2(0.0, -5.0),
+			"radius": 7.0,
+			"explosion_radius": 54.0,
+		},
+		{},
+		net_boss_rect,
+		Vector2(40.0, 22.0)
+	) == "wall", "support wall missiles should report wall impact when the wall burst misses the boss")
 	_expect(CommandoFirearmHitGeometry.projectile_reached_target({
 		"pos": Vector2(100.0, 100.0),
 		"velocity": Vector2(10.0, 0.0),

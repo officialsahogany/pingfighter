@@ -49,7 +49,8 @@ static func build_call_payload(
 	aircraft_speed: float,
 	aircraft_curve_amplitude: float = 0.0,
 	aircraft_curve_frequency: float = 0.0,
-	aircraft_curve_secondary_ratio: float = 0.0
+	aircraft_curve_secondary_ratio: float = 0.0,
+	aircraft_start_x: float = -140.0
 ) -> Dictionary:
 	var curve_phase: float = float(support_call_seed(call_id + 31, target) % 628) / 100.0
 	return {
@@ -78,7 +79,7 @@ static func build_call_payload(
 		"aircraft_curve_secondary_ratio": aircraft_curve_secondary_ratio,
 		"aircraft_curve_phase": curve_phase,
 		"aircraft_curve_roll": 0.0,
-		"aircraft_pos": Vector2(-140.0, aircraft_y),
+		"aircraft_pos": Vector2(aircraft_start_x, aircraft_y),
 		"aircraft_velocity": Vector2(aircraft_speed, 0.0),
 		"color": profile.get("color", Color(1.0, 0.34, 0.16)),
 		"secondary": profile.get("secondary", Color(1.0, 0.82, 0.25)),

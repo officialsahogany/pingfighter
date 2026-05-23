@@ -206,6 +206,8 @@ static func get_projectile_impact_reason(
 
 
 static func get_direct_hit_impact_reason(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> String:
+	if is_fire_support_wall_projectile(projectile):
+		return ""
 	if projectile_hitbox_hits_boss(projectile, profile, boss_rect):
 		return "target"
 	return ""
@@ -218,6 +220,8 @@ static func get_fire_support_target_y_impact_reason(
 	boss_rect: Rect2
 ) -> String:
 	if not is_fire_support_weapon(weapon_id):
+		return ""
+	if is_fire_support_wall_projectile(projectile):
 		return ""
 	if support_bomb_reached_target_y(projectile, profile, boss_rect):
 		return "target"
@@ -259,6 +263,8 @@ static func get_target_reached_impact_reason(
 		return ""
 	if target_reached_hitbox_hits_boss(projectile, profile, boss_rect):
 		return "target"
+	if is_fire_support_wall_projectile(projectile):
+		return "wall"
 	return get_target_reached_expire_reason(weapon_id, profile)
 
 
@@ -280,6 +286,13 @@ static func get_target_reached_expire_reason(weapon_id: String, profile: Diction
 
 static func is_fire_support_weapon(weapon_id: String) -> bool:
 	return weapon_id == "fire_support"
+
+
+static func is_fire_support_wall_projectile(projectile: Dictionary) -> bool:
+	return (
+		str(projectile.get("weapon_id", "")) == "fire_support"
+		and str(projectile.get("support_impact_mode", "")) == "opponent_wall"
+	)
 
 
 static func is_net_gun_weapon(weapon_id: String) -> bool:
