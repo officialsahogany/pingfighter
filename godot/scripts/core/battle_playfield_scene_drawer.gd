@@ -23,6 +23,7 @@ var effects_drawer: Object = BattlePlayfieldEffectsDrawer.new()
 var overlay_drawer: Object = BattlePlayfieldOverlayDrawer.new()
 var _mythic_draw_field_effects_accepts_perf_logger: int = -1
 var _mythic_draw_field_effects_accepts_timer_stack: int = -1
+var _mythic_draw_field_effects_accepts_draw_context: int = -1
 var _method_argument_count_cache: Dictionary = {}
 var _method_accepts_argument_count_cache: Dictionary = {}
 
@@ -172,7 +173,7 @@ func draw(
 	_perf_end(perf_logger, "29.active_item_field", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	if not decorative_lod:
-		_draw_mythic_item_field_effects(canvas, registry, shake_offset, perf_logger)
+		_draw_mythic_item_field_effects(canvas, registry, shake_offset, perf_logger, draw_context)
 	_perf_end(perf_logger, "30.mythic_item_field", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_end_horizontal_timer_gauge_frame(registry)
@@ -375,13 +376,23 @@ func _draw_mythic_item_field_effects(
 	canvas: CanvasItem,
 	registry: Object,
 	shake_offset: Vector2,
-	perf_logger: Object = null
+	perf_logger: Object = null,
+	draw_context: Dictionary = {}
 ) -> void:
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("draw_field_effects"):
 		if mythic_item_runtime.has_method("has_visible_field_effects") and not bool(mythic_item_runtime.has_visible_field_effects()):
 			return
-		if _mythic_draw_field_effects_uses_timer_stack(mythic_item_runtime):
+		if _mythic_draw_field_effects_uses_draw_context(mythic_item_runtime):
+			mythic_item_runtime.draw_field_effects(
+				canvas,
+				registry,
+				shake_offset,
+				perf_logger,
+				_get_instance(registry, "horizontal_timer_gauge_stack"),
+				draw_context
+			)
+		elif _mythic_draw_field_effects_uses_timer_stack(mythic_item_runtime):
 			mythic_item_runtime.draw_field_effects(
 				canvas,
 				registry,
@@ -399,6 +410,12 @@ func _mythic_draw_field_effects_uses_timer_stack(mythic_item_runtime: Object) ->
 	if _mythic_draw_field_effects_accepts_timer_stack < 0:
 		_mythic_draw_field_effects_accepts_timer_stack = 1 if _method_accepts_argument_count(mythic_item_runtime, "draw_field_effects", 5) else 0
 	return _mythic_draw_field_effects_accepts_timer_stack == 1
+
+
+func _mythic_draw_field_effects_uses_draw_context(mythic_item_runtime: Object) -> bool:
+	if _mythic_draw_field_effects_accepts_draw_context < 0:
+		_mythic_draw_field_effects_accepts_draw_context = 1 if _method_accepts_argument_count(mythic_item_runtime, "draw_field_effects", 6) else 0
+	return _mythic_draw_field_effects_accepts_draw_context == 1
 
 
 func _mythic_draw_field_effects_uses_perf_logger(mythic_item_runtime: Object) -> bool:

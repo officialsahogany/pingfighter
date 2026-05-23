@@ -2383,7 +2383,8 @@ func draw_field_effects(
 	_registry: Object,
 	shake_offset: Vector2,
 	perf_logger: Object = null,
-	timer_stack: Object = null
+	timer_stack: Object = null,
+	draw_context: Dictionary = {}
 ) -> void:
 	_ensure_helpers_ready()
 	field_effect_renderer.draw_field_effects(
@@ -2394,7 +2395,8 @@ func draw_field_effects(
 		RAGNAROK_ELECTRIC_STUN_INTENSITY,
 		perf_logger,
 		timer_stack,
-		FIELD_EFFECT_CONSTANTS
+		FIELD_EFFECT_CONSTANTS,
+		draw_context
 	)
 
 

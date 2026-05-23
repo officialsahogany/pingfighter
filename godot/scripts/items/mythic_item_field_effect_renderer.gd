@@ -4,6 +4,7 @@ const AuraFieldRenderer := preload("res://scripts/items/mythic_item_aura_field_r
 const ArmorFieldRenderer := preload("res://scripts/items/mythic_item_armor_field_renderer.gd")
 const HermesFieldRenderer := preload("res://scripts/items/mythic_item_hermes_field_renderer.gd")
 const HornStrawberryFieldRenderer := preload("res://scripts/items/mythic_item_horn_strawberry_field_renderer.gd")
+const HornStrawberryTimerGaugeRenderer := preload("res://scripts/items/horn_strawberry_timer_gauge_renderer.gd")
 const MomentumFieldRenderer := preload("res://scripts/items/mythic_item_momentum_field_renderer.gd")
 const PoseidonFieldRenderer := preload("res://scripts/items/mythic_item_poseidon_field_renderer.gd")
 const RagnarokFieldRenderer := preload("res://scripts/items/mythic_item_ragnarok_field_renderer.gd")
@@ -41,11 +42,16 @@ const ADVERSITY_ARMOR_TIMER_BAR_SIZE := Vector2(150.0, 12.0)
 const ADVERSITY_ARMOR_TIMER_BAR_MARGIN := Vector2(16.0, 28.0)
 const ADVERSITY_ARMOR_TIMER_STACK_SPACING := 18.0
 const ADVERSITY_ARMOR_TIMER_STACK_KEY := "adversity_armor"
+const HORN_STRAWBERRY_TIMER_BAR_SIZE := Vector2(150.0, 12.0)
+const HORN_STRAWBERRY_TIMER_BAR_MARGIN := Vector2(16.0, 28.0)
+const HORN_STRAWBERRY_TIMER_STACK_SPACING := 18.0
+const HORN_STRAWBERRY_TIMER_STACK_KEY := "horn_strawberry_mask"
 
 var _aura_field_renderer: Object = AuraFieldRenderer.new()
 var _armor_field_renderer: Object = ArmorFieldRenderer.new()
 var _hermes_field_renderer: Object = HermesFieldRenderer.new()
 var _horn_strawberry_field_renderer: Object = HornStrawberryFieldRenderer.new()
+var _horn_strawberry_timer_renderer: Object = HornStrawberryTimerGaugeRenderer.new()
 var _momentum_field_renderer: Object = MomentumFieldRenderer.new()
 var _poseidon_field_renderer: Object = PoseidonFieldRenderer.new()
 var _ragnarok_field_renderer: Object = RagnarokFieldRenderer.new()
@@ -59,7 +65,8 @@ func draw_field_effects(
 	ragnarok_electric_stun_intensity: float,
 	perf_logger: Object = null,
 	timer_stack: Object = null,
-	constants: Dictionary = {}
+	constants: Dictionary = {},
+	draw_context: Dictionary = {}
 ) -> void:
 	if canvas == null or runtime == null:
 		return
@@ -109,7 +116,8 @@ func draw_field_effects(
 				"bombs": MAX_RENDERED_HORN_STRAWBERRY_BOMBS,
 				"explosions": MAX_RENDERED_HORN_STRAWBERRY_EXPLOSIONS,
 				"paint": MAX_RENDERED_HORN_STRAWBERRY_PAINT,
-			}
+			},
+			draw_context
 		)
 		_perf_end(detail_perf_logger, "mythic.horn_strawberry", horn_sample_start)
 	if baal_visible:
@@ -319,6 +327,18 @@ func draw_field_effects(
 			float(constants.get("ragnarok_particle_alpha_cutoff", 0.02))
 		)
 		_perf_end(detail_perf_logger, "mythic.ragnarok_sparks", sparks_sample_start)
+	if runtime.is_horn_strawberry_transformed():
+		var horn_timer_sample_start: int = _perf_begin(detail_perf_logger)
+		_horn_strawberry_timer_renderer.draw_transform_timer_gauge(
+			canvas,
+			timer_stack,
+			horn_strawberry_context,
+			HORN_STRAWBERRY_TIMER_BAR_SIZE,
+			HORN_STRAWBERRY_TIMER_BAR_MARGIN,
+			HORN_STRAWBERRY_TIMER_STACK_SPACING,
+			HORN_STRAWBERRY_TIMER_STACK_KEY
+		)
+		_perf_end(detail_perf_logger, "mythic.horn_strawberry_timer", horn_timer_sample_start)
 	if acquisition_visible:
 		if runtime.acquisition_cinematic != null:
 			var acquisition_sample_start: int = _perf_begin(detail_perf_logger)

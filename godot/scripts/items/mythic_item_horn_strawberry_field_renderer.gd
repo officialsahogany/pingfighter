@@ -17,9 +17,10 @@ func draw_horn_strawberry_effects(
 	field_context: Dictionary,
 	horn_charge_context: Dictionary,
 	bomb_context: Dictionary,
-	render_limits: Dictionary
+	render_limits: Dictionary,
+	draw_context: Dictionary = {}
 ) -> void:
-	_transform_renderer.draw(canvas, shake_offset, transform_context)
+	_transform_renderer.draw(canvas, shake_offset, transform_context, draw_context)
 	_draw_bomb_paint(canvas, shake_offset, bomb_context, int(render_limits.get("paint", 16)))
 
 	var barriers: Array = _as_array(field_context.get("barriers", []))

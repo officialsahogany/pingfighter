@@ -184,6 +184,8 @@ func _verify_catalog_registration() -> void:
 	_expect(is_equal_approx(float(duration_roll.get("max", 0.0)), 70.0), "transform duration max should match the reference")
 	_expect(is_equal_approx(float(duration_roll.get("default", 0.0)), 60.0), "transform duration default should match the reference")
 	_expect(is_equal_approx(float(duration_roll.get("step", 0.0)), 5.0), "transform duration step should match the reference")
+	_verify_icon_asset("res://assets/sprites/items/horn_strawberry_mask.png", Vector2i(32, 32), "static icon")
+	_verify_icon_asset("res://assets/sprites/items/horn_strawberry_mask_icon_sheet.png", Vector2i(1024, 32), "animated icon sheet")
 
 
 func _verify_runtime_command_transform_and_stage_policy() -> void:
@@ -555,6 +557,18 @@ func _find_roll(rolls: Array, key: String) -> Dictionary:
 		if str(roll_data.get("key", "")) == key:
 			return roll_data
 	return {}
+
+
+func _verify_icon_asset(path: String, expected_size: Vector2i, label: String) -> void:
+	_expect(ResourceLoader.exists(path, "Texture2D"), "horn strawberry mask %s should be importable from %s" % [label, path])
+	var texture: Texture2D = load(path) as Texture2D
+	_expect(texture != null, "horn strawberry mask %s texture should load from %s" % [label, path])
+	if texture == null:
+		return
+	_expect(
+		Vector2i(texture.get_width(), texture.get_height()) == expected_size,
+		"horn strawberry mask %s should be %s" % [label, str(expected_size)]
+	)
 
 
 func _get_first_projectile_boss_pos(eat_context: Dictionary) -> Vector2:

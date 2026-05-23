@@ -68,6 +68,7 @@ func _verify_draw_paths_use_render_caps() -> void:
 	var armor_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_armor_field_renderer.gd")
 	var hermes_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_hermes_field_renderer.gd")
 	var horn_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_horn_strawberry_field_renderer.gd")
+	var horn_timer_source := FileAccess.get_file_as_string("res://scripts/items/horn_strawberry_timer_gauge_renderer.gd")
 	var momentum_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_momentum_field_renderer.gd")
 	var poseidon_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_poseidon_field_renderer.gd")
 	var ragnarok_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_ragnarok_field_renderer.gd")
@@ -76,6 +77,7 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(armor_source != "", "mythic item armor field renderer source should be readable")
 	_expect(hermes_source != "", "mythic item Hermes field renderer source should be readable")
 	_expect(horn_source != "", "mythic item Horn Strawberry field renderer source should be readable")
+	_expect(horn_timer_source != "", "mythic item Horn Strawberry timer renderer source should be readable")
 	_expect(momentum_source != "", "mythic item momentum field renderer source should be readable")
 	_expect(poseidon_source != "", "mythic item Poseidon field renderer source should be readable")
 	_expect(ragnarok_source != "", "mythic item Ragnarok field renderer source should be readable")
@@ -152,6 +154,18 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Horn Strawberry draw should receive a capped projectile budget"
 	)
 	_expect(
+		_function_body(horn_source, "func draw_horn_strawberry_effects").find("draw_context") >= 0,
+		"Horn Strawberry draw should receive the player draw context for transformed actor placement"
+	)
+	_expect(
+		_function_body(source, "func draw_field_effects").find("_horn_strawberry_timer_renderer.draw_transform_timer_gauge") >= 0,
+		"Mythic field draw should delegate Horn Strawberry duration gauge rendering"
+	)
+	_expect(
+		_function_body(horn_timer_source, "func draw_transform_timer_gauge").find("timer_stack") >= 0,
+		"Horn Strawberry timer gauge should claim the shared horizontal timer stack"
+	)
+	_expect(
 		_function_body(horn_source, "func _draw_bomb_paint").find("paint_render_limit") >= 0,
 		"Horn Strawberry paint draw should use the render budget"
 	)
@@ -201,6 +215,14 @@ func _verify_idle_draw_gate_avoids_mythic_reflection() -> void:
 	_expect(
 		drawer_source.find("_mythic_draw_field_effects_accepts_perf_logger") >= 0,
 		"Playfield mythic draw should cache the perf-logger signature check"
+	)
+	_expect(
+		drawer_source.find("_mythic_draw_field_effects_uses_draw_context") >= 0,
+		"Playfield mythic draw should cache the draw-context signature check"
+	)
+	_expect(
+		_function_body(drawer_source, "func _draw_mythic_item_field_effects").find("draw_context") >= 0,
+		"Playfield mythic draw should forward player draw context to mythic field effects"
 	)
 	_expect(
 		_function_body(runtime_source, "func has_visible_field_effects").find("field_effect_visibility") >= 0,

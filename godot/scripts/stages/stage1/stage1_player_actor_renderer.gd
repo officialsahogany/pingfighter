@@ -8,6 +8,7 @@ const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shock
 const PaddleHologramGlitchRenderer := preload("res://scripts/effects/paddle_hologram_glitch_renderer.gd")
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 const ViperAirborneRenderToggles := preload("res://scripts/core/viper_airborne_render_toggles.gd")
+const HornStrawberryPaddleRenderer := preload("res://scripts/items/horn_strawberry_paddle_renderer.gd")
 
 # The legacy generated attack sheet uses 344x384 cells and fills most of each cell.
 # Python's Smasher renderer uses a 250x120 character surface whose visible body
@@ -38,6 +39,7 @@ const VIPER_DUAL_GLITCH_GHOST_SHIFT_X := 4.0
 
 var sprite_renderer: Object = Stage1PlayerSpriteRenderer.new()
 var dash_side_gauge_renderer: Object = Stage1DashSideGaugeRenderer.new()
+var horn_strawberry_paddle_renderer: Object = HornStrawberryPaddleRenderer.new()
 
 
 func _init() -> void:
@@ -235,6 +237,7 @@ func draw(
 	var paddle_hologram_active: bool = bool(context.get("paddle_hologram_active", false))
 	var paddle_hologram_progress: float = float(context.get("paddle_hologram_progress", 1.0))
 	var paddle_hologram_plan: Dictionary = {}
+	var horn_strawberry_transformed: bool = bool(context.get("horn_strawberry_transformed", false))
 	if paddle_hologram_active:
 		paddle_hologram_plan = PaddleHologramGlitchRenderer.compute_pass_plan(
 			paddle_hologram_progress, Time.get_ticks_msec()
@@ -254,7 +257,16 @@ func draw(
 	_draw_viper_hover_flame_embers(canvas, context, shake_offset, player_visual_rect)
 	_perf_end(perf_logger, "actors.stage1.player.hover_embers", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	if paddle_hologram_active:
+	var drawn_player_visual_rect: Rect2 = player_visual_rect
+	if horn_strawberry_transformed:
+		drawn_player_visual_rect = horn_strawberry_paddle_renderer.draw(
+			canvas,
+			context,
+			player_pos,
+			paddle_size,
+			shake_offset
+		)
+	elif paddle_hologram_active:
 		_draw_player_with_hologram_passes(
 			canvas,
 			sprite_context,
@@ -284,14 +296,15 @@ func draw(
 			paddle_size,
 			shake_offset
 		)
-	_draw_commando_weapon_b2_overlay(canvas, sprite_context, player_visual_rect)
-	_draw_commando_weapon_overlay(canvas, sprite_context, player_visual_rect, player_move_active)
+	if not horn_strawberry_transformed:
+		_draw_commando_weapon_b2_overlay(canvas, sprite_context, player_visual_rect)
+		_draw_commando_weapon_overlay(canvas, sprite_context, player_visual_rect, player_move_active)
 	if curse_reverse_active:
-		_draw_curse_reverse_head_effect(canvas, player_visual_rect, curse_reverse_ratio)
+		_draw_curse_reverse_head_effect(canvas, drawn_player_visual_rect, curse_reverse_ratio)
 	if player_slow_active:
-		_draw_player_slow_wave(canvas, player_visual_rect, player_slow_ratio)
+		_draw_player_slow_wave(canvas, drawn_player_visual_rect, player_slow_ratio)
 	if bool(context.get("active_item_aipill_active", false)):
-		_draw_aipill_system_label(canvas, player_visual_rect)
+		_draw_aipill_system_label(canvas, drawn_player_visual_rect)
 	_perf_end(perf_logger, "actors.stage1.player.sprite_stack", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_viper_air_strike_flash(canvas, context, shake_offset)
@@ -302,7 +315,7 @@ func draw(
 	sample_start = _perf_begin(perf_logger)
 	dash_side_gauge_renderer.draw(canvas, context, player_pos, paddle_size, shake_offset)
 	_perf_end(perf_logger, "actors.stage1.player.dash_side_gauge", sample_start)
-	if paddle_hologram_active:
+	if paddle_hologram_active and not horn_strawberry_transformed:
 		# Scanlines / noise / edge-glow ride on top of the multi-pass sprite
 		# so they read across the whole materializing silhouette, including
 		# the cyan / magenta ghost halos.
