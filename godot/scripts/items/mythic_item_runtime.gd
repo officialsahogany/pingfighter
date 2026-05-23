@@ -254,6 +254,7 @@ const FIELD_EFFECT_CONSTANTS := {
 
 var catalog: Object = null
 var audio_router: Object = null
+var gauge_feedback: Object = null
 var context_builder: Object = null
 var debug_inventory: Object = null
 var equipment_index: Object = null
@@ -2938,20 +2939,6 @@ func _start_knee_pads_effect(ball_pos: Vector2, deps: Dictionary) -> void:
 
 func _build_soul_burst_effects() -> void:
 	soul_burst_runtime.build_effects(self)
-
-
-func _trigger_gauge_feedback(deps: Dictionary) -> void:
-	var feedback: Object = _get_dict(deps).get("feedback", null)
-	if feedback == null:
-		feedback = _get_instance(_get_dict(deps).get("registry", null), "battle_feedback_state")
-	if feedback != null and feedback.has_method("trigger_gauge_flash"):
-		feedback.trigger_gauge_flash()
-
-
-func _trigger_orb_gauge_spin(deps: Dictionary) -> void:
-	var orb_hud_state: Object = _get_dict(deps).get("orb_hud_state", null)
-	if orb_hud_state != null and orb_hud_state.has_method("trigger_gauge_spin"):
-		orb_hud_state.trigger_gauge_spin(Time.get_ticks_msec())
 
 
 func _get_commando_arm_roll_sum(option_key: String) -> float:

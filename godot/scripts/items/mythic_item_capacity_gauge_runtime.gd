@@ -59,7 +59,7 @@ func apply_chargebag_wall_bounce_gauge(
 	var gauge_max: float = max(0.0, float(context.get("gauge_max", context.get("special_gauge_max", 500.0))))
 	var next_gauge: float = min(gauge_max, special_gauge + gain)
 	if next_gauge > special_gauge:
-		runtime._trigger_gauge_feedback(deps)
+		runtime.gauge_feedback.trigger_gauge_flash(runtime, deps)
 	return next_gauge
 
 

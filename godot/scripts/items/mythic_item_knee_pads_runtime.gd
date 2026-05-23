@@ -32,8 +32,8 @@ func try_apply_player_hit(
 	var gauge_max: float = max(0.0, float(context.get("gauge_max", context.get("special_gauge_max", 500.0))))
 	var next_gauge: float = min(gauge_max, max(0.0, special_gauge) + charge_amount)
 	if next_gauge > special_gauge:
-		runtime._trigger_gauge_feedback(deps)
-	runtime._trigger_orb_gauge_spin(deps)
+		runtime.gauge_feedback.trigger_gauge_flash(runtime, deps)
+	runtime.gauge_feedback.trigger_orb_gauge_spin(runtime, deps)
 	start_effect(runtime, ball_pos, deps)
 	var registry: Object = runtime._get_dict(deps).get("registry", null)
 	runtime.audio_router.play_knee_pads_audio(runtime, registry)

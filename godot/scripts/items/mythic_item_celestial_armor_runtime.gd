@@ -73,7 +73,7 @@ func try_consume_immunity(
 		FEEDBACK_SHAKE_AMOUNT,
 		FEEDBACK_SHAKE_INTENSITY
 	)
-	runtime._trigger_gauge_feedback(deps)
+	runtime.gauge_feedback.trigger_gauge_flash(runtime, deps)
 	runtime.audio_router.play_celestial_armor_audio(runtime, runtime._get_dict(deps).get("registry", null))
 	var owner: Object = deps.get("owner", null)
 	if owner != null:

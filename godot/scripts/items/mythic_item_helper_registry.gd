@@ -3,6 +3,7 @@ extends RefCounted
 const INIT_ORDER := [
 	"catalog",
 	"audio_router",
+	"gauge_feedback",
 	"context_builder",
 	"debug_inventory",
 	"equipment_index",
@@ -73,6 +74,7 @@ const INIT_ORDER := [
 const SCRIPT_PATHS := {
 	"catalog": "res://scripts/items/mythic_item_catalog.gd",
 	"audio_router": "res://scripts/items/mythic_item_audio_router.gd",
+	"gauge_feedback": "res://scripts/items/mythic_item_gauge_feedback.gd",
 	"context_builder": "res://scripts/items/mythic_item_context_builder.gd",
 	"debug_inventory": "res://scripts/items/mythic_item_debug_inventory.gd",
 	"equipment_index": "res://scripts/items/mythic_item_equipment_index.gd",

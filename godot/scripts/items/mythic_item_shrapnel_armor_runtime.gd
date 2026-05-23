@@ -41,7 +41,7 @@ func try_proc_player_hit(
 	var deps_dict: Dictionary = runtime._get_dict(deps)
 	runtime.audio_router.play_shrapnel_armor_fire_audio(runtime, deps_dict.get("registry", null))
 	runtime.audio_router.apply_ragnarok_feedback(runtime, deps, 0.045, 1.8)
-	runtime._trigger_gauge_feedback(deps)
+	runtime.gauge_feedback.trigger_gauge_flash(runtime, deps)
 	runtime._sync_owner(deps_dict.get("owner", null), deps_dict.get("registry", null))
 	return {
 		"activated": true,

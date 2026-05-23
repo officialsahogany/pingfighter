@@ -378,7 +378,7 @@ func _get_owner_gauge(runtime: Object, owner: Object) -> float:
 
 
 func _trigger_feedback(runtime: Object, registry: Object) -> void:
-	runtime._trigger_gauge_feedback({"registry": registry})
+	runtime.gauge_feedback.trigger_gauge_flash(runtime, {"registry": registry})
 
 
 func _play_horn_strawberry_audio(runtime: Object, registry: Object, method_name: String) -> void:

@@ -355,8 +355,10 @@ func give_gauge(runtime: Object, owner: Object, registry: Object, constants: Dic
 	if next_gauge <= current_gauge:
 		return
 	owner.set("special_gauge", next_gauge)
-	runtime._trigger_gauge_feedback({"registry": registry})
-	runtime._trigger_orb_gauge_spin({"orb_hud_state": runtime._get_instance(registry, "orb_hud_state")})
+	runtime.gauge_feedback.trigger_gauge_flash(runtime, {"registry": registry})
+	runtime.gauge_feedback.trigger_orb_gauge_spin(runtime, {
+		"orb_hud_state": runtime._get_instance(registry, "orb_hud_state"),
+	})
 
 
 func get_player_speed_multiplier(runtime: Object, constants: Dictionary) -> float:
