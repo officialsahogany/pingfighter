@@ -167,7 +167,7 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 	_expect(bool(advance_result.get("started_aircraft", false)), "runtime support advance wrapper should report aircraft startup")
 	_expect(bool(advance_result.get("spawn_bomb", false)), "runtime support advance wrapper should report bomb spawn")
 	var advanced_pos: Vector2 = _get_vector2(advanced_call.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO)
-	_expect(is_equal_approx(advanced_pos.x, -252.0), "runtime support advance wrapper should use the pillar-edge aircraft lane and tuned speed")
+	_expect(is_equal_approx(advanced_pos.x, -144.0), "runtime support advance wrapper should use the pillar-edge aircraft lane and doubled speed")
 	_expect(advanced_pos.y > 340.0, "runtime support advance wrapper should curve through the center-screen aircraft lane")
 	_expect(abs(float(advanced_call.get("aircraft_curve_roll", 0.0))) > 0.0, "runtime support advance wrapper should expose curve roll metadata")
 	runtime.support_calls = [{"call_timer_frames": 1.0}]

@@ -21,7 +21,7 @@ const BOWLING_TRAP_SHEET_FRAME_COUNT := 16
 const SUPPORT_AIRCRAFT_TEXTURE_PATH := "res://assets/sprites/effects/commando_fire_support_aircraft_stealth_imagegen_v1.png"
 const SUPPORT_BOMB_TEXTURE_PATH := "res://assets/sprites/effects/commando_fire_support_bomb_projectile_imagegen_v1.png"
 const SUPPORT_AIRCRAFT_SOURCE_RECT := Rect2(Vector2(270.0, 41.0), Vector2(483.0, 430.0))
-const SUPPORT_AIRCRAFT_DRAW_SIZE := Vector2(150.0, 134.0)
+const SUPPORT_AIRCRAFT_DRAW_SIZE := Vector2(90.0, 80.4)
 const SUPPORT_AIRCRAFT_TRAIL_COUNT := 4
 const SUPPORT_AIRCRAFT_SHADOW_OFFSET := Vector2(0.0, 42.0)
 const SUPPORT_BOMB_DRAW_LENGTH_SCALE := 6.5
@@ -209,6 +209,7 @@ func build_texture_remaster_plan(context: Dictionary) -> Dictionary:
 		"bowling_trap_capture_sheet_ready": _get_bowling_trap_capture_sheet_texture() != null,
 		"bowling_trap_launch_sheet_ready": _get_bowling_trap_launch_sheet_texture() != null,
 		"support_aircraft_texture_ready": _get_support_aircraft_texture() != null,
+		"support_aircraft_draw_size": SUPPORT_AIRCRAFT_DRAW_SIZE,
 		"support_bomb_texture_ready": _get_support_bomb_texture() != null,
 		"bowling_trap_sheet_frame_count": BOWLING_TRAP_SHEET_FRAME_COUNT,
 		"bowling_trap_sheet_cols": BOWLING_TRAP_SHEET_COLS,

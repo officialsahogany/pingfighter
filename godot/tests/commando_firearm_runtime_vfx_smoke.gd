@@ -1346,7 +1346,7 @@ func _verify_fire_support_call_lifecycle() -> void:
 	_expect(strike_calls.size() == 1 and bool(_get_dict(strike_calls[0]).get("aircraft_active", false)), "fire support should expose the aircraft once the strike starts")
 	var strike_call: Dictionary = _get_dict(strike_calls[0])
 	var aircraft_velocity: Vector2 = _get_vector2(strike_call.get("aircraft_velocity", Vector2.ZERO), Vector2.ZERO)
-	_expect(is_equal_approx(aircraft_velocity.x, 5.4), "fire support aircraft should fly at the tuned 3x speed")
+	_expect(is_equal_approx(aircraft_velocity.x, 10.8), "fire support aircraft should fly at the doubled strike speed")
 	_expect(float(strike_call.get("aircraft_curve_amplitude", 0.0)) > 0.0, "fire support aircraft should expose curved flight metadata")
 	var strike_aircraft_pos: Vector2 = _get_vector2(strike_call.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO)
 	_expect(strike_aircraft_pos.x < -300.0, "fire support aircraft should enter from the pillar-edge flight band")

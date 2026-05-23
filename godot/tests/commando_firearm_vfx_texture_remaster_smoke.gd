@@ -57,6 +57,7 @@ func _verify_texture_piece_remaster_plan() -> void:
 	_expect(bool(plan.get("bowling_trap_capture_sheet_ready", false)), "bowling trap capture AutoSprite sheet should prewarm")
 	_expect(bool(plan.get("bowling_trap_launch_sheet_ready", false)), "bowling trap launch AutoSprite sheet should prewarm")
 	_expect(bool(plan.get("support_aircraft_texture_ready", false)), "fire-support stealth aircraft imagegen texture should prewarm")
+	_expect(plan.get("support_aircraft_draw_size", Vector2.ZERO) == Vector2(90.0, 80.4), "fire-support stealth aircraft should render at the 40% smaller tuned size")
 	_expect(bool(plan.get("support_bomb_texture_ready", false)), "fire-support bomb projectile imagegen texture should prewarm")
 	_expect(int(plan.get("bowling_trap_sheet_frame_count", 0)) == 16, "bowling trap AutoSprite sheets should expose sixteen runtime frames")
 	_expect(int(plan.get("muzzle_texture_layers", 0)) == 2, "one muzzle flash should produce two texture layers")
