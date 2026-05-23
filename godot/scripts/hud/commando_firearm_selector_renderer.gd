@@ -11,6 +11,7 @@ const NET_GUN_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_net_gun_fi
 const NET_GUN_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_net_gun_firearm_fire_recoil_sheet_autosprite_v1.png"
 const BAZOOKA_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_bazooka_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png"
 const BAZOOKA_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_bazooka_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png"
+const FIRE_SUPPORT_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_fire_support_firearm_icon_imagegen_v1.png"
 const BOWLING_TRAP_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_bowling_trap_firearm_icon_imagegen_v1.png"
 const BOWLING_TRAP_INSTALL_SHEET_PATH := "res://assets/sprites/hud/commando_bowling_trap_firearm_install_sheet_autosprite_v1.png"
 const BOWLING_TRAP_CAPTURE_SHEET_PATH := "res://assets/sprites/effects/commando_bowling_trap_capture_sheet_autosprite_v1.png"
@@ -84,6 +85,8 @@ const BAZOOKA_FIRE_RECOIL_FRAME_COUNT := 16
 const BAZOOKA_HUD_PICTURE_SCALE := 1.16
 const BAZOOKA_HUD_PICTURE_Y_OFFSET := 2.0
 const BAZOOKA_FIRE_RECOIL_DRAW_SCALE := 1.42
+const FIRE_SUPPORT_HUD_PICTURE_SCALE := 1.08
+const FIRE_SUPPORT_HUD_PICTURE_Y_OFFSET := 1.0
 const BOWLING_TRAP_HUD_PICTURE_SCALE := 1.20
 const BOWLING_TRAP_HUD_PICTURE_Y_OFFSET := 0.0
 const BOWLING_TRAP_INSTALL_GRID_COLS := 4
@@ -124,6 +127,7 @@ func prewarm_assets_step() -> bool:
 		NET_GUN_FIRE_RECOIL_SHEET_PATH,
 		BAZOOKA_ICON_TEXTURE_PATH,
 		BAZOOKA_FIRE_RECOIL_SHEET_PATH,
+		FIRE_SUPPORT_ICON_TEXTURE_PATH,
 		BOWLING_TRAP_ICON_TEXTURE_PATH,
 		BOWLING_TRAP_INSTALL_SHEET_PATH,
 		BOWLING_TRAP_CAPTURE_SHEET_PATH,
@@ -194,6 +198,7 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 		"net_gun_fire_recoil_sheet_path": NET_GUN_FIRE_RECOIL_SHEET_PATH,
 		"bazooka_icon_path": BAZOOKA_ICON_TEXTURE_PATH,
 		"bazooka_fire_recoil_sheet_path": BAZOOKA_FIRE_RECOIL_SHEET_PATH,
+		"fire_support_icon_path": FIRE_SUPPORT_ICON_TEXTURE_PATH,
 		"bowling_trap_icon_path": BOWLING_TRAP_ICON_TEXTURE_PATH,
 		"bowling_trap_install_sheet_path": BOWLING_TRAP_INSTALL_SHEET_PATH,
 		"bowling_trap_capture_sheet_path": BOWLING_TRAP_CAPTURE_SHEET_PATH,
@@ -470,6 +475,13 @@ func _get_weapon_picture_rect(icon_rect: Rect2, weapon_id: String, scale_factor:
 			icon_rect.position.y + (icon_rect.size.y - draw_size.y) * 0.5 + BAZOOKA_HUD_PICTURE_Y_OFFSET * scale_factor
 		)
 		return Rect2(position, draw_size)
+	if weapon_id == "fire_support":
+		var draw_size := icon_rect.size * FIRE_SUPPORT_HUD_PICTURE_SCALE
+		var position := Vector2(
+			icon_rect.position.x + (icon_rect.size.x - draw_size.x) * 0.5,
+			icon_rect.position.y + (icon_rect.size.y - draw_size.y) * 0.5 + FIRE_SUPPORT_HUD_PICTURE_Y_OFFSET * scale_factor
+		)
+		return Rect2(position, draw_size)
 	if weapon_id == "bowling_trap":
 		var draw_size := icon_rect.size * BOWLING_TRAP_HUD_PICTURE_SCALE
 		var position := Vector2(
@@ -504,6 +516,8 @@ func _draw_weapon_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, co
 				return
 			_draw_bazooka_picture(canvas, rect, base_alpha, scale_factor)
 		"fire_support":
+			if _draw_fire_support_png_picture(canvas, rect, base_alpha):
+				return
 			_draw_fire_support_picture(canvas, rect, base_alpha, scale_factor)
 		"bowling_trap":
 			if _draw_bowling_trap_png_picture(canvas, rect, base_alpha, bowling_trap_state, bowling_traps, scale_factor):
@@ -609,6 +623,14 @@ func _draw_bazooka_png_picture(canvas: CanvasItem, rect: Rect2, weapon_id: Strin
 			)
 			return true
 	var icon: Texture2D = _get_cached_weapon_texture(BAZOOKA_ICON_TEXTURE_PATH)
+	if icon is Texture2D:
+		canvas.draw_texture_rect(icon, rect, false, Color(1.0, 1.0, 1.0, alpha))
+		return true
+	return false
+
+
+func _draw_fire_support_png_picture(canvas: CanvasItem, rect: Rect2, alpha: float) -> bool:
+	var icon: Texture2D = _get_cached_weapon_texture(FIRE_SUPPORT_ICON_TEXTURE_PATH)
 	if icon is Texture2D:
 		canvas.draw_texture_rect(icon, rect, false, Color(1.0, 1.0, 1.0, alpha))
 		return true
