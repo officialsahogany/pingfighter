@@ -3873,11 +3873,13 @@ func _advance_blade_projectile(fps_scale: float, scene: Dictionary, context: Dic
 	blade_projectile_trail.append(blade_projectile_pos)
 	while blade_projectile_trail.size() > BLADE_TRAIL_MAX:
 		blade_projectile_trail.pop_front()
+	var projectile_rect: Rect2 = _blade_rect(blade_projectile_pos, blade_projectile_width, blade_dark_mode)
+	_destroy_blade_stage2_rocks(projectile_rect, deps, context)
 	if (
 		bool(context.get("ball_active", false))
 		and not blade_projectile_hit_ball
 		and not blade_projectile_fadeout
-		and _blade_rect(blade_projectile_pos, blade_projectile_width, blade_dark_mode).intersects(_get_ball_rect(scene, context))
+		and projectile_rect.intersects(_get_ball_rect(scene, context))
 	):
 		blade_projectile_hit_ball = true
 		result = _apply_blade_hit(scene, context, deps, blade_dark_mode, true, true, true, 1.0)
@@ -3916,11 +3918,13 @@ func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, co
 		while trail.size() > 16:
 			trail.pop_front()
 		projectile["trail"] = trail
+		var projectile_rect: Rect2 = _blade_rect(pos, float(projectile.get("width", BLADE_BASE_WIDTH)), dark_mode)
+		_destroy_blade_stage2_rocks(projectile_rect, deps, context)
 		if (
 			bool(context.get("ball_active", false))
 			and not bool(projectile.get("hit_ball", false))
 			and not bool(projectile.get("fadeout", false))
-			and _blade_rect(pos, float(projectile.get("width", BLADE_BASE_WIDTH)), dark_mode).intersects(_get_ball_rect(scene, context))
+			and projectile_rect.intersects(_get_ball_rect(scene, context))
 		):
 			projectile["hit_ball"] = true
 			result = _apply_blade_hit(
@@ -4081,6 +4085,23 @@ func _spawn_dual_glitch_clone_blades_for_current_cast(
 
 func _blade_rect(pos: Vector2, width: float, dark_mode: bool) -> Rect2:
 	return ViperSkillGeometry.blade_rect(pos, width, dark_mode, BLADE_HITBOX_HEIGHT, BLADE_DARK_HITBOX_HEIGHT)
+
+
+func _destroy_blade_stage2_rocks(blade_rect: Rect2, deps: Dictionary, context: Dictionary) -> int:
+	if int(context.get("current_stage", 1)) != 2:
+		return 0
+	var hit_count := 0
+	var seen_instance_ids: Dictionary = {}
+	for key in ["stage_background", "stage2_pillar_background"]:
+		var target: Object = deps.get(key, null)
+		if target == null or not target.has_method("resolve_blade_projectile_collision"):
+			continue
+		var instance_id: int = target.get_instance_id()
+		if seen_instance_ids.has(instance_id):
+			continue
+		seen_instance_ids[instance_id] = true
+		hit_count += max(0, int(target.resolve_blade_projectile_collision(blade_rect, deps, context)))
+	return hit_count
 
 
 func _get_blade_skill_cost(skill_config: Object, deps: Dictionary, skill_name: String) -> float:
