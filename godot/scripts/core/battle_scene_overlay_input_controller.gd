@@ -8,7 +8,9 @@ const ITEM_MANAGEMENT_DEBUG_KEY := KEY_F3
 const PERK_PICKER_DEBUG_KEY := KEY_F4
 const STAGE_DEBUG_KEY := KEY_F5
 const WEATHER_DEBUG_KEY := KEY_F6
-const PLAYER_CUSTOMIZATION_DEBUG_KEY := KEY_F7
+# KEY_F7 is owned by `ExhibitionResetHandler` (autoload) as the booth reset
+# hotkey. Do not rebind F7 here -- the autoload handles the event in `_input`
+# before unhandled-input reaches this controller.
 const RUNTIME_PERK_DEBUG_KEY := KEY_F8
 const BALL_SPEED_DEBUG_KEY := KEY_F9
 const CHARACTER_INFO_KEY := KEY_TAB
@@ -58,9 +60,6 @@ func handle_input(
 		return true
 	if _is_key_pressed(event, WEATHER_DEBUG_KEY):
 		_switch_debug_menu(DEBUG_MENU_WEATHER_PICKER, owner, module_getter)
-		return true
-	if _is_key_pressed(event, PLAYER_CUSTOMIZATION_DEBUG_KEY):
-		_toggle_player_customization_debug_overlay(owner)
 		return true
 	if _is_character_debug_picker_open(module_getter):
 		if character_debug_picker != null and character_debug_picker.has_method("handle_input"):
@@ -246,15 +245,6 @@ func _switch_debug_menu(menu_key: String, owner: Object, module_getter: Callable
 	_close_all_debug_menus(module_getter)
 	if not was_open:
 		_open_debug_menu(menu_key, owner, module_getter)
-	_queue_redraw(owner)
-	_mark_handled(owner)
-
-
-func _toggle_player_customization_debug_overlay(owner: Object) -> void:
-	if owner == null:
-		return
-	var current: bool = bool(owner.get("player_customization_debug_overlay_enabled"))
-	owner.set("player_customization_debug_overlay_enabled", not current)
 	_queue_redraw(owner)
 	_mark_handled(owner)
 

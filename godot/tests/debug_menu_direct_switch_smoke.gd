@@ -145,6 +145,7 @@ func _init() -> void:
 	var input := BattleSceneOverlayInputController.new()
 	var owner := FakeOwner.new()
 
+	_expect(not _press(input, owner, KEY_F7), "F7 should be reserved for ExhibitionResetHandler and ignored by battle debug input")
 	_expect(_press(input, owner, KEY_F2), "F2 should open item spawn debug")
 	_expect(registry.active_item_runtime.open, "item spawn debug should be open")
 

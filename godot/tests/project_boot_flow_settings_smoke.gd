@@ -34,6 +34,10 @@ func _init() -> void:
 		"DisplayRefreshManager autoload should stay registered for opt-in refresh restore"
 	)
 	_expect(
+		str(ProjectSettings.get_setting("autoload/ExhibitionResetHandler", "")) == "*res://scripts/core/exhibition_reset_handler.gd",
+		"ExhibitionResetHandler autoload should stay registered for booth reset"
+	)
+	_expect(
 		int(ProjectSettings.get_setting("display/window/size/viewport_width", 0)) == EXPECTED_VIEWPORT_WIDTH,
 		"project viewport width should keep the desktop-scale launch size"
 	)
@@ -60,6 +64,7 @@ func _init() -> void:
 	_expect(FileAccess.file_exists(BOOT_FLOW_SCENE_PATH), "boot flow scene should exist")
 	_expect(FileAccess.file_exists(MAIN_MENU_SCENE_PATH), "main menu scene should exist")
 	_expect(FileAccess.file_exists(CHARACTER_SELECT_SCENE_PATH), "character select scene should exist")
+	_expect(FileAccess.file_exists("res://scripts/core/exhibition_reset_handler.gd"), "exhibition reset handler script should exist")
 
 	var packed := load(BOOT_FLOW_SCENE_PATH) as PackedScene
 	_expect(packed != null, "boot flow scene should load")

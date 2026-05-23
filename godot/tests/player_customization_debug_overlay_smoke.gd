@@ -2,23 +2,13 @@ extends SceneTree
 
 const BattleDrawActorContext := preload("res://scripts/core/battle_draw_actor_context.gd")
 const BattleResources := preload("res://scripts/resources/battle_resources.gd")
-const BattleSceneOverlayInputController := preload("res://scripts/core/battle_scene_overlay_input_controller.gd")
 const PlayerCustomizationOverlayRenderer := preload("res://scripts/characters/player_customization_overlay_renderer.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
 
 
-class FakeOwner:
-	var player_customization_debug_overlay_enabled := false
-	var redraw_count := 0
-
-	func queue_redraw() -> void:
-		redraw_count += 1
-
-
 func _init() -> void:
-	_verify_f7_toggles_debug_overlay()
 	_verify_debug_overlay_resource_loads()
 	_verify_debug_slot_injection()
 	_verify_debug_slot_stays_smasher_only()
@@ -30,17 +20,6 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
-
-
-func _verify_f7_toggles_debug_overlay() -> void:
-	var input := BattleSceneOverlayInputController.new()
-	var owner := FakeOwner.new()
-	_expect(_press(input, owner, KEY_F7), "F7 should handle the customization debug toggle")
-	_expect(owner.player_customization_debug_overlay_enabled, "F7 should enable the customization debug overlay")
-	_expect(owner.redraw_count == 1, "F7 should queue redraw when enabling the customization debug overlay")
-	_expect(_press(input, owner, KEY_F7), "F7 should handle the customization debug toggle a second time")
-	_expect(not owner.player_customization_debug_overlay_enabled, "F7 should disable the customization debug overlay")
-	_expect(owner.redraw_count == 2, "F7 should queue redraw when disabling the customization debug overlay")
 
 
 func _verify_debug_overlay_resource_loads() -> void:
@@ -77,7 +56,7 @@ func _verify_debug_slot_injection() -> void:
 	var overlay_textures: Dictionary = _get_dict(actor_context.get("player_customization_overlay_textures", {}))
 	var overlay_slots: Dictionary = _get_dict(actor_context.get("player_customization_overlay_slots", {}))
 	_expect(overlay_textures.get("smasher_debug_paddle_overlay_sheet", null) == sheet, "actor context should expose the debug sheet in overlay textures")
-	_expect(overlay_slots.has("paddle"), "actor context should inject the debug paddle slot when F7 is enabled")
+	_expect(overlay_slots.has("paddle"), "actor context should inject the debug paddle slot when the debug flag is enabled")
 	_expect(source_slots.is_empty(), "debug slot injection should not mutate the source overlay slot dictionary")
 	_expect(source_textures.is_empty(), "debug texture injection should not mutate the source overlay texture dictionary")
 
@@ -116,7 +95,7 @@ func _verify_debug_slot_stays_smasher_only() -> void:
 			"smasher_debug_paddle_overlay_sheet": sheet,
 		},
 	}, {})
-	_expect(_get_dict(disabled_context.get("player_customization_overlay_slots", {})).is_empty(), "debug paddle slot should stay absent while F7 is off")
+	_expect(_get_dict(disabled_context.get("player_customization_overlay_slots", {})).is_empty(), "debug paddle slot should stay absent while the debug flag is off")
 
 	var viper_context: Dictionary = builder.build({
 		"selected_character_type": "viper",
@@ -126,20 +105,6 @@ func _verify_debug_slot_stays_smasher_only() -> void:
 		},
 	}, {})
 	_expect(_get_dict(viper_context.get("player_customization_overlay_slots", {})).is_empty(), "debug paddle slot should not attach to non-Smasher characters")
-
-
-func _press(input: Object, owner: Object, keycode: int) -> bool:
-	var event := InputEventKey.new()
-	event.pressed = true
-	@warning_ignore("int_as_enum_without_cast")
-	event.keycode = keycode
-	@warning_ignore("int_as_enum_without_cast")
-	event.physical_keycode = keycode
-	return bool(input.handle_input(event, owner, null, Callable(self, "_get_module"), {}))
-
-
-func _get_module(_key: String) -> Object:
-	return null
 
 
 func _make_texture(size: Vector2i, color: Color) -> Texture2D:
