@@ -1,0 +1,294 @@
+extends RefCounted
+
+const ITEM_MEGINGJORD := "megingjord"
+const ITEM_DOWSING_GOGGLES := "dowsing_goggles"
+const ITEM_RAGNAROK_HAMMER := "ragnarok_hammer"
+const ITEM_POSEIDON_TRIDENT := "poseidon_trident"
+const ITEM_FOUL_WHISTLE := "foul_whistle"
+const ITEM_SOUL_BURST := "soul_burst"
+const ITEM_SENSOR := "sensor"
+const ITEM_SMARTPHONE := "smartphone"
+const ITEM_VENOM_MIST_GAUNTLET := "venom_mist_gauntlet"
+const ITEM_RAINBOW_FUR_GLOVE := "rainbow_fur_glove"
+const ITEM_ADVERSITY_ARMOR := "adversity_armor"
+const ITEM_SHRAPNEL_ARMOR := "shrapnel_armor"
+const ITEM_CELESTIAL_ARMOR := "celestial_armor"
+const ITEM_HERMES_SHOES := "hermes_shoes"
+const ITEM_BAAL_BOOTS := "baal_boots"
+const ITEM_HORN_STRAWBERRY_MASK := "horn_strawberry_mask"
+const ITEM_PANDORA_LEGACY := "pandora_legacy"
+
+
+func acquire_item(
+	runtime: Object,
+	item_name: String,
+	owner: Object,
+	registry: Object = null,
+	roll_overrides: Dictionary = {},
+	auto_equip: bool = true,
+	play_pickup_sound: bool = false,
+	acquired_item_data: Dictionary = {}
+) -> int:
+	var item_data: Dictionary = runtime.catalog.build_item_by_name(item_name)
+	if item_data.is_empty():
+		return -1
+	var item_rolls: Dictionary = runtime.catalog.build_random_rolls(item_name)
+	if item_rolls.is_empty():
+		item_rolls = runtime._get_dict(item_data.get("rolls", {})).duplicate(true)
+	for key in roll_overrides.keys():
+		item_rolls[str(key)] = roll_overrides[key]
+	item_data["rolls"] = item_rolls
+	var preserve_acquired_quality: bool = bool(runtime._has_acquired_quality_identity(acquired_item_data))
+	if preserve_acquired_quality:
+		item_data = runtime._copy_acquired_quality_identity(item_data, acquired_item_data)
+	item_data = runtime.catalog.sync_roll_fields(item_data, false, not preserve_acquired_quality)
+	item_data["owned"] = true
+	item_data["equipped"] = false
+	item_data["_equipped_slot"] = ""
+	item_data["_inventory_id"] = runtime.next_inventory_id
+	runtime.next_inventory_id += 1
+	runtime.inventory_items.append(item_data)
+	var index: int = runtime.inventory_items.size() - 1
+	if auto_equip:
+		if not runtime.equip_inventory_item(index, owner, registry):
+			runtime._sync_owner(owner, registry)
+	else:
+		runtime._sync_owner(owner, registry)
+	runtime._try_grant_reinforced_boomerang_pickup_bonus(item_name, owner, registry)
+	if play_pickup_sound:
+		runtime._play_pickup_audio(registry)
+	return index
+
+
+func equip_item(
+	runtime: Object,
+	item_name: String,
+	owner: Object,
+	registry: Object = null,
+	roll_overrides: Dictionary = {},
+	play_pickup_sound: bool = false
+) -> bool:
+	var index: int = runtime._find_inventory_index_by_name(item_name)
+	if index < 0:
+		index = runtime.acquire_item(item_name, owner, registry, roll_overrides, false, play_pickup_sound)
+		if index < 0:
+			return false
+	else:
+		runtime._apply_roll_overrides(index, roll_overrides)
+	var equipped: bool = runtime.equip_inventory_item(index, owner, registry)
+	if play_pickup_sound and not equipped:
+		runtime._play_pickup_audio(registry)
+	return equipped
+
+
+func unequip_item(runtime: Object, item_name: String, owner: Object, registry: Object = null) -> bool:
+	var index: int = runtime._find_equipped_inventory_index_by_name(item_name)
+	if index < 0:
+		return false
+	return runtime.unequip_inventory_item(index, owner, registry)
+
+
+func equip_inventory_item(runtime: Object, index: int, owner: Object, registry: Object = null) -> bool:
+	if index < 0 or index >= runtime.inventory_items.size():
+		return false
+	if not (runtime.inventory_items[index] is Dictionary):
+		return false
+	var item_data: Dictionary = runtime.inventory_items[index]
+	var item_name: String = str(item_data.get("name", ""))
+	if runtime._is_single_equipment_item(item_name):
+		var equipped_index: int = runtime._find_equipped_inventory_index_by_name(item_name)
+		if equipped_index >= 0 and equipped_index != index:
+			return false
+	var slot_key: String = runtime._resolve_equipment_slot_key(item_data, owner)
+	if slot_key == "":
+		return false
+	if not runtime._is_equipment_slot_enabled(slot_key, owner):
+		return false
+	for i in range(runtime.inventory_items.size()):
+		if i == index or not (runtime.inventory_items[i] is Dictionary):
+			continue
+		var other: Dictionary = runtime.inventory_items[i]
+		if str(other.get("_equipped_slot", "")) == slot_key:
+			other["equipped"] = false
+			other["_equipped_slot"] = ""
+	item_data["equipped"] = true
+	item_data["_equipped_slot"] = slot_key
+	runtime.inventory_items[index] = item_data
+	runtime._rebuild_equipped_items()
+	_clear_on_equip(runtime, item_name, owner, registry)
+	runtime._sync_owner(owner, registry)
+	runtime._play_equipment_audio(registry)
+	return true
+
+
+func unequip_inventory_item(runtime: Object, index: int, owner: Object, registry: Object = null) -> bool:
+	if index < 0 or index >= runtime.inventory_items.size():
+		return false
+	if not (runtime.inventory_items[index] is Dictionary):
+		return false
+	var item_data: Dictionary = runtime.inventory_items[index]
+	if not bool(item_data.get("equipped", false)) and str(item_data.get("_equipped_slot", "")) == "":
+		return false
+	item_data["equipped"] = false
+	item_data["_equipped_slot"] = ""
+	runtime.inventory_items[index] = item_data
+	runtime._rebuild_equipped_items()
+	_clear_on_unequip(runtime, str(item_data.get("name", "")), registry)
+	runtime._sync_owner(owner, registry)
+	runtime._play_equipment_audio(registry)
+	return true
+
+
+func toggle_inventory_item(runtime: Object, index: int, owner: Object, registry: Object = null) -> bool:
+	if index < 0 or index >= runtime.inventory_items.size():
+		return false
+	var item_data: Dictionary = runtime._get_dict(runtime.inventory_items[index])
+	if item_data.is_empty():
+		return false
+	if bool(item_data.get("equipped", false)) or str(item_data.get("_equipped_slot", "")) != "":
+		return runtime.unequip_inventory_item(index, owner, registry)
+	return runtime.equip_inventory_item(index, owner, registry)
+
+
+func unequip_slot(runtime: Object, slot_key: String, owner: Object, registry: Object = null) -> bool:
+	var index: int = runtime._find_equipped_inventory_index_by_slot(slot_key)
+	if index < 0:
+		return false
+	return runtime.unequip_inventory_item(index, owner, registry)
+
+
+func discard_inventory_item(runtime: Object, index: int, owner: Object, registry: Object = null) -> bool:
+	if index < 0 or index >= runtime.inventory_items.size():
+		return false
+	var item_data: Dictionary = runtime._get_dict(runtime.inventory_items[index])
+	runtime.inventory_items.remove_at(index)
+	var item_name: String = str(item_data.get("name", ""))
+	_clear_on_remove_before_rebuild(runtime, item_name, registry)
+	runtime._rebuild_equipped_items()
+	_clear_on_remove_after_rebuild(runtime, item_name, registry)
+	runtime._sync_owner(owner, registry)
+	return true
+
+
+func _clear_on_equip(runtime: Object, item_name: String, owner: Object, registry: Object) -> void:
+	if item_name == ITEM_MEGINGJORD:
+		runtime.megingjord_extra_pick_count = 0
+	if item_name == ITEM_DOWSING_GOGGLES:
+		runtime.dowsing_goggles_bonus_triggered = false
+	if item_name == ITEM_RAGNAROK_HAMMER:
+		runtime._clear_ragnarok_runtime(registry)
+	if item_name == ITEM_POSEIDON_TRIDENT:
+		runtime._clear_poseidon_runtime(registry)
+	if item_name == ITEM_FOUL_WHISTLE:
+		runtime._clear_foul_whistle_runtime()
+	if item_name == ITEM_SOUL_BURST:
+		runtime._clear_soul_burst_runtime()
+	if item_name == ITEM_SENSOR:
+		runtime.sensor_enabled = true
+		runtime._clear_sensor_round_state()
+	if item_name == ITEM_SMARTPHONE:
+		runtime._clear_smartphone_runtime()
+	if item_name == ITEM_VENOM_MIST_GAUNTLET and not runtime.is_venom_mist_gauntlet_equipped():
+		runtime._clear_venom_mist_runtime()
+	if item_name == ITEM_RAINBOW_FUR_GLOVE:
+		runtime._clear_rainbow_fur_glove_runtime()
+	if item_name == ITEM_ADVERSITY_ARMOR:
+		runtime._clear_adversity_armor_runtime()
+	if item_name == ITEM_SHRAPNEL_ARMOR:
+		runtime._clear_shrapnel_armor_runtime()
+	if item_name == ITEM_CELESTIAL_ARMOR:
+		runtime._clear_celestial_armor_round_state()
+	if item_name == ITEM_HERMES_SHOES:
+		runtime._clear_hermes_shoes_round_state()
+	elif not runtime.is_hermes_shoes_equipped():
+		runtime._clear_hermes_shoes_runtime()
+	if item_name == ITEM_RAINBOW_FUR_GLOVE:
+		runtime._clear_rainbow_fur_glove_round_state()
+	if item_name == ITEM_ADVERSITY_ARMOR:
+		runtime._clear_adversity_armor_round_state()
+	if item_name == ITEM_SHRAPNEL_ARMOR:
+		runtime._clear_shrapnel_armor_round_state()
+	if item_name == ITEM_BAAL_BOOTS:
+		runtime._clear_baal_boots_round_state(registry)
+		runtime._try_arm_baal_boots_from_weather(owner, registry)
+	if item_name == ITEM_HORN_STRAWBERRY_MASK:
+		runtime.horn_strawberry_mask_runtime.clear_on_equip(runtime)
+	if item_name == ITEM_PANDORA_LEGACY:
+		runtime.pandora_legacy_runtime.clear_selection(runtime, false)
+
+
+func _clear_on_unequip(runtime: Object, item_name: String, registry: Object) -> void:
+	if item_name == ITEM_MEGINGJORD:
+		runtime.megingjord_extra_pick_count = 0
+	if item_name == ITEM_DOWSING_GOGGLES:
+		runtime.dowsing_goggles_bonus_triggered = false
+	if item_name == ITEM_RAGNAROK_HAMMER:
+		runtime._clear_ragnarok_runtime(registry)
+	if item_name == ITEM_POSEIDON_TRIDENT:
+		runtime._clear_poseidon_runtime(registry)
+	if item_name == ITEM_FOUL_WHISTLE:
+		runtime._clear_foul_whistle_runtime()
+	if item_name == ITEM_SOUL_BURST:
+		runtime._clear_soul_burst_runtime()
+	if item_name == ITEM_SENSOR:
+		runtime._clear_sensor_round_state()
+	if item_name == ITEM_SMARTPHONE:
+		runtime._clear_smartphone_runtime()
+	if item_name == ITEM_VENOM_MIST_GAUNTLET and not runtime.is_venom_mist_gauntlet_equipped():
+		runtime._clear_venom_mist_runtime()
+	if item_name == ITEM_RAINBOW_FUR_GLOVE:
+		runtime._clear_rainbow_fur_glove_runtime()
+	if item_name == ITEM_ADVERSITY_ARMOR:
+		runtime._clear_adversity_armor_runtime()
+	if item_name == ITEM_SHRAPNEL_ARMOR:
+		runtime._clear_shrapnel_armor_runtime()
+	if item_name == ITEM_CELESTIAL_ARMOR:
+		runtime._clear_celestial_armor_runtime()
+	if item_name == ITEM_HERMES_SHOES:
+		runtime._clear_hermes_shoes_runtime()
+	if item_name == ITEM_BAAL_BOOTS:
+		runtime._clear_baal_boots_runtime(registry)
+	if item_name == ITEM_HORN_STRAWBERRY_MASK:
+		runtime.horn_strawberry_mask_runtime.clear_on_unequip(runtime)
+	if item_name == ITEM_PANDORA_LEGACY:
+		runtime.pandora_legacy_runtime.clear_runtime(runtime)
+
+
+func _clear_on_remove_before_rebuild(runtime: Object, item_name: String, registry: Object) -> void:
+	if item_name == ITEM_MEGINGJORD:
+		runtime.megingjord_extra_pick_count = 0
+	if item_name == ITEM_DOWSING_GOGGLES:
+		runtime.dowsing_goggles_bonus_triggered = false
+	if item_name == ITEM_RAGNAROK_HAMMER:
+		runtime._clear_ragnarok_runtime(null)
+	if item_name == ITEM_POSEIDON_TRIDENT:
+		runtime._clear_poseidon_runtime(null)
+	if item_name == ITEM_FOUL_WHISTLE:
+		runtime._clear_foul_whistle_runtime()
+	if item_name == ITEM_SENSOR:
+		runtime._clear_sensor_round_state()
+	if item_name == ITEM_SMARTPHONE:
+		runtime._clear_smartphone_runtime()
+	if item_name == ITEM_BAAL_BOOTS:
+		runtime._clear_baal_boots_runtime(registry)
+	if item_name == ITEM_HORN_STRAWBERRY_MASK:
+		runtime.horn_strawberry_mask_runtime.clear_on_unequip(runtime)
+	if item_name == ITEM_PANDORA_LEGACY:
+		runtime.pandora_legacy_runtime.clear_runtime(runtime)
+
+
+func _clear_on_remove_after_rebuild(runtime: Object, item_name: String, registry: Object) -> void:
+	if item_name == ITEM_VENOM_MIST_GAUNTLET and not runtime.is_venom_mist_gauntlet_equipped():
+		runtime._clear_venom_mist_runtime()
+	if item_name == ITEM_RAINBOW_FUR_GLOVE and not runtime.is_rainbow_fur_glove_equipped():
+		runtime._clear_rainbow_fur_glove_runtime()
+	if item_name == ITEM_ADVERSITY_ARMOR and not runtime.is_adversity_armor_equipped():
+		runtime._clear_adversity_armor_runtime()
+	if item_name == ITEM_SHRAPNEL_ARMOR and not runtime.is_shrapnel_armor_equipped():
+		runtime._clear_shrapnel_armor_runtime()
+	if item_name == ITEM_CELESTIAL_ARMOR and not runtime.is_celestial_armor_equipped():
+		runtime._clear_celestial_armor_runtime()
+	if item_name == ITEM_HERMES_SHOES and not runtime.is_hermes_shoes_equipped():
+		runtime._clear_hermes_shoes_runtime()
+	if item_name == ITEM_BAAL_BOOTS and not runtime.is_baal_boots_equipped():
+		runtime._clear_baal_boots_runtime(registry)

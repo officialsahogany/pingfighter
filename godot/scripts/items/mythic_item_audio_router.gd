@@ -275,3 +275,77 @@ func play_shrapnel_armor_hit_audio(runtime: Object, registry: Object) -> void:
 		audio.play_boomerang_hit()
 	elif audio.has_method("play_active_item"):
 		audio.play_active_item()
+
+
+func play_horn_strawberry_change_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_change", "play_megingjord", "play_active_item"]
+	)
+
+
+func play_horn_strawberry_eat_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_eat", "play_drink", "play_active_item"]
+	)
+
+
+func play_horn_strawberry_stem_fire_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_stem_fire", "play_shrapnel_armor_fire", "play_throw", "play_active_item"]
+	)
+
+
+func play_horn_strawberry_stem_hit_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_stem_hit", "play_shrapnel_armor_hit", "play_boomerang_hit", "play_active_item"]
+	)
+
+
+func play_horn_strawberry_field_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_field", "play_shield_kiting_launch", "play_active_item"]
+	)
+
+
+func play_horn_strawberry_horn_charge_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_horn_charge", "play_active_item"]
+	)
+
+
+func play_horn_strawberry_horn_impact_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_horn_impact", "play_paddle_hit", "play_active_item"]
+	)
+
+
+func play_horn_strawberry_bomb_throw_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_bomb_throw", "play_throw", "play_active_item"]
+	)
+
+
+func play_horn_strawberry_bomb_explosion_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_bomb_explosion", "play_grenade_explosion", "play_active_item"]
+	)
+
+
+func _play_first_available(audio: Object, method_names: Array) -> bool:
+	if audio == null:
+		return false
+	for method_name_value in method_names:
+		var method_name := str(method_name_value)
+		if audio.has_method(method_name):
+			audio.call(method_name)
+			return true
+	return false

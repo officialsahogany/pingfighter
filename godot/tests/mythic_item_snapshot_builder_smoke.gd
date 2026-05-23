@@ -37,6 +37,9 @@ func _verify_snapshot_facade_keeps_existing_keys() -> void:
 	_expect(bool(snapshot.get("venom_mist_field_active", false)), "snapshot should preserve venom mist field flag")
 	_expect(snapshot.get("venom_mist_field_center", Vector2.ZERO) == Vector2(120.0, 340.0), "snapshot should preserve venom mist center")
 	_expect(is_equal_approx(float(snapshot.get("poseidon_trident_capture_progress", 0.0)), 0.25), "snapshot should preserve poseidon capture progress math")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	_expect(runtime_source.find("SNAPSHOT_CONSTANTS") < 0, "mythic runtime should not keep snapshot constants inline")
+	_expect(runtime_source.find("func _queue_owner_redraw") < 0, "mythic runtime should not keep Pandora redraw bridge methods inline")
 
 
 func _verify_snapshot_inventory_is_deep_copied() -> void:

@@ -126,6 +126,7 @@ func _verify_stage1_pillar_prewarm_touches_hud_modules() -> void:
 	for key in [
 		"stage1_pillar_ui_renderer",
 		"active_item_hud_renderer",
+		"horn_strawberry_skill_pillar_renderer",
 		"scoreboard_renderer",
 		"stage1_dalji_boss_skill_hud_renderer",
 		"commando_firearm_selector_renderer",

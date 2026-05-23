@@ -82,6 +82,21 @@ const VIPER_CONTROL_ROWS := {
 	],
 }
 
+const HORN_STRAWBERRY_CONTROL_ROWS := {
+	"horn_strawberry_horn_charge": [
+		[["key", "W"], ["accent", "??"]],
+	],
+	"horn_strawberry_field": [
+		[["key", "S"], ["accent", "1? ??"]],
+	],
+	"horn_strawberry_eat": [
+		[["key", "SPACE"], ["dim", "??"], ["mouse_left", ""], ["accent", "??"]],
+	],
+	"horn_strawberry_bomb": [
+		[["key", "A"], ["plus", "+"], ["key", "D"], ["accent", "0.5? ??"]],
+	],
+}
+
 var layout_helper: Object = Stage1PillarUiLayout.new()
 var fallback_orb_renderer: Object = SmasherSkillOrbRenderer.new()
 var character_runtime: Object = PlayerCharacterRuntime.new()
@@ -182,6 +197,20 @@ func _build_hover_context(
 	var orb_renderer: Object = _get_instance(registry, "smasher_skill_orb_renderer")
 	if orb_renderer == null or not orb_renderer.has_method("get_slot_positions"):
 		orb_renderer = fallback_orb_renderer
+	var horn_strawberry_context: Dictionary = _get_horn_strawberry_context(registry, scene_context)
+	var horn_strawberry_skill_renderer: Object = _get_instance(registry, "horn_strawberry_skill_pillar_renderer")
+	var horn_strawberry_active: bool = _is_horn_strawberry_skill_hud_active(
+		horn_strawberry_skill_renderer,
+		horn_strawberry_context
+	)
+	if horn_strawberry_active and horn_strawberry_skill_renderer.has_method("build_skill_orb_context"):
+		orb_renderer = horn_strawberry_skill_renderer
+		skill_orb_context = horn_strawberry_skill_renderer.build_skill_orb_context(
+			horn_strawberry_context,
+			float(scene_context.get("special_gauge", 0.0)),
+			_get_instance(registry, "pillar_orb_drawer"),
+			skill_orb_context
+		)
 	var commando_firearm_runtime: Object = _get_instance(registry, "commando_firearm_runtime") if is_commando else null
 	var commando_firearm_context: Dictionary = {}
 	if commando_firearm_runtime != null and commando_firearm_runtime.has_method("get_actor_draw_context"):
@@ -207,11 +236,25 @@ func _build_hover_context(
 		"commando_firearm_pistol_state": _get_dictionary(commando_firearm_context.get("commando_firearm_pistol_state", scene_context.get("commando_firearm_pistol_state", {}))),
 		"special_gauge": float(scene_context.get("special_gauge", 0.0)),
 		"orb_renderer": orb_renderer,
+		"horn_strawberry_active": horn_strawberry_active,
+		"horn_strawberry_context": horn_strawberry_context,
+		"horn_strawberry_skill_pillar_renderer": horn_strawberry_skill_renderer,
 	}
 
 
 func _find_hovered_skill(hover_context: Dictionary) -> Dictionary:
 	var skill_context: Dictionary = _get_dictionary(hover_context.get("skill_context", {}))
+	if bool(hover_context.get("horn_strawberry_active", false)):
+		var horn_renderer: Object = hover_context.get("horn_strawberry_skill_pillar_renderer", null)
+		if horn_renderer != null and horn_renderer.has_method("find_hovered_skill"):
+			return horn_renderer.find_hovered_skill(
+				_get_vector2(hover_context, "mouse_pos", Vector2.ZERO),
+				_get_vector2(hover_context, "left_center", Vector2.ZERO),
+				float(hover_context.get("orb_radius", 55.0)),
+				float(hover_context.get("scale_factor", 1.0)),
+				skill_context
+			)
+		return {}
 	var snapshot: Dictionary = _get_dictionary(hover_context.get("skill_config_snapshot", {}))
 	var equipped_skills: Array = _get_array(snapshot.get("equipped_skills", []))
 	var skill_data_map: Dictionary = _get_dictionary(snapshot.get("skill_data", {}))
@@ -248,6 +291,8 @@ func _find_hovered_skill(hover_context: Dictionary) -> Dictionary:
 
 
 func _find_hovered_commando_firearm(hover_context: Dictionary) -> Dictionary:
+	if bool(hover_context.get("horn_strawberry_active", false)):
+		return {}
 	if str(hover_context.get("selected_character_type", "")) != "soldier":
 		return {}
 	var selector_renderer: Object = hover_context.get("commando_firearm_selector_renderer", null)
@@ -426,7 +471,8 @@ func _draw_cost_and_cooldown_line(
 		hover_context.get("skill_state", null),
 		str(skill_data.get("name", "")),
 		Time.get_ticks_msec(),
-		cooldown_seconds
+		cooldown_seconds,
+		hover_context
 	)
 	var cooldown_text: String
 	var cooldown_color: Color
@@ -754,15 +800,43 @@ func _draw_panel(canvas: CanvasItem, rect: Rect2, fill_color: Color, border_colo
 
 func _get_control_rows(skill_name: String, character_type: String = "smasher") -> Array:
 	var rows: Variant = VIPER_CONTROL_ROWS.get(skill_name, []) if character_runtime.is_viper(character_type) else CONTROL_ROWS.get(skill_name, [])
+	if HORN_STRAWBERRY_CONTROL_ROWS.has(skill_name):
+		var horn_rows: Variant = HORN_STRAWBERRY_CONTROL_ROWS.get(skill_name, [])
+		if horn_rows is Array:
+			return horn_rows
 	if rows is Array:
 		return rows
 	return []
 
 
-func _get_cooldown_remaining(skill_state: Object, skill_name: String, time_now: int, cooldown_seconds: float) -> float:
+func _get_cooldown_remaining(skill_state: Object, skill_name: String, time_now: int, cooldown_seconds: float, hover_context: Dictionary = {}) -> float:
+	var skill_context: Dictionary = _get_dictionary(hover_context.get("skill_context", {}))
+	var cooldown_ratios: Dictionary = _get_dictionary(skill_context.get("skill_cooldown_remaining_ratios", {}))
+	if cooldown_ratios.has(skill_name):
+		return clamp(float(cooldown_ratios.get(skill_name, 0.0)), 0.0, 1.0)
 	if skill_state != null and skill_state.has_method("get_cooldown_remaining"):
 		return float(skill_state.get_cooldown_remaining(skill_name, time_now, cooldown_seconds))
 	return 0.0
+
+
+func _get_horn_strawberry_context(registry: Object, scene_context: Dictionary) -> Dictionary:
+	var context: Dictionary = _get_dictionary(scene_context.get("horn_strawberry_context", {}))
+	if not context.is_empty():
+		return context
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_context"):
+		var value: Variant = mythic_item_runtime.get_horn_strawberry_context()
+		if value is Dictionary:
+			return value
+	return {}
+
+
+func _is_horn_strawberry_skill_hud_active(horn_renderer: Object, horn_context: Dictionary) -> bool:
+	if horn_renderer == null:
+		return false
+	if horn_renderer.has_method("is_active"):
+		return bool(horn_renderer.is_active(horn_context))
+	return bool(horn_context.get("transformed", false))
 
 
 func _token_color(token_type: String) -> Color:

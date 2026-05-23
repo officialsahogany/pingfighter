@@ -30,6 +30,10 @@ func build_commando_firearm_panel_state(game_offset: Vector2, game_size: Vector2
 	var orb_radius: float = float(layout["orb_radius"])
 	var skill_orb_renderer: Object = context.get("skill_orb_renderer", null)
 	var skill_orb_context: Dictionary = layout_helper.build_skill_orb_context(context, context.get("pillar_drawer", null))
+	var horn_renderer: Object = context.get("horn_strawberry_skill_pillar_renderer", null)
+	var horn_context: Dictionary = _get_dict(context.get("horn_strawberry_context", {}))
+	if _is_horn_strawberry_skill_hud_active(horn_renderer, horn_context):
+		return {}
 	var panel_center: Vector2 = _get_commando_firearm_panel_center(
 		left_center,
 		orb_radius,
@@ -55,6 +59,7 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 	var orb_radius: float = float(layout["orb_radius"])
 	var orb_drawer: Object = context.get("pillar_drawer", null)
 	var skill_orb_renderer: Object = context.get("skill_orb_renderer", null)
+	var horn_strawberry_skill_renderer: Object = context.get("horn_strawberry_skill_pillar_renderer", null)
 	var status_orb_renderer: Object = context.get("status_orb_renderer", null)
 	var combo_renderer: Object = context.get("combo_renderer", null)
 	var commando_firearm_selector_renderer: Object = context.get("commando_firearm_selector_renderer", null)
@@ -65,10 +70,25 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 
 	sample_start = _perf_begin(perf_logger)
 	var skill_orb_context: Dictionary = layout_helper.build_skill_orb_context(context, orb_drawer)
+	var horn_strawberry_context: Dictionary = _get_dict(context.get("horn_strawberry_context", {}))
+	var horn_strawberry_hud_active: bool = _is_horn_strawberry_skill_hud_active(
+		horn_strawberry_skill_renderer,
+		horn_strawberry_context
+	)
+	var active_skill_orb_renderer: Object = skill_orb_renderer
+	if horn_strawberry_hud_active:
+		active_skill_orb_renderer = horn_strawberry_skill_renderer
+		if horn_strawberry_skill_renderer.has_method("build_skill_orb_context"):
+			skill_orb_context = horn_strawberry_skill_renderer.build_skill_orb_context(
+				horn_strawberry_context,
+				float(context.get("special_gauge", 0.0)),
+				orb_drawer,
+				skill_orb_context
+			)
 	_perf_end(perf_logger, "stage1.pillar_ui.skill_context", sample_start)
-	if skill_orb_renderer != null:
+	if active_skill_orb_renderer != null:
 		sample_start = _perf_begin(perf_logger)
-		skill_orb_renderer.draw_underlay(canvas, left_center, orb_radius, scale_factor, skill_orb_context)
+		active_skill_orb_renderer.draw_underlay(canvas, left_center, orb_radius, scale_factor, skill_orb_context)
 		_perf_end(perf_logger, "stage1.pillar_ui.skill_underlay", sample_start)
 
 	if status_orb_renderer != null:
@@ -83,9 +103,9 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 		)
 		_perf_end(perf_logger, "stage1.pillar_ui.gauge_orb", sample_start)
 
-	if skill_orb_renderer != null:
+	if active_skill_orb_renderer != null:
 		sample_start = _perf_begin(perf_logger)
-		skill_orb_renderer.draw_orbs(canvas, left_center, orb_radius, time_seconds, scale_factor, skill_orb_context)
+		active_skill_orb_renderer.draw_orbs(canvas, left_center, orb_radius, time_seconds, scale_factor, skill_orb_context)
 		_perf_end(perf_logger, "stage1.pillar_ui.skill_orbs", sample_start)
 
 	# Boost / sector / half-ready overlays moved to the GPU shader host. Look up
@@ -139,7 +159,7 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 	if boost_fx_host != null and boost_fx_host.has_method("end_frame"):
 		boost_fx_host.end_frame()
 
-	if commando_firearm_selector_renderer != null:
+	if commando_firearm_selector_renderer != null and not horn_strawberry_hud_active:
 		sample_start = _perf_begin(perf_logger)
 		_draw_commando_firearm_selector(
 			canvas,
@@ -147,7 +167,7 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 			left_center,
 			orb_radius,
 			scale_factor,
-			skill_orb_renderer,
+			active_skill_orb_renderer,
 			skill_orb_context,
 			context
 		)
@@ -156,8 +176,8 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 	if combo_renderer != null:
 		sample_start = _perf_begin(perf_logger)
 		var skill_cluster_bounds := Rect2()
-		if skill_orb_renderer != null and skill_orb_renderer.has_method("get_cluster_bounds"):
-			skill_cluster_bounds = skill_orb_renderer.get_cluster_bounds(left_center, orb_radius, scale_factor, skill_orb_context)
+		if active_skill_orb_renderer != null and active_skill_orb_renderer.has_method("get_cluster_bounds"):
+			skill_cluster_bounds = active_skill_orb_renderer.get_cluster_bounds(left_center, orb_radius, scale_factor, skill_orb_context)
 		var combo_rect: Rect2 = layout_helper.build_combo_rect(left_center, scale_factor, skill_cluster_bounds)
 		combo_renderer.draw_hud(canvas, context.get("combo_state", null), combo_rect, scale_factor)
 		_perf_end(perf_logger, "stage1.pillar_ui.combo", sample_start)
@@ -259,6 +279,14 @@ func _get_dict(value: Variant) -> Dictionary:
 		return value
 	return {}
 
+
+
+func _is_horn_strawberry_skill_hud_active(horn_renderer: Object, horn_context: Dictionary) -> bool:
+	if horn_renderer == null:
+		return false
+	if horn_renderer.has_method("is_active"):
+		return bool(horn_renderer.is_active(horn_context))
+	return bool(horn_context.get("transformed", false))
 
 func _build_status_context(context: Dictionary) -> Dictionary:
 	var lod_scale: float = _get_hud_lod_scale(context)

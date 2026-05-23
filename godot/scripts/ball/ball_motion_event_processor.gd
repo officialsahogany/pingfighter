@@ -30,6 +30,8 @@ func step_motion(
 		_process_sand_terrain(step_result, scene, deps)
 	elif event == "brick_wall":
 		_process_brick_wall(step_result, scene, context, deps)
+	elif event == "horn_strawberry_field":
+		_process_horn_strawberry_field(step_result, scene, deps)
 	elif event == "holy_barrier":
 		_process_holy_barrier(step_result, scene, deps)
 	elif event == "adversity_armor":
@@ -145,6 +147,22 @@ func _process_holy_barrier(step_result: Dictionary, scene: Dictionary, deps: Dic
 	if active_item_runtime != null and active_item_runtime.has_method("notify_holy_barrier_hit"):
 		active_item_runtime.notify_holy_barrier_hit(_get_vector2(step_result, "impact_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO)))
 	_register_ball_hit_pulse(step_result, scene, deps, "holy_barrier", 0.72)
+
+
+func _process_horn_strawberry_field(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:
+	var ball_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
+	var reflect_speed_mult: float = max(1.0, float(step_result.get("reflect_speed_mult", 1.05)))
+	scene["ball_vel"] = Vector2(ball_vel.x, -abs(ball_vel.y) * reflect_speed_mult)
+	scene["ball_pos"] = _get_vector2(step_result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
+
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("notify_horn_strawberry_field_hit"):
+		mythic_item_runtime.notify_horn_strawberry_field_hit(
+			int(step_result.get("barrier_id", 0)),
+			_get_vector2(step_result, "impact_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO)),
+			deps
+		)
+	_register_ball_hit_pulse(step_result, scene, deps, "horn_strawberry_field", 0.72)
 
 
 func _process_adversity_armor(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:

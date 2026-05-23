@@ -98,6 +98,8 @@ const POSEIDON_CHARGE_SOUND_PATH := "res://assets/sounds/poseidoncharge.wav"
 const TIMEWATCH_SOUND_PATH := "res://assets/sounds/timewatch.wav"
 const THROW_BEFORE_SOUND_PATH := "res://assets/sounds/throwbefore.wav"
 const THROW_SOUND_PATH := "res://assets/sounds/throw.wav"
+const HORN_STRAWBERRY_CHANGE_SOUND_PATH := "res://assets/sounds/strawberrychange.wav"
+const HORN_STRAWBERRY_EAT_SOUND_PATH := "res://assets/sounds/strawberryeat.wav"
 const GRENADE_SOUND_PATH := "res://assets/sounds/grenade.wav"
 const FLASHBOMB_SOUND_PATH := "res://assets/sounds/flashbomb.wav"
 const SMOKEBOMB_SOUND_PATH := "res://assets/sounds/smokebomb.wav"
@@ -273,6 +275,8 @@ var poseidon_charge_sfx: AudioStreamPlayer
 var timewatch_sfx: AudioStreamPlayer
 var throw_before_sfx: AudioStreamPlayer
 var throw_sfx: AudioStreamPlayer
+var horn_strawberry_change_sfx: AudioStreamPlayer
+var horn_strawberry_eat_sfx: AudioStreamPlayer
 var grenade_sfx: AudioStreamPlayer
 var flashbomb_sfx: AudioStreamPlayer
 var smokebomb_sfx: AudioStreamPlayer
@@ -486,6 +490,8 @@ func _setup_item_command_sfx() -> void:
 	timewatch_sfx = player_factory.create(owner_node, "TimewatchSfx", TIMEWATCH_SOUND_PATH, -5.0)
 	throw_before_sfx = player_factory.create(owner_node, "ThrowBeforeSfx", THROW_BEFORE_SOUND_PATH, -5.0)
 	throw_sfx = player_factory.create(owner_node, "ThrowSfx", THROW_SOUND_PATH, -5.0)
+	horn_strawberry_change_sfx = player_factory.create(owner_node, "HornStrawberryChangeSfx", HORN_STRAWBERRY_CHANGE_SOUND_PATH, -5.0)
+	horn_strawberry_eat_sfx = player_factory.create(owner_node, "HornStrawberryEatSfx", HORN_STRAWBERRY_EAT_SOUND_PATH, -5.0)
 
 
 func _setup_projectile_item_sfx() -> void:
@@ -1316,6 +1322,49 @@ func play_throw_before() -> void:
 func play_throw() -> void:
 	_play_with_pitch(throw_sfx, randf_range(0.98, 1.02))
 
+
+
+func play_horn_strawberry_change() -> void:
+	if not _play_with_pitch(horn_strawberry_change_sfx, randf_range(0.98, 1.02)):
+		play_megingjord()
+
+
+func play_horn_strawberry_eat() -> void:
+	if not _play_with_pitch(horn_strawberry_eat_sfx, randf_range(0.98, 1.02)):
+		play_drink()
+
+
+func play_horn_strawberry_stem_fire() -> void:
+	play_shrapnel_armor_fire()
+
+
+func play_horn_strawberry_stem_hit() -> void:
+	play_shrapnel_armor_hit()
+
+
+func play_horn_strawberry_field() -> void:
+	if not _play_with_pitch(shield_kiting_launch_sfx, randf_range(1.05, 1.12)):
+		play_active_item()
+
+
+func play_horn_strawberry_horn_charge() -> void:
+	if not _play_with_pitch(power_smash_launch_sfx, randf_range(1.02, 1.08)):
+		play_active_item()
+
+
+func play_horn_strawberry_horn_impact() -> void:
+	if not _play_with_pitch(power_smash_sfx, randf_range(0.98, 1.04)):
+		play_paddle_hit()
+
+
+func play_horn_strawberry_bomb_throw() -> void:
+	if not _play_with_pitch(throw_sfx, randf_range(1.06, 1.14)):
+		play_active_item()
+
+
+func play_horn_strawberry_bomb_explosion() -> void:
+	if not _play_with_pitch(grenade_sfx, randf_range(1.02, 1.10)):
+		play_active_item()
 
 func play_grenade_explosion() -> void:
 	_play_with_pitch(grenade_sfx, randf_range(0.98, 1.02))
@@ -2205,6 +2254,8 @@ func _get_sfx_players() -> Array:
 		throw_before_sfx,
 		throw_sfx,
 		grenade_sfx,
+		horn_strawberry_change_sfx,
+		horn_strawberry_eat_sfx,
 		flashbomb_sfx,
 		smokebomb_sfx,
 		firebomb_sfx,

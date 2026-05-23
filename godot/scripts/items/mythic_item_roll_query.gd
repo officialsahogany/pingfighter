@@ -1,17 +1,17 @@
 extends RefCounted
 
+const ITEM_COMMANDO_ARM := "commando_arm"
+const COMMANDO_ARM_MAX_STACKS := 2
 
-func get_commando_arm_roll_sum(runtime: Object, option_key: String, constants: Dictionary) -> float:
+func get_commando_arm_roll_sum(runtime: Object, option_key: String) -> float:
 	var total := 0.0
-	for value in get_commando_arm_roll_values(runtime, option_key, constants):
+	for value in get_commando_arm_roll_values(runtime, option_key):
 		total += float(value)
 	return total
 
 
-func get_commando_arm_roll_values(runtime: Object, option_key: String, constants: Dictionary) -> Array:
-	var item_commando_arm: String = str(constants.get("item_commando_arm", "commando_arm"))
-	var max_stacks: int = int(constants.get("commando_arm_max_stacks", 2))
-	return get_equipped_roll_values(runtime, item_commando_arm, option_key, max_stacks)
+func get_commando_arm_roll_values(runtime: Object, option_key: String) -> Array:
+	return get_equipped_roll_values(runtime, ITEM_COMMANDO_ARM, option_key, COMMANDO_ARM_MAX_STACKS)
 
 
 func get_equipped_roll_values(runtime: Object, item_name: String, option_key: String, limit: int = -1) -> Array:

@@ -11,6 +11,7 @@ const BASE_PREWARM_MODULE_KEYS := [
 	"stage1_pillar_ui_renderer",
 	"pillar_orb_drawer",
 	"smasher_skill_orb_renderer",
+	"horn_strawberry_skill_pillar_renderer",
 	"pillar_status_orb_renderer",
 	"active_item_hud_layout",
 	"active_item_hud_renderer",
@@ -191,6 +192,8 @@ func _draw_stage1_pillar_ui(
 		commando_firearm_context = commando_firearm_runtime.get_actor_draw_context()
 	var mythic_item_runtime: Object = _get_cached_module(registry, "mythic_item_runtime")
 	var sensor_context: Dictionary = mythic_item_runtime.get_sensor_context() if mythic_item_runtime != null and mythic_item_runtime.has_method("get_sensor_context") else {}
+	var horn_strawberry_context: Dictionary = mythic_item_runtime.get_horn_strawberry_context() if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_context") else {}
+	var horn_strawberry_skill_pillar_renderer: Object = _get_cached_module(registry, "horn_strawberry_skill_pillar_renderer")
 	_perf_end(perf_logger, "stage1.pillar.ui_prepare", prep_start)
 	var renderer_start: int = _perf_begin(perf_logger)
 	renderer.draw(canvas, game_offset, game_size, time_seconds, {
@@ -200,12 +203,15 @@ func _draw_stage1_pillar_ui(
 		"pillar_hud_static_lod": bool(context.get("pillar_hud_static_lod", false)),
 		"pillar_drawer": pillar_drawer,
 		"skill_orb_renderer": skill_orb_renderer,
+		"horn_strawberry_skill_pillar_renderer": horn_strawberry_skill_pillar_renderer,
+		"horn_strawberry_context": horn_strawberry_context,
 		"status_orb_renderer": status_orb_renderer,
 		"commando_firearm_selector_renderer": commando_firearm_selector_renderer,
 		"commando_weapon_controller": commando_weapon_controller,
 		"commando_firearm_slingshot_state": _get_dict(commando_firearm_context.get("commando_firearm_slingshot_state", context.get("commando_firearm_slingshot_state", {}))),
 		"commando_firearm_pistol_state": _get_dict(commando_firearm_context.get("commando_firearm_pistol_state", context.get("commando_firearm_pistol_state", {}))),
 		"commando_firearm_weapon_fire_sheet_state": _get_dict(commando_firearm_context.get("commando_firearm_weapon_fire_sheet_state", context.get("commando_firearm_weapon_fire_sheet_state", {}))),
+		"commando_firearm_suicide_drone_state": _get_dict(commando_firearm_context.get("commando_firearm_suicide_drone_state", context.get("commando_firearm_suicide_drone_state", {}))),
 		"combo_renderer": combo_renderer,
 		"combo_state": combo_state,
 		"cluster_frame_texture": _get_value(textures, skill_cluster_frame_key),
@@ -327,11 +333,14 @@ func _build_commando_firearm_panel_state_for_boss_hud(
 		"selected_character_type": character_type,
 		"pillar_drawer": _get_cached_module(registry, "pillar_orb_drawer"),
 		"skill_orb_renderer": _get_cached_module(registry, "smasher_skill_orb_renderer"),
+		"horn_strawberry_skill_pillar_renderer": _get_cached_module(registry, "horn_strawberry_skill_pillar_renderer"),
+		"horn_strawberry_context": _get_horn_strawberry_context(registry),
 		"commando_firearm_selector_renderer": selector_renderer,
 		"commando_weapon_controller": weapon_controller,
 		"commando_firearm_slingshot_state": _get_dict(commando_firearm_context.get("commando_firearm_slingshot_state", context.get("commando_firearm_slingshot_state", {}))),
 		"commando_firearm_pistol_state": _get_dict(commando_firearm_context.get("commando_firearm_pistol_state", context.get("commando_firearm_pistol_state", {}))),
 		"commando_firearm_weapon_fire_sheet_state": _get_dict(commando_firearm_context.get("commando_firearm_weapon_fire_sheet_state", context.get("commando_firearm_weapon_fire_sheet_state", {}))),
+		"commando_firearm_suicide_drone_state": _get_dict(commando_firearm_context.get("commando_firearm_suicide_drone_state", context.get("commando_firearm_suicide_drone_state", {}))),
 		"skill_config_snapshot": skill_config_snapshot,
 	})
 
@@ -350,6 +359,15 @@ func _get_rect(value: Variant) -> Rect2:
 	if value is Rect2:
 		return value
 	return Rect2()
+
+
+func _get_horn_strawberry_context(registry: Object) -> Dictionary:
+	var mythic_item_runtime: Object = _get_cached_module(registry, "mythic_item_runtime")
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_context"):
+		var value: Variant = mythic_item_runtime.get_horn_strawberry_context()
+		if value is Dictionary:
+			return value
+	return {}
 
 
 func _skill_snapshot_has_skill(skill_config_snapshot: Dictionary, skill_id: String) -> bool:

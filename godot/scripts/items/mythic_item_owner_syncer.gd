@@ -232,6 +232,12 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 	owner.set("heavenly_cape_equipped", runtime.is_heavenly_cape_equipped())
 	owner.set("heavenly_cape_skill_cooldown_reduction_pct", runtime.get_heavenly_cape_skill_cooldown_reduction_pct())
 	owner.set("heavenly_cape_skill_slot_bonus", runtime.get_heavenly_cape_skill_slot_bonus())
+	owner.set("horn_strawberry_mask_equipped", runtime.is_horn_strawberry_mask_equipped())
+	owner.set("horn_strawberry_transformed", runtime.is_horn_strawberry_transformed())
+	owner.set("horn_strawberry_event_playing", runtime.is_horn_strawberry_event_playing())
+	owner.set("horn_strawberry_skills_locked", runtime.is_horn_strawberry_skills_locked())
+	owner.set("horn_strawberry_control_locked", runtime.is_horn_strawberry_control_locked())
+	owner.set("horn_strawberry_context", runtime.get_horn_strawberry_context())
 	owner.set("player_skill_max_slots", runtime.get_player_skill_max_slots(5))
 	owner.set("player_skill_cooldown_multiplier", runtime.get_player_skill_cooldown_multiplier())
 	owner.set("dashgear_equipped", runtime.is_dashgear_equipped())
@@ -246,6 +252,129 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 	owner.set("dash_token_capacity", runtime.get_dash_token_capacity(1))
 	owner.set("poseidon_trident_equipped", runtime.is_equipped(str(constants.get("item_poseidon_trident", "poseidon_trident"))))
 	owner.set("poseidon_trident_context", runtime.get_poseidon_context())
+
+
+func sync_ragnarok_transient_owner_state(runtime: Object, owner: Object) -> void:
+	if owner == null:
+		return
+	var next_stun_ball_active: bool = runtime.ragnarok_stun_ball_active
+	var next_boss_stun_active: bool = runtime.ragnarok_boss_stun_timer_frames > 0.0
+	var state: Dictionary = runtime._get_dict(runtime._safe_owner_get(owner, "mythic_item_state", {}))
+	if (
+		bool(state.get("ragnarok_hammer_stun_ball_active", false)) == next_stun_ball_active
+		and bool(state.get("ragnarok_hammer_boss_stun_active", false)) == next_boss_stun_active
+	):
+		return
+	var next_state: Dictionary = state.duplicate(true)
+	next_state["ragnarok_hammer_stun_ball_active"] = next_stun_ball_active
+	next_state["ragnarok_hammer_boss_stun_active"] = next_boss_stun_active
+	owner.set("mythic_item_state", next_state)
+
+
+func sync_transient_owner_state(runtime: Object, owner: Object) -> void:
+	if owner == null:
+		return
+	var state: Dictionary = runtime._get_dict(runtime._safe_owner_get(owner, "mythic_item_state", {})).duplicate(true)
+	var state_changed := false
+
+	var sensor_context: Dictionary = runtime.get_sensor_context()
+	var hermes_context: Dictionary = runtime.get_hermes_shoes_context()
+	var celestial_context: Dictionary = runtime.get_celestial_armor_context()
+	var baal_context: Dictionary = runtime.get_baal_boots_context()
+	var rainbow_context: Dictionary = runtime.get_rainbow_fur_glove_context()
+	var adversity_context: Dictionary = runtime.get_adversity_armor_context()
+	var shrapnel_context: Dictionary = runtime.get_shrapnel_armor_context()
+	var poseidon_context: Dictionary = runtime.get_poseidon_context()
+	var horn_strawberry_context: Dictionary = runtime.get_horn_strawberry_context()
+
+	state_changed = _put_state_if_changed(state, "megingjord_activation_active", runtime.is_activation_effect_active()) or state_changed
+	state_changed = _put_state_if_changed(state, "revival_effect_active", runtime.is_revival_effect_active()) or state_changed
+	state_changed = _put_state_if_changed(state, "sensor_ready", runtime.is_sensor_auto_dash_ready()) or state_changed
+	state_changed = _put_state_if_changed(state, "sensor_cooldown_remaining_sec", runtime.get_sensor_cooldown_remaining_seconds()) or state_changed
+	state_changed = _put_state_if_changed(state, "sensor_cooldown_progress", runtime.get_sensor_cooldown_progress()) or state_changed
+	state_changed = _put_state_if_changed(state, "sensor_auto_dash_effect_active", runtime.sensor_auto_dash_effect_timer_frames > 0.0) or state_changed
+	state_changed = _put_state_if_changed(state, "sensor_last_dash_direction", runtime.sensor_last_dash_direction) or state_changed
+	state_changed = _put_state_if_changed(state, "sensor_context", sensor_context) or state_changed
+	state_changed = _put_state_if_changed(state, "hermes_shoes_context", hermes_context) or state_changed
+	state_changed = _put_state_if_changed(state, "celestial_armor_wave_active", runtime.celestial_armor_state.is_wave_active()) or state_changed
+	state_changed = _put_state_if_changed(state, "celestial_armor_last_blocked_source", runtime.celestial_armor_state.last_blocked_source) or state_changed
+	state_changed = _put_state_if_changed(state, "celestial_armor_last_blocked_effect_type", runtime.celestial_armor_state.last_blocked_effect_type) or state_changed
+	state_changed = _put_state_if_changed(state, "celestial_armor_context", celestial_context) or state_changed
+	state_changed = _put_state_if_changed(state, "baal_boots_pending_weather_type", runtime.baal_boots_weather_state.pending_weather_type) or state_changed
+	state_changed = _put_state_if_changed(state, "baal_boots_cinematic_active", runtime.baal_boots_weather_state.cinematic_active) or state_changed
+	state_changed = _put_state_if_changed(state, "baal_boots_round_effect_active", runtime.baal_boots_weather_state.round_effect_active) or state_changed
+	state_changed = _put_state_if_changed(state, "baal_boots_round_weather_type", runtime.baal_boots_weather_state.round_weather_type) or state_changed
+	state_changed = _put_state_if_changed(state, "baal_boots_ball_mark_type", runtime.baal_boots_combat_state.ball_mark_type) or state_changed
+	state_changed = _put_state_if_changed(state, "baal_boots_context", baal_context) or state_changed
+	state_changed = _put_state_if_changed(state, "knee_pads_effect_active", runtime.knee_pads_flash_timer_frames > 0.0) or state_changed
+	state_changed = _put_state_if_changed(state, "smartphone_auto_cooldown_frames", runtime.smartphone_cooldown_frames) or state_changed
+	state_changed = _put_state_if_changed(state, "smartphone_last_auto_item", runtime.smartphone_last_auto_item) or state_changed
+	state_changed = _put_state_if_changed(state, "venom_mist_ball_poisoned", runtime.venom_mist_ball_poisoned) or state_changed
+	state_changed = _put_state_if_changed(state, "venom_mist_field_active", runtime.venom_mist_field_active) or state_changed
+	state_changed = _put_state_if_changed(state, "venom_mist_field_center", runtime.venom_mist_center) or state_changed
+	state_changed = _put_state_if_changed(state, "venom_mist_field_timer_frames", runtime.venom_mist_timer_frames) or state_changed
+	state_changed = _put_state_if_changed(state, "venom_mist_boss_in_field", runtime.venom_mist_boss_in_field) or state_changed
+	state_changed = _put_state_if_changed(state, "venom_mist_boss_slow_multiplier", runtime.get_venom_mist_boss_slow_multiplier()) or state_changed
+	state_changed = _put_state_if_changed(state, "rainbow_fur_glove_effect_active", runtime.rainbow_fur_glove_aura_timer_frames > 0.0 or not runtime.rainbow_fur_glove_particles.is_empty()) or state_changed
+	state_changed = _put_state_if_changed(state, "rainbow_fur_glove_aura_timer_frames", runtime.rainbow_fur_glove_aura_timer_frames) or state_changed
+	state_changed = _put_state_if_changed(state, "adversity_armor_pending_invincible", runtime.adversity_armor_pending_invincible) or state_changed
+	state_changed = _put_state_if_changed(state, "adversity_armor_serve_speed_boost_pending", runtime.adversity_armor_serve_speed_boost_pending) or state_changed
+	state_changed = _put_state_if_changed(state, "adversity_armor_invincible", runtime.is_adversity_armor_invincible()) or state_changed
+	state_changed = _put_state_if_changed(state, "adversity_armor_timer_ratio", runtime._get_adversity_armor_timer_ratio()) or state_changed
+	state_changed = _put_state_if_changed(state, "adversity_armor_context", adversity_context) or state_changed
+	state_changed = _put_state_if_changed(state, "shrapnel_armor_effect_active", runtime._is_shrapnel_armor_effect_active()) or state_changed
+	state_changed = _put_state_if_changed(state, "shrapnel_armor_active_shards", runtime.shrapnel_armor_shards.size()) or state_changed
+	state_changed = _put_state_if_changed(state, "shrapnel_armor_boss_stun_active", runtime.shrapnel_armor_boss_stun_timer_frames > 0.0) or state_changed
+	state_changed = _put_state_if_changed(state, "shrapnel_armor_boss_knockback_active", runtime.shrapnel_armor_boss_knockback_timer_frames > 0.0 and abs(runtime.shrapnel_armor_boss_knockback_vel) > 0.0) or state_changed
+	state_changed = _put_state_if_changed(state, "shrapnel_armor_boss_knockback_vel", runtime.shrapnel_armor_boss_knockback_vel) or state_changed
+	state_changed = _put_state_if_changed(state, "foul_whistle_effect_active", runtime.foul_whistle_state.animation_active) or state_changed
+	state_changed = _put_state_if_changed(state, "foul_whistle_pending_round_reset", runtime.foul_whistle_state.pending_round_reset) or state_changed
+	state_changed = _put_state_if_changed(state, "soul_burst_dash_active", runtime.soul_burst_dash_active) or state_changed
+	state_changed = _put_state_if_changed(state, "soul_burst_effect_active", runtime.soul_burst_effect_timer_frames > 0.0) or state_changed
+	state_changed = _put_state_if_changed(state, "ragnarok_hammer_stun_ball_active", runtime.ragnarok_stun_ball_active) or state_changed
+	state_changed = _put_state_if_changed(state, "ragnarok_hammer_boss_stun_active", runtime.ragnarok_boss_stun_timer_frames > 0.0) or state_changed
+	state_changed = _put_state_if_changed(state, "poseidon_trident_cooldown_remaining", max(0.0, runtime.poseidon_effect_cooldown_frames / 60.0)) or state_changed
+	state_changed = _put_state_if_changed(state, "poseidon_trident_vortex_active", runtime.poseidon_vortex_active) or state_changed
+	state_changed = _put_state_if_changed(state, "poseidon_trident_capture_active", runtime.poseidon_capture_active) or state_changed
+	state_changed = _put_state_if_changed(state, "poseidon_trident_capture_progress", clamp(runtime.poseidon_capture_timer_frames / max(1.0, runtime.poseidon_capture_duration_frames), 0.0, 1.0) if runtime.poseidon_capture_active else 0.0) or state_changed
+	state_changed = _put_state_if_changed(state, "horn_strawberry_mask_equipped", runtime.is_horn_strawberry_mask_equipped()) or state_changed
+	state_changed = _put_state_if_changed(state, "horn_strawberry_transformed", runtime.is_horn_strawberry_transformed()) or state_changed
+	state_changed = _put_state_if_changed(state, "horn_strawberry_event_playing", runtime.is_horn_strawberry_event_playing()) or state_changed
+	state_changed = _put_state_if_changed(state, "horn_strawberry_context", horn_strawberry_context) or state_changed
+
+	if state_changed:
+		owner.set("mythic_item_state", state)
+
+	_set_owner_if_changed(owner, runtime, "revival_effect_active", runtime.is_revival_effect_active())
+	_set_owner_if_changed(owner, runtime, "sensor_ready", runtime.is_sensor_auto_dash_ready())
+	_set_owner_if_changed(owner, runtime, "sensor_cooldown_remaining_sec", runtime.get_sensor_cooldown_remaining_seconds())
+	_set_owner_if_changed(owner, runtime, "sensor_cooldown_progress", runtime.get_sensor_cooldown_progress())
+	_set_owner_if_changed(owner, runtime, "sensor_auto_dash_effect_active", runtime.sensor_auto_dash_effect_timer_frames > 0.0)
+	_set_owner_if_changed(owner, runtime, "sensor_last_dash_direction", runtime.sensor_last_dash_direction)
+	_set_owner_if_changed(owner, runtime, "sensor_context", sensor_context)
+	_set_owner_if_changed(owner, runtime, "celestial_armor_context", celestial_context)
+	_set_owner_if_changed(owner, runtime, "celestial_armor_wave_active", runtime.celestial_armor_state.is_wave_active())
+	_set_owner_if_changed(owner, runtime, "baal_boots_context", baal_context)
+	_set_owner_if_changed(owner, runtime, "rainbow_fur_glove_context", rainbow_context)
+	_set_owner_if_changed(owner, runtime, "adversity_armor_context", adversity_context)
+	_set_owner_if_changed(owner, runtime, "adversity_armor_invincible", runtime.is_adversity_armor_invincible())
+	_set_owner_if_changed(owner, runtime, "shrapnel_armor_context", shrapnel_context)
+	_set_owner_if_changed(owner, runtime, "foul_whistle_effect_active", runtime.foul_whistle_state.animation_active)
+	_set_owner_if_changed(owner, runtime, "foul_whistle_pending_round_reset", runtime.foul_whistle_state.pending_round_reset)
+	_set_owner_if_changed(owner, runtime, "soul_burst_dash_active", runtime.soul_burst_dash_active)
+	_set_owner_if_changed(owner, runtime, "smartphone_auto_cooldown_frames", runtime.smartphone_cooldown_frames)
+	_set_owner_if_changed(owner, runtime, "smartphone_last_auto_item", runtime.smartphone_last_auto_item)
+	_set_owner_if_changed(owner, runtime, "poseidon_trident_context", poseidon_context)
+	_set_owner_if_changed(owner, runtime, "horn_strawberry_transformed", runtime.is_horn_strawberry_transformed())
+	_set_owner_if_changed(owner, runtime, "horn_strawberry_event_playing", runtime.is_horn_strawberry_event_playing())
+	_set_owner_if_changed(owner, runtime, "horn_strawberry_skills_locked", runtime.is_horn_strawberry_skills_locked())
+	_set_owner_if_changed(owner, runtime, "horn_strawberry_control_locked", runtime.is_horn_strawberry_control_locked())
+	_set_owner_if_changed(owner, runtime, "horn_strawberry_context", horn_strawberry_context)
+	_set_owner_if_changed(owner, runtime, "venom_mist_field_active", runtime.venom_mist_field_active)
+	_set_owner_if_changed(owner, runtime, "venom_mist_field_center", runtime.venom_mist_center)
+	_set_owner_if_changed(owner, runtime, "venom_mist_field_timer_frames", runtime.venom_mist_timer_frames)
+	_set_owner_if_changed(owner, runtime, "venom_mist_boss_in_field", runtime.venom_mist_boss_in_field)
+	_set_owner_if_changed(owner, runtime, "venom_mist_boss_slow_multiplier", runtime.get_venom_mist_boss_slow_multiplier())
 
 
 func sync_fuel_pouch_gauge_max(runtime: Object, owner: Object, constants: Dictionary) -> void:
@@ -429,3 +558,39 @@ func sync_item_perk_level_bonus_to_runtime_perk_state(runtime: Object, owner: Ob
 	var changed: bool = bool(runtime_perk_state.set_item_perk_level_bonus(runtime.get_total_item_perk_level_bonus()))
 	if changed and runtime_perk_state.has_method("refresh_item_perk_level_bonus_dynamic_effects"):
 		runtime_perk_state.refresh_item_perk_level_bonus_dynamic_effects(registry, owner)
+
+
+func _put_state_if_changed(state: Dictionary, key: String, value: Variant) -> bool:
+	if state.has(key) and state[key] == value:
+		return false
+	state[key] = value
+	return true
+
+
+func _set_owner_if_changed(owner: Object, runtime: Object, key: String, value: Variant) -> void:
+	var previous: Variant = runtime._safe_owner_get(owner, key, null)
+	if previous == null and _is_empty_transient_value(value):
+		return
+	if previous == value:
+		return
+	owner.set(key, value)
+
+
+func _is_empty_transient_value(value: Variant) -> bool:
+	if value == null:
+		return true
+	if value is bool:
+		return not bool(value)
+	if value is String:
+		return str(value) == ""
+	if value is int:
+		return int(value) == 0
+	if value is float:
+		return is_equal_approx(float(value), 0.0)
+	if value is Vector2:
+		return value == Vector2.ZERO
+	if value is Dictionary:
+		return value.is_empty() or not bool(value.get("active", value.get("equipped", false)))
+	if value is Array:
+		return value.is_empty()
+	return false

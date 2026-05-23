@@ -24,13 +24,14 @@ func update(
 	var pending_skill_gold_award := 0
 	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
 	var skill_config: Object = deps.get("skill_config", null)
+	var skill_input_locked: bool = _is_player_skill_input_locked(deps)
 	if weapon_controller != null and weapon_controller.has_method("sync_equipped_permanent"):
 		weapon_controller.sync_equipped_permanent(skill_config)
 	if weapon_controller != null and weapon_controller.has_method("prepare_stage_start"):
 		weapon_controller.prepare_stage_start(current_stage)
 
 	var emergency_state: Object = deps.get("commando_emergency_supply_state", null)
-	if emergency_state != null and emergency_state.has_method("update_input"):
+	if not skill_input_locked and emergency_state != null and emergency_state.has_method("update_input"):
 		var emergency_result: Dictionary = emergency_state.update_input(
 			input_snapshot,
 			current_msec,
@@ -45,7 +46,7 @@ func update(
 				existing_supply_state.cancel_transient()
 
 	var supply_state: Object = deps.get("commando_supply_drop_state", null)
-	if supply_state != null and supply_state.has_method("update_input"):
+	if not skill_input_locked and supply_state != null and supply_state.has_method("update_input"):
 		deps["commando_supply_drop_collision_context"] = _build_supply_drop_collision_context(player_pos, config, deps)
 		var supply_result: Dictionary = supply_state.update_input(
 			input_snapshot,
@@ -61,7 +62,7 @@ func update(
 			pending_skill_gold_award += _get_skill_gold_award("supply_drop", deps)
 
 	var firearm_runtime: Object = deps.get("commando_firearm_runtime", null)
-	if firearm_runtime != null and firearm_runtime.has_method("update_input"):
+	if not skill_input_locked and firearm_runtime != null and firearm_runtime.has_method("update_input"):
 		var firearm_config: Dictionary = config.duplicate()
 		firearm_config["player_pos"] = player_pos
 		firearm_config["player_speed"] = player_speed
@@ -81,6 +82,25 @@ func update(
 	if pending_skill_gold_award > 0:
 		result["skill_gold_award"] = int(result.get("skill_gold_award", 0)) + pending_skill_gold_award
 	return result
+
+
+func _is_player_skill_input_locked(deps: Dictionary) -> bool:
+	if bool(deps.get("player_skill_input_locked", false)):
+		return true
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("is_horn_strawberry_skills_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_skills_locked())
+	):
+		return true
+	if (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("is_horn_strawberry_control_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
+	):
+		return true
+	return false
 
 
 func _trigger_configured_cooldown(skill_name: String, deps: Dictionary) -> void:

@@ -1517,6 +1517,77 @@ If a new revival transform is added, update the
 |---|---|---|---|
 | Yachaman Soul | Odin's Eye | `pingfighter.py` Odin's Eye revival-success branch (regular + deuce) — inline after `odins_eye.start_revival_animation()` | `pingfighter.py` Odin's Eye death-animation `if death_anim_complete:` branch, alongside `odins_eye.reset_for_new_round()` |
 
+
+### 7.8. Command-triggered transforms ? round / stage / menu boundary policy matrix
+
+Command-triggered transforms (Horn Strawberry Mask `A?D?A?D?A?D` is the
+current Godot reference; future Yachaman / Odin's Eye Godot ports will
+share the same architecture) need an **explicit five-way boundary
+policy** because the original Python code does NOT define one in any
+single `reset_*` callsite. Python's `reset_round()` does not directly
+touch the transform singleton, and `reset_stage_transform()` only
+clears `_used_this_stage`. So the Godot port owns the policy decision,
+and the policy must be locked in a smoke test rather than re-derived
+from Python.
+
+Per [[feedback_default_target_godot]] "?? ??" clause: this is one
+of the cases where Python is "?? ?? ?? / 1? ?? ?? / ???
+??? ??" applies ? record the boundary decision in code comments
+AND a dedicated round-boundary smoke.
+
+Required boundary matrix for any command-triggered transform item:
+
+| Boundary event | Transform / cinematic state | Active-skill state | Lingering field / paint / projectiles | `used_this_stage` flag |
+|---|---|---|---|---|
+| `score_event` (point just lost / won) | KEEP ? do not interrupt mid-event | KEEP | KEEP | KEEP |
+| `serve_wait` ? `on_round_start` (ball reset for next rally) | CLEAR (any of TRANSFORM_EVENT / TRANSFORMED / DETRANSFORM_EVENT) | CLEAR active arming, CLEAR cooldowns of one-shot skills, CANCEL "throwing" loops | KEEP detached lingerers (field barriers, paint splatters, in-flight bombs) | KEEP ? same-stage transform stays spent |
+| `round_restart` (deuce reset / debug restart) | CLEAR | CLEAR | KEEP | KEEP |
+| `stage_advance` (next stage begins) | CLEAR | CLEAR | CLEAR all lingerers | CLEAR ? next stage's transform is unlocked |
+| `main_menu_reset` / `game_reset` | CLEAR | CLEAR | CLEAR | CLEAR |
+
+Implementation contract:
+
+- [ ] State machine MUST expose at least three named reset methods:
+      `reset_round()` (keep `used_this_stage`, end transform kit but
+      preserve detached lingerers), `on_stage_advance()` (clear
+      `used_this_stage` AND all lingerers), and `reset_all()` (full
+      clear including `used_this_stage`).
+- [ ] Mythic runtime MUST expose a parallel triplet that also tears
+      down per-skill detached state with the right preservation policy.
+      Horn Strawberry's reference triplet:
+      `_reset_detransform_skill_state()` (eat reset + horn_charge
+      reset + bomb `cancel_throwing_preserve_lingering()` + field
+      NOT reset) for round boundary, and `_reset_all_skill_state()`
+      for stage / menu boundary.
+- [ ] `score_event` MUST NOT call `reset_round()` directly ? it
+      should let scoreboard ? serve_wait ? ball reset ?
+      `on_round_start` carry the transform into the round-start
+      boundary. A score handler that calls `reset_round()` directly
+      will tear down a mid-cinematic transform before the player
+      sees the result screen.
+- [ ] `on_round_start` MUST be the single round-boundary entry point.
+      Group it next to other round-start hooks (e.g.
+      `adversity_armor_runtime.on_round_start`) for discoverability.
+- [ ] A `*_round_boundary_smoke.gd` MUST lock all five boundaries
+      with `_expect` assertions. Reference:
+      `godot/tests/horn_strawberry_round_boundary_smoke.gd`. The
+      smoke must cover both TRANSFORM_EVENT and TRANSFORMED loss
+      paths separately, because cinematic-state cleanup differs from
+      active-form cleanup (the cinematic finalize path runs through
+      `state.update(delta)` while the active form does not).
+- [ ] The "preserve lingerers across round" decision MUST be
+      documented inline at the `reset_round()` callsite as an
+      intentional divergence (e.g.
+      `# Round boundaries end the transformed kit but keep
+      detached field/bomb paint lingerers alive.`). Future
+      Yachaman / Odin's Eye ports must inherit or explicitly
+      override this comment.
+
+Cross-link: revival transforms (Yachaman Soul, Odin's Eye when
+ported) follow ?7.7 chained-revival rules ON TOP OF this boundary
+matrix ? `_used_this_stage` semantics still apply per revival, and
+the boundary matrix decides when detached lingerers (revival auras,
+sustained transform VFX) are released.
 ---
 
 ## 7B. Items that absorb / consume an external runtime effect

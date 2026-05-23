@@ -17,6 +17,8 @@ static func with_supply_drop_mouse_hold(snapshot: Dictionary, right_mouse_presse
 func handle_weapon_switch_event(event: InputEvent, owner: Object, registry: Object) -> bool:
 	if not _is_commando_owner(owner):
 		return false
+	if _is_horn_strawberry_skill_locked(registry):
+		return false
 	if not (event is InputEventMouseButton):
 		return false
 	var mouse_event: InputEventMouseButton = event
@@ -60,3 +62,20 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _is_horn_strawberry_skill_locked(registry: Object) -> bool:
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime == null:
+		return false
+	if (
+		mythic_item_runtime.has_method("is_horn_strawberry_skills_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_skills_locked())
+	):
+		return true
+	if (
+		mythic_item_runtime.has_method("is_horn_strawberry_control_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
+	):
+		return true
+	return false

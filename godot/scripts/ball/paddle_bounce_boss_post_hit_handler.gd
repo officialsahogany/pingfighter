@@ -128,6 +128,16 @@ func apply(
 		next_ball_vel = _get_vector2(baal_boss_result, "ball_vel", next_ball_vel)
 		if baal_boss_result.has("boss_vel"):
 			boss_vel_override = float(baal_boss_result.get("boss_vel", boss_vel_override))
+	var horn_strawberry_result: Dictionary = {}
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("consume_horn_strawberry_strong_boss_hit"):
+		horn_strawberry_result = mythic_item_runtime.consume_horn_strawberry_strong_boss_hit(
+			next_ball_pos,
+			next_ball_vel,
+			context,
+			deps
+		)
+		if horn_strawberry_result.has("boss_vel"):
+			boss_vel_override = float(horn_strawberry_result.get("boss_vel", boss_vel_override))
 
 	var bowling_guard_result: Dictionary = _consume_commando_bowling_trap_guard_hit(
 		next_ball_pos,
@@ -173,6 +183,10 @@ func apply(
 		for key in bowling_guard_result.keys():
 			if key != "ball_vel" and key != "boss_vel":
 				result[key] = bowling_guard_result[key]
+	if not horn_strawberry_result.is_empty():
+		for key in horn_strawberry_result.keys():
+			if key != "boss_vel":
+				result[key] = horn_strawberry_result[key]
 	if not suicide_drone_boost_result.is_empty():
 		for key in suicide_drone_boost_result.keys():
 			if key != "ball_vel":

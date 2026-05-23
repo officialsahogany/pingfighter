@@ -32,6 +32,10 @@ const HEAVENLY_CAPE := "heavenly_cape"
 const HEAVENLY_CAPE_ICON_PATH := "res://assets/sprites/items/heavenly_cape.png"
 const HEAVENLY_CAPE_ICON_SHEET_PATH := "res://assets/sprites/items/heavenly_cape_icon_sheet.png"
 const HEAVENLY_CAPE_FIELD_CHANCE := 0.00008
+const HORN_STRAWBERRY_MASK := "horn_strawberry_mask"
+const HORN_STRAWBERRY_MASK_ICON_PATH := "res://assets/sprites/items/horn_strawberry_mask.png"
+const HORN_STRAWBERRY_MASK_ICON_SHEET_PATH := "res://assets/sprites/items/horn_strawberry_mask_icon_sheet.png"
+const HORN_STRAWBERRY_MASK_FIELD_CHANCE := 0.00008
 const CELESTIAL_ARMOR := "celestial_armor"
 const CELESTIAL_ARMOR_ICON_PATH := "res://assets/sprites/items/celestial_armor.png"
 const CELESTIAL_ARMOR_ICON_SHEET_PATH := "res://assets/sprites/items/celestial_armor_icon_sheet.png"
@@ -42,6 +46,7 @@ const BAAL_BOOTS_ICON_SHEET_PATH := "res://assets/sprites/items/baal_boots_icon_
 const BAAL_BOOTS_FIELD_CHANCE := 0.00008
 const PANDORA_LEGACY := "pandora_legacy"
 const PANDORA_LEGACY_ICON_PATH := "res://assets/sprites/items/pandora_legacy.png"
+const PANDORA_LEGACY_ICON_SHEET_PATH := "res://assets/sprites/items/pandora_legacy_icon_sheet.png"
 const PANDORA_LEGACY_FIELD_CHANCE := 0.00008
 const ELIXIR_OF_MASTERY := "elixir_of_mastery"
 const ELIXIR_OF_MASTERY_ICON_PATH := "res://assets/sprites/items/elixir_of_mastery.png"
@@ -203,6 +208,7 @@ const FIELD_SPAWN_ORDER := [
 	SACRED_LAUREL,
 	TRANSCENDENT_CROWN,
 	HEAVENLY_CAPE,
+	HORN_STRAWBERRY_MASK,
 	CELESTIAL_ARMOR,
 	BAAL_BOOTS,
 ]
@@ -252,6 +258,7 @@ const DEBUG_ITEM_ORDER := [
 	SACRED_LAUREL,
 	TRANSCENDENT_CROWN,
 	HEAVENLY_CAPE,
+	HORN_STRAWBERRY_MASK,
 	CELESTIAL_ARMOR,
 	BAAL_BOOTS,
 ]
@@ -441,6 +448,18 @@ const BAAL_BOOTS_ROLL_OPTIONS := [
 		"step": 1.0,
 		"unit": "",
 		"default": 400.0,
+	},
+]
+
+const HORN_STRAWBERRY_MASK_ROLL_OPTIONS := [
+	{
+		"key": "transform_duration",
+		"label": "변신 지속시간",
+		"min": 50.0,
+		"max": 70.0,
+		"unit": "초",
+		"default": 60.0,
+		"step": 5.0,
 	},
 ]
 
@@ -1168,6 +1187,8 @@ func build_item_by_name(item_name: String) -> Dictionary:
 			return _build_transcendent_crown()
 		HEAVENLY_CAPE:
 			return _build_heavenly_cape()
+		HORN_STRAWBERRY_MASK:
+			return _build_horn_strawberry_mask()
 		CELESTIAL_ARMOR:
 			return _build_celestial_armor()
 		BAAL_BOOTS:
@@ -1301,6 +1322,8 @@ func get_roll_options(item_name: String) -> Array:
 			return TRANSCENDENT_CROWN_ROLL_OPTIONS.duplicate(true)
 		HEAVENLY_CAPE:
 			return HEAVENLY_CAPE_ROLL_OPTIONS.duplicate(true)
+		HORN_STRAWBERRY_MASK:
+			return HORN_STRAWBERRY_MASK_ROLL_OPTIONS.duplicate(true)
 		CELESTIAL_ARMOR:
 			return CELESTIAL_ARMOR_ROLL_OPTIONS.duplicate(true)
 		BAAL_BOOTS:
@@ -2125,6 +2148,12 @@ func _build_pandora_legacy() -> Dictionary:
 		"effect": PANDORA_LEGACY,
 		"slot": "back",
 		"icon_path": PANDORA_LEGACY_ICON_PATH,
+		"icon_sheet_path": PANDORA_LEGACY_ICON_SHEET_PATH,
+		"icon_frame_count": MYTHIC_ICON_FRAME_COUNT,
+		"icon_frame_msec": MYTHIC_ICON_FRAME_MSEC,
+		"icon_source_inset": 0.0,
+		"icon_fill_slot": true,
+		"icon_target_pad": 5.0,
 		"chance": PANDORA_LEGACY_FIELD_CHANCE,
 		"description": "라운드 승리 시 일정 확률로 발동해 3개의 아이템 중 하나를 선택합니다.",
 		"rolls": rolls,
@@ -2316,6 +2345,36 @@ func _build_heavenly_cape() -> Dictionary:
 			{"label": "스킬 구슬 슬롯", "value": "+1", "unit": "칸"},
 		],
 		"color": Color(190.0 / 255.0, 225.0 / 255.0, 1.0),
+	}
+
+
+func _build_horn_strawberry_mask() -> Dictionary:
+	var rolls: Dictionary = build_default_rolls(HORN_STRAWBERRY_MASK)
+	return {
+		"name": HORN_STRAWBERRY_MASK,
+		"display_name": "뿔딸기 변신가면",
+		"korean_name": "뿔딸기 변신가면",
+		"type": "mythic",
+		"rarity": "mythic",
+		"effect": HORN_STRAWBERRY_MASK,
+		"slot": "head",
+		"icon_path": HORN_STRAWBERRY_MASK_ICON_PATH,
+		"icon_sheet_path": HORN_STRAWBERRY_MASK_ICON_SHEET_PATH,
+		"icon_frame_count": MYTHIC_ICON_FRAME_COUNT,
+		"icon_frame_msec": MYTHIC_ICON_FRAME_MSEC,
+		"icon_source_inset": 0.0,
+		"icon_fill_slot": true,
+		"icon_target_pad": 5.0,
+		"chance": HORN_STRAWBERRY_MASK_FIELD_CHANCE,
+		"description": "A→D→A→D→A→D 커맨드로 1스테이지 1회 뿔딸기로 변신합니다.",
+		"rolls": rolls,
+		"roll_options": HORN_STRAWBERRY_MASK_ROLL_OPTIONS.duplicate(true),
+		"rolled_options": build_rolled_options(HORN_STRAWBERRY_MASK, rolls),
+		"fixed_options": [
+			{"label": "변신 비용", "value": "-500", "unit": "게이지"},
+			{"label": "공 타격 게이지", "value": "+80", "unit": ""},
+		],
+		"color": Color(1.0, 72.0 / 255.0, 90.0 / 255.0),
 	}
 
 

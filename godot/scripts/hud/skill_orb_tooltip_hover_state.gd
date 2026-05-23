@@ -41,6 +41,10 @@ func update_hover_state(owner: Object, registry: Object) -> Dictionary:
 	if not _is_mouse_near_skill_hover_area(mouse_pos, layout, scene_config):
 		_store_cached_result(owner, mouse_pos, view_size, {})
 		return {}
+	var horn_result: Dictionary = _find_hovered_horn_strawberry_skill_fast(owner, registry, mouse_pos, layout, scene_config)
+	if not horn_result.is_empty():
+		_store_cached_result(owner, mouse_pos, view_size, horn_result)
+		return horn_result
 	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
 	if not character_runtime.is_commando(character_type):
 		var fast_result: Dictionary = _find_hovered_skill_fast(registry, mouse_pos, layout, scene_config, character_type)
@@ -100,6 +104,59 @@ func _find_hovered_skill_fast(
 		if rect.has_point(mouse_pos):
 			return {"skill_name": skill_name}
 	return {}
+
+
+func _find_hovered_horn_strawberry_skill_fast(
+	owner: Object,
+	registry: Object,
+	mouse_pos: Vector2,
+	layout: Dictionary,
+	scene_config: Dictionary
+) -> Dictionary:
+	var mythic_item_runtime: Object = _get_cached_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("get_horn_strawberry_context"):
+		return {}
+	var horn_context: Dictionary = _get_dict(mythic_item_runtime.get_horn_strawberry_context())
+	if not bool(horn_context.get("transformed", false)):
+		return {}
+	var horn_renderer: Object = _get_cached_instance(registry, "horn_strawberry_skill_pillar_renderer")
+	if (
+		horn_renderer == null
+		or not horn_renderer.has_method("build_skill_orb_context")
+		or not horn_renderer.has_method("find_hovered_skill")
+	):
+		return {}
+	var game_offset: Vector2 = _get_vector2(layout, "game_offset", Vector2.ZERO)
+	var game_size: Vector2 = _get_vector2(layout, "game_size", Vector2(760.0, 750.0))
+	var ui_layout: Dictionary = layout_helper.build_layout(game_offset, game_size, {
+		"height": float(scene_config.get("height", 750.0)),
+	})
+	var scale_factor: float = float(ui_layout.get("scale_factor", 1.0))
+	var base_context: Dictionary = layout_helper.build_skill_orb_context({
+		"selected_character_type": "smasher",
+		"skill_config_snapshot": {
+			"max_slots": 4,
+			"equipped_skills": [],
+		},
+	}, _get_cached_instance(registry, "pillar_orb_drawer"))
+	var skill_context: Dictionary = horn_renderer.build_skill_orb_context(
+		horn_context,
+		float(_get_owner_value(owner, "special_gauge", 0.0)),
+		_get_cached_instance(registry, "pillar_orb_drawer"),
+		base_context
+	)
+	var skill_data: Dictionary = horn_renderer.find_hovered_skill(
+		mouse_pos,
+		_get_vector2(ui_layout, "left_center", Vector2.ZERO),
+		float(ui_layout.get("orb_radius", 55.0)),
+		scale_factor,
+		skill_context
+	)
+	if skill_data.is_empty():
+		return {}
+	return {
+		"skill_name": str(skill_data.get("name", "")),
+	}
 
 
 func _find_hovered_commando_firearm_fast(

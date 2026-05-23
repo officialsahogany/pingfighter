@@ -1,5 +1,9 @@
 extends RefCounted
 
+const HermesShoesFxHost := preload("res://scripts/items/mythic_item_hermes_shoes_fx_host.gd")
+const HornStrawberryTransformCinematicRenderer := preload("res://scripts/items/horn_strawberry_transform_cinematic_renderer.gd")
+const HERMES_SHOES_FX_HOST_NAME := "MythicHermesShoesFxHost"
+
 const MAX_RENDERED_VENOM_MIST_PARTICLES := 32
 const MAX_RENDERED_RAINBOW_FUR_GLOVE_PARTICLES := 20
 const MAX_RENDERED_ADVERSITY_ARMOR_PARTICLES := 28
@@ -10,21 +14,63 @@ const MAX_RENDERED_KNEE_PADS_PARTICLES := 16
 const MAX_RENDERED_SOUL_BURST_WIND_TRAILS := 4
 const MAX_RENDERED_SOUL_BURST_SHOCKWAVES := 3
 const MAX_RENDERED_SOUL_BURST_PARTICLES := 16
-const MAX_RENDERED_POSEIDON_WATER_TRAIL := 8
-const MAX_RENDERED_POSEIDON_PARTICLES := 16
-const MAX_RENDERED_POSEIDON_EXPLOSION_PARTICLES := 4
-const MAX_RENDERED_RAGNAROK_SPARKS := 18
+const MAX_RENDERED_POSEIDON_WATER_TRAIL := 12
+const MAX_RENDERED_POSEIDON_PARTICLES := 24
+const MAX_RENDERED_POSEIDON_EXPLOSION_PARTICLES := 6
+const MAX_RENDERED_HORN_STRAWBERRY_PROJECTILES := 6
+const MAX_RENDERED_HORN_STRAWBERRY_BARRIERS := 3
+const MAX_RENDERED_HORN_STRAWBERRY_TRAILS := 8
+const MAX_RENDERED_HORN_STRAWBERRY_BOMBS := 18
+const MAX_RENDERED_HORN_STRAWBERRY_EXPLOSIONS := 8
+const MAX_RENDERED_HORN_STRAWBERRY_PAINT := 16
+const MAX_RENDERED_RAGNAROK_SPARKS := 12
+const RAGNAROK_IMPACT_RING_SEGMENTS := 24
+const RAGNAROK_ELECTRIC_ELLIPSE_SEGMENTS := 16
+const RAGNAROK_ELECTRIC_BRANCH_COUNT := 4
+const RAGNAROK_ELECTRIC_SPARK_COUNT := 3
 const SHRAPNEL_ARMOR_FLASH_ARC_SEGMENTS := 12
 const SHRAPNEL_ARMOR_BOSS_IMPACT_ARC_SEGMENTS := 18
 const KNEE_PADS_RING_SEGMENTS := 44
 const RAINBOW_FUR_GLOVE_RING_SEGMENTS := 44
 const SOUL_BURST_ELLIPSE_SEGMENTS := 48
-const MAX_POSEIDON_TRAIL_ARCS := 2
-const POSEIDON_TRAIL_ARC_SEGMENTS := 6
+const MAX_POSEIDON_TRAIL_ARCS := 4
+const POSEIDON_TRAIL_ARC_SEGMENTS := 8
 const ADVERSITY_ARMOR_TIMER_BAR_SIZE := Vector2(150.0, 12.0)
 const ADVERSITY_ARMOR_TIMER_BAR_MARGIN := Vector2(16.0, 28.0)
 const ADVERSITY_ARMOR_TIMER_STACK_SPACING := 18.0
 const ADVERSITY_ARMOR_TIMER_STACK_KEY := "adversity_armor"
+const RAGNAROK_ELECTRIC_CORE_COLORS := [
+	Color(1.0, 1.0, 1.0, 1.0),
+	Color(1.0, 1.0, 230.0 / 255.0, 1.0),
+	Color(1.0, 250.0 / 255.0, 200.0 / 255.0, 1.0),
+]
+const RAGNAROK_ELECTRIC_OUTER_COLORS := [
+	Color(120.0 / 255.0, 180.0 / 255.0, 1.0, 1.0),
+	Color(80.0 / 255.0, 140.0 / 255.0, 1.0, 1.0),
+	Color(160.0 / 255.0, 200.0 / 255.0, 1.0, 1.0),
+	Color(1.0, 240.0 / 255.0, 120.0 / 255.0, 1.0),
+	Color(1.0, 220.0 / 255.0, 80.0 / 255.0, 1.0),
+]
+const RAGNAROK_ELECTRIC_BRANCH_COLORS := [
+	Color(120.0 / 255.0, 180.0 / 255.0, 1.0, 1.0),
+	Color(80.0 / 255.0, 140.0 / 255.0, 1.0, 1.0),
+	Color(160.0 / 255.0, 200.0 / 255.0, 1.0, 1.0),
+	Color(1.0, 240.0 / 255.0, 120.0 / 255.0, 1.0),
+	Color(1.0, 220.0 / 255.0, 80.0 / 255.0, 1.0),
+	Color(1.0, 1.0, 1.0, 1.0),
+	Color(1.0, 1.0, 230.0 / 255.0, 1.0),
+	Color(1.0, 250.0 / 255.0, 200.0 / 255.0, 1.0),
+]
+const RAGNAROK_ELECTRIC_SPARK_COLORS := [
+	Color(1.0, 1.0, 1.0, 1.0),
+	Color(1.0, 1.0, 200.0 / 255.0, 1.0),
+	Color(200.0 / 255.0, 230.0 / 255.0, 1.0, 1.0),
+]
+
+var _hermes_fx_host: Node = null
+var _hermes_fx_host_canvas: Object = null
+var _hermes_fx_host_add_pending := false
+var _horn_strawberry_transform_renderer: Object = HornStrawberryTransformCinematicRenderer.new()
 
 
 func draw_field_effects(
@@ -34,7 +80,8 @@ func draw_field_effects(
 	ragnarok_impact_effect_duration: float,
 	ragnarok_electric_stun_intensity: float,
 	perf_logger: Object = null,
-	timer_stack: Object = null
+	timer_stack: Object = null,
+	constants: Dictionary = {}
 ) -> void:
 	if canvas == null or runtime == null:
 		return
@@ -57,74 +104,213 @@ func draw_field_effects(
 		runtime.baal_boots_weather_state.cinematic_active,
 		runtime.baal_boots_weather_state.round_effect_active
 	)
+	var horn_strawberry_context: Dictionary = runtime.get_horn_strawberry_context()
+	var horn_strawberry_visible: bool = (
+		runtime.horn_strawberry_mask_runtime.has_visible_effects(runtime)
+		or _horn_strawberry_transform_renderer.is_visible(horn_strawberry_context)
+	)
 	var acquisition_visible: bool = runtime.acquisition_cinematic != null and runtime.acquisition_cinematic.is_active()
-	if not impact_active and not stun_active and runtime.ragnarok_sparks.is_empty() and not poseidon_visible and not knee_pads_visible and not soul_burst_visible and not foul_whistle_visible and not revival_visible and not sensor_visible and not venom_mist_visible and not rainbow_glove_visible and not adversity_armor_visible and not shrapnel_armor_visible and not celestial_armor_visible and not hermes_visible and not baal_visible and not acquisition_visible:
+	if not impact_active and not stun_active and runtime.ragnarok_sparks.is_empty() and not poseidon_visible and not knee_pads_visible and not soul_burst_visible and not foul_whistle_visible and not revival_visible and not sensor_visible and not venom_mist_visible and not rainbow_glove_visible and not adversity_armor_visible and not shrapnel_armor_visible and not celestial_armor_visible and not hermes_visible and not baal_visible and not horn_strawberry_visible and not acquisition_visible:
 		return
 	var detail_perf_logger: Object = perf_logger if _should_sample_detail(perf_logger, "mythic.field_effects") else null
+	var field_size: Vector2 = _as_vector2(constants.get("field_size", Vector2(760.0, 750.0)), Vector2(760.0, 750.0))
+	if horn_strawberry_visible:
+		var horn_sample_start: int = _perf_begin(detail_perf_logger)
+		draw_horn_strawberry_effects(
+			canvas,
+			shake_offset,
+			horn_strawberry_context,
+			runtime.get_horn_strawberry_eat_context(),
+			runtime.get_horn_strawberry_field_context(),
+			runtime.get_horn_strawberry_horn_charge_context(),
+			runtime.get_horn_strawberry_bomb_context()
+		)
+		_perf_end(detail_perf_logger, "mythic.horn_strawberry", horn_sample_start)
 	if baal_visible:
 		var baal_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_baal_boots_effects(canvas, shake_offset)
+		runtime.baal_boots_effect_renderer.draw(
+			canvas,
+			shake_offset,
+			runtime.baal_boots_weather_state,
+			runtime.baal_boots_effect_state,
+			field_size,
+			runtime.baal_boots_runtime.get_weather_color(runtime.baal_boots_weather_state.get_draw_weather_type())
+		)
 		_perf_end(detail_perf_logger, "mythic.baal_boots", baal_sample_start)
 	if hermes_visible:
 		var hermes_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_hermes_shoes_effect(canvas, shake_offset)
+		draw_hermes_shoes_effect(
+			canvas,
+			shake_offset,
+			runtime.hermes_shoes_state,
+			runtime.is_hermes_shoes_active(),
+			float(constants.get("hermes_trail_life_frames", 24.0)),
+			float(constants.get("hermes_move_trail_threshold", 2.0))
+		)
 		_perf_end(detail_perf_logger, "mythic.hermes_shoes", hermes_sample_start)
 	if venom_mist_visible:
 		var venom_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_venom_mist_effect(canvas, shake_offset)
+		draw_venom_mist_effect(
+			canvas,
+			shake_offset,
+			runtime.venom_mist_center,
+			runtime.venom_mist_duration_frames,
+			runtime.venom_mist_timer_frames,
+			runtime.venom_mist_particles,
+			runtime.venom_mist_boss_in_field,
+			float(constants.get("venom_mist_radius", 120.0)),
+			runtime._get_venom_mist_alpha()
+		)
 		_perf_end(detail_perf_logger, "mythic.venom_mist", venom_sample_start)
 	if rainbow_glove_visible:
 		var rainbow_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_rainbow_fur_glove_effect(canvas, shake_offset)
+		draw_rainbow_fur_glove_effect(
+			canvas,
+			shake_offset,
+			runtime.rainbow_fur_glove_aura_center,
+			runtime.rainbow_fur_glove_aura_life_frames,
+			runtime.rainbow_fur_glove_aura_timer_frames,
+			runtime.rainbow_fur_glove_aura_phase,
+			runtime.rainbow_fur_glove_particles,
+			_as_array(constants.get("rainbow_fur_glove_colors", []))
+		)
 		_perf_end(detail_perf_logger, "mythic.rainbow_fur_glove", rainbow_sample_start)
 	if adversity_armor_visible:
 		var adversity_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_adversity_armor_effect(canvas, shake_offset, timer_stack)
+		draw_adversity_armor_effect(
+			canvas,
+			shake_offset,
+			runtime.get_adversity_armor_context(),
+			runtime.adversity_armor_aura_particles,
+			runtime.adversity_armor_barrier_particles,
+			timer_stack
+		)
 		_perf_end(detail_perf_logger, "mythic.adversity_armor", adversity_sample_start)
 	if shrapnel_armor_visible:
 		var shrapnel_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_shrapnel_armor_effect(canvas, shake_offset)
+		draw_shrapnel_armor_effect(
+			canvas,
+			shake_offset,
+			runtime.shrapnel_armor_flash_timer_frames,
+			runtime.shrapnel_armor_flash_center,
+			runtime.shrapnel_armor_shards,
+			runtime.shrapnel_armor_dust_particles,
+			runtime.shrapnel_armor_boss_impact_timer_frames,
+			runtime.shrapnel_armor_boss_impact_center,
+			float(constants.get("shrapnel_armor_flash_frames", 8.0)),
+			float(constants.get("shrapnel_armor_shard_life_frames", 120.0)),
+			float(constants.get("shrapnel_armor_boss_impact_frames", 15.0))
+		)
 		_perf_end(detail_perf_logger, "mythic.shrapnel_armor", shrapnel_sample_start)
 	if celestial_armor_visible:
 		var celestial_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_celestial_armor_effect(canvas, shake_offset)
+		draw_celestial_armor_effect(
+			canvas,
+			shake_offset,
+			runtime.celestial_armor_state,
+			float(constants.get("celestial_wave_radius_max", 110.0)),
+			int(constants.get("celestial_shard_count", 10)),
+			int(constants.get("celestial_arc_segments", 18))
+		)
 		_perf_end(detail_perf_logger, "mythic.celestial_armor", celestial_sample_start)
 	if poseidon_visible:
 		var poseidon_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_poseidon_effects(canvas, shake_offset)
+		draw_poseidon_effects(
+			canvas,
+			shake_offset,
+			runtime.poseidon_water_trail,
+			runtime.poseidon_particles,
+			runtime.poseidon_explosion_active,
+			runtime.poseidon_player_center,
+			runtime.poseidon_explosion_timer,
+			runtime.poseidon_explosion_particles,
+			float(constants.get("poseidon_explosion_flash_duration", 0.4))
+		)
 		_perf_end(detail_perf_logger, "mythic.poseidon", poseidon_sample_start)
 	if knee_pads_visible:
 		var knee_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_knee_pads_effects(canvas, shake_offset)
+		draw_knee_pads_effects(
+			canvas,
+			shake_offset,
+			runtime.knee_pads_flash_center,
+			runtime.knee_pads_flash_timer_frames,
+			runtime.knee_pads_particles,
+			float(constants.get("knee_pads_flash_duration_frames", 30.0))
+		)
 		_perf_end(detail_perf_logger, "mythic.knee_pads", knee_sample_start)
 	if soul_burst_visible:
 		var soul_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_soul_burst_effects(canvas, shake_offset)
+		draw_soul_burst_effects(
+			canvas,
+			shake_offset,
+			runtime.soul_burst_center,
+			runtime.soul_burst_direction,
+			runtime.soul_burst_wind_trails,
+			runtime.soul_burst_shockwaves,
+			runtime.soul_burst_particles,
+			float(constants.get("soul_burst_particle_alpha_cutoff", 0.02))
+		)
 		_perf_end(detail_perf_logger, "mythic.soul_burst", soul_sample_start)
 	if foul_whistle_visible:
 		var foul_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_foul_whistle_effect(canvas, shake_offset)
+		runtime.support_effect_renderer.draw_foul_whistle_effect(
+			canvas,
+			shake_offset,
+			runtime.foul_whistle_state,
+			field_size,
+			float(constants.get("foul_whistle_total_frames", 120.0)),
+			int(constants.get("foul_whistle_referee_frame_count", 4)),
+			float(constants.get("foul_whistle_referee_frame_frames", 6.0))
+		)
 		_perf_end(detail_perf_logger, "mythic.foul_whistle", foul_sample_start)
 	if revival_visible:
 		var revival_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_revival_effect(canvas, shake_offset)
+		runtime.revival_runtime.draw_effect(runtime, canvas, shake_offset, field_size)
 		_perf_end(detail_perf_logger, "mythic.revival", revival_sample_start)
 	if sensor_visible:
 		var sensor_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_sensor_auto_dash_effect(canvas, shake_offset)
+		runtime.support_effect_renderer.draw_sensor_auto_dash_effect(
+			canvas,
+			shake_offset,
+			runtime.sensor_auto_dash_effect_timer_frames,
+			runtime.sensor_auto_dash_center,
+			runtime.sensor_last_dash_direction,
+			float(constants.get("sensor_auto_dash_effect_frames", 34.0))
+		)
 		_perf_end(detail_perf_logger, "mythic.sensor", sensor_sample_start)
 	var center: Vector2 = runtime.ragnarok_impact_center + shake_offset
 	if impact_active:
 		var impact_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_ragnarok_impact_rings(canvas, center, impact_elapsed)
+		draw_ragnarok_impact_rings(
+			canvas,
+			center,
+			impact_elapsed,
+			ragnarok_impact_effect_duration,
+			RAGNAROK_IMPACT_RING_SEGMENTS
+		)
 		_perf_end(detail_perf_logger, "mythic.ragnarok_impact", impact_sample_start)
 	if stun_active:
 		var stun_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_ragnarok_electric_stun_overlay(canvas, center, runtime.ragnarok_stun_target_size, ragnarok_electric_stun_intensity)
+		draw_ragnarok_electric_stun_overlay(
+			canvas,
+			center,
+			runtime.ragnarok_stun_target_size,
+			ragnarok_electric_stun_intensity,
+			RAGNAROK_ELECTRIC_ELLIPSE_SEGMENTS,
+			RAGNAROK_ELECTRIC_OUTER_COLORS,
+			RAGNAROK_ELECTRIC_CORE_COLORS,
+			RAGNAROK_ELECTRIC_BRANCH_COLORS,
+			RAGNAROK_ELECTRIC_SPARK_COLORS
+		)
 		_perf_end(detail_perf_logger, "mythic.ragnarok_stun", stun_sample_start)
 	if not runtime.ragnarok_sparks.is_empty():
 		var sparks_sample_start: int = _perf_begin(detail_perf_logger)
-		runtime._draw_ragnarok_sparks(canvas, center, shake_offset)
+		draw_ragnarok_sparks(
+			canvas,
+			center,
+			runtime.ragnarok_sparks,
+			float(constants.get("ragnarok_particle_alpha_cutoff", 0.02))
+		)
 		_perf_end(detail_perf_logger, "mythic.ragnarok_sparks", sparks_sample_start)
 	if acquisition_visible:
 		if runtime.acquisition_cinematic != null:
@@ -133,91 +319,225 @@ func draw_field_effects(
 			_perf_end(detail_perf_logger, "mythic.acquisition_cinematic", acquisition_sample_start)
 
 
+func draw_horn_strawberry_effects(
+	canvas: CanvasItem,
+	shake_offset: Vector2,
+	transform_context: Dictionary,
+	eat_context: Dictionary,
+	field_context: Dictionary,
+	horn_charge_context: Dictionary = {},
+	bomb_context: Dictionary = {}
+) -> void:
+	_horn_strawberry_transform_renderer.draw(canvas, shake_offset, transform_context)
+	_draw_horn_strawberry_bomb_paint(canvas, shake_offset, bomb_context)
+
+	var barriers: Array = _as_array(field_context.get("barriers", []))
+	var rendered_barriers := 0
+	for barrier_value in barriers:
+		if rendered_barriers >= MAX_RENDERED_HORN_STRAWBERRY_BARRIERS:
+			break
+		var barrier: Dictionary = _as_dict(barrier_value)
+		if barrier.is_empty():
+			continue
+		_draw_horn_strawberry_barrier(canvas, shake_offset, barrier)
+		rendered_barriers += 1
+
+	var projectiles: Array = _as_array(eat_context.get("projectiles", []))
+	var rendered_projectiles := 0
+	for projectile_value in projectiles:
+		if rendered_projectiles >= MAX_RENDERED_HORN_STRAWBERRY_PROJECTILES:
+			break
+		var projectile: Dictionary = _as_dict(projectile_value)
+		if projectile.is_empty():
+			continue
+		_draw_horn_strawberry_stem(canvas, shake_offset, projectile)
+		rendered_projectiles += 1
+
+	_draw_horn_strawberry_charge(canvas, shake_offset, horn_charge_context)
+	_draw_horn_strawberry_bombs(canvas, shake_offset, bomb_context)
+
+
+func _draw_horn_strawberry_barrier(canvas: CanvasItem, shake_offset: Vector2, barrier: Dictionary) -> void:
+	var rect := Rect2(
+		Vector2(float(barrier.get("rect_x", 0.0)), float(barrier.get("rect_y", 0.0))) + shake_offset,
+		Vector2(max(1.0, float(barrier.get("width", 180.0))), max(1.0, float(barrier.get("height", 12.0))))
+	)
+	var built: bool = bool(barrier.get("built", false))
+	var dying: bool = bool(barrier.get("dying", false))
+	var death_ratio: float = clamp(float(barrier.get("death_timer_sec", 0.0)) / 0.6, 0.0, 1.0) if dying else 0.0
+	var alpha: float = (0.35 + 0.55 * clamp(float(barrier.get("build_timer_sec", 0.0)) / 0.5, 0.0, 1.0)) if not built else 0.9
+	alpha *= 1.0 - death_ratio
+	if alpha <= 0.02:
+		return
+	var body_color := Color(0.95, 0.16, 0.24, alpha)
+	var edge_color := Color(0.35, 0.88, 0.30, min(1.0, alpha + 0.1))
+	var shine_color := Color(1.0, 0.74, 0.74, alpha * 0.55)
+	canvas.draw_rect(rect.grow(2.0), Color(0.12, 0.45, 0.16, alpha * 0.28), false, 2.0)
+	canvas.draw_rect(rect, body_color, true)
+	canvas.draw_rect(rect, edge_color, false, 2.0)
+	canvas.draw_line(rect.position + Vector2(6.0, 3.0), rect.position + Vector2(rect.size.x - 6.0, 3.0), shine_color, 2.0)
+	var seed_count: int = clamp(int(rect.size.x / 18.0), 4, 10)
+	for i in range(seed_count):
+		var t: float = float(i + 1) / float(seed_count + 1)
+		var seed_pos := rect.position + Vector2(rect.size.x * t, rect.size.y * (0.45 + 0.22 * sin(float(i) * 1.7)))
+		canvas.draw_circle(seed_pos, 1.6, Color(1.0, 0.86, 0.38, alpha * 0.88))
+
+
+func _draw_horn_strawberry_stem(canvas: CanvasItem, shake_offset: Vector2, projectile: Dictionary) -> void:
+	var center: Vector2 = _as_vector2(projectile.get("position", Vector2.ZERO), Vector2.ZERO) + shake_offset
+	var size: float = max(8.0, float(projectile.get("size", 20.0)))
+	var rotation: float = float(projectile.get("rotation", 0.0))
+	var dir := Vector2(sin(rotation), -cos(rotation))
+	var side := Vector2(-dir.y, dir.x)
+	var tip := center + dir * size * 0.48
+	var tail := center - dir * size * 0.42
+	var leaf_left := tail + side * size * 0.28
+	var leaf_right := tail - side * size * 0.28
+	canvas.draw_circle(center, size * 0.38, Color(0.14, 0.62, 0.22, 0.28))
+	canvas.draw_polygon(
+		PackedVector2Array([tip, leaf_left, center + side * size * 0.12, leaf_right]),
+		PackedColorArray([
+			Color(0.35, 0.92, 0.30, 0.95),
+			Color(0.06, 0.42, 0.13, 0.9),
+			Color(0.16, 0.72, 0.20, 0.95),
+			Color(0.08, 0.46, 0.14, 0.9),
+		])
+	)
+	canvas.draw_line(tail, tip, Color(0.88, 1.0, 0.62, 0.82), 2.0)
+
+
+func _draw_horn_strawberry_charge(canvas: CanvasItem, shake_offset: Vector2, context: Dictionary) -> void:
+	var trails: Array = _as_array(context.get("trails", []))
+	var rendered_trails := 0
+	for trail_value in trails:
+		if rendered_trails >= MAX_RENDERED_HORN_STRAWBERRY_TRAILS:
+			break
+		var trail: Dictionary = _as_dict(trail_value)
+		var center: Vector2 = _as_vector2(trail.get("position", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var life_sec: float = max(0.001, float(trail.get("life_sec", 0.28)))
+		var alpha: float = clamp(float(trail.get("timer_sec", 0.0)) / life_sec, 0.0, 1.0)
+		canvas.draw_circle(center, 22.0 * alpha, Color(1.0, 0.22, 0.28, 0.20 * alpha))
+		canvas.draw_circle(center + Vector2(0.0, -8.0), 9.0 * alpha, Color(0.32, 1.0, 0.26, 0.30 * alpha))
+		rendered_trails += 1
+	if bool(context.get("active", false)):
+		var player_center: Vector2 = _as_vector2(context.get("player_center", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var target_center: Vector2 = _as_vector2(context.get("target_center", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var phase_name: String = str(context.get("phase", ""))
+		var charge_color := Color(1.0, 0.12, 0.20, 0.72)
+		if phase_name == "impact":
+			charge_color = Color(1.0, 0.86, 0.30, 0.9)
+		canvas.draw_line(player_center, target_center, Color(0.98, 0.25, 0.28, 0.24), 6.0)
+		canvas.draw_circle(player_center, 16.0, charge_color)
+		canvas.draw_circle(player_center + Vector2(0.0, -13.0), 6.0, Color(0.28, 0.95, 0.22, 0.9))
+	var flash_timer: float = float(context.get("impact_flash_timer_sec", 0.0))
+	if flash_timer > 0.0:
+		var target_center: Vector2 = _as_vector2(context.get("target_center", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var ratio: float = clamp(flash_timer / 0.20, 0.0, 1.0)
+		canvas.draw_circle(target_center, 46.0 * (1.0 - ratio * 0.35), Color(1.0, 0.25, 0.18, 0.26 * ratio))
+		canvas.draw_arc(target_center, 58.0 * (1.0 - ratio * 0.20), 0.0, TAU, 36, Color(1.0, 0.92, 0.36, 0.75 * ratio), 3.0)
+
+
+func _draw_horn_strawberry_bomb_paint(canvas: CanvasItem, shake_offset: Vector2, context: Dictionary) -> void:
+	var splatters: Array = _as_array(context.get("paint_splatters", []))
+	var rendered := 0
+	for splatter_value in splatters:
+		if rendered >= MAX_RENDERED_HORN_STRAWBERRY_PAINT:
+			break
+		var splatter: Dictionary = _as_dict(splatter_value)
+		var center: Vector2 = _as_vector2(splatter.get("position", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var radius: float = max(2.0, float(splatter.get("radius", 28.0)))
+		var duration: float = max(0.001, float(splatter.get("duration_sec", 5.0)))
+		var alpha: float = clamp(float(splatter.get("timer_sec", 0.0)) / duration, 0.0, 1.0)
+		canvas.draw_circle(center, radius, Color(0.95, 0.08, 0.16, 0.23 * alpha))
+		canvas.draw_arc(center, radius * 0.78, 0.0, TAU, 18, Color(0.25, 0.95, 0.18, 0.24 * alpha), 2.0)
+		var blob_count: int = clamp(int(splatter.get("blob_count", 5)), 3, 8)
+		for i in range(blob_count):
+			var angle: float = float(i) / float(blob_count) * TAU + float(i % 3) * 0.21
+			var blob_center: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius * (0.32 + 0.08 * float(i % 2))
+			canvas.draw_circle(blob_center, radius * 0.16, Color(1.0, 0.18, 0.22, 0.26 * alpha))
+		rendered += 1
+
+
+func _draw_horn_strawberry_bombs(canvas: CanvasItem, shake_offset: Vector2, context: Dictionary) -> void:
+	var bombs: Array = _as_array(context.get("bombs", []))
+	var rendered_bombs := 0
+	for bomb_value in bombs:
+		if rendered_bombs >= MAX_RENDERED_HORN_STRAWBERRY_BOMBS:
+			break
+		var bomb: Dictionary = _as_dict(bomb_value)
+		var center: Vector2 = _as_vector2(bomb.get("position", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var size: float = max(4.0, float(bomb.get("size", 12.0)))
+		canvas.draw_circle(center, size * 0.72, Color(0.94, 0.10, 0.16, 0.96))
+		canvas.draw_circle(center + Vector2(-size * 0.16, -size * 0.18), size * 0.22, Color(1.0, 0.72, 0.72, 0.68))
+		canvas.draw_circle(center + Vector2(size * 0.18, -size * 0.50), size * 0.24, Color(0.18, 0.72, 0.18, 0.92))
+		rendered_bombs += 1
+	var explosions: Array = _as_array(context.get("explosions", []))
+	var rendered_explosions := 0
+	for explosion_value in explosions:
+		if rendered_explosions >= MAX_RENDERED_HORN_STRAWBERRY_EXPLOSIONS:
+			break
+		var explosion: Dictionary = _as_dict(explosion_value)
+		var center: Vector2 = _as_vector2(explosion.get("position", Vector2.ZERO), Vector2.ZERO) + shake_offset
+		var duration: float = max(0.001, float(explosion.get("duration_sec", 0.5)))
+		var ratio: float = clamp(float(explosion.get("timer_sec", 0.0)) / duration, 0.0, 1.0)
+		var radius: float = 12.0 + (1.0 - ratio) * 34.0
+		canvas.draw_circle(center, radius, Color(1.0, 0.16, 0.20, 0.26 * ratio))
+		canvas.draw_arc(center, radius * 1.15, 0.0, TAU, 28, Color(1.0, 0.86, 0.36, 0.76 * ratio), 3.0)
+		rendered_explosions += 1
+
+
 func draw_hermes_shoes_effect(
 	canvas: CanvasItem,
 	shake_offset: Vector2,
 	state: Object,
 	active: bool,
-	trail_life_frames: float,
-	move_trail_threshold: float
+	_trail_life_frames: float,
+	_move_trail_threshold: float
 ) -> void:
-	if canvas == null or state == null:
+	var host: Node = _get_or_create_hermes_fx_host(canvas)
+	if host == null:
 		return
-	var trails: Array = _as_array(state.get("trails"))
-	var player_size: Vector2 = _as_vector2(state.get("player_size"), Vector2.ZERO)
-	for trail_value in trails:
-		var trail: Dictionary = _as_dict(trail_value)
-		var trail_center: Vector2 = _as_vector2(trail.get("center", Vector2.ZERO), Vector2.ZERO) + shake_offset
-		var trail_size: Vector2 = _as_vector2(trail.get("size", player_size), player_size)
-		var life: float = float(trail.get("life", 0.0))
-		var max_life: float = max(1.0, float(trail.get("max_life", trail_life_frames)))
-		var fade: float = clamp(life / max_life, 0.0, 1.0)
-		if fade <= 0.01:
-			continue
-		var rect := Rect2(trail_center - trail_size * 0.5, trail_size)
-		canvas.draw_rect(rect, Color(150.0 / 255.0, 210.0 / 255.0, 1.0, 0.15 * fade), false, 2.0)
-		var direction: float = sign(float(trail.get("direction", 0.0)))
-		if abs(direction) <= 0.01:
-			direction = 1.0
-		for line_index in range(3):
-			var y: float = rect.position.y + trail_size.y * (0.25 + float(line_index) * 0.25)
-			var start := Vector2(rect.position.x + (trail_size.x if direction > 0.0 else 0.0), y)
-			var end := start - Vector2(direction * (18.0 + float(line_index) * 3.0), 0.0)
-			canvas.draw_line(start, end, Color(1.0, 245.0 / 255.0, 150.0 / 255.0, 0.34 * fade), 2.0)
-
-	var player_center: Vector2 = _as_vector2(state.get("player_center"), Vector2.ZERO)
-	if not active or player_center == Vector2.ZERO:
-		return
-	var center: Vector2 = player_center + shake_offset
-	var half_width: float = max(18.0, player_size.x * 0.5)
-	var half_height: float = max(12.0, player_size.y * 0.5)
-	var flap: float = sin(float(state.get("phase"))) * 3.5
-	var wing_color := Color(1.0, 1.0, 1.0, 0.50)
-	var wing_glow := Color(160.0 / 255.0, 215.0 / 255.0, 1.0, 0.18)
-	var wing_outline := Color(1.0, 220.0 / 255.0, 70.0 / 255.0, 0.78)
-	var left_anchor := Vector2(center.x - half_width, center.y)
-	var right_anchor := Vector2(center.x + half_width, center.y)
-	var left_points := PackedVector2Array([
-		left_anchor,
-		left_anchor + Vector2(-16.0 + flap, -half_height * 0.42),
-		left_anchor + Vector2(-30.0 + flap, 0.0),
-		left_anchor + Vector2(-16.0 + flap, half_height * 0.42),
-	])
-	var right_points := PackedVector2Array([
-		right_anchor,
-		right_anchor + Vector2(16.0 - flap, -half_height * 0.42),
-		right_anchor + Vector2(30.0 - flap, 0.0),
-		right_anchor + Vector2(16.0 - flap, half_height * 0.42),
-	])
-	draw_hermes_wing_polygon(canvas, left_points, wing_glow, wing_outline, 4.0)
-	draw_hermes_wing_polygon(canvas, right_points, wing_glow, wing_outline, 4.0)
-	draw_hermes_wing_polygon(canvas, left_points, wing_color, wing_outline, 1.8)
-	draw_hermes_wing_polygon(canvas, right_points, wing_color, wing_outline, 1.8)
-
-	var last_move_delta_x: float = float(state.get("last_move_delta_x"))
-	if abs(last_move_delta_x) >= move_trail_threshold:
-		var direction: float = sign(last_move_delta_x)
-		var line_side_x: float = center.x - half_width - 12.0 if direction > 0.0 else center.x + half_width + 12.0
-		for line_index in range(3):
-			var y: float = center.y - half_height * 0.45 + float(line_index) * half_height * 0.45
-			var start := Vector2(line_side_x, y)
-			var end := start - Vector2(direction * (24.0 + float(line_index) * 4.0), 0.0)
-			canvas.draw_line(start, end, Color(1.0, 1.0, 150.0 / 255.0, 0.46), 2.0)
+	var player_center: Vector2 = Vector2.ZERO
+	var player_size: Vector2 = HermesShoesFxHost.DEFAULT_PADDLE_SIZE
+	var move_delta_x: float = 0.0
+	if state != null:
+		player_center = _as_vector2(state.get("player_center"), Vector2.ZERO)
+		player_size = _as_vector2(state.get("player_size"), player_size)
+		var delta_value: Variant = state.get("last_move_delta_x")
+		if delta_value != null:
+			move_delta_x = float(delta_value)
+	if host.has_method("sync_state"):
+		host.sync_state(player_center, player_size, active, move_delta_x, shake_offset, 1.0)
 
 
-func draw_hermes_wing_polygon(
-	canvas: CanvasItem,
-	points: PackedVector2Array,
-	fill_color: Color,
-	outline_color: Color,
-	outline_width: float
-) -> void:
-	if canvas == null or points.size() < 3:
-		return
-	canvas.draw_colored_polygon(points, fill_color)
-	var outline := PackedVector2Array(points)
-	outline.append(points[0])
-	canvas.draw_polyline(outline, outline_color, outline_width, true)
+func _get_or_create_hermes_fx_host(canvas: CanvasItem) -> Node:
+	if _is_valid_hermes_fx_host() and _hermes_fx_host_canvas == canvas:
+		return _hermes_fx_host
+	if not (canvas is Node):
+		return null
+	var parent: Node = canvas as Node
+	var existing: Node = parent.get_node_or_null(HERMES_SHOES_FX_HOST_NAME)
+	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
+		_hermes_fx_host = existing
+		_hermes_fx_host_canvas = canvas
+		_hermes_fx_host_add_pending = false
+		return _hermes_fx_host
+	_hermes_fx_host = HermesShoesFxHost.new()
+	_hermes_fx_host.name = HERMES_SHOES_FX_HOST_NAME
+	_hermes_fx_host.visible = false
+	_hermes_fx_host_canvas = canvas
+	if not _hermes_fx_host_add_pending:
+		_hermes_fx_host_add_pending = true
+		parent.call_deferred("add_child", _hermes_fx_host)
+	return _hermes_fx_host
+
+
+func _is_valid_hermes_fx_host() -> bool:
+	return (
+		_hermes_fx_host != null
+		and is_instance_valid(_hermes_fx_host)
+		and not _hermes_fx_host.is_queued_for_deletion()
+	)
 
 
 func draw_celestial_armor_effect(
@@ -761,9 +1081,19 @@ func draw_poseidon_water_trail(canvas: CanvasItem, shake_offset: Vector2, water_
 func draw_poseidon_particles(canvas: CanvasItem, shake_offset: Vector2, particles: Array) -> void:
 	if canvas == null:
 		return
-	for particle_index in range(_recent_start(particles, MAX_RENDERED_POSEIDON_PARTICLES), particles.size()):
-		var particle_value = particles[particle_index]
-		var particle: Dictionary = _as_dict(particle_value)
+	# Poseidon vortex particles are stored oldest-first; older particles have risen
+	# higher on screen, newest particles spawn near the paddle anchor. Slicing the
+	# last N (the natural _recent_start path) would cut the top of the water column
+	# off. Stride sample evenly across the lifecycle so the full pillar silhouette
+	# stays readable while honoring MAX_RENDERED_POSEIDON_PARTICLES as the draw budget.
+	var total: int = particles.size()
+	if total <= 0:
+		return
+	var budget: int = MAX_RENDERED_POSEIDON_PARTICLES
+	var render_count: int = total if total <= budget else budget
+	for sample_index in range(render_count):
+		var particle_index: int = sample_index if total <= budget else int(floor(float(sample_index) * float(total) / float(budget)))
+		var particle: Dictionary = _as_dict(particles[particle_index])
 		var size: float = max(0.5, float(particle.get("size", 4.0)))
 		var life: float = float(particle.get("life", 0.0))
 		var alpha: float = clamp(life * 5.0 / 255.0, 0.0, 1.0)
@@ -773,7 +1103,7 @@ func draw_poseidon_particles(canvas: CanvasItem, shake_offset: Vector2, particle
 		var color: Color = _as_color(particle.get("color", Color(50.0 / 255.0, 200.0 / 255.0, 1.0)), Color(50.0 / 255.0, 200.0 / 255.0, 1.0))
 		canvas.draw_circle(pos, size, Color(color.r, color.g, color.b, alpha))
 		var highlight_size: float = size / 3.0
-		if highlight_size >= 0.75 and particle_index % 2 == 0:
+		if highlight_size >= 0.5:
 			canvas.draw_circle(
 				pos - Vector2(highlight_size, highlight_size),
 				highlight_size,
@@ -866,6 +1196,9 @@ func draw_ragnarok_electric_stun_overlay(
 	if canvas == null:
 		return
 	var safe_intensity: float = max(0.25, intensity)
+	var now_msec: int = Time.get_ticks_msec()
+	var time_sec: float = float(now_msec) * 0.001
+	var tick: int = int(float(now_msec) / 70.0)
 	var electric_center: Vector2 = center + Vector2(0.0, 20.0 * safe_intensity)
 	var half_width: float = max(10.0, (target_size.x * 0.5 + 5.0) * safe_intensity)
 	var half_height: float = max(18.0, 28.0 * safe_intensity)
@@ -883,48 +1216,59 @@ func draw_ragnarok_electric_stun_overlay(
 
 	var main_arc_count: int = max(1, int(round(1.0 * safe_intensity)))
 	for _arc_idx in range(main_arc_count):
-		var sx: float = electric_center.x + float(randi_range(int(-half_width / 3.0), int(half_width / 3.0)))
-		var sy: float = electric_center.y + float(randi_range(int(-half_height / 2.0), int(half_height / 2.0)))
-		var arc_len: float = float(randi_range(int(12.0 * safe_intensity), int(24.0 * safe_intensity)))
-		var arc_angle: float = randf_range(0.0, TAU)
+		var arc_seed: int = tick + _arc_idx * 31
+		var sx: float = electric_center.x + _ragnarok_range(arc_seed, time_sec, -half_width / 3.0, half_width / 3.0)
+		var sy: float = electric_center.y + _ragnarok_range(arc_seed + 3, time_sec, -half_height / 2.0, half_height / 2.0)
+		var arc_len: float = _ragnarok_range(arc_seed + 7, time_sec, 12.0 * safe_intensity, 24.0 * safe_intensity)
+		var arc_angle: float = _ragnarok_unit(arc_seed + 11, time_sec) * TAU
 		var ex: float = sx + cos(arc_angle) * arc_len
 		var ey: float = sy + sin(arc_angle) * arc_len
 
-		var segs: int = randi_range(3, 4)
+		var segs: int = 3 + int(_ragnarok_unit(arc_seed + 13, time_sec) > 0.55)
 		var pts := PackedVector2Array()
 		pts.append(Vector2(sx, sy))
 		for j in range(1, segs):
 			var frac: float = float(j) / float(segs)
-			var mx: float = sx + (ex - sx) * frac + randf_range(-2.5, 2.5) * safe_intensity
-			var my: float = sy + (ey - sy) * frac + randf_range(-2.0, 2.0) * safe_intensity
+			var mx: float = sx + (ex - sx) * frac + _ragnarok_range(arc_seed + j * 17, time_sec, -2.5, 2.5) * safe_intensity
+			var my: float = sy + (ey - sy) * frac + _ragnarok_range(arc_seed + j * 19, time_sec, -2.0, 2.0) * safe_intensity
 			pts.append(Vector2(mx, my))
 		pts.append(Vector2(ex, ey))
 
 		canvas.draw_polyline(pts, _array_color(outer_colors, Color(100.0 / 255.0, 200.0 / 255.0, 1.0)), max(1.0, 2.0 * safe_intensity), true)
 		canvas.draw_polyline(pts, _array_color(core_colors, Color(225.0 / 255.0, 245.0 / 255.0, 1.0)), 1.0, true)
 
-	var branch_count: int = max(4, int(round(float(randi_range(4, 7)) * safe_intensity)))
+	var branch_count: int = max(2, int(round(float(RAGNAROK_ELECTRIC_BRANCH_COUNT) * safe_intensity)))
 	for _branch_idx in range(branch_count):
-		var bx: float = electric_center.x + float(randi_range(int(-half_width), int(half_width)))
-		var by: float = electric_center.y + float(randi_range(int(-half_height), int(half_height)))
-		var b_angle: float = randf_range(0.0, TAU)
-		var b_len: float = randf_range(8.0, 18.0) * safe_intensity
+		var branch_seed: int = tick + _branch_idx * 43
+		var bx: float = electric_center.x + _ragnarok_range(branch_seed, time_sec, -half_width, half_width)
+		var by: float = electric_center.y + _ragnarok_range(branch_seed + 5, time_sec, -half_height, half_height)
+		var b_angle: float = _ragnarok_unit(branch_seed + 9, time_sec) * TAU
+		var b_len: float = _ragnarok_range(branch_seed + 15, time_sec, 8.0, 18.0) * safe_intensity
 		var branch_pts := PackedVector2Array()
 		branch_pts.append(Vector2(bx, by))
-		var b_segs: int = randi_range(2, 4)
+		var b_segs: int = 2 + int(floor(_ragnarok_unit(branch_seed + 21, time_sec) * 2.99))
 		for j in range(1, b_segs + 1):
 			var frac_b: float = float(j) / float(b_segs)
-			var nx: float = bx + cos(b_angle) * b_len * frac_b + randf_range(-4.0, 4.0) * safe_intensity
-			var ny: float = by + sin(b_angle) * b_len * frac_b + randf_range(-4.0, 4.0) * safe_intensity
+			var nx: float = bx + cos(b_angle) * b_len * frac_b + _ragnarok_range(branch_seed + j * 23, time_sec, -4.0, 4.0) * safe_intensity
+			var ny: float = by + sin(b_angle) * b_len * frac_b + _ragnarok_range(branch_seed + j * 29, time_sec, -4.0, 4.0) * safe_intensity
 			branch_pts.append(Vector2(nx, ny))
 		canvas.draw_polyline(branch_pts, _array_color(branch_colors, Color(120.0 / 255.0, 220.0 / 255.0, 1.0)), 1.0, true)
 
-	var spark_count: int = max(2, int(round(float(randi_range(2, 4)) * safe_intensity)))
+	var spark_count: int = max(2, int(round(float(RAGNAROK_ELECTRIC_SPARK_COUNT) * safe_intensity)))
 	for _spark_idx in range(spark_count):
-		var sp_x: float = electric_center.x + float(randi_range(int(-half_width), int(half_width)))
-		var sp_y: float = electric_center.y + float(randi_range(int(-half_height), int(half_height)))
-		var sp_size: float = float(randi_range(1, max(2, int(2.0 * safe_intensity))))
+		var spark_seed: int = tick + _spark_idx * 37
+		var sp_x: float = electric_center.x + _ragnarok_range(spark_seed, time_sec, -half_width, half_width)
+		var sp_y: float = electric_center.y + _ragnarok_range(spark_seed + 7, time_sec, -half_height, half_height)
+		var sp_size: float = 1.0 + floor(_ragnarok_unit(spark_seed + 13, time_sec) * max(1.0, 2.0 * safe_intensity))
 		canvas.draw_circle(Vector2(sp_x, sp_y), sp_size, _array_color(spark_colors, Color(1.0, 245.0 / 255.0, 190.0 / 255.0)))
+
+
+func _ragnarok_unit(sample_seed: int, time_sec: float) -> float:
+	return 0.5 + 0.5 * sin(float(sample_seed) * 12.9898 + time_sec * 9.37)
+
+
+func _ragnarok_range(sample_seed: int, time_sec: float, low: float, high: float) -> float:
+	return lerp(low, high, _ragnarok_unit(sample_seed, time_sec))
 
 
 func make_ragnarok_ellipse_points(center: Vector2, radius_x: float, radius_y: float, segments: int) -> PackedVector2Array:

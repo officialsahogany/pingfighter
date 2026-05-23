@@ -30,7 +30,8 @@ func register_player_hit(
 	deps: Dictionary
 ) -> float:
 	var power_state = deps.get("power_state", null)
-	var combo_state = _get_smasher_combo_state(context, deps)
+	var horn_strawberry_transformed: bool = _is_horn_strawberry_transformed(deps)
+	var combo_state = _get_smasher_combo_state(context, deps) if not horn_strawberry_transformed else null
 	if combo_state != null and (power_state == null or not power_state.is_freeze_active()):
 		combo_state.register_hit(ball_pos)
 
@@ -47,14 +48,15 @@ func register_player_hit(
 		return updated_gauge
 
 	if not drive_activated and not power_activated and not _is_dash_gauge_gain_blocked(deps):
-		var gauge_gain: float = float(context.get("gauge_charge_per_hit", 0.0))
-		if combo_state != null:
-			gauge_gain = combo_state.get_gauge_gain(gauge_gain)
 		var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
-		if mythic_item_runtime != null and mythic_item_runtime.has_method("calculate_bluetooth_ring_gauge_charge"):
-			gauge_gain = float(mythic_item_runtime.calculate_bluetooth_ring_gauge_charge(gauge_gain))
-		if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_gold_digger_gauge_bonus"):
-			gauge_gain = float(mythic_item_runtime.apply_gold_digger_gauge_bonus(gauge_gain))
+		var gauge_gain: float = _get_horn_strawberry_gauge_on_hit(mythic_item_runtime) if horn_strawberry_transformed else float(context.get("gauge_charge_per_hit", 0.0))
+		if not horn_strawberry_transformed:
+			if combo_state != null:
+				gauge_gain = combo_state.get_gauge_gain(gauge_gain)
+			if mythic_item_runtime != null and mythic_item_runtime.has_method("calculate_bluetooth_ring_gauge_charge"):
+				gauge_gain = float(mythic_item_runtime.calculate_bluetooth_ring_gauge_charge(gauge_gain))
+			if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_gold_digger_gauge_bonus"):
+				gauge_gain = float(mythic_item_runtime.apply_gold_digger_gauge_bonus(gauge_gain))
 		updated_gauge = min(updated_gauge + gauge_gain, float(context.get("gauge_max", updated_gauge)))
 		var feedback = deps.get("feedback", null)
 		if feedback != null:
@@ -70,6 +72,21 @@ func _get_smasher_combo_state(context: Dictionary, deps: Dictionary) -> Object:
 	if str(context.get("selected_character_type", "smasher")).strip_edges().to_lower() != "smasher":
 		return null
 	return deps.get("combo_state", null)
+
+
+func _is_horn_strawberry_transformed(deps: Dictionary) -> bool:
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	return (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("is_horn_strawberry_transformed")
+		and bool(mythic_item_runtime.is_horn_strawberry_transformed())
+	)
+
+
+func _get_horn_strawberry_gauge_on_hit(mythic_item_runtime: Object) -> float:
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_gauge_on_hit"):
+		return max(0.0, float(mythic_item_runtime.get_horn_strawberry_gauge_on_hit()))
+	return 0.0
 
 
 func _resolve_hit_intensity(drive_activated: bool, power_activated: bool) -> float:

@@ -77,6 +77,13 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 	_apply_turn_decel_multiplier(config, mythic_item_runtime)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_player_movement_config"):
 		mythic_item_runtime.apply_player_movement_config(config)
+	if mythic_item_runtime != null:
+		config["player_skill_input_locked"] = _is_player_skill_locked(mythic_item_runtime)
+		if (
+			mythic_item_runtime.has_method("is_horn_strawberry_control_locked")
+			and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
+		):
+			config["horizontal_input_locked"] = true
 	return config
 
 
@@ -119,6 +126,22 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _is_player_skill_locked(mythic_item_runtime: Object) -> bool:
+	if mythic_item_runtime == null:
+		return false
+	if (
+		mythic_item_runtime.has_method("is_horn_strawberry_skills_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_skills_locked())
+	):
+		return true
+	if (
+		mythic_item_runtime.has_method("is_horn_strawberry_control_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
+	):
+		return true
+	return false
 
 
 func _align_optimus_paddle(owner: Object, previous_paddle_size: Vector2) -> void:

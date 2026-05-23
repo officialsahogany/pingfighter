@@ -13,6 +13,11 @@ func try_activate_power_smashing(
 	deps: Dictionary,
 	callbacks: Dictionary
 ) -> Dictionary:
+	if _is_player_skill_input_locked(deps):
+		return {
+			"activated": false,
+			"special_gauge": special_gauge,
+		}
 	var controller: Object = deps.get("power_activation_controller", null)
 	if controller == null:
 		return {
@@ -64,6 +69,8 @@ func try_activate_drive(
 	context: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
+	if _is_player_skill_input_locked(deps):
+		return {"activated": false}
 	return drive_activation_router.try_activate(
 		speed,
 		angle_rad,
@@ -80,6 +87,25 @@ func try_activate_drive(
 		context,
 		deps
 	)
+
+
+func _is_player_skill_input_locked(deps: Dictionary) -> bool:
+	if bool(deps.get("player_skill_input_locked", false)):
+		return true
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null:
+		return false
+	if (
+		mythic_item_runtime.has_method("is_horn_strawberry_skills_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_skills_locked())
+	):
+		return true
+	if (
+		mythic_item_runtime.has_method("is_horn_strawberry_control_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
+	):
+		return true
+	return false
 
 
 func build_clear_drive_snapshot(ball_spin_state: Object, clear_spin: bool) -> Dictionary:

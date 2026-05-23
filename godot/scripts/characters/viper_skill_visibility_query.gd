@@ -266,9 +266,25 @@ func is_viper_airborne(deps: Dictionary) -> bool:
 
 
 func is_control_locked(deps: Dictionary) -> bool:
+	if bool(deps.get("player_skill_input_locked", false)):
+		return true
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)
 	if active_item_runtime != null and active_item_runtime.has_method("is_player_control_locked"):
-		return bool(active_item_runtime.is_player_control_locked())
+		if bool(active_item_runtime.is_player_control_locked()):
+			return true
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("is_horn_strawberry_skills_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_skills_locked())
+	):
+		return true
+	if (
+		mythic_item_runtime != null
+		and mythic_item_runtime.has_method("is_horn_strawberry_control_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
+	):
+		return true
 	return false
 
 

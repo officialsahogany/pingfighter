@@ -1,6 +1,7 @@
 extends RefCounted
 
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const PlayerSkillLockInputProxy := preload("res://scripts/characters/player_skill_lock_input_proxy.gd")
 const Stage3CurseControlInputProxy := preload("res://scripts/stages/stage3/stage3_curse_control_input_proxy.gd")
 
 const WIDTH: float = 760.0
@@ -14,6 +15,9 @@ var _cached_status_input_reader: Object = null
 var _cached_status_stage3_boss_skill_state: Object = null
 var _cached_status_effect_state: Object = null
 var _cached_status_input_proxy: Object = null
+var _cached_skill_lock_input_reader: Object = null
+var _cached_skill_lock_mythic_item_runtime: Object = null
+var _cached_skill_lock_input_proxy: Object = null
 
 
 func build_config(character_type: String = "smasher") -> Dictionary:
@@ -38,9 +42,13 @@ func build_deps(registry: Object, character_type: String = "smasher") -> Diction
 	var status_effect_state: Object = _get_instance(registry, "status_effect_state")
 	var input_reader: Object = _get_instance(registry, character_runtime.get_input_reader_key(character_type))
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	var routed_input_reader: Object = _build_skill_lock_input_reader(
+		_build_status_input_reader(input_reader, stage3_boss_skill_state, status_effect_state),
+		mythic_item_runtime
+	)
 	return {
 		"registry": registry,
-		"input_reader": _build_status_input_reader(input_reader, stage3_boss_skill_state, status_effect_state),
+		"input_reader": routed_input_reader,
 		"dash_state": _get_instance(registry, character_runtime.get_dash_state_key(character_type)),
 		"drive_input_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_drive_input_state"),
 		"skill_state": _get_instance(registry, skill_state_key) if skill_state_key != "" else null,
@@ -67,6 +75,7 @@ func build_deps(registry: Object, character_type: String = "smasher") -> Diction
 		"orb_hud_state": _get_instance(registry, "orb_hud_state"),
 		"active_item_runtime": _get_instance(registry, "active_item_runtime"),
 		"mythic_item_runtime": mythic_item_runtime,
+		"player_skill_input_locked": _is_player_skill_locked(mythic_item_runtime),
 		"status_effect_state": status_effect_state,
 		"stage3_boss_skill_state": stage3_boss_skill_state,
 		"round_state": _get_instance(registry, "round_flow_state"),
@@ -99,6 +108,40 @@ func _build_status_input_reader(input_reader: Object, stage3_boss_skill_state: O
 		status_effect_state
 	)
 	return _cached_status_input_proxy
+
+
+func _build_skill_lock_input_reader(input_reader: Object, mythic_item_runtime: Object) -> Object:
+	if input_reader == null or mythic_item_runtime == null or not _is_player_skill_locked(mythic_item_runtime):
+		_cached_skill_lock_input_reader = null
+		_cached_skill_lock_mythic_item_runtime = null
+		_cached_skill_lock_input_proxy = null
+		return input_reader
+	if (
+		_cached_skill_lock_input_proxy != null
+		and input_reader == _cached_skill_lock_input_reader
+		and mythic_item_runtime == _cached_skill_lock_mythic_item_runtime
+	):
+		return _cached_skill_lock_input_proxy
+	_cached_skill_lock_input_reader = input_reader
+	_cached_skill_lock_mythic_item_runtime = mythic_item_runtime
+	_cached_skill_lock_input_proxy = PlayerSkillLockInputProxy.new().configure(input_reader, mythic_item_runtime)
+	return _cached_skill_lock_input_proxy
+
+
+func _is_player_skill_locked(mythic_item_runtime: Object) -> bool:
+	if mythic_item_runtime == null:
+		return false
+	if (
+		mythic_item_runtime.has_method("is_horn_strawberry_skills_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_skills_locked())
+	):
+		return true
+	if (
+		mythic_item_runtime.has_method("is_horn_strawberry_control_locked")
+		and bool(mythic_item_runtime.is_horn_strawberry_control_locked())
+	):
+		return true
+	return false
 
 
 func _get_instance(registry: Object, key: String) -> Object:

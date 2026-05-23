@@ -1,6 +1,67 @@
 extends RefCounted
 
 
+func draw_selection_overlay(
+	canvas: CanvasItem,
+	selection_state: Object,
+	icon_texture_cache: Dictionary,
+	view_size: Vector2,
+	active_item_korean_names: Dictionary,
+	card_count: int
+) -> void:
+	if canvas == null or selection_state == null or not selection_state.is_active():
+		return
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var intro_alpha: float = clamp(float(selection_state.timer_frames) / 20.0, 0.0, 1.0)
+	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.02, 0.01, 0.04, 0.72 * intro_alpha))
+	var title_center := Vector2(view_size.x * 0.5, max(72.0, view_size.y * 0.18))
+	draw_centered_text(canvas, font, "판도라의 유산", title_center, 30, Color(1.0, 0.86, 0.32, intro_alpha))
+	draw_centered_text(
+		canvas,
+		font,
+		"아이템을 선택하세요",
+		title_center + Vector2(0.0, 34.0),
+		15,
+		Color(0.78, 0.82, 0.92, intro_alpha)
+	)
+	var selection_items: Array = selection_state.items
+	for i in range(card_count):
+		var rect: Rect2 = get_card_rect(i, view_size, card_count)
+		var item_data: Dictionary = _get_dict(selection_items[i]) if i < selection_items.size() else {}
+		var selected := i == int(selection_state.selected_index)
+		draw_choice_card_body(
+			canvas,
+			font,
+			rect,
+			get_choice_source_label(item_data),
+			get_choice_source_color(item_data),
+			get_choice_icon_texture(item_data, icon_texture_cache),
+			get_choice_title(item_data, active_item_korean_names),
+			selected,
+			intro_alpha
+		)
+		if selected:
+			draw_centered_text(
+				canvas,
+				font,
+				"선택",
+				rect.position + Vector2(rect.size.x * 0.5, rect.size.y - 18.0),
+				12,
+				Color(1.0, 0.86, 0.38, intro_alpha),
+				rect.size.x - 16.0
+			)
+	draw_centered_text(
+		canvas,
+		font,
+		"←/→ / 클릭 / Enter",
+		Vector2(view_size.x * 0.5, min(view_size.y - 38.0, title_center.y + 284.0)),
+		13,
+		Color(0.64, 0.68, 0.78, intro_alpha)
+	)
+
+
 func get_choice_source_label(item_data: Dictionary) -> String:
 	match str(item_data.get("pandora_source", item_data.get("type", "active"))):
 		"mythic":
@@ -121,3 +182,7 @@ func draw_centered_text(
 	var pos := Vector2(center.x - draw_width * 0.5, center.y + measured.y * 0.32)
 	canvas.draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, draw_width, font_size, 2, Color(0.0, 0.0, 0.0, color.a * 0.70))
 	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, draw_width, font_size, color)
+
+
+func _get_dict(value: Variant) -> Dictionary:
+	return value if value is Dictionary else {}

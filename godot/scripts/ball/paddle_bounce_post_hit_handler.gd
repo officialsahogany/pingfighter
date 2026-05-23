@@ -233,6 +233,8 @@ func apply(
 			context["suppress_paddle_hit_knockback"] = true
 		if bool(boss_result.get("kick_skill_knockback_consumed", false)):
 			context["suppress_paddle_hit_knockback"] = true
+		if bool(boss_result.get("suppress_paddle_hit_knockback", false)):
+			context["suppress_paddle_hit_knockback"] = true
 		special_gauge = float(context.get("special_gauge", special_gauge))
 
 	var fire_weather_hit_active := _is_fire_weather_active(deps)
@@ -311,6 +313,11 @@ func apply(
 			"commando_suicide_drone_ball_boost_consumed",
 			"commando_suicide_drone_ball_restored_speed",
 			"boss_status_immune",
+			"horn_strawberry_horn_charge_hit",
+			"horn_strawberry_horn_charge_consumed",
+			"horn_strawberry_bomb_hit",
+			"horn_strawberry_bomb_consumed",
+			"suppress_paddle_hit_knockback",
 		]:
 			if boss_result.has(key):
 				result[key] = boss_result[key]

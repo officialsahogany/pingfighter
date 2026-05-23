@@ -1,16 +1,16 @@
 extends RefCounted
 
+const ITEM_MEGINGJORD := "megingjord"
+const ITEM_RAGNAROK_HAMMER := "ragnarok_hammer"
+const ITEM_POSEIDON_TRIDENT := "poseidon_trident"
+const BASE_SPECIAL_GAUGE_MAX := 500.0
+const VENOM_MIST_RADIUS := 120.0
 
-func build_snapshot(runtime: Object, constants: Dictionary) -> Dictionary:
-	var item_megingjord: String = str(constants.get("item_megingjord", "megingjord"))
-	var item_ragnarok_hammer: String = str(constants.get("item_ragnarok_hammer", "ragnarok_hammer"))
-	var item_poseidon_trident: String = str(constants.get("item_poseidon_trident", "poseidon_trident"))
-	var base_special_gauge_max: float = float(constants.get("base_special_gauge_max", 500.0))
-	var venom_mist_radius: float = float(constants.get("venom_mist_radius", 120.0))
+func build_snapshot(runtime: Object) -> Dictionary:
 	return {
 		"inventory_items": runtime.inventory_items.duplicate(true),
 		"equipped_items": runtime.equipped_items.duplicate(true),
-		"megingjord_equipped": runtime.is_equipped(item_megingjord),
+		"megingjord_equipped": runtime.is_equipped(ITEM_MEGINGJORD),
 		"megingjord_extra_pick_count": runtime.megingjord_extra_pick_count,
 		"megingjord_extra_pick_chance": runtime.get_megingjord_extra_pick_chance(),
 		"megingjord_activation_active": runtime.is_activation_effect_active(),
@@ -100,7 +100,7 @@ func build_snapshot(runtime: Object, constants: Dictionary) -> Dictionary:
 		"knee_pads_effect_active": runtime.knee_pads_flash_timer_frames > 0.0,
 		"fuel_pouch_equipped": runtime.is_fuel_pouch_equipped(),
 		"fuel_pouch_gauge_bonus": runtime.get_fuel_pouch_gauge_bonus(),
-		"special_gauge_max": runtime.get_effective_special_gauge_max(base_special_gauge_max),
+		"special_gauge_max": runtime.get_effective_special_gauge_max(BASE_SPECIAL_GAUGE_MAX),
 		"bluetooth_ring_equipped": runtime.is_bluetooth_ring_equipped(),
 		"bluetooth_ring_active": runtime.is_bluetooth_ring_active(),
 		"bluetooth_ring_gauge_gain_pct": runtime.get_bluetooth_ring_gauge_gain_pct(),
@@ -136,7 +136,7 @@ func build_snapshot(runtime: Object, constants: Dictionary) -> Dictionary:
 		"venom_mist_ball_poisoned": runtime.venom_mist_ball_poisoned,
 		"venom_mist_field_active": runtime.venom_mist_field_active,
 		"venom_mist_field_center": runtime.venom_mist_center,
-		"venom_mist_field_radius": venom_mist_radius,
+		"venom_mist_field_radius": VENOM_MIST_RADIUS,
 		"venom_mist_field_timer_frames": runtime.venom_mist_timer_frames,
 		"venom_mist_boss_in_field": runtime.venom_mist_boss_in_field,
 		"venom_mist_boss_slow_multiplier": runtime.get_venom_mist_boss_slow_multiplier(),
@@ -232,6 +232,12 @@ func build_snapshot(runtime: Object, constants: Dictionary) -> Dictionary:
 		"heavenly_cape_equipped": runtime.is_heavenly_cape_equipped(),
 		"heavenly_cape_skill_cooldown_reduction_pct": runtime.get_heavenly_cape_skill_cooldown_reduction_pct(),
 		"heavenly_cape_skill_slot_bonus": runtime.get_heavenly_cape_skill_slot_bonus(),
+		"horn_strawberry_mask_equipped": runtime.is_horn_strawberry_mask_equipped(),
+		"horn_strawberry_transformed": runtime.is_horn_strawberry_transformed(),
+		"horn_strawberry_event_playing": runtime.is_horn_strawberry_event_playing(),
+		"horn_strawberry_skills_locked": runtime.is_horn_strawberry_skills_locked(),
+		"horn_strawberry_control_locked": runtime.is_horn_strawberry_control_locked(),
+		"horn_strawberry_context": runtime.get_horn_strawberry_context(),
 		"player_skill_max_slots": runtime.get_player_skill_max_slots(5),
 		"player_skill_cooldown_multiplier": runtime.get_player_skill_cooldown_multiplier(),
 		"dashgear_equipped": runtime.is_dashgear_equipped(),
@@ -245,14 +251,14 @@ func build_snapshot(runtime: Object, constants: Dictionary) -> Dictionary:
 		"dashholder_equipped": runtime.is_dashholder_equipped(),
 		"dashholder_dash_token_bonus": runtime.get_dashholder_dash_token_bonus(),
 		"dash_token_capacity": runtime.get_dash_token_capacity(1),
-		"ragnarok_hammer_equipped": runtime.is_equipped(item_ragnarok_hammer),
+		"ragnarok_hammer_equipped": runtime.is_equipped(ITEM_RAGNAROK_HAMMER),
 		"ragnarok_hammer_trigger_chance": runtime.get_ragnarok_trigger_chance(),
 		"ragnarok_hammer_stun_duration": runtime.get_ragnarok_stun_duration(),
 		"ragnarok_hammer_speed_boost": runtime.get_ragnarok_speed_boost(),
 		"ragnarok_hammer_gauge_cost": runtime.get_ragnarok_gauge_cost(),
 		"ragnarok_hammer_stun_ball_active": runtime.ragnarok_stun_ball_active,
 		"ragnarok_hammer_boss_stun_active": runtime.ragnarok_boss_stun_timer_frames > 0.0,
-		"poseidon_trident_equipped": runtime.is_equipped(item_poseidon_trident),
+		"poseidon_trident_equipped": runtime.is_equipped(ITEM_POSEIDON_TRIDENT),
 		"poseidon_trident_cooldown": runtime.get_poseidon_cooldown(),
 		"poseidon_trident_cooldown_remaining": max(0.0, runtime.poseidon_effect_cooldown_frames / 60.0),
 		"poseidon_trident_gauge_cost": runtime.get_poseidon_gauge_cost(),
