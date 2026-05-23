@@ -1,6 +1,7 @@
 extends SceneTree
 
 const BootFlowScene := preload("res://scripts/core/boot_flow_scene.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var failure_count: int = 0
 var boot: Control = null
@@ -37,6 +38,7 @@ func _run() -> void:
 		_expect(player.playing, "second B key should resume the loading BGM")
 
 	if player != null:
+		_cleanup_audio_player(player)
 		player.queue_free()
 		await process_frame
 	if boot != null:
@@ -45,6 +47,10 @@ func _run() -> void:
 		boot.queue_free()
 		boot = null
 		await process_frame
+		await process_frame
+		await process_frame
+	ProjectResourceLoader.clear_caches()
+	await process_frame
 	get_root().set_meta("main_menu_bgm_muted", false)
 	_finish()
 
@@ -71,6 +77,14 @@ func _finish() -> void:
 		return
 	print("boot_flow_bgm_toggle_smoke: ok")
 	quit(0)
+
+
+func _cleanup_audio_player(player: AudioStreamPlayer) -> void:
+	if player == null:
+		return
+	if player.playing:
+		player.stop()
+	player.stream = null
 
 
 func _expect(condition: bool, message: String) -> void:
