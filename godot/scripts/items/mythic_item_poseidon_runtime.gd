@@ -127,7 +127,7 @@ func update_runtime(
 	fps_scale: float,
 	constants: Dictionary
 ) -> void:
-	runtime.poseidon_player_center = runtime._read_owner_player_center(owner)
+	runtime.poseidon_player_center = runtime.owner_syncer.read_owner_player_center(runtime, owner)
 	var was_cooling: bool = runtime.poseidon_effect_cooldown_frames > 0.0
 	if runtime.poseidon_effect_cooldown_frames > 0.0:
 		runtime.poseidon_effect_cooldown_frames = max(0.0, runtime.poseidon_effect_cooldown_frames - fps_scale)

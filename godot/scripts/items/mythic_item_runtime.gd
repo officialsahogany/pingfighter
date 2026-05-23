@@ -2403,10 +2403,6 @@ func _clear_baal_boots_round_state(registry: Object = null) -> void:
 	baal_boots_runtime.clear_round_state(self, registry, BAAL_BOOTS_CONSTANTS)
 
 
-func _read_owner_boss_center(owner: Object) -> Vector2:
-	return venom_mist_runtime.read_owner_boss_center(self, owner)
-
-
 func _update_adversity_armor_runtime(owner: Object, _registry: Object, fps_scale: float) -> void:
 	adversity_armor_runtime.update_runtime(self, owner, fps_scale)
 
@@ -2425,15 +2421,6 @@ func _update_poseidon_runtime(owner: Object, registry: Object, fps_scale: float)
 
 func _try_trigger_poseidon_vortex(owner: Object, registry: Object, direction: float) -> bool:
 	return poseidon_runtime.try_trigger_vortex(self, owner, registry, direction, POSEIDON_CONSTANTS)
-
-
-func _read_owner_player_center(owner: Object) -> Vector2:
-	var pos: Vector2 = _get_vector2(_safe_owner_get(owner, "player_pos", Vector2.ZERO))
-	var size := Vector2(
-		float(_safe_owner_get(owner, "player_paddle_width", 155.0)),
-		float(_safe_owner_get(owner, "player_paddle_height", 50.0))
-	)
-	return pos + size * 0.5
 
 
 func _update_baal_boots_runtime(owner: Object, registry: Object, fps_scale: float) -> void:

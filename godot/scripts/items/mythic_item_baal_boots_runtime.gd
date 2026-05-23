@@ -111,7 +111,7 @@ func update_runtime(
 
 	var step: float = max(0.0, fps_scale)
 	if runtime.baal_boots_weather_state.has_round_activity():
-		runtime.baal_boots_weather_state.set_absorb_center(runtime._read_owner_player_center(owner))
+		runtime.baal_boots_weather_state.set_absorb_center(runtime.owner_syncer.read_owner_player_center(runtime, owner))
 
 	if runtime.baal_boots_weather_state.pending_weather_type != "":
 		var pending_weather_type: String = runtime.baal_boots_weather_state.pending_weather_type
@@ -154,7 +154,7 @@ func try_arm_from_weather(
 		return
 	runtime.baal_boots_weather_state.arm(
 		weather_type,
-		runtime._read_owner_player_center(owner),
+		runtime.owner_syncer.read_owner_player_center(runtime, owner),
 		float(constants.get("trigger_delay_frames", 150.0))
 	)
 	spawn_aura_particles(runtime, runtime.baal_boots_weather_state.absorb_center, weather_type, 12, constants)
@@ -178,7 +178,7 @@ func begin_absorb(
 		runtime.baal_boots_weather_state.cancel_pending_activation()
 		return
 
-	var absorb_center: Vector2 = runtime._read_owner_player_center(owner)
+	var absorb_center: Vector2 = runtime.owner_syncer.read_owner_player_center(runtime, owner)
 	runtime.baal_boots_weather_state.set_absorb_center(absorb_center)
 	var harvested: Array = []
 	if weather.has_method("harvest_particles"):
@@ -212,10 +212,10 @@ func finish_absorb(runtime: Object, owner: Object, registry: Object, constants: 
 	if runtime.baal_boots_weather_state.round_weather_type == "sand":
 		var weather: Object = runtime._get_instance(registry, "weather_event_state")
 		if weather != null and weather.has_method("rebuild_sand_behind_player"):
-			weather.rebuild_sand_behind_player(runtime._read_owner_player_center(owner))
+			weather.rebuild_sand_behind_player(runtime.owner_syncer.read_owner_player_center(runtime, owner))
 	spawn_aura_particles(
 		runtime,
-		runtime._read_owner_player_center(owner),
+		runtime.owner_syncer.read_owner_player_center(runtime, owner),
 		runtime.baal_boots_weather_state.round_weather_type,
 		20,
 		constants
@@ -316,7 +316,7 @@ func apply_projectile_hit(
 		"rain":
 			runtime.baal_boots_combat_state.apply_slow(float(constants.get("rain_slow_frames", 180.0)))
 		"hail":
-			var boss_center: Vector2 = runtime._read_owner_boss_center(owner)
+			var boss_center: Vector2 = runtime.owner_syncer.read_owner_boss_center(runtime, owner)
 			var direction: float = 1.0 if boss_center.x < float(constants.get("field_width", 760.0)) * 0.5 else -1.0
 			runtime.baal_boots_combat_state.apply_knockback(
 				direction,

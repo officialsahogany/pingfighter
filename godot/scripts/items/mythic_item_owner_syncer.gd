@@ -464,6 +464,27 @@ func get_active_item_paddle_scale(runtime: Object, registry: Object) -> float:
 	return 1.0
 
 
+func read_owner_player_center(runtime: Object, owner: Object) -> Vector2:
+	var pos: Vector2 = runtime._get_vector2(runtime._safe_owner_get(owner, "player_pos", Vector2.ZERO))
+	var size := Vector2(
+		float(runtime._safe_owner_get(owner, "player_paddle_width", 155.0)),
+		float(runtime._safe_owner_get(owner, "player_paddle_height", 50.0))
+	)
+	return pos + size * 0.5
+
+
+func read_owner_boss_center(runtime: Object, owner: Object) -> Vector2:
+	var pos: Vector2 = runtime._get_vector2(runtime._safe_owner_get(owner, "boss_pos", Vector2(330.0, 25.0)))
+	var width: float = max(1.0, float(runtime._safe_owner_get(owner, "boss_paddle_width", 100.0)))
+	var height: float = max(1.0, float(runtime._safe_owner_get(owner, "boss_hitbox_height", 40.0)))
+	var size_value: Variant = runtime._safe_owner_get(owner, "boss_paddle_size", Vector2.ZERO)
+	if size_value is Vector2 and size_value != Vector2.ZERO:
+		var size: Vector2 = size_value
+		width = max(1.0, size.x)
+		height = max(1.0, size.y)
+	return pos + Vector2(width * 0.5, height * 0.5)
+
+
 func clamp_synced_player_x(x: float, paddle_width: float, warp_gate_state: Object, field_width: float) -> float:
 	if warp_gate_state != null and warp_gate_state.has_method("is_active") and bool(warp_gate_state.is_active()):
 		return clamp(x, -max(1.0, paddle_width), field_width)
