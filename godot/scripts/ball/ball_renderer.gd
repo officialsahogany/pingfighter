@@ -30,6 +30,7 @@ func prewarm_assets_step() -> bool:
 func clear() -> void:
 	energy_renderer.clear()
 	pingpong_renderer.clear()
+	status_overlay_renderer.clear()
 
 
 func draw_current(canvas: CanvasItem, pos: Vector2, context: Dictionary, perf_logger: Object = null) -> void:

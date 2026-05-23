@@ -1,10 +1,18 @@
 extends RefCounted
 
 const _RAGNAROK_TRAIL_LIFE_MSEC := 500.0
-const _FIRE_WEATHER_TRAIL_LIFE_MSEC := 360.0
-const _FIRE_WEATHER_TRAIL_RENDER_LIMIT := 12
+const _FIRE_WEATHER_TRAIL_LIFE_MSEC := 260.0
+const _FIRE_WEATHER_TRAIL_RENDER_LIMIT := 8
 const _FIRE_WEATHER_PRIMARY_ARC_POINTS := 36
 const _FIRE_WEATHER_SECONDARY_ARC_POINTS := 32
+const _FIRE_WEATHER_TRAIL_RADIUS_MAX_MULT := 0.72
+const _FIRE_WEATHER_OUTER_RADIUS_MULT := 1.30
+const _FIRE_WEATHER_MID_RADIUS_MULT := 1.14
+const _FIRE_WEATHER_INNER_RADIUS_MULT := 0.94
+const _FIRE_WEATHER_CORE_RADIUS_MULT := 0.46
+const _FIRE_WEATHER_PRIMARY_ARC_RADIUS_MULT := 1.18
+const _FIRE_WEATHER_SECONDARY_ARC_RADIUS_MULT := 1.32
+const _FIRE_WEATHER_TRAIL_RESET_DISTANCE_MULT := 4.5
 const _RAGNAROK_TRAIL_RENDER_LIMIT := 12
 const _RAGNAROK_BOLT_COUNT := 5
 const _RAGNAROK_BRANCH_COUNT := 2
@@ -24,6 +32,13 @@ var _ragnarok_trail: Array = []
 var _ragnarok_active_last_frame := false
 var _fire_weather_trail: Array = []
 var _fire_weather_active_last_frame := false
+
+
+func clear() -> void:
+	_ragnarok_trail.clear()
+	_ragnarok_active_last_frame = false
+	_fire_weather_trail.clear()
+	_fire_weather_active_last_frame = false
 
 
 func draw(canvas: CanvasItem, pos: Vector2, context: Dictionary, ball_render_radius: float) -> void:
@@ -88,7 +103,12 @@ func _draw_fire_weather_ball_overlay(canvas: CanvasItem, pos: Vector2, ball_rend
 	var radius: float = max(4.0, ball_render_radius)
 	var now: float = float(Time.get_ticks_msec())
 	var ball_vel: Vector2 = _get_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
-	_fire_weather_trail.append({"pos": pos, "time": now, "speed": ball_vel.length()})
+	var ball_speed: float = ball_vel.length()
+	_reset_fire_weather_trail_if_discontinuous(pos, radius)
+	if ball_speed > 0.5:
+		_fire_weather_trail.append({"pos": pos, "time": now, "speed": ball_speed})
+	else:
+		_fire_weather_trail.clear()
 	_trim_timed_trail_in_place(_fire_weather_trail, now, _FIRE_WEATHER_TRAIL_LIFE_MSEC, _FIRE_WEATHER_TRAIL_RENDER_LIMIT)
 
 	for index in range(_fire_weather_trail.size()):
@@ -99,27 +119,30 @@ func _draw_fire_weather_ball_overlay(canvas: CanvasItem, pos: Vector2, ball_rend
 			continue
 		var trail_pos: Vector2 = _get_vector2(entry.get("pos", pos), pos)
 		var speed_scale: float = clamp(float(entry.get("speed", 0.0)) / 28.0, 0.0, 1.0)
-		var trail_radius: float = radius * (0.55 + 0.85 * t) + speed_scale * 4.0
-		canvas.draw_circle(trail_pos, trail_radius + 7.0 * t, Color(0.74, 0.05, 0.01, 0.16 * t))
-		canvas.draw_circle(trail_pos + Vector2(sin(float(index) * 1.9) * 2.0, -2.0 * t), trail_radius, Color(1.0, 0.30, 0.02, 0.26 * t))
-		canvas.draw_circle(trail_pos + Vector2(cos(float(index) * 2.3) * 1.4, -4.0 * t), max(1.5, trail_radius * 0.42), Color(1.0, 0.83, 0.24, 0.24 * t))
+		var trail_radius: float = min(
+			radius * _FIRE_WEATHER_TRAIL_RADIUS_MAX_MULT,
+			radius * (0.22 + 0.38 * t) + speed_scale * 2.0
+		)
+		canvas.draw_circle(trail_pos, trail_radius + min(3.0, radius * 0.12) * t, Color(0.74, 0.05, 0.01, 0.11 * t))
+		canvas.draw_circle(trail_pos + Vector2(sin(float(index) * 1.9) * 1.5, -1.4 * t), trail_radius, Color(1.0, 0.30, 0.02, 0.18 * t))
+		canvas.draw_circle(trail_pos + Vector2(cos(float(index) * 2.3), -2.4 * t), max(1.2, trail_radius * 0.36), Color(1.0, 0.83, 0.24, 0.18 * t))
 
 	var pulse: float = 0.5 + 0.5 * sin(now * 0.013)
-	canvas.draw_circle(pos, radius + 21.0 + 3.5 * pulse, Color(0.60, 0.02, 0.0, (26.0 + 16.0 * pulse) / 255.0))
-	canvas.draw_circle(pos, radius + 13.0 + 2.0 * pulse, Color(1.0, 0.16, 0.02, (46.0 + 22.0 * pulse) / 255.0))
-	canvas.draw_circle(pos, radius + 5.0, Color(1.0, 0.48, 0.06, (70.0 + 24.0 * pulse) / 255.0))
-	canvas.draw_circle(pos, max(3.0, radius * 0.72), Color(1.0, 0.88, 0.34, (72.0 + 22.0 * pulse) / 255.0))
-	canvas.draw_arc(pos, radius + 9.0 + pulse * 2.0, now * 0.006, now * 0.006 + PI * 1.42, _FIRE_WEATHER_PRIMARY_ARC_POINTS, Color(1.0, 0.68, 0.16, 0.74), 2.2)
-	canvas.draw_arc(pos, radius + 15.0, -now * 0.004, -now * 0.004 + PI * 1.15, _FIRE_WEATHER_SECONDARY_ARC_POINTS, Color(1.0, 0.18, 0.02, 0.48), 1.7)
+	canvas.draw_circle(pos, radius * (_FIRE_WEATHER_OUTER_RADIUS_MULT + 0.04 * pulse), Color(0.60, 0.02, 0.0, (18.0 + 12.0 * pulse) / 255.0))
+	canvas.draw_circle(pos, radius * (_FIRE_WEATHER_MID_RADIUS_MULT + 0.03 * pulse), Color(1.0, 0.16, 0.02, (32.0 + 16.0 * pulse) / 255.0))
+	canvas.draw_circle(pos, radius * _FIRE_WEATHER_INNER_RADIUS_MULT, Color(1.0, 0.48, 0.06, (48.0 + 18.0 * pulse) / 255.0))
+	canvas.draw_circle(pos, max(3.0, radius * _FIRE_WEATHER_CORE_RADIUS_MULT), Color(1.0, 0.88, 0.34, (58.0 + 18.0 * pulse) / 255.0))
+	canvas.draw_arc(pos, radius * (_FIRE_WEATHER_PRIMARY_ARC_RADIUS_MULT + pulse * 0.04), now * 0.006, now * 0.006 + PI * 1.42, _FIRE_WEATHER_PRIMARY_ARC_POINTS, Color(1.0, 0.68, 0.16, 0.62), 1.8)
+	canvas.draw_arc(pos, radius * _FIRE_WEATHER_SECONDARY_ARC_RADIUS_MULT, -now * 0.004, -now * 0.004 + PI * 1.15, _FIRE_WEATHER_SECONDARY_ARC_POINTS, Color(1.0, 0.18, 0.02, 0.36), 1.4)
 
 	for flame_index in range(4):
 		var phase: float = float(flame_index) * TAU / 4.0
 		var angle: float = now * 0.008 + phase
-		var distance: float = radius + 4.0 + sin(now * 0.010 + phase) * 2.0
-		var flame_pos: Vector2 = pos + Vector2(cos(angle) * distance, sin(angle) * distance * 0.58 - 2.0)
-		var flame_size: float = max(2.0, radius * (0.18 + 0.06 * sin(now * 0.014 + phase)))
-		canvas.draw_circle(flame_pos, flame_size + 2.0, Color(1.0, 0.20, 0.02, 0.72))
-		canvas.draw_circle(flame_pos + Vector2(0.0, -flame_size * 0.50), max(1.2, flame_size * 0.58), Color(1.0, 0.88, 0.30, 0.76))
+		var distance: float = radius * (0.80 + 0.06 * sin(now * 0.010 + phase))
+		var flame_pos: Vector2 = pos + Vector2(cos(angle) * distance, sin(angle) * distance * 0.58 - 1.4)
+		var flame_size: float = max(1.6, radius * (0.10 + 0.035 * sin(now * 0.014 + phase)))
+		canvas.draw_circle(flame_pos, flame_size + 1.2, Color(1.0, 0.20, 0.02, 0.58))
+		canvas.draw_circle(flame_pos + Vector2(0.0, -flame_size * 0.45), max(1.0, flame_size * 0.54), Color(1.0, 0.88, 0.30, 0.62))
 
 
 func _draw_ragnarok_hammer_ball_overlay(canvas: CanvasItem, pos: Vector2, _ball_render_radius: float) -> void:
@@ -220,6 +243,16 @@ func _trim_timed_trail_in_place(trail: Array, now_msec: float, life_msec: float,
 		for index in range(keep_count):
 			trail[index] = trail[keep_start + index]
 	trail.resize(keep_count)
+
+
+func _reset_fire_weather_trail_if_discontinuous(pos: Vector2, radius: float) -> void:
+	if _fire_weather_trail.is_empty():
+		return
+	var last_entry: Dictionary = _fire_weather_trail[_fire_weather_trail.size() - 1]
+	var last_pos: Vector2 = _get_vector2(last_entry.get("pos", pos), pos)
+	var max_jump: float = max(90.0, radius * _FIRE_WEATHER_TRAIL_RESET_DISTANCE_MULT)
+	if last_pos.distance_to(pos) > max_jump:
+		_fire_weather_trail.clear()
 
 
 func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
