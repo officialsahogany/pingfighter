@@ -52,8 +52,11 @@ func reset() -> void:
 	crows.clear()
 	crow_fragments.clear()
 	crow_particles.clear()
+	var had_starpoints := not starpoint_drops.is_empty() or not starpoint_particles.is_empty()
 	starpoint_drops.clear()
 	starpoint_particles.clear()
+	if had_starpoints:
+		CommonStarpointVisualHost.hide_all_existing_hosts()
 	spawn_timer = 0.0
 	spawn_interval = rng.randf_range(SPAWN_MIN_SEC, SPAWN_MAX_SEC)
 	time_sec = 0.0
@@ -63,10 +66,13 @@ func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> Di
 	if int(context.get("current_stage", 4)) != 4:
 		# Drop mid-flight starpoints when the player leaves Stage 4 so they
 		# don't reappear frozen at their last position when the player returns.
+		var had_starpoints := not starpoint_drops.is_empty() or not starpoint_particles.is_empty()
 		if not starpoint_drops.is_empty():
 			starpoint_drops.clear()
 		if not starpoint_particles.is_empty():
 			starpoint_particles.clear()
+		if had_starpoints:
+			CommonStarpointVisualHost.hide_all_existing_hosts()
 		return {}
 	var clamped_delta: float = clampf(delta, 0.0, 0.1)
 	var fps_scale: float = clamped_delta * 60.0
@@ -721,6 +727,10 @@ func _draw_starpoint_particles(canvas: CanvasItem, context: Dictionary, shake_of
 
 
 func _draw_starpoint_drops(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	var drops: Array = _as_array(context.get("stage4_starpoint_drops", starpoint_drops))
+	if drops.is_empty():
+		CommonStarpointVisualHost.hide_on_canvas(canvas)
+		return
 	# Stage 4 uses the gold/orange palette (vs. Stages 1/2/3 scrap pink/red).
 	# Detector-bonus drops share the cyan/white palette across all stages.
 	# Convert playfield-local drop positions and sizes into rendered-playfield
@@ -732,7 +742,7 @@ func _draw_starpoint_drops(canvas: CanvasItem, context: Dictionary, shake_offset
 	if host != null and host.has_method("sync_drop"):
 		host.begin_frame()
 		var elapsed: float = float(Time.get_ticks_msec()) / 1000.0
-		for drop_value in _as_array(context.get("stage4_starpoint_drops", starpoint_drops)):
+		for drop_value in drops:
 			var drop: Dictionary = drop_value if drop_value is Dictionary else {}
 			var star_detector_bonus: bool = bool(drop.get("star_detector_bonus", false))
 			var playfield_pos: Vector2 = _as_vector2(drop.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
@@ -750,7 +760,7 @@ func _draw_starpoint_drops(canvas: CanvasItem, context: Dictionary, shake_offset
 			})
 		host.end_frame()
 		return
-	for drop_value in _as_array(context.get("stage4_starpoint_drops", starpoint_drops)):
+	for drop_value in drops:
 		var drop: Dictionary = drop_value if drop_value is Dictionary else {}
 		var pos: Vector2 = _as_vector2(drop.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
 		var size: float = maxf(1.0, float(drop.get("size", STARPOINT_DROP_SIZE)))

@@ -22,6 +22,7 @@ func _run() -> void:
 	_verify_shader_resource_path_and_uniforms()
 	await _verify_instance_slot_pool_and_gating()
 	await _verify_factory_dedupes_pending_host()
+	await _verify_clear_helpers_hide_visible_slots()
 
 	if _failures.is_empty():
 		print("common_starpoint_visual_host_smoke: ok")
@@ -232,6 +233,43 @@ func _verify_factory_dedupes_pending_host() -> void:
 		"canvas should hold exactly one starpoint host node after dedupe"
 	)
 	fake_canvas.queue_free()
+
+
+func _verify_clear_helpers_hide_visible_slots() -> void:
+	var fake_canvas := Node2D.new()
+	get_root().add_child(fake_canvas)
+	var host: Node2D = CommonStarpointVisualHost.get_or_create_on_canvas(fake_canvas) as Node2D
+	await process_frame
+	_make_visible_drop(host)
+	_expect(_has_visible_drop_slot(host), "test setup should leave a visible starpoint slot")
+	CommonStarpointVisualHost.hide_on_canvas(fake_canvas)
+	_expect(not _has_visible_drop_slot(host), "hide_on_canvas() must hide stale starpoint slots without creating a new frame")
+	_expect(not bool(host.visible), "hide_on_canvas() should hide the host node after clearing slots")
+	_make_visible_drop(host)
+	_expect(_has_visible_drop_slot(host), "test setup should restore a visible starpoint slot")
+	CommonStarpointVisualHost.hide_all_existing_hosts()
+	_expect(not _has_visible_drop_slot(host), "hide_all_existing_hosts() must clear modal/stage-transition stale slots")
+	fake_canvas.queue_free()
+
+
+func _make_visible_drop(host: Node2D) -> void:
+	host.begin_frame()
+	host.sync_drop({
+		"pos": Vector2(96.0, 72.0),
+		"size": 12.0,
+		"life": 255.0,
+	})
+	host.end_frame()
+
+
+func _has_visible_drop_slot(host: Node2D) -> bool:
+	for slot in host._slots:
+		if slot != null and bool(slot.visible):
+			return true
+	for halo_slot in host._halo_slots:
+		if halo_slot != null and bool(halo_slot.visible):
+			return true
+	return false
 
 
 func _expect(condition: bool, message: String) -> void:

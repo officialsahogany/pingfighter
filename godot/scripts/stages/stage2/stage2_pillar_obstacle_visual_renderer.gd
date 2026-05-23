@@ -38,6 +38,9 @@ func draw_starpoint_drops(
 	game_offset: Vector2 = Vector2.ZERO,
 	render_scale: float = 1.0
 ) -> void:
+	if starpoint_drops.is_empty():
+		CommonStarpointVisualHost.hide_on_canvas(canvas)
+		return
 	# Stage 2 uses the same scrap-tone palette as Stage 1/3 for normal drops;
 	# detector-bonus drops share the cyan/white palette. GPU shader handles
 	# 4-layer glow + star fill + outline + center dot in a single quad per drop.
@@ -96,6 +99,14 @@ func draw_starpoint_drops(
 			for point_index in range(points.size()):
 				canvas.draw_line(points[point_index], points[(point_index + 1) % points.size()], outline_color, 3.0)
 		canvas.draw_circle(pos, 3.0, Color(1.0, 1.0, 1.0, alpha * glow_intensity))
+
+
+func hide_starpoint_drops(canvas: CanvasItem) -> void:
+	CommonStarpointVisualHost.hide_on_canvas(canvas)
+
+
+func hide_all_starpoint_drops() -> void:
+	CommonStarpointVisualHost.hide_all_existing_hosts()
 
 
 func draw_rock(canvas: CanvasItem, rock: Dictionary, shake_offset: Vector2, assets: Dictionary) -> void:

@@ -46,6 +46,7 @@ static var _halo_texture: Texture2D = null
 # active stage's renderer reaches this code on any given frame, so a single
 # static slot is enough to dedupe the deferred add_child gap.
 static var _pending_host: Node = null
+static var _active_hosts: Array = []
 
 var _slots: Array[Sprite2D] = []
 var _halo_slots: Array[Sprite2D] = []
@@ -123,8 +124,10 @@ static func get_or_create_on_canvas(canvas: CanvasItem) -> Node:
 	var existing: Node = parent.get_node_or_null(HOST_NAME)
 	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
 		_pending_host = null
+		_remember_host(existing)
 		return existing
 	if _pending_host != null and is_instance_valid(_pending_host) and not _pending_host.is_queued_for_deletion():
+		_remember_host(_pending_host)
 		return _pending_host
 	# Preloading the same script we're in would cause a circular dep at parse
 	# time; using load() inside the factory is cheap (script cache hits) and
@@ -133,17 +136,63 @@ static func get_or_create_on_canvas(canvas: CanvasItem) -> Node:
 	var host: Node = load("res://scripts/effects/common_starpoint_visual_host.gd").new()
 	host.name = HOST_NAME
 	_pending_host = host
+	_remember_host(host)
 	parent.call_deferred("add_child", host)
 	return host
+
+
+static func hide_on_canvas(canvas: CanvasItem) -> void:
+	if canvas == null or not (canvas is Node):
+		return
+	var parent: Node = canvas as Node
+	var host: Node = parent.get_node_or_null(HOST_NAME)
+	if host == null and _pending_host != null and is_instance_valid(_pending_host) and not _pending_host.is_queued_for_deletion():
+		host = _pending_host
+	if host != null and is_instance_valid(host) and not host.is_queued_for_deletion() and host.has_method("clear_slots"):
+		host.clear_slots()
+
+
+static func hide_all_existing_hosts() -> void:
+	if _pending_host != null and is_instance_valid(_pending_host) and not _pending_host.is_queued_for_deletion():
+		if _pending_host.has_method("clear_slots"):
+			_pending_host.clear_slots()
+	var next_hosts: Array = []
+	for host_ref in _active_hosts:
+		var host: Node = _resolve_host_ref(host_ref)
+		if host == null or not is_instance_valid(host) or host.is_queued_for_deletion():
+			continue
+		if host.has_method("clear_slots"):
+			host.clear_slots()
+		next_hosts.append(host_ref)
+	_active_hosts = next_hosts
+
+
+static func _remember_host(host: Node) -> void:
+	if host == null:
+		return
+	for host_ref in _active_hosts:
+		var existing: Node = _resolve_host_ref(host_ref)
+		if existing == host:
+			return
+	_active_hosts.append(weakref(host))
+
+
+static func _resolve_host_ref(host_ref: Variant) -> Node:
+	if host_ref is WeakRef:
+		var value: Variant = (host_ref as WeakRef).get_ref()
+		return (value as Node) if value is Node else null
+	return (host_ref as Node) if host_ref is Node else null
 
 
 func _ready() -> void:
 	z_as_relative = false
 	z_index = HOST_Z_INDEX
+	_remember_host(self)
 	_build_slot_pool()
 
 
 func begin_frame() -> void:
+	visible = true
 	_frame_slot_index = 0
 
 
@@ -193,6 +242,21 @@ func end_frame() -> void:
 			halo_slot.visible = false
 		_kill_slot_tween(i)
 		_slot_was_visible[i] = false
+
+
+func clear_slots() -> void:
+	_frame_slot_index = 0
+	for i in range(_slot_count):
+		var slot: Sprite2D = _slots[i]
+		if slot != null:
+			slot.visible = false
+		var halo_slot: Sprite2D = _halo_slots[i] if i < _halo_slots.size() else null
+		if halo_slot != null:
+			halo_slot.visible = false
+		_kill_slot_tween(i)
+		if i < _slot_was_visible.size():
+			_slot_was_visible[i] = false
+	visible = false
 
 
 func _kill_slot_tween(slot_index: int) -> void:

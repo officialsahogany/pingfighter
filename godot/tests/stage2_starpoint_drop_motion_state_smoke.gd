@@ -12,6 +12,7 @@ func _init() -> void:
 	_verify_drop_motion_bounces_at_bounds()
 	_verify_drop_motion_culls_at_floor_edge()
 	_verify_background_delegates_drop_motion()
+	_verify_background_hides_stale_starpoint_host()
 
 	if _failures.is_empty():
 		print("stage2_starpoint_drop_motion_state_smoke: ok")
@@ -98,6 +99,23 @@ func _verify_background_delegates_drop_motion() -> void:
 	_expect(background.starpoint_drops.size() == 1, "Stage 2 background should keep live moving starpoint drops")
 	var updated: Dictionary = background.starpoint_drops[0]
 	_expect(Vector2(updated.get("pos", Vector2.ZERO)).y > 100.0, "Stage 2 background should use delegated drop motion")
+
+
+func _verify_background_hides_stale_starpoint_host() -> void:
+	var background_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_background.gd")
+	var renderer_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage2/stage2_pillar_obstacle_visual_renderer.gd")
+	_expect(
+		background_source.find("obstacle_visual_renderer.hide_starpoint_drops(canvas)") >= 0,
+		"Stage 2 overlay draw should hide stale starpoint host slots when no drops remain"
+	)
+	_expect(
+		background_source.find("obstacle_visual_renderer.hide_all_starpoint_drops()") >= 0,
+		"Stage 2 stage-exit cleanup should hide stale shared starpoint host slots"
+	)
+	_expect(
+		renderer_source.find("CommonStarpointVisualHost.hide_on_canvas(canvas)") >= 0,
+		"Stage 2 starpoint renderer should expose host hiding for empty-drop frames"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -295,8 +295,11 @@ func reset() -> void:
 	leaf_particles.clear()
 	rocks.clear()
 	rock_fragments.clear()
+	var had_starpoints := not starpoint_drops.is_empty() or not starpoint_particles.is_empty()
 	starpoint_drops.clear()
 	starpoint_particles.clear()
+	if had_starpoints:
+		obstacle_visual_renderer.hide_all_starpoint_drops()
 	_reset_rustle_state()
 	water_trail.clear()
 	water_splashes.clear()
@@ -583,6 +586,7 @@ func draw_playfield_overlay(
 		_perf_end("stage2_overlay_draw", perf_start)
 		return
 	if not has_visible_playfield_overlay():
+		obstacle_visual_renderer.hide_starpoint_drops(canvas)
 		_perf_end("stage2_overlay_draw", perf_start)
 		return
 	_record_playfield_overlay_counters(battle_perf_logger)
@@ -633,6 +637,8 @@ func draw_playfield_overlay(
 			starpoint_render_scale
 		)
 		_battle_perf_end(battle_perf_logger, "stage2.overlay.starpoint_drops", battle_sample_start)
+	else:
+		obstacle_visual_renderer.hide_starpoint_drops(canvas)
 	if fragment_hit_flash_state.get_timer() > 0.0:
 		battle_sample_start = _battle_perf_begin(battle_perf_logger)
 		water_cannon_visual_renderer.draw_fragment_hit_flash(
@@ -1680,8 +1686,13 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 	if int(context.get("current_stage", 1)) != 2:
 		# Drop mid-flight starpoints when the player leaves Stage 2 so they
 		# don't reappear frozen at their last position when the player returns.
+		var had_starpoints := not starpoint_drops.is_empty() or not starpoint_particles.is_empty()
 		if not starpoint_drops.is_empty():
 			starpoint_drops.clear()
+		if not starpoint_particles.is_empty():
+			starpoint_particles.clear()
+		if had_starpoints:
+			obstacle_visual_renderer.hide_all_starpoint_drops()
 		return
 	if starpoint_drops.is_empty():
 		return

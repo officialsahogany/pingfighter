@@ -416,6 +416,9 @@ func _draw_starpoint_particles(canvas: CanvasItem, context: Dictionary, shake_of
 
 func _draw_starpoint_drops(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
 	var drops: Array = _as_array(context.get("stage3_starpoint_drops", []))
+	if drops.is_empty():
+		CommonStarpointVisualHost.hide_on_canvas(canvas)
+		return
 	# Stage 3 shares the Stage 1/2 scrap palette; commonization keeps the look
 	# identical while removing the duplicate CPU loop. game_offset shifts the
 	# playfield-local drop positions and sizes into rendered-playfield screen

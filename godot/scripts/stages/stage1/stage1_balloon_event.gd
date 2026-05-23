@@ -109,8 +109,11 @@ func reset() -> void:
 	machine_scale = 0.0
 	balloons.clear()
 	pop_effects.clear()
+	var had_starpoints := not starpoint_drops.is_empty() or not starpoint_particles.is_empty()
 	starpoint_drops.clear()
 	starpoint_particles.clear()
+	if had_starpoints:
+		CommonStarpointVisualHost.hide_all_existing_hosts()
 	_set_next_cooldown()
 
 
@@ -123,10 +126,13 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> void:
 		# Without this clear the drops stay alive in this instance's arrays for
 		# the full STARPOINT_DROP_LIFETIME (~10s) and resume falling on re-entry
 		# from wherever they were frozen.
+		var had_starpoints := not starpoint_drops.is_empty() or not starpoint_particles.is_empty()
 		if not starpoint_drops.is_empty():
 			starpoint_drops.clear()
 		if not starpoint_particles.is_empty():
 			starpoint_particles.clear()
+		if had_starpoints:
+			CommonStarpointVisualHost.hide_all_existing_hosts()
 		return
 
 	_sync_geometry(context)
@@ -227,6 +233,7 @@ func draw_foreground(
 	if canvas == null:
 		return
 	if balloons.is_empty() and pop_effects.is_empty() and starpoint_particles.is_empty() and starpoint_drops.is_empty():
+		CommonStarpointVisualHost.hide_on_canvas(canvas)
 		return
 	var sample_start: int = _perf_begin(perf_logger)
 	for balloon in balloons:
@@ -962,6 +969,9 @@ func _draw_starpoint_drops(
 	game_offset: Vector2 = Vector2.ZERO,
 	render_scale: float = 1.0
 ) -> void:
+	if starpoint_drops.is_empty():
+		CommonStarpointVisualHost.hide_on_canvas(canvas)
+		return
 	# Common host owns the GPU-shader path with full 4-layer glow (the original
 	# CPU constant STARPOINT_DROP_GLOW_LAYERS=1 collapsed it to one layer under
 	# the prior optimization; the shader restores all 4 at near-zero CPU cost).

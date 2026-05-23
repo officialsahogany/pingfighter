@@ -8,6 +8,7 @@ func _init() -> void:
 
 	_verify_stage_exit_clears_mid_flight_starpoints()
 	_verify_starpoint_floor_cull_uses_spawn_clamp_boundary()
+	_verify_draw_paths_hide_stale_starpoint_host()
 
 	print("stage1_balloon_starpoint_lifecycle_smoke: ok")
 	quit(0)
@@ -43,6 +44,18 @@ func _verify_starpoint_floor_cull_uses_spawn_clamp_boundary() -> void:
 	event.starpoint_drops.append(_make_drop(Vector2(320.0, Stage1BalloonEvent.HEIGHT - size + 0.1), size))
 	event.update(0.0, context, {})
 	_expect(event.starpoint_drops.is_empty(), "starpoint past the floor clamp should be culled")
+
+
+func _verify_draw_paths_hide_stale_starpoint_host() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_balloon_event.gd")
+	_expect(
+		source.find("CommonStarpointVisualHost.hide_on_canvas(canvas)") >= 0,
+		"Stage 1 draw paths should hide the shared starpoint host when drops are gone"
+	)
+	_expect(
+		source.find("CommonStarpointVisualHost.hide_all_existing_hosts()") >= 0,
+		"Stage 1 reset/stage-exit cleanup should hide stale shared starpoint host slots"
+	)
 
 
 func _make_drop(pos: Vector2, size: float) -> Dictionary:

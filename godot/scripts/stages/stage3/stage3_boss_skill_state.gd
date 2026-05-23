@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
+
 const STAGE_ID := 3
 const WIDTH := 760.0
 const HEIGHT := 750.0
@@ -197,7 +199,10 @@ func reset_round() -> void:
 
 func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
 	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID:
+		var had_starpoints := not starpoint_drops.is_empty() or not starpoint_particles.is_empty()
 		reset()
+		if had_starpoints:
+			CommonStarpointVisualHost.hide_all_existing_hosts()
 		return {}
 
 	var result: Dictionary = {}
