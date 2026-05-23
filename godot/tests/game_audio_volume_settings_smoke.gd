@@ -53,19 +53,7 @@ func _run() -> void:
 	audio.stop_bgm()
 	muted_audio.stop_bgm()
 	await process_frame
-	_cleanup_player(audio.stage1_bgm)
-	_cleanup_player(audio.stage2_bgm)
-	_cleanup_player(audio.stage2_alt_bgm)
-	_cleanup_player(audio.stage3_bgm)
-	_cleanup_player(audio.stage4_bgm)
-	_cleanup_player(audio.stage4_phase2_bgm)
-	_cleanup_player(audio.paddle_hit_sfx)
-	_cleanup_player(muted_audio.stage1_bgm)
-	_cleanup_player(muted_audio.stage2_bgm)
-	_cleanup_player(muted_audio.stage2_alt_bgm)
-	_cleanup_player(muted_audio.stage3_bgm)
-	_cleanup_player(muted_audio.stage4_bgm)
-	_cleanup_player(muted_audio.stage4_phase2_bgm)
+	await _cleanup_host_audio_players()
 	BgmMuteState.set_muted(self, false)
 	await process_frame
 	host.queue_free()
@@ -75,8 +63,22 @@ func _run() -> void:
 	host = null
 	await process_frame
 	await process_frame
+	await process_frame
 	print("game_audio_volume_settings_smoke: ok")
 	quit(0)
+
+
+func _cleanup_host_audio_players() -> void:
+	if host == null:
+		return
+	for child in host.get_children():
+		var player := child as AudioStreamPlayer
+		if player == null:
+			continue
+		_cleanup_player(player)
+		player.queue_free()
+	await process_frame
+	await process_frame
 
 
 func _cleanup_player(player: AudioStreamPlayer) -> void:
