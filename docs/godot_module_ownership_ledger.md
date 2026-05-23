@@ -2948,9 +2948,15 @@ This section is intentionally long; use search to find the nearest owner.
   Owns opt-in live battle performance sampling for draw-pass investigation:
   `PINGFIGHTER_BATTLE_PERF_LOG` / `battle_perf_log.flag` enablement,
   microsecond sub-draw aggregation, spike / gap / physics monitor routing,
-  and Godot `Performance` monitor output used to compare actor-body
-  rendering, effect layers, weather, items, and HUD overlays before changing
-  runtime behavior.
+  process-node reporter routing, and Godot `Performance` monitor output used
+  to compare actor-body rendering, effect layers, weather, items, and HUD
+  overlays before changing runtime behavior.
+- `scripts/core/battle_perf_process_node_reporter.gd`
+  Owns BattlePerf process / physics node scans for leak and rogue-process
+  diagnosis: owner-vs-root scan scope, script callback detection,
+  active/inactive callback counts, stale loading-host suppression, outside
+  shell labels, and summary formatting. Keep this reporter pure; the main
+  logger owns scene-owner storage and log emission.
 - `scripts/core/battle_perf_spike_window_reporter.gd`
   Owns focused BattlePerf spike-window summary formatting: draw-shell /
   draw-frame / playfield / active-item / focus-label thresholds, trigger

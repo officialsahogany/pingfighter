@@ -5509,6 +5509,21 @@ Hundredth split on 2026-05-24:
   scanned 1316 scripts with no GDScript warnings; the wrapper still printed
   the known nonfatal Windows root certificate store message from Godot.
 
+147th follow-up on 2026-05-24:
+
+- Commit: `6a1cd92eb godot: split BattlePerf process node reporter`.
+- Scope: split BattlePerf's process / physics node scan and label formatting
+  out of `battle_perf_logger.gd` into
+  `battle_perf_process_node_reporter.gd`. The logger now keeps only scene
+  owner storage and summary routing, while the new pure helper owns owner-vs-
+  root scan scope, script callback detection, active / inactive callback
+  counts, stale loading-host suppression, outside-shell labels, and the
+  process-node summary string. This reduced `battle_perf_logger.gd` from
+  1164 to 983 lines.
+- Validation: `battle_perf_logger_smoke` passed. `run_warning_scan.ps1`
+  scanned 1317 scripts with no GDScript warnings; the wrapper still printed
+  the known nonfatal Windows root certificate store message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
