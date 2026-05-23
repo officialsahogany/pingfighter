@@ -493,7 +493,7 @@ func reset_round(registry: Object = null) -> void:
 
 func refresh_runtime_perk_scaling(owner: Object = null, registry: Object = null) -> void:
 	_ensure_helpers_ready()
-	_sync_runtime_perk_state_ref(registry)
+	owner_syncer.sync_runtime_perk_state_ref(self, registry)
 	if owner != null:
 		_sync_owner(owner, registry)
 
@@ -2590,48 +2590,8 @@ func _sync_transient_owner_state(owner: Object) -> void:
 	owner_syncer.sync_transient_owner_state(self, owner)
 
 
-func _sync_fuel_pouch_gauge_max(owner: Object) -> void:
-	owner_syncer.sync_fuel_pouch_gauge_max(self, owner, CONTEXT_CONSTANTS)
-
-
-func _sync_boomerang_active_slot_visuals(owner: Object) -> void:
-	owner_syncer.sync_boomerang_active_slot_visuals(self, owner, CONTEXT_CONSTANTS)
-
-
 func _sync_bulkup_paddle_scale(owner: Object, registry: Object) -> void:
 	owner_syncer.sync_bulkup_paddle_scale(self, owner, registry, CONTEXT_CONSTANTS)
-
-
-func _get_active_item_paddle_scale(registry: Object) -> float:
-	return owner_syncer.get_active_item_paddle_scale(self, registry)
-
-
-func _clamp_synced_player_x(x: float, paddle_width: float, warp_gate_state: Object) -> float:
-	return owner_syncer.clamp_synced_player_x(x, paddle_width, warp_gate_state, FIELD_WIDTH)
-
-
-func _sync_skill_cooldown_to_configs(registry: Object) -> void:
-	owner_syncer.sync_skill_cooldown_to_configs(self, registry)
-
-
-func _cleanup_removed_player_skills(registry: Object, removed_skills: Array) -> void:
-	owner_syncer.cleanup_removed_player_skills(self, registry, removed_skills)
-
-
-func _sync_dash_token_capacity(registry: Object) -> void:
-	owner_syncer.sync_dash_token_capacity(self, registry)
-
-
-func _sync_player_status_resistance_to_movement(registry: Object) -> void:
-	owner_syncer.sync_player_status_resistance_to_movement(self, registry)
-
-
-func _sync_gold_digger_to_runtime_perk_state(registry: Object) -> void:
-	owner_syncer.sync_gold_digger_to_runtime_perk_state(self, registry)
-
-
-func _sync_runtime_perk_state_ref(registry: Object) -> void:
-	owner_syncer.sync_runtime_perk_state_ref(self, registry)
 
 
 func _get_polish_multiplier(item_name: String = "") -> float:
@@ -2641,10 +2601,6 @@ func _get_polish_multiplier(item_name: String = "") -> float:
 	if not runtime_perk_state_ref.has_method(method_name):
 		return 1.0
 	return max(0.0, float(runtime_perk_state_ref.call(method_name)))
-
-
-func _sync_item_perk_level_bonus_to_runtime_perk_state(owner: Object, registry: Object) -> void:
-	owner_syncer.sync_item_perk_level_bonus_to_runtime_perk_state(self, owner, registry)
 
 
 func _rebuild_equipped_items() -> void:

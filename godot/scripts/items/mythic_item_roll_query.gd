@@ -44,7 +44,7 @@ func get_public_item_roll_value(
 	apply_polish: bool = true,
 	registry: Object = null
 ) -> float:
-	runtime._sync_runtime_perk_state_ref(registry)
+	runtime.owner_syncer.sync_runtime_perk_state_ref(runtime, registry)
 	var item_name: String = str(item_data.get("name", item_data.get("effect", "")))
 	if item_name == "":
 		return 0.0
