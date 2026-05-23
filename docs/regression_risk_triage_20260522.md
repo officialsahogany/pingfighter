@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `ceb00915e godot: hide stale starpoint visual hosts`.
-- Code split range through that HEAD contains 60 follow-up commits after the
+  `74bb79772 godot: add commando reload delivery runtime`.
+- Code split range through that HEAD contains 62 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 61 commits.
+  span through the latest code split contains 63 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 91 visible paths in
-  `git status --porcelain=v1` (`43` tracked modified / deleted paths and
-  `48` untracked paths).
-- The split notes below are current through the fifty-sixth split. The
+- Current dirty scope before this documentation sync: 73 visible paths in
+  `git status --porcelain=v1` (`29` tracked modified / deleted paths and
+  `44` untracked paths).
+- The split notes below are current through the fifty-seventh split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3191,6 +3191,40 @@ Fifty-sixth split on 2026-05-23:
   `stage3_menhera_effect_render_budget_smoke`,
   `stage4_map_port_smoke`,
   `stage4_bird_event_render_budget_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Fifty-seventh split on 2026-05-23:
+
+- Commit: `74bb79772 godot: add commando reload delivery runtime`.
+- Scope: Commando Emergency Supply now starts a delayed reload-delivery state
+  instead of refilling immediately. The state owns the activation radio cue,
+  runs a delivery soldier through staged radio / run / handover / exit phases,
+  plays the shared reload cue at handover, settles already-paid pending
+  refills on reset, draws through an optional sheet-first renderer with a
+  quiet procedural fallback, and is wired through player-control deps, match
+  skill deps, effects update / draw fanout, reset fanout, actor module
+  catalog registration, and staged boot prewarm.
+- Rationale: Emergency Supply now reads as an in-world support action while
+  preserving the gameplay spend contract: gauge and cooldown are paid on
+  activation, ammo is delivered at the visible handover, and an interrupted
+  round does not eat the player's paid refill.
+- Validation passed:
+  `commando_emergency_supply_smoke`,
+  `commando_runtime_routing_smoke`,
+  `match_player_skill_deps_builder_smoke`,
+  `match_flow_context_groups_smoke`,
+  `effects_character_deps_builder_smoke`,
+  `effects_deps_builder_smoke`,
+  `battle_boot_resource_prewarm_smoke`,
+  `commando_supply_drop_activation_gate_smoke`,
+  `commando_firearm_audio_routing_smoke`,
+  `viper_skill_tooltip_preview_smoke`,
+  `match_reset_controller_smoke`,
+  `update_prewarm_driver_smoke`,
+  `battle_playfield_effects_drawer_character_gate_smoke`,
+  `effects_update_result_applier_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
