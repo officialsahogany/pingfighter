@@ -5597,6 +5597,25 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed; both wrappers still printed the known
   nonfatal Windows root certificate store message from Godot.
 
+153rd follow-up on 2026-05-24:
+
+- Commit: `19d8bdf47 godot: drop Commando fire flame build bridges`.
+- Scope: removed the first thin Commando lingering fire-flame bridge cluster
+  from `commando_firearm_runtime.gd`. Runtime fire-zone seeding now calls
+  `commando_firearm_lingering_fire_flame_state.gd` directly, and
+  `commando_firearm_value_utils_smoke` verifies the deterministic count,
+  geometry, ring, size, lifetime, phase, and builder helpers against the
+  owner module instead of private runtime wrappers.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` was executed and scanned 1322 scripts, but the wrapper
+  failed on pre-existing horn-strawberry WIP warnings outside this Commando
+  lane: integer division in
+  `scripts/items/horn_strawberry_field_state.gd:235` and a local `seed`
+  shadowing the built-in function in
+  `scripts/items/mythic_item_horn_strawberry_field_renderer.gd:120`.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

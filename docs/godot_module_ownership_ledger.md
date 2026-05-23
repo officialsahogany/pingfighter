@@ -3942,8 +3942,8 @@ This section is intentionally long; use search to find the nearest owner.
   seeding, effect-size fallback reads, ring / size / lifetime patterns,
   per-frame drift / reset motion, and safe flame array reads. The runtime
   keeps lingering-effect ownership, fire-zone activation, status application,
-  and its existing private wrapper names while delegating only this renderer-
-  facing fire-particle state math.
+  and only the remaining frame/update compatibility wrappers while calling
+  this helper directly for deterministic fire-flame seeding / geometry.
 - `scripts/characters/commando_firearm_lingering_net_field_state.gd`
   Owns pure Commando lingering net-field state: live / dissolve lifecycle
   payloads, dash-break rope-broken payloads, profile-derived rope / origin /
