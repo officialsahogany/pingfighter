@@ -802,7 +802,7 @@ func build_sensor_auto_dash_request(player_pos: Vector2, config: Dictionary, dep
 
 func notify_sensor_auto_dash_started(player_center: Vector2, direction: float, deps: Dictionary = {}) -> void:
 	_ensure_helpers_ready()
-	auto_defense_runtime.notify_sensor_auto_dash_started(self, player_center, direction, deps)
+	auto_defense_runtime.notify_sensor_auto_dash_started(self, player_center, direction, deps, POSEIDON_CONSTANTS)
 
 
 func is_hermes_shoes_equipped() -> bool:
@@ -2247,7 +2247,16 @@ func get_dash_token_capacity(base_tokens: int = 1, runtime_perk_state: Object = 
 
 func update(owner: Object, registry: Object, delta: float) -> void:
 	_ensure_helpers_ready()
-	update_runtime.update(self, owner, registry, delta)
+	update_runtime.update(
+		self,
+		owner,
+		registry,
+		delta,
+		RAGNAROK_CONSTANTS,
+		SHRAPNEL_ARMOR_CONSTANTS,
+		POSEIDON_CONSTANTS,
+		BAAL_BOOTS_CONSTANTS
+	)
 
 
 func try_apply_ragnarok_player_hit(
@@ -2401,30 +2410,6 @@ func _clear_baal_boots_runtime(registry: Object = null) -> void:
 
 func _clear_baal_boots_round_state(registry: Object = null) -> void:
 	baal_boots_runtime.clear_round_state(self, registry, BAAL_BOOTS_CONSTANTS)
-
-
-func _update_adversity_armor_runtime(owner: Object, _registry: Object, fps_scale: float) -> void:
-	adversity_armor_runtime.update_runtime(self, owner, fps_scale)
-
-
-func _update_shrapnel_armor_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
-	shrapnel_armor_runtime.update_runtime(self, owner, registry, fps_scale, SHRAPNEL_ARMOR_CONSTANTS)
-
-
-func _update_ragnarok_runtime(owner: Object, registry: Object, delta: float, fps_scale: float) -> void:
-	ragnarok_runtime.update_runtime(self, owner, registry, delta, fps_scale, RAGNAROK_CONSTANTS)
-
-
-func _update_poseidon_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
-	poseidon_runtime.update_runtime(self, owner, registry, fps_scale, POSEIDON_CONSTANTS)
-
-
-func _try_trigger_poseidon_vortex(owner: Object, registry: Object, direction: float) -> bool:
-	return poseidon_runtime.try_trigger_vortex(self, owner, registry, direction, POSEIDON_CONSTANTS)
-
-
-func _update_baal_boots_runtime(owner: Object, registry: Object, fps_scale: float) -> void:
-	baal_boots_runtime.update_runtime(self, owner, registry, fps_scale, BAAL_BOOTS_CONSTANTS)
 
 
 func _try_arm_baal_boots_from_weather(

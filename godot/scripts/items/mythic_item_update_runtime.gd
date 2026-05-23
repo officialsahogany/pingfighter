@@ -1,7 +1,16 @@
 extends RefCounted
 
 
-func update(runtime: Object, owner: Object, registry: Object, delta: float) -> void:
+func update(
+	runtime: Object,
+	owner: Object,
+	registry: Object,
+	delta: float,
+	ragnarok_constants: Dictionary,
+	shrapnel_armor_constants: Dictionary,
+	poseidon_constants: Dictionary,
+	baal_boots_constants: Dictionary
+) -> void:
 	if not runtime.update_gate.has_runtime_update_work(runtime):
 		_update_idle(runtime, owner, registry, delta)
 		return
@@ -10,7 +19,7 @@ func update(runtime: Object, owner: Object, registry: Object, delta: float) -> v
 	var fps_scale: float = max(0.0, delta * 60.0)
 	runtime.acquisition_cinematic_runtime.update(runtime, delta, registry)
 	runtime.pandora_legacy_runtime.update_selection_frames(runtime, fps_scale)
-	runtime._update_ragnarok_runtime(owner, registry, delta, fps_scale)
+	runtime.ragnarok_runtime.update_runtime(runtime, owner, registry, delta, fps_scale, ragnarok_constants)
 	runtime.auto_defense_runtime.update_smartphone_runtime(runtime, owner, registry, fps_scale)
 	runtime.knee_pads_runtime.update_runtime(runtime, fps_scale)
 	runtime.soul_burst_runtime.update_runtime(runtime, fps_scale)
@@ -19,12 +28,12 @@ func update(runtime: Object, owner: Object, registry: Object, delta: float) -> v
 	runtime.auto_defense_runtime.update_sensor_runtime(runtime, fps_scale)
 	runtime.venom_mist_runtime.update_runtime(runtime, owner, registry, fps_scale)
 	runtime.rainbow_fur_glove_runtime.update_runtime(runtime, fps_scale)
-	runtime._update_adversity_armor_runtime(owner, registry, fps_scale)
-	runtime._update_shrapnel_armor_runtime(owner, registry, fps_scale)
-	runtime._update_poseidon_runtime(owner, registry, fps_scale)
+	runtime.adversity_armor_runtime.update_runtime(runtime, owner, fps_scale)
+	runtime.shrapnel_armor_runtime.update_runtime(runtime, owner, registry, fps_scale, shrapnel_armor_constants)
+	runtime.poseidon_runtime.update_runtime(runtime, owner, registry, fps_scale, poseidon_constants)
 	runtime.celestial_armor_runtime.update_runtime(runtime, fps_scale)
 	runtime.hermes_shoes_runtime.update_runtime(runtime, owner, fps_scale)
-	runtime._update_baal_boots_runtime(owner, registry, fps_scale)
+	runtime.baal_boots_runtime.update_runtime(runtime, owner, registry, fps_scale, baal_boots_constants)
 	runtime.horn_strawberry_mask_runtime.update(runtime, owner, registry, delta)
 	runtime.update_gate.sync_after_update(runtime, owner, registry, update_scope)
 

@@ -128,7 +128,8 @@ func notify_sensor_auto_dash_started(
 	runtime: Object,
 	player_center: Vector2,
 	direction: float,
-	deps: Dictionary
+	deps: Dictionary,
+	poseidon_constants: Dictionary
 ) -> void:
 	if not runtime.is_sensor_equipped():
 		return
@@ -141,7 +142,13 @@ func notify_sensor_auto_dash_started(
 		runtime.sensor_last_dash_direction = 1.0
 	runtime.sensor_auto_dash_center = player_center
 	runtime.sensor_auto_dash_effect_timer_frames = SENSOR_AUTO_DASH_EFFECT_FRAMES
-	runtime._try_trigger_poseidon_vortex(owner, registry, runtime.sensor_last_dash_direction)
+	runtime.poseidon_runtime.try_trigger_vortex(
+		runtime,
+		owner,
+		registry,
+		runtime.sensor_last_dash_direction,
+		poseidon_constants
+	)
 	runtime._sync_owner(owner, registry)
 
 
