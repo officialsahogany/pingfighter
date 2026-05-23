@@ -5524,6 +5524,17 @@ Hundredth split on 2026-05-24:
   scanned 1317 scripts with no GDScript warnings; the wrapper still printed
   the known nonfatal Windows root certificate store message from Godot.
 
+148th follow-up on 2026-05-24:
+
+- Commit: `127f2739e godot: draw fire support ammo as radios`.
+- Scope: Commando Fire Support ammo pips now use a dedicated 512x512
+  imagegen radio-call icon under `assets/sprites/hud/` instead of reusing the
+  large projectile bomb texture. The selector prewarms the new PNG, exposes
+  `fire_support_radio_ammo_icon_path`, draws two radio-call markers in the HUD
+  tray, and keeps a compact procedural radio fallback.
+- Validation: `commando_firearm_selector_renderer_smoke` passed, including
+  prewarm, panel-state, display-slot, and PNG alpha/dimension coverage.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

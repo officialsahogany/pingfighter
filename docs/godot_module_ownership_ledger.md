@@ -3377,7 +3377,8 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the Commando left-pillar firearm selector presentation. It draws one
   fixed panel for the current selected weapon, ammo/status text, owned/rental
   badge, mouse-wheel hint, and weapon-specific ammo icon styles such as Fire
-  Support bomb pips; it must not reintroduce per-weapon stacked pillar cards.
+  Support radio-call markers; it must not reintroduce per-weapon stacked
+  pillar cards.
 - `scripts/hud/commando_firearm_tooltip_renderer.gd`
   Owns the Commando current-firearm panel tooltip surface: Korean title,
   ammo/status text, base/permanent/rental ownership, reload eligibility,
