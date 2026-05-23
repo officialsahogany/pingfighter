@@ -46,6 +46,13 @@ class FakeStage4Node:
 	var selected_character_type := "viper"
 
 
+class FakeStage5Node:
+	extends Node2D
+
+	var current_stage := 5
+	var selected_character_type := "viper"
+
+
 class FakeReadiness:
 	extends RefCounted
 
@@ -106,8 +113,9 @@ func _init() -> void:
 	_verify_stage2_stained_glass_loading_path()
 	_verify_stage3_stained_glass_loading_path()
 	_verify_stage4_stained_glass_loading_path()
-	_verify_stained_glass_host_released_on_non_stained_stage5()
-	_verify_orphan_stained_glass_host_swept_on_non_stained_stage5()
+	_verify_stage5_stained_glass_loading_path()
+	_verify_stained_glass_host_released_on_unpainted_stage()
+	_verify_orphan_stained_glass_host_swept_on_unpainted_stage()
 
 	if _failures.is_empty():
 		print("battle_loading_screen_renderer_smoke: ok")
@@ -430,7 +438,47 @@ func _verify_stage4_stained_glass_loading_path() -> void:
 	canvas.free()
 
 
-func _verify_stained_glass_host_released_on_non_stained_stage5() -> void:
+func _verify_stage5_stained_glass_loading_path() -> void:
+	var renderer := BattleLoadingScreenRenderer.new()
+	var owner := FakeStage5Node.new()
+	var canvas := Node2D.new()
+	var warmup: Object = BattleBootWarmupController.new()
+	warmup.set("boot_warmup_step", int(warmup.get_total_steps()))
+	warmup.set("boot_warmup_finished", true)
+	_modules = {"battle_boot_warmup_controller": warmup}
+
+	renderer.prewarm_stage_assets(5)
+	_expect(renderer.get("stage5_stained_glass_texture") != null, "stage 5 stained-glass full-color texture should load")
+	_expect(renderer.get("stage5_stained_glass_mask_texture") != null, "stage 5 stained-glass reveal mask should load")
+	_expect(
+		renderer.get("stage4_stained_glass_texture") == null,
+		"stage 5 transition prewarm should not eagerly load stage 4 loading art"
+	)
+	_expect(
+		is_equal_approx(float(renderer._get_stage_reveal_softness(5)), float(renderer._get_stage_reveal_softness(1))),
+		"stage 5 stained-glass reveal softness should match the bottom-up reveal screens"
+	)
+
+	renderer.draw(
+		canvas,
+		owner,
+		Callable(self, "_get_module"),
+		Vector2(1280.0, 720.0),
+		{
+			"battle_initialized": false,
+			"stage_landing_intro_started": false,
+		}
+	)
+	_expect(renderer.get("stained_glass_host") != null, "stage 5 loading should attach a stained-glass host")
+	_expect(bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))), "stage 5 loading should reuse the stained-glass completion hold")
+
+	renderer.hide_loading()
+	_expect(renderer.get("stained_glass_host") == null, "stage 5 loading should release the stained-glass host after hide")
+	owner.free()
+	canvas.free()
+
+
+func _verify_stained_glass_host_released_on_unpainted_stage() -> void:
 	var renderer := BattleLoadingScreenRenderer.new()
 	var owner := FakeStage2Node.new()
 	var canvas := Node2D.new()
@@ -450,29 +498,29 @@ func _verify_stained_glass_host_released_on_non_stained_stage5() -> void:
 		}
 	)
 	_expect(renderer.get("stained_glass_host") != null, "stage 2 loading should create the stained-glass host before stage changes")
-	owner.current_stage = 5
+	owner.current_stage = 99
 	_expect(
 		not bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))),
-		"stage 5 loading should not hold stained-glass completion"
+		"unpainted stage loading should not hold stained-glass completion"
 	)
-	_expect(renderer.get("stained_glass_host") == null, "stage 5 loading draw should release the previous stained-glass host")
-	_expect(owner.get_node_or_null("BattleLoadingStainedGlassHost") == null, "stage 5 loading draw should remove the stained-glass host from the battle tree")
+	_expect(renderer.get("stained_glass_host") == null, "unpainted stage loading draw should release the previous stained-glass host")
+	_expect(owner.get_node_or_null("BattleLoadingStainedGlassHost") == null, "unpainted stage loading draw should remove the stained-glass host from the battle tree")
 	owner.free()
 	canvas.free()
 
 
-func _verify_orphan_stained_glass_host_swept_on_non_stained_stage5() -> void:
+func _verify_orphan_stained_glass_host_swept_on_unpainted_stage() -> void:
 	var renderer := BattleLoadingScreenRenderer.new()
 	var owner := FakeStage2Node.new()
 	var stale_host := Control.new()
 	stale_host.name = "BattleLoadingStainedGlassHost"
 	owner.add_child(stale_host)
-	owner.current_stage = 5
+	owner.current_stage = 99
 	_expect(
 		not bool(renderer.should_hold_completion(owner, Callable(self, "_get_module"))),
-		"stage 5 loading should not hold completion with an orphan stained-glass host"
+		"unpainted stage loading should not hold completion with an orphan stained-glass host"
 	)
-	_expect(owner.get_node_or_null("BattleLoadingStainedGlassHost") == null, "stage 5 loading should sweep orphan stained-glass hosts without renderer references")
+	_expect(owner.get_node_or_null("BattleLoadingStainedGlassHost") == null, "unpainted stage loading should sweep orphan stained-glass hosts without renderer references")
 	owner.free()
 
 

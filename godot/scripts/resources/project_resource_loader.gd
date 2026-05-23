@@ -12,21 +12,27 @@ static func load_texture(path: String, missing_warning: String = "", failed_warn
 			return cached_texture
 		_texture_cache.erase(path)
 
-	var imported_exists: bool = _can_load_imported_resource(path)
-	if imported_exists:
-		var texture_resource: Resource = load(path)
-		if texture_resource is Texture2D:
-			_texture_cache[path] = texture_resource
-			return texture_resource
+	var cached_resource: Texture2D = _get_resource_loader_texture(path)
+	if cached_resource != null:
+		_texture_cache[path] = cached_resource
+		return cached_resource
 
 	var raw_exists: bool = FileAccess.file_exists(path)
 	if raw_exists:
 		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
 		if image != null and not image.is_empty():
 			var raw_texture: Texture2D = ImageTexture.create_from_image(image)
-			raw_texture.resource_path = path
+			if not ResourceLoader.has_cached(path):
+				raw_texture.resource_path = path
 			_texture_cache[path] = raw_texture
 			return raw_texture
+
+	var imported_exists: bool = _can_load_imported_resource(path)
+	if imported_exists:
+		var texture_resource: Resource = load(path)
+		if texture_resource is Texture2D:
+			_texture_cache[path] = texture_resource
+			return texture_resource
 
 	if not raw_exists and not imported_exists:
 		_push_path_warning(missing_warning, path)
@@ -48,6 +54,8 @@ static func get_cached_texture(path: String) -> Texture2D:
 static func store_texture(path: String, texture: Texture2D) -> void:
 	if path == "" or texture == null:
 		return
+	if texture.resource_path == "":
+		texture.resource_path = path
 	_texture_cache[path] = texture
 
 
@@ -173,6 +181,15 @@ static func _has_non_empty_file(path: String) -> bool:
 	if file == null:
 		return false
 	return file.get_length() > 0
+
+
+static func _get_resource_loader_texture(path: String) -> Texture2D:
+	if not ResourceLoader.has_cached(path):
+		return null
+	var cached_resource: Resource = ResourceLoader.load(path)
+	if cached_resource is Texture2D:
+		return cached_resource
+	return null
 
 
 static func clear_caches() -> void:

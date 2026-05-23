@@ -13,6 +13,8 @@ const STAGE3_STAINED_GLASS_FULLCOLOR_PATH := "res://assets/ui/loading/stage3_loa
 const STAGE3_STAINED_GLASS_REVEAL_MASK_PATH := "res://assets/ui/loading/stage3_loading_cyber_stained_glass_reveal_mask_v1.png"
 const STAGE4_STAINED_GLASS_FULLCOLOR_PATH := "res://assets/ui/loading/stage4_loading_cyber_stained_glass_fullcolor_imagegen_v1.png"
 const STAGE4_STAINED_GLASS_REVEAL_MASK_PATH := "res://assets/ui/loading/stage4_loading_cyber_stained_glass_reveal_mask_v1.png"
+const STAGE5_STAINED_GLASS_FULLCOLOR_PATH := "res://assets/ui/loading/stage5_hongryun_loading_cyber_stained_glass_fullcolor_v1.png"
+const STAGE5_STAINED_GLASS_REVEAL_MASK_PATH := "res://assets/ui/loading/stage5_hongryun_loading_cyber_stained_glass_reveal_mask_v1.png"
 const STAINED_GLASS_HOST_NODE_NAME := "BattleLoadingStainedGlassHost"
 const LOADING_WAVE_SHEET_COLS := 8
 const LOADING_WAVE_SHEET_ROWS := 8
@@ -37,6 +39,8 @@ var stage3_stained_glass_texture: Texture2D = null
 var stage3_stained_glass_mask_texture: Texture2D = null
 var stage4_stained_glass_texture: Texture2D = null
 var stage4_stained_glass_mask_texture: Texture2D = null
+var stage5_stained_glass_texture: Texture2D = null
+var stage5_stained_glass_mask_texture: Texture2D = null
 var stained_glass_host: Control = null
 var _visible_started_msec: int = -1
 var _completion_reveal_started_msec: int = -1
@@ -105,6 +109,7 @@ func prewarm_assets() -> void:
 	_load_stained_glass_textures(2)
 	_load_stained_glass_textures(3)
 	_load_stained_glass_textures(4)
+	_load_stained_glass_textures(5)
 
 
 func prewarm_stage_assets(stage: int) -> void:
@@ -234,7 +239,7 @@ func _show_stained_glass_host(owner: Object, view_size: Vector2, snapshot: Dicti
 
 func _get_stage_reveal_softness(stage: int) -> float:
 	match stage:
-		1, 3, 4:
+		1, 3, 4, 5:
 			return 0.065
 	return 0.055
 
@@ -312,6 +317,11 @@ func _load_stained_glass_textures(stage: int) -> bool:
 				stage4_stained_glass_texture = ProjectResourceLoader.load_texture(STAGE4_STAINED_GLASS_FULLCOLOR_PATH)
 			if stage4_stained_glass_mask_texture == null:
 				stage4_stained_glass_mask_texture = ProjectResourceLoader.load_texture(STAGE4_STAINED_GLASS_REVEAL_MASK_PATH)
+		5:
+			if stage5_stained_glass_texture == null:
+				stage5_stained_glass_texture = ProjectResourceLoader.load_texture(STAGE5_STAINED_GLASS_FULLCOLOR_PATH)
+			if stage5_stained_glass_mask_texture == null:
+				stage5_stained_glass_mask_texture = ProjectResourceLoader.load_texture(STAGE5_STAINED_GLASS_REVEAL_MASK_PATH)
 		_:
 			return false
 	return _get_stained_glass_texture(stage) != null and _get_stained_glass_mask_texture(stage) != null
@@ -327,6 +337,8 @@ func _get_stained_glass_texture(stage: int) -> Texture2D:
 			return stage3_stained_glass_texture
 		4:
 			return stage4_stained_glass_texture
+		5:
+			return stage5_stained_glass_texture
 	return null
 
 
@@ -340,11 +352,13 @@ func _get_stained_glass_mask_texture(stage: int) -> Texture2D:
 			return stage3_stained_glass_mask_texture
 		4:
 			return stage4_stained_glass_mask_texture
+		5:
+			return stage5_stained_glass_mask_texture
 	return null
 
 
 func _can_show_stained_glass(owner: Object) -> bool:
-	return [1, 2, 3, 4].has(maxi(1, int(_safe_owner_get(owner, "current_stage", 1))))
+	return [1, 2, 3, 4, 5].has(maxi(1, int(_safe_owner_get(owner, "current_stage", 1))))
 
 
 func _get_stained_glass_display_progress(raw_progress: float) -> float:
