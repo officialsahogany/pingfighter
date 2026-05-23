@@ -1,6 +1,7 @@
 extends RefCounted
 
 const MythicItemCatalogLists := preload("res://scripts/items/mythic_item_catalog_lists.gd")
+const MythicItemCatalogBaseMetadata := preload("res://scripts/items/mythic_item_catalog_base_metadata.gd")
 const MythicItemCatalogBuildRouter := preload("res://scripts/items/mythic_item_catalog_build_router.gd")
 const MythicItemCatalogIconMetadata := preload("res://scripts/items/mythic_item_catalog_icon_metadata.gd")
 const MythicItemCatalogPresentation := preload("res://scripts/items/mythic_item_catalog_presentation.gd")
@@ -9,6 +10,7 @@ const MythicItemCatalogRolls := preload("res://scripts/items/mythic_item_catalog
 const MythicItemCatalogSpawnMetadata := preload("res://scripts/items/mythic_item_catalog_spawn_metadata.gd")
 
 var list_helper: Object = MythicItemCatalogLists.new()
+var base_metadata_helper: Object = MythicItemCatalogBaseMetadata.new()
 var build_router: Object = MythicItemCatalogBuildRouter.new()
 var icon_metadata_helper: Object = MythicItemCatalogIconMetadata.new()
 var presentation_helper: Object = MythicItemCatalogPresentation.new()
@@ -160,43 +162,29 @@ func _build_speedboots() -> Dictionary:
 
 
 func _build_speedgear() -> Dictionary:
-	return {
-		"name": SPEEDGEAR,
+	return base_metadata_helper.with_item_base({
 		"display_name": "보정벨트",
 		"korean_name": "보정벨트",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": SPEEDGEAR,
-		"slot": "belt",
-		"icon_path": get_icon_path(SPEEDGEAR),
-		"chance": get_field_chance(SPEEDGEAR),
 		"description": "장착 중 좌우 방향 전환 감속이 2.5배 증가합니다.",
 		"rolls": {},
 		"roll_options": [],
 		"rolled_options": [],
 		"fixed_options": get_fixed_options(SPEEDGEAR),
 		"color": Color(1.0, 150.0 / 255.0, 0.0),
-	}
+	}, self, SPEEDGEAR, "passive", "belt", get_field_chance(SPEEDGEAR))
 
 
 func _build_gravitybelt() -> Dictionary:
-	return {
-		"name": GRAVITYBELT,
+	return base_metadata_helper.with_item_base({
 		"display_name": "무중력벨트",
 		"korean_name": "무중력벨트",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": GRAVITYBELT,
-		"slot": "belt",
-		"icon_path": get_icon_path(GRAVITYBELT),
-		"chance": get_field_chance(GRAVITYBELT),
 		"description": "이동 입력 즉시 최대 속도로 전환하고, 입력을 떼면 바로 정지합니다.",
 		"rolls": {},
 		"roll_options": [],
 		"rolled_options": [],
 		"fixed_options": get_fixed_options(GRAVITYBELT),
 		"color": Color(120.0 / 255.0, 90.0 / 255.0, 1.0),
-	}
+	}, self, GRAVITYBELT, "passive", "belt", get_field_chance(GRAVITYBELT))
 
 
 func _build_sensor() -> Dictionary:
@@ -340,23 +328,16 @@ func _build_battery() -> Dictionary:
 
 
 func _build_revival() -> Dictionary:
-	return {
-		"name": REVIVAL,
+	return base_metadata_helper.with_item_base({
 		"display_name": "윤회의 부적",
 		"korean_name": "윤회의 부적",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": REVIVAL,
-		"slot": "accessory",
-		"icon_path": get_icon_path(REVIVAL),
-		"chance": get_field_chance(REVIVAL),
 		"description": "장착 중 패배 직전 한 번 발동해 게임 오버를 막고 스테이지를 처음부터 다시 시작합니다.",
 		"rolls": {},
 		"roll_options": [],
 		"rolled_options": [],
 		"fixed_options": get_fixed_options(REVIVAL),
 		"color": Color(1.0, 0.0, 1.0),
-	}
+	}, self, REVIVAL, "passive", "accessory", get_field_chance(REVIVAL))
 
 
 func _build_master() -> Dictionary:
@@ -400,16 +381,9 @@ func _build_gold_digger() -> Dictionary:
 
 
 func _build_gold_bar() -> Dictionary:
-	return {
-		"name": GOLD_BAR,
+	return base_metadata_helper.with_item_base({
 		"display_name": "금괴",
 		"korean_name": "금괴",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": GOLD_BAR,
-		"slot": "accessory",
-		"icon_path": get_icon_path(GOLD_BAR),
-		"chance": get_field_chance(GOLD_BAR),
 		"description": "판매 전용 귀금속입니다. 보유 중 이동속도가 30% 감소하지만 상점에서 2000골드에 판매할 수 있습니다.",
 		"sell_price": GOLD_BAR_SELL_PRICE,
 		"rolls": {},
@@ -417,7 +391,7 @@ func _build_gold_bar() -> Dictionary:
 		"rolled_options": [],
 		"fixed_options": get_fixed_options(GOLD_BAR),
 		"color": Color(1.0, 215.0 / 255.0, 0.0),
-	}
+	}, self, GOLD_BAR, "passive", "accessory", get_field_chance(GOLD_BAR))
 
 
 func _build_lucky_coin() -> Dictionary:
@@ -622,22 +596,15 @@ func _build_foul_whistle() -> Dictionary:
 
 
 func _build_smartphone() -> Dictionary:
-	return {
-		"name": SMARTPHONE,
+	return base_metadata_helper.with_item_base({
 		"display_name": "스마트폰",
 		"korean_name": "스마트폰",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": SMARTPHONE,
-		"slot": "arm",
-		"icon_path": get_icon_path(SMARTPHONE),
-		"chance": get_field_chance(SMARTPHONE),
 		"description": "게이지가 낮으면 회복 아이템을 자동으로 사용하고, 위급할 때 스톱워치 또는 홀리베리어를 자동 발동합니다.",
 		"rolls": {},
 		"roll_options": [],
 		"rolled_options": [],
 		"color": Color(100.0 / 255.0, 150.0 / 255.0, 200.0 / 255.0),
-	}
+	}, self, SMARTPHONE, "passive", "arm", get_field_chance(SMARTPHONE))
 
 
 func _build_neural_helmet() -> Dictionary:
@@ -823,23 +790,16 @@ func _build_bulkup() -> Dictionary:
 
 
 func _build_dashholder() -> Dictionary:
-	return {
-		"name": DASHHOLDER,
+	return base_metadata_helper.with_item_base({
 		"display_name": "대쉬홀더",
 		"korean_name": "대쉬홀더",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": DASHHOLDER,
-		"slot": "accessory",
-		"icon_path": get_icon_path(DASHHOLDER),
-		"chance": get_field_chance(DASHHOLDER),
 		"description": "장착 중 대쉬 토큰 최대 개수를 1개 늘립니다.",
 		"rolls": {},
 		"roll_options": [],
 		"rolled_options": [],
 		"fixed_options": get_fixed_options(DASHHOLDER),
 		"color": Color(1.0, 150.0 / 255.0, 100.0 / 255.0),
-	}
+	}, self, DASHHOLDER, "passive", "accessory", get_field_chance(DASHHOLDER))
 
 
 func _build_bulletproof_hat() -> Dictionary:
@@ -1105,16 +1065,9 @@ func _build_baal_boots() -> Dictionary:
 
 
 func _build_elixir_of_mastery() -> Dictionary:
-	return {
-		"name": ELIXIR_OF_MASTERY,
+	return base_metadata_helper.with_item_base({
 		"display_name": "엘릭서 오브 마스터리",
 		"korean_name": "엘릭서 오브 마스터리",
-		"type": "mythic",
-		"rarity": "mythic",
-		"effect": ELIXIR_OF_MASTERY,
-		"slot": "",
-		"icon_path": get_icon_path(ELIXIR_OF_MASTERY),
-		"chance": 0.0,
 		"description": "사용 시 보유 중인 퍽 중 랜덤으로 1개를 선택해 Lv.5로 만듭니다. 신화급 액티브 아이템으로, 사용 후 소모됩니다.",
 		"rolls": {},
 		"roll_options": [],
@@ -1122,4 +1075,4 @@ func _build_elixir_of_mastery() -> Dictionary:
 		"color": Color(0.47, 0.2, 0.78),
 		"consumable": true,
 		"mythic_active": true,
-	}
+	}, self, ELIXIR_OF_MASTERY, "mythic", "", 0.0)
