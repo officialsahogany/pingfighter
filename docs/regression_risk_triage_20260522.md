@@ -10,12 +10,14 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `da656fe70 godot: clean up smoke test teardown`.
-- The checkpoint span through that HEAD contains 101 follow-up commits after
+  `9cc5ce258 godot: clean up stage5 visual smoke teardown`.
+- The checkpoint span through that HEAD contains 106 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 102 commits.
+  contains 107 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
+- Latest docs-only validation sync before this addendum:
+  `6c435f8c8 docs: record smoke teardown cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -33,10 +35,11 @@ evidence instead of relying on chat-only status summaries.
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
 - The split notes below are current through the seventy-first split. The broad
-  smoke addendum below records validation-only asset / smoke fixes made after
-  that split. The top-level initial snapshot remains historical context from
-  the first 2026-05-22 triage pass and should not be read as the current
-  worktree size.
+  smoke addenda below record validation-only asset / smoke fixes, teardown
+  cleanup, and the first single uninterrupted 489-script smoke pass after that
+  split. The top-level initial snapshot remains historical context from the
+  first 2026-05-22 triage pass and should not be read as the current worktree
+  size.
 
 Open follow-ups before the next broad sign-off:
 
@@ -48,13 +51,13 @@ Open follow-ups before the next broad sign-off:
   workflow mode from `fast` to `precise`. Keep both out of gameplay / docs
   refactor commits unless the user explicitly asks to change repo-wide tool
   policy.
-- The previous segmented broad smoke validation was complete by sorted-script
-  coverage, but it was not a single uninterrupted all-489 pass. Run one clean
-  full `.\tools\run_smoke_tests.ps1` pass before claiming pristine broad-smoke
-  sign-off.
 
 Resolved follow-up in the latest pass:
 
+- A single uninterrupted `.\tools\run_smoke_tests.ps1` pass from `godot/`
+  completed all `489` smoke scripts and ended with
+  `All Godot smoke tests passed.` No `ObjectDB instances leaked at exit`
+  warning was observed in that final full pass.
 - `da656fe70 godot: clean up smoke test teardown` resolves the known nonfatal
   `ObjectDB instances leaked at exit` cleanup follow-up for
   `boot_flow_bgm_toggle_smoke`, `commando_fullbody_live2d_smoke`,
@@ -62,6 +65,13 @@ Resolved follow-up in the latest pass:
   `main_menu_quit_confirmation_smoke`. The same focused verification set also
   reran `stage5_hongryun_visual_shell_smoke`; all five passed without the
   previous exit leak warning.
+- `dbded6d8a godot: clean up main menu flow smoke teardown`,
+  `3e1d1e2af godot: harden game audio smoke teardown`,
+  `fbcb230d5 godot: clear boot flow smoke audio cache`, and
+  `9cc5ce258 godot: clean up stage5 visual smoke teardown` cover the ObjectDB
+  cleanup warnings that were still discovered by the single full pass after
+  the segmented validation. Each was focused-rerun before the final all-489
+  pass.
 - Lane-order drift has a review grouping now: the latest traceability pass
   groups the 2026-05-23 split commits by owner lane, so reviewers do not need
   to reconstruct the mixed mythic / stage / Commando sequence from raw commit
@@ -71,6 +81,35 @@ Resolved follow-up in the latest pass:
   longer untraceable.
 
 ## Broad Smoke Validation Addendum - 2026-05-23
+
+Single full-pass sign-off after the segmented validation:
+
+- `dbded6d8a godot: clean up main menu flow smoke teardown` stops / clears the
+  main-menu, start-transition, and character-select audio players before
+  freeing their scenes.
+- `3e1d1e2af godot: harden game audio smoke teardown` drains all spawned
+  `AudioStreamPlayer` children in the game-audio volume smoke.
+- `fbcb230d5 godot: clear boot flow smoke audio cache` stops boot-flow BGM,
+  clears the stream, frees the scene, and clears `ProjectResourceLoader`
+  caches before process exit.
+- `9cc5ce258 godot: clean up stage5 visual smoke teardown` moves the Stage 5
+  visual-shell smoke out of immediate `_init()` shutdown, awaits staged
+  transition prewarm work by frame, resets render-quality / resource caches,
+  and gives cleanup frames before `quit()`.
+- Focused repeat validation passed after the teardown fixes:
+  `stage5_hongryun_visual_shell_smoke` 5x, plus focused reruns for
+  `boot_flow_bgm_toggle_smoke`, `commando_fullbody_live2d_smoke`,
+  `game_audio_volume_settings_smoke`, `main_menu_flow_smoke`,
+  `main_menu_quit_confirmation_smoke`, and
+  `stage5_hongryun_visual_shell_smoke`.
+- Latest wrapper checks after `.gd` edits:
+  `.\tools\run_headless_load_check.ps1` passed, and
+  `.\tools\run_warning_scan.ps1` passed with `1279` scripts and no GDScript
+  warnings.
+- Final broad validation from `godot/`:
+  `.\tools\run_smoke_tests.ps1` completed a single uninterrupted `489`-script
+  pass with `All Godot smoke tests passed.` and no observed ObjectDB exit
+  warning.
 
 Segmented broad validation covered the full sorted 489-script smoke list from
 `godot/` after the latest asset and smoke harness fixes:
