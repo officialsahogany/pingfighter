@@ -269,243 +269,6 @@ const DEBUG_ITEM_ORDER := [
 	BAAL_BOOTS,
 ]
 
-const MEGINGJORD_ROLL_OPTIONS := [
-	{
-		"key": "extra_pick_chance",
-		"label": "추가 선택 확률",
-		"min": 30.0,
-		"max": 50.0,
-		"unit": "%",
-		"default": 40.0,
-	},
-]
-
-const PANDORA_LEGACY_ROLL_OPTIONS := [
-	{
-		"key": "selection_quality",
-		"label": "매직찬스",
-		"min": 10.0,
-		"max": 30.0,
-		"unit": "%",
-		"default": 20.0,
-	},
-	{
-		"key": "trigger_chance",
-		"label": "승리시 유산 발동률",
-		"min": 40.0,
-		"max": 70.0,
-		"unit": "%",
-		"default": 55.0,
-	},
-]
-
-const RAGNAROK_HAMMER_ROLL_OPTIONS := [
-	{
-		"key": "trigger_chance",
-		"label": "발동 확률",
-		"min": 20.0,
-		"max": 40.0,
-		"step": 1.0,
-		"unit": "%",
-		"default": 30.0,
-	},
-	{
-		"key": "stun_duration",
-		"label": "스턴 시간",
-		"min": 0.8,
-		"max": 1.2,
-		"step": 0.1,
-		"unit": "초",
-		"default": 1.0,
-	},
-	{
-		"key": "speed_boost",
-		"label": "공속 증가",
-		"min": 15.0,
-		"max": 35.0,
-		"step": 1.0,
-		"unit": "%",
-		"default": 25.0,
-	},
-	{
-		"key": "gauge_cost",
-		"label": "게이지 소모",
-		"min": 20.0,
-		"max": 40.0,
-		"step": 1.0,
-		"unit": "",
-		"default": 30.0,
-		"reverse": true,
-	},
-]
-
-const SACRED_LAUREL_ROLL_OPTIONS := [
-	{
-		"key": "leaf_count",
-		"label": "월계수 잎",
-		"min": 4.0,
-		"max": 8.0,
-		"step": 1.0,
-		"unit": "개",
-		"default": 6.0,
-	},
-]
-
-const TRANSCENDENT_CROWN_ROLL_OPTIONS := [
-	{
-		"key": "skill_bonus",
-		"label": "모든 퍽 레벨 증가",
-		"min": 1.0,
-		"max": 2.0,
-		"step": 1.0,
-		"unit": "+",
-		"default": 2.0,
-	},
-]
-
-const HERMES_SHOES_ROLL_OPTIONS := [
-	{
-		"key": "speed_bonus",
-		"label": "이동속도",
-		"min": 30.0,
-		"max": 60.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 50.0,
-	},
-]
-
-const POSEIDON_TRIDENT_ROLL_OPTIONS := [
-	{
-		"key": "cooldown",
-		"label": "쿨타임",
-		"min": 2.0,
-		"max": 10.0,
-		"step": 1.0,
-		"unit": "초",
-		"default": 6.0,
-		"reverse": true,
-	},
-	{
-		"key": "gauge_cost",
-		"label": "게이지 소모",
-		"min": 20.0,
-		"max": 40.0,
-		"step": 1.0,
-		"unit": "",
-		"prefix": "-",
-		"default": 30.0,
-		"reverse": true,
-	},
-	{
-		"key": "vortex_size",
-		"label": "소용돌이 크기",
-		"min": 150.0,
-		"max": 250.0,
-		"step": 10.0,
-		"unit": "px",
-		"default": 200.0,
-	},
-]
-
-const HEAVENLY_CAPE_ROLL_OPTIONS := [
-	{
-		"key": "skill_cooldown_reduction",
-		"label": "스킬 쿨타임 감소",
-		"min": 10.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "-",
-		"default": 15.0,
-	},
-]
-
-const CELESTIAL_ARMOR_ROLL_OPTIONS := [
-	{
-		"key": "trigger_chance_pct",
-		"label": "발동 확률",
-		"min": 50.0,
-		"max": 80.0,
-		"step": 1.0,
-		"unit": "%",
-		"default": 65.0,
-	},
-	{
-		"key": "gauge_cost",
-		"label": "게이지 소모",
-		"min": 20.0,
-		"max": 40.0,
-		"step": 1.0,
-		"unit": "",
-		"prefix": "-",
-		"default": 30.0,
-		"reverse": true,
-	},
-]
-
-const BAAL_BOOTS_ROLL_OPTIONS := [
-	{
-		"key": "gauge_recovery",
-		"label": "게이지 회복",
-		"min": 300.0,
-		"max": 500.0,
-		"step": 1.0,
-		"unit": "",
-		"default": 400.0,
-	},
-]
-
-const HORN_STRAWBERRY_MASK_ROLL_OPTIONS := [
-	{
-		"key": "transform_duration",
-		"label": "변신 지속시간",
-		"min": 50.0,
-		"max": 70.0,
-		"unit": "초",
-		"default": 60.0,
-		"step": 5.0,
-	},
-]
-
-const DOWSING_PENDULUM_ROLL_OPTIONS := [
-	{
-		"key": "attraction_range",
-		"label": "끌어당기는 범위",
-		"min": 150.0,
-		"max": 250.0,
-		"step": 1.0,
-		"unit": "px",
-		"default": 200.0,
-	},
-]
-
-const DOWSING_GOGGLES_ROLL_OPTIONS := [
-	{
-		"key": "bonus_perk_chance",
-		"label": "추가 퍽 등장 확률",
-		"min": 30.0,
-		"max": 60.0,
-		"step": 1.0,
-		"unit": "%",
-		"default": 30.0,
-	},
-]
-
-const SPEEDBOOTS_ROLL_OPTIONS := [
-	{
-		"key": "speed_bonus_pct",
-		"label": "이동 속도",
-		"min": 10.0,
-		"max": 18.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 10.0,
-	},
-]
-
 const SPEEDGEAR_FIXED_OPTIONS := [
 	{
 		"label": "방향 전환",
@@ -527,109 +290,11 @@ const GRAVITYBELT_FIXED_OPTIONS := [
 	},
 ]
 
-const SENSOR_ROLL_OPTIONS := [
-	{
-		"key": "sensor_cooldown_sec",
-		"label": "자동대쉬 쿨타임",
-		"min": 13.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "초",
-		"default": 15.0,
-		"reverse": true,
-	},
-]
-
 const REVIVAL_FIXED_OPTIONS := [
 	{
 		"label": "패배 방지",
 		"value": "1",
 		"unit": "회",
-	},
-]
-
-const SLOT_ADD_ROLL_OPTIONS := [
-	{
-		"key": "slot_add_count",
-		"label": "슬롯 추가",
-		"min": 1.0,
-		"max": 3.0,
-		"step": 1.0,
-		"unit": "칸",
-		"prefix": "+",
-		"default": 1.0,
-	},
-]
-
-const CHARGEBAG_ROLL_OPTIONS := [
-	{
-		"key": "chargebag_pct",
-		"label": "벽 반사 게이지",
-		"min": 25.0,
-		"max": 50.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 25.0,
-	},
-]
-
-const BATTERY_ROLL_OPTIONS := [
-	{
-		"key": "gauge_preserve_pct",
-		"label": "게이지 보존",
-		"min": 60.0,
-		"max": 100.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "",
-		"default": 100.0,
-	},
-]
-
-const MASTER_ROLL_OPTIONS := [
-	{
-		"key": "wall_length_pct",
-		"label": "벽돌 길이",
-		"min": 20.0,
-		"max": 40.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 30.0,
-	},
-	{
-		"key": "item_cooldown_pct",
-		"label": "아이템 쿨타임",
-		"min": 4.0,
-		"max": 10.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "-",
-		"default": 10.0,
-	},
-	{
-		"key": "wall_spawn_bonus_pct",
-		"label": "벽돌 스폰율",
-		"min": 150.0,
-		"max": 300.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 150.0,
-	},
-]
-
-const GOLD_DIGGER_ROLL_OPTIONS := [
-	{
-		"key": "gold_bonus_pct",
-		"label": "골드 획득량",
-		"min": 25.0,
-		"max": 50.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 37.0,
 	},
 ]
 
@@ -646,442 +311,9 @@ const GOLD_BAR_FIXED_OPTIONS := [
 	},
 ]
 
-const LUCKY_COIN_ROLL_OPTIONS := [
-	{
-		"key": "double_spawn_pct",
-		"label": "더블 스폰 확률",
-		"min": 5.0,
-		"max": 15.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "",
-		"default": 10.0,
-	},
-]
-
-const ADVERSITY_ARMOR_ROLL_OPTIONS := [
-	{
-		"key": "trigger_chance_pct",
-		"label": "발동 확률",
-		"min": 20.0,
-		"max": 30.0,
-		"step": 1.0,
-		"unit": "%",
-		"default": 25.0,
-	},
-	{
-		"key": "invincible_duration_sec",
-		"label": "보호 지속시간",
-		"min": 8.0,
-		"max": 15.0,
-		"step": 1.0,
-		"unit": "초",
-		"default": 10.0,
-	},
-]
-
-const SHRAPNEL_ARMOR_ROLL_OPTIONS := [
-	{
-		"key": "trigger_chance_pct",
-		"label": "발동 확률",
-		"min": 8.0,
-		"max": 15.0,
-		"step": 1.0,
-		"unit": "%",
-		"default": 12.0,
-	},
-	{
-		"key": "shard_count",
-		"label": "파편 개수",
-		"min": 4.0,
-		"max": 8.0,
-		"step": 1.0,
-		"unit": "개",
-		"default": 6.0,
-	},
-	{
-		"key": "knockback_level",
-		"label": "넉백 단계",
-		"min": 1.0,
-		"max": 4.0,
-		"step": 1.0,
-		"unit": "Lv",
-		"default": 2.0,
-	},
-	{
-		"key": "gauge_cost",
-		"label": "게이지 소모",
-		"min": 25.0,
-		"max": 50.0,
-		"step": 1.0,
-		"unit": "",
-		"prefix": "-",
-		"default": 35.0,
-		"reverse": true,
-	},
-]
-
-const SAGE_RING_ROLL_OPTIONS := [
-	{
-		"key": "sage_speed_penalty_pct",
-		"label": "이동속도 감소",
-		"min": 10.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "-",
-		"default": 15.0,
-		"reverse": true,
-	},
-	{
-		"key": "sage_body_penalty_pct",
-		"label": "몸집크기 감소",
-		"min": 10.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "-",
-		"default": 15.0,
-		"reverse": true,
-	},
-]
-
-const COOLTIME_ROLL_OPTIONS := [
-	{
-		"key": "active_cooldown_pct",
-		"label": "아이템 쿨타임",
-		"min": 10.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "-",
-		"default": 15.0,
-	},
-]
-
-const TIMER_BELT_ROLL_OPTIONS := [
-	{
-		"key": "skill_cooldown_pct",
-		"label": "스킬 쿨타임",
-		"min": 10.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "-",
-		"default": 15.0,
-	},
-]
-
-const FUEL_POUCH_ROLL_OPTIONS := [
-	{
-		"key": "fuel_bonus_flat",
-		"label": "최대 게이지",
-		"min": 60.0,
-		"max": 120.0,
-		"step": 1.0,
-		"unit": "",
-		"prefix": "+",
-		"default": 100.0,
-	},
-]
-
-const BLUETOOTH_RING_ROLL_OPTIONS := [
-	{
-		"key": "gauge_gain_pct",
-		"label": "게이지 획득량",
-		"min": 10.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 15.0,
-	},
-]
-
-const STAR_DETECTOR_ROLL_OPTIONS := [
-	{
-		"key": "star_bonus_pct",
-		"label": "스타포인트 드랍율",
-		"min": 10.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 15.0,
-	},
-]
-
-const FOUL_WHISTLE_ROLL_OPTIONS := [
-	{
-		"key": "negate_chance_pct",
-		"label": "라운드 패배 시 무효화 확률",
-		"min": 4.0,
-		"max": 10.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 7.0,
-	},
-]
-
-const NEURAL_HELMET_ROLL_OPTIONS := [
-	{
-		"key": "aipill_gauge_reduction",
-		"label": "AI알약 게이지 소모",
-		"min": 40.0,
-		"max": 60.0,
-		"step": 1.0,
-		"unit": "",
-		"prefix": "-",
-		"default": 50.0,
-	},
-	{
-		"key": "aipill_spawn_bonus_pct",
-		"label": "AI알약 스폰율",
-		"min": 150.0,
-		"max": 300.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 225.0,
-	},
-]
-
-const VENOM_MIST_GAUNTLET_ROLL_OPTIONS := [
-	{
-		"key": "mist_trigger_chance_pct",
-		"label": "발동확률",
-		"min": 30.0,
-		"max": 50.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "",
-		"default": 40.0,
-	},
-	{
-		"key": "mist_duration_sec",
-		"label": "독안개 지속시간",
-		"min": 2.0,
-		"max": 5.0,
-		"step": 1.0,
-		"unit": "초",
-		"prefix": "",
-		"default": 3.0,
-	},
-]
-
-const REINFORCED_BOOMERANG_GAUNTLET_ROLL_OPTIONS := [
-	{
-		"key": "boomerang_launch_speed_pct",
-		"label": "부메랑 발사속도",
-		"min": 30.0,
-		"max": 60.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 45.0,
-	},
-	{
-		"key": "boomerang_homing_pct",
-		"label": "부메랑 유도성능",
-		"min": 20.0,
-		"max": 50.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 35.0,
-	},
-	{
-		"key": "boomerang_spawn_bonus_pct",
-		"label": "부메랑 스폰율",
-		"min": 300.0,
-		"max": 500.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 400.0,
-	},
-]
-
 const REINFORCED_BOOMERANG_GAUNTLET_FIXED_OPTIONS := [
 	{"label": "넉백 거리", "value": "+40", "unit": "%"},
 	{"label": "스턴 시간", "value": "+60", "unit": "%"},
-]
-
-const COMMANDO_ARM_ROLL_OPTIONS := [
-	{
-		"key": "throw_speed_pct",
-		"label": "투척 속도",
-		"min": 10.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 15.0,
-	},
-	{
-		"key": "explosion_range_pct",
-		"label": "폭발 범위",
-		"min": 5.0,
-		"max": 15.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 10.0,
-	},
-	{
-		"key": "smoke_duration_pct",
-		"label": "연막탄 지속시간",
-		"min": 20.0,
-		"max": 40.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 30.0,
-	},
-	{
-		"key": "prep_reduction_pct",
-		"label": "준비시간 단축",
-		"min": 20.0,
-		"max": 40.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "-",
-		"default": 30.0,
-	},
-]
-
-const RAINBOW_FUR_GLOVE_ROLL_OPTIONS := [
-	{
-		"key": "rainbow_glove_trigger_chance_pct",
-		"label": "발동확률",
-		"min": 5.0,
-		"max": 10.0,
-		"step": 1.0,
-		"unit": "%",
-		"default": 5.0,
-	},
-	{
-		"key": "rainbow_glove_cooldown_reduction_pct",
-		"label": "스킬 쿨타임 감소",
-		"min": 30.0,
-		"max": 50.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "-",
-		"default": 30.0,
-	},
-]
-
-const DASHGEAR_ROLL_OPTIONS := [
-	{
-		"key": "dash_distance_pct",
-		"label": "대쉬 거리",
-		"min": 6.0,
-		"max": 12.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 9.0,
-	},
-	{
-		"key": "boost_charge_pct",
-		"label": "부스트차징 발동확률",
-		"min": 7.0,
-		"max": 13.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 7.0,
-	},
-]
-
-const SOUL_BURST_ROLL_OPTIONS := [
-	{
-		"key": "soul_burst_gauge_cost",
-		"label": "게이지 소모",
-		"min": 110.0,
-		"max": 160.0,
-		"step": 1.0,
-		"unit": "",
-		"default": 160.0,
-		"reverse": true,
-	},
-]
-
-const KNEE_PADS_ROLL_OPTIONS := [
-	{
-		"key": "knee_charge_pct",
-		"label": "하프대쉬 게이지",
-		"min": 30.0,
-		"max": 60.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 50.0,
-	},
-]
-
-const BULKUP_ROLL_OPTIONS := [
-	{
-		"key": "body_size_pct",
-		"label": "몸집크기",
-		"min": 11.0,
-		"max": 16.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 11.0,
-	},
-]
-
-const SPIKEBOOTS_ROLL_OPTIONS := [
-	{
-		"key": "dash_afterdelay_pct",
-		"label": "대쉬 후딜 시간",
-		"min": 15.0,
-		"max": 35.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "-",
-		"default": 30.0,
-	},
-	{
-		"key": "dash_cooldown_pct",
-		"label": "대쉬 쿨타임",
-		"min": 15.0,
-		"max": 30.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "-",
-		"default": 15.0,
-	},
-]
-
-const BULLETPROOF_HAT_ROLL_OPTIONS := [
-	{
-		"key": "stun_resist_pct",
-		"label": "스턴 저항력",
-		"min": 10.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 10.0,
-	},
-]
-
-const SPIKED_HELMET_ROLL_OPTIONS := [
-	{
-		"key": "knockback_resist_pct",
-		"label": "넉백 저항력",
-		"min": 10.0,
-		"max": 20.0,
-		"step": 1.0,
-		"unit": "%",
-		"prefix": "+",
-		"default": 10.0,
-	},
 ]
 
 const DASHHOLDER_FIXED_OPTIONS := [
@@ -1225,104 +457,7 @@ func get_field_spawn_items() -> Array:
 
 
 func get_roll_options(item_name: String) -> Array:
-	match item_name:
-		SPEEDBOOTS:
-			return SPEEDBOOTS_ROLL_OPTIONS.duplicate(true)
-		SPEEDGEAR:
-			return []
-		GRAVITYBELT:
-			return []
-		SENSOR:
-			return SENSOR_ROLL_OPTIONS.duplicate(true)
-		SPIKEBOOTS:
-			return SPIKEBOOTS_ROLL_OPTIONS.duplicate(true)
-		DOWSING_PENDULUM:
-			return DOWSING_PENDULUM_ROLL_OPTIONS.duplicate(true)
-		DOWSING_GOGGLES:
-			return DOWSING_GOGGLES_ROLL_OPTIONS.duplicate(true)
-		SLOT_ADD:
-			return SLOT_ADD_ROLL_OPTIONS.duplicate(true)
-		CHARGEBAG:
-			return CHARGEBAG_ROLL_OPTIONS.duplicate(true)
-		BATTERY:
-			return BATTERY_ROLL_OPTIONS.duplicate(true)
-		REVIVAL:
-			return []
-		MASTER:
-			return MASTER_ROLL_OPTIONS.duplicate(true)
-		GOLD_DIGGER:
-			return GOLD_DIGGER_ROLL_OPTIONS.duplicate(true)
-		GOLD_BAR:
-			return []
-		LUCKY_COIN:
-			return LUCKY_COIN_ROLL_OPTIONS.duplicate(true)
-		ADVERSITY_ARMOR:
-			return ADVERSITY_ARMOR_ROLL_OPTIONS.duplicate(true)
-		SHRAPNEL_ARMOR:
-			return SHRAPNEL_ARMOR_ROLL_OPTIONS.duplicate(true)
-		SAGE_RING:
-			return SAGE_RING_ROLL_OPTIONS.duplicate(true)
-		COOLTIME:
-			return COOLTIME_ROLL_OPTIONS.duplicate(true)
-		TIMER_BELT:
-			return TIMER_BELT_ROLL_OPTIONS.duplicate(true)
-		FUEL_POUCH:
-			return FUEL_POUCH_ROLL_OPTIONS.duplicate(true)
-		BLUETOOTH_RING:
-			return BLUETOOTH_RING_ROLL_OPTIONS.duplicate(true)
-		STAR_DETECTOR:
-			return STAR_DETECTOR_ROLL_OPTIONS.duplicate(true)
-		FOUL_WHISTLE:
-			return FOUL_WHISTLE_ROLL_OPTIONS.duplicate(true)
-		NEURAL_HELMET:
-			return NEURAL_HELMET_ROLL_OPTIONS.duplicate(true)
-		VENOM_MIST_GAUNTLET:
-			return VENOM_MIST_GAUNTLET_ROLL_OPTIONS.duplicate(true)
-		REINFORCED_BOOMERANG_GAUNTLET:
-			return REINFORCED_BOOMERANG_GAUNTLET_ROLL_OPTIONS.duplicate(true)
-		COMMANDO_ARM:
-			return COMMANDO_ARM_ROLL_OPTIONS.duplicate(true)
-		RAINBOW_FUR_GLOVE:
-			return RAINBOW_FUR_GLOVE_ROLL_OPTIONS.duplicate(true)
-		KNEE_PADS:
-			return KNEE_PADS_ROLL_OPTIONS.duplicate(true)
-		DASHGEAR:
-			return DASHGEAR_ROLL_OPTIONS.duplicate(true)
-		SOUL_BURST:
-			return SOUL_BURST_ROLL_OPTIONS.duplicate(true)
-		BULKUP:
-			return BULKUP_ROLL_OPTIONS.duplicate(true)
-		DASHHOLDER:
-			return []
-		BULLETPROOF_HAT:
-			return BULLETPROOF_HAT_ROLL_OPTIONS.duplicate(true)
-		SPIKED_HELMET:
-			return SPIKED_HELMET_ROLL_OPTIONS.duplicate(true)
-		PANDORA_LEGACY:
-			return PANDORA_LEGACY_ROLL_OPTIONS.duplicate(true)
-		MEGINGJORD:
-			return MEGINGJORD_ROLL_OPTIONS.duplicate(true)
-		RAGNAROK_HAMMER:
-			return RAGNAROK_HAMMER_ROLL_OPTIONS.duplicate(true)
-		HERMES_SHOES:
-			return HERMES_SHOES_ROLL_OPTIONS.duplicate(true)
-		POSEIDON_TRIDENT:
-			return POSEIDON_TRIDENT_ROLL_OPTIONS.duplicate(true)
-		SACRED_LAUREL:
-			return SACRED_LAUREL_ROLL_OPTIONS.duplicate(true)
-		TRANSCENDENT_CROWN:
-			return TRANSCENDENT_CROWN_ROLL_OPTIONS.duplicate(true)
-		HEAVENLY_CAPE:
-			return HEAVENLY_CAPE_ROLL_OPTIONS.duplicate(true)
-		HORN_STRAWBERRY_MASK:
-			return HORN_STRAWBERRY_MASK_ROLL_OPTIONS.duplicate(true)
-		CELESTIAL_ARMOR:
-			return CELESTIAL_ARMOR_ROLL_OPTIONS.duplicate(true)
-		BAAL_BOOTS:
-			return BAAL_BOOTS_ROLL_OPTIONS.duplicate(true)
-		ELIXIR_OF_MASTERY:
-			return []
-	return []
+	return roll_helper.get_roll_options(item_name)
 
 
 func build_default_rolls(item_name: String) -> Dictionary:
@@ -1364,7 +499,7 @@ func _build_speedboots() -> Dictionary:
 		"chance": SPEEDBOOTS_FIELD_CHANCE,
 		"description": "장착 중 플레이어의 이동 속도를 롤옵션만큼 높입니다.",
 		"rolls": rolls,
-		"roll_options": SPEEDBOOTS_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(SPEEDBOOTS),
 		"rolled_options": build_rolled_options(SPEEDBOOTS, rolls),
 		"color": Color(0.0, 1.0, 100.0 / 255.0),
 	}
@@ -1424,7 +559,7 @@ func _build_sensor() -> Dictionary:
 		"chance": SENSOR_FIELD_CHANCE,
 		"description": "위험 상황에서 자동으로 대쉬합니다. 자동대쉬는 게이지와 대쉬토큰을 소모하지 않습니다.",
 		"rolls": rolls,
-		"roll_options": SENSOR_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(SENSOR),
 		"rolled_options": build_rolled_options(SENSOR, rolls),
 		"color": Color(150.0 / 255.0, 150.0 / 255.0, 1.0),
 	}
@@ -1444,7 +579,7 @@ func _build_spikeboots() -> Dictionary:
 		"chance": SPIKEBOOTS_FIELD_CHANCE,
 		"description": "대쉬 후딜 시간과 대쉬 토큰 재충전 시간을 롤옵션만큼 줄입니다.",
 		"rolls": rolls,
-		"roll_options": SPIKEBOOTS_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(SPIKEBOOTS),
 		"rolled_options": build_rolled_options(SPIKEBOOTS, rolls),
 		"color": Color(1.0, 100.0 / 255.0, 1.0),
 	}
@@ -1464,7 +599,7 @@ func _build_dowsing_pendulum() -> Dictionary:
 		"chance": DOWSING_PENDULUM_FIELD_CHANCE,
 		"description": "롤옵션 범위 안의 필드 아이템을 플레이어 패들 쪽으로 끌어당깁니다.",
 		"rolls": rolls,
-		"roll_options": DOWSING_PENDULUM_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(DOWSING_PENDULUM),
 		"rolled_options": build_rolled_options(DOWSING_PENDULUM, rolls),
 		"color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
 	}
@@ -1484,7 +619,7 @@ func _build_dowsing_goggles() -> Dictionary:
 		"chance": DOWSING_GOGGLES_FIELD_CHANCE,
 		"description": "퍽 선택 화면에서 일정 확률로 일반 퍽 선택지가 1장 추가됩니다.",
 		"rolls": rolls,
-		"roll_options": DOWSING_GOGGLES_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(DOWSING_GOGGLES),
 		"rolled_options": build_rolled_options(DOWSING_GOGGLES, rolls),
 		"color": Color(60.0 / 255.0, 200.0 / 255.0, 180.0 / 255.0),
 	}
@@ -1504,7 +639,7 @@ func _build_slot_add() -> Dictionary:
 		"chance": SLOT_ADD_FIELD_CHANCE,
 		"description": "장착 중 액티브 아이템 슬롯을 롤옵션만큼 늘립니다.",
 		"rolls": rolls,
-		"roll_options": SLOT_ADD_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(SLOT_ADD),
 		"rolled_options": build_rolled_options(SLOT_ADD, rolls),
 		"color": Color(1.0, 180.0 / 255.0, 80.0 / 255.0),
 	}
@@ -1524,7 +659,7 @@ func _build_chargebag() -> Dictionary:
 		"chance": CHARGEBAG_FIELD_CHANCE,
 		"description": "장착 중 공이 벽에 닿을 때마다 기본 게이지 충전량의 일부를 추가로 얻습니다.",
 		"rolls": rolls,
-		"roll_options": CHARGEBAG_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(CHARGEBAG),
 		"rolled_options": build_rolled_options(CHARGEBAG, rolls),
 		"color": Color(100.0 / 255.0, 1.0, 100.0 / 255.0),
 	}
@@ -1544,7 +679,7 @@ func _build_battery() -> Dictionary:
 		"chance": BATTERY_FIELD_CHANCE,
 		"description": "장착 중 다음 스테이지로 넘어갈 때 게이지를 롤옵션 비율만큼 보존합니다.",
 		"rolls": rolls,
-		"roll_options": BATTERY_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(BATTERY),
 		"rolled_options": build_rolled_options(BATTERY, rolls),
 		"color": Color(1.0, 1.0, 0.0),
 	}
@@ -1584,7 +719,7 @@ func _build_master() -> Dictionary:
 		"chance": MASTER_FIELD_CHANCE,
 		"description": "장착 중 벽돌 액티브의 길이를 늘리고, 액티브 아이템 쿨타임을 줄이며, 벽돌 아이템의 필드 스폰 가중치를 높입니다.",
 		"rolls": rolls,
-		"roll_options": MASTER_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(MASTER),
 		"rolled_options": build_rolled_options(MASTER, rolls),
 		"color": Color(1.0, 215.0 / 255.0, 0.0),
 	}
@@ -1604,7 +739,7 @@ func _build_gold_digger() -> Dictionary:
 		"chance": GOLD_DIGGER_FIELD_CHANCE,
 		"description": "장착 중 골드 획득량과 일부 게이지 획득량을 롤옵션만큼 늘립니다.",
 		"rolls": rolls,
-		"roll_options": GOLD_DIGGER_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(GOLD_DIGGER),
 		"rolled_options": build_rolled_options(GOLD_DIGGER, rolls),
 		"color": Color(1.0, 200.0 / 255.0, 50.0 / 255.0),
 	}
@@ -1645,7 +780,7 @@ func _build_lucky_coin() -> Dictionary:
 		"chance": LUCKY_COIN_FIELD_CHANCE,
 		"description": "장착 중 필드 아이템이 스폰될 때 롤옵션 확률로 보너스 아이템을 1개 더 생성합니다.",
 		"rolls": rolls,
-		"roll_options": LUCKY_COIN_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(LUCKY_COIN),
 		"rolled_options": build_rolled_options(LUCKY_COIN, rolls),
 		"color": Color(1.0, 223.0 / 255.0, 0.0),
 	}
@@ -1665,7 +800,7 @@ func _build_adversity_armor() -> Dictionary:
 		"chance": ADVERSITY_ARMOR_FIELD_CHANCE,
 		"description": "실점 후 그다음 라운드에 일정 확률로 사용자를 보호하는 무적의 벽이 생성됩니다. 다음 서브 시 공 속도도 증가합니다.",
 		"rolls": rolls,
-		"roll_options": ADVERSITY_ARMOR_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(ADVERSITY_ARMOR),
 		"rolled_options": build_rolled_options(ADVERSITY_ARMOR, rolls),
 		"color": Color(0.96, 0.58, 0.18),
 	}
@@ -1685,7 +820,7 @@ func _build_shrapnel_armor() -> Dictionary:
 		"chance": SHRAPNEL_ARMOR_FIELD_CHANCE,
 		"description": "플레이어 패들이 공을 칠 때 일정 확률로 게이지를 소모해 위쪽으로 가시 파편을 발사하고, 보스에게 맞으면 짧은 스턴과 넉백을 줍니다.",
 		"rolls": rolls,
-		"roll_options": SHRAPNEL_ARMOR_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(SHRAPNEL_ARMOR),
 		"rolled_options": build_rolled_options(SHRAPNEL_ARMOR, rolls),
 		"color": Color(1.0, 150.0 / 255.0, 80.0 / 255.0),
 	}
@@ -1705,7 +840,7 @@ func _build_sage_ring() -> Dictionary:
 		"chance": SAGE_RING_FIELD_CHANCE,
 		"description": "장착 중 모든 투자된 퍽의 유효 레벨을 1 올립니다. 대신 이동속도와 몸집크기가 롤옵션만큼 감소합니다.",
 		"rolls": rolls,
-		"roll_options": SAGE_RING_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(SAGE_RING),
 		"rolled_options": build_rolled_options(SAGE_RING, rolls),
 		"fixed_options": SAGE_RING_FIXED_OPTIONS.duplicate(true),
 		"color": Color(180.0 / 255.0, 140.0 / 255.0, 1.0),
@@ -1726,7 +861,7 @@ func _build_cooltime() -> Dictionary:
 		"chance": COOLTIME_FIELD_CHANCE,
 		"description": "장착 중 액티브 아이템 재사용 쿨타임을 롤옵션만큼 줄입니다.",
 		"rolls": rolls,
-		"roll_options": COOLTIME_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(COOLTIME),
 		"rolled_options": build_rolled_options(COOLTIME, rolls),
 		"color": Color(0.0, 230.0 / 255.0, 1.0),
 	}
@@ -1746,7 +881,7 @@ func _build_timer_belt() -> Dictionary:
 		"chance": TIMER_BELT_FIELD_CHANCE,
 		"description": "장착 중 모든 캐릭터 스킬의 쿨타임을 롤옵션만큼 줄입니다.",
 		"rolls": rolls,
-		"roll_options": TIMER_BELT_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(TIMER_BELT),
 		"rolled_options": build_rolled_options(TIMER_BELT, rolls),
 		"color": Color(90.0 / 255.0, 220.0 / 255.0, 230.0 / 255.0),
 	}
@@ -1766,7 +901,7 @@ func _build_fuel_pouch() -> Dictionary:
 		"chance": FUEL_POUCH_FIELD_CHANCE,
 		"description": "장착 중 플레이어의 최대 게이지를 롤옵션 수치만큼 늘립니다.",
 		"rolls": rolls,
-		"roll_options": FUEL_POUCH_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(FUEL_POUCH),
 		"rolled_options": build_rolled_options(FUEL_POUCH, rolls),
 		"color": Color(180.0 / 255.0, 100.0 / 255.0, 40.0 / 255.0),
 	}
@@ -1786,7 +921,7 @@ func _build_bluetooth_ring() -> Dictionary:
 		"chance": BLUETOOTH_RING_FIELD_CHANCE,
 		"description": "장착 중 플레이어가 패들로 공을 칠 때 얻는 게이지를 롤옵션만큼 늘립니다.",
 		"rolls": rolls,
-		"roll_options": BLUETOOTH_RING_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(BLUETOOTH_RING),
 		"rolled_options": build_rolled_options(BLUETOOTH_RING, rolls),
 		"color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
 	}
@@ -1806,7 +941,7 @@ func _build_star_detector() -> Dictionary:
 		"chance": STAR_DETECTOR_FIELD_CHANCE,
 		"description": "장착 중 스타포인트 드랍이 생길 때 롤옵션 확률로 보너스 스타포인트 드랍을 1개 더 생성합니다.",
 		"rolls": rolls,
-		"roll_options": STAR_DETECTOR_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(STAR_DETECTOR),
 		"rolled_options": build_rolled_options(STAR_DETECTOR, rolls),
 		"color": Color(80.0 / 255.0, 200.0 / 255.0, 220.0 / 255.0),
 	}
@@ -1826,7 +961,7 @@ func _build_foul_whistle() -> Dictionary:
 		"chance": FOUL_WHISTLE_FIELD_CHANCE,
 		"description": "라운드 패배 시 일정 확률로 심판이 호루라기를 불어 실점을 무효화하고 라운드를 다시 시작합니다.",
 		"rolls": rolls,
-		"roll_options": FOUL_WHISTLE_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(FOUL_WHISTLE),
 		"rolled_options": build_rolled_options(FOUL_WHISTLE, rolls),
 		"color": Color(1.0, 235.0 / 255.0, 120.0 / 255.0),
 	}
@@ -1865,7 +1000,7 @@ func _build_neural_helmet() -> Dictionary:
 		"chance": NEURAL_HELMET_FIELD_CHANCE,
 		"description": "AI알약의 게이지 소모를 줄이고 AI알약 스폰율을 높입니다. AI알약 발동 중 방향키 입력으로 즉시 해제할 수 있습니다.",
 		"rolls": rolls,
-		"roll_options": NEURAL_HELMET_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(NEURAL_HELMET),
 		"rolled_options": build_rolled_options(NEURAL_HELMET, rolls),
 		"color": Color(140.0 / 255.0, 180.0 / 255.0, 1.0),
 	}
@@ -1886,7 +1021,7 @@ func _build_venom_mist_gauntlet() -> Dictionary:
 		"description": "바이퍼 전용. 화랑 킥으로 공에 독을 싣고, 보스가 감염된 공을 가드하면 보스 주변에 독안개를 생성합니다. 독안개 안의 보스는 이동속도와 특수 게이지가 감소합니다.",
 		"character_restriction": "viper",
 		"rolls": rolls,
-		"roll_options": VENOM_MIST_GAUNTLET_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(VENOM_MIST_GAUNTLET),
 		"rolled_options": build_rolled_options(VENOM_MIST_GAUNTLET, rolls),
 		"color": Color(80.0 / 255.0, 200.0 / 255.0, 80.0 / 255.0),
 	}
@@ -1906,7 +1041,7 @@ func _build_reinforced_boomerang_gauntlet() -> Dictionary:
 		"chance": REINFORCED_BOOMERANG_GAUNTLET_FIELD_CHANCE,
 		"description": "부메랑을 메탈 강화하고 발사속도, 유도성능, 스폰율, 넉백, 스턴 시간을 올립니다.",
 		"rolls": rolls,
-		"roll_options": REINFORCED_BOOMERANG_GAUNTLET_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(REINFORCED_BOOMERANG_GAUNTLET),
 		"rolled_options": build_rolled_options(REINFORCED_BOOMERANG_GAUNTLET, rolls),
 		"fixed_options": REINFORCED_BOOMERANG_GAUNTLET_FIXED_OPTIONS.duplicate(true),
 		"color": Color(150.0 / 255.0, 200.0 / 255.0, 1.0),
@@ -1927,7 +1062,7 @@ func _build_commando_arm() -> Dictionary:
 		"chance": COMMANDO_ARM_FIELD_CHANCE,
 		"description": "투척류 아이템을 전투용 팔 장비로 보조합니다. 수류탄, 조명탄, 화염병은 더 빠르게 날아가고 폭발 범위가 넓어지며, 다이너마이트, 바나나, 비누, 부메랑의 준비시간이 줄어듭니다. 연막탄 지속시간도 증가합니다.",
 		"rolls": rolls,
-		"roll_options": COMMANDO_ARM_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(COMMANDO_ARM),
 		"rolled_options": build_rolled_options(COMMANDO_ARM, rolls),
 		"color": Color(60.0 / 255.0, 60.0 / 255.0, 70.0 / 255.0),
 	}
@@ -1947,7 +1082,7 @@ func _build_rainbow_fur_glove() -> Dictionary:
 		"chance": RAINBOW_FUR_GLOVE_FIELD_CHANCE,
 		"description": "공을 패들로 칠 때 일정 확률로 발동하여 장착한 캐릭터 스킬의 진행 중 쿨타임을 즉시 감소시킵니다.",
 		"rolls": rolls,
-		"roll_options": RAINBOW_FUR_GLOVE_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(RAINBOW_FUR_GLOVE),
 		"rolled_options": build_rolled_options(RAINBOW_FUR_GLOVE, rolls),
 		"color": Color(1.0, 170.0 / 255.0, 220.0 / 255.0),
 	}
@@ -1967,7 +1102,7 @@ func _build_knee_pads() -> Dictionary:
 		"chance": KNEE_PADS_FIELD_CHANCE,
 		"description": "장착 중 하프대쉬로 공을 맞추면 기본 게이지 획득량을 기준으로 롤옵션 비율만큼 충전합니다.",
 		"rolls": rolls,
-		"roll_options": KNEE_PADS_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(KNEE_PADS),
 		"rolled_options": build_rolled_options(KNEE_PADS, rolls),
 		"color": Color(80.0 / 255.0, 80.0 / 255.0, 100.0 / 255.0),
 	}
@@ -1987,7 +1122,7 @@ func _build_dashgear() -> Dictionary:
 		"chance": DASHGEAR_FIELD_CHANCE,
 		"description": "대쉬 거리를 늘리고, 일정 확률로 다음 대쉬 토큰 소모를 무효화합니다.",
 		"rolls": rolls,
-		"roll_options": DASHGEAR_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(DASHGEAR),
 		"rolled_options": build_rolled_options(DASHGEAR, rolls),
 		"color": Color(1.0, 150.0 / 255.0, 100.0 / 255.0),
 	}
@@ -2007,7 +1142,7 @@ func _build_soul_burst() -> Dictionary:
 		"chance": SOUL_BURST_FIELD_CHANCE,
 		"description": "대쉬 토큰이 없을 때 스페셜 게이지를 소모해 하프대쉬 대신 풀대쉬를 발동합니다.",
 		"rolls": rolls,
-		"roll_options": SOUL_BURST_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(SOUL_BURST),
 		"rolled_options": build_rolled_options(SOUL_BURST, rolls),
 		"color": Color(150.0 / 255.0, 80.0 / 255.0, 1.0),
 	}
@@ -2027,7 +1162,7 @@ func _build_bulkup() -> Dictionary:
 		"chance": BULKUP_FIELD_CHANCE,
 		"description": "장착 중 플레이어 패들의 몸집크기를 롤옵션만큼 늘립니다.",
 		"rolls": rolls,
-		"roll_options": BULKUP_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(BULKUP),
 		"rolled_options": build_rolled_options(BULKUP, rolls),
 		"color": Color(1.0, 100.0 / 255.0, 100.0 / 255.0),
 	}
@@ -2067,7 +1202,7 @@ func _build_bulletproof_hat() -> Dictionary:
 		"chance": BULLETPROOF_HAT_FIELD_CHANCE,
 		"description": "장착 중 플레이어에게 걸리는 스턴 시간을 롤옵션만큼 줄입니다.",
 		"rolls": rolls,
-		"roll_options": BULLETPROOF_HAT_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(BULLETPROOF_HAT),
 		"rolled_options": build_rolled_options(BULLETPROOF_HAT, rolls),
 		"color": Color(0.38, 0.72, 1.0),
 	}
@@ -2087,7 +1222,7 @@ func _build_spiked_helmet() -> Dictionary:
 		"chance": SPIKED_HELMET_FIELD_CHANCE,
 		"description": "장착 중 플레이어가 받는 넉백 속도를 롤옵션만큼 줄입니다.",
 		"rolls": rolls,
-		"roll_options": SPIKED_HELMET_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(SPIKED_HELMET),
 		"rolled_options": build_rolled_options(SPIKED_HELMET, rolls),
 		"color": Color(1.0, 0.62, 0.32),
 	}
@@ -2113,7 +1248,7 @@ func _build_pandora_legacy() -> Dictionary:
 		"chance": PANDORA_LEGACY_FIELD_CHANCE,
 		"description": "라운드 승리 시 일정 확률로 발동해 3개의 아이템 중 하나를 선택합니다.",
 		"rolls": rolls,
-		"roll_options": PANDORA_LEGACY_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(PANDORA_LEGACY),
 		"rolled_options": build_rolled_options(PANDORA_LEGACY, rolls),
 		"color": Color(150.0 / 255.0, 50.0 / 255.0, 200.0 / 255.0),
 	}
@@ -2139,7 +1274,7 @@ func _build_megingjord() -> Dictionary:
 		"chance": MEGINGJORD_FIELD_CHANCE,
 		"description": "퍽 선택 시 추가 선택 기회를 얻습니다. 한 선택 묶음에서 최대 2회까지 연속 발동합니다.",
 		"rolls": rolls,
-		"roll_options": MEGINGJORD_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(MEGINGJORD),
 		"rolled_options": build_rolled_options(MEGINGJORD, rolls),
 		"color": Color(1.0, 215.0 / 255.0, 75.0 / 255.0),
 	}
@@ -2165,7 +1300,7 @@ func _build_ragnarok_hammer() -> Dictionary:
 		"chance": RAGNAROK_HAMMER_FIELD_CHANCE,
 		"description": "플레이어가 공을 받아칠 때 게이지를 소모해 스턴공을 만들고, 보스가 받아치면 넉백과 스턴을 겁니다.",
 		"rolls": rolls,
-		"roll_options": RAGNAROK_HAMMER_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(RAGNAROK_HAMMER),
 		"rolled_options": build_rolled_options(RAGNAROK_HAMMER, rolls),
 		"color": Color(120.0 / 255.0, 190.0 / 255.0, 1.0),
 	}
@@ -2191,7 +1326,7 @@ func _build_hermes_shoes() -> Dictionary:
 		"chance": HERMES_SHOES_FIELD_CHANCE,
 		"description": "신들의 전령이 신던 날개 신발입니다. 롤 옵션만큼 플레이어 이동속도를 증가시킵니다.",
 		"rolls": rolls,
-		"roll_options": HERMES_SHOES_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(HERMES_SHOES),
 		"rolled_options": build_rolled_options(HERMES_SHOES, rolls),
 		"color": Color(100.0 / 255.0, 200.0 / 255.0, 1.0),
 	}
@@ -2217,7 +1352,7 @@ func _build_poseidon_trident() -> Dictionary:
 		"chance": POSEIDON_TRIDENT_FIELD_CHANCE,
 		"description": "대시 회복 순간 좌우에 거대한 물회오리를 생성하여 보스가 내려친 공을 위쪽으로 강하게 튕겨냅니다.",
 		"rolls": rolls,
-		"roll_options": POSEIDON_TRIDENT_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(POSEIDON_TRIDENT),
 		"rolled_options": build_rolled_options(POSEIDON_TRIDENT, rolls),
 		"color": Color(70.0 / 255.0, 185.0 / 255.0, 1.0),
 	}
@@ -2243,7 +1378,7 @@ func _build_sacred_laurel() -> Dictionary:
 		"chance": SACRED_LAUREL_FIELD_CHANCE,
 		"description": "월계수 잎이 플레이어 주변을 회전하며 보호합니다.",
 		"rolls": rolls,
-		"roll_options": SACRED_LAUREL_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(SACRED_LAUREL),
 		"rolled_options": build_rolled_options(SACRED_LAUREL, rolls),
 		"color": Color(105.0 / 255.0, 215.0 / 255.0, 120.0 / 255.0),
 	}
@@ -2269,7 +1404,7 @@ func _build_transcendent_crown() -> Dictionary:
 		"chance": TRANSCENDENT_CROWN_FIELD_CHANCE,
 		"description": "이미 투자한 모든 퍽의 효과 레벨을 롤 옵션만큼 증가시킵니다.",
 		"rolls": rolls,
-		"roll_options": TRANSCENDENT_CROWN_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(TRANSCENDENT_CROWN),
 		"rolled_options": build_rolled_options(TRANSCENDENT_CROWN, rolls),
 		"color": Color(1.0, 215.0 / 255.0, 100.0 / 255.0),
 	}
@@ -2295,7 +1430,7 @@ func _build_heavenly_cape() -> Dictionary:
 		"chance": HEAVENLY_CAPE_FIELD_CHANCE,
 		"description": "스킬 구슬 슬롯을 1칸 늘리고 모든 플레이어 스킬 쿨타임을 줄입니다.",
 		"rolls": rolls,
-		"roll_options": HEAVENLY_CAPE_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(HEAVENLY_CAPE),
 		"rolled_options": build_rolled_options(HEAVENLY_CAPE, rolls),
 		"fixed_options": [
 			{"label": "스킬 구슬 슬롯", "value": "+1", "unit": "칸"},
@@ -2324,7 +1459,7 @@ func _build_horn_strawberry_mask() -> Dictionary:
 		"chance": HORN_STRAWBERRY_MASK_FIELD_CHANCE,
 		"description": "A→D→A→D→A→D 커맨드로 1스테이지 1회 뿔딸기로 변신합니다.",
 		"rolls": rolls,
-		"roll_options": HORN_STRAWBERRY_MASK_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(HORN_STRAWBERRY_MASK),
 		"rolled_options": build_rolled_options(HORN_STRAWBERRY_MASK, rolls),
 		"fixed_options": [
 			{"label": "변신 비용", "value": "-500", "unit": "게이지"},
@@ -2354,7 +1489,7 @@ func _build_celestial_armor() -> Dictionary:
 		"chance": CELESTIAL_ARMOR_FIELD_CHANCE,
 		"description": "스턴이 들어올 때 롤 확률로 무시하고, 발동 시 게이지를 소모합니다.",
 		"rolls": rolls,
-		"roll_options": CELESTIAL_ARMOR_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(CELESTIAL_ARMOR),
 		"rolled_options": build_rolled_options(CELESTIAL_ARMOR, rolls),
 		"color": Color(180.0 / 255.0, 200.0 / 255.0, 1.0),
 	}
@@ -2380,7 +1515,7 @@ func _build_baal_boots() -> Dictionary:
 		"chance": BAAL_BOOTS_FIELD_CHANCE,
 		"description": "날씨 이벤트가 시작되면 바알의 힘으로 현재 날씨를 흡수하고 게이지를 회복합니다. 흡수한 날씨에 따라 이번 라운드 동안 추가 효과가 발동합니다.",
 		"rolls": rolls,
-		"roll_options": BAAL_BOOTS_ROLL_OPTIONS.duplicate(true),
+		"roll_options": get_roll_options(BAAL_BOOTS),
 		"rolled_options": build_rolled_options(BAAL_BOOTS, rolls),
 		"color": Color(1.0, 90.0 / 255.0, 55.0 / 255.0),
 	}
