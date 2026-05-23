@@ -4898,6 +4898,31 @@ Hundredth split on 2026-05-24:
   `.\tools\run_warning_scan.ps1` passed with `1294` scripts scanned and no
   GDScript warnings.
 
+117th split on 2026-05-24:
+
+- Commit: `88ac8fa13 godot: split aura mythic field renderer`.
+- Scope: added `mythic_item_aura_field_renderer.gd` for Celestial Armor wave
+  arcs/shards, Venom Mist fog/field particles, and Rainbow Fur Glove aura
+  rings/rays/particles. The shared `mythic_item_field_effect_renderer.gd`
+  keeps visibility fanout, perf labels, and public render-budget constants
+  while passing aura state, color arrays, and render budgets into the focused
+  renderer.
+- Rationale: these aura-style field visuals are independent procedural draw
+  branches with compact runtime state. Moving them reduces the shared mythic
+  field renderer to orchestration plus helper-host management, while preserving
+  the public `draw_field_effects(...)` entry point and render-budget status
+  contract.
+- Renderer size: `mythic_item_field_effect_renderer.gd` moved from `608`
+  lines to `437` lines; the new `mythic_item_aura_field_renderer.gd` file is
+  `187` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Source-selected aura / field-renderer coverage ran `9` smoke scripts
+  and passed, including `celestial_armor_port_smoke`,
+  `venom_mist_gauntlet_port_smoke`, `rainbow_fur_glove_port_smoke`,
+  `viper_nerve_strike_port_smoke`, and `mythic_item_field_render_budget_smoke`.
+  `.\tools\run_warning_scan.ps1` passed with `1295` scripts scanned and no
+  GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

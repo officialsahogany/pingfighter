@@ -316,9 +316,13 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_perk_choice_runtime.gd`; owned-item name
   queries and one-time passive / used-Revival field-spawn skip rules are
   delegated to `scripts/items/mythic_item_ownership_runtime.gd`; the
-  field-effect renderer now owns the Baal / Hermes / Venom Mist /
-  Celestial Armor / Foul Whistle / Revival / Sensor draw fanout directly
-  instead of bouncing through thin runtime `_draw_*` wrappers;
+  field-effect renderer now owns the Baal / Hermes / Foul Whistle / Revival /
+  Sensor draw fanout directly instead of bouncing through thin runtime
+  `_draw_*` wrappers;
+  `scripts/items/mythic_item_aura_field_renderer.gd` owns Celestial Armor
+  wave-arc/shard drawing, Venom Mist fog/field-particle drawing, and Rainbow
+  Fur Glove aura ring/ray/particle drawing while the shared field renderer
+  passes runtime state and public render budgets through;
   `scripts/items/mythic_item_armor_field_renderer.gd` owns Adversity Armor
   barrier/timer/particle drawing and Shrapnel Armor flash, shard, trail,
   dust, and boss-impact drawing while the shared field renderer passes
@@ -337,8 +341,9 @@ This section is intentionally long; use search to find the nearest owner.
   public render-budget status; `scripts/items/mythic_item_poseidon_field_renderer.gd`
   owns Poseidon trail / vortex-particle / explosion draw sequencing while the
   shared field renderer passes runtime state and public render budgets through;
-  Rainbow Fur Glove field-effect branches are also invoked directly by the
-  field renderer from runtime state and compact draw constants;
+  Hermes Shoes, Foul Whistle, Revival, and Sensor field-effect branches are
+  also invoked directly by the field renderer from runtime state and compact
+  draw constants;
   helper initialization order, helper script-path lookup, and helper
   construction are delegated to
   `scripts/items/mythic_item_helper_registry.gd`;
@@ -4817,6 +4822,7 @@ This section is intentionally long; use search to find the nearest owner.
   dictionaries.
 - `scripts/items/mythic_item_field_effect_visibility.gd`,
   `scripts/items/mythic_item_field_effect_renderer.gd`,
+  `scripts/items/mythic_item_aura_field_renderer.gd`,
   `scripts/items/mythic_item_armor_field_renderer.gd`,
   `scripts/items/mythic_item_horn_strawberry_field_renderer.gd`,
   `scripts/items/mythic_item_momentum_field_renderer.gd`,
@@ -4826,9 +4832,10 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_snapshot_builder.gd`, and
   `scripts/items/mythic_item_owner_syncer.gd`
   Own the current mythic field/query read surfaces and should call focused
-  item owners directly for Venom Mist alpha, Adversity Armor timer / barrier
-  / visible state, Shrapnel Armor visible state, Knee Pads / Soul Burst draw
-  state, and Ragnarok elapsed timing.
+  item owners directly for Venom Mist alpha, Celestial Armor wave state,
+  Rainbow Fur Glove aura state, Adversity Armor timer / barrier / visible
+  state, Shrapnel Armor visible state, Knee Pads / Soul Burst draw state, and
+  Ragnarok elapsed timing.
   `scripts/items/mythic_item_ragnarok_runtime.gd` owns the public elapsed-time
   helper methods for Ragnarok ball / impact state; do not reintroduce
   private runtime getter bridges for these read paths.
