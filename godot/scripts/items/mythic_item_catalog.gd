@@ -6,6 +6,7 @@ const MythicItemCatalogIconMetadata := preload("res://scripts/items/mythic_item_
 const MythicItemCatalogPresentation := preload("res://scripts/items/mythic_item_catalog_presentation.gd")
 const MythicItemCatalogFixedOptions := preload("res://scripts/items/mythic_item_catalog_fixed_options.gd")
 const MythicItemCatalogRolls := preload("res://scripts/items/mythic_item_catalog_rolls.gd")
+const MythicItemCatalogSpawnMetadata := preload("res://scripts/items/mythic_item_catalog_spawn_metadata.gd")
 
 var list_helper: Object = MythicItemCatalogLists.new()
 var build_router: Object = MythicItemCatalogBuildRouter.new()
@@ -13,107 +14,60 @@ var icon_metadata_helper: Object = MythicItemCatalogIconMetadata.new()
 var presentation_helper: Object = MythicItemCatalogPresentation.new()
 var fixed_options_helper: Object = MythicItemCatalogFixedOptions.new()
 var roll_helper: Object = MythicItemCatalogRolls.new()
+var spawn_metadata_helper: Object = MythicItemCatalogSpawnMetadata.new()
 
 const MEGINGJORD := "megingjord"
-const MEGINGJORD_FIELD_CHANCE := 0.00008
 const RAGNAROK_HAMMER := "ragnarok_hammer"
-const RAGNAROK_HAMMER_FIELD_CHANCE := 0.00008
 const HERMES_SHOES := "hermes_shoes"
-const HERMES_SHOES_FIELD_CHANCE := 0.00008
 const POSEIDON_TRIDENT := "poseidon_trident"
-const POSEIDON_TRIDENT_FIELD_CHANCE := 0.00008
 const SACRED_LAUREL := "sacred_laurel"
-const SACRED_LAUREL_FIELD_CHANCE := 0.00008
 const TRANSCENDENT_CROWN := "transcendent_crown"
-const TRANSCENDENT_CROWN_FIELD_CHANCE := 0.00008
 const HEAVENLY_CAPE := "heavenly_cape"
-const HEAVENLY_CAPE_FIELD_CHANCE := 0.00008
 const HORN_STRAWBERRY_MASK := "horn_strawberry_mask"
-const HORN_STRAWBERRY_MASK_FIELD_CHANCE := 0.00008
 const CELESTIAL_ARMOR := "celestial_armor"
-const CELESTIAL_ARMOR_FIELD_CHANCE := 0.00008
 const BAAL_BOOTS := "baal_boots"
-const BAAL_BOOTS_FIELD_CHANCE := 0.00008
 const PANDORA_LEGACY := "pandora_legacy"
-const PANDORA_LEGACY_FIELD_CHANCE := 0.00008
 const ELIXIR_OF_MASTERY := "elixir_of_mastery"
 const DOWSING_PENDULUM := "dowsing_pendulum"
-const DOWSING_PENDULUM_FIELD_CHANCE := 0.005
 const DOWSING_GOGGLES := "dowsing_goggles"
-const DOWSING_GOGGLES_FIELD_CHANCE := 0.005
 const SPEEDBOOTS := "speedboots"
-const SPEEDBOOTS_FIELD_CHANCE := 0.005
 const SPEEDGEAR := "speedgear"
-const SPEEDGEAR_FIELD_CHANCE := 0.005
 const GRAVITYBELT := "gravitybelt"
-const GRAVITYBELT_FIELD_CHANCE := 0.002
 const SENSOR := "sensor"
-const SENSOR_FIELD_CHANCE := 0.005
 const SLOT_ADD := "slot_add"
-const SLOT_ADD_FIELD_CHANCE := 0.006
 const CHARGEBAG := "chargebag"
-const CHARGEBAG_FIELD_CHANCE := 0.003
 const BATTERY := "battery"
-const BATTERY_FIELD_CHANCE := 0.005
 const REVIVAL := "revival"
-const REVIVAL_FIELD_CHANCE := 0.005
 const MASTER := "master"
-const MASTER_FIELD_CHANCE := 0.005
 const GOLD_DIGGER := "gold_digger"
-const GOLD_DIGGER_FIELD_CHANCE := 0.005
 const GOLD_BAR := "gold_bar"
-const GOLD_BAR_FIELD_CHANCE := 0.001
 const GOLD_BAR_SELL_PRICE := 2000
 const LUCKY_COIN := "lucky_coin"
-const LUCKY_COIN_FIELD_CHANCE := 0.004
 const ADVERSITY_ARMOR := "adversity_armor"
-const ADVERSITY_ARMOR_FIELD_CHANCE := 0.004
 const SHRAPNEL_ARMOR := "shrapnel_armor"
-const SHRAPNEL_ARMOR_FIELD_CHANCE := 0.004
 const SAGE_RING := "sage_ring"
-const SAGE_RING_FIELD_CHANCE := 0.001
 const COOLTIME := "cooltime"
-const COOLTIME_FIELD_CHANCE := 0.005
 const TIMER_BELT := "timer_belt"
-const TIMER_BELT_FIELD_CHANCE := 0.005
 const FUEL_POUCH := "fuel_pouch"
-const FUEL_POUCH_FIELD_CHANCE := 0.005
 const BLUETOOTH_RING := "bluetooth_ring"
-const BLUETOOTH_RING_FIELD_CHANCE := 0.006
 const STAR_DETECTOR := "star_detector"
-const STAR_DETECTOR_FIELD_CHANCE := 0.004
 const FOUL_WHISTLE := "foul_whistle"
-const FOUL_WHISTLE_FIELD_CHANCE := 0.005
 const SMARTPHONE := "smartphone"
-const SMARTPHONE_FIELD_CHANCE := 0.004
 const NEURAL_HELMET := "neural_helmet"
-const NEURAL_HELMET_FIELD_CHANCE := 0.005
 const VENOM_MIST_GAUNTLET := "venom_mist_gauntlet"
-const VENOM_MIST_GAUNTLET_FIELD_CHANCE := 0.004
 const REINFORCED_BOOMERANG_GAUNTLET := "reinforced_boomerang_gauntlet"
 const REINFORCED_BOOMERANG_GAUNTLET_ICON_PATH := MythicItemCatalogIconMetadata.REINFORCED_BOOMERANG_GAUNTLET_ICON_PATH
-const REINFORCED_BOOMERANG_GAUNTLET_FIELD_CHANCE := 0.005
 const COMMANDO_ARM := "commando_arm"
 const COMMANDO_ARM_ICON_PATH := MythicItemCatalogIconMetadata.COMMANDO_ARM_ICON_PATH
-const COMMANDO_ARM_FIELD_CHANCE := 0.006
 const RAINBOW_FUR_GLOVE := "rainbow_fur_glove"
-const RAINBOW_FUR_GLOVE_FIELD_CHANCE := 0.004
 const KNEE_PADS := "knee_pads"
-const KNEE_PADS_FIELD_CHANCE := 0.005
 const DASHGEAR := "dashgear"
-const DASHGEAR_FIELD_CHANCE := 0.005
 const SOUL_BURST := "soul_burst"
-const SOUL_BURST_FIELD_CHANCE := 0.005
 const BULKUP := "bulkup"
-const BULKUP_FIELD_CHANCE := 0.005
 const SPIKEBOOTS := "spikeboots"
-const SPIKEBOOTS_FIELD_CHANCE := 0.005
 const BULLETPROOF_HAT := "bulletproof_hat"
-const BULLETPROOF_HAT_FIELD_CHANCE := 0.006
 const SPIKED_HELMET := "spiked_helmet"
-const SPIKED_HELMET_FIELD_CHANCE := 0.006
 const DASHHOLDER := "dashholder"
-const DASHHOLDER_FIELD_CHANCE := 0.008
 const FIELD_SPAWN_ORDER := MythicItemCatalogLists.FIELD_SPAWN_ORDER
 
 func build_item_by_name(item_name: String) -> Dictionary:
@@ -150,6 +104,10 @@ func get_icon_path(item_name: String) -> String:
 
 func get_icon_sheet_path(item_name: String) -> String:
 	return icon_metadata_helper.get_icon_sheet_path(item_name)
+
+
+func get_field_chance(item_name: String) -> float:
+	return spawn_metadata_helper.get_field_chance(item_name)
 
 
 func get_roll_options(item_name: String) -> Array:
@@ -192,7 +150,7 @@ func _build_speedboots() -> Dictionary:
 		"effect": SPEEDBOOTS,
 		"slot": "shoes",
 		"icon_path": get_icon_path(SPEEDBOOTS),
-		"chance": SPEEDBOOTS_FIELD_CHANCE,
+		"chance": get_field_chance(SPEEDBOOTS),
 		"description": "장착 중 플레이어의 이동 속도를 롤옵션만큼 높입니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(SPEEDBOOTS),
@@ -211,7 +169,7 @@ func _build_speedgear() -> Dictionary:
 		"effect": SPEEDGEAR,
 		"slot": "belt",
 		"icon_path": get_icon_path(SPEEDGEAR),
-		"chance": SPEEDGEAR_FIELD_CHANCE,
+		"chance": get_field_chance(SPEEDGEAR),
 		"description": "장착 중 좌우 방향 전환 감속이 2.5배 증가합니다.",
 		"rolls": {},
 		"roll_options": [],
@@ -231,7 +189,7 @@ func _build_gravitybelt() -> Dictionary:
 		"effect": GRAVITYBELT,
 		"slot": "belt",
 		"icon_path": get_icon_path(GRAVITYBELT),
-		"chance": GRAVITYBELT_FIELD_CHANCE,
+		"chance": get_field_chance(GRAVITYBELT),
 		"description": "이동 입력 즉시 최대 속도로 전환하고, 입력을 떼면 바로 정지합니다.",
 		"rolls": {},
 		"roll_options": [],
@@ -252,7 +210,7 @@ func _build_sensor() -> Dictionary:
 		"effect": SENSOR,
 		"slot": "belt",
 		"icon_path": get_icon_path(SENSOR),
-		"chance": SENSOR_FIELD_CHANCE,
+		"chance": get_field_chance(SENSOR),
 		"description": "위험 상황에서 자동으로 대쉬합니다. 자동대쉬는 게이지와 대쉬토큰을 소모하지 않습니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(SENSOR),
@@ -272,7 +230,7 @@ func _build_spikeboots() -> Dictionary:
 		"effect": SPIKEBOOTS,
 		"slot": "shoes",
 		"icon_path": get_icon_path(SPIKEBOOTS),
-		"chance": SPIKEBOOTS_FIELD_CHANCE,
+		"chance": get_field_chance(SPIKEBOOTS),
 		"description": "대쉬 후딜 시간과 대쉬 토큰 재충전 시간을 롤옵션만큼 줄입니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(SPIKEBOOTS),
@@ -292,7 +250,7 @@ func _build_dowsing_pendulum() -> Dictionary:
 		"effect": DOWSING_PENDULUM,
 		"slot": "belt2",
 		"icon_path": get_icon_path(DOWSING_PENDULUM),
-		"chance": DOWSING_PENDULUM_FIELD_CHANCE,
+		"chance": get_field_chance(DOWSING_PENDULUM),
 		"description": "롤옵션 범위 안의 필드 아이템을 플레이어 패들 쪽으로 끌어당깁니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(DOWSING_PENDULUM),
@@ -312,7 +270,7 @@ func _build_dowsing_goggles() -> Dictionary:
 		"effect": DOWSING_GOGGLES,
 		"slot": "head",
 		"icon_path": get_icon_path(DOWSING_GOGGLES),
-		"chance": DOWSING_GOGGLES_FIELD_CHANCE,
+		"chance": get_field_chance(DOWSING_GOGGLES),
 		"description": "퍽 선택 화면에서 일정 확률로 일반 퍽 선택지가 1장 추가됩니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(DOWSING_GOGGLES),
@@ -332,7 +290,7 @@ func _build_slot_add() -> Dictionary:
 		"effect": SLOT_ADD,
 		"slot": "belt2",
 		"icon_path": get_icon_path(SLOT_ADD),
-		"chance": SLOT_ADD_FIELD_CHANCE,
+		"chance": get_field_chance(SLOT_ADD),
 		"description": "장착 중 액티브 아이템 슬롯을 롤옵션만큼 늘립니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(SLOT_ADD),
@@ -352,7 +310,7 @@ func _build_chargebag() -> Dictionary:
 		"effect": CHARGEBAG,
 		"slot": "belt2",
 		"icon_path": get_icon_path(CHARGEBAG),
-		"chance": CHARGEBAG_FIELD_CHANCE,
+		"chance": get_field_chance(CHARGEBAG),
 		"description": "장착 중 공이 벽에 닿을 때마다 기본 게이지 충전량의 일부를 추가로 얻습니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(CHARGEBAG),
@@ -372,7 +330,7 @@ func _build_battery() -> Dictionary:
 		"effect": BATTERY,
 		"slot": "belt2",
 		"icon_path": get_icon_path(BATTERY),
-		"chance": BATTERY_FIELD_CHANCE,
+		"chance": get_field_chance(BATTERY),
 		"description": "장착 중 다음 스테이지로 넘어갈 때 게이지를 롤옵션 비율만큼 보존합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(BATTERY),
@@ -391,7 +349,7 @@ func _build_revival() -> Dictionary:
 		"effect": REVIVAL,
 		"slot": "accessory",
 		"icon_path": get_icon_path(REVIVAL),
-		"chance": REVIVAL_FIELD_CHANCE,
+		"chance": get_field_chance(REVIVAL),
 		"description": "장착 중 패배 직전 한 번 발동해 게임 오버를 막고 스테이지를 처음부터 다시 시작합니다.",
 		"rolls": {},
 		"roll_options": [],
@@ -412,7 +370,7 @@ func _build_master() -> Dictionary:
 		"effect": MASTER,
 		"slot": "arm",
 		"icon_path": get_icon_path(MASTER),
-		"chance": MASTER_FIELD_CHANCE,
+		"chance": get_field_chance(MASTER),
 		"description": "장착 중 벽돌 액티브의 길이를 늘리고, 액티브 아이템 쿨타임을 줄이며, 벽돌 아이템의 필드 스폰 가중치를 높입니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(MASTER),
@@ -432,7 +390,7 @@ func _build_gold_digger() -> Dictionary:
 		"effect": GOLD_DIGGER,
 		"slot": "arm",
 		"icon_path": get_icon_path(GOLD_DIGGER),
-		"chance": GOLD_DIGGER_FIELD_CHANCE,
+		"chance": get_field_chance(GOLD_DIGGER),
 		"description": "장착 중 골드 획득량과 일부 게이지 획득량을 롤옵션만큼 늘립니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(GOLD_DIGGER),
@@ -451,7 +409,7 @@ func _build_gold_bar() -> Dictionary:
 		"effect": GOLD_BAR,
 		"slot": "accessory",
 		"icon_path": get_icon_path(GOLD_BAR),
-		"chance": GOLD_BAR_FIELD_CHANCE,
+		"chance": get_field_chance(GOLD_BAR),
 		"description": "판매 전용 귀금속입니다. 보유 중 이동속도가 30% 감소하지만 상점에서 2000골드에 판매할 수 있습니다.",
 		"sell_price": GOLD_BAR_SELL_PRICE,
 		"rolls": {},
@@ -473,7 +431,7 @@ func _build_lucky_coin() -> Dictionary:
 		"effect": LUCKY_COIN,
 		"slot": "accessory",
 		"icon_path": get_icon_path(LUCKY_COIN),
-		"chance": LUCKY_COIN_FIELD_CHANCE,
+		"chance": get_field_chance(LUCKY_COIN),
 		"description": "장착 중 필드 아이템이 스폰될 때 롤옵션 확률로 보너스 아이템을 1개 더 생성합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(LUCKY_COIN),
@@ -493,7 +451,7 @@ func _build_adversity_armor() -> Dictionary:
 		"effect": ADVERSITY_ARMOR,
 		"slot": "top",
 		"icon_path": get_icon_path(ADVERSITY_ARMOR),
-		"chance": ADVERSITY_ARMOR_FIELD_CHANCE,
+		"chance": get_field_chance(ADVERSITY_ARMOR),
 		"description": "실점 후 그다음 라운드에 일정 확률로 사용자를 보호하는 무적의 벽이 생성됩니다. 다음 서브 시 공 속도도 증가합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(ADVERSITY_ARMOR),
@@ -513,7 +471,7 @@ func _build_shrapnel_armor() -> Dictionary:
 		"effect": SHRAPNEL_ARMOR,
 		"slot": "top",
 		"icon_path": get_icon_path(SHRAPNEL_ARMOR),
-		"chance": SHRAPNEL_ARMOR_FIELD_CHANCE,
+		"chance": get_field_chance(SHRAPNEL_ARMOR),
 		"description": "플레이어 패들이 공을 칠 때 일정 확률로 게이지를 소모해 위쪽으로 가시 파편을 발사하고, 보스에게 맞으면 짧은 스턴과 넉백을 줍니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(SHRAPNEL_ARMOR),
@@ -533,7 +491,7 @@ func _build_sage_ring() -> Dictionary:
 		"effect": SAGE_RING,
 		"slot": "accessory",
 		"icon_path": get_icon_path(SAGE_RING),
-		"chance": SAGE_RING_FIELD_CHANCE,
+		"chance": get_field_chance(SAGE_RING),
 		"description": "장착 중 모든 투자된 퍽의 유효 레벨을 1 올립니다. 대신 이동속도와 몸집크기가 롤옵션만큼 감소합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(SAGE_RING),
@@ -554,7 +512,7 @@ func _build_cooltime() -> Dictionary:
 		"effect": COOLTIME,
 		"slot": "accessory",
 		"icon_path": get_icon_path(COOLTIME),
-		"chance": COOLTIME_FIELD_CHANCE,
+		"chance": get_field_chance(COOLTIME),
 		"description": "장착 중 액티브 아이템 재사용 쿨타임을 롤옵션만큼 줄입니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(COOLTIME),
@@ -574,7 +532,7 @@ func _build_timer_belt() -> Dictionary:
 		"effect": TIMER_BELT,
 		"slot": "belt",
 		"icon_path": get_icon_path(TIMER_BELT),
-		"chance": TIMER_BELT_FIELD_CHANCE,
+		"chance": get_field_chance(TIMER_BELT),
 		"description": "장착 중 모든 캐릭터 스킬의 쿨타임을 롤옵션만큼 줄입니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(TIMER_BELT),
@@ -594,7 +552,7 @@ func _build_fuel_pouch() -> Dictionary:
 		"effect": FUEL_POUCH,
 		"slot": "accessory",
 		"icon_path": get_icon_path(FUEL_POUCH),
-		"chance": FUEL_POUCH_FIELD_CHANCE,
+		"chance": get_field_chance(FUEL_POUCH),
 		"description": "장착 중 플레이어의 최대 게이지를 롤옵션 수치만큼 늘립니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(FUEL_POUCH),
@@ -614,7 +572,7 @@ func _build_bluetooth_ring() -> Dictionary:
 		"effect": BLUETOOTH_RING,
 		"slot": "accessory",
 		"icon_path": get_icon_path(BLUETOOTH_RING),
-		"chance": BLUETOOTH_RING_FIELD_CHANCE,
+		"chance": get_field_chance(BLUETOOTH_RING),
 		"description": "장착 중 플레이어가 패들로 공을 칠 때 얻는 게이지를 롤옵션만큼 늘립니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(BLUETOOTH_RING),
@@ -634,7 +592,7 @@ func _build_star_detector() -> Dictionary:
 		"effect": STAR_DETECTOR,
 		"slot": "accessory",
 		"icon_path": get_icon_path(STAR_DETECTOR),
-		"chance": STAR_DETECTOR_FIELD_CHANCE,
+		"chance": get_field_chance(STAR_DETECTOR),
 		"description": "장착 중 스타포인트 드랍이 생길 때 롤옵션 확률로 보너스 스타포인트 드랍을 1개 더 생성합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(STAR_DETECTOR),
@@ -654,7 +612,7 @@ func _build_foul_whistle() -> Dictionary:
 		"effect": FOUL_WHISTLE,
 		"slot": "accessory",
 		"icon_path": get_icon_path(FOUL_WHISTLE),
-		"chance": FOUL_WHISTLE_FIELD_CHANCE,
+		"chance": get_field_chance(FOUL_WHISTLE),
 		"description": "라운드 패배 시 일정 확률로 심판이 호루라기를 불어 실점을 무효화하고 라운드를 다시 시작합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(FOUL_WHISTLE),
@@ -673,7 +631,7 @@ func _build_smartphone() -> Dictionary:
 		"effect": SMARTPHONE,
 		"slot": "arm",
 		"icon_path": get_icon_path(SMARTPHONE),
-		"chance": SMARTPHONE_FIELD_CHANCE,
+		"chance": get_field_chance(SMARTPHONE),
 		"description": "게이지가 낮으면 회복 아이템을 자동으로 사용하고, 위급할 때 스톱워치 또는 홀리베리어를 자동 발동합니다.",
 		"rolls": {},
 		"roll_options": [],
@@ -693,7 +651,7 @@ func _build_neural_helmet() -> Dictionary:
 		"effect": NEURAL_HELMET,
 		"slot": "head",
 		"icon_path": get_icon_path(NEURAL_HELMET),
-		"chance": NEURAL_HELMET_FIELD_CHANCE,
+		"chance": get_field_chance(NEURAL_HELMET),
 		"description": "AI알약의 게이지 소모를 줄이고 AI알약 스폰율을 높입니다. AI알약 발동 중 방향키 입력으로 즉시 해제할 수 있습니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(NEURAL_HELMET),
@@ -713,7 +671,7 @@ func _build_venom_mist_gauntlet() -> Dictionary:
 		"effect": VENOM_MIST_GAUNTLET,
 		"slot": "arm",
 		"icon_path": get_icon_path(VENOM_MIST_GAUNTLET),
-		"chance": VENOM_MIST_GAUNTLET_FIELD_CHANCE,
+		"chance": get_field_chance(VENOM_MIST_GAUNTLET),
 		"description": "바이퍼 전용. 화랑 킥으로 공에 독을 싣고, 보스가 감염된 공을 가드하면 보스 주변에 독안개를 생성합니다. 독안개 안의 보스는 이동속도와 특수 게이지가 감소합니다.",
 		"character_restriction": "viper",
 		"rolls": rolls,
@@ -734,7 +692,7 @@ func _build_reinforced_boomerang_gauntlet() -> Dictionary:
 		"effect": REINFORCED_BOOMERANG_GAUNTLET,
 		"slot": "arm",
 		"icon_path": get_icon_path(REINFORCED_BOOMERANG_GAUNTLET),
-		"chance": REINFORCED_BOOMERANG_GAUNTLET_FIELD_CHANCE,
+		"chance": get_field_chance(REINFORCED_BOOMERANG_GAUNTLET),
 		"description": "부메랑을 메탈 강화하고 발사속도, 유도성능, 스폰율, 넉백, 스턴 시간을 올립니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(REINFORCED_BOOMERANG_GAUNTLET),
@@ -755,7 +713,7 @@ func _build_commando_arm() -> Dictionary:
 		"effect": COMMANDO_ARM,
 		"slot": "arm",
 		"icon_path": get_icon_path(COMMANDO_ARM),
-		"chance": COMMANDO_ARM_FIELD_CHANCE,
+		"chance": get_field_chance(COMMANDO_ARM),
 		"description": "투척류 아이템을 전투용 팔 장비로 보조합니다. 수류탄, 조명탄, 화염병은 더 빠르게 날아가고 폭발 범위가 넓어지며, 다이너마이트, 바나나, 비누, 부메랑의 준비시간이 줄어듭니다. 연막탄 지속시간도 증가합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(COMMANDO_ARM),
@@ -775,7 +733,7 @@ func _build_rainbow_fur_glove() -> Dictionary:
 		"effect": RAINBOW_FUR_GLOVE,
 		"slot": "arm",
 		"icon_path": get_icon_path(RAINBOW_FUR_GLOVE),
-		"chance": RAINBOW_FUR_GLOVE_FIELD_CHANCE,
+		"chance": get_field_chance(RAINBOW_FUR_GLOVE),
 		"description": "공을 패들로 칠 때 일정 확률로 발동하여 장착한 캐릭터 스킬의 진행 중 쿨타임을 즉시 감소시킵니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(RAINBOW_FUR_GLOVE),
@@ -795,7 +753,7 @@ func _build_knee_pads() -> Dictionary:
 		"effect": KNEE_PADS,
 		"slot": "knee",
 		"icon_path": get_icon_path(KNEE_PADS),
-		"chance": KNEE_PADS_FIELD_CHANCE,
+		"chance": get_field_chance(KNEE_PADS),
 		"description": "장착 중 하프대쉬로 공을 맞추면 기본 게이지 획득량을 기준으로 롤옵션 비율만큼 충전합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(KNEE_PADS),
@@ -815,7 +773,7 @@ func _build_dashgear() -> Dictionary:
 		"effect": DASHGEAR,
 		"slot": "knee",
 		"icon_path": get_icon_path(DASHGEAR),
-		"chance": DASHGEAR_FIELD_CHANCE,
+		"chance": get_field_chance(DASHGEAR),
 		"description": "대쉬 거리를 늘리고, 일정 확률로 다음 대쉬 토큰 소모를 무효화합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(DASHGEAR),
@@ -835,7 +793,7 @@ func _build_soul_burst() -> Dictionary:
 		"effect": SOUL_BURST,
 		"slot": "knee",
 		"icon_path": get_icon_path(SOUL_BURST),
-		"chance": SOUL_BURST_FIELD_CHANCE,
+		"chance": get_field_chance(SOUL_BURST),
 		"description": "대쉬 토큰이 없을 때 스페셜 게이지를 소모해 하프대쉬 대신 풀대쉬를 발동합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(SOUL_BURST),
@@ -855,7 +813,7 @@ func _build_bulkup() -> Dictionary:
 		"effect": BULKUP,
 		"slot": "top",
 		"icon_path": get_icon_path(BULKUP),
-		"chance": BULKUP_FIELD_CHANCE,
+		"chance": get_field_chance(BULKUP),
 		"description": "장착 중 플레이어 패들의 몸집크기를 롤옵션만큼 늘립니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(BULKUP),
@@ -874,7 +832,7 @@ func _build_dashholder() -> Dictionary:
 		"effect": DASHHOLDER,
 		"slot": "accessory",
 		"icon_path": get_icon_path(DASHHOLDER),
-		"chance": DASHHOLDER_FIELD_CHANCE,
+		"chance": get_field_chance(DASHHOLDER),
 		"description": "장착 중 대쉬 토큰 최대 개수를 1개 늘립니다.",
 		"rolls": {},
 		"roll_options": [],
@@ -895,7 +853,7 @@ func _build_bulletproof_hat() -> Dictionary:
 		"effect": BULLETPROOF_HAT,
 		"slot": "head",
 		"icon_path": get_icon_path(BULLETPROOF_HAT),
-		"chance": BULLETPROOF_HAT_FIELD_CHANCE,
+		"chance": get_field_chance(BULLETPROOF_HAT),
 		"description": "장착 중 플레이어에게 걸리는 스턴 시간을 롤옵션만큼 줄입니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(BULLETPROOF_HAT),
@@ -915,7 +873,7 @@ func _build_spiked_helmet() -> Dictionary:
 		"effect": SPIKED_HELMET,
 		"slot": "head",
 		"icon_path": get_icon_path(SPIKED_HELMET),
-		"chance": SPIKED_HELMET_FIELD_CHANCE,
+		"chance": get_field_chance(SPIKED_HELMET),
 		"description": "장착 중 플레이어가 받는 넉백 속도를 롤옵션만큼 줄입니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(SPIKED_HELMET),
@@ -935,7 +893,7 @@ func _build_pandora_legacy() -> Dictionary:
 		"effect": PANDORA_LEGACY,
 		"slot": "back",
 		"icon_path": get_icon_path(PANDORA_LEGACY),
-		"chance": PANDORA_LEGACY_FIELD_CHANCE,
+		"chance": get_field_chance(PANDORA_LEGACY),
 		"description": "라운드 승리 시 일정 확률로 발동해 3개의 아이템 중 하나를 선택합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(PANDORA_LEGACY),
@@ -955,7 +913,7 @@ func _build_megingjord() -> Dictionary:
 		"effect": MEGINGJORD,
 		"slot": "belt",
 		"icon_path": get_icon_path(MEGINGJORD),
-		"chance": MEGINGJORD_FIELD_CHANCE,
+		"chance": get_field_chance(MEGINGJORD),
 		"description": "퍽 선택 시 추가 선택 기회를 얻습니다. 한 선택 묶음에서 최대 2회까지 연속 발동합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(MEGINGJORD),
@@ -975,7 +933,7 @@ func _build_ragnarok_hammer() -> Dictionary:
 		"effect": RAGNAROK_HAMMER,
 		"slot": "arm",
 		"icon_path": get_icon_path(RAGNAROK_HAMMER),
-		"chance": RAGNAROK_HAMMER_FIELD_CHANCE,
+		"chance": get_field_chance(RAGNAROK_HAMMER),
 		"description": "플레이어가 공을 받아칠 때 게이지를 소모해 스턴공을 만들고, 보스가 받아치면 넉백과 스턴을 겁니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(RAGNAROK_HAMMER),
@@ -995,7 +953,7 @@ func _build_hermes_shoes() -> Dictionary:
 		"effect": HERMES_SHOES,
 		"slot": "shoes",
 		"icon_path": get_icon_path(HERMES_SHOES),
-		"chance": HERMES_SHOES_FIELD_CHANCE,
+		"chance": get_field_chance(HERMES_SHOES),
 		"description": "신들의 전령이 신던 날개 신발입니다. 롤 옵션만큼 플레이어 이동속도를 증가시킵니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(HERMES_SHOES),
@@ -1015,7 +973,7 @@ func _build_poseidon_trident() -> Dictionary:
 		"effect": POSEIDON_TRIDENT,
 		"slot": "arm",
 		"icon_path": get_icon_path(POSEIDON_TRIDENT),
-		"chance": POSEIDON_TRIDENT_FIELD_CHANCE,
+		"chance": get_field_chance(POSEIDON_TRIDENT),
 		"description": "대시 회복 순간 좌우에 거대한 물회오리를 생성하여 보스가 내려친 공을 위쪽으로 강하게 튕겨냅니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(POSEIDON_TRIDENT),
@@ -1035,7 +993,7 @@ func _build_sacred_laurel() -> Dictionary:
 		"effect": SACRED_LAUREL,
 		"slot": "accessory",
 		"icon_path": get_icon_path(SACRED_LAUREL),
-		"chance": SACRED_LAUREL_FIELD_CHANCE,
+		"chance": get_field_chance(SACRED_LAUREL),
 		"description": "월계수 잎이 플레이어 주변을 회전하며 보호합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(SACRED_LAUREL),
@@ -1055,7 +1013,7 @@ func _build_transcendent_crown() -> Dictionary:
 		"effect": TRANSCENDENT_CROWN,
 		"slot": "head",
 		"icon_path": get_icon_path(TRANSCENDENT_CROWN),
-		"chance": TRANSCENDENT_CROWN_FIELD_CHANCE,
+		"chance": get_field_chance(TRANSCENDENT_CROWN),
 		"description": "이미 투자한 모든 퍽의 효과 레벨을 롤 옵션만큼 증가시킵니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(TRANSCENDENT_CROWN),
@@ -1075,7 +1033,7 @@ func _build_heavenly_cape() -> Dictionary:
 		"effect": HEAVENLY_CAPE,
 		"slot": "back",
 		"icon_path": get_icon_path(HEAVENLY_CAPE),
-		"chance": HEAVENLY_CAPE_FIELD_CHANCE,
+		"chance": get_field_chance(HEAVENLY_CAPE),
 		"description": "스킬 구슬 슬롯을 1칸 늘리고 모든 플레이어 스킬 쿨타임을 줄입니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(HEAVENLY_CAPE),
@@ -1096,7 +1054,7 @@ func _build_horn_strawberry_mask() -> Dictionary:
 		"effect": HORN_STRAWBERRY_MASK,
 		"slot": "head",
 		"icon_path": get_icon_path(HORN_STRAWBERRY_MASK),
-		"chance": HORN_STRAWBERRY_MASK_FIELD_CHANCE,
+		"chance": get_field_chance(HORN_STRAWBERRY_MASK),
 		"description": "A→D→A→D→A→D 커맨드로 1스테이지 1회 뿔딸기로 변신합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(HORN_STRAWBERRY_MASK),
@@ -1117,7 +1075,7 @@ func _build_celestial_armor() -> Dictionary:
 		"effect": CELESTIAL_ARMOR,
 		"slot": "top",
 		"icon_path": get_icon_path(CELESTIAL_ARMOR),
-		"chance": CELESTIAL_ARMOR_FIELD_CHANCE,
+		"chance": get_field_chance(CELESTIAL_ARMOR),
 		"description": "스턴이 들어올 때 롤 확률로 무시하고, 발동 시 게이지를 소모합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(CELESTIAL_ARMOR),
@@ -1137,7 +1095,7 @@ func _build_baal_boots() -> Dictionary:
 		"effect": BAAL_BOOTS,
 		"slot": "shoes",
 		"icon_path": get_icon_path(BAAL_BOOTS),
-		"chance": BAAL_BOOTS_FIELD_CHANCE,
+		"chance": get_field_chance(BAAL_BOOTS),
 		"description": "날씨 이벤트가 시작되면 바알의 힘으로 현재 날씨를 흡수하고 게이지를 회복합니다. 흡수한 날씨에 따라 이번 라운드 동안 추가 효과가 발동합니다.",
 		"rolls": rolls,
 		"roll_options": get_roll_options(BAAL_BOOTS),
