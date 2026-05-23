@@ -118,6 +118,15 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> void:
 	var fps_scale: float = delta * 60.0
 	_update_pop_effects(fps_scale)
 	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID:
+		# Drop any mid-flight starpoints when the player leaves Stage 1 so they
+		# don't reappear frozen at their last position when the player returns.
+		# Without this clear the drops stay alive in this instance's arrays for
+		# the full STARPOINT_DROP_LIFETIME (~10s) and resume falling on re-entry
+		# from wherever they were frozen.
+		if not starpoint_drops.is_empty():
+			starpoint_drops.clear()
+		if not starpoint_particles.is_empty():
+			starpoint_particles.clear()
 		return
 
 	_sync_geometry(context)
@@ -676,8 +685,9 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 			pos.x = play_right - size
 			vel.x = -abs(vel.x) * STARPOINT_DROP_BOUNCE_DAMPING
 		vel.x *= pow(0.98, fps_scale)
-		# Cull when the rendered bottom edge reaches the playfield floor.
-		if pos.y > play_height - size * 0.5:
+		# Cull at the spawn-clamp boundary so a descending drop disappears the
+		# instant its bottom edge reaches the floor (matches spawn pos.y max).
+		if pos.y > play_height - size:
 			continue
 
 		d["pos"] = pos
