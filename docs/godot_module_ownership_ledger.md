@@ -357,7 +357,7 @@ This section is intentionally long; use search to find the nearest owner.
   Pandora's Legacy. `scripts/items/mythic_item_catalog_presentation.gd` owns
   display-name lookup, quality-prefix formatting, and quality color lookup
   behind the public catalog API. `scripts/items/mythic_item_catalog_fixed_options.gd`
-  owns fixed-option source arrays and item-name fixed-option lookup behind
+  owns all fixed-option source arrays and item-name fixed-option lookup behind
   the public catalog API. `scripts/items/mythic_item_catalog_build_router.gd`
   owns item-name to builder dispatch behind the public
   `build_item_by_name()` catalog API. `scripts/items/mythic_item_catalog_lists.gd`
