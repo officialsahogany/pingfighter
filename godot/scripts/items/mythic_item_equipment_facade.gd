@@ -41,9 +41,9 @@ func acquire_item(
 	for key in roll_overrides.keys():
 		item_rolls[str(key)] = roll_overrides[key]
 	item_data["rolls"] = item_rolls
-	var preserve_acquired_quality: bool = bool(runtime._has_acquired_quality_identity(acquired_item_data))
+	var preserve_acquired_quality: bool = bool(runtime.roll_query.has_acquired_quality_identity(acquired_item_data))
 	if preserve_acquired_quality:
-		item_data = runtime._copy_acquired_quality_identity(item_data, acquired_item_data)
+		item_data = runtime.roll_query.copy_acquired_quality_identity(item_data, acquired_item_data)
 	item_data = runtime.catalog.sync_roll_fields(item_data, false, not preserve_acquired_quality)
 	item_data["owned"] = true
 	item_data["equipped"] = false

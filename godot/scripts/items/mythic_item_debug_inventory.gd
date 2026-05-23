@@ -84,7 +84,7 @@ func debug_adjust_inventory_roll(
 	var item_data: Dictionary = runtime._get_dict(runtime.inventory_items[index]).duplicate(true)
 	if item_data.is_empty():
 		return false
-	var option: Dictionary = runtime._find_roll_option(item_data, option_key)
+	var option: Dictionary = runtime.roll_query.find_roll_option(runtime, item_data, option_key)
 	if option.is_empty():
 		return false
 

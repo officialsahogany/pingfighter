@@ -2484,18 +2484,6 @@ func _apply_roll_overrides(index: int, roll_overrides: Dictionary) -> void:
 	roll_query.apply_roll_overrides(self, index, roll_overrides)
 
 
-func _has_acquired_quality_identity(item_data: Dictionary) -> bool:
-	return roll_query.has_acquired_quality_identity(item_data)
-
-
-func _copy_acquired_quality_identity(target: Dictionary, source: Dictionary) -> Dictionary:
-	return roll_query.copy_acquired_quality_identity(target, source)
-
-
-func _find_roll_option(item_data: Dictionary, option_key: String) -> Dictionary:
-	return roll_query.find_roll_option(self, item_data, option_key)
-
-
 func _is_equipment_slot_enabled(slot_key: String, owner: Object) -> bool:
 	return equipment_index.is_equipment_slot_enabled(self, slot_key, owner)
 
