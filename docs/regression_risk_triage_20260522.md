@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `d1d759f96 godot: remove mythic clear runtime bridges`.
-- The checkpoint span through that HEAD contains 112 follow-up commits after
+  `16b54b4db godot: drop unused mythic helper bridges`.
+- The checkpoint span through that HEAD contains 114 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 113 commits.
+  contains 115 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `e07e95e4f docs: record mythic gauge feedback split`.
+  `a71d48b10 docs: record mythic clear bridge split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the seventy-fourth split. The broad
+- The split notes below are current through the seventy-fifth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -3782,6 +3782,36 @@ Seventy-fourth split on 2026-05-23:
   `mythic_item_runtime_idle_update_smoke`,
   `mythic_item_ownership_runtime_smoke`, and
   `mythic_item_field_render_budget_smoke`, plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Seventy-fifth split on 2026-05-23:
+
+- Commit: `16b54b4db godot: drop unused mythic helper bridges`.
+- Scope: Removed unused private bridge methods from `mythic_item_runtime.gd`
+  for old Poseidon capture helpers, Smartphone subhelpers, Venom Mist
+  particle / boss-gauge helper calls, Rainbow Fur Glove particle / cooldown
+  helper calls, Adversity / Shrapnel / Celestial Armor helper calls, unused
+  Poseidon vortex helper calls, unused Baal visual/combat helper calls, and
+  old Ragnarok / Knee Pads / Soul Burst utility bridge calls. No external
+  callsites remained for those names.
+- Rationale: after the focused helpers started owning their internal work, the
+  runtime facade still carried private methods that only re-exported helper
+  methods and were no longer referenced. Removing them keeps the facade closer
+  to its real scene-facing API.
+- `mythic_item_runtime.gd` line count moved from `3124` to `2833` in this
+  code split.
+- Validation passed:
+  `ragnarok_hammer_port_smoke`, `poseidon_trident_port_smoke`,
+  `venom_mist_gauntlet_port_smoke`, `rainbow_fur_glove_port_smoke`,
+  `adversity_armor_port_smoke`, `shrapnel_armor_port_smoke`,
+  `celestial_armor_port_smoke`, `hermes_shoes_port_smoke`,
+  `baal_boots_weather_port_smoke`, `knee_pads_port_smoke`,
+  `soul_burst_port_smoke`, `mythic_item_runtime_idle_update_smoke`,
+  `mythic_item_field_render_budget_smoke`, and
+  `mythic_item_snapshot_builder_smoke`, plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending

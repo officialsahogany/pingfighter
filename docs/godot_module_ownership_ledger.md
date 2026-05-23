@@ -337,7 +337,9 @@ This section is intentionally long; use search to find the nearest owner.
   input, owner-redraw, and clear/reset call sites now invoke that helper
   directly instead of bouncing through private runtime bridge methods;
   the mythic runtime
-  keeps the public scene-facing API plus draw and input orchestration.
+  keeps the public scene-facing API plus draw and input orchestration, with
+  unused private helper re-export methods removed after the focused helper
+  split work.
   Item Polish (`item_polish`) roll scaling is centralized in this runtime's
   shared roll-value helper: normal options multiply, reverse options divide,
   enhancement bonuses stack with the Polish multiplier, Sage Ring effective
