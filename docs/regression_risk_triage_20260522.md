@@ -5616,6 +5616,26 @@ Hundredth split on 2026-05-24:
   shadowing the built-in function in
   `scripts/items/mythic_item_horn_strawberry_field_renderer.gd:120`.
 
+154th follow-up on 2026-05-24:
+
+- Commit: `81d16aa33 godot: refine Horn Strawberry mask skills`.
+- Scope: tuned Horn Strawberry Mask's Godot skill feel and visibility:
+  transform / detransform events now pause the mythic runtime, transformed
+  state keeps field-effect draw work alive, strawberry field barriers anchor
+  from the paddle center and carry seeded berry-surface visual points, horn
+  charge targets the boss-width lane while only locking controls during charge
+  / impact, and strawberry bombs use deterministic hopping motion without
+  gravity drift. Stage 1 transformed-player draw now receives horn-charge
+  offset, and the Horn Strawberry field renderer draws vine / berry barriers,
+  breakup fragments, and berry charge trails.
+- Validation: focused Horn Strawberry / field / Stage 1 coverage passed:
+  `horn_strawberry_mask_port_smoke`, `horn_strawberry_skill_hud_smoke`,
+  `mythic_item_field_render_budget_smoke`, `stage1_actor_render_budget_smoke`,
+  and `player_sprite_body_motion_policy_smoke`. `run_warning_scan.ps1`
+  scanned 1322 scripts with no GDScript warnings, and
+  `run_headless_load_check.ps1` passed; both wrappers still printed the known
+  nonfatal Windows root certificate store message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

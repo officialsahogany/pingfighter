@@ -4850,18 +4850,21 @@ This section is intentionally long; use search to find the nearest owner.
   and lightweight draw context.
 - `scripts/items/horn_strawberry_field_state.gd`
   Owns Horn Strawberry Mask's 딸기장판 skill state: S-hold gauge drain,
-  1-second hold completion, 180x12 barrier placement, build / death timers,
-  lingering post-transform collision context, and barrier consumption after a
-  ball reflection.
+  1-second hold completion, paddle-center anchored 180x12 barrier placement,
+  seeded berry-surface visual points, build / death timers, lingering
+  post-transform collision context, and barrier consumption after a ball
+  reflection.
 - `scripts/items/horn_strawberry_horn_charge_state.gd`
   Owns Horn Strawberry Mask's W horn-charge skill state: 300-gauge activation,
-  20-second cooldown, charge / impact / return / stun phases, direct boss
-  stun / strong knockback, same-frame paddle-hit knockback suppression, and
+  20-second cooldown, boss-width aligned charge / impact / return / stun
+  phases, active control locking during charge / impact, direct boss stun /
+  strong knockback, same-frame paddle-hit knockback suppression, and
   lightweight charge trail draw context.
 - `scripts/items/horn_strawberry_bomb_state.gd`
   Owns Horn Strawberry Mask's A+D hold bomb skill state: 0.5-second dual-input
-  hold, 400-gauge spend, 30 bombs over 1 second, boss stun / knockback on
-  explosion, 5-second paint splatter slow, and lingering bomb / paint cleanup.
+  hold, 400-gauge spend, 30 deterministic hopping bombs over 1 second, boss
+  stun / knockback on explosion, 5-second paint splatter slow, and lingering
+  bomb / paint cleanup.
 - `scripts/items/yachaman_soul_state.gd`
   Owns Yachaman Soul's score-prevention state machine: idle, revival-event,
   transformed, 60-frame gather, 30-frame burst, one-use-per-round latch,
