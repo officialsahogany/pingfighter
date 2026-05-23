@@ -5,6 +5,7 @@ const AutoDefenseRuntime := preload("res://scripts/items/mythic_item_auto_defens
 const VenomMistRuntime := preload("res://scripts/items/mythic_item_venom_mist_runtime.gd")
 const RainbowFurGloveRuntime := preload("res://scripts/items/mythic_item_rainbow_fur_glove_runtime.gd")
 const AdversityArmorRuntime := preload("res://scripts/items/mythic_item_adversity_armor_runtime.gd")
+const ShrapnelArmorRuntime := preload("res://scripts/items/mythic_item_shrapnel_armor_runtime.gd")
 const KneePadsRuntime := preload("res://scripts/items/mythic_item_knee_pads_runtime.gd")
 const SoulBurstRuntime := preload("res://scripts/items/mythic_item_soul_burst_runtime.gd")
 const FoulWhistleRuntime := preload("res://scripts/items/mythic_item_foul_whistle_runtime.gd")
@@ -107,17 +108,6 @@ const BAAL_KNOCKBACK_DECAY := 0.88
 const BAAL_KNOCKBACK_POWER := 17.0
 const BAAL_ABSORB_PARTICLE_FALLBACK_COUNT := 42
 const BAAL_AURA_PARTICLE_MAX := 42
-const SHRAPNEL_ARMOR_MAX_TRIGGER_CHANCE_PCT := 100.0
-const SHRAPNEL_ARMOR_MAX_SHARD_COUNT := 24
-const SHRAPNEL_ARMOR_MAX_GAUGE_COST := 200.0
-const SHRAPNEL_ARMOR_SHARD_LIFE_FRAMES := 120.0
-const SHRAPNEL_ARMOR_SHARD_TRAIL_POINTS := 5
-const SHRAPNEL_ARMOR_DUST_MAX := 96
-const SHRAPNEL_ARMOR_FLASH_FRAMES := 8.0
-const SHRAPNEL_ARMOR_BOSS_STUN_FRAMES := 15.0
-const SHRAPNEL_ARMOR_BOSS_KNOCKBACK_FRAMES := 36.0
-const SHRAPNEL_ARMOR_BOSS_KNOCKBACK_DECAY := 0.85
-const SHRAPNEL_ARMOR_BOSS_IMPACT_FRAMES := 15.0
 const BOOMERANG_ICON_PATH := "res://assets/sprites/items/boomerang.png"
 const BOOMERANG_METAL_ICON_PATH := "res://assets/sprites/items/boomerang_metal.png"
 const BASE_SPECIAL_GAUGE_MAX := 500.0
@@ -151,21 +141,6 @@ const CONTEXT_CONSTANTS := {
 	"venom_mist_radius": VenomMistRuntime.RADIUS,
 	"baal_rain_slow_multiplier": BAAL_RAIN_SLOW_MULTIPLIER,
 	"ragnarok_boss_stun_frame_msec": RAGNAROK_BOSS_STUN_FRAME_MSEC,
-}
-const SHRAPNEL_ARMOR_CONSTANTS := {
-	"max_shard_count": SHRAPNEL_ARMOR_MAX_SHARD_COUNT,
-	"shard_life_frames": SHRAPNEL_ARMOR_SHARD_LIFE_FRAMES,
-	"shard_trail_points": SHRAPNEL_ARMOR_SHARD_TRAIL_POINTS,
-	"dust_max": SHRAPNEL_ARMOR_DUST_MAX,
-	"flash_frames": SHRAPNEL_ARMOR_FLASH_FRAMES,
-	"boss_stun_frames": SHRAPNEL_ARMOR_BOSS_STUN_FRAMES,
-	"boss_knockback_frames": SHRAPNEL_ARMOR_BOSS_KNOCKBACK_FRAMES,
-	"boss_knockback_decay": SHRAPNEL_ARMOR_BOSS_KNOCKBACK_DECAY,
-	"boss_impact_frames": SHRAPNEL_ARMOR_BOSS_IMPACT_FRAMES,
-	"field_width": FIELD_WIDTH,
-	"field_height": FIELD_HEIGHT,
-	"player_base_paddle_width": PLAYER_BASE_PADDLE_WIDTH,
-	"player_base_paddle_height": PLAYER_BASE_PADDLE_HEIGHT,
 }
 const RAGNAROK_CONSTANTS := {
 	"boss_knockback_frames": RAGNAROK_BOSS_KNOCKBACK_FRAMES,
@@ -247,9 +222,9 @@ const FIELD_EFFECT_CONSTANTS := {
 	"ragnarok_particle_alpha_cutoff": RAGNAROK_PARTICLE_ALPHA_CUTOFF,
 	"poseidon_explosion_flash_duration": POSEIDON_EXPLOSION_FLASH_DURATION,
 	"rainbow_fur_glove_colors": RainbowFurGloveRuntime.COLORS,
-	"shrapnel_armor_flash_frames": SHRAPNEL_ARMOR_FLASH_FRAMES,
-	"shrapnel_armor_shard_life_frames": SHRAPNEL_ARMOR_SHARD_LIFE_FRAMES,
-	"shrapnel_armor_boss_impact_frames": SHRAPNEL_ARMOR_BOSS_IMPACT_FRAMES,
+	"shrapnel_armor_flash_frames": ShrapnelArmorRuntime.FLASH_FRAMES,
+	"shrapnel_armor_shard_life_frames": ShrapnelArmorRuntime.SHARD_LIFE_FRAMES,
+	"shrapnel_armor_boss_impact_frames": ShrapnelArmorRuntime.BOSS_IMPACT_FRAMES,
 	"knee_pads_flash_duration_frames": KneePadsRuntime.FLASH_DURATION_FRAMES,
 	"soul_burst_particle_alpha_cutoff": SoulBurstRuntime.PARTICLE_ALPHA_CUTOFF,
 }
@@ -1739,7 +1714,7 @@ func get_shrapnel_armor_trigger_chance_pct() -> float:
 	return clamp(
 		roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "trigger_chance_pct"),
 		0.0,
-		SHRAPNEL_ARMOR_MAX_TRIGGER_CHANCE_PCT
+		ShrapnelArmorRuntime.MAX_TRIGGER_CHANCE_PCT
 	)
 
 
@@ -1750,7 +1725,7 @@ func get_shrapnel_armor_shard_count() -> int:
 	return clampi(
 		int(round(roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "shard_count"))),
 		0,
-		SHRAPNEL_ARMOR_MAX_SHARD_COUNT
+		ShrapnelArmorRuntime.MAX_SHARD_COUNT
 	)
 
 
@@ -1768,7 +1743,7 @@ func get_shrapnel_armor_gauge_cost() -> float:
 	return clamp(
 		roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "gauge_cost"),
 		0.0,
-		SHRAPNEL_ARMOR_MAX_GAUGE_COST
+		ShrapnelArmorRuntime.MAX_GAUGE_COST
 	)
 
 
@@ -1783,7 +1758,7 @@ func try_proc_shrapnel_armor_player_hit(
 	deps: Dictionary = {}
 ) -> Dictionary:
 	_ensure_helpers_ready()
-	return shrapnel_armor_runtime.try_proc_player_hit(self, ball_pos, context, deps, SHRAPNEL_ARMOR_CONSTANTS)
+	return shrapnel_armor_runtime.try_proc_player_hit(self, ball_pos, context, deps)
 
 
 func is_foul_whistle_equipped() -> bool:
@@ -2322,7 +2297,6 @@ func update(owner: Object, registry: Object, delta: float) -> void:
 		registry,
 		delta,
 		RAGNAROK_CONSTANTS,
-		SHRAPNEL_ARMOR_CONSTANTS,
 		POSEIDON_CONSTANTS,
 		BAAL_BOOTS_CONSTANTS,
 		CONTEXT_CONSTANTS

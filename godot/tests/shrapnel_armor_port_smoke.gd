@@ -95,6 +95,8 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	_verify_runtime_constant_ownership()
+
 	var catalog := MythicItemCatalog.new()
 	var item_data: Dictionary = catalog.build_item_by_name("shrapnel_armor")
 	_expect(not item_data.is_empty(), "Shrapnel Armor should be registered in the passive catalog")
@@ -319,6 +321,21 @@ func _array_has_item(items: Array, item_name: String) -> bool:
 		if item_value is Dictionary and str(item_value.get("name", "")) == item_name:
 			return true
 	return false
+
+
+func _verify_runtime_constant_ownership() -> void:
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_shrapnel_armor_runtime.gd")
+	_expect(runtime_source != "", "mythic runtime source should be readable")
+	_expect(helper_source != "", "Shrapnel Armor helper source should be readable")
+	_expect(not runtime_source.contains("SHRAPNEL_ARMOR_CONSTANTS"), "runtime facade should not regain SHRAPNEL_ARMOR_CONSTANTS")
+	_expect(not runtime_source.contains("SHRAPNEL_ARMOR_MAX"), "runtime facade should not regain Shrapnel Armor cap constants")
+	_expect(not runtime_source.contains("SHRAPNEL_ARMOR_SHARD"), "runtime facade should not regain Shrapnel Armor shard constants")
+	_expect(not runtime_source.contains("SHRAPNEL_ARMOR_BOSS"), "runtime facade should not regain Shrapnel Armor boss-timer constants")
+	_expect(not runtime_source.contains("SHRAPNEL_ARMOR_FLASH"), "runtime facade should not regain Shrapnel Armor flash constants")
+	_expect(not runtime_source.contains("SHRAPNEL_ARMOR_DUST"), "runtime facade should not regain Shrapnel Armor dust constants")
+	_expect(helper_source.contains("const MAX_SHARD_COUNT"), "Shrapnel Armor helper should keep shard cap constants")
+	_expect(helper_source.contains("const BOSS_KNOCKBACK_DECAY"), "Shrapnel Armor helper should keep boss knockback constants")
 
 
 func _expect_shrapnel_rolls(catalog: Object) -> void:

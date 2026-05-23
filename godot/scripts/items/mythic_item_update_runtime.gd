@@ -7,7 +7,6 @@ func update(
 	registry: Object,
 	delta: float,
 	ragnarok_constants: Dictionary,
-	shrapnel_armor_constants: Dictionary,
 	poseidon_constants: Dictionary,
 	baal_boots_constants: Dictionary,
 	context_constants: Dictionary
@@ -31,7 +30,7 @@ func update(
 	runtime.venom_mist_runtime.update_runtime(runtime, owner, registry, fps_scale)
 	runtime.rainbow_fur_glove_runtime.update_runtime(runtime, fps_scale)
 	runtime.adversity_armor_runtime.update_runtime(runtime, owner, fps_scale)
-	runtime.shrapnel_armor_runtime.update_runtime(runtime, owner, registry, fps_scale, shrapnel_armor_constants)
+	runtime.shrapnel_armor_runtime.update_runtime(runtime, owner, registry, fps_scale)
 	runtime.poseidon_runtime.update_runtime(runtime, owner, registry, fps_scale, poseidon_constants)
 	runtime.celestial_armor_runtime.update_runtime(runtime, fps_scale)
 	runtime.hermes_shoes_runtime.update_runtime(runtime, owner, fps_scale)

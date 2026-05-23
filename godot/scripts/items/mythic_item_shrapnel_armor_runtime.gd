@@ -1,12 +1,26 @@
 extends RefCounted
 
+const MAX_TRIGGER_CHANCE_PCT := 100.0
+const MAX_SHARD_COUNT := 24
+const MAX_GAUGE_COST := 200.0
+const SHARD_LIFE_FRAMES := 120.0
+const SHARD_TRAIL_POINTS := 5
+const DUST_MAX := 96
+const FLASH_FRAMES := 8.0
+const BOSS_STUN_FRAMES := 15.0
+const BOSS_KNOCKBACK_FRAMES := 36.0
+const BOSS_KNOCKBACK_DECAY := 0.85
+const BOSS_IMPACT_FRAMES := 15.0
+const FIELD_WIDTH := 760.0
+const FIELD_HEIGHT := 750.0
+const PLAYER_BASE_PADDLE_WIDTH := 155.0
+
 
 func try_proc_player_hit(
 	runtime: Object,
 	ball_pos: Vector2,
 	context: Dictionary,
-	deps: Dictionary,
-	constants: Dictionary
+	deps: Dictionary
 ) -> Dictionary:
 	if not runtime.is_shrapnel_armor_equipped():
 		clear_runtime(runtime)
@@ -35,7 +49,7 @@ func try_proc_player_hit(
 		}
 	var shard_count: int = runtime.get_shrapnel_armor_shard_count()
 	var knockback_level: int = runtime.get_shrapnel_armor_knockback_level()
-	start_burst(runtime, resolve_spawn_center(runtime, ball_pos, context, deps, constants), shard_count, constants)
+	start_burst(runtime, resolve_spawn_center(runtime, ball_pos, context, deps), shard_count)
 	runtime.shrapnel_armor_last_proc_shard_count = shard_count
 	runtime.shrapnel_armor_last_gauge_cost = gauge_cost
 	var deps_dict: Dictionary = runtime._get_dict(deps)
@@ -102,8 +116,7 @@ func resolve_spawn_center(
 	runtime: Object,
 	ball_pos: Vector2,
 	context: Dictionary,
-	deps: Dictionary,
-	constants: Dictionary
+	deps: Dictionary
 ) -> Vector2:
 	var owner: Object = runtime._get_dict(deps).get("owner", context.get("owner", null))
 	var fallback_pos: Vector2 = runtime._get_vector2(runtime._safe_owner_get(owner, "player_pos", Vector2.ZERO))
@@ -113,7 +126,7 @@ func resolve_spawn_center(
 		context.get("paddle_width", runtime._safe_owner_get(
 			owner,
 			"player_paddle_width",
-			float(constants.get("player_base_paddle_width", 155.0))
+			PLAYER_BASE_PADDLE_WIDTH
 		))
 	)))
 	if player_pos != Vector2.ZERO or context.has("player_pos"):
@@ -121,8 +134,8 @@ func resolve_spawn_center(
 	return ball_pos
 
 
-func start_burst(runtime: Object, center: Vector2, shard_count: int, constants: Dictionary) -> void:
-	var count: int = clampi(shard_count, 0, int(constants.get("max_shard_count", 24)))
+func start_burst(runtime: Object, center: Vector2, shard_count: int) -> void:
+	var count: int = clampi(shard_count, 0, MAX_SHARD_COUNT)
 	if count <= 0:
 		return
 	var spread_deg: float = 60.0
@@ -131,7 +144,7 @@ func start_burst(runtime: Object, center: Vector2, shard_count: int, constants: 
 		var angle: float = deg_to_rad(-90.0 + spread_deg * (ratio - 0.5))
 		var speed: float = randf_range(9.4, 14.0)
 		var velocity: Vector2 = Vector2(cos(angle), sin(angle)) * speed
-		var shard_life_frames: float = float(constants.get("shard_life_frames", 120.0))
+		var shard_life_frames: float = SHARD_LIFE_FRAMES
 		runtime.shrapnel_armor_shards.append({
 			"position": center + Vector2(randf_range(-10.0, 10.0), 0.0),
 			"velocity": velocity,
@@ -143,11 +156,11 @@ func start_burst(runtime: Object, center: Vector2, shard_count: int, constants: 
 			"color_shift": randf_range(-20.0, 20.0),
 			"trail": [],
 		})
-	runtime.shrapnel_armor_flash_timer_frames = float(constants.get("flash_frames", 8.0))
+	runtime.shrapnel_armor_flash_timer_frames = FLASH_FRAMES
 	runtime.shrapnel_armor_flash_center = center
 
 
-func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale: float, constants: Dictionary) -> void:
+func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale: float) -> void:
 	if not runtime.is_shrapnel_armor_equipped():
 		if is_effect_active(runtime):
 			clear_runtime(runtime)
@@ -171,7 +184,7 @@ func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale:
 			runtime.shrapnel_armor_boss_knockback_timer_frames - step
 		)
 		runtime.shrapnel_armor_boss_knockback_vel *= pow(
-			float(constants.get("boss_knockback_decay", 0.85)),
+			BOSS_KNOCKBACK_DECAY,
 			step
 		)
 		if (
@@ -195,25 +208,25 @@ func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale:
 		var velocity: Vector2 = runtime._get_vector2(shard.get("velocity", Vector2.ZERO))
 		var trail: Array = runtime._get_array(shard.get("trail", [])).duplicate()
 		trail.append(position)
-		while trail.size() > int(constants.get("shard_trail_points", 5)):
+		while trail.size() > SHARD_TRAIL_POINTS:
 			trail.pop_front()
 		position += velocity * step
 		velocity.y += 0.08 * step
 		var life: float = float(shard.get("life", 0.0)) - step
 		var rotation: float = float(shard.get("rotation", 0.0)) + float(shard.get("rot_speed", 0.0)) * step
 		if can_hit_boss and boss_rect.has_point(position):
-			spawn_dust(runtime, position, 9, true, constants)
-			apply_boss_hit(runtime, position, velocity, boss_rect, registry, constants)
+			spawn_dust(runtime, position, 9, true)
+			apply_boss_hit(runtime, position, velocity, boss_rect, registry)
 			continue
 		var expired: bool = (
 			life <= 0.0
 			or position.x <= 0.0
-			or position.x >= float(constants.get("field_width", 760.0))
+			or position.x >= FIELD_WIDTH
 			or position.y <= 0.0
-			or position.y >= float(constants.get("field_height", 750.0))
+			or position.y >= FIELD_HEIGHT
 		)
 		if expired:
-			spawn_dust(runtime, position, 4, false, constants)
+			spawn_dust(runtime, position, 4, false)
 			continue
 		shard["position"] = position
 		shard["velocity"] = velocity
@@ -224,10 +237,10 @@ func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale:
 		write_index += 1
 	if write_index < runtime.shrapnel_armor_shards.size():
 		runtime.shrapnel_armor_shards.resize(write_index)
-	update_dust(runtime, step, constants)
+	update_dust(runtime, step)
 
 
-func update_dust(runtime: Object, step: float, constants: Dictionary) -> void:
+func update_dust(runtime: Object, step: float) -> void:
 	var write_index := 0
 	for read_index in range(runtime.shrapnel_armor_dust_particles.size()):
 		var particle: Dictionary = runtime._get_dict(runtime.shrapnel_armor_dust_particles[read_index])
@@ -247,11 +260,11 @@ func update_dust(runtime: Object, step: float, constants: Dictionary) -> void:
 		write_index += 1
 	if write_index < runtime.shrapnel_armor_dust_particles.size():
 		runtime.shrapnel_armor_dust_particles.resize(write_index)
-	while runtime.shrapnel_armor_dust_particles.size() > int(constants.get("dust_max", 96)):
+	while runtime.shrapnel_armor_dust_particles.size() > DUST_MAX:
 		runtime.shrapnel_armor_dust_particles.pop_front()
 
 
-func spawn_dust(runtime: Object, center: Vector2, count: int, impact: bool, constants: Dictionary) -> void:
+func spawn_dust(runtime: Object, center: Vector2, count: int, impact: bool) -> void:
 	for _i in range(max(0, count)):
 		var angle: float = randf_range(0.0, TAU)
 		var speed: float = randf_range(1.1, 4.2) if impact else randf_range(0.6, 2.4)
@@ -263,7 +276,7 @@ func spawn_dust(runtime: Object, center: Vector2, count: int, impact: bool, cons
 			"size": randf_range(1.4, 3.8) if impact else randf_range(0.8, 2.4),
 			"color": Color(1.0, randf_range(0.55, 0.78), randf_range(0.18, 0.32), 1.0),
 		})
-	while runtime.shrapnel_armor_dust_particles.size() > int(constants.get("dust_max", 96)):
+	while runtime.shrapnel_armor_dust_particles.size() > DUST_MAX:
 		runtime.shrapnel_armor_dust_particles.pop_front()
 
 
@@ -287,8 +300,7 @@ func apply_boss_hit(
 	hit_pos: Vector2,
 	velocity: Vector2,
 	boss_rect: Rect2,
-	registry: Object,
-	constants: Dictionary
+	registry: Object
 ) -> void:
 	var direction: float = sign(velocity.x)
 	if abs(direction) <= 0.01:
@@ -296,12 +308,12 @@ func apply_boss_hit(
 	runtime.shrapnel_armor_boss_knockback_vel = (
 		direction * get_knockback_velocity(runtime.get_shrapnel_armor_knockback_level())
 	)
-	runtime.shrapnel_armor_boss_knockback_timer_frames = float(constants.get("boss_knockback_frames", 36.0))
+	runtime.shrapnel_armor_boss_knockback_timer_frames = BOSS_KNOCKBACK_FRAMES
 	runtime.shrapnel_armor_boss_stun_timer_frames = max(
 		runtime.shrapnel_armor_boss_stun_timer_frames,
-		float(constants.get("boss_stun_frames", 15.0))
+		BOSS_STUN_FRAMES
 	)
-	runtime.shrapnel_armor_boss_impact_timer_frames = float(constants.get("boss_impact_frames", 15.0))
+	runtime.shrapnel_armor_boss_impact_timer_frames = BOSS_IMPACT_FRAMES
 	runtime.shrapnel_armor_boss_impact_center = boss_rect.get_center()
 	runtime.audio_router.play_shrapnel_armor_hit_audio(runtime, registry)
 
