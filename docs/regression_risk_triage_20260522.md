@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `a47f6dafd godot: add hermes shoes mythic fx host`.
-- Code split range through that HEAD contains 72 follow-up commits after the
+  `974ddb226 godot: prewarm mythic acquisition cinematic`.
+- Code split range through that HEAD contains 74 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 73 commits.
+  span through the latest code split contains 75 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 55 visible paths in
-  `git status --porcelain=v1` (`13` tracked modified / deleted paths and
+- Current dirty scope before this documentation sync: 53 visible paths in
+  `git status --porcelain=v1` (`11` tracked modified / deleted paths and
   `42` untracked paths).
-- The split notes below are current through the sixty-second split. The
+- The split notes below are current through the sixty-third split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3348,6 +3348,24 @@ Sixty-second split on 2026-05-23:
   `mythic_item_field_render_budget_smoke`,
   `mythic_item_runtime_idle_update_smoke`,
   `mythic_item_snapshot_builder_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Sixty-third split on 2026-05-23:
+
+- Commit: `974ddb226 godot: prewarm mythic acquisition cinematic`.
+- Scope: Mythic / legendary acquisition cinematic now exposes a static
+  `prewarm_assets()` path, caches generated backdrop / vignette / white-flash
+  textures across hosts, calls prewarm from `_ready()`, and accepts gamepad
+  confirm input through the shared `GamepadInput` helper. The acquisition
+  cinematic smoke now verifies that `prewarm_acquisition_cinematic()` creates
+  a hidden attached host and that field pickup startup reuses it.
+- Rationale: acquisition reveal should not build large generated textures on
+  the first visible pickup frame, and controller users need the same confirm
+  path as mouse / keyboard / touch users.
+- Validation passed:
+  `mythic_item_acquisition_cinematic_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
