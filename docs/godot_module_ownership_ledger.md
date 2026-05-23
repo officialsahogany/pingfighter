@@ -327,15 +327,18 @@ This section is intentionally long; use search to find the nearest owner.
   Strawberry transform cinematic visibility/draw plus stem, field-barrier,
   horn-charge, bomb, explosion, and paint draw helpers while the shared field
   renderer passes runtime contexts and public render budgets through;
+  `scripts/items/mythic_item_momentum_field_renderer.gd` owns Knee Pads flash
+  ring/ray/particle drawing and Soul Burst wind-trail, shockwave, ellipse-arc,
+  and dash-particle drawing while the shared field renderer passes runtime
+  state and public render budgets through;
   `scripts/items/mythic_item_ragnarok_field_renderer.gd` owns Ragnarok
   impact-ring, electric-stun overlay, stun-aura, and spark drawing while
   `mythic_item_field_effect_renderer.gd` keeps the runtime-state fanout and
   public render-budget status; `scripts/items/mythic_item_poseidon_field_renderer.gd`
   owns Poseidon trail / vortex-particle / explosion draw sequencing while the
   shared field renderer passes runtime state and public render budgets through;
-  Rainbow Fur Glove, Adversity Armor, Shrapnel Armor, Knee Pads, and Soul
-  Burst field-effect branches are also invoked directly by the field renderer
-  from runtime state and compact draw constants;
+  Rainbow Fur Glove field-effect branches are also invoked directly by the
+  field renderer from runtime state and compact draw constants;
   helper initialization order, helper script-path lookup, and helper
   construction are delegated to
   `scripts/items/mythic_item_helper_registry.gd`;
@@ -4816,6 +4819,7 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_field_effect_renderer.gd`,
   `scripts/items/mythic_item_armor_field_renderer.gd`,
   `scripts/items/mythic_item_horn_strawberry_field_renderer.gd`,
+  `scripts/items/mythic_item_momentum_field_renderer.gd`,
   `scripts/items/mythic_item_poseidon_field_renderer.gd`,
   `scripts/items/mythic_item_ragnarok_field_renderer.gd`,
   `scripts/items/mythic_item_context_builder.gd`,
@@ -4823,7 +4827,8 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_owner_syncer.gd`
   Own the current mythic field/query read surfaces and should call focused
   item owners directly for Venom Mist alpha, Adversity Armor timer / barrier
-  / visible state, Shrapnel Armor visible state, and Ragnarok elapsed timing.
+  / visible state, Shrapnel Armor visible state, Knee Pads / Soul Burst draw
+  state, and Ragnarok elapsed timing.
   `scripts/items/mythic_item_ragnarok_runtime.gd` owns the public elapsed-time
   helper methods for Ragnarok ball / impact state; do not reintroduce
   private runtime getter bridges for these read paths.

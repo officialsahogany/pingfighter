@@ -4874,6 +4874,30 @@ Hundredth split on 2026-05-24:
   and `arm_equipment_slots_port_smoke`. `.\tools\run_warning_scan.ps1` passed
   with `1293` scripts scanned and no GDScript warnings.
 
+116th split on 2026-05-24:
+
+- Commit: `762c60ecb godot: split momentum mythic field renderer`.
+- Scope: added `mythic_item_momentum_field_renderer.gd` for Knee Pads flash
+  rings/rays/particles and Soul Burst wind trails, shockwaves, ellipse arcs,
+  and dash particles. The shared `mythic_item_field_effect_renderer.gd` keeps
+  visibility fanout, perf labels, and public render-budget constants while
+  passing the compact runtime state and budgets into the focused renderer.
+- Rationale: Knee Pads and Soul Burst are short-lived momentum visuals with
+  self-contained procedural drawing and shared recent-entry budget behavior.
+  Moving them keeps the shared mythic field renderer focused on orchestration
+  without changing the public `draw_field_effects(...)` entry point.
+- Renderer size: `mythic_item_field_effect_renderer.gd` moved from `725`
+  lines to `608` lines; the new `mythic_item_momentum_field_renderer.gd` file
+  is `155` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Source-selected momentum / field-renderer coverage ran `6` smoke
+  scripts and passed: `adversity_armor_port_smoke`,
+  `baal_boots_weather_port_smoke`, `knee_pads_port_smoke`,
+  `mythic_item_field_render_budget_smoke`,
+  `mythic_item_runtime_idle_update_smoke`, and `soul_burst_port_smoke`.
+  `.\tools\run_warning_scan.ps1` passed with `1294` scripts scanned and no
+  GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
