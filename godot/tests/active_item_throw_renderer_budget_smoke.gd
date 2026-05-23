@@ -17,12 +17,15 @@ func _init() -> void:
 
 func _verify_shared_projectile_trail_budget() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_renderer.gd")
+	var boomerang_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_boomerang_renderer.gd")
 	var slip_source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_slip_renderer.gd")
 	_expect(source != "", "active item throw renderer source should be readable")
+	_expect(boomerang_source != "", "active item throw boomerang renderer source should be readable")
 	_expect(slip_source != "", "active item throw slip renderer source should be readable")
 	var grenade_body := _function_body(source, "func _draw_grenades")
 	var flare_body := _function_body(source, "func _draw_flares")
 	var trail_body := _function_body(source, "func _draw_projectile_trail")
+	var boomerang_body := _function_body(boomerang_source, "func draw_boomerangs")
 	var slip_trail_body := _function_body(slip_source, "func _draw_projectile_trail")
 	_expect(grenade_body.find("_draw_projectile_trail(") >= 0, "grenade draw should use the shared trail budget helper")
 	_expect(flare_body.find("_draw_projectile_trail(") >= 0, "flare draw should use the shared trail budget helper")
@@ -36,6 +39,20 @@ func _verify_shared_projectile_trail_budget() -> void:
 		_function_body(source, "func draw").find("_slip_renderer.draw_soaps") >= 0,
 		"throw renderer should delegate soap projectile drawing to the slip renderer"
 	)
+	_expect(
+		_function_body(source, "func draw").find("_boomerang_renderer.draw_boomerangs") >= 0,
+		"throw renderer should delegate boomerang projectile drawing to the boomerang renderer"
+	)
+	_expect(
+		_function_body(source, "func draw").find("_boomerang_renderer.draw_boomerang_particles") >= 0,
+		"throw renderer should delegate boomerang particle drawing to the boomerang renderer"
+	)
+	_expect(
+		_function_body(source, "func _draw_grenade_throw_windups").find("_boomerang_renderer.draw_boomerang_fallback") >= 0,
+		"throw renderer should delegate boomerang windup fallback drawing to the boomerang renderer"
+	)
+	_expect(boomerang_body.find("draw_boomerang_fallback") >= 0, "boomerang renderer should retain the fallback boomerang shape")
+	_expect(boomerang_body.find("_get_boomerang_icon_texture(gauntlet_equipped)") >= 0, "boomerang renderer should own normal and metal boomerang texture lookup")
 	_expect(slip_trail_body.find("var stride: int = 2 if trail_count > 5 else 1") >= 0, "slip projectile trail helper should thin long trails")
 	_expect(slip_trail_body.find("for i in range(0, trail_count, stride):") >= 0, "slip projectile trail helper should apply the stride")
 

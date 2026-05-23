@@ -5,6 +5,7 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
 const MolotovFxHost := preload("res://scripts/items/active_item_molotov_fx_host.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
+const BoomerangRenderer := preload("res://scripts/items/active_item_throw_boomerang_renderer.gd")
 const SlipRenderer := preload("res://scripts/items/active_item_throw_slip_renderer.gd")
 
 const GRENADE_ICON_PATH := ActiveItemCatalog.GRENADE_ICON_PATH
@@ -132,11 +133,13 @@ var _molotov_view_layout: Object = null
 var _molotov_view_cached_viewport_size: Vector2 = Vector2.ZERO
 var _molotov_view_cached_game_offset: Vector2 = Vector2.ZERO
 var _molotov_view_cached_render_scale: float = 1.0
+var _boomerang_renderer: Object = BoomerangRenderer.new()
 var _slip_renderer: Object = SlipRenderer.new()
 
 
 func prewarm_assets() -> void:
 	MolotovFxHost.prewarm_assets()
+	_boomerang_renderer.prewarm_assets()
 	_slip_renderer.prewarm_assets()
 	_touch_texture(_get_grenade_icon_texture())
 	_touch_texture(_get_flare_icon_texture())
@@ -252,10 +255,10 @@ func draw(
 	_slip_renderer.draw_soap_particles(canvas, soap_particles, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.soap_particles", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_boomerang_particles(canvas, boomerang_particles, shake_offset)
+	_boomerang_renderer.draw_boomerang_particles(canvas, boomerang_particles, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.boomerang_particles", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
-	_draw_boomerangs(canvas, boomerangs, shake_offset)
+	_boomerang_renderer.draw_boomerangs(canvas, boomerangs, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.throw.boomerangs", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
 	_draw_spider_mines(canvas, spider_mines, shake_offset)
@@ -316,7 +319,7 @@ func _draw_grenade_throw_windups(canvas: CanvasItem, pending_throws: Array, shak
 		elif item_name == "molotov":
 			_draw_molotov_fallback(canvas, throw_pos, angle, 1.0)
 		elif item_name == "boomerang":
-			_draw_boomerang_fallback(canvas, throw_pos, angle, 1.0)
+			_boomerang_renderer.draw_boomerang_fallback(canvas, throw_pos, angle, 1.0)
 		elif item_name == "banana":
 			_slip_renderer.draw_banana_fallback(canvas, throw_pos, angle, 1.0)
 		elif item_name == "soap":
@@ -1423,65 +1426,6 @@ func _draw_spider_mine_particles(canvas: CanvasItem, spider_mine_particles: Arra
 		canvas.draw_circle(center, size, Color(color.r, color.g, color.b, color.a * life))
 
 
-func _draw_boomerangs(canvas: CanvasItem, boomerangs: Array, shake_offset: Vector2) -> void:
-	if boomerangs.is_empty():
-		return
-	for boomerang_value in boomerangs:
-		if not (boomerang_value is Dictionary):
-			continue
-		var boomerang: Dictionary = boomerang_value
-		var gauntlet_equipped: bool = bool(boomerang.get("gauntlet_equipped", false))
-		var texture: Texture2D = _get_boomerang_icon_texture(gauntlet_equipped)
-		var trail: Array = boomerang.get("trail", [])
-		for i in range(max(0, trail.size() - 1)):
-			var p1_value: Variant = trail[i]
-			var p2_value: Variant = trail[i + 1]
-			if not (p1_value is Vector2) or not (p2_value is Vector2):
-				continue
-			var ratio: float = float(i + 1) / float(max(1, trail.size()))
-			var alpha: float = (0.10 + ratio * 0.34) if gauntlet_equipped else (0.08 + ratio * 0.24)
-			var trail_color := Color(120.0 / 255.0, 225.0 / 255.0, 1.0, alpha) if gauntlet_equipped else Color(220.0 / 255.0, 165.0 / 255.0, 85.0 / 255.0, alpha)
-			canvas.draw_line(p1_value + shake_offset, p2_value + shake_offset, trail_color, max(1.0, ratio * (6.0 if gauntlet_equipped else 5.0)))
-
-		var center: Vector2 = _get_vector2(boomerang, "position", Vector2.ZERO) + shake_offset
-		var angle: float = float(boomerang.get("angle_degrees", 0.0))
-		if gauntlet_equipped:
-			canvas.draw_circle(center, 43.0, Color(80.0 / 255.0, 210.0 / 255.0, 1.0, 0.16))
-			canvas.draw_circle(center, 28.0, Color(220.0 / 255.0, 1.0, 1.0, 0.08))
-		elif str(boomerang.get("phase", "outgoing")) == "returning":
-			canvas.draw_circle(center, 39.0, Color(100.0 / 255.0, 200.0 / 255.0, 1.0, 0.14))
-			canvas.draw_circle(center, 31.0, Color(150.0 / 255.0, 220.0 / 255.0, 1.0, 0.10))
-		if texture != null:
-			_draw_rotated_texture_region(
-				canvas,
-				texture,
-				Rect2(Vector2.ZERO, texture.get_size()),
-				center,
-				Vector2(BOOMERANG_DRAW_SIZE, BOOMERANG_DRAW_SIZE),
-				angle
-			)
-		else:
-			_draw_boomerang_fallback(canvas, center, angle, 1.0)
-
-
-func _draw_boomerang_particles(canvas: CanvasItem, boomerang_particles: Array, shake_offset: Vector2) -> void:
-	if boomerang_particles.is_empty():
-		return
-	for particle_value in boomerang_particles:
-		if not (particle_value is Dictionary):
-			continue
-		var particle: Dictionary = particle_value
-		var age: float = float(particle.get("age", 0.0))
-		var lifetime: float = max(0.001, float(particle.get("lifetime", 0.6)))
-		var life: float = clamp(1.0 - age / lifetime, 0.0, 1.0)
-		if life <= 0.0:
-			continue
-		var center: Vector2 = _get_vector2(particle, "position", Vector2.ZERO) + shake_offset
-		var radius: float = max(1.0, float(particle.get("radius", 3.0))) * (0.45 + life * 0.55)
-		var color: Color = _get_color(particle.get("color", Color(200.0 / 255.0, 130.0 / 255.0, 60.0 / 255.0, 1.0)), Color(200.0 / 255.0, 130.0 / 255.0, 60.0 / 255.0, 1.0))
-		canvas.draw_circle(center, radius, Color(color.r, color.g, color.b, color.a * life))
-
-
 func _draw_dynamite_explosions(canvas: CanvasItem, dynamite_explosions: Array, shake_offset: Vector2) -> void:
 	if dynamite_explosions.is_empty():
 		return
@@ -1662,22 +1606,6 @@ func _draw_tear_gas_fallback(canvas: CanvasItem, center: Vector2, angle_degrees:
 	canvas.draw_circle(body_top, 5.0 * scale, Color(0.22, 0.24, 0.22, 1.0))
 	canvas.draw_circle(body_bottom, 5.0 * scale, Color(0.20, 0.21, 0.18, 1.0))
 	canvas.draw_circle(_rotated_local(center, Vector2(4.0 * scale, -5.0 * scale), angle), 2.0 * scale, Color(0.95, 0.08, 0.04, 0.95))
-
-
-func _draw_boomerang_fallback(canvas: CanvasItem, center: Vector2, angle_degrees: float, scale: float) -> void:
-	var angle: float = deg_to_rad(angle_degrees)
-	var spread: float = deg_to_rad(75.0)
-	var arm_length: float = 19.0 * scale
-	var arm_width: float = max(2.0, 5.0 * scale)
-	var a1: float = angle - spread * 0.5
-	var a2: float = angle + spread * 0.5
-	var end1: Vector2 = center + Vector2(cos(a1), sin(a1)) * arm_length
-	var end2: Vector2 = center + Vector2(cos(a2), sin(a2)) * arm_length
-	canvas.draw_line(center, end1, Color(90.0 / 255.0, 50.0 / 255.0, 20.0 / 255.0, 1.0), arm_width + 2.0)
-	canvas.draw_line(center, end2, Color(90.0 / 255.0, 50.0 / 255.0, 20.0 / 255.0, 1.0), arm_width + 2.0)
-	canvas.draw_line(center, end1, Color(170.0 / 255.0, 110.0 / 255.0, 55.0 / 255.0, 1.0), arm_width)
-	canvas.draw_line(center, end2, Color(215.0 / 255.0, 165.0 / 255.0, 85.0 / 255.0, 1.0), arm_width)
-	canvas.draw_circle(center, 4.0 * scale, Color(1.0, 210.0 / 255.0, 80.0 / 255.0, 1.0))
 
 
 func _draw_explosion_zones(canvas: CanvasItem, explosion_zones: Array, shake_offset: Vector2) -> void:
