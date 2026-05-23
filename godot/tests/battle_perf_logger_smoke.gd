@@ -31,6 +31,7 @@ func _init() -> void:
 	_verify_jetpack_state_label()
 	_verify_physics_monitor_summary()
 	_verify_spike_detail_summary()
+	_verify_spike_window_summary()
 
 	if _failures.is_empty():
 		print("battle_perf_logger_smoke: ok")
@@ -321,6 +322,39 @@ func _verify_spike_detail_summary() -> void:
 	var effects_idx: int = detail.find("physics.callback.effects=")
 	_expect(shell_idx >= 0 and effects_idx >= 0 and shell_idx < effects_idx, "spike detail should sort by max desc (28ms before 24ms)")
 	logger.samples.clear()
+
+
+func _verify_spike_window_summary() -> void:
+	var logger := BattlePerfLogger.new()
+	logger.log_checked = true
+	logger.log_enabled = true
+	_expect(logger._build_spike_window_summary() == "", "spike window summary should stay empty without a trigger")
+	logger.record_value_sample("draw.shell.frame_controller", 12000)
+	logger.record_value_sample("draw.frame.battle_scene", 9000)
+	logger.record_value_sample("00.playfield_frame_total", 5100)
+	logger.record_value_sample("01.actors.total", 5200)
+	logger.record_value_sample("context.actor", 3500)
+	logger.record_value_sample("29.active_item_field", 1400)
+	logger.record_value_sample("active_item.field_effects", 1300)
+	logger.record_counter_sample("active_item.field_items.after", 1.0)
+	var summary: String = logger._build_spike_window_summary()
+	_expect(summary.find("trigger=draw.shell.frame_controller=") >= 0, "spike window should expose the triggering draw shell sample")
+	_expect(summary.find("draw.frame.battle_scene=") >= 0, "spike window should include battle-scene draw timing")
+	_expect(summary.find("01.actors.total=") >= 0, "spike window should include actor draw timing")
+	_expect(summary.find("29.active_item_field=") >= 0, "spike window should include active item field timing")
+	_expect(summary.find("active_item.field_effects=") >= 0, "spike window should include nested active item field timing")
+	_expect(summary.find("counters=active_item.field_items.after=1.0/1.0(n1)") >= 0, "spike window should preserve item-count counters")
+	var shell_idx: int = summary.find("max_hot=draw.shell.frame_controller=")
+	var battle_idx: int = summary.find("draw.frame.battle_scene=", shell_idx)
+	var actor_idx: int = summary.find("01.actors.total=", shell_idx)
+	_expect(shell_idx >= 0 and battle_idx >= 0 and actor_idx >= 0, "spike window should include max-hot entries")
+	_expect(shell_idx < battle_idx and battle_idx < actor_idx, "spike window max-hot entries should sort by max time")
+	logger.samples.clear()
+	logger.counters.clear()
+	logger.record_value_sample("draw.shell.frame_controller", 9000)
+	logger.record_value_sample("draw.frame.total", 7000)
+	logger.record_value_sample("01.actors.total", 2900)
+	_expect(logger._build_spike_window_summary() == "", "sub-threshold draw samples should not emit a spike window")
 
 
 func _verify_physics_monitor_summary() -> void:
