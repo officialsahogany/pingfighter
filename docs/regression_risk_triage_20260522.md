@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `87a437223 godot: share mythic icon catalog item hydration`.
-- The checkpoint span through that HEAD contains 182 follow-up commits after
+  `3315ea4aa godot: move mythic catalog builders into build router`.
+- The checkpoint span through that HEAD contains 184 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 183 commits.
+  contains 185 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `590bd496a docs: record fixed passive rolled helper split`.
+  `86531552c docs: record mythic icon hydration helper split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the 109th split. The broad
+- The split notes below are current through the 110th split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4734,6 +4734,28 @@ Hundredth split on 2026-05-24:
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1288` scripts scanned, no GDScript
   warnings). `git diff --check` passed.
+
+110th split on 2026-05-24:
+
+- Commit: `3315ea4aa godot: move mythic catalog builders into build router`.
+- Scope: moved the catalog-local `_build_*` item dictionary builders and the
+  mythic icon compose helper into `mythic_item_catalog_build_router.gd`. The
+  public `mythic_item_catalog.gd` file now stays as a facade for catalog
+  lookup, presentation, list, fixed-option, icon, spawn chance, and roll APIs.
+- Rationale: after the base/static/rolled/icon metadata splits, the remaining
+  catalog bulk was item-definition construction. Keeping dispatch and builder
+  bodies together in the build-router owner reduces the public catalog facade
+  to orchestration while preserving the same public `build_item_by_name()`
+  item-data dictionaries.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `470` lines to
+  `103` lines; `mythic_item_catalog_build_router.gd` moved from `55` lines to
+  `430` lines.
+- Validation: `.\tools\run_headless_load_check.ps1` passed. Focused catalog
+  usage coverage selected by direct `MythicItemCatalog` / build/list/roll API
+  references ran `49` smoke scripts and passed, including active item prewarm /
+  pickup / reward smokes and every direct passive / mythic item port smoke
+  matched by that query. `.\tools\run_warning_scan.ps1` passed with `1288`
+  scripts scanned and no GDScript warnings. `git diff --check` passed.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
