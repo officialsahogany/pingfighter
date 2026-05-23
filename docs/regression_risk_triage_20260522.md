@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `f18fd43f8 godot: absorb starpoints after perk choices`.
-- Code split range through that HEAD contains 70 follow-up commits after the
+  `a47f6dafd godot: add hermes shoes mythic fx host`.
+- Code split range through that HEAD contains 72 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 71 commits.
+  span through the latest code split contains 73 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 57 visible paths in
+- Current dirty scope before this documentation sync: 55 visible paths in
   `git status --porcelain=v1` (`13` tracked modified / deleted paths and
-  `44` untracked paths).
-- The split notes below are current through the sixty-first split. The
+  `42` untracked paths).
+- The split notes below are current through the sixty-second split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3327,6 +3327,27 @@ Sixty-first split on 2026-05-23:
   `stage4_bird_event_render_budget_smoke`,
   `commando_firearm_selector_renderer_smoke`,
   `commando_runtime_routing_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Sixty-second split on 2026-05-23:
+
+- Commit: `a47f6dafd godot: add hermes shoes mythic fx host`.
+- Scope: Added the missing `mythic_item_hermes_shoes_fx_host.gd` runtime host
+  and UID that `mythic_item_field_effect_renderer.gd` already preloads for the
+  Hermes Shoes mythic field effect. The host owns the additive under-glow,
+  sparkle trail particles, motion accents, fade in / fade out tween, prewarm
+  path, and explicit `tear_down()` cleanup.
+- Rationale: the renderer had already been split to a detached Hermes Shoes
+  host path, but the host file itself was still untracked. Committing it keeps
+  fresh checkouts from failing on a missing preload and preserves the intended
+  node-hosted VFX lifecycle.
+- Validation passed:
+  `hermes_shoes_port_smoke`,
+  `mythic_item_field_render_budget_smoke`,
+  `mythic_item_runtime_idle_update_smoke`,
+  `mythic_item_snapshot_builder_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
