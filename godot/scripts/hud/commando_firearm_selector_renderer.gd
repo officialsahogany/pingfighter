@@ -12,6 +12,7 @@ const NET_GUN_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_net_g
 const BAZOOKA_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_bazooka_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png"
 const BAZOOKA_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_bazooka_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png"
 const FIRE_SUPPORT_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_fire_support_firearm_icon_imagegen_v1.png"
+const FIRE_SUPPORT_BOMB_AMMO_TEXTURE_PATH := "res://assets/sprites/effects/commando_fire_support_bomb_projectile_imagegen_v1.png"
 const BOWLING_TRAP_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_bowling_trap_firearm_icon_imagegen_v1.png"
 const BOWLING_TRAP_INSTALL_SHEET_PATH := "res://assets/sprites/hud/commando_bowling_trap_firearm_install_sheet_autosprite_v1.png"
 const BOWLING_TRAP_CAPTURE_SHEET_PATH := "res://assets/sprites/effects/commando_bowling_trap_capture_sheet_autosprite_v1.png"
@@ -87,6 +88,7 @@ const BAZOOKA_HUD_PICTURE_Y_OFFSET := 2.0
 const BAZOOKA_FIRE_RECOIL_DRAW_SCALE := 1.42
 const FIRE_SUPPORT_HUD_PICTURE_SCALE := 1.08
 const FIRE_SUPPORT_HUD_PICTURE_Y_OFFSET := 1.0
+const FIRE_SUPPORT_BOMB_AMMO_SOURCE_RECT := Rect2(34.0, 62.0, 446.0, 132.0)
 const BOWLING_TRAP_HUD_PICTURE_SCALE := 1.20
 const BOWLING_TRAP_HUD_PICTURE_Y_OFFSET := 0.0
 const BOWLING_TRAP_INSTALL_GRID_COLS := 4
@@ -128,6 +130,7 @@ func prewarm_assets_step() -> bool:
 		BAZOOKA_ICON_TEXTURE_PATH,
 		BAZOOKA_FIRE_RECOIL_SHEET_PATH,
 		FIRE_SUPPORT_ICON_TEXTURE_PATH,
+		FIRE_SUPPORT_BOMB_AMMO_TEXTURE_PATH,
 		BOWLING_TRAP_ICON_TEXTURE_PATH,
 		BOWLING_TRAP_INSTALL_SHEET_PATH,
 		BOWLING_TRAP_CAPTURE_SHEET_PATH,
@@ -199,6 +202,7 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 		"bazooka_icon_path": BAZOOKA_ICON_TEXTURE_PATH,
 		"bazooka_fire_recoil_sheet_path": BAZOOKA_FIRE_RECOIL_SHEET_PATH,
 		"fire_support_icon_path": FIRE_SUPPORT_ICON_TEXTURE_PATH,
+		"fire_support_bomb_ammo_icon_path": FIRE_SUPPORT_BOMB_AMMO_TEXTURE_PATH,
 		"bowling_trap_icon_path": BOWLING_TRAP_ICON_TEXTURE_PATH,
 		"bowling_trap_install_sheet_path": BOWLING_TRAP_INSTALL_SHEET_PATH,
 		"bowling_trap_capture_sheet_path": BOWLING_TRAP_CAPTURE_SHEET_PATH,
@@ -1397,6 +1401,19 @@ func build_ammo_icon_state(weapon: Dictionary, weapon_id: String) -> Dictionary:
 		filled_slots = clampi(int(ceil(float(display_ammo) / max(1.0, float(ammo_max)) * float(display_slots))), 0, display_slots)
 	var magazines_max: int = int(weapon.get("magazines_max", -1))
 	var magazines_current: int = int(weapon.get("magazines_current", -1))
+	var ammo_icon_style := "compact"
+	var ammo_icon_texture_path := ""
+	if weapon_id == "pistol" or weapon_id == "commando_pistol":
+		ammo_icon_style = "pistol_bullet"
+	elif weapon_id == "ak47":
+		ammo_icon_style = "ak47_belt"
+	elif weapon_id == "net_gun" or weapon_id == "suicide_drone":
+		ammo_icon_style = "round_charge"
+	elif weapon_id == "bowling_trap":
+		ammo_icon_style = "segment_bar"
+	elif weapon_id == "fire_support":
+		ammo_icon_style = "fire_support_bomb"
+		ammo_icon_texture_path = FIRE_SUPPORT_BOMB_AMMO_TEXTURE_PATH
 	return {
 		"weapon_id": weapon_id,
 		"ammo_current": ammo_current,
@@ -1408,6 +1425,8 @@ func build_ammo_icon_state(weapon: Dictionary, weapon_id: String) -> Dictionary:
 		"reloading": reloading,
 		"magazines_current": magazines_current,
 		"magazines_max": magazines_max,
+		"ammo_icon_style": ammo_icon_style,
+		"ammo_icon_texture_path": ammo_icon_texture_path,
 	}
 
 
@@ -1421,6 +1440,8 @@ func _draw_ammo_icon_display(canvas: CanvasItem, rect: Rect2, scale_factor: floa
 		_draw_round_ammo_icons(canvas, rect, scale_factor, state, color)
 	elif weapon_id == "bowling_trap":
 		_draw_segment_ammo_bar(canvas, rect, scale_factor, state, Color(0.55, 0.78, 0.48))
+	elif weapon_id == "fire_support":
+		_draw_fire_support_bomb_ammo_icons(canvas, rect, scale_factor, state)
 	else:
 		_draw_compact_ammo_icons(canvas, rect, scale_factor, state, color)
 
@@ -1510,6 +1531,62 @@ func _draw_segment_ammo_bar(canvas: CanvasItem, rect: Rect2, scale_factor: float
 		var segment := Rect2(Vector2(bar_rect.position.x + gap + float(i) * (segment_w + gap), bar_rect.position.y + gap), Vector2(segment_w, max(1.0, bar_rect.size.y - gap * 2.0)))
 		canvas.draw_rect(segment, color if i < filled else Color(0.20, 0.22, 0.24, 0.86), true)
 	canvas.draw_rect(bar_rect, Color(0.54, 0.58, 0.60, 0.78), false, max(1.0, scale_factor))
+
+
+func _draw_fire_support_bomb_ammo_icons(canvas: CanvasItem, rect: Rect2, scale_factor: float, state: Dictionary) -> void:
+	var slots: int = clampi(int(state.get("display_slots", 0)), 1, 4)
+	var filled: int = clampi(int(state.get("filled_slots", 0)), 0, slots)
+	var gap: float = max(2.0 * scale_factor, 4.0 * scale_factor)
+	var icon_h: float = max(7.0 * scale_factor, min(14.0 * scale_factor, rect.size.y * 0.88))
+	var icon_w: float = min(25.0 * scale_factor, icon_h * 1.90)
+	icon_w = min(icon_w, max(5.0 * scale_factor, (rect.size.x - gap * float(slots - 1)) / float(slots)))
+	var total_w: float = icon_w * float(slots) + gap * float(slots - 1)
+	var start_x: float = rect.position.x + (rect.size.x - total_w) * 0.5
+	var icon_y: float = rect.position.y + (rect.size.y - icon_h) * 0.5
+	var texture: Texture2D = _get_cached_weapon_texture(FIRE_SUPPORT_BOMB_AMMO_TEXTURE_PATH)
+	for i in range(slots):
+		var icon_rect := Rect2(
+			Vector2(start_x + float(i) * (icon_w + gap), icon_y),
+			Vector2(icon_w, icon_h)
+		)
+		var slot_filled: bool = i < filled
+		canvas.draw_rect(icon_rect.grow(0.75 * scale_factor), Color(0.0, 0.0, 0.0, 0.24 if slot_filled else 0.14), true)
+		if texture is Texture2D:
+			var tint := Color(1.0, 1.0, 1.0, 0.96) if slot_filled else Color(0.18, 0.18, 0.20, 0.50)
+			canvas.draw_texture_rect_region(texture, icon_rect, FIRE_SUPPORT_BOMB_AMMO_SOURCE_RECT, tint, false, true)
+		else:
+			_draw_fire_support_bomb_ammo_fallback(canvas, icon_rect, scale_factor, slot_filled)
+		if not slot_filled:
+			canvas.draw_rect(icon_rect.grow(0.45 * scale_factor), Color(0.31, 0.31, 0.35, 0.74), false, max(1.0, 0.75 * scale_factor))
+
+
+func _draw_fire_support_bomb_ammo_fallback(canvas: CanvasItem, rect: Rect2, scale_factor: float, filled: bool) -> void:
+	var alpha: float = 0.96 if filled else 0.42
+	var body_rect := Rect2(
+		rect.position + Vector2(rect.size.x * 0.13, rect.size.y * 0.20),
+		Vector2(rect.size.x * 0.66, rect.size.y * 0.60)
+	)
+	var nose := PackedVector2Array([
+		Vector2(body_rect.end.x - 1.0 * scale_factor, body_rect.position.y + body_rect.size.y * 0.12),
+		Vector2(rect.end.x - 1.0 * scale_factor, rect.position.y + rect.size.y * 0.50),
+		Vector2(body_rect.end.x - 1.0 * scale_factor, body_rect.end.y - body_rect.size.y * 0.12),
+	])
+	var fins := PackedVector2Array([
+		Vector2(body_rect.position.x + body_rect.size.x * 0.12, body_rect.position.y + body_rect.size.y * 0.20),
+		Vector2(rect.position.x + 1.0 * scale_factor, rect.position.y + 1.0 * scale_factor),
+		Vector2(body_rect.position.x + body_rect.size.x * 0.34, body_rect.position.y + body_rect.size.y * 0.46),
+		Vector2(rect.position.x + 1.0 * scale_factor, rect.end.y - 1.0 * scale_factor),
+		Vector2(body_rect.position.x + body_rect.size.x * 0.12, body_rect.end.y - body_rect.size.y * 0.20),
+	])
+	canvas.draw_colored_polygon(fins, Color(0.18, 0.20, 0.23, alpha))
+	_draw_ellipse(canvas, body_rect, Color(0.12, 0.14, 0.16, alpha))
+	canvas.draw_colored_polygon(nose, Color(0.08, 0.09, 0.10, alpha))
+	if filled:
+		_draw_ellipse(
+			canvas,
+			Rect2(body_rect.position + Vector2(body_rect.size.x * 0.14, body_rect.size.y * 0.18), body_rect.size * 0.34),
+			Color(0.54, 0.58, 0.62, 0.62)
+		)
 
 
 func _draw_compact_ammo_icons(canvas: CanvasItem, rect: Rect2, scale_factor: float, state: Dictionary, color: Color) -> void:

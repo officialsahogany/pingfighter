@@ -35,6 +35,7 @@ func _verify_prewarm_assets() -> void:
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_bazooka_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the bazooka HUD icon")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_bazooka_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the bazooka recoil sheet")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_fire_support_firearm_icon_imagegen_v1.png") is Texture2D, "firearm selector prewarm should cache the fire-support HUD icon")
+	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/effects/commando_fire_support_bomb_projectile_imagegen_v1.png") is Texture2D, "firearm selector prewarm should cache the imagegen fire-support bomb ammo icon")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_bowling_trap_firearm_icon_imagegen_v1.png") is Texture2D, "firearm selector prewarm should cache the imagegen bowling trap HUD icon")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_bowling_trap_firearm_install_sheet_autosprite_v1.png") is Texture2D, "firearm selector prewarm should cache the bowling-trap HUD install sheet")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/effects/commando_bowling_trap_capture_sheet_autosprite_v1.png") is Texture2D, "firearm selector prewarm should cache the bowling-trap HUD capture sheet")
@@ -145,6 +146,10 @@ func _verify_single_fixed_panel_state() -> void:
 	_expect(second_rect == first_rect, "switching current weapon should not resize or move the selector panel")
 	_expect(str(second.get("current_weapon_id", "")) == "fire_support", "panel should follow current weapon after switching")
 	_expect(str(second.get("fire_support_icon_path", "")) == "res://assets/sprites/hud/commando_fire_support_firearm_icon_imagegen_v1.png", "firearm selector should expose the imagegen fire-support HUD icon path")
+	_expect(str(second.get("fire_support_bomb_ammo_icon_path", "")) == "res://assets/sprites/effects/commando_fire_support_bomb_projectile_imagegen_v1.png", "firearm selector should expose the imagegen fire-support bomb ammo icon path")
+	var fire_support_ammo: Dictionary = _get_dict(second.get("ammo_icon_state", {}))
+	_expect(str(fire_support_ammo.get("ammo_icon_style", "")) == "fire_support_bomb", "fire-support ammo should use bomb icons instead of compact pistol bullets")
+	_expect(str(fire_support_ammo.get("ammo_icon_texture_path", "")) == "res://assets/sprites/effects/commando_fire_support_bomb_projectile_imagegen_v1.png", "fire-support ammo state should point to the chunky imagegen bomb")
 
 	var tiny_scale: Dictionary = renderer.build_panel_state(center, 0.1, context)
 	var tiny_rect: Rect2 = _get_rect(tiny_scale.get("rect", Rect2()))
