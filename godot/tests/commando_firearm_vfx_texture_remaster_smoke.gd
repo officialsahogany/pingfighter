@@ -57,13 +57,14 @@ func _verify_texture_piece_remaster_plan() -> void:
 	_expect(bool(plan.get("bowling_trap_capture_sheet_ready", false)), "bowling trap capture AutoSprite sheet should prewarm")
 	_expect(bool(plan.get("bowling_trap_launch_sheet_ready", false)), "bowling trap launch AutoSprite sheet should prewarm")
 	_expect(bool(plan.get("support_aircraft_texture_ready", false)), "fire-support stealth aircraft imagegen texture should prewarm")
+	_expect(bool(plan.get("support_bomb_texture_ready", false)), "fire-support bomb projectile imagegen texture should prewarm")
 	_expect(int(plan.get("bowling_trap_sheet_frame_count", 0)) == 16, "bowling trap AutoSprite sheets should expose sixteen runtime frames")
 	_expect(int(plan.get("muzzle_texture_layers", 0)) == 2, "one muzzle flash should produce two texture layers")
 	_expect(int(plan.get("impact_texture_layers", 0)) == 9, "impact flashes should count net/support/bullet texture layers while grenade-style fire support uses the shared grenade renderer")
 	_expect(int(plan.get("lingering_texture_layers", 0)) == 8, "lingering fields should count net/fire/trap/blast texture layers")
 	_expect(int(plan.get("pistol_feedback_entries", 0)) == 2, "headshot/legshot feedback entries should be counted for renderer QA")
 	var families: Array = plan.get("families", [])
-	for family in ["muzzle_glow", "impact_burst", "impact_ring", "lingering_field_glow", "projectile_silhouette", "bowling_trap_claw", "drone_rotor", "support_aircraft"]:
+	for family in ["muzzle_glow", "impact_burst", "impact_ring", "lingering_field_glow", "projectile_silhouette", "bowling_trap_claw", "drone_rotor", "support_aircraft", "support_bomb_projectile"]:
 		_expect(families.has(family), "texture remaster plan should include %s" % family)
 
 

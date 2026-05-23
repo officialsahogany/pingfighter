@@ -19,10 +19,13 @@ const BOWLING_TRAP_SHEET_COLS := 4
 const BOWLING_TRAP_SHEET_ROWS := 4
 const BOWLING_TRAP_SHEET_FRAME_COUNT := 16
 const SUPPORT_AIRCRAFT_TEXTURE_PATH := "res://assets/sprites/effects/commando_fire_support_aircraft_stealth_imagegen_v1.png"
+const SUPPORT_BOMB_TEXTURE_PATH := "res://assets/sprites/effects/commando_fire_support_bomb_projectile_imagegen_v1.png"
 const SUPPORT_AIRCRAFT_SOURCE_RECT := Rect2(Vector2(270.0, 41.0), Vector2(483.0, 430.0))
 const SUPPORT_AIRCRAFT_DRAW_SIZE := Vector2(150.0, 134.0)
 const SUPPORT_AIRCRAFT_TRAIL_COUNT := 4
 const SUPPORT_AIRCRAFT_SHADOW_OFFSET := Vector2(0.0, 42.0)
+const SUPPORT_BOMB_DRAW_LENGTH_SCALE := 6.5
+const SUPPORT_BOMB_DRAW_WIDTH_SCALE := 4.3
 const SUPPORT_MISSILE_LAUNCH_FLASH_FRAMES := 12.0
 const SUPPORT_MISSILE_SMOKE_PUFFS := 5
 
@@ -35,6 +38,7 @@ const REMASTER_TEXTURE_FAMILIES := [
 	"bowling_trap_claw",
 	"drone_rotor",
 	"support_aircraft",
+	"support_bomb_projectile",
 ]
 
 const REQUIRED_VISUAL_FAMILIES := [
@@ -55,6 +59,7 @@ static var bowling_trap_installed_texture: Texture2D = null
 static var bowling_trap_capture_sheet_texture: Texture2D = null
 static var bowling_trap_launch_sheet_texture: Texture2D = null
 static var support_aircraft_texture: Texture2D = null
+static var support_bomb_texture: Texture2D = null
 static var _prewarmed: bool = false
 static var _prewarm_step_index: int = 0
 
@@ -93,12 +98,14 @@ static func prewarm_assets_step() -> bool:
 			_get_bowling_trap_launch_sheet_texture()
 		8:
 			_get_support_aircraft_texture()
+		9:
+			_get_support_bomb_texture()
 		_:
 			_prewarmed = true
 			_prewarm_step_index = 0
 			return true
 	_prewarm_step_index += 1
-	if _prewarm_step_index > 8:
+	if _prewarm_step_index > 9:
 		_prewarmed = true
 		_prewarm_step_index = 0
 		return true
@@ -202,6 +209,7 @@ func build_texture_remaster_plan(context: Dictionary) -> Dictionary:
 		"bowling_trap_capture_sheet_ready": _get_bowling_trap_capture_sheet_texture() != null,
 		"bowling_trap_launch_sheet_ready": _get_bowling_trap_launch_sheet_texture() != null,
 		"support_aircraft_texture_ready": _get_support_aircraft_texture() != null,
+		"support_bomb_texture_ready": _get_support_bomb_texture() != null,
 		"bowling_trap_sheet_frame_count": BOWLING_TRAP_SHEET_FRAME_COUNT,
 		"bowling_trap_sheet_cols": BOWLING_TRAP_SHEET_COLS,
 		"bowling_trap_sheet_rows": BOWLING_TRAP_SHEET_ROWS,
@@ -488,7 +496,7 @@ func _projectile_visual_layer(projectile: Dictionary, family: String) -> String:
 		"net_gun":
 			return "harpoon_rope"
 		"fire_support":
-			return "gravity_bomb"
+			return "imagegen_bomb_projectile"
 		"bowling_trap":
 			return "captured_ball_or_clamp"
 		"suicide_drone":
@@ -819,6 +827,17 @@ static func _get_support_aircraft_texture() -> Texture2D:
 	return support_aircraft_texture
 
 
+static func _get_support_bomb_texture() -> Texture2D:
+	if support_bomb_texture != null:
+		return support_bomb_texture
+	support_bomb_texture = ProjectResourceLoader.load_texture(
+		SUPPORT_BOMB_TEXTURE_PATH,
+		"Missing Commando fire-support bomb projectile texture at %s",
+		"Failed to load Commando fire-support bomb projectile texture at %s"
+	)
+	return support_bomb_texture
+
+
 func _draw_rocket(canvas: CanvasItem, projectile: Dictionary, shake_offset: Vector2) -> void:
 	var pos: Vector2 = Stage1ContextReader.as_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
 	var velocity: Vector2 = Stage1ContextReader.as_vector2(projectile.get("velocity", Vector2.UP), Vector2.UP)
@@ -902,6 +921,8 @@ func _draw_support_shell(canvas: CanvasItem, projectile: Dictionary, shake_offse
 	_draw_support_missile_smoke_tail(canvas, tail, dir, side, shell_length, shell_width, secondary, age_frames, is_wall_missile)
 	if is_wall_missile and age_frames <= SUPPORT_MISSILE_LAUNCH_FLASH_FRAMES:
 		_draw_support_missile_launch_flash(canvas, tail, dir, side, shell_length, shell_width, color, secondary, age_frames)
+	if _draw_support_bomb_texture(canvas, pos, dir, side, radius):
+		return
 	canvas.draw_line(tail - dir * shell_length * 0.72, tail, _with_alpha(Color(1.0, 0.36, 0.08), 0.54), shell_width * 0.72, true)
 	canvas.draw_line(tail - dir * shell_length * 0.50, tail, _with_alpha(secondary, 0.74), shell_width * 0.38, true)
 	canvas.draw_colored_polygon(PackedVector2Array([
@@ -914,6 +935,30 @@ func _draw_support_shell(canvas: CanvasItem, projectile: Dictionary, shake_offse
 	canvas.draw_line(nose - dir * shell_length * 0.22, tail + dir * shell_length * 0.12, _with_alpha(Color(1.0, 0.92, 0.62), 0.78), max(1.0, shell_width * 0.24), true)
 	canvas.draw_line(tail + side * shell_width * 0.72, tail + side * shell_width * 1.35 - dir * shell_length * 0.16, _with_alpha(secondary, 0.82), 1.6, true)
 	canvas.draw_line(tail - side * shell_width * 0.72, tail - side * shell_width * 1.35 - dir * shell_length * 0.16, _with_alpha(secondary, 0.82), 1.6, true)
+
+
+func _draw_support_bomb_texture(canvas: CanvasItem, pos: Vector2, dir: Vector2, side: Vector2, radius: float) -> bool:
+	var texture: Texture2D = _get_support_bomb_texture()
+	if texture == null:
+		return false
+	var draw_length: float = max(58.0, radius * SUPPORT_BOMB_DRAW_LENGTH_SCALE)
+	var draw_width: float = max(38.0, radius * SUPPORT_BOMB_DRAW_WIDTH_SCALE)
+	var half_length := draw_length * 0.5
+	var half_width := draw_width * 0.5
+	var points := PackedVector2Array([
+		pos - dir * half_length - side * half_width,
+		pos + dir * half_length - side * half_width,
+		pos + dir * half_length + side * half_width,
+		pos - dir * half_length + side * half_width,
+	])
+	var uvs := PackedVector2Array([
+		Vector2(0.0, 0.0),
+		Vector2(1.0, 0.0),
+		Vector2(1.0, 1.0),
+		Vector2(0.0, 1.0),
+	])
+	canvas.draw_colored_polygon(points, Color(1.0, 1.0, 1.0, 0.98), uvs, texture)
+	return true
 
 
 func _draw_support_missile_smoke_tail(
