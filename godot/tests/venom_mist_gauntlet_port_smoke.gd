@@ -3,6 +3,7 @@ extends SceneTree
 const ActiveItemFieldSpawnController := preload("res://scripts/items/active_item_field_spawn_controller.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const MythicItemVenomMistRuntime := preload("res://scripts/items/mythic_item_venom_mist_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ViperSkillRuntime := preload("res://scripts/characters/viper_skill_runtime.gd")
 
@@ -65,12 +66,23 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	_test_runtime_constant_ownership()
 	_test_catalog_and_arm_slots()
 	_test_runtime_poison_mist_slow_and_round_clear()
 	_test_viper_only_spawn_filter()
 	_test_core_flip_hook_poisons_ball()
 	print("venom_mist_gauntlet_port_smoke: ok")
 	quit(0)
+
+
+func _test_runtime_constant_ownership() -> void:
+	_expect(is_equal_approx(MythicItemVenomMistRuntime.RADIUS, 120.0), "Venom Mist helper should own field radius")
+	_expect(MythicItemVenomMistRuntime.PARTICLE_COUNT == 46, "Venom Mist helper should own particle count")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_venom_mist_runtime.gd")
+	_expect(not runtime_source.contains("VENOM_MIST_CONSTANTS"), "runtime facade should not regain VENOM_MIST_CONSTANTS")
+	_expect(not runtime_source.contains("const VENOM_MIST_"), "runtime facade should not regain Venom Mist runtime constants")
+	_expect(helper_source.contains("const GAUGE_DRAIN_PER_FRAME"), "Venom Mist helper should keep gauge drain constants")
 
 
 func _test_catalog_and_arm_slots() -> void:

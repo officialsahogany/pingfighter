@@ -7,6 +7,7 @@ const MatchFlowController := preload("res://scripts/core/match_flow_controller.g
 const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const MythicItemFoulWhistleRuntime := preload("res://scripts/items/mythic_item_foul_whistle_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 
@@ -109,6 +110,7 @@ class FakeRegistry:
 
 func _init() -> void:
 	seed(97531)
+	_verify_runtime_constant_ownership()
 
 	var catalog: Object = MythicItemCatalog.new()
 	var item_data: Dictionary = catalog.build_item_by_name("foul_whistle")
@@ -211,6 +213,20 @@ func _init() -> void:
 
 	print("foul_whistle_port_smoke: ok")
 	quit(0)
+
+
+func _verify_runtime_constant_ownership() -> void:
+	_expect(is_equal_approx(MythicItemFoulWhistleRuntime.TOTAL_FRAMES, 120.0), "Foul Whistle helper should own total animation frames")
+	_expect(is_equal_approx(MythicItemFoulWhistleRuntime.RESET_FRAME, 70.0), "Foul Whistle helper should own reset frame")
+	_expect(MythicItemFoulWhistleRuntime.REFEREE_FRAME_COUNT == 4, "Foul Whistle helper should own referee frame count")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_foul_whistle_runtime.gd")
+	_expect(runtime_source != "", "mythic runtime source should be readable")
+	_expect(helper_source != "", "Foul Whistle helper source should be readable")
+	_expect(not runtime_source.contains("const FOUL_WHISTLE_"), "runtime facade should not regain Foul Whistle runtime constants")
+	_expect(not runtime_source.contains("FOUL_WHISTLE_TOTAL_FRAMES"), "runtime facade should not regain Foul Whistle total frames")
+	_expect(not runtime_source.contains("FOUL_WHISTLE_REFEREE"), "runtime facade should not regain Foul Whistle referee constants")
+	_expect(helper_source.contains("const REFEREE_FRAME_FRAMES"), "Foul Whistle helper should keep referee frame timing")
 
 
 func _array_has_item(items: Array, item_name: String) -> bool:

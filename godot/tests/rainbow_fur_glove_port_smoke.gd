@@ -3,6 +3,7 @@ extends SceneTree
 const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field_spawn_pool.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const MythicItemRainbowFurGloveRuntime := preload("res://scripts/items/mythic_item_rainbow_fur_glove_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const SmasherSkillState := preload("res://scripts/characters/smasher_skill_state.gd")
@@ -91,6 +92,7 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	_test_runtime_constant_ownership()
 	var catalog := MythicItemCatalog.new()
 	var item_data: Dictionary = catalog.build_item_by_name("rainbow_fur_glove")
 	_expect(not item_data.is_empty(), "Rainbow Fur Glove should be registered in the passive catalog")
@@ -188,6 +190,18 @@ func _init() -> void:
 
 	print("rainbow_fur_glove_port_smoke: ok")
 	quit(0)
+
+
+func _test_runtime_constant_ownership() -> void:
+	_expect(is_equal_approx(MythicItemRainbowFurGloveRuntime.AURA_FRAMES, 36.0), "Rainbow Fur Glove helper should own aura timing")
+	_expect(MythicItemRainbowFurGloveRuntime.PARTICLE_COUNT == 18, "Rainbow Fur Glove helper should own particle count")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var helper_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_rainbow_fur_glove_runtime.gd")
+	_expect(not runtime_source.contains("RAINBOW_FUR_GLOVE_CONSTANTS"), "runtime facade should not regain RAINBOW_FUR_GLOVE_CONSTANTS")
+	_expect(not runtime_source.contains("const RAINBOW_FUR_GLOVE_MAX"), "runtime facade should not regain Rainbow Fur Glove cap constants")
+	_expect(not runtime_source.contains("const RAINBOW_FUR_GLOVE_AURA"), "runtime facade should not regain Rainbow Fur Glove aura constants")
+	_expect(not runtime_source.contains("const RAINBOW_FUR_GLOVE_COLORS"), "runtime facade should not regain Rainbow Fur Glove color constants")
+	_expect(helper_source.contains("const MAX_COOLDOWN_REDUCTION_PCT"), "Rainbow Fur Glove helper should keep cooldown cap constants")
 
 
 func _array_has_item(items: Array, item_name: String) -> bool:
