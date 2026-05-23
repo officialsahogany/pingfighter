@@ -4971,6 +4971,35 @@ Hundredth split on 2026-05-24:
   `.\tools\run_warning_scan.ps1` passed with `1297` scripts scanned and no
   GDScript warnings.
 
+120th split on 2026-05-24:
+
+- Commit: `8d1b74f3a godot: split active throw boomerang renderer`.
+- Scope: added `active_item_throw_boomerang_renderer.gd` for normal and
+  metal Boomerang projectile texture draws, return / gauntlet aura rings,
+  trail glow, break particles, texture fallback drawing, and asset prewarm.
+  The shared `active_item_throw_renderer.gd` keeps the public draw signature,
+  perf labels, generic windup / throw icon cache, and dispatch order while
+  delegating Boomerang projectile visuals to the focused renderer.
+- Rationale: Boomerang rendering has its own trail, metal-gauntlet texture,
+  return-phase glow, and fallback shape, but does not need to own throw
+  controller state. Moving it trims the active throw renderer after the
+  Banana / Soap split and keeps future Boomerang visual tuning localized.
+- Renderer size: `active_item_throw_renderer.gd` moved from `2022` lines to
+  `1950` lines; the new `active_item_throw_boomerang_renderer.gd` file is
+  `172` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused Boomerang / throw-renderer coverage ran `9` smoke scripts
+  and passed: `active_item_throw_boomerang_smoke`,
+  `active_item_throw_activation_smoke`,
+  `active_item_throw_renderer_budget_smoke`,
+  `active_item_throw_rotated_texture_smoke`,
+  `active_item_runtime_render_facade_smoke`,
+  `active_item_runtime_render_facade_direct_smoke`,
+  `reinforced_boomerang_gauntlet_port_smoke`,
+  `mythic_item_throw_bonus_runtime_smoke`, and `commando_arm_port_smoke`.
+  `.\tools\run_warning_scan.ps1` passed with `1298` scripts scanned and no
+  GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
