@@ -2,6 +2,7 @@ extends SceneTree
 
 const BattleSceneModalGateController := preload("res://scripts/core/battle_scene_modal_gate_controller.gd")
 const BattleSceneOverlayInputController := preload("res://scripts/core/battle_scene_overlay_input_controller.gd")
+const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
 const PauseMenuOverlay := preload("res://scripts/hud/pause_menu_overlay.gd")
 
 
@@ -154,7 +155,7 @@ class FakeViewLayout:
 		return "VSync On"
 
 	func get_display_pacing_recommendation(_window: Object, _mode: String, _cap: int, _vsync: int) -> String:
-		return "144Hz 모니터 감지: Windows 60Hz를 권장합니다.\n게임은 독점 전체화면 + 60 FPS + VSync On이 가장 안정적입니다."
+		return "144Hz 모니터 감지: 현재 주사율에 렌더 FPS를 자동으로 맞춥니다.\n모니터를 바꾸면 다음 적용 시 새 주사율을 따라갑니다."
 
 	func open_system_display_settings() -> int:
 		system_settings_count += 1
@@ -193,9 +194,12 @@ class FakeRegistry:
 
 
 var registry := FakeRegistry.new()
+var _vibration_settings_snapshot: Dictionary = {}
 
 
 func _init() -> void:
+	_vibration_settings_snapshot = _snapshot_settings_file(GamepadVibrationSettings.SETTINGS_PATH)
+	GamepadVibrationSettings.set_vibration_level(GamepadVibrationSettings.VIBRATION_LEVEL_DEFAULT)
 	var input := BattleSceneOverlayInputController.new()
 	var owner := FakeOwner.new()
 
@@ -251,6 +255,18 @@ func _init() -> void:
 	_expect(_click(input, owner, registry.pause_menu._get_display_back_button_rect(options_panel).get_center()), "display back button should be handled")
 	_expect(registry.pause_menu.is_active() and not registry.pause_menu.is_options_open(), "display back should return to the main pause menu")
 
+	_expect(_click(input, owner, Vector2(640.0, 463.0)), "options button should reopen for controls tab")
+	options_panel = registry.pause_menu._get_options_panel_rect(owner.get_viewport_rect().size)
+	_expect(_click(input, owner, registry.pause_menu._get_controls_tab_rect(options_panel).get_center()), "controls tab click should be handled")
+	_expect(registry.pause_menu.options_tab == "controls", "controls tab should become active")
+	_expect(registry.pause_menu.controls_device_view == "keyboard_mouse", "controls tab should default to keyboard and mouse")
+	_expect(_click(input, owner, registry.pause_menu._get_controls_joypad_rect(options_panel).get_center()), "joypad controls view should be handled")
+	_expect(registry.pause_menu.controls_device_view == "joypad", "joypad controls view should become active")
+	_expect(str(registry.pause_menu._get_control_mapping_rows()[0].get("value", "")).find("왼스틱") >= 0, "joypad controls view should list left-stick movement")
+	_expect(str(registry.pause_menu._get_control_mapping_rows()[1].get("value", "")).find("B") >= 0, "joypad controls view should list B as the dash button")
+	_expect(_click(input, owner, registry.pause_menu._get_controls_back_button_rect(options_panel).get_center()), "controls back button should be handled")
+	_expect(registry.pause_menu.is_active() and not registry.pause_menu.is_options_open(), "controls back should return to the main pause menu")
+
 	registry.view_layout.display_mode = "windowed"
 	registry.view_layout.saved_mode = "windowed"
 	registry.view_layout.remember_default = false
@@ -273,13 +289,13 @@ func _init() -> void:
 	_expect(bool(recommended_result.get("handled", false)), "recommended display settings button should be handled")
 	_expect(recommended_options.display_mode == "exclusive_fullscreen", "recommended settings should select exclusive fullscreen")
 	_expect(recommended_options.remember_display_mode, "recommended settings should remember the display mode")
-	_expect(recommended_options.render_fps_cap == 60, "recommended settings should select 60 FPS")
-	_expect(recommended_options.vsync_mode == 1, "recommended settings should select VSync On")
+	_expect(recommended_options.render_fps_cap == -1, "recommended settings should select the monitor refresh render FPS")
+	_expect(recommended_options.vsync_mode == -1, "recommended settings should select automatic VSync")
 	_expect(not recommended_options.auto_refresh_rate_60hz, "recommended settings should not silently enable automatic OS refresh switching")
 	_expect(registry.view_layout.display_mode == "exclusive_fullscreen", "recommended settings should apply exclusive fullscreen")
 	_expect(registry.view_layout.saved_mode == "exclusive_fullscreen" and registry.view_layout.saved_remember, "recommended settings should persist exclusive fullscreen")
-	_expect(registry.view_layout.render_fps_cap == 60 and registry.view_layout.saved_render_fps_cap == 60, "recommended settings should apply and persist 60 FPS")
-	_expect(registry.view_layout.vsync_mode == 1 and registry.view_layout.saved_vsync_mode == 1, "recommended settings should apply and persist VSync On")
+	_expect(registry.view_layout.render_fps_cap == -1 and registry.view_layout.saved_render_fps_cap == -1, "recommended settings should apply and persist monitor refresh FPS")
+	_expect(registry.view_layout.vsync_mode == -1 and registry.view_layout.saved_vsync_mode == -1, "recommended settings should apply and persist automatic VSync")
 
 	var direct_options := PauseMenuOverlay.new()
 	direct_options.open_options(owner, registry, true)
@@ -319,7 +335,26 @@ func _init() -> void:
 	_expect(registry.view_layout.save_display_count == 0, "saving display options without touching display mode should not overwrite a stored display preference with runtime windowed")
 	_expect(registry.view_layout.saved_mode == "exclusive_fullscreen", "untouched display save should preserve the stored non-windowed mode")
 
+	var gamepad_options := PauseMenuOverlay.new()
+	gamepad_options.open_options(owner, registry, true)
+	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_RIGHT_SHOULDER), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "gamepad shoulder should switch settings tabs")
+	_expect(gamepad_options.options_tab == "display", "first gamepad tab switch should open display settings")
+	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_RIGHT_SHOULDER), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "second gamepad shoulder should switch to controls")
+	_expect(gamepad_options.options_tab == "controls", "second gamepad tab switch should open controls settings")
+	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_A), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "gamepad A should switch controls view")
+	_expect(gamepad_options.controls_device_view == "joypad", "gamepad A should select the joypad control map")
+	_expect(gamepad_options.gamepad_vibration_level == 3, "joypad settings should treat the current rumble as the middle level")
+	gamepad_options.options_focus = 1
+	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_DPAD_RIGHT), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "joypad right should raise vibration sensitivity")
+	_expect(GamepadVibrationSettings.get_vibration_level() == 4, "joypad right should persist vibration sensitivity level 4")
+	_expect(GamepadVibrationSettings.get_vibration_level_label(4).find("4 / 5") >= 0, "vibration label should expose the 5-step scale")
+	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_DPAD_LEFT), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "joypad left should lower vibration sensitivity")
+	_expect(GamepadVibrationSettings.get_vibration_level() == 3, "joypad left should return vibration sensitivity to the middle level")
+	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_B), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "gamepad B should close direct settings")
+	_expect(not gamepad_options.is_active(), "gamepad B should close direct settings overlay")
+
 	_expect(owner.redraw_count >= 6, "pause menu input should queue redraws")
+	_restore_vibration_settings_snapshot()
 	print("pause_menu_overlay_smoke: ok")
 	quit(0)
 
@@ -342,12 +377,51 @@ func _click(input: Object, owner: Object, position: Vector2) -> bool:
 	return bool(input.handle_input(event, owner, registry, Callable(self, "_get_module"), {}))
 
 
+func _joy_button(button_index: JoyButton) -> InputEventJoypadButton:
+	var event := InputEventJoypadButton.new()
+	event.pressed = true
+	event.button_index = button_index
+	return event
+
+
 func _get_module(key: String) -> Object:
 	return registry.get_instance(key)
+
+
+func _snapshot_settings_file(path: String) -> Dictionary:
+	var had_original := FileAccess.file_exists(path)
+	var original_bytes := PackedByteArray()
+	if had_original:
+		original_bytes = FileAccess.get_file_as_bytes(path)
+	return {
+		"had": had_original,
+		"bytes": original_bytes,
+	}
+
+
+func _restore_vibration_settings_snapshot() -> void:
+	if _vibration_settings_snapshot.is_empty():
+		return
+	_restore_settings_file(
+		GamepadVibrationSettings.SETTINGS_PATH,
+		bool(_vibration_settings_snapshot.get("had", false)),
+		_vibration_settings_snapshot.get("bytes", PackedByteArray())
+	)
+
+
+func _restore_settings_file(path: String, had_file: bool, file_bytes: PackedByteArray) -> void:
+	if had_file:
+		var file := FileAccess.open(path, FileAccess.WRITE)
+		if file != null:
+			file.store_buffer(file_bytes)
+			file.close()
+		return
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
+	_restore_vibration_settings_snapshot()
 	push_error(message)
 	quit(1)

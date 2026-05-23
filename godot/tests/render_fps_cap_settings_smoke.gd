@@ -37,6 +37,9 @@ func _init() -> void:
 
 
 func _verify_render_fps_cap_runtime_options() -> void:
+	var snapshot := _snapshot_display_settings_files()
+	_clear_display_settings_files()
+
 	var layout: Object = BattleViewLayout.new()
 	var project_physics_ticks: int = clampi(
 		int(ProjectSettings.get_setting(BattleViewLayout.PHYSICS_TICKS_SETTING, BattleViewLayout.PHYSICS_TICKS_PROJECT_DEFAULT)),
@@ -45,6 +48,10 @@ func _verify_render_fps_cap_runtime_options() -> void:
 	)
 	var options: Array[int] = layout.get_render_fps_cap_options()
 	_expect(options == [0, 48, 60, 72, -2, -1], "render FPS cap options should stay unlimited, 48, 60, 72, stable monitor, monitor")
+	_expect(
+		int(layout.get_saved_render_fps_cap()) == BattleViewLayout.RENDER_FPS_CAP_MONITOR,
+		"missing display settings should default render FPS to the current monitor rate"
+	)
 
 	_expect(int(layout.apply_render_fps_cap(null, 0)) == 0, "unlimited cap should normalize to zero")
 	_expect(int(Engine.get("max_fps")) == 0, "unlimited cap should clear Engine.max_fps")
@@ -55,10 +62,9 @@ func _verify_render_fps_cap_runtime_options() -> void:
 	_expect(int(Engine.physics_ticks_per_second) == project_physics_ticks, "48 FPS stability cap should keep the project physics tick rate")
 
 	_expect(int(layout.apply_render_fps_cap(null, 72)) == 72, "72 FPS cap should normalize to 72")
-	var expected_balanced_engine_cap := 0 if _get_test_monitor_refresh_rate() >= BattleViewLayout.RENDER_FPS_DRIVER_PRESENT_MIN_HZ else 72
 	_expect(
-		int(Engine.get("max_fps")) == expected_balanced_engine_cap,
-		"72 FPS cap should avoid Engine.max_fps sleep on high-refresh displays"
+		int(Engine.get("max_fps")) == 72,
+		"72 FPS cap should apply a strict Engine.max_fps target"
 	)
 	_expect(int(Engine.physics_ticks_per_second) == 72, "72 FPS cap should sync the physics tick rate to 72")
 	_expect(int(layout.apply_render_fps_cap(null, 72, DisplayServer.VSYNC_DISABLED)) == 72, "72 FPS cap should normalize with VSync Off")
@@ -85,6 +91,8 @@ func _verify_render_fps_cap_runtime_options() -> void:
 		_expect(int(Engine.physics_ticks_per_second) == project_physics_ticks, "monitor cap should keep project physics when the monitor rate is above the safe tick range")
 	_expect(str(layout.get_render_fps_cap_label(-1, null)).ends_with("Hz"), "monitor cap label should expose a refresh-rate value")
 
+	_restore_display_settings_files(snapshot)
+
 
 func _verify_legacy_display_settings_migrate_without_losing_explicit_choices() -> void:
 	var snapshot := _snapshot_display_settings_files()
@@ -96,7 +104,7 @@ func _verify_legacy_display_settings_migrate_without_losing_explicit_choices() -
 	legacy_config.save(SETTINGS_PATH)
 
 	var layout: Object = BattleViewLayout.new()
-	_expect(int(layout.get_saved_render_fps_cap()) == 48, "legacy saved 72 FPS cap should migrate to the new 48 FPS stability default")
+	_expect(int(layout.get_saved_render_fps_cap()) == -1, "legacy saved 72 FPS cap should migrate to the monitor-refresh default")
 	_expect(bool(layout.get_remember_display_mode()), "legacy explicit fullscreen display mode should imply remembered display mode")
 	_expect(
 		int(layout.get_saved_vsync_mode()) == DisplayServer.VSYNC_ENABLED,
@@ -110,8 +118,8 @@ func _verify_legacy_display_settings_migrate_without_losing_explicit_choices() -
 		"display settings migration should stamp the schema version"
 	)
 	_expect(
-		int(migrated_config.get_value("graphics", "render_fps_cap", 0)) == 48,
-		"display settings migration should rewrite legacy saved 72 FPS to 48 FPS"
+		int(migrated_config.get_value("graphics", "render_fps_cap", 0)) == -1,
+		"display settings migration should rewrite legacy saved 72 FPS to the monitor-refresh sentinel"
 	)
 	_expect(
 		bool(migrated_config.get_value("graphics", "remember_display_mode", false)),
@@ -151,6 +159,7 @@ func _verify_non_windowed_display_save_forces_remember() -> void:
 
 func _verify_auto_refresh_setting_persists_and_repairs_as_opt_in() -> void:
 	var snapshot := _snapshot_display_settings_files()
+	_clear_display_settings_files()
 
 	var layout: Object = BattleViewLayout.new()
 	_expect(not bool(layout.get_auto_refresh_rate_enabled()), "automatic 60Hz switching should default off")
@@ -280,6 +289,11 @@ func _restore_display_settings_files(snapshot: Dictionary) -> void:
 	_restore_settings_file(SETTINGS_BACKUP_PATH, bool(backup_snapshot.get("had", false)), backup_snapshot.get("bytes", PackedByteArray()))
 
 
+func _clear_display_settings_files() -> void:
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_PATH))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_BACKUP_PATH))
+
+
 func _restore_settings_file(path: String, had_file: bool, file_bytes: PackedByteArray) -> void:
 	if had_file:
 		var file := FileAccess.open(path, FileAccess.WRITE)
@@ -307,12 +321,17 @@ func _verify_vsync_runtime_options() -> void:
 		)
 
 	layout.apply_render_fps_cap(null, 72)
-	Engine.set("max_fps", 0)
-	_expect(int(layout.apply_vsync_mode(-1)) == -1, "auto vsync mode should stay configurable with delegated 72 FPS cap")
-	if can_switch_vsync_mode and _get_test_monitor_refresh_rate() >= BattleViewLayout.RENDER_FPS_DRIVER_PRESENT_MIN_HZ:
+	_expect(int(layout.apply_vsync_mode(-1)) == -1, "auto vsync mode should stay configurable with strict 72 FPS cap")
+	var strict_72_below_monitor := 72 < _get_test_monitor_refresh_rate()
+	if can_switch_vsync_mode and strict_72_below_monitor:
 		_expect(
-			int(DisplayServer.window_get_vsync_mode()) == DisplayServer.VSYNC_ADAPTIVE,
-			"auto vsync should use adaptive present when 72 FPS cap is delegated on high-refresh displays"
+			int(DisplayServer.window_get_vsync_mode()) == DisplayServer.VSYNC_DISABLED,
+			"auto vsync should disable DisplayServer vsync when strict 72 FPS cap is active below monitor rate"
+		)
+	elif can_switch_vsync_mode:
+		_expect(
+			int(DisplayServer.window_get_vsync_mode()) == DisplayServer.VSYNC_ENABLED,
+			"auto vsync should use DisplayServer vsync when strict 72 FPS is not below monitor rate"
 		)
 
 	layout.apply_render_fps_cap(null, 0)
@@ -352,11 +371,11 @@ func _verify_display_pacing_recommendation_helpers() -> void:
 	var recommendation := str(layout.get_display_pacing_recommendation(
 		null,
 		BattleViewLayout.DISPLAY_MODE_EXCLUSIVE_FULLSCREEN,
-		BattleViewLayout.RENDER_FPS_CAP_SMOOTH,
-		DisplayServer.VSYNC_ENABLED
+		BattleViewLayout.RENDER_FPS_CAP_MONITOR,
+		BattleViewLayout.VSYNC_MODE_AUTO
 	))
-	_expect(recommendation.find("60") >= 0, "display pacing recommendation should mention the 60Hz / 60 FPS target")
-	_expect(recommendation.find("VSync") >= 0, "display pacing recommendation should mention the VSync target")
+	_expect(recommendation.find(str(monitor_rate)) >= 0, "display pacing recommendation should mention the detected monitor refresh rate")
+	_expect(recommendation.find("자동") >= 0, "display pacing recommendation should describe automatic monitor-rate pacing")
 
 
 func _verify_high_refresh_render_quality_lod() -> void:
@@ -398,20 +417,20 @@ func _verify_high_refresh_render_quality_lod() -> void:
 	)
 
 	layout.save_render_fps_cap_default(72)
-	Engine.set("max_fps", 0)
+	layout.apply_render_fps_cap(null, 72)
 	BattleRenderQuality.reset_cache_for_test()
 	ViperAirborneLod.reset_cache_for_test()
 	_expect(
 		BattleRenderQuality.is_fps_cap_lod_active(),
-		"saved 72 FPS target should keep capped-frame render-quality LOD when Engine.max_fps is delegated"
+		"saved 72 FPS target should keep capped-frame render-quality LOD with strict Engine.max_fps"
 	)
 	_expect(
 		is_equal_approx(BattleRenderQuality.effect_scale({"selected_character_type": "smasher"}), BattleRenderQuality.FPS_CAP_EFFECT_SCALE),
-		"saved 72 FPS target should keep the capped-frame render-quality scale while Engine.max_fps is zero"
+		"saved 72 FPS target should keep the capped-frame render-quality scale"
 	)
 	_expect(
 		ViperAirborneLod.is_fps_cap_lod_active({"selected_character_type": "viper"}),
-		"saved 72 FPS target should keep Viper capped-frame LOD while Engine.max_fps is zero"
+		"saved 72 FPS target should keep Viper capped-frame LOD with strict Engine.max_fps"
 	)
 
 	_restore_display_settings_files(snapshot)

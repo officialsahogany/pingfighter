@@ -17,13 +17,12 @@ const RENDER_FPS_CAP_UNLIMITED := 0
 const RENDER_FPS_CAP_STABILITY := 48
 const RENDER_FPS_CAP_SMOOTH := 60
 const RENDER_FPS_CAP_BALANCED := 72
-const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABILITY
 const RENDER_FPS_CAP_MONITOR := -1
 const RENDER_FPS_CAP_STABLE_MONITOR := -2
+const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_MONITOR
 const RENDER_FPS_CAP_STABLE_MAX := 90
 const RENDER_FPS_CAP_STABLE_MIN := 45
 const RENDER_FPS_CAP_STABLE_PREFERRED_MAX := 60
-const RENDER_FPS_DRIVER_PRESENT_MIN_HZ := 120
 const HIGH_REFRESH_RECOMMENDATION_MIN_HZ := 120
 const WINDOWS_DISPLAY_SETTINGS_URI := "ms-settings:display"
 const PHYSICS_TICKS_SETTING := "physics/common/physics_ticks_per_second"
@@ -185,10 +184,7 @@ func save_display_mode_default(mode: String, remember_default: bool) -> bool:
 
 func get_render_fps_cap(window: Window = null) -> int:
 	var current_cap: int = int(Engine.get("max_fps"))
-	var runtime_cap: int = get_runtime_render_fps_cap()
 	if current_cap <= 0:
-		if _should_use_driver_present_for_cap(window, runtime_cap, get_saved_vsync_mode()):
-			return runtime_cap
 		return RENDER_FPS_CAP_UNLIMITED
 	var saved_cap: int = get_saved_render_fps_cap()
 	if saved_cap == RENDER_FPS_CAP_STABLE_MONITOR and current_cap == _get_stable_monitor_refresh_rate(window):
@@ -200,8 +196,7 @@ func get_render_fps_cap(window: Window = null) -> int:
 
 func get_saved_render_fps_cap() -> int:
 	var config := _load_display_settings()
-	var default_cap: int = int(ProjectSettings.get_setting("application/run/max_fps", RENDER_FPS_CAP_DEFAULT))
-	return _normalize_render_fps_cap(int(config.get_value("graphics", "render_fps_cap", default_cap)))
+	return _normalize_render_fps_cap(int(config.get_value("graphics", "render_fps_cap", RENDER_FPS_CAP_DEFAULT)))
 
 
 func get_render_fps_cap_options() -> Array[int]:
@@ -334,7 +329,7 @@ func get_render_fps_cap_label(cap: int, window: Window = null) -> String:
 	if normalized_cap == RENDER_FPS_CAP_UNLIMITED:
 		return "제한 없음"
 	if normalized_cap == RENDER_FPS_CAP_MONITOR:
-		return "%d Hz" % _get_monitor_refresh_rate(window)
+		return "모니터 %d Hz" % _get_monitor_refresh_rate(window)
 	return "%d FPS" % normalized_cap
 
 
@@ -358,16 +353,17 @@ func get_display_pacing_recommendation(
 	var normalized_vsync: int = _normalize_vsync_mode(selected_vsync_mode)
 	var game_settings_ready := (
 		normalized_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
-		and normalized_cap == RENDER_FPS_CAP_SMOOTH
-		and normalized_vsync == DisplayServer.VSYNC_ENABLED
+		and normalized_cap == RENDER_FPS_CAP_MONITOR
+		and (
+			normalized_vsync == VSYNC_MODE_AUTO
+			or normalized_vsync == DisplayServer.VSYNC_ENABLED
+		)
 	)
-	if monitor_rate >= HIGH_REFRESH_RECOMMENDATION_MIN_HZ:
-		if game_settings_ready:
-			return "%dHz 모니터 감지: 게임 설정은 60 FPS + VSync On입니다.\nWindows 주사율만 60Hz로 낮추면 가장 안정적입니다." % monitor_rate
-		return "%dHz 모니터 감지: Windows 60Hz를 권장합니다.\n게임은 독점 전체화면 + 60 FPS + VSync On이 가장 안정적입니다." % monitor_rate
 	if game_settings_ready:
-		return "%dHz 모니터: 권장 게임 설정입니다.\n60 FPS + VSync On 페이싱을 유지합니다." % monitor_rate
-	return "%dHz 모니터: 60 FPS + VSync On을 권장합니다.\n독점 전체화면은 페이싱 안정성을 높입니다." % monitor_rate
+		return "%dHz 모니터 감지: 현재 주사율에 렌더 FPS를 자동으로 맞춥니다.\n모니터를 바꾸면 다음 적용 시 새 주사율을 따라갑니다." % monitor_rate
+	if normalized_cap == RENDER_FPS_CAP_MONITOR:
+		return "%dHz 모니터 감지: 렌더 FPS는 현재 주사율을 따라갑니다.\n독점 전체화면과 VSync Auto가 가장 깔끔합니다." % monitor_rate
+	return "%dHz 모니터 감지: 렌더 FPS를 모니터 Hz로 두면 자동으로 맞춰집니다.\n권장값 적용을 누르면 현재 주사율 기반 설정으로 저장합니다." % monitor_rate
 
 
 func open_system_display_settings() -> int:
@@ -413,14 +409,12 @@ func _normalize_vsync_mode(mode: int) -> int:
 	return DisplayServer.VSYNC_ENABLED
 
 
-func _resolve_render_fps_cap(window: Window, cap: int, vsync_mode: int = VSYNC_MODE_AUTO) -> int:
+func _resolve_render_fps_cap(window: Window, cap: int, _vsync_mode: int = VSYNC_MODE_AUTO) -> int:
 	var normalized_cap: int = _normalize_render_fps_cap(cap)
 	if normalized_cap == RENDER_FPS_CAP_STABLE_MONITOR:
 		return _get_stable_monitor_refresh_rate(window)
 	if normalized_cap == RENDER_FPS_CAP_MONITOR:
 		return _get_monitor_refresh_rate(window)
-	if _should_use_driver_present_for_cap(window, normalized_cap, vsync_mode):
-		return RENDER_FPS_CAP_UNLIMITED
 	return normalized_cap
 
 
@@ -457,26 +451,11 @@ static func _get_project_physics_ticks_per_second() -> int:
 	return _project_physics_ticks_per_second
 
 
-func _should_use_driver_present_for_cap(window: Window, cap: int, vsync_mode: int = VSYNC_MODE_AUTO) -> bool:
-	var normalized_vsync: int = _normalize_vsync_mode(vsync_mode)
-	var can_delegate_present: bool = (
-		normalized_vsync == VSYNC_MODE_AUTO
-		or normalized_vsync == DisplayServer.VSYNC_ADAPTIVE
-	)
-	return (
-		_normalize_render_fps_cap(cap) == RENDER_FPS_CAP_BALANCED
-		and can_delegate_present
-		and _get_monitor_refresh_rate(window) >= RENDER_FPS_DRIVER_PRESENT_MIN_HZ
-	)
-
-
 func _resolve_vsync_mode(window: Window, mode: int) -> int:
 	var normalized_mode: int = _normalize_vsync_mode(mode)
 	if normalized_mode != VSYNC_MODE_AUTO:
 		return normalized_mode
 	var render_cap: int = int(Engine.get("max_fps"))
-	if render_cap <= 0 and _should_use_driver_present_for_cap(window, get_runtime_render_fps_cap(), normalized_mode):
-		return DisplayServer.VSYNC_ADAPTIVE
 	if render_cap > 0 and render_cap < _get_monitor_refresh_rate(window):
 		return DisplayServer.VSYNC_DISABLED
 	return DisplayServer.VSYNC_ENABLED
@@ -524,7 +503,7 @@ func _get_stable_monitor_refresh_rate(window: Window = null) -> int:
 		var candidate: int = monitor_rate / divisor
 		if candidate <= RENDER_FPS_CAP_STABLE_MAX and candidate >= RENDER_FPS_CAP_STABLE_MIN:
 			return candidate
-	return min(RENDER_FPS_CAP_DEFAULT, monitor_rate)
+	return min(RENDER_FPS_CAP_STABILITY, monitor_rate)
 
 
 func _load_display_settings() -> ConfigFile:

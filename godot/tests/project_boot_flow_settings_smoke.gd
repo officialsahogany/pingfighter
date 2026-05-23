@@ -15,7 +15,7 @@ func _init() -> void:
 	)
 	_expect(
 		int(ProjectSettings.get_setting("application/run/max_fps", 0)) == 48,
-		"project default render FPS should stay on the 48 FPS stable 144Hz-divisor preset"
+		"project bootstrap max FPS should stay on the 48 FPS safety cap before display settings apply"
 	)
 	_expect(
 		str(ProjectSettings.get_setting("autoload/GameSelectionState", "")) == "*res://scripts/core/game_selection_state.gd",

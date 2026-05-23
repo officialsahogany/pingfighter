@@ -1,5 +1,8 @@
 extends RefCounted
 
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
+
 const MENU_CONTINUE := "continue"
 const MENU_CHARACTER_INFO := "character_info"
 const MENU_OPTIONS := "options"
@@ -7,6 +10,9 @@ const SOUND_SLIDER_BGM := "bgm"
 const SOUND_SLIDER_SFX := "sfx"
 const OPTIONS_TAB_SOUND := "sound"
 const OPTIONS_TAB_DISPLAY := "display"
+const OPTIONS_TAB_CONTROLS := "controls"
+const CONTROL_DEVICE_KEYBOARD_MOUSE := "keyboard_mouse"
+const CONTROL_DEVICE_JOYPAD := "joypad"
 const DISPLAY_MODE_FULLSCREEN := "fullscreen"
 const DISPLAY_MODE_EXCLUSIVE_FULLSCREEN := "exclusive_fullscreen"
 const DISPLAY_MODE_WINDOWED := "windowed"
@@ -14,9 +20,9 @@ const RENDER_FPS_CAP_UNLIMITED := 0
 const RENDER_FPS_CAP_STABILITY := 48
 const RENDER_FPS_CAP_SMOOTH := 60
 const RENDER_FPS_CAP_BALANCED := 72
-const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_STABILITY
 const RENDER_FPS_CAP_MONITOR := -1
 const RENDER_FPS_CAP_STABLE_MONITOR := -2
+const RENDER_FPS_CAP_DEFAULT := RENDER_FPS_CAP_MONITOR
 const VSYNC_MODE_AUTO := -1
 const VSYNC_MODE_DISABLED := 0
 const VSYNC_MODE_ENABLED := 1
@@ -33,6 +39,8 @@ const SLIDER_HANDLE_RADIUS := 8.0
 const VOLUME_STEP := 0.05
 const SOUND_FOCUS_COUNT := 3
 const DISPLAY_FOCUS_COUNT := 9
+const CONTROLS_BASE_FOCUS_COUNT := 2
+const CONTROLS_JOYPAD_FOCUS_COUNT := 3
 
 const PANEL_COLOR := Color(16.0 / 255.0, 20.0 / 255.0, 32.0 / 255.0, 0.96)
 const PANEL_BORDER := Color(82.0 / 255.0, 165.0 / 255.0, 220.0 / 255.0, 0.86)
@@ -55,11 +63,13 @@ var selected_index := 0
 var options_focus := 0
 var dragging_slider := ""
 var options_tab := OPTIONS_TAB_SOUND
+var controls_device_view := CONTROL_DEVICE_KEYBOARD_MOUSE
 var display_mode := DISPLAY_MODE_WINDOWED
 var remember_display_mode := false
 var auto_refresh_rate_60hz := false
 var render_fps_cap := RENDER_FPS_CAP_DEFAULT
 var vsync_mode := VSYNC_MODE_AUTO
+var gamepad_vibration_level := GamepadVibrationSettings.VIBRATION_LEVEL_DEFAULT
 var options_only := false
 var _synced_display_mode := DISPLAY_MODE_WINDOWED
 var _synced_remember_display_mode := false
@@ -84,6 +94,7 @@ func open() -> void:
 	options_focus = 0
 	dragging_slider = ""
 	options_tab = OPTIONS_TAB_SOUND
+	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
 
 
 func close() -> void:
@@ -94,6 +105,7 @@ func close() -> void:
 	options_focus = 0
 	dragging_slider = ""
 	options_tab = OPTIONS_TAB_SOUND
+	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
 
 
 func toggle() -> void:
@@ -121,6 +133,8 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 		return {"handled": false}
 	if event is InputEventKey:
 		return _handle_key_input(event as InputEventKey, owner, registry)
+	if GamepadInput.is_gamepad_event(event):
+		return _handle_gamepad_input(event, owner, registry)
 	if event is InputEventMouseButton:
 		return _handle_mouse_button(event as InputEventMouseButton, owner, registry, view_size)
 	if event is InputEventMouseMotion:
@@ -128,7 +142,7 @@ func handle_input(event: InputEvent, owner: Object, registry: Object, view_size:
 	return {"handled": true}
 
 
-func draw(canvas: CanvasItem, _owner: Object, registry: Object, view_size: Vector2) -> void:
+func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector2) -> void:
 	if not active or canvas == null:
 		return
 	var font: Font = ThemeDB.fallback_font
@@ -141,7 +155,7 @@ func draw(canvas: CanvasItem, _owner: Object, registry: Object, view_size: Vecto
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.58 * alpha))
 	_draw_panel(canvas, panel_rect, PANEL_COLOR, PANEL_BORDER, 2.0)
 	if options_open:
-		_draw_options_window(canvas, font, panel_rect, mouse_pos, registry)
+		_draw_options_window(canvas, font, panel_rect, mouse_pos, registry, owner)
 	else:
 		_draw_main_menu(canvas, font, panel_rect, mouse_pos)
 
@@ -169,11 +183,42 @@ func _handle_options_key_input(key_event: InputEventKey, owner: Object, registry
 	if _is_key(key_event, KEY_ESCAPE):
 		return _close_options_page()
 	if _is_key(key_event, KEY_TAB):
-		_switch_options_tab()
+		_switch_options_tab(1, owner, registry)
 		return {"handled": true}
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		return _handle_display_key_input(key_event, owner, registry)
+	if options_tab == OPTIONS_TAB_CONTROLS:
+		return _handle_controls_key_input(key_event)
 	return _handle_sound_key_input(key_event, registry)
+
+
+func _handle_gamepad_input(event: InputEvent, owner: Object, registry: Object) -> Dictionary:
+	if options_open:
+		return _handle_options_gamepad_input(event, owner, registry)
+	if GamepadInput.is_cancel_event(event) or GamepadInput.is_pause_event(event):
+		close()
+		return {"handled": true, "action": MENU_CONTINUE}
+	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
+	if vertical_direction != 0:
+		_move_selection(vertical_direction)
+		return {"handled": true}
+	if GamepadInput.is_confirm_event(event):
+		return _activate_selected(owner, registry)
+	return {"handled": true}
+
+
+func _handle_options_gamepad_input(event: InputEvent, owner: Object, registry: Object) -> Dictionary:
+	if GamepadInput.is_cancel_event(event) or GamepadInput.is_pause_event(event):
+		return _close_options_page()
+	var tab_direction: int = GamepadInput.get_tab_direction_event(event)
+	if tab_direction != 0:
+		_switch_options_tab(tab_direction, owner, registry)
+		return {"handled": true}
+	if options_tab == OPTIONS_TAB_DISPLAY:
+		return _handle_display_gamepad_input(event, owner, registry)
+	if options_tab == OPTIONS_TAB_CONTROLS:
+		return _handle_controls_gamepad_input(event)
+	return _handle_sound_gamepad_input(event, registry)
 
 
 func _handle_sound_key_input(key_event: InputEventKey, registry: Object) -> Dictionary:
@@ -237,6 +282,80 @@ func _handle_display_key_input(key_event: InputEventKey, owner: Object, registry
 	return {"handled": true}
 
 
+func _handle_controls_key_input(key_event: InputEventKey) -> Dictionary:
+	var focus_count := _get_controls_focus_count()
+	if _is_key(key_event, KEY_UP):
+		options_focus = (options_focus + focus_count - 1) % focus_count
+		return {"handled": true}
+	if _is_key(key_event, KEY_DOWN):
+		options_focus = (options_focus + 1) % focus_count
+		return {"handled": true}
+	if _is_key(key_event, KEY_LEFT):
+		_adjust_controls_focus(-1)
+		return {"handled": true}
+	if _is_key(key_event, KEY_RIGHT):
+		_adjust_controls_focus(1)
+		return {"handled": true}
+	if _is_key(key_event, KEY_ENTER) or _is_key(key_event, KEY_KP_ENTER) or _is_key(key_event, KEY_SPACE):
+		if options_focus == 0:
+			_cycle_control_device_view(1)
+			return {"handled": true}
+		if _is_controls_vibration_focus():
+			_adjust_gamepad_vibration_level(1)
+			return {"handled": true}
+		return _close_options_page()
+	return {"handled": true}
+
+
+func _handle_sound_gamepad_input(event: InputEvent, registry: Object) -> Dictionary:
+	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
+	if vertical_direction != 0:
+		options_focus = (options_focus + vertical_direction + SOUND_FOCUS_COUNT) % SOUND_FOCUS_COUNT
+		return {"handled": true}
+	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
+	if horizontal_direction != 0:
+		_adjust_focused_volume(registry, float(horizontal_direction) * VOLUME_STEP)
+		return {"handled": true}
+	if GamepadInput.is_confirm_event(event) and options_focus == 2:
+		return _close_options_page()
+	return {"handled": true}
+
+
+func _handle_display_gamepad_input(event: InputEvent, owner: Object, registry: Object) -> Dictionary:
+	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
+	if vertical_direction != 0:
+		options_focus = (options_focus + vertical_direction + DISPLAY_FOCUS_COUNT) % DISPLAY_FOCUS_COUNT
+		return {"handled": true}
+	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
+	if horizontal_direction != 0:
+		_handle_display_focus_delta(horizontal_direction, owner, registry)
+		return {"handled": true}
+	if GamepadInput.is_confirm_event(event):
+		return _activate_display_focus(owner, registry)
+	return {"handled": true}
+
+
+func _handle_controls_gamepad_input(event: InputEvent) -> Dictionary:
+	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
+	if vertical_direction != 0:
+		var focus_count := _get_controls_focus_count()
+		options_focus = (options_focus + vertical_direction + focus_count) % focus_count
+		return {"handled": true}
+	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
+	if horizontal_direction != 0:
+		_adjust_controls_focus(horizontal_direction)
+		return {"handled": true}
+	if GamepadInput.is_confirm_event(event):
+		if options_focus == 0:
+			_cycle_control_device_view(1)
+			return {"handled": true}
+		if _is_controls_vibration_focus():
+			_adjust_gamepad_vibration_level(1)
+			return {"handled": true}
+		return _close_options_page()
+	return {"handled": true}
+
+
 func _handle_mouse_button(mouse_event: InputEventMouseButton, owner: Object, registry: Object, view_size: Vector2) -> Dictionary:
 	if not mouse_event.pressed:
 		dragging_slider = ""
@@ -279,8 +398,16 @@ func _handle_options_click(position: Vector2, owner: Object, registry: Object, v
 		dragging_slider = ""
 		_sync_display_settings(owner, registry)
 		return {"handled": true}
+	if _get_controls_tab_rect(panel_rect).has_point(position):
+		options_tab = OPTIONS_TAB_CONTROLS
+		options_focus = 0
+		dragging_slider = ""
+		_sync_controls_settings()
+		return {"handled": true}
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		return _handle_display_click(position, owner, registry, panel_rect)
+	if options_tab == OPTIONS_TAB_CONTROLS:
+		return _handle_controls_click(position, panel_rect)
 	return _handle_sound_click(position, registry, view_size, panel_rect)
 
 
@@ -348,6 +475,24 @@ func _handle_display_click(position: Vector2, owner: Object, registry: Object, p
 	return {"handled": true}
 
 
+func _handle_controls_click(position: Vector2, panel_rect: Rect2) -> Dictionary:
+	if _get_controls_keyboard_mouse_rect(panel_rect).has_point(position):
+		controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
+		options_focus = 0
+		return {"handled": true}
+	if _get_controls_joypad_rect(panel_rect).has_point(position):
+		controls_device_view = CONTROL_DEVICE_JOYPAD
+		options_focus = 0
+		return {"handled": true}
+	if controls_device_view == CONTROL_DEVICE_JOYPAD and _get_controls_vibration_row_rect(panel_rect).has_point(position):
+		options_focus = 1
+		_adjust_gamepad_vibration_level(1)
+		return {"handled": true}
+	if _get_controls_back_button_rect(panel_rect).has_point(position):
+		return _close_options_page()
+	return {"handled": true}
+
+
 func _move_selection(delta: int) -> void:
 	var count := 3
 	selected_index = (selected_index + delta + count) % count
@@ -380,7 +525,9 @@ func _open_options(owner: Object, registry: Object) -> void:
 	options_focus = 0
 	dragging_slider = ""
 	options_tab = OPTIONS_TAB_SOUND
+	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
 	_sync_display_settings(owner, registry)
+	_sync_controls_settings()
 
 
 func _close_options_page() -> Dictionary:
@@ -393,10 +540,19 @@ func _close_options_page() -> Dictionary:
 	return {"handled": true}
 
 
-func _switch_options_tab() -> void:
-	options_tab = OPTIONS_TAB_DISPLAY if options_tab == OPTIONS_TAB_SOUND else OPTIONS_TAB_SOUND
+func _switch_options_tab(direction: int = 1, owner: Object = null, registry: Object = null) -> void:
+	var tabs: Array[String] = [OPTIONS_TAB_SOUND, OPTIONS_TAB_DISPLAY, OPTIONS_TAB_CONTROLS]
+	var index: int = tabs.find(options_tab)
+	if index < 0:
+		index = 0
+	var step: int = 1 if direction >= 0 else -1
+	options_tab = tabs[(index + step + tabs.size()) % tabs.size()]
 	options_focus = 0
 	dragging_slider = ""
+	if options_tab == OPTIONS_TAB_DISPLAY:
+		_sync_display_settings(owner, registry)
+	elif options_tab == OPTIONS_TAB_CONTROLS:
+		_sync_controls_settings()
 
 
 func _cycle_display_mode(direction: int) -> void:
@@ -417,6 +573,81 @@ func _set_display_mode_option(mode: String) -> void:
 	if normalized != display_mode:
 		display_mode = normalized
 		_display_preference_dirty = true
+
+
+func _handle_display_focus_delta(direction: int, owner: Object, registry: Object) -> void:
+	if options_focus == 0:
+		_cycle_display_mode(direction)
+	elif options_focus == 1:
+		_cycle_render_fps_cap(direction, owner, registry)
+	elif options_focus == 2:
+		_cycle_vsync_mode(direction, owner, registry)
+
+
+func _activate_display_focus(owner: Object, registry: Object) -> Dictionary:
+	match options_focus:
+		0:
+			_cycle_display_mode(1)
+		1:
+			_cycle_render_fps_cap(1, owner, registry)
+		2:
+			_cycle_vsync_mode(1, owner, registry)
+		3:
+			remember_display_mode = not remember_display_mode
+			_display_preference_dirty = true
+		4:
+			auto_refresh_rate_60hz = not auto_refresh_rate_60hz
+			_display_preference_dirty = true
+		5:
+			_apply_recommended_display_settings(owner, registry)
+		6:
+			_apply_60hz_now(owner, registry)
+		7:
+			_save_display_options(owner, registry)
+		8:
+			return _close_options_page()
+	return {"handled": true}
+
+
+func _cycle_control_device_view(direction: int) -> void:
+	if direction == 0:
+		return
+	var views: Array[String] = [CONTROL_DEVICE_KEYBOARD_MOUSE, CONTROL_DEVICE_JOYPAD]
+	var index: int = views.find(controls_device_view)
+	if index < 0:
+		index = 0
+	var step: int = 1 if direction >= 0 else -1
+	controls_device_view = views[(index + step + views.size()) % views.size()]
+	options_focus = clampi(options_focus, 0, _get_controls_focus_count() - 1)
+
+
+func _adjust_controls_focus(direction: int) -> void:
+	if options_focus == 0:
+		_cycle_control_device_view(direction)
+	elif _is_controls_vibration_focus():
+		_adjust_gamepad_vibration_level(direction)
+
+
+func _adjust_gamepad_vibration_level(direction: int) -> void:
+	if direction == 0:
+		return
+	gamepad_vibration_level = GamepadVibrationSettings.set_vibration_level(gamepad_vibration_level + direction)
+
+
+func _is_controls_vibration_focus() -> bool:
+	return controls_device_view == CONTROL_DEVICE_JOYPAD and options_focus == 1
+
+
+func _get_controls_focus_count() -> int:
+	return CONTROLS_JOYPAD_FOCUS_COUNT if controls_device_view == CONTROL_DEVICE_JOYPAD else CONTROLS_BASE_FOCUS_COUNT
+
+
+func _get_controls_back_focus_index() -> int:
+	return 2 if controls_device_view == CONTROL_DEVICE_JOYPAD else 1
+
+
+func _sync_controls_settings() -> void:
+	gamepad_vibration_level = GamepadVibrationSettings.get_vibration_level()
 
 
 func _cycle_render_fps_cap(direction: int, owner: Object, registry: Object) -> void:
@@ -519,8 +750,9 @@ func _save_display_options(owner: Object, registry: Object) -> void:
 func _apply_recommended_display_settings(owner: Object, registry: Object) -> void:
 	display_mode = DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
 	remember_display_mode = true
-	render_fps_cap = RENDER_FPS_CAP_SMOOTH
-	vsync_mode = VSYNC_MODE_ENABLED
+	render_fps_cap = RENDER_FPS_CAP_MONITOR
+	vsync_mode = VSYNC_MODE_AUTO
+	auto_refresh_rate_60hz = false
 	_display_preference_dirty = true
 	_save_display_options(owner, registry)
 
@@ -576,10 +808,10 @@ func _get_render_fps_cap_options(registry: Object) -> Array[int]:
 	]
 
 
-func _get_render_fps_cap_label(registry: Object) -> String:
+func _get_render_fps_cap_label(registry: Object, owner: Object = null) -> String:
 	var view_layout: Object = _get_instance(registry, "battle_view_layout")
 	if view_layout != null and view_layout.has_method("get_render_fps_cap_label"):
-		return str(view_layout.get_render_fps_cap_label(render_fps_cap, null))
+		return str(view_layout.get_render_fps_cap_label(render_fps_cap, _get_owner_window(owner)))
 	if render_fps_cap == RENDER_FPS_CAP_STABLE_MONITOR:
 		return "Stable 48 FPS"
 	if render_fps_cap == RENDER_FPS_CAP_UNLIMITED:
@@ -620,11 +852,11 @@ func _get_vsync_mode_label(registry: Object) -> String:
 	return "VSync On"
 
 
-func _get_display_pacing_recommendation(registry: Object) -> String:
+func _get_display_pacing_recommendation(registry: Object, owner: Object = null) -> String:
 	var view_layout: Object = _get_instance(registry, "battle_view_layout")
 	if view_layout != null and view_layout.has_method("get_display_pacing_recommendation"):
-		return str(view_layout.get_display_pacing_recommendation(null, display_mode, render_fps_cap, vsync_mode))
-	return "60Hz 모니터 + 60 FPS + VSync On을 권장합니다.\n독점 전체화면은 페이싱 안정성을 높입니다."
+		return str(view_layout.get_display_pacing_recommendation(_get_owner_window(owner), display_mode, render_fps_cap, vsync_mode))
+	return "렌더 FPS를 모니터 Hz로 두면 현재 주사율에 자동으로 맞춰집니다.\n독점 전체화면과 VSync Auto를 권장합니다."
 
 
 func _open_system_display_settings(registry: Object) -> void:
@@ -670,18 +902,21 @@ func _draw_main_menu(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_po
 		_draw_button(canvas, font, _get_button_rect(panel_rect, index, entries.size()), str(entries[index].get("label", "")), index == selected_index, mouse_pos)
 
 
-func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object) -> void:
+func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object, owner: Object = null) -> void:
 	var header_rect := Rect2(panel_rect.position, Vector2(panel_rect.size.x, 62.0))
 	canvas.draw_rect(header_rect, HEADER_COLOR)
 	canvas.draw_line(panel_rect.position + Vector2(14.0, 62.0), Vector2(panel_rect.end.x - 14.0, panel_rect.position.y + 62.0), PANEL_BORDER, 2.0)
 	_draw_text(canvas, font, "설정", panel_rect.position + Vector2(28.0, 40.0), 24, Color.WHITE)
 	_draw_tab(canvas, font, _get_sound_tab_rect(panel_rect), "사운드", options_tab == OPTIONS_TAB_SOUND)
 	_draw_tab(canvas, font, _get_display_tab_rect(panel_rect), "디스플레이", options_tab == OPTIONS_TAB_DISPLAY)
+	_draw_tab(canvas, font, _get_controls_tab_rect(panel_rect), "조작", options_tab == OPTIONS_TAB_CONTROLS)
 
 	var content_rect := Rect2(panel_rect.position + Vector2(28.0, 84.0), Vector2(panel_rect.size.x - 56.0, panel_rect.size.y - 166.0))
 	_draw_panel(canvas, content_rect, SECTION_COLOR, Color(PANEL_BORDER.r, PANEL_BORDER.g, PANEL_BORDER.b, 0.42), 1.0)
 	if options_tab == OPTIONS_TAB_DISPLAY:
-		_draw_display_tab(canvas, font, panel_rect, mouse_pos, registry)
+		_draw_display_tab(canvas, font, panel_rect, mouse_pos, registry, owner)
+	elif options_tab == OPTIONS_TAB_CONTROLS:
+		_draw_controls_tab(canvas, font, panel_rect, mouse_pos)
 	else:
 		_draw_volume_slider(canvas, font, SOUND_SLIDER_BGM, "BGM 볼륨", _get_bgm_volume(registry), ACCENT_BLUE, options_focus == 0, mouse_pos, panel_rect)
 		_draw_volume_slider(canvas, font, SOUND_SLIDER_SFX, "효과음 볼륨", _get_sfx_volume(registry), ACCENT_GREEN, options_focus == 1, mouse_pos, panel_rect)
@@ -721,7 +956,7 @@ func _draw_volume_slider(
 	_draw_text(canvas, font, percent, Vector2(slider_rect.end.x + 18.0, row_center_y + 6.0), 15, accent)
 
 
-func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object) -> void:
+func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object, owner: Object = null) -> void:
 	var label_pos := panel_rect.position + Vector2(54.0, 137.0)
 	_draw_text(canvas, font, "화면 모드", label_pos, 19, Color.WHITE)
 	_draw_mode_pill(canvas, font, _get_display_fullscreen_rect(panel_rect), "전체화면", display_mode == DISPLAY_MODE_FULLSCREEN, options_focus == 0, mouse_pos)
@@ -729,53 +964,122 @@ func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_
 	_draw_mode_pill(canvas, font, _get_display_windowed_rect(panel_rect), "창모드", display_mode == DISPLAY_MODE_WINDOWED, options_focus == 0, mouse_pos)
 
 	var desc := _get_display_mode_description()
-	_draw_text_centered(canvas, font, desc, panel_rect.position + Vector2(panel_rect.size.x * 0.5, 176.0), 14, TEXT_DIM)
+	_draw_text(canvas, font, desc, panel_rect.position + Vector2(280.0, 162.0), 13, TEXT_DIM)
 
 	var fps_row_rect: Rect2 = _get_display_fps_cap_row_rect(panel_rect)
 	var fps_value_rect: Rect2 = _get_display_fps_cap_value_rect(panel_rect)
-	var fps_hovered: bool = fps_row_rect.has_point(mouse_pos)
-	var fps_border := ACCENT_BLUE if options_focus == 1 or fps_hovered else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.42)
-	_draw_text(canvas, font, "렌더 FPS", fps_row_rect.position + Vector2(0.0, 27.0), 18, Color.WHITE)
-	_draw_panel(canvas, fps_value_rect, BUTTON_HOVER if fps_hovered else BUTTON_COLOR, fps_border, 1.0)
-	_draw_text_in_rect(canvas, font, _get_render_fps_cap_label(registry), fps_value_rect, 16, Color.WHITE)
+	_draw_setting_select_row(
+		canvas,
+		font,
+		fps_row_rect,
+		fps_value_rect,
+		"렌더 FPS",
+		_get_render_fps_cap_label(registry, owner),
+		options_focus == 1,
+		mouse_pos
+	)
 
 	var vsync_row_rect: Rect2 = _get_display_vsync_row_rect(panel_rect)
 	var vsync_value_rect: Rect2 = _get_display_vsync_value_rect(panel_rect)
-	var vsync_hovered: bool = vsync_row_rect.has_point(mouse_pos)
-	var vsync_border := ACCENT_BLUE if options_focus == 2 or vsync_hovered else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.42)
-	_draw_text(canvas, font, "VSync", vsync_row_rect.position + Vector2(0.0, 27.0), 18, Color.WHITE)
-	_draw_panel(canvas, vsync_value_rect, BUTTON_HOVER if vsync_hovered else BUTTON_COLOR, vsync_border, 1.0)
-	_draw_text_in_rect(canvas, font, _get_vsync_mode_label(registry), vsync_value_rect, 16, Color.WHITE)
+	_draw_setting_select_row(
+		canvas,
+		font,
+		vsync_row_rect,
+		vsync_value_rect,
+		"VSync",
+		_get_vsync_mode_label(registry),
+		options_focus == 2,
+		mouse_pos
+	)
 
 	var checkbox_rect: Rect2 = _get_display_default_checkbox_rect(panel_rect)
 	var row_rect: Rect2 = _get_display_default_row_rect(panel_rect)
-	var row_hovered: bool = row_rect.has_point(mouse_pos)
-	var border := ACCENT_BLUE if options_focus == 3 or row_hovered else Color(150.0 / 255.0, 160.0 / 255.0, 176.0 / 255.0)
-	var fill := Color(60.0 / 255.0, 90.0 / 255.0, 130.0 / 255.0, 0.95) if remember_display_mode else Color(45.0 / 255.0, 55.0 / 255.0, 70.0 / 255.0, 0.95)
-	_draw_panel(canvas, checkbox_rect, fill, border, 2.0)
-	if remember_display_mode:
-		var center := checkbox_rect.get_center()
-		canvas.draw_line(center + Vector2(-6.0, 0.0), center + Vector2(-2.0, 5.0), ACCENT_BLUE, 3.0)
-		canvas.draw_line(center + Vector2(-2.0, 5.0), center + Vector2(8.0, -6.0), ACCENT_BLUE, 3.0)
-	_draw_text(canvas, font, "해당 화면설정을 기본으로 저장", Vector2(checkbox_rect.end.x + 14.0, checkbox_rect.position.y + 23.0), 19, Color.WHITE)
+	_draw_toggle_setting_row(
+		canvas,
+		font,
+		row_rect,
+		checkbox_rect,
+		"현재 화면 설정 저장",
+		"다음 실행부터 이 화면 모드와 주사율을 사용",
+		remember_display_mode,
+		options_focus == 3,
+		mouse_pos
+	)
 
 	var auto_checkbox_rect: Rect2 = _get_display_auto_refresh_checkbox_rect(panel_rect)
 	var auto_row_rect: Rect2 = _get_display_auto_refresh_row_rect(panel_rect)
-	var auto_row_hovered: bool = auto_row_rect.has_point(mouse_pos)
-	var auto_border := ACCENT_BLUE if options_focus == 4 or auto_row_hovered else Color(150.0 / 255.0, 160.0 / 255.0, 176.0 / 255.0)
-	var auto_fill := Color(60.0 / 255.0, 90.0 / 255.0, 130.0 / 255.0, 0.95) if auto_refresh_rate_60hz else Color(45.0 / 255.0, 55.0 / 255.0, 70.0 / 255.0, 0.95)
-	_draw_panel(canvas, auto_checkbox_rect, auto_fill, auto_border, 2.0)
-	if auto_refresh_rate_60hz:
-		var auto_center := auto_checkbox_rect.get_center()
-		canvas.draw_line(auto_center + Vector2(-6.0, 0.0), auto_center + Vector2(-2.0, 5.0), ACCENT_BLUE, 3.0)
-		canvas.draw_line(auto_center + Vector2(-2.0, 5.0), auto_center + Vector2(8.0, -6.0), ACCENT_BLUE, 3.0)
-	_draw_text(canvas, font, "게임 중 60Hz 자동 전환", Vector2(auto_checkbox_rect.end.x + 14.0, auto_checkbox_rect.position.y + 23.0), 19, Color.WHITE)
+	_draw_toggle_setting_row(
+		canvas,
+		font,
+		auto_row_rect,
+		auto_checkbox_rect,
+		"60Hz 모드 자동 전환",
+		"특정 모니터에서 60Hz 페이싱이 필요할 때만 사용",
+		auto_refresh_rate_60hz,
+		options_focus == 4,
+		mouse_pos,
+		true
+	)
 
-	_draw_recommendation_block(canvas, font, _get_display_pacing_recommendation_rect(panel_rect), _get_display_pacing_recommendation(registry))
+	_draw_recommendation_block(canvas, font, _get_display_pacing_recommendation_rect(panel_rect), _get_display_pacing_recommendation(registry, owner))
 	_draw_button(canvas, font, _get_display_recommended_button_rect(panel_rect), "권장값 적용", options_focus == 5, mouse_pos)
-	_draw_button(canvas, font, _get_display_apply_60hz_button_rect(panel_rect), "지금 60Hz", options_focus == 6, mouse_pos)
+	_draw_button(canvas, font, _get_display_apply_60hz_button_rect(panel_rect), "60Hz 모드", options_focus == 6, mouse_pos)
 	_draw_button(canvas, font, _get_display_save_button_rect(panel_rect), "저장", options_focus == 7, mouse_pos)
 	_draw_button(canvas, font, _get_display_back_button_rect(panel_rect), _get_options_back_label(), options_focus == 8, mouse_pos)
+
+
+func _draw_controls_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
+	_draw_text(canvas, font, "입력 장치", panel_rect.position + Vector2(54.0, 137.0), 19, Color.WHITE)
+	_draw_mode_pill(
+		canvas,
+		font,
+		_get_controls_keyboard_mouse_rect(panel_rect),
+		"키보드+마우스",
+		controls_device_view == CONTROL_DEVICE_KEYBOARD_MOUSE,
+		options_focus == 0,
+		mouse_pos
+	)
+	_draw_mode_pill(
+		canvas,
+		font,
+		_get_controls_joypad_rect(panel_rect),
+		"조이패드",
+		controls_device_view == CONTROL_DEVICE_JOYPAD,
+		options_focus == 0,
+		mouse_pos
+	)
+	if controls_device_view == CONTROL_DEVICE_JOYPAD:
+		var vibration_row_rect: Rect2 = _get_controls_vibration_row_rect(panel_rect)
+		_draw_setting_select_row(
+			canvas,
+			font,
+			vibration_row_rect,
+			_get_controls_vibration_value_rect(panel_rect),
+			"진동 감도",
+			GamepadVibrationSettings.get_vibration_level_label(gamepad_vibration_level),
+			options_focus == 1,
+			mouse_pos
+		)
+	var rows: Array = _get_control_mapping_rows()
+	for index in range(rows.size()):
+		var row: Dictionary = rows[index]
+		_draw_control_mapping_row(
+			canvas,
+			font,
+			_get_controls_mapping_row_rect(panel_rect, index),
+			str(row.get("label", "")),
+			str(row.get("value", ""))
+		)
+	_draw_button(canvas, font, _get_controls_back_button_rect(panel_rect), _get_options_back_label(), options_focus == _get_controls_back_focus_index(), mouse_pos)
+
+
+func _draw_control_mapping_row(canvas: CanvasItem, font: Font, rect: Rect2, label: String, value: String) -> void:
+	_draw_panel(canvas, rect, Color(26.0 / 255.0, 34.0 / 255.0, 50.0 / 255.0, 0.88), Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.28), 1.0)
+	var label_size: int = 16 if rect.size.y >= 34.0 else 14
+	var value_size: int = 15 if rect.size.y >= 34.0 else 13
+	var baseline_y: float = minf(27.0, rect.size.y - 8.0)
+	_draw_text(canvas, font, label, rect.position + Vector2(18.0, baseline_y), label_size, Color.WHITE)
+	_draw_text(canvas, font, value, rect.position + Vector2(220.0, baseline_y), value_size, Color(218.0 / 255.0, 230.0 / 255.0, 244.0 / 255.0))
 
 
 func _draw_mode_pill(
@@ -796,6 +1100,56 @@ func _draw_mode_pill(
 	_draw_text_in_rect(canvas, font, label, rect, 17, Color.WHITE)
 
 
+func _draw_setting_select_row(
+	canvas: CanvasItem,
+	font: Font,
+	row_rect: Rect2,
+	value_rect: Rect2,
+	label: String,
+	value: String,
+	focused: bool,
+	mouse_pos: Vector2
+) -> void:
+	var hovered: bool = row_rect.has_point(mouse_pos)
+	var fill := Color(25.0 / 255.0, 33.0 / 255.0, 50.0 / 255.0, 0.94)
+	if hovered or focused:
+		fill = Color(31.0 / 255.0, 43.0 / 255.0, 64.0 / 255.0, 0.98)
+	var border := ACCENT_BLUE if hovered or focused else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.24)
+	_draw_panel(canvas, row_rect, fill, border, 1.0)
+	_draw_text(canvas, font, label, row_rect.position + Vector2(18.0, 29.0), 16, Color.WHITE)
+	_draw_panel(canvas, value_rect, BUTTON_COLOR, Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.48), 1.0)
+	_draw_text_in_rect(canvas, font, value, value_rect, 15, Color.WHITE)
+
+
+func _draw_toggle_setting_row(
+	canvas: CanvasItem,
+	font: Font,
+	row_rect: Rect2,
+	checkbox_rect: Rect2,
+	title: String,
+	subtitle: String,
+	enabled: bool,
+	focused: bool,
+	mouse_pos: Vector2,
+	muted: bool = false
+) -> void:
+	var hovered: bool = row_rect.has_point(mouse_pos)
+	var fill := Color(24.0 / 255.0, 31.0 / 255.0, 46.0 / 255.0, 0.90)
+	if hovered or focused:
+		fill = Color(30.0 / 255.0, 42.0 / 255.0, 62.0 / 255.0, 0.96)
+	var border := ACCENT_BLUE if hovered or focused else Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.20)
+	_draw_panel(canvas, row_rect, fill, border, 1.0)
+	var checkbox_fill := Color(55.0 / 255.0, 85.0 / 255.0, 122.0 / 255.0, 0.95) if enabled else Color(31.0 / 255.0, 39.0 / 255.0, 54.0 / 255.0, 0.95)
+	_draw_panel(canvas, checkbox_rect, checkbox_fill, Color(BUTTON_BORDER.r, BUTTON_BORDER.g, BUTTON_BORDER.b, 0.72), 1.0)
+	if enabled:
+		var center := checkbox_rect.get_center()
+		canvas.draw_line(center + Vector2(-5.0, 0.0), center + Vector2(-1.5, 4.0), ACCENT_BLUE, 2.5)
+		canvas.draw_line(center + Vector2(-1.5, 4.0), center + Vector2(6.0, -5.0), ACCENT_BLUE, 2.5)
+	var title_color := Color(1.0, 1.0, 1.0, 0.88) if muted and not enabled else Color.WHITE
+	_draw_text(canvas, font, title, row_rect.position + Vector2(58.0, 24.0), 15, title_color)
+	_draw_text(canvas, font, subtitle, row_rect.position + Vector2(58.0, 42.0), 11, TEXT_DIM)
+
+
 func _draw_button(canvas: CanvasItem, font: Font, rect: Rect2, text: String, selected: bool, mouse_pos: Vector2) -> void:
 	var hovered: bool = rect.has_point(mouse_pos)
 	var fill := BUTTON_SELECTED if selected else BUTTON_COLOR
@@ -808,10 +1162,10 @@ func _draw_button(canvas: CanvasItem, font: Font, rect: Rect2, text: String, sel
 
 
 func _draw_recommendation_block(canvas: CanvasItem, font: Font, rect: Rect2, text: String) -> void:
-	_draw_panel(canvas, rect, Color(20.0 / 255.0, 28.0 / 255.0, 42.0 / 255.0, 0.92), Color(ACCENT_GOLD.r, ACCENT_GOLD.g, ACCENT_GOLD.b, 0.45), 1.0)
+	_draw_panel(canvas, rect, Color(18.0 / 255.0, 25.0 / 255.0, 38.0 / 255.0, 0.90), Color(ACCENT_GOLD.r, ACCENT_GOLD.g, ACCENT_GOLD.b, 0.34), 1.0)
 	var lines := text.split("\n", false)
 	for index in range(min(lines.size(), 2)):
-		_draw_text(canvas, font, str(lines[index]), rect.position + Vector2(16.0, 22.0 + float(index) * 21.0), 14, Color(230.0 / 255.0, 236.0 / 255.0, 246.0 / 255.0))
+		_draw_text(canvas, font, str(lines[index]), rect.position + Vector2(14.0, 19.0 + float(index) * 18.0), 12, Color(224.0 / 255.0, 232.0 / 255.0, 244.0 / 255.0))
 
 
 func _draw_panel(canvas: CanvasItem, rect: Rect2, fill: Color, border: Color, border_width: float) -> void:
@@ -861,6 +1215,10 @@ func _get_display_tab_rect(panel_rect: Rect2) -> Rect2:
 	return Rect2(panel_rect.position + Vector2(214.0, 14.0), Vector2(136.0, 36.0))
 
 
+func _get_controls_tab_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(366.0, 14.0), Vector2(104.0, 36.0))
+
+
 func _get_button_rect(panel_rect: Rect2, index: int, count: int) -> Rect2:
 	var total_height: float = BUTTON_SIZE.y * float(count) + BUTTON_GAP * float(max(0, count - 1))
 	var start_y: float = panel_rect.position.y + TITLE_HEIGHT + (panel_rect.size.y - TITLE_HEIGHT - total_height) * 0.5
@@ -895,53 +1253,55 @@ func _get_back_button_rect(panel_rect: Rect2) -> Rect2:
 
 
 func _get_display_fullscreen_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(214.0, 103.0), Vector2(138.0, 42.0))
+	return Rect2(panel_rect.position + Vector2(280.0, 104.0), Vector2(124.0, 38.0))
 
 
 func _get_display_exclusive_fullscreen_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(368.0, 103.0), Vector2(138.0, 42.0))
+	return Rect2(panel_rect.position + Vector2(418.0, 104.0), Vector2(124.0, 38.0))
 
 
 func _get_display_windowed_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(522.0, 103.0), Vector2(138.0, 42.0))
+	return Rect2(panel_rect.position + Vector2(556.0, 104.0), Vector2(124.0, 38.0))
 
 
 func _get_display_fps_cap_row_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(250.0, 165.0), Vector2(390.0, 40.0))
+	return Rect2(panel_rect.position + Vector2(96.0, 188.0), Vector2(panel_rect.size.x - 192.0, 42.0))
 
 
 func _get_display_fps_cap_value_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(424.0, 166.0), Vector2(150.0, 38.0))
+	var row_rect: Rect2 = _get_display_fps_cap_row_rect(panel_rect)
+	return Rect2(row_rect.end - Vector2(212.0, 37.0), Vector2(190.0, 32.0))
 
 
 func _get_display_vsync_row_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(250.0, 214.0), Vector2(390.0, 40.0))
+	return Rect2(panel_rect.position + Vector2(96.0, 237.0), Vector2(panel_rect.size.x - 192.0, 42.0))
 
 
 func _get_display_vsync_value_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(424.0, 215.0), Vector2(150.0, 38.0))
+	var row_rect: Rect2 = _get_display_vsync_row_rect(panel_rect)
+	return Rect2(row_rect.end - Vector2(212.0, 37.0), Vector2(190.0, 32.0))
 
 
 func _get_display_default_checkbox_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(250.0, 268.0), Vector2(28.0, 28.0))
+	var row_rect: Rect2 = _get_display_default_row_rect(panel_rect)
+	return Rect2(row_rect.position + Vector2(18.0, 9.0), Vector2(22.0, 22.0))
 
 
 func _get_display_default_row_rect(panel_rect: Rect2) -> Rect2:
-	var checkbox_rect: Rect2 = _get_display_default_checkbox_rect(panel_rect)
-	return Rect2(checkbox_rect.position + Vector2(0.0, -6.0), Vector2(390.0, 40.0))
+	return Rect2(panel_rect.position + Vector2(96.0, 286.0), Vector2(panel_rect.size.x - 192.0, 40.0))
 
 
 func _get_display_auto_refresh_checkbox_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(250.0, 302.0), Vector2(28.0, 28.0))
+	var row_rect: Rect2 = _get_display_auto_refresh_row_rect(panel_rect)
+	return Rect2(row_rect.position + Vector2(18.0, 9.0), Vector2(22.0, 22.0))
 
 
 func _get_display_auto_refresh_row_rect(panel_rect: Rect2) -> Rect2:
-	var checkbox_rect: Rect2 = _get_display_auto_refresh_checkbox_rect(panel_rect)
-	return Rect2(checkbox_rect.position + Vector2(0.0, -6.0), Vector2(390.0, 40.0))
+	return Rect2(panel_rect.position + Vector2(96.0, 330.0), Vector2(panel_rect.size.x - 192.0, 40.0))
 
 
 func _get_display_pacing_recommendation_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(250.0, 342.0), Vector2(560.0, 52.0))
+	return Rect2(panel_rect.position + Vector2(96.0, 378.0), Vector2(panel_rect.size.x - 192.0, 40.0))
 
 
 func _get_display_recommended_button_rect(panel_rect: Rect2) -> Rect2:
@@ -960,8 +1320,55 @@ func _get_display_back_button_rect(panel_rect: Rect2) -> Rect2:
 	return Rect2(Vector2(panel_rect.get_center().x + 188.0, panel_rect.end.y - 72.0), Vector2(170.0, 48.0))
 
 
+func _get_controls_keyboard_mouse_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(214.0, 103.0), Vector2(178.0, 42.0))
+
+
+func _get_controls_joypad_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(408.0, 103.0), Vector2(138.0, 42.0))
+
+
+func _get_controls_vibration_row_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(96.0, 154.0), Vector2(panel_rect.size.x - 192.0, 42.0))
+
+
+func _get_controls_vibration_value_rect(panel_rect: Rect2) -> Rect2:
+	var row_rect: Rect2 = _get_controls_vibration_row_rect(panel_rect)
+	return Rect2(row_rect.end - Vector2(212.0, 37.0), Vector2(190.0, 32.0))
+
+
+func _get_controls_mapping_row_rect(panel_rect: Rect2, index: int) -> Rect2:
+	if controls_device_view == CONTROL_DEVICE_JOYPAD:
+		return Rect2(panel_rect.position + Vector2(96.0, 209.0 + float(index) * 32.0), Vector2(panel_rect.size.x - 192.0, 28.0))
+	return Rect2(panel_rect.position + Vector2(96.0, 166.0 + float(index) * 43.0), Vector2(panel_rect.size.x - 192.0, 35.0))
+
+
+func _get_controls_back_button_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(Vector2(panel_rect.get_center().x - 85.0, panel_rect.end.y - 72.0), Vector2(170.0, 48.0))
+
+
 func _get_options_back_label() -> String:
 	return "닫기" if options_only else "뒤로가기"
+
+
+func _get_control_mapping_rows() -> Array:
+	if controls_device_view == CONTROL_DEVICE_JOYPAD:
+		return [
+			{"label": "이동", "value": "왼스틱 / D-pad"},
+			{"label": "대쉬 / 스킬", "value": "대쉬: B 또는 아래 / 스킬: A / X / RT"},
+			{"label": "액티브 아이템", "value": "LB/RB 또는 오른스틱 좌우 선택 / Y 사용"},
+			{"label": "보급 홀드", "value": "LT"},
+			{"label": "무기 전환", "value": "오른스틱 위/아래 / R3"},
+			{"label": "확인 / 취소 / 일시정지", "value": "A / B / 메뉴"},
+		]
+	return [
+		{"label": "이동", "value": "A,D,W,S / 방향키"},
+		{"label": "대쉬 / 스킬", "value": "Space / X / 마우스 왼쪽"},
+		{"label": "액티브 아이템", "value": "1 / 2 / 3"},
+		{"label": "보급 홀드", "value": "S / 마우스 오른쪽"},
+		{"label": "무기 전환", "value": "마우스 휠 / 가운데"},
+		{"label": "확인 / 취소 / 일시정지", "value": "Enter / Esc"},
+	]
 
 
 func _get_main_entries() -> Array:
