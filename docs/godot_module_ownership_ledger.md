@@ -4736,6 +4736,10 @@ This section is intentionally long; use search to find the nearest owner.
   Gauntlet's immediate Boomerang grant. Equipment flow should call this owner
   directly for bonus-item building and active-slot-controller lookup instead
   of reintroducing private runtime pickup-bonus bridge methods.
+- `scripts/items/mythic_item_roll_query.gd`
+  Owns acquired quality identity preservation and roll-option lookup used by
+  equipment and debug flows. Those helpers should call this owner directly
+  instead of reintroducing private runtime roll-metadata bridge methods.
 - `scripts/items/mythic_item_update_runtime.gd`
   Owns mythic per-frame update sequencing and idle-update fallback routing.
   It calls constants-free focused update owners directly for Smartphone,

@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `3ff03f835 godot: route boomerang pickup bonus through owner`.
-- The checkpoint span through that HEAD contains 136 follow-up commits after
+  `b0d7d0e2b godot: route mythic roll metadata through owner`.
+- The checkpoint span through that HEAD contains 138 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 137 commits.
+  contains 139 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `38f22b7d2 docs: record mythic stage immunity bridge cleanup`.
+  `023922f60 docs: record boomerang pickup bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the eighty-sixth split. The broad
+- The split notes below are current through the eighty-seventh split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4117,6 +4117,33 @@ Eighty-sixth split on 2026-05-23:
   (`reinforced_boomerang_gauntlet_port_smoke`,
   `mythic_item_ownership_runtime_smoke`,
   `passive_item_debug_menu_click_add_smoke`, and
+  `mythic_item_runtime_idle_update_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Eighty-seventh split on 2026-05-23:
+
+- Commit: `b0d7d0e2b godot: route mythic roll metadata through owner`.
+- Scope: `mythic_item_equipment_facade.gd` now calls
+  `roll_query.has_acquired_quality_identity()` and
+  `roll_query.copy_acquired_quality_identity()` directly for acquired quality
+  preservation, while `mythic_item_debug_inventory.gd` now calls
+  `roll_query.find_roll_option()` directly for roll-editor adjustments. The
+  private `_has_acquired_quality_identity()`,
+  `_copy_acquired_quality_identity()`, and `_find_roll_option()` bridge
+  methods were removed from `mythic_item_runtime.gd`.
+- Rationale: acquired quality identity and roll-option lookup are roll
+  metadata responsibilities owned by `mythic_item_roll_query.gd`, not the
+  runtime facade.
+- Runtime facade size: `mythic_item_runtime.gd` moved from `2550` lines to
+  `2538` lines.
+- Validation: focused mythic / debug / Baal smoke coverage
+  (`mythic_item_ownership_runtime_smoke`,
+  `passive_item_debug_menu_click_add_smoke`,
+  `mythic_item_perk_choice_runtime_smoke`,
+  `baal_boots_weather_port_smoke`, and
   `mythic_item_runtime_idle_update_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
