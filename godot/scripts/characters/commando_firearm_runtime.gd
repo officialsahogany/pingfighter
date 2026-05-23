@@ -3502,7 +3502,7 @@ func _build_lingering_net_shape(effect_size: Vector2, effect_id: int) -> Array:
 func _seed_lingering_fire_flames(effect: Dictionary) -> void:
 	if not _is_lingering_fire_zone(effect):
 		return
-	effect["flames"] = _build_lingering_fire_flames(effect)
+	effect["flames"] = CommandoFirearmLingeringFireFlameState.build_flames(effect)
 
 
 func _spawn_net_dissolve_effect(projectile: Dictionary, context: Dictionary) -> Dictionary:
@@ -3586,114 +3586,6 @@ func _get_net_effect_height_limits(profile: Dictionary) -> Vector2:
 		NET_GUN_MIN_HEIGHT,
 		NET_GUN_HEIGHT
 	)
-
-
-func _build_lingering_fire_flames(effect: Dictionary) -> Array:
-	return CommandoFirearmLingeringFireFlameState.build_flames(effect)
-
-
-func _get_lingering_fire_flame_count() -> int:
-	return CommandoFirearmLingeringFireFlameState.get_flame_count()
-
-
-func _get_lingering_fire_effect_size(effect: Dictionary) -> Vector2:
-	return CommandoFirearmLingeringFireFlameState.get_effect_size(effect)
-
-
-func _get_lingering_fire_effect_width(effect: Dictionary) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_effect_width(effect)
-
-
-func _get_lingering_fire_effect_height(effect: Dictionary) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_effect_height(effect)
-
-
-func _get_lingering_fire_effect_dimension(effect: Dictionary, dimension_key: String, default_value: float) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_effect_dimension(effect, dimension_key, default_value)
-
-
-func _build_lingering_fire_flame(flame_index: int, width: float, height: float) -> Dictionary:
-	return CommandoFirearmLingeringFireFlameState.build_flame(flame_index, width, height)
-
-
-func _get_lingering_fire_flame_angle(flame_index: int) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_angle(flame_index)
-
-
-func _get_lingering_fire_flame_cycle_angle(angle_index: int) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_cycle_angle(angle_index)
-
-
-func _get_lingering_fire_flame_ring(flame_index: int) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_ring(flame_index)
-
-
-func _get_lingering_fire_flame_ring_factor(flame_index: int) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_ring_factor(flame_index)
-
-
-func _get_lingering_fire_flame_ring_pattern_value(flame_index: int) -> int:
-	return CommandoFirearmLingeringFireFlameState.get_flame_ring_pattern_value(flame_index)
-
-
-func _get_lingering_fire_flame_pattern_value(flame_index: int, pattern_step: int, pattern_modulo: int) -> int:
-	return CommandoFirearmLingeringFireFlameState.get_flame_pattern_value(flame_index, pattern_step, pattern_modulo)
-
-
-func _get_lingering_fire_flame_offset(flame_index: int, width: float, height: float, angle: float) -> Vector2:
-	return CommandoFirearmLingeringFireFlameState.get_flame_offset(flame_index, width, height, angle)
-
-
-func _get_lingering_fire_flame_spawn_radius(width: float, height: float, ring: float) -> Vector2:
-	return CommandoFirearmLingeringFireFlameState.get_flame_spawn_radius(width, height, ring)
-
-
-func _get_lingering_fire_flame_spawn_radius_x(width: float, ring: float) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_spawn_radius_x(width, ring)
-
-
-func _get_lingering_fire_flame_spawn_radius_y(height: float, ring: float) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_spawn_radius_y(height, ring)
-
-
-func _get_lingering_fire_flame_offset_from_radius(angle: float, radius: Vector2) -> Vector2:
-	return CommandoFirearmLingeringFireFlameState.get_flame_offset_from_radius(angle, radius)
-
-
-func _get_lingering_fire_flame_size(flame_index: int) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_size(flame_index)
-
-
-func _get_lingering_fire_flame_size_offset(flame_index: int) -> int:
-	return CommandoFirearmLingeringFireFlameState.get_flame_size_offset(flame_index)
-
-
-func _get_lingering_fire_flame_size_pattern_value(flame_index: int) -> int:
-	return CommandoFirearmLingeringFireFlameState.get_flame_size_pattern_value(flame_index)
-
-
-func _get_lingering_fire_flame_lifetime(flame_index: int) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_lifetime(flame_index)
-
-
-func _get_lingering_fire_flame_lifetime_offset(flame_index: int) -> int:
-	return CommandoFirearmLingeringFireFlameState.get_flame_lifetime_offset(flame_index)
-
-
-func _get_lingering_fire_flame_lifetime_pattern_value(flame_index: int) -> int:
-	return CommandoFirearmLingeringFireFlameState.get_flame_lifetime_pattern_value(flame_index)
-
-
-func _get_lingering_fire_flame_phase(flame_index: int) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_phase(flame_index)
-
-
-func _get_lingering_fire_flame_phase_spacing() -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_phase_spacing()
-
-
-func _get_lingering_fire_flame_max_lifetime() -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_max_lifetime()
 
 
 func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
