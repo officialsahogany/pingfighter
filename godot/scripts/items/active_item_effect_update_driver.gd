@@ -1,5 +1,7 @@
 extends RefCounted
 
+const IDLE_PADDLE_SYNC_REFRESH_FRAMES := 30
+
 var _state_applier: Object
 var _paddle_sync: Object
 var _player_center_reader: Object
@@ -19,6 +21,9 @@ var _transient_effect_updater: Object
 var _regeneration_potion_effect: Object
 var _pickup_effect_state: Object
 var _commando_supply_actions: Object
+var _last_paddle_sync_active_item_scale := -1.0
+var _last_paddle_sync_frame := -1
+var _last_paddle_sync_owner_id := 0
 
 
 func configure(deps: Dictionary) -> void:
@@ -41,6 +46,9 @@ func configure(deps: Dictionary) -> void:
 	_regeneration_potion_effect = deps.get("regeneration_potion_effect")
 	_pickup_effect_state = deps.get("pickup_effect_state")
 	_commando_supply_actions = deps.get("commando_supply_actions")
+	_last_paddle_sync_active_item_scale = -1.0
+	_last_paddle_sync_frame = -1
+	_last_paddle_sync_owner_id = 0
 
 
 func apply_update(
@@ -238,11 +246,43 @@ func _sync_paddle_owner_state(
 	warp_gate_state: Object,
 	mythic_item_runtime: Object
 ) -> void:
+	if _paddle_sync == null:
+		return
 	var active_item_scale: float = _paddle_sync.get_player_paddle_scale(
 		float(target.get("long_boost_scale")),
 		float(target.get("strange_vial_scale"))
 	)
+	if not _should_sync_paddle_owner_state(target, owner, active_item_scale):
+		return
 	_paddle_sync.sync_owner_state(owner, active_item_scale, warp_gate_state, mythic_item_runtime)
+	_last_paddle_sync_active_item_scale = active_item_scale
+	_last_paddle_sync_frame = int(Engine.get_physics_frames())
+	_last_paddle_sync_owner_id = owner.get_instance_id() if owner != null else 0
+
+
+func _should_sync_paddle_owner_state(target: Object, owner: Object, active_item_scale: float) -> bool:
+	if _has_paddle_scale_runtime_work(target):
+		return true
+	var owner_id := owner.get_instance_id() if owner != null else 0
+	if owner_id != _last_paddle_sync_owner_id:
+		return true
+	if _last_paddle_sync_frame < 0:
+		return true
+	if not is_equal_approx(active_item_scale, _last_paddle_sync_active_item_scale):
+		return true
+	var frame_key := int(Engine.get_physics_frames())
+	return frame_key - _last_paddle_sync_frame >= IDLE_PADDLE_SYNC_REFRESH_FRAMES
+
+
+func _has_paddle_scale_runtime_work(target: Object) -> bool:
+	return (
+		bool(target.get("long_boost_active"))
+		or float(target.get("long_boost_timer_frames")) > 0.0
+		or not is_equal_approx(float(target.get("long_boost_scale")), 1.0)
+		or bool(target.get("strange_vial_active"))
+		or float(target.get("strange_vial_timer_frames")) > 0.0
+		or not is_equal_approx(float(target.get("strange_vial_scale")), 1.0)
+	)
 
 
 func _update_holy_barrier(target: Object, delta: float) -> void:
