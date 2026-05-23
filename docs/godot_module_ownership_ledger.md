@@ -654,15 +654,19 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/items/active_item_throw_renderer.gd`
   Owns active projectile / deployed-object item rendering: grenade /
   flare / dynamite / molotov / banana / soap windup lifts, projectile
-  trails, texture-backed grenade / flare / dynamite / molotov /
-  spider-mine sprites, placed-dynamite fuse countdowns,
-  molotov fire zones, spider-mine body / legs / explosion / particles,
-  dynamite explosion particles, explosion zones, flare flash / confuse
-  zones, and throw-icon texture caches.
+  trails, texture-backed grenade / flare / dynamite / molotov sprites,
+  placed-dynamite fuse countdowns, molotov fire zones, dynamite explosion
+  particles, explosion zones, flare flash / confuse zones, throw-icon
+  texture caches, and compatibility wrappers / texture aliases for Spider
+  Mine sheet smoke tests.
   `scripts/items/active_item_throw_boomerang_renderer.gd` owns normal and
   metal Boomerang projectile texture draws, return / gauntlet aura rings,
   trail glow, break particles, fallback Boomerang shape, and Boomerang asset
-  prewarm. `scripts/items/active_item_throw_slip_renderer.gd` owns Banana
+  prewarm. `scripts/items/active_item_throw_spider_mine_renderer.gd` owns
+  Spider Mine icon and 4x4 sheet prewarm, state-to-sheet / frame selection,
+  spawn / crawl / armed body drawing, leg fallback, armed beacon pulses,
+  explosion drawing, break particles, and windup fallback drawing.
+  `scripts/items/active_item_throw_slip_renderer.gd` owns Banana
   and Soap projectile sprites, landed banana warnings, landed soap puddles,
   banana / soap particles, foam trails, fallback slip shapes, and the slip
   trail-thinning helper. The runtime passes through the throw controller's

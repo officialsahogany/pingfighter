@@ -5000,6 +5000,36 @@ Hundredth split on 2026-05-24:
   `.\tools\run_warning_scan.ps1` passed with `1298` scripts scanned and no
   GDScript warnings.
 
+121st split on 2026-05-24:
+
+- Commit: `58bf1cc28 godot: split active throw spider mine renderer`.
+- Scope: added `active_item_throw_spider_mine_renderer.gd` for Spider Mine
+  icon / sheet asset prewarm, sheet-state selection, spawn / crawl / install
+  frame source rects, body / leg / beacon drawing, explosion drawing, break
+  particles, and windup fallback drawing. The shared
+  `active_item_throw_renderer.gd` keeps public compatibility wrappers and
+  texture aliases used by existing smoke tests and prewarm checks, while
+  delegating live Spider Mine drawing to the focused renderer.
+- Rationale: Spider Mine had the largest remaining self-contained throw
+  renderer branch: multiple sprite sheets, state-to-frame math, procedural
+  fallback legs, armed beacon logic, and explosion particles. Moving it keeps
+  future mine visual tuning local without changing throw controller state or
+  public render facade contracts.
+- Renderer size: `active_item_throw_renderer.gd` moved from `1950` lines to
+  `1711` lines; the new `active_item_throw_spider_mine_renderer.gd` file is
+  `367` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused Spider Mine / throw-renderer coverage ran `8` smoke scripts
+  and passed: `active_item_throw_spider_mine_smoke`,
+  `active_item_runtime_prewarm_smoke`,
+  `active_item_throw_activation_smoke`,
+  `active_item_throw_renderer_budget_smoke`,
+  `active_item_throw_rotated_texture_smoke`,
+  `active_item_runtime_render_facade_smoke`,
+  `active_item_runtime_render_facade_direct_smoke`, and
+  `commando_arm_port_smoke`. `.\tools\run_warning_scan.ps1` passed with
+  `1299` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
