@@ -241,43 +241,21 @@ func _build_revival() -> Dictionary:
 
 
 func _build_master() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(MASTER)
-	return {
-		"name": MASTER,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "수리공망치",
 		"korean_name": "수리공망치",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": MASTER,
-		"slot": "arm",
-		"icon_path": get_icon_path(MASTER),
-		"chance": get_field_chance(MASTER),
 		"description": "장착 중 벽돌 액티브의 길이를 늘리고, 액티브 아이템 쿨타임을 줄이며, 벽돌 아이템의 필드 스폰 가중치를 높입니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(MASTER),
-		"rolled_options": build_rolled_options(MASTER, rolls),
 		"color": Color(1.0, 215.0 / 255.0, 0.0),
-	}
+	}, self, MASTER, "passive", "arm", get_field_chance(MASTER))
 
 
 func _build_gold_digger() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(GOLD_DIGGER)
-	return {
-		"name": GOLD_DIGGER,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "골드디거",
 		"korean_name": "골드디거",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": GOLD_DIGGER,
-		"slot": "arm",
-		"icon_path": get_icon_path(GOLD_DIGGER),
-		"chance": get_field_chance(GOLD_DIGGER),
 		"description": "장착 중 골드 획득량과 일부 게이지 획득량을 롤옵션만큼 늘립니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(GOLD_DIGGER),
-		"rolled_options": build_rolled_options(GOLD_DIGGER, rolls),
 		"color": Color(1.0, 200.0 / 255.0, 50.0 / 255.0),
-	}
+	}, self, GOLD_DIGGER, "passive", "arm", get_field_chance(GOLD_DIGGER))
 
 
 func _build_gold_bar() -> Dictionary:
@@ -291,63 +269,30 @@ func _build_gold_bar() -> Dictionary:
 
 
 func _build_lucky_coin() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(LUCKY_COIN)
-	return {
-		"name": LUCKY_COIN,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "럭키코인",
 		"korean_name": "럭키코인",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": LUCKY_COIN,
-		"slot": "accessory",
-		"icon_path": get_icon_path(LUCKY_COIN),
-		"chance": get_field_chance(LUCKY_COIN),
 		"description": "장착 중 필드 아이템이 스폰될 때 롤옵션 확률로 보너스 아이템을 1개 더 생성합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(LUCKY_COIN),
-		"rolled_options": build_rolled_options(LUCKY_COIN, rolls),
 		"color": Color(1.0, 223.0 / 255.0, 0.0),
-	}
+	}, self, LUCKY_COIN, "passive", "accessory", get_field_chance(LUCKY_COIN))
 
 
 func _build_adversity_armor() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(ADVERSITY_ARMOR)
-	return {
-		"name": ADVERSITY_ARMOR,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "역경의 갑옷",
 		"korean_name": "역경의 갑옷",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": ADVERSITY_ARMOR,
-		"slot": "top",
-		"icon_path": get_icon_path(ADVERSITY_ARMOR),
-		"chance": get_field_chance(ADVERSITY_ARMOR),
 		"description": "실점 후 그다음 라운드에 일정 확률로 사용자를 보호하는 무적의 벽이 생성됩니다. 다음 서브 시 공 속도도 증가합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(ADVERSITY_ARMOR),
-		"rolled_options": build_rolled_options(ADVERSITY_ARMOR, rolls),
 		"color": Color(0.96, 0.58, 0.18),
-	}
+	}, self, ADVERSITY_ARMOR, "passive", "top", get_field_chance(ADVERSITY_ARMOR))
 
 
 func _build_shrapnel_armor() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(SHRAPNEL_ARMOR)
-	return {
-		"name": SHRAPNEL_ARMOR,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "파편갑옷",
 		"korean_name": "파편갑옷",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": SHRAPNEL_ARMOR,
-		"slot": "top",
-		"icon_path": get_icon_path(SHRAPNEL_ARMOR),
-		"chance": get_field_chance(SHRAPNEL_ARMOR),
 		"description": "플레이어 패들이 공을 칠 때 일정 확률로 게이지를 소모해 위쪽으로 가시 파편을 발사하고, 보스에게 맞으면 짧은 스턴과 넉백을 줍니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(SHRAPNEL_ARMOR),
-		"rolled_options": build_rolled_options(SHRAPNEL_ARMOR, rolls),
 		"color": Color(1.0, 150.0 / 255.0, 80.0 / 255.0),
-	}
+	}, self, SHRAPNEL_ARMOR, "passive", "top", get_field_chance(SHRAPNEL_ARMOR))
 
 
 func _build_sage_ring() -> Dictionary:
@@ -372,123 +317,57 @@ func _build_sage_ring() -> Dictionary:
 
 
 func _build_cooltime() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(COOLTIME)
-	return {
-		"name": COOLTIME,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "쿨링볼",
 		"korean_name": "쿨링볼",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": COOLTIME,
-		"slot": "accessory",
-		"icon_path": get_icon_path(COOLTIME),
-		"chance": get_field_chance(COOLTIME),
 		"description": "장착 중 액티브 아이템 재사용 쿨타임을 롤옵션만큼 줄입니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(COOLTIME),
-		"rolled_options": build_rolled_options(COOLTIME, rolls),
 		"color": Color(0.0, 230.0 / 255.0, 1.0),
-	}
+	}, self, COOLTIME, "passive", "accessory", get_field_chance(COOLTIME))
 
 
 func _build_timer_belt() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(TIMER_BELT)
-	return {
-		"name": TIMER_BELT,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "타이머벨트",
 		"korean_name": "타이머벨트",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": TIMER_BELT,
-		"slot": "belt",
-		"icon_path": get_icon_path(TIMER_BELT),
-		"chance": get_field_chance(TIMER_BELT),
 		"description": "장착 중 모든 캐릭터 스킬의 쿨타임을 롤옵션만큼 줄입니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(TIMER_BELT),
-		"rolled_options": build_rolled_options(TIMER_BELT, rolls),
 		"color": Color(90.0 / 255.0, 220.0 / 255.0, 230.0 / 255.0),
-	}
+	}, self, TIMER_BELT, "passive", "belt", get_field_chance(TIMER_BELT))
 
 
 func _build_fuel_pouch() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(FUEL_POUCH)
-	return {
-		"name": FUEL_POUCH,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "연료파우치",
 		"korean_name": "연료파우치",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": FUEL_POUCH,
-		"slot": "accessory",
-		"icon_path": get_icon_path(FUEL_POUCH),
-		"chance": get_field_chance(FUEL_POUCH),
 		"description": "장착 중 플레이어의 최대 게이지를 롤옵션 수치만큼 늘립니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(FUEL_POUCH),
-		"rolled_options": build_rolled_options(FUEL_POUCH, rolls),
 		"color": Color(180.0 / 255.0, 100.0 / 255.0, 40.0 / 255.0),
-	}
+	}, self, FUEL_POUCH, "passive", "accessory", get_field_chance(FUEL_POUCH))
 
 
 func _build_bluetooth_ring() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(BLUETOOTH_RING)
-	return {
-		"name": BLUETOOTH_RING,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "블루투스링",
 		"korean_name": "블루투스링",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": BLUETOOTH_RING,
-		"slot": "accessory",
-		"icon_path": get_icon_path(BLUETOOTH_RING),
-		"chance": get_field_chance(BLUETOOTH_RING),
 		"description": "장착 중 플레이어가 패들로 공을 칠 때 얻는 게이지를 롤옵션만큼 늘립니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(BLUETOOTH_RING),
-		"rolled_options": build_rolled_options(BLUETOOTH_RING, rolls),
 		"color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
-	}
+	}, self, BLUETOOTH_RING, "passive", "accessory", get_field_chance(BLUETOOTH_RING))
 
 
 func _build_star_detector() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(STAR_DETECTOR)
-	return {
-		"name": STAR_DETECTOR,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "별탐지기",
 		"korean_name": "별탐지기",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": STAR_DETECTOR,
-		"slot": "accessory",
-		"icon_path": get_icon_path(STAR_DETECTOR),
-		"chance": get_field_chance(STAR_DETECTOR),
 		"description": "장착 중 스타포인트 드랍이 생길 때 롤옵션 확률로 보너스 스타포인트 드랍을 1개 더 생성합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(STAR_DETECTOR),
-		"rolled_options": build_rolled_options(STAR_DETECTOR, rolls),
 		"color": Color(80.0 / 255.0, 200.0 / 255.0, 220.0 / 255.0),
-	}
+	}, self, STAR_DETECTOR, "passive", "accessory", get_field_chance(STAR_DETECTOR))
 
 
 func _build_foul_whistle() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(FOUL_WHISTLE)
-	return {
-		"name": FOUL_WHISTLE,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "반칙호루라기",
 		"korean_name": "반칙호루라기",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": FOUL_WHISTLE,
-		"slot": "accessory",
-		"icon_path": get_icon_path(FOUL_WHISTLE),
-		"chance": get_field_chance(FOUL_WHISTLE),
 		"description": "라운드 패배 시 일정 확률로 심판이 호루라기를 불어 실점을 무효화하고 라운드를 다시 시작합니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(FOUL_WHISTLE),
-		"rolled_options": build_rolled_options(FOUL_WHISTLE, rolls),
 		"color": Color(1.0, 235.0 / 255.0, 120.0 / 255.0),
-	}
+	}, self, FOUL_WHISTLE, "passive", "accessory", get_field_chance(FOUL_WHISTLE))
 
 
 func _build_smartphone() -> Dictionary:
@@ -501,44 +380,22 @@ func _build_smartphone() -> Dictionary:
 
 
 func _build_neural_helmet() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(NEURAL_HELMET)
-	return {
-		"name": NEURAL_HELMET,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "뉴럴헬멧",
 		"korean_name": "뉴럴헬멧",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": NEURAL_HELMET,
-		"slot": "head",
-		"icon_path": get_icon_path(NEURAL_HELMET),
-		"chance": get_field_chance(NEURAL_HELMET),
 		"description": "AI알약의 게이지 소모를 줄이고 AI알약 스폰율을 높입니다. AI알약 발동 중 방향키 입력으로 즉시 해제할 수 있습니다.",
-		"rolls": rolls,
-		"roll_options": get_roll_options(NEURAL_HELMET),
-		"rolled_options": build_rolled_options(NEURAL_HELMET, rolls),
 		"color": Color(140.0 / 255.0, 180.0 / 255.0, 1.0),
-	}
+	}, self, NEURAL_HELMET, "passive", "head", get_field_chance(NEURAL_HELMET))
 
 
 func _build_venom_mist_gauntlet() -> Dictionary:
-	var rolls: Dictionary = build_default_rolls(VENOM_MIST_GAUNTLET)
-	return {
-		"name": VENOM_MIST_GAUNTLET,
+	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "독안개 건틀릿",
 		"korean_name": "독안개 건틀릿",
-		"type": "passive",
-		"rarity": "passive",
-		"effect": VENOM_MIST_GAUNTLET,
-		"slot": "arm",
-		"icon_path": get_icon_path(VENOM_MIST_GAUNTLET),
-		"chance": get_field_chance(VENOM_MIST_GAUNTLET),
 		"description": "바이퍼 전용. 화랑 킥으로 공에 독을 싣고, 보스가 감염된 공을 가드하면 보스 주변에 독안개를 생성합니다. 독안개 안의 보스는 이동속도와 특수 게이지가 감소합니다.",
 		"character_restriction": "viper",
-		"rolls": rolls,
-		"roll_options": get_roll_options(VENOM_MIST_GAUNTLET),
-		"rolled_options": build_rolled_options(VENOM_MIST_GAUNTLET, rolls),
 		"color": Color(80.0 / 255.0, 200.0 / 255.0, 80.0 / 255.0),
-	}
+	}, self, VENOM_MIST_GAUNTLET, "passive", "arm", get_field_chance(VENOM_MIST_GAUNTLET))
 
 
 func _build_reinforced_boomerang_gauntlet() -> Dictionary:
