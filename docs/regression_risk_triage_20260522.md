@@ -5030,6 +5030,35 @@ Hundredth split on 2026-05-24:
   `commando_arm_port_smoke`. `.\tools\run_warning_scan.ps1` passed with
   `1299` scripts scanned and no GDScript warnings.
 
+122nd split on 2026-05-24:
+
+- Commit: `af5877bef godot: split active throw dynamite renderer`.
+- Scope: added `active_item_throw_dynamite_renderer.gd` for Dynamite
+  projectile trails / sprites, placed Dynamite countdown badges, warning
+  pulses, fuse flames, explosion shockwaves, smoke clouds, sparks, fire
+  particles, fallback bundle drawing, and asset prewarm. The shared
+  `active_item_throw_renderer.gd` keeps the public draw signature, perf
+  labels, generic windup / throw icon cache, and dispatch order while
+  delegating Dynamite visuals to the focused renderer.
+- Rationale: Dynamite rendering is a cohesive branch with its own placed-item
+  countdown HUD, fuse timing, projectile icon, and layered explosion VFX.
+  Moving it reduces the active throw renderer without touching throw
+  controller explosion state, audio, or round-end detonation behavior.
+- Renderer size: `active_item_throw_renderer.gd` moved from `1711` lines to
+  `1477` lines; the new `active_item_throw_dynamite_renderer.gd` file is
+  `320` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused Dynamite / throw-renderer coverage ran `8` smoke scripts
+  and passed: `active_item_throw_dynamite_smoke`,
+  `active_item_runtime_use_facade_smoke`,
+  `active_item_throw_activation_smoke`,
+  `active_item_throw_renderer_budget_smoke`,
+  `active_item_throw_rotated_texture_smoke`,
+  `active_item_runtime_render_facade_smoke`,
+  `active_item_runtime_render_facade_direct_smoke`, and
+  `commando_arm_port_smoke`. `.\tools\run_warning_scan.ps1` passed with
+  `1300` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

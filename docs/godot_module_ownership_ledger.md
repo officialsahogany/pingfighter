@@ -654,11 +654,14 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/items/active_item_throw_renderer.gd`
   Owns active projectile / deployed-object item rendering: grenade /
   flare / dynamite / molotov / banana / soap windup lifts, projectile
-  trails, texture-backed grenade / flare / dynamite / molotov sprites,
-  placed-dynamite fuse countdowns, molotov fire zones, dynamite explosion
-  particles, explosion zones, flare flash / confuse zones, throw-icon
-  texture caches, and compatibility wrappers / texture aliases for Spider
-  Mine sheet smoke tests.
+  trails, texture-backed grenade / flare / molotov sprites, molotov fire
+  zones, explosion zones, flare flash / confuse zones, throw-icon texture
+  caches, and compatibility wrappers / texture aliases for Spider Mine sheet
+  smoke tests.
+  `scripts/items/active_item_throw_dynamite_renderer.gd` owns Dynamite
+  projectile trails / sprites, placed Dynamite countdown badges, warning
+  pulses, fuse flames, explosion shockwaves, smoke clouds, sparks, fire
+  particles, fallback bundle drawing, and Dynamite asset prewarm.
   `scripts/items/active_item_throw_boomerang_renderer.gd` owns normal and
   metal Boomerang projectile texture draws, return / gauntlet aura rings,
   trail glow, break particles, fallback Boomerang shape, and Boomerang asset
