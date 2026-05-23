@@ -125,7 +125,7 @@ This section is intentionally long; use search to find the nearest owner.
   Gauntlet (`reinforced_boomerang_gauntlet`), Commando Arm
   (`commando_arm`), Rainbow Fur Glove, Adversity Armor, Shrapnel Armor,
   Megingjord, Ragnarok Hammer, Poseidon's Trident,
-  Heavenly Cape, Baal's Boots, and Pandora's Legacy:
+  Heavenly Cape, Baal's Boots, Yachaman Soul, and Pandora's Legacy:
   body-part slot metadata,
   owned-vs-equipped passive inventory state, debug acquire/equip/toggle
   state, acquire/equip/unequip/toggle/discard orchestration delegated to
@@ -176,6 +176,11 @@ This section is intentionally long; use search to find the nearest owner.
   Heavenly Cape skill-cooldown reduction, sixth skill-slot bonus, and
   player-skill cooldown / max-slot composition delegated to
   `scripts/items/mythic_item_heavenly_cape_runtime.gd`,
+  Yachaman Soul score-prevention revival roll, 90-frame gather / burst
+  event, transformed-state defeat semantics, reset-ready latch, skill /
+  control locks, and owner-sync context delegated to
+  `scripts/items/mythic_item_yachaman_soul_runtime.gd` and
+  `scripts/items/yachaman_soul_state.gd`,
   Megingjord activation effect reset, active query, start/audio/redraw
   fanout, particle / bolt construction, elapsed timing, and draw forwarding
   delegated to `scripts/items/mythic_item_activation_effect_runtime.gd`,
@@ -264,7 +269,9 @@ This section is intentionally long; use search to find the nearest owner.
   Baal's Boots weather-event absorption: delayed trigger, same-frame source
   weather force-end, sand-terrain zeroing before rebuild, gauge recovery,
   absorbed wind speed boost, fire/ice ball marks, and rain/hail projectile
-  boss debuffs, and Pandora's Legacy round-win trigger chance, 3-card
+  boss debuffs, Yachaman Soul boss-score cancellation, Bomberman-style
+  transformed paddle stats, per-round use limit, and post-animation
+  reset-ready handoff, and Pandora's Legacy round-win trigger chance, 3-card
   selection generation, active-overflow / passive / mythic reward routing,
   and modal pause/draw/input state. Pandora's Legacy queues from
   `match_score_event_controller.gd`, opens after scoreboard reset /
@@ -343,6 +350,11 @@ This section is intentionally long; use search to find the nearest owner.
   the Stage 1 player actor path and transform cinematic landing phase.
   `scripts/items/horn_strawberry_timer_gauge_renderer.gd` owns the timed
   transform duration gauge on the shared right-bottom timer stack;
+  `scripts/items/yachaman_soul_effect_renderer.gd` owns the Yachaman Soul
+  gather / burst revival event rings, sparks, and flash fallback drawing,
+  while `scripts/items/yachaman_soul_paddle_renderer.gd` owns the transformed
+  Bomberman-style player body, fuse, and flame rendered through the Stage 1
+  player actor path;
   `scripts/items/mythic_item_momentum_field_renderer.gd` owns Knee Pads flash
   ring/ray/particle drawing and Soul Burst wind-trail, shockwave, ellipse-arc,
   and dash-particle drawing while the shared field renderer passes runtime
@@ -383,8 +395,9 @@ This section is intentionally long; use search to find the nearest owner.
   Backpack, Charge Bag, Battery Pack, Repairman Hammer, Cooling Ball,
   Timer Belt, Fuel Pouch, Kick Charger, Bulk-Up Suit, Dash Gear, Dash
   Holder, Gravity Belt, Gold Bar, Reinforced Boomerang Gauntlet, Commando Arm, Megingjord,
-  Ragnarok Hammer, Poseidon's Trident, Heavenly Cape, Baal's Boots, and
-  Pandora's Legacy. `scripts/items/mythic_item_catalog_presentation.gd` owns
+  Ragnarok Hammer, Poseidon's Trident, Heavenly Cape, Baal's Boots,
+  Yachaman Soul, and Pandora's Legacy.
+  `scripts/items/mythic_item_catalog_presentation.gd` owns
   display-name lookup, quality-prefix formatting, and quality color lookup
   behind the public catalog API. `scripts/items/mythic_item_catalog_fixed_options.gd`
   owns all fixed-option source arrays and item-name fixed-option lookup behind
@@ -613,10 +626,11 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/items/active_item_throw_molotov.gd`
   Owns molotov projectile construction, flight / wall bounce updates,
   fire-zone creation, flame spawn / animation lifecycle, boss-in-fire
-  detection, periodic boss pushback, Commando Arm speed / first-frame
-  launch / fire-size bonuses, first-update push-timer seeding, and molotov
-  impact / push feedback. The throw controller keeps authoritative arrays /
-  timers and
+  detection, continuous fire-zone crossing obstruction between feedback
+  ticks, periodic boss pushback / shake feedback, Commando Arm speed /
+  first-frame launch / fire-size bonuses, first-update push-timer seeding,
+  and molotov impact / push feedback. The throw controller keeps
+  authoritative arrays / timers and
   compatibility wrappers for the old private molotov methods.
 - `scripts/items/active_item_throw_boomerang.gd`
   Owns boomerang gauntlet launch context, projectile construction,
@@ -1369,8 +1383,10 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage1/stage1_commando_firearm_renderer.gd`
   Owns the Stage 1 transitional Commando firearm VFX presentation:
   projectile, muzzle-flash, impact-flash, base-slot pistol bullet,
-  pistol / AK-47 shell-casing, pistol headshot / legshot feedback text, support-marker,
-  net, rocket, trap, installed bowling-trap, captured-ball, and drone feedback
+  pistol / AK-47 shell-casing, pistol headshot / legshot feedback text,
+  support-marker, fire-support aircraft motion trails / shadows,
+  wall-missile smoke tails / launch flashes, net, rocket, trap, installed
+  bowling-trap, captured-ball, and drone feedback
   from actor draw context. Muzzle flashes, impact flashes, support markers, and
   lingering fields now add cached glow / burst / sparkle / ring texture-piece
   layers before the direct detail strokes and sync a playfield-local
@@ -4811,6 +4827,25 @@ This section is intentionally long; use search to find the nearest owner.
   Owns Horn Strawberry Mask's A+D hold bomb skill state: 0.5-second dual-input
   hold, 400-gauge spend, 30 bombs over 1 second, boss stun / knockback on
   explosion, 5-second paint splatter slow, and lingering bomb / paint cleanup.
+- `scripts/items/yachaman_soul_state.gd`
+  Owns Yachaman Soul's score-prevention state machine: idle, revival-event,
+  transformed, 60-frame gather, 30-frame burst, one-use-per-round latch,
+  reset-ready handoff, and transformed-state defeat diagnostics.
+- `scripts/items/mythic_item_yachaman_soul_runtime.gd`
+  Owns Yachaman Soul's mythic-runtime facade: equipment sync, rolled
+  activation chance, boss-score cancellation, revival-event startup, audio /
+  redraw fanout, transformed speed / paddle-size exposure, skill / control
+  lock queries, round reset, and full-runtime clear coordination.
+- `scripts/items/yachaman_soul_effect_renderer.gd`
+  Owns Yachaman Soul's direct CanvasItem fallback VFX for revival gather /
+  burst rings, radial sparks, and final flash. It receives a compact context
+  from the mythic field renderer and does not allocate textures in the draw
+  path.
+- `scripts/items/yachaman_soul_paddle_renderer.gd`
+  Owns the transformed Yachaman player-body draw path rendered by
+  `stage1_player_actor_renderer.gd`: compact body, helmet highlights, fuse,
+  flame, eye blink, and movement bob. The normal paddle and Commando overlays
+  are suppressed while this transformed body is active.
 - `scripts/items/mythic_item_audio_router.gd`
   Owns mythic / passive item cue routing and fallback order, including
   Ragnarok / Poseidon loop-handle caching, Horn Strawberry skill cues, and the
@@ -4829,7 +4864,8 @@ This section is intentionally long; use search to find the nearest owner.
   config sync, removed-skill cleanup, dash-token capacity sync, player status
   resistance sync, Gold Digger runtime-perk sync, item perk-level bonus sync,
   Fuel Pouch gauge max sync, Boomerang active-slot visual sync, transient
-  owner-state sync, Bulk-Up paddle-scale sync, and shared player / boss center
+  owner-state sync, Yachaman Soul equipped / transformed / revival-event
+  context sync, Bulk-Up paddle-scale sync, and shared player / boss center
   reads used by Poseidon Trident and Baal's Boots. The runtime facade may keep
   high-level context-supplying sync entry points, but should not reintroduce
   one-line private bridges for these detail methods or owner-geometry reads;
@@ -4839,7 +4875,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns aggregate player stat composition for mythic / passive items. Player
   speed composition should pass Baal's Boots constants directly to
   `scripts/items/mythic_item_baal_boots_runtime.gd` instead of reintroducing
-  a private runtime Baal speed getter bridge.
+  a private runtime Baal speed getter bridge. Yachaman Soul transformed speed,
+  paddle-size multiplier, skill lock, and control lock queries are composed
+  here so player-control builders consume one stat-bonus surface.
 - `scripts/items/mythic_item_lifecycle_runtime.gd`,
   `scripts/items/mythic_item_equipment_facade.gd`, and
   `scripts/items/mythic_item_debug_inventory.gd`
@@ -4873,9 +4911,10 @@ This section is intentionally long; use search to find the nearest owner.
   Owns mythic per-frame update sequencing and idle-update fallback routing.
   It calls constants-free focused update owners directly for Smartphone,
   Kick Charger, Soul Burst, Foul Whistle, Revival Charm, Danger Sensor Belt,
-  Venom Mist Gauntlet, Rainbow Fur Glove, Celestial Armor, Hermes Shoes, and
-  Horn Strawberry Mask. Do not reintroduce private runtime `_update_*`
-  bridges for those paths. It also calls `mythic_item_update_gate.gd`
+  Venom Mist Gauntlet, Rainbow Fur Glove, Celestial Armor, Hermes Shoes,
+  Horn Strawberry Mask, and Yachaman Soul. Do not reintroduce private
+  runtime `_update_*` bridges for those paths. It also calls
+  `mythic_item_update_gate.gd`
   directly for runtime-work detection and `mythic_item_poseidon_runtime.gd`
   directly for the idle Poseidon poll; do not reintroduce private runtime
   update-gate or idle-poll bridge methods. Ragnarok, Shrapnel Armor,
@@ -4899,7 +4938,8 @@ This section is intentionally long; use search to find the nearest owner.
   item owners directly for Venom Mist alpha, Celestial Armor wave state,
   Rainbow Fur Glove aura state, Hermes Shoes host state, Adversity Armor timer
   / barrier / visible state, Shrapnel Armor visible state, Knee Pads / Soul
-  Burst draw state, and Ragnarok elapsed timing.
+  Burst draw state, Ragnarok elapsed timing, and Yachaman Soul revival-event /
+  transformed draw context.
   `scripts/items/mythic_item_ragnarok_runtime.gd` owns the public elapsed-time
   helper methods for Ragnarok ball / impact state; do not reintroduce
   private runtime getter bridges for these read paths.

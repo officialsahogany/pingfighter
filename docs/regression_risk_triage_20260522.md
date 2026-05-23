@@ -5367,6 +5367,43 @@ Hundredth split on 2026-05-24:
   `revival_port_smoke`, `danger_sensor_belt_port_smoke`, and
   `speedgear_port_smoke`.
 
+137th follow-up on 2026-05-24:
+
+- Commit: `8aff5c9a7 godot: keep Molotov fire zones blocking`.
+- Scope: Molotov fire zones now obstruct boss center crossing on every update
+  while keeping push / shake feedback throttled to the existing feedback
+  cadence. The new smoke case verifies crossing is blocked between feedback
+  ticks without spamming shake state.
+- Validation: focused active-item coverage passed:
+  `active_item_throw_molotov_smoke`.
+
+138th follow-up on 2026-05-24:
+
+- Commit:
+  `a4ffb9361 godot: add fire support aircraft motion trails`.
+- Scope: Stage 1 Commando fire-support rendering now gives support aircraft
+  a shadow, motion trails, and ghost silhouette passes, and gives opponent-wall
+  support missiles smoke tails plus launch-flash feedback while preserving the
+  existing direct-draw fallback layer.
+- Validation: focused Commando visual coverage passed:
+  `commando_firearm_support_aircraft_geometry_smoke` and
+  `commando_firearm_stage1_visual_qa_smoke`.
+
+139th follow-up on 2026-05-24:
+
+- Commit: `95e026a14 godot: add Yachaman Soul revival form`.
+- Scope: added the Yachaman Soul mythic/passive item to the Godot catalog,
+  field-spawn metadata, roll options, icon asset, runtime helper, state
+  machine, gather / burst VFX, transformed player-body renderer, owner-sync
+  context, score-event cancellation, post-animation round reset, and skill /
+  control lock integration. `mythic_item_runtime.gd` is now 1799 lines, with
+  the Yachaman runtime, state, effect renderer, and paddle renderer owned by
+  focused helper files.
+- Validation: focused Yachaman / item coverage passed:
+  `yachaman_soul_port_smoke`, `active_item_throw_molotov_smoke`, and
+  `item_field_spawn_pool_smoke`. After adding transformed input-lock coverage,
+  `yachaman_soul_port_smoke` passed again.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
