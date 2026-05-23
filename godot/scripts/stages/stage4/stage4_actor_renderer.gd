@@ -61,6 +61,16 @@ func prewarm_assets_step() -> bool:
 	return false
 
 
+func prewarm_runtime_nodes_step(owner: Object) -> bool:
+	if ponk_skill_renderer == null or not (owner is CanvasItem):
+		return true
+	if ponk_skill_renderer.has_method("prewarm_runtime_hosts_step"):
+		return bool(ponk_skill_renderer.prewarm_runtime_hosts_step(owner as CanvasItem))
+	if ponk_skill_renderer.has_method("prewarm_runtime_hosts"):
+		ponk_skill_renderer.prewarm_runtime_hosts(owner as CanvasItem)
+	return true
+
+
 func reset() -> void:
 	if playfield_renderer != null and playfield_renderer.has_method("reset"):
 		playfield_renderer.reset()

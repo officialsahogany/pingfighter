@@ -31,19 +31,40 @@ func _run() -> void:
 	_expect(canvas.get_node_or_null("PonkMagneticFxHost") == null, "Stage 4 inactive draw should not attach a magnetic host")
 	_expect(canvas.get_node_or_null("PonkMeditationFxHost") == null, "Stage 4 inactive draw should not attach a meditation host")
 
+	_expect(skill_state.has_method("prewarm_runtime_hosts_step"), "Stage 4 Ponk skill state should expose staged FX host runtime prewarm")
+	_expect(not bool(skill_state.prewarm_runtime_hosts_step(canvas)), "Stage 4 runtime FX prewarm should stage the magnetic host first")
+	await process_frame
+
+	magnetic_host = skill_state.get("magnetic_fx_host") as Node
+	meditation_host = skill_state.get("meditation_fx_host") as Node
+	_expect(magnetic_host != null, "Stage 4 magnetic FX host should be created during runtime prewarm")
+	_expect(meditation_host == null, "Stage 4 meditation FX host should wait for its own runtime prewarm step")
+	_expect(canvas.get_node_or_null("PonkMagneticFxHost") == magnetic_host, "Stage 4 prewarmed magnetic FX host should attach before activation")
+	if magnetic_host != null:
+		_expect(magnetic_host.get_node_or_null("PonkMagneticLatticeBackplate") != null, "Stage 4 magnetic prewarm should build the lattice sprite")
+		_expect(magnetic_host.get_node_or_null("PonkMagneticPrismShardParticles") != null, "Stage 4 magnetic prewarm should build prism particles")
+
+	_expect(bool(skill_state.prewarm_runtime_hosts_step(canvas)), "Stage 4 runtime FX prewarm should finish with the meditation host")
+	await process_frame
+
+	meditation_host = skill_state.get("meditation_fx_host") as Node
+	_expect(bool(skill_state.get("fx_hosts_prewarmed")), "Stage 4 runtime FX prewarm should mark host setup complete")
+	_expect(meditation_host != null, "Stage 4 meditation FX host should be created during runtime prewarm")
+	_expect(canvas.get_node_or_null("PonkMeditationFxHost") == meditation_host, "Stage 4 prewarmed meditation FX host should attach before activation")
+	if meditation_host != null:
+		_expect(meditation_host.get_node_or_null("PonkMeditationMandalaShader") != null, "Stage 4 meditation prewarm should build the mandala shader node")
+		_expect(meditation_host.get_node_or_null("PonkMeditationReleaseBurst") != null, "Stage 4 meditation prewarm should build release burst sprite")
+
 	var active_context := _build_context(true, false)
+	var prewarmed_magnetic_host := magnetic_host
 	skill_state.call("_sync_magnetic_fx_host", canvas, active_context, Vector2.ZERO, true)
 	await process_frame
 
 	magnetic_host = skill_state.get("magnetic_fx_host") as Node
 	meditation_host = skill_state.get("meditation_fx_host") as Node
-	_expect(magnetic_host != null, "Stage 4 magnetic FX host should be created on first magnetic activation")
-	_expect(meditation_host == null, "Stage 4 magnetic activation should not create the meditation FX host")
+	_expect(magnetic_host == prewarmed_magnetic_host, "Stage 4 magnetic activation should reuse the prewarmed FX host")
+	_expect(meditation_host != null, "Stage 4 magnetic activation should keep the prewarmed meditation FX host available")
 	_expect(canvas.get_node_or_null("PonkMagneticFxHost") == magnetic_host, "Stage 4 magnetic FX host should attach on the activation frame")
-
-	if magnetic_host != null:
-		_expect(magnetic_host.get_node_or_null("PonkMagneticLatticeBackplate") != null, "Stage 4 magnetic prewarm should build the lattice sprite")
-		_expect(magnetic_host.get_node_or_null("PonkMagneticPrismShardParticles") != null, "Stage 4 magnetic prewarm should build prism particles")
 
 	canvas.queue_free()
 

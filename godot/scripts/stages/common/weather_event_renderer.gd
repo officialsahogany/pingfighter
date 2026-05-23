@@ -8,30 +8,74 @@ const FIRE_RENDER_PARTICLE_LIMIT := 48
 const FIRE_DETAILED_EXPLOSION_RENDER_LIMIT := 8
 const FIRE_DETAILED_SPARK_RENDER_LIMIT := 8
 const FIRE_OVERLAY_HEAT_LINE_COUNT := 4
+const LOD_ACTIVE_THRESHOLD := 0.99
+const SEVERE_LOD_ACTIVE_THRESHOLD := 0.66
+const WEATHER_RENDER_PARTICLE_LIMIT_LOD := 48
+const WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 32
+const WIND_RENDER_PARTICLE_LIMIT_LOD := 24
+const WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 16
+const FIRE_RENDER_PARTICLE_LIMIT_LOD := 32
+const FIRE_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 24
+const FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_LOD := 4
+const FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_SEVERE_LOD := 2
+const FIRE_DETAILED_SPARK_RENDER_LIMIT_LOD := 4
+const FIRE_DETAILED_SPARK_RENDER_LIMIT_SEVERE_LOD := 2
+const FIRE_OVERLAY_HEAT_LINE_COUNT_LOD := 2
+const FIRE_OVERLAY_HEAT_LINE_COUNT_SEVERE_LOD := 1
+const ICE_OVERLAY_LINE_COUNT := 10
+const ICE_OVERLAY_LINE_COUNT_LOD := 6
+const ICE_OVERLAY_LINE_COUNT_SEVERE_LOD := 4
+const PARTICLE_RENDER_STRIDE_LOD := 1
+const PARTICLE_RENDER_STRIDE_SEVERE_LOD := 2
+const SAND_POLYGON_STRIDE_LOD := 2
+const SAND_POLYGON_STRIDE_SEVERE_LOD := 3
+const SAND_RENDER_SEGMENT_BUCKET_SIZE := 4
+const SAND_RENDER_SEGMENT_LIMIT_PER_SIDE := 18
+const SAND_VERTICAL_START := 60.0
+const SAND_HORIZONTAL_START := 40.0
+const SAND_SEG_SIZE := 12.0
+const SAND_BASE_COLOR := Color(0.804, 0.686, 0.451, 1.0)
+const SAND_DARK_COLOR := Color(0.686, 0.580, 0.353, 1.0)
+const SAND_OUTLINE_COLOR := Color(0.608, 0.510, 0.314, 1.0)
+const SAND_HIGHLIGHT_COLOR := Color(0.902, 0.804, 0.588, 1.0)
+const PREWARM_TEXTURE_KEYS := [
+	"rain_streak",
+	"wind_ribbon",
+	"fire_ember",
+	"hail_core",
+	"ice_glint",
+	"sand_grain",
+	"message_scanline",
+]
 
 var _texture_cache: Dictionary = {}
+var _prewarm_texture_index := 0
 
 
 func prewarm_assets() -> void:
-	for texture_key in [
-		"rain_streak",
-		"wind_ribbon",
-		"fire_ember",
-		"hail_core",
-		"ice_glint",
-		"sand_grain",
-		"message_scanline",
-	]:
-		_get_texture(str(texture_key))
+	while not prewarm_assets_step():
+		pass
 
 
-func draw(weather: Object, canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+func prewarm_assets_step() -> bool:
+	if _prewarm_texture_index >= PREWARM_TEXTURE_KEYS.size():
+		_prewarm_texture_index = 0
+		return true
+	_get_texture(str(PREWARM_TEXTURE_KEYS[_prewarm_texture_index]))
+	_prewarm_texture_index += 1
+	if _prewarm_texture_index >= PREWARM_TEXTURE_KEYS.size():
+		_prewarm_texture_index = 0
+		return true
+	return false
+
+
+func draw(weather: Object, canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, effect_lod_scale: float = 1.0) -> void:
 	if weather == null or canvas == null:
 		return
 	var context: Dictionary = _get_weather_context(weather)
-	_draw_field_overlay(canvas, context, shake_offset)
-	_draw_sand_segments(weather, canvas, shake_offset)
-	_draw_particles(weather, canvas, shake_offset)
+	_draw_field_overlay(canvas, context, shake_offset, effect_lod_scale)
+	_draw_sand_segments(weather, canvas, shake_offset, effect_lod_scale)
+	_draw_particles(weather, canvas, shake_offset, effect_lod_scale)
 	_draw_weather_message(canvas, context)
 
 
@@ -39,6 +83,7 @@ func build_visual_snapshot(weather: Object) -> Dictionary:
 	var context: Dictionary = _get_weather_context(weather)
 	var particles: Array = _get_particles(weather)
 	var render_limit: int = _get_render_particle_limit(context)
+	var sand_segments: Array = _get_sand_segments(weather)
 	return {
 		"type": str(context.get("type", "")),
 		"active": bool(context.get("active", false)),
@@ -48,12 +93,15 @@ func build_visual_snapshot(weather: Object) -> Dictionary:
 		"fire_render_particle_limit": FIRE_RENDER_PARTICLE_LIMIT,
 		"fire_detailed_explosion_render_limit": FIRE_DETAILED_EXPLOSION_RENDER_LIMIT,
 		"fire_detailed_spark_render_limit": FIRE_DETAILED_SPARK_RENDER_LIMIT,
-		"sand_segment_count": _get_sand_segments(weather).size(),
+		"sand_segment_count": sand_segments.size(),
+		"sand_draw_segment_count": _count_sand_draw_segments(sand_segments),
+		"sand_render_segment_bucket_size": SAND_RENDER_SEGMENT_BUCKET_SIZE,
+		"sand_render_segment_limit_per_side": SAND_RENDER_SEGMENT_LIMIT_PER_SIDE,
 		"has_message": str(context.get("warning_text", context.get("end_text", ""))) != "",
 	}
 
 
-func _draw_field_overlay(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+func _draw_field_overlay(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, effect_lod_scale: float = 1.0) -> void:
 	var weather_type: String = str(context.get("type", ""))
 	if weather_type == "":
 		return
@@ -61,7 +109,13 @@ func _draw_field_overlay(canvas: CanvasItem, context: Dictionary, shake_offset: 
 	match weather_type:
 		"fire":
 			canvas.draw_rect(rect, Color(1.0, 0.19, 0.04, 0.055))
-			for idx in range(FIRE_OVERLAY_HEAT_LINE_COUNT):
+			var heat_line_count: int = _get_lod_count(
+				FIRE_OVERLAY_HEAT_LINE_COUNT,
+				FIRE_OVERLAY_HEAT_LINE_COUNT_LOD,
+				FIRE_OVERLAY_HEAT_LINE_COUNT_SEVERE_LOD,
+				effect_lod_scale
+			)
+			for idx in range(heat_line_count):
 				var y: float = FIELD_HEIGHT - 108.0 + float(idx) * 24.0
 				canvas.draw_line(
 					Vector2(0.0, y) + shake_offset,
@@ -72,7 +126,13 @@ func _draw_field_overlay(canvas: CanvasItem, context: Dictionary, shake_offset: 
 		"ice":
 			canvas.draw_rect(Rect2(Vector2(0.0, 0.0) + shake_offset, Vector2(FIELD_WIDTH, 54.0)), Color(0.45, 0.85, 1.0, 0.10))
 			canvas.draw_rect(Rect2(Vector2(0.0, FIELD_HEIGHT - 54.0) + shake_offset, Vector2(FIELD_WIDTH, 54.0)), Color(0.45, 0.85, 1.0, 0.12))
-			for idx in range(0, 10):
+			var ice_line_count: int = _get_lod_count(
+				ICE_OVERLAY_LINE_COUNT,
+				ICE_OVERLAY_LINE_COUNT_LOD,
+				ICE_OVERLAY_LINE_COUNT_SEVERE_LOD,
+				effect_lod_scale
+			)
+			for idx in range(ice_line_count):
 				var x: float = float(idx) * 83.0
 				canvas.draw_line(Vector2(x, FIELD_HEIGHT - 46.0) + shake_offset, Vector2(x + 58.0, FIELD_HEIGHT - 12.0) + shake_offset, Color(0.75, 0.96, 1.0, 0.18), 1.0)
 				canvas.draw_line(Vector2(x + 18.0, 11.0) + shake_offset, Vector2(x + 77.0, 42.0) + shake_offset, Color(0.75, 0.96, 1.0, 0.13), 1.0)
@@ -87,26 +147,194 @@ func _draw_field_overlay(canvas: CanvasItem, context: Dictionary, shake_offset: 
 			canvas.draw_rect(rect, Color(0.55, 0.78, 1.0, alpha))
 
 
-func _draw_sand_segments(weather: Object, canvas: CanvasItem, shake_offset: Vector2) -> void:
-	for value in _get_sand_segments(weather):
-		var segment: Dictionary = _get_dict(value)
-		var rect: Rect2 = _get_rect2(segment.get("rect", Rect2()), Rect2())
-		if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+func _draw_sand_segments(weather: Object, canvas: CanvasItem, shake_offset: Vector2, effect_lod_scale: float = 1.0) -> void:
+	var depths_by_side: Dictionary = _collect_sand_wall_depths(weather)
+	if depths_by_side.is_empty():
+		return
+	var dissolve_alpha: float = _get_sand_dissolve_alpha(weather)
+	if dissolve_alpha <= 0.005:
+		return
+	for side_value in ["left", "right", "top", "bottom"]:
+		var side := str(side_value)
+		if not depths_by_side.has(side):
 			continue
-		rect.position += shake_offset
-		var depth: float = float(segment.get("depth", max(rect.size.x, rect.size.y)))
-		var alpha: float = clamp(0.33 + depth / 120.0, 0.36, 0.68)
-		canvas.draw_texture_rect(_get_texture("sand_grain"), rect, true, Color(0.93, 0.76, 0.42, alpha))
-		canvas.draw_rect(rect, Color(0.52, 0.36, 0.13, 0.18), false, 1.0)
+		var depths: Array = depths_by_side[side]
+		if depths.is_empty():
+			continue
+		_draw_sand_wall_polygon(canvas, side, depths, shake_offset, dissolve_alpha, effect_lod_scale)
 
 
-func _draw_particles(weather: Object, canvas: CanvasItem, shake_offset: Vector2) -> void:
+func _collect_sand_wall_depths(weather: Object) -> Dictionary:
+	if weather == null:
+		return {}
+	if weather.has_method("get_sand_wall_depth_arrays"):
+		var value: Variant = weather.get_sand_wall_depth_arrays()
+		if value is Dictionary:
+			return value
+	return {}
+
+
+func _get_sand_dissolve_alpha(weather: Object) -> float:
+	if weather == null:
+		return 1.0
+	if weather.has_method("get_sand_dissolve_alpha"):
+		return clamp(float(weather.get_sand_dissolve_alpha()), 0.0, 1.0)
+	return 1.0
+
+
+func _draw_sand_wall_polygon(
+	canvas: CanvasItem,
+	side: String,
+	depths: Array,
+	shake_offset: Vector2,
+	dissolve_alpha: float,
+	effect_lod_scale: float = 1.0
+) -> void:
+	var seg_count: int = depths.size()
+	if seg_count <= 0:
+		return
+	var axis_start: float = SAND_VERTICAL_START if side == "left" or side == "right" else SAND_HORIZONTAL_START
+	var span_end: float = axis_start + float(seg_count) * SAND_SEG_SIZE
+	var stride: int = _get_sand_polygon_stride(effect_lod_scale)
+	var sampled_indices: Array[int] = []
+	for index in range(0, seg_count, stride):
+		sampled_indices.append(index)
+	if sampled_indices.is_empty() or sampled_indices[sampled_indices.size() - 1] != seg_count - 1:
+		sampled_indices.append(seg_count - 1)
+	var points: PackedVector2Array = PackedVector2Array()
+	points.resize(sampled_indices.size() + 2)
+	var has_visible := false
+	match side:
+		"left":
+			points[0] = Vector2(0.0, axis_start) + shake_offset
+			for sample_index in range(sampled_indices.size()):
+				var index: int = sampled_indices[sample_index]
+				var d: float = max(0.0, float(depths[index]))
+				if d > 0.5:
+					has_visible = true
+				var y: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
+				points[sample_index + 1] = Vector2(d, y) + shake_offset
+			points[sampled_indices.size() + 1] = Vector2(0.0, span_end) + shake_offset
+		"right":
+			points[0] = Vector2(FIELD_WIDTH, axis_start) + shake_offset
+			for sample_index in range(sampled_indices.size()):
+				var index: int = sampled_indices[sample_index]
+				var d: float = max(0.0, float(depths[index]))
+				if d > 0.5:
+					has_visible = true
+				var y: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
+				points[sample_index + 1] = Vector2(FIELD_WIDTH - d, y) + shake_offset
+			points[sampled_indices.size() + 1] = Vector2(FIELD_WIDTH, span_end) + shake_offset
+		"top":
+			points[0] = Vector2(axis_start, 0.0) + shake_offset
+			for sample_index in range(sampled_indices.size()):
+				var index: int = sampled_indices[sample_index]
+				var d: float = max(0.0, float(depths[index]))
+				if d > 0.5:
+					has_visible = true
+				var x: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
+				points[sample_index + 1] = Vector2(x, d) + shake_offset
+			points[sampled_indices.size() + 1] = Vector2(span_end, 0.0) + shake_offset
+		_:
+			points[0] = Vector2(axis_start, FIELD_HEIGHT) + shake_offset
+			for sample_index in range(sampled_indices.size()):
+				var index: int = sampled_indices[sample_index]
+				var d: float = max(0.0, float(depths[index]))
+				if d > 0.5:
+					has_visible = true
+				var x: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
+				points[sample_index + 1] = Vector2(x, FIELD_HEIGHT - d) + shake_offset
+			points[sampled_indices.size() + 1] = Vector2(span_end, FIELD_HEIGHT) + shake_offset
+
+	if not has_visible:
+		return
+
+	var fill_color := Color(SAND_BASE_COLOR.r, SAND_BASE_COLOR.g, SAND_BASE_COLOR.b, 0.92 * dissolve_alpha)
+	canvas.draw_colored_polygon(points, fill_color)
+
+	# Inner shadow band along the wall side to give depth read.
+	var shadow_polygon: PackedVector2Array = _build_sand_shadow_polygon(side, points)
+	if shadow_polygon.size() >= 3:
+		var shadow_color := Color(SAND_DARK_COLOR.r, SAND_DARK_COLOR.g, SAND_DARK_COLOR.b, 0.42 * dissolve_alpha)
+		canvas.draw_colored_polygon(shadow_polygon, shadow_color)
+
+	# Outline only along the visible silhouette (skip the closing wall edges).
+	var outline_points: PackedVector2Array = PackedVector2Array()
+	outline_points.resize(sampled_indices.size())
+	for index in range(sampled_indices.size()):
+		outline_points[index] = points[index + 1]
+	if outline_points.size() >= 2:
+		var outline_color := Color(SAND_OUTLINE_COLOR.r, SAND_OUTLINE_COLOR.g, SAND_OUTLINE_COLOR.b, 0.82 * dissolve_alpha)
+		canvas.draw_polyline(outline_points, outline_color, 1.4, true)
+
+	# Crest highlight: skim a slightly inset bright ribbon along peaks for an organic dune feel.
+	var highlight_points: PackedVector2Array = _build_sand_highlight_polyline(side, depths, shake_offset, axis_start, effect_lod_scale)
+	if highlight_points.size() >= 2:
+		var highlight_color := Color(SAND_HIGHLIGHT_COLOR.r, SAND_HIGHLIGHT_COLOR.g, SAND_HIGHLIGHT_COLOR.b, 0.42 * dissolve_alpha)
+		canvas.draw_polyline(highlight_points, highlight_color, 1.0, true)
+
+
+func _build_sand_shadow_polygon(side: String, surface_points: PackedVector2Array) -> PackedVector2Array:
+	if surface_points.size() < 4:
+		return PackedVector2Array()
+	var inset: float = 4.0
+	var result: PackedVector2Array = PackedVector2Array()
+	# Walk the silhouette (skipping the wall closure endpoints) and offset slightly inward to form a thin band.
+	for index in range(1, surface_points.size() - 1):
+		result.append(surface_points[index])
+	var inset_count: int = result.size()
+	for back_index in range(inset_count - 1, -1, -1):
+		var p: Vector2 = result[back_index]
+		match side:
+			"left":
+				p.x = max(0.0, p.x - inset)
+			"right":
+				p.x = min(FIELD_WIDTH, p.x + inset)
+			"top":
+				p.y = max(0.0, p.y - inset)
+			_:
+				p.y = min(FIELD_HEIGHT, p.y + inset)
+		result.append(p)
+	return result
+
+
+func _build_sand_highlight_polyline(side: String, depths: Array, shake_offset: Vector2, axis_start: float, effect_lod_scale: float = 1.0) -> PackedVector2Array:
+	var result: PackedVector2Array = PackedVector2Array()
+	var inset: float = 2.0
+	var stride: int = _get_sand_polygon_stride(effect_lod_scale)
+	for index in range(0, depths.size(), stride):
+		var d: float = max(0.0, float(depths[index]))
+		if d <= 6.0:
+			# Only highlight reasonably tall peaks so we don't draw a long line through flat zones.
+			if not result.is_empty():
+				# Break the polyline by starting a new ribbon next time.
+				pass
+			continue
+		var pos := Vector2.ZERO
+		var axis_along: float = axis_start + float(index) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
+		match side:
+			"left":
+				pos = Vector2(max(0.0, d - inset), axis_along)
+			"right":
+				pos = Vector2(min(FIELD_WIDTH, FIELD_WIDTH - d + inset), axis_along)
+			"top":
+				pos = Vector2(axis_along, max(0.0, d - inset))
+			_:
+				pos = Vector2(axis_along, min(FIELD_HEIGHT, FIELD_HEIGHT - d + inset))
+		result.append(pos + shake_offset)
+	return result
+
+
+func _draw_particles(weather: Object, canvas: CanvasItem, shake_offset: Vector2, effect_lod_scale: float = 1.0) -> void:
 	var particles: Array = _get_particles(weather)
 	var context: Dictionary = _get_weather_context(weather)
-	var particle_start: int = max(0, particles.size() - _get_render_particle_limit(context))
+	var particle_start: int = max(0, particles.size() - _get_render_particle_limit(context, effect_lod_scale))
+	var particle_stride: int = _get_particle_render_stride(effect_lod_scale)
 	var fire_explosion_drawn := 0
 	var fire_spark_drawn := 0
 	for particle_index in range(particle_start, particles.size()):
+		if particle_stride > 1 and (particle_index - particle_start) % particle_stride != 0:
+			continue
 		var value: Variant = particles[particle_index]
 		var particle: Dictionary = _get_dict(value)
 		var kind: String = str(particle.get("kind", "wind"))
@@ -143,7 +371,12 @@ func _draw_particles(weather: Object, canvas: CanvasItem, shake_offset: Vector2)
 					explosion_size,
 					alpha,
 					color,
-					fire_explosion_drawn <= FIRE_DETAILED_EXPLOSION_RENDER_LIMIT
+					fire_explosion_drawn <= _get_detailed_render_limit(
+						FIRE_DETAILED_EXPLOSION_RENDER_LIMIT,
+						FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_LOD,
+						FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_SEVERE_LOD,
+						effect_lod_scale
+					)
 				)
 			"fire_spark":
 				var spark_size: float = float(particle.get("size", 3.0))
@@ -158,7 +391,12 @@ func _draw_particles(weather: Object, canvas: CanvasItem, shake_offset: Vector2)
 					spark_length,
 					alpha,
 					color,
-					fire_spark_drawn <= FIRE_DETAILED_SPARK_RENDER_LIMIT
+					fire_spark_drawn <= _get_detailed_render_limit(
+						FIRE_DETAILED_SPARK_RENDER_LIMIT,
+						FIRE_DETAILED_SPARK_RENDER_LIMIT_LOD,
+						FIRE_DETAILED_SPARK_RENDER_LIMIT_SEVERE_LOD,
+						effect_lod_scale
+					)
 				)
 			"ice":
 				var ice_size: float = float(particle.get("size", 4.0))
@@ -499,13 +737,51 @@ func _get_particles(weather: Object) -> Array:
 	return []
 
 
-func _get_render_particle_limit(context: Dictionary) -> int:
+func _get_render_particle_limit(context: Dictionary, effect_lod_scale: float = 1.0) -> int:
 	var weather_type: String = str(context.get("type", ""))
 	if weather_type == "fire":
-		return FIRE_RENDER_PARTICLE_LIMIT
+		return _get_lod_count(FIRE_RENDER_PARTICLE_LIMIT, FIRE_RENDER_PARTICLE_LIMIT_LOD, FIRE_RENDER_PARTICLE_LIMIT_SEVERE_LOD, effect_lod_scale)
 	if weather_type == "breeze" or weather_type == "gust":
-		return WIND_RENDER_PARTICLE_LIMIT
-	return WEATHER_RENDER_PARTICLE_LIMIT
+		return _get_lod_count(WIND_RENDER_PARTICLE_LIMIT, WIND_RENDER_PARTICLE_LIMIT_LOD, WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD, effect_lod_scale)
+	return _get_lod_count(WEATHER_RENDER_PARTICLE_LIMIT, WEATHER_RENDER_PARTICLE_LIMIT_LOD, WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD, effect_lod_scale)
+
+
+func _get_detailed_render_limit(base_count: int, lod_count: int, severe_lod_count: int, effect_lod_scale: float) -> int:
+	return _get_lod_count(base_count, lod_count, severe_lod_count, effect_lod_scale)
+
+
+func _get_particle_render_stride(effect_lod_scale: float) -> int:
+	if _is_severe_lod_active(effect_lod_scale):
+		return PARTICLE_RENDER_STRIDE_SEVERE_LOD
+	if _is_lod_active(effect_lod_scale):
+		return PARTICLE_RENDER_STRIDE_LOD
+	return 1
+
+
+func _get_sand_polygon_stride(effect_lod_scale: float) -> int:
+	if _is_severe_lod_active(effect_lod_scale):
+		return SAND_POLYGON_STRIDE_SEVERE_LOD
+	if _is_lod_active(effect_lod_scale):
+		return SAND_POLYGON_STRIDE_LOD
+	return 1
+
+
+func _get_lod_count(base_count: int, lod_count: int, severe_lod_count: int, effect_lod_scale: float) -> int:
+	if base_count <= 0:
+		return 0
+	if _is_severe_lod_active(effect_lod_scale):
+		return clampi(severe_lod_count, 0, base_count)
+	if _is_lod_active(effect_lod_scale):
+		return clampi(lod_count, 0, base_count)
+	return base_count
+
+
+func _is_lod_active(effect_lod_scale: float) -> bool:
+	return effect_lod_scale < LOD_ACTIVE_THRESHOLD
+
+
+func _is_severe_lod_active(effect_lod_scale: float) -> bool:
+	return effect_lod_scale <= SEVERE_LOD_ACTIVE_THRESHOLD
 
 
 func _get_sand_segments(weather: Object) -> Array:
@@ -514,6 +790,22 @@ func _get_sand_segments(weather: Object) -> Array:
 		if segments is Array:
 			return segments
 	return []
+
+
+func _count_sand_draw_segments(segments: Array) -> int:
+	# Polygon renderer coalesces every visible segment on a wall into a single draw call,
+	# so the visible draw-segment count is the number of sides that contain any depth.
+	var sides_with_content: Dictionary = {}
+	for value in segments:
+		var segment: Dictionary = _get_dict(value)
+		var side: String = str(segment.get("side", ""))
+		if side == "" or sides_with_content.has(side):
+			continue
+		var rect: Rect2 = _get_rect2(segment.get("rect", Rect2()), Rect2())
+		if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+			continue
+		sides_with_content[side] = true
+	return sides_with_content.size()
 
 
 func _get_weather_color(weather_type: String) -> Color:

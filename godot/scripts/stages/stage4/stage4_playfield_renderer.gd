@@ -1,7 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
-const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
 const CENTER_BACKGROUND_PATH := "res://assets/sprites/hud/stage4_center_background_base_imagegen_v2.png"
 const TEMPLE_BUILDING_PATH := "res://assets/sprites/hud/stage4_center_temple_building_imagegen_v4.png"
@@ -22,6 +22,8 @@ const DEBRIS_COLUMNS := 4
 const DEBRIS_ROWS := 4
 const RED_MOON_FRAGMENT_COLUMNS := 4
 const RED_MOON_FRAGMENT_ROWS := 4
+const RED_MOON_FRAGMENT_IMAGE_SCALE_MIN := 2.8
+const RED_MOON_FRAGMENT_IMAGE_SCALE_MAX := 5.5
 const TEMPLE_COLLAPSE_DURATION_SEC := 5.0
 const EXPLOSION_START_COLLAPSE_PROGRESS := 0.08
 const EXPLOSION_FRAME_INTERVAL_SEC := 0.032
@@ -216,11 +218,14 @@ func get_imagegen_asset_status() -> Dictionary:
 		"support_aura_removed_on_collapse": true,
 		"stadium_line_draw_enabled": STAGE4_STADIUM_LINE_DRAW_ENABLED,
 		"red_moon_fragment_frame_count": RED_MOON_FRAGMENT_COLUMNS * RED_MOON_FRAGMENT_ROWS,
+		"red_moon_fragment_image_scale_min": RED_MOON_FRAGMENT_IMAGE_SCALE_MIN,
+		"red_moon_fragment_image_scale_max": RED_MOON_FRAGMENT_IMAGE_SCALE_MAX,
 		"floating_motion_enabled": true,
 		"floating_lantern_count": LANTERN_SPECS.size(),
 		"floating_leaf_count": FLOATING_LEAF_SPECS.size(),
 		"playfield_aura_sheet_draw_enabled": PLAYFIELD_AURA_SHEET_DRAW_ENABLED,
 		"viper_airborne_lod_supported": true,
+		"shared_render_quality_lod_supported": true,
 		"back_atmosphere_spark_count": BACK_ATMOSPHERE_SPARK_COUNT,
 		"back_atmosphere_spark_count_lod": BACK_ATMOSPHERE_SPARK_COUNT_LOD,
 		"floating_leaf_render_limit_lod": FLOATING_LEAF_RENDER_LIMIT_LOD,
@@ -892,16 +897,19 @@ func _draw_ellipse_outline(canvas: CanvasItem, center: Vector2, radius: Vector2,
 func _draw_moon_fragment(canvas: CanvasItem, fragment: Dictionary, scale: Vector2, shake_offset: Vector2) -> void:
 	var pos := Vector2(float(fragment.get("x", 0.0)), float(fragment.get("y", 0.0))) * scale + shake_offset
 	var size: float = maxf(3.0, float(fragment.get("size", 10.0)) * scale.x)
+	var visual_scale: float = _get_moon_fragment_visual_scale(fragment)
+	var visual_radius: float = size * visual_scale * 0.5
+	var rotation: float = deg_to_rad(float(fragment.get("rotation", 0.0)))
 	var trail: Array = _as_array(fragment.get("trail", []))
 	for idx in range(trail.size()):
 		var trail_pos: Vector2 = _as_vector2(trail[idx], Vector2.ZERO) * scale + shake_offset
 		var t: float = float(idx + 1) / maxf(1.0, float(trail.size()))
 		canvas.draw_circle(trail_pos, maxf(1.2, size * (0.25 + t * 0.26)), Color(1.0, 0.22, 0.08, 0.10 + t * 0.20))
 	if bool(fragment.get("impact", false)):
-		var radius: float = maxf(size, float(fragment.get("shockwave_radius", 0.0)) * scale.x)
+		var radius: float = maxf(visual_radius, float(fragment.get("shockwave_radius", 0.0)) * scale.x)
 		var alpha: float = clampf(float(fragment.get("impact_timer", 0.0)) / 30.0, 0.0, 1.0)
 		canvas.draw_circle(pos, radius, Color(1.0, 0.28, 0.07, 0.24 * alpha), false, 3.0, true)
-		canvas.draw_circle(pos, maxf(2.0, size * 0.65), Color(1.0, 0.78, 0.30, 0.52 * alpha))
+		canvas.draw_circle(pos, maxf(2.0, visual_radius * 0.46), Color(1.0, 0.78, 0.30, 0.52 * alpha))
 		return
 	if red_moon_fragment_atlas != null:
 		var texture_size: Vector2 = red_moon_fragment_atlas.get_size()
@@ -909,14 +917,23 @@ func _draw_moon_fragment(canvas: CanvasItem, fragment: Dictionary, scale: Vector
 		var safe_index: int = wrapi(int(fragment.get("sprite_index", 0)), 0, RED_MOON_FRAGMENT_COLUMNS * RED_MOON_FRAGMENT_ROWS)
 		@warning_ignore("integer_division")
 		var source := Rect2(float(safe_index % RED_MOON_FRAGMENT_COLUMNS) * cell.x, float(int(safe_index / RED_MOON_FRAGMENT_COLUMNS)) * cell.y, cell.x, cell.y)
-		var draw_size := Vector2(size * 2.8, size * 2.8) * float(fragment.get("sprite_scale_jitter", 1.0))
-		canvas.draw_texture_rect_region(red_moon_fragment_atlas, Rect2(pos - draw_size * 0.5, draw_size), source, Color.WHITE, false, true)
+		var draw_size := Vector2(size * visual_scale, size * visual_scale)
+		_draw_texture_region_rotated(canvas, red_moon_fragment_atlas, source, pos, draw_size, rotation, Color.WHITE)
 	else:
-		canvas.draw_circle(pos, size * 1.55, Color(1.0, 0.08, 0.02, 0.26))
-		canvas.draw_circle(pos, size, Color(1.0, 0.23, 0.08, 0.92))
-		canvas.draw_circle(pos + Vector2(-size * 0.24, -size * 0.20), size * 0.35, Color(1.0, 0.86, 0.42, 0.85))
+		canvas.draw_circle(pos, visual_radius * 1.10, Color(1.0, 0.08, 0.02, 0.26))
+		canvas.draw_circle(pos, visual_radius * 0.72, Color(1.0, 0.23, 0.08, 0.92))
+		canvas.draw_circle(pos + Vector2(-visual_radius * 0.18, -visual_radius * 0.15).rotated(rotation), visual_radius * 0.24, Color(1.0, 0.86, 0.42, 0.85))
 	if bool(fragment.get("deflected", false)):
-		canvas.draw_circle(pos, size * 2.0, Color(0.95, 0.92, 1.0, 0.32), false, 2.0, true)
+		canvas.draw_circle(pos, maxf(size * 2.0, visual_radius * 0.95), Color(0.95, 0.92, 1.0, 0.32), false, 2.0, true)
+
+
+func _get_moon_fragment_visual_scale(fragment: Dictionary) -> float:
+	var default_scale: float = RED_MOON_FRAGMENT_IMAGE_SCALE_MIN * float(fragment.get("sprite_scale_jitter", 1.0))
+	return clampf(
+		float(fragment.get("visual_scale", default_scale)),
+		RED_MOON_FRAGMENT_IMAGE_SCALE_MIN,
+		RED_MOON_FRAGMENT_IMAGE_SCALE_MAX
+	)
 
 
 func _as_array(value: Variant) -> Array:
@@ -932,7 +949,7 @@ func _recent_start(source: Array, render_limit: int) -> int:
 
 
 func _get_playfield_quality_scale(context: Dictionary) -> float:
-	return ViperAirborneLod.effect_scale(context)
+	return BattleRenderQuality.effect_scale(context)
 
 
 func _is_playfield_lod_active(quality_scale: float) -> bool:

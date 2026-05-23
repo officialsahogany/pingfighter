@@ -159,9 +159,10 @@ func draw(
 	sample_start = _perf_begin(perf_logger)
 	effects_drawer.draw_impact_and_combo_effects(canvas, registry, shake_offset, draw_context)
 	_perf_end(perf_logger, "27.impact_combo", sample_start)
-	sample_start = _perf_begin(perf_logger)
-	_draw_weather_effects(canvas, registry, shake_offset)
-	_perf_end(perf_logger, "28.weather", sample_start)
+	if _should_draw_weather_effects(registry, draw_context):
+		sample_start = _perf_begin(perf_logger)
+		_draw_weather_effects(canvas, registry, shake_offset, draw_context)
+		_perf_end(perf_logger, "28.weather", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	if not decorative_lod:
 		_draw_active_item_field(canvas, registry, shake_offset, perf_logger)
@@ -343,10 +344,19 @@ func _get_method_cache_key(target: Object, method_name: String) -> String:
 	return "%d:%s" % [target.get_instance_id(), method_name]
 
 
-func _draw_weather_effects(canvas: CanvasItem, registry: Object, shake_offset: Vector2) -> void:
+func _draw_weather_effects(canvas: CanvasItem, registry: Object, shake_offset: Vector2, draw_context: Dictionary) -> void:
 	var weather_driver: Object = _get_instance(registry, "battle_scene_weather_update_driver")
 	if weather_driver != null and weather_driver.has_method("draw_weather"):
-		weather_driver.draw_weather(canvas, registry, shake_offset)
+		weather_driver.draw_weather(canvas, registry, shake_offset, draw_context)
+
+
+func _should_draw_weather_effects(registry: Object, draw_context: Dictionary) -> bool:
+	var weather_driver: Object = _get_instance(registry, "battle_scene_weather_update_driver")
+	if weather_driver == null:
+		return false
+	if weather_driver.has_method("should_draw_weather"):
+		return bool(weather_driver.should_draw_weather(registry, draw_context))
+	return weather_driver.has_method("draw_weather")
 
 
 func _draw_active_item_pickup_effect(canvas: CanvasItem, registry: Object, perf_logger: Object = null) -> void:

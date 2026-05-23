@@ -17,6 +17,10 @@ const FRAGMENT_ATLAS_ROWS := 4
 const MAX_FRAGMENTS := 40
 const FRAGMENT_SPAWN_MIN_FRAMES := 120.0
 const FRAGMENT_SPAWN_MAX_FRAMES := 900.0
+const FRAGMENT_IMAGE_SCALE_MIN := 2.8
+const FRAGMENT_IMAGE_SCALE_MAX := 5.5
+const FRAGMENT_ROTATION_SPEED_MIN := 0.15
+const FRAGMENT_ROTATION_SPEED_MAX := 2.4
 const FRAGMENT_PLAYER_HIT_COOLDOWN_MS := 100.0
 const PLAYER_BURN_FRAMES := 30.0
 const PLAYER_FRAGMENT_KNOCKBACK := 20.0
@@ -331,8 +335,8 @@ func _spawn_moon_fragments(count: int, target: Variant, deps: Dictionary) -> int
 			"target_x": target_pos.x,
 			"target_y": target_pos.y,
 			"size": size,
-			"rotation": 0.0,
-			"rotation_speed": rng.randf_range(-10.0, 10.0),
+			"rotation": rng.randf_range(0.0, 360.0),
+			"rotation_speed": _get_random_fragment_rotation_speed(),
 			"lifetime": 300.0,
 			"trail": [origin],
 			"impact": false,
@@ -343,6 +347,7 @@ func _spawn_moon_fragments(count: int, target: Variant, deps: Dictionary) -> int
 			"glow_phase": rng.randf_range(0.0, TAU),
 			"sprite_index": rng.randi_range(0, FRAGMENT_ATLAS_COLUMNS * FRAGMENT_ATLAS_ROWS - 1),
 			"sprite_scale_jitter": rng.randf_range(0.88, 1.0),
+			"visual_scale": rng.randf_range(FRAGMENT_IMAGE_SCALE_MIN, FRAGMENT_IMAGE_SCALE_MAX),
 		})
 		spawned += 1
 	if spawned > 0:
@@ -353,6 +358,11 @@ func _spawn_moon_fragments(count: int, target: Variant, deps: Dictionary) -> int
 
 func _get_fragment_origin() -> Vector2:
 	return Vector2(FIELD_WIDTH + 24.0, clampf(moon_center.y if moon_center != Vector2.ZERO else 96.0, -20.0, FIELD_HEIGHT * 0.28))
+
+
+func _get_random_fragment_rotation_speed() -> float:
+	var direction := -1.0 if rng.randf() < 0.5 else 1.0
+	return direction * rng.randf_range(FRAGMENT_ROTATION_SPEED_MIN, FRAGMENT_ROTATION_SPEED_MAX)
 
 
 func _update_fragment_trail(fragment: Dictionary) -> void:

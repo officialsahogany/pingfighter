@@ -5,6 +5,14 @@ const WEATHER_DURATION_WEIGHTS := [1, 1, 1, 1, 1, 2, 2, 2, 3, 3]
 const WEATHER_EVENT_PROBABILITY := 0.10
 const WEATHER_RENDER_PARTICLE_LIMIT := 72
 const WIND_RENDER_PARTICLE_LIMIT := 32
+const LOD_ACTIVE_THRESHOLD := 0.99
+const SEVERE_LOD_ACTIVE_THRESHOLD := 0.66
+const WEATHER_RENDER_PARTICLE_LIMIT_LOD := 48
+const WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 32
+const WIND_RENDER_PARTICLE_LIMIT_LOD := 24
+const WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 16
+const PARTICLE_RENDER_STRIDE_LOD := 1
+const PARTICLE_RENDER_STRIDE_SEVERE_LOD := 2
 const BREEZE_VISUAL_PARTICLE_TARGET := 28
 const GUST_VISUAL_PARTICLE_TARGET := 34
 const WARNING_FRAMES := 180.0
@@ -47,6 +55,8 @@ const HAIL_PLAYER_STUN_FRAMES := 6.0
 const HAIL_KNOCKBACK_DECAY := 0.85
 const SAND_SEGMENTS := 64
 const SAND_SEG_SIZE := 12.0
+const SAND_RENDER_STRIDE_LOD := 2
+const SAND_RENDER_STRIDE_SEVERE_LOD := 3
 const SAND_VERTICAL_START := 60.0
 const SAND_VERTICAL_END := 690.0
 const SAND_HORIZONTAL_START := 40.0
@@ -59,6 +69,8 @@ const SAND_WALK_ERODE_AMOUNT := 0.12
 const SAND_WALK_ERODE_RADIUS_SEGS := 2
 const SAND_DASH_ERODE_AMOUNT := 6.0
 const SAND_DASH_ERODE_RADIUS_SEGS := 2
+const SAND_DISSOLVE_FRAMES := 90.0
+const SAND_DISSOLVE_PARTICLE_INTERVAL_FRAMES := 3.0
 
 var weather_event_active := false
 var weather_event_type := ""
@@ -72,6 +84,10 @@ var fire_gauge_drain_accumulator := 0.0
 var weather_particles: Array = []
 var sand_depths: Array = []
 var sand_wall_depths: Dictionary = {}
+var sand_collision_active := false
+var sand_dissolving := false
+var _sand_dissolve_timer := 0.0
+var _sand_dissolve_particle_timer := 0.0
 var _sand_visual_segments_cache: Array = []
 var _sand_visual_segments_dirty := true
 var hail_spawn_timer_frames := 0.0
@@ -102,6 +118,10 @@ func reset() -> void:
 	weather_particles.clear()
 	sand_depths.clear()
 	sand_wall_depths.clear()
+	sand_collision_active = false
+	sand_dissolving = false
+	_sand_dissolve_timer = 0.0
+	_sand_dissolve_particle_timer = 0.0
 	_mark_sand_visual_dirty()
 	hail_spawn_timer_frames = 0.0
 	hail_player_hit_cooldown_frames = 0.0
@@ -131,7 +151,7 @@ func advance_round_start(owner: Object = null, registry: Object = null) -> Dicti
 		weather_event_remaining_rounds -= 1
 		if weather_event_remaining_rounds <= 0:
 			var ended_type := weather_event_type
-			force_end_weather_event(owner, registry)
+			force_end_weather_event(owner, registry, ended_type == "sand")
 			result["ended"] = true
 			result["type"] = ended_type
 			result["direction"] = 0
@@ -180,6 +200,7 @@ func force_start_weather_event(
 	weather_particles.clear()
 	sand_depths.clear()
 	sand_wall_depths.clear()
+	sand_collision_active = false
 	_mark_sand_visual_dirty()
 	hail_spawn_timer_frames = 0.0
 	hail_player_hit_cooldown_frames = 0.0
@@ -199,9 +220,18 @@ func force_start_weather_event(
 	}
 
 
-func force_end_weather_event(owner: Object = null, registry: Object = null) -> bool:
+func force_end_weather_event(
+	owner: Object = null,
+	registry: Object = null,
+	dissolve_sand: bool = false
+) -> bool:
 	var had_weather := weather_event_active or weather_event_type != "" or not weather_particles.is_empty()
 	var ended_type := weather_event_type
+	var keep_sand_for_dissolve: bool = (
+		dissolve_sand
+		and ended_type == "sand"
+		and not sand_wall_depths.is_empty()
+	)
 	weather_event_active = false
 	weather_event_type = ""
 	weather_event_direction = 0
@@ -210,10 +240,22 @@ func force_end_weather_event(owner: Object = null, registry: Object = null) -> b
 	end_timer_frames = END_FRAMES if ended_type != "" else 0.0
 	end_text = _get_end_text(ended_type)
 	fire_gauge_drain_accumulator = 0.0
-	weather_particles.clear()
-	sand_depths.clear()
-	sand_wall_depths.clear()
-	_mark_sand_visual_dirty()
+	if keep_sand_for_dissolve:
+		_clear_non_sand_particles()
+		sand_collision_active = false
+		sand_dissolving = true
+		_sand_dissolve_timer = SAND_DISSOLVE_FRAMES
+		_sand_dissolve_particle_timer = 0.0
+		_mark_sand_visual_dirty()
+	else:
+		weather_particles.clear()
+		sand_depths.clear()
+		sand_wall_depths.clear()
+		sand_collision_active = false
+		sand_dissolving = false
+		_sand_dissolve_timer = 0.0
+		_sand_dissolve_particle_timer = 0.0
+		_mark_sand_visual_dirty()
 	hail_spawn_timer_frames = 0.0
 	hail_player_hit_cooldown_frames = 0.0
 	_reset_ice_slide_state()
@@ -274,6 +316,7 @@ func update(owner: Object, registry: Object, delta: float) -> void:
 		_apply_fire_gauge_drain(owner, fps_scale)
 	else:
 		fire_gauge_drain_accumulator = 0.0
+	_update_sand_dissolve(fps_scale)
 	_update_weather_particles(fps_scale)
 	_update_hail_collision(owner, registry, fps_scale)
 	_sync_owner_and_physics(owner, registry)
@@ -286,12 +329,15 @@ func _debug_force_weather_type(next_type: String, owner: Object, registry: Objec
 	return result
 
 
-func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, effect_lod_scale: float = 1.0) -> void:
 	if canvas == null:
 		return
-	_draw_sand(canvas, shake_offset)
-	var particle_start: int = max(0, weather_particles.size() - _get_render_particle_limit())
+	_draw_sand(canvas, shake_offset, effect_lod_scale)
+	var particle_start: int = max(0, weather_particles.size() - _get_render_particle_limit(effect_lod_scale))
+	var particle_stride: int = _get_particle_render_stride(effect_lod_scale)
 	for particle_index in range(particle_start, weather_particles.size()):
+		if particle_stride > 1 and (particle_index - particle_start) % particle_stride != 0:
+			continue
 		var value: Variant = weather_particles[particle_index]
 		var particle: Dictionary = _get_dict(value)
 		var kind := str(particle.get("kind", "dust"))
@@ -422,7 +468,7 @@ func apply_ball_weather_motion(scene: Dictionary, fps_scale: float) -> void:
 
 
 func resolve_sand_ball_collision(ball_pos: Vector2, ball_vel: Vector2, ball_size: float, _context: Dictionary = {}) -> Dictionary:
-	if not is_sand_active() or sand_wall_depths.is_empty():
+	if not sand_collision_active:
 		return {}
 	var ball_rect := Rect2(
 		ball_pos - Vector2(ball_size, ball_size) * 0.5,
@@ -555,6 +601,8 @@ func get_weather_context() -> Dictionary:
 		"warning_text": warning_text,
 		"end_text": end_text,
 		"sand_total_depth": get_sand_total_depth(),
+		"sand_dissolving": sand_dissolving,
+		"sand_dissolve_alpha": get_sand_dissolve_alpha(),
 		"hail_hit_count": hail_hit_count,
 		"hail_destroy_count": hail_destroy_count,
 		"hail_player_hit_cooldown_frames": hail_player_hit_cooldown_frames,
@@ -585,6 +633,16 @@ func get_render_particles() -> Array:
 	return weather_particles
 
 
+func has_visible_effects() -> bool:
+	if is_weather_active():
+		return true
+	if warning_timer_frames > 0.0 or end_timer_frames > 0.0:
+		return true
+	if not weather_particles.is_empty() or sand_dissolving:
+		return true
+	return _has_sand_depths_over_threshold()
+
+
 func clear_visual_particles() -> void:
 	weather_particles.clear()
 
@@ -596,18 +654,23 @@ func dissolve_sand_terrain() -> void:
 		var depths: Array = _get_sand_depths(str(side))
 		for index in range(depths.size()):
 			depths[index] = 0.0
+	sand_collision_active = false
 	_mark_sand_visual_dirty()
 
 
-func rebuild_sand_behind_player(_player_pos: Vector2 = Vector2.ZERO) -> void:
+func rebuild_sand_behind_player(player_pos: Vector2 = Vector2.ZERO) -> void:
 	if sand_depths.is_empty():
 		for _i in range(SAND_SEGMENTS):
 			sand_depths.append(0.0)
-	@warning_ignore("integer_division")
-	var mid := SAND_SEGMENTS / 2
+	var fallback_center_x: float = (SAND_HORIZONTAL_START + SAND_HORIZONTAL_END) * 0.5
+	var center_x: float = fallback_center_x
+	if player_pos != Vector2.ZERO:
+		center_x = clamp(player_pos.x, SAND_HORIZONTAL_START, SAND_HORIZONTAL_END)
+	var mid: int = clampi(int(round((center_x - SAND_HORIZONTAL_START) / SAND_SEG_SIZE)), 0, SAND_SEGMENTS - 1)
 	for index in range(SAND_SEGMENTS):
 		var dist: float = abs(float(index) - float(mid)) / max(1.0, float(SAND_SEGMENTS) * 0.5)
 		sand_depths[index] = max(float(sand_depths[index]), 55.0 * max(0.25, 1.0 - dist * 0.55))
+	sand_collision_active = true
 	_mark_sand_visual_dirty()
 
 
@@ -619,6 +682,21 @@ func get_sand_total_depth() -> float:
 		for value in _get_sand_depths(side):
 			total += max(0.0, float(value))
 	return total
+
+
+func get_sand_dissolve_alpha() -> float:
+	if not sand_dissolving:
+		return 1.0
+	return clamp(_sand_dissolve_timer / SAND_DISSOLVE_FRAMES, 0.0, 1.0)
+
+
+func get_sand_wall_depth_arrays() -> Dictionary:
+	var result: Dictionary = {}
+	for side in ["left", "right", "top", "bottom"]:
+		var depths: Array = _get_sand_depths(str(side))
+		if not depths.is_empty():
+			result[side] = depths
+	return result
 
 
 func get_sand_visual_segments() -> Array:
@@ -837,11 +915,15 @@ func _make_particle(next_type: String) -> Dictionary:
 				"color": color,
 			}
 		_:
-			var from_left := randf() < 0.5
+			var wind_direction: float = float(weather_event_direction)
+			if is_zero_approx(wind_direction):
+				wind_direction = 1.0
+			var source_x: float = -30.0 if wind_direction > 0.0 else FIELD_WIDTH + 30.0
+			var speed: float = randf_range(3.8, 7.0)
 			return {
-				"x": -30.0 if from_left else FIELD_WIDTH + 30.0,
+				"x": source_x,
 				"y": randf_range(60.0, FIELD_HEIGHT - 60.0),
-				"vx": (randf_range(2.8, 6.0) if from_left else -randf_range(2.8, 6.0)) + float(weather_event_direction),
+				"vx": wind_direction * speed,
 				"vy": randf_range(-0.35, 0.35),
 				"life": randf_range(54.0, 84.0),
 				"max_life": 84.0,
@@ -852,10 +934,10 @@ func _make_particle(next_type: String) -> Dictionary:
 			}
 
 
-func _get_render_particle_limit() -> int:
+func _get_render_particle_limit(effect_lod_scale: float = 1.0) -> int:
 	if weather_event_type == "breeze" or weather_event_type == "gust":
-		return WIND_RENDER_PARTICLE_LIMIT
-	return WEATHER_RENDER_PARTICLE_LIMIT
+		return _get_lod_count(WIND_RENDER_PARTICLE_LIMIT, WIND_RENDER_PARTICLE_LIMIT_LOD, WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD, effect_lod_scale)
+	return _get_lod_count(WEATHER_RENDER_PARTICLE_LIMIT, WEATHER_RENDER_PARTICLE_LIMIT_LOD, WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD, effect_lod_scale)
 
 
 func _update_weather_particles(fps_scale: float) -> void:
@@ -1110,19 +1192,22 @@ func _build_sand_wall() -> void:
 	for side in ["left", "right", "top", "bottom"]:
 		sand_wall_depths[side] = _generate_sand_depths(_get_sand_segment_count(side))
 	sand_depths = _get_sand_depths("bottom")
+	sand_collision_active = true
 	_mark_sand_visual_dirty()
 
 
-func _draw_sand(canvas: CanvasItem, shake_offset: Vector2) -> void:
+func _draw_sand(canvas: CanvasItem, shake_offset: Vector2, effect_lod_scale: float = 1.0) -> void:
 	if sand_wall_depths.is_empty() and sand_depths.is_empty():
 		return
+	var stride: int = _get_sand_render_stride(effect_lod_scale)
 	for side in ["left", "right", "top", "bottom"]:
 		var depths: Array = _get_sand_depths(side)
-		for index in range(depths.size()):
+		for index in range(0, depths.size(), stride):
 			var depth: float = max(0.0, float(depths[index]))
 			if depth <= 0.5:
 				continue
 			var rect := _get_sand_segment_rect(side, index, depth)
+			rect = _expand_sand_segment_rect_for_stride(rect, side, stride)
 			rect.position += shake_offset
 			canvas.draw_rect(rect, Color(0.72, 0.55, 0.24, 0.58))
 			if side == "left" or side == "right":
@@ -1403,6 +1488,23 @@ func _get_sand_depths(side: String) -> Array:
 	return []
 
 
+func _has_sand_depths_over_threshold() -> bool:
+	if _depths_have_visible_amount(sand_depths):
+		return true
+	for side in sand_wall_depths.keys():
+		var depths_value: Variant = sand_wall_depths[side]
+		if depths_value is Array and _depths_have_visible_amount(depths_value):
+			return true
+	return false
+
+
+func _depths_have_visible_amount(depths: Array) -> bool:
+	for value in depths:
+		if float(value) > 0.5:
+			return true
+	return false
+
+
 func _mark_sand_visual_dirty() -> void:
 	_sand_visual_segments_dirty = true
 
@@ -1465,6 +1567,51 @@ func _get_sand_segment_rect(side: String, index: int, depth: float) -> Rect2:
 			return Rect2(segment_start, 0.0, length, depth)
 		_:
 			return Rect2(segment_start, FIELD_HEIGHT - depth, length, depth)
+
+
+func _expand_sand_segment_rect_for_stride(rect: Rect2, side: String, stride: int) -> Rect2:
+	if stride <= 1:
+		return rect
+	var target_length: float = SAND_SEG_SIZE * float(stride) + 1.0
+	if side == "left" or side == "right":
+		rect.size.y = minf(target_length, maxf(1.0, _get_sand_axis_end(side) - rect.position.y))
+	else:
+		rect.size.x = minf(target_length, maxf(1.0, _get_sand_axis_end(side) - rect.position.x))
+	return rect
+
+
+func _get_particle_render_stride(effect_lod_scale: float) -> int:
+	if _is_severe_lod_active(effect_lod_scale):
+		return PARTICLE_RENDER_STRIDE_SEVERE_LOD
+	if _is_lod_active(effect_lod_scale):
+		return PARTICLE_RENDER_STRIDE_LOD
+	return 1
+
+
+func _get_sand_render_stride(effect_lod_scale: float) -> int:
+	if _is_severe_lod_active(effect_lod_scale):
+		return SAND_RENDER_STRIDE_SEVERE_LOD
+	if _is_lod_active(effect_lod_scale):
+		return SAND_RENDER_STRIDE_LOD
+	return 1
+
+
+func _get_lod_count(base_count: int, lod_count: int, severe_lod_count: int, effect_lod_scale: float) -> int:
+	if base_count <= 0:
+		return 0
+	if _is_severe_lod_active(effect_lod_scale):
+		return clampi(severe_lod_count, 0, base_count)
+	if _is_lod_active(effect_lod_scale):
+		return clampi(lod_count, 0, base_count)
+	return base_count
+
+
+func _is_lod_active(effect_lod_scale: float) -> bool:
+	return effect_lod_scale < LOD_ACTIVE_THRESHOLD
+
+
+func _is_severe_lod_active(effect_lod_scale: float) -> bool:
+	return effect_lod_scale <= SEVERE_LOD_ACTIVE_THRESHOLD
 
 
 func _get_sand_normal(side: String) -> Vector2:
@@ -1546,6 +1693,117 @@ func _spawn_sand_particles(side: String, pos: Vector2, eroded: float) -> void:
 			"gravity": 0.12,
 			"friction": 0.95,
 		})
+
+
+func _update_sand_dissolve(fps_scale: float) -> void:
+	if not sand_dissolving:
+		return
+	var step: float = max(0.0, fps_scale)
+	_sand_dissolve_timer = max(0.0, _sand_dissolve_timer - step)
+	var progress: float = clamp(1.0 - (_sand_dissolve_timer / SAND_DISSOLVE_FRAMES), 0.0, 1.0)
+	var shrink_per_frame: float = clamp(0.06 + 0.12 * progress, 0.0, 0.5)
+	var keep_factor: float = pow(1.0 - shrink_per_frame, step)
+	var changed := false
+	for side in ["left", "right", "top", "bottom"]:
+		var depths: Array = _get_sand_depths(str(side))
+		if depths.is_empty():
+			continue
+		for index in range(depths.size()):
+			var before: float = float(depths[index])
+			if before <= 0.0:
+				continue
+			var after: float = before * keep_factor
+			if after < 0.5:
+				after = 0.0
+			if not is_equal_approx(after, before):
+				depths[index] = after
+				changed = true
+		if str(side) == "bottom":
+			sand_depths = depths
+	if changed:
+		_mark_sand_visual_dirty()
+
+	_sand_dissolve_particle_timer += step
+	if _sand_dissolve_particle_timer >= SAND_DISSOLVE_PARTICLE_INTERVAL_FRAMES:
+		_sand_dissolve_particle_timer = 0.0
+		_spawn_sand_dissolve_particles(progress)
+
+	if _sand_dissolve_timer <= 0.0:
+		sand_dissolving = false
+		_sand_dissolve_particle_timer = 0.0
+		sand_wall_depths.clear()
+		sand_depths.clear()
+		_mark_sand_visual_dirty()
+
+
+func _spawn_sand_dissolve_particles(progress: float) -> void:
+	var per_wall: int = max(1, int(round(4.0 * (1.0 - progress))))
+	var sand_color: Color = _get_weather_color("sand")
+	for side in ["left", "right", "top", "bottom"]:
+		var depths: Array = _get_sand_depths(str(side))
+		if depths.is_empty():
+			continue
+		var candidates: Array = []
+		for index in range(depths.size()):
+			if float(depths[index]) > 1.0:
+				candidates.append(index)
+		if candidates.is_empty():
+			continue
+		for _i in range(per_wall):
+			var idx: int = int(candidates[randi() % candidates.size()])
+			var depth: float = float(depths[idx])
+			var seg_center: float = _get_sand_axis_start(str(side)) + float(idx) * SAND_SEG_SIZE + SAND_SEG_SIZE * 0.5
+			var px: float = 0.0
+			var py: float = 0.0
+			var vx: float = 0.0
+			var vy: float = 0.0
+			match str(side):
+				"left":
+					px = depth * 0.5
+					py = seg_center
+					vx = randf_range(0.3, 1.5)
+					vy = randf_range(0.5, 2.0)
+				"right":
+					px = FIELD_WIDTH - depth * 0.5
+					py = seg_center
+					vx = randf_range(-1.5, -0.3)
+					vy = randf_range(0.5, 2.0)
+				"top":
+					px = seg_center
+					py = depth * 0.5
+					vx = randf_range(-1.0, 1.0)
+					vy = randf_range(0.5, 2.5)
+				_:
+					px = seg_center
+					py = FIELD_HEIGHT - depth * 0.5
+					vx = randf_range(-1.0, 1.0)
+					vy = randf_range(-0.5, 1.0)
+			weather_particles.append({
+				"x": px + randf_range(-4.0, 4.0),
+				"y": py + randf_range(-4.0, 4.0),
+				"vx": vx,
+				"vy": vy,
+				"life": randf_range(20.0, 45.0),
+				"max_life": 45.0,
+				"size": randf_range(1.0, 3.0),
+				"kind": "sand",
+				"weather_type": "sand",
+				"color": sand_color,
+				"gravity": 0.15,
+				"friction": 0.95,
+			})
+
+
+func _clear_non_sand_particles() -> void:
+	var write_index := 0
+	for index in range(weather_particles.size()):
+		var particle: Dictionary = _get_dict(weather_particles[index])
+		if str(particle.get("kind", "")) == "sand":
+			if write_index != index:
+				weather_particles[write_index] = particle
+			write_index += 1
+	if write_index < weather_particles.size():
+		weather_particles.resize(write_index)
 
 
 func _get_sand_particle_velocity(side: String) -> Vector2:

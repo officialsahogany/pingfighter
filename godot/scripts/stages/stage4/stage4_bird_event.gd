@@ -61,6 +61,12 @@ func reset() -> void:
 
 func update(delta: float, context: Dictionary = {}, deps: Dictionary = {}) -> Dictionary:
 	if int(context.get("current_stage", 4)) != 4:
+		# Drop mid-flight starpoints when the player leaves Stage 4 so they
+		# don't reappear frozen at their last position when the player returns.
+		if not starpoint_drops.is_empty():
+			starpoint_drops.clear()
+		if not starpoint_particles.is_empty():
+			starpoint_particles.clear()
 		return {}
 	var clamped_delta: float = clampf(delta, 0.0, 0.1)
 	var fps_scale: float = clamped_delta * 60.0
@@ -521,8 +527,9 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 			pos.x = play_right - size
 			vel.x = -absf(vel.x) * STARPOINT_DROP_BOUNCE_DAMPING
 		vel.x *= pow(0.98, fps_scale)
-		# Cull when the rendered bottom edge reaches the playfield floor.
-		if pos.y > play_height - size * 0.5:
+		# Cull at the spawn-clamp boundary so a descending drop disappears the
+		# instant its bottom edge reaches the floor (matches spawn pos.y max).
+		if pos.y > play_height - size:
 			continue
 
 		drop["pos"] = pos
@@ -596,14 +603,19 @@ func _draw_bird(canvas: CanvasItem, crow: Dictionary, shake_offset: Vector2) -> 
 		var phase: float = fposmod(float(crow.get("wing_phase", 0.0)), TAU)
 		var frame: int = int((phase / TAU) * float(STAR_BIRD_FRAME_COUNT)) % STAR_BIRD_FRAME_COUNT
 		var draw_size: float = maxf(78.0, size * 3.5)
-		canvas.draw_texture_rect_region(
-			star_bird_sheet,
-			Rect2(center - Vector2(draw_size, draw_size) * 0.5, Vector2(draw_size, draw_size)),
-			Rect2(float(frame) * cell_w, 0.0, cell_w, sheet_size.y),
-			Color.WHITE,
-			false,
-			true
-		)
+		var target_rect := Rect2(center - Vector2(draw_size, draw_size) * 0.5, Vector2(draw_size, draw_size))
+		var source_rect := Rect2(float(frame) * cell_w, 0.0, cell_w, sheet_size.y)
+		if _should_flip_bird_sheet(crow):
+			_draw_flipped_texture_region(canvas, star_bird_sheet, source_rect, target_rect, Color.WHITE)
+		else:
+			canvas.draw_texture_rect_region(
+				star_bird_sheet,
+				target_rect,
+				source_rect,
+				Color.WHITE,
+				false,
+				true
+			)
 		return
 	_draw_fallback_bird(canvas, crow, center)
 
@@ -611,23 +623,59 @@ func _draw_bird(canvas: CanvasItem, crow: Dictionary, shake_offset: Vector2) -> 
 func _draw_fallback_bird(canvas: CanvasItem, crow: Dictionary, center: Vector2) -> void:
 	var size: float = float(crow.get("size", 24.0))
 	var flap: float = sin(float(crow.get("wing_phase", 0.0)))
-	var direction := 1.0 if float(crow.get("vx", 0.0)) >= 0.0 else -1.0
+	var facing_sign := _get_bird_facing_sign(crow)
 	var body_color := Color(0.06, 0.04, 0.08, 0.96)
 	var wing_lift: float = absf(flap) * 15.0
 	var wing_spread: float = size * 0.86
 	canvas.draw_colored_polygon(PackedVector2Array([
-		center + Vector2(-6.0 * direction, -2.0),
-		center + Vector2(-wing_spread * direction, -wing_lift),
-		center + Vector2(-wing_spread * 0.54 * direction, 7.0 + wing_lift * 0.20),
+		center + Vector2(-6.0 * facing_sign, -2.0),
+		center + Vector2(-wing_spread * facing_sign, -wing_lift),
+		center + Vector2(-wing_spread * 0.54 * facing_sign, 7.0 + wing_lift * 0.20),
 	]), body_color)
 	canvas.draw_colored_polygon(PackedVector2Array([
-		center + Vector2(6.0 * direction, -2.0),
-		center + Vector2(wing_spread * direction, -wing_lift),
-		center + Vector2(wing_spread * 0.54 * direction, 7.0 + wing_lift * 0.20),
+		center + Vector2(6.0 * facing_sign, -2.0),
+		center + Vector2(wing_spread * facing_sign, -wing_lift),
+		center + Vector2(wing_spread * 0.54 * facing_sign, 7.0 + wing_lift * 0.20),
 	]), body_color)
 	_draw_ellipse_polygon(canvas, center, Vector2(size * 0.46, size * 0.20), body_color)
-	canvas.draw_circle(center + Vector2(-size * 0.42 * direction, -2.0), size * 0.22, body_color)
-	canvas.draw_circle(center + Vector2(-size * 0.52 * direction, -4.0), 2.0, Color(0.78, 0.16, 0.14, 0.95))
+	canvas.draw_circle(center + Vector2(size * 0.42 * facing_sign, -2.0), size * 0.22, body_color)
+	canvas.draw_circle(center + Vector2(size * 0.52 * facing_sign, -4.0), 2.0, Color(0.78, 0.16, 0.14, 0.95))
+
+
+func _should_flip_bird_sheet(crow: Dictionary) -> bool:
+	return _get_bird_facing_sign(crow) < 0.0
+
+
+func _get_bird_facing_sign(crow: Dictionary) -> float:
+	return -1.0 if float(crow.get("vx", 0.0)) < 0.0 else 1.0
+
+
+func _draw_flipped_texture_region(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	source_rect: Rect2,
+	target_rect: Rect2,
+	modulate: Color
+) -> void:
+	var texture_size := texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var points := PackedVector2Array([
+		target_rect.position,
+		Vector2(target_rect.end.x, target_rect.position.y),
+		target_rect.end,
+		Vector2(target_rect.position.x, target_rect.end.y),
+	])
+	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
+	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
+	var uvs := PackedVector2Array([
+		Vector2(uv_max.x, uv_min.y),
+		Vector2(uv_min.x, uv_min.y),
+		Vector2(uv_min.x, uv_max.y),
+		Vector2(uv_max.x, uv_max.y),
+	])
+	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
+	canvas.draw_polygon(points, colors, uvs, texture)
 
 
 func _draw_fragment(canvas: CanvasItem, fragment: Dictionary, shake_offset: Vector2) -> void:

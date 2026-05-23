@@ -2,6 +2,7 @@ extends SceneTree
 
 const Stage4PlayfieldRenderer := preload("res://scripts/stages/stage4/stage4_playfield_renderer.gd")
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
 var _failures: Array[String] = []
 
@@ -9,6 +10,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_render_budgets()
 	_verify_viper_airborne_lod_budget()
+	_verify_shared_fps_cap_lod_budget()
 	_verify_recent_start_helper()
 	_verify_draw_paths_use_render_caps()
 
@@ -46,12 +48,17 @@ func _verify_render_budgets() -> void:
 	var renderer := Stage4PlayfieldRenderer.new()
 	var status: Dictionary = renderer.get_imagegen_asset_status()
 	_expect(bool(status.get("viper_airborne_lod_supported", false)), "asset status should expose Viper airborne LOD support")
+	_expect(bool(status.get("shared_render_quality_lod_supported", false)), "asset status should expose shared render-quality LOD support")
 	_expect(int(status.get("collapse_debris_render_limit", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_COLLAPSE_DEBRIS, "asset status should expose the collapse-debris render cap")
 	_expect(int(status.get("collapse_debris_render_limit_lod", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_COLLAPSE_DEBRIS_LOD, "asset status should expose the collapse-debris LOD cap")
 	_expect(int(status.get("destruction_wave_energy_ring_render_limit", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_DESTRUCTION_WAVE_ENERGY_RINGS, "asset status should expose the wave energy-ring render cap")
 	_expect(int(status.get("destruction_wave_energy_ring_render_limit_lod", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_DESTRUCTION_WAVE_ENERGY_RINGS_LOD, "asset status should expose the wave energy-ring LOD cap")
 	_expect(int(status.get("destruction_wave_trail_render_limit", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_DESTRUCTION_WAVE_TRAIL, "asset status should expose the wave-trail render cap")
 	_expect(int(status.get("destruction_wave_trail_render_limit_lod", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_DESTRUCTION_WAVE_TRAIL_LOD, "asset status should expose the wave-trail LOD cap")
+	_expect(is_equal_approx(float(status.get("red_moon_fragment_image_scale_min", 0.0)), Stage4PlayfieldRenderer.RED_MOON_FRAGMENT_IMAGE_SCALE_MIN), "asset status should expose the red moon fragment minimum image scale")
+	_expect(is_equal_approx(float(status.get("red_moon_fragment_image_scale_max", 0.0)), Stage4PlayfieldRenderer.RED_MOON_FRAGMENT_IMAGE_SCALE_MAX), "asset status should expose the red moon fragment maximum image scale")
+	_expect(Stage4PlayfieldRenderer.RED_MOON_FRAGMENT_IMAGE_SCALE_MIN <= 2.8, "red moon fragment images should still allow the original small visual scale")
+	_expect(is_equal_approx(Stage4PlayfieldRenderer.RED_MOON_FRAGMENT_IMAGE_SCALE_MAX, 5.5), "red moon fragment images should use the tuned maximum visual scale")
 
 
 func _verify_viper_airborne_lod_budget() -> void:
@@ -84,6 +91,33 @@ func _verify_viper_airborne_lod_budget() -> void:
 		renderer._get_lod_count(10, 5, 1.0) == 10,
 		"normal quality should keep the full render cap"
 	)
+
+
+func _verify_shared_fps_cap_lod_budget() -> void:
+	var old_max_fps: int = int(Engine.get("max_fps"))
+	Engine.set("max_fps", BattleRenderQuality.FPS_CAP_LOD_MAX_FPS)
+	BattleRenderQuality.reset_cache_for_test()
+
+	var renderer := Stage4PlayfieldRenderer.new()
+	var smasher_context := {
+		"selected_character_type": "smasher",
+	}
+	var quality: float = renderer._get_playfield_quality_scale(smasher_context)
+	_expect(
+		is_equal_approx(quality, BattleRenderQuality.FPS_CAP_EFFECT_SCALE),
+		"Smasher at the 72 FPS cap should use the shared render-quality LOD scale"
+	)
+	_expect(
+		renderer._get_lod_count(
+			Stage4PlayfieldRenderer.MAX_RENDERED_DESTRUCTION_WAVE_TRAIL,
+			Stage4PlayfieldRenderer.MAX_RENDERED_DESTRUCTION_WAVE_TRAIL_LOD,
+			quality
+		) == Stage4PlayfieldRenderer.MAX_RENDERED_DESTRUCTION_WAVE_TRAIL_LOD,
+		"shared FPS-cap quality should reduce Stage 4 decorative trail particles"
+	)
+
+	Engine.set("max_fps", old_max_fps)
+	BattleRenderQuality.reset_cache_for_test()
 
 
 func _verify_recent_start_helper() -> void:
@@ -137,11 +171,11 @@ func _verify_draw_paths_use_render_caps() -> void:
 	)
 	_expect(
 		_function_body(source, "func draw").find("_get_playfield_quality_scale(context)") >= 0,
-		"Stage 4 playfield draw should calculate the shared Viper airborne LOD scale"
+		"Stage 4 playfield draw should calculate the shared render-quality LOD scale"
 	)
 	_expect(
-		_function_body(source, "func _get_playfield_quality_scale").find("ViperAirborneLod.effect_scale(context)") >= 0,
-		"Stage 4 playfield LOD should reuse the shared Viper airborne LOD helper"
+		_function_body(source, "func _get_playfield_quality_scale").find("BattleRenderQuality.effect_scale(context)") >= 0,
+		"Stage 4 playfield LOD should reuse the shared render-quality helper"
 	)
 
 

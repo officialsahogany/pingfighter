@@ -147,6 +147,16 @@ func _init() -> void:
 	weather.apply_ball_weather_motion(ball_scene, 1.0)
 	_expect(_get_vec(ball_scene, "ball_vel").x < 0.0, "left breeze should add leftward ball velocity")
 
+	weather.force_start_weather_event("breeze", 1, 1, owner, null)
+	weather.weather_particles.clear()
+	weather.update(owner, null, 1.0 / 60.0)
+	_expect_wind_particles_follow_direction(weather, 1, "right breeze")
+
+	weather.force_start_weather_event("gust", 1, -1, owner, null)
+	weather.weather_particles.clear()
+	weather.update(owner, null, 1.0 / 60.0)
+	_expect_wind_particles_follow_direction(weather, -1, "left gust")
+
 	weather.force_start_weather_event("fire", 1, 1, owner, null)
 	var boosted: Vector2 = weather.apply_fire_hit_speed(Vector2(0.0, -10.0))
 	_expect(boosted.length() > 10.5, "fire weather should boost hit speed with the doubled exchange rate")
@@ -260,6 +270,15 @@ func _init() -> void:
 	_expect(_get_vec(sand_result, "ball_vel").x > 0.0, "sand terrain should reflect incoming ball velocity")
 	var visual_snapshot: Dictionary = renderer.build_visual_snapshot(weather)
 	_expect(int(visual_snapshot.get("sand_segment_count", 0)) > 0, "weather renderer should see sand terrain segments")
+	_expect(int(visual_snapshot.get("sand_draw_segment_count", 0)) > 0, "weather renderer should draw coalesced sand terrain segments")
+	_expect(
+		int(visual_snapshot.get("sand_draw_segment_count", 0)) <= int(visual_snapshot.get("sand_segment_count", 0)),
+		"sand rendering should not expand the collision segment count into extra draw work"
+	)
+	_expect(
+		int(visual_snapshot.get("sand_draw_segment_count", 0)) <= WeatherEventRenderer.SAND_RENDER_SEGMENT_LIMIT_PER_SIDE * 4,
+		"sand terrain rendering should stay within its draw segment budget"
+	)
 	_expect(int(visual_snapshot.get("particle_count", 0)) > 0, "weather renderer should consume harvestable weather particles")
 	weather.force_end_weather_event(owner, null)
 	_expect(float(weather.get_sand_total_depth()) <= 0.001, "ending sand weather should clear persistent sand terrain")
@@ -294,6 +313,8 @@ func _init() -> void:
 	_expect(WeatherEventRenderer.FIRE_RENDER_PARTICLE_LIMIT <= 48, "fire weather renderer should use a tighter particle cap")
 	_expect(WeatherEventRenderer.FIRE_DETAILED_EXPLOSION_RENDER_LIMIT <= 8, "fire explosion rendering should cap detailed particles")
 	_expect(WeatherEventRenderer.FIRE_DETAILED_SPARK_RENDER_LIMIT <= 8, "fire spark rendering should cap detailed particles")
+	_expect(WeatherEventRenderer.SAND_RENDER_SEGMENT_BUCKET_SIZE >= 4, "sand terrain renderer should coalesce visual segments for frame pacing")
+	_expect(WeatherEventRenderer.SAND_RENDER_SEGMENT_LIMIT_PER_SIDE <= 18, "sand terrain renderer should cap per-side draw segments")
 	_expect(WeatherEventState.FIRE_WEATHER_PARTICLE_TARGET <= 44, "fire weather ambient particles should stay within the frame budget")
 	_expect(WeatherEventState.FIRE_HIT_EXPLOSION_PARTICLES <= 14, "fire hit explosion particle count should stay within the frame budget")
 	_expect(WeatherEventState.FIRE_HIT_SPARK_PARTICLES <= 8, "fire hit spark particle count should stay within the frame budget")
@@ -375,6 +396,27 @@ func _count_particles_by_kind(particles: Array, kind: String) -> int:
 		if str(value.get("kind", "")) == kind:
 			count += 1
 	return count
+
+
+func _expect_wind_particles_follow_direction(weather: Object, direction: int, message_prefix: String) -> void:
+	var particles: Array = weather.get_render_particles()
+	_expect(not particles.is_empty(), "%s should spawn wind particles" % message_prefix)
+	var found_wind := false
+	for value in particles:
+		if not (value is Dictionary):
+			continue
+		var particle: Dictionary = value
+		if str(particle.get("kind", "")) != "wind":
+			continue
+		found_wind = true
+		var vx: float = float(particle.get("vx", 0.0))
+		_expect(vx * float(direction) > 0.0, "%s wind ribbons should move in the event direction" % message_prefix)
+		var x: float = float(particle.get("x", 0.0))
+		if direction > 0:
+			_expect(x < 0.0, "%s wind should enter from the left edge only" % message_prefix)
+		else:
+			_expect(x > WeatherEventState.FIELD_WIDTH, "%s wind should enter from the right edge only" % message_prefix)
+	_expect(found_wind, "%s should include wind particles" % message_prefix)
 
 
 func _expect(condition: bool, message: String) -> void:

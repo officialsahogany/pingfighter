@@ -69,6 +69,7 @@ var magnetic_projectile_fade_radius := MAGNETIC_RADIUS
 var magnetic_projectile_fade_velocity := Vector2(0.0, MAGNETIC_PROJECTILE_SPEED)
 var magnetic_fx_host: Node = null
 var magnetic_fx_host_add_pending := false
+var magnetic_fx_host_runtime_prewarmed := false
 
 var meditation_active := false
 var meditation_timer_frames := 0.0
@@ -88,11 +89,13 @@ var meditation_release_fx_trails: Array = []
 var meditation_release_fx_id := 0
 var meditation_fx_host: Node = null
 var meditation_fx_host_add_pending := false
+var meditation_fx_host_runtime_prewarmed := false
 var fx_hosts_prewarmed := false
 
 var _test_meditation_chance := -1.0
 var _prewarm_assets_done := false
 var _prewarm_step_index := 0
+var _prewarm_runtime_host_step_index := 0
 
 
 func _init() -> void:
@@ -124,6 +127,35 @@ func prewarm_assets_step() -> bool:
 	if _prewarm_step_index > 2:
 		_prewarm_assets_done = true
 		_prewarm_step_index = 0
+		return true
+	return false
+
+
+func prewarm_runtime_hosts(canvas: CanvasItem) -> void:
+	while not prewarm_runtime_hosts_step(canvas):
+		pass
+
+
+func prewarm_runtime_hosts_step(canvas: CanvasItem) -> bool:
+	if fx_hosts_prewarmed:
+		return true
+	if not (canvas is Node):
+		fx_hosts_prewarmed = true
+		_prewarm_runtime_host_step_index = 0
+		return true
+	match _prewarm_runtime_host_step_index:
+		0:
+			_get_or_create_magnetic_fx_host(canvas)
+		1:
+			_get_or_create_meditation_fx_host(canvas)
+		_:
+			fx_hosts_prewarmed = true
+			_prewarm_runtime_host_step_index = 0
+			return true
+	_prewarm_runtime_host_step_index += 1
+	if _prewarm_runtime_host_step_index > 1:
+		fx_hosts_prewarmed = true
+		_prewarm_runtime_host_step_index = 0
 		return true
 	return false
 
@@ -888,21 +920,29 @@ func _sync_magnetic_fx_host(canvas: CanvasItem, context: Dictionary, shake_offse
 func _prewarm_fx_hosts(canvas: CanvasItem) -> void:
 	if fx_hosts_prewarmed:
 		return
-	if not (canvas is Node):
+	while not prewarm_runtime_hosts_step(canvas):
+		pass
+
+
+func _prewarm_magnetic_fx_host_runtime_nodes() -> void:
+	if magnetic_fx_host_runtime_prewarmed:
 		return
-	fx_hosts_prewarmed = true
-	_prewarm_fx_host_runtime_nodes(_get_or_create_magnetic_fx_host(canvas))
-	_prewarm_fx_host_runtime_nodes(_get_or_create_meditation_fx_host(canvas))
+	if magnetic_fx_host != null and is_instance_valid(magnetic_fx_host) and magnetic_fx_host.has_method("prewarm_runtime_nodes"):
+		magnetic_fx_host.call("prewarm_runtime_nodes")
+		magnetic_fx_host_runtime_prewarmed = true
 
 
-func _prewarm_fx_host_runtime_nodes(host: Node) -> void:
-	if host != null and is_instance_valid(host) and host.has_method("prewarm_runtime_nodes"):
-		host.call("prewarm_runtime_nodes")
+func _prewarm_meditation_fx_host_runtime_nodes() -> void:
+	if meditation_fx_host_runtime_prewarmed:
+		return
+	if meditation_fx_host != null and is_instance_valid(meditation_fx_host) and meditation_fx_host.has_method("prewarm_runtime_nodes"):
+		meditation_fx_host.call("prewarm_runtime_nodes")
+		meditation_fx_host_runtime_prewarmed = true
 
 
 func _get_or_create_magnetic_fx_host(canvas: CanvasItem) -> Node:
 	if _is_valid_magnetic_fx_host():
-		_prewarm_fx_host_runtime_nodes(magnetic_fx_host)
+		_prewarm_magnetic_fx_host_runtime_nodes()
 		return magnetic_fx_host
 	if not (canvas is Node):
 		return null
@@ -911,12 +951,14 @@ func _get_or_create_magnetic_fx_host(canvas: CanvasItem) -> Node:
 	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
 		magnetic_fx_host = existing
 		magnetic_fx_host_add_pending = false
-		_prewarm_fx_host_runtime_nodes(magnetic_fx_host)
+		magnetic_fx_host_runtime_prewarmed = false
+		_prewarm_magnetic_fx_host_runtime_nodes()
 		return magnetic_fx_host
 	magnetic_fx_host = Stage4PonkMagneticFxHost.new()
 	magnetic_fx_host.name = "PonkMagneticFxHost"
 	magnetic_fx_host.visible = false
-	_prewarm_fx_host_runtime_nodes(magnetic_fx_host)
+	magnetic_fx_host_runtime_prewarmed = false
+	_prewarm_magnetic_fx_host_runtime_nodes()
 	if not magnetic_fx_host_add_pending:
 		magnetic_fx_host_add_pending = true
 		parent.call_deferred("add_child", magnetic_fx_host)
@@ -964,6 +1006,7 @@ func _stop_magnetic_fx_host() -> void:
 	if not _is_valid_magnetic_fx_host():
 		magnetic_fx_host = null
 		magnetic_fx_host_add_pending = false
+		magnetic_fx_host_runtime_prewarmed = false
 		return
 	if magnetic_fx_host.has_method("set_active"):
 		magnetic_fx_host.set_active(false)
@@ -987,7 +1030,7 @@ func _sync_meditation_fx_host(canvas: CanvasItem, context: Dictionary, shake_off
 
 func _get_or_create_meditation_fx_host(canvas: CanvasItem) -> Node:
 	if _is_valid_meditation_fx_host():
-		_prewarm_fx_host_runtime_nodes(meditation_fx_host)
+		_prewarm_meditation_fx_host_runtime_nodes()
 		return meditation_fx_host
 	if not (canvas is Node):
 		return null
@@ -996,12 +1039,14 @@ func _get_or_create_meditation_fx_host(canvas: CanvasItem) -> Node:
 	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
 		meditation_fx_host = existing
 		meditation_fx_host_add_pending = false
-		_prewarm_fx_host_runtime_nodes(meditation_fx_host)
+		meditation_fx_host_runtime_prewarmed = false
+		_prewarm_meditation_fx_host_runtime_nodes()
 		return meditation_fx_host
 	meditation_fx_host = Stage4PonkMeditationFxHost.new()
 	meditation_fx_host.name = "PonkMeditationFxHost"
 	meditation_fx_host.visible = false
-	_prewarm_fx_host_runtime_nodes(meditation_fx_host)
+	meditation_fx_host_runtime_prewarmed = false
+	_prewarm_meditation_fx_host_runtime_nodes()
 	if not meditation_fx_host_add_pending:
 		meditation_fx_host_add_pending = true
 		parent.call_deferred("add_child", meditation_fx_host)
@@ -1048,6 +1093,7 @@ func _stop_meditation_fx_host() -> void:
 	if not _is_valid_meditation_fx_host():
 		meditation_fx_host = null
 		meditation_fx_host_add_pending = false
+		meditation_fx_host_runtime_prewarmed = false
 		return
 	if meditation_fx_host.has_method("set_active"):
 		meditation_fx_host.set_active(false)

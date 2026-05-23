@@ -462,6 +462,10 @@ func _init() -> void:
 	var playfield_source := FileAccess.get_file_as_string("res://scripts/stages/stage4/stage4_playfield_renderer.gd")
 	_expect(playfield_source.find("draw_set_transform") < 0, "Stage 4 playfield renderer must not reset the transformed playfield canvas")
 	_expect(playfield_source.find("_draw_debris_hint") < 0, "Stage 4 playfield renderer should fully remove the boxed debris hint path")
+	_expect(
+		playfield_source.find("_draw_texture_region_rotated(canvas, red_moon_fragment_atlas") >= 0,
+		"Stage 4 red moon fragment atlas draw should apply projectile self-rotation"
+	)
 	_expect(Stage4ActorRenderer.new().has_method("draw"), "Stage 4 actor renderer preload should parse")
 	_expect(Stage4PonkBossActorRenderer.new().has_method("draw"), "Stage 4 Ponk boss placeholder renderer should parse")
 
@@ -869,6 +873,18 @@ func _init() -> void:
 	}
 	_expect(moon_event.force_spawn_moon_fragments(1, Vector2(360.0, 705.0)) == 1, "Stage 4 moon event should force-spawn one red moon fragment")
 	var player_fragment: Dictionary = moon_event.moon_fragments[0] as Dictionary
+	var player_fragment_visual_scale: float = float(player_fragment.get("visual_scale", 0.0))
+	_expect(
+		player_fragment_visual_scale >= Stage4MoonEvent.FRAGMENT_IMAGE_SCALE_MIN
+		and player_fragment_visual_scale <= Stage4MoonEvent.FRAGMENT_IMAGE_SCALE_MAX,
+		"Stage 4 moon fragment should carry a randomized visual scale from original size to the tuned maximum"
+	)
+	var player_fragment_rotation_speed: float = absf(float(player_fragment.get("rotation_speed", 0.0)))
+	_expect(
+		player_fragment_rotation_speed >= Stage4MoonEvent.FRAGMENT_ROTATION_SPEED_MIN
+		and player_fragment_rotation_speed <= Stage4MoonEvent.FRAGMENT_ROTATION_SPEED_MAX,
+		"Stage 4 moon fragment should carry a randomized self-rotation speed"
+	)
 	player_fragment["x"] = 360.0
 	player_fragment["y"] = 705.0
 	player_fragment["vx"] = 0.0

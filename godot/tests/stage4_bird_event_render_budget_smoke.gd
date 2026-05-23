@@ -8,6 +8,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_render_budgets()
 	_verify_recent_start_helper()
+	_verify_bird_directional_facing()
 	_verify_draw_paths_use_render_caps()
 
 	if _failures.is_empty():
@@ -39,6 +40,14 @@ func _verify_recent_start_helper() -> void:
 	_expect(event._recent_start(values, 24) == 76, "recent-start helper should draw only the newest capped entries")
 	_expect(event._recent_start(values, 120) == 0, "recent-start helper should draw from zero when under budget")
 	_expect(event._recent_start(values, 0) == values.size(), "zero render budget should draw nothing")
+
+
+func _verify_bird_directional_facing() -> void:
+	var event := Stage4BirdEvent.new()
+	_expect(event._get_bird_facing_sign({"vx": -2.0}) < 0.0, "right-to-left star-birds should face left")
+	_expect(event._should_flip_bird_sheet({"vx": -2.0}), "right-to-left star-birds should flip the right-facing sheet")
+	_expect(event._get_bird_facing_sign({"vx": 2.0}) > 0.0, "left-to-right star-birds should face right")
+	_expect(not event._should_flip_bird_sheet({"vx": 2.0}), "left-to-right star-birds should keep the right-facing sheet")
 
 
 func _verify_draw_paths_use_render_caps() -> void:
