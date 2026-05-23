@@ -18,6 +18,8 @@ evidence instead of relying on chat-only status summaries.
   `6622d30a0 docs: update godot port guardrails`.
 - Latest local-artifact ignore sync after that code split:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
+- Latest residual settings hold note after that code split:
+  `7a432139f docs: record residual local settings hold`.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
@@ -25,6 +27,13 @@ evidence instead of relying on chat-only status summaries.
   `git status --porcelain=v1` (`2` tracked modified paths and `0`
   untracked paths). Both are local `.claude` workspace settings and are
   intentionally held out of the refactor commits.
+- Final local cleanup action: applied `git update-index --skip-worktree` to
+  `.claude/settings.json` and `.claude/sprite_workflow_settings.json`.
+  After that local index hide, `git status --porcelain` is clean. To inspect
+  or restore visibility, run `git ls-files -v -- .claude/settings.json
+  .claude/sprite_workflow_settings.json` and then
+  `git update-index --no-skip-worktree -- .claude/settings.json
+  .claude/sprite_workflow_settings.json`.
 - The split notes below are current through the sixty-seventh split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
@@ -42,8 +51,9 @@ Open follow-ups before the next broad sign-off:
   `fix` commits. Use exact file / line references in review notes when those
   fixes need traceability, especially `mythic_item_catalog.gd` and
   `project_resource_loader.gd`.
-- Remaining visible dirty files after the artifact-ignore sync are
+- Residual local settings files after the artifact-ignore sync are
   `.claude/settings.json` and `.claude/sprite_workflow_settings.json`.
+  They are locally hidden with `skip-worktree`, not committed or reverted.
   `settings.json` contains local allowed-command / personal path / signed URL
   traces, and `sprite_workflow_settings.json` flips the repo default asset
   workflow mode from `fast` to `precise`. Keep both out of gameplay / docs
