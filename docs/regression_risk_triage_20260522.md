@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `89fdc810f godot: split mythic catalog build router`.
-- The checkpoint span through that HEAD contains 158 follow-up commits after
+  `0700de9d9 godot: move mythic field order into list helper`.
+- The checkpoint span through that HEAD contains 160 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 159 commits.
+  contains 161 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `b14278eb0 docs: record mythic fixed options helper split`.
+  `51e022381 docs: record mythic catalog build router split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the ninety-seventh split. The broad
+- The split notes below are current through the ninety-eighth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4385,6 +4385,31 @@ Ninety-seventh split on 2026-05-24:
   `active_item_hud_visuals_prewarm_step_smoke`,
   `mythic_item_ownership_runtime_smoke`, `pandora_legacy_port_smoke`, and
   `elixir_of_mastery_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1285` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
+
+Ninety-eighth split on 2026-05-24:
+
+- Commit: `0700de9d9 godot: move mythic field order into list helper`.
+- Scope: moved the `FIELD_SPAWN_ORDER` source array into
+  `mythic_item_catalog_lists.gd` while preserving
+  `MythicItemCatalog.FIELD_SPAWN_ORDER` as the public alias used by HUD,
+  pickup, reward, and prewarm callers.
+- Rationale: list ordering belongs with the list-construction helper, and the
+  catalog facade should expose the stable public constant without carrying the
+  full item-order array inline.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `1337` lines to
+  `1288` lines; `mythic_item_catalog_lists.gd` now owns the 48-item order
+  source.
+- Validation: focused field-spawn / debug / pickup / prewarm coverage
+  (`item_field_spawn_pool_smoke`,
+  `passive_item_debug_menu_click_add_smoke`,
+  `active_item_pickup_router_smoke`, `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`,
+  `active_item_runtime_prewarm_smoke`,
+  `active_item_effect_renderer_cache_smoke`, and
+  `mythic_item_ownership_runtime_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1285` scripts scanned, no GDScript
   warnings). `git diff --check` passed.
