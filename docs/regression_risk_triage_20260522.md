@@ -4944,6 +4944,33 @@ Hundredth split on 2026-05-24:
   `mythic_item_field_render_budget_smoke`. `.\tools\run_warning_scan.ps1`
   passed with `1296` scripts scanned and no GDScript warnings.
 
+119th split on 2026-05-24:
+
+- Commit: `ab7a74035 godot: split active throw slip renderer`.
+- Scope: added `active_item_throw_slip_renderer.gd` for Banana and Soap
+  projectile sprites, landed warning/puddle draws, burst particles, foam
+  trails, texture fallback drawing, and the shared trail-thinning helper used
+  by those slip items. The shared `active_item_throw_renderer.gd` keeps the
+  public draw signature, perf labels, generic windup/throw icon cache, and
+  dispatch order while delegating slip visuals to the focused renderer.
+- Rationale: Banana and Soap draw branches share the same slip-item visual
+  shape and were independent from grenade / flare / molotov / boomerang /
+  spider-mine rendering. Moving them lowers active throw renderer size without
+  changing runtime state ownership in the throw controller.
+- Renderer size: `active_item_throw_renderer.gd` moved from `2244` lines to
+  `2022` lines; the new `active_item_throw_slip_renderer.gd` file is `379`
+  lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused Banana / Soap / throw-renderer coverage ran `7` smoke
+  scripts and passed: `active_item_throw_banana_smoke`,
+  `active_item_throw_soap_smoke`, `active_item_throw_activation_smoke`,
+  `active_item_throw_renderer_budget_smoke`,
+  `active_item_throw_rotated_texture_smoke`,
+  `active_item_runtime_render_facade_smoke`, and
+  `active_item_runtime_render_facade_direct_smoke`.
+  `.\tools\run_warning_scan.ps1` passed with `1297` scripts scanned and no
+  GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

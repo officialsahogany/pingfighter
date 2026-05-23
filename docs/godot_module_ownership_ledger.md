@@ -655,13 +655,15 @@ This section is intentionally long; use search to find the nearest owner.
   Owns active projectile / deployed-object item rendering: grenade /
   flare / dynamite / molotov / banana / soap windup lifts, projectile
   trails, texture-backed grenade / flare / dynamite / molotov /
-  boomerang / banana / soap / spider-mine sprites, placed-dynamite fuse
-  countdowns, molotov fire zones, landed banana warnings, landed soap
-  puddles, spider-mine body / legs / explosion / particles, boomerang
-  trail / break particles, dynamite explosion particles, soap bubble /
-  foam particles, explosion zones, flare flash / confuse zones, and
-  throw-icon texture caches.
-  The runtime passes through the throw controller's exposed state arrays.
+  boomerang / spider-mine sprites, placed-dynamite fuse countdowns,
+  molotov fire zones, spider-mine body / legs / explosion / particles,
+  boomerang trail / break particles, dynamite explosion particles,
+  explosion zones, flare flash / confuse zones, and throw-icon texture
+  caches. `scripts/items/active_item_throw_slip_renderer.gd` owns Banana
+  and Soap projectile sprites, landed banana warnings, landed soap puddles,
+  banana / soap particles, foam trails, fallback slip shapes, and the slip
+  trail-thinning helper. The runtime passes through the throw controller's
+  exposed state arrays.
 - `scripts/items/active_item_effect_controller.gd`
   Owns active consumable effect state that is not a thrown projectile:
   Energy Drink / Life Elixir gauge application side effects,
