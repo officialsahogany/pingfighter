@@ -1722,7 +1722,11 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 			continue
 
 		if Stage2StarpointDropQuery.overlaps_any_player(d, player_rects, collision_geometry, STARPOINT_DROP_SIZE):
-			_collect_starpoint_drop(d, context, deps)
+			if _collect_starpoint_drop(d, context, deps):
+				starpoint_drops.clear()
+				return
+			if starpoint_drops.size() < drop_count:
+				return
 			continue
 		starpoint_drops[write_index] = d
 		write_index += 1
@@ -1730,19 +1734,21 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		starpoint_drops.resize(write_index)
 
 
-func _collect_starpoint_drop(drop: Dictionary, context: Dictionary, deps: Dictionary) -> void:
+func _collect_starpoint_drop(drop: Dictionary, context: Dictionary, deps: Dictionary) -> bool:
 	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
 	var runtime_perk_catalog: Object = deps.get("runtime_perk_catalog", null)
 	var owner: Object = context.get("owner", null)
 	var registry: Object = context.get("registry", deps.get("registry", null))
 	var character_type: String = str(context.get("selected_character_type", "smasher"))
+	var opened_choice: bool = false
 	if runtime_perk_state != null and runtime_perk_state.has_method("collect_star_points"):
-		runtime_perk_state.collect_star_points(1, character_type, runtime_perk_catalog, owner, registry)
+		opened_choice = bool(runtime_perk_state.collect_star_points(1, character_type, runtime_perk_catalog, owner, registry))
 	var pos: Vector2 = _get_vector2(drop.get("pos", Vector2.ZERO), Vector2.ZERO)
 	_spawn_starpoint_particles(pos, STARPOINT_PARTICLE_COUNT + 10, 1.4)
 	Stage2AudioRouter.play_starpoint_collect(deps)
 	if owner != null and owner.has_method("queue_redraw"):
 		owner.queue_redraw()
+	return opened_choice
 
 
 func _spawn_starpoint_particles(pos: Vector2, count: int, intensity: float) -> void:

@@ -27,7 +27,7 @@ class FakeRuntimePerkState:
 
 	func collect_star_points(amount: int, _character_type: String, _catalog: Object = null, _owner: Object = null, _registry: Object = null) -> bool:
 		collected_star_points += max(0, amount)
-		return true
+		return false
 
 
 class FakeOwner:
