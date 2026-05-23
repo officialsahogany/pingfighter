@@ -2427,15 +2427,6 @@ func _sync_owner(owner: Object, registry: Object = null) -> void:
 	owner_syncer.sync_owner(self, owner, registry, CONTEXT_CONSTANTS)
 
 
-func _get_polish_multiplier(item_name: String = "") -> float:
-	if runtime_perk_state_ref == null or not is_instance_valid(runtime_perk_state_ref):
-		return 1.0
-	var method_name := "get_base_polish_multiplier" if item_name == "transcendent_crown" else "get_effective_polish_multiplier"
-	if not runtime_perk_state_ref.has_method(method_name):
-		return 1.0
-	return max(0.0, float(runtime_perk_state_ref.call(method_name)))
-
-
 func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null

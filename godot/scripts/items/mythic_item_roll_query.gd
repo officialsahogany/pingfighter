@@ -63,7 +63,7 @@ func get_item_roll_value(
 	var value: float = float(rolls.get(option_key, default_value))
 	var total_multiplier := 1.0
 	if apply_polish:
-		total_multiplier *= runtime._get_polish_multiplier(item_name)
+		total_multiplier *= get_polish_multiplier(runtime, item_name)
 	var enhancement_bonus_pct: float = max(0.0, float(item_data.get("enhancement_bonus_pct", 0.0)))
 	if enhancement_bonus_pct > 0.0:
 		total_multiplier *= 1.0 + enhancement_bonus_pct / 100.0
@@ -74,6 +74,16 @@ func get_item_roll_value(
 		else:
 			value *= total_multiplier
 	return value
+
+
+func get_polish_multiplier(runtime: Object, item_name: String = "") -> float:
+	var runtime_perk_state: Object = runtime.runtime_perk_state_ref
+	if runtime_perk_state == null or not is_instance_valid(runtime_perk_state):
+		return 1.0
+	var method_name := "get_base_polish_multiplier" if item_name == "transcendent_crown" else "get_effective_polish_multiplier"
+	if not runtime_perk_state.has_method(method_name):
+		return 1.0
+	return max(0.0, float(runtime_perk_state.call(method_name)))
 
 
 func get_equipped_roll_sum(runtime: Object, item_name: String, option_key: String) -> float:
