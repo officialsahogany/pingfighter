@@ -10,17 +10,17 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code split HEAD before this documentation sync:
-  `968a1ff4a godot: tighten mythic field smoke coverage`.
-- Code split range through that HEAD contains 76 follow-up commits after the
+  `0e0cf2fd3 godot: add mythic runtime helper smokes`.
+- Code split range through that HEAD contains 78 follow-up commits after the
   gamepad input boot baseline. Including `2c31069ba` itself, the checkpoint
-  span through the latest code split contains 77 commits.
+  span through the latest code split contains 79 commits.
 - Latest validated warning scan: `.\tools\run_warning_scan.ps1` from
   `godot/` passed on 2026-05-23 with `1277` scripts scanned and no GDScript
   warnings.
-- Current dirty scope before this documentation sync: 51 visible paths in
+- Current dirty scope before this documentation sync: 31 visible paths in
   `git status --porcelain=v1` (`9` tracked modified / deleted paths and
-  `42` untracked paths).
-- The split notes below are current through the sixty-fourth split. The
+  `22` untracked paths).
+- The split notes below are current through the sixty-fifth split. The
   top-level initial snapshot remains historical context from the first
   2026-05-22 triage pass and should not be read as the current worktree size.
 
@@ -3386,6 +3386,34 @@ Sixty-fourth split on 2026-05-23:
 - Validation passed:
   `mythic_item_activation_effect_builder_smoke`,
   `mythic_item_field_render_budget_smoke`,
+  `.\tools\run_headless_load_check.ps1`, and
+  `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
+  warnings).
+
+Sixty-fifth split on 2026-05-23:
+
+- Commit: `0e0cf2fd3 godot: add mythic runtime helper smokes`.
+- Scope: Added focused mythic helper smoke coverage for capacity / gauge
+  items, resource bonus items, cooldown gear, progression bonuses, AI assist
+  helpers, throw / Commando Arm bonuses, sensor / auto-defense items, Foul
+  Whistle, perk-choice count bonuses, and ownership-vs-equipped one-time skip
+  behavior. Each test targets the current split helper / facade surface rather
+  than broad scene startup.
+- Rationale: the mythic runtime is now heavily helperized. These smokes make
+  the helper ownership boundaries reviewable and prevent later cleanups from
+  silently reintroducing constants or grant logic into the main runtime facade.
+- Validation passed:
+  `mythic_item_stat_bonus_runtime_smoke`,
+  `mythic_item_capacity_gauge_runtime_smoke`,
+  `mythic_item_resource_bonus_runtime_smoke`,
+  `mythic_item_cooldown_gear_runtime_smoke`,
+  `mythic_item_progression_bonus_runtime_smoke`,
+  `mythic_item_ai_assist_runtime_smoke`,
+  `mythic_item_throw_bonus_runtime_smoke`,
+  `mythic_item_sensor_auto_defense_runtime_smoke`,
+  `mythic_item_foul_whistle_runtime_smoke`,
+  `mythic_item_perk_choice_runtime_smoke`,
+  `mythic_item_ownership_runtime_smoke`,
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1277` scripts scanned, no GDScript
   warnings).
