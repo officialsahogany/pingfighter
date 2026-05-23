@@ -27,7 +27,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const HorizontalTimerGaugeStack := preload("res://scripts/hud/horizontal_timer_gauge_stack.gd")
 const PillarOrbDrawer := preload("res://scripts/hud/pillar_orb_drawer.gd")
 const PillarStatusOrbRenderer := preload("res://scripts/hud/pillar_status_orb_renderer.gd")
-const ActiveItemThrowRenderer := preload("res://scripts/items/active_item_throw_renderer.gd")
+const ActiveItemThrowMolotovRenderer := preload("res://scripts/items/active_item_throw_molotov_renderer.gd")
 const WeatherEventRenderer := preload("res://scripts/stages/common/weather_event_renderer.gd")
 const Stage2PillarAssets := preload("res://scripts/stages/stage2/stage2_pillar_assets.gd")
 const Stage3PillarBackground := preload("res://scripts/stages/stage3/stage3_pillar_background.gd")
@@ -681,7 +681,7 @@ func _prewarm_playfield_primitives() -> void:
 		)
 	var ellipse_transform := Transform2D(Vector2(32.0, 0.0), Vector2(0.0, 9.0), Vector2(330.0, 1260.0))
 	draw_mesh(
-		ActiveItemThrowRenderer._get_filled_ellipse_mesh(),
+		ActiveItemThrowMolotovRenderer._get_filled_ellipse_mesh(),
 		null,
 		ellipse_transform,
 		Color(1.0, 0.92, 0.20, 0.32)

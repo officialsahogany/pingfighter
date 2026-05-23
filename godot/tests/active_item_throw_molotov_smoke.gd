@@ -180,7 +180,7 @@ func _verify_fire_zone_clamps_away_from_pillars() -> void:
 
 
 func _verify_renderer_ellipse_preserves_playfield_transform() -> void:
-	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_renderer.gd")
+	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_throw_molotov_renderer.gd")
 	var body := _function_body(source, "func _draw_filled_ellipse")
 	_expect(
 		body.find("draw_set_transform") < 0,

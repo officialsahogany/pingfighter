@@ -91,7 +91,7 @@ func _verify_second_pass_warmup_scope() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/core/battle_pso_prewarmer.gd")
 	_expect(source.find("compact_fallback_frame") >= 0, "prewarmer should exercise the compact boss-dash fallback frame")
 	_expect(source.find("VIPER_SKILL_ICON_PATHS") >= 0, "prewarmer should draw selected-character skill icon texture families")
-	_expect(source.find("draw_mesh") >= 0 and source.find("_get_filled_ellipse_mesh") >= 0, "prewarmer should exercise the active-item filled ellipse mesh path")
+	_expect(source.find("draw_mesh") >= 0 and source.find("ActiveItemThrowMolotovRenderer._get_filled_ellipse_mesh") >= 0, "prewarmer should exercise the active-item molotov filled ellipse mesh path")
 	# The three live dash-orb boost shader paths must each be exercised so the
 	# GPU compiles every branch of dash_token_boost_ring.gdshader before the
 	# first real boost event lands in gameplay.
