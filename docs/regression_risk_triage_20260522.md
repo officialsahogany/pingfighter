@@ -4850,6 +4850,30 @@ Hundredth split on 2026-05-24:
   `.\tools\run_warning_scan.ps1` passed with `1292` scripts scanned and no
   GDScript warnings.
 
+115th split on 2026-05-24:
+
+- Commit: `bdcf1ce7d godot: split armor mythic field renderer`.
+- Scope: added `mythic_item_armor_field_renderer.gd` for Adversity Armor
+  barrier/timer/particle drawing and Shrapnel Armor flash, shard, trail, dust,
+  and boss-impact drawing. The shared `mythic_item_field_effect_renderer.gd`
+  keeps armor visibility fanout, perf labels, public render-budget constants,
+  and render-budget status reporting while passing those budgets into the
+  focused renderer.
+- Rationale: the armor draw branches were self-contained visual code using
+  compact runtime contexts and budget constants. Moving them keeps the shared
+  mythic field renderer focused on effect orchestration while preserving the
+  same public `draw_field_effects(...)` path and right-bottom timer-stack
+  behavior for Adversity Armor.
+- Renderer size: `mythic_item_field_effect_renderer.gd` moved from `908`
+  lines to `725` lines; the new `mythic_item_armor_field_renderer.gd` file is
+  `257` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused armor / field-renderer coverage ran `5` smoke scripts and
+  passed: `adversity_armor_port_smoke`, `shrapnel_armor_port_smoke`,
+  `mythic_item_field_render_budget_smoke`, `head_defense_items_port_smoke`,
+  and `arm_equipment_slots_port_smoke`. `.\tools\run_warning_scan.ps1` passed
+  with `1293` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

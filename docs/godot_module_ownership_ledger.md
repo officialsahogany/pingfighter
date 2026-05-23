@@ -319,6 +319,10 @@ This section is intentionally long; use search to find the nearest owner.
   field-effect renderer now owns the Baal / Hermes / Venom Mist /
   Celestial Armor / Foul Whistle / Revival / Sensor draw fanout directly
   instead of bouncing through thin runtime `_draw_*` wrappers;
+  `scripts/items/mythic_item_armor_field_renderer.gd` owns Adversity Armor
+  barrier/timer/particle drawing and Shrapnel Armor flash, shard, trail,
+  dust, and boss-impact drawing while the shared field renderer passes
+  runtime state and public render budgets through;
   `scripts/items/mythic_item_horn_strawberry_field_renderer.gd` owns Horn
   Strawberry transform cinematic visibility/draw plus stem, field-barrier,
   horn-charge, bomb, explosion, and paint draw helpers while the shared field
@@ -4810,6 +4814,7 @@ This section is intentionally long; use search to find the nearest owner.
   dictionaries.
 - `scripts/items/mythic_item_field_effect_visibility.gd`,
   `scripts/items/mythic_item_field_effect_renderer.gd`,
+  `scripts/items/mythic_item_armor_field_renderer.gd`,
   `scripts/items/mythic_item_horn_strawberry_field_renderer.gd`,
   `scripts/items/mythic_item_poseidon_field_renderer.gd`,
   `scripts/items/mythic_item_ragnarok_field_renderer.gd`,
