@@ -832,7 +832,7 @@ func get_hermes_shoes_context() -> Dictionary:
 
 func get_player_speed_multiplier() -> float:
 	_ensure_helpers_ready()
-	return stat_bonus_runtime.get_player_speed_multiplier(self)
+	return stat_bonus_runtime.get_player_speed_multiplier(self, BAAL_BOOTS_CONSTANTS)
 
 
 func is_bulkup_equipped() -> bool:
@@ -2433,10 +2433,6 @@ func _try_arm_baal_boots_from_weather(
 	weather_type_override: String = ""
 ) -> void:
 	baal_boots_runtime.try_arm_from_weather(self, owner, registry, weather_type_override, BAAL_BOOTS_CONSTANTS)
-
-
-func _get_baal_boots_player_speed_multiplier() -> float:
-	return baal_boots_runtime.get_player_speed_multiplier(self, BAAL_BOOTS_CONSTANTS)
 
 
 func get_item_roll_value(

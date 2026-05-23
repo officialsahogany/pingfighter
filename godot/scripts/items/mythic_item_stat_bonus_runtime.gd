@@ -59,12 +59,12 @@ func apply_player_movement_config(runtime: Object, config: Dictionary) -> void:
 		config["paddle_max_speed"] = move_speed
 
 
-func get_player_speed_multiplier(runtime: Object) -> float:
+func get_player_speed_multiplier(runtime: Object, baal_boots_constants: Dictionary) -> float:
 	var multiplier: float = max(0.0, 1.0 + get_speedboots_speed_bonus_pct(runtime) / 100.0)
 	multiplier *= runtime.get_hermes_shoes_speed_multiplier()
 	multiplier *= get_gold_bar_speed_multiplier(runtime)
 	multiplier *= runtime.get_sage_ring_speed_multiplier()
-	multiplier *= runtime._get_baal_boots_player_speed_multiplier()
+	multiplier *= runtime.baal_boots_runtime.get_player_speed_multiplier(runtime, baal_boots_constants)
 	return max(0.0, multiplier)
 
 
