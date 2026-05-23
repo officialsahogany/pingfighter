@@ -221,26 +221,29 @@ func _verify_ball_collision_and_serve_bonus() -> void:
 
 func _verify_timer_gauge_layout() -> void:
 	var field_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_field_effect_renderer.gd")
+	var armor_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_armor_field_renderer.gd")
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
 	var drawer_source := FileAccess.get_file_as_string("res://scripts/core/battle_playfield_scene_drawer.gd")
 	_expect(field_source != "", "mythic field renderer source should be readable")
+	_expect(armor_source != "", "mythic armor field renderer source should be readable")
 	_expect(runtime_source != "", "mythic runtime source should be readable")
 	_expect(drawer_source != "", "playfield drawer source should be readable")
 	_expect(
-		field_source.find("Vector2(285.0, barrier_y - 28.0)") < 0,
+		armor_source.find("Vector2(285.0, barrier_y - 28.0)") < 0,
 		"adversity armor timer gauge should not be anchored at the playfield center"
 	)
 	_expect(
-		field_source.find("timer_stack.claim(ADVERSITY_ARMOR_TIMER_STACK_KEY, true)") >= 0,
+		armor_source.find("timer_stack.claim(timer_stack_key, true)") >= 0,
 		"adversity armor timer gauge should use the shared horizontal timer stack"
 	)
 	_expect(
-		field_source.find("_get_adversity_armor_timer_bar_position") >= 0,
+		armor_source.find("_get_adversity_armor_timer_bar_position") >= 0,
 		"adversity armor timer gauge should use the right-bottom timer-bar position helper"
 	)
 	_expect(
-		field_source.find("func draw_adversity_armor_effect(") >= 0
-		and field_source.find("_draw_adversity_armor_timer_gauge(canvas, timer_ratio, timer_stack)") >= 0,
+		field_source.find("_armor_field_renderer.draw_adversity_armor_effect") >= 0
+		and field_source.find("timer_stack,") >= 0
+		and armor_source.find("_draw_adversity_armor_timer_gauge(") >= 0,
 		"mythic field renderer should pass the timer stack into the adversity armor timer gauge"
 	)
 	_expect(

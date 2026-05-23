@@ -64,10 +64,12 @@ func _verify_recent_start_helper() -> void:
 
 func _verify_draw_paths_use_render_caps() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_field_effect_renderer.gd")
+	var armor_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_armor_field_renderer.gd")
 	var horn_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_horn_strawberry_field_renderer.gd")
 	var poseidon_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_poseidon_field_renderer.gd")
 	var ragnarok_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_ragnarok_field_renderer.gd")
 	_expect(source != "", "mythic item field renderer source should be readable")
+	_expect(armor_source != "", "mythic item armor field renderer source should be readable")
 	_expect(horn_source != "", "mythic item Horn Strawberry field renderer source should be readable")
 	_expect(poseidon_source != "", "mythic item Poseidon field renderer source should be readable")
 	_expect(ragnarok_source != "", "mythic item Ragnarok field renderer source should be readable")
@@ -80,19 +82,23 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Rainbow Fur Glove draw should cap decorative aura particles"
 	)
 	_expect(
-		_function_body(source, "func draw_shrapnel_armor_effect").find("_recent_start(dust_particles, MAX_RENDERED_SHRAPNEL_ARMOR_DUST_PARTICLES)") >= 0,
+		_function_body(armor_source, "func draw_adversity_armor_effect").find("_recent_start(aura_particles, particle_render_limit)") >= 0,
+		"Adversity Armor draw should cap aura particles"
+	)
+	_expect(
+		_function_body(armor_source, "func draw_shrapnel_armor_effect").find("_recent_start(dust_particles, dust_particle_render_limit)") >= 0,
 		"Shrapnel Armor draw should cap decorative dust particles"
 	)
 	_expect(
-		_function_body(source, "func draw_shrapnel_armor_effect").find("_recent_start(shards, MAX_RENDERED_SHRAPNEL_ARMOR_SHARDS)") >= 0,
+		_function_body(armor_source, "func draw_shrapnel_armor_effect").find("_recent_start(shards, shard_render_limit)") >= 0,
 		"Shrapnel Armor draw should cap shard polygons"
 	)
 	_expect(
-		_function_body(source, "func draw_shrapnel_armor_effect").find("_recent_start(trail, MAX_RENDERED_SHRAPNEL_ARMOR_TRAIL_POINTS)") >= 0,
+		_function_body(armor_source, "func draw_shrapnel_armor_effect").find("_recent_start(trail, trail_render_limit)") >= 0,
 		"Shrapnel Armor draw should cap trail points"
 	)
 	_expect(
-		_function_body(source, "func draw_shrapnel_armor_effect").find("SHRAPNEL_ARMOR_BOSS_IMPACT_ARC_SEGMENTS") >= 0,
+		_function_body(armor_source, "func draw_shrapnel_armor_effect").find("boss_impact_arc_segments") >= 0,
 		"Shrapnel Armor boss impact should use a capped arc segment budget"
 	)
 	_expect(
