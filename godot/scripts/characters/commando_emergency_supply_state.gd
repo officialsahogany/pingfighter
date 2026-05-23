@@ -110,13 +110,19 @@ func _try_activate(current_msec: int, special_gauge: float, deps: Dictionary) ->
 		return _failed(special_gauge, "rental_weapon")
 	if not _has_refill_room(target):
 		return _failed(special_gauge, "full")
-	if not _refill_current_weapon(weapon_controller, weapon_id):
-		return _failed(special_gauge, "refill_failed")
+	var delivery_state: Object = deps.get("commando_reload_delivery_state", null)
+	if delivery_state != null and bool(delivery_state.get("active")):
+		return _failed(special_gauge, "delivery_in_progress")
+	if not _start_delivery(weapon_id, deps):
+		# Fallback: legacy immediate refill so the skill never silently no-ops if the
+		# delivery state is unavailable.
+		if not _refill_current_weapon(weapon_controller, weapon_id):
+			return _failed(special_gauge, "refill_failed")
+		_play_reload_audio(deps)
 
 	var cost: float = _get_skill_cost(deps.get("skill_config", null))
 	_trigger_cooldown(current_msec, deps)
 	_trigger_feedback(deps)
-	_play_reload_audio(deps)
 	return {
 		"special_gauge": max(0.0, special_gauge - cost),
 		"special_gauge_delta": -cost,
@@ -124,6 +130,28 @@ func _try_activate(current_msec: int, special_gauge: float, deps: Dictionary) ->
 		"skill_name": SKILL_NAME,
 		"weapon_id": weapon_id,
 	}
+
+
+func _start_delivery(weapon_id: String, deps: Dictionary) -> bool:
+	var delivery_state: Object = deps.get("commando_reload_delivery_state", null)
+	if delivery_state == null or not delivery_state.has_method("start"):
+		return false
+	var owner: Object = _resolve_delivery_owner(deps)
+	# Delivery state owns the activation-time radio cue (see commando_reload_delivery_state.start).
+	return bool(delivery_state.start(owner, weapon_id, deps))
+
+
+func _resolve_delivery_owner(deps: Dictionary) -> Object:
+	var owner: Variant = deps.get("delivery_owner", null)
+	if typeof(owner) == TYPE_OBJECT and owner != null:
+		return owner
+	owner = deps.get("owner", null)
+	if typeof(owner) == TYPE_OBJECT and owner != null:
+		return owner
+	owner = deps.get("commando_weapon_controller", null)
+	if typeof(owner) == TYPE_OBJECT and owner != null:
+		return owner
+	return null
 
 
 func _failed(special_gauge: float, reason: String) -> Dictionary:

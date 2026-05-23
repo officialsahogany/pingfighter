@@ -71,6 +71,7 @@ func _verify_module_catalogs() -> void:
 		"commando_skill_state",
 		"commando_weapon_controller",
 		"commando_emergency_supply_state",
+		"commando_reload_delivery_state",
 		"commando_firearm_runtime",
 		"commando_supply_drop_state",
 		"commando_input_reader",

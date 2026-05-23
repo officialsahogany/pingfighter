@@ -195,6 +195,7 @@ class FakeRegistry:
 	var character_info := FakeCharacterInfo.new()
 	var result_screen := FakeStagedResultScreen.new()
 	var monkey_blessing_delivery_state := FakeStagedPrewarmModule.new()
+	var commando_reload_delivery_state := FakeStagedPrewarmModule.new()
 	var stage1_bg := FakePrewarmModule.new()
 	var stage1_pillar_scene := FakePillarSceneModule.new()
 	var stage1_balloon_event := FakeStagedPrewarmModule.new()
@@ -255,6 +256,8 @@ class FakeRegistry:
 				return result_screen
 			"monkey_blessing_delivery_state":
 				return monkey_blessing_delivery_state
+			"commando_reload_delivery_state":
+				return commando_reload_delivery_state
 			"stage1_pillar_background":
 				return stage1_bg
 			"stage1_pillar_scene_drawer":
@@ -350,6 +353,8 @@ func _init() -> void:
 	_expect(_registry.result_screen.step_calls == 0, "stage runtime prewarm should not touch the heavy result staged path before its dedicated warmup")
 	_expect(_registry.monkey_blessing_delivery_state.step_calls == 3, "stage runtime prewarm should stage Monkey Blessing delivery assets before the first visible draw")
 	_expect(_registry.monkey_blessing_delivery_state.monolithic_calls == 0, "Monkey Blessing delivery prewarm should avoid monolithic loading when staged")
+	_expect(_registry.commando_reload_delivery_state.step_calls == 3, "stage runtime prewarm should stage Commando reload delivery assets before the first visible draw")
+	_expect(_registry.commando_reload_delivery_state.monolithic_calls == 0, "Commando reload delivery prewarm should avoid monolithic loading when staged")
 	_expect(_registry.smasher_warp_gate_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher warp gate assets once")
 	_expect(_registry.smasher_wheel_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher wheel assets once")
 	_expect(_registry.smasher_shield_kiting_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher shield assets once")

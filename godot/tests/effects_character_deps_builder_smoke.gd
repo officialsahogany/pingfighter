@@ -31,6 +31,7 @@ class FakeRegistry:
 			"commando_firearm_runtime",
 			"runtime_perk_state",
 			"monkey_blessing_delivery_state",
+			"commando_reload_delivery_state",
 			"smasher_combo_state",
 		]:
 			instances[key] = RefCounted.new()
@@ -67,6 +68,7 @@ func _init() -> void:
 		"commando_firearm_runtime",
 		"runtime_perk_state",
 		"monkey_blessing_delivery_state",
+		"commando_reload_delivery_state",
 		"combo_state",
 	]:
 		_expect(null_deps.get(key, RefCounted.new()) == null, "null registry should produce null %s" % key)
@@ -98,6 +100,7 @@ func _verify_character_deps(deps: Dictionary, registry: FakeRegistry, source: St
 		"commando_firearm_runtime": "commando_firearm_runtime",
 		"runtime_perk_state": "runtime_perk_state",
 		"monkey_blessing_delivery_state": "monkey_blessing_delivery_state",
+		"commando_reload_delivery_state": "commando_reload_delivery_state",
 		"combo_state": "smasher_combo_state",
 	}
 	for dep_key in dep_to_registry_key.keys():
@@ -116,6 +119,7 @@ func _verify_scoped_character_deps() -> void:
 	_expect(smasher_deps.get("power_state", null) == smasher_registry.instances["smasher_power_smash_state"], "scoped Smasher deps should include Smasher power state")
 	_expect(smasher_deps.get("combo_state", null) == smasher_registry.instances["smasher_combo_state"], "scoped Smasher deps should include combo state")
 	_expect(smasher_deps.get("monkey_blessing_delivery_state", null) == smasher_registry.instances["monkey_blessing_delivery_state"], "shared Monkey Blessing effect state should stay available")
+	_expect(smasher_deps.get("commando_reload_delivery_state", null) == smasher_registry.instances["commando_reload_delivery_state"], "shared Commando reload delivery effect state should stay available")
 	_expect(not smasher_registry.requested_keys.has("viper_skill_runtime"), "scoped Smasher deps should not request Viper runtime")
 	_expect(not smasher_registry.requested_keys.has("commando_firearm_runtime"), "scoped Smasher deps should not request Commando runtime")
 
@@ -124,6 +128,7 @@ func _verify_scoped_character_deps() -> void:
 	_expect(viper_deps.get("viper_skill_runtime", null) == viper_registry.instances["viper_skill_runtime"], "scoped Viper deps should include Viper runtime")
 	_expect(viper_deps.get("viper_skill_config", null) == viper_registry.instances["viper_skill_config"], "scoped Viper deps should include Viper skill config")
 	_expect(viper_deps.get("runtime_perk_state", null) == viper_registry.instances["runtime_perk_state"], "shared runtime perk state should stay available")
+	_expect(viper_deps.get("commando_reload_delivery_state", null) == viper_registry.instances["commando_reload_delivery_state"], "shared Commando reload delivery effect state should stay available for Viper cleanup")
 	_expect(not viper_deps.has("power_state"), "scoped Viper deps should not expose Smasher power state")
 	_expect(not viper_registry.requested_keys.has("smasher_wheel_state"), "scoped Viper deps should not request Smasher wheel state")
 	_expect(not viper_registry.requested_keys.has("commando_firearm_runtime"), "scoped Viper deps should not request Commando runtime")
@@ -131,6 +136,7 @@ func _verify_scoped_character_deps() -> void:
 	var commando_registry := FakeRegistry.new()
 	var commando_deps: Dictionary = builder.build_deps(commando_registry, "commando")
 	_expect(commando_deps.get("commando_firearm_runtime", null) == commando_registry.instances["commando_firearm_runtime"], "scoped Commando deps should include firearm runtime")
+	_expect(commando_deps.get("commando_reload_delivery_state", null) == commando_registry.instances["commando_reload_delivery_state"], "scoped Commando deps should include reload delivery state")
 	_expect(not commando_deps.has("viper_skill_runtime"), "scoped Commando deps should not expose Viper runtime")
 	_expect(not commando_registry.requested_keys.has("smasher_wheel_state"), "scoped Commando deps should not request Smasher wheel state")
 	_expect(not commando_registry.requested_keys.has("viper_skill_runtime"), "scoped Commando deps should not request Viper runtime")

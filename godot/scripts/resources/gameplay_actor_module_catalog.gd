@@ -101,6 +101,10 @@ const MODULES := {
 		"path": "res://scripts/characters/monkey_blessing_delivery_state.gd",
 		"label": "monkey blessing delivery state",
 	},
+	"commando_reload_delivery_state": {
+		"path": "res://scripts/characters/commando_reload_delivery_state.gd",
+		"label": "commando reload delivery state",
+	},
 	"laurel_leaf_shield_state": {
 		"path": "res://scripts/characters/laurel_leaf_shield_state.gd",
 		"label": "laurel leaf shield state",

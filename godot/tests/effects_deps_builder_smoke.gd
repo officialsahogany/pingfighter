@@ -41,6 +41,7 @@ class FakeRegistry:
 			"viper_skill_config",
 			"viper_skill_state",
 			"commando_firearm_runtime",
+			"commando_reload_delivery_state",
 			"monkey_blessing_delivery_state",
 			"smasher_combo_state",
 			"stage1_pillar_background",
@@ -123,6 +124,7 @@ func _verify_deps(deps: Dictionary, registry: FakeRegistry, source: String) -> v
 		"viper_skill_config": "viper_skill_config",
 		"viper_skill_state": "viper_skill_state",
 		"commando_firearm_runtime": "commando_firearm_runtime",
+		"commando_reload_delivery_state": "commando_reload_delivery_state",
 		"monkey_blessing_delivery_state": "monkey_blessing_delivery_state",
 		"combo_state": "smasher_combo_state",
 		"stage_background": "stage2_pillar_background",
@@ -165,6 +167,7 @@ func _verify_scoped_cache_deps() -> void:
 	var builder: Object = EffectsDepsBuilder.new()
 	var viper_deps: Dictionary = builder.build_deps(registry, 2, "viper")
 	_expect(viper_deps.get("viper_skill_runtime", null) == registry.instances["viper_skill_runtime"], "scoped effects deps should include Viper runtime")
+	_expect(viper_deps.get("commando_reload_delivery_state", null) == registry.instances["commando_reload_delivery_state"], "scoped effects deps should keep shared Commando reload delivery cleanup state")
 	_expect(viper_deps.get("stage_background", null) == registry.instances["stage2_pillar_background"], "scoped effects deps should still include routed stage background")
 	_expect(viper_deps.get("stage2_boss_skill_state", null) == registry.instances["stage2_boss_skill_state"], "scoped effects deps should include current Stage 2 runtime")
 	_expect(not viper_deps.has("power_state"), "scoped effects deps should not expose Smasher power state for Viper")
@@ -183,6 +186,7 @@ func _verify_scoped_cache_deps() -> void:
 
 	var commando_deps: Dictionary = builder.build_deps(registry, 2, "soldier")
 	_expect(commando_deps.get("commando_firearm_runtime", null) == registry.instances["commando_firearm_runtime"], "changing character should rebuild scoped effects deps")
+	_expect(commando_deps.get("commando_reload_delivery_state", null) == registry.instances["commando_reload_delivery_state"], "scoped Commando effects deps should include reload delivery state")
 	_expect(not commando_deps.has("viper_skill_runtime"), "scoped Commando effects deps should not expose Viper runtime")
 
 

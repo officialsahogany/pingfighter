@@ -157,6 +157,9 @@ func draw(
 	effects_drawer.draw_monkey_blessing_delivery(canvas, registry, shake_offset)
 	_perf_end(perf_logger, "26.monkey_blessing", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	effects_drawer.draw_commando_reload_delivery(canvas, registry, shake_offset)
+	_perf_end(perf_logger, "26b.commando_reload", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	effects_drawer.draw_impact_and_combo_effects(canvas, registry, shake_offset, draw_context)
 	_perf_end(perf_logger, "27.impact_combo", sample_start)
 	if _should_draw_weather_effects(registry, draw_context):

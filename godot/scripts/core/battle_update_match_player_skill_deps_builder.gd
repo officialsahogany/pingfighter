@@ -22,6 +22,7 @@ func build_deps(registry: Object) -> Dictionary:
 		"smasher_shield_kiting_state": _get_instance(registry, "smasher_shield_kiting_state"),
 		"laurel_leaf_shield_state": _get_instance(registry, "laurel_leaf_shield_state"),
 		"monkey_blessing_delivery_state": _get_instance(registry, "monkey_blessing_delivery_state"),
+		"commando_reload_delivery_state": _get_instance(registry, "commando_reload_delivery_state"),
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
 		"optimus_energy_state": _get_instance(registry, "optimus_energy_state"),
 		"skill_configs": [

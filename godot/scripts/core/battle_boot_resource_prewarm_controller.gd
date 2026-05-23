@@ -761,6 +761,7 @@ func _mark_selected_character_runtime_prewarmed(character_type: String) -> void:
 func _get_selected_character_runtime_module_keys(character_type: String) -> Array[String]:
 	var keys: Array[String] = [
 		"monkey_blessing_delivery_state",
+		"commando_reload_delivery_state",
 	]
 	match character_type:
 		"smasher":

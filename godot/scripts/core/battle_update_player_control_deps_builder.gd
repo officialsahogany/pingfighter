@@ -58,6 +58,7 @@ func build_deps(registry: Object, character_type: String = "smasher") -> Diction
 		"optimus_energy_state": _get_instance(registry, "optimus_energy_state") if is_optimus else null,
 		"commando_weapon_controller": _get_instance(registry, "commando_weapon_controller") if is_commando else null,
 		"commando_emergency_supply_state": _get_instance(registry, "commando_emergency_supply_state") if is_commando else null,
+		"commando_reload_delivery_state": _get_instance(registry, "commando_reload_delivery_state") if is_commando else null,
 		"commando_firearm_runtime": _get_instance(registry, "commando_firearm_runtime") if is_commando else null,
 		"commando_supply_drop_state": _get_instance(registry, "commando_supply_drop_state") if is_commando else null,
 		"power_state": null if is_viper or is_commando or is_optimus else _get_instance(registry, "smasher_power_smash_state"),

@@ -104,6 +104,7 @@ func _reset_player_skill_state(deps: Dictionary) -> void:
 		"smasher_shield_kiting_state",
 		"laurel_leaf_shield_state",
 		"monkey_blessing_delivery_state",
+		"commando_reload_delivery_state",
 		"runtime_perk_state",
 		"optimus_energy_state",
 	]:

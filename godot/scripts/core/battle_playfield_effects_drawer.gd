@@ -383,6 +383,12 @@ func draw_monkey_blessing_delivery(canvas: CanvasItem, registry: Object, shake_o
 		delivery_state.draw(canvas, shake_offset)
 
 
+func draw_commando_reload_delivery(canvas: CanvasItem, registry: Object, shake_offset: Vector2) -> void:
+	var delivery_state: Object = _get_instance(registry, "commando_reload_delivery_state")
+	if _has_visible_effects(delivery_state) and delivery_state.has_method("draw"):
+		delivery_state.draw(canvas, shake_offset)
+
+
 func draw_impact_and_combo_effects(
 	canvas: CanvasItem,
 	registry: Object,

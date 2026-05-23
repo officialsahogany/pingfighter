@@ -155,6 +155,10 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	if _needs_effect_update(monkey_blessing_delivery_state) and monkey_blessing_delivery_state.has_method("update_effects"):
 		monkey_blessing_delivery_state.update_effects(delta, context, effect_deps)
 
+	var commando_reload_delivery_state: Object = deps.get("commando_reload_delivery_state", null)
+	if _needs_effect_update(commando_reload_delivery_state) and commando_reload_delivery_state.has_method("update_effects"):
+		commando_reload_delivery_state.update_effects(delta, context, effect_deps)
+
 	var combo_state = deps.get("combo_state", null)
 	if _is_smasher_context(context) and combo_state != null:
 		combo_state.update_timers(fps_scale)

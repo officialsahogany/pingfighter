@@ -27,6 +27,7 @@ class FakeRegistry:
 			"smasher_shield_kiting_state",
 			"laurel_leaf_shield_state",
 			"monkey_blessing_delivery_state",
+			"commando_reload_delivery_state",
 			"runtime_perk_state",
 			"smasher_skill_config",
 			"viper_skill_config",
@@ -64,6 +65,7 @@ func _init() -> void:
 	_expect((null_deps.get("skill_states", []) as Array)[3] == null, "null registry should keep null Optimus energy state")
 	_expect(null_deps.get("skill_configs", []).size() == 3, "null registry should keep skill config array shape")
 	_expect(null_deps.get("skill_runtimes", []).size() == 4, "null registry should keep skill runtime array shape")
+	_expect(null_deps.get("commando_reload_delivery_state", RefCounted.new()) == null, "null registry should produce null Commando reload delivery state")
 	_expect(null_deps.get("dash_state", RefCounted.new()) == null, "null registry should produce null dash state")
 
 	if _failures.is_empty():
@@ -97,6 +99,7 @@ func _verify_skill_deps(deps: Dictionary, registry: FakeRegistry, source: String
 		"smasher_shield_kiting_state",
 		"laurel_leaf_shield_state",
 		"monkey_blessing_delivery_state",
+		"commando_reload_delivery_state",
 		"runtime_perk_state",
 		"optimus_energy_state",
 		"dash_state",

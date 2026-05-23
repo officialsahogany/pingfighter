@@ -32,6 +32,7 @@ func _build_common_deps(registry: Object) -> Dictionary:
 		"registry": registry,
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
 		"monkey_blessing_delivery_state": _get_instance(registry, "monkey_blessing_delivery_state"),
+		"commando_reload_delivery_state": _get_instance(registry, "commando_reload_delivery_state"),
 	}
 
 

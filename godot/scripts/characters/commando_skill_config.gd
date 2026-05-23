@@ -79,9 +79,9 @@ const SKILL_DATA := {
 		"cost": 150.0,
 		"color": Color(1.0, 100.0 / 255.0, 100.0 / 255.0),
 		"cooldown": 60.0,
-		"description": "현재 선택한 화기류를 재장전합니다.\n기본 권총과 영구 화기는 탄약을 최대치까지 보충합니다.",
+		"description": "무전기로 보급병을 호출합니다.\n잠시 후 보급병이 달려와 현재 선택한 화기류의 탄약을 최대치까지 보충합니다.",
 		"how_to_use": "제자리에서 ↓를 두 번 눌러 발동",
-		"motion_hint": "현재 화기 재장전",
+		"motion_hint": "무전 후 보급병이 달려와 보급",
 		"effect_type": "emergency_red",
 	},
 	"commando_pistol": {

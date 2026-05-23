@@ -104,6 +104,7 @@ const MATCH_PLAYER_SKILL_PREWARM_KEYS := [
 	"smasher_shield_kiting_state",
 	"laurel_leaf_shield_state",
 	"monkey_blessing_delivery_state",
+	"commando_reload_delivery_state",
 	"runtime_perk_state",
 	"smasher_skill_config",
 	"viper_skill_config",
@@ -397,6 +398,7 @@ func _get_player_control_context_prewarm_keys(character_type: String) -> Array:
 		keys.append_array([
 			"commando_weapon_controller",
 			"commando_emergency_supply_state",
+			"commando_reload_delivery_state",
 			"commando_firearm_runtime",
 			"commando_supply_drop_state",
 		])
