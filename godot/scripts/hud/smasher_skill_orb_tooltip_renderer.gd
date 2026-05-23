@@ -82,18 +82,48 @@ const VIPER_CONTROL_ROWS := {
 	],
 }
 
+const COMMANDO_CONTROL_ROWS := {
+	"supply_drop": [
+		[["key", "S"], ["slash", "/"], ["key", "↓"], ["dim", "또는"], ["mouse_right", ""], ["accent", "1초 홀드"]],
+	],
+	"emergency_supply": [
+		[["text", "제자리에서"], ["key", "↓"], ["arrow", "→"], ["key", "↓"], ["accent", "발동"]],
+	],
+	"commando_pistol": [
+		[["text", "무기 선택 후"], ["mouse_left", ""], ["dim", "또는"], ["key", "SPACE"]],
+	],
+	"bazooka": [
+		[["text", "무기 선택 후"], ["mouse_left", ""], ["dim", "또는"], ["key", "SPACE"]],
+	],
+	"ak47": [
+		[["text", "무기 선택 후"], ["mouse_left", ""], ["dim", "또는"], ["key", "SPACE"]],
+	],
+	"net_gun": [
+		[["text", "무기 선택 후"], ["mouse_left", ""], ["dim", "또는"], ["key", "SPACE"]],
+	],
+	"fire_support": [
+		[["text", "무기 선택 후"], ["mouse_left", ""], ["dim", "또는"], ["key", "SPACE"]],
+	],
+	"bowling_trap": [
+		[["text", "무기 선택 후"], ["mouse_left", ""], ["dim", "또는"], ["key", "SPACE"]],
+	],
+	"suicide_drone": [
+		[["text", "무기 선택 후"], ["mouse_left", ""], ["dim", "또는"], ["key", "SPACE"]],
+	],
+}
+
 const HORN_STRAWBERRY_CONTROL_ROWS := {
 	"horn_strawberry_horn_charge": [
-		[["key", "W"], ["accent", "??"]],
+		[["key", "W"], ["accent", "발동"]],
 	],
 	"horn_strawberry_field": [
-		[["key", "S"], ["accent", "1? ??"]],
+		[["key", "S"], ["accent", "1초 유지"]],
 	],
 	"horn_strawberry_eat": [
-		[["key", "SPACE"], ["dim", "??"], ["mouse_left", ""], ["accent", "??"]],
+		[["key", "SPACE"], ["dim", "또는"], ["mouse_left", ""], ["accent", "발동"]],
 	],
 	"horn_strawberry_bomb": [
-		[["key", "A"], ["plus", "+"], ["key", "D"], ["accent", "0.5? ??"]],
+		[["key", "A"], ["plus", "+"], ["key", "D"], ["accent", "0.5초 유지"]],
 	],
 }
 
@@ -719,6 +749,9 @@ func _draw_control_rows(canvas: CanvasItem, font: Font, rows: Array, start: Vect
 			elif token_type == "mouse_left":
 				_draw_mouse_left_icon(canvas, Vector2(cursor_x, row_y - scale_factor), 18.0 * scale_factor)
 				cursor_x += 22.0 * scale_factor
+			elif token_type == "mouse_right":
+				_draw_mouse_button_icon(canvas, Vector2(cursor_x, row_y - scale_factor), 18.0 * scale_factor, false)
+				cursor_x += 22.0 * scale_factor
 			else:
 				var color: Color = _token_color(token_type)
 				var text_size: Vector2 = _draw_text(canvas, font, Vector2(cursor_x, row_y + scale_factor), value, normal_size, color)
@@ -736,11 +769,16 @@ func _draw_keycap(canvas: CanvasItem, font: Font, pos: Vector2, text: String, fo
 
 
 func _draw_mouse_left_icon(canvas: CanvasItem, pos: Vector2, size: float) -> void:
+	_draw_mouse_button_icon(canvas, pos, size, true)
+
+
+func _draw_mouse_button_icon(canvas: CanvasItem, pos: Vector2, size: float, button_left: bool) -> void:
 	var rect := Rect2(pos, Vector2(size * 0.72, size))
 	var center_x: float = rect.position.x + rect.size.x * 0.5
 	_draw_panel(canvas, rect, Color(18.0 / 255.0, 22.0 / 255.0, 32.0 / 255.0, 0.92), Color(120.0 / 255.0, 130.0 / 255.0, 150.0 / 255.0, 0.85), max(1.0, size * 0.06), size * 0.22)
 	canvas.draw_line(Vector2(center_x, rect.position.y + size * 0.08), Vector2(center_x, rect.position.y + size * 0.44), Color(0.75, 0.8, 0.9), max(1.0, size * 0.06))
-	canvas.draw_circle(Vector2(rect.position.x + rect.size.x * 0.31, rect.position.y + size * 0.25), max(1.2, size * 0.08), Color(1.0, 214.0 / 255.0, 96.0 / 255.0))
+	var button_x: float = rect.position.x + rect.size.x * (0.31 if button_left else 0.69)
+	canvas.draw_circle(Vector2(button_x, rect.position.y + size * 0.25), max(1.2, size * 0.08), Color(1.0, 214.0 / 255.0, 96.0 / 255.0))
 
 
 func _draw_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color, _progress: float) -> void:
@@ -799,17 +837,29 @@ func _draw_panel(canvas: CanvasItem, rect: Rect2, fill_color: Color, border_colo
 
 
 func _get_control_rows(skill_name: String, character_type: String = "smasher") -> Array:
-	var rows: Variant = VIPER_CONTROL_ROWS.get(skill_name, []) if character_runtime.is_viper(character_type) else CONTROL_ROWS.get(skill_name, [])
 	if HORN_STRAWBERRY_CONTROL_ROWS.has(skill_name):
 		var horn_rows: Variant = HORN_STRAWBERRY_CONTROL_ROWS.get(skill_name, [])
 		if horn_rows is Array:
 			return horn_rows
+	var rows: Variant = []
+	if character_runtime.is_commando(character_type):
+		rows = COMMANDO_CONTROL_ROWS.get(skill_name, [])
+	elif character_runtime.is_viper(character_type):
+		rows = VIPER_CONTROL_ROWS.get(skill_name, [])
+	else:
+		rows = CONTROL_ROWS.get(skill_name, [])
 	if rows is Array:
 		return rows
 	return []
 
 
-func _get_cooldown_remaining(skill_state: Object, skill_name: String, time_now: int, cooldown_seconds: float, hover_context: Dictionary = {}) -> float:
+func _get_cooldown_remaining(
+	skill_state: Object,
+	skill_name: String,
+	time_now: int,
+	cooldown_seconds: float,
+	hover_context: Dictionary = {}
+) -> float:
 	var skill_context: Dictionary = _get_dictionary(hover_context.get("skill_context", {}))
 	var cooldown_ratios: Dictionary = _get_dictionary(skill_context.get("skill_cooldown_remaining_ratios", {}))
 	if cooldown_ratios.has(skill_name):

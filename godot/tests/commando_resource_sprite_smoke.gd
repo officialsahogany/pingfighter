@@ -4,6 +4,7 @@ const BattleDrawActorContext := preload("res://scripts/core/battle_draw_actor_co
 const BattleResources := preload("res://scripts/resources/battle_resources.gd")
 const BattleUpdateEffectsSpriteContextBuilder := preload("res://scripts/core/battle_update_effects_sprite_context_builder.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 
 const COMMANDO_PLAYER_PATHS := [
 	"res://assets/sprites/characters/commando/base_grip/commando_base_grip_idle_back_gemini_v1.png",
@@ -14,6 +15,7 @@ const COMMANDO_PLAYER_PATHS := [
 
 const COMMANDO_ICON_IDS := [
 	"supply_drop",
+	"emergency_supply",
 	"commando_pistol",
 	"net_gun",
 	"fire_support",
@@ -40,6 +42,8 @@ func _init() -> void:
 
 
 func _verify_direct_asset_loads() -> void:
+	var icon_renderer := RuntimePerkIconRenderer.new()
+	var covered_ids: Array = icon_renderer.covered_ids()
 	for path in COMMANDO_PLAYER_PATHS:
 		var texture: Texture2D = ProjectResourceLoader.load_texture(path)
 		_expect(texture != null, "%s should load as a raw Godot texture" % path)
@@ -51,6 +55,8 @@ func _verify_direct_asset_loads() -> void:
 			path = "res://assets/sprites/skills/commando_pistol_skill_orb.png"
 		var texture: Texture2D = ProjectResourceLoader.load_texture(path)
 		_expect(texture != null, "%s should load as a Commando skill icon" % path)
+		_expect(covered_ids.has(skill_id), "%s should be covered by the runtime icon renderer" % skill_id)
+		_expect(icon_renderer.has_icon(skill_id), "%s should load through the runtime icon renderer" % skill_id)
 
 
 func _verify_resource_contexts() -> void:

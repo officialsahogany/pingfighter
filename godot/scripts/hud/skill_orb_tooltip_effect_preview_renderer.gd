@@ -24,6 +24,17 @@ const VIPER_EFFECT_PREVIEW_TYPES := {
 	"glitch_clone": true,
 	"ignition_burst": true,
 }
+const COMMANDO_EFFECT_PREVIEW_TYPES := {
+	"supply_green": true,
+	"emergency_red": true,
+	"firearm_pistol": true,
+	"firearm_bazooka": true,
+	"firearm_ak47": true,
+	"firearm_net": true,
+	"firearm_support": true,
+	"firearm_trap": true,
+	"firearm_drone": true,
+}
 const VIPER_EFFECT_INPUT_OVERLAY := {
 	"shadow_teleport": ["combo", "S"],
 	"slash_purple": ["hold", "W"],
@@ -49,6 +60,9 @@ func get_effect_preview_family(effect_type: String) -> String:
 func _draw_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color, _progress: float) -> void:
 	if _get_effect_preview_family(effect_type) == "viper":
 		_draw_viper_effect_preview(canvas, rect, effect_type, color)
+		return
+	if _get_effect_preview_family(effect_type) == "commando":
+		_draw_commando_effect_preview(canvas, rect, effect_type, color)
 		return
 	if effect_type == "drive_curve":
 		_draw_drive_curve_preview(canvas, rect, color)
@@ -77,6 +91,8 @@ func _draw_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, 
 func _get_effect_preview_family(effect_type: String) -> String:
 	if VIPER_EFFECT_PREVIEW_TYPES.has(effect_type):
 		return "viper"
+	if COMMANDO_EFFECT_PREVIEW_TYPES.has(effect_type):
+		return "commando"
 	if SMASHER_EFFECT_PREVIEW_TYPES.has(effect_type):
 		return "smasher"
 	return "fallback"
@@ -1238,6 +1254,251 @@ func _draw_viper_combo_keycap(canvas: CanvasItem, center: Vector2, letter: Strin
 	canvas.draw_line(Vector2(cb_x + 3.0, center.y), Vector2(cb_x, center.y + 3.0), _alpha(color, 220.0 / 255.0), 1.0)
 	canvas.draw_line(Vector2(cb_x + 3.0, center.y - 3.0), Vector2(cb_x + 6.0, center.y), _alpha(color, 220.0 / 255.0), 1.0)
 	canvas.draw_line(Vector2(cb_x + 6.0, center.y), Vector2(cb_x + 3.0, center.y + 3.0), _alpha(color, 220.0 / 255.0), 1.0)
+
+
+func _draw_commando_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color) -> void:
+	match effect_type:
+		"supply_green":
+			_draw_commando_supply_drop_preview(canvas, rect, color)
+		"emergency_red":
+			_draw_commando_emergency_reload_preview(canvas, rect, color)
+		_:
+			_draw_commando_firearm_preview(canvas, rect, effect_type, color)
+
+
+func _draw_commando_supply_drop_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var time_ms: int = Time.get_ticks_msec()
+	var local_progress: float = float(time_ms % 3200) / 3200.0
+	var center_x: float = float(metrics["center_x"])
+	var preview_left: float = float(metrics["left"])
+	var preview_right: float = float(metrics["right"])
+	var preview_top: float = float(metrics["top"])
+	var preview_bottom: float = float(metrics["bottom"])
+	var floor_y: float = preview_bottom - 2.0
+	var soldier_pos := Vector2(preview_left + 50.0, floor_y)
+	var plane_x: float = preview_left + 12.0 + fposmod(local_progress * 240.0, preview_right - preview_left - 24.0)
+	var crate_phase: float = clamp((local_progress - 0.18) / 0.70, 0.0, 1.0)
+	var crate_pos := Vector2(center_x + 36.0 * sin(crate_phase * PI), preview_top + 12.0 + (floor_y - preview_top - 20.0) * crate_phase)
+	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), _color8(82, 130, 80, 54), 2.0)
+	_draw_commando_mini_character(canvas, soldier_pos.x, soldier_pos.y, {"pose": "radio"})
+	for signal_idx in range(3):
+		var signal_radius: float = 14.0 + float(signal_idx) * 9.0 + sin(float(time_ms) * 0.006) * 2.0
+		canvas.draw_arc(soldier_pos + Vector2(9.0, -32.0), signal_radius, -PI * 0.75, -PI * 0.22, 18, _alpha(color, max(45.0, 160.0 - float(signal_idx) * 40.0) / 255.0), 1.5)
+	_draw_commando_plane(canvas, Vector2(plane_x, preview_top + 10.0), color)
+	_draw_commando_parachute_crate(canvas, crate_pos, color, crate_phase)
+	for sparkle_idx in range(6):
+		var sparkle_angle: float = float(sparkle_idx) * TAU / 6.0 + local_progress * TAU
+		var sparkle_pos := crate_pos + Vector2(cos(sparkle_angle) * 22.0, sin(sparkle_angle) * 10.0)
+		canvas.draw_circle(sparkle_pos, 1.8, _alpha(color, 150.0 / 255.0))
+	_draw_preview_keycap(canvas, Vector2(preview_left + 22.0, preview_top + 14.0), "S")
+	_draw_preview_mouse(canvas, Vector2(preview_left + 44.0, preview_top + 14.0), false)
+
+
+func _draw_commando_emergency_reload_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var time_ms: int = Time.get_ticks_msec()
+	var local_progress: float = float(time_ms % 2600) / 2600.0
+	var center_x: float = float(metrics["center_x"])
+	var preview_left: float = float(metrics["left"])
+	var preview_right: float = float(metrics["right"])
+	var preview_top: float = float(metrics["top"])
+	var preview_bottom: float = float(metrics["bottom"])
+	var floor_y: float = preview_bottom - 2.0
+	var soldier_pos := Vector2(center_x - 44.0, floor_y)
+	var magazine_pos := Vector2(center_x + 30.0, floor_y - 26.0)
+	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), _color8(130, 72, 64, 54), 2.0)
+	_draw_commando_mini_character(canvas, soldier_pos.x, soldier_pos.y, {"pose": "reload"})
+	_draw_commando_pistol(canvas, soldier_pos + Vector2(25.0, -31.0), color, local_progress)
+	var filled_rounds: int = clampi(int(floor(local_progress * 6.0)), 0, 5)
+	_draw_commando_magazine(canvas, magazine_pos, color, filled_rounds)
+	for arc_idx in range(3):
+		var radius: float = 17.0 + float(arc_idx) * 8.0 + sin(local_progress * TAU) * 2.0
+		canvas.draw_arc(magazine_pos, radius, -PI * 0.20, PI * 1.25, 26, _alpha(color, max(45.0, 160.0 - float(arc_idx) * 38.0) / 255.0), 2.0)
+	for round_idx in range(5):
+		var round_phase: float = clamp(local_progress * 1.4 - float(round_idx) * 0.13, 0.0, 1.0)
+		var start := Vector2(preview_right - 30.0 - float(round_idx) * 8.0, preview_top + 14.0)
+		var finish := magazine_pos + Vector2(-5.0 + float(round_idx) * 3.0, -9.0)
+		var pos: Vector2 = start.lerp(finish, 1.0 - pow(1.0 - round_phase, 2.0))
+		canvas.draw_rect(Rect2(pos - Vector2(2.0, 5.0), Vector2(4.0, 10.0)), _color8(255, 215, 115, 180), true)
+	_draw_preview_keycap(canvas, Vector2(preview_left + 24.0, preview_top + 14.0), "↓")
+	_draw_preview_arrow(canvas, Vector2(preview_left + 42.0, preview_top + 14.0))
+	_draw_preview_keycap(canvas, Vector2(preview_left + 60.0, preview_top + 14.0), "↓")
+
+
+func _draw_commando_firearm_preview(canvas: CanvasItem, rect: Rect2, effect_type: String, color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var time_ms: int = Time.get_ticks_msec()
+	var local_progress: float = float(time_ms % 2400) / 2400.0
+	var preview_left: float = float(metrics["left"])
+	var preview_right: float = float(metrics["right"])
+	var preview_top: float = float(metrics["top"])
+	var preview_bottom: float = float(metrics["bottom"])
+	var floor_y: float = preview_bottom - 2.0
+	var soldier_pos := Vector2(preview_left + 56.0, floor_y)
+	var muzzle := soldier_pos + Vector2(31.0, -32.0)
+	var target := Vector2(preview_right - 36.0, preview_top + 26.0)
+	canvas.draw_line(Vector2(preview_left + 8.0, floor_y), Vector2(preview_right - 8.0, floor_y), _color8(92, 104, 80, 50), 2.0)
+	_draw_commando_mini_character(canvas, soldier_pos.x, soldier_pos.y, {"pose": "fire"})
+	_draw_commando_pistol(canvas, muzzle - Vector2(8.0, 0.0), color, local_progress)
+	match effect_type:
+		"firearm_support":
+			_draw_commando_support_marker(canvas, target, color, local_progress)
+		"firearm_trap":
+			_draw_commando_trap_marker(canvas, target + Vector2(-8.0, 32.0), color, local_progress)
+		"firearm_drone":
+			_draw_commando_drone(canvas, target + Vector2(-10.0, -10.0), color, local_progress)
+		"firearm_net":
+			_draw_commando_net_projectile(canvas, muzzle, target, color, local_progress)
+		"firearm_bazooka":
+			_draw_commando_rocket(canvas, muzzle, target, color, local_progress)
+		_:
+			_draw_commando_bullets(canvas, muzzle, target, color, local_progress, effect_type == "firearm_ak47")
+	_draw_preview_mouse(canvas, Vector2(preview_left + 22.0, preview_top + 14.0), true)
+	_draw_preview_keycap(canvas, Vector2(preview_left + 44.0, preview_top + 14.0), "SP")
+
+
+func _draw_commando_plane(canvas: CanvasItem, center: Vector2, color: Color) -> void:
+	var body := Rect2(center + Vector2(-20.0, -4.0), Vector2(34.0, 8.0))
+	canvas.draw_rect(body, _color8(58, 76, 64, 220), true)
+	canvas.draw_rect(Rect2(body.position + Vector2(4.0, -3.0), Vector2(10.0, 4.0)), _color8(176, 205, 168, 230), true)
+	var wing := PackedVector2Array([
+		center + Vector2(-4.0, -3.0),
+		center + Vector2(18.0, -17.0),
+		center + Vector2(10.0, -2.0),
+		center + Vector2(-5.0, 10.0),
+	])
+	canvas.draw_colored_polygon(wing, _alpha(color, 170.0 / 255.0))
+	canvas.draw_line(center + Vector2(-20.0, 3.0), center + Vector2(-28.0, 10.0), _color8(58, 76, 64, 210), 3.0)
+
+
+func _draw_commando_parachute_crate(canvas: CanvasItem, center: Vector2, color: Color, phase: float) -> void:
+	var canopy_center := center + Vector2(0.0, -20.0)
+	var canopy_rect := Rect2(canopy_center - Vector2(22.0, 13.0), Vector2(44.0, 24.0))
+	_draw_ellipse_arc(canvas, canopy_rect, PI, TAU, _alpha(color, 185.0 / 255.0), 2.0)
+	canvas.draw_line(canopy_center + Vector2(-18.0, 0.0), center + Vector2(-9.0, -7.0), _color8(210, 226, 204, 150), 1.0)
+	canvas.draw_line(canopy_center + Vector2(18.0, 0.0), center + Vector2(9.0, -7.0), _color8(210, 226, 204, 150), 1.0)
+	canvas.draw_line(canopy_center, center + Vector2(0.0, -7.0), _color8(210, 226, 204, 150), 1.0)
+	var crate_rect := Rect2(center - Vector2(12.0, 8.0), Vector2(24.0, 16.0))
+	_draw_panel(canvas, crate_rect, _color8(96, 84, 54, 230), _alpha(color, 190.0 / 255.0), 2.0, 2.0)
+	canvas.draw_line(crate_rect.position + Vector2(3.0, 3.0), crate_rect.end - Vector2(3.0, 3.0), _color8(196, 166, 92, 170), 1.0)
+	canvas.draw_line(Vector2(crate_rect.end.x - 3.0, crate_rect.position.y + 3.0), Vector2(crate_rect.position.x + 3.0, crate_rect.end.y - 3.0), _color8(196, 166, 92, 170), 1.0)
+	if phase >= 0.94:
+		canvas.draw_arc(center, 20.0 + (phase - 0.94) * 80.0, 0.0, TAU, 28, _alpha(color, 120.0 / 255.0), 2.0)
+
+
+func _draw_commando_pistol(canvas: CanvasItem, center: Vector2, color: Color, progress: float) -> void:
+	var body := Rect2(center + Vector2(-8.0, -4.0), Vector2(20.0, 7.0))
+	canvas.draw_rect(body, _color8(35, 38, 36, 235), true)
+	canvas.draw_rect(Rect2(body.position + Vector2(2.0, 1.0), Vector2(9.0, 2.0)), _alpha(color, 150.0 / 255.0), true)
+	canvas.draw_rect(Rect2(center + Vector2(-7.0, 2.0), Vector2(5.0, 10.0)), _color8(64, 54, 42, 235), true)
+	if progress > 0.45:
+		canvas.draw_line(center + Vector2(13.0, -1.0), center + Vector2(23.0, -1.0), _alpha(color, 170.0 / 255.0), 2.0)
+
+
+func _draw_commando_magazine(canvas: CanvasItem, center: Vector2, color: Color, filled_rounds: int) -> void:
+	var mag_rect := Rect2(center - Vector2(9.0, 18.0), Vector2(18.0, 36.0))
+	_draw_panel(canvas, mag_rect, _color8(34, 37, 34, 232), _alpha(color, 120.0 / 255.0), 2.0, 3.0)
+	for round_idx in range(5):
+		var slot_y: float = mag_rect.end.y - 6.0 - float(round_idx) * 6.0
+		var round_color: Color = _color8(255, 216, 118, 220) if round_idx < filled_rounds else _color8(80, 82, 76, 190)
+		canvas.draw_rect(Rect2(Vector2(center.x - 5.0, slot_y - 2.0), Vector2(10.0, 3.0)), round_color, true)
+
+
+func _draw_commando_support_marker(canvas: CanvasItem, center: Vector2, color: Color, progress: float) -> void:
+	canvas.draw_arc(center, 18.0 + sin(progress * TAU) * 3.0, 0.0, TAU, 36, _alpha(color, 180.0 / 255.0), 2.0)
+	canvas.draw_line(center + Vector2(-16.0, 0.0), center + Vector2(16.0, 0.0), _alpha(color, 190.0 / 255.0), 1.5)
+	canvas.draw_line(center + Vector2(0.0, -16.0), center + Vector2(0.0, 16.0), _alpha(color, 190.0 / 255.0), 1.5)
+	for shell_idx in range(3):
+		var shell_pos := center + Vector2(-14.0 + float(shell_idx) * 14.0, -42.0 + progress * 38.0)
+		canvas.draw_line(shell_pos, shell_pos + Vector2(0.0, 13.0), _color8(255, 138, 76, 170), 3.0)
+
+
+func _draw_commando_trap_marker(canvas: CanvasItem, center: Vector2, color: Color, progress: float) -> void:
+	var trap_rect := Rect2(center - Vector2(18.0, 7.0), Vector2(36.0, 14.0))
+	_draw_panel(canvas, trap_rect, _color8(56, 46, 40, 230), _alpha(color, 130.0 / 255.0), 2.0, 5.0)
+	for tooth_idx in range(5):
+		var tooth_x: float = trap_rect.position.x + 5.0 + float(tooth_idx) * 6.0
+		canvas.draw_line(Vector2(tooth_x, trap_rect.position.y + 2.0), Vector2(tooth_x + 3.0, trap_rect.position.y - 8.0 - sin(progress * TAU) * 3.0), _color8(220, 224, 210, 190), 1.5)
+	canvas.draw_circle(center + Vector2(-26.0 + progress * 52.0, -16.0), 7.0, _alpha(color, 190.0 / 255.0))
+
+
+func _draw_commando_drone(canvas: CanvasItem, center: Vector2, color: Color, progress: float) -> void:
+	var hover: float = sin(progress * TAU) * 5.0
+	var body_center := center + Vector2(0.0, hover)
+	_draw_panel(canvas, Rect2(body_center - Vector2(12.0, 6.0), Vector2(24.0, 12.0)), _color8(44, 50, 48, 230), _alpha(color, 130.0 / 255.0), 2.0, 4.0)
+	for arm_dir in [-1.0, 1.0]:
+		canvas.draw_line(body_center + Vector2(arm_dir * 10.0, -2.0), body_center + Vector2(arm_dir * 24.0, -8.0), _color8(90, 110, 90, 190), 2.0)
+		canvas.draw_arc(body_center + Vector2(arm_dir * 28.0, -10.0), 7.0, 0.0, TAU, 18, _alpha(color, 150.0 / 255.0), 1.5)
+	canvas.draw_circle(body_center, 3.0, _color8(255, 96, 70, 220))
+
+
+func _draw_commando_net_projectile(canvas: CanvasItem, start: Vector2, target: Vector2, color: Color, progress: float) -> void:
+	var net_center: Vector2 = start.lerp(target, progress)
+	for trail_idx in range(6):
+		var trail_phase: float = max(0.0, progress - float(trail_idx) * 0.08)
+		var trail_pos: Vector2 = start.lerp(target, trail_phase)
+		canvas.draw_circle(trail_pos, max(1.0, 4.0 - float(trail_idx) * 0.4), _alpha(color, max(35.0, 150.0 - float(trail_idx) * 20.0) / 255.0))
+	var net_rect := Rect2(net_center - Vector2(18.0, 12.0), Vector2(36.0, 24.0))
+	for line_idx in range(4):
+		var x: float = net_rect.position.x + float(line_idx) * net_rect.size.x / 3.0
+		canvas.draw_line(Vector2(x, net_rect.position.y), Vector2(x, net_rect.end.y), _alpha(color, 170.0 / 255.0), 1.0)
+		var y: float = net_rect.position.y + float(line_idx) * net_rect.size.y / 3.0
+		canvas.draw_line(Vector2(net_rect.position.x, y), Vector2(net_rect.end.x, y), _alpha(color, 170.0 / 255.0), 1.0)
+
+
+func _draw_commando_rocket(canvas: CanvasItem, start: Vector2, target: Vector2, color: Color, progress: float) -> void:
+	var rocket_pos: Vector2 = start.lerp(target, progress)
+	var dir: Vector2 = (target - start).normalized()
+	var side := Vector2(-dir.y, dir.x)
+	canvas.draw_colored_polygon(PackedVector2Array([
+		rocket_pos + dir * 12.0,
+		rocket_pos - dir * 10.0 + side * 5.0,
+		rocket_pos - dir * 7.0,
+		rocket_pos - dir * 10.0 - side * 5.0,
+	]), _color8(88, 92, 86, 230))
+	for flame_idx in range(4):
+		var flame_pos := rocket_pos - dir * (12.0 + float(flame_idx) * 5.0)
+		canvas.draw_circle(flame_pos, max(2.0, 6.0 - float(flame_idx)), _color8(255, 154, 58, max(70.0, 190.0 - float(flame_idx) * 34.0)))
+	if progress > 0.82:
+		canvas.draw_arc(target, 28.0 * ((progress - 0.82) / 0.18), 0.0, TAU, 32, _alpha(color, 180.0 / 255.0), 2.0)
+
+
+func _draw_commando_bullets(canvas: CanvasItem, start: Vector2, target: Vector2, color: Color, progress: float, rapid: bool) -> void:
+	var burst_count: int = 5 if rapid else 2
+	for bullet_idx in range(burst_count):
+		var bullet_phase: float = fposmod(progress + float(bullet_idx) * (0.16 if rapid else 0.34), 1.0)
+		var pos: Vector2 = start.lerp(target, bullet_phase)
+		canvas.draw_line(pos - Vector2(10.0, 0.0), pos + Vector2(6.0, 0.0), _color8(255, 214, 105, 210), 2.0)
+		canvas.draw_circle(pos + Vector2(7.0, 0.0), 2.0, _alpha(color, 160.0 / 255.0))
+
+
+func _draw_commando_mini_character(canvas: CanvasItem, cx: float, cy: float, options: Dictionary = {}) -> void:
+	var pose: String = str(options.get("pose", "idle"))
+	var alpha: float = float(options.get("alpha", 1.0))
+	var tint: Color = _get_color(options.get("tint", Color.WHITE), Color.WHITE)
+	var armor := _tint(_color8(78, 112, 58, 235.0 * alpha), tint)
+	var armor_dark := _tint(_color8(44, 66, 42, 235.0 * alpha), tint)
+	var trim := _tint(_color8(154, 188, 104, 225.0 * alpha), tint)
+	var skin := _tint(_color8(218, 176, 128, 235.0 * alpha), tint)
+	canvas.draw_circle(Vector2(cx, cy - 2.0), 16.0, _alpha(Color.BLACK, 0.22 * alpha))
+	canvas.draw_line(Vector2(cx - 6.0, cy - 12.0), Vector2(cx - 11.0, cy - 2.0), armor_dark, 4.0)
+	canvas.draw_line(Vector2(cx + 6.0, cy - 12.0), Vector2(cx + 11.0, cy - 2.0), armor_dark, 4.0)
+	_draw_panel(canvas, Rect2(Vector2(cx - 11.0, cy - 39.0), Vector2(22.0, 28.0)), armor, Color.TRANSPARENT, 0.0, 5.0)
+	canvas.draw_rect(Rect2(Vector2(cx - 6.0, cy - 34.0), Vector2(12.0, 6.0)), trim, true)
+	_draw_ellipse(canvas, Rect2(Vector2(cx - 11.0, cy - 56.0), Vector2(22.0, 18.0)), armor_dark, true)
+	_draw_ellipse(canvas, Rect2(Vector2(cx - 8.0, cy - 51.0), Vector2(16.0, 8.0)), skin, true)
+	canvas.draw_rect(Rect2(Vector2(cx - 8.0, cy - 49.0), Vector2(16.0, 3.0)), _color8(42, 52, 48, 230.0 * alpha), true)
+	if pose == "radio":
+		canvas.draw_line(Vector2(cx - 9.0, cy - 33.0), Vector2(cx - 23.0, cy - 43.0), armor_dark, 3.0)
+		canvas.draw_rect(Rect2(Vector2(cx - 27.0, cy - 47.0), Vector2(7.0, 11.0)), _color8(28, 34, 30, 235.0 * alpha), true)
+		canvas.draw_line(Vector2(cx - 24.0, cy - 47.0), Vector2(cx - 29.0, cy - 55.0), trim, 1.0)
+	elif pose == "reload":
+		canvas.draw_line(Vector2(cx + 9.0, cy - 33.0), Vector2(cx + 22.0, cy - 29.0), armor_dark, 3.0)
+		canvas.draw_line(Vector2(cx - 9.0, cy - 32.0), Vector2(cx + 10.0, cy - 25.0), armor_dark, 3.0)
+	else:
+		canvas.draw_line(Vector2(cx + 9.0, cy - 33.0), Vector2(cx + 27.0, cy - 32.0), armor_dark, 3.0)
+		canvas.draw_line(Vector2(cx - 9.0, cy - 33.0), Vector2(cx - 20.0, cy - 25.0), armor_dark, 3.0)
 
 
 func _split_key_letters(value: String) -> Array:

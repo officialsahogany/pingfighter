@@ -192,6 +192,7 @@ const VIPER_SKILL_ICON_PATHS := {
 
 const COMMANDO_SKILL_ICON_PATHS := {
 	"supply_drop": "res://assets/sprites/skills/commando_supply_drop_skill_orb.png",
+	"emergency_supply": "res://assets/sprites/skills/commando_emergency_supply_skill_orb.png",
 	"commando_pistol": "res://assets/sprites/skills/commando_pistol_skill_orb.png",
 	"net_gun": "res://assets/sprites/skills/commando_net_gun_skill_orb.png",
 	"fire_support": "res://assets/sprites/skills/commando_fire_support_skill_orb.png",
@@ -462,8 +463,12 @@ func _is_texture_spec_loaded(spec: Dictionary) -> bool:
 	var keys_value: Variant = spec.get("keys", [])
 	if not (keys_value is Array):
 		return true
+	var expected_path := str(spec.get("path", ""))
 	for key_value in keys_value:
-		if not (_resource_cache.get(str(key_value), null) is Texture2D):
+		var texture: Variant = _resource_cache.get(str(key_value), null)
+		if not (texture is Texture2D):
+			return false
+		if expected_path != "" and str((texture as Texture2D).resource_path) != expected_path:
 			return false
 	return true
 

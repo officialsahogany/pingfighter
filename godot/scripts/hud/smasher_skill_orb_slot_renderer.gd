@@ -51,7 +51,7 @@ func draw(
 		var skill_name: String = str(equipped_skills[i])
 		var slot_pos: Vector2 = positions[i]
 		var skill_color: Color = skill_colors.get(skill_name, Color.WHITE)
-		var cooldown_ratio: float = _get_cooldown_remaining(skill_state, skill_name, time_now, cooldown_seconds)
+		var cooldown_ratio: float = _get_cooldown_remaining(skill_state, skill_name, time_now, cooldown_seconds, context)
 		var is_on_cooldown: bool = cooldown_ratio > 0.0
 		var is_active: bool = (
 			special_gauge >= float(skill_costs.get(skill_name, 0.0))
@@ -96,7 +96,16 @@ func draw(
 			cooldown_renderer.draw(canvas, slot_pos, icon_radius + socket_overlap * scale_factor, cooldown_ratio, pillar_drawer)
 
 
-func _get_cooldown_remaining(skill_state: Object, skill_name: String, time_now: int, cooldown_seconds: Dictionary) -> float:
+func _get_cooldown_remaining(
+	skill_state: Object,
+	skill_name: String,
+	time_now: int,
+	cooldown_seconds: Dictionary,
+	context: Dictionary = {}
+) -> float:
+	var cooldown_ratios: Dictionary = _get_dictionary(context.get("skill_cooldown_remaining_ratios", {}))
+	if cooldown_ratios.has(skill_name):
+		return clamp(float(cooldown_ratios.get(skill_name, 0.0)), 0.0, 1.0)
 	if skill_state != null and skill_state.has_method("get_cooldown_remaining"):
 		return skill_state.get_cooldown_remaining(skill_name, time_now, float(cooldown_seconds.get(skill_name, 0.0)))
 	return 0.0
@@ -109,6 +118,15 @@ func _update_activation_state(skill_state: Object, skill_name: String, is_active
 
 
 func _is_activation_condition_met(skill_name: String, context: Dictionary) -> bool:
+	var ready_overrides: Dictionary = _get_dictionary(context.get("skill_ready_overrides", {}))
+	if ready_overrides.has(skill_name):
+		return bool(ready_overrides.get(skill_name, false))
 	if skill_name == "cleanse":
 		return bool(context.get("cleanse_status_active", false))
 	return true
+
+
+func _get_dictionary(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}

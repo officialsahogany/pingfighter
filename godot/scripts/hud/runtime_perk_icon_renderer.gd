@@ -71,6 +71,7 @@ const SKILL_ICON_PATHS := {
 	"dual_glitch": "res://assets/sprites/skills/viper_dual_glitch_skill_orb.png",
 	"ignition_aura": "res://assets/sprites/skills/viper_ignition_aura_skill_orb.png",
 	"supply_drop": "res://assets/sprites/skills/commando_supply_drop_skill_orb.png",
+	"emergency_supply": "res://assets/sprites/skills/commando_emergency_supply_skill_orb.png",
 	"commando_pistol": "res://assets/sprites/skills/commando_pistol_skill_orb.png",
 	"net_gun": "res://assets/sprites/skills/commando_net_gun_skill_orb.png",
 	"fire_support": "res://assets/sprites/skills/commando_fire_support_skill_orb.png",
