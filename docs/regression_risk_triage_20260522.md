@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `0393ca755 godot: route mythic updates through owners`.
-- The checkpoint span through that HEAD contains 120 follow-up commits after
+  `d31bc81b1 godot: route mythic field queries through owners`.
+- The checkpoint span through that HEAD contains 122 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 121 commits.
+  contains 123 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `488f6cfec docs: record mythic owner sync bridge cleanup`.
+  `3aa90cb86 docs: record mythic update bridge cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the seventy-eighth split. The broad
+- The split notes below are current through the seventy-ninth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -3908,6 +3908,36 @@ Seventy-eighth split on 2026-05-23:
   `horn_strawberry_mask_port_smoke`, `baal_boots_weather_port_smoke`,
   `ragnarok_hammer_port_smoke`, `poseidon_trident_port_smoke`, and
   `mythic_item_field_render_budget_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Seventy-ninth split on 2026-05-23:
+
+- Commit: `d31bc81b1 godot: route mythic field queries through owners`.
+- Scope: Field-effect visibility, field rendering, context building,
+  snapshot building, update gating, and owner-sync state writes now read
+  Venom Mist alpha, Adversity Armor timer / barrier / visible state,
+  Shrapnel Armor visible state, and Ragnarok ball / impact elapsed time
+  through the focused owners instead of private getter bridges on
+  `mythic_item_runtime.gd`. `mythic_item_ragnarok_runtime.gd` now exposes
+  `get_ball_elapsed()` and `get_impact_elapsed()` for these read paths.
+- Rationale: these reads are field / snapshot state queries, not scene-facing
+  runtime orchestration. Routing them through the helper owners keeps draw
+  and sync modules coupled to the actual state owner rather than to private
+  facade getters.
+- `mythic_item_runtime.gd` line count moved from `2682` to `2654` in this
+  code split.
+- Validation passed:
+  focused field / context set
+  (`ragnarok_hammer_port_smoke`, `adversity_armor_port_smoke`,
+  `shrapnel_armor_port_smoke`, `venom_mist_gauntlet_port_smoke`,
+  `mythic_item_field_render_budget_smoke`,
+  `mythic_item_snapshot_builder_smoke`,
+  `mythic_item_runtime_idle_update_smoke`,
+  `mythic_item_ownership_runtime_smoke`, `celestial_armor_port_smoke`, and
+  `baal_boots_weather_port_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending

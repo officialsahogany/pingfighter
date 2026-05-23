@@ -4720,3 +4720,14 @@ This section is intentionally long; use search to find the nearest owner.
   Horn Strawberry Mask. Do not reintroduce private runtime `_update_*`
   bridges for those paths; any remaining constant-supplying update wrappers
   should be split only with focused validation for their item constants.
+- `scripts/items/mythic_item_field_effect_visibility.gd`,
+  `scripts/items/mythic_item_field_effect_renderer.gd`,
+  `scripts/items/mythic_item_context_builder.gd`,
+  `scripts/items/mythic_item_snapshot_builder.gd`, and
+  `scripts/items/mythic_item_owner_syncer.gd`
+  Own the current mythic field/query read surfaces and should call focused
+  item owners directly for Venom Mist alpha, Adversity Armor timer / barrier
+  / visible state, Shrapnel Armor visible state, and Ragnarok elapsed timing.
+  `scripts/items/mythic_item_ragnarok_runtime.gd` owns the public elapsed-time
+  helper methods for Ragnarok ball / impact state; do not reintroduce
+  private runtime getter bridges for these read paths.
