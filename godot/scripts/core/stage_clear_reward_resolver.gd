@@ -6,37 +6,74 @@ const REWARD_ACTIVE := "active"
 const REWARD_PASSIVE := "passive"
 const REWARD_MYTHIC := "mythic"
 const REWARD_STARPOINT := "starpoint"
+const BOX_ADVANCED := "advanced"
+const BOX_GUARANTEED_MYTHIC := "guaranteed_mythic"
+const LEGACY_BOX_MYTHIC := "mythic"
 
-const NORMAL_ACTIVE_WEIGHT := 45.0
+const NORMAL_ACTIVE_WEIGHT := 47.0
 const NORMAL_PASSIVE_WEIGHT := 20.0
-const NORMAL_STARPOINT_WEIGHT := 30.0
-const NORMAL_MYTHIC_WEIGHT := 5.0
-const STARPOINT_REWARD_MIN := 1
-const STARPOINT_REWARD_MAX := 1
+const NORMAL_STARPOINT_SINGLE_WEIGHT := 20.0
+const NORMAL_STARPOINT_DOUBLE_WEIGHT := 10.0
+const NORMAL_MYTHIC_WEIGHT := 3.0
+const ADVANCED_BOX_MYTHIC_WEIGHT := 6.0
+const ADVANCED_BOX_STARPOINT_DOUBLE_WEIGHT := 20.0
+const ADVANCED_BOX_STARPOINT_TRIPLE_WEIGHT := 15.0
+const ADVANCED_BOX_PASSIVE_WEIGHT := 59.0
+const STARPOINT_REWARD_SINGLE_AMOUNT := 1
+const STARPOINT_REWARD_DOUBLE_AMOUNT := 2
+const STARPOINT_REWARD_TRIPLE_AMOUNT := 3
+const NORMAL_REWARD_STARPOINT_SINGLE := "starpoint_1"
+const NORMAL_REWARD_STARPOINT_DOUBLE := "starpoint_2"
+const ADVANCED_REWARD_STARPOINT_DOUBLE := "advanced_starpoint_2"
+const ADVANCED_REWARD_STARPOINT_TRIPLE := "advanced_starpoint_3"
 
 var _spawn_pool: Object = ActiveItemFieldSpawnPool.new()
 
 
 func roll_reward(box_kind: String, owner: Object = null, registry: Object = null) -> Dictionary:
-	if box_kind == REWARD_MYTHIC:
+	if _is_guaranteed_mythic_box_kind(box_kind):
 		return _roll_item_reward(REWARD_MYTHIC, owner, registry)
+	if _is_advanced_box_kind(box_kind):
+		return _roll_advanced_box_reward(owner, registry)
 
+	return _roll_normal_box_reward(owner, registry)
+
+
+func _roll_normal_box_reward(owner: Object, registry: Object, roll_override: float = -1.0) -> Dictionary:
+	var roll_value: float = randf() if roll_override < 0.0 else roll_override
+	match _resolve_normal_box_reward_type(roll_value):
+		REWARD_ACTIVE:
+			return _roll_item_reward(REWARD_ACTIVE, owner, registry)
+		REWARD_PASSIVE:
+			return _roll_item_reward(REWARD_PASSIVE, owner, registry)
+		NORMAL_REWARD_STARPOINT_SINGLE:
+			return _roll_starpoint_reward(STARPOINT_REWARD_SINGLE_AMOUNT)
+		NORMAL_REWARD_STARPOINT_DOUBLE:
+			return _roll_starpoint_reward(STARPOINT_REWARD_DOUBLE_AMOUNT)
+	return _roll_item_reward(REWARD_MYTHIC, owner, registry)
+
+
+func _resolve_normal_box_reward_type(roll: float) -> String:
 	var total_weight: float = (
 		NORMAL_ACTIVE_WEIGHT
 		+ NORMAL_PASSIVE_WEIGHT
-		+ NORMAL_STARPOINT_WEIGHT
+		+ NORMAL_STARPOINT_SINGLE_WEIGHT
+		+ NORMAL_STARPOINT_DOUBLE_WEIGHT
 		+ NORMAL_MYTHIC_WEIGHT
 	)
-	var roll: float = randf() * max(0.001, total_weight)
-	if roll < NORMAL_ACTIVE_WEIGHT:
-		return _roll_item_reward(REWARD_ACTIVE, owner, registry)
-	roll -= NORMAL_ACTIVE_WEIGHT
-	if roll < NORMAL_PASSIVE_WEIGHT:
-		return _roll_item_reward(REWARD_PASSIVE, owner, registry)
-	roll -= NORMAL_PASSIVE_WEIGHT
-	if roll < NORMAL_STARPOINT_WEIGHT:
-		return _roll_starpoint_reward()
-	return _roll_item_reward(REWARD_MYTHIC, owner, registry)
+	var weighted_roll: float = clamp(roll, 0.0, 0.999999) * max(0.001, total_weight)
+	if weighted_roll < NORMAL_ACTIVE_WEIGHT:
+		return REWARD_ACTIVE
+	weighted_roll -= NORMAL_ACTIVE_WEIGHT
+	if weighted_roll < NORMAL_PASSIVE_WEIGHT:
+		return REWARD_PASSIVE
+	weighted_roll -= NORMAL_PASSIVE_WEIGHT
+	if weighted_roll < NORMAL_STARPOINT_SINGLE_WEIGHT:
+		return NORMAL_REWARD_STARPOINT_SINGLE
+	weighted_roll -= NORMAL_STARPOINT_SINGLE_WEIGHT
+	if weighted_roll < NORMAL_STARPOINT_DOUBLE_WEIGHT:
+		return NORMAL_REWARD_STARPOINT_DOUBLE
+	return REWARD_MYTHIC
 
 
 func grant_rewards(rewards: Array, owner: Object, registry: Object) -> Dictionary:
@@ -95,8 +132,47 @@ func _roll_item_reward(reward_group: String, owner: Object, registry: Object) ->
 	return _build_item_reward(reward_group, item_data)
 
 
-func _roll_starpoint_reward() -> Dictionary:
-	var amount: int = randi_range(STARPOINT_REWARD_MIN, STARPOINT_REWARD_MAX)
+func _is_advanced_box_kind(box_kind: String) -> bool:
+	return box_kind == BOX_ADVANCED or box_kind == LEGACY_BOX_MYTHIC
+
+
+func _is_guaranteed_mythic_box_kind(box_kind: String) -> bool:
+	return box_kind == BOX_GUARANTEED_MYTHIC
+
+
+func _roll_advanced_box_reward(owner: Object, registry: Object, roll_override: float = -1.0) -> Dictionary:
+	var roll_value: float = randf() if roll_override < 0.0 else roll_override
+	match _resolve_advanced_box_reward_type(roll_value):
+		REWARD_MYTHIC:
+			return _roll_item_reward(REWARD_MYTHIC, owner, registry)
+		ADVANCED_REWARD_STARPOINT_DOUBLE:
+			return _roll_starpoint_reward(STARPOINT_REWARD_DOUBLE_AMOUNT)
+		ADVANCED_REWARD_STARPOINT_TRIPLE:
+			return _roll_starpoint_reward(STARPOINT_REWARD_TRIPLE_AMOUNT)
+	return _roll_item_reward(REWARD_PASSIVE, owner, registry)
+
+
+func _resolve_advanced_box_reward_type(roll: float) -> String:
+	var total_weight: float = (
+		ADVANCED_BOX_MYTHIC_WEIGHT
+		+ ADVANCED_BOX_STARPOINT_DOUBLE_WEIGHT
+		+ ADVANCED_BOX_STARPOINT_TRIPLE_WEIGHT
+		+ ADVANCED_BOX_PASSIVE_WEIGHT
+	)
+	var weighted_roll: float = clamp(roll, 0.0, 0.999999) * max(0.001, total_weight)
+	if weighted_roll < ADVANCED_BOX_MYTHIC_WEIGHT:
+		return REWARD_MYTHIC
+	weighted_roll -= ADVANCED_BOX_MYTHIC_WEIGHT
+	if weighted_roll < ADVANCED_BOX_STARPOINT_DOUBLE_WEIGHT:
+		return ADVANCED_REWARD_STARPOINT_DOUBLE
+	weighted_roll -= ADVANCED_BOX_STARPOINT_DOUBLE_WEIGHT
+	if weighted_roll < ADVANCED_BOX_STARPOINT_TRIPLE_WEIGHT:
+		return ADVANCED_REWARD_STARPOINT_TRIPLE
+	return REWARD_PASSIVE
+
+
+func _roll_starpoint_reward(amount: int = STARPOINT_REWARD_SINGLE_AMOUNT) -> Dictionary:
+	amount = max(1, amount)
 	return {
 		"type": REWARD_STARPOINT,
 		"label": "★ %d" % amount,

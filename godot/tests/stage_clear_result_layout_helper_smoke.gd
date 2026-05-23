@@ -28,6 +28,9 @@ func _verify_box_layout() -> void:
 	var three_box_layout: Array = StageClearResultLayoutHelper.get_box_layout(3)
 	_expect(three_box_layout.size() == 3, "box layout should expose three slots")
 	_expect(Vector2((three_box_layout[0] as Dictionary).get("pos", Vector2.ZERO)) == Vector2(820.0, 300.0), "three-box layout should preserve the first anchor")
+	var five_box_layout: Array = StageClearResultLayoutHelper.get_box_layout(5)
+	_expect(five_box_layout.size() == 5, "box layout should expose five slots for 5:0 normal rewards")
+	_expect(Vector2((five_box_layout[4] as Dictionary).get("pos", Vector2.ZERO)) == Vector2(1130.0, 610.0), "five-box layout should preserve the lower-right anchor")
 
 
 func _verify_box_frame_policy() -> void:
@@ -41,7 +44,7 @@ func _verify_box_frame_policy() -> void:
 	)
 	_expect(
 		StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, true, 16, 12, 15) == 15,
-		"mythic result boxes should use the full final frame"
+		"advanced result boxes should use the full final frame"
 	)
 
 
@@ -100,6 +103,14 @@ func _verify_actor_and_scroll_rects() -> void:
 	_expect(
 		StageClearResultLayoutHelper.get_dalji_draw_rect(Vector2(1200.0, 800.0), 1.0) == Rect2(Vector2(-16.0, 480.0), Vector2(520.0, 520.0)),
 		"Dalji draw rect should use the compact layout for narrow views"
+	)
+	_expect(
+		StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, 1.0) == Rect2(Vector2(-6.4, 602.8), Vector2(634.8, 469.2)),
+		"Stage 2 boss result draw rect should use the widened and shortened desktop layout"
+	)
+	_expect(
+		StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(Vector2(1200.0, 800.0), 1.0) == Rect2(Vector2(-1.6, 611.2), Vector2(515.2, 380.8)),
+		"Stage 2 boss result draw rect should use the widened and shortened compact layout"
 	)
 
 

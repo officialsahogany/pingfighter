@@ -25,6 +25,14 @@ static func get_box_layout(count: int) -> Array:
 				{"pos": Vector2(820.0, 620.0), "rot": -0.08, "phase": 2.0},
 				{"pos": Vector2(1220.0, 560.0), "rot": 0.12, "phase": 3.0},
 			]
+		5:
+			return [
+				{"pos": Vector2(680.0, 300.0), "rot": -0.10, "phase": 0.0},
+				{"pos": Vector2(960.0, 260.0), "rot": 0.05, "phase": 0.9},
+				{"pos": Vector2(1240.0, 330.0), "rot": 0.12, "phase": 1.8},
+				{"pos": Vector2(820.0, 630.0), "rot": -0.07, "phase": 2.7},
+				{"pos": Vector2(1130.0, 610.0), "rot": 0.09, "phase": 3.6},
+			]
 	return []
 
 
@@ -140,6 +148,15 @@ static func get_dalji_draw_rect(view_size: Vector2, draw_scale: float) -> Rect2:
 	if view_size.x < 1280.0:
 		draw_size = Vector2(520.0, 520.0) * draw_scale
 		position = Vector2(-16.0, 480.0) * draw_scale
+	return Rect2(position, draw_size)
+
+
+static func get_stage2_boss_result_draw_rect(view_size: Vector2, draw_scale: float) -> Rect2:
+	var draw_size := Vector2(634.8, 469.2) * draw_scale
+	var position := Vector2(-6.4, 602.8) * draw_scale
+	if view_size.x < 1280.0:
+		draw_size = Vector2(515.2, 380.8) * draw_scale
+		position = Vector2(-1.6, 611.2) * draw_scale
 	return Rect2(position, draw_size)
 
 

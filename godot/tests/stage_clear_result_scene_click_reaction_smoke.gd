@@ -4,10 +4,12 @@ const RESULT_SCENE := preload("res://scenes/stage_clear_result.tscn")
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StageClearResultLayoutHelper := preload("res://scripts/ui/stage_clear_result_layout_helper.gd")
+const StageClearResultInteractionState := preload("res://scripts/ui/stage_clear_result_interaction_state.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const RESULT_BOX_COMMON_SHEET := "res://assets/sprites/result_boxes/result_box_common_open_16f.png"
 const RESULT_BOX_MYTHIC_SHEET := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
+const RESULT_BOX_GUARANTEED_MYTHIC_SHEET := "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png"
 const RESULT_BOX_CELL := 256
 const RESULT_BOX_GRID_COLS := 4
 
@@ -19,7 +21,7 @@ class FakeResultRoller:
 
 	func roll_reward(box_kind: String) -> Dictionary:
 		calls += 1
-		if box_kind == "mythic":
+		if box_kind == "advanced" or box_kind == "guaranteed_mythic":
 			return {
 				"type": "mythic",
 				"label": "스피드부츠",
@@ -61,6 +63,7 @@ func _init() -> void:
 	_verify_cyber_scroll_reward_summary()
 	_verify_cyber_scroll_reward_source_tags()
 	_verify_cyber_scroll_dense_reward_grid_layout()
+	_verify_cyber_scroll_button_hitboxes_use_content_rect()
 	_verify_cyber_scroll_drag_repositions_panel()
 	var scene: Control = RESULT_SCENE.instantiate() as Control
 	if scene == null:
@@ -74,10 +77,10 @@ func _init() -> void:
 			"boss_score": 0,
 			"current_stage": 1,
 			"reward_plan": {
-				"summary": "확정 신화 아이템 + 일반 아이템 2개",
+				"summary": "고급상자 + 일반상자 2개",
 				"boxes": [
-					{"kind": "mythic"},
-					{"kind": "normal"},
+					{"kind": "guaranteed_mythic"},
+					{"kind": "advanced"},
 					{"kind": "normal"},
 				],
 				"reward_count": 3,
@@ -85,6 +88,11 @@ func _init() -> void:
 		}, Callable())
 
 	var status: Dictionary = scene.get_interaction_status()
+	var box_labels: Array = status.get("box_display_labels", []) if status.get("box_display_labels", []) is Array else []
+	_expect(
+		box_labels == [StageClearResultScene.BOX_LABEL_GUARANTEED_MYTHIC, StageClearResultScene.BOX_LABEL_ADVANCED, StageClearResultScene.BOX_LABEL_NORMAL],
+		"result scene should expose guaranteed mythic boxes as 신화 확정상자"
+	)
 	var click_rect: Rect2 = status.get("dalji_click_rect", Rect2())
 	_expect(click_rect.size.x > 0.0 and click_rect.size.y > 0.0, "Dalji click rect should be available")
 	_expect(
@@ -98,6 +106,84 @@ func _init() -> void:
 	_expect(str(status.get("dalji_click_voice_path", "")).ends_with("voice/dalzidefeat.mp3"), "Dalji click should expose the supplied defeat voice asset")
 	_expect(bool(status.get("dalji_click_voice_loaded", false)), "Dalji click crying voice should load")
 	_expect(str(status.get("dalji_dialogue", "")) == "건들지마", "Dalji click dialogue should be the requested line")
+
+	_expect(
+		load(StageClearResultScene.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH).get_size() == Vector2(16128.0, 8064.0),
+		"Stage 2 boss result Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
+	)
+	_expect(
+		load(StageClearResultScene.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH).get_size() == Vector2(16128.0, 8064.0),
+		"Stage 2 boss result click Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
+	)
+	_expect(bool(status.get("stage2_boss_defeat_live2d_sheet_loaded", false)), "Stage 2 boss result Live2D should load")
+	_expect(bool(status.get("stage2_boss_defeat_click_reaction_sheet_loaded", false)), "Stage 2 boss result click Live2D should load")
+	_expect(not bool(status.get("stage2_boss_defeat_live2d_active", true)), "Stage 1 result should keep the Stage 2 boss result actor inactive")
+	_expect(not bool(status.get("stage2_boss_defeat_click_reaction_active", true)), "Stage 1 result should keep the Stage 2 boss click reaction inactive")
+	_expect(int(status.get("stage2_boss_defeat_live2d_frame_count", 0)) == 98, "Stage 2 boss result Live2D should expose 98 frames")
+	_expect(int(status.get("stage2_boss_defeat_live2d_grid_cols", 0)) == 14, "Stage 2 boss result Live2D should use a 14-column grid")
+	_expect(Vector2(status.get("stage2_boss_defeat_live2d_cell_size", Vector2.ZERO)) == Vector2(1152.0, 1152.0), "Stage 2 boss result Live2D should expose Real-ESRGAN hq1152 source cells")
+
+	var stage2_scene: Control = RESULT_SCENE.instantiate() as Control
+	_expect(stage2_scene != null, "stage clear result scene should instantiate for Stage 2 boss Live2D")
+	root.add_child(stage2_scene)
+	stage2_scene.configure({
+		"player_score": 5,
+		"boss_score": 0,
+		"current_stage": 2,
+		"reward_plan": {
+			"summary": "",
+			"boxes": [
+				{"kind": "normal"},
+			],
+			"reward_count": 1,
+		},
+	}, Callable())
+	var stage2_status: Dictionary = stage2_scene.get_interaction_status()
+	_expect(bool(stage2_status.get("stage2_boss_defeat_live2d_active", false)), "Stage 2 result should activate the alligator boss Live2D")
+	var stage2_draw_rect: Rect2 = stage2_status.get("stage2_boss_defeat_live2d_draw_rect", Rect2())
+	_expect(stage2_draw_rect.size.x > 0.0 and stage2_draw_rect.size.y > 0.0, "Stage 2 boss Live2D draw rect should be available")
+	stage2_scene.update_result_scene(0.22)
+	stage2_status = stage2_scene.get_interaction_status()
+	var stage2_base_frame_before_click: int = int(stage2_status.get("stage2_boss_defeat_live2d_base_frame", 0))
+	_expect(stage2_base_frame_before_click > 0, "Stage 2 boss Live2D should animate over time")
+	var stage2_click_rect: Rect2 = stage2_status.get("stage2_boss_defeat_click_rect", Rect2())
+	_expect(stage2_click_rect.size.x > 0.0 and stage2_click_rect.size.y > 0.0, "Stage 2 boss click rect should be available")
+	var stage2_click := InputEventMouseButton.new()
+	stage2_click.button_index = MOUSE_BUTTON_LEFT
+	stage2_click.pressed = true
+	stage2_click.position = stage2_click_rect.get_center()
+	_expect(stage2_scene.handle_result_input(stage2_click), "Stage 2 boss click should be consumed by the result scene")
+
+	stage2_status = stage2_scene.get_interaction_status()
+	_expect(bool(stage2_status.get("stage2_boss_defeat_click_reaction_active", false)), "Stage 2 boss click should start the reaction sheet")
+	_expect(float(stage2_status.get("stage2_boss_defeat_click_reaction_duration", 99.0)) < 3.8, "Stage 2 boss click reaction should be a short upset beat")
+	_expect(
+		int(stage2_status.get("stage2_boss_defeat_click_transition_base_frame", -1)) == stage2_base_frame_before_click,
+		"Stage 2 boss click should freeze the current base frame for blend-in"
+	)
+	_expect(
+		is_equal_approx(float(stage2_status.get("stage2_boss_defeat_reaction_alpha", -1.0)), 0.0),
+		"Stage 2 boss click should begin from the existing base frame before fading into reaction"
+	)
+
+	stage2_scene.update_result_scene(0.11)
+	stage2_status = stage2_scene.get_interaction_status()
+	var stage2_mid_alpha: float = float(stage2_status.get("stage2_boss_defeat_reaction_alpha", 0.0))
+	_expect(stage2_mid_alpha > 0.05 and stage2_mid_alpha < 0.95, "Stage 2 boss click should crossfade into the reaction instead of hard switching")
+
+	var stage2_reaction_timer_now: float = float(stage2_status.get("stage2_boss_defeat_click_reaction_timer", 0.0))
+	var stage2_reaction_duration: float = float(stage2_status.get("stage2_boss_defeat_click_reaction_duration", 0.0))
+	var stage2_advance_into_hold: float = max(0.0, stage2_reaction_duration - stage2_reaction_timer_now) + 0.02
+	stage2_scene.update_result_scene(stage2_advance_into_hold)
+	stage2_status = stage2_scene.get_interaction_status()
+	_expect(bool(stage2_status.get("stage2_boss_defeat_click_return_blend_active", false)), "Stage 2 boss click should enter the return blend hold phase after the 98-frame pass")
+	_expect(is_equal_approx(float(stage2_status.get("stage2_boss_defeat_reaction_alpha", 0.0)), 1.0), "Stage 2 boss click should hold the final reaction frame at full alpha during the settle window")
+
+	stage2_scene.update_result_scene(6.0)
+	stage2_status = stage2_scene.get_interaction_status()
+	_expect(not bool(stage2_status.get("stage2_boss_defeat_click_reaction_active", true)), "Stage 2 boss click reaction should return to the base loop")
+	_expect(is_equal_approx(float(stage2_status.get("stage2_boss_defeat_reaction_alpha", 1.0)), 0.0), "Stage 2 boss click should fade fully back to the base loop")
+	stage2_scene.free()
 
 	_expect(
 		load("res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png").get_size() == Vector2(15488.0, 12672.0),
@@ -270,9 +356,9 @@ func _verify_cyber_scroll_reward_summary() -> void:
 		"boss_score": 0,
 		"current_stage": 1,
 		"reward_plan": {
-			"summary": "확정 신화 아이템 + 일반 아이템 2개",
+			"summary": "고급상자 + 일반상자 2개",
 			"boxes": [
-				{"kind": "mythic"},
+				{"kind": "advanced"},
 				{"kind": "normal"},
 				{"kind": "normal"},
 			],
@@ -293,6 +379,8 @@ func _verify_cyber_scroll_reward_summary() -> void:
 	_expect(int(status.get("item_reward_count", 0)) == 1, "summary should count item rewards separately from perks")
 	_expect(int(status.get("perk_reward_count", 0)) == 1, "summary should count acquired perk rewards")
 	_expect(int(status.get("starpoint_total", 0)) == 2, "summary should preserve acquired starpoint rewards without top-right clutter")
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(source.find("_draw_perk_info_tile") < 0, "result scroll should not draw a duplicate top-right perk info tile")
 	var perk_info: Dictionary = status.get("perk_info", {}) if status.get("perk_info", {}) is Dictionary else {}
 	_expect(str(perk_info.get("kind", "")) == "perk", "result scroll should expose acquired perk info when a perk reward exists")
 	_expect(str(perk_info.get("title", "")) == "모듈제어", "result scroll should use the acquired perk name in the info panel")
@@ -332,7 +420,7 @@ func _verify_cyber_scroll_reward_source_tags() -> void:
 		"reward_plan": {
 			"summary": "상자 아이템 + 상자 퍽",
 			"boxes": [
-				{"kind": "mythic"},
+				{"kind": "advanced"},
 				{"kind": "normal"},
 			],
 			"reward_count": 2,
@@ -388,6 +476,55 @@ func _verify_cyber_scroll_dense_reward_grid_layout() -> void:
 	scene.free()
 
 
+func _verify_cyber_scroll_button_hitboxes_use_content_rect() -> void:
+	var scene: Control = RESULT_SCENE.instantiate() as Control
+	_expect(scene != null, "stage clear result scene should instantiate for scroll button hitboxes")
+	root.add_child(scene)
+	scene.configure({
+		"player_score": 5,
+		"boss_score": 0,
+		"current_stage": 1,
+		"reward_plan": {
+			"summary": "",
+			"boxes": [
+				{"kind": "normal"},
+			],
+			"reward_count": 1,
+		},
+	}, Callable(), Callable(), Callable(FakeResultRoller.new(), "roll_reward"))
+	_expect(scene.handle_result_input(_make_key_event(KEY_ENTER)), "Enter should open the button-hitbox smoke reward box")
+	scene.update_result_scene(0.70)
+	scene.update_result_scene(0.40)
+	scene.update_result_scene(1.00)
+	var status: Dictionary = scene.get_interaction_status()
+	_expect(str(status.get("scroll_phase", "")) == "visible", "button-hitbox smoke should reach the visible scroll phase")
+	var full_rect: Rect2 = status.get("scroll_rect", Rect2())
+	var content_rect: Rect2 = StageClearResultLayoutHelper.get_scroll_content_rect(
+		full_rect,
+		scene._get_layout_scale(scene.size),
+		StageClearResultScene.SCROLL_CONTENT_MARGIN
+	)
+	var expected_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(
+		content_rect,
+		scene._get_layout_scale(scene.size)
+	)
+	var expected_next: Rect2 = expected_layout.get("next_stage_rect", Rect2())
+	_expect(expected_next.size.x > 0.0 and expected_next.size.y > 0.0, "expected visual next-stage button rect should exist")
+	scene._update_hovered_button(expected_next.get_center())
+	status = scene.get_interaction_status()
+	_expect(str(status.get("hovered_button", "")) == StageClearResultInteractionState.BUTTON_NEXT_STAGE, "visual next-stage button center should hover the next-stage button")
+	var wrong_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(
+		full_rect,
+		scene._get_layout_scale(scene.size)
+	)
+	var wrong_next: Rect2 = wrong_layout.get("next_stage_rect", Rect2())
+	_expect(wrong_next.position.y > expected_next.position.y + expected_next.size.y * 0.5, "whole-scroll rect button layout should sit below the visual button")
+	scene._update_hovered_button(wrong_next.get_center())
+	status = scene.get_interaction_status()
+	_expect(str(status.get("hovered_button", "")) != StageClearResultInteractionState.BUTTON_NEXT_STAGE, "hover just below the visual button should not trigger the next-stage hover")
+	scene.free()
+
+
 func _verify_cyber_scroll_drag_repositions_panel() -> void:
 	var scene: Control = RESULT_SCENE.instantiate() as Control
 	_expect(scene != null, "stage clear result scene should instantiate for scroll drag")
@@ -431,7 +568,8 @@ func _verify_cyber_scroll_drag_repositions_panel() -> void:
 func _verify_result_box_sheet_padding() -> void:
 	for sheet in [
 		{"label": "common", "path": RESULT_BOX_COMMON_SHEET},
-		{"label": "mythic", "path": RESULT_BOX_MYTHIC_SHEET},
+		{"label": "advanced", "path": RESULT_BOX_MYTHIC_SHEET},
+		{"label": "guaranteed mythic", "path": RESULT_BOX_GUARANTEED_MYTHIC_SHEET},
 	]:
 		var label: String = str(sheet.get("label", ""))
 		var path: String = str(sheet.get("path", ""))
@@ -454,7 +592,7 @@ func _verify_result_box_sheet_padding() -> void:
 func _verify_result_box_frame_policy() -> void:
 	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, false, 16, 12, 15)) == 12, "common result boxes should stop on the last non-truncated open-lid frame")
 	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opening", 0.98, false, 16, 12, 15)) == 12, "common result box opening animation should not show the truncated late lid frames")
-	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, true, 16, 12, 15)) == 15, "mythic result boxes can keep the full final open frame")
+	_expect(int(StageClearResultLayoutHelper.get_result_box_frame_index("opened", 1.0, true, 16, 12, 15)) == 15, "advanced result boxes can keep the full final open frame")
 
 
 func _verify_result_box_sheet_image_padding(image: Image, label: String) -> void:

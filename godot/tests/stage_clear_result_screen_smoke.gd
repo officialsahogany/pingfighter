@@ -98,6 +98,8 @@ class FakeRuntimePerkState:
 	var open_calls := 0
 	var choose_calls := 0
 	var last_defer_choice_open := false
+	var last_selected_choice: Dictionary = {}
+	var selected_choice_sequence := 0
 
 	func collect_star_points(
 		amount: int,
@@ -142,6 +144,9 @@ class FakeRuntimePerkState:
 			"animation_time": 0.32,
 			"particles": [],
 			"pending_skill_choices": pending_skill_choices,
+			"last_selected_id": str(last_selected_choice.get("id", "")),
+			"last_selected_choice": last_selected_choice.duplicate(true),
+			"selected_choice_sequence": selected_choice_sequence,
 		}
 
 	func build_layout(view_size: Vector2) -> Dictionary:
@@ -171,6 +176,15 @@ class FakeRuntimePerkState:
 			var key_event: InputEventKey = event
 			if key_event.pressed and not key_event.echo and (key_event.keycode == KEY_ENTER or key_event.keycode == KEY_SPACE):
 				choose_calls += 1
+				last_selected_choice = {
+					"id": "dash_module_control",
+					"name": "Module Control",
+					"description": "Test perk from result box",
+					"current_level": 0,
+					"next_level": 1,
+					"level_delta": 1,
+				}
+				selected_choice_sequence += 1
 				pending_skill_choices = max(0, pending_skill_choices - 1)
 				choice_active = false
 			return true
@@ -178,6 +192,15 @@ class FakeRuntimePerkState:
 			var mouse_event: InputEventMouseButton = event
 			if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
 				choose_calls += 1
+				last_selected_choice = {
+					"id": "dash_module_control",
+					"name": "Module Control",
+					"description": "Test perk from result box",
+					"current_level": 0,
+					"next_level": 1,
+					"level_delta": 1,
+				}
+				selected_choice_sequence += 1
 				pending_skill_choices = max(0, pending_skill_choices - 1)
 				choice_active = false
 			return true
@@ -308,6 +331,7 @@ class FakeRewardResolver:
 
 func _init() -> void:
 	_verify_module_registration()
+	_verify_stage_clear_box_kind_odds()
 	_verify_scene_shell_prewarm_is_light()
 	_verify_prewarm_assets_are_staged()
 	_verify_screen_defers_unwarmed_scene_spawn()
@@ -332,6 +356,15 @@ func _verify_module_registration() -> void:
 	_expect(str(spec.get("path", "")) == "res://scripts/core/stage_clear_result_screen.gd", "result screen should be registered in the core module catalog")
 
 
+func _verify_stage_clear_box_kind_odds() -> void:
+	var screen: Object = StageClearResultScreen.new()
+	_expect(screen._roll_stage_clear_box_kind(0.0) == "guaranteed_mythic", "stage-clear box odds should map the low 3 percent to guaranteed mythic boxes")
+	_expect(screen._roll_stage_clear_box_kind(0.029) == "guaranteed_mythic", "guaranteed mythic box range should end before 3 percent")
+	_expect(screen._roll_stage_clear_box_kind(0.03) == "advanced", "stage-clear box odds should map rolls from 3 percent to advanced boxes")
+	_expect(screen._roll_stage_clear_box_kind(0.229) == "advanced", "advanced box range should add exactly 20 percent")
+	_expect(screen._roll_stage_clear_box_kind(0.23) == "normal", "normal boxes should occupy the remaining 77 percent")
+
+
 func _verify_scene_shell_prewarm_is_light() -> void:
 	StageClearResultScene.reset_prewarm_assets_for_test()
 	var screen: Object = StageClearResultScreen.new()
@@ -340,6 +373,9 @@ func _verify_scene_shell_prewarm_is_light() -> void:
 	_expect(bool(status.get("result_scene_packed", false)), "result screen shell prewarm should mark the scene packed")
 	_expect(not status.has("background_texture"), "result screen shell prewarm should not load the heavy result background")
 	_expect(not status.has("dalji_defeat_sheet"), "result screen shell prewarm should not load large result animation sheets")
+	_expect(not status.has("stage2_boss_defeat_live2d_sheet"), "result screen shell prewarm should not load Stage 2 result animation sheets")
+	_expect(not status.has("stage2_boss_defeat_click_reaction_sheet"), "result screen shell prewarm should not load Stage 2 click reaction animation sheets")
+	_expect(not status.has("result_box_sheet_guaranteed_mythic"), "result screen shell prewarm should not load guaranteed mythic result box sheets")
 
 
 func _verify_prewarm_assets_are_staged() -> void:
@@ -357,6 +393,7 @@ func _verify_prewarm_assets_are_staged() -> void:
 	var status: Dictionary = screen.get("_prewarm_assets_status")
 	_expect(bool(status.get("result_scene_packed", false)), "result screen staged prewarm should load the packed scene")
 	_expect(bool(status.get("background_texture", false)), "result screen staged prewarm should load the result background")
+	_expect(bool(status.get("result_box_sheet_guaranteed_mythic", false)), "result screen staged prewarm should load the guaranteed mythic result box sheet")
 	_expect(bool(status.get("result_box_fx", false)), "result screen staged prewarm should prewarm result-box FX")
 
 
@@ -413,12 +450,13 @@ func _verify_screen_opens_for_player_win() -> void:
 		_expect(bool(scene_status.get("scroll_texture_loaded", false)), "result scene should load the generated cyber scroll texture")
 
 	var plan: Dictionary = screen.get_reward_plan()
-	_expect(int(plan.get("reward_count", 0)) == 3, "5:0 reward plan should expose three boxes")
+	_expect(int(plan.get("reward_count", 0)) == 5, "5:0 reward plan should expose five stage-clear boxes")
 	var boxes_value: Variant = plan.get("boxes", [])
 	var boxes: Array = boxes_value if boxes_value is Array else []
-	_expect(boxes.size() == 3, "5:0 reward plan should include three box entries")
-	var first_box: Dictionary = boxes[0] if boxes[0] is Dictionary else {}
-	_expect(str(first_box.get("kind", "")) == "mythic", "5:0 first box should be the guaranteed mythic")
+	_expect(boxes.size() == 5, "5:0 reward plan should include five box entries")
+	for box_value in boxes:
+		var box: Dictionary = box_value if box_value is Dictionary else {}
+		_expect(str(box.get("kind", "")) in ["guaranteed_mythic", "advanced", "normal"], "5:0 reward plan should roll an allowed box kind")
 
 	var key_event := InputEventKey.new()
 	key_event.pressed = true
@@ -579,6 +617,13 @@ func _verify_starpoint_choice_waits_on_result_screen() -> void:
 	_expect(runtime_state.choose_calls == 1, "result-scene perk overlay input should choose the selected perk")
 	_expect(not runtime_state.choice_active, "choosing a result-scene perk should close the perk overlay")
 	_expect(sink.reset_calls == 0, "choosing a perk must not also advance to the next stage")
+	scene_status = result_scene.get_interaction_status()
+	_expect(int(scene_status.get("starpoint_total", -1)) == 0, "resolved box starpoints should no longer appear as perk choice tickets")
+	_expect(int(scene_status.get("perk_reward_count", 0)) == 1, "resolved box starpoints should appear as the selected perk")
+	var perk_source_counts: Dictionary = scene_status.get("perk_reward_source_counts", {}) if scene_status.get("perk_reward_source_counts", {}) is Dictionary else {}
+	_expect(int(perk_source_counts.get("box", 0)) == 1, "selected result-screen perks should keep the box reward source")
+	var perk_info: Dictionary = scene_status.get("perk_info", {}) if scene_status.get("perk_info", {}) is Dictionary else {}
+	_expect(str(perk_info.get("kind", "")) == "perk", "result perk info should describe the selected perk after a box starpoint choice")
 	owner.free()
 
 

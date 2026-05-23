@@ -189,7 +189,7 @@ static func get_reward_source_chip_visual_state(
 ) -> Dictionary:
 	if source_label == "":
 		return {}
-	var chip_size := Vector2(48.0, 20.0) * draw_scale
+	var chip_size := Vector2(64.0, 20.0) * draw_scale
 	var chip_color: Color = get_result_reward_source_color(source_key, stage_source, box_source)
 	chip_color.a = 0.72 * alpha
 	var chip_border: Color = chip_color.lerp(Color(0.86, 1.0, 1.0, 1.0), 0.46)
@@ -231,39 +231,43 @@ static func get_reward_starpoint_visual_state(
 	timer: float,
 	phase: float
 ) -> Dictionary:
-	var disc_radius: float = 60.0 * draw_scale
-	var star_radius: float = 42.0 * draw_scale
-	var spin_angle: float = timer * 8.7 + phase * 1.9
-	var yaw_width: float = lerpf(0.16, 1.0, pow(absf(cos(spin_angle)), 0.62))
-	var front_face: bool = cos(spin_angle) >= 0.0
-	var star_center: Vector2 = anchor + Vector2(0.0, -10.0 * draw_scale)
+	var star_radius: float = 34.0 * draw_scale
+	var star_center: Vector2 = anchor + Vector2(0.0, -8.0 * draw_scale)
 	var sparkle_alpha: float = clamp(alpha * emerge_progress, 0.0, 1.0)
-	var orbit_rect := Rect2(
-		anchor - Vector2(disc_radius * 0.82, disc_radius * 0.42),
-		Vector2(disc_radius * 1.64, disc_radius * 0.84)
-	)
+	var glow_intensity: float = clampf(0.92 + sin(timer * 5.2 + phase) * 0.08, 0.0, 1.0)
+	var glow_alpha_total: float = alpha * 0.5 * glow_intensity
+	var glow_layers: Array = []
+	for layer in range(4):
+		glow_layers.append({
+			"radius": star_radius * (4.0 - float(layer) * 0.7),
+			"color": Color(1.0, 0.45, 0.74, glow_alpha_total / float(4 - layer)),
+		})
+	var shimmer_hue: float = fposmod(timer * 0.256 + phase * 0.11, 1.0)
+	var shimmer_color := Color.from_hsv(shimmer_hue, 0.72, 1.0, alpha)
+	var star_fill: Color = Color(1.0, 0.42, 0.78, alpha).lerp(shimmer_color, 0.26)
+	var ray_hue: float = fposmod(timer * 0.32 + phase * 0.17, 1.0)
+	var ray_color := Color.from_hsv(ray_hue, 0.42, 1.0, 0.34 * sparkle_alpha)
 	return {
 		"amount": max(1, amount),
-		"disc_radius": disc_radius,
 		"star_radius": star_radius,
-		"yaw_width": yaw_width,
-		"front_face": front_face,
+		"inner_radius": star_radius * 0.5,
 		"star_center": star_center,
 		"sparkle_alpha": sparkle_alpha,
-		"glow_color": Color(1.0, 0.88, 0.36, 0.36 * alpha),
-		"disc_fill": Color(0.30, 0.18, 0.04, 0.88 * alpha),
-		"ring_color": Color(1.0, 0.86, 0.32, alpha),
-		"ring_width": max(2.0, 2.8 * draw_scale),
-		"orbit_rect": orbit_rect,
-		"orbit_color": Color(1.0, 0.98, 0.68, 0.22 * sparkle_alpha),
-		"orbit_width": max(1.0, 1.4 * draw_scale),
-		"star_fill": Color(1.0, 0.88, 0.36, alpha) if front_face else Color(0.86, 0.48, 0.08, alpha),
-		"star_outline": Color(0.55, 0.32, 0.04, alpha),
-		"star_outline_width": max(1.5, 2.0 * draw_scale),
-		"edge_line_width": max(2.0, star_radius * 0.13),
-		"highlight_radius": max(1.4, 3.4 * draw_scale),
-		"text_rect": Rect2(anchor + Vector2(-disc_radius, 22.0 * draw_scale), Vector2(disc_radius * 2.0, 30.0 * draw_scale)),
-		"text_color": Color(1.0, 0.97, 0.70, alpha),
+		"glow_layers": glow_layers,
+		"star_fill": star_fill,
+		"star_outline": Color(1.0, 1.0, 0.0, alpha),
+		"star_outline_width": max(2.5, 3.0 * draw_scale),
+		"center_dot_radius": max(2.0, star_radius * 0.18),
+		"center_dot_color": Color(1.0, 1.0, 1.0, alpha * glow_intensity),
+		"ray_angle": timer * 0.45 + phase,
+		"ray_length": star_radius * 3.15,
+		"ray_color": ray_color,
+		"ray_hot_color": Color(1.0, 1.0, 1.0, 0.30 * sparkle_alpha),
+		"ray_width": max(1.0, 1.45 * draw_scale),
+		"diagonal_ray_width": max(0.75, 0.95 * draw_scale),
+		"text_rect": Rect2(anchor + Vector2(-56.0 * draw_scale, 30.0 * draw_scale), Vector2(112.0 * draw_scale, 32.0 * draw_scale)),
+		"amount_font_size": int(round(22.0 * draw_scale)),
+		"text_color": Color(1.0, 1.0, 0.78, alpha),
 	}
 
 

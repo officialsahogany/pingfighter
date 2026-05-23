@@ -42,7 +42,14 @@ func _verify_reward_summaries() -> void:
 	var boxes := [
 		{"reward": {"type": "mythic", "label": "box mythic"}},
 		{"reward": {"type": "skill", "skill_id": "box_skill"}},
-		{"reward": {"type": "starpoint", "amount": 3}},
+		{"reward": {
+			"type": "starpoint",
+			"amount": 3,
+			"resolved_perk_rewards": [
+				{"type": "perk", "perk_id": "box_starpoint_perk_a"},
+				{"type": "perk", "perk_id": "box_starpoint_perk_b"},
+			],
+		}},
 		{"reward": {"type": "gold", "amount": 999}},
 		{"reward": {}},
 	]
@@ -52,21 +59,23 @@ func _verify_reward_summaries() -> void:
 	var visible: Array = StageClearResultSummaryBuilder.build_visible_reward_summary(stage_snapshot, boxes, SOURCE_STAGE, SOURCE_BOX, source_labels)
 	var state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(stage_snapshot, boxes, SOURCE_STAGE, SOURCE_BOX, source_labels)
 	_expect(items.size() == 3, "item summary should include stage active/passive and box item rewards")
-	_expect(perks.size() == 2, "perk summary should include stage perks and box skill rewards")
-	_expect(visible.size() == 4, "visible summary should include visible items and starpoints but ignore gold fallback")
-	_expect(int(StageClearResultSummaryBuilder.calculate_starpoint_total(boxes)) == 3, "starpoint total should add box starpoint rewards")
+	_expect(perks.size() == 4, "perk summary should include stage perks, box skill rewards, and box-selected perks")
+	_expect(visible.size() == 5, "visible summary should replace resolved starpoints with selected perk rewards")
+	_expect(int(StageClearResultSummaryBuilder.calculate_starpoint_total(boxes)) == 1, "starpoint total should count only unresolved box starpoints")
 	_expect(int(state.get("item_reward_count", 0)) == items.size(), "summary state should expose item reward count")
 	_expect(int(state.get("perk_reward_count", 0)) == perks.size(), "summary state should expose perk reward count")
-	_expect(int(state.get("starpoint_total", 0)) == 3, "summary state should expose starpoint totals")
+	_expect(int(state.get("starpoint_total", 0)) == 1, "summary state should expose unresolved starpoint totals")
 
 	var item_counts: Dictionary = StageClearResultSummaryBuilder.count_result_reward_sources(items, [SOURCE_STAGE, SOURCE_BOX])
 	var perk_counts: Dictionary = StageClearResultSummaryBuilder.count_result_reward_sources(perks, [SOURCE_STAGE, SOURCE_BOX])
 	_expect(int(item_counts.get(SOURCE_STAGE, 0)) == 2, "item source counts should include stage item rewards")
 	_expect(int(item_counts.get(SOURCE_BOX, 0)) == 1, "item source counts should include box item rewards")
 	_expect(int(perk_counts.get(SOURCE_STAGE, 0)) == 1, "perk source counts should include stage perk rewards")
-	_expect(int(perk_counts.get(SOURCE_BOX, 0)) == 1, "perk source counts should include box skill rewards")
+	_expect(int(perk_counts.get(SOURCE_BOX, 0)) == 3, "perk source counts should include box skill and selected box perks")
 	_expect(str((items[0] as Dictionary).get("_result_reward_source_label", "")) == "stage label", "stage rewards should receive the stage label")
 	_expect(str((items[2] as Dictionary).get("_result_reward_source_label", "")) == "box label", "box rewards should receive the box label")
+	_expect(str((perks[2] as Dictionary).get("_result_reward_source_label", "")) == "box label", "box-selected perks should receive the box label")
+	_expect(str((visible[3] as Dictionary).get("perk_id", "")) == "box_starpoint_perk_a", "visible rewards should show the first selected box perk instead of the starpoint ticket")
 
 
 func _verify_perk_info_summary() -> void:
@@ -119,6 +128,14 @@ func _verify_scene_delegates_summary_builder_directly() -> void:
 	_expect(
 		source.find("StageClearResultSummaryBuilder.build_result_summary_state") >= 0,
 		"stage-clear result scene should use the aggregate summary state helper"
+	)
+	_expect(
+		source.find("reward_summary_state.get(\"item_rewards\"") >= 0,
+		"stage-clear result scene should render the item column from item-only rewards"
+	)
+	_expect(
+		source.find("\"획득 아이템\"") >= 0,
+		"stage-clear result scene should label the item-only reward column"
 	)
 	for removed_wrapper in [
 		"func _calculate_starpoint_total",

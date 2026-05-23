@@ -136,7 +136,7 @@ func _verify_reward_source_chip_visual_state() -> void:
 		"stage",
 		"box"
 	)
-	_expect(Rect2(state.get("rect", Rect2())) == Rect2(Vector2(46.0, 34.0), Vector2(96.0, 40.0)), "source chip rect should anchor to the card top-right")
+	_expect(Rect2(state.get("rect", Rect2())) == Rect2(Vector2(14.0, 34.0), Vector2(128.0, 40.0)), "source chip rect should anchor to the card top-right")
 	_expect(state.get("fill", Color.TRANSPARENT) == Color(0.46, 0.22, 0.08, 0.36), "source chip fill should apply alpha to the source color")
 	_expect(int(state.get("font_preferred_size", 0)) == 20, "source chip font size should scale")
 
@@ -163,13 +163,22 @@ func _verify_starpoint_visual_state() -> void:
 		0.0
 	)
 	_expect(int(state.get("amount", 0)) == 1, "starpoint visual state should clamp amount to at least one")
-	_expect(is_equal_approx(float(state.get("disc_radius", 0.0)), 120.0), "starpoint visual state should scale disc radius")
-	_expect(is_equal_approx(float(state.get("star_radius", 0.0)), 84.0), "starpoint visual state should scale star radius")
-	_expect(is_equal_approx(float(state.get("yaw_width", 0.0)), 1.0), "starpoint visual state should face forward at zero spin")
-	_expect(bool(state.get("front_face", false)), "starpoint visual state should mark the forward face")
-	_expect(Vector2(state.get("star_center", Vector2.ZERO)) == Vector2(100.0, 180.0), "starpoint visual state should offset the star center")
+	_expect(not state.has("disc_radius"), "starpoint visual state should not use the old coin disc")
+	_expect(not state.has("orbit_rect"), "starpoint visual state should not use the old coin orbit")
+	_expect(is_equal_approx(float(state.get("star_radius", 0.0)), 68.0), "starpoint visual state should scale the in-game drop star radius")
+	_expect(is_equal_approx(float(state.get("inner_radius", 0.0)), 34.0), "starpoint visual state should use the in-game half-radius valleys")
+	_expect(Vector2(state.get("star_center", Vector2.ZERO)) == Vector2(100.0, 184.0), "starpoint visual state should offset the drop center")
 	_expect(is_equal_approx(float(state.get("sparkle_alpha", 0.0)), 0.125), "starpoint visual state should combine alpha and emerge progress")
-	_expect(Rect2(state.get("text_rect", Rect2())).size == Vector2(240.0, 60.0), "starpoint visual state should scale the amount label rect")
+	var glow_layers: Array = state.get("glow_layers", []) if state.get("glow_layers", []) is Array else []
+	_expect(glow_layers.size() == 4, "starpoint visual state should expose the in-game four-layer glow")
+	if glow_layers.size() == 4:
+		var first_layer: Dictionary = glow_layers[0]
+		_expect(is_equal_approx(float(first_layer.get("radius", 0.0)), 272.0), "starpoint glow should use the in-game 4x outer radius")
+		var glow_color: Color = first_layer.get("color", Color.TRANSPARENT)
+		_expect(glow_color.r == 1.0 and is_equal_approx(glow_color.g, 0.45) and is_equal_approx(glow_color.b, 0.74), "starpoint glow should use the in-game pink glow palette")
+	_expect(state.get("star_outline", Color.TRANSPARENT) == Color(1.0, 1.0, 0.0, 0.5), "starpoint outline should use the in-game yellow palette")
+	_expect(Rect2(state.get("text_rect", Rect2())).size == Vector2(224.0, 64.0), "starpoint visual state should scale the amount label rect")
+	_expect(int(state.get("amount_font_size", 0)) == 44, "starpoint visual state should scale the amount font")
 
 
 func _verify_source_labels() -> void:

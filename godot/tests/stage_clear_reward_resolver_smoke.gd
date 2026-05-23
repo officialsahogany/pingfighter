@@ -71,6 +71,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_module_registration()
 	_verify_roll_contract()
+	_verify_normal_box_reward_odds()
 	_verify_grant_paths()
 	_verify_result_box_mythic_grant_starts_acquisition_cinematic()
 
@@ -93,10 +94,34 @@ func _verify_module_registration() -> void:
 
 func _verify_roll_contract() -> void:
 	var resolver: Object = StageClearRewardResolver.new()
-	var mythic_reward: Dictionary = resolver.roll_reward("mythic")
-	_expect(str(mythic_reward.get("type", "")) == "mythic", "mythic boxes should roll a mythic reward")
-	_expect(str(mythic_reward.get("item_name", "")) != "", "mythic reward should carry a grantable item name")
-	_expect(str(mythic_reward.get("icon_path", "")) != "", "mythic reward should expose the real item icon path")
+	_expect(resolver._resolve_advanced_box_reward_type(0.0) == "mythic", "advanced boxes should map the low 6 percent to mythic items")
+	_expect(resolver._resolve_advanced_box_reward_type(0.059) == "mythic", "advanced box mythic range should end before 6 percent")
+	_expect(resolver._resolve_advanced_box_reward_type(0.06) == "advanced_starpoint_2", "advanced boxes should map the next 20 percent to two-starpoint rewards")
+	_expect(resolver._resolve_advanced_box_reward_type(0.259) == "advanced_starpoint_2", "advanced box two-starpoint range should end before 26 percent")
+	_expect(resolver._resolve_advanced_box_reward_type(0.26) == "advanced_starpoint_3", "advanced boxes should map the next 15 percent to three-starpoint rewards")
+	_expect(resolver._resolve_advanced_box_reward_type(0.409) == "advanced_starpoint_3", "advanced box three-starpoint range should end before 41 percent")
+	_expect(resolver._resolve_advanced_box_reward_type(0.41) == "passive", "advanced boxes should map the upper 59 percent to passive items")
+	_expect(str(resolver.roll_reward("advanced").get("type", "")) in ["mythic", "starpoint", "passive"], "advanced box kind should be accepted by the resolver")
+	_expect(str(resolver.roll_reward("mythic").get("type", "")) in ["mythic", "starpoint", "passive"], "legacy box-kind alias should remain accepted")
+	var guaranteed_reward: Dictionary = resolver.roll_reward("guaranteed_mythic")
+	_expect(str(guaranteed_reward.get("type", "")) == "mythic", "guaranteed mythic boxes should always roll a mythic item")
+	_expect(str(guaranteed_reward.get("item_name", "")) != "", "guaranteed mythic reward should carry a grantable item name")
+	_expect(str(guaranteed_reward.get("icon_path", "")) != "", "guaranteed mythic reward should expose the real item icon path")
+
+	var mythic_reward: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.0)
+	_expect(str(mythic_reward.get("type", "")) == "mythic", "advanced box low roll should return a mythic item reward")
+	_expect(str(mythic_reward.get("item_name", "")) != "", "mythic item reward should carry a grantable item name")
+	_expect(str(mythic_reward.get("icon_path", "")) != "", "mythic item reward should expose the real item icon path")
+	var starpoint_double_reward: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.06)
+	_expect(str(starpoint_double_reward.get("type", "")) == "starpoint", "advanced box middle roll should return starpoints")
+	_expect(int(starpoint_double_reward.get("amount", 0)) == 2, "advanced box two-starpoint reward should grant two points")
+	var starpoint_triple_reward: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.26)
+	_expect(str(starpoint_triple_reward.get("type", "")) == "starpoint", "advanced box upper-middle roll should return starpoints")
+	_expect(int(starpoint_triple_reward.get("amount", 0)) == 3, "advanced box three-starpoint reward should grant three points")
+	var passive_reward: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.41)
+	_expect(str(passive_reward.get("type", "")) == "passive", "advanced box high roll should return a passive item")
+	_expect(str(passive_reward.get("item_name", "")) != "", "advanced box passive reward should carry a grantable item name")
+	_expect(str(passive_reward.get("icon_path", "")) != "", "advanced box passive reward should expose the real item icon path")
 
 	var normal_counts := {
 		"active": 0,
@@ -115,10 +140,60 @@ func _verify_roll_contract() -> void:
 			normal_counts[reward_type] = int(normal_counts[reward_type]) + 1
 		if reward_type == "starpoint":
 			var amount: int = int(normal_reward.get("amount", 0))
-			_expect(amount == 1, "stage-clear starpoint rewards should grant one perk choice")
+			_expect(amount == 1 or amount == 2, "stage-clear starpoint rewards should grant one or two perk choices")
 		else:
 			_expect(str(normal_reward.get("icon_path", "")) != "", "item rewards should expose the real item icon path")
 	_expect(int(normal_counts["mythic"]) > 0, "normal boxes should be able to roll mythic rewards")
+
+
+func _verify_normal_box_reward_odds() -> void:
+	var resolver: Object = StageClearRewardResolver.new()
+	_expect(
+		resolver._resolve_normal_box_reward_type(0.0) == "active",
+		"normal boxes should map the low 47 percent to active items"
+	)
+	_expect(
+		resolver._resolve_normal_box_reward_type(0.469) == "active",
+		"normal box active range should end before 47 percent"
+	)
+	_expect(
+		resolver._resolve_normal_box_reward_type(0.47) == "passive",
+		"normal boxes should map the next 20 percent to passive items"
+	)
+	_expect(
+		resolver._resolve_normal_box_reward_type(0.669) == "passive",
+		"normal box passive range should end before 67 percent"
+	)
+	_expect(
+		resolver._resolve_normal_box_reward_type(0.67) == "starpoint_1",
+		"normal boxes should map the next 20 percent to one starpoint"
+	)
+	_expect(
+		resolver._resolve_normal_box_reward_type(0.869) == "starpoint_1",
+		"normal box one-starpoint range should end before 87 percent"
+	)
+	_expect(
+		resolver._resolve_normal_box_reward_type(0.87) == "starpoint_2",
+		"normal boxes should map the next 10 percent to two starpoints"
+	)
+	_expect(
+		resolver._resolve_normal_box_reward_type(0.969) == "starpoint_2",
+		"normal box two-starpoint range should end before 97 percent"
+	)
+	_expect(
+		resolver._resolve_normal_box_reward_type(0.97) == "mythic",
+		"normal boxes should map the upper 3 percent to mythic items"
+	)
+	var starpoint_one: Dictionary = resolver._roll_normal_box_reward(null, null, 0.67)
+	_expect(
+		str(starpoint_one.get("type", "")) == "starpoint" and int(starpoint_one.get("amount", 0)) == 1,
+		"normal box one-starpoint range should grant exactly one point"
+	)
+	var starpoint_two: Dictionary = resolver._roll_normal_box_reward(null, null, 0.87)
+	_expect(
+		str(starpoint_two.get("type", "")) == "starpoint" and int(starpoint_two.get("amount", 0)) == 2,
+		"normal box two-starpoint range should grant exactly two points"
+	)
 
 
 func _verify_grant_paths() -> void:

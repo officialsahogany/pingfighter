@@ -36,6 +36,16 @@ func _verify_texture_bundle_load() -> void:
 	var textures: Dictionary = StageClearResultAssetLoader.load_textures({}, _asset_paths())
 	for key in StageClearResultAssetLoader.TEXTURE_KEYS:
 		_expect(textures.get(str(key), null) is Texture2D, "asset loader should load texture key %s" % str(key))
+	var stage2_sheet := textures.get("stage2_boss_defeat_live2d_sheet") as Texture2D
+	_expect(
+		stage2_sheet != null and stage2_sheet.get_size() == Vector2(16128.0, 8064.0),
+		"asset loader should load the Real-ESRGAN hq1152 Stage 2 boss result Live2D sheet"
+	)
+	var stage2_click_sheet := textures.get("stage2_boss_defeat_click_reaction_sheet") as Texture2D
+	_expect(
+		stage2_click_sheet != null and stage2_click_sheet.get_size() == Vector2(16128.0, 8064.0),
+		"asset loader should load the Real-ESRGAN hq1152 Stage 2 boss result click Live2D sheet"
+	)
 
 
 func _verify_audio_load() -> void:
@@ -64,11 +74,14 @@ func _asset_paths() -> Dictionary:
 		"background_texture": StageClearResultScene.STAGE1_BACKGROUND_PATH,
 		"dalji_defeat_sheet": StageClearResultScene.DALJI_DEFEAT_SHEET_PATH,
 		"dalji_click_reaction_sheet": StageClearResultScene.DALJI_CLICK_REACTION_SHEET_PATH,
+		"stage2_boss_defeat_live2d_sheet": StageClearResultScene.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage2_boss_defeat_click_reaction_sheet": StageClearResultScene.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"player_victory_sheet": StageClearResultScene.SMASHER_VICTORY_SHEET_PATH,
 		"player_victory_click_reaction_sheet": StageClearResultScene.SMASHER_CLICK_REACTION_SHEET_PATH,
 		"scroll_texture": StageClearResultScene.RESULT_SCROLL_PANEL_PATH,
 		"result_box_sheet_common": StageClearResultScene.RESULT_BOX_SHEET_COMMON_PATH,
 		"result_box_sheet_mythic": StageClearResultScene.RESULT_BOX_SHEET_MYTHIC_PATH,
+		"result_box_sheet_guaranteed_mythic": StageClearResultScene.RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH,
 		"dalji_click_voice": StageClearResultScene.DALJI_CLICK_VOICE_PATH,
 	}
 

@@ -8,6 +8,11 @@ const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scen
 
 const RESULT_SCENE_PATH := "res://scenes/stage_clear_result.tscn"
 const STARPOINT_CHOICE_REWARD_DELAY := 1.45
+const BOX_KIND_NORMAL := "normal"
+const BOX_KIND_ADVANCED := "advanced"
+const BOX_KIND_GUARANTEED_MYTHIC := "guaranteed_mythic"
+const GUARANTEED_MYTHIC_BOX_CHANCE := 0.03
+const ADVANCED_BOX_CHANCE := 0.20
 
 var active: bool = false
 var player_score: int = 0
@@ -30,6 +35,8 @@ var _stage_start_snapshot: Dictionary = {}
 var _last_stage_reward_snapshot: Dictionary = {}
 var _pending_starpoint_choice_delay: float = 0.0
 var _pending_starpoint_choice_box_index: int = -1
+var _active_starpoint_choice_box_index: int = -1
+var _last_recorded_perk_choice_sequence: int = 0
 var _result_scene_packed: PackedScene
 var _prewarm_assets_step_index: int = 0
 var _prewarm_assets_status: Dictionary = {}
@@ -58,6 +65,7 @@ func show_from_scoreboard(
 	_last_grant_summary = {}
 	_immediate_reward_summaries.clear()
 	_clear_pending_starpoint_choice()
+	_clear_active_starpoint_choice_tracking()
 	active = true
 	_spawn_pending = true
 	if _are_scene_assets_ready_for_spawn():
@@ -93,6 +101,7 @@ func reset() -> void:
 	_immediate_reward_summaries.clear()
 	_last_stage_reward_snapshot = {}
 	_clear_pending_starpoint_choice()
+	_clear_active_starpoint_choice_tracking()
 	if _scene_node != null and is_instance_valid(_scene_node):
 		_scene_node.queue_free()
 	_scene_node = null
@@ -124,6 +133,7 @@ func handle_input(event: InputEvent, _owner: Object, _registry: Object, _view_si
 		return true
 	if _scene_node.has_method("handle_result_input"):
 		_scene_node.handle_result_input(event)
+		_sync_box_perk_choice_rewards()
 	return true
 
 
@@ -264,11 +274,14 @@ func _are_scene_assets_ready_for_spawn() -> bool:
 		"background_texture",
 		"dalji_defeat_sheet",
 		"dalji_click_reaction_sheet",
+		"stage2_boss_defeat_live2d_sheet",
+		"stage2_boss_defeat_click_reaction_sheet",
 		"player_victory_sheet",
 		"player_victory_click_reaction_sheet",
 		"scroll_texture",
 		"result_box_sheet_common",
 		"result_box_sheet_mythic",
+		"result_box_sheet_guaranteed_mythic",
 		"dalji_click_voice",
 		"result_box_fx",
 	]:
@@ -420,11 +433,14 @@ func _update_pending_starpoint_choice(delta: float) -> void:
 func _open_deferred_starpoint_choice() -> void:
 	var runtime_perk_state: Object = _get_instance(_pending_registry, "runtime_perk_state")
 	var runtime_perk_catalog: Object = _get_instance(_pending_registry, "runtime_perk_catalog")
+	var box_index: int = _pending_starpoint_choice_box_index
 	_clear_pending_starpoint_choice()
 	if runtime_perk_state == null or runtime_perk_catalog == null:
 		return
 	if not runtime_perk_state.has_method("open_next_choice"):
 		return
+	_active_starpoint_choice_box_index = box_index
+	_last_recorded_perk_choice_sequence = _get_runtime_perk_choice_sequence(runtime_perk_state)
 	runtime_perk_state.open_next_choice(
 		_get_selected_character_type(_pending_owner),
 		runtime_perk_catalog,
@@ -437,6 +453,8 @@ func _open_deferred_starpoint_choice() -> void:
 		and bool(runtime_perk_state.is_choice_active())
 	):
 		_play_runtime_perk_choice_open_audio()
+	else:
+		_clear_active_starpoint_choice_tracking()
 	if _scene_node != null and is_instance_valid(_scene_node):
 		_scene_node.queue_redraw()
 
@@ -449,6 +467,7 @@ func _update_runtime_perk_choice(delta: float) -> void:
 	if _scene_node != null and is_instance_valid(_scene_node):
 		view_size = _scene_node.get_viewport_rect().size
 	runtime_perk_state.update(delta, view_size, _pending_owner, _pending_registry)
+	_sync_box_perk_choice_rewards()
 
 
 func _play_runtime_perk_choice_open_audio() -> void:
@@ -511,6 +530,80 @@ func _clear_pending_starpoint_choice() -> void:
 	_pending_starpoint_choice_box_index = -1
 	if _scene_node != null and is_instance_valid(_scene_node) and _scene_node.has_method("set_starpoint_choice_gate_active"):
 		_scene_node.set_starpoint_choice_gate_active(false, -1)
+
+
+func _clear_active_starpoint_choice_tracking() -> void:
+	_active_starpoint_choice_box_index = -1
+	_last_recorded_perk_choice_sequence = 0
+
+
+func _sync_box_perk_choice_rewards() -> void:
+	if _active_starpoint_choice_box_index < 0:
+		return
+	var runtime_perk_state: Object = _get_instance(_pending_registry, "runtime_perk_state")
+	if runtime_perk_state == null:
+		_clear_active_starpoint_choice_tracking()
+		return
+	var snapshot: Dictionary = _get_runtime_perk_snapshot(runtime_perk_state)
+	var sequence: int = int(snapshot.get("selected_choice_sequence", _get_runtime_perk_choice_sequence(runtime_perk_state)))
+	if sequence > _last_recorded_perk_choice_sequence:
+		var reward: Dictionary = _build_box_perk_choice_reward(snapshot)
+		if not reward.is_empty() and _scene_node != null and is_instance_valid(_scene_node) and _scene_node.has_method("append_box_resolved_perk_reward"):
+			_scene_node.append_box_resolved_perk_reward(_active_starpoint_choice_box_index, reward)
+		_last_recorded_perk_choice_sequence = sequence
+	if not _is_runtime_perk_choice_active() and int(snapshot.get("pending_skill_choices", 0)) <= 0:
+		_clear_active_starpoint_choice_tracking()
+
+
+func _build_box_perk_choice_reward(snapshot: Dictionary) -> Dictionary:
+	var choice_value: Variant = snapshot.get("last_selected_choice", {})
+	var choice: Dictionary = choice_value if choice_value is Dictionary else {}
+	var perk_id: String = str(choice.get("id", snapshot.get("last_selected_id", "")))
+	if perk_id == "":
+		return {}
+	var runtime_levels: Dictionary = _get_dictionary(snapshot.get("runtime_skill_levels", {}))
+	var current_level: int = max(0, int(choice.get("current_level", 0)))
+	var next_level: int = int(choice.get("next_level", runtime_levels.get(perk_id, 0)))
+	if next_level > 0 and current_level <= 0:
+		current_level = max(0, next_level - 1)
+	var perk_data: Dictionary = {}
+	if _perk_catalog != null and _perk_catalog.has_method("get_perk_data"):
+		var perk_value: Variant = _perk_catalog.get_perk_data(perk_id)
+		if perk_value is Dictionary:
+			perk_data = (perk_value as Dictionary).duplicate(true)
+	for key in ["id", "name", "description", "detail", "icon_color", "character_restriction"]:
+		if str(perk_data.get(key, "")) == "" and choice.has(key):
+			perk_data[key] = choice.get(key)
+	if str(perk_data.get("id", "")) == "":
+		perk_data["id"] = perk_id
+	var perk_name: String = str(perk_data.get("name", choice.get("name", perk_id)))
+	var label: String = perk_name
+	if next_level > 0:
+		label = "%s Lv.%d" % [perk_name, next_level]
+	return {
+		"type": "perk",
+		"label": label,
+		"perk_id": perk_id,
+		"id": perk_id,
+		"current_level": current_level,
+		"next_level": max(1, next_level),
+		"level_delta": max(1, int(choice.get("level_delta", max(1, next_level - current_level)))),
+		"source": "box_starpoint_choice",
+		"perk_data": perk_data,
+	}
+
+
+func _get_runtime_perk_snapshot(runtime_perk_state: Object) -> Dictionary:
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_snapshot"):
+		var snapshot_value: Variant = runtime_perk_state.get_snapshot()
+		if snapshot_value is Dictionary:
+			return (snapshot_value as Dictionary).duplicate(true)
+	return {}
+
+
+func _get_runtime_perk_choice_sequence(runtime_perk_state: Object) -> int:
+	var snapshot: Dictionary = _get_runtime_perk_snapshot(runtime_perk_state)
+	return int(snapshot.get("selected_choice_sequence", 0))
 
 
 func _empty_grant_summary(attempted: int) -> Dictionary:
@@ -650,27 +743,31 @@ func _reset_stage5_for_result(registry: Object, stage_id: int) -> void:
 	var stage5_hongryun_fire_machine_event: Object = _get_instance(registry, "stage5_hongryun_fire_machine_event")
 	if stage5_hongryun_fire_machine_event != null and stage5_hongryun_fire_machine_event.has_method("reset_for_result"):
 		stage5_hongryun_fire_machine_event.reset_for_result()
+	var stage5_hongryun_actor_renderer: Object = _get_instance(registry, "stage5_hongryun_actor_renderer")
+	if stage5_hongryun_actor_renderer != null:
+		if stage5_hongryun_actor_renderer.has_method("reset_round_fx"):
+			stage5_hongryun_actor_renderer.reset_round_fx()
+		elif stage5_hongryun_actor_renderer.has_method("reset"):
+			stage5_hongryun_actor_renderer.reset()
 
 
 func _build_reward_plan(winning_score: int, losing_score: int) -> Dictionary:
 	var boxes: Array = []
 	var summary := "아이템 상자 1개"
 	if winning_score == 5 and losing_score == 0:
-		boxes.append({"kind": "mythic"})
-		boxes.append({"kind": "normal"})
-		boxes.append({"kind": "normal"})
-		summary = "확정 신화 아이템 + 일반 아이템 2개"
+		_append_stage_clear_boxes(boxes, 5)
+		summary = "아이템 상자 5개"
 	elif winning_score == 5 and losing_score == 1:
-		_append_normal_boxes(boxes, 4)
+		_append_stage_clear_boxes(boxes, 4)
 		summary = "아이템 상자 4개"
 	elif winning_score == 5 and losing_score == 2:
-		_append_normal_boxes(boxes, 3)
+		_append_stage_clear_boxes(boxes, 3)
 		summary = "아이템 상자 3개"
 	elif winning_score == 5 and losing_score == 3:
-		_append_normal_boxes(boxes, 2)
+		_append_stage_clear_boxes(boxes, 2)
 		summary = "아이템 상자 2개"
 	else:
-		boxes.append({"kind": "normal"})
+		_append_stage_clear_boxes(boxes, 1)
 	return {
 		"summary": summary,
 		"boxes": boxes,
@@ -678,9 +775,18 @@ func _build_reward_plan(winning_score: int, losing_score: int) -> Dictionary:
 	}
 
 
-func _append_normal_boxes(boxes: Array, count: int) -> void:
+func _append_stage_clear_boxes(boxes: Array, count: int) -> void:
 	for _index in range(max(0, count)):
-		boxes.append({"kind": "normal"})
+		boxes.append({"kind": _roll_stage_clear_box_kind(randf())})
+
+
+func _roll_stage_clear_box_kind(roll: float) -> String:
+	var clamped_roll: float = clamp(roll, 0.0, 0.999999)
+	if clamped_roll < GUARANTEED_MYTHIC_BOX_CHANCE:
+		return BOX_KIND_GUARANTEED_MYTHIC
+	if clamped_roll < GUARANTEED_MYTHIC_BOX_CHANCE + ADVANCED_BOX_CHANCE:
+		return BOX_KIND_ADVANCED
+	return BOX_KIND_NORMAL
 
 
 func _build_progress_snapshot(owner: Object, registry: Object, stage_id: int) -> Dictionary:

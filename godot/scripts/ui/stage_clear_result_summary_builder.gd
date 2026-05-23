@@ -12,7 +12,7 @@ static func calculate_starpoint_total(boxes: Array) -> int:
 			continue
 		var reward_dict: Dictionary = reward
 		if str(reward_dict.get("type", "")) == "starpoint":
-			total += int(reward_dict.get("amount", 0))
+			total += max(0, int(reward_dict.get("amount", 0)) - get_resolved_perk_rewards(reward_dict).size())
 	return total
 
 
@@ -63,6 +63,9 @@ static func build_perk_summary(
 		if not (reward is Dictionary):
 			continue
 		var reward_dict: Dictionary = reward
+		for resolved_perk in get_resolved_perk_rewards(reward_dict):
+			if resolved_perk is Dictionary:
+				perks.append(with_result_reward_source(resolved_perk as Dictionary, box_source, source_labels))
 		if is_perk_reward(reward_dict):
 			perks.append(with_result_reward_source(reward_dict, box_source, source_labels))
 	return perks
@@ -90,6 +93,12 @@ static func build_visible_reward_summary(
 		if not (reward is Dictionary):
 			continue
 		var reward_dict: Dictionary = reward
+		var resolved_perks: Array = get_resolved_perk_rewards(reward_dict)
+		if not resolved_perks.is_empty():
+			for resolved_perk in resolved_perks:
+				if resolved_perk is Dictionary:
+					rewards.append(with_result_reward_source(resolved_perk as Dictionary, box_source, source_labels))
+			continue
 		var reward_type: String = str(reward_dict.get("type", ""))
 		if reward_type == "active" or reward_type == "passive" or reward_type == "mythic" or reward_type == "starpoint":
 			rewards.append(with_result_reward_source(reward_dict, box_source, source_labels))
@@ -182,6 +191,13 @@ static func count_result_reward_sources(rewards: Array, known_sources: Array) ->
 
 static func get_stage_summary_array(stage_reward_snapshot: Dictionary, key: String) -> Array:
 	var value: Variant = stage_reward_snapshot.get(key, [])
+	if value is Array:
+		return (value as Array).duplicate(true)
+	return []
+
+
+static func get_resolved_perk_rewards(reward: Dictionary) -> Array:
+	var value: Variant = reward.get("resolved_perk_rewards", [])
 	if value is Array:
 		return (value as Array).duplicate(true)
 	return []

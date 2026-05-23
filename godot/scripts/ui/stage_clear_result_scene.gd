@@ -16,11 +16,14 @@ const StageClearResultShapeHelper := preload("res://scripts/ui/stage_clear_resul
 const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_result_text_layout_helper.gd")
 const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
 const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
 const DALJI_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_click_cry_dont_talk_live2d_remake_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
 const DALJI_CLICK_VOICE_PATH := "res://voice/dalzidefeat.mp3"
+const STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage2/stage2_alligator_general_result_defeat_live2d_pingpong_98f_autosprite_v2_realesrgan_animev3_hq1152.png"
+const STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage2/stage2_alligator_general_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
 const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const SMASHER_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const RESULT_SCROLL_PANEL_PATH := "res://assets/sprites/result_scroll/stage_clear_cyber_scroll_imagegen_v1_alpha.png"
@@ -54,6 +57,18 @@ const PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION := 0.05
 const PLAYER_VICTORY_CLICK_RETURN_BLEND_DURATION := PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION + PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION
 const PLAYER_VICTORY_CLICK_TOTAL_DURATION := PLAYER_VICTORY_CLICK_REACTION_DURATION + PLAYER_VICTORY_CLICK_RETURN_BLEND_DURATION
 
+const STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT := 98
+const STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS := 14
+const STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE := Vector2(1152.0, 1152.0)
+const STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL := 0.055
+const STAGE2_BOSS_DEFEAT_CLICK_FRAME_INTERVAL := 0.036
+const STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION := STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT * STAGE2_BOSS_DEFEAT_CLICK_FRAME_INTERVAL
+const STAGE2_BOSS_DEFEAT_CLICK_TRANSITION_DURATION := 0.16
+const STAGE2_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION := 0.18
+const STAGE2_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION := 0.05
+const STAGE2_BOSS_DEFEAT_CLICK_RETURN_BLEND_DURATION := STAGE2_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION + STAGE2_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION
+const STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION := STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION + STAGE2_BOSS_DEFEAT_CLICK_RETURN_BLEND_DURATION
+
 const BOX_BASE_SIZE := Vector2(65.0, 56.0)
 const BOX_FLOAT_AMPLITUDE := 5.0
 const BOX_FLOAT_SPEED := 1.4
@@ -78,6 +93,7 @@ const SCROLL_DRAG_VIEW_MARGIN := 72.0
 const PLACEHOLDER_GOLD := 1240
 const RESULT_BOX_SHEET_COMMON_PATH := "res://assets/sprites/result_boxes/result_box_common_open_16f.png"
 const RESULT_BOX_SHEET_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_mythic_open_16f.png"
+const RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH := "res://assets/sprites/result_boxes/result_box_guaranteed_mythic_open_16f.png"
 const RESULT_BOX_SHEET_FRAME_COUNT := 16
 const RESULT_BOX_SHEET_GRID_COLS := 4
 const RESULT_BOX_SHEET_GRID_ROWS := 4
@@ -88,14 +104,24 @@ const RESULT_BOX_FRAME_ASSET_GUARD_SCALE := 0.90
 const RESULT_BOX_FRAME_DRAW_SIZE := 100.0 / RESULT_BOX_FRAME_ASSET_GUARD_SCALE
 const RESULT_REWARD_SOURCE_STAGE := "stage"
 const RESULT_REWARD_SOURCE_BOX := "box"
+const BOX_KIND_NORMAL := "normal"
+const BOX_KIND_ADVANCED := "advanced"
+const BOX_KIND_GUARANTEED_MYTHIC := "guaranteed_mythic"
+const LEGACY_BOX_KIND_MYTHIC := "mythic"
+const BOX_LABEL_NORMAL := "일반상자"
+const BOX_LABEL_ADVANCED := "고급상자"
+const BOX_LABEL_GUARANTEED_MYTHIC := "신화 확정상자"
 const RESULT_REWARD_SOURCE_LABELS := {
 	"stage": "인게임",
-	"box": "상자",
+	"box": "상자 보상",
 }
 const RESULT_CINEMATIC_FIELD_SIZE := Vector2(760.0, 750.0)
 const REWARD_DETAIL_FALLBACK_TEXT := "획득한 퍽 효과를 적용합니다."
 const REWARD_STARPOINT_TITLE_PREFIX := "퍽 선택권"
-const PREWARM_ASSET_STEP_COUNT := 10
+const FALLBACK_STARPOINT_SINGLE_CHANCE := 0.70
+const FALLBACK_STARPOINT_SINGLE_AMOUNT := 1
+const FALLBACK_STARPOINT_DOUBLE_AMOUNT := 2
+const PREWARM_ASSET_STEP_COUNT := StageClearResultAssetLoader.PREWARM_ASSET_STEP_COUNT
 
 var timer: float = 0.0
 var player_score: int = 0
@@ -124,11 +150,14 @@ var _player_victory_click_rect: Rect2 = Rect2()
 var _background_texture: Texture2D
 var _dalji_defeat_sheet: Texture2D
 var _dalji_click_reaction_sheet: Texture2D
+var _stage2_boss_defeat_live2d_sheet: Texture2D
+var _stage2_boss_defeat_click_reaction_sheet: Texture2D
 var _player_victory_sheet: Texture2D
 var _player_victory_click_reaction_sheet: Texture2D
 var _scroll_texture: Texture2D
 var _result_box_sheet_common: Texture2D
 var _result_box_sheet_mythic: Texture2D
+var _result_box_sheet_guaranteed_mythic: Texture2D
 var _dalji_click_voice_stream: AudioStream
 var _dalji_click_voice_player: AudioStreamPlayer
 var _perk_catalog: Object = RuntimePerkCatalog.new()
@@ -146,9 +175,11 @@ var _driven_by_controller: bool = false
 var _dalji_base_timer: float = 0.0
 var _dalji_click_reaction_timer: float = DALJI_CLICK_TOTAL_DURATION
 var _player_victory_click_reaction_timer: float = PLAYER_VICTORY_CLICK_TOTAL_DURATION
+var _stage2_boss_defeat_click_reaction_timer: float = STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
 var _dalji_dialogue_timer: float = 0.0
 var _dalji_click_transition_base_frame: int = 0
 var _player_victory_click_transition_base_frame: int = 0
+var _stage2_boss_defeat_click_transition_base_frame: int = 0
 var _fx_hosts: Array = []
 var _fx_prewarm_next_index: int = 0
 var _lid_open_counter: int = 0
@@ -192,11 +223,14 @@ static func _result_asset_paths() -> Dictionary:
 		"background_texture": STAGE1_BACKGROUND_PATH,
 		"dalji_defeat_sheet": DALJI_DEFEAT_SHEET_PATH,
 		"dalji_click_reaction_sheet": DALJI_CLICK_REACTION_SHEET_PATH,
+		"stage2_boss_defeat_live2d_sheet": STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage2_boss_defeat_click_reaction_sheet": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
 		"player_victory_sheet": SMASHER_VICTORY_SHEET_PATH,
 		"player_victory_click_reaction_sheet": SMASHER_CLICK_REACTION_SHEET_PATH,
 		"scroll_texture": RESULT_SCROLL_PANEL_PATH,
 		"result_box_sheet_common": RESULT_BOX_SHEET_COMMON_PATH,
 		"result_box_sheet_mythic": RESULT_BOX_SHEET_MYTHIC_PATH,
+		"result_box_sheet_guaranteed_mythic": RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH,
 		"dalji_click_voice": DALJI_CLICK_VOICE_PATH,
 	}
 
@@ -256,6 +290,7 @@ func configure(
 	_dalji_base_timer = 0.0
 	_dalji_click_reaction_timer = DALJI_CLICK_TOTAL_DURATION
 	_player_victory_click_reaction_timer = PLAYER_VICTORY_CLICK_TOTAL_DURATION
+	_stage2_boss_defeat_click_reaction_timer = STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
 	_dalji_dialogue_timer = 0.0
 	_stop_dalji_click_voice()
 	confirmed_callback = on_confirmed
@@ -292,6 +327,14 @@ func update_result_scene(delta: float) -> void:
 			PLAYER_VICTORY_CLICK_TOTAL_DURATION,
 			_player_victory_click_reaction_timer + safe_delta
 		)
+	if StageClearResultClickReactionState.is_reaction_active(
+		_stage2_boss_defeat_click_reaction_timer,
+		STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	):
+		_stage2_boss_defeat_click_reaction_timer = min(
+			STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+			_stage2_boss_defeat_click_reaction_timer + safe_delta
+		)
 	_dalji_dialogue_timer = max(0.0, _dalji_dialogue_timer - safe_delta)
 	_update_boxes(safe_delta)
 	_update_scroll(safe_delta)
@@ -308,6 +351,13 @@ func handle_result_input(event: InputEvent) -> bool:
 	if _is_runtime_perk_choice_active():
 		_cancel_scroll_drag()
 		return _handle_runtime_perk_input(event)
+
+	if GamepadInput.is_gamepad_event(event):
+		if GamepadInput.is_confirm_event(event):
+			return _handle_advance_input()
+		if GamepadInput.is_cancel_event(event):
+			return _handle_escape_input()
+		return true
 
 	if event is InputEventKey:
 		var key_event: InputEventKey = event
@@ -338,6 +388,8 @@ func handle_result_input(event: InputEvent) -> bool:
 			return true
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
 			if _handle_dalji_click(mouse_event.position):
+				pass
+			elif _handle_stage2_boss_defeat_click(mouse_event.position):
 				pass
 			elif _handle_player_victory_click(mouse_event.position):
 				pass
@@ -503,7 +555,11 @@ func _refresh_scroll_button_rects() -> void:
 	var view_size: Vector2 = _get_current_view_size()
 	var layout_scale: float = _get_layout_scale(view_size)
 	var button_layout: Dictionary = StageClearResultInteractionState.get_scroll_button_layout(
-		_get_scroll_full_rect(layout_scale),
+		StageClearResultLayoutHelper.get_scroll_content_rect(
+			_get_scroll_full_rect(layout_scale),
+			layout_scale,
+			SCROLL_CONTENT_MARGIN
+		),
 		layout_scale
 	)
 	_next_stage_button_rect = button_layout.get("next_stage_rect", Rect2())
@@ -560,6 +616,7 @@ func get_interaction_status() -> Dictionary:
 	var opening_count: int = int(box_counts.get("opening_count", 0))
 	var dalji_reaction_state: Dictionary = _dalji_reaction_state()
 	var player_victory_reaction_state: Dictionary = _player_victory_reaction_state()
+	var stage2_boss_reaction_state: Dictionary = _stage2_boss_defeat_reaction_state()
 	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
 		stage_reward_snapshot,
 		_boxes,
@@ -586,6 +643,24 @@ func get_interaction_status() -> Dictionary:
 		"dalji_click_voice_playing": _dalji_click_voice_player != null and _dalji_click_voice_player.playing,
 		"player_victory_sheet_path": SMASHER_VICTORY_SHEET_PATH,
 		"player_victory_click_reaction_sheet_path": SMASHER_CLICK_REACTION_SHEET_PATH,
+		"stage2_boss_defeat_live2d_sheet_path": STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
+		"stage2_boss_defeat_live2d_sheet_loaded": _stage2_boss_defeat_live2d_sheet != null,
+		"stage2_boss_defeat_click_reaction_sheet_path": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
+		"stage2_boss_defeat_click_reaction_sheet_loaded": _stage2_boss_defeat_click_reaction_sheet != null,
+		"stage2_boss_defeat_live2d_active": _is_stage2_result_boss(),
+		"stage2_boss_defeat_live2d_frame_count": STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		"stage2_boss_defeat_live2d_grid_cols": STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		"stage2_boss_defeat_live2d_cell_size": STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE,
+		"stage2_boss_defeat_live2d_base_frame": int(stage2_boss_reaction_state.get("base_frame", 0)),
+		"stage2_boss_defeat_live2d_draw_rect": StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale),
+		"stage2_boss_defeat_click_rect": StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale),
+		"stage2_boss_defeat_click_reaction_active": bool(stage2_boss_reaction_state.get("reaction_active", false)),
+		"stage2_boss_defeat_click_return_blend_active": bool(stage2_boss_reaction_state.get("return_blend_active", false)),
+		"stage2_boss_defeat_click_reaction_timer": _stage2_boss_defeat_click_reaction_timer,
+		"stage2_boss_defeat_click_reaction_duration": STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		"stage2_boss_defeat_click_total_duration": STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION,
+		"stage2_boss_defeat_click_transition_base_frame": _stage2_boss_defeat_click_transition_base_frame,
+		"stage2_boss_defeat_reaction_alpha": float(stage2_boss_reaction_state.get("reaction_alpha", 0.0)),
 		"player_victory_sheet_loaded": _player_victory_sheet != null,
 		"player_victory_click_reaction_sheet_loaded": _player_victory_click_reaction_sheet != null,
 		"player_victory_frame_count": PLAYER_VICTORY_FRAME_COUNT,
@@ -616,6 +691,7 @@ func get_interaction_status() -> Dictionary:
 		"item_reward_source_counts": reward_summary_state.get("item_reward_source_counts", {}),
 		"perk_reward_source_counts": reward_summary_state.get("perk_reward_source_counts", {}),
 		"visible_reward_source_counts": reward_summary_state.get("visible_reward_source_counts", {}),
+		"box_display_labels": _get_box_display_labels(),
 		"perk_info": _build_perk_info_summary(reward_summary_state),
 		"starpoint_total": int(reward_summary_state.get("starpoint_total", 0)),
 		"hovered_box_index": _hovered_box_index,
@@ -693,6 +769,25 @@ func set_starpoint_choice_gate_active(active: bool, box_index: int = -1) -> void
 	queue_redraw()
 
 
+func append_box_resolved_perk_reward(box_index: int, perk_reward: Dictionary) -> void:
+	if box_index < 0 or box_index >= _boxes.size() or perk_reward.is_empty():
+		return
+	var box: Dictionary = _boxes[box_index] if _boxes[box_index] is Dictionary else {}
+	var reward: Dictionary = box.get("reward", {}) if box.get("reward", {}) is Dictionary else {}
+	if reward.is_empty() or str(reward.get("type", "")) != "starpoint":
+		return
+	var resolved_value: Variant = reward.get("resolved_perk_rewards", [])
+	var resolved: Array = resolved_value if resolved_value is Array else []
+	var reward_copy: Dictionary = perk_reward.duplicate(true)
+	reward_copy["source"] = "box_starpoint_choice"
+	resolved.append(reward_copy)
+	reward["resolved_perk_rewards"] = resolved
+	reward["resolved_perk_count"] = resolved.size()
+	box["reward"] = reward
+	_boxes[box_index] = box
+	queue_redraw()
+
+
 func _draw_runtime_perk_overlay(view_size: Vector2) -> void:
 	if not _is_runtime_perk_choice_active():
 		return
@@ -734,6 +829,9 @@ func _draw_background(view_size: Vector2) -> void:
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
+	if _is_stage2_result_boss():
+		_draw_stage2_defeated_boss(view_size, scale)
+		return
 	if _dalji_defeat_sheet == null:
 		return
 	@warning_ignore("shadowed_variable_base_class")
@@ -750,6 +848,43 @@ func _draw_defeated_boss(view_size: Vector2, scale: float) -> void:
 		_draw_dalji_sheet_frame(_dalji_defeat_sheet, int(dalji_reaction_state.get("transition_base_frame", 0)), draw_rect, 0.98 * base_alpha)
 	if reaction_alpha > 0.001:
 		_draw_dalji_sheet_frame(_dalji_click_reaction_sheet, int(dalji_reaction_state.get("reaction_frame", 0)), draw_rect, 0.98 * reaction_alpha)
+
+
+func _is_stage2_result_boss() -> bool:
+	return current_stage == 2
+
+
+@warning_ignore("shadowed_variable_base_class")
+func _draw_stage2_defeated_boss(view_size: Vector2, scale: float) -> void:
+	if _stage2_boss_defeat_live2d_sheet == null:
+		return
+	var boss_draw_rect: Rect2 = StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale)
+	var reaction_state: Dictionary = _stage2_boss_defeat_reaction_state()
+	if not bool(reaction_state.get("reaction_active", false)) or _stage2_boss_defeat_click_reaction_sheet == null:
+		_draw_stage2_boss_result_sheet_frame(
+			_stage2_boss_defeat_live2d_sheet,
+			int(reaction_state.get("base_frame", 0)),
+			boss_draw_rect,
+			0.98
+		)
+		return
+
+	var reaction_alpha: float = float(reaction_state.get("reaction_alpha", 0.0))
+	var base_alpha: float = 1.0 - reaction_alpha
+	if base_alpha > 0.001:
+		_draw_stage2_boss_result_sheet_frame(
+			_stage2_boss_defeat_live2d_sheet,
+			int(reaction_state.get("transition_base_frame", 0)),
+			boss_draw_rect,
+			0.98 * base_alpha
+		)
+	if reaction_alpha > 0.001:
+		_draw_stage2_boss_result_sheet_frame(
+			_stage2_boss_defeat_click_reaction_sheet,
+			int(reaction_state.get("reaction_frame", 0)),
+			boss_draw_rect,
+			0.98 * reaction_alpha
+		)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -857,8 +992,12 @@ func _build_boxes_from_plan(plan: Dictionary) -> Array:
 	for i in range(count):
 		var src_box: Dictionary = src[i] if src[i] is Dictionary else {}
 		var slot: Dictionary = layout[i]
+		var original_kind: String = str(src_box.get("kind", BOX_KIND_NORMAL))
+		var kind: String = _normalize_box_kind(original_kind)
 		box_list.append({
-			"kind": str(src_box.get("kind", "normal")),
+			"kind": kind,
+			"roll_kind": original_kind,
+			"label": str(src_box.get("label", _get_box_display_label(kind))),
 			"base_pos": Vector2(slot.get("pos", Vector2.ZERO)),
 			"rotation_base": float(slot.get("rot", 0.0)),
 			"rotation_jitter": float(slot.get("jitter", 0.05)),
@@ -869,8 +1008,54 @@ func _build_boxes_from_plan(plan: Dictionary) -> Array:
 			"open_progress": 0.0,
 			"reward": {},
 			"reward_emerge": 0.0,
-		})
+	})
 	return box_list
+
+
+func _normalize_box_kind(kind: String) -> String:
+	if kind == BOX_KIND_GUARANTEED_MYTHIC:
+		return BOX_KIND_GUARANTEED_MYTHIC
+	if kind == LEGACY_BOX_KIND_MYTHIC:
+		return BOX_KIND_ADVANCED
+	if kind == BOX_KIND_ADVANCED:
+		return BOX_KIND_ADVANCED
+	return BOX_KIND_NORMAL
+
+
+func _is_advanced_box_kind(kind: String) -> bool:
+	return kind == BOX_KIND_ADVANCED or kind == LEGACY_BOX_KIND_MYTHIC
+
+
+func _is_guaranteed_mythic_box_kind(kind: String) -> bool:
+	return kind == BOX_KIND_GUARANTEED_MYTHIC
+
+
+func _is_mythic_visual_box_kind(kind: String) -> bool:
+	return _is_advanced_box_kind(kind) or _is_guaranteed_mythic_box_kind(kind)
+
+
+func _get_box_display_label(kind: String) -> String:
+	if _is_guaranteed_mythic_box_kind(kind):
+		return BOX_LABEL_GUARANTEED_MYTHIC
+	return BOX_LABEL_ADVANCED if _is_advanced_box_kind(kind) else BOX_LABEL_NORMAL
+
+
+func _get_box_display_labels() -> Array:
+	var labels: Array = []
+	for box_value in _boxes:
+		if not (box_value is Dictionary):
+			continue
+		var box: Dictionary = box_value
+		labels.append(str(box.get("label", _get_box_display_label(str(box.get("kind", BOX_KIND_NORMAL))))))
+	return labels
+
+
+func _get_result_box_sheet_texture(kind: String) -> Texture2D:
+	if _is_guaranteed_mythic_box_kind(kind):
+		return _result_box_sheet_guaranteed_mythic
+	if _is_advanced_box_kind(kind):
+		return _result_box_sheet_mythic
+	return _result_box_sheet_common
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -889,8 +1074,8 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 	if global_alpha <= 0.02:
 		return
 
-	var kind: String = str(box.get("kind", "normal"))
-	var is_mythic: bool = kind == "mythic"
+	var kind: String = str(box.get("kind", BOX_KIND_NORMAL))
+	var is_mythic: bool = _is_mythic_visual_box_kind(kind)
 	var state: String = str(box.get("state", "idle"))
 	var open_progress: float = float(box.get("open_progress", 0.0))
 
@@ -956,7 +1141,7 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 		RESULT_BOX_MYTHIC_SAFE_LAST_FRAME
 	)
 
-	var texture: Texture2D = _result_box_sheet_mythic if is_mythic else _result_box_sheet_common
+	var texture: Texture2D = _get_result_box_sheet_texture(kind)
 	if texture != null:
 		var col: int = frame_index % RESULT_BOX_SHEET_GRID_COLS
 		@warning_ignore("integer_division")
@@ -1147,69 +1332,77 @@ func _draw_reward_starpoint(
 		timer,
 		phase
 	)
-	var amount: int = int(visual_state.get("amount", 1))
-	var disc_radius: float = float(visual_state.get("disc_radius", 60.0 * scale))
-	var star_radius: float = float(visual_state.get("star_radius", 42.0 * scale))
-	var yaw_width: float = float(visual_state.get("yaw_width", 1.0))
-	var star_center: Vector2 = visual_state.get("star_center", anchor)
+	_draw_ingame_starpoint_visual(visual_state, true)
 
-	var glow_color: Color = visual_state.get("glow_color", Color(1.0, 0.88, 0.36, 0.36 * alpha))
-	_draw_radial_burst(anchor, disc_radius * 1.55, glow_color)
 
-	var disc_fill: Color = visual_state.get("disc_fill", Color(0.30, 0.18, 0.04, 0.88 * alpha))
-	draw_circle(anchor, disc_radius, disc_fill)
-	draw_arc(
-		anchor,
-		disc_radius,
-		0.0,
-		TAU,
-		40,
-		visual_state.get("ring_color", Color(1.0, 0.86, 0.32, alpha)),
-		float(visual_state.get("ring_width", max(2.0, 2.8 * scale)))
-	)
-
-	var orbit_rect: Rect2 = visual_state.get("orbit_rect", Rect2())
-	draw_arc(
-		orbit_rect.get_center(),
-		orbit_rect.size.x * 0.5,
-		-PI * 0.05,
-		PI * 1.05,
-		36,
-		visual_state.get("orbit_color", Color(1.0, 0.98, 0.68, 0.0)),
-		float(visual_state.get("orbit_width", max(1.0, 1.4 * scale)))
-	)
+func _draw_ingame_starpoint_visual(visual_state: Dictionary, draw_amount: bool) -> void:
+	var star_center: Vector2 = visual_state.get("star_center", Vector2.ZERO)
+	var star_radius: float = float(visual_state.get("star_radius", 34.0))
+	var glow_layers_value: Variant = visual_state.get("glow_layers", [])
+	var glow_layers: Array = glow_layers_value if glow_layers_value is Array else []
+	for layer_value in glow_layers:
+		if not (layer_value is Dictionary):
+			continue
+		var layer: Dictionary = layer_value
+		var radius: float = float(layer.get("radius", 0.0))
+		var color: Color = layer.get("color", Color.TRANSPARENT)
+		if radius > 0.0 and color.a > 0.001:
+			draw_circle(star_center, radius, color)
 
 	_draw_star_polygon_scaled(
 		star_center,
 		star_radius,
-		star_radius * 0.46,
-		yaw_width,
-		visual_state.get("star_fill", Color(1.0, 0.88, 0.36, alpha)),
-		visual_state.get("star_outline", Color(0.55, 0.32, 0.04, alpha)),
-		float(visual_state.get("star_outline_width", max(1.5, 2.0 * scale)))
+		float(visual_state.get("inner_radius", star_radius * 0.5)),
+		1.0,
+		visual_state.get("star_fill", Color(1.0, 0.42, 0.78, 1.0)),
+		visual_state.get("star_outline", Color(1.0, 1.0, 0.0, 1.0)),
+		float(visual_state.get("star_outline_width", 3.0))
 	)
-	if yaw_width <= 0.32:
-		draw_line(
-			star_center + Vector2(0.0, -star_radius * 0.92),
-			star_center + Vector2(0.0, star_radius * 0.92),
-			Color(1.0, 0.98, 0.68, alpha * 0.88),
-			float(visual_state.get("edge_line_width", max(2.0, star_radius * 0.13)))
-		)
-	else:
-		draw_circle(
-			star_center + Vector2(-star_radius * 0.18 * yaw_width, -star_radius * 0.28),
-			float(visual_state.get("highlight_radius", max(1.4, 3.4 * scale))),
-			Color(1.0, 1.0, 0.92, alpha * 0.72)
-		)
+	_draw_starpoint_sparkle_rays(star_center, visual_state)
+	draw_circle(
+		star_center,
+		float(visual_state.get("center_dot_radius", max(2.0, star_radius * 0.18))),
+		visual_state.get("center_dot_color", Color.WHITE)
+	)
 
+	if not draw_amount:
+		return
+	var amount: int = int(visual_state.get("amount", 1))
 	var font: Font = ThemeDB.fallback_font
 	_draw_centered_text(
 		font,
 		"x %d" % amount,
-		visual_state.get("text_rect", Rect2(anchor + Vector2(-disc_radius, 22.0 * scale), Vector2(disc_radius * 2.0, 30.0 * scale))),
-		int(round(22.0 * scale)),
-		visual_state.get("text_color", Color(1.0, 0.97, 0.70, alpha))
+		visual_state.get("text_rect", Rect2(star_center + Vector2(-56.0, 38.0), Vector2(112.0, 32.0))),
+		int(round(float(visual_state.get("amount_font_size", 22.0)))),
+		visual_state.get("text_color", Color(1.0, 0.97, 0.70, 1.0))
 	)
+
+
+func _draw_starpoint_sparkle_rays(star_center: Vector2, visual_state: Dictionary) -> void:
+	var ray_color: Color = visual_state.get("ray_color", Color.TRANSPARENT)
+	var ray_hot_color: Color = visual_state.get("ray_hot_color", Color.TRANSPARENT)
+	if ray_color.a <= 0.001 and ray_hot_color.a <= 0.001:
+		return
+	var ray_angle: float = float(visual_state.get("ray_angle", 0.0))
+	var ray_length: float = float(visual_state.get("ray_length", 0.0))
+	if ray_length <= 0.0:
+		return
+	var main_width: float = float(visual_state.get("ray_width", 1.4))
+	var diagonal_width: float = float(visual_state.get("diagonal_ray_width", 0.9))
+	var directions := [
+		Vector2.RIGHT.rotated(ray_angle),
+		Vector2.UP.rotated(ray_angle),
+		Vector2(1.0, 1.0).normalized().rotated(ray_angle),
+		Vector2(1.0, -1.0).normalized().rotated(ray_angle),
+	]
+	for i in range(directions.size()):
+		var direction: Vector2 = directions[i]
+		var length: float = ray_length if i < 2 else ray_length * 0.72
+		var width: float = main_width if i < 2 else diagonal_width
+		var color: Color = ray_color if i < 2 else ray_hot_color
+		if color.a <= 0.001:
+			continue
+		draw_line(star_center - direction * length, star_center + direction * length, color, width, true)
 
 
 func _draw_star_polygon(center: Vector2, outer_radius: float, inner_radius: float, fill: Color, outline: Color, outline_width: float) -> void:
@@ -1273,7 +1466,7 @@ func _start_opening_box(index: int) -> void:
 	box["state"] = "opening"
 	box["open_progress"] = 0.0
 	box["reward_emerge"] = 0.0
-	box["reward"] = _roll_reward(str(box.get("kind", "normal")))
+	box["reward"] = _roll_reward(str(box.get("roll_kind", box.get("kind", BOX_KIND_NORMAL))))
 	box["lid_open_fired"] = false
 	box["lid_open_id"] = -1
 	_boxes[index] = box
@@ -1295,14 +1488,18 @@ func _roll_reward(kind: String) -> Dictionary:
 			var rolled: Dictionary = rolled_value
 			if not rolled.is_empty():
 				return rolled
-	if kind == "mythic":
+	if _is_guaranteed_mythic_box_kind(kind) or _is_advanced_box_kind(kind):
 		return {"type": "mythic", "label": "신화 아이템"}
 	var roll: float = randf()
 	if roll < 0.60:
 		return {"type": "active", "label": "액티브 아이템"}
 	if roll < 0.80:
 		return {"type": "passive", "label": "패시브 아이템"}
-	var amount: int = randi_range(80, 200)
+	var amount: int = (
+		FALLBACK_STARPOINT_SINGLE_AMOUNT
+		if randf() < FALLBACK_STARPOINT_SINGLE_CHANCE
+		else FALLBACK_STARPOINT_DOUBLE_AMOUNT
+	)
 	return {"type": "starpoint", "label": "★ %d" % amount, "amount": amount}
 
 
@@ -1399,7 +1596,7 @@ func _sync_fx_hosts() -> void:
 		)
 		var open_progress: float = float(box.get("open_progress", 0.0))
 		var reward_emerge: float = float(box.get("reward_emerge", 0.0))
-		var is_mythic: bool = str(box.get("kind", "normal")) == "mythic"
+		var is_mythic: bool = _is_mythic_visual_box_kind(str(box.get("kind", BOX_KIND_NORMAL)))
 		var lid_open_id: int = int(box.get("lid_open_id", -1))
 		var fx_state := {
 			"position": draw_center,
@@ -1576,11 +1773,6 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 
 	var stat_rect := Rect2(rect.position + Vector2(34.0 * scale, 92.0 * scale), Vector2(250.0, 78.0) * scale)
 	_draw_metric_tile(font, stat_rect, "획득 골드", "%d G" % PLACEHOLDER_GOLD, muted, accent, alpha)
-	var info_width: float = min(430.0 * scale, max(260.0 * scale, rect.size.x - 340.0 * scale))
-	var info_rect := Rect2(
-		Vector2(rect.end.x - 34.0 * scale - info_width, rect.position.y + 92.0 * scale),
-		Vector2(info_width, 96.0 * scale)
-	)
 	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
 		stage_reward_snapshot,
 		_boxes,
@@ -1588,21 +1780,20 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 		RESULT_REWARD_SOURCE_BOX,
 		RESULT_REWARD_SOURCE_LABELS
 	)
-	_draw_perk_info_tile(font, info_rect, _build_perk_info_summary(reward_summary_state), scale, alpha)
 
 	var perks_value: Variant = reward_summary_state.get("perk_rewards", [])
-	var rewards_value: Variant = reward_summary_state.get("visible_rewards", [])
+	var item_rewards_value: Variant = reward_summary_state.get("item_rewards", [])
 	var perks: Array = perks_value if perks_value is Array else []
-	var rewards: Array = rewards_value if rewards_value is Array else []
+	var item_rewards: Array = item_rewards_value if item_rewards_value is Array else []
 	var body_top: float = rect.position.y + 198.0 * scale
 	var button_top: float = rect.position.y + rect.size.y - 90.0 * scale
 	var body_rect := Rect2(
 		Vector2(rect.position.x + 34.0 * scale, body_top),
 		Vector2(rect.size.x - 68.0 * scale, max(150.0 * scale, button_top - body_top - 24.0 * scale))
 	)
-	if perks.is_empty() and rewards.is_empty():
+	if perks.is_empty() and item_rewards.is_empty():
 		_draw_text(font, "획득 보상 없음", body_rect.position + Vector2(0.0, 30.0 * scale), int(round(20.0 * scale)), muted)
-	elif not perks.is_empty() and not rewards.is_empty():
+	elif not perks.is_empty() and not item_rewards.is_empty():
 		var column_gap: float = 24.0 * scale
 		var column_width: float = (body_rect.size.x - column_gap) * 0.5
 		_draw_reward_section(
@@ -1615,8 +1806,8 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 		)
 		_draw_reward_section(
 			font,
-			"획득 보상",
-			rewards,
+			"획득 아이템",
+			item_rewards,
 			Rect2(body_rect.position + Vector2(column_width + column_gap, 0.0), Vector2(column_width, body_rect.size.y)),
 			scale,
 			alpha
@@ -1624,7 +1815,7 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 	elif not perks.is_empty():
 		_draw_reward_section(font, "획득 퍽", perks, body_rect, scale, alpha)
 	else:
-		_draw_reward_section(font, "획득 보상", rewards, body_rect, scale, alpha)
+		_draw_reward_section(font, "획득 아이템", item_rewards, body_rect, scale, alpha)
 
 	_draw_scroll_buttons(rect, scale, font, alpha)
 
@@ -1633,40 +1824,6 @@ func _draw_metric_tile(font: Font, rect: Rect2, title: String, value: String, ti
 	_draw_panel(rect, Color(0.90, 0.98, 1.0, 0.22 * alpha), Color(0.04, 0.82, 0.96, 0.35 * alpha), 1.2, 10.0)
 	_draw_text(font, title, rect.position + Vector2(16.0, 25.0) * (rect.size.y / 78.0), int(round(18.0 * rect.size.y / 78.0)), title_color)
 	_draw_text(font, value, rect.position + Vector2(16.0, 61.0) * (rect.size.y / 78.0), int(round(30.0 * rect.size.y / 78.0)), value_color)
-
-
-func _draw_perk_info_tile(font: Font, rect: Rect2, summary: Dictionary, ui_scale: float, alpha: float) -> void:
-	var kind: String = str(summary.get("kind", "empty"))
-	var border := Color(0.04, 0.82, 0.96, 0.40 * alpha)
-	if kind == "perk":
-		border = Color(0.30, 0.58, 1.0, 0.54 * alpha)
-	elif kind == "starpoint":
-		border = Color(1.0, 0.78, 0.28, 0.54 * alpha)
-	_draw_panel(rect, Color(0.92, 0.98, 1.0, 0.24 * alpha), border, 1.2, 10.0 * ui_scale)
-
-	var eyebrow: String = str(summary.get("eyebrow", "퍽 정보"))
-	var title: String = str(summary.get("title", "획득 퍽 없음"))
-	var detail: String = str(summary.get("detail", ""))
-	var label_color := Color(0.16, 0.30, 0.36, alpha * 0.92)
-	var title_color := Color(0.04, 0.24, 0.30, alpha)
-	if kind == "starpoint":
-		title_color = Color(0.42, 0.26, 0.02, alpha)
-	elif kind == "perk":
-		title_color = Color(0.04, 0.20, 0.44, alpha)
-
-	_draw_text(font, eyebrow, rect.position + Vector2(14.0, 22.0) * ui_scale, int(round(15.0 * ui_scale)), label_color, 0.0)
-	_draw_text(font, title, rect.position + Vector2(14.0, 48.0) * ui_scale, StageClearResultTextLayoutHelper.fit_font_size(font, title, rect.size.x - 28.0 * ui_scale, int(round(22.0 * ui_scale)), int(round(13.0 * ui_scale))), title_color, 0.0)
-	_draw_wrapped_text(
-		font,
-		detail,
-		rect.position + Vector2(14.0, 72.0) * ui_scale,
-		int(round(13.0 * ui_scale)),
-		Color(0.18, 0.27, 0.30, alpha * 0.88),
-		rect.size.x - 28.0 * ui_scale,
-		2,
-		15.0 * ui_scale,
-		0.0
-	)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1793,7 +1950,20 @@ func _draw_reward_source_chip(font: Font, reward: Dictionary, rect: Rect2, scale
 func _draw_reward_card_icon(reward: Dictionary, rect: Rect2, scale: float, alpha: float) -> void:
 	var reward_type: String = str(reward.get("type", ""))
 	if reward_type == "starpoint":
-		_draw_star_polygon(rect.get_center(), 25.0 * scale, 11.0 * scale, Color(1.0, 0.82, 0.24, alpha), Color(0.50, 0.28, 0.04, alpha), max(1.5, 1.8 * scale))
+		var star_radius: float = max(8.0 * scale, min(rect.size.x, rect.size.y) * 0.22)
+		var card_visual_state: Dictionary = StageClearResultRewardVisualResolver.get_reward_starpoint_visual_state(
+			int(reward.get("amount", 1)),
+			rect.get_center(),
+			star_radius / 34.0,
+			alpha,
+			1.0,
+			timer,
+			0.0
+		)
+		card_visual_state["star_center"] = rect.get_center()
+		card_visual_state["star_radius"] = star_radius
+		card_visual_state["inner_radius"] = star_radius * 0.5
+		_draw_ingame_starpoint_visual(card_visual_state, false)
 		return
 	if StageClearResultSummaryBuilder.is_perk_reward(reward):
 		var perk_id: String = StageClearResultSummaryBuilder.get_reward_perk_id(reward)
@@ -1924,6 +2094,8 @@ func _handle_player_victory_click(mouse_position: Vector2) -> bool:
 
 
 func _handle_dalji_click(mouse_position: Vector2) -> bool:
+	if current_stage != 1:
+		return false
 	var view_size: Vector2 = size
 	if view_size == Vector2.ZERO:
 		view_size = _get_view_size()
@@ -1946,6 +2118,33 @@ func _handle_dalji_click(mouse_position: Vector2) -> bool:
 	_dalji_click_reaction_timer = 0.0
 	_dalji_dialogue_timer = DALJI_CLICK_DIALOGUE_DURATION
 	_play_dalji_click_voice()
+	queue_redraw()
+	return true
+
+
+func _handle_stage2_boss_defeat_click(mouse_position: Vector2) -> bool:
+	if not _is_stage2_result_boss() or _stage2_boss_defeat_click_reaction_sheet == null:
+		return false
+	var view_size: Vector2 = size
+	if view_size == Vector2.ZERO:
+		view_size = _get_view_size()
+	@warning_ignore("shadowed_variable_base_class")
+	var scale: float = _get_layout_scale(view_size)
+	var click_rect: Rect2 = StageClearResultLayoutHelper.get_stage2_boss_result_draw_rect(view_size, scale)
+	if not click_rect.has_point(mouse_position):
+		return false
+	if StageClearResultClickReactionState.is_reaction_active(
+		_stage2_boss_defeat_click_reaction_timer,
+		STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
+	):
+		queue_redraw()
+		return true
+	_stage2_boss_defeat_click_transition_base_frame = StageClearResultClickReactionState.get_base_frame(
+		timer,
+		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT
+	)
+	_stage2_boss_defeat_click_reaction_timer = 0.0
 	queue_redraw()
 	return true
 
@@ -1988,6 +2187,17 @@ func _draw_player_victory_sheet_frame(sheet: Texture2D, frame: int, rect: Rect2,
 	draw_texture_rect_region(sheet, rect, source, Color(1.0, 1.0, 1.0, alpha), false, true)
 
 
+func _draw_stage2_boss_result_sheet_frame(sheet: Texture2D, frame: int, rect: Rect2, alpha: float) -> void:
+	if sheet == null or alpha <= 0.001:
+		return
+	var source: Rect2 = StageClearResultLayoutHelper.sheet_source_rect(
+		frame,
+		STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS,
+		STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE
+	)
+	draw_texture_rect_region(sheet, rect, source, Color(1.0, 1.0, 1.0, alpha), false, true)
+
+
 func _player_victory_reaction_state() -> Dictionary:
 	return StageClearResultClickReactionState.get_reaction_state(
 		timer,
@@ -2001,6 +2211,22 @@ func _player_victory_reaction_state() -> Dictionary:
 		PLAYER_VICTORY_CLICK_RETURN_HOLD_DURATION,
 		PLAYER_VICTORY_CLICK_RETURN_FADE_DURATION,
 		PLAYER_VICTORY_CLICK_TOTAL_DURATION
+	)
+
+
+func _stage2_boss_defeat_reaction_state() -> Dictionary:
+	return StageClearResultClickReactionState.get_reaction_state(
+		timer,
+		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL,
+		STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT,
+		_stage2_boss_defeat_click_reaction_timer,
+		STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION,
+		STAGE2_BOSS_DEFEAT_CLICK_FRAME_INTERVAL,
+		STAGE2_BOSS_DEFEAT_CLICK_TRANSITION_DURATION,
+		_stage2_boss_defeat_click_transition_base_frame,
+		STAGE2_BOSS_DEFEAT_CLICK_RETURN_HOLD_DURATION,
+		STAGE2_BOSS_DEFEAT_CLICK_RETURN_FADE_DURATION,
+		STAGE2_BOSS_DEFEAT_CLICK_TOTAL_DURATION
 	)
 
 
@@ -2045,13 +2271,15 @@ func _apply_standalone_preview_defaults() -> void:
 	boss_score = 0
 	current_stage = 1
 	reward_plan = {
-		"summary": "확정 신화 아이템 + 일반 아이템 2개",
+		"summary": "아이템 상자 5개",
 		"boxes": [
-			{"kind": "mythic"},
+			{"kind": "normal"},
+			{"kind": "normal"},
+			{"kind": "normal"},
 			{"kind": "normal"},
 			{"kind": "normal"},
 		],
-		"reward_count": 3,
+		"reward_count": 5,
 	}
 
 
@@ -2115,22 +2343,28 @@ func _load_textures() -> void:
 			"background_texture": _background_texture,
 			"dalji_defeat_sheet": _dalji_defeat_sheet,
 			"dalji_click_reaction_sheet": _dalji_click_reaction_sheet,
+			"stage2_boss_defeat_live2d_sheet": _stage2_boss_defeat_live2d_sheet,
+			"stage2_boss_defeat_click_reaction_sheet": _stage2_boss_defeat_click_reaction_sheet,
 			"player_victory_sheet": _player_victory_sheet,
 			"player_victory_click_reaction_sheet": _player_victory_click_reaction_sheet,
 			"scroll_texture": _scroll_texture,
 			"result_box_sheet_common": _result_box_sheet_common,
 			"result_box_sheet_mythic": _result_box_sheet_mythic,
+			"result_box_sheet_guaranteed_mythic": _result_box_sheet_guaranteed_mythic,
 		},
 		_result_asset_paths()
 	)
 	_background_texture = loaded.get("background_texture") as Texture2D
 	_dalji_defeat_sheet = loaded.get("dalji_defeat_sheet") as Texture2D
 	_dalji_click_reaction_sheet = loaded.get("dalji_click_reaction_sheet") as Texture2D
+	_stage2_boss_defeat_live2d_sheet = loaded.get("stage2_boss_defeat_live2d_sheet") as Texture2D
+	_stage2_boss_defeat_click_reaction_sheet = loaded.get("stage2_boss_defeat_click_reaction_sheet") as Texture2D
 	_player_victory_sheet = loaded.get("player_victory_sheet") as Texture2D
 	_player_victory_click_reaction_sheet = loaded.get("player_victory_click_reaction_sheet") as Texture2D
 	_scroll_texture = loaded.get("scroll_texture") as Texture2D
 	_result_box_sheet_common = loaded.get("result_box_sheet_common") as Texture2D
 	_result_box_sheet_mythic = loaded.get("result_box_sheet_mythic") as Texture2D
+	_result_box_sheet_guaranteed_mythic = loaded.get("result_box_sheet_guaranteed_mythic") as Texture2D
 
 
 func _load_audio() -> void:
