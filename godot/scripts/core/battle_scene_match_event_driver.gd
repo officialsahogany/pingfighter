@@ -12,7 +12,7 @@ const STAGE_TRANSITION_LOADING_MIN_SECONDS := 2.20
 const STAGE_TRANSITION_LOADING_START_PROGRESS := 0.0
 const STAGE_TRANSITION_LOADING_PRE_COMPLETE_PROGRESS := 0.92
 const STAGE_TRANSITION_LOADING_FINAL_REVEAL_SECONDS := 0.24
-const STAGE_TRANSITION_WORK_STEP_DONE := 6
+const STAGE_TRANSITION_WORK_STEP_DONE := 8
 
 var _fallback_boss_health_flow: Object = BattleSceneBossHealthFlow.new()
 var _stage_transition_loading_active := false
@@ -236,6 +236,7 @@ func _begin_stage_transition_loading(owner: Object, registry: Object, next_stage
 	if owner != null:
 		owner.set("current_stage", next_stage)
 	_clear_owner_weather(owner)
+	_clear_weather_runtime_state_for_stage_transition(registry)
 	_sync_selection_stage(owner, next_stage)
 	var resources: Object = _get_instance(registry, "battle_resources")
 	if resources != null and resources.has_method("reset_transition_texture_prewarm"):
@@ -247,6 +248,7 @@ func _begin_stage_transition_loading(owner: Object, registry: Object, next_stage
 func _apply_demo_stage_transition(owner: Object, registry: Object, next_stage: int) -> void:
 	owner.set("current_stage", next_stage)
 	_clear_owner_weather(owner)
+	_clear_weather_runtime_state_for_stage_transition(registry)
 	_sync_selection_stage(owner, next_stage)
 	_configure_ball_physics(owner, registry, next_stage)
 	_reset_match_for_stage_transition(owner, registry)
@@ -259,6 +261,7 @@ func _apply_demo_stage_transition(owner: Object, registry: Object, next_stage: i
 func _run_stage_transition_loading_work_step(owner: Object, registry: Object, next_stage: int) -> bool:
 	owner.set("current_stage", next_stage)
 	_clear_owner_weather(owner)
+	_clear_weather_runtime_state_for_stage_transition(registry)
 	_sync_selection_stage(owner, next_stage)
 	match _stage_transition_loading_work_step:
 		0:
@@ -274,7 +277,11 @@ func _run_stage_transition_loading_work_step(owner: Object, registry: Object, ne
 			if not _prewarm_stage_transition_runtime_resources(owner, registry):
 				return false
 		5:
-			_restart_stage_audio(registry, next_stage)
+			_stop_stage_gameplay_audio(registry)
+		6:
+			_stop_stage_bgm(registry)
+		7:
+			_play_stage_bgm(registry, next_stage)
 		_:
 			return true
 	_stage_transition_loading_work_step += 1
@@ -350,6 +357,14 @@ func _clear_owner_weather(owner: Object) -> void:
 	owner.set("weather_type", "")
 	owner.set("weather_event_active", false)
 	owner.set("weather_event_context", {})
+
+
+func _clear_weather_runtime_state_for_stage_transition(registry: Object) -> void:
+	var weather_state: Object = _get_instance(registry, "weather_event_state")
+	if weather_state == null:
+		return
+	if weather_state.has_method("reset"):
+		weather_state.reset()
 
 
 func _sync_selection_stage(owner: Object, stage_id: int) -> void:
@@ -436,12 +451,30 @@ func _prewarm_stage_transition_runtime_resources(owner: Object, registry: Object
 
 
 func _restart_stage_audio(registry: Object, stage_id: int) -> void:
+	_stop_stage_gameplay_audio(registry)
+	_stop_stage_bgm(registry)
+	_play_stage_bgm(registry, stage_id)
+
+
+func _stop_stage_gameplay_audio(registry: Object) -> void:
 	var audio: Object = _get_instance(registry, "game_audio")
 	if audio == null:
 		return
 	GameplayLoopAudioCleanup.stop_all(audio)
+
+
+func _stop_stage_bgm(registry: Object) -> void:
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio == null:
+		return
 	if audio.has_method("stop_bgm"):
 		audio.stop_bgm()
+
+
+func _play_stage_bgm(registry: Object, stage_id: int) -> void:
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio == null:
+		return
 	if audio.has_method("play_stage_bgm"):
 		audio.play_stage_bgm(stage_id)
 

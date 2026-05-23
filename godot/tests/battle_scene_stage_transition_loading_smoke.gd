@@ -98,9 +98,13 @@ class FakeBattleResources:
 class FakeGameAudio:
 	extends RefCounted
 
+	var gameplay_loop_stop_calls := 0
 	var stop_bgm_calls := 0
 	var play_stage_bgm_calls := 0
 	var last_stage := 0
+
+	func stop_dash_delay() -> void:
+		gameplay_loop_stop_calls += 1
 
 	func stop_bgm() -> void:
 		stop_bgm_calls += 1
@@ -158,6 +162,15 @@ class FakePrewarmController:
 		monolithic_calls += 1
 
 
+class FakeWeatherState:
+	extends RefCounted
+
+	var reset_calls := 0
+
+	func reset() -> void:
+		reset_calls += 1
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -170,6 +183,7 @@ class FakeRegistry:
 	var loading_renderer := FakeLoadingRenderer.new()
 	var perf_logger := FakePerfLogger.new()
 	var prewarm_controller := FakePrewarmController.new()
+	var weather_state := FakeWeatherState.new()
 
 	func get_instance(key: String) -> Object:
 		match key:
@@ -191,6 +205,8 @@ class FakeRegistry:
 				return perf_logger
 			"battle_boot_resource_prewarm_controller":
 				return prewarm_controller
+			"weather_event_state":
+				return weather_state
 		return null
 
 
@@ -218,6 +234,8 @@ func _verify_stage_clear_to_stage2_uses_loading_gate() -> void:
 
 	_expect(bool(driver.is_stage_transition_loading_active()), "player stage clear should enter stage-transition loading")
 	_expect(owner.current_stage == 2, "stage-transition loading should switch the visible loading art to stage 2")
+	_expect(owner.weather_type == "" and not owner.weather_event_active and owner.weather_event_context.is_empty(), "stage-transition loading should clear owner weather flags immediately")
+	_expect(registry.weather_state.reset_calls == 1, "stage-transition loading should clear residual weather draw state immediately")
 	_expect(registry.match_flow_driver.reset_for_stage_transition_calls == 0, "transition work should wait until loading was drawn once")
 	_expect(registry.match_flow_driver.reset_game_calls == 0, "stage-clear advance should not invoke the full match reset path")
 	_expect(registry.battle_resources.load_all_calls == 0, "battle textures should not reload before the first loading draw")
@@ -249,6 +267,7 @@ func _verify_stage_clear_to_stage2_uses_loading_gate() -> void:
 
 	driver.update_stage_transition_loading(0.05, owner, registry)
 	_expect(registry.ball_physics.configure_calls == 1 and registry.ball_physics.last_stage == 2, "transition work should start with the ball-physics stage chunk")
+	_expect(registry.weather_state.reset_calls > 1, "transition work should keep residual weather state cleared during loading")
 	_expect(registry.match_flow_driver.reset_for_stage_transition_calls == 0, "stage-transition reset should be split out of the first work chunk")
 	_expect(registry.battle_resources.load_all_calls == 0, "battle textures should wait for their own transition work chunk")
 	_expect(registry.perf_logger.labels.has("process.frame.stage_transition_loading.step.0"), "transition work should expose the ball-physics chunk timing")
@@ -272,9 +291,17 @@ func _verify_stage_clear_to_stage2_uses_loading_gate() -> void:
 	_expect(registry.game_audio.play_stage_bgm_calls == 0, "stage audio restart should run on the next chunk after staged prewarm")
 	_expect(registry.perf_logger.labels.has("process.frame.stage_transition_loading.step.4"), "transition work should expose staged runtime prewarm timing")
 	driver.update_stage_transition_loading(0.05, owner, registry)
-	_expect(registry.game_audio.stop_bgm_calls == 1, "stage-transition work should stop the previous BGM")
+	_expect(registry.game_audio.gameplay_loop_stop_calls == 1, "stage-transition work should stop gameplay audio loops separately")
+	_expect(registry.game_audio.stop_bgm_calls == 0, "stage-transition BGM stop should wait for its own chunk")
+	_expect(registry.game_audio.play_stage_bgm_calls == 0, "stage-transition BGM start should wait for its own chunk")
+	_expect(registry.perf_logger.labels.has("process.frame.stage_transition_loading.step.5"), "transition work should expose gameplay audio cleanup timing")
+	driver.update_stage_transition_loading(0.05, owner, registry)
+	_expect(registry.game_audio.stop_bgm_calls == 1, "stage-transition work should stop the previous BGM separately")
+	_expect(registry.game_audio.play_stage_bgm_calls == 0, "stage-transition BGM start should wait until old BGM is stopped")
+	_expect(registry.perf_logger.labels.has("process.frame.stage_transition_loading.step.6"), "transition work should expose BGM stop timing")
+	driver.update_stage_transition_loading(0.05, owner, registry)
 	_expect(registry.game_audio.play_stage_bgm_calls == 1 and registry.game_audio.last_stage == 2, "stage-transition work should start stage 2 BGM")
-	_expect(registry.perf_logger.labels.has("process.frame.stage_transition_loading.step.5"), "transition work should expose stage audio restart timing")
+	_expect(registry.perf_logger.labels.has("process.frame.stage_transition_loading.step.7"), "transition work should expose stage BGM start timing")
 	_expect(bool(driver.is_stage_transition_loading_active()), "stage-transition loading should stay visible for its minimum duration")
 
 	var second_canvas := Node2D.new()
