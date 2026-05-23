@@ -60,7 +60,9 @@ func _verify_recent_start_helper() -> void:
 
 func _verify_draw_paths_use_render_caps() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_field_effect_renderer.gd")
+	var ragnarok_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_ragnarok_field_renderer.gd")
 	_expect(source != "", "mythic item field renderer source should be readable")
+	_expect(ragnarok_source != "", "mythic item Ragnarok field renderer source should be readable")
 	_expect(
 		_function_body(source, "func draw_venom_mist_effect").find("_recent_start(particles, MAX_RENDERED_VENOM_MIST_PARTICLES)") >= 0,
 		"Venom Mist draw should cap decorative fog particles"
@@ -130,10 +132,10 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Poseidon explosion draw should cap charge particles"
 	)
 	_expect(
-		_function_body(source, "func draw_ragnarok_sparks").find("_recent_start(sparks, MAX_RENDERED_RAGNAROK_SPARKS)") >= 0,
+		_function_body(ragnarok_source, "func draw_ragnarok_sparks").find("_recent_start(sparks, spark_render_limit)") >= 0,
 		"Ragnarok spark draw should cap decorative sparks"
 	)
-	var ragnarok_stun_body := _function_body(source, "func draw_ragnarok_electric_stun_overlay")
+	var ragnarok_stun_body := _function_body(ragnarok_source, "func draw_ragnarok_electric_stun_overlay")
 	_expect(ragnarok_stun_body.find("randf") < 0, "Ragnarok electric stun draw should not call random float helpers during draw")
 	_expect(ragnarok_stun_body.find("randi") < 0, "Ragnarok electric stun draw should not call random integer helpers during draw")
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
