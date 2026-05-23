@@ -30,11 +30,14 @@ func _verify_prewarm_assets() -> void:
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_pistol_firearm_fire_recoil_sheet_autosprite_v1_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the pistol recoil sheet")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_ak47_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the AK-47 HUD icon")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_ak47_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the AK-47 recoil sheet")
+	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_net_gun_firearm_icon_imagegen_v1.png") is Texture2D, "firearm selector prewarm should cache the net-gun HUD icon")
+	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_net_gun_firearm_fire_recoil_sheet_autosprite_v1.png") is Texture2D, "firearm selector prewarm should cache the net-gun recoil sheet")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_bazooka_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the bazooka HUD icon")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_bazooka_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the bazooka recoil sheet")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_bowling_trap_firearm_icon_imagegen_v1.png") is Texture2D, "firearm selector prewarm should cache the imagegen bowling trap HUD icon")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_bowling_trap_firearm_install_sheet_autosprite_v1.png") is Texture2D, "firearm selector prewarm should cache the bowling-trap HUD install sheet")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/effects/commando_bowling_trap_capture_sheet_autosprite_v1.png") is Texture2D, "firearm selector prewarm should cache the bowling-trap HUD capture sheet")
+	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_suicide_drone_firearm_icon_imagegen_v1.png") is Texture2D, "firearm selector prewarm should cache the imagegen suicide-drone HUD icon")
 
 
 func _verify_single_fixed_panel_state() -> void:
@@ -46,6 +49,7 @@ func _verify_single_fixed_panel_state() -> void:
 	_expect(bool(skill_config.unlock_and_equip_skill("ak47")), "ak47 should equip")
 	controller.sync_equipped_permanent(skill_config)
 	_expect(bool(controller.add_rental_weapon("fire_support", 1, 1)), "rental fire support should be grantable")
+	_expect(bool(controller.add_rental_weapon("suicide_drone", 4, 4)), "rental suicide drone should be grantable")
 	_expect(bool(controller.set_current_weapon("bazooka")), "bazooka should be selectable")
 
 	var center := Vector2(90.0, 260.0)
@@ -101,6 +105,37 @@ func _verify_single_fixed_panel_state() -> void:
 	var spent_bazooka_ammo: Dictionary = _get_dict(spent_bazooka_panel.get("ammo_icon_state", {}))
 	_expect(int(spent_bazooka_ammo.get("filled_slots", -1)) == 3, "spent bazooka ammo should remove one filled icon instead of only changing text")
 
+	_expect(bool(controller.set_current_weapon("net_gun")), "net gun should be selectable for HUD art smoke")
+	var net_gun_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
+	_expect(not bool(net_gun_panel.get("net_gun_fire_recoil_active", true)), "idle net-gun panel should use the static imagegen net-gun icon")
+	var firing_net_gun_panel: Dictionary = renderer.build_panel_state(center, 1.0, {
+		"commando_weapon_controller": controller,
+		"commando_firearm_weapon_fire_sheet_state": {
+			"active": true,
+			"weapon_id": "net_gun",
+			"timer_frames": 40.0,
+			"timer_max_frames": 40.0,
+			"frame_count": 8,
+		},
+	})
+	_expect(bool(firing_net_gun_panel.get("net_gun_fire_recoil_active", false)), "firing net-gun panel should activate the AutoSprite HUD recoil sheet")
+	_expect(int(firing_net_gun_panel.get("net_gun_fire_recoil_frame", -1)) == 0, "fresh net-gun HUD fire frame should start at the first sheet frame")
+	_expect(int(firing_net_gun_panel.get("net_gun_fire_recoil_frame_count", 0)) == 16, "net-gun HUD fire sheet should expose 16 frames")
+	_expect(float(firing_net_gun_panel.get("net_gun_fire_recoil_draw_scale", 0.0)) > 1.10, "net-gun HUD fire sheet should compensate AutoSprite padding so it does not shrink below the static icon")
+	_expect(is_equal_approx(float(firing_net_gun_panel.get("net_gun_fire_recoil_kick_ratio", 999.0)), 0.0), "fresh net-gun HUD fire sheet should begin from the neutral recoil position")
+	var mid_net_gun_panel: Dictionary = renderer.build_panel_state(center, 1.0, {
+		"commando_weapon_controller": controller,
+		"commando_firearm_weapon_fire_sheet_state": {
+			"active": true,
+			"weapon_id": "net_gun",
+			"timer_frames": 20.0,
+			"timer_max_frames": 40.0,
+			"frame_count": 8,
+		},
+	})
+	_expect(int(mid_net_gun_panel.get("net_gun_fire_recoil_frame", -1)) == 8, "mid net-gun HUD fire frame should advance through the 16-frame sheet")
+	_expect(float(mid_net_gun_panel.get("net_gun_fire_recoil_kick_ratio", 0.0)) < -0.02, "mid net-gun HUD fire frame should kick the gun backward for visible recoil")
+
 	_expect(bool(controller.set_current_weapon("fire_support")), "rental fire support should be selectable")
 	var second: Dictionary = renderer.build_panel_state(center, 1.0, context)
 	var second_rect: Rect2 = _get_rect(second.get("rect", Rect2()))
@@ -112,19 +147,25 @@ func _verify_single_fixed_panel_state() -> void:
 	var tiny_rect: Rect2 = _get_rect(tiny_scale.get("rect", Rect2()))
 	_expect(_same_vector(tiny_rect.size, Vector2(37.4, 61.6)), "selector should keep a stable minimum compact-slot size at tiny scales")
 
+	_expect(bool(controller.set_current_weapon("suicide_drone")), "suicide drone should be selectable for HUD art smoke")
+	var suicide_drone_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
+	_expect(str(suicide_drone_panel.get("suicide_drone_icon_path", "")) == "res://assets/sprites/hud/commando_suicide_drone_firearm_icon_imagegen_v1.png", "firearm selector should expose the imagegen suicide-drone HUD icon path")
+	var suicide_drone_ammo: Dictionary = _get_dict(suicide_drone_panel.get("ammo_icon_state", {}))
+	_expect(int(suicide_drone_ammo.get("display_slots", 0)) == 4 and int(suicide_drone_ammo.get("filled_slots", 0)) == 4, "suicide drone ammo icons should expose one filled icon per drone")
+
 	_expect(bool(skill_config.swap_equipped_permanent("net_gun", "commando_pistol")), "Commando pistol should equip for ammo icon smoke")
 	controller.sync_equipped_permanent(skill_config)
 	_expect(bool(controller.set_current_weapon("commando_pistol")), "Commando pistol should be selectable for ammo icon smoke")
 	var pistol_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
 	var pistol_ammo: Dictionary = _get_dict(pistol_panel.get("ammo_icon_state", {}))
 	_expect(str(pistol_panel.get("title", "")) == "베레타", "Commando pistol selector should use the Beretta display name")
-	_expect(int(pistol_ammo.get("display_slots", 0)) == 4, "Commando pistol should expose four bullet icon slots")
-	_expect(int(pistol_ammo.get("filled_slots", 0)) == 4, "full Commando pistol should draw four filled bullet icons")
-	_expect(int(pistol_ammo.get("magazines_max", 0)) == 2 and int(pistol_ammo.get("magazines_current", 0)) == 2, "Beretta should expose two spare magazine icons for 12 total shots")
+	_expect(int(pistol_ammo.get("display_slots", 0)) == 8, "Commando pistol should expose eight bullet icon slots")
+	_expect(int(pistol_ammo.get("filled_slots", 0)) == 8, "full Commando pistol should draw eight filled bullet icons")
+	_expect(int(pistol_ammo.get("magazines_max", -1)) == 0 and int(pistol_ammo.get("magazines_current", -1)) == 0, "Beretta should not expose spare magazine icons")
 	_expect(bool(controller.consume_current_weapon_ammo()), "Commando pistol ammo should be consumable for icon smoke")
 	var spent_pistol_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
 	var spent_pistol_ammo: Dictionary = _get_dict(spent_pistol_panel.get("ammo_icon_state", {}))
-	_expect(int(spent_pistol_ammo.get("filled_slots", -1)) == 3, "spent Commando pistol ammo should remove one filled bullet icon")
+	_expect(int(spent_pistol_ammo.get("filled_slots", -1)) == 7, "spent Commando pistol ammo should remove one filled bullet icon")
 
 	_expect(bool(controller.set_current_weapon("ak47")), "AK-47 should be selectable for compressed ammo icon smoke")
 	var ak47_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
@@ -333,6 +374,12 @@ func _verify_firearm_png_assets(panel_state: Dictionary) -> void:
 	var ak47_sheet_path: String = str(panel_state.get("ak47_fire_recoil_sheet_path", ""))
 	_expect(ak47_sheet_path == "res://assets/sprites/hud/commando_ak47_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png", "firearm selector should expose the Real-ESRGAN AutoSprite AK-47 recoil sheet path")
 	_verify_alpha_png_asset(ak47_sheet_path, Vector2i(4096, 4096), "Real-ESRGAN AutoSprite AK-47 recoil sheet")
+	var net_gun_icon_path: String = str(panel_state.get("net_gun_icon_path", ""))
+	_expect(net_gun_icon_path == "res://assets/sprites/hud/commando_net_gun_firearm_icon_imagegen_v1.png", "firearm selector should expose the imagegen net-gun HUD icon path")
+	_verify_alpha_png_asset(net_gun_icon_path, Vector2i(1024, 1024), "imagegen net-gun HUD icon")
+	var net_gun_sheet_path: String = str(panel_state.get("net_gun_fire_recoil_sheet_path", ""))
+	_expect(net_gun_sheet_path == "res://assets/sprites/hud/commando_net_gun_firearm_fire_recoil_sheet_autosprite_v1.png", "firearm selector should expose the AutoSprite net-gun recoil sheet path")
+	_verify_alpha_png_asset(net_gun_sheet_path, Vector2i(2048, 2048), "AutoSprite net-gun HUD recoil sheet")
 	var bazooka_icon_path: String = str(panel_state.get("bazooka_icon_path", ""))
 	_expect(bazooka_icon_path == "res://assets/sprites/hud/commando_bazooka_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png", "firearm selector should expose the Real-ESRGAN bazooka HUD icon path")
 	_verify_alpha_png_asset(bazooka_icon_path, Vector2i(1024, 1024), "Real-ESRGAN bazooka HUD icon")
@@ -348,6 +395,9 @@ func _verify_firearm_png_assets(panel_state: Dictionary) -> void:
 	var bowling_trap_capture_path: String = str(panel_state.get("bowling_trap_capture_sheet_path", ""))
 	_expect(bowling_trap_capture_path == "res://assets/sprites/effects/commando_bowling_trap_capture_sheet_autosprite_v1.png", "firearm selector should expose the AutoSprite bowling trap capture sheet path")
 	_verify_alpha_png_asset(bowling_trap_capture_path, Vector2i(2048, 2048), "AutoSprite bowling trap HUD capture sheet")
+	var suicide_drone_icon_path: String = str(panel_state.get("suicide_drone_icon_path", ""))
+	_expect(suicide_drone_icon_path == "res://assets/sprites/hud/commando_suicide_drone_firearm_icon_imagegen_v1.png", "firearm selector should expose the imagegen suicide-drone HUD icon path")
+	_verify_alpha_png_asset(suicide_drone_icon_path, Vector2i(1024, 1024), "imagegen suicide-drone HUD icon")
 
 
 func _verify_alpha_png_asset(path: String, expected_size: Vector2i, label: String) -> void:

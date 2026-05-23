@@ -151,13 +151,7 @@ func _has_refill_room(weapon_data: Dictionary) -> bool:
 	if str(weapon_data.get("weapon_id", "")) == "commando_pistol":
 		var commando_pistol_ammo_current: int = int(weapon_data.get("ammo_current", -1))
 		var commando_pistol_ammo_max: int = int(weapon_data.get("ammo_max", -1))
-		var magazines_current: int = int(weapon_data.get("magazines_current", -1))
-		var magazines_max: int = int(weapon_data.get("magazines_max", -1))
-		return (
-			bool(weapon_data.get("reloading", false))
-			or (commando_pistol_ammo_max > 0 and commando_pistol_ammo_current >= 0 and commando_pistol_ammo_current < commando_pistol_ammo_max)
-			or (magazines_max > 0 and magazines_current >= 0 and magazines_current < magazines_max)
-		)
+		return commando_pistol_ammo_max > 0 and commando_pistol_ammo_current >= 0 and commando_pistol_ammo_current < commando_pistol_ammo_max
 	var ammo_current: int = int(weapon_data.get("ammo_current", -1))
 	var ammo_max: int = int(weapon_data.get("ammo_max", -1))
 	return ammo_max > 0 and ammo_current >= 0 and ammo_current < ammo_max
@@ -165,8 +159,10 @@ func _has_refill_room(weapon_data: Dictionary) -> bool:
 
 func _refill_current_weapon(weapon_controller: Object, weapon_id: String) -> bool:
 	if weapon_id == "pistol":
+		if weapon_controller != null and weapon_controller.has_method("refill_weapon_to_max"):
+			return bool(weapon_controller.refill_weapon_to_max("pistol"))
 		if weapon_controller != null and weapon_controller.has_method("refill_weapon"):
-			return bool(weapon_controller.refill_weapon("pistol", 1))
+			return bool(weapon_controller.refill_weapon("pistol", 999))
 		return false
 	if weapon_controller != null and weapon_controller.has_method("refill_current_permanent_to_max"):
 		return bool(weapon_controller.refill_current_permanent_to_max())

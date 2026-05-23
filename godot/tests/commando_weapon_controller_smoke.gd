@@ -20,10 +20,20 @@ class FakeInputReader:
 		return snapshot
 
 
+class FakeRoundState:
+	extends RefCounted
+
+	var waiting_for_serve := true
+
+	func is_waiting_for_serve() -> bool:
+		return waiting_for_serve
+
+
 func _init() -> void:
 	_verify_permanent_and_rental_weapon_model()
 	_verify_late_firearm_python_ammo_counts()
 	_verify_firearm_runtime_consumes_after_readiness()
+	_verify_serve_wait_input_does_not_fire_firearms()
 	_verify_commando_pistol_afterdelay_locks_horizontal_input()
 	_verify_ak47_hold_fire_slows_horizontal_movement()
 	_verify_supply_drop_grants_one_rental_weapon()
@@ -147,6 +157,83 @@ func _verify_firearm_runtime_consumes_after_readiness() -> void:
 	_expect(runtime.update_input({"action_pressed": true, "down_pressed": true}, 500.0, {}, deps).is_empty(), "supply-drop hold input should not also fire")
 
 
+func _verify_serve_wait_input_does_not_fire_firearms() -> void:
+	var pistol_controller := CommandoWeaponController.new()
+	var pistol_runtime := CommandoFirearmRuntime.new()
+	var pistol_round := FakeRoundState.new()
+	var pistol_deps := {
+		"commando_weapon_controller": pistol_controller,
+		"round_state": pistol_round,
+	}
+	var serve_press: Dictionary = pistol_runtime.update_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		{},
+		pistol_deps
+	)
+	_expect(serve_press.is_empty(), "serve-wait launch input should not queue the base pistol")
+	_expect(int(pistol_controller.get_current_weapon_data().get("ammo_current", -1)) == 4, "serve-wait base pistol input should not spend ammo")
+	pistol_round.waiting_for_serve = false
+	var held_after_serve: Dictionary = pistol_runtime.update_input(
+		{"action_pressed": true, "action_just_pressed": false},
+		500.0,
+		{},
+		pistol_deps
+	)
+	_expect(held_after_serve.is_empty(), "held serve input should stay suppressed after launch until release")
+	_expect(int(pistol_controller.get_current_weapon_data().get("ammo_current", -1)) == 4, "held serve input should still preserve base pistol ammo")
+	pistol_runtime.update_input({"action_pressed": false, "action_just_released": true}, 500.0, {}, pistol_deps)
+	var fresh_pistol_press: Dictionary = pistol_runtime.update_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		{},
+		pistol_deps
+	)
+	_expect(bool(fresh_pistol_press.get("shot_queued", false)), "fresh post-serve press should still queue the base pistol")
+
+	var ak_config := CommandoSkillConfig.new()
+	var ak_state := CommandoSkillState.new()
+	var ak_controller := CommandoWeaponController.new()
+	var ak_runtime := CommandoFirearmRuntime.new()
+	var ak_round := FakeRoundState.new()
+	_expect(ak_config.unlock_and_equip_skill("ak47"), "AK-47 should unlock for serve-wait suppression smoke")
+	ak_controller.sync_equipped_permanent(ak_config)
+	_expect(ak_controller.set_current_weapon("ak47"), "AK-47 should be selected for serve-wait suppression smoke")
+	var ak_deps := {
+		"commando_weapon_controller": ak_controller,
+		"skill_state": ak_state,
+		"skill_config": ak_config,
+		"round_state": ak_round,
+	}
+	var ak_serve_press: Dictionary = ak_runtime.update_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		{},
+		ak_deps
+	)
+	_expect(ak_serve_press.is_empty(), "serve-wait launch input should not fire AK-47")
+	_expect(int(ak_controller.get_current_weapon_data().get("ammo_current", -1)) == 60, "serve-wait AK-47 input should not spend ammo")
+	ak_round.waiting_for_serve = false
+	var ak_held_after_serve: Dictionary = ak_runtime.update_input(
+		{"action_pressed": true, "action_just_pressed": false},
+		500.0,
+		{},
+		ak_deps
+	)
+	_expect(ak_held_after_serve.is_empty(), "held serve input should not start AK-47 auto-fire after launch")
+	_expect(int(ak_controller.get_current_weapon_data().get("ammo_current", -1)) == 60, "held serve input should preserve AK-47 ammo")
+	_expect(is_equal_approx(float(ak_runtime.get_movement_speed_multiplier()), 1.0), "held serve input should not leave AK-47 slowdown active")
+	ak_runtime.update_input({"action_pressed": false, "action_just_released": true}, 500.0, {}, ak_deps)
+	var fresh_ak_press: Dictionary = ak_runtime.update_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		{},
+		ak_deps
+	)
+	_expect(bool(fresh_ak_press.get("fired", false)), "fresh post-serve press should still fire AK-47")
+	_expect(int(ak_controller.get_current_weapon_data().get("ammo_current", -1)) == 59, "fresh AK-47 press should spend exactly one bullet")
+
+
 func _verify_commando_pistol_afterdelay_locks_horizontal_input() -> void:
 	var player := CommandoPlayerController.new()
 	var config := CommandoSkillConfig.new()
@@ -190,7 +277,7 @@ func _verify_commando_pistol_afterdelay_locks_horizontal_input() -> void:
 	_expect(is_equal_approx(moved_pos.x, 100.0), "Commando pistol 18-frame afterdelay should lock horizontal movement on the shot frame")
 	_expect(is_equal_approx(float(result.get("player_speed", -1.0)), 0.0), "Commando pistol afterdelay should zero normal movement speed")
 	_expect(bool(runtime.is_player_control_locked()), "Commando pistol runtime should expose active control lock")
-	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 3, "afterdelay movement lock shot should still spend one pistol bullet")
+	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 7, "afterdelay movement lock shot should still spend one pistol bullet")
 
 
 func _verify_ak47_hold_fire_slows_horizontal_movement() -> void:

@@ -200,9 +200,14 @@ func _build_doping_potion() -> Dictionary:
 		"color": Color(1.0, 0.42, 0.22),
 		"consumable": true,
 		"head_leg_multiplier": 2.0,
+		"fire_rate_multiplier": 0.5,
 		"pistol_cooldown_frames": 30,
 		"pistol_control_lock_frames": 9,
 		"pistol_speed_multiplier": 1.2,
+		"beretta_cooldown_frames": 15,
+		"ak47_fire_interval_frames": 3,
+		"bazooka_cooldown_frames": 60,
+		"bazooka_control_lock_frames": 15,
 		"supply_drop_only": true,
 	}
 

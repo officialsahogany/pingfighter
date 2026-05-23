@@ -7,11 +7,14 @@ const PISTOL_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_pistol_fire
 const PISTOL_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_pistol_firearm_fire_recoil_sheet_autosprite_v1_realesrgan_animev3_hq1024.png"
 const AK47_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_ak47_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png"
 const AK47_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_ak47_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png"
+const NET_GUN_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_net_gun_firearm_icon_imagegen_v1.png"
+const NET_GUN_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_net_gun_firearm_fire_recoil_sheet_autosprite_v1.png"
 const BAZOOKA_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_bazooka_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png"
 const BAZOOKA_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_bazooka_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png"
 const BOWLING_TRAP_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_bowling_trap_firearm_icon_imagegen_v1.png"
 const BOWLING_TRAP_INSTALL_SHEET_PATH := "res://assets/sprites/hud/commando_bowling_trap_firearm_install_sheet_autosprite_v1.png"
 const BOWLING_TRAP_CAPTURE_SHEET_PATH := "res://assets/sprites/effects/commando_bowling_trap_capture_sheet_autosprite_v1.png"
+const SUICIDE_DRONE_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_suicide_drone_firearm_icon_imagegen_v1.png"
 const PANEL_SIZE := Vector2(68.0, 112.0)
 const ICON_SIZE := Vector2(50.0, 50.0)
 const AMMO_AREA_SIZE := Vector2(58.0, 24.0)
@@ -47,6 +50,30 @@ const AK47_HUD_RECOIL_ROTATION_DEGREES_BY_FRAME := [
 	-2.0,
 	-1.0,
 	-0.4,
+	0.0,
+	0.0,
+]
+const NET_GUN_FIRE_RECOIL_GRID_COLS := 4
+const NET_GUN_FIRE_RECOIL_GRID_ROWS := 4
+const NET_GUN_FIRE_RECOIL_FRAME_COUNT := 16
+const NET_GUN_HUD_PICTURE_SCALE := 1.20
+const NET_GUN_HUD_PICTURE_Y_OFFSET := 0.0
+const NET_GUN_FIRE_RECOIL_DRAW_SCALE := 1.22
+const NET_GUN_HUD_RECOIL_KICK_BY_FRAME := [
+	0.0,
+	-0.030,
+	-0.060,
+	-0.085,
+	-0.075,
+	-0.060,
+	-0.050,
+	-0.040,
+	-0.032,
+	-0.024,
+	-0.016,
+	-0.010,
+	-0.006,
+	-0.003,
 	0.0,
 	0.0,
 ]
@@ -86,11 +113,14 @@ func prewarm_assets_step() -> bool:
 		PISTOL_FIRE_RECOIL_SHEET_PATH,
 		AK47_ICON_TEXTURE_PATH,
 		AK47_FIRE_RECOIL_SHEET_PATH,
+		NET_GUN_ICON_TEXTURE_PATH,
+		NET_GUN_FIRE_RECOIL_SHEET_PATH,
 		BAZOOKA_ICON_TEXTURE_PATH,
 		BAZOOKA_FIRE_RECOIL_SHEET_PATH,
 		BOWLING_TRAP_ICON_TEXTURE_PATH,
 		BOWLING_TRAP_INSTALL_SHEET_PATH,
 		BOWLING_TRAP_CAPTURE_SHEET_PATH,
+		SUICIDE_DRONE_ICON_TEXTURE_PATH,
 	]
 	if _prewarm_assets_step_index == 0:
 		_get_hud_frame_texture()
@@ -150,11 +180,14 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 		"pistol_fire_recoil_sheet_path": PISTOL_FIRE_RECOIL_SHEET_PATH,
 		"ak47_icon_path": AK47_ICON_TEXTURE_PATH,
 		"ak47_fire_recoil_sheet_path": AK47_FIRE_RECOIL_SHEET_PATH,
+		"net_gun_icon_path": NET_GUN_ICON_TEXTURE_PATH,
+		"net_gun_fire_recoil_sheet_path": NET_GUN_FIRE_RECOIL_SHEET_PATH,
 		"bazooka_icon_path": BAZOOKA_ICON_TEXTURE_PATH,
 		"bazooka_fire_recoil_sheet_path": BAZOOKA_FIRE_RECOIL_SHEET_PATH,
 		"bowling_trap_icon_path": BOWLING_TRAP_ICON_TEXTURE_PATH,
 		"bowling_trap_install_sheet_path": BOWLING_TRAP_INSTALL_SHEET_PATH,
 		"bowling_trap_capture_sheet_path": BOWLING_TRAP_CAPTURE_SHEET_PATH,
+		"suicide_drone_icon_path": SUICIDE_DRONE_ICON_TEXTURE_PATH,
 		"hud_frame_rect": rect,
 		"icon_rect": icon_rect,
 		"meter_rect": ammo_rect,
@@ -186,6 +219,11 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 		"ak47_fire_recoil_frame_count": AK47_FIRE_RECOIL_FRAME_COUNT,
 		"ak47_fire_recoil_draw_scale": AK47_FIRE_RECOIL_DRAW_SCALE,
 		"ak47_fire_recoil_rotation_degrees": _get_ak47_fire_recoil_rotation_degrees(current_weapon_id, weapon_fire_state),
+		"net_gun_fire_recoil_active": _is_net_gun_fire_animation_active(current_weapon_id, weapon_fire_state),
+		"net_gun_fire_recoil_frame": _get_net_gun_fire_recoil_frame(weapon_fire_state),
+		"net_gun_fire_recoil_frame_count": NET_GUN_FIRE_RECOIL_FRAME_COUNT,
+		"net_gun_fire_recoil_draw_scale": NET_GUN_FIRE_RECOIL_DRAW_SCALE,
+		"net_gun_fire_recoil_kick_ratio": _get_net_gun_fire_recoil_kick_ratio(current_weapon_id, weapon_fire_state),
 		"bazooka_fire_recoil_active": _is_bazooka_fire_animation_active(current_weapon_id, weapon_fire_state),
 		"bazooka_fire_recoil_frame": _get_bazooka_fire_recoil_frame(weapon_fire_state),
 		"bazooka_fire_recoil_frame_count": BAZOOKA_FIRE_RECOIL_FRAME_COUNT,
@@ -259,23 +297,97 @@ func _draw_hud_highlight(canvas: CanvasItem, rect: Rect2, scale_factor: float, p
 		return
 	var highlight_state: Dictionary = _get_dict(panel_state.get("hud_highlight_state", {}))
 	var timer_frames: float = float(highlight_state.get("timer_frames", 0.0))
+	var time_seconds: float = float(Time.get_ticks_msec()) * 0.001
+
+	# Tween-style envelope: ease-in over the first ~14 frames after a fresh
+	# trigger, then track the timer ratio for the fade-out tail.
+	var timer_max_frames: float = max(1.0, float(highlight_state.get("timer_max_frames", 1.0)))
+	var elapsed_frames: float = max(0.0, timer_max_frames - timer_frames)
+	var ease_in: float = clamp(elapsed_frames / 14.0, 0.0, 1.0)
+	ease_in = smoothstep(0.0, 1.0, ease_in)
+	var fade_out: float = smoothstep(0.0, 0.45, ratio)
+	var envelope: float = ease_in * fade_out
+
 	var pulse: float = 0.5 + 0.5 * sin(timer_frames * 0.30)
-	var strength: float = clamp(ratio * (0.55 + 0.45 * pulse), 0.0, 1.0)
-	var glow_color := Color(1.0, 0.50 + 0.38 * pulse, 0.04, 1.0)
-	canvas.draw_rect(rect.grow(-6.0 * scale_factor), Color(0.34, 0.25, 0.04, 0.10 * strength), true)
+	var strength: float = clamp(envelope * (0.65 + 0.35 * pulse), 0.0, 1.0)
+
+	# CPU "texture slice" rainbow perimeter: walk the panel perimeter as a
+	# strip of N short segments, each painted with its own HSV-cycled color.
+	# This sits on top of the shader quad glow and adds a crisp inner ring
+	# even on machines where the shader quad is dropped or low-power.
+	var inner := rect.grow(-5.0 * scale_factor)
+	var slice_count: int = 48
+	var perimeter_points: Array = _build_perimeter_points(inner, slice_count)
+	var sweep_phase: float = fposmod(time_seconds * 0.55, 1.0)
+	for i in range(slice_count):
+		var a: Vector2 = perimeter_points[i]
+		var b: Vector2 = perimeter_points[(i + 1) % slice_count]
+		var slice_t: float = (float(i) + 0.5) / float(slice_count)
+		var hue: float = fposmod(slice_t * 2.0 + time_seconds * 0.42, 1.0)
+		var slice_col: Color = Color.from_hsv(hue, 0.78, 1.0, 1.0)
+		# Sweep highlight: a bright bump that travels around the perimeter.
+		var sweep_d: float = abs(slice_t - sweep_phase)
+		sweep_d = min(sweep_d, 1.0 - sweep_d)
+		var sweep_boost: float = exp(-sweep_d * 14.0)
+		var line_alpha: float = clamp(strength * (0.55 + 0.55 * sweep_boost), 0.0, 1.0)
+		var line_color := Color(
+			min(1.0, slice_col.r + sweep_boost * 0.45),
+			min(1.0, slice_col.g + sweep_boost * 0.45),
+			min(1.0, slice_col.b + sweep_boost * 0.45),
+			line_alpha
+		)
+		canvas.draw_line(a, b, line_color, max(1.2, 2.2 * scale_factor), true)
+
+	# Soft inner tint so the panel interior reads "alive" without washing out
+	# the icon. Neutral warm tone modulated by the rainbow envelope.
+	canvas.draw_rect(rect.grow(-7.0 * scale_factor), Color(0.95, 0.85, 0.35, 0.08 * strength), true)
+
+	# Outer rectangle outline layers, hue-shifted with time for a slow color
+	# wash that complements the per-slice perimeter.
 	for i in range(3, 0, -1):
-		var grow: float = float(i) * 4.0 * scale_factor
-		var layer_alpha: float = strength * (0.06 + float(4 - i) * 0.035)
+		var grow: float = float(i) * 3.5 * scale_factor
+		var layer_alpha: float = strength * (0.05 + float(4 - i) * 0.030)
+		var layer_hue: float = fposmod(time_seconds * 0.22 + float(i) * 0.12, 1.0)
+		var layer_col: Color = Color.from_hsv(layer_hue, 0.55, 1.0, 1.0)
 		canvas.draw_rect(
 			rect.grow(grow),
-			Color(glow_color.r, glow_color.g, glow_color.b, layer_alpha),
+			Color(layer_col.r, layer_col.g, layer_col.b, layer_alpha),
 			false,
 			max(1.0, float(i + 1) * scale_factor)
 		)
-	var inner := rect.grow(-5.0 * scale_factor)
-	canvas.draw_rect(inner, Color(1.0, 0.82, 0.18, 0.32 * strength), false, max(1.0, 2.0 * scale_factor))
-	canvas.draw_line(inner.position, Vector2(inner.end.x, inner.position.y), Color(1.0, 0.95, 0.55, 0.45 * strength), max(1.0, scale_factor), true)
-	canvas.draw_line(inner.position, Vector2(inner.position.x, inner.end.y), Color(1.0, 0.95, 0.55, 0.30 * strength), max(1.0, scale_factor), true)
+
+	# Bright corner pips that pulse with the sweep — the "texture slice"
+	# accents that read as discrete chunks of rainbow chrome.
+	var corner_pip_color := Color(1.0, 0.96, 0.78, 0.55 * strength)
+	var pip_radius: float = max(2.0, 3.5 * scale_factor)
+	for c in [inner.position, Vector2(inner.end.x, inner.position.y), Vector2(inner.position.x, inner.end.y), inner.end]:
+		canvas.draw_circle(c, pip_radius, corner_pip_color)
+
+
+func _build_perimeter_points(inner_rect: Rect2, slice_count: int) -> Array:
+	var points: Array = []
+	var safe_count: int = max(4, slice_count)
+	@warning_ignore("integer_division")
+	var per_side: int = safe_count / 4
+	if per_side < 1:
+		per_side = 1
+	var top_left: Vector2 = inner_rect.position
+	var top_right := Vector2(inner_rect.end.x, inner_rect.position.y)
+	var bot_right: Vector2 = inner_rect.end
+	var bot_left := Vector2(inner_rect.position.x, inner_rect.end.y)
+	for i in range(per_side):
+		var t: float = float(i) / float(per_side)
+		points.append(top_left.lerp(top_right, t))
+	for i in range(per_side):
+		var t: float = float(i) / float(per_side)
+		points.append(top_right.lerp(bot_right, t))
+	for i in range(per_side):
+		var t: float = float(i) / float(per_side)
+		points.append(bot_right.lerp(bot_left, t))
+	for i in range(per_side):
+		var t: float = float(i) / float(per_side)
+		points.append(bot_left.lerp(top_left, t))
+	return points
 
 
 func _draw_hud_frame(canvas: CanvasItem, rect: Rect2, scale_factor: float) -> void:
@@ -327,6 +439,13 @@ func _get_weapon_picture_rect(icon_rect: Rect2, weapon_id: String, scale_factor:
 			icon_rect.position.y + (icon_rect.size.y - draw_size.y) * 0.5 + AK47_HUD_PICTURE_Y_OFFSET * scale_factor
 		)
 		return Rect2(position, draw_size)
+	if weapon_id == "net_gun":
+		var draw_size := icon_rect.size * NET_GUN_HUD_PICTURE_SCALE
+		var position := Vector2(
+			icon_rect.position.x + (icon_rect.size.x - draw_size.x) * 0.5,
+			icon_rect.position.y + (icon_rect.size.y - draw_size.y) * 0.5 + NET_GUN_HUD_PICTURE_Y_OFFSET * scale_factor
+		)
+		return Rect2(position, draw_size)
 	if weapon_id == "bazooka":
 		var draw_size := icon_rect.size * BAZOOKA_HUD_PICTURE_SCALE
 		var position := Vector2(
@@ -360,6 +479,8 @@ func _draw_weapon_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, co
 				return
 			_draw_beretta_picture(canvas, rect, base_alpha, scale_factor)
 		"net_gun":
+			if _draw_net_gun_png_picture(canvas, rect, weapon_id, base_alpha, weapon_fire_state):
+				return
 			_draw_net_gun_picture(canvas, rect, base_alpha, scale_factor)
 		"bazooka":
 			if _draw_bazooka_png_picture(canvas, rect, weapon_id, base_alpha, weapon_fire_state):
@@ -372,6 +493,8 @@ func _draw_weapon_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, co
 				return
 			_draw_bowling_trap_picture(canvas, rect, base_alpha, scale_factor)
 		"suicide_drone":
+			if _draw_suicide_drone_png_picture(canvas, rect, base_alpha):
+				return
 			_draw_drone_picture(canvas, rect, base_alpha, scale_factor)
 		_:
 			canvas.draw_circle(rect.get_center(), min(rect.size.x, rect.size.y) * 0.25, Color(color.r, color.g, color.b, base_alpha))
@@ -421,6 +544,30 @@ func _draw_ak47_png_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, 
 				canvas.draw_texture_rect_region(sheet, fire_rect, source_rect, modulate, false, true)
 			return true
 	var icon: Texture2D = _get_cached_weapon_texture(AK47_ICON_TEXTURE_PATH)
+	if icon is Texture2D:
+		canvas.draw_texture_rect(icon, rect, false, Color(1.0, 1.0, 1.0, alpha))
+		return true
+	return false
+
+
+func _draw_net_gun_png_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, alpha: float, weapon_fire_state: Dictionary) -> bool:
+	if _is_net_gun_fire_animation_active(weapon_id, weapon_fire_state):
+		var sheet: Texture2D = _get_cached_weapon_texture(NET_GUN_FIRE_RECOIL_SHEET_PATH)
+		if sheet is Texture2D:
+			var frame: int = _get_net_gun_fire_recoil_frame(weapon_fire_state)
+			var fire_rect: Rect2 = _scale_rect_around_pivot(rect, NET_GUN_FIRE_RECOIL_DRAW_SCALE, Vector2(0.5, 0.5))
+			var kick_ratio: float = _get_net_gun_fire_recoil_kick_ratio(weapon_id, weapon_fire_state)
+			fire_rect.position += Vector2(rect.size.x * kick_ratio, -rect.size.y * abs(kick_ratio) * 0.16)
+			canvas.draw_texture_rect_region(
+				sheet,
+				fire_rect,
+				_get_net_gun_fire_recoil_source_rect(sheet, frame),
+				Color(1.0, 1.0, 1.0, alpha),
+				false,
+				true
+			)
+			return true
+	var icon: Texture2D = _get_cached_weapon_texture(NET_GUN_ICON_TEXTURE_PATH)
 	if icon is Texture2D:
 		canvas.draw_texture_rect(icon, rect, false, Color(1.0, 1.0, 1.0, alpha))
 		return true
@@ -502,6 +649,14 @@ func _draw_bowling_trap_png_picture(canvas: CanvasItem, rect: Rect2, alpha: floa
 	return false
 
 
+func _draw_suicide_drone_png_picture(canvas: CanvasItem, rect: Rect2, alpha: float) -> bool:
+	var icon: Texture2D = _get_cached_weapon_texture(SUICIDE_DRONE_ICON_TEXTURE_PATH)
+	if icon is Texture2D:
+		canvas.draw_texture_rect(icon, rect, false, Color(1.0, 1.0, 1.0, alpha))
+		return true
+	return false
+
+
 func _is_hud_highlight_active(weapon_id: String, highlight_state: Dictionary) -> bool:
 	if not bool(highlight_state.get("active", false)):
 		return false
@@ -536,6 +691,15 @@ func _is_ak47_fire_animation_active(weapon_id: String, weapon_fire_state: Dictio
 		weapon_id == "ak47"
 		and bool(weapon_fire_state.get("active", false))
 		and str(weapon_fire_state.get("weapon_id", "")) == "ak47"
+		and float(weapon_fire_state.get("timer_frames", 0.0)) > 0.0
+	)
+
+
+func _is_net_gun_fire_animation_active(weapon_id: String, weapon_fire_state: Dictionary) -> bool:
+	return (
+		weapon_id == "net_gun"
+		and bool(weapon_fire_state.get("active", false))
+		and str(weapon_fire_state.get("weapon_id", "")) == "net_gun"
 		and float(weapon_fire_state.get("timer_frames", 0.0)) > 0.0
 	)
 
@@ -611,6 +775,20 @@ func _get_ak47_fire_recoil_rotation_degrees(weapon_id: String, weapon_fire_state
 		return 0.0
 	var frame: int = _get_ak47_fire_recoil_frame(weapon_fire_state)
 	return float(AK47_HUD_RECOIL_ROTATION_DEGREES_BY_FRAME[clampi(frame, 0, AK47_FIRE_RECOIL_FRAME_COUNT - 1)])
+
+
+func _get_net_gun_fire_recoil_frame(weapon_fire_state: Dictionary) -> int:
+	var timer_frames: float = max(0.0, float(weapon_fire_state.get("timer_frames", 0.0)))
+	var timer_max_frames: float = max(1.0, float(weapon_fire_state.get("timer_max_frames", 1.0)))
+	var progress: float = clamp(1.0 - timer_frames / timer_max_frames, 0.0, 1.0)
+	return clampi(int(progress * float(NET_GUN_FIRE_RECOIL_FRAME_COUNT)), 0, NET_GUN_FIRE_RECOIL_FRAME_COUNT - 1)
+
+
+func _get_net_gun_fire_recoil_kick_ratio(weapon_id: String, weapon_fire_state: Dictionary) -> float:
+	if not _is_net_gun_fire_animation_active(weapon_id, weapon_fire_state):
+		return 0.0
+	var frame: int = _get_net_gun_fire_recoil_frame(weapon_fire_state)
+	return float(NET_GUN_HUD_RECOIL_KICK_BY_FRAME[clampi(frame, 0, NET_GUN_FIRE_RECOIL_FRAME_COUNT - 1)])
 
 
 func _get_bazooka_fire_recoil_frame(weapon_fire_state: Dictionary) -> int:
@@ -693,6 +871,17 @@ func _get_ak47_fire_recoil_source_rect(sheet: Texture2D, frame: int) -> Rect2:
 	var col: int = frame_index % AK47_FIRE_RECOIL_GRID_COLS
 	@warning_ignore("integer_division")
 	var row: int = int(frame_index / AK47_FIRE_RECOIL_GRID_COLS)
+	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+
+
+func _get_net_gun_fire_recoil_source_rect(sheet: Texture2D, frame: int) -> Rect2:
+	var frame_index: int = clampi(frame, 0, NET_GUN_FIRE_RECOIL_FRAME_COUNT - 1)
+	var texture_size: Vector2 = sheet.get_size()
+	var cell_w: float = texture_size.x / float(NET_GUN_FIRE_RECOIL_GRID_COLS)
+	var cell_h: float = texture_size.y / float(NET_GUN_FIRE_RECOIL_GRID_ROWS)
+	var col: int = frame_index % NET_GUN_FIRE_RECOIL_GRID_COLS
+	@warning_ignore("integer_division")
+	var row: int = int(frame_index / NET_GUN_FIRE_RECOIL_GRID_COLS)
 	return Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
 
 

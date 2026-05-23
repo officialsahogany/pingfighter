@@ -105,9 +105,11 @@ func set_active(active: bool) -> void:
 	set_process(false)
 	if _core_quad != null:
 		_core_quad.visible = active
+	if active:
+		return
 	if _muzzle_particles != null:
-		_muzzle_particles.emitting = active
-	if _impact_particles != null and not active:
+		_muzzle_particles.emitting = false
+	if _impact_particles != null:
 		_impact_particles.emitting = false
 
 
@@ -129,6 +131,8 @@ func get_debug_status() -> Dictionary:
 		"loop_tween_active": _pulse_tween != null and _pulse_tween.is_valid(),
 		"last_signature": _last_signature,
 		"anchor_source": _last_anchor_source,
+		"muzzle_particles_emitting": _muzzle_particles != null and _muzzle_particles.emitting,
+		"impact_particles_emitting": _impact_particles != null and _impact_particles.emitting,
 	}
 
 

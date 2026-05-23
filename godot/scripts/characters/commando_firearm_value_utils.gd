@@ -40,6 +40,11 @@ static func get_pistol_cooldown_frames(
 	doping_pistol_cooldown_frames: float
 ) -> float:
 	if doping_active:
+		if weapon_id == "commando_pistol":
+			return float(doping_context.get(
+				"beretta_cooldown_frames",
+				doping_context.get("pistol_cooldown_frames", doping_pistol_cooldown_frames)
+			))
 		return float(doping_context.get("pistol_cooldown_frames", doping_pistol_cooldown_frames))
 	if weapon_id == "commando_pistol":
 		return commando_pistol_cooldown_frames
@@ -48,16 +53,29 @@ static func get_pistol_cooldown_frames(
 
 static func normalize_doping_potion_context(context: Dictionary, defaults: Dictionary = {}) -> Dictionary:
 	var default_head_leg_multiplier: float = float(defaults.get("head_leg_multiplier", 2.0))
+	var default_fire_rate_multiplier: float = float(defaults.get("fire_rate_multiplier", 0.5))
 	var default_cooldown_frames: float = float(defaults.get("pistol_cooldown_frames", 30.0))
 	var default_control_lock_frames: float = float(defaults.get("pistol_control_lock_frames", 9.0))
 	var default_speed_multiplier: float = float(defaults.get("pistol_speed_multiplier", 1.2))
+	var default_beretta_cooldown_frames: float = float(defaults.get("beretta_cooldown_frames", default_cooldown_frames))
+	var default_ak47_fire_interval_frames: float = float(defaults.get("ak47_fire_interval_frames", 3.0))
+	var default_bazooka_cooldown_frames: float = float(defaults.get("bazooka_cooldown_frames", 60.0))
+	var default_bazooka_control_lock_frames: float = float(defaults.get("bazooka_control_lock_frames", 15.0))
 	var active: bool = bool(context.get(
 		"active",
 		context.get("active_item_doping_potion_active", false)
 	))
+	var has_explicit_pistol_cooldown: bool = (
+		context.has("pistol_cooldown_frames")
+		or context.has("active_item_doping_potion_pistol_cooldown_frames")
+	)
 	var head_leg_multiplier: float = float(context.get(
 		"head_leg_multiplier",
 		context.get("active_item_doping_potion_head_leg_multiplier", default_head_leg_multiplier if active else 1.0)
+	))
+	var fire_rate_multiplier: float = float(context.get(
+		"fire_rate_multiplier",
+		context.get("active_item_doping_potion_fire_rate_multiplier", default_fire_rate_multiplier if active else 1.0)
 	))
 	var cooldown_frames: float = float(context.get(
 		"pistol_cooldown_frames",
@@ -71,12 +89,34 @@ static func normalize_doping_potion_context(context: Dictionary, defaults: Dicti
 		"pistol_speed_multiplier",
 		context.get("active_item_doping_potion_pistol_speed_multiplier", default_speed_multiplier if active else 1.0)
 	))
+	var beretta_cooldown_fallback: float = cooldown_frames if has_explicit_pistol_cooldown else default_beretta_cooldown_frames
+	var beretta_cooldown_frames: float = float(context.get(
+		"beretta_cooldown_frames",
+		context.get("active_item_doping_potion_beretta_cooldown_frames", beretta_cooldown_fallback)
+	))
+	var ak47_fire_interval_frames: float = float(context.get(
+		"ak47_fire_interval_frames",
+		context.get("active_item_doping_potion_ak47_fire_interval_frames", default_ak47_fire_interval_frames)
+	))
+	var bazooka_cooldown_frames: float = float(context.get(
+		"bazooka_cooldown_frames",
+		context.get("active_item_doping_potion_bazooka_cooldown_frames", default_bazooka_cooldown_frames)
+	))
+	var bazooka_control_lock_frames: float = float(context.get(
+		"bazooka_control_lock_frames",
+		context.get("active_item_doping_potion_bazooka_control_lock_frames", default_bazooka_control_lock_frames)
+	))
 	return {
 		"active": active,
 		"head_leg_multiplier": max(0.0, head_leg_multiplier),
+		"fire_rate_multiplier": max(0.01, fire_rate_multiplier),
 		"pistol_cooldown_frames": max(1.0, cooldown_frames),
 		"pistol_control_lock_frames": max(0.0, control_lock_frames),
 		"pistol_speed_multiplier": max(0.01, speed_multiplier),
+		"beretta_cooldown_frames": max(1.0, beretta_cooldown_frames),
+		"ak47_fire_interval_frames": max(1.0, ak47_fire_interval_frames),
+		"bazooka_cooldown_frames": max(1.0, bazooka_cooldown_frames),
+		"bazooka_control_lock_frames": max(0.0, bazooka_control_lock_frames),
 	}
 
 
@@ -110,6 +150,10 @@ static func apply_doping_potion_to_pistol_config(
 		"head_leg_multiplier",
 		defaults.get("head_leg_multiplier", 2.0)
 	))
+	config["active_item_doping_potion_fire_rate_multiplier"] = float(doping_context.get(
+		"fire_rate_multiplier",
+		defaults.get("fire_rate_multiplier", 0.5)
+	))
 	config["active_item_doping_potion_pistol_cooldown_frames"] = float(doping_context.get(
 		"pistol_cooldown_frames",
 		defaults.get("pistol_cooldown_frames", 30.0)
@@ -121,6 +165,22 @@ static func apply_doping_potion_to_pistol_config(
 	config["active_item_doping_potion_pistol_speed_multiplier"] = float(doping_context.get(
 		"pistol_speed_multiplier",
 		defaults.get("pistol_speed_multiplier", 1.2)
+	))
+	config["active_item_doping_potion_beretta_cooldown_frames"] = float(doping_context.get(
+		"beretta_cooldown_frames",
+		defaults.get("beretta_cooldown_frames", defaults.get("pistol_cooldown_frames", 30.0))
+	))
+	config["active_item_doping_potion_ak47_fire_interval_frames"] = float(doping_context.get(
+		"ak47_fire_interval_frames",
+		defaults.get("ak47_fire_interval_frames", 3.0)
+	))
+	config["active_item_doping_potion_bazooka_cooldown_frames"] = float(doping_context.get(
+		"bazooka_cooldown_frames",
+		defaults.get("bazooka_cooldown_frames", 60.0)
+	))
+	config["active_item_doping_potion_bazooka_control_lock_frames"] = float(doping_context.get(
+		"bazooka_control_lock_frames",
+		defaults.get("bazooka_control_lock_frames", 15.0)
 	))
 
 

@@ -3,6 +3,8 @@ extends SceneTree
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
+const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
 const CommandoSupplyDropState := preload("res://scripts/characters/commando_supply_drop_state.gd")
 const CommandoWeaponController := preload("res://scripts/characters/commando_weapon_controller.gd")
 
@@ -42,6 +44,7 @@ func _init() -> void:
 	_verify_ammo_box_refills_owned_permanent_only()
 	_verify_doping_potion_uses_base_pistol_access()
 	_verify_doping_potion_enhances_commando_pistol()
+	_verify_doping_potion_speeds_ak47_and_bazooka()
 
 	if _failures.is_empty():
 		print("commando_supply_drop_item_candidates_smoke: ok")
@@ -100,7 +103,6 @@ func _verify_ammo_box_refills_owned_permanent_only() -> void:
 	controller.unlock_permanent_weapon("commando_pistol", true)
 	controller.set_current_weapon("commando_pistol")
 	controller.consume_current_weapon_ammo(2)
-	controller.start_current_weapon_reload()
 	controller.add_rental_weapon("bazooka", 1, 1)
 
 	var used: bool = bool(active_runtime._apply_item_effect(catalog.build_item_by_name("ammo_box"), owner, registry))
@@ -110,9 +112,9 @@ func _verify_ammo_box_refills_owned_permanent_only() -> void:
 	var rental: Dictionary = controller.get_weapon_data("bazooka")
 	_expect(int(ak47.get("ammo_current", 0)) == 60, "ammo_box should refill AK-47 ammo")
 	_expect(is_equal_approx(float(ak47.get("duration_frames", 0.0)), 1800.0), "ammo_box should refill AK-47 duration")
-	_expect(int(pistol.get("ammo_current", 0)) == 4, "ammo_box should refill commando_pistol ammo")
-	_expect(int(pistol.get("magazines_current", 0)) == 2, "ammo_box should refill Beretta spare magazines")
-	_expect(not bool(pistol.get("reloading", false)), "ammo_box should cancel pistol reload after refilling")
+	_expect(int(pistol.get("ammo_current", 0)) == 8, "ammo_box should refill commando_pistol ammo")
+	_expect(int(pistol.get("magazines_current", -1)) == 0, "ammo_box should not create Beretta spare magazines")
+	_expect(not bool(pistol.get("reloading", false)), "ammo_box should keep Beretta out of magazine reload state")
 	_expect(str(rental.get("kind", "")) == "rental" and int(rental.get("ammo_current", 0)) == 1, "ammo_box should not refill rental firearms")
 
 
@@ -168,11 +170,11 @@ func _verify_doping_potion_enhances_commando_pistol() -> void:
 		}
 	)
 	_expect(bool(fire_result.get("shot_queued", false)), "doped commando_pistol input should still queue the delayed shot")
-	_expect(is_equal_approx(float(fire_result.get("cooldown_frames", 0.0)), 30.0), "doping should use the Python 30-frame pistol cooldown")
+	_expect(is_equal_approx(float(fire_result.get("cooldown_frames", 0.0)), 15.0), "doping should cut Beretta cooldown below its normal 30-frame cadence")
 	_expect(is_equal_approx(float(fire_result.get("control_lock_frames", 0.0)), 9.0), "doping should use the Python 9-frame pistol control lock")
 	_expect(bool(fire_result.get("doping_potion_active", false)), "fire result should expose the active doping flag")
 	var pistol_draw_state: Dictionary = firearm_runtime.get_actor_draw_context().get("commando_firearm_pistol_state", {})
-	_expect(is_equal_approx(float(pistol_draw_state.get("cooldown_max_frames", 0.0)), 30.0), "doped pistol HUD state should use the 30-frame cooldown max")
+	_expect(is_equal_approx(float(pistol_draw_state.get("cooldown_max_frames", 0.0)), 15.0), "doped Beretta HUD state should use the 15-frame cooldown max")
 	_expect(is_equal_approx(float(pistol_draw_state.get("control_lock_max_frames", 0.0)), 9.0), "doped pistol HUD state should use the 9-frame lock max")
 
 	var hit_result: Dictionary = {}
@@ -191,6 +193,63 @@ func _verify_doping_potion_enhances_commando_pistol() -> void:
 
 	active_runtime.update(owner, registry, 8.1)
 	_expect(not active_runtime.is_doping_potion_active(), "doping should expire after its timer elapses")
+
+
+func _verify_doping_potion_speeds_ak47_and_bazooka() -> void:
+	var catalog: Object = ActiveItemCatalog.new()
+	var active_runtime: Object = ActiveItemRuntime.new()
+	var controller: Object = CommandoWeaponController.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new(controller, active_runtime)
+	var skill_config := CommandoSkillConfig.new()
+	var skill_state := CommandoSkillState.new()
+
+	controller.unlock_permanent_weapon("ak47", true)
+	controller.unlock_permanent_weapon("bazooka", true)
+	var activated: bool = bool(active_runtime._apply_item_effect(catalog.build_item_by_name("doping_potion"), owner, registry))
+	_expect(activated, "doping_potion should activate before rapid-fire firearm checks")
+	var context: Dictionary = active_runtime.get_doping_potion_context()
+	_expect(is_equal_approx(float(context.get("fire_rate_multiplier", 0.0)), 0.5), "doping context should expose a half-cooldown fire-rate multiplier")
+	_expect(is_equal_approx(float(context.get("ak47_fire_interval_frames", 0.0)), 3.0), "doping context should expose the AK-47 rapid-fire interval")
+	_expect(is_equal_approx(float(context.get("bazooka_cooldown_frames", 0.0)), 60.0), "doping context should expose the bazooka rapid-fire cooldown")
+
+	controller.set_current_weapon("ak47")
+	var ak_runtime: Object = CommandoFirearmRuntime.new()
+	var deps := {
+		"commando_weapon_controller": controller,
+		"active_item_runtime": active_runtime,
+		"skill_config": skill_config,
+		"skill_state": skill_state,
+	}
+	var ak_result: Dictionary = ak_runtime.update_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		_fire_config(),
+		deps
+	)
+	_expect(bool(ak_result.get("fired", false)), "doped AK-47 input should fire")
+	_expect(is_equal_approx(float(ak_result.get("fire_interval_frames", 0.0)), 3.0), "doping should halve AK-47 fire interval from 6 to 3 frames")
+	var ak_draw_state: Dictionary = ak_runtime.get_actor_draw_context().get("commando_firearm_ak47_state", {})
+	_expect(is_equal_approx(float(ak_draw_state.get("fire_interval_max_frames", 0.0)), 3.0), "AK-47 draw state should expose the doped interval max")
+	var ak_cooldown: Dictionary = skill_state.get_cooldowns().get("ak47", {})
+	_expect(int(ak_cooldown.get("cooldown_msec", 0)) == 50, "AK-47 orb cooldown should match the doped 0.05-second cadence")
+
+	controller.set_current_weapon("bazooka")
+	var bazooka_runtime: Object = CommandoFirearmRuntime.new()
+	var bazooka_result: Dictionary = bazooka_runtime.update_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		_fire_config(),
+		deps
+	)
+	_expect(bool(bazooka_result.get("fired", false)), "doped bazooka input should fire")
+	_expect(is_equal_approx(float(bazooka_result.get("cooldown_frames", 0.0)), 60.0), "doping should halve bazooka cooldown from 120 to 60 frames")
+	_expect(is_equal_approx(float(bazooka_result.get("control_lock_frames", 0.0)), 15.0), "doping should halve bazooka control lock from 30 to 15 frames")
+	var bazooka_draw_state: Dictionary = bazooka_runtime.get_actor_draw_context().get("commando_firearm_bazooka_state", {})
+	_expect(is_equal_approx(float(bazooka_draw_state.get("cooldown_max_frames", 0.0)), 60.0), "bazooka draw state should expose the doped cooldown max")
+	_expect(is_equal_approx(float(bazooka_draw_state.get("control_lock_max_frames", 0.0)), 15.0), "bazooka draw state should expose the doped lock max")
+	var bazooka_cooldown: Dictionary = skill_state.get_cooldowns().get("bazooka", {})
+	_expect(int(bazooka_cooldown.get("cooldown_msec", 0)) == 1000, "bazooka orb cooldown should match the doped 1-second cadence")
 
 
 func _candidate_ids(candidates: Array) -> Array:

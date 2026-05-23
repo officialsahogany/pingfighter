@@ -61,9 +61,14 @@ func get_actor_draw_context(runtime: Object) -> Dictionary:
 		context["active_item_doping_potion_flash_initial_frames"] = float(doping_context.get("flash_initial_frames", 1.0))
 		context["active_item_doping_potion_use_count"] = int(doping_context.get("use_count", 0))
 		context["active_item_doping_potion_head_leg_multiplier"] = float(doping_context.get("head_leg_multiplier", 1.0))
+		context["active_item_doping_potion_fire_rate_multiplier"] = float(doping_context.get("fire_rate_multiplier", 1.0))
 		context["active_item_doping_potion_pistol_cooldown_frames"] = float(doping_context.get("pistol_cooldown_frames", 30.0))
 		context["active_item_doping_potion_pistol_control_lock_frames"] = float(doping_context.get("pistol_control_lock_frames", 9.0))
 		context["active_item_doping_potion_pistol_speed_multiplier"] = float(doping_context.get("pistol_speed_multiplier", 1.0))
+		context["active_item_doping_potion_beretta_cooldown_frames"] = float(doping_context.get("beretta_cooldown_frames", 15.0))
+		context["active_item_doping_potion_ak47_fire_interval_frames"] = float(doping_context.get("ak47_fire_interval_frames", 3.0))
+		context["active_item_doping_potion_bazooka_cooldown_frames"] = float(doping_context.get("bazooka_cooldown_frames", 60.0))
+		context["active_item_doping_potion_bazooka_control_lock_frames"] = float(doping_context.get("bazooka_control_lock_frames", 15.0))
 	return context
 
 

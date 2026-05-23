@@ -19,6 +19,7 @@ class FakeAudio:
 
 func _init() -> void:
 	_verify_double_tap_refills_selected_permanent_weapon()
+	_verify_double_tap_refills_beretta_without_spare_magazines()
 	_verify_failure_paths_do_not_spend_or_cooldown()
 	_verify_moving_tap_does_not_arm_emergency_supply()
 
@@ -59,6 +60,32 @@ func _verify_double_tap_refills_selected_permanent_weapon() -> void:
 	_expect(skill_state.get_configured_cooldown_remaining("emergency_supply", 1200, skill_config) > 0.0, "successful emergency supply should trigger cooldown")
 
 
+func _verify_double_tap_refills_beretta_without_spare_magazines() -> void:
+	var state: Object = CommandoEmergencySupplyState.new()
+	var skill_config: Object = CommandoSkillConfig.new()
+	var skill_state: Object = CommandoSkillState.new()
+	var weapon_controller: Object = CommandoWeaponController.new()
+	var audio := FakeAudio.new()
+	_expect(bool(skill_config.unlock_and_equip_skill("commando_pistol")), "Beretta should equip as a permanent Commando firearm")
+	weapon_controller.sync_equipped_permanent(skill_config)
+	_expect(bool(weapon_controller.set_current_weapon("commando_pistol")), "Beretta should be selectable after sync")
+	for _i in range(3):
+		_expect(bool(weapon_controller.consume_current_weapon_ammo(1)), "Beretta ammo should be consumable before reload skill")
+	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", 0)) == 5, "Beretta should start the reload-skill test below max ammo")
+	_expect(not bool(weapon_controller.start_current_weapon_reload()), "Beretta should not support fire-input/manual magazine reload")
+
+	var result: Dictionary = _double_tap(state, 1600, 500.0, _deps(skill_config, skill_state, weapon_controller, audio))
+	var weapon: Dictionary = weapon_controller.get_current_weapon_data()
+	_expect(bool(result.get("activated", false)), "Beretta should accept emergency supply as its reload path")
+	_expect(str(result.get("weapon_id", "")) == "commando_pistol", "Beretta reload skill should report the selected firearm")
+	_expect(int(weapon.get("ammo_current", 0)) == 8, "Beretta reload skill should refill the 8-round magazine")
+	_expect(int(weapon.get("magazines_current", -1)) == 0, "Beretta should not gain spare magazines from reload skill")
+	_expect(not bool(weapon.get("reloading", false)), "Beretta reload skill should refill immediately without a magazine timer")
+	_expect(str(weapon.get("ammo_text", "")) == "탄약 8/8", "Beretta ammo text should stay ammo-only after reload skill")
+	_expect(audio.reload_round_calls == 1, "Beretta reload skill should play the reload cue once")
+	_expect(skill_state.get_configured_cooldown_remaining("emergency_supply", 1800, skill_config) > 0.0, "Beretta reload skill should trigger cooldown")
+
+
 func _verify_failure_paths_do_not_spend_or_cooldown() -> void:
 	var skill_config: Object = CommandoSkillConfig.new()
 	var weapon_controller: Object = CommandoWeaponController.new()
@@ -66,14 +93,14 @@ func _verify_failure_paths_do_not_spend_or_cooldown() -> void:
 	var pistol_state: Object = CommandoEmergencySupplyState.new()
 	var pistol_skill_state: Object = CommandoSkillState.new()
 	var audio := FakeAudio.new()
-	_expect(bool(weapon_controller.consume_current_weapon_ammo(1)), "base pistol ammo should be consumable before one-round reload")
+	_expect(bool(weapon_controller.consume_current_weapon_ammo(1)), "base pistol ammo should be consumable before full reload")
 	_expect(bool(weapon_controller.consume_current_weapon_ammo(1)), "base pistol should be missing two rounds before reload")
 	var pistol_result: Dictionary = _double_tap(pistol_state, 2000, 500.0, _deps(skill_config, pistol_skill_state, weapon_controller, audio))
 	_expect(bool(pistol_result.get("activated", false)), "base pistol should accept emergency supply now")
 	_expect(str(pistol_result.get("weapon_id", "")) == "pistol", "base pistol reload should report the base weapon id")
 	_expect(is_equal_approx(float(pistol_result.get("special_gauge", -1.0)), 350.0), "base pistol reload should spend 150 gauge")
-	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 3, "base pistol reload should restore exactly one bullet")
-	_expect(audio.reload_round_calls == 1, "base pistol one-round reload should play the reload-round cue")
+	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 4, "base pistol reload should refill to max ammo")
+	_expect(audio.reload_round_calls == 1, "base pistol full reload should play the reload-round cue")
 	_expect(pistol_skill_state.get_configured_cooldown_remaining("emergency_supply", 2200, skill_config) > 0.0, "base pistol reload should trigger cooldown")
 
 	var rental_state: Object = CommandoEmergencySupplyState.new()

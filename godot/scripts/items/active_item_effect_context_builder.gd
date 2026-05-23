@@ -7,9 +7,14 @@ const VITAMIN_PILL_FLASH_FRAMES := 10.0
 const STRANGE_VIAL_FLASH_FRAMES := 12.0
 const DOPING_POTION_FLASH_FRAMES := 12.0
 const DOPING_POTION_HEAD_LEG_MULTIPLIER := 2.0
+const DOPING_POTION_FIRE_RATE_MULTIPLIER := 0.5
 const DOPING_POTION_PISTOL_COOLDOWN_FRAMES := 30.0
 const DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES := 9.0
 const DOPING_POTION_PISTOL_SPEED_MULTIPLIER := 1.2
+const DOPING_POTION_BERETTA_COOLDOWN_FRAMES := 15.0
+const DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES := 3.0
+const DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES := 60.0
+const DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES := 15.0
 const AIPILL_FLASH_FRAMES := 12.0
 const STOPWATCH_RECOVERY_FRAMES := 60.0
 const STOPWATCH_FLASH_FRAMES := 10.0
@@ -120,9 +125,14 @@ func build_doping_potion_context(
 		"player_center": player_center,
 		"use_count": max(0, use_count),
 		"head_leg_multiplier": DOPING_POTION_HEAD_LEG_MULTIPLIER if active and timer_frames > 0.0 else 1.0,
+		"fire_rate_multiplier": DOPING_POTION_FIRE_RATE_MULTIPLIER if active and timer_frames > 0.0 else 1.0,
 		"pistol_cooldown_frames": DOPING_POTION_PISTOL_COOLDOWN_FRAMES,
 		"pistol_control_lock_frames": DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES,
 		"pistol_speed_multiplier": DOPING_POTION_PISTOL_SPEED_MULTIPLIER if active and timer_frames > 0.0 else 1.0,
+		"beretta_cooldown_frames": DOPING_POTION_BERETTA_COOLDOWN_FRAMES,
+		"ak47_fire_interval_frames": DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES,
+		"bazooka_cooldown_frames": DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES,
+		"bazooka_control_lock_frames": DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES,
 	}
 
 

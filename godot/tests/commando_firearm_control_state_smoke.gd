@@ -32,8 +32,8 @@ func _verify_direct_control_state() -> void:
 
 	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, false, false, 0.5, 0.7), 1.0), "movement multiplier should default neutral")
 	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, true, false, 0.5, 0.7), 0.5), "movement multiplier should read AK-47 hold slow")
-	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, false, true, 0.5, 0.7), 0.7), "movement multiplier should read hooked-net slow")
-	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, true, true, 0.5, 0.7), 0.5), "movement multiplier should use strongest slow")
+	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, false, true, 0.5, 0.7), 1.0), "movement multiplier should ignore hooked-net state")
+	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, true, true, 0.5, 0.7), 0.5), "movement multiplier should keep AK-47 hold slow while ignoring hooked-net state")
 	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(true, false, false, 0.5, 0.7), 0.0), "movement multiplier should lock during active suicide drone")
 
 

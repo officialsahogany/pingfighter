@@ -90,7 +90,7 @@ const BASE_WEAPON_ID := "pistol"
 const SLINGSHOT_BASE_BULLET_SPEED := 25.0
 const PISTOL_BULLET_SPEED := 25.0
 const BERETTA_BULLET_SPEED := 30.0
-const BERETTA_FIRE_RATE_MULTIPLIER := 1.3
+const BERETTA_FIRE_RATE_MULTIPLIER := 2.0
 const SLINGSHOT_COOLDOWN_FRAMES := 0.0
 const SLINGSHOT_CONTROL_LOCK_FRAMES := 12.0
 const SLINGSHOT_GAUGE_COST := 20.0
@@ -156,9 +156,11 @@ const COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE := Vector2(106.0, 82.0)
 const COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE := Vector2(160.0, 160.0)
 const COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET := 12.0
 const PISTOL_SPREAD_RADIANS := PI / 12.0
+const BERETTA_SPREAD_RADIANS := PISTOL_SPREAD_RADIANS * 0.70
 const PISTOL_WALL_BOUNCE_MARGIN := 10.0
 const PISTOL_WALL_BOUNCE_MAX := 1
 const PISTOL_WALL_BOUNCE_DAMPING := 0.85
+const PISTOL_ROCK_BOUNCE_METHOD := "resolve_pistol_projectile_rock_bounce"
 const PISTOL_EMPTY_RELOAD_GAUGE_COST := 150.0
 const PISTOL_SHELL_LIFETIME_FRAMES := 150.0
 const PISTOL_PENDING_FIRE_GEOMETRY_KEYS := [
@@ -177,9 +179,14 @@ const PISTOL_PENDING_FIRE_GEOMETRY_KEYS := [
 	"height",
 ]
 const DOPING_POTION_HEAD_LEG_MULTIPLIER := 2.0
+const DOPING_POTION_FIRE_RATE_MULTIPLIER := 0.5
 const DOPING_POTION_PISTOL_COOLDOWN_FRAMES := 30.0
 const DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES := 9.0
 const DOPING_POTION_PISTOL_SPEED_MULTIPLIER := 1.2
+const DOPING_POTION_BERETTA_COOLDOWN_FRAMES := 15.0
+const DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES := 3.0
+const DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES := 60.0
+const DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES := 15.0
 const AK47_BOSS_DAMAGE_HIT_THRESHOLD := 20
 const AK47_AMMO_MAX := 60
 const AK47_DURATION_FRAMES := 1800.0
@@ -224,7 +231,7 @@ const NET_GUN_WIDTH := 280.0
 const NET_GUN_HEIGHT := 140.0
 const NET_GUN_MIN_HEIGHT := 90.0
 const NET_GUN_ROPE_TRAIL_LIMIT := 18
-const NET_GUN_PLAYER_SLOW_MULTIPLIER := 0.7
+const NET_GUN_PLAYER_SLOW_MULTIPLIER := 1.0
 const NET_CONSTRICT_STEP := 0.04
 const NET_CONSTRICT_MIN := 0.6
 const NET_CONSTRICT_WINDOW_MSEC := 400
@@ -384,8 +391,6 @@ const WEAPON_HIT_RESULTS := {
 		"damage_units": 2,
 	},
 	"net_gun": {
-		"slow_frames": 240.0,
-		"slow_multiplier": 0.35,
 		"damage_units": 0,
 	},
 	"fire_support": {
@@ -418,11 +423,6 @@ const WEAPON_LINGERING_EFFECTS := {
 		"width": NET_GUN_WIDTH,
 		"height": NET_GUN_HEIGHT,
 		"min_height": NET_GUN_MIN_HEIGHT,
-		"status_id": LINGERING_STATUS_ID_SLOW,
-		"status_duration_frames": 20.0,
-		"status_interval_frames": 12.0,
-		"slow_multiplier": 0.35,
-		"player_slow_multiplier": NET_GUN_PLAYER_SLOW_MULTIPLIER,
 		"color": Color(0.42, 1.0, 0.52),
 		"secondary": Color(0.72, 0.95, 1.0),
 	},
@@ -501,12 +501,15 @@ var pistol_fire_delay_frames := 0.0
 var pistol_post_fire_animation_frames := 0.0
 var pistol_pending_config: Dictionary = {}
 var ak47_fire_interval_frames := 0.0
+var ak47_fire_interval_max_frames := AK47_FIRE_INTERVAL_FRAMES
 var ak47_burst_shots_remaining := 0
 var ak47_trigger_held := false
 var ak47_last_action_pressed := false
 var ak47_recoil_accumulation := 0.0
 var bazooka_cooldown_frames := 0.0
+var bazooka_cooldown_max_frames := BAZOOKA_COOLDOWN_FRAMES
 var bazooka_control_lock_frames := 0.0
+var bazooka_control_lock_max_frames := BAZOOKA_CONTROL_LOCK_FRAMES
 var bazooka_fire_animation_frames := 0.0
 var bazooka_firing_pose_frames := 0.0
 var bazooka_muzzle_flash_frames := 0.0
@@ -532,6 +535,7 @@ var pistol_pending_weapon_id := ""
 var weapon_fire_sheet_id := ""
 var weapon_fire_sheet_timer_frames := 0.0
 var weapon_fire_sheet_max_frames := 0.0
+var serve_wait_fire_suppressed_until_release := false
 
 
 func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dictionary, deps: Dictionary) -> Dictionary:
@@ -544,6 +548,8 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	var weapon_id: String = str(current_weapon.get("weapon_id", BASE_WEAPON_ID))
 	if weapon_controller.has_method("update_timers"):
 		_play_reload_progress_audio(weapon_controller.update_timers(1.0), deps)
+	if _should_suppress_fire_input_for_serve_wait(input_snapshot, config, deps):
+		return {}
 	var timed_result: Dictionary = _update_firearm_timers(config, deps, 1.0)
 	if bool(timed_result.get("fired", false)):
 		return timed_result
@@ -551,6 +557,8 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 		return _update_active_suicide_drone_input(input_snapshot, special_gauge, config, deps)
 	var reset_result: Dictionary = _handle_firearm_reset_input(input_snapshot, special_gauge, weapon_controller, now_msec)
 	if not reset_result.is_empty():
+		if bool(reset_result.get("weapon_switched", false)):
+			_play_first_audio_method(deps, ["play_commando_weapon_change"])
 		return reset_result
 	current_weapon = weapon_controller.get_current_weapon_data()
 	weapon_id = str(current_weapon.get("weapon_id", BASE_WEAPON_ID))
@@ -627,6 +635,53 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	}
 
 
+func _should_suppress_fire_input_for_serve_wait(
+	input_snapshot: Dictionary,
+	config: Dictionary,
+	deps: Dictionary
+) -> bool:
+	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
+	if _is_round_waiting_for_serve(config, deps):
+		if action_pressed:
+			serve_wait_fire_suppressed_until_release = true
+		_clear_serve_wait_firearm_input_state()
+		return true
+	if not serve_wait_fire_suppressed_until_release:
+		return false
+	if action_pressed:
+		_clear_serve_wait_firearm_input_state()
+		return true
+	serve_wait_fire_suppressed_until_release = false
+	return false
+
+
+func _is_round_waiting_for_serve(config: Dictionary, deps: Dictionary) -> bool:
+	var round_state: Object = deps.get("round_state", null)
+	if round_state != null and round_state.has_method("is_waiting_for_serve"):
+		return bool(round_state.is_waiting_for_serve())
+	if config.has("waiting_for_serve"):
+		return bool(config.get("waiting_for_serve", false))
+	return false
+
+
+func _clear_serve_wait_firearm_input_state() -> void:
+	_clear_ak47_trigger_state()
+	ak47_last_action_pressed = false
+	bowling_trap_last_action_pressed = false
+	suicide_drone_last_action_pressed = false
+	if slingshot_charging:
+		slingshot_charging = false
+		slingshot_charge_timer_frames = 0.0
+		slingshot_charge_level = 0
+		slingshot_gauge_spent = 0.0
+	slingshot_last_action_pressed = false
+	slingshot_control_lock_frames = 0.0
+	pistol_fire_delay_frames = 0.0
+	pistol_control_lock_frames = 0.0
+	pistol_pending_config.clear()
+	pistol_pending_weapon_id = ""
+
+
 func _handle_firearm_reset_input(
 	input_snapshot: Dictionary,
 	special_gauge: float,
@@ -677,6 +732,7 @@ func reset() -> void:
 	bowling_traps.clear()
 	pistol_pending_weapon_id = ""
 	hit_events.clear()
+	serve_wait_fire_suppressed_until_release = false
 	pending_boss_damage_units = 0
 	pending_boss_damage_sources.clear()
 	pending_special_gauge_gain = 0.0
@@ -700,12 +756,15 @@ func reset() -> void:
 	pistol_post_fire_animation_frames = 0.0
 	pistol_pending_config.clear()
 	ak47_fire_interval_frames = 0.0
+	ak47_fire_interval_max_frames = AK47_FIRE_INTERVAL_FRAMES
 	ak47_burst_shots_remaining = 0
 	ak47_trigger_held = false
 	ak47_last_action_pressed = false
 	ak47_recoil_accumulation = 0.0
 	bazooka_cooldown_frames = 0.0
+	bazooka_cooldown_max_frames = BAZOOKA_COOLDOWN_FRAMES
 	bazooka_control_lock_frames = 0.0
+	bazooka_control_lock_max_frames = BAZOOKA_CONTROL_LOCK_FRAMES
 	bazooka_fire_animation_frames = 0.0
 	bazooka_firing_pose_frames = 0.0
 	bazooka_muzzle_flash_frames = 0.0
@@ -1059,14 +1118,6 @@ func _update_pistol_input(
 	if ammo_current <= 0:
 		if weapon_id == BASE_WEAPON_ID:
 			return _reload_base_pistol_from_fire_input(special_gauge, deps)
-		if weapon_id == "commando_pistol" and magazines_current > 0 and weapon_controller != null and weapon_controller.has_method("start_current_weapon_reload"):
-			if bool(weapon_controller.start_current_weapon_reload()):
-				_play_first_audio_method(deps, ["play_commando_pistol_reload_start"])
-				return CommandoFirearmFireResultState.build_pistol_reload_started_result(
-					weapon_id,
-					special_gauge,
-					"pistol_reload_started"
-				)
 		return _pistol_fire_failed(special_gauge, "pistol_empty", weapon_id)
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
@@ -1090,7 +1141,7 @@ func _update_pistol_input(
 		weapon_id,
 		updated_weapon,
 		max(0, ammo_current - 1),
-		PISTOL_AMMO_MAX,
+		int(current_weapon.get("ammo_max", PISTOL_AMMO_MAX)),
 		magazines_current,
 		pistol_cooldown_frames,
 		pistol_control_lock_frames,
@@ -1166,9 +1217,14 @@ func _normalize_doping_potion_context(context: Dictionary) -> Dictionary:
 func _get_doping_potion_defaults() -> Dictionary:
 	return {
 		"head_leg_multiplier": DOPING_POTION_HEAD_LEG_MULTIPLIER,
+		"fire_rate_multiplier": DOPING_POTION_FIRE_RATE_MULTIPLIER,
 		"pistol_cooldown_frames": DOPING_POTION_PISTOL_COOLDOWN_FRAMES,
 		"pistol_control_lock_frames": DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES,
 		"pistol_speed_multiplier": DOPING_POTION_PISTOL_SPEED_MULTIPLIER,
+		"beretta_cooldown_frames": DOPING_POTION_BERETTA_COOLDOWN_FRAMES,
+		"ak47_fire_interval_frames": DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES,
+		"bazooka_cooldown_frames": DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES,
+		"bazooka_control_lock_frames": DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES,
 	}
 
 
@@ -1197,6 +1253,8 @@ func _update_ak47_input(
 		ak47_fire_interval_frames = 0.0
 	else:
 		ak47_trigger_held = true
+	var doping_context: Dictionary = _get_doping_potion_context_from_deps(deps)
+	var doping_active: bool = bool(doping_context.get("active", false))
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
 		_clear_ak47_trigger_state()
@@ -1218,11 +1276,12 @@ func _update_ak47_input(
 	last_fire_msec = now_msec
 	_spawn_firearm_effect("ak47", config, deps, _get_ak47_fire_profile())
 	_play_fire_audio("ak47", deps)
-	_trigger_ak47_cooldown(now_msec, deps)
+	_trigger_ak47_cooldown(now_msec, deps, doping_context, doping_active)
 	ak47_recoil_accumulation = min(AK47_MAX_RECOIL, ak47_recoil_accumulation + AK47_RECOIL_PER_SHOT)
 	if ak47_burst_shots_remaining > 0:
 		ak47_burst_shots_remaining -= 1
-	ak47_fire_interval_frames = AK47_FIRE_INTERVAL_FRAMES
+	ak47_fire_interval_max_frames = _get_ak47_fire_interval_frames(doping_context, doping_active)
+	ak47_fire_interval_frames = ak47_fire_interval_max_frames
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
@@ -1262,11 +1321,69 @@ func _consume_ak47_duration(weapon_controller: Object, frames: float) -> void:
 	weapon_controller.consume_current_weapon_duration(frames)
 
 
-func _trigger_ak47_cooldown(now_msec: int, deps: Dictionary) -> void:
+func _trigger_ak47_cooldown(
+	now_msec: int,
+	deps: Dictionary,
+	doping_context: Dictionary = {},
+	doping_active: bool = false
+) -> void:
+	_trigger_firearm_skill_cooldown("ak47", now_msec, deps, doping_context, doping_active)
+
+
+func _trigger_firearm_skill_cooldown(
+	weapon_id: String,
+	now_msec: int,
+	deps: Dictionary,
+	doping_context: Dictionary,
+	doping_active: bool
+) -> void:
 	var skill_state: Object = deps.get("skill_state", null)
+	if skill_state == null:
+		return
+	var cooldown_seconds: float = _get_firearm_skill_cooldown_seconds(weapon_id, deps, doping_context, doping_active)
+	if skill_state.has_method("trigger_cooldown"):
+		skill_state.trigger_cooldown(weapon_id, now_msec, cooldown_seconds)
+		return
 	var skill_config: Object = deps.get("skill_config", null)
-	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
-		skill_state.trigger_configured_cooldown("ak47", now_msec, skill_config)
+	if skill_state.has_method("trigger_configured_cooldown"):
+		skill_state.trigger_configured_cooldown(weapon_id, now_msec, skill_config)
+
+
+func _get_firearm_skill_cooldown_seconds(
+	weapon_id: String,
+	deps: Dictionary,
+	doping_context: Dictionary,
+	doping_active: bool
+) -> float:
+	var skill_config: Object = deps.get("skill_config", null)
+	var cooldown_seconds := 0.0
+	if skill_config != null and skill_config.has_method("get_cooldown_seconds"):
+		cooldown_seconds = float(skill_config.get_cooldown_seconds(weapon_id))
+	if not doping_active:
+		return cooldown_seconds
+	return cooldown_seconds * _get_doping_fire_rate_multiplier(doping_context)
+
+
+func _get_doping_fire_rate_multiplier(doping_context: Dictionary) -> float:
+	return max(0.01, float(doping_context.get("fire_rate_multiplier", DOPING_POTION_FIRE_RATE_MULTIPLIER)))
+
+
+func _get_ak47_fire_interval_frames(doping_context: Dictionary, doping_active: bool) -> float:
+	if not doping_active:
+		return AK47_FIRE_INTERVAL_FRAMES
+	return max(1.0, float(doping_context.get("ak47_fire_interval_frames", DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES)))
+
+
+func _get_bazooka_cooldown_frames(doping_context: Dictionary, doping_active: bool) -> float:
+	if not doping_active:
+		return BAZOOKA_COOLDOWN_FRAMES
+	return max(1.0, float(doping_context.get("bazooka_cooldown_frames", DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES)))
+
+
+func _get_bazooka_control_lock_frames(doping_context: Dictionary, doping_active: bool) -> float:
+	if not doping_active:
+		return BAZOOKA_CONTROL_LOCK_FRAMES
+	return max(0.0, float(doping_context.get("bazooka_control_lock_frames", DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES)))
 
 
 func _get_ak47_fire_profile() -> Dictionary:
@@ -1314,15 +1431,16 @@ func _update_bazooka_input(
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
 			return _bazooka_fire_failed(special_gauge, "bazooka_ammo_unavailable")
 	last_fire_msec = now_msec
-	bazooka_cooldown_frames = BAZOOKA_COOLDOWN_FRAMES
-	bazooka_control_lock_frames = BAZOOKA_CONTROL_LOCK_FRAMES
+	var doping_context: Dictionary = _get_doping_potion_context_from_deps(deps)
+	var doping_active: bool = bool(doping_context.get("active", false))
+	bazooka_cooldown_max_frames = _get_bazooka_cooldown_frames(doping_context, doping_active)
+	bazooka_control_lock_max_frames = _get_bazooka_control_lock_frames(doping_context, doping_active)
+	bazooka_cooldown_frames = bazooka_cooldown_max_frames
+	bazooka_control_lock_frames = bazooka_control_lock_max_frames
 	bazooka_fire_animation_frames = BAZOOKA_FIRE_ANIMATION_FRAMES
 	bazooka_firing_pose_frames = BAZOOKA_FIRING_POSE_FRAMES
 	bazooka_muzzle_flash_frames = BAZOOKA_MUZZLE_FLASH_FRAMES
-	var skill_state: Object = deps.get("skill_state", null)
-	var skill_config: Object = deps.get("skill_config", null)
-	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
-		skill_state.trigger_configured_cooldown("bazooka", now_msec, skill_config)
+	_trigger_firearm_skill_cooldown("bazooka", now_msec, deps, doping_context, doping_active)
 	_spawn_firearm_effect("bazooka", config, deps, _get_bazooka_fire_profile())
 	_play_fire_audio("bazooka", deps)
 	var updated_weapon: Dictionary = current_weapon
@@ -1900,7 +2018,7 @@ func _get_ak47_draw_state() -> Dictionary:
 	return CommandoFirearmDrawStateResolver.build_ak47_state(
 		ak47_trigger_held,
 		ak47_fire_interval_frames,
-		AK47_FIRE_INTERVAL_FRAMES,
+		ak47_fire_interval_max_frames,
 		ak47_burst_shots_remaining,
 		ak47_recoil_accumulation,
 		get_movement_speed_multiplier()
@@ -1910,9 +2028,9 @@ func _get_ak47_draw_state() -> Dictionary:
 func _get_bazooka_draw_state() -> Dictionary:
 	return CommandoFirearmDrawStateResolver.build_bazooka_state(
 		bazooka_cooldown_frames,
-		BAZOOKA_COOLDOWN_FRAMES,
+		bazooka_cooldown_max_frames,
 		bazooka_control_lock_frames,
-		BAZOOKA_CONTROL_LOCK_FRAMES,
+		bazooka_control_lock_max_frames,
 		bazooka_fire_animation_frames,
 		BAZOOKA_FIRE_ANIMATION_FRAMES,
 		bazooka_firing_pose_frames,
@@ -1946,7 +2064,8 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		profile["color"] = Color(1.0, 0.47, 0.24)
 		profile["secondary"] = Color(1.0, 0.78, 0.22)
 	if _is_pistol_weapon(weapon_id) and not bool(profile.get("slingshot", false)) and not profile.has("angle_offset"):
-		profile["angle_offset"] = randf_range(-PISTOL_SPREAD_RADIANS, PISTOL_SPREAD_RADIANS)
+		var spread_radians: float = BERETTA_SPREAD_RADIANS if weapon_id == "commando_pistol" else PISTOL_SPREAD_RADIANS
+		profile["angle_offset"] = randf_range(-spread_radians, spread_radians)
 	var kind: String = str(profile.get("kind", "bullet"))
 	var origin: Vector2 = _get_firearm_origin(weapon_id, config, profile)
 	var target: Vector2 = _get_boss_target_pos(config)
@@ -2368,9 +2487,19 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 		if _apply_pistol_side_wall_bounce(projectile, pos, velocity, context):
 			pos = _get_vector2(projectile.get("pos", pos), pos)
 			velocity = _get_vector2(projectile.get("velocity", velocity), velocity)
+		projectile["prev_pos"] = prev_pos
+		projectile["pos"] = pos
+		projectile["velocity"] = velocity
+		var rock_bounce_result: Dictionary = _apply_stage2_pistol_rock_bounce(projectile, context, deps)
+		if bool(rock_bounce_result.get("consumed", false)):
+			projectiles.remove_at(index)
+			continue
+		if bool(rock_bounce_result.get("bounced", false)):
+			pos = _get_vector2(projectile.get("pos", pos), pos)
+			velocity = _get_vector2(projectile.get("velocity", velocity), velocity)
 		if projectile_kind == "net":
 			_update_net_projectile_rope(projectile, pos, context)
-		projectile["prev_pos"] = prev_pos
+		projectile["prev_pos"] = _get_vector2(projectile.get("prev_pos", prev_pos), prev_pos)
 		projectile["pos"] = pos
 		projectile["velocity"] = velocity
 		projectile["life_frames"] = max(0.0, float(projectile.get("life_frames", 0.0)) - step)
@@ -2385,6 +2514,7 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 		var impact_reason: String = _get_projectile_impact_reason(projectile, context)
 		if impact_reason != "":
 			_spawn_impact_flash(projectile)
+			_destroy_stage2_rocks_for_projectile_impact(projectile, context, deps)
 			if impact_reason == "target":
 				_register_projectile_hit(projectile, context, deps)
 			elif impact_reason == "wall":
@@ -2417,6 +2547,25 @@ func _apply_pistol_side_wall_bounce(projectile: Dictionary, pos: Vector2, veloci
 	projectile.clear()
 	projectile.merge(_get_dict(bounce_result.get("projectile", projectile)), true)
 	return true
+
+
+func _apply_stage2_pistol_rock_bounce(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
+	if not _is_pistol_weapon(_get_projectile_weapon_id(projectile, "")):
+		return {}
+	if int(context.get("current_stage", deps.get("current_stage", 1))) != 2:
+		return {}
+	var stage_context: Dictionary = context.duplicate()
+	stage_context["current_stage"] = 2
+	for target in _get_stage2_rock_bounce_targets(deps):
+		var bounce_result: Dictionary = _get_dict(target.resolve_pistol_projectile_rock_bounce(projectile, deps, stage_context))
+		if bool(bounce_result.get("consumed", false)):
+			return {"consumed": true}
+		if not bool(bounce_result.get("bounced", false)):
+			continue
+		projectile.clear()
+		projectile.merge(_get_dict(bounce_result.get("projectile", projectile)), true)
+		return {"bounced": true}
+	return {}
 
 
 func _is_wall_bouncing_pistol(projectile: Dictionary) -> bool:
@@ -2870,6 +3019,58 @@ func _register_projectile_environment_impact(projectile: Dictionary, reason: Str
 	_trigger_hit_feedback(feedback_profile, deps)
 	_play_impact_audio(weapon_id, deps)
 	return CommandoFirearmProjectileImpactState.build_environment_impact_result(weapon_id, reason, pos)
+
+
+func _destroy_stage2_rocks_for_projectile_impact(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> int:
+	var weapon_id: String = _get_projectile_weapon_id(projectile)
+	if not (weapon_id in ["bazooka", "fire_support"]):
+		return 0
+	if int(context.get("current_stage", deps.get("current_stage", 1))) != 2:
+		return 0
+	var profile: Dictionary = _get_weapon_profile(weapon_id)
+	var center: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var radius: float = _get_explosion_radius(projectile, profile)
+	var stage_context: Dictionary = context.duplicate()
+	stage_context["current_stage"] = 2
+	stage_context["source"] = "commando_firearm_%s" % weapon_id
+	var hit_count := 0
+	for target in _get_stage2_rock_collision_targets(deps):
+		hit_count += max(0, int(target.resolve_explosion_rock_collision(center, radius, deps, stage_context)))
+	return hit_count
+
+
+func _get_stage2_rock_collision_targets(deps: Dictionary) -> Array:
+	var targets: Array = []
+	_append_stage2_rock_method_target(targets, deps.get("stage_background", null), "resolve_explosion_rock_collision")
+	_append_stage2_rock_method_target(targets, deps.get("stage2_pillar_background", null), "resolve_explosion_rock_collision")
+	var registry: Object = deps.get("registry", null)
+	_append_stage2_rock_method_target(targets, _get_instance(registry, "stage2_pillar_background"), "resolve_explosion_rock_collision")
+	var router: Object = _get_instance(registry, "stage_runtime_router")
+	if router != null and router.has_method("get_instance"):
+		_append_stage2_rock_method_target(targets, router.get_instance(registry, 2, "stage_background"), "resolve_explosion_rock_collision")
+	return targets
+
+
+func _get_stage2_rock_bounce_targets(deps: Dictionary) -> Array:
+	var targets: Array = []
+	_append_stage2_rock_method_target(targets, deps.get("stage_background", null), PISTOL_ROCK_BOUNCE_METHOD)
+	_append_stage2_rock_method_target(targets, deps.get("stage2_pillar_background", null), PISTOL_ROCK_BOUNCE_METHOD)
+	var registry: Object = deps.get("registry", null)
+	_append_stage2_rock_method_target(targets, _get_instance(registry, "stage2_pillar_background"), PISTOL_ROCK_BOUNCE_METHOD)
+	var router: Object = _get_instance(registry, "stage_runtime_router")
+	if router != null and router.has_method("get_instance"):
+		_append_stage2_rock_method_target(targets, router.get_instance(registry, 2, "stage_background"), PISTOL_ROCK_BOUNCE_METHOD)
+	return targets
+
+
+func _append_stage2_rock_method_target(targets: Array, candidate: Object, method_name: String) -> void:
+	if candidate == null or not candidate.has_method(method_name):
+		return
+	var candidate_id: int = candidate.get_instance_id()
+	for target in targets:
+		if target is Object and target.get_instance_id() == candidate_id:
+			return
+	targets.append(candidate)
 
 
 func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -3588,9 +3789,27 @@ func _apply_active_lingering_effect(
 	deps: Dictionary,
 	result: Dictionary
 ) -> void:
+	_sync_net_field_rope_origin(effect, context)
 	_apply_lingering_effect_status(effect, context, deps, fps_scale)
 	_apply_active_lingering_clamp(effect, context, result)
 	_store_lingering_effect_at_index(index, effect)
+
+
+func _sync_net_field_rope_origin(effect: Dictionary, context: Dictionary) -> void:
+	if not _should_sync_net_field_rope_origin(effect):
+		return
+	effect["origin"] = _get_net_gun_aim_origin(context)
+
+
+func _should_sync_net_field_rope_origin(effect: Dictionary) -> bool:
+	if _is_active_hooked_net_field(effect):
+		return true
+	return (
+		_is_net_gun_effect(effect)
+		and bool(effect.get("rope_broken", false))
+		and bool(effect.get("dissolve", false))
+		and _get_lingering_rope_snap_timer(effect) > 0.0
+	)
 
 
 func _apply_active_lingering_clamp(effect: Dictionary, context: Dictionary, result: Dictionary) -> void:

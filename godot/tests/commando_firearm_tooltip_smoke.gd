@@ -70,9 +70,10 @@ func _verify_permanent_firearm_tooltip_uses_final_cooldown() -> void:
 		}
 	)
 	_expect(str(pistol_tooltip.get("title", "")) == "베레타", "Commando pistol tooltip should show the Beretta display name")
-	_expect(str(pistol_tooltip.get("ammo_text", "")) == "탄약 4/4 · 탄창 2/2", "Beretta tooltip should expose its 12-shot total reserve")
-	_expect(str(pistol_tooltip.get("cooldown_text", "")) == "0.8초", "Beretta tooltip should show the 30% faster internal fire cooldown")
-	_expect(str(pistol_tooltip.get("reload_text", "")).contains("총 12발"), "Beretta tooltip should mention the total bullet count")
+	_expect(str(pistol_tooltip.get("ammo_text", "")) == "탄약 8/8", "Beretta tooltip should expose its 8-round ammo")
+	_expect(str(pistol_tooltip.get("cooldown_text", "")) == "0.5초", "Beretta tooltip should show the doubled internal fire rate")
+	_expect(str(pistol_tooltip.get("description", "")).contains("정확도 30%"), "Beretta tooltip should mention the improved accuracy")
+	_expect(str(pistol_tooltip.get("reload_text", "")).contains("재장전 스킬"), "Beretta tooltip should explain that ammo is restored by reload skill")
 
 	var outside_state: Dictionary = tooltip.build_hover_state(
 		panel_state,

@@ -2,7 +2,7 @@ extends RefCounted
 
 const TOOLTIP_SIZE := Vector2(306.0, 228.0)
 const BASE_PISTOL_INTERNAL_COOLDOWN_SECONDS := 1.0
-const BERETTA_INTERNAL_COOLDOWN_SECONDS := BASE_PISTOL_INTERNAL_COOLDOWN_SECONDS / 1.3
+const BERETTA_INTERNAL_COOLDOWN_SECONDS := BASE_PISTOL_INTERNAL_COOLDOWN_SECONDS / 2.0
 
 
 func build_hover_state(panel_state: Dictionary, view_size: Vector2, scale_factor: float, context: Dictionary) -> Dictionary:
@@ -155,7 +155,7 @@ func _get_reload_text(weapon_id: String, weapon: Dictionary, _slingshot_state: D
 	if bool(weapon.get("rental", false)) or str(weapon.get("kind", "")) == "rental":
 		return "대여 화기는 재장전 대상이 아닙니다."
 	if weapon_id == "commando_pistol":
-		return "총 12발을 운용합니다. 4발을 모두 쓰면 예비 탄창 1개를 소비해 120프레임 동안 재장전합니다."
+		return "기본 화기가 아니므로 발사 입력으로 재장전되지 않습니다. 재장전 스킬로 탄약을 보충합니다."
 	if weapon_id in ["ak47", "fire_support"]:
 		return "재장전 게이지 완충 시 보충됩니다."
 	return "재장전 스킬로 1발씩 보충됩니다."

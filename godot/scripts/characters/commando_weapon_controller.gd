@@ -4,8 +4,7 @@ const BASE_WEAPON := "pistol"
 const PISTOL_ORB_SKILL := "commando_pistol"
 const PISTOL_AMMO_MAX := 4
 const PISTOL_RELOAD_FRAMES := 120.0
-const BERETTA_AMMO_MAX := 4
-const BERETTA_MAGAZINE_MAX := 2
+const BERETTA_AMMO_MAX := 8
 const AK47_AMMO_MAX := 60
 const AK47_DURATION_FRAMES := 1800.0
 const BAZOOKA_AMMO_MAX := 4
@@ -41,8 +40,8 @@ const WEAPON_DATA := {
 		"kind": "owned",
 		"ammo_current": BERETTA_AMMO_MAX,
 		"ammo_max": BERETTA_AMMO_MAX,
-		"magazines_current": BERETTA_MAGAZINE_MAX,
-		"magazines_max": BERETTA_MAGAZINE_MAX,
+		"magazines_current": 0,
+		"magazines_max": 0,
 		"reloading": false,
 		"reload_timer_frames": 0.0,
 		"reload_total_frames": PISTOL_RELOAD_FRAMES,
@@ -410,7 +409,7 @@ func get_last_switch_msec() -> int:
 func can_fire(weapon_id: String = "") -> bool:
 	var id: String = current_weapon_id if weapon_id == "" else _normalize_weapon_id(weapon_id)
 	var data: Dictionary = _get_weapon_runtime_data(id)
-	if (id == BASE_WEAPON or id == PISTOL_ORB_SKILL) and bool(data.get("reloading", false)):
+	if id == BASE_WEAPON and bool(data.get("reloading", false)):
 		return false
 	var ammo_current: int = int(data.get("ammo_current", -1))
 	return ammo_current != 0
@@ -421,7 +420,7 @@ func consume_current_weapon_ammo(amount: int = 1) -> bool:
 	var target: Dictionary = _get_weapon_runtime_data(id)
 	if target.is_empty():
 		return false
-	if (id == BASE_WEAPON or id == PISTOL_ORB_SKILL) and bool(target.get("reloading", false)):
+	if id == BASE_WEAPON and bool(target.get("reloading", false)):
 		return false
 	var ammo_current: int = int(target.get("ammo_current", -1))
 	if ammo_current == 0:
@@ -467,7 +466,7 @@ func refill_weapon(weapon_id: String, amount: int = 1) -> bool:
 	if id == BASE_WEAPON:
 		return _refill_basic_ammo(id, target, amount)
 	if id == PISTOL_ORB_SKILL:
-		return _refill_pistol_magazines(target, amount)
+		return _refill_basic_ammo(id, target, amount)
 	if id == "ak47":
 		var changed_ak47 := _refill_ak47_ammo(target, amount)
 		if changed_ak47:
@@ -540,25 +539,7 @@ func start_weapon_reload(weapon_id: String) -> bool:
 	var id: String = _normalize_weapon_id(weapon_id)
 	if id == BASE_WEAPON:
 		return _start_base_pistol_reload()
-	if id != PISTOL_ORB_SKILL:
-		return false
-	if rental_weapons.has(id) or not permanent_owned.has(id):
-		return false
-	var target: Dictionary = _get_weapon_runtime_data(id)
-	if target.is_empty() or bool(target.get("reloading", false)):
-		return false
-	var ammo_current: int = int(target.get("ammo_current", 0))
-	var ammo_max: int = int(target.get("ammo_max", BERETTA_AMMO_MAX))
-	var magazines_current: int = int(target.get("magazines_current", 0))
-	if ammo_current >= ammo_max or magazines_current <= 0:
-		return false
-	target["magazines_current"] = magazines_current - 1
-	target["reloading"] = true
-	target["reload_timer_frames"] = PISTOL_RELOAD_FRAMES
-	target["reload_total_frames"] = PISTOL_RELOAD_FRAMES
-	target["reload_display_ammo"] = ammo_current
-	_set_weapon_runtime_data(id, target)
-	return true
+	return false
 
 
 func _refill_all_permanent_to_max() -> Array:
@@ -614,27 +595,11 @@ func _update_pistol_reload(fps_scale: float) -> Dictionary:
 	if fps_scale <= 0.0 or not permanent_owned.has(PISTOL_ORB_SKILL):
 		return result
 	var data: Dictionary = _get_dict(permanent_owned.get(PISTOL_ORB_SKILL, {})).duplicate(true)
-	if not bool(data.get("reloading", false)):
-		return result
-	var timer: float = max(0.0, float(data.get("reload_timer_frames", PISTOL_RELOAD_FRAMES)) - fps_scale)
-	var total: float = max(1.0, float(data.get("reload_total_frames", PISTOL_RELOAD_FRAMES)))
-	var ammo_max: int = int(data.get("ammo_max", BERETTA_AMMO_MAX))
-	var start_ammo: int = int(data.get("ammo_current", 0))
-	var previous_display: int = clampi(int(data.get("reload_display_ammo", start_ammo)), 0, ammo_max)
-	var progress: float = clamp(1.0 - timer / total, 0.0, 1.0)
-	var display_ammo: int = clampi(max(start_ammo, int(floor(progress * float(ammo_max)))), 0, ammo_max)
-	data["reload_timer_frames"] = timer
-	data["reload_display_ammo"] = display_ammo
-	result["reloading"] = true
-	result["reload_timer_frames"] = timer
-	result["reload_rounds_added"] = max(0, display_ammo - previous_display)
-	if timer <= 0.0:
+	if bool(data.get("reloading", false)) or float(data.get("reload_timer_frames", 0.0)) > 0.0:
 		data["reloading"] = false
 		data["reload_timer_frames"] = 0.0
-		data["ammo_current"] = ammo_max
-		data["reload_display_ammo"] = ammo_max
-		result["completed"] = true
-	permanent_owned[PISTOL_ORB_SKILL] = data
+		data["reload_display_ammo"] = int(data.get("ammo_current", BERETTA_AMMO_MAX))
+		permanent_owned[PISTOL_ORB_SKILL] = data
 	return result
 
 
@@ -687,27 +652,20 @@ func _update_base_pistol_reload(fps_scale: float) -> Dictionary:
 	return result
 
 
-func _refill_pistol_magazines(target: Dictionary, amount: int = 1) -> bool:
-	var magazines_max: int = int(target.get("magazines_max", BERETTA_MAGAZINE_MAX))
-	var magazines_current: int = int(target.get("magazines_current", magazines_max))
-	if magazines_current >= magazines_max:
-		return false
-	target["magazines_current"] = min(magazines_max, magazines_current + max(1, int(amount)))
-	target["reloading"] = false
-	target["reload_timer_frames"] = 0.0
-	target["reload_display_ammo"] = int(target.get("ammo_current", BERETTA_AMMO_MAX))
-	_set_weapon_runtime_data(PISTOL_ORB_SKILL, target)
-	return true
-
-
 func _refill_pistol_to_max(target: Dictionary) -> bool:
 	var ammo_max: int = int(target.get("ammo_max", BERETTA_AMMO_MAX))
-	var magazines_max: int = int(target.get("magazines_max", BERETTA_MAGAZINE_MAX))
-	var changed: bool = int(target.get("ammo_current", 0)) < ammo_max or int(target.get("magazines_current", 0)) < magazines_max or bool(target.get("reloading", false))
+	var changed: bool = (
+		int(target.get("ammo_current", 0)) < ammo_max
+		or int(target.get("magazines_current", 0)) != 0
+		or int(target.get("magazines_max", 0)) != 0
+		or bool(target.get("reloading", false))
+		or float(target.get("reload_timer_frames", 0.0)) > 0.0
+	)
 	if not changed:
 		return false
 	target["ammo_current"] = ammo_max
-	target["magazines_current"] = magazines_max
+	target["magazines_current"] = 0
+	target["magazines_max"] = 0
 	target["reloading"] = false
 	target["reload_timer_frames"] = 0.0
 	target["reload_total_frames"] = PISTOL_RELOAD_FRAMES
@@ -740,14 +698,14 @@ func _refill_ak47_to_max(target: Dictionary) -> bool:
 
 func _apply_pistol_display_fields(data: Dictionary) -> void:
 	var ammo_max: int = BERETTA_AMMO_MAX
-	var magazines_max: int = BERETTA_MAGAZINE_MAX
 	data["ammo_max"] = ammo_max
-	data["magazines_max"] = magazines_max
+	data["magazines_max"] = 0
 	data["ammo_current"] = clampi(int(data.get("ammo_current", ammo_max)), 0, ammo_max)
-	data["magazines_current"] = clampi(int(data.get("magazines_current", magazines_max)), 0, magazines_max)
-	data["reload_total_frames"] = max(1.0, float(data.get("reload_total_frames", PISTOL_RELOAD_FRAMES)))
-	if not data.has("reload_display_ammo"):
-		data["reload_display_ammo"] = int(data.get("ammo_current", ammo_max))
+	data["magazines_current"] = 0
+	data["reloading"] = false
+	data["reload_timer_frames"] = 0.0
+	data["reload_total_frames"] = PISTOL_RELOAD_FRAMES
+	data["reload_display_ammo"] = int(data.get("ammo_current", ammo_max))
 
 
 func _apply_ak47_display_fields(data: Dictionary) -> void:
@@ -764,12 +722,7 @@ func _apply_ak47_display_fields(data: Dictionary) -> void:
 func _get_pistol_ammo_text(data: Dictionary) -> String:
 	var ammo_current: int = int(data.get("ammo_current", BERETTA_AMMO_MAX))
 	var ammo_max: int = int(data.get("ammo_max", BERETTA_AMMO_MAX))
-	var magazines_current: int = int(data.get("magazines_current", BERETTA_MAGAZINE_MAX))
-	var magazines_max: int = int(data.get("magazines_max", BERETTA_MAGAZINE_MAX))
-	if bool(data.get("reloading", false)):
-		var display_ammo: int = int(data.get("reload_display_ammo", ammo_current))
-		return "재장전 %d/%d · 탄창 %d/%d" % [display_ammo, ammo_max, magazines_current, magazines_max]
-	return "탄약 %d/%d · 탄창 %d/%d" % [ammo_current, ammo_max, magazines_current, magazines_max]
+	return "탄약 %d/%d" % [ammo_current, ammo_max]
 
 
 func _get_base_pistol_ammo_text(data: Dictionary) -> String:
@@ -790,6 +743,10 @@ func _refill_basic_ammo(id: String, target: Dictionary, amount: int = 1) -> bool
 	target["reloading"] = false
 	target["reload_timer_frames"] = 0.0
 	target["reload_display_ammo"] = int(target.get("ammo_current", ammo_max))
+	if id == PISTOL_ORB_SKILL:
+		target["magazines_current"] = 0
+		target["magazines_max"] = 0
+		target["reload_total_frames"] = PISTOL_RELOAD_FRAMES
 	_set_weapon_runtime_data(id, target)
 	return true
 
@@ -803,6 +760,10 @@ func _refill_basic_ammo_to_max(id: String, target: Dictionary) -> bool:
 	target["reloading"] = false
 	target["reload_timer_frames"] = 0.0
 	target["reload_display_ammo"] = ammo_max
+	if id == PISTOL_ORB_SKILL:
+		target["magazines_current"] = 0
+		target["magazines_max"] = 0
+		target["reload_total_frames"] = PISTOL_RELOAD_FRAMES
 	_set_weapon_runtime_data(id, target)
 	return true
 
@@ -930,21 +891,12 @@ func _sanitize_weapon_runtime_data(weapon_id: String, value: Variant, rental: bo
 		data["ammo_max"] = ammo_max
 		data["ammo_current"] = clampi(int(data.get("ammo_current", ammo_max)), 0, ammo_max)
 	if id == PISTOL_ORB_SKILL:
-		var magazines_max: int = BERETTA_MAGAZINE_MAX
-		data["magazines_max"] = magazines_max
-		data["magazines_current"] = clampi(int(data.get("magazines_current", magazines_max)), 0, magazines_max)
-		data["reload_total_frames"] = max(1.0, float(data.get("reload_total_frames", PISTOL_RELOAD_FRAMES)))
-		data["reload_timer_frames"] = clamp(
-			float(data.get("reload_timer_frames", 0.0)),
-			0.0,
-			float(data.get("reload_total_frames", PISTOL_RELOAD_FRAMES))
-		)
-		data["reload_display_ammo"] = clampi(
-			int(data.get("reload_display_ammo", data.get("ammo_current", BERETTA_AMMO_MAX))),
-			0,
-			int(data.get("ammo_max", BERETTA_AMMO_MAX))
-		)
-		data["reloading"] = bool(data.get("reloading", false)) and float(data.get("reload_timer_frames", 0.0)) > 0.0
+		data["magazines_max"] = 0
+		data["magazines_current"] = 0
+		data["reload_total_frames"] = PISTOL_RELOAD_FRAMES
+		data["reload_timer_frames"] = 0.0
+		data["reload_display_ammo"] = int(data.get("ammo_current", BERETTA_AMMO_MAX))
+		data["reloading"] = false
 	if id == "ak47":
 		var duration_max: float = max(0.0, float(data.get("duration_max_frames", AK47_DURATION_FRAMES)))
 		data["duration_max_frames"] = duration_max

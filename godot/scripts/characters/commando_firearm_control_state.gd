@@ -23,13 +23,10 @@ static func is_player_control_locked(
 static func get_movement_speed_multiplier(
 	active_suicide_drone: bool,
 	ak47_trigger_held: bool,
-	hooked_net_field: bool,
+	_hooked_net_field: bool,
 	ak47_multiplier: float,
-	net_gun_multiplier: float
+	_net_gun_multiplier: float
 ) -> float:
 	if active_suicide_drone:
 		return 0.0
-	var multiplier := ak47_multiplier if ak47_trigger_held else 1.0
-	if hooked_net_field:
-		multiplier = min(multiplier, net_gun_multiplier)
-	return multiplier
+	return ak47_multiplier if ak47_trigger_held else 1.0

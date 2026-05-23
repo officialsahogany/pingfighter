@@ -7,6 +7,7 @@ const CommandoWeaponController := preload("res://scripts/characters/commando_wea
 const BattleEffectsUpdateController := preload("res://scripts/effects/battle_effects_update_controller.gd")
 const BattleSceneEffectsUpdateResultApplier := preload("res://scripts/core/battle_scene_effects_update_result_applier.gd")
 const PaddleBounceBossPostHitHandler := preload("res://scripts/ball/paddle_bounce_boss_post_hit_handler.gd")
+const Stage1CommandoFirearmFxHost := preload("res://scripts/stages/stage1/stage1_commando_firearm_fx_host.gd")
 const Stage1CommandoFirearmRenderer := preload("res://scripts/stages/stage1/stage1_commando_firearm_renderer.gd")
 const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
 const StatusEffectState := preload("res://scripts/status/status_effect_state.gd")
@@ -231,7 +232,7 @@ func _init() -> void:
 	_verify_base_pistol_empty_click_reloads_full_magazine()
 	_verify_base_pistol_uses_input_edges_after_switch()
 	_verify_pistol_side_wall_bounce()
-	_verify_commando_pistol_ammo_reload_and_delayed_fire()
+	_verify_commando_pistol_ammo_empty_and_delayed_fire()
 	_verify_weapon_hit_status_profiles()
 	_verify_pistol_headshot_legshot_status_and_gauge()
 	_verify_pistol_hit_gauge_result_handoff()
@@ -244,6 +245,7 @@ func _init() -> void:
 	_verify_suicide_drone_ball_boost_and_boss_restore()
 	_verify_non_fire_inputs_do_not_spawn_vfx()
 	_verify_cooldown_and_switch_suppression_do_not_spend_or_spawn()
+	_verify_firearm_fx_host_activation_does_not_emit_stale_particles()
 	_verify_stage1_renderer_context_reader()
 
 	if _failures.is_empty():
@@ -514,7 +516,17 @@ func _verify_net_gun_ammo_rope_capture_and_break() -> void:
 	_expect(str(net_field.get("kind", "")) == "net_field", "net gun capture should expose a net field")
 	_expect(bool(net_field.get("hooked_player", false)), "successful net should hook the player rope")
 	_expect(not bool(net_field.get("dissolve", false)), "successful net should not start as dissolve")
-	_expect(is_equal_approx(float(runtime.get_movement_speed_multiplier()), 0.7), "hooked net should slow Commando movement to the Python 70% multiplier")
+	_expect(is_equal_approx(float(runtime.get_movement_speed_multiplier()), 1.0), "hooked net should preserve normal Commando movement speed")
+
+	var moved_hook_config: Dictionary = config.duplicate(true)
+	moved_hook_config["player_pos"] = Vector2(420.0, 654.0)
+	runtime.update_effects(1.0, Time.get_ticks_msec(), moved_hook_config, deps)
+	var moved_fields: Array = _get_array(runtime.get_actor_draw_context().get("commando_firearm_lingering_effects", []))
+	var moved_field: Dictionary = _get_dict(moved_fields[0])
+	var moved_origin: Vector2 = _get_vector2(moved_field.get("origin", Vector2.ZERO), Vector2.ZERO)
+	var moved_expected_origin: Vector2 = runtime._get_net_gun_aim_origin(moved_hook_config)
+	_expect(moved_origin.is_equal_approx(moved_expected_origin), "hooked net rope origin should follow the current player muzzle after movement")
+	_expect(not moved_origin.is_equal_approx(rope_origin), "hooked net rope origin should not stay pinned to the firing-frame player position")
 
 	var clamp_config: Dictionary = config.duplicate(true)
 	clamp_config["boss_pos"] = Vector2(620.0, 62.0)
@@ -522,13 +534,18 @@ func _verify_net_gun_ammo_rope_capture_and_break() -> void:
 	_expect(bool(clamp_result.get("commando_net_gun_boss_clamped", false)), "active net should clamp boss X inside the net")
 	_expect(_get_vector2(clamp_result.get("boss_pos", Vector2.ZERO), Vector2.ZERO).x < 500.0, "net boss clamp should move an escaped boss back into the net")
 
-	var dash_context: Dictionary = config.duplicate(true)
+	var dash_context: Dictionary = moved_hook_config.duplicate(true)
+	dash_context["player_pos"] = Vector2(500.0, 654.0)
 	dash_context["dash_snapshot"] = {"active": true}
 	runtime.update_effects(1.0, Time.get_ticks_msec(), dash_context, deps)
 	var broken_fields: Array = _get_array(runtime.get_actor_draw_context().get("commando_firearm_lingering_effects", []))
 	var broken_field: Dictionary = _get_dict(broken_fields[0])
 	_expect(bool(broken_field.get("dissolve", false)) and bool(broken_field.get("rope_broken", false)), "dash start should break the net rope and dissolve the field")
-	_expect(is_equal_approx(float(runtime.get_movement_speed_multiplier()), 1.0), "rope break should clear the net movement slow")
+	_expect(
+		_get_vector2(broken_field.get("origin", Vector2.ZERO), Vector2.ZERO).is_equal_approx(runtime._get_net_gun_aim_origin(dash_context)),
+		"breaking net rope origin should use the current player muzzle at dash break"
+	)
+	_expect(is_equal_approx(float(runtime.get_movement_speed_multiplier()), 1.0), "rope break should keep net movement neutral")
 
 	var miss_setup: Dictionary = _build_setup("net_gun")
 	var miss_runtime: Object = miss_setup.get("runtime", null)
@@ -647,10 +664,7 @@ func _verify_weapon_hit_status_profiles() -> void:
 
 	runtime._register_projectile_hit(_direct_projectile("net_gun", Vector2(350.0, 82.0), Vector2(0.0, -10.0)), config, deps)
 	var net_calls: Array = _get_array(status_effect_state.get_calls_for_source("commando_firearm_net_gun"))
-	_expect(net_calls.size() == 1, "net gun hit should apply one shared boss status")
-	_expect(str(_get_dict(net_calls[0]).get("status_id", "")) == "slow", "net gun hit should apply boss slow")
-	_expect(is_equal_approx(float(_get_dict(net_calls[0]).get("duration_frames", 0.0)), 240.0), "net gun slow should match Python 4s net duration")
-	_expect(is_equal_approx(float(_get_dict(_get_dict(net_calls[0]).get("data", {})).get("multiplier", 0.0)), 0.35), "net gun slow should use the first-port trap multiplier")
+	_expect(net_calls.is_empty(), "net gun hit should not apply a boss slow status")
 
 	runtime._register_projectile_hit(_direct_projectile("suicide_drone", Vector2(360.0, 82.0), Vector2(8.0, -8.0)), config, deps)
 	var drone_calls: Array = _get_array(status_effect_state.get_calls_for_source("commando_firearm_suicide_drone"))
@@ -964,7 +978,7 @@ func _verify_pistol_side_wall_bounce() -> void:
 	_expect(int(right_bullet.get("wall_bounces", 0)) == 1, "Commando pistol side-wall bounce should be counted once")
 
 
-func _verify_commando_pistol_ammo_reload_and_delayed_fire() -> void:
+func _verify_commando_pistol_ammo_empty_and_delayed_fire() -> void:
 	var setup: Dictionary = _build_setup("commando_pistol")
 	var runtime: Object = setup.get("runtime", null)
 	var controller: Object = setup.get("controller", null)
@@ -975,9 +989,9 @@ func _verify_commando_pistol_ammo_reload_and_delayed_fire() -> void:
 	var first_queue: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, config, deps)
 	_expect(bool(first_queue.get("shot_queued", false)), "Commando pistol input should queue an aimed shot before the bullet exists")
 	_expect(not bool(first_queue.get("fired", false)), "Commando pistol should not spawn the bullet on the input frame")
-	_expect(int(first_queue.get("ammo_current", -1)) == 3, "Beretta should spend one bullet from the 4-round loaded magazine on input")
-	_expect(int(first_queue.get("magazines_current", -1)) == 2, "Beretta shot should not spend a spare magazine")
-	_expect(is_equal_approx(float(first_queue.get("cooldown_frames", 0.0)), 60.0 / 1.3), "Beretta should fire 30% faster than the base pistol")
+	_expect(int(first_queue.get("ammo_current", -1)) == 7, "Beretta should spend one bullet from the 8-round loaded magazine on input")
+	_expect(int(first_queue.get("magazines_current", -1)) == 0, "Beretta should not expose spare magazines")
+	_expect(is_equal_approx(float(first_queue.get("cooldown_frames", 0.0)), 30.0), "Beretta should fire twice as fast as the base pistol")
 	_expect(is_equal_approx(float(first_queue.get("control_lock_frames", 0.0)), 18.0), "Commando pistol should expose the Python 18-frame afterdelay")
 	_expect(is_equal_approx(float(first_queue.get("fire_delay_frames", 0.0)), 24.0), "Commando pistol should wait through the draw/aim animation before spawning")
 	_expect(_get_array(runtime.get_actor_draw_context().get("commando_firearm_projectiles", [])).is_empty(), "queued Commando pistol shot should not create a projectile yet")
@@ -992,7 +1006,10 @@ func _verify_commando_pistol_ammo_reload_and_delayed_fire() -> void:
 	_expect(projectiles.size() == 1 and str(_get_dict(projectiles[0]).get("weapon_id", "")) == "commando_pistol", "delayed Commando pistol fire should create the real pistol projectile")
 	var pistol_projectile: Dictionary = _get_dict(projectiles[0])
 	_expect(is_equal_approx(_get_vector2(pistol_projectile.get("velocity", Vector2.ZERO), Vector2.ZERO).length(), 30.0), "Beretta bullet should fly 20% faster than the base pistol")
-	_expect(abs(float(pistol_projectile.get("angle_offset", 999.0))) <= PI / 12.0, "Commando pistol bullet should use the original ±15 degree spread")
+	_expect(
+		abs(float(pistol_projectile.get("angle_offset", 999.0))) <= CommandoFirearmRuntime.BERETTA_SPREAD_RADIANS,
+		"Commando pistol bullet should use the 30% tighter Beretta spread"
+	)
 	var shells: Array = _get_array(runtime.get_actor_draw_context().get("commando_firearm_shell_casings", []))
 	_expect(shells.size() == 1 and str(_get_dict(shells[0]).get("weapon_id", "")) == "commando_pistol", "Commando pistol fire should eject a pistol shell casing")
 	_expect(_get_array(audio.fire_calls) == ["commando_pistol"], "Commando pistol gunshot should play on bullet spawn, not on input")
@@ -1001,37 +1018,21 @@ func _verify_commando_pistol_ammo_reload_and_delayed_fire() -> void:
 	_expect(bool(blocked.get("fire_failed", false)) and str(blocked.get("failure_reason", "")) == "pistol_cooldown", "Beretta should block repeat input during its faster internal cooldown")
 
 	_wait_pistol_ready(runtime, deps, config)
-	for _shot_index in range(3):
+	for _shot_index in range(7):
 		_queue_and_resolve_pistol_shot(runtime, deps, config)
 		_wait_pistol_ready(runtime, deps, config)
-	_expect(int(controller.get_current_weapon_data().get("ammo_current", -1)) == 0, "four Beretta shots should empty the 4-round loaded magazine")
-	_expect(int(controller.get_current_weapon_data().get("magazines_current", -1)) == 2, "shooting bullets should leave both spare Beretta magazines untouched")
+	_expect(int(controller.get_current_weapon_data().get("ammo_current", -1)) == 0, "eight Beretta shots should empty the 8-round loaded magazine")
+	_expect(int(controller.get_current_weapon_data().get("magazines_current", -1)) == 0, "Beretta should stay without spare magazines after spending bullets")
 
-	var reload_start: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, config, deps)
-	_expect(bool(reload_start.get("reload_started", false)), "empty Commando pistol should start reload when spare magazines remain")
-	var reloading_weapon: Dictionary = controller.get_current_weapon_data()
-	_expect(bool(reloading_weapon.get("reloading", false)), "Commando pistol controller should expose reloading state")
-	_expect(int(reloading_weapon.get("magazines_current", -1)) == 1, "starting Beretta reload should spend one spare magazine")
-	_expect(not bool(reloading_weapon.get("can_fire", true)), "Commando pistol should be unable to fire during reload")
-	_expect(str(reloading_weapon.get("ammo_text", "")).contains("재장전"), "Commando pistol ammo text should show reload progress")
-	_expect(audio.pistol_reload_start_calls == 1, "Commando pistol reload should play the reload-start cue")
-
-	for _i in range(29):
-		runtime.update_input({"action_pressed": false}, 500.0, config, deps)
-	_expect(int(controller.get_current_weapon_data().get("reload_display_ammo", -1)) == 0, "Commando pistol reload should not show the first round before the first quarter")
-	runtime.update_input({"action_pressed": false}, 500.0, config, deps)
-	_expect(int(controller.get_current_weapon_data().get("reload_display_ammo", -1)) == 1, "Commando pistol reload should add bullets one at a time")
-	_expect(audio.pistol_reload_round_calls == 1, "Commando pistol reload should play one cue for the first loaded round")
-	for _i in range(89):
-		runtime.update_input({"action_pressed": false}, 500.0, config, deps)
-	_expect(bool(controller.get_current_weapon_data().get("reloading", false)), "Commando pistol reload should still be active before 120 frames")
-	_expect(audio.pistol_reload_round_calls == 3, "Commando pistol reload should play per-round cues as visible bullets appear")
-	runtime.update_input({"action_pressed": false}, 500.0, config, deps)
-	var reloaded_weapon: Dictionary = controller.get_current_weapon_data()
-	_expect(not bool(reloaded_weapon.get("reloading", true)), "Commando pistol reload should finish after the Python 120-frame timer")
-	_expect(int(reloaded_weapon.get("ammo_current", -1)) == 4, "Beretta reload should restore the 4-round loaded magazine")
-	_expect(audio.pistol_reload_round_calls == 4, "Commando pistol full reload should play one per-round cue for all four bullets")
-	_expect(str(reloaded_weapon.get("ammo_text", "")).contains("탄창 1/2"), "Beretta ammo text should preserve the spent spare magazine count")
+	var empty_fire: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, config, deps)
+	_expect(bool(empty_fire.get("fire_failed", false)), "empty Beretta fire input should fail instead of reloading")
+	_expect(str(empty_fire.get("failure_reason", "")) == "pistol_empty", "empty Beretta should require the reload skill path")
+	var empty_weapon: Dictionary = controller.get_current_weapon_data()
+	_expect(not bool(empty_weapon.get("reloading", false)), "empty Beretta should not enter a reload timer")
+	_expect(int(empty_weapon.get("ammo_current", -1)) == 0, "empty Beretta fire input should not refill ammo")
+	_expect(str(empty_weapon.get("ammo_text", "")) == "탄약 0/8", "empty Beretta ammo text should stay ammo-only")
+	_expect(audio.pistol_reload_start_calls == 0, "empty Beretta fire input should not play a reload-start cue")
+	_expect(audio.pistol_reload_round_calls == 0, "empty Beretta fire input should not play reload-round cues")
 
 
 func _verify_pistol_headshot_legshot_status_and_gauge() -> void:
@@ -1255,13 +1256,10 @@ func _verify_lingering_field_runtime() -> void:
 	_expect(net_fields.size() == 1, "net gun impact should leave one lingering net field")
 	_expect(str(_get_dict(net_fields[0]).get("kind", "")) == "net_field", "net lingering effect should expose net_field kind")
 	_expect(is_equal_approx(float(_get_dict(net_fields[0]).get("timer_frames", 0.0)), 240.0), "net lingering effect should start at the Python 4s duration")
-	_expect(_get_array(net_status.get_calls_for_source("commando_firearm_net_gun")).size() == 1, "net direct hit should apply exactly one immediate status before field ticking")
+	_expect(_get_array(net_status.get_calls_for_source("commando_firearm_net_gun")).is_empty(), "net direct hit should not apply an immediate slow status")
 	net_runtime.update_effects(1.0, Time.get_ticks_msec(), config, net_deps)
 	var net_calls_after_tick: Array = _get_array(net_status.get_calls_for_source("commando_firearm_net_gun"))
-	_expect(net_calls_after_tick.size() == 2, "active net field should refresh boss slow while the boss remains inside")
-	var net_lingering_call: Dictionary = _find_call_with_source_fragment(net_calls_after_tick, "_lingering_")
-	_expect(str(net_lingering_call.get("status_id", "")) == "slow", "net field tick should refresh boss slow")
-	_expect(is_equal_approx(float(_get_dict(net_lingering_call.get("data", {})).get("multiplier", 0.0)), 0.35), "net field slow should keep the trap multiplier")
+	_expect(net_calls_after_tick.is_empty(), "active net field should not refresh boss slow while the boss remains inside")
 
 	var drone_setup: Dictionary = _build_setup("suicide_drone")
 	var drone_runtime: Object = drone_setup.get("runtime", null)
@@ -1803,6 +1801,66 @@ func _verify_cooldown_and_switch_suppression_do_not_spend_or_spawn() -> void:
 	_expect(suppressed.is_empty(), "weapon switch grace should suppress immediate fire")
 	_expect(bool(switched_controller.get_current_weapon_data().get("can_fire", false)), "switch suppression should not spend ammo")
 	_expect(_get_array(switched_runtime.get_actor_draw_context().get("commando_firearm_projectiles", [])).is_empty(), "switch suppression should not spawn projectile VFX")
+
+
+func _verify_firearm_fx_host_activation_does_not_emit_stale_particles() -> void:
+	var host := Stage1CommandoFirearmFxHost.new()
+	host.prewarm_node_pipeline()
+	var inactive_status: Dictionary = host.get_debug_status()
+	_expect(not bool(inactive_status.get("muzzle_particles_emitting", true)), "prewarmed firearm FX host should keep muzzle particles stopped")
+	host.set_active(true)
+	var bare_active_status: Dictionary = host.get_debug_status()
+	_expect(not bool(bare_active_status.get("muzzle_particles_emitting", true)), "firearm FX host activation should not emit stale muzzle particles before anchor sync")
+	_expect(not bool(bare_active_status.get("impact_particles_emitting", true)), "firearm FX host activation should not emit stale impact particles before anchor sync")
+
+	var layout := {
+		"game_offset": Vector2(8.0, 12.0),
+		"render_scale": 1.5,
+	}
+	host.sync_state(
+		{
+			"muzzle_flashes": [{
+				"pos": Vector2(100.0, 200.0),
+				"direction": Vector2.UP,
+				"radius": 16.0,
+				"timer_frames": 8.0,
+				"max_timer_frames": 8.0,
+			}],
+			"impact_flashes": [],
+			"lingering_effects": [],
+		},
+		Vector2.ZERO,
+		true,
+		layout
+	)
+	var muzzle_status: Dictionary = host.get_debug_status()
+	_expect(str(muzzle_status.get("anchor_source", "")) == "muzzle", "firearm FX host should anchor muzzle particles to the synced muzzle source")
+	_expect(bool(muzzle_status.get("muzzle_particles_emitting", false)), "synced muzzle source should emit muzzle particles")
+	_expect(host.position.is_equal_approx(Vector2(158.0, 312.0)), "firearm FX host should move to the muzzle anchor before particle emission is visible")
+
+	host.sync_state(
+		{
+			"muzzle_flashes": [],
+			"impact_flashes": [{
+				"pos": Vector2(260.0, 180.0),
+				"radius": 20.0,
+				"timer_frames": 10.0,
+				"max_timer_frames": 10.0,
+			}],
+			"lingering_effects": [],
+		},
+		Vector2.ZERO,
+		true,
+		layout
+	)
+	var impact_status: Dictionary = host.get_debug_status()
+	_expect(str(impact_status.get("anchor_source", "")) == "impact", "firearm FX host should retarget to the impact source")
+	_expect(not bool(impact_status.get("muzzle_particles_emitting", true)), "impact retarget should stop muzzle particles instead of leaving old muzzle sparks active")
+	host.set_active(false)
+	var cleared_status: Dictionary = host.get_debug_status()
+	_expect(not bool(cleared_status.get("muzzle_particles_emitting", true)), "inactive firearm FX host should stop muzzle particles")
+	_expect(not bool(cleared_status.get("impact_particles_emitting", true)), "inactive firearm FX host should stop impact particles")
+	host.free()
 
 
 func _verify_stage1_renderer_context_reader() -> void:

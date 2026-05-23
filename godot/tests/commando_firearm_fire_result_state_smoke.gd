@@ -42,7 +42,7 @@ func _verify_direct_fire_result_state() -> void:
 	_expect(is_equal_approx(float(delayed_fire.get("fire_delay_frames", -1.0)), 0.0), "delayed pistol result should clear fire delay")
 	_expect(int(delayed_fire.get("skill_gold_award", -1)) == 0, "delayed pistol result should keep zero skill gold")
 
-	var reload: Dictionary = CommandoFirearmFireResultState.build_pistol_reload_started_result("commando_pistol", 240.0, "pistol_reload_started")
+	var reload: Dictionary = CommandoFirearmFireResultState.build_pistol_reload_started_result("pistol", 240.0, "pistol_reload_started")
 	_expect(bool(reload.get("reload_started", false)), "pistol reload result should expose reload-started state")
 	_expect(str(reload.get("failure_reason", "")) == "pistol_reload_started", "pistol reload result should preserve reason")
 
@@ -66,13 +66,13 @@ func _verify_direct_fire_result_state() -> void:
 	var queued: Dictionary = CommandoFirearmFireResultState.build_pistol_shot_queued_result(
 		"commando_pistol",
 		{
-			"ammo_current": 2,
-			"ammo_max": 4,
-			"magazines_current": 1,
-			"magazines_max": 2,
+			"ammo_current": 7,
+			"ammo_max": 8,
+			"magazines_current": 0,
+			"magazines_max": 0,
 		},
-		1,
-		4,
+		7,
+		8,
 		0,
 		30.0,
 		9.0,
@@ -85,7 +85,7 @@ func _verify_direct_fire_result_state() -> void:
 		500.0
 	)
 	_expect(bool(queued.get("shot_queued", false)), "queued pistol result should expose shot-queued state")
-	_expect(int(queued.get("ammo_current", -1)) == 2, "queued pistol result should preserve updated ammo")
+	_expect(int(queued.get("ammo_current", -1)) == 7, "queued pistol result should preserve updated ammo")
 	_expect(bool(queued.get("doping_potion_active", false)), "queued pistol result should preserve doping state")
 	_expect(is_equal_approx(float(queued.get("doping_potion_head_leg_multiplier", 0.0)), 2.0), "queued pistol result should preserve doping multiplier")
 

@@ -116,27 +116,43 @@ func _verify_direct_value_utils() -> void:
 
 	var doping_defaults := {
 		"head_leg_multiplier": 2.0,
+		"fire_rate_multiplier": 0.5,
 		"pistol_cooldown_frames": 30.0,
 		"pistol_control_lock_frames": 9.0,
 		"pistol_speed_multiplier": 1.2,
+		"beretta_cooldown_frames": 15.0,
+		"ak47_fire_interval_frames": 3.0,
+		"bazooka_cooldown_frames": 60.0,
+		"bazooka_control_lock_frames": 15.0,
 	}
 	var inactive_doping: Dictionary = CommandoFirearmValueUtils.normalize_doping_potion_context({}, doping_defaults)
 	_expect(not bool(inactive_doping.get("active", true)), "inactive doping context should default to inactive")
 	_expect(is_equal_approx(float(inactive_doping.get("head_leg_multiplier", 0.0)), 1.0), "inactive doping should keep neutral head/leg multiplier")
+	_expect(is_equal_approx(float(inactive_doping.get("fire_rate_multiplier", 0.0)), 1.0), "inactive doping should keep neutral fire rate")
 	_expect(is_equal_approx(float(inactive_doping.get("pistol_speed_multiplier", 0.0)), 1.0), "inactive doping should keep neutral pistol speed")
 	_expect(is_equal_approx(float(inactive_doping.get("pistol_cooldown_frames", 0.0)), 30.0), "inactive doping should preserve cooldown default")
 	var active_doping: Dictionary = CommandoFirearmValueUtils.normalize_doping_potion_context({
 		"active_item_doping_potion_active": true,
 		"active_item_doping_potion_head_leg_multiplier": 2.5,
+		"active_item_doping_potion_fire_rate_multiplier": -0.5,
 		"active_item_doping_potion_pistol_cooldown_frames": -4.0,
 		"active_item_doping_potion_pistol_control_lock_frames": -1.0,
 		"active_item_doping_potion_pistol_speed_multiplier": -2.0,
+		"active_item_doping_potion_beretta_cooldown_frames": -8.0,
+		"active_item_doping_potion_ak47_fire_interval_frames": -3.0,
+		"active_item_doping_potion_bazooka_cooldown_frames": -60.0,
+		"active_item_doping_potion_bazooka_control_lock_frames": -15.0,
 	}, doping_defaults)
 	_expect(bool(active_doping.get("active", false)), "legacy active doping key should be recognized")
 	_expect(is_equal_approx(float(active_doping.get("head_leg_multiplier", 0.0)), 2.5), "legacy head/leg multiplier key should be recognized")
+	_expect(is_equal_approx(float(active_doping.get("fire_rate_multiplier", 0.0)), 0.01), "doping fire rate multiplier should clamp to a positive value")
 	_expect(is_equal_approx(float(active_doping.get("pistol_cooldown_frames", 0.0)), 1.0), "doping cooldown should clamp to one frame")
 	_expect(is_equal_approx(float(active_doping.get("pistol_control_lock_frames", -1.0)), 0.0), "doping control lock should clamp to zero")
 	_expect(is_equal_approx(float(active_doping.get("pistol_speed_multiplier", 0.0)), 0.01), "doping speed should clamp to a positive value")
+	_expect(is_equal_approx(float(active_doping.get("beretta_cooldown_frames", 0.0)), 1.0), "doping Beretta cooldown should clamp to one frame")
+	_expect(is_equal_approx(float(active_doping.get("ak47_fire_interval_frames", 0.0)), 1.0), "doping AK-47 interval should clamp to one frame")
+	_expect(is_equal_approx(float(active_doping.get("bazooka_cooldown_frames", 0.0)), 1.0), "doping bazooka cooldown should clamp to one frame")
+	_expect(is_equal_approx(float(active_doping.get("bazooka_control_lock_frames", -1.0)), 0.0), "doping bazooka lock should clamp to zero")
 	var runtime_context_doping: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps({
 		"active_item_runtime": FakeDopingContextRuntime.new({
 			"active": true,
@@ -193,6 +209,7 @@ func _verify_direct_value_utils() -> void:
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("pistol", {}, false, 60.0, 46.0, 30.0), 60.0), "base pistol cooldown should use base frames")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", {}, false, 60.0, 46.0, 30.0), 46.0), "commando pistol cooldown should use Beretta frames")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", {"pistol_cooldown_frames": 22.0}, true, 60.0, 46.0, 30.0), 22.0), "active doping cooldown should override weapon cooldown")
+	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", {"pistol_cooldown_frames": 30.0, "beretta_cooldown_frames": 15.0}, true, 60.0, 46.0, 30.0), 15.0), "active doping should allow a separate Beretta cooldown")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", {}, true, 60.0, 46.0, 30.0), 30.0), "active doping cooldown should use default when context omits it")
 	_expect(CommandoFirearmValueUtils.is_pistol_weapon("pistol"), "base pistol should be classified as a pistol weapon")
 	_expect(CommandoFirearmValueUtils.is_pistol_weapon("commando_pistol"), "commando_pistol should be classified as a pistol weapon")
@@ -582,7 +599,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 	var fallback_net_origin_context := {"player_pos": Vector2(120.0, 640.0), "player_paddle_width": 90.0, "player_paddle_height": 24.0}
 	_expect(runtime._get_lingering_net_origin({}, fallback_net_origin_context) == runtime._get_net_gun_aim_origin(fallback_net_origin_context), "lingering net origin helper should use net aim origin fallback")
 	_expect(is_equal_approx(runtime._get_lingering_net_player_slow_multiplier({"player_slow_multiplier": 0.55}), 0.55), "lingering net player slow helper should read explicit multipliers")
-	_expect(is_equal_approx(runtime._get_lingering_net_player_slow_multiplier({}), 0.7), "lingering net player slow helper should use the default multiplier")
+	_expect(is_equal_approx(runtime._get_lingering_net_player_slow_multiplier({}), 1.0), "lingering net player slow helper should default to neutral movement")
 	var net_profile_effect := {}
 	runtime._apply_lingering_net_profile_fields(
 		net_profile_effect,
@@ -647,7 +664,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(not bool(dissolved_net_effect.get("hooked_player", true)), "lingering net field helper should not hook players for dissolving nets")
 	_expect(bool(dissolved_net_effect.get("rope_broken", false)), "lingering net field helper should mark dissolving net ropes broken")
 	_expect(is_equal_approx(float(dissolved_net_effect.get("rope_snap_duration", 0.0)), 24.0), "lingering net field helper should default rope snap duration")
-	_expect(is_equal_approx(float(dissolved_net_effect.get("player_slow_multiplier", 0.0)), 0.7), "lingering net field helper should default player slow multipliers")
+	_expect(is_equal_approx(float(dissolved_net_effect.get("player_slow_multiplier", 0.0)), 1.0), "lingering net field helper should default player slow multipliers to neutral")
 	_expect(runtime._is_net_gun_effect({"weapon_id": "net_gun"}), "net-gun effect helper should recognize net effects")
 	_expect(not runtime._is_net_gun_effect({"weapon_id": "ak47"}), "net-gun effect helper should reject other weapon effects")
 	_expect(runtime._is_active_hooked_net_field({"weapon_id": "net_gun", "hooked_player": true}), "active hooked net helper should accept hooked live nets")
