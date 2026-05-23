@@ -1,13 +1,12 @@
 extends RefCounted
 
-const HermesShoesFxHost := preload("res://scripts/items/mythic_item_hermes_shoes_fx_host.gd")
 const AuraFieldRenderer := preload("res://scripts/items/mythic_item_aura_field_renderer.gd")
 const ArmorFieldRenderer := preload("res://scripts/items/mythic_item_armor_field_renderer.gd")
+const HermesFieldRenderer := preload("res://scripts/items/mythic_item_hermes_field_renderer.gd")
 const HornStrawberryFieldRenderer := preload("res://scripts/items/mythic_item_horn_strawberry_field_renderer.gd")
 const MomentumFieldRenderer := preload("res://scripts/items/mythic_item_momentum_field_renderer.gd")
 const PoseidonFieldRenderer := preload("res://scripts/items/mythic_item_poseidon_field_renderer.gd")
 const RagnarokFieldRenderer := preload("res://scripts/items/mythic_item_ragnarok_field_renderer.gd")
-const HERMES_SHOES_FX_HOST_NAME := "MythicHermesShoesFxHost"
 
 const MAX_RENDERED_VENOM_MIST_PARTICLES := 32
 const MAX_RENDERED_RAINBOW_FUR_GLOVE_PARTICLES := 20
@@ -43,11 +42,9 @@ const ADVERSITY_ARMOR_TIMER_BAR_MARGIN := Vector2(16.0, 28.0)
 const ADVERSITY_ARMOR_TIMER_STACK_SPACING := 18.0
 const ADVERSITY_ARMOR_TIMER_STACK_KEY := "adversity_armor"
 
-var _hermes_fx_host: Node = null
-var _hermes_fx_host_canvas: Object = null
-var _hermes_fx_host_add_pending := false
 var _aura_field_renderer: Object = AuraFieldRenderer.new()
 var _armor_field_renderer: Object = ArmorFieldRenderer.new()
+var _hermes_field_renderer: Object = HermesFieldRenderer.new()
 var _horn_strawberry_field_renderer: Object = HornStrawberryFieldRenderer.new()
 var _momentum_field_renderer: Object = MomentumFieldRenderer.new()
 var _poseidon_field_renderer: Object = PoseidonFieldRenderer.new()
@@ -128,7 +125,7 @@ func draw_field_effects(
 		_perf_end(detail_perf_logger, "mythic.baal_boots", baal_sample_start)
 	if hermes_visible:
 		var hermes_sample_start: int = _perf_begin(detail_perf_logger)
-		draw_hermes_shoes_effect(
+		_hermes_field_renderer.draw_hermes_shoes_effect(
 			canvas,
 			shake_offset,
 			runtime.hermes_shoes_state,
@@ -327,60 +324,6 @@ func draw_field_effects(
 			var acquisition_sample_start: int = _perf_begin(detail_perf_logger)
 			runtime.acquisition_cinematic.draw(canvas, shake_offset)
 			_perf_end(detail_perf_logger, "mythic.acquisition_cinematic", acquisition_sample_start)
-
-
-func draw_hermes_shoes_effect(
-	canvas: CanvasItem,
-	shake_offset: Vector2,
-	state: Object,
-	active: bool,
-	_trail_life_frames: float,
-	_move_trail_threshold: float
-) -> void:
-	var host: Node = _get_or_create_hermes_fx_host(canvas)
-	if host == null:
-		return
-	var player_center: Vector2 = Vector2.ZERO
-	var player_size: Vector2 = HermesShoesFxHost.DEFAULT_PADDLE_SIZE
-	var move_delta_x: float = 0.0
-	if state != null:
-		player_center = _as_vector2(state.get("player_center"), Vector2.ZERO)
-		player_size = _as_vector2(state.get("player_size"), player_size)
-		var delta_value: Variant = state.get("last_move_delta_x")
-		if delta_value != null:
-			move_delta_x = float(delta_value)
-	if host.has_method("sync_state"):
-		host.sync_state(player_center, player_size, active, move_delta_x, shake_offset, 1.0)
-
-
-func _get_or_create_hermes_fx_host(canvas: CanvasItem) -> Node:
-	if _is_valid_hermes_fx_host() and _hermes_fx_host_canvas == canvas:
-		return _hermes_fx_host
-	if not (canvas is Node):
-		return null
-	var parent: Node = canvas as Node
-	var existing: Node = parent.get_node_or_null(HERMES_SHOES_FX_HOST_NAME)
-	if existing != null and is_instance_valid(existing) and not existing.is_queued_for_deletion():
-		_hermes_fx_host = existing
-		_hermes_fx_host_canvas = canvas
-		_hermes_fx_host_add_pending = false
-		return _hermes_fx_host
-	_hermes_fx_host = HermesShoesFxHost.new()
-	_hermes_fx_host.name = HERMES_SHOES_FX_HOST_NAME
-	_hermes_fx_host.visible = false
-	_hermes_fx_host_canvas = canvas
-	if not _hermes_fx_host_add_pending:
-		_hermes_fx_host_add_pending = true
-		parent.call_deferred("add_child", _hermes_fx_host)
-	return _hermes_fx_host
-
-
-func _is_valid_hermes_fx_host() -> bool:
-	return (
-		_hermes_fx_host != null
-		and is_instance_valid(_hermes_fx_host)
-		and not _hermes_fx_host.is_queued_for_deletion()
-	)
 
 
 func _as_array(value: Variant) -> Array:

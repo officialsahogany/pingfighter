@@ -66,6 +66,7 @@ func _verify_draw_paths_use_render_caps() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_field_effect_renderer.gd")
 	var aura_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_aura_field_renderer.gd")
 	var armor_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_armor_field_renderer.gd")
+	var hermes_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_hermes_field_renderer.gd")
 	var horn_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_horn_strawberry_field_renderer.gd")
 	var momentum_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_momentum_field_renderer.gd")
 	var poseidon_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_poseidon_field_renderer.gd")
@@ -73,6 +74,7 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(source != "", "mythic item field renderer source should be readable")
 	_expect(aura_source != "", "mythic item aura field renderer source should be readable")
 	_expect(armor_source != "", "mythic item armor field renderer source should be readable")
+	_expect(hermes_source != "", "mythic item Hermes field renderer source should be readable")
 	_expect(horn_source != "", "mythic item Horn Strawberry field renderer source should be readable")
 	_expect(momentum_source != "", "mythic item momentum field renderer source should be readable")
 	_expect(poseidon_source != "", "mythic item Poseidon field renderer source should be readable")
@@ -116,6 +118,14 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(
 		_function_body(source, "func draw_field_effects").find("mythic.poseidon") >= 0,
 		"Mythic field draw should expose a focused Poseidon perf label"
+	)
+	_expect(
+		_function_body(source, "func draw_field_effects").find("_hermes_field_renderer.draw_hermes_shoes_effect") >= 0,
+		"Mythic field draw should delegate Hermes Shoes host sync to the focused renderer"
+	)
+	_expect(
+		_function_body(hermes_source, "func draw_hermes_shoes_effect").find("sync_state") >= 0,
+		"Hermes Shoes field renderer should sync the attached FX host"
 	)
 	_expect(
 		_function_body(source, "func draw_field_effects").find("mythic.ragnarok_sparks") >= 0,
