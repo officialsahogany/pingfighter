@@ -4682,3 +4682,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns Horn Strawberry Mask's A+D hold bomb skill state: 0.5-second dual-input
   hold, 400-gauge spend, 30 bombs over 1 second, boss stun / knockback on
   explosion, 5-second paint splatter slow, and lingering bomb / paint cleanup.
+- `scripts/items/mythic_item_audio_router.gd`
+  Owns mythic / passive item cue routing and fallback order, including
+  Ragnarok / Poseidon loop-handle caching, Horn Strawberry skill cues, and the
+  shared screen-shake feedback helpers used by mythic item runtime helpers.
+  `mythic_item_runtime.gd` should call this owner or let focused helpers call
+  it directly instead of reintroducing one-line `_play_*` bridge methods.

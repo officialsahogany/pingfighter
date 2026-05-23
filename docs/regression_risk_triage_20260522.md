@@ -10,14 +10,14 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `9cc5ce258 godot: clean up stage5 visual smoke teardown`.
-- The checkpoint span through that HEAD contains 106 follow-up commits after
+  `5fd3b6a47 godot: route mythic item audio through router`.
+- The checkpoint span through that HEAD contains 108 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 107 commits.
+  contains 109 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
-  `6c435f8c8 docs: record smoke teardown cleanup`.
+  `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -34,7 +34,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the seventy-first split. The broad
+- The split notes below are current through the seventy-second split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -3662,6 +3662,52 @@ Seventy-first split on 2026-05-23:
   `.\tools\run_headless_load_check.ps1`, and
   `.\tools\run_warning_scan.ps1` (`1279` scripts scanned, no GDScript
   warnings).
+
+Seventy-second split on 2026-05-23:
+
+- Commit: `5fd3b6a47 godot: route mythic item audio through router`.
+- Scope: Mythic item helpers now call `mythic_item_audio_router.gd` directly
+  for cue playback and shared screen-shake feedback instead of bouncing
+  through `_play_*` / `_apply_*_feedback` wrappers on
+  `mythic_item_runtime.gd`. Horn Strawberry skill-state helpers use the
+  router's `play_named()` bridge for their existing named cue calls.
+- Rationale: the audio router already owns mythic item cue fallback order and
+  loop-stop state. Keeping a second set of one-line bridge methods on the
+  runtime facade made the remaining monolith look larger without owning real
+  behavior.
+- `mythic_item_runtime.gd` line count moved from `3378` to `3239` in this
+  code split.
+- Validation passed:
+  focused mythic / Horn Strawberry set
+  (`ragnarok_hammer_port_smoke`, `poseidon_trident_port_smoke`,
+  `baal_boots_weather_port_smoke`, `celestial_armor_port_smoke`,
+  `rainbow_fur_glove_port_smoke`, `venom_mist_gauntlet_port_smoke`,
+  `adversity_armor_port_smoke`, `shrapnel_armor_port_smoke`,
+  `soul_burst_port_smoke`, `knee_pads_port_smoke`,
+  `foul_whistle_port_smoke`, `pandora_legacy_port_smoke`,
+  `mythic_item_activation_effect_builder_smoke`,
+  `mythic_item_runtime_idle_update_smoke`, `horn_strawberry_mask_port_smoke`,
+  `horn_strawberry_audio_vfx_smoke`, and
+  `horn_strawberry_round_boundary_smoke`), then the broader mythic helper set
+  (`active_item_pickup_router_smoke`,
+  `passive_item_debug_menu_click_add_smoke`,
+  `mythic_item_snapshot_builder_smoke`,
+  `mythic_item_field_render_budget_smoke`,
+  `mythic_item_stat_bonus_runtime_smoke`,
+  `mythic_item_capacity_gauge_runtime_smoke`,
+  `mythic_item_resource_bonus_runtime_smoke`,
+  `mythic_item_cooldown_gear_runtime_smoke`,
+  `mythic_item_progression_bonus_runtime_smoke`,
+  `mythic_item_ai_assist_runtime_smoke`,
+  `mythic_item_throw_bonus_runtime_smoke`,
+  `mythic_item_sensor_auto_defense_runtime_smoke`,
+  `mythic_item_foul_whistle_runtime_smoke`,
+  `mythic_item_perk_choice_runtime_smoke`, and
+  `mythic_item_ownership_runtime_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1279` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
