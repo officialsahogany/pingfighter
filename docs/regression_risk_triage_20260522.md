@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `066b0de36 godot: move mythic catalog roll options into helper`.
-- The checkpoint span through that HEAD contains 152 follow-up commits after
+  `ea8703205 godot: reuse mythic field order for debug catalog items`.
+- The checkpoint span through that HEAD contains 154 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 153 commits.
+  contains 155 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `47dd6746f docs: record mythic catalog presentation helper split`.
+  `2c1c9c0db docs: record mythic catalog roll option helper split`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the ninety-fourth split. The broad
+- The split notes below are current through the ninety-fifth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4318,6 +4318,27 @@ Ninety-fourth split on 2026-05-24:
   `mythic_item_ownership_runtime_smoke`, `pandora_legacy_port_smoke`,
   `horn_strawberry_mask_port_smoke`, `baal_boots_weather_port_smoke`, and
   `commando_arm_port_smoke`), plus
+  `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1283` scripts scanned, no GDScript
+  warnings). `git diff --check` passed.
+
+Ninety-fifth split on 2026-05-24:
+
+- Commit: `ea8703205 godot: reuse mythic field order for debug catalog items`.
+- Scope: removed the duplicate `DEBUG_ITEM_ORDER` list from
+  `mythic_item_catalog.gd`; `get_debug_items()` now uses the public
+  `FIELD_SPAWN_ORDER` list that already carried the same item order.
+- Rationale: the debug catalog had drift-prone list duplication while the
+  live field-spawn order remains the external order source used by HUD,
+  pickup, reward, and prewarm paths.
+- Catalog facade size: `mythic_item_catalog.gd` moved from `1542` lines to
+  `1491` lines.
+- Validation: focused debug / field-spawn / pickup / reward coverage
+  (`passive_item_debug_menu_click_add_smoke`,
+  `item_field_spawn_pool_smoke`, `active_item_pickup_router_smoke`,
+  `stage_clear_reward_resolver_smoke`,
+  `active_item_hud_visuals_prewarm_step_smoke`, and
+  `mythic_item_ownership_runtime_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1283` scripts scanned, no GDScript
   warnings). `git diff --check` passed.

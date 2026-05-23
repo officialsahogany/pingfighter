@@ -357,7 +357,9 @@ This section is intentionally long; use search to find the nearest owner.
   Pandora's Legacy. `scripts/items/mythic_item_catalog_presentation.gd` owns
   display-name lookup, quality-prefix formatting, and quality color lookup
   behind the public catalog API. `scripts/items/mythic_item_catalog_lists.gd`
-  owns debug item and field-spawn item list construction behind the public catalog API.
+  owns debug item and field-spawn item list construction behind the public catalog API;
+  debug item construction reuses `FIELD_SPAWN_ORDER` so there is one catalog
+  order source for HUD prewarm, pickup, reward, field-spawn, and debug paths.
   `scripts/items/mythic_item_catalog_rolls.gd` owns the
   catalog roll-option source arrays, item-name roll-option lookup, roll
   defaults, random roll generation, rolled-option decoration, roll-field
