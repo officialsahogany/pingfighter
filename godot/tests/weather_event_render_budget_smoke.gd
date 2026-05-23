@@ -2,6 +2,7 @@ extends SceneTree
 
 const WeatherEventState := preload("res://scripts/stages/common/weather_event_state.gd")
 const WeatherEventRenderer := preload("res://scripts/stages/common/weather_event_renderer.gd")
+const BattleDrawPlayfieldSceneContext := preload("res://scripts/core/battle_draw_playfield_scene_context.gd")
 const BattleSceneWeatherUpdateDriver := preload("res://scripts/core/battle_scene_weather_update_driver.gd")
 
 
@@ -46,6 +47,14 @@ class FakeWeatherRenderer:
 	) -> void:
 		draw_count += 1
 
+
+class FakeOwner:
+	extends RefCounted
+
+	var weather_type := "rain"
+	var weather_event_active := true
+	var weather_event_context := {"active": true, "type": "rain"}
+
 var _failures: Array[String] = []
 
 
@@ -55,6 +64,7 @@ func _init() -> void:
 	_verify_renderer_prewarm_is_staged()
 	_verify_inactive_weather_draw_is_skipped()
 	_verify_owner_blank_weather_draw_is_skipped()
+	_verify_playfield_context_includes_owner_weather()
 	_verify_draw_context_route()
 
 	if _failures.is_empty():
@@ -216,6 +226,18 @@ func _verify_owner_blank_weather_draw_is_skipped() -> void:
 		"weather_event_context": {"active": true, "type": "gust"},
 	})
 	_expect(renderer.draw_count == 2, "active nested weather context should still reach the renderer")
+
+
+func _verify_playfield_context_includes_owner_weather() -> void:
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	var context: Dictionary = BattleDrawPlayfieldSceneContext.new().build(owner, Vector2.ZERO, registry)
+	_expect(str(context.get("weather_type", "")) == "rain", "playfield draw context should include owner weather type")
+	_expect(bool(context.get("weather_active", false)), "playfield draw context should include owner weather active alias")
+	_expect(bool(context.get("weather_event_active", false)), "playfield draw context should include owner weather active flag")
+	var weather_context: Dictionary = context.get("weather_event_context", {})
+	_expect(str(weather_context.get("type", "")) == "rain", "playfield draw context should include nested owner weather type")
+	_expect(bool(weather_context.get("active", false)), "playfield draw context should include nested owner weather active state")
 
 
 func _verify_draw_context_route() -> void:
