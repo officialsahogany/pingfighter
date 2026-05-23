@@ -2500,25 +2500,6 @@ func _is_equipment_slot_enabled(slot_key: String, owner: Object) -> bool:
 	return equipment_index.is_equipment_slot_enabled(self, slot_key, owner)
 
 
-func _try_grant_reinforced_boomerang_pickup_bonus(item_name: String, owner: Object, registry: Object) -> bool:
-	return pickup_bonus.try_grant_reinforced_boomerang_pickup_bonus(
-		self,
-		item_name,
-		owner,
-		registry,
-		ITEM_REINFORCED_BOOMERANG_GAUNTLET,
-		ITEM_BOOMERANG
-	)
-
-
-func _build_reinforced_boomerang_bonus_item(registry: Object) -> Dictionary:
-	return pickup_bonus.build_reinforced_boomerang_bonus_item(self, registry, ITEM_BOOMERANG)
-
-
-func _get_active_item_slot_controller(registry: Object) -> Object:
-	return pickup_bonus.get_active_item_slot_controller(self, registry)
-
-
 func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null

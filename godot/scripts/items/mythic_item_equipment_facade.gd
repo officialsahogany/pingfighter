@@ -17,6 +17,8 @@ const ITEM_HERMES_SHOES := "hermes_shoes"
 const ITEM_BAAL_BOOTS := "baal_boots"
 const ITEM_HORN_STRAWBERRY_MASK := "horn_strawberry_mask"
 const ITEM_PANDORA_LEGACY := "pandora_legacy"
+const ITEM_REINFORCED_BOOMERANG_GAUNTLET := "reinforced_boomerang_gauntlet"
+const ITEM_BOOMERANG := "boomerang"
 
 
 func acquire_item(
@@ -55,7 +57,14 @@ func acquire_item(
 			runtime._sync_owner(owner, registry)
 	else:
 		runtime._sync_owner(owner, registry)
-	runtime._try_grant_reinforced_boomerang_pickup_bonus(item_name, owner, registry)
+	runtime.pickup_bonus.try_grant_reinforced_boomerang_pickup_bonus(
+		runtime,
+		item_name,
+		owner,
+		registry,
+		ITEM_REINFORCED_BOOMERANG_GAUNTLET,
+		ITEM_BOOMERANG
+	)
 	if play_pickup_sound:
 		runtime.audio_router.play_pickup_audio(runtime, registry)
 	return index
