@@ -33,9 +33,22 @@ class FakeGameAudio:
 	extends RefCounted
 
 	var item_get_calls := 0
+	var weapon_change_calls := 0
 
 	func play_item_get() -> void:
 		item_get_calls += 1
+
+	func play_commando_weapon_change() -> void:
+		weapon_change_calls += 1
+
+
+class FakeRuntimePerkCatalog:
+	extends RefCounted
+
+	var choices: Array = []
+
+	func get_choices(_character_type: String, _levels: Dictionary, _exclude_instant: bool, _target_count: int) -> Array:
+		return choices.duplicate(true)
 
 
 class FakeSkillConfig:
@@ -69,26 +82,46 @@ class FakeCommandoWeaponController:
 
 	var sync_calls := 0
 	var last_skill_config: Object = null
+	var highlight_calls := 0
+	var last_highlight_skill := ""
 
 	func sync_equipped_permanent(skill_config: Object) -> void:
 		sync_calls += 1
 		last_skill_config = skill_config
 
+	func trigger_hud_highlight(skill_name: String) -> void:
+		highlight_calls += 1
+		last_highlight_skill = skill_name
+
+
+class FakeStarpointStage:
+	extends RefCounted
+
+	var starpoint_drops: Array = [{"pos": Vector2(1.0, 2.0)}]
+	var starpoint_particles: Array = [{"pos": Vector2(3.0, 4.0)}]
+
 
 class FakeRegistry:
 	extends RefCounted
 
+	var runtime_perk_catalog := FakeRuntimePerkCatalog.new()
 	var skill_config := FakeSkillConfig.new()
 	var commando_skill_config := FakeSkillConfig.new()
 	var commando_weapon_controller := FakeCommandoWeaponController.new()
 	var battle_view_layout := BattleViewLayout.new()
 	var battle_scene_config := BattleSceneConfig.new()
 	var game_audio := FakeGameAudio.new()
+	var stage1_balloon_event := FakeStarpointStage.new()
+	var stage2_pillar_background := FakeStarpointStage.new()
+	var stage3_boss_skill_state := FakeStarpointStage.new()
+	var stage4_bird_event := FakeStarpointStage.new()
 	var requested_keys: Array[String] = []
 
 	func get_instance(key: String) -> Object:
 		requested_keys.append(key)
 		match key:
+			"runtime_perk_catalog":
+				return runtime_perk_catalog
 			"smasher_skill_config":
 				return skill_config
 			"commando_skill_config":
@@ -101,6 +134,14 @@ class FakeRegistry:
 				return battle_scene_config
 			"game_audio":
 				return game_audio
+			"stage1_balloon_event":
+				return stage1_balloon_event
+			"stage2_pillar_background":
+				return stage2_pillar_background
+			"stage3_boss_skill_state":
+				return stage3_boss_skill_state
+			"stage4_bird_event":
+				return stage4_bird_event
 		return null
 
 	func has_requested_key(key: String) -> bool:
@@ -110,6 +151,8 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_active_unlock_waits_for_orb_flight()
 	_verify_soldier_unlock_syncs_commando_controller()
+	_verify_collect_starpoints_clears_in_flight_drops()
+	_verify_starpoint_absorption_tracks_player_after_choice()
 	print("runtime_perk_active_unlock_flight_smoke: ok")
 	quit(0)
 
@@ -143,6 +186,7 @@ func _verify_active_unlock_waits_for_orb_flight() -> void:
 	_expect(registry.skill_config.unlock_calls == 0, "skill should not equip until the flight lands")
 	_expect(not registry.skill_config.equipped_skills.has("plasma"), "plasma should not appear in the orb list before landing")
 	_expect(registry.game_audio.item_get_calls == 1, "skill-orb flight should play the original item-get style cue once")
+	_expect(registry.game_audio.weapon_change_calls == 0, "non-Commando active unlocks should not play the firearm weapon.wav cue")
 	var flight: Dictionary = state.get_snapshot().get("choice_flight_effect", {})
 	_expect(str(flight.get("skill_id", "")) == "plasma", "flight payload should target the unlocked skill id")
 	_expect(int(flight.get("target_slot_index", -1)) == 2, "flight should target the first empty skill orb slot")
@@ -199,13 +243,96 @@ func _verify_soldier_unlock_syncs_commando_controller() -> void:
 	_expect(registry.commando_skill_config.equipped_skills.has("ak47"), "soldier unlock should enter the shared firearm slots")
 	_expect(registry.commando_weapon_controller.sync_calls == 1, "soldier unlock should still sync the commando weapon controller")
 	_expect(registry.commando_weapon_controller.last_skill_config == registry.commando_skill_config, "commando sync should receive the soldier skill config")
+	_expect(registry.commando_weapon_controller.highlight_calls == 1, "soldier firearm unlock should pulse the firearm HUD highlight")
+	_expect(registry.commando_weapon_controller.last_highlight_skill == "ak47", "soldier firearm HUD highlight should target the unlocked weapon")
+	_expect(registry.game_audio.weapon_change_calls == 1, "soldier firearm unlock should play weapon.wav")
 	_expect(int(state.runtime_skill_levels.get("soldier_unlock_ak47", 0)) == 1, "soldier unlock level should be committed")
+
+
+func _verify_collect_starpoints_clears_in_flight_drops() -> void:
+	var state := RuntimePerkState.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	registry.runtime_perk_catalog.choices = [_build_basic_choice("stability_training")]
+
+	var opened: bool = state.collect_star_points(1, "smasher", registry.runtime_perk_catalog, owner, registry)
+
+	_expect(opened, "collecting a full starpoint should open the perk choice modal")
+	_expect(state.is_choice_active(), "starpoint collection should activate the perk choice modal")
+	_expect(state.pending_skill_choices == 1, "starpoint collection should queue one pending choice")
+	_expect(registry.stage1_balloon_event.starpoint_drops.is_empty(), "Stage 1 in-flight starpoint drops should clear before the modal opens")
+	_expect(registry.stage1_balloon_event.starpoint_particles.is_empty(), "Stage 1 starpoint particles should clear before the modal opens")
+	_expect(registry.stage2_pillar_background.starpoint_drops.is_empty(), "Stage 2 in-flight starpoint drops should clear before the modal opens")
+	_expect(registry.stage2_pillar_background.starpoint_particles.is_empty(), "Stage 2 starpoint particles should clear before the modal opens")
+	_expect(registry.stage3_boss_skill_state.starpoint_drops.is_empty(), "Stage 3 in-flight starpoint drops should clear before the modal opens")
+	_expect(registry.stage3_boss_skill_state.starpoint_particles.is_empty(), "Stage 3 starpoint particles should clear before the modal opens")
+	_expect(registry.stage4_bird_event.starpoint_drops.is_empty(), "Stage 4 in-flight starpoint drops should clear before the modal opens")
+	_expect(registry.stage4_bird_event.starpoint_particles.is_empty(), "Stage 4 starpoint particles should clear before the modal opens")
+
+
+func _verify_starpoint_absorption_tracks_player_after_choice() -> void:
+	var state := RuntimePerkState.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	var view_size := Vector2(1488.0, 918.0)
+	var renderer := RuntimePerkOverlayRenderer.new()
+
+	state.pending_skill_choices = 1
+	state.choice_active = true
+	state.current_choices = [_build_basic_choice("stability_training")]
+	state.selected_index = 0
+	state.animation_time = 0.30
+
+	state.choose_selected(owner, registry, view_size)
+
+	_expect(not state.is_choice_active(), "ordinary perk choice should close the modal immediately")
+	_expect(state.is_starpoint_absorption_active(), "closing the final perk choice should start the starpoint absorption effect")
+	_expect(renderer._runtime_state_has_visible_effects(state), "runtime perk overlay should stay visible for the post-modal absorption effect")
+	var snapshot: Dictionary = state.get_snapshot()
+	var selected_choice: Dictionary = _get_dict(snapshot.get("last_selected_choice", {}))
+	_expect(str(selected_choice.get("id", "")) == "stability_training", "state should remember the last selected perk choice")
+	_expect(int(snapshot.get("selected_choice_sequence", 0)) == 1, "state should bump selected choice sequence after a successful choice")
+
+	state.update(0.016, view_size, owner, registry)
+	var first_effect: Dictionary = _get_dict(state.get_snapshot().get("starpoint_absorption_effect", {}))
+	var first_source: Vector2 = _get_vector2(first_effect.get("source_pos", Vector2.ZERO))
+	var first_target: Vector2 = _get_vector2(first_effect.get("target_pos", Vector2.ZERO))
+	_expect(first_source != Vector2.ZERO, "absorption update should resolve a visible source point")
+	_expect(first_target != Vector2.ZERO, "absorption update should resolve a visible player target point")
+
+	owner.player_pos.x += 40.0
+	state.update(0.016, view_size, owner, registry)
+	var moved_effect: Dictionary = _get_dict(state.get_snapshot().get("starpoint_absorption_effect", {}))
+	var moved_target: Vector2 = _get_vector2(moved_effect.get("target_pos", Vector2.ZERO))
+	_expect(moved_target.x > first_target.x, "absorption target should keep tracking the moving player paddle")
+
+	state.update(1.0, view_size, owner, registry)
+	_expect(not state.is_starpoint_absorption_active(), "absorption effect should clear after its duration")
+
+
+func _build_basic_choice(choice_id: String) -> Dictionary:
+	return {
+		"id": choice_id,
+		"name": choice_id,
+		"character_restriction": "smasher",
+		"icon_color": Color(0.45, 0.75, 1.0),
+		"tree": "training",
+		"max_level": 5,
+		"current_level": 0,
+		"next_level": 1,
+	}
 
 
 func _get_vector2(value: Variant) -> Vector2:
 	if value is Vector2:
 		return value
 	return Vector2.ZERO
+
+
+func _get_dict(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
 
 
 func _expect(condition: bool, message: String) -> void:

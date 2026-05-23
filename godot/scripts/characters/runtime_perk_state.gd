@@ -5,6 +5,7 @@ const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const Stage1PillarUILayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_renderer.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 
 const STARPOINT_PER_SKILL_CHOICE := 1
 const BASE_PERK_CHOICE_COUNT := 3
@@ -21,6 +22,13 @@ const PARTICLE_COUNT := 20
 const PARTICLE_LIFE := 1.45
 const ACTIVE_UNLOCK_FLIGHT_DURATION := 1.86
 const ACTIVE_UNLOCK_FLIGHT_PARTICLE_COUNT := 18
+# Starpoint absorption effect: plays after the perk choice modal fully closes
+# (no more pending picks, no pending unlock swap) so the collected starpoint
+# visually "absorbs" into the player body. Fires from above the player and
+# spirals down into the paddle center with a sparkle trail and arrival burst.
+const STARPOINT_ABSORPTION_DURATION := 0.70
+const STARPOINT_ABSORPTION_PARTICLE_COUNT := 7
+const STARPOINT_ABSORPTION_SOURCE_PLAYFIELD_OFFSET_Y := -120.0
 const PERK_RESUME_FREEZE_FRAMES := 10.0
 const PERK_RESUME_RECOVERY_FRAMES := 60.0
 const PERK_RESUME_MIN_SPEED_RATIO := 0.30
@@ -73,6 +81,8 @@ var gold_from_perks := 0
 var feedback_text := ""
 var feedback_timer := 0.0
 var last_selected_id := ""
+var last_selected_choice: Dictionary = {}
+var selected_choice_sequence := 0
 var item_gold_gain_multiplier := 1.0
 var item_perk_level_bonus := 0
 var resume_freeze_timer_frames := 0.0
@@ -86,6 +96,10 @@ var viper_ignition_aura_owner_sync_dirty := false
 var pending_unlock_swap: Dictionary = {}
 var unlock_swap_selected_index := 0
 var choice_flight_effect: Dictionary = {}
+# Starpoint absorption effect dict — `active`, `age`, `duration`, `source_pos`
+# (above-head screen pos), `target_pos` (player center screen pos), `particles`
+# (orbital sparkle seeds). Empty when no effect is running.
+var starpoint_absorption_effect: Dictionary = {}
 var gamepad_choice_horizontal_latch := 0
 var gamepad_unlock_swap_horizontal_latch := 0
 var _flight_scene_config: Object = BattleSceneConfig.new()
@@ -107,6 +121,9 @@ func reset() -> void:
 	feedback_text = ""
 	feedback_timer = 0.0
 	last_selected_id = ""
+	last_selected_choice.clear()
+	selected_choice_sequence = 0
+	starpoint_absorption_effect.clear()
 	item_gold_gain_multiplier = 1.0
 	item_perk_level_bonus = 0
 	viper_ignition_aura_active = false
@@ -138,11 +155,48 @@ func collect_star_points(
 	feedback_timer = 1.0
 	if pending_skill_choices > 0 and not choice_active and not defer_choice_open:
 		_capture_resume_pre_choice_velocity(owner)
+		# Clear in-flight starpoint drops in every stage before the modal opens.
+		# The perk choice modal gates ALL battle physics (see
+		# battle_scene_modal_gate_controller._should_block_battle_physics), so
+		# any drop that was still falling at the moment of collection would
+		# freeze mid-air at its last position and stay visibly stuck on screen
+		# for as long as the player takes to pick a perk. Clearing the drop
+		# arrays here removes the freeze-stuck artifact entirely; bonus drops
+		# spawned alongside the collected primary are still in the arrays at
+		# this point, but the player can't reach them during the modal anyway.
+		_clear_in_flight_starpoints(registry)
 		open_next_choice(character_type, catalog, false, owner, registry)
 		if not choice_active:
 			resume_has_pre_choice_ball_vel = false
 	_sync_owner(owner)
 	return choice_active
+
+
+# Iterate every stage that owns a starpoint drop array and empty the in-flight
+# list. Drop / particle arrays are public on each stage module per the existing
+# convention, so we go through `module.get(...)` to stay tolerant of stages
+# that haven't been registered (early boot) or that don't expose the field on
+# this build.
+func _clear_in_flight_starpoints(registry: Object) -> void:
+	CommonStarpointVisualHost.hide_all_existing_hosts()
+	if registry == null:
+		return
+	var stage_keys: Array = [
+		"stage1_balloon_event",
+		"stage2_pillar_background",
+		"stage3_boss_skill_state",
+		"stage4_bird_event",
+	]
+	for key in stage_keys:
+		var module: Object = _get_instance(registry, key)
+		if module == null:
+			continue
+		var drops_var: Variant = module.get("starpoint_drops")
+		if drops_var is Array and not (drops_var as Array).is_empty():
+			(drops_var as Array).clear()
+		var particles_var: Variant = module.get("starpoint_particles")
+		if particles_var is Array and not (particles_var as Array).is_empty():
+			(particles_var as Array).clear()
 
 
 func open_next_choice(
@@ -240,6 +294,10 @@ func _update_internal(delta: float, view_size: Vector2, owner: Object, registry:
 	if is_choice_flight_active():
 		_update_choice_flight_effect(delta, owner, registry, perf_logger)
 	_perf_end(perf_logger, "process.runtime_perk.flight", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	if is_starpoint_absorption_active():
+		_update_starpoint_absorption_effect(delta, view_size, owner, registry)
+	_perf_end(perf_logger, "process.runtime_perk.starpoint_absorption", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	if not choice_active:
 		_perf_end(perf_logger, "process.runtime_perk.active_gate", sample_start)
@@ -486,7 +544,7 @@ func choose_selected(owner: Object, registry: Object, view_size: Vector2 = Vecto
 		feedback_timer = 1.4
 		return
 
-	_finish_successful_choice(choice_id, owner, registry)
+	_finish_successful_choice(choice_id, owner, registry, null, choice)
 
 
 func _try_start_active_unlock_flight(choice: Dictionary, owner: Object, registry: Object, view_size: Vector2) -> bool:
@@ -561,7 +619,7 @@ func _finish_choice_flight_effect(owner: Object, registry: Object, perf_logger: 
 		feedback_timer = 1.4
 		return
 	sample_start = _perf_begin(perf_logger)
-	_finish_successful_choice(choice_id, owner, registry, perf_logger)
+	_finish_successful_choice(choice_id, owner, registry, perf_logger, choice)
 	_perf_end(perf_logger, "process.runtime_perk.flight.finish_success", sample_start)
 
 
@@ -667,9 +725,85 @@ func _play_active_unlock_flight_audio(registry: Object) -> void:
 		game_audio.play_runtime_perk_choice_open()
 
 
-func _finish_successful_choice(choice_id: String, owner: Object, registry: Object, perf_logger: Object = null) -> void:
+func is_starpoint_absorption_active() -> bool:
+	return bool(starpoint_absorption_effect.get("active", false))
+
+
+func _start_starpoint_absorption_effect(owner: Object) -> void:
+	# Trigger called the moment the perk modal fully closes. We don't have
+	# view_size here, so positions are computed from playfield-local player_pos
+	# at trigger time and re-translated into screen coords every frame inside
+	# `_update_starpoint_absorption_effect`. That way the absorption target
+	# tracks the player paddle as it moves under input during the ~0.7s effect.
+	if owner == null:
+		starpoint_absorption_effect.clear()
+		return
+	starpoint_absorption_effect = {
+		"active": true,
+		"age": 0.0,
+		"duration": STARPOINT_ABSORPTION_DURATION,
+		"source_pos": Vector2.ZERO,
+		"target_pos": Vector2.ZERO,
+		"screen_scale": 1.0,
+		"particles": _build_starpoint_absorption_particles(),
+	}
+
+
+func _build_starpoint_absorption_particles() -> Array:
+	# Orbital sparkle seeds. Each particle holds a fixed phase + radius factor
+	# so the renderer can derive its position from `age` deterministically
+	# (no per-frame integration cost). Phase = orbit start angle, twinkle seed
+	# = brightness-pulse offset.
+	var out: Array = []
+	for index in range(STARPOINT_ABSORPTION_PARTICLE_COUNT):
+		out.append({
+			"phase": _pseudo_unit(index, 1.3) * TAU,
+			"radius_seed": _pseudo_unit(index, 3.7),
+			"twinkle_seed": _pseudo_unit(index, 8.3),
+			"orbit_dir": 1.0 if _pseudo_unit(index, 5.1) >= 0.5 else -1.0,
+		})
+	return out
+
+
+func _update_starpoint_absorption_effect(delta: float, view_size: Vector2, owner: Object, registry: Object) -> void:
+	if starpoint_absorption_effect.is_empty():
+		return
+	var age: float = float(starpoint_absorption_effect.get("age", 0.0)) + max(0.0, delta)
+	starpoint_absorption_effect["age"] = age
+	if age >= float(starpoint_absorption_effect.get("duration", STARPOINT_ABSORPTION_DURATION)):
+		starpoint_absorption_effect.clear()
+		return
+	if owner == null or registry == null or view_size == Vector2.ZERO:
+		# Without owner / view we can't translate the playfield position into
+		# screen coords; renderer guards on `source_pos == ZERO` so this just
+		# skips drawing for the frame.
+		return
+	var player_pos: Vector2 = _safe_owner_get(owner, "player_pos", Vector2.ZERO)
+	var paddle_width: float = float(_safe_owner_get(owner, "player_paddle_width", PLAYER_BASE_PADDLE_WIDTH))
+	var player_center_pf := player_pos + Vector2(paddle_width * 0.5, PLAYER_BASE_PADDLE_HEIGHT * 0.5)
+	var layout_state: Dictionary = _build_flight_layout_state(registry, view_size)
+	var game_offset: Vector2 = _get_vector2(layout_state.get("game_offset", Vector2.ZERO))
+	var game_size: Vector2 = _get_vector2(layout_state.get("game_size", Vector2.ZERO))
+	var pf_height: float = float(layout_state.get("height", FIELD_HEIGHT))
+	var screen_scale: float = max(0.001, game_size.y / max(1.0, pf_height))
+	var target_screen: Vector2 = game_offset + player_center_pf * screen_scale
+	var source_screen: Vector2 = target_screen + Vector2(0.0, STARPOINT_ABSORPTION_SOURCE_PLAYFIELD_OFFSET_Y * screen_scale)
+	starpoint_absorption_effect["source_pos"] = source_screen
+	starpoint_absorption_effect["target_pos"] = target_screen
+	starpoint_absorption_effect["screen_scale"] = screen_scale
+
+
+func _finish_successful_choice(
+	choice_id: String,
+	owner: Object,
+	registry: Object,
+	perf_logger: Object = null,
+	choice: Dictionary = {}
+) -> void:
 	var sample_start: int = _perf_begin(perf_logger)
 	last_selected_id = choice_id
+	last_selected_choice = _build_selected_choice_snapshot(choice_id, choice)
+	selected_choice_sequence += 1
 	pending_skill_choices = max(0, pending_skill_choices - 1)
 	if _try_megingjord_extra_pick(choice_id, owner, registry):
 		pending_skill_choices += 1
@@ -690,9 +824,29 @@ func _finish_successful_choice(choice_id: String, owner: Object, registry: Objec
 		sample_start = _perf_begin(perf_logger)
 		_try_arm_resume_safety(owner, registry)
 		_perf_end(perf_logger, "process.runtime_perk.finish_success.resume_safety", sample_start)
+		# Starpoint-into-body absorption: only fires when the modal fully closes
+		# (last picked perk, no pending unlock swap). The update tick will keep
+		# translating the player's playfield position into screen coords for the
+		# next ~0.7s so the absorption target tracks the moving paddle.
+		sample_start = _perf_begin(perf_logger)
+		_start_starpoint_absorption_effect(owner)
+		_perf_end(perf_logger, "process.runtime_perk.finish_success.starpoint_absorption", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_sync_owner(owner)
 	_perf_end(perf_logger, "process.runtime_perk.finish_success.sync_owner", sample_start)
+
+
+func _build_selected_choice_snapshot(choice_id: String, choice: Dictionary) -> Dictionary:
+	var snapshot: Dictionary = choice.duplicate(true)
+	snapshot["id"] = choice_id
+	if str(snapshot.get("name", "")) == "":
+		snapshot["name"] = choice_id
+	var applied_level: int = int(runtime_skill_levels.get(choice_id, 0))
+	if applied_level > 0:
+		snapshot["current_level"] = max(0, applied_level - 1)
+		snapshot["next_level"] = applied_level
+		snapshot["level_delta"] = 1
+	return snapshot
 
 
 func update_resume_safety(owner: Object, registry: Object, delta: float) -> void:
@@ -897,9 +1051,12 @@ func get_snapshot() -> Dictionary:
 		"pending_unlock_swap": pending_unlock_swap.duplicate(true),
 		"unlock_swap_selected_index": unlock_swap_selected_index,
 		"choice_flight_effect": choice_flight_effect.duplicate(true),
+		"starpoint_absorption_effect": starpoint_absorption_effect.duplicate(true),
 		"feedback_text": feedback_text,
 		"feedback_timer": feedback_timer,
 		"last_selected_id": last_selected_id,
+		"last_selected_choice": last_selected_choice.duplicate(true),
+		"selected_choice_sequence": selected_choice_sequence,
 	}
 
 
@@ -1291,6 +1448,7 @@ func _start_pending_unlock_swap(choice: Dictionary, skill_config: Object, owner:
 		"candidates": candidates,
 	}
 	unlock_swap_selected_index = 0
+	gamepad_unlock_swap_horizontal_latch = 0
 	_sync_owner(owner)
 	return true
 
@@ -1300,6 +1458,7 @@ func cancel_pending_unlock_swap(owner: Object = null) -> bool:
 		return false
 	pending_unlock_swap.clear()
 	unlock_swap_selected_index = 0
+	gamepad_unlock_swap_horizontal_latch = 0
 	feedback_text = "교체 취소"
 	feedback_timer = 0.8
 	_sync_owner(owner)
@@ -1337,6 +1496,7 @@ func confirm_pending_unlock_swap(owner: Object, registry: Object) -> bool:
 	_sync_commando_weapon_controller(unlocked_skill, skill_config, registry, character_type)
 	pending_unlock_swap.clear()
 	unlock_swap_selected_index = 0
+	gamepad_unlock_swap_horizontal_latch = 0
 	feedback_text = "%s 교체 완료" % str(choice.get("name", choice_id))
 	feedback_timer = 1.1
 	_finish_successful_choice(choice_id, owner, registry)
@@ -1382,6 +1542,22 @@ func _sync_commando_weapon_controller(unlocked_skill: String, skill_config: Obje
 		weapon_controller.sync_equipped_permanent(skill_config)
 	elif weapon_controller.has_method("unlock_permanent_weapon"):
 		weapon_controller.unlock_permanent_weapon(unlocked_skill)
+	# Light up the firearm HUD rainbow border on perk unlock so it matches the
+	# supply_drop rental acquisition behavior. Empty unlocked_skill means a
+	# generic equip sync — skip in that case so we don't flash on neutral
+	# refresh paths.
+	if unlocked_skill != "" and weapon_controller.has_method("trigger_hud_highlight"):
+		weapon_controller.trigger_hud_highlight(unlocked_skill)
+	if unlocked_skill != "":
+		_play_commando_weapon_change_audio(registry)
+
+
+func _play_commando_weapon_change_audio(registry: Object) -> void:
+	var game_audio: Object = _get_instance(registry, "game_audio")
+	if game_audio == null:
+		return
+	if game_audio.has_method("play_commando_weapon_change"):
+		game_audio.play_commando_weapon_change()
 
 
 func _apply_level_side_effect(choice: Dictionary, owner: Object, registry: Object, perf_logger: Object = null) -> void:
@@ -1417,6 +1593,9 @@ func _apply_level_side_effect(choice: Dictionary, owner: Object, registry: Objec
 			var weapon_controller: Object = _get_instance(registry, "commando_weapon_controller")
 			if weapon_controller != null and weapon_controller.has_method("unlock_permanent_weapon"):
 				weapon_controller.unlock_permanent_weapon(unlocked_skill)
+				if weapon_controller.has_method("trigger_hud_highlight"):
+					weapon_controller.trigger_hud_highlight(unlocked_skill)
+				_play_commando_weapon_change_audio(registry)
 
 
 func _apply_full_gauge(owner: Object, registry: Object) -> void:

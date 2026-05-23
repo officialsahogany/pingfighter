@@ -7,6 +7,16 @@ const CHOICE_MODAL_PARTICLE_COMPACT_LIFE_RATIO := 0.68
 const CHOICE_FLIGHT_PARTICLE_DRAW_LIMIT := 6
 const CHOICE_FLIGHT_SOURCE_RING_COUNT := 1
 const CHOICE_FLIGHT_ARRIVAL_RING_COUNT := 1
+# Starpoint absorption: small spiral-descent visual that plays after the perk
+# modal fully closes. Mirrors the data layout written by
+# runtime_perk_state.gd's `_start_starpoint_absorption_effect` /
+# `_update_starpoint_absorption_effect`.
+const STARPOINT_ABSORPTION_ARRIVAL_ARC_SEGMENTS := 24
+const STARPOINT_ABSORPTION_STAR_TIP_COUNT := 5
+const STARPOINT_ABSORPTION_GLOW_COLOR := Color(1.0, 0.65, 0.85, 1.0)
+const STARPOINT_ABSORPTION_FILL_COLOR := Color(1.0, 0.85, 0.4, 1.0)
+const STARPOINT_ABSORPTION_OUTLINE_COLOR := Color(1.0, 1.0, 0.55, 1.0)
+const STARPOINT_ABSORPTION_BURST_COLOR := Color(1.0, 0.95, 0.55, 1.0)
 const FLIGHT_SOURCE_ARC_SEGMENTS := 10
 const FLIGHT_CORE_ARC_SEGMENTS := 8
 const FLIGHT_ARRIVAL_ARC_SEGMENTS := 10
@@ -88,6 +98,12 @@ func draw(
 		inactive_start = _perf_begin(perf_logger)
 		_draw_treasure_hunt_effect(canvas, treasure_hunt_runtime, view_size)
 		_perf_end(perf_logger, "hud.perk_overlay.treasure_effect", inactive_start)
+		# Starpoint absorption fires AFTER the modal closes, so the renderer must
+		# read its state from the inactive branch as well. Snapshot is cheap when
+		# the effect dict is empty (just one Dictionary.get + early return).
+		inactive_start = _perf_begin(perf_logger)
+		_draw_starpoint_absorption_effect(canvas, runtime_state)
+		_perf_end(perf_logger, "hud.perk_overlay.starpoint_absorption", inactive_start)
 		return
 
 	var sample_start: int = _perf_begin(perf_logger)
@@ -145,6 +161,9 @@ func draw(
 	sample_start = _perf_begin(perf_logger)
 	_draw_choice_flight_effect(canvas, _get_dict(snapshot.get("choice_flight_effect", {})), icon_renderer)
 	_perf_end(perf_logger, "hud.perk_overlay.choice_flight", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_starpoint_absorption_effect(canvas, runtime_state)
+	_perf_end(perf_logger, "hud.perk_overlay.starpoint_absorption", sample_start)
 
 
 func _runtime_state_has_visible_effects(runtime_state: Object) -> bool:
@@ -154,6 +173,8 @@ func _runtime_state_has_visible_effects(runtime_state: Object) -> bool:
 		return true
 	if runtime_state.has_method("is_choice_flight_active") and bool(runtime_state.is_choice_flight_active()):
 		return true
+	if runtime_state.has_method("is_starpoint_absorption_active") and bool(runtime_state.is_starpoint_absorption_active()):
+		return true
 	if runtime_state.has_method("has_feedback") and bool(runtime_state.has_feedback()):
 		return true
 	if runtime_state.has_method("get_snapshot"):
@@ -162,6 +183,9 @@ func _runtime_state_has_visible_effects(runtime_state: Object) -> bool:
 			return true
 		var flight_effect: Dictionary = _get_dict(snapshot.get("choice_flight_effect", {}))
 		if bool(flight_effect.get("active", false)):
+			return true
+		var absorption_effect: Dictionary = _get_dict(snapshot.get("starpoint_absorption_effect", {}))
+		if bool(absorption_effect.get("active", false)):
 			return true
 	return false
 
@@ -329,28 +353,37 @@ func _draw_character_edge(canvas: CanvasItem, rect: Rect2, restriction: String, 
 	var main: Color = theme.get("main", Color(0.0, 0.0, 0.0, 0.0))
 	var accent: Color = theme.get("accent", main)
 	var highlight: Color = theme.get("highlight", accent)
-	var edge_alpha: float = (0.36 + 0.18 * pulse) * alpha
-	var accent_alpha: float = (0.42 + 0.20 * pulse) * alpha
-	var highlight_alpha: float = (0.22 + 0.16 * pulse) * alpha
-	var main_color := Color(main.r, main.g, main.b, edge_alpha)
-	var accent_color := Color(accent.r, accent.g, accent.b, accent_alpha)
-	var highlight_color := Color(highlight.r, highlight.g, highlight.b, highlight_alpha)
+	var fast_pulse: float = 0.5 + 0.5 * sin(float(_get_draw_msec()) * 0.0108)
 	var marker: String = str(theme.get("marker", "energy"))
 
-	canvas.draw_rect(rect.grow(3.0), main_color, false, 1.6)
-	canvas.draw_rect(rect.grow(-2.0), highlight_color, false, 1.0)
+	# Inner glow band (Python parity: 7-layer inset, brightest near edge fading inward).
+	for inset in range(1, 8):
+		var band_alpha: float = clamp((0.42 + 0.22 * pulse) - float(inset) * 0.048, 0.0, 1.0) * alpha
+		if band_alpha <= 0.003:
+			continue
+		canvas.draw_rect(rect.grow(-float(inset)), Color(main.r, main.g, main.b, band_alpha), false, 1.0)
+
+	# Pulsing main accent border (stronger than the card's static border).
+	var main_alpha: float = (0.65 + 0.25 * pulse) * alpha
+	canvas.draw_rect(rect.grow(1.0), Color(accent.r, accent.g, accent.b, main_alpha), false, 2.0)
+
+	# Inner highlight line (close to white at peak pulse).
+	var hl_alpha: float = (0.34 + 0.26 * pulse) * alpha
+	canvas.draw_rect(rect.grow(-3.0), Color(highlight.r, highlight.g, highlight.b, hl_alpha), false, 1.0)
 
 	var corner_len: float = min(18.0, rect.size.x * 0.16)
-	_draw_character_edge_corners(canvas, rect, accent_color, highlight_color, corner_len)
+	var corner_accent := Color(accent.r, accent.g, accent.b, (0.62 + 0.22 * pulse) * alpha)
+	var corner_highlight := Color(highlight.r, highlight.g, highlight.b, (0.48 + 0.24 * pulse) * alpha)
+	_draw_character_edge_corners(canvas, rect, corner_accent, corner_highlight, corner_len)
 
 	if marker == "poison":
-		_draw_viper_edge_marks(canvas, rect, accent_color, highlight_color, pulse)
+		_draw_viper_edge_marks(canvas, rect, main, accent, highlight, alpha, pulse, fast_pulse)
 	elif marker == "mecha":
-		_draw_optimus_edge_marks(canvas, rect, accent_color, highlight_color, pulse)
+		_draw_optimus_edge_marks(canvas, rect, main, accent, highlight, alpha, pulse, fast_pulse)
 	elif marker == "tactical":
-		_draw_soldier_edge_marks(canvas, rect, accent_color, highlight_color, pulse)
+		_draw_soldier_edge_marks(canvas, rect, main, accent, highlight, alpha, pulse, fast_pulse)
 	else:
-		_draw_smasher_edge_marks(canvas, rect, accent_color, highlight_color, pulse)
+		_draw_smasher_edge_marks(canvas, rect, main, accent, highlight, alpha, pulse, fast_pulse)
 
 
 func _draw_character_outer_glow(canvas: CanvasItem, rect: Rect2, restriction: String, alpha: float, pulse: float) -> void:
@@ -360,10 +393,13 @@ func _draw_character_outer_glow(canvas: CanvasItem, rect: Rect2, restriction: St
 	if theme.is_empty():
 		return
 	var main: Color = theme.get("main", Color(0.0, 0.0, 0.0, 0.0))
-	for grow in [8.0, 4.0]:
-		var glow_alpha: float = (0.07 + 0.06 * pulse) * alpha * (1.0 - grow / 12.0)
-		if glow_alpha > 0.001:
-			canvas.draw_rect(rect.grow(grow), Color(main.r, main.g, main.b, glow_alpha), false, max(1.0, 3.2 - grow * 0.18))
+	# 7-layer outer halo brightest closest to the card, fading outward.
+	for layer in range(7):
+		var grow: float = 2.0 + float(layer) * 2.0
+		var glow_alpha: float = (0.30 + 0.18 * pulse) * alpha * (1.0 - float(layer) / 7.5)
+		if glow_alpha <= 0.003:
+			continue
+		canvas.draw_rect(rect.grow(grow), Color(main.r, main.g, main.b, glow_alpha), false, max(1.0, 2.4 - float(layer) * 0.2))
 
 
 func _character_edge_theme(restriction: String, alpha: float = 1.0, pulse: float = 0.5) -> Dictionary:
@@ -423,61 +459,242 @@ func _draw_character_edge_corners(canvas: CanvasItem, rect: Rect2, accent: Color
 		canvas.draw_line(point, point + Vector2(corner_len * 0.56 * dir.x, 0.0), highlight, 1.0)
 
 
-func _draw_smasher_edge_marks(canvas: CanvasItem, rect: Rect2, accent: Color, highlight: Color, pulse: float) -> void:
-	var segment_count := 4
+func _draw_smasher_edge_marks(
+	canvas: CanvasItem,
+	rect: Rect2,
+	main: Color,
+	accent: Color,
+	highlight: Color,
+	alpha: float,
+	_pulse: float,
+	fast_pulse: float
+) -> void:
+	# 4-corner lightning sparks (Python: 15-frame cycle, phases 0..9 render with
+	# size 4 → 3 → 2 px depending on phase, brightest at phase 0).
+	var phase_base: int = int(float(_get_draw_msec()) * 0.06)
+	var corners: Array[Vector2] = [
+		rect.position + Vector2(6.0, 6.0),
+		Vector2(rect.end.x - 7.0, rect.position.y + 6.0),
+		Vector2(rect.position.x + 6.0, rect.end.y - 7.0),
+		rect.end - Vector2(7.0, 7.0),
+	]
+	for ci in range(corners.size()):
+		var spark_phase: int = (phase_base + ci * 5) % 15
+		if spark_phase >= 10:
+			continue
+		var spark_alpha: float = clamp((220.0 - float(spark_phase) * 18.0) / 255.0, 0.0, 1.0) * alpha
+		if spark_alpha <= 0.005:
+			continue
+		var spark_r: float = 4.0 if spark_phase < 3 else (3.0 if spark_phase < 6 else 2.0)
+		if spark_phase < 3:
+			canvas.draw_circle(corners[ci], spark_r + 1.0, Color(main.r, main.g, main.b, spark_alpha * 0.5))
+		canvas.draw_circle(corners[ci], spark_r, Color(highlight.r, highlight.g, highlight.b, spark_alpha))
+
+	# Top/bottom zig-zag energy lines (Python: 8 segments, jitter 3px).
 	var top_y: float = rect.position.y + 2.0
-	var bottom_y: float = rect.end.y - 2.0
-	var usable_w: float = rect.size.x - 34.0
-	for index in range(segment_count):
-		var x0: float = rect.position.x + 17.0 + usable_w * float(index) / float(segment_count)
-		var x1: float = rect.position.x + 17.0 + usable_w * float(index + 1) / float(segment_count) - 6.0
-		var jitter: float = sin(float(_get_draw_msec()) * 0.012 + float(index) * 1.7) * (1.0 + pulse)
-		canvas.draw_line(Vector2(x0, top_y + jitter), Vector2(x1, top_y - jitter), accent, 1.0)
-		canvas.draw_line(Vector2(x0, bottom_y - jitter), Vector2(x1, bottom_y + jitter), highlight, 1.0)
+	var bottom_y: float = rect.end.y - 3.0
+	var inner_left: float = rect.position.x + 10.0
+	var inner_w: float = rect.size.x - 20.0
+	var line_alpha: float = clamp((90.0 + 50.0 * fast_pulse) / 255.0, 0.0, 1.0) * alpha
+	var energy_color := Color(accent.r, accent.g, accent.b, line_alpha)
+	var time_ms: float = float(_get_draw_msec())
+	for si in range(8):
+		var sx1: float = inner_left + inner_w * float(si) / 8.0
+		var sx2: float = inner_left + inner_w * float(si + 1) / 8.0
+		var jitter: float = sin(time_ms * 0.024 + float(si) * 1.2) * 3.0
+		canvas.draw_line(Vector2(sx1, top_y + jitter), Vector2(sx2, top_y - jitter), energy_color, 1.0)
+		canvas.draw_line(Vector2(sx1, bottom_y - jitter), Vector2(sx2, bottom_y + jitter), energy_color, 1.0)
+
+	# Left/right vertical electric lines (Python: 5 segments, jitter 2px, dimmer).
+	var inner_top: float = rect.position.y + 10.0
+	var inner_h: float = rect.size.y - 20.0
+	var side_alpha: float = clamp((70.0 + 40.0 * fast_pulse) / 255.0, 0.0, 1.0) * alpha
+	var side_color := Color(main.r, main.g, main.b, side_alpha)
+	for si in range(5):
+		var sy1: float = inner_top + inner_h * float(si) / 5.0
+		var sy2: float = inner_top + inner_h * float(si + 1) / 5.0
+		var jitter: float = sin(time_ms * 0.021 + float(si) * 1.8) * 2.0
+		canvas.draw_line(Vector2(rect.position.x + 2.0 + jitter, sy1), Vector2(rect.position.x + 2.0 - jitter, sy2), side_color, 1.0)
+		canvas.draw_line(Vector2(rect.end.x - 3.0 - jitter, sy1), Vector2(rect.end.x - 3.0 + jitter, sy2), side_color, 1.0)
 
 
-func _draw_viper_edge_marks(canvas: CanvasItem, rect: Rect2, accent: Color, highlight: Color, pulse: float) -> void:
-	var positions: Array[Vector2] = [
-		rect.position + Vector2(rect.size.x * 0.50, 4.0),
-		rect.position + Vector2(rect.size.x - 5.0, rect.size.y * 0.45),
-		rect.position + Vector2(rect.size.x * 0.48, rect.size.y - 5.0),
-		rect.position + Vector2(4.0, rect.size.y * 0.56),
+func _draw_viper_edge_marks(
+	canvas: CanvasItem,
+	rect: Rect2,
+	main: Color,
+	accent: Color,
+	highlight: Color,
+	alpha: float,
+	_pulse: float,
+	_fast_pulse: float
+) -> void:
+	# 12 poison smoke particles travelling along the perimeter (Python parity).
+	var poison_count := 12
+	var time_ms: float = float(_get_draw_msec())
+	var inset := 4.0
+	var inner_w: float = max(1.0, rect.size.x - inset * 2.0)
+	var inner_h: float = max(1.0, rect.size.y - inset * 2.0)
+	var perim: float = 2.0 * (inner_w + inner_h)
+	for pi in range(poison_count):
+		var vt: float = fmod(time_ms * 0.0015 + float(pi) * (TAU / float(poison_count)), TAU)
+		if vt < 0.0:
+			vt += TAU
+		var pos_on_perim: float = (vt / TAU) * perim
+		var px: float = 0.0
+		var py: float = 0.0
+		if pos_on_perim < inner_w:
+			px = rect.position.x + inset + pos_on_perim
+			py = rect.position.y + 3.0
+		elif pos_on_perim < inner_w + inner_h:
+			px = rect.end.x - inset
+			py = rect.position.y + inset + (pos_on_perim - inner_w)
+		elif pos_on_perim < 2.0 * inner_w + inner_h:
+			px = rect.end.x - inset - (pos_on_perim - inner_w - inner_h)
+			py = rect.end.y - inset
+		else:
+			px = rect.position.x + 3.0
+			py = rect.end.y - inset - (pos_on_perim - 2.0 * inner_w - inner_h)
+		var p_alpha: float = clamp((160.0 + 70.0 * sin(time_ms * 0.009 + float(pi))) / 255.0, 0.0, 1.0) * alpha
+		if p_alpha <= 0.005:
+			continue
+		var pr: float = 3.0 if pi % 4 == 0 else 2.0
+		var pc: Color = highlight if pi % 3 == 0 else accent
+		# Soft halo around bigger particles.
+		if pr >= 3.0:
+			canvas.draw_circle(Vector2(px, py), pr + 2.0, Color(main.r, main.g, main.b, p_alpha * 0.33))
+		canvas.draw_circle(Vector2(px, py), pr, Color(pc.r, pc.g, pc.b, p_alpha))
+
+	# 4 corner poison puddles (Python: dim outer pool + bright inner core).
+	var v_corners: Array[Vector2] = [
+		rect.position + Vector2(6.0, 6.0),
+		Vector2(rect.end.x - 7.0, rect.position.y + 6.0),
+		Vector2(rect.position.x + 6.0, rect.end.y - 7.0),
+		rect.end - Vector2(7.0, 7.0),
 	]
-	for index in range(positions.size()):
-		var radius: float = 1.8 + 1.2 * ((pulse + float(index) * 0.31) - floor(pulse + float(index) * 0.31))
-		var color: Color = highlight if index % 2 == 0 else accent
-		canvas.draw_circle(positions[index], radius, color)
+	for vi in range(v_corners.size()):
+		var va: float = clamp((100.0 + 60.0 * sin(time_ms * 0.0048 + float(vi) * 1.5)) / 255.0, 0.0, 1.0) * alpha
+		if va <= 0.005:
+			continue
+		canvas.draw_circle(v_corners[vi], 4.0, Color(main.r, main.g, main.b, va * 0.5))
+		canvas.draw_circle(v_corners[vi], 2.0, Color(accent.r, accent.g, accent.b, va))
 
 
-func _draw_optimus_edge_marks(canvas: CanvasItem, rect: Rect2, accent: Color, highlight: Color, pulse: float) -> void:
-	var dot_y_top: float = rect.position.y + 4.0
-	var dot_y_bottom: float = rect.end.y - 4.0
-	for ratio in [0.36, 0.50, 0.64]:
-		var x: float = rect.position.x + rect.size.x * float(ratio)
-		var dot_radius: float = 1.4 + pulse * 0.9
-		canvas.draw_circle(Vector2(x, dot_y_top), dot_radius, accent)
-		canvas.draw_circle(Vector2(x, dot_y_bottom), dot_radius, highlight)
-	var scan_y: float = rect.position.y + 11.0 + (rect.size.y - 22.0) * pulse
-	canvas.draw_line(rect.position + Vector2(7.0, scan_y), Vector2(rect.end.x - 7.0, scan_y), Color(accent.r, accent.g, accent.b, accent.a * 0.32), 1.0)
+func _draw_optimus_edge_marks(
+	canvas: CanvasItem,
+	rect: Rect2,
+	main: Color,
+	accent: Color,
+	highlight: Color,
+	alpha: float,
+	pulse: float,
+	_fast_pulse: float
+) -> void:
+	# L-shape gear/circuit corner decorations (Python: 4 corners, 2 thick + 2 thin lines each).
+	var corner_len: float = 14.0
+	var ca: float = clamp((180.0 + 60.0 * pulse) / 255.0, 0.0, 1.0) * alpha
+	if ca > 0.005:
+		var ax := Color(accent.r, accent.g, accent.b, ca)
+		var hx := Color(highlight.r, highlight.g, highlight.b, ca * 0.5)
+		var lx: float = rect.position.x
+		var rx: float = rect.end.x
+		var ty: float = rect.position.y
+		var by: float = rect.end.y
+		# top-left
+		canvas.draw_line(Vector2(lx + 3.0, ty + 6.0), Vector2(lx + 3.0, ty + 6.0 + corner_len), ax, 2.0)
+		canvas.draw_line(Vector2(lx + 3.0, ty + 6.0), Vector2(lx + 3.0 + corner_len, ty + 6.0), ax, 2.0)
+		canvas.draw_line(Vector2(lx + 5.0, ty + 8.0), Vector2(lx + 5.0, ty + 8.0 + corner_len - 4.0), hx, 1.0)
+		canvas.draw_line(Vector2(lx + 5.0, ty + 8.0), Vector2(lx + 5.0 + corner_len - 4.0, ty + 8.0), hx, 1.0)
+		# top-right
+		canvas.draw_line(Vector2(rx - 4.0, ty + 6.0), Vector2(rx - 4.0, ty + 6.0 + corner_len), ax, 2.0)
+		canvas.draw_line(Vector2(rx - 4.0, ty + 6.0), Vector2(rx - 4.0 - corner_len, ty + 6.0), ax, 2.0)
+		canvas.draw_line(Vector2(rx - 6.0, ty + 8.0), Vector2(rx - 6.0, ty + 8.0 + corner_len - 4.0), hx, 1.0)
+		canvas.draw_line(Vector2(rx - 6.0, ty + 8.0), Vector2(rx - 6.0 - corner_len + 4.0, ty + 8.0), hx, 1.0)
+		# bottom-left
+		canvas.draw_line(Vector2(lx + 3.0, by - 7.0), Vector2(lx + 3.0, by - 7.0 - corner_len), ax, 2.0)
+		canvas.draw_line(Vector2(lx + 3.0, by - 7.0), Vector2(lx + 3.0 + corner_len, by - 7.0), ax, 2.0)
+		canvas.draw_line(Vector2(lx + 5.0, by - 9.0), Vector2(lx + 5.0, by - 9.0 - corner_len + 4.0), hx, 1.0)
+		canvas.draw_line(Vector2(lx + 5.0, by - 9.0), Vector2(lx + 5.0 + corner_len - 4.0, by - 9.0), hx, 1.0)
+		# bottom-right
+		canvas.draw_line(Vector2(rx - 4.0, by - 7.0), Vector2(rx - 4.0, by - 7.0 - corner_len), ax, 2.0)
+		canvas.draw_line(Vector2(rx - 4.0, by - 7.0), Vector2(rx - 4.0 - corner_len, by - 7.0), ax, 2.0)
+		canvas.draw_line(Vector2(rx - 6.0, by - 9.0), Vector2(rx - 6.0, by - 9.0 - corner_len + 4.0), hx, 1.0)
+		canvas.draw_line(Vector2(rx - 6.0, by - 9.0), Vector2(rx - 6.0 - corner_len + 4.0, by - 9.0), hx, 1.0)
+
+	# 6 top/bottom circuit dots (Python: pulsing per-dot phase).
+	var time_ms: float = float(_get_draw_msec())
+	for di in range(6):
+		var dx: float = rect.position.x + rect.size.x * float(di + 1) / 7.0
+		var dp: float = sin(time_ms * 0.009 + float(di) * 0.9)
+		var da: float = clamp((130.0 + 70.0 * dp) / 255.0, 0.0, 1.0) * alpha
+		if da <= 0.005:
+			continue
+		var dr: float = 2.0 if dp > 0.5 else 1.0
+		canvas.draw_circle(Vector2(dx, rect.position.y + 4.0), dr, Color(accent.r, accent.g, accent.b, da))
+		canvas.draw_circle(Vector2(dx, rect.end.y - 5.0), dr, Color(accent.r, accent.g, accent.b, da))
+
+	# Vertical-sweeping scanline.
+	var scan_pulse: float = 0.5 + 0.5 * sin(time_ms * 0.0036)
+	var scan_y: float = rect.position.y + 6.0 + (rect.size.y - 12.0) * scan_pulse
+	var scan_alpha: float = clamp((40.0 + 25.0 * pulse) / 255.0, 0.0, 1.0) * alpha
+	if scan_alpha > 0.004:
+		canvas.draw_line(
+			Vector2(rect.position.x + 4.0, scan_y),
+			Vector2(rect.end.x - 5.0, scan_y),
+			Color(main.r, main.g, main.b, scan_alpha),
+			1.0
+		)
 
 
-func _draw_soldier_edge_marks(canvas: CanvasItem, rect: Rect2, accent: Color, highlight: Color, _pulse: float) -> void:
-	var centers: Array[Vector2] = [
-		rect.position + Vector2(11.0, 11.0),
-		rect.position + Vector2(rect.size.x - 11.0, 11.0),
-		rect.position + Vector2(11.0, rect.size.y - 11.0),
-		rect.position + Vector2(rect.size.x - 11.0, rect.size.y - 11.0),
+func _draw_soldier_edge_marks(
+	canvas: CanvasItem,
+	rect: Rect2,
+	main: Color,
+	accent: Color,
+	highlight: Color,
+	alpha: float,
+	pulse: float,
+	fast_pulse: float
+) -> void:
+	# 4 corner tactical crosses with bright center dot.
+	var marker_corners: Array[Vector2] = [
+		rect.position + Vector2(9.0, 9.0),
+		Vector2(rect.end.x - 10.0, rect.position.y + 9.0),
+		Vector2(rect.position.x + 9.0, rect.end.y - 10.0),
+		rect.end - Vector2(10.0, 10.0),
 	]
-	for center in centers:
-		canvas.draw_line(center + Vector2(-3.5, 0.0), center + Vector2(3.5, 0.0), accent, 1.6)
-		canvas.draw_line(center + Vector2(0.0, -3.5), center + Vector2(0.0, 3.5), highlight, 1.2)
-	var dash_len := 6.0
-	var gap := 8.0
-	var y: float = rect.position.y + 22.0
-	while y < rect.end.y - 22.0:
-		canvas.draw_line(Vector2(rect.position.x + 2.0, y), Vector2(rect.position.x + 2.0, min(y + dash_len, rect.end.y - 22.0)), accent, 1.4)
-		canvas.draw_line(Vector2(rect.end.x - 2.0, y), Vector2(rect.end.x - 2.0, min(y + dash_len, rect.end.y - 22.0)), accent, 1.4)
-		y += dash_len + gap
+	var ma: float = clamp((180.0 + 60.0 * fast_pulse) / 255.0, 0.0, 1.0) * alpha
+	if ma > 0.005:
+		var marker_color := Color(accent.r, accent.g, accent.b, ma)
+		var center_color := Color(highlight.r, highlight.g, highlight.b, ma)
+		for mc in marker_corners:
+			canvas.draw_line(mc + Vector2(-4.0, 0.0), mc + Vector2(4.0, 0.0), marker_color, 2.0)
+			canvas.draw_line(mc + Vector2(0.0, -4.0), mc + Vector2(0.0, 4.0), marker_color, 2.0)
+			canvas.draw_circle(mc, 1.4, center_color)
+
+	# Vertical dashed side lines.
+	var dash_len: float = 5.0
+	var gap: float = 5.0
+	var dl_a: float = clamp((100.0 + 50.0 * pulse) / 255.0, 0.0, 1.0) * alpha
+	if dl_a <= 0.005:
+		return
+	var dash_color := Color(main.r, main.g, main.b, dl_a)
+
+	var dy: float = rect.position.y + 16.0
+	var dy_end: float = rect.end.y - 16.0
+	while dy < dy_end:
+		var dy_stop: float = min(dy + dash_len, dy_end)
+		canvas.draw_line(Vector2(rect.position.x + 2.0, dy), Vector2(rect.position.x + 2.0, dy_stop), dash_color, 2.0)
+		canvas.draw_line(Vector2(rect.end.x - 3.0, dy), Vector2(rect.end.x - 3.0, dy_stop), dash_color, 2.0)
+		dy += dash_len + gap
+
+	# Horizontal dashed top/bottom lines (Python parity addition).
+	var dx: float = rect.position.x + 16.0
+	var dx_end: float = rect.end.x - 16.0
+	while dx < dx_end:
+		var dx_stop: float = min(dx + dash_len, dx_end)
+		canvas.draw_line(Vector2(dx, rect.position.y + 2.0), Vector2(dx_stop, rect.position.y + 2.0), dash_color, 1.0)
+		canvas.draw_line(Vector2(dx, rect.end.y - 3.0), Vector2(dx_stop, rect.end.y - 3.0), dash_color, 1.0)
+		dx += dash_len + gap
 
 
 func _draw_description(canvas: CanvasItem, choices: Array, selected_index: int, rect: Rect2) -> void:
@@ -717,6 +934,131 @@ func _choice_flight_bezier(source: Vector2, target: Vector2, t: float, arc: floa
 	var control: Vector2 = (source + target) * 0.5 + Vector2(0.0, -arc) + normal * side_offset
 	var inv: float = 1.0 - t
 	return source * inv * inv + control * 2.0 * inv * t + target * t * t
+
+
+# Starpoint absorption visual. Reads `starpoint_absorption_effect` straight off
+# the runtime state's snapshot (rather than recomputing here) because the state
+# is responsible for translating playfield -> screen each frame so the target
+# tracks the moving paddle. Effect phases:
+#   [0.00, 0.85]  star spirals from above-the-head source down into the player
+#                 body with a sparkle trail and ease-in acceleration
+#   [0.85, 1.00]  arrival burst ring + central flash, alpha fading out
+func _draw_starpoint_absorption_effect(canvas: CanvasItem, runtime_state: Object) -> void:
+	if canvas == null or runtime_state == null:
+		return
+	if not runtime_state.has_method("get_snapshot"):
+		return
+	var snapshot: Dictionary = _get_dict(runtime_state.get_snapshot())
+	var effect: Dictionary = _get_dict(snapshot.get("starpoint_absorption_effect", {}))
+	if not bool(effect.get("active", false)):
+		return
+	var age: float = float(effect.get("age", 0.0))
+	var duration: float = max(0.001, float(effect.get("duration", 0.7)))
+	var progress: float = clamp(age / duration, 0.0, 1.0)
+	var source: Vector2 = _get_vector2(effect.get("source_pos", Vector2.ZERO))
+	var target: Vector2 = _get_vector2(effect.get("target_pos", Vector2.ZERO))
+	if source == Vector2.ZERO or target == Vector2.ZERO:
+		# Update hasn't translated the playfield position yet (first frame after
+		# trigger before update tick fires, or owner / view_size missing). Skip
+		# rendering until coords resolve so we don't draw a star at (0,0).
+		return
+	var screen_scale: float = max(0.1, float(effect.get("screen_scale", 1.0)))
+	var flight_progress: float = clamp(progress / 0.85, 0.0, 1.0)
+	# Ease-in acceleration so the star "drops" into the body rather than
+	# coasting at constant velocity. Pow(2.0) gives a clean parabolic feel.
+	var eased: float = pow(flight_progress, 2.0)
+	var center: Vector2 = source.lerp(target, eased)
+	# Spiral offset shrinks to zero on arrival. Negative orbit dir for visual
+	# rotation feel; radius scales with screen scale so a zoomed-out viewport
+	# doesn't drown the spiral.
+	var spiral_angle: float = age * 7.0
+	var spiral_radius: float = 22.0 * screen_scale * (1.0 - flight_progress)
+	var head_pos: Vector2 = center + Vector2(cos(spiral_angle), sin(spiral_angle)) * spiral_radius
+	# --- Sparkle trail (deterministic from particles list) ---
+	var particles: Array = _get_array(effect.get("particles", []))
+	_draw_starpoint_absorption_trail(canvas, source, target, particles, age, flight_progress, screen_scale)
+	# --- Main star + outer glow (during flight phase) ---
+	if flight_progress < 1.0:
+		var star_size: float = (15.0 - flight_progress * 5.0) * screen_scale
+		var head_alpha: float = clampf(1.0 - flight_progress * 0.35, 0.0, 1.0)
+		# Outer halo glow rings.
+		canvas.draw_circle(head_pos, star_size * 2.6, Color(STARPOINT_ABSORPTION_GLOW_COLOR.r, STARPOINT_ABSORPTION_GLOW_COLOR.g, STARPOINT_ABSORPTION_GLOW_COLOR.b, 0.18 * head_alpha))
+		canvas.draw_circle(head_pos, star_size * 1.6, Color(STARPOINT_ABSORPTION_GLOW_COLOR.r, STARPOINT_ABSORPTION_GLOW_COLOR.g, STARPOINT_ABSORPTION_GLOW_COLOR.b, 0.32 * head_alpha))
+		# 5-tip star polygon (matches the starpoint drop's visual identity so
+		# the absorbed thing reads as "the starpoint you just picked up").
+		var star_points: PackedVector2Array = _build_starpoint_absorption_star(head_pos, star_size, age * 6.0)
+		if star_points.size() >= 3:
+			canvas.draw_colored_polygon(star_points, Color(STARPOINT_ABSORPTION_FILL_COLOR.r, STARPOINT_ABSORPTION_FILL_COLOR.g, STARPOINT_ABSORPTION_FILL_COLOR.b, head_alpha))
+			for idx in range(star_points.size()):
+				canvas.draw_line(star_points[idx], star_points[(idx + 1) % star_points.size()], Color(STARPOINT_ABSORPTION_OUTLINE_COLOR.r, STARPOINT_ABSORPTION_OUTLINE_COLOR.g, STARPOINT_ABSORPTION_OUTLINE_COLOR.b, head_alpha), max(1.4, 2.2 * screen_scale))
+		# Central white-hot dot.
+		canvas.draw_circle(head_pos, max(1.4, star_size * 0.28), Color(1.0, 1.0, 1.0, head_alpha))
+	# --- Arrival burst (last 15% of effect) ---
+	if progress > 0.85:
+		var burst_t: float = clamp((progress - 0.85) / 0.15, 0.0, 1.0)
+		var burst_radius: float = lerpf(8.0 * screen_scale, 46.0 * screen_scale, _ease_out_cubic(burst_t))
+		var burst_alpha: float = (1.0 - burst_t) * 0.85
+		canvas.draw_arc(
+			target,
+			burst_radius,
+			0.0,
+			TAU,
+			STARPOINT_ABSORPTION_ARRIVAL_ARC_SEGMENTS,
+			Color(STARPOINT_ABSORPTION_BURST_COLOR.r, STARPOINT_ABSORPTION_BURST_COLOR.g, STARPOINT_ABSORPTION_BURST_COLOR.b, burst_alpha),
+			max(1.6, 3.4 * screen_scale * (1.0 - burst_t))
+		)
+		# Soft inner flash that collapses inward as the burst expands.
+		var flash_alpha: float = (1.0 - burst_t) * 0.55
+		canvas.draw_circle(target, 18.0 * screen_scale * (1.0 - burst_t * 0.4), Color(1.0, 0.95, 0.65, flash_alpha))
+
+
+func _draw_starpoint_absorption_trail(
+	canvas: CanvasItem,
+	source: Vector2,
+	target: Vector2,
+	particles: Array,
+	age: float,
+	flight_progress: float,
+	screen_scale: float
+) -> void:
+	if particles.is_empty():
+		return
+	# Each particle lags behind the main star by a fixed phase offset so the
+	# overall trail looks like a comet tail. Particles ALSO orbit the descending
+	# centerline so the trail has a swirling, magical feel rather than a flat
+	# line.
+	for particle_value in particles:
+		if not (particle_value is Dictionary):
+			continue
+		var particle: Dictionary = particle_value
+		var phase: float = float(particle.get("phase", 0.0))
+		var radius_seed: float = float(particle.get("radius_seed", 0.5))
+		var twinkle_seed: float = float(particle.get("twinkle_seed", 0.5))
+		var orbit_dir: float = float(particle.get("orbit_dir", 1.0))
+		var lag: float = (radius_seed + 0.15) * 0.18  # 0.027..0.207
+		var local_progress: float = clamp(flight_progress - lag, 0.0, 1.0)
+		if local_progress <= 0.0:
+			continue
+		var local_eased: float = pow(local_progress, 2.0)
+		var spine: Vector2 = source.lerp(target, local_eased)
+		var orbit_angle: float = phase + age * 5.5 * orbit_dir
+		var orbit_radius: float = (8.0 + radius_seed * 12.0) * screen_scale * (1.0 - local_progress * 0.7)
+		var pos: Vector2 = spine + Vector2(cos(orbit_angle), sin(orbit_angle)) * orbit_radius
+		var twinkle: float = 0.55 + 0.45 * sin(age * 6.0 + twinkle_seed * TAU)
+		var size: float = max(1.2, (2.6 - local_progress * 1.2) * screen_scale)
+		var alpha: float = clampf((1.0 - local_progress) * 0.85 * twinkle, 0.0, 1.0)
+		canvas.draw_circle(pos, size * 2.4, Color(STARPOINT_ABSORPTION_GLOW_COLOR.r, STARPOINT_ABSORPTION_GLOW_COLOR.g, STARPOINT_ABSORPTION_GLOW_COLOR.b, alpha * 0.35))
+		canvas.draw_circle(pos, size, Color(1.0, 0.95, 0.55, alpha))
+
+
+func _build_starpoint_absorption_star(center: Vector2, size: float, rotation: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	var vertices: int = STARPOINT_ABSORPTION_STAR_TIP_COUNT * 2
+	for idx in range(vertices):
+		var r: float = size if idx % 2 == 0 else size * 0.5
+		var a: float = rotation + float(idx) * PI / float(STARPOINT_ABSORPTION_STAR_TIP_COUNT)
+		points.append(center + Vector2(cos(a), sin(a)) * r)
+	return points
 
 
 func _recent_start(values: Array, render_limit: int) -> int:
