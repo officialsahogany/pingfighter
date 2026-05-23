@@ -4826,6 +4826,30 @@ Hundredth split on 2026-05-24:
   field render-budget smoke. `.\tools\run_warning_scan.ps1` passed with
   `1291` scripts scanned and no GDScript warnings.
 
+114th split on 2026-05-24:
+
+- Commit: `402ede2ba godot: split Horn Strawberry mythic field renderer`.
+- Scope: added `mythic_item_horn_strawberry_field_renderer.gd` for Horn
+  Strawberry transform cinematic visibility/draw plus stem projectile,
+  field-barrier, horn-charge, bomb, explosion, and paint drawing. The shared
+  `mythic_item_field_effect_renderer.gd` now keeps Horn Strawberry visibility
+  fanout, perf labeling, and public render-budget constants while passing the
+  item contexts and budgets into the focused renderer.
+- Rationale: Horn Strawberry's field draw branch was independent from the
+  other mythic effects and already consumed compact runtime contexts. Moving
+  it keeps the shared field-effect renderer focused on orchestration without
+  changing the public `draw_field_effects(...)` entry point or transform
+  cinematic visibility behavior.
+- Renderer size: `mythic_item_field_effect_renderer.gd` moved from `1067`
+  lines to `908` lines; the new
+  `mythic_item_horn_strawberry_field_renderer.gd` file is `207` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Source-selected Horn Strawberry / field-renderer coverage ran `7`
+  smoke scripts and passed, including audio/VFX, mask port, round-boundary,
+  skill-HUD, Stage 1 pillar prewarm, and mythic field render-budget smokes.
+  `.\tools\run_warning_scan.ps1` passed with `1292` scripts scanned and no
+  GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
