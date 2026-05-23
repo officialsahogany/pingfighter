@@ -63,6 +63,15 @@ const SAGE_RING_FIXED_OPTIONS := [
 	},
 ]
 
+const HEAVENLY_CAPE_FIXED_OPTIONS := [
+	{"label": "스킬 구슬 슬롯", "value": "+1", "unit": "칸"},
+]
+
+const HORN_STRAWBERRY_MASK_FIXED_OPTIONS := [
+	{"label": "변신 비용", "value": "-500", "unit": "게이지"},
+	{"label": "공 타격 게이지", "value": "+80", "unit": ""},
+]
+
 const ITEM_FIXED_OPTIONS := {
 	"speedgear": SPEEDGEAR_FIXED_OPTIONS,
 	"gravitybelt": GRAVITYBELT_FIXED_OPTIONS,
@@ -71,6 +80,8 @@ const ITEM_FIXED_OPTIONS := {
 	"reinforced_boomerang_gauntlet": REINFORCED_BOOMERANG_GAUNTLET_FIXED_OPTIONS,
 	"dashholder": DASHHOLDER_FIXED_OPTIONS,
 	"sage_ring": SAGE_RING_FIXED_OPTIONS,
+	"heavenly_cape": HEAVENLY_CAPE_FIXED_OPTIONS,
+	"horn_strawberry_mask": HORN_STRAWBERRY_MASK_FIXED_OPTIONS,
 }
 
 

@@ -1178,9 +1178,7 @@ func _build_heavenly_cape() -> Dictionary:
 		"rolls": rolls,
 		"roll_options": get_roll_options(HEAVENLY_CAPE),
 		"rolled_options": build_rolled_options(HEAVENLY_CAPE, rolls),
-		"fixed_options": [
-			{"label": "스킬 구슬 슬롯", "value": "+1", "unit": "칸"},
-		],
+		"fixed_options": get_fixed_options(HEAVENLY_CAPE),
 		"color": Color(190.0 / 255.0, 225.0 / 255.0, 1.0),
 	}
 
@@ -1207,10 +1205,7 @@ func _build_horn_strawberry_mask() -> Dictionary:
 		"rolls": rolls,
 		"roll_options": get_roll_options(HORN_STRAWBERRY_MASK),
 		"rolled_options": build_rolled_options(HORN_STRAWBERRY_MASK, rolls),
-		"fixed_options": [
-			{"label": "변신 비용", "value": "-500", "unit": "게이지"},
-			{"label": "공 타격 게이지", "value": "+80", "unit": ""},
-		],
+		"fixed_options": get_fixed_options(HORN_STRAWBERRY_MASK),
 		"color": Color(1.0, 72.0 / 255.0, 90.0 / 255.0),
 	}
 
