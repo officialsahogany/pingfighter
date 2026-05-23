@@ -4745,8 +4745,9 @@ This section is intentionally long; use search to find the nearest owner.
   of reintroducing private runtime pickup-bonus bridge methods.
 - `scripts/items/mythic_item_roll_query.gd`
   Owns acquired quality identity preservation and roll-option lookup used by
-  equipment and debug flows. Those helpers should call this owner directly
-  instead of reintroducing private runtime roll-metadata bridge methods.
+  equipment and debug flows, plus polish multiplier lookup for final item-roll
+  value composition. Those helpers should call this owner directly instead of
+  reintroducing private runtime roll-metadata or polish bridge methods.
 - `scripts/items/mythic_item_update_runtime.gd`
   Owns mythic per-frame update sequencing and idle-update fallback routing.
   It calls constants-free focused update owners directly for Smartphone,

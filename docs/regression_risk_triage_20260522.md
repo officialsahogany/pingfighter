@@ -10,16 +10,16 @@ evidence instead of relying on chat-only status summaries.
 
 - Current branch: `checkpoint/godot-wip-20260521-070019`.
 - Latest code / asset / smoke-fix HEAD before this documentation sync:
-  `46c3cd1bd godot: route mythic owner sync details through owner`.
-- The checkpoint span through that HEAD contains 142 follow-up commits after
+  `36f1652ff godot: move mythic polish multiplier into roll query`.
+- The checkpoint span through that HEAD contains 144 follow-up commits after
   the gamepad input boot baseline. Including `2c31069ba` itself, the span
-  contains 143 commits.
+  contains 145 commits.
 - Latest docs-only guardrail sync before this addendum:
   `6622d30a0 docs: update godot port guardrails`.
 - Latest docs-only validation sync before this addendum:
   `6a7ec1711 docs: record full smoke teardown signoff`.
 - Latest docs-only mythic split sync before this addendum:
-  `5c345dc90 docs: record mythic equipment index bridge cleanup`.
+  `b841d61fe docs: record mythic owner sync detail cleanup`.
 - Latest local-artifact ignore sync before this addendum:
   `a41efcb3c chore: ignore local stage2 asset drafts`.
 - Latest residual settings hold note before this addendum:
@@ -36,7 +36,7 @@ evidence instead of relying on chat-only status summaries.
   .claude/sprite_workflow_settings.json` and then
   `git update-index --no-skip-worktree -- .claude/settings.json
   .claude/sprite_workflow_settings.json`.
-- The split notes below are current through the eighty-ninth split. The broad
+- The split notes below are current through the ninetieth split. The broad
   smoke addenda below record validation-only asset / smoke fixes, teardown
   cleanup, and the first single uninterrupted 489-script smoke pass after that
   split. The top-level initial snapshot remains historical context from the
@@ -4206,6 +4206,27 @@ Eighty-ninth split on 2026-05-23:
   `horn_strawberry_skill_hud_smoke`, `ragnarok_hammer_port_smoke`, and
   `mythic_item_field_render_budget_smoke`), plus
   `.\tools\run_headless_load_check.ps1` and
+  `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
+  warnings). `git diff --check` reported only the existing line-ending
+  notice for `mythic_item_runtime.gd`.
+
+Ninetieth split on 2026-05-23:
+
+- Commit: `36f1652ff godot: move mythic polish multiplier into roll query`.
+- Scope: `mythic_item_roll_query.gd` now owns polish multiplier lookup while
+  composing item roll values, including the Transcendent Crown base-polish
+  exception. The private `_get_polish_multiplier()` bridge was removed from
+  `mythic_item_runtime.gd`.
+- Rationale: polish scaling is part of the roll-value composition path and
+  should stay with roll-query ownership rather than being re-exported through
+  the runtime facade.
+- Runtime facade size: `mythic_item_runtime.gd` moved from `2486` lines to
+  `2477` lines.
+- Validation: focused polish / roll scaling coverage
+  (`item_polish_perk_port_smoke`, `dowsing_goggles_port_smoke`,
+  `rainbow_fur_glove_port_smoke`, `shrapnel_armor_port_smoke`,
+  `transcendent_crown_port_smoke`, and `mythic_item_ownership_runtime_smoke`),
+  plus `.\tools\run_headless_load_check.ps1` and
   `.\tools\run_warning_scan.ps1` (`1280` scripts scanned, no GDScript
   warnings). `git diff --check` reported only the existing line-ending
   notice for `mythic_item_runtime.gd`.
