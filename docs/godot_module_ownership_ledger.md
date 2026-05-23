@@ -318,11 +318,12 @@ This section is intentionally long; use search to find the nearest owner.
   delegated to `scripts/items/mythic_item_ownership_runtime.gd`; the
   field-effect renderer now owns the Baal / Hermes / Venom Mist /
   Celestial Armor / Foul Whistle / Revival / Sensor draw fanout directly
-  instead of bouncing through thin runtime `_draw_*` wrappers; Ragnarok
-  impact rings, electric-stun overlay, and spark rendering are likewise
-  invoked directly by the field renderer from runtime state and renderer-owned
-  visual constants; Poseidon trail / vortex-particle / explosion draw
-  sequencing is invoked directly by the field renderer from runtime state;
+  instead of bouncing through thin runtime `_draw_*` wrappers;
+  `scripts/items/mythic_item_ragnarok_field_renderer.gd` owns Ragnarok
+  impact-ring, electric-stun overlay, stun-aura, and spark drawing while
+  `mythic_item_field_effect_renderer.gd` keeps the runtime-state fanout and
+  public render-budget status; Poseidon trail / vortex-particle / explosion
+  draw sequencing is invoked directly by the field renderer from runtime state;
   Rainbow Fur Glove, Adversity Armor, Shrapnel Armor, Knee Pads, and Soul
   Burst field-effect branches are also invoked directly by the field renderer
   from runtime state and compact draw constants;
@@ -4804,6 +4805,7 @@ This section is intentionally long; use search to find the nearest owner.
   dictionaries.
 - `scripts/items/mythic_item_field_effect_visibility.gd`,
   `scripts/items/mythic_item_field_effect_renderer.gd`,
+  `scripts/items/mythic_item_ragnarok_field_renderer.gd`,
   `scripts/items/mythic_item_context_builder.gd`,
   `scripts/items/mythic_item_snapshot_builder.gd`, and
   `scripts/items/mythic_item_owner_syncer.gd`

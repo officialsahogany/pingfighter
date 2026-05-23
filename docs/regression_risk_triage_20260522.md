@@ -4781,6 +4781,29 @@ Hundredth split on 2026-05-24:
   port smoke matched by that query. `.\tools\run_warning_scan.ps1` passed with
   `1289` scripts scanned and no GDScript warnings.
 
+112th split on 2026-05-24:
+
+- Commit: `c425f92e1 godot: split Ragnarok mythic field renderer`.
+- Scope: added `mythic_item_ragnarok_field_renderer.gd` for Ragnarok Hammer
+  impact-ring, electric-stun overlay, stun-aura, and spark drawing. The shared
+  `mythic_item_field_effect_renderer.gd` now preloads that owner and keeps
+  runtime-state visibility fanout, perf labels, public render-budget constants,
+  and render-budget status reporting.
+- Rationale: Ragnarok's field draw path was a self-contained visual branch
+  with its own deterministic electric sampling, color ramps, ellipse point
+  helper, and spark cap. Moving it to a focused renderer reduces the shared
+  mythic field renderer without changing the public `draw_field_effects(...)`
+  path or the existing budget-status API.
+- Renderer size: `mythic_item_field_effect_renderer.gd` moved from `1365`
+  lines to `1185` lines; the new
+  `mythic_item_ragnarok_field_renderer.gd` file is `215` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. A focused 6-smoke set covering mythic field render budgets,
+  Ragnarok Hammer runtime, and round-boundary audio cleanup passed. A broader
+  source-selected field-renderer / Ragnarok set ran `14` smoke scripts and
+  passed. `.\tools\run_warning_scan.ps1` passed with `1290` scripts scanned
+  and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
