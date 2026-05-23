@@ -3,6 +3,7 @@ extends SceneTree
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemBrickWallEffectRenderer := preload("res://scripts/items/active_item_brick_wall_effect_renderer.gd")
 const ActiveItemEffectRenderer := preload("res://scripts/items/active_item_effect_renderer.gd")
+const ActiveItemTimerGaugeRenderer := preload("res://scripts/items/active_item_timer_gauge_renderer.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 
 
@@ -33,6 +34,7 @@ func _init() -> void:
 	_verify_pickup_effect_direct_icon()
 	_verify_brick_wall_variant_sheet()
 	_verify_brick_wall_renderer_split()
+	_verify_timer_gauge_renderer_split()
 
 	if _failures.is_empty():
 		print("active_item_effect_renderer_cache_smoke: ok")
@@ -110,6 +112,26 @@ func _verify_brick_wall_renderer_split() -> void:
 	_expect(brick_source.find("func draw_brick_wall_effect") >= 0, "Brick Wall renderer should own the field draw entry point")
 	_expect(brick_source.find("func _draw_brick_cracks") >= 0, "Brick Wall renderer should own crack drawing")
 	_expect(brick_source.find("func _draw_brick_install_gauge") >= 0, "Brick Wall renderer should own install gauge drawing")
+
+
+func _verify_timer_gauge_renderer_split() -> void:
+	var renderer := ActiveItemEffectRenderer.new()
+	var timer_renderer := ActiveItemTimerGaugeRenderer.new()
+	var source := FileAccess.get_file_as_string("res://scripts/items/active_item_effect_renderer.gd")
+	var timer_source := FileAccess.get_file_as_string("res://scripts/items/active_item_timer_gauge_renderer.gd")
+	_expect(source.find("_timer_gauge_renderer.draw_magnet_field_timer_gauge") >= 0, "effect renderer should delegate Magnet Field timer gauge")
+	_expect(source.find("func _draw_magnet_field_timer_gauge") < 0, "effect renderer should not keep inline Magnet Field timer gauge")
+	_expect(source.find("func _draw_long_boost_timer_gauge") < 0, "effect renderer should not keep inline Long Boost timer gauge")
+	_expect(source.find("func _get_timer_bar_position") < 0, "effect renderer should not own timer stack positioning")
+	_expect(timer_source.find("func draw_magnet_field_timer_gauge") >= 0, "timer gauge renderer should own Magnet Field gauge")
+	_expect(timer_source.find("func draw_holy_barrier_timer_gauge") >= 0, "timer gauge renderer should own Holy Barrier gauge")
+	_expect(timer_source.find("func draw_dash_boost_timer_gauge") >= 0, "timer gauge renderer should own Dash Boost gauge")
+	_expect(timer_source.find("func draw_vitamin_pill_timer_gauge") >= 0, "timer gauge renderer should own Vitamin Pill gauge")
+	_expect(timer_source.find("func draw_strange_vial_timer_gauge") >= 0, "timer gauge renderer should own Strange Vial gauge")
+	_expect(timer_source.find("func draw_long_boost_timer_gauge") >= 0, "timer gauge renderer should own Long Boost gauge")
+	_expect(timer_source.find("func _get_timer_bar_position") >= 0, "timer gauge renderer should own timer stack positioning")
+	_expect(timer_renderer.get_long_boost_icon_texture() != null, "focused timer gauge renderer should load long boost icon")
+	_expect(renderer._get_long_boost_icon_texture() != null, "effect renderer compatibility wrapper should load long boost icon")
 
 
 func _has_cached_pickup_label(renderer: Object, catalog: Object, item_name: String) -> bool:

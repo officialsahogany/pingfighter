@@ -1,17 +1,10 @@
 extends RefCounted
 
-const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const BrickWallEffectRenderer := preload("res://scripts/items/active_item_brick_wall_effect_renderer.gd")
+const TimerGaugeRenderer := preload("res://scripts/items/active_item_timer_gauge_renderer.gd")
 
-const LONG_BOOST_ICON_PATH := ActiveItemCatalog.LONG_BOOST_ICON_PATH
-const VITAMIN_PILL_ICON_PATH := ActiveItemCatalog.VITAMIN_PILL_ICON_PATH
-const STRANGE_VIAL_ICON_PATH := ActiveItemCatalog.STRANGE_VIAL_ICON_PATH
-const STOPWATCH_ICON_PATH := ActiveItemCatalog.STOPWATCH_ICON_PATH
-const MAGNET_FIELD_ICON_PATH := ActiveItemCatalog.MAGNET_FIELD_ICON_PATH
-const HOLY_BARRIER_ICON_PATH := ActiveItemCatalog.HOLY_BARRIER_ICON_PATH
-const DASH_BOOST_ICON_PATH := "res://assets/sprites/items/dash_boost.png"
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const PICKUP_ICON_SIZE := 40.0
@@ -26,10 +19,6 @@ const EXTRA_PICKUP_TEXT_PREWARM_ITEMS := [
 	"doping_potion",
 	"elixir_of_mastery",
 ]
-const LONG_BOOST_TIMER_BAR_SIZE := Vector2(150.0, 12.0)
-const LONG_BOOST_TIMER_BAR_MARGIN := Vector2(16.0, 28.0)
-const LONG_BOOST_TIMER_STACK_SPACING := 18.0
-const LONG_BOOST_TIMER_ICON_SIZE := 28.0
 const REGENERATION_POTION_PARTICLE_DURATION_SEC := 0.78
 const REGENERATION_POTION_RING_DURATION_SEC := 0.58
 const EFFECT_PARTICLE_ALPHA_CUTOFF := 0.02
@@ -48,6 +37,7 @@ var _pickup_icon_cache: Dictionary = {}
 var _text_size_cache: Dictionary = {}
 var _prewarm_step_index := 0
 var _brick_wall_renderer: Object = BrickWallEffectRenderer.new()
+var _timer_gauge_renderer: Object = TimerGaugeRenderer.new()
 
 
 func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
@@ -58,22 +48,22 @@ func prewarm_assets(active_item_hud_visuals: Object = null) -> void:
 func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
 	match _prewarm_step_index:
 		0:
-			if ResourceLoader.exists(LONG_BOOST_ICON_PATH):
+			if ResourceLoader.exists(TimerGaugeRenderer.LONG_BOOST_ICON_PATH):
 				_touch_texture(_get_long_boost_icon_texture())
 		1:
-			if ResourceLoader.exists(VITAMIN_PILL_ICON_PATH):
+			if ResourceLoader.exists(TimerGaugeRenderer.VITAMIN_PILL_ICON_PATH):
 				_touch_texture(_get_vitamin_pill_icon_texture())
 		2:
-			if ResourceLoader.exists(STRANGE_VIAL_ICON_PATH):
+			if ResourceLoader.exists(TimerGaugeRenderer.STRANGE_VIAL_ICON_PATH):
 				_touch_texture(_get_strange_vial_icon_texture())
 		3:
-			if ResourceLoader.exists(MAGNET_FIELD_ICON_PATH):
+			if ResourceLoader.exists(TimerGaugeRenderer.MAGNET_FIELD_ICON_PATH):
 				_touch_texture(_get_magnet_field_icon_texture())
 		4:
-			if ResourceLoader.exists(HOLY_BARRIER_ICON_PATH):
+			if ResourceLoader.exists(TimerGaugeRenderer.HOLY_BARRIER_ICON_PATH):
 				_touch_texture(_get_holy_barrier_icon_texture())
 		5:
-			if ResourceLoader.exists(DASH_BOOST_ICON_PATH):
+			if ResourceLoader.exists(TimerGaugeRenderer.DASH_BOOST_ICON_PATH):
 				_touch_texture(_get_dash_boost_icon_texture())
 		6:
 			_brick_wall_renderer.prewarm_assets()
@@ -146,7 +136,7 @@ func draw_field_effects(
 		if has_shared_timer_stack:
 			timer_stack_index = int(timer_stack.claim("magnet_field", true))
 		sample_start = _perf_begin(detail_perf_logger)
-		_draw_magnet_field_timer_gauge(canvas, magnet_field_context, timer_stack_index)
+		_timer_gauge_renderer.draw_magnet_field_timer_gauge(canvas, magnet_field_context, timer_stack_index)
 		_perf_end(detail_perf_logger, "active_item.field.timer_magnet", sample_start)
 		if not has_shared_timer_stack:
 			timer_stack_index += 1
@@ -154,7 +144,7 @@ func draw_field_effects(
 		if has_shared_timer_stack:
 			timer_stack_index = int(timer_stack.claim("holy_barrier", true))
 		sample_start = _perf_begin(detail_perf_logger)
-		_draw_holy_barrier_timer_gauge(canvas, holy_barrier_context, timer_stack_index)
+		_timer_gauge_renderer.draw_holy_barrier_timer_gauge(canvas, holy_barrier_context, timer_stack_index)
 		_perf_end(detail_perf_logger, "active_item.field.timer_holy_barrier", sample_start)
 		if not has_shared_timer_stack:
 			timer_stack_index += 1
@@ -162,7 +152,7 @@ func draw_field_effects(
 		if has_shared_timer_stack:
 			timer_stack_index = int(timer_stack.claim("vitamin_pill", true))
 		sample_start = _perf_begin(detail_perf_logger)
-		_draw_vitamin_pill_timer_gauge(canvas, vitamin_pill_timer_context, timer_stack_index)
+		_timer_gauge_renderer.draw_vitamin_pill_timer_gauge(canvas, vitamin_pill_timer_context, timer_stack_index)
 		_perf_end(detail_perf_logger, "active_item.field.timer_vitamin_pill", sample_start)
 		if not has_shared_timer_stack:
 			timer_stack_index += 1
@@ -170,7 +160,7 @@ func draw_field_effects(
 		if has_shared_timer_stack:
 			timer_stack_index = int(timer_stack.claim("strange_vial", true))
 		sample_start = _perf_begin(detail_perf_logger)
-		_draw_strange_vial_timer_gauge(canvas, strange_vial_timer_context, timer_stack_index)
+		_timer_gauge_renderer.draw_strange_vial_timer_gauge(canvas, strange_vial_timer_context, timer_stack_index)
 		_perf_end(detail_perf_logger, "active_item.field.timer_strange_vial", sample_start)
 		if not has_shared_timer_stack:
 			timer_stack_index += 1
@@ -178,7 +168,7 @@ func draw_field_effects(
 		if has_shared_timer_stack:
 			timer_stack_index = int(timer_stack.claim("long_boost", true))
 		sample_start = _perf_begin(detail_perf_logger)
-		_draw_long_boost_timer_gauge(canvas, long_boost_timer_context, timer_stack_index)
+		_timer_gauge_renderer.draw_long_boost_timer_gauge(canvas, long_boost_timer_context, timer_stack_index)
 		_perf_end(detail_perf_logger, "active_item.field.timer_long_boost", sample_start)
 		if not has_shared_timer_stack:
 			timer_stack_index += 1
@@ -186,7 +176,7 @@ func draw_field_effects(
 		if has_shared_timer_stack:
 			timer_stack_index = int(timer_stack.claim("dash_boost", true))
 		sample_start = _perf_begin(detail_perf_logger)
-		_draw_dash_boost_timer_gauge(canvas, dash_boost_context, timer_stack_index)
+		_timer_gauge_renderer.draw_dash_boost_timer_gauge(canvas, dash_boost_context, timer_stack_index)
 		_perf_end(detail_perf_logger, "active_item.field.timer_dash_boost", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
 	var pickup_particle_start: int = max(0, pickup_particles.size() - MAX_PICKUP_PARTICLE_RENDER_COUNT)
@@ -573,399 +563,6 @@ func _draw_strange_vial_effect(canvas: CanvasItem, timer_context: Dictionary, sh
 		canvas.draw_line(end_pos, end_pos + Vector2(5.0, 6.0 * arrow_dir), Color(primary.r, primary.g, primary.b, 0.34 * remaining_ratio), 2.0)
 
 
-func _draw_magnet_field_timer_gauge(canvas: CanvasItem, timer_context: Dictionary, stack_index: int) -> void:
-	var active: bool = bool(timer_context.get("active", false))
-	var timer_frames: float = float(timer_context.get("timer_frames", 0.0))
-	var initial_timer_frames: float = float(timer_context.get("initial_timer_frames", 0.0))
-	if not active or timer_frames <= 0.0:
-		return
-
-	var ratio: float = clamp(timer_frames / max(1.0, initial_timer_frames), 0.0, 1.0)
-	var remaining_seconds: float = timer_frames / 60.0
-	var frame_rect := Rect2(_get_timer_bar_position(stack_index), LONG_BOOST_TIMER_BAR_SIZE)
-	var outer_rect := frame_rect.grow(5.0)
-	var mid_rect := frame_rect.grow(3.0)
-	var border_rect := frame_rect.grow(2.0)
-	canvas.draw_rect(outer_rect, Color(0.0, 0.0, 0.0, 0.28))
-	canvas.draw_rect(outer_rect, Color(30.0 / 255.0, 20.0 / 255.0, 50.0 / 255.0, 0.94))
-	canvas.draw_rect(mid_rect, Color(80.0 / 255.0, 60.0 / 255.0, 160.0 / 255.0, 0.96))
-	canvas.draw_rect(mid_rect, Color(140.0 / 255.0, 110.0 / 255.0, 220.0 / 255.0, 0.92), false, 2.0)
-	canvas.draw_rect(border_rect, Color(25.0 / 255.0, 18.0 / 255.0, 45.0 / 255.0, 0.96))
-	canvas.draw_rect(frame_rect, Color(0.06, 0.04, 0.10, 0.94))
-
-	var base_color: Color
-	var highlight_color: Color
-	if remaining_seconds > 5.0:
-		base_color = Color(120.0 / 255.0, 80.0 / 255.0, 1.0, 0.98)
-		highlight_color = Color(180.0 / 255.0, 150.0 / 255.0, 1.0, 0.98)
-	elif remaining_seconds > 3.0:
-		base_color = Color(100.0 / 255.0, 70.0 / 255.0, 220.0 / 255.0, 0.98)
-		highlight_color = Color(160.0 / 255.0, 130.0 / 255.0, 1.0, 0.98)
-	else:
-		var pulse: float = abs(sin(float(Time.get_ticks_msec()) * 0.015))
-		base_color = Color((200.0 + 55.0 * pulse) / 255.0, (80.0 + 60.0 * pulse) / 255.0, (150.0 + 60.0 * pulse) / 255.0, 0.99)
-		highlight_color = Color((230.0 + 25.0 * pulse) / 255.0, (120.0 + 50.0 * pulse) / 255.0, (200.0 + 55.0 * pulse) / 255.0, 0.99)
-
-	var fill_width: float = max(1.0, (frame_rect.size.x - 4.0) * ratio)
-	var fill_rect := Rect2(frame_rect.position + Vector2(2.0, 2.0), Vector2(fill_width, frame_rect.size.y - 4.0))
-	canvas.draw_rect(fill_rect, base_color)
-	canvas.draw_rect(Rect2(fill_rect.position, Vector2(fill_rect.size.x, max(2.0, fill_rect.size.y * 0.34))), highlight_color)
-	for i in range(1, 10):
-		var tick_x: float = frame_rect.position.x + 2.0 + (frame_rect.size.x - 4.0) * (float(i) / 10.0)
-		canvas.draw_line(
-			Vector2(tick_x, frame_rect.position.y + frame_rect.size.y - 4.0),
-			Vector2(tick_x, frame_rect.position.y + frame_rect.size.y - 1.0),
-			Color(140.0 / 255.0, 120.0 / 255.0, 200.0 / 255.0, 0.92),
-			1.0
-		)
-
-	if fill_width > 2.0 and fill_width < frame_rect.size.x - 4.0:
-		var glint_x: float = frame_rect.position.x + 2.0 + fill_width
-		canvas.draw_line(
-			Vector2(glint_x, frame_rect.position.y + 2.0),
-			Vector2(glint_x, frame_rect.position.y + frame_rect.size.y - 1.0),
-			Color(1.0, 1.0, 1.0, 0.46),
-			2.0
-		)
-
-	var icon_size := Vector2(LONG_BOOST_TIMER_ICON_SIZE, LONG_BOOST_TIMER_ICON_SIZE) * 0.66
-	var icon_top_left := frame_rect.position + Vector2(-icon_size.x - 6.0, 0.0)
-	var icon_center := icon_top_left + icon_size * 0.5
-	var icon_pulse: float = abs(sin(float(Time.get_ticks_msec()) * 0.01))
-	canvas.draw_arc(icon_center, icon_size.x * 0.70, 0.0, TAU, 24, Color(140.0 / 255.0, 100.0 / 255.0, 1.0, 0.42 + 0.32 * icon_pulse), 2.0)
-	var icon_texture: Texture2D = _get_magnet_field_icon_texture()
-	if icon_texture != null:
-		canvas.draw_texture_rect(icon_texture, Rect2(icon_top_left, icon_size), false)
-	else:
-		_draw_magnet_field_icon_fallback(canvas, icon_center, icon_size.x)
-
-
-func _draw_holy_barrier_timer_gauge(canvas: CanvasItem, timer_context: Dictionary, stack_index: int) -> void:
-	var active: bool = bool(timer_context.get("active", false))
-	var timer_frames: float = float(timer_context.get("timer_frames", 0.0))
-	var initial_timer_frames: float = float(timer_context.get("initial_timer_frames", 0.0))
-	if not active or timer_frames <= 0.0:
-		return
-
-	var ratio: float = clamp(timer_frames / max(1.0, initial_timer_frames), 0.0, 1.0)
-	var remaining_seconds: float = timer_frames / 60.0
-	var frame_rect := Rect2(_get_timer_bar_position(stack_index), LONG_BOOST_TIMER_BAR_SIZE)
-	var outer_rect := frame_rect.grow(5.0)
-	var mid_rect := frame_rect.grow(3.0)
-	var border_rect := frame_rect.grow(2.0)
-	canvas.draw_rect(outer_rect, Color(0.0, 0.0, 0.0, 0.28))
-	canvas.draw_rect(outer_rect, Color(40.0 / 255.0, 35.0 / 255.0, 20.0 / 255.0, 0.94))
-	canvas.draw_rect(mid_rect, Color(180.0 / 255.0, 150.0 / 255.0, 80.0 / 255.0, 0.96))
-	canvas.draw_rect(mid_rect, Color(1.0, 220.0 / 255.0, 150.0 / 255.0, 0.92), false, 2.0)
-	canvas.draw_rect(border_rect, Color(35.0 / 255.0, 30.0 / 255.0, 18.0 / 255.0, 0.96))
-	canvas.draw_rect(frame_rect, Color(0.10, 0.08, 0.04, 0.94))
-
-	var base_color: Color
-	var highlight_color: Color
-	if remaining_seconds > 4.0:
-		base_color = Color(1.0, 220.0 / 255.0, 100.0 / 255.0, 0.98)
-		highlight_color = Color(1.0, 245.0 / 255.0, 180.0 / 255.0, 0.98)
-	elif remaining_seconds > 2.0:
-		base_color = Color(1.0, 180.0 / 255.0, 80.0 / 255.0, 0.98)
-		highlight_color = Color(1.0, 210.0 / 255.0, 130.0 / 255.0, 0.98)
-	else:
-		var pulse: float = abs(sin(float(Time.get_ticks_msec()) * 0.015))
-		base_color = Color(1.0, (140.0 + 60.0 * pulse) / 255.0, (60.0 + 40.0 * pulse) / 255.0, 0.99)
-		highlight_color = Color(1.0, (180.0 + 50.0 * pulse) / 255.0, (100.0 + 50.0 * pulse) / 255.0, 0.99)
-
-	var fill_width: float = max(1.0, (frame_rect.size.x - 4.0) * ratio)
-	var fill_rect := Rect2(frame_rect.position + Vector2(2.0, 2.0), Vector2(fill_width, frame_rect.size.y - 4.0))
-	canvas.draw_rect(fill_rect, base_color)
-	canvas.draw_rect(Rect2(fill_rect.position, Vector2(fill_rect.size.x, max(2.0, fill_rect.size.y * 0.34))), highlight_color)
-	for i in range(1, 10):
-		var tick_x: float = frame_rect.position.x + 2.0 + (frame_rect.size.x - 4.0) * (float(i) / 10.0)
-		canvas.draw_line(
-			Vector2(tick_x, frame_rect.position.y + frame_rect.size.y - 4.0),
-			Vector2(tick_x, frame_rect.position.y + frame_rect.size.y - 1.0),
-			Color(220.0 / 255.0, 200.0 / 255.0, 160.0 / 255.0, 0.92),
-			1.0
-		)
-
-	if fill_width > 2.0 and fill_width < frame_rect.size.x - 4.0:
-		var glint_x: float = frame_rect.position.x + 2.0 + fill_width
-		canvas.draw_line(
-			Vector2(glint_x, frame_rect.position.y + 2.0),
-			Vector2(glint_x, frame_rect.position.y + frame_rect.size.y - 1.0),
-			Color(1.0, 1.0, 1.0, 0.46),
-			2.0
-		)
-
-	var icon_size := Vector2(LONG_BOOST_TIMER_ICON_SIZE, LONG_BOOST_TIMER_ICON_SIZE) * 0.66
-	var icon_top_left := frame_rect.position + Vector2(-icon_size.x - 6.0, 0.0)
-	var icon_center := icon_top_left + icon_size * 0.5
-	var icon_pulse: float = abs(sin(float(Time.get_ticks_msec()) * 0.01))
-	canvas.draw_arc(icon_center, icon_size.x * 0.70, 0.0, TAU, 24, Color(1.0, 1.0, 150.0 / 255.0, 0.42 + 0.32 * icon_pulse), 2.0)
-	var icon_texture: Texture2D = _get_holy_barrier_icon_texture()
-	if icon_texture != null:
-		canvas.draw_texture_rect(icon_texture, Rect2(icon_top_left, icon_size), false)
-	else:
-		canvas.draw_circle(icon_center, icon_size.x * 0.42, Color(1.0, 245.0 / 255.0, 170.0 / 255.0, 1.0))
-
-
-func _draw_dash_boost_timer_gauge(canvas: CanvasItem, timer_context: Dictionary, stack_index: int) -> void:
-	var active: bool = bool(timer_context.get("active", false))
-	var timer_frames: float = float(timer_context.get("timer_frames", 0.0))
-	var initial_timer_frames: float = float(timer_context.get("initial_timer_frames", 0.0))
-	if not active or timer_frames <= 0.0:
-		return
-
-	var ratio: float = clamp(timer_frames / max(1.0, initial_timer_frames), 0.0, 1.0)
-	var remaining_seconds: float = timer_frames / 60.0
-	var frame_rect := Rect2(_get_timer_bar_position(stack_index), LONG_BOOST_TIMER_BAR_SIZE)
-	var outer_rect := frame_rect.grow(5.0)
-	var mid_rect := frame_rect.grow(3.0)
-	var border_rect := frame_rect.grow(2.0)
-	canvas.draw_rect(outer_rect, Color(0.0, 0.0, 0.0, 0.28))
-	canvas.draw_rect(outer_rect, Color(18.0 / 255.0, 36.0 / 255.0, 52.0 / 255.0, 0.94))
-	canvas.draw_rect(mid_rect, Color(60.0 / 255.0, 130.0 / 255.0, 180.0 / 255.0, 0.96))
-	canvas.draw_rect(mid_rect, Color(120.0 / 255.0, 210.0 / 255.0, 1.0, 0.92), false, 2.0)
-	canvas.draw_rect(border_rect, Color(20.0 / 255.0, 32.0 / 255.0, 50.0 / 255.0, 0.96))
-	canvas.draw_rect(frame_rect, Color(0.04, 0.08, 0.13, 0.94))
-
-	var base_color: Color
-	var highlight_color: Color
-	if remaining_seconds > 5.0:
-		base_color = Color(100.0 / 255.0, 200.0 / 255.0, 1.0, 0.98)
-		highlight_color = Color(170.0 / 255.0, 230.0 / 255.0, 1.0, 0.98)
-	elif remaining_seconds > 2.5:
-		base_color = Color(120.0 / 255.0, 230.0 / 255.0, 200.0 / 255.0, 0.98)
-		highlight_color = Color(180.0 / 255.0, 250.0 / 255.0, 220.0 / 255.0, 0.98)
-	else:
-		var pulse: float = abs(sin(float(Time.get_ticks_msec()) * 0.015))
-		base_color = Color((150.0 + 100.0 * pulse) / 255.0, (220.0 + 30.0 * pulse) / 255.0, 1.0, 0.99)
-		highlight_color = Color((200.0 + 55.0 * pulse) / 255.0, (240.0 + 15.0 * pulse) / 255.0, 1.0, 0.99)
-
-	var fill_width: float = max(1.0, (frame_rect.size.x - 4.0) * ratio)
-	var fill_rect := Rect2(frame_rect.position + Vector2(2.0, 2.0), Vector2(fill_width, frame_rect.size.y - 4.0))
-	canvas.draw_rect(fill_rect, base_color)
-	canvas.draw_rect(Rect2(fill_rect.position, Vector2(fill_rect.size.x, max(2.0, fill_rect.size.y * 0.34))), highlight_color)
-	for i in range(1, 10):
-		var tick_x: float = frame_rect.position.x + 2.0 + (frame_rect.size.x - 4.0) * (float(i) / 10.0)
-		canvas.draw_line(
-			Vector2(tick_x, frame_rect.position.y + frame_rect.size.y - 4.0),
-			Vector2(tick_x, frame_rect.position.y + frame_rect.size.y - 1.0),
-			Color(160.0 / 255.0, 220.0 / 255.0, 1.0, 0.92),
-			1.0
-		)
-
-	if fill_width > 2.0 and fill_width < frame_rect.size.x - 4.0:
-		var glint_x: float = frame_rect.position.x + 2.0 + fill_width
-		canvas.draw_line(
-			Vector2(glint_x, frame_rect.position.y + 2.0),
-			Vector2(glint_x, frame_rect.position.y + frame_rect.size.y - 1.0),
-			Color(1.0, 1.0, 1.0, 0.46),
-			2.0
-		)
-
-	var icon_size := Vector2(LONG_BOOST_TIMER_ICON_SIZE, LONG_BOOST_TIMER_ICON_SIZE) * 0.66
-	var icon_top_left := frame_rect.position + Vector2(-icon_size.x - 6.0, 0.0)
-	var icon_center := icon_top_left + icon_size * 0.5
-	var icon_pulse: float = abs(sin(float(Time.get_ticks_msec()) * 0.01))
-	canvas.draw_arc(icon_center, icon_size.x * 0.70, 0.0, TAU, 24, Color(150.0 / 255.0, 220.0 / 255.0, 1.0, 0.42 + 0.32 * icon_pulse), 2.0)
-	var icon_texture: Texture2D = _get_dash_boost_icon_texture()
-	if icon_texture != null:
-		canvas.draw_texture_rect(icon_texture, Rect2(icon_top_left, icon_size), false)
-	else:
-		canvas.draw_circle(icon_center, icon_size.x * 0.42, Color(100.0 / 255.0, 200.0 / 255.0, 1.0, 1.0))
-
-
-func _draw_vitamin_pill_timer_gauge(canvas: CanvasItem, timer_context: Dictionary, stack_index: int) -> void:
-	var active: bool = bool(timer_context.get("active", false))
-	var timer_frames: float = float(timer_context.get("timer_frames", 0.0))
-	var initial_timer_frames: float = float(timer_context.get("initial_timer_frames", 0.0))
-	if not active or timer_frames <= 0.0:
-		return
-
-	var ratio: float = clamp(timer_frames / max(1.0, initial_timer_frames), 0.0, 1.0)
-	var remaining_seconds: float = timer_frames / 60.0
-	var frame_rect := Rect2(_get_timer_bar_position(stack_index), LONG_BOOST_TIMER_BAR_SIZE)
-	var outer_rect := frame_rect.grow(5.0)
-	var mid_rect := frame_rect.grow(3.0)
-	var border_rect := frame_rect.grow(2.0)
-	canvas.draw_rect(outer_rect, Color(0.0, 0.0, 0.0, 0.28))
-	canvas.draw_rect(outer_rect, Color(16.0 / 255.0, 22.0 / 255.0, 32.0 / 255.0, 0.94))
-	canvas.draw_rect(mid_rect, Color(55.0 / 255.0, 85.0 / 255.0, 120.0 / 255.0, 0.96))
-	canvas.draw_rect(mid_rect, Color(110.0 / 255.0, 150.0 / 255.0, 190.0 / 255.0, 0.92), false, 2.0)
-	canvas.draw_rect(border_rect, Color(24.0 / 255.0, 28.0 / 255.0, 36.0 / 255.0, 0.96))
-	canvas.draw_rect(frame_rect, Color(0.05, 0.07, 0.11, 0.94))
-
-	var base_color: Color
-	var highlight_color: Color
-	if remaining_seconds > 6.0:
-		base_color = Color(70.0 / 255.0, 170.0 / 255.0, 1.0, 0.98)
-		highlight_color = Color(140.0 / 255.0, 210.0 / 255.0, 1.0, 0.98)
-	elif remaining_seconds > 3.0:
-		base_color = Color(80.0 / 255.0, 200.0 / 255.0, 230.0 / 255.0, 0.98)
-		highlight_color = Color(160.0 / 255.0, 235.0 / 255.0, 245.0 / 255.0, 0.98)
-	else:
-		var pulse: float = abs(sin(float(Time.get_ticks_msec()) * 0.015))
-		base_color = Color(1.0, (140.0 + 80.0 * pulse) / 255.0, 90.0 / 255.0, 0.99)
-		highlight_color = Color(1.0, (190.0 + 50.0 * pulse) / 255.0, 120.0 / 255.0, 0.99)
-
-	var fill_width: float = max(1.0, (frame_rect.size.x - 4.0) * ratio)
-	var fill_rect := Rect2(frame_rect.position + Vector2(2.0, 2.0), Vector2(fill_width, frame_rect.size.y - 4.0))
-	canvas.draw_rect(fill_rect, base_color)
-	canvas.draw_rect(Rect2(fill_rect.position, Vector2(fill_rect.size.x, max(2.0, fill_rect.size.y * 0.34))), highlight_color)
-	for i in range(1, 10):
-		var tick_x: float = frame_rect.position.x + 2.0 + (frame_rect.size.x - 4.0) * (float(i) / 10.0)
-		canvas.draw_line(
-			Vector2(tick_x, frame_rect.position.y + frame_rect.size.y - 4.0),
-			Vector2(tick_x, frame_rect.position.y + frame_rect.size.y - 1.0),
-			Color(180.0 / 255.0, 200.0 / 255.0, 220.0 / 255.0, 0.92),
-			1.0
-		)
-
-	if fill_width > 2.0 and fill_width < frame_rect.size.x - 4.0:
-		var glint_x: float = frame_rect.position.x + 2.0 + fill_width
-		canvas.draw_line(
-			Vector2(glint_x, frame_rect.position.y + 2.0),
-			Vector2(glint_x, frame_rect.position.y + frame_rect.size.y - 1.0),
-			Color(1.0, 1.0, 1.0, 0.46),
-			2.0
-		)
-
-	var icon_size := Vector2(LONG_BOOST_TIMER_ICON_SIZE, LONG_BOOST_TIMER_ICON_SIZE) * 0.68
-	var icon_top_left := frame_rect.position + Vector2(-icon_size.x - 6.0, -1.0 + 1.0 * sin(float(Time.get_ticks_msec()) * 0.02))
-	var icon_center := icon_top_left + icon_size * 0.5
-	canvas.draw_circle(icon_center, icon_size.x * 0.62, Color(0.0, 0.0, 0.0, 0.38))
-	canvas.draw_arc(icon_center, icon_size.x * 0.68, 0.0, TAU, 24, Color(120.0 / 255.0, 215.0 / 255.0, 1.0, 0.38), 2.0)
-	var icon_texture: Texture2D = _get_vitamin_pill_icon_texture()
-	if icon_texture != null:
-		canvas.draw_texture_rect(icon_texture, Rect2(icon_top_left, icon_size), false)
-	else:
-		canvas.draw_circle(icon_center, icon_size.x * 0.40, Color(80.0 / 255.0, 170.0 / 255.0, 1.0, 1.0))
-		canvas.draw_rect(Rect2(icon_center - Vector2(icon_size.x * 0.18, icon_size.y * 0.12), Vector2(icon_size.x * 0.36, icon_size.y * 0.24)), Color(1.0, 1.0, 1.0, 0.42))
-
-
-func _draw_strange_vial_timer_gauge(canvas: CanvasItem, timer_context: Dictionary, stack_index: int) -> void:
-	var active: bool = bool(timer_context.get("active", false))
-	var timer_frames: float = float(timer_context.get("timer_frames", 0.0))
-	var initial_timer_frames: float = float(timer_context.get("initial_timer_frames", 0.0))
-	if not active or timer_frames <= 0.0:
-		return
-
-	var ratio: float = clamp(timer_frames / max(1.0, initial_timer_frames), 0.0, 1.0)
-	var remaining_seconds: float = timer_frames / 60.0
-	var effect_type: String = str(timer_context.get("effect_type", ""))
-	var is_enlarge: bool = effect_type == "enlarge"
-	var frame_rect := Rect2(_get_timer_bar_position(stack_index), LONG_BOOST_TIMER_BAR_SIZE)
-	var outer_rect := frame_rect.grow(5.0)
-	var mid_rect := frame_rect.grow(3.0)
-	var border_rect := frame_rect.grow(2.0)
-	var frame_color := Color(80.0 / 255.0, 30.0 / 255.0, 120.0 / 255.0, 0.94) if is_enlarge else Color(20.0 / 255.0, 80.0 / 255.0, 40.0 / 255.0, 0.94)
-	var mid_color := Color(140.0 / 255.0, 60.0 / 255.0, 180.0 / 255.0, 0.96) if is_enlarge else Color(40.0 / 255.0, 160.0 / 255.0, 80.0 / 255.0, 0.96)
-	var rim_color := Color(180.0 / 255.0, 100.0 / 255.0, 220.0 / 255.0, 0.92) if is_enlarge else Color(80.0 / 255.0, 220.0 / 255.0, 120.0 / 255.0, 0.92)
-	canvas.draw_rect(outer_rect, Color(0.0, 0.0, 0.0, 0.28))
-	canvas.draw_rect(outer_rect, frame_color)
-	canvas.draw_rect(mid_rect, mid_color)
-	canvas.draw_rect(mid_rect, rim_color, false, 2.0)
-	canvas.draw_rect(border_rect, Color(24.0 / 255.0, 18.0 / 255.0, 24.0 / 255.0, 0.96))
-	canvas.draw_rect(frame_rect, Color(0.06, 0.04, 0.07, 0.94))
-
-	var base_color: Color
-	var highlight_color: Color
-	if is_enlarge:
-		if remaining_seconds > 6.0:
-			base_color = Color(160.0 / 255.0, 80.0 / 255.0, 220.0 / 255.0, 0.98)
-			highlight_color = Color(200.0 / 255.0, 120.0 / 255.0, 1.0, 0.98)
-		elif remaining_seconds > 3.0:
-			base_color = Color(180.0 / 255.0, 60.0 / 255.0, 200.0 / 255.0, 0.98)
-			highlight_color = Color(220.0 / 255.0, 100.0 / 255.0, 240.0 / 255.0, 0.98)
-		else:
-			var pulse_purple: float = abs(sin(float(Time.get_ticks_msec()) * 0.015))
-			base_color = Color((180.0 + 60.0 * pulse_purple) / 255.0, (60.0 + 40.0 * pulse_purple) / 255.0, (200.0 + 40.0 * pulse_purple) / 255.0, 0.99)
-			highlight_color = Color((220.0 + 30.0 * pulse_purple) / 255.0, (100.0 + 40.0 * pulse_purple) / 255.0, (240.0 + 15.0 * pulse_purple) / 255.0, 0.99)
-	else:
-		if remaining_seconds > 6.0:
-			base_color = Color(60.0 / 255.0, 200.0 / 255.0, 100.0 / 255.0, 0.98)
-			highlight_color = Color(100.0 / 255.0, 240.0 / 255.0, 140.0 / 255.0, 0.98)
-		elif remaining_seconds > 3.0:
-			base_color = Color(40.0 / 255.0, 180.0 / 255.0, 80.0 / 255.0, 0.98)
-			highlight_color = Color(80.0 / 255.0, 220.0 / 255.0, 120.0 / 255.0, 0.98)
-		else:
-			var pulse_green: float = abs(sin(float(Time.get_ticks_msec()) * 0.015))
-			base_color = Color((40.0 + 40.0 * pulse_green) / 255.0, (180.0 + 60.0 * pulse_green) / 255.0, (80.0 + 40.0 * pulse_green) / 255.0, 0.99)
-			highlight_color = Color((80.0 + 40.0 * pulse_green) / 255.0, (220.0 + 30.0 * pulse_green) / 255.0, (120.0 + 30.0 * pulse_green) / 255.0, 0.99)
-
-	var fill_width: float = max(1.0, (frame_rect.size.x - 4.0) * ratio)
-	var fill_rect := Rect2(frame_rect.position + Vector2(2.0, 2.0), Vector2(fill_width, frame_rect.size.y - 4.0))
-	canvas.draw_rect(fill_rect, base_color)
-	canvas.draw_rect(Rect2(fill_rect.position, Vector2(fill_rect.size.x, max(2.0, fill_rect.size.y * 0.34))), highlight_color)
-	if fill_width > 2.0 and fill_width < frame_rect.size.x - 4.0:
-		var glint_x: float = frame_rect.position.x + 2.0 + fill_width
-		canvas.draw_line(
-			Vector2(glint_x, frame_rect.position.y + 2.0),
-			Vector2(glint_x, frame_rect.position.y + frame_rect.size.y - 1.0),
-			Color(1.0, 1.0, 1.0, 0.46),
-			2.0
-		)
-
-	var icon_size := Vector2(LONG_BOOST_TIMER_ICON_SIZE, LONG_BOOST_TIMER_ICON_SIZE) * 0.70
-	var icon_top_left := frame_rect.position + Vector2(-icon_size.x - 6.0, (frame_rect.size.y - icon_size.y) * 0.5)
-	var icon_center := icon_top_left + icon_size * 0.5
-	canvas.draw_circle(icon_center, icon_size.x * 0.62, Color(0.0, 0.0, 0.0, 0.38))
-	canvas.draw_arc(icon_center, icon_size.x * 0.68, 0.0, TAU, 24, Color(rim_color.r, rim_color.g, rim_color.b, 0.42), 2.0)
-	var icon_texture: Texture2D = _get_strange_vial_icon_texture()
-	if icon_texture != null:
-		canvas.draw_texture_rect(icon_texture, Rect2(icon_top_left, icon_size), false)
-	else:
-		canvas.draw_circle(icon_center, icon_size.x * 0.40, rim_color)
-		canvas.draw_circle(icon_center + Vector2(-3.0, -4.0), icon_size.x * 0.12, Color(1.0, 1.0, 1.0, 0.36))
-
-
-func _draw_long_boost_timer_gauge(canvas: CanvasItem, timer_context: Dictionary, stack_index: int) -> void:
-	var active: bool = bool(timer_context.get("active", false))
-	var timer_frames: float = float(timer_context.get("timer_frames", 0.0))
-	var initial_timer_frames: float = float(timer_context.get("initial_timer_frames", 0.0))
-	if not active or timer_frames <= 0.0:
-		return
-
-	var ratio: float = clamp(timer_frames / max(1.0, initial_timer_frames), 0.0, 1.0)
-	var remaining_seconds: float = timer_frames / 60.0
-	var bar_pos := _get_timer_bar_position(stack_index)
-	var frame_rect := Rect2(bar_pos, LONG_BOOST_TIMER_BAR_SIZE)
-	var frame_bg := frame_rect.grow(4.0)
-	canvas.draw_rect(frame_bg, Color(0.0, 0.0, 0.0, 0.54))
-	canvas.draw_rect(frame_rect, Color(0.08, 0.07, 0.04, 0.92))
-
-	var base_color: Color
-	var highlight_color: Color
-	if remaining_seconds > 6.0:
-		base_color = Color(1.0, 215.0 / 255.0, 0.0, 0.96)
-		highlight_color = Color(1.0, 235.0 / 255.0, 120.0 / 255.0, 0.96)
-	elif remaining_seconds > 3.0:
-		base_color = Color(1.0, 170.0 / 255.0, 0.0, 0.96)
-		highlight_color = Color(1.0, 200.0 / 255.0, 60.0 / 255.0, 0.96)
-	else:
-		var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.018)
-		base_color = Color(1.0, lerp(0.18, 0.45, pulse), 0.04, 0.98)
-		highlight_color = Color(1.0, lerp(0.55, 0.82, pulse), 0.20, 0.98)
-
-	var fill_rect := Rect2(frame_rect.position, Vector2(frame_rect.size.x * ratio, frame_rect.size.y))
-	if fill_rect.size.x > 0.5:
-		canvas.draw_rect(fill_rect, base_color)
-		canvas.draw_rect(Rect2(fill_rect.position, Vector2(fill_rect.size.x, max(2.0, fill_rect.size.y * 0.35))), highlight_color)
-
-	canvas.draw_rect(frame_rect, Color(1.0, 215.0 / 255.0, 0.0, 0.86), false, 2.0)
-	canvas.draw_line(frame_rect.position + Vector2(0.0, frame_rect.size.y + 2.0), frame_rect.end + Vector2(0.0, 2.0), Color(0.35, 0.18, 0.02, 0.65), 2.0)
-
-	var icon_center := frame_rect.position + Vector2(-16.0, frame_rect.size.y * 0.5)
-	var icon_pulse: float = 1.0 + 0.08 * sin(float(Time.get_ticks_msec()) * 0.012)
-	var icon_size := Vector2(LONG_BOOST_TIMER_ICON_SIZE, LONG_BOOST_TIMER_ICON_SIZE) * icon_pulse
-	canvas.draw_circle(icon_center, icon_size.x * 0.58, Color(0.0, 0.0, 0.0, 0.42))
-	var icon_texture: Texture2D = _get_long_boost_icon_texture()
-	if icon_texture != null:
-		canvas.draw_texture_rect(icon_texture, Rect2(icon_center - icon_size * 0.5, icon_size), false)
-	else:
-		canvas.draw_circle(icon_center, icon_size.x * 0.40, Color(100.0 / 255.0, 200.0 / 255.0, 1.0, 1.0))
-		canvas.draw_circle(icon_center + Vector2(-4.0, -5.0), icon_size.x * 0.12, Color(1.0, 1.0, 1.0, 0.36))
-
-
 func _draw_pickup_particle(canvas: CanvasItem, particle: Dictionary, shake_offset: Vector2) -> void:
 	var age: float = float(particle.get("age", 0.0))
 	var lifetime: float = max(0.01, float(particle.get("lifetime", 0.45)))
@@ -1037,20 +634,6 @@ func _draw_polygon_outline(
 	canvas.draw_line(previous_point, first_point, color, width)
 
 
-func _draw_magnet_field_icon_fallback(canvas: CanvasItem, center: Vector2, size: float) -> void:
-	var coil_radius: float = size * 0.36
-	canvas.draw_arc(center, coil_radius, 0.0, TAU, 28, Color(80.0 / 255.0, 85.0 / 255.0, 100.0 / 255.0, 1.0), max(1.0, size * 0.10))
-	canvas.draw_arc(center, coil_radius, 0.0, TAU, 28, Color(140.0 / 255.0, 150.0 / 255.0, 170.0 / 255.0, 1.0), max(1.0, size * 0.07))
-	for i in range(6):
-		var angle: float = float(i) * TAU / 6.0
-		var inner: Vector2 = center + Vector2(cos(angle), sin(angle)) * (coil_radius - 1.0)
-		var outer: Vector2 = center + Vector2(cos(angle), sin(angle)) * (coil_radius + 1.0)
-		canvas.draw_line(inner, outer, Color(200.0 / 255.0, 210.0 / 255.0, 230.0 / 255.0, 1.0), 1.0)
-	canvas.draw_circle(center, size * 0.24, Color(120.0 / 255.0, 80.0 / 255.0, 1.0, 0.24))
-	canvas.draw_circle(center, size * 0.14, Color(160.0 / 255.0, 100.0 / 255.0, 1.0, 1.0))
-	canvas.draw_circle(center, size * 0.08, Color(220.0 / 255.0, 180.0 / 255.0, 1.0, 1.0))
-
-
 func _draw_centered_text(canvas: CanvasItem, text: String, baseline_center: Vector2, font_size: int, color: Color) -> void:
 	if text == "":
 		return
@@ -1090,62 +673,32 @@ func _get_pickup_icon_texture(pickup_effect: Dictionary, registry: Object) -> Te
 
 
 func _get_long_boost_icon_texture() -> Texture2D:
-	if long_boost_icon_texture == null:
-		long_boost_icon_texture = ProjectResourceLoader.load_texture(
-			LONG_BOOST_ICON_PATH,
-			"Missing long boost icon at %s",
-			"Failed to load long boost icon at %s"
-		)
+	long_boost_icon_texture = _timer_gauge_renderer.get_long_boost_icon_texture()
 	return long_boost_icon_texture
 
 
 func _get_vitamin_pill_icon_texture() -> Texture2D:
-	if vitamin_pill_icon_texture == null:
-		vitamin_pill_icon_texture = ProjectResourceLoader.load_texture(
-			VITAMIN_PILL_ICON_PATH,
-			"Missing vitamin pill icon at %s",
-			"Failed to load vitamin pill icon at %s"
-		)
+	vitamin_pill_icon_texture = _timer_gauge_renderer.get_vitamin_pill_icon_texture()
 	return vitamin_pill_icon_texture
 
 
 func _get_strange_vial_icon_texture() -> Texture2D:
-	if strange_vial_icon_texture == null:
-		strange_vial_icon_texture = ProjectResourceLoader.load_texture(
-			STRANGE_VIAL_ICON_PATH,
-			"Missing strange vial icon at %s",
-			"Failed to load strange vial icon at %s"
-		)
+	strange_vial_icon_texture = _timer_gauge_renderer.get_strange_vial_icon_texture()
 	return strange_vial_icon_texture
 
 
 func _get_magnet_field_icon_texture() -> Texture2D:
-	if magnet_field_icon_texture == null:
-		magnet_field_icon_texture = ProjectResourceLoader.load_texture(
-			MAGNET_FIELD_ICON_PATH,
-			"Missing magnet field icon at %s",
-			"Failed to load magnet field icon at %s"
-		)
+	magnet_field_icon_texture = _timer_gauge_renderer.get_magnet_field_icon_texture()
 	return magnet_field_icon_texture
 
 
 func _get_holy_barrier_icon_texture() -> Texture2D:
-	if holy_barrier_icon_texture == null:
-		holy_barrier_icon_texture = ProjectResourceLoader.load_texture(
-			HOLY_BARRIER_ICON_PATH,
-			"Missing holy barrier icon at %s",
-			"Failed to load holy barrier icon at %s"
-		)
+	holy_barrier_icon_texture = _timer_gauge_renderer.get_holy_barrier_icon_texture()
 	return holy_barrier_icon_texture
 
 
 func _get_dash_boost_icon_texture() -> Texture2D:
-	if dash_boost_icon_texture == null:
-		dash_boost_icon_texture = ProjectResourceLoader.load_texture(
-			DASH_BOOST_ICON_PATH,
-			"Missing dash boost icon at %s",
-			"Failed to load dash boost icon at %s"
-		)
+	dash_boost_icon_texture = _timer_gauge_renderer.get_dash_boost_icon_texture()
 	return dash_boost_icon_texture
 
 
@@ -1199,13 +752,6 @@ func _get_text_size(font: Font, text: String, font_size: int) -> Vector2:
 func _touch_texture(texture: Texture2D) -> void:
 	if texture != null:
 		texture.get_size()
-
-
-func _get_timer_bar_position(stack_index: int) -> Vector2:
-	return Vector2(
-		FIELD_WIDTH - LONG_BOOST_TIMER_BAR_SIZE.x - LONG_BOOST_TIMER_BAR_MARGIN.x,
-		FIELD_HEIGHT - LONG_BOOST_TIMER_BAR_MARGIN.y - float(max(0, stack_index)) * LONG_BOOST_TIMER_STACK_SPACING
-	)
 
 
 func _get_color(value: Variant, fallback: Color) -> Color:
