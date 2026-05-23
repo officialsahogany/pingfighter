@@ -4923,6 +4923,27 @@ Hundredth split on 2026-05-24:
   `.\tools\run_warning_scan.ps1` passed with `1295` scripts scanned and no
   GDScript warnings.
 
+118th split on 2026-05-24:
+
+- Commit: `95f47540f godot: split Hermes mythic field renderer`.
+- Scope: added `mythic_item_hermes_field_renderer.gd` for Hermes Shoes FX host
+  lookup/creation, deferred host attachment, cached canvas ownership, and
+  `sync_state(...)` forwarding. The shared `mythic_item_field_effect_renderer.gd`
+  keeps Hermes visibility fanout and perf labeling while delegating host
+  lifecycle details to the focused renderer.
+- Rationale: Hermes Shoes was the last field branch whose host-management
+  state lived directly in the shared renderer. Moving it keeps host lifecycle
+  ownership next to the Hermes FX host preload and leaves the shared field
+  renderer focused on draw orchestration.
+- Renderer size: `mythic_item_field_effect_renderer.gd` moved from `437`
+  lines to `380` lines; the new `mythic_item_hermes_field_renderer.gd` file
+  is `68` lines.
+- Validation: `git diff --check` passed. `.\tools\run_headless_load_check.ps1`
+  passed. Focused Hermes / field-renderer coverage ran `3` smoke scripts and
+  passed: `adversity_armor_port_smoke`, `hermes_shoes_port_smoke`, and
+  `mythic_item_field_render_budget_smoke`. `.\tools\run_warning_scan.ps1`
+  passed with `1296` scripts scanned and no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
