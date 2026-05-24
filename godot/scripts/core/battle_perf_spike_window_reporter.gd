@@ -9,7 +9,12 @@ const MAX_HOT_LIMIT := 18
 const FOCUS_LIMIT := 10
 const FOCUS_LABELS := [
 	"01.actors.total",
+	"actors.stage2.playfield",
+	"actors.stage2.player",
+	"actors.stage2.boss",
+	"actors.stage2.commando_firearm",
 	"29.active_item_field",
+	"30.mythic_item_field",
 	"34.scoreboard_overlay",
 	"stage1.pillar_ui.total",
 	"stage1.pillar_ui.gauge_orb",

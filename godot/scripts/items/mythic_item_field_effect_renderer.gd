@@ -90,27 +90,56 @@ func draw_field_effects(
 		runtime.baal_boots_weather_state.cinematic_active,
 		runtime.baal_boots_weather_state.round_effect_active
 	)
-	var horn_strawberry_context: Dictionary = runtime.get_horn_strawberry_context()
+	var horn_strawberry_transformed: bool = runtime.is_horn_strawberry_transformed()
+	var horn_strawberry_effect_visible: bool = runtime.horn_strawberry_mask_runtime.has_visible_effects(runtime)
+	var horn_strawberry_context: Dictionary = {}
+	if horn_strawberry_transformed or horn_strawberry_effect_visible:
+		horn_strawberry_context = runtime.get_horn_strawberry_context()
+	if not horn_strawberry_context.is_empty():
+		horn_strawberry_effect_visible = horn_strawberry_effect_visible or _horn_strawberry_field_renderer.is_transform_visible(horn_strawberry_context)
 	var horn_strawberry_visible: bool = (
-		runtime.is_horn_strawberry_transformed()
-		or runtime.horn_strawberry_mask_runtime.has_visible_effects(runtime)
-		or _horn_strawberry_field_renderer.is_transform_visible(horn_strawberry_context)
+		horn_strawberry_transformed
+		or horn_strawberry_effect_visible
 	)
 	var acquisition_visible: bool = runtime.acquisition_cinematic != null and runtime.acquisition_cinematic.is_active()
 	if not impact_active and not stun_active and runtime.ragnarok_sparks.is_empty() and not poseidon_visible and not knee_pads_visible and not soul_burst_visible and not foul_whistle_visible and not revival_visible and not yachaman_visible and not sensor_visible and not venom_mist_visible and not rainbow_glove_visible and not adversity_armor_visible and not shrapnel_armor_visible and not celestial_armor_visible and not hermes_visible and not baal_visible and not horn_strawberry_visible and not acquisition_visible:
 		return
-	var detail_perf_logger: Object = perf_logger if _should_sample_detail(perf_logger, "mythic.field_effects") else null
+	_record_visible_counters(perf_logger, {
+		"ragnarok_impact": impact_active,
+		"ragnarok_stun": stun_active,
+		"ragnarok_sparks": not runtime.ragnarok_sparks.is_empty(),
+		"poseidon": poseidon_visible,
+		"knee_pads": knee_pads_visible,
+		"soul_burst": soul_burst_visible,
+		"foul_whistle": foul_whistle_visible,
+		"revival": revival_visible,
+		"yachaman_soul": yachaman_visible,
+		"sensor": sensor_visible,
+		"venom_mist": venom_mist_visible,
+		"rainbow_fur_glove": rainbow_glove_visible,
+		"adversity_armor": adversity_armor_visible,
+		"shrapnel_armor": shrapnel_armor_visible,
+		"celestial_armor": celestial_armor_visible,
+		"hermes_shoes": hermes_visible,
+		"baal_boots": baal_visible,
+		"horn_strawberry_effect": horn_strawberry_effect_visible,
+		"horn_strawberry_timer": horn_strawberry_transformed,
+		"acquisition_cinematic": acquisition_visible,
+	})
+	var detail_perf_logger: Object = perf_logger if _should_record_field_detail(perf_logger) else null
 	var field_size: Vector2 = _as_vector2(constants.get("field_size", Vector2(760.0, 750.0)), Vector2(760.0, 750.0))
-	if horn_strawberry_visible:
+	if horn_strawberry_effect_visible:
 		var horn_sample_start: int = _perf_begin(detail_perf_logger)
+		if horn_strawberry_context.is_empty():
+			horn_strawberry_context = runtime.get_horn_strawberry_context()
 		_horn_strawberry_field_renderer.draw_horn_strawberry_effects(
 			canvas,
 			shake_offset,
 			horn_strawberry_context,
-			runtime.get_horn_strawberry_eat_context(),
-			runtime.get_horn_strawberry_field_context(),
-			runtime.get_horn_strawberry_horn_charge_context(),
-			runtime.get_horn_strawberry_bomb_context(),
+			runtime.get_horn_strawberry_eat_context() if _state_has_visible_effects(runtime.horn_strawberry_eat_state) else {},
+			runtime.get_horn_strawberry_field_context() if _state_has_visible_effects(runtime.horn_strawberry_field_state) else {},
+			runtime.get_horn_strawberry_horn_charge_context() if _state_has_visible_effects(runtime.horn_strawberry_horn_charge_state) else {},
+			runtime.get_horn_strawberry_bomb_context() if _state_has_visible_effects(runtime.horn_strawberry_bomb_state) else {},
 			{
 				"projectiles": MAX_RENDERED_HORN_STRAWBERRY_PROJECTILES,
 				"barriers": MAX_RENDERED_HORN_STRAWBERRY_BARRIERS,
@@ -333,8 +362,10 @@ func draw_field_effects(
 			float(constants.get("ragnarok_particle_alpha_cutoff", 0.02))
 		)
 		_perf_end(detail_perf_logger, "mythic.ragnarok_sparks", sparks_sample_start)
-	if runtime.is_horn_strawberry_transformed():
+	if horn_strawberry_transformed:
 		var horn_timer_sample_start: int = _perf_begin(detail_perf_logger)
+		if horn_strawberry_context.is_empty():
+			horn_strawberry_context = runtime.get_horn_strawberry_context()
 		_horn_strawberry_timer_renderer.draw_transform_timer_gauge(
 			canvas,
 			timer_stack,
@@ -375,10 +406,32 @@ func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 		perf_logger.finish_sample(label, start_usec)
 
 
+func _should_record_field_detail(perf_logger: Object) -> bool:
+	if perf_logger == null:
+		return false
+	if perf_logger.has_method("is_enabled") and not bool(perf_logger.is_enabled()):
+		return false
+	return perf_logger.has_method("begin_sample") and perf_logger.has_method("finish_sample")
+
+
 func _should_sample_detail(perf_logger: Object, label: String) -> bool:
 	if perf_logger == null or not perf_logger.has_method("should_sample_detail"):
 		return false
 	return bool(perf_logger.should_sample_detail(label))
+
+
+func _record_visible_counters(perf_logger: Object, visibility: Dictionary) -> void:
+	if perf_logger == null or not perf_logger.has_method("record_counter_sample"):
+		return
+	if perf_logger.has_method("is_enabled") and not bool(perf_logger.is_enabled()):
+		return
+	for key_value in visibility.keys():
+		if bool(visibility.get(key_value, false)):
+			perf_logger.record_counter_sample("mythic.visible.%s" % str(key_value), 1.0)
+
+
+func _state_has_visible_effects(state: Object) -> bool:
+	return state != null and state.has_method("has_visible_effects") and bool(state.has_visible_effects())
 
 
 func _recent_start(source: Array, render_limit: int) -> int:

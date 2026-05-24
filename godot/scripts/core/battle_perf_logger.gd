@@ -27,6 +27,7 @@ const GAP_STAGE_HOT_PREFIXES := [
 ]
 const GAP_PLAYFIELD_HOT_SAMPLE_LIMIT := 8
 const GAP_PLAYFIELD_HOT_PREFIXES := [
+	"actors.",
 	"context.",
 	"draw.ball_effects.",
 	"ball.visual.",
@@ -166,6 +167,10 @@ func _store_sample(label: String, elapsed_usec: int) -> void:
 
 func should_sample_detail(_label: String = "") -> bool:
 	return _is_detail_enabled()
+
+
+func is_enabled() -> bool:
+	return _is_enabled()
 
 
 func maybe_log(context: Dictionary = {}) -> void:

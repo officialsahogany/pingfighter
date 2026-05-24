@@ -5,9 +5,39 @@ const MythicItemFieldEffectRenderer := preload("res://scripts/items/mythic_item_
 var _failures: Array[String] = []
 
 
+class FakePerfLogger:
+	extends RefCounted
+
+	var enabled := true
+	var counters: Dictionary = {}
+	var labels: Array[String] = []
+
+	func is_enabled() -> bool:
+		return enabled
+
+	func begin_sample() -> int:
+		return 1
+
+	func finish_sample(label: String, _start_usec: int) -> void:
+		labels.append(label)
+
+	func record_counter_sample(label: String, value: float) -> void:
+		counters[label] = value
+
+
+class FakeVisibleState:
+	extends RefCounted
+
+	var visible := false
+
+	func has_visible_effects() -> bool:
+		return visible
+
+
 func _init() -> void:
 	_verify_render_budgets()
 	_verify_recent_start_helper()
+	_verify_perf_visibility_helpers()
 	_verify_draw_paths_use_render_caps()
 	_verify_idle_draw_gate_avoids_mythic_reflection()
 
@@ -60,6 +90,25 @@ func _verify_recent_start_helper() -> void:
 	_expect(renderer._recent_start(values, 32) == 68, "recent-start helper should draw only the newest capped entries")
 	_expect(renderer._recent_start(values, 120) == 0, "recent-start helper should draw from zero when under budget")
 	_expect(renderer._recent_start(values, 0) == values.size(), "zero render budget should draw nothing")
+
+
+func _verify_perf_visibility_helpers() -> void:
+	var renderer := MythicItemFieldEffectRenderer.new()
+	var logger := FakePerfLogger.new()
+	renderer._record_visible_counters(logger, {"poseidon": true, "idle": false})
+	_expect(float(logger.counters.get("mythic.visible.poseidon", 0.0)) == 1.0, "mythic visibility counters should record visible field families")
+	_expect(not logger.counters.has("mythic.visible.idle"), "mythic visibility counters should skip hidden field families")
+	_expect(renderer._should_record_field_detail(logger), "mythic field detail sampling should accept enabled perf loggers with begin / finish methods")
+	logger.enabled = false
+	renderer._record_visible_counters(logger, {"venom_mist": true})
+	_expect(not logger.counters.has("mythic.visible.venom_mist"), "mythic visibility counters should skip disabled perf loggers")
+	_expect(not renderer._should_record_field_detail(logger), "mythic field detail sampling should skip disabled perf loggers")
+	var visible_state := FakeVisibleState.new()
+	visible_state.visible = true
+	_expect(renderer._state_has_visible_effects(visible_state), "mythic visible-state helper should read active state objects")
+	visible_state.visible = false
+	_expect(not renderer._state_has_visible_effects(visible_state), "mythic visible-state helper should read inactive state objects")
+	_expect(not renderer._state_has_visible_effects(null), "mythic visible-state helper should tolerate null state objects")
 
 
 func _verify_draw_paths_use_render_caps() -> void:
