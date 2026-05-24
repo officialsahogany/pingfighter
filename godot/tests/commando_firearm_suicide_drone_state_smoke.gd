@@ -23,6 +23,23 @@ class FakeWeaponController:
 		}
 
 
+class FakeActiveItemRuntime:
+	extends RefCounted
+
+	var molotov_fire_zone_calls: Array = []
+
+	func trigger_molotov_fire_zone(
+		center: Vector2,
+		_owner: Object = null,
+		_registry: Object = null,
+		play_feedback_audio: bool = true
+	) -> void:
+		molotov_fire_zone_calls.append({
+			"center": center,
+			"play_feedback_audio": play_feedback_audio,
+		})
+
+
 func _init() -> void:
 	_verify_direct_suicide_drone_state()
 	_verify_runtime_delegates_suicide_drone_state()
@@ -145,6 +162,16 @@ func _verify_direct_suicide_drone_state() -> void:
 	_expect(CommandoFirearmSuicideDroneState.has_active_projectile(active_projectiles), "active projectile helper should report active drones")
 	_expect(CommandoFirearmSuicideDroneState.get_active_projectile_index([{"weapon_id": "suicide_drone", "kind": "rocket"}]) == -1, "active projectile lookup should reject non-drone kinds")
 	_expect(bool(CommandoFirearmSuicideDroneState.build_detonation_result("manual", Vector2(1.0, 2.0), false, 90.0).get("commando_suicide_drone_detonated", false)), "detonation result should expose detonation flag")
+	var active_item_runtime := FakeActiveItemRuntime.new()
+	var fire_zone_result: Dictionary = CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone(
+		{"pos": Vector2(11.0, 22.0)},
+		{"active_item_runtime": active_item_runtime}
+	)
+	_expect(str(fire_zone_result.get("source", "")) == "active_item_molotov_fire_zone", "active-item fire-zone helper should expose the molotov source")
+	_expect(active_item_runtime.molotov_fire_zone_calls.size() == 1, "active-item fire-zone helper should trigger one molotov zone")
+	_expect((active_item_runtime.molotov_fire_zone_calls[0] as Dictionary).get("center", Vector2.ZERO) == Vector2(11.0, 22.0), "active-item fire-zone helper should use the projectile position")
+	_expect(not bool((active_item_runtime.molotov_fire_zone_calls[0] as Dictionary).get("play_feedback_audio", true)), "active-item fire-zone helper should suppress duplicate molotov feedback audio")
+	_expect(CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone({"pos": Vector2(11.0, 22.0)}, {}).is_empty(), "active-item fire-zone helper should return empty without an active item runtime")
 
 
 func _verify_runtime_delegates_suicide_drone_state() -> void:
@@ -214,6 +241,7 @@ func _verify_removed_runtime_active_projectile_bridges() -> void:
 	_expect(not runtime_source.contains("func _build_suicide_drone_detonation_result("), "runtime should not keep suicide-drone detonation-result bridge")
 	_expect(not runtime_source.contains("func _get_drone_velocity("), "runtime should not keep suicide-drone homing velocity bridge")
 	_expect(not runtime_source.contains("func _clamp_suicide_drone_projectile("), "runtime should not keep suicide-drone clamp bridge")
+	_expect(not runtime_source.contains("func _spawn_suicide_drone_fire_zone("), "runtime should not keep suicide-drone fire-zone bridge")
 
 
 func _expect(condition: bool, message: String) -> void:
