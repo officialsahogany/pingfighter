@@ -8351,12 +8351,14 @@ commits rather than standalone `fix` commits:
   moved delayed pistol-fire timer advancement into
   `CommandoFirearmTimerState.advance_pending_pistol_fire()`.
 - Runtime facade size: `commando_firearm_runtime.gd` moved from `2578` lines /
-  `35` functions to `2468` lines / `35` functions across the pending-result
+  `35` functions to `2550` lines / `35` functions across the pending-result
   and timer cleanup.
 - Validation: focused coverage passed:
   `stage1_actor_render_budget_smoke`,
   `commando_firearm_pending_result_state_smoke`,
-  `commando_firearm_timer_state_smoke`, and
-  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `commando_firearm_timer_state_smoke`,
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `viper_airborne_lod_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` on the committed files reported no whitespace errors.
