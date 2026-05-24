@@ -3875,8 +3875,9 @@ This section is intentionally long; use search to find the nearest owner.
   profile / velocity / direction math, and the small terminal classification
   helpers those reason paths need. `commando_firearm_runtime.gd` keeps
   selected-firearm input, ammo, cooldown, audio, VFX, projectile removal,
-  status application, and result handoff paths while delegating deterministic
-  impact / knockback geometry to this helper.
+  status application, result handoff paths, and the integrated
+  `_get_projectile_impact_reason()` boundary while deterministic projectile
+  impact / knockback geometry is tested and called through this helper.
 - `scripts/characters/commando_firearm_hit_result_state.gd`
   Owns pure Commando firearm hit-result dictionary scaffolding: base hit-result
   payloads plus stun / slow status-data dictionaries. `commando_firearm_runtime.gd`

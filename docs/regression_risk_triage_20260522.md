@@ -5934,6 +5934,23 @@ Hundredth split on 2026-05-24:
   1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
   passed.
 
+173rd follow-up on 2026-05-24:
+
+- Commit: `15cb390e4 godot: drop Commando projectile hit geometry bridges`.
+- Scope: removed the Commando projectile hit-geometry bridge cluster from
+  `commando_firearm_runtime.gd`. Direct-hit, support target-Y, net-pass,
+  wall-impact, target-reached, terminal-expire, boss-rect, projectile-hitbox,
+  explosion-radius, rect / circle / segment, and small classifier helpers now
+  stay owned by `commando_firearm_hit_geometry.gd`; runtime keeps the live
+  `_get_projectile_impact_reason()` boundary plus projectile removal, net
+  dissolve, environment-impact, rock-destruction, drone, and hit-result side
+  effects.
+- Validation: `commando_firearm_hit_geometry_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
