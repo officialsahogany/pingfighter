@@ -1,6 +1,5 @@
 extends SceneTree
 
-const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 const CommandoFirearmSuicideDroneGeometry := preload("res://scripts/characters/commando_firearm_suicide_drone_geometry.gd")
 
 var _failures: Array[String] = []
@@ -8,7 +7,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_direct_suicide_drone_geometry()
-	_verify_runtime_delegates_suicide_drone_geometry()
+	_verify_removed_runtime_suicide_drone_geometry_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_suicide_drone_geometry_smoke: ok")
@@ -81,17 +80,18 @@ func _verify_direct_suicide_drone_geometry() -> void:
 	)
 
 
-func _verify_runtime_delegates_suicide_drone_geometry() -> void:
-	var runtime := CommandoFirearmRuntime.new()
-	var drone_size := Vector2(48.0, 48.0)
-	var projectile := {"pos": Vector2(100.0, 80.0), "size": drone_size}
-	_expect(runtime._get_suicide_drone_spawn_pos({}) == Vector2(457.5, 650.0), "runtime spawn-position wrapper should delegate")
-	_expect(runtime._get_player_lock_pos({}) == Vector2(457.5, 705.0), "runtime player-lock wrapper should delegate")
-	_expect(runtime._get_suicide_drone_rect(projectile) == Rect2(76.0, 56.0, 48.0, 48.0), "runtime rect wrapper should delegate")
-	_expect(runtime._suicide_drone_hits_ball(projectile, {"ball_pos": Vector2(120.0, 80.0), "ball_size": 20.0}), "runtime ball-hit wrapper should delegate")
-	_expect(runtime._suicide_drone_hits_boss(projectile, {"boss_pos": Vector2(100.0, 80.0), "boss_width": 60.0, "boss_height": 40.0}), "runtime boss-hit wrapper should delegate")
-	_expect(runtime._suicide_drone_explosion_hits_boss(projectile, {"boss_pos": Vector2(110.0, 70.0), "boss_paddle_width": 60.0, "boss_hitbox_height": 40.0}), "runtime explosion-hit wrapper should delegate")
-	_expect(runtime._suicide_drone_hits_top_wall({"pos": Vector2(80.0, 24.0), "size": drone_size}), "runtime top-wall wrapper should delegate")
+func _verify_removed_runtime_suicide_drone_geometry_bridges() -> void:
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_get_suicide_drone_spawn_pos",
+		"_get_player_lock_pos",
+		"_suicide_drone_hits_ball",
+		"_suicide_drone_hits_boss",
+		"_suicide_drone_explosion_hits_boss",
+		"_suicide_drone_hits_top_wall",
+		"_get_suicide_drone_rect",
+	]:
+		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep suicide-drone geometry bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:

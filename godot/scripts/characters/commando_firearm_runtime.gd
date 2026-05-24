@@ -1819,7 +1819,12 @@ func _spawn_suicide_drone(config: Dictionary) -> void:
 		WEAPON_PROFILES,
 		WEAPON_PROFILE_OVERRIDES
 	)
-	var origin: Vector2 = _get_suicide_drone_spawn_pos(config)
+	var origin: Vector2 = CommandoFirearmSuicideDroneGeometry.get_spawn_pos(
+		config,
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		SUICIDE_DRONE_SIZE
+	)
 	var shot_id: int = _next_shot_id()
 	_append_limited(projectiles, _build_suicide_drone_projectile(profile, origin, config, shot_id), PROJECTILE_LIMIT)
 	_spawn_muzzle_flash(origin, Vector2.UP, profile, "suicide_drone")
@@ -1850,7 +1855,7 @@ func _build_suicide_drone_projectile(
 		origin,
 		_get_boss_target_pos(config),
 		shot_id,
-		_get_player_lock_pos(config),
+		CommandoFirearmSuicideDroneGeometry.get_player_lock_pos(config, FIELD_WIDTH, FIELD_HEIGHT),
 		SUICIDE_DRONE_SIZE,
 		SUICIDE_DRONE_MAX_SPEED,
 		SUICIDE_DRONE_ACCEL,
@@ -1858,14 +1863,6 @@ func _build_suicide_drone_projectile(
 		SUICIDE_DRONE_GRACE_FRAMES,
 		SUICIDE_DRONE_ROTOR_BASE_SPEED
 	)
-
-
-func _get_suicide_drone_spawn_pos(config: Dictionary) -> Vector2:
-	return CommandoFirearmSuicideDroneGeometry.get_spawn_pos(config, FIELD_WIDTH, FIELD_HEIGHT, SUICIDE_DRONE_SIZE)
-
-
-func _get_player_lock_pos(config: Dictionary) -> Vector2:
-	return CommandoFirearmSuicideDroneGeometry.get_player_lock_pos(config, FIELD_WIDTH, FIELD_HEIGHT)
 
 
 func _apply_suicide_drone_input_to_projectile(projectile: Dictionary, input_snapshot: Dictionary) -> void:
@@ -2757,11 +2754,15 @@ func _resolve_suicide_drone_collision(
 	projectiles[index] = projectile
 	if float(projectile.get("grace_timer_frames", 0.0)) > 0.0:
 		return {}
-	if _suicide_drone_hits_ball(projectile, context):
+	if CommandoFirearmSuicideDroneGeometry.hits_ball(projectile, context, SUICIDE_DRONE_SIZE):
 		return _detonate_suicide_drone_at_index(index, projectile, "ball_hit", context, deps)
-	if _suicide_drone_hits_boss(projectile, context):
+	if CommandoFirearmSuicideDroneGeometry.hits_boss_rect(
+		projectile,
+		CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
+		SUICIDE_DRONE_SIZE
+	):
 		return _detonate_suicide_drone_at_index(index, projectile, "boss_hit", context, deps)
-	if _suicide_drone_hits_top_wall(projectile):
+	if CommandoFirearmSuicideDroneGeometry.hits_top_wall(projectile, SUICIDE_DRONE_SIZE):
 		return _detonate_suicide_drone_at_index(index, projectile, "boss_back_wall", context, deps)
 	if float(projectile.get("life_frames", 0.0)) <= 0.0:
 		return _detonate_suicide_drone_at_index(index, projectile, "expired", context, deps)
@@ -2789,7 +2790,18 @@ func _detonate_suicide_drone_at_index(
 		projectiles.remove_at(index)
 	_spawn_impact_flash(projectile)
 	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var hit_boss: bool = _suicide_drone_explosion_hits_boss(projectile, context)
+	var hit_boss: bool = CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(
+		projectile,
+		CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
+		CommandoFirearmHitGeometry.get_explosion_radius(
+			projectile,
+			CommandoFirearmProfileResolver.get_weapon_profile(
+				"suicide_drone",
+				WEAPON_PROFILES,
+				WEAPON_PROFILE_OVERRIDES
+			)
+		)
+	)
 	if hit_boss:
 		_register_projectile_hit(projectile, context, deps)
 	else:
@@ -2833,39 +2845,6 @@ func _build_suicide_drone_ball_boost_result(projectile: Dictionary, context: Dic
 
 func _get_suicide_drone_ball_fan_angle(projectile: Dictionary) -> float:
 	return CommandoFirearmSuicideDroneBallBoostResolver.get_fan_angle(projectile, SUICIDE_DRONE_BALL_FAN_DEGREES)
-
-
-func _suicide_drone_hits_ball(projectile: Dictionary, context: Dictionary) -> bool:
-	return CommandoFirearmSuicideDroneGeometry.hits_ball(projectile, context, SUICIDE_DRONE_SIZE)
-
-
-func _suicide_drone_hits_boss(projectile: Dictionary, context: Dictionary) -> bool:
-	return CommandoFirearmSuicideDroneGeometry.hits_boss_rect(
-		projectile,
-		CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
-		SUICIDE_DRONE_SIZE
-	)
-
-
-func _suicide_drone_explosion_hits_boss(projectile: Dictionary, context: Dictionary) -> bool:
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-		"suicide_drone",
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
-	return CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(
-		projectile,
-		CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
-		CommandoFirearmHitGeometry.get_explosion_radius(projectile, profile)
-	)
-
-
-func _suicide_drone_hits_top_wall(projectile: Dictionary) -> bool:
-	return CommandoFirearmSuicideDroneGeometry.hits_top_wall(projectile, SUICIDE_DRONE_SIZE)
-
-
-func _get_suicide_drone_rect(projectile: Dictionary) -> Rect2:
-	return CommandoFirearmSuicideDroneGeometry.get_rect(projectile, SUICIDE_DRONE_SIZE)
 
 
 func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) -> String:
