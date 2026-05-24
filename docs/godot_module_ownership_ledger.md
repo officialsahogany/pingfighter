@@ -4156,10 +4156,10 @@ This section is intentionally long; use search to find the nearest owner.
   AK-47 fire interval, and bazooka cooldown / control-lock calculations,
   pending pistol-fire geometry refresh, generic timed-effect array advancement,
   and registry instance fallback lookup. `commando_firearm_runtime.gd` now
-  calls the projectile, pistol-hit, doping/cooldown, limited-append,
-  timed-effect, and registry value reads directly while keeping only stateful
-  runtime helpers for runtime-owned mutation; shot-id state remains in the
-  runtime.
+  calls the type fallback, projectile, pistol-hit, doping/cooldown,
+  limited-append, timed-effect, and registry value reads directly while
+  keeping only stateful runtime helpers for runtime-owned mutation; shot-id
+  state remains in the runtime.
 - `scripts/characters/commando_input_reader.gd`
   Owns Commando raw input on top of the shared Smasher snapshot and adds
   mouse-wheel weapon switching. Wheel events route only when the selected

@@ -6299,6 +6299,25 @@ Hundredth split on 2026-05-24:
   no whitespace errors. `run_headless_load_check.ps1` passed.
   `run_warning_scan.ps1` scanned `1322` scripts with no GDScript warnings.
 
+195th follow-up on 2026-05-24:
+
+- Commit: `f17e3c662 godot: drop Commando type value bridges`.
+- Scope: removed the private `_get_vector2()`, `_get_color()`, `_get_dict()`,
+  and `_get_array()` type-fallback bridges from `commando_firearm_runtime.gd`.
+  Runtime now calls `CommandoFirearmValueUtils` directly across projectile,
+  support-call, bowling-trap, shell-casing, pistol-feedback, impact, damage,
+  gauge, and lingering-effect paths. The resolver smokes that had test-only
+  `runtime._get_dict()` reads now preload the value-utils owner directly, and
+  `commando_firearm_value_utils_smoke.gd` guards that the type bridges stay
+  removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3656` lines /
+  `159` functions to `3640` lines / `155` functions.
+- Validation: the full sorted `commando_firearm*_smoke.gd` set ran `45`
+  scripts and passed. `git diff --check` reported only the existing CRLF
+  working-copy notice and no whitespace errors. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned `1322` scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
