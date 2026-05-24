@@ -1126,8 +1126,10 @@ func prewarm_assets(
 	if font == null:
 		return
 	_prewarm_layout_caches(owner, registry, module_getter, view_size)
+	_prewarm_draw_caches(font, owner, registry, module_getter)
 	if include_shared_icon_assets and not _shared_icon_assets_prewarmed:
 		_shared_icon_assets_prewarmed = _prewarm_shared_icon_assets(registry, module_getter)
+	_prewarm_visible_item_icons(owner, registry, module_getter)
 	_prewarm_passive_inventory_assets(owner, registry, module_getter)
 	if not _static_text_prewarmed:
 		_static_text_prewarmed = true
@@ -1151,6 +1153,114 @@ func _prewarm_layout_caches(owner: Object, registry: Object, module_getter: Call
 	_prewarm_active_item_layout(owner, registry, module_getter)
 	_prewarm_passive_inventory_layout(owner, registry, module_getter)
 	_prewarm_perk_grid_layout(owner, registry, module_getter)
+
+
+func _prewarm_draw_caches(font: Font, owner: Object, registry: Object, module_getter: Callable) -> void:
+	if font == null:
+		return
+	_prewarm_header_text_cache(font, owner, registry, module_getter)
+	_prewarm_equipment_text_cache(font)
+	_prewarm_skill_slot_text_cache(font)
+	_prewarm_active_slot_text_cache(font)
+	_prewarm_perk_grid_text_cache(font)
+	_prewarm_passive_inventory_text_cache(font, owner, registry, module_getter)
+	_prewarm_stats_layout(font, owner, registry, module_getter)
+
+
+func _prewarm_header_text_cache(font: Font, owner: Object, registry: Object, module_getter: Callable) -> void:
+	if _layout_panel_rect.size == Vector2.ZERO:
+		return
+	var runtime_state: Object = _get_prewarm_instance(registry, module_getter, "runtime_perk_state")
+	var runtime_snapshot: Dictionary = runtime_state.get_snapshot() if runtime_state != null and runtime_state.has_method("get_snapshot") else {}
+	var character_type: String = _get_character_type(owner)
+	var display_name: String = _get_character_display_name(owner, character_type)
+	var subtitle: String = _get_header_subtitle(display_name, character_type)
+	_text_size(font, subtitle, 14)
+	var pending: int = int(runtime_snapshot.get("pending_skill_choices", 0))
+	if not runtime_snapshot.has("pending_skill_choices"):
+		pending = int(_safe_owner_get(owner, "runtime_perk_pending_choices", 0))
+	var gold: int = int(runtime_snapshot.get("gold_from_perks", 0))
+	if not runtime_snapshot.has("gold_from_perks"):
+		gold = int(_safe_owner_get(owner, "runtime_perk_gold", 0))
+	var status: String = _get_header_status_text(pending, gold)
+	_get_header_status_width(font, status, 14)
+
+
+func _prewarm_equipment_text_cache(font: Font) -> void:
+	if _equipment_slot_visible_label_cache.is_empty():
+		return
+	var equipment_label_size := 10
+	if _equipment_layout_slot_size > 0.0 and _equipment_layout_slot_size < 40.0:
+		equipment_label_size = 8
+	for label in _equipment_slot_visible_label_cache:
+		_get_centered_text_size(font, str(label), equipment_label_size)
+
+
+func _prewarm_skill_slot_text_cache(font: Font) -> void:
+	for label in _skill_slot_label_cache:
+		_get_centered_text_size(font, str(label), 10)
+
+
+func _prewarm_active_slot_text_cache(font: Font) -> void:
+	for label in _active_item_trimmed_label_cache:
+		_get_centered_text_size(font, str(label), 10)
+
+
+func _prewarm_perk_grid_text_cache(font: Font) -> void:
+	for level_text in _acquired_perk_level_text_cache:
+		_get_perk_level_text_size(font, str(level_text), 9)
+
+
+func _prewarm_passive_inventory_text_cache(font: Font, owner: Object, registry: Object, module_getter: Callable) -> void:
+	if _layout_inventory_rect.size == Vector2.ZERO:
+		return
+	var mythic_item_runtime: Object = _get_prewarm_instance(registry, module_getter, "mythic_item_runtime")
+	var inventory_items: Array = _get_passive_inventory_items(owner, registry, mythic_item_runtime)
+	var summary: Dictionary = _prepare_passive_inventory_draw_cache(inventory_items)
+	var count_text: String = str(summary.get("count_text", ""))
+	_get_passive_inventory_count_text_width(font, count_text, 11)
+
+
+func _prewarm_stats_layout(font: Font, owner: Object, registry: Object, module_getter: Callable) -> void:
+	if _layout_stats_rect.size == Vector2.ZERO:
+		return
+	var runtime_state: Object = _get_prewarm_instance(registry, module_getter, "runtime_perk_state")
+	var active_item_runtime: Object = _get_prewarm_instance(registry, module_getter, "active_item_runtime")
+	var mythic_item_runtime: Object = _get_prewarm_instance(registry, module_getter, "mythic_item_runtime")
+	var character_type: String = _get_character_type(owner)
+	var skill_config: Object = _get_prewarm_skill_config(registry, module_getter, character_type)
+	var skill_snapshot: Dictionary = skill_config.get_snapshot() if skill_config != null and skill_config.has_method("get_snapshot") else {}
+	var dash_snapshot: Dictionary = _get_prewarm_smasher_dash_snapshot(registry, module_getter, character_type)
+	var runtime_snapshot: Dictionary = runtime_state.get_snapshot() if runtime_state != null and runtime_state.has_method("get_snapshot") else {}
+	var stat_sources: Array = [runtime_state, active_item_runtime, mythic_item_runtime]
+	var active_slots: Array = _get_array(_safe_owner_get(owner, "active_item_slots", []))
+	var active_item_slot_capacity: int = _get_active_item_slot_capacity_for_sources(runtime_state, mythic_item_runtime)
+	_build_stats(
+		owner,
+		registry,
+		active_item_slot_capacity,
+		runtime_state,
+		active_item_runtime,
+		mythic_item_runtime,
+		character_type,
+		skill_snapshot,
+		dash_snapshot,
+		runtime_snapshot,
+		stat_sources,
+		active_slots,
+		true
+	)
+	_update_stats_layout(_layout_stats_rect, _stats_row_count)
+	for i in range(_stats_layout_visible_count):
+		_text_size(font, _stats_label_cache[i], _stats_layout_row_size)
+		_get_stats_value_width(font, i, _stats_value_cache[i], _stats_layout_row_size)
+
+
+func _get_prewarm_smasher_dash_snapshot(registry: Object, module_getter: Callable, character_type: String) -> Dictionary:
+	if character_type != "smasher":
+		return {}
+	var dash_state: Object = _get_prewarm_instance(registry, module_getter, "smasher_dash_state")
+	return dash_state.get_snapshot() if dash_state != null and dash_state.has_method("get_snapshot") else {}
 
 
 func _resolve_prewarm_view_size(owner: Object, requested_view_size: Vector2 = Vector2.ZERO) -> Vector2:
@@ -3258,6 +3368,38 @@ func _prewarm_shared_icon_assets(registry: Object, module_getter: Callable) -> b
 		visuals.prewarm_catalog_icons()
 		warmed = true
 	return warmed
+
+
+func _prewarm_visible_item_icons(owner: Object, registry: Object, module_getter: Callable) -> void:
+	var items: Array = []
+	var slot_state: Dictionary = _get_equipment_state(owner)
+	_ensure_equipment_slot_metadata_cache()
+	for slot_key in _equipment_slot_keys:
+		var item_data: Dictionary = _get_equipment_item(slot_state, str(slot_key))
+		if not item_data.is_empty():
+			items.append(item_data)
+	var active_slots: Array = _get_array(_safe_owner_get(owner, "active_item_slots", []))
+	for active_value in active_slots:
+		if active_value is Dictionary:
+			items.append(active_value)
+	var mythic_item_runtime: Object = _get_prewarm_instance(registry, module_getter, "mythic_item_runtime")
+	items.append_array(_get_passive_inventory_items(owner, registry, mythic_item_runtime))
+	if items.is_empty():
+		return
+	var visuals: Object = _get_prewarm_instance(registry, module_getter, "active_item_hud_visuals")
+	if _active_item_icon_renderer != null and _active_item_icon_renderer.has_method("prewarm_item_icons"):
+		_active_item_icon_renderer.prewarm_item_icons(items, visuals)
+		return
+	if visuals == null or not visuals.has_method("get_icon_texture"):
+		return
+	for item_value in items:
+		var item_data: Dictionary = _get_dict(item_value)
+		if item_data.is_empty():
+			continue
+		var texture: Variant = visuals.get_icon_texture(item_data)
+		if texture is Texture2D:
+			var texture_2d: Texture2D = texture as Texture2D
+			texture_2d.get_size()
 
 
 func _prewarm_passive_inventory_assets(owner: Object, registry: Object, module_getter: Callable) -> void:

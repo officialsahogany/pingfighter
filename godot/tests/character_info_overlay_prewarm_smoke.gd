@@ -163,6 +163,10 @@ func _init() -> void:
 	_expect(layout_overlay._last_passive_inventory_grid_rect.size != Vector2.ZERO, "character info prewarm should prepare passive inventory grid bounds")
 	_expect(layout_overlay._passive_grid_cell_rect_cache.size() > 0, "character info prewarm should prepare passive inventory cell caches")
 	_expect(layout_overlay._last_perk_grid_rect.size != Vector2.ZERO, "character info prewarm should prepare perk grid bounds")
+	_expect(layout_overlay._stats_row_cache.size() >= 14, "character info prewarm should prepare live stat rows")
+	_expect(layout_overlay._stats_layout_visible_count > 0, "character info prewarm should prepare stat row layout")
+	_expect(layout_overlay._stats_value_width_cache[0] > 0.0, "character info prewarm should prepare stat value width cache")
+	_expect(layout_overlay._passive_inventory_count_text_width > 0.0, "character info prewarm should prepare passive inventory count width")
 
 	var text_cache_size: int = overlay._text_size_cache.size()
 	var wrap_cache_size: int = overlay._wrap_text_cache.size()
@@ -520,6 +524,22 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 	_expect(
 		source.find("func _get_header_status_text(pending: int, gold: int) -> String:") >= 0,
 		"character info header should use a status text cache helper"
+	)
+	_expect(
+		_function_body(source, "func prewarm_assets(").find("_prewarm_draw_caches(font, owner, registry, module_getter)") >= 0,
+		"character info prewarm should prepare first-draw caches after layout"
+	)
+	_expect(
+		source.find("func _prewarm_stats_layout(font: Font, owner: Object, registry: Object, module_getter: Callable) -> void:") >= 0,
+		"character info prewarm should include a stats layout cache helper"
+	)
+	_expect(
+		_function_body(source, "func _prewarm_stats_layout(").find("_get_stats_value_width(font, i, _stats_value_cache[i], _stats_layout_row_size)") >= 0,
+		"character info stats prewarm should populate value width caches"
+	)
+	_expect(
+		source.find("func _prewarm_visible_item_icons(owner: Object, registry: Object, module_getter: Callable) -> void:") >= 0,
+		"character info prewarm should warm visible equipment and inventory icons"
 	)
 	_expect(
 		_function_body(source, "func _get_header_subtitle(").find("% [display_name") < 0,
