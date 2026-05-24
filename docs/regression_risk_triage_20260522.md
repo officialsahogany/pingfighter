@@ -9084,3 +9084,25 @@ commits rather than standalone `fix` commits:
   `project_resource_loader_import_preference_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors.
+
+334th follow-up on 2026-05-25:
+
+- Commit:
+  `dbbe5aa92 godot: move Commando bowling trap event dispatch`.
+- Scope: moved bowling-trap capture / release event dispatch into
+  `CommandoFirearmBowlingTrapGeometry.dispatch_runtime_update_events()`. The
+  geometry owner now interprets trap lifecycle events, routes capture feedback
+  / snap audio, appends release impact flashes, spawns release lingering
+  effects through the runtime owner, registers launch pulses, and applies the
+  released guard state. Runtime still advances traps and returns the lifecycle
+  result.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2055` lines /
+  `34` functions to `2025` lines / `34` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_hit_feedback_dispatcher_smoke`,
+  `commando_firearm_audio_dispatcher_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors.
