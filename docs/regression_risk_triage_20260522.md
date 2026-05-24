@@ -7491,13 +7491,15 @@ Hundredth split on 2026-05-24:
   appends through `CommandoFirearmBowlingTrapGeometry.append_install_effects()`,
   while the runtime passes the resolved profile, trap id, field bounds,
   install timing, capture offset, and list limits from the firearm spawn path.
-- Runtime facade size: `commando_firearm_runtime.gd` moved from `3029` lines /
-  `56` functions to `3018` lines / `55` functions.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2904` lines /
+  `56` functions to `2895` lines / `55` functions.
 - Validation: focused Commando coverage passed:
   `commando_firearm_bowling_trap_geometry_smoke`,
   `commando_firearm_runtime_vfx_smoke`, and
-  `commando_firearm_fx_host_smoke`. The bowling-trap geometry smoke now rejects
-  `_start_bowling_trap_install()` in the runtime facade.
+  `commando_firearm_fx_host_smoke`. The Godot headless load check passed, and
+  `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings. The
+  bowling-trap geometry smoke now rejects `_start_bowling_trap_install()` in
+  the runtime facade.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
