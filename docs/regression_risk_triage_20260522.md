@@ -5876,6 +5876,20 @@ Hundredth split on 2026-05-24:
   1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
   passed.
 
+169th follow-up on 2026-05-24:
+
+- Commit: `323e74282 godot: drop Commando lingering status rect bridges`.
+- Scope: removed the remaining lingering status rect / overlap bridge cluster
+  from `commando_firearm_runtime.gd`: effect rect position / size / width /
+  height, boss rect position / size / width / height, rect intersection, and
+  effect-hits-boss helpers now stay owned by
+  `commando_firearm_lingering_status_state.gd`. The value-utils smoke calls
+  the owner directly and guards the removed runtime bridge names.
+- Validation: `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_warning_scan.ps1` scanned
+  1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
+  passed.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
