@@ -1939,15 +1939,11 @@ func _detonate_suicide_drone_at_index(
 
 func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> void:
 	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
 		weapon_id,
 		WEAPON_HIT_FEEDBACK,
 		HIT_FEEDBACK_PROFILE_OVERRIDES
 	)
-	var intensity: float = float(feedback_profile.get("intensity", 0.5))
-	var color: Color = CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE)
 	var combat_result: Dictionary = _apply_weapon_hit_result(weapon_id, projectile, context, deps)
 	CommandoFirearmPendingResultState.queue_runtime_combat_result(self, combat_result)
 	var lingering_result: Dictionary = {}
@@ -1959,22 +1955,17 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 		lingering_result = _spawn_lingering_effect(weapon_id, projectile, context)
 	if not lingering_result.is_empty():
 		combat_result["lingering_effect"] = lingering_result
-	CommandoFirearmProjectileImpactState.append_runtime_hit_event(
+	CommandoFirearmProjectileImpactState.append_runtime_boss_hit(
 		hit_events,
 		projectile,
 		weapon_id,
-		CommandoFirearmValueUtils.get_projectile_kind(projectile, "bullet"),
-		pos,
-		velocity,
-		intensity,
+		feedback_profile,
 		combat_result,
+		context,
+		deps,
+		BASE_WEAPON_ID,
 		HIT_EVENT_LIMIT
 	)
-	CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
-	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(feedback_profile, deps)
-	CommandoFirearmHitFeedbackDispatcher.trigger_boss_hit_animation(context, deps)
-	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(pos, velocity, intensity, weapon_id, deps, BASE_WEAPON_ID)
-	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
 
 
 func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:

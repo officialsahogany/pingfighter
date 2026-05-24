@@ -53,6 +53,40 @@ static func append_runtime_hit_event(
 	return hit_event
 
 
+static func append_runtime_boss_hit(
+	hit_events: Array,
+	projectile: Dictionary,
+	weapon_id: String,
+	feedback_profile: Dictionary,
+	combat_result: Dictionary,
+	context: Dictionary,
+	deps: Dictionary,
+	base_weapon_id: String,
+	hit_event_limit: int
+) -> Dictionary:
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+	var intensity: float = float(feedback_profile.get("intensity", 0.5))
+	var color: Color = CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE)
+	var hit_event: Dictionary = append_runtime_hit_event(
+		hit_events,
+		projectile,
+		weapon_id,
+		CommandoFirearmValueUtils.get_projectile_kind(projectile, "bullet"),
+		pos,
+		velocity,
+		intensity,
+		combat_result,
+		hit_event_limit
+	)
+	CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
+	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(feedback_profile, deps)
+	CommandoFirearmHitFeedbackDispatcher.trigger_boss_hit_animation(context, deps)
+	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(pos, velocity, intensity, weapon_id, deps, base_weapon_id)
+	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
+	return hit_event
+
+
 static func build_environment_impact_result(weapon_id: String, reason: String, pos: Vector2) -> Dictionary:
 	return {
 		"commando_firearm_environment_impact": true,

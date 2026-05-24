@@ -6,6 +6,62 @@ const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firea
 var _failures: Array[String] = []
 
 
+class FakeImpactEffects:
+	extends RefCounted
+
+	var particles: Array = []
+
+	func spawn_hit_particles(pos: Vector2, color: Color, velocity: Vector2, intensity: float, speed: float) -> void:
+		particles.append({
+			"pos": pos,
+			"color": color,
+			"velocity": velocity,
+			"intensity": intensity,
+			"speed": speed,
+		})
+
+
+class FakeFeedback:
+	extends RefCounted
+
+	var calls: Array = []
+
+	func max_screen_shake(amount: float, intensity: float) -> void:
+		calls.append({"amount": amount, "intensity": intensity})
+
+
+class FakeAnimationState:
+	extends RefCounted
+
+	var calls: Array = []
+
+	func trigger_boss_hit(boss_vel: float, has_hit_sprite: bool) -> void:
+		calls.append({"boss_vel": boss_vel, "has_hit_sprite": has_hit_sprite})
+
+
+class FakeBallEffects:
+	extends RefCounted
+
+	var pulses: Array = []
+
+	func register_hit_pulse(pos: Vector2, velocity: Vector2, intensity: float, kind: String) -> void:
+		pulses.append({
+			"pos": pos,
+			"velocity": velocity,
+			"intensity": intensity,
+			"kind": kind,
+		})
+
+
+class FakeAudio:
+	extends RefCounted
+
+	var impact_calls: Array[String] = []
+
+	func play_commando_firearm_impact(weapon_id: String) -> void:
+		impact_calls.append(weapon_id)
+
+
 func _init() -> void:
 	_verify_direct_projectile_impact_state()
 	_verify_environment_impact_state()
@@ -56,6 +112,44 @@ func _verify_direct_projectile_impact_state() -> void:
 	_expect(int(oldest_hit_event.get("id", 0)) == 2, "runtime hit-event append should drop oldest event over the limit")
 	_expect(str(newest_hit_event.get("weapon_id", "")) == "net_gun", "runtime hit-event append should preserve weapon id")
 
+	var impact_effects := FakeImpactEffects.new()
+	var feedback := FakeFeedback.new()
+	var animation_state := FakeAnimationState.new()
+	var ball_effects := FakeBallEffects.new()
+	var audio := FakeAudio.new()
+	var boss_hit_events: Array = []
+	var boss_event: Dictionary = CommandoFirearmProjectileImpactState.append_runtime_boss_hit(
+		boss_hit_events,
+		{
+			"id": 9,
+			"weapon_id": "net_gun",
+			"kind": "net",
+			"pos": Vector2(60.0, 70.0),
+			"velocity": Vector2(3.0, 4.0),
+			"color": Color.RED,
+		},
+		"net_gun",
+		{"intensity": 0.62, "shake_amount": 0.09, "shake_intensity": 1.7},
+		{"damage_units": 1},
+		{"boss_vel": -12.0, "boss_has_hit_sprite": true},
+		{
+			"impact_effects": impact_effects,
+			"feedback": feedback,
+			"animation_state": animation_state,
+			"ball_effects": ball_effects,
+			"audio": audio,
+		},
+		"pistol",
+		4
+	)
+	_expect(int(boss_event.get("id", 0)) == 9, "runtime boss-hit helper should return appended hit event")
+	_expect(boss_hit_events.size() == 1, "runtime boss-hit helper should append hit-event history")
+	_expect(impact_effects.particles.size() == 1, "runtime boss-hit helper should spawn impact particles")
+	_expect(feedback.calls.size() == 1, "runtime boss-hit helper should trigger hit feedback")
+	_expect(animation_state.calls.size() == 1, "runtime boss-hit helper should trigger boss hit animation")
+	_expect(ball_effects.pulses.size() == 1, "runtime boss-hit helper should register ball hit pulse")
+	_expect(audio.impact_calls == ["net_gun"], "runtime boss-hit helper should play impact audio")
+
 	var environment: Dictionary = CommandoFirearmProjectileImpactState.build_environment_impact_result(
 		"bazooka",
 		"wall",
@@ -105,7 +199,8 @@ func _verify_environment_impact_state() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(runtime_source.find("func _get_projectile_impact_reason(") == -1, "runtime should not keep projectile impact reason bridge")
 	_expect(runtime_source.find("func _register_projectile_environment_impact(") == -1, "runtime should not keep projectile environment-impact bridge")
-	_expect(runtime_source.find("CommandoFirearmProjectileImpactState.append_runtime_hit_event") != -1, "runtime should delegate hit-event append to projectile impact owner")
+	_expect(runtime_source.find("CommandoFirearmProjectileImpactState.append_runtime_boss_hit") != -1, "runtime should delegate boss-hit append and feedback to projectile impact owner")
+	_expect(runtime_source.find("CommandoFirearmProjectileImpactState.append_runtime_hit_event") == -1, "runtime should not call the lower-level hit-event append helper directly")
 	_expect(runtime_source.find("CommandoFirearmProjectileImpactState.build_hit_event(") == -1, "runtime should not build projectile hit events inline")
 
 
