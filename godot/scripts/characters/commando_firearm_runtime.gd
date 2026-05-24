@@ -37,6 +37,7 @@ const CommandoFirearmSupportProjectileResolver := preload("res://scripts/charact
 const CommandoFirearmSuicideDroneBallBoostResolver := preload("res://scripts/characters/commando_firearm_suicide_drone_ball_boost_resolver.gd")
 const CommandoFirearmSuicideDroneGeometry := preload("res://scripts/characters/commando_firearm_suicide_drone_geometry.gd")
 const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
+const CommandoFirearmTimerState := preload("res://scripts/characters/commando_firearm_timer_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 const FIELD_WIDTH := 760.0
@@ -1139,30 +1140,7 @@ func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: flo
 	var step: float = max(0.0, float(fps_scale))
 	if step <= 0.0:
 		return {}
-	slingshot_control_lock_frames = max(0.0, slingshot_control_lock_frames - step)
-	pistol_cooldown_frames = max(0.0, pistol_cooldown_frames - step)
-	pistol_control_lock_frames = max(0.0, pistol_control_lock_frames - step)
-	ak47_fire_interval_frames = max(0.0, ak47_fire_interval_frames - step)
-	bazooka_cooldown_frames = max(0.0, bazooka_cooldown_frames - step)
-	bazooka_control_lock_frames = max(0.0, bazooka_control_lock_frames - step)
-	bazooka_fire_animation_frames = max(0.0, bazooka_fire_animation_frames - step)
-	bazooka_firing_pose_frames = max(0.0, bazooka_firing_pose_frames - step)
-	bazooka_muzzle_flash_frames = max(0.0, bazooka_muzzle_flash_frames - step)
-	net_gun_cooldown_frames = max(0.0, net_gun_cooldown_frames - step)
-	net_gun_control_lock_frames = max(0.0, net_gun_control_lock_frames - step)
-	net_gun_throw_pose_frames = max(0.0, net_gun_throw_pose_frames - step)
-	net_gun_harpoon_flash_frames = max(0.0, net_gun_harpoon_flash_frames - step)
-	bowling_trap_cooldown_frames = max(0.0, bowling_trap_cooldown_frames - step)
-	bowling_trap_control_lock_frames = max(0.0, bowling_trap_control_lock_frames - step)
-	bowling_trap_install_pose_frames = max(0.0, bowling_trap_install_pose_frames - step)
-	suicide_drone_cooldown_frames = max(0.0, suicide_drone_cooldown_frames - step)
-	if not ak47_trigger_held:
-		ak47_recoil_accumulation = max(0.0, ak47_recoil_accumulation - AK47_RECOIL_RECOVERY_PER_FRAME * step)
-	pistol_post_fire_animation_frames = max(0.0, pistol_post_fire_animation_frames - step)
-	weapon_fire_sheet_timer_frames = max(0.0, weapon_fire_sheet_timer_frames - step)
-	if weapon_fire_sheet_timer_frames <= 0.0:
-		weapon_fire_sheet_id = ""
-		weapon_fire_sheet_max_frames = 0.0
+	CommandoFirearmTimerState.advance_runtime_timers(self, step, AK47_RECOIL_RECOVERY_PER_FRAME)
 	if pistol_fire_delay_frames <= 0.0:
 		return {}
 	CommandoFirearmValueUtils.refresh_pending_fire_geometry(
