@@ -6252,6 +6252,28 @@ Hundredth split on 2026-05-24:
   no whitespace errors. `run_headless_load_check.ps1` passed.
   `run_warning_scan.ps1` scanned `1322` scripts with no GDScript warnings.
 
+193rd follow-up on 2026-05-24:
+
+- Commit: `b666cafca godot: drop Commando timed effect bridges`.
+- Scope: removed the private `_update_muzzle_flashes()` and
+  `_update_impact_flashes()` bridge methods from
+  `commando_firearm_runtime.gd`. `update_effects()` now advances muzzle and
+  impact flash timers through `CommandoFirearmValueUtils.advance_timed_effects`
+  directly, and `commando_firearm_value_utils_smoke.gd` verifies both the
+  live runtime update path and the removed-bridge source guard.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3672` lines /
+  `163` functions to `3664` lines / `161` functions.
+- Validation: focused timed-effect / VFX coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_muzzle_flash_resolver_smoke`,
+  `commando_firearm_impact_flash_resolver_smoke`, and
+  `commando_firearm_fx_host_smoke`. The full sorted
+  `commando_firearm*_smoke.gd` set ran `45` scripts and passed.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` scanned `1322` scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
