@@ -1352,9 +1352,9 @@ func _verify_runtime_value_utils_integration() -> void:
 		{"weapon_id": "net_gun", "hooked_player": false},
 		{"weapon_id": "net_gun", "hooked_player": true},
 	]
-	_expect(runtime._has_hooked_net_field(), "hooked net field lookup should find active hooked net effects")
+	_expect(CommandoFirearmLingeringNetFieldState.has_active_hooked_net_field(runtime.lingering_effects), "hooked net field owner should find active hooked net effects")
 	runtime.lingering_effects = [{"weapon_id": "net_gun", "hooked_player": true, "dissolve": true}]
-	_expect(not runtime._has_hooked_net_field(), "hooked net field lookup should ignore dissolving net effects")
+	_expect(not CommandoFirearmLingeringNetFieldState.has_active_hooked_net_field(runtime.lingering_effects), "hooked net field owner should ignore dissolving net effects")
 	runtime.lingering_effects = [
 		{"weapon_id": "net_gun", "hooked_player": true},
 		{"weapon_id": "net_gun", "hooked_player": true, "dissolve": true},
@@ -1592,6 +1592,7 @@ func _verify_removed_net_field_predicate_bridges() -> void:
 		"_get_net_constrict_candidate_indices",
 		"_sync_net_field_rope_origin",
 		"_should_sync_net_field_rope_origin",
+		"_has_hooked_net_field",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field predicate bridge %s" % bridge_name)
 

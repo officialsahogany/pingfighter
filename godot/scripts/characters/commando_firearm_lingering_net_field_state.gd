@@ -239,6 +239,13 @@ static func is_active_hooked_net_field(effect: Dictionary) -> bool:
 	return is_net_gun_effect(effect) and bool(effect.get("hooked_player", false)) and not bool(effect.get("dissolve", false))
 
 
+static func has_active_hooked_net_field(effects: Array) -> bool:
+	for value in effects:
+		if is_active_hooked_net_field(CommandoFirearmValueUtils.get_dict(value)):
+			return true
+	return false
+
+
 static func is_boss_clamping_net_field(effect: Dictionary) -> bool:
 	return is_net_gun_effect(effect) and bool(effect.get("boss_trapped", false)) and not bool(effect.get("dissolve", false))
 

@@ -865,7 +865,7 @@ func get_movement_speed_multiplier() -> float:
 	return CommandoFirearmControlState.get_movement_speed_multiplier(
 		CommandoFirearmSuicideDroneState.has_active_projectile(projectiles),
 		ak47_trigger_held,
-		_has_hooked_net_field(),
+		CommandoFirearmLingeringNetFieldState.has_active_hooked_net_field(lingering_effects),
 		AK47_MOVEMENT_SPEED_MULTIPLIER,
 		NET_GUN_PLAYER_SLOW_MULTIPLIER
 	)
@@ -1129,7 +1129,7 @@ func get_actor_draw_context() -> Dictionary:
 		net_gun_harpoon_flash_frames,
 		NET_GUN_HARPOON_FLASH_FRAMES,
 		get_movement_speed_multiplier(),
-		_has_hooked_net_field()
+		CommandoFirearmLingeringNetFieldState.has_active_hooked_net_field(lingering_effects)
 	)
 	var bowling_trap_state: Dictionary = CommandoFirearmDrawStateResolver.build_bowling_trap_state(
 		bowling_trap_cooldown_frames,
@@ -3215,14 +3215,6 @@ func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps
 			audio.play_commando_net_gun_capture()
 	net_constrict_last_dir = dir_input
 	net_constrict_last_tick_msec = now_msec
-
-
-func _has_hooked_net_field() -> bool:
-	for value in lingering_effects:
-		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(value)
-		if CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect):
-			return true
-	return false
 
 
 func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, deps: Dictionary, fps_scale: float) -> void:
