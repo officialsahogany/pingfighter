@@ -1387,7 +1387,8 @@ func _update_ak47_input(
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
 		_clear_ak47_trigger_state()
 		return _ak47_fire_failed(special_gauge, "ak47_empty")
-	_consume_ak47_duration(weapon_controller, 1.0)
+	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_duration"):
+		weapon_controller.consume_current_weapon_duration(1.0)
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		current_weapon = weapon_controller.get_current_weapon_data()
 	if ak47_fire_interval_frames > 0.0:
@@ -1404,7 +1405,7 @@ func _update_ak47_input(
 	last_fire_msec = now_msec
 	_spawn_firearm_effect("ak47", config, deps, _get_ak47_fire_profile())
 	CommandoFirearmAudioDispatcher.play_fire_audio("ak47", deps)
-	_trigger_ak47_cooldown(now_msec, deps, doping_context, doping_active)
+	_trigger_firearm_skill_cooldown("ak47", now_msec, deps, doping_context, doping_active)
 	ak47_recoil_accumulation = min(AK47_MAX_RECOIL, ak47_recoil_accumulation + AK47_RECOIL_PER_SHOT)
 	if ak47_burst_shots_remaining > 0:
 		ak47_burst_shots_remaining -= 1
@@ -1446,21 +1447,6 @@ func _ak47_fire_failed(special_gauge: float, reason: String) -> Dictionary:
 		"burst_shots_remaining": ak47_burst_shots_remaining,
 		"movement_speed_multiplier": get_movement_speed_multiplier(),
 	})
-
-
-func _consume_ak47_duration(weapon_controller: Object, frames: float) -> void:
-	if weapon_controller == null or not weapon_controller.has_method("consume_current_weapon_duration"):
-		return
-	weapon_controller.consume_current_weapon_duration(frames)
-
-
-func _trigger_ak47_cooldown(
-	now_msec: int,
-	deps: Dictionary,
-	doping_context: Dictionary = {},
-	doping_active: bool = false
-) -> void:
-	_trigger_firearm_skill_cooldown("ak47", now_msec, deps, doping_context, doping_active)
 
 
 func _trigger_firearm_skill_cooldown(

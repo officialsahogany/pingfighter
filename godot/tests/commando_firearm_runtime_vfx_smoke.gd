@@ -247,6 +247,7 @@ func _init() -> void:
 	_verify_net_gun_ammo_rope_capture_and_break()
 	_verify_ak47_shell_casing_lifecycle()
 	_verify_ak47_hold_burst_ammo_duration_and_slowdown()
+	_verify_removed_ak47_runtime_bridges()
 	_verify_base_pistol_delayed_fire_runtime()
 	_verify_pistol_delayed_fire_uses_latest_player_position()
 	_verify_base_pistol_empty_click_reloads_full_magazine()
@@ -668,6 +669,15 @@ func _verify_ak47_hold_burst_ammo_duration_and_slowdown() -> void:
 	_expect(int(weapon_data.get("ammo_current", -1)) == 57, "AK-47 controller ammo should stay synced after held fire")
 	_expect(float(weapon_data.get("duration_frames", 1800.0)) < 1800.0, "AK-47 controller should expose consumed durability")
 	_expect(str(weapon_data.get("ammo_text", "")).begins_with("탄약 57/60 · 내구 "), "AK-47 ammo text should include bullets and durability")
+
+
+func _verify_removed_ak47_runtime_bridges() -> void:
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_consume_ak47_duration",
+		"_trigger_ak47_cooldown",
+	]:
+		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep AK-47 bridge %s" % bridge_name)
 
 
 func _verify_weapon_hit_status_profiles() -> void:
