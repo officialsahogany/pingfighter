@@ -131,6 +131,51 @@ func _verify_direct_support_projectile_resolver() -> void:
 	_expect(appended_from_call.size() == 1, "support call append helper should append one projectile from call data")
 	_expect(int((appended_from_call[0] as Dictionary).get("support_call_id", 0)) == 4, "support call append helper should preserve support call ids")
 
+	var runtime_owner := CommandoFirearmRuntime.new()
+	var runtime_calls: Array = [{
+		"id": 4,
+		"target": Vector2(320.0, 180.0),
+		"state": "striking",
+		"call_timer_frames": 0.0,
+		"delay_frames": 0.0,
+		"bomb_timer_frames": 0.0,
+		"bombs_remaining": 1,
+		"bombs_spawned": 0,
+		"aircraft_active": false,
+		"aircraft_drop_arm_frames": 0.0,
+	}]
+	var runtime_projectiles: Array = []
+	var runtime_result: Dictionary = CommandoFirearmSupportProjectileResolver.advance_runtime_calls(
+		runtime_calls,
+		runtime_projectiles,
+		runtime_owner,
+		{},
+		profile,
+		1.0,
+		Vector2(760.0, 750.0),
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_START_X,
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_Y,
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_SPEED,
+		CommandoFirearmRuntime.SUPPORT_BOMB_INTERVAL_FRAMES,
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_FINISH_MARGIN,
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
+		CommandoFirearmRuntime.SUPPORT_BOMB_INITIAL_VY,
+		CommandoFirearmRuntime.SUPPORT_BOMB_GRAVITY,
+		CommandoFirearmRuntime.SUPPORT_BOMB_HORIZONTAL_JITTER,
+		CommandoFirearmRuntime.SUPPORT_OPPONENT_WALL_Y,
+		CommandoFirearmRuntime.SUPPORT_MISSILE_FLIGHT_FRAMES,
+		CommandoFirearmRuntime.SUPPORT_MISSILE_LIFE_FRAMES,
+		CommandoFirearmRuntime.SUPPORT_BOMB_RANDOM_X_RANGE,
+		CommandoFirearmRuntime.PROJECTILE_LIMIT
+	)
+	var runtime_events: Array = CommandoFirearmValueUtils.get_array(runtime_result.get("audio_events", []))
+	_expect(runtime_projectiles.size() == 1, "runtime support owner should append spawned projectiles")
+	_expect(runtime_owner.shot_serial == 1, "runtime support owner should allocate projectile ids through the runtime owner")
+	_expect(runtime_events.size() == 1, "runtime support owner should report aircraft audio start")
+	_expect(str(CommandoFirearmValueUtils.get_dict(runtime_events[0]).get("type", "")) == "start_aircraft", "runtime support owner should preserve audio event order")
+
 
 func _verify_runtime_delegates_support_projectile_resolver() -> void:
 	var runtime := CommandoFirearmRuntime.new()
@@ -192,6 +237,7 @@ func _verify_removed_runtime_support_projectile_bridge() -> void:
 	_expect(source.find("func _build_support_round_projectile(") < 0, "runtime should not keep support projectile build bridge")
 	_expect(source.find("func _spawn_support_round(") < 0, "runtime should not keep support projectile append bridge")
 	_expect(source.find("func _spawn_support_bomb(") < 0, "runtime should not keep support bomb append bridge")
+	_expect(source.find("CommandoFirearmSupportProjectileResolver.advance_runtime_calls") >= 0, "runtime should delegate support call projectile advancement")
 
 
 func _support_profile() -> Dictionary:

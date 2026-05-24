@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
@@ -111,6 +113,81 @@ static func append_from_call(
 		impact_mode,
 		projectile_limit
 	)
+
+
+static func advance_runtime_calls(
+	support_calls: Array,
+	projectiles: Array,
+	runtime_owner: Object,
+	context: Dictionary,
+	profile: Dictionary,
+	step: float,
+	field_size: Vector2,
+	aircraft_start_x: float,
+	aircraft_y: float,
+	aircraft_speed: float,
+	bomb_interval_frames: float,
+	aircraft_finish_margin: float,
+	aircraft_curve_amplitude: float,
+	aircraft_curve_frequency: float,
+	aircraft_curve_secondary_ratio: float,
+	bomb_initial_vy: float,
+	bomb_gravity: float,
+	bomb_horizontal_jitter: float,
+	opponent_wall_y: float,
+	missile_flight_frames: float,
+	missile_life_frames: float,
+	bomb_random_x_range: float,
+	projectile_limit: int
+) -> Dictionary:
+	var safe_step: float = max(0.0, step)
+	var audio_events: Array = []
+	for index in range(support_calls.size() - 1, -1, -1):
+		var call_data: Dictionary = CommandoFirearmValueUtils.get_dict(support_calls[index])
+		var advance_result: Dictionary = CommandoFirearmSupportCallResolver.advance_call(
+			call_data,
+			safe_step,
+			Vector2(aircraft_start_x, aircraft_y),
+			Vector2(aircraft_speed, 0.0),
+			bomb_interval_frames,
+			field_size.x,
+			aircraft_finish_margin,
+			aircraft_curve_amplitude,
+			aircraft_curve_frequency,
+			aircraft_curve_secondary_ratio
+		)
+		call_data = CommandoFirearmValueUtils.get_dict(advance_result.get("call", call_data))
+		if bool(advance_result.get("started_aircraft", false)):
+			audio_events.append({"type": "start_aircraft", "call": call_data})
+		if bool(advance_result.get("spawn_bomb", false)):
+			append_from_call(
+				projectiles,
+				call_data,
+				CommandoFirearmOriginGeometry.get_boss_target_pos(context, field_size.x),
+				profile,
+				"fire_support",
+				CommandoFirearmProjectileSpawnState.claim_next_shot_id(runtime_owner),
+				int(advance_result.get("spawn_index", 0)),
+				field_size.x,
+				field_size.y,
+				aircraft_y,
+				bomb_initial_vy,
+				bomb_gravity,
+				bomb_horizontal_jitter,
+				Vector2(aircraft_start_x, aircraft_y),
+				opponent_wall_y,
+				missile_flight_frames,
+				missile_life_frames,
+				"opponent_wall",
+				bomb_random_x_range,
+				projectile_limit
+			)
+		if bool(advance_result.get("finished", false)):
+			audio_events.append({"type": "stop_aircraft", "call": call_data})
+			support_calls.remove_at(index)
+		else:
+			support_calls[index] = call_data
+	return {"audio_events": audio_events}
 
 
 static func build_projectile(

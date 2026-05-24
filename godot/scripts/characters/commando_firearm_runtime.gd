@@ -1670,52 +1670,41 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 		WEAPON_PROFILES,
 		WEAPON_PROFILE_OVERRIDES
 	)
-	for index in range(support_calls.size() - 1, -1, -1):
+	var support_result: Dictionary = CommandoFirearmSupportProjectileResolver.advance_runtime_calls(
+		support_calls,
+		projectiles,
+		self,
+		context,
+		profile,
+		step,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		SUPPORT_AIRCRAFT_START_X,
+		SUPPORT_AIRCRAFT_Y,
+		SUPPORT_AIRCRAFT_SPEED,
+		SUPPORT_BOMB_INTERVAL_FRAMES,
+		SUPPORT_AIRCRAFT_FINISH_MARGIN,
+		SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
+		SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
+		SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
+		SUPPORT_BOMB_INITIAL_VY,
+		SUPPORT_BOMB_GRAVITY,
+		SUPPORT_BOMB_HORIZONTAL_JITTER,
+		SUPPORT_OPPONENT_WALL_Y,
+		SUPPORT_MISSILE_FLIGHT_FRAMES,
+		SUPPORT_MISSILE_LIFE_FRAMES,
+		SUPPORT_BOMB_RANDOM_X_RANGE,
+		PROJECTILE_LIMIT
+	)
+	for event_value in CommandoFirearmValueUtils.get_array(support_result.get("audio_events", [])):
+		var audio_event: Dictionary = CommandoFirearmValueUtils.get_dict(event_value)
 		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = CommandoFirearmValueUtils.get_dict(support_calls[index])
-		var advance_result: Dictionary = CommandoFirearmSupportCallResolver.advance_call(
-			call,
-			step,
-			Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
-			Vector2(SUPPORT_AIRCRAFT_SPEED, 0.0),
-			SUPPORT_BOMB_INTERVAL_FRAMES,
-			FIELD_WIDTH,
-			SUPPORT_AIRCRAFT_FINISH_MARGIN,
-			SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
-			SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
-			SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO
-		)
-		call = CommandoFirearmValueUtils.get_dict(advance_result.get("call", call))
-		if bool(advance_result.get("started_aircraft", false)):
-			CommandoFirearmAudioDispatcher.start_support_aircraft_audio(call, deps)
-		if bool(advance_result.get("spawn_bomb", false)):
-			CommandoFirearmSupportProjectileResolver.append_from_call(
-				projectiles,
-				call,
-				CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH),
-				profile,
-				"fire_support",
-				CommandoFirearmProjectileSpawnState.claim_next_shot_id(self),
-				int(advance_result.get("spawn_index", 0)),
-				FIELD_WIDTH,
-				FIELD_HEIGHT,
-				SUPPORT_AIRCRAFT_Y,
-				SUPPORT_BOMB_INITIAL_VY,
-				SUPPORT_BOMB_GRAVITY,
-				SUPPORT_BOMB_HORIZONTAL_JITTER,
-				Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
-				SUPPORT_OPPONENT_WALL_Y,
-				SUPPORT_MISSILE_FLIGHT_FRAMES,
-				SUPPORT_MISSILE_LIFE_FRAMES,
-				"opponent_wall",
-				SUPPORT_BOMB_RANDOM_X_RANGE,
-				PROJECTILE_LIMIT
-			)
-		if bool(advance_result.get("finished", false)):
-			CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(call, deps)
-			support_calls.remove_at(index)
-		else:
-			support_calls[index] = call
+		var call: Dictionary = CommandoFirearmValueUtils.get_dict(audio_event.get("call", {}))
+		match str(audio_event.get("type", "")):
+			"start_aircraft":
+				CommandoFirearmAudioDispatcher.start_support_aircraft_audio(call, deps)
+			"stop_aircraft":
+				CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(call, deps)
+
 
 func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var step: float = max(0.0, fps_scale)
