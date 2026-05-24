@@ -7,6 +7,8 @@ const IMPORTED_AUDIO_PATH := "res://assets/bgm/stage2bgm.ogg"
 
 
 func _init() -> void:
+	# This intentionally pins source-first loading; stale imported cache files
+	# have broken regenerated assets before.
 	ProjectResourceLoader.clear_caches()
 
 	var texture: Texture2D = ProjectResourceLoader.load_texture(IMPORTED_TEXTURE_PATH)

@@ -68,6 +68,7 @@ static func load_audio_stream(path: String, missing_warning: String = "", failed
 			return cached_stream
 		_audio_cache.erase(path)
 
+	# Keep audio source-first for the same stale imported-cache failure mode.
 	var raw_exists: bool = FileAccess.file_exists(path)
 	if raw_exists:
 		var raw_path: String = ProjectSettings.globalize_path(path)
