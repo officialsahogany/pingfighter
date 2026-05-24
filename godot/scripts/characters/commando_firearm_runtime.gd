@@ -65,6 +65,7 @@ const SUPPORT_BOMB_MAX_COUNT := 2
 const SUPPORT_BOMB_INITIAL_VY := 0.0
 const SUPPORT_BOMB_GRAVITY := 0.0
 const SUPPORT_BOMB_HORIZONTAL_JITTER := 0.0
+const SUPPORT_BOMB_RANDOM_X_RANGE := CommandoFirearmSupportCallResolver.SUPPORT_BOMB_RANDOM_X_RANGE
 const SUPPORT_MISSILE_FLIGHT_FRAMES := 90.0
 const SUPPORT_MISSILE_LIFE_FRAMES := 150.0
 const SUPPORT_OPPONENT_WALL_Y := 22.0
@@ -2336,7 +2337,7 @@ func _advance_support_call(call_data: Dictionary, step: float) -> Dictionary:
 @warning_ignore("shadowed_variable_base_class")
 func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Dictionary, spawn_index: int) -> void:
 	var target: Vector2 = _get_vector2(call.get("target", _get_boss_target_pos(context)), _get_boss_target_pos(context))
-	var bomb_target: Vector2 = _get_support_bomb_target(target, spawn_index)
+	var bomb_target: Vector2 = _get_support_bomb_target(target, spawn_index, int(call.get("id", 0)))
 	bomb_target.y = SUPPORT_OPPONENT_WALL_Y
 	var aircraft_pos: Vector2 = _get_vector2(call.get("aircraft_pos", Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y)), Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y))
 	_spawn_support_round(
@@ -2349,8 +2350,15 @@ func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Diction
 	)
 
 
-func _get_support_bomb_target(target: Vector2, spawn_index: int) -> Vector2:
-	return CommandoFirearmSupportCallResolver.get_bomb_target(target, spawn_index, FIELD_WIDTH, FIELD_HEIGHT)
+func _get_support_bomb_target(target: Vector2, spawn_index: int, call_id: int = 0) -> Vector2:
+	return CommandoFirearmSupportCallResolver.get_bomb_target(
+		target,
+		spawn_index,
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		call_id,
+		SUPPORT_BOMB_RANDOM_X_RANGE
+	)
 
 
 func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const SUPPORT_BOMB_RANDOM_X_RANGE := 200.0
+
 
 static func get_delay_frames(
 	call_id: int,
@@ -104,14 +106,35 @@ static func build_marker_flash(
 	}
 
 
-static func get_bomb_target(target: Vector2, spawn_index: int, field_width: float, field_height: float) -> Vector2:
-	var offsets := [-96.0, -48.0, 0.0, 48.0, 96.0, -24.0, 72.0]
-	var offset: float = float(offsets[spawn_index % offsets.size()])
+static func get_bomb_target(
+	target: Vector2,
+	spawn_index: int,
+	field_width: float,
+	field_height: float,
+	call_id: int = 0,
+	x_random_range: float = SUPPORT_BOMB_RANDOM_X_RANGE
+) -> Vector2:
+	var offset: float = get_bomb_target_x_offset(target, spawn_index, call_id, x_random_range)
 	var target_y_offset: float = float(((spawn_index * 37) % 81) - 40)
 	return Vector2(
 		clamp(target.x + offset, 54.0, field_width - 54.0),
 		clamp(target.y + target_y_offset, 42.0, field_height - 64.0)
 	)
+
+
+static func get_bomb_target_x_offset(
+	target: Vector2,
+	spawn_index: int,
+	call_id: int = 0,
+	x_random_range: float = SUPPORT_BOMB_RANDOM_X_RANGE
+) -> float:
+	var safe_range: float = max(0.0, x_random_range)
+	if safe_range <= 0.0:
+		return 0.0
+	@warning_ignore("shadowed_global_identifier")
+	var seed: int = support_call_seed(call_id + spawn_index * 19 + 47, target)
+	var bucket: int = seed % 2001
+	return ((float(bucket) / 1000.0) - 1.0) * safe_range
 
 
 static func advance_call(

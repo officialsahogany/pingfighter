@@ -1383,7 +1383,10 @@ func _verify_fire_support_call_lifecycle() -> void:
 		_expect(str(first_bomb.get("support_impact_mode", "")) == "opponent_wall", "fire support missile should use opponent-wall impact mode")
 		_expect(is_equal_approx(float(first_bomb.get("gravity", 0.0)), 0.0), "fire support missile should fly without gravity drift")
 		_expect(is_equal_approx(float(first_bomb.get("support_flight_frames", 0.0)), 90.0), "fire support missile should take about 1.5 seconds to reach the wall")
-		_expect(is_equal_approx(_get_vector2(first_bomb.get("target", Vector2.ZERO), Vector2.ZERO).y, 22.0), "fire support missile should target the opponent-side wall")
+		var first_bomb_target: Vector2 = _get_vector2(first_bomb.get("target", Vector2.ZERO), Vector2.ZERO)
+		var marked_target: Vector2 = _get_vector2(strike_call.get("target", Vector2.ZERO), Vector2.ZERO)
+		_expect(is_equal_approx(first_bomb_target.y, 22.0), "fire support missile should target the opponent-side wall")
+		_expect(abs(first_bomb_target.x - marked_target.x) <= 200.0, "fire support missile target x should scatter within 200px of the marked point")
 		_expect(float(_get_vector2(first_bomb.get("velocity", Vector2.ZERO), Vector2.ZERO).y) < 0.0, "fire support missile should travel toward the boss-side wall")
 
 	for i in range(620):

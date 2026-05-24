@@ -61,10 +61,12 @@ func _verify_direct_support_call_resolver() -> void:
 	var marker: Dictionary = CommandoFirearmSupportCallResolver.build_marker_flash("fire_support", target, {"impact_radius": 50.0}, 42.0)
 	_expect(str(marker.get("kind", "")) == "support_marker", "support marker should preserve marker kind")
 	_expect(is_equal_approx(float(marker.get("radius", 0.0)), 37.0), "support marker radius should scale profile impact radius")
-	_expect(
-		CommandoFirearmSupportCallResolver.get_bomb_target(target, 2, 760.0, 750.0) == Vector2(320.0, 214.0),
-		"support bomb target should preserve deterministic offset spread"
-	)
+	var bomb_target_a: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(target, 0, 760.0, 750.0, 4)
+	var bomb_target_b: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(target, 1, 760.0, 750.0, 4)
+	_expect(_vector2_is_equal_approx(bomb_target_a, Vector2(518.8, 140.0)), "support bomb target should use deterministic random x spread from the marked point")
+	_expect(_vector2_is_equal_approx(bomb_target_b, Vector2(418.6, 177.0)), "support bomb target should randomize each projectile independently")
+	_expect(abs(bomb_target_a.x - target.x) <= 200.0 and abs(bomb_target_b.x - target.x) <= 200.0, "support bomb random x spread should stay within 200px of the marked point")
+	_expect(not is_equal_approx(bomb_target_a.x, bomb_target_b.x), "sequential support bombs should not reuse the same target x")
 	var calling: Dictionary = CommandoFirearmSupportCallResolver.advance_call(
 		{"state": "calling", "call_timer_frames": 42.0, "delay_frames": 120.0},
 		10.0,
@@ -154,7 +156,7 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 	_expect(runtime._support_call_seed(4, target) == 4414083065, "runtime seed wrapper should delegate")
 	_expect(is_equal_approx(runtime._get_support_call_delay_frames(4, target), 148.0), "runtime delay wrapper should delegate")
 	_expect(runtime._get_support_bomb_count(4, target) == 2, "runtime bomb-count wrapper should delegate tuned 2-bomb count")
-	_expect(runtime._get_support_bomb_target(target, 2) == Vector2(320.0, 214.0), "runtime bomb-target wrapper should delegate")
+	_expect(_vector2_is_equal_approx(runtime._get_support_bomb_target(target, 1, 4), Vector2(418.6, 177.0)), "runtime bomb-target wrapper should delegate the 200px random spread")
 	var advance_result: Dictionary = runtime._advance_support_call({
 		"call_timer_frames": 0.0,
 		"delay_frames": 0.0,
@@ -191,3 +193,7 @@ func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _vector2_is_equal_approx(a: Vector2, b: Vector2) -> bool:
+	return is_equal_approx(a.x, b.x) and is_equal_approx(a.y, b.y)
