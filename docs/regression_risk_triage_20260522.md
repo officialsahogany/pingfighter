@@ -7945,6 +7945,24 @@ Hundredth split on 2026-05-24:
   warnings, and `git diff --check` reported no whitespace errors beyond the
   existing CRLF normalization notices.
 
+276th follow-up on 2026-05-24:
+
+- Commit:
+  `da7731f5b godot: move Commando control state reads`.
+- Scope: moved runtime control-lock timer collection and movement-speed input
+  state reads into `CommandoFirearmControlState`. The Commando runtime now
+  keeps `is_player_control_locked()` and `get_movement_speed_multiplier()` as
+  thin wrappers around the control-state owner while still supplying support
+  call, suicide-drone, and hooked-net owner results.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2700` lines /
+  `35` functions to `2694` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_control_state_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors beyond the existing CRLF normalization notices.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
