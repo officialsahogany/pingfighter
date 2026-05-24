@@ -7015,6 +7015,22 @@ Hundredth split on 2026-05-24:
   `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now rejects the
   removed lingering frame bridge.
 
+231st follow-up on 2026-05-24:
+
+- Commit: `5564a307a godot: drop Commando lingering status bridge`.
+- Scope: removed `_apply_lingering_effect_status()` from
+  `commando_firearm_runtime.gd`. The active lingering-effect path now performs
+  status application gating, data construction, boss status application, and
+  cooldown reset inline while still delegating deterministic status math to
+  `CommandoFirearmLingeringStatusState`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3245` lines /
+  `83` functions to `3240` lines / `82` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now covers the
+  real active lingering status path and rejects the removed status bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
