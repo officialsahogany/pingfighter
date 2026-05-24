@@ -7125,6 +7125,22 @@ Hundredth split on 2026-05-24:
   real Bowling Trap control-lock failure path and rejects the removed failure
   bridge.
 
+237th follow-up on 2026-05-24:
+
+- Commit: `48b7ca90b godot: inline Commando drone failure result`.
+- Scope: removed `_suicide_drone_fire_failed()` from
+  `commando_firearm_runtime.gd`. Suicide Drone input now calls the
+  `CommandoFirearmSuicideDroneState` failure-result owner directly for
+  cooldown, active-drone, configured-cooldown, empty-ammo, and
+  ammo-consumption failure branches.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3232` lines /
+  `79` functions to `3228` lines / `78` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The suicide-drone state smoke now
+  drives the real cooldown failure path and rejects the removed failure bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
