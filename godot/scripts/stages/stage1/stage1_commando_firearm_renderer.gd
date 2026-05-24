@@ -3,6 +3,7 @@ extends RefCounted
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shockwave_texture_cache.gd")
 const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const Stage1CommandoFirearmFxHost := preload("res://scripts/stages/stage1/stage1_commando_firearm_fx_host.gd")
 const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
@@ -625,6 +626,7 @@ func _draw_pistol_feedbacks(canvas: CanvasItem, feedbacks: Array, shake_offset: 
 		var scale: float = _pistol_feedback_scale(progress)
 		var text_pos: Vector2 = Stage1ContextReader.as_vector2(feedback.get("text_pos", Vector2.ZERO), Vector2.ZERO) + shake_offset
 		var text: String = str(feedback.get("text", "헤드샷!" if kind == "headshot" else "레그샷!"))
+		text = LanguageSettings.translate_text(text)
 		var accent: Color = Color(1.0, 0.24, 0.18) if kind == "headshot" else Color(0.35, 1.0, 0.38)
 		var rim: Color = Color(1.0, 0.82, 0.12) if kind == "headshot" else Color(0.72, 0.52, 1.0)
 		if kind == "legshot":

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const VIEW_WIDTH := 1488.0
 const VIEW_HEIGHT := 918.0
 const WINDOW_TARGET_HEIGHT_RATIO := 0.865
@@ -327,8 +329,10 @@ func get_render_fps_cap_label(cap: int, window: Window = null) -> String:
 	if normalized_cap == RENDER_FPS_CAP_STABLE_MONITOR:
 		return "Stable %d FPS" % _get_stable_monitor_refresh_rate(window)
 	if normalized_cap == RENDER_FPS_CAP_UNLIMITED:
-		return "제한 없음"
+		return LanguageSettings.translate_text("제한 없음")
 	if normalized_cap == RENDER_FPS_CAP_MONITOR:
+		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+			return "Monitor %d Hz" % _get_monitor_refresh_rate(window)
 		return "모니터 %d Hz" % _get_monitor_refresh_rate(window)
 	return "%d FPS" % normalized_cap
 
@@ -360,9 +364,15 @@ func get_display_pacing_recommendation(
 		)
 	)
 	if game_settings_ready:
+		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+			return "%dHz monitor detected: render FPS will follow the current refresh rate.\nIf you change monitors, the next apply will follow the new refresh rate." % monitor_rate
 		return "%dHz 모니터 감지: 현재 주사율에 렌더 FPS를 자동으로 맞춥니다.\n모니터를 바꾸면 다음 적용 시 새 주사율을 따라갑니다." % monitor_rate
 	if normalized_cap == RENDER_FPS_CAP_MONITOR:
+		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+			return "%dHz monitor detected: render FPS follows the current refresh rate.\nExclusive fullscreen and VSync Auto are the cleanest settings." % monitor_rate
 		return "%dHz 모니터 감지: 렌더 FPS는 현재 주사율을 따라갑니다.\n독점 전체화면과 VSync Auto가 가장 깔끔합니다." % monitor_rate
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "%dHz monitor detected: set render FPS to monitor Hz for automatic pacing.\nUse Recommended to save settings based on the current refresh rate." % monitor_rate
 	return "%dHz 모니터 감지: 렌더 FPS를 모니터 Hz로 두면 자동으로 맞춰집니다.\n권장값 적용을 누르면 현재 주사율 기반 설정으로 저장합니다." % monitor_rate
 
 

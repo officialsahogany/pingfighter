@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const ROUNDED_RECT_SAMPLES := 1
 const MAX_TEXT_SIZE_CACHE_ENTRIES := 16
 
@@ -131,6 +133,7 @@ func _draw_polyline_progress(canvas: Node2D, points: Array[Vector2], segment_len
 
 
 func _draw_text_centered(canvas: Node2D, center: Vector2, text: String, font_size: int, color: Color, alpha: float) -> void:
+	text = LanguageSettings.translate_text(text)
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
@@ -149,7 +152,7 @@ func _draw_alchemy_notice(canvas: Node2D, slot_rect: Rect2, scale_factor: float,
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
-	var text := "연금술!"
+	var text := LanguageSettings.translate_text("연금술!")
 	var font_size: int = max(10, int(round(13.0 * scale_factor)))
 	var text_size: Vector2 = _get_cached_text_size(font, text, font_size)
 	var center: Vector2 = slot_rect.get_center() + Vector2(0.0, slot_rect.size.y * 0.30)

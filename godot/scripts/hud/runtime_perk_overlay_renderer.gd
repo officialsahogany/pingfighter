@@ -1217,6 +1217,7 @@ func _wrap_text(text: String, max_chars: int, max_lines: int) -> Array:
 
 
 func _draw_text(canvas: CanvasItem, text: String, baseline: Vector2, font_size: int, color: Color) -> void:
+	text = LanguageSettings.translate_text(text)
 	var font: Font = _get_font()
 	if font == null or text == "":
 		return
@@ -1224,6 +1225,7 @@ func _draw_text(canvas: CanvasItem, text: String, baseline: Vector2, font_size: 
 
 
 func _draw_text_fitted(canvas: CanvasItem, text: String, baseline: Vector2, font_size: int, color: Color, max_width: float, min_font_size: int = 10) -> void:
+	text = LanguageSettings.translate_text(text)
 	var font: Font = _get_font()
 	if font == null or text == "" or max_width <= 0.0:
 		return
@@ -1275,6 +1277,7 @@ func _ellipsize_to_width(font: Font, text: String, max_width: float, font_size: 
 
 
 func _draw_text_centered(canvas: CanvasItem, text: String, center: Vector2, font_size: int, color: Color) -> void:
+	text = LanguageSettings.translate_text(text)
 	var font: Font = _get_font()
 	if font == null or text == "":
 		return

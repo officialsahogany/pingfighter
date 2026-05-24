@@ -383,14 +383,57 @@ const EXACT_TEXT_EN := {
 	"다음 스테이지": "Next Stage",
 	"나가기": "Exit",
 	"획득!": "Acquired!",
+	"플레이어 승리": "Player Victory",
+	"Live2D 포즈": "Live2D Pose",
+	"승리 연출 테스트": "Victory Sequence Test",
+	"건들지마": "Don't Touch Me",
+	"일반상자": "Normal Box",
+	"고급상자": "Advanced Box",
+	"신화 확정상자": "Guaranteed Mythic Box",
+	"인게임": "In Game",
+	"상자 보상": "Box Reward",
+	"획득한 퍽 효과를 적용합니다.": "Applies the acquired perk effect.",
 	"보물탐색": "Treasure Hunt",
 	"아무것도 찾지 못했습니다": "Nothing found",
 	"보물탐색: 꽝": "Treasure Hunt: Nothing",
+	"목록 준비 중": "Preparing List",
+	"리소스 준비 중": "Preparing Resources",
+	"캐릭터": "Character",
+	"캐릭터 정보": "Character Info",
+	"장비": "Gear",
+	"장비 슬롯": "Gear Slots",
+	"패시브 보관함": "Passive Storage",
+	"패시브 아이템 없음": "No Passive Items",
+	"능력치": "Stats",
+	"롤 옵션": "Roll Options",
+	"미장착": "Unequipped",
+	"패시브 장비가 연결되면 이 슬롯에 표시됩니다.": "Passive gear appears in this slot when equipped.",
+	"보유": "Owned",
+	"장착": "Equipped",
+	"해금": "Unlock",
+	"부위": "Part",
+	"머리": "Head",
+	"상의": "Top",
+	"왼팔": "Left Arm",
+	"오른팔": "Right Arm",
+	"팔": "Arm",
+	"벨트": "Belt",
+	"등": "Back",
+	"무릎": "Knee",
+	"신발": "Shoes",
+	"장신구": "Accessory",
+	"장신구 1": "Accessory 1",
+	"장신구 2": "Accessory 2",
+	"장신구 3": "Accessory 3",
+	"장신구 4": "Accessory 4",
+	"장신": "Acc.",
 	"뿔딸기": "Horn Strawberry",
 	"이그니션": "Ignition",
 	"듀얼": "Dual",
 	"팬텀 킥": "Phantom Kick",
 	"EMP 스트라이크": "EMP Strike",
+	"연금술!": "Alchemy!",
+	"재시작!": "Restart!",
 	"무효!": "Blocked!",
 	"윤회의 부적 발동!": "Reincarnation Charm Activated!",
 	"메긴교르드의 효과 발동!": "Megingjord Effect Activated!",
@@ -413,19 +456,96 @@ const EXACT_TEXT_EN := {
 	"코하쿠": "Kohaku",
 	"이오": "Io",
 	"세린": "Serin",
+	"달지": "Dalji",
+	"악어장군": "Alligator General",
+	"홍련": "Hongryun",
+	"인왕": "Inwang",
+	"소림사": "Shaolin Temple",
+	"정글": "Jungle",
+	"멘헤라": "Menhera",
+	"테트리서": "Tetrisser",
+	"아카무 리고": "Akamu Rigo",
+	"미노타우로스": "Minotaur",
+	"최종 관문": "Final Gate",
+	"4천왕": "Four Kings",
+	"진엔딩": "True Ending",
+	"헤드샷!": "Headshot!",
+	"레그샷!": "Leg Shot!",
+	"상모돌리기": "Sangmo Spin",
+	"팽이치기": "Top Strike",
+	"타격발동": "On Hit",
+	"즉시발동": "Instant",
+	"타격": "Hit",
+	"즉시": "Instant",
+	"공을 휘감아 아래로 몰아붙입니다. 플레이어가 가드하면 즉시 멈춥니다.": "Wraps the ball and drives it downward. Stops immediately if the player guards.",
+	"달지가 팽이를 소환합니다. 팽이에 닿은 공은 무작위 방향으로 튕깁니다.": "Dalji summons a spinning top. Balls touching it bounce in random directions.",
+	"정글지진": "Jungle Quake",
+	"물대포": "Water Cannon",
+	"스피드디펜스": "Speed Defense",
+	"자동 / 바위 등장 후": "Auto / After Rocks Appear",
+	"쿨타임 30초": "Cooldown 30s",
+	"쿨타임 40초": "Cooldown 40s",
+	"바닥을 흔들어 바위와 충격을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.": "Shakes the ground to create rocks and impact waves. Higher pressure adds more falling rocks.",
+	"물대포를 충전해 전장을 가로지르는 물줄기를 발사합니다.": "Charges a water cannon and fires a stream across the arena.",
+	"짧은 시간 동안 보스 이동과 반응이 빨라지고 상태 이상을 막습니다.": "Briefly increases boss movement and reaction, and blocks status effects.",
+	"스피드디펜스!": "Speed Defense!",
+	"분노 발구르기!": "Rage Stomp!",
+	"물대포 충전!": "Water Cannon Charging!",
+	"물대포 발사!": "Water Cannon Fire!",
+	"정글지진!": "Jungle Quake!",
+	"물대포 준비!": "Water Cannon Ready!",
+	"지진 준비!": "Quake Ready!",
+	"방어 준비!": "Defense Ready!",
+	"물대포 조준 중": "Aiming Water Cannon",
+	"정글을 흔든다": "Shaking the Jungle",
+	"악어장군 분노!": "Alligator General Rage!",
+	"물대포 조준!": "Water Cannon Aiming!",
+	"물대포 중단!": "Water Cannon Canceled!",
+	"방어벽 낙하!": "Barrier Falling!",
+	"파편 주의!": "Watch the Shrapnel!",
 	"멘헤라걸": "Menhera Girl",
 	"눈물샤워": "Tear Shower",
 	"저주상자": "Curse Chest",
 	"사이코볼": "Psycho Ball",
+	"전장 위로 눈물을 떨어뜨려 공을 둔화시키고 보스 쪽 압박을 만듭니다.": "Drops tears across the arena to slow the ball and create boss-side pressure.",
+	"저주 상자를 던져 폭발과 연기를 남기고 공의 흐름을 어지럽힙니다.": "Throws a cursed chest that leaves an explosion and smoke, disrupting the ball flow.",
+	"사이코볼 상태로 전장을 흔들며 공 충돌에 강한 히트스톱을 겁니다.": "Shakes the arena in Psycho Ball state and applies heavy hitstop on ball collisions.",
+	"굴절 자기장": "Refraction Magnetic Field",
+	"자기장": "Magnetic Field",
+	"25초마다 자동 발동": "Auto every 25s",
+	"공을 보스 주변에서 굴절시키고 종료 시 감속 구체를 발사합니다.": "Refracts the ball around the boss and fires a slowing orb when it ends.",
+	"위빠사나 명상": "Vipassana Meditation",
+	"명상": "Meditation",
+	"18초 쿨타임 후 보스 타격": "Boss hit after 18s cooldown",
+	"공을 숫자 8 궤도로 붙잡고 명상 종료 후 추가 가속으로 플레이어 쪽으로 쏩니다.": "Holds the ball in a figure-eight path, then fires it toward the player with extra acceleration.",
+	"홍련 화염탄": "Hongryun Fireball",
+	"홍련 화염구": "Hongryun Fireball",
+	"홍련 인페르노": "Hongryun Inferno",
+	"홍련폭염": "Hongryun Inferno",
+	"화염탄": "Fireball",
+	"화염기관": "Flame Machine",
+	"인페르노 예열": "Inferno Charging",
+	"폭염 예열": "Inferno Charging",
+	"쿨타임 3.5~5.0초": "Cooldown 3.5-5.0s",
+	"구슬 5칸 / 보스 적중": "5 Orbs / Boss Hit",
+	"용 구슬 5칸": "5 Dragon Orbs",
+	"쿨타임 변동": "Variable Cooldown",
+	"홍련이 화염구를 발사합니다. 맞으면 용 구슬 게이지가 1칸 충전됩니다.": "Hongryun fires a fireball. Taking a hit charges the dragon orb gauge by 1.",
+	"5번 맞으면 홍련이 공을 화염 용처럼 돌진시킵니다. 가드와 진입 각도를 흔듭니다.": "After 5 hits, Hongryun sends the ball charging like a fire dragon, disrupting guard timing and entry angles.",
+	"전장에 화염 장치를 가동해 불길과 연기로 플레이어 진영을 압박합니다.": "Activates flame devices across the arena, pressuring the player's side with fire and smoke.",
 	"자동": "Auto",
 	"보스 타격": "Boss Hit",
 	"상태": "Status",
+	"없음": "None",
+	"내구": "Durability",
+	"좌클릭": "Left Click",
+	"클릭": "Click",
 	"즉시 발동": "Instant",
-	"폭염 예열": "Inferno Charging",
 	"발동 중": "Casting",
 	"사용됨": "Used",
 	"대기": "Waiting",
 	"잠김": "Locked",
+	"충전": "Charge",
 	"쿨타임 25초": "Cooldown 25s",
 	"쿨타임 35초": "Cooldown 35s",
 	"쿨타임 70초": "Cooldown 70s",
@@ -506,6 +626,63 @@ const EXACT_TEXT_EN := {
 	"대쉬토큰 회복 시간": "Dash Token Recovery Time",
 	"몸집크기": "Body Size",
 	"넉백 저항력": "Knockback Resistance",
+	"대시쿨타임": "Dash Cooldown",
+	"아이템쿨타임": "Item Cooldown",
+	"화재": "Fire",
+	"빙판": "Ice",
+	"소나기": "Shower",
+	"우박": "Hail",
+	"사막화": "Desertification",
+	"화재가 번집니다": "Fire spreads",
+	"빙판이 깔립니다": "Ice spreads across the field",
+	"소나기가 쏟아집니다": "A shower pours down",
+	"우박이 떨어집니다": "Hail starts falling",
+	"사막화가 시작됩니다": "Desertification begins",
+	"미풍이 잦아들었습니다": "The breeze fades",
+	"강풍이 멎었습니다": "The gust stops",
+	"불길이 꺼졌습니다": "The flames go out",
+	"빙판이 녹았습니다": "The ice melts",
+	"소나기가 그쳤습니다": "The shower stops",
+	"우박이 그쳤습니다": "The hail stops",
+	"모래가 가라앉았습니다": "The sand settles",
+	"제한 없음": "Unlimited",
+	"약함": "Weak",
+	"낮음": "Low",
+	"보통": "Normal",
+	"강함": "Strong",
+	"최대": "Max",
+	"절대적인": "Absolute",
+	"궁극의": "Ultimate",
+	"초신성의": "Supernova",
+	"신화적인": "Mythic",
+	"절대무쌍한": "Peerless",
+	"고대영웅의": "Ancient Hero's",
+	"고급": "Advanced",
+	"장인의": "Artisan",
+	"고품질의": "High-Quality",
+	"신성한": "Divine",
+	"명장의": "Masterwork",
+	"완벽한": "Perfect",
+	"영롱한": "Radiant",
+	"찬란한": "Brilliant",
+	"비범한": "Exceptional",
+	"고성능의": "High-Performance",
+	"세련된": "Refined",
+	"괜찮은": "Solid",
+	"평범한": "Standard",
+	"무난한": "Reliable",
+	"실용적인": "Practical",
+	"준수한": "Balanced",
+	"보강된": "Reinforced",
+	"균형 잡힌": "Well-Balanced",
+	"낡은": "Old",
+	"오래된": "Aged",
+	"녹슨": "Rusty",
+	"손상된": "Damaged",
+	"떼묻은": "Worn",
+	"싸구려": "Cheap",
+	"저급의": "Low-Grade",
+	"부실한": "Flimsy",
 	"회": "time(s)",
 	"개": "pc",
 	"칸": "slot(s)",
@@ -771,7 +948,7 @@ static func localize_character_data(character_data: Dictionary) -> Dictionary:
 	if get_language() != LANGUAGE_ENGLISH:
 		return character_data
 	var result := character_data.duplicate(true)
-	var key := str(result.get("key", result.get("id", result.get("runtime_id", "")))).strip_edges().to_lower()
+	var key := str(result.get("runtime_id", result.get("key", result.get("id", "")))).strip_edges().to_lower()
 	if key == "soldier":
 		key = "commando"
 	var localized: Dictionary = CHARACTER_EN.get(key, {})
@@ -936,6 +1113,34 @@ static func _localize_visible_string(key: String, value: String, parent_key: Str
 
 
 static func _translate_known_patterns(text: String) -> String:
+	if text.begins_with("게이지 "):
+		return "Gauge %s" % text.substr("게이지 ".length())
+	if text.begins_with("대시 토큰 "):
+		return "Dash Tokens %s" % text.substr("대시 토큰 ".length())
+	if text.begins_with("선택 대기: "):
+		return "Choices Waiting: %s" % text.substr("선택 대기: ".length())
+	if text.begins_with("선택 대기 "):
+		return "Choices Waiting %s" % text.substr("선택 대기 ".length())
+	if text.begins_with("퍽 골드: "):
+		return "Perk Gold: %s" % text.substr("퍽 골드: ".length())
+	if text.begins_with("퍽 골드 "):
+		return "Perk Gold %s" % text.substr("퍽 골드 ".length())
+	if text.begins_with("추가 ") and text.ends_with("개"):
+		return "Extra %s" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
+	if text.begins_with("보유 ") and text.find(" / 장착 ") >= 0:
+		var parts := text.replace("보유 ", "").split(" / 장착 ", false)
+		if parts.size() == 2:
+			return "Owned %s / Equipped %s" % [parts[0], parts[1]]
+	if text.begins_with("장착: "):
+		return "Equipped: %s" % translate_text(text.substr("장착: ".length()))
+	if text.begins_with("부위 : "):
+		return "Part: %s" % translate_text(text.substr("부위 : ".length()))
+	if text.begins_with("슬롯 "):
+		return "Slot %s" % text.substr("슬롯 ".length())
+	if text.begins_with("비용 ") and text.find("  쿨타임 ") >= 0:
+		var skill_parts := text.replace("비용 ", "").split("  쿨타임 ", false)
+		if skill_parts.size() == 2:
+			return "Cost %s  Cooldown %s" % [skill_parts[0], translate_text(skill_parts[1])]
 	if text.begins_with("스테이지 ") and text.ends_with(" 결과 화면"):
 		var stage_result := text.replace("스테이지 ", "").replace(" 결과 화면", "")
 		return "Stage %s Result Screen" % stage_result
@@ -951,6 +1156,10 @@ static func _translate_known_patterns(text: String) -> String:
 	if text.begins_with("쿨타임 ") and text.ends_with("초"):
 		var seconds := text.replace("쿨타임 ", "").replace("초", "")
 		return "Cooldown %ss" % seconds
+	if text.ends_with("초"):
+		var plain_seconds := text.substr(0, text.length() - 1)
+		if plain_seconds.is_valid_float():
+			return "%ss" % plain_seconds
 	if text.ends_with(" 발견"):
 		return "%s Found" % translate_text(text.substr(0, text.length() - 3))
 	return ""

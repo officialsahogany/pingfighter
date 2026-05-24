@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const TUTORIAL_STAGE := 50
 const PLAYER_AUTO_SERVE_DELAY := 3.0
 const SERVE_FONT_SIZE := 24
@@ -178,6 +180,7 @@ func _draw_text_centered(
 	color: Color,
 	shadow_alpha: float = 1.0
 ) -> Rect2:
+	text = LanguageSettings.translate_text(text)
 	var font: Font = SERVE_FONT if SERVE_FONT != null else ThemeDB.fallback_font
 	if font == null:
 		return Rect2(center, Vector2.ZERO)
@@ -193,5 +196,5 @@ func _get_serve_label(player_serves: bool, context: Dictionary) -> String:
 	if player_serves:
 		return "Player Serve"
 	var current_stage: int = int(context.get("current_stage", 1))
-	var boss_name: String = str(STAGE_BOSS_NAMES.get(current_stage, "Boss"))
+	var boss_name: String = LanguageSettings.translate_text(str(STAGE_BOSS_NAMES.get(current_stage, "Boss")))
 	return "%s Serve" % boss_name

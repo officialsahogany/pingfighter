@@ -184,6 +184,7 @@ var _header_subtitle_display_name := ""
 var _header_subtitle_text := ""
 var _header_status_pending := -1
 var _header_status_gold := -1
+var _header_status_language := ""
 var _header_status_text := ""
 var _header_status_width_text := ""
 var _header_status_width_size := 0
@@ -2286,6 +2287,8 @@ func _get_stats_value_width(font: Font, index: int, value_text: String, size: in
 
 
 func _write_simple_stat_row(index: int, label: String, value_text: String, color: Color, write_row_cache: bool = true) -> void:
+	label = LanguageSettings.translate_text(label)
+	value_text = LanguageSettings.translate_text(value_text)
 	if write_row_cache:
 		var row: Dictionary = _get_stats_row(index)
 		row["label"] = label
@@ -2305,6 +2308,8 @@ func _write_delta_stat_row(
 	higher_is_better: bool = true,
 	write_row_cache: bool = true
 ) -> void:
+	label = LanguageSettings.translate_text(label)
+	value_text = LanguageSettings.translate_text(value_text)
 	var color: Color = _stat_delta_color(base_value, current_value, higher_is_better)
 	if write_row_cache:
 		var row: Dictionary = _get_stats_row(index)
@@ -3084,7 +3089,8 @@ func _draw_text(canvas: CanvasItem, font: Font, text: String, baseline: Vector2,
 func _draw_text_xy(canvas: CanvasItem, font: Font, text: String, baseline_x: float, baseline_y: float, size: int, color: Color) -> void:
 	if text == "":
 		return
-	canvas.draw_string(font, Vector2(baseline_x, baseline_y), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _ui_font_size(size), color)
+	var visible_text := LanguageSettings.translate_text(text)
+	canvas.draw_string(font, Vector2(baseline_x, baseline_y), visible_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _ui_font_size(size), color)
 
 
 func _draw_text_centered(canvas: CanvasItem, font: Font, text: String, center: Vector2, size: int, color: Color) -> void:
@@ -3094,8 +3100,9 @@ func _draw_text_centered(canvas: CanvasItem, font: Font, text: String, center: V
 func _draw_text_centered_xy(canvas: CanvasItem, font: Font, text: String, center_x: float, center_y: float, size: int, color: Color) -> void:
 	if text == "":
 		return
-	var text_size: Vector2 = _get_centered_text_size(font, text, size)
-	_draw_text_centered_with_size_xy(canvas, font, text, center_x, center_y, size, color, text_size)
+	var visible_text := LanguageSettings.translate_text(text)
+	var text_size: Vector2 = _get_centered_text_size(font, visible_text, size)
+	_draw_text_centered_with_size_xy(canvas, font, visible_text, center_x, center_y, size, color, text_size)
 
 
 func _draw_text_centered_with_size(canvas: CanvasItem, font: Font, text: String, center: Vector2, size: int, color: Color, text_size: Vector2) -> void:
@@ -3105,7 +3112,10 @@ func _draw_text_centered_with_size(canvas: CanvasItem, font: Font, text: String,
 func _draw_text_centered_with_size_xy(canvas: CanvasItem, font: Font, text: String, center_x: float, center_y: float, size: int, color: Color, text_size: Vector2) -> void:
 	if text == "":
 		return
-	canvas.draw_string(font, Vector2(center_x - text_size.x * 0.5, center_y + text_size.y * 0.34), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _ui_font_size(size), color)
+	var visible_text := LanguageSettings.translate_text(text)
+	if visible_text != text:
+		text_size = _get_centered_text_size(font, visible_text, size)
+	canvas.draw_string(font, Vector2(center_x - text_size.x * 0.5, center_y + text_size.y * 0.34), visible_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _ui_font_size(size), color)
 
 
 func _ui_font_size(size: int) -> int:
@@ -3345,11 +3355,16 @@ func _get_header_subtitle(display_name: String, character_type: String) -> Strin
 
 
 func _get_header_status_text(pending: int, gold: int) -> String:
-	if pending == _header_status_pending and gold == _header_status_gold:
+	var language := LanguageSettings.get_language()
+	if pending == _header_status_pending and gold == _header_status_gold and language == _header_status_language:
 		return _header_status_text
 	_header_status_pending = pending
 	_header_status_gold = gold
-	_header_status_text = "선택 대기 " + str(pending) + "   퍽 골드 " + str(gold)
+	_header_status_language = language
+	if language == LanguageSettings.LANGUAGE_ENGLISH:
+		_header_status_text = "Choices Waiting " + str(pending) + "   Perk Gold " + str(gold)
+	else:
+		_header_status_text = "선택 대기 " + str(pending) + "   퍽 골드 " + str(gold)
 	return _header_status_text
 
 
