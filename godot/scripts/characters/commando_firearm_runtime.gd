@@ -2130,35 +2130,6 @@ func _start_bowling_trap_install(config: Dictionary, profile: Dictionary, weapon
 	), FLASH_LIMIT)
 
 
-func _spawn_support_round(
-	target: Vector2,
-	profile: Dictionary,
-	weapon_id: String,
-	call_id: int = 0,
-	spawn_index: int = 0,
-	support_aircraft_pos: Vector2 = Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y)
-) -> void:
-	CommandoFirearmValueUtils.append_limited(projectiles, CommandoFirearmSupportProjectileResolver.build_projectile(
-		target,
-		profile,
-		weapon_id,
-		_next_shot_id(),
-		call_id,
-		spawn_index,
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		support_aircraft_pos.y,
-		SUPPORT_BOMB_INITIAL_VY,
-		SUPPORT_BOMB_GRAVITY,
-		SUPPORT_BOMB_HORIZONTAL_JITTER,
-		support_aircraft_pos,
-		SUPPORT_OPPONENT_WALL_Y,
-		SUPPORT_MISSILE_FLIGHT_FRAMES,
-		SUPPORT_MISSILE_LIFE_FRAMES,
-		"opponent_wall"
-	), PROJECTILE_LIMIT)
-
-
 func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
 	var step: float = max(0.0, fps_scale)
 	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
@@ -2207,13 +2178,26 @@ func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Diction
 	)
 	bomb_target.y = SUPPORT_OPPONENT_WALL_Y
 	var aircraft_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(call.get("aircraft_pos", Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y)), Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y))
-	_spawn_support_round(
+	CommandoFirearmSupportProjectileResolver.append_projectile(
+		projectiles,
 		bomb_target,
 		profile,
 		"fire_support",
+		_next_shot_id(),
 		int(call.get("id", 0)),
 		spawn_index,
-		aircraft_pos
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		aircraft_pos.y,
+		SUPPORT_BOMB_INITIAL_VY,
+		SUPPORT_BOMB_GRAVITY,
+		SUPPORT_BOMB_HORIZONTAL_JITTER,
+		aircraft_pos,
+		SUPPORT_OPPONENT_WALL_Y,
+		SUPPORT_MISSILE_FLIGHT_FRAMES,
+		SUPPORT_MISSILE_LIFE_FRAMES,
+		"opponent_wall",
+		PROJECTILE_LIMIT
 	)
 
 

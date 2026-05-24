@@ -1,6 +1,53 @@
 extends RefCounted
 
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+
+
+static func append_projectile(
+	projectiles: Array,
+	target: Vector2,
+	profile: Dictionary,
+	weapon_id: String,
+	projectile_id: int,
+	call_id: int,
+	spawn_index: int,
+	field_width: float,
+	field_height: float,
+	support_aircraft_y: float,
+	default_initial_vy: float,
+	default_gravity: float,
+	default_horizontal_jitter: float,
+	support_aircraft_pos: Vector2,
+	opponent_wall_y: float,
+	default_flight_frames: float,
+	default_life_frames: float,
+	impact_mode: String,
+	projectile_limit: int
+) -> void:
+	CommandoFirearmValueUtils.append_limited(
+		projectiles,
+		build_projectile(
+			target,
+			profile,
+			weapon_id,
+			projectile_id,
+			call_id,
+			spawn_index,
+			field_width,
+			field_height,
+			support_aircraft_y,
+			default_initial_vy,
+			default_gravity,
+			default_horizontal_jitter,
+			support_aircraft_pos,
+			opponent_wall_y,
+			default_flight_frames,
+			default_life_frames,
+			impact_mode
+		),
+		projectile_limit
+	)
 
 
 static func build_projectile(
