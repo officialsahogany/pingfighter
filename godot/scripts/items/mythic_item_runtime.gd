@@ -256,6 +256,7 @@ var poseidon_runtime: Object = null
 var soul_burst_runtime: Object = null
 var knee_pads_runtime: Object = null
 var stat_bonus_runtime: Object = null
+var pause_gate: Object = null
 var update_gate: Object = null
 var update_runtime: Object = null
 var lifecycle_runtime: Object = null
@@ -960,17 +961,12 @@ func get_baal_boots_context() -> Dictionary:
 
 func should_pause_game() -> bool:
 	_ensure_helpers_ready()
-	return (
-		baal_boots_weather_state.cinematic_active
-		or is_acquisition_cinematic_active()
-		or pandora_legacy_selection_state.is_active()
-		or is_horn_strawberry_event_playing()
-	)
+	return pause_gate.should_pause_game(self)
 
 
 func is_baal_boots_cinematic_active() -> bool:
 	_ensure_helpers_ready()
-	return baal_boots_weather_state.cinematic_active
+	return pause_gate.is_baal_boots_cinematic_active(self)
 
 
 func is_acquisition_cinematic_active() -> bool:

@@ -51,6 +51,7 @@ func _verify_helper_registry_initializes_runtime() -> void:
 	_expect(MythicItemHelperRegistry.INIT_ORDER.has("catalog"), "helper registry should own the mythic helper init order")
 	_expect(MythicItemHelperRegistry.INIT_ORDER.has("roll_editor_runtime"), "helper registry should initialize the mythic roll editor helper")
 	_expect(MythicItemHelperRegistry.INIT_ORDER.has("debug_management_facade"), "helper registry should initialize the mythic debug management facade")
+	_expect(MythicItemHelperRegistry.INIT_ORDER.has("pause_gate"), "helper registry should initialize the mythic pause gate")
 	_expect(not MythicItemHelperRegistry.INIT_ORDER.has("debug_inventory"), "helper registry should not keep the retired mythic debug inventory helper")
 	_expect(
 		MythicItemHelperRegistry.get_script_path("catalog").ends_with("mythic_item_catalog.gd"),
@@ -63,6 +64,10 @@ func _verify_helper_registry_initializes_runtime() -> void:
 	_expect(
 		MythicItemHelperRegistry.get_script_path("debug_management_facade").ends_with("mythic_item_debug_management_facade.gd"),
 		"helper registry should route debug menu integration through the focused facade"
+	)
+	_expect(
+		MythicItemHelperRegistry.get_script_path("pause_gate").ends_with("mythic_item_pause_gate.gd"),
+		"helper registry should route pause-state aggregation through the focused helper"
 	)
 	_expect(MythicItemHelperRegistry.get_script_path("debug_inventory") == "", "helper registry should not expose a retired mythic debug inventory path")
 	var runtime: Object = MythicItemRuntime.new()
@@ -79,6 +84,8 @@ func _verify_helper_registry_initializes_runtime() -> void:
 	_expect(runtime_source.find("debug_management_facade") >= 0, "mythic runtime should call the debug management facade")
 	_expect(runtime_source.find("debug_management_menu.handle_input") < 0, "mythic runtime should not keep debug menu input routing inline")
 	_expect(runtime_source.find("debug_management_menu.draw") < 0, "mythic runtime should not keep debug menu draw routing inline")
+	_expect(runtime_source.find("return pause_gate.should_pause_game(self)") >= 0, "mythic runtime should delegate pause aggregation")
+	_expect(runtime_source.find("or pandora_legacy_selection_state.is_active()") < 0, "mythic runtime should not keep pause aggregation inline")
 
 
 func _verify_empty_runtime_has_no_field_effects() -> void:

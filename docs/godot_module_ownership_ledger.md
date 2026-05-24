@@ -327,7 +327,10 @@ This section is intentionally long; use search to find the nearest owner.
   passive / used-Revival field-spawn skip rules are delegated to
   `scripts/items/mythic_item_ownership_runtime.gd`; F3 passive / mythic
   management-menu prewarm / toggle / input / draw integration is delegated
-  to `scripts/items/mythic_item_debug_management_facade.gd`; the
+  to `scripts/items/mythic_item_debug_management_facade.gd`; mythic pause
+  aggregation across Baal Boots, acquisition cinematic, Pandora selection,
+  and Horn Strawberry transformation is delegated to
+  `scripts/items/mythic_item_pause_gate.gd`; the
   field-effect renderer now owns the Baal / Foul Whistle / Revival / Sensor
   draw fanout directly instead of bouncing through thin runtime `_draw_*`
   wrappers;
