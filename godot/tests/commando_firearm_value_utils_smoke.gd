@@ -1317,6 +1317,30 @@ func _verify_runtime_value_utils_integration() -> void:
 		"width": 80.0,
 		"height": 40.0,
 	}
+	var direct_status_state := FakeStatusEffectState.new()
+	var direct_apply_status_effect: Dictionary = live_status_effect.duplicate(true)
+	_expect(CommandoFirearmLingeringStatusState.apply_status_if_ready(
+		direct_apply_status_effect,
+		live_status_context,
+		{"status_effect_state": direct_status_state},
+		1.0,
+		CommandoFirearmRuntime.LINGERING_STATUS_TARGET,
+		CommandoFirearmRuntime.LINGERING_STATUS_ID_SLOW,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+		CommandoFirearmRuntime.LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
+		CommandoFirearmRuntime.LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_SOURCE
+	), "lingering status apply helper should apply ready statuses")
+	_expect(direct_status_state.calls.size() == 1, "lingering status apply helper should call status state once")
+	var helper_status_call: Dictionary = direct_status_state.calls[0]
+	_expect(str(helper_status_call.get("target", "")) == "boss", "lingering status apply helper should target the boss")
+	_expect(str(helper_status_call.get("status_id", "")) == "slow", "lingering status apply helper should preserve status id")
+	_expect(is_equal_approx(float(helper_status_call.get("duration_frames", 0.0)), 32.0), "lingering status apply helper should preserve duration")
+	_expect((helper_status_call.get("data", {}) as Dictionary).get("multiplier", 0.0) == 0.4, "lingering status apply helper should pass status data")
+	_expect(str(helper_status_call.get("source", "")) == "net_field", "lingering status apply helper should preserve explicit source")
+	_expect(is_equal_approx(float(direct_apply_status_effect.get("status_cooldown_frames", 0.0)), 9.0), "lingering status apply helper should reset cooldown after apply")
 	runtime.lingering_effects = [live_status_effect]
 	runtime._apply_active_lingering_effect(
 		0,
@@ -1384,6 +1408,20 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(bool(direct_dash_trigger.get("dash_triggered", false)), "direct net dash trigger helper should fire on rising dash state")
 	var direct_dash_repeat: Dictionary = CommandoFirearmLingeringNetFieldState.get_dash_trigger_result({"dash_snapshot": {"active": true}}, {}, true)
 	_expect(not bool(direct_dash_repeat.get("dash_triggered", false)), "direct net dash trigger helper should reject repeated active dash state")
+	var direct_dash_break_effects := [
+		{"weapon_id": "net_gun", "hooked_player": true, "timer_frames": 90.0},
+		{"weapon_id": "net_gun", "hooked_player": true, "dissolve": true, "timer_frames": 90.0},
+	]
+	var direct_dash_break: Dictionary = CommandoFirearmLingeringNetFieldState.apply_dash_break_if_triggered(
+		direct_dash_break_effects,
+		{"dash_snapshot": {"active": true}},
+		{},
+		false,
+		24.0
+	)
+	_expect(bool(direct_dash_break.get("dash_triggered", false)), "direct net dash break helper should report rising dash triggers")
+	_expect(bool(CommandoFirearmValueUtils.get_dict(direct_dash_break_effects[0]).get("rope_broken", false)), "direct net dash break helper should break active hooked nets")
+	_expect(not bool(CommandoFirearmValueUtils.get_dict(direct_dash_break_effects[1]).get("rope_broken", false)), "direct net dash break helper should leave dissolving nets unchanged")
 	runtime.net_gun_last_dash_active = false
 	runtime.lingering_effects = []
 	runtime._update_lingering_effects(1.0, {"dash_snapshot": {"active": true}}, {})

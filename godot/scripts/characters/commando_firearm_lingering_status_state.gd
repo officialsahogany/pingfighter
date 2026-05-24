@@ -120,6 +120,73 @@ static func get_status_application_state(status_application: Dictionary) -> Obje
 	return null
 
 
+static func apply_status_if_ready(
+	effect: Dictionary,
+	context: Dictionary,
+	deps: Dictionary,
+	timer_step: float,
+	default_target: String,
+	slow_status_id: String,
+	default_duration_frames: float,
+	default_interval_frames: float,
+	default_slow_multiplier: float,
+	min_slow_multiplier: float,
+	max_slow_multiplier: float,
+	default_source: String
+) -> bool:
+	var status_application: Dictionary = get_status_application(effect, deps)
+	if not has_status_application(status_application):
+		return false
+	if not can_apply_status(effect, context, timer_step):
+		return false
+	return apply_ready_status(
+		effect,
+		status_application,
+		default_target,
+		slow_status_id,
+		default_duration_frames,
+		default_interval_frames,
+		default_slow_multiplier,
+		min_slow_multiplier,
+		max_slow_multiplier,
+		default_source
+	)
+
+
+static func apply_ready_status(
+	effect: Dictionary,
+	status_application: Dictionary,
+	default_target: String,
+	slow_status_id: String,
+	default_duration_frames: float,
+	default_interval_frames: float,
+	default_slow_multiplier: float,
+	min_slow_multiplier: float,
+	max_slow_multiplier: float,
+	default_source: String
+) -> bool:
+	var status_effect_state: Object = get_status_application_state(status_application)
+	var status_id: String = get_status_application_id(status_application)
+	if status_effect_state == null or status_id == "":
+		return false
+	status_effect_state.apply_status(
+		get_status_target(default_target),
+		status_id,
+		get_status_duration(effect, default_duration_frames),
+		build_status_data(
+			effect,
+			status_id,
+			slow_status_id,
+			default_slow_multiplier,
+			min_slow_multiplier,
+			max_slow_multiplier
+		),
+		get_status_source(effect, default_source)
+	)
+	reset_status_cooldown(effect, default_interval_frames)
+	return true
+
+
 static func is_status_effect_state(status_effect_state: Object) -> bool:
 	return status_effect_state != null and status_effect_state.has_method("apply_status")
 

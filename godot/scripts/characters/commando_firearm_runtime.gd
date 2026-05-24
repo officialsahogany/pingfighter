@@ -2442,17 +2442,14 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var step: float = CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
 	var result: Dictionary = {}
-	var dash_trigger_result: Dictionary = CommandoFirearmLingeringNetFieldState.get_dash_trigger_result(
+	var dash_trigger_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_dash_break_if_triggered(
+		lingering_effects,
 		context,
 		deps,
-		net_gun_last_dash_active
+		net_gun_last_dash_active,
+		NET_GUN_DASH_BREAK_FRAMES
 	)
 	net_gun_last_dash_active = bool(dash_trigger_result.get("dash_active", false))
-	if bool(dash_trigger_result.get("dash_triggered", false)):
-		CommandoFirearmLingeringNetFieldState.break_active_hooked_net_fields(
-			lingering_effects,
-			NET_GUN_DASH_BREAK_FRAMES
-		)
 	for index in range(lingering_effects.size() - 1, -1, -1):
 		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
 		CommandoFirearmLingeringEffectState.advance_timers(effect, step, LINGERING_EFFECT_PHASE_STEP)
@@ -2481,40 +2478,20 @@ func _apply_active_lingering_effect(
 			COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
 			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
 		)
-	var status_application: Dictionary = CommandoFirearmLingeringStatusState.get_status_application(effect, deps)
-	if (
-		CommandoFirearmLingeringStatusState.has_status_application(status_application)
-		and CommandoFirearmLingeringStatusState.can_apply_status(
-			effect,
-			context,
-			CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
-		)
-	):
-		var status_effect_state: Object = CommandoFirearmLingeringStatusState.get_status_application_state(status_application)
-		var status_id: String = CommandoFirearmLingeringStatusState.get_status_application_id(status_application)
-		if status_effect_state != null and status_id != "":
-			var data: Dictionary = CommandoFirearmLingeringStatusState.build_status_data(
-				effect,
-				status_id,
-				LINGERING_STATUS_ID_SLOW,
-				LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
-				LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
-				LINGERING_STATUS_MAX_SLOW_MULTIPLIER
-			)
-			status_effect_state.apply_status(
-				CommandoFirearmLingeringStatusState.get_status_target(LINGERING_STATUS_TARGET),
-				status_id,
-				CommandoFirearmLingeringStatusState.get_status_duration(
-					effect,
-					LINGERING_STATUS_DEFAULT_DURATION_FRAMES
-				),
-				data,
-				CommandoFirearmLingeringStatusState.get_status_source(effect, LINGERING_STATUS_DEFAULT_SOURCE)
-			)
-			CommandoFirearmLingeringStatusState.reset_status_cooldown(
-				effect,
-				LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES
-			)
+	CommandoFirearmLingeringStatusState.apply_status_if_ready(
+		effect,
+		context,
+		deps,
+		CommandoFirearmLingeringEffectState.get_timer_step(fps_scale),
+		LINGERING_STATUS_TARGET,
+		LINGERING_STATUS_ID_SLOW,
+		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+		LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
+		LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
+		LINGERING_STATUS_DEFAULT_SOURCE
+	)
 	var clamp_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(
 		effect,
 		context,

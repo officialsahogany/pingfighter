@@ -42,6 +42,19 @@ static func get_dash_trigger_result(context: Dictionary, deps: Dictionary, last_
 	}
 
 
+static func apply_dash_break_if_triggered(
+	effects: Array,
+	context: Dictionary,
+	deps: Dictionary,
+	last_dash_active: bool,
+	dash_break_frames: float
+) -> Dictionary:
+	var dash_trigger_result: Dictionary = get_dash_trigger_result(context, deps, last_dash_active)
+	if bool(dash_trigger_result.get("dash_triggered", false)):
+		break_active_hooked_net_fields(effects, dash_break_frames)
+	return dash_trigger_result
+
+
 static func is_player_dash_active(context: Dictionary, deps: Dictionary = {}) -> bool:
 	var dash_snapshot: Variant = context.get("dash_snapshot", {})
 	if dash_snapshot is Dictionary:
