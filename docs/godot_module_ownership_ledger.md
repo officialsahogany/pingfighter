@@ -4226,6 +4226,15 @@ This section is intentionally long; use search to find the nearest owner.
   limited-append, timed-effect, and registry value reads directly while
   keeping only stateful runtime helpers for runtime-owned mutation; shot-id
   state remains in the runtime.
+- `scripts/characters/commando_firearm_cooldown_state.gd`
+  Owns Commando firearm skill-cooldown interaction details: configured
+  cooldown readiness queries, `trigger_cooldown` preference for cooldown-state
+  owners that accept explicit seconds, configured-cooldown fallback routing,
+  Doping Potion fire-rate scaling for cooldown seconds, and no-op behavior
+  when a skill-state dependency is absent. The firearm runtime should call
+  this owner directly for readiness and skill-cooldown triggering instead of
+  reintroducing private `_is_ready` / `_trigger_firearm_skill_cooldown` /
+  `_get_firearm_skill_cooldown_seconds` bridges.
 - `scripts/characters/commando_input_reader.gd`
   Owns Commando raw input on top of the shared Smasher snapshot and adds
   mouse-wheel weapon switching. Wheel events route only when the selected
