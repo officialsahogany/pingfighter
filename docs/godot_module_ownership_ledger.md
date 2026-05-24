@@ -4084,8 +4084,8 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Commando fire-support aircraft geometry: collision-rect
   construction and ball-path segment intersection against the grown
   aircraft bounds. `commando_firearm_runtime.gd` keeps support-call state,
-  aircraft audio lifecycle, and public collision-query routing while
-  delegating only these geometry decisions.
+  aircraft audio lifecycle, and public collision-query routing while calling
+  this helper directly for geometry decisions.
 - `scripts/characters/commando_firearm_support_call_resolver.gd`
   Owns pure Commando fire-support call math: deterministic support-call
   seed generation, aircraft-entry delay selection, bomb-count selection

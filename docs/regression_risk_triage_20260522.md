@@ -5905,6 +5905,20 @@ Hundredth split on 2026-05-24:
   1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
   passed.
 
+171st follow-up on 2026-05-24:
+
+- Commit: `e0b85d825 godot: drop Commando support aircraft geometry bridges`.
+- Scope: removed the private Fire Support aircraft geometry bridge pair from
+  `commando_firearm_runtime.gd`. Public collision query and ball-collision
+  routing now call `commando_firearm_support_aircraft_geometry.gd` directly for
+  aircraft collision rect construction and ball path intersection, while
+  runtime keeps support-call state, aircraft audio lifecycle, and the public
+  `get_fire_support_aircraft_collision_rect(...)` API.
+- Validation: `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_warning_scan.ps1` scanned
+  1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
+  passed.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
