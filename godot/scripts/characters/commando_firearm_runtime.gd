@@ -771,35 +771,7 @@ func reset_round(deps: Dictionary = {}) -> void:
 
 
 func has_visible_effects() -> bool:
-	return CommandoFirearmDrawStateResolver.has_visible_effects(
-		[
-			projectiles,
-			muzzle_flashes,
-			impact_flashes,
-			lingering_effects,
-			shell_casings,
-			pistol_feedbacks,
-			support_calls,
-			bowling_traps,
-		],
-		[
-			slingshot_control_lock_frames,
-			pistol_fire_delay_frames,
-			pistol_post_fire_animation_frames,
-			weapon_fire_sheet_timer_frames,
-			pistol_control_lock_frames,
-			bazooka_control_lock_frames,
-			bazooka_fire_animation_frames,
-			bazooka_firing_pose_frames,
-			bazooka_muzzle_flash_frames,
-			net_gun_control_lock_frames,
-			net_gun_throw_pose_frames,
-			net_gun_harpoon_flash_frames,
-			bowling_trap_control_lock_frames,
-			bowling_trap_install_pose_frames,
-			suicide_drone_cooldown_frames,
-		]
-	)
+	return CommandoFirearmDrawStateResolver.has_runtime_visible_effects(self)
 
 
 func needs_effect_update() -> bool:
@@ -2532,25 +2504,19 @@ func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, contex
 		doping_multiplier,
 		PISTOL_HIT_TUNING
 	)
-	pistol_boss_hit_count = int(hit_payload.get("next_hit_count", pistol_boss_hit_count))
-	result.merge(CommandoFirearmValueUtils.get_dict(hit_payload.get("result_fields", {})), true)
-	var feedback_hit_kind: String = str(hit_payload.get("feedback_hit_kind", ""))
-	if feedback_hit_kind != "":
-		CommandoFirearmPistolFeedbackState.append_feedback(
-			pistol_feedbacks,
-			feedback_hit_kind,
-			CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
-			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-			PISTOL_HIT_TEXT_TIMER_FRAMES,
-			"헤드샷!",
-			"레그샷!",
-			PISTOL_FEEDBACK_LIMIT
-		)
-	var damage_units_delta: int = int(hit_payload.get("damage_units_delta", 0))
-	if damage_units_delta <= 0:
-		return
-	result["damage_units"] = max(0, int(result.get("damage_units", 0))) + damage_units_delta
-	result["damage_sources"] = CommandoFirearmValueUtils.get_array(hit_payload.get("damage_sources", []))
+	var apply_result: Dictionary = CommandoFirearmPistolHitState.apply_hit_payload(
+		hit_payload,
+		result,
+		pistol_feedbacks,
+		context,
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		PISTOL_HIT_TEXT_TIMER_FRAMES,
+		"헤드샷!",
+		"레그샷!",
+		PISTOL_FEEDBACK_LIMIT
+	)
+	pistol_boss_hit_count = int(apply_result.get("next_hit_count", pistol_boss_hit_count))
 
 
 func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context: Dictionary) -> Dictionary:

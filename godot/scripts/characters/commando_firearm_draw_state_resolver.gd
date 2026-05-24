@@ -1,5 +1,36 @@
 extends RefCounted
 
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+
+const VISIBLE_EFFECT_ARRAY_FIELDS := [
+	"projectiles",
+	"muzzle_flashes",
+	"impact_flashes",
+	"lingering_effects",
+	"shell_casings",
+	"pistol_feedbacks",
+	"support_calls",
+	"bowling_traps",
+]
+
+const VISIBLE_TIMER_FIELDS := [
+	"slingshot_control_lock_frames",
+	"pistol_fire_delay_frames",
+	"pistol_post_fire_animation_frames",
+	"weapon_fire_sheet_timer_frames",
+	"pistol_control_lock_frames",
+	"bazooka_control_lock_frames",
+	"bazooka_fire_animation_frames",
+	"bazooka_firing_pose_frames",
+	"bazooka_muzzle_flash_frames",
+	"net_gun_control_lock_frames",
+	"net_gun_throw_pose_frames",
+	"net_gun_harpoon_flash_frames",
+	"bowling_trap_control_lock_frames",
+	"bowling_trap_install_pose_frames",
+	"suicide_drone_cooldown_frames",
+]
+
 
 static func build_slingshot_state(
 	charging: bool,
@@ -225,3 +256,15 @@ static func has_visible_effects(effect_arrays: Array, timer_values: Array) -> bo
 		if float(value) > 0.0:
 			return true
 	return false
+
+
+static func has_runtime_visible_effects(target: Object) -> bool:
+	if target == null:
+		return false
+	var effect_arrays: Array = []
+	for field_value in VISIBLE_EFFECT_ARRAY_FIELDS:
+		effect_arrays.append(CommandoFirearmValueUtils.get_array(target.get(str(field_value))))
+	var timer_values: Array = []
+	for field_value in VISIBLE_TIMER_FIELDS:
+		timer_values.append(float(target.get(str(field_value))))
+	return has_visible_effects(effect_arrays, timer_values)

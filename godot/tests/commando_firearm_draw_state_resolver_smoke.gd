@@ -177,6 +177,13 @@ func _verify_direct_visibility_gate() -> void:
 	_expect(CommandoFirearmDrawStateResolver.has_visible_effects([[{"id": 1}], []], [0.0]), "visibility gate should detect non-empty effect arrays")
 	_expect(CommandoFirearmDrawStateResolver.has_visible_effects([[], []], [0.0, 2.0]), "visibility gate should detect active timers")
 	_expect(not CommandoFirearmDrawStateResolver.has_visible_effects([[], []], [0.0, 0.0]), "visibility gate should stay false for empty arrays and inactive timers")
+	var runtime := CommandoFirearmRuntime.new()
+	_expect(not CommandoFirearmDrawStateResolver.has_runtime_visible_effects(runtime), "runtime visibility owner should default false")
+	runtime.muzzle_flashes = [{"id": 4}]
+	_expect(CommandoFirearmDrawStateResolver.has_runtime_visible_effects(runtime), "runtime visibility owner should detect runtime effect arrays")
+	runtime.muzzle_flashes.clear()
+	runtime.net_gun_harpoon_flash_frames = 2.0
+	_expect(CommandoFirearmDrawStateResolver.has_runtime_visible_effects(runtime), "runtime visibility owner should detect runtime timers")
 
 
 func _verify_runtime_delegates_draw_state() -> void:

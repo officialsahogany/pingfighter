@@ -70,6 +70,25 @@ func _verify_direct_pistol_hit_state() -> void:
 	_expect(bool(leg_fields.get("doping_potion_active", false)), "pistol hit payload should expose active doping multiplier")
 	_expect(str(leg_payload.get("feedback_hit_kind", "")) == "legshot", "legshot payload should request feedback")
 
+	var result := {}
+	var feedbacks: Array = []
+	var apply_result: Dictionary = CommandoFirearmPistolHitState.apply_hit_payload(
+		head_payload,
+		result,
+		feedbacks,
+		_boss_context(),
+		760.0,
+		750.0,
+		36.0,
+		"헤드샷!",
+		"레그샷!",
+		6
+	)
+	_expect(int(apply_result.get("next_hit_count", -1)) == 0, "pistol hit apply owner should return the next hit count")
+	_expect(str(result.get("pistol_hit_kind", "")) == "headshot", "pistol hit apply owner should merge result fields")
+	_expect(int(result.get("damage_units", 0)) == 2, "pistol hit apply owner should apply damage units")
+	_expect(feedbacks.size() == 1, "pistol hit apply owner should append requested feedback")
+
 
 func _verify_runtime_delegates_pistol_hit_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()

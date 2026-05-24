@@ -1,5 +1,9 @@
 extends RefCounted
 
+const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
+const CommandoFirearmPistolFeedbackState := preload("res://scripts/characters/commando_firearm_pistol_feedback_state.gd")
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+
 
 static func build_hit_payload(
 	weapon_id: String,
@@ -70,6 +74,67 @@ static func build_hit_payload(
 		"damage_units_delta": damage_units_delta,
 		"damage_sources": damage_sources,
 	}
+
+
+static func apply_hit_payload(
+	hit_payload: Dictionary,
+	result: Dictionary,
+	feedbacks: Array,
+	context: Dictionary,
+	field_width: float,
+	field_height: float,
+	hit_text_timer_frames: float,
+	headshot_label: String,
+	legshot_label: String,
+	feedback_limit: int
+) -> Dictionary:
+	result.merge(CommandoFirearmValueUtils.get_dict(hit_payload.get("result_fields", {})), true)
+	append_feedback_from_payload(
+		hit_payload,
+		feedbacks,
+		context,
+		field_width,
+		field_height,
+		hit_text_timer_frames,
+		headshot_label,
+		legshot_label,
+		feedback_limit
+	)
+	var damage_units_delta: int = int(hit_payload.get("damage_units_delta", 0))
+	if damage_units_delta > 0:
+		result["damage_units"] = max(0, int(result.get("damage_units", 0))) + damage_units_delta
+		result["damage_sources"] = CommandoFirearmValueUtils.get_array(hit_payload.get("damage_sources", []))
+	return {
+		"next_hit_count": int(hit_payload.get("next_hit_count", 0)),
+		"damage_units_delta": damage_units_delta,
+		"feedback_hit_kind": str(hit_payload.get("feedback_hit_kind", "")),
+	}
+
+
+static func append_feedback_from_payload(
+	hit_payload: Dictionary,
+	feedbacks: Array,
+	context: Dictionary,
+	field_width: float,
+	field_height: float,
+	hit_text_timer_frames: float,
+	headshot_label: String,
+	legshot_label: String,
+	feedback_limit: int
+) -> void:
+	var feedback_hit_kind: String = str(hit_payload.get("feedback_hit_kind", ""))
+	if feedback_hit_kind == "":
+		return
+	CommandoFirearmPistolFeedbackState.append_feedback(
+		feedbacks,
+		feedback_hit_kind,
+		CommandoFirearmHitGeometry.get_boss_rect(context, field_width),
+		Vector2(field_width, field_height),
+		hit_text_timer_frames,
+		headshot_label,
+		legshot_label,
+		feedback_limit
+	)
 
 
 static func _get_head_stun_frames(weapon_id: String, tuning: Dictionary) -> float:
