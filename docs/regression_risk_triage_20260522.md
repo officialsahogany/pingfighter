@@ -8171,6 +8171,41 @@ commits rather than standalone `fix` commits:
   `git diff --check` on the touched Commando files reported no whitespace
   errors.
 
+283rd follow-up on 2026-05-24:
+
+- Commit:
+  `197cde136 godot: move Commando pistol draw state`.
+- Scope: moved Commando pistol draw-state field reads into
+  `CommandoFirearmDrawStateResolver.build_runtime_pistol_state()`. The runtime
+  still supplies the pistol delay / post-fire timing constants, but the
+  cooldown, control-lock, pending-fire, and post-fire timer reads now live with
+  the draw-state owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2663` lines /
+  `35` functions to `2658` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors.
+
+284th follow-up on 2026-05-24:
+
+- Commit:
+  `8d1cc067b godot: move Commando weapon sheet draw state`.
+- Scope: moved Commando weapon fire-sheet draw-state field reads into
+  `CommandoFirearmDrawStateResolver.build_runtime_weapon_fire_sheet_state()`.
+  The runtime now delegates the sheet id / timer / max-timer extraction and
+  only supplies the shared frame-count constant.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2658` lines /
+  `35` functions to `2656` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors.
+
 285th follow-up on 2026-05-24:
 
 - Commits:
@@ -8198,34 +8233,17 @@ commits rather than standalone `fix` commits:
   `git diff --check` reported no whitespace errors beyond existing CRLF
   normalization notices.
 
-284th follow-up on 2026-05-24:
+286th follow-up on 2026-05-24:
 
 - Commit:
-  `8d1cc067b godot: move Commando weapon sheet draw state`.
-- Scope: moved Commando weapon fire-sheet draw-state field reads into
-  `CommandoFirearmDrawStateResolver.build_runtime_weapon_fire_sheet_state()`.
-  The runtime now delegates the sheet id / timer / max-timer extraction and
-  only supplies the shared frame-count constant.
-- Runtime facade size: `commando_firearm_runtime.gd` moved from `2658` lines /
-  `35` functions to `2656` lines / `35` functions.
-- Validation: focused Commando coverage passed:
-  `commando_firearm_draw_state_resolver_smoke` and
-  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
-  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
-  `git diff --check` on the touched Commando files reported no whitespace
-  errors.
-
-283rd follow-up on 2026-05-24:
-
-- Commit:
-  `197cde136 godot: move Commando pistol draw state`.
-- Scope: moved Commando pistol draw-state field reads into
-  `CommandoFirearmDrawStateResolver.build_runtime_pistol_state()`. The runtime
-  still supplies the pistol delay / post-fire timing constants, but the
-  cooldown, control-lock, pending-fire, and post-fire timer reads now live with
-  the draw-state owner.
-- Runtime facade size: `commando_firearm_runtime.gd` moved from `2663` lines /
-  `35` functions to `2658` lines / `35` functions.
+  `5717dd0ad godot: move Commando AK47 draw state`.
+- Scope: moved Commando AK-47 draw-state field reads into
+  `CommandoFirearmDrawStateResolver.build_runtime_ak47_state()`. The runtime
+  still supplies the already-resolved movement-speed multiplier, while trigger,
+  fire-interval, burst-count, and recoil fields now live with the draw-state
+  owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2656` lines /
+  `35` functions to `2652` lines / `35` functions.
 - Validation: focused Commando coverage passed:
   `commando_firearm_draw_state_resolver_smoke` and
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
