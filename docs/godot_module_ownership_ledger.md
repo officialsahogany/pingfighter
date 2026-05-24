@@ -4079,7 +4079,9 @@ This section is intentionally long; use search to find the nearest owner.
   charge-derived hit-effect payload fields. The runtime keeps input gates,
   mutable charge fields, projectile spawning, audio, cooldown / control-lock
   mutation, status application, and hit-result sequencing while delegating
-  deterministic slingshot calculations here.
+  deterministic slingshot calculations here. Do not reintroduce private
+  runtime bridges for charge-level refresh, slingshot fire-profile construction,
+  or slingshot hit-effect application.
 - `scripts/characters/commando_firearm_shell_casing_state.gd`
   Owns pure Commando shell-casing state: AK-47 / pistol ejection payloads,
   deterministic seed-derived velocity / rotation values, paddle-floor

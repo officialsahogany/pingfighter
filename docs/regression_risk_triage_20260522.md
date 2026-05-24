@@ -6626,6 +6626,26 @@ Hundredth split on 2026-05-24:
   no whitespace errors. `run_headless_load_check.ps1` passed.
   `run_warning_scan.ps1` scanned `1326` scripts with no GDScript warnings.
 
+211th follow-up on 2026-05-24:
+
+- Commit: `1c39caf29 godot: drop Commando slingshot helper bridges`.
+- Scope: removed the private `_update_slingshot_charge_level()`,
+  `_get_slingshot_fire_profile()`, and `_apply_slingshot_hit_effects()`
+  runtime bridges. Slingshot release now builds its charge-derived projectile
+  profile through `CommandoFirearmSlingshotState` directly, and hit-result
+  sequencing calls the slingshot hit-effect owner directly before pistol /
+  AK-47 follow-up effects. The slingshot smoke now verifies the live release
+  and hit-result paths and guards that the removed helper bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3438` lines /
+  `124` functions to `3422` lines / `121` functions.
+- Validation: focused slingshot / runtime coverage passed:
+  `commando_firearm_slingshot_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_pistol_hit_state_smoke`.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` scanned `1326` scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
