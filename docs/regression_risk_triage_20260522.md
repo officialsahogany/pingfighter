@@ -7833,6 +7833,29 @@ Hundredth split on 2026-05-24:
   normalization notices. The control-state smoke now rejects
   `_clear_serve_wait_firearm_input_state()` in the runtime facade.
 
+271st follow-up on 2026-05-24:
+
+- Commit:
+  `1a0235927 godot: move Commando firearm reset bridge`.
+- Scope: removed the Commando runtime `_handle_firearm_reset_input()` bridge.
+  Firearm reset input detection, base-weapon selection, previous / current
+  weapon result payloads, AK-47 trigger cleanup, and active slingshot charge
+  cancellation now live in
+  `CommandoFirearmControlState.handle_firearm_reset_input()`. The runtime keeps
+  only the post-result weapon-change audio fanout.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2880` lines /
+  `40` functions to `2849` lines / `39` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_control_state_smoke`,
+  `commando_firearm_audio_routing_smoke`,
+  `commando_weapon_controller_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_weapon_switch_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1331` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond the existing CRLF
+  normalization notices. The control-state smoke now rejects
+  `_handle_firearm_reset_input()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
