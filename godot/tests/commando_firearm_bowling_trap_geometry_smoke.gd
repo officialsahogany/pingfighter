@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_direct_bowling_trap_geometry()
 	_verify_runtime_delegates_bowling_trap_geometry()
+	_verify_removed_runtime_bowling_trap_geometry_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_bowling_trap_geometry_smoke: ok")
@@ -161,28 +162,28 @@ func _verify_direct_bowling_trap_geometry() -> void:
 func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	_expect(runtime._get_bowling_trap_install_pos({}) == Vector2(457.5, 735.0), "runtime install-position wrapper should delegate")
-	_expect(runtime._is_bowling_trap_install_in_player_field({"player_pos": Vector2(380.0, 690.0), "paddle_height": 50.0}), "runtime install-field wrapper should delegate lower-field installs")
-	_expect(not runtime._is_bowling_trap_install_in_player_field({"player_pos": Vector2(380.0, 100.0), "paddle_height": 50.0}), "runtime install-field wrapper should delegate upper-field rejection")
 	runtime.bowling_traps = [{"id": 1, "state": "installing", "pos": Vector2(100.0, 200.0), "install_progress": 0.4}]
-	_expect(runtime._has_installing_bowling_trap(), "runtime installing-trap wrapper should delegate")
 	_expect(is_equal_approx(float(runtime._get_bowling_trap_draw_state().get("install_progress", 0.0)), 0.4), "runtime draw state should use delegated install progress")
-	var runtime_carryover: Array = runtime._build_bowling_trap_round_carryover()
-	_expect(runtime_carryover.size() == 1 and str((runtime_carryover[0] as Dictionary).get("state", "")) == "waiting", "runtime round carryover wrapper should delegate")
 	var guard_source: String = runtime._arm_bowling_trap_guard({"id": 9}, 6.0)
 	_expect(guard_source == "commando_bowling_trap_guard_9", "runtime guard arm wrapper should return delegated source")
 	_expect(runtime.is_bowling_trap_guard_armed(), "runtime guard arm wrapper should apply armed state")
 	runtime._clear_bowling_trap_guard()
 	_expect(not runtime.is_bowling_trap_guard_armed(), "runtime guard clear wrapper should apply cleared state")
-	_expect(runtime._soften_bowling_trap_guard_ball(Vector2(3.0, 4.0), 10.0) == Vector2(6.0, 8.0), "runtime guard-soften wrapper should delegate")
-	_expect(is_equal_approx(runtime._get_bowling_trap_guard_knockback_velocity(Vector2(500.0, 0.0), {}), -22.0), "runtime guard-knockback wrapper should delegate")
-	_expect(runtime._get_bowling_trap_launch_direction(9) == 1, "runtime launch-direction wrapper should delegate")
-	_expect(
-		runtime._bowling_trap_hits_ball(
-			{"pos": Vector2(100.0, 100.0), "width": 60.0},
-			{"ball_pos": Vector2(100.0, 110.0), "ball_vel": Vector2(0.0, 5.0), "ball_size": 20.0}
-		),
-		"runtime trap-hit wrapper should delegate"
-	)
+
+
+func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_is_bowling_trap_install_in_player_field",
+		"_has_installing_bowling_trap",
+		"_build_bowling_trap_round_carryover",
+		"_build_bowling_trap_capture_result",
+		"_soften_bowling_trap_guard_ball",
+		"_get_bowling_trap_guard_knockback_velocity",
+		"_get_bowling_trap_launch_direction",
+		"_bowling_trap_hits_ball",
+	]:
+		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep bowling-trap geometry bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:

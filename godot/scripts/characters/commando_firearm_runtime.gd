@@ -799,7 +799,10 @@ func reset_round(deps: Dictionary = {}) -> void:
 	_stop_suicide_drone_audio(deps)
 	var carried_bowling_traps: Array = []
 	if bool(deps.get("preserve_bowling_traps", true)):
-		carried_bowling_traps = _build_bowling_trap_round_carryover()
+		carried_bowling_traps = CommandoFirearmBowlingTrapGeometry.build_round_carryover(
+			bowling_traps,
+			BOWLING_TRAP_CAPTURE_BALL_OFFSET
+		)
 	reset()
 	bowling_traps = carried_bowling_traps
 
@@ -886,12 +889,17 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 	var restore_speed: float = max(1.0, bowling_trap_guard_restore_speed)
 	_clear_bowling_trap_guard()
 
-	var next_ball_vel: Vector2 = _soften_bowling_trap_guard_ball(ball_vel, restore_speed)
+	var next_ball_vel: Vector2 = CommandoFirearmBowlingTrapGeometry.soften_guard_ball(ball_vel, restore_speed)
 	if _is_stage2_speed_defense_boss_immune(context, deps):
 		return CommandoFirearmBowlingTrapGeometry.build_guard_immune_result(next_ball_vel)
 
 	var boss_center: Vector2 = _get_boss_target_pos(context)
-	var knockback_vel: float = _get_bowling_trap_guard_knockback_velocity(boss_center, context)
+	var knockback_vel: float = CommandoFirearmBowlingTrapGeometry.get_guard_knockback_velocity(
+		boss_center,
+		context,
+		FIELD_WIDTH,
+		BOWLING_TRAP_GUARD_KNOCKBACK_POWER
+	)
 	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
 		"bowling_trap",
 		WEAPON_HIT_FEEDBACK,
@@ -1652,9 +1660,14 @@ func _update_bowling_trap_input(
 		return _bowling_trap_fire_failed(special_gauge, "bowling_trap_control_lock")
 	if bowling_trap_cooldown_frames > 0.0:
 		return _bowling_trap_fire_failed(special_gauge, "bowling_trap_cooldown")
-	if _has_installing_bowling_trap():
+	if CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps):
 		return _bowling_trap_fire_failed(special_gauge, "bowling_trap_installing")
-	if not _is_bowling_trap_install_in_player_field(config):
+	if not CommandoFirearmBowlingTrapGeometry.is_install_in_player_field(
+		config,
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		BOWLING_TRAP_MIN_FIELD_Y_RATIO
+	):
 		return _bowling_trap_fire_failed(special_gauge, "bowling_trap_install_field")
 	if not _is_ready("bowling_trap", now_msec, deps):
 		return _bowling_trap_fire_failed(special_gauge, "configured_cooldown")
@@ -1709,26 +1722,6 @@ func _bowling_trap_fire_failed(special_gauge: float, reason: String) -> Dictiona
 	})
 
 
-func _is_bowling_trap_install_in_player_field(config: Dictionary) -> bool:
-	return CommandoFirearmBowlingTrapGeometry.is_install_in_player_field(
-		config,
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		BOWLING_TRAP_MIN_FIELD_Y_RATIO
-	)
-
-
-func _has_installing_bowling_trap() -> bool:
-	return CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps)
-
-
-func _build_bowling_trap_round_carryover() -> Array:
-	return CommandoFirearmBowlingTrapGeometry.build_round_carryover(
-		bowling_traps,
-		BOWLING_TRAP_CAPTURE_BALL_OFFSET
-	)
-
-
 func _get_bowling_trap_draw_state() -> Dictionary:
 	return CommandoFirearmDrawStateResolver.build_bowling_trap_state(
 		bowling_trap_cooldown_frames,
@@ -1737,7 +1730,7 @@ func _get_bowling_trap_draw_state() -> Dictionary:
 		BOWLING_TRAP_CONTROL_LOCK_FRAMES,
 		bowling_trap_install_pose_frames,
 		BOWLING_TRAP_INSTALL_FRAMES,
-		_has_installing_bowling_trap(),
+		CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps),
 		CommandoFirearmBowlingTrapGeometry.get_install_progress(bowling_traps)
 	)
 
@@ -2404,9 +2397,18 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 		if state == "installing":
 			_update_bowling_trap_install(index, trap, step)
 		elif state == "waiting":
-			if result.is_empty() and _bowling_trap_hits_ball(trap, context):
+			if (
+				result.is_empty()
+				and CommandoFirearmBowlingTrapGeometry.hits_ball(
+					trap,
+					context,
+					BOWLING_TRAP_HEIGHT,
+					BOWLING_TRAP_CAPTURE_HEIGHT,
+					BOWLING_TRAP_WIDTH
+				)
+			):
 				_capture_bowling_trap_ball(index, trap, context, deps)
-				result = _build_bowling_trap_capture_result(_get_dict(bowling_traps[index]))
+				result = CommandoFirearmBowlingTrapGeometry.build_capture_result(_get_dict(bowling_traps[index]))
 		elif state == "capturing":
 			if result.is_empty():
 				result = _update_bowling_trap_capture(index, trap, step, context, deps)
@@ -2460,11 +2462,7 @@ func _update_bowling_trap_capture(index: int, trap: Dictionary, fps_scale: float
 		bowling_traps.remove_at(index)
 		return launch_result
 	bowling_traps[index] = next_trap
-	return _build_bowling_trap_capture_result(next_trap)
-
-
-func _build_bowling_trap_capture_result(trap: Dictionary) -> Dictionary:
-	return CommandoFirearmBowlingTrapGeometry.build_capture_result(trap)
+	return CommandoFirearmBowlingTrapGeometry.build_capture_result(next_trap)
 
 
 func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -2526,33 +2524,6 @@ func _apply_bowling_trap_guard_state(guard_state: Dictionary) -> void:
 	bowling_trap_guard_original_speed = float(guard_state.get("original_speed", 0.0))
 	bowling_trap_guard_restore_speed = float(guard_state.get("restore_speed", 0.0))
 	bowling_trap_guard_source = str(guard_state.get("source", ""))
-
-
-func _soften_bowling_trap_guard_ball(ball_vel: Vector2, restore_speed: float) -> Vector2:
-	return CommandoFirearmBowlingTrapGeometry.soften_guard_ball(ball_vel, restore_speed)
-
-
-func _get_bowling_trap_guard_knockback_velocity(boss_center: Vector2, context: Dictionary) -> float:
-	return CommandoFirearmBowlingTrapGeometry.get_guard_knockback_velocity(
-		boss_center,
-		context,
-		FIELD_WIDTH,
-		BOWLING_TRAP_GUARD_KNOCKBACK_POWER
-	)
-
-
-func _get_bowling_trap_launch_direction(shot_id: int) -> int:
-	return CommandoFirearmBowlingTrapGeometry.get_launch_direction(shot_id)
-
-
-func _bowling_trap_hits_ball(trap: Dictionary, context: Dictionary) -> bool:
-	return CommandoFirearmBowlingTrapGeometry.hits_ball(
-		trap,
-		context,
-		BOWLING_TRAP_HEIGHT,
-		BOWLING_TRAP_CAPTURE_HEIGHT,
-		BOWLING_TRAP_WIDTH
-	)
 
 
 func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
