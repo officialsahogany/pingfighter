@@ -2727,10 +2727,14 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the persisted UI language setting for the Godot port. It normalizes the
   supported Korean / English locale codes, stores the selected language under
   `user://language_settings.cfg`, applies the engine locale, and provides the
-  current shared text table for the pause/settings overlay and main-menu quit
-  confirmation. `boot_flow_scene.gd` and `main_menu_scene.gd` apply the saved
-  language on startup, while `pause_menu_overlay.gd` owns the visible language
-  tab interaction.
+  current shared text table for pause/settings, main-menu quit confirmation,
+  display / render pacing labels, combat HUD labels, skill / perk overlays,
+  item cinematic feedback, weather status copy, boss skill cards, and
+  stage-clear result text. Skill configs and runtime renderers should call this
+  owner for exact Korean-to-English UI text and known composed-label patterns
+  instead of duplicating local translation dictionaries. `boot_flow_scene.gd`
+  and `main_menu_scene.gd` apply the saved language on startup, while
+  `pause_menu_overlay.gd` owns the visible language tab interaction.
 - `scripts/effects/battle_effects_update_controller.gd`
   Owns per-frame battle-effect fanout: battle feedback timers, audio tick,
   dash-recovery loop sync, Drive text timer decay, Power Smashing text /

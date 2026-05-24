@@ -6530,6 +6530,28 @@ Hundredth split on 2026-05-24:
   in `godot/scripts/hud/commando_firearm_tooltip_renderer.gd` around the
   tooltip label block; this slice did not edit that HUD file.
 
+206th follow-up on 2026-05-24:
+
+- Commit: `c5793150f godot: extend combat HUD English localization`.
+- Scope: extended the Godot language table and English routing across combat
+  UI surfaces: Commando / Smasher / Viper skill config copy, Commando weapon
+  and firearm tooltip labels, Viper floating / kick / timer HUD text, character
+  info and runtime-perk overlays, active / mythic / Horn Strawberry / Treasure
+  Hunt item feedback, weather status copy, Stage 1 / 2 / 5 boss skill HUD
+  labels, and stage-clear result text. This pass also resolved the dirty
+  `commando_firearm_tooltip_renderer.gd` label-block parse error that had
+  blocked the previous warning scan.
+- Validation: targeted combat-localization coverage passed `21` smoke scripts:
+  Commando / Viper / Smasher skill tooltip and timing coverage, boss skill HUD
+  specs, Stage 1 Dalji HUD layout, weather state / render-budget / fire-speed
+  rules, Stage 2 pillar / router coverage, Stage 5 Hongryun visual shell,
+  Horn Strawberry skill HUD, character-info overlay coverage, active-item cache,
+  mythic acquisition / Foul Whistle, Treasure Hunt, and stage-clear summary /
+  screen / click-reaction smokes. `git diff --check` reported only the existing
+  CRLF working-copy notice and no whitespace errors. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned `1325` scripts with no GDScript
+  warnings.
+
 207th follow-up on 2026-05-24:
 
 - Commit: `2199de354 godot: drop Commando projectile bounce bridges`.
@@ -6549,11 +6571,37 @@ Hundredth split on 2026-05-24:
   `commando_firearm_stage2_rock_interaction_resolver_smoke`, and
   `commando_firearm_projectile_impact_state_smoke`.
   `git diff --check` reported only the existing CRLF working-copy notice and
-  no whitespace errors. `run_headless_load_check.ps1` passed. Broader
-  `commando_firearm_runtime_vfx_smoke` and `stage2_explosion_rock_collision_smoke`
-  attempts are currently blocked by unrelated dirty localization edits that
-  emit `language_settings.gd` duplicate-key / translation API errors; this
-  slice did not edit those localization files.
+  no whitespace errors. `run_headless_load_check.ps1` passed. The broader
+  Commando smoke rerun exposed one stale value-utils smoke that still called the
+  removed `_is_wall_bouncing_pistol()` bridge; that test-only cleanup landed in
+  the next follow-up.
+
+208th follow-up on 2026-05-24:
+
+- Commit: `f16437ad2 godot: update Commando value utils bounce smoke`.
+- Scope: updated `commando_firearm_value_utils_smoke.gd` so the pistol
+  wall-bounce classifier coverage verifies
+  `CommandoFirearmValueUtils.is_pistol_weapon()` /
+  `get_projectile_weapon_id()` directly instead of calling the removed runtime
+  `_is_wall_bouncing_pistol()` bridge.
+- Validation: the full sorted `commando_firearm*_smoke.gd` set ran `46`
+  scripts and passed after the projectile bounce bridge cleanup.
+
+209th follow-up on 2026-05-24:
+
+- Commit: `0ec7a7c0e godot: expand English language table coverage`.
+- Scope: extended the shared English exact-text table and runtime translation
+  paths for display pacing labels, active-item HUD slot notices, character-info
+  stat rows and centered text, runtime-perk text, serve-wait boss labels, and
+  Stage 1 Commando pistol feedback. Added `language_settings_smoke.gd` to guard
+  stage boss skill text, composed gauge / inventory / cooldown labels, active /
+  mythic item catalog names, runtime perk copy, and character-select stats.
+- Validation: `language_settings_smoke`, `render_fps_cap_settings_smoke`, and
+  `pause_menu_overlay_smoke` passed. The targeted combat-localization group of
+  `21` smoke scripts passed again after the expanded table. `git diff --check`
+  reported only the existing CRLF / LF working-copy notices and no whitespace
+  errors. `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned
+  `1326` scripts with no GDScript warnings.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
