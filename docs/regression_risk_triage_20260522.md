@@ -8645,3 +8645,16 @@ commits rather than standalone `fix` commits:
   `project_resource_loader_import_preference_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1335` scripts with no GDScript
   warnings, and `git diff --check` reported no whitespace errors.
+
+311th follow-up on 2026-05-24:
+
+- Commit:
+  `c9d9e5ef0 godot: pin raw-first resource loader preference`.
+- Scope: added source-first comments to the texture / audio loader path and
+  pinned the import-preference smoke with an explicit stale imported-cache
+  rationale. This reinforces the existing raw-source-before-imported-fallback
+  behavior for regenerated assets.
+- Validation: focused resource-loader coverage passed:
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no GDScript
+  warnings, and `git diff --check` reported no whitespace errors.
