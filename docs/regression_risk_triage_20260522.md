@@ -8520,3 +8520,72 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+303rd follow-up on 2026-05-24:
+
+- Commit:
+  `fac49ebe7 godot: move Commando result field helpers`.
+- Scope: moved repeated Commando fire-result timing payload construction for
+  bazooka, net-gun, and bowling-trap shots into
+  `CommandoFirearmFireResultState` helpers, and moved hit-result frame /
+  source / slow-multiplier field application into
+  `CommandoFirearmHitResultState` helpers. Runtime result assembly now
+  delegates those dictionary mutation shapes while preserving the same weapon
+  timing and status payloads.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2504` lines /
+  `35` functions to `2462` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_hit_result_state_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
+
+304th follow-up on 2026-05-24:
+
+- Commit:
+  `e440b5917 godot: add Stage 1 topdown rim prewarm`.
+- Scope: replaced the previous fixed-ellipse Stage 1 player rimlight direction
+  with a shader-backed top-edge silhouette rim on the player sprite renderer,
+  added a soft Stage 1 floor vignette in place of default-on solid depth bands,
+  and added the topdown rim shader to the battle PSO prewarmer so the first
+  visible Stage 1 frame does not pay the shader setup cost.
+- Validation: focused Stage 1 / PSO coverage passed:
+  `stage1_actor_render_budget_smoke` and `battle_pso_prewarmer_smoke`. The
+  later full Godot headless load check passed, `run_warning_scan.ps1` scanned
+  `1334` scripts with no GDScript warnings, and `git diff --check` reported no
+  whitespace errors beyond CRLF normalization notices.
+
+305th follow-up on 2026-05-24:
+
+- Commit:
+  `d1fa95140 godot: prewarm character info draw caches`.
+- Scope: expanded character-info overlay prewarm beyond layout caches to cover
+  header text widths, equipment / skill / active-slot text caches, passive
+  inventory count text, visible item icon textures, and live-stat row/value
+  width caches. This keeps the first opened character-info panel closer to the
+  steady-state draw path instead of doing text and icon cache work on demand.
+- Validation: focused character-info coverage passed:
+  `character_info_overlay_prewarm_smoke`,
+  `character_info_live_stats_smoke`,
+  `character_info_equipment_anatomy_smoke`,
+  `character_info_input_redraw_gate_smoke`, and
+  `character_info_skill_cooldown_pause_smoke`. The later full Godot headless
+  load check passed, `run_warning_scan.ps1` scanned `1334` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors
+  beyond CRLF normalization notices.
+
+306th follow-up on 2026-05-24:
+
+- Commit:
+  `ae00a20b9 godot: clean up Stage 1 rim canvas items`.
+- Scope: added transient canvas-item cleanup for the Stage 1 player sprite
+  rim, clearing the `RenderingServer` item before hidden-return paths and
+  freeing the RID during renderer teardown. The Stage 1 actor renderer now
+  preloads the sprite renderer explicitly for the rim prewarm call.
+- Validation: focused Stage 1 coverage passed:
+  `stage1_actor_render_budget_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond CRLF normalization
+  notices.
