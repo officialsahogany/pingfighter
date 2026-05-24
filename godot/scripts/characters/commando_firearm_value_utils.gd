@@ -51,6 +51,57 @@ static func get_pistol_cooldown_frames(
 	return base_cooldown_frames
 
 
+static func get_pistol_control_lock_frames(
+	doping_context: Dictionary,
+	doping_active: bool,
+	base_control_lock_frames: float,
+	doping_control_lock_frames: float
+) -> float:
+	if not doping_active:
+		return base_control_lock_frames
+	return max(0.0, float(doping_context.get("pistol_control_lock_frames", doping_control_lock_frames)))
+
+
+static func get_doping_fire_rate_multiplier(
+	doping_context: Dictionary,
+	default_fire_rate_multiplier: float
+) -> float:
+	return max(0.01, float(doping_context.get("fire_rate_multiplier", default_fire_rate_multiplier)))
+
+
+static func get_ak47_fire_interval_frames(
+	doping_context: Dictionary,
+	doping_active: bool,
+	base_interval_frames: float,
+	doping_interval_frames: float
+) -> float:
+	if not doping_active:
+		return base_interval_frames
+	return max(1.0, float(doping_context.get("ak47_fire_interval_frames", doping_interval_frames)))
+
+
+static func get_bazooka_cooldown_frames(
+	doping_context: Dictionary,
+	doping_active: bool,
+	base_cooldown_frames: float,
+	doping_cooldown_frames: float
+) -> float:
+	if not doping_active:
+		return base_cooldown_frames
+	return max(1.0, float(doping_context.get("bazooka_cooldown_frames", doping_cooldown_frames)))
+
+
+static func get_bazooka_control_lock_frames(
+	doping_context: Dictionary,
+	doping_active: bool,
+	base_control_lock_frames: float,
+	doping_control_lock_frames: float
+) -> float:
+	if not doping_active:
+		return base_control_lock_frames
+	return max(0.0, float(doping_context.get("bazooka_control_lock_frames", doping_control_lock_frames)))
+
+
 static func normalize_doping_potion_context(context: Dictionary, defaults: Dictionary = {}) -> Dictionary:
 	var default_head_leg_multiplier: float = float(defaults.get("head_leg_multiplier", 2.0))
 	var default_fire_rate_multiplier: float = float(defaults.get("fire_rate_multiplier", 0.5))

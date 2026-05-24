@@ -1245,16 +1245,36 @@ func _update_pistol_input(
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
 			return _pistol_fire_failed(special_gauge, "pistol_ammo_unavailable", weapon_id)
 	last_fire_msec = now_msec
-	var doping_context: Dictionary = _get_doping_potion_context_from_deps(deps)
+	var doping_defaults: Dictionary = _get_doping_potion_defaults()
+	var doping_context: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps(
+		deps,
+		doping_defaults
+	)
 	var doping_active: bool = bool(doping_context.get("active", false))
-	pistol_cooldown_max_frames = _get_pistol_cooldown_frames(weapon_id, doping_context, doping_active)
-	pistol_control_lock_max_frames = float(doping_context.get("pistol_control_lock_frames", DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES)) if doping_active else PISTOL_CONTROL_LOCK_FRAMES
+	pistol_cooldown_max_frames = CommandoFirearmValueUtils.get_pistol_cooldown_frames(
+		weapon_id,
+		doping_context,
+		doping_active,
+		PISTOL_COOLDOWN_FRAMES,
+		BERETTA_COOLDOWN_FRAMES,
+		DOPING_POTION_PISTOL_COOLDOWN_FRAMES
+	)
+	pistol_control_lock_max_frames = CommandoFirearmValueUtils.get_pistol_control_lock_frames(
+		doping_context,
+		doping_active,
+		PISTOL_CONTROL_LOCK_FRAMES,
+		DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES
+	)
 	pistol_cooldown_frames = pistol_cooldown_max_frames
 	pistol_control_lock_frames = pistol_control_lock_max_frames
 	pistol_fire_delay_frames = PISTOL_FIRE_DELAY_FRAMES
 	pistol_pending_config = config.duplicate(true)
 	pistol_pending_weapon_id = weapon_id
-	_apply_doping_potion_to_pistol_config(pistol_pending_config, doping_context)
+	CommandoFirearmValueUtils.apply_doping_potion_to_pistol_config(
+		pistol_pending_config,
+		doping_context,
+		doping_defaults
+	)
 	_play_first_audio_method(deps, ["play_commando_pistol_ready"])
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
@@ -1305,37 +1325,6 @@ func _pistol_fire_failed(special_gauge: float, reason: String, weapon_id: String
 	})
 
 
-func _get_pistol_cooldown_frames(weapon_id: String, doping_context: Dictionary, doping_active: bool) -> float:
-	return CommandoFirearmValueUtils.get_pistol_cooldown_frames(
-		weapon_id,
-		doping_context,
-		doping_active,
-		PISTOL_COOLDOWN_FRAMES,
-		BERETTA_COOLDOWN_FRAMES,
-		DOPING_POTION_PISTOL_COOLDOWN_FRAMES
-	)
-
-
-func _get_doping_potion_context_from_deps(deps: Dictionary) -> Dictionary:
-	return CommandoFirearmValueUtils.get_doping_potion_context_from_deps(deps, _get_doping_potion_defaults())
-
-
-func _get_doping_potion_context_from_config(config: Dictionary) -> Dictionary:
-	return _normalize_doping_potion_context(config)
-
-
-func _apply_doping_potion_to_pistol_config(config: Dictionary, doping_context: Dictionary) -> void:
-	CommandoFirearmValueUtils.apply_doping_potion_to_pistol_config(
-		config,
-		doping_context,
-		_get_doping_potion_defaults()
-	)
-
-
-func _normalize_doping_potion_context(context: Dictionary) -> Dictionary:
-	return CommandoFirearmValueUtils.normalize_doping_potion_context(context, _get_doping_potion_defaults())
-
-
 func _get_doping_potion_defaults() -> Dictionary:
 	return {
 		"head_leg_multiplier": DOPING_POTION_HEAD_LEG_MULTIPLIER,
@@ -1379,7 +1368,10 @@ func _update_ak47_input(
 		ak47_fire_interval_frames = 0.0
 	else:
 		ak47_trigger_held = true
-	var doping_context: Dictionary = _get_doping_potion_context_from_deps(deps)
+	var doping_context: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps(
+		deps,
+		_get_doping_potion_defaults()
+	)
 	var doping_active: bool = bool(doping_context.get("active", false))
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
@@ -1406,7 +1398,12 @@ func _update_ak47_input(
 	ak47_recoil_accumulation = min(AK47_MAX_RECOIL, ak47_recoil_accumulation + AK47_RECOIL_PER_SHOT)
 	if ak47_burst_shots_remaining > 0:
 		ak47_burst_shots_remaining -= 1
-	ak47_fire_interval_max_frames = _get_ak47_fire_interval_frames(doping_context, doping_active)
+	ak47_fire_interval_max_frames = CommandoFirearmValueUtils.get_ak47_fire_interval_frames(
+		doping_context,
+		doping_active,
+		AK47_FIRE_INTERVAL_FRAMES,
+		DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES
+	)
 	ak47_fire_interval_frames = ak47_fire_interval_max_frames
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
@@ -1487,29 +1484,10 @@ func _get_firearm_skill_cooldown_seconds(
 		cooldown_seconds = float(skill_config.get_cooldown_seconds(weapon_id))
 	if not doping_active:
 		return cooldown_seconds
-	return cooldown_seconds * _get_doping_fire_rate_multiplier(doping_context)
-
-
-func _get_doping_fire_rate_multiplier(doping_context: Dictionary) -> float:
-	return max(0.01, float(doping_context.get("fire_rate_multiplier", DOPING_POTION_FIRE_RATE_MULTIPLIER)))
-
-
-func _get_ak47_fire_interval_frames(doping_context: Dictionary, doping_active: bool) -> float:
-	if not doping_active:
-		return AK47_FIRE_INTERVAL_FRAMES
-	return max(1.0, float(doping_context.get("ak47_fire_interval_frames", DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES)))
-
-
-func _get_bazooka_cooldown_frames(doping_context: Dictionary, doping_active: bool) -> float:
-	if not doping_active:
-		return BAZOOKA_COOLDOWN_FRAMES
-	return max(1.0, float(doping_context.get("bazooka_cooldown_frames", DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES)))
-
-
-func _get_bazooka_control_lock_frames(doping_context: Dictionary, doping_active: bool) -> float:
-	if not doping_active:
-		return BAZOOKA_CONTROL_LOCK_FRAMES
-	return max(0.0, float(doping_context.get("bazooka_control_lock_frames", DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES)))
+	return cooldown_seconds * CommandoFirearmValueUtils.get_doping_fire_rate_multiplier(
+		doping_context,
+		DOPING_POTION_FIRE_RATE_MULTIPLIER
+	)
 
 
 func _get_ak47_fire_profile() -> Dictionary:
@@ -1565,10 +1543,23 @@ func _update_bazooka_input(
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
 			return _bazooka_fire_failed(special_gauge, "bazooka_ammo_unavailable")
 	last_fire_msec = now_msec
-	var doping_context: Dictionary = _get_doping_potion_context_from_deps(deps)
+	var doping_context: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps(
+		deps,
+		_get_doping_potion_defaults()
+	)
 	var doping_active: bool = bool(doping_context.get("active", false))
-	bazooka_cooldown_max_frames = _get_bazooka_cooldown_frames(doping_context, doping_active)
-	bazooka_control_lock_max_frames = _get_bazooka_control_lock_frames(doping_context, doping_active)
+	bazooka_cooldown_max_frames = CommandoFirearmValueUtils.get_bazooka_cooldown_frames(
+		doping_context,
+		doping_active,
+		BAZOOKA_COOLDOWN_FRAMES,
+		DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES
+	)
+	bazooka_control_lock_max_frames = CommandoFirearmValueUtils.get_bazooka_control_lock_frames(
+		doping_context,
+		doping_active,
+		BAZOOKA_CONTROL_LOCK_FRAMES,
+		DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES
+	)
 	bazooka_cooldown_frames = bazooka_cooldown_max_frames
 	bazooka_control_lock_frames = bazooka_control_lock_max_frames
 	bazooka_fire_animation_frames = BAZOOKA_FIRE_ANIMATION_FRAMES
@@ -2097,7 +2088,10 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 			WEAPON_PROFILES,
 			WEAPON_PROFILE_OVERRIDES
 		)
-	var doping_context: Dictionary = _get_doping_potion_context_from_config(config)
+	var doping_context: Dictionary = CommandoFirearmValueUtils.normalize_doping_potion_context(
+		config,
+		_get_doping_potion_defaults()
+	)
 	if weapon_id == "commando_pistol" and bool(doping_context.get("active", false)):
 		profile["speed"] = float(profile.get("speed", PISTOL_BULLET_SPEED)) * float(doping_context.get("pistol_speed_multiplier", DOPING_POTION_PISTOL_SPEED_MULTIPLIER))
 		profile["color"] = Color(1.0, 0.47, 0.24)

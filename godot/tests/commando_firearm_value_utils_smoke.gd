@@ -97,6 +97,7 @@ func _init() -> void:
 	_verify_removed_support_aircraft_geometry_bridges()
 	_verify_removed_projectile_value_bridges()
 	_verify_removed_pistol_value_bridges()
+	_verify_removed_doping_value_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -302,26 +303,26 @@ func _verify_runtime_delegates_value_utils() -> void:
 	var registry_marker := RefCounted.new()
 	_expect(runtime._get_instance(FakeRegistry.new({"marker": registry_marker}), "marker") == registry_marker, "runtime registry wrapper should delegate to value utils")
 	_expect(runtime._get_instance(RefCounted.new(), "marker") == null, "runtime registry wrapper should reject objects without get_instance")
-	var runtime_doping: Dictionary = runtime._normalize_doping_potion_context({
+	var runtime_doping: Dictionary = CommandoFirearmValueUtils.normalize_doping_potion_context({
 		"active": true,
 		"head_leg_multiplier": 3.0,
 		"pistol_cooldown_frames": 18.0,
-	})
-	_expect(bool(runtime_doping.get("active", false)), "runtime doping wrapper should preserve active state")
-	_expect(is_equal_approx(float(runtime_doping.get("head_leg_multiplier", 0.0)), 3.0), "runtime doping wrapper should preserve explicit multiplier")
-	_expect(is_equal_approx(float(runtime_doping.get("pistol_cooldown_frames", 0.0)), 18.0), "runtime doping wrapper should preserve explicit cooldown")
-	var runtime_deps_doping: Dictionary = runtime._get_doping_potion_context_from_deps({
+	}, _doping_defaults())
+	_expect(bool(runtime_doping.get("active", false)), "doping normalization should preserve active state")
+	_expect(is_equal_approx(float(runtime_doping.get("head_leg_multiplier", 0.0)), 3.0), "doping normalization should preserve explicit multiplier")
+	_expect(is_equal_approx(float(runtime_doping.get("pistol_cooldown_frames", 0.0)), 18.0), "doping normalization should preserve explicit cooldown")
+	var runtime_deps_doping: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps({
 		"active_item_doping_potion_context": runtime_doping,
-	})
-	_expect(bool(runtime_deps_doping.get("active", false)), "runtime doping deps wrapper should delegate direct context reads")
-	var runtime_config_doping: Dictionary = runtime._get_doping_potion_context_from_config({
+	}, _doping_defaults())
+	_expect(bool(runtime_deps_doping.get("active", false)), "doping deps helper should read direct contexts")
+	var runtime_config_doping: Dictionary = CommandoFirearmValueUtils.normalize_doping_potion_context({
 		"active_item_doping_potion_active": true,
 		"active_item_doping_potion_pistol_speed_multiplier": 1.4,
-	})
-	_expect(is_equal_approx(float(runtime_config_doping.get("pistol_speed_multiplier", 0.0)), 1.4), "runtime doping config wrapper should delegate config reads")
+	}, _doping_defaults())
+	_expect(is_equal_approx(float(runtime_config_doping.get("pistol_speed_multiplier", 0.0)), 1.4), "doping config helper should read projected config values")
 	var runtime_applied_config: Dictionary = {}
-	runtime._apply_doping_potion_to_pistol_config(runtime_applied_config, runtime_deps_doping)
-	_expect(bool(runtime_applied_config.get("active_item_doping_potion_active", false)), "runtime doping config apply wrapper should delegate active flag")
+	CommandoFirearmValueUtils.apply_doping_potion_to_pistol_config(runtime_applied_config, runtime_deps_doping, _doping_defaults())
+	_expect(bool(runtime_applied_config.get("active_item_doping_potion_active", false)), "doping config apply helper should project the active flag")
 	runtime.pistol_pending_config = {
 		"player_pos": Vector2(1.0, 2.0),
 		"boss_pos": Vector2(3.0, 4.0),
@@ -341,9 +342,14 @@ func _verify_runtime_delegates_value_utils() -> void:
 	runtime.impact_flashes = [{"id": "impact", "timer_frames": 2.0}]
 	runtime._update_impact_flashes(2.0)
 	_expect(runtime.impact_flashes.is_empty(), "runtime impact flash timer wrapper should remove expired flashes")
-	_expect(is_equal_approx(runtime._get_pistol_cooldown_frames("pistol", {}, false), 60.0), "runtime base pistol cooldown wrapper should delegate")
-	_expect(runtime._get_pistol_cooldown_frames("commando_pistol", {}, false) < 60.0, "runtime commando pistol cooldown wrapper should keep faster Beretta timing")
-	_expect(is_equal_approx(runtime._get_pistol_cooldown_frames("commando_pistol", runtime_doping, true), 18.0), "runtime active doping cooldown wrapper should delegate")
+	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("pistol", {}, false, 60.0, 30.0, 30.0), 60.0), "base pistol cooldown helper should keep base timing")
+	_expect(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", {}, false, 60.0, 30.0, 30.0) < 60.0, "commando pistol cooldown helper should keep faster Beretta timing")
+	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", runtime_doping, true, 60.0, 30.0, 30.0), 18.0), "active doping cooldown helper should prefer explicit cooldown")
+	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_control_lock_frames(runtime_doping, true, 18.0, 9.0), 9.0), "active doping pistol control-lock helper should use normalized defaults")
+	_expect(is_equal_approx(CommandoFirearmValueUtils.get_doping_fire_rate_multiplier(runtime_doping, 0.5), 0.5), "doping fire-rate helper should use normalized defaults")
+	_expect(is_equal_approx(CommandoFirearmValueUtils.get_ak47_fire_interval_frames(runtime_doping, true, 6.0, 3.0), 3.0), "AK-47 interval helper should use doping timing")
+	_expect(is_equal_approx(CommandoFirearmValueUtils.get_bazooka_cooldown_frames(runtime_doping, true, 120.0, 60.0), 60.0), "bazooka cooldown helper should use doping timing")
+	_expect(is_equal_approx(CommandoFirearmValueUtils.get_bazooka_control_lock_frames(runtime_doping, true, 30.0, 15.0), 15.0), "bazooka control-lock helper should use doping timing")
 	_expect(CommandoFirearmHitGeometry.get_target_reached_expire_reason("fire_support", {"kind": "support"}) == "expired", "hit geometry target-reached expire helper should delegate")
 	_expect(CommandoFirearmHitGeometry.is_fire_support_weapon("fire_support"), "hit geometry fire-support classifier helper should delegate")
 	_expect(CommandoFirearmHitGeometry.is_net_gun_weapon("net_gun"), "hit geometry net-gun classifier helper should delegate")
@@ -1720,6 +1726,36 @@ func _verify_removed_support_aircraft_geometry_bridges() -> void:
 		"_support_aircraft_ball_path_hits",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep support-aircraft geometry bridge %s" % bridge_name)
+
+
+func _verify_removed_doping_value_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_get_pistol_cooldown_frames",
+		"_get_doping_potion_context_from_deps",
+		"_get_doping_potion_context_from_config",
+		"_apply_doping_potion_to_pistol_config",
+		"_normalize_doping_potion_context",
+		"_get_doping_fire_rate_multiplier",
+		"_get_ak47_fire_interval_frames",
+		"_get_bazooka_cooldown_frames",
+		"_get_bazooka_control_lock_frames",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep doping value bridge %s" % bridge_name)
+
+
+func _doping_defaults() -> Dictionary:
+	return {
+		"head_leg_multiplier": CommandoFirearmRuntime.DOPING_POTION_HEAD_LEG_MULTIPLIER,
+		"fire_rate_multiplier": CommandoFirearmRuntime.DOPING_POTION_FIRE_RATE_MULTIPLIER,
+		"pistol_cooldown_frames": CommandoFirearmRuntime.DOPING_POTION_PISTOL_COOLDOWN_FRAMES,
+		"pistol_control_lock_frames": CommandoFirearmRuntime.DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES,
+		"pistol_speed_multiplier": CommandoFirearmRuntime.DOPING_POTION_PISTOL_SPEED_MULTIPLIER,
+		"beretta_cooldown_frames": CommandoFirearmRuntime.DOPING_POTION_BERETTA_COOLDOWN_FRAMES,
+		"ak47_fire_interval_frames": CommandoFirearmRuntime.DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES,
+		"bazooka_cooldown_frames": CommandoFirearmRuntime.DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES,
+		"bazooka_control_lock_frames": CommandoFirearmRuntime.DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES,
+	}
 
 
 func _expect(condition: bool, message: String) -> void:
