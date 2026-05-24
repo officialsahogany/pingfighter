@@ -135,9 +135,14 @@ func _verify_runtime_delegates_pistol_hit_state() -> void:
 	_expect(int(result.get("damage_units", 0)) == 2, "runtime pistol hit wrapper should apply damage delta")
 	_expect(_get_array(runtime.pistol_feedbacks).size() == 1, "runtime pistol hit wrapper should keep feedback side effect")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var impact_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 	_expect(
-		runtime_source.find("CommandoFirearmHitResultState.apply_runtime_weapon_hit_result") >= 0,
-		"runtime should delegate weapon hit-result composition to the owner"
+		runtime_source.find("CommandoFirearmProjectileImpactState.register_runtime_projectile_hit") >= 0,
+		"runtime should delegate projectile-hit registration to the owner"
+	)
+	_expect(
+		impact_source.find("CommandoFirearmHitResultState.apply_runtime_weapon_hit_result") >= 0,
+		"projectile impact owner should delegate weapon hit-result composition to the owner"
 	)
 	_expect(
 		runtime_source.find("func _apply_weapon_hit_result(") < 0,

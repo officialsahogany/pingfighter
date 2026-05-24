@@ -1,11 +1,14 @@
 extends RefCounted
 
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
+const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmStage2RockInteractionResolver := preload("res://scripts/characters/commando_firearm_stage2_rock_interaction_resolver.gd")
+const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/commando_firearm_hit_feedback_dispatcher.gd")
@@ -88,6 +91,70 @@ static func append_runtime_boss_hit(
 	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(pos, velocity, intensity, weapon_id, deps, base_weapon_id)
 	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
 	return hit_event
+
+
+static func register_runtime_projectile_hit(
+	runtime_owner: Object,
+	projectile: Dictionary,
+	context: Dictionary,
+	deps: Dictionary,
+	options: Dictionary
+) -> Dictionary:
+	if runtime_owner == null:
+		return {}
+	var base_weapon_id: String = str(options.get("base_weapon_id", "pistol"))
+	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, base_weapon_id)
+	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
+		weapon_id,
+		CommandoFirearmValueUtils.get_dict(options.get("weapon_hit_feedback", {})),
+		CommandoFirearmValueUtils.get_dict(options.get("hit_feedback_profile_overrides", {}))
+	)
+	var combat_result: Dictionary = CommandoFirearmHitResultState.apply_runtime_weapon_hit_result(
+		runtime_owner,
+		weapon_id,
+		projectile,
+		context,
+		deps,
+		CommandoFirearmValueUtils.get_dict(options.get("weapon_hit_results", {})),
+		CommandoFirearmValueUtils.get_dict(options.get("hit_result_profile_overrides", {})),
+		base_weapon_id,
+		CommandoFirearmValueUtils.get_dict(options.get("slingshot_stun_multipliers", {})),
+		CommandoFirearmValueUtils.get_dict(options.get("slingshot_knockback_multipliers", {})),
+		float(options.get("doping_potion_head_leg_multiplier", 1.0)),
+		float(options.get("pistol_head_shot_chance", 0.0)),
+		float(options.get("pistol_leg_shot_chance", 0.0)),
+		CommandoFirearmValueUtils.get_dict(options.get("pistol_hit_tuning", {})),
+		Vector2(float(options.get("field_width", 760.0)), float(options.get("field_height", 750.0))),
+		float(options.get("pistol_hit_text_timer_frames", 60.0)),
+		str(options.get("pistol_head_shot_label", "헤드샷!")),
+		str(options.get("pistol_leg_shot_label", "레그샷!")),
+		int(options.get("pistol_feedback_limit", 4)),
+		int(options.get("ak47_boss_damage_hit_threshold", 5))
+	)
+	CommandoFirearmPendingResultState.queue_runtime_combat_result(runtime_owner, combat_result)
+	var lingering_result: Dictionary = {}
+	if weapon_id == "suicide_drone":
+		lingering_result = CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone(projectile, deps)
+		if lingering_result.is_empty():
+			lingering_result = _call_runtime_lingering_spawn(runtime_owner, weapon_id, projectile, context)
+	else:
+		lingering_result = _call_runtime_lingering_spawn(runtime_owner, weapon_id, projectile, context)
+	if not lingering_result.is_empty():
+		combat_result["lingering_effect"] = lingering_result
+	var hit_events: Array = CommandoFirearmValueUtils.get_array(runtime_owner.get("hit_events"))
+	append_runtime_boss_hit(
+		hit_events,
+		projectile,
+		weapon_id,
+		feedback_profile,
+		combat_result,
+		context,
+		deps,
+		base_weapon_id,
+		int(options.get("hit_event_limit", 20))
+	)
+	runtime_owner.set("hit_events", hit_events)
+	return combat_result
 
 
 static func build_environment_impact_result(weapon_id: String, reason: String, pos: Vector2) -> Dictionary:
@@ -183,6 +250,22 @@ static func dispatch_runtime_impact(
 				CommandoFirearmLingeringEffectState.build_net_dissolve_projectile(projectile),
 				context
 			)
+	return {}
+
+
+static func _call_runtime_lingering_spawn(
+	runtime_owner: Object,
+	weapon_id: String,
+	projectile: Dictionary,
+	context: Dictionary
+) -> Dictionary:
+	if runtime_owner != null and runtime_owner.has_method("_spawn_lingering_effect"):
+		return CommandoFirearmValueUtils.get_dict(runtime_owner.call(
+			"_spawn_lingering_effect",
+			weapon_id,
+			projectile,
+			context
+		))
 	return {}
 
 

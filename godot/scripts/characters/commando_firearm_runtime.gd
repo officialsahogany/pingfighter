@@ -10,8 +10,6 @@ const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/comm
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSpawnState := preload("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
-const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/commando_firearm_hit_feedback_dispatcher.gd")
-const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
@@ -1727,54 +1725,32 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 
 
 func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> void:
-	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
-		weapon_id,
-		WEAPON_HIT_FEEDBACK,
-		HIT_FEEDBACK_PROFILE_OVERRIDES
-	)
-	var combat_result: Dictionary = CommandoFirearmHitResultState.apply_runtime_weapon_hit_result(
+	CommandoFirearmProjectileImpactState.register_runtime_projectile_hit(
 		self,
-		weapon_id,
 		projectile,
 		context,
 		deps,
-		WEAPON_HIT_RESULTS,
-		HIT_RESULT_PROFILE_OVERRIDES,
-		BASE_WEAPON_ID,
-		SLINGSHOT_STUN_MULT,
-		SLINGSHOT_KNOCKBACK_MULT,
-		DOPING_POTION_HEAD_LEG_MULTIPLIER,
-		PISTOL_HEAD_SHOT_CHANCE,
-		PISTOL_LEG_SHOT_CHANCE,
-		PISTOL_HIT_TUNING,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		PISTOL_HIT_TEXT_TIMER_FRAMES,
-		"헤드샷!",
-		"레그샷!",
-		PISTOL_FEEDBACK_LIMIT,
-		AK47_BOSS_DAMAGE_HIT_THRESHOLD
-	)
-	CommandoFirearmPendingResultState.queue_runtime_combat_result(self, combat_result)
-	var lingering_result: Dictionary = {}
-	if weapon_id == "suicide_drone":
-		lingering_result = CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone(projectile, deps)
-		if lingering_result.is_empty():
-			lingering_result = _spawn_lingering_effect(weapon_id, projectile, context)
-	else:
-		lingering_result = _spawn_lingering_effect(weapon_id, projectile, context)
-	if not lingering_result.is_empty():
-		combat_result["lingering_effect"] = lingering_result
-	CommandoFirearmProjectileImpactState.append_runtime_boss_hit(
-		hit_events,
-		projectile,
-		weapon_id,
-		feedback_profile,
-		combat_result,
-		context,
-		deps,
-		BASE_WEAPON_ID,
-		HIT_EVENT_LIMIT
+		{
+			"weapon_hit_feedback": WEAPON_HIT_FEEDBACK,
+			"hit_feedback_profile_overrides": HIT_FEEDBACK_PROFILE_OVERRIDES,
+			"weapon_hit_results": WEAPON_HIT_RESULTS,
+			"hit_result_profile_overrides": HIT_RESULT_PROFILE_OVERRIDES,
+			"base_weapon_id": BASE_WEAPON_ID,
+			"slingshot_stun_multipliers": SLINGSHOT_STUN_MULT,
+			"slingshot_knockback_multipliers": SLINGSHOT_KNOCKBACK_MULT,
+			"doping_potion_head_leg_multiplier": DOPING_POTION_HEAD_LEG_MULTIPLIER,
+			"pistol_head_shot_chance": PISTOL_HEAD_SHOT_CHANCE,
+			"pistol_leg_shot_chance": PISTOL_LEG_SHOT_CHANCE,
+			"pistol_hit_tuning": PISTOL_HIT_TUNING,
+			"field_width": FIELD_WIDTH,
+			"field_height": FIELD_HEIGHT,
+			"pistol_hit_text_timer_frames": PISTOL_HIT_TEXT_TIMER_FRAMES,
+			"pistol_head_shot_label": "헤드샷!",
+			"pistol_leg_shot_label": "레그샷!",
+			"pistol_feedback_limit": PISTOL_FEEDBACK_LIMIT,
+			"ak47_boss_damage_hit_threshold": AK47_BOSS_DAMAGE_HIT_THRESHOLD,
+			"hit_event_limit": HIT_EVENT_LIMIT,
+		}
 	)
 
 
