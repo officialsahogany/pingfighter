@@ -1234,13 +1234,7 @@ func _update_bazooka_input(
 		SWITCH_FIRE_SUPPRESS_MSEC
 	):
 		return {}
-	var failure_fields := CommandoFirearmFireResultState.build_bazooka_timing_fields(
-		bazooka_cooldown_frames,
-		bazooka_control_lock_frames,
-		bazooka_fire_animation_frames,
-		bazooka_firing_pose_frames,
-		bazooka_muzzle_flash_frames
-	)
+	var failure_fields := CommandoFirearmFireResultState.build_runtime_bazooka_timing_fields(self)
 	if bazooka_control_lock_frames > 0.0:
 		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_control_lock", failure_fields)
 	if bazooka_cooldown_frames > 0.0:
@@ -1304,13 +1298,7 @@ func _update_bazooka_input(
 		max(0, ammo_current - 1),
 		BAZOOKA_AMMO_MAX,
 		special_gauge,
-		CommandoFirearmFireResultState.build_bazooka_timing_fields(
-			bazooka_cooldown_frames,
-			bazooka_control_lock_frames,
-			bazooka_fire_animation_frames,
-			bazooka_firing_pose_frames,
-			bazooka_muzzle_flash_frames
-		)
+		CommandoFirearmFireResultState.build_runtime_bazooka_timing_fields(self)
 	)
 
 
@@ -1337,12 +1325,7 @@ func _update_net_gun_input(
 		SWITCH_FIRE_SUPPRESS_MSEC
 	):
 		return {}
-	var failure_fields := CommandoFirearmFireResultState.build_net_gun_timing_fields(
-		net_gun_cooldown_frames,
-		net_gun_control_lock_frames,
-		net_gun_throw_pose_frames,
-		net_gun_harpoon_flash_frames
-	)
+	var failure_fields := CommandoFirearmFireResultState.build_runtime_net_gun_timing_fields(self)
 	if net_gun_control_lock_frames > 0.0:
 		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_control_lock", failure_fields)
 	if net_gun_cooldown_frames > 0.0:
@@ -1381,12 +1364,7 @@ func _update_net_gun_input(
 		max(0, ammo_current - 1),
 		NET_GUN_AMMO_MAX,
 		special_gauge,
-		CommandoFirearmFireResultState.build_net_gun_timing_fields(
-			net_gun_cooldown_frames,
-			net_gun_control_lock_frames,
-			net_gun_throw_pose_frames,
-			net_gun_harpoon_flash_frames
-		)
+		CommandoFirearmFireResultState.build_runtime_net_gun_timing_fields(self)
 	)
 
 
@@ -1418,11 +1396,7 @@ func _update_bowling_trap_input(
 		SWITCH_FIRE_SUPPRESS_MSEC
 	):
 		return {}
-	var failure_fields := CommandoFirearmFireResultState.build_bowling_trap_timing_fields(
-		bowling_trap_cooldown_frames,
-		bowling_trap_control_lock_frames,
-		bowling_trap_install_pose_frames
-	)
+	var failure_fields := CommandoFirearmFireResultState.build_runtime_bowling_trap_timing_fields(self)
 	if bowling_trap_control_lock_frames > 0.0:
 		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_control_lock", failure_fields)
 	if bowling_trap_cooldown_frames > 0.0:
@@ -1469,13 +1443,7 @@ func _update_bowling_trap_input(
 		max(0, ammo_current - 1),
 		BOWLING_TRAP_AMMO_MAX,
 		special_gauge,
-		CommandoFirearmFireResultState.build_bowling_trap_timing_fields(
-			bowling_trap_cooldown_frames,
-			bowling_trap_control_lock_frames,
-			bowling_trap_install_pose_frames,
-			true,
-			0.0
-		)
+		CommandoFirearmFireResultState.build_runtime_bowling_trap_timing_fields(self, true, 0.0)
 	)
 
 
@@ -2250,9 +2218,7 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 	if not ak47_hit_payload.is_empty():
 		ak47_boss_hit_count = int(ak47_hit_payload.get("next_hit_count", ak47_boss_hit_count))
 		result.merge(CommandoFirearmValueUtils.get_dict(ak47_hit_payload.get("result_fields", {})), true)
-	var stun_frames: float = float(profile.get("stun_frames", 0.0))
-	if result.has("stun_frames"):
-		stun_frames = float(result.get("stun_frames", stun_frames))
+	var stun_frames: float = CommandoFirearmHitResultState.get_stun_frames(profile, result)
 	if stun_frames > 0.0:
 		var knockback_profile: Dictionary = CommandoFirearmHitGeometry.get_result_hit_profile(profile, result)
 		var knockback_vel: float = CommandoFirearmHitGeometry.get_hit_knockback_velocity(
@@ -2261,13 +2227,8 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 			velocity,
 			CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
 		)
-		var stun_source: String = str(result.get("stun_source", source))
-		result["stun_frames"] = stun_frames
-		result["knockback_vel"] = knockback_vel
-		if knockback_profile.has("knockback_frames"):
-			result["knockback_frames"] = float(knockback_profile.get("knockback_frames", 0.0))
-		if knockback_profile.has("knockback_decay_per_frame"):
-			result["knockback_decay_per_frame"] = float(knockback_profile.get("knockback_decay_per_frame", 1.0))
+		var stun_source: String = CommandoFirearmHitResultState.get_stun_source(result, source)
+		CommandoFirearmHitResultState.apply_stun_result_fields(result, stun_frames, knockback_vel, knockback_profile)
 		if status_effect_state != null and status_effect_state.has_method("apply_status"):
 			status_effect_state.apply_status(
 				"boss",
@@ -2295,14 +2256,11 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 				true
 			)
 			result["knockback_applied"] = true
-	var slow_frames: float = float(profile.get("slow_frames", 0.0))
-	if result.has("slow_frames"):
-		slow_frames = float(result.get("slow_frames", slow_frames))
+	var slow_frames: float = CommandoFirearmHitResultState.get_slow_frames(profile, result)
 	if slow_frames > 0.0:
-		var slow_source: String = str(result.get("slow_source", "%s_slow" % source))
-		var slow_multiplier: float = clamp(float(result.get("slow_multiplier", profile.get("slow_multiplier", 1.0))), 0.0, 1.0)
-		result["slow_frames"] = slow_frames
-		result["slow_multiplier"] = slow_multiplier
+		var slow_source: String = CommandoFirearmHitResultState.get_slow_source(result, source)
+		var slow_multiplier: float = CommandoFirearmHitResultState.get_slow_multiplier(profile, result)
+		CommandoFirearmHitResultState.apply_slow_result_fields(result, slow_frames, slow_multiplier)
 		if status_effect_state != null and status_effect_state.has_method("apply_status"):
 			status_effect_state.apply_status(
 				"boss",

@@ -52,6 +52,13 @@ func _verify_direct_fire_result_state() -> void:
 	var bowling_fields: Dictionary = CommandoFirearmFireResultState.build_bowling_trap_timing_fields(10.0, 11.0, 12.0, true, 0.25)
 	_expect(is_equal_approx(float(bowling_fields.get("install_pose_frames", 0.0)), 12.0), "bowling timing fields should preserve install pose frames")
 	_expect(is_equal_approx(float(bowling_fields.get("install_progress", 0.0)), 0.25), "bowling timing fields should preserve optional install progress")
+	var runtime_fields_owner := CommandoFirearmRuntime.new()
+	runtime_fields_owner.bazooka_muzzle_flash_frames = 13.0
+	runtime_fields_owner.net_gun_harpoon_flash_frames = 14.0
+	runtime_fields_owner.bowling_trap_install_pose_frames = 15.0
+	_expect(is_equal_approx(float(CommandoFirearmFireResultState.build_runtime_bazooka_timing_fields(runtime_fields_owner).get("muzzle_flash_frames", 0.0)), 13.0), "runtime bazooka timing fields should read owner timers")
+	_expect(is_equal_approx(float(CommandoFirearmFireResultState.build_runtime_net_gun_timing_fields(runtime_fields_owner).get("harpoon_flash_frames", 0.0)), 14.0), "runtime net-gun timing fields should read owner timers")
+	_expect(is_equal_approx(float(CommandoFirearmFireResultState.build_runtime_bowling_trap_timing_fields(runtime_fields_owner).get("install_pose_frames", 0.0)), 15.0), "runtime bowling timing fields should read owner timers")
 
 	var pending: Dictionary = CommandoFirearmFireResultState.build_pistol_shot_pending_result("commando_pistol", 12.0, 4.0)
 	_expect(bool(pending.get("shot_pending", false)), "pending pistol result should expose shot-pending state")

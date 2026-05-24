@@ -49,6 +49,16 @@ static func build_bazooka_timing_fields(
 	}
 
 
+static func build_runtime_bazooka_timing_fields(owner: Object) -> Dictionary:
+	return build_bazooka_timing_fields(
+		float(owner.get("bazooka_cooldown_frames")),
+		float(owner.get("bazooka_control_lock_frames")),
+		float(owner.get("bazooka_fire_animation_frames")),
+		float(owner.get("bazooka_firing_pose_frames")),
+		float(owner.get("bazooka_muzzle_flash_frames"))
+	)
+
+
 static func build_net_gun_timing_fields(
 	cooldown_frames: float,
 	control_lock_frames: float,
@@ -61,6 +71,15 @@ static func build_net_gun_timing_fields(
 		"throw_pose_frames": throw_pose_frames,
 		"harpoon_flash_frames": harpoon_flash_frames,
 	}
+
+
+static func build_runtime_net_gun_timing_fields(owner: Object) -> Dictionary:
+	return build_net_gun_timing_fields(
+		float(owner.get("net_gun_cooldown_frames")),
+		float(owner.get("net_gun_control_lock_frames")),
+		float(owner.get("net_gun_throw_pose_frames")),
+		float(owner.get("net_gun_harpoon_flash_frames"))
+	)
 
 
 static func build_bowling_trap_timing_fields(
@@ -78,6 +97,20 @@ static func build_bowling_trap_timing_fields(
 	if include_install_progress:
 		fields["install_progress"] = install_progress
 	return fields
+
+
+static func build_runtime_bowling_trap_timing_fields(
+	owner: Object,
+	include_install_progress: bool = false,
+	install_progress: float = 0.0
+) -> Dictionary:
+	return build_bowling_trap_timing_fields(
+		float(owner.get("bowling_trap_cooldown_frames")),
+		float(owner.get("bowling_trap_control_lock_frames")),
+		float(owner.get("bowling_trap_install_pose_frames")),
+		include_install_progress,
+		install_progress
+	)
 
 
 static func build_pistol_shot_pending_result(

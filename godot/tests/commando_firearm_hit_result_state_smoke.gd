@@ -23,6 +23,13 @@ func _verify_direct_hit_result_state() -> void:
 	var base: Dictionary = CommandoFirearmHitResultState.build_base_result("commando_firearm_bazooka", 2)
 	_expect(str(base.get("source", "")) == "commando_firearm_bazooka", "base hit result should preserve source")
 	_expect(int(base.get("damage_units", 0)) == 2, "base hit result should preserve damage units")
+	_expect(is_equal_approx(CommandoFirearmHitResultState.get_stun_frames({"stun_frames": 42.0}, {}), 42.0), "stun frame helper should read profile frames")
+	_expect(is_equal_approx(CommandoFirearmHitResultState.get_stun_frames({"stun_frames": 42.0}, {"stun_frames": 18.0}), 18.0), "stun frame helper should prefer result overrides")
+	_expect(is_equal_approx(CommandoFirearmHitResultState.get_slow_frames({"slow_frames": 24.0}, {"slow_frames": 12.0}), 12.0), "slow frame helper should prefer result overrides")
+	_expect(CommandoFirearmHitResultState.get_stun_source({"stun_source": "headshot"}, "base") == "headshot", "stun source helper should read explicit sources")
+	_expect(CommandoFirearmHitResultState.get_slow_source({}, "base") == "base_slow", "slow source helper should build default slow sources")
+	_expect(is_equal_approx(CommandoFirearmHitResultState.get_slow_multiplier({"slow_multiplier": 0.75}, {}), 0.75), "slow multiplier helper should read profile multipliers")
+	_expect(is_equal_approx(CommandoFirearmHitResultState.get_slow_multiplier({}, {"slow_multiplier": 2.0}), 1.0), "slow multiplier helper should clamp high overrides")
 
 	var stun_data: Dictionary = CommandoFirearmHitResultState.build_stun_status_data(
 		22.0,
@@ -35,10 +42,23 @@ func _verify_direct_hit_result_state() -> void:
 	_expect(bool(stun_data.get("knockback_active", false)), "stun status data should mark active knockback")
 	_expect(is_equal_approx(float(stun_data.get("knockback_frames", 0.0)), 18.0), "stun status data should preserve knockback frames")
 	_expect(str(stun_data.get("source", "")) == "headshot", "stun status data should preserve source")
+	var stun_result := {}
+	CommandoFirearmHitResultState.apply_stun_result_fields(
+		stun_result,
+		24.0,
+		18.0,
+		{"knockback_frames": 12.0, "knockback_decay_per_frame": 0.8}
+	)
+	_expect(is_equal_approx(float(stun_result.get("stun_frames", 0.0)), 24.0), "stun field helper should write stun frames")
+	_expect(is_equal_approx(float(stun_result.get("knockback_decay_per_frame", 0.0)), 0.8), "stun field helper should preserve decay frames")
 
 	var slow_data: Dictionary = CommandoFirearmHitResultState.build_slow_status_data(0.45, "legshot")
 	_expect(is_equal_approx(float(slow_data.get("multiplier", 0.0)), 0.45), "slow status data should preserve multiplier")
 	_expect(str(slow_data.get("source", "")) == "legshot", "slow status data should preserve source")
+	var slow_result := {}
+	CommandoFirearmHitResultState.apply_slow_result_fields(slow_result, 36.0, 0.55)
+	_expect(is_equal_approx(float(slow_result.get("slow_frames", 0.0)), 36.0), "slow field helper should write slow frames")
+	_expect(is_equal_approx(float(slow_result.get("slow_multiplier", 0.0)), 0.55), "slow field helper should write slow multipliers")
 
 
 func _verify_runtime_still_applies_hit_result_status() -> void:
