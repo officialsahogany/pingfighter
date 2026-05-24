@@ -8110,23 +8110,6 @@ commits rather than standalone `fix` commits:
   `git diff --check` reported no whitespace errors beyond existing CRLF
   normalization notices.
 
-286th follow-up on 2026-05-24:
-
-- Commit:
-  `5717dd0ad godot: move Commando AK47 draw state`.
-- Scope: moved Commando AK-47 draw-state field reads into
-  `CommandoFirearmDrawStateResolver.build_runtime_ak47_state()`. The runtime
-  still supplies the movement-speed multiplier, but trigger, interval,
-  burst-count, and recoil accumulation reads now live with the draw-state
-  resolver.
-- Runtime facade size: `commando_firearm_runtime.gd` remains `2652` lines /
-  `35` functions after the AK-47 state extraction.
-- Validation: focused Commando coverage passed:
-  `commando_firearm_draw_state_resolver_smoke` and
-  `commando_firearm_runtime_vfx_smoke`. `git diff --check` on the touched
-  Commando files reported no whitespace errors beyond existing CRLF
-  normalization notices.
-
 281st follow-up on 2026-05-24:
 
 - Commits:
@@ -8164,43 +8147,6 @@ commits rather than standalone `fix` commits:
   slingshot field list inline.
 - Runtime facade size: `commando_firearm_runtime.gd` moved from `2668` lines /
   `35` functions to `2663` lines / `35` functions.
-- Validation: focused Commando coverage passed:
-  `commando_firearm_draw_state_resolver_smoke` and
-  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
-  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
-  `git diff --check` on the touched Commando files reported no whitespace
-  errors.
-
-287th follow-up on 2026-05-24:
-
-- Commits:
-  `acf480d91 godot: move Commando bazooka draw state` and
-  `0a3488906 godot: move Commando net gun draw state`.
-- Scope: moved Commando bazooka and net-gun draw-state field reads into
-  `CommandoFirearmDrawStateResolver.build_runtime_bazooka_state()` and
-  `CommandoFirearmDrawStateResolver.build_runtime_net_gun_state()`. The runtime
-  now supplies only the timing constants plus already-resolved movement speed,
-  while cooldown / control-lock / pose / muzzle-flash / harpoon-flash and
-  hooked-net visibility reads live with the draw-state resolver.
-- Runtime facade size: `commando_firearm_runtime.gd` moved from `2652` lines /
-  `35` functions to `2642` lines / `35` functions across the two passes.
-- Validation: focused Commando coverage passed:
-  `commando_firearm_draw_state_resolver_smoke` and
-  `commando_firearm_runtime_vfx_smoke`. `git diff --check` on the touched
-  Commando files reported no whitespace errors beyond existing CRLF
-  normalization notices.
-
-287th follow-up on 2026-05-24:
-
-- Commit:
-  `acf480d91 godot: move Commando bazooka draw state`.
-- Scope: moved Commando bazooka draw-state field reads into
-  `CommandoFirearmDrawStateResolver.build_runtime_bazooka_state()`. The
-  runtime still supplies the bazooka fire-animation, firing-pose, and
-  muzzle-flash timing constants, while cooldown / lock / animation timer reads
-  now live with the draw-state owner.
-- Runtime facade size: `commando_firearm_runtime.gd` moved from `2652` lines /
-  `35` functions to `2646` lines / `35` functions.
 - Validation: focused Commando coverage passed:
   `commando_firearm_draw_state_resolver_smoke` and
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
@@ -8287,3 +8233,41 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` on the touched Commando files reported no whitespace
   errors.
+
+287th follow-up on 2026-05-24:
+
+- Commits:
+  `acf480d91 godot: move Commando bazooka draw state` and
+  `0a3488906 godot: move Commando net gun draw state`.
+- Scope: moved Commando bazooka and net-gun draw-state field reads into
+  `CommandoFirearmDrawStateResolver.build_runtime_bazooka_state()` and
+  `CommandoFirearmDrawStateResolver.build_runtime_net_gun_state()`. The runtime
+  now supplies only the timing constants plus already-resolved movement speed,
+  while cooldown / control-lock / pose / muzzle-flash / harpoon-flash and
+  hooked-net visibility reads live with the draw-state resolver.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2652` lines /
+  `35` functions to `2642` lines / `35` functions across the two passes.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors beyond existing CRLF normalization notices.
+
+288th follow-up on 2026-05-24:
+
+- Commit:
+  `8be82e55a godot: move Commando bowling trap draw state`.
+- Scope: moved the remaining Commando bowling-trap runtime draw-state field
+  reads into `CommandoFirearmDrawStateResolver.build_runtime_bowling_trap_state()`.
+  The runtime now passes the owner plus timing constants, while the resolver
+  reads trap installation, cooldown, control-lock, and install-pose fields and
+  derives install progress through the bowling-trap geometry helper.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2642` lines /
+  `35` functions to `2639` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors beyond existing CRLF normalization notices.
