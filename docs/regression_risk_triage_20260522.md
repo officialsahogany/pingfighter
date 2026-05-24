@@ -5890,6 +5890,21 @@ Hundredth split on 2026-05-24:
   1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
   passed.
 
+170th follow-up on 2026-05-24:
+
+- Commit: `a76d068a2 godot: drop Commando hit geometry result bridges`.
+- Scope: removed the Commando hit-result geometry bridge cluster from
+  `commando_firearm_runtime.gd`: result-hit-profile lookup, knockback velocity,
+  and knockback direction helpers now stay owned by
+  `commando_firearm_hit_geometry.gd`. Runtime hit application calls the owner
+  directly while keeping status application, AI knockback side effects, damage
+  queueing, and weapon-specific result mutation in runtime.
+- Validation: `commando_firearm_value_utils_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_boss_damage_smoke` passed. `run_warning_scan.ps1` scanned
+  1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
+  passed.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

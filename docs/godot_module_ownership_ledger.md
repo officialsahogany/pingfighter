@@ -3871,12 +3871,12 @@ This section is intentionally long; use search to find the nearest owner.
   rect construction, explosion-radius fallback resolution, rect expansion,
   circle-vs-rect checks, segment-vs-rect checks, direct-hit / support-target-Y
   / wall-impact / target-reached / net-pass / terminal reason priority,
-  opponent-wall fire-support direct-hit suppression, and the small terminal
-  classification helpers those reason paths need.
-  `commando_firearm_runtime.gd` keeps its existing private wrapper names plus
-  selected-firearm input, ammo, cooldown, audio, VFX, projectile removal, and
-  result handoff paths while delegating deterministic impact classification to
-  this helper.
+  opponent-wall fire-support direct-hit suppression, hit-result knockback
+  profile / velocity / direction math, and the small terminal classification
+  helpers those reason paths need. `commando_firearm_runtime.gd` keeps
+  selected-firearm input, ammo, cooldown, audio, VFX, projectile removal,
+  status application, and result handoff paths while delegating deterministic
+  impact / knockback geometry to this helper.
 - `scripts/characters/commando_firearm_hit_result_state.gd`
   Owns pure Commando firearm hit-result dictionary scaffolding: base hit-result
   payloads plus stun / slow status-data dictionaries. `commando_firearm_runtime.gd`
