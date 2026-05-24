@@ -1,5 +1,9 @@
 extends RefCounted
 
+const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
+const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/commando_firearm_hit_feedback_dispatcher.gd")
+const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
+const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
@@ -449,6 +453,128 @@ static func advance_runtime_traps(
 		"result": result,
 		"events": events,
 	}
+
+
+static func dispatch_runtime_update_events(
+	events: Array,
+	impact_flashes: Array,
+	runtime_owner: Object,
+	context: Dictionary,
+	deps: Dictionary,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	weapon_hit_feedback: Dictionary,
+	hit_feedback_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	grenade_explosion_duration_frames: float,
+	flash_limit: int
+) -> void:
+	for event_value in events:
+		var event: Dictionary = CommandoFirearmValueUtils.get_dict(event_value)
+		match str(event.get("type", "")):
+			"capture":
+				_dispatch_capture_event(
+					event,
+					deps,
+					weapon_hit_feedback,
+					hit_feedback_profile_overrides,
+					base_weapon_id
+				)
+			"release":
+				_dispatch_release_event(
+					event,
+					impact_flashes,
+					runtime_owner,
+					context,
+					deps,
+					weapon_profiles,
+					weapon_profile_overrides,
+					weapon_hit_feedback,
+					hit_feedback_profile_overrides,
+					base_weapon_id,
+					grenade_explosion_duration_frames,
+					flash_limit
+				)
+
+
+static func _dispatch_capture_event(
+	event: Dictionary,
+	deps: Dictionary,
+	weapon_hit_feedback: Dictionary,
+	hit_feedback_profile_overrides: Dictionary,
+	base_weapon_id: String
+) -> void:
+	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
+		CommandoFirearmProfileResolver.get_hit_feedback_profile(
+			"bowling_trap",
+			weapon_hit_feedback,
+			hit_feedback_profile_overrides
+		),
+		deps
+	)
+	var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(event.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
+	var ball_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(event.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(
+		captured_pos,
+		ball_vel,
+		0.62,
+		"bowling_trap_capture",
+		deps,
+		base_weapon_id
+	)
+	CommandoFirearmAudioDispatcher.play_impact_audio("bowling_trap", deps)
+
+
+static func _dispatch_release_event(
+	event: Dictionary,
+	impact_flashes: Array,
+	runtime_owner: Object,
+	context: Dictionary,
+	deps: Dictionary,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	weapon_hit_feedback: Dictionary,
+	hit_feedback_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	grenade_explosion_duration_frames: float,
+	flash_limit: int
+) -> void:
+	var release_payload: Dictionary = CommandoFirearmValueUtils.get_dict(event.get("release_payload", {}))
+	var pseudo_projectile: Dictionary = CommandoFirearmValueUtils.get_dict(release_payload.get("pseudo_projectile", {}))
+	CommandoFirearmImpactFlashResolver.append_flash(
+		impact_flashes,
+		pseudo_projectile,
+		weapon_profiles,
+		weapon_profile_overrides,
+		base_weapon_id,
+		grenade_explosion_duration_frames,
+		flash_limit
+	)
+	if runtime_owner != null and runtime_owner.has_method("_spawn_lingering_effect"):
+		runtime_owner.call("_spawn_lingering_effect", "bowling_trap", pseudo_projectile, context)
+	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
+		CommandoFirearmProfileResolver.get_hit_feedback_profile(
+			"bowling_trap",
+			weapon_hit_feedback,
+			hit_feedback_profile_overrides
+		),
+		deps
+	)
+	var motion: Dictionary = CommandoFirearmValueUtils.get_dict(release_payload.get("motion", {}))
+	var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(motion.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
+	var launch_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(motion.get("launch_vel", Vector2.ZERO), Vector2.ZERO)
+	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(
+		captured_pos,
+		launch_vel,
+		0.86,
+		"bowling_trap_launch",
+		deps,
+		base_weapon_id
+	)
+	apply_guard_state(
+		runtime_owner,
+		CommandoFirearmValueUtils.get_dict(release_payload.get("guard_state", {}))
+	)
 
 
 static func build_guard_state(trap: Dictionary, original_speed: float, guard_speed_reduction: float) -> Dictionary:

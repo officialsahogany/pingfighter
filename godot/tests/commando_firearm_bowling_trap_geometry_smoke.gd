@@ -33,6 +33,56 @@ class FakeShotCounter:
 	var shot_serial := 0
 
 
+class FakeRuntimeOwner:
+	extends RefCounted
+
+	var bowling_trap_guard_armed := false
+	var bowling_trap_guard_original_speed := 0.0
+	var bowling_trap_guard_restore_speed := 0.0
+	var bowling_trap_guard_source := ""
+	var lingering_calls: Array = []
+
+	func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context: Dictionary) -> Dictionary:
+		lingering_calls.append({
+			"weapon_id": weapon_id,
+			"projectile": projectile,
+			"context": context,
+		})
+		return {"source": "fake_lingering"}
+
+
+class FakeFeedback:
+	extends RefCounted
+
+	var calls: Array = []
+
+	func max_screen_shake(amount: float, intensity: float) -> void:
+		calls.append({"amount": amount, "intensity": intensity})
+
+
+class FakeBallEffects:
+	extends RefCounted
+
+	var pulses: Array = []
+
+	func register_hit_pulse(pos: Vector2, velocity: Vector2, intensity: float, kind: String) -> void:
+		pulses.append({
+			"pos": pos,
+			"velocity": velocity,
+			"intensity": intensity,
+			"kind": kind,
+		})
+
+
+class FakeAudio:
+	extends RefCounted
+
+	var snap_calls := 0
+
+	func play_commando_bowling_trap_snap() -> void:
+		snap_calls += 1
+
+
 func _init() -> void:
 	_verify_direct_bowling_trap_geometry()
 	_verify_direct_bowling_trap_guard_state()
@@ -217,6 +267,45 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	)
 	_expect(str(_get_dict(release_payload.get("release_result", {})).get("commando_bowling_trap_guard_source", "")) == "commando_bowling_trap_guard_9", "release payload should build the guard source")
 	_expect(str(_get_dict(release_payload.get("pseudo_projectile", {})).get("weapon_id", "")) == "bowling_trap", "release payload should build the pseudo projectile")
+	var dispatch_owner := FakeRuntimeOwner.new()
+	var dispatch_feedback := FakeFeedback.new()
+	var dispatch_ball_effects := FakeBallEffects.new()
+	var dispatch_audio := FakeAudio.new()
+	var dispatch_flashes: Array = []
+	CommandoFirearmBowlingTrapGeometry.dispatch_runtime_update_events(
+		[
+			{
+				"type": "capture",
+				"captured_pos": Vector2(120.0, 220.0),
+				"ball_vel": Vector2(0.0, 6.0),
+			},
+			{
+				"type": "release",
+				"release_payload": release_payload,
+			},
+		],
+		dispatch_flashes,
+		dispatch_owner,
+		{"ball_pos": Vector2(120.0, 220.0)},
+		{
+			"feedback": dispatch_feedback,
+			"ball_effects": dispatch_ball_effects,
+			"audio": dispatch_audio,
+		},
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		24.0,
+		8
+	)
+	_expect(dispatch_feedback.calls.size() == 2, "runtime event dispatcher should trigger capture and release feedback")
+	_expect(dispatch_ball_effects.pulses.size() == 2, "runtime event dispatcher should register capture and release ball pulses")
+	_expect(dispatch_audio.snap_calls == 1, "runtime event dispatcher should play the capture snap cue once")
+	_expect(dispatch_flashes.size() == 1, "runtime event dispatcher should append one release impact flash")
+	_expect(dispatch_owner.lingering_calls.size() == 1, "runtime event dispatcher should spawn release lingering effect")
+	_expect(dispatch_owner.bowling_trap_guard_armed, "runtime event dispatcher should apply release guard state")
 	var runtime_capture_traps: Array = [{
 		"id": 12,
 		"state": "waiting",
@@ -417,6 +506,10 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"runtime should delegate bowling-trap lifecycle advancement to the geometry owner"
 	)
 	_expect(
+		runtime_source.find("CommandoFirearmBowlingTrapGeometry.dispatch_runtime_update_events") >= 0,
+		"runtime should delegate bowling-trap lifecycle event dispatch to the geometry owner"
+	)
+	_expect(
 		runtime_source.find("CommandoFirearmBowlingTrapGeometry.append_runtime_install_effects") >= 0,
 		"runtime should delegate bowling-trap runtime install append to the geometry owner"
 	)
@@ -448,6 +541,10 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"_release_bowling_trap_ball",
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep bowling-trap geometry bridge %s" % bridge_name)
+	_expect(
+		runtime_source.find("bowling_trap_launch") == -1,
+		"runtime should not keep bowling-trap launch event pulse dispatch inline"
+	)
 
 
 func _get_dict(value: Variant) -> Dictionary:

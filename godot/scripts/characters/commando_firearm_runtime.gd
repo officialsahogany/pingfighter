@@ -1683,52 +1683,22 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 		BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
 		BOWLING_TRAP_GUARD_STUN_FRAMES
 	)
-	for event_value in CommandoFirearmValueUtils.get_array(trap_update.get("events", [])):
-		var event: Dictionary = CommandoFirearmValueUtils.get_dict(event_value)
-		match str(event.get("type", "")):
-			"capture":
-				CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
-					CommandoFirearmProfileResolver.get_hit_feedback_profile(
-						"bowling_trap",
-						WEAPON_HIT_FEEDBACK,
-						HIT_FEEDBACK_PROFILE_OVERRIDES
-					),
-					deps
-				)
-				var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(event.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
-				var ball_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(event.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
-				CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(captured_pos, ball_vel, 0.62, "bowling_trap_capture", deps, BASE_WEAPON_ID)
-				CommandoFirearmAudioDispatcher.play_impact_audio("bowling_trap", deps)
-			"release":
-				var release_payload: Dictionary = CommandoFirearmValueUtils.get_dict(event.get("release_payload", {}))
-				var pseudo_projectile: Dictionary = CommandoFirearmValueUtils.get_dict(release_payload.get("pseudo_projectile", {}))
-				CommandoFirearmImpactFlashResolver.append_flash(
-					impact_flashes,
-					pseudo_projectile,
-					WEAPON_PROFILES,
-					WEAPON_PROFILE_OVERRIDES,
-					BASE_WEAPON_ID,
-					float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
-					FLASH_LIMIT
-				)
-				_spawn_lingering_effect("bowling_trap", pseudo_projectile, context)
-				CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
-					CommandoFirearmProfileResolver.get_hit_feedback_profile(
-						"bowling_trap",
-						WEAPON_HIT_FEEDBACK,
-						HIT_FEEDBACK_PROFILE_OVERRIDES
-					),
-					deps
-				)
-				var motion: Dictionary = CommandoFirearmValueUtils.get_dict(release_payload.get("motion", {}))
-				var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(motion.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
-				var launch_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(motion.get("launch_vel", Vector2.ZERO), Vector2.ZERO)
-				CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(captured_pos, launch_vel, 0.86, "bowling_trap_launch", deps, BASE_WEAPON_ID)
-				CommandoFirearmBowlingTrapGeometry.apply_guard_state(
-					self,
-					CommandoFirearmValueUtils.get_dict(release_payload.get("guard_state", {}))
-				)
+	CommandoFirearmBowlingTrapGeometry.dispatch_runtime_update_events(
+		CommandoFirearmValueUtils.get_array(trap_update.get("events", [])),
+		impact_flashes,
+		self,
+		context,
+		deps,
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES,
+		WEAPON_HIT_FEEDBACK,
+		HIT_FEEDBACK_PROFILE_OVERRIDES,
+		BASE_WEAPON_ID,
+		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+		FLASH_LIMIT
+	)
 	return CommandoFirearmValueUtils.get_dict(trap_update.get("result", {}))
+
 
 func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var step: float = max(0.0, fps_scale)
