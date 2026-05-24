@@ -52,7 +52,7 @@ static func append_projectile(
 
 static func append_from_call(
 	projectiles: Array,
-	call: Dictionary,
+	call_data: Dictionary,
 	target_fallback: Vector2,
 	profile: Dictionary,
 	weapon_id: String,
@@ -72,9 +72,9 @@ static func append_from_call(
 	x_random_range: float,
 	projectile_limit: int
 ) -> void:
-	var call_id: int = int(call.get("id", 0))
+	var call_id: int = int(call_data.get("id", 0))
 	var target: Vector2 = CommandoFirearmValueUtils.get_vector2(
-		call.get("target", target_fallback),
+		call_data.get("target", target_fallback),
 		target_fallback
 	)
 	var bomb_target: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(
@@ -87,7 +87,7 @@ static func append_from_call(
 	)
 	bomb_target.y = opponent_wall_y
 	var aircraft_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(
-		call.get("aircraft_pos", aircraft_fallback_pos),
+		call_data.get("aircraft_pos", aircraft_fallback_pos),
 		aircraft_fallback_pos
 	)
 	append_projectile(
