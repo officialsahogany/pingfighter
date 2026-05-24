@@ -5,6 +5,7 @@ const CommandoFirearmAk47HitState := preload("res://scripts/characters/commando_
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmControlState := preload("res://scripts/characters/commando_firearm_control_state.gd")
+const CommandoFirearmCooldownState := preload("res://scripts/characters/commando_firearm_cooldown_state.gd")
 const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/commando_firearm_draw_state_resolver.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
@@ -629,10 +630,8 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 				"special_gauge": special_gauge,
 			}
 	last_fire_msec = now_msec
-	var skill_state: Object = deps.get("skill_state", null)
-	var skill_config: Object = deps.get("skill_config", null)
-	if weapon_id != "pistol" and skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
-		skill_state.trigger_configured_cooldown(weapon_id, now_msec, skill_config)
+	if weapon_id != "pistol":
+		CommandoFirearmCooldownState.trigger_configured_cooldown(weapon_id, now_msec, deps)
 	_spawn_firearm_effect(weapon_id, config, deps)
 	CommandoFirearmAudioDispatcher.play_fire_audio(weapon_id, deps)
 	return {
@@ -1424,7 +1423,14 @@ func _update_ak47_input(
 	last_fire_msec = now_msec
 	_spawn_firearm_effect("ak47", config, deps, _get_ak47_fire_profile())
 	CommandoFirearmAudioDispatcher.play_fire_audio("ak47", deps)
-	_trigger_firearm_skill_cooldown("ak47", now_msec, deps, doping_context, doping_active)
+	CommandoFirearmCooldownState.trigger_skill_cooldown(
+		"ak47",
+		now_msec,
+		deps,
+		doping_context,
+		doping_active,
+		DOPING_POTION_FIRE_RATE_MULTIPLIER
+	)
 	ak47_recoil_accumulation = min(AK47_MAX_RECOIL, ak47_recoil_accumulation + AK47_RECOIL_PER_SHOT)
 	if ak47_burst_shots_remaining > 0:
 		ak47_burst_shots_remaining -= 1
@@ -1457,43 +1463,6 @@ func _update_ak47_input(
 		ak47_recoil_accumulation,
 		movement_multiplier,
 		special_gauge
-	)
-
-
-func _trigger_firearm_skill_cooldown(
-	weapon_id: String,
-	now_msec: int,
-	deps: Dictionary,
-	doping_context: Dictionary,
-	doping_active: bool
-) -> void:
-	var skill_state: Object = deps.get("skill_state", null)
-	if skill_state == null:
-		return
-	var cooldown_seconds: float = _get_firearm_skill_cooldown_seconds(weapon_id, deps, doping_context, doping_active)
-	if skill_state.has_method("trigger_cooldown"):
-		skill_state.trigger_cooldown(weapon_id, now_msec, cooldown_seconds)
-		return
-	var skill_config: Object = deps.get("skill_config", null)
-	if skill_state.has_method("trigger_configured_cooldown"):
-		skill_state.trigger_configured_cooldown(weapon_id, now_msec, skill_config)
-
-
-func _get_firearm_skill_cooldown_seconds(
-	weapon_id: String,
-	deps: Dictionary,
-	doping_context: Dictionary,
-	doping_active: bool
-) -> float:
-	var skill_config: Object = deps.get("skill_config", null)
-	var cooldown_seconds := 0.0
-	if skill_config != null and skill_config.has_method("get_cooldown_seconds"):
-		cooldown_seconds = float(skill_config.get_cooldown_seconds(weapon_id))
-	if not doping_active:
-		return cooldown_seconds
-	return cooldown_seconds * CommandoFirearmValueUtils.get_doping_fire_rate_multiplier(
-		doping_context,
-		DOPING_POTION_FIRE_RATE_MULTIPLIER
 	)
 
 
@@ -1579,7 +1548,14 @@ func _update_bazooka_input(
 	bazooka_fire_animation_frames = BAZOOKA_FIRE_ANIMATION_FRAMES
 	bazooka_firing_pose_frames = BAZOOKA_FIRING_POSE_FRAMES
 	bazooka_muzzle_flash_frames = BAZOOKA_MUZZLE_FLASH_FRAMES
-	_trigger_firearm_skill_cooldown("bazooka", now_msec, deps, doping_context, doping_active)
+	CommandoFirearmCooldownState.trigger_skill_cooldown(
+		"bazooka",
+		now_msec,
+		deps,
+		doping_context,
+		doping_active,
+		DOPING_POTION_FIRE_RATE_MULTIPLIER
+	)
 	_spawn_firearm_effect(
 		"bazooka",
 		config,
@@ -1656,10 +1632,7 @@ func _update_net_gun_input(
 	net_gun_control_lock_frames = NET_GUN_CONTROL_LOCK_FRAMES
 	net_gun_throw_pose_frames = NET_GUN_THROW_POSE_FRAMES
 	net_gun_harpoon_flash_frames = NET_GUN_HARPOON_FLASH_FRAMES
-	var skill_state: Object = deps.get("skill_state", null)
-	var skill_config: Object = deps.get("skill_config", null)
-	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
-		skill_state.trigger_configured_cooldown("net_gun", now_msec, skill_config)
+	CommandoFirearmCooldownState.trigger_configured_cooldown("net_gun", now_msec, deps)
 	_spawn_firearm_effect(
 		"net_gun",
 		config,
@@ -1762,10 +1735,7 @@ func _update_bowling_trap_input(
 	bowling_trap_cooldown_frames = BOWLING_TRAP_COOLDOWN_FRAMES
 	bowling_trap_control_lock_frames = BOWLING_TRAP_CONTROL_LOCK_FRAMES
 	bowling_trap_install_pose_frames = BOWLING_TRAP_INSTALL_FRAMES
-	var skill_state: Object = deps.get("skill_state", null)
-	var skill_config: Object = deps.get("skill_config", null)
-	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
-		skill_state.trigger_configured_cooldown("bowling_trap", now_msec, skill_config)
+	CommandoFirearmCooldownState.trigger_configured_cooldown("bowling_trap", now_msec, deps)
 	_spawn_firearm_effect(
 		"bowling_trap",
 		config,
@@ -1834,10 +1804,7 @@ func _update_suicide_drone_input(
 	_start_weapon_fire_sheet_animation("suicide_drone")
 	_spawn_suicide_drone(config)
 	CommandoFirearmAudioDispatcher.play_fire_audio("suicide_drone", deps)
-	var skill_state: Object = deps.get("skill_state", null)
-	var skill_config: Object = deps.get("skill_config", null)
-	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
-		skill_state.trigger_configured_cooldown("suicide_drone", now_msec, skill_config)
+	CommandoFirearmCooldownState.trigger_configured_cooldown("suicide_drone", now_msec, deps)
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()

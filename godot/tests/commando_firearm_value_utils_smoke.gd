@@ -104,6 +104,7 @@ func _init() -> void:
 	_verify_removed_append_limited_bridge()
 	_verify_removed_registry_value_bridge()
 	_verify_removed_type_value_bridges()
+	_verify_removed_skill_cooldown_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -1827,6 +1828,15 @@ func _verify_removed_type_value_bridges() -> void:
 		"_get_array",
 	]:
 		_expect(source.find("func %s(" % bridge_name) < 0, "runtime should not keep type value bridge %s" % bridge_name)
+
+
+func _verify_removed_skill_cooldown_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_trigger_firearm_skill_cooldown",
+		"_get_firearm_skill_cooldown_seconds",
+	]:
+		_expect(source.find("func %s(" % bridge_name) < 0, "runtime should not keep skill cooldown bridge %s" % bridge_name)
 
 
 func _doping_defaults() -> Dictionary:
