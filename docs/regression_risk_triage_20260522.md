@@ -7075,6 +7075,22 @@ Hundredth split on 2026-05-24:
   `commando_firearm_tooltip_smoke`, `viper_dual_glitch_port_smoke`,
   `viper_nerve_strike_port_smoke`, and `horn_strawberry_skill_hud_smoke`.
 
+234th follow-up on 2026-05-24:
+
+- Commit: `44da9a9c9 godot: drop Commando trap guard state bridge`.
+- Scope: removed `_apply_bowling_trap_guard_state()` from
+  `commando_firearm_runtime.gd`. The Bowling Trap guard arm / clear paths now
+  apply the delegated `CommandoFirearmBowlingTrapGeometry` guard-state payload
+  directly at the live mutation points instead of routing through an extra
+  private state-assignment bridge.
+- Runtime facade size: `commando_firearm_runtime.gd` stayed at `3240` lines
+  while moving from `82` functions to `81` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The Bowling Trap geometry smoke now
+  rejects the removed guard-state bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
