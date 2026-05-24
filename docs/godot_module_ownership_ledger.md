@@ -3951,8 +3951,11 @@ This section is intentionally long; use search to find the nearest owner.
   AK-47, bazooka, net gun, bowling trap, suicide drone payloads, and the
   actor draw-context payload shape, plus the pure visible-effect gate over
   effect arrays and draw timers. The runtime keeps timer ownership, weapon-fire
-  sheet / projectile / trap lifecycle, actor-context publication, and private
-  wrapper names while delegating the stable draw payload shape to this helper.
+  sheet / projectile / trap lifecycle, and actor-context publication while
+  composing these resolver payloads directly in `get_actor_draw_context()`.
+  Do not reintroduce private runtime `_get_*_draw_state()` bridges for these
+  renderer-facing dictionaries; tests should verify the public actor draw
+  context or this resolver directly.
 - `scripts/characters/commando_firearm_impact_flash_resolver.gd`
   Owns pure Commando impact-flash dictionary construction: bullet / non-
   bullet timers, fire-support grenade visual kind and duration, explosion

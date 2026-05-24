@@ -6126,6 +6126,21 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+186th follow-up on 2026-05-24:
+
+- Commit: `539d96782 godot: drop Commando draw state bridges`.
+- Scope: removed the runtime private `_get_*_draw_state()` bridge methods for
+  slingshot, pistol, shared weapon-fire sheet, AK-47, bazooka, net gun,
+  bowling trap, and suicide drone draw payloads. `get_actor_draw_context()`
+  now composes `commando_firearm_draw_state_resolver.gd` payloads directly,
+  and the related smokes verify the public actor draw context instead of the
+  removed private methods.
+- Validation: `commando_firearm_draw_state_resolver_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`, and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
