@@ -90,8 +90,16 @@ func draw_pillar_orb_glass(canvas: CanvasItem, center: Vector2, radius: float, r
 	chrome_drawer.draw_pillar_orb_glass(canvas, center, radius, rim_color)
 
 
+func draw_pillar_orb_glass_lod(canvas: CanvasItem, center: Vector2, radius: float, rim_color: Color) -> void:
+	chrome_drawer.draw_pillar_orb_glass_lod(canvas, center, radius, rim_color)
+
+
 func draw_pillar_text_centered(canvas: CanvasItem, center: Vector2, text: String, font_size: int, color: Color) -> void:
 	chrome_drawer.draw_pillar_text_centered(canvas, center, text, font_size, color)
+
+
+func draw_pillar_text_centered_lod(canvas: CanvasItem, center: Vector2, text: String, font_size: int, color: Color) -> void:
+	chrome_drawer.draw_pillar_text_centered_lod(canvas, center, text, font_size, color)
 
 
 func draw_pillar_liquid_fill(

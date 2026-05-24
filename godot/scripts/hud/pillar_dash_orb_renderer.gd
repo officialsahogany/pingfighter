@@ -98,7 +98,11 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		var spin_angle: float = 0.0 if static_hud_lod else float(context.get("frame_spin_angle", 0.0))
 		pillar_drawer.draw_rotating_orb_frame_texture(canvas, texture, center, radius, spin_angle)
 
-	pillar_drawer.draw_pillar_orb_glass(canvas, center, radius, _get_color(context, "glass_rim_color", Color(1.0, 0.56, 0.50, 1.0)))
+	var glass_rim_color: Color = _get_color(context, "glass_rim_color", Color(1.0, 0.56, 0.50, 1.0))
+	if static_hud_lod and pillar_drawer.has_method("draw_pillar_orb_glass_lod"):
+		pillar_drawer.draw_pillar_orb_glass_lod(canvas, center, radius, glass_rim_color)
+	else:
+		pillar_drawer.draw_pillar_orb_glass(canvas, center, radius, glass_rim_color)
 	# The rainbow ring + sector + half-ready + recovery (plasma ball) overlays
 	# migrated to the GPU shader host. When the host is wired into the context
 	# we hand it the current state and skip the legacy CPU draws. The CPU paths
@@ -123,7 +127,12 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		canvas.draw_arc(center, ring_r, 0.0, TAU, idle_ring_segments, Color(ring_color.r, ring_color.g, ring_color.b, ring_alpha), 1.5)
 
 	if bool(context.get("show_count_text", true)):
-		pillar_drawer.draw_pillar_text_centered(canvas, center, "%d/%d" % [available_tokens, max_tokens], int(round(16.0 * scale_factor)), Color.WHITE)
+		var count_text := "%d/%d" % [available_tokens, max_tokens]
+		var count_font_size: int = int(round(16.0 * scale_factor))
+		if static_hud_lod and pillar_drawer.has_method("draw_pillar_text_centered_lod"):
+			pillar_drawer.draw_pillar_text_centered_lod(canvas, center, count_text, count_font_size, Color.WHITE)
+		else:
+			pillar_drawer.draw_pillar_text_centered(canvas, center, count_text, count_font_size, Color.WHITE)
 	if bool(context.get("show_half_label", true)) and available_tokens <= 0 and float(context.get("dash_available_timer", 0.0)) <= 0.0 and not bool(context.get("dash_active", false)):
 		var half_alpha: float = 0.50 + 0.30 * sin(t * 8.0)
 		pillar_drawer.draw_pillar_text_centered(canvas, center + Vector2(0.0, radius + 20.0 * scale_factor), "HALF", int(round(10.0 * scale_factor)), Color(0.72, 0.76, 1.0, half_alpha))

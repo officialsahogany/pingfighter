@@ -103,6 +103,15 @@ func draw_pillar_orb_glass(canvas: CanvasItem, center: Vector2, radius: float, r
 	canvas.draw_arc(center, radius - 2.0, deg_to_rad(30.0), deg_to_rad(150.0), GLASS_RIM_SEGMENTS, Color(rim_color.r, rim_color.g, rim_color.b, 0.20), 2.0)
 
 
+func draw_pillar_orb_glass_lod(canvas: CanvasItem, center: Vector2, radius: float, rim_color: Color) -> void:
+	if canvas == null:
+		return
+	var highlight_rect := Rect2(center.x - radius + 10.0, center.y - radius + 8.0, radius + 4.0, radius * 0.42)
+	canvas.draw_colored_polygon(shape_helper.build_ellipse_points(highlight_rect, 8), Color(1.0, 1.0, 1.0, 0.13))
+	canvas.draw_circle(center + Vector2(-radius * 0.32, -radius * 0.32), max(1.5, radius * 0.055), Color(1.0, 1.0, 1.0, 0.58))
+	canvas.draw_arc(center, radius - 2.0, deg_to_rad(35.0), deg_to_rad(145.0), 6, Color(rim_color.r, rim_color.g, rim_color.b, 0.16), 1.5)
+
+
 func draw_pillar_text_centered(canvas: CanvasItem, center: Vector2, text: String, font_size: int, color: Color) -> void:
 	if canvas == null:
 		return
@@ -113,6 +122,18 @@ func draw_pillar_text_centered(canvas: CanvasItem, center: Vector2, text: String
 	var baseline: Vector2 = Vector2(center.x - text_size.x * 0.5, center.y + text_size.y * 0.35)
 	for offset in TEXT_OUTLINE_OFFSETS:
 		canvas.draw_string(font, baseline + offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, min(1.0, color.a + 0.20)))
+	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
+
+
+func draw_pillar_text_centered_lod(canvas: CanvasItem, center: Vector2, text: String, font_size: int, color: Color) -> void:
+	if canvas == null:
+		return
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var text_size: Vector2 = _get_cached_text_size(font, text, font_size)
+	var baseline: Vector2 = Vector2(center.x - text_size.x * 0.5, center.y + text_size.y * 0.35)
+	canvas.draw_string(font, baseline + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, min(0.92, color.a + 0.16)))
 	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 

@@ -32,6 +32,8 @@ func draw(
 		wave_glow,
 		float(context.get("hud_lod_scale", 1.0))
 	)
+	if bool(context.get("pillar_hud_static_lod", false)):
+		return
 	_draw_fill_glow(canvas, center, radius, full_ratio, wave_glow)
 
 

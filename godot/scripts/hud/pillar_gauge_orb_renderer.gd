@@ -106,7 +106,10 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		canvas.draw_circle(center, radius * 0.30, Color(0.50, 0.75, 1.0, core_alpha * 0.7))
 
 	fill_renderer.draw(canvas, pillar_drawer, center, radius, t, scale_factor, display_full_ratio, context)
-	pillar_drawer.draw_pillar_orb_glass(canvas, center, radius, Color(0.50, 0.74, 1.0, 1.0))
+	if static_hud_lod and pillar_drawer.has_method("draw_pillar_orb_glass_lod"):
+		pillar_drawer.draw_pillar_orb_glass_lod(canvas, center, radius, Color(0.50, 0.74, 1.0, 1.0))
+	else:
+		pillar_drawer.draw_pillar_orb_glass(canvas, center, radius, Color(0.50, 0.74, 1.0, 1.0))
 	if frame_texture is Texture2D:
 		var texture: Texture2D = frame_texture
 		var spin_angle: float = 0.0 if static_hud_lod else float(context.get("frame_spin_angle", 0.0))
@@ -130,13 +133,12 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		canvas.draw_arc(center, ring_r, 0.0, TAU, idle_ring_segments, Color(0.50, 0.74, 1.0, ring_alpha), 1.5)
 
 	canvas.draw_circle(center, radius * 0.40, Color(0.78, 0.90, 1.0, 0.12 + display_full_ratio * 0.18))
-	pillar_drawer.draw_pillar_text_centered(
-		canvas,
-		center,
-		"%d/%d" % [int(round(gauge_value)), int(round(gauge_max))],
-		int(round(16.0 * scale_factor)),
-		Color.WHITE
-	)
+	var gauge_text := "%d/%d" % [int(round(gauge_value)), int(round(gauge_max))]
+	var gauge_font_size: int = int(round(16.0 * scale_factor))
+	if static_hud_lod and pillar_drawer.has_method("draw_pillar_text_centered_lod"):
+		pillar_drawer.draw_pillar_text_centered_lod(canvas, center, gauge_text, gauge_font_size, Color.WHITE)
+	else:
+		pillar_drawer.draw_pillar_text_centered(canvas, center, gauge_text, gauge_font_size, Color.WHITE)
 
 
 func _update_display_ratio(target_ratio: float, time_seconds: float) -> float:

@@ -25,6 +25,37 @@ func _init() -> void:
 		_function_body(liquid_source, "func draw_pillar_liquid_fill(").find("_draw_fast_lod_liquid") >= 0,
 		"pillar liquid draw should route low-quality fills through the fast LOD path"
 	)
+	var chrome_source := FileAccess.get_file_as_string("res://scripts/hud/pillar_orb_chrome_drawer.gd")
+	_expect(chrome_source.find("func draw_pillar_orb_glass_lod(") >= 0, "pillar orb chrome should implement the static HUD glass LOD path")
+	_expect(chrome_source.find("func draw_pillar_text_centered_lod(") >= 0, "pillar orb chrome should implement the static HUD text LOD path")
+	var divider_source := FileAccess.get_file_as_string("res://scripts/hud/pillar_dash_token_divider_renderer.gd")
+	_expect(
+		_function_body(divider_source, "func draw(").find("if max_tokens <= 1:") >= 0,
+		"dash token divider draw should skip divider work when there is only one token"
+	)
+	var fill_source := FileAccess.get_file_as_string("res://scripts/hud/pillar_gauge_orb_fill_renderer.gd")
+	_expect(
+		_function_body(fill_source, "func draw(").find("pillar_hud_static_lod") >= 0,
+		"gauge fill renderer should skip decorative fill glow in static HUD LOD"
+	)
+	var gauge_source := FileAccess.get_file_as_string("res://scripts/hud/pillar_gauge_orb_renderer.gd")
+	_expect(
+		_function_body(gauge_source, "func draw(").find("draw_pillar_orb_glass_lod") >= 0,
+		"gauge orb draw should use cheap glass in static HUD LOD"
+	)
+	_expect(
+		_function_body(gauge_source, "func draw(").find("draw_pillar_text_centered_lod") >= 0,
+		"gauge orb draw should use cheap text in static HUD LOD"
+	)
+	var dash_source := FileAccess.get_file_as_string("res://scripts/hud/pillar_dash_orb_renderer.gd")
+	_expect(
+		_function_body(dash_source, "func draw(").find("draw_pillar_orb_glass_lod") >= 0,
+		"dash orb draw should use cheap glass in static HUD LOD"
+	)
+	_expect(
+		_function_body(dash_source, "func draw(").find("draw_pillar_text_centered_lod") >= 0,
+		"dash orb draw should use cheap text in static HUD LOD"
+	)
 
 	if _failures.is_empty():
 		print("pillar_gauge_orb_stability_smoke: ok")

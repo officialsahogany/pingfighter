@@ -14,6 +14,8 @@ func draw(
 ) -> void:
 	if canvas == null or pillar_drawer == null:
 		return
+	if max_tokens <= 1:
+		return
 
 	var divider_progress: float = pillar_drawer.ease_out_cubic(divider_anim_progress)
 	for i in range(max_tokens):
