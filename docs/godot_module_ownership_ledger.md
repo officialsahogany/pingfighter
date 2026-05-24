@@ -2956,9 +2956,10 @@ This section is intentionally long; use search to find the nearest owner.
   Owns opt-in live battle performance sampling for draw-pass investigation:
   `PINGFIGHTER_BATTLE_PERF_LOG` / `battle_perf_log.flag` enablement,
   microsecond sub-draw aggregation, spike / gap / physics monitor routing,
-  process-node reporter routing, and Godot `Performance` monitor output used
-  to compare actor-body rendering, effect layers, weather, items, and HUD
-  overlays before changing runtime behavior.
+  process-node reporter routing, enabled-state reads for instrumented draw
+  helpers, and Godot `Performance` monitor output used to compare actor-body
+  rendering, effect layers, weather, items, and HUD overlays before changing
+  runtime behavior.
 - `scripts/core/battle_perf_process_node_reporter.gd`
   Owns BattlePerf process / physics node scans for leak and rogue-process
   diagnosis: owner-vs-root scan scope, script callback detection,
@@ -2967,8 +2968,9 @@ This section is intentionally long; use search to find the nearest owner.
   logger owns scene-owner storage and log emission.
 - `scripts/core/battle_perf_spike_window_reporter.gd`
   Owns focused BattlePerf spike-window summary formatting: draw-shell /
-  draw-frame / playfield / active-item / focus-label thresholds, trigger
-  lists, max-hot sorting, focus sorting, and counter-summary attachment.
+  draw-frame / playfield / active-item / mythic-field / Stage 2 actor
+  focus-label thresholds, trigger lists, max-hot sorting, focus sorting, and
+  counter-summary attachment.
   Keep this reporter pure; the main logger owns collection and interval
   gating.
 - `scripts/core/battle_playfield_overlay_drawer.gd`
@@ -5020,8 +5022,9 @@ This section is intentionally long; use search to find the nearest owner.
   item owners directly for Venom Mist alpha, Celestial Armor wave state,
   Rainbow Fur Glove aura state, Hermes Shoes host state, Adversity Armor timer
   / barrier / visible state, Shrapnel Armor visible state, Knee Pads / Soul
-  Burst draw state, Ragnarok elapsed timing, and Yachaman Soul revival-event /
-  transformed draw context.
+  Burst draw state, Ragnarok elapsed timing, Yachaman Soul revival-event /
+  transformed draw context, visible-field perf counters, and lazy Horn
+  Strawberry sub-context reads gated by visible state.
   `scripts/items/mythic_item_ragnarok_runtime.gd` owns the public elapsed-time
   helper methods for Ragnarok ball / impact state; do not reintroduce
   private runtime getter bridges for these read paths.

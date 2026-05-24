@@ -5813,6 +5813,21 @@ Hundredth split on 2026-05-24:
   1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
   passed.
 
+165th follow-up on 2026-05-24:
+
+- Commit: `38914c10c godot: expose mythic field perf counters`.
+- Scope: BattlePerf now exposes an enabled-state reader for draw helpers,
+  surfaces Stage 2 actor sub-pass labels and `30.mythic_item_field` in focused
+  spike/gap summaries, and the mythic field renderer records per-family
+  `mythic.visible.*` counters only when the logger is active. Horn Strawberry
+  field rendering now avoids eager sub-context reads unless the transform or
+  child state is visible, while detailed field samples still use the existing
+  begin/finish sample path.
+- Validation: `battle_perf_logger_smoke`,
+  `mythic_item_field_render_budget_smoke`, and `adversity_armor_port_smoke`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings, and `run_headless_load_check.ps1` passed.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
