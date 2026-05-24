@@ -7629,6 +7629,27 @@ Hundredth split on 2026-05-24:
   The bowling-trap geometry smoke now rejects `_capture_bowling_trap_ball()` in
   the runtime facade.
 
+262nd follow-up on 2026-05-24:
+
+- Commit:
+  `f0c452a82 godot: move Commando bowling trap release payload`.
+- Scope: removed the Commando runtime `_release_bowling_trap_ball()` bridge.
+  Bowling-trap geometry now builds the release motion, pseudo projectile,
+  guard state, and release result together through
+  `CommandoFirearmBowlingTrapGeometry.build_release_payload()`. The runtime
+  keeps the actual side-effect fanout for impact flash, lingering field,
+  feedback, hit pulse, and guard-state application in the capture-complete
+  branch.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2953` lines /
+  `47` functions to `2942` lines / `46` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_audio_routing_smoke`. The Godot headless load check passed,
+  and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings.
+  The bowling-trap geometry smoke now rejects `_release_bowling_trap_ball()` in
+  the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
