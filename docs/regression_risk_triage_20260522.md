@@ -7432,6 +7432,36 @@ Hundredth split on 2026-05-24:
   warnings. The support projectile smoke now rejects `_spawn_support_round()`
   in the runtime facade.
 
+253rd follow-up on 2026-05-24:
+
+- Commit:
+  `030ba331c godot: localize Spanish HUD surfaces`.
+- Scope: filled Spanish runtime text gaps across Commando firearm HUD and ammo
+  text, Smasher / Viper live tooltip bonus lines, character-info header status,
+  boss skill-card charge / cooldown labels, weather start messages, render-FPS
+  pacing helper text, Treasure Hunt reward feedback, character-select prewarm
+  labels, and stage-clear perk summaries. Added focused Spanish assertions for
+  the touched smoke surfaces.
+- Runtime facade size: `commando_firearm_runtime.gd` remains at `3044` lines /
+  `57` functions; this was a UI localization pass, not a Commando runtime
+  facade split.
+- Validation: focused Spanish / HUD coverage passed:
+  `language_settings_smoke`, `localization_coverage_smoke`,
+  `commando_firearm_tooltip_smoke`, `commando_weapon_controller_smoke`,
+  `skill_orb_tooltip_hover_state_perf_smoke`,
+  `character_info_live_stats_smoke`,
+  `character_info_skill_cooldown_pause_smoke`,
+  `boss_skill_card_hud_spec_smoke`, `stage5_hongryun_visual_shell_smoke`,
+  `weather_event_state_smoke`, `weather_event_render_budget_smoke`,
+  `render_fps_cap_settings_smoke`, `treasure_hunt_runtime_smoke`,
+  `stage_clear_result_summary_builder_smoke`,
+  `viper_ignition_aura_port_smoke`, `viper_skill_tooltip_preview_smoke`,
+  `commando_fullbody_live2d_smoke`, and
+  `character_selection_viper_start_smoke`. The wide combined run exposed a
+  pre-existing order-sensitive display-settings state in
+  `render_fps_cap_settings_smoke`; the same smoke passed when rerun in
+  isolation.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
