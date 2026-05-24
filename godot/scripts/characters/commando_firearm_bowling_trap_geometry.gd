@@ -497,6 +497,72 @@ static func dispatch_runtime_update_events(
 				)
 
 
+static func advance_runtime_bowling_traps(
+	traps: Array,
+	impact_flashes: Array,
+	runtime_owner: Object,
+	context: Dictionary,
+	deps: Dictionary,
+	fps_scale: float,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	weapon_hit_feedback: Dictionary,
+	hit_feedback_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	grenade_explosion_duration_frames: float,
+	flash_limit: int,
+	install_frames: float,
+	capture_frames: float,
+	capture_ball_offset: Vector2,
+	trap_height: float,
+	capture_height: float,
+	trap_width: float,
+	launch_speed_multiplier: float,
+	launch_angle_step: float,
+	guard_speed_reduction: float,
+	guard_knockback_power: float,
+	guard_stun_frames: float
+) -> Dictionary:
+	var step: float = max(0.0, fps_scale)
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"bowling_trap",
+		weapon_profiles,
+		weapon_profile_overrides
+	)
+	var trap_update: Dictionary = advance_runtime_traps(
+		traps,
+		context,
+		step,
+		profile,
+		install_frames,
+		capture_frames,
+		capture_ball_offset,
+		trap_height,
+		capture_height,
+		trap_width,
+		launch_speed_multiplier,
+		launch_angle_step,
+		guard_speed_reduction,
+		guard_knockback_power,
+		guard_stun_frames
+	)
+	dispatch_runtime_update_events(
+		CommandoFirearmValueUtils.get_array(trap_update.get("events", [])),
+		impact_flashes,
+		runtime_owner,
+		context,
+		deps,
+		weapon_profiles,
+		weapon_profile_overrides,
+		weapon_hit_feedback,
+		hit_feedback_profile_overrides,
+		base_weapon_id,
+		grenade_explosion_duration_frames,
+		flash_limit
+	)
+	return CommandoFirearmValueUtils.get_dict(trap_update.get("result", {}))
+
+
 static func _dispatch_capture_event(
 	event: Dictionary,
 	deps: Dictionary,

@@ -886,7 +886,32 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 		SUPPORT_BOMB_RANDOM_X_RANGE,
 		PROJECTILE_LIMIT
 	)
-	var ball_motion_result: Dictionary = _update_bowling_traps(fps_scale, context, deps)
+	var ball_motion_result: Dictionary = CommandoFirearmBowlingTrapGeometry.advance_runtime_bowling_traps(
+		bowling_traps,
+		impact_flashes,
+		self,
+		context,
+		deps,
+		fps_scale,
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES,
+		WEAPON_HIT_FEEDBACK,
+		HIT_FEEDBACK_PROFILE_OVERRIDES,
+		BASE_WEAPON_ID,
+		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+		FLASH_LIMIT,
+		BOWLING_TRAP_INSTALL_FRAMES,
+		BOWLING_TRAP_CAPTURE_FRAMES,
+		BOWLING_TRAP_CAPTURE_BALL_OFFSET,
+		BOWLING_TRAP_HEIGHT,
+		BOWLING_TRAP_CAPTURE_HEIGHT,
+		BOWLING_TRAP_WIDTH,
+		BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
+		BOWLING_TRAP_LAUNCH_ANGLE_STEP,
+		BOWLING_TRAP_GUARD_SPEED_REDUCTION,
+		BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
+		BOWLING_TRAP_GUARD_STUN_FRAMES
+	)
 	if not ball_motion_result.is_empty():
 		context.merge(ball_motion_result, true)
 	var projectile_result: Dictionary = _update_projectiles(fps_scale, context, deps)
@@ -1662,47 +1687,6 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		PISTOL_SHELL_LIFETIME_FRAMES,
 		SHELL_CASING_LIMIT
 	)
-
-
-func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var step: float = max(0.0, fps_scale)
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-		"bowling_trap",
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
-	var trap_update: Dictionary = CommandoFirearmBowlingTrapGeometry.advance_runtime_traps(
-		bowling_traps,
-		context,
-		step,
-		profile,
-		BOWLING_TRAP_INSTALL_FRAMES,
-		BOWLING_TRAP_CAPTURE_FRAMES,
-		BOWLING_TRAP_CAPTURE_BALL_OFFSET,
-		BOWLING_TRAP_HEIGHT,
-		BOWLING_TRAP_CAPTURE_HEIGHT,
-		BOWLING_TRAP_WIDTH,
-		BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
-		BOWLING_TRAP_LAUNCH_ANGLE_STEP,
-		BOWLING_TRAP_GUARD_SPEED_REDUCTION,
-		BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
-		BOWLING_TRAP_GUARD_STUN_FRAMES
-	)
-	CommandoFirearmBowlingTrapGeometry.dispatch_runtime_update_events(
-		CommandoFirearmValueUtils.get_array(trap_update.get("events", [])),
-		impact_flashes,
-		self,
-		context,
-		deps,
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES,
-		WEAPON_HIT_FEEDBACK,
-		HIT_FEEDBACK_PROFILE_OVERRIDES,
-		BASE_WEAPON_ID,
-		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
-		FLASH_LIMIT
-	)
-	return CommandoFirearmValueUtils.get_dict(trap_update.get("result", {}))
 
 
 func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:

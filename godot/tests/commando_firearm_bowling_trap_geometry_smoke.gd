@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmBowlingTrapGuardState := preload("res://scripts/characters/commando_firearm_bowling_trap_guard_state.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
@@ -474,7 +475,32 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 		"timer_frames": 1.0,
 		"launch_direction": 0,
 	}]
-	var release_result: Dictionary = runtime._update_bowling_traps(2.0, {}, {})
+	var release_result: Dictionary = CommandoFirearmBowlingTrapGeometry.advance_runtime_bowling_traps(
+		runtime.bowling_traps,
+		runtime.impact_flashes,
+		runtime,
+		{},
+		{},
+		2.0,
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+		CommandoFirearmRuntime.FLASH_LIMIT,
+		CommandoFirearmRuntime.BOWLING_TRAP_INSTALL_FRAMES,
+		CommandoFirearmRuntime.BOWLING_TRAP_CAPTURE_FRAMES,
+		CommandoFirearmRuntime.BOWLING_TRAP_CAPTURE_BALL_OFFSET,
+		CommandoFirearmRuntime.BOWLING_TRAP_HEIGHT,
+		CommandoFirearmRuntime.BOWLING_TRAP_CAPTURE_HEIGHT,
+		CommandoFirearmRuntime.BOWLING_TRAP_WIDTH,
+		CommandoFirearmRuntime.BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
+		CommandoFirearmRuntime.BOWLING_TRAP_LAUNCH_ANGLE_STEP,
+		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_SPEED_REDUCTION,
+		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
+		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_STUN_FRAMES
+	)
 	_expect(str(release_result.get("commando_bowling_trap_guard_source", "")) == "commando_bowling_trap_guard_9", "runtime release path should expose delegated guard source")
 	_expect(runtime.is_bowling_trap_guard_armed(), "runtime release path should apply armed guard state")
 	_expect(runtime.bowling_traps.is_empty(), "runtime release path should remove completed capture traps")
@@ -502,12 +528,16 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"runtime should delegate bowling-trap boss-guard consumption to the guard-state owner"
 	)
 	_expect(
-		runtime_source.find("CommandoFirearmBowlingTrapGeometry.advance_runtime_traps") >= 0,
+		runtime_source.find("CommandoFirearmBowlingTrapGeometry.advance_runtime_bowling_traps") >= 0,
 		"runtime should delegate bowling-trap lifecycle advancement to the geometry owner"
 	)
 	_expect(
-		runtime_source.find("CommandoFirearmBowlingTrapGeometry.dispatch_runtime_update_events") >= 0,
-		"runtime should delegate bowling-trap lifecycle event dispatch to the geometry owner"
+		runtime_source.find("CommandoFirearmBowlingTrapGeometry.advance_runtime_traps") < 0,
+		"runtime should not call the lower-level bowling-trap advance helper directly"
+	)
+	_expect(
+		runtime_source.find("CommandoFirearmBowlingTrapGeometry.dispatch_runtime_update_events") < 0,
+		"runtime should not call the lower-level bowling-trap event dispatch helper directly"
 	)
 	_expect(
 		runtime_source.find("CommandoFirearmBowlingTrapGeometry.append_runtime_install_effects") >= 0,
@@ -539,6 +569,7 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"_update_bowling_trap_capture",
 		"_capture_bowling_trap_ball",
 		"_release_bowling_trap_ball",
+		"_update_bowling_traps",
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep bowling-trap geometry bridge %s" % bridge_name)
 	_expect(
