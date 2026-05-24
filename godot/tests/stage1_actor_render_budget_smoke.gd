@@ -1,6 +1,7 @@
 extends SceneTree
 
 const Stage1BossActorRenderer := preload("res://scripts/stages/stage1/stage1_boss_actor_renderer.gd")
+const Stage1PlayerActorRenderer := preload("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
 const Stage1PlayfieldRenderer := preload("res://scripts/stages/stage1/stage1_playfield_renderer.gd")
 const Stage1PillarChromeRenderer := preload("res://scripts/stages/stage1/stage1_pillar_chrome_renderer.gd")
 const Stage1PillarBackground := preload("res://scripts/stages/stage1/stage1_pillar_background.gd")
@@ -115,6 +116,13 @@ func _verify_render_budget_constants() -> void:
 	_expect(
 		playfield_source.find("_draw_stage1_depth_layers(canvas, context, width, height, quality_scale)") >= 0,
 		"Stage 1 playfield draw should include the 2.5D depth-tone layer"
+	)
+	_expect(Stage1PlayerActorRenderer.PLAYER_TOPDOWN_RIMLIGHT_SEGMENTS <= 14, "Stage 1 player topdown rimlight should use bounded ellipse segments")
+	_expect(Stage1PlayerActorRenderer.PLAYER_TOPDOWN_RIMLIGHT_ALPHA <= 20.0 / 255.0, "Stage 1 player topdown rimlight should stay subtle")
+	_expect(Stage1PlayerActorRenderer.PLAYER_TOPDOWN_RIMLIGHT_SOFT_ALPHA <= 9.0 / 255.0, "Stage 1 player soft topdown rimlight should stay subtle")
+	_expect(
+		player_source.find("_draw_player_topdown_rimlight(canvas, sprite_context, drawn_player_visual_rect)") >= 0,
+		"Stage 1 player draw should include the topdown rimlight after weapon overlays"
 	)
 	_expect(Stage1BossActorRenderer.GROUND_SHADOW_ALPHAS.size() <= 2, "Stage 1 boss shadow should use at most two polygon layers")
 	_expect(Stage1BossActorRenderer.GROUND_SHADOW_SEGMENTS <= 12, "Stage 1 boss shadow should use a bounded ellipse segment count")
