@@ -6686,6 +6686,28 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
   scripts with no GDScript warnings.
 
+214th follow-up on 2026-05-24:
+
+- Commit: `6d91aaa51 godot: drop Commando lingering geometry bridges`.
+- Scope: removed the private `_get_lingering_effect_pos()`,
+  `_get_lingering_effect_size()`, `_get_net_effect_height()`, and
+  `_get_active_lingering_clamp_result()` runtime bridges. The lingering spawn
+  path now calls `CommandoFirearmLingeringNetFieldState` for field position /
+  net height and `CommandoFirearmLingeringEffectState` for size resolution
+  directly, while active clamp merging keeps the runtime side-effect boundary
+  and calls the net-field clamp owner inline. The value-utils and lingering
+  smokes now verify owner calls and guard that these geometry bridges stay
+  removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3402` lines /
+  `116` functions to `3382` lines / `112` functions.
+- Validation: focused lingering / value-utils / runtime coverage passed:
+  `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

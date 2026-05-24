@@ -4000,7 +4000,8 @@ This section is intentionally long; use search to find the nearest owner.
   runtime keeps active effect storage, projectile impact ownership, fire-zone
   flame updates, status application, and net dash-break mutation while
   calling the deterministic base lingering-effect math here directly instead
-  of preserving private duration / payload / timer / clamp bridge wrappers.
+  of preserving private duration / size / payload / timer / clamp bridge
+  wrappers.
 - `scripts/characters/commando_firearm_lingering_fire_flame_state.gd`
   Owns pure Commando lingering fire-zone flame state: deterministic flame
   seeding, effect-size fallback reads, ring / size / lifetime patterns,
@@ -4020,8 +4021,8 @@ This section is intentionally long; use search to find the nearest owner.
   side-effect boundaries, candidate-index scanning, constrict mutation, and
   the boss-clamp side-effect hook while tests call this helper directly for
   deterministic lifecycle / profile / geometry / shape / height-limit / clamp /
-  predicate / constrict-factor calculations instead of runtime setup, clamp,
-  and predicate bridges.
+  predicate / constrict-factor calculations instead of runtime position,
+  net-height, setup, clamp, and predicate bridges.
 - `scripts/characters/commando_firearm_lingering_status_state.gd`
   Owns pure Commando lingering status state: profile-derived status payload
   fields, status application candidate dictionaries, slow-multiplier status
