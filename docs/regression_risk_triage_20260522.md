@@ -8289,3 +8289,21 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` on the touched Commando files reported no whitespace
   errors beyond existing CRLF normalization notices.
+
+290th follow-up on 2026-05-24:
+
+- Commit:
+  `0f8e1ec6c godot: move Commando actor context arrays`.
+- Scope: added
+  `CommandoFirearmDrawStateResolver.build_runtime_actor_context()` so runtime
+  actor-context visibility and effect-array fanout are read from the owner in
+  the draw-state resolver. The public `build_actor_context()` helper remains
+  intact for direct callers and tests.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2638` lines /
+  `35` functions to `2630` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors beyond existing CRLF normalization notices.
