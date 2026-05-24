@@ -7141,6 +7141,22 @@ Hundredth split on 2026-05-24:
   `commando_firearm_value_utils_smoke`. The suicide-drone state smoke now
   drives the real cooldown failure path and rejects the removed failure bridge.
 
+238th follow-up on 2026-05-24:
+
+- Commit: `b7f6c815b godot: inline Commando net gun failure result`.
+- Scope: removed `_net_gun_fire_failed()` from
+  `commando_firearm_runtime.gd`. Net Gun input now builds its failure result
+  directly with the live cooldown / control-lock / throw-pose / harpoon-flash
+  timer payload at each failure branch.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3228` lines /
+  `78` functions to `3225` lines / `77` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The fire-result smoke now drives the
+  real Net Gun control-lock failure path and rejects the removed failure
+  bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
