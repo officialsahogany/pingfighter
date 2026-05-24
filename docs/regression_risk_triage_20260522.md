@@ -6470,6 +6470,25 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1325`
   scripts with no GDScript warnings.
 
+203rd follow-up on 2026-05-24:
+
+- Commit: `cc2f3f01e godot: drop Commando muzzle flash bridge`.
+- Scope: removed the private `_spawn_muzzle_flash()` runtime bridge. The
+  regular firearm and suicide-drone spawn paths now append
+  `CommandoFirearmMuzzleFlashResolver.build_flash()` results directly while
+  preserving runtime ownership of the muzzle-flash array limit. The muzzle
+  flash resolver smoke now verifies the runtime effect path and guards that
+  the append bridge stays removed.
+- Runtime facade size: `commando_firearm_runtime.gd` stayed at `3507` lines
+  and moved from `141` functions to `140` functions.
+- Validation: focused muzzle / runtime coverage passed:
+  `commando_firearm_muzzle_flash_resolver_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_suicide_drone_state_smoke`. `git diff --check` reported
+  only the existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1325`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

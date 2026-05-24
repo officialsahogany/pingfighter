@@ -4031,8 +4031,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Commando muzzle-flash dictionary construction: profile kind,
   radius / timer clamps, origin / direction, and secondary-color fallback.
   `commando_firearm_runtime.gd` calls this resolver directly from the
-  muzzle-flash spawn path while keeping muzzle-flash array limits, lifetime
-  updates, draw-state publication, and weapon firing side effects.
+  muzzle-flash spawn paths while keeping muzzle-flash array limits, lifetime
+  updates, draw-state publication, and weapon firing side effects; do not
+  reintroduce a private runtime muzzle-flash append bridge.
 - `scripts/characters/commando_firearm_pistol_feedback_state.gd`
   Owns pure Commando pistol headshot / legshot feedback state: supported hit
   kind filtering, text / wave anchor placement from the boss rect, timer
