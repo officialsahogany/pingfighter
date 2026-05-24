@@ -8135,3 +8135,21 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors beyond existing CRLF
   normalization notices.
+
+282nd follow-up on 2026-05-24:
+
+- Commit:
+  `c7afc1ba0 godot: move Commando slingshot draw state`.
+- Scope: moved Commando slingshot draw-state field reads into
+  `CommandoFirearmDrawStateResolver.build_runtime_slingshot_state()`. The
+  runtime still supplies the slingshot timing constants, but
+  `CommandoFirearmRuntime.get_actor_draw_context()` no longer expands the
+  slingshot field list inline.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2668` lines /
+  `35` functions to `2663` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors.
