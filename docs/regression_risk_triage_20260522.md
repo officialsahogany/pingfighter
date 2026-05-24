@@ -6169,6 +6169,20 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+189th follow-up on 2026-05-24:
+
+- Commit: `5c907c867 godot: drop Commando pending result bridges`.
+- Scope: removed the private pending-result queue / consume bridges from
+  `commando_firearm_runtime.gd`. Projectile-hit handling now calls
+  `commando_firearm_pending_result_state.gd` directly to accumulate boss
+  damage and special-gauge results, and `update_effects()` builds / resets the
+  pending one-shot result payloads directly from the same owner.
+- Validation: `commando_firearm_pending_result_state_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings. `git diff --check` on the touched code/test files reported only
+  the existing CRLF working-copy notice and no whitespace errors.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

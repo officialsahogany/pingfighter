@@ -4075,9 +4075,10 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Commando firearm pending result queue state: boss-health damage
   unit/source accumulation, special-gauge gain/source/last-hit-kind
   accumulation, and the one-shot result dictionaries emitted to the battle
-  effects controller. `commando_firearm_runtime.gd` keeps the pending fields
-  and resets them after consume while delegating the deterministic state
-  transitions and payload shapes here.
+  effects controller. `commando_firearm_runtime.gd` keeps only the pending
+  fields and reset timing while calling this owner directly from projectile-hit
+  queueing and `update_effects()` result emission. Do not reintroduce private
+  runtime queue / consume bridges for these pending-result paths.
 - `scripts/characters/commando_firearm_profile_resolver.gd`
   Owns pure Commando firearm profile lookup behavior: weapon-id
   normalization, fallback profile selection, deep-copy protection,
