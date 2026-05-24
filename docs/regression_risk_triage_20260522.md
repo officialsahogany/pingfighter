@@ -8016,11 +8016,10 @@ Hundredth split on 2026-05-24:
   `commando_firearm_support_aircraft_geometry_smoke` and
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   and `git diff --check` on the touched Commando files reported no whitespace
-  errors beyond existing CRLF normalization notices. The full warning scan was
-  attempted, but the current dirty workspace entered the Godot debugger on an
-  unrelated parser error at `godot/tests/commando_firearm_tooltip_smoke.gd:203`
-  (`build_hover_state()` expected at least 4 arguments and received 3), so no
-  clean full-scan result was recorded for this follow-up.
+  errors beyond existing CRLF normalization notices. A first warning-scan
+  attempt caught a transient dirty-worktree parser state in
+  `commando_firearm_tooltip_smoke.gd`; after the current tooltip smoke passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
