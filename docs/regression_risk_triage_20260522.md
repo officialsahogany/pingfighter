@@ -8725,3 +8725,24 @@ commits rather than standalone `fix` commits:
   `commando_firearm_value_utils_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+315th follow-up on 2026-05-24:
+
+- Commit:
+  `748e3696c godot: move Commando support call advancement`.
+- Scope: moved support-call advancement and missile spawning into
+  `CommandoFirearmSupportProjectileResolver.advance_runtime_calls()`. The
+  resolver now owns aircraft timing, bomb-drop scheduling, projectile id
+  allocation through the runtime owner, missile append routing, and ordered
+  aircraft audio events; the runtime remains responsible for dispatching the
+  returned start / stop audio cues.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2145` lines /
+  `35` functions to `2133` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_support_projectile_resolver_smoke`,
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_audio_dispatcher_smoke`, and
+  `commando_firearm_audio_routing_smoke`. The Godot headless load check
+  passed, `run_warning_scan.ps1` scanned `1335` scripts with no GDScript
+  warnings, and `git diff --check` reported no whitespace errors.
