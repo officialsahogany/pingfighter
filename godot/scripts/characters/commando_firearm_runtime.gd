@@ -1549,18 +1549,25 @@ func _update_bazooka_input(
 		SWITCH_FIRE_SUPPRESS_MSEC
 	):
 		return {}
+	var failure_fields := {
+		"cooldown_frames": bazooka_cooldown_frames,
+		"control_lock_frames": bazooka_control_lock_frames,
+		"fire_animation_frames": bazooka_fire_animation_frames,
+		"firing_pose_frames": bazooka_firing_pose_frames,
+		"muzzle_flash_frames": bazooka_muzzle_flash_frames,
+	}
 	if bazooka_control_lock_frames > 0.0:
-		return _bazooka_fire_failed(special_gauge, "bazooka_control_lock")
+		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_control_lock", failure_fields)
 	if bazooka_cooldown_frames > 0.0:
-		return _bazooka_fire_failed(special_gauge, "bazooka_cooldown")
+		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_cooldown", failure_fields)
 	if not _is_ready("bazooka", now_msec, deps):
-		return _bazooka_fire_failed(special_gauge, "configured_cooldown")
+		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "configured_cooldown", failure_fields)
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
-		return _bazooka_fire_failed(special_gauge, "bazooka_empty")
+		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_empty", failure_fields)
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return _bazooka_fire_failed(special_gauge, "bazooka_ammo_unavailable")
+			return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_ammo_unavailable", failure_fields)
 	last_fire_msec = now_msec
 	var doping_context: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps(
 		deps,
@@ -1613,16 +1620,6 @@ func _update_bazooka_input(
 			"muzzle_flash_frames": bazooka_muzzle_flash_frames,
 		}
 	)
-
-
-func _bazooka_fire_failed(special_gauge: float, reason: String) -> Dictionary:
-	return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, reason, {
-		"cooldown_frames": bazooka_cooldown_frames,
-		"control_lock_frames": bazooka_control_lock_frames,
-		"fire_animation_frames": bazooka_fire_animation_frames,
-		"firing_pose_frames": bazooka_firing_pose_frames,
-		"muzzle_flash_frames": bazooka_muzzle_flash_frames,
-	})
 
 
 func _update_net_gun_input(
