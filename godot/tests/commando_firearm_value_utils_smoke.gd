@@ -96,6 +96,7 @@ func _init() -> void:
 	_verify_removed_hit_geometry_result_bridges()
 	_verify_removed_support_aircraft_geometry_bridges()
 	_verify_removed_projectile_value_bridges()
+	_verify_removed_pistol_value_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -343,15 +344,6 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(runtime._get_pistol_cooldown_frames("pistol", {}, false), 60.0), "runtime base pistol cooldown wrapper should delegate")
 	_expect(runtime._get_pistol_cooldown_frames("commando_pistol", {}, false) < 60.0, "runtime commando pistol cooldown wrapper should keep faster Beretta timing")
 	_expect(is_equal_approx(runtime._get_pistol_cooldown_frames("commando_pistol", runtime_doping, true), 18.0), "runtime active doping cooldown wrapper should delegate")
-	_expect(runtime._is_pistol_weapon("commando_pistol"), "runtime pistol weapon wrapper should delegate")
-	_expect(not runtime._is_pistol_weapon("bazooka"), "runtime pistol weapon wrapper should reject non-pistols")
-	_expect(is_equal_approx(runtime._get_pistol_hit_doping_multiplier({
-		"active_item_doping_potion_active": true,
-	}, {}), 2.0), "runtime doping hit multiplier wrapper should use Commando defaults")
-	var runtime_chances: Dictionary = runtime._get_pistol_hit_chances({}, 2.0)
-	_expect(is_equal_approx(float(runtime_chances.get("head_chance", 0.0)), 0.20), "runtime hit chance wrapper should use Commando headshot defaults")
-	_expect(is_equal_approx(float(runtime_chances.get("leg_chance", 0.0)), 0.24), "runtime hit chance wrapper should use Commando legshot defaults")
-	_expect(is_equal_approx(runtime._get_pistol_shot_roll({"shot_roll": 0.25}, {}), 0.25), "runtime shot roll wrapper should delegate")
 	_expect(CommandoFirearmHitGeometry.get_target_reached_expire_reason("fire_support", {"kind": "support"}) == "expired", "hit geometry target-reached expire helper should delegate")
 	_expect(CommandoFirearmHitGeometry.is_fire_support_weapon("fire_support"), "hit geometry fire-support classifier helper should delegate")
 	_expect(CommandoFirearmHitGeometry.is_net_gun_weapon("net_gun"), "hit geometry net-gun classifier helper should delegate")
@@ -1496,6 +1488,17 @@ func _verify_removed_projectile_value_bridges() -> void:
 		"_get_projectile_kind",
 	]:
 		_expect(source.find("func %s(" % bridge_name) == -1, "runtime should not keep projectile value bridge %s" % bridge_name)
+
+
+func _verify_removed_pistol_value_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_is_pistol_weapon",
+		"_get_pistol_hit_doping_multiplier",
+		"_get_pistol_hit_chances",
+		"_get_pistol_shot_roll",
+	]:
+		_expect(source.find("func %s(" % bridge_name) == -1, "runtime should not keep pistol value bridge %s" % bridge_name)
 
 
 func _verify_removed_fire_flame_owner_bridges() -> void:

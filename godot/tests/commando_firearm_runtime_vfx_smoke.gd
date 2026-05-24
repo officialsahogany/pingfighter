@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
 const CommandoWeaponController := preload("res://scripts/characters/commando_weapon_controller.gd")
@@ -1060,10 +1061,9 @@ func _verify_commando_pistol_ammo_empty_and_delayed_fire() -> void:
 
 
 func _verify_pistol_headshot_legshot_status_and_gauge() -> void:
-	var fallback_roll_runtime := CommandoFirearmRuntime.new()
-	var fallback_roll: float = float(fallback_roll_runtime._get_pistol_shot_roll({}, {}))
+	var fallback_roll: float = float(CommandoFirearmValueUtils.get_pistol_shot_roll({}, {}))
 	_expect(fallback_roll > 0.0 and fallback_roll <= 1.0, "missing pistol shot roll should use a fresh random roll instead of clamping the sentinel into a guaranteed headshot")
-	var sentinel_roll: float = float(fallback_roll_runtime._get_pistol_shot_roll({}, {"commando_pistol_shot_roll": -1.0}))
+	var sentinel_roll: float = float(CommandoFirearmValueUtils.get_pistol_shot_roll({}, {"commando_pistol_shot_roll": -1.0}))
 	_expect(sentinel_roll > 0.0 and sentinel_roll <= 1.0, "negative pistol shot roll sentinel should fall back to random like the Python random.random path")
 
 	var normal_runtime := CommandoFirearmRuntime.new()

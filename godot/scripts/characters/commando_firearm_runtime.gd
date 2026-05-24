@@ -2091,7 +2091,11 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		profile["speed"] = float(profile.get("speed", PISTOL_BULLET_SPEED)) * float(doping_context.get("pistol_speed_multiplier", DOPING_POTION_PISTOL_SPEED_MULTIPLIER))
 		profile["color"] = Color(1.0, 0.47, 0.24)
 		profile["secondary"] = Color(1.0, 0.78, 0.22)
-	if _is_pistol_weapon(weapon_id) and not bool(profile.get("slingshot", false)) and not profile.has("angle_offset"):
+	if (
+		CommandoFirearmValueUtils.is_pistol_weapon(weapon_id, BASE_WEAPON_ID)
+		and not bool(profile.get("slingshot", false))
+		and not profile.has("angle_offset")
+	):
 		var spread_radians: float = BERETTA_SPREAD_RADIANS if weapon_id == "commando_pistol" else PISTOL_SPREAD_RADIANS
 		profile["angle_offset"] = randf_range(-spread_radians, spread_radians)
 	var kind: String = str(profile.get("kind", "bullet"))
@@ -2576,12 +2580,18 @@ func _apply_stage2_pistol_rock_bounce(projectile: Dictionary, context: Dictionar
 		projectile,
 		context,
 		deps,
-		_is_pistol_weapon(CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, ""))
+		CommandoFirearmValueUtils.is_pistol_weapon(
+			CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, ""),
+			BASE_WEAPON_ID
+		)
 	)
 
 
 func _is_wall_bouncing_pistol(projectile: Dictionary) -> bool:
-	return _is_pistol_weapon(CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, ""))
+	return CommandoFirearmValueUtils.is_pistol_weapon(
+		CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, ""),
+		BASE_WEAPON_ID
+	)
 
 
 func _update_rocket_motion(projectile: Dictionary, pos: Vector2, velocity: Vector2, step: float) -> Vector2:
@@ -2987,11 +2997,20 @@ func _apply_slingshot_hit_effects(weapon_id: String, projectile: Dictionary, res
 
 
 func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, context: Dictionary, result: Dictionary) -> void:
-	if not _is_pistol_weapon(weapon_id):
+	if not CommandoFirearmValueUtils.is_pistol_weapon(weapon_id, BASE_WEAPON_ID):
 		return
-	var shot_roll: float = _get_pistol_shot_roll(projectile, context)
-	var doping_multiplier: float = _get_pistol_hit_doping_multiplier(projectile, context)
-	var hit_chances: Dictionary = _get_pistol_hit_chances(context, doping_multiplier)
+	var shot_roll: float = CommandoFirearmValueUtils.get_pistol_shot_roll(projectile, context)
+	var doping_multiplier: float = CommandoFirearmValueUtils.get_pistol_hit_doping_multiplier(
+		projectile,
+		context,
+		DOPING_POTION_HEAD_LEG_MULTIPLIER
+	)
+	var hit_chances: Dictionary = CommandoFirearmValueUtils.get_pistol_hit_chances(
+		context,
+		doping_multiplier,
+		PISTOL_HEAD_SHOT_CHANCE,
+		PISTOL_LEG_SHOT_CHANCE
+	)
 	var head_chance: float = float(hit_chances.get("head_chance", 0.0))
 	var leg_chance: float = float(hit_chances.get("leg_chance", 0.0))
 	var hit_payload: Dictionary = CommandoFirearmPistolHitState.build_hit_payload(
@@ -3026,31 +3045,6 @@ func _apply_ak47_accumulated_boss_damage(weapon_id: String, result: Dictionary) 
 		return
 	ak47_boss_hit_count = int(hit_payload.get("next_hit_count", ak47_boss_hit_count))
 	result.merge(_get_dict(hit_payload.get("result_fields", {})), true)
-
-
-func _is_pistol_weapon(weapon_id: String) -> bool:
-	return CommandoFirearmValueUtils.is_pistol_weapon(weapon_id, BASE_WEAPON_ID)
-
-
-func _get_pistol_hit_doping_multiplier(projectile: Dictionary, context: Dictionary) -> float:
-	return CommandoFirearmValueUtils.get_pistol_hit_doping_multiplier(
-		projectile,
-		context,
-		DOPING_POTION_HEAD_LEG_MULTIPLIER
-	)
-
-
-func _get_pistol_hit_chances(context: Dictionary, doping_multiplier: float) -> Dictionary:
-	return CommandoFirearmValueUtils.get_pistol_hit_chances(
-		context,
-		doping_multiplier,
-		PISTOL_HEAD_SHOT_CHANCE,
-		PISTOL_LEG_SHOT_CHANCE
-	)
-
-
-func _get_pistol_shot_roll(projectile: Dictionary, context: Dictionary) -> float:
-	return CommandoFirearmValueUtils.get_pistol_shot_roll(projectile, context)
 
 
 func _queue_boss_damage(combat_result: Dictionary) -> void:
