@@ -2212,23 +2212,7 @@ func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, 
 
 
 func _start_bowling_trap_install(config: Dictionary, profile: Dictionary, weapon_id: String) -> void:
-	var trap_pos: Vector2 = _get_bowling_trap_install_pos(config)
-	var trap_id: int = _next_shot_id()
-	CommandoFirearmValueUtils.append_limited(bowling_traps, _build_bowling_trap_install_payload(
-		trap_pos,
-		profile,
-		weapon_id,
-		trap_id
-	), BOWLING_TRAP_LIMIT)
-	CommandoFirearmValueUtils.append_limited(impact_flashes, _build_bowling_trap_install_marker_flash(
-		trap_pos,
-		profile,
-		weapon_id
-	), FLASH_LIMIT)
-
-
-func _get_bowling_trap_install_pos(config: Dictionary) -> Vector2:
-	return CommandoFirearmBowlingTrapGeometry.get_install_pos(
+	var trap_pos: Vector2 = CommandoFirearmBowlingTrapGeometry.get_install_pos(
 		config,
 		FIELD_WIDTH,
 		FIELD_HEIGHT,
@@ -2236,15 +2220,8 @@ func _get_bowling_trap_install_pos(config: Dictionary) -> Vector2:
 		BOWLING_TRAP_HEIGHT,
 		BOWLING_TRAP_MIN_FIELD_Y_RATIO
 	)
-
-
-func _build_bowling_trap_install_payload(
-	trap_pos: Vector2,
-	profile: Dictionary,
-	weapon_id: String,
-	trap_id: int
-) -> Dictionary:
-	return CommandoFirearmBowlingTrapGeometry.build_install_trap(
+	var trap_id: int = _next_shot_id()
+	CommandoFirearmValueUtils.append_limited(bowling_traps, CommandoFirearmBowlingTrapGeometry.build_install_trap(
 		trap_pos,
 		profile,
 		weapon_id,
@@ -2253,11 +2230,12 @@ func _build_bowling_trap_install_payload(
 		BOWLING_TRAP_HEIGHT,
 		BOWLING_TRAP_INSTALL_FRAMES,
 		BOWLING_TRAP_CAPTURE_BALL_OFFSET
-	)
-
-
-func _build_bowling_trap_install_marker_flash(trap_pos: Vector2, profile: Dictionary, weapon_id: String) -> Dictionary:
-	return CommandoFirearmBowlingTrapGeometry.build_install_marker_flash(trap_pos, profile, weapon_id)
+	), BOWLING_TRAP_LIMIT)
+	CommandoFirearmValueUtils.append_limited(impact_flashes, CommandoFirearmBowlingTrapGeometry.build_install_marker_flash(
+		trap_pos,
+		profile,
+		weapon_id
+	), FLASH_LIMIT)
 
 
 func _spawn_support_round(

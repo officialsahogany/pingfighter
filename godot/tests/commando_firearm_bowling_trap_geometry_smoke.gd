@@ -161,7 +161,10 @@ func _verify_direct_bowling_trap_geometry() -> void:
 
 func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	_expect(runtime._get_bowling_trap_install_pos({}) == Vector2(457.5, 735.0), "runtime install-position wrapper should delegate")
+	_expect(
+		CommandoFirearmBowlingTrapGeometry.get_install_pos({}, 760.0, 750.0, 60.0, 20.0, 0.6) == Vector2(457.5, 735.0),
+		"install-position owner should preserve runtime defaults"
+	)
 	runtime.bowling_traps = [{"id": 1, "state": "installing", "pos": Vector2(100.0, 200.0), "install_progress": 0.4}]
 	var bowling_state_value: Variant = runtime.get_actor_draw_context().get("commando_firearm_bowling_trap_state", {})
 	var bowling_state: Dictionary = {}
@@ -179,6 +182,9 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	for bridge_name in [
 		"_is_bowling_trap_install_in_player_field",
+		"_get_bowling_trap_install_pos",
+		"_build_bowling_trap_install_payload",
+		"_build_bowling_trap_install_marker_flash",
 		"_has_installing_bowling_trap",
 		"_build_bowling_trap_round_carryover",
 		"_build_bowling_trap_capture_result",
