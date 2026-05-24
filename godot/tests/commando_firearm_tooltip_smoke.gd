@@ -110,7 +110,7 @@ func _verify_rental_and_base_firearm_tooltip_text() -> void:
 	_expect(str(base_tooltip.get("ready_text", "")) == "발사 가능", "base firearm tooltip should show pistol readiness")
 	_expect(str(base_tooltip.get("reload_text", "")).contains("150 게이지"), "base firearm tooltip should explain one-round gauge reload")
 
-	_expect(bool(controller.add_rental_weapon("fire_support", 1, 1)), "fire support rental should be available for tooltip smoke")
+	_expect(bool(controller.add_rental_weapon("fire_support", 1, 2)), "fire support rental should be available for tooltip smoke")
 	_expect(bool(controller.set_current_weapon("fire_support")), "rental fire support should be selectable for tooltip smoke")
 	var rental_panel: Dictionary = selector.build_panel_state(Vector2(120.0, 280.0), 1.0, {"commando_weapon_controller": controller})
 	var rental_tooltip: Dictionary = tooltip.build_hover_state(
@@ -124,7 +124,7 @@ func _verify_rental_and_base_firearm_tooltip_text() -> void:
 	)
 	_expect(str(rental_tooltip.get("title", "")) == "화력지원", "rental firearm tooltip should use the Korean weapon name")
 	_expect(str(rental_tooltip.get("badge", "")) == "대여", "rental firearm tooltip should show rental ownership")
-	_expect(str(rental_tooltip.get("ammo_text", "")) == "호출권 1/1", "rental firearm tooltip should expose weapon-specific ammo labels")
+	_expect(str(rental_tooltip.get("ammo_text", "")) == "호출권 2/2", "rental firearm tooltip should expose weapon-specific ammo labels")
 	_expect(str(rental_tooltip.get("ownership_text", "")) == "대여 화기", "rental firearm tooltip should classify ownership in Korean")
 	_expect(str(rental_tooltip.get("reload_text", "")).contains("재장전 대상이 아닙니다"), "rental tooltip should clarify reload exclusion")
 

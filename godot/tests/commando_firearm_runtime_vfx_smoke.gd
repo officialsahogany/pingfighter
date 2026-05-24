@@ -1310,7 +1310,8 @@ func _verify_fire_support_call_lifecycle() -> void:
 
 	var result: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, config, deps)
 	_expect(bool(result.get("fired", false)), "ready fire support should spend the call ticket")
-	_expect(not bool(controller.get_current_weapon_data().get("can_fire", true)), "fire support should consume its call ticket immediately")
+	_expect(int(controller.get_current_weapon_data().get("ammo_current", -1)) == 1, "fire support should consume one radio per call")
+	_expect(bool(controller.get_current_weapon_data().get("can_fire", false)), "fire support should keep one remaining call after the first radio use")
 	_expect(audio.fire_support_radio_calls == 1, "fire support activation should play its radio cue")
 	_expect(audio.fire_support_aircraft_play_calls == 0, "fire support should not start aircraft loop during radio lock")
 	_expect(audio.supply_radio_calls == 0, "fire support should prefer its dedicated radio cue over the supply fallback")

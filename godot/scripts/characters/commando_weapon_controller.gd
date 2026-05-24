@@ -9,6 +9,7 @@ const AK47_AMMO_MAX := 60
 const AK47_DURATION_FRAMES := 1800.0
 const BAZOOKA_AMMO_MAX := 4
 const NET_GUN_AMMO_MAX := 3
+const FIRE_SUPPORT_AMMO_MAX := 2
 const BOWLING_TRAP_AMMO_MAX := 3
 const SUICIDE_DRONE_AMMO_MAX := 4
 const PERMANENT_WEAPONS := [
@@ -57,8 +58,8 @@ const WEAPON_DATA := {
 	"fire_support": {
 		"display_name_ko": "화력지원",
 		"kind": "owned",
-		"ammo_current": 1,
-		"ammo_max": 1,
+		"ammo_current": FIRE_SUPPORT_AMMO_MAX,
+		"ammo_max": FIRE_SUPPORT_AMMO_MAX,
 		"status_label": "호출권",
 	},
 	"bowling_trap": {

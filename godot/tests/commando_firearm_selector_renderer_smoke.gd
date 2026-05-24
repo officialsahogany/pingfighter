@@ -51,7 +51,7 @@ func _verify_single_fixed_panel_state() -> void:
 	_expect(bool(skill_config.unlock_and_equip_skill("bazooka")), "bazooka should equip")
 	_expect(bool(skill_config.unlock_and_equip_skill("ak47")), "ak47 should equip")
 	controller.sync_equipped_permanent(skill_config)
-	_expect(bool(controller.add_rental_weapon("fire_support", 1, 1)), "rental fire support should be grantable")
+	_expect(bool(controller.add_rental_weapon("fire_support", 1, 2)), "rental fire support should be grantable")
 	_expect(bool(controller.add_rental_weapon("suicide_drone", 4, 4)), "rental suicide drone should be grantable")
 	_expect(bool(controller.set_current_weapon("bazooka")), "bazooka should be selectable")
 
@@ -151,6 +151,10 @@ func _verify_single_fixed_panel_state() -> void:
 	_expect(str(fire_support_ammo.get("ammo_icon_style", "")) == "fire_support_radio", "fire-support ammo should use radio icons instead of compact pistol bullets")
 	_expect(str(fire_support_ammo.get("ammo_icon_texture_path", "")) == "res://assets/sprites/hud/commando_fire_support_radio_ammo_icon_imagegen_v1.png", "fire-support ammo state should point to the imagegen radio")
 	_expect(int(fire_support_ammo.get("display_slots", 0)) == 2 and int(fire_support_ammo.get("filled_slots", 0)) == 2, "full fire-support ammo should show two radio call markers in the HUD tray")
+	_expect(bool(controller.consume_current_weapon_ammo()), "fire-support ammo should be consumable for radio icon smoke")
+	var spent_fire_support_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
+	var spent_fire_support_ammo: Dictionary = _get_dict(spent_fire_support_panel.get("ammo_icon_state", {}))
+	_expect(int(spent_fire_support_ammo.get("display_slots", 0)) == 2 and int(spent_fire_support_ammo.get("filled_slots", 0)) == 1, "one used fire-support call should remove exactly one radio marker")
 
 	var tiny_scale: Dictionary = renderer.build_panel_state(center, 0.1, context)
 	var tiny_rect: Rect2 = _get_rect(tiny_scale.get("rect", Rect2()))
