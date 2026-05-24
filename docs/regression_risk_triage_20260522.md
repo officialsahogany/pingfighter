@@ -6227,6 +6227,31 @@ Hundredth split on 2026-05-24:
   no whitespace errors. `run_headless_load_check.ps1` passed.
   `run_warning_scan.ps1` scanned `1322` scripts with no GDScript warnings.
 
+192nd follow-up on 2026-05-24:
+
+- Commit: `5cd162fbe godot: drop Commando origin geometry bridges`.
+- Scope: removed the private origin-geometry bridge methods from
+  `commando_firearm_runtime.gd`, including player / boss anchor helpers,
+  authored muzzle helpers for pistol, bazooka, and net gun, and the generic
+  firearm origin / aim-origin wrappers. Runtime now calls
+  `commando_firearm_origin_geometry.gd` directly for projectile spawn origins,
+  boss-target reads, support-bomb fallback targets, suicide-drone homing, hit
+  knockback targeting, and net-rope origin sync. The origin, runtime VFX, and
+  value-utils smokes now compute expected net-gun origins through the owner
+  module and guard that the runtime bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3711` lines /
+  `176` functions to `3672` lines / `163` functions.
+- Validation: focused origin / projectile coverage passed:
+  `commando_firearm_origin_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_projectile_spawn_state_smoke`, and
+  `commando_firearm_projectile_motion_state_smoke`. The full sorted
+  `commando_firearm*_smoke.gd` set ran `45` scripts and passed.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` scanned `1322` scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
