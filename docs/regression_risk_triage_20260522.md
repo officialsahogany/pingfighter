@@ -7671,6 +7671,26 @@ Hundredth split on 2026-05-24:
   check passed, `run_warning_scan.ps1` scanned `1329` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors.
 
+264th follow-up on 2026-05-24:
+
+- Commit:
+  `82a4f5300 godot: move Commando slingshot cancel bridge`.
+- Scope: removed the Commando runtime `_cancel_slingshot_charge()` bridge.
+  Slingshot charge cancellation now uses
+  `CommandoFirearmSlingshotState.apply_canceled_state()` from weapon-switch,
+  serve-wait input cleanup, and firearm reset paths. The helper clears the
+  charging flag, timer, level, and spent gauge while preserving the existing
+  returned special-gauge value semantics.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2947` lines /
+  `46` functions to `2936` lines / `45` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_slingshot_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_runtime_routing_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors. The slingshot smoke now
+  rejects `_cancel_slingshot_charge()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
