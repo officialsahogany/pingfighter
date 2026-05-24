@@ -1051,17 +1051,10 @@ func get_actor_draw_context() -> Dictionary:
 		CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps),
 		CommandoFirearmBowlingTrapGeometry.get_install_progress(bowling_traps)
 	)
-	var suicide_drone_index: int = CommandoFirearmSuicideDroneState.get_active_projectile_index(projectiles)
-	var suicide_drone_projectile: Dictionary = {}
-	if suicide_drone_index >= 0:
-		suicide_drone_projectile = CommandoFirearmValueUtils.get_dict(projectiles[suicide_drone_index])
-	var suicide_drone_state: Dictionary = CommandoFirearmDrawStateResolver.build_suicide_drone_state(
-		suicide_drone_index >= 0,
+	var suicide_drone_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_suicide_drone_state(
+		projectiles,
 		suicide_drone_cooldown_frames,
-		SUICIDE_DRONE_COOLDOWN_FRAMES,
-		float(suicide_drone_projectile.get("grace_timer_frames", 0.0)),
-		CommandoFirearmValueUtils.get_vector2(suicide_drone_projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
-		CommandoFirearmValueUtils.get_vector2(suicide_drone_projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+		SUICIDE_DRONE_COOLDOWN_FRAMES
 	)
 	return CommandoFirearmDrawStateResolver.build_actor_context(
 		has_visible_effects(),

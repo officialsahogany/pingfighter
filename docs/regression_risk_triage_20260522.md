@@ -8085,3 +8085,27 @@ commits rather than standalone `fix` commits:
   `godot/tests/stage2_router_smoke.gd:472-477` now asserts the current
   `>= 3` rock-wall contract and still verifies quake feedback, water-cannon
   delay, and rock-spawn audio.
+
+280th follow-up on 2026-05-24:
+
+- Commit:
+  `0a03768e7 godot: add Russian localization`.
+- Scope: added `LANGUAGE_RUSSIAN` to the Godot localization registry and
+  wired Russian copy through item / mythic / perk / character / skill maps,
+  exact-text overrides, quality prefixes, pause-menu display settings,
+  render-FPS pacing text, boss skill-card HUD labels, weather text, stage-clear
+  summaries, treasure-hunt text, Commando firearm tooltip text, and focused
+  Smasher / Viper skill UI paths.
+- Validation: focused localization coverage passed:
+  `render_fps_cap_settings_smoke`, `language_settings_smoke`,
+  `localization_coverage_smoke`, `pause_menu_overlay_smoke`,
+  `active_item_catalog_korean_names_smoke`, `boss_skill_card_hud_spec_smoke`,
+  `passive_item_quality_prefix_smoke`, `weather_event_state_smoke`,
+  `commando_firearm_tooltip_smoke`, `commando_weapon_controller_smoke`,
+  `stage_clear_result_summary_builder_smoke`, `treasure_hunt_runtime_smoke`,
+  and `viper_ignition_aura_port_smoke`. The render-FPS smoke was rerun with
+  sandbox escalation because it writes `user://display_settings.cfg` under the
+  Godot AppData directory. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond existing CRLF
+  normalization notices.

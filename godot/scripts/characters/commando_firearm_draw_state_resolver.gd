@@ -209,6 +209,36 @@ static func build_suicide_drone_state(
 	}
 
 
+static func build_runtime_suicide_drone_state(
+	projectiles: Array,
+	cooldown_frames: float,
+	cooldown_max_frames: float
+) -> Dictionary:
+	for value in projectiles:
+		var projectile: Dictionary = CommandoFirearmValueUtils.get_dict(value)
+		if (
+			CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, "") != "suicide_drone"
+			or CommandoFirearmValueUtils.get_projectile_kind(projectile) != "drone"
+		):
+			continue
+		return build_suicide_drone_state(
+			true,
+			cooldown_frames,
+			cooldown_max_frames,
+			float(projectile.get("grace_timer_frames", 0.0)),
+			CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
+			CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+		)
+	return build_suicide_drone_state(
+		false,
+		cooldown_frames,
+		cooldown_max_frames,
+		0.0,
+		Vector2.ZERO,
+		Vector2.ZERO
+	)
+
+
 static func build_actor_context(
 	effects_visible: bool,
 	projectiles: Array,
