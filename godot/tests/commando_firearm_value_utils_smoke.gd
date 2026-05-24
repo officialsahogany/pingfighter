@@ -374,7 +374,7 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos({"width": 120.0}, Vector2(740.0, 745.0), 760.0, 750.0) == Vector2(700.0, 732.0), "default lingering pos owner should clamp right and bottom edges")
 	_expect(CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos({"width": 120.0}, Vector2(300.0, 400.0), 760.0, 750.0) == Vector2(300.0, 400.0), "default lingering pos owner should preserve in-field positions")
 	_expect(CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos({}, Vector2(20.0, 400.0), 760.0, 750.0) == Vector2(40.0, 400.0), "default lingering pos owner should use the fallback width")
-	_expect(runtime._get_lingering_effect_pos({"kind": "fire_zone", "width": 120.0}, {"pos": Vector2(20.0, 10.0)}, {}) == Vector2(60.0, 18.0), "lingering effect pos helper should delegate non-net positioning")
+	_expect(CommandoFirearmLingeringNetFieldState.get_lingering_effect_pos({"kind": "fire_zone", "width": 120.0}, {"pos": Vector2(20.0, 10.0)}, {}, Vector2(20.0, 10.0), Vector2.ZERO, 760.0, 750.0, 280.0, 90.0, 140.0) == Vector2(60.0, 18.0), "lingering effect pos owner should preserve non-net positioning")
 	var net_pos_profile := {
 		"width": 280.0,
 		"height": 140.0,
@@ -389,27 +389,34 @@ func _verify_runtime_value_utils_integration() -> void:
 		"boss_paddle_width": 100.0,
 		"boss_hitbox_height": 100.0,
 	}, Vector2(300.0, 50.0), Vector2(320.0, 100.0), 760.0, 750.0, 280.0, 90.0, 140.0) == Vector2(300.0, 100.0), "net lingering pos owner should fall back to the boss target y")
-	_expect(runtime._get_lingering_effect_pos({"kind": "net_field", "width": 280.0, "height": 140.0, "min_height": 90.0}, {
+	_expect(CommandoFirearmLingeringNetFieldState.get_lingering_effect_pos({"kind": "net_field", "width": 280.0, "height": 140.0, "min_height": 90.0}, {
 		"pos": Vector2(20.0, 500.0),
 		"target": Vector2(0.0, 10.0),
-	}, net_pos_context) == Vector2(140.0, 75.0), "lingering effect pos helper should delegate net positioning")
-	_expect(runtime._get_lingering_effect_size({"width": 80.0, "height": 36.0}, {"impact_radius": 12.0}, {}, false) == Vector2(80.0, 36.0), "lingering size helper should prefer explicit profile dimensions")
-	_expect(runtime._get_lingering_effect_size({}, {"impact_radius": 12.0}, {}, false) == Vector2(24.0, 14.4), "lingering size helper should derive normal dimensions from impact radius")
-	_expect(runtime._get_lingering_effect_size({}, {}, {}, false) == Vector2(48.0, 28.8), "lingering size helper should use the default impact radius")
-	var net_lingering_size: Vector2 = runtime._get_lingering_effect_size({
+	}, net_pos_context, Vector2(20.0, 500.0), Vector2.ZERO, 760.0, 750.0, 280.0, 90.0, 140.0) == Vector2(140.0, 75.0), "lingering effect pos owner should preserve net positioning")
+	_expect(CommandoFirearmLingeringEffectState.get_size({"width": 80.0, "height": 36.0}, {"impact_radius": 12.0}, false, 280.0, 140.0) == Vector2(80.0, 36.0), "lingering size owner should prefer explicit profile dimensions")
+	_expect(CommandoFirearmLingeringEffectState.get_size({}, {"impact_radius": 12.0}, false, 280.0, 140.0) == Vector2(24.0, 14.4), "lingering size owner should derive normal dimensions from impact radius")
+	_expect(CommandoFirearmLingeringEffectState.get_size({}, {}, false, 280.0, 140.0) == Vector2(48.0, 28.8), "lingering size owner should use the default impact radius")
+	var net_lingering_profile := {
 		"height": 140.0,
 		"min_height": 90.0,
-	}, {"impact_radius": 12.0}, {"boss_hitbox_height": 100.0}, true)
-	_expect(net_lingering_size == Vector2(280.0, 110.0), "lingering size helper should use net width and boss-scaled net height")
+	}
+	var net_lingering_size: Vector2 = CommandoFirearmLingeringEffectState.get_size(
+		net_lingering_profile,
+		{"impact_radius": 12.0},
+		true,
+		280.0,
+		CommandoFirearmLingeringNetFieldState.get_net_effect_height(net_lingering_profile, {"boss_hitbox_height": 100.0}, 90.0, 140.0)
+	)
+	_expect(net_lingering_size == Vector2(280.0, 110.0), "lingering size owner should use net width and boss-scaled net height")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_effect_desired_height({"boss_hitbox_height": 100.0}), 110.0), "net effect desired-height owner should scale boss hitbox height")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_effect_desired_height({}), 44.0), "net effect desired-height owner should use the default boss height")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_effect_desired_height({"boss_hitbox_height": -5.0}), 1.1), "net effect desired-height owner should clamp boss height before scaling")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_effect_height_limits({"height": 140.0, "min_height": 90.0}, 90.0, 140.0) == Vector2(90.0, 140.0), "net effect height-limit owner should preserve profile limits")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_effect_height_limits({}, 90.0, 140.0) == Vector2(90.0, 140.0), "net effect height-limit owner should use default net limits")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_effect_height_limits({"height": -4.0, "min_height": 0.0}, 90.0, 140.0) == Vector2(1.0, 1.0), "net effect height-limit owner should clamp limits to positive values")
-	_expect(is_equal_approx(runtime._get_net_effect_height({"height": 140.0, "min_height": 90.0}, {"boss_hitbox_height": 20.0}), 90.0), "net effect height helper should clamp low desired height to min")
-	_expect(is_equal_approx(runtime._get_net_effect_height({"height": 140.0, "min_height": 90.0}, {"boss_hitbox_height": 100.0}), 110.0), "net effect height helper should preserve desired height inside limits")
-	_expect(is_equal_approx(runtime._get_net_effect_height({"height": 140.0, "min_height": 90.0}, {"boss_hitbox_height": 200.0}), 140.0), "net effect height helper should clamp high desired height to max")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_effect_height({"height": 140.0, "min_height": 90.0}, {"boss_hitbox_height": 20.0}, 90.0, 140.0), 90.0), "net effect height owner should clamp low desired height to min")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_effect_height({"height": 140.0, "min_height": 90.0}, {"boss_hitbox_height": 100.0}, 90.0, 140.0), 110.0), "net effect height owner should preserve desired height inside limits")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_effect_height({"height": 140.0, "min_height": 90.0}, {"boss_hitbox_height": 200.0}, 90.0, 140.0), 140.0), "net effect height owner should clamp high desired height to max")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_shape_seed_phase(0), 0.0), "net shape seed owner should keep zero seeds at zero phase")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_shape_seed_phase(1), 0.61803398875), "net shape seed owner should use golden-ratio phase")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_shape_seed_phase(2), 0.2360679775), "net shape seed owner should wrap phases")
@@ -1037,8 +1044,8 @@ func _verify_runtime_value_utils_integration() -> void:
 		"timer_frames": 10.0,
 		"status_id": "",
 	}
-	var active_clamp_result: Dictionary = runtime._get_active_lingering_clamp_result(active_lingering_effect, active_lingering_context)
-	_expect(bool(active_clamp_result.get("commando_net_gun_boss_clamped", false)), "active lingering clamp-result helper should preserve live net clamps")
+	var active_clamp_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(active_lingering_effect, active_lingering_context, 280.0, 90.0)
+	_expect(bool(active_clamp_result.get("commando_net_gun_boss_clamped", false)), "active lingering clamp-result owner should preserve live net clamps")
 	var active_clamp_merge_result := {}
 	var active_clamp_merge_context := {
 		"boss_pos": Vector2(20.0, 90.0),
@@ -1592,6 +1599,7 @@ func _verify_removed_net_field_clamp_bridges() -> void:
 		"_should_emit_net_field_boss_clamp_result",
 		"_build_net_field_boss_clamp_result",
 		"_apply_net_field_boss_clamp",
+		"_get_active_lingering_clamp_result",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field clamp bridge %s" % bridge_name)
 
@@ -1632,7 +1640,9 @@ func _verify_removed_net_field_setup_bridges() -> void:
 		"_get_net_shape_point",
 		"_get_net_lingering_effect_pos",
 		"_get_default_lingering_effect_pos",
+		"_get_lingering_effect_pos",
 		"_get_net_effect_desired_height",
+		"_get_net_effect_height",
 		"_get_net_effect_height_limits",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field setup bridge %s" % bridge_name)
@@ -1716,6 +1726,7 @@ func _verify_removed_lingering_effect_timer_bridges() -> void:
 		"_merge_lingering_clamp_result",
 		"_has_lingering_clamp_result",
 		"_apply_lingering_clamp_payload",
+		"_get_lingering_effect_size",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-effect timer bridge %s" % bridge_name)
 

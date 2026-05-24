@@ -2997,9 +2997,33 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		dissolve,
 		NET_GUN_DISSOLVE_FRAMES
 	)
-	var pos: Vector2 = _get_lingering_effect_pos(profile, projectile, context)
+	var projectile_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var pos: Vector2 = CommandoFirearmLingeringNetFieldState.get_lingering_effect_pos(
+		profile,
+		projectile,
+		context,
+		projectile_pos,
+		CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH),
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		NET_GUN_WIDTH,
+		NET_GUN_MIN_HEIGHT,
+		NET_GUN_HEIGHT
+	)
 	var effect_id: int = _get_lingering_effect_id(projectile)
-	var effect_size: Vector2 = _get_lingering_effect_size(profile, projectile, context, is_net)
+	var net_effect_height: float = CommandoFirearmLingeringNetFieldState.get_net_effect_height(
+		profile,
+		context,
+		NET_GUN_MIN_HEIGHT,
+		NET_GUN_HEIGHT
+	)
+	var effect_size: Vector2 = CommandoFirearmLingeringEffectState.get_size(
+		profile,
+		projectile,
+		is_net,
+		NET_GUN_WIDTH,
+		net_effect_height
+	)
 	var effect: Dictionary = CommandoFirearmLingeringEffectState.build_effect(
 		weapon_id,
 		profile,
@@ -3058,21 +3082,6 @@ func _trigger_active_item_molotov_fire_zone(pos: Vector2, deps: Dictionary) -> b
 	return true
 
 
-func _get_lingering_effect_size(
-	profile: Dictionary,
-	projectile: Dictionary,
-	context: Dictionary,
-	is_net: bool
-) -> Vector2:
-	return CommandoFirearmLingeringEffectState.get_size(
-		profile,
-		projectile,
-		is_net,
-		NET_GUN_WIDTH,
-		_get_net_effect_height(profile, context)
-	)
-
-
 func _get_lingering_effect_id(projectile: Dictionary) -> int:
 	var effect_id: int = int(projectile.get("id", 0))
 	if effect_id == 0:
@@ -3120,31 +3129,6 @@ func _spawn_net_dissolve_effect(projectile: Dictionary, context: Dictionary) -> 
 	var net_projectile: Dictionary = projectile.duplicate(true)
 	net_projectile["net_dissolve"] = true
 	return _spawn_lingering_effect("net_gun", net_projectile, context)
-
-
-func _get_lingering_effect_pos(profile: Dictionary, projectile: Dictionary, context: Dictionary) -> Vector2:
-	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	return CommandoFirearmLingeringNetFieldState.get_lingering_effect_pos(
-		profile,
-		projectile,
-		context,
-		pos,
-		CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH),
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		NET_GUN_WIDTH,
-		NET_GUN_MIN_HEIGHT,
-		NET_GUN_HEIGHT
-	)
-
-
-func _get_net_effect_height(profile: Dictionary, context: Dictionary) -> float:
-	return CommandoFirearmLingeringNetFieldState.get_net_effect_height(
-		profile,
-		context,
-		NET_GUN_MIN_HEIGHT,
-		NET_GUN_HEIGHT
-	)
 
 
 func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -3217,17 +3201,13 @@ func _should_sync_net_field_rope_origin(effect: Dictionary) -> bool:
 
 
 func _apply_active_lingering_clamp(effect: Dictionary, context: Dictionary, result: Dictionary) -> void:
-	var clamp_result: Dictionary = _get_active_lingering_clamp_result(effect, context)
-	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
-
-
-func _get_active_lingering_clamp_result(effect: Dictionary, context: Dictionary) -> Dictionary:
-	return CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(
+	var clamp_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(
 		effect,
 		context,
 		NET_GUN_WIDTH,
 		NET_GUN_MIN_HEIGHT
 	)
+	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
 
 
 func _store_lingering_effect_at_index(index: int, effect: Dictionary) -> void:

@@ -76,6 +76,7 @@ func _verify_runtime_delegates_lingering_effect_state() -> void:
 	_expect(CommandoFirearmLingeringEffectState.is_active({"timer_frames": 0.1}), "active owner should remain the timer-state boundary")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(not runtime_source.contains("func _get_lingering_effect_duration("), "runtime should not keep lingering duration bridge")
+	_expect(not runtime_source.contains("func _get_lingering_effect_size("), "runtime should not keep lingering size bridge")
 	_expect(not runtime_source.contains("func _build_lingering_effect("), "runtime should not keep lingering effect build bridge")
 	_expect(not runtime_source.contains("func _build_lingering_spawn_result("), "runtime should not keep lingering spawn-result bridge")
 
