@@ -9345,3 +9345,31 @@ commits rather than standalone `fix` commits:
   GDScript warnings, and `git diff --check` reported no whitespace errors
   aside from the existing CRLF/LF normalization notice on
   `commando_firearm_runtime.gd`.
+
+345th follow-up on 2026-05-25:
+
+- Commit:
+  `bacf27b92 godot: move Commando projectile hit registration`.
+- Scope: moved projectile-hit registration orchestration into
+  `CommandoFirearmProjectileImpactState.register_runtime_projectile_hit()`.
+  The projectile impact owner now resolves hit feedback profiles, delegates
+  weapon-hit result application, queues pending combat results, routes
+  suicide-drone / lingering effect creation, appends boss-hit events, and
+  dispatches hit feedback / impact audio. Runtime keeps
+  `_register_projectile_hit()` as a compatibility facade for existing
+  projectile-impact, suicide-drone, and smoke-test callers.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1745` lines /
+  `26` functions to `1721` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_hit_result_state_smoke`,
+  `commando_firearm_pistol_hit_state_smoke`,
+  `commando_firearm_ak47_hit_state_smoke`,
+  `commando_firearm_slingshot_state_smoke`,
+  `commando_firearm_boss_damage_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1338` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors
+  aside from existing CRLF/LF normalization notices on touched files.
