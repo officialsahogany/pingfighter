@@ -9401,3 +9401,33 @@ commits rather than standalone `fix` commits:
   GDScript warnings, and `git diff --check` reported no whitespace errors
   aside from the existing CRLF/LF normalization notice on
   `commando_firearm_runtime.gd`.
+
+347th follow-up on 2026-05-25:
+
+- Commit:
+  `101b49b45 godot: move Commando effect update orchestration`.
+- Scope: moved the runtime `update_effects()` orchestration into the new
+  `CommandoFirearmEffectUpdateState.advance_runtime_effects()` owner. The
+  effect update owner now advances timed muzzle / impact flashes, support-call
+  projectiles, bowling-trap lifecycle, projectile updates, shell casings,
+  pistol feedbacks, lingering effects, and pending combat result consumption.
+  Runtime keeps `update_effects()` as the public compatibility facade and
+  passes the existing timing / geometry / profile constants through one
+  options dictionary.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1657` lines /
+  `26` functions to `1625` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_support_projectile_resolver_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_projectile_motion_state_smoke`,
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_pending_result_state_smoke`,
+  `commando_firearm_shell_casing_state_smoke`,
+  `commando_firearm_pistol_feedback_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1339` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors
+  aside from existing CRLF/LF normalization notices on touched files.
