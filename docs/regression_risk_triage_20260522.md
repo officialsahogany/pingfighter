@@ -9373,3 +9373,31 @@ commits rather than standalone `fix` commits:
   check passed, `run_warning_scan.ps1` scanned `1338` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors
   aside from existing CRLF/LF normalization notices on touched files.
+
+346th follow-up on 2026-05-25:
+
+- Commit:
+  `cb8d0a8c7 godot: move Commando projectile update orchestration`.
+- Scope: moved projectile update orchestration into
+  `CommandoFirearmProjectileMotionState.advance_runtime_projectiles()`. The
+  projectile motion owner now advances per-frame projectile motion, handles
+  consumed projectiles, delegates suicide-drone collision resolution, routes
+  projectile impact reason checks / dispatch, merges impact results back into
+  the update context, and removes impacted projectiles. Runtime keeps
+  `_update_projectiles()` as a compatibility facade for existing smoke-test
+  and `update_effects()` callers.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1721` lines /
+  `26` functions to `1657` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_motion_state_smoke`,
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_hit_result_state_smoke`,
+  `commando_firearm_boss_damage_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1338` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors
+  aside from the existing CRLF/LF normalization notice on
+  `commando_firearm_runtime.gd`.
