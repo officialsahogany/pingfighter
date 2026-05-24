@@ -41,6 +41,7 @@ func _init() -> void:
 	_verify_reload_progress_round_count()
 	_verify_suicide_drone_stop()
 	_verify_missing_audio_is_noop()
+	_verify_removed_runtime_audio_dispatcher_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_audio_dispatcher_smoke: ok")
@@ -104,6 +105,17 @@ func _verify_missing_audio_is_noop() -> void:
 	CommandoFirearmAudioDispatcher.play_reload_progress_audio({"base_pistol": {"reload_rounds_added": 1}}, {})
 	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio({})
 	_expect(true, "missing audio deps should be no-ops")
+
+
+func _verify_removed_runtime_audio_dispatcher_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_play_weapon_audio_method",
+		"_play_first_audio_method",
+		"_play_reload_progress_audio",
+		"_stop_suicide_drone_audio",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep audio dispatcher bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:

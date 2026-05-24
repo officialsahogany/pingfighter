@@ -552,7 +552,7 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	var current_weapon: Dictionary = weapon_controller.get_current_weapon_data()
 	var weapon_id: String = str(current_weapon.get("weapon_id", BASE_WEAPON_ID))
 	if weapon_controller.has_method("update_timers"):
-		_play_reload_progress_audio(weapon_controller.update_timers(1.0), deps)
+		CommandoFirearmAudioDispatcher.play_reload_progress_audio(weapon_controller.update_timers(1.0), deps)
 	if _should_suppress_fire_input_for_serve_wait(input_snapshot, config, deps):
 		return {}
 	var timed_result: Dictionary = _update_firearm_timers(config, deps, 1.0)
@@ -563,7 +563,7 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	var reset_result: Dictionary = _handle_firearm_reset_input(input_snapshot, special_gauge, weapon_controller, now_msec)
 	if not reset_result.is_empty():
 		if bool(reset_result.get("weapon_switched", false)):
-			_play_first_audio_method(deps, ["play_commando_weapon_change"])
+			CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_weapon_change"])
 		return reset_result
 	current_weapon = weapon_controller.get_current_weapon_data()
 	weapon_id = str(current_weapon.get("weapon_id", BASE_WEAPON_ID))
@@ -796,7 +796,7 @@ func reset() -> void:
 
 func reset_round(deps: Dictionary = {}) -> void:
 	_stop_all_support_aircraft_audio(deps)
-	_stop_suicide_drone_audio(deps)
+	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	var carried_bowling_traps: Array = []
 	if bool(deps.get("preserve_bowling_traps", true)):
 		carried_bowling_traps = CommandoFirearmBowlingTrapGeometry.build_round_carryover(
@@ -1289,7 +1289,7 @@ func _update_pistol_input(
 		doping_context,
 		doping_defaults
 	)
-	_play_first_audio_method(deps, ["play_commando_pistol_ready"])
+	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_pistol_ready"])
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
@@ -1319,7 +1319,7 @@ func _reload_base_pistol_from_fire_input(special_gauge: float, deps: Dictionary)
 	var updated_weapon: Dictionary = {}
 	if weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
-	_play_first_audio_method(deps, ["play_commando_pistol_reload_start"])
+	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_pistol_reload_start"])
 	var next_gauge: float = max(0.0, special_gauge - PISTOL_EMPTY_RELOAD_GAUGE_COST)
 	return CommandoFirearmFireResultState.build_base_pistol_reload_started_result(
 		BASE_WEAPON_ID,
@@ -2195,7 +2195,7 @@ func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, 
 		SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
 		SUPPORT_AIRCRAFT_START_X
 	))
-	_play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
+	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
 	_append_limited(impact_flashes, CommandoFirearmSupportCallResolver.build_marker_flash(
 		weapon_id,
 		target,
@@ -2570,7 +2570,7 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 				_spawn_net_dissolve_effect(projectile, context)
 			projectiles.remove_at(index)
 			if projectile_kind == "drone" and not CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
-				_stop_suicide_drone_audio(deps)
+				CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	return result
 
 
@@ -2799,7 +2799,7 @@ func _detonate_suicide_drone_at_index(
 		)
 		_register_ball_hit_pulse(pos, _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 0.86, "suicide_drone", deps)
 		_play_impact_audio("suicide_drone", deps)
-	_stop_suicide_drone_audio(deps)
+	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	suicide_drone_cooldown_frames = SUICIDE_DRONE_COOLDOWN_FRAMES
 	var result: Dictionary = _build_suicide_drone_detonation_result(reason, pos, hit_boss)
 	if reason == "ball_hit":
@@ -3564,7 +3564,7 @@ func _start_support_aircraft_audio(call: Dictionary, deps: Dictionary) -> void:
 	if bool(call.get("aircraft_audio_active", false)):
 		return
 	call["aircraft_audio_active"] = true
-	_play_first_audio_method(deps, ["play_commando_fire_support_aircraft_loop", "play_commando_supply_aircraft_loop"])
+	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_fire_support_aircraft_loop", "play_commando_supply_aircraft_loop"])
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -3572,7 +3572,7 @@ func _stop_support_aircraft_audio(call: Dictionary, deps: Dictionary) -> void:
 	if not bool(call.get("aircraft_audio_active", false)):
 		return
 	call["aircraft_audio_active"] = false
-	_play_first_audio_method(deps, ["stop_commando_fire_support_aircraft_loop", "stop_commando_supply_aircraft_loop"])
+	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["stop_commando_fire_support_aircraft_loop", "stop_commando_supply_aircraft_loop"])
 
 
 func _stop_all_support_aircraft_audio(deps: Dictionary) -> void:
@@ -3588,7 +3588,7 @@ func _play_fire_audio(weapon_id: String, deps: Dictionary) -> void:
 		# Fire-support activation already owns the radio cue in
 		# _start_support_call(); do not layer a generic launch sound over it.
 		return
-	_play_weapon_audio_method(
+	CommandoFirearmAudioDispatcher.play_weapon_audio_method(
 		deps,
 		CommandoFirearmAudioResolver.get_fire_audio_methods(weapon_id),
 		"play_commando_firearm_fire",
@@ -3597,33 +3597,12 @@ func _play_fire_audio(weapon_id: String, deps: Dictionary) -> void:
 
 
 func _play_impact_audio(weapon_id: String, deps: Dictionary) -> void:
-	_play_weapon_audio_method(
+	CommandoFirearmAudioDispatcher.play_weapon_audio_method(
 		deps,
 		CommandoFirearmAudioResolver.get_impact_audio_methods(weapon_id),
 		"play_commando_firearm_impact",
 		weapon_id
 	)
-
-
-func _play_weapon_audio_method(
-	deps: Dictionary,
-	method_names: Array[String],
-	fallback_method: String,
-	weapon_id: String
-) -> void:
-	CommandoFirearmAudioDispatcher.play_weapon_audio_method(deps, method_names, fallback_method, weapon_id)
-
-
-func _play_first_audio_method(deps: Dictionary, method_names: Array[String]) -> void:
-	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, method_names)
-
-
-func _play_reload_progress_audio(timer_result: Dictionary, deps: Dictionary) -> void:
-	CommandoFirearmAudioDispatcher.play_reload_progress_audio(timer_result, deps)
-
-
-func _stop_suicide_drone_audio(deps: Dictionary) -> void:
-	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 
 
 func _update_muzzle_flashes(fps_scale: float) -> void:
