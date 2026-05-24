@@ -75,6 +75,28 @@ func _verify_direct_pending_result_state() -> void:
 	_expect(direct_runtime.pending_special_gauge_hit_kind == "", "runtime pending helper should clear hit kind")
 	_expect(is_equal_approx(direct_runtime.pending_pistol_feedback_timer_frames, 0.0), "runtime pending helper should clear feedback timer")
 
+	var queue_runtime := CommandoFirearmRuntime.new()
+	queue_runtime.pending_boss_damage_units = 1
+	queue_runtime.pending_boss_damage_sources = ["existing"]
+	queue_runtime.pending_special_gauge_gain = 5.0
+	queue_runtime.pending_special_gauge_sources = ["existing"]
+	queue_runtime.pending_special_gauge_hit_kind = "normal"
+	queue_runtime.pending_pistol_feedback_timer_frames = 4.0
+	CommandoFirearmPendingResultState.queue_runtime_combat_result(queue_runtime, {
+		"damage_units": 2,
+		"damage_sources": ["existing", "headshot"],
+		"commando_firearm_special_gauge_gain": 10.0,
+		"commando_firearm_special_gauge_source": "headshot",
+		"commando_firearm_pistol_hit_kind": "headshot",
+		"commando_firearm_pistol_feedback_timer_frames": 18.0,
+	})
+	_expect(queue_runtime.pending_boss_damage_units == 3, "runtime combat queue should accumulate damage units")
+	_expect(queue_runtime.pending_boss_damage_sources == ["existing", "headshot"], "runtime combat queue should append damage sources")
+	_expect(is_equal_approx(queue_runtime.pending_special_gauge_gain, 15.0), "runtime combat queue should accumulate gauge")
+	_expect(queue_runtime.pending_special_gauge_sources == ["existing", "headshot"], "runtime combat queue should append gauge sources")
+	_expect(queue_runtime.pending_special_gauge_hit_kind == "headshot", "runtime combat queue should update hit kind")
+	_expect(is_equal_approx(queue_runtime.pending_pistol_feedback_timer_frames, 18.0), "runtime combat queue should preserve max feedback timer")
+
 
 func _verify_runtime_consumes_pending_result_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()

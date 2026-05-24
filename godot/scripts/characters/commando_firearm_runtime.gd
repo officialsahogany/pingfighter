@@ -2188,24 +2188,7 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 	var intensity: float = float(feedback_profile.get("intensity", 0.5))
 	var color: Color = CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE)
 	var combat_result: Dictionary = _apply_weapon_hit_result(weapon_id, projectile, context, deps)
-	var damage_state: Dictionary = CommandoFirearmPendingResultState.queue_boss_damage_state(
-		pending_boss_damage_units,
-		pending_boss_damage_sources,
-		combat_result
-	)
-	pending_boss_damage_units = int(damage_state.get("units", pending_boss_damage_units))
-	pending_boss_damage_sources = CommandoFirearmValueUtils.get_array(damage_state.get("sources", pending_boss_damage_sources))
-	var gauge_state: Dictionary = CommandoFirearmPendingResultState.queue_special_gauge_state(
-		pending_special_gauge_gain,
-		pending_special_gauge_sources,
-		pending_special_gauge_hit_kind,
-		pending_pistol_feedback_timer_frames,
-		combat_result
-	)
-	pending_special_gauge_gain = float(gauge_state.get("gain", pending_special_gauge_gain))
-	pending_special_gauge_sources = CommandoFirearmValueUtils.get_array(gauge_state.get("sources", pending_special_gauge_sources))
-	pending_special_gauge_hit_kind = str(gauge_state.get("hit_kind", pending_special_gauge_hit_kind))
-	pending_pistol_feedback_timer_frames = float(gauge_state.get("feedback_timer_frames", pending_pistol_feedback_timer_frames))
+	CommandoFirearmPendingResultState.queue_runtime_combat_result(self, combat_result)
 	var lingering_result: Dictionary = {}
 	if weapon_id == "suicide_drone":
 		lingering_result = CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone(projectile, deps)

@@ -62,6 +62,32 @@ static func queue_special_gauge_state(
 	}
 
 
+static func queue_runtime_combat_result(target: Object, combat_result: Dictionary) -> void:
+	if target == null:
+		return
+	var damage_state: Dictionary = queue_boss_damage_state(
+		int(target.get("pending_boss_damage_units")),
+		_get_array(target.get("pending_boss_damage_sources")),
+		combat_result
+	)
+	target.set("pending_boss_damage_units", int(damage_state.get("units", target.get("pending_boss_damage_units"))))
+	target.set("pending_boss_damage_sources", _get_array(damage_state.get("sources", target.get("pending_boss_damage_sources"))))
+	var gauge_state: Dictionary = queue_special_gauge_state(
+		float(target.get("pending_special_gauge_gain")),
+		_get_array(target.get("pending_special_gauge_sources")),
+		str(target.get("pending_special_gauge_hit_kind")),
+		float(target.get("pending_pistol_feedback_timer_frames")),
+		combat_result
+	)
+	target.set("pending_special_gauge_gain", float(gauge_state.get("gain", target.get("pending_special_gauge_gain"))))
+	target.set("pending_special_gauge_sources", _get_array(gauge_state.get("sources", target.get("pending_special_gauge_sources"))))
+	target.set("pending_special_gauge_hit_kind", str(gauge_state.get("hit_kind", target.get("pending_special_gauge_hit_kind"))))
+	target.set("pending_pistol_feedback_timer_frames", float(gauge_state.get(
+		"feedback_timer_frames",
+		target.get("pending_pistol_feedback_timer_frames")
+	)))
+
+
 static func build_boss_damage_result(units: int, sources: Array) -> Dictionary:
 	if units <= 0:
 		return {}
