@@ -3156,7 +3156,40 @@ func _apply_active_lingering_effect(
 			COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
 			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
 		)
-	_apply_lingering_effect_status(effect, context, deps, fps_scale)
+	var status_application: Dictionary = CommandoFirearmLingeringStatusState.get_status_application(effect, deps)
+	if (
+		CommandoFirearmLingeringStatusState.has_status_application(status_application)
+		and CommandoFirearmLingeringStatusState.can_apply_status(
+			effect,
+			context,
+			CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
+		)
+	):
+		var status_effect_state: Object = CommandoFirearmLingeringStatusState.get_status_application_state(status_application)
+		var status_id: String = CommandoFirearmLingeringStatusState.get_status_application_id(status_application)
+		if status_effect_state != null and status_id != "":
+			var data: Dictionary = CommandoFirearmLingeringStatusState.build_status_data(
+				effect,
+				status_id,
+				LINGERING_STATUS_ID_SLOW,
+				LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+				LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
+				LINGERING_STATUS_MAX_SLOW_MULTIPLIER
+			)
+			status_effect_state.apply_status(
+				CommandoFirearmLingeringStatusState.get_status_target(LINGERING_STATUS_TARGET),
+				status_id,
+				CommandoFirearmLingeringStatusState.get_status_duration(
+					effect,
+					LINGERING_STATUS_DEFAULT_DURATION_FRAMES
+				),
+				data,
+				CommandoFirearmLingeringStatusState.get_status_source(effect, LINGERING_STATUS_DEFAULT_SOURCE)
+			)
+			CommandoFirearmLingeringStatusState.reset_status_cooldown(
+				effect,
+				LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES
+			)
 	var clamp_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(
 		effect,
 		context,
@@ -3200,44 +3233,6 @@ func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps
 			audio.play_commando_net_gun_capture()
 	net_constrict_last_dir = dir_input
 	net_constrict_last_tick_msec = now_msec
-
-
-func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, deps: Dictionary, fps_scale: float) -> void:
-	var status_application: Dictionary = CommandoFirearmLingeringStatusState.get_status_application(effect, deps)
-	if not CommandoFirearmLingeringStatusState.has_status_application(status_application):
-		return
-	if not CommandoFirearmLingeringStatusState.can_apply_status(
-		effect,
-		context,
-		CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
-	):
-		return
-	var status_effect_state: Object = CommandoFirearmLingeringStatusState.get_status_application_state(status_application)
-	var status_id: String = CommandoFirearmLingeringStatusState.get_status_application_id(status_application)
-	if status_effect_state == null or status_id == "":
-		return
-	var data: Dictionary = CommandoFirearmLingeringStatusState.build_status_data(
-		effect,
-		status_id,
-		LINGERING_STATUS_ID_SLOW,
-		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
-		LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
-		LINGERING_STATUS_MAX_SLOW_MULTIPLIER
-	)
-	status_effect_state.apply_status(
-		CommandoFirearmLingeringStatusState.get_status_target(LINGERING_STATUS_TARGET),
-		status_id,
-		CommandoFirearmLingeringStatusState.get_status_duration(
-			effect,
-			LINGERING_STATUS_DEFAULT_DURATION_FRAMES
-		),
-		data,
-		CommandoFirearmLingeringStatusState.get_status_source(effect, LINGERING_STATUS_DEFAULT_SOURCE)
-	)
-	CommandoFirearmLingeringStatusState.reset_status_cooldown(
-		effect,
-		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES
-	)
 
 
 func _next_shot_id() -> int:

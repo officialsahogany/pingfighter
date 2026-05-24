@@ -1287,7 +1287,15 @@ func _verify_runtime_value_utils_integration() -> void:
 		"width": 80.0,
 		"height": 40.0,
 	}
-	runtime._apply_lingering_effect_status(live_status_effect, live_status_context, {"status_effect_state": fake_status_state}, 1.0)
+	runtime.lingering_effects = [live_status_effect]
+	runtime._apply_active_lingering_effect(
+		0,
+		CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]),
+		1.0,
+		live_status_context,
+		{"status_effect_state": fake_status_state},
+		{}
+	)
 	_expect(fake_status_state.calls.size() == 1, "lingering status effect path should call status state once")
 	var direct_status_call: Dictionary = fake_status_state.calls[0]
 	_expect(str(direct_status_call.get("target", "")) == "boss", "lingering status effect path should target the boss")
@@ -1303,11 +1311,33 @@ func _verify_runtime_value_utils_integration() -> void:
 		"width": 80.0,
 		"height": 40.0,
 	}
-	runtime._apply_lingering_effect_status(default_apply_status_effect, live_status_context, {"status_effect_state": fake_status_state}, 1.0)
+	runtime.lingering_effects = [default_apply_status_effect]
+	runtime._apply_active_lingering_effect(
+		0,
+		CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]),
+		1.0,
+		live_status_context,
+		{"status_effect_state": fake_status_state},
+		{}
+	)
 	_expect(str((fake_status_state.calls[1] as Dictionary).get("source", "")) == "commando_firearm_lingering", "lingering status effect path should use default source")
 	_expect(is_equal_approx(float((fake_status_state.calls[1] as Dictionary).get("duration_frames", 0.0)), 18.0), "lingering status effect path should use default duration")
-	runtime._apply_lingering_effect_status(default_apply_status_effect, live_status_context, {}, 1.0)
-	runtime._apply_lingering_effect_status(default_apply_status_effect, live_status_context, {"status_effect_state": RefCounted.new()}, 1.0)
+	runtime._apply_active_lingering_effect(
+		0,
+		CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]),
+		1.0,
+		live_status_context,
+		{},
+		{}
+	)
+	runtime._apply_active_lingering_effect(
+		0,
+		CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]),
+		1.0,
+		live_status_context,
+		{"status_effect_state": RefCounted.new()},
+		{}
+	)
 	_expect(fake_status_state.calls.size() == 2, "lingering status effect path should ignore invalid applications")
 	runtime.lingering_effects = [
 		{"id": "first", "timer_frames": 2.0, "phase": 0.0},
@@ -1691,6 +1721,7 @@ func _verify_removed_lingering_status_application_bridges() -> void:
 		"_get_lingering_boss_rect_width",
 		"_get_lingering_boss_rect_height",
 		"_get_lingering_boss_rect_size",
+		"_apply_lingering_effect_status",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-status application bridge %s" % bridge_name)
 
