@@ -143,6 +143,68 @@ static func update_runtime_input(
 	)
 
 
+static func update_runtime_active_input(
+	runtime_owner: Object,
+	input_snapshot: Dictionary,
+	special_gauge: float,
+	config: Dictionary,
+	deps: Dictionary,
+	options: Dictionary
+) -> Dictionary:
+	if runtime_owner == null:
+		return {}
+	var projectiles: Array = CommandoFirearmValueUtils.get_array(runtime_owner.get("projectiles"))
+	var index: int = get_active_projectile_index(projectiles)
+	if index < 0:
+		return {}
+	var projectile: Dictionary = CommandoFirearmValueUtils.get_dict(projectiles[index])
+	var input_vector: Vector2 = CommandoFirearmInputResolver.get_suicide_drone_input_vector(input_snapshot)
+	var next_projectile: Dictionary = apply_input(
+		projectile,
+		input_vector,
+		float(options.get("suicide_drone_accel", 1.2)),
+		float(options.get("suicide_drone_max_speed", 14.0)),
+		float(options.get("suicide_drone_rotor_base_speed", 18.0)),
+		float(options.get("suicide_drone_rotor_speed_scale", 2.0))
+	)
+	projectiles[index] = next_projectile
+	runtime_owner.set("projectiles", projectiles)
+	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
+	var action_just_pressed: bool = bool(input_snapshot.get(
+		"action_just_pressed",
+		action_pressed and not bool(runtime_owner.get("suicide_drone_last_action_pressed"))
+	))
+	runtime_owner.set("suicide_drone_last_action_pressed", action_pressed)
+	if float(next_projectile.get("grace_timer_frames", 0.0)) <= 0.0 and action_just_pressed:
+		var impact_flashes: Array = CommandoFirearmValueUtils.get_array(runtime_owner.get("impact_flashes"))
+		var detonate_result: Dictionary = detonate_runtime_projectile_at_index(
+			projectiles,
+			index,
+			impact_flashes,
+			runtime_owner,
+			next_projectile,
+			"manual",
+			config,
+			deps,
+			CommandoFirearmValueUtils.get_dict(options.get("weapon_profiles", {})),
+			CommandoFirearmValueUtils.get_dict(options.get("weapon_profile_overrides", {})),
+			CommandoFirearmValueUtils.get_dict(options.get("weapon_hit_feedback", {})),
+			CommandoFirearmValueUtils.get_dict(options.get("hit_feedback_profile_overrides", {})),
+			str(options.get("base_weapon_id", "pistol")),
+			float(options.get("field_width", 760.0)),
+			float(options.get("suicide_drone_cooldown_frames", 90.0)),
+			float(options.get("suicide_drone_ball_speed_multiplier", 3.0)),
+			float(options.get("suicide_drone_ball_fan_degrees", 25.0)),
+			float(options.get("grenade_explosion_duration_frames", 24.0)),
+			int(options.get("flash_limit", 24))
+		)
+		runtime_owner.set("projectiles", projectiles)
+		runtime_owner.set("impact_flashes", impact_flashes)
+		detonate_result["special_gauge"] = special_gauge
+		return detonate_result
+	return build_active_input_result(next_projectile, special_gauge)
+
+
 static func build_projectile(
 	profile: Dictionary,
 	origin: Vector2,

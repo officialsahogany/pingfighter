@@ -1298,52 +1298,30 @@ func _update_active_suicide_drone_input(
 	config: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
-	var index: int = CommandoFirearmSuicideDroneState.get_active_projectile_index(projectiles)
-	if index < 0:
-		return {}
-	var projectile: Dictionary = CommandoFirearmValueUtils.get_dict(projectiles[index])
-	var input_vector: Vector2 = CommandoFirearmInputResolver.get_suicide_drone_input_vector(input_snapshot)
-	var next_projectile: Dictionary = CommandoFirearmSuicideDroneState.apply_input(
-		projectile,
-		input_vector,
-		SUICIDE_DRONE_ACCEL,
-		SUICIDE_DRONE_MAX_SPEED,
-		SUICIDE_DRONE_ROTOR_BASE_SPEED,
-		SUICIDE_DRONE_ROTOR_SPEED_SCALE
+	return CommandoFirearmSuicideDroneState.update_runtime_active_input(
+		self,
+		input_snapshot,
+		special_gauge,
+		config,
+		deps,
+		{
+			"weapon_profiles": WEAPON_PROFILES,
+			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
+			"weapon_hit_feedback": WEAPON_HIT_FEEDBACK,
+			"hit_feedback_profile_overrides": HIT_FEEDBACK_PROFILE_OVERRIDES,
+			"base_weapon_id": BASE_WEAPON_ID,
+			"field_width": FIELD_WIDTH,
+			"suicide_drone_accel": SUICIDE_DRONE_ACCEL,
+			"suicide_drone_max_speed": SUICIDE_DRONE_MAX_SPEED,
+			"suicide_drone_rotor_base_speed": SUICIDE_DRONE_ROTOR_BASE_SPEED,
+			"suicide_drone_rotor_speed_scale": SUICIDE_DRONE_ROTOR_SPEED_SCALE,
+			"suicide_drone_cooldown_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
+			"suicide_drone_ball_speed_multiplier": SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+			"suicide_drone_ball_fan_degrees": SUICIDE_DRONE_BALL_FAN_DEGREES,
+			"grenade_explosion_duration_frames": float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+			"flash_limit": FLASH_LIMIT,
+		}
 	)
-	CommandoFirearmProjectileMotionState.replace_projectile_payload(projectile, next_projectile)
-	projectiles[index] = projectile
-	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	var action_just_pressed: bool = bool(input_snapshot.get(
-		"action_just_pressed",
-		action_pressed and not suicide_drone_last_action_pressed
-	))
-	suicide_drone_last_action_pressed = action_pressed
-	if float(projectile.get("grace_timer_frames", 0.0)) <= 0.0 and action_just_pressed:
-		var detonate_result: Dictionary = CommandoFirearmSuicideDroneState.detonate_runtime_projectile_at_index(
-			projectiles,
-			index,
-			impact_flashes,
-			self,
-			projectile,
-			"manual",
-			config,
-			deps,
-			WEAPON_PROFILES,
-			WEAPON_PROFILE_OVERRIDES,
-			WEAPON_HIT_FEEDBACK,
-			HIT_FEEDBACK_PROFILE_OVERRIDES,
-			BASE_WEAPON_ID,
-			FIELD_WIDTH,
-			SUICIDE_DRONE_COOLDOWN_FRAMES,
-			SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
-			SUICIDE_DRONE_BALL_FAN_DEGREES,
-			float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
-			FLASH_LIMIT
-		)
-		detonate_result["special_gauge"] = special_gauge
-		return detonate_result
-	return CommandoFirearmSuicideDroneState.build_active_input_result(projectile, special_gauge)
 
 
 func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictionary, profile_override: Dictionary = {}) -> void:
