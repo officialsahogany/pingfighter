@@ -2452,7 +2452,11 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 				result.merge(wall_result, true)
 				context.merge(wall_result, true)
 			elif CommandoFirearmHitGeometry.is_net_gun_weapon(projectile_weapon_id):
-				_spawn_net_dissolve_effect(projectile, context)
+				_spawn_lingering_effect(
+					"net_gun",
+					CommandoFirearmLingeringEffectState.build_net_dissolve_projectile(projectile),
+					context
+				)
 			projectiles.remove_at(index)
 			if projectile_kind == "drone" and not CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
 				CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
@@ -2876,12 +2880,6 @@ func _spawn_suicide_drone_fire_zone(projectile: Dictionary, context: Dictionary,
 			"source": "active_item_molotov_fire_zone",
 		}
 	return _spawn_lingering_effect("suicide_drone", projectile, context)
-
-
-func _spawn_net_dissolve_effect(projectile: Dictionary, context: Dictionary) -> Dictionary:
-	var net_projectile: Dictionary = projectile.duplicate(true)
-	net_projectile["net_dissolve"] = true
-	return _spawn_lingering_effect("net_gun", net_projectile, context)
 
 
 func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:

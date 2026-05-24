@@ -61,6 +61,12 @@ static func build_spawn_result(effect: Dictionary, duration: float) -> Dictionar
 	}
 
 
+static func build_net_dissolve_projectile(projectile: Dictionary) -> Dictionary:
+	var net_projectile: Dictionary = projectile.duplicate(true)
+	net_projectile["net_dissolve"] = true
+	return net_projectile
+
+
 static func advance_timers(effect: Dictionary, fps_scale: float, phase_step: float) -> void:
 	var step: float = get_timer_step(fps_scale)
 	effect["timer_frames"] = get_next_timer(effect, step)

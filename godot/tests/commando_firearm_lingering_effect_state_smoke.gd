@@ -41,6 +41,9 @@ func _verify_direct_lingering_effect_state() -> void:
 	var spawn_result: Dictionary = CommandoFirearmLingeringEffectState.build_spawn_result(effect, 90.0)
 	_expect(str(spawn_result.get("kind", "")) == "fire_zone", "spawn result should preserve effect kind")
 	_expect(is_equal_approx(float(spawn_result.get("duration_frames", 0.0)), 90.0), "spawn result should preserve duration")
+	var dissolve_projectile: Dictionary = CommandoFirearmLingeringEffectState.build_net_dissolve_projectile({"id": 7, "net_dissolve": false})
+	_expect(bool(dissolve_projectile.get("net_dissolve", false)), "net dissolve projectile helper should force dissolve state")
+	_expect(int(dissolve_projectile.get("id", 0)) == 7, "net dissolve projectile helper should preserve source projectile fields")
 
 	var timer_effect := {
 		"timer_frames": 10.0,
@@ -79,6 +82,7 @@ func _verify_runtime_delegates_lingering_effect_state() -> void:
 	_expect(not runtime_source.contains("func _get_lingering_effect_size("), "runtime should not keep lingering size bridge")
 	_expect(not runtime_source.contains("func _build_lingering_effect("), "runtime should not keep lingering effect build bridge")
 	_expect(not runtime_source.contains("func _build_lingering_spawn_result("), "runtime should not keep lingering spawn-result bridge")
+	_expect(not runtime_source.contains("func _spawn_net_dissolve_effect("), "runtime should not keep net dissolve lingering bridge")
 
 
 func _expect(condition: bool, message: String) -> void:

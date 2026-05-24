@@ -3,6 +3,7 @@ extends SceneTree
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
@@ -587,7 +588,11 @@ func _verify_net_gun_ammo_rope_capture_and_break() -> void:
 	var miss_runtime: Object = miss_setup.get("runtime", null)
 	var miss_projectile: Dictionary = _direct_projectile("net_gun", Vector2(60.0, 120.0), Vector2(-18.0, 0.0))
 	miss_projectile["target"] = Vector2(40.0, 120.0)
-	miss_runtime._spawn_net_dissolve_effect(miss_projectile, config)
+	miss_runtime._spawn_lingering_effect(
+		"net_gun",
+		CommandoFirearmLingeringEffectState.build_net_dissolve_projectile(miss_projectile),
+		config
+	)
 	var miss_fields: Array = _get_array(miss_runtime.get_actor_draw_context().get("commando_firearm_lingering_effects", []))
 	var miss_field: Dictionary = _get_dict(miss_fields[0])
 	_expect(bool(miss_field.get("dissolve", false)), "missed net shot should deploy a dissolve net")

@@ -674,13 +674,14 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(is_equal_approx(float(live_net_effect.get("constrict_factor", 0.0)), 1.0), "lingering net spawn path should initialize constrict factor")
 	_expect(CommandoFirearmValueUtils.get_array(live_net_effect.get("shape", [])).size() == 36, "lingering net spawn path should seed the deterministic net shape")
 	runtime.lingering_effects.clear()
-	var dissolved_net_result: Dictionary = runtime._spawn_net_dissolve_effect(
-		{
+	var dissolved_net_result: Dictionary = runtime._spawn_lingering_effect(
+		"net_gun",
+		CommandoFirearmLingeringEffectState.build_net_dissolve_projectile({
 			"id": 8,
 			"origin": Vector2(8.0, 9.0),
 			"pos": Vector2(300.0, 60.0),
 			"target": Vector2(300.0, 60.0),
-		},
+		}),
 		{"boss_hitbox_height": 20.0}
 	)
 	var dissolved_net_effect: Dictionary = {}
