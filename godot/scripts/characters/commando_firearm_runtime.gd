@@ -1796,7 +1796,28 @@ func _update_suicide_drone_input(
 		weapon_fire_sheet_id = str(fire_sheet_state.get("id", ""))
 		weapon_fire_sheet_timer_frames = float(fire_sheet_state.get("timer_frames", 0.0))
 		weapon_fire_sheet_max_frames = float(fire_sheet_state.get("max_frames", 0.0))
-	_spawn_suicide_drone(config)
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"suicide_drone",
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
+	CommandoFirearmSuicideDroneState.append_spawn_effects(
+		projectiles,
+		muzzle_flashes,
+		config,
+		profile,
+		_next_shot_id(),
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		SUICIDE_DRONE_SIZE,
+		SUICIDE_DRONE_MAX_SPEED,
+		SUICIDE_DRONE_ACCEL,
+		SUICIDE_DRONE_LIFE_FRAMES,
+		SUICIDE_DRONE_GRACE_FRAMES,
+		SUICIDE_DRONE_ROTOR_BASE_SPEED,
+		PROJECTILE_LIMIT,
+		FLASH_LIMIT
+	)
 	CommandoFirearmAudioDispatcher.play_fire_audio("suicide_drone", deps)
 	CommandoFirearmCooldownState.trigger_configured_cooldown("suicide_drone", now_msec, deps)
 	var updated_weapon: Dictionary = current_weapon
@@ -1845,42 +1866,6 @@ func _update_active_suicide_drone_input(
 		return detonate_result
 	return CommandoFirearmSuicideDroneState.build_active_input_result(projectile, special_gauge)
 
-
-func _spawn_suicide_drone(config: Dictionary) -> void:
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-		"suicide_drone",
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
-	var origin: Vector2 = CommandoFirearmSuicideDroneGeometry.get_spawn_pos(
-		config,
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		SUICIDE_DRONE_SIZE
-	)
-	var shot_id: int = _next_shot_id()
-	CommandoFirearmValueUtils.append_limited(
-		projectiles,
-		CommandoFirearmSuicideDroneState.build_projectile(
-			profile,
-			origin,
-			CommandoFirearmOriginGeometry.get_boss_target_pos(config, FIELD_WIDTH),
-			shot_id,
-			CommandoFirearmSuicideDroneGeometry.get_player_lock_pos(config, FIELD_WIDTH, FIELD_HEIGHT),
-			SUICIDE_DRONE_SIZE,
-			SUICIDE_DRONE_MAX_SPEED,
-			SUICIDE_DRONE_ACCEL,
-			SUICIDE_DRONE_LIFE_FRAMES,
-			SUICIDE_DRONE_GRACE_FRAMES,
-			SUICIDE_DRONE_ROTOR_BASE_SPEED
-		),
-		PROJECTILE_LIMIT
-	)
-	CommandoFirearmValueUtils.append_limited(
-		muzzle_flashes,
-		CommandoFirearmMuzzleFlashResolver.build_flash(origin, Vector2.UP, profile, "suicide_drone"),
-		FLASH_LIMIT
-	)
 
 func _advance_slingshot_charge(special_gauge: float) -> Dictionary:
 	var charge_result: Dictionary = CommandoFirearmSlingshotState.advance_charge(

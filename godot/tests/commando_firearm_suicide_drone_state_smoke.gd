@@ -64,6 +64,28 @@ func _verify_direct_suicide_drone_state() -> void:
 	_expect(bool(projectile.get("manual_control", false)), "projectile payload should be manual-control")
 	_expect(projectile.get("pos", Vector2.ZERO) == Vector2(100.0, 200.0), "projectile payload should preserve origin")
 	_expect(is_equal_approx(float(projectile.get("grace_timer_frames", 0.0)), 6.0), "projectile payload should seed grace frames")
+	var appended_projectiles: Array = []
+	var appended_flashes: Array = []
+	var appended: Dictionary = CommandoFirearmSuicideDroneState.append_spawn_effects(
+		appended_projectiles,
+		appended_flashes,
+		{"player_pos": Vector2(100.0, 680.0), "boss_pos": Vector2(330.0, 60.0)},
+		profile,
+		17,
+		760.0,
+		750.0,
+		Vector2(48.0, 48.0),
+		14.0,
+		1.2,
+		3600.0,
+		6.0,
+		18.0,
+		4,
+		3
+	)
+	_expect(appended_projectiles.size() == 1, "spawn append helper should append one suicide-drone projectile")
+	_expect(appended_flashes.size() == 1, "spawn append helper should append one suicide-drone muzzle flash")
+	_expect(int(appended.get("id", 0)) == 17, "spawn append helper should preserve the runtime shot id")
 
 	var steered: Dictionary = CommandoFirearmSuicideDroneState.apply_input(
 		projectile,
@@ -186,6 +208,7 @@ func _verify_removed_runtime_active_projectile_bridges() -> void:
 	_expect(not runtime_source.contains("func _suicide_drone_fire_failed("), "runtime should not keep suicide-drone fire-failed bridge")
 	_expect(not runtime_source.contains("func _build_suicide_drone_active_input_result("), "runtime should not keep suicide-drone active-input bridge")
 	_expect(not runtime_source.contains("func _build_suicide_drone_projectile("), "runtime should not keep suicide-drone projectile build bridge")
+	_expect(not runtime_source.contains("func _spawn_suicide_drone("), "runtime should not keep suicide-drone spawn append bridge")
 	_expect(not runtime_source.contains("func _apply_suicide_drone_input_to_projectile("), "runtime should not keep suicide-drone input mutation bridge")
 	_expect(not runtime_source.contains("func _get_suicide_drone_input_projectile_state("), "runtime should not keep suicide-drone input-state bridge")
 	_expect(not runtime_source.contains("func _build_suicide_drone_detonation_result("), "runtime should not keep suicide-drone detonation-result bridge")

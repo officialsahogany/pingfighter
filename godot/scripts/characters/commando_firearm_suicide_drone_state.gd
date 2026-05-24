@@ -1,6 +1,54 @@
 extends RefCounted
 
+const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
+const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmSuicideDroneGeometry := preload("res://scripts/characters/commando_firearm_suicide_drone_geometry.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+
+
+static func append_spawn_effects(
+	projectiles: Array,
+	muzzle_flashes: Array,
+	config: Dictionary,
+	profile: Dictionary,
+	shot_id: int,
+	field_width: float,
+	field_height: float,
+	drone_size: Vector2,
+	default_max_speed: float,
+	default_acceleration: float,
+	default_life_frames: float,
+	grace_frames: float,
+	rotor_base_speed: float,
+	projectile_limit: int,
+	flash_limit: int
+) -> Dictionary:
+	var origin: Vector2 = CommandoFirearmSuicideDroneGeometry.get_spawn_pos(
+		config,
+		field_width,
+		field_height,
+		drone_size
+	)
+	var projectile: Dictionary = build_projectile(
+		profile,
+		origin,
+		CommandoFirearmOriginGeometry.get_boss_target_pos(config, field_width),
+		shot_id,
+		CommandoFirearmSuicideDroneGeometry.get_player_lock_pos(config, field_width, field_height),
+		drone_size,
+		default_max_speed,
+		default_acceleration,
+		default_life_frames,
+		grace_frames,
+		rotor_base_speed
+	)
+	CommandoFirearmValueUtils.append_limited(projectiles, projectile, projectile_limit)
+	CommandoFirearmValueUtils.append_limited(
+		muzzle_flashes,
+		CommandoFirearmMuzzleFlashResolver.build_flash(origin, Vector2.UP, profile, "suicide_drone"),
+		flash_limit
+	)
+	return projectile
 
 
 static func build_projectile(
