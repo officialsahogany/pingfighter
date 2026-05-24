@@ -88,6 +88,28 @@ func _verify_direct_shell_casing_state() -> void:
 	_expect(advanced_shells.size() == 1, "shell list helper should keep active shells only")
 	_expect(int((advanced_shells[0] as Dictionary).get("bounce_count", 0)) == 1, "shell list helper should preserve advanced shell state")
 	_expect(CommandoFirearmShellCasingState.advance_shells(shell_list, 0.0, 760.0, 750.0, 0.45, 0.42, 2).size() == 2, "zero-step shell list helper should preserve shells")
+	var appended_runtime_shells: Array = []
+	_expect(
+		CommandoFirearmShellCasingState.append_runtime_shell(
+			appended_runtime_shells,
+			"commando_pistol",
+			Vector2(100.0, 200.0),
+			Vector2.UP,
+			{},
+			5,
+			750.0,
+			180.0,
+			150.0,
+			4
+		),
+		"runtime shell helper should append supported weapon shells"
+	)
+	_expect(appended_runtime_shells.size() == 1, "runtime shell helper should append one shell")
+	_expect(str((appended_runtime_shells[0] as Dictionary).get("weapon_id", "")) == "commando_pistol", "runtime shell helper should preserve pistol weapon id")
+	_expect(
+		not CommandoFirearmShellCasingState.append_runtime_shell(appended_runtime_shells, "bazooka", Vector2.ZERO, Vector2.UP, {}, 6, 750.0, 180.0, 150.0, 4),
+		"runtime shell helper should ignore unsupported weapons"
+	)
 
 
 func _verify_runtime_delegates_shell_casing_state() -> void:
@@ -111,6 +133,7 @@ func _verify_runtime_delegates_shell_casing_state() -> void:
 	_expect(not runtime_source.contains("func _spawn_ak47_shell_casing("), "runtime should not keep AK-47 shell spawn bridge")
 	_expect(not runtime_source.contains("func _spawn_pistol_shell_casing("), "runtime should not keep pistol shell spawn bridge")
 	_expect(not runtime_source.contains("func _update_shell_casings("), "runtime should not keep shell-casing update bridge")
+	_expect(runtime_source.find("CommandoFirearmShellCasingState.append_runtime_shell") >= 0, "runtime should delegate shell spawn append to the shell owner")
 
 
 func _expect(condition: bool, message: String) -> void:

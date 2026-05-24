@@ -1634,33 +1634,18 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		DOPING_POTION_PISTOL_SPEED_MULTIPLIER
 	)
 	CommandoFirearmValueUtils.append_limited(projectiles, projectile, PROJECTILE_LIMIT)
-	if weapon_id == "ak47":
-		CommandoFirearmValueUtils.append_limited(
-			shell_casings,
-			CommandoFirearmShellCasingState.build_ak47_shell(
-				origin,
-				direction,
-				config,
-				shot_id,
-				FIELD_HEIGHT,
-				AK47_SHELL_LIFETIME_FRAMES
-			),
-			SHELL_CASING_LIMIT
-		)
-	elif weapon_id == "pistol" or weapon_id == "commando_pistol":
-		CommandoFirearmValueUtils.append_limited(
-			shell_casings,
-			CommandoFirearmShellCasingState.build_pistol_shell(
-				origin,
-				direction,
-				config,
-				shot_id,
-				weapon_id,
-				FIELD_HEIGHT,
-				PISTOL_SHELL_LIFETIME_FRAMES
-			),
-			SHELL_CASING_LIMIT
-		)
+	CommandoFirearmShellCasingState.append_runtime_shell(
+		shell_casings,
+		weapon_id,
+		origin,
+		direction,
+		config,
+		shot_id,
+		FIELD_HEIGHT,
+		AK47_SHELL_LIFETIME_FRAMES,
+		PISTOL_SHELL_LIFETIME_FRAMES,
+		SHELL_CASING_LIMIT
+	)
 
 
 func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:

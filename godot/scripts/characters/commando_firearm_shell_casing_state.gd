@@ -70,6 +70,50 @@ static func build_pistol_shell(
 	}
 
 
+static func append_runtime_shell(
+	shells: Array,
+	weapon_id: String,
+	origin: Vector2,
+	direction: Vector2,
+	config: Dictionary,
+	shot_id: int,
+	field_height: float,
+	ak47_lifetime_frames: float,
+	pistol_lifetime_frames: float,
+	shell_limit: int
+) -> bool:
+	if weapon_id == "ak47":
+		CommandoFirearmValueUtils.append_limited(
+			shells,
+			build_ak47_shell(
+				origin,
+				direction,
+				config,
+				shot_id,
+				field_height,
+				ak47_lifetime_frames
+			),
+			shell_limit
+		)
+		return true
+	if weapon_id == "pistol" or weapon_id == "commando_pistol":
+		CommandoFirearmValueUtils.append_limited(
+			shells,
+			build_pistol_shell(
+				origin,
+				direction,
+				config,
+				shot_id,
+				weapon_id,
+				field_height,
+				pistol_lifetime_frames
+			),
+			shell_limit
+		)
+		return true
+	return false
+
+
 static func advance_shell(
 	shell: Dictionary,
 	fps_scale: float,
