@@ -4003,7 +4003,9 @@ This section is intentionally long; use search to find the nearest owner.
   of preserving private duration / size / payload / timer / clamp bridge
   wrappers. Active lingering-effect update, removal, and array write-back now
   operate on `lingering_effects` directly instead of via private storage
-  bridges.
+  bridges. The spawn path resolves lingering effect ids inline so explicit
+  projectile ids and `_next_shot_id()` allocation stay at the runtime
+  side-effect boundary.
 - `scripts/characters/commando_firearm_lingering_fire_flame_state.gd`
   Owns pure Commando lingering fire-zone flame state: deterministic flame
   seeding, effect-size fallback reads, ring / size / lifetime patterns,

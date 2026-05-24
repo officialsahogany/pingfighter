@@ -6747,6 +6747,25 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
   scripts with no GDScript warnings.
 
+217th follow-up on 2026-05-24:
+
+- Commit: `fda81052e godot: drop Commando lingering effect id bridge`.
+- Scope: removed the private `_get_lingering_effect_id()` runtime bridge.
+  `_spawn_lingering_effect()` now preserves explicit projectile ids and calls
+  `_next_shot_id()` inline only when the projectile id is missing or zero.
+  The value-utils smoke now verifies explicit, missing, and zero-id spawn
+  behavior through the live lingering spawn path and guards that the bridge
+  stays removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3372` lines /
+  `107` functions to `3367` lines / `106` functions.
+- Validation: focused value-utils / lingering / runtime coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
