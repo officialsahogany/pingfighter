@@ -775,11 +775,7 @@ func has_visible_effects() -> bool:
 
 
 func needs_effect_update() -> bool:
-	return CommandoFirearmControlState.needs_effect_update(
-		has_visible_effects(),
-		pending_boss_damage_units,
-		pending_special_gauge_gain
-	)
+	return CommandoFirearmControlState.needs_runtime_effect_update(self, has_visible_effects())
 
 
 func is_player_control_locked() -> bool:

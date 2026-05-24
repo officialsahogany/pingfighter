@@ -213,10 +213,15 @@ func _verify_direct_control_state() -> void:
 
 func _verify_runtime_delegates_control_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
+	_expect(not CommandoFirearmControlState.needs_runtime_effect_update(null, false), "runtime effect owner should tolerate null inactive targets")
+	_expect(CommandoFirearmControlState.needs_runtime_effect_update(null, true), "runtime effect owner should preserve explicit visible effects")
 	_expect(not runtime.needs_effect_update(), "runtime effect update gate should default false")
 	runtime.pending_boss_damage_units = 1
 	_expect(runtime.needs_effect_update(), "runtime effect update gate should read pending damage")
 	runtime.pending_boss_damage_units = 0
+	runtime.pending_special_gauge_gain = 0.5
+	_expect(runtime.needs_effect_update(), "runtime effect update gate should read pending gauge gain")
+	runtime.pending_special_gauge_gain = 0.0
 	runtime.pistol_control_lock_frames = 1.0
 	_expect(runtime.is_player_control_locked(), "runtime control lock gate should read lock timers")
 	runtime.pistol_control_lock_frames = 0.0
@@ -230,6 +235,7 @@ func _verify_runtime_delegates_control_state() -> void:
 	_expect(source.find("func _should_suppress_fire_input_for_serve_wait(") == -1, "runtime should not keep serve-wait suppression bridge")
 	_expect(source.find("func _clear_serve_wait_firearm_input_state(") == -1, "runtime should not keep serve-wait input-clear bridge")
 	_expect(source.find("func _handle_firearm_reset_input(") == -1, "runtime should not keep firearm-reset bridge")
+	_expect(source.find("CommandoFirearmControlState.needs_effect_update(") == -1, "runtime should use the target-level effect-update owner")
 
 
 func _expect(condition: bool, message: String) -> void:

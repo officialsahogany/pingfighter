@@ -19,6 +19,16 @@ static func needs_effect_update(
 	return visible_effects or pending_boss_damage_units > 0 or pending_special_gauge_gain > 0.0
 
 
+static func needs_runtime_effect_update(target: Object, visible_effects: bool) -> bool:
+	if target == null:
+		return visible_effects
+	return needs_effect_update(
+		visible_effects,
+		int(target.get("pending_boss_damage_units")),
+		float(target.get("pending_special_gauge_gain"))
+	)
+
+
 static func is_player_control_locked(
 	lock_timers: Array,
 	active_support_call_lock: bool,
