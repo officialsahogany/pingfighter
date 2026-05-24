@@ -8000,6 +8000,28 @@ Hundredth split on 2026-05-24:
   `git diff --check` on the touched Commando files reported no whitespace
   errors.
 
+279th follow-up on 2026-05-24:
+
+- Commit:
+  `195726227 godot: move Commando aircraft ball collision bridge`.
+- Scope: moved the remaining fire-support aircraft ball-collision scene /
+  context parsing into
+  `CommandoFirearmSupportAircraftGeometry.resolve_ball_collision()`. The
+  Commando runtime keeps the public `resolve_ball_collision()` hook as a thin
+  delegation point, and the Python no-crash aircraft pass-through still
+  returns `false`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2686` lines /
+  `35` functions to `2676` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_support_aircraft_geometry_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  and `git diff --check` on the touched Commando files reported no whitespace
+  errors beyond existing CRLF normalization notices. The full warning scan was
+  attempted, but the current dirty workspace entered the Godot debugger on an
+  unrelated parser error at `godot/tests/commando_firearm_tooltip_smoke.gd:203`
+  (`build_hover_state()` expected at least 4 arguments and received 3), so no
+  clean full-scan result was recorded for this follow-up.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
