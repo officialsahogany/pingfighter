@@ -23,6 +23,7 @@ const CommandoFirearmOriginGeometry := preload("res://scripts/characters/command
 const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
 const CommandoFirearmPistolFeedbackState := preload("res://scripts/characters/commando_firearm_pistol_feedback_state.gd")
 const CommandoFirearmPistolHitState := preload("res://scripts/characters/commando_firearm_pistol_hit_state.gd")
+const CommandoFirearmPistolReloadState := preload("res://scripts/characters/commando_firearm_pistol_reload_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/commando_firearm_projectile_motion_state.gd")
@@ -1286,7 +1287,17 @@ func _update_pistol_input(
 	var magazines_current: int = int(current_weapon.get("magazines_current", 0))
 	if ammo_current <= 0:
 		if weapon_id == BASE_WEAPON_ID:
-			return _reload_base_pistol_from_fire_input(special_gauge, deps)
+			return CommandoFirearmPistolReloadState.start_base_empty_reload(
+				special_gauge,
+				deps,
+				BASE_WEAPON_ID,
+				pistol_cooldown_frames,
+				pistol_control_lock_frames,
+				pistol_fire_delay_frames,
+				PISTOL_AMMO_MAX,
+				PISTOL_FIRE_DELAY_FRAMES,
+				PISTOL_EMPTY_RELOAD_GAUGE_COST
+			)
 		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_empty", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
@@ -1338,29 +1349,6 @@ func _update_pistol_input(
 		doping_context,
 		doping_active,
 		special_gauge
-	)
-
-
-func _reload_base_pistol_from_fire_input(special_gauge: float, deps: Dictionary) -> Dictionary:
-	if special_gauge < PISTOL_EMPTY_RELOAD_GAUGE_COST:
-		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(BASE_WEAPON_ID, special_gauge, "pistol_reload_gauge_insufficient", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
-	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	if weapon_controller == null or not weapon_controller.has_method("start_weapon_reload"):
-		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(BASE_WEAPON_ID, special_gauge, "pistol_reload_unavailable", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
-	if not bool(weapon_controller.start_weapon_reload(BASE_WEAPON_ID)):
-		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(BASE_WEAPON_ID, special_gauge, "pistol_reload_unavailable", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
-	var updated_weapon: Dictionary = {}
-	if weapon_controller.has_method("get_current_weapon_data"):
-		updated_weapon = weapon_controller.get_current_weapon_data()
-	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_pistol_reload_start"])
-	var next_gauge: float = max(0.0, special_gauge - PISTOL_EMPTY_RELOAD_GAUGE_COST)
-	return CommandoFirearmFireResultState.build_base_pistol_reload_started_result(
-		BASE_WEAPON_ID,
-		next_gauge,
-		updated_weapon,
-		PISTOL_AMMO_MAX,
-		PISTOL_FIRE_DELAY_FRAMES,
-		PISTOL_EMPTY_RELOAD_GAUGE_COST
 	)
 
 
