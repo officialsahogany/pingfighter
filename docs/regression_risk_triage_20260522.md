@@ -7091,6 +7091,22 @@ Hundredth split on 2026-05-24:
   `commando_firearm_value_utils_smoke`. The Bowling Trap geometry smoke now
   rejects the removed guard-state bridge.
 
+235th follow-up on 2026-05-24:
+
+- Commit: `023bf84f9 godot: inline Commando trap guard arming`.
+- Scope: removed `_arm_bowling_trap_guard()` from
+  `commando_firearm_runtime.gd`. Bowling Trap release now builds and applies
+  the delegated guard-state payload directly before returning the release
+  result, so the runtime no longer keeps a one-call guard arming bridge.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3240` lines /
+  `81` functions to `3235` lines / `80` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The Bowling Trap geometry smoke now
+  exercises the real release path for guard arming and rejects the removed
+  guard arming bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
