@@ -2670,15 +2670,8 @@ func _update_shell_casings(fps_scale: float) -> void:
 
 
 func _spawn_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> void:
-	var feedback: Dictionary = _build_pistol_hit_feedback(hit_kind, context)
-	if feedback.is_empty():
-		return
-	_append_limited(pistol_feedbacks, feedback, PISTOL_FEEDBACK_LIMIT)
-
-
-func _build_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> Dictionary:
 	var boss_rect: Rect2 = CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH)
-	return CommandoFirearmPistolFeedbackState.build_feedback(
+	var feedback: Dictionary = CommandoFirearmPistolFeedbackState.build_feedback(
 		hit_kind,
 		boss_rect,
 		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
@@ -2686,6 +2679,9 @@ func _build_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> Dictio
 		"헤드샷!",
 		"레그샷!"
 	)
+	if feedback.is_empty():
+		return
+	_append_limited(pistol_feedbacks, feedback, PISTOL_FEEDBACK_LIMIT)
 
 
 func _update_pistol_feedbacks(fps_scale: float) -> void:

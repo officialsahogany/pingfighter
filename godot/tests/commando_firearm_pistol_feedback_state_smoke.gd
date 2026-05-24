@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_direct_pistol_feedback_state()
 	_verify_runtime_delegates_pistol_feedback_state()
+	_verify_removed_runtime_pistol_feedback_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_pistol_feedback_state_smoke: ok")
@@ -57,11 +58,6 @@ func _verify_direct_pistol_feedback_state() -> void:
 
 func _verify_runtime_delegates_pistol_feedback_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	var feedback: Dictionary = runtime._build_pistol_hit_feedback(
-		"headshot",
-		{"boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0}
-	)
-	_expect(str(feedback.get("text", "")) == "헤드샷!", "runtime feedback builder should delegate")
 	runtime._spawn_pistol_hit_feedback(
 		"legshot",
 		{"boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0}
@@ -71,6 +67,11 @@ func _verify_runtime_delegates_pistol_feedback_state() -> void:
 	runtime._update_pistol_feedbacks(60.0)
 	feedbacks = runtime.get_actor_draw_context().get("commando_firearm_pistol_feedbacks", [])
 	_expect(feedbacks.is_empty(), "runtime update should expire feedback through helper")
+
+
+func _verify_removed_runtime_pistol_feedback_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(source.find("func _build_pistol_hit_feedback") < 0, "runtime should not keep pistol feedback builder bridge")
 
 
 func _expect(condition: bool, message: String) -> void:
