@@ -6097,6 +6097,21 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+184th follow-up on 2026-05-24:
+
+- Commit: `eb0c6563f godot: drop Commando bowling trap geometry bridges`.
+- Scope: removed the bowling-trap install eligibility, active-install
+  predicate, round carryover, capture result, guard ball softening, guard
+  knockback, launch direction, and trap-vs-ball hit bridges from
+  `commando_firearm_runtime.gd`. Runtime now calls
+  `commando_firearm_bowling_trap_geometry.gd` directly while keeping trap-array
+  ownership, ammo / cooldown gates, capture / release side effects, audio,
+  VFX, status application, and guard state variables.
+- Validation: `commando_firearm_bowling_trap_geometry_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
