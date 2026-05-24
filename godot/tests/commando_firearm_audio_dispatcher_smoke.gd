@@ -27,6 +27,9 @@ class FakeAudio:
 	func stop_commando_suicide_drone_loop() -> void:
 		calls.append("stop_drone")
 
+	func play_commando_fire_support_radio() -> void:
+		calls.append("support_radio")
+
 	func play_commando_fire_support_aircraft_loop() -> void:
 		calls.append("start_aircraft")
 
@@ -47,6 +50,7 @@ func _init() -> void:
 	_verify_reload_progress_round_count()
 	_verify_suicide_drone_stop()
 	_verify_support_aircraft_loop_state()
+	_verify_support_call_start_dispatch()
 	_verify_support_aircraft_event_dispatch()
 	_verify_missing_audio_is_noop()
 	_verify_removed_runtime_audio_dispatcher_bridges()
@@ -128,6 +132,17 @@ func _verify_support_aircraft_loop_state() -> void:
 	_expect(audio.calls == ["start_aircraft", "stop_aircraft", "stop_aircraft"], "support aircraft stop-all should stop only active calls")
 
 
+func _verify_support_call_start_dispatch() -> void:
+	var audio := FakeAudio.new()
+	var evicted_call := {"aircraft_audio_active": true}
+	CommandoFirearmAudioDispatcher.dispatch_support_call_start_audio(
+		{"evicted_calls": [evicted_call, "bad_call"]},
+		{"audio": audio}
+	)
+	_expect(not bool(evicted_call.get("aircraft_audio_active", true)), "support call start dispatch should stop evicted aircraft loops")
+	_expect(audio.calls == ["stop_aircraft", "support_radio"], "support call start dispatch should stop evicted loops before radio cue")
+
+
 func _verify_support_aircraft_event_dispatch() -> void:
 	var audio := FakeAudio.new()
 	var start_call := {"aircraft_audio_active": false}
@@ -154,6 +169,7 @@ func _verify_missing_audio_is_noop() -> void:
 	CommandoFirearmAudioDispatcher.start_support_aircraft_audio({}, {})
 	CommandoFirearmAudioDispatcher.stop_support_aircraft_audio({"aircraft_audio_active": true}, {})
 	CommandoFirearmAudioDispatcher.stop_all_support_aircraft_audio([{"aircraft_audio_active": true}], {})
+	CommandoFirearmAudioDispatcher.dispatch_support_call_start_audio({"evicted_calls": [{"aircraft_audio_active": true}]}, {})
 	CommandoFirearmAudioDispatcher.dispatch_support_aircraft_audio_events([{"type": "start_aircraft", "call": {}}], {})
 	_expect(true, "missing audio deps should be no-ops")
 
@@ -175,6 +191,14 @@ func _verify_removed_runtime_audio_dispatcher_bridges() -> void:
 	_expect(
 		source.find("CommandoFirearmAudioDispatcher.dispatch_support_aircraft_audio_events") >= 0,
 		"runtime should delegate support aircraft audio event dispatch to the audio dispatcher"
+	)
+	_expect(
+		source.find("CommandoFirearmAudioDispatcher.dispatch_support_call_start_audio") >= 0,
+		"runtime should delegate support call start audio dispatch to the audio dispatcher"
+	)
+	_expect(
+		source.find("play_commando_fire_support_radio") < 0,
+		"runtime should not keep the fire-support radio cue list inline"
 	)
 
 

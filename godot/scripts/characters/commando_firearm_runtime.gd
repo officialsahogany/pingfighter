@@ -1577,12 +1577,7 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 			SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
 			SUPPORT_AIRCRAFT_START_X
 		)
-		for evicted_value in CommandoFirearmValueUtils.get_array(support_start.get("evicted_calls", [])):
-			CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(
-				CommandoFirearmValueUtils.get_dict(evicted_value),
-				deps
-			)
-		CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
+		CommandoFirearmAudioDispatcher.dispatch_support_call_start_audio(support_start, deps)
 		return
 	if kind == "trap" or weapon_id == "bowling_trap":
 		CommandoFirearmBowlingTrapGeometry.append_runtime_install_effects(

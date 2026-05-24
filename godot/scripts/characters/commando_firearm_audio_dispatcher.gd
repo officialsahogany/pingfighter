@@ -86,6 +86,12 @@ static func stop_all_support_aircraft_audio(support_calls: Array, deps: Dictiona
 		support_calls[index] = call
 
 
+static func dispatch_support_call_start_audio(support_start: Dictionary, deps: Dictionary) -> void:
+	for evicted_value in _get_array(support_start.get("evicted_calls", [])):
+		stop_support_aircraft_audio(_get_dict(evicted_value), deps)
+	play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
+
+
 static func dispatch_support_aircraft_audio_events(audio_events: Array, deps: Dictionary) -> void:
 	for event_value in audio_events:
 		var audio_event: Dictionary = _get_dict(event_value)
@@ -107,3 +113,9 @@ static func _get_dict(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+static func _get_array(value: Variant) -> Array:
+	if value is Array:
+		return value
+	return []
