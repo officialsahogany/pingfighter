@@ -7309,6 +7309,27 @@ Hundredth split on 2026-05-24:
   `passive_item_quality_prefix_smoke`. The Godot headless load check passed,
   and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings.
 
+247th follow-up on 2026-05-24:
+
+- Commit:
+  `452392bed godot: move Commando visual timers into state owners`.
+- Scope: moved the remaining Commando visual timer list updates out of
+  `commando_firearm_runtime.gd`. Shell casing advancement now lives in
+  `CommandoFirearmShellCasingState.advance_shells()`, pistol hit-feedback
+  advancement lives in `CommandoFirearmPistolFeedbackState.advance_feedbacks()`,
+  and weapon fire-sheet start state is built by
+  `CommandoFirearmFireSheetResolver.build_animation_state()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3109` lines /
+  `67` functions to `3086` lines / `64` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_sheet_resolver_smoke`,
+  `commando_firearm_shell_casing_state_smoke`,
+  `commando_firearm_pistol_feedback_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. These smokes now reject the removed
+  `_start_weapon_fire_sheet_animation()`, `_update_shell_casings()`, and
+  `_update_pistol_feedbacks()` runtime bridges.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
