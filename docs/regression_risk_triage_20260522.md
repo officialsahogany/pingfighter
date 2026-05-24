@@ -6318,6 +6318,29 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned `1322` scripts with no GDScript
   warnings.
 
+196th follow-up on 2026-05-24:
+
+- Commit: `349ebcd7b godot: move Commando fire impact audio routing to
+  dispatcher`.
+- Scope: moved the remaining `_play_fire_audio()` and `_play_impact_audio()`
+  runtime bridges into `CommandoFirearmAudioDispatcher.play_fire_audio()` and
+  `.play_impact_audio()`. Runtime fire / impact call sites now dispatch
+  through the owner directly, while the dispatcher keeps the existing
+  fire-support launch-audio suppression, resolver-owned cue lists, and generic
+  fallback behavior. Audio routing smoke now tests the dispatcher entry points
+  directly, and audio dispatcher smoke guards that the runtime bridges stay
+  removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3640` lines /
+  `155` functions to `3618` lines / `153` functions.
+- Validation: focused audio / runtime coverage passed:
+  `commando_firearm_audio_dispatcher_smoke`,
+  `commando_firearm_audio_routing_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1323`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

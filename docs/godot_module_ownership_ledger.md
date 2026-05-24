@@ -3906,11 +3906,12 @@ This section is intentionally long; use search to find the nearest owner.
   lookup bridges.
 - `scripts/characters/commando_firearm_audio_dispatcher.gd`
   Owns Commando firearm audio dispatch mechanics: audio / game_audio dep
-  lookup, first-available no-arg method calls, weapon-specific cue fallback
-  to generic fire / impact methods, per-round pistol reload cue repetition,
-  and suicide-drone loop stop dispatch. The runtime keeps gameplay timing,
-  support-aircraft active flags, and the small private wrapper names used by
-  current smoke coverage.
+  lookup, first-available no-arg method calls, weapon fire / impact routing
+  through resolver-owned cue lists, weapon-specific cue fallback to generic
+  fire / impact methods, per-round pistol reload cue repetition, and
+  suicide-drone loop stop dispatch. The runtime keeps gameplay timing and
+  support-aircraft active flags while calling the dispatcher directly instead
+  of preserving private fire / impact audio bridges.
 - `scripts/characters/commando_firearm_bowling_trap_geometry.gd`
   Owns pure Commando bowling-trap geometry, state payloads, and kinematic
   helpers: install position / payload / marker dictionaries, install and
