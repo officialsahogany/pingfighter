@@ -6530,6 +6530,31 @@ Hundredth split on 2026-05-24:
   in `godot/scripts/hud/commando_firearm_tooltip_renderer.gd` around the
   tooltip label block; this slice did not edit that HUD file.
 
+207th follow-up on 2026-05-24:
+
+- Commit: `2199de354 godot: drop Commando projectile bounce bridges`.
+- Scope: removed the private `_apply_pistol_side_wall_bounce()`,
+  `_apply_stage2_pistol_rock_bounce()`, and `_is_wall_bouncing_pistol()`
+  runtime bridges. `_update_projectiles()` now computes the pistol projectile
+  predicate once, calls `CommandoFirearmProjectileMotionState` directly for
+  side-wall bounce mutation, and calls
+  `CommandoFirearmStage2RockInteractionResolver` directly for Stage 2
+  pistol-rock bounce / consume results. The projectile-motion smoke now checks
+  the public runtime projectile-update path for side-wall bounce state and
+  guards that the removed bounce bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3495` lines /
+  `137` functions to `3478` lines / `134` functions.
+- Validation: focused projectile / resolver coverage passed:
+  `commando_firearm_projectile_motion_state_smoke`,
+  `commando_firearm_stage2_rock_interaction_resolver_smoke`, and
+  `commando_firearm_projectile_impact_state_smoke`.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed. Broader
+  `commando_firearm_runtime_vfx_smoke` and `stage2_explosion_rock_collision_smoke`
+  attempts are currently blocked by unrelated dirty localization edits that
+  emit `language_settings.gd` duplicate-key / translation API errors; this
+  slice did not edit those localization files.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
