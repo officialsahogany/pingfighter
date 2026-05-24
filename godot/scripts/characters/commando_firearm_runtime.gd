@@ -1750,27 +1750,32 @@ func _update_bowling_trap_input(
 		SWITCH_FIRE_SUPPRESS_MSEC
 	):
 		return {}
+	var failure_fields := {
+		"cooldown_frames": bowling_trap_cooldown_frames,
+		"control_lock_frames": bowling_trap_control_lock_frames,
+		"install_pose_frames": bowling_trap_install_pose_frames,
+	}
 	if bowling_trap_control_lock_frames > 0.0:
-		return _bowling_trap_fire_failed(special_gauge, "bowling_trap_control_lock")
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_control_lock", failure_fields)
 	if bowling_trap_cooldown_frames > 0.0:
-		return _bowling_trap_fire_failed(special_gauge, "bowling_trap_cooldown")
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_cooldown", failure_fields)
 	if CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps):
-		return _bowling_trap_fire_failed(special_gauge, "bowling_trap_installing")
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_installing", failure_fields)
 	if not CommandoFirearmBowlingTrapGeometry.is_install_in_player_field(
 		config,
 		FIELD_WIDTH,
 		FIELD_HEIGHT,
 		BOWLING_TRAP_MIN_FIELD_Y_RATIO
 	):
-		return _bowling_trap_fire_failed(special_gauge, "bowling_trap_install_field")
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_install_field", failure_fields)
 	if not _is_ready("bowling_trap", now_msec, deps):
-		return _bowling_trap_fire_failed(special_gauge, "configured_cooldown")
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "configured_cooldown", failure_fields)
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
-		return _bowling_trap_fire_failed(special_gauge, "bowling_trap_empty")
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_empty", failure_fields)
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return _bowling_trap_fire_failed(special_gauge, "bowling_trap_ammo_unavailable")
+			return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_ammo_unavailable", failure_fields)
 	last_fire_msec = now_msec
 	bowling_trap_cooldown_frames = BOWLING_TRAP_COOLDOWN_FRAMES
 	bowling_trap_control_lock_frames = BOWLING_TRAP_CONTROL_LOCK_FRAMES
@@ -1806,14 +1811,6 @@ func _update_bowling_trap_input(
 			"install_progress": 0.0,
 		}
 	)
-
-
-func _bowling_trap_fire_failed(special_gauge: float, reason: String) -> Dictionary:
-	return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, reason, {
-		"cooldown_frames": bowling_trap_cooldown_frames,
-		"control_lock_frames": bowling_trap_control_lock_frames,
-		"install_pose_frames": bowling_trap_install_pose_frames,
-	})
 
 
 func _update_suicide_drone_input(

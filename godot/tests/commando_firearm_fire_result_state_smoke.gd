@@ -160,8 +160,18 @@ func _verify_runtime_delegates_fire_result_state() -> void:
 	runtime.bowling_trap_cooldown_frames = 16.0
 	runtime.bowling_trap_control_lock_frames = 17.0
 	runtime.bowling_trap_install_pose_frames = 18.0
-	var bowling: Dictionary = runtime._bowling_trap_fire_failed(500.0, "bowling_trap_cooldown")
-	_expect(is_equal_approx(float(bowling.get("install_pose_frames", 0.0)), 18.0), "runtime bowling-trap failed wrapper should preserve install pose timer")
+	var bowling: Dictionary = runtime._update_bowling_trap_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		{},
+		{},
+		{"weapon_id": "bowling_trap", "ammo_current": 1, "can_fire": true},
+		0
+	)
+	_expect(str(bowling.get("failure_reason", "")) == "bowling_trap_control_lock", "runtime bowling-trap failed path should preserve failure reason")
+	_expect(is_equal_approx(float(bowling.get("install_pose_frames", 0.0)), 18.0), "runtime bowling-trap failed path should preserve install pose timer")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(runtime_source.find("func _bowling_trap_fire_failed(") == -1, "runtime should not keep the bowling-trap fire-failed bridge")
 
 
 func _expect(condition: bool, message: String) -> void:
