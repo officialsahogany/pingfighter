@@ -4007,7 +4007,9 @@ This section is intentionally long; use search to find the nearest owner.
   operate on `lingering_effects` directly instead of via private storage
   bridges. The spawn path resolves lingering effect ids inline so explicit
   projectile ids and `_next_shot_id()` allocation stay at the runtime
-  side-effect boundary.
+  side-effect boundary. Suicide-drone detonation / hit paths branch to the
+  molotov-backed fire-zone path directly instead of via private lingering
+  dispatch or molotov trigger bridges.
 - `scripts/characters/commando_firearm_lingering_fire_flame_state.gd`
   Owns pure Commando lingering fire-zone flame state: deterministic flame
   seeding, effect-size fallback reads, ring / size / lifetime patterns,

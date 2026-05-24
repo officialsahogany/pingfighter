@@ -6785,6 +6785,26 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
   scripts with no GDScript warnings.
 
+219th follow-up on 2026-05-24:
+
+- Commit: `54b986bf7 godot: drop Commando suicide drone lingering bridges`.
+- Scope: removed the private `_spawn_weapon_lingering_effect()` and
+  `_trigger_active_item_molotov_fire_zone()` runtime bridges. Projectile-hit
+  and suicide-drone detonation paths now branch directly to
+  `_spawn_suicide_drone_fire_zone()` for the molotov-backed fire-zone residue
+  or `_spawn_lingering_effect()` for normal lingering fields. The suicide-drone
+  fire-zone path now resolves `active_item_runtime` and triggers the molotov
+  fire zone inline, keeping the gameplay side effect in the actual spawn path.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3353` lines /
+  `104` functions to `3340` lines / `102` functions.
+- Validation: focused runtime / molotov / value-utils coverage passed:
+  `commando_firearm_runtime_vfx_smoke`,
+  `active_item_throw_molotov_smoke`, and
+  `commando_firearm_value_utils_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
