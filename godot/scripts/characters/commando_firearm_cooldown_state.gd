@@ -37,6 +37,23 @@ static func trigger_configured_cooldown(weapon_id: String, now_msec: int, deps: 
 	skill_state.trigger_configured_cooldown(weapon_id, now_msec, skill_config)
 
 
+static func is_ready(weapon_id: String, now_msec: int, deps: Dictionary) -> bool:
+	if weapon_id == "pistol" or weapon_id == "":
+		return true
+	var skill_state: Object = deps.get("skill_state", null)
+	if skill_state == null or not skill_state.has_method("get_cooldown_remaining"):
+		return true
+	var skill_config: Object = deps.get("skill_config", null)
+	var cooldown_seconds: float = get_skill_cooldown_seconds(
+		weapon_id,
+		skill_config,
+		{},
+		false,
+		1.0
+	)
+	return float(skill_state.get_cooldown_remaining(weapon_id, now_msec, cooldown_seconds)) <= 0.0
+
+
 static func get_skill_cooldown_seconds(
 	weapon_id: String,
 	skill_config: Object,

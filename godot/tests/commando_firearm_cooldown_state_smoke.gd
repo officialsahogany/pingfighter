@@ -22,6 +22,8 @@ class FakeCooldownState:
 
 	var trigger_calls: Array = []
 	var configured_calls: Array = []
+	var cooldown_remaining: float = 0.0
+	var cooldown_queries: Array = []
 
 	func trigger_cooldown(weapon_id: String, now_msec: int, cooldown_seconds: float) -> void:
 		trigger_calls.append({
@@ -36,6 +38,14 @@ class FakeCooldownState:
 			"now_msec": now_msec,
 			"skill_config": skill_config,
 		})
+
+	func get_cooldown_remaining(weapon_id: String, now_msec: int, cooldown_seconds: float) -> float:
+		cooldown_queries.append({
+			"weapon_id": weapon_id,
+			"now_msec": now_msec,
+			"cooldown_seconds": cooldown_seconds,
+		})
+		return cooldown_remaining
 
 
 class FakeConfiguredOnlyState:
@@ -53,6 +63,7 @@ class FakeConfiguredOnlyState:
 
 func _init() -> void:
 	_verify_direct_cooldown_math()
+	_verify_ready_query_uses_configured_cooldown()
 	_verify_trigger_prefers_explicit_cooldown()
 	_verify_trigger_falls_back_to_configured_cooldown()
 	_verify_missing_skill_state_is_noop()
@@ -90,6 +101,37 @@ func _verify_direct_cooldown_math() -> void:
 		is_equal_approx(CommandoFirearmCooldownState.get_skill_cooldown_seconds("missing", null, {}, true, 0.5), 0.0),
 		"missing skill config should keep zero cooldown seconds"
 	)
+
+
+func _verify_ready_query_uses_configured_cooldown() -> void:
+	var state := FakeCooldownState.new()
+	state.cooldown_remaining = 1.25
+	var ready_with_remaining: bool = CommandoFirearmCooldownState.is_ready(
+		"bazooka",
+		4321,
+		{
+			"skill_state": state,
+			"skill_config": FakeSkillConfig.new({"bazooka": 8.0}),
+		}
+	)
+	_expect(not ready_with_remaining, "ready query should block when cooldown remains")
+	_expect(state.cooldown_queries.size() == 1, "ready query should ask skill state once")
+	if not state.cooldown_queries.is_empty():
+		var cooldown_query: Dictionary = state.cooldown_queries[0]
+		_expect(str(cooldown_query.get("weapon_id", "")) == "bazooka", "ready query should preserve weapon id")
+		_expect(int(cooldown_query.get("now_msec", 0)) == 4321, "ready query should preserve timestamp")
+		_expect(is_equal_approx(float(cooldown_query.get("cooldown_seconds", 0.0)), 8.0), "ready query should pass configured cooldown seconds")
+
+	state.cooldown_remaining = 0.0
+	_expect(
+		CommandoFirearmCooldownState.is_ready("bazooka", 4333, {
+			"skill_state": state,
+			"skill_config": FakeSkillConfig.new({"bazooka": 8.0}),
+		}),
+		"ready query should pass when no cooldown remains"
+	)
+	_expect(CommandoFirearmCooldownState.is_ready("bazooka", 4333, {}), "missing skill state should be ready")
+	_expect(CommandoFirearmCooldownState.is_ready("pistol", 4333, {}), "base pistol should bypass skill cooldown")
 
 
 func _verify_trigger_prefers_explicit_cooldown() -> void:
@@ -154,6 +196,7 @@ func _verify_missing_skill_state_is_noop() -> void:
 func _verify_removed_runtime_cooldown_bridges() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	for bridge_name in [
+		"_is_ready",
 		"_trigger_firearm_skill_cooldown",
 		"_get_firearm_skill_cooldown_seconds",
 	]:

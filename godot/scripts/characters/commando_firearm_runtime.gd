@@ -607,7 +607,7 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 		return {}
 	if now_msec - last_fire_msec < FIRE_DEBOUNCE_MSEC:
 		return {}
-	if not _is_ready(weapon_id, now_msec, deps):
+	if not CommandoFirearmCooldownState.is_ready(weapon_id, now_msec, deps):
 		return {
 			"handled": true,
 			"weapon_id": weapon_id,
@@ -649,7 +649,13 @@ func _should_suppress_fire_input_for_serve_wait(
 	deps: Dictionary
 ) -> bool:
 	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	if _is_round_waiting_for_serve(config, deps):
+	var round_state: Object = deps.get("round_state", null)
+	var waiting_for_serve: bool = false
+	if round_state != null and round_state.has_method("is_waiting_for_serve"):
+		waiting_for_serve = bool(round_state.is_waiting_for_serve())
+	elif config.has("waiting_for_serve"):
+		waiting_for_serve = bool(config.get("waiting_for_serve", false))
+	if waiting_for_serve:
 		if action_pressed:
 			serve_wait_fire_suppressed_until_release = true
 		_clear_serve_wait_firearm_input_state()
@@ -660,15 +666,6 @@ func _should_suppress_fire_input_for_serve_wait(
 		_clear_serve_wait_firearm_input_state()
 		return true
 	serve_wait_fire_suppressed_until_release = false
-	return false
-
-
-func _is_round_waiting_for_serve(config: Dictionary, deps: Dictionary) -> bool:
-	var round_state: Object = deps.get("round_state", null)
-	if round_state != null and round_state.has_method("is_waiting_for_serve"):
-		return bool(round_state.is_waiting_for_serve())
-	if config.has("waiting_for_serve"):
-		return bool(config.get("waiting_for_serve", false))
 	return false
 
 
@@ -1517,7 +1514,7 @@ func _update_bazooka_input(
 		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_control_lock", failure_fields)
 	if bazooka_cooldown_frames > 0.0:
 		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_cooldown", failure_fields)
-	if not _is_ready("bazooka", now_msec, deps):
+	if not CommandoFirearmCooldownState.is_ready("bazooka", now_msec, deps):
 		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "configured_cooldown", failure_fields)
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
@@ -1619,7 +1616,7 @@ func _update_net_gun_input(
 		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_control_lock", failure_fields)
 	if net_gun_cooldown_frames > 0.0:
 		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_cooldown", failure_fields)
-	if not _is_ready("net_gun", now_msec, deps):
+	if not CommandoFirearmCooldownState.is_ready("net_gun", now_msec, deps):
 		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "configured_cooldown", failure_fields)
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
@@ -1723,7 +1720,7 @@ func _update_bowling_trap_input(
 		BOWLING_TRAP_MIN_FIELD_Y_RATIO
 	):
 		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_install_field", failure_fields)
-	if not _is_ready("bowling_trap", now_msec, deps):
+	if not CommandoFirearmCooldownState.is_ready("bowling_trap", now_msec, deps):
 		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "configured_cooldown", failure_fields)
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
@@ -1791,7 +1788,7 @@ func _update_suicide_drone_input(
 		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_cooldown", suicide_drone_cooldown_frames)
 	if CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
 		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_active", suicide_drone_cooldown_frames)
-	if not _is_ready("suicide_drone", now_msec, deps):
+	if not CommandoFirearmCooldownState.is_ready("suicide_drone", now_msec, deps):
 		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "configured_cooldown", suicide_drone_cooldown_frames)
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
@@ -1887,20 +1884,6 @@ func _spawn_suicide_drone(config: Dictionary) -> void:
 		CommandoFirearmMuzzleFlashResolver.build_flash(origin, Vector2.UP, profile, "suicide_drone"),
 		FLASH_LIMIT
 	)
-
-
-func _is_ready(weapon_id: String, now_msec: int, deps: Dictionary) -> bool:
-	if weapon_id == "pistol" or weapon_id == "":
-		return true
-	var skill_state: Object = deps.get("skill_state", null)
-	if skill_state == null or not skill_state.has_method("get_cooldown_remaining"):
-		return true
-	var skill_config: Object = deps.get("skill_config", null)
-	var cooldown_seconds := 0.0
-	if skill_config != null and skill_config.has_method("get_cooldown_seconds"):
-		cooldown_seconds = float(skill_config.get_cooldown_seconds(weapon_id))
-	return float(skill_state.get_cooldown_remaining(weapon_id, now_msec, cooldown_seconds)) <= 0.0
-
 
 func _advance_slingshot_charge(special_gauge: float) -> Dictionary:
 	var charge_result: Dictionary = CommandoFirearmSlingshotState.advance_charge(

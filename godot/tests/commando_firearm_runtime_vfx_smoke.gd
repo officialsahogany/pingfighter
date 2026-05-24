@@ -221,6 +221,15 @@ class FakeActiveItemRuntime:
 		})
 
 
+class FakeRoundState:
+	extends RefCounted
+
+	var waiting_for_serve := false
+
+	func is_waiting_for_serve() -> bool:
+		return waiting_for_serve
+
+
 class FakeOwner:
 	extends RefCounted
 
@@ -266,6 +275,7 @@ func _init() -> void:
 	_verify_suicide_drone_ball_boost_and_boss_restore()
 	_verify_removed_suicide_drone_lingering_bridges()
 	_verify_non_fire_inputs_do_not_spawn_vfx()
+	_verify_serve_wait_fire_suppression_requires_release()
 	_verify_cooldown_and_switch_suppression_do_not_spend_or_spawn()
 	_verify_firearm_fx_host_activation_does_not_emit_stale_particles()
 	_verify_stage1_renderer_context_reader()
@@ -1835,6 +1845,45 @@ func _verify_non_fire_inputs_do_not_spawn_vfx() -> void:
 	)
 	_expect(result.is_empty(), "supply-drop hold input should not fire a weapon")
 	_expect(_get_array(runtime.get_actor_draw_context().get("commando_firearm_projectiles", [])).is_empty(), "suppressed hold input should not create projectile VFX")
+
+
+func _verify_serve_wait_fire_suppression_requires_release() -> void:
+	var setup: Dictionary = _build_setup("bazooka")
+	var runtime: Object = setup.get("runtime", null)
+	var controller: Object = setup.get("controller", null)
+	var deps: Dictionary = setup.get("deps", {})
+	var round_state := FakeRoundState.new()
+	deps["round_state"] = round_state
+	var fire_config: Dictionary = _fire_config()
+
+	round_state.waiting_for_serve = true
+	var waiting_press: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, fire_config, deps)
+	_expect(waiting_press.is_empty(), "serve-wait press should suppress Commando firearm input")
+	_expect(bool(controller.get_current_weapon_data().get("can_fire", false)), "serve-wait press should not spend weapon ammo")
+	_expect(_get_array(runtime.get_actor_draw_context().get("commando_firearm_projectiles", [])).is_empty(), "serve-wait press should not spawn projectile VFX")
+
+	round_state.waiting_for_serve = false
+	var held_after_wait: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, fire_config, deps)
+	_expect(held_after_wait.is_empty(), "held fire after serve wait should stay suppressed until release")
+	_expect(bool(controller.get_current_weapon_data().get("can_fire", false)), "held fire after serve wait should not spend ammo")
+
+	var release_after_wait: Dictionary = runtime.update_input({"action_pressed": false}, 500.0, fire_config, deps)
+	_expect(release_after_wait.is_empty(), "serve-wait release should only clear suppression")
+
+	var fresh_press: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, fire_config, deps)
+	_expect(bool(fresh_press.get("fired", false)), "fresh fire after serve-wait release should fire normally")
+	_expect(_get_array(runtime.get_actor_draw_context().get("commando_firearm_projectiles", [])).size() == 1, "fresh fire after serve-wait release should spawn projectile VFX")
+
+	var config_setup: Dictionary = _build_setup("net_gun")
+	var config_wait: Dictionary = _fire_config()
+	config_wait["waiting_for_serve"] = true
+	var config_wait_result: Dictionary = config_setup.get("runtime", null).update_input(
+		{"action_pressed": true},
+		500.0,
+		config_wait,
+		config_setup.get("deps", {})
+	)
+	_expect(config_wait_result.is_empty(), "waiting_for_serve config flag should also suppress Commando firearm input")
 
 
 func _verify_cooldown_and_switch_suppression_do_not_spend_or_spawn() -> void:
