@@ -8444,26 +8444,6 @@ commits rather than standalone `fix` commits:
   `35` functions to `2502` lines / `35` functions.
 - Validation: focused Commando coverage passed:
   `commando_firearm_value_utils_smoke` and
- `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
-  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
-  `git diff --check` reported no whitespace errors beyond CRLF normalization
-  notices.
-
-301st follow-up on 2026-05-24:
-
-- Commit:
-  `0f02f0035 godot: move Commando fire and projectile helper fields`.
-- Scope: added result-state timing field builders for bazooka, net-gun, and
-  bowling-trap payloads, and added projectile-motion helpers for replacement
-  payload writes, motion field writes, and life-timer advancement. The runtime
-  delegates those repeated dictionary mutation shapes while preserving the same
-  failure result payloads and projectile motion state.
-- Runtime facade size: `commando_firearm_runtime.gd` moved from `2500` lines /
-  `35` functions to `2501` lines / `35` functions; the slight line increase is
-  from multi-line helper calls replacing inline dictionaries.
-- Validation: focused Commando coverage passed:
-  `commando_firearm_fire_result_state_smoke`,
-  `commando_firearm_projectile_motion_state_smoke`, and
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors beyond CRLF normalization
@@ -8501,3 +8481,23 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors beyond CRLF normalization
   notices.
+
+301st follow-up on 2026-05-24:
+
+- Commit:
+  `0f02f0035 godot: move Commando fire and projectile helper fields`.
+- Scope: added result-state timing field builders for bazooka, net-gun, and
+  bowling-trap payloads, and added projectile-motion helpers for replacement
+  payload writes, motion field writes, and life-timer advancement. The runtime
+  delegates those repeated dictionary mutation shapes while preserving the same
+  failure result payloads and projectile motion state.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2500` lines /
+  `35` functions to `2505` lines / `35` functions; the line increase is from
+  multi-line helper calls replacing inline dictionaries.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_projectile_motion_state_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
