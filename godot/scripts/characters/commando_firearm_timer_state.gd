@@ -1,5 +1,6 @@
 extends RefCounted
 
+const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
@@ -100,3 +101,41 @@ static func advance_pending_pistol_fire(
 			float(target.get("pistol_control_lock_frames"))
 		),
 	}
+
+
+static func advance_runtime_firearm_timers(
+	target: Object,
+	config: Dictionary,
+	deps: Dictionary,
+	fps_scale: float,
+	ak47_recoil_recovery_per_frame: float,
+	pending_geometry_keys: Array,
+	base_weapon_id: String,
+	pistol_post_fire_animation_frames: float
+) -> Dictionary:
+	if target == null:
+		return {}
+	var step: float = max(0.0, float(fps_scale))
+	if step <= 0.0:
+		return {}
+	advance_runtime_timers(target, step, ak47_recoil_recovery_per_frame)
+	var pending_fire: Dictionary = advance_pending_pistol_fire(
+		target,
+		config,
+		step,
+		pending_geometry_keys,
+		base_weapon_id
+	)
+	if pending_fire.is_empty():
+		return {}
+	if bool(pending_fire.get("pending", false)):
+		return CommandoFirearmValueUtils.get_dict(pending_fire.get("result", {}))
+	var shot_config: Dictionary = CommandoFirearmValueUtils.get_dict(pending_fire.get("shot_config", config))
+	var shot_weapon_id: String = str(pending_fire.get("weapon_id", base_weapon_id))
+	if target.has_method("_spawn_firearm_effect"):
+		target.call("_spawn_firearm_effect", shot_weapon_id, shot_config, deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio(shot_weapon_id, deps)
+	# Start the post-fire animation window so the renderer plays muzzle /
+	# smoke / lower / ready frames after delayed pistol fire resolves.
+	target.set("pistol_post_fire_animation_frames", pistol_post_fire_animation_frames)
+	return CommandoFirearmValueUtils.get_dict(pending_fire.get("result", {}))

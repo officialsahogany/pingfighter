@@ -610,7 +610,16 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 		CommandoFirearmControlState.apply_serve_wait_firearm_input_cleared(self)
 	if bool(serve_wait_suppression.get("suppressed", false)):
 		return {}
-	var timed_result: Dictionary = _update_firearm_timers(config, deps, 1.0)
+	var timed_result: Dictionary = CommandoFirearmTimerState.advance_runtime_firearm_timers(
+		self,
+		config,
+		deps,
+		1.0,
+		AK47_RECOIL_RECOVERY_PER_FRAME,
+		PISTOL_PENDING_FIRE_GEOMETRY_KEYS,
+		BASE_WEAPON_ID,
+		PISTOL_POST_FIRE_ANIMATION_FRAMES
+	)
 	if bool(timed_result.get("fired", false)):
 		return timed_result
 	if CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
@@ -952,34 +961,6 @@ func get_actor_draw_context() -> Dictionary:
 		DRAW_CONTEXT_TIMING,
 		get_movement_speed_multiplier()
 	)
-
-
-func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: float = 1.0) -> Dictionary:
-	var step: float = max(0.0, float(fps_scale))
-	if step <= 0.0:
-		return {}
-	CommandoFirearmTimerState.advance_runtime_timers(self, step, AK47_RECOIL_RECOVERY_PER_FRAME)
-	var pending_fire: Dictionary = CommandoFirearmTimerState.advance_pending_pistol_fire(
-		self,
-		config,
-		step,
-		PISTOL_PENDING_FIRE_GEOMETRY_KEYS,
-		BASE_WEAPON_ID
-	)
-	if pending_fire.is_empty():
-		return {}
-	if bool(pending_fire.get("pending", false)):
-		return CommandoFirearmValueUtils.get_dict(pending_fire.get("result", {}))
-	var shot_config: Dictionary = CommandoFirearmValueUtils.get_dict(pending_fire.get("shot_config", config))
-	var shot_weapon_id: String = str(pending_fire.get("weapon_id", BASE_WEAPON_ID))
-	_spawn_firearm_effect(shot_weapon_id, shot_config, deps)
-	CommandoFirearmAudioDispatcher.play_fire_audio(shot_weapon_id, deps)
-	# Start the post-fire animation window so the renderer plays the muzzle /
-	# smoke / lower / ready frames after the shot resolves. Frame 4 (muzzle
-	# flash) is the first cell shown during this window, so it lines up with
-	# `CommandoFirearmAudioDispatcher.play_fire_audio()` above.
-	pistol_post_fire_animation_frames = PISTOL_POST_FIRE_ANIMATION_FRAMES
-	return CommandoFirearmValueUtils.get_dict(pending_fire.get("result", {}))
 
 
 func _update_pistol_input(

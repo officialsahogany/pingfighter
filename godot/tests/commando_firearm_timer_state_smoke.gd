@@ -9,6 +9,8 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_runtime_timer_owner()
 	_verify_pending_pistol_fire_owner()
+	_verify_runtime_firearm_timer_dispatch_owner()
+	_verify_removed_runtime_timer_bridge()
 
 	if _failures.is_empty():
 		print("commando_firearm_timer_state_smoke: ok")
@@ -96,6 +98,34 @@ func _verify_pending_pistol_fire_owner() -> void:
 	_expect(is_equal_approx(runtime.pistol_fire_delay_frames, 0.0), "pending pistol fire owner should clear delay after ready")
 	_expect(runtime.pistol_pending_weapon_id == "", "pending pistol fire owner should clear pending weapon")
 	_expect(runtime.pistol_pending_config.is_empty(), "pending pistol fire owner should clear pending config")
+
+
+func _verify_runtime_firearm_timer_dispatch_owner() -> void:
+	var runtime := CommandoFirearmRuntime.new()
+	runtime.pistol_fire_delay_frames = 1.0
+	runtime.pistol_control_lock_frames = 4.0
+	runtime.pistol_cooldown_frames = 5.0
+	runtime.pistol_pending_weapon_id = "commando_pistol"
+	runtime.pistol_pending_config = {"player_pos": Vector2(300.0, 680.0), "boss_pos": Vector2(320.0, 80.0)}
+	var result: Dictionary = CommandoFirearmTimerState.advance_runtime_firearm_timers(
+		runtime,
+		{"player_pos": Vector2(310.0, 670.0), "boss_pos": Vector2(320.0, 80.0)},
+		{},
+		1.0,
+		CommandoFirearmRuntime.AK47_RECOIL_RECOVERY_PER_FRAME,
+		CommandoFirearmRuntime.PISTOL_PENDING_FIRE_GEOMETRY_KEYS,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.PISTOL_POST_FIRE_ANIMATION_FRAMES
+	)
+	_expect(bool(result.get("fired", false)), "runtime firearm timer owner should return delayed fire result")
+	_expect(runtime.projectiles.size() == 1, "runtime firearm timer owner should spawn the delayed shot")
+	_expect(is_equal_approx(runtime.pistol_post_fire_animation_frames, CommandoFirearmRuntime.PISTOL_POST_FIRE_ANIMATION_FRAMES), "runtime firearm timer owner should start post-fire animation")
+
+
+func _verify_removed_runtime_timer_bridge() -> void:
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(runtime_source.find("func _update_firearm_timers(") < 0, "runtime should not keep firearm timer update bridge")
+	_expect(runtime_source.find("CommandoFirearmTimerState.advance_runtime_firearm_timers") >= 0, "runtime should delegate firearm timer update to the timer owner")
 
 
 func _get_dict(value: Variant) -> Dictionary:

@@ -7,6 +7,7 @@ const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/c
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
 const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
+const CommandoFirearmTimerState := preload("res://scripts/characters/commando_firearm_timer_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 var _failures: Array[String] = []
@@ -335,10 +336,19 @@ func _verify_runtime_value_utils_integration() -> void:
 		"boss_pos": Vector2(3.0, 4.0),
 	}
 	runtime.pistol_fire_delay_frames = 2.0
-	var pending_result: Dictionary = runtime._update_firearm_timers({
-		"player_pos": Vector2(10.0, 20.0),
-		"paddle_width": 123.0,
-	}, {}, 1.0)
+	var pending_result: Dictionary = CommandoFirearmTimerState.advance_runtime_firearm_timers(
+		runtime,
+		{
+			"player_pos": Vector2(10.0, 20.0),
+			"paddle_width": 123.0,
+		},
+		{},
+		1.0,
+		CommandoFirearmRuntime.AK47_RECOIL_RECOVERY_PER_FRAME,
+		CommandoFirearmRuntime.PISTOL_PENDING_FIRE_GEOMETRY_KEYS,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.PISTOL_POST_FIRE_ANIMATION_FRAMES
+	)
 	_expect(bool(pending_result.get("shot_pending", false)), "runtime timer path should preserve pending pistol shots")
 	_expect(CommandoFirearmValueUtils.get_vector2(runtime.pistol_pending_config.get("player_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(10.0, 20.0), "runtime timer path should refresh pending player position")
 	_expect(is_equal_approx(float(runtime.pistol_pending_config.get("paddle_width", 0.0)), 123.0), "runtime timer path should copy pending paddle width")
