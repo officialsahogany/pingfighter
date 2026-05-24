@@ -3955,9 +3955,10 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Commando impact-flash dictionary construction: bullet / non-
   bullet timers, fire-support grenade visual kind and duration, explosion
   radius fallback, position, color, and secondary-color fallback.
-  `commando_firearm_runtime.gd` keeps impact-flash array limits, lifetime
+  `commando_firearm_runtime.gd` calls this resolver directly from the
+  impact-flash spawn path while keeping impact-flash array limits, lifetime
   updates, draw-state publication, hit / environment side effects, and
-  damage handoff while delegating only this visual payload construction.
+  damage handoff.
 - `scripts/characters/commando_firearm_input_resolver.gd`
   Owns tiny pure Commando firearm input reads: suicide-drone directional
   vector construction and the legacy `action_just_pressed` fallback to
@@ -4006,9 +4007,9 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_muzzle_flash_resolver.gd`
   Owns pure Commando muzzle-flash dictionary construction: profile kind,
   radius / timer clamps, origin / direction, and secondary-color fallback.
-  `commando_firearm_runtime.gd` keeps muzzle-flash array limits, lifetime
-  updates, draw-state publication, and weapon firing side effects while
-  delegating only this visual payload construction.
+  `commando_firearm_runtime.gd` calls this resolver directly from the
+  muzzle-flash spawn path while keeping muzzle-flash array limits, lifetime
+  updates, draw-state publication, and weapon firing side effects.
 - `scripts/characters/commando_firearm_pistol_feedback_state.gd`
   Owns pure Commando pistol headshot / legshot feedback state: supported hit
   kind filtering, text / wave anchor placement from the boss rect, timer

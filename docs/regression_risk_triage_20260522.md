@@ -6039,6 +6039,21 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+180th follow-up on 2026-05-24:
+
+- Commit: `163222705 godot: drop Commando flash build bridges`.
+- Scope: removed the muzzle-flash and impact-flash build wrappers from
+  `commando_firearm_runtime.gd`. Runtime spawn paths now call
+  `commando_firearm_muzzle_flash_resolver.gd` and
+  `commando_firearm_impact_flash_resolver.gd` directly, while the runtime
+  keeps array limits, lifetime updates, draw-state publication, and gameplay
+  side-effect timing.
+- Validation: `commando_firearm_muzzle_flash_resolver_smoke`,
+  `commando_firearm_impact_flash_resolver_smoke`, and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
