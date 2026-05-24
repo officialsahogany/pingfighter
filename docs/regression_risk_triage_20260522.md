@@ -6203,6 +6203,30 @@ Hundredth split on 2026-05-24:
   removals, and run visual QA for support-bomb coverage before a release
   candidate sign-off.
 
+191st follow-up on 2026-05-24:
+
+- Commit: `bdd05f0cc godot: drop Commando audio dispatcher bridges`.
+- Scope: removed the private audio-dispatcher bridge methods from
+  `commando_firearm_runtime.gd`: `_play_weapon_audio_method()`,
+  `_play_first_audio_method()`, `_play_reload_progress_audio()`, and
+  `_stop_suicide_drone_audio()`. Runtime now calls
+  `commando_firearm_audio_dispatcher.gd` directly for weapon fire / impact,
+  first-available cue dispatch, reload-progress cues, and suicide-drone loop
+  cleanup. `commando_firearm_audio_dispatcher_smoke.gd` now guards that these
+  bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3732` lines /
+  `180` functions to `3711` lines / `176` functions.
+- Validation: focused audio coverage passed:
+  `commando_firearm_audio_dispatcher_smoke`,
+  `commando_firearm_audio_resolver_smoke`,
+  `commando_firearm_audio_routing_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_supply_drop_audio_cleanup_smoke`. The full sorted
+  `commando_firearm*_smoke.gd` set ran `45` scripts and passed.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` scanned `1322` scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
