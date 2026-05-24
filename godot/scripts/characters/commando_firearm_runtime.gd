@@ -2285,7 +2285,18 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 	for index in range(support_calls.size() - 1, -1, -1):
 		@warning_ignore("shadowed_variable_base_class")
 		var call: Dictionary = CommandoFirearmValueUtils.get_dict(support_calls[index])
-		var advance_result: Dictionary = _advance_support_call(call, step)
+		var advance_result: Dictionary = CommandoFirearmSupportCallResolver.advance_call(
+			call,
+			step,
+			Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
+			Vector2(SUPPORT_AIRCRAFT_SPEED, 0.0),
+			SUPPORT_BOMB_INTERVAL_FRAMES,
+			FIELD_WIDTH,
+			SUPPORT_AIRCRAFT_FINISH_MARGIN,
+			SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
+			SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
+			SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO
+		)
 		call = CommandoFirearmValueUtils.get_dict(advance_result.get("call", call))
 		if bool(advance_result.get("started_aircraft", false)):
 			CommandoFirearmAudioDispatcher.start_support_aircraft_audio(call, deps)
@@ -2296,21 +2307,6 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 			support_calls.remove_at(index)
 		else:
 			support_calls[index] = call
-
-
-func _advance_support_call(call_data: Dictionary, step: float) -> Dictionary:
-	return CommandoFirearmSupportCallResolver.advance_call(
-		call_data,
-		step,
-		Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
-		Vector2(SUPPORT_AIRCRAFT_SPEED, 0.0),
-		SUPPORT_BOMB_INTERVAL_FRAMES,
-		FIELD_WIDTH,
-		SUPPORT_AIRCRAFT_FINISH_MARGIN,
-		SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
-		SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
-		SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO
-	)
 
 
 @warning_ignore("shadowed_variable_base_class")

@@ -154,21 +154,32 @@ func _verify_direct_support_call_resolver() -> void:
 
 func _verify_runtime_delegates_support_call_resolver() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	var advance_result: Dictionary = runtime._advance_support_call({
-		"call_timer_frames": 0.0,
-		"delay_frames": 0.0,
-		"bombs_remaining": 1,
-		"bombs_spawned": 0,
-		"aircraft_active": false,
-		"aircraft_drop_arm_frames": 18.0,
-	}, 20.0)
+	var advance_result: Dictionary = CommandoFirearmSupportCallResolver.advance_call(
+		{
+			"call_timer_frames": 0.0,
+			"delay_frames": 0.0,
+			"bombs_remaining": 1,
+			"bombs_spawned": 0,
+			"aircraft_active": false,
+			"aircraft_drop_arm_frames": 18.0,
+		},
+		20.0,
+		Vector2(CommandoFirearmRuntime.SUPPORT_AIRCRAFT_START_X, CommandoFirearmRuntime.SUPPORT_AIRCRAFT_Y),
+		Vector2(CommandoFirearmRuntime.SUPPORT_AIRCRAFT_SPEED, 0.0),
+		CommandoFirearmRuntime.SUPPORT_BOMB_INTERVAL_FRAMES,
+		CommandoFirearmRuntime.FIELD_WIDTH,
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_FINISH_MARGIN,
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
+		CommandoFirearmRuntime.SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO
+	)
 	var advanced_call: Dictionary = _get_dict(advance_result.get("call", {}))
-	_expect(bool(advance_result.get("started_aircraft", false)), "runtime support advance wrapper should report aircraft startup")
-	_expect(bool(advance_result.get("spawn_bomb", false)), "runtime support advance wrapper should report bomb spawn")
+	_expect(bool(advance_result.get("started_aircraft", false)), "support advance owner should report aircraft startup")
+	_expect(bool(advance_result.get("spawn_bomb", false)), "support advance owner should report bomb spawn")
 	var advanced_pos: Vector2 = _get_vector2(advanced_call.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO)
-	_expect(is_equal_approx(advanced_pos.x, -144.0), "runtime support advance wrapper should use the pillar-edge aircraft lane and doubled speed")
-	_expect(advanced_pos.y > 340.0, "runtime support advance wrapper should curve through the center-screen aircraft lane")
-	_expect(abs(float(advanced_call.get("aircraft_curve_roll", 0.0))) > 0.0, "runtime support advance wrapper should expose curve roll metadata")
+	_expect(is_equal_approx(advanced_pos.x, -144.0), "support advance owner should use the pillar-edge aircraft lane and doubled speed")
+	_expect(advanced_pos.y > 340.0, "support advance owner should curve through the center-screen aircraft lane")
+	_expect(abs(float(advanced_call.get("aircraft_curve_roll", 0.0))) > 0.0, "support advance owner should expose curve roll metadata")
 	runtime.support_calls = [{"call_timer_frames": 1.0}]
 	_expect(runtime.is_player_control_locked(), "runtime player lock should read active support calls through the resolver")
 	runtime.support_calls = [{"call_timer_frames": 0.0, "radio_active": false}]
@@ -185,6 +196,7 @@ func _verify_removed_support_call_setup_bridges() -> void:
 		"_support_call_seed",
 		"_get_support_bomb_target",
 		"_has_active_support_call_lock",
+		"_advance_support_call",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep support-call setup bridge %s" % bridge_name)
 
