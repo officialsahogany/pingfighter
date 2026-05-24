@@ -7903,6 +7903,25 @@ Hundredth split on 2026-05-24:
   existing CRLF normalization notices. The projectile-spawn smoke now rejects
   `_next_shot_id()` in the runtime facade.
 
+274th follow-up on 2026-05-24:
+
+- Commit:
+  `041d2c16e godot: move Commando firearm timer tick state`.
+- Scope: introduced `CommandoFirearmTimerState` as the owner for routine
+  firearm timer ticking. `_update_firearm_timers()` now delegates cooldown,
+  control-lock, pose / flash, post-fire animation, weapon-fire sheet expiry,
+  and AK-47 recoil recovery ticks to that owner while keeping delayed pistol
+  fire resolution, geometry refresh, spawn, and audio behavior in the runtime.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2756` lines /
+  `35` functions to `2734` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_timer_state_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond the existing CRLF
+  normalization notices.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
