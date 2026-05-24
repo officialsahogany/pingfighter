@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_overlay_render_budgets()
 	_verify_fire_weather_overlay_size_guard()
+	_verify_ball_ground_shadow_budget()
 	_verify_clear_resets_overlay_trails()
 	_verify_ball_renderer_clears_status_overlay()
 	_verify_ragnarok_draw_is_deterministic()
@@ -46,6 +47,20 @@ func _verify_fire_weather_overlay_size_guard() -> void:
 	_expect(body.find("radius + 15.0") < 0, "Fire-weather overlay should not use the old oversized fixed arc radius")
 	_expect(body.find("0.55 + 0.85 * t") < 0, "Fire-weather trail should not use the old large trail-radius formula")
 	_expect(body.find("ball_speed > 0.5") >= 0, "Fire-weather trail should not accumulate while the ball is stationary")
+
+
+func _verify_ball_ground_shadow_budget() -> void:
+	_expect(BallRenderer.GROUND_SHADOW_ALPHAS.size() <= 2, "Ball ground shadow should use at most two ellipse layers")
+	_expect(BallRenderer.GROUND_SHADOW_SEGMENTS <= 12, "Ball ground shadow should use a bounded ellipse segment count")
+	var source := FileAccess.get_file_as_string("res://scripts/ball/ball_renderer.gd")
+	var draw_body := _function_body(source, "func draw_current")
+	var shadow_index := draw_body.find("_draw_ground_shadow(canvas, pos, context)")
+	var prism_index := draw_body.find("if draw_as_prism:")
+	_expect(draw_body.find("ball.ground_shadow") >= 0, "Ball renderer should report ground-shadow draw cost")
+	_expect(
+		shadow_index >= 0 and prism_index >= 0 and shadow_index < prism_index,
+		"Ball ground shadow should draw below every ball visual branch"
+	)
 
 
 func _verify_clear_resets_overlay_trails() -> void:
