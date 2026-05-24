@@ -8851,7 +8851,7 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
 
-322nd follow-up on 2026-05-25:
+322nd follow-up on 2026-05-24:
 
 - Commit:
   `fad1ae1b3 godot: move Commando support call start append`.
@@ -8863,7 +8863,14 @@ commits rather than standalone `fix` commits:
 - Runtime facade delta: `commando_firearm_runtime.gd` changed by `2`
   insertions and `2` deletions, with the function count staying at `35`.
 - Validation: focused Commando coverage passed:
-  `commando_firearm_support_call_resolver_smoke` and
-  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
-  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
-  `git diff --check` reported no whitespace errors.
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_profile_resolver_smoke`,
+  `commando_firearm_fire_sheet_resolver_smoke`,
+  `commando_firearm_projectile_spawn_state_smoke`,
+  `commando_firearm_shell_casing_state_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_pistol_hit_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors.
