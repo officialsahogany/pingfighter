@@ -6068,6 +6068,20 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+182nd follow-up on 2026-05-24:
+
+- Commit: `63b130491 godot: drop Commando pistol value bridges`.
+- Scope: removed the pistol weapon classifier, pistol hit-roll, pistol
+  doping-multiplier, and pistol hit-chance wrappers from
+  `commando_firearm_runtime.gd`. Fire spread selection, stage-rock pistol
+  filtering, wall-bounce checks, and pistol hit side-effect assembly now call
+  `commando_firearm_value_utils.gd` directly; runtime keeps shot side effects,
+  hit counter mutation, status / gauge result merging, and VFX publication.
+- Validation: `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
