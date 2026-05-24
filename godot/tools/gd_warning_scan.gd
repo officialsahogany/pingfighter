@@ -19,6 +19,9 @@ func _initialize() -> void:
 		var script := ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
 		if script is GDScript:
 			script.reload(true)
+		script = null
+		if not verbose_files and index > 0 and index % 50 == 0:
+			OS.delay_msec(1)
 	if not verbose_files:
 		print("gd_warning_scan: checked %d/%d" % [paths.size(), paths.size()])
 	print("gd_warning_scan: done")
