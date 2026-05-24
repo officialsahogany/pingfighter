@@ -7107,6 +7107,24 @@ Hundredth split on 2026-05-24:
   exercises the real release path for guard arming and rejects the removed
   guard arming bridge.
 
+236th follow-up on 2026-05-24:
+
+- Commit: `23cbb18f7 godot: inline Commando trap failure result`.
+- Scope: removed `_bowling_trap_fire_failed()` from
+  `commando_firearm_runtime.gd`. Bowling Trap input now builds its failure
+  result directly with the live cooldown / control-lock / install-pose timer
+  payload at each guard branch instead of routing through a private one-weapon
+  failure bridge.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3235` lines /
+  `80` functions to `3232` lines / `79` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`, and
+  `commando_firearm_value_utils_smoke`. The fire-result smoke now drives the
+  real Bowling Trap control-lock failure path and rejects the removed failure
+  bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
