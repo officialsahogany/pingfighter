@@ -8307,3 +8307,35 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` on the touched Commando files reported no whitespace
   errors beyond existing CRLF normalization notices.
+
+291st follow-up on 2026-05-24:
+
+- Commit:
+  `22737d542 godot: add budgeted ball ground shadow`.
+- Scope: added a bounded two-layer ground shadow under the ball renderer,
+  cached unit ellipse points, and a budget smoke assertion that the shadow cost
+  is reported before the ball visual branches draw.
+- Validation: focused ball coverage passed:
+  `ball_status_overlay_renderer_budget_smoke`. The Godot headless load check
+  passed, `run_warning_scan.ps1` scanned `1333` scripts with no GDScript
+  warnings, and `git diff --check` on the committed ball files reported no
+  whitespace errors.
+
+292nd follow-up on 2026-05-24:
+
+- Commit:
+  `7cf974158 godot: thin Commando draw context facade`.
+- Scope: moved the remaining Commando runtime draw-context assembly behind
+  `CommandoFirearmDrawStateResolver.build_runtime_draw_context()` and moved
+  Stage 2 boss status-immunity detection for bowling-trap guard consumption
+  into `CommandoFirearmBowlingTrapGeometry.is_stage2_boss_status_immune()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2630` lines /
+  `35` functions to `2554` lines / `35` functions across the draw-context and
+  guard-immunity cleanup.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the committed Commando files reported no whitespace
+  errors.
