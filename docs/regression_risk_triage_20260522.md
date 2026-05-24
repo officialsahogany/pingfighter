@@ -7542,6 +7542,29 @@ Hundredth split on 2026-05-24:
   The suicide-drone state smoke now rejects `_spawn_suicide_drone_fire_zone()`
   in the runtime facade.
 
+258th follow-up on 2026-05-24:
+
+- Commit:
+  `2f3f0ffd8 godot: move Commando support and trap install bridges`.
+- Scope: removed the Commando runtime `_start_support_call()` bridge by moving
+  support-call payload append, support marker append, list limiting, and
+  evicted-call reporting into
+  `CommandoFirearmSupportCallResolver.append_start_effects()`. Runtime still
+  owns the audio side effects for evicted aircraft and the initial radio cue.
+  The same pass inlined `_update_bowling_trap_install()` into the bowling-trap
+  update loop so install-state mutation goes directly through
+  `CommandoFirearmBowlingTrapGeometry.update_install_state()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3003` lines /
+  `53` functions to `2984` lines / `51` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_audio_routing_smoke`. The Godot headless load check passed,
+  and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings.
+  The focused owner smokes now reject `_start_support_call()` and
+  `_update_bowling_trap_install()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
