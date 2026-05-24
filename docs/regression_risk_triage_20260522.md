@@ -7482,6 +7482,23 @@ Hundredth split on 2026-05-24:
   scripts with no GDScript warnings. The suicide-drone state smoke now rejects
   `_spawn_suicide_drone()` in the runtime facade.
 
+255th follow-up on 2026-05-24:
+
+- Commit:
+  `90c67d480 godot: move Commando bowling trap install append`.
+- Scope: removed the Commando runtime `_start_bowling_trap_install()` append
+  bridge. Bowling-trap geometry now owns install trap body and marker flash
+  appends through `CommandoFirearmBowlingTrapGeometry.append_install_effects()`,
+  while the runtime passes the resolved profile, trap id, field bounds,
+  install timing, capture offset, and list limits from the firearm spawn path.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3029` lines /
+  `56` functions to `3018` lines / `55` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_fx_host_smoke`. The bowling-trap geometry smoke now rejects
+  `_start_bowling_trap_install()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
