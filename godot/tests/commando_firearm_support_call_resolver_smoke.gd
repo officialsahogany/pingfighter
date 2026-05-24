@@ -170,9 +170,9 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 	_expect(advanced_pos.y > 340.0, "runtime support advance wrapper should curve through the center-screen aircraft lane")
 	_expect(abs(float(advanced_call.get("aircraft_curve_roll", 0.0))) > 0.0, "runtime support advance wrapper should expose curve roll metadata")
 	runtime.support_calls = [{"call_timer_frames": 1.0}]
-	_expect(runtime._has_active_support_call_lock(), "runtime support active-lock wrapper should delegate active calls")
+	_expect(runtime.is_player_control_locked(), "runtime player lock should read active support calls through the resolver")
 	runtime.support_calls = [{"call_timer_frames": 0.0, "radio_active": false}]
-	_expect(not runtime._has_active_support_call_lock(), "runtime support active-lock wrapper should delegate inactive calls")
+	_expect(not runtime.is_player_control_locked(), "runtime player lock should ignore inactive support calls")
 
 
 func _verify_removed_support_call_setup_bridges() -> void:
@@ -184,6 +184,7 @@ func _verify_removed_support_call_setup_bridges() -> void:
 		"_get_support_bomb_count",
 		"_support_call_seed",
 		"_get_support_bomb_target",
+		"_has_active_support_call_lock",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep support-call setup bridge %s" % bridge_name)
 
