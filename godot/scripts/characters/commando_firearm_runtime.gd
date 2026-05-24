@@ -988,14 +988,9 @@ func get_actor_draw_context() -> Dictionary:
 		SLINGSHOT_COOLDOWN_FRAMES,
 		SLINGSHOT_CONTROL_LOCK_FRAMES
 	)
-	var pistol_state: Dictionary = CommandoFirearmDrawStateResolver.build_pistol_state(
-		pistol_cooldown_frames,
-		pistol_cooldown_max_frames,
-		pistol_control_lock_frames,
-		pistol_control_lock_max_frames,
-		pistol_fire_delay_frames,
+	var pistol_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_pistol_state(
+		self,
 		PISTOL_FIRE_DELAY_FRAMES,
-		pistol_post_fire_animation_frames,
 		PISTOL_POST_FIRE_ANIMATION_FRAMES
 	)
 	var weapon_fire_sheet_state: Dictionary = CommandoFirearmDrawStateResolver.build_weapon_fire_sheet_state(

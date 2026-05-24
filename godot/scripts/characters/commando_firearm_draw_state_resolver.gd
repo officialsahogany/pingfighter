@@ -117,6 +117,25 @@ static func build_pistol_state(
 	}
 
 
+static func build_runtime_pistol_state(
+	target: Object,
+	fire_delay_max_frames: float,
+	post_fire_animation_max_frames: float
+) -> Dictionary:
+	if target == null:
+		return build_pistol_state(0.0, 0.0, 0.0, 0.0, 0.0, fire_delay_max_frames, 0.0, post_fire_animation_max_frames)
+	return build_pistol_state(
+		float(target.get("pistol_cooldown_frames")),
+		float(target.get("pistol_cooldown_max_frames")),
+		float(target.get("pistol_control_lock_frames")),
+		float(target.get("pistol_control_lock_max_frames")),
+		float(target.get("pistol_fire_delay_frames")),
+		fire_delay_max_frames,
+		float(target.get("pistol_post_fire_animation_frames")),
+		post_fire_animation_max_frames
+	)
+
+
 static func build_weapon_fire_sheet_state(
 	weapon_id: String,
 	timer_frames: float,

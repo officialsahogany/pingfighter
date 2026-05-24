@@ -79,6 +79,16 @@ func _verify_direct_pistol_state() -> void:
 	)
 	_expect(not bool(post_fire.get("shot_pending", true)), "pistol state should clear pending shot after fire delay")
 	_expect(bool(post_fire.get("animation_active", false)), "pistol state should keep animation active during post-fire pose")
+	var runtime := CommandoFirearmRuntime.new()
+	runtime.pistol_cooldown_frames = 2.0
+	runtime.pistol_cooldown_max_frames = 60.0
+	runtime.pistol_control_lock_frames = 3.0
+	runtime.pistol_control_lock_max_frames = 18.0
+	runtime.pistol_fire_delay_frames = 12.0
+	runtime.pistol_post_fire_animation_frames = 5.0
+	var runtime_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_pistol_state(runtime, 24.0, 18.0)
+	_expect(is_equal_approx(float(runtime_state.get("cooldown_frames", 0.0)), 2.0), "runtime pistol state should read cooldown")
+	_expect(bool(runtime_state.get("shot_pending", false)), "runtime pistol state should expose pending shots")
 
 
 func _verify_direct_weapon_fire_sheet_state() -> void:
