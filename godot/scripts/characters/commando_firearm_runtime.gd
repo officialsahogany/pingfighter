@@ -15,7 +15,7 @@ const CommandoFirearmFireSpawnState := preload("res://scripts/characters/command
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
-const CommandoFirearmPistolReloadState := preload("res://scripts/characters/commando_firearm_pistol_reload_state.gd")
+const CommandoFirearmPistolInputState := preload("res://scripts/characters/commando_firearm_pistol_input_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/commando_firearm_projectile_motion_state.gd")
@@ -955,92 +955,28 @@ func _update_pistol_input(
 	current_weapon: Dictionary,
 	now_msec: int
 ) -> Dictionary:
-	var weapon_id: String = str(current_weapon.get("weapon_id", "commando_pistol"))
-	if not bool(input_snapshot.get("action_pressed", false)):
-		return {}
-	if input_snapshot.has("action_just_pressed") and not bool(input_snapshot.get("action_just_pressed", false)):
-		return {}
-	if bool(input_snapshot.get("down_pressed", false)):
-		return {}
-	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
-		deps.get("commando_weapon_controller", null),
-		now_msec,
-		SWITCH_FIRE_SUPPRESS_MSEC
-	):
-		return {}
-	if pistol_fire_delay_frames > 0.0:
-		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_animation_busy", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
-	if pistol_cooldown_frames > 0.0:
-		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_cooldown", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
-	if bool(current_weapon.get("reloading", false)):
-		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_reloading", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
-	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
-	var magazines_current: int = int(current_weapon.get("magazines_current", 0))
-	if ammo_current <= 0:
-		if weapon_id == BASE_WEAPON_ID:
-			return CommandoFirearmPistolReloadState.start_base_empty_reload(
-				special_gauge,
-				deps,
-				BASE_WEAPON_ID,
-				pistol_cooldown_frames,
-				pistol_control_lock_frames,
-				pistol_fire_delay_frames,
-				PISTOL_AMMO_MAX,
-				PISTOL_FIRE_DELAY_FRAMES,
-				PISTOL_EMPTY_RELOAD_GAUGE_COST
-			)
-		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_empty", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
-	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
-		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_ammo_unavailable", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
-	last_fire_msec = now_msec
-	var doping_defaults: Dictionary = DOPING_POTION_DEFAULTS
-	var doping_context: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps(
+	return CommandoFirearmPistolInputState.update_runtime_input(
+		self,
+		input_snapshot,
+		special_gauge,
+		config,
 		deps,
-		doping_defaults
-	)
-	var doping_active: bool = bool(doping_context.get("active", false))
-	pistol_cooldown_max_frames = CommandoFirearmValueUtils.get_pistol_cooldown_frames(
-		weapon_id,
-		doping_context,
-		doping_active,
-		PISTOL_COOLDOWN_FRAMES,
-		BERETTA_COOLDOWN_FRAMES,
-		DOPING_POTION_PISTOL_COOLDOWN_FRAMES
-	)
-	pistol_control_lock_max_frames = CommandoFirearmValueUtils.get_pistol_control_lock_frames(
-		doping_context,
-		doping_active,
-		PISTOL_CONTROL_LOCK_FRAMES,
-		DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES
-	)
-	pistol_cooldown_frames = pistol_cooldown_max_frames
-	pistol_control_lock_frames = pistol_control_lock_max_frames
-	pistol_fire_delay_frames = PISTOL_FIRE_DELAY_FRAMES
-	pistol_pending_config = config.duplicate(true)
-	pistol_pending_weapon_id = weapon_id
-	CommandoFirearmValueUtils.apply_doping_potion_to_pistol_config(
-		pistol_pending_config,
-		doping_context,
-		doping_defaults
-	)
-	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_pistol_ready"])
-	var updated_weapon: Dictionary = current_weapon
-	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
-		updated_weapon = weapon_controller.get_current_weapon_data()
-	return CommandoFirearmFireResultState.build_pistol_shot_queued_result(
-		weapon_id,
-		updated_weapon,
-		max(0, ammo_current - 1),
-		int(current_weapon.get("ammo_max", PISTOL_AMMO_MAX)),
-		magazines_current,
-		pistol_cooldown_frames,
-		pistol_control_lock_frames,
-		pistol_fire_delay_frames,
-		doping_context,
-		doping_active,
-		special_gauge
+		current_weapon,
+		now_msec,
+		{
+			"base_weapon_id": BASE_WEAPON_ID,
+			"commando_pistol_weapon_id": "commando_pistol",
+			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
+			"doping_potion_defaults": DOPING_POTION_DEFAULTS,
+			"pistol_ammo_max": PISTOL_AMMO_MAX,
+			"pistol_cooldown_frames": PISTOL_COOLDOWN_FRAMES,
+			"beretta_cooldown_frames": BERETTA_COOLDOWN_FRAMES,
+			"pistol_control_lock_frames": PISTOL_CONTROL_LOCK_FRAMES,
+			"pistol_fire_delay_frames": PISTOL_FIRE_DELAY_FRAMES,
+			"pistol_empty_reload_gauge_cost": PISTOL_EMPTY_RELOAD_GAUGE_COST,
+			"doping_potion_pistol_cooldown_frames": DOPING_POTION_PISTOL_COOLDOWN_FRAMES,
+			"doping_potion_pistol_control_lock_frames": DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES,
+		}
 	)
 
 

@@ -112,8 +112,10 @@ func _verify_direct_pistol_reload_state() -> void:
 
 func _verify_runtime_delegates_pistol_reload_state() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var input_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_pistol_input_state.gd")
 	_expect(runtime_source.find("func _reload_base_pistol_from_fire_input(") == -1, "runtime should not keep base pistol reload bridge")
-	_expect(runtime_source.find("CommandoFirearmPistolReloadState.start_base_empty_reload(") >= 0, "runtime should delegate empty base pistol reloads to the reload owner")
+	_expect(runtime_source.find("CommandoFirearmPistolInputState.update_runtime_input(") >= 0, "runtime should delegate pistol input orchestration to the pistol input owner")
+	_expect(input_source.find("CommandoFirearmPistolReloadState.start_base_empty_reload(") >= 0, "pistol input owner should delegate empty base pistol reloads to the reload owner")
 
 
 func _expect(condition: bool, message: String) -> void:
