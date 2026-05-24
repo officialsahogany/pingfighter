@@ -3229,18 +3229,10 @@ func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, dep
 		CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
 	):
 		return
-	_apply_lingering_status_application(effect, status_application)
-
-
-func _apply_lingering_status_application(effect: Dictionary, status_application: Dictionary) -> void:
 	var status_effect_state: Object = CommandoFirearmLingeringStatusState.get_status_application_state(status_application)
 	var status_id: String = CommandoFirearmLingeringStatusState.get_status_application_id(status_application)
 	if status_effect_state == null or status_id == "":
 		return
-	_apply_ready_lingering_status(effect, status_effect_state, status_id)
-
-
-func _apply_ready_lingering_status(effect: Dictionary, status_effect_state: Object, status_id: String) -> void:
 	var data: Dictionary = CommandoFirearmLingeringStatusState.build_status_data(
 		effect,
 		status_id,
@@ -3249,19 +3241,6 @@ func _apply_ready_lingering_status(effect: Dictionary, status_effect_state: Obje
 		LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
 		LINGERING_STATUS_MAX_SLOW_MULTIPLIER
 	)
-	_apply_lingering_status_to_boss(status_effect_state, effect, status_id, data)
-	CommandoFirearmLingeringStatusState.reset_status_cooldown(
-		effect,
-		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES
-	)
-
-
-func _apply_lingering_status_to_boss(
-	status_effect_state: Object,
-	effect: Dictionary,
-	status_id: String,
-	data: Dictionary
-) -> void:
 	status_effect_state.apply_status(
 		CommandoFirearmLingeringStatusState.get_status_target(LINGERING_STATUS_TARGET),
 		status_id,
@@ -3271,6 +3250,10 @@ func _apply_lingering_status_to_boss(
 		),
 		data,
 		CommandoFirearmLingeringStatusState.get_status_source(effect, LINGERING_STATUS_DEFAULT_SOURCE)
+	)
+	CommandoFirearmLingeringStatusState.reset_status_cooldown(
+		effect,
+		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES
 	)
 
 

@@ -1288,49 +1288,44 @@ func _verify_runtime_value_utils_integration() -> void:
 		"boss_hitbox_height": 20.0,
 	}, 1.0), "lingering status apply gate should accept ready overlapping effects")
 	_expect(is_equal_approx(float(ready_status_effect.get("status_cooldown_frames", -1.0)), 0.0), "lingering status apply gate should clamp ready cooldowns to zero")
-	var direct_status_data := {"source": "net_field", "multiplier": 0.4}
-	runtime._apply_lingering_status_to_boss(fake_status_state, {
+	var live_status_context := {
+		"boss_pos": Vector2(90.0, 90.0),
+		"boss_paddle_width": 20.0,
+		"boss_hitbox_height": 20.0,
+	}
+	var live_status_effect := {
+		"status_id": "slow",
+		"status_cooldown_frames": 0.0,
+		"status_interval_frames": 9.0,
 		"source": "net_field",
 		"status_duration_frames": 32.0,
-	}, "slow", direct_status_data)
-	_expect(fake_status_state.calls.size() == 1, "lingering status apply helper should call status state once")
+		"slow_multiplier": 0.4,
+		"pos": Vector2(100.0, 100.0),
+		"width": 80.0,
+		"height": 40.0,
+	}
+	runtime._apply_lingering_effect_status(live_status_effect, live_status_context, {"status_effect_state": fake_status_state}, 1.0)
+	_expect(fake_status_state.calls.size() == 1, "lingering status effect path should call status state once")
 	var direct_status_call: Dictionary = fake_status_state.calls[0]
-	_expect(str(direct_status_call.get("target", "")) == "boss", "lingering status apply helper should target the boss")
-	_expect(str(direct_status_call.get("status_id", "")) == "slow", "lingering status apply helper should preserve status id")
-	_expect(is_equal_approx(float(direct_status_call.get("duration_frames", 0.0)), 32.0), "lingering status apply helper should preserve duration")
-	_expect((direct_status_call.get("data", {}) as Dictionary).get("multiplier", 0.0) == 0.4, "lingering status apply helper should pass status data")
-	_expect(str(direct_status_call.get("source", "")) == "net_field", "lingering status apply helper should preserve explicit source")
-	runtime._apply_lingering_status_to_boss(fake_status_state, {}, "burn", {})
-	_expect(str((fake_status_state.calls[1] as Dictionary).get("source", "")) == "commando_firearm_lingering", "lingering status apply helper should use default source")
-	_expect(is_equal_approx(float((fake_status_state.calls[1] as Dictionary).get("duration_frames", 0.0)), 18.0), "lingering status apply helper should use default duration")
-	var ready_status_state := FakeStatusEffectState.new()
-	var ready_effect := {
-		"source": "net_field",
-		"status_interval_frames": 7.0,
-		"status_duration_frames": 21.0,
-		"slow_multiplier": 0.35,
-	}
-	runtime._apply_ready_lingering_status(ready_effect, ready_status_state, "slow")
-	_expect(ready_status_state.calls.size() == 1, "ready lingering status helper should apply one status")
-	_expect(is_equal_approx(float(ready_effect.get("status_cooldown_frames", 0.0)), 7.0), "ready lingering status helper should reset cooldown after apply")
-	var ready_status_call: Dictionary = ready_status_state.calls[0]
-	_expect(str(ready_status_call.get("status_id", "")) == "slow", "ready lingering status helper should preserve status id")
-	_expect(is_equal_approx(float((ready_status_call.get("data", {}) as Dictionary).get("multiplier", 0.0)), 0.35), "ready lingering status helper should pass built status data")
-	var application_status_state := FakeStatusEffectState.new()
-	var application_ready_effect := {
-		"status_interval_frames": 5.0,
-		"status_duration_frames": 13.0,
-	}
-	runtime._apply_lingering_status_application(application_ready_effect, {
+	_expect(str(direct_status_call.get("target", "")) == "boss", "lingering status effect path should target the boss")
+	_expect(str(direct_status_call.get("status_id", "")) == "slow", "lingering status effect path should preserve status id")
+	_expect(is_equal_approx(float(direct_status_call.get("duration_frames", 0.0)), 32.0), "lingering status effect path should preserve duration")
+	_expect((direct_status_call.get("data", {}) as Dictionary).get("multiplier", 0.0) == 0.4, "lingering status effect path should pass status data")
+	_expect(str(direct_status_call.get("source", "")) == "net_field", "lingering status effect path should preserve explicit source")
+	_expect(is_equal_approx(float(live_status_effect.get("status_cooldown_frames", 0.0)), 9.0), "lingering status effect path should reset cooldown after apply")
+	var default_apply_status_effect := {
 		"status_id": "burn",
-		"status_effect_state": application_status_state,
-	})
-	_expect(application_status_state.calls.size() == 1, "lingering status application applier should call valid applications")
-	_expect(str((application_status_state.calls[0] as Dictionary).get("status_id", "")) == "burn", "lingering status application applier should preserve status ids")
-	_expect(is_equal_approx(float(application_ready_effect.get("status_cooldown_frames", 0.0)), 5.0), "lingering status application applier should reset cooldowns")
-	runtime._apply_lingering_status_application(application_ready_effect, {})
-	runtime._apply_lingering_status_application(application_ready_effect, {"status_id": "burn", "status_effect_state": RefCounted.new()})
-	_expect(application_status_state.calls.size() == 1, "lingering status application applier should ignore invalid applications")
+		"status_cooldown_frames": 0.0,
+		"pos": Vector2(100.0, 100.0),
+		"width": 80.0,
+		"height": 40.0,
+	}
+	runtime._apply_lingering_effect_status(default_apply_status_effect, live_status_context, {"status_effect_state": fake_status_state}, 1.0)
+	_expect(str((fake_status_state.calls[1] as Dictionary).get("source", "")) == "commando_firearm_lingering", "lingering status effect path should use default source")
+	_expect(is_equal_approx(float((fake_status_state.calls[1] as Dictionary).get("duration_frames", 0.0)), 18.0), "lingering status effect path should use default duration")
+	runtime._apply_lingering_effect_status(default_apply_status_effect, live_status_context, {}, 1.0)
+	runtime._apply_lingering_effect_status(default_apply_status_effect, live_status_context, {"status_effect_state": RefCounted.new()}, 1.0)
+	_expect(fake_status_state.calls.size() == 2, "lingering status effect path should ignore invalid applications")
 	runtime.lingering_effects = [
 		{"id": "first", "timer_frames": 2.0, "phase": 0.0},
 		{"id": "expired", "timer_frames": 0.0, "phase": 0.0},
@@ -1687,6 +1682,9 @@ func _verify_removed_lingering_status_application_bridges() -> void:
 		"_get_lingering_status_cooldown",
 		"_get_next_lingering_status_cooldown",
 		"_is_lingering_status_cooldown_ready",
+		"_apply_lingering_status_application",
+		"_apply_ready_lingering_status",
+		"_apply_lingering_status_to_boss",
 		"_lingering_effect_hits_boss",
 		"_do_lingering_rects_intersect",
 		"_get_lingering_effect_rect",
