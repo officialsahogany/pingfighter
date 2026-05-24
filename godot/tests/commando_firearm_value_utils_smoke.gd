@@ -86,7 +86,7 @@ class FakeRegistry:
 
 func _init() -> void:
 	_verify_direct_value_utils()
-	_verify_runtime_delegates_value_utils()
+	_verify_runtime_value_utils_integration()
 	_verify_removed_fire_flame_owner_bridges()
 	_verify_removed_net_field_clamp_bridges()
 	_verify_removed_net_field_predicate_bridges()
@@ -102,6 +102,7 @@ func _init() -> void:
 	_verify_removed_timed_effect_update_bridges()
 	_verify_removed_append_limited_bridge()
 	_verify_removed_registry_value_bridge()
+	_verify_removed_type_value_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -291,19 +292,19 @@ func _verify_direct_value_utils() -> void:
 	_expect(CommandoFirearmValueUtils.get_projectile_kind({"kind": 4}) == "4", "projectile kind helper should preserve string conversion behavior")
 
 
-func _verify_runtime_delegates_value_utils() -> void:
+func _verify_runtime_value_utils_integration() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	var values: Array = [{"id": 1}, {"id": 2}]
 	CommandoFirearmValueUtils.append_limited(values, {"id": 3}, 2)
-	_expect(values.size() == 2 and int(runtime._get_dict(values[0]).get("id", 0)) == 2, "append helper should evict the oldest value through value utils")
-	_expect(runtime._get_vector2(Vector2(5.0, 6.0), Vector2.ZERO) == Vector2(5.0, 6.0), "runtime vector wrapper should delegate to value utils")
-	_expect(runtime._get_vector2(12, Vector2.ONE) == Vector2.ONE, "runtime vector wrapper should preserve fallback behavior")
-	_expect(runtime._get_color(Color.GREEN, Color.BLUE) == Color.GREEN, "runtime color wrapper should delegate to value utils")
-	_expect(runtime._get_color(12, Color.BLUE) == Color.BLUE, "runtime color wrapper should preserve fallback behavior")
-	_expect(runtime._get_dict({"value": 7}).get("value", 0) == 7, "runtime dict wrapper should delegate to value utils")
-	_expect(runtime._get_dict("bad").is_empty(), "runtime dict wrapper should preserve fallback behavior")
-	_expect(runtime._get_array(["a"]).size() == 1, "runtime array wrapper should delegate to value utils")
-	_expect(runtime._get_array("bad").is_empty(), "runtime array wrapper should preserve fallback behavior")
+	_expect(values.size() == 2 and int(CommandoFirearmValueUtils.get_dict(values[0]).get("id", 0)) == 2, "append helper should evict the oldest value through value utils")
+	_expect(CommandoFirearmValueUtils.get_vector2(Vector2(5.0, 6.0), Vector2.ZERO) == Vector2(5.0, 6.0), "value utils vector helper should return Vector2 values")
+	_expect(CommandoFirearmValueUtils.get_vector2(12, Vector2.ONE) == Vector2.ONE, "value utils vector helper should preserve fallback behavior")
+	_expect(CommandoFirearmValueUtils.get_color(Color.GREEN, Color.BLUE) == Color.GREEN, "value utils color helper should return Color values")
+	_expect(CommandoFirearmValueUtils.get_color(12, Color.BLUE) == Color.BLUE, "value utils color helper should preserve fallback behavior")
+	_expect(CommandoFirearmValueUtils.get_dict({"value": 7}).get("value", 0) == 7, "value utils dict helper should return Dictionary values")
+	_expect(CommandoFirearmValueUtils.get_dict("bad").is_empty(), "value utils dict helper should preserve fallback behavior")
+	_expect(CommandoFirearmValueUtils.get_array(["a"]).size() == 1, "value utils array helper should return Array values")
+	_expect(CommandoFirearmValueUtils.get_array("bad").is_empty(), "value utils array helper should preserve fallback behavior")
 	var registry_marker := RefCounted.new()
 	_expect(CommandoFirearmValueUtils.get_instance(FakeRegistry.new({"marker": registry_marker}), "marker") == registry_marker, "registry helper should read available registry instances")
 	_expect(CommandoFirearmValueUtils.get_instance(RefCounted.new(), "marker") == null, "registry helper should reject objects without get_instance")
@@ -335,12 +336,12 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"player_pos": Vector2(10.0, 20.0),
 		"paddle_width": 123.0,
 	})
-	_expect(runtime._get_vector2(runtime.pistol_pending_config.get("player_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(10.0, 20.0), "runtime pending geometry wrapper should refresh player position")
-	_expect(is_equal_approx(float(runtime.pistol_pending_config.get("paddle_width", 0.0)), 123.0), "runtime pending geometry wrapper should copy paddle width")
-	_expect(runtime._get_vector2(runtime.pistol_pending_config.get("boss_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(3.0, 4.0), "runtime pending geometry wrapper should preserve absent boss position")
+	_expect(CommandoFirearmValueUtils.get_vector2(runtime.pistol_pending_config.get("player_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(10.0, 20.0), "runtime pending geometry should refresh player position")
+	_expect(is_equal_approx(float(runtime.pistol_pending_config.get("paddle_width", 0.0)), 123.0), "runtime pending geometry should copy paddle width")
+	_expect(CommandoFirearmValueUtils.get_vector2(runtime.pistol_pending_config.get("boss_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(3.0, 4.0), "runtime pending geometry should preserve absent boss position")
 	runtime.muzzle_flashes = [{"id": "muzzle", "timer_frames": 2.0}]
 	runtime.update_effects(1.0, 0, {}, {})
-	_expect(is_equal_approx(float(runtime._get_dict(runtime.muzzle_flashes[0]).get("timer_frames", 0.0)), 1.0), "runtime effect update should decrement muzzle flashes through value utils")
+	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.muzzle_flashes[0]).get("timer_frames", 0.0)), 1.0), "runtime effect update should decrement muzzle flashes through value utils")
 	runtime.update_effects(1.0, 0, {}, {})
 	_expect(runtime.muzzle_flashes.is_empty(), "runtime effect update should remove expired muzzle flashes through value utils")
 	runtime.impact_flashes = [{"id": "impact", "timer_frames": 2.0}]
@@ -417,7 +418,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_shape_point(100.0, 50.0, 9, 36, 0.0).is_equal_approx(Vector2(0.0, 14.0)), "net shape point owner should preserve quarter-turn outline points")
 	var net_shape: Array = CommandoFirearmLingeringNetFieldState.generate_net_shape(100.0, 50.0, 0)
 	_expect(net_shape.size() == 36, "net shape owner should generate the expected outline point count")
-	_expect(runtime._get_vector2(net_shape[0], Vector2.ZERO).is_equal_approx(Vector2(41.0, 0.0)), "net shape owner should preserve the deterministic first point")
+	_expect(CommandoFirearmValueUtils.get_vector2(net_shape[0], Vector2.ZERO).is_equal_approx(Vector2(41.0, 0.0)), "net shape owner should preserve the deterministic first point")
 	runtime.shot_serial = 40
 	_expect(runtime._get_lingering_effect_id({"id": 77}) == 77, "lingering effect-id helper should preserve explicit ids")
 	_expect(runtime.shot_serial == 40, "lingering effect-id helper should not consume serials for explicit ids")
@@ -539,7 +540,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 	runtime._seed_lingering_fire_flames(fire_seed_effect)
 	var fire_flame_count := CommandoFirearmLingeringFireFlameState.get_flame_count()
 	_expect(fire_flame_count == 15, "lingering fire flame-count helper should preserve the deterministic flame count")
-	_expect(runtime._get_array(fire_seed_effect.get("flames", [])).size() == fire_flame_count, "lingering fire seed helper should seed deterministic fire flames")
+	_expect(CommandoFirearmValueUtils.get_array(fire_seed_effect.get("flames", [])).size() == fire_flame_count, "lingering fire seed helper should seed deterministic fire flames")
 	_expect(CommandoFirearmLingeringFireFlameState.get_effect_size({"width": 80.0, "height": 40.0}) == Vector2(80.0, 40.0), "lingering fire effect-size helper should preserve explicit dimensions")
 	_expect(CommandoFirearmLingeringFireFlameState.get_effect_size({}) == Vector2(150.0, 60.0), "lingering fire effect-size helper should use default dimensions")
 	_expect(CommandoFirearmLingeringFireFlameState.get_effect_size({"width": -4.0, "height": 0.0}) == Vector2(1.0, 1.0), "lingering fire effect-size helper should clamp dimensions to positive values")
@@ -572,7 +573,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_phase(2), 1.34), "lingering fire flame phase helper should preserve phase spacing")
 	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_max_lifetime(), 40.0), "lingering fire flame max-lifetime helper should preserve max lifetime")
 	var first_fire_flame: Dictionary = CommandoFirearmLingeringFireFlameState.build_flame(0, 80.0, 40.0)
-	_expect(runtime._get_vector2(first_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2(10.4, 0.0)), "lingering fire flame builder should preserve the first flame offset")
+	_expect(CommandoFirearmValueUtils.get_vector2(first_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2(10.4, 0.0)), "lingering fire flame builder should preserve the first flame offset")
 	_expect(is_equal_approx(float(first_fire_flame.get("size", 0.0)), 8.0), "lingering fire flame builder should preserve the first flame size")
 	_expect(is_equal_approx(float(first_fire_flame.get("lifetime", 0.0)), 22.0), "lingering fire flame builder should preserve the first flame lifetime")
 	_expect(is_equal_approx(float(first_fire_flame.get("max_lifetime", 0.0)), 40.0), "lingering fire flame builder should preserve max lifetime")
@@ -622,13 +623,13 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_deploy_x(Vector2(100.0, 80.0)), 100.0), "lingering net deploy-x owner should use the effect center x")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_rect(Vector2(100.0, 80.0), Vector2(280.0, 110.0)) == Rect2(Vector2(-40.0, 25.0), Vector2(280.0, 110.0)), "lingering net rect owner should build centered rects")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_initial_constrict_factor(), 1.0), "lingering net initial constrict owner should preserve the default constrict factor")
-	_expect(runtime._get_array(CommandoFirearmLingeringNetFieldState.build_net_shape(Vector2(280.0, 110.0), 7)).size() == 36, "lingering net shape builder owner should preserve deterministic shape point count")
+	_expect(CommandoFirearmValueUtils.get_array(CommandoFirearmLingeringNetFieldState.build_net_shape(Vector2(280.0, 110.0), 7)).size() == 36, "lingering net shape builder owner should preserve deterministic shape point count")
 	var net_geometry_effect := {}
 	CommandoFirearmLingeringNetFieldState.apply_geometry_fields(net_geometry_effect, Vector2(100.0, 80.0), Vector2(280.0, 110.0), 7)
 	_expect(is_equal_approx(float(net_geometry_effect.get("deploy_x", 0.0)), 100.0), "lingering net geometry owner should store deploy x")
 	_expect(net_geometry_effect.get("net_rect", Rect2()) == Rect2(Vector2(-40.0, 25.0), Vector2(280.0, 110.0)), "lingering net geometry owner should build a centered net rect")
 	_expect(is_equal_approx(float(net_geometry_effect.get("constrict_factor", 0.0)), 1.0), "lingering net geometry owner should initialize constrict factor")
-	_expect(runtime._get_array(net_geometry_effect.get("shape", [])).size() == 36, "lingering net geometry owner should seed deterministic shape points")
+	_expect(CommandoFirearmValueUtils.get_array(net_geometry_effect.get("shape", [])).size() == 36, "lingering net geometry owner should seed deterministic shape points")
 	var live_net_effect := {}
 	runtime._apply_lingering_net_fields(
 		live_net_effect,
@@ -653,7 +654,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(float(live_net_effect.get("player_slow_multiplier", 0.0)), 0.55), "lingering net field helper should preserve explicit player slow multipliers")
 	_expect(live_net_effect.get("net_rect", Rect2()) == Rect2(Vector2(-40.0, 25.0), Vector2(280.0, 110.0)), "lingering net field helper should build a centered net rect")
 	_expect(is_equal_approx(float(live_net_effect.get("constrict_factor", 0.0)), 1.0), "lingering net field helper should initialize constrict factor")
-	_expect(runtime._get_array(live_net_effect.get("shape", [])).size() == 36, "lingering net field helper should seed the deterministic net shape")
+	_expect(CommandoFirearmValueUtils.get_array(live_net_effect.get("shape", [])).size() == 36, "lingering net field helper should seed the deterministic net shape")
 	var dissolved_net_effect := {}
 	runtime._apply_lingering_net_fields(
 		dissolved_net_effect,
@@ -716,9 +717,9 @@ func _verify_runtime_delegates_value_utils() -> void:
 	]
 	var net_constrict_indices: Array[int] = [0, 2]
 	runtime._apply_net_constrict_to_indices(net_constrict_indices)
-	_expect(is_equal_approx(float(runtime._get_dict(runtime.lingering_effects[0]).get("constrict_factor", 0.0)), 0.76), "net constrict apply helper should update the first selected net")
-	_expect(is_equal_approx(float(runtime._get_dict(runtime.lingering_effects[1]).get("constrict_factor", 0.0)), 0.72), "net constrict apply helper should leave unselected nets unchanged")
-	_expect(is_equal_approx(float(runtime._get_dict(runtime.lingering_effects[2]).get("constrict_factor", 0.0)), 0.6), "net constrict apply helper should clamp selected nets at the floor")
+	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("constrict_factor", 0.0)), 0.76), "net constrict apply helper should update the first selected net")
+	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("constrict_factor", 0.0)), 0.72), "net constrict apply helper should leave unselected nets unchanged")
+	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[2]).get("constrict_factor", 0.0)), 0.6), "net constrict apply helper should clamp selected nets at the floor")
 	var net_audio := FakeNetConstrictAudio.new()
 	runtime._play_net_constrict_audio({"game_audio": net_audio})
 	_expect(net_audio.capture_calls == 1, "net constrict audio helper should play capture audio when available")
@@ -840,7 +841,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 	runtime._advance_lingering_effect_frame(fire_zone_frame_effect, 2.0)
 	_expect(is_equal_approx(float(fire_zone_frame_effect.get("timer_frames", 0.0)), 10.0), "lingering frame helper should advance timers")
 	_expect(is_equal_approx(float(fire_zone_frame_effect.get("phase", 0.0)), 1.24), "lingering frame helper should advance effect phase")
-	_expect(runtime._get_array(fire_zone_frame_effect.get("flames", [])).size() == fire_flame_count, "lingering frame helper should build fire-zone flames")
+	_expect(CommandoFirearmValueUtils.get_array(fire_zone_frame_effect.get("flames", [])).size() == fire_flame_count, "lingering frame helper should build fire-zone flames")
 	_expect(CommandoFirearmLingeringFireFlameState.get_flames({"flames": [{"lifetime": 3.0}]}).size() == 1, "fire flames owner reader should preserve valid flame arrays")
 	_expect(CommandoFirearmLingeringFireFlameState.get_flames({"flames": "bad"}).is_empty(), "fire flames owner reader should reject invalid flame arrays")
 	_expect(CommandoFirearmLingeringFireFlameState.should_seed_flames([]), "fire flames owner seed predicate should accept empty flame arrays")
@@ -1059,11 +1060,11 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"status_id": "",
 	}]
 	runtime._store_lingering_effect_at_index(0, active_lingering_effect)
-	_expect(runtime._get_dict(runtime.lingering_effects[0]).get("timer_frames", 0.0) == 10.0, "active lingering store helper should write effects back into the array")
-	runtime._apply_active_lingering_effect(0, runtime._get_dict(runtime.lingering_effects[0]), 1.0, active_lingering_context, {}, active_lingering_result)
+	_expect(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("timer_frames", 0.0) == 10.0, "active lingering store helper should write effects back into the array")
+	runtime._apply_active_lingering_effect(0, CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]), 1.0, active_lingering_context, {}, active_lingering_result)
 	_expect(bool(active_lingering_result.get("commando_net_gun_boss_clamped", false)), "active lingering helper should merge clamp results into update results")
 	_expect(active_lingering_context.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "active lingering helper should merge clamp results into context")
-	_expect(runtime._get_dict(runtime.lingering_effects[0]).get("pos", Vector2.ZERO) == Vector2(100.0, 100.0), "active lingering helper should store the updated effect back into the array")
+	_expect(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("pos", Vector2.ZERO) == Vector2(100.0, 100.0), "active lingering helper should store the updated effect back into the array")
 	_expect(CommandoFirearmLingeringStatusState.get_lingering_effect_rect_pos({"pos": Vector2(100.0, 100.0)}) == Vector2(100.0, 100.0), "lingering effect rect-pos helper should read explicit positions")
 	_expect(CommandoFirearmLingeringStatusState.get_lingering_effect_rect_pos({"pos": "bad"}) == Vector2.ZERO, "lingering effect rect-pos helper should default invalid positions")
 	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_lingering_effect_rect_width({"width": -5.0}), 1.0), "lingering effect rect-width helper should clamp invalid widths")
@@ -1322,8 +1323,8 @@ func _verify_runtime_delegates_value_utils() -> void:
 	]
 	runtime._remove_lingering_effect_at_index(1)
 	_expect(runtime.lingering_effects.size() == 2, "lingering remove helper should remove exactly one effect")
-	_expect(str(runtime._get_dict(runtime.lingering_effects[0]).get("id", "")) == "first", "lingering remove helper should preserve earlier effects")
-	_expect(str(runtime._get_dict(runtime.lingering_effects[1]).get("id", "")) == "last", "lingering remove helper should preserve later effects")
+	_expect(str(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("id", "")) == "first", "lingering remove helper should preserve earlier effects")
+	_expect(str(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("id", "")) == "last", "lingering remove helper should preserve later effects")
 	_expect(CommandoFirearmLingeringNetFieldState.is_player_dash_active({"dash_snapshot": {"active": true}}), "direct net dash helper should read active dash snapshots")
 	_expect(not CommandoFirearmLingeringNetFieldState.is_player_dash_active({"dash_snapshot": {"active": false}}), "direct net dash helper should read inactive dash snapshots")
 	var direct_dash_trigger: Dictionary = CommandoFirearmLingeringNetFieldState.get_dash_trigger_result({"dash_snapshot": {"active": true}}, {}, false)
@@ -1386,13 +1387,13 @@ func _verify_runtime_delegates_value_utils() -> void:
 		{"weapon_id": "ak47", "hooked_player": true},
 	]
 	runtime._break_hooked_net_fields()
-	var broken_net: Dictionary = runtime._get_dict(runtime.lingering_effects[0])
+	var broken_net: Dictionary = CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0])
 	_expect(not bool(broken_net.get("hooked_player", true)), "break hooked nets should clear hooked state on active net fields")
 	_expect(bool(broken_net.get("dissolve", false)), "break hooked nets should start dissolve on active net fields")
 	_expect(bool(broken_net.get("rope_broken", false)), "break hooked nets should mark rope_broken on active net fields")
 	_expect(is_equal_approx(float(broken_net.get("timer_frames", 0.0)), 24.0), "break hooked nets should use dash-break timer")
-	_expect(bool(runtime._get_dict(runtime.lingering_effects[1]).get("dissolve", false)), "break hooked nets should leave already dissolving nets alone")
-	_expect(not bool(runtime._get_dict(runtime.lingering_effects[2]).get("dissolve", false)), "break hooked nets should ignore non-net effects")
+	_expect(bool(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("dissolve", false)), "break hooked nets should leave already dissolving nets alone")
+	_expect(not bool(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[2]).get("dissolve", false)), "break hooked nets should ignore non-net effects")
 	var fire_support_hit_projectile := {
 		"weapon_id": "fire_support",
 		"pos": Vector2(360.0, 90.0),
@@ -1771,6 +1772,17 @@ func _verify_removed_append_limited_bridge() -> void:
 func _verify_removed_registry_value_bridge() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(source.find("func _get_instance") < 0, "runtime should not keep registry value bridge")
+
+
+func _verify_removed_type_value_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_get_vector2",
+		"_get_color",
+		"_get_dict",
+		"_get_array",
+	]:
+		_expect(source.find("func %s(" % bridge_name) < 0, "runtime should not keep type value bridge %s" % bridge_name)
 
 
 func _doping_defaults() -> Dictionary:

@@ -2,6 +2,7 @@ extends SceneTree
 
 const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 var _failures: Array[String] = []
 
@@ -66,7 +67,7 @@ func _verify_runtime_uses_muzzle_flash_resolver() -> void:
 
 	runtime._spawn_muzzle_flash(Vector2(12.0, 34.0), Vector2.UP, profile, "bazooka")
 	_expect(runtime.muzzle_flashes.size() == 1, "runtime spawn should append one muzzle flash")
-	var spawned: Dictionary = runtime._get_dict(runtime.muzzle_flashes[0])
+	var spawned: Dictionary = CommandoFirearmValueUtils.get_dict(runtime.muzzle_flashes[0])
 	_expect(str(spawned.get("weapon_id", "")) == "bazooka", "runtime spawn should preserve weapon id")
 	_expect(is_equal_approx(float(spawned.get("timer_frames", 0.0)), 5.0), "runtime spawn should use resolver timer")
 

@@ -2,6 +2,7 @@ extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 const CommandoFirearmSupportProjectileResolver := preload("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 var _failures: Array[String] = []
 
@@ -105,7 +106,7 @@ func _verify_runtime_delegates_support_projectile_resolver() -> void:
 
 	runtime._spawn_support_round(Vector2(320.0, 180.0), profile, "fire_support", 4, 2)
 	_expect(runtime.projectiles.size() == 1, "runtime support round spawn should append one projectile")
-	var spawned: Dictionary = runtime._get_dict(runtime.projectiles[0])
+	var spawned: Dictionary = CommandoFirearmValueUtils.get_dict(runtime.projectiles[0])
 	_expect(int(spawned.get("id", 0)) == 1, "runtime support round spawn should still allocate ids in runtime")
 	_expect_vec(_get_vector2(spawned.get("pos", Vector2.ZERO)), _get_vector2(direct.get("pos", Vector2.ZERO)), "runtime support round spawn should use resolver position")
 	_expect_vec(_get_vector2(spawned.get("velocity", Vector2.ZERO)), _get_vector2(direct.get("velocity", Vector2.ZERO)), "runtime support round spawn should use resolver velocity")

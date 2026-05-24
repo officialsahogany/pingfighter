@@ -938,7 +938,7 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 
 	_spawn_shared_impact_particles(
 		boss_center,
-		_get_color(profile.get("color", Color.WHITE), Color.WHITE),
+		CommandoFirearmValueUtils.get_color(profile.get("color", Color.WHITE), Color.WHITE),
 		next_ball_vel,
 		float(feedback_profile.get("intensity", 0.82)),
 		deps
@@ -958,7 +958,7 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 func is_fire_support_aircraft_audio_active() -> bool:
 	for value in support_calls:
 		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = _get_dict(value)
+		var call: Dictionary = CommandoFirearmValueUtils.get_dict(value)
 		if bool(call.get("aircraft_audio_active", false)):
 			return true
 	return false
@@ -967,7 +967,7 @@ func is_fire_support_aircraft_audio_active() -> bool:
 func get_fire_support_aircraft_collision_rect(call_id: int = 0) -> Rect2:
 	for value in support_calls:
 		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = _get_dict(value)
+		var call: Dictionary = CommandoFirearmValueUtils.get_dict(value)
 		if not bool(call.get("aircraft_active", false)):
 			continue
 		if call_id != 0 and int(call.get("id", 0)) != call_id:
@@ -981,15 +981,15 @@ func get_fire_support_aircraft_collision_rect(call_id: int = 0) -> Rect2:
 
 
 func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dictionary = {}) -> bool:
-	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
-	var previous_ball_pos: Vector2 = _get_vector2(
+	var ball_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+	var previous_ball_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(
 		scene.get("previous_ball_pos", context.get("ball_pos", ball_pos)),
 		ball_pos
 	)
 	var ball_radius: float = max(1.0, float(context.get("ball_size", scene.get("ball_size", 28.6))) * 0.5)
 	for value in support_calls:
 		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = _get_dict(value)
+		var call: Dictionary = CommandoFirearmValueUtils.get_dict(value)
 		if CommandoFirearmSupportAircraftGeometry.ball_path_hits(
 			call,
 			previous_ball_pos,
@@ -1125,14 +1125,14 @@ func get_actor_draw_context() -> Dictionary:
 	var suicide_drone_index: int = CommandoFirearmSuicideDroneState.get_active_projectile_index(projectiles)
 	var suicide_drone_projectile: Dictionary = {}
 	if suicide_drone_index >= 0:
-		suicide_drone_projectile = _get_dict(projectiles[suicide_drone_index])
+		suicide_drone_projectile = CommandoFirearmValueUtils.get_dict(projectiles[suicide_drone_index])
 	var suicide_drone_state: Dictionary = CommandoFirearmDrawStateResolver.build_suicide_drone_state(
 		suicide_drone_index >= 0,
 		suicide_drone_cooldown_frames,
 		SUICIDE_DRONE_COOLDOWN_FRAMES,
 		float(suicide_drone_projectile.get("grace_timer_frames", 0.0)),
-		_get_vector2(suicide_drone_projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
-		_get_vector2(suicide_drone_projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+		CommandoFirearmValueUtils.get_vector2(suicide_drone_projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
+		CommandoFirearmValueUtils.get_vector2(suicide_drone_projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	)
 	return CommandoFirearmDrawStateResolver.build_actor_context(
 		has_visible_effects(),
@@ -1867,7 +1867,7 @@ func _update_active_suicide_drone_input(
 	var index: int = CommandoFirearmSuicideDroneState.get_active_projectile_index(projectiles)
 	if index < 0:
 		return {}
-	var projectile: Dictionary = _get_dict(projectiles[index])
+	var projectile: Dictionary = CommandoFirearmValueUtils.get_dict(projectiles[index])
 	_apply_suicide_drone_input_to_projectile(projectile, input_snapshot)
 	projectiles[index] = projectile
 	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
@@ -2187,7 +2187,7 @@ func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, 
 		SUPPORT_BOMB_MAX_COUNT
 	)
 	while support_calls.size() >= max(1, SUPPORT_CALL_LIMIT):
-		var evicted: Dictionary = _get_dict(support_calls.pop_front())
+		var evicted: Dictionary = CommandoFirearmValueUtils.get_dict(support_calls.pop_front())
 		_stop_support_aircraft_audio(evicted, deps)
 	support_calls.append(CommandoFirearmSupportCallResolver.build_call_payload(
 		call_id,
@@ -2330,9 +2330,9 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 	)
 	for index in range(support_calls.size() - 1, -1, -1):
 		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = _get_dict(support_calls[index])
+		var call: Dictionary = CommandoFirearmValueUtils.get_dict(support_calls[index])
 		var advance_result: Dictionary = _advance_support_call(call, step)
-		call = _get_dict(advance_result.get("call", call))
+		call = CommandoFirearmValueUtils.get_dict(advance_result.get("call", call))
 		if bool(advance_result.get("started_aircraft", false)):
 			_start_support_aircraft_audio(call, deps)
 		if bool(advance_result.get("spawn_bomb", false)):
@@ -2362,7 +2362,7 @@ func _advance_support_call(call_data: Dictionary, step: float) -> Dictionary:
 @warning_ignore("shadowed_variable_base_class")
 func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Dictionary, spawn_index: int) -> void:
 	var target_fallback: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
-	var target: Vector2 = _get_vector2(call.get("target", target_fallback), target_fallback)
+	var target: Vector2 = CommandoFirearmValueUtils.get_vector2(call.get("target", target_fallback), target_fallback)
 	var bomb_target: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(
 		target,
 		spawn_index,
@@ -2372,7 +2372,7 @@ func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Diction
 		SUPPORT_BOMB_RANDOM_X_RANGE
 	)
 	bomb_target.y = SUPPORT_OPPONENT_WALL_Y
-	var aircraft_pos: Vector2 = _get_vector2(call.get("aircraft_pos", Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y)), Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y))
+	var aircraft_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(call.get("aircraft_pos", Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y)), Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y))
 	_spawn_support_round(
 		bomb_target,
 		profile,
@@ -2387,7 +2387,7 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 	var step: float = max(0.0, fps_scale)
 	var result: Dictionary = {}
 	for index in range(bowling_traps.size() - 1, -1, -1):
-		var trap: Dictionary = _get_dict(bowling_traps[index])
+		var trap: Dictionary = CommandoFirearmValueUtils.get_dict(bowling_traps[index])
 		var state: String = str(trap.get("state", "waiting"))
 		if state == "installing":
 			_update_bowling_trap_install(index, trap, step)
@@ -2403,7 +2403,7 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 				)
 			):
 				_capture_bowling_trap_ball(index, trap, context, deps)
-				result = CommandoFirearmBowlingTrapGeometry.build_capture_result(_get_dict(bowling_traps[index]))
+				result = CommandoFirearmBowlingTrapGeometry.build_capture_result(CommandoFirearmValueUtils.get_dict(bowling_traps[index]))
 		elif state == "capturing":
 			if result.is_empty():
 				result = _update_bowling_trap_capture(index, trap, step, context, deps)
@@ -2431,8 +2431,8 @@ func _capture_bowling_trap_ball(index: int, trap: Dictionary, context: Dictionar
 		BOWLING_TRAP_CAPTURE_FRAMES,
 		BOWLING_TRAP_CAPTURE_BALL_OFFSET
 	)
-	var ball_vel: Vector2 = _get_vector2(captured_trap.get("captured_original_vel", Vector2.ZERO), Vector2.ZERO)
-	var captured_pos: Vector2 = _get_vector2(captured_trap.get("captured_ball_pos", Vector2.ZERO), Vector2.ZERO)
+	var ball_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_original_vel", Vector2.ZERO), Vector2.ZERO)
+	var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_ball_pos", Vector2.ZERO), Vector2.ZERO)
 	bowling_traps[index] = captured_trap
 	_trigger_hit_feedback(
 		CommandoFirearmProfileResolver.get_hit_feedback_profile(
@@ -2487,8 +2487,8 @@ func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dic
 		),
 		deps
 	)
-	var captured_pos: Vector2 = _get_vector2(motion.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
-	var launch_vel: Vector2 = _get_vector2(motion.get("launch_vel", Vector2.ZERO), Vector2.ZERO)
+	var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(motion.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
+	var launch_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(motion.get("launch_vel", Vector2.ZERO), Vector2.ZERO)
 	_register_ball_hit_pulse(captured_pos, launch_vel, 0.86, "bowling_trap_launch", deps)
 	var guard_source: String = _arm_bowling_trap_guard(trap, float(motion.get("original_speed", 1.0)))
 	return CommandoFirearmBowlingTrapGeometry.build_release_result(
@@ -2525,14 +2525,14 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 	var step: float = max(0.0, fps_scale)
 	var result: Dictionary = {}
 	for index in range(projectiles.size() - 1, -1, -1):
-		var projectile: Dictionary = _get_dict(projectiles[index])
+		var projectile: Dictionary = CommandoFirearmValueUtils.get_dict(projectiles[index])
 		var projectile_kind: String = CommandoFirearmValueUtils.get_projectile_kind(projectile)
 		var projectile_weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(
 			projectile,
 			BASE_WEAPON_ID
 		)
-		var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-		var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+		var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+		var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 		if projectile_kind == "drone":
 			velocity = _get_drone_velocity(pos, projectile, context, fps_scale)
 		elif projectile_kind == "rocket":
@@ -2542,8 +2542,8 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 		var prev_pos: Vector2 = pos
 		pos += velocity * step
 		if _apply_pistol_side_wall_bounce(projectile, pos, velocity, context):
-			pos = _get_vector2(projectile.get("pos", pos), pos)
-			velocity = _get_vector2(projectile.get("velocity", velocity), velocity)
+			pos = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", pos), pos)
+			velocity = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", velocity), velocity)
 		projectile["prev_pos"] = prev_pos
 		projectile["pos"] = pos
 		projectile["velocity"] = velocity
@@ -2552,11 +2552,11 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			projectiles.remove_at(index)
 			continue
 		if bool(rock_bounce_result.get("bounced", false)):
-			pos = _get_vector2(projectile.get("pos", pos), pos)
-			velocity = _get_vector2(projectile.get("velocity", velocity), velocity)
+			pos = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", pos), pos)
+			velocity = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", velocity), velocity)
 		if projectile_kind == "net":
 			_update_net_projectile_rope(projectile, pos, context)
-		projectile["prev_pos"] = _get_vector2(projectile.get("prev_pos", prev_pos), prev_pos)
+		projectile["prev_pos"] = CommandoFirearmValueUtils.get_vector2(projectile.get("prev_pos", prev_pos), prev_pos)
 		projectile["pos"] = pos
 		projectile["velocity"] = velocity
 		projectile["life_frames"] = max(0.0, float(projectile.get("life_frames", 0.0)) - step)
@@ -2602,7 +2602,7 @@ func _apply_pistol_side_wall_bounce(projectile: Dictionary, pos: Vector2, veloci
 	if not bool(bounce_result.get("bounced", false)):
 		return false
 	projectile.clear()
-	projectile.merge(_get_dict(bounce_result.get("projectile", projectile)), true)
+	projectile.merge(CommandoFirearmValueUtils.get_dict(bounce_result.get("projectile", projectile)), true)
 	return true
 
 
@@ -2636,8 +2636,8 @@ func _update_rocket_motion(projectile: Dictionary, pos: Vector2, velocity: Vecto
 		BAZOOKA_SMOKE_TRAIL_LIMIT
 	)
 	projectile.clear()
-	projectile.merge(_get_dict(motion_result.get("projectile", projectile)), true)
-	return _get_vector2(motion_result.get("velocity", velocity), velocity)
+	projectile.merge(CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile)), true)
+	return CommandoFirearmValueUtils.get_vector2(motion_result.get("velocity", velocity), velocity)
 
 
 func _update_net_projectile_rope(projectile: Dictionary, pos: Vector2, context: Dictionary) -> void:
@@ -2685,7 +2685,7 @@ func _update_shell_casings(fps_scale: float) -> void:
 	if step <= 0.0:
 		return
 	for index in range(shell_casings.size() - 1, -1, -1):
-		var shell: Dictionary = _get_dict(shell_casings[index])
+		var shell: Dictionary = CommandoFirearmValueUtils.get_dict(shell_casings[index])
 		var update_result: Dictionary = CommandoFirearmShellCasingState.advance_shell(
 			shell,
 			step,
@@ -2698,7 +2698,7 @@ func _update_shell_casings(fps_scale: float) -> void:
 		if not bool(update_result.get("active", false)):
 			shell_casings.remove_at(index)
 			continue
-		shell_casings[index] = _get_dict(update_result.get("shell", shell))
+		shell_casings[index] = CommandoFirearmValueUtils.get_dict(update_result.get("shell", shell))
 
 
 func _spawn_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> void:
@@ -2721,12 +2721,12 @@ func _update_pistol_feedbacks(fps_scale: float) -> void:
 	if step <= 0.0:
 		return
 	for index in range(pistol_feedbacks.size() - 1, -1, -1):
-		var feedback: Dictionary = _get_dict(pistol_feedbacks[index])
+		var feedback: Dictionary = CommandoFirearmValueUtils.get_dict(pistol_feedbacks[index])
 		var update_result: Dictionary = CommandoFirearmPistolFeedbackState.advance_feedback(feedback, step)
 		if not bool(update_result.get("active", false)):
 			pistol_feedbacks.remove_at(index)
 			continue
-		pistol_feedbacks[index] = _get_dict(update_result.get("feedback", feedback))
+		pistol_feedbacks[index] = CommandoFirearmValueUtils.get_dict(update_result.get("feedback", feedback))
 
 
 func _get_drone_velocity(pos: Vector2, projectile: Dictionary, context: Dictionary, fps_scale: float) -> Vector2:
@@ -2789,7 +2789,7 @@ func _detonate_suicide_drone_at_index(
 	if index >= 0 and index < projectiles.size():
 		projectiles.remove_at(index)
 	_spawn_impact_flash(projectile)
-	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var hit_boss: bool = CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(
 		projectile,
 		CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
@@ -2806,7 +2806,7 @@ func _detonate_suicide_drone_at_index(
 		_register_projectile_hit(projectile, context, deps)
 	else:
 		_spawn_weapon_lingering_effect("suicide_drone", projectile, context, deps)
-		_spawn_shared_impact_particles(pos, _get_color(projectile.get("color", Color.WHITE), Color.WHITE), _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 1.0, deps)
+		_spawn_shared_impact_particles(pos, CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE), CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 1.0, deps)
 		_trigger_hit_feedback(
 			CommandoFirearmProfileResolver.get_hit_feedback_profile(
 				"suicide_drone",
@@ -2815,7 +2815,7 @@ func _detonate_suicide_drone_at_index(
 			),
 			deps
 		)
-		_register_ball_hit_pulse(pos, _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 0.86, "suicide_drone", deps)
+		_register_ball_hit_pulse(pos, CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 0.86, "suicide_drone", deps)
 		_play_impact_audio("suicide_drone", deps)
 	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	suicide_drone_cooldown_frames = SUICIDE_DRONE_COOLDOWN_FRAMES
@@ -2889,15 +2889,15 @@ func _spawn_impact_flash(projectile: Dictionary) -> void:
 
 func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> void:
 	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
 		weapon_id,
 		WEAPON_HIT_FEEDBACK,
 		HIT_FEEDBACK_PROFILE_OVERRIDES
 	)
 	var intensity: float = float(feedback_profile.get("intensity", 0.5))
-	var color: Color = _get_color(projectile.get("color", Color.WHITE), Color.WHITE)
+	var color: Color = CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE)
 	var combat_result: Dictionary = _apply_weapon_hit_result(weapon_id, projectile, context, deps)
 	var damage_state: Dictionary = CommandoFirearmPendingResultState.queue_boss_damage_state(
 		pending_boss_damage_units,
@@ -2905,7 +2905,7 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 		combat_result
 	)
 	pending_boss_damage_units = int(damage_state.get("units", pending_boss_damage_units))
-	pending_boss_damage_sources = _get_array(damage_state.get("sources", pending_boss_damage_sources))
+	pending_boss_damage_sources = CommandoFirearmValueUtils.get_array(damage_state.get("sources", pending_boss_damage_sources))
 	var gauge_state: Dictionary = CommandoFirearmPendingResultState.queue_special_gauge_state(
 		pending_special_gauge_gain,
 		pending_special_gauge_sources,
@@ -2914,7 +2914,7 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 		combat_result
 	)
 	pending_special_gauge_gain = float(gauge_state.get("gain", pending_special_gauge_gain))
-	pending_special_gauge_sources = _get_array(gauge_state.get("sources", pending_special_gauge_sources))
+	pending_special_gauge_sources = CommandoFirearmValueUtils.get_array(gauge_state.get("sources", pending_special_gauge_sources))
 	pending_special_gauge_hit_kind = str(gauge_state.get("hit_kind", pending_special_gauge_hit_kind))
 	pending_pistol_feedback_timer_frames = float(gauge_state.get("feedback_timer_frames", pending_pistol_feedback_timer_frames))
 	var lingering_result: Dictionary = _spawn_weapon_lingering_effect(weapon_id, projectile, context, deps)
@@ -2939,15 +2939,15 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 
 func _register_projectile_environment_impact(projectile: Dictionary, reason: String, _context: Dictionary, deps: Dictionary) -> Dictionary:
 	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
 		weapon_id,
 		WEAPON_HIT_FEEDBACK,
 		HIT_FEEDBACK_PROFILE_OVERRIDES
 	)
 	var intensity: float = float(feedback_profile.get("intensity", 0.5))
-	var color: Color = _get_color(projectile.get("color", Color.WHITE), Color.WHITE)
+	var color: Color = CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE)
 	_spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
 	_trigger_hit_feedback(feedback_profile, deps)
 	_play_impact_audio(weapon_id, deps)
@@ -2980,8 +2980,8 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 		return {}
 	var status_effect_state: Object = deps.get("status_effect_state", null)
 	var source: String = "commando_firearm_%s" % weapon_id
-	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	var result: Dictionary = CommandoFirearmHitResultState.build_base_result(source, int(profile.get("damage_units", 0)))
 	_apply_slingshot_hit_effects(weapon_id, projectile, result)
 	_apply_pistol_hit_effects(weapon_id, projectile, context, result)
@@ -3089,7 +3089,7 @@ func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, contex
 		PISTOL_HIT_TUNING
 	)
 	pistol_boss_hit_count = int(hit_payload.get("next_hit_count", pistol_boss_hit_count))
-	result.merge(_get_dict(hit_payload.get("result_fields", {})), true)
+	result.merge(CommandoFirearmValueUtils.get_dict(hit_payload.get("result_fields", {})), true)
 	var feedback_hit_kind: String = str(hit_payload.get("feedback_hit_kind", ""))
 	if feedback_hit_kind != "":
 		_spawn_pistol_hit_feedback(feedback_hit_kind, context)
@@ -3097,7 +3097,7 @@ func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, contex
 	if damage_units_delta <= 0:
 		return
 	result["damage_units"] = max(0, int(result.get("damage_units", 0))) + damage_units_delta
-	result["damage_sources"] = _get_array(hit_payload.get("damage_sources", []))
+	result["damage_sources"] = CommandoFirearmValueUtils.get_array(hit_payload.get("damage_sources", []))
 
 
 func _apply_ak47_accumulated_boss_damage(weapon_id: String, result: Dictionary) -> void:
@@ -3110,7 +3110,7 @@ func _apply_ak47_accumulated_boss_damage(weapon_id: String, result: Dictionary) 
 	if hit_payload.is_empty():
 		return
 	ak47_boss_hit_count = int(hit_payload.get("next_hit_count", ak47_boss_hit_count))
-	result.merge(_get_dict(hit_payload.get("result_fields", {})), true)
+	result.merge(CommandoFirearmValueUtils.get_dict(hit_payload.get("result_fields", {})), true)
 
 
 func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context: Dictionary) -> Dictionary:
@@ -3155,7 +3155,7 @@ func _spawn_weapon_lingering_effect(
 
 
 func _spawn_suicide_drone_fire_zone(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 	if _trigger_active_item_molotov_fire_zone(pos, deps):
 		return {
 			"kind": "fire_zone",
@@ -3274,7 +3274,7 @@ func _spawn_net_dissolve_effect(projectile: Dictionary, context: Dictionary) -> 
 
 
 func _get_lingering_effect_pos(profile: Dictionary, projectile: Dictionary, context: Dictionary) -> Vector2:
-	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 	return CommandoFirearmLingeringNetFieldState.get_lingering_effect_pos(
 		profile,
 		projectile,
@@ -3386,7 +3386,7 @@ func _store_lingering_effect_at_index(index: int, effect: Dictionary) -> void:
 
 
 func _get_lingering_effect_at_index(index: int) -> Dictionary:
-	return _get_dict(lingering_effects[index])
+	return CommandoFirearmValueUtils.get_dict(lingering_effects[index])
 
 
 func _remove_lingering_effect_at_index(index: int) -> void:
@@ -3430,7 +3430,7 @@ func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps
 
 func _has_hooked_net_field() -> bool:
 	for value in lingering_effects:
-		var effect: Dictionary = _get_dict(value)
+		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(value)
 		if CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect):
 			return true
 	return false
@@ -3608,7 +3608,7 @@ func _stop_support_aircraft_audio(call: Dictionary, deps: Dictionary) -> void:
 func _stop_all_support_aircraft_audio(deps: Dictionary) -> void:
 	for index in range(support_calls.size()):
 		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = _get_dict(support_calls[index])
+		var call: Dictionary = CommandoFirearmValueUtils.get_dict(support_calls[index])
 		_stop_support_aircraft_audio(call, deps)
 		support_calls[index] = call
 
@@ -3638,19 +3638,3 @@ func _play_impact_audio(weapon_id: String, deps: Dictionary) -> void:
 func _next_shot_id() -> int:
 	shot_serial += 1
 	return shot_serial
-
-
-func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
-	return CommandoFirearmValueUtils.get_vector2(value, fallback)
-
-
-func _get_color(value: Variant, fallback: Color) -> Color:
-	return CommandoFirearmValueUtils.get_color(value, fallback)
-
-
-func _get_dict(value: Variant) -> Dictionary:
-	return CommandoFirearmValueUtils.get_dict(value)
-
-
-func _get_array(value: Variant) -> Array:
-	return CommandoFirearmValueUtils.get_array(value)

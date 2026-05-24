@@ -3,6 +3,7 @@ extends SceneTree
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
 
 var _failures: Array[String] = []
@@ -89,7 +90,7 @@ func _verify_runtime_uses_impact_flash_resolver() -> void:
 
 	runtime._spawn_impact_flash(support_projectile)
 	_expect(runtime.impact_flashes.size() == 1, "runtime spawn should append one impact flash")
-	var spawned: Dictionary = runtime._get_dict(runtime.impact_flashes[0])
+	var spawned: Dictionary = CommandoFirearmValueUtils.get_dict(runtime.impact_flashes[0])
 	_expect(str(spawned.get("kind", "")) == "grenade_explosion", "runtime spawn should preserve fire-support grenade visual kind")
 	_expect(is_equal_approx(float(spawned.get("max_timer_frames", 0.0)), float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES)), "runtime spawn should preserve fire-support visual duration")
 	_expect(str(spawned.get("explosion_style", "")) == GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_STYLE, "runtime spawn should preserve fire-support airstrike style")
