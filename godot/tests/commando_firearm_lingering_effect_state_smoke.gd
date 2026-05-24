@@ -65,18 +65,19 @@ func _verify_direct_lingering_effect_state() -> void:
 
 func _verify_runtime_delegates_lingering_effect_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": 30.0}, false, false), 30.0), "runtime duration wrapper should delegate")
-	var runtime_effect: Dictionary = runtime._build_lingering_effect(
-		"net_gun",
-		{"kind": "net_field"},
-		{"color": Color.BLUE},
-		Vector2(200.0, 300.0),
-		9,
-		Vector2(280.0, 140.0),
-		60.0
+	var runtime_result: Dictionary = runtime._spawn_lingering_effect(
+		"suicide_drone",
+		{"id": 9, "pos": Vector2(200.0, 300.0), "color": Color.BLUE},
+		{}
 	)
-	_expect(str(runtime_effect.get("source", "")) == "commando_firearm_net_gun_lingering_9", "runtime effect builder should delegate sources")
+	_expect(str(runtime_result.get("source", "")) == "commando_firearm_suicide_drone_lingering_9", "runtime lingering spawn path should expose owner-built source")
+	_expect(is_equal_approx(float(runtime_result.get("duration_frames", 0.0)), 150.0), "runtime lingering spawn path should expose owner-built duration")
+	_expect(runtime.lingering_effects.size() == 1, "runtime lingering spawn path should append the owner-built effect")
 	_expect(CommandoFirearmLingeringEffectState.is_active({"timer_frames": 0.1}), "active owner should remain the timer-state boundary")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(not runtime_source.contains("func _get_lingering_effect_duration("), "runtime should not keep lingering duration bridge")
+	_expect(not runtime_source.contains("func _build_lingering_effect("), "runtime should not keep lingering effect build bridge")
+	_expect(not runtime_source.contains("func _build_lingering_spawn_result("), "runtime should not keep lingering spawn-result bridge")
 
 
 func _expect(condition: bool, message: String) -> void:

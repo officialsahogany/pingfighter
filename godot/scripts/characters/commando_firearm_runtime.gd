@@ -2991,11 +2991,24 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		return {}
 	var is_net: bool = weapon_id == "net_gun"
 	var dissolve: bool = bool(projectile.get("net_dissolve", false))
-	var duration: float = _get_lingering_effect_duration(profile, is_net, dissolve)
+	var duration: float = CommandoFirearmLingeringEffectState.get_duration(
+		profile,
+		is_net,
+		dissolve,
+		NET_GUN_DISSOLVE_FRAMES
+	)
 	var pos: Vector2 = _get_lingering_effect_pos(profile, projectile, context)
 	var effect_id: int = _get_lingering_effect_id(projectile)
 	var effect_size: Vector2 = _get_lingering_effect_size(profile, projectile, context, is_net)
-	var effect: Dictionary = _build_lingering_effect(weapon_id, profile, projectile, pos, effect_id, effect_size, duration)
+	var effect: Dictionary = CommandoFirearmLingeringEffectState.build_effect(
+		weapon_id,
+		profile,
+		projectile,
+		pos,
+		effect_id,
+		effect_size,
+		duration
+	)
 	if is_net:
 		_apply_lingering_net_fields(effect, profile, projectile, context, pos, effect_size, effect_id, dissolve)
 	CommandoFirearmLingeringStatusState.apply_effect_status_fields(
@@ -3009,7 +3022,7 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 	)
 	_seed_lingering_fire_flames(effect)
 	CommandoFirearmValueUtils.append_limited(lingering_effects, effect, LINGERING_EFFECT_LIMIT)
-	return _build_lingering_spawn_result(effect, duration)
+	return CommandoFirearmLingeringEffectState.build_spawn_result(effect, duration)
 
 
 func _spawn_weapon_lingering_effect(
@@ -3045,15 +3058,6 @@ func _trigger_active_item_molotov_fire_zone(pos: Vector2, deps: Dictionary) -> b
 	return true
 
 
-func _get_lingering_effect_duration(profile: Dictionary, is_net: bool, dissolve: bool) -> float:
-	return CommandoFirearmLingeringEffectState.get_duration(
-		profile,
-		is_net,
-		dissolve,
-		NET_GUN_DISSOLVE_FRAMES
-	)
-
-
 func _get_lingering_effect_size(
 	profile: Dictionary,
 	projectile: Dictionary,
@@ -3074,30 +3078,6 @@ func _get_lingering_effect_id(projectile: Dictionary) -> int:
 	if effect_id == 0:
 		return _next_shot_id()
 	return effect_id
-
-
-func _build_lingering_effect(
-	weapon_id: String,
-	profile: Dictionary,
-	projectile: Dictionary,
-	pos: Vector2,
-	effect_id: int,
-	effect_size: Vector2,
-	duration: float
-) -> Dictionary:
-	return CommandoFirearmLingeringEffectState.build_effect(
-		weapon_id,
-		profile,
-		projectile,
-		pos,
-		effect_id,
-		effect_size,
-		duration
-	)
-
-
-func _build_lingering_spawn_result(effect: Dictionary, duration: float) -> Dictionary:
-	return CommandoFirearmLingeringEffectState.build_spawn_result(effect, duration)
 
 
 func _apply_lingering_net_fields(

@@ -364,12 +364,12 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(CommandoFirearmValueUtils.is_pistol_weapon(CommandoFirearmValueUtils.get_projectile_weapon_id({"weapon_id": "commando_pistol"}, ""), "pistol"), "wall-bouncing pistol helper should accept the Commando pistol")
 	_expect(not CommandoFirearmValueUtils.is_pistol_weapon(CommandoFirearmValueUtils.get_projectile_weapon_id({"weapon_id": "ak47"}, ""), "pistol"), "wall-bouncing pistol helper should reject non-pistols")
 	_expect(not CommandoFirearmValueUtils.is_pistol_weapon(CommandoFirearmValueUtils.get_projectile_weapon_id({}, ""), "pistol"), "wall-bouncing pistol helper should preserve missing weapon-id behavior")
-	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": 90.0}, false, false), 90.0), "lingering duration helper should use normal duration frames")
-	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": -4.0}, false, false), 1.0), "lingering duration helper should clamp normal durations to one frame")
-	_expect(is_equal_approx(runtime._get_lingering_effect_duration({}, false, false), 1.0), "lingering duration helper should default missing normal durations to one frame")
-	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": 90.0, "dissolve_frames": 14.0}, true, true), 14.0), "lingering duration helper should use dissolve frames for dissolving nets")
-	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": 90.0, "dissolve_frames": -2.0}, true, true), 1.0), "lingering duration helper should clamp dissolve durations to one frame")
-	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": 90.0, "dissolve_frames": 14.0}, true, false), 90.0), "lingering duration helper should ignore dissolve frames for live nets")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_duration({"duration_frames": 90.0}, false, false, 30.0), 90.0), "lingering duration owner should use normal duration frames")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_duration({"duration_frames": -4.0}, false, false, 30.0), 1.0), "lingering duration owner should clamp normal durations to one frame")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_duration({}, false, false, 30.0), 1.0), "lingering duration owner should default missing normal durations to one frame")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_duration({"duration_frames": 90.0, "dissolve_frames": 14.0}, true, true, 30.0), 14.0), "lingering duration owner should use dissolve frames for dissolving nets")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_duration({"duration_frames": 90.0, "dissolve_frames": -2.0}, true, true, 30.0), 1.0), "lingering duration owner should clamp dissolve durations to one frame")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_duration({"duration_frames": 90.0, "dissolve_frames": 14.0}, true, false, 30.0), 90.0), "lingering duration owner should ignore dissolve frames for live nets")
 	_expect(CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos({"width": 120.0}, Vector2(20.0, 10.0), 760.0, 750.0) == Vector2(60.0, 18.0), "default lingering pos owner should clamp left and top edges")
 	_expect(CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos({"width": 120.0}, Vector2(740.0, 745.0), 760.0, 750.0) == Vector2(700.0, 732.0), "default lingering pos owner should clamp right and bottom edges")
 	_expect(CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos({"width": 120.0}, Vector2(300.0, 400.0), 760.0, 750.0) == Vector2(300.0, 400.0), "default lingering pos owner should preserve in-field positions")
@@ -426,7 +426,7 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(runtime.shot_serial == 41, "lingering effect-id helper should advance serials for missing ids")
 	_expect(runtime._get_lingering_effect_id({"id": 0}) == 42, "lingering effect-id helper should allocate zero ids")
 	_expect(runtime.shot_serial == 42, "lingering effect-id helper should advance serials for zero ids")
-	var base_lingering_effect: Dictionary = runtime._build_lingering_effect(
+	var base_lingering_effect: Dictionary = CommandoFirearmLingeringEffectState.build_effect(
 		"suicide_drone",
 		{
 			"kind": "fire_zone",
@@ -454,7 +454,7 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(base_lingering_effect.get("color", Color.WHITE) == Color.RED, "lingering effect builder should prefer profile color")
 	_expect(base_lingering_effect.get("secondary", Color.WHITE) == Color.GREEN, "lingering effect builder should prefer profile secondary color")
 	_expect(str(base_lingering_effect.get("source", "")) == "commando_firearm_suicide_drone_lingering_17", "lingering effect builder should build stable source ids")
-	var fallback_lingering_effect: Dictionary = runtime._build_lingering_effect(
+	var fallback_lingering_effect: Dictionary = CommandoFirearmLingeringEffectState.build_effect(
 		"bowling_trap",
 		{},
 		{
@@ -469,14 +469,14 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(str(fallback_lingering_effect.get("kind", "")) == "field", "lingering effect builder should default missing kinds")
 	_expect(fallback_lingering_effect.get("color", Color.WHITE) == Color.BLUE, "lingering effect builder should fall back to projectile color")
 	_expect(fallback_lingering_effect.get("secondary", Color.WHITE) == Color.YELLOW, "lingering effect builder should fall back to projectile secondary color")
-	var lingering_spawn_result: Dictionary = runtime._build_lingering_spawn_result(base_lingering_effect, 90.0)
-	_expect(str(lingering_spawn_result.get("kind", "")) == "fire_zone", "lingering spawn result helper should preserve effect kind")
-	_expect(is_equal_approx(float(lingering_spawn_result.get("duration_frames", 0.0)), 90.0), "lingering spawn result helper should preserve duration")
-	_expect(str(lingering_spawn_result.get("source", "")) == "commando_firearm_suicide_drone_lingering_17", "lingering spawn result helper should preserve effect source")
-	var fallback_spawn_result: Dictionary = runtime._build_lingering_spawn_result({}, 1.0)
-	_expect(str(fallback_spawn_result.get("kind", "missing")).is_empty(), "lingering spawn result helper should default missing kind to empty")
-	_expect(str(fallback_spawn_result.get("source", "missing")).is_empty(), "lingering spawn result helper should default missing source to empty")
-	_expect(is_equal_approx(float(fallback_spawn_result.get("duration_frames", 0.0)), 1.0), "lingering spawn result helper should preserve fallback durations")
+	var lingering_spawn_result: Dictionary = CommandoFirearmLingeringEffectState.build_spawn_result(base_lingering_effect, 90.0)
+	_expect(str(lingering_spawn_result.get("kind", "")) == "fire_zone", "lingering spawn result owner should preserve effect kind")
+	_expect(is_equal_approx(float(lingering_spawn_result.get("duration_frames", 0.0)), 90.0), "lingering spawn result owner should preserve duration")
+	_expect(str(lingering_spawn_result.get("source", "")) == "commando_firearm_suicide_drone_lingering_17", "lingering spawn result owner should preserve effect source")
+	var fallback_spawn_result: Dictionary = CommandoFirearmLingeringEffectState.build_spawn_result({}, 1.0)
+	_expect(str(fallback_spawn_result.get("kind", "missing")).is_empty(), "lingering spawn result owner should default missing kind to empty")
+	_expect(str(fallback_spawn_result.get("source", "missing")).is_empty(), "lingering spawn result owner should default missing source to empty")
+	_expect(is_equal_approx(float(fallback_spawn_result.get("duration_frames", 0.0)), 1.0), "lingering spawn result owner should preserve fallback durations")
 	_expect(CommandoFirearmLingeringStatusState.get_profile_id({"status_id": "burn"}) == "burn", "lingering status profile-id helper should read status ids")
 	_expect(CommandoFirearmLingeringStatusState.get_profile_id({}).is_empty(), "lingering status profile-id helper should default missing ids to empty")
 	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_profile_duration({"status_duration_frames": 36.0}, 18.0), 36.0), "lingering status profile-duration helper should read explicit durations")
