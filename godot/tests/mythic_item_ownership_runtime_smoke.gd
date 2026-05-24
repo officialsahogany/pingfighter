@@ -82,10 +82,7 @@ func _init() -> void:
 		runtime_source.find("return ownership_runtime.get_inventory_item(self, index)") >= 0,
 		"runtime should delegate inventory item reads to ownership runtime"
 	)
-	_expect(
-		runtime_source.find("return debug_inventory.debug_get_inventory_item(self, index)") < 0,
-		"runtime should not route debug inventory item reads through debug inventory"
-	)
+	_expect(runtime_source.find("debug_inventory.debug_get_inventory_item") < 0, "runtime should not route debug inventory item reads through old debug inventory")
 	_expect(
 		runtime_source.find("return ownership_runtime.get_inventory_item_counts(self)") >= 0,
 		"runtime should delegate inventory item counts to ownership runtime"
@@ -118,12 +115,13 @@ func _init() -> void:
 		runtime_source.find("var item_data: Dictionary = _get_dict(inventory_items[index])") < 0,
 		"runtime should not keep inventory item normalization inline"
 	)
-	var debug_source: String = FileAccess.get_file_as_string("res://scripts/items/mythic_item_debug_inventory.gd")
-	_expect(debug_source.find("func get_debug_item_counts(") < 0, "debug inventory should not duplicate ownership item count logic")
-	_expect(debug_source.find("func debug_get_inventory_item(") < 0, "debug inventory should not duplicate ownership item read logic")
-	_expect(debug_source.find("func debug_ensure_item_for_roll_editor(") < 0, "debug inventory should not duplicate roll editor inventory ensure logic")
-	_expect(debug_source.find("func debug_toggle_item(") < 0, "debug inventory should not duplicate ownership toggle logic")
-	_expect(debug_source.find("func debug_add_item_to_inventory(") < 0, "debug inventory should not duplicate ownership add logic")
+	_expect(not FileAccess.file_exists("res://scripts/items/mythic_item_debug_inventory.gd"), "old mythic debug inventory helper should be retired")
+	var roll_editor_source: String = FileAccess.get_file_as_string("res://scripts/items/mythic_item_roll_editor_runtime.gd")
+	_expect(roll_editor_source.find("func get_debug_item_counts(") < 0, "roll editor runtime should not duplicate ownership item count logic")
+	_expect(roll_editor_source.find("func debug_get_inventory_item(") < 0, "roll editor runtime should not duplicate ownership item read logic")
+	_expect(roll_editor_source.find("func debug_ensure_item_for_roll_editor(") < 0, "roll editor runtime should not duplicate roll editor inventory ensure logic")
+	_expect(roll_editor_source.find("func debug_toggle_item(") < 0, "roll editor runtime should not duplicate ownership toggle logic")
+	_expect(roll_editor_source.find("func debug_add_item_to_inventory(") < 0, "roll editor runtime should not duplicate ownership add logic")
 
 	print("mythic_item_ownership_runtime_smoke: ok")
 	quit(0)

@@ -233,7 +233,7 @@ var catalog: Object = null
 var audio_router: Object = null
 var gauge_feedback: Object = null
 var context_builder: Object = null
-var debug_inventory: Object = null
+var roll_editor_runtime: Object = null
 var equipment_index: Object = null
 var equipment_facade: Object = null
 var ownership_runtime: Object = null
@@ -571,7 +571,7 @@ func debug_add_item_to_inventory(item_name: String, owner: Object, registry: Obj
 
 func debug_build_roll_editor_item(item_name: String, roll_overrides: Dictionary = {}) -> Dictionary:
 	_ensure_helpers_ready()
-	return debug_inventory.debug_build_roll_editor_item(self, item_name, roll_overrides)
+	return roll_editor_runtime.build_preview_item(self, item_name, roll_overrides)
 
 
 func get_debug_item_counts() -> Dictionary:
@@ -596,7 +596,7 @@ func get_inventory_item(index: int) -> Dictionary:
 
 func debug_adjust_inventory_roll(index: int, option_key: String, delta_steps: int, owner: Object, registry: Object = null) -> bool:
 	_ensure_helpers_ready()
-	return debug_inventory.debug_adjust_inventory_roll(
+	return roll_editor_runtime.adjust_inventory_roll(
 		self,
 		index,
 		option_key,
@@ -610,7 +610,7 @@ func debug_adjust_inventory_roll(index: int, option_key: String, delta_steps: in
 
 func get_debug_item_entries() -> Array:
 	_ensure_helpers_ready()
-	return debug_inventory.get_debug_item_entries(self)
+	return roll_editor_runtime.get_item_entries(self)
 
 
 func toggle_debug_management_menu() -> void:

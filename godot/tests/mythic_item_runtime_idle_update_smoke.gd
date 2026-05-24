@@ -49,10 +49,17 @@ func _init() -> void:
 
 func _verify_helper_registry_initializes_runtime() -> void:
 	_expect(MythicItemHelperRegistry.INIT_ORDER.has("catalog"), "helper registry should own the mythic helper init order")
+	_expect(MythicItemHelperRegistry.INIT_ORDER.has("roll_editor_runtime"), "helper registry should initialize the mythic roll editor helper")
+	_expect(not MythicItemHelperRegistry.INIT_ORDER.has("debug_inventory"), "helper registry should not keep the retired mythic debug inventory helper")
 	_expect(
 		MythicItemHelperRegistry.get_script_path("catalog").ends_with("mythic_item_catalog.gd"),
 		"helper registry should own mythic helper script paths"
 	)
+	_expect(
+		MythicItemHelperRegistry.get_script_path("roll_editor_runtime").ends_with("mythic_item_roll_editor_runtime.gd"),
+		"helper registry should route roll editor work to the focused helper"
+	)
+	_expect(MythicItemHelperRegistry.get_script_path("debug_inventory") == "", "helper registry should not expose a retired mythic debug inventory path")
 	var runtime: Object = MythicItemRuntime.new()
 	_expect(not runtime.prewarm_initialization_step(false), "first helper prewarm step should initialize one helper")
 	_expect(runtime.catalog != null, "helper registry should create the catalog helper on the first prewarm step")
@@ -62,6 +69,8 @@ func _verify_helper_registry_initializes_runtime() -> void:
 		_expect(runtime.get(str(member_name)) != null, "helper registry should initialize %s" % str(member_name))
 	var runtime_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
 	_expect(runtime_source.find("const HELPER_SCRIPT_PATHS") < 0, "mythic runtime should not keep the helper path registry inline")
+	_expect(runtime_source.find("var debug_inventory") < 0, "mythic runtime should not keep the retired debug inventory member")
+	_expect(runtime_source.find("roll_editor_runtime") >= 0, "mythic runtime should call the focused roll editor helper")
 
 
 func _verify_empty_runtime_has_no_field_effects() -> void:

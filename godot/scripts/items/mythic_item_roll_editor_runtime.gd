@@ -1,7 +1,7 @@
 extends RefCounted
 
 
-func debug_build_roll_editor_item(runtime: Object, item_name: String, roll_overrides: Dictionary = {}) -> Dictionary:
+func build_preview_item(runtime: Object, item_name: String, roll_overrides: Dictionary = {}) -> Dictionary:
 	if item_name == "":
 		return {}
 	var item_data: Dictionary = runtime.catalog.build_item_by_name(item_name)
@@ -16,7 +16,7 @@ func debug_build_roll_editor_item(runtime: Object, item_name: String, roll_overr
 	return runtime.catalog.sync_roll_fields(item_data, false, true)
 
 
-func debug_adjust_inventory_roll(
+func adjust_inventory_roll(
 	runtime: Object,
 	index: int,
 	option_key: String,
@@ -61,7 +61,7 @@ func debug_adjust_inventory_roll(
 	return true
 
 
-func get_debug_item_entries(runtime: Object) -> Array:
+func get_item_entries(runtime: Object) -> Array:
 	if runtime.catalog != null and runtime.catalog.has_method("get_debug_items"):
 		return runtime.catalog.get_debug_items()
 	return []

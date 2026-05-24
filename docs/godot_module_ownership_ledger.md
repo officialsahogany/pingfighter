@@ -322,7 +322,7 @@ This section is intentionally long; use search to find the nearest owner.
   max-two chain activation limit, extra-pick chance reads, and new-batch
   Dowsing trigger cleanup are delegated to
   `scripts/items/mythic_item_perk_choice_runtime.gd`; owned-item name
-  queries, public/debug inventory item read/count snapshots, debug inventory
+  queries, public/debug inventory item read/count snapshots, debug-menu
   toggle/add routing, roll-editor inventory ensure routing, and one-time
   passive / used-Revival field-spawn skip rules are delegated to
   `scripts/items/mythic_item_ownership_runtime.gd`; the
@@ -5064,7 +5064,7 @@ This section is intentionally long; use search to find the nearest owner.
   here so player-control builders consume one stat-bonus surface.
 - `scripts/items/mythic_item_lifecycle_runtime.gd`,
   `scripts/items/mythic_item_equipment_facade.gd`, and
-  `scripts/items/mythic_item_debug_inventory.gd`
+  `scripts/items/mythic_item_roll_editor_runtime.gd`
   Own Baal's Boots clear / round-clear / weather-arm call sites for reset,
   equip / unequip / remove, and roll-adjustment flows. Pass
   `BAAL_BOOTS_CONSTANTS` into these helpers and call
