@@ -1024,12 +1024,26 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 		result.merge(projectile_result, true)
 	if not lingering_result.is_empty():
 		result.merge(lingering_result, true)
-	var damage_result: Dictionary = _consume_pending_boss_damage_result()
+	var damage_result: Dictionary = CommandoFirearmPendingResultState.build_boss_damage_result(
+		pending_boss_damage_units,
+		pending_boss_damage_sources
+	)
 	if not damage_result.is_empty():
 		result.merge(damage_result, true)
-	var gauge_result: Dictionary = _consume_pending_special_gauge_result()
+		pending_boss_damage_units = 0
+		pending_boss_damage_sources.clear()
+	var gauge_result: Dictionary = CommandoFirearmPendingResultState.build_special_gauge_result(
+		pending_special_gauge_gain,
+		pending_special_gauge_sources,
+		pending_special_gauge_hit_kind,
+		pending_pistol_feedback_timer_frames
+	)
 	if not gauge_result.is_empty():
 		result.merge(gauge_result, true)
+		pending_special_gauge_gain = 0.0
+		pending_special_gauge_sources.clear()
+		pending_special_gauge_hit_kind = ""
+		pending_pistol_feedback_timer_frames = 0.0
 	return result
 
 
@@ -2867,8 +2881,24 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 	var intensity: float = float(feedback_profile.get("intensity", 0.5))
 	var color: Color = _get_color(projectile.get("color", Color.WHITE), Color.WHITE)
 	var combat_result: Dictionary = _apply_weapon_hit_result(weapon_id, projectile, context, deps)
-	_queue_boss_damage(combat_result)
-	_queue_special_gauge_gain(combat_result)
+	var damage_state: Dictionary = CommandoFirearmPendingResultState.queue_boss_damage_state(
+		pending_boss_damage_units,
+		pending_boss_damage_sources,
+		combat_result
+	)
+	pending_boss_damage_units = int(damage_state.get("units", pending_boss_damage_units))
+	pending_boss_damage_sources = _get_array(damage_state.get("sources", pending_boss_damage_sources))
+	var gauge_state: Dictionary = CommandoFirearmPendingResultState.queue_special_gauge_state(
+		pending_special_gauge_gain,
+		pending_special_gauge_sources,
+		pending_special_gauge_hit_kind,
+		pending_pistol_feedback_timer_frames,
+		combat_result
+	)
+	pending_special_gauge_gain = float(gauge_state.get("gain", pending_special_gauge_gain))
+	pending_special_gauge_sources = _get_array(gauge_state.get("sources", pending_special_gauge_sources))
+	pending_special_gauge_hit_kind = str(gauge_state.get("hit_kind", pending_special_gauge_hit_kind))
+	pending_pistol_feedback_timer_frames = float(gauge_state.get("feedback_timer_frames", pending_pistol_feedback_timer_frames))
 	var lingering_result: Dictionary = _spawn_weapon_lingering_effect(weapon_id, projectile, context, deps)
 	if not lingering_result.is_empty():
 		combat_result["lingering_effect"] = lingering_result
@@ -3063,58 +3093,6 @@ func _apply_ak47_accumulated_boss_damage(weapon_id: String, result: Dictionary) 
 		return
 	ak47_boss_hit_count = int(hit_payload.get("next_hit_count", ak47_boss_hit_count))
 	result.merge(_get_dict(hit_payload.get("result_fields", {})), true)
-
-
-func _queue_boss_damage(combat_result: Dictionary) -> void:
-	var next_state: Dictionary = CommandoFirearmPendingResultState.queue_boss_damage_state(
-		pending_boss_damage_units,
-		pending_boss_damage_sources,
-		combat_result
-	)
-	pending_boss_damage_units = int(next_state.get("units", pending_boss_damage_units))
-	pending_boss_damage_sources = _get_array(next_state.get("sources", pending_boss_damage_sources))
-
-
-func _queue_special_gauge_gain(combat_result: Dictionary) -> void:
-	var next_state: Dictionary = CommandoFirearmPendingResultState.queue_special_gauge_state(
-		pending_special_gauge_gain,
-		pending_special_gauge_sources,
-		pending_special_gauge_hit_kind,
-		pending_pistol_feedback_timer_frames,
-		combat_result
-	)
-	pending_special_gauge_gain = float(next_state.get("gain", pending_special_gauge_gain))
-	pending_special_gauge_sources = _get_array(next_state.get("sources", pending_special_gauge_sources))
-	pending_special_gauge_hit_kind = str(next_state.get("hit_kind", pending_special_gauge_hit_kind))
-	pending_pistol_feedback_timer_frames = float(next_state.get("feedback_timer_frames", pending_pistol_feedback_timer_frames))
-
-
-func _consume_pending_boss_damage_result() -> Dictionary:
-	var result: Dictionary = CommandoFirearmPendingResultState.build_boss_damage_result(
-		pending_boss_damage_units,
-		pending_boss_damage_sources
-	)
-	if result.is_empty():
-		return {}
-	pending_boss_damage_units = 0
-	pending_boss_damage_sources.clear()
-	return result
-
-
-func _consume_pending_special_gauge_result() -> Dictionary:
-	var result: Dictionary = CommandoFirearmPendingResultState.build_special_gauge_result(
-		pending_special_gauge_gain,
-		pending_special_gauge_sources,
-		pending_special_gauge_hit_kind,
-		pending_pistol_feedback_timer_frames
-	)
-	if result.is_empty():
-		return {}
-	pending_special_gauge_gain = 0.0
-	pending_special_gauge_sources.clear()
-	pending_special_gauge_hit_kind = ""
-	pending_pistol_feedback_timer_frames = 0.0
-	return result
 
 
 func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context: Dictionary) -> Dictionary:

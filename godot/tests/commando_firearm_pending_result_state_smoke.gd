@@ -8,7 +8,8 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_direct_pending_result_state()
-	_verify_runtime_delegates_pending_result_state()
+	_verify_runtime_consumes_pending_result_state()
+	_verify_removed_runtime_pending_result_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_pending_result_state_smoke: ok")
@@ -58,32 +59,37 @@ func _verify_direct_pending_result_state() -> void:
 	_expect(CommandoFirearmPendingResultState.build_special_gauge_result(0.0, [], "", 0.0).is_empty(), "empty special gauge result should stay empty")
 
 
-func _verify_runtime_delegates_pending_result_state() -> void:
+func _verify_runtime_consumes_pending_result_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	runtime._queue_boss_damage({
-		"damage_units": 2,
-		"damage_sources": ["bazooka"],
-	})
-	runtime._queue_boss_damage({
-		"damage_units": 1,
-		"source": "fire_support",
-	})
-	var damage_result: Dictionary = runtime._consume_pending_boss_damage_result()
-	_expect(int(damage_result.get("commando_firearm_boss_damage_units", 0)) == 3, "runtime boss damage queue should delegate units")
-	_expect((damage_result.get("commando_firearm_boss_damage_sources", []) as Array) == ["bazooka", "fire_support"], "runtime boss damage queue should delegate sources")
-	_expect(runtime._consume_pending_boss_damage_result().is_empty(), "runtime boss damage consume should clear pending state")
+	runtime.pending_boss_damage_units = 3
+	runtime.pending_boss_damage_sources = ["bazooka", "fire_support"]
+	runtime.pending_special_gauge_gain = 40.0
+	runtime.pending_special_gauge_sources = ["legshot"]
+	runtime.pending_special_gauge_hit_kind = "legshot"
+	runtime.pending_pistol_feedback_timer_frames = 18.0
+	var result: Dictionary = runtime.update_effects(1.0, 0, {}, {})
+	_expect(int(result.get("commando_firearm_boss_damage_units", 0)) == 3, "runtime pending consume should emit boss damage units")
+	_expect((result.get("commando_firearm_boss_damage_sources", []) as Array) == ["bazooka", "fire_support"], "runtime pending consume should emit boss damage sources")
+	_expect(is_equal_approx(float(result.get("commando_firearm_special_gauge_gain", 0.0)), 40.0), "runtime pending consume should emit special gauge gain")
+	_expect(str(result.get("commando_firearm_last_gauge_source", "")) == "legshot", "runtime pending consume should emit gauge source")
+	_expect(str(result.get("commando_firearm_last_pistol_hit_kind", "")) == "legshot", "runtime pending consume should emit hit kind")
+	_expect(runtime.pending_boss_damage_units == 0, "runtime pending consume should clear boss damage units")
+	_expect(runtime.pending_boss_damage_sources.is_empty(), "runtime pending consume should clear boss damage sources")
+	_expect(is_equal_approx(runtime.pending_special_gauge_gain, 0.0), "runtime pending consume should clear special gauge gain")
+	_expect(runtime.pending_special_gauge_sources.is_empty(), "runtime pending consume should clear special gauge sources")
+	_expect(runtime.pending_special_gauge_hit_kind == "", "runtime pending consume should clear hit kind")
+	_expect(is_equal_approx(runtime.pending_pistol_feedback_timer_frames, 0.0), "runtime pending consume should clear feedback timer")
 
-	runtime._queue_special_gauge_gain({
-		"commando_firearm_special_gauge_gain": 40.0,
-		"commando_firearm_special_gauge_source": "legshot",
-		"commando_firearm_pistol_hit_kind": "legshot",
-		"commando_firearm_pistol_feedback_timer_frames": 18.0,
-	})
-	var gauge_result: Dictionary = runtime._consume_pending_special_gauge_result()
-	_expect(is_equal_approx(float(gauge_result.get("commando_firearm_special_gauge_gain", 0.0)), 40.0), "runtime special gauge queue should delegate gain")
-	_expect(str(gauge_result.get("commando_firearm_last_gauge_source", "")) == "legshot", "runtime special gauge queue should delegate source")
-	_expect(str(gauge_result.get("commando_firearm_last_pistol_hit_kind", "")) == "legshot", "runtime special gauge queue should delegate hit kind")
-	_expect(runtime._consume_pending_special_gauge_result().is_empty(), "runtime special gauge consume should clear pending state")
+
+func _verify_removed_runtime_pending_result_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_queue_boss_damage",
+		"_queue_special_gauge_gain",
+		"_consume_pending_boss_damage_result",
+		"_consume_pending_special_gauge_result",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep pending-result bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:
