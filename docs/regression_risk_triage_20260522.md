@@ -7282,6 +7282,30 @@ Hundredth split on 2026-05-24:
   covers serve-wait press suppression, held-input suppression until release,
   fresh-fire recovery, and the config `waiting_for_serve` fallback.
 
+246th follow-up on 2026-05-24:
+
+- Commit:
+  `74fdf4e17 godot: add Spanish localization and Commando defaults cleanup`.
+- Scope: folded Commando firearm Doping Potion default values into the
+  `DOPING_POTION_DEFAULTS` constant and removed the `_get_doping_potion_defaults()`
+  facade helper. The value-utils smoke now rejects that bridge alongside the
+  earlier Doping Potion value bridges. This commit also contains the
+  concurrently staged Spanish localization surface: `language_settings.gd`
+  adds Spanish language metadata and item / mythic / perk / character text
+  maps, the pause menu exposes Spanish as a language option, and the new
+  `localization_coverage_smoke.gd` checks non-Korean runtime surfaces for
+  coverage and stray Hangul.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3112` lines /
+  `68` functions to `3109` lines / `67` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_cooldown_state_smoke`. Focused localization coverage also
+  passed: `localization_coverage_smoke`, `language_settings_smoke`,
+  `pause_menu_overlay_smoke`, `active_item_catalog_korean_names_smoke`, and
+  `passive_item_quality_prefix_smoke`. The Godot headless load check passed,
+  and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
