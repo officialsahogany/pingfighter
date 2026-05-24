@@ -3028,7 +3028,24 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		duration
 	)
 	if is_net:
-		_apply_lingering_net_fields(effect, profile, projectile, context, pos, effect_size, effect_id, dissolve)
+		CommandoFirearmLingeringNetFieldState.apply_net_fields(
+			effect,
+			profile,
+			projectile,
+			CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
+				context,
+				COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+				Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+				COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+				COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
+			),
+			pos,
+			effect_size,
+			effect_id,
+			dissolve,
+			NET_GUN_DASH_BREAK_FRAMES,
+			NET_GUN_PLAYER_SLOW_MULTIPLIER
+		)
 	CommandoFirearmLingeringStatusState.apply_effect_status_fields(
 		effect,
 		profile,
@@ -3038,7 +3055,8 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
 		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
 	)
-	_seed_lingering_fire_flames(effect)
+	if CommandoFirearmLingeringEffectState.is_fire_zone(effect):
+		effect["flames"] = CommandoFirearmLingeringFireFlameState.build_flames(effect)
 	CommandoFirearmValueUtils.append_limited(lingering_effects, effect, LINGERING_EFFECT_LIMIT)
 	return CommandoFirearmLingeringEffectState.build_spawn_result(effect, duration)
 
@@ -3057,42 +3075,6 @@ func _spawn_suicide_drone_fire_zone(projectile: Dictionary, context: Dictionary,
 			"source": "active_item_molotov_fire_zone",
 		}
 	return _spawn_lingering_effect("suicide_drone", projectile, context)
-
-
-func _apply_lingering_net_fields(
-	effect: Dictionary,
-	profile: Dictionary,
-	projectile: Dictionary,
-	context: Dictionary,
-	pos: Vector2,
-	effect_size: Vector2,
-	effect_id: int,
-	dissolve: bool
-) -> void:
-	CommandoFirearmLingeringNetFieldState.apply_net_fields(
-		effect,
-		profile,
-		projectile,
-		CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
-			context,
-			COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-			COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
-		),
-		pos,
-		effect_size,
-		effect_id,
-		dissolve,
-		NET_GUN_DASH_BREAK_FRAMES,
-		NET_GUN_PLAYER_SLOW_MULTIPLIER
-	)
-
-
-func _seed_lingering_fire_flames(effect: Dictionary) -> void:
-	if not CommandoFirearmLingeringEffectState.is_fire_zone(effect):
-		return
-	effect["flames"] = CommandoFirearmLingeringFireFlameState.build_flames(effect)
 
 
 func _spawn_net_dissolve_effect(projectile: Dictionary, context: Dictionary) -> Dictionary:

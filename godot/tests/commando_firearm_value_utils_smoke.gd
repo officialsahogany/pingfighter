@@ -544,17 +544,17 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(is_equal_approx(float(slow_status_effect.get("status_interval_frames", 0.0)), 8.0), "lingering status field helper should preserve explicit status intervals")
 	_expect(is_equal_approx(float(slow_status_effect.get("slow_multiplier", 0.0)), 0.45), "lingering status field helper should preserve slow multipliers")
 	var non_fire_seed_effect := {"kind": "field"}
-	runtime._seed_lingering_fire_flames(non_fire_seed_effect)
-	_expect(not non_fire_seed_effect.has("flames"), "lingering fire seed helper should ignore non-fire effects")
-	var fire_seed_effect := {
-		"kind": "fire_zone",
-		"width": 80.0,
-		"height": 40.0,
-	}
-	runtime._seed_lingering_fire_flames(fire_seed_effect)
+	_expect(not CommandoFirearmLingeringEffectState.is_fire_zone(non_fire_seed_effect), "lingering fire-zone owner should reject non-fire effects")
+	_expect(not non_fire_seed_effect.has("flames"), "lingering fire spawn path should ignore non-fire effects")
 	var fire_flame_count := CommandoFirearmLingeringFireFlameState.get_flame_count()
+	runtime.lingering_effects.clear()
+	var fire_spawn_result: Dictionary = runtime._spawn_lingering_effect("suicide_drone", {"id": 78, "pos": Vector2(100.0, 80.0)}, {})
+	var fire_seed_effect: Dictionary = {}
+	if not runtime.lingering_effects.is_empty():
+		fire_seed_effect = CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0])
+	_expect(str(fire_spawn_result.get("kind", "")) == "fire_zone", "lingering fire spawn path should return fire-zone results")
 	_expect(fire_flame_count == 15, "lingering fire flame-count helper should preserve the deterministic flame count")
-	_expect(CommandoFirearmValueUtils.get_array(fire_seed_effect.get("flames", [])).size() == fire_flame_count, "lingering fire seed helper should seed deterministic fire flames")
+	_expect(CommandoFirearmValueUtils.get_array(fire_seed_effect.get("flames", [])).size() == fire_flame_count, "lingering fire spawn path should seed deterministic fire flames")
 	_expect(CommandoFirearmLingeringFireFlameState.get_effect_size({"width": 80.0, "height": 40.0}) == Vector2(80.0, 40.0), "lingering fire effect-size helper should preserve explicit dimensions")
 	_expect(CommandoFirearmLingeringFireFlameState.get_effect_size({}) == Vector2(150.0, 60.0), "lingering fire effect-size helper should use default dimensions")
 	_expect(CommandoFirearmLingeringFireFlameState.get_effect_size({"width": -4.0, "height": 0.0}) == Vector2(1.0, 1.0), "lingering fire effect-size helper should clamp dimensions to positive values")
@@ -644,48 +644,53 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(net_geometry_effect.get("net_rect", Rect2()) == Rect2(Vector2(-40.0, 25.0), Vector2(280.0, 110.0)), "lingering net geometry owner should build a centered net rect")
 	_expect(is_equal_approx(float(net_geometry_effect.get("constrict_factor", 0.0)), 1.0), "lingering net geometry owner should initialize constrict factor")
 	_expect(CommandoFirearmValueUtils.get_array(net_geometry_effect.get("shape", [])).size() == 36, "lingering net geometry owner should seed deterministic shape points")
-	var live_net_effect := {}
-	runtime._apply_lingering_net_fields(
-		live_net_effect,
+	runtime.lingering_effects.clear()
+	var live_net_result: Dictionary = runtime._spawn_lingering_effect(
+		"net_gun",
 		{
-			"dash_break_frames": 12.0,
-			"player_slow_multiplier": 0.55,
+			"id": 7,
+			"origin": Vector2(3.0, 4.0),
+			"pos": Vector2(300.0, 80.0),
+			"target": Vector2(300.0, 80.0),
 		},
-		{"origin": Vector2(3.0, 4.0)},
-		{},
-		Vector2(100.0, 80.0),
-		Vector2(280.0, 110.0),
-		7,
-		false
+		{"boss_hitbox_height": 100.0}
 	)
-	_expect(not bool(live_net_effect.get("dissolve", true)), "lingering net field helper should preserve live net dissolve state")
-	_expect(bool(live_net_effect.get("boss_trapped", false)), "lingering net field helper should trap the boss for live nets")
-	_expect(bool(live_net_effect.get("hooked_player", false)), "lingering net field helper should hook the player for live nets")
-	_expect(not bool(live_net_effect.get("rope_broken", true)), "lingering net field helper should keep live net ropes intact")
-	_expect(is_equal_approx(float(live_net_effect.get("rope_snap_duration", 0.0)), 12.0), "lingering net field helper should preserve explicit rope snap duration")
-	_expect(live_net_effect.get("origin", Vector2.ZERO) == Vector2(3.0, 4.0), "lingering net field helper should preserve explicit origins")
-	_expect(is_equal_approx(float(live_net_effect.get("deploy_x", 0.0)), 100.0), "lingering net field helper should store deploy x")
-	_expect(is_equal_approx(float(live_net_effect.get("player_slow_multiplier", 0.0)), 0.55), "lingering net field helper should preserve explicit player slow multipliers")
-	_expect(live_net_effect.get("net_rect", Rect2()) == Rect2(Vector2(-40.0, 25.0), Vector2(280.0, 110.0)), "lingering net field helper should build a centered net rect")
-	_expect(is_equal_approx(float(live_net_effect.get("constrict_factor", 0.0)), 1.0), "lingering net field helper should initialize constrict factor")
-	_expect(CommandoFirearmValueUtils.get_array(live_net_effect.get("shape", [])).size() == 36, "lingering net field helper should seed the deterministic net shape")
-	var dissolved_net_effect := {}
-	runtime._apply_lingering_net_fields(
-		dissolved_net_effect,
-		{},
-		{"origin": Vector2(8.0, 9.0)},
-		{},
-		Vector2(50.0, 60.0),
-		Vector2(280.0, 90.0),
-		8,
-		true
+	var live_net_effect: Dictionary = {}
+	if not runtime.lingering_effects.is_empty():
+		live_net_effect = CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0])
+	_expect(str(live_net_result.get("kind", "")) == "net_field", "lingering net spawn path should return net-field results")
+	_expect(not bool(live_net_effect.get("dissolve", true)), "lingering net spawn path should preserve live net dissolve state")
+	_expect(bool(live_net_effect.get("boss_trapped", false)), "lingering net spawn path should trap the boss for live nets")
+	_expect(bool(live_net_effect.get("hooked_player", false)), "lingering net spawn path should hook the player for live nets")
+	_expect(not bool(live_net_effect.get("rope_broken", true)), "lingering net spawn path should keep live net ropes intact")
+	_expect(is_equal_approx(float(live_net_effect.get("rope_snap_duration", 0.0)), CommandoFirearmRuntime.NET_GUN_DASH_BREAK_FRAMES), "lingering net spawn path should preserve runtime rope snap duration")
+	_expect(live_net_effect.get("origin", Vector2.ZERO) == Vector2(3.0, 4.0), "lingering net spawn path should preserve explicit origins")
+	_expect(is_equal_approx(float(live_net_effect.get("deploy_x", 0.0)), 300.0), "lingering net spawn path should store deploy x")
+	_expect(is_equal_approx(float(live_net_effect.get("player_slow_multiplier", 0.0)), CommandoFirearmRuntime.NET_GUN_PLAYER_SLOW_MULTIPLIER), "lingering net spawn path should preserve runtime player slow multipliers")
+	_expect(live_net_effect.get("net_rect", Rect2()) == Rect2(Vector2(160.0, 25.0), Vector2(280.0, 110.0)), "lingering net spawn path should build a centered net rect")
+	_expect(is_equal_approx(float(live_net_effect.get("constrict_factor", 0.0)), 1.0), "lingering net spawn path should initialize constrict factor")
+	_expect(CommandoFirearmValueUtils.get_array(live_net_effect.get("shape", [])).size() == 36, "lingering net spawn path should seed the deterministic net shape")
+	runtime.lingering_effects.clear()
+	var dissolved_net_result: Dictionary = runtime._spawn_net_dissolve_effect(
+		{
+			"id": 8,
+			"origin": Vector2(8.0, 9.0),
+			"pos": Vector2(300.0, 60.0),
+			"target": Vector2(300.0, 60.0),
+		},
+		{"boss_hitbox_height": 20.0}
 	)
-	_expect(bool(dissolved_net_effect.get("dissolve", false)), "lingering net field helper should preserve dissolving net state")
-	_expect(not bool(dissolved_net_effect.get("boss_trapped", true)), "lingering net field helper should not trap bosses for dissolving nets")
-	_expect(not bool(dissolved_net_effect.get("hooked_player", true)), "lingering net field helper should not hook players for dissolving nets")
-	_expect(bool(dissolved_net_effect.get("rope_broken", false)), "lingering net field helper should mark dissolving net ropes broken")
-	_expect(is_equal_approx(float(dissolved_net_effect.get("rope_snap_duration", 0.0)), 24.0), "lingering net field helper should default rope snap duration")
-	_expect(is_equal_approx(float(dissolved_net_effect.get("player_slow_multiplier", 0.0)), 1.0), "lingering net field helper should default player slow multipliers to neutral")
+	var dissolved_net_effect: Dictionary = {}
+	if not runtime.lingering_effects.is_empty():
+		dissolved_net_effect = CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0])
+	_expect(str(dissolved_net_result.get("kind", "")) == "net_field", "lingering net dissolve spawn path should return net-field results")
+	_expect(bool(dissolved_net_effect.get("dissolve", false)), "lingering net dissolve spawn path should preserve dissolving net state")
+	_expect(not bool(dissolved_net_effect.get("boss_trapped", true)), "lingering net dissolve spawn path should not trap bosses for dissolving nets")
+	_expect(not bool(dissolved_net_effect.get("hooked_player", true)), "lingering net dissolve spawn path should not hook players for dissolving nets")
+	_expect(bool(dissolved_net_effect.get("rope_broken", false)), "lingering net dissolve spawn path should mark dissolving net ropes broken")
+	_expect(is_equal_approx(float(dissolved_net_effect.get("rope_snap_duration", 0.0)), CommandoFirearmRuntime.NET_GUN_DASH_BREAK_FRAMES), "lingering net dissolve spawn path should preserve runtime rope snap duration")
+	_expect(is_equal_approx(float(dissolved_net_effect.get("player_slow_multiplier", 0.0)), CommandoFirearmRuntime.NET_GUN_PLAYER_SLOW_MULTIPLIER), "lingering net dissolve spawn path should preserve runtime player slow multipliers")
+	_expect(dissolved_net_effect.get("net_rect", Rect2()) == Rect2(Vector2(160.0, 20.0), Vector2(280.0, 90.0)), "lingering net dissolve spawn path should build a min-height net rect")
 	_expect(CommandoFirearmLingeringNetFieldState.is_net_gun_effect({"weapon_id": "net_gun"}), "net-gun effect owner should recognize net effects")
 	_expect(not CommandoFirearmLingeringNetFieldState.is_net_gun_effect({"weapon_id": "ak47"}), "net-gun effect owner should reject other weapon effects")
 	_expect(CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field({"weapon_id": "net_gun", "hooked_player": true}), "active hooked net owner should accept hooked live nets")
@@ -1534,6 +1539,7 @@ func _verify_removed_fire_flame_owner_bridges() -> void:
 		"_get_lingering_fire_flames_for_frame",
 		"_get_lingering_fire_flames",
 		"_should_seed_lingering_fire_flames",
+		"_seed_lingering_fire_flames",
 		"_advance_lingering_fire_flames",
 		"_get_lingering_fire_flame_at_index",
 		"_advance_lingering_fire_flame",
@@ -1627,6 +1633,7 @@ func _verify_removed_net_field_predicate_bridges() -> void:
 func _verify_removed_net_field_setup_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	for bridge_name in [
+		"_apply_lingering_net_fields",
 		"_apply_lingering_net_lifecycle_fields",
 		"_get_lingering_net_rope_snap_duration",
 		"_get_lingering_net_origin",
