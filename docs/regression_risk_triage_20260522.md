@@ -8746,3 +8746,20 @@ commits rather than standalone `fix` commits:
   `commando_firearm_audio_routing_smoke`. The Godot headless load check
   passed, `run_warning_scan.ps1` scanned `1335` scripts with no GDScript
   warnings, and `git diff --check` reported no whitespace errors.
+
+316th follow-up on 2026-05-24:
+
+- Commit:
+  `95212a868 godot: move Commando ak47 hit application`.
+- Scope: moved AK-47 accumulated boss-hit application into
+  `CommandoFirearmAk47HitState.apply_runtime_accumulated_damage()`. Runtime
+  now delegates payload construction and result-field merging, then stores only
+  the returned next AK-47 hit count.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2133` lines /
+  `35` functions to `2131` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_ak47_hit_state_smoke`,
+  `commando_firearm_hit_result_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
