@@ -5675,6 +5675,23 @@ Hundredth split on 2026-05-24:
   both wrappers still printed the known nonfatal Windows root certificate store
   message from Godot.
 
+157th follow-up on 2026-05-24:
+
+- Commit: `03655400c godot: give Commando fire support two radios`.
+- Scope: aligned Commando Fire Support's runtime ammo model with the existing
+  two-marker radio HUD: `commando_weapon_controller.gd` now exposes two
+  fire-support radio calls, one call consumes exactly one radio, the first use
+  stays fire-capable with one call remaining, and the tooltip / selector smoke
+  coverage now checks `호출권 2/2` plus the `2 -> 1 -> 0` depletion path.
+- Validation: focused Commando coverage passed:
+  `commando_weapon_controller_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_selector_renderer_smoke`, and
+  `commando_firearm_tooltip_smoke`. `run_warning_scan.ps1` scanned 1322
+  scripts with no GDScript warnings, and `run_headless_load_check.ps1` passed;
+  both wrappers still printed the known nonfatal Windows root certificate store
+  message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

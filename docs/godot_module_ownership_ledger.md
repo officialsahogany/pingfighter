@@ -3697,7 +3697,8 @@ This section is intentionally long; use search to find the nearest owner.
   selection, ammo reads/mutation, `commando_pistol` Beretta display profile
   with 4-round magazine / 2-spare-magazine total-12-shot / 120-frame reload
   state, bazooka 4-round permanent
-  ammo state, net gun 3-round permanent ammo state, AK-47 60-round ammo and
+  ammo state, net gun 3-round permanent ammo state, fire-support 2-radio-call
+  ammo state, AK-47 60-round ammo and
   1800-frame durability display / refill state, rental release on
   depletion, stage-rental cleanup, stage-start permanent-firearm refill,
   explicit round-reset preservation, save-snapshot export / restore for
