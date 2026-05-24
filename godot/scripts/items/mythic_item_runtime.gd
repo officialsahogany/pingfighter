@@ -1566,34 +1566,22 @@ func get_commando_arm_context() -> Dictionary:
 
 func is_rainbow_fur_glove_equipped() -> bool:
 	_ensure_helpers_ready()
-	return is_equipped(ITEM_RAINBOW_FUR_GLOVE)
+	return rainbow_fur_glove_runtime.is_equipped(self)
 
 
 func is_rainbow_fur_glove_active() -> bool:
 	_ensure_helpers_ready()
-	return is_rainbow_fur_glove_equipped()
+	return rainbow_fur_glove_runtime.is_active(self)
 
 
 func get_rainbow_fur_glove_trigger_chance_pct() -> float:
 	_ensure_helpers_ready()
-	if not is_rainbow_fur_glove_equipped():
-		return 0.0
-	return clamp(
-		roll_query.get_equipped_roll_value(self, ITEM_RAINBOW_FUR_GLOVE, "rainbow_glove_trigger_chance_pct"),
-		0.0,
-		RainbowFurGloveRuntime.MAX_TRIGGER_CHANCE_PCT
-	)
+	return rainbow_fur_glove_runtime.get_trigger_chance_pct(self)
 
 
 func get_rainbow_fur_glove_cooldown_reduction_pct() -> float:
 	_ensure_helpers_ready()
-	if not is_rainbow_fur_glove_equipped():
-		return 0.0
-	return clamp(
-		roll_query.get_equipped_roll_value(self, ITEM_RAINBOW_FUR_GLOVE, "rainbow_glove_cooldown_reduction_pct"),
-		0.0,
-		RainbowFurGloveRuntime.MAX_COOLDOWN_REDUCTION_PCT
-	)
+	return rainbow_fur_glove_runtime.get_cooldown_reduction_pct(self)
 
 
 func get_rainbow_fur_glove_context() -> Dictionary:

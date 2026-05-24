@@ -137,8 +137,8 @@ This section is intentionally long; use search to find the nearest owner.
   Venom Mist Gauntlet field constants, equipped / count / roll queries,
   poison / mist field / particle / boss-gauge drain logic delegated to
   `scripts/items/mythic_item_venom_mist_runtime.gd`, Rainbow Fur Glove
-  proc constants, player-skill cooldown reduction, and aura particle
-  lifecycle delegated to
+  equipped / roll queries, proc constants, player-skill cooldown reduction,
+  and aura particle lifecycle delegated to
   `scripts/items/mythic_item_rainbow_fur_glove_runtime.gd`, Adversity
   Armor constants, next-round shield / serve-speed boost / barrier particle
   lifecycle delegated to `scripts/items/mythic_item_adversity_armor_runtime.gd`,

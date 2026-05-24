@@ -1,5 +1,6 @@
 extends RefCounted
 
+const ITEM_RAINBOW_FUR_GLOVE := "rainbow_fur_glove"
 const MAX_TRIGGER_CHANCE_PCT := 100.0
 const MAX_COOLDOWN_REDUCTION_PCT := 95.0
 const AURA_FRAMES := 36.0
@@ -17,19 +18,47 @@ const COLORS := [
 ]
 
 
+func is_equipped(runtime: Object) -> bool:
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_RAINBOW_FUR_GLOVE)
+
+
+func is_active(runtime: Object) -> bool:
+	return is_equipped(runtime)
+
+
+func get_trigger_chance_pct(runtime: Object) -> float:
+	if not is_equipped(runtime):
+		return 0.0
+	return clamp(
+		runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAINBOW_FUR_GLOVE, "rainbow_glove_trigger_chance_pct"),
+		0.0,
+		MAX_TRIGGER_CHANCE_PCT
+	)
+
+
+func get_cooldown_reduction_pct(runtime: Object) -> float:
+	if not is_equipped(runtime):
+		return 0.0
+	return clamp(
+		runtime.roll_query.get_equipped_roll_value(runtime, ITEM_RAINBOW_FUR_GLOVE, "rainbow_glove_cooldown_reduction_pct"),
+		0.0,
+		MAX_COOLDOWN_REDUCTION_PCT
+	)
+
+
 func try_proc_player_hit(
 	runtime: Object,
 	ball_pos: Vector2,
 	context: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
-	if not runtime.is_rainbow_fur_glove_equipped():
+	if not is_equipped(runtime):
 		clear_runtime(runtime)
 		return {"activated": false}
-	var chance_pct: float = runtime.get_rainbow_fur_glove_trigger_chance_pct()
+	var chance_pct: float = get_trigger_chance_pct(runtime)
 	if chance_pct <= 0.0 or randf() * 100.0 >= chance_pct:
 		return {"activated": false}
-	var reduction_pct: float = runtime.get_rainbow_fur_glove_cooldown_reduction_pct()
+	var reduction_pct: float = get_cooldown_reduction_pct(runtime)
 	var reduction_fraction: float = clamp(reduction_pct / 100.0, 0.0, 0.95)
 	if reduction_fraction <= 0.0:
 		return {"activated": false}
@@ -165,7 +194,7 @@ func create_particle(center: Vector2, random_life: bool = false) -> Dictionary:
 
 
 func update_runtime(runtime: Object, fps_scale: float) -> void:
-	if not runtime.is_rainbow_fur_glove_equipped():
+	if not is_equipped(runtime):
 		if runtime.rainbow_fur_glove_aura_timer_frames > 0.0 or not runtime.rainbow_fur_glove_particles.is_empty():
 			clear_runtime(runtime)
 		return

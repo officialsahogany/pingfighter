@@ -201,7 +201,12 @@ func _test_runtime_constant_ownership() -> void:
 	_expect(not runtime_source.contains("const RAINBOW_FUR_GLOVE_MAX"), "runtime facade should not regain Rainbow Fur Glove cap constants")
 	_expect(not runtime_source.contains("const RAINBOW_FUR_GLOVE_AURA"), "runtime facade should not regain Rainbow Fur Glove aura constants")
 	_expect(not runtime_source.contains("const RAINBOW_FUR_GLOVE_COLORS"), "runtime facade should not regain Rainbow Fur Glove color constants")
+	_expect(runtime_source.find("return rainbow_fur_glove_runtime.is_equipped(self)") >= 0, "runtime facade should delegate Rainbow Fur Glove equipped checks")
+	_expect(runtime_source.find("return rainbow_fur_glove_runtime.get_trigger_chance_pct(self)") >= 0, "runtime facade should delegate Rainbow Fur Glove chance rolls")
+	_expect(runtime_source.find("roll_query.get_equipped_roll_value(self, ITEM_RAINBOW_FUR_GLOVE") < 0, "runtime facade should not keep Rainbow Fur Glove roll math inline")
 	_expect(helper_source.contains("const MAX_COOLDOWN_REDUCTION_PCT"), "Rainbow Fur Glove helper should keep cooldown cap constants")
+	_expect(helper_source.find("func get_trigger_chance_pct(") >= 0, "Rainbow Fur Glove helper should own trigger roll math")
+	_expect(helper_source.find("func get_cooldown_reduction_pct(") >= 0, "Rainbow Fur Glove helper should own cooldown roll math")
 
 
 func _array_has_item(items: Array, item_name: String) -> bool:
