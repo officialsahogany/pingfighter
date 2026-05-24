@@ -85,6 +85,7 @@ func _init() -> void:
 	_verify_runtime_delegates_value_utils()
 	_verify_removed_fire_flame_owner_bridges()
 	_verify_removed_net_field_clamp_bridges()
+	_verify_removed_net_field_setup_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -376,10 +377,10 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": 90.0, "dissolve_frames": 14.0}, true, true), 14.0), "lingering duration helper should use dissolve frames for dissolving nets")
 	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": 90.0, "dissolve_frames": -2.0}, true, true), 1.0), "lingering duration helper should clamp dissolve durations to one frame")
 	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": 90.0, "dissolve_frames": 14.0}, true, false), 90.0), "lingering duration helper should ignore dissolve frames for live nets")
-	_expect(runtime._get_default_lingering_effect_pos({"width": 120.0}, Vector2(20.0, 10.0)) == Vector2(60.0, 18.0), "default lingering pos helper should clamp left and top edges")
-	_expect(runtime._get_default_lingering_effect_pos({"width": 120.0}, Vector2(740.0, 745.0)) == Vector2(700.0, 732.0), "default lingering pos helper should clamp right and bottom edges")
-	_expect(runtime._get_default_lingering_effect_pos({"width": 120.0}, Vector2(300.0, 400.0)) == Vector2(300.0, 400.0), "default lingering pos helper should preserve in-field positions")
-	_expect(runtime._get_default_lingering_effect_pos({}, Vector2(20.0, 400.0)) == Vector2(40.0, 400.0), "default lingering pos helper should use the fallback width")
+	_expect(CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos({"width": 120.0}, Vector2(20.0, 10.0), 760.0, 750.0) == Vector2(60.0, 18.0), "default lingering pos owner should clamp left and top edges")
+	_expect(CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos({"width": 120.0}, Vector2(740.0, 745.0), 760.0, 750.0) == Vector2(700.0, 732.0), "default lingering pos owner should clamp right and bottom edges")
+	_expect(CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos({"width": 120.0}, Vector2(300.0, 400.0), 760.0, 750.0) == Vector2(300.0, 400.0), "default lingering pos owner should preserve in-field positions")
+	_expect(CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos({}, Vector2(20.0, 400.0), 760.0, 750.0) == Vector2(40.0, 400.0), "default lingering pos owner should use the fallback width")
 	_expect(runtime._get_lingering_effect_pos({"kind": "fire_zone", "width": 120.0}, {"pos": Vector2(20.0, 10.0)}, {}) == Vector2(60.0, 18.0), "lingering effect pos helper should delegate non-net positioning")
 	var net_pos_profile := {
 		"width": 280.0,
@@ -387,14 +388,14 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"min_height": 90.0,
 	}
 	var net_pos_context := {"boss_hitbox_height": 100.0}
-	_expect(runtime._get_net_lingering_effect_pos(net_pos_profile, {"target": Vector2(0.0, 10.0)}, net_pos_context, Vector2(20.0, 500.0)) == Vector2(140.0, 75.0), "net lingering pos helper should clamp left and top edges")
-	_expect(runtime._get_net_lingering_effect_pos(net_pos_profile, {"target": Vector2(0.0, 745.0)}, net_pos_context, Vector2(740.0, 50.0)) == Vector2(620.0, 675.0), "net lingering pos helper should clamp right and bottom edges")
-	_expect(runtime._get_net_lingering_effect_pos(net_pos_profile, {"target": Vector2(0.0, 400.0)}, net_pos_context, Vector2(300.0, 50.0)) == Vector2(300.0, 400.0), "net lingering pos helper should preserve in-field positions and target y")
-	_expect(runtime._get_net_lingering_effect_pos(net_pos_profile, {}, {
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_lingering_effect_pos(net_pos_profile, {"target": Vector2(0.0, 10.0)}, net_pos_context, Vector2(20.0, 500.0), Vector2.ZERO, 760.0, 750.0, 280.0, 90.0, 140.0) == Vector2(140.0, 75.0), "net lingering pos owner should clamp left and top edges")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_lingering_effect_pos(net_pos_profile, {"target": Vector2(0.0, 745.0)}, net_pos_context, Vector2(740.0, 50.0), Vector2.ZERO, 760.0, 750.0, 280.0, 90.0, 140.0) == Vector2(620.0, 675.0), "net lingering pos owner should clamp right and bottom edges")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_lingering_effect_pos(net_pos_profile, {"target": Vector2(0.0, 400.0)}, net_pos_context, Vector2(300.0, 50.0), Vector2.ZERO, 760.0, 750.0, 280.0, 90.0, 140.0) == Vector2(300.0, 400.0), "net lingering pos owner should preserve in-field positions and target y")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_lingering_effect_pos(net_pos_profile, {}, {
 		"boss_pos": Vector2(320.0, 50.0),
 		"boss_paddle_width": 100.0,
 		"boss_hitbox_height": 100.0,
-	}, Vector2(300.0, 50.0)) == Vector2(300.0, 100.0), "net lingering pos helper should fall back to the boss target y")
+	}, Vector2(300.0, 50.0), Vector2(320.0, 100.0), 760.0, 750.0, 280.0, 90.0, 140.0) == Vector2(300.0, 100.0), "net lingering pos owner should fall back to the boss target y")
 	_expect(runtime._get_lingering_effect_pos({"kind": "net_field", "width": 280.0, "height": 140.0, "min_height": 90.0}, {
 		"pos": Vector2(20.0, 500.0),
 		"target": Vector2(0.0, 10.0),
@@ -407,24 +408,24 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"min_height": 90.0,
 	}, {"impact_radius": 12.0}, {"boss_hitbox_height": 100.0}, true)
 	_expect(net_lingering_size == Vector2(280.0, 110.0), "lingering size helper should use net width and boss-scaled net height")
-	_expect(is_equal_approx(runtime._get_net_effect_desired_height({"boss_hitbox_height": 100.0}), 110.0), "net effect desired-height helper should scale boss hitbox height")
-	_expect(is_equal_approx(runtime._get_net_effect_desired_height({}), 44.0), "net effect desired-height helper should use the default boss height")
-	_expect(is_equal_approx(runtime._get_net_effect_desired_height({"boss_hitbox_height": -5.0}), 1.1), "net effect desired-height helper should clamp boss height before scaling")
-	_expect(runtime._get_net_effect_height_limits({"height": 140.0, "min_height": 90.0}) == Vector2(90.0, 140.0), "net effect height-limit helper should preserve profile limits")
-	_expect(runtime._get_net_effect_height_limits({}) == Vector2(90.0, 140.0), "net effect height-limit helper should use default net limits")
-	_expect(runtime._get_net_effect_height_limits({"height": -4.0, "min_height": 0.0}) == Vector2(1.0, 1.0), "net effect height-limit helper should clamp limits to positive values")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_effect_desired_height({"boss_hitbox_height": 100.0}), 110.0), "net effect desired-height owner should scale boss hitbox height")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_effect_desired_height({}), 44.0), "net effect desired-height owner should use the default boss height")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_effect_desired_height({"boss_hitbox_height": -5.0}), 1.1), "net effect desired-height owner should clamp boss height before scaling")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_effect_height_limits({"height": 140.0, "min_height": 90.0}, 90.0, 140.0) == Vector2(90.0, 140.0), "net effect height-limit owner should preserve profile limits")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_effect_height_limits({}, 90.0, 140.0) == Vector2(90.0, 140.0), "net effect height-limit owner should use default net limits")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_effect_height_limits({"height": -4.0, "min_height": 0.0}, 90.0, 140.0) == Vector2(1.0, 1.0), "net effect height-limit owner should clamp limits to positive values")
 	_expect(is_equal_approx(runtime._get_net_effect_height({"height": 140.0, "min_height": 90.0}, {"boss_hitbox_height": 20.0}), 90.0), "net effect height helper should clamp low desired height to min")
 	_expect(is_equal_approx(runtime._get_net_effect_height({"height": 140.0, "min_height": 90.0}, {"boss_hitbox_height": 100.0}), 110.0), "net effect height helper should preserve desired height inside limits")
 	_expect(is_equal_approx(runtime._get_net_effect_height({"height": 140.0, "min_height": 90.0}, {"boss_hitbox_height": 200.0}), 140.0), "net effect height helper should clamp high desired height to max")
-	_expect(is_equal_approx(runtime._get_net_shape_seed_phase(0), 0.0), "net shape seed helper should keep zero seeds at zero phase")
-	_expect(is_equal_approx(runtime._get_net_shape_seed_phase(1), 0.61803398875), "net shape seed helper should use golden-ratio phase")
-	_expect(is_equal_approx(runtime._get_net_shape_seed_phase(2), 0.2360679775), "net shape seed helper should wrap phases")
-	_expect(is_equal_approx(runtime._get_net_shape_scale(0.0, 0.0), 0.82), "net shape scale helper should preserve the base scale at zero angle")
-	_expect(runtime._get_net_shape_point(100.0, 50.0, 0, 36, 0.0).is_equal_approx(Vector2(41.0, 0.0)), "net shape point helper should preserve the first outline point")
-	_expect(runtime._get_net_shape_point(100.0, 50.0, 9, 36, 0.0).is_equal_approx(Vector2(0.0, 14.0)), "net shape point helper should preserve quarter-turn outline points")
-	var net_shape: Array = runtime._generate_net_shape(100.0, 50.0, 0)
-	_expect(net_shape.size() == 36, "net shape helper should generate the expected outline point count")
-	_expect(runtime._get_vector2(net_shape[0], Vector2.ZERO).is_equal_approx(Vector2(41.0, 0.0)), "net shape helper should preserve the deterministic first point")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_shape_seed_phase(0), 0.0), "net shape seed owner should keep zero seeds at zero phase")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_shape_seed_phase(1), 0.61803398875), "net shape seed owner should use golden-ratio phase")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_shape_seed_phase(2), 0.2360679775), "net shape seed owner should wrap phases")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_shape_scale(0.0, 0.0), 0.82), "net shape scale owner should preserve the base scale at zero angle")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_shape_point(100.0, 50.0, 0, 36, 0.0).is_equal_approx(Vector2(41.0, 0.0)), "net shape point owner should preserve the first outline point")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_shape_point(100.0, 50.0, 9, 36, 0.0).is_equal_approx(Vector2(0.0, 14.0)), "net shape point owner should preserve quarter-turn outline points")
+	var net_shape: Array = CommandoFirearmLingeringNetFieldState.generate_net_shape(100.0, 50.0, 0)
+	_expect(net_shape.size() == 36, "net shape owner should generate the expected outline point count")
+	_expect(runtime._get_vector2(net_shape[0], Vector2.ZERO).is_equal_approx(Vector2(41.0, 0.0)), "net shape owner should preserve the deterministic first point")
 	runtime.shot_serial = 40
 	_expect(runtime._get_lingering_effect_id({"id": 77}) == 77, "lingering effect-id helper should preserve explicit ids")
 	_expect(runtime.shot_serial == 40, "lingering effect-id helper should not consume serials for explicit ids")
@@ -585,48 +586,51 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(float(first_fire_flame.get("max_lifetime", 0.0)), 40.0), "lingering fire flame builder should preserve max lifetime")
 	_expect(is_equal_approx(float(first_fire_flame.get("phase", -1.0)), 0.0), "lingering fire flame builder should preserve the first flame phase")
 	var live_net_lifecycle := {}
-	runtime._apply_lingering_net_lifecycle_fields(live_net_lifecycle, false)
-	_expect(not bool(live_net_lifecycle.get("dissolve", true)), "lingering net lifecycle helper should preserve live dissolve state")
-	_expect(bool(live_net_lifecycle.get("boss_trapped", false)), "lingering net lifecycle helper should trap bosses for live nets")
-	_expect(bool(live_net_lifecycle.get("hooked_player", false)), "lingering net lifecycle helper should hook players for live nets")
-	_expect(not bool(live_net_lifecycle.get("rope_broken", true)), "lingering net lifecycle helper should keep live ropes intact")
-	_expect(is_equal_approx(float(live_net_lifecycle.get("rope_snap_timer", -1.0)), 0.0), "lingering net lifecycle helper should start snap timers at zero")
+	CommandoFirearmLingeringNetFieldState.apply_lifecycle_fields(live_net_lifecycle, false)
+	_expect(not bool(live_net_lifecycle.get("dissolve", true)), "lingering net lifecycle owner should preserve live dissolve state")
+	_expect(bool(live_net_lifecycle.get("boss_trapped", false)), "lingering net lifecycle owner should trap bosses for live nets")
+	_expect(bool(live_net_lifecycle.get("hooked_player", false)), "lingering net lifecycle owner should hook players for live nets")
+	_expect(not bool(live_net_lifecycle.get("rope_broken", true)), "lingering net lifecycle owner should keep live ropes intact")
+	_expect(is_equal_approx(float(live_net_lifecycle.get("rope_snap_timer", -1.0)), 0.0), "lingering net lifecycle owner should start snap timers at zero")
 	var dissolve_net_lifecycle := {}
-	runtime._apply_lingering_net_lifecycle_fields(dissolve_net_lifecycle, true)
-	_expect(bool(dissolve_net_lifecycle.get("dissolve", false)), "lingering net lifecycle helper should preserve dissolve state")
-	_expect(not bool(dissolve_net_lifecycle.get("boss_trapped", true)), "lingering net lifecycle helper should not trap bosses for dissolving nets")
-	_expect(not bool(dissolve_net_lifecycle.get("hooked_player", true)), "lingering net lifecycle helper should not hook players for dissolving nets")
-	_expect(bool(dissolve_net_lifecycle.get("rope_broken", false)), "lingering net lifecycle helper should mark dissolving ropes broken")
-	_expect(is_equal_approx(runtime._get_lingering_net_rope_snap_duration({"dash_break_frames": 12.0}), 12.0), "lingering net rope-snap duration helper should read explicit durations")
-	_expect(is_equal_approx(runtime._get_lingering_net_rope_snap_duration({}), 24.0), "lingering net rope-snap duration helper should use the default dash-break duration")
-	_expect(runtime._get_lingering_net_origin({"origin": Vector2(3.0, 4.0)}, {}) == Vector2(3.0, 4.0), "lingering net origin helper should preserve explicit origins")
+	CommandoFirearmLingeringNetFieldState.apply_lifecycle_fields(dissolve_net_lifecycle, true)
+	_expect(bool(dissolve_net_lifecycle.get("dissolve", false)), "lingering net lifecycle owner should preserve dissolve state")
+	_expect(not bool(dissolve_net_lifecycle.get("boss_trapped", true)), "lingering net lifecycle owner should not trap bosses for dissolving nets")
+	_expect(not bool(dissolve_net_lifecycle.get("hooked_player", true)), "lingering net lifecycle owner should not hook players for dissolving nets")
+	_expect(bool(dissolve_net_lifecycle.get("rope_broken", false)), "lingering net lifecycle owner should mark dissolving ropes broken")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_rope_snap_duration({"dash_break_frames": 12.0}, 24.0), 12.0), "lingering net rope-snap duration owner should read explicit durations")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_rope_snap_duration({}, 24.0), 24.0), "lingering net rope-snap duration owner should use the default dash-break duration")
+	_expect(CommandoFirearmLingeringNetFieldState.get_origin({"origin": Vector2(3.0, 4.0)}, Vector2.ZERO) == Vector2(3.0, 4.0), "lingering net origin owner should preserve explicit origins")
 	var fallback_net_origin_context := {"player_pos": Vector2(120.0, 640.0), "player_paddle_width": 90.0, "player_paddle_height": 24.0}
-	_expect(runtime._get_lingering_net_origin({}, fallback_net_origin_context) == runtime._get_net_gun_aim_origin(fallback_net_origin_context), "lingering net origin helper should use net aim origin fallback")
-	_expect(is_equal_approx(runtime._get_lingering_net_player_slow_multiplier({"player_slow_multiplier": 0.55}), 0.55), "lingering net player slow helper should read explicit multipliers")
-	_expect(is_equal_approx(runtime._get_lingering_net_player_slow_multiplier({}), 1.0), "lingering net player slow helper should default to neutral movement")
+	var fallback_net_origin: Vector2 = runtime._get_net_gun_aim_origin(fallback_net_origin_context)
+	_expect(CommandoFirearmLingeringNetFieldState.get_origin({}, fallback_net_origin) == fallback_net_origin, "lingering net origin owner should use net aim origin fallback")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_player_slow_multiplier({"player_slow_multiplier": 0.55}, 1.0), 0.55), "lingering net player slow owner should read explicit multipliers")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_player_slow_multiplier({}, 1.0), 1.0), "lingering net player slow owner should default to neutral movement")
 	var net_profile_effect := {}
-	runtime._apply_lingering_net_profile_fields(
+	CommandoFirearmLingeringNetFieldState.apply_profile_fields(
 		net_profile_effect,
 		{
 			"dash_break_frames": 12.0,
 			"player_slow_multiplier": 0.55,
 		},
 		{"origin": Vector2(3.0, 4.0)},
-		{}
+		Vector2.ZERO,
+		24.0,
+		1.0
 	)
-	_expect(is_equal_approx(float(net_profile_effect.get("rope_snap_duration", 0.0)), 12.0), "lingering net profile helper should preserve explicit rope snap duration")
-	_expect(net_profile_effect.get("origin", Vector2.ZERO) == Vector2(3.0, 4.0), "lingering net profile helper should preserve explicit origins")
-	_expect(is_equal_approx(float(net_profile_effect.get("player_slow_multiplier", 0.0)), 0.55), "lingering net profile helper should preserve explicit player slow multipliers")
-	_expect(is_equal_approx(runtime._get_lingering_net_deploy_x(Vector2(100.0, 80.0)), 100.0), "lingering net deploy-x helper should use the effect center x")
-	_expect(runtime._get_lingering_net_rect(Vector2(100.0, 80.0), Vector2(280.0, 110.0)) == Rect2(Vector2(-40.0, 25.0), Vector2(280.0, 110.0)), "lingering net rect helper should build centered rects")
-	_expect(is_equal_approx(runtime._get_lingering_net_initial_constrict_factor(), 1.0), "lingering net initial constrict helper should preserve the default constrict factor")
-	_expect(runtime._get_array(runtime._build_lingering_net_shape(Vector2(280.0, 110.0), 7)).size() == 36, "lingering net shape builder should preserve deterministic shape point count")
+	_expect(is_equal_approx(float(net_profile_effect.get("rope_snap_duration", 0.0)), 12.0), "lingering net profile owner should preserve explicit rope snap duration")
+	_expect(net_profile_effect.get("origin", Vector2.ZERO) == Vector2(3.0, 4.0), "lingering net profile owner should preserve explicit origins")
+	_expect(is_equal_approx(float(net_profile_effect.get("player_slow_multiplier", 0.0)), 0.55), "lingering net profile owner should preserve explicit player slow multipliers")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_deploy_x(Vector2(100.0, 80.0)), 100.0), "lingering net deploy-x owner should use the effect center x")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_rect(Vector2(100.0, 80.0), Vector2(280.0, 110.0)) == Rect2(Vector2(-40.0, 25.0), Vector2(280.0, 110.0)), "lingering net rect owner should build centered rects")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_initial_constrict_factor(), 1.0), "lingering net initial constrict owner should preserve the default constrict factor")
+	_expect(runtime._get_array(CommandoFirearmLingeringNetFieldState.build_net_shape(Vector2(280.0, 110.0), 7)).size() == 36, "lingering net shape builder owner should preserve deterministic shape point count")
 	var net_geometry_effect := {}
-	runtime._apply_lingering_net_geometry_fields(net_geometry_effect, Vector2(100.0, 80.0), Vector2(280.0, 110.0), 7)
-	_expect(is_equal_approx(float(net_geometry_effect.get("deploy_x", 0.0)), 100.0), "lingering net geometry helper should store deploy x")
-	_expect(net_geometry_effect.get("net_rect", Rect2()) == Rect2(Vector2(-40.0, 25.0), Vector2(280.0, 110.0)), "lingering net geometry helper should build a centered net rect")
-	_expect(is_equal_approx(float(net_geometry_effect.get("constrict_factor", 0.0)), 1.0), "lingering net geometry helper should initialize constrict factor")
-	_expect(runtime._get_array(net_geometry_effect.get("shape", [])).size() == 36, "lingering net geometry helper should seed deterministic shape points")
+	CommandoFirearmLingeringNetFieldState.apply_geometry_fields(net_geometry_effect, Vector2(100.0, 80.0), Vector2(280.0, 110.0), 7)
+	_expect(is_equal_approx(float(net_geometry_effect.get("deploy_x", 0.0)), 100.0), "lingering net geometry owner should store deploy x")
+	_expect(net_geometry_effect.get("net_rect", Rect2()) == Rect2(Vector2(-40.0, 25.0), Vector2(280.0, 110.0)), "lingering net geometry owner should build a centered net rect")
+	_expect(is_equal_approx(float(net_geometry_effect.get("constrict_factor", 0.0)), 1.0), "lingering net geometry owner should initialize constrict factor")
+	_expect(runtime._get_array(net_geometry_effect.get("shape", [])).size() == 36, "lingering net geometry owner should seed deterministic shape points")
 	var live_net_effect := {}
 	runtime._apply_lingering_net_fields(
 		live_net_effect,
@@ -1569,6 +1573,31 @@ func _verify_removed_net_field_clamp_bridges() -> void:
 		"_build_net_field_boss_clamp_result",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field clamp bridge %s" % bridge_name)
+
+
+func _verify_removed_net_field_setup_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_apply_lingering_net_lifecycle_fields",
+		"_get_lingering_net_rope_snap_duration",
+		"_get_lingering_net_origin",
+		"_get_lingering_net_player_slow_multiplier",
+		"_apply_lingering_net_profile_fields",
+		"_apply_lingering_net_geometry_fields",
+		"_get_lingering_net_deploy_x",
+		"_get_lingering_net_rect",
+		"_get_lingering_net_initial_constrict_factor",
+		"_build_lingering_net_shape",
+		"_generate_net_shape",
+		"_get_net_shape_seed_phase",
+		"_get_net_shape_scale",
+		"_get_net_shape_point",
+		"_get_net_lingering_effect_pos",
+		"_get_default_lingering_effect_pos",
+		"_get_net_effect_desired_height",
+		"_get_net_effect_height_limits",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field setup bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:

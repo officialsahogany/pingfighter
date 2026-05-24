@@ -3447,58 +3447,6 @@ func _apply_lingering_net_fields(
 	)
 
 
-func _apply_lingering_net_lifecycle_fields(effect: Dictionary, dissolve: bool) -> void:
-	CommandoFirearmLingeringNetFieldState.apply_lifecycle_fields(effect, dissolve)
-
-
-func _get_lingering_net_rope_snap_duration(profile: Dictionary) -> float:
-	return CommandoFirearmLingeringNetFieldState.get_rope_snap_duration(profile, NET_GUN_DASH_BREAK_FRAMES)
-
-
-func _get_lingering_net_origin(projectile: Dictionary, context: Dictionary) -> Variant:
-	return CommandoFirearmLingeringNetFieldState.get_origin(projectile, _get_net_gun_aim_origin(context))
-
-
-func _get_lingering_net_player_slow_multiplier(profile: Dictionary) -> float:
-	return CommandoFirearmLingeringNetFieldState.get_player_slow_multiplier(profile, NET_GUN_PLAYER_SLOW_MULTIPLIER)
-
-
-func _apply_lingering_net_profile_fields(
-	effect: Dictionary,
-	profile: Dictionary,
-	projectile: Dictionary,
-	context: Dictionary
-) -> void:
-	CommandoFirearmLingeringNetFieldState.apply_profile_fields(
-		effect,
-		profile,
-		projectile,
-		_get_net_gun_aim_origin(context),
-		NET_GUN_DASH_BREAK_FRAMES,
-		NET_GUN_PLAYER_SLOW_MULTIPLIER
-	)
-
-
-func _apply_lingering_net_geometry_fields(effect: Dictionary, pos: Vector2, effect_size: Vector2, effect_id: int) -> void:
-	CommandoFirearmLingeringNetFieldState.apply_geometry_fields(effect, pos, effect_size, effect_id)
-
-
-func _get_lingering_net_deploy_x(pos: Vector2) -> float:
-	return CommandoFirearmLingeringNetFieldState.get_deploy_x(pos)
-
-
-func _get_lingering_net_rect(pos: Vector2, effect_size: Vector2) -> Rect2:
-	return CommandoFirearmLingeringNetFieldState.get_net_rect(pos, effect_size)
-
-
-func _get_lingering_net_initial_constrict_factor() -> float:
-	return CommandoFirearmLingeringNetFieldState.get_initial_constrict_factor()
-
-
-func _build_lingering_net_shape(effect_size: Vector2, effect_id: int) -> Array:
-	return CommandoFirearmLingeringNetFieldState.build_net_shape(effect_size, effect_id)
-
-
 func _seed_lingering_fire_flames(effect: Dictionary) -> void:
 	if not _is_lingering_fire_zone(effect):
 		return
@@ -3509,22 +3457,6 @@ func _spawn_net_dissolve_effect(projectile: Dictionary, context: Dictionary) -> 
 	var net_projectile: Dictionary = projectile.duplicate(true)
 	net_projectile["net_dissolve"] = true
 	return _spawn_lingering_effect("net_gun", net_projectile, context)
-
-
-func _generate_net_shape(width: float, height: float, seed_value: int) -> Array:
-	return CommandoFirearmLingeringNetFieldState.generate_net_shape(width, height, seed_value)
-
-
-func _get_net_shape_seed_phase(seed_value: int) -> float:
-	return CommandoFirearmLingeringNetFieldState.get_net_shape_seed_phase(seed_value)
-
-
-func _get_net_shape_scale(angle: float, seed_phase: float) -> float:
-	return CommandoFirearmLingeringNetFieldState.get_net_shape_scale(angle, seed_phase)
-
-
-func _get_net_shape_point(width: float, height: float, point_index: int, point_count: int, seed_phase: float) -> Vector2:
-	return CommandoFirearmLingeringNetFieldState.get_net_shape_point(width, height, point_index, point_count, seed_phase)
 
 
 func _get_lingering_effect_pos(profile: Dictionary, projectile: Dictionary, context: Dictionary) -> Vector2:
@@ -3543,46 +3475,10 @@ func _get_lingering_effect_pos(profile: Dictionary, projectile: Dictionary, cont
 	)
 
 
-func _get_net_lingering_effect_pos(
-	profile: Dictionary,
-	projectile: Dictionary,
-	context: Dictionary,
-	pos: Vector2
-) -> Vector2:
-	return CommandoFirearmLingeringNetFieldState.get_net_lingering_effect_pos(
-		profile,
-		projectile,
-		context,
-		pos,
-		_get_boss_target_pos(context),
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		NET_GUN_WIDTH,
-		NET_GUN_MIN_HEIGHT,
-		NET_GUN_HEIGHT
-	)
-
-
-func _get_default_lingering_effect_pos(profile: Dictionary, pos: Vector2) -> Vector2:
-	return CommandoFirearmLingeringNetFieldState.get_default_lingering_effect_pos(profile, pos, FIELD_WIDTH, FIELD_HEIGHT)
-
-
 func _get_net_effect_height(profile: Dictionary, context: Dictionary) -> float:
 	return CommandoFirearmLingeringNetFieldState.get_net_effect_height(
 		profile,
 		context,
-		NET_GUN_MIN_HEIGHT,
-		NET_GUN_HEIGHT
-	)
-
-
-func _get_net_effect_desired_height(context: Dictionary) -> float:
-	return CommandoFirearmLingeringNetFieldState.get_net_effect_desired_height(context)
-
-
-func _get_net_effect_height_limits(profile: Dictionary) -> Vector2:
-	return CommandoFirearmLingeringNetFieldState.get_net_effect_height_limits(
-		profile,
 		NET_GUN_MIN_HEIGHT,
 		NET_GUN_HEIGHT
 	)
@@ -3840,7 +3736,7 @@ func _get_next_net_constrict_factor(effect: Dictionary) -> float:
 func _get_net_constrict_factor(effect: Dictionary) -> float:
 	return CommandoFirearmLingeringNetFieldState.get_net_constrict_factor(
 		effect,
-		_get_lingering_net_initial_constrict_factor()
+		CommandoFirearmLingeringNetFieldState.get_initial_constrict_factor()
 	)
 
 
