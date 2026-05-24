@@ -264,6 +264,7 @@ func _init() -> void:
 	_verify_bowling_trap_round_carryover()
 	_verify_suicide_drone_direct_control_lifecycle()
 	_verify_suicide_drone_ball_boost_and_boss_restore()
+	_verify_removed_suicide_drone_lingering_bridges()
 	_verify_non_fire_inputs_do_not_spawn_vfx()
 	_verify_cooldown_and_switch_suppression_do_not_spend_or_spawn()
 	_verify_firearm_fx_host_activation_does_not_emit_stale_particles()
@@ -1812,6 +1813,15 @@ func _verify_suicide_drone_ball_boost_and_boss_restore() -> void:
 	_expect(is_equal_approx(float(boss_result.get("commando_suicide_drone_ball_boosted_speed", -1.0)), 0.0), "boss post-hit handler should clear suicide-drone boosted speed metadata")
 	_expect(not bool(boss_result.get("speed_limit_disabled", true)), "boss post-hit handler should restore the speed cap after suicide-drone boost")
 	_expect(is_equal_approx(_get_vector2(boss_result.get("ball_vel", Vector2.ZERO), Vector2.ZERO).length(), 9.0), "boss post-hit handler should restore the boosted ball to original speed")
+
+
+func _verify_removed_suicide_drone_lingering_bridges() -> void:
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_spawn_weapon_lingering_effect",
+		"_trigger_active_item_molotov_fire_zone",
+	]:
+		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep suicide-drone lingering bridge %s" % bridge_name)
 
 
 func _verify_non_fire_inputs_do_not_spawn_vfx() -> void:
