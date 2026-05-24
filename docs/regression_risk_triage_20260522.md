@@ -6489,6 +6489,25 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1325`
   scripts with no GDScript warnings.
 
+204th follow-up on 2026-05-24:
+
+- Commit: `d8f27f9c6 godot: drop Commando support advance bridge`.
+- Scope: removed the private `_advance_support_call()` runtime bridge.
+  `_update_support_calls()` now calls
+  `CommandoFirearmSupportCallResolver.advance_call()` directly with the
+  runtime-tuned aircraft lane, speed, bomb interval, field width, finish
+  margin, and curve metadata. The support-call resolver smoke now verifies the
+  owner advance path directly and guards that the advance bridge stays removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3507` lines /
+  `140` functions to `3503` lines / `139` functions.
+- Validation: focused support-call / runtime coverage passed:
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_support_projectile_resolver_smoke`.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` scanned `1325` scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

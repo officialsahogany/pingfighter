@@ -4132,7 +4132,8 @@ This section is intentionally long; use search to find the nearest owner.
   `commando_firearm_runtime.gd` keeps support-call array mutation, aircraft
   audio lifecycle, projectile spawning, and draw / damage handoff while
   calling this helper directly for deterministic payload / target /
-  lifecycle-step decisions.
+  lifecycle-step decisions instead of preserving private support-call setup or
+  advance bridges.
 - `scripts/characters/commando_firearm_support_projectile_resolver.gd`
   Owns pure Commando fire-support projectile construction: deterministic
   drop-row fallback construction, opponent-wall missile construction,
