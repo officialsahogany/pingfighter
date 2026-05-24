@@ -9262,3 +9262,27 @@ commits rather than standalone `fix` commits:
   `project_resource_loader_import_preference_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1337` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors.
+
+342nd follow-up on 2026-05-25:
+
+- Commit:
+  `03a75cc33 godot: move Commando weapon hit result dispatch`.
+- Scope: moved the runtime weapon-hit result bridge into
+  `CommandoFirearmHitResultState.apply_runtime_weapon_hit_result()`. The hit
+  result owner now builds weapon hit payloads, applies pistol / AK-47 counter
+  updates back to the runtime owner, keeps pistol feedback side effects, and
+  returns the combat result payload. Runtime now delegates from
+  `_register_projectile_hit()` and no longer keeps `_apply_weapon_hit_result()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1883` lines /
+  `27` functions to `1874` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_hit_result_state_smoke`,
+  `commando_firearm_pistol_hit_state_smoke`,
+  `commando_firearm_ak47_hit_state_smoke`,
+  `commando_firearm_slingshot_state_smoke`,
+  `commando_firearm_boss_damage_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1337` scripts with no
+  GDScript warnings on rerun, and `git diff --check` reported no whitespace
+  errors.
