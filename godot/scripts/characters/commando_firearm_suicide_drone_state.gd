@@ -392,6 +392,71 @@ static func build_runtime_detonation_result(
 	return result
 
 
+static func detonate_runtime_projectile(
+	impact_flashes: Array,
+	runtime_owner: Object,
+	projectile: Dictionary,
+	reason: String,
+	context: Dictionary,
+	deps: Dictionary,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	weapon_hit_feedback: Dictionary,
+	hit_feedback_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	field_width: float,
+	cooldown_frames: float,
+	ball_speed_multiplier: float,
+	ball_fan_degrees: float,
+	grenade_explosion_duration_frames: float,
+	flash_limit: int
+) -> Dictionary:
+	append_runtime_detonation_flash(
+		impact_flashes,
+		projectile,
+		weapon_profiles,
+		weapon_profile_overrides,
+		base_weapon_id,
+		grenade_explosion_duration_frames,
+		flash_limit
+	)
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var hit_boss: bool = explosion_hits_runtime_boss(
+		projectile,
+		context,
+		weapon_profiles,
+		weapon_profile_overrides,
+		field_width
+	)
+	if hit_boss:
+		if runtime_owner != null and runtime_owner.has_method("_register_projectile_hit"):
+			runtime_owner.call("_register_projectile_hit", projectile, context, deps)
+	else:
+		if trigger_active_item_fire_zone(projectile, deps).is_empty():
+			if runtime_owner != null and runtime_owner.has_method("_spawn_lingering_effect"):
+				runtime_owner.call("_spawn_lingering_effect", "suicide_drone", projectile, context)
+		dispatch_miss_detonation_feedback(
+			projectile,
+			deps,
+			weapon_hit_feedback,
+			hit_feedback_profile_overrides,
+			base_weapon_id
+		)
+	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
+	if runtime_owner != null:
+		runtime_owner.set("suicide_drone_cooldown_frames", cooldown_frames)
+	return build_runtime_detonation_result(
+		reason,
+		pos,
+		hit_boss,
+		cooldown_frames,
+		projectile,
+		context,
+		ball_speed_multiplier,
+		ball_fan_degrees
+	)
+
+
 static func trigger_active_item_fire_zone(projectile: Dictionary, deps: Dictionary) -> Dictionary:
 	var registry: Object = deps.get("registry", null)
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)

@@ -1808,46 +1808,24 @@ func _detonate_suicide_drone_at_index(
 ) -> Dictionary:
 	if index >= 0 and index < projectiles.size():
 		projectiles.remove_at(index)
-	CommandoFirearmSuicideDroneState.append_runtime_detonation_flash(
+	return CommandoFirearmSuicideDroneState.detonate_runtime_projectile(
 		impact_flashes,
+		self,
 		projectile,
+		reason,
+		context,
+		deps,
 		WEAPON_PROFILES,
 		WEAPON_PROFILE_OVERRIDES,
+		WEAPON_HIT_FEEDBACK,
+		HIT_FEEDBACK_PROFILE_OVERRIDES,
 		BASE_WEAPON_ID,
+		FIELD_WIDTH,
+		SUICIDE_DRONE_COOLDOWN_FRAMES,
+		SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+		SUICIDE_DRONE_BALL_FAN_DEGREES,
 		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
 		FLASH_LIMIT
-	)
-	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var hit_boss: bool = CommandoFirearmSuicideDroneState.explosion_hits_runtime_boss(
-		projectile,
-		context,
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES,
-		FIELD_WIDTH
-	)
-	if hit_boss:
-		_register_projectile_hit(projectile, context, deps)
-	else:
-		if CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone(projectile, deps).is_empty():
-			_spawn_lingering_effect("suicide_drone", projectile, context)
-		CommandoFirearmSuicideDroneState.dispatch_miss_detonation_feedback(
-			projectile,
-			deps,
-			WEAPON_HIT_FEEDBACK,
-			HIT_FEEDBACK_PROFILE_OVERRIDES,
-			BASE_WEAPON_ID
-		)
-	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
-	suicide_drone_cooldown_frames = SUICIDE_DRONE_COOLDOWN_FRAMES
-	return CommandoFirearmSuicideDroneState.build_runtime_detonation_result(
-		reason,
-		pos,
-		hit_boss,
-		suicide_drone_cooldown_frames,
-		projectile,
-		context,
-		SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
-		SUICIDE_DRONE_BALL_FAN_DEGREES
 	)
 
 
