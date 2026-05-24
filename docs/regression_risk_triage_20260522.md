@@ -8682,3 +8682,26 @@ commits rather than standalone `fix` commits:
   headless load check passed, `run_warning_scan.ps1` scanned `1335` scripts
   with no GDScript warnings, and `git diff --check` reported no whitespace
   errors.
+
+313th follow-up on 2026-05-24:
+
+- Commit:
+  `fb4bf1206 godot: move Commando pistol and lingering spawn helpers`.
+- Scope: moved Commando pistol runtime hit-effect composition into
+  `CommandoFirearmPistolHitState.apply_runtime_hit_effects()`, leaving the
+  runtime wrapper responsible for storing the next pistol hit count only. Also
+  moved lingering-effect spawn payload construction into
+  `CommandoFirearmLingeringEffectState.build_spawn_payload()`, so net-field
+  geometry, dissolve duration, status fields, fire-flame seeding, and spawn
+  result metadata live with the lingering-effect owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2349` lines /
+  `35` functions to `2206` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_pistol_hit_state_smoke`,
+  `commando_firearm_pistol_feedback_state_smoke`,
+  `commando_supply_drop_item_candidates_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
