@@ -2175,10 +2175,20 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 				_capture_bowling_trap_ball(index, trap, context, deps)
 				result = CommandoFirearmBowlingTrapGeometry.build_capture_result(CommandoFirearmValueUtils.get_dict(bowling_traps[index]))
 		elif state == "capturing":
-			if result.is_empty():
-				result = _update_bowling_trap_capture(index, trap, step, context, deps)
+			var next_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.update_capture_state(
+				trap,
+				step,
+				BOWLING_TRAP_CAPTURE_FRAMES
+			)
+			if CommandoFirearmBowlingTrapGeometry.is_capture_complete(next_trap):
+				var launch_result: Dictionary = _release_bowling_trap_ball(next_trap, context, deps)
+				bowling_traps.remove_at(index)
+				if result.is_empty():
+					result = launch_result
 			else:
-				_update_bowling_trap_capture(index, trap, step, context, deps)
+				bowling_traps[index] = next_trap
+				if result.is_empty():
+					result = CommandoFirearmBowlingTrapGeometry.build_capture_result(next_trap)
 		elif state == "launching" or state == "inactive":
 			bowling_traps.remove_at(index)
 		else:
@@ -2206,20 +2216,6 @@ func _capture_bowling_trap_ball(index: int, trap: Dictionary, context: Dictionar
 	)
 	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(captured_pos, ball_vel, 0.62, "bowling_trap_capture", deps, BASE_WEAPON_ID)
 	CommandoFirearmAudioDispatcher.play_impact_audio("bowling_trap", deps)
-
-
-func _update_bowling_trap_capture(index: int, trap: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var next_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.update_capture_state(
-		trap,
-		fps_scale,
-		BOWLING_TRAP_CAPTURE_FRAMES
-	)
-	if CommandoFirearmBowlingTrapGeometry.is_capture_complete(next_trap):
-		var launch_result: Dictionary = _release_bowling_trap_ball(next_trap, context, deps)
-		bowling_traps.remove_at(index)
-		return launch_result
-	bowling_traps[index] = next_trap
-	return CommandoFirearmBowlingTrapGeometry.build_capture_result(next_trap)
 
 
 func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:

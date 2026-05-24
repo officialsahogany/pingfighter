@@ -239,6 +239,7 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"_start_bowling_trap_install",
 		"_update_bowling_trap_install",
 		"_clear_bowling_trap_guard",
+		"_update_bowling_trap_capture",
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep bowling-trap geometry bridge %s" % bridge_name)
 
