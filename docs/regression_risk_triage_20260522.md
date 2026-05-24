@@ -8109,3 +8109,29 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors beyond existing CRLF
   normalization notices.
+
+281st follow-up on 2026-05-24:
+
+- Commits:
+  `b76d19dfa docs: record Russian localization pass` and
+  `b6f952787 godot: move Commando bowling draw state`.
+- Scope: `b76d19dfa` also captured the Commando suicide-drone draw-state
+  extraction that arrived from the background refactor lane. Together with
+  `b6f952787`, suicide-drone projectile draw-state selection and bowling-trap
+  install-state selection now live in
+  `CommandoFirearmDrawStateResolver.build_runtime_suicide_drone_state()` and
+  `CommandoFirearmDrawStateResolver.build_runtime_bowling_trap_state()`,
+  leaving `CommandoFirearmRuntime.get_actor_draw_context()` with thinner
+  delegation. `commando_firearm_runtime_vfx_smoke` now pins Korean during the
+  test and restores the previous persisted language afterward so localized
+  `user://language_settings.cfg` state cannot break Korean ammo-text
+  assertions.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2676` lines /
+  `35` functions to `2668` lines / `35` functions across the two draw-state
+  passes.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond existing CRLF
+  normalization notices.
