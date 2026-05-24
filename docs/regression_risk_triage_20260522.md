@@ -6983,6 +6983,23 @@ Hundredth split on 2026-05-24:
   removed hooked-net query bridge. `run_headless_load_check.ps1` passed, and
   `run_warning_scan.ps1` scanned `1326` scripts with no GDScript warnings.
 
+229th follow-up on 2026-05-24:
+
+- Commit: `fac044054 godot: move Commando dash net break to owner`.
+- Scope: added
+  `CommandoFirearmLingeringNetFieldState.break_active_hooked_net_fields()` and
+  removed `_consume_net_gun_dash_trigger()` plus `_break_hooked_net_fields()`
+  from `commando_firearm_runtime.gd`. The lingering update loop now reads the
+  owner dash-trigger result, stores `net_gun_last_dash_active`, and calls the
+  owner break helper directly on rising dash input.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3260` lines /
+  `86` functions to `3250` lines / `84` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now rejects the
+  removed dash-trigger and hooked-net break bridges.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

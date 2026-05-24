@@ -4028,20 +4028,21 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_lingering_net_field_state.gd`
   Owns pure Commando lingering net-field state: live / dissolve lifecycle
   payloads, dash-break rope-broken payloads, profile-derived rope / origin /
-  player-slow fields, active hooked-field scans, deterministic net outline
-  generation, net-field position and height clamping, dash-active /
-  rising-trigger reads, alternating constrict input predicates, and boss clamp
-  rectangle / result math. The
+  player-slow fields, active hooked-field scans, active hooked-field break
+  mutation, deterministic net outline generation, net-field position and height
+  clamping, dash-active / rising-trigger reads, alternating constrict input
+  predicates, and boss clamp rectangle / result math. The
   runtime keeps projectile impact ownership, active lingering-effect storage,
   stored previous-dash state, audio side effects, live spawn / field setup
   side-effect boundaries, candidate-index scanning, and constrict mutation
   while the spawn path calls `apply_net_fields()` directly for live / dissolve
-  net payloads, dash-break handling calls `mark_hooked_field_broken()` directly,
-  and the alternating-input constrict path performs its candidate-index scan
-  inline before calling the helper's next-factor calculation directly. Active
-  lingering effect updates also resolve rope-origin resync and boss-clamp merge
-  inline instead of routing through private rope-origin / clamp bridges. Tests
-  cover the real spawn / break / hooked-field query / constrict /
+  net payloads, dash-trigger handling reads `get_dash_trigger_result()`, and
+  dash-break handling calls `break_active_hooked_net_fields()` directly. The
+  alternating-input constrict path performs its candidate-index scan inline
+  before calling the helper's next-factor calculation directly. Active lingering
+  effect updates also resolve rope-origin resync and boss-clamp merge inline
+  instead of routing through private rope-origin / clamp bridges. Tests cover
+  the real spawn / break / hooked-field query / dash-trigger / constrict /
   candidate-index / rope-origin paths plus this
   helper's deterministic lifecycle / profile / geometry / shape / height-limit
   / clamp / predicate / constrict-factor calculations instead of runtime
