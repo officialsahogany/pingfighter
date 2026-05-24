@@ -1851,7 +1851,13 @@ func _update_suicide_drone_input(
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
-	return _build_suicide_drone_fire_result(updated_weapon, ammo_current, special_gauge)
+	return CommandoFirearmSuicideDroneState.build_fire_result(
+		updated_weapon,
+		ammo_current,
+		SUICIDE_DRONE_AMMO_MAX,
+		SUICIDE_DRONE_GRACE_FRAMES,
+		special_gauge
+	)
 
 
 func _update_active_suicide_drone_input(
@@ -1864,7 +1870,17 @@ func _update_active_suicide_drone_input(
 	if index < 0:
 		return {}
 	var projectile: Dictionary = CommandoFirearmValueUtils.get_dict(projectiles[index])
-	_apply_suicide_drone_input_to_projectile(projectile, input_snapshot)
+	var input_vector: Vector2 = CommandoFirearmInputResolver.get_suicide_drone_input_vector(input_snapshot)
+	var next_projectile: Dictionary = CommandoFirearmSuicideDroneState.apply_input(
+		projectile,
+		input_vector,
+		SUICIDE_DRONE_ACCEL,
+		SUICIDE_DRONE_MAX_SPEED,
+		SUICIDE_DRONE_ROTOR_BASE_SPEED,
+		SUICIDE_DRONE_ROTOR_SPEED_SCALE
+	)
+	projectile.clear()
+	projectile.merge(next_projectile, true)
 	projectiles[index] = projectile
 	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
 	var action_just_pressed: bool = bool(input_snapshot.get(
@@ -1876,7 +1892,7 @@ func _update_active_suicide_drone_input(
 		var detonate_result: Dictionary = _detonate_suicide_drone_at_index(index, projectile, "manual", config, deps)
 		detonate_result["special_gauge"] = special_gauge
 		return detonate_result
-	return _build_suicide_drone_active_input_result(projectile, special_gauge)
+	return CommandoFirearmSuicideDroneState.build_active_input_result(projectile, special_gauge)
 
 
 func _suicide_drone_fire_failed(special_gauge: float, reason: String) -> Dictionary:
@@ -1896,64 +1912,27 @@ func _spawn_suicide_drone(config: Dictionary) -> void:
 		SUICIDE_DRONE_SIZE
 	)
 	var shot_id: int = _next_shot_id()
-	CommandoFirearmValueUtils.append_limited(projectiles, _build_suicide_drone_projectile(profile, origin, config, shot_id), PROJECTILE_LIMIT)
+	CommandoFirearmValueUtils.append_limited(
+		projectiles,
+		CommandoFirearmSuicideDroneState.build_projectile(
+			profile,
+			origin,
+			CommandoFirearmOriginGeometry.get_boss_target_pos(config, FIELD_WIDTH),
+			shot_id,
+			CommandoFirearmSuicideDroneGeometry.get_player_lock_pos(config, FIELD_WIDTH, FIELD_HEIGHT),
+			SUICIDE_DRONE_SIZE,
+			SUICIDE_DRONE_MAX_SPEED,
+			SUICIDE_DRONE_ACCEL,
+			SUICIDE_DRONE_LIFE_FRAMES,
+			SUICIDE_DRONE_GRACE_FRAMES,
+			SUICIDE_DRONE_ROTOR_BASE_SPEED
+		),
+		PROJECTILE_LIMIT
+	)
 	CommandoFirearmValueUtils.append_limited(
 		muzzle_flashes,
 		CommandoFirearmMuzzleFlashResolver.build_flash(origin, Vector2.UP, profile, "suicide_drone"),
 		FLASH_LIMIT
-	)
-
-
-func _build_suicide_drone_fire_result(updated_weapon: Dictionary, ammo_current: int, special_gauge: float) -> Dictionary:
-	return CommandoFirearmSuicideDroneState.build_fire_result(
-		updated_weapon,
-		ammo_current,
-		SUICIDE_DRONE_AMMO_MAX,
-		SUICIDE_DRONE_GRACE_FRAMES,
-		special_gauge
-	)
-
-
-func _build_suicide_drone_active_input_result(projectile: Dictionary, special_gauge: float) -> Dictionary:
-	return CommandoFirearmSuicideDroneState.build_active_input_result(projectile, special_gauge)
-
-
-func _build_suicide_drone_projectile(
-	profile: Dictionary,
-	origin: Vector2,
-	config: Dictionary,
-	shot_id: int
-) -> Dictionary:
-	return CommandoFirearmSuicideDroneState.build_projectile(
-		profile,
-		origin,
-		CommandoFirearmOriginGeometry.get_boss_target_pos(config, FIELD_WIDTH),
-		shot_id,
-		CommandoFirearmSuicideDroneGeometry.get_player_lock_pos(config, FIELD_WIDTH, FIELD_HEIGHT),
-		SUICIDE_DRONE_SIZE,
-		SUICIDE_DRONE_MAX_SPEED,
-		SUICIDE_DRONE_ACCEL,
-		SUICIDE_DRONE_LIFE_FRAMES,
-		SUICIDE_DRONE_GRACE_FRAMES,
-		SUICIDE_DRONE_ROTOR_BASE_SPEED
-	)
-
-
-func _apply_suicide_drone_input_to_projectile(projectile: Dictionary, input_snapshot: Dictionary) -> void:
-	var input_vector: Vector2 = CommandoFirearmInputResolver.get_suicide_drone_input_vector(input_snapshot)
-	var next_projectile: Dictionary = _get_suicide_drone_input_projectile_state(input_vector, projectile)
-	projectile.clear()
-	projectile.merge(next_projectile, true)
-
-
-func _get_suicide_drone_input_projectile_state(input_vector: Vector2, projectile: Dictionary) -> Dictionary:
-	return CommandoFirearmSuicideDroneState.apply_input(
-		projectile,
-		input_vector,
-		SUICIDE_DRONE_ACCEL,
-		SUICIDE_DRONE_MAX_SPEED,
-		SUICIDE_DRONE_ROTOR_BASE_SPEED,
-		SUICIDE_DRONE_ROTOR_SPEED_SCALE
 	)
 
 
@@ -2488,7 +2467,12 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 		var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 		var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 		if projectile_kind == "drone":
-			velocity = _get_drone_velocity(pos, projectile, context, fps_scale)
+			velocity = CommandoFirearmSuicideDroneState.get_homing_velocity(
+				pos,
+				projectile,
+				CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH),
+				fps_scale
+			)
 		elif projectile_kind == "rocket":
 			var motion_result: Dictionary = CommandoFirearmProjectileMotionState.update_rocket_motion(
 				projectile,
@@ -2654,11 +2638,6 @@ func _update_pistol_feedbacks(fps_scale: float) -> void:
 		pistol_feedbacks[index] = CommandoFirearmValueUtils.get_dict(update_result.get("feedback", feedback))
 
 
-func _get_drone_velocity(pos: Vector2, projectile: Dictionary, context: Dictionary, fps_scale: float) -> Vector2:
-	var target: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
-	return CommandoFirearmSuicideDroneState.get_homing_velocity(pos, projectile, target, fps_scale)
-
-
 func _resolve_suicide_drone_collision(
 	index: int,
 	projectile: Dictionary,
@@ -2692,16 +2671,6 @@ func _resolve_suicide_drone_collision(
 	if float(projectile.get("life_frames", 0.0)) <= 0.0:
 		return _detonate_suicide_drone_at_index(index, projectile, "expired", context, deps)
 	return {}
-
-
-func _clamp_suicide_drone_projectile(projectile: Dictionary) -> void:
-	var next_projectile: Dictionary = CommandoFirearmSuicideDroneState.clamp_projectile(
-		projectile,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		SUICIDE_DRONE_SIZE
-	)
-	projectile.clear()
-	projectile.merge(next_projectile, true)
 
 
 func _detonate_suicide_drone_at_index(
@@ -2744,32 +2713,23 @@ func _detonate_suicide_drone_at_index(
 		CommandoFirearmAudioDispatcher.play_impact_audio("suicide_drone", deps)
 	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	suicide_drone_cooldown_frames = SUICIDE_DRONE_COOLDOWN_FRAMES
-	var result: Dictionary = _build_suicide_drone_detonation_result(reason, pos, hit_boss)
-	if reason == "ball_hit":
-		result.merge(_build_suicide_drone_ball_boost_result(projectile, context), true)
-	return result
-
-
-func _build_suicide_drone_detonation_result(reason: String, pos: Vector2, hit_boss: bool) -> Dictionary:
-	return CommandoFirearmSuicideDroneState.build_detonation_result(
+	var result: Dictionary = CommandoFirearmSuicideDroneState.build_detonation_result(
 		reason,
 		pos,
 		hit_boss,
 		suicide_drone_cooldown_frames
 	)
-
-
-func _build_suicide_drone_ball_boost_result(projectile: Dictionary, context: Dictionary) -> Dictionary:
-	return CommandoFirearmSuicideDroneBallBoostResolver.build_boost_result(
-		projectile,
-		context,
-		SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
-		SUICIDE_DRONE_BALL_FAN_DEGREES
-	)
-
-
-func _get_suicide_drone_ball_fan_angle(projectile: Dictionary) -> float:
-	return CommandoFirearmSuicideDroneBallBoostResolver.get_fan_angle(projectile, SUICIDE_DRONE_BALL_FAN_DEGREES)
+	if reason == "ball_hit":
+		result.merge(
+			CommandoFirearmSuicideDroneBallBoostResolver.build_boost_result(
+				projectile,
+				context,
+				SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+				SUICIDE_DRONE_BALL_FAN_DEGREES
+			),
+			true
+		)
+	return result
 
 
 func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) -> String:

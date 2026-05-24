@@ -1,6 +1,5 @@
 extends SceneTree
 
-const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 const CommandoFirearmSuicideDroneBallBoostResolver := preload("res://scripts/characters/commando_firearm_suicide_drone_ball_boost_resolver.gd")
 const BallFrameMotionController := preload("res://scripts/ball/ball_frame_motion_controller.gd")
 const BallUpdateContext := preload("res://scripts/ball/ball_update_context.gd")
@@ -78,15 +77,21 @@ func _verify_direct_suicide_drone_ball_boost_resolver() -> void:
 
 
 func _verify_runtime_delegates_suicide_drone_ball_boost_resolver() -> void:
-	var runtime := CommandoFirearmRuntime.new()
 	var projectile := {"id": 7, "pos": Vector2(100.0, 80.0)}
-	_expect(is_equal_approx(runtime._get_suicide_drone_ball_fan_angle(projectile), 2.95), "runtime fan-angle wrapper should delegate")
-	var result: Dictionary = runtime._build_suicide_drone_ball_boost_result(
+	_expect(is_equal_approx(CommandoFirearmSuicideDroneBallBoostResolver.get_fan_angle(projectile, 25.0), 2.95), "fan-angle owner should stay deterministic")
+	var result: Dictionary = CommandoFirearmSuicideDroneBallBoostResolver.build_boost_result(
 		projectile,
-		{"ball_vel": Vector2(0.0, 9.0), "ball_base_speed": 8.0}
+		{"ball_vel": Vector2(0.0, 9.0), "ball_base_speed": 8.0},
+		3.0,
+		25.0
 	)
-	_expect(is_equal_approx(float(result.get("commando_suicide_drone_ball_restore_speed", 0.0)), 9.0), "runtime boost-result wrapper should preserve restore speed")
-	_expect(is_equal_approx(float(result.get("commando_suicide_drone_ball_boosted_speed", 0.0)), 27.0), "runtime boost-result wrapper should preserve boosted speed")
+	_expect(is_equal_approx(float(result.get("commando_suicide_drone_ball_restore_speed", 0.0)), 9.0), "boost-result owner should preserve restore speed")
+	_expect(is_equal_approx(float(result.get("commando_suicide_drone_ball_boosted_speed", 0.0)), 27.0), "boost-result owner should preserve boosted speed")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var detonate_body := _function_body(runtime_source, "func _detonate_suicide_drone_at_index(")
+	_expect(detonate_body.find("CommandoFirearmSuicideDroneBallBoostResolver.build_boost_result(") >= 0, "runtime detonation path should call the suicide-drone ball boost owner directly")
+	_expect(not runtime_source.contains("func _build_suicide_drone_ball_boost_result("), "runtime should not keep suicide-drone ball boost result bridge")
+	_expect(not runtime_source.contains("func _get_suicide_drone_ball_fan_angle("), "runtime should not keep suicide-drone fan-angle bridge")
 
 
 func _verify_suicide_drone_boost_disables_ball_speed_cap() -> void:
@@ -126,6 +131,16 @@ func _get_vector2(value: Variant) -> Vector2:
 	if value is Vector2:
 		return value
 	return Vector2.ZERO
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start: int = source.find(signature)
+	if start < 0:
+		return ""
+	var next_func: int = source.find("\nfunc ", start + signature.length())
+	if next_func < 0:
+		return source.substr(start)
+	return source.substr(start, next_func - start)
 
 
 func _expect(condition: bool, message: String) -> void:

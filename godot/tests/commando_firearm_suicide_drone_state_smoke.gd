@@ -1,10 +1,26 @@
 extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
-const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 
 var _failures: Array[String] = []
+
+
+class FakeWeaponController:
+	var ammo_current := 4
+
+	func consume_current_weapon_ammo(amount: int) -> bool:
+		if ammo_current < amount:
+			return false
+		ammo_current -= amount
+		return true
+
+	func get_current_weapon_data() -> Dictionary:
+		return {
+			"ammo_current": ammo_current,
+			"ammo_max": 4,
+			"can_fire": ammo_current > 0,
+		}
 
 
 func _init() -> void:
@@ -111,29 +127,41 @@ func _verify_direct_suicide_drone_state() -> void:
 
 func _verify_runtime_delegates_suicide_drone_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	var profile := CommandoFirearmProfileResolver.get_weapon_profile(
-		"suicide_drone",
-		CommandoFirearmRuntime.WEAPON_PROFILES,
-		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES
+	var config := {
+		"player_pos": Vector2(100.0, 680.0),
+		"boss_pos": Vector2(330.0, 60.0),
+		"boss_paddle_width": 100.0,
+		"boss_hitbox_height": 40.0,
+	}
+	var weapon_controller := FakeWeaponController.new()
+	var fire_result: Dictionary = runtime._update_suicide_drone_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		config,
+		{"commando_weapon_controller": weapon_controller},
+		{"ammo_current": 4, "can_fire": true},
+		1000
 	)
-	var projectile: Dictionary = runtime._build_suicide_drone_projectile(
-		profile,
-		Vector2(100.0, 200.0),
-		{"boss_pos": Vector2(330.0, 60.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0},
-		7
-	)
-	_expect(str(projectile.get("weapon_id", "")) == "suicide_drone", "runtime projectile payload wrapper should delegate")
-	var steered: Dictionary = runtime._get_suicide_drone_input_projectile_state(Vector2.RIGHT, projectile)
-	_expect(is_equal_approx((steered.get("velocity", Vector2.ZERO) as Vector2).x, 1.2), "runtime input state wrapper should delegate")
-	var fire_result: Dictionary = runtime._build_suicide_drone_fire_result({}, 4, 500.0)
-	_expect(int(fire_result.get("ammo_current", -1)) == 3, "runtime fire-result wrapper should delegate")
-	var active_result: Dictionary = runtime._build_suicide_drone_active_input_result(steered, 500.0)
-	_expect(active_result.get("drone_pos", Vector2.ZERO) == Vector2(100.0, 200.0), "runtime active-result wrapper should delegate")
-	var detonation_result: Dictionary = runtime._build_suicide_drone_detonation_result("manual", Vector2(5.0, 6.0), false)
-	_expect(str(detonation_result.get("commando_suicide_drone_reason", "")) == "manual", "runtime detonation-result wrapper should delegate")
+	_expect(bool(fire_result.get("fired", false)), "runtime fire path should expose fired suicide drone result")
+	_expect(int(fire_result.get("ammo_current", -1)) == 3, "runtime fire path should decrement suicide drone ammo")
+	_expect(runtime.projectiles.size() == 1, "runtime fire path should append suicide drone projectile")
+	var projectile: Dictionary = runtime.projectiles[0]
+	_expect(str(projectile.get("weapon_id", "")) == "suicide_drone", "runtime fire path should build suicide drone projectile")
+
+	var active_result: Dictionary = runtime._update_active_suicide_drone_input({"right_pressed": true}, 500.0, config, {})
+	_expect(bool(active_result.get("drone_active", false)), "runtime active input path should expose active flag")
+	var steered: Dictionary = runtime.projectiles[0]
+	_expect((steered.get("velocity", Vector2.ZERO) as Vector2).x > 0.0, "runtime active input path should steer the drone projectile")
+
+	var detonation_result: Dictionary = runtime._detonate_suicide_drone_at_index(0, steered, "manual", config, {})
+	_expect(str(detonation_result.get("commando_suicide_drone_reason", "")) == "manual", "runtime detonation path should expose detonation reason")
 	var clamped_projectile := {"pos": Vector2(-10.0, 800.0), "size": Vector2(48.0, 48.0)}
-	runtime._clamp_suicide_drone_projectile(clamped_projectile)
-	_expect(clamped_projectile.get("pos", Vector2.ZERO) == Vector2(24.0, 726.0), "runtime clamp wrapper should delegate")
+	clamped_projectile = CommandoFirearmSuicideDroneState.clamp_projectile(
+		clamped_projectile,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.SUICIDE_DRONE_SIZE
+	)
+	_expect(clamped_projectile.get("pos", Vector2.ZERO) == Vector2(24.0, 726.0), "clamp owner should preserve runtime drone bounds")
 
 
 func _verify_removed_runtime_active_projectile_bridges() -> void:
@@ -141,6 +169,14 @@ func _verify_removed_runtime_active_projectile_bridges() -> void:
 	_expect(not runtime_source.contains("func _has_active_suicide_drone_projectile("), "runtime should not keep active suicide-drone predicate bridge")
 	_expect(not runtime_source.contains("func _get_active_suicide_drone_index("), "runtime should not keep active suicide-drone lookup bridge")
 	_expect(not runtime_source.contains("func _is_suicide_drone_projectile("), "runtime should not keep suicide-drone projectile predicate bridge")
+	_expect(not runtime_source.contains("func _build_suicide_drone_fire_result("), "runtime should not keep suicide-drone fire-result bridge")
+	_expect(not runtime_source.contains("func _build_suicide_drone_active_input_result("), "runtime should not keep suicide-drone active-input bridge")
+	_expect(not runtime_source.contains("func _build_suicide_drone_projectile("), "runtime should not keep suicide-drone projectile build bridge")
+	_expect(not runtime_source.contains("func _apply_suicide_drone_input_to_projectile("), "runtime should not keep suicide-drone input mutation bridge")
+	_expect(not runtime_source.contains("func _get_suicide_drone_input_projectile_state("), "runtime should not keep suicide-drone input-state bridge")
+	_expect(not runtime_source.contains("func _build_suicide_drone_detonation_result("), "runtime should not keep suicide-drone detonation-result bridge")
+	_expect(not runtime_source.contains("func _get_drone_velocity("), "runtime should not keep suicide-drone homing velocity bridge")
+	_expect(not runtime_source.contains("func _clamp_suicide_drone_projectile("), "runtime should not keep suicide-drone clamp bridge")
 
 
 func _expect(condition: bool, message: String) -> void:
