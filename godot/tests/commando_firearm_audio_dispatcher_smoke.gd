@@ -176,6 +176,7 @@ func _verify_missing_audio_is_noop() -> void:
 
 func _verify_removed_runtime_audio_dispatcher_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var support_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
 	for bridge_name in [
 		"_play_weapon_audio_method",
 		"_play_first_audio_method",
@@ -189,8 +190,12 @@ func _verify_removed_runtime_audio_dispatcher_bridges() -> void:
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep audio dispatcher bridge %s" % bridge_name)
 	_expect(
-		source.find("CommandoFirearmAudioDispatcher.dispatch_support_aircraft_audio_events") >= 0,
-		"runtime should delegate support aircraft audio event dispatch to the audio dispatcher"
+		source.find("CommandoFirearmAudioDispatcher.dispatch_support_aircraft_audio_events") < 0,
+		"runtime should not keep support aircraft audio event dispatch inline"
+	)
+	_expect(
+		support_source.find("CommandoFirearmAudioDispatcher.dispatch_support_aircraft_audio_events") >= 0,
+		"support projectile resolver should delegate support aircraft audio event dispatch to the audio dispatcher"
 	)
 	_expect(
 		source.find("CommandoFirearmAudioDispatcher.dispatch_support_call_start_audio") >= 0,

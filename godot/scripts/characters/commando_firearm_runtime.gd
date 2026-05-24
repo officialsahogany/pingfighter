@@ -859,7 +859,33 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 
 func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
 	muzzle_flashes = CommandoFirearmValueUtils.advance_timed_effects(muzzle_flashes, fps_scale)
-	_update_support_calls(fps_scale, context, deps)
+	CommandoFirearmSupportProjectileResolver.advance_runtime_support_calls(
+		support_calls,
+		projectiles,
+		self,
+		context,
+		deps,
+		fps_scale,
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		SUPPORT_AIRCRAFT_START_X,
+		SUPPORT_AIRCRAFT_Y,
+		SUPPORT_AIRCRAFT_SPEED,
+		SUPPORT_BOMB_INTERVAL_FRAMES,
+		SUPPORT_AIRCRAFT_FINISH_MARGIN,
+		SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
+		SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
+		SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
+		SUPPORT_BOMB_INITIAL_VY,
+		SUPPORT_BOMB_GRAVITY,
+		SUPPORT_BOMB_HORIZONTAL_JITTER,
+		SUPPORT_OPPONENT_WALL_Y,
+		SUPPORT_MISSILE_FLIGHT_FRAMES,
+		SUPPORT_MISSILE_LIFE_FRAMES,
+		SUPPORT_BOMB_RANDOM_X_RANGE,
+		PROJECTILE_LIMIT
+	)
 	var ball_motion_result: Dictionary = _update_bowling_traps(fps_scale, context, deps)
 	if not ball_motion_result.is_empty():
 		context.merge(ball_motion_result, true)
@@ -1635,44 +1661,6 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		AK47_SHELL_LIFETIME_FRAMES,
 		PISTOL_SHELL_LIFETIME_FRAMES,
 		SHELL_CASING_LIMIT
-	)
-
-
-func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
-	var step: float = max(0.0, fps_scale)
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-		"fire_support",
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
-	var support_result: Dictionary = CommandoFirearmSupportProjectileResolver.advance_runtime_calls(
-		support_calls,
-		projectiles,
-		self,
-		context,
-		profile,
-		step,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		SUPPORT_AIRCRAFT_START_X,
-		SUPPORT_AIRCRAFT_Y,
-		SUPPORT_AIRCRAFT_SPEED,
-		SUPPORT_BOMB_INTERVAL_FRAMES,
-		SUPPORT_AIRCRAFT_FINISH_MARGIN,
-		SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
-		SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
-		SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
-		SUPPORT_BOMB_INITIAL_VY,
-		SUPPORT_BOMB_GRAVITY,
-		SUPPORT_BOMB_HORIZONTAL_JITTER,
-		SUPPORT_OPPONENT_WALL_Y,
-		SUPPORT_MISSILE_FLIGHT_FRAMES,
-		SUPPORT_MISSILE_LIFE_FRAMES,
-		SUPPORT_BOMB_RANDOM_X_RANGE,
-		PROJECTILE_LIMIT
-	)
-	CommandoFirearmAudioDispatcher.dispatch_support_aircraft_audio_events(
-		CommandoFirearmValueUtils.get_array(support_result.get("audio_events", [])),
-		deps
 	)
 
 

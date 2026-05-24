@@ -1,6 +1,8 @@
 extends RefCounted
 
+const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
@@ -188,6 +190,71 @@ static func advance_runtime_calls(
 		else:
 			support_calls[index] = call_data
 	return {"audio_events": audio_events}
+
+
+static func advance_runtime_support_calls(
+	support_calls: Array,
+	projectiles: Array,
+	runtime_owner: Object,
+	context: Dictionary,
+	deps: Dictionary,
+	fps_scale: float,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	field_size: Vector2,
+	aircraft_start_x: float,
+	aircraft_y: float,
+	aircraft_speed: float,
+	bomb_interval_frames: float,
+	aircraft_finish_margin: float,
+	aircraft_curve_amplitude: float,
+	aircraft_curve_frequency: float,
+	aircraft_curve_secondary_ratio: float,
+	bomb_initial_vy: float,
+	bomb_gravity: float,
+	bomb_horizontal_jitter: float,
+	opponent_wall_y: float,
+	missile_flight_frames: float,
+	missile_life_frames: float,
+	bomb_random_x_range: float,
+	projectile_limit: int
+) -> Dictionary:
+	var step: float = max(0.0, fps_scale)
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"fire_support",
+		weapon_profiles,
+		weapon_profile_overrides
+	)
+	var support_result: Dictionary = advance_runtime_calls(
+		support_calls,
+		projectiles,
+		runtime_owner,
+		context,
+		profile,
+		step,
+		field_size,
+		aircraft_start_x,
+		aircraft_y,
+		aircraft_speed,
+		bomb_interval_frames,
+		aircraft_finish_margin,
+		aircraft_curve_amplitude,
+		aircraft_curve_frequency,
+		aircraft_curve_secondary_ratio,
+		bomb_initial_vy,
+		bomb_gravity,
+		bomb_horizontal_jitter,
+		opponent_wall_y,
+		missile_flight_frames,
+		missile_life_frames,
+		bomb_random_x_range,
+		projectile_limit
+	)
+	CommandoFirearmAudioDispatcher.dispatch_support_aircraft_audio_events(
+		CommandoFirearmValueUtils.get_array(support_result.get("audio_events", [])),
+		deps
+	)
+	return support_result
 
 
 static func build_projectile(
