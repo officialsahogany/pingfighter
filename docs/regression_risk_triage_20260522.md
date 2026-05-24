@@ -8925,3 +8925,21 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+326th follow-up on 2026-05-25:
+
+- Commit:
+  `74f4f8131 godot: move Commando spawn geometry state`.
+- Scope: moved spawn-time origin / target / aim-origin / direction state
+  construction into
+  `CommandoFirearmOriginGeometry.build_firearm_spawn_geometry_state()`.
+  Runtime now consumes the resolved geometry state before routing muzzle flash,
+  support call, trap install, or projectile append work.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2140` lines /
+  `35` functions to `2136` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_origin_geometry_smoke`,
+  `commando_firearm_projectile_spawn_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
