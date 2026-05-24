@@ -5741,6 +5741,23 @@ Hundredth split on 2026-05-24:
   passed; both wrappers still printed the known nonfatal Windows root
   certificate store message from Godot.
 
+161st follow-up on 2026-05-24:
+
+- Commit: `5b749f535 godot: drop Commando net field clamp bridges`.
+- Scope: removed the lingering net-field boss-clamp calculation bridge cluster
+  from `commando_firearm_runtime.gd`: field / boss geometry reads, clamp width
+  and size math, clamp rect origin, boss x / position clamping, emit
+  predicates, and clamp-result payload construction now stay owned by
+  `commando_firearm_lingering_net_field_state.gd`. The runtime keeps
+  `_apply_net_field_boss_clamp()` as the side-effect boundary, while the
+  value-utils smoke calls the owner directly for deterministic clamp geometry
+  and guards that the removed runtime bridge names do not return.
+- Validation: `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_warning_scan.ps1` scanned
+  1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
+  passed; both wrappers still printed the known nonfatal Windows root
+  certificate store message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
