@@ -7691,6 +7691,29 @@ Hundredth split on 2026-05-24:
   `git diff --check` reported no whitespace errors. The slingshot smoke now
   rejects `_cancel_slingshot_charge()` in the runtime facade.
 
+265th follow-up on 2026-05-24:
+
+- Commit:
+  `83351d8d0 godot: move Commando environment impact bridge`.
+- Scope: removed the Commando runtime `_register_projectile_environment_impact()`
+  bridge. Wall-impact side effects now route through
+  `CommandoFirearmProjectileImpactState.register_environment_impact()`, which
+  owns projectile weapon / position / velocity extraction, hit-feedback profile
+  lookup, shared impact particles, hit feedback dispatch, impact audio, and the
+  environment-impact result payload. The runtime projectile loop keeps the
+  collision branch and result/context merge.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2936` lines /
+  `45` functions to `2926` lines / `44` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_audio_routing_smoke`, and
+  `commando_firearm_projectile_motion_state_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1329` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors. The
+  projectile-impact smoke now rejects `_register_projectile_environment_impact()`
+  in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
