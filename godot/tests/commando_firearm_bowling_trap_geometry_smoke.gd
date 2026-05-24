@@ -201,8 +201,11 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 	}, {}, {})
 	_expect(str(release_result.get("commando_bowling_trap_guard_source", "")) == "commando_bowling_trap_guard_9", "runtime release path should expose delegated guard source")
 	_expect(runtime.is_bowling_trap_guard_armed(), "runtime release path should apply armed guard state")
-	runtime._clear_bowling_trap_guard()
-	_expect(not runtime.is_bowling_trap_guard_armed(), "runtime guard clear wrapper should apply cleared state")
+	CommandoFirearmBowlingTrapGeometry.apply_guard_state(
+		runtime,
+		CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state()
+	)
+	_expect(not runtime.is_bowling_trap_guard_armed(), "runtime guard state owner should apply cleared state")
 	var spawn_runtime := CommandoFirearmRuntime.new()
 	spawn_runtime._spawn_firearm_effect(
 		"bowling_trap",
@@ -235,6 +238,7 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"_apply_bowling_trap_guard_state",
 		"_start_bowling_trap_install",
 		"_update_bowling_trap_install",
+		"_clear_bowling_trap_guard",
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep bowling-trap geometry bridge %s" % bridge_name)
 

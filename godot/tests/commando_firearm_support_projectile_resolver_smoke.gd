@@ -101,6 +101,35 @@ func _verify_direct_support_projectile_resolver() -> void:
 	)
 	_expect(appended.size() == 1, "support projectile append helper should append one projectile")
 	_expect(int((appended[0] as Dictionary).get("id", 0)) == 101, "support projectile append helper should preserve assigned ids")
+	var appended_from_call: Array = []
+	CommandoFirearmSupportProjectileResolver.append_from_call(
+		appended_from_call,
+		{
+			"id": 4,
+			"target": Vector2(320.0, 180.0),
+			"aircraft_pos": Vector2(-360.0, 320.0),
+		},
+		Vector2(380.0, 80.0),
+		profile,
+		"fire_support",
+		102,
+		2,
+		760.0,
+		750.0,
+		320.0,
+		0.0,
+		0.0,
+		0.0,
+		Vector2(-360.0, 320.0),
+		22.0,
+		90.0,
+		150.0,
+		"opponent_wall",
+		300.0,
+		2
+	)
+	_expect(appended_from_call.size() == 1, "support call append helper should append one projectile from call data")
+	_expect(int((appended_from_call[0] as Dictionary).get("support_call_id", 0)) == 4, "support call append helper should preserve support call ids")
 
 
 func _verify_runtime_delegates_support_projectile_resolver() -> void:
@@ -135,16 +164,22 @@ func _verify_runtime_delegates_support_projectile_resolver() -> void:
 		150.0,
 		"opponent_wall"
 	)
-	runtime._spawn_support_bomb(
-		{
-			"id": 4,
-			"target": call_target,
-			"aircraft_pos": Vector2(-360.0, 320.0),
-		},
-		profile,
-		{},
-		2
-	)
+	runtime.support_calls = [{
+		"id": 4,
+		"target": call_target,
+		"state": "striking",
+		"call_timer_frames": 0.0,
+		"delay_frames": 0.0,
+		"bomb_timer_frames": 0.0,
+		"bombs_remaining": 1,
+		"bombs_spawned": 2,
+		"aircraft_active": true,
+		"aircraft_pos": Vector2(-360.0, 320.0),
+		"aircraft_velocity": Vector2.ZERO,
+		"aircraft_drop_arm_frames": 0.0,
+		"aircraft_spawn_timer": 20.0,
+	}]
+	runtime._update_support_calls(1.0, {}, {})
 	_expect(runtime.projectiles.size() == 1, "runtime support round spawn should append one projectile")
 	var spawned: Dictionary = CommandoFirearmValueUtils.get_dict(runtime.projectiles[0])
 	_expect(int(spawned.get("id", 0)) == 1, "runtime support round spawn should still allocate ids in runtime")
@@ -156,6 +191,7 @@ func _verify_removed_runtime_support_projectile_bridge() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(source.find("func _build_support_round_projectile(") < 0, "runtime should not keep support projectile build bridge")
 	_expect(source.find("func _spawn_support_round(") < 0, "runtime should not keep support projectile append bridge")
+	_expect(source.find("func _spawn_support_bomb(") < 0, "runtime should not keep support bomb append bridge")
 
 
 func _support_profile() -> Dictionary:

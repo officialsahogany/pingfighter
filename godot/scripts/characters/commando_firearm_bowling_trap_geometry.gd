@@ -323,6 +323,15 @@ static func build_cleared_guard_state() -> Dictionary:
 	}
 
 
+static func apply_guard_state(target: Object, guard_state: Dictionary) -> void:
+	if target == null:
+		return
+	target.set("bowling_trap_guard_armed", bool(guard_state.get("armed", false)))
+	target.set("bowling_trap_guard_original_speed", float(guard_state.get("original_speed", 0.0)))
+	target.set("bowling_trap_guard_restore_speed", float(guard_state.get("restore_speed", 0.0)))
+	target.set("bowling_trap_guard_source", str(guard_state.get("source", "")))
+
+
 static func build_guard_status_data(
 	knockback_vel: float,
 	knockback_frames: float,

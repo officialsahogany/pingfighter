@@ -50,6 +50,69 @@ static func append_projectile(
 	)
 
 
+static func append_from_call(
+	projectiles: Array,
+	call: Dictionary,
+	target_fallback: Vector2,
+	profile: Dictionary,
+	weapon_id: String,
+	projectile_id: int,
+	spawn_index: int,
+	field_width: float,
+	field_height: float,
+	support_aircraft_y: float,
+	default_initial_vy: float,
+	default_gravity: float,
+	default_horizontal_jitter: float,
+	aircraft_fallback_pos: Vector2,
+	opponent_wall_y: float,
+	default_flight_frames: float,
+	default_life_frames: float,
+	impact_mode: String,
+	x_random_range: float,
+	projectile_limit: int
+) -> void:
+	var call_id: int = int(call.get("id", 0))
+	var target: Vector2 = CommandoFirearmValueUtils.get_vector2(
+		call.get("target", target_fallback),
+		target_fallback
+	)
+	var bomb_target: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(
+		target,
+		spawn_index,
+		field_width,
+		field_height,
+		call_id,
+		x_random_range
+	)
+	bomb_target.y = opponent_wall_y
+	var aircraft_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(
+		call.get("aircraft_pos", aircraft_fallback_pos),
+		aircraft_fallback_pos
+	)
+	append_projectile(
+		projectiles,
+		bomb_target,
+		profile,
+		weapon_id,
+		projectile_id,
+		call_id,
+		spawn_index,
+		field_width,
+		field_height,
+		support_aircraft_y,
+		default_initial_vy,
+		default_gravity,
+		default_horizontal_jitter,
+		aircraft_pos,
+		opponent_wall_y,
+		default_flight_frames,
+		default_life_frames,
+		impact_mode,
+		projectile_limit
+	)
+
+
 static func build_projectile(
 	target: Vector2,
 	profile: Dictionary,

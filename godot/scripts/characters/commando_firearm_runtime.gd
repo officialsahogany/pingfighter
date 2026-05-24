@@ -798,7 +798,10 @@ func reset() -> void:
 	weapon_fire_sheet_id = ""
 	weapon_fire_sheet_timer_frames = 0.0
 	weapon_fire_sheet_max_frames = 0.0
-	_clear_bowling_trap_guard()
+	CommandoFirearmBowlingTrapGeometry.apply_guard_state(
+		self,
+		CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state()
+	)
 
 
 func reset_round(deps: Dictionary = {}) -> void:
@@ -890,7 +893,10 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 	if source == "":
 		source = "commando_bowling_trap_guard"
 	var restore_speed: float = max(1.0, bowling_trap_guard_restore_speed)
-	_clear_bowling_trap_guard()
+	CommandoFirearmBowlingTrapGeometry.apply_guard_state(
+		self,
+		CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state()
+	)
 
 	var next_ball_vel: Vector2 = CommandoFirearmBowlingTrapGeometry.soften_guard_ball(ball_vel, restore_speed)
 	var stage2_boss_immune := false
@@ -2115,50 +2121,33 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 		if bool(advance_result.get("started_aircraft", false)):
 			CommandoFirearmAudioDispatcher.start_support_aircraft_audio(call, deps)
 		if bool(advance_result.get("spawn_bomb", false)):
-			_spawn_support_bomb(call, profile, context, int(advance_result.get("spawn_index", 0)))
+			CommandoFirearmSupportProjectileResolver.append_from_call(
+				projectiles,
+				call,
+				CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH),
+				profile,
+				"fire_support",
+				_next_shot_id(),
+				int(advance_result.get("spawn_index", 0)),
+				FIELD_WIDTH,
+				FIELD_HEIGHT,
+				SUPPORT_AIRCRAFT_Y,
+				SUPPORT_BOMB_INITIAL_VY,
+				SUPPORT_BOMB_GRAVITY,
+				SUPPORT_BOMB_HORIZONTAL_JITTER,
+				Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
+				SUPPORT_OPPONENT_WALL_Y,
+				SUPPORT_MISSILE_FLIGHT_FRAMES,
+				SUPPORT_MISSILE_LIFE_FRAMES,
+				"opponent_wall",
+				SUPPORT_BOMB_RANDOM_X_RANGE,
+				PROJECTILE_LIMIT
+			)
 		if bool(advance_result.get("finished", false)):
 			CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(call, deps)
 			support_calls.remove_at(index)
 		else:
 			support_calls[index] = call
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Dictionary, spawn_index: int) -> void:
-	var target_fallback: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
-	var target: Vector2 = CommandoFirearmValueUtils.get_vector2(call.get("target", target_fallback), target_fallback)
-	var bomb_target: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(
-		target,
-		spawn_index,
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		int(call.get("id", 0)),
-		SUPPORT_BOMB_RANDOM_X_RANGE
-	)
-	bomb_target.y = SUPPORT_OPPONENT_WALL_Y
-	var aircraft_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(call.get("aircraft_pos", Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y)), Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y))
-	CommandoFirearmSupportProjectileResolver.append_projectile(
-		projectiles,
-		bomb_target,
-		profile,
-		"fire_support",
-		_next_shot_id(),
-		int(call.get("id", 0)),
-		spawn_index,
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		aircraft_pos.y,
-		SUPPORT_BOMB_INITIAL_VY,
-		SUPPORT_BOMB_GRAVITY,
-		SUPPORT_BOMB_HORIZONTAL_JITTER,
-		aircraft_pos,
-		SUPPORT_OPPONENT_WALL_Y,
-		SUPPORT_MISSILE_FLIGHT_FRAMES,
-		SUPPORT_MISSILE_LIFE_FRAMES,
-		"opponent_wall",
-		PROJECTILE_LIMIT
-	)
-
 
 func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var step: float = max(0.0, fps_scale)
@@ -2276,10 +2265,7 @@ func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dic
 		float(motion.get("original_speed", 1.0)),
 		BOWLING_TRAP_GUARD_SPEED_REDUCTION
 	)
-	bowling_trap_guard_armed = bool(guard_state.get("armed", false))
-	bowling_trap_guard_original_speed = float(guard_state.get("original_speed", 0.0))
-	bowling_trap_guard_restore_speed = float(guard_state.get("restore_speed", 0.0))
-	bowling_trap_guard_source = str(guard_state.get("source", ""))
+	CommandoFirearmBowlingTrapGeometry.apply_guard_state(self, guard_state)
 	return CommandoFirearmBowlingTrapGeometry.build_release_result(
 		motion,
 		bowling_trap_guard_source,
@@ -2287,14 +2273,6 @@ func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dic
 		BOWLING_TRAP_GUARD_STUN_FRAMES,
 		BOWLING_TRAP_GUARD_SPEED_REDUCTION
 	)
-
-
-func _clear_bowling_trap_guard() -> void:
-	var guard_state: Dictionary = CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state()
-	bowling_trap_guard_armed = bool(guard_state.get("armed", false))
-	bowling_trap_guard_original_speed = float(guard_state.get("original_speed", 0.0))
-	bowling_trap_guard_restore_speed = float(guard_state.get("restore_speed", 0.0))
-	bowling_trap_guard_source = str(guard_state.get("source", ""))
 
 
 func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
