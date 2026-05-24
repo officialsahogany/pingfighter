@@ -1708,36 +1708,32 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 
 func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var step: float = max(0.0, fps_scale)
-	var result: Dictionary = {}
-	for index in range(bowling_traps.size() - 1, -1, -1):
-		var trap: Dictionary = CommandoFirearmValueUtils.get_dict(bowling_traps[index])
-		var state: String = str(trap.get("state", "waiting"))
-		if state == "installing":
-			bowling_traps[index] = CommandoFirearmBowlingTrapGeometry.update_install_state(
-				trap,
-				step,
-				BOWLING_TRAP_INSTALL_FRAMES
-			)
-		elif state == "waiting":
-			if (
-				result.is_empty()
-				and CommandoFirearmBowlingTrapGeometry.hits_ball(
-					trap,
-					context,
-					BOWLING_TRAP_HEIGHT,
-					BOWLING_TRAP_CAPTURE_HEIGHT,
-					BOWLING_TRAP_WIDTH
-				)
-			):
-				var captured_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.build_capture_state(
-					trap,
-					context,
-					BOWLING_TRAP_CAPTURE_FRAMES,
-					BOWLING_TRAP_CAPTURE_BALL_OFFSET
-				)
-				var ball_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_original_vel", Vector2.ZERO), Vector2.ZERO)
-				var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_ball_pos", Vector2.ZERO), Vector2.ZERO)
-				bowling_traps[index] = captured_trap
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"bowling_trap",
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
+	var trap_update: Dictionary = CommandoFirearmBowlingTrapGeometry.advance_runtime_traps(
+		bowling_traps,
+		context,
+		step,
+		profile,
+		BOWLING_TRAP_INSTALL_FRAMES,
+		BOWLING_TRAP_CAPTURE_FRAMES,
+		BOWLING_TRAP_CAPTURE_BALL_OFFSET,
+		BOWLING_TRAP_HEIGHT,
+		BOWLING_TRAP_CAPTURE_HEIGHT,
+		BOWLING_TRAP_WIDTH,
+		BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
+		BOWLING_TRAP_LAUNCH_ANGLE_STEP,
+		BOWLING_TRAP_GUARD_SPEED_REDUCTION,
+		BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
+		BOWLING_TRAP_GUARD_STUN_FRAMES
+	)
+	for event_value in CommandoFirearmValueUtils.get_array(trap_update.get("events", [])):
+		var event: Dictionary = CommandoFirearmValueUtils.get_dict(event_value)
+		match str(event.get("type", "")):
+			"capture":
 				CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
 					CommandoFirearmProfileResolver.get_hit_feedback_profile(
 						"bowling_trap",
@@ -1746,31 +1742,12 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 					),
 					deps
 				)
+				var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(event.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
+				var ball_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(event.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 				CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(captured_pos, ball_vel, 0.62, "bowling_trap_capture", deps, BASE_WEAPON_ID)
 				CommandoFirearmAudioDispatcher.play_impact_audio("bowling_trap", deps)
-				result = CommandoFirearmBowlingTrapGeometry.build_capture_result(captured_trap)
-		elif state == "capturing":
-			var next_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.update_capture_state(
-				trap,
-				step,
-				BOWLING_TRAP_CAPTURE_FRAMES
-			)
-			if CommandoFirearmBowlingTrapGeometry.is_capture_complete(next_trap):
-				var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-					"bowling_trap",
-					WEAPON_PROFILES,
-					WEAPON_PROFILE_OVERRIDES
-				)
-				var release_payload: Dictionary = CommandoFirearmBowlingTrapGeometry.build_release_payload(
-					next_trap,
-					profile,
-					BOWLING_TRAP_CAPTURE_BALL_OFFSET,
-					BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
-					BOWLING_TRAP_LAUNCH_ANGLE_STEP,
-					BOWLING_TRAP_GUARD_SPEED_REDUCTION,
-					BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
-					BOWLING_TRAP_GUARD_STUN_FRAMES
-				)
+			"release":
+				var release_payload: Dictionary = CommandoFirearmValueUtils.get_dict(event.get("release_payload", {}))
 				var pseudo_projectile: Dictionary = CommandoFirearmValueUtils.get_dict(release_payload.get("pseudo_projectile", {}))
 				CommandoFirearmImpactFlashResolver.append_flash(
 					impact_flashes,
@@ -1798,19 +1775,7 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 					self,
 					CommandoFirearmValueUtils.get_dict(release_payload.get("guard_state", {}))
 				)
-				var launch_result: Dictionary = CommandoFirearmValueUtils.get_dict(release_payload.get("release_result", {}))
-				bowling_traps.remove_at(index)
-				if result.is_empty():
-					result = launch_result
-			else:
-				bowling_traps[index] = next_trap
-				if result.is_empty():
-					result = CommandoFirearmBowlingTrapGeometry.build_capture_result(next_trap)
-		elif state == "launching" or state == "inactive":
-			bowling_traps.remove_at(index)
-		else:
-			bowling_traps[index] = trap
-	return result
+	return CommandoFirearmValueUtils.get_dict(trap_update.get("result", {}))
 
 func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var step: float = max(0.0, fps_scale)

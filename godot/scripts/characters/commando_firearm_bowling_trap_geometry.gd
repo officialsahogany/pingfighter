@@ -339,6 +339,80 @@ static func build_release_payload(
 	}
 
 
+static func advance_runtime_traps(
+	traps: Array,
+	context: Dictionary,
+	step: float,
+	profile: Dictionary,
+	install_frames: float,
+	capture_frames: float,
+	capture_ball_offset: Vector2,
+	trap_height: float,
+	capture_height: float,
+	trap_width: float,
+	launch_speed_multiplier: float,
+	launch_angle_step: float,
+	guard_speed_reduction: float,
+	guard_knockback_power: float,
+	guard_stun_frames: float
+) -> Dictionary:
+	var safe_step: float = max(0.0, step)
+	var result: Dictionary = {}
+	var events: Array = []
+	for index in range(traps.size() - 1, -1, -1):
+		var trap: Dictionary = CommandoFirearmValueUtils.get_dict(traps[index])
+		var state: String = str(trap.get("state", "waiting"))
+		if state == "installing":
+			traps[index] = update_install_state(trap, safe_step, install_frames)
+		elif state == "waiting":
+			if result.is_empty() and hits_ball(trap, context, trap_height, capture_height, trap_width):
+				var captured_trap: Dictionary = build_capture_state(
+					trap,
+					context,
+					capture_frames,
+					capture_ball_offset
+				)
+				traps[index] = captured_trap
+				events.append({
+					"type": "capture",
+					"captured_pos": CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_ball_pos", Vector2.ZERO), Vector2.ZERO),
+					"ball_vel": CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_original_vel", Vector2.ZERO), Vector2.ZERO),
+				})
+				result = build_capture_result(captured_trap)
+		elif state == "capturing":
+			var next_trap: Dictionary = update_capture_state(trap, safe_step, capture_frames)
+			if is_capture_complete(next_trap):
+				var release_payload: Dictionary = build_release_payload(
+					next_trap,
+					profile,
+					capture_ball_offset,
+					launch_speed_multiplier,
+					launch_angle_step,
+					guard_speed_reduction,
+					guard_knockback_power,
+					guard_stun_frames
+				)
+				events.append({
+					"type": "release",
+					"release_payload": release_payload,
+				})
+				traps.remove_at(index)
+				if result.is_empty():
+					result = CommandoFirearmValueUtils.get_dict(release_payload.get("release_result", {}))
+			else:
+				traps[index] = next_trap
+				if result.is_empty():
+					result = build_capture_result(next_trap)
+		elif state == "launching" or state == "inactive":
+			traps.remove_at(index)
+		else:
+			traps[index] = trap
+	return {
+		"result": result,
+		"events": events,
+	}
+
+
 static func build_guard_state(trap: Dictionary, original_speed: float, guard_speed_reduction: float) -> Dictionary:
 	var safe_original_speed: float = max(1.0, original_speed)
 	return {

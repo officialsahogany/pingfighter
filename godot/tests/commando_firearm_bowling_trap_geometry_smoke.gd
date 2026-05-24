@@ -187,6 +187,53 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	)
 	_expect(str(_get_dict(release_payload.get("release_result", {})).get("commando_bowling_trap_guard_source", "")) == "commando_bowling_trap_guard_9", "release payload should build the guard source")
 	_expect(str(_get_dict(release_payload.get("pseudo_projectile", {})).get("weapon_id", "")) == "bowling_trap", "release payload should build the pseudo projectile")
+	var runtime_capture_traps: Array = [{
+		"id": 12,
+		"state": "waiting",
+		"pos": Vector2(100.0, 100.0),
+		"width": 60.0,
+	}]
+	var runtime_capture_update: Dictionary = CommandoFirearmBowlingTrapGeometry.advance_runtime_traps(
+		runtime_capture_traps,
+		{"ball_pos": Vector2(100.0, 110.0), "ball_vel": Vector2(0.0, 5.0), "ball_size": 20.0},
+		1.0,
+		{"impact_radius": 30.0},
+		48.0,
+		90.0,
+		Vector2(0.0, -15.0),
+		20.0,
+		40.0,
+		60.0,
+		4.0,
+		PI / 8.0,
+		0.7,
+		22.0,
+		60.0
+	)
+	_expect(str(_get_dict(runtime_capture_traps[0]).get("state", "")) == "capturing", "runtime trap owner should enter capture state")
+	_expect(bool(_get_dict(runtime_capture_update.get("result", {})).get("commando_bowling_trap_captured", false)), "runtime trap owner should emit capture result")
+	_expect(str(_get_dict(_get_array(runtime_capture_update.get("events", []))[0]).get("type", "")) == "capture", "runtime trap owner should emit capture event")
+	var runtime_release_traps: Array = [capture_trap.merged({"timer_frames": 1.0}, true)]
+	var runtime_release_update: Dictionary = CommandoFirearmBowlingTrapGeometry.advance_runtime_traps(
+		runtime_release_traps,
+		{},
+		2.0,
+		{"impact_radius": 30.0},
+		48.0,
+		90.0,
+		Vector2(0.0, -15.0),
+		20.0,
+		40.0,
+		60.0,
+		4.0,
+		PI / 8.0,
+		0.7,
+		22.0,
+		60.0
+	)
+	_expect(runtime_release_traps.is_empty(), "runtime trap owner should remove completed capture traps")
+	_expect(bool(_get_dict(runtime_release_update.get("result", {})).get("commando_bowling_trap_released", false)), "runtime trap owner should emit release result")
+	_expect(str(_get_dict(_get_array(runtime_release_update.get("events", []))[0]).get("type", "")) == "release", "runtime trap owner should emit release event")
 	var guard_state: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_state({"id": 9}, 6.0, 0.7)
 	_expect(bool(guard_state.get("armed", false)), "guard state helper should arm the guard")
 	_expect(str(guard_state.get("source", "")) == "commando_bowling_trap_guard_9", "guard state helper should build stable guard sources")
@@ -335,6 +382,10 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		runtime_source.find("CommandoFirearmBowlingTrapGuardState.consume_runtime_boss_guard") >= 0,
 		"runtime should delegate bowling-trap boss-guard consumption to the guard-state owner"
 	)
+	_expect(
+		runtime_source.find("CommandoFirearmBowlingTrapGeometry.advance_runtime_traps") >= 0,
+		"runtime should delegate bowling-trap lifecycle advancement to the geometry owner"
+	)
 	for bridge_name in [
 		"_is_bowling_trap_install_in_player_field",
 		"_get_bowling_trap_install_pos",
@@ -365,6 +416,12 @@ func _get_dict(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _get_array(value: Variant) -> Array:
+	if value is Array:
+		return value
+	return []
 
 
 func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
