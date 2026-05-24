@@ -7714,6 +7714,28 @@ Hundredth split on 2026-05-24:
   projectile-impact smoke now rejects `_register_projectile_environment_impact()`
   in the runtime facade.
 
+266th follow-up on 2026-05-24:
+
+- Commit:
+  `db96ba573 godot: move Commando AK47 trigger clear bridge`.
+- Scope: removed the Commando runtime `_clear_ak47_trigger_state()` bridge.
+  AK-47 trigger release now routes through
+  `CommandoFirearmControlState.apply_ak47_trigger_cleared()`, so weapon
+  switches, serve-wait cleanup, firearm reset, empty / unavailable AK-47 fire
+  paths, and full runtime reset share the same trigger-held plus burst-state
+  cleanup owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2926` lines /
+  `44` functions to `2920` lines / `43` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_control_state_smoke`,
+  `commando_firearm_input_resolver_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_runtime_routing_smoke`, and
+  `commando_firearm_audio_routing_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors. The control-state smoke now
+  rejects `_clear_ak47_trigger_state()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
