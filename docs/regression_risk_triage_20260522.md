@@ -7981,6 +7981,25 @@ Hundredth split on 2026-05-24:
   `git diff --check` on the touched Commando files reported no whitespace
   errors beyond the existing CRLF normalization notices.
 
+278th follow-up on 2026-05-24:
+
+- Commit:
+  `827a4feca godot: move Commando effect update state reads`.
+- Scope: moved the runtime effect-update gate's pending-damage and
+  pending-gauge reads into
+  `CommandoFirearmControlState.needs_runtime_effect_update()`. The public
+  `CommandoFirearmRuntime.needs_effect_update()` facade now delegates with the
+  target object and visible-effects result instead of rebuilding the scalar
+  predicate in place.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2690` lines /
+  `35` functions to `2686` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_control_state_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
