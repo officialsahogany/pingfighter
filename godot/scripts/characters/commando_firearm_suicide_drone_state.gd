@@ -1,8 +1,14 @@
 extends RefCounted
 
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
+const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
+const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/commando_firearm_hit_feedback_dispatcher.gd")
+const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
+const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
+const CommandoFirearmSuicideDroneBallBoostResolver := preload("res://scripts/characters/commando_firearm_suicide_drone_ball_boost_resolver.gd")
 const CommandoFirearmSuicideDroneGeometry := preload("res://scripts/characters/commando_firearm_suicide_drone_geometry.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
@@ -246,6 +252,106 @@ static func build_detonation_result(
 		"commando_suicide_drone_hit_boss": hit_boss,
 		"commando_suicide_drone_cooldown_frames": cooldown_frames,
 	}
+
+
+static func append_runtime_detonation_flash(
+	impact_flashes: Array,
+	projectile: Dictionary,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	grenade_explosion_duration_frames: float,
+	flash_limit: int
+) -> void:
+	CommandoFirearmImpactFlashResolver.append_flash(
+		impact_flashes,
+		projectile,
+		weapon_profiles,
+		weapon_profile_overrides,
+		base_weapon_id,
+		grenade_explosion_duration_frames,
+		flash_limit
+	)
+
+
+static func explosion_hits_runtime_boss(
+	projectile: Dictionary,
+	context: Dictionary,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	field_width: float
+) -> bool:
+	return CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(
+		projectile,
+		CommandoFirearmHitGeometry.get_boss_rect(context, field_width),
+		CommandoFirearmHitGeometry.get_explosion_radius(
+			projectile,
+			CommandoFirearmProfileResolver.get_weapon_profile(
+				"suicide_drone",
+				weapon_profiles,
+				weapon_profile_overrides
+			)
+		)
+	)
+
+
+static func dispatch_miss_detonation_feedback(
+	projectile: Dictionary,
+	deps: Dictionary,
+	weapon_hit_feedback: Dictionary,
+	hit_feedback_profile_overrides: Dictionary,
+	base_weapon_id: String
+) -> void:
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+	CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(
+		pos,
+		CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE),
+		velocity,
+		1.0,
+		deps
+	)
+	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
+		CommandoFirearmProfileResolver.get_hit_feedback_profile(
+			"suicide_drone",
+			weapon_hit_feedback,
+			hit_feedback_profile_overrides
+		),
+		deps
+	)
+	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(
+		pos,
+		velocity,
+		0.86,
+		"suicide_drone",
+		deps,
+		base_weapon_id
+	)
+	CommandoFirearmAudioDispatcher.play_impact_audio("suicide_drone", deps)
+
+
+static func build_runtime_detonation_result(
+	reason: String,
+	pos: Vector2,
+	hit_boss: bool,
+	cooldown_frames: float,
+	projectile: Dictionary,
+	context: Dictionary,
+	ball_speed_multiplier: float,
+	ball_fan_degrees: float
+) -> Dictionary:
+	var result: Dictionary = build_detonation_result(reason, pos, hit_boss, cooldown_frames)
+	if reason == "ball_hit":
+		result.merge(
+			CommandoFirearmSuicideDroneBallBoostResolver.build_boost_result(
+				projectile,
+				context,
+				ball_speed_multiplier,
+				ball_fan_degrees
+			),
+			true
+		)
+	return result
 
 
 static func trigger_active_item_fire_zone(projectile: Dictionary, deps: Dictionary) -> Dictionary:

@@ -33,7 +33,6 @@ const CommandoFirearmStage2RockInteractionResolver := preload("res://scripts/cha
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
 const CommandoFirearmSupportProjectileResolver := preload("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
-const CommandoFirearmSuicideDroneBallBoostResolver := preload("res://scripts/characters/commando_firearm_suicide_drone_ball_boost_resolver.gd")
 const CommandoFirearmSuicideDroneGeometry := preload("res://scripts/characters/commando_firearm_suicide_drone_geometry.gd")
 const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 const CommandoFirearmTimerState := preload("res://scripts/characters/commando_firearm_timer_state.gd")
@@ -1878,7 +1877,7 @@ func _detonate_suicide_drone_at_index(
 ) -> Dictionary:
 	if index >= 0 and index < projectiles.size():
 		projectiles.remove_at(index)
-	CommandoFirearmImpactFlashResolver.append_flash(
+	CommandoFirearmSuicideDroneState.append_runtime_detonation_flash(
 		impact_flashes,
 		projectile,
 		WEAPON_PROFILES,
@@ -1888,53 +1887,37 @@ func _detonate_suicide_drone_at_index(
 		FLASH_LIMIT
 	)
 	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var hit_boss: bool = CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(
+	var hit_boss: bool = CommandoFirearmSuicideDroneState.explosion_hits_runtime_boss(
 		projectile,
-		CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
-		CommandoFirearmHitGeometry.get_explosion_radius(
-			projectile,
-			CommandoFirearmProfileResolver.get_weapon_profile(
-				"suicide_drone",
-				WEAPON_PROFILES,
-				WEAPON_PROFILE_OVERRIDES
-			)
-		)
+		context,
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES,
+		FIELD_WIDTH
 	)
 	if hit_boss:
 		_register_projectile_hit(projectile, context, deps)
 	else:
 		if CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone(projectile, deps).is_empty():
 			_spawn_lingering_effect("suicide_drone", projectile, context)
-		CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(pos, CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE), CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 1.0, deps)
-		CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
-			CommandoFirearmProfileResolver.get_hit_feedback_profile(
-				"suicide_drone",
-				WEAPON_HIT_FEEDBACK,
-				HIT_FEEDBACK_PROFILE_OVERRIDES
-			),
-			deps
+		CommandoFirearmSuicideDroneState.dispatch_miss_detonation_feedback(
+			projectile,
+			deps,
+			WEAPON_HIT_FEEDBACK,
+			HIT_FEEDBACK_PROFILE_OVERRIDES,
+			BASE_WEAPON_ID
 		)
-		CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(pos, CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 0.86, "suicide_drone", deps, BASE_WEAPON_ID)
-		CommandoFirearmAudioDispatcher.play_impact_audio("suicide_drone", deps)
 	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	suicide_drone_cooldown_frames = SUICIDE_DRONE_COOLDOWN_FRAMES
-	var result: Dictionary = CommandoFirearmSuicideDroneState.build_detonation_result(
+	return CommandoFirearmSuicideDroneState.build_runtime_detonation_result(
 		reason,
 		pos,
 		hit_boss,
-		suicide_drone_cooldown_frames
+		suicide_drone_cooldown_frames,
+		projectile,
+		context,
+		SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+		SUICIDE_DRONE_BALL_FAN_DEGREES
 	)
-	if reason == "ball_hit":
-		result.merge(
-			CommandoFirearmSuicideDroneBallBoostResolver.build_boost_result(
-				projectile,
-				context,
-				SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
-				SUICIDE_DRONE_BALL_FAN_DEGREES
-			),
-			true
-		)
-	return result
 
 
 func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> void:

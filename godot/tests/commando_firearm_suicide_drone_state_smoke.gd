@@ -40,6 +40,53 @@ class FakeActiveItemRuntime:
 		})
 
 
+class FakeImpactEffects:
+	extends RefCounted
+
+	var particles: Array = []
+
+	func spawn_hit_particles(pos: Vector2, color: Color, velocity: Vector2, intensity: float, speed: float) -> void:
+		particles.append({
+			"pos": pos,
+			"color": color,
+			"velocity": velocity,
+			"intensity": intensity,
+			"speed": speed,
+		})
+
+
+class FakeFeedback:
+	extends RefCounted
+
+	var calls: Array = []
+
+	func max_screen_shake(amount: float, intensity: float) -> void:
+		calls.append({"amount": amount, "intensity": intensity})
+
+
+class FakeBallEffects:
+	extends RefCounted
+
+	var pulses: Array = []
+
+	func register_hit_pulse(pos: Vector2, velocity: Vector2, intensity: float, kind: String) -> void:
+		pulses.append({
+			"pos": pos,
+			"velocity": velocity,
+			"intensity": intensity,
+			"kind": kind,
+		})
+
+
+class FakeAudio:
+	extends RefCounted
+
+	var impact_calls: Array[String] = []
+
+	func play_commando_suicide_drone_explosion() -> void:
+		impact_calls.append("suicide_drone_explosion")
+
+
 func _init() -> void:
 	_verify_direct_suicide_drone_state()
 	_verify_runtime_delegates_suicide_drone_state()
@@ -162,6 +209,79 @@ func _verify_direct_suicide_drone_state() -> void:
 	_expect(CommandoFirearmSuicideDroneState.has_active_projectile(active_projectiles), "active projectile helper should report active drones")
 	_expect(CommandoFirearmSuicideDroneState.get_active_projectile_index([{"weapon_id": "suicide_drone", "kind": "rocket"}]) == -1, "active projectile lookup should reject non-drone kinds")
 	_expect(bool(CommandoFirearmSuicideDroneState.build_detonation_result("manual", Vector2(1.0, 2.0), false, 90.0).get("commando_suicide_drone_detonated", false)), "detonation result should expose detonation flag")
+	var detonation_flashes: Array = []
+	CommandoFirearmSuicideDroneState.append_runtime_detonation_flash(
+		detonation_flashes,
+		projectile,
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		24.0,
+		3
+	)
+	_expect(detonation_flashes.size() == 1, "detonation flash helper should append one impact flash")
+	_expect(str((detonation_flashes[0] as Dictionary).get("weapon_id", "")) == "suicide_drone", "detonation flash helper should preserve suicide-drone weapon id")
+	var boss_context := {
+		"boss_pos": Vector2(330.0, 50.0),
+		"boss_paddle_width": 100.0,
+		"boss_hitbox_height": 40.0,
+	}
+	var boss_blast_projectile: Dictionary = projectile.duplicate(true)
+	boss_blast_projectile["pos"] = Vector2(350.0, 70.0)
+	_expect(
+		CommandoFirearmSuicideDroneState.explosion_hits_runtime_boss(
+			boss_blast_projectile,
+			boss_context,
+			CommandoFirearmRuntime.WEAPON_PROFILES,
+			CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+			CommandoFirearmRuntime.FIELD_WIDTH
+		),
+		"runtime explosion helper should detect boss overlap"
+	)
+	var miss_projectile: Dictionary = projectile.duplicate(true)
+	miss_projectile["pos"] = Vector2(20.0, 700.0)
+	_expect(
+		not CommandoFirearmSuicideDroneState.explosion_hits_runtime_boss(
+			miss_projectile,
+			boss_context,
+			CommandoFirearmRuntime.WEAPON_PROFILES,
+			CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+			CommandoFirearmRuntime.FIELD_WIDTH
+		),
+		"runtime explosion helper should reject distant blasts"
+	)
+	var impact_effects := FakeImpactEffects.new()
+	var feedback := FakeFeedback.new()
+	var ball_effects := FakeBallEffects.new()
+	var audio := FakeAudio.new()
+	CommandoFirearmSuicideDroneState.dispatch_miss_detonation_feedback(
+		projectile,
+		{
+			"impact_effects": impact_effects,
+			"feedback": feedback,
+			"ball_effects": ball_effects,
+			"audio": audio,
+		},
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID
+	)
+	_expect(impact_effects.particles.size() == 1, "miss detonation helper should spawn impact particles")
+	_expect(feedback.calls.size() == 1, "miss detonation helper should trigger hit feedback")
+	_expect(ball_effects.pulses.size() == 1, "miss detonation helper should register a ball-hit pulse")
+	_expect(audio.impact_calls == ["suicide_drone_explosion"], "miss detonation helper should play suicide-drone impact audio")
+	var runtime_detonation: Dictionary = CommandoFirearmSuicideDroneState.build_runtime_detonation_result(
+		"ball_hit",
+		Vector2(3.0, 4.0),
+		false,
+		90.0,
+		projectile,
+		{"ball_vel": Vector2(0.0, -9.0), "ball_base_speed": 8.0},
+		3.0,
+		12.0
+	)
+	_expect(bool(runtime_detonation.get("commando_suicide_drone_detonated", false)), "runtime detonation result should preserve base detonation flag")
+	_expect(bool(runtime_detonation.get("commando_suicide_drone_ball_boosted", false)), "runtime detonation result should merge ball boost metadata for ball hits")
 	var active_item_runtime := FakeActiveItemRuntime.new()
 	var fire_zone_result: Dictionary = CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone(
 		{"pos": Vector2(11.0, 22.0)},
@@ -242,6 +362,11 @@ func _verify_removed_runtime_active_projectile_bridges() -> void:
 	_expect(not runtime_source.contains("func _get_drone_velocity("), "runtime should not keep suicide-drone homing velocity bridge")
 	_expect(not runtime_source.contains("func _clamp_suicide_drone_projectile("), "runtime should not keep suicide-drone clamp bridge")
 	_expect(not runtime_source.contains("func _spawn_suicide_drone_fire_zone("), "runtime should not keep suicide-drone fire-zone bridge")
+	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.append_runtime_detonation_flash"), "runtime should delegate suicide-drone detonation flash append to state owner")
+	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.explosion_hits_runtime_boss"), "runtime should delegate suicide-drone explosion boss tests to state owner")
+	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.dispatch_miss_detonation_feedback"), "runtime should delegate suicide-drone miss feedback to state owner")
+	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.build_runtime_detonation_result"), "runtime should delegate suicide-drone detonation result assembly to state owner")
+	_expect(not runtime_source.contains("CommandoFirearmSuicideDroneBallBoostResolver.build_boost_result"), "runtime should not build suicide-drone ball boost results inline")
 
 
 func _expect(condition: bool, message: String) -> void:
