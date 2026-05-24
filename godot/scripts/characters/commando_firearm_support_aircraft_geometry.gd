@@ -54,6 +54,32 @@ static func any_ball_path_hits(
 	return false
 
 
+static func resolve_ball_collision(
+	calls: Array,
+	scene: Dictionary,
+	context: Dictionary,
+	fallback_pos: Vector2,
+	collision_size: Vector2
+) -> bool:
+	var ball_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+	var previous_ball_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(
+		scene.get("previous_ball_pos", context.get("ball_pos", ball_pos)),
+		ball_pos
+	)
+	var ball_radius: float = max(1.0, float(context.get("ball_size", scene.get("ball_size", 28.6))) * 0.5)
+	# Python FireSupportAircraft deliberately ignores ball hits; keep the
+	# collision route visible without starting a crash lifecycle.
+	any_ball_path_hits(
+		calls,
+		previous_ball_pos,
+		ball_pos,
+		ball_radius,
+		fallback_pos,
+		collision_size
+	)
+	return false
+
+
 static func ball_path_hits(
 	call_data: Dictionary,
 	from_pos: Vector2,

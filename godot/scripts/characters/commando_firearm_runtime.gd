@@ -916,23 +916,13 @@ func get_fire_support_aircraft_collision_rect(call_id: int = 0) -> Rect2:
 
 
 func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dictionary = {}) -> bool:
-	var ball_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
-	var previous_ball_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(
-		scene.get("previous_ball_pos", context.get("ball_pos", ball_pos)),
-		ball_pos
-	)
-	var ball_radius: float = max(1.0, float(context.get("ball_size", scene.get("ball_size", 28.6))) * 0.5)
-	# Python FireSupportAircraft deliberately ignores ball hits; keep the
-	# collision route visible without starting a crash lifecycle.
-	CommandoFirearmSupportAircraftGeometry.any_ball_path_hits(
+	return CommandoFirearmSupportAircraftGeometry.resolve_ball_collision(
 		support_calls,
-		previous_ball_pos,
-		ball_pos,
-		ball_radius,
+		scene,
+		context,
 		Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
 		SUPPORT_AIRCRAFT_COLLISION_SIZE
 	)
-	return false
 
 
 func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, deps: Dictionary = {}) -> Dictionary:

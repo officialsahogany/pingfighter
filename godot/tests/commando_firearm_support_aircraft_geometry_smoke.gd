@@ -64,6 +64,16 @@ func _verify_direct_support_aircraft_geometry() -> void:
 		"support aircraft owner should ignore missed ball paths"
 	)
 	_expect(
+		not CommandoFirearmSupportAircraftGeometry.resolve_ball_collision(
+			active_calls,
+			{"previous_ball_pos": Vector2(0.0, 50.0), "ball_pos": Vector2(250.0, 50.0)},
+			{"ball_size": 20.0},
+			fallback_pos,
+			collision_size
+		),
+		"support aircraft owner should preserve no-crash pass-through on ball contact"
+	)
+	_expect(
 		CommandoFirearmSupportAircraftGeometry.ball_path_hits(call, Vector2(0.0, 50.0), Vector2(250.0, 50.0), 10.0, fallback_pos, collision_size),
 		"ball path should hit when the segment crosses the grown aircraft rect"
 	)
@@ -93,6 +103,13 @@ func _verify_runtime_support_aircraft_collision_api() -> void:
 	_expect(runtime.get_fire_support_aircraft_collision_rect() == Rect2(20.0, 25.0, 160.0, 50.0), "runtime public collision rect API should expose the active aircraft rect")
 	_expect(runtime.get_fire_support_aircraft_collision_rect(7) == Rect2(20.0, 25.0, 160.0, 50.0), "runtime public collision rect API should match call ids")
 	_expect(runtime.get_fire_support_aircraft_collision_rect(99) == Rect2(), "runtime public collision rect API should ignore other call ids")
+	_expect(
+		not runtime.resolve_ball_collision(
+			{"previous_ball_pos": Vector2(0.0, 50.0), "ball_pos": Vector2(250.0, 50.0)},
+			{"ball_size": 20.0}
+		),
+		"runtime support aircraft collision API should delegate no-crash pass-through"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:
