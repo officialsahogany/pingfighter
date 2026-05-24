@@ -333,13 +333,15 @@ func _verify_runtime_value_utils_integration() -> void:
 		"player_pos": Vector2(1.0, 2.0),
 		"boss_pos": Vector2(3.0, 4.0),
 	}
-	runtime._refresh_pending_pistol_fire_geometry({
+	runtime.pistol_fire_delay_frames = 2.0
+	var pending_result: Dictionary = runtime._update_firearm_timers({
 		"player_pos": Vector2(10.0, 20.0),
 		"paddle_width": 123.0,
-	})
-	_expect(CommandoFirearmValueUtils.get_vector2(runtime.pistol_pending_config.get("player_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(10.0, 20.0), "runtime pending geometry should refresh player position")
-	_expect(is_equal_approx(float(runtime.pistol_pending_config.get("paddle_width", 0.0)), 123.0), "runtime pending geometry should copy paddle width")
-	_expect(CommandoFirearmValueUtils.get_vector2(runtime.pistol_pending_config.get("boss_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(3.0, 4.0), "runtime pending geometry should preserve absent boss position")
+	}, {}, 1.0)
+	_expect(bool(pending_result.get("shot_pending", false)), "runtime timer path should preserve pending pistol shots")
+	_expect(CommandoFirearmValueUtils.get_vector2(runtime.pistol_pending_config.get("player_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(10.0, 20.0), "runtime timer path should refresh pending player position")
+	_expect(is_equal_approx(float(runtime.pistol_pending_config.get("paddle_width", 0.0)), 123.0), "runtime timer path should copy pending paddle width")
+	_expect(CommandoFirearmValueUtils.get_vector2(runtime.pistol_pending_config.get("boss_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(3.0, 4.0), "runtime timer path should preserve absent pending boss position")
 	runtime.muzzle_flashes = [{"id": "muzzle", "timer_frames": 2.0}]
 	runtime.update_effects(1.0, 0, {}, {})
 	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.muzzle_flashes[0]).get("timer_frames", 0.0)), 1.0), "runtime effect update should decrement muzzle flashes through value utils")
@@ -1523,6 +1525,7 @@ func _verify_removed_pistol_value_bridges() -> void:
 		"_get_pistol_hit_doping_multiplier",
 		"_get_pistol_hit_chances",
 		"_get_pistol_shot_roll",
+		"_refresh_pending_pistol_fire_geometry",
 	]:
 		_expect(source.find("func %s(" % bridge_name) == -1, "runtime should not keep pistol value bridge %s" % bridge_name)
 

@@ -1204,7 +1204,11 @@ func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: flo
 		weapon_fire_sheet_max_frames = 0.0
 	if pistol_fire_delay_frames <= 0.0:
 		return {}
-	_refresh_pending_pistol_fire_geometry(config)
+	CommandoFirearmValueUtils.refresh_pending_fire_geometry(
+		pistol_pending_config,
+		config,
+		PISTOL_PENDING_FIRE_GEOMETRY_KEYS
+	)
 	pistol_fire_delay_frames = max(0.0, pistol_fire_delay_frames - step)
 	if pistol_fire_delay_frames > 0.0:
 		return CommandoFirearmFireResultState.build_pistol_shot_pending_result(
@@ -1229,14 +1233,6 @@ func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: flo
 		shot_weapon_id,
 		pistol_cooldown_frames,
 		pistol_control_lock_frames
-	)
-
-
-func _refresh_pending_pistol_fire_geometry(config: Dictionary) -> void:
-	CommandoFirearmValueUtils.refresh_pending_fire_geometry(
-		pistol_pending_config,
-		config,
-		PISTOL_PENDING_FIRE_GEOMETRY_KEYS
 	)
 
 
