@@ -7591,6 +7591,25 @@ Hundredth split on 2026-05-24:
   The focused owner smokes now reject `_spawn_support_bomb()` and
   `_clear_bowling_trap_guard()` in the runtime facade.
 
+260th follow-up on 2026-05-24:
+
+- Commit:
+  `93185eba9 godot: inline Commando bowling trap capture bridge`.
+- Scope: removed the Commando runtime `_update_bowling_trap_capture()` bridge.
+  Capturing trap updates now call
+  `CommandoFirearmBowlingTrapGeometry.update_capture_state()` directly from the
+  bowling-trap update loop, preserving the existing behavior where completed
+  captures still trigger `_release_bowling_trap_ball()` even when an earlier
+  trap already produced the frame result.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2962` lines /
+  `49` functions to `2958` lines / `48` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_bowling_trap_geometry_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings.
+  The bowling-trap geometry smoke now rejects `_update_bowling_trap_capture()`
+  in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
