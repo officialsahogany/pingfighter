@@ -8281,8 +8281,8 @@ commits rather than standalone `fix` commits:
   runtime now passes the owner plus the cooldown max constant, while the
   resolver reads projectiles, cooldown frames, drone grace timer, position, and
   velocity.
-- Runtime facade size: `commando_firearm_runtime.gd` trimmed the suicide-drone
-  draw-context call by one line while remaining at `35` functions.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2639` lines /
+  `35` functions to `2638` lines / `35` functions.
 - Validation: focused Commando coverage passed:
   `commando_firearm_draw_state_resolver_smoke` and
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
