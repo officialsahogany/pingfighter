@@ -3969,7 +3969,8 @@ This section is intentionally long; use search to find the nearest owner.
   active / fire-zone predicates, and boss-clamp result merge helpers. The
   runtime keeps active effect storage, projectile impact ownership, fire-zone
   flame updates, status application, and net dash-break mutation while
-  delegating deterministic base lingering-effect math here.
+  calling the deterministic base lingering-effect math here directly instead
+  of preserving private timer / clamp bridge wrappers.
 - `scripts/characters/commando_firearm_lingering_fire_flame_state.gd`
   Owns pure Commando lingering fire-zone flame state: deterministic flame
   seeding, effect-size fallback reads, ring / size / lifetime patterns,

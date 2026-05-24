@@ -5951,6 +5951,22 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+174th follow-up on 2026-05-24:
+
+- Commit: `d02f49520 godot: drop Commando lingering effect timer bridges`.
+- Scope: removed the lingering-effect timer / active-state / rope-snap /
+  fire-zone predicate / clamp-merge bridge cluster from
+  `commando_firearm_runtime.gd`. Timer advancement, phase math, rope-snap
+  timer math, active checks, fire-zone checks, and clamp payload merging now
+  stay owned by `commando_firearm_lingering_effect_state.gd`; runtime keeps
+  effect-array storage, fire-zone flame update calls, net dash-break mutation,
+  status application, and active-effect writeback.
+- Validation: `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
