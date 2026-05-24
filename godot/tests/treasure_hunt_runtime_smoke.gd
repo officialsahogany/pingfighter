@@ -48,6 +48,7 @@ func _init() -> void:
 	_verify_grant_routes_to_mythic_runtime()
 	_verify_japanese_feedback_text()
 	_verify_spanish_feedback_text()
+	_verify_portuguese_brazil_feedback_text()
 
 	if _failures.is_empty():
 		print("treasure_hunt_runtime_smoke: ok")
@@ -118,6 +119,14 @@ func _verify_spanish_feedback_text() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
 	_expect(runtime._format_result_text("Mítico", "Botas de velocidad") == "Mítico encontrado: Botas de velocidad", "treasure result text should localize to Spanish")
 	_expect(runtime._format_feedback_text("Botas de velocidad") == "Búsqueda del tesoro: Botas de velocidad", "treasure feedback text should localize to Spanish")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_portuguese_brazil_feedback_text() -> void:
+	var runtime := TreasureHuntRuntime.new()
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
+	_expect(runtime._format_result_text("Mítico", "Botas de Velocidade") == "Mítico encontrado: Botas de Velocidade", "treasure result text should localize to Brazilian Portuguese")
+	_expect(runtime._format_feedback_text("Botas de Velocidade") == "Caça ao Tesouro: Botas de Velocidade", "treasure feedback text should localize to Brazilian Portuguese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

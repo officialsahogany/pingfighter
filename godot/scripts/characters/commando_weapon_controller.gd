@@ -780,6 +780,8 @@ func _get_ak47_ammo_text(data: Dictionary) -> String:
 		return "Ammo %d/%d - Durability %.1fs" % [ammo_current, ammo_max, duration_seconds]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
 		return "Munición %d/%d - Durabilidad %.1fs" % [ammo_current, ammo_max, duration_seconds]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
+		return "Munição %d/%d - Durabilidade %.1fs" % [ammo_current, ammo_max, duration_seconds]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "弹药 %d/%d · 耐久 %.1f秒" % [ammo_current, ammo_max, duration_seconds]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

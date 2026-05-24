@@ -124,6 +124,9 @@ func _verify_late_firearm_python_ammo_counts() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
 	var spanish_ak47_text: String = fire_support_controller._get_ak47_ammo_text({"ammo_current": 2, "ammo_max": 4, "duration_frames": 90.0})
 	_expect(spanish_ak47_text.find("2/4") >= 0 and spanish_ak47_text.find("Durabilidad 1.5s") >= 0, "AK-47 ammo text should localize durability to Spanish")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
+	var portuguese_ak47_text: String = fire_support_controller._get_ak47_ammo_text({"ammo_current": 2, "ammo_max": 4, "duration_frames": 90.0})
+	_expect(portuguese_ak47_text.find("2/4") >= 0 and portuguese_ak47_text.find("Durabilidade 1.5s") >= 0, "AK-47 ammo text should localize durability to Brazilian Portuguese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

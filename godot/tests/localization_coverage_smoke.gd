@@ -46,6 +46,7 @@ func _get_non_korean_languages() -> Array[String]:
 		LanguageSettings.LANGUAGE_CHINESE,
 		LanguageSettings.LANGUAGE_JAPANESE,
 		LanguageSettings.LANGUAGE_SPANISH,
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL,
 	]
 
 
@@ -58,26 +59,34 @@ func _verify_translation_map_coverage() -> void:
 	_verify_same_keys(LanguageSettings.ITEM_DISPLAY_EN, LanguageSettings.ITEM_DISPLAY_ZH, "ITEM_DISPLAY_ZH")
 	_verify_same_keys(LanguageSettings.ITEM_DISPLAY_EN, LanguageSettings.ITEM_DISPLAY_JA, "ITEM_DISPLAY_JA")
 	_verify_same_keys(LanguageSettings.ITEM_DISPLAY_EN, LanguageSettings.ITEM_DISPLAY_ES, "ITEM_DISPLAY_ES")
+	_verify_same_keys(LanguageSettings.ITEM_DISPLAY_EN, LanguageSettings.ITEM_DISPLAY_PT_BR, "ITEM_DISPLAY_PT_BR")
 	_verify_same_keys(LanguageSettings.MYTHIC_DESCRIPTION_EN, LanguageSettings.MYTHIC_DESCRIPTION_ZH, "MYTHIC_DESCRIPTION_ZH")
 	_verify_same_keys(LanguageSettings.MYTHIC_DESCRIPTION_EN, LanguageSettings.MYTHIC_DESCRIPTION_JA, "MYTHIC_DESCRIPTION_JA")
 	_verify_same_keys(LanguageSettings.MYTHIC_DESCRIPTION_EN, LanguageSettings.MYTHIC_DESCRIPTION_ES, "MYTHIC_DESCRIPTION_ES")
+	_verify_same_keys(LanguageSettings.MYTHIC_DESCRIPTION_EN, LanguageSettings.MYTHIC_DESCRIPTION_PT_BR, "MYTHIC_DESCRIPTION_PT_BR")
 	_verify_same_keys(LanguageSettings.PERK_NAME_EN, LanguageSettings.PERK_NAME_ZH, "PERK_NAME_ZH")
 	_verify_same_keys(LanguageSettings.PERK_NAME_EN, LanguageSettings.PERK_NAME_JA, "PERK_NAME_JA")
 	_verify_same_keys(LanguageSettings.PERK_NAME_EN, LanguageSettings.PERK_NAME_ES, "PERK_NAME_ES")
+	_verify_same_keys(LanguageSettings.PERK_NAME_EN, LanguageSettings.PERK_NAME_PT_BR, "PERK_NAME_PT_BR")
 	_verify_same_keys(LanguageSettings.PERK_SUMMARY_EN, LanguageSettings.PERK_SUMMARY_ZH, "PERK_SUMMARY_ZH")
 	_verify_same_keys(LanguageSettings.PERK_SUMMARY_EN, LanguageSettings.PERK_SUMMARY_JA, "PERK_SUMMARY_JA")
 	_verify_same_keys(LanguageSettings.PERK_SUMMARY_EN, LanguageSettings.PERK_SUMMARY_ES, "PERK_SUMMARY_ES")
+	_verify_same_keys(LanguageSettings.PERK_SUMMARY_EN, LanguageSettings.PERK_SUMMARY_PT_BR, "PERK_SUMMARY_PT_BR")
 	_verify_same_nested_keys(LanguageSettings.CHARACTER_EN, LanguageSettings.CHARACTER_ZH, "CHARACTER_ZH")
 	_verify_same_nested_keys(LanguageSettings.CHARACTER_EN, LanguageSettings.CHARACTER_JA, "CHARACTER_JA")
 	_verify_same_nested_keys(LanguageSettings.CHARACTER_EN, LanguageSettings.CHARACTER_ES, "CHARACTER_ES")
+	_verify_same_nested_keys(LanguageSettings.CHARACTER_EN, LanguageSettings.CHARACTER_PT_BR, "CHARACTER_PT_BR")
 	_verify_same_nested_keys(LanguageSettings.SKILL_DATA_ZH, LanguageSettings.SKILL_DATA_JA, "SKILL_DATA_JA")
 	_verify_same_nested_keys(LanguageSettings.SKILL_DATA_ZH, LanguageSettings.SKILL_DATA_ES, "SKILL_DATA_ES")
+	_verify_same_nested_keys(LanguageSettings.SKILL_DATA_ZH, LanguageSettings.SKILL_DATA_PT_BR, "SKILL_DATA_PT_BR")
 	_verify_same_keys(LanguageSettings.EXACT_TEXT_EN, LanguageSettings.EXACT_TEXT_ZH, "EXACT_TEXT_ZH")
 	_verify_same_keys(LanguageSettings.EXACT_TEXT_EN, LanguageSettings.EXACT_TEXT_JA, "EXACT_TEXT_JA")
 	_verify_same_keys(LanguageSettings.EXACT_TEXT_EN, LanguageSettings.EXACT_TEXT_ES, "EXACT_TEXT_ES")
+	_verify_same_keys(LanguageSettings.EXACT_TEXT_EN, LanguageSettings.EXACT_TEXT_PT_BR, "EXACT_TEXT_PT_BR")
 	_verify_same_keys(LanguageSettings.QUALITY_PREFIXES_EN, LanguageSettings.QUALITY_PREFIXES_ZH, "QUALITY_PREFIXES_ZH")
 	_verify_same_keys(LanguageSettings.QUALITY_PREFIXES_EN, LanguageSettings.QUALITY_PREFIXES_JA, "QUALITY_PREFIXES_JA")
 	_verify_same_keys(LanguageSettings.QUALITY_PREFIXES_EN, LanguageSettings.QUALITY_PREFIXES_ES, "QUALITY_PREFIXES_ES")
+	_verify_same_keys(LanguageSettings.QUALITY_PREFIXES_EN, LanguageSettings.QUALITY_PREFIXES_PT_BR, "QUALITY_PREFIXES_PT_BR")
 
 
 func _verify_translation_maps_have_no_hangul(language: String) -> void:
@@ -95,6 +104,9 @@ func _verify_translation_maps_have_no_hangul(language: String) -> void:
 		_scan_values(LanguageSettings.SKILL_DATA_JA, "SKILL_DATA_JA")
 	elif language == LanguageSettings.LANGUAGE_SPANISH:
 		_scan_values(LanguageSettings.SKILL_DATA_ES, "SKILL_DATA_ES")
+	elif language == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
+		_scan_values(LanguageSettings.SKILL_DATA_PT_BR, "SKILL_DATA_PT_BR")
+		_scan_values(LanguageSettings.EXACT_TEXT_PT_BR_OVERRIDES, "EXACT_TEXT_PT_BR_OVERRIDES")
 
 
 func _verify_runtime_surfaces_have_no_hangul(language: String) -> void:

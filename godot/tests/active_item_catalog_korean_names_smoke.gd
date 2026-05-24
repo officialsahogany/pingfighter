@@ -43,6 +43,7 @@ func _init() -> void:
 	_verify_chinese_catalog_display_names()
 	_verify_japanese_catalog_display_names()
 	_verify_spanish_catalog_display_names()
+	_verify_portuguese_brazil_catalog_display_names()
 	_restore_language_settings_snapshot()
 
 	if _failures.is_empty():
@@ -106,6 +107,15 @@ func _verify_spanish_catalog_display_names() -> void:
 	_expect(str(catalog.build_item_by_name("gauge_charge").get("display_name", "")) == "Bebida energética", "Spanish active item catalog should localize Energy Drink")
 	_expect(str(catalog.build_item_by_name("grenade").get("display_name", "")) == "Granada", "Spanish active item catalog should localize Grenade")
 	_expect(str(catalog.build_item_by_name("elixir_of_mastery").get("display_name", "")) == "Elixir de maestría", "Spanish active item catalog should localize Elixir of Mastery")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_portuguese_brazil_catalog_display_names() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
+	var catalog := ActiveItemCatalog.new()
+	_expect(str(catalog.build_item_by_name("gauge_charge").get("display_name", "")) == "Energético", "Brazilian Portuguese active item catalog should localize Energy Drink")
+	_expect(str(catalog.build_item_by_name("grenade").get("display_name", "")) == "Granada", "Brazilian Portuguese active item catalog should localize Grenade")
+	_expect(str(catalog.build_item_by_name("elixir_of_mastery").get("display_name", "")) == "Elixir de Maestria", "Brazilian Portuguese active item catalog should localize Elixir of Mastery")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

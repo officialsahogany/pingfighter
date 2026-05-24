@@ -173,6 +173,13 @@ func _format_asset_label(character_name: String, asset_kind: String) -> String:
 			"animation": "animación",
 			"parts": "imagen de partes",
 		}.get(asset_kind, "recurso")]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
+		return "%s %s" % [character_name, {
+			"card": "imagem de carta",
+			"still": "imagem estática",
+			"animation": "animação",
+			"parts": "imagem de partes",
+		}.get(asset_kind, "recurso")]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "%s %s" % [character_name, {
 			"card": "卡牌图像",

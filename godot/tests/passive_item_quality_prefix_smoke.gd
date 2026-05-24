@@ -25,6 +25,7 @@ func _init() -> void:
 	_verify_chinese_quality_text(catalog)
 	_verify_japanese_quality_text(catalog)
 	_verify_spanish_quality_text(catalog)
+	_verify_portuguese_brazil_quality_text(catalog)
 	_restore_language_settings_snapshot()
 
 	if _failures.is_empty():
@@ -176,6 +177,22 @@ func _verify_spanish_quality_text(catalog: Object) -> void:
 		"unit": "%",
 	})
 	_expect(option_text == "Velocidad de movimiento +12%", "Spanish roll option text should translate known labels")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_portuguese_brazil_quality_text(catalog: Object) -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
+	var lucky_coin: Dictionary = _sync_with_roll(catalog, "lucky_coin", {"double_spawn_pct": 15.0})
+	var qualified_name := str(lucky_coin.get("qualified_display_name", ""))
+	_expect(qualified_name.ends_with("Moeda da Sorte"), "Brazilian Portuguese passive quality name should keep the localized item base name")
+	_expect(qualified_name != "Moeda da Sorte", "Brazilian Portuguese passive quality name should include a localized quality prefix")
+	var option_text := PassiveItemQuality.format_roll_option_text({
+		"label": "이동속도",
+		"prefix": "+",
+		"value": 12.0,
+		"unit": "%",
+	})
+	_expect(option_text == "Velocidade de movimento +12%", "Brazilian Portuguese roll option text should translate known labels")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

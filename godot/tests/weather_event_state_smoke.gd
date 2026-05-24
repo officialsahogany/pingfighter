@@ -102,6 +102,9 @@ func _init() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
 	_expect(weather._get_start_text("breeze", -1) == "Una brisa sopla hacia la izquierda", "breeze start text should localize to Spanish")
 	_expect(weather._get_start_text("gust", 1) == "Una ráfaga fuerte empuja hacia la derecha", "gust start text should localize to Spanish")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
+	_expect(weather._get_start_text("breeze", -1) == "Uma brisa sopra para a esquerda", "breeze start text should localize to Brazilian Portuguese")
+	_expect(weather._get_start_text("gust", 1) == "Uma rajada forte empurra para a direita", "gust start text should localize to Brazilian Portuguese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 	owner.selected_character_type = "viper"
@@ -388,6 +391,9 @@ func _init() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
 	_expect(weather._get_start_text("breeze", -1) == "Una brisa sopla hacia la izquierda", "breeze start text should localize to Spanish")
 	_expect(weather._get_start_text("gust", 1) == "Una ráfaga fuerte empuja hacia la derecha", "gust start text should localize to Spanish")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
+	_expect(weather._get_start_text("breeze", -1) == "Uma brisa sopra para a esquerda", "breeze start text should localize to Brazilian Portuguese")
+	_expect(weather._get_start_text("gust", 1) == "Uma rajada forte empurra para a direita", "gust start text should localize to Brazilian Portuguese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 	print("weather_event_state_smoke: ok")

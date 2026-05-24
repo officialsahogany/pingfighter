@@ -14,6 +14,7 @@ func _init() -> void:
 	_verify_rental_and_base_firearm_tooltip_text()
 	_verify_japanese_base_firearm_tooltip_text()
 	_verify_spanish_base_firearm_tooltip_text()
+	_verify_portuguese_brazil_base_firearm_tooltip_text()
 
 	if _failures.is_empty():
 		print("commando_firearm_tooltip_smoke: ok")
@@ -175,6 +176,29 @@ func _verify_spanish_base_firearm_tooltip_text() -> void:
 	_expect(str(base_tooltip.get("ready_text", "")) == "Lista para disparar", "base firearm readiness should localize to Spanish")
 	_expect(str(base_tooltip.get("reload_text", "")).contains("150"), "base firearm reload text should localize to Spanish")
 	_expect(str(base_tooltip.get("control_text", "")).contains("Clic izq."), "base firearm controls should localize to Spanish")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_portuguese_brazil_base_firearm_tooltip_text() -> void:
+	var selector := CommandoFirearmSelectorRenderer.new()
+	var tooltip := CommandoFirearmTooltipRenderer.new()
+	var skill_config := CommandoSkillConfig.new()
+	var controller := CommandoWeaponController.new()
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
+	var base_panel: Dictionary = selector.build_panel_state(Vector2(120.0, 280.0), 1.0, {"commando_weapon_controller": controller})
+	var base_tooltip: Dictionary = tooltip.build_hover_state(
+		base_panel,
+		Vector2(760.0, 750.0),
+		1.0,
+		{
+			"mouse_pos": _get_rect(base_panel.get("rect", Rect2())).get_center(),
+			"skill_config_snapshot": skill_config.get_snapshot(),
+		}
+	)
+	_expect(str(base_tooltip.get("ownership_text", "")) == "Arma base", "base firearm ownership should localize to Brazilian Portuguese")
+	_expect(str(base_tooltip.get("ready_text", "")) == "Pronta para disparar", "base firearm readiness should localize to Brazilian Portuguese")
+	_expect(str(base_tooltip.get("reload_text", "")).contains("150"), "base firearm reload text should localize to Brazilian Portuguese")
+	_expect(str(base_tooltip.get("control_text", "")).contains("Clique esq."), "base firearm controls should localize to Brazilian Portuguese")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
