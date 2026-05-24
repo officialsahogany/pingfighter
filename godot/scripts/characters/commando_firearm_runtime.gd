@@ -3261,7 +3261,15 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 	var effect: Dictionary = _build_lingering_effect(weapon_id, profile, projectile, pos, effect_id, effect_size, duration)
 	if is_net:
 		_apply_lingering_net_fields(effect, profile, projectile, context, pos, effect_size, effect_id, dissolve)
-	_apply_lingering_effect_status_fields(effect, profile, dissolve)
+	CommandoFirearmLingeringStatusState.apply_effect_status_fields(
+		effect,
+		profile,
+		dissolve,
+		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+		LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
+		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
+	)
 	_seed_lingering_fire_flames(effect)
 	_append_limited(lingering_effects, effect, LINGERING_EFFECT_LIMIT)
 	return _build_lingering_spawn_result(effect, duration)
@@ -3353,74 +3361,6 @@ func _build_lingering_effect(
 
 func _build_lingering_spawn_result(effect: Dictionary, duration: float) -> Dictionary:
 	return CommandoFirearmLingeringEffectState.build_spawn_result(effect, duration)
-
-
-func _apply_lingering_effect_status_fields(effect: Dictionary, profile: Dictionary, dissolve: bool) -> void:
-	CommandoFirearmLingeringStatusState.apply_effect_status_fields(
-		effect,
-		profile,
-		dissolve,
-		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
-		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
-		LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
-		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
-	)
-
-
-func _apply_lingering_status_profile_base_fields(effect: Dictionary, profile: Dictionary, status_id: String) -> void:
-	CommandoFirearmLingeringStatusState.apply_profile_base_fields(
-		effect,
-		profile,
-		status_id,
-		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
-		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
-		LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES
-	)
-
-
-func _apply_lingering_status_profile_slow_multiplier(effect: Dictionary, profile: Dictionary) -> void:
-	CommandoFirearmLingeringStatusState.apply_profile_slow_multiplier(
-		effect,
-		profile,
-		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
-	)
-
-
-func _get_lingering_status_profile_id(profile: Dictionary) -> String:
-	return CommandoFirearmLingeringStatusState.get_profile_id(profile)
-
-
-func _get_lingering_status_profile_duration(profile: Dictionary) -> float:
-	return CommandoFirearmLingeringStatusState.get_profile_duration(
-		profile,
-		LINGERING_STATUS_DEFAULT_DURATION_FRAMES
-	)
-
-
-func _get_lingering_status_profile_interval(profile: Dictionary) -> float:
-	return CommandoFirearmLingeringStatusState.get_profile_interval(
-		profile,
-		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES
-	)
-
-
-func _get_lingering_status_initial_cooldown() -> float:
-	return CommandoFirearmLingeringStatusState.get_initial_cooldown(LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES)
-
-
-func _has_lingering_status_profile_slow_multiplier(profile: Dictionary) -> bool:
-	return CommandoFirearmLingeringStatusState.has_profile_slow_multiplier(profile)
-
-
-func _get_lingering_status_profile_slow_multiplier(profile: Dictionary) -> float:
-	return CommandoFirearmLingeringStatusState.get_profile_slow_multiplier(
-		profile,
-		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
-	)
-
-
-func _should_apply_lingering_effect_status_fields(status_id: String, dissolve: bool) -> bool:
-	return CommandoFirearmLingeringStatusState.should_apply_effect_status_fields(status_id, dissolve)
 
 
 func _apply_lingering_net_fields(

@@ -3,6 +3,7 @@ extends SceneTree
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
+const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 var _failures: Array[String] = []
@@ -86,6 +87,7 @@ func _init() -> void:
 	_verify_removed_fire_flame_owner_bridges()
 	_verify_removed_net_field_clamp_bridges()
 	_verify_removed_net_field_setup_bridges()
+	_verify_removed_lingering_status_setup_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -484,55 +486,55 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(str(fallback_spawn_result.get("kind", "missing")).is_empty(), "lingering spawn result helper should default missing kind to empty")
 	_expect(str(fallback_spawn_result.get("source", "missing")).is_empty(), "lingering spawn result helper should default missing source to empty")
 	_expect(is_equal_approx(float(fallback_spawn_result.get("duration_frames", 0.0)), 1.0), "lingering spawn result helper should preserve fallback durations")
-	_expect(runtime._get_lingering_status_profile_id({"status_id": "burn"}) == "burn", "lingering status profile-id helper should read status ids")
-	_expect(runtime._get_lingering_status_profile_id({}).is_empty(), "lingering status profile-id helper should default missing ids to empty")
-	_expect(is_equal_approx(runtime._get_lingering_status_profile_duration({"status_duration_frames": 36.0}), 36.0), "lingering status profile-duration helper should read explicit durations")
-	_expect(is_equal_approx(runtime._get_lingering_status_profile_duration({}), 18.0), "lingering status profile-duration helper should use the default duration")
-	_expect(is_equal_approx(runtime._get_lingering_status_profile_interval({"status_interval_frames": 8.0}), 8.0), "lingering status profile-interval helper should read explicit intervals")
-	_expect(is_equal_approx(runtime._get_lingering_status_profile_interval({}), 12.0), "lingering status profile-interval helper should use the default interval")
-	_expect(is_equal_approx(runtime._get_lingering_status_initial_cooldown(), 0.0), "lingering status initial-cooldown helper should start ready")
-	_expect(runtime._has_lingering_status_profile_slow_multiplier({"slow_multiplier": 0.45}), "lingering status profile slow-multiplier guard should detect explicit multipliers")
-	_expect(not runtime._has_lingering_status_profile_slow_multiplier({}), "lingering status profile slow-multiplier guard should reject missing multipliers")
-	_expect(is_equal_approx(runtime._get_lingering_status_profile_slow_multiplier({"slow_multiplier": 0.45}), 0.45), "lingering status profile slow-multiplier helper should read explicit multipliers")
-	_expect(is_equal_approx(runtime._get_lingering_status_profile_slow_multiplier({}), 1.0), "lingering status profile slow-multiplier helper should use the default multiplier")
+	_expect(CommandoFirearmLingeringStatusState.get_profile_id({"status_id": "burn"}) == "burn", "lingering status profile-id helper should read status ids")
+	_expect(CommandoFirearmLingeringStatusState.get_profile_id({}).is_empty(), "lingering status profile-id helper should default missing ids to empty")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_profile_duration({"status_duration_frames": 36.0}, 18.0), 36.0), "lingering status profile-duration helper should read explicit durations")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_profile_duration({}, 18.0), 18.0), "lingering status profile-duration helper should use the default duration")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_profile_interval({"status_interval_frames": 8.0}, 12.0), 8.0), "lingering status profile-interval helper should read explicit intervals")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_profile_interval({}, 12.0), 12.0), "lingering status profile-interval helper should use the default interval")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_initial_cooldown(0.0), 0.0), "lingering status initial-cooldown helper should start ready")
+	_expect(CommandoFirearmLingeringStatusState.has_profile_slow_multiplier({"slow_multiplier": 0.45}), "lingering status profile slow-multiplier guard should detect explicit multipliers")
+	_expect(not CommandoFirearmLingeringStatusState.has_profile_slow_multiplier({}), "lingering status profile slow-multiplier guard should reject missing multipliers")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_profile_slow_multiplier({"slow_multiplier": 0.45}, 1.0), 0.45), "lingering status profile slow-multiplier helper should read explicit multipliers")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_profile_slow_multiplier({}, 1.0), 1.0), "lingering status profile slow-multiplier helper should use the default multiplier")
 	var copied_slow_profile_effect := {}
-	runtime._apply_lingering_status_profile_slow_multiplier(copied_slow_profile_effect, {"slow_multiplier": 0.45})
+	CommandoFirearmLingeringStatusState.apply_profile_slow_multiplier(copied_slow_profile_effect, {"slow_multiplier": 0.45}, 1.0)
 	_expect(is_equal_approx(float(copied_slow_profile_effect.get("slow_multiplier", 0.0)), 0.45), "lingering status profile slow-multiplier apply helper should copy explicit multipliers")
 	var missing_slow_profile_effect := {"kept": true}
-	runtime._apply_lingering_status_profile_slow_multiplier(missing_slow_profile_effect, {})
+	CommandoFirearmLingeringStatusState.apply_profile_slow_multiplier(missing_slow_profile_effect, {}, 1.0)
 	_expect(not missing_slow_profile_effect.has("slow_multiplier") and bool(missing_slow_profile_effect.get("kept", false)), "lingering status profile slow-multiplier apply helper should ignore missing multipliers")
 	var base_status_profile_effect := {}
-	runtime._apply_lingering_status_profile_base_fields(base_status_profile_effect, {
+	CommandoFirearmLingeringStatusState.apply_profile_base_fields(base_status_profile_effect, {
 		"status_duration_frames": 36.0,
 		"status_interval_frames": 8.0,
-	}, "burn")
+	}, "burn", 18.0, 12.0, 0.0)
 	_expect(str(base_status_profile_effect.get("status_id", "")) == "burn", "lingering status base-field helper should store status ids")
 	_expect(is_equal_approx(float(base_status_profile_effect.get("status_duration_frames", 0.0)), 36.0), "lingering status base-field helper should store duration frames")
 	_expect(is_equal_approx(float(base_status_profile_effect.get("status_interval_frames", 0.0)), 8.0), "lingering status base-field helper should store interval frames")
 	_expect(is_equal_approx(float(base_status_profile_effect.get("status_cooldown_frames", -1.0)), 0.0), "lingering status base-field helper should start cooldowns ready")
-	_expect(runtime._should_apply_lingering_effect_status_fields("burn", false), "lingering status field guard should accept active status profiles")
-	_expect(not runtime._should_apply_lingering_effect_status_fields("", false), "lingering status field guard should reject missing status ids")
-	_expect(not runtime._should_apply_lingering_effect_status_fields("burn", true), "lingering status field guard should reject dissolving effects")
+	_expect(CommandoFirearmLingeringStatusState.should_apply_effect_status_fields("burn", false), "lingering status field guard should accept active status profiles")
+	_expect(not CommandoFirearmLingeringStatusState.should_apply_effect_status_fields("", false), "lingering status field guard should reject missing status ids")
+	_expect(not CommandoFirearmLingeringStatusState.should_apply_effect_status_fields("burn", true), "lingering status field guard should reject dissolving effects")
 	var empty_status_effect := {"kept": true}
-	runtime._apply_lingering_effect_status_fields(empty_status_effect, {}, false)
+	CommandoFirearmLingeringStatusState.apply_effect_status_fields(empty_status_effect, {}, false, 18.0, 12.0, 0.0, 1.0)
 	_expect(not empty_status_effect.has("status_id") and bool(empty_status_effect.get("kept", false)), "lingering status field helper should ignore profiles without status ids")
 	var dissolved_status_effect := {}
-	runtime._apply_lingering_effect_status_fields(dissolved_status_effect, {"status_id": "slow"}, true)
+	CommandoFirearmLingeringStatusState.apply_effect_status_fields(dissolved_status_effect, {"status_id": "slow"}, true, 18.0, 12.0, 0.0, 1.0)
 	_expect(dissolved_status_effect.is_empty(), "lingering status field helper should skip dissolving effects")
 	var default_status_effect := {}
-	runtime._apply_lingering_effect_status_fields(default_status_effect, {"status_id": "burn"}, false)
+	CommandoFirearmLingeringStatusState.apply_effect_status_fields(default_status_effect, {"status_id": "burn"}, false, 18.0, 12.0, 0.0, 1.0)
 	_expect(str(default_status_effect.get("status_id", "")) == "burn", "lingering status field helper should store status ids")
 	_expect(is_equal_approx(float(default_status_effect.get("status_duration_frames", 0.0)), 18.0), "lingering status field helper should default status duration")
 	_expect(is_equal_approx(float(default_status_effect.get("status_interval_frames", 0.0)), 12.0), "lingering status field helper should default status interval")
 	_expect(is_equal_approx(float(default_status_effect.get("status_cooldown_frames", -1.0)), 0.0), "lingering status field helper should start cooldowns ready")
 	_expect(not default_status_effect.has("slow_multiplier"), "lingering status field helper should not invent slow multipliers")
 	var slow_status_effect := {}
-	runtime._apply_lingering_effect_status_fields(slow_status_effect, {
+	CommandoFirearmLingeringStatusState.apply_effect_status_fields(slow_status_effect, {
 		"status_id": "slow",
 		"status_duration_frames": 36.0,
 		"status_interval_frames": 8.0,
 		"slow_multiplier": 0.45,
-	}, false)
+	}, false, 18.0, 12.0, 0.0, 1.0)
 	_expect(is_equal_approx(float(slow_status_effect.get("status_duration_frames", 0.0)), 36.0), "lingering status field helper should preserve explicit status durations")
 	_expect(is_equal_approx(float(slow_status_effect.get("status_interval_frames", 0.0)), 8.0), "lingering status field helper should preserve explicit status intervals")
 	_expect(is_equal_approx(float(slow_status_effect.get("slow_multiplier", 0.0)), 0.45), "lingering status field helper should preserve slow multipliers")
@@ -1598,6 +1600,23 @@ func _verify_removed_net_field_setup_bridges() -> void:
 		"_get_net_effect_height_limits",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field setup bridge %s" % bridge_name)
+
+
+func _verify_removed_lingering_status_setup_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_apply_lingering_effect_status_fields",
+		"_apply_lingering_status_profile_base_fields",
+		"_apply_lingering_status_profile_slow_multiplier",
+		"_get_lingering_status_profile_id",
+		"_get_lingering_status_profile_duration",
+		"_get_lingering_status_profile_interval",
+		"_get_lingering_status_initial_cooldown",
+		"_has_lingering_status_profile_slow_multiplier",
+		"_get_lingering_status_profile_slow_multiplier",
+		"_should_apply_lingering_effect_status_fields",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-status setup bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:
