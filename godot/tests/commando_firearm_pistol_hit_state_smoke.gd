@@ -122,12 +122,11 @@ func _verify_direct_pistol_hit_state() -> void:
 func _verify_runtime_delegates_pistol_hit_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	runtime.pistol_boss_hit_count = 2
-	var result := {}
-	runtime._apply_pistol_hit_effects(
+	var result: Dictionary = runtime._apply_weapon_hit_result(
 		"commando_pistol",
-		{"shot_roll": 0.05},
-		_boss_context(),
-		result
+		{"weapon_id": "commando_pistol", "shot_roll": 0.05, "pos": Vector2(380.0, 80.0), "velocity": Vector2(0.0, -16.0)},
+		_boss_context().merged({"commando_pistol_head_chance": 0.10, "commando_pistol_leg_chance": 0.12}, true),
+		{}
 	)
 	_expect(runtime.pistol_boss_hit_count == 0, "runtime pistol hit wrapper should store helper hit count")
 	_expect(str(result.get("pistol_hit_kind", "")) == "headshot", "runtime pistol hit wrapper should merge helper fields")
@@ -135,8 +134,12 @@ func _verify_runtime_delegates_pistol_hit_state() -> void:
 	_expect(_get_array(runtime.pistol_feedbacks).size() == 1, "runtime pistol hit wrapper should keep feedback side effect")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(
-		runtime_source.find("CommandoFirearmPistolHitState.apply_runtime_hit_effects") >= 0,
-		"runtime should delegate pistol hit composition to the owner"
+		runtime_source.find("CommandoFirearmHitResultState.build_runtime_weapon_hit_result") >= 0,
+		"runtime should delegate weapon hit-result composition to the owner"
+	)
+	_expect(
+		runtime_source.find("func _apply_pistol_hit_effects") < 0,
+		"runtime should not keep the pistol hit bridge after hit-result ownership moves"
 	)
 
 

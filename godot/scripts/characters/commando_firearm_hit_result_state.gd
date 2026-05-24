@@ -2,7 +2,11 @@ extends RefCounted
 
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmAk47HitState := preload("res://scripts/characters/commando_firearm_ak47_hit_state.gd")
+const CommandoFirearmPistolHitState := preload("res://scripts/characters/commando_firearm_pistol_hit_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
+const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
 
 
 static func build_base_result(source: String, damage_units: int) -> Dictionary:
@@ -97,6 +101,94 @@ static func apply_runtime_status_results(
 	elif bool(result.get("knockback_without_stun", false)):
 		_apply_runtime_knockback_without_stun(result, profile, deps, pos, velocity, boss_target)
 	_apply_runtime_slow_result(result, profile, status_effect_state, source)
+
+
+static func build_runtime_weapon_hit_result(
+	weapon_id: String,
+	projectile: Dictionary,
+	context: Dictionary,
+	deps: Dictionary,
+	weapon_hit_results: Dictionary,
+	hit_result_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	slingshot_stun_mult: Dictionary,
+	slingshot_knockback_mult: Dictionary,
+	current_pistol_hit_count: int,
+	pistol_feedbacks: Array,
+	doping_head_leg_multiplier: float,
+	pistol_head_shot_chance: float,
+	pistol_leg_shot_chance: float,
+	pistol_hit_tuning: Dictionary,
+	field_size: Vector2,
+	pistol_hit_text_timer_frames: float,
+	headshot_label: String,
+	legshot_label: String,
+	pistol_feedback_limit: int,
+	current_ak47_hit_count: int,
+	ak47_boss_damage_hit_threshold: int
+) -> Dictionary:
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_hit_result_profile(
+		weapon_id,
+		weapon_hit_results,
+		hit_result_profile_overrides
+	)
+	if profile.is_empty():
+		return {
+			"result": {},
+			"next_pistol_hit_count": current_pistol_hit_count,
+			"next_ak47_hit_count": current_ak47_hit_count,
+		}
+	var source: String = "commando_firearm_%s" % weapon_id
+	var result: Dictionary = build_base_result(source, int(profile.get("damage_units", 0)))
+	CommandoFirearmSlingshotState.apply_hit_effects(
+		weapon_id,
+		projectile,
+		result,
+		base_weapon_id,
+		slingshot_stun_mult,
+		slingshot_knockback_mult
+	)
+	var pistol_apply_result: Dictionary = CommandoFirearmPistolHitState.apply_runtime_hit_effects(
+		weapon_id,
+		projectile,
+		context,
+		result,
+		current_pistol_hit_count,
+		pistol_feedbacks,
+		base_weapon_id,
+		doping_head_leg_multiplier,
+		pistol_head_shot_chance,
+		pistol_leg_shot_chance,
+		pistol_hit_tuning,
+		field_size.x,
+		field_size.y,
+		pistol_hit_text_timer_frames,
+		headshot_label,
+		legshot_label,
+		pistol_feedback_limit
+	)
+	var next_pistol_hit_count: int = int(pistol_apply_result.get("next_hit_count", current_pistol_hit_count))
+	var ak47_apply_result: Dictionary = CommandoFirearmAk47HitState.apply_runtime_accumulated_damage(
+		weapon_id,
+		result,
+		current_ak47_hit_count,
+		ak47_boss_damage_hit_threshold
+	)
+	var next_ak47_hit_count: int = int(ak47_apply_result.get("next_hit_count", current_ak47_hit_count))
+	apply_runtime_status_results(
+		result,
+		profile,
+		projectile,
+		context,
+		deps,
+		source,
+		field_size.x
+	)
+	return {
+		"result": result,
+		"next_pistol_hit_count": next_pistol_hit_count,
+		"next_ak47_hit_count": next_ak47_hit_count,
+	}
 
 
 static func _apply_runtime_stun_result(

@@ -1,7 +1,6 @@
 extends RefCounted
 
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
-const CommandoFirearmAk47HitState := preload("res://scripts/characters/commando_firearm_ak47_hit_state.gd")
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmBowlingTrapGuardState := preload("res://scripts/characters/commando_firearm_bowling_trap_guard_state.gd")
@@ -23,7 +22,6 @@ const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/co
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
 const CommandoFirearmPistolFeedbackState := preload("res://scripts/characters/commando_firearm_pistol_feedback_state.gd")
-const CommandoFirearmPistolHitState := preload("res://scripts/characters/commando_firearm_pistol_hit_state.gd")
 const CommandoFirearmPistolReloadState := preload("res://scripts/characters/commando_firearm_pistol_reload_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
@@ -1980,64 +1978,33 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 
 
 func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_hit_result_profile(
+	var hit_result_state: Dictionary = CommandoFirearmHitResultState.build_runtime_weapon_hit_result(
 		weapon_id,
-		WEAPON_HIT_RESULTS,
-		HIT_RESULT_PROFILE_OVERRIDES
-	)
-	if profile.is_empty():
-		return {}
-	var source: String = "commando_firearm_%s" % weapon_id
-	var result: Dictionary = CommandoFirearmHitResultState.build_base_result(source, int(profile.get("damage_units", 0)))
-	CommandoFirearmSlingshotState.apply_hit_effects(
-		weapon_id,
-		projectile,
-		result,
-		BASE_WEAPON_ID,
-		SLINGSHOT_STUN_MULT,
-		SLINGSHOT_KNOCKBACK_MULT
-	)
-	_apply_pistol_hit_effects(weapon_id, projectile, context, result)
-	var ak47_apply_result: Dictionary = CommandoFirearmAk47HitState.apply_runtime_accumulated_damage(
-		weapon_id,
-		result,
-		ak47_boss_hit_count,
-		AK47_BOSS_DAMAGE_HIT_THRESHOLD
-	)
-	ak47_boss_hit_count = int(ak47_apply_result.get("next_hit_count", ak47_boss_hit_count))
-	CommandoFirearmHitResultState.apply_runtime_status_results(
-		result,
-		profile,
 		projectile,
 		context,
 		deps,
-		source,
-		FIELD_WIDTH
-	)
-	return result
-
-
-func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, context: Dictionary, result: Dictionary) -> void:
-	var apply_result: Dictionary = CommandoFirearmPistolHitState.apply_runtime_hit_effects(
-		weapon_id,
-		projectile,
-		context,
-		result,
+		WEAPON_HIT_RESULTS,
+		HIT_RESULT_PROFILE_OVERRIDES,
+		BASE_WEAPON_ID,
+		SLINGSHOT_STUN_MULT,
+		SLINGSHOT_KNOCKBACK_MULT,
 		pistol_boss_hit_count,
 		pistol_feedbacks,
-		BASE_WEAPON_ID,
 		DOPING_POTION_HEAD_LEG_MULTIPLIER,
 		PISTOL_HEAD_SHOT_CHANCE,
 		PISTOL_LEG_SHOT_CHANCE,
 		PISTOL_HIT_TUNING,
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
 		PISTOL_HIT_TEXT_TIMER_FRAMES,
 		"헤드샷!",
 		"레그샷!",
-		PISTOL_FEEDBACK_LIMIT
+		PISTOL_FEEDBACK_LIMIT,
+		ak47_boss_hit_count,
+		AK47_BOSS_DAMAGE_HIT_THRESHOLD
 	)
-	pistol_boss_hit_count = int(apply_result.get("next_hit_count", pistol_boss_hit_count))
+	pistol_boss_hit_count = int(hit_result_state.get("next_pistol_hit_count", pistol_boss_hit_count))
+	ak47_boss_hit_count = int(hit_result_state.get("next_ak47_hit_count", ak47_boss_hit_count))
+	return CommandoFirearmValueUtils.get_dict(hit_result_state.get("result", {}))
 
 
 func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context: Dictionary) -> Dictionary:

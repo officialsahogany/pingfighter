@@ -75,6 +75,49 @@ func _verify_direct_hit_result_state() -> void:
 	_expect(bool(runtime_result.get("slow_applied", false)), "runtime status helper should apply slow status")
 	_expect(runtime_status.calls.size() == 2, "runtime status helper should emit stun and slow status calls")
 
+	var weapon_status := FakeStatusEffectState.new()
+	var pistol_feedbacks: Array = []
+	var weapon_hit_state: Dictionary = CommandoFirearmHitResultState.build_runtime_weapon_hit_result(
+		"commando_pistol",
+		{
+			"weapon_id": "commando_pistol",
+			"pos": Vector2(380.0, 80.0),
+			"velocity": Vector2(0.0, -16.0),
+			"shot_roll": 0.01,
+		},
+		{
+			"commando_pistol_head_chance": 0.10,
+			"commando_pistol_leg_chance": 0.12,
+			"boss_pos": Vector2(330.0, 50.0),
+			"boss_paddle_width": 100.0,
+			"boss_hitbox_height": 40.0,
+		},
+		{"status_effect_state": weapon_status},
+		CommandoFirearmRuntime.WEAPON_HIT_RESULTS,
+		CommandoFirearmRuntime.HIT_RESULT_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.SLINGSHOT_STUN_MULT,
+		CommandoFirearmRuntime.SLINGSHOT_KNOCKBACK_MULT,
+		0,
+		pistol_feedbacks,
+		CommandoFirearmRuntime.DOPING_POTION_HEAD_LEG_MULTIPLIER,
+		CommandoFirearmRuntime.PISTOL_HEAD_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_LEG_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.PISTOL_HIT_TEXT_TIMER_FRAMES,
+		"head",
+		"leg",
+		CommandoFirearmRuntime.PISTOL_FEEDBACK_LIMIT,
+		0,
+		CommandoFirearmRuntime.AK47_BOSS_DAMAGE_HIT_THRESHOLD
+	)
+	var weapon_result: Dictionary = weapon_hit_state.get("result", {}) as Dictionary
+	_expect(str(weapon_result.get("pistol_hit_kind", "")) == "headshot", "runtime weapon-hit helper should classify headshots")
+	_expect(int(weapon_hit_state.get("next_pistol_hit_count", -1)) == 1, "runtime weapon-hit helper should return next pistol hit count")
+	_expect(int(weapon_hit_state.get("next_ak47_hit_count", -1)) == 0, "runtime weapon-hit helper should preserve unrelated AK47 hit count")
+	_expect(weapon_status.calls.size() == 1, "runtime weapon-hit helper should apply headshot stun status")
+
 
 func _verify_runtime_still_applies_hit_result_status() -> void:
 	var runtime := CommandoFirearmRuntime.new()
@@ -101,6 +144,10 @@ func _verify_runtime_still_applies_hit_result_status() -> void:
 	var status_call: Dictionary = status_state.calls[0]
 	_expect(str(status_call.get("status_id", "")) == "stun", "runtime hit result should still apply stun")
 	_expect(str((status_call.get("data", {}) as Dictionary).get("source", "")) == "commando_firearm_pistol_headshot", "runtime stun data should preserve headshot source")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(runtime_source.find("CommandoFirearmHitResultState.build_runtime_weapon_hit_result") != -1, "runtime should delegate weapon-hit result construction")
+	_expect(runtime_source.find("func _apply_pistol_hit_effects(") == -1, "runtime should not keep pistol-hit bridge")
+	_expect(runtime_source.find("CommandoFirearmAk47HitState.apply_runtime_accumulated_damage") == -1, "runtime should not apply AK47 hit accumulation inline")
 
 
 class FakeStatusEffectState:
