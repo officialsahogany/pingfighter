@@ -9455,3 +9455,26 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1341` scripts with no GDScript warnings,
   and `git diff --check` reported no whitespace errors aside from the
   existing CRLF/LF normalization notice on `commando_firearm_runtime.gd`.
+
+349th follow-up on 2026-05-25:
+
+- Commit:
+  `13ea974d5 godot: move Commando bowling trap input`.
+- Scope: moved bowling-trap single-press ammo input orchestration into
+  `CommandoFirearmAmmoWeaponInputState`. The owner now handles bowling-trap
+  press debouncing, switch-fire suppression, cooldown / lock failure results,
+  installing-trap and lower-field placement guards, ammo consumption,
+  configured cooldown trigger, trap install effect spawning, fire audio, and
+  fired result construction. Runtime keeps `_update_bowling_trap_input()` as
+  a compatibility facade that passes constants through an options dictionary.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1593` lines /
+  `26` functions to `1545` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_audio_routing_smoke`,
+  `commando_firearm_projectile_spawn_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1341` scripts with no GDScript warnings,
+  and `git diff --check` reported no whitespace errors aside from the
+  existing CRLF/LF normalization notice on `commando_firearm_runtime.gd`.
