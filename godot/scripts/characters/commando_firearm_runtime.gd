@@ -1836,17 +1836,17 @@ func _update_suicide_drone_input(
 	):
 		return {}
 	if suicide_drone_cooldown_frames > 0.0:
-		return _suicide_drone_fire_failed(special_gauge, "suicide_drone_cooldown")
+		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_cooldown", suicide_drone_cooldown_frames)
 	if CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
-		return _suicide_drone_fire_failed(special_gauge, "suicide_drone_active")
+		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_active", suicide_drone_cooldown_frames)
 	if not _is_ready("suicide_drone", now_msec, deps):
-		return _suicide_drone_fire_failed(special_gauge, "configured_cooldown")
+		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "configured_cooldown", suicide_drone_cooldown_frames)
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
-		return _suicide_drone_fire_failed(special_gauge, "suicide_drone_empty")
+		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_empty", suicide_drone_cooldown_frames)
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return _suicide_drone_fire_failed(special_gauge, "suicide_drone_ammo_unavailable")
+			return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_ammo_unavailable", suicide_drone_cooldown_frames)
 	last_fire_msec = now_msec
 	suicide_drone_last_action_pressed = action_pressed
 	_start_weapon_fire_sheet_animation("suicide_drone")
@@ -1901,10 +1901,6 @@ func _update_active_suicide_drone_input(
 		detonate_result["special_gauge"] = special_gauge
 		return detonate_result
 	return CommandoFirearmSuicideDroneState.build_active_input_result(projectile, special_gauge)
-
-
-func _suicide_drone_fire_failed(special_gauge: float, reason: String) -> Dictionary:
-	return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, reason, suicide_drone_cooldown_frames)
 
 
 func _spawn_suicide_drone(config: Dictionary) -> void:
