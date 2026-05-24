@@ -7922,6 +7922,29 @@ Hundredth split on 2026-05-24:
   `git diff --check` reported no whitespace errors beyond the existing CRLF
   normalization notices.
 
+275th follow-up on 2026-05-24:
+
+- Commit:
+  `1be325f5f godot: move Commando visibility and pistol hit helpers`.
+- Scope: moved runtime visible-effect array / timer collection into
+  `CommandoFirearmDrawStateResolver.has_runtime_visible_effects()`, leaving
+  `CommandoFirearmRuntime.has_visible_effects()` as a thin public wrapper.
+  Pistol hit payload application, feedback append, damage-unit merge, and
+  damage-source merge now live in `CommandoFirearmPistolHitState`, while the
+  runtime keeps only the pistol roll / chance calculation and hit-count state
+  assignment.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2734` lines /
+  `35` functions to `2700` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke`,
+  `commando_firearm_pistol_hit_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_supply_drop_item_candidates_smoke`, and
+  `commando_supply_drop_audio_cleanup_smoke`. The Godot headless load check
+  passed, `run_warning_scan.ps1` scanned `1333` scripts with no GDScript
+  warnings, and `git diff --check` reported no whitespace errors beyond the
+  existing CRLF normalization notices.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
