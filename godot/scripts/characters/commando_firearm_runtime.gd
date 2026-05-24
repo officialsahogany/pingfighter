@@ -1947,54 +1947,6 @@ func _is_ready(weapon_id: String, now_msec: int, deps: Dictionary) -> bool:
 	return float(skill_state.get_cooldown_remaining(weapon_id, now_msec, cooldown_seconds)) <= 0.0
 
 
-func _update_slingshot_input(input_snapshot: Dictionary, special_gauge: float, config: Dictionary, deps: Dictionary) -> Dictionary:
-	slingshot_cooldown_frames = max(0.0, slingshot_cooldown_frames - 1.0)
-	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	var action_just_pressed: bool = bool(input_snapshot.get("action_just_pressed", action_pressed and not slingshot_last_action_pressed))
-	var action_just_released: bool = bool(input_snapshot.get("action_just_released", not action_pressed and slingshot_last_action_pressed))
-	slingshot_last_action_pressed = action_pressed
-	if bool(input_snapshot.get("down_pressed", false)):
-		if slingshot_charging:
-			special_gauge = _cancel_slingshot_charge(special_gauge)
-		return {}
-	if slingshot_charging:
-		if not action_pressed or action_just_released:
-			return _release_slingshot(special_gauge, config, deps, "released")
-		var charge_drain_result: Dictionary = _advance_slingshot_charge(special_gauge)
-		special_gauge = float(charge_drain_result.get("special_gauge", special_gauge))
-		if bool(charge_drain_result.get("force_release", false)):
-			return _release_slingshot(special_gauge, config, deps, "gauge_empty")
-		return CommandoFirearmSlingshotState.build_charging_result(
-			BASE_WEAPON_ID,
-			slingshot_charge_timer_frames,
-			slingshot_charge_level,
-			special_gauge
-		)
-	if not action_just_pressed:
-		return {}
-	var now_msec: int = Time.get_ticks_msec()
-	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
-		deps.get("commando_weapon_controller", null),
-		now_msec,
-		SWITCH_FIRE_SUPPRESS_MSEC
-	):
-		return {}
-	if slingshot_cooldown_frames > 0.0 or special_gauge < SLINGSHOT_GAUGE_COST:
-		return CommandoFirearmSlingshotState.build_not_ready_result(BASE_WEAPON_ID, special_gauge)
-	slingshot_charging = true
-	slingshot_charge_timer_frames = 0.0
-	slingshot_charge_level = 0
-	slingshot_gauge_spent = 0.0
-	var drain_result: Dictionary = _advance_slingshot_charge(special_gauge)
-	special_gauge = float(drain_result.get("special_gauge", special_gauge))
-	return CommandoFirearmSlingshotState.build_charging_result(
-		BASE_WEAPON_ID,
-		slingshot_charge_timer_frames,
-		slingshot_charge_level,
-		special_gauge
-	)
-
-
 func _advance_slingshot_charge(special_gauge: float) -> Dictionary:
 	var charge_result: Dictionary = CommandoFirearmSlingshotState.advance_charge(
 		slingshot_charge_timer_frames,

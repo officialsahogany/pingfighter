@@ -109,6 +109,7 @@ func _verify_runtime_delegates_slingshot_state() -> void:
 	var canceled: Dictionary = runtime._release_slingshot(40.0, {}, {}, "released")
 	_expect(bool(canceled.get("charge_canceled", false)), "runtime short release should use canceled payload")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(not runtime_source.contains("func _update_slingshot_input("), "runtime should not keep the removed slingshot input bridge")
 	_expect(not runtime_source.contains("func _update_slingshot_charge_level("), "runtime should not keep slingshot charge-level bridge")
 	_expect(not runtime_source.contains("func _get_slingshot_fire_profile("), "runtime should not keep slingshot fire-profile bridge")
 	_expect(not runtime_source.contains("func _apply_slingshot_hit_effects("), "runtime should not keep slingshot hit-effect bridge")
