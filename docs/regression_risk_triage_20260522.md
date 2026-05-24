@@ -6646,6 +6646,25 @@ Hundredth split on 2026-05-24:
   no whitespace errors. `run_headless_load_check.ps1` passed.
   `run_warning_scan.ps1` scanned `1326` scripts with no GDScript warnings.
 
+212th follow-up on 2026-05-24:
+
+- Commit: `34d4ecf89 godot: drop Commando shell casing spawn bridges`.
+- Scope: removed the private `_spawn_ak47_shell_casing()` and
+  `_spawn_pistol_shell_casing()` runtime bridges. The shared firearm spawn path
+  now appends `CommandoFirearmShellCasingState` AK-47 / pistol casing payloads
+  directly while the runtime keeps the shell array limit, projectile shot-id
+  allocation, draw-state publication, and per-frame shell lifecycle ownership.
+  The shell-casing smoke now verifies the live fire path and guards that the
+  removed spawn bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` stayed at `3422` lines and
+  moved from `121` functions to `119` functions.
+- Validation: focused shell / runtime coverage passed:
+  `commando_firearm_shell_casing_state_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

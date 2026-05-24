@@ -4089,7 +4089,8 @@ This section is intentionally long; use search to find the nearest owner.
   out-of-bounds deactivation. `commando_firearm_runtime.gd` keeps the
   `shell_casings` array limit, append / remove ownership, draw-state
   publication, and weapon fire side effects while delegating deterministic
-  casing payload and motion updates to this helper.
+  casing payload and motion updates to this helper. Do not reintroduce private
+  runtime shell-spawn bridges for AK-47 or pistol casings.
 - `scripts/characters/commando_firearm_origin_geometry.gd`
   Owns the pure origin / anchor math for Commando firearm runtime:
   generic player muzzle position, authored weapon-fire sheet world anchors,
