@@ -2725,15 +2725,18 @@ This section is intentionally long; use search to find the nearest owner.
   the stored value and `battle_feedback_state.gd` applies it at dispatch time.
 - `scripts/core/language_settings.gd`
   Owns the persisted UI language setting for the Godot port. It normalizes the
-  supported Korean / English locale codes, stores the selected language under
-  `user://language_settings.cfg`, applies the engine locale, and provides the
-  current shared text table for pause/settings, main-menu quit confirmation,
-  display / render pacing labels, combat HUD labels, skill / perk overlays,
-  item cinematic feedback, weather status copy, boss skill cards, and
-  stage-clear result text. Skill configs and runtime renderers should call this
-  owner for exact Korean-to-English UI text and known composed-label patterns
-  instead of duplicating local translation dictionaries. `boot_flow_scene.gd`
-  and `main_menu_scene.gd` apply the saved language on startup, while
+  supported Korean / English / Simplified Chinese locale codes, stores the
+  selected language under `user://language_settings.cfg`, applies the engine
+  locale, and provides the current shared text table for pause/settings,
+  main-menu quit confirmation, display / render pacing labels, combat HUD
+  labels, skill / perk overlays, item cinematic feedback, weather status copy,
+  boss skill cards, and stage-clear result text. It also owns the catalog data
+  maps for active / mythic item names, mythic descriptions, perk names /
+  summaries, character-select metadata, skill-config copy, exact Korean text,
+  composed-label patterns, and passive quality prefixes. Skill configs and
+  runtime renderers should call this owner for locale-specific UI text instead
+  of duplicating local translation dictionaries. `boot_flow_scene.gd` and
+  `main_menu_scene.gd` apply the saved language on startup, while
   `pause_menu_overlay.gd` owns the visible language tab interaction.
 - `scripts/effects/battle_effects_update_controller.gd`
   Owns per-frame battle-effect fanout: battle feedback timers, audio tick,
@@ -4031,11 +4034,13 @@ This section is intentionally long; use search to find the nearest owner.
   stored previous-dash state, audio side effects, live spawn / field setup
   side-effect boundaries, candidate-index scanning, constrict mutation, and
   the boss-clamp side-effect hook while the spawn path calls `apply_net_fields()`
-  directly for live / dissolve net payloads and dash-break handling calls
-  `mark_hooked_field_broken()` directly. Tests cover the real spawn / break
-  paths plus this helper's deterministic lifecycle / profile / geometry /
-  shape / height-limit / clamp / predicate / constrict-factor calculations
-  instead of runtime position, net-height, setup, clamp, and predicate bridges.
+  directly for live / dissolve net payloads, dash-break handling calls
+  `mark_hooked_field_broken()` directly, and the alternating-input constrict
+  path calls the helper's next-factor calculation directly. Tests cover the
+  real spawn / break / constrict paths plus this helper's deterministic
+  lifecycle / profile / geometry / shape / height-limit / clamp / predicate /
+  constrict-factor calculations instead of runtime position, net-height,
+  setup, clamp, and predicate bridges.
 - `scripts/characters/commando_firearm_lingering_status_state.gd`
   Owns pure Commando lingering status state: profile-derived status payload
   fields, status application candidate dictionaries, slow-multiplier status

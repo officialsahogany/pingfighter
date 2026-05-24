@@ -6849,6 +6849,54 @@ Hundredth split on 2026-05-24:
   `scripts/characters/viper_skill_timer_gauge_renderer.gd:70` Variant
   inference warning noted in the previous follow-up.
 
+222nd follow-up on 2026-05-24:
+
+- Commit: `4c9043363 godot: add Chinese localization surfaces`.
+- Scope: added `LANGUAGE_CHINESE` / `zh` support through
+  `language_settings.gd` and wired Simplified Chinese tables into active and
+  mythic item display names, mythic descriptions, passive quality prefixes,
+  perk names / summaries, character-select metadata, skill-config copy,
+  composed label patterns, pause-language selection, render pacing labels,
+  character-info status copy, Commando firearm tooltips, Smasher / Viper skill
+  tooltip runtime bonus lines, treasure-hunt feedback, weather text, boss
+  skill-card cooldown/status text, character-select prewarm labels, and
+  stage-clear result summaries.
+- Follow-up cleanup: `set_language()` now uses `print_verbose()` for
+  nonfatal `user://language_settings.cfg` save failures, so sandboxed headless
+  smokes do not trip on warning backtraces while the in-memory locale still
+  applies.
+- Validation: focused localization and UI coverage passed:
+  `language_settings_smoke`, `active_item_catalog_korean_names_smoke`,
+  `passive_item_quality_prefix_smoke`, `pause_menu_overlay_smoke`,
+  `commando_firearm_tooltip_smoke`, `commando_skill_tooltip_preview_smoke`,
+  `commando_weapon_controller_smoke`, `viper_skill_tooltip_preview_smoke`,
+  `skill_orb_tooltip_hover_state_perf_smoke`,
+  `stage_clear_result_summary_builder_smoke`,
+  `boss_skill_card_hud_spec_smoke`,
+  `stage1_dalji_commando_hud_layout_smoke`, `weather_event_state_smoke`,
+  `treasure_hunt_runtime_smoke`, `character_selection_viper_start_smoke`, and
+  `character_info_skill_cooldown_pause_smoke`.
+- Final verification: `git diff --check`, `run_headless_load_check.ps1`, and
+  `run_warning_scan.ps1` passed on the post-cleanup worktree. The Godot CLI
+  still printed the known nonfatal Windows root certificate store message.
+
+223rd follow-up on 2026-05-24:
+
+- Commit: `da3e01051 godot: drop Commando net constrict owner bridges`.
+- Scope: removed `_apply_net_constrict_to_indices()` and
+  `_play_net_constrict_audio()` from `commando_firearm_runtime.gd`. The live
+  alternating-input constrict path now mutates active net-field effects in
+  place via `CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor()`
+  and plays capture audio directly when the dependency exposes the method.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3314` lines /
+  `98` functions to `3306` lines / `96` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now covers the
+  real `_update_net_constrict_input()` path and rejects both removed runtime
+  wrappers.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
