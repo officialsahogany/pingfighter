@@ -3946,9 +3946,10 @@ This section is intentionally long; use search to find the nearest owner.
   now calls this owner directly for install position / trap payload / marker
   flash, install eligibility, active-install predicates, round carryover,
   capture result payloads, guard ball softening / knockback, launch direction,
-  and trap-vs-ball hits while keeping the trap array, ammo / cooldown gates,
-  capture / release side effects, audio, VFX, status application, and guard
-  state variable ownership.
+  and trap-vs-ball hits while resolving Stage 2 guard-immunity inline without
+  private runtime bridge helpers. It still keeps the trap array, ammo / cooldown
+  gates, capture / release side effects, audio, VFX, status application, and
+  guard state variable ownership.
 - `scripts/characters/commando_firearm_control_state.gd`
   Owns pure Commando firearm control-state decisions: effect-update gating,
   player-control lock aggregation, and movement-speed multiplier calculation
@@ -4032,15 +4033,15 @@ This section is intentionally long; use search to find the nearest owner.
   constrict input predicates, and boss clamp rectangle / result math. The
   runtime keeps projectile impact ownership, active lingering-effect storage,
   stored previous-dash state, audio side effects, live spawn / field setup
-  side-effect boundaries, candidate-index scanning, constrict mutation, and
-  the boss-clamp side-effect hook while the spawn path calls `apply_net_fields()`
-  directly for live / dissolve net payloads, dash-break handling calls
-  `mark_hooked_field_broken()` directly, and the alternating-input constrict
-  path performs its candidate-index scan inline before calling the helper's
-  next-factor calculation directly. Active lingering effect updates also
-  resolve rope-origin resync inline for hooked and snapping dissolve nets
-  instead of routing through private rope-origin bridges. Tests cover the real
-  spawn / break / constrict / candidate-index / rope-origin paths plus this
+  side-effect boundaries, candidate-index scanning, and constrict mutation
+  while the spawn path calls `apply_net_fields()` directly for live / dissolve
+  net payloads, dash-break handling calls `mark_hooked_field_broken()` directly,
+  and the alternating-input constrict path performs its candidate-index scan
+  inline before calling the helper's next-factor calculation directly. Active
+  lingering effect updates also resolve rope-origin resync and boss-clamp merge
+  inline instead of routing through private rope-origin / clamp bridges. Tests
+  cover the real spawn / break / constrict / candidate-index / rope-origin paths
+  plus this
   helper's deterministic lifecycle / profile / geometry / shape / height-limit
   / clamp / predicate / constrict-factor calculations instead of runtime
   position, net-height, setup, clamp, predicate, and candidate-index bridges.

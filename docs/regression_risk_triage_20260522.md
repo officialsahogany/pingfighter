@@ -6947,6 +6947,25 @@ Hundredth split on 2026-05-24:
   `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now rejects the
   removed candidate-index bridge.
 
+227th follow-up on 2026-05-24:
+
+- Commit: `3f0d8b35c godot: drop Commando guard and clamp bridges`.
+- Scope: removed `_apply_active_lingering_clamp()`,
+  `_is_stage2_speed_defense_boss_immune()`, and
+  `_is_stage2_speed_defense_registry_immune()` from
+  `commando_firearm_runtime.gd`. Active lingering updates now call the net-field
+  clamp owner directly before storing the updated effect, and the bowling-trap
+  guard path evaluates Stage 2 immunity in the live consume path instead of
+  routing through private guard-immunity bridges.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3276` lines /
+  `90` functions to `3268` lines / `87` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The value-utils and bowling-trap smokes
+  now reject the removed clamp / guard-immunity bridges.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
