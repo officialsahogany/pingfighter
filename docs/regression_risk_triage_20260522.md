@@ -6141,6 +6141,21 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+187th follow-up on 2026-05-24:
+
+- Commit: `ea952389d godot: drop Commando doping value bridges`.
+- Scope: moved the remaining pure Commando doping / cooldown value reads into
+  `commando_firearm_value_utils.gd`: pistol cooldown and control lock,
+  doping fire-rate multiplier, AK-47 fire interval, and bazooka cooldown /
+  control lock. `commando_firearm_runtime.gd` now calls the value owner
+  directly for dependency/context reads, config projection, and cadence math,
+  while keeping only runtime-owned timer / ammo / pending-shot mutation.
+- Validation: `commando_firearm_value_utils_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_fire_result_state_smoke` passed.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned 1322
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

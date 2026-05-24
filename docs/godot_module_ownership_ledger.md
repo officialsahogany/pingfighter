@@ -4150,11 +4150,13 @@ This section is intentionally long; use search to find the nearest owner.
   projectile target / weapon-id / kind reads,
   pistol weapon classification / hit-roll / hit-chance helpers,
   doping-potion context normalization / dependency reads / config projection,
+  doping-adjusted pistol cooldown / control-lock, fire-rate multiplier,
+  AK-47 fire interval, and bazooka cooldown / control-lock calculations,
   pending pistol-fire geometry refresh, generic timed-effect array advancement,
   and registry instance fallback lookup. `commando_firearm_runtime.gd` now
-  calls the projectile and pistol-hit value reads directly while keeping
-  remaining private wrappers for the broader value helper surface; shot-id
-  state remains in the runtime.
+  calls the projectile, pistol-hit, and doping/cooldown value reads directly
+  while keeping only stateful runtime helpers for runtime-owned mutation;
+  shot-id state remains in the runtime.
 - `scripts/characters/commando_input_reader.gd`
   Owns Commando raw input on top of the shared Smasher snapshot and adds
   mouse-wheel weapon switching. Wheel events route only when the selected
