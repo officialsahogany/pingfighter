@@ -3994,10 +3994,10 @@ This section is intentionally long; use search to find the nearest owner.
   fields, status application candidate dictionaries, slow-multiplier status
   data, cooldown arithmetic, and lingering-effect / boss-rect overlap tests.
   The runtime keeps the actual `status_effect_state.apply_status()` side
-  effect, cooldown reset sequencing, active lingering-effect storage, and its
-  remaining active-application wrapper names while delegating deterministic
-  setup and status calculations here. Tests call this helper directly for
-  profile field setup instead of runtime setup bridges.
+  effect, cooldown reset sequencing, and active lingering-effect storage while
+  delegating deterministic setup, application gating, status-data, and
+  cooldown calculations here. Tests call this helper directly instead of
+  runtime setup / application bridges.
 - `scripts/characters/commando_firearm_muzzle_flash_resolver.gd`
   Owns pure Commando muzzle-flash dictionary construction: profile kind,
   radius / timer clamps, origin / direction, and secondary-color fallback.

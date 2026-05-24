@@ -5859,6 +5859,23 @@ Hundredth split on 2026-05-24:
   scanned 1322 scripts with no GDScript warnings, and
   `run_headless_load_check.ps1` passed.
 
+168th follow-up on 2026-05-24:
+
+- Commit: `24e9c5cc8 godot: drop Commando lingering status application bridges`.
+- Scope: removed the lingering status application / cooldown bridge cluster
+  from `commando_firearm_runtime.gd`: status id / state / application reads,
+  application validity predicates, ready-to-apply gates, status target /
+  duration / source reads, status-data building, slow-multiplier inclusion,
+  cooldown get / next / set / advance / reset helpers, and cooldown-ready
+  predicates now stay owned by `commando_firearm_lingering_status_state.gd`.
+  Runtime keeps only the live side-effect flow around
+  `_apply_lingering_effect_status()`, `_apply_lingering_status_application()`,
+  `_apply_ready_lingering_status()`, and `_apply_lingering_status_to_boss()`.
+- Validation: `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_warning_scan.ps1` scanned
+  1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
+  passed.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
