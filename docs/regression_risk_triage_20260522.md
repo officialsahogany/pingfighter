@@ -8271,3 +8271,21 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` on the touched Commando files reported no whitespace
   errors beyond existing CRLF normalization notices.
+
+289th follow-up on 2026-05-24:
+
+- Commit:
+  `6ac3a162e godot: move Commando suicide drone draw state`.
+- Scope: moved Commando suicide-drone runtime draw-state field reads into
+  `CommandoFirearmDrawStateResolver.build_runtime_suicide_drone_state()`. The
+  runtime now passes the owner plus the cooldown max constant, while the
+  resolver reads projectiles, cooldown frames, drone grace timer, position, and
+  velocity.
+- Runtime facade size: `commando_firearm_runtime.gd` trimmed the suicide-drone
+  draw-context call by one line while remaining at `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors beyond existing CRLF normalization notices.
