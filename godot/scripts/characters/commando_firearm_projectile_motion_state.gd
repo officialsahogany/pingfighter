@@ -73,6 +73,23 @@ static func update_rocket_motion(
 	}
 
 
+static func advance_linear_motion(
+	projectile: Dictionary,
+	pos: Vector2,
+	velocity: Vector2,
+	step: float
+) -> Dictionary:
+	var frame_step: float = max(0.0, step)
+	var next_velocity: Vector2 = velocity
+	if projectile.has("gravity"):
+		next_velocity.y += float(projectile.get("gravity", 0.0)) * frame_step
+	return {
+		"prev_pos": pos,
+		"pos": pos + next_velocity * frame_step,
+		"velocity": next_velocity,
+	}
+
+
 static func update_net_projectile_rope(
 	projectile: Dictionary,
 	pos: Vector2,

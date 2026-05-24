@@ -2291,10 +2291,15 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			projectile.clear()
 			projectile.merge(CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile)), true)
 			velocity = CommandoFirearmValueUtils.get_vector2(motion_result.get("velocity", velocity), velocity)
-		if projectile.has("gravity"):
-			velocity.y += float(projectile.get("gravity", 0.0)) * step
-		var prev_pos: Vector2 = pos
-		pos += velocity * step
+		var linear_motion: Dictionary = CommandoFirearmProjectileMotionState.advance_linear_motion(
+			projectile,
+			pos,
+			velocity,
+			step
+		)
+		var prev_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(linear_motion.get("prev_pos", pos), pos)
+		pos = CommandoFirearmValueUtils.get_vector2(linear_motion.get("pos", pos), pos)
+		velocity = CommandoFirearmValueUtils.get_vector2(linear_motion.get("velocity", velocity), velocity)
 		if is_pistol_projectile:
 			var field_width: float = max(PISTOL_WALL_BOUNCE_MARGIN * 2.0, float(context.get("width", FIELD_WIDTH)))
 			var bounce_result: Dictionary = CommandoFirearmProjectileMotionState.apply_pistol_side_wall_bounce(

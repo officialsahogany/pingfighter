@@ -53,6 +53,16 @@ func _verify_direct_projectile_motion_state() -> void:
 	var rocket_projectile: Dictionary = rocket_result.get("projectile", {})
 	_expect((rocket_projectile.get("smoke_trail", []) as Array).size() == 1, "rocket motion should seed smoke trail")
 
+	var linear_result: Dictionary = CommandoFirearmProjectileMotionState.advance_linear_motion(
+		{"gravity": 1.0},
+		Vector2(1.0, 2.0),
+		Vector2(3.0, 4.0),
+		2.0
+	)
+	_expect(linear_result.get("prev_pos", Vector2.ZERO) == Vector2(1.0, 2.0), "linear motion helper should preserve previous position")
+	_expect(linear_result.get("pos", Vector2.ZERO) == Vector2(7.0, 14.0), "linear motion helper should apply gravity before advancing position")
+	_expect(linear_result.get("velocity", Vector2.ZERO) == Vector2(3.0, 6.0), "linear motion helper should return gravity-adjusted velocity")
+
 	var rope_projectile: Dictionary = CommandoFirearmProjectileMotionState.update_net_projectile_rope(
 		{"rope_points": [Vector2.ZERO, Vector2.ONE], "rope_trail_limit": 2},
 		Vector2(10.0, 20.0),
@@ -106,6 +116,20 @@ func _verify_runtime_delegates_projectile_motion_state() -> void:
 	runtime._update_projectiles(1.0, {"player_pos": Vector2(300.0, 680.0)}, {})
 	var runtime_net: Dictionary = runtime.projectiles[0]
 	_expect((runtime_net.get("rope_points", []) as Array).size() == 2, "runtime projectile update should delegate net rope update")
+
+	runtime.projectiles = [{
+		"kind": "bullet",
+		"weapon_id": "rifle",
+		"gravity": 1.0,
+		"velocity": Vector2(3.0, 4.0),
+		"pos": Vector2(100.0, 100.0),
+		"life_frames": 12.0,
+	}]
+	runtime._update_projectiles(2.0, {"width": 760.0, "height": 750.0}, {})
+	var runtime_linear: Dictionary = runtime.projectiles[0]
+	_expect(runtime_linear.get("prev_pos", Vector2.ZERO) == Vector2(100.0, 100.0), "runtime projectile update should preserve linear-motion prev_pos")
+	_expect(runtime_linear.get("pos", Vector2.ZERO) == Vector2(106.0, 112.0), "runtime projectile update should delegate gravity-aware linear motion")
+	_expect(runtime_linear.get("velocity", Vector2.ZERO) == Vector2(3.0, 6.0), "runtime projectile update should keep gravity-adjusted velocity")
 
 
 func _verify_removed_runtime_projectile_motion_bridges() -> void:
