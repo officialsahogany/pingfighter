@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
 const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
@@ -347,11 +348,11 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(float(runtime_chances.get("head_chance", 0.0)), 0.20), "runtime hit chance wrapper should use Commando headshot defaults")
 	_expect(is_equal_approx(float(runtime_chances.get("leg_chance", 0.0)), 0.24), "runtime hit chance wrapper should use Commando legshot defaults")
 	_expect(is_equal_approx(runtime._get_pistol_shot_roll({"shot_roll": 0.25}, {}), 0.25), "runtime shot roll wrapper should delegate")
-	_expect(runtime._get_target_reached_expire_reason("fire_support", {"kind": "support"}) == "expired", "runtime target-reached expire wrapper should delegate")
-	_expect(runtime._is_fire_support_weapon("fire_support"), "runtime fire-support classifier wrapper should delegate")
-	_expect(runtime._is_net_gun_weapon("net_gun"), "runtime net-gun classifier wrapper should delegate")
-	_expect(runtime._support_bomb_target_y_already_reached({"support_target_y_reached": 1.0}), "runtime support target-Y wrapper should delegate")
-	_expect(runtime._projectile_life_expired({"life_frames": 0.0}), "runtime projectile life wrapper should delegate")
+	_expect(CommandoFirearmHitGeometry.get_target_reached_expire_reason("fire_support", {"kind": "support"}) == "expired", "hit geometry target-reached expire helper should delegate")
+	_expect(CommandoFirearmHitGeometry.is_fire_support_weapon("fire_support"), "hit geometry fire-support classifier helper should delegate")
+	_expect(CommandoFirearmHitGeometry.is_net_gun_weapon("net_gun"), "hit geometry net-gun classifier helper should delegate")
+	_expect(CommandoFirearmHitGeometry.support_bomb_target_y_already_reached({"support_target_y_reached": 1.0}), "hit geometry support target-Y helper should delegate")
+	_expect(CommandoFirearmHitGeometry.projectile_life_expired({"life_frames": 0.0}), "hit geometry projectile life helper should delegate")
 	_expect(runtime._get_projectile_target({"target": Vector2(12.0, 34.0)}, {}) == Vector2(12.0, 34.0), "runtime projectile target wrapper should delegate explicit targets")
 	_expect(runtime._get_projectile_target({"target": "bad"}, {"boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0}) == runtime._get_boss_target_pos({"boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0}), "runtime projectile target wrapper should use boss target fallback")
 	_expect(runtime._get_projectile_weapon_id({"weapon_id": "bazooka"}) == "bazooka", "runtime projectile weapon wrapper should delegate explicit weapon ids")
@@ -1405,13 +1406,13 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"pos": Vector2(360.0, 90.0),
 		"target_y": 82.0,
 	}
-	_expect(runtime._get_fire_support_target_y_impact_reason(
+	_expect(CommandoFirearmHitGeometry.get_fire_support_target_y_impact_reason(
 		"fire_support",
 		fire_support_hit_projectile,
 		{"impact_radius": 36.0},
 		Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))
 	) == "target", "fire-support target-Y impact helper should return target on boss hit")
-	_expect(runtime._get_fire_support_target_y_impact_reason(
+	_expect(CommandoFirearmHitGeometry.get_fire_support_target_y_impact_reason(
 		"fire_support",
 		{
 			"weapon_id": "fire_support",
@@ -1422,13 +1423,13 @@ func _verify_runtime_delegates_value_utils() -> void:
 		{"impact_radius": 36.0},
 		Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))
 	) == "expired", "fire-support target-Y impact helper should expire already-reached bombs")
-	_expect(runtime._get_fire_support_target_y_impact_reason(
+	_expect(CommandoFirearmHitGeometry.get_fire_support_target_y_impact_reason(
 		"bazooka",
 		{"pos": Vector2(360.0, 90.0), "target_y": 82.0},
 		{"impact_radius": 36.0},
 		Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))
 	) == "", "fire-support target-Y impact helper should ignore other weapons")
-	_expect(runtime._get_net_passed_target_impact_reason(
+	_expect(CommandoFirearmHitGeometry.get_net_passed_target_impact_reason(
 		"net_gun",
 		{
 			"prev_pos": Vector2(370.0, 70.0),
@@ -1436,7 +1437,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		},
 		Vector2(380.0, 70.0)
 	) == "expired", "net passed-target impact helper should expire nets after passing the target")
-	_expect(runtime._get_net_passed_target_impact_reason(
+	_expect(CommandoFirearmHitGeometry.get_net_passed_target_impact_reason(
 		"net_gun",
 		{
 			"prev_pos": Vector2(260.0, 70.0),
@@ -1444,7 +1445,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		},
 		Vector2(380.0, 70.0)
 	) == "", "net passed-target impact helper should keep approaching nets alive")
-	_expect(runtime._get_net_passed_target_impact_reason(
+	_expect(CommandoFirearmHitGeometry.get_net_passed_target_impact_reason(
 		"ak47",
 		{
 			"prev_pos": Vector2(370.0, 70.0),
@@ -1452,7 +1453,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		},
 		Vector2(380.0, 70.0)
 	) == "", "net passed-target impact helper should ignore non-net weapons")
-	_expect(runtime._get_target_reached_impact_reason(
+	_expect(CommandoFirearmHitGeometry.get_target_reached_impact_reason(
 		"bazooka",
 		{
 			"weapon_id": "bazooka",
@@ -1465,7 +1466,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0)),
 		Vector2(300.0, 70.0)
 	) == "target", "target-reached impact helper should return target when the reached impact hits boss")
-	_expect(runtime._get_target_reached_impact_reason(
+	_expect(CommandoFirearmHitGeometry.get_target_reached_impact_reason(
 		"fire_support",
 		{
 			"weapon_id": "fire_support",
@@ -1477,7 +1478,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0)),
 		Vector2(100.0, 100.0)
 	) == "expired", "target-reached impact helper should expire reached support projectiles that miss")
-	_expect(runtime._get_target_reached_impact_reason(
+	_expect(CommandoFirearmHitGeometry.get_target_reached_impact_reason(
 		"bazooka",
 		{
 			"weapon_id": "bazooka",
@@ -1489,7 +1490,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0)),
 		Vector2(0.0, 0.0)
 	) == "", "target-reached impact helper should keep missed bazooka shots alive")
-	_expect(runtime._get_target_reached_impact_reason(
+	_expect(CommandoFirearmHitGeometry.get_target_reached_impact_reason(
 		"fire_support",
 		{
 			"weapon_id": "fire_support",

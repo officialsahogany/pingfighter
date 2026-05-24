@@ -8,7 +8,8 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_direct_geometry_helpers()
-	_verify_runtime_delegates_hit_geometry()
+	_verify_runtime_uses_hit_geometry_boundary()
+	_verify_removed_runtime_hit_geometry_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_hit_geometry_smoke: ok")
@@ -295,146 +296,59 @@ func _verify_direct_geometry_helpers() -> void:
 	_expect(is_equal_approx(float(knockback_profile.get("knockback_power", 0.0)), 8.0), "result hit profile should not mutate the source profile")
 
 
-func _verify_runtime_delegates_hit_geometry() -> void:
+func _verify_runtime_uses_hit_geometry_boundary() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	var boss_rect: Rect2 = runtime._get_boss_rect({
+	var context := {
 		"boss_pos": Vector2(330.0, 50.0),
 		"boss_paddle_width": 100.0,
 		"boss_hitbox_height": 40.0,
-	})
-	_expect(boss_rect == CommandoFirearmHitGeometry.get_boss_rect({
-		"boss_pos": Vector2(330.0, 50.0),
-		"boss_paddle_width": 100.0,
-		"boss_hitbox_height": 40.0,
-	}, 760.0), "runtime boss rect wrapper should delegate to hit geometry")
-
-	var projectile := {"pos": Vector2(100.0, 50.0), "radius": 4.0}
-	var profile := {"hitbox_size": Vector2(12.0, 8.0), "hitbox_offset": Vector2(2.0, -1.0)}
-	_expect(runtime._get_projectile_hitbox_rect(projectile, profile) == CommandoFirearmHitGeometry.get_projectile_hitbox_rect(projectile, profile), "runtime projectile hitbox wrapper should delegate to hit geometry")
-	_expect(runtime._segment_intersects_rect(Vector2(0.0, 20.0), Vector2(40.0, 20.0), Rect2(Vector2(10.0, 10.0), Vector2(20.0, 20.0))), "runtime segment wrapper should delegate to hit geometry")
-	_expect(not runtime._circle_contains_rect_center(Vector2(5.0, 20.0), 5.0, Rect2(Vector2(10.0, 10.0), Vector2(20.0, 20.0))), "runtime center-circle wrapper should delegate to hit geometry")
-	_expect(runtime._net_projectile_hits_boss({
-		"pos": Vector2(275.0, 70.0),
-		"radius": 6.0,
-	}, {
-		"hitbox_size": Vector2(12.0, 12.0),
-		"boss_inflate": Vector2(60.0, 40.0),
-		"segment_radius": 6.0,
-	}, Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))), "runtime net boss hit wrapper should delegate to hit geometry")
-	_expect(runtime._net_projectile_passed_target({
-		"prev_pos": Vector2(370.0, 70.0),
-		"pos": Vector2(420.0, 70.0),
-	}, Vector2(380.0, 70.0)), "runtime net target-pass wrapper should delegate to hit geometry")
-	_expect(runtime._projectile_hitbox_hits_boss({
+	}
+	_expect(runtime._get_projectile_impact_reason({
 		"weapon_id": "ak47",
 		"pos": Vector2(328.0, 70.0),
 		"radius": 3.0,
-	}, {
-		"hitbox_size": Vector2(6.0, 6.0),
-	}, Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))), "runtime projectile hitbox wrapper should delegate to hit geometry")
-	_expect(runtime._get_direct_hit_impact_reason({
-		"weapon_id": "ak47",
-		"pos": Vector2(328.0, 70.0),
-		"radius": 3.0,
-	}, {
-		"hitbox_size": Vector2(6.0, 6.0),
-	}, Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))) == "target", "runtime direct hit reason should return target on immediate hitbox contact")
-	_expect(runtime._get_direct_hit_impact_reason({
-		"weapon_id": "ak47",
-		"pos": Vector2(300.0, 70.0),
-		"radius": 3.0,
-	}, {
-		"hitbox_size": Vector2(6.0, 6.0),
-	}, Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))) == "", "runtime direct hit reason should stay empty when the hitbox misses")
-	_expect(runtime._target_reached_hitbox_hits_boss({
-		"weapon_id": "bazooka",
-		"pos": Vector2(380.0, 70.0),
-		"explosion_radius": 36.0,
-	}, {}, Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))), "runtime target-reached wrapper should delegate to hit geometry")
-	_expect(not runtime._target_reached_hitbox_hits_boss({
-		"weapon_id": "suicide_drone",
-		"pos": Vector2(200.0, 70.0),
-		"explosion_radius": 155.0,
-	}, {}, Rect2(Vector2(350.0, 50.0), Vector2(100.0, 40.0))), "runtime target-reached drone helper should require boss center inside the blast")
-	var runtime_support_hit := {
-		"weapon_id": "fire_support",
-		"pos": Vector2(360.0, 90.0),
-		"target_y": 82.0,
-	}
-	_expect(runtime._support_bomb_reached_target_y(runtime_support_hit, {
-		"impact_radius": 36.0,
-	}, Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))), "runtime support-bomb target-Y wrapper should delegate to hit geometry")
-	_expect(is_equal_approx(float(runtime_support_hit.get("support_target_y_reached", 0.0)), 1.0), "runtime support-bomb wrapper should preserve reached flag side effect")
-	_expect(runtime._projectile_reached_target({
-		"pos": Vector2(100.0, 100.0),
-		"velocity": Vector2(10.0, 0.0),
-		"radius": 5.0,
-	}, Vector2(112.0, 100.0)), "runtime target reach wrapper should delegate to hit geometry")
-	_expect(runtime._projectile_out_of_bounds({
-		"pos": Vector2(841.0, 100.0),
-	}), "runtime out-of-bounds wrapper should delegate to hit geometry")
-	_expect(runtime._get_projectile_terminal_impact_reason({
-		"life_frames": 0.0,
-		"pos": Vector2(100.0, 100.0),
-	}) == "expired", "runtime terminal impact reason should expire depleted projectiles")
-	_expect(runtime._get_projectile_terminal_impact_reason({
-		"life_frames": 12.0,
-		"pos": Vector2(841.0, 100.0),
-	}) == "out_of_bounds", "runtime terminal impact reason should catch out-of-bounds projectiles")
-	_expect(runtime._get_projectile_terminal_impact_reason({
-		"life_frames": 0.0,
-		"pos": Vector2(841.0, 100.0),
-	}) == "expired", "runtime terminal impact reason should preserve life-expired priority")
-	_expect(runtime._get_projectile_terminal_impact_reason({
-		"life_frames": 12.0,
-		"pos": Vector2(100.0, 100.0),
-	}) == "", "runtime terminal impact reason should stay empty for live in-bounds projectiles")
-	var runtime_wall_projectile := {
-		"weapon_id": "bazooka",
-		"pos": Vector2(360.0, 18.0),
-	}
-	_expect(runtime._is_explosive_wall_impact(runtime_wall_projectile, {"kind": "rocket"}), "runtime wall impact wrapper should delegate to hit geometry")
-	runtime._clamp_explosive_wall_impact(runtime_wall_projectile, {"kind": "rocket"})
-	_expect(is_equal_approx(float(CommandoFirearmHitGeometry.get_vector2(runtime_wall_projectile.get("pos", Vector2.ZERO), Vector2.ZERO).y), 20.0), "runtime wall clamp wrapper should delegate to hit geometry")
-	_expect(runtime._explosive_wall_impact_hits_boss(runtime_wall_projectile, {
-		"kind": "rocket",
-		"explosion_radius": CommandoFirearmRuntime.BAZOOKA_EXPLOSION_RADIUS,
-	}, Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))), "runtime wall impact boss-hit wrapper should delegate to hit geometry")
-	var runtime_wall_hit_projectile := {
-		"weapon_id": "bazooka",
-		"pos": Vector2(360.0, 18.0),
-	}
-	_expect(runtime._get_explosive_wall_impact_reason(runtime_wall_hit_projectile, {
-		"kind": "rocket",
-		"explosion_radius": CommandoFirearmRuntime.BAZOOKA_EXPLOSION_RADIUS,
-	}, Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))) == "target", "runtime wall impact reason should return target when the clamped blast hits boss")
-	_expect(is_equal_approx(float(CommandoFirearmHitGeometry.get_vector2(runtime_wall_hit_projectile.get("pos", Vector2.ZERO), Vector2.ZERO).y), 20.0), "runtime wall impact reason should preserve clamp side effects")
-	var runtime_wall_miss_projectile := {
+	}, context) == "target", "runtime impact boundary should still route live projectiles through hit geometry")
+	var wall_projectile := {
 		"weapon_id": "bazooka",
 		"pos": Vector2(-5.0, 500.0),
 	}
-	_expect(runtime._get_explosive_wall_impact_reason(runtime_wall_miss_projectile, {
-		"kind": "rocket",
-		"explosion_radius": 20.0,
-	}, Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))) == "wall", "runtime wall impact reason should return wall when the blast misses boss")
-	_expect(is_equal_approx(float(CommandoFirearmHitGeometry.get_vector2(runtime_wall_miss_projectile.get("pos", Vector2.ZERO), Vector2.ZERO).x), 10.0), "runtime wall impact reason should clamp side-wall bursts")
-	_expect(runtime._get_explosive_wall_impact_reason({
-		"weapon_id": "ak47",
-		"pos": Vector2(360.0, 18.0),
-	}, {"kind": "bullet"}, Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0))) == "", "runtime wall impact reason should ignore non-explosive projectiles")
-	_expect(runtime._get_hit_knockback_direction(Vector2(300.0, 70.0), Vector2.ZERO, {
-		"boss_pos": Vector2(330.0, 50.0),
-		"boss_paddle_width": 100.0,
-		"boss_hitbox_height": 40.0,
-	}) == 1, "runtime knockback direction wrapper should delegate to hit geometry")
-	_expect(is_equal_approx(runtime._get_hit_knockback_velocity({
-		"knockback_power": 8.0,
-		"knockback_velocity_scale": 0.5,
-	}, Vector2(300.0, 70.0), Vector2(6.0, 0.0), {
-		"boss_pos": Vector2(330.0, 50.0),
-		"boss_paddle_width": 100.0,
-		"boss_hitbox_height": 40.0,
-	}), 11.0), "runtime knockback velocity wrapper should delegate to hit geometry")
+	_expect(runtime._get_projectile_impact_reason(wall_projectile, context) == "wall", "runtime impact boundary should keep wall impact classification")
+	_expect(is_equal_approx(float(CommandoFirearmHitGeometry.get_vector2(wall_projectile.get("pos", Vector2.ZERO), Vector2.ZERO).x), 10.0), "runtime impact boundary should preserve wall clamp side effects")
+
+
+func _verify_removed_runtime_hit_geometry_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_support_bomb_reached_target_y",
+		"_get_direct_hit_impact_reason",
+		"_get_fire_support_target_y_impact_reason",
+		"_get_net_passed_target_impact_reason",
+		"_get_explosive_wall_impact_reason",
+		"_get_target_reached_impact_reason",
+		"_get_projectile_terminal_impact_reason",
+		"_projectile_reached_target",
+		"_projectile_out_of_bounds",
+		"_get_target_reached_expire_reason",
+		"_is_fire_support_weapon",
+		"_is_net_gun_weapon",
+		"_support_bomb_target_y_already_reached",
+		"_projectile_life_expired",
+		"_target_reached_hitbox_hits_boss",
+		"_projectile_hitbox_hits_boss",
+		"_net_projectile_hits_boss",
+		"_net_projectile_passed_target",
+		"_is_explosive_wall_impact",
+		"_clamp_explosive_wall_impact",
+		"_explosive_wall_impact_hits_boss",
+		"_get_projectile_hitbox_rect",
+		"_get_explosion_radius",
+		"_get_boss_rect",
+		"_expand_rect",
+		"_circle_intersects_rect",
+		"_circle_contains_rect_center",
+		"_segment_intersects_rect",
+	]:
+		_expect(not source.contains("func %s(" % bridge_name), "%s should stay owned by CommandoFirearmHitGeometry" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:

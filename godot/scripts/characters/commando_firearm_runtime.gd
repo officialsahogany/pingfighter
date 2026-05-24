@@ -2528,7 +2528,7 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 				var wall_result: Dictionary = _register_projectile_environment_impact(projectile, impact_reason, context, deps)
 				result.merge(wall_result, true)
 				context.merge(wall_result, true)
-			elif _is_net_gun_weapon(projectile_weapon_id):
+			elif CommandoFirearmHitGeometry.is_net_gun_weapon(projectile_weapon_id):
 				_spawn_net_dissolve_effect(projectile, context)
 			projectiles.remove_at(index)
 			if projectile_kind == "drone" and not _has_active_suicide_drone_projectile():
@@ -2647,7 +2647,7 @@ func _spawn_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> void:
 
 
 func _build_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> Dictionary:
-	var boss_rect: Rect2 = _get_boss_rect(context)
+	var boss_rect: Rect2 = CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH)
 	return CommandoFirearmPistolFeedbackState.build_feedback(
 		hit_kind,
 		boss_rect,
@@ -2774,14 +2774,18 @@ func _suicide_drone_hits_ball(projectile: Dictionary, context: Dictionary) -> bo
 func _suicide_drone_hits_boss(projectile: Dictionary, context: Dictionary) -> bool:
 	return CommandoFirearmSuicideDroneGeometry.hits_boss_rect(
 		projectile,
-		_get_boss_rect(context),
+		CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
 		SUICIDE_DRONE_SIZE
 	)
 
 
 func _suicide_drone_explosion_hits_boss(projectile: Dictionary, context: Dictionary) -> bool:
 	var profile: Dictionary = _get_weapon_profile("suicide_drone")
-	return CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(projectile, _get_boss_rect(context), _get_explosion_radius(projectile, profile))
+	return CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(
+		projectile,
+		CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
+		CommandoFirearmHitGeometry.get_explosion_radius(projectile, profile)
+	)
 
 
 func _suicide_drone_hits_top_wall(projectile: Dictionary) -> bool:
@@ -2796,7 +2800,7 @@ func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) 
 	var target: Vector2 = _get_projectile_target(projectile, context)
 	var weapon_id: String = _get_projectile_weapon_id(projectile)
 	var profile: Dictionary = _get_weapon_profile(weapon_id)
-	var boss_rect: Rect2 = _get_boss_rect(context)
+	var boss_rect: Rect2 = CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH)
 	return CommandoFirearmHitGeometry.get_projectile_impact_reason(
 		projectile,
 		target,
@@ -2806,92 +2810,6 @@ func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) 
 		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
 		FIELD_WIDTH
 	)
-
-
-func _support_bomb_reached_target_y(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> bool:
-	return CommandoFirearmHitGeometry.support_bomb_reached_target_y(projectile, profile, boss_rect)
-
-
-func _get_direct_hit_impact_reason(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> String:
-	return CommandoFirearmHitGeometry.get_direct_hit_impact_reason(projectile, profile, boss_rect)
-
-
-func _get_fire_support_target_y_impact_reason(
-	weapon_id: String,
-	projectile: Dictionary,
-	profile: Dictionary,
-	boss_rect: Rect2
-) -> String:
-	return CommandoFirearmHitGeometry.get_fire_support_target_y_impact_reason(
-		weapon_id,
-		projectile,
-		profile,
-		boss_rect
-	)
-
-
-func _get_net_passed_target_impact_reason(weapon_id: String, projectile: Dictionary, target: Vector2) -> String:
-	return CommandoFirearmHitGeometry.get_net_passed_target_impact_reason(weapon_id, projectile, target)
-
-
-func _get_explosive_wall_impact_reason(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> String:
-	return CommandoFirearmHitGeometry.get_explosive_wall_impact_reason(
-		projectile,
-		profile,
-		boss_rect,
-		FIELD_WIDTH
-	)
-
-
-func _get_target_reached_impact_reason(
-	weapon_id: String,
-	projectile: Dictionary,
-	profile: Dictionary,
-	boss_rect: Rect2,
-	target: Vector2
-) -> String:
-	return CommandoFirearmHitGeometry.get_target_reached_impact_reason(
-		weapon_id,
-		projectile,
-		profile,
-		boss_rect,
-		target
-	)
-
-
-func _get_projectile_terminal_impact_reason(projectile: Dictionary) -> String:
-	return CommandoFirearmHitGeometry.get_projectile_terminal_impact_reason(
-		projectile,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT)
-	)
-
-
-func _projectile_reached_target(projectile: Dictionary, target: Vector2) -> bool:
-	return CommandoFirearmHitGeometry.projectile_reached_target(projectile, target)
-
-
-func _projectile_out_of_bounds(projectile: Dictionary) -> bool:
-	return CommandoFirearmHitGeometry.projectile_out_of_bounds(projectile, Vector2(FIELD_WIDTH, FIELD_HEIGHT))
-
-
-func _get_target_reached_expire_reason(weapon_id: String, profile: Dictionary) -> String:
-	return CommandoFirearmHitGeometry.get_target_reached_expire_reason(weapon_id, profile)
-
-
-func _is_fire_support_weapon(weapon_id: String) -> bool:
-	return CommandoFirearmHitGeometry.is_fire_support_weapon(weapon_id)
-
-
-func _is_net_gun_weapon(weapon_id: String) -> bool:
-	return CommandoFirearmHitGeometry.is_net_gun_weapon(weapon_id)
-
-
-func _support_bomb_target_y_already_reached(projectile: Dictionary) -> bool:
-	return CommandoFirearmHitGeometry.support_bomb_target_y_already_reached(projectile)
-
-
-func _projectile_life_expired(projectile: Dictionary) -> bool:
-	return CommandoFirearmHitGeometry.projectile_life_expired(projectile)
 
 
 func _get_projectile_target(projectile: Dictionary, context: Dictionary) -> Vector2:
@@ -2904,62 +2822,6 @@ func _get_projectile_weapon_id(projectile: Dictionary, fallback_weapon_id: Strin
 
 func _get_projectile_kind(projectile: Dictionary, fallback_kind: String = "") -> String:
 	return CommandoFirearmValueUtils.get_projectile_kind(projectile, fallback_kind)
-
-
-func _target_reached_hitbox_hits_boss(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> bool:
-	return CommandoFirearmHitGeometry.target_reached_hitbox_hits_boss(projectile, profile, boss_rect)
-
-
-func _projectile_hitbox_hits_boss(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> bool:
-	return CommandoFirearmHitGeometry.projectile_hitbox_hits_boss(projectile, profile, boss_rect)
-
-
-func _net_projectile_hits_boss(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> bool:
-	return CommandoFirearmHitGeometry.net_projectile_hits_boss(projectile, profile, boss_rect)
-
-
-func _net_projectile_passed_target(projectile: Dictionary, target: Vector2) -> bool:
-	return CommandoFirearmHitGeometry.net_projectile_passed_target(projectile, target)
-
-
-func _is_explosive_wall_impact(projectile: Dictionary, profile: Dictionary) -> bool:
-	return CommandoFirearmHitGeometry.is_explosive_wall_impact(projectile, profile, FIELD_WIDTH)
-
-
-func _clamp_explosive_wall_impact(projectile: Dictionary, profile: Dictionary) -> void:
-	CommandoFirearmHitGeometry.clamp_explosive_wall_impact(projectile, profile, FIELD_WIDTH)
-
-
-func _explosive_wall_impact_hits_boss(projectile: Dictionary, profile: Dictionary, boss_rect: Rect2) -> bool:
-	return CommandoFirearmHitGeometry.explosive_wall_impact_hits_boss(projectile, profile, boss_rect, FIELD_WIDTH)
-
-
-func _get_projectile_hitbox_rect(projectile: Dictionary, profile: Dictionary) -> Rect2:
-	return CommandoFirearmHitGeometry.get_projectile_hitbox_rect(projectile, profile)
-
-
-func _get_explosion_radius(projectile: Dictionary, profile: Dictionary) -> float:
-	return CommandoFirearmHitGeometry.get_explosion_radius(projectile, profile)
-
-
-func _get_boss_rect(context: Dictionary) -> Rect2:
-	return CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH)
-
-
-func _expand_rect(rect: Rect2, amount: Vector2) -> Rect2:
-	return CommandoFirearmHitGeometry.expand_rect(rect, amount)
-
-
-func _circle_intersects_rect(center: Vector2, radius: float, rect: Rect2) -> bool:
-	return CommandoFirearmHitGeometry.circle_intersects_rect(center, radius, rect)
-
-
-func _circle_contains_rect_center(center: Vector2, radius: float, rect: Rect2) -> bool:
-	return CommandoFirearmHitGeometry.circle_contains_rect_center(center, radius, rect)
-
-
-func _segment_intersects_rect(from_pos: Vector2, to_pos: Vector2, rect: Rect2) -> bool:
-	return CommandoFirearmHitGeometry.segment_intersects_rect(from_pos, to_pos, rect)
 
 
 func _spawn_impact_flash(projectile: Dictionary) -> void:
@@ -3026,7 +2888,7 @@ func _destroy_stage2_rocks_for_projectile_impact(projectile: Dictionary, context
 		context,
 		deps,
 		weapon_id,
-		_get_explosion_radius(projectile, profile)
+		CommandoFirearmHitGeometry.get_explosion_radius(projectile, profile)
 	)
 
 
