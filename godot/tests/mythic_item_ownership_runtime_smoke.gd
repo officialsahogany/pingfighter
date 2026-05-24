@@ -14,6 +14,7 @@ func _init() -> void:
 	_expect(int(runtime.get_debug_item_counts().get("lucky_coin", 0)) == 1, "ownership helper should count one inventory item")
 	var first_item: Dictionary = runtime.get_inventory_item(0)
 	_expect(str(first_item.get("name", "")) == "lucky_coin", "ownership helper should expose inventory items by index")
+	_expect(str(runtime.debug_get_inventory_item(0).get("name", "")) == "lucky_coin", "debug inventory item reads should use the ownership snapshot")
 	first_item["name"] = "mutated"
 	_expect(str(runtime.get_inventory_item(0).get("name", "")) == "lucky_coin", "inventory item access should return a duplicate")
 	_expect(runtime.get_inventory_item(-1).is_empty(), "inventory item access should guard negative indexes")
@@ -34,6 +35,10 @@ func _init() -> void:
 		"runtime should delegate inventory item reads to ownership runtime"
 	)
 	_expect(
+		runtime_source.find("return debug_inventory.debug_get_inventory_item(self, index)") < 0,
+		"runtime should not route debug inventory item reads through debug inventory"
+	)
+	_expect(
 		runtime_source.find("return ownership_runtime.get_inventory_item_counts(self)") >= 0,
 		"runtime should delegate inventory item counts to ownership runtime"
 	)
@@ -43,6 +48,7 @@ func _init() -> void:
 	)
 	var debug_source: String = FileAccess.get_file_as_string("res://scripts/items/mythic_item_debug_inventory.gd")
 	_expect(debug_source.find("func get_debug_item_counts(") < 0, "debug inventory should not duplicate ownership item count logic")
+	_expect(debug_source.find("func debug_get_inventory_item(") < 0, "debug inventory should not duplicate ownership item read logic")
 
 	print("mythic_item_ownership_runtime_smoke: ok")
 	quit(0)

@@ -575,7 +575,7 @@ func debug_ensure_item_for_roll_editor(item_name: String, owner: Object, registr
 
 func debug_get_inventory_item(index: int) -> Dictionary:
 	_ensure_helpers_ready()
-	return debug_inventory.debug_get_inventory_item(self, index)
+	return ownership_runtime.get_inventory_item(self, index)
 
 
 func get_inventory_item(index: int) -> Dictionary:

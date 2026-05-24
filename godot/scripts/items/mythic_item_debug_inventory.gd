@@ -54,10 +54,6 @@ func debug_ensure_item_for_roll_editor(runtime: Object, item_name: String, owner
 	return runtime.acquire_item(item_name, owner, registry, {}, true, true)
 
 
-func debug_get_inventory_item(runtime: Object, index: int) -> Dictionary:
-	return runtime.get_inventory_item(index)
-
-
 func debug_adjust_inventory_roll(
 	runtime: Object,
 	index: int,
