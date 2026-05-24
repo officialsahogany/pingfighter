@@ -6183,6 +6183,26 @@ Hundredth split on 2026-05-24:
   warnings. `git diff --check` on the touched code/test files reported only
   the existing CRLF working-copy notice and no whitespace errors.
 
+190th follow-up on 2026-05-24:
+
+- Commit: `88aa4959a godot: widen Commando fire support scatter`.
+- Scope: widened Commando fire-support bomb target scatter from `200px` to
+  `300px`, updated the runtime VFX and support-call resolver smoke
+  expectations, and removed one stale test dependency on already-deleted
+  private support-aircraft geometry bridges.
+  `commando_firearm_support_aircraft_geometry_smoke.gd` now verifies the live
+  public `get_fire_support_aircraft_collision_rect()` API plus direct
+  resolver behavior instead of calling removed runtime wrappers.
+- Validation: focused support-aircraft geometry smoke passed. The full sorted
+  `commando_firearm*_smoke.gd` set ran `45` scripts and passed.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` scanned `1322` scripts with no GDScript warnings.
+- Follow-up note: the scatter-width change is gameplay / presentation tuning,
+  not just bridge cleanup. Keep it grouped separately from pure wrapper
+  removals, and run visual QA for support-bomb coverage before a release
+  candidate sign-off.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
