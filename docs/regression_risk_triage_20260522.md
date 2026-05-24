@@ -8943,3 +8943,20 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+327th follow-up on 2026-05-25:
+
+- Commit:
+  `a83ef9b62 godot: move Commando support call start audio`.
+- Scope: moved support-call start audio dispatch into
+  `CommandoFirearmAudioDispatcher.dispatch_support_call_start_audio()`.
+  Runtime still starts the support call payload, while the audio owner now
+  stops evicted aircraft loops and plays the fire-support / supply radio cue.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2136` lines /
+  `35` functions to `2131` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_audio_dispatcher_smoke`,
+  `commando_firearm_support_call_resolver_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
