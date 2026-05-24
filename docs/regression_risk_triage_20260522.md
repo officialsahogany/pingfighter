@@ -8978,3 +8978,45 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+329th follow-up on 2026-05-25:
+
+- Commit:
+  `eedffc4b5 godot: move Commando projectile hit event append`.
+- Scope: moved projectile hit-event payload construction and bounded append
+  into `CommandoFirearmProjectileImpactState.append_runtime_hit_event()`.
+  Runtime still coordinates boss-hit combat / feedback side effects, while the
+  projectile-impact owner now owns hit-event history insertion.
+- Runtime facade delta: `commando_firearm_runtime.gd` changed by `2`
+  insertions and `2` deletions, with the function count staying at `35`.
+- Validation: covered by the next focused Commando pass:
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and the related weapon-hit smoke
+  group.
+
+330th follow-up on 2026-05-25:
+
+- Commit:
+  `79d75d032 godot: move Commando weapon hit result composition`.
+- Scope: moved weapon hit-result composition into
+  `CommandoFirearmHitResultState.build_runtime_weapon_hit_result()`. The
+  hit-result owner now wraps hit-result profile lookup, slingshot modifiers,
+  pistol hit effects / feedback count, AK-47 accumulated-hit damage, and
+  runtime stun / slow status application. Runtime now stores the returned
+  pistol / AK-47 counters and no longer keeps the `_apply_pistol_hit_effects`
+  bridge.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2125` lines /
+  `35` functions to `2093` lines / `34` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_hit_result_state_smoke`,
+  `commando_firearm_pistol_hit_state_smoke`,
+  `commando_firearm_ak47_hit_state_smoke`,
+  `commando_firearm_slingshot_state_smoke`,
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_boss_damage_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed. The first `run_warning_scan.ps1` attempt exited at script
+  `700/1335` with Godot `-1`, then the immediate rerun scanned all `1335`
+  scripts with no GDScript warnings. `git diff --check` reported no
+  whitespace errors.
