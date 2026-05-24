@@ -3540,11 +3540,12 @@ func _register_ball_hit_pulse(pos: Vector2, velocity: Vector2, intensity: float,
 	var ball_effects: Object = deps.get("ball_effects", null)
 	if ball_effects == null or not ball_effects.has_method("register_hit_pulse"):
 		return
-	ball_effects.register_hit_pulse(pos, velocity, clamp(intensity, 0.0, 1.0), _get_ball_hit_pulse_kind(weapon_id))
-
-
-func _get_ball_hit_pulse_kind(weapon_id: String) -> String:
-	return CommandoFirearmAudioResolver.get_ball_hit_pulse_kind(weapon_id, BASE_WEAPON_ID)
+	ball_effects.register_hit_pulse(
+		pos,
+		velocity,
+		clamp(intensity, 0.0, 1.0),
+		CommandoFirearmAudioResolver.get_ball_hit_pulse_kind(weapon_id, BASE_WEAPON_ID)
+	)
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -3578,7 +3579,7 @@ func _play_fire_audio(weapon_id: String, deps: Dictionary) -> void:
 		return
 	_play_weapon_audio_method(
 		deps,
-		_get_fire_audio_methods(weapon_id),
+		CommandoFirearmAudioResolver.get_fire_audio_methods(weapon_id),
 		"play_commando_firearm_fire",
 		weapon_id
 	)
@@ -3587,18 +3588,10 @@ func _play_fire_audio(weapon_id: String, deps: Dictionary) -> void:
 func _play_impact_audio(weapon_id: String, deps: Dictionary) -> void:
 	_play_weapon_audio_method(
 		deps,
-		_get_impact_audio_methods(weapon_id),
+		CommandoFirearmAudioResolver.get_impact_audio_methods(weapon_id),
 		"play_commando_firearm_impact",
 		weapon_id
 	)
-
-
-func _get_fire_audio_methods(weapon_id: String) -> Array[String]:
-	return CommandoFirearmAudioResolver.get_fire_audio_methods(weapon_id)
-
-
-func _get_impact_audio_methods(weapon_id: String) -> Array[String]:
-	return CommandoFirearmAudioResolver.get_impact_audio_methods(weapon_id)
 
 
 func _play_weapon_audio_method(
