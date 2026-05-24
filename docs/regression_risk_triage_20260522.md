@@ -6112,6 +6112,20 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+185th follow-up on 2026-05-24:
+
+- Commit: `ea21c4c6f godot: drop Commando suicide drone geometry bridges`.
+- Scope: removed the suicide-drone spawn anchor, player-lock anchor, rect,
+  ball-hit, boss-hit, explosion-hit, and top-wall geometry bridges from
+  `commando_firearm_runtime.gd`. Runtime now calls
+  `commando_firearm_suicide_drone_geometry.gd` directly while keeping
+  manual-control velocity mutation, detonation, cooldown, audio, VFX, and
+  result handoff.
+- Validation: `commando_firearm_suicide_drone_geometry_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

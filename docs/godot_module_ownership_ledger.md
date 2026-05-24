@@ -4127,9 +4127,10 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_suicide_drone_geometry.gd`
   Owns pure Commando suicide-drone geometry: spawn and player-lock anchors,
   centered drone rectangles, ball / boss rectangle hits, explosion-vs-boss
-  center checks, and top-wall hits. `commando_firearm_runtime.gd` keeps
-  manual-control velocity mutation, detonation, cooldown, audio, VFX, and
-  result handoff while delegating only these deterministic geometry decisions.
+  center checks, and top-wall hits. `commando_firearm_runtime.gd` now calls
+  this owner directly for spawn / lock anchors, ball / boss / top-wall hits,
+  and explosion-vs-boss checks while keeping manual-control velocity mutation,
+  detonation, cooldown, audio, VFX, and result handoff.
 - `scripts/characters/commando_firearm_suicide_drone_state.gd`
   Owns pure Commando suicide-drone state payloads: manual-control projectile
   dictionaries, input-derived velocity / rotor speed, grace / rotor frame
