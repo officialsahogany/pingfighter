@@ -1,6 +1,7 @@
 ﻿extends RefCounted
 
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
+const CommandoFirearmAmmoWeaponInputState := preload("res://scripts/characters/commando_firearm_ammo_weapon_input_state.gd")
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmBowlingTrapGuardState := preload("res://scripts/characters/commando_firearm_bowling_trap_guard_state.gd")
@@ -1169,86 +1170,29 @@ func _update_bazooka_input(
 	current_weapon: Dictionary,
 	now_msec: int
 ) -> Dictionary:
-	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	var action_just_pressed: bool = bool(input_snapshot.get("action_just_pressed", action_pressed))
-	if not action_pressed:
-		return {}
-	if not action_just_pressed:
-		return {}
-	if bool(input_snapshot.get("down_pressed", false)):
-		return {}
-	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
-		weapon_controller,
-		now_msec,
-		SWITCH_FIRE_SUPPRESS_MSEC
-	):
-		return {}
-	var failure_fields := CommandoFirearmFireResultState.build_runtime_bazooka_timing_fields(self)
-	if bazooka_control_lock_frames > 0.0:
-		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_control_lock", failure_fields)
-	if bazooka_cooldown_frames > 0.0:
-		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_cooldown", failure_fields)
-	if not CommandoFirearmCooldownState.is_ready("bazooka", now_msec, deps):
-		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "configured_cooldown", failure_fields)
-	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
-	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
-		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_empty", failure_fields)
-	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
-		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_ammo_unavailable", failure_fields)
-	last_fire_msec = now_msec
-	var doping_context: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps(
-		deps,
-		DOPING_POTION_DEFAULTS
-	)
-	var doping_active: bool = bool(doping_context.get("active", false))
-	bazooka_cooldown_max_frames = CommandoFirearmValueUtils.get_bazooka_cooldown_frames(
-		doping_context,
-		doping_active,
-		BAZOOKA_COOLDOWN_FRAMES,
-		DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES
-	)
-	bazooka_control_lock_max_frames = CommandoFirearmValueUtils.get_bazooka_control_lock_frames(
-		doping_context,
-		doping_active,
-		BAZOOKA_CONTROL_LOCK_FRAMES,
-		DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES
-	)
-	bazooka_cooldown_frames = bazooka_cooldown_max_frames
-	bazooka_control_lock_frames = bazooka_control_lock_max_frames
-	bazooka_fire_animation_frames = BAZOOKA_FIRE_ANIMATION_FRAMES
-	bazooka_firing_pose_frames = BAZOOKA_FIRING_POSE_FRAMES
-	bazooka_muzzle_flash_frames = BAZOOKA_MUZZLE_FLASH_FRAMES
-	CommandoFirearmCooldownState.trigger_skill_cooldown(
-		"bazooka",
-		now_msec,
-		deps,
-		doping_context,
-		doping_active,
-		DOPING_POTION_FIRE_RATE_MULTIPLIER
-	)
-	_spawn_firearm_effect(
-		"bazooka",
+	return CommandoFirearmAmmoWeaponInputState.update_runtime_bazooka_input(
+		self,
+		input_snapshot,
+		special_gauge,
 		config,
 		deps,
-		CommandoFirearmProfileResolver.get_weapon_profile(
-			"bazooka",
-			WEAPON_PROFILES,
-			WEAPON_PROFILE_OVERRIDES
-		)
-	)
-	CommandoFirearmAudioDispatcher.play_fire_audio("bazooka", deps)
-	var updated_weapon: Dictionary = current_weapon
-	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
-		updated_weapon = weapon_controller.get_current_weapon_data()
-	return CommandoFirearmFireResultState.build_ammo_weapon_fired_result(
-		"bazooka",
-		updated_weapon,
-		max(0, ammo_current - 1),
-		BAZOOKA_AMMO_MAX,
-		special_gauge,
-		CommandoFirearmFireResultState.build_runtime_bazooka_timing_fields(self)
+		current_weapon,
+		now_msec,
+		{
+			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
+			"weapon_profiles": WEAPON_PROFILES,
+			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
+			"doping_potion_defaults": DOPING_POTION_DEFAULTS,
+			"doping_fire_rate_multiplier": DOPING_POTION_FIRE_RATE_MULTIPLIER,
+			"doping_bazooka_cooldown_frames": DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES,
+			"doping_bazooka_control_lock_frames": DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES,
+			"bazooka_ammo_max": BAZOOKA_AMMO_MAX,
+			"bazooka_cooldown_frames": BAZOOKA_COOLDOWN_FRAMES,
+			"bazooka_control_lock_frames": BAZOOKA_CONTROL_LOCK_FRAMES,
+			"bazooka_fire_animation_frames": BAZOOKA_FIRE_ANIMATION_FRAMES,
+			"bazooka_firing_pose_frames": BAZOOKA_FIRING_POSE_FRAMES,
+			"bazooka_muzzle_flash_frames": BAZOOKA_MUZZLE_FLASH_FRAMES,
+		}
 	)
 
 
@@ -1260,61 +1204,24 @@ func _update_net_gun_input(
 	current_weapon: Dictionary,
 	now_msec: int
 ) -> Dictionary:
-	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	var action_just_pressed: bool = bool(input_snapshot.get("action_just_pressed", action_pressed))
-	if not action_pressed:
-		return {}
-	if not action_just_pressed:
-		return {}
-	if bool(input_snapshot.get("down_pressed", false)):
-		return {}
-	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
-		weapon_controller,
-		now_msec,
-		SWITCH_FIRE_SUPPRESS_MSEC
-	):
-		return {}
-	var failure_fields := CommandoFirearmFireResultState.build_runtime_net_gun_timing_fields(self)
-	if net_gun_control_lock_frames > 0.0:
-		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_control_lock", failure_fields)
-	if net_gun_cooldown_frames > 0.0:
-		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_cooldown", failure_fields)
-	if not CommandoFirearmCooldownState.is_ready("net_gun", now_msec, deps):
-		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "configured_cooldown", failure_fields)
-	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
-	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
-		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_empty", failure_fields)
-	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
-		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_ammo_unavailable", failure_fields)
-	last_fire_msec = now_msec
-	net_gun_cooldown_frames = NET_GUN_COOLDOWN_FRAMES
-	net_gun_control_lock_frames = NET_GUN_CONTROL_LOCK_FRAMES
-	net_gun_throw_pose_frames = NET_GUN_THROW_POSE_FRAMES
-	net_gun_harpoon_flash_frames = NET_GUN_HARPOON_FLASH_FRAMES
-	CommandoFirearmCooldownState.trigger_configured_cooldown("net_gun", now_msec, deps)
-	_spawn_firearm_effect(
-		"net_gun",
+	return CommandoFirearmAmmoWeaponInputState.update_runtime_net_gun_input(
+		self,
+		input_snapshot,
+		special_gauge,
 		config,
 		deps,
-		CommandoFirearmProfileResolver.get_weapon_profile(
-			"net_gun",
-			WEAPON_PROFILES,
-			WEAPON_PROFILE_OVERRIDES
-		)
-	)
-	CommandoFirearmAudioDispatcher.play_fire_audio("net_gun", deps)
-	var updated_weapon: Dictionary = current_weapon
-	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
-		updated_weapon = weapon_controller.get_current_weapon_data()
-	return CommandoFirearmFireResultState.build_ammo_weapon_fired_result(
-		"net_gun",
-		updated_weapon,
-		max(0, ammo_current - 1),
-		NET_GUN_AMMO_MAX,
-		special_gauge,
-		CommandoFirearmFireResultState.build_runtime_net_gun_timing_fields(self)
+		current_weapon,
+		now_msec,
+		{
+			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
+			"weapon_profiles": WEAPON_PROFILES,
+			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
+			"net_gun_ammo_max": NET_GUN_AMMO_MAX,
+			"net_gun_cooldown_frames": NET_GUN_COOLDOWN_FRAMES,
+			"net_gun_control_lock_frames": NET_GUN_CONTROL_LOCK_FRAMES,
+			"net_gun_throw_pose_frames": NET_GUN_THROW_POSE_FRAMES,
+			"net_gun_harpoon_flash_frames": NET_GUN_HARPOON_FLASH_FRAMES,
+		}
 	)
 
 
