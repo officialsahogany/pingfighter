@@ -4,6 +4,7 @@ const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
 const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
@@ -230,6 +231,49 @@ static func append_runtime_spawn_effect(
 		return {}
 	CommandoFirearmValueUtils.append_limited(lingering_effects, effect, effect_limit)
 	return CommandoFirearmValueUtils.get_dict(spawn_payload.get("spawn_result", {}))
+
+
+static func spawn_runtime_lingering_effect(
+	runtime_owner: Object,
+	weapon_id: String,
+	projectile: Dictionary,
+	context: Dictionary,
+	options: Dictionary
+) -> Dictionary:
+	if runtime_owner == null:
+		return {}
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_lingering_effect_profile(
+		weapon_id,
+		CommandoFirearmValueUtils.get_dict(options.get("weapon_lingering_effects", {}))
+	)
+	if profile.is_empty():
+		return {}
+	var lingering_effects: Array = CommandoFirearmValueUtils.get_array(runtime_owner.get("lingering_effects"))
+	var result: Dictionary = append_runtime_spawn_effect(
+		lingering_effects,
+		runtime_owner,
+		weapon_id,
+		profile,
+		projectile,
+		context,
+		Vector2(float(options.get("field_width", 760.0)), float(options.get("field_height", 750.0))),
+		float(options.get("net_gun_width", 280.0)),
+		float(options.get("net_gun_height", 140.0)),
+		float(options.get("net_gun_min_height", 90.0)),
+		float(options.get("net_gun_dissolve_frames", 21.0)),
+		float(options.get("net_gun_dash_break_frames", 24.0)),
+		float(options.get("net_gun_player_slow_multiplier", 1.0)),
+		CommandoFirearmValueUtils.get_vector2(options.get("net_gun_muzzle_source", Vector2.ZERO), Vector2.ZERO),
+		CommandoFirearmValueUtils.get_vector2(options.get("fire_sheet_source_cell_size", Vector2.ZERO), Vector2.ZERO),
+		float(options.get("fire_sheet_player_foot_y_offset", 0.0)),
+		float(options.get("status_duration_frames", 18.0)),
+		float(options.get("status_interval_frames", 12.0)),
+		float(options.get("status_initial_cooldown_frames", 0.0)),
+		float(options.get("status_slow_multiplier", 1.0)),
+		int(options.get("effect_limit", 18))
+	)
+	runtime_owner.set("lingering_effects", lingering_effects)
+	return result
 
 
 static func advance_timers(effect: Dictionary, fps_scale: float, phase_step: float) -> void:

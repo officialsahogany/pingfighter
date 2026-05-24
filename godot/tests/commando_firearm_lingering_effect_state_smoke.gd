@@ -228,8 +228,17 @@ func _verify_runtime_delegates_lingering_effect_state() -> void:
 		"runtime should delegate active lingering effect advancement to the owner"
 	)
 	_expect(
-		runtime_source.find("CommandoFirearmLingeringEffectState.append_runtime_spawn_effect") >= 0,
-		"runtime should delegate lingering spawn append composition to the owner"
+		runtime_source.find("CommandoFirearmLingeringEffectState.spawn_runtime_lingering_effect") >= 0,
+		"runtime should delegate lingering spawn orchestration to the owner"
+	)
+	var owner_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
+	_expect(
+		owner_source.find("CommandoFirearmLingeringEffectState.append_runtime_spawn_effect") < 0,
+		"lingering owner should call its spawn append helper directly"
+	)
+	_expect(
+		owner_source.find("append_runtime_spawn_effect") >= 0,
+		"lingering owner should keep the spawn append composition helper"
 	)
 	_expect(
 		runtime_source.find("CommandoFirearmLingeringEffectState.build_spawn_payload") < 0,

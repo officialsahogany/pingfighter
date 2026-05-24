@@ -1779,32 +1779,28 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 
 
 func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context: Dictionary) -> Dictionary:
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_lingering_effect_profile(
-		weapon_id,
-		WEAPON_LINGERING_EFFECTS
-	)
-	if profile.is_empty():
-		return {}
-	return CommandoFirearmLingeringEffectState.append_runtime_spawn_effect(
-		lingering_effects,
+	return CommandoFirearmLingeringEffectState.spawn_runtime_lingering_effect(
 		self,
 		weapon_id,
-		profile,
 		projectile,
 		context,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		NET_GUN_WIDTH,
-		NET_GUN_HEIGHT,
-		NET_GUN_MIN_HEIGHT,
-		NET_GUN_DISSOLVE_FRAMES,
-		NET_GUN_DASH_BREAK_FRAMES,
-		NET_GUN_PLAYER_SLOW_MULTIPLIER,
-		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
-		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
-		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
-		LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
-		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
-		LINGERING_EFFECT_LIMIT
+		{
+			"weapon_lingering_effects": WEAPON_LINGERING_EFFECTS,
+			"field_width": FIELD_WIDTH,
+			"field_height": FIELD_HEIGHT,
+			"net_gun_width": NET_GUN_WIDTH,
+			"net_gun_height": NET_GUN_HEIGHT,
+			"net_gun_min_height": NET_GUN_MIN_HEIGHT,
+			"net_gun_dissolve_frames": NET_GUN_DISSOLVE_FRAMES,
+			"net_gun_dash_break_frames": NET_GUN_DASH_BREAK_FRAMES,
+			"net_gun_player_slow_multiplier": NET_GUN_PLAYER_SLOW_MULTIPLIER,
+			"net_gun_muzzle_source": COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+			"fire_sheet_source_cell_size": COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+			"fire_sheet_player_foot_y_offset": COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+			"status_duration_frames": LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+			"status_interval_frames": LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+			"status_initial_cooldown_frames": LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
+			"status_slow_multiplier": LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+			"effect_limit": LINGERING_EFFECT_LIMIT,
+		}
 	)
