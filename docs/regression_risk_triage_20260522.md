@@ -7000,6 +7000,21 @@ Hundredth split on 2026-05-24:
   `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now rejects the
   removed dash-trigger and hooked-net break bridges.
 
+230th follow-up on 2026-05-24:
+
+- Commit: `b5aaf1b1c godot: drop Commando lingering frame bridge`.
+- Scope: removed `_advance_lingering_effect_frame()` from
+  `commando_firearm_runtime.gd`. The lingering update loop now advances timers
+  through `CommandoFirearmLingeringEffectState.advance_timers()` and refreshes
+  fire-zone flames through `CommandoFirearmLingeringFireFlameState` directly.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3250` lines /
+  `84` functions to `3245` lines / `83` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now rejects the
+  removed lingering frame bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

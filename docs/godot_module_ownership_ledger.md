@@ -4012,10 +4012,11 @@ This section is intentionally long; use search to find the nearest owner.
   bridges. The spawn path resolves lingering effect ids inline so explicit
   projectile ids and `_next_shot_id()` allocation stay at the runtime
   side-effect boundary. Fire-zone spawns call the fire-zone predicate and
-  deterministic flame builder directly, so no private fire-seed bridge remains.
-  Suicide-drone detonation / hit paths branch to the molotov-backed fire-zone
-  path directly instead of via private lingering dispatch or molotov trigger
-  bridges.
+  deterministic flame builder directly, and frame updates call the timer owner
+  plus flame-frame owner directly, so no private fire-seed or frame-update
+  bridge remains. Suicide-drone detonation / hit paths branch to the
+  molotov-backed fire-zone path directly instead of via private lingering
+  dispatch or molotov trigger bridges.
 - `scripts/characters/commando_firearm_lingering_fire_flame_state.gd`
   Owns pure Commando lingering fire-zone flame state: deterministic flame
   seeding, effect-size fallback reads, ring / size / lifetime patterns,
