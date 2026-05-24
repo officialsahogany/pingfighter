@@ -33,7 +33,6 @@ const CommandoFirearmStage2RockInteractionResolver := preload("res://scripts/cha
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
 const CommandoFirearmSupportProjectileResolver := preload("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
-const CommandoFirearmSuicideDroneGeometry := preload("res://scripts/characters/commando_firearm_suicide_drone_geometry.gd")
 const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 const CommandoFirearmTimerState := preload("res://scripts/characters/commando_firearm_timer_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
@@ -1840,32 +1839,21 @@ func _resolve_suicide_drone_collision(
 	deps: Dictionary,
 	fps_scale: float
 ) -> Dictionary:
-	if not bool(projectile.get("manual_control", false)):
-		return {}
-	var step: float = max(0.0, fps_scale)
-	projectile = CommandoFirearmSuicideDroneState.advance_active_projectile(
+	var collision_state: Dictionary = CommandoFirearmSuicideDroneState.resolve_runtime_collision(
 		projectile,
-		step,
+		fps_scale,
+		context,
 		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
 		SUICIDE_DRONE_SIZE,
-		SUICIDE_DRONE_ROTOR_BASE_SPEED
+		SUICIDE_DRONE_ROTOR_BASE_SPEED,
+		FIELD_WIDTH
 	)
-	projectiles[index] = projectile
-	if float(projectile.get("grace_timer_frames", 0.0)) > 0.0:
+	if collision_state.is_empty():
 		return {}
-	if CommandoFirearmSuicideDroneGeometry.hits_ball(projectile, context, SUICIDE_DRONE_SIZE):
-		return _detonate_suicide_drone_at_index(index, projectile, "ball_hit", context, deps)
-	if CommandoFirearmSuicideDroneGeometry.hits_boss_rect(
-		projectile,
-		CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
-		SUICIDE_DRONE_SIZE
-	):
-		return _detonate_suicide_drone_at_index(index, projectile, "boss_hit", context, deps)
-	if CommandoFirearmSuicideDroneGeometry.hits_top_wall(projectile, SUICIDE_DRONE_SIZE):
-		return _detonate_suicide_drone_at_index(index, projectile, "boss_back_wall", context, deps)
-	if float(projectile.get("life_frames", 0.0)) <= 0.0:
-		return _detonate_suicide_drone_at_index(index, projectile, "expired", context, deps)
-	return {}
+	projectile = CommandoFirearmValueUtils.get_dict(collision_state.get("projectile", projectile))
+	projectiles[index] = projectile
+	var reason: String = str(collision_state.get("reason", ""))
+	return _detonate_suicide_drone_at_index(index, projectile, reason, context, deps) if reason != "" else {}
 
 
 func _detonate_suicide_drone_at_index(

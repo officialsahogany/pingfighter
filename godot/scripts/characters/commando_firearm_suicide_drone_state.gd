@@ -147,6 +147,44 @@ static func advance_active_projectile(
 	return clamp_projectile(next_projectile, field_size, default_size)
 
 
+static func resolve_runtime_collision(
+	projectile: Dictionary,
+	fps_scale: float,
+	context: Dictionary,
+	field_size: Vector2,
+	default_size: Vector2,
+	rotor_base_speed: float,
+	field_width: float
+) -> Dictionary:
+	if not bool(projectile.get("manual_control", false)):
+		return {}
+	var next_projectile: Dictionary = advance_active_projectile(
+		projectile,
+		max(0.0, fps_scale),
+		field_size,
+		default_size,
+		rotor_base_speed
+	)
+	var reason: String = ""
+	if float(next_projectile.get("grace_timer_frames", 0.0)) <= 0.0:
+		if CommandoFirearmSuicideDroneGeometry.hits_ball(next_projectile, context, default_size):
+			reason = "ball_hit"
+		elif CommandoFirearmSuicideDroneGeometry.hits_boss_rect(
+			next_projectile,
+			CommandoFirearmHitGeometry.get_boss_rect(context, field_width),
+			default_size
+		):
+			reason = "boss_hit"
+		elif CommandoFirearmSuicideDroneGeometry.hits_top_wall(next_projectile, default_size):
+			reason = "boss_back_wall"
+		elif float(next_projectile.get("life_frames", 0.0)) <= 0.0:
+			reason = "expired"
+	return {
+		"projectile": next_projectile,
+		"reason": reason,
+	}
+
+
 static func clamp_projectile(projectile: Dictionary, field_size: Vector2, default_size: Vector2) -> Dictionary:
 	var next_projectile: Dictionary = projectile.duplicate(true)
 	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(next_projectile.get("pos", Vector2.ZERO), Vector2.ZERO)

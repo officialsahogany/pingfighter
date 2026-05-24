@@ -182,6 +182,81 @@ func _verify_direct_suicide_drone_state() -> void:
 	)
 	_expect(is_equal_approx(float(advanced.get("grace_timer_frames", 0.0)), 5.0), "advance state should decrement grace frames")
 	_expect(is_equal_approx(float(advanced.get("rotor_angle", 0.0)), 20.4), "advance state should rotate by rotor speed")
+	_expect(
+		CommandoFirearmSuicideDroneState.resolve_runtime_collision(
+			{"manual_control": false, "pos": Vector2(100.0, 100.0)},
+			1.0,
+			{},
+			Vector2(760.0, 750.0),
+			Vector2(48.0, 48.0),
+			18.0,
+			760.0
+		).is_empty(),
+		"runtime collision helper should ignore non-manual projectiles"
+	)
+	var grace_collision: Dictionary = CommandoFirearmSuicideDroneState.resolve_runtime_collision(
+		projectile,
+		1.0,
+		{"ball_pos": Vector2(100.0, 200.0)},
+		Vector2(760.0, 750.0),
+		Vector2(48.0, 48.0),
+		18.0,
+		760.0
+	)
+	_expect(str(grace_collision.get("reason", "pending")) == "", "runtime collision helper should wait out grace frames")
+	var ball_collision_projectile: Dictionary = projectile.duplicate(true)
+	ball_collision_projectile["grace_timer_frames"] = 0.0
+	ball_collision_projectile["pos"] = Vector2(100.0, 200.0)
+	var ball_collision: Dictionary = CommandoFirearmSuicideDroneState.resolve_runtime_collision(
+		ball_collision_projectile,
+		1.0,
+		{"ball_pos": Vector2(100.0, 200.0), "ball_size": 28.6},
+		Vector2(760.0, 750.0),
+		Vector2(48.0, 48.0),
+		18.0,
+		760.0
+	)
+	_expect(str(ball_collision.get("reason", "")) == "ball_hit", "runtime collision helper should report ball contact")
+	var boss_collision_projectile: Dictionary = projectile.duplicate(true)
+	boss_collision_projectile["grace_timer_frames"] = 0.0
+	boss_collision_projectile["pos"] = Vector2(350.0, 70.0)
+	var boss_collision: Dictionary = CommandoFirearmSuicideDroneState.resolve_runtime_collision(
+		boss_collision_projectile,
+		1.0,
+		{"ball_active": false, "boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0},
+		Vector2(760.0, 750.0),
+		Vector2(48.0, 48.0),
+		18.0,
+		760.0
+	)
+	_expect(str(boss_collision.get("reason", "")) == "boss_hit", "runtime collision helper should report boss body contact")
+	var wall_collision_projectile: Dictionary = projectile.duplicate(true)
+	wall_collision_projectile["grace_timer_frames"] = 0.0
+	wall_collision_projectile["pos"] = Vector2(100.0, 20.0)
+	var wall_collision: Dictionary = CommandoFirearmSuicideDroneState.resolve_runtime_collision(
+		wall_collision_projectile,
+		1.0,
+		{"ball_active": false, "boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0},
+		Vector2(760.0, 750.0),
+		Vector2(48.0, 48.0),
+		18.0,
+		760.0
+	)
+	_expect(str(wall_collision.get("reason", "")) == "boss_back_wall", "runtime collision helper should report top-wall contact")
+	var expired_collision_projectile: Dictionary = projectile.duplicate(true)
+	expired_collision_projectile["grace_timer_frames"] = 0.0
+	expired_collision_projectile["life_frames"] = 0.0
+	expired_collision_projectile["pos"] = Vector2(100.0, 300.0)
+	var expired_collision: Dictionary = CommandoFirearmSuicideDroneState.resolve_runtime_collision(
+		expired_collision_projectile,
+		1.0,
+		{"ball_active": false, "boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0},
+		Vector2(760.0, 750.0),
+		Vector2(48.0, 48.0),
+		18.0,
+		760.0
+	)
+	_expect(str(expired_collision.get("reason", "")) == "expired", "runtime collision helper should report expired drones")
 	var clamped: Dictionary = CommandoFirearmSuicideDroneState.clamp_projectile(
 		{"pos": Vector2(-10.0, 800.0), "size": Vector2(48.0, 48.0)},
 		Vector2(760.0, 750.0),
@@ -362,6 +437,8 @@ func _verify_removed_runtime_active_projectile_bridges() -> void:
 	_expect(not runtime_source.contains("func _get_drone_velocity("), "runtime should not keep suicide-drone homing velocity bridge")
 	_expect(not runtime_source.contains("func _clamp_suicide_drone_projectile("), "runtime should not keep suicide-drone clamp bridge")
 	_expect(not runtime_source.contains("func _spawn_suicide_drone_fire_zone("), "runtime should not keep suicide-drone fire-zone bridge")
+	_expect(not runtime_source.contains("CommandoFirearmSuicideDroneGeometry"), "runtime should not directly depend on suicide-drone geometry")
+	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.resolve_runtime_collision"), "runtime should delegate suicide-drone collision reason resolution to state owner")
 	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.append_runtime_detonation_flash"), "runtime should delegate suicide-drone detonation flash append to state owner")
 	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.explosion_hits_runtime_boss"), "runtime should delegate suicide-drone explosion boss tests to state owner")
 	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.dispatch_miss_detonation_feedback"), "runtime should delegate suicide-drone miss feedback to state owner")
