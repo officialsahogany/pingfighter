@@ -7241,6 +7241,27 @@ Hundredth split on 2026-05-24:
   `commando_firearm_fire_result_state_smoke`. The value-utils smoke now drives
   the real pending pistol timer path and rejects the removed refresh bridge.
 
+244th follow-up on 2026-05-24:
+
+- Commit:
+  `a1187a1e2 godot: extract Commando firearm cooldown state`.
+- Scope: added `commando_firearm_cooldown_state.gd` as the owner for Commando
+  firearm skill-cooldown triggering and cooldown-second math. The runtime now
+  routes AK-47 / Bazooka doping-scaled cooldowns and configured cooldown
+  triggers for Net Gun / Bowling Trap / Suicide Drone through that owner, and
+  removed `_trigger_firearm_skill_cooldown()` plus
+  `_get_firearm_skill_cooldown_seconds()` from the facade.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3162` lines /
+  `72` functions to `3129` lines / `70` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_cooldown_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_fire_result_state_smoke`. The new cooldown smoke covers
+  direct cooldown math, `trigger_cooldown` preference, configured-cooldown
+  fallback, missing-state no-op behavior, and rejects the removed runtime
+  cooldown bridges.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
