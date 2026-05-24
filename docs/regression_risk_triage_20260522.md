@@ -5758,6 +5758,42 @@ Hundredth split on 2026-05-24:
   passed; both wrappers still printed the known nonfatal Windows root
   certificate store message from Godot.
 
+162nd follow-up on 2026-05-24:
+
+- Commit: `96fadb0c9 godot: remaster Commando fire support airstrike blast`.
+- Scope: upgraded Commando Fire Support's grenade explosion presentation
+  without changing the normal active-item Grenade budget. Fire-support impact
+  flashes now carry an `airstrike` explosion style plus texture / smoke /
+  spark budget metadata, `GrenadeExplosionDrawer` prewarms cached impact
+  flare / shockwave textures and draws layered glow, burst, shockwave,
+  smoke-column, and foreground spark passes only for fire-support blasts, and
+  the Stage 1 Commando firearm renderer reports the new airstrike visual
+  family / texture-layer count.
+- Validation: focused coverage passed:
+  `active_item_throw_explosion_budget_smoke`,
+  `commando_firearm_impact_flash_resolver_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_vfx_texture_remaster_smoke`, and
+  `battle_scene_frame_controller_draw_order_smoke`. `run_warning_scan.ps1`
+  scanned 1322 scripts with no GDScript warnings, and
+  `run_headless_load_check.ps1` passed.
+
+163rd follow-up on 2026-05-24:
+
+- Commit: `7cefeafbe godot: move BattlePerf draw logging after shell sample`.
+- Scope: moved the `BattlePerf.maybe_log()` call out of
+  `battle_scene_frame_controller.gd` and into `battle_scene_shell.gd` after
+  `draw.shell.total` has closed. The frame controller still records draw pass
+  samples, but log formatting / printing no longer inflates `draw.frame.total`
+  or `draw.shell.total`. The draw-order smoke now asserts that the frame
+  controller does not call the log printer and that the shell invokes it only
+  after the shell sample closes.
+- Validation: focused coverage passed:
+  `battle_scene_frame_controller_draw_order_smoke` plus the same Commando /
+  active-item VFX smoke set listed in the 162nd follow-up. `run_warning_scan.ps1`
+  scanned 1322 scripts with no GDScript warnings, and
+  `run_headless_load_check.ps1` passed.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

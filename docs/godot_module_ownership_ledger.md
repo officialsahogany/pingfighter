@@ -682,7 +682,10 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/active_item_throw_grenade_renderer.gd` owns Grenade
   projectile sprites / trail drawing, explosion-zone delegation through the
   shared `GrenadeExplosionDrawer`, fallback grenade dot drawing, icon texture
-  loading, and Grenade asset prewarm.
+  loading, and Grenade asset prewarm. `GrenadeExplosionDrawer` also owns the
+  fire-support airstrike explosion style layered from cached impact flare /
+  shockwave textures while keeping normal item Grenade explosions on the
+  lower-cost draw budget.
   `scripts/items/active_item_throw_flare_renderer.gd` owns Flare projectile
   sprites / trail drawing, arrived countdown blink, flare flash / confuse
   zone drawing, flash / glow render budgets, fallback flare dot drawing,
@@ -1387,7 +1390,8 @@ This section is intentionally long; use search to find the nearest owner.
   support-marker, fire-support aircraft motion trails / shadows,
   tuned compact fire-support aircraft draw size, wall-missile smoke tails /
   launch flashes, imagegen fire-support bomb projectile texture projection,
-  net, rocket, trap, installed
+  fire-support airstrike grenade-explosion texture-layer accounting, net,
+  rocket, trap, installed
   bowling-trap, captured-ball, and drone feedback
   from actor draw context. Muzzle flashes, impact flashes, support markers, and
   lingering fields now add cached glow / burst / sparkle / ring texture-piece
@@ -2793,6 +2797,8 @@ This section is intentionally long; use search to find the nearest owner.
   module registry / script-instance cache, and boot / intro readiness gates
   live in the battle scene readiness controller, not in the shell. Modal /
   debug overlay pause gates live in the battle scene modal-gate controller.
+  BattlePerf draw logging is emitted after `draw.shell.total` closes so log
+  formatting is not charged to frame-controller or shell draw samples.
 - `scripts/core/battle_scene_lifecycle.gd`
   Owns Godot scene startup lifecycle: random setup, canvas texture policy,
   window layout configuration, bootstrap snapshot application, and initial
@@ -4614,7 +4620,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns battle-scene shell frame routing for idle process, physics process,
   and final draw: intro-frame delegation, overlay-frame delegation,
   scoreboard visual idle updates, normal battle-scene draw, and final
-  draw priority. The battle shell keeps
+  draw priority. It records draw pass samples but does not print BattlePerf
+  logs inside `draw.frame.total`; the battle shell handles that after the
+  shell sample closes. The battle shell keeps
   only callbacks for initialization, intro starts, battle draw, mobile
   controls, and current flow flags; modal open-state predicates are delegated
   to the battle scene modal-gate controller, while boot / logo / landing /
