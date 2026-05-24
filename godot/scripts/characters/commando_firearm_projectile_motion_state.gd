@@ -18,6 +18,17 @@ static func advance_life_timer(projectile: Dictionary, step: float) -> void:
 	projectile["life_frames"] = max(0.0, float(projectile.get("life_frames", 0.0)) - max(0.0, step))
 
 
+static func finalize_frame_motion(
+	projectile: Dictionary,
+	prev_pos: Vector2,
+	pos: Vector2,
+	velocity: Vector2,
+	step: float
+) -> void:
+	write_motion_fields(projectile, prev_pos, pos, velocity)
+	advance_life_timer(projectile, step)
+
+
 static func apply_pistol_side_wall_bounce(
 	projectile: Dictionary,
 	pos: Vector2,

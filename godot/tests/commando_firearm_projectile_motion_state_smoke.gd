@@ -41,6 +41,18 @@ func _verify_direct_projectile_motion_state() -> void:
 	payload_projectile["life_frames"] = 3.0
 	CommandoFirearmProjectileMotionState.advance_life_timer(payload_projectile, 5.0)
 	_expect(is_equal_approx(float(payload_projectile.get("life_frames", -1.0)), 0.0), "life timer helper should clamp at zero")
+	payload_projectile["life_frames"] = 4.0
+	CommandoFirearmProjectileMotionState.finalize_frame_motion(
+		payload_projectile,
+		Vector2(2.0, 3.0),
+		Vector2(4.0, 5.0),
+		Vector2(6.0, 7.0),
+		1.5
+	)
+	_expect(payload_projectile.get("prev_pos", Vector2.ZERO) == Vector2(2.0, 3.0), "frame motion helper should write prev_pos")
+	_expect(payload_projectile.get("pos", Vector2.ZERO) == Vector2(4.0, 5.0), "frame motion helper should write pos")
+	_expect(payload_projectile.get("velocity", Vector2.ZERO) == Vector2(6.0, 7.0), "frame motion helper should write velocity")
+	_expect(is_equal_approx(float(payload_projectile.get("life_frames", 0.0)), 2.5), "frame motion helper should advance life timers")
 
 	var bounce_result: Dictionary = CommandoFirearmProjectileMotionState.apply_pistol_side_wall_bounce(
 		{"weapon_id": "commando_pistol", "wall_bounces": 0},

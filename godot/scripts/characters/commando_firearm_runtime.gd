@@ -1580,8 +1580,7 @@ func _update_active_suicide_drone_input(
 		SUICIDE_DRONE_ROTOR_BASE_SPEED,
 		SUICIDE_DRONE_ROTOR_SPEED_SCALE
 	)
-	projectile.clear()
-	projectile.merge(next_projectile, true)
+	CommandoFirearmProjectileMotionState.replace_projectile_payload(projectile, next_projectile)
 	projectiles[index] = projectile
 	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
 	var action_just_pressed: bool = bool(input_snapshot.get(
@@ -2007,13 +2006,13 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 				NET_GUN_ROPE_TRAIL_LIMIT
 			)
 			CommandoFirearmProjectileMotionState.replace_projectile_payload(projectile, next_projectile)
-		CommandoFirearmProjectileMotionState.write_motion_fields(
+		CommandoFirearmProjectileMotionState.finalize_frame_motion(
 			projectile,
 			CommandoFirearmValueUtils.get_vector2(projectile.get("prev_pos", prev_pos), prev_pos),
 			pos,
-			velocity
+			velocity,
+			step
 		)
-		CommandoFirearmProjectileMotionState.advance_life_timer(projectile, step)
 		projectiles[index] = projectile
 		if projectile_kind == "drone":
 			var drone_result: Dictionary = _resolve_suicide_drone_collision(index, projectile, context, deps, step)
