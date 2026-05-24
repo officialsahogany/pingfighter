@@ -3982,9 +3982,11 @@ This section is intentionally long; use search to find the nearest owner.
   and height clamping, dash-active / rising-trigger reads, alternating
   constrict input predicates, and boss clamp rectangle / result math. The
   runtime keeps projectile impact ownership, active lingering-effect storage,
-  stored previous-dash state, audio side effects, and the boss-clamp side-
-  effect hook while tests call this helper directly for deterministic net-
-  field clamp geometry / result calculations instead of runtime clamp bridges.
+  stored previous-dash state, audio side effects, live spawn / field setup
+  side-effect boundaries, and the boss-clamp side-effect hook while tests call
+  this helper directly for deterministic lifecycle / profile / geometry /
+  shape / height-limit / clamp calculations instead of runtime setup and clamp
+  bridges.
 - `scripts/characters/commando_firearm_lingering_status_state.gd`
   Owns pure Commando lingering status state: profile-derived status payload
   fields, status application candidate dictionaries, slow-multiplier status
