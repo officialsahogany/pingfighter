@@ -9151,3 +9151,26 @@ commits rather than standalone `fix` commits:
   `project_resource_loader_import_preference_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors.
+
+337th follow-up on 2026-05-25:
+
+- Commit:
+  `fee5c2151 godot: move Commando suicide drone indexed dispatch`.
+- Scope: moved suicide-drone indexed collision / detonation routing into
+  `CommandoFirearmSuicideDroneState.resolve_runtime_collision_at_index()` and
+  `detonate_runtime_projectile_at_index()`. The state owner now updates the
+  active projectile slot, resolves non-empty collision reasons, removes
+  detonated projectiles, and delegates the full detonation path. Runtime now
+  calls the indexed owner helpers from active input and projectile update
+  paths, and no longer keeps `_resolve_suicide_drone_collision()` /
+  `_detonate_suicide_drone_at_index()` bridges.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1976` lines /
+  `34` functions to `1965` lines / `32` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_suicide_drone_ball_boost_resolver_smoke`,
+  `commando_firearm_audio_dispatcher_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors.
