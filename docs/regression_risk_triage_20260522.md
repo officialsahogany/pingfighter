@@ -5919,6 +5919,21 @@ Hundredth split on 2026-05-24:
   1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
   passed.
 
+172nd follow-up on 2026-05-24:
+
+- Commit: `f7a40a33f godot: drop Commando support call setup bridges`.
+- Scope: removed the Fire Support support-call setup bridge cluster from
+  `commando_firearm_runtime.gd`: call payload construction, marker-flash
+  construction, delay-frame reads, bomb-count reads, seed reads, and
+  bomb-target selection now call `commando_firearm_support_call_resolver.gd`
+  directly from the runtime owner. Runtime keeps support-call array mutation,
+  radio / aircraft audio side effects, projectile spawning, and the
+  `_advance_support_call()` lifecycle boundary.
+- Validation: `commando_firearm_support_call_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_warning_scan.ps1` scanned
+  1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
+  passed.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
