@@ -9106,3 +9106,26 @@ commits rather than standalone `fix` commits:
   `project_resource_loader_import_preference_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors.
+
+335th follow-up on 2026-05-25:
+
+- Commit:
+  `2f6989837 godot: move Commando projectile impact dispatch`.
+- Scope: moved non-drone projectile impact side-effect dispatch into
+  `CommandoFirearmProjectileImpactState.dispatch_runtime_impact()`. The
+  projectile-impact owner now appends impact flashes, routes Stage 2 rock
+  cleanup, dispatches target hits through the runtime owner, handles wall
+  environment impact feedback, and spawns net-gun dissolve lingering effects.
+  Runtime now resolves the impact reason, delegates the side effects, merges
+  the returned result, and removes the projectile.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2025` lines /
+  `34` functions to `1998` lines / `34` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_boss_damage_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_stage2_rock_interaction_resolver_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors.
