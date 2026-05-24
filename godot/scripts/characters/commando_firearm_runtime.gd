@@ -566,7 +566,19 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	var weapon_id: String = str(current_weapon.get("weapon_id", BASE_WEAPON_ID))
 	if weapon_controller.has_method("update_timers"):
 		CommandoFirearmAudioDispatcher.play_reload_progress_audio(weapon_controller.update_timers(1.0), deps)
-	if _should_suppress_fire_input_for_serve_wait(input_snapshot, config, deps):
+	var serve_wait_suppression: Dictionary = CommandoFirearmControlState.get_serve_wait_fire_suppression(
+		input_snapshot,
+		config,
+		deps,
+		serve_wait_fire_suppressed_until_release
+	)
+	serve_wait_fire_suppressed_until_release = bool(serve_wait_suppression.get(
+		"suppressed_until_release",
+		serve_wait_fire_suppressed_until_release
+	))
+	if bool(serve_wait_suppression.get("clear_input_state", false)):
+		_clear_serve_wait_firearm_input_state()
+	if bool(serve_wait_suppression.get("suppressed", false)):
 		return {}
 	var timed_result: Dictionary = _update_firearm_timers(config, deps, 1.0)
 	if bool(timed_result.get("fired", false)):
@@ -653,32 +665,6 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 		"special_gauge": special_gauge,
 		"skill_gold_award": 0,
 	}
-
-
-func _should_suppress_fire_input_for_serve_wait(
-	input_snapshot: Dictionary,
-	config: Dictionary,
-	deps: Dictionary
-) -> bool:
-	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	var round_state: Object = deps.get("round_state", null)
-	var waiting_for_serve: bool = false
-	if round_state != null and round_state.has_method("is_waiting_for_serve"):
-		waiting_for_serve = bool(round_state.is_waiting_for_serve())
-	elif config.has("waiting_for_serve"):
-		waiting_for_serve = bool(config.get("waiting_for_serve", false))
-	if waiting_for_serve:
-		if action_pressed:
-			serve_wait_fire_suppressed_until_release = true
-		_clear_serve_wait_firearm_input_state()
-		return true
-	if not serve_wait_fire_suppressed_until_release:
-		return false
-	if action_pressed:
-		_clear_serve_wait_firearm_input_state()
-		return true
-	serve_wait_fire_suppressed_until_release = false
-	return false
 
 
 func _clear_serve_wait_firearm_input_state() -> void:

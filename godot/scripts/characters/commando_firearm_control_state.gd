@@ -37,3 +37,44 @@ static func apply_ak47_trigger_cleared(target: Object) -> void:
 		return
 	target.set("ak47_trigger_held", false)
 	target.set("ak47_burst_shots_remaining", 0)
+
+
+static func get_waiting_for_serve(config: Dictionary, deps: Dictionary) -> bool:
+	var round_state: Object = deps.get("round_state", null)
+	if round_state != null and round_state.has_method("is_waiting_for_serve"):
+		return bool(round_state.is_waiting_for_serve())
+	if config.has("waiting_for_serve"):
+		return bool(config.get("waiting_for_serve", false))
+	return false
+
+
+static func get_serve_wait_fire_suppression(
+	input_snapshot: Dictionary,
+	config: Dictionary,
+	deps: Dictionary,
+	suppressed_until_release: bool
+) -> Dictionary:
+	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
+	if get_waiting_for_serve(config, deps):
+		return {
+			"suppressed": true,
+			"clear_input_state": true,
+			"suppressed_until_release": true if action_pressed else suppressed_until_release,
+		}
+	if not suppressed_until_release:
+		return {
+			"suppressed": false,
+			"clear_input_state": false,
+			"suppressed_until_release": false,
+		}
+	if action_pressed:
+		return {
+			"suppressed": true,
+			"clear_input_state": true,
+			"suppressed_until_release": true,
+		}
+	return {
+		"suppressed": false,
+		"clear_input_state": false,
+		"suppressed_until_release": false,
+	}
