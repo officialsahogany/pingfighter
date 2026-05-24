@@ -10,6 +10,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_direct_muzzle_flash_resolver()
 	_verify_runtime_uses_muzzle_flash_resolver()
+	_verify_removed_runtime_muzzle_flash_bridge()
 
 	if _failures.is_empty():
 		print("commando_firearm_muzzle_flash_resolver_smoke: ok")
@@ -65,11 +66,26 @@ func _verify_runtime_uses_muzzle_flash_resolver() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(not runtime_source.contains("func _build_muzzle_flash("), "runtime should not keep muzzle-flash build bridge")
 
-	runtime._spawn_muzzle_flash(Vector2(12.0, 34.0), Vector2.UP, profile, "bazooka")
+	runtime._spawn_firearm_effect(
+		"bazooka",
+		{
+			"player_pos": Vector2(12.0, 34.0),
+			"boss_pos": Vector2(12.0, 0.0),
+			"paddle_width": 1.0,
+			"paddle_height": 1.0,
+		},
+		{},
+		profile
+	)
 	_expect(runtime.muzzle_flashes.size() == 1, "runtime spawn should append one muzzle flash")
 	var spawned: Dictionary = CommandoFirearmValueUtils.get_dict(runtime.muzzle_flashes[0])
 	_expect(str(spawned.get("weapon_id", "")) == "bazooka", "runtime spawn should preserve weapon id")
 	_expect(is_equal_approx(float(spawned.get("timer_frames", 0.0)), 5.0), "runtime spawn should use resolver timer")
+
+
+func _verify_removed_runtime_muzzle_flash_bridge() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(source.find("func _spawn_muzzle_flash(") < 0, "runtime should not keep muzzle-flash append bridge")
 
 
 func _get_vector2(value: Variant) -> Vector2:

@@ -1897,7 +1897,11 @@ func _spawn_suicide_drone(config: Dictionary) -> void:
 	)
 	var shot_id: int = _next_shot_id()
 	CommandoFirearmValueUtils.append_limited(projectiles, _build_suicide_drone_projectile(profile, origin, config, shot_id), PROJECTILE_LIMIT)
-	_spawn_muzzle_flash(origin, Vector2.UP, profile, "suicide_drone")
+	CommandoFirearmValueUtils.append_limited(
+		muzzle_flashes,
+		CommandoFirearmMuzzleFlashResolver.build_flash(origin, Vector2.UP, profile, "suicide_drone"),
+		FLASH_LIMIT
+	)
 
 
 func _build_suicide_drone_fire_result(updated_weapon: Dictionary, ammo_current: int, special_gauge: float) -> Dictionary:
@@ -2135,7 +2139,11 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		bool(profile.get("vertical_launch", false)),
 		angle_offset
 	)
-	_spawn_muzzle_flash(origin, direction, profile, weapon_id)
+	CommandoFirearmValueUtils.append_limited(
+		muzzle_flashes,
+		CommandoFirearmMuzzleFlashResolver.build_flash(origin, direction, profile, weapon_id),
+		FLASH_LIMIT
+	)
 	if kind == "support":
 		_start_support_call(origin, target, profile, weapon_id, deps)
 		return
@@ -2265,14 +2273,6 @@ func _spawn_support_round(
 		SUPPORT_MISSILE_LIFE_FRAMES,
 		"opponent_wall"
 	), PROJECTILE_LIMIT)
-
-
-func _spawn_muzzle_flash(origin: Vector2, direction: Vector2, profile: Dictionary, weapon_id: String) -> void:
-	CommandoFirearmValueUtils.append_limited(
-		muzzle_flashes,
-		CommandoFirearmMuzzleFlashResolver.build_flash(origin, direction, profile, weapon_id),
-		FLASH_LIMIT
-	)
 
 
 func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
