@@ -5081,10 +5081,11 @@ This section is intentionally long; use search to find the nearest owner.
   context immunity checks instead of reintroducing private runtime stage-
   immunity bridge methods.
 - `scripts/items/mythic_item_equipment_index.gd`
-  Owns mythic inventory / equipped-item index lookup, equipped-item rebuilds,
-  equipment slot canonicalization, slot resolution, single-equipment checks,
-  and accessory-slot enablement. Equipment, debug, ownership, Revival consume,
-  and owner-sync helpers should call this owner directly instead of
+  Owns mythic inventory / equipped-item index lookup, public equipped-state
+  checks, equipped-item rebuilds, equipment slot canonicalization, slot
+  resolution, single-equipment checks, and accessory-slot enablement.
+  Equipment, debug, ownership, Revival consume, and owner-sync helpers
+  should call this owner directly instead of
   reintroducing private runtime equipment-index bridge methods.
 - `scripts/items/mythic_item_pickup_bonus.gd`
   Owns acquisition-side pickup bonuses such as Reinforced Boomerang

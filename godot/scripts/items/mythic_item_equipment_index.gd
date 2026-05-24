@@ -23,6 +23,10 @@ func is_single_equipment_item(item_name: String, constants: Dictionary) -> bool:
 	return item_name == str(constants.get("item_smartphone", "smartphone"))
 
 
+func is_item_equipped(runtime: Object, item_name: String) -> bool:
+	return runtime.equipped_items.has(item_name)
+
+
 func find_inventory_index_by_name(runtime: Object, item_name: String) -> int:
 	for i in range(runtime.inventory_items.size()):
 		var item_data: Dictionary = runtime._get_dict(runtime.inventory_items[i])

@@ -641,7 +641,7 @@ func draw_debug_management_menu(canvas: CanvasItem, owner: Object, registry: Obj
 
 func is_equipped(item_name: String = ITEM_MEGINGJORD) -> bool:
 	_ensure_helpers_ready()
-	return equipped_items.has(item_name)
+	return equipment_index.is_item_equipped(self, item_name)
 
 
 func on_new_perk_choice_batch(owner: Object = null) -> void:

@@ -86,6 +86,8 @@ func _verify_helper_registry_initializes_runtime() -> void:
 	_expect(runtime_source.find("debug_management_menu.draw") < 0, "mythic runtime should not keep debug menu draw routing inline")
 	_expect(runtime_source.find("return pause_gate.should_pause_game(self)") >= 0, "mythic runtime should delegate pause aggregation")
 	_expect(runtime_source.find("or pandora_legacy_selection_state.is_active()") < 0, "mythic runtime should not keep pause aggregation inline")
+	_expect(runtime_source.find("return equipment_index.is_item_equipped(self, item_name)") >= 0, "mythic runtime should delegate generic equipped checks")
+	_expect(runtime_source.find("return equipped_items.has(item_name)") < 0, "mythic runtime should not keep generic equipped checks inline")
 
 
 func _verify_empty_runtime_has_no_field_effects() -> void:
