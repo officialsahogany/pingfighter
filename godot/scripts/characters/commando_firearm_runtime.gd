@@ -1041,15 +1041,14 @@ func get_actor_draw_context() -> Dictionary:
 		get_movement_speed_multiplier(),
 		CommandoFirearmLingeringNetFieldState.has_active_hooked_net_field(lingering_effects)
 	)
-	var bowling_trap_state: Dictionary = CommandoFirearmDrawStateResolver.build_bowling_trap_state(
+	var bowling_trap_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_bowling_trap_state(
+		bowling_traps,
 		bowling_trap_cooldown_frames,
 		BOWLING_TRAP_COOLDOWN_FRAMES,
 		bowling_trap_control_lock_frames,
 		BOWLING_TRAP_CONTROL_LOCK_FRAMES,
 		bowling_trap_install_pose_frames,
-		BOWLING_TRAP_INSTALL_FRAMES,
-		CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps),
-		CommandoFirearmBowlingTrapGeometry.get_install_progress(bowling_traps)
+		BOWLING_TRAP_INSTALL_FRAMES
 	)
 	var suicide_drone_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_suicide_drone_state(
 		projectiles,

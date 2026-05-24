@@ -119,6 +119,17 @@ func _verify_direct_weapon_draw_states() -> void:
 	var bowling: Dictionary = CommandoFirearmDrawStateResolver.build_bowling_trap_state(16.0, 120.0, 17.0, 30.0, 18.0, 48.0, true, 0.4)
 	_expect(bool(bowling.get("installing", false)), "bowling-trap state should preserve installing flag")
 	_expect(is_equal_approx(float(bowling.get("install_progress", 0.0)), 0.4), "bowling-trap state should preserve install progress")
+	var runtime_bowling: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_bowling_trap_state(
+		[{"state": "installing", "install_progress": 0.35}],
+		16.0,
+		120.0,
+		17.0,
+		30.0,
+		18.0,
+		48.0
+	)
+	_expect(bool(runtime_bowling.get("installing", false)), "runtime bowling-trap state should detect installing traps")
+	_expect(is_equal_approx(float(runtime_bowling.get("install_progress", 0.0)), 0.35), "runtime bowling-trap state should read install progress")
 
 	var suicide_drone: Dictionary = CommandoFirearmDrawStateResolver.build_suicide_drone_state(true, 19.0, 90.0, 6.0, Vector2(10.0, 20.0), Vector2(1.0, -2.0))
 	_expect(bool(suicide_drone.get("active", false)), "suicide-drone state should preserve active flag")

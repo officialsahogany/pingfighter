@@ -18,6 +18,7 @@ const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
 const StatusEffectState := preload("res://scripts/status/status_effect_state.gd")
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _failures: Array[String] = []
 
@@ -251,6 +252,8 @@ class FakeOwner:
 
 
 func _init() -> void:
+	var original_language := LanguageSettings.get_language()
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	_verify_successful_fire_spawns_visible_runtime()
 	_verify_bazooka_wall_impact_detonates_without_boss_contact()
 	_verify_bazooka_edge_only_wall_blast_does_not_stun()
@@ -283,6 +286,7 @@ func _init() -> void:
 	_verify_firearm_fx_host_activation_does_not_emit_stale_particles()
 	_verify_stage1_renderer_context_reader()
 
+	LanguageSettings.set_language(original_language)
 	if _failures.is_empty():
 		print("commando_firearm_runtime_vfx_smoke: ok")
 		quit(0)

@@ -1,5 +1,6 @@
 extends RefCounted
 
+const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 const VISIBLE_EFFECT_ARRAY_FIELDS := [
@@ -189,6 +190,27 @@ static func build_bowling_trap_state(
 		"installing": installing,
 		"install_progress": install_progress,
 	}
+
+
+static func build_runtime_bowling_trap_state(
+	traps: Array,
+	cooldown_frames: float,
+	cooldown_max_frames: float,
+	control_lock_frames: float,
+	control_lock_max_frames: float,
+	install_pose_frames: float,
+	install_pose_max_frames: float
+) -> Dictionary:
+	return build_bowling_trap_state(
+		cooldown_frames,
+		cooldown_max_frames,
+		control_lock_frames,
+		control_lock_max_frames,
+		install_pose_frames,
+		install_pose_max_frames,
+		CommandoFirearmBowlingTrapGeometry.has_installing_trap(traps),
+		CommandoFirearmBowlingTrapGeometry.get_install_progress(traps)
+	)
 
 
 static func build_suicide_drone_state(
