@@ -59,6 +59,40 @@ static func build_slingshot_state(
 	}
 
 
+static func build_runtime_slingshot_state(
+	target: Object,
+	charge_threshold_frames: float,
+	charge_tick_interval_frames: float,
+	cooldown_max_frames: float,
+	control_lock_max_frames: float
+) -> Dictionary:
+	if target == null:
+		return build_slingshot_state(
+			false,
+			0.0,
+			0,
+			charge_threshold_frames,
+			charge_tick_interval_frames,
+			0.0,
+			cooldown_max_frames,
+			0.0,
+			0.0,
+			control_lock_max_frames
+		)
+	return build_slingshot_state(
+		bool(target.get("slingshot_charging")),
+		float(target.get("slingshot_charge_timer_frames")),
+		int(target.get("slingshot_charge_level")),
+		charge_threshold_frames,
+		charge_tick_interval_frames,
+		float(target.get("slingshot_cooldown_frames")),
+		cooldown_max_frames,
+		float(target.get("slingshot_gauge_spent")),
+		float(target.get("slingshot_control_lock_frames")),
+		control_lock_max_frames
+	)
+
+
 static func build_pistol_state(
 	cooldown_frames: float,
 	cooldown_max_frames: float,

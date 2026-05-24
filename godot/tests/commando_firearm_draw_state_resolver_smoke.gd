@@ -41,6 +41,16 @@ func _verify_direct_slingshot_state() -> void:
 	_expect(is_equal_approx(float(state.get("charge_ratio", 0.0)), 0.25), "slingshot state should compute charge ratio")
 	_expect(is_equal_approx(float(state.get("charge_tick_ratio", 0.0)), 0.5), "slingshot state should compute charge tick ratio")
 	_expect(int(state.get("charge_level", 0)) == 2, "slingshot state should preserve charge level")
+	var runtime := CommandoFirearmRuntime.new()
+	runtime.slingshot_charging = true
+	runtime.slingshot_charge_timer_frames = 45.0
+	runtime.slingshot_charge_level = 2
+	runtime.slingshot_cooldown_frames = 5.0
+	runtime.slingshot_gauge_spent = 90.0
+	runtime.slingshot_control_lock_frames = 6.0
+	var runtime_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_slingshot_state(runtime, 180.0, 30.0, 30.0, 18.0)
+	_expect(bool(runtime_state.get("charging", false)), "runtime slingshot state should read charging flag")
+	_expect(is_equal_approx(float(runtime_state.get("charge_ratio", 0.0)), 0.25), "runtime slingshot state should compute charge ratio")
 
 
 func _verify_direct_pistol_state() -> void:

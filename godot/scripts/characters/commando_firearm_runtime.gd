@@ -981,16 +981,11 @@ func get_recent_hit_events() -> Array:
 
 
 func get_actor_draw_context() -> Dictionary:
-	var slingshot_state: Dictionary = CommandoFirearmDrawStateResolver.build_slingshot_state(
-		slingshot_charging,
-		slingshot_charge_timer_frames,
-		slingshot_charge_level,
+	var slingshot_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_slingshot_state(
+		self,
 		SLINGSHOT_CHARGE_THRESHOLD_3,
 		SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES,
-		slingshot_cooldown_frames,
 		SLINGSHOT_COOLDOWN_FRAMES,
-		slingshot_gauge_spent,
-		slingshot_control_lock_frames,
 		SLINGSHOT_CONTROL_LOCK_FRAMES
 	)
 	var pistol_state: Dictionary = CommandoFirearmDrawStateResolver.build_pistol_state(
