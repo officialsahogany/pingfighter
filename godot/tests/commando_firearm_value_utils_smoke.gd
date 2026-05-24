@@ -701,16 +701,6 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate({"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.8}, CommandoFirearmRuntime.NET_CONSTRICT_MIN), "net constrict candidate owner should accept active nets above the minimum")
 	_expect(not CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate({"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.6}, CommandoFirearmRuntime.NET_CONSTRICT_MIN), "net constrict candidate owner should reject nets at the minimum")
 	_expect(not CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate({"weapon_id": "net_gun", "hooked_player": true, "dissolve": true, "constrict_factor": 0.8}, CommandoFirearmRuntime.NET_CONSTRICT_MIN), "net constrict candidate owner should reject dissolving nets")
-	runtime.lingering_effects = [
-		{"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.8},
-		{"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.6},
-		{"weapon_id": "net_gun", "hooked_player": true, "dissolve": true, "constrict_factor": 0.8},
-		{"weapon_id": "ak47", "hooked_player": true, "constrict_factor": 0.8},
-		{"weapon_id": "net_gun", "hooked_player": true},
-	]
-	var candidate_indices: Array[int] = runtime._get_net_constrict_candidate_indices()
-	_expect(candidate_indices.size() == 2, "net constrict candidate index helper should return only active constrictable nets")
-	_expect(candidate_indices[0] == 0 and candidate_indices[1] == 4, "net constrict candidate index helper should preserve source indices")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction({"left_pressed": true}) == -1, "net constrict input owner should map left to -1")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction({"right_pressed": true}) == 1, "net constrict input owner should map right to 1")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction({"left_pressed": true, "right_pressed": true}) == 0, "net constrict input owner should cancel opposing directions")
@@ -1606,6 +1596,7 @@ func _verify_removed_net_field_predicate_bridges() -> void:
 		"_get_net_constrict_factor",
 		"_apply_net_constrict_to_indices",
 		"_play_net_constrict_audio",
+		"_get_net_constrict_candidate_indices",
 		"_sync_net_field_rope_origin",
 		"_should_sync_net_field_rope_origin",
 	]:

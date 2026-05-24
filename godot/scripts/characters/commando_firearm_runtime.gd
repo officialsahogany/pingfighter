@@ -3166,7 +3166,11 @@ func _break_hooked_net_fields() -> void:
 func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps: Dictionary) -> void:
 	# Mirrors pingfighter.py _update_net_constrict: alternating L/R input within
 	# a short window narrows hooked nets by NET_CONSTRICT_STEP, floored at NET_CONSTRICT_MIN.
-	var active_indices: Array[int] = _get_net_constrict_candidate_indices()
+	var active_indices: Array[int] = []
+	for index in range(lingering_effects.size()):
+		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
+		if CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate(effect, NET_CONSTRICT_MIN):
+			active_indices.append(index)
 	if active_indices.is_empty():
 		return
 	var dir_input: int = CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction(input_snapshot)
@@ -3200,15 +3204,6 @@ func _has_hooked_net_field() -> bool:
 		if CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect):
 			return true
 	return false
-
-
-func _get_net_constrict_candidate_indices() -> Array[int]:
-	var active_indices: Array[int] = []
-	for index in range(lingering_effects.size()):
-		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
-		if CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate(effect, NET_CONSTRICT_MIN):
-			active_indices.append(index)
-	return active_indices
 
 
 func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, deps: Dictionary, fps_scale: float) -> void:
