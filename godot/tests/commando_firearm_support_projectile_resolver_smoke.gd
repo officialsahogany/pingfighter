@@ -10,6 +10,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_direct_support_projectile_resolver()
 	_verify_runtime_delegates_support_projectile_resolver()
+	_verify_removed_runtime_support_projectile_bridge()
 
 	if _failures.is_empty():
 		print("commando_firearm_support_projectile_resolver_smoke: ok")
@@ -99,17 +100,17 @@ func _verify_runtime_delegates_support_projectile_resolver() -> void:
 		150.0,
 		"opponent_wall"
 	)
-	var wrapped: Dictionary = runtime._build_support_round_projectile(Vector2(320.0, 180.0), profile, "fire_support", 99, 4, 2)
-	_expect_vec(_get_vector2(wrapped.get("pos", Vector2.ZERO)), _get_vector2(direct.get("pos", Vector2.ZERO)), "runtime support projectile wrapper should delegate position")
-	_expect_vec(_get_vector2(wrapped.get("velocity", Vector2.ZERO)), _get_vector2(direct.get("velocity", Vector2.ZERO)), "runtime support projectile wrapper should delegate velocity")
-	_expect(is_equal_approx(float(wrapped.get("target_y", 0.0)), float(direct.get("target_y", 0.0))), "runtime support projectile wrapper should delegate target y")
-
 	runtime._spawn_support_round(Vector2(320.0, 180.0), profile, "fire_support", 4, 2)
 	_expect(runtime.projectiles.size() == 1, "runtime support round spawn should append one projectile")
 	var spawned: Dictionary = CommandoFirearmValueUtils.get_dict(runtime.projectiles[0])
 	_expect(int(spawned.get("id", 0)) == 1, "runtime support round spawn should still allocate ids in runtime")
 	_expect_vec(_get_vector2(spawned.get("pos", Vector2.ZERO)), _get_vector2(direct.get("pos", Vector2.ZERO)), "runtime support round spawn should use resolver position")
 	_expect_vec(_get_vector2(spawned.get("velocity", Vector2.ZERO)), _get_vector2(direct.get("velocity", Vector2.ZERO)), "runtime support round spawn should use resolver velocity")
+
+
+func _verify_removed_runtime_support_projectile_bridge() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(source.find("func _build_support_round_projectile(") < 0, "runtime should not keep support projectile build bridge")
 
 
 func _support_profile() -> Dictionary:

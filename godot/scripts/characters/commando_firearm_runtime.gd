@@ -2246,31 +2246,11 @@ func _spawn_support_round(
 	spawn_index: int = 0,
 	support_aircraft_pos: Vector2 = Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y)
 ) -> void:
-	CommandoFirearmValueUtils.append_limited(projectiles, _build_support_round_projectile(
+	CommandoFirearmValueUtils.append_limited(projectiles, CommandoFirearmSupportProjectileResolver.build_projectile(
 		target,
 		profile,
 		weapon_id,
 		_next_shot_id(),
-		call_id,
-		spawn_index,
-		support_aircraft_pos
-	), PROJECTILE_LIMIT)
-
-
-func _build_support_round_projectile(
-	target: Vector2,
-	profile: Dictionary,
-	weapon_id: String,
-	projectile_id: int,
-	call_id: int = 0,
-	spawn_index: int = 0,
-	support_aircraft_pos: Vector2 = Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y)
-) -> Dictionary:
-	return CommandoFirearmSupportProjectileResolver.build_projectile(
-		target,
-		profile,
-		weapon_id,
-		projectile_id,
 		call_id,
 		spawn_index,
 		FIELD_WIDTH,
@@ -2284,7 +2264,7 @@ func _build_support_round_projectile(
 		SUPPORT_MISSILE_FLIGHT_FRAMES,
 		SUPPORT_MISSILE_LIFE_FRAMES,
 		"opponent_wall"
-	)
+	), PROJECTILE_LIMIT)
 
 
 func _spawn_muzzle_flash(origin: Vector2, direction: Vector2, profile: Dictionary, weapon_id: String) -> void:
