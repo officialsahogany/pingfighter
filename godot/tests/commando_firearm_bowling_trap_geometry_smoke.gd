@@ -153,6 +153,18 @@ func _verify_direct_bowling_trap_geometry() -> void:
 		is_equal_approx(float(CommandoFirearmBowlingTrapGeometry.build_release_result(release_motion, "guard", 22.0, 60.0, 0.7)["commando_bowling_trap_guard_restore_speed"]), 4.2),
 		"release result should expose reduced guard restore speed"
 	)
+	var release_payload: Dictionary = CommandoFirearmBowlingTrapGeometry.build_release_payload(
+		capture_trap,
+		{"impact_radius": 30.0},
+		Vector2(0.0, -15.0),
+		4.0,
+		PI / 8.0,
+		0.7,
+		22.0,
+		60.0
+	)
+	_expect(str(_get_dict(release_payload.get("release_result", {})).get("commando_bowling_trap_guard_source", "")) == "commando_bowling_trap_guard_9", "release payload should build the guard source")
+	_expect(str(_get_dict(release_payload.get("pseudo_projectile", {})).get("weapon_id", "")) == "bowling_trap", "release payload should build the pseudo projectile")
 	var guard_state: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_state({"id": 9}, 6.0, 0.7)
 	_expect(bool(guard_state.get("armed", false)), "guard state helper should arm the guard")
 	_expect(str(guard_state.get("source", "")) == "commando_bowling_trap_guard_9", "guard state helper should build stable guard sources")
@@ -193,14 +205,19 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 	if bowling_state_value is Dictionary:
 		bowling_state = bowling_state_value
 	_expect(is_equal_approx(float(bowling_state.get("install_progress", 0.0)), 0.4), "runtime draw context should use delegated install progress")
-	var release_result: Dictionary = runtime._release_bowling_trap_ball({
+	runtime.bowling_traps = [{
 		"id": 9,
+		"state": "capturing",
 		"pos": Vector2(100.0, 100.0),
 		"captured_ball_pos": Vector2(100.0, 85.0),
 		"captured_original_speed": 6.0,
-	}, {}, {})
+		"timer_frames": 1.0,
+		"launch_direction": 0,
+	}]
+	var release_result: Dictionary = runtime._update_bowling_traps(2.0, {}, {})
 	_expect(str(release_result.get("commando_bowling_trap_guard_source", "")) == "commando_bowling_trap_guard_9", "runtime release path should expose delegated guard source")
 	_expect(runtime.is_bowling_trap_guard_armed(), "runtime release path should apply armed guard state")
+	_expect(runtime.bowling_traps.is_empty(), "runtime release path should remove completed capture traps")
 	CommandoFirearmBowlingTrapGeometry.apply_guard_state(
 		runtime,
 		CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state()
@@ -241,8 +258,15 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"_clear_bowling_trap_guard",
 		"_update_bowling_trap_capture",
 		"_capture_bowling_trap_ball",
+		"_release_bowling_trap_ball",
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep bowling-trap geometry bridge %s" % bridge_name)
+
+
+func _get_dict(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
 
 
 func _expect(condition: bool, message: String) -> void:

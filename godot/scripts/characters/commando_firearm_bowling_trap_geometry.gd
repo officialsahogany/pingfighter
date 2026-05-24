@@ -304,6 +304,41 @@ static func build_release_result(
 	}
 
 
+static func build_release_payload(
+	trap: Dictionary,
+	profile: Dictionary,
+	capture_ball_offset: Vector2,
+	launch_speed_multiplier: float,
+	launch_angle_step: float,
+	guard_speed_reduction: float,
+	guard_knockback_power: float,
+	guard_stun_frames: float
+) -> Dictionary:
+	var motion: Dictionary = build_release_motion(
+		trap,
+		capture_ball_offset,
+		launch_speed_multiplier,
+		launch_angle_step
+	)
+	var guard_state: Dictionary = build_guard_state(
+		trap,
+		float(motion.get("original_speed", 1.0)),
+		guard_speed_reduction
+	)
+	return {
+		"motion": motion,
+		"pseudo_projectile": build_release_pseudo_projectile(trap, motion, profile),
+		"guard_state": guard_state,
+		"release_result": build_release_result(
+			motion,
+			str(guard_state.get("source", "")),
+			guard_knockback_power,
+			guard_stun_frames,
+			guard_speed_reduction
+		),
+	}
+
+
 static func build_guard_state(trap: Dictionary, original_speed: float, guard_speed_reduction: float) -> Dictionary:
 	var safe_original_speed: float = max(1.0, original_speed)
 	return {
