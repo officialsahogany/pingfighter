@@ -734,17 +734,17 @@ func _verify_runtime_value_utils_integration() -> void:
 		{"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.72},
 		{"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.62},
 	]
-	var net_constrict_indices: Array[int] = [0, 2]
-	runtime._apply_net_constrict_to_indices(net_constrict_indices)
-	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("constrict_factor", 0.0)), 0.76), "net constrict apply helper should update the first selected net")
-	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("constrict_factor", 0.0)), 0.72), "net constrict apply helper should leave unselected nets unchanged")
-	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[2]).get("constrict_factor", 0.0)), 0.6), "net constrict apply helper should clamp selected nets at the floor")
 	var net_audio := FakeNetConstrictAudio.new()
-	runtime._play_net_constrict_audio({"game_audio": net_audio})
-	_expect(net_audio.capture_calls == 1, "net constrict audio helper should play capture audio when available")
-	runtime._play_net_constrict_audio({})
-	runtime._play_net_constrict_audio({"game_audio": RefCounted.new()})
-	_expect(net_audio.capture_calls == 1, "net constrict audio helper should ignore missing capture audio methods")
+	runtime.net_constrict_last_dir = -1
+	runtime.net_constrict_last_tick_msec = 1000
+	runtime._update_net_constrict_input({"right_pressed": true}, 1400, {"game_audio": net_audio})
+	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("constrict_factor", 0.0)), 0.76), "net constrict input path should update the first active net")
+	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("constrict_factor", 0.0)), 0.68), "net constrict input path should update every active candidate")
+	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[2]).get("constrict_factor", 0.0)), 0.6), "net constrict input path should clamp active nets at the floor")
+	_expect(net_audio.capture_calls == 1, "net constrict input path should play capture audio when available")
+	runtime._update_net_constrict_input({"left_pressed": true}, 1410, {"game_audio": RefCounted.new()})
+	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("constrict_factor", 0.0)), 0.72), "net constrict input path should tolerate audio deps without capture methods")
+	_expect(net_audio.capture_calls == 1, "net constrict input path should not call the previous audio dep again")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_pos({"pos": Vector2(12.0, 34.0)}) == Vector2(12.0, 34.0), "net field pos owner should read effect positions")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_pos({"pos": "bad"}) == Vector2.ZERO, "net field pos owner should fall back for invalid positions")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_effect_width({"width": -5.0}, 280.0), 1.0), "net field width owner should clamp to a positive width")
@@ -1609,6 +1609,8 @@ func _verify_removed_net_field_predicate_bridges() -> void:
 		"_should_apply_net_constrict_input",
 		"_get_next_net_constrict_factor",
 		"_get_net_constrict_factor",
+		"_apply_net_constrict_to_indices",
+		"_play_net_constrict_audio",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field predicate bridge %s" % bridge_name)
 

@@ -3187,8 +3187,17 @@ func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps
 		net_constrict_last_tick_msec,
 		NET_CONSTRICT_WINDOW_MSEC
 	):
-		_apply_net_constrict_to_indices(active_indices)
-		_play_net_constrict_audio(deps)
+		for index in active_indices:
+			var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
+			effect["constrict_factor"] = CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor(
+				effect,
+				NET_CONSTRICT_MIN,
+				NET_CONSTRICT_STEP
+			)
+			lingering_effects[index] = effect
+		var audio: Object = deps.get("game_audio", null)
+		if audio != null and audio.has_method("play_commando_net_gun_capture"):
+			audio.play_commando_net_gun_capture()
 	net_constrict_last_dir = dir_input
 	net_constrict_last_tick_msec = now_msec
 
@@ -3208,23 +3217,6 @@ func _get_net_constrict_candidate_indices() -> Array[int]:
 		if CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate(effect, NET_CONSTRICT_MIN):
 			active_indices.append(index)
 	return active_indices
-
-
-func _apply_net_constrict_to_indices(active_indices: Array[int]) -> void:
-	for index in active_indices:
-		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
-		effect["constrict_factor"] = CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor(
-			effect,
-			NET_CONSTRICT_MIN,
-			NET_CONSTRICT_STEP
-		)
-		lingering_effects[index] = effect
-
-
-func _play_net_constrict_audio(deps: Dictionary) -> void:
-	var audio: Object = deps.get("game_audio", null)
-	if audio != null and audio.has_method("play_commando_net_gun_capture"):
-		audio.play_commando_net_gun_capture()
 
 
 func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, deps: Dictionary, fps_scale: float) -> void:
