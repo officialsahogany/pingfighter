@@ -9219,3 +9219,24 @@ commits rather than standalone `fix` commits:
   `project_resource_loader_import_preference_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors.
+
+340th follow-up on 2026-05-25:
+
+- Commit:
+  `b8a9f031e godot: move Commando firearm timer dispatch`.
+- Scope: moved the runtime firearm timer bridge into
+  `CommandoFirearmTimerState.advance_runtime_firearm_timers()`. The timer
+  owner now advances normal cooldown / animation timers, resolves pending
+  delayed pistol fire, dispatches the delayed shot spawn / fire audio, and
+  starts the post-fire animation window. Runtime now calls the owner helper
+  from `update_input()` and no longer keeps `_update_firearm_timers()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1937` lines /
+  `30` functions to `1918` lines / `29` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_timer_state_smoke`,
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_audio_dispatcher_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors.
