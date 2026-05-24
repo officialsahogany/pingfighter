@@ -94,6 +94,7 @@ func _init() -> void:
 	_verify_removed_lingering_status_setup_bridges()
 	_verify_removed_lingering_status_application_bridges()
 	_verify_removed_lingering_effect_timer_bridges()
+	_verify_removed_lingering_storage_bridges()
 	_verify_removed_hit_geometry_result_bridges()
 	_verify_removed_support_aircraft_geometry_bridges()
 	_verify_removed_projectile_value_bridges()
@@ -1054,9 +1055,6 @@ func _verify_runtime_value_utils_integration() -> void:
 	runtime._apply_active_lingering_clamp(active_lingering_effect, active_clamp_merge_context, active_clamp_merge_result)
 	_expect(bool(active_clamp_merge_result.get("commando_net_gun_boss_clamped", false)), "active lingering clamp helper should merge clamp results")
 	_expect(active_clamp_merge_context.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "active lingering clamp helper should merge clamp data into context")
-	runtime.lingering_effects = [{"id": "stored"}, "bad"]
-	_expect(str(runtime._get_lingering_effect_at_index(0).get("id", "")) == "stored", "lingering effect lookup helper should read stored dictionaries")
-	_expect(runtime._get_lingering_effect_at_index(1).is_empty(), "lingering effect lookup helper should fall back for invalid values")
 	runtime.lingering_effects = [{
 		"weapon_id": "net_gun",
 		"boss_trapped": true,
@@ -1066,8 +1064,7 @@ func _verify_runtime_value_utils_integration() -> void:
 		"timer_frames": 10.0,
 		"status_id": "",
 	}]
-	runtime._store_lingering_effect_at_index(0, active_lingering_effect)
-	_expect(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("timer_frames", 0.0) == 10.0, "active lingering store helper should write effects back into the array")
+	runtime.lingering_effects[0] = active_lingering_effect
 	runtime._apply_active_lingering_effect(0, CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]), 1.0, active_lingering_context, {}, active_lingering_result)
 	_expect(bool(active_lingering_result.get("commando_net_gun_boss_clamped", false)), "active lingering helper should merge clamp results into update results")
 	_expect(active_lingering_context.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "active lingering helper should merge clamp results into context")
@@ -1324,14 +1321,14 @@ func _verify_runtime_value_utils_integration() -> void:
 	runtime._apply_lingering_status_application(application_ready_effect, {"status_id": "burn", "status_effect_state": RefCounted.new()})
 	_expect(application_status_state.calls.size() == 1, "lingering status application applier should ignore invalid applications")
 	runtime.lingering_effects = [
-		{"id": "first"},
-		{"id": "expired"},
-		{"id": "last"},
+		{"id": "first", "timer_frames": 2.0, "phase": 0.0},
+		{"id": "expired", "timer_frames": 0.0, "phase": 0.0},
+		{"id": "last", "timer_frames": 2.0, "phase": 0.0},
 	]
-	runtime._remove_lingering_effect_at_index(1)
-	_expect(runtime.lingering_effects.size() == 2, "lingering remove helper should remove exactly one effect")
-	_expect(str(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("id", "")) == "first", "lingering remove helper should preserve earlier effects")
-	_expect(str(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("id", "")) == "last", "lingering remove helper should preserve later effects")
+	runtime._update_lingering_effects(1.0, {}, {})
+	_expect(runtime.lingering_effects.size() == 2, "lingering update should remove exactly one expired effect")
+	_expect(str(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("id", "")) == "first", "lingering update should preserve earlier effects")
+	_expect(str(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("id", "")) == "last", "lingering update should preserve later effects")
 	_expect(CommandoFirearmLingeringNetFieldState.is_player_dash_active({"dash_snapshot": {"active": true}}), "direct net dash helper should read active dash snapshots")
 	_expect(not CommandoFirearmLingeringNetFieldState.is_player_dash_active({"dash_snapshot": {"active": false}}), "direct net dash helper should read inactive dash snapshots")
 	var direct_dash_trigger: Dictionary = CommandoFirearmLingeringNetFieldState.get_dash_trigger_result({"dash_snapshot": {"active": true}}, {}, false)
@@ -1729,6 +1726,16 @@ func _verify_removed_lingering_effect_timer_bridges() -> void:
 		"_get_lingering_effect_size",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-effect timer bridge %s" % bridge_name)
+
+
+func _verify_removed_lingering_storage_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_store_lingering_effect_at_index",
+		"_get_lingering_effect_at_index",
+		"_remove_lingering_effect_at_index",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering storage bridge %s" % bridge_name)
 
 
 func _verify_removed_hit_geometry_result_bridges() -> void:

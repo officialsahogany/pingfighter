@@ -3139,12 +3139,12 @@ func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dict
 	if _consume_net_gun_dash_trigger(context, deps):
 		_break_hooked_net_fields()
 	for index in range(lingering_effects.size() - 1, -1, -1):
-		var effect: Dictionary = _get_lingering_effect_at_index(index)
+		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
 		_advance_lingering_effect_frame(effect, step)
 		if CommandoFirearmLingeringEffectState.is_active(effect):
 			_apply_active_lingering_effect(index, effect, step, context, deps, result)
 		else:
-			_remove_lingering_effect_at_index(index)
+			lingering_effects.remove_at(index)
 	return result
 
 
@@ -3176,7 +3176,7 @@ func _apply_active_lingering_effect(
 	_sync_net_field_rope_origin(effect, context)
 	_apply_lingering_effect_status(effect, context, deps, fps_scale)
 	_apply_active_lingering_clamp(effect, context, result)
-	_store_lingering_effect_at_index(index, effect)
+	lingering_effects[index] = effect
 
 
 func _sync_net_field_rope_origin(effect: Dictionary, context: Dictionary) -> void:
@@ -3212,25 +3212,13 @@ func _apply_active_lingering_clamp(effect: Dictionary, context: Dictionary, resu
 	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
 
 
-func _store_lingering_effect_at_index(index: int, effect: Dictionary) -> void:
-	lingering_effects[index] = effect
-
-
-func _get_lingering_effect_at_index(index: int) -> Dictionary:
-	return CommandoFirearmValueUtils.get_dict(lingering_effects[index])
-
-
-func _remove_lingering_effect_at_index(index: int) -> void:
-	lingering_effects.remove_at(index)
-
-
 func _break_hooked_net_fields() -> void:
 	for index in range(lingering_effects.size()):
-		var effect: Dictionary = _get_lingering_effect_at_index(index)
+		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
 		if not CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect):
 			continue
 		_mark_hooked_net_field_broken(effect)
-		_store_lingering_effect_at_index(index, effect)
+		lingering_effects[index] = effect
 
 
 func _mark_hooked_net_field_broken(effect: Dictionary) -> void:
@@ -3270,7 +3258,7 @@ func _has_hooked_net_field() -> bool:
 func _get_net_constrict_candidate_indices() -> Array[int]:
 	var active_indices: Array[int] = []
 	for index in range(lingering_effects.size()):
-		var effect: Dictionary = _get_lingering_effect_at_index(index)
+		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
 		if CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate(effect, NET_CONSTRICT_MIN):
 			active_indices.append(index)
 	return active_indices
@@ -3278,13 +3266,13 @@ func _get_net_constrict_candidate_indices() -> Array[int]:
 
 func _apply_net_constrict_to_indices(active_indices: Array[int]) -> void:
 	for index in active_indices:
-		var effect: Dictionary = _get_lingering_effect_at_index(index)
+		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
 		effect["constrict_factor"] = CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor(
 			effect,
 			NET_CONSTRICT_MIN,
 			NET_CONSTRICT_STEP
 		)
-		_store_lingering_effect_at_index(index, effect)
+		lingering_effects[index] = effect
 
 
 func _play_net_constrict_audio(deps: Dictionary) -> void:
