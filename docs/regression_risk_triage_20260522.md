@@ -7722,16 +7722,19 @@ Hundredth split on 2026-05-24:
   AK-47 trigger release now routes through
   `CommandoFirearmControlState.apply_ak47_trigger_cleared()`, so weapon
   switches, serve-wait cleanup, firearm reset, empty / unavailable AK-47 fire
-  paths, and full runtime reset share the same trigger-held plus burst-state
-  cleanup owner.
+  paths, and remaining-ammo cleanup share the same trigger-held plus burst-state
+  cleanup owner. Full runtime reset keeps explicit field initialization for the
+  reset-state block.
 - Runtime facade size: `commando_firearm_runtime.gd` moved from `2926` lines /
-  `44` functions to `2920` lines / `43` functions.
+  `44` functions to `2921` lines / `43` functions.
 - Validation: focused Commando coverage passed:
   `commando_firearm_control_state_smoke`,
+  `commando_firearm_ak47_hit_state_smoke`,
   `commando_firearm_input_resolver_smoke`,
   `commando_firearm_runtime_vfx_smoke`,
   `commando_runtime_routing_smoke`, and
-  `commando_firearm_audio_routing_smoke`. The Godot headless load check passed,
+  `commando_firearm_audio_routing_smoke`; `commando_weapon_switch_smoke` also
+  passed for the switch paths. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors. The control-state smoke now
   rejects `_clear_ak47_trigger_state()` in the runtime facade.

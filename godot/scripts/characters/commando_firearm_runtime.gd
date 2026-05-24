@@ -770,7 +770,8 @@ func reset() -> void:
 	pistol_pending_config.clear()
 	ak47_fire_interval_frames = 0.0
 	ak47_fire_interval_max_frames = AK47_FIRE_INTERVAL_FRAMES
-	CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
+	ak47_burst_shots_remaining = 0
+	ak47_trigger_held = false
 	ak47_last_action_pressed = false
 	ak47_recoil_accumulation = 0.0
 	bazooka_cooldown_frames = 0.0
