@@ -8339,3 +8339,24 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` on the committed Commando files reported no whitespace
   errors.
+
+293rd follow-up on 2026-05-24:
+
+- Commit:
+  `3d6e4a4d8 godot: add Stage 1 playfield depth layers`.
+- Scope: added budgeted Stage 1 playfield depth-tone bands with LOD-capped
+  constants and budget-smoke coverage. The same commit also moved Commando
+  pending result consumption into
+  `CommandoFirearmPendingResultState.consume_runtime_pending_results()` and
+  moved delayed pistol-fire timer advancement into
+  `CommandoFirearmTimerState.advance_pending_pistol_fire()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2578` lines /
+  `35` functions to `2468` lines / `35` functions across the pending-result
+  and timer cleanup.
+- Validation: focused coverage passed:
+  `stage1_actor_render_budget_smoke`,
+  `commando_firearm_pending_result_state_smoke`,
+  `commando_firearm_timer_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the committed files reported no whitespace errors.
