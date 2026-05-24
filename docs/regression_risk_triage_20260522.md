@@ -7546,23 +7546,24 @@ Hundredth split on 2026-05-24:
 
 - Commit:
   `2f3f0ffd8 godot: move Commando support and trap install bridges`.
-- Scope: removed the Commando runtime `_start_support_call()` bridge by moving
-  support-call payload append, support marker append, list limiting, and
-  evicted-call reporting into
-  `CommandoFirearmSupportCallResolver.append_start_effects()`. Runtime still
-  owns the audio side effects for evicted aircraft and the initial radio cue.
-  The same pass inlined `_update_bowling_trap_install()` into the bowling-trap
-  update loop so install-state mutation goes directly through
-  `CommandoFirearmBowlingTrapGeometry.update_install_state()`.
+- Scope: removed the Commando runtime `_start_support_call()` bridge and the
+  `_update_bowling_trap_install()` install-state bridge. Support-call resolver
+  now owns start-call append / marker-flash append / call eviction through
+  `CommandoFirearmSupportCallResolver.append_start_effects()`, while the
+  runtime keeps the audio side-effect cleanup for evicted aircraft calls.
+  Bowling-trap install updates now call
+  `CommandoFirearmBowlingTrapGeometry.update_install_state()` directly from the
+  trap update loop.
 - Runtime facade size: `commando_firearm_runtime.gd` moved from `3003` lines /
   `53` functions to `2984` lines / `51` functions.
 - Validation: focused Commando coverage passed:
   `commando_firearm_support_call_resolver_smoke`,
   `commando_firearm_bowling_trap_geometry_smoke`,
-  `commando_firearm_runtime_vfx_smoke`, and
-  `commando_firearm_audio_routing_smoke`. The Godot headless load check passed,
-  and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings.
-  The focused owner smokes now reject `_start_support_call()` and
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_audio_routing_smoke`, and
+  `commando_supply_drop_audio_cleanup_smoke`. The Godot headless load check
+  passed, and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript
+  warnings. The focused owner smokes now reject `_start_support_call()` and
   `_update_bowling_trap_install()` in the runtime facade.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
