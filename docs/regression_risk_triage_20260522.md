@@ -5725,6 +5725,22 @@ Hundredth split on 2026-05-24:
   passed; both wrappers still printed the known nonfatal Windows root
   certificate store message from Godot.
 
+160th follow-up on 2026-05-24:
+
+- Commit: `84c1cca95 godot: drop Commando fire flame frame bridges`.
+- Scope: removed the final lingering fire-zone flame reader / seed / frame
+  bridge trio from `commando_firearm_runtime.gd`. The runtime's
+  `_update_lingering_fire_flames()` side-effect hook now calls
+  `commando_firearm_lingering_fire_flame_state.gd` directly, while the
+  value-utils smoke verifies `get_flames`, `should_seed_flames`, and
+  `get_flames_for_frame` against the owner module and guards that the removed
+  runtime bridge names do not return.
+- Validation: `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_warning_scan.ps1` scanned
+  1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
+  passed; both wrappers still printed the known nonfatal Windows root
+  certificate store message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
