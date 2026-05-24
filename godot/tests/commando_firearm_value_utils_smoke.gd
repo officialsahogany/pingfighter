@@ -1371,24 +1371,6 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(bool(direct_marked_broken_net.get("dissolve", false)), "direct net broken helper should start dissolve")
 	_expect(is_equal_approx(float(direct_marked_broken_net.get("timer_frames", 0.0)), 24.0), "direct net broken helper should use dash-break timer")
 	_expect(str(direct_marked_broken_net.get("status_id", "missing")).is_empty(), "direct net broken helper should clear active status")
-	var marked_broken_net := {
-		"weapon_id": "net_gun",
-		"hooked_player": true,
-		"dissolve": false,
-		"rope_broken": false,
-		"timer_frames": 90.0,
-		"max_timer_frames": 90.0,
-		"rope_snap_timer": 0.0,
-		"status_id": "net_capture",
-	}
-	runtime._mark_hooked_net_field_broken(marked_broken_net)
-	_expect(not bool(marked_broken_net.get("hooked_player", true)), "mark broken net helper should clear hooked state")
-	_expect(bool(marked_broken_net.get("dissolve", false)), "mark broken net helper should start dissolve")
-	_expect(bool(marked_broken_net.get("rope_broken", false)), "mark broken net helper should mark the rope broken")
-	_expect(is_equal_approx(float(marked_broken_net.get("timer_frames", 0.0)), 24.0), "mark broken net helper should use dash-break timer")
-	_expect(is_equal_approx(float(marked_broken_net.get("max_timer_frames", 0.0)), 24.0), "mark broken net helper should reset max timer")
-	_expect(is_equal_approx(float(marked_broken_net.get("rope_snap_timer", 0.0)), 24.0), "mark broken net helper should reset rope snap timer")
-	_expect(str(marked_broken_net.get("status_id", "missing")).is_empty(), "mark broken net helper should clear active status")
 	runtime.lingering_effects = [
 		{"weapon_id": "net_gun", "hooked_player": false},
 		{"weapon_id": "net_gun", "hooked_player": true},
@@ -1540,6 +1522,7 @@ func _verify_removed_fire_flame_owner_bridges() -> void:
 		"_get_lingering_fire_flames",
 		"_should_seed_lingering_fire_flames",
 		"_seed_lingering_fire_flames",
+		"_update_lingering_fire_flames",
 		"_advance_lingering_fire_flames",
 		"_get_lingering_fire_flame_at_index",
 		"_advance_lingering_fire_flame",
@@ -1634,6 +1617,7 @@ func _verify_removed_net_field_setup_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	for bridge_name in [
 		"_apply_lingering_net_fields",
+		"_mark_hooked_net_field_broken",
 		"_apply_lingering_net_lifecycle_fields",
 		"_get_lingering_net_rope_snap_duration",
 		"_get_lingering_net_origin",

@@ -3112,7 +3112,7 @@ func _advance_lingering_effect_frame(effect: Dictionary, fps_scale: float) -> vo
 	var step: float = CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
 	CommandoFirearmLingeringEffectState.advance_timers(effect, step, LINGERING_EFFECT_PHASE_STEP)
 	if CommandoFirearmLingeringEffectState.is_fire_zone(effect):
-		_update_lingering_fire_flames(effect, step)
+		effect["flames"] = CommandoFirearmLingeringFireFlameState.get_flames_for_frame(effect, step)
 
 
 func _apply_active_lingering_effect(
@@ -3167,12 +3167,8 @@ func _break_hooked_net_fields() -> void:
 		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
 		if not CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect):
 			continue
-		_mark_hooked_net_field_broken(effect)
+		CommandoFirearmLingeringNetFieldState.mark_hooked_field_broken(effect, NET_GUN_DASH_BREAK_FRAMES)
 		lingering_effects[index] = effect
-
-
-func _mark_hooked_net_field_broken(effect: Dictionary) -> void:
-	CommandoFirearmLingeringNetFieldState.mark_hooked_field_broken(effect, NET_GUN_DASH_BREAK_FRAMES)
 
 
 func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps: Dictionary) -> void:
@@ -3229,10 +3225,6 @@ func _play_net_constrict_audio(deps: Dictionary) -> void:
 	var audio: Object = deps.get("game_audio", null)
 	if audio != null and audio.has_method("play_commando_net_gun_capture"):
 		audio.play_commando_net_gun_capture()
-
-
-func _update_lingering_fire_flames(effect: Dictionary, fps_scale: float) -> void:
-	effect["flames"] = CommandoFirearmLingeringFireFlameState.get_flames_for_frame(effect, fps_scale)
 
 
 func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, deps: Dictionary, fps_scale: float) -> void:
