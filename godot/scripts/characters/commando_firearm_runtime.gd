@@ -3075,8 +3075,13 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 	if result.has("stun_frames"):
 		stun_frames = float(result.get("stun_frames", stun_frames))
 	if stun_frames > 0.0:
-		var knockback_profile: Dictionary = _get_result_hit_profile(profile, result)
-		var knockback_vel: float = _get_hit_knockback_velocity(knockback_profile, pos, velocity, context)
+		var knockback_profile: Dictionary = CommandoFirearmHitGeometry.get_result_hit_profile(profile, result)
+		var knockback_vel: float = CommandoFirearmHitGeometry.get_hit_knockback_velocity(
+			knockback_profile,
+			pos,
+			velocity,
+			_get_boss_target_pos(context)
+		)
 		var stun_source: String = str(result.get("stun_source", source))
 		result["stun_frames"] = stun_frames
 		result["knockback_vel"] = knockback_vel
@@ -3094,8 +3099,13 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 			)
 			result["stun_applied"] = true
 	elif bool(result.get("knockback_without_stun", false)):
-		var knockback_only_profile: Dictionary = _get_result_hit_profile(profile, result)
-		var knockback_only_vel: float = _get_hit_knockback_velocity(knockback_only_profile, pos, velocity, context)
+		var knockback_only_profile: Dictionary = CommandoFirearmHitGeometry.get_result_hit_profile(profile, result)
+		var knockback_only_vel: float = CommandoFirearmHitGeometry.get_hit_knockback_velocity(
+			knockback_only_profile,
+			pos,
+			velocity,
+			_get_boss_target_pos(context)
+		)
 		result["knockback_vel"] = knockback_only_vel
 		var ai_state: Object = deps.get("ai_state", null)
 		if ai_state != null and ai_state.has_method("start_paddle_hit_knockback"):
@@ -3758,23 +3768,6 @@ func _apply_lingering_status_to_boss(
 		data,
 		CommandoFirearmLingeringStatusState.get_status_source(effect, LINGERING_STATUS_DEFAULT_SOURCE)
 	)
-
-
-func _get_hit_knockback_velocity(profile: Dictionary, pos: Vector2, velocity: Vector2, context: Dictionary) -> float:
-	return CommandoFirearmHitGeometry.get_hit_knockback_velocity(
-		profile,
-		pos,
-		velocity,
-		_get_boss_target_pos(context)
-	)
-
-
-func _get_result_hit_profile(profile: Dictionary, result: Dictionary) -> Dictionary:
-	return CommandoFirearmHitGeometry.get_result_hit_profile(profile, result)
-
-
-func _get_hit_knockback_direction(pos: Vector2, velocity: Vector2, context: Dictionary) -> int:
-	return CommandoFirearmHitGeometry.get_hit_knockback_direction(pos, velocity, _get_boss_target_pos(context))
 
 
 func _is_stage2_speed_defense_boss_immune(context: Dictionary = {}, deps: Dictionary = {}) -> bool:

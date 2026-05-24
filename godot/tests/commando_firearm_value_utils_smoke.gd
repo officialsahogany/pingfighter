@@ -89,6 +89,7 @@ func _init() -> void:
 	_verify_removed_net_field_setup_bridges()
 	_verify_removed_lingering_status_setup_bridges()
 	_verify_removed_lingering_status_application_bridges()
+	_verify_removed_hit_geometry_result_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -1660,6 +1661,16 @@ func _verify_removed_lingering_status_application_bridges() -> void:
 		"_get_lingering_boss_rect_size",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-status application bridge %s" % bridge_name)
+
+
+func _verify_removed_hit_geometry_result_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_get_hit_knockback_velocity",
+		"_get_result_hit_profile",
+		"_get_hit_knockback_direction",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep hit-geometry result bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:
