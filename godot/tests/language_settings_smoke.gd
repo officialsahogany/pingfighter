@@ -82,6 +82,17 @@ func _init() -> void:
 	var viper_skill_config := ViperSkillConfig.new()
 	_expect(str(viper_skill_config.get_skill_data("ignition_aura").get("korean", "")) == "点火光环", "Viper skill data should localize to Chinese")
 
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
+	_expect(LanguageSettings.get_language_options().has(LanguageSettings.LANGUAGE_JAPANESE), "language options should include Japanese")
+	_expect(LanguageSettings.normalize_language("ja-JP") == LanguageSettings.LANGUAGE_JAPANESE, "Japanese locale aliases should normalize")
+	_expect(LanguageSettings.get_native_language_name(LanguageSettings.LANGUAGE_JAPANESE) == "日本語", "Japanese native language name should localize")
+	var active_catalog_ja := ActiveItemCatalog.new()
+	_expect(active_catalog_ja.get_display_name("gauge_charge") == "エナジードリンク", "active item catalog should return Japanese names")
+	var mythic_catalog_ja := MythicItemCatalog.new()
+	var speedboots_ja: Dictionary = mythic_catalog_ja.build_item_by_name("speedboots")
+	_expect(str(speedboots_ja.get("display_name", "")) == "スピードブーツ", "mythic item names should localize to Japanese")
+	_expect(str(speedboots_ja.get("description", "")).find("移動速度") >= 0, "mythic item descriptions should localize to Japanese")
+
 	_restore_language_settings_snapshot()
 	print("language_settings_smoke: ok")
 	quit(0)

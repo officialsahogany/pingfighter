@@ -9,17 +9,20 @@ const SETTINGS_LANGUAGE_KEY := "locale"
 const LANGUAGE_KOREAN := "ko"
 const LANGUAGE_ENGLISH := "en"
 const LANGUAGE_CHINESE := "zh"
+const LANGUAGE_JAPANESE := "ja"
 const DEFAULT_LANGUAGE := LANGUAGE_KOREAN
 const SUPPORTED_LANGUAGES: Array[String] = [
 	LANGUAGE_KOREAN,
 	LANGUAGE_ENGLISH,
 	LANGUAGE_CHINESE,
+	LANGUAGE_JAPANESE,
 ]
 
 const LANGUAGE_NATIVE_NAMES := {
 	LANGUAGE_KOREAN: "한국어",
 	LANGUAGE_ENGLISH: "English",
 	LANGUAGE_CHINESE: "简体中文",
+	LANGUAGE_JAPANESE: "日本語",
 }
 
 const ITEM_DISPLAY_EN := {
@@ -176,6 +179,83 @@ const ITEM_DISPLAY_ZH := {
 	"baal_boots": "巴尔之靴",
 }
 
+const ITEM_DISPLAY_JA := {
+	"gauge_charge": "エナジードリンク",
+	"life_elixir": "生命水",
+	"ammo_box": "弾薬箱",
+	"doping_potion": "ドーピング注射器",
+	"vitamin_pill": "ビタミンドリンク",
+	"strange_vial": "奇妙な小瓶",
+	"aipill": "AIピル",
+	"pandora_box": "パンドラの箱",
+	"grenade": "手榴弾",
+	"flare": "照明弾",
+	"tear_gas": "催涙弾",
+	"dynamite": "ダイナマイト",
+	"molotov": "火炎瓶",
+	"stopwatch": "ストップウォッチ",
+	"magnet_field": "磁場",
+	"long_boost": "巨大化ポーション",
+	"regeneration_potion": "再生ポーション",
+	"holy_barrier": "ホーリーバリア",
+	"dash_boost": "ダッシュブースト",
+	"wall": "レンガ壁",
+	"boomerang": "ブーメラン",
+	"banana": "バナナ",
+	"soap": "石けん",
+	"spider_mine": "スパイダーマイン",
+	"elixir_of_mastery": "熟練のエリクサー",
+	"speedboots": "スピードブーツ",
+	"speedgear": "補正ベルト",
+	"gravitybelt": "ゼログラビティベルト",
+	"sensor": "危険センサーベルト",
+	"spikeboots": "スパイクブーツ",
+	"dowsing_pendulum": "ダウジングペンデュラム",
+	"dowsing_goggles": "ダウジングゴーグル",
+	"yachaman_soul": "ヤチャマンの兜",
+	"slot_add": "バックパック",
+	"chargebag": "チャージバッグ",
+	"battery": "バッテリーパック",
+	"revival": "輪廻のお守り",
+	"master": "修理工のハンマー",
+	"gold_digger": "ゴールドディガー",
+	"gold_bar": "金塊",
+	"lucky_coin": "ラッキーコイン",
+	"adversity_armor": "逆境アーマー",
+	"shrapnel_armor": "破片アーマー",
+	"sage_ring": "賢者の指輪",
+	"cooltime": "冷却ボール",
+	"timer_belt": "タイマーベルト",
+	"fuel_pouch": "燃料ポーチ",
+	"bluetooth_ring": "Bluetoothリング",
+	"star_detector": "スターディテクター",
+	"foul_whistle": "ファウルホイッスル",
+	"smartphone": "スマートフォン",
+	"neural_helmet": "ニューラルヘルメット",
+	"venom_mist_gauntlet": "毒霧ガントレット",
+	"reinforced_boomerang_gauntlet": "強化ブーメランググローブ",
+	"commando_arm": "コマンドアーム",
+	"rainbow_fur_glove": "虹毛グローブ",
+	"knee_pads": "キックチャージャー",
+	"dashgear": "ダッシュギア",
+	"soul_burst": "ソウルバースト",
+	"bulkup": "バルクアップスーツ",
+	"dashholder": "ダッシュホルダー",
+	"bulletproof_hat": "防弾帽",
+	"spiked_helmet": "スパイクヘルム",
+	"pandora_legacy": "パンドラの遺産",
+	"megingjord": "メギンギョルズ",
+	"ragnarok_hammer": "ラグナロクハンマー",
+	"hermes_shoes": "ヘルメスの靴",
+	"poseidon_trident": "ポセイドンの三叉槍",
+	"sacred_laurel": "聖なる月桂冠",
+	"transcendent_crown": "超越の王冠",
+	"heavenly_cape": "天界のケープ",
+	"horn_strawberry_mask": "角いちごマスク",
+	"celestial_armor": "天界不動の鎧",
+	"baal_boots": "バアルのブーツ",
+}
+
 const MYTHIC_DESCRIPTION_EN := {
 	"speedboots": "While equipped, increases player movement speed by the rolled option value.",
 	"speedgear": "While equipped, left/right turning deceleration is increased by 2.5x.",
@@ -280,6 +360,59 @@ const MYTHIC_DESCRIPTION_ZH := {
 	"celestial_armor": "触发时可消耗能量无视即将到来的眩晕。",
 	"baal_boots": "天气开始时，以巴尔之力吸收当前天气并恢复能量。被吸收的天气会在本回合提供额外效果。",
 	"elixir_of_mastery": "使用时随机选择一个已拥有升级并提升到Lv.5。该神话主动道具使用后消耗。",
+}
+
+const MYTHIC_DESCRIPTION_JA := {
+	"speedboots": "装備中、ロール値ぶんプレイヤーの移動速度が上昇します。",
+	"speedgear": "装備中、左右の方向転換時の減速が2.5倍になります。",
+	"gravitybelt": "移動入力が即座に最高速へ到達し、入力を離すとすぐ停止します。",
+	"sensor": "危険時に自動でダッシュします。自動ダッシュはゲージやダッシュトークンを消費しません。",
+	"spikeboots": "ロール値ぶんダッシュ後隙とダッシュトークン回復時間を短縮します。",
+	"dowsing_pendulum": "ロール範囲内のフィールドアイテムをプレイヤーパドルへ引き寄せます。",
+	"dowsing_goggles": "パーク選択画面で一定確率により通常パーク選択肢を1つ追加します。",
+	"yachaman_soul": "失点直前、爆弾戦士形態へ変身してスコアを防ぐことがあります。変身中は移動速度3、パドルサイズ70%になります。",
+	"slot_add": "装備中、ロール値ぶんアクティブアイテムスロットが増えます。",
+	"chargebag": "装備中、ボールが壁に触れるたび追加ゲージを獲得します。",
+	"battery": "装備中、次ステージへ移動する際にゲージの一部を保持します。",
+	"revival": "敗北前に一度だけ発動し、ゲームオーバーを防いでステージを最初から再開します。",
+	"master": "装備中、レンガ壁アクティブアイテムを長くし、アクティブアイテムのクールタイムを減らし、レンガ壁のフィールド出現重みを上げます。",
+	"gold_digger": "装備中、ロール値ぶんゴールド獲得量と一部ゲージ獲得量が増加します。",
+	"gold_bar": "売却専用の宝物です。所持中は移動速度が30%低下しますが、2000ゴールドで売却できます。",
+	"lucky_coin": "装備中、フィールドアイテム出現時に追加ボーナスアイテムが生成されることがあります。",
+	"adversity_armor": "失点後、次ラウンドで無敵の壁を生成し、次サーブのボール速度を上げることがあります。",
+	"shrapnel_armor": "プレイヤーパドルがボールを打つと、ゲージを消費して上方向へ破片を発射し、ボスを短時間スタン・ノックバックさせることがあります。",
+	"sage_ring": "装備中、投資済みパークすべての実効レベルを1上げます。移動速度と体サイズはロール値ぶん低下します。",
+	"cooltime": "装備中、ロール値ぶんアクティブアイテム再使用クールタイムを短縮します。",
+	"timer_belt": "装備中、ロール値ぶんすべてのキャラクタースキルのクールタイムを短縮します。",
+	"fuel_pouch": "装備中、ロール値ぶんプレイヤーの最大ゲージを増加させます。",
+	"bluetooth_ring": "装備中、パドルがボールを打った時のゲージ獲得量が増えます。",
+	"star_detector": "装備中、スターポイントドロップ時に追加ボーナススターポイントが生成されることがあります。",
+	"foul_whistle": "ラウンド敗北時、スコアを取り消してラウンドを再開することがあります。",
+	"smartphone": "低ゲージ時に回復アイテムを自動使用し、緊急時にストップウォッチやホーリーバリアを自動発動できます。",
+	"neural_helmet": "AIピルのゲージ消費を減らし、AIピルの出現率を上げます。発動中に方向入力するとAIピルを即座に解除します。",
+	"venom_mist_gauntlet": "バイパー専用。花郎キックがボールに毒を込め、ボスが感染ボールをガードするとボス周辺に毒霧が発生して移動と特殊ゲージを遅くします。",
+	"reinforced_boomerang_gauntlet": "ブーメランを金属版へ強化し、発射速度、誘導、出現率、ノックバック、スタン時間を改善します。",
+	"commando_arm": "投擲戦闘アイテムを支援します。手榴弾、照明弾、火炎瓶は速く飛び爆発が大きくなり、ダイナマイト、バナナ、石けん、ブーメランは準備が早くなり、催涙弾は長く持続します。",
+	"rainbow_fur_glove": "パドルがボールを打つと、装備中のキャラクタースキルのクールタイムを即座に短縮することがあります。",
+	"knee_pads": "装備中、ハーフダッシュでボールを打つと基本ゲージ獲得量に応じてゲージを充填します。",
+	"dashgear": "ダッシュ距離が伸び、次のダッシュトークン消費を取り消すことがあります。",
+	"soul_burst": "ダッシュトークンがない時、特殊ゲージを消費してハーフダッシュの代わりにフルダッシュを発動します。",
+	"bulkup": "装備中、プレイヤーパドルの体サイズが増加します。",
+	"dashholder": "装備中、最大ダッシュトークンが1増加します。",
+	"bulletproof_hat": "装備中、プレイヤーのスタン時間を短縮します。",
+	"spiked_helmet": "装備中、プレイヤーに適用されるノックバック速度を減らします。",
+	"pandora_legacy": "ラウンド勝利時に発動することがあり、3つのアイテムから1つ選択できます。",
+	"megingjord": "パーク選択機会を追加で得ます。選択束ごとに最大2回まで連鎖発動します。",
+	"ragnarok_hammer": "ボールを返す時にゲージを消費し、戻り際にボスをノックバック・スタンさせるスタンボールを生成します。",
+	"hermes_shoes": "神の使者が履く翼の靴です。ロール値ぶんプレイヤーの移動速度を上げます。",
+	"poseidon_trident": "ダッシュ後隙中、両側に巨大な渦を生成し、ボスのスマッシュボールを強く上へ弾きます。",
+	"sacred_laurel": "月桂の葉がプレイヤーを囲み、保護します。",
+	"transcendent_crown": "ロール値ぶん、すべての投資済みパークの効果レベルを上げます。",
+	"heavenly_cape": "スキル珠スロットを1つ追加し、すべてのプレイヤースキルのクールタイムを短縮します。",
+	"horn_strawberry_mask": "ステージ1進行ごとに一度、A-D-A-D-A-Dコマンドで角いちごに変身できます。",
+	"celestial_armor": "発動時、ゲージを消費して迫るスタンを無視できます。",
+	"baal_boots": "天候開始時、バアルの力で現在の天候を吸収しゲージを回復します。吸収した天候はそのラウンド中に追加効果を与えます。",
+	"elixir_of_mastery": "使用時、所持中のパークをランダムに1つ選びLv.5へ上げます。この神話アクティブアイテムは使用後に消費されます。",
 }
 
 const PERK_NAME_EN := {
@@ -396,6 +529,63 @@ const PERK_NAME_ZH := {
 	"convert_to_gold": "兑换金币",
 }
 
+const PERK_NAME_JA := {
+	"dash_lightweight": "軽量化",
+	"dash_module_control": "モジュール制御",
+	"dash_jump": "リープ",
+	"dash_amplification": "増幅",
+	"item_luck": "幸運",
+	"item_cooldown_mastery": "熟練",
+	"item_gauge_mastery": "専門知識",
+	"active_duration_boost": "カフェイン",
+	"passive_polish": "研磨",
+	"alchemy": "錬金術",
+	"treasure_map": "宝の地図",
+	"active_slot_expand": "バッグ拡張",
+	"move_speed": "俊足",
+	"accessory_slot_expand": "アクセサリ拡張",
+	"paddle_bulk": "バルクアップ",
+	"boost_charging": "ブーストチャージ",
+	"sacred_laurel": "月桂の葉",
+	"skill_cooldown_training": "トレーニング",
+	"smasher_burst_up": "バーストアップ",
+	"smasher_dash_spirit": "ダッシュスピリット",
+	"smasher_unlock_magnetic_grip": "マグナムグリップ解放",
+	"smasher_unlock_plasma": "プラズマ解放",
+	"smasher_unlock_recovery": "リカバリー解放",
+	"smasher_unlock_cleanse": "クレンズ解放",
+	"smasher_unlock_shield_kiting": "シールドカイティング解放",
+	"smasher_unlock_ghost_shot": "ゴーストショット解放",
+	"smasher_unlock_warp_gate": "ワープゲート解放",
+	"smasher_unlock_smasher_wheel": "スマッシャーホイール解放",
+	"smasher_extension_gear": "延長ギア",
+	"viper_unlock_venom_edge": "毒刃解放",
+	"viper_unlock_emp": "EMPストライク解放",
+	"viper_unlock_chaos_spear": "カオススピア解放",
+	"viper_unlock_dual_glitch": "デュアルグリッチ解放",
+	"viper_unlock_ignition_aura": "イグニッションオーラ解放",
+	"viper_phantom_kick": "ファントムキック",
+	"viper_hwarang_kick": "花郎キック",
+	"viper_dark_blade": "ダークブレード",
+	"viper_jetpack_enhance": "ジェットパック強化",
+	"viper_kick_enhance": "キック強化",
+	"viper_blade_amp": "ブレード増幅",
+	"viper_four_poisons": "四毒",
+	"soldier_unlock_net_gun": "ネットトラップガン",
+	"soldier_unlock_fire_support": "火力支援",
+	"soldier_unlock_bowling_trap": "ボウリングトラップ",
+	"soldier_unlock_suicide_drone": "自爆ドローン",
+	"soldier_unlock_bazooka": "バズーカ",
+	"soldier_unlock_ak47": "AK-47",
+	"soldier_unlock_beretta": "ベレッタ",
+	"instant_full_gauge": "フルゲージ",
+	"instant_dimension_gate": "次元ゲート",
+	"instant_treasure_hunt": "宝探し",
+	"instant_monkey_grace": "猿神の恩恵",
+	"instant_refresh": "リフレッシュ",
+	"convert_to_gold": "ゴールド変換",
+}
+
 const PERK_SUMMARY_EN := {
 	"dash_lightweight": "Dash cooldown reduced.",
 	"dash_module_control": "Dash recovery reduced.",
@@ -510,6 +700,63 @@ const PERK_SUMMARY_ZH := {
 	"convert_to_gold": "跳过升级并获得500局内金币。",
 }
 
+const PERK_SUMMARY_JA := {
+	"dash_lightweight": "ダッシュのクールタイムが短縮されます。",
+	"dash_module_control": "ダッシュ後隙が短縮されます。",
+	"dash_jump": "ダッシュ距離が伸びます。",
+	"dash_amplification": "最大ダッシュトークンが増加します。",
+	"item_luck": "フィールドアイテム出現間隔が短縮されます。",
+	"item_cooldown_mastery": "アクティブアイテムのクールタイムが短縮されます。",
+	"item_gauge_mastery": "アクティブアイテム使用時にスキルゲージを獲得します。",
+	"active_duration_boost": "時間制アクティブアイテム効果が長く続きます。",
+	"passive_polish": "パッシブ効果が強化されます。",
+	"alchemy": "使用したアイテムを保持することがあります。",
+	"treasure_map": "神話報酬確率とパッシブドロップ比率を高めます。",
+	"active_slot_expand": "より多くのアクティブアイテムを保管できます。",
+	"move_speed": "移動速度が上昇します。",
+	"accessory_slot_expand": "アクセサリスロットを追加します。",
+	"paddle_bulk": "パドルサイズが増加します。",
+	"boost_charging": "次のダッシュがトークンを消費せず、より早く回復することがあります。",
+	"sacred_laurel": "保護する月桂の葉がボールを防ぎます。",
+	"skill_cooldown_training": "プレイヤースキルの再充填が早くなります。",
+	"smasher_burst_up": "ダッシュ時にパドルが短時間拡大します。",
+	"smasher_dash_spirit": "ダッシュ中、レーザー残像がボールを防ぐことがあります。",
+	"smasher_unlock_magnetic_grip": "マグナムグリップを解放します。",
+	"smasher_unlock_plasma": "プラズマを解放します。",
+	"smasher_unlock_recovery": "リカバリーを解放します。",
+	"smasher_unlock_cleanse": "クレンズを解放します。",
+	"smasher_unlock_shield_kiting": "シールドカイティングを解放します。",
+	"smasher_unlock_ghost_shot": "ゴーストショットを解放します。",
+	"smasher_unlock_warp_gate": "ワープゲートを解放します。",
+	"smasher_unlock_smasher_wheel": "スマッシャーホイールを解放します。",
+	"smasher_extension_gear": "スマッシャー補助スキルの持続時間が伸びます。",
+	"viper_unlock_venom_edge": "毒刃を解放します。",
+	"viper_unlock_emp": "EMPストライクを解放します。",
+	"viper_unlock_chaos_spear": "カオススピアを解放します。",
+	"viper_unlock_dual_glitch": "デュアルグリッチを解放します。",
+	"viper_unlock_ignition_aura": "イグニッションオーラを解放します。",
+	"viper_phantom_kick": "マーシャルキック後にファントムキック追撃が可能になります。",
+	"viper_hwarang_kick": "ダッシュヒットのタイミング後に花郎キックが可能になります。",
+	"viper_dark_blade": "バイパーのコンボヒット後にダークブレードが可能になります。",
+	"viper_jetpack_enhance": "バイパーの空中制御が向上します。",
+	"viper_kick_enhance": "バイパーのキックスキルを強化します。",
+	"viper_blade_amp": "エアブレードとダークブレードの斬撃を強化します。",
+	"viper_four_poisons": "EMP、毒刃、カオススピア、デュアルグリッチを強化します。",
+	"soldier_unlock_net_gun": "ネットトラップガンを解放します。",
+	"soldier_unlock_fire_support": "火力支援を解放します。",
+	"soldier_unlock_bowling_trap": "ボウリングトラップを解放します。",
+	"soldier_unlock_suicide_drone": "自爆ドローンを解放します。",
+	"soldier_unlock_bazooka": "バズーカを解放します。",
+	"soldier_unlock_ak47": "AK-47を解放します。",
+	"soldier_unlock_beretta": "ベレッタを解放します。",
+	"instant_full_gauge": "すべてのゲージとクールタイムを即座に満たします。",
+	"instant_dimension_gate": "短時間アイテム出現の流れを強化します。",
+	"instant_treasure_hunt": "宝物報酬を探索します。",
+	"instant_monkey_grace": "空のアクティブスロットを補給で満たします。",
+	"instant_refresh": "パーク選択肢をもう一度更新します。",
+	"convert_to_gold": "パークをスキップし、ゲーム内ゴールド500を獲得します。",
+}
+
 const CHARACTER_EN := {
 	"smasher": {
 		"name": "Smasher",
@@ -606,6 +853,54 @@ const CHARACTER_ZH := {
 	},
 }
 
+const CHARACTER_JA := {
+	"smasher": {
+		"name": "スマッシャー",
+		"character_name": "ミカ",
+		"class_name": "スマッシャー",
+		"role": "コアストライカー",
+		"tagline": "ゲージ爆発の連続スマッシュ",
+		"description": "全力スマッシュで流れを押し込む正面突破型キャラクターです。",
+		"special": "スマッシャー専用スキルツリー",
+	},
+	"commando": {
+		"name": "コマンドー",
+		"character_name": "レナ",
+		"class_name": "コマンドー",
+		"role": "戦術制御",
+		"tagline": "武器を切り替える戦術家",
+		"description": "補給要請と武器切り替えで戦場を作り替える軍事戦術家です。",
+		"special": "戦闘経験と戦術優位",
+	},
+	"baltor": {
+		"name": "バルトル",
+		"character_name": "コハク",
+		"class_name": "バルトル",
+		"role": "炉の守護者",
+		"tagline": "炉守護者の間合い制御",
+		"description": "低い守りから炉の槌とトールシールドで間合いを制御し、攻防を伸ばす小型守護者です。",
+		"special": "トールシールドとタレット連携モジュール",
+	},
+	"optimus": {
+		"name": "オプティマス",
+		"character_name": "イオ",
+		"class_name": "オプティマス",
+		"role": "カード循環者",
+		"tagline": "機械式逆転突破",
+		"description": "個別クールタイムのカード式スキル循環で危機の流れをひっくり返します。",
+		"special": "スマッシャー系専用装備",
+	},
+	"viper": {
+		"name": "バイパー",
+		"character_name": "セリン",
+		"class_name": "バイパー",
+		"role": "サイバーアサシン",
+		"tagline": "連鎖斬撃アサシン",
+		"description": "刃とファントムキックで隙をすり抜ける高速コンボキャラクターです。",
+		"special": "プラズマブレード専用スキルツリー",
+	},
+}
+
 const SKILL_DATA_ZH := {
 	"plasma": {"korean": "等离子", "description": "向前发射等离子球。接触的敌人会减速，蓄力越久减速越强。", "how_to_use": "按住W/上后松开", "motion_hint": "向前发射等离子球"},
 	"recovery": {"korean": "恢复", "description": "立即取消冲刺后摇，并短时间获得50%移动速度加成。", "how_to_use": "冲刺后摇中按W/上", "motion_hint": "绿色光芒取消后摇并加速"},
@@ -637,6 +932,39 @@ const SKILL_DATA_ZH := {
 	"core_flip": {"korean": "花郎踢", "description": "以花郎精神踢球，并沿难以预判的斜线反击。", "how_to_use": "冲刺击球后同时按A和D", "motion_hint": "两次蹬墙后冲向球"},
 	"dual_glitch": {"korean": "双重故障", "description": "用古代毒蛇技术分裂自身。分身会镜像玩家移动，从两侧防守球。", "how_to_use": "输入A, D, A, D或左-右-左-右", "motion_hint": "召唤左右分身球拍"},
 	"ignition_aura": {"korean": "点火光环", "description": "放大体内火焰能量。所有升级等级在一段时间内提高，金币加成也提高。", "how_to_use": "满足条件后发动", "motion_hint": "释放点火光环"},
+}
+
+const SKILL_DATA_JA := {
+	"plasma": {"korean": "プラズマ", "description": "前方へプラズマ球を放ちます。触れた敵は減速し、チャージが長いほど減速が強くなります。", "how_to_use": "W/上を押し続けて離す", "motion_hint": "前方へプラズマ球を発射"},
+	"recovery": {"korean": "リカバリー", "description": "ダッシュ後隙を即座にキャンセルし、短時間50%の移動速度ボーナスを得ます。", "how_to_use": "ダッシュ後隙中にW/上", "motion_hint": "緑の光で後隙を消し加速"},
+	"cleanse": {"korean": "クレンズ", "description": "スタンや減速などの状態異常を即座に解除し、短時間免疫を得ます。", "how_to_use": "状態異常中にW", "motion_hint": "金色の浄化で状態異常を解除"},
+	"shield_kiting": {"korean": "シールドカイティング", "description": "最大0.36秒チャージしてエネルギーシールドを投げます。命中時に球速が30%上がり、シールドは即座に戻ります。", "how_to_use": "左クリック2回またはSPACE2回", "motion_hint": "エネルギーシールドを投げて回収"},
+	"drive": {"korean": "ドライブ", "description": "ボールをカーブ球にします。ボール到着前に先行入力すると精度が上がります。", "how_to_use": "左/右 + 左クリックを同時入力", "motion_hint": "カーブ打球で球筋を変える"},
+	"power_smashing": {"korean": "パワースマッシュ", "description": "強力なスマッシュでボールを発射します。左右入力で発射方向を制御できます。", "how_to_use": "左/右 + 左クリックを長押し", "motion_hint": "スマッシュでボールを撃ち出す"},
+	"magnum_grip": {"korean": "マグナムグリップ", "description": "強い磁場でボールをパドルへ引き寄せます。引き寄せたボールを返すと球速上限が45になります。", "how_to_use": "左+右を同時押し", "motion_hint": "磁力でボールをパドルへ引き寄せる"},
+	"ghost_shot": {"korean": "ゴーストショット", "description": "ボールが蛇行し、ゴーストが追従します。ゲージ420以上ではパワースマッシュの代わりに発動します。", "how_to_use": "ゲージ420以上で左/右 + 左クリック長押し", "motion_hint": "蛇行球とゴースト追撃"},
+	"warp_gate": {"korean": "ワープゲート", "description": "一定時間、次元ワープゲートを展開します。左右の壁を越えられ、追加ゲージを消費しません。", "how_to_use": "Sまたは下を0.5秒以上長押し", "motion_hint": "ワープゲートで側壁を越える"},
+	"smasher_wheel": {"korean": "スマッシャーホイール", "description": "パドルが1.2秒回転します。ボールに触れると高速でボスへ再発射し、強いカーブを加えます。", "how_to_use": "0.6秒以内にA-W-DまたはD-W-A", "motion_hint": "パドルを回転させボールを再発射"},
+	"supply_drop": {"korean": "補給投下", "description": "無線で補給機を呼び、ランダムなアイテムまたはレンタル武器を投下します。", "how_to_use": "S/下または右クリックを1秒長押し", "motion_hint": "無線で補給機を要請"},
+	"emergency_supply": {"korean": "リロード", "description": "無線で補給兵を呼びます。短い遅延後、現在選択中の火器の弾薬を最大まで補充します。", "how_to_use": "その場で下を2回入力", "motion_hint": "無線後、補給兵が装填"},
+	"commando_pistol": {"korean": "ベレッタ", "description": "拳銃の2倍の発射速度、弾速20%増加、精度30%増加のベレッタを使用します。8発の弾薬はリロードでのみ補充されます。", "how_to_use": "武器選択後に左クリックまたはSPACE", "motion_hint": "ベレッタを発射"},
+	"bazooka": {"korean": "バズーカ", "description": "選択中、発射後に短いスキル珠クールタイムが発生します。リロードは1発ずつ補充します。", "how_to_use": "武器選択後に左クリックまたはSPACE", "motion_hint": "バズーカを発射"},
+	"ak47": {"korean": "AK-47", "description": "選択中、射撃ごとに短いスキル珠クールタイムが発生します。リロードゲージが満タンになると弾薬と持続時間を補充します。", "how_to_use": "武器選択後に左クリックまたはSPACE", "motion_hint": "AK-47連射"},
+	"net_gun": {"korean": "ネットガン", "description": "選択中、発射後に短いスキル珠クールタイムが発生します。リロードは1発ずつ補充します。", "how_to_use": "武器選択後に左クリックまたはSPACE", "motion_hint": "ネットを発射"},
+	"fire_support": {"korean": "火力支援", "description": "選択中、支援要請後に短いスキル珠クールタイムが発生します。リロードゲージ満タンで要請回数を補充します。", "how_to_use": "武器選択後に左クリックまたはSPACE", "motion_hint": "火力支援を要請"},
+	"bowling_trap": {"korean": "ボウリングトラップ", "description": "選択中、トラップ設置後に短いスキル珠クールタイムが発生します。リロードは1発ずつ補充します。", "how_to_use": "武器選択後に左クリックまたはSPACE", "motion_hint": "ボウリングトラップを設置"},
+	"suicide_drone": {"korean": "自爆ドローン", "description": "選択中、ドローン発射後に短いスキル珠クールタイムが発生します。リロードは1発ずつ補充します。", "how_to_use": "武器選択後に左クリックまたはSPACE", "motion_hint": "自爆ドローンを発射"},
+	"shadow_step": {"korean": "シャドウバックステップ", "description": "ダッシュ前の位置へ転移します。素早い後ろ蹴りでコンボルートを開けます。", "how_to_use": "ダッシュ中または直後にS", "motion_hint": "残像を残して開始位置へ転移"},
+	"blade_rush": {"korean": "エアブレード", "description": "空中で前方へ刃波を放ちます。短い前隙があり、命中したボールは難易度に関係なく球速上限40を使います。", "how_to_use": "空中でWまたは上", "motion_hint": "巨大な紫の斬撃を前方へ放つ"},
+	"nerve_strike": {"korean": "毒刃", "description": "相手の背後へ突進し、背後から斬って混乱を与えます。", "how_to_use": "ブレード系スキル後、着地前にWまたは上", "motion_hint": "ボスの背後へ飛び斬撃で混乱"},
+	"dive_strike": {"korean": "EMPストライク", "description": "強い衝撃でEMPパルスを放ちます。パルス強度は空中高度に応じて上がります。", "how_to_use": "空中でSまたは下を0.3秒長押し", "motion_hint": "EMPパルスとともに急降下"},
+	"marshal_kick": {"korean": "マーシャルキック", "description": "壁を蹴ってボールへ突進します。コンボのつなぎとして使います。", "how_to_use": "シャドウバックステップ、ブレード技能、花郎キックの後", "motion_hint": "壁を蹴ってボールへ突進"},
+	"phantom_kick": {"korean": "ファントムキック", "description": "マーシャルキックの反発に闇エネルギーを注入します。", "how_to_use": "マーシャルキック命中後にSまたは下", "motion_hint": "闇反物質キック"},
+	"dark_blade": {"korean": "ダークブレード", "description": "打球後3秒以内に強化空中斬撃を放ちます。命中時にマーシャルキックの窓を開きます。", "how_to_use": "シャドウ、エアブレード、武術/幻影/花郎キック命中後", "motion_hint": "空中で暗赤色の強化斬撃を放つ"},
+	"chaos_spear": {"korean": "カオススピア", "description": "カオススピアを投げます。マップ中央にブラックホールが形成され、ボールと通常投射物を吸い込みます。", "how_to_use": "地上でA, W, Dを入力", "motion_hint": "中央ブラックホールが球と投射物を吸収"},
+	"core_flip": {"korean": "花郎キック", "description": "花郎の精神でボールを蹴り、読みにくい斜線で反撃します。", "how_to_use": "ダッシュ打球後にAとDを同時押し", "motion_hint": "2回壁を蹴ってボールへ突進"},
+	"dual_glitch": {"korean": "デュアルグリッチ", "description": "古代バイパー技術で自身を分裂させます。分身はプレイヤーの移動を鏡写しにし、左右からボールを守ります。", "how_to_use": "A, D, A, Dまたは左-右-左-右を入力", "motion_hint": "左右の分身パドルを召喚"},
+	"ignition_aura": {"korean": "イグニッションオーラ", "description": "体内の炎エネルギーを増幅します。すべてのアップグレードレベルが一定時間上がり、ゴールドボーナスも上昇します。", "how_to_use": "条件達成後に発動", "motion_hint": "イグニッションオーラを解放"},
 }
 
 const EXACT_TEXT_EN := {
@@ -1739,6 +2067,8 @@ static func normalize_language(language: String) -> String:
 		normalized = LANGUAGE_KOREAN
 	if normalized == "zh_cn" or normalized == "zh-cn" or normalized == "zh_hans" or normalized == "zh-hans" or normalized == "chinese" or normalized == "中文" or normalized == "简体中文":
 		normalized = LANGUAGE_CHINESE
+	if normalized == "ja_jp" or normalized == "ja-jp" or normalized == "japanese" or normalized == "日本語":
+		normalized = LANGUAGE_JAPANESE
 	if SUPPORTED_LANGUAGES.has(normalized):
 		return normalized
 	return DEFAULT_LANGUAGE
@@ -1760,12 +2090,16 @@ static func _get_exact_text_map(language: String) -> Dictionary:
 
 
 static func _get_item_display_map(language: String) -> Dictionary:
+	if language == LANGUAGE_JAPANESE:
+		return ITEM_DISPLAY_JA
 	if language == LANGUAGE_CHINESE:
 		return ITEM_DISPLAY_ZH
 	return ITEM_DISPLAY_EN
 
 
 static func _get_mythic_description_map(language: String) -> Dictionary:
+	if language == LANGUAGE_JAPANESE:
+		return MYTHIC_DESCRIPTION_JA
 	if language == LANGUAGE_CHINESE:
 		return MYTHIC_DESCRIPTION_ZH
 	return MYTHIC_DESCRIPTION_EN
