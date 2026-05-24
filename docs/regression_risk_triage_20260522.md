@@ -9431,3 +9431,27 @@ commits rather than standalone `fix` commits:
   check passed, `run_warning_scan.ps1` scanned `1339` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors
   aside from existing CRLF/LF normalization notices on touched files.
+
+348th follow-up on 2026-05-25:
+
+- Commit:
+  `f191b1775 godot: move Commando ammo weapon input`.
+- Scope: moved bazooka and net-gun single-press ammo weapon input
+  orchestration into the new
+  `CommandoFirearmAmmoWeaponInputState` owner. The owner now handles action
+  gating, switch-fire suppression, cooldown / lock failure results, ammo
+  consumption, bazooka doping timing, configured skill cooldowns, firearm
+  effect spawning, fire audio, and fired result construction. Runtime keeps
+  `_update_bazooka_input()` and `_update_net_gun_input()` as compatibility
+  facades that pass constants through options dictionaries.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1625` lines /
+  `26` functions to `1593` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_audio_routing_smoke`,
+  `commando_firearm_cooldown_state_smoke`,
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_projectile_spawn_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1341` scripts with no GDScript warnings,
+  and `git diff --check` reported no whitespace errors aside from the
+  existing CRLF/LF normalization notice on `commando_firearm_runtime.gd`.
