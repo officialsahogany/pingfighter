@@ -4076,9 +4076,10 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Commando firearm profile lookup behavior: weapon-id
   normalization, fallback profile selection, deep-copy protection,
   fire-support override application, and no-fallback lingering-effect
-  lookup. The profile data tables and existing private wrapper names stay
-  in `commando_firearm_runtime.gd`, while selected-firearm input, ammo,
-  cooldown, projectile timing, audio, and result handoff remain untouched.
+  lookup. The profile data tables stay in `commando_firearm_runtime.gd`, but
+  runtime call sites now query this resolver directly instead of preserving
+  private profile lookup bridges. Selected-firearm input, ammo, cooldown,
+  projectile timing, audio, and result handoff remain untouched.
 - `scripts/characters/commando_firearm_stage2_rock_interaction_resolver.gd`
   Owns Commando firearm routing into Stage 2 rock interactions: explosion
   rock target discovery across direct deps / registry / stage router,

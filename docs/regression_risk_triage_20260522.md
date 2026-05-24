@@ -6082,6 +6082,21 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+183rd follow-up on 2026-05-24:
+
+- Commit: `76f59c386 godot: drop Commando profile resolver bridges`.
+- Scope: removed the weapon, hit-feedback, hit-result, and lingering-effect
+  profile lookup bridges from `commando_firearm_runtime.gd`. Fire, projectile
+  hit, lingering spawn, bowling-trap guard / release, fire-support, and
+  suicide-drone paths now call `commando_firearm_profile_resolver.gd`
+  directly against the runtime profile tables; runtime keeps those data
+  tables, gameplay side effects, audio, cooldowns, and result handoff.
+- Validation: `commando_firearm_profile_resolver_smoke`,
+  `commando_firearm_suicide_drone_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
