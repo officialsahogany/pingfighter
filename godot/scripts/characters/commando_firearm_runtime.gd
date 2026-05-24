@@ -1039,8 +1039,16 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 	var projectile_result: Dictionary = _update_projectiles(fps_scale, context, deps)
 	if not projectile_result.is_empty():
 		context.merge(projectile_result, true)
-	_update_shell_casings(fps_scale)
-	_update_pistol_feedbacks(fps_scale)
+	shell_casings = CommandoFirearmShellCasingState.advance_shells(
+		shell_casings,
+		fps_scale,
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		AK47_SHELL_GRAVITY,
+		AK47_SHELL_BOUNCE_DECAY,
+		AK47_SHELL_MAX_BOUNCES
+	)
+	pistol_feedbacks = CommandoFirearmPistolFeedbackState.advance_feedbacks(pistol_feedbacks, fps_scale)
 	impact_flashes = CommandoFirearmValueUtils.advance_timed_effects(impact_flashes, fps_scale)
 	var lingering_result: Dictionary = _update_lingering_effects(fps_scale, context, deps)
 	if not lingering_result.is_empty():
@@ -1656,21 +1664,6 @@ func _update_net_gun_input(
 	)
 
 
-func _start_weapon_fire_sheet_animation(weapon_id: String) -> void:
-	var fire_sheet_id: String = CommandoFirearmFireSheetResolver.normalize_weapon_fire_sheet_id(weapon_id)
-	if fire_sheet_id == "":
-		return
-	weapon_fire_sheet_id = fire_sheet_id
-	weapon_fire_sheet_max_frames = CommandoFirearmFireSheetResolver.get_duration_frames(
-		fire_sheet_id,
-		COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
-		COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES
-	)
-	var start_frame: int = CommandoFirearmFireSheetResolver.get_start_frame(fire_sheet_id, COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT)
-	var frame_duration: float = weapon_fire_sheet_max_frames / float(COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT)
-	weapon_fire_sheet_timer_frames = max(frame_duration, weapon_fire_sheet_max_frames - frame_duration * float(start_frame))
-
-
 func _update_bowling_trap_input(
 	input_snapshot: Dictionary,
 	special_gauge: float,
@@ -1795,7 +1788,16 @@ func _update_suicide_drone_input(
 			return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_ammo_unavailable", suicide_drone_cooldown_frames)
 	last_fire_msec = now_msec
 	suicide_drone_last_action_pressed = action_pressed
-	_start_weapon_fire_sheet_animation("suicide_drone")
+	var fire_sheet_state: Dictionary = CommandoFirearmFireSheetResolver.build_animation_state(
+		"suicide_drone",
+		COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
+		COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
+		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
+	)
+	if not fire_sheet_state.is_empty():
+		weapon_fire_sheet_id = str(fire_sheet_state.get("id", ""))
+		weapon_fire_sheet_timer_frames = float(fire_sheet_state.get("timer_frames", 0.0))
+		weapon_fire_sheet_max_frames = float(fire_sheet_state.get("max_frames", 0.0))
 	_spawn_suicide_drone(config)
 	CommandoFirearmAudioDispatcher.play_fire_audio("suicide_drone", deps)
 	CommandoFirearmCooldownState.trigger_configured_cooldown("suicide_drone", now_msec, deps)
@@ -1946,7 +1948,16 @@ func _cancel_slingshot_charge(special_gauge: float) -> float:
 
 
 func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictionary, profile_override: Dictionary = {}) -> void:
-	_start_weapon_fire_sheet_animation(weapon_id)
+	var fire_sheet_state: Dictionary = CommandoFirearmFireSheetResolver.build_animation_state(
+		weapon_id,
+		COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
+		COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
+		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
+	)
+	if not fire_sheet_state.is_empty():
+		weapon_fire_sheet_id = str(fire_sheet_state.get("id", ""))
+		weapon_fire_sheet_timer_frames = float(fire_sheet_state.get("timer_frames", 0.0))
+		weapon_fire_sheet_max_frames = float(fire_sheet_state.get("max_frames", 0.0))
 	var profile: Dictionary = profile_override.duplicate(true)
 	if profile.is_empty():
 		profile = CommandoFirearmProfileResolver.get_weapon_profile(
@@ -2457,27 +2468,6 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 	return result
 
 
-func _update_shell_casings(fps_scale: float) -> void:
-	var step: float = max(0.0, fps_scale)
-	if step <= 0.0:
-		return
-	for index in range(shell_casings.size() - 1, -1, -1):
-		var shell: Dictionary = CommandoFirearmValueUtils.get_dict(shell_casings[index])
-		var update_result: Dictionary = CommandoFirearmShellCasingState.advance_shell(
-			shell,
-			step,
-			FIELD_WIDTH,
-			FIELD_HEIGHT,
-			AK47_SHELL_GRAVITY,
-			AK47_SHELL_BOUNCE_DECAY,
-			AK47_SHELL_MAX_BOUNCES
-		)
-		if not bool(update_result.get("active", false)):
-			shell_casings.remove_at(index)
-			continue
-		shell_casings[index] = CommandoFirearmValueUtils.get_dict(update_result.get("shell", shell))
-
-
 func _spawn_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> void:
 	var boss_rect: Rect2 = CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH)
 	var feedback: Dictionary = CommandoFirearmPistolFeedbackState.build_feedback(
@@ -2491,19 +2481,6 @@ func _spawn_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> void:
 	if feedback.is_empty():
 		return
 	CommandoFirearmValueUtils.append_limited(pistol_feedbacks, feedback, PISTOL_FEEDBACK_LIMIT)
-
-
-func _update_pistol_feedbacks(fps_scale: float) -> void:
-	var step: float = max(0.0, fps_scale)
-	if step <= 0.0:
-		return
-	for index in range(pistol_feedbacks.size() - 1, -1, -1):
-		var feedback: Dictionary = CommandoFirearmValueUtils.get_dict(pistol_feedbacks[index])
-		var update_result: Dictionary = CommandoFirearmPistolFeedbackState.advance_feedback(feedback, step)
-		if not bool(update_result.get("active", false)):
-			pistol_feedbacks.remove_at(index)
-			continue
-		pistol_feedbacks[index] = CommandoFirearmValueUtils.get_dict(update_result.get("feedback", feedback))
 
 
 func _resolve_suicide_drone_collision(

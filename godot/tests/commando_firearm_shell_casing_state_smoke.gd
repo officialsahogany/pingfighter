@@ -72,6 +72,22 @@ func _verify_direct_shell_casing_state() -> void:
 		}, 1.0, 760.0, 750.0, 0.0, 0.42, 2).get("active", true)),
 		"out-of-bounds shell should deactivate"
 	)
+	var shell_list: Array = [
+		bouncing_shell,
+		{"lifetime_frames": 0.5},
+	]
+	var advanced_shells: Array = CommandoFirearmShellCasingState.advance_shells(
+		shell_list,
+		1.0,
+		760.0,
+		750.0,
+		0.45,
+		0.42,
+		2
+	)
+	_expect(advanced_shells.size() == 1, "shell list helper should keep active shells only")
+	_expect(int((advanced_shells[0] as Dictionary).get("bounce_count", 0)) == 1, "shell list helper should preserve advanced shell state")
+	_expect(CommandoFirearmShellCasingState.advance_shells(shell_list, 0.0, 760.0, 750.0, 0.45, 0.42, 2).size() == 2, "zero-step shell list helper should preserve shells")
 
 
 func _verify_runtime_delegates_shell_casing_state() -> void:
@@ -94,6 +110,7 @@ func _verify_runtime_delegates_shell_casing_state() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(not runtime_source.contains("func _spawn_ak47_shell_casing("), "runtime should not keep AK-47 shell spawn bridge")
 	_expect(not runtime_source.contains("func _spawn_pistol_shell_casing("), "runtime should not keep pistol shell spawn bridge")
+	_expect(not runtime_source.contains("func _update_shell_casings("), "runtime should not keep shell-casing update bridge")
 
 
 func _expect(condition: bool, message: String) -> void:

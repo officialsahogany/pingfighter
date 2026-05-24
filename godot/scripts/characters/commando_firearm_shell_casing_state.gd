@@ -121,6 +121,35 @@ static func advance_shell(
 	}
 
 
+static func advance_shells(
+	shells: Array,
+	fps_scale: float,
+	field_width: float,
+	field_height: float,
+	gravity: float,
+	bounce_decay: float,
+	max_bounces: int
+) -> Array:
+	var step: float = max(0.0, fps_scale)
+	if step <= 0.0:
+		return shells.duplicate(true)
+	var next_shells: Array = []
+	for value in shells:
+		var shell: Dictionary = CommandoFirearmValueUtils.get_dict(value)
+		var update_result: Dictionary = advance_shell(
+			shell,
+			step,
+			field_width,
+			field_height,
+			gravity,
+			bounce_decay,
+			max_bounces
+		)
+		if bool(update_result.get("active", false)):
+			next_shells.append(CommandoFirearmValueUtils.get_dict(update_result.get("shell", shell)))
+	return next_shells
+
+
 static func _get_shell_side(direction: Vector2) -> Vector2:
 	var side: Vector2 = direction.rotated(PI * 0.5)
 	if side.x < 0.0:

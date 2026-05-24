@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+
 
 static func is_supported_hit_kind(hit_kind: String) -> bool:
 	return hit_kind == "headshot" or hit_kind == "legshot"
@@ -44,3 +46,16 @@ static func advance_feedback(feedback: Dictionary, fps_scale: float) -> Dictiona
 		"active": true,
 		"feedback": next_feedback,
 	}
+
+
+static func advance_feedbacks(feedbacks: Array, fps_scale: float) -> Array:
+	var step: float = max(0.0, fps_scale)
+	if step <= 0.0:
+		return feedbacks.duplicate(true)
+	var next_feedbacks: Array = []
+	for value in feedbacks:
+		var feedback: Dictionary = CommandoFirearmValueUtils.get_dict(value)
+		var update_result: Dictionary = advance_feedback(feedback, step)
+		if bool(update_result.get("active", false)):
+			next_feedbacks.append(CommandoFirearmValueUtils.get_dict(update_result.get("feedback", feedback)))
+	return next_feedbacks

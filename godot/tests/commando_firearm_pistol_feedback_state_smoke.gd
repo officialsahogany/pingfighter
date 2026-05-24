@@ -54,6 +54,10 @@ func _verify_direct_pistol_feedback_state() -> void:
 	_expect(bool(advanced.get("active", false)), "active feedback should stay active while timer remains")
 	_expect(is_equal_approx(float((advanced.get("feedback", {}) as Dictionary).get("timer_frames", 0.0)), 45.0), "feedback timer should tick down")
 	_expect(not bool(CommandoFirearmPistolFeedbackState.advance_feedback(head_feedback, 60.0).get("active", true)), "feedback should expire at zero timer")
+	var advanced_feedbacks: Array = CommandoFirearmPistolFeedbackState.advance_feedbacks([head_feedback, leg_feedback], 15.0)
+	_expect(advanced_feedbacks.size() == 2, "feedback list helper should keep active feedback entries")
+	_expect(is_equal_approx(float((advanced_feedbacks[0] as Dictionary).get("timer_frames", 0.0)), 45.0), "feedback list helper should advance feedback timers")
+	_expect(CommandoFirearmPistolFeedbackState.advance_feedbacks([head_feedback, leg_feedback], 60.0).is_empty(), "feedback list helper should drop expired feedback entries")
 
 
 func _verify_runtime_delegates_pistol_feedback_state() -> void:
@@ -64,7 +68,7 @@ func _verify_runtime_delegates_pistol_feedback_state() -> void:
 	)
 	var feedbacks: Array = runtime.get_actor_draw_context().get("commando_firearm_pistol_feedbacks", [])
 	_expect(feedbacks.size() == 1, "runtime spawn should append supported feedback")
-	runtime._update_pistol_feedbacks(60.0)
+	runtime.update_effects(60.0, Time.get_ticks_msec(), {}, {})
 	feedbacks = runtime.get_actor_draw_context().get("commando_firearm_pistol_feedbacks", [])
 	_expect(feedbacks.is_empty(), "runtime update should expire feedback through helper")
 
@@ -72,6 +76,7 @@ func _verify_runtime_delegates_pistol_feedback_state() -> void:
 func _verify_removed_runtime_pistol_feedback_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(source.find("func _build_pistol_hit_feedback") < 0, "runtime should not keep pistol feedback builder bridge")
+	_expect(source.find("func _update_pistol_feedbacks") < 0, "runtime should not keep pistol feedback update bridge")
 
 
 func _expect(condition: bool, message: String) -> void:
