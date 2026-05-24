@@ -594,11 +594,15 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	_clear_ak47_trigger_state()
 	if not bool(input_snapshot.get("action_pressed", false)):
 		return {}
-	if not _input_action_just_pressed(input_snapshot):
+	if not CommandoFirearmInputResolver.input_action_just_pressed(input_snapshot):
 		return {}
 	if bool(input_snapshot.get("down_pressed", false)):
 		return {}
-	if _is_fire_suppressed_after_switch(weapon_controller, now_msec):
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		weapon_controller,
+		now_msec,
+		SWITCH_FIRE_SUPPRESS_MSEC
+	):
 		return {}
 	if now_msec - last_fire_msec < FIRE_DEBOUNCE_MSEC:
 		return {}
@@ -1120,7 +1124,11 @@ func _update_pistol_input(
 		return {}
 	if bool(input_snapshot.get("down_pressed", false)):
 		return {}
-	if _is_fire_suppressed_after_switch(deps.get("commando_weapon_controller", null), now_msec):
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		deps.get("commando_weapon_controller", null),
+		now_msec,
+		SWITCH_FIRE_SUPPRESS_MSEC
+	):
 		return {}
 	if pistol_fire_delay_frames > 0.0:
 		return _pistol_fire_failed(special_gauge, "pistol_animation_busy", weapon_id)
@@ -1260,7 +1268,11 @@ func _update_ak47_input(
 	if not action_pressed or bool(input_snapshot.get("down_pressed", false)):
 		_clear_ak47_trigger_state()
 		return {}
-	if _is_fire_suppressed_after_switch(weapon_controller, now_msec):
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		weapon_controller,
+		now_msec,
+		SWITCH_FIRE_SUPPRESS_MSEC
+	):
 		ak47_trigger_held = true
 		return {}
 	if action_just_pressed:
@@ -1432,7 +1444,11 @@ func _update_bazooka_input(
 	if bool(input_snapshot.get("down_pressed", false)):
 		return {}
 	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	if _is_fire_suppressed_after_switch(weapon_controller, now_msec):
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		weapon_controller,
+		now_msec,
+		SWITCH_FIRE_SUPPRESS_MSEC
+	):
 		return {}
 	if bazooka_control_lock_frames > 0.0:
 		return _bazooka_fire_failed(special_gauge, "bazooka_control_lock")
@@ -1509,7 +1525,11 @@ func _update_net_gun_input(
 	if bool(input_snapshot.get("down_pressed", false)):
 		return {}
 	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	if _is_fire_suppressed_after_switch(weapon_controller, now_msec):
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		weapon_controller,
+		now_msec,
+		SWITCH_FIRE_SUPPRESS_MSEC
+	):
 		return {}
 	if net_gun_control_lock_frames > 0.0:
 		return _net_gun_fire_failed(special_gauge, "net_gun_control_lock")
@@ -1602,7 +1622,11 @@ func _update_bowling_trap_input(
 	if bool(input_snapshot.get("down_pressed", false)):
 		return {}
 	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	if _is_fire_suppressed_after_switch(weapon_controller, now_msec):
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		weapon_controller,
+		now_msec,
+		SWITCH_FIRE_SUPPRESS_MSEC
+	):
 		return {}
 	if bowling_trap_control_lock_frames > 0.0:
 		return _bowling_trap_fire_failed(special_gauge, "bowling_trap_control_lock")
@@ -1700,12 +1724,16 @@ func _update_suicide_drone_input(
 	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
 	if not action_pressed:
 		return {}
-	if not _input_action_just_pressed(input_snapshot):
+	if not CommandoFirearmInputResolver.input_action_just_pressed(input_snapshot):
 		return {}
 	if bool(input_snapshot.get("down_pressed", false)):
 		return {}
 	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	if _is_fire_suppressed_after_switch(weapon_controller, now_msec):
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		weapon_controller,
+		now_msec,
+		SWITCH_FIRE_SUPPRESS_MSEC
+	):
 		return {}
 	if suicide_drone_cooldown_frames > 0.0:
 		return _suicide_drone_fire_failed(special_gauge, "suicide_drone_cooldown")
@@ -1815,7 +1843,7 @@ func _get_player_lock_pos(config: Dictionary) -> Vector2:
 
 
 func _apply_suicide_drone_input_to_projectile(projectile: Dictionary, input_snapshot: Dictionary) -> void:
-	var input_vector: Vector2 = _get_suicide_drone_input_vector(input_snapshot)
+	var input_vector: Vector2 = CommandoFirearmInputResolver.get_suicide_drone_input_vector(input_snapshot)
 	var next_projectile: Dictionary = _get_suicide_drone_input_projectile_state(input_vector, projectile)
 	projectile.clear()
 	projectile.merge(next_projectile, true)
@@ -1832,10 +1860,6 @@ func _get_suicide_drone_input_projectile_state(input_vector: Vector2, projectile
 	)
 
 
-func _get_suicide_drone_input_vector(input_snapshot: Dictionary) -> Vector2:
-	return CommandoFirearmInputResolver.get_suicide_drone_input_vector(input_snapshot)
-
-
 func _get_suicide_drone_draw_state() -> Dictionary:
 	var index: int = _get_active_suicide_drone_index()
 	var projectile: Dictionary = _get_dict(projectiles[index]) if index >= 0 else {}
@@ -1847,10 +1871,6 @@ func _get_suicide_drone_draw_state() -> Dictionary:
 		_get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
 		_get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	)
-
-
-func _input_action_just_pressed(input_snapshot: Dictionary) -> bool:
-	return CommandoFirearmInputResolver.input_action_just_pressed(input_snapshot)
 
 
 func _is_ready(weapon_id: String, now_msec: int, deps: Dictionary) -> bool:
@@ -1892,7 +1912,11 @@ func _update_slingshot_input(input_snapshot: Dictionary, special_gauge: float, c
 	if not action_just_pressed:
 		return {}
 	var now_msec: int = Time.get_ticks_msec()
-	if _is_fire_suppressed_after_switch(deps.get("commando_weapon_controller", null), now_msec):
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		deps.get("commando_weapon_controller", null),
+		now_msec,
+		SWITCH_FIRE_SUPPRESS_MSEC
+	):
 		return {}
 	if slingshot_cooldown_frames > 0.0 or special_gauge < SLINGSHOT_GAUGE_COST:
 		return CommandoFirearmSlingshotState.build_not_ready_result(BASE_WEAPON_ID, special_gauge)
@@ -3633,14 +3657,6 @@ func _update_muzzle_flashes(fps_scale: float) -> void:
 
 func _update_impact_flashes(fps_scale: float) -> void:
 	impact_flashes = CommandoFirearmValueUtils.advance_timed_effects(impact_flashes, fps_scale)
-
-
-func _is_fire_suppressed_after_switch(weapon_controller: Object, now_msec: int) -> bool:
-	return CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
-		weapon_controller,
-		now_msec,
-		SWITCH_FIRE_SUPPRESS_MSEC
-	)
 
 
 func _get_player_muzzle_pos(config: Dictionary) -> Vector2:

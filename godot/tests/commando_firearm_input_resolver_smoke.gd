@@ -1,7 +1,6 @@
 extends SceneTree
 
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
-const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 
 var _failures: Array[String] = []
 
@@ -20,7 +19,7 @@ class FakeWeaponController:
 
 func _init() -> void:
 	_verify_direct_input_resolver()
-	_verify_runtime_delegates_input_resolver()
+	_verify_removed_runtime_input_resolver_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_input_resolver_smoke: ok")
@@ -71,17 +70,11 @@ func _verify_direct_input_resolver() -> void:
 	)
 
 
-func _verify_runtime_delegates_input_resolver() -> void:
-	var runtime := CommandoFirearmRuntime.new()
-	_expect_vec(
-		runtime._get_suicide_drone_input_vector({"right_pressed": true, "down_pressed": true}),
-		Vector2(1.0, 1.0).normalized(),
-		"runtime suicide-drone input wrapper should delegate"
-	)
-	_expect(runtime._input_action_just_pressed({"action_just_pressed": true}), "runtime just-pressed wrapper should delegate explicit true")
-	_expect(not runtime._input_action_just_pressed({"action_just_pressed": false, "action_pressed": true}), "runtime just-pressed wrapper should delegate explicit false")
-	_expect(runtime._is_fire_suppressed_after_switch(FakeWeaponController.new(1000), 1030), "runtime switch suppression wrapper should delegate active suppression")
-	_expect(not runtime._is_fire_suppressed_after_switch(FakeWeaponController.new(1000), 1070), "runtime switch suppression wrapper should delegate boundary release")
+func _verify_removed_runtime_input_resolver_bridges() -> void:
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(not runtime_source.contains("func _get_suicide_drone_input_vector("), "runtime should not keep suicide-drone input vector bridge")
+	_expect(not runtime_source.contains("func _input_action_just_pressed("), "runtime should not keep action just-pressed bridge")
+	_expect(not runtime_source.contains("func _is_fire_suppressed_after_switch("), "runtime should not keep switch suppression bridge")
 
 
 func _expect_vec(actual: Vector2, expected: Vector2, message: String) -> void:
