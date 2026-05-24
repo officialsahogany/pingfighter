@@ -25,6 +25,15 @@ static func prewarm_assets() -> void:
 	_character_rim_shader_ready = CharacterTopdownRimShader is Shader
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		_free_silhouette_rim_item()
+
+
+func clear_transient_canvas_items() -> void:
+	_clear_silhouette_rim()
+
+
 func draw(
 	canvas: CanvasItem,
 	context: Dictionary,
@@ -1062,6 +1071,13 @@ func _clear_silhouette_rim() -> void:
 		return
 	RenderingServer.canvas_item_clear(_silhouette_rim_item)
 	RenderingServer.canvas_item_set_visible(_silhouette_rim_item, false)
+
+
+func _free_silhouette_rim_item() -> void:
+	if _silhouette_rim_item.is_valid():
+		RenderingServer.free_rid(_silhouette_rim_item)
+	_silhouette_rim_item = RID()
+	_silhouette_rim_owner = RID()
 
 
 func _draw_ai_glitch_texture_region(

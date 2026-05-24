@@ -59,6 +59,8 @@ func draw(
 	shake_offset: Vector2,
 	perf_logger: Object = null
 ) -> void:
+	if sprite_renderer != null and sprite_renderer.has_method("clear_transient_canvas_items"):
+		sprite_renderer.clear_transient_canvas_items()
 	# Ball-spawn-intro paddle hologram gate. Mirrors Python's
 	# `get_paddle_hologram_state()`: the player paddle is fully hidden until
 	# the materialize window opens, then renders through a glitch reveal.

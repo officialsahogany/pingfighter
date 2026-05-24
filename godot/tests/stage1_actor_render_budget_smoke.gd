@@ -135,11 +135,14 @@ func _verify_render_budget_constants() -> void:
 		player_source.find("_draw_player_topdown_rimlight") < 0 and player_source.find("PLAYER_TOPDOWN_RIMLIGHT") < 0,
 		"Stage 1 player draw should not include the rejected fixed-ellipse topdown rimlight"
 	)
+	_expect(player_source.find("sprite_renderer.clear_transient_canvas_items()") >= 0, "Stage 1 player actor should clear transient sprite canvas items before hidden returns")
 	_expect(Stage1PlayerSpriteRenderer.DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY >= 0.60, "Stage 1 player silhouette rim should default visible")
 	_expect(Stage1PlayerSpriteRenderer.DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY <= 0.70, "Stage 1 player silhouette rim should stay bounded")
 	_expect(Stage1PlayerSpriteRenderer.PLAYER_SILHOUETTE_RIM_OFFSET_PX <= 2.0, "Stage 1 player silhouette rim should stay 1-2px")
 	_expect(player_sprite_source.find("CharacterTopdownRimShader") >= 0, "Stage 1 player sprite renderer should load the topdown rim shader")
 	_expect(player_sprite_source.find("stage1_player_silhouette_rim_enabled") >= 0, "Stage 1 player silhouette rim should have a runtime toggle")
+	_expect(player_sprite_source.find("func clear_transient_canvas_items() -> void:") >= 0, "Stage 1 player sprite renderer should expose transient canvas cleanup")
+	_expect(player_sprite_source.find("RenderingServer.free_rid(_silhouette_rim_item)") >= 0, "Stage 1 player silhouette rim RID should be freed with the renderer")
 	_expect(Stage1BossActorRenderer.GROUND_SHADOW_ALPHAS.size() <= 2, "Stage 1 boss shadow should use at most two polygon layers")
 	_expect(Stage1BossActorRenderer.GROUND_SHADOW_SEGMENTS <= 12, "Stage 1 boss shadow should use a bounded ellipse segment count")
 	_expect(Stage1PillarChromeRenderer.GAME_BORDER_SHINE_LAYERS <= 2, "Stage 1 border shine should use at most two rect layers")
