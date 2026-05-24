@@ -264,6 +264,7 @@ var pickup_bonus: Object = null
 var roll_query: Object = null
 var stage_immunity: Object = null
 var debug_management_menu: Object = null
+var debug_management_facade: Object = null
 var activation_effect_renderer: Object = null
 var activation_effect_runtime: Object = null
 var field_effect_visibility: Object = null
@@ -437,8 +438,7 @@ func reset() -> void:
 
 func prewarm_assets() -> void:
 	_ensure_helpers_ready()
-	if debug_management_menu != null and debug_management_menu.has_method("prewarm_assets"):
-		debug_management_menu.prewarm_assets(self)
+	debug_management_facade.prewarm_assets(self)
 
 
 func prewarm_acquisition_cinematic(owner: Object = null, registry: Object = null) -> void:
@@ -615,28 +615,27 @@ func get_debug_item_entries() -> Array:
 
 func toggle_debug_management_menu() -> void:
 	_ensure_helpers_ready()
-	prewarm_assets()
-	debug_management_menu.toggle(0)
+	debug_management_facade.toggle_menu(self, 0)
 
 
 func close_debug_management_menu() -> void:
 	_ensure_helpers_ready()
-	debug_management_menu.close()
+	debug_management_facade.close_menu(self)
 
 
 func is_debug_management_menu_open() -> bool:
 	_ensure_helpers_ready()
-	return debug_management_menu.is_open()
+	return debug_management_facade.is_menu_open(self)
 
 
 func handle_debug_management_menu_input(event: InputEvent, owner: Object, registry: Object, view_size: Vector2) -> bool:
 	_ensure_helpers_ready()
-	return debug_management_menu.handle_input(event, owner, registry, view_size)
+	return debug_management_facade.handle_menu_input(self, event, owner, registry, view_size)
 
 
 func draw_debug_management_menu(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector2) -> void:
 	_ensure_helpers_ready()
-	debug_management_menu.draw(canvas, owner, registry, view_size)
+	debug_management_facade.draw_menu(self, canvas, owner, registry, view_size)
 
 
 func is_equipped(item_name: String = ITEM_MEGINGJORD) -> bool:

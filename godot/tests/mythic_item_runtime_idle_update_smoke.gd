@@ -50,6 +50,7 @@ func _init() -> void:
 func _verify_helper_registry_initializes_runtime() -> void:
 	_expect(MythicItemHelperRegistry.INIT_ORDER.has("catalog"), "helper registry should own the mythic helper init order")
 	_expect(MythicItemHelperRegistry.INIT_ORDER.has("roll_editor_runtime"), "helper registry should initialize the mythic roll editor helper")
+	_expect(MythicItemHelperRegistry.INIT_ORDER.has("debug_management_facade"), "helper registry should initialize the mythic debug management facade")
 	_expect(not MythicItemHelperRegistry.INIT_ORDER.has("debug_inventory"), "helper registry should not keep the retired mythic debug inventory helper")
 	_expect(
 		MythicItemHelperRegistry.get_script_path("catalog").ends_with("mythic_item_catalog.gd"),
@@ -58,6 +59,10 @@ func _verify_helper_registry_initializes_runtime() -> void:
 	_expect(
 		MythicItemHelperRegistry.get_script_path("roll_editor_runtime").ends_with("mythic_item_roll_editor_runtime.gd"),
 		"helper registry should route roll editor work to the focused helper"
+	)
+	_expect(
+		MythicItemHelperRegistry.get_script_path("debug_management_facade").ends_with("mythic_item_debug_management_facade.gd"),
+		"helper registry should route debug menu integration through the focused facade"
 	)
 	_expect(MythicItemHelperRegistry.get_script_path("debug_inventory") == "", "helper registry should not expose a retired mythic debug inventory path")
 	var runtime: Object = MythicItemRuntime.new()
@@ -71,6 +76,9 @@ func _verify_helper_registry_initializes_runtime() -> void:
 	_expect(runtime_source.find("const HELPER_SCRIPT_PATHS") < 0, "mythic runtime should not keep the helper path registry inline")
 	_expect(runtime_source.find("var debug_inventory") < 0, "mythic runtime should not keep the retired debug inventory member")
 	_expect(runtime_source.find("roll_editor_runtime") >= 0, "mythic runtime should call the focused roll editor helper")
+	_expect(runtime_source.find("debug_management_facade") >= 0, "mythic runtime should call the debug management facade")
+	_expect(runtime_source.find("debug_management_menu.handle_input") < 0, "mythic runtime should not keep debug menu input routing inline")
+	_expect(runtime_source.find("debug_management_menu.draw") < 0, "mythic runtime should not keep debug menu draw routing inline")
 
 
 func _verify_empty_runtime_has_no_field_effects() -> void:

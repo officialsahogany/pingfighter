@@ -325,7 +325,9 @@ This section is intentionally long; use search to find the nearest owner.
   queries, public/debug inventory item read/count snapshots, debug-menu
   toggle/add routing, roll-editor inventory ensure routing, and one-time
   passive / used-Revival field-spawn skip rules are delegated to
-  `scripts/items/mythic_item_ownership_runtime.gd`; the
+  `scripts/items/mythic_item_ownership_runtime.gd`; F3 passive / mythic
+  management-menu prewarm / toggle / input / draw integration is delegated
+  to `scripts/items/mythic_item_debug_management_facade.gd`; the
   field-effect renderer now owns the Baal / Foul Whistle / Revival / Sensor
   draw fanout directly instead of bouncing through thin runtime `_draw_*`
   wrappers;
