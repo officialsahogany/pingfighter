@@ -7520,6 +7520,28 @@ Hundredth split on 2026-05-24:
   The lingering-effect owner smoke now rejects `_spawn_net_dissolve_effect()`
   in the runtime facade.
 
+257th follow-up on 2026-05-24:
+
+- Commits:
+  `b343eabc6 godot: move Commando suicide drone fire zone bridge` and
+  `aad6e6f4f test: cover Commando suicide drone fire zone bridge`.
+- Scope: removed the Commando runtime `_spawn_suicide_drone_fire_zone()`
+  bridge. Suicide-drone state now owns the active-item molotov fire-zone
+  trigger through `CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone()`,
+  including registry lookup, duplicate-feedback suppression, and the returned
+  `active_item_molotov_fire_zone` result. Runtime detonation / hit paths keep
+  the same Commando lingering fire-zone fallback when no active item runtime is
+  available.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3016` lines /
+  `54` functions to `3003` lines / `53` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The Godot headless load check passed,
+  and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings.
+  The suicide-drone state smoke now rejects `_spawn_suicide_drone_fire_zone()`
+  in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
