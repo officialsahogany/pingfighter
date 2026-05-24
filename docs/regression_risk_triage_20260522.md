@@ -7043,6 +7043,38 @@ Hundredth split on 2026-05-24:
   options, alias normalization, native label, active item names, and mythic
   item descriptions.
 
+233rd follow-up on 2026-05-24:
+
+- Commit: `57a63e6a2 godot: expand Japanese localization surfaces`.
+- Scope: extended Japanese localization beyond the initial item tables into
+  exact gameplay text, quality prefixes, pause-menu language selection,
+  character / perk / skill config routing, display pacing labels, character
+  info headers, character-select prewarm labels, result summaries, treasure
+  hunt feedback, weather start text, boss skill-card status / cooldown text,
+  Commando firearm tooltip copy, and Viper / Smasher orb-tooltip runtime
+  bonus lines.
+- Checklist note: because the batch touched character orb-tooltip bonus text,
+  `docs/character_skill_perk_checklist.md` and the related `CLAUDE.md`
+  hidden-knowledge tooltip sections were re-opened. This pass only localizes
+  existing bonus-line helpers; it does not add a new active skill, runtime
+  effect, cooldown path, icon branch, timer HUD, or save/load state.
+- Validation: focused localization and tooltip coverage passed:
+  `language_settings_smoke`, `active_item_catalog_korean_names_smoke`,
+  `passive_item_quality_prefix_smoke`, `pause_menu_overlay_smoke`,
+  `character_selection_viper_start_smoke`,
+  `character_info_skill_cooldown_pause_smoke`,
+  `commando_skill_tooltip_preview_smoke`,
+  `viper_skill_tooltip_preview_smoke`,
+  `skill_orb_tooltip_hover_state_perf_smoke`,
+  `boss_skill_card_hud_spec_smoke`,
+  `stage1_dalji_commando_hud_layout_smoke`,
+  `stage5_hongryun_visual_shell_smoke`, `weather_event_state_smoke`,
+  `weather_event_render_budget_smoke`, `treasure_hunt_runtime_smoke`,
+  `stage_clear_result_summary_builder_smoke`,
+  `viper_ignition_aura_port_smoke`, `commando_weapon_controller_smoke`,
+  `commando_firearm_tooltip_smoke`, `viper_dual_glitch_port_smoke`,
+  `viper_nerve_strike_port_smoke`, and `horn_strawberry_skill_hud_smoke`.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
