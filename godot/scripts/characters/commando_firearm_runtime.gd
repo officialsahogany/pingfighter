@@ -1016,12 +1016,9 @@ func get_actor_draw_context() -> Dictionary:
 		get_movement_speed_multiplier()
 	)
 	var bowling_trap_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_bowling_trap_state(
-		bowling_traps,
-		bowling_trap_cooldown_frames,
+		self,
 		BOWLING_TRAP_COOLDOWN_FRAMES,
-		bowling_trap_control_lock_frames,
 		BOWLING_TRAP_CONTROL_LOCK_FRAMES,
-		bowling_trap_install_pose_frames,
 		BOWLING_TRAP_INSTALL_FRAMES
 	)
 	var suicide_drone_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_suicide_drone_state(

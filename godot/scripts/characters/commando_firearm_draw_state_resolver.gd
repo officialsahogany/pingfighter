@@ -339,20 +339,29 @@ static func build_bowling_trap_state(
 
 
 static func build_runtime_bowling_trap_state(
-	traps: Array,
-	cooldown_frames: float,
+	target: Object,
 	cooldown_max_frames: float,
-	control_lock_frames: float,
 	control_lock_max_frames: float,
-	install_pose_frames: float,
 	install_pose_max_frames: float
 ) -> Dictionary:
+	if target == null:
+		return build_bowling_trap_state(
+			0.0,
+			cooldown_max_frames,
+			0.0,
+			control_lock_max_frames,
+			0.0,
+			install_pose_max_frames,
+			false,
+			0.0
+		)
+	var traps: Array = CommandoFirearmValueUtils.get_array(target.get("bowling_traps"))
 	return build_bowling_trap_state(
-		cooldown_frames,
+		float(target.get("bowling_trap_cooldown_frames")),
 		cooldown_max_frames,
-		control_lock_frames,
+		float(target.get("bowling_trap_control_lock_frames")),
 		control_lock_max_frames,
-		install_pose_frames,
+		float(target.get("bowling_trap_install_pose_frames")),
 		install_pose_max_frames,
 		CommandoFirearmBowlingTrapGeometry.has_installing_trap(traps),
 		CommandoFirearmBowlingTrapGeometry.get_install_progress(traps)
