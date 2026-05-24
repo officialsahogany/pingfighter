@@ -952,7 +952,11 @@ func get_fire_support_aircraft_collision_rect(call_id: int = 0) -> Rect2:
 			continue
 		if call_id != 0 and int(call.get("id", 0)) != call_id:
 			continue
-		return _get_support_aircraft_collision_rect(call)
+		return CommandoFirearmSupportAircraftGeometry.get_collision_rect(
+			call,
+			Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
+			SUPPORT_AIRCRAFT_COLLISION_SIZE
+		)
 	return Rect2()
 
 
@@ -966,7 +970,14 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 	for value in support_calls:
 		@warning_ignore("shadowed_variable_base_class")
 		var call: Dictionary = _get_dict(value)
-		if _support_aircraft_ball_path_hits(call, previous_ball_pos, ball_pos, ball_radius):
+		if CommandoFirearmSupportAircraftGeometry.ball_path_hits(
+			call,
+			previous_ball_pos,
+			ball_pos,
+			ball_radius,
+			Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
+			SUPPORT_AIRCRAFT_COLLISION_SIZE
+		):
 			# Python FireSupportAircraft deliberately ignores ball hits; keep the
 			# collision route visible without starting a crash lifecycle.
 			return false
@@ -3859,27 +3870,6 @@ func _stop_all_support_aircraft_audio(deps: Dictionary) -> void:
 		var call: Dictionary = _get_dict(support_calls[index])
 		_stop_support_aircraft_audio(call, deps)
 		support_calls[index] = call
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _get_support_aircraft_collision_rect(call: Dictionary) -> Rect2:
-	return CommandoFirearmSupportAircraftGeometry.get_collision_rect(
-		call,
-		Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
-		SUPPORT_AIRCRAFT_COLLISION_SIZE
-	)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _support_aircraft_ball_path_hits(call: Dictionary, from_pos: Vector2, to_pos: Vector2, ball_radius: float) -> bool:
-	return CommandoFirearmSupportAircraftGeometry.ball_path_hits(
-		call,
-		from_pos,
-		to_pos,
-		ball_radius,
-		Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
-		SUPPORT_AIRCRAFT_COLLISION_SIZE
-	)
 
 
 func _play_fire_audio(weapon_id: String, deps: Dictionary) -> void:
