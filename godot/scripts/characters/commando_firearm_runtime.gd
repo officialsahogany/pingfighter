@@ -2280,11 +2280,11 @@ func _build_support_round_projectile(
 
 
 func _spawn_muzzle_flash(origin: Vector2, direction: Vector2, profile: Dictionary, weapon_id: String) -> void:
-	_append_limited(muzzle_flashes, _build_muzzle_flash(origin, direction, profile, weapon_id), FLASH_LIMIT)
-
-
-func _build_muzzle_flash(origin: Vector2, direction: Vector2, profile: Dictionary, weapon_id: String) -> Dictionary:
-	return CommandoFirearmMuzzleFlashResolver.build_flash(origin, direction, profile, weapon_id)
+	_append_limited(
+		muzzle_flashes,
+		CommandoFirearmMuzzleFlashResolver.build_flash(origin, direction, profile, weapon_id),
+		FLASH_LIMIT
+	)
 
 
 func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
@@ -2838,14 +2838,14 @@ func _get_projectile_kind(projectile: Dictionary, fallback_kind: String = "") ->
 
 func _spawn_impact_flash(projectile: Dictionary) -> void:
 	var weapon_id: String = _get_projectile_weapon_id(projectile)
-	_append_limited(impact_flashes, _build_impact_flash(projectile, _get_weapon_profile(weapon_id)), FLASH_LIMIT)
-
-
-func _build_impact_flash(projectile: Dictionary, profile: Dictionary) -> Dictionary:
-	return CommandoFirearmImpactFlashResolver.build_flash(
-		projectile,
-		profile,
-		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES)
+	_append_limited(
+		impact_flashes,
+		CommandoFirearmImpactFlashResolver.build_flash(
+			projectile,
+			_get_weapon_profile(weapon_id),
+			float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES)
+		),
+		FLASH_LIMIT
 	)
 
 

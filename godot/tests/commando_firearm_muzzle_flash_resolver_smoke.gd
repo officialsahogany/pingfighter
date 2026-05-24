@@ -8,7 +8,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_direct_muzzle_flash_resolver()
-	_verify_runtime_delegates_muzzle_flash_resolver()
+	_verify_runtime_uses_muzzle_flash_resolver()
 
 	if _failures.is_empty():
 		print("commando_firearm_muzzle_flash_resolver_smoke: ok")
@@ -53,7 +53,7 @@ func _verify_direct_muzzle_flash_resolver() -> void:
 	_expect(_get_color(fallback.get("color", Color.WHITE)) == Color(1.0, 0.7, 0.2), "muzzle flash should use fallback color")
 
 
-func _verify_runtime_delegates_muzzle_flash_resolver() -> void:
+func _verify_runtime_uses_muzzle_flash_resolver() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	var profile := {
 		"kind": "rocket",
@@ -61,10 +61,8 @@ func _verify_runtime_delegates_muzzle_flash_resolver() -> void:
 		"muzzle_flash_frames": 5.0,
 		"secondary": Color(0.25, 0.5, 0.75),
 	}
-	var direct: Dictionary = CommandoFirearmMuzzleFlashResolver.build_flash(Vector2(12.0, 34.0), Vector2.UP, profile, "bazooka")
-	var wrapped: Dictionary = runtime._build_muzzle_flash(Vector2(12.0, 34.0), Vector2.UP, profile, "bazooka")
-	_expect(_get_vector2(wrapped.get("pos", Vector2.ZERO)) == _get_vector2(direct.get("pos", Vector2.ZERO)), "runtime muzzle-flash wrapper should delegate position")
-	_expect(is_equal_approx(float(wrapped.get("radius", 0.0)), float(direct.get("radius", 0.0))), "runtime muzzle-flash wrapper should delegate radius")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(not runtime_source.contains("func _build_muzzle_flash("), "runtime should not keep muzzle-flash build bridge")
 
 	runtime._spawn_muzzle_flash(Vector2(12.0, 34.0), Vector2.UP, profile, "bazooka")
 	_expect(runtime.muzzle_flashes.size() == 1, "runtime spawn should append one muzzle flash")

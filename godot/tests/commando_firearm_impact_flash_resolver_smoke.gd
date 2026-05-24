@@ -10,7 +10,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_direct_impact_flash_resolver()
-	_verify_runtime_delegates_impact_flash_resolver()
+	_verify_runtime_uses_impact_flash_resolver()
 
 	if _failures.is_empty():
 		print("commando_firearm_impact_flash_resolver_smoke: ok")
@@ -75,7 +75,7 @@ func _verify_direct_impact_flash_resolver() -> void:
 	_expect(int(fire_support.get("texture_layer_count", 0)) == GrenadeExplosionDrawer.FIRE_SUPPORT_TEXTURE_LAYER_COUNT, "fire-support impact flash should expose the airstrike texture budget")
 
 
-func _verify_runtime_delegates_impact_flash_resolver() -> void:
+func _verify_runtime_uses_impact_flash_resolver() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	var support_projectile := {
 		"weapon_id": "fire_support",
@@ -84,16 +84,8 @@ func _verify_runtime_delegates_impact_flash_resolver() -> void:
 		"color": Color(1.0, 0.34, 0.16),
 		"secondary": Color(1.0, 0.82, 0.25),
 	}
-	var profile := {"explosion_radius": float(ActiveItemThrowController.GRENADE_EXPLOSION_RADIUS)}
-	var direct: Dictionary = CommandoFirearmImpactFlashResolver.build_flash(
-		support_projectile,
-		profile,
-		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES)
-	)
-	var wrapped: Dictionary = runtime._build_impact_flash(support_projectile, profile)
-	_expect(str(wrapped.get("kind", "")) == str(direct.get("kind", "")), "runtime impact-flash wrapper should delegate kind")
-	_expect(is_equal_approx(float(wrapped.get("radius", 0.0)), float(direct.get("radius", 0.0))), "runtime impact-flash wrapper should delegate radius")
-	_expect(is_equal_approx(float(wrapped.get("timer_frames", 0.0)), float(direct.get("timer_frames", 0.0))), "runtime impact-flash wrapper should delegate timer")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(not runtime_source.contains("func _build_impact_flash("), "runtime should not keep impact-flash build bridge")
 
 	runtime._spawn_impact_flash(support_projectile)
 	_expect(runtime.impact_flashes.size() == 1, "runtime spawn should append one impact flash")
