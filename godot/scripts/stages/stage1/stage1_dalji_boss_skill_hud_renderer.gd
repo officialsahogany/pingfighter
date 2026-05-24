@@ -257,6 +257,8 @@ func _draw_skill_tooltip(
 		cooldown_text = "Recarga %.0fs" % cooldown_seconds
 	elif cooldown_language == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		cooldown_text = "Recarga %.0fs" % cooldown_seconds
+	elif cooldown_language == LanguageSettings.LANGUAGE_RUSSIAN:
+		cooldown_text = "Перезарядка %.0fс" % cooldown_seconds
 	elif cooldown_language == LanguageSettings.LANGUAGE_CHINESE:
 		cooldown_text = "冷却%.0f秒" % cooldown_seconds
 	elif cooldown_language == LanguageSettings.LANGUAGE_JAPANESE:
@@ -427,6 +429,8 @@ func _get_tooltip_status_text(skill: Dictionary) -> String:
 		return "Carga %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Carga %d%%" % progress_percent
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Заряд %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "充能 %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

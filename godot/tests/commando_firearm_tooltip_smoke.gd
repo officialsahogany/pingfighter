@@ -199,6 +199,20 @@ func _verify_portuguese_brazil_base_firearm_tooltip_text() -> void:
 	_expect(str(base_tooltip.get("ready_text", "")) == "Pronta para disparar", "base firearm readiness should localize to Brazilian Portuguese")
 	_expect(str(base_tooltip.get("reload_text", "")).contains("150"), "base firearm reload text should localize to Brazilian Portuguese")
 	_expect(str(base_tooltip.get("control_text", "")).contains("Clique esq."), "base firearm controls should localize to Brazilian Portuguese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_RUSSIAN)
+	base_tooltip = tooltip.build_hover_state(
+		base_panel,
+		Vector2(760.0, 750.0),
+		1.0,
+		{
+			"mouse_pos": _get_rect(base_panel.get("rect", Rect2())).get_center(),
+			"skill_config_snapshot": skill_config.get_snapshot(),
+		}
+	)
+	_expect(str(base_tooltip.get("ownership_text", "")) == "Базовое оружие", "base firearm ownership should localize to Russian")
+	_expect(str(base_tooltip.get("ready_text", "")) == "Готово к стрельбе", "base firearm readiness should localize to Russian")
+	_expect(str(base_tooltip.get("reload_text", "")).contains("150"), "base firearm reload text should localize to Russian")
+	_expect(str(base_tooltip.get("control_text", "")).contains("Левый клик"), "base firearm controls should localize to Russian")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

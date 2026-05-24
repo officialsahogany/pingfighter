@@ -219,6 +219,8 @@ static func _format_cooldown_label(value: float) -> String:
 		return "Recarga %s" % seconds_text
 	if language == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Recarga %s" % seconds_text
+	if language == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Перезарядка %s" % seconds_text
 	if language == LanguageSettings.LANGUAGE_CHINESE:
 		return "冷却%s" % seconds_text
 	if language == LanguageSettings.LANGUAGE_JAPANESE:
@@ -237,6 +239,8 @@ static func _format_seconds(value: float) -> String:
 			return "%ds" % int(round(value))
 		if language == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 			return "%ds" % int(round(value))
+		if language == LanguageSettings.LANGUAGE_RUSSIAN:
+			return "%dс" % int(round(value))
 		if language == LanguageSettings.LANGUAGE_CHINESE:
 			return "%d秒" % int(round(value))
 		if language == LanguageSettings.LANGUAGE_JAPANESE:
@@ -248,6 +252,8 @@ static func _format_seconds(value: float) -> String:
 		return "%.1fs" % value
 	if language == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "%.1fs" % value
+	if language == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "%.1fс" % value
 	if language == LanguageSettings.LANGUAGE_CHINESE:
 		return "%.1f秒" % value
 	if language == LanguageSettings.LANGUAGE_JAPANESE:
@@ -287,6 +293,8 @@ static func _get_tooltip_status_text(skill: Dictionary, style: Dictionary) -> St
 		return "Carga %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Carga %d%%" % progress_percent
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Заряд %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "充能 %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

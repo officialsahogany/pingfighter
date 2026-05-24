@@ -152,6 +152,8 @@ static func build_perk_info_summary(
 				title = "%s +%d" % [title, extra_count]
 			elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 				title = "%s +%d" % [title, extra_count]
+			elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+				title = "%s +%d" % [title, extra_count]
 			elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 				title = "%s 另%d个" % [title, extra_count]
 			elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -173,6 +175,8 @@ static func build_perk_info_summary(
 			detail = "La siguiente partida abrirá elecciones de perks por la cantidad obtenida."
 		elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 			detail = "A próxima partida abrirá escolhas de perks pela quantidade obtida."
+		elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+			detail = "В следующем забеге откроются выборы перков по полученному количеству."
 		elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 			detail = "下次进行时会按获得数量打开升级选择窗口。"
 		elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

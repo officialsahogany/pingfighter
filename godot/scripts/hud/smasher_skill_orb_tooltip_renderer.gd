@@ -643,6 +643,8 @@ func _append_ignition_aura_runtime_bonus(description: String, hover_context: Dic
 		return "%s\nIgnición: perks invertidos Lv.+%d por 25s / oro +%d" % [description, active_bonus, gold_bonus]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "%s\nIgnição: perks investidos Lv.+%d por 25s / ouro +%d" % [description, active_bonus, gold_bonus]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "%s\nВоспламенение: вложенные перки Lv.+%d на 25с / золото +%d" % [description, active_bonus, gold_bonus]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "%s\n点火：25秒内已投资升级 Lv.+%d / 金币 +%d" % [description, active_bonus, gold_bonus]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -667,6 +669,13 @@ func _format_blade_amp_runtime_line(size_pct: int, projectile_speed_pct: int, hi
 		]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Amplificador de lâmina: largura/alcance +%d%%, velocidade da lâmina +%d%%, velocidade de ataque +%d%%, custo -%d" % [
+			size_pct,
+			projectile_speed_pct,
+			hit_speed_pct,
+			cost_cut,
+		]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Усилитель лезвия: ширина/дальность +%d%%, скорость лезвия +%d%%, скорость атаки +%d%%, стоимость -%d" % [
 			size_pct,
 			projectile_speed_pct,
 			hit_speed_pct,
@@ -701,6 +710,8 @@ func _format_blade_amp_lv3_line(homing_pct: int, followup_pct: int) -> String:
 		return "Lv3+: guiado %d%%, hoja extra %d%%" % [homing_pct, followup_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Lv3+: guiagem %d%%, lâmina extra %d%%" % [homing_pct, followup_pct]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Lv3+: наведение %d%%, доп. лезвие %d%%" % [homing_pct, followup_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "Lv3+：追踪 %d%%，追加刀波 %d%%" % [homing_pct, followup_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -715,6 +726,8 @@ func _format_kick_enhance_runtime_line(precision_pct: int, speed_pct: int) -> St
 		return "Patada mejorada: precisión +%d%%, velocidad de bola +%d%%" % [precision_pct, speed_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Chute melhorado: precisão +%d%%, velocidade da bola +%d%%" % [precision_pct, speed_pct]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Улучшенный удар: точность +%d%%, скорость мяча +%d%%" % [precision_pct, speed_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "踢击强化：精度 +%d%%，球速 +%d%%" % [precision_pct, speed_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -729,6 +742,8 @@ func _format_kick_knockback_runtime_line(knockback_chance_pct: int) -> String:
 		return "Lv3+: bola de retroceso de horno %d%%, retroceso de guardia 150%%" % knockback_chance_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Lv3+: bola de empurrão da fornalha %d%%, empurrão de guarda 150%%" % knockback_chance_pct
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Lv3+: мяч отталкивания печи %d%%, отталкивание блока 150%%" % knockback_chance_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "Lv3+：熔炉击退球 %d%%，防御击退 150%%" % knockback_chance_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -743,6 +758,8 @@ func _format_four_poisons_dive_line(prep_pct: int, sleep_pct: int) -> String:
 		return "Cuatro venenos: preparación -%d%%, sueño +%d%%" % [prep_pct, sleep_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Quatro venenos: preparação -%d%%, sono +%d%%" % [prep_pct, sleep_pct]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Четыре яда: подготовка -%d%%, сон +%d%%" % [prep_pct, sleep_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "四毒：准备 -%d%%，睡眠 +%d%%" % [prep_pct, sleep_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -757,6 +774,8 @@ func _format_four_poisons_dual_line(duration_pct: int, clone_hp: int) -> String:
 		return "Cuatro venenos: duración +%d%%, PV del clon %d" % [duration_pct, clone_hp]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Quatro venenos: duração +%d%%, PV do clone %d" % [duration_pct, clone_hp]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Четыре яда: длительность +%d%%, HP клона %d" % [duration_pct, clone_hp]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "四毒：持续 +%d%%，分身HP %d" % [duration_pct, clone_hp]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -771,6 +790,8 @@ func _format_four_poisons_dual_lv5_line() -> String:
 		return "Cuatro venenos Lv5: los clones copian habilidades durante la activa"
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Quatro venenos Lv5: clones copiam habilidades durante a ativa"
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Четыре яда Lv5: клоны копируют навыки во время актива"
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "四毒Lv5：主动期间分身复制技能"
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -785,6 +806,8 @@ func _format_four_poisons_nerve_line(confusion_pct: int) -> String:
 		return "Cuatro venenos: confusión +%d%%" % confusion_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Quatro venenos: confusão +%d%%" % confusion_pct
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Четыре яда: замешательство +%d%%" % confusion_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "四毒：混乱 +%d%%" % confusion_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -799,6 +822,8 @@ func _format_cooldown_reduction_runtime_line(cooldown_pct: int) -> String:
 		return "recarga -%d%%" % cooldown_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "recarga -%d%%" % cooldown_pct
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "перезарядка -%d%%" % cooldown_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "冷却 -%d%%" % cooldown_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

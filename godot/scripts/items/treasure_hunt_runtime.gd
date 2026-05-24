@@ -139,6 +139,8 @@ func _format_result_text(result_label: String, display_name: String) -> String:
 		return "%s encontrado: %s" % [result_label, display_name]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "%s encontrado: %s" % [result_label, display_name]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "%s найдено: %s" % [result_label, display_name]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "发现%s：%s" % [result_label, display_name]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -153,6 +155,8 @@ func _format_feedback_text(display_name: String) -> String:
 		return "Búsqueda del tesoro: %s" % display_name
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Caça ao Tesouro: %s" % display_name
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Охота за сокровищами: %s" % display_name
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "寻宝：%s" % display_name
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

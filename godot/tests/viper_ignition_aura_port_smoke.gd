@@ -370,6 +370,12 @@ func _test_tooltip_and_timer_stack_contract() -> void:
 		{"runtime_perk_state": perk_state}
 	)
 	_expect(portuguese_description.find("Igni") >= 0 and portuguese_description.find("ouro +50") >= 0, "Ignition tooltip bonus line should localize to Brazilian Portuguese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_RUSSIAN)
+	var russian_description: String = tooltip._build_description_with_runtime_bonus(
+		{"name": "ignition_aura", "description": "base"},
+		{"runtime_perk_state": perk_state}
+	)
+	_expect(russian_description.find("Воспламенение") >= 0 and russian_description.find("золото +50") >= 0, "Ignition tooltip bonus line should localize to Russian")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 	var stack: Object = HorizontalTimerGaugeStack.new()

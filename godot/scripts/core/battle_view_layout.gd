@@ -337,6 +337,8 @@ func get_render_fps_cap_label(cap: int, window: Window = null) -> String:
 			return "Monitor %d Hz" % _get_monitor_refresh_rate(window)
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Monitor %d Hz" % _get_monitor_refresh_rate(window)
+		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+			return "Монитор %d Hz" % _get_monitor_refresh_rate(window)
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 			return "显示器 %d Hz" % _get_monitor_refresh_rate(window)
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -378,6 +380,8 @@ func get_display_pacing_recommendation(
 			return "Monitor de %d Hz detectado: los FPS de render seguirán la frecuencia actual.\nSi cambias de monitor, la próxima aplicación seguirá la nueva frecuencia." % monitor_rate
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Monitor de %d Hz detectado: os FPS de renderização seguirão a frequência atual.\nSe trocar de monitor, a próxima aplicação seguirá a nova frequência." % monitor_rate
+		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+			return "Обнаружен монитор %d Hz: FPS рендера будет следовать текущей частоте.\nЕсли сменить монитор, следующее применение возьмет новую частоту." % monitor_rate
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 			return "检测到%dHz显示器：渲染FPS将跟随当前刷新率。\n更换显示器后，下次应用会跟随新的刷新率。" % monitor_rate
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -390,6 +394,8 @@ func get_display_pacing_recommendation(
 			return "Monitor de %d Hz detectado: los FPS de render siguen la frecuencia actual.\nPantalla completa exclusiva y VSync Auto son los ajustes más limpios." % monitor_rate
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Monitor de %d Hz detectado: os FPS de renderização seguem a frequência atual.\nTela cheia exclusiva e VSync Auto são as configurações mais limpas." % monitor_rate
+		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+			return "Обнаружен монитор %d Hz: FPS рендера следует текущей частоте.\nЭксклюзивный полный экран и VSync Auto дают самый чистый режим." % monitor_rate
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 			return "检测到%dHz显示器：渲染FPS将跟随当前刷新率。\n推荐使用独占全屏和VSync自动。" % monitor_rate
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -401,6 +407,8 @@ func get_display_pacing_recommendation(
 		return "Monitor de %d Hz detectado: ajusta los FPS de render al Hz del monitor para un ritmo automático.\nUsa Recomendado para guardar ajustes basados en la frecuencia actual." % monitor_rate
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Monitor de %d Hz detectado: ajuste os FPS de renderização para o Hz do monitor para ritmo automático.\nUse Recomendado para salvar ajustes baseados na frequência atual." % monitor_rate
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Обнаружен монитор %d Hz: поставьте FPS рендера на Hz монитора для автоматического темпа.\nРекомендованное сохранит настройки по текущей частоте." % monitor_rate
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "检测到%dHz显示器：将渲染FPS设为显示器Hz可自动匹配。\n使用推荐会保存基于当前刷新率的设置。" % monitor_rate
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

@@ -553,6 +553,8 @@ func _get_tooltip_status_text(skill: Dictionary) -> String:
 		return "Carga %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Carga %d%%" % progress_percent
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
+		return "Заряд %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "充能 %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

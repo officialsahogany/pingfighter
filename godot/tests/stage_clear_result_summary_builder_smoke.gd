@@ -16,6 +16,7 @@ func _init() -> void:
 	_verify_japanese_perk_info_summary()
 	_verify_spanish_perk_info_summary()
 	_verify_portuguese_brazil_perk_info_summary()
+	_verify_russian_perk_info_summary()
 	_verify_scene_delegates_summary_builder_directly()
 
 	if _failures.is_empty():
@@ -175,6 +176,23 @@ func _verify_portuguese_brazil_perk_info_summary() -> void:
 	_expect(str(perk_summary.get("title", "")) == "Dash +1", "perk info extra count should localize to Brazilian Portuguese")
 	var starpoint_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary([], 2, "", "")
 	_expect(str(starpoint_summary.get("detail", "")) == "A próxima partida abrirá escolhas de perks pela quantidade obtida.", "starpoint detail should localize to Brazilian Portuguese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_russian_perk_info_summary() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_RUSSIAN)
+	var perk_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary(
+		[
+			{"type": "perk", "perk_id": "dash"},
+			{"type": "skill", "skill_id": "guard"},
+		],
+		3,
+		"Dash",
+		"Улучшает рывок."
+	)
+	_expect(str(perk_summary.get("title", "")) == "Dash +1", "perk info extra count should localize to Russian")
+	var starpoint_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary([], 2, "", "")
+	_expect(str(starpoint_summary.get("detail", "")) == "В следующем забеге откроются выборы перков по полученному количеству.", "starpoint detail should localize to Russian")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

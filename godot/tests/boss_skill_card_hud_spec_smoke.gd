@@ -23,6 +23,7 @@ func _init() -> void:
 	_verify_japanese_status_labels()
 	_verify_spanish_status_labels()
 	_verify_portuguese_brazil_status_labels()
+	_verify_russian_status_labels()
 
 	if _failures.is_empty():
 		print("boss_skill_card_hud_spec_smoke: ok")
@@ -209,6 +210,13 @@ func _verify_portuguese_brazil_status_labels() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
 	_expect(BossSkillCardHudSpec._format_cooldown_label(3.0) == "Recarga 3s", "boss skillcard cooldown labels should localize to Brazilian Portuguese")
 	_expect(BossSkillCardHudSpec._format_seconds(3.5) == "3.5s", "boss skillcard seconds should localize to Brazilian Portuguese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_russian_status_labels() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_RUSSIAN)
+	_expect(BossSkillCardHudSpec._format_cooldown_label(3.0) == "Перезарядка 3с", "boss skillcard cooldown labels should localize to Russian")
+	_expect(BossSkillCardHudSpec._format_seconds(3.5) == "3.5с", "boss skillcard seconds should localize to Russian")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

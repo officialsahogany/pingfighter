@@ -49,6 +49,7 @@ func _init() -> void:
 	_verify_japanese_feedback_text()
 	_verify_spanish_feedback_text()
 	_verify_portuguese_brazil_feedback_text()
+	_verify_russian_feedback_text()
 
 	if _failures.is_empty():
 		print("treasure_hunt_runtime_smoke: ok")
@@ -127,6 +128,14 @@ func _verify_portuguese_brazil_feedback_text() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL)
 	_expect(runtime._format_result_text("Mítico", "Botas de Velocidade") == "Mítico encontrado: Botas de Velocidade", "treasure result text should localize to Brazilian Portuguese")
 	_expect(runtime._format_feedback_text("Botas de Velocidade") == "Caça ao Tesouro: Botas de Velocidade", "treasure feedback text should localize to Brazilian Portuguese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_russian_feedback_text() -> void:
+	var runtime := TreasureHuntRuntime.new()
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_RUSSIAN)
+	_expect(runtime._format_result_text("Мифический", "Скоростные ботинки") == "Мифический найдено: Скоростные ботинки", "treasure result text should localize to Russian")
+	_expect(runtime._format_feedback_text("Скоростные ботинки") == "Охота за сокровищами: Скоростные ботинки", "treasure feedback text should localize to Russian")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

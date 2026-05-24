@@ -12,6 +12,7 @@ const LANGUAGE_CHINESE := "zh"
 const LANGUAGE_JAPANESE := "ja"
 const LANGUAGE_SPANISH := "es"
 const LANGUAGE_PORTUGUESE_BRAZIL := "pt-BR"
+const LANGUAGE_RUSSIAN := "ru"
 const DEFAULT_LANGUAGE := LANGUAGE_KOREAN
 const SUPPORTED_LANGUAGES: Array[String] = [
 	LANGUAGE_KOREAN,
@@ -20,6 +21,7 @@ const SUPPORTED_LANGUAGES: Array[String] = [
 	LANGUAGE_JAPANESE,
 	LANGUAGE_SPANISH,
 	LANGUAGE_PORTUGUESE_BRAZIL,
+	LANGUAGE_RUSSIAN,
 ]
 
 const LANGUAGE_NATIVE_NAMES := {
@@ -29,6 +31,7 @@ const LANGUAGE_NATIVE_NAMES := {
 	LANGUAGE_JAPANESE: "日本語",
 	LANGUAGE_SPANISH: "Español",
 	LANGUAGE_PORTUGUESE_BRAZIL: "Português (Brasil)",
+	LANGUAGE_RUSSIAN: "Русский",
 }
 
 const ITEM_DISPLAY_EN := {
@@ -416,6 +419,83 @@ const ITEM_DISPLAY_PT_BR := {
 	"baal_boots": "Botas de Baal",
 }
 
+const ITEM_DISPLAY_RU := {
+	"gauge_charge": "Энергетик",
+	"life_elixir": "Эликсир жизни",
+	"ammo_box": "Ящик патронов",
+	"doping_potion": "Стимулятор",
+	"vitamin_pill": "Витаминный напиток",
+	"strange_vial": "Странный флакон",
+	"aipill": "AI-пилюля",
+	"pandora_box": "Ящик Пандоры",
+	"grenade": "Граната",
+	"flare": "Сигнальная ракета",
+	"tear_gas": "Слезоточивый газ",
+	"dynamite": "Динамит",
+	"molotov": "Коктейль Молотова",
+	"stopwatch": "Секундомер",
+	"magnet_field": "Магнитное поле",
+	"long_boost": "Зелье роста",
+	"regeneration_potion": "Зелье регенерации",
+	"holy_barrier": "Священный барьер",
+	"dash_boost": "Усиление рывка",
+	"wall": "Кирпичная стена",
+	"boomerang": "Бумеранг",
+	"banana": "Банан",
+	"soap": "Мыло",
+	"spider_mine": "Паучья мина",
+	"elixir_of_mastery": "Эликсир мастерства",
+	"speedboots": "Скоростные ботинки",
+	"speedgear": "Корректирующий пояс",
+	"gravitybelt": "Пояс нулевой гравитации",
+	"sensor": "Пояс датчика опасности",
+	"spikeboots": "Шипованные ботинки",
+	"dowsing_pendulum": "Лозоходный маятник",
+	"dowsing_goggles": "Лозоходные очки",
+	"yachaman_soul": "Шлем Ячамана",
+	"slot_add": "Рюкзак",
+	"chargebag": "Сумка заряда",
+	"battery": "Батарея",
+	"revival": "Талисман перерождения",
+	"master": "Молот ремонтника",
+	"gold_digger": "Золотодобытчик",
+	"gold_bar": "Золотой слиток",
+	"lucky_coin": "Счастливая монета",
+	"adversity_armor": "Броня невзгод",
+	"shrapnel_armor": "Осколочная броня",
+	"sage_ring": "Кольцо мудреца",
+	"cooltime": "Охлаждающий шар",
+	"timer_belt": "Пояс таймера",
+	"fuel_pouch": "Топливная сумка",
+	"bluetooth_ring": "Bluetooth-кольцо",
+	"star_detector": "Детектор звезд",
+	"foul_whistle": "Свисток фола",
+	"smartphone": "Смартфон",
+	"neural_helmet": "Нейрошлем",
+	"venom_mist_gauntlet": "Перчатка ядовитого тумана",
+	"reinforced_boomerang_gauntlet": "Усиленная перчатка бумеранга",
+	"commando_arm": "Рука Commando",
+	"rainbow_fur_glove": "Перчатка радужного меха",
+	"knee_pads": "Зарядник удара ногой",
+	"dashgear": "Снаряжение рывка",
+	"soul_burst": "Взрыв души",
+	"bulkup": "Костюм роста",
+	"dashholder": "Держатель рывков",
+	"bulletproof_hat": "Пуленепробиваемая шляпа",
+	"spiked_helmet": "Шипованный шлем",
+	"pandora_legacy": "Наследие Пандоры",
+	"megingjord": "Мегингьерд",
+	"ragnarok_hammer": "Молот Рагнарека",
+	"hermes_shoes": "Сандалии Гермеса",
+	"poseidon_trident": "Трезубец Посейдона",
+	"sacred_laurel": "Священный лавр",
+	"transcendent_crown": "Трансцендентная корона",
+	"heavenly_cape": "Небесный плащ",
+	"horn_strawberry_mask": "Маска рогатой клубники",
+	"celestial_armor": "Неподвижная небесная броня",
+	"baal_boots": "Ботинки Баала",
+}
+
 const MYTHIC_DESCRIPTION_EN := {
 	"speedboots": "While equipped, increases player movement speed by the rolled option value.",
 	"speedgear": "While equipped, left/right turning deceleration is increased by 2.5x.",
@@ -679,6 +759,59 @@ const MYTHIC_DESCRIPTION_PT_BR := {
 	"celestial_armor": "Pode ignorar um atordoamento recebido gastando energia quando ativa.",
 	"baal_boots": "Quando o clima começa, absorve o clima atual com o poder de Baal e restaura energia. O clima absorvido concede um efeito extra pela rodada.",
 	"elixir_of_mastery": "Ao usar, escolhe aleatoriamente um perk possuído e o eleva para Lv.5. Este item ativo mítico é consumido após o uso.",
+}
+
+const MYTHIC_DESCRIPTION_RU := {
+	"speedboots": "Пока надеты, увеличивают скорость движения игрока на значение выпавшего свойства.",
+	"speedgear": "Пока надет, увеличивает замедление при развороте влево или вправо в 2.5 раза.",
+	"gravitybelt": "Ввод движения мгновенно выводит на максимальную скорость, а отпускание ввода сразу останавливает вас.",
+	"sensor": "Автоматически делает рывок при опасности. Авто-рывок не тратит энергию и жетоны рывка.",
+	"spikeboots": "Сокращают восстановление рывка и время перезарядки жетонов рывка на значение выпавшего свойства.",
+	"dowsing_pendulum": "Притягивает полевые предметы в пределах выпавшего радиуса к ракетке игрока.",
+	"dowsing_goggles": "Может добавить один дополнительный обычный вариант перка на экранах выбора перков.",
+	"yachaman_soul": "Перед пропущенным очком может превратить вас в бомбового воина и заблокировать счет. Во время превращения скорость равна 3, а размер ракетки 70%.",
+	"slot_add": "Пока надет, увеличивает количество ячеек активных предметов на значение выпавшего свойства.",
+	"chargebag": "Пока надета, дает дополнительную энергию каждый раз, когда мяч касается стены.",
+	"battery": "Пока надета, сохраняет часть энергии при переходе на следующий этап.",
+	"revival": "Срабатывает один раз перед поражением, предотвращает конец игры и перезапускает этап с начала.",
+	"master": "Пока надет, продлевает активный предмет Кирпичная стена, сокращает перезарядки активных предметов и повышает вес появления Кирпичной стены в поле.",
+	"gold_digger": "Пока надет, увеличивает получение золота и части энергии на значение выпавшего свойства.",
+	"gold_bar": "Сокровище только для продажи. Пока оно при вас, скорость снижена на 30%, зато его можно продать за 2000 золота.",
+	"lucky_coin": "Пока надета, появление полевых предметов может создать дополнительный бонусный предмет.",
+	"adversity_armor": "После пропущенного очка может создать неуязвимую стену в следующем раунде и увеличить скорость мяча на следующей подаче.",
+	"shrapnel_armor": "Когда ракетка игрока отбивает мяч, может потратить энергию и выпустить вверх осколки, которые ненадолго оглушают и отталкивают босса.",
+	"sage_ring": "Пока надето, повышает эффективный уровень каждого вложенного перка на 1. Скорость движения и размер тела снижаются на значение выпавшего свойства.",
+	"cooltime": "Пока надета, сокращает перезарядку повторного использования активных предметов на значение выпавшего свойства.",
+	"timer_belt": "Пока надет, сокращает перезарядки всех навыков персонажа на значение выпавшего свойства.",
+	"fuel_pouch": "Пока надета, увеличивает максимум энергии игрока на значение выпавшего свойства.",
+	"bluetooth_ring": "Пока надето, увеличивает энергию, получаемую при ударе ракеткой по мячу.",
+	"star_detector": "Пока надет, выпадение звездных очков может создать дополнительный бонусный дроп.",
+	"foul_whistle": "При проигрыше раунда может отменить очко и перезапустить раунд.",
+	"smartphone": "Автоматически использует предметы восстановления при низкой энергии и может экстренно запускать Секундомер или Священный барьер.",
+	"neural_helmet": "Снижает стоимость AI-пилюли и повышает шанс ее появления. Ввод направления сразу отменяет AI-пилюлю, пока она активна.",
+	"venom_mist_gauntlet": "Только Viper. Удар Hwarang заряжает мяч ядом; если босс блокирует зараженный мяч, вокруг босса появляется ядовитый туман, замедляющий движение и особую энергию.",
+	"reinforced_boomerang_gauntlet": "Улучшает Бумеранг до металлической версии и усиливает скорость броска, наведение, шанс появления, отталкивание и время оглушения.",
+	"commando_arm": "Поддерживает бросаемые боевые предметы. Граната, Сигнальная ракета и Молотов летят быстрее и взрываются шире; Динамит, Банан, Мыло и Бумеранг готовятся быстрее; слезоточивый газ длится дольше.",
+	"rainbow_fur_glove": "Когда ракетка бьет по мячу, может мгновенно сократить перезарядки экипированных навыков персонажа.",
+	"knee_pads": "Пока надеты, удар по мячу полу-рывком заряжает энергию на основе базового прироста.",
+	"dashgear": "Увеличивает дистанцию рывка и может отменить стоимость следующего жетона рывка.",
+	"soul_burst": "Когда жетонов рывка нет, тратит особую энергию и запускает полный рывок вместо полу-рывка.",
+	"bulkup": "Пока надет, увеличивает размер тела ракетки игрока.",
+	"dashholder": "Пока надет, увеличивает максимум жетонов рывка на 1.",
+	"bulletproof_hat": "Пока надета, сокращает длительность оглушения игрока.",
+	"spiked_helmet": "Пока надет, снижает скорость отталкивания, применяемую к игроку.",
+	"pandora_legacy": "Может сработать при победе в раунде и позволяет выбрать один из трех предметов.",
+	"megingjord": "Дает дополнительные шансы выбора перков, до двух цепных срабатываний на один набор выбора.",
+	"ragnarok_hammer": "При возврате мяча тратит энергию и создает оглушающий мяч, который при возврате отталкивает и оглушает босса.",
+	"hermes_shoes": "Крылатые сандалии божественного вестника. Увеличивают скорость движения игрока на значение выпавшего свойства.",
+	"poseidon_trident": "Во время восстановления рывка создает по бокам огромные водовороты, которые сильно отбрасывают вверх смэш-мячи босса.",
+	"sacred_laurel": "Лавровые листья вращаются вокруг игрока и дают защиту.",
+	"transcendent_crown": "Увеличивает уровень эффекта всех уже вложенных перков на значение выпавшего свойства.",
+	"heavenly_cape": "Добавляет одну ячейку орба навыка и сокращает перезарядки всех навыков игрока.",
+	"horn_strawberry_mask": "Используйте команду A-D-A-D-A-D один раз за прохождение этапа 1, чтобы превратиться в Рогатую клубнику.",
+	"celestial_armor": "Может игнорировать входящее оглушение, тратя энергию при срабатывании.",
+	"baal_boots": "Когда начинается погода, поглощает текущую погоду силой Баала и восстанавливает энергию. Поглощенная погода дает дополнительный эффект на раунд.",
+	"elixir_of_mastery": "При использовании случайно выбирает один имеющийся перк и повышает его до Lv.5. Этот мифический активный предмет расходуется после использования.",
 }
 
 const PERK_NAME_EN := {
@@ -966,6 +1099,63 @@ const PERK_NAME_PT_BR := {
 	"convert_to_gold": "Converter em Ouro",
 }
 
+const PERK_NAME_RU := {
+	"dash_lightweight": "Легкость",
+	"dash_module_control": "Контроль модуля",
+	"dash_jump": "Прыжок",
+	"dash_amplification": "Усиление",
+	"item_luck": "Удача",
+	"item_cooldown_mastery": "Мастерство",
+	"item_gauge_mastery": "Экспертиза",
+	"active_duration_boost": "Кофеин",
+	"passive_polish": "Полировка",
+	"alchemy": "Алхимия",
+	"treasure_map": "Карта сокровищ",
+	"active_slot_expand": "Расширение сумки",
+	"move_speed": "Быстрота",
+	"accessory_slot_expand": "Расширение",
+	"paddle_bulk": "Масса",
+	"boost_charging": "Заряд ускорения",
+	"sacred_laurel": "Лавровый лист",
+	"skill_cooldown_training": "Тренировка",
+	"smasher_burst_up": "Взрыв",
+	"smasher_dash_spirit": "Дух рывка",
+	"smasher_unlock_magnetic_grip": "Открыть Захват Магнум",
+	"smasher_unlock_plasma": "Открыть Плазму",
+	"smasher_unlock_recovery": "Открыть Восстановление",
+	"smasher_unlock_cleanse": "Открыть Очищение",
+	"smasher_unlock_shield_kiting": "Открыть Кайт-щит",
+	"smasher_unlock_ghost_shot": "Открыть Призрачный удар",
+	"smasher_unlock_warp_gate": "Открыть Варп-портал",
+	"smasher_unlock_smasher_wheel": "Открыть Колесо Smasher",
+	"smasher_extension_gear": "Снаряжение продления",
+	"viper_unlock_venom_edge": "Открыть Ядовитое лезвие",
+	"viper_unlock_emp": "Открыть EMP-удар",
+	"viper_unlock_chaos_spear": "Открыть Копье хаоса",
+	"viper_unlock_dual_glitch": "Открыть Двойной глитч",
+	"viper_unlock_ignition_aura": "Открыть Ауру воспламенения",
+	"viper_phantom_kick": "Призрачный удар ногой",
+	"viper_hwarang_kick": "Удар Hwarang",
+	"viper_dark_blade": "Темное лезвие",
+	"viper_jetpack_enhance": "Улучшение джетпака",
+	"viper_kick_enhance": "Улучшение удара ногой",
+	"viper_blade_amp": "Усилитель лезвия",
+	"viper_four_poisons": "Четыре яда",
+	"soldier_unlock_net_gun": "Ловушка-сетемет",
+	"soldier_unlock_fire_support": "Огневая поддержка",
+	"soldier_unlock_bowling_trap": "Боулинг-ловушка",
+	"soldier_unlock_suicide_drone": "Дрон-камикадзе",
+	"soldier_unlock_bazooka": "Базука",
+	"soldier_unlock_ak47": "AK-47",
+	"soldier_unlock_beretta": "Beretta",
+	"instant_full_gauge": "Полная энергия",
+	"instant_dimension_gate": "Пространственный портал",
+	"instant_treasure_hunt": "Охота за сокровищами",
+	"instant_monkey_grace": "Милость обезьяны",
+	"instant_refresh": "Обновление",
+	"convert_to_gold": "Обменять на золото",
+}
+
 const PERK_SUMMARY_EN := {
 	"dash_lightweight": "Dash cooldown reduced.",
 	"dash_module_control": "Dash recovery reduced.",
@@ -1251,6 +1441,63 @@ const PERK_SUMMARY_PT_BR := {
 	"convert_to_gold": "Pula o perk e ganha 500 de ouro em jogo.",
 }
 
+const PERK_SUMMARY_RU := {
+	"dash_lightweight": "Сокращает перезарядку рывка.",
+	"dash_module_control": "Сокращает восстановление рывка.",
+	"dash_jump": "Увеличивает дистанцию рывка.",
+	"dash_amplification": "Увеличивает максимум жетонов рывка.",
+	"item_luck": "Сокращает интервал появления полевых предметов.",
+	"item_cooldown_mastery": "Сокращает перезарядку активных предметов.",
+	"item_gauge_mastery": "Дает энергию навыка при использовании активных предметов.",
+	"active_duration_boost": "Временные эффекты активных предметов длятся дольше.",
+	"passive_polish": "Пассивные эффекты становятся сильнее.",
+	"alchemy": "Использованные предметы могут сохраниться.",
+	"treasure_map": "Повышает шанс мифических наград и долю пассивных дропов.",
+	"active_slot_expand": "Позволяет хранить больше активных предметов.",
+	"move_speed": "Увеличивает скорость движения.",
+	"accessory_slot_expand": "Добавляет ячейки аксессуаров.",
+	"paddle_bulk": "Увеличивает размер ракетки.",
+	"boost_charging": "Следующий рывок может не тратить жетон и быстрее перезаряжаться.",
+	"sacred_laurel": "Защитные лавровые листья блокируют мяч.",
+	"skill_cooldown_training": "Навыки игрока перезаряжаются быстрее.",
+	"smasher_burst_up": "Рывок ненадолго расширяет ракетку.",
+	"smasher_dash_spirit": "Лазерные следы могут блокировать мяч во время рывка.",
+	"smasher_unlock_magnetic_grip": "Открывает Захват Магнум.",
+	"smasher_unlock_plasma": "Открывает Плазму.",
+	"smasher_unlock_recovery": "Открывает Восстановление.",
+	"smasher_unlock_cleanse": "Открывает Очищение.",
+	"smasher_unlock_shield_kiting": "Открывает Кайт-щит.",
+	"smasher_unlock_ghost_shot": "Открывает Призрачный удар.",
+	"smasher_unlock_warp_gate": "Открывает Варп-портал.",
+	"smasher_unlock_smasher_wheel": "Открывает Колесо Smasher.",
+	"smasher_extension_gear": "Длительность утилитарных навыков Smasher увеличивается.",
+	"viper_unlock_venom_edge": "Открывает Ядовитое лезвие.",
+	"viper_unlock_emp": "Открывает EMP-удар.",
+	"viper_unlock_chaos_spear": "Открывает Копье хаоса.",
+	"viper_unlock_dual_glitch": "Открывает Двойной глитч.",
+	"viper_unlock_ignition_aura": "Открывает Ауру воспламенения.",
+	"viper_phantom_kick": "Включает Призрачный удар ногой после Боевого удара.",
+	"viper_hwarang_kick": "Включает удар Hwarang после точного попадания рывком.",
+	"viper_dark_blade": "Включает Темное лезвие после комбо-попаданий Viper.",
+	"viper_jetpack_enhance": "Улучшает воздушное управление Viper.",
+	"viper_kick_enhance": "Улучшает навыки ударов ногой Viper.",
+	"viper_blade_amp": "Усиливает разрезы Воздушного и Темного лезвия.",
+	"viper_four_poisons": "Улучшает EMP, Ядовитое лезвие, Копье хаоса и Двойной глитч.",
+	"soldier_unlock_net_gun": "Открывает ловушку-сетемет.",
+	"soldier_unlock_fire_support": "Открывает огневую поддержку.",
+	"soldier_unlock_bowling_trap": "Открывает боулинг-ловушку.",
+	"soldier_unlock_suicide_drone": "Открывает дрон-камикадзе.",
+	"soldier_unlock_bazooka": "Открывает базуку.",
+	"soldier_unlock_ak47": "Открывает AK-47.",
+	"soldier_unlock_beretta": "Открывает Beretta.",
+	"instant_full_gauge": "Мгновенно заполняет всю энергию и перезарядки.",
+	"instant_dimension_gate": "Ненадолго повышает поток появления предметов.",
+	"instant_treasure_hunt": "Ищет награды сокровищ.",
+	"instant_monkey_grace": "Заполняет пустые активные ячейки припасами.",
+	"instant_refresh": "Еще раз обновляет варианты перков.",
+	"convert_to_gold": "Пропускает перк и дает 500 золота в игре.",
+}
+
 const PERK_LOCALIZATION_ALIASES := {
 	"item_caffeine": "active_duration_boost",
 	"item_polish": "passive_polish",
@@ -1532,6 +1779,54 @@ const CHARACTER_PT_BR := {
 	},
 }
 
+const CHARACTER_RU := {
+	"smasher": {
+		"name": "Smasher",
+		"character_name": "Mika",
+		"class_name": "Smasher",
+		"role": "Центральный страйкер",
+		"tagline": "Цепные смэши через взрыв энергии",
+		"description": "Персонаж фронтального прорыва, который давит темпом через смэши полной мощности.",
+		"special": "Эксклюзивное дерево навыков Smasher",
+	},
+	"commando": {
+		"name": "Commando",
+		"character_name": "Rena",
+		"class_name": "Commando",
+		"role": "Тактический контроль",
+		"tagline": "Тактик со сменой оружия",
+		"description": "Военный тактик, который меняет поле боя вызовами припасов и сменой оружия.",
+		"special": "Боевой опыт и тактическое превосходство",
+	},
+	"baltor": {
+		"name": "Baltor",
+		"character_name": "Kohaku",
+		"class_name": "Baltor",
+		"role": "Страж кузни",
+		"tagline": "Контроль дистанции стража кузни",
+		"description": "Компактный защитник, который держит нижнюю линию, контролирует дистанцию кузнечным молотом и Щитом Тора, усиливая атаку и защиту.",
+		"special": "Модули синергии Щита Тора и турели",
+	},
+	"optimus": {
+		"name": "Optimus",
+		"character_name": "Io",
+		"class_name": "Optimus",
+		"role": "Циклер карт",
+		"tagline": "Механический камбэк",
+		"description": "Переворачивает кризисный темп картоподобными навыками с отдельными перезарядками.",
+		"special": "Эксклюзивное снаряжение линии Smasher",
+	},
+	"viper": {
+		"name": "Viper",
+		"character_name": "Serin",
+		"class_name": "Viper",
+		"role": "Кибер-убийца",
+		"tagline": "Убийца цепных разрезов",
+		"description": "Быстрый комбо-персонаж, проскальзывающий через окна атаки лезвиями и Призрачным ударом ногой.",
+		"special": "Эксклюзивное дерево навыков плазменного клинка",
+	},
+}
+
 const SKILL_DATA_ZH := {
 	"plasma": {"korean": "等离子", "description": "向前发射等离子球。接触的敌人会减速，蓄力越久减速越强。", "how_to_use": "按住W/上后松开", "motion_hint": "向前发射等离子球"},
 	"recovery": {"korean": "恢复", "description": "立即取消冲刺后摇，并短时间获得50%移动速度加成。", "how_to_use": "冲刺后摇中按W/上", "motion_hint": "绿色光芒取消后摇并加速"},
@@ -1662,6 +1957,39 @@ const SKILL_DATA_PT_BR := {
 	"core_flip": {"korean": "Chute Hwarang", "description": "Chuta a bola com espírito Hwarang e contra-ataca em uma diagonal difícil de prever.", "how_to_use": "Após acertar com dash, pressione A e D ao mesmo tempo", "motion_hint": "Quica duas vezes nas paredes e avança até a bola"},
 	"dual_glitch": {"korean": "Glitch Duplo", "description": "Divide seu corpo com tecnologia antiga da Viper. Clones espelham o movimento do jogador e defendem dos dois lados.", "how_to_use": "Digite A, D, A, D ou Esquerda-Direita-Esquerda-Direita", "motion_hint": "Invoca raquetes clone à esquerda e à direita"},
 	"ignition_aura": {"korean": "Aura de Ignição", "description": "Amplifica a energia flamejante interna. Todos os níveis de melhoria sobem por um tempo e o bônus de ouro também aumenta.", "how_to_use": "Ative após cumprir as condições", "motion_hint": "Libera a aura de ignição"},
+}
+
+const SKILL_DATA_RU := {
+	"plasma": {"korean": "Плазма", "description": "Выпускает вперед плазменную сферу. Враги, которые ее касаются, замедляются; чем дольше заряд, тем сильнее замедление.", "how_to_use": "Зажмите W/Вверх и отпустите", "motion_hint": "Выпускает вперед плазменную сферу"},
+	"recovery": {"korean": "Восстановление", "description": "Мгновенно отменяет восстановление после рывка и ненадолго дает +50% скорости движения.", "how_to_use": "Нажмите W/Вверх во время восстановления рывка", "motion_hint": "Зеленый свет отменяет восстановление и ускоряет"},
+	"cleanse": {"korean": "Очищение", "description": "Мгновенно снимает состояния вроде оглушения или замедления и дает временный иммунитет.", "how_to_use": "Нажмите W, пока на вас действует негативное состояние", "motion_hint": "Золотое очищение снимает состояния"},
+	"shield_kiting": {"korean": "Кайт-щит", "description": "Заряжается до 0.36 с и бросает энергетический щит. При попадании скорость мяча растет на 30%, а щит сразу возвращается.", "how_to_use": "Двойной левый клик или двойное нажатие SPACE", "motion_hint": "Бросает и возвращает энергетический щит"},
+	"drive": {"korean": "Драйв", "description": "Бьет по мячу с подкруткой. Если ввести направление до прибытия мяча, точность повышается.", "how_to_use": "Влево/Вправо + левый клик одновременно", "motion_hint": "Меняет траекторию ударом с подкруткой"},
+	"power_smashing": {"korean": "Мощный смэш", "description": "Запускает мяч сильным смэшем. Направление влево/вправо задает сторону вылета.", "how_to_use": "Зажмите Влево/Вправо + левый клик", "motion_hint": "Запускает мяч смэшем"},
+	"magnum_grip": {"korean": "Захват Магнум", "description": "Притягивает мяч к ракетке сильным магнитным полем. Возврат притянутого мяча повышает лимит скорости до 45.", "how_to_use": "Нажмите Влево+Вправо одновременно", "motion_hint": "Притягивает мяч магнетизмом"},
+	"ghost_shot": {"korean": "Призрачный удар", "description": "Мяч виляет, а призрак преследует его. При энергии 420 или выше заменяет Мощный смэш.", "how_to_use": "При энергии 420 или выше зажмите Влево/Вправо + левый клик", "motion_hint": "Виляющий мяч с призрачным преследованием"},
+	"warp_gate": {"korean": "Варп-портал", "description": "На время раскрывает пространственный портал. Позволяет проходить через боковые стены без дополнительной траты энергии.", "how_to_use": "Зажмите S или Вниз минимум на 0.5 с", "motion_hint": "Открывает портал для прохода через боковые стены"},
+	"smasher_wheel": {"korean": "Колесо Smasher", "description": "Ракетка вращается 1.2 с. При касании мяча она отправляет его к боссу на высокой скорости с сильной подкруткой.", "how_to_use": "Введите A-W-D или D-W-A за 0.6 с", "motion_hint": "Вращает ракетку и перекидывает мяч"},
+	"supply_drop": {"korean": "Сброс припасов", "description": "Вызывает по радио самолет снабжения, который сбрасывает случайный предмет или арендованное оружие.", "how_to_use": "Зажмите S/Вниз или правый клик на 1 с", "motion_hint": "Радиовызов самолета снабжения"},
+	"emergency_supply": {"korean": "Перезарядка", "description": "Вызывает по радио поставщика. После короткой задержки пополняет боеприпасы выбранного оружия.", "how_to_use": "Нажмите Вниз дважды на месте", "motion_hint": "После радио поставщик перезаряжает"},
+	"commando_pistol": {"korean": "Beretta", "description": "Использует Beretta с удвоенной скорострельностью пистолета, +20% скорости пули и +30% точности. Ее 8 пуль возвращаются только Перезарядкой.", "how_to_use": "После выбора оружия: левый клик или SPACE", "motion_hint": "Стреляет из Beretta"},
+	"bazooka": {"korean": "Базука", "description": "Пока выбрана, выстрел запускает короткую перезарядку орба навыка. Перезарядка возвращает по одному снаряду.", "how_to_use": "После выбора оружия: левый клик или SPACE", "motion_hint": "Стреляет из базуки"},
+	"ak47": {"korean": "AK-47", "description": "Пока выбран, каждый выстрел запускает короткую перезарядку орба навыка. Когда энергия перезарядки заполнена, восстанавливает патроны и длительность.", "how_to_use": "После выбора оружия: левый клик или SPACE", "motion_hint": "Очередь из AK-47"},
+	"net_gun": {"korean": "Сетемет", "description": "Пока выбран, выстрел запускает короткую перезарядку орба навыка. Перезарядка возвращает по одному выстрелу.", "how_to_use": "После выбора оружия: левый клик или SPACE", "motion_hint": "Выстреливает сетью"},
+	"fire_support": {"korean": "Огневая поддержка", "description": "Пока выбрана, запрос поддержки запускает короткую перезарядку орба навыка. Полная энергия перезарядки возвращает вызовы.", "how_to_use": "После выбора оружия: левый клик или SPACE", "motion_hint": "Запрашивает огневую поддержку"},
+	"bowling_trap": {"korean": "Боулинг-ловушка", "description": "Пока выбрана, установка ловушки запускает короткую перезарядку орба навыка. Перезарядка возвращает по одному заряду.", "how_to_use": "После выбора оружия: левый клик или SPACE", "motion_hint": "Ставит боулинг-ловушку"},
+	"suicide_drone": {"korean": "Дрон-камикадзе", "description": "Пока выбран, запуск дрона включает короткую перезарядку орба навыка. Перезарядка возвращает по одному дрону.", "how_to_use": "После выбора оружия: левый клик или SPACE", "motion_hint": "Запускает дрон-камикадзе"},
+	"shadow_step": {"korean": "Теневой шаг", "description": "Телепортирует вас в позицию до рывка. Открывает комбо-маршруты через быстрый удар назад.", "how_to_use": "Нажмите S во время или сразу после рывка", "motion_hint": "Оставляет тень и возвращает к исходной точке"},
+	"blade_rush": {"korean": "Воздушное лезвие", "description": "В воздухе выпускает вперед волну лезвия. Имеет короткую подготовку; задетые мячи получают лимит скорости 40 независимо от сложности.", "how_to_use": "Нажмите W или Вверх в воздухе", "motion_hint": "Выпускает большой фиолетовый разрез"},
+	"nerve_strike": {"korean": "Ядовитое лезвие", "description": "Рывком заходит за спину сопернику и режет сзади, вызывая замешательство.", "how_to_use": "После навыка лезвия нажмите W или Вверх до приземления", "motion_hint": "Летит за босса и режет, чтобы сбить с толку"},
+	"dive_strike": {"korean": "EMP-удар", "description": "Высвобождает EMP-импульс с сильным ударом. Мощность импульса растет с высотой в воздухе.", "how_to_use": "Зажмите S или Вниз на 0.3 с в воздухе", "motion_hint": "Падает вниз с EMP-импульсом"},
+	"marshal_kick": {"korean": "Боевой удар", "description": "Отскакивает от стены и мчится к мячу. Служит мостом для комбо.", "how_to_use": "После Теневого шага, навыков лезвия или удара Hwarang", "motion_hint": "Отскакивает от стены и мчится к мячу"},
+	"phantom_kick": {"korean": "Призрачный удар ногой", "description": "Впрыскивает темную энергию в отскок Боевого удара.", "how_to_use": "Нажмите S или Вниз после попадания Боевым ударом", "motion_hint": "Темный удар антиматерией"},
+	"dark_blade": {"korean": "Темное лезвие", "description": "Выпускает усиленный воздушный разрез в течение 3 с после удара по мячу. При попадании открывает окно Боевого удара.", "how_to_use": "После попаданий Теневым шагом, Воздушным лезвием или ударами Боевой/Призрачный/Hwarang", "motion_hint": "Выпускает усиленный темно-красный разрез"},
+	"chaos_spear": {"korean": "Копье хаоса", "description": "Бросает копье хаоса. В центре карты образуется черная дыра, поглощающая мяч и обычные снаряды.", "how_to_use": "На земле введите A, W, D", "motion_hint": "Центральная черная дыра поглощает мяч и снаряды"},
+	"core_flip": {"korean": "Удар Hwarang", "description": "Бьет по мячу духом Hwarang и контратакует по сложной для чтения диагонали.", "how_to_use": "После попадания рывком нажмите A и D одновременно", "motion_hint": "Дважды отскакивает от стен и мчится к мячу"},
+	"dual_glitch": {"korean": "Двойной глитч", "description": "Разделяет тело древней технологией Viper. Клоны зеркалят движение игрока и защищают с обеих сторон.", "how_to_use": "Введите A, D, A, D или Влево-Вправо-Влево-Вправо", "motion_hint": "Призывает клонов-ракетки слева и справа"},
+	"ignition_aura": {"korean": "Аура воспламенения", "description": "Усиливает внутреннюю огненную энергию. Все уровни улучшений на время повышаются, а бонус золота тоже растет.", "how_to_use": "Активируется после выполнения условий", "motion_hint": "Высвобождает ауру воспламенения"},
 }
 
 const EXACT_TEXT_EN := {
@@ -3414,6 +3742,137 @@ const EXACT_TEXT_PT_BR_OVERRIDES := {
 	"초": "s",
 }
 
+const EXACT_TEXT_RU := EXACT_TEXT_EN
+
+const EXACT_TEXT_RU_OVERRIDES := {
+	"체력": "HP",
+	"스테이지 진입 준비 중": "Подготовка входа на этап",
+	"잠시만 기다려 주세요": "Пожалуйста, подождите",
+	"전투 데이터 준비 중": "Подготовка данных боя",
+	"전투 상태 초기화 중": "Инициализация состояния боя",
+	"스테이지 입장 연출 준비 중": "Подготовка интро этапа",
+	"준비 완료": "Готово",
+	"스테이지 전환 중": "Смена этапа",
+	"다음 보스 예고": "Предпросмотр следующего босса",
+	"게임 데이터 준비 중": "Подготовка игровых данных",
+	"데이터를 준비하는 중입니다": "Подготовка данных",
+	"나노 조각을 동기화하는 중": "Синхронизация нано-осколков",
+	"전투 준비 완료": "Бой готов",
+	"전투 화면 준비 중": "Подготовка экрана боя",
+	"인트로 리소스 확인 중": "Проверка ресурсов интро",
+	"핵심 전투 리소스 불러오는 중": "Загрузка основных ресурсов боя",
+	"플레이어 리소스 불러오는 중": "Загрузка ресурсов игрока",
+	"보스 리소스 불러오는 중": "Загрузка ресурсов босса",
+	"스매셔 스킬 아이콘 준비 중": "Подготовка иконок навыков Smasher",
+	"바이퍼 스킬 아이콘 준비 중": "Подготовка иконок навыков Viper",
+	"전투 캐시 정리 중": "Завершение кэша боя",
+	"오디오 장치 준비 중": "Подготовка аудиоустройства",
+	"스테이지 BGM 준비 중": "Подготовка BGM этапа",
+	"전투 리소스 마무리 중": "Завершение ресурсов боя",
+	"시작 모듈 준비 중": "Подготовка стартовых модулей",
+	"아이템 런타임 준비 중": "Подготовка рантайма предметов",
+	"업데이트 런타임 준비 중": "Подготовка рантайма обновлений",
+	"공 물리 런타임 준비 중": "Подготовка физики мяча",
+	"드로우 런타임 준비 중": "Подготовка отрисовки",
+	"스테이지 런타임 준비 중": "Подготовка рантайма этапа",
+	"결과 화면 리소스 준비 중": "Подготовка ресурсов экрана итогов",
+	"첫 프레임 정리 중": "Завершение первого кадра",
+	"대기": "Ожидание",
+	"잠김": "Закрыто",
+	"발동 중": "Активация",
+	"사용됨": "Использовано",
+	"없음": "Нет",
+	"사용": "Использовать",
+	"선택": "Выбрать",
+	"취소": "Отмена",
+	"확인": "Подтвердить",
+	"닫기": "Закрыть",
+	"뒤로": "Назад",
+	"장착": "Надето",
+	"미장착": "Не надето",
+	"보유": "Получено",
+	"해금": "Открыть",
+	"부위": "Часть",
+	"머리": "Голова",
+	"상의": "Верх",
+	"왼팔": "Левая рука",
+	"오른팔": "Правая рука",
+	"팔": "Рука",
+	"벨트": "Пояс",
+	"등": "Спина",
+	"무릎": "Колено",
+	"신발": "Обувь",
+	"장신구": "Аксессуар",
+	"슬롯": "Ячейка",
+	"비용": "Стоимость",
+	"쿨타임": "Перезарядка",
+	"재장전": "Перезарядка",
+	"게이지": "Энергия",
+	"스킬": "Навык",
+	"아이템": "Предмет",
+	"패시브": "Пассивный",
+	"액티브": "Активный",
+	"신화": "Мифический",
+	"퍽": "Перк",
+	"퍽 선택": "Выбор перка",
+	"획득 퍽": "Полученные перки",
+	"퍽 골드": "Золото перков",
+	"골드": "Золото",
+	"스타포인트": "Звездные очки",
+	"체력 회복": "Восстановление HP",
+	"이동속도": "Скорость движения",
+	"이동 속도": "Скорость движения",
+	"대쉬 쿨타임": "Перезарядка рывка",
+	"대시쿨타임": "Перезарядка рывка",
+	"아이템 쿨타임": "Перезарядка предмета",
+	"아이템쿨타임": "Перезарядка предмета",
+	"스킬 쿨타임": "Перезарядка навыка",
+	"자동대쉬 쿨타임": "Перезарядка авто-рывка",
+	"대시 토큰": "Жетон рывка",
+	"체력 최대치": "Макс. HP",
+	"최대 체력": "Макс. HP",
+	"공격력": "Атака",
+	"방어력": "Защита",
+	"속도": "Скорость",
+	"사거리": "Дальность",
+	"지속시간": "Длительность",
+	"발견": "Найдено",
+	"보물 탐색": "Охота за сокровищами",
+	"보물찾기": "Охота за сокровищами",
+	"아이템 상자": "Ящик предметов",
+	"캐릭터": "Персонаж",
+	"캐릭터 정보": "Информация о персонаже",
+	"능력치": "Характеристики",
+	"롤 옵션": "Свойства",
+	"장비": "Снаряжение",
+	"장비 슬롯": "Ячейки снаряжения",
+	"패시브 보관함": "Хранилище пассивов",
+	"패시브 아이템 없음": "Нет пассивных предметов",
+	"스매셔": "Smasher",
+	"코만도": "Commando",
+	"바이퍼": "Viper",
+	"발토르": "Baltor",
+	"옵티머스": "Optimus",
+	"이그니션": "Воспламенение",
+	"플라즈마": "Плазма",
+	"회복": "Восстановление",
+	"정화": "Очищение",
+	"수류탄": "Граната",
+	"조명탄": "Сигнальная ракета",
+	"화염병": "Молотов",
+	"다이너마이트": "Динамит",
+	"바나나": "Банан",
+	"비누": "Мыло",
+	"부메랑": "Бумеранг",
+	"제한 없음": "Без лимита",
+	"약함": "Слабая",
+	"낮음": "Низкая",
+	"보통": "Обычная",
+	"강함": "Сильная",
+	"최대": "Максимум",
+	"초": "с",
+}
+
 const QUALITY_PREFIXES_EN := {
 	"top": ["Absolute", "Ultimate", "Supernova", "Mythic", "Peerless", "Ancient Hero's"],
 	"high": ["Advanced", "Artisan", "High-Quality", "Divine", "Masterwork", "Perfect", "Radiant", "Brilliant", "Exceptional", "High-Performance"],
@@ -3447,6 +3906,13 @@ const QUALITY_PREFIXES_PT_BR := {
 	"high": ["Avançado", "Artesanal", "De alta qualidade", "Divino", "Obra-prima", "Perfeito", "Radiante", "Brilhante", "Excepcional", "De alto desempenho"],
 	"mid": ["Refinado", "Sólido", "Padrão", "Confiável", "Prático", "Equilibrado", "Reforçado", "Bem equilibrado"],
 	"low": ["Velho", "Antigo", "Enferrujado", "Danificado", "Gasto", "Barato", "De baixa qualidade", "Frágil", ""],
+}
+
+const QUALITY_PREFIXES_RU := {
+	"top": ["Абсолютный", "Предельный", "Сверхновый", "Мифический", "Несравненный", "Древнего героя"],
+	"high": ["Продвинутый", "Мастеровой", "Высококачественный", "Божественный", "Шедевральный", "Идеальный", "Сияющий", "Блестящий", "Исключительный", "Высокоэффективный"],
+	"mid": ["Улучшенный", "Крепкий", "Стандартный", "Надежный", "Практичный", "Сбалансированный", "Усиленный", "Ровно сбалансированный"],
+	"low": ["Старый", "Древний", "Ржавый", "Поврежденный", "Потертый", "Дешевый", "Низкосортный", "Хрупкий", ""],
 }
 
 const TEXT := {
@@ -3522,6 +3988,7 @@ const TEXT := {
 		"language.ja": "日本語",
 		"language.es": "Español",
 		"language.pt_br": "Português (Brasil)",
+		"language.ru": "Русский",
 		"main_menu.quit_prompt": "나가시겠습니까?",
 		"main_menu.yes": "예",
 		"main_menu.no": "아니오",
@@ -3598,6 +4065,7 @@ const TEXT := {
 		"language.ja": "Japanese",
 		"language.es": "Spanish",
 		"language.pt_br": "Brazilian Portuguese",
+		"language.ru": "Russian",
 		"main_menu.quit_prompt": "Quit the game?",
 		"main_menu.yes": "Yes",
 		"main_menu.no": "No",
@@ -3674,6 +4142,7 @@ const TEXT := {
 		"language.ja": "日语",
 		"language.es": "西班牙语",
 		"language.pt_br": "巴西葡萄牙语",
+		"language.ru": "俄语",
 		"main_menu.quit_prompt": "要退出游戏吗？",
 		"main_menu.yes": "是",
 		"main_menu.no": "否",
@@ -3750,6 +4219,7 @@ const TEXT := {
 		"language.ja": "日本語",
 		"language.es": "スペイン語",
 		"language.pt_br": "ブラジルポルトガル語",
+		"language.ru": "ロシア語",
 		"main_menu.quit_prompt": "ゲームを終了しますか？",
 		"main_menu.yes": "はい",
 		"main_menu.no": "いいえ",
@@ -3826,6 +4296,7 @@ const TEXT := {
 		"language.ja": "Japonés",
 		"language.es": "Español",
 		"language.pt_br": "Portugués (Brasil)",
+		"language.ru": "Ruso",
 		"main_menu.quit_prompt": "¿Salir del juego?",
 		"main_menu.yes": "Sí",
 		"main_menu.no": "No",
@@ -3902,9 +4373,87 @@ const TEXT := {
 		"language.ja": "Japonês",
 		"language.es": "Espanhol",
 		"language.pt_br": "Português (Brasil)",
+		"language.ru": "Russo",
 		"main_menu.quit_prompt": "Sair do jogo?",
 		"main_menu.yes": "Sim",
 		"main_menu.no": "Não",
+	},
+	LANGUAGE_RUSSIAN: {
+		"app.title": "DiskHearts - Ringpia",
+		"pause.title": "Пауза",
+		"pause.continue": "Продолжить",
+		"pause.character_info": "Персонаж",
+		"pause.options": "Настройки",
+		"settings.title": "Настройки",
+		"settings.tab.sound": "Звук",
+		"settings.tab.display": "Экран",
+		"settings.tab.controls": "Управление",
+		"settings.tab.language": "Язык",
+		"settings.back": "Назад",
+		"settings.close": "Закрыть",
+		"settings.save": "Сохранить",
+		"sound.bgm_volume": "Громкость BGM",
+		"sound.sfx_volume": "Громкость SFX",
+		"display.mode": "Режим экрана",
+		"display.mode.fullscreen": "Полный экран",
+		"display.mode.exclusive": "Эксклюзивный",
+		"display.mode.windowed": "Окно",
+		"display.desc.exclusive": "Использует эксклюзивный полный экран и обходит композицию DWM.",
+		"display.desc.fullscreen": "Использует полный экран в родном разрешении.",
+		"display.desc.windowed": "Использует оконный режим с боковыми фонами.",
+		"display.render_fps": "FPS рендера",
+		"display.fps.unlimited": "Без лимита",
+		"display.fps.monitor": "Монитор %d Hz",
+		"display.remember.title": "Сохранить текущие настройки экрана",
+		"display.remember.subtitle": "Использовать этот режим и темп обновления при следующем запуске",
+		"display.auto60.title": "Автопереключение на 60Hz",
+		"display.auto60.subtitle": "Используйте только если монитору нужен темп 60Hz",
+		"display.recommend.apply": "Применить рекомендованное",
+		"display.apply60": "Режим 60Hz",
+		"display.recommendation.ready": "Обнаружен монитор %dHz: FPS рендера будет следовать текущей частоте.\nЕсли сменить монитор, следующее применение возьмет новую частоту.",
+		"display.recommendation.monitor": "Обнаружен монитор %dHz: FPS рендера следует текущей частоте.\nЭксклюзивный полный экран и VSync Auto дают самый чистый режим.",
+		"display.recommendation.default": "Обнаружен монитор %dHz: поставьте FPS рендера на Hz монитора для автоматического темпа.\nРекомендованное сохранит настройки по текущей частоте.",
+		"display.recommendation.fallback": "Поставьте FPS рендера на Hz монитора для автоматического темпа обновления.\nРекомендуются эксклюзивный полный экран и VSync Auto.",
+		"controls.device": "Устройство ввода",
+		"controls.keyboard_mouse": "Клавиатура+мышь",
+		"controls.joypad": "Геймпад",
+		"controls.vibration": "Чувствительность вибрации",
+		"controls.map.move": "Движение",
+		"controls.map.dash_skill": "Рывок / Навык",
+		"controls.map.active_item": "Активный предмет",
+		"controls.map.supply_hold": "Удержать припасы",
+		"controls.map.weapon_switch": "Смена оружия",
+		"controls.map.confirm_cancel_pause": "Подтвердить / Отмена / Пауза",
+		"controls.value.joypad.move": "Левый стик / D-pad",
+		"controls.value.joypad.dash_skill": "Рывок: B или Вниз / Навык: A / X / RT",
+		"controls.value.joypad.active_item": "LB/RB или правый стик влево/вправо для выбора / Y для использования",
+		"controls.value.joypad.supply_hold": "LT",
+		"controls.value.joypad.weapon_switch": "Правый стик вверх/вниз / R3",
+		"controls.value.joypad.confirm_cancel_pause": "A / B / Menu",
+		"controls.value.keyboard.move": "A,D,W,S / Стрелки",
+		"controls.value.keyboard.dash_skill": "Space / X / Левая кнопка мыши",
+		"controls.value.keyboard.active_item": "1 / 2 / 3",
+		"controls.value.keyboard.supply_hold": "S / Правая кнопка мыши",
+		"controls.value.keyboard.weapon_switch": "Колесо мыши / Средняя кнопка",
+		"controls.value.keyboard.confirm_cancel_pause": "Enter / Esc",
+		"vibration.1": "Слабая",
+		"vibration.2": "Низкая",
+		"vibration.3": "Обычная",
+		"vibration.4": "Сильная",
+		"vibration.5": "Максимум",
+		"language.title": "Язык",
+		"language.subtitle": "Язык сохраняется и применяется сразу.",
+		"language.current": "Текущий язык: %s",
+		"language.ko": "Корейский",
+		"language.en": "Английский",
+		"language.zh": "Упрощенный китайский",
+		"language.ja": "Японский",
+		"language.es": "Испанский",
+		"language.pt_br": "Португальский (Бразилия)",
+		"language.ru": "Русский",
+		"main_menu.quit_prompt": "Выйти из игры?",
+		"main_menu.yes": "Да",
+		"main_menu.no": "Нет",
 	},
 }
 
@@ -3956,6 +4505,8 @@ static func normalize_language(language: String) -> String:
 		normalized = LANGUAGE_SPANISH
 	if normalized == "pt_br" or normalized == "pt-br" or normalized == "pt" or normalized == "portuguese" or normalized == "portugues" or normalized == "português" or normalized == "brazilian portuguese" or normalized == "português brasileiro" or normalized == "portugues brasileiro":
 		normalized = LANGUAGE_PORTUGUESE_BRAZIL
+	if normalized == "ru_ru" or normalized == "ru-ru" or normalized == "russian" or normalized == "русский" or normalized == "russkiy":
+		normalized = LANGUAGE_RUSSIAN
 	if SUPPORTED_LANGUAGES.has(normalized):
 		return normalized
 	return DEFAULT_LANGUAGE
@@ -3971,6 +4522,8 @@ static func get_native_language_name(language: String) -> String:
 
 
 static func _get_exact_text_map(language: String) -> Dictionary:
+	if language == LANGUAGE_RUSSIAN:
+		return EXACT_TEXT_RU
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return EXACT_TEXT_PT_BR
 	if language == LANGUAGE_SPANISH:
@@ -3983,6 +4536,8 @@ static func _get_exact_text_map(language: String) -> Dictionary:
 
 
 static func _get_item_display_map(language: String) -> Dictionary:
+	if language == LANGUAGE_RUSSIAN:
+		return ITEM_DISPLAY_RU
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return ITEM_DISPLAY_PT_BR
 	if language == LANGUAGE_SPANISH:
@@ -3995,6 +4550,8 @@ static func _get_item_display_map(language: String) -> Dictionary:
 
 
 static func _get_mythic_description_map(language: String) -> Dictionary:
+	if language == LANGUAGE_RUSSIAN:
+		return MYTHIC_DESCRIPTION_RU
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return MYTHIC_DESCRIPTION_PT_BR
 	if language == LANGUAGE_SPANISH:
@@ -4007,6 +4564,8 @@ static func _get_mythic_description_map(language: String) -> Dictionary:
 
 
 static func _get_perk_name_map(language: String) -> Dictionary:
+	if language == LANGUAGE_RUSSIAN:
+		return PERK_NAME_RU
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return PERK_NAME_PT_BR
 	if language == LANGUAGE_SPANISH:
@@ -4019,6 +4578,8 @@ static func _get_perk_name_map(language: String) -> Dictionary:
 
 
 static func _get_perk_summary_map(language: String) -> Dictionary:
+	if language == LANGUAGE_RUSSIAN:
+		return PERK_SUMMARY_RU
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return PERK_SUMMARY_PT_BR
 	if language == LANGUAGE_SPANISH:
@@ -4035,6 +4596,8 @@ static func _get_perk_localization_key(perk_id: String) -> String:
 
 
 static func _get_character_map(language: String) -> Dictionary:
+	if language == LANGUAGE_RUSSIAN:
+		return CHARACTER_RU
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return CHARACTER_PT_BR
 	if language == LANGUAGE_SPANISH:
@@ -4047,6 +4610,8 @@ static func _get_character_map(language: String) -> Dictionary:
 
 
 static func _get_quality_prefix_map(language: String) -> Dictionary:
+	if language == LANGUAGE_RUSSIAN:
+		return QUALITY_PREFIXES_RU
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return QUALITY_PREFIXES_PT_BR
 	if language == LANGUAGE_SPANISH:
@@ -4077,6 +4642,8 @@ static func translate_text(text: String, fallback: String = "") -> String:
 		return text
 	if text.is_empty():
 		return text
+	if language == LANGUAGE_RUSSIAN and EXACT_TEXT_RU_OVERRIDES.has(text):
+		return str(EXACT_TEXT_RU_OVERRIDES[text])
 	if language == LANGUAGE_PORTUGUESE_BRAZIL and EXACT_TEXT_PT_BR_OVERRIDES.has(text):
 		return str(EXACT_TEXT_PT_BR_OVERRIDES[text])
 	var exact_text_map := _get_exact_text_map(language)
@@ -4192,6 +4759,8 @@ static func localize_skill_config_data(skill_data: Dictionary, skill_name: Strin
 		localized = SKILL_DATA_ES.get(skill_name, {})
 	elif language == LANGUAGE_PORTUGUESE_BRAZIL:
 		localized = SKILL_DATA_PT_BR.get(skill_name, {})
+	elif language == LANGUAGE_RUSSIAN:
+		localized = SKILL_DATA_RU.get(skill_name, {})
 	else:
 		return
 	for field in localized.keys():
@@ -4210,6 +4779,8 @@ static func format_stage_label(stage: int) -> String:
 		return "Fase %d" % stage
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Fase %d" % stage
+	if language == LANGUAGE_RUSSIAN:
+		return "Этап %d" % stage
 	return "스테이지 %d" % stage
 
 
@@ -4226,6 +4797,8 @@ static func format_stage_character_label(stage: int, character_name: String) -> 
 		return "Fase %d / %s" % [stage, localized_name]
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Fase %d / %s" % [stage, localized_name]
+	if language == LANGUAGE_RUSSIAN:
+		return "Этап %d / %s" % [stage, localized_name]
 	return "스테이지 %d  /  %s" % [stage, localized_name]
 
 
@@ -4241,6 +4814,8 @@ static func format_stage_result_label(stage: int) -> String:
 		return "Resultados de fase %d" % stage
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Resultados da fase %d" % stage
+	if language == LANGUAGE_RUSSIAN:
+		return "Итоги этапа %d" % stage
 	return "스테이지 %d 결과" % stage
 
 
@@ -4256,6 +4831,8 @@ static func format_stage_transition_subtitle(stage: int) -> String:
 		return "Fase %d / Vista previa del próximo jefe" % stage
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Fase %d / Prévia do próximo chefe" % stage
+	if language == LANGUAGE_RUSSIAN:
+		return "Этап %d / Предпросмотр следующего босса" % stage
 	return "스테이지 %d  /  다음 보스 예고" % stage
 
 
@@ -4271,6 +4848,8 @@ static func format_stage_transition_status(stage: int) -> String:
 		return "Preparando datos del jefe de fase %d" % stage
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Preparando dados do chefe da fase %d" % stage
+	if language == LANGUAGE_RUSSIAN:
+		return "Подготовка данных босса этапа %d" % stage
 	return "스테이지 %d 보스 데이터를 준비 중" % stage
 
 
@@ -4286,6 +4865,14 @@ static func format_item_box_summary(count: int) -> String:
 		return "%d caja%s de objeto" % [count, "" if count == 1 else "s"]
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return "%d caixa%s de item" % [count, "" if count == 1 else "s"]
+	if language == LANGUAGE_RUSSIAN:
+		var mod10 := count % 10
+		var mod100 := count % 100
+		if mod10 == 1 and mod100 != 11:
+			return "%d ящик с предметом" % count
+		if mod10 >= 2 and mod10 <= 4 and (mod100 < 12 or mod100 > 14):
+			return "%d ящика с предметами" % count
+		return "%d ящиков с предметами" % count
 	return "아이템 상자 %d개" % count
 
 
@@ -4311,6 +4898,8 @@ static func format_select_label(name: String) -> String:
 		return "Seleccionar %s" % localized_name
 	if language == LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Selecionar %s" % localized_name
+	if language == LANGUAGE_RUSSIAN:
+		return "Выбрать %s" % localized_name
 	return "%s 선택" % localized_name
 
 
@@ -4379,6 +4968,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Energía %s" % text.substr("게이지 ".length())
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Energia %s" % text.substr("게이지 ".length())
+		if language == LANGUAGE_RUSSIAN:
+			return "Энергия %s" % text.substr("게이지 ".length())
 		return "Gauge %s" % text.substr("게이지 ".length())
 	if text.begins_with("대시 토큰 "):
 		if language == LANGUAGE_CHINESE:
@@ -4389,6 +4980,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Fichas de dash %s" % text.substr("대시 토큰 ".length())
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Fichas de dash %s" % text.substr("대시 토큰 ".length())
+		if language == LANGUAGE_RUSSIAN:
+			return "Жетоны рывка %s" % text.substr("대시 토큰 ".length())
 		return "Dash Tokens %s" % text.substr("대시 토큰 ".length())
 	if text.begins_with("선택 대기: "):
 		if language == LANGUAGE_CHINESE:
@@ -4399,6 +4992,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Elecciones pendientes: %s" % text.substr("선택 대기: ".length())
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Escolhas pendentes: %s" % text.substr("선택 대기: ".length())
+		if language == LANGUAGE_RUSSIAN:
+			return "Ожидает выбор: %s" % text.substr("선택 대기: ".length())
 		return "Choices Waiting: %s" % text.substr("선택 대기: ".length())
 	if text.begins_with("선택 대기 "):
 		if language == LANGUAGE_CHINESE:
@@ -4409,6 +5004,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Elecciones pendientes %s" % text.substr("선택 대기 ".length())
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Escolhas pendentes %s" % text.substr("선택 대기 ".length())
+		if language == LANGUAGE_RUSSIAN:
+			return "Ожидает выбор %s" % text.substr("선택 대기 ".length())
 		return "Choices Waiting %s" % text.substr("선택 대기 ".length())
 	if text.begins_with("퍽 골드: "):
 		if language == LANGUAGE_CHINESE:
@@ -4419,6 +5016,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Oro de perk: %s" % text.substr("퍽 골드: ".length())
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Ouro de perk: %s" % text.substr("퍽 골드: ".length())
+		if language == LANGUAGE_RUSSIAN:
+			return "Золото перков: %s" % text.substr("퍽 골드: ".length())
 		return "Perk Gold: %s" % text.substr("퍽 골드: ".length())
 	if text.begins_with("퍽 골드 "):
 		if language == LANGUAGE_CHINESE:
@@ -4429,6 +5028,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Oro de perk %s" % text.substr("퍽 골드 ".length())
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Ouro de perk %s" % text.substr("퍽 골드 ".length())
+		if language == LANGUAGE_RUSSIAN:
+			return "Золото перков %s" % text.substr("퍽 골드 ".length())
 		return "Perk Gold %s" % text.substr("퍽 골드 ".length())
 	if text.begins_with("추가 ") and text.ends_with("개"):
 		if language == LANGUAGE_CHINESE:
@@ -4439,6 +5040,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "%s extra" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "%s extra" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
+		if language == LANGUAGE_RUSSIAN:
+			return "Дополнительно %s" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
 		return "Extra %s" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
 	if text.begins_with("보유 ") and text.find(" / 장착 ") >= 0:
 		var parts := text.replace("보유 ", "").split(" / 장착 ", false)
@@ -4451,6 +5054,8 @@ static func _translate_known_patterns(text: String) -> String:
 				return "Poseído %s / Equipado %s" % [parts[0], parts[1]]
 			if language == LANGUAGE_PORTUGUESE_BRAZIL:
 				return "Possuído %s / Equipado %s" % [parts[0], parts[1]]
+			if language == LANGUAGE_RUSSIAN:
+				return "Получено %s / Надето %s" % [parts[0], parts[1]]
 			return "Owned %s / Equipped %s" % [parts[0], parts[1]]
 	if text.begins_with("장착: "):
 		if language == LANGUAGE_CHINESE:
@@ -4461,6 +5066,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Equipado: %s" % translate_text(text.substr("장착: ".length()))
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Equipado: %s" % translate_text(text.substr("장착: ".length()))
+		if language == LANGUAGE_RUSSIAN:
+			return "Надето: %s" % translate_text(text.substr("장착: ".length()))
 		return "Equipped: %s" % translate_text(text.substr("장착: ".length()))
 	if text.begins_with("부위 : "):
 		if language == LANGUAGE_CHINESE:
@@ -4471,6 +5078,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Parte: %s" % translate_text(text.substr("부위 : ".length()))
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Parte: %s" % translate_text(text.substr("부위 : ".length()))
+		if language == LANGUAGE_RUSSIAN:
+			return "Часть: %s" % translate_text(text.substr("부위 : ".length()))
 		return "Part: %s" % translate_text(text.substr("부위 : ".length()))
 	if text.begins_with("슬롯 "):
 		if language == LANGUAGE_CHINESE:
@@ -4481,6 +5090,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Espacio %s" % text.substr("슬롯 ".length())
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Espaço %s" % text.substr("슬롯 ".length())
+		if language == LANGUAGE_RUSSIAN:
+			return "Ячейка %s" % text.substr("슬롯 ".length())
 		return "Slot %s" % text.substr("슬롯 ".length())
 	if text.begins_with("비용 ") and text.find("  쿨타임 ") >= 0:
 		var skill_parts := text.replace("비용 ", "").split("  쿨타임 ", false)
@@ -4493,6 +5104,8 @@ static func _translate_known_patterns(text: String) -> String:
 				return "Coste %s  Recarga %s" % [skill_parts[0], translate_text(skill_parts[1])]
 			if language == LANGUAGE_PORTUGUESE_BRAZIL:
 				return "Custo %s  Recarga %s" % [skill_parts[0], translate_text(skill_parts[1])]
+			if language == LANGUAGE_RUSSIAN:
+				return "Стоимость %s  Перезарядка %s" % [skill_parts[0], translate_text(skill_parts[1])]
 			return "Cost %s  Cooldown %s" % [skill_parts[0], translate_text(skill_parts[1])]
 	if text.begins_with("스테이지 ") and text.ends_with(" 결과 화면"):
 		var stage_result := text.replace("스테이지 ", "").replace(" 결과 화면", "")
@@ -4504,6 +5117,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Pantalla de resultados de fase %s" % stage_result
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Tela de resultados da fase %s" % stage_result
+		if language == LANGUAGE_RUSSIAN:
+			return "Экран итогов этапа %s" % stage_result
 		return "Stage %s Result Screen" % stage_result
 	if text.begins_with("스테이지 ") and text.ends_with(" 결과"):
 		var stage_number := text.replace("스테이지 ", "").replace(" 결과", "")
@@ -4515,6 +5130,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Resultados de fase %s" % stage_number
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Resultados da fase %s" % stage_number
+		if language == LANGUAGE_RUSSIAN:
+			return "Итоги этапа %s" % stage_number
 		return "Stage %s Results" % stage_number
 	if text.begins_with("스테이지 "):
 		var stage_label := text.replace("스테이지 ", "")
@@ -4527,6 +5144,8 @@ static func _translate_known_patterns(text: String) -> String:
 				return "Fase %s" % stage_label
 			if language == LANGUAGE_PORTUGUESE_BRAZIL:
 				return "Fase %s" % stage_label
+			if language == LANGUAGE_RUSSIAN:
+				return "Этап %s" % stage_label
 			return "Stage %s" % stage_label
 	if text.ends_with(" 선택"):
 		if language == LANGUAGE_CHINESE:
@@ -4537,6 +5156,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Seleccionar %s" % translate_text(text.substr(0, text.length() - 3))
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Selecionar %s" % translate_text(text.substr(0, text.length() - 3))
+		if language == LANGUAGE_RUSSIAN:
+			return "Выбрать %s" % translate_text(text.substr(0, text.length() - 3))
 		return "Select %s" % translate_text(text.substr(0, text.length() - 3))
 	if text.begins_with("쿨타임 ") and text.ends_with("초"):
 		var seconds := text.replace("쿨타임 ", "").replace("초", "")
@@ -4548,6 +5169,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "Recarga %ss" % seconds
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "Recarga %ss" % seconds
+		if language == LANGUAGE_RUSSIAN:
+			return "Перезарядка %sс" % seconds
 		return "Cooldown %ss" % seconds
 	if text.ends_with("초"):
 		var plain_seconds := text.substr(0, text.length() - 1)
@@ -4560,6 +5183,8 @@ static func _translate_known_patterns(text: String) -> String:
 				return "%ss" % plain_seconds
 			if language == LANGUAGE_PORTUGUESE_BRAZIL:
 				return "%ss" % plain_seconds
+			if language == LANGUAGE_RUSSIAN:
+				return "%sс" % plain_seconds
 			return "%ss" % plain_seconds
 	if text.ends_with(" 발견"):
 		if language == LANGUAGE_CHINESE:
@@ -4570,6 +5195,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "%s encontrado" % translate_text(text.substr(0, text.length() - 3))
 		if language == LANGUAGE_PORTUGUESE_BRAZIL:
 			return "%s encontrado" % translate_text(text.substr(0, text.length() - 3))
+		if language == LANGUAGE_RUSSIAN:
+			return "%s найдено" % translate_text(text.substr(0, text.length() - 3))
 		return "%s Found" % translate_text(text.substr(0, text.length() - 3))
 	return ""
 
