@@ -8,7 +8,8 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_direct_fire_sheet_resolver()
-	_verify_runtime_delegates_fire_sheet_resolver()
+	_verify_runtime_uses_fire_sheet_resolver_boundary()
+	_verify_removed_runtime_fire_sheet_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_fire_sheet_resolver_smoke: ok")
@@ -51,15 +52,8 @@ func _verify_direct_fire_sheet_resolver() -> void:
 	_expect(CommandoFirearmFireSheetResolver.get_start_frame("ak47", 2) == 1, "start frames should clamp to the available frame count")
 
 
-func _verify_runtime_delegates_fire_sheet_resolver() -> void:
+func _verify_runtime_uses_fire_sheet_resolver_boundary() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	_expect(runtime._normalize_weapon_fire_sheet_id("bazooka") == "bazooka", "runtime normalize wrapper should delegate")
-	_expect(runtime._normalize_weapon_fire_sheet_id("pistol") == "", "runtime normalize wrapper should preserve no-sheet behavior")
-	_expect(is_equal_approx(runtime._get_weapon_fire_sheet_duration_frames("bazooka"), 60.0), "runtime duration wrapper should delegate long durations")
-	_expect(is_equal_approx(runtime._get_weapon_fire_sheet_duration_frames("suicide_drone"), 40.0), "runtime duration wrapper should delegate default durations")
-	_expect(runtime._get_weapon_fire_sheet_start_frame("net_gun") == 3, "runtime start-frame wrapper should delegate")
-	_expect(runtime._get_weapon_fire_sheet_start_frame("suicide_drone") == 0, "runtime start-frame wrapper should preserve frame-zero fallback")
-
 	runtime._start_weapon_fire_sheet_animation("pistol")
 	_expect(runtime.weapon_fire_sheet_id == "", "pistol should not start the shared weapon-fire sheet")
 
@@ -75,6 +69,16 @@ func _verify_runtime_delegates_fire_sheet_resolver() -> void:
 	runtime.weapon_fire_sheet_timer_frames = 6.0
 	runtime._start_weapon_fire_sheet_animation("ak47")
 	_expect(is_equal_approx(runtime.weapon_fire_sheet_timer_frames, ak47_start_timer), "AK-47 fire sheet should restart on every bullet for per-shot recoil")
+
+
+func _verify_removed_runtime_fire_sheet_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_normalize_weapon_fire_sheet_id",
+		"_get_weapon_fire_sheet_duration_frames",
+		"_get_weapon_fire_sheet_start_frame",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep fire-sheet bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:

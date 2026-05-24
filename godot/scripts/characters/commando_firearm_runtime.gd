@@ -1566,30 +1566,18 @@ func _get_net_gun_fire_profile() -> Dictionary:
 
 
 func _start_weapon_fire_sheet_animation(weapon_id: String) -> void:
-	var fire_sheet_id: String = _normalize_weapon_fire_sheet_id(weapon_id)
+	var fire_sheet_id: String = CommandoFirearmFireSheetResolver.normalize_weapon_fire_sheet_id(weapon_id)
 	if fire_sheet_id == "":
 		return
 	weapon_fire_sheet_id = fire_sheet_id
-	weapon_fire_sheet_max_frames = _get_weapon_fire_sheet_duration_frames(fire_sheet_id)
-	var start_frame: int = _get_weapon_fire_sheet_start_frame(fire_sheet_id)
-	var frame_duration: float = weapon_fire_sheet_max_frames / float(COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT)
-	weapon_fire_sheet_timer_frames = max(frame_duration, weapon_fire_sheet_max_frames - frame_duration * float(start_frame))
-
-
-func _normalize_weapon_fire_sheet_id(weapon_id: String) -> String:
-	return CommandoFirearmFireSheetResolver.normalize_weapon_fire_sheet_id(weapon_id)
-
-
-func _get_weapon_fire_sheet_duration_frames(weapon_id: String) -> float:
-	return CommandoFirearmFireSheetResolver.get_duration_frames(
-		weapon_id,
+	weapon_fire_sheet_max_frames = CommandoFirearmFireSheetResolver.get_duration_frames(
+		fire_sheet_id,
 		COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
 		COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES
 	)
-
-
-func _get_weapon_fire_sheet_start_frame(weapon_id: String) -> int:
-	return CommandoFirearmFireSheetResolver.get_start_frame(weapon_id, COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT)
+	var start_frame: int = CommandoFirearmFireSheetResolver.get_start_frame(fire_sheet_id, COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT)
+	var frame_duration: float = weapon_fire_sheet_max_frames / float(COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT)
+	weapon_fire_sheet_timer_frames = max(frame_duration, weapon_fire_sheet_max_frames - frame_duration * float(start_frame))
 
 
 func _update_bowling_trap_input(
