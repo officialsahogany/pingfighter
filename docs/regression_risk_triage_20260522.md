@@ -5828,6 +5828,22 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings, and `run_headless_load_check.ps1` passed.
 
+166th follow-up on 2026-05-24:
+
+- Commit: `38e021313 godot: drop Commando lingering status setup bridges`.
+- Scope: removed the lingering status setup bridge cluster from
+  `commando_firearm_runtime.gd`: profile id / duration / interval reads,
+  initial cooldown, profile slow-multiplier guard / read / application,
+  profile base-field application, status-field apply guard, and the
+  top-level status-field mutation wrapper now stay owned by
+  `commando_firearm_lingering_status_state.gd`. Runtime spawning calls the
+  status owner directly while keeping the later live status application,
+  `apply_status(...)` side effect, and cooldown reset sequence in runtime.
+- Validation: `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_warning_scan.ps1` scanned
+  1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
+  passed.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
