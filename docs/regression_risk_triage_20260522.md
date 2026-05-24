@@ -9567,3 +9567,30 @@ commits rather than standalone `fix` commits:
   aside from the existing CRLF/LF normalization notice on
   `commando_firearm_runtime.gd`. The Windows headless run still emitted the
   known non-fatal root certificate store message.
+
+352nd follow-up on 2026-05-25:
+
+- Commit:
+  `acd1a5890 godot: move Commando AK-47 input`.
+- Scope: moved AK-47 hold-to-fire input orchestration into the new
+  `CommandoFirearmAk47InputState` owner. The owner now handles action-edge
+  tracking, down-input cancellation, switch-fire suppression, burst setup,
+  empty / ammo-unavailable failure results, weapon duration / ammo
+  consumption, recoil and fire-interval updates, doping-aware cooldowns,
+  firearm effect spawning, fire audio, and fired / holding result
+  construction. Runtime keeps `_update_ak47_input()` as a compatibility
+  facade and passes the required weapon, recoil, movement, and doping
+  constants through an options dictionary.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1477` lines /
+  `26` functions to `1396` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_control_state_smoke`,
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_audio_routing_smoke`, and
+  `commando_firearm_projectile_spawn_state_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1342` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors
+  aside from the existing CRLF/LF normalization notice on
+  `commando_firearm_runtime.gd`. The Windows headless run still emitted the
+  known non-fatal root certificate store message.
