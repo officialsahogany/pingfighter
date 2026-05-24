@@ -1234,13 +1234,13 @@ func _update_bazooka_input(
 		SWITCH_FIRE_SUPPRESS_MSEC
 	):
 		return {}
-	var failure_fields := {
-		"cooldown_frames": bazooka_cooldown_frames,
-		"control_lock_frames": bazooka_control_lock_frames,
-		"fire_animation_frames": bazooka_fire_animation_frames,
-		"firing_pose_frames": bazooka_firing_pose_frames,
-		"muzzle_flash_frames": bazooka_muzzle_flash_frames,
-	}
+	var failure_fields := CommandoFirearmFireResultState.build_bazooka_timing_fields(
+		bazooka_cooldown_frames,
+		bazooka_control_lock_frames,
+		bazooka_fire_animation_frames,
+		bazooka_firing_pose_frames,
+		bazooka_muzzle_flash_frames
+	)
 	if bazooka_control_lock_frames > 0.0:
 		return CommandoFirearmFireResultState.build_fire_failed_result("bazooka", special_gauge, "bazooka_control_lock", failure_fields)
 	if bazooka_cooldown_frames > 0.0:
@@ -1304,13 +1304,13 @@ func _update_bazooka_input(
 		max(0, ammo_current - 1),
 		BAZOOKA_AMMO_MAX,
 		special_gauge,
-		{
-			"cooldown_frames": bazooka_cooldown_frames,
-			"control_lock_frames": bazooka_control_lock_frames,
-			"fire_animation_frames": bazooka_fire_animation_frames,
-			"firing_pose_frames": bazooka_firing_pose_frames,
-			"muzzle_flash_frames": bazooka_muzzle_flash_frames,
-		}
+		CommandoFirearmFireResultState.build_bazooka_timing_fields(
+			bazooka_cooldown_frames,
+			bazooka_control_lock_frames,
+			bazooka_fire_animation_frames,
+			bazooka_firing_pose_frames,
+			bazooka_muzzle_flash_frames
+		)
 	)
 
 
@@ -1337,12 +1337,12 @@ func _update_net_gun_input(
 		SWITCH_FIRE_SUPPRESS_MSEC
 	):
 		return {}
-	var failure_fields := {
-		"cooldown_frames": net_gun_cooldown_frames,
-		"control_lock_frames": net_gun_control_lock_frames,
-		"throw_pose_frames": net_gun_throw_pose_frames,
-		"harpoon_flash_frames": net_gun_harpoon_flash_frames,
-	}
+	var failure_fields := CommandoFirearmFireResultState.build_net_gun_timing_fields(
+		net_gun_cooldown_frames,
+		net_gun_control_lock_frames,
+		net_gun_throw_pose_frames,
+		net_gun_harpoon_flash_frames
+	)
 	if net_gun_control_lock_frames > 0.0:
 		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_control_lock", failure_fields)
 	if net_gun_cooldown_frames > 0.0:
@@ -1381,12 +1381,12 @@ func _update_net_gun_input(
 		max(0, ammo_current - 1),
 		NET_GUN_AMMO_MAX,
 		special_gauge,
-		{
-			"cooldown_frames": net_gun_cooldown_frames,
-			"control_lock_frames": net_gun_control_lock_frames,
-			"throw_pose_frames": net_gun_throw_pose_frames,
-			"harpoon_flash_frames": net_gun_harpoon_flash_frames,
-		}
+		CommandoFirearmFireResultState.build_net_gun_timing_fields(
+			net_gun_cooldown_frames,
+			net_gun_control_lock_frames,
+			net_gun_throw_pose_frames,
+			net_gun_harpoon_flash_frames
+		)
 	)
 
 
@@ -1418,11 +1418,11 @@ func _update_bowling_trap_input(
 		SWITCH_FIRE_SUPPRESS_MSEC
 	):
 		return {}
-	var failure_fields := {
-		"cooldown_frames": bowling_trap_cooldown_frames,
-		"control_lock_frames": bowling_trap_control_lock_frames,
-		"install_pose_frames": bowling_trap_install_pose_frames,
-	}
+	var failure_fields := CommandoFirearmFireResultState.build_bowling_trap_timing_fields(
+		bowling_trap_cooldown_frames,
+		bowling_trap_control_lock_frames,
+		bowling_trap_install_pose_frames
+	)
 	if bowling_trap_control_lock_frames > 0.0:
 		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_control_lock", failure_fields)
 	if bowling_trap_cooldown_frames > 0.0:
@@ -1469,12 +1469,13 @@ func _update_bowling_trap_input(
 		max(0, ammo_current - 1),
 		BOWLING_TRAP_AMMO_MAX,
 		special_gauge,
-		{
-			"cooldown_frames": bowling_trap_cooldown_frames,
-			"control_lock_frames": bowling_trap_control_lock_frames,
-			"install_pose_frames": bowling_trap_install_pose_frames,
-			"install_progress": 0.0,
-		}
+		CommandoFirearmFireResultState.build_bowling_trap_timing_fields(
+			bowling_trap_cooldown_frames,
+			bowling_trap_control_lock_frames,
+			bowling_trap_install_pose_frames,
+			true,
+			0.0
+		)
 	)
 
 
@@ -1947,8 +1948,10 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 				BAZOOKA_MAX_SPEED,
 				BAZOOKA_SMOKE_TRAIL_LIMIT
 			)
-			projectile.clear()
-			projectile.merge(CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile)), true)
+			CommandoFirearmProjectileMotionState.replace_projectile_payload(
+				projectile,
+				CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile))
+			)
 			velocity = CommandoFirearmValueUtils.get_vector2(motion_result.get("velocity", velocity), velocity)
 		var linear_motion: Dictionary = CommandoFirearmProjectileMotionState.advance_linear_motion(
 			projectile,
@@ -1971,13 +1974,13 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 				PISTOL_WALL_BOUNCE_DAMPING
 			)
 			if bool(bounce_result.get("bounced", false)):
-				projectile.clear()
-				projectile.merge(CommandoFirearmValueUtils.get_dict(bounce_result.get("projectile", projectile)), true)
+				CommandoFirearmProjectileMotionState.replace_projectile_payload(
+					projectile,
+					CommandoFirearmValueUtils.get_dict(bounce_result.get("projectile", projectile))
+				)
 				pos = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", pos), pos)
 				velocity = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", velocity), velocity)
-		projectile["prev_pos"] = prev_pos
-		projectile["pos"] = pos
-		projectile["velocity"] = velocity
+		CommandoFirearmProjectileMotionState.write_motion_fields(projectile, prev_pos, pos, velocity)
 		var rock_bounce_result: Dictionary = CommandoFirearmStage2RockInteractionResolver.apply_pistol_rock_bounce(
 			projectile,
 			context,
@@ -2003,12 +2006,14 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 				),
 				NET_GUN_ROPE_TRAIL_LIMIT
 			)
-			projectile.clear()
-			projectile.merge(next_projectile, true)
-		projectile["prev_pos"] = CommandoFirearmValueUtils.get_vector2(projectile.get("prev_pos", prev_pos), prev_pos)
-		projectile["pos"] = pos
-		projectile["velocity"] = velocity
-		projectile["life_frames"] = max(0.0, float(projectile.get("life_frames", 0.0)) - step)
+			CommandoFirearmProjectileMotionState.replace_projectile_payload(projectile, next_projectile)
+		CommandoFirearmProjectileMotionState.write_motion_fields(
+			projectile,
+			CommandoFirearmValueUtils.get_vector2(projectile.get("prev_pos", prev_pos), prev_pos),
+			pos,
+			velocity
+		)
+		CommandoFirearmProjectileMotionState.advance_life_timer(projectile, step)
 		projectiles[index] = projectile
 		if projectile_kind == "drone":
 			var drone_result: Dictionary = _resolve_suicide_drone_collision(index, projectile, context, deps, step)

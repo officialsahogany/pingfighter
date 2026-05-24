@@ -3,6 +3,21 @@ extends RefCounted
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 
+static func replace_projectile_payload(projectile: Dictionary, next_projectile: Dictionary) -> void:
+	projectile.clear()
+	projectile.merge(next_projectile, true)
+
+
+static func write_motion_fields(projectile: Dictionary, prev_pos: Vector2, pos: Vector2, velocity: Vector2) -> void:
+	projectile["prev_pos"] = prev_pos
+	projectile["pos"] = pos
+	projectile["velocity"] = velocity
+
+
+static func advance_life_timer(projectile: Dictionary, step: float) -> void:
+	projectile["life_frames"] = max(0.0, float(projectile.get("life_frames", 0.0)) - max(0.0, step))
+
+
 static func apply_pistol_side_wall_bounce(
 	projectile: Dictionary,
 	pos: Vector2,

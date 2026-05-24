@@ -33,6 +33,53 @@ static func build_pistol_fire_failed_result(
 	})
 
 
+static func build_bazooka_timing_fields(
+	cooldown_frames: float,
+	control_lock_frames: float,
+	fire_animation_frames: float,
+	firing_pose_frames: float,
+	muzzle_flash_frames: float
+) -> Dictionary:
+	return {
+		"cooldown_frames": cooldown_frames,
+		"control_lock_frames": control_lock_frames,
+		"fire_animation_frames": fire_animation_frames,
+		"firing_pose_frames": firing_pose_frames,
+		"muzzle_flash_frames": muzzle_flash_frames,
+	}
+
+
+static func build_net_gun_timing_fields(
+	cooldown_frames: float,
+	control_lock_frames: float,
+	throw_pose_frames: float,
+	harpoon_flash_frames: float
+) -> Dictionary:
+	return {
+		"cooldown_frames": cooldown_frames,
+		"control_lock_frames": control_lock_frames,
+		"throw_pose_frames": throw_pose_frames,
+		"harpoon_flash_frames": harpoon_flash_frames,
+	}
+
+
+static func build_bowling_trap_timing_fields(
+	cooldown_frames: float,
+	control_lock_frames: float,
+	install_pose_frames: float,
+	include_install_progress: bool = false,
+	install_progress: float = 0.0
+) -> Dictionary:
+	var fields := {
+		"cooldown_frames": cooldown_frames,
+		"control_lock_frames": control_lock_frames,
+		"install_pose_frames": install_pose_frames,
+	}
+	if include_install_progress:
+		fields["install_progress"] = install_progress
+	return fields
+
+
 static func build_pistol_shot_pending_result(
 	weapon_id: String,
 	fire_delay_frames: float,

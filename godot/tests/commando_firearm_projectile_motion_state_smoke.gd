@@ -21,6 +21,27 @@ func _init() -> void:
 
 
 func _verify_direct_projectile_motion_state() -> void:
+	var payload_projectile := {"old": true, "pos": Vector2.ZERO}
+	CommandoFirearmProjectileMotionState.replace_projectile_payload(
+		payload_projectile,
+		{"pos": Vector2.ONE, "velocity": Vector2.RIGHT}
+	)
+	_expect(not payload_projectile.has("old"), "projectile payload helper should clear stale fields")
+	_expect(payload_projectile.get("pos", Vector2.ZERO) == Vector2.ONE, "projectile payload helper should copy replacement positions")
+	_expect(payload_projectile.get("velocity", Vector2.ZERO) == Vector2.RIGHT, "projectile payload helper should copy replacement velocities")
+	CommandoFirearmProjectileMotionState.write_motion_fields(
+		payload_projectile,
+		Vector2(1.0, 2.0),
+		Vector2(3.0, 4.0),
+		Vector2(5.0, 6.0)
+	)
+	_expect(payload_projectile.get("prev_pos", Vector2.ZERO) == Vector2(1.0, 2.0), "motion field helper should write prev_pos")
+	_expect(payload_projectile.get("pos", Vector2.ZERO) == Vector2(3.0, 4.0), "motion field helper should write pos")
+	_expect(payload_projectile.get("velocity", Vector2.ZERO) == Vector2(5.0, 6.0), "motion field helper should write velocity")
+	payload_projectile["life_frames"] = 3.0
+	CommandoFirearmProjectileMotionState.advance_life_timer(payload_projectile, 5.0)
+	_expect(is_equal_approx(float(payload_projectile.get("life_frames", -1.0)), 0.0), "life timer helper should clamp at zero")
+
 	var bounce_result: Dictionary = CommandoFirearmProjectileMotionState.apply_pistol_side_wall_bounce(
 		{"weapon_id": "commando_pistol", "wall_bounces": 0},
 		Vector2(8.0, 100.0),

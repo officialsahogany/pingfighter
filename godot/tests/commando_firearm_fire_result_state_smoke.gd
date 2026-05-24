@@ -45,6 +45,14 @@ func _verify_direct_fire_result_state() -> void:
 	_expect(str(pistol_failed.get("failure_reason", "")) == "pistol_busy", "pistol failed result should preserve reason")
 	_expect(is_equal_approx(float(pistol_failed.get("fire_delay_frames", 0.0)), 5.0), "pistol failed result should preserve fire delay")
 
+	var bazooka_fields: Dictionary = CommandoFirearmFireResultState.build_bazooka_timing_fields(1.0, 2.0, 3.0, 4.0, 5.0)
+	_expect(is_equal_approx(float(bazooka_fields.get("muzzle_flash_frames", 0.0)), 5.0), "bazooka timing fields should preserve muzzle flash frames")
+	var net_gun_fields: Dictionary = CommandoFirearmFireResultState.build_net_gun_timing_fields(6.0, 7.0, 8.0, 9.0)
+	_expect(is_equal_approx(float(net_gun_fields.get("harpoon_flash_frames", 0.0)), 9.0), "net-gun timing fields should preserve harpoon flash frames")
+	var bowling_fields: Dictionary = CommandoFirearmFireResultState.build_bowling_trap_timing_fields(10.0, 11.0, 12.0, true, 0.25)
+	_expect(is_equal_approx(float(bowling_fields.get("install_pose_frames", 0.0)), 12.0), "bowling timing fields should preserve install pose frames")
+	_expect(is_equal_approx(float(bowling_fields.get("install_progress", 0.0)), 0.25), "bowling timing fields should preserve optional install progress")
+
 	var pending: Dictionary = CommandoFirearmFireResultState.build_pistol_shot_pending_result("commando_pistol", 12.0, 4.0)
 	_expect(bool(pending.get("shot_pending", false)), "pending pistol result should expose shot-pending state")
 	_expect(is_equal_approx(float(pending.get("fire_delay_frames", 0.0)), 12.0), "pending pistol result should preserve fire delay")
