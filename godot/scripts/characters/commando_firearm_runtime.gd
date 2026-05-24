@@ -11,7 +11,6 @@ const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/comm
 const CommandoFirearmEffectUpdateState := preload("res://scripts/characters/commando_firearm_effect_update_state.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSpawnState := preload("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
-const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
@@ -19,7 +18,6 @@ const CommandoFirearmPistolReloadState := preload("res://scripts/characters/comm
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/commando_firearm_projectile_motion_state.gd")
-const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
@@ -1264,77 +1262,33 @@ func _update_suicide_drone_input(
 	current_weapon: Dictionary,
 	now_msec: int
 ) -> Dictionary:
-	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	if not action_pressed:
-		return {}
-	if not CommandoFirearmInputResolver.input_action_just_pressed(input_snapshot):
-		return {}
-	if bool(input_snapshot.get("down_pressed", false)):
-		return {}
-	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
-		weapon_controller,
-		now_msec,
-		SWITCH_FIRE_SUPPRESS_MSEC
-	):
-		return {}
-	if suicide_drone_cooldown_frames > 0.0:
-		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_cooldown", suicide_drone_cooldown_frames)
-	if CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
-		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_active", suicide_drone_cooldown_frames)
-	if not CommandoFirearmCooldownState.is_ready("suicide_drone", now_msec, deps):
-		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "configured_cooldown", suicide_drone_cooldown_frames)
-	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
-	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
-		return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_empty", suicide_drone_cooldown_frames)
-	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
-		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return CommandoFirearmSuicideDroneState.build_fire_failed_result(special_gauge, "suicide_drone_ammo_unavailable", suicide_drone_cooldown_frames)
-	last_fire_msec = now_msec
-	suicide_drone_last_action_pressed = action_pressed
-	var fire_sheet_state: Dictionary = CommandoFirearmFireSheetResolver.build_animation_state(
-		"suicide_drone",
-		COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
-		COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
-		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
-	)
-	if not fire_sheet_state.is_empty():
-		weapon_fire_sheet_id = str(fire_sheet_state.get("id", ""))
-		weapon_fire_sheet_timer_frames = float(fire_sheet_state.get("timer_frames", 0.0))
-		weapon_fire_sheet_max_frames = float(fire_sheet_state.get("max_frames", 0.0))
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-		"suicide_drone",
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
-	CommandoFirearmSuicideDroneState.append_spawn_effects(
-		projectiles,
-		muzzle_flashes,
+	return CommandoFirearmSuicideDroneState.update_runtime_input(
+		self,
+		input_snapshot,
+		special_gauge,
 		config,
-		profile,
-		CommandoFirearmProjectileSpawnState.claim_next_shot_id(self),
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		SUICIDE_DRONE_SIZE,
-		SUICIDE_DRONE_MAX_SPEED,
-		SUICIDE_DRONE_ACCEL,
-		SUICIDE_DRONE_LIFE_FRAMES,
-		SUICIDE_DRONE_GRACE_FRAMES,
-		SUICIDE_DRONE_ROTOR_BASE_SPEED,
-		PROJECTILE_LIMIT,
-		FLASH_LIMIT
-	)
-	CommandoFirearmAudioDispatcher.play_fire_audio("suicide_drone", deps)
-	CommandoFirearmCooldownState.trigger_configured_cooldown("suicide_drone", now_msec, deps)
-	var updated_weapon: Dictionary = current_weapon
-	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
-		updated_weapon = weapon_controller.get_current_weapon_data()
-	return CommandoFirearmSuicideDroneState.build_fire_result(
-		updated_weapon,
-		ammo_current,
-		SUICIDE_DRONE_AMMO_MAX,
-		SUICIDE_DRONE_GRACE_FRAMES,
-		special_gauge
+		deps,
+		current_weapon,
+		now_msec,
+		{
+			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
+			"weapon_profiles": WEAPON_PROFILES,
+			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
+			"field_width": FIELD_WIDTH,
+			"field_height": FIELD_HEIGHT,
+			"fire_sheet_default_frames": COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
+			"fire_sheet_long_frames": COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
+			"fire_sheet_frame_count": COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT,
+			"suicide_drone_ammo_max": SUICIDE_DRONE_AMMO_MAX,
+			"suicide_drone_grace_frames": SUICIDE_DRONE_GRACE_FRAMES,
+			"suicide_drone_accel": SUICIDE_DRONE_ACCEL,
+			"suicide_drone_max_speed": SUICIDE_DRONE_MAX_SPEED,
+			"suicide_drone_size": SUICIDE_DRONE_SIZE,
+			"suicide_drone_rotor_base_speed": SUICIDE_DRONE_ROTOR_BASE_SPEED,
+			"suicide_drone_life_frames": SUICIDE_DRONE_LIFE_FRAMES,
+			"projectile_limit": PROJECTILE_LIMIT,
+			"flash_limit": FLASH_LIMIT,
+		}
 	)
 
 

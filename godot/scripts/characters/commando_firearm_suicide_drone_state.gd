@@ -2,12 +2,16 @@ extends RefCounted
 
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
+const CommandoFirearmCooldownState := preload("res://scripts/characters/commando_firearm_cooldown_state.gd")
+const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
 const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/commando_firearm_hit_feedback_dispatcher.gd")
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
 const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
+const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
+const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmSuicideDroneBallBoostResolver := preload("res://scripts/characters/commando_firearm_suicide_drone_ball_boost_resolver.gd")
 const CommandoFirearmSuicideDroneGeometry := preload("res://scripts/characters/commando_firearm_suicide_drone_geometry.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
@@ -56,6 +60,87 @@ static func append_spawn_effects(
 		flash_limit
 	)
 	return projectile
+
+
+static func update_runtime_input(
+	runtime_owner: Object,
+	input_snapshot: Dictionary,
+	special_gauge: float,
+	config: Dictionary,
+	deps: Dictionary,
+	current_weapon: Dictionary,
+	now_msec: int,
+	options: Dictionary
+) -> Dictionary:
+	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
+	if not action_pressed:
+		return {}
+	if not CommandoFirearmInputResolver.input_action_just_pressed(input_snapshot):
+		return {}
+	if bool(input_snapshot.get("down_pressed", false)):
+		return {}
+	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		weapon_controller,
+		now_msec,
+		int(options.get("switch_fire_suppress_msec", 0))
+	):
+		return {}
+	var cooldown_frames: float = float(runtime_owner.get("suicide_drone_cooldown_frames"))
+	if cooldown_frames > 0.0:
+		return build_fire_failed_result(special_gauge, "suicide_drone_cooldown", cooldown_frames)
+	var projectiles: Array = CommandoFirearmValueUtils.get_array(runtime_owner.get("projectiles"))
+	if has_active_projectile(projectiles):
+		return build_fire_failed_result(special_gauge, "suicide_drone_active", cooldown_frames)
+	if not CommandoFirearmCooldownState.is_ready("suicide_drone", now_msec, deps):
+		return build_fire_failed_result(special_gauge, "configured_cooldown", cooldown_frames)
+	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
+	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
+		return build_fire_failed_result(special_gauge, "suicide_drone_empty", cooldown_frames)
+	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
+		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
+			return build_fire_failed_result(special_gauge, "suicide_drone_ammo_unavailable", cooldown_frames)
+
+	runtime_owner.set("last_fire_msec", now_msec)
+	runtime_owner.set("suicide_drone_last_action_pressed", action_pressed)
+	_apply_runtime_fire_sheet_state(runtime_owner, options)
+	var muzzle_flashes: Array = CommandoFirearmValueUtils.get_array(runtime_owner.get("muzzle_flashes"))
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"suicide_drone",
+		CommandoFirearmValueUtils.get_dict(options.get("weapon_profiles", {})),
+		CommandoFirearmValueUtils.get_dict(options.get("weapon_profile_overrides", {}))
+	)
+	append_spawn_effects(
+		projectiles,
+		muzzle_flashes,
+		config,
+		profile,
+		CommandoFirearmProjectileSpawnState.claim_next_shot_id(runtime_owner),
+		float(options.get("field_width", 760.0)),
+		float(options.get("field_height", 750.0)),
+		CommandoFirearmValueUtils.get_vector2(options.get("suicide_drone_size", Vector2(48.0, 48.0)), Vector2(48.0, 48.0)),
+		float(options.get("suicide_drone_max_speed", 14.0)),
+		float(options.get("suicide_drone_accel", 1.2)),
+		float(options.get("suicide_drone_life_frames", 3600.0)),
+		float(options.get("suicide_drone_grace_frames", 6.0)),
+		float(options.get("suicide_drone_rotor_base_speed", 18.0)),
+		int(options.get("projectile_limit", 36)),
+		int(options.get("flash_limit", 24))
+	)
+	runtime_owner.set("projectiles", projectiles)
+	runtime_owner.set("muzzle_flashes", muzzle_flashes)
+	CommandoFirearmAudioDispatcher.play_fire_audio("suicide_drone", deps)
+	CommandoFirearmCooldownState.trigger_configured_cooldown("suicide_drone", now_msec, deps)
+	var updated_weapon: Dictionary = current_weapon
+	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
+		updated_weapon = weapon_controller.get_current_weapon_data()
+	return build_fire_result(
+		updated_weapon,
+		ammo_current,
+		int(options.get("suicide_drone_ammo_max", 0)),
+		float(options.get("suicide_drone_grace_frames", 0.0)),
+		special_gauge
+	)
 
 
 static func build_projectile(
@@ -275,6 +360,20 @@ static func get_homing_velocity(
 	desired = desired.normalized() * speed
 	var current: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.UP * speed), Vector2.UP * speed)
 	return current.lerp(desired, clamp(0.08 * max(0.0, fps_scale), 0.0, 0.42))
+
+
+static func _apply_runtime_fire_sheet_state(runtime_owner: Object, options: Dictionary) -> void:
+	var fire_sheet_state: Dictionary = CommandoFirearmFireSheetResolver.build_animation_state(
+		"suicide_drone",
+		float(options.get("fire_sheet_default_frames", 0.0)),
+		float(options.get("fire_sheet_long_frames", 0.0)),
+		int(options.get("fire_sheet_frame_count", 1))
+	)
+	if fire_sheet_state.is_empty():
+		return
+	runtime_owner.set("weapon_fire_sheet_id", str(fire_sheet_state.get("id", "")))
+	runtime_owner.set("weapon_fire_sheet_timer_frames", float(fire_sheet_state.get("timer_frames", 0.0)))
+	runtime_owner.set("weapon_fire_sheet_max_frames", float(fire_sheet_state.get("max_frames", 0.0)))
 
 
 static func build_fire_result(
