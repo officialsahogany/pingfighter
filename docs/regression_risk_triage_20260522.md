@@ -8589,3 +8589,59 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors beyond CRLF normalization
   notices.
+
+307th follow-up on 2026-05-24:
+
+- Commit:
+  `a88989ca3 godot: stabilize warning scan reload cadence`.
+- Scope: made the GDScript warning scanner release each loaded script resource
+  and insert a tiny heartbeat every 50 default-mode reloads. This keeps the
+  non-verbose wrapper path from intermittently terminating Godot with `-1`
+  while preserving the same warning coverage and verbose-file diagnostics.
+- Validation: the Godot headless load check passed, `run_warning_scan.ps1`
+  completed with no GDScript warnings, and `git diff --check` reported no
+  whitespace errors.
+
+308th follow-up on 2026-05-24:
+
+- Commit:
+  `b080aa44b godot: move Commando bowling guard consumption`.
+- Scope: moved Commando bowling-trap boss guard consumption into
+  `CommandoFirearmBowlingTrapGuardState.consume_runtime_boss_guard()`. Runtime
+  now delegates guard clearing, ball softening, Stage 2 immunity, stun /
+  knockback application, feedback dispatch, and result payload construction to
+  the guard-state owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2462` lines /
+  `35` functions to `2403` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_bowling_trap_geometry_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
+
+309th follow-up on 2026-05-24:
+
+- Commit:
+  `eddc0a9a5 godot: route Stage 1 prewarm through renderers`.
+- Scope: routed Stage 1 actor prewarm through the player and Commando renderer
+  instances instead of static owner calls. The player actor / sprite renderer
+  and Commando firearm renderer now expose instance `prewarm_runtime_assets()`
+  hooks while preserving the existing static cache path.
+- Validation: focused Stage 1 / Commando prewarm coverage passed:
+  `stage1_actor_render_budget_smoke` and
+  `commando_firearm_renderer_prewarm_gate_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no GDScript
+  warnings, and `git diff --check` reported no whitespace errors.
+
+310th follow-up on 2026-05-24:
+
+- Commit:
+  `95ced8049 godot: document raw-first resource loading`.
+- Scope: documented the `ProjectResourceLoader.load_texture()` contract that
+  regenerated source files win over stale imported cache artifacts. No runtime
+  ordering change was made; the loader remains raw PNG decode first, imported
+  fallback second.
+- Validation: focused resource-loader coverage passed:
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no GDScript
+  warnings, and `git diff --check` reported no whitespace errors.
