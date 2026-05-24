@@ -191,6 +191,68 @@ static func build_runtime_weapon_hit_result(
 	}
 
 
+static func apply_runtime_weapon_hit_result(
+	runtime_owner: Object,
+	weapon_id: String,
+	projectile: Dictionary,
+	context: Dictionary,
+	deps: Dictionary,
+	weapon_hit_results: Dictionary,
+	hit_result_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	slingshot_stun_mult: Dictionary,
+	slingshot_knockback_mult: Dictionary,
+	doping_head_leg_multiplier: float,
+	pistol_head_shot_chance: float,
+	pistol_leg_shot_chance: float,
+	pistol_hit_tuning: Dictionary,
+	field_size: Vector2,
+	pistol_hit_text_timer_frames: float,
+	headshot_label: String,
+	legshot_label: String,
+	pistol_feedback_limit: int,
+	ak47_boss_damage_hit_threshold: int
+) -> Dictionary:
+	if runtime_owner == null:
+		return {}
+	var current_pistol_hit_count: int = int(runtime_owner.get("pistol_boss_hit_count"))
+	var current_ak47_hit_count: int = int(runtime_owner.get("ak47_boss_hit_count"))
+	var pistol_feedbacks: Array = CommandoFirearmValueUtils.get_array(runtime_owner.get("pistol_feedbacks"))
+	var hit_result_state: Dictionary = build_runtime_weapon_hit_result(
+		weapon_id,
+		projectile,
+		context,
+		deps,
+		weapon_hit_results,
+		hit_result_profile_overrides,
+		base_weapon_id,
+		slingshot_stun_mult,
+		slingshot_knockback_mult,
+		current_pistol_hit_count,
+		pistol_feedbacks,
+		doping_head_leg_multiplier,
+		pistol_head_shot_chance,
+		pistol_leg_shot_chance,
+		pistol_hit_tuning,
+		field_size,
+		pistol_hit_text_timer_frames,
+		headshot_label,
+		legshot_label,
+		pistol_feedback_limit,
+		current_ak47_hit_count,
+		ak47_boss_damage_hit_threshold
+	)
+	runtime_owner.set(
+		"pistol_boss_hit_count",
+		int(hit_result_state.get("next_pistol_hit_count", current_pistol_hit_count))
+	)
+	runtime_owner.set(
+		"ak47_boss_hit_count",
+		int(hit_result_state.get("next_ak47_hit_count", current_ak47_hit_count))
+	)
+	return CommandoFirearmValueUtils.get_dict(hit_result_state.get("result", {}))
+
+
 static func _apply_runtime_stun_result(
 	result: Dictionary,
 	profile: Dictionary,

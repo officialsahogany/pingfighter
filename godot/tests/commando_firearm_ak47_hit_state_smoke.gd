@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmAk47HitState := preload("res://scripts/characters/commando_firearm_ak47_hit_state.gd")
+const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 
 var _failures: Array[String] = []
@@ -49,7 +50,8 @@ func _verify_direct_ak47_hit_state() -> void:
 func _verify_runtime_delegates_ak47_hit_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	runtime.ak47_boss_hit_count = 19
-	var result: Dictionary = runtime._apply_weapon_hit_result(
+	var result: Dictionary = _apply_runtime_weapon_hit_result(
+		runtime,
 		"ak47",
 		{
 			"pos": Vector2(330.0, 60.0),
@@ -67,6 +69,37 @@ func _verify_runtime_delegates_ak47_hit_state() -> void:
 	_expect(int(result.get("damage_units", 0)) == 1, "runtime AK-47 wrapper should emit damage")
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(source.find("func _apply_ak47_accumulated_boss_damage(") == -1, "runtime should not keep AK-47 accumulated-damage bridge")
+
+
+func _apply_runtime_weapon_hit_result(
+	runtime: Object,
+	weapon_id: String,
+	projectile: Dictionary,
+	context: Dictionary,
+	deps: Dictionary
+) -> Dictionary:
+	return CommandoFirearmHitResultState.apply_runtime_weapon_hit_result(
+		runtime,
+		weapon_id,
+		projectile,
+		context,
+		deps,
+		CommandoFirearmRuntime.WEAPON_HIT_RESULTS,
+		CommandoFirearmRuntime.HIT_RESULT_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.SLINGSHOT_STUN_MULT,
+		CommandoFirearmRuntime.SLINGSHOT_KNOCKBACK_MULT,
+		CommandoFirearmRuntime.DOPING_POTION_HEAD_LEG_MULTIPLIER,
+		CommandoFirearmRuntime.PISTOL_HEAD_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_LEG_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.PISTOL_HIT_TEXT_TIMER_FRAMES,
+		"head",
+		"leg",
+		CommandoFirearmRuntime.PISTOL_FEEDBACK_LIMIT,
+		CommandoFirearmRuntime.AK47_BOSS_DAMAGE_HIT_THRESHOLD
+	)
 
 
 func _get_dict(value: Variant) -> Dictionary:

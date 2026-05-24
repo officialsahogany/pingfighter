@@ -1,5 +1,6 @@
 extends SceneTree
 
+const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
 
@@ -90,7 +91,8 @@ func _verify_direct_slingshot_state() -> void:
 
 func _verify_runtime_delegates_slingshot_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	var runtime_hit_result: Dictionary = runtime._apply_weapon_hit_result(
+	var runtime_hit_result: Dictionary = _apply_runtime_weapon_hit_result(
+		runtime,
 		"pistol",
 		{"slingshot": true, "charge_level": 2, "pos": Vector2(100.0, 100.0), "velocity": Vector2.UP, "shot_roll": 0.99},
 		{"boss_pos": Vector2(330.0, 60.0)},
@@ -107,6 +109,37 @@ func _verify_runtime_delegates_slingshot_state() -> void:
 	_expect(not runtime_source.contains("func _cancel_slingshot_charge("), "runtime should not keep slingshot cancel-state bridge")
 	_expect(not runtime_source.contains("func _advance_slingshot_charge("), "runtime should not keep stale slingshot charge bridge")
 	_expect(not runtime_source.contains("func _release_slingshot("), "runtime should not keep stale slingshot release bridge")
+
+
+func _apply_runtime_weapon_hit_result(
+	runtime: Object,
+	weapon_id: String,
+	projectile: Dictionary,
+	context: Dictionary,
+	deps: Dictionary
+) -> Dictionary:
+	return CommandoFirearmHitResultState.apply_runtime_weapon_hit_result(
+		runtime,
+		weapon_id,
+		projectile,
+		context,
+		deps,
+		CommandoFirearmRuntime.WEAPON_HIT_RESULTS,
+		CommandoFirearmRuntime.HIT_RESULT_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.SLINGSHOT_STUN_MULT,
+		CommandoFirearmRuntime.SLINGSHOT_KNOCKBACK_MULT,
+		CommandoFirearmRuntime.DOPING_POTION_HEAD_LEG_MULTIPLIER,
+		CommandoFirearmRuntime.PISTOL_HEAD_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_LEG_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.PISTOL_HIT_TEXT_TIMER_FRAMES,
+		"head",
+		"leg",
+		CommandoFirearmRuntime.PISTOL_FEEDBACK_LIMIT,
+		CommandoFirearmRuntime.AK47_BOSS_DAMAGE_HIT_THRESHOLD
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -122,7 +122,8 @@ func _verify_direct_hit_result_state() -> void:
 func _verify_runtime_still_applies_hit_result_status() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	var status_state := FakeStatusEffectState.new()
-	var result: Dictionary = runtime._apply_weapon_hit_result(
+	var result: Dictionary = _apply_runtime_weapon_hit_result(
+		runtime,
 		"commando_pistol",
 		{
 			"weapon_id": "commando_pistol",
@@ -145,7 +146,8 @@ func _verify_runtime_still_applies_hit_result_status() -> void:
 	_expect(str(status_call.get("status_id", "")) == "stun", "runtime hit result should still apply stun")
 	_expect(str((status_call.get("data", {}) as Dictionary).get("source", "")) == "commando_firearm_pistol_headshot", "runtime stun data should preserve headshot source")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
-	_expect(runtime_source.find("CommandoFirearmHitResultState.build_runtime_weapon_hit_result") != -1, "runtime should delegate weapon-hit result construction")
+	_expect(runtime_source.find("CommandoFirearmHitResultState.apply_runtime_weapon_hit_result") != -1, "runtime should delegate weapon-hit result application")
+	_expect(runtime_source.find("func _apply_weapon_hit_result(") == -1, "runtime should not keep weapon hit-result bridge")
 	_expect(runtime_source.find("func _apply_pistol_hit_effects(") == -1, "runtime should not keep pistol-hit bridge")
 	_expect(runtime_source.find("CommandoFirearmAk47HitState.apply_runtime_accumulated_damage") == -1, "runtime should not apply AK47 hit accumulation inline")
 
@@ -163,6 +165,37 @@ class FakeStatusEffectState:
 			"data": data.duplicate(true),
 			"source": source,
 		})
+
+
+func _apply_runtime_weapon_hit_result(
+	runtime: Object,
+	weapon_id: String,
+	projectile: Dictionary,
+	context: Dictionary,
+	deps: Dictionary
+) -> Dictionary:
+	return CommandoFirearmHitResultState.apply_runtime_weapon_hit_result(
+		runtime,
+		weapon_id,
+		projectile,
+		context,
+		deps,
+		CommandoFirearmRuntime.WEAPON_HIT_RESULTS,
+		CommandoFirearmRuntime.HIT_RESULT_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.SLINGSHOT_STUN_MULT,
+		CommandoFirearmRuntime.SLINGSHOT_KNOCKBACK_MULT,
+		CommandoFirearmRuntime.DOPING_POTION_HEAD_LEG_MULTIPLIER,
+		CommandoFirearmRuntime.PISTOL_HEAD_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_LEG_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.PISTOL_HIT_TEXT_TIMER_FRAMES,
+		"head",
+		"leg",
+		CommandoFirearmRuntime.PISTOL_FEEDBACK_LIMIT,
+		CommandoFirearmRuntime.AK47_BOSS_DAMAGE_HIT_THRESHOLD
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

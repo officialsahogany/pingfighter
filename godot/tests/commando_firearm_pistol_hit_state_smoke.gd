@@ -1,5 +1,6 @@
 extends SceneTree
 
+const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmPistolHitState := preload("res://scripts/characters/commando_firearm_pistol_hit_state.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 
@@ -122,7 +123,8 @@ func _verify_direct_pistol_hit_state() -> void:
 func _verify_runtime_delegates_pistol_hit_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	runtime.pistol_boss_hit_count = 2
-	var result: Dictionary = runtime._apply_weapon_hit_result(
+	var result: Dictionary = _apply_runtime_weapon_hit_result(
+		runtime,
 		"commando_pistol",
 		{"weapon_id": "commando_pistol", "shot_roll": 0.05, "pos": Vector2(380.0, 80.0), "velocity": Vector2(0.0, -16.0)},
 		_boss_context().merged({"commando_pistol_head_chance": 0.10, "commando_pistol_leg_chance": 0.12}, true),
@@ -134,8 +136,12 @@ func _verify_runtime_delegates_pistol_hit_state() -> void:
 	_expect(_get_array(runtime.pistol_feedbacks).size() == 1, "runtime pistol hit wrapper should keep feedback side effect")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(
-		runtime_source.find("CommandoFirearmHitResultState.build_runtime_weapon_hit_result") >= 0,
+		runtime_source.find("CommandoFirearmHitResultState.apply_runtime_weapon_hit_result") >= 0,
 		"runtime should delegate weapon hit-result composition to the owner"
+	)
+	_expect(
+		runtime_source.find("func _apply_weapon_hit_result(") < 0,
+		"runtime should not keep the weapon hit-result bridge after hit-result ownership moves"
 	)
 	_expect(
 		runtime_source.find("func _apply_pistol_hit_effects") < 0,
@@ -155,6 +161,37 @@ func _get_array(value: Variant) -> Array:
 	if value is Array:
 		return value
 	return []
+
+
+func _apply_runtime_weapon_hit_result(
+	runtime: Object,
+	weapon_id: String,
+	projectile: Dictionary,
+	context: Dictionary,
+	deps: Dictionary
+) -> Dictionary:
+	return CommandoFirearmHitResultState.apply_runtime_weapon_hit_result(
+		runtime,
+		weapon_id,
+		projectile,
+		context,
+		deps,
+		CommandoFirearmRuntime.WEAPON_HIT_RESULTS,
+		CommandoFirearmRuntime.HIT_RESULT_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.SLINGSHOT_STUN_MULT,
+		CommandoFirearmRuntime.SLINGSHOT_KNOCKBACK_MULT,
+		CommandoFirearmRuntime.DOPING_POTION_HEAD_LEG_MULTIPLIER,
+		CommandoFirearmRuntime.PISTOL_HEAD_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_LEG_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.PISTOL_HIT_TEXT_TIMER_FRAMES,
+		"head",
+		"leg",
+		CommandoFirearmRuntime.PISTOL_FEEDBACK_LIMIT,
+		CommandoFirearmRuntime.AK47_BOSS_DAMAGE_HIT_THRESHOLD
+	)
 
 
 func _get_dict(value: Variant) -> Dictionary:
