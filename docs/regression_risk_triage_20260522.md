@@ -7856,6 +7856,29 @@ Hundredth split on 2026-05-24:
   normalization notices. The control-state smoke now rejects
   `_handle_firearm_reset_input()` in the runtime facade.
 
+272nd follow-up on 2026-05-24:
+
+- Commit:
+  `96fb798fe godot: drop Commando stale slingshot and net constrict bridges`.
+- Scope: removed the stale Commando runtime `_advance_slingshot_charge()` and
+  `_release_slingshot()` bridges, which no longer had production callers after
+  the slingshot owner split. Net constrict input handling also moved fully into
+  `CommandoFirearmLingeringNetFieldState.apply_net_constrict_input()`, leaving
+  the runtime to apply the returned effect array plus last-direction / timing
+  state.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2849` lines /
+  `39` functions to `2773` lines / `36` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_slingshot_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_audio_routing_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1331` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond the existing CRLF
+  normalization notices. The slingshot smoke now rejects the stale charge /
+  release bridges and the value-utils smoke rejects `_update_net_constrict_input()`
+  in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
