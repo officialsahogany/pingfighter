@@ -8798,3 +8798,22 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+319th follow-up on 2026-05-24:
+
+- Commit:
+  `1a0571876 godot: move Commando projectile spawn append`.
+- Scope: moved normal projectile append and shell-casing append routing into
+  `CommandoFirearmProjectileSpawnState.append_runtime_projectile()`. Runtime
+  still computes the weapon origin / target / direction and keeps support /
+  bowling-trap special cases, while the projectile owner now allocates shot
+  ids, builds the projectile payload, appends it to the bounded runtime list,
+  and delegates supported shell casing append to the shell owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2081` lines /
+  `35` functions to `2074` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_spawn_state_smoke`,
+  `commando_firearm_shell_casing_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
