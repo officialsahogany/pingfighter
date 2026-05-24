@@ -17,6 +17,8 @@ static func load_texture(path: String, missing_warning: String = "", failed_warn
 		_texture_cache[path] = cached_resource
 		return cached_resource
 
+	# Prefer regenerated source files over imported cache artifacts; stale
+	# remaps can survive after asset replacement.
 	var raw_exists: bool = FileAccess.file_exists(path)
 	if raw_exists:
 		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
