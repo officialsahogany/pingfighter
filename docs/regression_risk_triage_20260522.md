@@ -9594,3 +9594,31 @@ commits rather than standalone `fix` commits:
   aside from the existing CRLF/LF normalization notice on
   `commando_firearm_runtime.gd`. The Windows headless run still emitted the
   known non-fatal root certificate store message.
+
+353rd follow-up on 2026-05-25:
+
+- Commit:
+  `90884b49b godot: move Commando pistol input`.
+- Scope: moved base / Commando pistol single-press fire orchestration into the
+  new `CommandoFirearmPistolInputState` owner. The owner now handles
+  action-edge and down-input gating, switch-fire suppression, animation /
+  cooldown / reload failure results, base-pistol empty reload delegation,
+  ammo consumption, doping-aware cooldown and control-lock setup, pending
+  pistol fire config capture, ready audio, and shot-queued result
+  construction. Runtime keeps `_update_pistol_input()` as a compatibility
+  facade and passes the required pistol, reload, switch-suppression, and
+  doping constants through an options dictionary. The reload smoke now checks
+  the new ownership chain: runtime -> pistol input owner -> reload owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1396` lines /
+  `26` functions to `1332` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_pistol_reload_state_smoke`,
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_audio_routing_smoke`, and
+  `commando_firearm_projectile_spawn_state_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1343` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors
+  aside from the existing CRLF/LF normalization notice on
+  `commando_firearm_runtime.gd`. The Windows headless run still emitted the
+  known non-fatal root certificate store message.
