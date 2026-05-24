@@ -7570,7 +7570,7 @@ Hundredth split on 2026-05-24:
 
 - Commits:
   `b7eb40a12 godot: move Commando support bomb and guard clear bridges` and
-  `57baff298 godot: avoid support projectile call shadow warning`.
+  `1d8d208db godot: avoid support projectile call shadow warning`.
 - Scope: removed the Commando runtime `_spawn_support_bomb()` bridge by moving
   call-payload target lookup, deterministic bomb target selection, aircraft
   position fallback, and projectile append into
