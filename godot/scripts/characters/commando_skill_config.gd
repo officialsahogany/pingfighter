@@ -367,7 +367,11 @@ func get_skill_data(skill_name: String) -> Dictionary:
 
 
 func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
-	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_ENGLISH:
+	var language := LanguageSettings.get_language()
+	if language == LanguageSettings.LANGUAGE_KOREAN:
+		return
+	if language == LanguageSettings.LANGUAGE_CHINESE:
+		LanguageSettings.localize_skill_config_data(data, skill_name)
 		return
 	match skill_name:
 		"supply_drop":

@@ -43,7 +43,7 @@ const SOUND_FOCUS_COUNT := 3
 const DISPLAY_FOCUS_COUNT := 9
 const CONTROLS_BASE_FOCUS_COUNT := 2
 const CONTROLS_JOYPAD_FOCUS_COUNT := 3
-const LANGUAGE_FOCUS_COUNT := 3
+const LANGUAGE_FOCUS_COUNT := 4
 
 const PANEL_COLOR := Color(16.0 / 255.0, 20.0 / 255.0, 32.0 / 255.0, 0.96)
 const PANEL_BORDER := Color(82.0 / 255.0, 165.0 / 255.0, 220.0 / 255.0, 0.86)
@@ -323,11 +323,11 @@ func _handle_language_key_input(key_event: InputEventKey, owner: Object) -> Dict
 		options_focus = (options_focus + 1) % LANGUAGE_FOCUS_COUNT
 		return {"handled": true}
 	if _is_key(key_event, KEY_LEFT):
-		if options_focus < 2:
+		if options_focus < LANGUAGE_FOCUS_COUNT - 1:
 			_cycle_language(-1, owner)
 		return {"handled": true}
 	if _is_key(key_event, KEY_RIGHT):
-		if options_focus < 2:
+		if options_focus < LANGUAGE_FOCUS_COUNT - 1:
 			_cycle_language(1, owner)
 		return {"handled": true}
 	if _is_key(key_event, KEY_ENTER) or _is_key(key_event, KEY_KP_ENTER) or _is_key(key_event, KEY_SPACE):
@@ -391,7 +391,7 @@ func _handle_language_gamepad_input(event: InputEvent, owner: Object) -> Diction
 		return {"handled": true}
 	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
 	if horizontal_direction != 0:
-		if options_focus < 2:
+		if options_focus < LANGUAGE_FOCUS_COUNT - 1:
 			_cycle_language(horizontal_direction, owner)
 		return {"handled": true}
 	if GamepadInput.is_confirm_event(event):
@@ -552,6 +552,10 @@ func _handle_language_click(position: Vector2, owner: Object, panel_rect: Rect2)
 	if _get_language_english_rect(panel_rect).has_point(position):
 		options_focus = 1
 		_set_language_option(LanguageSettings.LANGUAGE_ENGLISH, owner)
+		return {"handled": true}
+	if _get_language_chinese_rect(panel_rect).has_point(position):
+		options_focus = 2
+		_set_language_option(LanguageSettings.LANGUAGE_CHINESE, owner)
 		return {"handled": true}
 	if _get_language_back_button_rect(panel_rect).has_point(position):
 		return _close_options_page()
@@ -745,6 +749,8 @@ func _activate_language_focus(owner: Object) -> Dictionary:
 		1:
 			_set_language_option(LanguageSettings.LANGUAGE_ENGLISH, owner)
 		2:
+			_set_language_option(LanguageSettings.LANGUAGE_CHINESE, owner)
+		3:
 			return _close_options_page()
 	return {"handled": true}
 
@@ -1223,10 +1229,19 @@ func _draw_language_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse
 		options_focus == 1,
 		mouse_pos
 	)
+	_draw_mode_pill(
+		canvas,
+		font,
+		_get_language_chinese_rect(panel_rect),
+		_text("language.zh"),
+		language_code == LanguageSettings.LANGUAGE_CHINESE,
+		options_focus == 2,
+		mouse_pos
+	)
 	var current_name := LanguageSettings.get_native_language_name(language_code)
-	_draw_text(canvas, font, _text("language.current") % current_name, panel_rect.position + Vector2(96.0, 218.0), 18, Color.WHITE)
+	_draw_text(canvas, font, _text("language.current") % current_name, panel_rect.position + Vector2(96.0, 230.0), 18, Color.WHITE)
 	_draw_recommendation_block(canvas, font, _get_language_note_rect(panel_rect), _text("language.subtitle"))
-	_draw_button(canvas, font, _get_language_back_button_rect(panel_rect), _get_options_back_label(), options_focus == 2, mouse_pos)
+	_draw_button(canvas, font, _get_language_back_button_rect(panel_rect), _get_options_back_label(), options_focus == 3, mouse_pos)
 
 
 func _get_vibration_level_label(level: int = 0) -> String:
@@ -1514,15 +1529,19 @@ func _get_controls_back_button_rect(panel_rect: Rect2) -> Rect2:
 
 
 func _get_language_korean_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(260.0, 154.0), Vector2(160.0, 44.0))
+	return Rect2(panel_rect.position + Vector2(176.0, 154.0), Vector2(150.0, 44.0))
 
 
 func _get_language_english_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(440.0, 154.0), Vector2(160.0, 44.0))
+	return Rect2(panel_rect.position + Vector2(344.0, 154.0), Vector2(150.0, 44.0))
+
+
+func _get_language_chinese_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(512.0, 154.0), Vector2(150.0, 44.0))
 
 
 func _get_language_note_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(96.0, 250.0), Vector2(panel_rect.size.x - 192.0, 40.0))
+	return Rect2(panel_rect.position + Vector2(96.0, 262.0), Vector2(panel_rect.size.x - 192.0, 40.0))
 
 
 func _get_language_back_button_rect(panel_rect: Rect2) -> Rect2:

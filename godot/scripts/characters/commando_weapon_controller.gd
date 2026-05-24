@@ -778,6 +778,8 @@ func _get_ak47_ammo_text(data: Dictionary) -> String:
 	var duration_seconds: float = duration_frames / 60.0
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 		return "Ammo %d/%d - Durability %.1fs" % [ammo_current, ammo_max, duration_seconds]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "弹药 %d/%d · 耐久 %.1f秒" % [ammo_current, ammo_max, duration_seconds]
 	return "탄약 %d/%d · 내구 %.1f초" % [ammo_current, ammo_max, duration_seconds]
 
 

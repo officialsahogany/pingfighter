@@ -435,7 +435,7 @@ func _draw_tooltip(canvas: CanvasItem, hover_context: Dictionary, skill_data: Di
 
 	var cursor_y: float = tooltip_pos.y + padding
 	_draw_text(canvas, font, Vector2(tooltip_pos.x + padding, cursor_y), str(skill_data.get("korean", "")), title_size, Color.WHITE)
-	var active_text := "액티브"
+	var active_text := LanguageSettings.translate_text("액티브")
 	var active_size: Vector2 = font.get_string_size(active_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size)
 	_draw_text(
 		canvas,
@@ -476,7 +476,7 @@ func _draw_tooltip(canvas: CanvasItem, hover_context: Dictionary, skill_data: Di
 	)
 	_draw_panel(canvas, effect_rect, Color(10.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 0.78), Color(skill_color.r, skill_color.g, skill_color.b, 0.40), 1.0 * scale_factor, 6.0 * scale_factor)
 	_draw_effect_preview(canvas, effect_rect, str(skill_data.get("effect_type", "")), skill_color, float(Time.get_ticks_msec() % 2000) / 2000.0)
-	_draw_text(canvas, font, effect_rect.position + Vector2(4.0 * scale_factor, 4.0 * scale_factor), "이펙트 미리보기", small_size, Color(150.0 / 255.0, 150.0 / 255.0, 150.0 / 255.0))
+	_draw_text(canvas, font, effect_rect.position + Vector2(4.0 * scale_factor, 4.0 * scale_factor), LanguageSettings.translate_text("이펙트 미리보기"), small_size, Color(150.0 / 255.0, 150.0 / 255.0, 150.0 / 255.0))
 
 
 func _draw_cost_and_cooldown_line(
@@ -495,7 +495,7 @@ func _draw_cost_and_cooldown_line(
 	var cost: float = _get_effective_skill_cost(skill_data, hover_context)
 	var can_use: bool = current_gauge >= cost
 	var cost_color := Color(100.0 / 255.0, 1.0, 150.0 / 255.0) if can_use else Color(1.0, 100.0 / 255.0, 100.0 / 255.0)
-	_draw_text(canvas, font, Vector2(tooltip_pos.x + padding, y), "게이지 비용: %s" % _format_number(cost), normal_size, cost_color)
+	_draw_text(canvas, font, Vector2(tooltip_pos.x + padding, y), "%s: %s" % [LanguageSettings.translate_text("게이지 비용"), _format_number(cost)], normal_size, cost_color)
 
 	var cooldown_seconds: float = _get_effective_skill_cooldown_seconds(skill_data, hover_context)
 	var cooldown_ratio: float = _get_cooldown_remaining(
@@ -507,11 +507,13 @@ func _draw_cost_and_cooldown_line(
 	)
 	var cooldown_text: String
 	var cooldown_color: Color
+	var cooldown_label := LanguageSettings.translate_text("쿨타임")
+	var seconds_suffix := LanguageSettings.translate_text("초")
 	if cooldown_ratio > 0.0:
-		cooldown_text = "쿨타임: %.1f초" % (cooldown_seconds * cooldown_ratio)
+		cooldown_text = "%s: %.1f%s" % [cooldown_label, cooldown_seconds * cooldown_ratio, seconds_suffix]
 		cooldown_color = Color(1.0, 180.0 / 255.0, 80.0 / 255.0)
 	else:
-		cooldown_text = "쿨타임: %s초" % _format_number(cooldown_seconds)
+		cooldown_text = "%s: %s%s" % [cooldown_label, _format_number(cooldown_seconds), seconds_suffix]
 		cooldown_color = Color(180.0 / 255.0, 180.0 / 255.0, 180.0 / 255.0)
 	var cd_size: Vector2 = font.get_string_size(cooldown_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, small_size)
 	_draw_text(canvas, font, Vector2(tooltip_pos.x + tooltip_width - padding - cd_size.x, y + 2.0), cooldown_text, small_size, cooldown_color)
@@ -545,16 +547,9 @@ func _build_description_with_runtime_bonus(skill_data: Dictionary, hover_context
 	var followup_pct: int = 0
 	if blade_level >= 3:
 		followup_pct = min(100, (blade_level - 2) * 10)
-	var lines: Array[String] = [
-		"검기증폭: 폭/거리+%d%%, 검속+%d%%, 공속+%d%%, 비용-%d" % [
-			size_pct,
-			projectile_speed_pct,
-			hit_speed_pct,
-			cost_cut,
-		],
-	]
+	var lines: Array[String] = [_format_blade_amp_runtime_line(size_pct, projectile_speed_pct, hit_speed_pct, cost_cut)]
 	if homing_pct > 0 or followup_pct > 0:
-		lines.append("Lv3+: 유도 %d%%, 추가검기 %d%%" % [homing_pct, followup_pct])
+		lines.append(_format_blade_amp_lv3_line(homing_pct, followup_pct))
 	return "%s\n%s" % [description, "\n".join(lines)]
 
 
@@ -564,14 +559,12 @@ func _append_viper_kick_runtime_bonus(description: String, hover_context: Dictio
 		return description
 	var precision_pct: int = max(0, kick_level) * 8
 	var speed_pct: int = max(0, kick_level) * 12
-	var lines: Array[String] = [
-		"킥 강화: 정밀도 +%d%%, 공속 +%d%%" % [precision_pct, speed_pct],
-	]
+	var lines: Array[String] = [_format_kick_enhance_runtime_line(precision_pct, speed_pct)]
 	if skill_name != "shadow_step":
-		lines[0] = "%s, 준비 -%d%%" % [lines[0], min(max(0, kick_level) * 7, 90)]
+		lines[0] = "%s, %s -%d%%" % [lines[0], LanguageSettings.translate_text("준비"), min(max(0, kick_level) * 7, 90)]
 	var knockback_chance_pct: int = _get_kick_knockback_ball_chance_pct(kick_level)
 	if knockback_chance_pct > 0:
-		lines.append("Lv3+: 용광로 넉백볼 %d%%, 가드 넉백 150%%" % knockback_chance_pct)
+		lines.append(_format_kick_knockback_runtime_line(knockback_chance_pct))
 	return "%s\n%s" % [description, "\n".join(lines)]
 
 
@@ -582,12 +575,12 @@ func _append_dive_strike_runtime_bonus(description: String, hover_context: Dicti
 	var prep_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 8, 16, 25, 33, 40], 4, 70)
 	var sleep_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 5, 10, 15, 20, 25], 5, 50)
 	var cooldown_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 0, 0, 10, 15, 20], 4, 40)
-	var line: String = "사독: 준비 -%d%%, 수면 +%d%%" % [prep_pct, sleep_pct]
+	var line: String = _format_four_poisons_dive_line(prep_pct, sleep_pct)
 	var extras: Array[String] = []
 	if cooldown_pct > 0:
-		extras.append("쿨 -%d%%" % cooldown_pct)
+		extras.append(_format_cooldown_reduction_runtime_line(cooldown_pct))
 	if four_poisons_level >= 3:
-		extras.append("슈퍼아머")
+		extras.append(LanguageSettings.translate_text("슈퍼아머"))
 	if not extras.is_empty():
 		line = "%s / %s" % [line, "·".join(extras)]
 	return "%s\n%s" % [description, line]
@@ -600,17 +593,17 @@ func _append_dual_glitch_runtime_bonus(description: String, hover_context: Dicti
 	var duration_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 7, 14, 20, 27, 33], 5, 45)
 	var cooldown_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 0, 0, 10, 15, 20], 4, 40)
 	var clone_hp: int = _get_four_poisons_dual_glitch_clone_hp(four_poisons_level)
-	var line: String = "사독: 지속 +%d%%, 분신 HP %d" % [duration_pct, clone_hp]
+	var line: String = _format_four_poisons_dual_line(duration_pct, clone_hp)
 	var extras: Array[String] = []
 	if cooldown_pct > 0:
-		extras.append("쿨 -%d%%" % cooldown_pct)
+		extras.append(_format_cooldown_reduction_runtime_line(cooldown_pct))
 	if four_poisons_level >= 3:
-		extras.append("슈퍼아머")
+		extras.append(LanguageSettings.translate_text("슈퍼아머"))
 	if not extras.is_empty():
 		line = "%s / %s" % [line, " · ".join(extras)]
 	var lines: Array[String] = [line]
 	if four_poisons_level >= 5:
-		lines.append("사독 Lv5: active 중 분신 스킬 복제")
+		lines.append(_format_four_poisons_dual_lv5_line())
 	return "%s\n%s" % [description, "\n".join(lines)]
 
 
@@ -620,12 +613,12 @@ func _append_nerve_strike_runtime_bonus(description: String, hover_context: Dict
 		return description
 	var confusion_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 12, 24, 36, 48, 70], 10, 150)
 	var cooldown_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 0, 0, 10, 15, 20], 4, 40)
-	var line: String = "사독: 혼란 +%d%%" % confusion_pct
+	var line: String = _format_four_poisons_nerve_line(confusion_pct)
 	var extras: Array[String] = []
 	if cooldown_pct > 0:
-		extras.append("쿨 -%d%%" % cooldown_pct)
+		extras.append(_format_cooldown_reduction_runtime_line(cooldown_pct))
 	if four_poisons_level >= 5:
-		extras.append("분신 독 슬래시")
+		extras.append(LanguageSettings.translate_text("분신 독 슬래시"))
 	if not extras.is_empty():
 		line = "%s / %s" % [line, " · ".join(extras)]
 	return "%s\n%s" % [description, line]
@@ -646,7 +639,96 @@ func _append_ignition_aura_runtime_bonus(description: String, hover_context: Dic
 		gold_bonus = 50
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 		return "%s\nIgnition: invested perks Lv.+%d for 25s / gold +%d" % [description, active_bonus, gold_bonus]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "%s\n点火：25秒内已投资升级 Lv.+%d / 金币 +%d" % [description, active_bonus, gold_bonus]
 	return "%s\n이그니션: 25초 동안 투자 퍽 Lv.+%d / 골드 +%d" % [description, active_bonus, gold_bonus]
+
+
+func _format_blade_amp_runtime_line(size_pct: int, projectile_speed_pct: int, hit_speed_pct: int, cost_cut: int) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Blade Amp: width/range +%d%%, blade speed +%d%%, attack speed +%d%%, cost -%d" % [
+			size_pct,
+			projectile_speed_pct,
+			hit_speed_pct,
+			cost_cut,
+		]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "刀刃增幅：宽度/距离 +%d%%，刀速 +%d%%，攻速 +%d%%，费用 -%d" % [
+			size_pct,
+			projectile_speed_pct,
+			hit_speed_pct,
+			cost_cut,
+		]
+	return "검기증폭: 폭/거리+%d%%, 검속+%d%%, 공속+%d%%, 비용-%d" % [
+		size_pct,
+		projectile_speed_pct,
+		hit_speed_pct,
+		cost_cut,
+	]
+
+
+func _format_blade_amp_lv3_line(homing_pct: int, followup_pct: int) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Lv3+: homing %d%%, extra blade %d%%" % [homing_pct, followup_pct]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "Lv3+：追踪 %d%%，追加刀波 %d%%" % [homing_pct, followup_pct]
+	return "Lv3+: 유도 %d%%, 추가검기 %d%%" % [homing_pct, followup_pct]
+
+
+func _format_kick_enhance_runtime_line(precision_pct: int, speed_pct: int) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Kick Enhance: precision +%d%%, ball speed +%d%%" % [precision_pct, speed_pct]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "踢击强化：精度 +%d%%，球速 +%d%%" % [precision_pct, speed_pct]
+	return "킥 강화: 정밀도 +%d%%, 공속 +%d%%" % [precision_pct, speed_pct]
+
+
+func _format_kick_knockback_runtime_line(knockback_chance_pct: int) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Lv3+: furnace knockback ball %d%%, guard knockback 150%%" % knockback_chance_pct
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "Lv3+：熔炉击退球 %d%%，防御击退 150%%" % knockback_chance_pct
+	return "Lv3+: 용광로 넉백볼 %d%%, 가드 넉백 150%%" % knockback_chance_pct
+
+
+func _format_four_poisons_dive_line(prep_pct: int, sleep_pct: int) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Four Poisons: prep -%d%%, sleep +%d%%" % [prep_pct, sleep_pct]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "四毒：准备 -%d%%，睡眠 +%d%%" % [prep_pct, sleep_pct]
+	return "사독: 준비 -%d%%, 수면 +%d%%" % [prep_pct, sleep_pct]
+
+
+func _format_four_poisons_dual_line(duration_pct: int, clone_hp: int) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Four Poisons: duration +%d%%, clone HP %d" % [duration_pct, clone_hp]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "四毒：持续 +%d%%，分身HP %d" % [duration_pct, clone_hp]
+	return "사독: 지속 +%d%%, 분신 HP %d" % [duration_pct, clone_hp]
+
+
+func _format_four_poisons_dual_lv5_line() -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Four Poisons Lv5: clones copy skills while active"
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "四毒Lv5：主动期间分身复制技能"
+	return "사독 Lv5: active 중 분신 스킬 복제"
+
+
+func _format_four_poisons_nerve_line(confusion_pct: int) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Four Poisons: confusion +%d%%" % confusion_pct
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "四毒：混乱 +%d%%" % confusion_pct
+	return "사독: 혼란 +%d%%" % confusion_pct
+
+
+func _format_cooldown_reduction_runtime_line(cooldown_pct: int) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "cooldown -%d%%" % cooldown_pct
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "冷却 -%d%%" % cooldown_pct
+	return "쿨 -%d%%" % cooldown_pct
 
 
 func _get_kick_knockback_ball_chance_pct(level: int) -> int:
@@ -757,7 +839,7 @@ func _draw_control_rows(canvas: CanvasItem, font: Font, rows: Array, start: Vect
 				cursor_x += 22.0 * scale_factor
 			else:
 				var color: Color = _token_color(token_type)
-				var text_size: Vector2 = _draw_text(canvas, font, Vector2(cursor_x, row_y + scale_factor), value, normal_size, color)
+				var text_size: Vector2 = _draw_text(canvas, font, Vector2(cursor_x, row_y + scale_factor), LanguageSettings.translate_text(value), normal_size, color)
 				cursor_x += text_size.x + 6.0 * scale_factor
 
 

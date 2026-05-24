@@ -22,6 +22,7 @@ func _init() -> void:
 	_verify_runtime_roll_changes_recompute_quality()
 	_verify_mythic_titles_use_rarity_gold(catalog)
 	_verify_english_quality_text(catalog)
+	_verify_chinese_quality_text(catalog)
 	_restore_language_settings_snapshot()
 
 	if _failures.is_empty():
@@ -125,6 +126,22 @@ func _verify_english_quality_text(catalog: Object) -> void:
 		"unit": "%",
 	})
 	_expect(option_text == "Move Speed +12%", "English roll option text should translate known labels")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_chinese_quality_text(catalog: Object) -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_CHINESE)
+	var lucky_coin: Dictionary = _sync_with_roll(catalog, "lucky_coin", {"double_spawn_pct": 15.0})
+	var qualified_name := str(lucky_coin.get("qualified_display_name", ""))
+	_expect(qualified_name.ends_with("幸运硬币"), "Chinese passive quality name should keep the localized item base name")
+	_expect(qualified_name != "幸运硬币", "Chinese passive quality name should include a Chinese quality prefix")
+	var option_text := PassiveItemQuality.format_roll_option_text({
+		"label": "이동속도",
+		"prefix": "+",
+		"value": 12.0,
+		"unit": "%",
+	})
+	_expect(option_text == "移动速度 +12%", "Chinese roll option text should translate known labels")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

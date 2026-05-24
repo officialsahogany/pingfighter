@@ -67,7 +67,9 @@ func draw_ignition_aura_timer_gauge(
 	canvas.draw_arc(icon_center, 12.0, -PI * 0.15, PI * 1.35, 24, Color(1.0, 0.96, 0.74, 0.54), 1.6)
 	var font: Font = ThemeDB.fallback_font
 	if font != null:
-		var label: String = "%s %.1fs" % [LanguageSettings.translate_text("이그니션"), max(0.0, remaining_frames / 60.0)] if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "이그니션 %.1f초" % max(0.0, remaining_frames / 60.0)
+		var remaining_seconds: float = max(0.0, remaining_frames / 60.0)
+		var seconds_text: String = "%.1fs" % remaining_seconds if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else ("%.1f秒" % remaining_seconds if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE else "%.1f초" % remaining_seconds)
+		var label: String = "%s %s" % [LanguageSettings.translate_text("이그니션"), seconds_text]
 		canvas.draw_string(font, frame_rect.position + Vector2(8.0, -6.0), label, HORIZONTAL_ALIGNMENT_LEFT, 104.0, 10, Color(1.0, 0.95, 0.82, 0.90))
 
 

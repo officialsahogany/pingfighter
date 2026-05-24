@@ -8,15 +8,18 @@ const SETTINGS_LANGUAGE_KEY := "locale"
 
 const LANGUAGE_KOREAN := "ko"
 const LANGUAGE_ENGLISH := "en"
+const LANGUAGE_CHINESE := "zh"
 const DEFAULT_LANGUAGE := LANGUAGE_KOREAN
 const SUPPORTED_LANGUAGES: Array[String] = [
 	LANGUAGE_KOREAN,
 	LANGUAGE_ENGLISH,
+	LANGUAGE_CHINESE,
 ]
 
 const LANGUAGE_NATIVE_NAMES := {
 	LANGUAGE_KOREAN: "한국어",
 	LANGUAGE_ENGLISH: "English",
+	LANGUAGE_CHINESE: "简体中文",
 }
 
 const ITEM_DISPLAY_EN := {
@@ -96,6 +99,83 @@ const ITEM_DISPLAY_EN := {
 	"baal_boots": "Baal's Boots",
 }
 
+const ITEM_DISPLAY_ZH := {
+	"gauge_charge": "能量饮料",
+	"life_elixir": "生命灵药",
+	"ammo_box": "弹药箱",
+	"doping_potion": "兴奋剂注射器",
+	"vitamin_pill": "维生素饮料",
+	"strange_vial": "奇异药瓶",
+	"aipill": "AI药丸",
+	"pandora_box": "潘多拉魔盒",
+	"grenade": "手榴弹",
+	"flare": "信号弹",
+	"tear_gas": "催泪瓦斯",
+	"dynamite": "炸药",
+	"molotov": "燃烧瓶",
+	"stopwatch": "秒表",
+	"magnet_field": "磁场",
+	"long_boost": "成长药水",
+	"regeneration_potion": "再生药水",
+	"holy_barrier": "神圣屏障",
+	"dash_boost": "冲刺强化",
+	"wall": "砖墙",
+	"boomerang": "回旋镖",
+	"banana": "香蕉",
+	"soap": "肥皂",
+	"spider_mine": "蜘蛛地雷",
+	"elixir_of_mastery": "精通灵药",
+	"speedboots": "疾速靴",
+	"speedgear": "校正腰带",
+	"gravitybelt": "零重力腰带",
+	"sensor": "危险感应腰带",
+	"spikeboots": "钉刺靴",
+	"dowsing_pendulum": "探宝摆锤",
+	"dowsing_goggles": "探宝护目镜",
+	"yachaman_soul": "野叉曼头盔",
+	"slot_add": "背包",
+	"chargebag": "充能袋",
+	"battery": "电池包",
+	"revival": "轮回护符",
+	"master": "修理匠之锤",
+	"gold_digger": "淘金者",
+	"gold_bar": "金条",
+	"lucky_coin": "幸运硬币",
+	"adversity_armor": "逆境护甲",
+	"shrapnel_armor": "破片护甲",
+	"sage_ring": "贤者戒指",
+	"cooltime": "冷却球",
+	"timer_belt": "计时腰带",
+	"fuel_pouch": "燃料袋",
+	"bluetooth_ring": "蓝牙戒指",
+	"star_detector": "星点探测器",
+	"foul_whistle": "犯规哨",
+	"smartphone": "智能手机",
+	"neural_helmet": "神经头盔",
+	"venom_mist_gauntlet": "毒雾护手",
+	"reinforced_boomerang_gauntlet": "强化回旋镖手套",
+	"commando_arm": "突击臂",
+	"rainbow_fur_glove": "彩虹毛手套",
+	"knee_pads": "踢击充能器",
+	"dashgear": "冲刺装置",
+	"soul_burst": "灵魂爆发",
+	"bulkup": "增肌战衣",
+	"dashholder": "冲刺收纳器",
+	"bulletproof_hat": "防弹帽",
+	"spiked_helmet": "尖刺头盔",
+	"pandora_legacy": "潘多拉遗产",
+	"megingjord": "梅金吉奥德",
+	"ragnarok_hammer": "诸神黄昏之锤",
+	"hermes_shoes": "赫尔墨斯之鞋",
+	"poseidon_trident": "波塞冬三叉戟",
+	"sacred_laurel": "神圣月桂",
+	"transcendent_crown": "超越王冠",
+	"heavenly_cape": "天界披风",
+	"horn_strawberry_mask": "角草莓面具",
+	"celestial_armor": "天界不动甲",
+	"baal_boots": "巴尔之靴",
+}
+
 const MYTHIC_DESCRIPTION_EN := {
 	"speedboots": "While equipped, increases player movement speed by the rolled option value.",
 	"speedgear": "While equipped, left/right turning deceleration is increased by 2.5x.",
@@ -147,6 +227,59 @@ const MYTHIC_DESCRIPTION_EN := {
 	"celestial_armor": "May ignore incoming stun by spending gauge when it triggers.",
 	"baal_boots": "When weather starts, absorbs the current weather with Baal's power and restores gauge. The absorbed weather grants an extra effect for the round.",
 	"elixir_of_mastery": "On use, randomly selects one owned perk and raises it to Lv.5. This mythic active item is consumed after use.",
+}
+
+const MYTHIC_DESCRIPTION_ZH := {
+	"speedboots": "装备时，按词条数值提升玩家移动速度。",
+	"speedgear": "装备时，左右转向减速提高至2.5倍。",
+	"gravitybelt": "移动输入会立刻达到最高速度，松开输入后立即停止。",
+	"sensor": "危险时自动冲刺。自动冲刺不消耗能量或冲刺令牌。",
+	"spikeboots": "按词条数值减少冲刺后摇和冲刺令牌恢复时间。",
+	"dowsing_pendulum": "将范围内的场上道具拉向玩家球拍。",
+	"dowsing_goggles": "在选择特定升级时，有概率额外增加一个普通升级选项。",
+	"yachaman_soul": "即将失分前可能变身为炸弹战士并阻止得分。变身期间移动速度为3，球拍大小为70%。",
+	"slot_add": "装备时，按词条数值增加主动道具栏位。",
+	"chargebag": "装备时，球每次碰到墙壁都会额外获得能量。",
+	"battery": "装备时，进入下一关时保留部分能量。",
+	"revival": "失败前触发一次，阻止游戏结束，并从当前关卡开头重新开始。",
+	"master": "装备时，延长砖墙主动道具，减少主动道具冷却，并提高砖墙场上出现权重。",
+	"gold_digger": "装备时，按词条数值提升金币收益，并提升部分能量获取。",
+	"gold_bar": "只能出售的宝物。持有时移动速度降低30%，但可卖出2000金币。",
+	"lucky_coin": "装备时，场上道具生成可能额外产生一个奖励道具。",
+	"adversity_armor": "失分后，下一回合可能生成无敌墙，并提高下一次发球球速。",
+	"shrapnel_armor": "玩家球拍击球时，可能消耗能量向上发射破片，短暂眩晕并击退首领。",
+	"sage_ring": "装备时，所有已投入升级的有效等级+1。移动速度和体型按词条降低。",
+	"cooltime": "装备时，按词条数值减少主动道具再次使用冷却。",
+	"timer_belt": "装备时，按词条数值减少所有角色技能冷却。",
+	"fuel_pouch": "装备时，按词条数值提升玩家最大能量。",
+	"bluetooth_ring": "装备时，球拍击球获得的能量增加。",
+	"star_detector": "装备时，星点掉落可能额外生成一个奖励星点。",
+	"foul_whistle": "失去一回合时，可能取消得分并重新开始该回合。",
+	"smartphone": "能量较低时自动使用恢复道具，紧急时可自动触发秒表或神圣屏障。",
+	"neural_helmet": "减少AI药丸能量消耗并提高AI药丸出现率。AI药丸生效中方向输入会立即取消。",
+	"venom_mist_gauntlet": "仅限毒蛇。花郎踢会给球注入毒素；若首领防住感染球，首领周围会形成毒雾并降低移动和特殊能量。",
+	"reinforced_boomerang_gauntlet": "将回旋镖升级为金属版，并提升发射速度、追踪、出现率、击退和眩晕时间。",
+	"commando_arm": "支援投掷战斗道具。手榴弹、信号弹、燃烧瓶飞得更快且爆炸更大；炸药、香蕉、肥皂、回旋镖准备更快；催泪瓦斯持续更久。",
+	"rainbow_fur_glove": "球拍击球时，可能立即减少已装备角色技能的冷却。",
+	"knee_pads": "装备时，半冲刺击球会根据基础能量获取量充能。",
+	"dashgear": "增加冲刺距离，并可能取消下一次冲刺令牌消耗。",
+	"soul_burst": "没有冲刺令牌时，改为消耗特殊能量触发完整冲刺。",
+	"bulkup": "装备时，增加玩家球拍体型。",
+	"dashholder": "装备时，最大冲刺令牌+1。",
+	"bulletproof_hat": "装备时，减少玩家受到的眩晕时间。",
+	"spiked_helmet": "装备时，减少施加给玩家的击退速度。",
+	"pandora_legacy": "回合胜利时可能触发，让你从三个道具中选择一个。",
+	"megingjord": "获得额外升级选择机会，每个选择包最多可连续触发两次。",
+	"ragnarok_hammer": "回球时消耗能量生成眩晕球，返回时击退并眩晕首领。",
+	"hermes_shoes": "神使所穿的有翼鞋。按词条数值提升玩家移动速度。",
+	"poseidon_trident": "冲刺后摇时，在两侧生成巨大漩涡，强力将首领扣杀球向上弹起。",
+	"sacred_laurel": "月桂叶环绕玩家并提供保护。",
+	"transcendent_crown": "按词条数值提高所有已投入升级的效果等级。",
+	"heavenly_cape": "增加一个技能珠栏位，并减少所有玩家技能冷却。",
+	"horn_strawberry_mask": "每次第一关流程可用一次 A-D-A-D-A-D 指令变身为角草莓。",
+	"celestial_armor": "触发时可消耗能量无视即将到来的眩晕。",
+	"baal_boots": "天气开始时，以巴尔之力吸收当前天气并恢复能量。被吸收的天气会在本回合提供额外效果。",
+	"elixir_of_mastery": "使用时随机选择一个已拥有升级并提升到Lv.5。该神话主动道具使用后消耗。",
 }
 
 const PERK_NAME_EN := {
@@ -206,6 +339,63 @@ const PERK_NAME_EN := {
 	"convert_to_gold": "Convert to Gold",
 }
 
+const PERK_NAME_ZH := {
+	"dash_lightweight": "轻量化",
+	"dash_module_control": "模块控制",
+	"dash_jump": "跃进",
+	"dash_amplification": "增幅",
+	"item_luck": "幸运",
+	"item_cooldown_mastery": "精通",
+	"item_gauge_mastery": "熟练",
+	"active_duration_boost": "咖啡因",
+	"passive_polish": "打磨",
+	"alchemy": "炼金术",
+	"treasure_map": "藏宝图",
+	"active_slot_expand": "背包扩展",
+	"move_speed": "迅捷",
+	"accessory_slot_expand": "饰品扩展",
+	"paddle_bulk": "增大体型",
+	"boost_charging": "强化充能",
+	"sacred_laurel": "月桂叶",
+	"skill_cooldown_training": "训练",
+	"smasher_burst_up": "爆发提升",
+	"smasher_dash_spirit": "冲刺残影",
+	"smasher_unlock_magnetic_grip": "解锁马格南吸附",
+	"smasher_unlock_plasma": "解锁等离子",
+	"smasher_unlock_recovery": "解锁恢复",
+	"smasher_unlock_cleanse": "解锁净化",
+	"smasher_unlock_shield_kiting": "解锁盾牌牵制",
+	"smasher_unlock_ghost_shot": "解锁幽灵球",
+	"smasher_unlock_warp_gate": "解锁传送门",
+	"smasher_unlock_smasher_wheel": "解锁旋转重击",
+	"smasher_extension_gear": "延长装置",
+	"viper_unlock_venom_edge": "解锁毒刃",
+	"viper_unlock_emp": "解锁EMP打击",
+	"viper_unlock_chaos_spear": "解锁混沌长枪",
+	"viper_unlock_dual_glitch": "解锁双重故障",
+	"viper_unlock_ignition_aura": "解锁点火光环",
+	"viper_phantom_kick": "幻影踢",
+	"viper_hwarang_kick": "花郎踢",
+	"viper_dark_blade": "暗刃",
+	"viper_jetpack_enhance": "喷射背包强化",
+	"viper_kick_enhance": "踢击强化",
+	"viper_blade_amp": "刀刃增幅",
+	"viper_four_poisons": "四毒",
+	"soldier_unlock_net_gun": "网陷枪",
+	"soldier_unlock_fire_support": "火力支援",
+	"soldier_unlock_bowling_trap": "保龄球陷阱",
+	"soldier_unlock_suicide_drone": "自爆无人机",
+	"soldier_unlock_bazooka": "火箭筒",
+	"soldier_unlock_ak47": "AK-47",
+	"soldier_unlock_beretta": "贝雷塔",
+	"instant_full_gauge": "能量全满",
+	"instant_dimension_gate": "次元门",
+	"instant_treasure_hunt": "寻宝",
+	"instant_monkey_grace": "猴神恩惠",
+	"instant_refresh": "刷新",
+	"convert_to_gold": "兑换金币",
+}
+
 const PERK_SUMMARY_EN := {
 	"dash_lightweight": "Dash cooldown reduced.",
 	"dash_module_control": "Dash recovery reduced.",
@@ -263,6 +453,63 @@ const PERK_SUMMARY_EN := {
 	"convert_to_gold": "Skip the perk and gain 500 in-game gold.",
 }
 
+const PERK_SUMMARY_ZH := {
+	"dash_lightweight": "减少冲刺冷却。",
+	"dash_module_control": "减少冲刺后摇。",
+	"dash_jump": "增加冲刺距离。",
+	"dash_amplification": "增加最大冲刺令牌。",
+	"item_luck": "缩短场上道具生成间隔。",
+	"item_cooldown_mastery": "减少主动道具冷却。",
+	"item_gauge_mastery": "使用主动道具时获得技能能量。",
+	"active_duration_boost": "限时主动道具效果持续更久。",
+	"passive_polish": "强化被动效果。",
+	"alchemy": "使用道具后可能保留该道具。",
+	"treasure_map": "提高神话奖励概率和被动掉落占比。",
+	"active_slot_expand": "可携带更多主动道具。",
+	"move_speed": "移动速度提高。",
+	"accessory_slot_expand": "增加饰品栏位。",
+	"paddle_bulk": "球拍体型增加。",
+	"boost_charging": "下一次冲刺可能不消耗令牌，并更快恢复。",
+	"sacred_laurel": "保护月桂叶会挡住球。",
+	"skill_cooldown_training": "玩家技能恢复更快。",
+	"smasher_burst_up": "冲刺会短暂扩大球拍。",
+	"smasher_dash_spirit": "冲刺残影可能挡住球。",
+	"smasher_unlock_magnetic_grip": "解锁马格南吸附。",
+	"smasher_unlock_plasma": "解锁等离子。",
+	"smasher_unlock_recovery": "解锁恢复。",
+	"smasher_unlock_cleanse": "解锁净化。",
+	"smasher_unlock_shield_kiting": "解锁盾牌牵制。",
+	"smasher_unlock_ghost_shot": "解锁幽灵球。",
+	"smasher_unlock_warp_gate": "解锁传送门。",
+	"smasher_unlock_smasher_wheel": "解锁旋转重击。",
+	"smasher_extension_gear": "延长粉碎者辅助技能持续时间。",
+	"viper_unlock_venom_edge": "解锁毒刃。",
+	"viper_unlock_emp": "解锁EMP打击。",
+	"viper_unlock_chaos_spear": "解锁混沌长枪。",
+	"viper_unlock_dual_glitch": "解锁双重故障。",
+	"viper_unlock_ignition_aura": "解锁点火光环。",
+	"viper_phantom_kick": "武术踢后可追加幻影踢。",
+	"viper_hwarang_kick": "在冲刺击球时机后可使用花郎踢。",
+	"viper_dark_blade": "毒蛇连击命中后可使用暗刃。",
+	"viper_jetpack_enhance": "提升毒蛇空中控制。",
+	"viper_kick_enhance": "强化毒蛇踢击技能。",
+	"viper_blade_amp": "强化空刃和暗刃斩击。",
+	"viper_four_poisons": "强化EMP、毒刃、混沌长枪和双重故障。",
+	"soldier_unlock_net_gun": "解锁网陷枪。",
+	"soldier_unlock_fire_support": "解锁火力支援。",
+	"soldier_unlock_bowling_trap": "解锁保龄球陷阱。",
+	"soldier_unlock_suicide_drone": "解锁自爆无人机。",
+	"soldier_unlock_bazooka": "解锁火箭筒。",
+	"soldier_unlock_ak47": "解锁AK-47。",
+	"soldier_unlock_beretta": "解锁贝雷塔。",
+	"instant_full_gauge": "立即填满所有能量和冷却。",
+	"instant_dimension_gate": "短时间提高道具生成流量。",
+	"instant_treasure_hunt": "寻找宝物奖励。",
+	"instant_monkey_grace": "用补给填满空主动栏位。",
+	"instant_refresh": "额外刷新一次升级选项。",
+	"convert_to_gold": "跳过升级并获得500局内金币。",
+}
+
 const CHARACTER_EN := {
 	"smasher": {
 		"name": "Smasher",
@@ -309,6 +556,87 @@ const CHARACTER_EN := {
 		"description": "A fast combo character who slips through openings with blades and Phantom Kick.",
 		"special": "Plasma Blade-exclusive skill tree",
 	},
+}
+
+const CHARACTER_ZH := {
+	"smasher": {
+		"name": "粉碎者",
+		"character_name": "米卡",
+		"class_name": "粉碎者",
+		"role": "核心强袭手",
+		"tagline": "能量爆发连续重击",
+		"description": "用全力重击推进节奏的正面突破型角色。",
+		"special": "粉碎者专属技能树",
+	},
+	"commando": {
+		"name": "突击兵",
+		"character_name": "蕾娜",
+		"class_name": "突击兵",
+		"role": "战术控制",
+		"tagline": "切换武器的战术专家",
+		"description": "以补给呼叫和武器切换重塑战场的军事战术家。",
+		"special": "战斗经验与战术优势",
+	},
+	"baltor": {
+		"name": "巴尔托",
+		"character_name": "琥珀",
+		"class_name": "巴尔托",
+		"role": "熔炉守卫",
+		"tagline": "熔炉守卫的距离控制",
+		"description": "压低防线、用熔炉之锤和雷神盾控制距离并兼顾攻防的小型守卫。",
+		"special": "雷神盾与炮台协同模块",
+	},
+	"optimus": {
+		"name": "奥普提姆斯",
+		"character_name": "伊奥",
+		"class_name": "奥普提姆斯",
+		"role": "卡牌循环者",
+		"tagline": "机械式逆转突破",
+		"description": "以独立冷却的卡牌式技能循环扭转危机节奏。",
+		"special": "粉碎者系专属装备",
+	},
+	"viper": {
+		"name": "毒蛇",
+		"character_name": "瑟琳",
+		"class_name": "毒蛇",
+		"role": "赛博刺客",
+		"tagline": "连锁斩击刺客",
+		"description": "以刀刃和幻影踢穿过破绽的高速连击角色。",
+		"special": "等离子刃专属技能树",
+	},
+}
+
+const SKILL_DATA_ZH := {
+	"plasma": {"korean": "等离子", "description": "向前发射等离子球。接触的敌人会减速，蓄力越久减速越强。", "how_to_use": "按住W/上后松开", "motion_hint": "向前发射等离子球"},
+	"recovery": {"korean": "恢复", "description": "立即取消冲刺后摇，并短时间获得50%移动速度加成。", "how_to_use": "冲刺后摇中按W/上", "motion_hint": "绿色光芒取消后摇并加速"},
+	"cleanse": {"korean": "净化", "description": "立即解除眩晕、减速等异常状态，并短时间获得免疫。", "how_to_use": "受到异常状态时按W", "motion_hint": "金色净化解除异常状态"},
+	"shield_kiting": {"korean": "盾牌牵制", "description": "最多蓄力0.36秒后投掷能量盾。命中时球速提高30%，盾牌会立刻返回。", "how_to_use": "双击鼠标左键或双击SPACE", "motion_hint": "投掷并召回能量盾"},
+	"drive": {"korean": "弧线击球", "description": "将球打成弧线球。球到来前提前输入会提高准确度。", "how_to_use": "左/右 + 鼠标左键同时输入", "motion_hint": "用弧线击球改变球路"},
+	"power_smashing": {"korean": "强力重击", "description": "以强力扣杀发射球。左右输入可控制发射方向。", "how_to_use": "按住左/右 + 鼠标左键", "motion_hint": "用重击发射球"},
+	"magnum_grip": {"korean": "马格南吸附", "description": "用强磁场将球拉向球拍。回击被拉来的球会把球速上限提高到45。", "how_to_use": "同时按左+右", "motion_hint": "用磁力将球拉向球拍"},
+	"ghost_shot": {"korean": "幽灵球", "description": "球会蛇形移动，并有幽灵追随。能量420以上时替代强力重击。", "how_to_use": "能量420以上时按住左/右 + 鼠标左键", "motion_hint": "蛇形球与幽灵追击"},
+	"warp_gate": {"korean": "传送门", "description": "展开一段时间的次元传送门。可越过左右墙壁且不额外消耗能量。", "how_to_use": "按住S或下至少0.5秒", "motion_hint": "开启传送门穿越侧墙"},
+	"smasher_wheel": {"korean": "粉碎者之轮", "description": "球拍旋转1.2秒。碰到球时会以高速向首领重新发射，并带强弧线。", "how_to_use": "0.6秒内输入A-W-D或D-W-A", "motion_hint": "旋转球拍并重新发射球"},
+	"supply_drop": {"korean": "补给投放", "description": "用无线电呼叫补给机，投下随机道具或租借武器。", "how_to_use": "按住S/下或鼠标右键1秒", "motion_hint": "无线电呼叫补给机"},
+	"emergency_supply": {"korean": "装填", "description": "用无线电呼叫补给兵。短暂延迟后，补满当前选中武器的弹药。", "how_to_use": "原地连续按两次下", "motion_hint": "无线电呼叫后补给兵装填"},
+	"commando_pistol": {"korean": "贝雷塔", "description": "使用射速为手枪2倍、弹速提高20%、精度提高30%的贝雷塔。8发弹药只能通过装填补充。", "how_to_use": "选择武器后鼠标左键或SPACE", "motion_hint": "发射贝雷塔"},
+	"bazooka": {"korean": "火箭筒", "description": "选中时，发射后触发短暂技能珠冷却。装填每次补充一发。", "how_to_use": "选择武器后鼠标左键或SPACE", "motion_hint": "发射火箭筒"},
+	"ak47": {"korean": "AK-47", "description": "选中时，每次射击触发短暂技能珠冷却。装填能量充满后补充弹药和持续时间。", "how_to_use": "选择武器后鼠标左键或SPACE", "motion_hint": "AK-47连射"},
+	"net_gun": {"korean": "网陷枪", "description": "选中时，发射后触发短暂技能珠冷却。装填每次补充一发。", "how_to_use": "选择武器后鼠标左键或SPACE", "motion_hint": "发射网陷"},
+	"fire_support": {"korean": "火力支援", "description": "选中时，呼叫支援后触发短暂技能珠冷却。装填能量充满后补充呼叫次数。", "how_to_use": "选择武器后鼠标左键或SPACE", "motion_hint": "呼叫火力支援"},
+	"bowling_trap": {"korean": "保龄球陷阱", "description": "选中时，设置陷阱后触发短暂技能珠冷却。装填每次补充一发。", "how_to_use": "选择武器后鼠标左键或SPACE", "motion_hint": "设置保龄球陷阱"},
+	"suicide_drone": {"korean": "自爆无人机", "description": "选中时，发射无人机后触发短暂技能珠冷却。装填每次补充一发。", "how_to_use": "选择武器后鼠标左键或SPACE", "motion_hint": "发射自爆无人机"},
+	"shadow_step": {"korean": "暗影后撤", "description": "传送回冲刺前的位置。可用快速后踢打开连招路线。", "how_to_use": "冲刺中或刚结束时按S", "motion_hint": "留下残影并传送到起点"},
+	"blade_rush": {"korean": "空刃", "description": "在空中向前发射刀波。前摇较短，被击中的球无视难度使用40球速上限。", "how_to_use": "空中按W或上", "motion_hint": "向前发射巨大紫色斩击"},
+	"nerve_strike": {"korean": "毒刃", "description": "突进到对手身后并从背后斩击，造成混乱。", "how_to_use": "刀刃技能后，落地前按W或上", "motion_hint": "飞到首领身后斩击造成混乱"},
+	"dive_strike": {"korean": "EMP打击", "description": "以强冲击释放EMP脉冲。脉冲强度随空中高度提高。", "how_to_use": "空中按住S或下0.3秒", "motion_hint": "带着EMP脉冲俯冲"},
+	"marshal_kick": {"korean": "武术踢", "description": "蹬墙后冲向球。作为连招衔接使用。", "how_to_use": "在暗影后撤、刀刃技能或花郎踢之后", "motion_hint": "蹬墙并冲向球"},
+	"phantom_kick": {"korean": "幻影踢", "description": "将暗能量注入武术踢的反弹。", "how_to_use": "武术踢命中后按S或下", "motion_hint": "暗反物质踢"},
+	"dark_blade": {"korean": "暗刃", "description": "击球后3秒内发射强化空中斩击。命中时开启武术踢窗口。", "how_to_use": "在暗影后撤、空刃、武术/幻影/花郎踢命中后", "motion_hint": "在空中发射暗红强化斩击"},
+	"chaos_spear": {"korean": "混沌长枪", "description": "投掷混沌长枪。地图中央形成黑洞，吸入球和普通投射物。", "how_to_use": "地面输入A, W, D", "motion_hint": "中央黑洞吸收球和投射物"},
+	"core_flip": {"korean": "花郎踢", "description": "以花郎精神踢球，并沿难以预判的斜线反击。", "how_to_use": "冲刺击球后同时按A和D", "motion_hint": "两次蹬墙后冲向球"},
+	"dual_glitch": {"korean": "双重故障", "description": "用古代毒蛇技术分裂自身。分身会镜像玩家移动，从两侧防守球。", "how_to_use": "输入A, D, A, D或左-右-左-右", "motion_hint": "召唤左右分身球拍"},
+	"ignition_aura": {"korean": "点火光环", "description": "放大体内火焰能量。所有升级等级在一段时间内提高，金币加成也提高。", "how_to_use": "满足条件后发动", "motion_hint": "释放点火光环"},
 }
 
 const EXACT_TEXT_EN := {
@@ -540,6 +868,38 @@ const EXACT_TEXT_EN := {
 	"내구": "Durability",
 	"좌클릭": "Left Click",
 	"클릭": "Click",
+	"게이지 비용": "Gauge Cost",
+	"이펙트 미리보기": "Effect Preview",
+	"준비": "Prep",
+	"발동": "Activate",
+	"또는": "or",
+	"슈퍼아머": "Super Armor",
+	"분신 독 슬래시": "Clone Venom Slash",
+	"홀드 후 손 떼면 발동": "Hold, then release",
+	"대쉬후딜 중": "During dash recovery",
+	"상태이상 중": "While statused",
+	"더블클릭": "Double-click",
+	"더블탭": "Double-tap",
+	"홀드 발동": "Hold to activate",
+	"단독": "Alone",
+	"홀드 시 반대쪽 자동 발동": "Hold to auto-trigger opposite side",
+	"0.5초 홀드 발동": "Hold 0.5s",
+	"우회전 발동": "Clockwise",
+	"좌회전 발동": "Counterclockwise",
+	"대쉬 중/직후": "During/after dash",
+	"체공 중": "Airborne",
+	"블레이드 계열 사용 후": "After blade skill",
+	"0.3초 홀드": "Hold 0.3s",
+	"연계 후": "After combo",
+	"마샬 킥 적중 후": "After Marshal Kick hit",
+	"연계 타격 후 공중": "Airborne after combo hit",
+	"대쉬 타격 후": "After dash hit",
+	"지상에서": "On ground",
+	"1초 홀드": "Hold 1s",
+	"제자리에서": "In place",
+	"무기 선택 후": "After selecting weapon",
+	"1초 유지": "Hold 1s",
+	"0.5초 유지": "Hold 0.5s",
 	"즉시 발동": "Instant",
 	"발동 중": "Casting",
 	"사용됨": "Used",
@@ -690,11 +1050,429 @@ const EXACT_TEXT_EN := {
 	"초": "s",
 }
 
+const EXACT_TEXT_ZH := {
+	"체력": "生命",
+	"스테이지 진입 준비 중": "正在准备进入关卡",
+	"잠시만 기다려 주세요": "请稍候",
+	"전투 데이터 준비 중": "正在准备战斗数据",
+	"전투 상태 초기화 중": "正在初始化战斗状态",
+	"스테이지 입장 연출 준비 중": "正在准备关卡入场演出",
+	"준비 완료": "准备完成",
+	"스테이지 전환 중": "正在切换关卡",
+	"다음 보스 예고": "下一个首领预告",
+	"게임 데이터 준비 중": "正在准备游戏数据",
+	"데이터를 준비하는 중입니다": "正在准备数据",
+	"나노 조각을 동기화하는 중": "正在同步纳米碎片",
+	"전투 준비 완료": "战斗准备完成",
+	"전투 화면 준비 중": "正在准备战斗画面",
+	"인트로 리소스 확인 중": "正在检查开场资源",
+	"핵심 전투 리소스 불러오는 중": "正在加载核心战斗资源",
+	"플레이어 리소스 불러오는 중": "正在加载玩家资源",
+	"보스 리소스 불러오는 중": "正在加载首领资源",
+	"스매셔 스킬 아이콘 준비 중": "正在准备粉碎者技能图标",
+	"바이퍼 스킬 아이콘 준비 중": "正在准备毒蛇技能图标",
+	"전투 캐시 정리 중": "正在整理战斗缓存",
+	"오디오 장치 준비 중": "正在准备音频设备",
+	"스테이지 BGM 준비 중": "正在准备关卡BGM",
+	"전투 리소스 마무리 중": "正在完成战斗资源",
+	"시작 모듈 준비 중": "正在准备启动模块",
+	"아이템 런타임 준비 중": "正在准备道具运行时",
+	"업데이트 런타임 준비 중": "正在准备更新运行时",
+	"공 물리 런타임 준비 중": "正在准备球物理运行时",
+	"드로우 런타임 준비 중": "正在准备绘制运行时",
+	"스테이지 인트로 준비 중": "正在准备关卡开场",
+	"스테이지 런타임 준비 중": "正在准备关卡运行时",
+	"결과 화면 리소스 준비 중": "正在准备结果画面资源",
+	"첫 프레임 정리 중": "正在整理第一帧",
+	"캐릭터 선택": "选择角色",
+	"대표 스킬": "代表技能",
+	"뒤로": "返回",
+	"챔피언리그": "冠军联赛",
+	"신화리그": "神话联赛",
+	"난이도": "难度",
+	"전신 LIVE2D": "全身LIVE2D",
+	"준비중": "准备中",
+	"속도": "速度",
+	"파워": "力量",
+	"방어": "防御",
+	"아이템 상자 1개": "1个道具箱",
+	"아이템 상자 2개": "2个道具箱",
+	"아이템 상자 3개": "3个道具箱",
+	"아이템 상자 4개": "4个道具箱",
+	"아이템 상자 5개": "5个道具箱",
+	"액티브 아이템": "主动道具",
+	"패시브 아이템": "被动道具",
+	"신화 아이템": "神话道具",
+	"액티브": "主动",
+	"패시브": "被动",
+	"신화": "神话",
+	"스타포인트": "星点",
+	"퍽": "升级",
+	"보상": "奖励",
+	"획득 퍽": "已获得升级",
+	"퍽 선택": "选择升级",
+	"퍽 선택권": "升级选择权",
+	"퍽 정보": "升级信息",
+	"획득 퍽 없음": "没有已获得升级",
+	"이번 결과는 아이템 보상만 획득했습니다.": "本次结果仅获得道具奖励。",
+	"획득한 퍽 없음": "没有已获得升级",
+	"획득 보상 없음": "没有获得奖励",
+	"획득 아이템": "已获得道具",
+	"획득 골드": "获得金币",
+	"다음 스테이지": "下一关",
+	"나가기": "离开",
+	"획득!": "已获得！",
+	"플레이어 승리": "玩家胜利",
+	"Live2D 포즈": "Live2D姿势",
+	"승리 연출 테스트": "胜利演出测试",
+	"건들지마": "别碰我",
+	"일반상자": "普通箱",
+	"고급상자": "高级箱",
+	"신화 확정상자": "必出神话箱",
+	"인게임": "局内",
+	"상자 보상": "箱子奖励",
+	"획득한 퍽 효과를 적용합니다.": "应用已获得的升级效果。",
+	"보물탐색": "寻宝",
+	"아무것도 찾지 못했습니다": "什么也没找到",
+	"보물탐색: 꽝": "寻宝：落空",
+	"목록 준비 중": "正在准备列表",
+	"리소스 준비 중": "正在准备资源",
+	"캐릭터": "角色",
+	"캐릭터 정보": "角色信息",
+	"장비": "装备",
+	"장비 슬롯": "装备栏",
+	"패시브 보관함": "被动仓库",
+	"패시브 아이템 없음": "没有被动道具",
+	"능력치": "属性",
+	"롤 옵션": "随机词条",
+	"미장착": "未装备",
+	"패시브 장비가 연결되면 이 슬롯에 표시됩니다.": "连接被动装备后会显示在此栏位。",
+	"보유": "持有",
+	"장착": "装备",
+	"해금": "解锁",
+	"부위": "部位",
+	"머리": "头部",
+	"상의": "上装",
+	"왼팔": "左臂",
+	"오른팔": "右臂",
+	"팔": "手臂",
+	"벨트": "腰带",
+	"등": "背部",
+	"무릎": "膝部",
+	"신발": "鞋子",
+	"장신구": "饰品",
+	"장신구 1": "饰品1",
+	"장신구 2": "饰品2",
+	"장신구 3": "饰品3",
+	"장신구 4": "饰品4",
+	"장신": "饰",
+	"뿔딸기": "角草莓",
+	"이그니션": "点火",
+	"듀얼": "双重",
+	"팬텀 킥": "幻影踢",
+	"EMP 스트라이크": "EMP打击",
+	"연금술!": "炼金术！",
+	"재시작!": "重新开始！",
+	"무효!": "无效！",
+	"윤회의 부적 발동!": "轮回护符发动！",
+	"메긴교르드의 효과 발동!": "梅金吉奥德效果发动！",
+	"판도라의 유산": "潘多拉遗产",
+	"아이템을 선택하세요": "请选择道具",
+	"선택": "选择",
+	"←/→ / 클릭 / Enter": "←/→ / 点击 / Enter",
+	"엘릭서 오브 마스터리": "精通灵药",
+	"퍽의 운명이 결정됩니다...": "升级的命运正在决定...",
+	"[ Space / Click 으로 계속 ]": "[ Space / 点击 继续 ]",
+	"Lv.5 달성!": "达到Lv.5！",
+	"뿔딸기변신!": "角草莓变身！",
+	"스매셔": "粉碎者",
+	"바이퍼": "毒蛇",
+	"코만도": "突击兵",
+	"발토르": "巴尔托",
+	"옵티머스": "奥普提姆斯",
+	"미카": "米卡",
+	"레나": "蕾娜",
+	"코하쿠": "琥珀",
+	"이오": "伊奥",
+	"세린": "瑟琳",
+	"달지": "达尔吉",
+	"악어장군": "鳄鱼将军",
+	"홍련": "红莲",
+	"인왕": "仁王",
+	"소림사": "少林寺",
+	"정글": "丛林",
+	"멘헤라": "病娇",
+	"테트리서": "特崔瑟",
+	"아카무 리고": "阿卡姆·里戈",
+	"미노타우로스": "弥诺陶洛斯",
+	"최종 관문": "最终关门",
+	"4천왕": "四天王",
+	"진엔딩": "真结局",
+	"헤드샷!": "爆头！",
+	"레그샷!": "腿部射击！",
+	"상모돌리기": "象帽旋舞",
+	"팽이치기": "陀螺打击",
+	"타격발동": "命中发动",
+	"즉시발동": "立即发动",
+	"타격": "命中",
+	"즉시": "立即",
+	"공을 휘감아 아래로 몰아붙입니다. 플레이어가 가드하면 즉시 멈춥니다.": "缠住球并向下压制。玩家防住后会立即停止。",
+	"달지가 팽이를 소환합니다. 팽이에 닿은 공은 무작위 방향으로 튕깁니다.": "达尔吉召唤陀螺。接触陀螺的球会向随机方向弹开。",
+	"정글지진": "丛林地震",
+	"물대포": "水炮",
+	"스피드디펜스": "高速防御",
+	"자동 / 바위 등장 후": "自动 / 岩石出现后",
+	"쿨타임 30초": "冷却30秒",
+	"쿨타임 40초": "冷却40秒",
+	"바닥을 흔들어 바위와 충격을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.": "震动地面制造岩石和冲击。压迫阶段越高，落石越多。",
+	"물대포를 충전해 전장을 가로지르는 물줄기를 발사합니다.": "给水炮充能，发射横贯战场的水流。",
+	"짧은 시간 동안 보스 이동과 반응이 빨라지고 상태 이상을 막습니다.": "短时间提高首领移动和反应，并阻止异常状态。",
+	"스피드디펜스!": "高速防御！",
+	"분노 발구르기!": "愤怒践踏！",
+	"물대포 충전!": "水炮充能！",
+	"물대포 발사!": "水炮发射！",
+	"정글지진!": "丛林地震！",
+	"물대포 준비!": "水炮准备！",
+	"지진 준비!": "地震准备！",
+	"방어 준비!": "防御准备！",
+	"물대포 조준 중": "水炮瞄准中",
+	"정글을 흔든다": "震动丛林",
+	"악어장군 분노!": "鳄鱼将军愤怒！",
+	"물대포 조준!": "水炮瞄准！",
+	"물대포 중단!": "水炮中断！",
+	"방어벽 낙하!": "防御墙坠落！",
+	"파편 주의!": "小心破片！",
+	"멘헤라걸": "病娇少女",
+	"눈물샤워": "泪雨",
+	"저주상자": "诅咒箱",
+	"사이코볼": "精神球",
+	"전장 위로 눈물을 떨어뜨려 공을 둔화시키고 보스 쪽 압박을 만듭니다.": "在战场上落下泪滴，减慢球速并制造首领侧压迫。",
+	"저주 상자를 던져 폭발과 연기를 남기고 공의 흐름을 어지럽힙니다.": "投掷诅咒箱，留下爆炸和烟雾，扰乱球的流向。",
+	"사이코볼 상태로 전장을 흔들며 공 충돌에 강한 히트스톱을 겁니다.": "以精神球状态震动战场，并在球碰撞时施加强烈打停。",
+	"굴절 자기장": "折射磁场",
+	"자기장": "磁场",
+	"25초마다 자동 발동": "每25秒自动发动",
+	"공을 보스 주변에서 굴절시키고 종료 시 감속 구체를 발사합니다.": "让球在首领周围折射，结束时发射减速球体。",
+	"위빠사나 명상": "毗婆舍那冥想",
+	"명상": "冥想",
+	"18초 쿨타임 후 보스 타격": "18秒冷却后命中首领",
+	"공을 숫자 8 궤도로 붙잡고 명상 종료 후 추가 가속으로 플레이어 쪽으로 쏩니다.": "将球束缚在8字轨道上，冥想结束后额外加速射向玩家。",
+	"홍련 화염탄": "红莲火焰弹",
+	"홍련 화염구": "红莲火球",
+	"홍련 인페르노": "红莲炼狱",
+	"홍련폭염": "红莲爆炎",
+	"화염탄": "火焰弹",
+	"화염기관": "火焰机关",
+	"인페르노 예열": "炼狱预热",
+	"폭염 예열": "爆炎预热",
+	"쿨타임 3.5~5.0초": "冷却3.5-5.0秒",
+	"구슬 5칸 / 보스 적중": "5格宝珠 / 命中首领",
+	"용 구슬 5칸": "5格龙珠",
+	"쿨타임 변동": "冷却浮动",
+	"홍련이 화염구를 발사합니다. 맞으면 용 구슬 게이지가 1칸 충전됩니다.": "红莲发射火球。被命中时龙珠能量充能1格。",
+	"5번 맞으면 홍련이 공을 화염 용처럼 돌진시킵니다. 가드와 진입 각도를 흔듭니다.": "命中5次后，红莲会让球像火龙般突进，扰乱防守和进入角度。",
+	"전장에 화염 장치를 가동해 불길과 연기로 플레이어 진영을 압박합니다.": "在战场启动火焰装置，用火焰和烟雾压迫玩家阵地。",
+	"자동": "自动",
+	"보스 타격": "命中首领",
+	"상태": "状态",
+	"없음": "无",
+	"내구": "耐久",
+	"좌클릭": "左键",
+	"클릭": "点击",
+	"게이지 비용": "能量费用",
+	"이펙트 미리보기": "效果预览",
+	"준비": "准备",
+	"발동": "发动",
+	"또는": "或",
+	"슈퍼아머": "霸体",
+	"분신 독 슬래시": "分身毒斩",
+	"홀드 후 손 떼면 발동": "按住后松开发动",
+	"대쉬후딜 중": "冲刺后摇中",
+	"상태이상 중": "异常状态中",
+	"더블클릭": "双击",
+	"더블탭": "双击",
+	"홀드 발동": "按住发动",
+	"단독": "单独",
+	"홀드 시 반대쪽 자동 발동": "按住时自动发动反方向",
+	"0.5초 홀드 발동": "按住0.5秒发动",
+	"우회전 발동": "顺时针发动",
+	"좌회전 발동": "逆时针发动",
+	"대쉬 중/직후": "冲刺中/刚结束",
+	"체공 중": "空中",
+	"블레이드 계열 사용 후": "使用刀刃系后",
+	"0.3초 홀드": "按住0.3秒",
+	"연계 후": "连招后",
+	"마샬 킥 적중 후": "武术踢命中后",
+	"연계 타격 후 공중": "连击命中后空中",
+	"대쉬 타격 후": "冲刺命中后",
+	"지상에서": "地面上",
+	"1초 홀드": "按住1秒",
+	"제자리에서": "原地",
+	"무기 선택 후": "选择武器后",
+	"1초 유지": "保持1秒",
+	"0.5초 유지": "保持0.5秒",
+	"즉시 발동": "立即发动",
+	"발동 중": "发动中",
+	"사용됨": "已使用",
+	"대기": "等待",
+	"잠김": "锁定",
+	"충전": "充能",
+	"쿨타임 25초": "冷却25秒",
+	"쿨타임 35초": "冷却35秒",
+	"쿨타임 70초": "冷却70秒",
+	"탄약": "弹药",
+	"탄환": "子弹",
+	"호출권": "呼叫券",
+	"무제한": "无限",
+	"재장전": "装填",
+	"게이지": "能量",
+	"장착 스킬": "已装备技能",
+	"대시 거리": "冲刺距离",
+	"대시 후딜시간": "冲刺后摇",
+	"대시 토큰": "冲刺令牌",
+	"퍽 골드": "升级金币",
+	"방향 전환": "转向控制",
+	"이동 반응": "移动反应",
+	"감속": "减速",
+	"패배 방지": "防止失败",
+	"판매가": "售价",
+	"이동속도": "移动速度",
+	"이동 속도": "移动速度",
+	"넉백 거리": "击退距离",
+	"스턴 시간": "眩晕时间",
+	"대쉬 개수": "冲刺次数",
+	"모든 퍽 레벨": "所有升级等级",
+	"스킬 구슬 슬롯": "技能珠栏位",
+	"변신 비용": "变身费用",
+	"공 타격 게이지": "击球能量",
+	"추가 선택 확률": "额外选择概率",
+	"매직찬스": "魔法机会",
+	"승리시 유산 발동률": "胜利时遗产发动率",
+	"발동 확률": "发动概率",
+	"발동확률": "发动概率",
+	"공속 증가": "球速增加",
+	"게이지 소모": "能量消耗",
+	"월계수 잎": "月桂叶",
+	"모든 퍽 레벨 증가": "所有升级等级增加",
+	"쿨타임": "冷却",
+	"소용돌이 크기": "漩涡大小",
+	"스킬 쿨타임 감소": "技能冷却减少",
+	"게이지 회복": "能量恢复",
+	"변신 지속시간": "变身持续时间",
+	"끌어당기는 범위": "牵引范围",
+	"추가 퍽 등장 확률": "额外升级出现概率",
+	"변신 부활 확률": "变身复活概率",
+	"자동대쉬 쿨타임": "自动冲刺冷却",
+	"슬롯 추가": "栏位增加",
+	"벽 반사 게이지": "墙壁反弹能量",
+	"게이지 보존": "能量保留",
+	"벽돌 길이": "砖墙长度",
+	"아이템 쿨타임": "道具冷却",
+	"벽돌 스폰율": "砖墙出现率",
+	"골드 획득량": "金币获得量",
+	"더블 스폰 확률": "双倍生成概率",
+	"보호 지속시간": "保护持续时间",
+	"파편 개수": "破片数量",
+	"넉백 단계": "击退等级",
+	"이동속도 감소": "移动速度降低",
+	"몸집크기 감소": "体型减小",
+	"스킬 쿨타임": "技能冷却",
+	"최대 게이지": "最大能量",
+	"게이지 획득량": "能量获得量",
+	"스타포인트 드랍율": "星点掉落率",
+	"라운드 패배 시 무효화 확률": "回合失败时无效化概率",
+	"AI알약 게이지 소모": "AI药丸能量消耗",
+	"AI알약 스폰율": "AI药丸出现率",
+	"독안개 지속시간": "毒雾持续时间",
+	"부메랑 발사속도": "回旋镖发射速度",
+	"부메랑 유도성능": "回旋镖追踪性能",
+	"부메랑 스폰율": "回旋镖出现率",
+	"투척 속도": "投掷速度",
+	"폭발 범위": "爆炸范围",
+	"연막탄 지속시간": "烟雾弹持续时间",
+	"준비시간 단축": "准备时间缩短",
+	"대쉬 거리": "冲刺距离",
+	"부스트차징 발동확률": "强化充能发动概率",
+	"하프대쉬 게이지": "半冲刺能量",
+	"대쉬토큰 회복 시간": "冲刺令牌恢复时间",
+	"몸집크기": "体型",
+	"넉백 저항력": "击退抗性",
+	"대시쿨타임": "冲刺冷却",
+	"아이템쿨타임": "道具冷却",
+	"화재": "火灾",
+	"빙판": "冰面",
+	"소나기": "阵雨",
+	"우박": "冰雹",
+	"사막화": "沙漠化",
+	"화재가 번집니다": "火势蔓延",
+	"빙판이 깔립니다": "冰面铺开",
+	"소나기가 쏟아집니다": "阵雨倾盆而下",
+	"우박이 떨어집니다": "冰雹开始落下",
+	"사막화가 시작됩니다": "沙漠化开始",
+	"미풍이 잦아들었습니다": "微风平息",
+	"강풍이 멎었습니다": "强风停止",
+	"불길이 꺼졌습니다": "火焰熄灭",
+	"빙판이 녹았습니다": "冰面融化",
+	"소나기가 그쳤습니다": "阵雨停止",
+	"우박이 그쳤습니다": "冰雹停止",
+	"모래가 가라앉았습니다": "沙尘沉降",
+	"제한 없음": "无限制",
+	"약함": "弱",
+	"낮음": "低",
+	"보통": "普通",
+	"강함": "强",
+	"최대": "最大",
+	"절대적인": "绝对",
+	"궁극의": "终极",
+	"초신성의": "超新星",
+	"신화적인": "神话",
+	"절대무쌍한": "绝世无双",
+	"고대영웅의": "古代英雄",
+	"고급": "高级",
+	"장인의": "匠人",
+	"고품질의": "高品质",
+	"신성한": "神圣",
+	"명장의": "名匠",
+	"완벽한": "完美",
+	"영롱한": "玲珑",
+	"찬란한": "灿烂",
+	"비범한": "非凡",
+	"고성능의": "高性能",
+	"세련된": "精致",
+	"괜찮은": "不错",
+	"평범한": "普通",
+	"무난한": "稳妥",
+	"실용적인": "实用",
+	"준수한": "良好",
+	"보강된": "加固",
+	"균형 잡힌": "均衡",
+	"낡은": "陈旧",
+	"오래된": "老旧",
+	"녹슨": "生锈",
+	"손상된": "受损",
+	"떼묻은": "污旧",
+	"싸구려": "廉价",
+	"저급의": "低级",
+	"부실한": "劣质",
+	"회": "次",
+	"개": "个",
+	"칸": "格",
+	"골드": "金币",
+	"초": "秒",
+}
+
 const QUALITY_PREFIXES_EN := {
 	"top": ["Absolute", "Ultimate", "Supernova", "Mythic", "Peerless", "Ancient Hero's"],
 	"high": ["Advanced", "Artisan", "High-Quality", "Divine", "Masterwork", "Perfect", "Radiant", "Brilliant", "Exceptional", "High-Performance"],
 	"mid": ["Refined", "Solid", "Standard", "Reliable", "Practical", "Balanced", "Reinforced", "Well-Balanced"],
 	"low": ["Old", "Aged", "Rusty", "Damaged", "Worn", "Cheap", "Low-Grade", "Flimsy", ""],
+}
+
+const QUALITY_PREFIXES_ZH := {
+	"top": ["绝对", "终极", "超新星", "神话", "绝世无双", "古代英雄"],
+	"high": ["高级", "匠人", "高品质", "神圣", "名匠", "完美", "玲珑", "灿烂", "非凡", "高性能"],
+	"mid": ["精致", "不错", "标准", "可靠", "实用", "均衡", "加固", "平衡"],
+	"low": ["陈旧", "老旧", "生锈", "受损", "污旧", "廉价", "低级", "劣质", ""],
 }
 
 const TEXT := {
@@ -766,6 +1544,7 @@ const TEXT := {
 		"language.current": "현재 언어: %s",
 		"language.ko": "한국어",
 		"language.en": "English",
+		"language.zh": "简体中文",
 		"main_menu.quit_prompt": "나가시겠습니까?",
 		"main_menu.yes": "예",
 		"main_menu.no": "아니오",
@@ -838,9 +1617,83 @@ const TEXT := {
 		"language.current": "Current Language: %s",
 		"language.ko": "Korean",
 		"language.en": "English",
+		"language.zh": "Simplified Chinese",
 		"main_menu.quit_prompt": "Quit the game?",
 		"main_menu.yes": "Yes",
 		"main_menu.no": "No",
+	},
+	LANGUAGE_CHINESE: {
+		"app.title": "DiskHearts - Ringpia",
+		"pause.title": "暂停",
+		"pause.continue": "继续",
+		"pause.character_info": "角色信息",
+		"pause.options": "选项",
+		"settings.title": "设置",
+		"settings.tab.sound": "声音",
+		"settings.tab.display": "显示",
+		"settings.tab.controls": "操作",
+		"settings.tab.language": "语言",
+		"settings.back": "返回",
+		"settings.close": "关闭",
+		"settings.save": "保存",
+		"sound.bgm_volume": "BGM音量",
+		"sound.sfx_volume": "效果音量",
+		"display.mode": "显示模式",
+		"display.mode.fullscreen": "全屏",
+		"display.mode.exclusive": "独占",
+		"display.mode.windowed": "窗口",
+		"display.desc.exclusive": "使用独占全屏并绕过DWM合成。",
+		"display.desc.fullscreen": "使用原生分辨率全屏。",
+		"display.desc.windowed": "使用包含侧栏背景的窗口模式。",
+		"display.render_fps": "渲染FPS",
+		"display.fps.unlimited": "无限制",
+		"display.fps.monitor": "显示器 %d Hz",
+		"display.remember.title": "保存当前显示设置",
+		"display.remember.subtitle": "下次启动使用此显示模式和刷新节奏",
+		"display.auto60.title": "自动切换到60Hz",
+		"display.auto60.subtitle": "仅在特定显示器需要60Hz节奏时使用",
+		"display.recommend.apply": "应用推荐",
+		"display.apply60": "60Hz模式",
+		"display.recommendation.ready": "检测到%dHz显示器：渲染FPS将跟随当前刷新率。\n更换显示器后，下次应用会跟随新的刷新率。",
+		"display.recommendation.monitor": "检测到%dHz显示器：渲染FPS将跟随当前刷新率。\n推荐使用独占全屏和VSync自动。",
+		"display.recommendation.default": "检测到%dHz显示器：将渲染FPS设为显示器Hz可自动匹配。\n应用推荐会保存基于当前刷新率的设置。",
+		"display.recommendation.fallback": "将渲染FPS设为显示器Hz可自动匹配当前刷新率。\n推荐使用独占全屏和VSync自动。",
+		"controls.device": "输入设备",
+		"controls.keyboard_mouse": "键盘+鼠标",
+		"controls.joypad": "手柄",
+		"controls.vibration": "震动灵敏度",
+		"controls.map.move": "移动",
+		"controls.map.dash_skill": "冲刺 / 技能",
+		"controls.map.active_item": "主动道具",
+		"controls.map.supply_hold": "按住补给",
+		"controls.map.weapon_switch": "切换武器",
+		"controls.map.confirm_cancel_pause": "确认 / 取消 / 暂停",
+		"controls.value.joypad.move": "左摇杆 / D-pad",
+		"controls.value.joypad.dash_skill": "冲刺：B或下 / 技能：A / X / RT",
+		"controls.value.joypad.active_item": "LB/RB或右摇杆左右选择 / Y使用",
+		"controls.value.joypad.supply_hold": "LT",
+		"controls.value.joypad.weapon_switch": "右摇杆上/下 / R3",
+		"controls.value.joypad.confirm_cancel_pause": "A / B / 菜单",
+		"controls.value.keyboard.move": "A,D,W,S / 方向键",
+		"controls.value.keyboard.dash_skill": "Space / X / 鼠标左键",
+		"controls.value.keyboard.active_item": "1 / 2 / 3",
+		"controls.value.keyboard.supply_hold": "S / 鼠标右键",
+		"controls.value.keyboard.weapon_switch": "鼠标滚轮 / 中键",
+		"controls.value.keyboard.confirm_cancel_pause": "Enter / Esc",
+		"vibration.1": "弱",
+		"vibration.2": "低",
+		"vibration.3": "普通",
+		"vibration.4": "强",
+		"vibration.5": "最大",
+		"language.title": "语言",
+		"language.subtitle": "语言会立即保存并应用。",
+		"language.current": "当前语言：%s",
+		"language.ko": "韩语",
+		"language.en": "英语",
+		"language.zh": "简体中文",
+		"main_menu.quit_prompt": "要退出游戏吗？",
+		"main_menu.yes": "是",
+		"main_menu.no": "否",
 	},
 }
 
@@ -870,7 +1723,7 @@ static func set_language(language: String) -> String:
 	config.set_value(SETTINGS_SECTION, SETTINGS_SCHEMA_KEY, SETTINGS_SCHEMA_VERSION)
 	config.set_value(SETTINGS_SECTION, SETTINGS_LANGUAGE_KEY, normalized)
 	if config.save(SETTINGS_PATH) != OK:
-		push_warning("Failed to save language settings: %s" % SETTINGS_PATH)
+		print_verbose("Failed to save language settings: %s" % SETTINGS_PATH)
 	return normalized
 
 
@@ -884,6 +1737,8 @@ static func normalize_language(language: String) -> String:
 		normalized = LANGUAGE_ENGLISH
 	if normalized == "ko_kr" or normalized == "ko-kr":
 		normalized = LANGUAGE_KOREAN
+	if normalized == "zh_cn" or normalized == "zh-cn" or normalized == "zh_hans" or normalized == "zh-hans" or normalized == "chinese" or normalized == "中文" or normalized == "简体中文":
+		normalized = LANGUAGE_CHINESE
 	if SUPPORTED_LANGUAGES.has(normalized):
 		return normalized
 	return DEFAULT_LANGUAGE
@@ -896,6 +1751,48 @@ static func get_language_options() -> Array[String]:
 static func get_native_language_name(language: String) -> String:
 	var normalized := normalize_language(language)
 	return str(LANGUAGE_NATIVE_NAMES.get(normalized, normalized))
+
+
+static func _get_exact_text_map(language: String) -> Dictionary:
+	if language == LANGUAGE_CHINESE:
+		return EXACT_TEXT_ZH
+	return EXACT_TEXT_EN
+
+
+static func _get_item_display_map(language: String) -> Dictionary:
+	if language == LANGUAGE_CHINESE:
+		return ITEM_DISPLAY_ZH
+	return ITEM_DISPLAY_EN
+
+
+static func _get_mythic_description_map(language: String) -> Dictionary:
+	if language == LANGUAGE_CHINESE:
+		return MYTHIC_DESCRIPTION_ZH
+	return MYTHIC_DESCRIPTION_EN
+
+
+static func _get_perk_name_map(language: String) -> Dictionary:
+	if language == LANGUAGE_CHINESE:
+		return PERK_NAME_ZH
+	return PERK_NAME_EN
+
+
+static func _get_perk_summary_map(language: String) -> Dictionary:
+	if language == LANGUAGE_CHINESE:
+		return PERK_SUMMARY_ZH
+	return PERK_SUMMARY_EN
+
+
+static func _get_character_map(language: String) -> Dictionary:
+	if language == LANGUAGE_CHINESE:
+		return CHARACTER_ZH
+	return CHARACTER_EN
+
+
+static func _get_quality_prefix_map(language: String) -> Dictionary:
+	if language == LANGUAGE_CHINESE:
+		return QUALITY_PREFIXES_ZH
+	return QUALITY_PREFIXES_EN
 
 
 static func translate(key: String, fallback: String = "") -> String:
@@ -912,12 +1809,14 @@ static func translate(key: String, fallback: String = "") -> String:
 
 
 static func translate_text(text: String, fallback: String = "") -> String:
-	if get_language() != LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_KOREAN:
 		return text
 	if text.is_empty():
 		return text
-	if EXACT_TEXT_EN.has(text):
-		return str(EXACT_TEXT_EN[text])
+	var exact_text_map := _get_exact_text_map(language)
+	if exact_text_map.has(text):
+		return str(exact_text_map[text])
 	if not fallback.is_empty():
 		return fallback
 	var translated := _translate_known_patterns(text)
@@ -927,13 +1826,15 @@ static func translate_text(text: String, fallback: String = "") -> String:
 
 
 static func get_quality_prefixes(tier: String, fallback: Array) -> Array:
-	if get_language() != LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_KOREAN:
 		return fallback
-	return _get_array(QUALITY_PREFIXES_EN.get(tier, fallback)).duplicate()
+	var prefix_map := _get_quality_prefix_map(language)
+	return _get_array(prefix_map.get(tier, fallback)).duplicate()
 
 
 static func localize_character_list(characters: Array) -> Array:
-	if get_language() != LANGUAGE_ENGLISH:
+	if get_language() == LANGUAGE_KOREAN:
 		return characters
 	var result: Array = []
 	for character_value in characters:
@@ -945,13 +1846,14 @@ static func localize_character_list(characters: Array) -> Array:
 
 
 static func localize_character_data(character_data: Dictionary) -> Dictionary:
-	if get_language() != LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_KOREAN:
 		return character_data
 	var result := character_data.duplicate(true)
 	var key := str(result.get("runtime_id", result.get("key", result.get("id", "")))).strip_edges().to_lower()
 	if key == "soldier":
 		key = "commando"
-	var localized: Dictionary = CHARACTER_EN.get(key, {})
+	var localized: Dictionary = _get_character_map(language).get(key, {})
 	for field in localized.keys():
 		result[str(field)] = localized[field]
 	var stats_value: Variant = result.get("stats", {})
@@ -966,80 +1868,112 @@ static func localize_character_data(character_data: Dictionary) -> Dictionary:
 
 
 static func localize_item_data(item_data: Dictionary) -> Dictionary:
-	if get_language() != LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_KOREAN:
 		return item_data
 	var result := _localize_visible_dictionary(item_data.duplicate(true), "")
 	var item_name := str(result.get("name", result.get("effect", "")))
-	if ITEM_DISPLAY_EN.has(item_name):
-		result["display_name"] = str(ITEM_DISPLAY_EN[item_name])
-		result["korean_name"] = str(ITEM_DISPLAY_EN[item_name])
-	if MYTHIC_DESCRIPTION_EN.has(item_name):
-		result["description"] = str(MYTHIC_DESCRIPTION_EN[item_name])
+	var item_display_map := _get_item_display_map(language)
+	var mythic_description_map := _get_mythic_description_map(language)
+	if item_display_map.has(item_name):
+		result["display_name"] = str(item_display_map[item_name])
+		result["korean_name"] = str(item_display_map[item_name])
+	if mythic_description_map.has(item_name):
+		result["description"] = str(mythic_description_map[item_name])
 	if result.has("qualified_display_name"):
 		result["qualified_display_name"] = format_item_display_name(result)
 	return result
 
 
 static func localize_perk_data(perk_data: Dictionary) -> Dictionary:
-	if get_language() != LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_KOREAN:
 		return perk_data
 	var result := _localize_visible_dictionary(perk_data.duplicate(true), "")
 	var perk_id := str(result.get("id", ""))
-	if PERK_NAME_EN.has(perk_id):
-		result["name"] = str(PERK_NAME_EN[perk_id])
-	if PERK_SUMMARY_EN.has(perk_id):
-		result["description"] = str(PERK_SUMMARY_EN[perk_id])
-		result["detail"] = str(PERK_SUMMARY_EN[perk_id])
+	var perk_name_map := _get_perk_name_map(language)
+	var perk_summary_map := _get_perk_summary_map(language)
+	if perk_name_map.has(perk_id):
+		result["name"] = str(perk_name_map[perk_id])
+	if perk_summary_map.has(perk_id):
+		result["description"] = str(perk_summary_map[perk_id])
+		result["detail"] = str(perk_summary_map[perk_id])
 	var descriptions_value: Variant = result.get("descriptions", {})
 	if descriptions_value is Dictionary:
 		var descriptions: Dictionary = descriptions_value
 		var localized_descriptions: Dictionary = {}
 		for level_value in descriptions.keys():
-			localized_descriptions[level_value] = str(PERK_SUMMARY_EN.get(perk_id, translate_text(str(descriptions[level_value]))))
+			localized_descriptions[level_value] = str(perk_summary_map.get(perk_id, translate_text(str(descriptions[level_value]))))
 		result["descriptions"] = localized_descriptions
 	return result
 
 
 static func localize_reward_data(reward_data: Dictionary) -> Dictionary:
-	if get_language() != LANGUAGE_ENGLISH:
+	if get_language() == LANGUAGE_KOREAN:
 		return reward_data
 	return _localize_visible_dictionary(reward_data.duplicate(true), "")
 
 
+static func localize_skill_config_data(skill_data: Dictionary, skill_name: String) -> void:
+	if get_language() != LANGUAGE_CHINESE:
+		return
+	var localized: Dictionary = SKILL_DATA_ZH.get(skill_name, {})
+	for field in localized.keys():
+		skill_data[str(field)] = localized[field]
+
+
 static func format_stage_label(stage: int) -> String:
-	if get_language() == LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_ENGLISH:
 		return "Stage %d" % stage
+	if language == LANGUAGE_CHINESE:
+		return "第%d关" % stage
 	return "스테이지 %d" % stage
 
 
 static func format_stage_character_label(stage: int, character_name: String) -> String:
 	var localized_name := translate_text(character_name)
-	if get_language() == LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_ENGLISH:
 		return "Stage %d / %s" % [stage, localized_name]
+	if language == LANGUAGE_CHINESE:
+		return "第%d关 / %s" % [stage, localized_name]
 	return "스테이지 %d  /  %s" % [stage, localized_name]
 
 
 static func format_stage_result_label(stage: int) -> String:
-	if get_language() == LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_ENGLISH:
 		return "Stage %d Results" % stage
+	if language == LANGUAGE_CHINESE:
+		return "第%d关结果" % stage
 	return "스테이지 %d 결과" % stage
 
 
 static func format_stage_transition_subtitle(stage: int) -> String:
-	if get_language() == LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_ENGLISH:
 		return "Stage %d / Next Boss Preview" % stage
+	if language == LANGUAGE_CHINESE:
+		return "第%d关 / 下一个首领预告" % stage
 	return "스테이지 %d  /  다음 보스 예고" % stage
 
 
 static func format_stage_transition_status(stage: int) -> String:
-	if get_language() == LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_ENGLISH:
 		return "Preparing Stage %d boss data" % stage
+	if language == LANGUAGE_CHINESE:
+		return "正在准备第%d关首领数据" % stage
 	return "스테이지 %d 보스 데이터를 준비 중" % stage
 
 
 static func format_item_box_summary(count: int) -> String:
-	if get_language() == LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_ENGLISH:
 		return "%d Item Box%s" % [count, "" if count == 1 else "es"]
+	if language == LANGUAGE_CHINESE:
+		return "%d个道具箱" % count
 	return "아이템 상자 %d개" % count
 
 
@@ -1054,8 +1988,11 @@ static func format_item_display_name(item_data: Dictionary) -> String:
 
 static func format_select_label(name: String) -> String:
 	var localized_name := translate_text(name)
-	if get_language() == LANGUAGE_ENGLISH:
+	var language := get_language()
+	if language == LANGUAGE_ENGLISH:
 		return "Select %s" % localized_name
+	if language == LANGUAGE_CHINESE:
+		return "选择%s" % localized_name
 	return "%s 선택" % localized_name
 
 
@@ -1113,54 +2050,93 @@ static func _localize_visible_string(key: String, value: String, parent_key: Str
 
 
 static func _translate_known_patterns(text: String) -> String:
+	var language := get_language()
 	if text.begins_with("게이지 "):
+		if language == LANGUAGE_CHINESE:
+			return "能量 %s" % text.substr("게이지 ".length())
 		return "Gauge %s" % text.substr("게이지 ".length())
 	if text.begins_with("대시 토큰 "):
+		if language == LANGUAGE_CHINESE:
+			return "冲刺令牌 %s" % text.substr("대시 토큰 ".length())
 		return "Dash Tokens %s" % text.substr("대시 토큰 ".length())
 	if text.begins_with("선택 대기: "):
+		if language == LANGUAGE_CHINESE:
+			return "待选择：%s" % text.substr("선택 대기: ".length())
 		return "Choices Waiting: %s" % text.substr("선택 대기: ".length())
 	if text.begins_with("선택 대기 "):
+		if language == LANGUAGE_CHINESE:
+			return "待选择 %s" % text.substr("선택 대기 ".length())
 		return "Choices Waiting %s" % text.substr("선택 대기 ".length())
 	if text.begins_with("퍽 골드: "):
+		if language == LANGUAGE_CHINESE:
+			return "升级金币：%s" % text.substr("퍽 골드: ".length())
 		return "Perk Gold: %s" % text.substr("퍽 골드: ".length())
 	if text.begins_with("퍽 골드 "):
+		if language == LANGUAGE_CHINESE:
+			return "升级金币 %s" % text.substr("퍽 골드 ".length())
 		return "Perk Gold %s" % text.substr("퍽 골드 ".length())
 	if text.begins_with("추가 ") and text.ends_with("개"):
+		if language == LANGUAGE_CHINESE:
+			return "额外%s个" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
 		return "Extra %s" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
 	if text.begins_with("보유 ") and text.find(" / 장착 ") >= 0:
 		var parts := text.replace("보유 ", "").split(" / 장착 ", false)
 		if parts.size() == 2:
+			if language == LANGUAGE_CHINESE:
+				return "持有 %s / 装备 %s" % [parts[0], parts[1]]
 			return "Owned %s / Equipped %s" % [parts[0], parts[1]]
 	if text.begins_with("장착: "):
+		if language == LANGUAGE_CHINESE:
+			return "装备：%s" % translate_text(text.substr("장착: ".length()))
 		return "Equipped: %s" % translate_text(text.substr("장착: ".length()))
 	if text.begins_with("부위 : "):
+		if language == LANGUAGE_CHINESE:
+			return "部位：%s" % translate_text(text.substr("부위 : ".length()))
 		return "Part: %s" % translate_text(text.substr("부위 : ".length()))
 	if text.begins_with("슬롯 "):
+		if language == LANGUAGE_CHINESE:
+			return "栏位 %s" % text.substr("슬롯 ".length())
 		return "Slot %s" % text.substr("슬롯 ".length())
 	if text.begins_with("비용 ") and text.find("  쿨타임 ") >= 0:
 		var skill_parts := text.replace("비용 ", "").split("  쿨타임 ", false)
 		if skill_parts.size() == 2:
+			if language == LANGUAGE_CHINESE:
+				return "费用 %s  冷却 %s" % [skill_parts[0], translate_text(skill_parts[1])]
 			return "Cost %s  Cooldown %s" % [skill_parts[0], translate_text(skill_parts[1])]
 	if text.begins_with("스테이지 ") and text.ends_with(" 결과 화면"):
 		var stage_result := text.replace("스테이지 ", "").replace(" 결과 화면", "")
+		if language == LANGUAGE_CHINESE:
+			return "第%s关结果画面" % stage_result
 		return "Stage %s Result Screen" % stage_result
 	if text.begins_with("스테이지 ") and text.ends_with(" 결과"):
 		var stage_number := text.replace("스테이지 ", "").replace(" 결과", "")
+		if language == LANGUAGE_CHINESE:
+			return "第%s关结果" % stage_number
 		return "Stage %s Results" % stage_number
 	if text.begins_with("스테이지 "):
 		var stage_label := text.replace("스테이지 ", "")
 		if stage_label.is_valid_int():
+			if language == LANGUAGE_CHINESE:
+				return "第%s关" % stage_label
 			return "Stage %s" % stage_label
 	if text.ends_with(" 선택"):
+		if language == LANGUAGE_CHINESE:
+			return "选择%s" % translate_text(text.substr(0, text.length() - 3))
 		return "Select %s" % translate_text(text.substr(0, text.length() - 3))
 	if text.begins_with("쿨타임 ") and text.ends_with("초"):
 		var seconds := text.replace("쿨타임 ", "").replace("초", "")
+		if language == LANGUAGE_CHINESE:
+			return "冷却%s秒" % seconds
 		return "Cooldown %ss" % seconds
 	if text.ends_with("초"):
 		var plain_seconds := text.substr(0, text.length() - 1)
 		if plain_seconds.is_valid_float():
+			if language == LANGUAGE_CHINESE:
+				return "%s秒" % plain_seconds
 			return "%ss" % plain_seconds
 	if text.ends_with(" 발견"):
+		if language == LANGUAGE_CHINESE:
+			return "发现%s" % translate_text(text.substr(0, text.length() - 3))
 		return "%s Found" % translate_text(text.substr(0, text.length() - 3))
 	return ""
 

@@ -250,7 +250,8 @@ func _draw_skill_tooltip(
 	var max_text_width: float = width - padding * 2.0
 	var desc_lines: Array[String] = _wrap_text(LanguageSettings.translate_text(str(info.get("description", ""))), font, normal_size, max_text_width, TOOLTIP_MAX_DESC_LINES)
 	var status_text: String = _get_tooltip_status_text(skill)
-	var cooldown_text: String = "Cooldown %.0fs" % float(info.get("cooldown_seconds", 0.0)) if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "쿨타임 %.0f초" % float(info.get("cooldown_seconds", 0.0))
+	var cooldown_seconds := float(info.get("cooldown_seconds", 0.0))
+	var cooldown_text: String = "Cooldown %.0fs" % cooldown_seconds if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else ("冷却%.0f秒" % cooldown_seconds if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE else "쿨타임 %.0f초" % cooldown_seconds)
 	var trigger_text: String = LanguageSettings.translate_text(str(info.get("trigger", "")))
 	var title_h: float = 20.0 * tooltip_scale
 	var meta_h: float = 17.0 * tooltip_scale
@@ -408,7 +409,12 @@ func _get_tooltip_status_text(skill: Dictionary) -> String:
 		return LanguageSettings.translate_text("사용됨")
 	if bool(skill.get("ready", false)) or status == "ready":
 		return LanguageSettings.translate_text("준비 완료")
-	return ("Charge %d%%" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "충전 %d%%") % int(round(clamp(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
+	var progress_percent := int(round(clamp(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Charge %d%%" % progress_percent
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "充能 %d%%" % progress_percent
+	return "충전 %d%%" % progress_percent
 
 
 func _get_tooltip_scale(scale_factor: float) -> float:

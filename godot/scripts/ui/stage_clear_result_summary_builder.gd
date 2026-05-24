@@ -145,7 +145,13 @@ static func build_perk_info_summary(
 		if title == "":
 			title = LanguageSettings.translate_text("획득 퍽")
 		if perks.size() > 1:
-			title = "%s +%d" % [title, perks.size() - 1] if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%s 외 %d개" % [title, perks.size() - 1]
+			var extra_count: int = perks.size() - 1
+			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+				title = "%s +%d" % [title, extra_count]
+			elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+				title = "%s 另%d个" % [title, extra_count]
+			else:
+				title = "%s 외 %d개" % [title, extra_count]
 		return {
 			"kind": "perk",
 			"eyebrow": LanguageSettings.translate_text("획득 퍽"),
@@ -154,11 +160,16 @@ static func build_perk_info_summary(
 		}
 
 	if starpoint_total > 0:
+		var detail := "다음 진행 시 획득한 수만큼 퍽 선택창이 열립니다."
+		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+			detail = "The next run will open perk choices for the amount acquired."
+		elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+			detail = "下次进行时会按获得数量打开升级选择窗口。"
 		return {
 			"kind": "starpoint",
 			"eyebrow": LanguageSettings.translate_text("퍽 선택"),
 			"title": "%s +%d" % [LanguageSettings.translate_text("퍽 선택권"), starpoint_total],
-			"detail": "The next run will open perk choices for the amount acquired." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "다음 진행 시 획득한 수만큼 퍽 선택창이 열립니다.",
+			"detail": detail,
 		}
 
 	return {

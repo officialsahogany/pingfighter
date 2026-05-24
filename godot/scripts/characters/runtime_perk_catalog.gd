@@ -733,7 +733,7 @@ func get_all_perk_data() -> Dictionary:
 	data.merge(SMASHER_PERKS, true)
 	data.merge(VIPER_PERKS, true)
 	data.merge(SOLDIER_PERKS, true)
-	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_ENGLISH:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN:
 		return data
 	var localized: Dictionary = {}
 	for skill_id in data.keys():

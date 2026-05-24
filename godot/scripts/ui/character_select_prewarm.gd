@@ -71,7 +71,7 @@ func get_status_text() -> String:
 	if finished:
 		return LanguageSettings.translate_text("준비 완료")
 	if current_job.is_empty():
-		return "Preparing List" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "목록 준비 중"
+		return LanguageSettings.translate_text("목록 준비 중")
 	return LanguageSettings.translate_text(str(current_job.get("label", "리소스 준비 중")))
 
 
@@ -166,6 +166,13 @@ func _format_asset_label(character_name: String, asset_kind: String) -> String:
 				return "%s animation" % character_name
 			"parts":
 				return "%s parts image" % character_name
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "%s %s" % [character_name, {
+			"card": "卡牌图像",
+			"still": "静态图像",
+			"animation": "动画",
+			"parts": "部件图像",
+		}.get(asset_kind, "资源")]
 	return "%s %s" % [character_name, {
 		"card": "카드 이미지",
 		"still": "스틸 이미지",

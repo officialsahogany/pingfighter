@@ -546,7 +546,12 @@ func _get_tooltip_status_text(skill: Dictionary) -> String:
 		return LanguageSettings.translate_text("잠김")
 	if bool(skill.get("ready", false)) or status == "ready":
 		return LanguageSettings.translate_text("준비 완료")
-	return ("Charge %d%%" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "충전 %d%%") % int(round(clampf(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
+	var progress_percent := int(round(clampf(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Charge %d%%" % progress_percent
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "充能 %d%%" % progress_percent
+	return "충전 %d%%" % progress_percent
 
 
 func _get_status_color(skill: Dictionary) -> Color:

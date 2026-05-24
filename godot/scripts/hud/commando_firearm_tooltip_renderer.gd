@@ -129,58 +129,128 @@ func _get_cooldown_seconds(weapon_id: String, skill_config_snapshot: Dictionary)
 
 func _get_description(weapon_id: String, skill_config_snapshot: Dictionary) -> String:
 	if weapon_id == "pistol":
-		return "The basic pistol uses a 4-round magazine and fires after a ready sound and aim delay." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "기본 권총은 4발 탄창을 사용하며 준비음 뒤에 조준 후 발사합니다."
+		return _pick_language_text(
+			"기본 권총은 4발 탄창을 사용하며 준비음 뒤에 조준 후 발사합니다.",
+			"The basic pistol uses a 4-round magazine and fires after a ready sound and aim delay.",
+			"基础手枪使用4发弹匣，在准备音和瞄准延迟后开火。"
+		)
 	var skill_data: Dictionary = _get_dict(_get_dict(skill_config_snapshot.get("skill_data", {})).get(weapon_id, {}))
 	var description: String = str(skill_data.get("description", ""))
 	if description.is_empty():
-		return "Uses the same unlock name as the Commando firearm skill orb." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "코만도 화기 스킬구슬과 같은 해금명을 사용합니다."
+		return _pick_language_text(
+			"코만도 화기 스킬구슬과 같은 해금명을 사용합니다.",
+			"Uses the same unlock name as the Commando firearm skill orb.",
+			"使用与突击兵火器技能珠相同的解锁名。"
+		)
 	return LanguageSettings.translate_text(str(description.split("\n", false)[0]))
 
 
 func _get_ownership_text(weapon_id: String, weapon: Dictionary) -> String:
 	if weapon_id == "pistol" or str(weapon.get("kind", "")) == "base":
-		return "Base Weapon" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "기본 화기"
+		return _pick_language_text("기본 화기", "Base Weapon", "基础火器")
 	if bool(weapon.get("rental", false)) or str(weapon.get("kind", "")) == "rental":
-		return "Rented Weapon" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "대여 화기"
-	return "Permanent Weapon" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "영구 화기"
+		return _pick_language_text("대여 화기", "Rented Weapon", "租借火器")
+	return _pick_language_text("영구 화기", "Permanent Weapon", "永久火器")
 
 
 func _get_ready_text(weapon_id: String, can_fire: bool, _slingshot_state: Dictionary) -> String:
 	if weapon_id == "pistol":
-		return ("Ready to Fire" if can_fire else "No Ammo") if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else ("발사 가능" if can_fire else "탄약 없음")
-	return ("Ready to Fire" if can_fire else "No Ammo") if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else ("발사 가능" if can_fire else "탄약 없음")
+		return _pick_language_text(
+			"발사 가능" if can_fire else "탄약 없음",
+			"Ready to Fire" if can_fire else "No Ammo",
+			"可开火" if can_fire else "无弹药"
+		)
+	return _pick_language_text(
+		"발사 가능" if can_fire else "탄약 없음",
+		"Ready to Fire" if can_fire else "No Ammo",
+		"可开火" if can_fire else "无弹药"
+	)
 
 
 func _get_reload_text(weapon_id: String, weapon: Dictionary, _slingshot_state: Dictionary) -> String:
 	if weapon_id == "pistol":
-		return "At 0 ammo, left-click spends 150 gauge to refill the magazine one round at a time." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "탄약이 0이면 좌클릭으로 150 게이지를 소모해 탄창을 한 발씩 가득 채웁니다."
+		return _pick_language_text(
+			"탄약이 0이면 좌클릭으로 150 게이지를 소모해 탄창을 한 발씩 가득 채웁니다.",
+			"At 0 ammo, left-click spends 150 gauge to refill the magazine one round at a time.",
+			"弹药为0时，左键消耗150能量并逐发填满弹匣。"
+		)
 	if bool(weapon.get("rental", false)) or str(weapon.get("kind", "")) == "rental":
-		return "Rented weapons cannot be reloaded." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "대여 화기는 재장전 대상이 아닙니다."
+		return _pick_language_text(
+			"대여 화기는 재장전 대상이 아닙니다.",
+			"Rented weapons cannot be reloaded.",
+			"租借火器无法装填。"
+		)
 	if weapon_id == "commando_pistol":
-		return "This is not the base weapon, so fire input will not reload it. Refill ammo with the reload skill." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "기본 화기가 아니므로 발사 입력으로 재장전되지 않습니다. 재장전 스킬로 탄약을 보충합니다."
+		return _pick_language_text(
+			"기본 화기가 아니므로 발사 입력으로 재장전되지 않습니다. 재장전 스킬로 탄약을 보충합니다.",
+			"This is not the base weapon, so fire input will not reload it. Refill ammo with the reload skill.",
+			"这不是基础火器，开火输入不会装填。请用装填技能补充弹药。"
+		)
 	if weapon_id in ["ak47", "fire_support"]:
-		return "Refills when the reload gauge is fully charged." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "재장전 게이지 완충 시 보충됩니다."
-	return "Reload skill refills one round at a time." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "재장전 스킬로 1발씩 보충됩니다."
+		return _pick_language_text(
+			"재장전 게이지 완충 시 보충됩니다.",
+			"Refills when the reload gauge is fully charged.",
+			"装填能量充满后补充。"
+		)
+	return _pick_language_text(
+		"재장전 스킬로 1발씩 보충됩니다.",
+		"Reload skill refills one round at a time.",
+		"装填技能会逐发补充。"
+	)
 
 
 func _get_alias_text(weapon_id: String, title: String) -> String:
 	if weapon_id == "pistol":
-		return "Base slot: fires after reload and aim delay." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "기본 슬롯: 장전 후 조준 지연을 거쳐 발사합니다."
-	return "Unlocked Skill Orb: %s" % title if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "해금 스킬구슬: %s" % title
+		return _pick_language_text(
+			"기본 슬롯: 장전 후 조준 지연을 거쳐 발사합니다.",
+			"Base slot: fires after reload and aim delay.",
+			"基础栏位：装填并经过瞄准延迟后开火。"
+		)
+	return _pick_language_text(
+		"해금 스킬구슬: %s" % title,
+		"Unlocked Skill Orb: %s" % title,
+		"解锁技能珠：%s" % title
+	)
 
 
 func _get_control_text(weapon_id: String) -> String:
 	if weapon_id == "pistol":
-		return "Left Click or SPACE to fire / Wheel to switch" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "좌클릭 또는 SPACE 발사 / 휠 전환"
-	return "Wheel to switch / Left Click or SPACE to fire" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "휠 전환 / 좌클릭 또는 SPACE 발사"
+		return _pick_language_text(
+			"좌클릭 또는 SPACE 발사 / 휠 전환",
+			"Left Click or SPACE to fire / Wheel to switch",
+			"左键或SPACE开火 / 滚轮切换"
+		)
+	return _pick_language_text(
+		"휠 전환 / 좌클릭 또는 SPACE 발사",
+		"Wheel to switch / Left Click or SPACE to fire",
+		"滚轮切换 / 左键或SPACE开火"
+	)
 
 
 func _format_cooldown(cooldown_seconds: float) -> String:
 	if cooldown_seconds <= 0.0:
-		return "None" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "없음"
+		return LanguageSettings.translate_text("없음")
+	var language := LanguageSettings.get_language()
 	if is_equal_approx(cooldown_seconds, roundf(cooldown_seconds)):
-		return "%ds" % int(roundf(cooldown_seconds)) if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%d초" % int(roundf(cooldown_seconds))
-	return "%.1fs" % cooldown_seconds if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%.1f초" % cooldown_seconds
+		if language == LanguageSettings.LANGUAGE_ENGLISH:
+			return "%ds" % int(roundf(cooldown_seconds))
+		if language == LanguageSettings.LANGUAGE_CHINESE:
+			return "%d秒" % int(roundf(cooldown_seconds))
+		return "%d초" % int(roundf(cooldown_seconds))
+	if language == LanguageSettings.LANGUAGE_ENGLISH:
+		return "%.1fs" % cooldown_seconds
+	if language == LanguageSettings.LANGUAGE_CHINESE:
+		return "%.1f秒" % cooldown_seconds
+	return "%.1f초" % cooldown_seconds
+
+
+func _pick_language_text(korean: String, english: String, chinese: String) -> String:
+	var language := LanguageSettings.get_language()
+	if language == LanguageSettings.LANGUAGE_ENGLISH:
+		return english
+	if language == LanguageSettings.LANGUAGE_CHINESE:
+		return chinese
+	return korean
 
 
 func _draw_labeled_line(canvas: CanvasItem, font: Font, pos: Vector2, label: String, value: String, font_size: int, value_color: Color) -> void:

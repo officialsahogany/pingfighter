@@ -201,19 +201,40 @@ static func _get_trigger_label(skill: Dictionary) -> String:
 
 static func _get_cooldown_label(info: Dictionary, skill: Dictionary) -> String:
 	if info.has("cooldown_seconds"):
-		return ("Cooldown %s" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "쿨타임 %s") % _format_seconds(float(info.get("cooldown_seconds", 0.0)))
+		return _format_cooldown_label(float(info.get("cooldown_seconds", 0.0)))
 	var total: float = float(skill.get("cooldown_total", skill.get("total", 0.0)))
 	if total > 0.0:
-		return ("Cooldown %s" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "쿨타임 %s") % _format_seconds(total)
+		return _format_cooldown_label(total)
 	return ""
+
+
+static func _format_cooldown_label(value: float) -> String:
+	var seconds_text := _format_seconds(value)
+	if seconds_text.is_empty():
+		return ""
+	var language := LanguageSettings.get_language()
+	if language == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Cooldown %s" % seconds_text
+	if language == LanguageSettings.LANGUAGE_CHINESE:
+		return "冷却%s" % seconds_text
+	return "쿨타임 %s" % seconds_text
 
 
 static func _format_seconds(value: float) -> String:
 	if value <= 0.0:
 		return ""
+	var language := LanguageSettings.get_language()
 	if abs(value - round(value)) < 0.05:
-		return "%ds" % int(round(value)) if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%d초" % int(round(value))
-	return "%.1fs" % value if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%.1f초" % value
+		if language == LanguageSettings.LANGUAGE_ENGLISH:
+			return "%ds" % int(round(value))
+		if language == LanguageSettings.LANGUAGE_CHINESE:
+			return "%d秒" % int(round(value))
+		return "%d초" % int(round(value))
+	if language == LanguageSettings.LANGUAGE_ENGLISH:
+		return "%.1fs" % value
+	if language == LanguageSettings.LANGUAGE_CHINESE:
+		return "%.1f秒" % value
+	return "%.1f초" % value
 
 
 static func _build_meta_text(trigger_text: String, cooldown_text: String, separator: String) -> String:
@@ -241,7 +262,12 @@ static func _get_tooltip_status_text(skill: Dictionary, style: Dictionary) -> St
 		return LanguageSettings.translate_text("잠김")
 	if bool(skill.get("ready", false)) or status == "ready":
 		return LanguageSettings.translate_text("준비 완료")
-	return ("Charge %d%%" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "충전 %d%%") % int(round(clampf(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
+	var progress_percent := int(round(clampf(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Charge %d%%" % progress_percent
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "充能 %d%%" % progress_percent
+	return "충전 %d%%" % progress_percent
 
 
 static func _get_status_color(skill: Dictionary, style: Dictionary) -> Color:

@@ -84,7 +84,7 @@ func _roll_result(owner: Object, registry: Object) -> Dictionary:
 		"result_type": "empty",
 		"item_name": "",
 		"display_text": LanguageSettings.translate_text("아무것도 찾지 못했습니다"),
-		"feedback_text": "Treasure Hunt: Nothing" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "보물탐색: 꽝",
+		"feedback_text": _format_feedback_text(LanguageSettings.translate_text("아무것도 찾지 못했습니다")),
 	}
 
 
@@ -127,9 +127,25 @@ func _grant_passive_or_mythic_reward(
 		"ok": true,
 		"result_type": result_type,
 		"item_name": item_name,
-		"display_text": "%s Found: %s" % [result_label, display_name] if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%s 발견: %s" % [result_label, display_name],
-		"feedback_text": "Treasure Hunt: %s" % display_name if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "보물탐색: %s" % display_name,
+		"display_text": _format_result_text(result_label, display_name),
+		"feedback_text": _format_feedback_text(display_name),
 	}
+
+
+func _format_result_text(result_label: String, display_name: String) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "%s Found: %s" % [result_label, display_name]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "发现%s：%s" % [result_label, display_name]
+	return "%s 발견: %s" % [result_label, display_name]
+
+
+func _format_feedback_text(display_name: String) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Treasure Hunt: %s" % display_name
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "寻宝：%s" % display_name
+	return "보물탐색: %s" % display_name
 
 
 func _get_legendary_chance(registry: Object) -> float:
