@@ -8891,23 +8891,3 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
-
-323rd follow-up on 2026-05-25:
-
-- Commit:
-  `a712e4842 godot: move Commando bowling trap install append`.
-- Scope: moved bowling-trap runtime install id allocation into
-  `CommandoFirearmBowlingTrapGeometry.append_runtime_install_effects()`.
-  Runtime now passes the runtime owner to the geometry helper instead of
-  claiming the trap shot id inline, while the lower-level install append helper
-  remains available for deterministic direct tests.
-- Runtime facade delta: `commando_firearm_runtime.gd` changed by `2`
-  insertions and `2` deletions, with the function count staying at `35`.
-- Validation: focused Commando coverage passed:
-  `commando_firearm_bowling_trap_geometry_smoke`,
-  `commando_firearm_projectile_spawn_state_smoke`,
-  `commando_firearm_runtime_vfx_smoke`,
-  `commando_firearm_support_call_resolver_smoke`, and
-  `project_resource_loader_import_preference_smoke`. The Godot headless load
-  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
-  GDScript warnings, and `git diff --check` reported no whitespace errors.
