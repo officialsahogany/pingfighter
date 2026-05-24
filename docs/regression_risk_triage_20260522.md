@@ -7471,8 +7471,8 @@ Hundredth split on 2026-05-24:
   `CommandoFirearmSuicideDroneState.append_spawn_effects()`, while the runtime
   passes the resolved profile, shot id, field bounds, drone tuning, and list
   limits explicitly from the fire path.
-- Runtime facade size: `commando_firearm_runtime.gd` moved from `3044` lines /
-  `57` functions to `3029` lines / `56` functions.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2918` lines /
+  `57` functions to `2904` lines / `56` functions.
 - Validation: focused Commando coverage passed:
   `commando_firearm_suicide_drone_state_smoke`,
   `commando_firearm_runtime_vfx_smoke`,
