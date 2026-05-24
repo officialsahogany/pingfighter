@@ -162,6 +162,39 @@ func _verify_direct_projectile_payloads() -> void:
 	_expect(_get_array(net.get("rope_points", [])).is_empty(), "projectile helper should seed empty net rope points")
 	_expect(int(net.get("rope_trail_limit", 0)) == 8, "projectile helper should preserve net rope limit")
 
+	var counter := FakeShotCounter.new()
+	var runtime_projectiles: Array = []
+	var runtime_shells: Array = []
+	var append_result: Dictionary = CommandoFirearmProjectileSpawnState.append_runtime_projectile(
+		runtime_projectiles,
+		runtime_shells,
+		counter,
+		"ak47",
+		"bullet",
+		origin,
+		target,
+		Vector2.UP,
+		0.0,
+		aim_origin,
+		{"speed": 16.0},
+		{},
+		{"player_pos": Vector2(90.0, 600.0), "paddle_height": 40.0},
+		16.0,
+		5,
+		6,
+		2.0,
+		1.25,
+		4,
+		750.0,
+		180.0,
+		150.0,
+		4
+	)
+	_expect(int(append_result.get("shot_id", 0)) == 1, "runtime projectile append should allocate a shot id")
+	_expect(runtime_projectiles.size() == 1, "runtime projectile append should append one projectile")
+	_expect(runtime_shells.size() == 1, "runtime projectile append should append supported shell casings")
+	_expect(bool(append_result.get("shell_appended", false)), "runtime projectile append should report shell append")
+
 
 func _get_array(value: Variant) -> Array:
 	if value is Array:

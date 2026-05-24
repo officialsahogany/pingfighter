@@ -1614,33 +1614,26 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 			FLASH_LIMIT
 		)
 		return
-	var speed: float = float(profile.get("speed", 16.0))
-	var shot_id: int = CommandoFirearmProjectileSpawnState.claim_next_shot_id(self)
-	var projectile: Dictionary = CommandoFirearmProjectileSpawnState.build_projectile(
+	CommandoFirearmProjectileSpawnState.append_runtime_projectile(
+		projectiles,
+		shell_casings,
+		self,
 		weapon_id,
 		kind,
-		shot_id,
 		origin,
 		target,
 		direction,
-		speed,
 		angle_offset,
 		aim_origin,
 		profile,
 		doping_context,
+		config,
+		16.0,
 		BAZOOKA_SMOKE_TRAIL_LIMIT,
 		NET_GUN_ROPE_TRAIL_LIMIT,
 		DOPING_POTION_HEAD_LEG_MULTIPLIER,
-		DOPING_POTION_PISTOL_SPEED_MULTIPLIER
-	)
-	CommandoFirearmValueUtils.append_limited(projectiles, projectile, PROJECTILE_LIMIT)
-	CommandoFirearmShellCasingState.append_runtime_shell(
-		shell_casings,
-		weapon_id,
-		origin,
-		direction,
-		config,
-		shot_id,
+		DOPING_POTION_PISTOL_SPEED_MULTIPLIER,
+		PROJECTILE_LIMIT,
 		FIELD_HEIGHT,
 		AK47_SHELL_LIFETIME_FRAMES,
 		PISTOL_SHELL_LIFETIME_FRAMES,

@@ -130,10 +130,12 @@ func _verify_runtime_delegates_shell_casing_state() -> void:
 		_expect(int(shell.get("id", 0)) == 7, "runtime shell casing should use projectile shot id")
 		_expect(is_equal_approx(float(shell.get("floor_y", 0.0)), 645.0), "runtime shell casing should preserve floor clamp")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var spawn_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 	_expect(not runtime_source.contains("func _spawn_ak47_shell_casing("), "runtime should not keep AK-47 shell spawn bridge")
 	_expect(not runtime_source.contains("func _spawn_pistol_shell_casing("), "runtime should not keep pistol shell spawn bridge")
 	_expect(not runtime_source.contains("func _update_shell_casings("), "runtime should not keep shell-casing update bridge")
-	_expect(runtime_source.find("CommandoFirearmShellCasingState.append_runtime_shell") >= 0, "runtime should delegate shell spawn append to the shell owner")
+	_expect(runtime_source.find("CommandoFirearmProjectileSpawnState.append_runtime_projectile") >= 0, "runtime should delegate projectile and shell append to the projectile owner")
+	_expect(spawn_source.find("CommandoFirearmShellCasingState.append_runtime_shell") >= 0, "projectile owner should delegate shell append to the shell owner")
 
 
 func _expect(condition: bool, message: String) -> void:

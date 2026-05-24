@@ -1,5 +1,8 @@
 extends RefCounted
 
+const CommandoFirearmShellCasingState := preload("res://scripts/characters/commando_firearm_shell_casing_state.gd")
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+
 
 static func claim_next_shot_id(target: Object) -> int:
 	if target == null:
@@ -86,3 +89,67 @@ static func build_projectile(
 		projectile["rope_points"] = []
 		projectile["rope_trail_limit"] = int(profile.get("rope_trail_limit", default_rope_trail_limit))
 	return projectile
+
+
+static func append_runtime_projectile(
+	projectiles: Array,
+	shell_casings: Array,
+	runtime_owner: Object,
+	weapon_id: String,
+	kind: String,
+	origin: Vector2,
+	target: Vector2,
+	direction: Vector2,
+	angle_offset: float,
+	aim_origin: Vector2,
+	profile: Dictionary,
+	doping_context: Dictionary,
+	config: Dictionary,
+	default_speed: float,
+	default_smoke_trail_limit: int,
+	default_rope_trail_limit: int,
+	default_doping_head_leg_multiplier: float,
+	default_doping_pistol_speed_multiplier: float,
+	projectile_limit: int,
+	field_height: float,
+	ak47_shell_lifetime_frames: float,
+	pistol_shell_lifetime_frames: float,
+	shell_limit: int
+) -> Dictionary:
+	var speed: float = float(profile.get("speed", default_speed))
+	var shot_id: int = claim_next_shot_id(runtime_owner)
+	var projectile: Dictionary = build_projectile(
+		weapon_id,
+		kind,
+		shot_id,
+		origin,
+		target,
+		direction,
+		speed,
+		angle_offset,
+		aim_origin,
+		profile,
+		doping_context,
+		default_smoke_trail_limit,
+		default_rope_trail_limit,
+		default_doping_head_leg_multiplier,
+		default_doping_pistol_speed_multiplier
+	)
+	CommandoFirearmValueUtils.append_limited(projectiles, projectile, projectile_limit)
+	var shell_appended: bool = CommandoFirearmShellCasingState.append_runtime_shell(
+		shell_casings,
+		weapon_id,
+		origin,
+		direction,
+		config,
+		shot_id,
+		field_height,
+		ak47_shell_lifetime_frames,
+		pistol_shell_lifetime_frames,
+		shell_limit
+	)
+	return {
+		"shot_id": shot_id,
+		"projectile": projectile,
+		"shell_appended": shell_appended,
+	}
