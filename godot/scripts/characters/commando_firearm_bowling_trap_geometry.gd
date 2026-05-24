@@ -3,6 +3,50 @@ extends RefCounted
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 
+static func append_install_effects(
+	bowling_traps: Array,
+	impact_flashes: Array,
+	config: Dictionary,
+	profile: Dictionary,
+	weapon_id: String,
+	trap_id: int,
+	field_width: float,
+	field_height: float,
+	trap_width: float,
+	trap_height: float,
+	min_field_y_ratio: float,
+	install_frames: float,
+	capture_ball_offset: Vector2,
+	trap_limit: int,
+	flash_limit: int
+) -> Dictionary:
+	var trap_pos: Vector2 = get_install_pos(
+		config,
+		field_width,
+		field_height,
+		trap_width,
+		trap_height,
+		min_field_y_ratio
+	)
+	var trap: Dictionary = build_install_trap(
+		trap_pos,
+		profile,
+		weapon_id,
+		trap_id,
+		trap_width,
+		trap_height,
+		install_frames,
+		capture_ball_offset
+	)
+	CommandoFirearmValueUtils.append_limited(bowling_traps, trap, trap_limit)
+	CommandoFirearmValueUtils.append_limited(
+		impact_flashes,
+		build_install_marker_flash(trap_pos, profile, weapon_id),
+		flash_limit
+	)
+	return trap
+
+
 static func get_install_pos(
 	config: Dictionary,
 	field_width: float,

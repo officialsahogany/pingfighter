@@ -1994,7 +1994,23 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		_start_support_call(origin, target, profile, weapon_id, deps)
 		return
 	if kind == "trap" or weapon_id == "bowling_trap":
-		_start_bowling_trap_install(config, profile, weapon_id)
+		CommandoFirearmBowlingTrapGeometry.append_install_effects(
+			bowling_traps,
+			impact_flashes,
+			config,
+			profile,
+			weapon_id,
+			_next_shot_id(),
+			FIELD_WIDTH,
+			FIELD_HEIGHT,
+			BOWLING_TRAP_WIDTH,
+			BOWLING_TRAP_HEIGHT,
+			BOWLING_TRAP_MIN_FIELD_Y_RATIO,
+			BOWLING_TRAP_INSTALL_FRAMES,
+			BOWLING_TRAP_CAPTURE_BALL_OFFSET,
+			BOWLING_TRAP_LIMIT,
+			FLASH_LIMIT
+		)
 		return
 	var speed: float = float(profile.get("speed", 16.0))
 	var shot_id: int = _next_shot_id()
@@ -2085,33 +2101,6 @@ func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, 
 		target,
 		profile,
 		SUPPORT_CALL_LOCK_FRAMES
-	), FLASH_LIMIT)
-
-
-func _start_bowling_trap_install(config: Dictionary, profile: Dictionary, weapon_id: String) -> void:
-	var trap_pos: Vector2 = CommandoFirearmBowlingTrapGeometry.get_install_pos(
-		config,
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		BOWLING_TRAP_WIDTH,
-		BOWLING_TRAP_HEIGHT,
-		BOWLING_TRAP_MIN_FIELD_Y_RATIO
-	)
-	var trap_id: int = _next_shot_id()
-	CommandoFirearmValueUtils.append_limited(bowling_traps, CommandoFirearmBowlingTrapGeometry.build_install_trap(
-		trap_pos,
-		profile,
-		weapon_id,
-		trap_id,
-		BOWLING_TRAP_WIDTH,
-		BOWLING_TRAP_HEIGHT,
-		BOWLING_TRAP_INSTALL_FRAMES,
-		BOWLING_TRAP_CAPTURE_BALL_OFFSET
-	), BOWLING_TRAP_LIMIT)
-	CommandoFirearmValueUtils.append_limited(impact_flashes, CommandoFirearmBowlingTrapGeometry.build_install_marker_flash(
-		trap_pos,
-		profile,
-		weapon_id
 	), FLASH_LIMIT)
 
 

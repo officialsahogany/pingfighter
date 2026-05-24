@@ -92,6 +92,28 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	)
 	_expect(install_trap["state"] == "installing", "install trap payload should start in installing state")
 	_expect(install_trap["captured_ball_pos"] == Vector2(120.0, 625.0), "install trap payload should preseed captured ball anchor")
+	var appended_traps: Array = []
+	var appended_flashes: Array = []
+	var appended_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.append_install_effects(
+		appended_traps,
+		appended_flashes,
+		{"player_pos": Vector2(100.0, 640.0), "paddle_width": 80.0, "paddle_height": 45.0},
+		{"color": Color.RED, "secondary": Color.BLUE},
+		"bowling_trap",
+		17,
+		760.0,
+		750.0,
+		60.0,
+		20.0,
+		0.6,
+		48.0,
+		Vector2(0.0, -15.0),
+		4,
+		3
+	)
+	_expect(appended_traps.size() == 1, "install append helper should append one trap body")
+	_expect(appended_flashes.size() == 1, "install append helper should append one marker flash")
+	_expect(int(appended_trap.get("id", 0)) == 17, "install append helper should preserve runtime trap id")
 	_expect(
 		CommandoFirearmBowlingTrapGeometry.update_install_state(install_trap, 48.0, 48.0)["state"] == "waiting",
 		"install state update should enter waiting state when timer expires"
@@ -201,6 +223,7 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"_bowling_trap_hits_ball",
 		"_arm_bowling_trap_guard",
 		"_apply_bowling_trap_guard_state",
+		"_start_bowling_trap_install",
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep bowling-trap geometry bridge %s" % bridge_name)
 
