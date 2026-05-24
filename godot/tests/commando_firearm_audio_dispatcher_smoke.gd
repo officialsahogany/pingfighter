@@ -27,6 +27,12 @@ class FakeAudio:
 	func stop_commando_suicide_drone_loop() -> void:
 		calls.append("stop_drone")
 
+	func play_commando_fire_support_aircraft_loop() -> void:
+		calls.append("start_aircraft")
+
+	func stop_commando_fire_support_aircraft_loop() -> void:
+		calls.append("stop_aircraft")
+
 	func play_commando_firearm_fire(weapon_id: String) -> void:
 		generic_fire_calls.append(weapon_id)
 
@@ -40,6 +46,7 @@ func _init() -> void:
 	_verify_first_available_method()
 	_verify_reload_progress_round_count()
 	_verify_suicide_drone_stop()
+	_verify_support_aircraft_loop_state()
 	_verify_missing_audio_is_noop()
 	_verify_removed_runtime_audio_dispatcher_bridges()
 
@@ -99,11 +106,35 @@ func _verify_suicide_drone_stop() -> void:
 	_expect(audio.calls == ["stop_drone"], "suicide drone stop should route through the stop loop method")
 
 
+func _verify_support_aircraft_loop_state() -> void:
+	var audio := FakeAudio.new()
+	var support_call := {}
+	CommandoFirearmAudioDispatcher.start_support_aircraft_audio(support_call, {"audio": audio})
+	CommandoFirearmAudioDispatcher.start_support_aircraft_audio(support_call, {"audio": audio})
+	_expect(bool(support_call.get("aircraft_audio_active", false)), "support aircraft start should mark the call audio active")
+	_expect(audio.calls == ["start_aircraft"], "support aircraft start should not duplicate active loop cues")
+	CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(support_call, {"audio": audio})
+	CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(support_call, {"audio": audio})
+	_expect(not bool(support_call.get("aircraft_audio_active", false)), "support aircraft stop should clear the active flag")
+	_expect(audio.calls == ["start_aircraft", "stop_aircraft"], "support aircraft stop should not duplicate inactive loop cues")
+
+	var calls: Array = [
+		{"aircraft_audio_active": true},
+		{"aircraft_audio_active": false},
+	]
+	CommandoFirearmAudioDispatcher.stop_all_support_aircraft_audio(calls, {"audio": audio})
+	_expect(not bool(CommandoFirearmAudioDispatcher._get_dict(calls[0]).get("aircraft_audio_active", true)), "support aircraft stop-all should clear active call audio")
+	_expect(audio.calls == ["start_aircraft", "stop_aircraft", "stop_aircraft"], "support aircraft stop-all should stop only active calls")
+
+
 func _verify_missing_audio_is_noop() -> void:
 	CommandoFirearmAudioDispatcher.play_weapon_audio_method({}, ["missing_method"], "missing_fallback", "ak47")
 	CommandoFirearmAudioDispatcher.play_first_audio_method({}, ["missing_method"])
 	CommandoFirearmAudioDispatcher.play_reload_progress_audio({"base_pistol": {"reload_rounds_added": 1}}, {})
 	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio({})
+	CommandoFirearmAudioDispatcher.start_support_aircraft_audio({}, {})
+	CommandoFirearmAudioDispatcher.stop_support_aircraft_audio({"aircraft_audio_active": true}, {})
+	CommandoFirearmAudioDispatcher.stop_all_support_aircraft_audio([{"aircraft_audio_active": true}], {})
 	_expect(true, "missing audio deps should be no-ops")
 
 
@@ -116,6 +147,9 @@ func _verify_removed_runtime_audio_dispatcher_bridges() -> void:
 		"_stop_suicide_drone_audio",
 		"_play_fire_audio",
 		"_play_impact_audio",
+		"_start_support_aircraft_audio",
+		"_stop_support_aircraft_audio",
+		"_stop_all_support_aircraft_audio",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep audio dispatcher bridge %s" % bridge_name)
 

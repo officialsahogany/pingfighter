@@ -795,7 +795,7 @@ func reset() -> void:
 
 
 func reset_round(deps: Dictionary = {}) -> void:
-	_stop_all_support_aircraft_audio(deps)
+	CommandoFirearmAudioDispatcher.stop_all_support_aircraft_audio(support_calls, deps)
 	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	var carried_bowling_traps: Array = []
 	if bool(deps.get("preserve_bowling_traps", true)):
@@ -2188,7 +2188,7 @@ func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, 
 	)
 	while support_calls.size() >= max(1, SUPPORT_CALL_LIMIT):
 		var evicted: Dictionary = CommandoFirearmValueUtils.get_dict(support_calls.pop_front())
-		_stop_support_aircraft_audio(evicted, deps)
+		CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(evicted, deps)
 	support_calls.append(CommandoFirearmSupportCallResolver.build_call_payload(
 		call_id,
 		origin,
@@ -2334,11 +2334,11 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 		var advance_result: Dictionary = _advance_support_call(call, step)
 		call = CommandoFirearmValueUtils.get_dict(advance_result.get("call", call))
 		if bool(advance_result.get("started_aircraft", false)):
-			_start_support_aircraft_audio(call, deps)
+			CommandoFirearmAudioDispatcher.start_support_aircraft_audio(call, deps)
 		if bool(advance_result.get("spawn_bomb", false)):
 			_spawn_support_bomb(call, profile, context, int(advance_result.get("spawn_index", 0)))
 		if bool(advance_result.get("finished", false)):
-			_stop_support_aircraft_audio(call, deps)
+			CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(call, deps)
 			support_calls.remove_at(index)
 		else:
 			support_calls[index] = call
@@ -3587,30 +3587,6 @@ func _register_ball_hit_pulse(pos: Vector2, velocity: Vector2, intensity: float,
 		clamp(intensity, 0.0, 1.0),
 		CommandoFirearmAudioResolver.get_ball_hit_pulse_kind(weapon_id, BASE_WEAPON_ID)
 	)
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _start_support_aircraft_audio(call: Dictionary, deps: Dictionary) -> void:
-	if bool(call.get("aircraft_audio_active", false)):
-		return
-	call["aircraft_audio_active"] = true
-	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_fire_support_aircraft_loop", "play_commando_supply_aircraft_loop"])
-
-
-@warning_ignore("shadowed_variable_base_class")
-func _stop_support_aircraft_audio(call: Dictionary, deps: Dictionary) -> void:
-	if not bool(call.get("aircraft_audio_active", false)):
-		return
-	call["aircraft_audio_active"] = false
-	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["stop_commando_fire_support_aircraft_loop", "stop_commando_supply_aircraft_loop"])
-
-
-func _stop_all_support_aircraft_audio(deps: Dictionary) -> void:
-	for index in range(support_calls.size()):
-		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = CommandoFirearmValueUtils.get_dict(support_calls[index])
-		_stop_support_aircraft_audio(call, deps)
-		support_calls[index] = call
 
 
 func _next_shot_id() -> int:

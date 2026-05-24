@@ -62,6 +62,30 @@ static func stop_suicide_drone_audio(deps: Dictionary) -> void:
 	play_first_audio_method(deps, ["stop_commando_suicide_drone_loop"])
 
 
+@warning_ignore("shadowed_variable_base_class")
+static func start_support_aircraft_audio(call: Dictionary, deps: Dictionary) -> void:
+	if bool(call.get("aircraft_audio_active", false)):
+		return
+	call["aircraft_audio_active"] = true
+	play_first_audio_method(deps, ["play_commando_fire_support_aircraft_loop", "play_commando_supply_aircraft_loop"])
+
+
+@warning_ignore("shadowed_variable_base_class")
+static func stop_support_aircraft_audio(call: Dictionary, deps: Dictionary) -> void:
+	if not bool(call.get("aircraft_audio_active", false)):
+		return
+	call["aircraft_audio_active"] = false
+	play_first_audio_method(deps, ["stop_commando_fire_support_aircraft_loop", "stop_commando_supply_aircraft_loop"])
+
+
+static func stop_all_support_aircraft_audio(support_calls: Array, deps: Dictionary) -> void:
+	for index in range(support_calls.size()):
+		@warning_ignore("shadowed_variable_base_class")
+		var call: Dictionary = _get_dict(support_calls[index])
+		stop_support_aircraft_audio(call, deps)
+		support_calls[index] = call
+
+
 static func get_audio(deps: Dictionary) -> Object:
 	var value: Variant = deps.get("audio", deps.get("game_audio", null))
 	return value if value is Object else null
