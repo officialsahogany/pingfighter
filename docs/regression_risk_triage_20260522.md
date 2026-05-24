@@ -8891,3 +8891,19 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+324th follow-up on 2026-05-25:
+
+- Commit:
+  `553bb8f04 godot: move Commando muzzle flash append`.
+- Scope: moved runtime muzzle-flash bounded append routing into
+  `CommandoFirearmMuzzleFlashResolver.append_runtime_flash()`. Runtime still
+  owns the high-level spawn flow and direction calculation, while the resolver
+  now builds, appends, and enforces the muzzle-flash list limit.
+- Runtime facade delta: `commando_firearm_runtime.gd` changed by `5`
+  insertions and `2` deletions, with the function count staying at `35`.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_muzzle_flash_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
