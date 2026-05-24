@@ -4006,17 +4006,6 @@ func _apply_lingering_fire_flame_reset_motion(
 	return CommandoFirearmLingeringFireFlameState.apply_flame_reset_motion(flame, flame_index, effect, width, height)
 
 
-func _apply_lingering_fire_flame_drift_motion(
-	flame: Dictionary,
-	phase: float,
-	fps_scale: float,
-	width: float,
-	height: float,
-	lifetime: float
-) -> float:
-	return CommandoFirearmLingeringFireFlameState.apply_flame_drift_motion(flame, phase, fps_scale, width, height, lifetime)
-
-
 func _should_reset_lingering_fire_flame(lifetime: float) -> bool:
 	return CommandoFirearmLingeringFireFlameState.should_reset_flame(lifetime)
 
@@ -4116,68 +4105,6 @@ func _get_lingering_fire_flame_reset_lifetime_offset(flame_index: int) -> int:
 
 func _get_lingering_fire_flame_reset_lifetime_pattern_value(flame_index: int) -> int:
 	return CommandoFirearmLingeringFireFlameState.get_flame_reset_lifetime_pattern_value(flame_index)
-
-
-func _drift_lingering_fire_flame(flame: Dictionary, phase: float, fps_scale: float, width: float, height: float) -> void:
-	CommandoFirearmLingeringFireFlameState.drift_flame(flame, phase, fps_scale, width, height)
-
-
-func _get_lingering_fire_flame_drift_offset(
-	flame: Dictionary,
-	phase: float,
-	fps_scale: float,
-	width: float,
-	height: float
-) -> Vector2:
-	return CommandoFirearmLingeringFireFlameState.get_flame_drift_offset(flame, phase, fps_scale, width, height)
-
-
-func _get_lingering_fire_flame_current_offset(flame: Dictionary) -> Vector2:
-	return CommandoFirearmLingeringFireFlameState.get_flame_current_offset(flame)
-
-
-func _get_lingering_fire_flame_unclamped_drift_offset(flame: Dictionary, phase: float, fps_scale: float) -> Vector2:
-	return CommandoFirearmLingeringFireFlameState.get_flame_unclamped_drift_offset(flame, phase, fps_scale)
-
-
-func _get_lingering_fire_flame_drift_step(phase: float, fps_scale: float) -> Vector2:
-	return CommandoFirearmLingeringFireFlameState.get_flame_drift_step(phase, fps_scale)
-
-
-func _get_lingering_fire_flame_drift_wave_offset(phase: float, fps_scale: float) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_drift_wave_offset(phase, fps_scale)
-
-
-func _get_lingering_fire_flame_drift_rise_offset(fps_scale: float) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_drift_rise_offset(fps_scale)
-
-
-func _clamp_lingering_fire_flame_offset(offset: Vector2, width: float, height: float) -> Vector2:
-	return CommandoFirearmLingeringFireFlameState.clamp_flame_offset(offset, width, height)
-
-
-func _get_lingering_fire_flame_offset_bound(length: float) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_offset_bound(length)
-
-
-func _get_lingering_fire_flame_drift_size(flame: Dictionary, fps_scale: float) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_drift_size(flame, fps_scale)
-
-
-func _get_lingering_fire_flame_current_size(flame: Dictionary) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_current_size(flame)
-
-
-func _get_lingering_fire_flame_unclamped_drift_size(flame: Dictionary, fps_scale: float) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_unclamped_drift_size(flame, fps_scale)
-
-
-func _get_lingering_fire_flame_size_decay(fps_scale: float) -> float:
-	return CommandoFirearmLingeringFireFlameState.get_flame_size_decay(fps_scale)
-
-
-func _clamp_lingering_fire_flame_drift_size(size: float) -> float:
-	return CommandoFirearmLingeringFireFlameState.clamp_flame_drift_size(size)
 
 
 func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, deps: Dictionary, fps_scale: float) -> void:

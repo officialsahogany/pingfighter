@@ -83,6 +83,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_direct_value_utils()
 	_verify_runtime_delegates_value_utils()
+	_verify_removed_fire_flame_drift_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -905,27 +906,27 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"lifetime": 20.0,
 		"phase": 1.0,
 	}
-	var drift_step: Vector2 = runtime._get_lingering_fire_flame_drift_step(1.16, 2.0)
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_drift_wave_offset(1.16, 2.0), sin(1.16) * 0.44), "fire flame drift-wave helper should preserve horizontal wave drift")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_drift_rise_offset(2.0), -0.32), "fire flame drift-rise helper should preserve upward drift")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_offset_bound(80.0), 38.4), "fire flame offset-bound helper should preserve clamp bounds")
-	_expect(runtime._get_lingering_fire_flame_current_offset(drifting_fire_flame).is_equal_approx(Vector2(50.0, -50.0)), "fire flame current-offset helper should read explicit offsets")
-	_expect(runtime._get_lingering_fire_flame_current_offset({"offset": "bad"}).is_equal_approx(Vector2.ZERO), "fire flame current-offset helper should default invalid offsets")
+	var drift_step: Vector2 = CommandoFirearmLingeringFireFlameState.get_flame_drift_step(1.16, 2.0)
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_drift_wave_offset(1.16, 2.0), sin(1.16) * 0.44), "fire flame drift-wave owner should preserve horizontal wave drift")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_drift_rise_offset(2.0), -0.32), "fire flame drift-rise owner should preserve upward drift")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_offset_bound(80.0), 38.4), "fire flame offset-bound owner should preserve clamp bounds")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_current_offset(drifting_fire_flame).is_equal_approx(Vector2(50.0, -50.0)), "fire flame current-offset owner should read explicit offsets")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_current_offset({"offset": "bad"}).is_equal_approx(Vector2.ZERO), "fire flame current-offset owner should default invalid offsets")
 	_expect(is_equal_approx(drift_step.x, sin(1.16) * 0.44), "fire flame drift-step helper should preserve horizontal wave drift")
 	_expect(is_equal_approx(drift_step.y, -0.32), "fire flame drift-step helper should preserve upward drift")
-	_expect(runtime._get_lingering_fire_flame_unclamped_drift_offset(drifting_fire_flame, 1.16, 2.0).is_equal_approx(Vector2(50.0, -50.0) + drift_step), "fire flame unclamped drift-offset helper should add drift step to the current offset")
-	_expect(runtime._get_lingering_fire_flame_unclamped_drift_offset({}, 0.0, 2.0).is_equal_approx(Vector2(0.0, -0.32)), "fire flame unclamped drift-offset helper should default missing offsets before applying drift")
-	_expect(runtime._clamp_lingering_fire_flame_offset(Vector2(50.0, -50.0), 80.0, 40.0).is_equal_approx(Vector2(38.4, -19.2)), "fire flame offset clamp helper should preserve effect bounds")
-	_expect(runtime._get_lingering_fire_flame_drift_offset(drifting_fire_flame, 1.16, 2.0, 80.0, 40.0).is_equal_approx(Vector2(38.4, -19.2)), "fire flame drift-offset helper should clamp active drift inside the effect")
-	_expect(runtime._get_lingering_fire_flame_drift_offset({}, 0.0, 2.0, 80.0, 40.0).is_equal_approx(Vector2(0.0, -0.32)), "fire flame drift-offset helper should default missing offsets to zero")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_current_size(drifting_fire_flame), 10.0), "fire flame current-size helper should read explicit sizes")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_current_size({}), 10.0), "fire flame current-size helper should default missing sizes")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_size_decay(2.0), 0.970225), "fire flame size-decay helper should preserve decay rate")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_unclamped_drift_size(drifting_fire_flame, 2.0), 9.70225), "fire flame unclamped drift-size helper should apply decay to current size")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_unclamped_drift_size({"size": 1.0}, 2.0), 0.970225), "fire flame unclamped drift-size helper should preserve pre-clamp small sizes")
-	_expect(is_equal_approx(runtime._clamp_lingering_fire_flame_drift_size(1.0), 3.0), "fire flame size clamp helper should preserve minimum size")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_drift_size(drifting_fire_flame, 2.0), 9.70225), "fire flame drift-size helper should decay active flame size")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_drift_size({"size": 1.0}, 2.0), 3.0), "fire flame drift-size helper should clamp size at the floor")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_unclamped_drift_offset(drifting_fire_flame, 1.16, 2.0).is_equal_approx(Vector2(50.0, -50.0) + drift_step), "fire flame unclamped drift-offset owner should add drift step to the current offset")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_unclamped_drift_offset({}, 0.0, 2.0).is_equal_approx(Vector2(0.0, -0.32)), "fire flame unclamped drift-offset owner should default missing offsets before applying drift")
+	_expect(CommandoFirearmLingeringFireFlameState.clamp_flame_offset(Vector2(50.0, -50.0), 80.0, 40.0).is_equal_approx(Vector2(38.4, -19.2)), "fire flame offset clamp owner should preserve effect bounds")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_drift_offset(drifting_fire_flame, 1.16, 2.0, 80.0, 40.0).is_equal_approx(Vector2(38.4, -19.2)), "fire flame drift-offset owner should clamp active drift inside the effect")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_drift_offset({}, 0.0, 2.0, 80.0, 40.0).is_equal_approx(Vector2(0.0, -0.32)), "fire flame drift-offset owner should default missing offsets to zero")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_current_size(drifting_fire_flame), 10.0), "fire flame current-size owner should read explicit sizes")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_current_size({}), 10.0), "fire flame current-size owner should default missing sizes")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_size_decay(2.0), 0.970225), "fire flame size-decay owner should preserve decay rate")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_unclamped_drift_size(drifting_fire_flame, 2.0), 9.70225), "fire flame unclamped drift-size owner should apply decay to current size")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_unclamped_drift_size({"size": 1.0}, 2.0), 0.970225), "fire flame unclamped drift-size owner should preserve pre-clamp small sizes")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.clamp_flame_drift_size(1.0), 3.0), "fire flame size clamp owner should preserve minimum size")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_drift_size(drifting_fire_flame, 2.0), 9.70225), "fire flame drift-size owner should decay active flame size")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_drift_size({"size": 1.0}, 2.0), 3.0), "fire flame drift-size owner should clamp size at the floor")
 	var drift_motion_fire_flame := {
 		"offset": Vector2(50.0, -50.0),
 		"size": 10.0,
@@ -937,7 +938,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"offset": Vector2(50.0, -50.0),
 		"size": 10.0,
 	}
-	var drift_path_lifetime: float = runtime._apply_lingering_fire_flame_drift_motion(drift_path_fire_flame, 1.16, 2.0, 80.0, 40.0, 18.0)
+	var drift_path_lifetime: float = CommandoFirearmLingeringFireFlameState.apply_flame_drift_motion(drift_path_fire_flame, 1.16, 2.0, 80.0, 40.0, 18.0)
 	_expect(is_equal_approx(drift_path_lifetime, 18.0), "fire flame drift-motion helper should preserve active lifetimes")
 	_expect(runtime._get_vector2(drift_path_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2(38.4, -19.2)), "fire flame drift-motion helper should apply active drift")
 	var drifted_fire_flame: Dictionary = runtime._advance_lingering_fire_flame(drifting_fire_flame, 1, {"id": 3}, 2.0, 80.0, 40.0)
@@ -1490,6 +1491,28 @@ func _verify_runtime_delegates_value_utils() -> void:
 		Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0)),
 		Vector2(100.0, 100.0)
 	) == "", "target-reached impact helper should not expire projectiles before target reach")
+
+
+func _verify_removed_fire_flame_drift_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_apply_lingering_fire_flame_drift_motion",
+		"_drift_lingering_fire_flame",
+		"_get_lingering_fire_flame_drift_offset",
+		"_get_lingering_fire_flame_current_offset",
+		"_get_lingering_fire_flame_unclamped_drift_offset",
+		"_get_lingering_fire_flame_drift_step",
+		"_get_lingering_fire_flame_drift_wave_offset",
+		"_get_lingering_fire_flame_drift_rise_offset",
+		"_clamp_lingering_fire_flame_offset",
+		"_get_lingering_fire_flame_offset_bound",
+		"_get_lingering_fire_flame_drift_size",
+		"_get_lingering_fire_flame_current_size",
+		"_get_lingering_fire_flame_unclamped_drift_size",
+		"_get_lingering_fire_flame_size_decay",
+		"_clamp_lingering_fire_flame_drift_size",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep fire-flame drift bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:
