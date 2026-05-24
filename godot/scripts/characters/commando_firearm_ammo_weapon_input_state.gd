@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
+const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmCooldownState := preload("res://scripts/characters/commando_firearm_cooldown_state.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
@@ -144,10 +145,86 @@ static func update_runtime_net_gun_input(
 	)
 
 
+static func update_runtime_bowling_trap_input(
+	runtime_owner: Object,
+	input_snapshot: Dictionary,
+	special_gauge: float,
+	config: Dictionary,
+	deps: Dictionary,
+	current_weapon: Dictionary,
+	now_msec: int,
+	options: Dictionary
+) -> Dictionary:
+	if not _consume_bowling_trap_single_press_input(runtime_owner, input_snapshot):
+		return {}
+	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
+	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
+		weapon_controller,
+		now_msec,
+		int(options.get("switch_fire_suppress_msec", 0))
+	):
+		return {}
+	var failure_fields := CommandoFirearmFireResultState.build_runtime_bowling_trap_timing_fields(runtime_owner)
+	if float(runtime_owner.get("bowling_trap_control_lock_frames")) > 0.0:
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_control_lock", failure_fields)
+	if float(runtime_owner.get("bowling_trap_cooldown_frames")) > 0.0:
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_cooldown", failure_fields)
+	var bowling_traps: Array = CommandoFirearmValueUtils.get_array(runtime_owner.get("bowling_traps"))
+	if CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps):
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_installing", failure_fields)
+	if not CommandoFirearmBowlingTrapGeometry.is_install_in_player_field(
+		config,
+		float(options.get("field_width", 760.0)),
+		float(options.get("field_height", 750.0)),
+		float(options.get("bowling_trap_min_field_y_ratio", 0.6))
+	):
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_install_field", failure_fields)
+	if not CommandoFirearmCooldownState.is_ready("bowling_trap", now_msec, deps):
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "configured_cooldown", failure_fields)
+	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
+	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
+		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_empty", failure_fields)
+	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
+		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
+			return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_ammo_unavailable", failure_fields)
+
+	runtime_owner.set("last_fire_msec", now_msec)
+	runtime_owner.set("bowling_trap_cooldown_frames", float(options.get("bowling_trap_cooldown_frames", 0.0)))
+	runtime_owner.set("bowling_trap_control_lock_frames", float(options.get("bowling_trap_control_lock_frames", 0.0)))
+	runtime_owner.set("bowling_trap_install_pose_frames", float(options.get("bowling_trap_install_frames", 0.0)))
+	CommandoFirearmCooldownState.trigger_configured_cooldown("bowling_trap", now_msec, deps)
+	_spawn_runtime_firearm_effect(runtime_owner, "bowling_trap", config, deps, options)
+	CommandoFirearmAudioDispatcher.play_fire_audio("bowling_trap", deps)
+	var updated_weapon: Dictionary = current_weapon
+	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
+		updated_weapon = weapon_controller.get_current_weapon_data()
+	return CommandoFirearmFireResultState.build_ammo_weapon_fired_result(
+		"bowling_trap",
+		updated_weapon,
+		max(0, ammo_current - 1),
+		int(options.get("bowling_trap_ammo_max", 0)),
+		special_gauge,
+		CommandoFirearmFireResultState.build_runtime_bowling_trap_timing_fields(runtime_owner, true, 0.0)
+	)
+
+
 static func _has_single_press_fire_input(input_snapshot: Dictionary) -> bool:
 	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
 	var action_just_pressed: bool = bool(input_snapshot.get("action_just_pressed", action_pressed))
 	return action_pressed and action_just_pressed and not bool(input_snapshot.get("down_pressed", false))
+
+
+static func _consume_bowling_trap_single_press_input(runtime_owner: Object, input_snapshot: Dictionary) -> bool:
+	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
+	if not action_pressed:
+		runtime_owner.set("bowling_trap_last_action_pressed", false)
+		return false
+	var action_just_pressed: bool = bool(input_snapshot.get(
+		"action_just_pressed",
+		action_pressed and not bool(runtime_owner.get("bowling_trap_last_action_pressed"))
+	))
+	runtime_owner.set("bowling_trap_last_action_pressed", action_pressed)
+	return action_just_pressed and not bool(input_snapshot.get("down_pressed", false))
 
 
 static func _spawn_runtime_firearm_effect(

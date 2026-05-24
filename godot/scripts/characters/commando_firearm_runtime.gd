@@ -1233,74 +1233,26 @@ func _update_bowling_trap_input(
 	current_weapon: Dictionary,
 	now_msec: int
 ) -> Dictionary:
-	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	if not action_pressed:
-		bowling_trap_last_action_pressed = false
-		return {}
-	var action_just_pressed: bool = bool(input_snapshot.get(
-		"action_just_pressed",
-		action_pressed and not bowling_trap_last_action_pressed
-	))
-	bowling_trap_last_action_pressed = action_pressed
-	if not action_just_pressed:
-		return {}
-	if bool(input_snapshot.get("down_pressed", false)):
-		return {}
-	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
-		weapon_controller,
-		now_msec,
-		SWITCH_FIRE_SUPPRESS_MSEC
-	):
-		return {}
-	var failure_fields := CommandoFirearmFireResultState.build_runtime_bowling_trap_timing_fields(self)
-	if bowling_trap_control_lock_frames > 0.0:
-		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_control_lock", failure_fields)
-	if bowling_trap_cooldown_frames > 0.0:
-		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_cooldown", failure_fields)
-	if CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps):
-		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_installing", failure_fields)
-	if not CommandoFirearmBowlingTrapGeometry.is_install_in_player_field(
-		config,
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		BOWLING_TRAP_MIN_FIELD_Y_RATIO
-	):
-		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_install_field", failure_fields)
-	if not CommandoFirearmCooldownState.is_ready("bowling_trap", now_msec, deps):
-		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "configured_cooldown", failure_fields)
-	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
-	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
-		return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_empty", failure_fields)
-	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
-		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return CommandoFirearmFireResultState.build_fire_failed_result("bowling_trap", special_gauge, "bowling_trap_ammo_unavailable", failure_fields)
-	last_fire_msec = now_msec
-	bowling_trap_cooldown_frames = BOWLING_TRAP_COOLDOWN_FRAMES
-	bowling_trap_control_lock_frames = BOWLING_TRAP_CONTROL_LOCK_FRAMES
-	bowling_trap_install_pose_frames = BOWLING_TRAP_INSTALL_FRAMES
-	CommandoFirearmCooldownState.trigger_configured_cooldown("bowling_trap", now_msec, deps)
-	_spawn_firearm_effect(
-		"bowling_trap",
+	return CommandoFirearmAmmoWeaponInputState.update_runtime_bowling_trap_input(
+		self,
+		input_snapshot,
+		special_gauge,
 		config,
 		deps,
-		CommandoFirearmProfileResolver.get_weapon_profile(
-			"bowling_trap",
-			WEAPON_PROFILES,
-			WEAPON_PROFILE_OVERRIDES
-		)
-	)
-	CommandoFirearmAudioDispatcher.play_fire_audio("bowling_trap", deps)
-	var updated_weapon: Dictionary = current_weapon
-	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
-		updated_weapon = weapon_controller.get_current_weapon_data()
-	return CommandoFirearmFireResultState.build_ammo_weapon_fired_result(
-		"bowling_trap",
-		updated_weapon,
-		max(0, ammo_current - 1),
-		BOWLING_TRAP_AMMO_MAX,
-		special_gauge,
-		CommandoFirearmFireResultState.build_runtime_bowling_trap_timing_fields(self, true, 0.0)
+		current_weapon,
+		now_msec,
+		{
+			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
+			"weapon_profiles": WEAPON_PROFILES,
+			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
+			"field_width": FIELD_WIDTH,
+			"field_height": FIELD_HEIGHT,
+			"bowling_trap_min_field_y_ratio": BOWLING_TRAP_MIN_FIELD_Y_RATIO,
+			"bowling_trap_ammo_max": BOWLING_TRAP_AMMO_MAX,
+			"bowling_trap_cooldown_frames": BOWLING_TRAP_COOLDOWN_FRAMES,
+			"bowling_trap_control_lock_frames": BOWLING_TRAP_CONTROL_LOCK_FRAMES,
+			"bowling_trap_install_frames": BOWLING_TRAP_INSTALL_FRAMES,
+		}
 	)
 
 
