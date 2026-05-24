@@ -1900,7 +1900,7 @@ func _spawn_suicide_drone(config: Dictionary) -> void:
 		SUICIDE_DRONE_SIZE
 	)
 	var shot_id: int = _next_shot_id()
-	_append_limited(projectiles, _build_suicide_drone_projectile(profile, origin, config, shot_id), PROJECTILE_LIMIT)
+	CommandoFirearmValueUtils.append_limited(projectiles, _build_suicide_drone_projectile(profile, origin, config, shot_id), PROJECTILE_LIMIT)
 	_spawn_muzzle_flash(origin, Vector2.UP, profile, "suicide_drone")
 
 
@@ -2165,7 +2165,7 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		DOPING_POTION_HEAD_LEG_MULTIPLIER,
 		DOPING_POTION_PISTOL_SPEED_MULTIPLIER
 	)
-	_append_limited(projectiles, projectile, PROJECTILE_LIMIT)
+	CommandoFirearmValueUtils.append_limited(projectiles, projectile, PROJECTILE_LIMIT)
 	if weapon_id == "ak47":
 		_spawn_ak47_shell_casing(origin, direction, config, shot_id)
 	elif weapon_id == "pistol" or weapon_id == "commando_pistol":
@@ -2207,7 +2207,7 @@ func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, 
 		SUPPORT_AIRCRAFT_START_X
 	))
 	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
-	_append_limited(impact_flashes, CommandoFirearmSupportCallResolver.build_marker_flash(
+	CommandoFirearmValueUtils.append_limited(impact_flashes, CommandoFirearmSupportCallResolver.build_marker_flash(
 		weapon_id,
 		target,
 		profile,
@@ -2218,13 +2218,13 @@ func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, 
 func _start_bowling_trap_install(config: Dictionary, profile: Dictionary, weapon_id: String) -> void:
 	var trap_pos: Vector2 = _get_bowling_trap_install_pos(config)
 	var trap_id: int = _next_shot_id()
-	_append_limited(bowling_traps, _build_bowling_trap_install_payload(
+	CommandoFirearmValueUtils.append_limited(bowling_traps, _build_bowling_trap_install_payload(
 		trap_pos,
 		profile,
 		weapon_id,
 		trap_id
 	), BOWLING_TRAP_LIMIT)
-	_append_limited(impact_flashes, _build_bowling_trap_install_marker_flash(
+	CommandoFirearmValueUtils.append_limited(impact_flashes, _build_bowling_trap_install_marker_flash(
 		trap_pos,
 		profile,
 		weapon_id
@@ -2272,7 +2272,7 @@ func _spawn_support_round(
 	spawn_index: int = 0,
 	support_aircraft_pos: Vector2 = Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y)
 ) -> void:
-	_append_limited(projectiles, _build_support_round_projectile(
+	CommandoFirearmValueUtils.append_limited(projectiles, _build_support_round_projectile(
 		target,
 		profile,
 		weapon_id,
@@ -2314,7 +2314,7 @@ func _build_support_round_projectile(
 
 
 func _spawn_muzzle_flash(origin: Vector2, direction: Vector2, profile: Dictionary, weapon_id: String) -> void:
-	_append_limited(
+	CommandoFirearmValueUtils.append_limited(
 		muzzle_flashes,
 		CommandoFirearmMuzzleFlashResolver.build_flash(origin, direction, profile, weapon_id),
 		FLASH_LIMIT
@@ -2658,7 +2658,7 @@ func _update_net_projectile_rope(projectile: Dictionary, pos: Vector2, context: 
 
 
 func _spawn_ak47_shell_casing(origin: Vector2, direction: Vector2, config: Dictionary, shot_id: int) -> void:
-	_append_limited(shell_casings, CommandoFirearmShellCasingState.build_ak47_shell(
+	CommandoFirearmValueUtils.append_limited(shell_casings, CommandoFirearmShellCasingState.build_ak47_shell(
 		origin,
 		direction,
 		config,
@@ -2669,7 +2669,7 @@ func _spawn_ak47_shell_casing(origin: Vector2, direction: Vector2, config: Dicti
 
 
 func _spawn_pistol_shell_casing(origin: Vector2, direction: Vector2, config: Dictionary, shot_id: int, weapon_id: String = "commando_pistol") -> void:
-	_append_limited(shell_casings, CommandoFirearmShellCasingState.build_pistol_shell(
+	CommandoFirearmValueUtils.append_limited(shell_casings, CommandoFirearmShellCasingState.build_pistol_shell(
 		origin,
 		direction,
 		config,
@@ -2713,7 +2713,7 @@ func _spawn_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> void:
 	)
 	if feedback.is_empty():
 		return
-	_append_limited(pistol_feedbacks, feedback, PISTOL_FEEDBACK_LIMIT)
+	CommandoFirearmValueUtils.append_limited(pistol_feedbacks, feedback, PISTOL_FEEDBACK_LIMIT)
 
 
 func _update_pistol_feedbacks(fps_scale: float) -> void:
@@ -2872,7 +2872,7 @@ func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) 
 
 func _spawn_impact_flash(projectile: Dictionary) -> void:
 	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	_append_limited(
+	CommandoFirearmValueUtils.append_limited(
 		impact_flashes,
 		CommandoFirearmImpactFlashResolver.build_flash(
 			projectile,
@@ -2929,7 +2929,7 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 		intensity,
 		combat_result
 	)
-	_append_limited(hit_events, hit_event, HIT_EVENT_LIMIT)
+	CommandoFirearmValueUtils.append_limited(hit_events, hit_event, HIT_EVENT_LIMIT)
 	_spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
 	_trigger_hit_feedback(feedback_profile, deps)
 	_trigger_boss_hit_animation(context, deps)
@@ -3139,7 +3139,7 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
 	)
 	_seed_lingering_fire_flames(effect)
-	_append_limited(lingering_effects, effect, LINGERING_EFFECT_LIMIT)
+	CommandoFirearmValueUtils.append_limited(lingering_effects, effect, LINGERING_EFFECT_LIMIT)
 	return _build_lingering_spawn_result(effect, duration)
 
 
@@ -3169,7 +3169,7 @@ func _trigger_active_item_molotov_fire_zone(pos: Vector2, deps: Dictionary) -> b
 	var active_item_runtime: Object = deps.get("active_item_runtime", null)
 	var registry: Object = deps.get("registry", null)
 	if active_item_runtime == null:
-		active_item_runtime = _get_instance(registry, "active_item_runtime")
+		active_item_runtime = CommandoFirearmValueUtils.get_instance(registry, "active_item_runtime")
 	if active_item_runtime == null or not active_item_runtime.has_method("trigger_molotov_fire_zone"):
 		return false
 	active_item_runtime.trigger_molotov_fire_zone(pos, null, registry, false)
@@ -3540,7 +3540,7 @@ func _is_stage2_speed_defense_boss_immune(context: Dictionary = {}, deps: Dictio
 
 
 func _is_stage2_speed_defense_registry_immune(registry: Object) -> bool:
-	var stage2_skill_state: Object = _get_instance(registry, "stage2_boss_skill_state")
+	var stage2_skill_state: Object = CommandoFirearmValueUtils.get_instance(registry, "stage2_boss_skill_state")
 	return (
 		stage2_skill_state != null
 		and stage2_skill_state.has_method("is_boss_status_immune")
@@ -3635,10 +3635,6 @@ func _play_impact_audio(weapon_id: String, deps: Dictionary) -> void:
 	)
 
 
-func _append_limited(target: Array, value: Dictionary, limit: int) -> void:
-	CommandoFirearmValueUtils.append_limited(target, value, limit)
-
-
 func _next_shot_id() -> int:
 	shot_serial += 1
 	return shot_serial
@@ -3658,7 +3654,3 @@ func _get_dict(value: Variant) -> Dictionary:
 
 func _get_array(value: Variant) -> Array:
 	return CommandoFirearmValueUtils.get_array(value)
-
-
-func _get_instance(registry: Object, key: String) -> Object:
-	return CommandoFirearmValueUtils.get_instance(registry, key)

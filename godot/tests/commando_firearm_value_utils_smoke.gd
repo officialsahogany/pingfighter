@@ -100,6 +100,8 @@ func _init() -> void:
 	_verify_removed_pistol_value_bridges()
 	_verify_removed_doping_value_bridges()
 	_verify_removed_timed_effect_update_bridges()
+	_verify_removed_append_limited_bridge()
+	_verify_removed_registry_value_bridge()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -292,8 +294,8 @@ func _verify_direct_value_utils() -> void:
 func _verify_runtime_delegates_value_utils() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	var values: Array = [{"id": 1}, {"id": 2}]
-	runtime._append_limited(values, {"id": 3}, 2)
-	_expect(values.size() == 2 and int(runtime._get_dict(values[0]).get("id", 0)) == 2, "runtime append wrapper should delegate to value utils")
+	CommandoFirearmValueUtils.append_limited(values, {"id": 3}, 2)
+	_expect(values.size() == 2 and int(runtime._get_dict(values[0]).get("id", 0)) == 2, "append helper should evict the oldest value through value utils")
 	_expect(runtime._get_vector2(Vector2(5.0, 6.0), Vector2.ZERO) == Vector2(5.0, 6.0), "runtime vector wrapper should delegate to value utils")
 	_expect(runtime._get_vector2(12, Vector2.ONE) == Vector2.ONE, "runtime vector wrapper should preserve fallback behavior")
 	_expect(runtime._get_color(Color.GREEN, Color.BLUE) == Color.GREEN, "runtime color wrapper should delegate to value utils")
@@ -303,8 +305,8 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(runtime._get_array(["a"]).size() == 1, "runtime array wrapper should delegate to value utils")
 	_expect(runtime._get_array("bad").is_empty(), "runtime array wrapper should preserve fallback behavior")
 	var registry_marker := RefCounted.new()
-	_expect(runtime._get_instance(FakeRegistry.new({"marker": registry_marker}), "marker") == registry_marker, "runtime registry wrapper should delegate to value utils")
-	_expect(runtime._get_instance(RefCounted.new(), "marker") == null, "runtime registry wrapper should reject objects without get_instance")
+	_expect(CommandoFirearmValueUtils.get_instance(FakeRegistry.new({"marker": registry_marker}), "marker") == registry_marker, "registry helper should read available registry instances")
+	_expect(CommandoFirearmValueUtils.get_instance(RefCounted.new(), "marker") == null, "registry helper should reject objects without get_instance")
 	var runtime_doping: Dictionary = CommandoFirearmValueUtils.normalize_doping_potion_context({
 		"active": true,
 		"head_leg_multiplier": 3.0,
@@ -1759,6 +1761,16 @@ func _verify_removed_timed_effect_update_bridges() -> void:
 		"_update_impact_flashes",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep timed-effect update bridge %s" % bridge_name)
+
+
+func _verify_removed_append_limited_bridge() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(source.find("func _append_limited") < 0, "runtime should not keep append-limited value bridge")
+
+
+func _verify_removed_registry_value_bridge() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(source.find("func _get_instance") < 0, "runtime should not keep registry value bridge")
 
 
 func _doping_defaults() -> Dictionary:
