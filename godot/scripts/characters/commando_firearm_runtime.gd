@@ -8,14 +8,13 @@ const CommandoFirearmControlState := preload("res://scripts/characters/commando_
 const CommandoFirearmCooldownState := preload("res://scripts/characters/commando_firearm_cooldown_state.gd")
 const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/commando_firearm_draw_state_resolver.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
+const CommandoFirearmFireSpawnState := preload("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
 const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/commando_firearm_hit_feedback_dispatcher.gd")
 const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
-const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
-const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
 const CommandoFirearmPistolFeedbackState := preload("res://scripts/characters/commando_firearm_pistol_feedback_state.gd")
 const CommandoFirearmPistolReloadState := preload("res://scripts/characters/commando_firearm_pistol_reload_state.gd")
@@ -1569,123 +1568,60 @@ func _update_active_suicide_drone_input(
 
 
 func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictionary, profile_override: Dictionary = {}) -> void:
-	CommandoFirearmFireSheetResolver.apply_runtime_animation_state(
+	CommandoFirearmFireSpawnState.spawn_runtime_firearm_effect(
 		self,
 		weapon_id,
-		COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
-		COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
-		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
-	)
-	var spawn_profile_state: Dictionary = CommandoFirearmProfileResolver.build_spawn_profile_state(
-		weapon_id,
+		config,
+		deps,
 		profile_override,
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES,
-		config,
-		DOPING_POTION_DEFAULTS,
-		BASE_WEAPON_ID,
-		PISTOL_BULLET_SPEED,
-		DOPING_POTION_PISTOL_SPEED_MULTIPLIER,
-		PISTOL_SPREAD_RADIANS,
-		BERETTA_SPREAD_RADIANS
-	)
-	var profile: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_profile_state.get("profile", {}))
-	var doping_context: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_profile_state.get("doping_context", {}))
-	var kind: String = str(profile.get("kind", "bullet"))
-	var spawn_geometry_state: Dictionary = CommandoFirearmOriginGeometry.build_firearm_spawn_geometry_state(
-		weapon_id,
-		config,
-		profile,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
-		COMMANDO_PISTOL_FIRE_MUZZLE_SOURCE,
-		COMMANDO_BAZOOKA_FIRE_MUZZLE_SOURCE,
-		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-		BASE_WEAPON_ID
-	)
-	var origin: Vector2 = CommandoFirearmValueUtils.get_vector2(spawn_geometry_state.get("origin", Vector2.ZERO), Vector2.ZERO)
-	var target: Vector2 = CommandoFirearmValueUtils.get_vector2(spawn_geometry_state.get("target", Vector2.ZERO), Vector2.ZERO)
-	var aim_origin: Vector2 = CommandoFirearmValueUtils.get_vector2(spawn_geometry_state.get("aim_origin", origin), origin)
-	var angle_offset: float = float(spawn_geometry_state.get("angle_offset", 0.0))
-	var direction: Vector2 = CommandoFirearmValueUtils.get_vector2(spawn_geometry_state.get("direction", Vector2.UP), Vector2.UP)
-	CommandoFirearmMuzzleFlashResolver.append_runtime_flash(
-		muzzle_flashes,
-		origin,
-		direction,
-		profile,
-		weapon_id,
-		FLASH_LIMIT
-	)
-	if kind == "support":
-		var support_start: Dictionary = CommandoFirearmSupportCallResolver.append_runtime_start_effects(
-			support_calls,
-			impact_flashes,
-			self,
-			origin,
-			target,
-			profile,
-			weapon_id,
-			SUPPORT_CALL_LIMIT,
-			FLASH_LIMIT,
-			SUPPORT_CALL_DELAY_MIN_FRAMES,
-			SUPPORT_CALL_DELAY_MAX_FRAMES,
-			SUPPORT_BOMB_MIN_COUNT,
-			SUPPORT_BOMB_MAX_COUNT,
-			SUPPORT_CALL_LOCK_FRAMES,
-			SUPPORT_AIRCRAFT_DROP_ARM_FRAMES,
-			SUPPORT_AIRCRAFT_Y,
-			SUPPORT_AIRCRAFT_SPEED,
-			SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
-			SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
-			SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
-			SUPPORT_AIRCRAFT_START_X
-		)
-		CommandoFirearmAudioDispatcher.dispatch_support_call_start_audio(support_start, deps)
-		return
-	if kind == "trap" or weapon_id == "bowling_trap":
-		CommandoFirearmBowlingTrapGeometry.append_runtime_install_effects(
-			bowling_traps,
-			impact_flashes,
-			self,
-			config,
-			profile,
-			weapon_id,
-			FIELD_WIDTH,
-			FIELD_HEIGHT,
-			BOWLING_TRAP_WIDTH,
-			BOWLING_TRAP_HEIGHT,
-			BOWLING_TRAP_MIN_FIELD_Y_RATIO,
-			BOWLING_TRAP_INSTALL_FRAMES,
-			BOWLING_TRAP_CAPTURE_BALL_OFFSET,
-			BOWLING_TRAP_LIMIT,
-			FLASH_LIMIT
-		)
-		return
-	CommandoFirearmProjectileSpawnState.append_runtime_projectile(
-		projectiles,
-		shell_casings,
-		self,
-		weapon_id,
-		kind,
-		origin,
-		target,
-		direction,
-		angle_offset,
-		aim_origin,
-		profile,
-		doping_context,
-		config,
-		16.0,
-		BAZOOKA_SMOKE_TRAIL_LIMIT,
-		NET_GUN_ROPE_TRAIL_LIMIT,
-		DOPING_POTION_HEAD_LEG_MULTIPLIER,
-		DOPING_POTION_PISTOL_SPEED_MULTIPLIER,
-		PROJECTILE_LIMIT,
-		FIELD_HEIGHT,
-		AK47_SHELL_LIFETIME_FRAMES,
-		PISTOL_SHELL_LIFETIME_FRAMES,
-		SHELL_CASING_LIMIT
+		{
+			"weapon_profiles": WEAPON_PROFILES,
+			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
+			"doping_potion_defaults": DOPING_POTION_DEFAULTS,
+			"base_weapon_id": BASE_WEAPON_ID,
+			"field_width": FIELD_WIDTH,
+			"field_height": FIELD_HEIGHT,
+			"fire_sheet_default_frames": COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
+			"fire_sheet_long_frames": COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
+			"fire_sheet_frame_count": COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT,
+			"fire_sheet_source_cell_size": COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+			"fire_sheet_player_foot_y_offset": COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+			"pistol_muzzle_source": COMMANDO_PISTOL_FIRE_MUZZLE_SOURCE,
+			"bazooka_muzzle_source": COMMANDO_BAZOOKA_FIRE_MUZZLE_SOURCE,
+			"net_gun_muzzle_source": COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+			"pistol_bullet_speed": PISTOL_BULLET_SPEED,
+			"doping_potion_head_leg_multiplier": DOPING_POTION_HEAD_LEG_MULTIPLIER,
+			"doping_potion_pistol_speed_multiplier": DOPING_POTION_PISTOL_SPEED_MULTIPLIER,
+			"pistol_spread_radians": PISTOL_SPREAD_RADIANS,
+			"beretta_spread_radians": BERETTA_SPREAD_RADIANS,
+			"flash_limit": FLASH_LIMIT,
+			"support_call_limit": SUPPORT_CALL_LIMIT,
+			"support_call_delay_min_frames": SUPPORT_CALL_DELAY_MIN_FRAMES,
+			"support_call_delay_max_frames": SUPPORT_CALL_DELAY_MAX_FRAMES,
+			"support_bomb_min_count": SUPPORT_BOMB_MIN_COUNT,
+			"support_bomb_max_count": SUPPORT_BOMB_MAX_COUNT,
+			"support_call_lock_frames": SUPPORT_CALL_LOCK_FRAMES,
+			"support_aircraft_drop_arm_frames": SUPPORT_AIRCRAFT_DROP_ARM_FRAMES,
+			"support_aircraft_y": SUPPORT_AIRCRAFT_Y,
+			"support_aircraft_speed": SUPPORT_AIRCRAFT_SPEED,
+			"support_aircraft_curve_amplitude": SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
+			"support_aircraft_curve_frequency": SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
+			"support_aircraft_curve_secondary_ratio": SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
+			"support_aircraft_start_x": SUPPORT_AIRCRAFT_START_X,
+			"bowling_trap_width": BOWLING_TRAP_WIDTH,
+			"bowling_trap_height": BOWLING_TRAP_HEIGHT,
+			"bowling_trap_min_field_y_ratio": BOWLING_TRAP_MIN_FIELD_Y_RATIO,
+			"bowling_trap_install_frames": BOWLING_TRAP_INSTALL_FRAMES,
+			"bowling_trap_capture_ball_offset": BOWLING_TRAP_CAPTURE_BALL_OFFSET,
+			"bowling_trap_limit": BOWLING_TRAP_LIMIT,
+			"default_projectile_speed": 16.0,
+			"bazooka_smoke_trail_limit": BAZOOKA_SMOKE_TRAIL_LIMIT,
+			"net_gun_rope_trail_limit": NET_GUN_ROPE_TRAIL_LIMIT,
+			"projectile_limit": PROJECTILE_LIMIT,
+			"ak47_shell_lifetime_frames": AK47_SHELL_LIFETIME_FRAMES,
+			"pistol_shell_lifetime_frames": PISTOL_SHELL_LIFETIME_FRAMES,
+			"shell_casing_limit": SHELL_CASING_LIMIT,
+		}
 	)
 
 

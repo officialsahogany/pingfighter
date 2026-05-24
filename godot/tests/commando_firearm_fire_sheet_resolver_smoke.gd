@@ -92,6 +92,7 @@ func _verify_runtime_uses_fire_sheet_resolver_boundary() -> void:
 
 func _verify_removed_runtime_fire_sheet_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var spawn_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 	for bridge_name in [
 		"_normalize_weapon_fire_sheet_id",
 		"_get_weapon_fire_sheet_duration_frames",
@@ -100,8 +101,12 @@ func _verify_removed_runtime_fire_sheet_bridges() -> void:
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep fire-sheet bridge %s" % bridge_name)
 	_expect(
-		source.find("CommandoFirearmFireSheetResolver.apply_runtime_animation_state") >= 0,
-		"runtime should delegate fire-sheet state writes to the resolver"
+		source.find("CommandoFirearmFireSpawnState.spawn_runtime_firearm_effect") >= 0,
+		"runtime should delegate fire-spawn orchestration to the fire-spawn state"
+	)
+	_expect(
+		spawn_source.find("CommandoFirearmFireSheetResolver.apply_runtime_animation_state") >= 0,
+		"fire-spawn state should delegate fire-sheet state writes to the resolver"
 	)
 
 

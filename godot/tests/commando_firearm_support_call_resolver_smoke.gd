@@ -263,6 +263,7 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 
 func _verify_removed_support_call_setup_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var fire_spawn_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 	for bridge_name in [
 		"_build_support_call_payload",
 		"_build_support_marker_flash",
@@ -276,12 +277,16 @@ func _verify_removed_support_call_setup_bridges() -> void:
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep support-call setup bridge %s" % bridge_name)
 	_expect(
-		source.find("CommandoFirearmSupportCallResolver.append_runtime_start_effects") >= 0,
-		"runtime should delegate support-call runtime start append to the resolver"
+		source.find("CommandoFirearmFireSpawnState.spawn_runtime_firearm_effect") >= 0,
+		"runtime should delegate fire-spawn orchestration to the fire-spawn state"
 	)
 	_expect(
-		source.find("CommandoFirearmSupportCallResolver.append_start_effects") < 0,
-		"runtime should not call the lower-level support start helper directly"
+		fire_spawn_source.find("CommandoFirearmSupportCallResolver.append_runtime_start_effects") >= 0,
+		"fire-spawn state should delegate support-call runtime start append to the resolver"
+	)
+	_expect(
+		fire_spawn_source.find("CommandoFirearmSupportCallResolver.append_start_effects") < 0,
+		"fire-spawn state should not call the lower-level support start helper directly"
 	)
 
 

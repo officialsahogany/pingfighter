@@ -523,6 +523,7 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 
 func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var fire_spawn_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 	_expect(
 		runtime_source.find("CommandoFirearmBowlingTrapGuardState.consume_runtime_boss_guard") >= 0,
 		"runtime should delegate bowling-trap boss-guard consumption to the guard-state owner"
@@ -540,12 +541,16 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"runtime should not call the lower-level bowling-trap event dispatch helper directly"
 	)
 	_expect(
-		runtime_source.find("CommandoFirearmBowlingTrapGeometry.append_runtime_install_effects") >= 0,
-		"runtime should delegate bowling-trap runtime install append to the geometry owner"
+		runtime_source.find("CommandoFirearmFireSpawnState.spawn_runtime_firearm_effect") >= 0,
+		"runtime should delegate fire-spawn orchestration to the fire-spawn state"
 	)
 	_expect(
-		runtime_source.find("CommandoFirearmBowlingTrapGeometry.append_install_effects") < 0,
-		"runtime should not call the lower-level bowling-trap install helper directly"
+		fire_spawn_source.find("CommandoFirearmBowlingTrapGeometry.append_runtime_install_effects") >= 0,
+		"fire-spawn state should delegate bowling-trap runtime install append to the geometry owner"
+	)
+	_expect(
+		fire_spawn_source.find("CommandoFirearmBowlingTrapGeometry.append_install_effects") < 0,
+		"fire-spawn state should not call the lower-level bowling-trap install helper directly"
 	)
 	for bridge_name in [
 		"_is_bowling_trap_install_in_player_field",

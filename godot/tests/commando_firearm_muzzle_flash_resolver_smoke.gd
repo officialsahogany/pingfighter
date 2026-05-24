@@ -98,14 +98,19 @@ func _verify_runtime_uses_muzzle_flash_resolver() -> void:
 
 func _verify_removed_runtime_muzzle_flash_bridge() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var spawn_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 	_expect(source.find("func _spawn_muzzle_flash(") < 0, "runtime should not keep muzzle-flash append bridge")
 	_expect(
-		source.find("CommandoFirearmMuzzleFlashResolver.append_runtime_flash") >= 0,
-		"runtime should delegate muzzle-flash append to the resolver"
+		source.find("CommandoFirearmFireSpawnState.spawn_runtime_firearm_effect") >= 0,
+		"runtime should delegate fire-spawn orchestration to the fire-spawn state"
 	)
 	_expect(
-		source.find("CommandoFirearmMuzzleFlashResolver.build_flash") < 0,
-		"runtime should not call the lower-level muzzle-flash builder directly"
+		spawn_source.find("CommandoFirearmMuzzleFlashResolver.append_runtime_flash") >= 0,
+		"fire-spawn state should delegate muzzle-flash append to the resolver"
+	)
+	_expect(
+		spawn_source.find("CommandoFirearmMuzzleFlashResolver.build_flash") < 0,
+		"fire-spawn state should not call the lower-level muzzle-flash builder directly"
 	)
 
 
