@@ -1069,46 +1069,46 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(bool(active_lingering_result.get("commando_net_gun_boss_clamped", false)), "active lingering helper should merge clamp results into update results")
 	_expect(active_lingering_context.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "active lingering helper should merge clamp results into context")
 	_expect(runtime._get_dict(runtime.lingering_effects[0]).get("pos", Vector2.ZERO) == Vector2(100.0, 100.0), "active lingering helper should store the updated effect back into the array")
-	_expect(runtime._get_lingering_effect_rect_pos({"pos": Vector2(100.0, 100.0)}) == Vector2(100.0, 100.0), "lingering effect rect-pos helper should read explicit positions")
-	_expect(runtime._get_lingering_effect_rect_pos({"pos": "bad"}) == Vector2.ZERO, "lingering effect rect-pos helper should default invalid positions")
-	_expect(is_equal_approx(runtime._get_lingering_effect_rect_width({"width": -5.0}), 1.0), "lingering effect rect-width helper should clamp invalid widths")
-	_expect(is_equal_approx(runtime._get_lingering_effect_rect_height({"height": 0.0}), 1.0), "lingering effect rect-height helper should clamp invalid heights")
-	_expect(runtime._get_lingering_effect_rect_size({"width": 80.0, "height": 40.0}) == Vector2(80.0, 40.0), "lingering effect rect-size helper should preserve explicit sizes")
-	_expect(runtime._get_lingering_effect_rect({
+	_expect(CommandoFirearmLingeringStatusState.get_lingering_effect_rect_pos({"pos": Vector2(100.0, 100.0)}) == Vector2(100.0, 100.0), "lingering effect rect-pos helper should read explicit positions")
+	_expect(CommandoFirearmLingeringStatusState.get_lingering_effect_rect_pos({"pos": "bad"}) == Vector2.ZERO, "lingering effect rect-pos helper should default invalid positions")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_lingering_effect_rect_width({"width": -5.0}), 1.0), "lingering effect rect-width helper should clamp invalid widths")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_lingering_effect_rect_height({"height": 0.0}), 1.0), "lingering effect rect-height helper should clamp invalid heights")
+	_expect(CommandoFirearmLingeringStatusState.get_lingering_effect_rect_size({"width": 80.0, "height": 40.0}) == Vector2(80.0, 40.0), "lingering effect rect-size helper should preserve explicit sizes")
+	_expect(CommandoFirearmLingeringStatusState.get_lingering_effect_rect({
 		"pos": Vector2(100.0, 100.0),
 		"width": 80.0,
 		"height": 40.0,
 	}) == Rect2(Vector2(60.0, 80.0), Vector2(80.0, 40.0)), "lingering effect rect helper should center effect rects on their position")
-	_expect(runtime._get_lingering_effect_rect({
+	_expect(CommandoFirearmLingeringStatusState.get_lingering_effect_rect({
 		"pos": Vector2(10.0, 20.0),
 		"width": -5.0,
 		"height": 0.0,
 	}) == Rect2(Vector2(9.5, 19.5), Vector2(1.0, 1.0)), "lingering effect rect helper should clamp effect size")
-	_expect(runtime._get_lingering_boss_rect_pos({"boss_pos": Vector2(70.0, 40.0)}) == Vector2(70.0, 40.0), "lingering boss rect-pos helper should read explicit positions")
-	_expect(runtime._get_lingering_boss_rect_pos({"boss_pos": "bad"}) == Vector2.ZERO, "lingering boss rect-pos helper should default invalid positions")
-	_expect(is_equal_approx(runtime._get_lingering_boss_rect_width({"boss_width": 44.0}), 44.0), "lingering boss rect-width helper should use boss-width fallback")
-	_expect(is_equal_approx(runtime._get_lingering_boss_rect_width({"boss_width": 44.0, "boss_paddle_width": 30.0}), 30.0), "lingering boss rect-width helper should prefer paddle width")
-	_expect(is_equal_approx(runtime._get_lingering_boss_rect_height({"boss_hitbox_height": -9.0}), 1.0), "lingering boss rect-height helper should clamp invalid heights")
-	_expect(runtime._get_lingering_boss_rect_size({"boss_paddle_width": 30.0, "boss_hitbox_height": 24.0}) == Vector2(30.0, 24.0), "lingering boss rect-size helper should preserve paddle dimensions")
-	_expect(runtime._get_lingering_boss_rect({
+	_expect(CommandoFirearmLingeringStatusState.get_lingering_boss_rect_pos({"boss_pos": Vector2(70.0, 40.0)}) == Vector2(70.0, 40.0), "lingering boss rect-pos helper should read explicit positions")
+	_expect(CommandoFirearmLingeringStatusState.get_lingering_boss_rect_pos({"boss_pos": "bad"}) == Vector2.ZERO, "lingering boss rect-pos helper should default invalid positions")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_lingering_boss_rect_width({"boss_width": 44.0}), 44.0), "lingering boss rect-width helper should use boss-width fallback")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_lingering_boss_rect_width({"boss_width": 44.0, "boss_paddle_width": 30.0}), 30.0), "lingering boss rect-width helper should prefer paddle width")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_lingering_boss_rect_height({"boss_hitbox_height": -9.0}), 1.0), "lingering boss rect-height helper should clamp invalid heights")
+	_expect(CommandoFirearmLingeringStatusState.get_lingering_boss_rect_size({"boss_paddle_width": 30.0, "boss_hitbox_height": 24.0}) == Vector2(30.0, 24.0), "lingering boss rect-size helper should preserve paddle dimensions")
+	_expect(CommandoFirearmLingeringStatusState.get_lingering_boss_rect({
 		"boss_pos": Vector2(70.0, 40.0),
 		"boss_paddle_width": 30.0,
 		"boss_hitbox_height": 24.0,
 	}) == Rect2(Vector2(70.0, 40.0), Vector2(30.0, 24.0)), "lingering boss rect helper should use boss paddle dimensions")
-	_expect(runtime._get_lingering_boss_rect({
+	_expect(CommandoFirearmLingeringStatusState.get_lingering_boss_rect({
 		"boss_pos": Vector2(70.0, 40.0),
 		"boss_width": 44.0,
 		"boss_hitbox_height": -9.0,
 	}) == Rect2(Vector2(70.0, 40.0), Vector2(44.0, 1.0)), "lingering boss rect helper should use fallback width and clamp height")
-	_expect(runtime._do_lingering_rects_intersect(
+	_expect(CommandoFirearmLingeringStatusState.do_lingering_rects_intersect(
 		Rect2(Vector2(60.0, 80.0), Vector2(80.0, 40.0)),
 		Rect2(Vector2(90.0, 90.0), Vector2(20.0, 20.0))
 	), "lingering rect intersection helper should detect overlaps")
-	_expect(not runtime._do_lingering_rects_intersect(
+	_expect(not CommandoFirearmLingeringStatusState.do_lingering_rects_intersect(
 		Rect2(Vector2(90.0, 90.0), Vector2(20.0, 20.0)),
 		Rect2(Vector2(200.0, 200.0), Vector2(20.0, 20.0))
 	), "lingering rect intersection helper should reject separated rects")
-	_expect(runtime._lingering_effect_hits_boss({
+	_expect(CommandoFirearmLingeringStatusState.lingering_effect_hits_boss({
 		"pos": Vector2(100.0, 100.0),
 		"width": 80.0,
 		"height": 40.0,
@@ -1117,7 +1117,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"boss_paddle_width": 20.0,
 		"boss_hitbox_height": 20.0,
 	}), "lingering hit helper should detect intersecting rects")
-	_expect(not runtime._lingering_effect_hits_boss({
+	_expect(not CommandoFirearmLingeringStatusState.lingering_effect_hits_boss({
 		"pos": Vector2(100.0, 100.0),
 		"width": 20.0,
 		"height": 20.0,
@@ -1646,6 +1646,18 @@ func _verify_removed_lingering_status_application_bridges() -> void:
 		"_get_lingering_status_cooldown",
 		"_get_next_lingering_status_cooldown",
 		"_is_lingering_status_cooldown_ready",
+		"_lingering_effect_hits_boss",
+		"_do_lingering_rects_intersect",
+		"_get_lingering_effect_rect",
+		"_get_lingering_effect_rect_pos",
+		"_get_lingering_effect_rect_width",
+		"_get_lingering_effect_rect_height",
+		"_get_lingering_effect_rect_size",
+		"_get_lingering_boss_rect",
+		"_get_lingering_boss_rect_pos",
+		"_get_lingering_boss_rect_width",
+		"_get_lingering_boss_rect_height",
+		"_get_lingering_boss_rect_size",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-status application bridge %s" % bridge_name)
 

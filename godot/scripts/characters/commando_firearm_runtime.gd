@@ -3760,54 +3760,6 @@ func _apply_lingering_status_to_boss(
 	)
 
 
-func _lingering_effect_hits_boss(effect: Dictionary, context: Dictionary) -> bool:
-	return CommandoFirearmLingeringStatusState.lingering_effect_hits_boss(effect, context)
-
-
-func _do_lingering_rects_intersect(effect_rect: Rect2, boss_rect: Rect2) -> bool:
-	return CommandoFirearmLingeringStatusState.do_lingering_rects_intersect(effect_rect, boss_rect)
-
-
-func _get_lingering_effect_rect(effect: Dictionary) -> Rect2:
-	return CommandoFirearmLingeringStatusState.get_lingering_effect_rect(effect)
-
-
-func _get_lingering_effect_rect_pos(effect: Dictionary) -> Vector2:
-	return CommandoFirearmLingeringStatusState.get_lingering_effect_rect_pos(effect)
-
-
-func _get_lingering_effect_rect_width(effect: Dictionary) -> float:
-	return CommandoFirearmLingeringStatusState.get_lingering_effect_rect_width(effect)
-
-
-func _get_lingering_effect_rect_height(effect: Dictionary) -> float:
-	return CommandoFirearmLingeringStatusState.get_lingering_effect_rect_height(effect)
-
-
-func _get_lingering_effect_rect_size(effect: Dictionary) -> Vector2:
-	return CommandoFirearmLingeringStatusState.get_lingering_effect_rect_size(effect)
-
-
-func _get_lingering_boss_rect(context: Dictionary) -> Rect2:
-	return CommandoFirearmLingeringStatusState.get_lingering_boss_rect(context)
-
-
-func _get_lingering_boss_rect_pos(context: Dictionary) -> Vector2:
-	return CommandoFirearmLingeringStatusState.get_lingering_boss_rect_pos(context)
-
-
-func _get_lingering_boss_rect_width(context: Dictionary) -> float:
-	return CommandoFirearmLingeringStatusState.get_lingering_boss_rect_width(context)
-
-
-func _get_lingering_boss_rect_height(context: Dictionary) -> float:
-	return CommandoFirearmLingeringStatusState.get_lingering_boss_rect_height(context)
-
-
-func _get_lingering_boss_rect_size(context: Dictionary) -> Vector2:
-	return CommandoFirearmLingeringStatusState.get_lingering_boss_rect_size(context)
-
-
 func _get_hit_knockback_velocity(profile: Dictionary, pos: Vector2, velocity: Vector2, context: Dictionary) -> float:
 	return CommandoFirearmHitGeometry.get_hit_knockback_velocity(
 		profile,
