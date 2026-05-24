@@ -3901,8 +3901,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Commando firearm audio-name lookup behavior: ball-hit pulse
   kind names, weapon-specific fire cue method lists, and weapon-specific
   impact cue method lists. `commando_firearm_runtime.gd` keeps fire-support
-  radio suppression and call-site timing while delegating only the string
-  mapping here.
+  radio suppression, call-site timing, and audio dispatch side effects while
+  calling these string mappings directly instead of preserving private audio
+  lookup bridges.
 - `scripts/characters/commando_firearm_audio_dispatcher.gd`
   Owns Commando firearm audio dispatch mechanics: audio / game_audio dep
   lookup, first-available no-arg method calls, weapon-specific cue fallback

@@ -5996,6 +5996,21 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+177th follow-up on 2026-05-24:
+
+- Commit: `ae76387b5 godot: drop Commando audio mapping bridges`.
+- Scope: removed the Commando audio mapping bridge trio from
+  `commando_firearm_runtime.gd`. Ball-hit pulse kind lookup, fire cue method
+  lookup, and impact cue method lookup now call
+  `commando_firearm_audio_resolver.gd` directly; runtime keeps fire-support
+  radio suppression, call-site timing, fallback dispatch, and actual audio
+  side effects.
+- Validation: `commando_firearm_audio_resolver_smoke`,
+  `commando_firearm_audio_routing_smoke`, and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
