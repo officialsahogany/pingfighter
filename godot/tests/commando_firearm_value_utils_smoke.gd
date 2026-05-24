@@ -83,7 +83,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_direct_value_utils()
 	_verify_runtime_delegates_value_utils()
-	_verify_removed_fire_flame_drift_bridges()
+	_verify_removed_fire_flame_owner_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -848,58 +848,58 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"lifetime": 1.0,
 		"phase": 2.0,
 	}
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_current_lifetime(expired_fire_flame), 1.0), "fire flame current-lifetime helper should read explicit lifetimes")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_current_lifetime({}), 0.0), "fire flame current-lifetime helper should default missing lifetimes to zero")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_current_phase(expired_fire_flame), 2.0), "fire flame current-phase helper should read explicit phases")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_current_phase({}), 0.0), "fire flame current-phase helper should default missing phases to zero")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_phase_step(2.0), 0.16), "fire flame phase-step helper should preserve phase advance")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_next_lifetime(expired_fire_flame, 2.0), -1.0), "fire flame next-lifetime helper should subtract frame steps")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_next_phase(expired_fire_flame, 2.0), 2.16), "fire flame next-phase helper should advance by the frame step")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_next_lifetime({}, 2.0), -2.0), "fire flame next-lifetime helper should default missing lifetimes to zero")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_next_phase({}, 2.0), 0.16), "fire flame next-phase helper should default missing phases to zero")
-	_expect(runtime._should_reset_lingering_fire_flame(0.0), "fire flame reset predicate should include zero lifetimes")
-	_expect(runtime._should_reset_lingering_fire_flame(-0.01), "fire flame reset predicate should include negative lifetimes")
-	_expect(not runtime._should_reset_lingering_fire_flame(0.01), "fire flame reset predicate should reject positive lifetimes")
-	_expect(runtime._get_lingering_fire_effect_id({"id": 3}) == 3, "fire flame effect-id helper should read explicit ids")
-	_expect(runtime._get_lingering_fire_effect_id({}) == 0, "fire flame effect-id helper should default missing ids to zero")
-	_expect(runtime._get_lingering_fire_flame_reset_angle_index(2, {"id": 3}) == 5, "fire flame reset-angle-index helper should include the effect id")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_reset_angle(2, {"id": 3}), TAU / 3.0), "fire flame reset-angle helper should include the effect id")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_reset_radius_x(80.0), 27.2), "fire flame reset-radius x helper should preserve reseed x radii")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_reset_radius_y(40.0), 15.2), "fire flame reset-radius y helper should preserve reseed y radii")
-	_expect(runtime._get_lingering_fire_flame_reset_radius(80.0, 40.0).is_equal_approx(Vector2(27.2, 15.2)), "fire flame reset-radius helper should preserve reseed radii")
-	_expect(runtime._get_lingering_fire_flame_reset_offset(2, {"id": 3}, 80.0, 40.0).is_equal_approx(Vector2(-13.6, 13.163586)), "fire flame reset-offset helper should preserve reset positions")
-	_expect(runtime._get_lingering_fire_flame_reset_size_pattern_value(2) == 0, "fire flame reset-size-pattern helper should preserve reseed size spacing")
-	_expect(runtime._get_lingering_fire_flame_reset_size_offset(2) == 0, "fire flame reset-size-offset helper should preserve reseed size offsets")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_reset_size(2), 9.0), "fire flame reset-size helper should preserve reseed sizes")
-	_expect(runtime._get_lingering_fire_flame_reset_lifetime_pattern_value(2) == 10, "fire flame reset-lifetime-pattern helper should preserve reseed lifetime spacing")
-	_expect(runtime._get_lingering_fire_flame_reset_lifetime_offset(2) == 10, "fire flame reset-lifetime-offset helper should preserve reseed lifetime offsets")
-	_expect(is_equal_approx(runtime._get_lingering_fire_flame_reset_lifetime(2), 34.0), "fire flame reset-lifetime helper should preserve reseed lifetimes")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_current_lifetime(expired_fire_flame), 1.0), "fire flame current-lifetime owner should read explicit lifetimes")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_current_lifetime({}), 0.0), "fire flame current-lifetime owner should default missing lifetimes to zero")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_current_phase(expired_fire_flame), 2.0), "fire flame current-phase owner should read explicit phases")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_current_phase({}), 0.0), "fire flame current-phase owner should default missing phases to zero")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_phase_step(2.0), 0.16), "fire flame phase-step owner should preserve phase advance")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_next_lifetime(expired_fire_flame, 2.0), -1.0), "fire flame next-lifetime owner should subtract frame steps")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_next_phase(expired_fire_flame, 2.0), 2.16), "fire flame next-phase owner should advance by the frame step")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_next_lifetime({}, 2.0), -2.0), "fire flame next-lifetime owner should default missing lifetimes to zero")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_next_phase({}, 2.0), 0.16), "fire flame next-phase owner should default missing phases to zero")
+	_expect(CommandoFirearmLingeringFireFlameState.should_reset_flame(0.0), "fire flame reset predicate owner should include zero lifetimes")
+	_expect(CommandoFirearmLingeringFireFlameState.should_reset_flame(-0.01), "fire flame reset predicate owner should include negative lifetimes")
+	_expect(not CommandoFirearmLingeringFireFlameState.should_reset_flame(0.01), "fire flame reset predicate owner should reject positive lifetimes")
+	_expect(CommandoFirearmLingeringFireFlameState.get_effect_id({"id": 3}) == 3, "fire flame effect-id owner should read explicit ids")
+	_expect(CommandoFirearmLingeringFireFlameState.get_effect_id({}) == 0, "fire flame effect-id owner should default missing ids to zero")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_reset_angle_index(2, {"id": 3}) == 5, "fire flame reset-angle-index owner should include the effect id")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_reset_angle(2, {"id": 3}), TAU / 3.0), "fire flame reset-angle owner should include the effect id")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_reset_radius_x(80.0), 27.2), "fire flame reset-radius x owner should preserve reseed x radii")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_reset_radius_y(40.0), 15.2), "fire flame reset-radius y owner should preserve reseed y radii")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_reset_radius(80.0, 40.0).is_equal_approx(Vector2(27.2, 15.2)), "fire flame reset-radius owner should preserve reseed radii")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_reset_offset(2, {"id": 3}, 80.0, 40.0).is_equal_approx(Vector2(-13.6, 13.163586)), "fire flame reset-offset owner should preserve reset positions")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_reset_size_pattern_value(2) == 0, "fire flame reset-size-pattern owner should preserve reseed size spacing")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_reset_size_offset(2) == 0, "fire flame reset-size-offset owner should preserve reseed size offsets")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_reset_size(2), 9.0), "fire flame reset-size owner should preserve reseed sizes")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_reset_lifetime_pattern_value(2) == 10, "fire flame reset-lifetime-pattern owner should preserve reseed lifetime spacing")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_reset_lifetime_offset(2) == 10, "fire flame reset-lifetime-offset owner should preserve reseed lifetime offsets")
+	_expect(is_equal_approx(CommandoFirearmLingeringFireFlameState.get_flame_reset_lifetime(2), 34.0), "fire flame reset-lifetime owner should preserve reseed lifetimes")
 	var reset_values_fire_flame := {}
-	runtime._apply_lingering_fire_flame_reset_values(reset_values_fire_flame, 2, {"id": 3}, 80.0, 40.0)
-	_expect(runtime._get_vector2(reset_values_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2(-13.6, 13.163586)), "fire flame reset-values helper should apply reset offsets")
-	_expect(is_equal_approx(float(reset_values_fire_flame.get("size", 0.0)), 9.0), "fire flame reset-values helper should apply reset sizes")
+	CommandoFirearmLingeringFireFlameState.apply_flame_reset_values(reset_values_fire_flame, 2, {"id": 3}, 80.0, 40.0)
+	_expect(CommandoFirearmValueUtils.get_vector2(reset_values_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2(-13.6, 13.163586)), "fire flame reset-values owner should apply reset offsets")
+	_expect(is_equal_approx(float(reset_values_fire_flame.get("size", 0.0)), 9.0), "fire flame reset-values owner should apply reset sizes")
 	var reset_motion_fire_flame := {
 		"offset": Vector2.ZERO,
 		"size": 4.0,
 	}
-	var reset_motion_lifetime: float = runtime._apply_lingering_fire_flame_motion(reset_motion_fire_flame, 2, {"id": 3}, -1.0, 2.16, 2.0, 80.0, 40.0)
-	_expect(is_equal_approx(reset_motion_lifetime, 34.0), "fire flame motion helper should return reset lifetimes")
-	_expect(is_equal_approx(float(reset_motion_fire_flame.get("size", 0.0)), 9.0), "fire flame motion helper should apply reset sizes")
+	var reset_motion_lifetime: float = CommandoFirearmLingeringFireFlameState.apply_flame_motion(reset_motion_fire_flame, 2, {"id": 3}, -1.0, 2.16, 2.0, 80.0, 40.0)
+	_expect(is_equal_approx(reset_motion_lifetime, 34.0), "fire flame motion owner should return reset lifetimes")
+	_expect(is_equal_approx(float(reset_motion_fire_flame.get("size", 0.0)), 9.0), "fire flame motion owner should apply reset sizes")
 	var reset_path_fire_flame := {
 		"offset": Vector2.ZERO,
 		"size": 4.0,
 	}
-	var reset_path_lifetime: float = runtime._apply_lingering_fire_flame_reset_motion(reset_path_fire_flame, 2, {"id": 3}, 80.0, 40.0)
-	_expect(is_equal_approx(reset_path_lifetime, 34.0), "fire flame reset-motion helper should return reset lifetimes")
-	_expect(is_equal_approx(float(reset_path_fire_flame.get("size", 0.0)), 9.0), "fire flame reset-motion helper should apply reset sizes")
-	var written_fire_flame: Dictionary = runtime._apply_lingering_fire_flame_frame_values({}, 12.0, 3.5)
-	_expect(is_equal_approx(float(written_fire_flame.get("lifetime", 0.0)), 12.0), "fire flame frame-value helper should write lifetimes")
-	_expect(is_equal_approx(float(written_fire_flame.get("phase", 0.0)), 3.5), "fire flame frame-value helper should write phases")
-	var reset_fire_flame: Dictionary = runtime._advance_lingering_fire_flame(expired_fire_flame, 2, {"id": 3}, 2.0, 80.0, 40.0)
-	_expect(is_equal_approx(float(reset_fire_flame.get("lifetime", 0.0)), 34.0), "fire flame frame helper should reseed expired lifetimes")
-	_expect(is_equal_approx(float(reset_fire_flame.get("phase", 0.0)), 2.16), "fire flame frame helper should still advance expired flame phase")
-	_expect(is_equal_approx(float(reset_fire_flame.get("size", 0.0)), 9.0), "fire flame frame helper should reseed expired flame size")
-	_expect(not runtime._get_vector2(reset_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2.ZERO), "fire flame frame helper should reseed expired flame offset")
+	var reset_path_lifetime: float = CommandoFirearmLingeringFireFlameState.apply_flame_reset_motion(reset_path_fire_flame, 2, {"id": 3}, 80.0, 40.0)
+	_expect(is_equal_approx(reset_path_lifetime, 34.0), "fire flame reset-motion owner should return reset lifetimes")
+	_expect(is_equal_approx(float(reset_path_fire_flame.get("size", 0.0)), 9.0), "fire flame reset-motion owner should apply reset sizes")
+	var written_fire_flame: Dictionary = CommandoFirearmLingeringFireFlameState.apply_flame_frame_values({}, 12.0, 3.5)
+	_expect(is_equal_approx(float(written_fire_flame.get("lifetime", 0.0)), 12.0), "fire flame frame-value owner should write lifetimes")
+	_expect(is_equal_approx(float(written_fire_flame.get("phase", 0.0)), 3.5), "fire flame frame-value owner should write phases")
+	var reset_fire_flame: Dictionary = CommandoFirearmLingeringFireFlameState.advance_flame(expired_fire_flame, 2, {"id": 3}, 2.0, 80.0, 40.0)
+	_expect(is_equal_approx(float(reset_fire_flame.get("lifetime", 0.0)), 34.0), "fire flame frame owner should reseed expired lifetimes")
+	_expect(is_equal_approx(float(reset_fire_flame.get("phase", 0.0)), 2.16), "fire flame frame owner should still advance expired flame phase")
+	_expect(is_equal_approx(float(reset_fire_flame.get("size", 0.0)), 9.0), "fire flame frame owner should reseed expired flame size")
+	_expect(not CommandoFirearmValueUtils.get_vector2(reset_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2.ZERO), "fire flame frame owner should reseed expired flame offset")
 	var drifting_fire_flame := {
 		"offset": Vector2(50.0, -50.0),
 		"size": 10.0,
@@ -931,24 +931,24 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"offset": Vector2(50.0, -50.0),
 		"size": 10.0,
 	}
-	var drift_motion_lifetime: float = runtime._apply_lingering_fire_flame_motion(drift_motion_fire_flame, 1, {"id": 3}, 18.0, 1.16, 2.0, 80.0, 40.0)
-	_expect(is_equal_approx(drift_motion_lifetime, 18.0), "fire flame motion helper should preserve active lifetimes")
-	_expect(runtime._get_vector2(drift_motion_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2(38.4, -19.2)), "fire flame motion helper should apply active drift")
+	var drift_motion_lifetime: float = CommandoFirearmLingeringFireFlameState.apply_flame_motion(drift_motion_fire_flame, 1, {"id": 3}, 18.0, 1.16, 2.0, 80.0, 40.0)
+	_expect(is_equal_approx(drift_motion_lifetime, 18.0), "fire flame motion owner should preserve active lifetimes")
+	_expect(CommandoFirearmValueUtils.get_vector2(drift_motion_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2(38.4, -19.2)), "fire flame motion owner should apply active drift")
 	var drift_path_fire_flame := {
 		"offset": Vector2(50.0, -50.0),
 		"size": 10.0,
 	}
 	var drift_path_lifetime: float = CommandoFirearmLingeringFireFlameState.apply_flame_drift_motion(drift_path_fire_flame, 1.16, 2.0, 80.0, 40.0, 18.0)
 	_expect(is_equal_approx(drift_path_lifetime, 18.0), "fire flame drift-motion helper should preserve active lifetimes")
-	_expect(runtime._get_vector2(drift_path_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2(38.4, -19.2)), "fire flame drift-motion helper should apply active drift")
-	var drifted_fire_flame: Dictionary = runtime._advance_lingering_fire_flame(drifting_fire_flame, 1, {"id": 3}, 2.0, 80.0, 40.0)
-	_expect(is_equal_approx(float(drifted_fire_flame.get("lifetime", 0.0)), 18.0), "fire flame frame helper should reduce active lifetimes")
-	_expect(is_equal_approx(float(drifted_fire_flame.get("phase", 0.0)), 1.16), "fire flame frame helper should advance active flame phase")
-	var drifted_fire_offset: Vector2 = runtime._get_vector2(drifted_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO)
-	_expect(is_equal_approx(drifted_fire_offset.x, 38.4), "fire flame frame helper should clamp drift x inside the effect width")
-	_expect(is_equal_approx(drifted_fire_offset.y, -19.2), "fire flame frame helper should clamp drift y inside the effect height")
-	_expect(float(drifted_fire_flame.get("size", 0.0)) < 10.0, "fire flame frame helper should decay active flame size")
-	var advanced_fire_flames: Array = runtime._advance_lingering_fire_flames([
+	_expect(CommandoFirearmValueUtils.get_vector2(drift_path_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2(38.4, -19.2)), "fire flame drift-motion helper should apply active drift")
+	var drifted_fire_flame: Dictionary = CommandoFirearmLingeringFireFlameState.advance_flame(drifting_fire_flame, 1, {"id": 3}, 2.0, 80.0, 40.0)
+	_expect(is_equal_approx(float(drifted_fire_flame.get("lifetime", 0.0)), 18.0), "fire flame frame owner should reduce active lifetimes")
+	_expect(is_equal_approx(float(drifted_fire_flame.get("phase", 0.0)), 1.16), "fire flame frame owner should advance active flame phase")
+	var drifted_fire_offset: Vector2 = CommandoFirearmValueUtils.get_vector2(drifted_fire_flame.get("offset", Vector2.ZERO), Vector2.ZERO)
+	_expect(is_equal_approx(drifted_fire_offset.x, 38.4), "fire flame frame owner should clamp drift x inside the effect width")
+	_expect(is_equal_approx(drifted_fire_offset.y, -19.2), "fire flame frame owner should clamp drift y inside the effect height")
+	_expect(float(drifted_fire_flame.get("size", 0.0)) < 10.0, "fire flame frame owner should decay active flame size")
+	var advanced_fire_flames: Array = CommandoFirearmLingeringFireFlameState.advance_flames([
 		{
 			"offset": Vector2(0.0, 0.0),
 			"size": 10.0,
@@ -962,14 +962,14 @@ func _verify_runtime_delegates_value_utils() -> void:
 			"phase": 2.0,
 		},
 	], {"id": 3, "width": 80.0, "height": 40.0}, 2.0)
-	_expect(advanced_fire_flames.size() == 2, "fire flames batch helper should preserve flame count")
-	_expect(is_equal_approx(float((advanced_fire_flames[0] as Dictionary).get("lifetime", 0.0)), 18.0), "fire flames batch helper should advance active flames")
-	_expect(is_equal_approx(float((advanced_fire_flames[1] as Dictionary).get("lifetime", 0.0)), 29.0), "fire flames batch helper should reset expired flames by index")
-	_expect(is_equal_approx(float((advanced_fire_flames[1] as Dictionary).get("size", 0.0)), 16.0), "fire flames batch helper should apply reset sizes by index")
-	_expect(runtime._get_lingering_fire_flame_at_index(advanced_fire_flames, 0).has("lifetime"), "fire flame indexed reader should preserve dictionary entries")
-	_expect(runtime._get_lingering_fire_flame_at_index(["bad"], 0).is_empty(), "fire flame indexed reader should reject non-dictionary entries")
-	_expect(runtime._get_lingering_fire_flame_at_index(advanced_fire_flames, -1).is_empty(), "fire flame indexed reader should reject negative indices")
-	_expect(runtime._get_lingering_fire_flame_at_index(advanced_fire_flames, 2).is_empty(), "fire flame indexed reader should reject out-of-range indices")
+	_expect(advanced_fire_flames.size() == 2, "fire flames batch owner should preserve flame count")
+	_expect(is_equal_approx(float((advanced_fire_flames[0] as Dictionary).get("lifetime", 0.0)), 18.0), "fire flames batch owner should advance active flames")
+	_expect(is_equal_approx(float((advanced_fire_flames[1] as Dictionary).get("lifetime", 0.0)), 29.0), "fire flames batch owner should reset expired flames by index")
+	_expect(is_equal_approx(float((advanced_fire_flames[1] as Dictionary).get("size", 0.0)), 16.0), "fire flames batch owner should apply reset sizes by index")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_at_index(advanced_fire_flames, 0).has("lifetime"), "fire flame indexed owner should preserve dictionary entries")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_at_index(["bad"], 0).is_empty(), "fire flame indexed owner should reject non-dictionary entries")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_at_index(advanced_fire_flames, -1).is_empty(), "fire flame indexed owner should reject negative indices")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flame_at_index(advanced_fire_flames, 2).is_empty(), "fire flame indexed owner should reject out-of-range indices")
 	var seeded_fire_flames: Array = runtime._get_lingering_fire_flames_for_frame({"width": 80.0, "height": 40.0}, 2.0)
 	_expect(seeded_fire_flames.size() == fire_flame_count, "fire flames frame helper should seed missing flame arrays")
 	var invalid_fire_flames: Array = runtime._get_lingering_fire_flames_for_frame({"flames": "bad", "width": 80.0, "height": 40.0}, 2.0)
@@ -1493,9 +1493,36 @@ func _verify_runtime_delegates_value_utils() -> void:
 	) == "", "target-reached impact helper should not expire projectiles before target reach")
 
 
-func _verify_removed_fire_flame_drift_bridges() -> void:
+func _verify_removed_fire_flame_owner_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	for bridge_name in [
+		"_advance_lingering_fire_flames",
+		"_get_lingering_fire_flame_at_index",
+		"_advance_lingering_fire_flame",
+		"_apply_lingering_fire_flame_frame_values",
+		"_apply_lingering_fire_flame_motion",
+		"_apply_lingering_fire_flame_reset_motion",
+		"_should_reset_lingering_fire_flame",
+		"_get_lingering_fire_flame_next_lifetime",
+		"_get_lingering_fire_flame_next_phase",
+		"_get_lingering_fire_flame_current_lifetime",
+		"_get_lingering_fire_flame_current_phase",
+		"_get_lingering_fire_flame_phase_step",
+		"_reset_lingering_fire_flame",
+		"_apply_lingering_fire_flame_reset_values",
+		"_get_lingering_fire_flame_reset_angle",
+		"_get_lingering_fire_flame_reset_angle_index",
+		"_get_lingering_fire_effect_id",
+		"_get_lingering_fire_flame_reset_offset",
+		"_get_lingering_fire_flame_reset_radius",
+		"_get_lingering_fire_flame_reset_radius_x",
+		"_get_lingering_fire_flame_reset_radius_y",
+		"_get_lingering_fire_flame_reset_size",
+		"_get_lingering_fire_flame_reset_size_offset",
+		"_get_lingering_fire_flame_reset_size_pattern_value",
+		"_get_lingering_fire_flame_reset_lifetime",
+		"_get_lingering_fire_flame_reset_lifetime_offset",
+		"_get_lingering_fire_flame_reset_lifetime_pattern_value",
 		"_apply_lingering_fire_flame_drift_motion",
 		"_drift_lingering_fire_flame",
 		"_get_lingering_fire_flame_drift_offset",
@@ -1512,7 +1539,7 @@ func _verify_removed_fire_flame_drift_bridges() -> void:
 		"_get_lingering_fire_flame_size_decay",
 		"_clamp_lingering_fire_flame_drift_size",
 	]:
-		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep fire-flame drift bridge %s" % bridge_name)
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep fire-flame owner bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:
