@@ -6508,6 +6508,28 @@ Hundredth split on 2026-05-24:
   no whitespace errors. `run_headless_load_check.ps1` passed.
   `run_warning_scan.ps1` scanned `1325` scripts with no GDScript warnings.
 
+205th follow-up on 2026-05-24:
+
+- Commit: `efd581ab5 godot: drop Commando projectile motion bridges`.
+- Scope: removed the private `_update_rocket_motion()` and
+  `_update_net_projectile_rope()` runtime bridges. `_update_projectiles()` now
+  calls `CommandoFirearmProjectileMotionState` directly for bazooka rocket
+  acceleration / smoke-trail trimming and net-gun rope-point updates while the
+  runtime keeps projectile array ownership, collision, VFX, audio, and impact
+  handoff. The projectile-motion smoke now verifies the public runtime
+  projectile-update path and guards that the removed bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3503` lines /
+  `139` functions to `3495` lines / `137` functions.
+- Validation: focused projectile-motion / runtime coverage passed:
+  `commando_firearm_projectile_motion_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_projectile_impact_state_smoke`.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` is currently blocked by an unrelated dirty parse error
+  in `godot/scripts/hud/commando_firearm_tooltip_renderer.gd` around the
+  tooltip label block; this slice did not edit that HUD file.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

@@ -4048,8 +4048,9 @@ This section is intentionally long; use search to find the nearest owner.
   smoke-trail trimming, and net-gun rope trail origin / point trimming.
   `commando_firearm_runtime.gd` keeps projectile array ownership,
   weapon-kind dispatch, collision / impact handling, audio, VFX, and result
-  handoff while delegating deterministic per-projectile motion dictionaries to
-  this helper.
+  handoff while calling this owner directly for rocket acceleration and
+  net-rope updates. Do not reintroduce private runtime projectile-motion
+  bridges for those helpers.
 - `scripts/characters/commando_firearm_projectile_impact_state.gd`
   Owns pure Commando projectile impact payload scaffolding: boss hit-event
   dictionaries and environment-impact result dictionaries. The runtime keeps
