@@ -9240,3 +9240,25 @@ commits rather than standalone `fix` commits:
   `project_resource_loader_import_preference_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors.
+
+341st follow-up on 2026-05-25:
+
+- Commit:
+  `13dd1dc10 godot: move Commando lingering effect update dispatch`.
+- Scope: moved lingering-effect lifecycle update dispatch into
+  `CommandoFirearmLingeringEffectState.advance_runtime_effects()` and
+  `apply_runtime_active_effect_at_index()`. The lingering owner now handles
+  dash-break state, timer / phase advancement, fire-flame updates, active
+  status / boss-clamp application, result merges, and expired effect removal.
+  Runtime now calls the owner helper from `update_effects()` and no longer
+  keeps `_update_lingering_effects()` / `_apply_active_lingering_effect()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1918` lines /
+  `29` functions to `1883` lines / `27` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_audio_dispatcher_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1337` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors.
