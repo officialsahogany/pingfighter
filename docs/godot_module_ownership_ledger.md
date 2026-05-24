@@ -3932,7 +3932,8 @@ This section is intentionally long; use search to find the nearest owner.
   weapons use the shared authored fire sheet overlay, which use the long
   duration, and which authored source frame should be the starting pose.
   `commando_firearm_runtime.gd` keeps timer state, replay suppression, and
-  draw-state publication while delegating only these mapping decisions.
+  draw-state publication while calling this resolver directly for mapping
+  decisions instead of preserving private fire-sheet lookup bridges.
 - `scripts/characters/commando_firearm_fire_result_state.gd`
   Owns pure Commando firearm result dictionary scaffolding for weapon-fire
   failure payloads plus pistol delayed-shot, shot-queued, delayed-fire, and

@@ -5982,6 +5982,20 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+176th follow-up on 2026-05-24:
+
+- Commit: `ad2eace2d godot: drop Commando fire sheet mapping bridges`.
+- Scope: removed the three weapon-fire sheet lookup bridges from
+  `commando_firearm_runtime.gd`. Weapon-fire sheet id normalization, duration
+  selection, and authored start-frame selection now call
+  `commando_firearm_fire_sheet_resolver.gd` directly inside the runtime's
+  `_start_weapon_fire_sheet_animation()` boundary; runtime keeps timer
+  mutation, replay behavior, and draw-state publication.
+- Validation: `commando_firearm_fire_sheet_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
