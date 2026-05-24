@@ -7462,6 +7462,26 @@ Hundredth split on 2026-05-24:
   `render_fps_cap_settings_smoke`; the same smoke passed when rerun in
   isolation.
 
+254th follow-up on 2026-05-24:
+
+- Commit:
+  `8c571d142 godot: move Commando suicide drone spawn append`.
+- Scope: removed the Commando runtime `_spawn_suicide_drone()` append bridge.
+  Suicide-drone state now owns the projectile and muzzle-flash append step via
+  `CommandoFirearmSuicideDroneState.append_spawn_effects()`, while the runtime
+  passes the resolved profile, shot id, field bounds, drone tuning, and list
+  limits explicitly from the fire path.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3044` lines /
+  `57` functions to `3029` lines / `56` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_suicide_drone_geometry_smoke`, and
+  `commando_firearm_suicide_drone_ball_boost_resolver_smoke`. The Godot
+  headless load check passed, and `run_warning_scan.ps1` scanned `1329`
+  scripts with no GDScript warnings. The suicide-drone state smoke now rejects
+  `_spawn_suicide_drone()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
