@@ -8362,3 +8362,49 @@ commits rather than standalone `fix` commits:
   `viper_airborne_lod_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` on the committed files reported no whitespace errors.
+
+294th follow-up on 2026-05-24:
+
+- Commit:
+  `c1d8845e6 godot: move Commando combat result queue`.
+- Scope: moved projectile-hit combat-result queue application into
+  `CommandoFirearmPendingResultState.queue_runtime_combat_result()`, leaving
+  `CommandoFirearmRuntime._register_projectile_hit()` to request the weapon hit
+  result and then delegate damage / gauge accumulation to the pending-result
+  owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2550` lines /
+  `35` functions to `2451` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_pending_result_state_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the committed Commando files reported no whitespace
+  errors.
+
+295th follow-up on 2026-05-24:
+
+- Commit:
+  `64b0117e1 godot: add Stage 1 player rimlight`.
+- Scope: added a subtle top-down rimlight pass to the Stage 1 player actor
+  renderer, skipped it for transformed / hologram overlays, and added budget
+  smoke caps for ellipse segments and alpha.
+- Validation: focused Stage 1 coverage passed:
+  `stage1_actor_render_budget_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the committed Stage 1 files reported no whitespace
+  errors.
+
+296th follow-up on 2026-05-24:
+
+- Commit:
+  `b417d05b2 godot: pin imported resource fallback loading`.
+- Scope: kept `ProjectResourceLoader`'s documented raw-first PNG / audio path
+  intact while making the imported fallback explicitly call
+  `ResourceLoader.load()`. Added
+  `project_resource_loader_import_preference_smoke` to pin raw-first ordering
+  with imported fallback coverage.
+- Validation: focused resource-loader coverage passed:
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1334` scripts with no GDScript
+  warnings, and `git diff --check` on the committed loader files reported no
+  whitespace errors.
