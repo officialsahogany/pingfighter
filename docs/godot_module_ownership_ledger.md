@@ -4093,12 +4093,12 @@ This section is intentionally long; use search to find the nearest owner.
   construction including configurable aircraft start / curved flight
   metadata, support-marker flash payloads, tuned drop-arm / bomb-interval /
   aircraft-speed progression supplied by the runtime, and
-  deterministic per-bomb target selection, plus pure per-frame call-state
-  advancement flags for aircraft start, bomb spawn, call completion, and
-  active radio/call-lock lookup. `commando_firearm_runtime.gd` keeps
-  support-call array mutation, aircraft audio lifecycle, projectile spawning,
-  and draw / damage handoff while delegating only deterministic payload /
-  target / lifecycle-step decisions.
+  deterministic per-bomb target selection with seeded random x scatter, plus
+  pure per-frame call-state advancement flags for aircraft start, bomb spawn,
+  call completion, and active radio/call-lock lookup.
+  `commando_firearm_runtime.gd` keeps support-call array mutation, aircraft
+  audio lifecycle, projectile spawning, and draw / damage handoff while
+  delegating only deterministic payload / target / lifecycle-step decisions.
 - `scripts/characters/commando_firearm_support_projectile_resolver.gd`
   Owns pure Commando fire-support projectile construction: deterministic
   drop-row fallback construction, opponent-wall missile construction,

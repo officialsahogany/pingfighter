@@ -5844,6 +5844,21 @@ Hundredth split on 2026-05-24:
   1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
   passed.
 
+167th follow-up on 2026-05-24:
+
+- Commit: `0bc1a7313 godot: scatter Commando fire support bomb targets`.
+- Scope: Commando Fire Support bomb targets now use deterministic seeded x
+  scatter within 200px of the marked point instead of the old fixed offset
+  list. `commando_firearm_support_call_resolver.gd` owns the scatter range
+  and per-bomb x-offset helper, runtime passes the support-call id into target
+  selection, and the support-call / runtime VFX smokes assert the range and
+  independent sequential bomb targets.
+- Validation: `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_vfx_texture_remaster_smoke` passed. `run_warning_scan.ps1`
+  scanned 1322 scripts with no GDScript warnings, and
+  `run_headless_load_check.ps1` passed.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
