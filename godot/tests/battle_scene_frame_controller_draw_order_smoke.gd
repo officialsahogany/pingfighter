@@ -123,12 +123,16 @@ class FakePerfLogger:
 	extends RefCounted
 
 	var labels: Array[String] = []
+	var maybe_log_calls := 0
 
 	func begin_sample() -> int:
 		return Time.get_ticks_usec()
 
 	func finish_sample(label: String, _start_usec: int) -> void:
 		labels.append(label)
+
+	func maybe_log() -> void:
+		maybe_log_calls += 1
 
 
 class FakeRuntimePerkOverlayRenderer:
@@ -164,6 +168,7 @@ func _init() -> void:
 	_verify_pillar_overlay_restores_hud_without_redrawing_pillar_background()
 	_verify_pillar_overlay_can_skip_background_for_detached_host()
 	_verify_inactive_runtime_perk_overlay_skips_draw()
+	_verify_draw_perf_logging_lives_outside_frame_controller_sample()
 
 	if _failures.is_empty():
 		print("battle_scene_frame_controller_draw_order_smoke: ok")
@@ -295,6 +300,7 @@ func _verify_spawn_overlay_is_drawn_between_playfield_and_pillars() -> void:
 	_expect(perf_logger.labels.has("draw.frame.pillar_overlay"), "draw perf should sample pillar overlay pass")
 	_expect(perf_logger.labels.has("draw.frame.mobile_touch"), "draw perf should sample mobile touch pass")
 	_expect(perf_logger.labels.has("draw.frame.total"), "draw perf should sample full frame-controller draw")
+	_expect(perf_logger.maybe_log_calls == 0, "frame controller draw should not include BattlePerf log printing in draw.frame or draw.shell samples")
 
 
 func _verify_handoff_spawn_overlay_skips_pillar_restore() -> void:
@@ -441,6 +447,15 @@ func _verify_inactive_runtime_perk_overlay_skips_draw() -> void:
 	_expect(overlay.draw_calls == 1, "visible runtime perk overlay should draw normally")
 
 	canvas.free()
+
+
+func _verify_draw_perf_logging_lives_outside_frame_controller_sample() -> void:
+	var frame_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_frame_controller.gd")
+	var shell_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_shell.gd")
+	_expect(frame_source.find("_perf_maybe_log") < 0, "frame controller should not print BattlePerf logs inside draw.frame.total")
+	var shell_total_idx: int = shell_source.find("_perf_end(perf_logger, \"draw.shell.total\", shell_start)")
+	var shell_log_idx: int = shell_source.find("_perf_maybe_log(perf_logger)", shell_total_idx)
+	_expect(shell_total_idx >= 0 and shell_log_idx > shell_total_idx, "battle shell should print BattlePerf logs after draw.shell.total is closed")
 
 
 func _get_split_callbacks() -> Dictionary:

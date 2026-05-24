@@ -188,14 +188,12 @@ func draw(
 			)):
 				_perf_end(perf_logger, "draw.frame.stage_transition_loading", transition_start)
 				_perf_end(perf_logger, "draw.frame.total", total_start)
-				_perf_maybe_log(perf_logger)
 				return
 			_perf_end(perf_logger, "draw.frame.stage_transition_loading", transition_start)
 		var black_start: int = _perf_begin(perf_logger)
 		_draw_black(canvas, view_size)
 		_perf_end(perf_logger, "draw.frame.black", black_start)
 		_perf_end(perf_logger, "draw.frame.total", total_start)
-		_perf_maybe_log(perf_logger)
 		return
 
 	var intro_frame: Object = _get_intro_frame_controller(module_getter)
@@ -204,7 +202,6 @@ func draw(
 		if bool(intro_frame.draw_intro_or_boot(canvas, owner, registry, module_getter, callbacks, view_size)):
 			_perf_end(perf_logger, "draw.frame.intro_or_boot", intro_start)
 			_perf_end(perf_logger, "draw.frame.total", total_start)
-			_perf_maybe_log(perf_logger)
 			return
 		_perf_end(perf_logger, "draw.frame.intro_or_boot", intro_start)
 	elif _is_intro_or_warmup_blocking(module_getter, callbacks):
@@ -212,7 +209,6 @@ func draw(
 		_draw_black(canvas, view_size)
 		_perf_end(perf_logger, "draw.frame.black", black_start)
 		_perf_end(perf_logger, "draw.frame.total", total_start)
-		_perf_maybe_log(perf_logger)
 		return
 
 	var result_screen: Object = _get_stage_clear_result_screen(module_getter)
@@ -222,7 +218,6 @@ func draw(
 			result_screen.draw(canvas, owner, registry, view_size)
 			_perf_end(perf_logger, "draw.frame.result_screen", result_start)
 		_perf_end(perf_logger, "draw.frame.total", total_start)
-		_perf_maybe_log(perf_logger)
 		return
 
 	var ball_spawn_overlay_active := (
@@ -270,7 +265,6 @@ func draw(
 		overlay_frame.draw(canvas, owner, registry, module_getter, view_size)
 		_perf_end(perf_logger, "draw.frame.overlay", overlay_start)
 	_perf_end(perf_logger, "draw.frame.total", total_start)
-	_perf_maybe_log(perf_logger)
 
 
 func _is_logo_intro_active(module_getter: Callable) -> bool:
@@ -424,8 +418,3 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
-
-
-func _perf_maybe_log(perf_logger: Object) -> void:
-	if perf_logger != null and perf_logger.has_method("maybe_log"):
-		perf_logger.maybe_log()

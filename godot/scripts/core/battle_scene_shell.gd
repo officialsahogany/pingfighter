@@ -232,6 +232,7 @@ func _draw() -> void:
 	frame_controller.draw(self, self, gameplay_modules, Callable(self, "_get_module"), frame_callbacks)
 	_perf_end(perf_logger, "draw.shell.frame_controller", sample_start)
 	_perf_end(perf_logger, "draw.shell.total", shell_start)
+	_perf_maybe_log(perf_logger)
 
 
 func _draw_battle_scene() -> void:
@@ -392,3 +393,8 @@ func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 func _record_perf_value(perf_logger: Object, label: String, elapsed_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("record_value_sample"):
 		perf_logger.record_value_sample(label, elapsed_usec)
+
+
+func _perf_maybe_log(perf_logger: Object) -> void:
+	if perf_logger != null and perf_logger.has_method("maybe_log"):
+		perf_logger.maybe_log()
