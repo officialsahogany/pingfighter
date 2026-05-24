@@ -1,8 +1,11 @@
 extends RefCounted
 
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
+const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
+const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
+const CommandoFirearmStage2RockInteractionResolver := preload("res://scripts/characters/commando_firearm_stage2_rock_interaction_resolver.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/commando_firearm_hit_feedback_dispatcher.gd")
@@ -118,6 +121,69 @@ static func register_environment_impact(
 	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(feedback_profile, deps)
 	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
 	return build_environment_impact_result(weapon_id, reason, pos)
+
+
+static func dispatch_runtime_impact(
+	impact_flashes: Array,
+	runtime_owner: Object,
+	projectile: Dictionary,
+	impact_reason: String,
+	projectile_weapon_id: String,
+	context: Dictionary,
+	deps: Dictionary,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	weapon_hit_feedback: Dictionary,
+	hit_feedback_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	grenade_explosion_duration_frames: float,
+	flash_limit: int
+) -> Dictionary:
+	if impact_reason == "":
+		return {}
+	CommandoFirearmImpactFlashResolver.append_flash(
+		impact_flashes,
+		projectile,
+		weapon_profiles,
+		weapon_profile_overrides,
+		base_weapon_id,
+		grenade_explosion_duration_frames,
+		flash_limit
+	)
+	var rock_impact_profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		projectile_weapon_id,
+		weapon_profiles,
+		weapon_profile_overrides
+	)
+	CommandoFirearmStage2RockInteractionResolver.destroy_projectile_impact_rocks(
+		projectile,
+		context,
+		deps,
+		projectile_weapon_id,
+		CommandoFirearmHitGeometry.get_explosion_radius(projectile, rock_impact_profile)
+	)
+	if impact_reason == "target":
+		if runtime_owner != null and runtime_owner.has_method("_register_projectile_hit"):
+			runtime_owner.call("_register_projectile_hit", projectile, context, deps)
+		return {}
+	if impact_reason == "wall":
+		return register_environment_impact(
+			projectile,
+			impact_reason,
+			deps,
+			weapon_hit_feedback,
+			hit_feedback_profile_overrides,
+			base_weapon_id
+		)
+	if CommandoFirearmHitGeometry.is_net_gun_weapon(projectile_weapon_id):
+		if runtime_owner != null and runtime_owner.has_method("_spawn_lingering_effect"):
+			runtime_owner.call(
+				"_spawn_lingering_effect",
+				"net_gun",
+				CommandoFirearmLingeringEffectState.build_net_dissolve_projectile(projectile),
+				context
+			)
+	return {}
 
 
 static func get_impact_reason(

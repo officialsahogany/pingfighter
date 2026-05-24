@@ -62,6 +62,28 @@ class FakeAudio:
 		impact_calls.append(weapon_id)
 
 
+class FakeRuntimeOwner:
+	extends RefCounted
+
+	var boss_hits: Array = []
+	var lingering_calls: Array = []
+
+	func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> void:
+		boss_hits.append({
+			"projectile": projectile,
+			"context": context,
+			"deps": deps,
+		})
+
+	func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context: Dictionary) -> Dictionary:
+		lingering_calls.append({
+			"weapon_id": weapon_id,
+			"projectile": projectile,
+			"context": context,
+		})
+		return {"source": "fake_lingering"}
+
+
 func _init() -> void:
 	_verify_direct_projectile_impact_state()
 	_verify_environment_impact_state()
@@ -150,6 +172,90 @@ func _verify_direct_projectile_impact_state() -> void:
 	_expect(ball_effects.pulses.size() == 1, "runtime boss-hit helper should register ball hit pulse")
 	_expect(audio.impact_calls == ["net_gun"], "runtime boss-hit helper should play impact audio")
 
+	var impact_owner := FakeRuntimeOwner.new()
+	var runtime_impact_flashes: Array = []
+	var wall_impact_effects := FakeImpactEffects.new()
+	var wall_feedback := FakeFeedback.new()
+	var wall_audio := FakeAudio.new()
+	var wall_result: Dictionary = CommandoFirearmProjectileImpactState.dispatch_runtime_impact(
+		runtime_impact_flashes,
+		impact_owner,
+		{
+			"id": 10,
+			"weapon_id": "bazooka",
+			"kind": "rocket",
+			"pos": Vector2(20.0, 30.0),
+			"velocity": Vector2(0.0, -1.0),
+			"color": Color(1.0, 0.5, 0.0),
+		},
+		"wall",
+		"bazooka",
+		{},
+		{
+			"impact_effects": wall_impact_effects,
+			"feedback": wall_feedback,
+			"audio": wall_audio,
+		},
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		24.0,
+		4
+	)
+	_expect(runtime_impact_flashes.size() == 1, "runtime impact dispatcher should append impact flash")
+	_expect(bool(wall_result.get("commando_firearm_environment_impact", false)), "runtime impact dispatcher should return wall impact result")
+	_expect(wall_impact_effects.particles.size() == 1, "runtime impact dispatcher should route wall particles")
+	_expect(wall_feedback.calls.size() == 1, "runtime impact dispatcher should route wall feedback")
+	_expect(wall_audio.impact_calls == ["bazooka"], "runtime impact dispatcher should route wall audio")
+	CommandoFirearmProjectileImpactState.dispatch_runtime_impact(
+		runtime_impact_flashes,
+		impact_owner,
+		{
+			"id": 11,
+			"weapon_id": "ak47",
+			"kind": "bullet",
+			"pos": Vector2(330.0, 70.0),
+			"velocity": Vector2(0.0, -10.0),
+		},
+		"target",
+		"ak47",
+		{},
+		{},
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		24.0,
+		4
+	)
+	_expect(impact_owner.boss_hits.size() == 1, "runtime impact dispatcher should call boss-hit bridge for target impacts")
+	CommandoFirearmProjectileImpactState.dispatch_runtime_impact(
+		runtime_impact_flashes,
+		impact_owner,
+		{
+			"id": 12,
+			"weapon_id": "net_gun",
+			"kind": "net",
+			"pos": Vector2(330.0, 90.0),
+			"velocity": Vector2(0.0, -10.0),
+		},
+		"expired",
+		"net_gun",
+		{},
+		{},
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		24.0,
+		4
+	)
+	_expect(impact_owner.lingering_calls.size() == 1, "runtime impact dispatcher should spawn net dissolve lingering effects")
+
 	var environment: Dictionary = CommandoFirearmProjectileImpactState.build_environment_impact_result(
 		"bazooka",
 		"wall",
@@ -200,8 +306,12 @@ func _verify_environment_impact_state() -> void:
 	_expect(runtime_source.find("func _get_projectile_impact_reason(") == -1, "runtime should not keep projectile impact reason bridge")
 	_expect(runtime_source.find("func _register_projectile_environment_impact(") == -1, "runtime should not keep projectile environment-impact bridge")
 	_expect(runtime_source.find("CommandoFirearmProjectileImpactState.append_runtime_boss_hit") != -1, "runtime should delegate boss-hit append and feedback to projectile impact owner")
+	_expect(runtime_source.find("CommandoFirearmProjectileImpactState.dispatch_runtime_impact") != -1, "runtime should delegate projectile impact side effects to projectile impact owner")
 	_expect(runtime_source.find("CommandoFirearmProjectileImpactState.append_runtime_hit_event") == -1, "runtime should not call the lower-level hit-event append helper directly")
+	_expect(runtime_source.find("CommandoFirearmProjectileImpactState.register_environment_impact") == -1, "runtime should not call the lower-level environment-impact helper directly")
 	_expect(runtime_source.find("CommandoFirearmProjectileImpactState.build_hit_event(") == -1, "runtime should not build projectile hit events inline")
+	_expect(runtime_source.find("CommandoFirearmStage2RockInteractionResolver") == -1, "runtime should not own projectile impact rock cleanup")
+	_expect(runtime_source.find("CommandoFirearmHitGeometry.is_net_gun_weapon") == -1, "runtime should not own net-gun impact dissolve branching")
 
 
 func _expect(condition: bool, message: String) -> void:

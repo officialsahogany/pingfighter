@@ -9,10 +9,8 @@ const CommandoFirearmCooldownState := preload("res://scripts/characters/commando
 const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/commando_firearm_draw_state_resolver.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
-const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
 const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/commando_firearm_hit_feedback_dispatcher.gd")
 const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
-const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
@@ -29,7 +27,6 @@ const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/
 const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmShellCasingState := preload("res://scripts/characters/commando_firearm_shell_casing_state.gd")
 const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
-const CommandoFirearmStage2RockInteractionResolver := preload("res://scripts/characters/commando_firearm_stage2_rock_interaction_resolver.gd")
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
 const CommandoFirearmSupportProjectileResolver := preload("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
@@ -1756,49 +1753,25 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			FIELD_WIDTH
 		)
 		if impact_reason != "":
-			CommandoFirearmImpactFlashResolver.append_flash(
+			var impact_result: Dictionary = CommandoFirearmProjectileImpactState.dispatch_runtime_impact(
 				impact_flashes,
+				self,
 				projectile,
+				impact_reason,
+				projectile_weapon_id,
+				context,
+				deps,
 				WEAPON_PROFILES,
 				WEAPON_PROFILE_OVERRIDES,
+				WEAPON_HIT_FEEDBACK,
+				HIT_FEEDBACK_PROFILE_OVERRIDES,
 				BASE_WEAPON_ID,
 				float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
 				FLASH_LIMIT
 			)
-			var rock_impact_profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-				projectile_weapon_id,
-				WEAPON_PROFILES,
-				WEAPON_PROFILE_OVERRIDES
-			)
-			CommandoFirearmStage2RockInteractionResolver.destroy_projectile_impact_rocks(
-				projectile,
-				context,
-				deps,
-				projectile_weapon_id,
-				CommandoFirearmHitGeometry.get_explosion_radius(projectile, rock_impact_profile)
-			)
-			if impact_reason == "target":
-				_register_projectile_hit(projectile, context, deps)
-			elif impact_reason == "wall":
-				var wall_result: Dictionary = CommandoFirearmProjectileImpactState.register_environment_impact(
-					projectile,
-					impact_reason,
-					deps,
-					WEAPON_HIT_FEEDBACK,
-					HIT_FEEDBACK_PROFILE_OVERRIDES,
-					BASE_WEAPON_ID
-				)
-				result.merge(wall_result, true)
-				context.merge(wall_result, true)
-			elif CommandoFirearmHitGeometry.is_net_gun_weapon(projectile_weapon_id):
-				_spawn_lingering_effect(
-					"net_gun",
-					CommandoFirearmLingeringEffectState.build_net_dissolve_projectile(projectile),
-					context
-				)
+			result.merge(impact_result, true)
+			context.merge(impact_result, true)
 			projectiles.remove_at(index)
-			if projectile_kind == "drone" and not CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
-				CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	return result
 
 
