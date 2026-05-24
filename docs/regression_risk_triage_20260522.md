@@ -8817,3 +8817,19 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+320th follow-up on 2026-05-24:
+
+- Commit:
+  `96202e01f godot: move Commando fire sheet state apply`.
+- Scope: moved shared weapon-fire sheet runtime state writes into
+  `CommandoFirearmFireSheetResolver.apply_runtime_animation_state()`. Runtime
+  now asks the resolver to build and apply the fire-sheet id, timer, and max
+  frame state before the weapon-specific spawn path continues.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2074` lines /
+  `35` functions to `2071` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_sheet_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
