@@ -8429,3 +8429,36 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
   `git diff --check` on the touched Commando files reported no whitespace
   errors beyond the existing CRLF normalization notice.
+
+298th follow-up on 2026-05-24:
+
+- Commit:
+  `3ac218acb godot: move Commando lingering update helpers`.
+- Scope: moved the net-gun dash-break application wrapper into
+  `CommandoFirearmLingeringNetFieldState.apply_dash_break_if_triggered()` and
+  moved lingering status application into
+  `CommandoFirearmLingeringStatusState.apply_status_if_ready()`. The runtime
+  now delegates both the dash-triggered rope break and the status apply /
+  cooldown reset path while preserving the same net and slow-status behavior.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2525` lines /
+  `35` functions to `2502` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond CRLF normalization
+  notices.
+
+299th follow-up on 2026-05-24:
+
+- Commit:
+  `64929c63e godot: retune Stage 1 depth and player shadow`.
+- Scope: replaced the fixed top-down player rimlight with a stronger bounded
+  ground-shadow profile and increased the Stage 1 far / near depth tint alphas.
+  Updated the Stage 1 budget smoke to pin the new visible-but-bounded shadow and
+  depth ranges, and to reject the removed fixed-ellipse rimlight path.
+- Validation: focused Stage 1 coverage passed:
+  `stage1_actor_render_budget_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond CRLF normalization
+  notices.
