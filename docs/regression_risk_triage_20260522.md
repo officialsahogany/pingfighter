@@ -7410,6 +7410,28 @@ Hundredth split on 2026-05-24:
   `_spawn_impact_flash()` and `_spawn_pistol_hit_feedback()` in the runtime
   facade.
 
+252nd follow-up on 2026-05-24:
+
+- Commit:
+  `a5291be01 godot: move Commando support projectile append`.
+- Scope: removed the Commando runtime `_spawn_support_round()` append bridge.
+  Support-call bomb spawning now sends the resolved bomb target, aircraft
+  launch position, runtime projectile id, wall-flight tuning, and projectile
+  limit directly to `CommandoFirearmSupportProjectileResolver.append_projectile()`.
+  The support projectile owner still builds the same opponent-wall missile
+  payload, but now owns the append-to-list step too.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3060` lines /
+  `58` functions to `3044` lines / `57` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_support_projectile_resolver_smoke`,
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_audio_routing_smoke`, and
+  `commando_supply_drop_audio_cleanup_smoke`. The Godot headless load check
+  passed, and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript
+  warnings. The support projectile smoke now rejects `_spawn_support_round()`
+  in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
