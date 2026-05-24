@@ -6897,6 +6897,25 @@ Hundredth split on 2026-05-24:
   real `_update_net_constrict_input()` path and rejects both removed runtime
   wrappers.
 
+224th follow-up on 2026-05-24:
+
+- Commit: `1cbf756f6 godot: drop Commando lingering status owner bridges`.
+- Scope: removed `_apply_lingering_status_application()`,
+  `_apply_ready_lingering_status()`, and `_apply_lingering_status_to_boss()`
+  from `commando_firearm_runtime.gd`. The live
+  `_apply_lingering_effect_status()` path now gets the status state/id, builds
+  status data, applies it to the boss, and resets cooldown inline while still
+  delegating deterministic calculations to
+  `CommandoFirearmLingeringStatusState`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3306` lines /
+  `96` functions to `3289` lines / `93` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now covers the
+  real `_apply_lingering_effect_status()` path and rejects the removed status
+  owner bridges.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

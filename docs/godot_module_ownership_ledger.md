@@ -4048,8 +4048,11 @@ This section is intentionally long; use search to find the nearest owner.
   The runtime keeps the actual `status_effect_state.apply_status()` side
   effect, cooldown reset sequencing, and active lingering-effect storage while
   delegating deterministic setup, application gating, status-data, cooldown,
-  and rect / overlap calculations here. Tests call this helper directly
-  instead of runtime setup / application / rect bridges.
+  and rect / overlap calculations here. The runtime's active status path now
+  builds, applies, and resets the cooldown in the real update flow instead of
+  routing through private application bridges. Tests call this helper directly
+  and cover the real status path instead of runtime setup / application / rect
+  bridges.
 - `scripts/characters/commando_firearm_muzzle_flash_resolver.gd`
   Owns pure Commando muzzle-flash dictionary construction: profile kind,
   radius / timer clamps, origin / direction, and secondary-color fallback.
