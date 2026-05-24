@@ -8110,6 +8110,23 @@ commits rather than standalone `fix` commits:
   `git diff --check` reported no whitespace errors beyond existing CRLF
   normalization notices.
 
+286th follow-up on 2026-05-24:
+
+- Commit:
+  `5717dd0ad godot: move Commando AK47 draw state`.
+- Scope: moved Commando AK-47 draw-state field reads into
+  `CommandoFirearmDrawStateResolver.build_runtime_ak47_state()`. The runtime
+  still supplies the movement-speed multiplier, but trigger, interval,
+  burst-count, and recoil accumulation reads now live with the draw-state
+  resolver.
+- Runtime facade size: `commando_firearm_runtime.gd` remains `2652` lines /
+  `35` functions after the AK-47 state extraction.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. `git diff --check` on the touched
+  Commando files reported no whitespace errors beyond existing CRLF
+  normalization notices.
+
 281st follow-up on 2026-05-24:
 
 - Commits:
@@ -8153,6 +8170,33 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` on the touched Commando files reported no whitespace
   errors.
+
+285th follow-up on 2026-05-24:
+
+- Commits:
+  `c5cd72dcd godot: materialize default display settings`,
+  `f3a670402 godot: harden character info tooltip wrapping`,
+  `c5d7ae9c0 godot: add fast LOD pillar liquid fill`, and
+  `d07683911 godot: use cheap pillar orb static LOD`.
+- Scope: missing `user://display_settings.cfg` now materializes a schema-
+  stamped default graphics payload instead of returning an in-memory-only
+  config. Character-info tooltips now size against title / subtitle / body
+  text, wrap no-space Japanese-style text and long unbroken words, and anchor
+  the tooltip to the hovered rect where available. Pillar HUD static LOD now
+  uses a cheap liquid fill path, skips decorative gauge glow, exposes cheap
+  glass / centered-text helpers through the pillar orb drawer, routes gauge and
+  dash orbs through those helpers, and skips dash-token dividers when only one
+  token exists.
+- Validation: focused coverage passed:
+  `render_fps_cap_settings_smoke` with sandbox escalation for the AppData
+  `user://display_settings.cfg` write path, `character_info_overlay_prewarm_smoke`,
+  `pillar_gauge_orb_stability_smoke`,
+  `stage1_dalji_commando_hud_layout_smoke`,
+  `stage2_pillar_render_budget_smoke`, and
+  `stage3_pillar_hud_lod_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond existing CRLF
+  normalization notices.
 
 284th follow-up on 2026-05-24:
 
