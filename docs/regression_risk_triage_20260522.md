@@ -7388,6 +7388,28 @@ Hundredth split on 2026-05-24:
   `_apply_ak47_accumulated_boss_damage()` and
   `_destroy_stage2_rocks_for_projectile_impact()` in the runtime facade.
 
+251st follow-up on 2026-05-24:
+
+- Commit:
+  `7dc71fd0f godot: move Commando feedback appenders`.
+- Scope: removed two Commando runtime feedback append bridges. Impact flash
+  list appends now go through
+  `CommandoFirearmImpactFlashResolver.append_flash()`, which resolves the
+  runtime weapon profile before building the flash. Pistol headshot / legshot
+  feedback list appends now go through
+  `CommandoFirearmPistolFeedbackState.append_feedback()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3059` lines /
+  `60` functions to `3060` lines / `58` functions. The line count rose by one
+  because the call sites now pass the owner dependencies explicitly, but the
+  facade lost the two append helper functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_impact_flash_resolver_smoke`,
+  `commando_firearm_pistol_feedback_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The focused owner smokes now reject
+  `_spawn_impact_flash()` and `_spawn_pistol_hit_feedback()` in the runtime
+  facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
