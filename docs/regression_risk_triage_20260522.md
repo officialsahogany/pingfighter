@@ -7812,6 +7812,27 @@ Hundredth split on 2026-05-24:
   normalization notices. The control-state smoke now rejects
   `_should_suppress_fire_input_for_serve_wait()` in the runtime facade.
 
+270th follow-up on 2026-05-24:
+
+- Commit:
+  `696912ab2 godot: move Commando serve-wait input clear`.
+- Scope: removed the Commando runtime `_clear_serve_wait_firearm_input_state()`
+  bridge. Serve-wait input cleanup now lives in
+  `CommandoFirearmControlState.apply_serve_wait_firearm_input_cleared()`,
+  preserving AK-47 trigger / burst clear, weapon action-edge clear, slingshot
+  charge cancellation, pistol pending-shot clear, and pistol lock / delay
+  reset behavior.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2895` lines /
+  `41` functions to `2880` lines / `40` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_control_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_weapon_controller_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1331` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond the existing CRLF
+  normalization notices. The control-state smoke now rejects
+  `_clear_serve_wait_firearm_input_state()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
