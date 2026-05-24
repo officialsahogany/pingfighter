@@ -3123,33 +3123,25 @@ func _apply_active_lingering_effect(
 	deps: Dictionary,
 	result: Dictionary
 ) -> void:
-	_sync_net_field_rope_origin(effect, context)
+	var should_sync_rope_origin: bool = CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect)
+	if not should_sync_rope_origin:
+		should_sync_rope_origin = (
+			CommandoFirearmLingeringNetFieldState.is_net_gun_effect(effect)
+			and bool(effect.get("rope_broken", false))
+			and bool(effect.get("dissolve", false))
+			and CommandoFirearmLingeringEffectState.get_rope_snap_timer(effect) > 0.0
+		)
+	if should_sync_rope_origin:
+		effect["origin"] = CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
+			context,
+			COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+			COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
+		)
 	_apply_lingering_effect_status(effect, context, deps, fps_scale)
 	_apply_active_lingering_clamp(effect, context, result)
 	lingering_effects[index] = effect
-
-
-func _sync_net_field_rope_origin(effect: Dictionary, context: Dictionary) -> void:
-	if not _should_sync_net_field_rope_origin(effect):
-		return
-	effect["origin"] = CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
-		context,
-		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
-	)
-
-
-func _should_sync_net_field_rope_origin(effect: Dictionary) -> bool:
-	if CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect):
-		return true
-	return (
-		CommandoFirearmLingeringNetFieldState.is_net_gun_effect(effect)
-		and bool(effect.get("rope_broken", false))
-		and bool(effect.get("dissolve", false))
-		and CommandoFirearmLingeringEffectState.get_rope_snap_timer(effect) > 0.0
-	)
 
 
 func _apply_active_lingering_clamp(effect: Dictionary, context: Dictionary, result: Dictionary) -> void:

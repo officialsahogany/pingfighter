@@ -1606,6 +1606,8 @@ func _verify_removed_net_field_predicate_bridges() -> void:
 		"_get_net_constrict_factor",
 		"_apply_net_constrict_to_indices",
 		"_play_net_constrict_audio",
+		"_sync_net_field_rope_origin",
+		"_should_sync_net_field_rope_origin",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field predicate bridge %s" % bridge_name)
 
