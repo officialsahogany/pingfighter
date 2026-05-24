@@ -5,7 +5,14 @@ const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/c
 var _failures: Array[String] = []
 
 
+class FakeShotCounter:
+	extends RefCounted
+
+	var shot_serial := 0
+
+
 func _init() -> void:
+	_verify_shot_id_owner()
 	_verify_fire_direction_payloads()
 	_verify_direct_projectile_payloads()
 
@@ -16,6 +23,17 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_shot_id_owner() -> void:
+	var counter := FakeShotCounter.new()
+	counter.shot_serial = 41
+	_expect(CommandoFirearmProjectileSpawnState.claim_next_shot_id(counter) == 42, "shot id owner should return the next serial")
+	_expect(counter.shot_serial == 42, "shot id owner should store the next serial on the target")
+	_expect(CommandoFirearmProjectileSpawnState.claim_next_shot_id(counter) == 43, "shot id owner should keep incrementing serials")
+	_expect(CommandoFirearmProjectileSpawnState.claim_next_shot_id(null) == 0, "shot id owner should tolerate missing targets")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(runtime_source.find("func _next_shot_id(") == -1, "runtime should not keep shot id allocation bridge")
 
 
 func _verify_fire_direction_payloads() -> void:

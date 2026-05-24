@@ -36,6 +36,26 @@ func _verify_direct_support_aircraft_geometry() -> void:
 		"support aircraft collision rect should use fallback position for invalid values"
 	)
 	_expect(
+		CommandoFirearmSupportAircraftGeometry.has_active_aircraft_audio([{"aircraft_audio_active": true}]),
+		"support aircraft owner should detect active aircraft audio"
+	)
+	_expect(
+		not CommandoFirearmSupportAircraftGeometry.has_active_aircraft_audio([{"aircraft_audio_active": false}, "bad"]),
+		"support aircraft owner should ignore inactive or invalid audio states"
+	)
+	var active_calls: Array = [
+		{"id": 3, "aircraft_active": false, "aircraft_pos": Vector2(10.0, 20.0)},
+		{"id": 7, "aircraft_active": true, "aircraft_pos": Vector2(100.0, 50.0)},
+	]
+	_expect(
+		CommandoFirearmSupportAircraftGeometry.get_active_collision_rect(active_calls, 7, fallback_pos, collision_size) == Rect2(20.0, 25.0, 160.0, 50.0),
+		"support aircraft owner should return the matching active collision rect"
+	)
+	_expect(
+		CommandoFirearmSupportAircraftGeometry.get_active_collision_rect(active_calls, 99, fallback_pos, collision_size) == Rect2(),
+		"support aircraft owner should ignore non-matching call ids"
+	)
+	_expect(
 		CommandoFirearmSupportAircraftGeometry.ball_path_hits(call, Vector2(0.0, 50.0), Vector2(250.0, 50.0), 10.0, fallback_pos, collision_size),
 		"ball path should hit when the segment crosses the grown aircraft rect"
 	)

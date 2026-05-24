@@ -940,28 +940,16 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 
 
 func is_fire_support_aircraft_audio_active() -> bool:
-	for value in support_calls:
-		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = CommandoFirearmValueUtils.get_dict(value)
-		if bool(call.get("aircraft_audio_active", false)):
-			return true
-	return false
+	return CommandoFirearmSupportAircraftGeometry.has_active_aircraft_audio(support_calls)
 
 
 func get_fire_support_aircraft_collision_rect(call_id: int = 0) -> Rect2:
-	for value in support_calls:
-		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = CommandoFirearmValueUtils.get_dict(value)
-		if not bool(call.get("aircraft_active", false)):
-			continue
-		if call_id != 0 and int(call.get("id", 0)) != call_id:
-			continue
-		return CommandoFirearmSupportAircraftGeometry.get_collision_rect(
-			call,
-			Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
-			SUPPORT_AIRCRAFT_COLLISION_SIZE
-		)
-	return Rect2()
+	return CommandoFirearmSupportAircraftGeometry.get_active_collision_rect(
+		support_calls,
+		call_id,
+		Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
+		SUPPORT_AIRCRAFT_COLLISION_SIZE
+	)
 
 
 func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dictionary = {}) -> bool:
@@ -1746,7 +1734,7 @@ func _update_suicide_drone_input(
 		muzzle_flashes,
 		config,
 		profile,
-		_next_shot_id(),
+		CommandoFirearmProjectileSpawnState.claim_next_shot_id(self),
 		FIELD_WIDTH,
 		FIELD_HEIGHT,
 		SUICIDE_DRONE_SIZE,
@@ -1875,7 +1863,7 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 			target,
 			profile,
 			weapon_id,
-			_next_shot_id(),
+			CommandoFirearmProjectileSpawnState.claim_next_shot_id(self),
 			SUPPORT_CALL_LIMIT,
 			FLASH_LIMIT,
 			SUPPORT_CALL_DELAY_MIN_FRAMES,
@@ -1905,7 +1893,7 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 			config,
 			profile,
 			weapon_id,
-			_next_shot_id(),
+			CommandoFirearmProjectileSpawnState.claim_next_shot_id(self),
 			FIELD_WIDTH,
 			FIELD_HEIGHT,
 			BOWLING_TRAP_WIDTH,
@@ -1918,7 +1906,7 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		)
 		return
 	var speed: float = float(profile.get("speed", 16.0))
-	var shot_id: int = _next_shot_id()
+	var shot_id: int = CommandoFirearmProjectileSpawnState.claim_next_shot_id(self)
 	var projectile: Dictionary = CommandoFirearmProjectileSpawnState.build_projectile(
 		weapon_id,
 		kind,
@@ -1998,7 +1986,7 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 				CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH),
 				profile,
 				"fire_support",
-				_next_shot_id(),
+				CommandoFirearmProjectileSpawnState.claim_next_shot_id(self),
 				int(advance_result.get("spawn_index", 0)),
 				FIELD_WIDTH,
 				FIELD_HEIGHT,
@@ -2617,7 +2605,7 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 	)
 	var effect_id: int = int(projectile.get("id", 0))
 	if effect_id == 0:
-		effect_id = _next_shot_id()
+		effect_id = CommandoFirearmProjectileSpawnState.claim_next_shot_id(self)
 	var net_effect_height: float = CommandoFirearmLingeringNetFieldState.get_net_effect_height(
 		profile,
 		context,
@@ -2766,8 +2754,3 @@ func _apply_active_lingering_effect(
 	)
 	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
 	lingering_effects[index] = effect
-
-
-func _next_shot_id() -> int:
-	shot_serial += 1
-	return shot_serial

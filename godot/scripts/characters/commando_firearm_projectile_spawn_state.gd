@@ -1,6 +1,14 @@
 extends RefCounted
 
 
+static func claim_next_shot_id(target: Object) -> int:
+	if target == null:
+		return 0
+	var next_id: int = int(target.get("shot_serial")) + 1
+	target.set("shot_serial", next_id)
+	return next_id
+
+
 static func get_fire_direction(
 	target: Vector2,
 	aim_origin: Vector2,
