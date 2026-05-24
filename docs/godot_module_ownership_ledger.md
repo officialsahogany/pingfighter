@@ -3967,8 +3967,8 @@ This section is intentionally long; use search to find the nearest owner.
   per-frame drift / reset motion, and safe flame array reads. The runtime
   keeps lingering-effect ownership, fire-zone activation, status application,
   and only the remaining frame/update compatibility wrappers while tests call
-  this helper directly for deterministic drift / clamp / size-decay behavior
-  instead of runtime drift bridges.
+  this helper directly for deterministic frame / reset / drift / clamp /
+  size-decay behavior instead of runtime fire-flame owner bridges.
 - `scripts/characters/commando_firearm_lingering_net_field_state.gd`
   Owns pure Commando lingering net-field state: live / dissolve lifecycle
   payloads, dash-break rope-broken payloads, profile-derived rope / origin /
