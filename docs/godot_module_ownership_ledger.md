@@ -150,8 +150,8 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_ragnarok_runtime.gd`, Soul Burst constants,
   gauge spend / zero-token dash replacement / dash VFX lifecycle delegated to
   `scripts/items/mythic_item_soul_burst_runtime.gd`, Kick Charger constants,
-  half-dash
-  player-hit gauge charging / flash particle lifecycle delegated to
+  half-dash equipped / charge-roll queries plus player-hit gauge charging /
+  flash particle lifecycle delegated to
   `scripts/items/mythic_item_knee_pads_runtime.gd`, Speed Gear / Gold Bar
   constants, Speed Boots / Speed Gear / Gravity Belt / Bulk-Up Suit /
   Gold Bar / Dash Gear / Dash Holder stat-query and movement / paddle /

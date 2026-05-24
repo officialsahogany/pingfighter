@@ -189,7 +189,11 @@ func _verify_runtime_constant_ownership() -> void:
 	_expect(not runtime_source.contains("const KNEE_PADS_FLASH"), "runtime facade should not regain Knee Pads flash constants")
 	_expect(not runtime_source.contains("const KNEE_PADS_PARTICLE"), "runtime facade should not regain Knee Pads particle constants")
 	_expect(not runtime_source.contains("const KNEE_PADS_SHAKE"), "runtime facade should not regain Knee Pads shake constants")
+	_expect(runtime_source.find("return knee_pads_runtime.is_equipped(self)") >= 0, "runtime facade should delegate Knee Pads equipped checks")
+	_expect(runtime_source.find("return knee_pads_runtime.get_charge_pct(self)") >= 0, "runtime facade should delegate Knee Pads charge rolls")
+	_expect(runtime_source.find("roll_query.get_equipped_roll_sum(self, ITEM_KNEE_PADS") < 0, "runtime facade should not keep Knee Pads roll math inline")
 	_expect(helper_source.contains("const SHAKE_INTENSITY"), "Knee Pads helper should keep shake constants")
+	_expect(helper_source.find("func get_charge_pct(") >= 0, "Knee Pads helper should own charge roll math")
 
 
 func _find_roll(rolls: Array, key: String) -> Dictionary:

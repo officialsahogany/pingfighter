@@ -1166,14 +1166,12 @@ func get_stage_transition_gauge(current_gauge: float, gauge_max: float = 500.0, 
 
 func is_knee_pads_equipped() -> bool:
 	_ensure_helpers_ready()
-	return roll_query.has_equipped_item_name(self, ITEM_KNEE_PADS)
+	return knee_pads_runtime.is_equipped(self)
 
 
 func get_knee_pads_charge_pct() -> float:
 	_ensure_helpers_ready()
-	if not is_knee_pads_equipped():
-		return 0.0
-	return clamp(roll_query.get_equipped_roll_sum(self, ITEM_KNEE_PADS, "knee_charge_pct"), 0.0, 500.0)
+	return knee_pads_runtime.get_charge_pct(self)
 
 
 func try_apply_knee_pads_player_hit(

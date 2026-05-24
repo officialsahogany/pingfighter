@@ -1,9 +1,20 @@
 extends RefCounted
 
+const ITEM_KNEE_PADS := "knee_pads"
 const FLASH_DURATION_FRAMES := 30.0
 const PARTICLE_COUNT := 20
 const SHAKE_AMOUNT := 0.08
 const SHAKE_INTENSITY := 3.0
+
+
+func is_equipped(runtime: Object) -> bool:
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_KNEE_PADS)
+
+
+func get_charge_pct(runtime: Object) -> float:
+	if not is_equipped(runtime):
+		return 0.0
+	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_KNEE_PADS, "knee_charge_pct"), 0.0, 500.0)
 
 
 func try_apply_player_hit(
@@ -13,7 +24,7 @@ func try_apply_player_hit(
 	context: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
-	if not runtime.is_knee_pads_equipped():
+	if not is_equipped(runtime):
 		runtime.knee_pads_half_dash_consumed = false
 		return {}
 	if not is_half_dash_window_active(runtime, deps):
@@ -21,7 +32,7 @@ func try_apply_player_hit(
 	if runtime.knee_pads_half_dash_consumed:
 		return {}
 
-	var charge_pct: float = runtime.get_knee_pads_charge_pct()
+	var charge_pct: float = get_charge_pct(runtime)
 	var base_charge: float = resolve_base_charge(context)
 	var charge_amount: float = max(0.0, base_charge * charge_pct / 100.0)
 	charge_amount = runtime.apply_gold_digger_gauge_bonus(charge_amount)
