@@ -89,6 +89,26 @@ func _verify_direct_origin_geometry() -> void:
 		CommandoFirearmOriginGeometry.get_firearm_aim_origin("net_gun", Vector2(12.0, 34.0)) == Vector2(12.0, 34.0),
 		"firearm aim origin should preserve the resolved origin"
 	)
+	var spawn_geometry: Dictionary = CommandoFirearmOriginGeometry.build_firearm_spawn_geometry_state(
+		"commando_pistol",
+		config,
+		{"angle_offset": 0.0},
+		field_size,
+		cell_size,
+		foot_offset,
+		pistol_source,
+		bazooka_source,
+		net_source,
+		"pistol"
+	)
+	var spawn_origin: Vector2 = _get_vector2(spawn_geometry.get("origin", Vector2.ZERO))
+	var spawn_target: Vector2 = _get_vector2(spawn_geometry.get("target", Vector2.ZERO))
+	var spawn_aim_origin: Vector2 = _get_vector2(spawn_geometry.get("aim_origin", Vector2.ZERO))
+	var spawn_direction: Vector2 = _get_vector2(spawn_geometry.get("direction", Vector2.ZERO))
+	_expect(spawn_origin == Vector2(535.5, 638.0), "spawn geometry state should preserve resolved origin")
+	_expect(spawn_target == Vector2(380.0, 80.0), "spawn geometry state should preserve resolved target")
+	_expect(spawn_aim_origin == spawn_origin, "spawn geometry state should preserve aim origin")
+	_expect(spawn_direction.is_equal_approx((spawn_target - spawn_aim_origin).normalized()), "spawn geometry state should preserve resolved fire direction")
 
 
 func _verify_removed_runtime_origin_geometry_bridges() -> void:
@@ -109,6 +129,32 @@ func _verify_removed_runtime_origin_geometry_bridges() -> void:
 		"_get_boss_target_pos",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep origin geometry bridge %s" % bridge_name)
+	_expect(
+		source.find("CommandoFirearmOriginGeometry.build_firearm_spawn_geometry_state") >= 0,
+		"runtime should delegate spawn geometry state construction to origin geometry"
+	)
+	_expect(
+		source.find("CommandoFirearmOriginGeometry.get_firearm_origin") < 0,
+		"runtime should not call the lower-level firearm origin helper directly"
+	)
+	_expect(
+		source.find("CommandoFirearmOriginGeometry.get_boss_target_pos") < 0,
+		"runtime should not call the lower-level boss target helper directly"
+	)
+	_expect(
+		source.find("CommandoFirearmOriginGeometry.get_firearm_aim_origin") < 0,
+		"runtime should not call the lower-level aim origin helper directly"
+	)
+	_expect(
+		source.find("CommandoFirearmProjectileSpawnState.get_fire_direction") < 0,
+		"runtime should not call the lower-level fire direction helper directly"
+	)
+
+
+func _get_vector2(value: Variant) -> Vector2:
+	if value is Vector2:
+		return value
+	return Vector2.ZERO
 
 
 func _expect(condition: bool, message: String) -> void:

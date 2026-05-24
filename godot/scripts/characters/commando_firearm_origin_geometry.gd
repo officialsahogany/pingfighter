@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
+
 
 static func get_player_muzzle_pos(config: Dictionary, field_size: Vector2) -> Vector2:
 	var player_pos: Vector2 = get_player_pos_from_config(config, field_size)
@@ -99,6 +101,48 @@ static func get_firearm_origin(
 
 static func get_firearm_aim_origin(_weapon_id: String, origin: Vector2) -> Vector2:
 	return origin
+
+
+static func build_firearm_spawn_geometry_state(
+	weapon_id: String,
+	config: Dictionary,
+	profile: Dictionary,
+	field_size: Vector2,
+	source_cell_size: Vector2,
+	player_foot_y_offset: float,
+	pistol_muzzle_source: Vector2,
+	bazooka_muzzle_source: Vector2,
+	net_gun_muzzle_source: Vector2,
+	base_weapon_id: String
+) -> Dictionary:
+	var origin: Vector2 = get_firearm_origin(
+		weapon_id,
+		config,
+		profile,
+		field_size,
+		source_cell_size,
+		player_foot_y_offset,
+		pistol_muzzle_source,
+		bazooka_muzzle_source,
+		net_gun_muzzle_source,
+		base_weapon_id
+	)
+	var target: Vector2 = get_boss_target_pos(config, field_size.x)
+	var aim_origin: Vector2 = get_firearm_aim_origin(weapon_id, origin)
+	var angle_offset: float = float(profile.get("angle_offset", 0.0))
+	var direction: Vector2 = CommandoFirearmProjectileSpawnState.get_fire_direction(
+		target,
+		aim_origin,
+		bool(profile.get("vertical_launch", false)),
+		angle_offset
+	)
+	return {
+		"origin": origin,
+		"target": target,
+		"aim_origin": aim_origin,
+		"angle_offset": angle_offset,
+		"direction": direction,
+	}
 
 
 static func is_pistol_weapon(weapon_id: String, base_weapon_id: String) -> bool:

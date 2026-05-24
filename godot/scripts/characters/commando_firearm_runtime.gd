@@ -1528,7 +1528,7 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 	var profile: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_profile_state.get("profile", {}))
 	var doping_context: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_profile_state.get("doping_context", {}))
 	var kind: String = str(profile.get("kind", "bullet"))
-	var origin: Vector2 = CommandoFirearmOriginGeometry.get_firearm_origin(
+	var spawn_geometry_state: Dictionary = CommandoFirearmOriginGeometry.build_firearm_spawn_geometry_state(
 		weapon_id,
 		config,
 		profile,
@@ -1540,15 +1540,11 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
 		BASE_WEAPON_ID
 	)
-	var target: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(config, FIELD_WIDTH)
-	var aim_origin: Vector2 = CommandoFirearmOriginGeometry.get_firearm_aim_origin(weapon_id, origin)
-	var angle_offset: float = float(profile.get("angle_offset", 0.0))
-	var direction: Vector2 = CommandoFirearmProjectileSpawnState.get_fire_direction(
-		target,
-		aim_origin,
-		bool(profile.get("vertical_launch", false)),
-		angle_offset
-	)
+	var origin: Vector2 = CommandoFirearmValueUtils.get_vector2(spawn_geometry_state.get("origin", Vector2.ZERO), Vector2.ZERO)
+	var target: Vector2 = CommandoFirearmValueUtils.get_vector2(spawn_geometry_state.get("target", Vector2.ZERO), Vector2.ZERO)
+	var aim_origin: Vector2 = CommandoFirearmValueUtils.get_vector2(spawn_geometry_state.get("aim_origin", origin), origin)
+	var angle_offset: float = float(spawn_geometry_state.get("angle_offset", 0.0))
+	var direction: Vector2 = CommandoFirearmValueUtils.get_vector2(spawn_geometry_state.get("direction", Vector2.UP), Vector2.UP)
 	CommandoFirearmMuzzleFlashResolver.append_runtime_flash(
 		muzzle_flashes,
 		origin,
