@@ -5,6 +5,7 @@ const PauseMenuOverlay := preload("res://scripts/hud/pause_menu_overlay.gd")
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const DEFAULT_CHARACTER_SELECT_SCENE_PATH := "res://scenes/character_select.tscn"
 const MAIN_MENU_BACKGROUND_PATH := "res://assets/ui/main_menu/lingpia_main_menu_bg_logo.png"
@@ -113,6 +114,7 @@ class MainMenuSettingsRegistry:
 @onready var settings_button: Button = $ButtonStack/SettingsButton
 @onready var quit_button: Button = $ButtonStack/QuitButton
 @onready var quit_confirm_overlay: Control = $QuitConfirmOverlay
+@onready var quit_confirm_prompt_label: Label = $QuitConfirmOverlay/DialogPanel/DialogMargin/DialogVBox/PromptLabel
 @onready var quit_confirm_yes_button: Button = $QuitConfirmOverlay/DialogPanel/DialogMargin/DialogVBox/ButtonRow/YesButton
 @onready var quit_confirm_no_button: Button = $QuitConfirmOverlay/DialogPanel/DialogMargin/DialogVBox/ButtonRow/NoButton
 @onready var ambient_layer: Control = $AmbientLayer
@@ -137,6 +139,7 @@ var application_quit_callback: Callable = Callable()
 
 
 func _ready() -> void:
+	LanguageSettings.apply_saved_language()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_ensure_main_menu_background()
 	_restore_main_menu_bgm_muted()
@@ -154,6 +157,7 @@ func _ready() -> void:
 		quit_confirm_yes_button.pressed.connect(_on_quit_confirmed)
 	if quit_confirm_no_button != null:
 		quit_confirm_no_button.pressed.connect(_on_quit_canceled)
+	refresh_language_texts()
 	_start_main_menu_bgm()
 
 
@@ -373,6 +377,7 @@ func _open_quit_confirmation() -> void:
 	if quit_confirm_overlay == null:
 		_on_quit_confirmed()
 		return
+	refresh_language_texts()
 	quit_confirm_overlay.visible = true
 	if quit_confirm_no_button != null:
 		quit_confirm_no_button.grab_focus()
@@ -432,6 +437,15 @@ func _setup_touch_start_prompt() -> void:
 	if quit_button != null:
 		_setup_utility_button(quit_button, "QUIT", 176.0)
 	_update_touch_start_prompt_visual()
+
+
+func refresh_language_texts() -> void:
+	if quit_confirm_prompt_label != null:
+		quit_confirm_prompt_label.text = LanguageSettings.translate("main_menu.quit_prompt")
+	if quit_confirm_yes_button != null:
+		quit_confirm_yes_button.text = LanguageSettings.translate("main_menu.yes")
+	if quit_confirm_no_button != null:
+		quit_confirm_no_button.text = LanguageSettings.translate("main_menu.no")
 
 
 func _make_touch_start_clear_style() -> StyleBoxFlat:

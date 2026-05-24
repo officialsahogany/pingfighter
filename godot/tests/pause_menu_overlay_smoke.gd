@@ -3,14 +3,19 @@ extends SceneTree
 const BattleSceneModalGateController := preload("res://scripts/core/battle_scene_modal_gate_controller.gd")
 const BattleSceneOverlayInputController := preload("res://scripts/core/battle_scene_overlay_input_controller.gd")
 const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PauseMenuOverlay := preload("res://scripts/hud/pause_menu_overlay.gd")
 
 
 class FakeOwner:
 	var redraw_count := 0
+	var language_refresh_count := 0
 
 	func queue_redraw() -> void:
 		redraw_count += 1
+
+	func refresh_language_texts() -> void:
+		language_refresh_count += 1
 
 	func get_viewport_rect() -> Rect2:
 		return Rect2(Vector2.ZERO, Vector2(1280.0, 720.0))
@@ -195,11 +200,14 @@ class FakeRegistry:
 
 var registry := FakeRegistry.new()
 var _vibration_settings_snapshot: Dictionary = {}
+var _language_settings_snapshot: Dictionary = {}
 
 
 func _init() -> void:
 	_vibration_settings_snapshot = _snapshot_settings_file(GamepadVibrationSettings.SETTINGS_PATH)
+	_language_settings_snapshot = _snapshot_settings_file(LanguageSettings.SETTINGS_PATH)
 	GamepadVibrationSettings.set_vibration_level(GamepadVibrationSettings.VIBRATION_LEVEL_DEFAULT)
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	var input := BattleSceneOverlayInputController.new()
 	var owner := FakeOwner.new()
 
@@ -266,6 +274,23 @@ func _init() -> void:
 	_expect(str(registry.pause_menu._get_control_mapping_rows()[1].get("value", "")).find("B") >= 0, "joypad controls view should list B as the dash button")
 	_expect(_click(input, owner, registry.pause_menu._get_controls_back_button_rect(options_panel).get_center()), "controls back button should be handled")
 	_expect(registry.pause_menu.is_active() and not registry.pause_menu.is_options_open(), "controls back should return to the main pause menu")
+
+	_expect(_click(input, owner, Vector2(640.0, 463.0)), "options button should reopen for language tab")
+	options_panel = registry.pause_menu._get_options_panel_rect(owner.get_viewport_rect().size)
+	_expect(_click(input, owner, registry.pause_menu._get_language_tab_rect(options_panel).get_center()), "language tab click should be handled")
+	_expect(registry.pause_menu.options_tab == "language", "language tab should become active")
+	_expect(registry.pause_menu.language_code == "ko", "language tab should start from the saved Korean language")
+	_expect(_click(input, owner, registry.pause_menu._get_language_english_rect(options_panel).get_center()), "English language option should be handled")
+	_expect(LanguageSettings.get_language() == "en", "English option should persist the English language")
+	_expect(owner.language_refresh_count >= 1, "English language option should refresh owner language text")
+	_expect(str(registry.pause_menu._get_main_entries()[0].get("label", "")) == "Continue", "pause menu labels should switch to English")
+	_expect(str(registry.pause_menu._get_control_mapping_rows()[0].get("label", "")) == "Move", "control mapping labels should switch to English")
+	_expect(str(registry.pause_menu._get_vibration_level_label(3)).find("Normal") >= 0, "vibration label should switch to English")
+	_expect(_click(input, owner, registry.pause_menu._get_language_korean_rect(options_panel).get_center()), "Korean language option should be handled")
+	_expect(LanguageSettings.get_language() == "ko", "Korean option should persist the Korean language")
+	_expect(owner.language_refresh_count >= 2, "Korean language option should refresh owner language text")
+	_expect(_click(input, owner, registry.pause_menu._get_language_back_button_rect(options_panel).get_center()), "language back button should be handled")
+	_expect(registry.pause_menu.is_active() and not registry.pause_menu.is_options_open(), "language back should return to the main pause menu")
 
 	registry.view_layout.display_mode = "windowed"
 	registry.view_layout.saved_mode = "windowed"
@@ -341,6 +366,12 @@ func _init() -> void:
 	_expect(gamepad_options.options_tab == "display", "first gamepad tab switch should open display settings")
 	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_RIGHT_SHOULDER), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "second gamepad shoulder should switch to controls")
 	_expect(gamepad_options.options_tab == "controls", "second gamepad tab switch should open controls settings")
+	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_RIGHT_SHOULDER), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "third gamepad shoulder should switch to language")
+	_expect(gamepad_options.options_tab == "language", "third gamepad tab switch should open language settings")
+	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_RIGHT_SHOULDER), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "fourth gamepad shoulder should wrap to sound")
+	_expect(gamepad_options.options_tab == "sound", "fourth gamepad tab switch should wrap to sound settings")
+	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_RIGHT_SHOULDER), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "fifth gamepad shoulder should return to display")
+	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_RIGHT_SHOULDER), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "sixth gamepad shoulder should return to controls")
 	_expect(bool(gamepad_options.handle_input(_joy_button(JOY_BUTTON_A), owner, registry, owner.get_viewport_rect().size).get("handled", false)), "gamepad A should switch controls view")
 	_expect(gamepad_options.controls_device_view == "joypad", "gamepad A should select the joypad control map")
 	_expect(gamepad_options.gamepad_vibration_level == 3, "joypad settings should treat the current rumble as the middle level")
@@ -354,7 +385,7 @@ func _init() -> void:
 	_expect(not gamepad_options.is_active(), "gamepad B should close direct settings overlay")
 
 	_expect(owner.redraw_count >= 6, "pause menu input should queue redraws")
-	_restore_vibration_settings_snapshot()
+	_restore_settings_snapshots()
 	print("pause_menu_overlay_smoke: ok")
 	quit(0)
 
@@ -409,6 +440,23 @@ func _restore_vibration_settings_snapshot() -> void:
 	)
 
 
+func _restore_language_settings_snapshot() -> void:
+	if _language_settings_snapshot.is_empty():
+		return
+	_restore_settings_file(
+		LanguageSettings.SETTINGS_PATH,
+		bool(_language_settings_snapshot.get("had", false)),
+		_language_settings_snapshot.get("bytes", PackedByteArray())
+	)
+	LanguageSettings.reset_cache_for_tests()
+	LanguageSettings.apply_saved_language()
+
+
+func _restore_settings_snapshots() -> void:
+	_restore_vibration_settings_snapshot()
+	_restore_language_settings_snapshot()
+
+
 func _restore_settings_file(path: String, had_file: bool, file_bytes: PackedByteArray) -> void:
 	if had_file:
 		var file := FileAccess.open(path, FileAccess.WRITE)
@@ -422,6 +470,6 @@ func _restore_settings_file(path: String, had_file: bool, file_bytes: PackedByte
 func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
-	_restore_vibration_settings_snapshot()
+	_restore_settings_snapshots()
 	push_error(message)
 	quit(1)

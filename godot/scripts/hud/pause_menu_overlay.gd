@@ -2,6 +2,7 @@ extends RefCounted
 
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const GamepadVibrationSettings := preload("res://scripts/core/gamepad_vibration_settings.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const MENU_CONTINUE := "continue"
 const MENU_CHARACTER_INFO := "character_info"
@@ -11,6 +12,7 @@ const SOUND_SLIDER_SFX := "sfx"
 const OPTIONS_TAB_SOUND := "sound"
 const OPTIONS_TAB_DISPLAY := "display"
 const OPTIONS_TAB_CONTROLS := "controls"
+const OPTIONS_TAB_LANGUAGE := "language"
 const CONTROL_DEVICE_KEYBOARD_MOUSE := "keyboard_mouse"
 const CONTROL_DEVICE_JOYPAD := "joypad"
 const DISPLAY_MODE_FULLSCREEN := "fullscreen"
@@ -41,6 +43,7 @@ const SOUND_FOCUS_COUNT := 3
 const DISPLAY_FOCUS_COUNT := 9
 const CONTROLS_BASE_FOCUS_COUNT := 2
 const CONTROLS_JOYPAD_FOCUS_COUNT := 3
+const LANGUAGE_FOCUS_COUNT := 3
 
 const PANEL_COLOR := Color(16.0 / 255.0, 20.0 / 255.0, 32.0 / 255.0, 0.96)
 const PANEL_BORDER := Color(82.0 / 255.0, 165.0 / 255.0, 220.0 / 255.0, 0.86)
@@ -70,6 +73,7 @@ var auto_refresh_rate_60hz := false
 var render_fps_cap := RENDER_FPS_CAP_DEFAULT
 var vsync_mode := VSYNC_MODE_AUTO
 var gamepad_vibration_level := GamepadVibrationSettings.VIBRATION_LEVEL_DEFAULT
+var language_code := LanguageSettings.DEFAULT_LANGUAGE
 var options_only := false
 var _synced_display_mode := DISPLAY_MODE_WINDOWED
 var _synced_remember_display_mode := false
@@ -189,6 +193,8 @@ func _handle_options_key_input(key_event: InputEventKey, owner: Object, registry
 		return _handle_display_key_input(key_event, owner, registry)
 	if options_tab == OPTIONS_TAB_CONTROLS:
 		return _handle_controls_key_input(key_event)
+	if options_tab == OPTIONS_TAB_LANGUAGE:
+		return _handle_language_key_input(key_event, owner)
 	return _handle_sound_key_input(key_event, registry)
 
 
@@ -218,6 +224,8 @@ func _handle_options_gamepad_input(event: InputEvent, owner: Object, registry: O
 		return _handle_display_gamepad_input(event, owner, registry)
 	if options_tab == OPTIONS_TAB_CONTROLS:
 		return _handle_controls_gamepad_input(event)
+	if options_tab == OPTIONS_TAB_LANGUAGE:
+		return _handle_language_gamepad_input(event, owner)
 	return _handle_sound_gamepad_input(event, registry)
 
 
@@ -307,6 +315,26 @@ func _handle_controls_key_input(key_event: InputEventKey) -> Dictionary:
 	return {"handled": true}
 
 
+func _handle_language_key_input(key_event: InputEventKey, owner: Object) -> Dictionary:
+	if _is_key(key_event, KEY_UP):
+		options_focus = (options_focus + LANGUAGE_FOCUS_COUNT - 1) % LANGUAGE_FOCUS_COUNT
+		return {"handled": true}
+	if _is_key(key_event, KEY_DOWN):
+		options_focus = (options_focus + 1) % LANGUAGE_FOCUS_COUNT
+		return {"handled": true}
+	if _is_key(key_event, KEY_LEFT):
+		if options_focus < 2:
+			_cycle_language(-1, owner)
+		return {"handled": true}
+	if _is_key(key_event, KEY_RIGHT):
+		if options_focus < 2:
+			_cycle_language(1, owner)
+		return {"handled": true}
+	if _is_key(key_event, KEY_ENTER) or _is_key(key_event, KEY_KP_ENTER) or _is_key(key_event, KEY_SPACE):
+		return _activate_language_focus(owner)
+	return {"handled": true}
+
+
 func _handle_sound_gamepad_input(event: InputEvent, registry: Object) -> Dictionary:
 	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
 	if vertical_direction != 0:
@@ -353,6 +381,21 @@ func _handle_controls_gamepad_input(event: InputEvent) -> Dictionary:
 			_adjust_gamepad_vibration_level(1)
 			return {"handled": true}
 		return _close_options_page()
+	return {"handled": true}
+
+
+func _handle_language_gamepad_input(event: InputEvent, owner: Object) -> Dictionary:
+	var vertical_direction: int = GamepadInput.get_menu_vertical_event(event)
+	if vertical_direction != 0:
+		options_focus = (options_focus + vertical_direction + LANGUAGE_FOCUS_COUNT) % LANGUAGE_FOCUS_COUNT
+		return {"handled": true}
+	var horizontal_direction: int = GamepadInput.get_menu_horizontal_event(event)
+	if horizontal_direction != 0:
+		if options_focus < 2:
+			_cycle_language(horizontal_direction, owner)
+		return {"handled": true}
+	if GamepadInput.is_confirm_event(event):
+		return _activate_language_focus(owner)
 	return {"handled": true}
 
 
@@ -404,10 +447,18 @@ func _handle_options_click(position: Vector2, owner: Object, registry: Object, v
 		dragging_slider = ""
 		_sync_controls_settings()
 		return {"handled": true}
+	if _get_language_tab_rect(panel_rect).has_point(position):
+		options_tab = OPTIONS_TAB_LANGUAGE
+		options_focus = 0
+		dragging_slider = ""
+		_sync_language_settings()
+		return {"handled": true}
 	if options_tab == OPTIONS_TAB_DISPLAY:
 		return _handle_display_click(position, owner, registry, panel_rect)
 	if options_tab == OPTIONS_TAB_CONTROLS:
 		return _handle_controls_click(position, panel_rect)
+	if options_tab == OPTIONS_TAB_LANGUAGE:
+		return _handle_language_click(position, owner, panel_rect)
 	return _handle_sound_click(position, registry, view_size, panel_rect)
 
 
@@ -493,6 +544,20 @@ func _handle_controls_click(position: Vector2, panel_rect: Rect2) -> Dictionary:
 	return {"handled": true}
 
 
+func _handle_language_click(position: Vector2, owner: Object, panel_rect: Rect2) -> Dictionary:
+	if _get_language_korean_rect(panel_rect).has_point(position):
+		options_focus = 0
+		_set_language_option(LanguageSettings.LANGUAGE_KOREAN, owner)
+		return {"handled": true}
+	if _get_language_english_rect(panel_rect).has_point(position):
+		options_focus = 1
+		_set_language_option(LanguageSettings.LANGUAGE_ENGLISH, owner)
+		return {"handled": true}
+	if _get_language_back_button_rect(panel_rect).has_point(position):
+		return _close_options_page()
+	return {"handled": true}
+
+
 func _move_selection(delta: int) -> void:
 	var count := 3
 	selected_index = (selected_index + delta + count) % count
@@ -528,6 +593,7 @@ func _open_options(owner: Object, registry: Object) -> void:
 	controls_device_view = CONTROL_DEVICE_KEYBOARD_MOUSE
 	_sync_display_settings(owner, registry)
 	_sync_controls_settings()
+	_sync_language_settings()
 
 
 func _close_options_page() -> Dictionary:
@@ -541,7 +607,7 @@ func _close_options_page() -> Dictionary:
 
 
 func _switch_options_tab(direction: int = 1, owner: Object = null, registry: Object = null) -> void:
-	var tabs: Array[String] = [OPTIONS_TAB_SOUND, OPTIONS_TAB_DISPLAY, OPTIONS_TAB_CONTROLS]
+	var tabs: Array[String] = [OPTIONS_TAB_SOUND, OPTIONS_TAB_DISPLAY, OPTIONS_TAB_CONTROLS, OPTIONS_TAB_LANGUAGE]
 	var index: int = tabs.find(options_tab)
 	if index < 0:
 		index = 0
@@ -553,6 +619,8 @@ func _switch_options_tab(direction: int = 1, owner: Object = null, registry: Obj
 		_sync_display_settings(owner, registry)
 	elif options_tab == OPTIONS_TAB_CONTROLS:
 		_sync_controls_settings()
+	elif options_tab == OPTIONS_TAB_LANGUAGE:
+		_sync_language_settings()
 
 
 func _cycle_display_mode(direction: int) -> void:
@@ -648,6 +716,42 @@ func _get_controls_back_focus_index() -> int:
 
 func _sync_controls_settings() -> void:
 	gamepad_vibration_level = GamepadVibrationSettings.get_vibration_level()
+
+
+func _sync_language_settings() -> void:
+	language_code = LanguageSettings.get_language()
+
+
+func _cycle_language(direction: int, owner: Object) -> void:
+	if direction == 0:
+		return
+	var options: Array[String] = LanguageSettings.get_language_options()
+	var index: int = options.find(language_code)
+	if index < 0:
+		index = 0
+	var step: int = 1 if direction >= 0 else -1
+	_set_language_option(options[(index + step + options.size()) % options.size()], owner)
+
+
+func _set_language_option(language: String, owner: Object = null) -> void:
+	language_code = LanguageSettings.set_language(language)
+	_notify_language_changed(owner)
+
+
+func _activate_language_focus(owner: Object) -> Dictionary:
+	match options_focus:
+		0:
+			_set_language_option(LanguageSettings.LANGUAGE_KOREAN, owner)
+		1:
+			_set_language_option(LanguageSettings.LANGUAGE_ENGLISH, owner)
+		2:
+			return _close_options_page()
+	return {"handled": true}
+
+
+func _notify_language_changed(owner: Object) -> void:
+	if owner != null and owner.has_method("refresh_language_texts"):
+		owner.refresh_language_texts()
 
 
 func _cycle_render_fps_cap(direction: int, owner: Object, registry: Object) -> void:
@@ -782,10 +886,10 @@ func _normalize_display_mode(mode: String) -> String:
 
 func _get_display_mode_description() -> String:
 	if display_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN:
-		return "DWM 합성을 우회하는 독점 전체화면으로 표시합니다"
+		return _text("display.desc.exclusive")
 	if display_mode == DISPLAY_MODE_FULLSCREEN:
-		return "네이티브 해상도 전체화면으로 표시합니다"
-	return "필러 배경 포함 창모드로 표시합니다"
+		return _text("display.desc.fullscreen")
+	return _text("display.desc.windowed")
 
 
 func _get_render_fps_cap_options(registry: Object) -> Array[int]:
@@ -810,14 +914,14 @@ func _get_render_fps_cap_options(registry: Object) -> Array[int]:
 
 func _get_render_fps_cap_label(registry: Object, owner: Object = null) -> String:
 	var view_layout: Object = _get_instance(registry, "battle_view_layout")
+	if render_fps_cap == RENDER_FPS_CAP_UNLIMITED:
+		return _text("display.fps.unlimited")
+	if render_fps_cap == RENDER_FPS_CAP_MONITOR:
+		return _text("display.fps.monitor") % _get_monitor_refresh_rate(registry, owner)
 	if view_layout != null and view_layout.has_method("get_render_fps_cap_label"):
 		return str(view_layout.get_render_fps_cap_label(render_fps_cap, _get_owner_window(owner)))
 	if render_fps_cap == RENDER_FPS_CAP_STABLE_MONITOR:
 		return "Stable 48 FPS"
-	if render_fps_cap == RENDER_FPS_CAP_UNLIMITED:
-		return "제한 없음"
-	if render_fps_cap == RENDER_FPS_CAP_MONITOR:
-		return "모니터 Hz"
 	return "%d FPS" % render_fps_cap
 
 
@@ -853,10 +957,33 @@ func _get_vsync_mode_label(registry: Object) -> String:
 
 
 func _get_display_pacing_recommendation(registry: Object, owner: Object = null) -> String:
+	var monitor_rate: int = _get_monitor_refresh_rate(registry, owner)
+	if monitor_rate <= 0:
+		return _text("display.recommendation.fallback")
+	var game_settings_ready := (
+		display_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN
+		and render_fps_cap == RENDER_FPS_CAP_MONITOR
+		and (
+			vsync_mode == VSYNC_MODE_AUTO
+			or vsync_mode == VSYNC_MODE_ENABLED
+		)
+	)
+	if game_settings_ready:
+		return _text("display.recommendation.ready") % monitor_rate
+	if render_fps_cap == RENDER_FPS_CAP_MONITOR:
+		return _text("display.recommendation.monitor") % monitor_rate
+	return _text("display.recommendation.default") % monitor_rate
+
+
+func _get_monitor_refresh_rate(registry: Object, owner: Object = null) -> int:
 	var view_layout: Object = _get_instance(registry, "battle_view_layout")
-	if view_layout != null and view_layout.has_method("get_display_pacing_recommendation"):
-		return str(view_layout.get_display_pacing_recommendation(_get_owner_window(owner), display_mode, render_fps_cap, vsync_mode))
-	return "렌더 FPS를 모니터 Hz로 두면 현재 주사율에 자동으로 맞춰집니다.\n독점 전체화면과 VSync Auto를 권장합니다."
+	if view_layout != null and view_layout.has_method("get_monitor_refresh_rate"):
+		return int(view_layout.get_monitor_refresh_rate(_get_owner_window(owner)))
+	return 60
+
+
+func _text(key: String, fallback: String = "") -> String:
+	return LanguageSettings.translate(key, fallback)
 
 
 func _open_system_display_settings(registry: Object) -> void:
@@ -895,8 +1022,8 @@ func _set_volume_from_slider(slider_key: String, mouse_x: float, registry: Objec
 
 
 func _draw_main_menu(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
-	_draw_text_centered(canvas, font, "일시정지", panel_rect.position + Vector2(panel_rect.size.x * 0.5, 47.0), 28, Color.WHITE)
-	_draw_text_centered(canvas, font, "디스크하츠 - 링피아", panel_rect.position + Vector2(panel_rect.size.x * 0.5, 72.0), 12, TEXT_DIM)
+	_draw_text_centered(canvas, font, _text("pause.title"), panel_rect.position + Vector2(panel_rect.size.x * 0.5, 47.0), 28, Color.WHITE)
+	_draw_text_centered(canvas, font, _text("app.title"), panel_rect.position + Vector2(panel_rect.size.x * 0.5, 72.0), 12, TEXT_DIM)
 	var entries: Array = _get_main_entries()
 	for index in range(entries.size()):
 		_draw_button(canvas, font, _get_button_rect(panel_rect, index, entries.size()), str(entries[index].get("label", "")), index == selected_index, mouse_pos)
@@ -906,10 +1033,11 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 	var header_rect := Rect2(panel_rect.position, Vector2(panel_rect.size.x, 62.0))
 	canvas.draw_rect(header_rect, HEADER_COLOR)
 	canvas.draw_line(panel_rect.position + Vector2(14.0, 62.0), Vector2(panel_rect.end.x - 14.0, panel_rect.position.y + 62.0), PANEL_BORDER, 2.0)
-	_draw_text(canvas, font, "설정", panel_rect.position + Vector2(28.0, 40.0), 24, Color.WHITE)
-	_draw_tab(canvas, font, _get_sound_tab_rect(panel_rect), "사운드", options_tab == OPTIONS_TAB_SOUND)
-	_draw_tab(canvas, font, _get_display_tab_rect(panel_rect), "디스플레이", options_tab == OPTIONS_TAB_DISPLAY)
-	_draw_tab(canvas, font, _get_controls_tab_rect(panel_rect), "조작", options_tab == OPTIONS_TAB_CONTROLS)
+	_draw_text(canvas, font, _text("settings.title"), panel_rect.position + Vector2(28.0, 40.0), 24, Color.WHITE)
+	_draw_tab(canvas, font, _get_sound_tab_rect(panel_rect), _text("settings.tab.sound"), options_tab == OPTIONS_TAB_SOUND)
+	_draw_tab(canvas, font, _get_display_tab_rect(panel_rect), _text("settings.tab.display"), options_tab == OPTIONS_TAB_DISPLAY)
+	_draw_tab(canvas, font, _get_controls_tab_rect(panel_rect), _text("settings.tab.controls"), options_tab == OPTIONS_TAB_CONTROLS)
+	_draw_tab(canvas, font, _get_language_tab_rect(panel_rect), _text("settings.tab.language"), options_tab == OPTIONS_TAB_LANGUAGE)
 
 	var content_rect := Rect2(panel_rect.position + Vector2(28.0, 84.0), Vector2(panel_rect.size.x - 56.0, panel_rect.size.y - 166.0))
 	_draw_panel(canvas, content_rect, SECTION_COLOR, Color(PANEL_BORDER.r, PANEL_BORDER.g, PANEL_BORDER.b, 0.42), 1.0)
@@ -917,9 +1045,11 @@ func _draw_options_window(canvas: CanvasItem, font: Font, panel_rect: Rect2, mou
 		_draw_display_tab(canvas, font, panel_rect, mouse_pos, registry, owner)
 	elif options_tab == OPTIONS_TAB_CONTROLS:
 		_draw_controls_tab(canvas, font, panel_rect, mouse_pos)
+	elif options_tab == OPTIONS_TAB_LANGUAGE:
+		_draw_language_tab(canvas, font, panel_rect, mouse_pos)
 	else:
-		_draw_volume_slider(canvas, font, SOUND_SLIDER_BGM, "BGM 볼륨", _get_bgm_volume(registry), ACCENT_BLUE, options_focus == 0, mouse_pos, panel_rect)
-		_draw_volume_slider(canvas, font, SOUND_SLIDER_SFX, "효과음 볼륨", _get_sfx_volume(registry), ACCENT_GREEN, options_focus == 1, mouse_pos, panel_rect)
+		_draw_volume_slider(canvas, font, SOUND_SLIDER_BGM, _text("sound.bgm_volume"), _get_bgm_volume(registry), ACCENT_BLUE, options_focus == 0, mouse_pos, panel_rect)
+		_draw_volume_slider(canvas, font, SOUND_SLIDER_SFX, _text("sound.sfx_volume"), _get_sfx_volume(registry), ACCENT_GREEN, options_focus == 1, mouse_pos, panel_rect)
 
 	if options_tab == OPTIONS_TAB_SOUND:
 		var back_rect: Rect2 = _get_back_button_rect(panel_rect)
@@ -958,10 +1088,10 @@ func _draw_volume_slider(
 
 func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2, registry: Object, owner: Object = null) -> void:
 	var label_pos := panel_rect.position + Vector2(54.0, 137.0)
-	_draw_text(canvas, font, "화면 모드", label_pos, 19, Color.WHITE)
-	_draw_mode_pill(canvas, font, _get_display_fullscreen_rect(panel_rect), "전체화면", display_mode == DISPLAY_MODE_FULLSCREEN, options_focus == 0, mouse_pos)
-	_draw_mode_pill(canvas, font, _get_display_exclusive_fullscreen_rect(panel_rect), "독점", display_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN, options_focus == 0, mouse_pos)
-	_draw_mode_pill(canvas, font, _get_display_windowed_rect(panel_rect), "창모드", display_mode == DISPLAY_MODE_WINDOWED, options_focus == 0, mouse_pos)
+	_draw_text(canvas, font, _text("display.mode"), label_pos, 19, Color.WHITE)
+	_draw_mode_pill(canvas, font, _get_display_fullscreen_rect(panel_rect), _text("display.mode.fullscreen"), display_mode == DISPLAY_MODE_FULLSCREEN, options_focus == 0, mouse_pos)
+	_draw_mode_pill(canvas, font, _get_display_exclusive_fullscreen_rect(panel_rect), _text("display.mode.exclusive"), display_mode == DISPLAY_MODE_EXCLUSIVE_FULLSCREEN, options_focus == 0, mouse_pos)
+	_draw_mode_pill(canvas, font, _get_display_windowed_rect(panel_rect), _text("display.mode.windowed"), display_mode == DISPLAY_MODE_WINDOWED, options_focus == 0, mouse_pos)
 
 	var desc := _get_display_mode_description()
 	_draw_text(canvas, font, desc, panel_rect.position + Vector2(280.0, 162.0), 13, TEXT_DIM)
@@ -973,7 +1103,7 @@ func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_
 		font,
 		fps_row_rect,
 		fps_value_rect,
-		"렌더 FPS",
+		_text("display.render_fps"),
 		_get_render_fps_cap_label(registry, owner),
 		options_focus == 1,
 		mouse_pos
@@ -999,8 +1129,8 @@ func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_
 		font,
 		row_rect,
 		checkbox_rect,
-		"현재 화면 설정 저장",
-		"다음 실행부터 이 화면 모드와 주사율을 사용",
+		_text("display.remember.title"),
+		_text("display.remember.subtitle"),
 		remember_display_mode,
 		options_focus == 3,
 		mouse_pos
@@ -1013,8 +1143,8 @@ func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_
 		font,
 		auto_row_rect,
 		auto_checkbox_rect,
-		"60Hz 모드 자동 전환",
-		"특정 모니터에서 60Hz 페이싱이 필요할 때만 사용",
+		_text("display.auto60.title"),
+		_text("display.auto60.subtitle"),
 		auto_refresh_rate_60hz,
 		options_focus == 4,
 		mouse_pos,
@@ -1022,19 +1152,19 @@ func _draw_display_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_
 	)
 
 	_draw_recommendation_block(canvas, font, _get_display_pacing_recommendation_rect(panel_rect), _get_display_pacing_recommendation(registry, owner))
-	_draw_button(canvas, font, _get_display_recommended_button_rect(panel_rect), "권장값 적용", options_focus == 5, mouse_pos)
-	_draw_button(canvas, font, _get_display_apply_60hz_button_rect(panel_rect), "60Hz 모드", options_focus == 6, mouse_pos)
-	_draw_button(canvas, font, _get_display_save_button_rect(panel_rect), "저장", options_focus == 7, mouse_pos)
+	_draw_button(canvas, font, _get_display_recommended_button_rect(panel_rect), _text("display.recommend.apply"), options_focus == 5, mouse_pos)
+	_draw_button(canvas, font, _get_display_apply_60hz_button_rect(panel_rect), _text("display.apply60"), options_focus == 6, mouse_pos)
+	_draw_button(canvas, font, _get_display_save_button_rect(panel_rect), _text("settings.save"), options_focus == 7, mouse_pos)
 	_draw_button(canvas, font, _get_display_back_button_rect(panel_rect), _get_options_back_label(), options_focus == 8, mouse_pos)
 
 
 func _draw_controls_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
-	_draw_text(canvas, font, "입력 장치", panel_rect.position + Vector2(54.0, 137.0), 19, Color.WHITE)
+	_draw_text(canvas, font, _text("controls.device"), panel_rect.position + Vector2(54.0, 137.0), 19, Color.WHITE)
 	_draw_mode_pill(
 		canvas,
 		font,
 		_get_controls_keyboard_mouse_rect(panel_rect),
-		"키보드+마우스",
+		_text("controls.keyboard_mouse"),
 		controls_device_view == CONTROL_DEVICE_KEYBOARD_MOUSE,
 		options_focus == 0,
 		mouse_pos
@@ -1043,7 +1173,7 @@ func _draw_controls_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse
 		canvas,
 		font,
 		_get_controls_joypad_rect(panel_rect),
-		"조이패드",
+		_text("controls.joypad"),
 		controls_device_view == CONTROL_DEVICE_JOYPAD,
 		options_focus == 0,
 		mouse_pos
@@ -1055,8 +1185,8 @@ func _draw_controls_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse
 			font,
 			vibration_row_rect,
 			_get_controls_vibration_value_rect(panel_rect),
-			"진동 감도",
-			GamepadVibrationSettings.get_vibration_level_label(gamepad_vibration_level),
+			_text("controls.vibration"),
+			_get_vibration_level_label(gamepad_vibration_level),
 			options_focus == 1,
 			mouse_pos
 		)
@@ -1071,6 +1201,38 @@ func _draw_controls_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse
 			str(row.get("value", ""))
 		)
 	_draw_button(canvas, font, _get_controls_back_button_rect(panel_rect), _get_options_back_label(), options_focus == _get_controls_back_focus_index(), mouse_pos)
+
+
+func _draw_language_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse_pos: Vector2) -> void:
+	_draw_text(canvas, font, _text("language.title"), panel_rect.position + Vector2(54.0, 137.0), 19, Color.WHITE)
+	_draw_mode_pill(
+		canvas,
+		font,
+		_get_language_korean_rect(panel_rect),
+		_text("language.ko"),
+		language_code == LanguageSettings.LANGUAGE_KOREAN,
+		options_focus == 0,
+		mouse_pos
+	)
+	_draw_mode_pill(
+		canvas,
+		font,
+		_get_language_english_rect(panel_rect),
+		_text("language.en"),
+		language_code == LanguageSettings.LANGUAGE_ENGLISH,
+		options_focus == 1,
+		mouse_pos
+	)
+	var current_name := LanguageSettings.get_native_language_name(language_code)
+	_draw_text(canvas, font, _text("language.current") % current_name, panel_rect.position + Vector2(96.0, 218.0), 18, Color.WHITE)
+	_draw_recommendation_block(canvas, font, _get_language_note_rect(panel_rect), _text("language.subtitle"))
+	_draw_button(canvas, font, _get_language_back_button_rect(panel_rect), _get_options_back_label(), options_focus == 2, mouse_pos)
+
+
+func _get_vibration_level_label(level: int = 0) -> String:
+	var normalized: int = GamepadVibrationSettings.get_vibration_level() if level < GamepadVibrationSettings.VIBRATION_LEVEL_MIN else GamepadVibrationSettings.normalize_vibration_level(level)
+	var name := _text("vibration.%d" % normalized)
+	return "%d / %d %s" % [normalized, GamepadVibrationSettings.VIBRATION_LEVEL_MAX, name]
 
 
 func _draw_control_mapping_row(canvas: CanvasItem, font: Font, rect: Rect2, label: String, value: String) -> void:
@@ -1208,15 +1370,19 @@ func _get_options_panel_rect(view_size: Vector2) -> Rect2:
 
 
 func _get_sound_tab_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(100.0, 14.0), Vector2(98.0, 36.0))
+	return Rect2(panel_rect.position + Vector2(92.0, 14.0), Vector2(92.0, 36.0))
 
 
 func _get_display_tab_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(214.0, 14.0), Vector2(136.0, 36.0))
+	return Rect2(panel_rect.position + Vector2(194.0, 14.0), Vector2(124.0, 36.0))
 
 
 func _get_controls_tab_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(366.0, 14.0), Vector2(104.0, 36.0))
+	return Rect2(panel_rect.position + Vector2(328.0, 14.0), Vector2(92.0, 36.0))
+
+
+func _get_language_tab_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(430.0, 14.0), Vector2(108.0, 36.0))
 
 
 func _get_button_rect(panel_rect: Rect2, index: int, count: int) -> Rect2:
@@ -1347,35 +1513,51 @@ func _get_controls_back_button_rect(panel_rect: Rect2) -> Rect2:
 	return Rect2(Vector2(panel_rect.get_center().x - 85.0, panel_rect.end.y - 72.0), Vector2(170.0, 48.0))
 
 
+func _get_language_korean_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(260.0, 154.0), Vector2(160.0, 44.0))
+
+
+func _get_language_english_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(440.0, 154.0), Vector2(160.0, 44.0))
+
+
+func _get_language_note_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(96.0, 250.0), Vector2(panel_rect.size.x - 192.0, 40.0))
+
+
+func _get_language_back_button_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(Vector2(panel_rect.get_center().x - 85.0, panel_rect.end.y - 72.0), Vector2(170.0, 48.0))
+
+
 func _get_options_back_label() -> String:
-	return "닫기" if options_only else "뒤로가기"
+	return _text("settings.close") if options_only else _text("settings.back")
 
 
 func _get_control_mapping_rows() -> Array:
 	if controls_device_view == CONTROL_DEVICE_JOYPAD:
 		return [
-			{"label": "이동", "value": "왼스틱 / D-pad"},
-			{"label": "대쉬 / 스킬", "value": "대쉬: B 또는 아래 / 스킬: A / X / RT"},
-			{"label": "액티브 아이템", "value": "LB/RB 또는 오른스틱 좌우 선택 / Y 사용"},
-			{"label": "보급 홀드", "value": "LT"},
-			{"label": "무기 전환", "value": "오른스틱 위/아래 / R3"},
-			{"label": "확인 / 취소 / 일시정지", "value": "A / B / 메뉴"},
+			{"label": _text("controls.map.move"), "value": _text("controls.value.joypad.move")},
+			{"label": _text("controls.map.dash_skill"), "value": _text("controls.value.joypad.dash_skill")},
+			{"label": _text("controls.map.active_item"), "value": _text("controls.value.joypad.active_item")},
+			{"label": _text("controls.map.supply_hold"), "value": _text("controls.value.joypad.supply_hold")},
+			{"label": _text("controls.map.weapon_switch"), "value": _text("controls.value.joypad.weapon_switch")},
+			{"label": _text("controls.map.confirm_cancel_pause"), "value": _text("controls.value.joypad.confirm_cancel_pause")},
 		]
 	return [
-		{"label": "이동", "value": "A,D,W,S / 방향키"},
-		{"label": "대쉬 / 스킬", "value": "Space / X / 마우스 왼쪽"},
-		{"label": "액티브 아이템", "value": "1 / 2 / 3"},
-		{"label": "보급 홀드", "value": "S / 마우스 오른쪽"},
-		{"label": "무기 전환", "value": "마우스 휠 / 가운데"},
-		{"label": "확인 / 취소 / 일시정지", "value": "Enter / Esc"},
+		{"label": _text("controls.map.move"), "value": _text("controls.value.keyboard.move")},
+		{"label": _text("controls.map.dash_skill"), "value": _text("controls.value.keyboard.dash_skill")},
+		{"label": _text("controls.map.active_item"), "value": _text("controls.value.keyboard.active_item")},
+		{"label": _text("controls.map.supply_hold"), "value": _text("controls.value.keyboard.supply_hold")},
+		{"label": _text("controls.map.weapon_switch"), "value": _text("controls.value.keyboard.weapon_switch")},
+		{"label": _text("controls.map.confirm_cancel_pause"), "value": _text("controls.value.keyboard.confirm_cancel_pause")},
 	]
 
 
 func _get_main_entries() -> Array:
 	return [
-		{"label": "계속", "action": MENU_CONTINUE},
-		{"label": "캐릭터정보", "action": MENU_CHARACTER_INFO},
-		{"label": "옵션", "action": MENU_OPTIONS},
+		{"label": _text("pause.continue"), "action": MENU_CONTINUE},
+		{"label": _text("pause.character_info"), "action": MENU_CHARACTER_INFO},
+		{"label": _text("pause.options"), "action": MENU_OPTIONS},
 	]
 
 

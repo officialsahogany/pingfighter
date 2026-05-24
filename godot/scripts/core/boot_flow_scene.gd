@@ -6,6 +6,7 @@ const CharacterSelectPrewarm := preload("res://scripts/ui/character_select_prewa
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const LOADING_PERCENT_RATE := 72.0
 const LOADING_FINISH_PERCENT_RATE := 96.0
@@ -51,6 +52,7 @@ var main_menu_bgm_muted: bool = false
 
 
 func _ready() -> void:
+	LanguageSettings.apply_saved_language()
 	_configure_app_window()
 	_restore_main_menu_bgm_muted()
 	mouse_filter = Control.MOUSE_FILTER_STOP
