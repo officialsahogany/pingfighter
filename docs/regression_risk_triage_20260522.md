@@ -7348,6 +7348,25 @@ Hundredth split on 2026-05-24:
   AK-47 spread / recoil profile construction and rejects the removed runtime
   profile bridge.
 
+249th follow-up on 2026-05-24:
+
+- Commit:
+  `2f1e91441 godot: move Commando projectile impact reason`.
+- Scope: moved projectile impact-reason resolution out of
+  `commando_firearm_runtime.gd` and into
+  `CommandoFirearmProjectileImpactState.get_impact_reason()`. The runtime now
+  delegates target lookup, weapon profile resolution, boss-rect lookup, and
+  hit-geometry routing to the projectile-impact owner, while smoke tests call
+  the owner boundary directly.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3084` lines /
+  `63` functions to `3069` lines / `62` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_hit_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The projectile-impact smoke now
+  rejects the removed `_get_projectile_impact_reason()` runtime bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
