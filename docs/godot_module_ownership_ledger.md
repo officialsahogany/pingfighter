@@ -4016,10 +4016,11 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Commando lingering fire-zone flame state: deterministic flame
   seeding, effect-size fallback reads, ring / size / lifetime patterns,
   per-frame drift / reset motion, and safe flame array reads. The runtime
-  keeps lingering-effect ownership, fire-zone activation, status application,
-  and the side-effect flame update hook while tests call this helper directly
-  for deterministic frame / seed / reset / drift / clamp / size-decay behavior
-  instead of runtime fire-flame owner bridges.
+  keeps lingering-effect ownership, fire-zone activation, and status
+  application while calling this helper directly for spawn-time seeding and
+  frame updates. Tests call this helper directly for deterministic frame /
+  seed / reset / drift / clamp / size-decay behavior instead of runtime
+  fire-flame owner bridges.
 - `scripts/characters/commando_firearm_lingering_net_field_state.gd`
   Owns pure Commando lingering net-field state: live / dissolve lifecycle
   payloads, dash-break rope-broken payloads, profile-derived rope / origin /
@@ -4030,10 +4031,11 @@ This section is intentionally long; use search to find the nearest owner.
   stored previous-dash state, audio side effects, live spawn / field setup
   side-effect boundaries, candidate-index scanning, constrict mutation, and
   the boss-clamp side-effect hook while the spawn path calls `apply_net_fields()`
-  directly for live / dissolve net payloads. Tests cover the real spawn path
-  plus this helper's deterministic lifecycle / profile / geometry / shape /
-  height-limit / clamp / predicate / constrict-factor calculations instead of
-  runtime position, net-height, setup, clamp, and predicate bridges.
+  directly for live / dissolve net payloads and dash-break handling calls
+  `mark_hooked_field_broken()` directly. Tests cover the real spawn / break
+  paths plus this helper's deterministic lifecycle / profile / geometry /
+  shape / height-limit / clamp / predicate / constrict-factor calculations
+  instead of runtime position, net-height, setup, clamp, and predicate bridges.
 - `scripts/characters/commando_firearm_lingering_status_state.gd`
   Owns pure Commando lingering status state: profile-derived status payload
   fields, status application candidate dictionaries, slow-multiplier status

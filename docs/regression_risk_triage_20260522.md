@@ -6827,6 +6827,28 @@ Hundredth split on 2026-05-24:
   `scripts/characters/viper_skill_timer_gauge_renderer.gd:70`, now trips a
   Variant inference warning before the scan reaches this Commando slice.
 
+221st follow-up on 2026-05-24:
+
+- Commit: `d74182d02 godot: drop Commando lingering frame owner bridges`.
+- Scope: removed the private `_update_lingering_fire_flames()` and
+  `_mark_hooked_net_field_broken()` runtime wrappers. Lingering fire-zone frame
+  advancement now calls `CommandoFirearmLingeringFireFlameState` directly, and
+  hooked-net dash break handling calls
+  `CommandoFirearmLingeringNetFieldState.mark_hooked_field_broken()` directly.
+  The value-utils smoke now relies on the direct owner helper and the real
+  `_break_hooked_net_fields()` path instead of the removed wrapper.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3322` lines /
+  `100` functions to `3314` lines / `98` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. Full `run_warning_scan.ps1` remains
+  blocked by the unrelated dirty
+  `scripts/characters/viper_skill_timer_gauge_renderer.gd:70` Variant
+  inference warning noted in the previous follow-up.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
