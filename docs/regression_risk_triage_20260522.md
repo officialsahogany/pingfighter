@@ -3,6 +3,44 @@
 Current target: Godot `godot/`. Legacy Python/Pygame files are frozen
 reference unless explicitly requested.
 
+## Cross-Agent Sync Snapshot - 2026-05-25
+
+This section records the latest clean handoff boundary after the Mythic query
+cleanup passes and the concurrent Commando / core / render work.
+
+- Current branch: `checkpoint/godot-wip-20260521-070019`.
+- Latest observed HEAD for this documentation sync:
+  `aecfbb58f docs: record Commando bowling trap input cleanup`.
+- Recent Mythic item query cleanup commits:
+  `fe8f8d041 godot: move Venom Mist roll queries`,
+  `d686ad7fd godot: move Rainbow Fur Glove roll queries`,
+  `c339b2482 godot: move Adversity Armor roll queries`,
+  `d7e039979 godot: move Shrapnel Armor roll queries`, and
+  `a54680060 godot: move Soul Burst roll query`.
+- The Mythic query cleanup moved equipped / active / roll math out of
+  `scripts/items/mythic_item_runtime.gd` and into the focused item owners.
+  After `a54680060`, the runtime facade's direct `roll_query` use was reduced
+  to the public `get_public_item_roll_value()` delegate, before later
+  concurrent dirty work touched Mythic files again.
+- Focused validation passed for the touched item surfaces:
+  `venom_mist_gauntlet_port_smoke`, `rainbow_fur_glove_port_smoke`,
+  `adversity_armor_port_smoke`, `shrapnel_armor_port_smoke`,
+  `soul_burst_port_smoke`, `mythic_item_runtime_idle_update_smoke`,
+  `mythic_item_field_render_budget_smoke`, and
+  `mythic_item_snapshot_builder_smoke`.
+- `git diff --check` and `tools/run_headless_load_check.ps1` passed after the
+  Mythic query cleanup commits.
+- Full `tools/run_warning_scan.ps1` was not claimed for these cleanup commits
+  because concurrent dirty work in `battle_scene_match_event_driver.gd`
+  entered the Godot parser debugger during the global scan. Keep that as a
+  separate cross-agent blocker; do not attribute it to the Mythic query
+  cleanup commits unless a later clean-tree scan proves otherwise.
+- Current dirty scope at this sync point is broad and owned by other active
+  lanes: Godot port architecture docs, core prewarm / match drivers, HUD,
+  active throw, project resource loading, Stage actor renderers, character rim
+  shader, and matching smoke tests. Avoid new edits in those files unless
+  explicitly taking over that lane.
+
 ## Current Sync Snapshot - 2026-05-24
 
 This section was added to make the local triage log usable as cross-agent
