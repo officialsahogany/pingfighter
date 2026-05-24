@@ -99,6 +99,7 @@ func _init() -> void:
 	_verify_removed_projectile_value_bridges()
 	_verify_removed_pistol_value_bridges()
 	_verify_removed_doping_value_bridges()
+	_verify_removed_timed_effect_update_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -336,13 +337,13 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(float(runtime.pistol_pending_config.get("paddle_width", 0.0)), 123.0), "runtime pending geometry wrapper should copy paddle width")
 	_expect(runtime._get_vector2(runtime.pistol_pending_config.get("boss_pos", Vector2.ZERO), Vector2.ZERO) == Vector2(3.0, 4.0), "runtime pending geometry wrapper should preserve absent boss position")
 	runtime.muzzle_flashes = [{"id": "muzzle", "timer_frames": 2.0}]
-	runtime._update_muzzle_flashes(1.0)
-	_expect(is_equal_approx(float(runtime._get_dict(runtime.muzzle_flashes[0]).get("timer_frames", 0.0)), 1.0), "runtime muzzle flash timer wrapper should delegate decrement")
-	runtime._update_muzzle_flashes(1.0)
-	_expect(runtime.muzzle_flashes.is_empty(), "runtime muzzle flash timer wrapper should remove expired flashes")
+	runtime.update_effects(1.0, 0, {}, {})
+	_expect(is_equal_approx(float(runtime._get_dict(runtime.muzzle_flashes[0]).get("timer_frames", 0.0)), 1.0), "runtime effect update should decrement muzzle flashes through value utils")
+	runtime.update_effects(1.0, 0, {}, {})
+	_expect(runtime.muzzle_flashes.is_empty(), "runtime effect update should remove expired muzzle flashes through value utils")
 	runtime.impact_flashes = [{"id": "impact", "timer_frames": 2.0}]
-	runtime._update_impact_flashes(2.0)
-	_expect(runtime.impact_flashes.is_empty(), "runtime impact flash timer wrapper should remove expired flashes")
+	runtime.update_effects(2.0, 0, {}, {})
+	_expect(runtime.impact_flashes.is_empty(), "runtime effect update should remove expired impact flashes through value utils")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("pistol", {}, false, 60.0, 30.0, 30.0), 60.0), "base pistol cooldown helper should keep base timing")
 	_expect(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", {}, false, 60.0, 30.0, 30.0) < 60.0, "commando pistol cooldown helper should keep faster Beretta timing")
 	_expect(is_equal_approx(CommandoFirearmValueUtils.get_pistol_cooldown_frames("commando_pistol", runtime_doping, true, 60.0, 30.0, 30.0), 18.0), "active doping cooldown helper should prefer explicit cooldown")
@@ -1749,6 +1750,15 @@ func _verify_removed_doping_value_bridges() -> void:
 		"_get_bazooka_control_lock_frames",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep doping value bridge %s" % bridge_name)
+
+
+func _verify_removed_timed_effect_update_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_update_muzzle_flashes",
+		"_update_impact_flashes",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep timed-effect update bridge %s" % bridge_name)
 
 
 func _doping_defaults() -> Dictionary:

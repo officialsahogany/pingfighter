@@ -1005,7 +1005,7 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 
 
 func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
-	_update_muzzle_flashes(fps_scale)
+	muzzle_flashes = CommandoFirearmValueUtils.advance_timed_effects(muzzle_flashes, fps_scale)
 	_update_support_calls(fps_scale, context, deps)
 	var ball_motion_result: Dictionary = _update_bowling_traps(fps_scale, context, deps)
 	if not ball_motion_result.is_empty():
@@ -1015,7 +1015,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 		context.merge(projectile_result, true)
 	_update_shell_casings(fps_scale)
 	_update_pistol_feedbacks(fps_scale)
-	_update_impact_flashes(fps_scale)
+	impact_flashes = CommandoFirearmValueUtils.advance_timed_effects(impact_flashes, fps_scale)
 	var lingering_result: Dictionary = _update_lingering_effects(fps_scale, context, deps)
 	if not lingering_result.is_empty():
 		context.merge(lingering_result, true)
@@ -3633,14 +3633,6 @@ func _play_impact_audio(weapon_id: String, deps: Dictionary) -> void:
 		"play_commando_firearm_impact",
 		weapon_id
 	)
-
-
-func _update_muzzle_flashes(fps_scale: float) -> void:
-	muzzle_flashes = CommandoFirearmValueUtils.advance_timed_effects(muzzle_flashes, fps_scale)
-
-
-func _update_impact_flashes(fps_scale: float) -> void:
-	impact_flashes = CommandoFirearmValueUtils.advance_timed_effects(impact_flashes, fps_scale)
 
 
 func _append_limited(target: Array, value: Dictionary, limit: int) -> void:
