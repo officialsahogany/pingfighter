@@ -169,6 +169,14 @@ func _init() -> void:
 	var wrapped_once: Array = overlay._wrap_text_to_width(font, "alpha beta gamma delta", 13, 70.0, 3)
 	var wrapped_twice: Array = overlay._wrap_text_to_width(font, "alpha beta gamma delta", 13, 70.0, 3)
 	_expect(wrapped_once == wrapped_twice, "cached character info wrapping should preserve wrapped output")
+	var japanese_wrapped: Array = overlay._wrap_text_to_width(font, "ダッシュ前の位置へ転移します。素早い後ろ蹴りでコンボルートを開けます。", 13, 120.0, 8)
+	_expect(japanese_wrapped.size() > 1, "character info tooltip wrapping should split no-space Japanese text")
+	_assert_wrapped_lines_fit(overlay, font, japanese_wrapped, 13, 120.0, "Japanese character info tooltip lines should fit the box")
+	var long_word_wrapped: Array = overlay._wrap_text_to_width(font, "SupercalifragilisticexpialidociousSupercalifragilistic", 13, 90.0, 8)
+	_expect(long_word_wrapped.size() > 1, "character info tooltip wrapping should split long unbroken words")
+	_assert_wrapped_lines_fit(overlay, font, long_word_wrapped, 13, 90.0, "long unbroken character info tooltip words should fit the box")
+	var narrow_tooltip_width: float = overlay._get_tooltip_width(font, "シャドウバックステップ", "", str(japanese_wrapped[0]), Vector2(360.0, 240.0))
+	_expect(narrow_tooltip_width >= 280.0 and narrow_tooltip_width <= 344.0, "character info tooltip width should stay inside the owning view")
 	var tooltip_entries: Array = [{"text": "alpha beta gamma delta", "color": Color.WHITE}]
 	var entry_lines_once: Array = overlay._build_tooltip_entry_lines(font, tooltip_entries, 13, 70.0, 3)
 	var entry_lines_twice: Array = overlay._build_tooltip_entry_lines(font, tooltip_entries, 13, 70.0, 3)
@@ -1699,6 +1707,13 @@ func _function_body(source: String, signature: String) -> String:
 	if next_func < 0:
 		return source.substr(start)
 	return source.substr(start, next_func - start)
+
+
+func _assert_wrapped_lines_fit(overlay: Object, font: Font, lines: Array, size: int, max_width: float, message: String) -> void:
+	for line_value in lines:
+		var line: String = str(line_value)
+		var width: float = overlay._text_size(font, line, size).x
+		_expect(width <= max_width + 0.5, "%s: '%s' was %.2fpx wide for %.2fpx" % [message, line, width, max_width])
 
 
 func _expect(condition: bool, message: String) -> void:

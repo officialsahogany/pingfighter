@@ -2461,32 +2461,56 @@ func _draw_tooltip(canvas: CanvasItem, data: Dictionary, mouse_pos: Vector2, vie
 	if not roll_entries.is_empty() and body != "":
 		_draw_dual_item_tooltip(canvas, data, mouse_pos, view_size, font, color, title, subtitle, body, roll_entries)
 		return
-	var width: float = min(340.0, max(240.0, view_size.x - 40.0))
-	var body_lines: Array = _wrap_text_to_width(font, body, 13, width - 28.0, 5)
+	var width: float = _get_tooltip_width(font, title, subtitle, body, view_size)
+	var text_width: float = width - 28.0
+	var title_lines: Array = _wrap_text_to_width(font, title, 15, text_width, 2)
+	var subtitle_lines: Array = _wrap_text_to_width(font, subtitle, 12, text_width, 2)
 	var line_height := 20.0
-	var height: float = 58.0 + float(body_lines.size()) * line_height
-	if subtitle != "":
-		height += line_height
-	var pos_x: float = mouse_pos.x + 16.0
-	var pos_y: float = mouse_pos.y + 14.0
+	var max_tooltip_height: float = max(80.0, view_size.y - 16.0)
+	var fixed_height: float = 38.0 + float(title_lines.size() + subtitle_lines.size()) * line_height
+	var body_line_limit: int = max(1, int(floor((max_tooltip_height - fixed_height) / line_height)))
+	var body_lines: Array = _wrap_text_to_width(font, body, 13, text_width, body_line_limit)
+	var height: float = fixed_height + float(body_lines.size()) * line_height
+	var anchor_rect: Rect2 = _get_tooltip_anchor_rect(data, mouse_pos)
+	var pos_x: float = anchor_rect.position.x + 10.0
+	var pos_y: float = anchor_rect.end.y + 12.0
 	if pos_x + width > view_size.x - 8.0:
-		pos_x = mouse_pos.x - width - 14.0
+		pos_x = anchor_rect.end.x - width
 	if pos_y + height > view_size.y - 8.0:
-		pos_y = mouse_pos.y - height - 12.0
+		pos_y = anchor_rect.position.y - height - 12.0
 	pos_x = clamp(pos_x, 8.0, max(8.0, view_size.x - width - 8.0))
 	pos_y = clamp(pos_y, 8.0, max(8.0, view_size.y - height - 8.0))
 	var rect := Rect2(pos_x, pos_y, width, height)
 	_draw_panel(canvas, rect, OVERLAY_TOOLTIP_PANEL_FILL, color, 2.0)
 	var text_x: float = pos_x + 14.0
-	_draw_text_xy(canvas, font, title, text_x, pos_y + 24.0, 15, title_color)
-	var y := pos_y + 44.0
-	if subtitle != "":
-		var subtitle_color: Color = _tooltip_subtitle_color(color)
-		_draw_text_xy(canvas, font, subtitle, text_x, y, 12, subtitle_color)
+	var y := pos_y + 24.0
+	for line in title_lines:
+		_draw_text_xy(canvas, font, str(line), text_x, y, 15, title_color)
 		y += line_height
+	if not subtitle_lines.is_empty():
+		var subtitle_color: Color = _tooltip_subtitle_color(color)
+		for line in subtitle_lines:
+			_draw_text_xy(canvas, font, str(line), text_x, y, 12, subtitle_color)
+			y += line_height
 	for line in body_lines:
 		_draw_text_xy(canvas, font, str(line), text_x, y, 13, TEXT_SOFT)
 		y += line_height
+
+
+func _get_tooltip_width(font: Font, title: String, subtitle: String, body: String, view_size: Vector2) -> float:
+	var max_width: float = min(520.0, max(240.0, view_size.x - 16.0))
+	var min_width: float = min(280.0, max_width)
+	var width: float = min_width
+	if title != "":
+		width = max(width, min(max_width, _text_size(font, title, 15).x + 28.0))
+	if subtitle != "":
+		width = max(width, min(max_width, _text_size(font, subtitle, 12).x + 28.0))
+	for paragraph_value in body.split("\n"):
+		var paragraph: String = str(paragraph_value).strip_edges()
+		if paragraph == "":
+			continue
+		width = max(width, min(max_width, _text_size(font, paragraph, 13).x + 28.0))
+	return clamp(width, min_width, max_width)
 
 
 func _draw_dual_item_tooltip(
@@ -3728,7 +3752,8 @@ func _wrap_text_to_width(font: Font, text: String, size: int, max_width: float, 
 	if text == "" or max_lines <= 0:
 		return []
 	var size_key: int = _ui_font_size(size)
-	var max_width_key: int = int(round(max_width))
+	var safe_width: float = max(1.0, max_width)
+	var max_width_key: int = int(round(safe_width))
 	if (
 		text == _wrap_text_fast_text
 		and size_key == _wrap_text_fast_size
@@ -3748,28 +3773,59 @@ func _wrap_text_to_width(font: Font, text: String, size: int, max_width: float, 
 			return cached_lines
 		_wrap_text_cache.erase(cache_key)
 	var lines: Array = []
-	for paragraph in text.split("\n"):
-		var words: PackedStringArray = paragraph.strip_edges().split(" ", false)
-		var line := ""
-		for word in words:
-			var candidate := word if line == "" else "%s %s" % [line, word]
-			if _text_size(font, candidate, size).x <= max_width:
-				line = candidate
-			else:
-				if line != "":
-					lines.append(line)
-				line = word
-				if lines.size() >= max_lines:
-					return _store_wrapped_text_lines(cache_key, text, size_key, max_width_key, max_lines, lines)
-		if line != "":
-			lines.append(line)
+	for paragraph_value in text.split("\n"):
+		_append_wrapped_paragraph_lines(lines, str(paragraph_value).strip_edges(), font, size, safe_width, max_lines)
 		if lines.size() >= max_lines:
-			while lines.size() > max_lines:
-				lines.pop_back()
 			return _store_wrapped_text_lines(cache_key, text, size_key, max_width_key, max_lines, lines)
 	while lines.size() > max_lines:
 		lines.pop_back()
 	return _store_wrapped_text_lines(cache_key, text, size_key, max_width_key, max_lines, lines)
+
+
+func _append_wrapped_paragraph_lines(lines: Array, paragraph: String, font: Font, size: int, max_width: float, max_lines: int) -> void:
+	if paragraph == "":
+		return
+	var words: PackedStringArray = paragraph.split(" ", false)
+	var line := ""
+	for word_value in words:
+		var word: String = str(word_value)
+		if word == "":
+			continue
+		var candidate := word if line == "" else "%s %s" % [line, word]
+		if _text_size(font, candidate, size).x <= max_width:
+			line = candidate
+			continue
+		if line != "":
+			lines.append(line)
+			if lines.size() >= max_lines:
+				return
+			line = ""
+		if _text_size(font, word, size).x <= max_width:
+			line = word
+			continue
+		var chunks: Array = _split_unbroken_text_to_width(font, word, size, max_width)
+		for chunk in chunks:
+			lines.append(str(chunk))
+			if lines.size() >= max_lines:
+				return
+	if line != "" and lines.size() < max_lines:
+		lines.append(line)
+
+
+func _split_unbroken_text_to_width(font: Font, text: String, size: int, max_width: float) -> Array:
+	var chunks: Array = []
+	var chunk := ""
+	for i in range(text.length()):
+		var next_character: String = text.substr(i, 1)
+		var candidate := chunk + next_character
+		if chunk == "" or _text_size(font, candidate, size).x <= max_width:
+			chunk = candidate
+			continue
+		chunks.append(chunk)
+		chunk = next_character
+	if chunk != "":
+		chunks.append(chunk)
+	return chunks
 
 
 func _store_wrapped_text_lines(cache_key: String, text: String, size_key: int, max_width_key: int, max_lines: int, lines: Array) -> Array:
