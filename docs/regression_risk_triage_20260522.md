@@ -7206,6 +7206,25 @@ Hundredth split on 2026-05-24:
   the removed input bridge, and the runtime VFX smoke keeps the base-pistol
   held-input-after-switch regression covered.
 
+242nd follow-up on 2026-05-24:
+
+- Commit:
+  `2dd739172 godot: move Commando pistol failure result builder`.
+- Scope: removed `_pistol_fire_failed()` from
+  `commando_firearm_runtime.gd` and moved the pistol-specific failure payload
+  into `CommandoFirearmFireResultState.build_pistol_fire_failed_result()`.
+  The runtime now routes pistol busy / cooldown / reload / empty / ammo-
+  unavailable failures through the shared fire-result owner instead of keeping
+  a facade-local result bridge.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3174` lines /
+  `74` functions to `3166` lines / `73` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The fire-result smoke now covers the
+  direct pistol builder, drives the real pistol animation-busy failure path,
+  and rejects the removed runtime bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
