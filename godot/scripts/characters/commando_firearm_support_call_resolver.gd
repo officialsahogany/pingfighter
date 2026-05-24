@@ -1,6 +1,6 @@
 extends RefCounted
 
-const SUPPORT_BOMB_RANDOM_X_RANGE := 200.0
+const SUPPORT_BOMB_RANDOM_X_RANGE := 300.0
 
 
 static func get_delay_frames(

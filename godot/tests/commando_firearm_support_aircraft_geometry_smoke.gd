@@ -8,7 +8,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_direct_support_aircraft_geometry()
-	_verify_runtime_delegates_support_aircraft_geometry()
+	_verify_runtime_support_aircraft_collision_api()
 
 	if _failures.is_empty():
 		print("commando_firearm_support_aircraft_geometry_smoke: ok")
@@ -53,16 +53,18 @@ func _verify_direct_support_aircraft_geometry() -> void:
 	)
 
 
-func _verify_runtime_delegates_support_aircraft_geometry() -> void:
+func _verify_runtime_support_aircraft_collision_api() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	@warning_ignore("shadowed_variable_base_class")
 	var call := {
+		"id": 7,
 		"aircraft_active": true,
 		"aircraft_pos": Vector2(100.0, 50.0),
 	}
-	_expect(runtime._get_support_aircraft_collision_rect(call) == Rect2(20.0, 25.0, 160.0, 50.0), "runtime collision rect wrapper should delegate")
-	_expect(runtime._support_aircraft_ball_path_hits(call, Vector2(0.0, 50.0), Vector2(250.0, 50.0), 10.0), "runtime ball-path wrapper should delegate crossing hits")
-	_expect(not runtime._support_aircraft_ball_path_hits(call, Vector2(0.0, 140.0), Vector2(250.0, 140.0), 10.0), "runtime ball-path wrapper should delegate misses")
+	runtime.support_calls.append(call)
+	_expect(runtime.get_fire_support_aircraft_collision_rect() == Rect2(20.0, 25.0, 160.0, 50.0), "runtime public collision rect API should expose the active aircraft rect")
+	_expect(runtime.get_fire_support_aircraft_collision_rect(7) == Rect2(20.0, 25.0, 160.0, 50.0), "runtime public collision rect API should match call ids")
+	_expect(runtime.get_fire_support_aircraft_collision_rect(99) == Rect2(), "runtime public collision rect API should ignore other call ids")
 
 
 func _expect(condition: bool, message: String) -> void:

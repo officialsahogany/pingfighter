@@ -64,9 +64,10 @@ func _verify_direct_support_call_resolver() -> void:
 	_expect(is_equal_approx(float(marker.get("radius", 0.0)), 37.0), "support marker radius should scale profile impact radius")
 	var bomb_target_a: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(target, 0, 760.0, 750.0, 4)
 	var bomb_target_b: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(target, 1, 760.0, 750.0, 4)
-	_expect(_vector2_is_equal_approx(bomb_target_a, Vector2(518.8, 140.0)), "support bomb target should use deterministic random x spread from the marked point")
-	_expect(_vector2_is_equal_approx(bomb_target_b, Vector2(418.6, 177.0)), "support bomb target should randomize each projectile independently")
-	_expect(abs(bomb_target_a.x - target.x) <= 200.0 and abs(bomb_target_b.x - target.x) <= 200.0, "support bomb random x spread should stay within 200px of the marked point")
+	_expect(_vector2_is_equal_approx(bomb_target_a, Vector2(618.2, 140.0)), "support bomb target should use deterministic random x spread from the marked point")
+	_expect(_vector2_is_equal_approx(bomb_target_b, Vector2(467.9, 177.0)), "support bomb target should randomize each projectile independently")
+	_expect(abs(bomb_target_a.x - target.x) <= 300.0 and abs(bomb_target_b.x - target.x) <= 300.0, "support bomb random x spread should stay within 300px of the marked point")
+	_expect(abs(bomb_target_a.x - bomb_target_b.x) >= 120.0, "sequential support bombs should spread out enough to avoid clustered bombing")
 	_expect(not is_equal_approx(bomb_target_a.x, bomb_target_b.x), "sequential support bombs should not reuse the same target x")
 	var calling: Dictionary = CommandoFirearmSupportCallResolver.advance_call(
 		{"state": "calling", "call_timer_frames": 42.0, "delay_frames": 120.0},
