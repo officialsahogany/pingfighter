@@ -2017,15 +2017,6 @@ func _advance_slingshot_charge(special_gauge: float) -> Dictionary:
 	}
 
 
-func _update_slingshot_charge_level() -> void:
-	slingshot_charge_level = CommandoFirearmSlingshotState.get_charge_level(
-		slingshot_charge_timer_frames,
-		SLINGSHOT_CHARGE_THRESHOLD_1,
-		SLINGSHOT_CHARGE_THRESHOLD_2,
-		SLINGSHOT_CHARGE_THRESHOLD_3
-	)
-
-
 func _release_slingshot(special_gauge: float, config: Dictionary, deps: Dictionary, reason: String = "released") -> Dictionary:
 	var charge_level: int = slingshot_charge_level
 	var charge_time: float = slingshot_charge_timer_frames
@@ -2035,7 +2026,18 @@ func _release_slingshot(special_gauge: float, config: Dictionary, deps: Dictiona
 	slingshot_gauge_spent = 0.0
 	if charge_time < SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES or charge_level < 1:
 		return CommandoFirearmSlingshotState.build_charge_canceled_result(BASE_WEAPON_ID, special_gauge)
-	_spawn_firearm_effect(BASE_WEAPON_ID, config, deps, _get_slingshot_fire_profile(charge_level))
+	var slingshot_profile: Dictionary = CommandoFirearmSlingshotState.build_fire_profile(
+		CommandoFirearmProfileResolver.get_weapon_profile(
+			BASE_WEAPON_ID,
+			WEAPON_PROFILES,
+			WEAPON_PROFILE_OVERRIDES
+		),
+		charge_level,
+		SLINGSHOT_PYTHON_SPEED_BY_LEVEL,
+		SLINGSHOT_BASE_BULLET_SPEED,
+		SLINGSHOT_PELLET_SIZE
+	)
+	_spawn_firearm_effect(BASE_WEAPON_ID, config, deps, slingshot_profile)
 	CommandoFirearmAudioDispatcher.play_fire_audio(BASE_WEAPON_ID, deps)
 	last_fire_msec = Time.get_ticks_msec()
 	slingshot_cooldown_frames = SLINGSHOT_COOLDOWN_FRAMES
@@ -2056,20 +2058,6 @@ func _cancel_slingshot_charge(special_gauge: float) -> float:
 	slingshot_charge_level = 0
 	slingshot_gauge_spent = 0.0
 	return special_gauge
-
-
-func _get_slingshot_fire_profile(charge_level: int) -> Dictionary:
-	return CommandoFirearmSlingshotState.build_fire_profile(
-		CommandoFirearmProfileResolver.get_weapon_profile(
-			BASE_WEAPON_ID,
-			WEAPON_PROFILES,
-			WEAPON_PROFILE_OVERRIDES
-		),
-		charge_level,
-		SLINGSHOT_PYTHON_SPEED_BY_LEVEL,
-		SLINGSHOT_BASE_BULLET_SPEED,
-		SLINGSHOT_PELLET_SIZE
-	)
 
 
 func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictionary, profile_override: Dictionary = {}) -> void:
@@ -2868,7 +2856,14 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	var result: Dictionary = CommandoFirearmHitResultState.build_base_result(source, int(profile.get("damage_units", 0)))
-	_apply_slingshot_hit_effects(weapon_id, projectile, result)
+	CommandoFirearmSlingshotState.apply_hit_effects(
+		weapon_id,
+		projectile,
+		result,
+		BASE_WEAPON_ID,
+		SLINGSHOT_STUN_MULT,
+		SLINGSHOT_KNOCKBACK_MULT
+	)
 	_apply_pistol_hit_effects(weapon_id, projectile, context, result)
 	_apply_ak47_accumulated_boss_damage(weapon_id, result)
 	var stun_frames: float = float(profile.get("stun_frames", 0.0))
@@ -2934,17 +2929,6 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 			)
 			result["slow_applied"] = true
 	return result
-
-
-func _apply_slingshot_hit_effects(weapon_id: String, projectile: Dictionary, result: Dictionary) -> void:
-	CommandoFirearmSlingshotState.apply_hit_effects(
-		weapon_id,
-		projectile,
-		result,
-		BASE_WEAPON_ID,
-		SLINGSHOT_STUN_MULT,
-		SLINGSHOT_KNOCKBACK_MULT
-	)
 
 
 func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, context: Dictionary, result: Dictionary) -> void:
