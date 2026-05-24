@@ -7330,6 +7330,24 @@ Hundredth split on 2026-05-24:
   `_start_weapon_fire_sheet_animation()`, `_update_shell_casings()`, and
   `_update_pistol_feedbacks()` runtime bridges.
 
+248th follow-up on 2026-05-24:
+
+- Commit:
+  `76546ef99 godot: move Commando AK47 fire profile resolution`.
+- Scope: moved AK-47 per-shot fire profile construction into
+  `CommandoFirearmProfileResolver.build_ak47_fire_profile()`. The runtime now
+  passes the profile tables, current recoil accumulation, and base spread into
+  the profile owner instead of keeping `_get_ak47_fire_profile()` as a facade
+  helper.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3086` lines /
+  `64` functions to `3084` lines / `63` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_profile_resolver_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The profile resolver smoke now covers
+  AK-47 spread / recoil profile construction and rejects the removed runtime
+  profile bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
