@@ -3961,10 +3961,10 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_input_resolver.gd`
   Owns tiny pure Commando firearm input reads: suicide-drone directional
   vector construction and the legacy `action_just_pressed` fallback to
-  `action_pressed`, plus post-switch fire-suppression checks. `commando_firearm_runtime.gd`
-  keeps all input side effects, weapon firing gates, manual-control velocity
-  mutation, and detonation logic while delegating only these snapshot /
-  controller-state reads.
+  `action_pressed`, plus post-switch fire-suppression checks.
+  `commando_firearm_runtime.gd` now calls this resolver directly without
+  private bridge wrappers, while keeping all input side effects, weapon firing
+  gates, manual-control velocity mutation, and detonation logic.
 - `scripts/characters/commando_firearm_lingering_effect_state.gd`
   Owns pure Commando lingering-effect base state: duration / size resolution,
   base effect and spawn-result payloads, timer / phase / rope-snap arithmetic,

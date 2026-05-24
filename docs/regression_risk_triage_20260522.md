@@ -6011,6 +6011,19 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+178th follow-up on 2026-05-24:
+
+- Commit: `209a1097b godot: drop Commando input resolver bridges`.
+- Scope: removed the suicide-drone input-vector, action-just-pressed, and
+  switch-suppression bridge wrappers from `commando_firearm_runtime.gd`.
+  Runtime weapon gates now call `commando_firearm_input_resolver.gd` directly;
+  the runtime keeps input side effects, weapon gating, manual-control velocity
+  mutation, and detonation logic.
+- Validation: `commando_firearm_input_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
