@@ -12,6 +12,13 @@ func has_owned_item_name(runtime: Object, item_name: String) -> bool:
 	return false
 
 
+func get_inventory_item(runtime: Object, index: int) -> Dictionary:
+	if index < 0 or index >= runtime.inventory_items.size():
+		return {}
+	var item_data: Dictionary = runtime._get_dict(runtime.inventory_items[index])
+	return item_data.duplicate(true)
+
+
 func consume_equipped_item_name(
 	runtime: Object,
 	item_name: String,

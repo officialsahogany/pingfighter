@@ -580,10 +580,7 @@ func debug_get_inventory_item(index: int) -> Dictionary:
 
 func get_inventory_item(index: int) -> Dictionary:
 	_ensure_helpers_ready()
-	if index < 0 or index >= inventory_items.size():
-		return {}
-	var item_data: Dictionary = _get_dict(inventory_items[index])
-	return item_data.duplicate(true)
+	return ownership_runtime.get_inventory_item(self, index)
 
 
 func debug_adjust_inventory_roll(index: int, option_key: String, delta_steps: int, owner: Object, registry: Object = null) -> bool:
