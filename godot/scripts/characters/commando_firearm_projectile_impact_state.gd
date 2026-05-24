@@ -29,6 +29,30 @@ static func build_hit_event(
 	}
 
 
+static func append_runtime_hit_event(
+	hit_events: Array,
+	projectile: Dictionary,
+	weapon_id: String,
+	projectile_kind: String,
+	pos: Vector2,
+	velocity: Vector2,
+	intensity: float,
+	combat_result: Dictionary,
+	hit_event_limit: int
+) -> Dictionary:
+	var hit_event: Dictionary = build_hit_event(
+		projectile,
+		weapon_id,
+		projectile_kind,
+		pos,
+		velocity,
+		intensity,
+		combat_result
+	)
+	CommandoFirearmValueUtils.append_limited(hit_events, hit_event, hit_event_limit)
+	return hit_event
+
+
 static func build_environment_impact_result(weapon_id: String, reason: String, pos: Vector2) -> Dictionary:
 	return {
 		"commando_firearm_environment_impact": true,

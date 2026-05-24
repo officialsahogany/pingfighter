@@ -1961,16 +1961,17 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 		lingering_result = _spawn_lingering_effect(weapon_id, projectile, context)
 	if not lingering_result.is_empty():
 		combat_result["lingering_effect"] = lingering_result
-	var hit_event: Dictionary = CommandoFirearmProjectileImpactState.build_hit_event(
+	CommandoFirearmProjectileImpactState.append_runtime_hit_event(
+		hit_events,
 		projectile,
 		weapon_id,
 		CommandoFirearmValueUtils.get_projectile_kind(projectile, "bullet"),
 		pos,
 		velocity,
 		intensity,
-		combat_result
+		combat_result,
+		HIT_EVENT_LIMIT
 	)
-	CommandoFirearmValueUtils.append_limited(hit_events, hit_event, HIT_EVENT_LIMIT)
 	CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
 	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(feedback_profile, deps)
 	CommandoFirearmHitFeedbackDispatcher.trigger_boss_hit_animation(context, deps)
