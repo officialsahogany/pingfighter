@@ -37,9 +37,10 @@ const VIPER_DUAL_GLITCH_EVAPORATION_FRAMES := 13.2
 const VIPER_DUAL_GLITCH_ALPHA := 0.63
 const VIPER_DUAL_GLITCH_WIGGLE_AMPLITUDE := 3.0
 const VIPER_DUAL_GLITCH_GHOST_SHIFT_X := 4.0
-const PLAYER_TOPDOWN_RIMLIGHT_ALPHA := 20.0 / 255.0
-const PLAYER_TOPDOWN_RIMLIGHT_SOFT_ALPHA := 9.0 / 255.0
-const PLAYER_TOPDOWN_RIMLIGHT_SEGMENTS := 14
+const PLAYER_GROUND_SHADOW_BASE_WIDTH := 225.0
+const PLAYER_GROUND_SHADOW_BASE_HEIGHT := 22.0
+const PLAYER_GROUND_SHADOW_ALPHA := 0.26
+const PLAYER_GROUND_SHADOW_HOVER_ALPHA_BONUS := 0.06
 
 var sprite_renderer: Object = Stage1PlayerSpriteRenderer.new()
 var dash_side_gauge_renderer: Object = Stage1DashSideGaugeRenderer.new()
@@ -195,8 +196,8 @@ func draw(
 		hover_shadow_ratio = (hover_offset + hover_amplitude) / (hover_amplitude * 2.0)
 	var shadow_scale: float = 1.0 - hover_shadow_ratio * 0.18
 	shadow_scale *= lerp(1.0, 0.58, altitude_ratio)
-	var shadow_width: float = 180.0 * shadow_scale * max(1.0, player_paddle_scale)
-	var shadow_height: float = 16.0 * shadow_scale * (0.82 + 0.18 * max(1.0, player_paddle_scale))
+	var shadow_width: float = PLAYER_GROUND_SHADOW_BASE_WIDTH * shadow_scale * max(1.0, player_paddle_scale)
+	var shadow_height: float = PLAYER_GROUND_SHADOW_BASE_HEIGHT * shadow_scale * (0.82 + 0.18 * max(1.0, player_paddle_scale))
 	var shadow_floor_y: float = float(context.get("viper_jetpack_floor_y", player_pos.y))
 	var player_shadow_rect := Rect2(
 		player_pos.x + paddle_size.x * 0.5 - shadow_width * 0.5 + shake_offset.x,
@@ -206,10 +207,14 @@ func draw(
 	)
 	var sample_start: int = _perf_begin(perf_logger)
 	if pillar_drawer != null and pillar_drawer.has_method("draw_soft_shadow_ellipse"):
+		var shadow_alpha: float = (
+			PLAYER_GROUND_SHADOW_ALPHA
+			+ (1.0 - shadow_scale) * PLAYER_GROUND_SHADOW_HOVER_ALPHA_BONUS
+		) * lerp(1.0, 0.62, altitude_ratio)
 		pillar_drawer.draw_soft_shadow_ellipse(
 			canvas,
 			player_shadow_rect,
-			Color(0.0, 0.0, 0.0, (0.18 + (1.0 - shadow_scale) * 0.05) * lerp(1.0, 0.62, altitude_ratio))
+			Color(0.0, 0.0, 0.0, shadow_alpha)
 		)
 	_perf_end(perf_logger, "actors.stage1.player.shadow", sample_start)
 
@@ -319,8 +324,6 @@ func draw(
 	if not horn_strawberry_transformed and not yachaman_transformed:
 		_draw_commando_weapon_b2_overlay(canvas, sprite_context, player_visual_rect)
 		_draw_commando_weapon_overlay(canvas, sprite_context, player_visual_rect, player_move_active)
-	if not horn_strawberry_transformed and not yachaman_transformed and not paddle_hologram_active:
-		_draw_player_topdown_rimlight(canvas, sprite_context, drawn_player_visual_rect)
 	if curse_reverse_active:
 		_draw_curse_reverse_head_effect(canvas, drawn_player_visual_rect, curse_reverse_ratio)
 	if player_slow_active:
@@ -344,46 +347,6 @@ func draw(
 		sample_start = _perf_begin(perf_logger)
 		PaddleHologramGlitchRenderer.draw_overlays(canvas, player_visual_rect, paddle_hologram_plan)
 		_perf_end(perf_logger, "actors.stage1.player.hologram_overlay", sample_start)
-
-
-func _draw_player_topdown_rimlight(canvas: CanvasItem, context: Dictionary, player_visual_rect: Rect2) -> void:
-	if not bool(context.get("stage1_player_topdown_rimlight_enabled", true)):
-		return
-	if player_visual_rect.size.x <= 0.0 or player_visual_rect.size.y <= 0.0:
-		return
-	var intensity: float = clamp(float(context.get("stage1_player_topdown_rimlight_intensity", 1.0)), 0.0, 1.0)
-	if intensity <= 0.001:
-		return
-	var center_x: float = player_visual_rect.get_center().x
-	var shoulder_y: float = player_visual_rect.position.y + player_visual_rect.size.y * 0.31
-	var soft_rect := Rect2(
-		Vector2(
-			center_x - player_visual_rect.size.x * 0.31,
-			shoulder_y - player_visual_rect.size.y * 0.035
-		),
-		Vector2(
-			player_visual_rect.size.x * 0.62,
-			max(4.0, player_visual_rect.size.y * 0.070)
-		)
-	)
-	var core_rect := Rect2(
-		Vector2(
-			center_x - player_visual_rect.size.x * 0.22,
-			shoulder_y - player_visual_rect.size.y * 0.018
-		),
-		Vector2(
-			player_visual_rect.size.x * 0.44,
-			max(2.0, player_visual_rect.size.y * 0.036)
-		)
-	)
-	canvas.draw_colored_polygon(
-		_build_ellipse_points(soft_rect, PLAYER_TOPDOWN_RIMLIGHT_SEGMENTS),
-		Color(0.76, 0.94, 1.0, PLAYER_TOPDOWN_RIMLIGHT_SOFT_ALPHA * intensity)
-	)
-	canvas.draw_colored_polygon(
-		_build_ellipse_points(core_rect, PLAYER_TOPDOWN_RIMLIGHT_SEGMENTS),
-		Color(0.95, 0.98, 1.0, PLAYER_TOPDOWN_RIMLIGHT_ALPHA * intensity)
-	)
 
 
 func _draw_viper_dual_glitch_clone_sprites(
@@ -798,17 +761,6 @@ func _draw_ellipse_outline(canvas: CanvasItem, rect: Rect2, color: Color, width:
 		points.append(center + Vector2(cos(angle) * radius.x, sin(angle) * radius.y))
 	for idx in range(points.size()):
 		canvas.draw_line(points[idx], points[(idx + 1) % points.size()], color, width)
-
-
-func _build_ellipse_points(rect: Rect2, segments: int) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	var center: Vector2 = rect.get_center()
-	var radius: Vector2 = rect.size * 0.5
-	var segment_count: int = max(8, segments)
-	for idx in range(segment_count):
-		var angle: float = TAU * float(idx) / float(segment_count)
-		points.append(center + Vector2(cos(angle) * radius.x, sin(angle) * radius.y))
-	return points
 
 
 func _draw_curse_reverse_head_effect(canvas: CanvasItem, player_visual_rect: Rect2, ratio: float) -> void:

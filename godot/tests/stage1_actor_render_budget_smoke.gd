@@ -111,18 +111,23 @@ func _verify_render_budget_constants() -> void:
 	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_BAND_STEPS <= 5, "Stage 1 playfield depth layers should stay compact")
 	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_BAND_STEPS_LOD <= 3, "Stage 1 Viper LOD depth layers should stay compact")
 	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_BAND_STEPS_SEVERE_LOD <= 2, "Stage 1 severe Viper LOD depth layers should stay compact")
-	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_FAR_ALPHA <= 32.0 / 255.0, "Stage 1 far-depth tint should stay subtle")
-	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_NEAR_ALPHA <= 24.0 / 255.0, "Stage 1 near-depth tint should stay subtle")
+	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_FAR_ALPHA >= 58.0 / 255.0, "Stage 1 far-depth tint should stay visible")
+	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_FAR_ALPHA <= 64.0 / 255.0, "Stage 1 far-depth tint should stay bounded")
+	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_NEAR_ALPHA >= 43.0 / 255.0, "Stage 1 near-depth tint should stay visible")
+	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_NEAR_ALPHA <= 48.0 / 255.0, "Stage 1 near-depth tint should stay bounded")
 	_expect(
 		playfield_source.find("_draw_stage1_depth_layers(canvas, context, width, height, quality_scale)") >= 0,
 		"Stage 1 playfield draw should include the 2.5D depth-tone layer"
 	)
-	_expect(Stage1PlayerActorRenderer.PLAYER_TOPDOWN_RIMLIGHT_SEGMENTS <= 14, "Stage 1 player topdown rimlight should use bounded ellipse segments")
-	_expect(Stage1PlayerActorRenderer.PLAYER_TOPDOWN_RIMLIGHT_ALPHA <= 20.0 / 255.0, "Stage 1 player topdown rimlight should stay subtle")
-	_expect(Stage1PlayerActorRenderer.PLAYER_TOPDOWN_RIMLIGHT_SOFT_ALPHA <= 9.0 / 255.0, "Stage 1 player soft topdown rimlight should stay subtle")
+	_expect(Stage1PlayerActorRenderer.PLAYER_GROUND_SHADOW_BASE_WIDTH >= 220.0, "Stage 1 player ground shadow should read wider")
+	_expect(Stage1PlayerActorRenderer.PLAYER_GROUND_SHADOW_BASE_WIDTH <= 240.0, "Stage 1 player ground shadow width should stay bounded")
+	_expect(Stage1PlayerActorRenderer.PLAYER_GROUND_SHADOW_BASE_HEIGHT >= 20.0, "Stage 1 player ground shadow should read thicker")
+	_expect(Stage1PlayerActorRenderer.PLAYER_GROUND_SHADOW_BASE_HEIGHT <= 24.0, "Stage 1 player ground shadow height should stay bounded")
+	_expect(Stage1PlayerActorRenderer.PLAYER_GROUND_SHADOW_ALPHA >= 0.24, "Stage 1 player ground shadow should stay visible")
+	_expect(Stage1PlayerActorRenderer.PLAYER_GROUND_SHADOW_ALPHA <= 0.28, "Stage 1 player ground shadow alpha should stay bounded")
 	_expect(
-		player_source.find("_draw_player_topdown_rimlight(canvas, sprite_context, drawn_player_visual_rect)") >= 0,
-		"Stage 1 player draw should include the topdown rimlight after weapon overlays"
+		player_source.find("_draw_player_topdown_rimlight") < 0 and player_source.find("PLAYER_TOPDOWN_RIMLIGHT") < 0,
+		"Stage 1 player draw should not include the rejected fixed-ellipse topdown rimlight"
 	)
 	_expect(Stage1BossActorRenderer.GROUND_SHADOW_ALPHAS.size() <= 2, "Stage 1 boss shadow should use at most two polygon layers")
 	_expect(Stage1BossActorRenderer.GROUND_SHADOW_SEGMENTS <= 12, "Stage 1 boss shadow should use a bounded ellipse segment count")
