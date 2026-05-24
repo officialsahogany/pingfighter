@@ -9516,3 +9516,29 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1341` scripts with no GDScript warnings,
   and `git diff --check` reported no whitespace errors aside from the
   existing CRLF/LF normalization notice on `commando_firearm_runtime.gd`.
+
+350th follow-up on 2026-05-25:
+
+- Commit:
+  `8c45319ac godot: move Commando suicide drone input`.
+- Scope: moved suicide-drone launch input orchestration into
+  `CommandoFirearmSuicideDroneState.update_runtime_input()`. The owner now
+  handles single-press gating, switch-fire suppression, cooldown / active
+  projectile / ammo failure results, fire-sheet timer setup, projectile and
+  muzzle-flash spawning, fire audio, configured cooldown trigger, and fired
+  result construction. Runtime keeps `_update_suicide_drone_input()` as a
+  compatibility facade that passes constants through an options dictionary.
+  The commit also tracked the generated `.uid` for the new
+  `commando_firearm_ammo_weapon_input_state.gd` script.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1545` lines /
+  `26` functions to `1499` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_audio_routing_smoke`, and
+  `commando_firearm_projectile_spawn_state_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1341` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors
+  aside from the existing CRLF/LF normalization notice on
+  `commando_firearm_runtime.gd`. The Windows headless run still emitted the
+  known non-fatal root certificate store message.
