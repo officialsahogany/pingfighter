@@ -6410,6 +6410,47 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1325`
   scripts with no GDScript warnings.
 
+200th follow-up on 2026-05-24:
+
+- Commit: `6a63a84f5 godot: update Commando support lock smoke`.
+- Scope: updated `commando_firearm_support_call_resolver_smoke.gd` after the
+  runtime support-call active-lock bridge was removed. The smoke now verifies
+  the public `is_player_control_locked()` behavior for active and inactive
+  support calls, while the removed-bridge guard includes
+  `_has_active_support_call_lock`.
+- Runtime facade size: unchanged at `3549` lines / `145` functions after the
+  adjacent hit-feedback dispatcher cleanup.
+- Validation: focused support-lock / feedback / runtime coverage passed:
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_hit_feedback_dispatcher_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_control_state_smoke`. The full sorted
+  `commando_firearm*_smoke.gd` set ran `46` scripts and passed.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` scanned `1325` scripts with no GDScript warnings.
+
+201st follow-up on 2026-05-24:
+
+- Commit: `dc1588d8b godot: drop Commando bowling trap install bridges`.
+- Scope: removed the private `_get_bowling_trap_install_pos()`,
+  `_build_bowling_trap_install_payload()`, and
+  `_build_bowling_trap_install_marker_flash()` runtime bridges.
+  `_start_bowling_trap_install()` now calls
+  `CommandoFirearmBowlingTrapGeometry` directly for install position, trap
+  payload, and install marker flash construction. The bowling-trap geometry
+  smoke now verifies the owner default install position directly and guards
+  that the removed install bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3549` lines /
+  `145` functions to `3527` lines / `142` functions.
+- Validation: focused bowling-trap / runtime coverage passed:
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1325`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
