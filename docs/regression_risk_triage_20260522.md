@@ -6727,6 +6727,26 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
   scripts with no GDScript warnings.
 
+216th follow-up on 2026-05-24:
+
+- Commit: `be439fb60 godot: drop Commando lingering storage bridges`.
+- Scope: removed the private `_store_lingering_effect_at_index()`,
+  `_get_lingering_effect_at_index()`, and `_remove_lingering_effect_at_index()`
+  runtime bridges. Lingering update, dash-break, and constrict paths now read /
+  write `lingering_effects` directly while still using
+  `CommandoFirearmValueUtils.get_dict()` for safe dictionary extraction.
+  The value-utils smoke now verifies the live update path removes expired
+  effects and guards that the storage bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3384` lines /
+  `110` functions to `3372` lines / `107` functions.
+- Validation: focused value-utils / lingering / runtime coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

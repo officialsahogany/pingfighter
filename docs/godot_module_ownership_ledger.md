@@ -4001,7 +4001,9 @@ This section is intentionally long; use search to find the nearest owner.
   flame updates, status application, and net dash-break mutation while
   calling the deterministic base lingering-effect math here directly instead
   of preserving private duration / size / payload / timer / clamp bridge
-  wrappers.
+  wrappers. Active lingering-effect update, removal, and array write-back now
+  operate on `lingering_effects` directly instead of via private storage
+  bridges.
 - `scripts/characters/commando_firearm_lingering_fire_flame_state.gd`
   Owns pure Commando lingering fire-zone flame state: deterministic flame
   seeding, effect-size fallback reads, ring / size / lifetime patterns,
