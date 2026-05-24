@@ -893,7 +893,7 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 	if _is_stage2_speed_defense_boss_immune(context, deps):
 		return CommandoFirearmBowlingTrapGeometry.build_guard_immune_result(next_ball_vel)
 
-	var boss_center: Vector2 = _get_boss_target_pos(context)
+	var boss_center: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
 	var knockback_vel: float = CommandoFirearmBowlingTrapGeometry.get_guard_knockback_velocity(
 		boss_center,
 		context,
@@ -1927,7 +1927,7 @@ func _build_suicide_drone_projectile(
 	return CommandoFirearmSuicideDroneState.build_projectile(
 		profile,
 		origin,
-		_get_boss_target_pos(config),
+		CommandoFirearmOriginGeometry.get_boss_target_pos(config, FIELD_WIDTH),
 		shot_id,
 		CommandoFirearmSuicideDroneGeometry.get_player_lock_pos(config, FIELD_WIDTH, FIELD_HEIGHT),
 		SUICIDE_DRONE_SIZE,
@@ -2118,9 +2118,20 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		var spread_radians: float = BERETTA_SPREAD_RADIANS if weapon_id == "commando_pistol" else PISTOL_SPREAD_RADIANS
 		profile["angle_offset"] = randf_range(-spread_radians, spread_radians)
 	var kind: String = str(profile.get("kind", "bullet"))
-	var origin: Vector2 = _get_firearm_origin(weapon_id, config, profile)
-	var target: Vector2 = _get_boss_target_pos(config)
-	var aim_origin: Vector2 = _get_firearm_aim_origin(weapon_id, config, origin)
+	var origin: Vector2 = CommandoFirearmOriginGeometry.get_firearm_origin(
+		weapon_id,
+		config,
+		profile,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+		COMMANDO_PISTOL_FIRE_MUZZLE_SOURCE,
+		COMMANDO_BAZOOKA_FIRE_MUZZLE_SOURCE,
+		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+		BASE_WEAPON_ID
+	)
+	var target: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(config, FIELD_WIDTH)
+	var aim_origin: Vector2 = CommandoFirearmOriginGeometry.get_firearm_aim_origin(weapon_id, origin)
 	var angle_offset: float = float(profile.get("angle_offset", 0.0))
 	var direction: Vector2 = CommandoFirearmProjectileSpawnState.get_fire_direction(
 		target,
@@ -2350,7 +2361,8 @@ func _advance_support_call(call_data: Dictionary, step: float) -> Dictionary:
 
 @warning_ignore("shadowed_variable_base_class")
 func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Dictionary, spawn_index: int) -> void:
-	var target: Vector2 = _get_vector2(call.get("target", _get_boss_target_pos(context)), _get_boss_target_pos(context))
+	var target_fallback: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
+	var target: Vector2 = _get_vector2(call.get("target", target_fallback), target_fallback)
 	var bomb_target: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(
 		target,
 		spawn_index,
@@ -2632,7 +2644,13 @@ func _update_net_projectile_rope(projectile: Dictionary, pos: Vector2, context: 
 	var next_projectile: Dictionary = CommandoFirearmProjectileMotionState.update_net_projectile_rope(
 		projectile,
 		pos,
-		_get_net_gun_aim_origin(context),
+		CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
+			context,
+			COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+			COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
+		),
 		NET_GUN_ROPE_TRAIL_LIMIT
 	)
 	projectile.clear()
@@ -2712,7 +2730,7 @@ func _update_pistol_feedbacks(fps_scale: float) -> void:
 
 
 func _get_drone_velocity(pos: Vector2, projectile: Dictionary, context: Dictionary, fps_scale: float) -> Vector2:
-	var target: Vector2 = _get_boss_target_pos(context)
+	var target: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
 	return CommandoFirearmSuicideDroneState.get_homing_velocity(pos, projectile, target, fps_scale)
 
 
@@ -2832,7 +2850,7 @@ func _get_suicide_drone_ball_fan_angle(projectile: Dictionary) -> float:
 func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) -> String:
 	var target: Vector2 = CommandoFirearmValueUtils.get_projectile_target(
 		projectile,
-		_get_boss_target_pos(context)
+		CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
 	)
 	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
 	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
@@ -2977,7 +2995,7 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 			knockback_profile,
 			pos,
 			velocity,
-			_get_boss_target_pos(context)
+			CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
 		)
 		var stun_source: String = str(result.get("stun_source", source))
 		result["stun_frames"] = stun_frames
@@ -3001,7 +3019,7 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 			knockback_only_profile,
 			pos,
 			velocity,
-			_get_boss_target_pos(context)
+			CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
 		)
 		result["knockback_vel"] = knockback_only_vel
 		var ai_state: Object = deps.get("ai_state", null)
@@ -3227,7 +3245,13 @@ func _apply_lingering_net_fields(
 		effect,
 		profile,
 		projectile,
-		_get_net_gun_aim_origin(context),
+		CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
+			context,
+			COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+			COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
+		),
 		pos,
 		effect_size,
 		effect_id,
@@ -3256,7 +3280,7 @@ func _get_lingering_effect_pos(profile: Dictionary, projectile: Dictionary, cont
 		projectile,
 		context,
 		pos,
-		_get_boss_target_pos(context),
+		CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH),
 		FIELD_WIDTH,
 		FIELD_HEIGHT,
 		NET_GUN_WIDTH,
@@ -3323,7 +3347,13 @@ func _apply_active_lingering_effect(
 func _sync_net_field_rope_origin(effect: Dictionary, context: Dictionary) -> void:
 	if not _should_sync_net_field_rope_origin(effect):
 		return
-	effect["origin"] = _get_net_gun_aim_origin(context)
+	effect["origin"] = CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
+		context,
+		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
+	)
 
 
 func _should_sync_net_field_rope_origin(effect: Dictionary) -> bool:
@@ -3611,75 +3641,6 @@ func _update_muzzle_flashes(fps_scale: float) -> void:
 
 func _update_impact_flashes(fps_scale: float) -> void:
 	impact_flashes = CommandoFirearmValueUtils.advance_timed_effects(impact_flashes, fps_scale)
-
-
-func _get_player_muzzle_pos(config: Dictionary) -> Vector2:
-	return CommandoFirearmOriginGeometry.get_player_muzzle_pos(config, Vector2(FIELD_WIDTH, FIELD_HEIGHT))
-
-
-func _get_firearm_origin(weapon_id: String, config: Dictionary, profile: Dictionary) -> Vector2:
-	return CommandoFirearmOriginGeometry.get_firearm_origin(
-		weapon_id,
-		config,
-		profile,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
-		COMMANDO_PISTOL_FIRE_MUZZLE_SOURCE,
-		COMMANDO_BAZOOKA_FIRE_MUZZLE_SOURCE,
-		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-		BASE_WEAPON_ID
-	)
-
-
-func _get_firearm_aim_origin(weapon_id: String, _config: Dictionary, origin: Vector2) -> Vector2:
-	return CommandoFirearmOriginGeometry.get_firearm_aim_origin(weapon_id, origin)
-
-
-func _get_bazooka_muzzle_pos(config: Dictionary) -> Vector2:
-	return _get_commando_fire_sheet_world_pos(config, COMMANDO_BAZOOKA_FIRE_MUZZLE_SOURCE)
-
-
-func _get_net_gun_projectile_pos(config: Dictionary) -> Vector2:
-	return _get_commando_fire_sheet_world_pos(config, COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE)
-
-
-func _get_net_gun_aim_origin(config: Dictionary) -> Vector2:
-	return _get_net_gun_projectile_pos(config)
-
-
-func _get_pistol_fire_muzzle_pos(config: Dictionary) -> Vector2:
-	return _get_commando_fire_sheet_world_pos(config, COMMANDO_PISTOL_FIRE_MUZZLE_SOURCE)
-
-
-func _get_commando_fire_sheet_world_pos(config: Dictionary, source_pos: Vector2) -> Vector2:
-	return CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
-		config,
-		source_pos,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
-	)
-
-
-func _get_player_pos_from_config(config: Dictionary) -> Vector2:
-	return CommandoFirearmOriginGeometry.get_player_pos_from_config(config, Vector2(FIELD_WIDTH, FIELD_HEIGHT))
-
-
-func _get_player_paddle_width_from_config(config: Dictionary) -> float:
-	return CommandoFirearmOriginGeometry.get_player_paddle_width_from_config(config)
-
-
-func _get_player_paddle_height_from_config(config: Dictionary) -> float:
-	return CommandoFirearmOriginGeometry.get_player_paddle_height_from_config(config)
-
-
-func _get_player_paddle_scale_from_config(config: Dictionary, paddle_width: float) -> float:
-	return CommandoFirearmOriginGeometry.get_player_paddle_scale_from_config(config, paddle_width)
-
-
-func _get_boss_target_pos(config: Dictionary) -> Vector2:
-	return CommandoFirearmOriginGeometry.get_boss_target_pos(config, FIELD_WIDTH)
 
 
 func _append_limited(target: Array, value: Dictionary, limit: int) -> void:

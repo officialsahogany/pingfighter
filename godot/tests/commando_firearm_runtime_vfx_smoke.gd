@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
@@ -545,7 +546,7 @@ func _verify_net_gun_ammo_rope_capture_and_break() -> void:
 	var moved_fields: Array = _get_array(runtime.get_actor_draw_context().get("commando_firearm_lingering_effects", []))
 	var moved_field: Dictionary = _get_dict(moved_fields[0])
 	var moved_origin: Vector2 = _get_vector2(moved_field.get("origin", Vector2.ZERO), Vector2.ZERO)
-	var moved_expected_origin: Vector2 = runtime._get_net_gun_aim_origin(moved_hook_config)
+	var moved_expected_origin: Vector2 = _expected_net_gun_aim_origin(moved_hook_config)
 	_expect(moved_origin.is_equal_approx(moved_expected_origin), "hooked net rope origin should follow the current player muzzle after movement")
 	_expect(not moved_origin.is_equal_approx(rope_origin), "hooked net rope origin should not stay pinned to the firing-frame player position")
 
@@ -563,7 +564,7 @@ func _verify_net_gun_ammo_rope_capture_and_break() -> void:
 	var broken_field: Dictionary = _get_dict(broken_fields[0])
 	_expect(bool(broken_field.get("dissolve", false)) and bool(broken_field.get("rope_broken", false)), "dash start should break the net rope and dissolve the field")
 	_expect(
-		_get_vector2(broken_field.get("origin", Vector2.ZERO), Vector2.ZERO).is_equal_approx(runtime._get_net_gun_aim_origin(dash_context)),
+		_get_vector2(broken_field.get("origin", Vector2.ZERO), Vector2.ZERO).is_equal_approx(_expected_net_gun_aim_origin(dash_context)),
 		"breaking net rope origin should use the current player muzzle at dash break"
 	)
 	_expect(is_equal_approx(float(runtime.get_movement_speed_multiplier()), 1.0), "rope break should keep net movement neutral")
@@ -2035,6 +2036,16 @@ func _direct_projectile(weapon_id: String, pos: Vector2, velocity: Vector2) -> D
 		"velocity": velocity,
 		"color": Color.WHITE,
 	}
+
+
+func _expected_net_gun_aim_origin(config: Dictionary) -> Vector2:
+	return CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
+		config,
+		CommandoFirearmRuntime.COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+		CommandoFirearmRuntime.COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
+	)
 
 
 func _get_array(value: Variant) -> Array:

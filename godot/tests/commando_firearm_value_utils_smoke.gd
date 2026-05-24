@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
@@ -590,7 +591,13 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_rope_snap_duration({}, 24.0), 24.0), "lingering net rope-snap duration owner should use the default dash-break duration")
 	_expect(CommandoFirearmLingeringNetFieldState.get_origin({"origin": Vector2(3.0, 4.0)}, Vector2.ZERO) == Vector2(3.0, 4.0), "lingering net origin owner should preserve explicit origins")
 	var fallback_net_origin_context := {"player_pos": Vector2(120.0, 640.0), "player_paddle_width": 90.0, "player_paddle_height": 24.0}
-	var fallback_net_origin: Vector2 = runtime._get_net_gun_aim_origin(fallback_net_origin_context)
+	var fallback_net_origin: Vector2 = CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
+		fallback_net_origin_context,
+		CommandoFirearmRuntime.COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+		CommandoFirearmRuntime.COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
+	)
 	_expect(CommandoFirearmLingeringNetFieldState.get_origin({}, fallback_net_origin) == fallback_net_origin, "lingering net origin owner should use net aim origin fallback")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_player_slow_multiplier({"player_slow_multiplier": 0.55}, 1.0), 0.55), "lingering net player slow owner should read explicit multipliers")
 	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_player_slow_multiplier({}, 1.0), 1.0), "lingering net player slow owner should default to neutral movement")
