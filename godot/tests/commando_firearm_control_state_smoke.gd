@@ -82,6 +82,38 @@ func _verify_direct_control_state() -> void:
 	)
 	_expect(not bool(released_after_wait.get("suppressed", true)), "serve-wait helper should release suppression after input release")
 	_expect(not bool(released_after_wait.get("suppressed_until_release", true)), "serve-wait helper should clear release latch after input release")
+	var serve_clear_runtime := CommandoFirearmRuntime.new()
+	serve_clear_runtime.ak47_trigger_held = true
+	serve_clear_runtime.ak47_burst_shots_remaining = 2
+	serve_clear_runtime.ak47_last_action_pressed = true
+	serve_clear_runtime.bowling_trap_last_action_pressed = true
+	serve_clear_runtime.suicide_drone_last_action_pressed = true
+	serve_clear_runtime.slingshot_charging = true
+	serve_clear_runtime.slingshot_charge_timer_frames = 18.0
+	serve_clear_runtime.slingshot_charge_level = 2
+	serve_clear_runtime.slingshot_gauge_spent = 20.0
+	serve_clear_runtime.slingshot_last_action_pressed = true
+	serve_clear_runtime.slingshot_control_lock_frames = 9.0
+	serve_clear_runtime.pistol_fire_delay_frames = 11.0
+	serve_clear_runtime.pistol_control_lock_frames = 12.0
+	serve_clear_runtime.pistol_pending_config = {"weapon_id": "pistol"}
+	serve_clear_runtime.pistol_pending_weapon_id = "pistol"
+	CommandoFirearmControlState.apply_serve_wait_firearm_input_cleared(serve_clear_runtime)
+	_expect(not serve_clear_runtime.ak47_trigger_held, "serve-wait clear owner should clear AK-47 trigger hold")
+	_expect(serve_clear_runtime.ak47_burst_shots_remaining == 0, "serve-wait clear owner should clear AK-47 burst state")
+	_expect(not serve_clear_runtime.ak47_last_action_pressed, "serve-wait clear owner should clear AK-47 action edge")
+	_expect(not serve_clear_runtime.bowling_trap_last_action_pressed, "serve-wait clear owner should clear bowling-trap action edge")
+	_expect(not serve_clear_runtime.suicide_drone_last_action_pressed, "serve-wait clear owner should clear suicide-drone action edge")
+	_expect(not serve_clear_runtime.slingshot_charging, "serve-wait clear owner should cancel slingshot charge")
+	_expect(is_equal_approx(serve_clear_runtime.slingshot_charge_timer_frames, 0.0), "serve-wait clear owner should clear slingshot timer")
+	_expect(serve_clear_runtime.slingshot_charge_level == 0, "serve-wait clear owner should clear slingshot charge level")
+	_expect(is_equal_approx(serve_clear_runtime.slingshot_gauge_spent, 0.0), "serve-wait clear owner should clear slingshot spent gauge")
+	_expect(not serve_clear_runtime.slingshot_last_action_pressed, "serve-wait clear owner should clear slingshot action edge")
+	_expect(is_equal_approx(serve_clear_runtime.slingshot_control_lock_frames, 0.0), "serve-wait clear owner should clear slingshot lock")
+	_expect(is_equal_approx(serve_clear_runtime.pistol_fire_delay_frames, 0.0), "serve-wait clear owner should clear pending pistol fire delay")
+	_expect(is_equal_approx(serve_clear_runtime.pistol_control_lock_frames, 0.0), "serve-wait clear owner should clear pending pistol lock")
+	_expect(serve_clear_runtime.pistol_pending_config.is_empty(), "serve-wait clear owner should clear pending pistol config")
+	_expect(serve_clear_runtime.pistol_pending_weapon_id == "", "serve-wait clear owner should clear pending pistol weapon id")
 
 
 func _verify_runtime_delegates_control_state() -> void:
@@ -101,6 +133,7 @@ func _verify_runtime_delegates_control_state() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(source.find("func _clear_ak47_trigger_state(") == -1, "runtime should not keep AK-47 trigger-clear bridge")
 	_expect(source.find("func _should_suppress_fire_input_for_serve_wait(") == -1, "runtime should not keep serve-wait suppression bridge")
+	_expect(source.find("func _clear_serve_wait_firearm_input_state(") == -1, "runtime should not keep serve-wait input-clear bridge")
 
 
 func _expect(condition: bool, message: String) -> void:

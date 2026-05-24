@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
+
 
 static func needs_effect_update(
 	visible_effects: bool,
@@ -78,3 +80,24 @@ static func get_serve_wait_fire_suppression(
 		"clear_input_state": false,
 		"suppressed_until_release": false,
 	}
+
+
+static func apply_serve_wait_firearm_input_cleared(target: Object) -> void:
+	if target == null:
+		return
+	apply_ak47_trigger_cleared(target)
+	target.set("ak47_last_action_pressed", false)
+	target.set("bowling_trap_last_action_pressed", false)
+	target.set("suicide_drone_last_action_pressed", false)
+	if bool(target.get("slingshot_charging")):
+		CommandoFirearmSlingshotState.apply_canceled_state(target)
+	target.set("slingshot_last_action_pressed", false)
+	target.set("slingshot_control_lock_frames", 0.0)
+	target.set("pistol_fire_delay_frames", 0.0)
+	target.set("pistol_control_lock_frames", 0.0)
+	var pending_config: Variant = target.get("pistol_pending_config")
+	if pending_config is Dictionary:
+		(pending_config as Dictionary).clear()
+	else:
+		target.set("pistol_pending_config", {})
+	target.set("pistol_pending_weapon_id", "")

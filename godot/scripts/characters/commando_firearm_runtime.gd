@@ -577,7 +577,7 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 		serve_wait_fire_suppressed_until_release
 	))
 	if bool(serve_wait_suppression.get("clear_input_state", false)):
-		_clear_serve_wait_firearm_input_state()
+		CommandoFirearmControlState.apply_serve_wait_firearm_input_cleared(self)
 	if bool(serve_wait_suppression.get("suppressed", false)):
 		return {}
 	var timed_result: Dictionary = _update_firearm_timers(config, deps, 1.0)
@@ -665,21 +665,6 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 		"special_gauge": special_gauge,
 		"skill_gold_award": 0,
 	}
-
-
-func _clear_serve_wait_firearm_input_state() -> void:
-	CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
-	ak47_last_action_pressed = false
-	bowling_trap_last_action_pressed = false
-	suicide_drone_last_action_pressed = false
-	if slingshot_charging:
-		CommandoFirearmSlingshotState.apply_canceled_state(self)
-	slingshot_last_action_pressed = false
-	slingshot_control_lock_frames = 0.0
-	pistol_fire_delay_frames = 0.0
-	pistol_control_lock_frames = 0.0
-	pistol_pending_config.clear()
-	pistol_pending_weapon_id = ""
 
 
 func _handle_firearm_reset_input(
