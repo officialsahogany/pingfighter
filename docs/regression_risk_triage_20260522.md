@@ -5692,6 +5692,22 @@ Hundredth split on 2026-05-24:
   both wrappers still printed the known nonfatal Windows root certificate store
   message from Godot.
 
+158th follow-up on 2026-05-24:
+
+- Commit: `5d6dd31b1 godot: drop Commando fire flame drift bridges`.
+- Scope: removed the next lingering fire-zone flame bridge cluster from
+  `commando_firearm_runtime.gd`: drift motion, current / unclamped drift
+  offsets, drift wave / rise steps, offset clamps / bounds, current /
+  unclamped drift sizes, size decay, and drift-size clamps now stay owned by
+  `commando_firearm_lingering_fire_flame_state.gd`. The value-utils smoke now
+  calls that owner directly and guards that the removed runtime bridge names
+  do not return.
+- Validation: `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_warning_scan.ps1` scanned
+  1322 scripts with no GDScript warnings, and `run_headless_load_check.ps1`
+  passed; both wrappers still printed the known nonfatal Windows root
+  certificate store message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
