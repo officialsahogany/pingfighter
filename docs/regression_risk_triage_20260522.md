@@ -7879,6 +7879,30 @@ Hundredth split on 2026-05-24:
   release bridges and the value-utils smoke rejects `_update_net_constrict_input()`
   in the runtime facade.
 
+273rd follow-up on 2026-05-24:
+
+- Commit:
+  `bbcdc1076 godot: move Commando shot and aircraft helpers`.
+- Scope: moved shot-id allocation out of the Commando runtime `_next_shot_id()`
+  bridge into `CommandoFirearmProjectileSpawnState.claim_next_shot_id()`.
+  Fire-support aircraft audio-active scanning and active collision-rect lookup
+  now live in `CommandoFirearmSupportAircraftGeometry`, while the runtime keeps
+  the public query methods as thin API wrappers.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2773` lines /
+  `36` functions to `2756` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_spawn_state_smoke`,
+  `commando_firearm_support_aircraft_geometry_smoke`,
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_fire_sheet_resolver_smoke`,
+  `commando_firearm_shell_casing_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_supply_drop_audio_cleanup_smoke`. The Godot headless load check
+  passed, `run_warning_scan.ps1` scanned `1331` scripts with no GDScript
+  warnings, and `git diff --check` reported no whitespace errors beyond the
+  existing CRLF normalization notices. The projectile-spawn smoke now rejects
+  `_next_shot_id()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
