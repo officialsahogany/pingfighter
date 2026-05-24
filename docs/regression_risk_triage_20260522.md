@@ -6766,6 +6766,25 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
   scripts with no GDScript warnings.
 
+218th follow-up on 2026-05-24:
+
+- Commit: `74d0c5cd4 godot: drop Commando AK47 helper bridges`.
+- Scope: removed the private `_consume_ak47_duration()` and
+  `_trigger_ak47_cooldown()` runtime bridges. The AK-47 input path now consumes
+  weapon duration and triggers the configured skill cooldown inline at the
+  fire side-effect point. The runtime VFX smoke keeps the held-fire durability,
+  recoil, ammo, movement-slow, shell-casing, and cooldown behavior covered and
+  now guards that the removed bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3367` lines /
+  `106` functions to `3353` lines / `104` functions.
+- Validation: focused AK-47 / result / weapon-controller coverage passed:
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_fire_result_state_smoke`, and
+  `commando_weapon_controller_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

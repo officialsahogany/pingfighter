@@ -3966,7 +3966,9 @@ This section is intentionally long; use search to find the nearest owner.
   ammo-weapon fired payloads. `commando_firearm_runtime.gd` keeps the input
   gates, ammo / cooldown mutations, reload side effects, audio cues, and
   current timer reads while delegating stable result payload shapes to this
-  helper.
+  helper. AK-47 durability consumption and skill-cooldown triggering now stay
+  inline at the fire side-effect point instead of passing through private
+  runtime helper bridges.
 - `scripts/characters/commando_firearm_draw_state_resolver.gd`
   Owns pure Commando firearm renderer-facing draw-state dictionary scaffolding
   for slingshot charge, pistol fire pose, shared weapon-fire sheet overlay,
