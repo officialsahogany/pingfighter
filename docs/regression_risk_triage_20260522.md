@@ -8850,3 +8850,20 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+322nd follow-up on 2026-05-25:
+
+- Commit:
+  `fad1ae1b3 godot: move Commando support call start append`.
+- Scope: moved fire-support runtime call-id allocation and start append routing
+  into `CommandoFirearmSupportCallResolver.append_runtime_start_effects()`.
+  Runtime still handles the high-level support branch and radio / eviction
+  audio cleanup, while the support-call owner now wraps the lower-level call
+  payload and marker append helper.
+- Runtime facade delta: `commando_firearm_runtime.gd` changed by `2`
+  insertions and `2` deletions, with the function count staying at `35`.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_support_call_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
