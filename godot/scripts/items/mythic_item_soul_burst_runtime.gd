@@ -1,5 +1,6 @@
 extends RefCounted
 
+const ITEM_SOUL_BURST := "soul_burst"
 const DEFAULT_GAUGE_COST := 160.0
 const MIN_GAUGE_COST := 110.0
 const MAX_GAUGE_COST := 160.0
@@ -10,6 +11,27 @@ const WIND_TRAIL_COUNT := 10
 const PARTICLE_ALPHA_CUTOFF := 0.02
 
 
+func is_equipped(runtime: Object) -> bool:
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_SOUL_BURST)
+
+
+func is_active(runtime: Object) -> bool:
+	return is_equipped(runtime)
+
+
+func get_gauge_cost(runtime: Object) -> float:
+	if not is_equipped(runtime):
+		return DEFAULT_GAUGE_COST
+	var cost: float = runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SOUL_BURST, "soul_burst_gauge_cost")
+	if cost <= 0.0:
+		cost = DEFAULT_GAUGE_COST
+	return clamp(cost, MIN_GAUGE_COST, MAX_GAUGE_COST)
+
+
+func can_dash(runtime: Object, special_gauge: float) -> bool:
+	return is_equipped(runtime) and float(special_gauge) + 0.001 >= get_gauge_cost(runtime)
+
+
 func try_consume_dash(
 	runtime: Object,
 	special_gauge: float,
@@ -18,12 +40,12 @@ func try_consume_dash(
 	registry: Object
 ) -> Dictionary:
 	var current_gauge: float = max(0.0, float(special_gauge))
-	if not runtime.can_soul_burst_dash(current_gauge):
+	if not can_dash(runtime, current_gauge):
 		return {
 			"activated": false,
 			"special_gauge": current_gauge,
 		}
-	var gauge_cost: float = runtime.get_soul_burst_gauge_cost()
+	var gauge_cost: float = get_gauge_cost(runtime)
 	trigger_effect(runtime, player_center, direction, registry)
 	return {
 		"activated": true,
@@ -61,7 +83,7 @@ func clear_runtime(runtime: Object) -> void:
 
 
 func update_runtime(runtime: Object, fps_scale: float) -> void:
-	if not runtime.is_soul_burst_equipped() and (
+	if not is_equipped(runtime) and (
 		runtime.soul_burst_dash_active
 		or not runtime.soul_burst_particles.is_empty()
 	):

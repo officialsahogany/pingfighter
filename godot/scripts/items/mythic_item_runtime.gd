@@ -2195,27 +2195,22 @@ func get_boost_charge_chance_pct() -> float:
 
 func is_soul_burst_equipped() -> bool:
 	_ensure_helpers_ready()
-	return roll_query.has_equipped_item_name(self, ITEM_SOUL_BURST)
+	return soul_burst_runtime.is_equipped(self)
 
 
 func is_soul_burst_active() -> bool:
 	_ensure_helpers_ready()
-	return is_soul_burst_equipped()
+	return soul_burst_runtime.is_active(self)
 
 
 func get_soul_burst_gauge_cost() -> float:
 	_ensure_helpers_ready()
-	if not is_soul_burst_equipped():
-		return SoulBurstRuntime.DEFAULT_GAUGE_COST
-	var cost: float = roll_query.get_equipped_roll_value(self, ITEM_SOUL_BURST, "soul_burst_gauge_cost")
-	if cost <= 0.0:
-		cost = SoulBurstRuntime.DEFAULT_GAUGE_COST
-	return clamp(cost, SoulBurstRuntime.MIN_GAUGE_COST, SoulBurstRuntime.MAX_GAUGE_COST)
+	return soul_burst_runtime.get_gauge_cost(self)
 
 
 func can_soul_burst_dash(special_gauge: float) -> bool:
 	_ensure_helpers_ready()
-	return is_soul_burst_equipped() and float(special_gauge) + 0.001 >= get_soul_burst_gauge_cost()
+	return soul_burst_runtime.can_dash(self, special_gauge)
 
 
 func try_consume_soul_burst_dash(

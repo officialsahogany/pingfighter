@@ -202,7 +202,12 @@ func _verify_runtime_constant_ownership() -> void:
 	_expect(not runtime_source.contains("const SOUL_BURST_EFFECT"), "runtime facade should not regain Soul Burst effect timing constants")
 	_expect(not runtime_source.contains("const SOUL_BURST_PARTICLE"), "runtime facade should not regain Soul Burst particle constants")
 	_expect(not runtime_source.contains("const SOUL_BURST_WIND"), "runtime facade should not regain Soul Burst wind-trail constants")
+	_expect(runtime_source.find("return soul_burst_runtime.is_equipped(self)") >= 0, "runtime facade should delegate Soul Burst equipped checks")
+	_expect(runtime_source.find("return soul_burst_runtime.get_gauge_cost(self)") >= 0, "runtime facade should delegate Soul Burst gauge-cost rolls")
+	_expect(runtime_source.find("roll_query.get_equipped_roll_value(self, ITEM_SOUL_BURST") < 0, "runtime facade should not keep Soul Burst roll math inline")
 	_expect(helper_source.contains("const PARTICLE_ALPHA_CUTOFF"), "Soul Burst helper should keep alpha cutoff constants")
+	_expect(helper_source.find("func get_gauge_cost(") >= 0, "Soul Burst helper should own gauge-cost roll math")
+	_expect(helper_source.find("func can_dash(") >= 0, "Soul Burst helper should own dash affordability checks")
 
 
 func _array_has_item(items: Array, item_name: String) -> bool:

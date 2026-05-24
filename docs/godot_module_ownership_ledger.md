@@ -148,8 +148,8 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_shrapnel_armor_runtime.gd`, Ragnarok Hammer
   player-hit trigger / stun-ball rally state / boss-hit stun-knockback /
   shock-loop audio / spark lifecycle delegated to
-  `scripts/items/mythic_item_ragnarok_runtime.gd`, Soul Burst constants,
-  gauge spend / zero-token dash replacement / dash VFX lifecycle delegated to
+  `scripts/items/mythic_item_ragnarok_runtime.gd`, Soul Burst equipped /
+  roll queries, constants, gauge spend / zero-token dash replacement / dash VFX lifecycle delegated to
   `scripts/items/mythic_item_soul_burst_runtime.gd`, Kick Charger constants,
   half-dash equipped / charge-roll queries plus player-hit gauge charging /
   flash particle lifecycle delegated to
