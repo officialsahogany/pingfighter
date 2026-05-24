@@ -62,6 +62,35 @@ func _verify_direct_support_call_resolver() -> void:
 	var marker: Dictionary = CommandoFirearmSupportCallResolver.build_marker_flash("fire_support", target, {"impact_radius": 50.0}, 42.0)
 	_expect(str(marker.get("kind", "")) == "support_marker", "support marker should preserve marker kind")
 	_expect(is_equal_approx(float(marker.get("radius", 0.0)), 37.0), "support marker radius should scale profile impact radius")
+	var support_calls: Array = [{"id": 1, "aircraft_audio_active": true}]
+	var impact_flashes: Array = [{"kind": "old_marker"}]
+	var start_result: Dictionary = CommandoFirearmSupportCallResolver.append_start_effects(
+		support_calls,
+		impact_flashes,
+		Vector2(10.0, 20.0),
+		target,
+		{"impact_radius": 50.0},
+		"fire_support",
+		12,
+		1,
+		1,
+		120.0,
+		180.0,
+		2,
+		2,
+		42.0,
+		18.0,
+		320.0,
+		10.0,
+		44.0,
+		0.055,
+		0.35,
+		-360.0
+	)
+	_expect(support_calls.size() == 1, "support start helper should append one live call after eviction")
+	_expect(impact_flashes.size() == 1, "support start helper should append one marker within flash limit")
+	_expect(int(_get_dict(support_calls[0]).get("id", 0)) == 12, "support start helper should preserve the call id")
+	_expect(_get_array(start_result.get("evicted_calls", [])).size() == 1, "support start helper should return evicted calls for audio cleanup")
 	var bomb_target_a: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(target, 0, 760.0, 750.0, 4)
 	var bomb_target_b: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(target, 1, 760.0, 750.0, 4)
 	_expect(_vector2_is_equal_approx(bomb_target_a, Vector2(618.2, 140.0)), "support bomb target should use deterministic random x spread from the marked point")
@@ -184,6 +213,16 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 	_expect(runtime.is_player_control_locked(), "runtime player lock should read active support calls through the resolver")
 	runtime.support_calls = [{"call_timer_frames": 0.0, "radio_active": false}]
 	_expect(not runtime.is_player_control_locked(), "runtime player lock should ignore inactive support calls")
+	var spawn_runtime := CommandoFirearmRuntime.new()
+	var spawn_target := Vector2(320.0, 180.0)
+	spawn_runtime._spawn_firearm_effect(
+		"fire_support",
+		{"boss_pos": spawn_target},
+		{},
+		{"kind": "support", "impact_radius": 50.0}
+	)
+	_expect(spawn_runtime.support_calls.size() == 1, "runtime support fire path should append one delegated call")
+	_expect(spawn_runtime.impact_flashes.size() == 1, "runtime support fire path should append one delegated marker")
 
 
 func _verify_removed_support_call_setup_bridges() -> void:
@@ -197,6 +236,7 @@ func _verify_removed_support_call_setup_bridges() -> void:
 		"_get_support_bomb_target",
 		"_has_active_support_call_lock",
 		"_advance_support_call",
+		"_start_support_call",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep support-call setup bridge %s" % bridge_name)
 
@@ -210,6 +250,12 @@ func _get_dict(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _get_array(value: Variant) -> Array:
+	if value is Array:
+		return value
+	return []
 
 
 func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:

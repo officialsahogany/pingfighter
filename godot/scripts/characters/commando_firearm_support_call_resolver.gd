@@ -106,6 +106,63 @@ static func build_marker_flash(
 	}
 
 
+static func append_start_effects(
+	support_calls: Array,
+	impact_flashes: Array,
+	origin: Vector2,
+	target: Vector2,
+	profile: Dictionary,
+	weapon_id: String,
+	call_id: int,
+	support_limit: int,
+	flash_limit: int,
+	delay_min_frames: float,
+	delay_max_frames: float,
+	bomb_min_count: int,
+	bomb_max_count: int,
+	call_lock_frames: float,
+	aircraft_drop_arm_frames: float,
+	aircraft_y: float,
+	aircraft_speed: float,
+	aircraft_curve_amplitude: float = 0.0,
+	aircraft_curve_frequency: float = 0.0,
+	aircraft_curve_secondary_ratio: float = 0.0,
+	aircraft_start_x: float = -140.0
+) -> Dictionary:
+	var evicted_calls: Array = []
+	while support_calls.size() >= max(1, support_limit):
+		evicted_calls.append(_get_dict(support_calls.pop_front()))
+	var delay_frames: float = get_delay_frames(call_id, target, delay_min_frames, delay_max_frames)
+	var bomb_count: int = get_bomb_count(call_id, target, bomb_min_count, bomb_max_count)
+	var call_data: Dictionary = build_call_payload(
+		call_id,
+		origin,
+		target,
+		profile,
+		weapon_id,
+		delay_frames,
+		bomb_count,
+		call_lock_frames,
+		aircraft_drop_arm_frames,
+		aircraft_y,
+		aircraft_speed,
+		aircraft_curve_amplitude,
+		aircraft_curve_frequency,
+		aircraft_curve_secondary_ratio,
+		aircraft_start_x
+	)
+	support_calls.append(call_data)
+	var marker_flash: Dictionary = build_marker_flash(weapon_id, target, profile, call_lock_frames)
+	impact_flashes.append(marker_flash)
+	while impact_flashes.size() > max(1, flash_limit):
+		impact_flashes.pop_front()
+	return {
+		"call": call_data,
+		"marker_flash": marker_flash,
+		"evicted_calls": evicted_calls,
+	}
+
+
 static func get_bomb_target(
 	target: Vector2,
 	spawn_index: int,

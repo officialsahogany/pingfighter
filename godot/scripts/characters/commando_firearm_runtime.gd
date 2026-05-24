@@ -1991,7 +1991,35 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		FLASH_LIMIT
 	)
 	if kind == "support":
-		_start_support_call(origin, target, profile, weapon_id, deps)
+		var support_start: Dictionary = CommandoFirearmSupportCallResolver.append_start_effects(
+			support_calls,
+			impact_flashes,
+			origin,
+			target,
+			profile,
+			weapon_id,
+			_next_shot_id(),
+			SUPPORT_CALL_LIMIT,
+			FLASH_LIMIT,
+			SUPPORT_CALL_DELAY_MIN_FRAMES,
+			SUPPORT_CALL_DELAY_MAX_FRAMES,
+			SUPPORT_BOMB_MIN_COUNT,
+			SUPPORT_BOMB_MAX_COUNT,
+			SUPPORT_CALL_LOCK_FRAMES,
+			SUPPORT_AIRCRAFT_DROP_ARM_FRAMES,
+			SUPPORT_AIRCRAFT_Y,
+			SUPPORT_AIRCRAFT_SPEED,
+			SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
+			SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
+			SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
+			SUPPORT_AIRCRAFT_START_X
+		)
+		for evicted_value in CommandoFirearmValueUtils.get_array(support_start.get("evicted_calls", [])):
+			CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(
+				CommandoFirearmValueUtils.get_dict(evicted_value),
+				deps
+			)
+		CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
 		return
 	if kind == "trap" or weapon_id == "bowling_trap":
 		CommandoFirearmBowlingTrapGeometry.append_install_effects(
@@ -2059,49 +2087,6 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 			),
 			SHELL_CASING_LIMIT
 		)
-
-
-func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, weapon_id: String, deps: Dictionary) -> void:
-	var call_id: int = _next_shot_id()
-	var delay_frames: float = CommandoFirearmSupportCallResolver.get_delay_frames(
-		call_id,
-		target,
-		SUPPORT_CALL_DELAY_MIN_FRAMES,
-		SUPPORT_CALL_DELAY_MAX_FRAMES
-	)
-	var bomb_count: int = CommandoFirearmSupportCallResolver.get_bomb_count(
-		call_id,
-		target,
-		SUPPORT_BOMB_MIN_COUNT,
-		SUPPORT_BOMB_MAX_COUNT
-	)
-	while support_calls.size() >= max(1, SUPPORT_CALL_LIMIT):
-		var evicted: Dictionary = CommandoFirearmValueUtils.get_dict(support_calls.pop_front())
-		CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(evicted, deps)
-	support_calls.append(CommandoFirearmSupportCallResolver.build_call_payload(
-		call_id,
-		origin,
-		target,
-		profile,
-		weapon_id,
-		delay_frames,
-		bomb_count,
-		SUPPORT_CALL_LOCK_FRAMES,
-		SUPPORT_AIRCRAFT_DROP_ARM_FRAMES,
-		SUPPORT_AIRCRAFT_Y,
-		SUPPORT_AIRCRAFT_SPEED,
-		SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
-		SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
-		SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
-		SUPPORT_AIRCRAFT_START_X
-	))
-	CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
-	CommandoFirearmValueUtils.append_limited(impact_flashes, CommandoFirearmSupportCallResolver.build_marker_flash(
-		weapon_id,
-		target,
-		profile,
-		SUPPORT_CALL_LOCK_FRAMES
-	), FLASH_LIMIT)
 
 
 func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
@@ -2182,7 +2167,11 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 		var trap: Dictionary = CommandoFirearmValueUtils.get_dict(bowling_traps[index])
 		var state: String = str(trap.get("state", "waiting"))
 		if state == "installing":
-			_update_bowling_trap_install(index, trap, step)
+			bowling_traps[index] = CommandoFirearmBowlingTrapGeometry.update_install_state(
+				trap,
+				step,
+				BOWLING_TRAP_INSTALL_FRAMES
+			)
 		elif state == "waiting":
 			if (
 				result.is_empty()
@@ -2206,14 +2195,6 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 		else:
 			bowling_traps[index] = trap
 	return result
-
-
-func _update_bowling_trap_install(index: int, trap: Dictionary, fps_scale: float) -> void:
-	bowling_traps[index] = CommandoFirearmBowlingTrapGeometry.update_install_state(
-		trap,
-		fps_scale,
-		BOWLING_TRAP_INSTALL_FRAMES
-	)
 
 
 func _capture_bowling_trap_ball(index: int, trap: Dictionary, context: Dictionary, deps: Dictionary) -> void:
