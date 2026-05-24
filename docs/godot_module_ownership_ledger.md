@@ -4020,8 +4020,9 @@ This section is intentionally long; use search to find the nearest owner.
   kind filtering, text / wave anchor placement from the boss rect, timer
   payloads, and per-frame timer advancement. `commando_firearm_runtime.gd`
   keeps the `pistol_feedbacks` array limit, append / remove ownership, draw
-  context publication, and hit-result side effects while delegating only this
-  short-lived feedback payload math.
+  context publication, and hit-result side effects while calling this owner
+  directly from the spawn path. Do not reintroduce a private runtime pistol
+  feedback builder bridge.
 - `scripts/characters/commando_firearm_projectile_motion_state.gd`
   Owns pure Commando projectile motion state for small projectile-local
   updates: pistol side-wall bounce payloads, bazooka rocket acceleration and

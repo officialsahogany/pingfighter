@@ -6156,6 +6156,19 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned 1322
   scripts with no GDScript warnings.
 
+188th follow-up on 2026-05-24:
+
+- Commit: `e1d1e7e20 godot: drop Commando pistol feedback bridge`.
+- Scope: removed the private `_build_pistol_hit_feedback()` runtime bridge.
+  The pistol feedback spawn path now computes the boss rect and calls
+  `commando_firearm_pistol_feedback_state.gd` directly, while runtime keeps
+  only feedback array ownership, append limits, draw-context publication, and
+  feedback timer updates.
+- Validation: `commando_firearm_pistol_feedback_state_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
