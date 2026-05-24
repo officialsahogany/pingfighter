@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const TOOLTIP_SIZE := Vector2(306.0, 228.0)
 const BASE_PISTOL_INTERNAL_COOLDOWN_SECONDS := 1.0
 const BERETTA_INTERNAL_COOLDOWN_SECONDS := BASE_PISTOL_INTERNAL_COOLDOWN_SECONDS / 2.0
@@ -22,9 +24,9 @@ func build_tooltip_state(panel_state: Dictionary, view_size: Vector2, scale_fact
 	var weapon_id: String = str(panel_state.get("current_weapon_id", weapon.get("weapon_id", "pistol")))
 	var slingshot_state: Dictionary = _get_dict(context.get("commando_firearm_slingshot_state", panel_state.get("slingshot_state", {})))
 	var skill_config_snapshot: Dictionary = _get_dict(context.get("skill_config_snapshot", {}))
-	var title: String = str(panel_state.get("title", weapon.get("display_name_ko", weapon_id)))
-	var badge: String = str(panel_state.get("badge", weapon.get("badge", "")))
-	var ammo_text: String = str(panel_state.get("status", weapon.get("ammo_text", "")))
+	var title: String = LanguageSettings.translate_text(str(panel_state.get("title", weapon.get("display_name_ko", weapon_id))))
+	var badge: String = LanguageSettings.translate_text(str(panel_state.get("badge", weapon.get("badge", ""))))
+	var ammo_text: String = LanguageSettings.translate_text(str(panel_state.get("status", weapon.get("ammo_text", ""))))
 	if weapon_id == "pistol":
 		ammo_text = str(weapon.get("ammo_text", ammo_text))
 	var cooldown_seconds: float = _get_cooldown_seconds(weapon_id, skill_config_snapshot)
@@ -82,12 +84,12 @@ func draw(canvas: CanvasItem, tooltip_state: Dictionary) -> void:
 		_draw_text(canvas, font, Vector2(rect.end.x - padding - badge_size.x, cursor.y + 2.0 * scale_factor), badge, small_size, Color(color.r, color.g, color.b, 0.96))
 
 	cursor.y += 39.0 * scale_factor
-	_draw_labeled_line(canvas, font, cursor, "탄약", str(tooltip_state.get("ammo_text", "")), normal_size, Color(0.74, 0.88, 0.68))
+	_draw_labeled_line(canvas, font, cursor, LanguageSettings.translate_text("탄약"), str(tooltip_state.get("ammo_text", "")), normal_size, Color(0.74, 0.88, 0.68))
 	cursor.y += 19.0 * scale_factor
 	var ready_color := Color(0.58, 1.0, 0.62) if bool(tooltip_state.get("can_fire", false)) else Color(1.0, 0.45, 0.38)
-	_draw_labeled_line(canvas, font, cursor, "상태", str(tooltip_state.get("ready_text", "")), normal_size, ready_color)
+	_draw_labeled_line(canvas, font, cursor, LanguageSettings.translate_text("상태"), str(tooltip_state.get("ready_text", "")), normal_size, ready_color)
 	cursor.y += 19.0 * scale_factor
-	_draw_labeled_line(canvas, font, cursor, "쿨타임", str(tooltip_state.get("cooldown_text", "")), normal_size, Color(0.84, 0.84, 0.86))
+	_draw_labeled_line(canvas, font, cursor, LanguageSettings.translate_text("쿨타임"), str(tooltip_state.get("cooldown_text", "")), normal_size, Color(0.84, 0.84, 0.86))
 	cursor.y += 21.0 * scale_factor
 
 	var body_lines: Array[String] = [
@@ -127,58 +129,58 @@ func _get_cooldown_seconds(weapon_id: String, skill_config_snapshot: Dictionary)
 
 func _get_description(weapon_id: String, skill_config_snapshot: Dictionary) -> String:
 	if weapon_id == "pistol":
-		return "기본 권총은 4발 탄창을 사용하며 준비음 뒤에 조준 후 발사합니다."
+		return "The basic pistol uses a 4-round magazine and fires after a ready sound and aim delay." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "기본 권총은 4발 탄창을 사용하며 준비음 뒤에 조준 후 발사합니다."
 	var skill_data: Dictionary = _get_dict(_get_dict(skill_config_snapshot.get("skill_data", {})).get(weapon_id, {}))
 	var description: String = str(skill_data.get("description", ""))
 	if description.is_empty():
-		return "코만도 화기 스킬구슬과 같은 해금명을 사용합니다."
-	return str(description.split("\n", false)[0])
+		return "Uses the same unlock name as the Commando firearm skill orb." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "코만도 화기 스킬구슬과 같은 해금명을 사용합니다."
+	return LanguageSettings.translate_text(str(description.split("\n", false)[0]))
 
 
 func _get_ownership_text(weapon_id: String, weapon: Dictionary) -> String:
 	if weapon_id == "pistol" or str(weapon.get("kind", "")) == "base":
-		return "기본 화기"
+		return "Base Weapon" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "기본 화기"
 	if bool(weapon.get("rental", false)) or str(weapon.get("kind", "")) == "rental":
-		return "대여 화기"
-	return "영구 화기"
+		return "Rented Weapon" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "대여 화기"
+	return "Permanent Weapon" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "영구 화기"
 
 
 func _get_ready_text(weapon_id: String, can_fire: bool, _slingshot_state: Dictionary) -> String:
 	if weapon_id == "pistol":
-		return "발사 가능" if can_fire else "탄약 없음"
-	return "발사 가능" if can_fire else "탄약 없음"
+		return ("Ready to Fire" if can_fire else "No Ammo") if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else ("발사 가능" if can_fire else "탄약 없음")
+	return ("Ready to Fire" if can_fire else "No Ammo") if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else ("발사 가능" if can_fire else "탄약 없음")
 
 
 func _get_reload_text(weapon_id: String, weapon: Dictionary, _slingshot_state: Dictionary) -> String:
 	if weapon_id == "pistol":
-		return "탄약이 0이면 좌클릭으로 150 게이지를 소모해 탄창을 한 발씩 가득 채웁니다."
+		return "At 0 ammo, left-click spends 150 gauge to refill the magazine one round at a time." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "탄약이 0이면 좌클릭으로 150 게이지를 소모해 탄창을 한 발씩 가득 채웁니다."
 	if bool(weapon.get("rental", false)) or str(weapon.get("kind", "")) == "rental":
-		return "대여 화기는 재장전 대상이 아닙니다."
+		return "Rented weapons cannot be reloaded." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "대여 화기는 재장전 대상이 아닙니다."
 	if weapon_id == "commando_pistol":
-		return "기본 화기가 아니므로 발사 입력으로 재장전되지 않습니다. 재장전 스킬로 탄약을 보충합니다."
+		return "This is not the base weapon, so fire input will not reload it. Refill ammo with the reload skill." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "기본 화기가 아니므로 발사 입력으로 재장전되지 않습니다. 재장전 스킬로 탄약을 보충합니다."
 	if weapon_id in ["ak47", "fire_support"]:
-		return "재장전 게이지 완충 시 보충됩니다."
-	return "재장전 스킬로 1발씩 보충됩니다."
+		return "Refills when the reload gauge is fully charged." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "재장전 게이지 완충 시 보충됩니다."
+	return "Reload skill refills one round at a time." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "재장전 스킬로 1발씩 보충됩니다."
 
 
 func _get_alias_text(weapon_id: String, title: String) -> String:
 	if weapon_id == "pistol":
-		return "기본 슬롯: 장전 후 조준 지연을 거쳐 발사합니다."
-	return "해금 스킬구슬: %s" % title
+		return "Base slot: fires after reload and aim delay." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "기본 슬롯: 장전 후 조준 지연을 거쳐 발사합니다."
+	return "Unlocked Skill Orb: %s" % title if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "해금 스킬구슬: %s" % title
 
 
 func _get_control_text(weapon_id: String) -> String:
 	if weapon_id == "pistol":
-		return "좌클릭 또는 SPACE 발사 / 휠 전환"
-	return "휠 전환 / 좌클릭 또는 SPACE 발사"
+		return "Left Click or SPACE to fire / Wheel to switch" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "좌클릭 또는 SPACE 발사 / 휠 전환"
+	return "Wheel to switch / Left Click or SPACE to fire" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "휠 전환 / 좌클릭 또는 SPACE 발사"
 
 
 func _format_cooldown(cooldown_seconds: float) -> String:
 	if cooldown_seconds <= 0.0:
-		return "없음"
+		return "None" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "없음"
 	if is_equal_approx(cooldown_seconds, roundf(cooldown_seconds)):
-		return "%d초" % int(roundf(cooldown_seconds))
-	return "%.1f초" % cooldown_seconds
+		return "%ds" % int(roundf(cooldown_seconds)) if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%d초" % int(roundf(cooldown_seconds))
+	return "%.1fs" % cooldown_seconds if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%.1f초" % cooldown_seconds
 
 
 func _draw_labeled_line(canvas: CanvasItem, font: Font, pos: Vector2, label: String, value: String, font_size: int, value_color: Color) -> void:

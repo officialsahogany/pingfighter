@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const BASE_WEAPON := "pistol"
 const PISTOL_ORB_SKILL := "commando_pistol"
 const PISTOL_AMMO_MAX := 4
@@ -582,8 +584,8 @@ func get_weapon_ammo_text(weapon_id: String = "") -> String:
 	var ammo_current: int = int(data.get("ammo_current", -1))
 	var ammo_max: int = int(data.get("ammo_max", -1))
 	if ammo_current < 0 or ammo_max < 0:
-		return "무제한"
-	var label: String = str(data.get("status_label", "탄약"))
+		return LanguageSettings.translate_text("무제한")
+	var label: String = LanguageSettings.translate_text(str(data.get("status_label", "탄약")))
 	return "%s %d/%d" % [label, ammo_current, ammo_max]
 
 
@@ -723,7 +725,7 @@ func _apply_ak47_display_fields(data: Dictionary) -> void:
 func _get_pistol_ammo_text(data: Dictionary) -> String:
 	var ammo_current: int = int(data.get("ammo_current", BERETTA_AMMO_MAX))
 	var ammo_max: int = int(data.get("ammo_max", BERETTA_AMMO_MAX))
-	return "탄약 %d/%d" % [ammo_current, ammo_max]
+	return "%s %d/%d" % [LanguageSettings.translate_text("탄약"), ammo_current, ammo_max]
 
 
 func _get_base_pistol_ammo_text(data: Dictionary) -> String:
@@ -731,8 +733,8 @@ func _get_base_pistol_ammo_text(data: Dictionary) -> String:
 	var ammo_max: int = int(data.get("ammo_max", PISTOL_AMMO_MAX))
 	if bool(data.get("reloading", false)):
 		var display_ammo: int = int(data.get("reload_display_ammo", ammo_current))
-		return "재장전 %d/%d" % [display_ammo, ammo_max]
-	return "탄약 %d/%d" % [ammo_current, ammo_max]
+		return "%s %d/%d" % [LanguageSettings.translate_text("재장전"), display_ammo, ammo_max]
+	return "%s %d/%d" % [LanguageSettings.translate_text("탄약"), ammo_current, ammo_max]
 
 
 func _refill_basic_ammo(id: String, target: Dictionary, amount: int = 1) -> bool:
@@ -774,6 +776,8 @@ func _get_ak47_ammo_text(data: Dictionary) -> String:
 	var ammo_max: int = int(data.get("ammo_max", AK47_AMMO_MAX))
 	var duration_frames: float = max(0.0, float(data.get("duration_frames", AK47_DURATION_FRAMES)))
 	var duration_seconds: float = duration_frames / 60.0
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "Ammo %d/%d - Durability %.1fs" % [ammo_current, ammo_max, duration_seconds]
 	return "탄약 %d/%d · 내구 %.1f초" % [ammo_current, ammo_max, duration_seconds]
 
 

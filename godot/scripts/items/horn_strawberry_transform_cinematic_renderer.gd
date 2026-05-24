@@ -1,6 +1,7 @@
 extends RefCounted
 
 const HornStrawberryPaddleRenderer := preload("res://scripts/items/horn_strawberry_paddle_renderer.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const STATE_TRANSFORM_EVENT := "transform_event"
 const STATE_DETRANSFORM_EVENT := "detransform_event"
@@ -241,7 +242,7 @@ func _draw_transform_label(canvas: CanvasItem, center: Vector2, progress: float)
 		scale = lerp(1.20, 1.0, (p - 0.30) / 0.20)
 	var font_size: int = max(16, int(34.0 * scale))
 	var alpha: float = clamp(p / 0.20, 0.0, 1.0)
-	var text := "뿔딸기변신!"
+	var text := LanguageSettings.translate_text("뿔딸기변신!")
 	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 	var pos := center - Vector2(text_size.x * 0.5, 0.0)
 	for offset in [Vector2(-2.0, 0.0), Vector2(2.0, 0.0), Vector2(0.0, -2.0), Vector2(0.0, 2.0)]:

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 
 func draw_selection_overlay(
@@ -19,11 +20,11 @@ func draw_selection_overlay(
 	var intro_alpha: float = clamp(float(selection_state.timer_frames) / 20.0, 0.0, 1.0)
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.02, 0.01, 0.04, 0.72 * intro_alpha))
 	var title_center := Vector2(view_size.x * 0.5, max(72.0, view_size.y * 0.18))
-	draw_centered_text(canvas, font, "판도라의 유산", title_center, 30, Color(1.0, 0.86, 0.32, intro_alpha))
+	draw_centered_text(canvas, font, LanguageSettings.translate_text("판도라의 유산"), title_center, 30, Color(1.0, 0.86, 0.32, intro_alpha))
 	draw_centered_text(
 		canvas,
 		font,
-		"아이템을 선택하세요",
+		LanguageSettings.translate_text("아이템을 선택하세요"),
 		title_center + Vector2(0.0, 34.0),
 		15,
 		Color(0.78, 0.82, 0.92, intro_alpha)
@@ -48,7 +49,7 @@ func draw_selection_overlay(
 			draw_centered_text(
 				canvas,
 				font,
-				"선택",
+				LanguageSettings.translate_text("선택"),
 				rect.position + Vector2(rect.size.x * 0.5, rect.size.y - 18.0),
 				12,
 				Color(1.0, 0.86, 0.38, intro_alpha),
@@ -57,7 +58,7 @@ func draw_selection_overlay(
 	draw_centered_text(
 		canvas,
 		font,
-		"←/→ / 클릭 / Enter",
+		LanguageSettings.translate_text("←/→ / 클릭 / Enter"),
 		Vector2(view_size.x * 0.5, min(view_size.y - 38.0, title_center.y + 284.0)),
 		13,
 		Color(0.64, 0.68, 0.78, intro_alpha)
@@ -67,11 +68,11 @@ func draw_selection_overlay(
 func get_choice_source_label(item_data: Dictionary) -> String:
 	match str(item_data.get("pandora_source", item_data.get("type", "active"))):
 		"mythic":
-			return "신화"
+			return LanguageSettings.translate_text("신화")
 		"passive":
-			return "패시브"
+			return LanguageSettings.translate_text("패시브")
 		_:
-			return "액티브"
+			return LanguageSettings.translate_text("액티브")
 
 
 func get_choice_source_color(item_data: Dictionary) -> Color:
@@ -87,11 +88,11 @@ func get_choice_source_color(item_data: Dictionary) -> Color:
 func get_choice_title(item_data: Dictionary, active_item_korean_names: Dictionary) -> String:
 	var item_name: String = str(item_data.get("name", ""))
 	if active_item_korean_names.has(item_name):
-		return str(active_item_korean_names[item_name])
+		return LanguageSettings.translate_text(str(active_item_korean_names[item_name]))
 	for key in ["korean_name", "display_name", "name"]:
 		var value: String = str(item_data.get(key, ""))
 		if value != "":
-			return value
+			return LanguageSettings.translate_text(value)
 	return "???"
 
 

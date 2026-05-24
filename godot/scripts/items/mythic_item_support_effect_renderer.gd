@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 
 func draw_foul_whistle_effect(
 	canvas: CanvasItem,
@@ -62,7 +64,7 @@ func draw_foul_whistle_text(canvas: CanvasItem, center: Vector2, alpha: float, a
 		return
 	var scale: float = 1.0 + 0.08 * sin(animation_frame * 0.30)
 	var font_size: int = int(round(74.0 * scale))
-	var text := "무효!"
+	var text := LanguageSettings.translate_text("무효!")
 	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 	var pos := center + Vector2(-text_size.x * 0.5, text_size.y * 0.35)
 	canvas.draw_string(font, pos + Vector2(4.0, 5.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(80.0 / 255.0, 40.0 / 255.0, 0.0, 0.82 * alpha))
@@ -105,7 +107,7 @@ func draw_revival_text(canvas: CanvasItem, center: Vector2, alpha: float, effect
 		return
 	var scale: float = 1.0 + 0.05 * sin((effect_frames - effect_timer_frames) * 0.28)
 	var font_size: int = int(round(32.0 * scale))
-	var text := "윤회의 부적 발동!"
+	var text := LanguageSettings.translate_text("윤회의 부적 발동!")
 	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 	var box_rect := Rect2(center + Vector2(-text_size.x * 0.5 - 20.0, -text_size.y * 0.5 - 12.0), Vector2(text_size.x + 40.0, text_size.y + 24.0))
 	canvas.draw_rect(box_rect, Color(16.0 / 255.0, 0.0, 26.0 / 255.0, 0.70 * alpha))

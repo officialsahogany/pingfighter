@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 
 func build_activation_particles(particle_count: int) -> Array:
 	var particles: Array = []
@@ -173,7 +175,7 @@ func draw_activation_text(canvas: CanvasItem, center: Vector2, t: float) -> void
 	var alpha: float = min(fade_in, fade_out)
 	if alpha <= 0.0:
 		return
-	var text := "메긴교르드의 효과 발동!"
+	var text := LanguageSettings.translate_text("메긴교르드의 효과 발동!")
 	var font_size := 27
 	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 	var box_rect := Rect2(center + Vector2(-text_size.x * 0.5 - 20.0, 68.0), Vector2(text_size.x + 40.0, 42.0))

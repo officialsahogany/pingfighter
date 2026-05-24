@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const CARD_RADIUS := 8.0
 const PANEL_RADIUS := 8.0
 const CHOICE_MODAL_PARTICLE_DRAW_LIMIT := 10
@@ -746,7 +748,7 @@ func _draw_status_panel(canvas: CanvasItem, runtime_state: Object, snapshot: Dic
 
 	var acquired: Array = _build_acquired_perks(levels, catalog, runtime_state)
 	if acquired.is_empty():
-		_draw_text(canvas, "획득한 퍽 없음", rect.position + Vector2(108.0, 27.0), 13, Color(115.0 / 255.0, 120.0 / 255.0, 140.0 / 255.0))
+		_draw_text(canvas, LanguageSettings.translate_text("획득한 퍽 없음"), rect.position + Vector2(108.0, 27.0), 13, Color(115.0 / 255.0, 120.0 / 255.0, 140.0 / 255.0))
 		return
 
 	var icon_size := 27.0

@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const WHIP_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage1_dalji_whip_skillcard_imagegen_v1.png"
 const SPINNING_TOP_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage1_dalji_spinning_top_skillcard_imagegen_v1.png"
@@ -247,10 +248,10 @@ func _draw_skill_tooltip(
 	var normal_size: int = max(10, int(round(11.0 * tooltip_scale)))
 	var small_size: int = max(9, int(round(9.0 * tooltip_scale)))
 	var max_text_width: float = width - padding * 2.0
-	var desc_lines: Array[String] = _wrap_text(str(info.get("description", "")), font, normal_size, max_text_width, TOOLTIP_MAX_DESC_LINES)
+	var desc_lines: Array[String] = _wrap_text(LanguageSettings.translate_text(str(info.get("description", ""))), font, normal_size, max_text_width, TOOLTIP_MAX_DESC_LINES)
 	var status_text: String = _get_tooltip_status_text(skill)
-	var cooldown_text: String = "쿨타임 %.0f초" % float(info.get("cooldown_seconds", 0.0))
-	var trigger_text: String = str(info.get("trigger", ""))
+	var cooldown_text: String = "Cooldown %.0fs" % float(info.get("cooldown_seconds", 0.0)) if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "쿨타임 %.0f초" % float(info.get("cooldown_seconds", 0.0))
+	var trigger_text: String = LanguageSettings.translate_text(str(info.get("trigger", "")))
 	var title_h: float = 20.0 * tooltip_scale
 	var meta_h: float = 17.0 * tooltip_scale
 	var line_h: float = 14.0 * tooltip_scale
@@ -402,12 +403,12 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 func _get_tooltip_status_text(skill: Dictionary) -> String:
 	var status: String = str(skill.get("status", "charging"))
 	if status == "casting":
-		return "발동 중"
+		return LanguageSettings.translate_text("발동 중")
 	if status == "used":
-		return "사용됨"
+		return LanguageSettings.translate_text("사용됨")
 	if bool(skill.get("ready", false)) or status == "ready":
-		return "준비 완료"
-	return "충전 %d%%" % int(round(clamp(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
+		return LanguageSettings.translate_text("준비 완료")
+	return ("Charge %d%%" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "충전 %d%%") % int(round(clamp(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
 
 
 func _get_tooltip_scale(scale_factor: float) -> float:
@@ -428,7 +429,7 @@ func _get_status_color(skill: Dictionary) -> Color:
 func _wrap_text(text: String, font: Font, font_size: int, max_width: float, max_lines: int) -> Array[String]:
 	var lines: Array[String] = []
 	var current := ""
-	for word in text.split(" ", false):
+	for word in LanguageSettings.translate_text(text).split(" ", false):
 		var candidate: String = word if current == "" else "%s %s" % [current, word]
 		if font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x <= max_width:
 			current = candidate
@@ -444,6 +445,7 @@ func _wrap_text(text: String, font: Font, font_size: int, max_width: float, max_
 
 
 func _draw_text(canvas: CanvasItem, font: Font, pos: Vector2, text: String, font_size: int, color: Color) -> void:
+	text = LanguageSettings.translate_text(text)
 	canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, min(0.72, color.a)))
 	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 

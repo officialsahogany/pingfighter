@@ -3,6 +3,7 @@ extends RefCounted
 ## ElixirOfMasteryRuntime.get_draw_context()를 받아 _draw() 호출 시 렌더링
 
 const ElixirRuntime := preload("res://scripts/items/elixir_of_mastery_runtime.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const OVERLAY_COLOR := Color(0.0, 0.0, 0.0, 0.78)
 const BOTTLE_BODY_COLOR := Color(0.47, 0.2, 0.78)
@@ -102,12 +103,12 @@ func _draw_buildup(canvas: CanvasItem, ctx: Dictionary, cx: float, cy: float, vi
 	if progress > 0.3:
 		var text_alpha: float = minf(1.0, (progress - 0.3) * 2.5)
 		var title_pos := Vector2(cx, cy + 100.0)
-		_draw_centered_text(canvas, "엘릭서 오브 마스터리", title_pos, 28, Color(TITLE_COLOR, text_alpha))
+		_draw_centered_text(canvas, LanguageSettings.translate_text("엘릭서 오브 마스터리"), title_pos, 28, Color(TITLE_COLOR, text_alpha))
 
 	if progress > 0.5:
 		var sub_alpha: float = minf(0.8, (progress - 0.5) * 2.0)
 		var sub_pos := Vector2(cx, cy + 130.0)
-		_draw_centered_text(canvas, "퍽의 운명이 결정됩니다...", sub_pos, 16, Color(SUBTITLE_COLOR, sub_alpha))
+		_draw_centered_text(canvas, LanguageSettings.translate_text("퍽의 운명이 결정됩니다..."), sub_pos, 16, Color(SUBTITLE_COLOR, sub_alpha))
 
 
 func _draw_result(canvas: CanvasItem, ctx: Dictionary, cx: float, cy: float, view_size: Vector2) -> void:
@@ -191,7 +192,7 @@ func _draw_result(canvas: CanvasItem, ctx: Dictionary, cx: float, cy: float, vie
 	# 확인 안내
 	if bool(ctx.get("waiting_for_confirm", false)):
 		var blink: float = (sin(cel_timer * 4.0) + 1.0) * 0.5
-		_draw_centered_text(canvas, "[ Space / Click 으로 계속 ]", Vector2(cx, cy + 130.0), 14, Color(HINT_COLOR, blink))
+		_draw_centered_text(canvas, LanguageSettings.translate_text("[ Space / Click 으로 계속 ]"), Vector2(cx, cy + 130.0), 14, Color(HINT_COLOR, blink))
 
 
 func _draw_radial_rays(canvas: CanvasItem, cx: float, cy: float, ctx: Dictionary) -> void:
@@ -280,7 +281,7 @@ func _draw_celebration_banner(canvas: CanvasItem, cx: float, cy: float, view_siz
 	canvas.draw_rect(Rect2(box_x, banner_y, box_w, box_h), Color(0.12, 0.06, 0.24, 0.92))
 	canvas.draw_rect(Rect2(box_x, banner_y, box_w, box_h), Color(1.0, 0.84, 0.31), false, 3.0)
 	# 타이틀
-	_draw_centered_text(canvas, "Lv.5 달성!", Vector2(cx, banner_y + 28.0), 36, Color(1.0, 0.9, 0.47))
+	_draw_centered_text(canvas, LanguageSettings.translate_text("Lv.5 달성!"), Vector2(cx, banner_y + 28.0), 36, Color(1.0, 0.9, 0.47))
 	_draw_centered_text(canvas, "MASTERY UNLOCKED", Vector2(cx, banner_y + 54.0), 16, Color(0.86, 0.78, 1.0))
 
 

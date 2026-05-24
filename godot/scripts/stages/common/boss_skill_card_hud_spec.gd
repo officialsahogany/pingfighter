@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const BASE_PILLAR_WIDTH := 80.0
 const CARD_WIDTH_BASE := 33.6
 const CARD_HEIGHT_BASE := 9.0
@@ -100,9 +102,9 @@ static func draw_skill_tooltip(
 	var small_size: int = max(9, int(round(9.0 * tooltip_scale)))
 	var max_text_width: float = width - padding * 2.0
 	var max_desc_lines: int = max(1, int(style.get("max_desc_lines", TOOLTIP_MAX_DESC_LINES)))
-	var desc_lines: Array[String] = _wrap_text(str(info.get("description", "")), font, normal_size, max_text_width, max_desc_lines)
+	var desc_lines: Array[String] = _wrap_text(LanguageSettings.translate_text(str(info.get("description", ""))), font, normal_size, max_text_width, max_desc_lines)
 	var status_text: String = _get_tooltip_status_text(skill, style)
-	var meta_text: String = _build_meta_text(str(info.get("trigger", "")), str(info.get("cooldown", "")), str(style.get("meta_separator", " / ")))
+	var meta_text: String = _build_meta_text(LanguageSettings.translate_text(str(info.get("trigger", ""))), LanguageSettings.translate_text(str(info.get("cooldown", ""))), str(style.get("meta_separator", " / ")))
 	var title_h: float = 20.0 * tooltip_scale
 	var meta_h: float = 17.0 * tooltip_scale if not meta_text.is_empty() else 0.0
 	var line_h: float = 14.0 * tooltip_scale
@@ -125,7 +127,7 @@ static func draw_skill_tooltip(
 	canvas.draw_rect(rect, Color(skill_color.r, skill_color.g, skill_color.b, 0.78), false, maxf(1.0, round(1.5 * tooltip_scale)))
 
 	var cursor_y: float = pos.y + padding
-	_draw_text(canvas, font, Vector2(pos.x + padding, cursor_y), str(info.get("name", "")), title_size, Color(1.0, 0.92, 0.74, 1.0))
+	_draw_text(canvas, font, Vector2(pos.x + padding, cursor_y), LanguageSettings.translate_text(str(info.get("name", ""))), title_size, Color(1.0, 0.92, 0.74, 1.0))
 	var status_size: Vector2 = font.get_string_size(status_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, small_size)
 	_draw_text(
 		canvas,
@@ -183,26 +185,26 @@ static func _build_tooltip_info(skill: Dictionary, tooltip_info: Dictionary) -> 
 
 static func _get_trigger_label(skill: Dictionary) -> String:
 	if skill.has("trigger") and not str(skill.get("trigger", "")).is_empty():
-		return str(skill.get("trigger", ""))
+		return LanguageSettings.translate_text(str(skill.get("trigger", "")))
 	if skill.has("trigger_label") and not str(skill.get("trigger_label", "")).is_empty():
-		return str(skill.get("trigger_label", ""))
+		return LanguageSettings.translate_text(str(skill.get("trigger_label", "")))
 	var trigger_type: String = str(skill.get("trigger_type", ""))
 	match trigger_type:
 		"auto", "auto_cooldown", "timer":
-			return "자동"
+			return LanguageSettings.translate_text("자동")
 		"instant":
-			return "즉시 발동"
+			return LanguageSettings.translate_text("즉시 발동")
 		"hit", "hit_cooldown", "boss_paddle_contact", "on_boss_hit":
-			return "보스 타격"
+			return LanguageSettings.translate_text("보스 타격")
 	return ""
 
 
 static func _get_cooldown_label(info: Dictionary, skill: Dictionary) -> String:
 	if info.has("cooldown_seconds"):
-		return "쿨타임 %s" % _format_seconds(float(info.get("cooldown_seconds", 0.0)))
+		return ("Cooldown %s" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "쿨타임 %s") % _format_seconds(float(info.get("cooldown_seconds", 0.0)))
 	var total: float = float(skill.get("cooldown_total", skill.get("total", 0.0)))
 	if total > 0.0:
-		return "쿨타임 %s" % _format_seconds(total)
+		return ("Cooldown %s" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "쿨타임 %s") % _format_seconds(total)
 	return ""
 
 
@@ -210,8 +212,8 @@ static func _format_seconds(value: float) -> String:
 	if value <= 0.0:
 		return ""
 	if abs(value - round(value)) < 0.05:
-		return "%d초" % int(round(value))
-	return "%.1f초" % value
+		return "%ds" % int(round(value)) if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%d초" % int(round(value))
+	return "%.1fs" % value if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%.1f초" % value
 
 
 static func _build_meta_text(trigger_text: String, cooldown_text: String, separator: String) -> String:
@@ -226,20 +228,20 @@ static func _get_tooltip_status_text(skill: Dictionary, style: Dictionary) -> St
 	var status: String = str(skill.get("status", "charging"))
 	var status_labels: Variant = style.get("status_labels", {})
 	if status_labels is Dictionary and (status_labels as Dictionary).has(status):
-		return str((status_labels as Dictionary).get(status, ""))
+		return LanguageSettings.translate_text(str((status_labels as Dictionary).get(status, "")))
 	if status == "inferno_charge":
-		return "폭염 예열"
+		return LanguageSettings.translate_text("폭염 예열")
 	if status == "casting":
-		return "발동 중"
+		return LanguageSettings.translate_text("발동 중")
 	if status == "used":
-		return "사용됨"
+		return LanguageSettings.translate_text("사용됨")
 	if status == "paused" or status == "waiting":
-		return "대기"
+		return LanguageSettings.translate_text("대기")
 	if status == "locked":
-		return "잠김"
+		return LanguageSettings.translate_text("잠김")
 	if bool(skill.get("ready", false)) or status == "ready":
-		return "준비 완료"
-	return "충전 %d%%" % int(round(clampf(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
+		return LanguageSettings.translate_text("준비 완료")
+	return ("Charge %d%%" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "충전 %d%%") % int(round(clampf(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
 
 
 static func _get_status_color(skill: Dictionary, style: Dictionary) -> Color:

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const MAX_SKILL_SLOTS := 5
 const FIXED_SKILLS := ["supply_drop", "emergency_supply"]
 const PISTOL_ORB_SKILL := "commando_pistol"
@@ -359,8 +361,60 @@ func get_skill_data(skill_name: String) -> Dictionary:
 		var data: Dictionary = value
 		data = data.duplicate(true)
 		data["cooldown"] = get_cooldown_seconds(skill_name)
+		_localize_skill_data(data, skill_name)
 		return data
 	return {}
+
+
+func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
+	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_ENGLISH:
+		return
+	match skill_name:
+		"supply_drop":
+			data["korean"] = "Supply Drop"
+			data["description"] = "Call a supply plane by radio to drop a random item or rented firearm."
+			data["how_to_use"] = "Hold S/Down or right-click for 1 second"
+			data["motion_hint"] = "Radio in a supply plane"
+		"emergency_supply":
+			data["korean"] = "Reload"
+			data["description"] = "Call a supply soldier by radio. After a short delay, they refill the currently selected firearm to max ammo."
+			data["how_to_use"] = "Press Down twice while standing still"
+			data["motion_hint"] = "Radio, then supply soldier refill"
+		"commando_pistol":
+			data["korean"] = "Beretta"
+			data["description"] = "Use a Beretta with twice the pistol fire rate, 20% faster bullets, and 30% better accuracy. Its 8 rounds are refilled only by Reload."
+			data["how_to_use"] = "Select weapon, then left-click or SPACE"
+			data["motion_hint"] = "Fire Beretta"
+		"bazooka":
+			data["korean"] = "Bazooka"
+			data["description"] = "When selected, firing triggers a short orb cooldown. Reload restores one round at a time."
+			data["how_to_use"] = "Select weapon, then left-click or SPACE"
+			data["motion_hint"] = "Fire bazooka"
+		"ak47":
+			data["korean"] = "AK-47"
+			data["description"] = "When selected, every shot triggers a short orb cooldown. A full reload gauge restores ammo and duration."
+			data["how_to_use"] = "Select weapon, then left-click or SPACE"
+			data["motion_hint"] = "Fire AK-47"
+		"net_gun":
+			data["korean"] = "Net Trap Gun"
+			data["description"] = "When selected, firing triggers a short orb cooldown. Reload restores one round at a time."
+			data["how_to_use"] = "Select weapon, then left-click or SPACE"
+			data["motion_hint"] = "Fire net trap"
+		"fire_support":
+			data["korean"] = "Fire Support"
+			data["description"] = "When selected, calling support triggers a short orb cooldown. A full reload gauge restores call charges."
+			data["how_to_use"] = "Select weapon, then left-click or SPACE"
+			data["motion_hint"] = "Call fire support"
+		"bowling_trap":
+			data["korean"] = "Bowling Trap"
+			data["description"] = "When selected, placing a trap triggers a short orb cooldown. Reload restores one round at a time."
+			data["how_to_use"] = "Select weapon, then left-click or SPACE"
+			data["motion_hint"] = "Place bowling trap"
+		"suicide_drone":
+			data["korean"] = "Suicide Drone"
+			data["description"] = "When selected, launching a drone triggers a short orb cooldown. Reload restores one round at a time."
+			data["how_to_use"] = "Select weapon, then left-click or SPACE"
+			data["motion_hint"] = "Launch suicide drone"
 
 
 func _get_effective_cooldown_seconds_map() -> Dictionary:

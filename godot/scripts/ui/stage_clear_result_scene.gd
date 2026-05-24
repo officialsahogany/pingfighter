@@ -907,7 +907,7 @@ func _draw_dalji_click_dialogue(view_size: Vector2, scale: float, font: Font) ->
 		Vector2(bubble.position.x + 54.0 * scale, bubble.position.y + bubble.size.y + 22.0 * scale),
 	])
 	draw_colored_polygon(tail, Color(1.0, 0.96, 0.98, 0.90 * alpha))
-	_draw_centered_text(font, DALJI_CLICK_DIALOGUE, bubble, int(round(26.0 * scale)), Color(0.34, 0.12, 0.18, 0.98 * alpha))
+	_draw_centered_text(font, LanguageSettings.translate_text(DALJI_CLICK_DIALOGUE), bubble, int(round(26.0 * scale)), Color(0.34, 0.12, 0.18, 0.98 * alpha))
 
 
 @warning_ignore("shadowed_variable_base_class")
@@ -1037,8 +1037,8 @@ func _is_mythic_visual_box_kind(kind: String) -> bool:
 
 func _get_box_display_label(kind: String) -> String:
 	if _is_guaranteed_mythic_box_kind(kind):
-		return BOX_LABEL_GUARANTEED_MYTHIC
-	return BOX_LABEL_ADVANCED if _is_advanced_box_kind(kind) else BOX_LABEL_NORMAL
+		return LanguageSettings.translate_text(BOX_LABEL_GUARANTEED_MYTHIC)
+	return LanguageSettings.translate_text(BOX_LABEL_ADVANCED if _is_advanced_box_kind(kind) else BOX_LABEL_NORMAL)
 
 
 func _get_box_display_labels() -> Array:

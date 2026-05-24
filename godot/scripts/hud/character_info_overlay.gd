@@ -7,6 +7,7 @@ const PassiveItemQuality := preload("res://scripts/items/passive_item_quality.gd
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.gd")
 const SmasherDashSpiritState := preload("res://scripts/characters/smasher_dash_spirit_state.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const SPECIAL_GAUGE_MAX := 500.0
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
@@ -1529,7 +1530,7 @@ func _draw_character_card(canvas: CanvasItem, owner: Object, registry: Object, r
 	var card_center_x: float = rect.position.x + rect.size.x * 0.5
 	_draw_text_centered_xy(canvas, font, name, card_center_x, center.y + radius + 40.0, 20, Color.WHITE)
 	var stage := int(_safe_owner_get(owner, "current_stage", 1))
-	_draw_text_centered_xy(canvas, font, "스테이지 %d" % stage, card_center_x, center.y + radius + 62.0, 13, TEXT_DIM)
+	_draw_text_centered_xy(canvas, font, LanguageSettings.format_stage_label(stage), card_center_x, center.y + radius + 62.0, 13, TEXT_DIM)
 
 	var gauge: float = float(_safe_owner_get(owner, "special_gauge", 0.0))
 	var bar_rect := Rect2(rect.position.x + 22.0, rect.end.y - 64.0, rect.size.x - 44.0, 12.0)
@@ -2004,7 +2005,7 @@ func _draw_perk_grid(
 	canvas.draw_rect(grid_rect, OVERLAY_GRID_FILL)
 	if acquired.is_empty():
 		_set_perk_grid_hover_layout(Vector2.ZERO, 0.0, 0.0, 0, 0)
-		_draw_text_centered_xy(canvas, font, "획득한 퍽 없음", grid_rect.position.x + grid_rect.size.x * 0.5, grid_rect.position.y + grid_rect.size.y * 0.5 + 4.0, 14, OVERLAY_GRID_EMPTY_TEXT)
+		_draw_text_centered_xy(canvas, font, LanguageSettings.translate_text("획득한 퍽 없음"), grid_rect.position.x + grid_rect.size.x * 0.5, grid_rect.position.y + grid_rect.size.y * 0.5 + 4.0, 14, OVERLAY_GRID_EMPTY_TEXT)
 		_last_perk_content_height = grid_rect.size.y
 		return hover_data
 
@@ -2217,7 +2218,7 @@ func _build_stats(
 	_write_simple_stat_row(0, "게이지", _format_int_pair(int(float(_safe_owner_get(owner, "special_gauge", 0.0))), int(max_gauge)), ACCENT_BLUE, write_row_cache)
 	_write_delta_stat_row(1, "이동 속도", "%.2f" % move_speed, base_move_speed, move_speed, true, write_row_cache)
 	_write_delta_stat_row(2, "몸집크기", "%.0fpx" % paddle_width, base_paddle_width, paddle_width, true, write_row_cache)
-	_write_delta_stat_row(3, "게이지 획득량", "%dpt" % int(round(gauge_gain)), base_gauge_gain, gauge_gain, true, write_row_cache)
+	_write_delta_stat_row(3, LanguageSettings.translate_text("게이지 획득량"), "%dpt" % int(round(gauge_gain)), base_gauge_gain, gauge_gain, true, write_row_cache)
 	_write_delta_stat_row(4, "최대 게이지", "%dpt" % int(round(max_gauge)), base_max_gauge, max_gauge, true, write_row_cache)
 	_write_delta_stat_row(5, "대시 거리", "%dpx" % int(round(dash_distance)), base_dash_distance, dash_distance, true, write_row_cache)
 	_write_delta_stat_row(6, "대시 후딜시간", "%.2f초" % dash_recovery_seconds, base_dash_recovery_seconds, dash_recovery_seconds, false, write_row_cache)
@@ -2226,7 +2227,7 @@ func _build_stats(
 	_write_simple_stat_row(9, "대시 토큰", _format_int_pair(int(dash_snapshot.get("tokens", 0)), max(1, int(dash_snapshot.get("max_tokens", 1)))), ACCENT_GOLD, write_row_cache)
 	_write_simple_stat_row(10, "장착 스킬", _format_int_pair(equipped.size(), int(skill_snapshot.get("max_slots", 5))), TEXT_SOFT, write_row_cache)
 	_write_simple_stat_row(11, "액티브 아이템", _format_int_pair(active_slots.size(), active_item_slot_capacity), TEXT_SOFT, write_row_cache)
-	_write_simple_stat_row(12, "획득 퍽", "%d" % levels.size(), TEXT_SOFT, write_row_cache)
+	_write_simple_stat_row(12, LanguageSettings.translate_text("획득 퍽"), "%d" % levels.size(), TEXT_SOFT, write_row_cache)
 	_write_simple_stat_row(13, "퍽 골드", "%d" % _get_runtime_perk_gold(owner, runtime_snapshot), ACCENT_GOLD, write_row_cache)
 	_stats_row_count = STAT_ROW_COUNT
 	return _stats_row_cache

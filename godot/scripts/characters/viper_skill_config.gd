@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const MAX_SKILL_SLOTS := 5
 const EQUIPPED_SKILLS := ["shadow_step", "marshal_kick", "blade_rush"]
 const SKILL_COSTS := {
@@ -239,8 +241,70 @@ func get_skill_data(skill_name: String) -> Dictionary:
 		var data: Dictionary = value
 		data = data.duplicate(true)
 		data["cooldown"] = get_cooldown_seconds(skill_name)
+		_localize_skill_data(data, skill_name)
 		return data
 	return {}
+
+
+func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
+	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_ENGLISH:
+		return
+	match skill_name:
+		"shadow_step":
+			data["korean"] = "Shadow Backstep"
+			data["description"] = "Teleport back to the position before your dash. Opens combo routes with a fast back kick."
+			data["how_to_use"] = "Press S during or right after dash"
+			data["motion_hint"] = "Leave an afterimage and teleport to the start point"
+		"blade_rush":
+			data["korean"] = "Air Blade"
+			data["description"] = "Fire a blade wave forward while airborne. Has a short windup; balls hit by it use a speed cap of 40 regardless of difficulty."
+			data["how_to_use"] = "Press W or Up while airborne"
+			data["motion_hint"] = "Fire a giant purple slash forward"
+		"nerve_strike":
+			data["korean"] = "Venom Edge"
+			data["description"] = "Rush behind the opponent and slash from behind to inflict confusion."
+			data["how_to_use"] = "After a blade skill, press W or Up before landing"
+			data["motion_hint"] = "Fly behind the boss and slash to confuse"
+		"dive_strike":
+			data["korean"] = "EMP Strike"
+			data["description"] = "Release an EMP pulse with a hard impact. Pulse strength scales with airborne height."
+			data["how_to_use"] = "Hold S or Down for 0.3s while airborne"
+			data["motion_hint"] = "Dive with an EMP pulse"
+		"marshal_kick":
+			data["korean"] = "Martial Kick"
+			data["description"] = "Kick off a wall and rush toward the ball. Used as a combo bridge."
+			data["how_to_use"] = "After Shadow Backstep, blade skills, or Hwarang Kick"
+			data["motion_hint"] = "Wall-jump and rush toward the ball"
+		"phantom_kick":
+			data["korean"] = "Phantom Kick"
+			data["description"] = "Load dark energy into the rebound from Martial Kick."
+			data["how_to_use"] = "Press S or Down after Martial Kick hits"
+			data["motion_hint"] = "Dark antimatter kick"
+		"dark_blade":
+			data["korean"] = "Dark Blade"
+			data["description"] = "Within 3 seconds after hitting the ball, fire an empowered aerial slash. On hit, it opens the Martial Kick window."
+			data["how_to_use"] = "After Shadow Backstep, Air Blade, Martial/Phantom/Hwarang Kick hits"
+			data["motion_hint"] = "Fire a dark red empowered slash in the air"
+		"chaos_spear":
+			data["korean"] = "Chaos Spear"
+			data["description"] = "Throw a spear of chaos. A black hole forms at center map and pulls in the ball and normal projectiles."
+			data["how_to_use"] = "Input A, W, D on the ground"
+			data["motion_hint"] = "Center-map black hole absorbs balls and projectiles"
+		"core_flip":
+			data["korean"] = "Hwarang Kick"
+			data["description"] = "Kick the ball with Hwarang spirit and counterattack along a hard-to-read diagonal."
+			data["how_to_use"] = "After hitting the ball with dash, press A and D together"
+			data["motion_hint"] = "Kick off walls twice and rush toward the ball"
+		"dual_glitch":
+			data["korean"] = "Dual Glitch"
+			data["description"] = "Split yourself with ancient Viper tech. Clones mirror player movement and guard the ball from both sides."
+			data["how_to_use"] = "Input A, D, A, D or left-right-left-right"
+			data["motion_hint"] = "Summon left and right clone paddles"
+		"ignition_aura":
+			data["korean"] = "Ignition Aura"
+			data["description"] = "Amplify internal fire energy. All perk levels increase for a duration, and gold bonuses increase too."
+			data["how_to_use"] = "Hold W or Up for 0.5s on the ground"
+			data["motion_hint"] = "Release flame energy"
 
 
 func _get_effective_cooldown_seconds_map() -> Dictionary:

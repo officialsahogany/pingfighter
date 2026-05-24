@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const DIVE_HIT_TEXT := "EMP 스트라이크"
 const MISS_TEXT := "MISS!"
@@ -40,9 +41,10 @@ func draw_dive_hit_text(
 		true
 	)
 	var origin: Vector2 = Vector2(center.x - text_width * 0.5, center.y)
-	canvas.draw_string(font, origin + Vector2(3.0, 3.0), DIVE_HIT_TEXT, HORIZONTAL_ALIGNMENT_CENTER, text_width, font_size, Color(0.02, 0.03, 0.06, alpha * 0.82))
-	canvas.draw_string(font, origin + Vector2(-1.0, 0.0), DIVE_HIT_TEXT, HORIZONTAL_ALIGNMENT_CENTER, text_width, font_size, Color(0.20, 0.96, 1.0, alpha * 0.50))
-	canvas.draw_string(font, origin, DIVE_HIT_TEXT, HORIZONTAL_ALIGNMENT_CENTER, text_width, font_size, Color(1.0, 0.86, 0.48, alpha))
+	var label := LanguageSettings.translate_text(DIVE_HIT_TEXT)
+	canvas.draw_string(font, origin + Vector2(3.0, 3.0), label, HORIZONTAL_ALIGNMENT_CENTER, text_width, font_size, Color(0.02, 0.03, 0.06, alpha * 0.82))
+	canvas.draw_string(font, origin + Vector2(-1.0, 0.0), label, HORIZONTAL_ALIGNMENT_CENTER, text_width, font_size, Color(0.20, 0.96, 1.0, alpha * 0.50))
+	canvas.draw_string(font, origin, label, HORIZONTAL_ALIGNMENT_CENTER, text_width, font_size, Color(1.0, 0.86, 0.48, alpha))
 
 
 func draw_nerve_strike_miss_text(

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 
 static func calculate_starpoint_total(boxes: Array) -> int:
 	var total: int = 0
@@ -141,36 +143,36 @@ static func build_perk_info_summary(
 	if not perks.is_empty():
 		var title: String = first_perk_title
 		if title == "":
-			title = "획득 퍽"
+			title = LanguageSettings.translate_text("획득 퍽")
 		if perks.size() > 1:
-			title = "%s 외 %d개" % [title, perks.size() - 1]
+			title = "%s +%d" % [title, perks.size() - 1] if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%s 외 %d개" % [title, perks.size() - 1]
 		return {
 			"kind": "perk",
-			"eyebrow": "획득 퍽",
+			"eyebrow": LanguageSettings.translate_text("획득 퍽"),
 			"title": title,
-			"detail": first_perk_detail,
+			"detail": LanguageSettings.translate_text(first_perk_detail),
 		}
 
 	if starpoint_total > 0:
 		return {
 			"kind": "starpoint",
-			"eyebrow": "퍽 선택",
-			"title": "퍽 선택권 +%d" % starpoint_total,
-			"detail": "다음 진행 시 획득한 수만큼 퍽 선택창이 열립니다.",
+			"eyebrow": LanguageSettings.translate_text("퍽 선택"),
+			"title": "%s +%d" % [LanguageSettings.translate_text("퍽 선택권"), starpoint_total],
+			"detail": "The next run will open perk choices for the amount acquired." if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "다음 진행 시 획득한 수만큼 퍽 선택창이 열립니다.",
 		}
 
 	return {
 		"kind": "empty",
-		"eyebrow": "퍽 정보",
-		"title": "획득 퍽 없음",
-		"detail": "이번 결과는 아이템 보상만 획득했습니다.",
+		"eyebrow": LanguageSettings.translate_text("퍽 정보"),
+		"title": LanguageSettings.translate_text("획득 퍽 없음"),
+		"detail": LanguageSettings.translate_text("이번 결과는 아이템 보상만 획득했습니다."),
 	}
 
 
 static func with_result_reward_source(reward: Dictionary, result_source: String, source_labels: Dictionary) -> Dictionary:
 	var copy: Dictionary = reward.duplicate(true)
 	copy["_result_reward_source"] = result_source
-	copy["_result_reward_source_label"] = str(source_labels.get(result_source, ""))
+	copy["_result_reward_source_label"] = LanguageSettings.translate_text(str(source_labels.get(result_source, "")))
 	return copy
 
 

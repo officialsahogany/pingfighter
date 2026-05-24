@@ -2,6 +2,7 @@ extends RefCounted
 
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const ViperSkillVisibilityQuery := preload("res://scripts/characters/viper_skill_visibility_query.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _visibility_query := ViperSkillVisibilityQuery.new()
 
@@ -66,7 +67,7 @@ func draw_ignition_aura_timer_gauge(
 	canvas.draw_arc(icon_center, 12.0, -PI * 0.15, PI * 1.35, 24, Color(1.0, 0.96, 0.74, 0.54), 1.6)
 	var font: Font = ThemeDB.fallback_font
 	if font != null:
-		var label: String = "이그니션 %.1f초" % max(0.0, remaining_frames / 60.0)
+		var label: String = "%s %.1fs" % [LanguageSettings.translate_text("이그니션"), max(0.0, remaining_frames / 60.0)] if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "이그니션 %.1f초" % max(0.0, remaining_frames / 60.0)
 		canvas.draw_string(font, frame_rect.position + Vector2(8.0, -6.0), label, HORIZONTAL_ALIGNMENT_LEFT, 104.0, 10, Color(1.0, 0.95, 0.82, 0.90))
 
 
@@ -136,7 +137,7 @@ func draw_dual_glitch_timer_gauge(
 	canvas.draw_arc(icon_center, 12.0, 0.0, TAU, 24, Color(0.96, 0.90, 1.0, 0.52), 1.6)
 	var font: Font = ThemeDB.fallback_font
 	if font != null:
-		var label: String = "듀얼 %.1f" % max(0.0, remaining_seconds)
+		var label: String = "%s %.1f" % [LanguageSettings.translate_text("듀얼"), max(0.0, remaining_seconds)]
 		canvas.draw_string(font, frame_rect.position + Vector2(8.0, -6.0), label, HORIZONTAL_ALIGNMENT_LEFT, 92.0, 10, Color(0.90, 0.98, 1.0, 0.88))
 
 

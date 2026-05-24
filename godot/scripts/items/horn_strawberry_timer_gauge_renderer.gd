@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const BAR_BG := Color(0.08, 0.02, 0.03, 0.95)
 const BAR_FRAME := Color(0.58, 0.06, 0.10, 0.92)
 const BAR_FRAME_LIGHT := Color(1.0, 0.36, 0.42, 0.82)
@@ -36,7 +38,7 @@ func draw_transform_timer_gauge(
 	_draw_icon(canvas, frame_rect.position + Vector2(-19.0, frame_rect.size.y * 0.5), pulse)
 	var font: Font = ThemeDB.fallback_font
 	if font != null:
-		var label := "뿔딸기 %.1f" % remaining_sec
+		var label := "%s %.1f" % [LanguageSettings.translate_text("뿔딸기"), remaining_sec]
 		canvas.draw_string(font, frame_rect.position + Vector2(8.0, -6.0), label, HORIZONTAL_ALIGNMENT_LEFT, 104.0, 10, Color(1.0, 0.94, 0.92, 0.90))
 
 

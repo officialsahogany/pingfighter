@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const MAX_SKILL_SLOTS := 5
 const EQUIPPED_SKILLS := ["drive", "power_smashing"]
 const SKILL_COSTS := {
@@ -226,8 +228,65 @@ func get_skill_data(skill_name: String) -> Dictionary:
 		var data: Dictionary = value
 		data = data.duplicate(true)
 		data["cooldown"] = get_cooldown_seconds(skill_name)
+		_localize_skill_data(data, skill_name)
 		return data
 	return {}
+
+
+func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
+	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_ENGLISH:
+		return
+	match skill_name:
+		"plasma":
+			data["korean"] = "Plasma"
+			data["description"] = "Fire a plasma orb forward. Enemies touching it are slowed; longer charge strengthens the slow."
+			data["how_to_use"] = "Hold W/Up, then release"
+			data["motion_hint"] = "Fire a plasma orb forward"
+		"recovery":
+			data["korean"] = "Recovery"
+			data["description"] = "Immediately cancels dash recovery and grants a temporary 50% movement speed bonus."
+			data["how_to_use"] = "Press W/Up during dash recovery"
+			data["motion_hint"] = "Green light cancels recovery and accelerates"
+		"cleanse":
+			data["korean"] = "Cleanse"
+			data["description"] = "Immediately clears status effects such as stun or slow and grants temporary immunity."
+			data["how_to_use"] = "Press W while affected by a status effect"
+			data["motion_hint"] = "Golden cleanse clears status effects"
+		"shield_kiting":
+			data["korean"] = "Shield Kiting"
+			data["description"] = "Charge and throw an energy shield for up to 0.36s. On hit, ball speed increases 30% and the shield returns immediately."
+			data["how_to_use"] = "Double-click left mouse or double-tap SPACE"
+			data["motion_hint"] = "Throw and recall an energy shield"
+		"drive":
+			data["korean"] = "Drive"
+			data["description"] = "Strike the ball into a curve shot. Early input before the ball arrives improves accuracy."
+			data["how_to_use"] = "Press Left/Right + left-click together"
+			data["motion_hint"] = "Curve the ball with a drive shot"
+		"power_smashing":
+			data["korean"] = "Power Smashing"
+			data["description"] = "Launch the ball with a powerful smash. Left/right input controls launch direction."
+			data["how_to_use"] = "Hold Left/Right + left-click"
+			data["motion_hint"] = "Launch the ball with a heavy smash"
+		"magnum_grip":
+			data["korean"] = "Magnum Grip"
+			data["description"] = "Pull the ball toward the paddle with a powerful magnetic field. Returning the pulled ball raises its speed cap to 45."
+			data["how_to_use"] = "Press Left+Right together"
+			data["motion_hint"] = "Pull the ball to the paddle with magnetism"
+		"ghost_shot":
+			data["korean"] = "Ghost Shot"
+			data["description"] = "The ball snakes around while a ghost follows it. At 420+ gauge, replaces Power Smashing."
+			data["how_to_use"] = "At 420+ gauge, hold Left/Right + left-click"
+			data["motion_hint"] = "Snaking ball with ghost pursuit"
+		"warp_gate":
+			data["korean"] = "Warp Gate"
+			data["description"] = "Open dimensional portals for a duration. You can cross left/right walls without extra gauge cost."
+			data["how_to_use"] = "Hold S or Down for at least 0.5s"
+			data["motion_hint"] = "Open portals to warp through side walls"
+		"smasher_wheel":
+			data["korean"] = "Smasher Wheel"
+			data["description"] = "The paddle spins for 1.2s. On ball contact, it relaunches very fast toward the boss with a strong drive curve."
+			data["how_to_use"] = "Input A-W-D or D-W-A within 0.6s"
+			data["motion_hint"] = "Spin the paddle and relaunch the ball"
 
 
 func _get_effective_cooldown_seconds_map() -> Dictionary:

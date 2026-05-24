@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const FIREBALL_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_fireball_skillcard_imagegen_v1.png"
 const INFERNO_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_inferno_skillcard_imagegen_v1.png"
@@ -536,16 +537,16 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 func _get_tooltip_status_text(skill: Dictionary) -> String:
 	var status: String = str(skill.get("status", "charging"))
 	if status == "inferno_charge":
-		return "인페르노 예열"
+		return LanguageSettings.translate_text("인페르노 예열")
 	if status == "casting":
-		return "발동 중"
+		return LanguageSettings.translate_text("발동 중")
 	if status == "paused":
-		return "대기"
+		return LanguageSettings.translate_text("대기")
 	if status == "locked":
-		return "잠김"
+		return LanguageSettings.translate_text("잠김")
 	if bool(skill.get("ready", false)) or status == "ready":
-		return "준비 완료"
-	return "충전 %d%%" % int(round(clampf(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
+		return LanguageSettings.translate_text("준비 완료")
+	return ("Charge %d%%" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "충전 %d%%") % int(round(clampf(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
 
 
 func _get_status_color(skill: Dictionary) -> Color:
@@ -640,7 +641,7 @@ func _prune_queue_positions(entries: Array) -> void:
 func _wrap_text(text: String, font: Font, font_size: int, max_width: float, max_lines: int) -> Array[String]:
 	var lines: Array[String] = []
 	var current := ""
-	for word in text.split(" ", false):
+	for word in LanguageSettings.translate_text(text).split(" ", false):
 		var candidate: String = word if current == "" else "%s %s" % [current, word]
 		if font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x <= max_width:
 			current = candidate
@@ -656,6 +657,7 @@ func _wrap_text(text: String, font: Font, font_size: int, max_width: float, max_
 
 
 func _draw_text(canvas: CanvasItem, font: Font, pos: Vector2, text: String, font_size: int, color: Color) -> void:
+	text = LanguageSettings.translate_text(text)
 	canvas.draw_string(font, pos + Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, minf(0.72, color.a)))
 	canvas.draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 

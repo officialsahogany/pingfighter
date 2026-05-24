@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const WEATHER_TYPES := ["breeze", "gust", "fire", "ice", "rain", "hail", "sand"]
 const WEATHER_DURATION_WEIGHTS := [1, 1, 1, 1, 1, 2, 2, 2, 3, 3]
 const WEATHER_EVENT_PROBABILITY := 0.10
@@ -1879,38 +1881,42 @@ func _draw_weather_message(canvas: CanvasItem) -> void:
 func _get_start_text(next_type: String, direction: int) -> String:
 	match next_type:
 		"breeze":
+			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+				return "A breeze blows %s" % ("left" if direction < 0 else "right")
 			return "미풍이 %s쪽으로 붑니다" % ("왼" if direction < 0 else "오른")
 		"gust":
+			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+				return "A strong gust drives %s" % ("left" if direction < 0 else "right")
 			return "강풍이 %s쪽으로 몰아칩니다" % ("왼" if direction < 0 else "오른")
 		"fire":
-			return "화재가 번집니다"
+			return LanguageSettings.translate_text("화재가 번집니다")
 		"ice":
-			return "빙판이 깔립니다"
+			return LanguageSettings.translate_text("빙판이 깔립니다")
 		"rain":
-			return "소나기가 쏟아집니다"
+			return LanguageSettings.translate_text("소나기가 쏟아집니다")
 		"hail":
-			return "우박이 떨어집니다"
+			return LanguageSettings.translate_text("우박이 떨어집니다")
 		"sand":
-			return "사막화가 시작됩니다"
+			return LanguageSettings.translate_text("사막화가 시작됩니다")
 	return ""
 
 
 func _get_end_text(ended_type: String) -> String:
 	match ended_type:
 		"breeze":
-			return "미풍이 잦아들었습니다"
+			return LanguageSettings.translate_text("미풍이 잦아들었습니다")
 		"gust":
-			return "강풍이 멎었습니다"
+			return LanguageSettings.translate_text("강풍이 멎었습니다")
 		"fire":
-			return "불길이 꺼졌습니다"
+			return LanguageSettings.translate_text("불길이 꺼졌습니다")
 		"ice":
-			return "빙판이 녹았습니다"
+			return LanguageSettings.translate_text("빙판이 녹았습니다")
 		"rain":
-			return "소나기가 그쳤습니다"
+			return LanguageSettings.translate_text("소나기가 그쳤습니다")
 		"hail":
-			return "우박이 그쳤습니다"
+			return LanguageSettings.translate_text("우박이 그쳤습니다")
 		"sand":
-			return "모래가 가라앉았습니다"
+			return LanguageSettings.translate_text("모래가 가라앉았습니다")
 	return ""
 
 

@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const JUNGLE_QUAKE_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage2_jungle_quake_skillcard_imagegen_v1.png"
 const SPEED_DEFENSE_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage2_speed_defense_skillcard_imagegen_v3.png"
@@ -132,7 +133,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 
 	if skillcard != null or font == null or rect.size.x < 31.0:
 		return
-	var label: String = str(skill.get("label", ""))
+	var label: String = LanguageSettings.translate_text(str(skill.get("label", "")))
 	var font_size: int = max(8, int(round(9.0 * scale_factor)))
 	var text_width: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
 	if text_width > rect.size.x - 4.0:

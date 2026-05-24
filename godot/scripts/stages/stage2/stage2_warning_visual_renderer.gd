@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const DEFAULT_QUAKE_WAVE_COUNT := 6
 const DEFAULT_QUAKE_WAVE_SEGMENTS := 16
 const DEFAULT_VISUAL_ONLY_QUAKE_WAVE_COUNT := 3
@@ -16,7 +18,7 @@ func draw_skill_warning_banner(
 	warning: Dictionary
 ) -> void:
 	var timer: float = float(warning.get("timer", 0.0))
-	var text: String = str(warning.get("text", ""))
+	var text: String = LanguageSettings.translate_text(str(warning.get("text", "")))
 	if timer <= 0.0 or text.is_empty():
 		return
 	var font: Font = ThemeDB.fallback_font

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const TREASURE_MAP_SKILL_ID := "downtown_treasure_map"
 const LEGENDARY_CHANCE := 0.20
@@ -58,8 +59,8 @@ func draw_effect(canvas: CanvasItem, view_size: Vector2) -> void:
 
 	var icon_center := panel_rect.position + Vector2(58.0, panel_rect.size.y * 0.52)
 	_draw_result_symbol(canvas, icon_center, result_type, accent, alpha)
-	_draw_text(canvas, "보물탐색", panel_rect.position + Vector2(106.0, 40.0), 18, Color(1.0, 215.0 / 255.0, 95.0 / 255.0, alpha))
-	_draw_text(canvas, str(last_result.get("display_text", "아무것도 찾지 못했습니다")), panel_rect.position + Vector2(106.0, 72.0), 16, Color(235.0 / 255.0, 242.0 / 255.0, 1.0, alpha))
+	_draw_text(canvas, LanguageSettings.translate_text("보물탐색"), panel_rect.position + Vector2(106.0, 40.0), 18, Color(1.0, 215.0 / 255.0, 95.0 / 255.0, alpha))
+	_draw_text(canvas, LanguageSettings.translate_text(str(last_result.get("display_text", "아무것도 찾지 못했습니다"))), panel_rect.position + Vector2(106.0, 72.0), 16, Color(235.0 / 255.0, 242.0 / 255.0, 1.0, alpha))
 
 
 func get_last_result() -> Dictionary:
@@ -82,8 +83,8 @@ func _roll_result(owner: Object, registry: Object) -> Dictionary:
 		"ok": true,
 		"result_type": "empty",
 		"item_name": "",
-		"display_text": "아무것도 찾지 못했습니다",
-		"feedback_text": "보물탐색: 꽝",
+		"display_text": LanguageSettings.translate_text("아무것도 찾지 못했습니다"),
+		"feedback_text": "Treasure Hunt: Nothing" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "보물탐색: 꽝",
 	}
 
 
@@ -121,13 +122,13 @@ func _grant_passive_or_mythic_reward(
 		if not acquired_item.is_empty() and mythic_item_catalog.has_method("format_item_display_name")
 		else mythic_item_catalog.get_display_name(item_name)
 	)
-	var result_label := "신화" if result_type == "legendary" else "패시브"
+	var result_label := LanguageSettings.translate_text("신화" if result_type == "legendary" else "패시브")
 	return {
 		"ok": true,
 		"result_type": result_type,
 		"item_name": item_name,
-		"display_text": "%s 발견: %s" % [result_label, display_name],
-		"feedback_text": "보물탐색: %s" % display_name,
+		"display_text": "%s Found: %s" % [result_label, display_name] if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "%s 발견: %s" % [result_label, display_name],
+		"feedback_text": "Treasure Hunt: %s" % display_name if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "보물탐색: %s" % display_name,
 	}
 
 

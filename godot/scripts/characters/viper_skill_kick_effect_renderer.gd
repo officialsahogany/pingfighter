@@ -2,6 +2,7 @@ extends RefCounted
 
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 const ImpactShockwaveTextureCache := preload("res://scripts/effects/impact_shockwave_texture_cache.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 
 func draw_core_flip_effects(canvas: CanvasItem, shake_offset: Vector2, runtime: Object, phase0_frames: float, phase2_frames: float) -> void:
@@ -152,9 +153,10 @@ func draw_phantom_kick_show_overlay(
 	var font: Font = ThemeDB.fallback_font
 	var text_width := 240.0
 	var text_origin := Vector2(center.x - text_width * 0.5, center.y + text_shake.y)
-	canvas.draw_string(font, text_origin + Vector2(text_shake.x + 3.0, 3.0), "팬텀 킥", HORIZONTAL_ALIGNMENT_CENTER, text_width, 36, Color(0.04, 0.0, 0.06, text_alpha))
-	canvas.draw_string(font, text_origin + Vector2(text_shake.x, 0.0), "팬텀 킥", HORIZONTAL_ALIGNMENT_CENTER, text_width, 36, Color(0.63, 0.20, 0.78, text_alpha))
-	canvas.draw_string(font, text_origin + Vector2(text_shake.x - 1.0, -1.0), "팬텀 킥", HORIZONTAL_ALIGNMENT_CENTER, text_width, 36, Color(0.78, 0.47, 0.90, text_alpha * 0.18))
+	var label := LanguageSettings.translate_text("팬텀 킥")
+	canvas.draw_string(font, text_origin + Vector2(text_shake.x + 3.0, 3.0), label, HORIZONTAL_ALIGNMENT_CENTER, text_width, 36, Color(0.04, 0.0, 0.06, text_alpha))
+	canvas.draw_string(font, text_origin + Vector2(text_shake.x, 0.0), label, HORIZONTAL_ALIGNMENT_CENTER, text_width, 36, Color(0.63, 0.20, 0.78, text_alpha))
+	canvas.draw_string(font, text_origin + Vector2(text_shake.x - 1.0, -1.0), label, HORIZONTAL_ALIGNMENT_CENTER, text_width, 36, Color(0.78, 0.47, 0.90, text_alpha * 0.18))
 	if runtime.dmk_freeze_active:
 		for i in range(14):
 			var angle: float = TAU * float(i) / 14.0 + float(now_msec) * 0.002

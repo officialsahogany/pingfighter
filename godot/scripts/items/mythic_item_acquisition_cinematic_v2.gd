@@ -2,6 +2,7 @@ extends Node2D
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const WRITHE_SHADER := preload("res://shaders/mythic_writhe.gdshader")
 const ARC_SHADER := preload("res://shaders/mythic_arc_flow.gdshader")
@@ -925,8 +926,8 @@ func _resolve_display_name(source: Dictionary) -> String:
 	for key in ["qualified_display_name", "korean_name", "display_name", "name"]:
 		var value := str(source.get(key, ""))
 		if value != "":
-			return value
-	return "신화 아이템"
+			return LanguageSettings.translate_text(value)
+	return LanguageSettings.translate_text("신화 아이템")
 
 
 func _play_first_audio(registry: Object, method_names: Array[String]) -> void:

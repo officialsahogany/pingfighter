@@ -4,6 +4,7 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const BrickWallEffectRenderer := preload("res://scripts/items/active_item_brick_wall_effect_renderer.gd")
 const TimerGaugeRenderer := preload("res://scripts/items/active_item_timer_gauge_renderer.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -221,7 +222,7 @@ func draw_pickup_effect(
 	var item_name: String = str(pickup_effect.get("display_name", ""))
 	sample_start = _perf_begin(detail_perf_logger)
 	_draw_centered_text(canvas, item_name, center + Vector2(0.0, 54.0), PICKUP_DISPLAY_FONT_SIZE, Color(1.0, 1.0, 1.0, alpha))
-	_draw_centered_text(canvas, PICKUP_NOTICE_TEXT, center + Vector2(0.0, 70.0), PICKUP_NOTICE_FONT_SIZE, Color(1.0, 215.0 / 255.0, 0.0, alpha))
+	_draw_centered_text(canvas, LanguageSettings.translate_text(PICKUP_NOTICE_TEXT), center + Vector2(0.0, 70.0), PICKUP_NOTICE_FONT_SIZE, Color(1.0, 215.0 / 255.0, 0.0, alpha))
 
 
 	_perf_end(detail_perf_logger, "active_item.pickup.text", sample_start)
@@ -719,7 +720,7 @@ func _prewarm_pickup_text() -> void:
 	var font: Font = _get_font()
 	if font == null:
 		return
-	_get_text_size(font, PICKUP_NOTICE_TEXT, PICKUP_NOTICE_FONT_SIZE)
+	_get_text_size(font, LanguageSettings.translate_text(PICKUP_NOTICE_TEXT), PICKUP_NOTICE_FONT_SIZE)
 	var active_catalog: Object = ActiveItemCatalog.new()
 	_prewarm_catalog_pickup_text(font, active_catalog, ActiveItemCatalog.FIELD_SPAWN_ORDER)
 	_prewarm_catalog_pickup_text(font, active_catalog, EXTRA_PICKUP_TEXT_PREWARM_ITEMS)

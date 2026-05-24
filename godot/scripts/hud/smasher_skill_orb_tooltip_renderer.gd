@@ -4,6 +4,7 @@ const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout
 const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_renderer.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const SkillOrbTooltipEffectPreviewRenderer := preload("res://scripts/hud/skill_orb_tooltip_effect_preview_renderer.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const TOOLTIP_WIDTH := 300.0
 const HEADER_HEIGHT := 36.0
@@ -643,6 +644,8 @@ func _append_ignition_aura_runtime_bonus(description: String, hover_context: Dic
 		active_bonus = 2
 	if gold_bonus <= 0:
 		gold_bonus = 50
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		return "%s\nIgnition: invested perks Lv.+%d for 25s / gold +%d" % [description, active_bonus, gold_bonus]
 	return "%s\n이그니션: 25초 동안 투자 퍽 Lv.+%d / 골드 +%d" % [description, active_bonus, gold_bonus]
 
 
