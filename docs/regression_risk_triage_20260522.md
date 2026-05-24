@@ -7566,6 +7566,31 @@ Hundredth split on 2026-05-24:
   warnings. The focused owner smokes now reject `_start_support_call()` and
   `_update_bowling_trap_install()` in the runtime facade.
 
+259th follow-up on 2026-05-24:
+
+- Commits:
+  `b7eb40a12 godot: move Commando support bomb and guard clear bridges` and
+  `57baff298 godot: avoid support projectile call shadow warning`.
+- Scope: removed the Commando runtime `_spawn_support_bomb()` bridge by moving
+  call-payload target lookup, deterministic bomb target selection, aircraft
+  position fallback, and projectile append into
+  `CommandoFirearmSupportProjectileResolver.append_from_call()`. The same pass
+  removed `_clear_bowling_trap_guard()` by adding
+  `CommandoFirearmBowlingTrapGeometry.apply_guard_state()` and routing reset,
+  guard consumption, and release guard arming through that owner helper.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2984` lines /
+  `51` functions to `2962` lines / `49` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_support_projectile_resolver_smoke`,
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_audio_routing_smoke`. The Godot headless load check passed,
+  and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings
+  after renaming the support projectile helper's shadowing `call` parameter.
+  The focused owner smokes now reject `_spawn_support_bomb()` and
+  `_clear_bowling_trap_guard()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
