@@ -7189,6 +7189,23 @@ Hundredth split on 2026-05-24:
   `commando_firearm_value_utils_smoke`. The fire-result smoke now drives the
   real AK-47 empty-ammo failure path and rejects the removed failure bridge.
 
+241st follow-up on 2026-05-24:
+
+- Commit:
+  `a5cd952da godot: drop unused Commando slingshot input bridge`.
+- Scope: removed the uncalled `_update_slingshot_input()` branch from
+  `commando_firearm_runtime.gd`. The live base-pistol input path already uses
+  edge-gated pistol handling, while the remaining slingshot charge / release /
+  hit helpers stay available for the focused state and projectile tests.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3222` lines /
+  `75` functions to `3174` lines / `74` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_slingshot_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_draw_state_resolver_smoke`. The slingshot smoke now rejects
+  the removed input bridge, and the runtime VFX smoke keeps the base-pistol
+  held-input-after-switch regression covered.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
