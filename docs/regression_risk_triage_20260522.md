@@ -8501,3 +8501,22 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+302nd follow-up on 2026-05-24:
+
+- Commit:
+  `e7ad393b7 godot: finalize Commando projectile motion fields`.
+- Scope: added
+  `CommandoFirearmProjectileMotionState.finalize_frame_motion()` to combine the
+  final per-frame motion write and life timer advancement, and reused the
+  projectile replacement helper for active suicide-drone steering. Runtime
+  projectile update now delegates the final motion mutation shape instead of
+  writing `prev_pos` / `pos` / `velocity` / `life_frames` directly.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2505` lines /
+  `35` functions to `2504` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_motion_state_smoke`,
+  `commando_firearm_suicide_drone_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
