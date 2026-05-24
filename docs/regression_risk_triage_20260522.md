@@ -6805,6 +6805,28 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
   scripts with no GDScript warnings.
 
+220th follow-up on 2026-05-24:
+
+- Commit: `01036b3fd godot: drop Commando lingering spawn owner bridges`.
+- Scope: removed the private `_apply_lingering_net_fields()` and
+  `_seed_lingering_fire_flames()` runtime bridges. `_spawn_lingering_effect()`
+  now calls `CommandoFirearmLingeringNetFieldState.apply_net_fields()` directly
+  for live / dissolve net setup and calls the lingering fire-zone predicate /
+  flame builder directly for suicide-drone fire-zone spawns. The value-utils
+  smoke now verifies the real net and fire spawn paths instead of calling the
+  removed wrappers.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3340` lines /
+  `102` functions to `3322` lines / `100` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` could not
+  complete because an unrelated dirty file,
+  `scripts/characters/viper_skill_timer_gauge_renderer.gd:70`, now trips a
+  Variant inference warning before the scan reaches this Commando slice.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
