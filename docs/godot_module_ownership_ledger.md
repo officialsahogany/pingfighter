@@ -4132,10 +4132,10 @@ This section is intentionally long; use search to find the nearest owner.
   advancement, field-bound clamping, non-manual homing velocity, active
   suicide-drone projectile predicates / lookup, and fire / fire-failed /
   active-input / detonation result dictionaries.
-  `commando_firearm_runtime.gd` keeps projectile-array ownership, input gate
+  `commando_firearm_runtime.gd` calls active projectile predicates / lookup
+  directly from this owner and keeps projectile-array ownership, input gate
   side effects, detonation removal, cooldown mutation, audio, VFX, boss-hit
-  application, lingering effect spawning, and ball-boost merge sequencing
-  while delegating deterministic drone state math to this helper.
+  application, lingering effect spawning, and ball-boost merge sequencing.
 - `scripts/characters/commando_firearm_value_utils.gd`
   Owns tiny pure Commando firearm value helpers: limited append eviction
   safe Variant-to-Vector2 / Color / Dictionary / Array fallback reads,

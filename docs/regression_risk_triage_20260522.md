@@ -6024,6 +6024,21 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+179th follow-up on 2026-05-24:
+
+- Commit: `8e1451002 godot: drop Commando suicide drone projectile bridges`.
+- Scope: removed the active suicide-drone predicate / lookup bridge trio from
+  `commando_firearm_runtime.gd`. Runtime input gates, control-lock checks,
+  draw-state publication, and projectile cleanup now call
+  `commando_firearm_suicide_drone_state.gd` directly; runtime keeps
+  projectile-array ownership, detonation removal, cooldown mutation, audio,
+  VFX, and hit-result side effects.
+- Validation: `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
