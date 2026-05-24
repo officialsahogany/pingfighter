@@ -8705,3 +8705,23 @@ commits rather than standalone `fix` commits:
   `commando_firearm_value_utils_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+314th follow-up on 2026-05-24:
+
+- Commit:
+  `917d8554d godot: move Commando projectile frame motion`.
+- Scope: moved per-frame Commando projectile motion into
+  `CommandoFirearmProjectileMotionState.advance_runtime_projectile_motion()`.
+  The owner now handles drone homing velocity, rocket acceleration / smoke
+  trail mutation, gravity-aware linear motion, pistol side-wall bounces, Stage
+  2 rock bounce consumption, net rope tracking, and life-timer finalization.
+  Runtime keeps the projectile array removal and impact / hit dispatch order.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2206` lines /
+  `35` functions to `2145` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_motion_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_stage2_rock_interaction_resolver_smoke`, and
+  `commando_firearm_value_utils_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
