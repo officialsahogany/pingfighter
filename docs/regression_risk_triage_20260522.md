@@ -8833,3 +8833,20 @@ commits rather than standalone `fix` commits:
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
   `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors.
+
+321st follow-up on 2026-05-24:
+
+- Commit:
+  `988e247e4 godot: move Commando spawn profile state`.
+- Scope: moved spawn-time weapon profile preparation into
+  `CommandoFirearmProfileResolver.build_spawn_profile_state()`. Runtime still
+  owns the high-level spawn flow, while profile resolution, doping-potion
+  speed / color adjustment, and pistol spread injection now live with the
+  profile owner.
+- Runtime facade delta: `commando_firearm_runtime.gd` changed by `13`
+  insertions and `20` deletions, with the function count staying at `35`.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_profile_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
