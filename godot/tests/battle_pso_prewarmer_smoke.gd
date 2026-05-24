@@ -85,6 +85,7 @@ func _verify_second_pass_warmup_scope() -> void:
 	_expect(prewarmer.has_method("_prewarm_stage3_pillar_background_textures"), "prewarmer should cover Stage 3 pillar background texture draws")
 	_expect(prewarmer.has_method("_prewarm_dash_token_boost_shader_states"), "prewarmer should cover dash token boost shader-state PSOs")
 	_expect(prewarmer.has_method("_prewarm_common_starpoint_drop_shader"), "prewarmer should cover common starpoint drop shader PSOs")
+	_expect(prewarmer.has_method("_prewarm_character_topdown_rim_shader"), "prewarmer should cover the player topdown rim shader PSO")
 	_expect(prewarmer.has_method("_prewarm_draw_step"), "prewarmer should stage warmup families across multiple draw frames")
 	_expect(prewarmer._weather_renderer != null, "prewarmer should own a weather renderer for weather PSO warmup")
 	_expect(prewarmer._status_orb_renderer != null, "prewarmer should own the pillar status orb renderer for real HUD warmup")
@@ -119,6 +120,11 @@ func _verify_second_pass_warmup_scope() -> void:
 	_expect(
 		boost_body.find("boost_fx_host") >= 0,
 		"PSO prewarmer should pass the boost FX host into dash orb contexts so sync_slot fires off-screen"
+	)
+	_expect(
+		source.find("res://shaders/character_topdown_rim.gdshader") >= 0
+			and source.find("CharacterTopdownRimShader") >= 0,
+		"PSO prewarmer should preload the character topdown rim shader"
 	)
 	prewarmer.free()
 

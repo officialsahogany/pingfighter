@@ -15,6 +15,7 @@ var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
 
 
 func prewarm_assets() -> void:
+	Stage1PlayerSpriteRenderer.prewarm_assets()
 	Stage1CommandoFirearmRenderer.prewarm_assets()
 
 

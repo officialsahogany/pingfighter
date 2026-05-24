@@ -3,14 +3,26 @@ extends RefCounted
 const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
 const PlayerCustomizationOverlayRenderer := preload("res://scripts/characters/player_customization_overlay_renderer.gd")
 const ViperAirborneRenderToggles := preload("res://scripts/core/viper_airborne_render_toggles.gd")
+const CharacterTopdownRimShader := preload("res://shaders/character_topdown_rim.gdshader")
 
 const DEFAULT_PLAYER_DIRECTIONAL_WALK_GRID_COLS := 4
 const DEFAULT_PLAYER_DIRECTIONAL_WALK_FRAME_COUNT := 8
 const WHEEL_SPIN_PREWARM_DEST_RECT := Rect2(Vector2(-4096.0, -4096.0), Vector2(1.0, 1.0))
 const WHEEL_SPIN_PREWARM_TINT := Color(1.0, 1.0, 1.0, 0.01)
+const DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY := 0.65
+const PLAYER_SILHOUETTE_RIM_OFFSET_PX := 2.0
+
+static var _character_rim_shader_ready: bool = false
 
 var customization_overlay_renderer: Object = PlayerCustomizationOverlayRenderer.new()
 var _wheel_spin_prewarmed_texture: Texture2D
+var _silhouette_rim_item: RID
+var _silhouette_rim_owner: RID
+var _silhouette_rim_material: ShaderMaterial
+
+
+static func prewarm_assets() -> void:
+	_character_rim_shader_ready = CharacterTopdownRimShader is Shader
 
 
 func draw(
@@ -23,6 +35,7 @@ func draw(
 	shake_offset: Vector2
 ) -> void:
 	_prewarm_wheel_spin_sheet_draw(canvas, context)
+	_clear_silhouette_rim()
 	if bool(context.get("player_victory_active", false)):
 		var victory_texture = context.get("player_victory_sheet", null)
 		if victory_texture is Texture2D:
@@ -330,7 +343,8 @@ func draw(
 				"frame_count": int(context.get("player_idle_frame_count", 1)),
 				"cell_width": float(context.get("player_idle_cell_width", 160.0)),
 				"cell_height": float(context.get("player_idle_cell_height", 160.0)),
-			}
+			},
+			true
 		)
 		return
 
@@ -353,7 +367,8 @@ func draw(
 					"frame_count": int(context.get("player_directional_walk_frame_count", DEFAULT_PLAYER_DIRECTIONAL_WALK_FRAME_COUNT)),
 					"cell_width": float(context.get("player_directional_walk_cell_width", 160.0)),
 					"cell_height": float(context.get("player_directional_walk_cell_height", 160.0)),
-				}
+				},
+				true
 			)
 			return
 
@@ -375,7 +390,8 @@ func draw(
 				"frame_count": max(1, int(context.get("player_sprite_frame_count", 6))),
 				"cell_width": float(context.get("player_sprite_frame_width", 250.0)),
 				"cell_height": float(context.get("player_sprite_frame_height", 120.0)),
-			}
+			},
+			true
 		)
 		return
 
@@ -910,7 +926,8 @@ func _draw_texture_with_customization_overlays(
 	motion_id: String,
 	frame_index: int,
 	direction: String,
-	metadata: Dictionary
+	metadata: Dictionary,
+	enable_silhouette_rim: bool = false
 ) -> void:
 	var overlay_metadata: Dictionary = metadata.duplicate(true)
 	overlay_metadata["direction"] = direction
@@ -923,7 +940,7 @@ func _draw_texture_with_customization_overlays(
 		overlay_metadata
 	)
 	customization_overlay_renderer.draw_layer(canvas, context, base_plan, "back")
-	_draw_texture_region(canvas, texture, dest_rect, source_rect, context)
+	_draw_texture_region(canvas, texture, dest_rect, source_rect, context, false, enable_silhouette_rim)
 	customization_overlay_renderer.draw_layer(canvas, context, base_plan, "front")
 
 
@@ -945,7 +962,8 @@ func _draw_texture_region(
 	dest_rect: Rect2,
 	source_rect: Rect2,
 	context: Dictionary,
-	flip_h: bool = false
+	flip_h: bool = false,
+	enable_silhouette_rim: bool = false
 ) -> void:
 	var sprite_modulate: Color = _get_player_sprite_modulate(context)
 	var angle_degrees: float = float(context.get("player_sprite_rotation_degrees", 0.0))
@@ -957,8 +975,93 @@ func _draw_texture_region(
 			_draw_flipped_texture_region(canvas, texture, source_rect, dest_rect, sprite_modulate)
 		else:
 			canvas.draw_texture_rect_region(texture, dest_rect, source_rect, sprite_modulate, false, true)
+			if enable_silhouette_rim:
+				_draw_silhouette_rim(canvas, texture, dest_rect, source_rect, context, sprite_modulate)
 		return
 	_draw_rotated_texture_region(canvas, texture, source_rect, dest_rect.get_center(), dest_rect.size, angle_degrees, sprite_modulate, flip_h)
+
+
+func _draw_silhouette_rim(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	dest_rect: Rect2,
+	source_rect: Rect2,
+	context: Dictionary,
+	sprite_modulate: Color
+) -> void:
+	if canvas == null or texture == null:
+		return
+	if not bool(context.get("stage1_player_silhouette_rim_enabled", true)):
+		return
+	if bool(context.get("active_item_aipill_active", false)):
+		return
+	var intensity: float = clamp(
+		float(context.get("stage1_player_rim_intensity", DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY)),
+		0.0,
+		1.0
+	)
+	if intensity <= 0.001 or dest_rect.size.x <= 0.0 or dest_rect.size.y <= 0.0:
+		return
+	var rim_item: RID = _ensure_silhouette_rim_item(canvas)
+	if not rim_item.is_valid():
+		return
+	var material: ShaderMaterial = _get_silhouette_rim_material()
+	if material == null:
+		return
+	material.set_shader_parameter("rim_intensity", intensity)
+	material.set_shader_parameter("rim_color", _as_color(
+		context.get("stage1_player_rim_color", Color(0.85, 0.95, 1.0, 1.0)),
+		Color(0.85, 0.95, 1.0, 1.0)
+	))
+	material.set_shader_parameter("rim_offset_px", float(context.get(
+		"stage1_player_rim_offset_px",
+		PLAYER_SILHOUETTE_RIM_OFFSET_PX
+	)))
+	material.set_shader_parameter("sprite_pixel_size", Vector2(
+		max(1.0, float(texture.get_width())),
+		max(1.0, float(texture.get_height()))
+	))
+	RenderingServer.canvas_item_set_visible(rim_item, true)
+	RenderingServer.canvas_item_add_texture_rect_region(
+		rim_item,
+		dest_rect,
+		texture.get_rid(),
+		source_rect,
+		sprite_modulate,
+		false,
+		true
+	)
+
+
+func _ensure_silhouette_rim_item(canvas: CanvasItem) -> RID:
+	var owner: RID = canvas.get_canvas_item()
+	if not _silhouette_rim_item.is_valid():
+		_silhouette_rim_item = RenderingServer.canvas_item_create()
+		RenderingServer.canvas_item_set_draw_index(_silhouette_rim_item, 4096)
+	if _silhouette_rim_owner != owner:
+		RenderingServer.canvas_item_set_parent(_silhouette_rim_item, owner)
+		RenderingServer.canvas_item_set_material(_silhouette_rim_item, _get_silhouette_rim_material().get_rid())
+		_silhouette_rim_owner = owner
+	return _silhouette_rim_item
+
+
+func _get_silhouette_rim_material() -> ShaderMaterial:
+	if _silhouette_rim_material != null:
+		return _silhouette_rim_material
+	var material := ShaderMaterial.new()
+	material.shader = CharacterTopdownRimShader
+	material.set_shader_parameter("rim_intensity", DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY)
+	material.set_shader_parameter("rim_color", Color(0.85, 0.95, 1.0, 1.0))
+	material.set_shader_parameter("rim_offset_px", PLAYER_SILHOUETTE_RIM_OFFSET_PX)
+	_silhouette_rim_material = material
+	return _silhouette_rim_material
+
+
+func _clear_silhouette_rim() -> void:
+	if not _silhouette_rim_item.is_valid():
+		return
+	RenderingServer.canvas_item_clear(_silhouette_rim_item)
+	RenderingServer.canvas_item_set_visible(_silhouette_rim_item, false)
 
 
 func _draw_ai_glitch_texture_region(

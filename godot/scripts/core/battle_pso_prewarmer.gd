@@ -31,6 +31,7 @@ const ActiveItemThrowMolotovRenderer := preload("res://scripts/items/active_item
 const WeatherEventRenderer := preload("res://scripts/stages/common/weather_event_renderer.gd")
 const Stage2PillarAssets := preload("res://scripts/stages/stage2/stage2_pillar_assets.gd")
 const Stage3PillarBackground := preload("res://scripts/stages/stage3/stage3_pillar_background.gd")
+const CharacterTopdownRimShader := preload("res://shaders/character_topdown_rim.gdshader")
 
 const VIPER_HOVER_LEFT_PATH := "res://assets/sprites/characters/viper/viper_subculture_left_hover_sheet.png"
 const VIPER_HOVER_RIGHT_PATH := "res://assets/sprites/characters/viper/viper_subculture_right_hover_sheet.png"
@@ -42,7 +43,7 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 12
+const WARMUP_DRAW_STEPS := 13
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
@@ -171,6 +172,8 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_stage2_pillar_background_textures()
 		11:
 			_prewarm_stage3_pillar_background_textures()
+		12:
+			_prewarm_character_topdown_rim_shader()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -198,6 +201,32 @@ func _prewarm_viper_hover_sheet() -> void:
 			Rect2(Vector2(170.0, 0.0), Vector2(160.0, 160.0)),
 			cell
 		)
+
+
+func _prewarm_character_topdown_rim_shader() -> void:
+	var hover_left: Texture2D = _get_texture(VIPER_HOVER_LEFT_PATH)
+	if hover_left == null:
+		return
+	var previous_material: Material = material
+	var rim_material := ShaderMaterial.new()
+	rim_material.shader = CharacterTopdownRimShader
+	rim_material.set_shader_parameter("rim_intensity", 0.65)
+	rim_material.set_shader_parameter("rim_color", Color(0.85, 0.95, 1.0, 1.0))
+	rim_material.set_shader_parameter("rim_offset_px", 2.0)
+	rim_material.set_shader_parameter("sprite_pixel_size", Vector2(
+		max(1.0, float(hover_left.get_width())),
+		max(1.0, float(hover_left.get_height()))
+	))
+	material = rim_material
+	draw_texture_rect_region(
+		hover_left,
+		Rect2(Vector2(340.0, 0.0), Vector2(160.0, 160.0)),
+		Rect2(Vector2.ZERO, Vector2(160.0, 160.0)),
+		Color.WHITE,
+		false,
+		true
+	)
+	material = previous_material
 
 
 # Pillar overlay showed `draw.pillar_overlay.total max=134 ms` on the first

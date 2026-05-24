@@ -2,6 +2,7 @@ extends SceneTree
 
 const Stage1BossActorRenderer := preload("res://scripts/stages/stage1/stage1_boss_actor_renderer.gd")
 const Stage1PlayerActorRenderer := preload("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
+const Stage1PlayerSpriteRenderer := preload("res://scripts/stages/stage1/stage1_player_sprite_renderer.gd")
 const Stage1PlayfieldRenderer := preload("res://scripts/stages/stage1/stage1_playfield_renderer.gd")
 const Stage1PillarChromeRenderer := preload("res://scripts/stages/stage1/stage1_pillar_chrome_renderer.gd")
 const Stage1PillarBackground := preload("res://scripts/stages/stage1/stage1_pillar_background.gd")
@@ -57,6 +58,7 @@ func _verify_actor_perf_forwarding() -> void:
 
 func _verify_render_budget_constants() -> void:
 	var player_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
+	var player_sprite_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_player_sprite_renderer.gd")
 	var playfield_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_playfield_renderer.gd")
 	var pillar_background_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_pillar_background.gd")
 	_expect(player_source.find("const _HOVER_EMBER_SLOT_COUNT := 8") >= 0, "Viper hover ember draw slots should stay capped")
@@ -111,13 +113,17 @@ func _verify_render_budget_constants() -> void:
 	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_BAND_STEPS <= 5, "Stage 1 playfield depth layers should stay compact")
 	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_BAND_STEPS_LOD <= 3, "Stage 1 Viper LOD depth layers should stay compact")
 	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_BAND_STEPS_SEVERE_LOD <= 2, "Stage 1 severe Viper LOD depth layers should stay compact")
-	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_FAR_ALPHA >= 58.0 / 255.0, "Stage 1 far-depth tint should stay visible")
-	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_FAR_ALPHA <= 64.0 / 255.0, "Stage 1 far-depth tint should stay bounded")
-	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_NEAR_ALPHA >= 43.0 / 255.0, "Stage 1 near-depth tint should stay visible")
-	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_NEAR_ALPHA <= 48.0 / 255.0, "Stage 1 near-depth tint should stay bounded")
 	_expect(
-		playfield_source.find("_draw_stage1_depth_layers(canvas, context, width, height, quality_scale)") >= 0,
-		"Stage 1 playfield draw should include the 2.5D depth-tone layer"
+		playfield_source.find("context.get(\"stage1_depth_layers_enabled\", false)") >= 0,
+		"Stage 1 solid depth bands should default off after the color-strip review"
+	)
+	_expect(Stage1PlayfieldRenderer.STAGE1_FLOOR_VIGNETTE_STEPS <= 8, "Stage 1 floor vignette should stay compact")
+	_expect(Stage1PlayfieldRenderer.STAGE1_FLOOR_VIGNETTE_STEPS_LOD <= 5, "Stage 1 Viper LOD floor vignette should stay compact")
+	_expect(Stage1PlayfieldRenderer.STAGE1_FLOOR_VIGNETTE_STEPS_SEVERE_LOD <= 3, "Stage 1 severe Viper LOD floor vignette should stay compact")
+	_expect(Stage1PlayfieldRenderer.STAGE1_FLOOR_VIGNETTE_OUTER_ALPHA <= 56.0 / 255.0, "Stage 1 floor vignette edge alpha should stay bounded")
+	_expect(
+		playfield_source.find("_draw_stage1_floor_vignette(canvas, context, width, height, quality_scale)") >= 0,
+		"Stage 1 playfield draw should include the soft floor vignette"
 	)
 	_expect(Stage1PlayerActorRenderer.PLAYER_GROUND_SHADOW_BASE_WIDTH >= 220.0, "Stage 1 player ground shadow should read wider")
 	_expect(Stage1PlayerActorRenderer.PLAYER_GROUND_SHADOW_BASE_WIDTH <= 240.0, "Stage 1 player ground shadow width should stay bounded")
@@ -129,6 +135,11 @@ func _verify_render_budget_constants() -> void:
 		player_source.find("_draw_player_topdown_rimlight") < 0 and player_source.find("PLAYER_TOPDOWN_RIMLIGHT") < 0,
 		"Stage 1 player draw should not include the rejected fixed-ellipse topdown rimlight"
 	)
+	_expect(Stage1PlayerSpriteRenderer.DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY >= 0.60, "Stage 1 player silhouette rim should default visible")
+	_expect(Stage1PlayerSpriteRenderer.DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY <= 0.70, "Stage 1 player silhouette rim should stay bounded")
+	_expect(Stage1PlayerSpriteRenderer.PLAYER_SILHOUETTE_RIM_OFFSET_PX <= 2.0, "Stage 1 player silhouette rim should stay 1-2px")
+	_expect(player_sprite_source.find("CharacterTopdownRimShader") >= 0, "Stage 1 player sprite renderer should load the topdown rim shader")
+	_expect(player_sprite_source.find("stage1_player_silhouette_rim_enabled") >= 0, "Stage 1 player silhouette rim should have a runtime toggle")
 	_expect(Stage1BossActorRenderer.GROUND_SHADOW_ALPHAS.size() <= 2, "Stage 1 boss shadow should use at most two polygon layers")
 	_expect(Stage1BossActorRenderer.GROUND_SHADOW_SEGMENTS <= 12, "Stage 1 boss shadow should use a bounded ellipse segment count")
 	_expect(Stage1PillarChromeRenderer.GAME_BORDER_SHINE_LAYERS <= 2, "Stage 1 border shine should use at most two rect layers")

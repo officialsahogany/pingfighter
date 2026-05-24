@@ -77,6 +77,12 @@ const STAGE1_DEPTH_BAND_STEPS_SEVERE_LOD := 2
 const STAGE1_DEPTH_FAR_ALPHA := 60.0 / 255.0
 const STAGE1_DEPTH_NEAR_ALPHA := 45.0 / 255.0
 const STAGE1_DEPTH_CENTER_LIGHT_ALPHA := 10.0 / 255.0
+const STAGE1_FLOOR_VIGNETTE_STEPS := 8
+const STAGE1_FLOOR_VIGNETTE_STEPS_LOD := 5
+const STAGE1_FLOOR_VIGNETTE_STEPS_SEVERE_LOD := 3
+const STAGE1_FLOOR_VIGNETTE_OUTER_ALPHA := 55.0 / 255.0
+const STAGE1_FLOOR_VIGNETTE_INNER_ALPHA := 7.0 / 255.0
+const STAGE1_FLOOR_VIGNETTE_CENTER_ALPHA := 6.0 / 255.0
 const STAGE1_FLOOR_EDGE_VIGNETTE_STEPS := 8
 const STAGE1_FLOOR_EDGE_VIGNETTE_STEPS_LOD := 4
 const STAGE1_FLOOR_EDGE_VIGNETTE_STEPS_SEVERE_LOD := 2
@@ -113,6 +119,7 @@ func draw(canvas: CanvasItem, context: Dictionary, _shake_offset: Vector2) -> vo
 		canvas.draw_texture_rect(background_texture, Rect2(0.0, 0.0, width, height), false)
 	else:
 		_draw_actual_stage1_center_background(canvas, width, height, quality_scale)
+	_draw_stage1_floor_vignette(canvas, context, width, height, quality_scale)
 	_draw_stage1_depth_layers(canvas, context, width, height, quality_scale)
 	_draw_stage1_mood_grade(canvas, width, height, quality_scale)
 	_draw_stage1_cyberpunk_atmosphere(canvas, width, height, quality_scale)
@@ -197,7 +204,7 @@ func _draw_stage1_depth_layers(
 	height: float,
 	quality_scale: float
 ) -> void:
-	if not bool(context.get("stage1_depth_layers_enabled", true)):
+	if not bool(context.get("stage1_depth_layers_enabled", false)):
 		return
 	var steps: int = _get_lod_count(
 		STAGE1_DEPTH_BAND_STEPS,
@@ -231,6 +238,64 @@ func _draw_stage1_depth_layers(
 	canvas.draw_rect(
 		Rect2(width * 0.10, center_y, width * 0.80, center_h),
 		Color(0.48, 0.72, 0.68, STAGE1_DEPTH_CENTER_LIGHT_ALPHA)
+	)
+
+
+func _draw_stage1_floor_vignette(
+	canvas: CanvasItem,
+	context: Dictionary,
+	width: float,
+	height: float,
+	quality_scale: float
+) -> void:
+	if not bool(context.get("stage1_floor_vignette_enabled", true)):
+		return
+	var steps: int = _get_lod_count(
+		STAGE1_FLOOR_VIGNETTE_STEPS,
+		STAGE1_FLOOR_VIGNETTE_STEPS_LOD,
+		STAGE1_FLOOR_VIGNETTE_STEPS_SEVERE_LOD,
+		quality_scale
+	)
+	var ring_thickness: float = min(width, height) / 16.0
+	for idx in range(steps):
+		var inset: float = ring_thickness * float(idx)
+		var outer_rect := Rect2(inset, inset, width - inset * 2.0, height - inset * 2.0)
+		if outer_rect.size.x <= 1.0 or outer_rect.size.y <= 1.0:
+			break
+		var inner_inset: float = min(ring_thickness, min(outer_rect.size.x, outer_rect.size.y) * 0.5)
+		var t: float = float(idx) / float(max(1, steps - 1))
+		var alpha: float = lerp(STAGE1_FLOOR_VIGNETTE_OUTER_ALPHA, STAGE1_FLOOR_VIGNETTE_INNER_ALPHA, t)
+		_draw_stage1_vignette_frame(
+			canvas,
+			outer_rect,
+			inner_inset,
+			Color(0.0, 0.02, 0.06, alpha)
+		)
+	canvas.draw_rect(
+		Rect2(width * 0.14, height * 0.16, width * 0.72, height * 0.68),
+		Color(0.95, 0.92, 0.84, STAGE1_FLOOR_VIGNETTE_CENTER_ALPHA)
+	)
+
+
+func _draw_stage1_vignette_frame(canvas: CanvasItem, outer_rect: Rect2, thickness: float, color: Color) -> void:
+	if thickness <= 0.0:
+		return
+	var band: float = min(thickness, min(outer_rect.size.x, outer_rect.size.y) * 0.5)
+	canvas.draw_rect(Rect2(outer_rect.position, Vector2(outer_rect.size.x, band)), color)
+	canvas.draw_rect(
+		Rect2(Vector2(outer_rect.position.x, outer_rect.end.y - band), Vector2(outer_rect.size.x, band)),
+		color
+	)
+	var side_height: float = max(0.0, outer_rect.size.y - band * 2.0)
+	if side_height <= 0.0:
+		return
+	canvas.draw_rect(
+		Rect2(outer_rect.position + Vector2(0.0, band), Vector2(band, side_height)),
+		color
+	)
+	canvas.draw_rect(
+		Rect2(Vector2(outer_rect.end.x - band, outer_rect.position.y + band), Vector2(band, side_height)),
+		color
 	)
 
 
