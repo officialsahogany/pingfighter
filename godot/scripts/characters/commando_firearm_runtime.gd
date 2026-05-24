@@ -152,7 +152,7 @@ const PISTOL_FIRE_DELAY_FRAMES := 24.0
 # resolves. The 24-frame fire-delay window plays the windup (sheet frames
 # 0..3, low-ready -> peak aim) and the 18-frame post-fire window plays the
 # muzzle / smoke / lower / ready frames (sheet frames 4..7). Frame 4 (muzzle
-# flash) is the first cell shown once `_play_fire_audio()` triggers, so the
+# flash) is the first cell shown once `CommandoFirearmAudioDispatcher.play_fire_audio()` triggers, so the
 # visual flash lines up with `gunshot.wav`.
 const PISTOL_POST_FIRE_ANIMATION_FRAMES := 18.0
 const COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT := 8
@@ -634,7 +634,7 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	if weapon_id != "pistol" and skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
 		skill_state.trigger_configured_cooldown(weapon_id, now_msec, skill_config)
 	_spawn_firearm_effect(weapon_id, config, deps)
-	_play_fire_audio(weapon_id, deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio(weapon_id, deps)
 	return {
 		"handled": true,
 		"weapon_id": weapon_id,
@@ -1200,11 +1200,11 @@ func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: flo
 	pistol_pending_config.clear()
 	pistol_pending_weapon_id = ""
 	_spawn_firearm_effect(shot_weapon_id, shot_config, deps)
-	_play_fire_audio(shot_weapon_id, deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio(shot_weapon_id, deps)
 	# Start the post-fire animation window so the renderer plays the muzzle /
 	# smoke / lower / ready frames after the shot resolves. Frame 4 (muzzle
 	# flash) is the first cell shown during this window, so it lines up with
-	# `_play_fire_audio()` above.
+	# `CommandoFirearmAudioDispatcher.play_fire_audio()` above.
 	pistol_post_fire_animation_frames = PISTOL_POST_FIRE_ANIMATION_FRAMES
 	return CommandoFirearmFireResultState.build_pistol_delayed_fire_result(
 		shot_weapon_id,
@@ -1407,7 +1407,7 @@ func _update_ak47_input(
 			return _ak47_fire_failed(special_gauge, "ak47_ammo_unavailable")
 	last_fire_msec = now_msec
 	_spawn_firearm_effect("ak47", config, deps, _get_ak47_fire_profile())
-	_play_fire_audio("ak47", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("ak47", deps)
 	_trigger_ak47_cooldown(now_msec, deps, doping_context, doping_active)
 	ak47_recoil_accumulation = min(AK47_MAX_RECOIL, ak47_recoil_accumulation + AK47_RECOIL_PER_SHOT)
 	if ak47_burst_shots_remaining > 0:
@@ -1581,7 +1581,7 @@ func _update_bazooka_input(
 	bazooka_muzzle_flash_frames = BAZOOKA_MUZZLE_FLASH_FRAMES
 	_trigger_firearm_skill_cooldown("bazooka", now_msec, deps, doping_context, doping_active)
 	_spawn_firearm_effect("bazooka", config, deps, _get_bazooka_fire_profile())
-	_play_fire_audio("bazooka", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("bazooka", deps)
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
@@ -1664,7 +1664,7 @@ func _update_net_gun_input(
 	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
 		skill_state.trigger_configured_cooldown("net_gun", now_msec, skill_config)
 	_spawn_firearm_effect("net_gun", config, deps, _get_net_gun_fire_profile())
-	_play_fire_audio("net_gun", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("net_gun", deps)
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
@@ -1782,7 +1782,7 @@ func _update_bowling_trap_input(
 			WEAPON_PROFILE_OVERRIDES
 		)
 	)
-	_play_fire_audio("bowling_trap", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("bowling_trap", deps)
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
@@ -1847,7 +1847,7 @@ func _update_suicide_drone_input(
 	suicide_drone_last_action_pressed = action_pressed
 	_start_weapon_fire_sheet_animation("suicide_drone")
 	_spawn_suicide_drone(config)
-	_play_fire_audio("suicide_drone", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("suicide_drone", deps)
 	var skill_state: Object = deps.get("skill_state", null)
 	var skill_config: Object = deps.get("skill_config", null)
 	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
@@ -2057,7 +2057,7 @@ func _release_slingshot(special_gauge: float, config: Dictionary, deps: Dictiona
 	if charge_time < SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES or charge_level < 1:
 		return CommandoFirearmSlingshotState.build_charge_canceled_result(BASE_WEAPON_ID, special_gauge)
 	_spawn_firearm_effect(BASE_WEAPON_ID, config, deps, _get_slingshot_fire_profile(charge_level))
-	_play_fire_audio(BASE_WEAPON_ID, deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio(BASE_WEAPON_ID, deps)
 	last_fire_msec = Time.get_ticks_msec()
 	slingshot_cooldown_frames = SLINGSHOT_COOLDOWN_FRAMES
 	slingshot_control_lock_frames = SLINGSHOT_CONTROL_LOCK_FRAMES
@@ -2443,7 +2443,7 @@ func _capture_bowling_trap_ball(index: int, trap: Dictionary, context: Dictionar
 		deps
 	)
 	_register_ball_hit_pulse(captured_pos, ball_vel, 0.62, "bowling_trap_capture", deps)
-	_play_impact_audio("bowling_trap", deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio("bowling_trap", deps)
 
 
 func _update_bowling_trap_capture(index: int, trap: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -2816,7 +2816,7 @@ func _detonate_suicide_drone_at_index(
 			deps
 		)
 		_register_ball_hit_pulse(pos, CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 0.86, "suicide_drone", deps)
-		_play_impact_audio("suicide_drone", deps)
+		CommandoFirearmAudioDispatcher.play_impact_audio("suicide_drone", deps)
 	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	suicide_drone_cooldown_frames = SUICIDE_DRONE_COOLDOWN_FRAMES
 	var result: Dictionary = _build_suicide_drone_detonation_result(reason, pos, hit_boss)
@@ -2934,7 +2934,7 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 	_trigger_hit_feedback(feedback_profile, deps)
 	_trigger_boss_hit_animation(context, deps)
 	_register_ball_hit_pulse(pos, velocity, intensity, weapon_id, deps)
-	_play_impact_audio(weapon_id, deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
 
 
 func _register_projectile_environment_impact(projectile: Dictionary, reason: String, _context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -2950,7 +2950,7 @@ func _register_projectile_environment_impact(projectile: Dictionary, reason: Str
 	var color: Color = CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE)
 	_spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
 	_trigger_hit_feedback(feedback_profile, deps)
-	_play_impact_audio(weapon_id, deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
 	return CommandoFirearmProjectileImpactState.build_environment_impact_result(weapon_id, reason, pos)
 
 
@@ -3611,28 +3611,6 @@ func _stop_all_support_aircraft_audio(deps: Dictionary) -> void:
 		var call: Dictionary = CommandoFirearmValueUtils.get_dict(support_calls[index])
 		_stop_support_aircraft_audio(call, deps)
 		support_calls[index] = call
-
-
-func _play_fire_audio(weapon_id: String, deps: Dictionary) -> void:
-	if weapon_id == "fire_support":
-		# Fire-support activation already owns the radio cue in
-		# _start_support_call(); do not layer a generic launch sound over it.
-		return
-	CommandoFirearmAudioDispatcher.play_weapon_audio_method(
-		deps,
-		CommandoFirearmAudioResolver.get_fire_audio_methods(weapon_id),
-		"play_commando_firearm_fire",
-		weapon_id
-	)
-
-
-func _play_impact_audio(weapon_id: String, deps: Dictionary) -> void:
-	CommandoFirearmAudioDispatcher.play_weapon_audio_method(
-		deps,
-		CommandoFirearmAudioResolver.get_impact_audio_methods(weapon_id),
-		"play_commando_firearm_impact",
-		weapon_id
-	)
 
 
 func _next_shot_id() -> int:

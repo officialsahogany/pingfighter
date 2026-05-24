@@ -1,5 +1,6 @@
 extends SceneTree
 
+const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
@@ -122,24 +123,23 @@ func _init() -> void:
 
 
 func _verify_specific_fire_and_impact_cues_win() -> void:
-	var runtime := CommandoFirearmRuntime.new()
 	var audio := FakeSpecificAudio.new()
 	var deps := {"audio": audio}
 
-	runtime._play_fire_audio("pistol", deps)
-	runtime._play_fire_audio("commando_pistol", deps)
-	runtime._play_fire_audio("ak47", deps)
-	runtime._play_fire_audio("bazooka", deps)
-	runtime._play_fire_audio("net_gun", deps)
-	runtime._play_fire_audio("bowling_trap", deps)
-	runtime._play_fire_audio("suicide_drone", deps)
-	runtime._play_impact_audio("pistol", deps)
-	runtime._play_impact_audio("commando_pistol", deps)
-	runtime._play_impact_audio("bazooka", deps)
-	runtime._play_impact_audio("net_gun", deps)
-	runtime._play_impact_audio("bowling_trap", deps)
-	runtime._play_impact_audio("suicide_drone", deps)
-	runtime._play_impact_audio("fire_support", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("pistol", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("commando_pistol", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("ak47", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("bazooka", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("net_gun", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("bowling_trap", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("suicide_drone", deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio("pistol", deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio("commando_pistol", deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio("bazooka", deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio("net_gun", deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio("bowling_trap", deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio("suicide_drone", deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio("fire_support", deps)
 
 	_expect(audio.calls == [
 		"pistol_fire",
@@ -162,12 +162,11 @@ func _verify_specific_fire_and_impact_cues_win() -> void:
 
 
 func _verify_generic_fallback_still_works() -> void:
-	var runtime := CommandoFirearmRuntime.new()
 	var audio := FakeGenericAudio.new()
 	var deps := {"audio": audio}
 
-	runtime._play_fire_audio("experimental_firearm", deps)
-	runtime._play_impact_audio("experimental_firearm", deps)
+	CommandoFirearmAudioDispatcher.play_fire_audio("experimental_firearm", deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio("experimental_firearm", deps)
 
 	_expect(audio.generic_fire_calls == ["experimental_firearm"], "missing specific fire cue should fall back to generic firearm fire")
 	_expect(audio.generic_impact_calls == ["experimental_firearm"], "missing specific impact cue should fall back to generic firearm impact")

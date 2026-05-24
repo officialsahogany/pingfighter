@@ -1,5 +1,27 @@
 extends RefCounted
 
+const CommandoFirearmAudioResolver := preload("res://scripts/characters/commando_firearm_audio_resolver.gd")
+
+
+static func play_fire_audio(weapon_id: String, deps: Dictionary) -> void:
+	if weapon_id == "fire_support":
+		return
+	play_weapon_audio_method(
+		deps,
+		CommandoFirearmAudioResolver.get_fire_audio_methods(weapon_id),
+		"play_commando_firearm_fire",
+		weapon_id
+	)
+
+
+static func play_impact_audio(weapon_id: String, deps: Dictionary) -> void:
+	play_weapon_audio_method(
+		deps,
+		CommandoFirearmAudioResolver.get_impact_audio_methods(weapon_id),
+		"play_commando_firearm_impact",
+		weapon_id
+	)
+
 
 static func play_weapon_audio_method(
 	deps: Dictionary,

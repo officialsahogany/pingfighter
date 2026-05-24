@@ -114,6 +114,8 @@ func _verify_removed_runtime_audio_dispatcher_bridges() -> void:
 		"_play_first_audio_method",
 		"_play_reload_progress_audio",
 		"_stop_suicide_drone_audio",
+		"_play_fire_audio",
+		"_play_impact_audio",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep audio dispatcher bridge %s" % bridge_name)
 
