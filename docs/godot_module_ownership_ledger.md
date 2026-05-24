@@ -3889,9 +3889,16 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_hit_result_state.gd`
   Owns pure Commando firearm hit-result dictionary scaffolding: base hit-result
   payloads plus stun / slow status-data dictionaries. `commando_firearm_runtime.gd`
-  keeps hit classification side effects, status application calls, feedback,
-  damage / gauge queueing, and weapon-specific hit counters while delegating
-  stable hit-result payload shapes here.
+  keeps hit classification side effects, status application calls, damage /
+  gauge queueing, and weapon-specific hit counters while delegating stable
+  hit-result payload shapes here.
+- `scripts/characters/commando_firearm_hit_feedback_dispatcher.gd`
+  Owns Commando firearm hit-feedback side-effect dispatch: shared impact
+  particle spawning, screen-shake feedback, boss-hit animation triggers, and
+  ball hit-pulse registration through resolver-owned pulse kind names.
+  `commando_firearm_runtime.gd` keeps gameplay timing and pending result
+  mutation while calling this dispatcher directly instead of preserving
+  private feedback / particle / animation / pulse bridges.
 - `scripts/characters/commando_firearm_pistol_hit_state.gd`
   Owns pure Commando pistol hit-roll payload calculation: headshot / legshot /
   normal-hit result fields, doping-exposed hit chances, gauge gain source,

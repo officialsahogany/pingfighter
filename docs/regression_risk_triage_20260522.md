@@ -6386,6 +6386,30 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1323`
   scripts with no GDScript warnings.
 
+199th follow-up on 2026-05-24:
+
+- Commit: `a1549bc9c godot: move Commando hit feedback dispatchers`.
+- Scope: added `commando_firearm_hit_feedback_dispatcher.gd` as the side-effect
+  owner for shared impact particles, screen shake, boss-hit animation triggers,
+  and ball hit-pulse registration. `commando_firearm_runtime.gd` now calls the
+  dispatcher directly from bowling-trap guard / capture / launch, suicide-drone
+  detonation, projectile hit, and environment-impact paths, and no longer keeps
+  `_spawn_shared_impact_particles()`, `_trigger_hit_feedback()`,
+  `_trigger_boss_hit_animation()`, or `_register_ball_hit_pulse()` bridges.
+  The new smoke covers direct dispatcher behavior, missing-dep no-ops, pulse
+  kind mapping, and removed runtime bridge guards.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3594` lines /
+  `150` functions to `3549` lines / `145` functions.
+- Validation: focused hit-feedback / runtime coverage passed:
+  `commando_firearm_hit_feedback_dispatcher_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`, and
+  `commando_firearm_suicide_drone_state_smoke`. `git diff --check` reported
+  only the existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1325`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
