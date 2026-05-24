@@ -191,24 +191,30 @@ func _verify_direct_weapon_draw_states() -> void:
 	var suicide_drone: Dictionary = CommandoFirearmDrawStateResolver.build_suicide_drone_state(true, 19.0, 90.0, 6.0, Vector2(10.0, 20.0), Vector2(1.0, -2.0))
 	_expect(bool(suicide_drone.get("active", false)), "suicide-drone state should preserve active flag")
 	_expect(_vector_close(suicide_drone.get("pos", Vector2.ZERO), Vector2(10.0, 20.0)), "suicide-drone state should preserve position")
+	var runtime_suicide_owner := CommandoFirearmRuntime.new()
+	runtime_suicide_owner.projectiles = [
+		{"weapon_id": "bazooka", "kind": "rocket"},
+		{
+			"weapon_id": "suicide_drone",
+			"kind": "drone",
+			"grace_timer_frames": 7.0,
+			"pos": Vector2(11.0, 21.0),
+			"velocity": Vector2(2.0, -3.0),
+		},
+	]
+	runtime_suicide_owner.suicide_drone_cooldown_frames = 20.0
 	var runtime_suicide_drone: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_suicide_drone_state(
-		[
-			{"weapon_id": "bazooka", "kind": "rocket"},
-			{
-				"weapon_id": "suicide_drone",
-				"kind": "drone",
-				"grace_timer_frames": 7.0,
-				"pos": Vector2(11.0, 21.0),
-				"velocity": Vector2(2.0, -3.0),
-			},
-		],
-		20.0,
+		runtime_suicide_owner,
 		90.0
 	)
 	_expect(bool(runtime_suicide_drone.get("active", false)), "runtime suicide-drone state should find active drone projectiles")
+	_expect(is_equal_approx(float(runtime_suicide_drone.get("cooldown_frames", 0.0)), 20.0), "runtime suicide-drone state should read cooldown")
 	_expect(is_equal_approx(float(runtime_suicide_drone.get("grace_frames", 0.0)), 7.0), "runtime suicide-drone state should preserve projectile grace timer")
-	var inactive_suicide_drone: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_suicide_drone_state([], 20.0, 90.0)
+	var inactive_suicide_owner := CommandoFirearmRuntime.new()
+	inactive_suicide_owner.suicide_drone_cooldown_frames = 20.0
+	var inactive_suicide_drone: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_suicide_drone_state(inactive_suicide_owner, 90.0)
 	_expect(not bool(inactive_suicide_drone.get("active", true)), "runtime suicide-drone state should expose inactive state without a drone")
+	_expect(is_equal_approx(float(inactive_suicide_drone.get("cooldown_frames", 0.0)), 20.0), "inactive runtime suicide-drone state should keep cooldown")
 
 
 func _verify_direct_actor_context() -> void:

@@ -1022,8 +1022,7 @@ func get_actor_draw_context() -> Dictionary:
 		BOWLING_TRAP_INSTALL_FRAMES
 	)
 	var suicide_drone_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_suicide_drone_state(
-		projectiles,
-		suicide_drone_cooldown_frames,
+		self,
 		SUICIDE_DRONE_COOLDOWN_FRAMES
 	)
 	return CommandoFirearmDrawStateResolver.build_actor_context(

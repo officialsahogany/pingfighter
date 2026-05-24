@@ -387,10 +387,14 @@ static func build_suicide_drone_state(
 
 
 static func build_runtime_suicide_drone_state(
-	projectiles: Array,
-	cooldown_frames: float,
+	target: Object,
 	cooldown_max_frames: float
 ) -> Dictionary:
+	var projectiles: Array = []
+	var cooldown_frames := 0.0
+	if target != null:
+		projectiles = CommandoFirearmValueUtils.get_array(target.get("projectiles"))
+		cooldown_frames = float(target.get("suicide_drone_cooldown_frames"))
 	for value in projectiles:
 		var projectile: Dictionary = CommandoFirearmValueUtils.get_dict(value)
 		if (
