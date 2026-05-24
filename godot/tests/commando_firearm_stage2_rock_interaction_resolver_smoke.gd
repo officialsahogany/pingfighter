@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmStage2RockInteractionResolver := preload("res://scripts/characters/commando_firearm_stage2_rock_interaction_resolver.gd")
+const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 
 var _failures: Array[String] = []
 
@@ -60,6 +61,7 @@ func _init() -> void:
 	_verify_explosion_rock_targets_are_deduped()
 	_verify_pistol_rock_bounce_mutates_projectile()
 	_verify_guards_ignore_wrong_stage_or_weapon()
+	_verify_removed_runtime_stage2_rock_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_stage2_rock_interaction_resolver_smoke: ok")
@@ -136,6 +138,12 @@ func _verify_guards_ignore_wrong_stage_or_weapon() -> void:
 		true
 	)
 	_expect(ignored_bounce.is_empty() and target.bounce_calls == 0, "pistol rock helper should ignore non-Stage 2 contexts")
+
+
+func _verify_removed_runtime_stage2_rock_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(source.find("func _destroy_stage2_rocks_for_projectile_impact(") < 0, "runtime should not keep Stage 2 rock impact bridge")
+	_expect(CommandoFirearmRuntime.FIELD_WIDTH > 0.0, "runtime constants should remain readable for Stage 2 rock integration")
 
 
 func _expect(condition: bool, message: String) -> void:

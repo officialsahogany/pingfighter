@@ -2459,7 +2459,18 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 		)
 		if impact_reason != "":
 			_spawn_impact_flash(projectile)
-			_destroy_stage2_rocks_for_projectile_impact(projectile, context, deps)
+			var rock_impact_profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+				projectile_weapon_id,
+				WEAPON_PROFILES,
+				WEAPON_PROFILE_OVERRIDES
+			)
+			CommandoFirearmStage2RockInteractionResolver.destroy_projectile_impact_rocks(
+				projectile,
+				context,
+				deps,
+				projectile_weapon_id,
+				CommandoFirearmHitGeometry.get_explosion_radius(projectile, rock_impact_profile)
+			)
 			if impact_reason == "target":
 				_register_projectile_hit(projectile, context, deps)
 			elif impact_reason == "wall":
@@ -2671,22 +2682,6 @@ func _register_projectile_environment_impact(projectile: Dictionary, reason: Str
 	return CommandoFirearmProjectileImpactState.build_environment_impact_result(weapon_id, reason, pos)
 
 
-func _destroy_stage2_rocks_for_projectile_impact(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> int:
-	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-		weapon_id,
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
-	return CommandoFirearmStage2RockInteractionResolver.destroy_projectile_impact_rocks(
-		projectile,
-		context,
-		deps,
-		weapon_id,
-		CommandoFirearmHitGeometry.get_explosion_radius(projectile, profile)
-	)
-
-
 func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var profile: Dictionary = CommandoFirearmProfileResolver.get_hit_result_profile(
 		weapon_id,
@@ -2709,7 +2704,15 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 		SLINGSHOT_KNOCKBACK_MULT
 	)
 	_apply_pistol_hit_effects(weapon_id, projectile, context, result)
-	_apply_ak47_accumulated_boss_damage(weapon_id, result)
+	var ak47_hit_payload: Dictionary = CommandoFirearmAk47HitState.build_accumulated_damage_payload(
+		weapon_id,
+		ak47_boss_hit_count,
+		int(result.get("damage_units", 0)),
+		AK47_BOSS_DAMAGE_HIT_THRESHOLD
+	)
+	if not ak47_hit_payload.is_empty():
+		ak47_boss_hit_count = int(ak47_hit_payload.get("next_hit_count", ak47_boss_hit_count))
+		result.merge(CommandoFirearmValueUtils.get_dict(ak47_hit_payload.get("result_fields", {})), true)
 	var stun_frames: float = float(profile.get("stun_frames", 0.0))
 	if result.has("stun_frames"):
 		stun_frames = float(result.get("stun_frames", stun_frames))
@@ -2811,19 +2814,6 @@ func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, contex
 		return
 	result["damage_units"] = max(0, int(result.get("damage_units", 0))) + damage_units_delta
 	result["damage_sources"] = CommandoFirearmValueUtils.get_array(hit_payload.get("damage_sources", []))
-
-
-func _apply_ak47_accumulated_boss_damage(weapon_id: String, result: Dictionary) -> void:
-	var hit_payload: Dictionary = CommandoFirearmAk47HitState.build_accumulated_damage_payload(
-		weapon_id,
-		ak47_boss_hit_count,
-		int(result.get("damage_units", 0)),
-		AK47_BOSS_DAMAGE_HIT_THRESHOLD
-	)
-	if hit_payload.is_empty():
-		return
-	ak47_boss_hit_count = int(hit_payload.get("next_hit_count", ak47_boss_hit_count))
-	result.merge(CommandoFirearmValueUtils.get_dict(hit_payload.get("result_fields", {})), true)
 
 
 func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context: Dictionary) -> Dictionary:

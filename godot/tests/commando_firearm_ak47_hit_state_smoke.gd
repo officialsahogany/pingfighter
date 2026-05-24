@@ -43,11 +43,24 @@ func _verify_direct_ak47_hit_state() -> void:
 func _verify_runtime_delegates_ak47_hit_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	runtime.ak47_boss_hit_count = 19
-	var result := {}
-	runtime._apply_ak47_accumulated_boss_damage("ak47", result)
+	var result: Dictionary = runtime._apply_weapon_hit_result(
+		"ak47",
+		{
+			"pos": Vector2(330.0, 60.0),
+			"velocity": Vector2(0.0, -16.0),
+		},
+		{
+			"boss_pos": Vector2(330.0, 50.0),
+			"boss_paddle_width": 100.0,
+			"boss_hitbox_height": 40.0,
+		},
+		{}
+	)
 	_expect(runtime.ak47_boss_hit_count == 0, "runtime AK-47 wrapper should store helper hit count")
 	_expect(bool(result.get("ak47_accumulated_damage_ready", false)), "runtime AK-47 wrapper should merge helper fields")
 	_expect(int(result.get("damage_units", 0)) == 1, "runtime AK-47 wrapper should emit damage")
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(source.find("func _apply_ak47_accumulated_boss_damage(") == -1, "runtime should not keep AK-47 accumulated-damage bridge")
 
 
 func _get_dict(value: Variant) -> Dictionary:
