@@ -95,6 +95,7 @@ func _init() -> void:
 	_verify_removed_lingering_effect_timer_bridges()
 	_verify_removed_hit_geometry_result_bridges()
 	_verify_removed_support_aircraft_geometry_bridges()
+	_verify_removed_projectile_value_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -356,18 +357,10 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(CommandoFirearmHitGeometry.is_net_gun_weapon("net_gun"), "hit geometry net-gun classifier helper should delegate")
 	_expect(CommandoFirearmHitGeometry.support_bomb_target_y_already_reached({"support_target_y_reached": 1.0}), "hit geometry support target-Y helper should delegate")
 	_expect(CommandoFirearmHitGeometry.projectile_life_expired({"life_frames": 0.0}), "hit geometry projectile life helper should delegate")
-	_expect(runtime._get_projectile_target({"target": Vector2(12.0, 34.0)}, {}) == Vector2(12.0, 34.0), "runtime projectile target wrapper should delegate explicit targets")
-	_expect(runtime._get_projectile_target({"target": "bad"}, {"boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0}) == runtime._get_boss_target_pos({"boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0}), "runtime projectile target wrapper should use boss target fallback")
-	_expect(runtime._get_projectile_weapon_id({"weapon_id": "bazooka"}) == "bazooka", "runtime projectile weapon wrapper should delegate explicit weapon ids")
-	_expect(runtime._get_projectile_weapon_id({}) == "pistol", "runtime projectile weapon wrapper should use the base weapon fallback")
-	_expect(runtime._get_projectile_weapon_id({}, "") == "", "runtime projectile weapon wrapper should allow explicit empty fallback")
 	_expect(runtime._is_wall_bouncing_pistol({"weapon_id": "pistol"}), "wall-bouncing pistol helper should accept the base pistol")
 	_expect(runtime._is_wall_bouncing_pistol({"weapon_id": "commando_pistol"}), "wall-bouncing pistol helper should accept the Commando pistol")
 	_expect(not runtime._is_wall_bouncing_pistol({"weapon_id": "ak47"}), "wall-bouncing pistol helper should reject non-pistols")
 	_expect(not runtime._is_wall_bouncing_pistol({}), "wall-bouncing pistol helper should preserve missing weapon-id behavior")
-	_expect(runtime._get_projectile_kind({"kind": "drone"}) == "drone", "runtime projectile kind wrapper should delegate explicit kinds")
-	_expect(runtime._get_projectile_kind({}) == "", "runtime projectile kind wrapper should use the empty fallback")
-	_expect(runtime._get_projectile_kind({}, "bullet") == "bullet", "runtime projectile kind wrapper should allow explicit fallbacks")
 	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": 90.0}, false, false), 90.0), "lingering duration helper should use normal duration frames")
 	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": -4.0}, false, false), 1.0), "lingering duration helper should clamp normal durations to one frame")
 	_expect(is_equal_approx(runtime._get_lingering_effect_duration({}, false, false), 1.0), "lingering duration helper should default missing normal durations to one frame")
@@ -1493,6 +1486,16 @@ func _verify_runtime_delegates_value_utils() -> void:
 		Rect2(Vector2(330.0, 50.0), Vector2(100.0, 40.0)),
 		Vector2(100.0, 100.0)
 	) == "", "target-reached impact helper should not expire projectiles before target reach")
+
+
+func _verify_removed_projectile_value_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_get_projectile_target",
+		"_get_projectile_weapon_id",
+		"_get_projectile_kind",
+	]:
+		_expect(source.find("func %s(" % bridge_name) == -1, "runtime should not keep projectile value bridge %s" % bridge_name)
 
 
 func _verify_removed_fire_flame_owner_bridges() -> void:

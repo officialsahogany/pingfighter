@@ -2491,8 +2491,11 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 	var result: Dictionary = {}
 	for index in range(projectiles.size() - 1, -1, -1):
 		var projectile: Dictionary = _get_dict(projectiles[index])
-		var projectile_kind: String = _get_projectile_kind(projectile)
-		var projectile_weapon_id: String = _get_projectile_weapon_id(projectile)
+		var projectile_kind: String = CommandoFirearmValueUtils.get_projectile_kind(projectile)
+		var projectile_weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(
+			projectile,
+			BASE_WEAPON_ID
+		)
 		var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 		var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 		if projectile_kind == "drone":
@@ -2573,12 +2576,12 @@ func _apply_stage2_pistol_rock_bounce(projectile: Dictionary, context: Dictionar
 		projectile,
 		context,
 		deps,
-		_is_pistol_weapon(_get_projectile_weapon_id(projectile, ""))
+		_is_pistol_weapon(CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, ""))
 	)
 
 
 func _is_wall_bouncing_pistol(projectile: Dictionary) -> bool:
-	return _is_pistol_weapon(_get_projectile_weapon_id(projectile, ""))
+	return _is_pistol_weapon(CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, ""))
 
 
 func _update_rocket_motion(projectile: Dictionary, pos: Vector2, velocity: Vector2, step: float) -> Vector2:
@@ -2809,8 +2812,11 @@ func _get_suicide_drone_rect(projectile: Dictionary) -> Rect2:
 
 
 func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) -> String:
-	var target: Vector2 = _get_projectile_target(projectile, context)
-	var weapon_id: String = _get_projectile_weapon_id(projectile)
+	var target: Vector2 = CommandoFirearmValueUtils.get_projectile_target(
+		projectile,
+		_get_boss_target_pos(context)
+	)
+	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
 	var profile: Dictionary = _get_weapon_profile(weapon_id)
 	var boss_rect: Rect2 = CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH)
 	return CommandoFirearmHitGeometry.get_projectile_impact_reason(
@@ -2824,20 +2830,8 @@ func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) 
 	)
 
 
-func _get_projectile_target(projectile: Dictionary, context: Dictionary) -> Vector2:
-	return CommandoFirearmValueUtils.get_projectile_target(projectile, _get_boss_target_pos(context))
-
-
-func _get_projectile_weapon_id(projectile: Dictionary, fallback_weapon_id: String = BASE_WEAPON_ID) -> String:
-	return CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, fallback_weapon_id)
-
-
-func _get_projectile_kind(projectile: Dictionary, fallback_kind: String = "") -> String:
-	return CommandoFirearmValueUtils.get_projectile_kind(projectile, fallback_kind)
-
-
 func _spawn_impact_flash(projectile: Dictionary) -> void:
-	var weapon_id: String = _get_projectile_weapon_id(projectile)
+	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
 	_append_limited(
 		impact_flashes,
 		CommandoFirearmImpactFlashResolver.build_flash(
@@ -2850,7 +2844,7 @@ func _spawn_impact_flash(projectile: Dictionary) -> void:
 
 
 func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> void:
-	var weapon_id: String = _get_projectile_weapon_id(projectile)
+	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
 	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	var feedback_profile: Dictionary = _get_hit_feedback_profile(weapon_id)
@@ -2865,7 +2859,7 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 	var hit_event: Dictionary = CommandoFirearmProjectileImpactState.build_hit_event(
 		projectile,
 		weapon_id,
-		_get_projectile_kind(projectile, "bullet"),
+		CommandoFirearmValueUtils.get_projectile_kind(projectile, "bullet"),
 		pos,
 		velocity,
 		intensity,
@@ -2880,7 +2874,7 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 
 
 func _register_projectile_environment_impact(projectile: Dictionary, reason: String, _context: Dictionary, deps: Dictionary) -> Dictionary:
-	var weapon_id: String = _get_projectile_weapon_id(projectile)
+	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
 	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	var feedback_profile: Dictionary = _get_hit_feedback_profile(weapon_id)
@@ -2893,7 +2887,7 @@ func _register_projectile_environment_impact(projectile: Dictionary, reason: Str
 
 
 func _destroy_stage2_rocks_for_projectile_impact(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> int:
-	var weapon_id: String = _get_projectile_weapon_id(projectile)
+	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
 	var profile: Dictionary = _get_weapon_profile(weapon_id)
 	return CommandoFirearmStage2RockInteractionResolver.destroy_projectile_impact_rocks(
 		projectile,
