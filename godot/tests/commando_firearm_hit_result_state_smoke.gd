@@ -60,6 +60,21 @@ func _verify_direct_hit_result_state() -> void:
 	_expect(is_equal_approx(float(slow_result.get("slow_frames", 0.0)), 36.0), "slow field helper should write slow frames")
 	_expect(is_equal_approx(float(slow_result.get("slow_multiplier", 0.0)), 0.55), "slow field helper should write slow multipliers")
 
+	var runtime_status := FakeStatusEffectState.new()
+	var runtime_result: Dictionary = CommandoFirearmHitResultState.build_base_result("commando_firearm_test", 1)
+	CommandoFirearmHitResultState.apply_runtime_status_results(
+		runtime_result,
+		{"stun_frames": 18.0, "slow_frames": 12.0, "slow_multiplier": 0.5, "knockback_power": 8.0},
+		{"pos": Vector2(100.0, 100.0), "velocity": Vector2.RIGHT},
+		{"boss_pos": Vector2(130.0, 60.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0},
+		{"status_effect_state": runtime_status},
+		"commando_firearm_test",
+		CommandoFirearmRuntime.FIELD_WIDTH
+	)
+	_expect(bool(runtime_result.get("stun_applied", false)), "runtime status helper should apply stun status")
+	_expect(bool(runtime_result.get("slow_applied", false)), "runtime status helper should apply slow status")
+	_expect(runtime_status.calls.size() == 2, "runtime status helper should emit stun and slow status calls")
+
 
 func _verify_runtime_still_applies_hit_result_status() -> void:
 	var runtime := CommandoFirearmRuntime.new()

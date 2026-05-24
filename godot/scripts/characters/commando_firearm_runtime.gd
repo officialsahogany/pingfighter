@@ -2136,10 +2136,7 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 	)
 	if profile.is_empty():
 		return {}
-	var status_effect_state: Object = deps.get("status_effect_state", null)
 	var source: String = "commando_firearm_%s" % weapon_id
-	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 	var result: Dictionary = CommandoFirearmHitResultState.build_base_result(source, int(profile.get("damage_units", 0)))
 	CommandoFirearmSlingshotState.apply_hit_effects(
 		weapon_id,
@@ -2159,58 +2156,15 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 	if not ak47_hit_payload.is_empty():
 		ak47_boss_hit_count = int(ak47_hit_payload.get("next_hit_count", ak47_boss_hit_count))
 		result.merge(CommandoFirearmValueUtils.get_dict(ak47_hit_payload.get("result_fields", {})), true)
-	var stun_frames: float = CommandoFirearmHitResultState.get_stun_frames(profile, result)
-	if stun_frames > 0.0:
-		var knockback_profile: Dictionary = CommandoFirearmHitGeometry.get_result_hit_profile(profile, result)
-		var knockback_vel: float = CommandoFirearmHitGeometry.get_hit_knockback_velocity(
-			knockback_profile,
-			pos,
-			velocity,
-			CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
-		)
-		var stun_source: String = CommandoFirearmHitResultState.get_stun_source(result, source)
-		CommandoFirearmHitResultState.apply_stun_result_fields(result, stun_frames, knockback_vel, knockback_profile)
-		if status_effect_state != null and status_effect_state.has_method("apply_status"):
-			status_effect_state.apply_status(
-				"boss",
-				"stun",
-				stun_frames,
-				CommandoFirearmHitResultState.build_stun_status_data(knockback_vel, stun_source, result),
-				stun_source
-			)
-			result["stun_applied"] = true
-	elif bool(result.get("knockback_without_stun", false)):
-		var knockback_only_profile: Dictionary = CommandoFirearmHitGeometry.get_result_hit_profile(profile, result)
-		var knockback_only_vel: float = CommandoFirearmHitGeometry.get_hit_knockback_velocity(
-			knockback_only_profile,
-			pos,
-			velocity,
-			CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
-		)
-		result["knockback_vel"] = knockback_only_vel
-		var ai_state: Object = deps.get("ai_state", null)
-		if ai_state != null and ai_state.has_method("start_paddle_hit_knockback"):
-			ai_state.start_paddle_hit_knockback(
-				knockback_only_vel,
-				float(result.get("knockback_frames", 18.0)),
-				float(result.get("knockback_decay_per_frame", 0.85)),
-				true
-			)
-			result["knockback_applied"] = true
-	var slow_frames: float = CommandoFirearmHitResultState.get_slow_frames(profile, result)
-	if slow_frames > 0.0:
-		var slow_source: String = CommandoFirearmHitResultState.get_slow_source(result, source)
-		var slow_multiplier: float = CommandoFirearmHitResultState.get_slow_multiplier(profile, result)
-		CommandoFirearmHitResultState.apply_slow_result_fields(result, slow_frames, slow_multiplier)
-		if status_effect_state != null and status_effect_state.has_method("apply_status"):
-			status_effect_state.apply_status(
-				"boss",
-				"slow",
-				slow_frames,
-				CommandoFirearmHitResultState.build_slow_status_data(slow_multiplier, slow_source),
-				slow_source
-			)
-			result["slow_applied"] = true
+	CommandoFirearmHitResultState.apply_runtime_status_results(
+		result,
+		profile,
+		projectile,
+		context,
+		deps,
+		source,
+		FIELD_WIDTH
+	)
 	return result
 
 
@@ -2366,24 +2320,22 @@ func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dict
 func _apply_active_lingering_effect(
 	index: int,
 	effect: Dictionary,
-	fps_scale: float,
+	timer_step: float,
 	context: Dictionary,
 	deps: Dictionary,
 	result: Dictionary
 ) -> void:
-	if CommandoFirearmLingeringNetFieldState.should_sync_rope_origin(effect):
-		effect["origin"] = CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
-			context,
-			COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-			COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
-		)
-	CommandoFirearmLingeringStatusState.apply_status_if_ready(
+	var clamp_result: Dictionary = CommandoFirearmLingeringEffectState.apply_active_effect(
 		effect,
 		context,
 		deps,
-		CommandoFirearmLingeringEffectState.get_timer_step(fps_scale),
+		timer_step,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+		NET_GUN_WIDTH,
+		NET_GUN_MIN_HEIGHT,
 		LINGERING_STATUS_TARGET,
 		LINGERING_STATUS_ID_SLOW,
 		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
@@ -2392,12 +2344,6 @@ func _apply_active_lingering_effect(
 		LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
 		LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
 		LINGERING_STATUS_DEFAULT_SOURCE
-	)
-	var clamp_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(
-		effect,
-		context,
-		NET_GUN_WIDTH,
-		NET_GUN_MIN_HEIGHT
 	)
 	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
 	lingering_effects[index] = effect

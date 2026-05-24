@@ -87,6 +87,43 @@ func _verify_direct_lingering_effect_state() -> void:
 	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, {"clamped": true})
 	_expect(bool(result.get("clamped", false)), "clamp merge helper should update result payloads")
 	_expect(bool(context.get("clamped", false)), "clamp merge helper should update context payloads")
+	var active_effect := {
+		"weapon_id": "net_gun",
+		"hooked_player": true,
+		"boss_trapped": true,
+		"pos": Vector2(250.0, 100.0),
+		"width": 240.0,
+		"height": 120.0,
+	}
+	var active_context := {
+		"player_pos": Vector2(120.0, 640.0),
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"boss_pos": Vector2(20.0, 92.0),
+		"boss_paddle_width": 100.0,
+	}
+	var active_result: Dictionary = CommandoFirearmLingeringEffectState.apply_active_effect(
+		active_effect,
+		active_context,
+		{},
+		1.0,
+		Vector2(760.0, 750.0),
+		Vector2(106.0, 82.0),
+		Vector2(160.0, 160.0),
+		7.0,
+		280.0,
+		90.0,
+		"boss",
+		"slow",
+		18.0,
+		12.0,
+		1.0,
+		0.0,
+		1.0,
+		"commando_firearm_lingering"
+	)
+	_expect(active_effect.has("origin"), "active effect helper should sync net rope origin")
+	_expect(not active_result.is_empty(), "active effect helper should return boss clamp payloads")
 
 
 func _verify_runtime_delegates_lingering_effect_state() -> void:
@@ -106,6 +143,10 @@ func _verify_runtime_delegates_lingering_effect_state() -> void:
 	_expect(not runtime_source.contains("func _build_lingering_effect("), "runtime should not keep lingering effect build bridge")
 	_expect(not runtime_source.contains("func _build_lingering_spawn_result("), "runtime should not keep lingering spawn-result bridge")
 	_expect(not runtime_source.contains("func _spawn_net_dissolve_effect("), "runtime should not keep net dissolve lingering bridge")
+	_expect(
+		runtime_source.find("CommandoFirearmLingeringEffectState.apply_active_effect") >= 0,
+		"runtime should delegate active lingering effect composition to the owner"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:
