@@ -154,8 +154,16 @@ func _verify_runtime_delegates_fire_result_state() -> void:
 	runtime.net_gun_control_lock_frames = 13.0
 	runtime.net_gun_throw_pose_frames = 14.0
 	runtime.net_gun_harpoon_flash_frames = 15.0
-	var net_gun: Dictionary = runtime._net_gun_fire_failed(500.0, "net_gun_cooldown")
-	_expect(is_equal_approx(float(net_gun.get("harpoon_flash_frames", 0.0)), 15.0), "runtime net-gun failed wrapper should preserve harpoon flash timer")
+	var net_gun: Dictionary = runtime._update_net_gun_input(
+		{"action_pressed": true, "action_just_pressed": true},
+		500.0,
+		{},
+		{},
+		{"weapon_id": "net_gun", "ammo_current": 1, "can_fire": true},
+		0
+	)
+	_expect(str(net_gun.get("failure_reason", "")) == "net_gun_control_lock", "runtime net-gun failed path should preserve failure reason")
+	_expect(is_equal_approx(float(net_gun.get("harpoon_flash_frames", 0.0)), 15.0), "runtime net-gun failed path should preserve harpoon flash timer")
 
 	runtime.bowling_trap_cooldown_frames = 16.0
 	runtime.bowling_trap_control_lock_frames = 17.0
@@ -171,6 +179,7 @@ func _verify_runtime_delegates_fire_result_state() -> void:
 	_expect(str(bowling.get("failure_reason", "")) == "bowling_trap_control_lock", "runtime bowling-trap failed path should preserve failure reason")
 	_expect(is_equal_approx(float(bowling.get("install_pose_frames", 0.0)), 18.0), "runtime bowling-trap failed path should preserve install pose timer")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(runtime_source.find("func _net_gun_fire_failed(") == -1, "runtime should not keep the net-gun fire-failed bridge")
 	_expect(runtime_source.find("func _bowling_trap_fire_failed(") == -1, "runtime should not keep the bowling-trap fire-failed bridge")
 
 

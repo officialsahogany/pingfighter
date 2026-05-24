@@ -1648,18 +1648,24 @@ func _update_net_gun_input(
 		SWITCH_FIRE_SUPPRESS_MSEC
 	):
 		return {}
+	var failure_fields := {
+		"cooldown_frames": net_gun_cooldown_frames,
+		"control_lock_frames": net_gun_control_lock_frames,
+		"throw_pose_frames": net_gun_throw_pose_frames,
+		"harpoon_flash_frames": net_gun_harpoon_flash_frames,
+	}
 	if net_gun_control_lock_frames > 0.0:
-		return _net_gun_fire_failed(special_gauge, "net_gun_control_lock")
+		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_control_lock", failure_fields)
 	if net_gun_cooldown_frames > 0.0:
-		return _net_gun_fire_failed(special_gauge, "net_gun_cooldown")
+		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_cooldown", failure_fields)
 	if not _is_ready("net_gun", now_msec, deps):
-		return _net_gun_fire_failed(special_gauge, "configured_cooldown")
+		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "configured_cooldown", failure_fields)
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
-		return _net_gun_fire_failed(special_gauge, "net_gun_empty")
+		return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_empty", failure_fields)
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return _net_gun_fire_failed(special_gauge, "net_gun_ammo_unavailable")
+			return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, "net_gun_ammo_unavailable", failure_fields)
 	last_fire_msec = now_msec
 	net_gun_cooldown_frames = NET_GUN_COOLDOWN_FRAMES
 	net_gun_control_lock_frames = NET_GUN_CONTROL_LOCK_FRAMES
@@ -1696,15 +1702,6 @@ func _update_net_gun_input(
 			"harpoon_flash_frames": net_gun_harpoon_flash_frames,
 		}
 	)
-
-
-func _net_gun_fire_failed(special_gauge: float, reason: String) -> Dictionary:
-	return CommandoFirearmFireResultState.build_fire_failed_result("net_gun", special_gauge, reason, {
-		"cooldown_frames": net_gun_cooldown_frames,
-		"control_lock_frames": net_gun_control_lock_frames,
-		"throw_pose_frames": net_gun_throw_pose_frames,
-		"harpoon_flash_frames": net_gun_harpoon_flash_frames,
-	})
 
 
 func _start_weapon_fire_sheet_animation(weapon_id: String) -> void:
