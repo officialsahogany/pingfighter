@@ -86,6 +86,18 @@ static func stop_all_support_aircraft_audio(support_calls: Array, deps: Dictiona
 		support_calls[index] = call
 
 
+static func dispatch_support_aircraft_audio_events(audio_events: Array, deps: Dictionary) -> void:
+	for event_value in audio_events:
+		var audio_event: Dictionary = _get_dict(event_value)
+		@warning_ignore("shadowed_variable_base_class")
+		var call: Dictionary = _get_dict(audio_event.get("call", {}))
+		match str(audio_event.get("type", "")):
+			"start_aircraft":
+				start_support_aircraft_audio(call, deps)
+			"stop_aircraft":
+				stop_support_aircraft_audio(call, deps)
+
+
 static func get_audio(deps: Dictionary) -> Object:
 	var value: Variant = deps.get("audio", deps.get("game_audio", null))
 	return value if value is Object else null

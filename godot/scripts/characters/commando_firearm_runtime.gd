@@ -1666,15 +1666,10 @@ func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictiona
 		SUPPORT_BOMB_RANDOM_X_RANGE,
 		PROJECTILE_LIMIT
 	)
-	for event_value in CommandoFirearmValueUtils.get_array(support_result.get("audio_events", [])):
-		var audio_event: Dictionary = CommandoFirearmValueUtils.get_dict(event_value)
-		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = CommandoFirearmValueUtils.get_dict(audio_event.get("call", {}))
-		match str(audio_event.get("type", "")):
-			"start_aircraft":
-				CommandoFirearmAudioDispatcher.start_support_aircraft_audio(call, deps)
-			"stop_aircraft":
-				CommandoFirearmAudioDispatcher.stop_support_aircraft_audio(call, deps)
+	CommandoFirearmAudioDispatcher.dispatch_support_aircraft_audio_events(
+		CommandoFirearmValueUtils.get_array(support_result.get("audio_events", [])),
+		deps
+	)
 
 
 func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
