@@ -8658,3 +8658,27 @@ commits rather than standalone `fix` commits:
   `project_resource_loader_import_preference_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1335` scripts with no GDScript
   warnings, and `git diff --check` reported no whitespace errors.
+
+312th follow-up on 2026-05-24:
+
+- Commit:
+  `3ef11bbb6 godot: move Commando hit and lingering status helpers`.
+- Scope: moved generic Commando hit-result status application into
+  `CommandoFirearmHitResultState.apply_runtime_status_results()`, covering
+  stun, slow, and knockback-without-stun result mutations plus runtime status /
+  AI knockback dispatch. Also moved active lingering effect composition into
+  `CommandoFirearmLingeringEffectState.apply_active_effect()`, so rope-origin
+  sync, slow-status ticking, and net-field boss clamp payload construction live
+  with the lingering-effect owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2403` lines /
+  `35` functions to `2349` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_hit_result_state_smoke`,
+  `commando_firearm_slingshot_state_smoke`,
+  `commando_firearm_ak47_hit_state_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. Resource-loader regression coverage
+  also passed with `project_resource_loader_import_preference_smoke`. The Godot
+  headless load check passed, `run_warning_scan.ps1` scanned `1335` scripts
+  with no GDScript warnings, and `git diff --check` reported no whitespace
+  errors.
