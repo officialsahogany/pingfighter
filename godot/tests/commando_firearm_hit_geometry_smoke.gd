@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
+const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 
 var _failures: Array[String] = []
@@ -297,13 +298,12 @@ func _verify_direct_geometry_helpers() -> void:
 
 
 func _verify_runtime_uses_hit_geometry_boundary() -> void:
-	var runtime := CommandoFirearmRuntime.new()
 	var context := {
 		"boss_pos": Vector2(330.0, 50.0),
 		"boss_paddle_width": 100.0,
 		"boss_hitbox_height": 40.0,
 	}
-	_expect(runtime._get_projectile_impact_reason({
+	_expect(_get_runtime_projectile_impact_reason({
 		"weapon_id": "ak47",
 		"pos": Vector2(328.0, 70.0),
 		"radius": 3.0,
@@ -312,7 +312,7 @@ func _verify_runtime_uses_hit_geometry_boundary() -> void:
 		"weapon_id": "bazooka",
 		"pos": Vector2(-5.0, 500.0),
 	}
-	_expect(runtime._get_projectile_impact_reason(wall_projectile, context) == "wall", "runtime impact boundary should keep wall impact classification")
+	_expect(_get_runtime_projectile_impact_reason(wall_projectile, context) == "wall", "runtime impact boundary should keep wall impact classification")
 	_expect(is_equal_approx(float(CommandoFirearmHitGeometry.get_vector2(wall_projectile.get("pos", Vector2.ZERO), Vector2.ZERO).x), 10.0), "runtime impact boundary should preserve wall clamp side effects")
 
 
@@ -349,6 +349,18 @@ func _verify_removed_runtime_hit_geometry_bridges() -> void:
 		"_segment_intersects_rect",
 	]:
 		_expect(not source.contains("func %s(" % bridge_name), "%s should stay owned by CommandoFirearmHitGeometry" % bridge_name)
+
+
+func _get_runtime_projectile_impact_reason(projectile: Dictionary, context: Dictionary) -> String:
+	return CommandoFirearmProjectileImpactState.get_impact_reason(
+		projectile,
+		context,
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.FIELD_WIDTH
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

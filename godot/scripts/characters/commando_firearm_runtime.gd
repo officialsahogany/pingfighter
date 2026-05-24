@@ -2448,7 +2448,15 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 				context.merge(drone_result, true)
 				continue
 			continue
-		var impact_reason: String = _get_projectile_impact_reason(projectile, context)
+		var impact_reason: String = CommandoFirearmProjectileImpactState.get_impact_reason(
+			projectile,
+			context,
+			WEAPON_PROFILES,
+			WEAPON_PROFILE_OVERRIDES,
+			BASE_WEAPON_ID,
+			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+			FIELD_WIDTH
+		)
 		if impact_reason != "":
 			_spawn_impact_flash(projectile)
 			_destroy_stage2_rocks_for_projectile_impact(projectile, context, deps)
@@ -2573,29 +2581,6 @@ func _detonate_suicide_drone_at_index(
 			true
 		)
 	return result
-
-
-func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) -> String:
-	var target: Vector2 = CommandoFirearmValueUtils.get_projectile_target(
-		projectile,
-		CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
-	)
-	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-		weapon_id,
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
-	var boss_rect: Rect2 = CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH)
-	return CommandoFirearmHitGeometry.get_projectile_impact_reason(
-		projectile,
-		target,
-		weapon_id,
-		profile,
-		boss_rect,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		FIELD_WIDTH
-	)
 
 
 func _spawn_impact_flash(projectile: Dictionary) -> void:

@@ -46,6 +46,26 @@ func _verify_direct_projectile_impact_state() -> void:
 	_expect(str(environment.get("commando_firearm_environment_impact_reason", "")) == "wall", "environment impact result should preserve reason")
 	_expect(environment.get("commando_firearm_environment_impact_pos", Vector2.ZERO) == Vector2(20.0, 30.0), "environment impact result should preserve position")
 
+	var context := {
+		"boss_pos": Vector2(330.0, 50.0),
+		"boss_paddle_width": 100.0,
+		"boss_hitbox_height": 40.0,
+	}
+	var impact_reason: String = CommandoFirearmProjectileImpactState.get_impact_reason(
+		{
+			"weapon_id": "ak47",
+			"pos": Vector2(328.0, 70.0),
+			"radius": 3.0,
+		},
+		context,
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.FIELD_WIDTH
+	)
+	_expect(impact_reason == "target", "impact owner should route runtime projectiles through hit geometry")
+
 
 func _verify_runtime_delegates_environment_impact_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
@@ -62,6 +82,8 @@ func _verify_runtime_delegates_environment_impact_state() -> void:
 	_expect(str(result.get("commando_firearm_environment_impact_weapon_id", "")) == "bazooka", "runtime environment impact wrapper should preserve weapon id")
 	_expect(str(result.get("commando_firearm_environment_impact_reason", "")) == "wall", "runtime environment impact wrapper should preserve reason")
 	_expect(result.get("commando_firearm_environment_impact_pos", Vector2.ZERO) == Vector2(20.0, 30.0), "runtime environment impact wrapper should preserve position")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(runtime_source.find("func _get_projectile_impact_reason(") == -1, "runtime should not keep projectile impact reason bridge")
 
 
 func _expect(condition: bool, message: String) -> void:

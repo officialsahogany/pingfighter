@@ -2,6 +2,7 @@ extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
@@ -1231,7 +1232,6 @@ func _verify_pistol_hit_gauge_result_handoff() -> void:
 
 
 func _verify_projectile_hitbox_profiles() -> void:
-	var runtime: Object = CommandoFirearmRuntime.new()
 	var config: Dictionary = _fire_config()
 
 	var ak_near_center_miss := {
@@ -1244,12 +1244,12 @@ func _verify_projectile_hitbox_profiles() -> void:
 		"life_frames": 20.0,
 		"target": _boss_center(config),
 	}
-	_expect(runtime._get_projectile_impact_reason(ak_near_center_miss, config) == "", "AK-47 should use the Python 6x6 bullet rect instead of target-center proximity")
+	_expect(_get_runtime_projectile_impact_reason(ak_near_center_miss, config) == "", "AK-47 should use the Python 6x6 bullet rect instead of target-center proximity")
 
 	var ak_edge_hit := ak_near_center_miss.duplicate(true)
 	ak_edge_hit["pos"] = Vector2(378.0, 100.0)
 	ak_edge_hit["prev_pos"] = Vector2(378.0, 124.0)
-	_expect(runtime._get_projectile_impact_reason(ak_edge_hit, config) == "target", "AK-47 bullet rect should hit when the 6x6 box overlaps the boss")
+	_expect(_get_runtime_projectile_impact_reason(ak_edge_hit, config) == "target", "AK-47 bullet rect should hit when the 6x6 box overlaps the boss")
 
 	var net_expanded_hit := {
 		"weapon_id": "net_gun",
@@ -1261,7 +1261,7 @@ func _verify_projectile_hitbox_profiles() -> void:
 		"life_frames": 30.0,
 		"target": _boss_center(config),
 	}
-	_expect(runtime._get_projectile_impact_reason(net_expanded_hit, config) == "target", "net gun should use the Python expanded boss capture hitbox")
+	_expect(_get_runtime_projectile_impact_reason(net_expanded_hit, config) == "target", "net gun should use the Python expanded boss capture hitbox")
 
 	var bazooka_wall_hit := {
 		"weapon_id": "bazooka",
@@ -1273,21 +1273,21 @@ func _verify_projectile_hitbox_profiles() -> void:
 		"life_frames": 30.0,
 		"target": Vector2(300.0, 20.0),
 	}
-	_expect(runtime._get_projectile_impact_reason(bazooka_wall_hit, config) == "target", "bazooka wall burst should use the configured explosion radius")
+	_expect(_get_runtime_projectile_impact_reason(bazooka_wall_hit, config) == "target", "bazooka wall burst should use the configured explosion radius")
 	_expect(is_equal_approx(_get_vector2(bazooka_wall_hit.get("pos", Vector2.ZERO), Vector2.ZERO).y, 20.0), "bazooka wall impact should clamp the visual burst to the back wall")
 
 	var bazooka_wall_miss := bazooka_wall_hit.duplicate(true)
 	bazooka_wall_miss["pos"] = Vector2(40.0, 18.0)
 	bazooka_wall_miss["prev_pos"] = Vector2(40.0, 35.0)
 	bazooka_wall_miss["target"] = Vector2(40.0, 20.0)
-	_expect(runtime._get_projectile_impact_reason(bazooka_wall_miss, config) == "wall", "bazooka wall burst outside explosion radius should still detonate as an environment impact")
+	_expect(_get_runtime_projectile_impact_reason(bazooka_wall_miss, config) == "wall", "bazooka wall burst outside explosion radius should still detonate as an environment impact")
 
 	var bazooka_target_miss := bazooka_wall_hit.duplicate(true)
 	bazooka_target_miss["pos"] = Vector2(40.0, 82.0)
 	bazooka_target_miss["prev_pos"] = Vector2(40.0, 98.0)
 	bazooka_target_miss["velocity"] = Vector2(0.0, -16.0)
 	bazooka_target_miss["target"] = Vector2(40.0, 82.0)
-	_expect(runtime._get_projectile_impact_reason(bazooka_target_miss, config) == "", "bazooka should not disappear at the aim point before reaching the wall")
+	_expect(_get_runtime_projectile_impact_reason(bazooka_target_miss, config) == "", "bazooka should not disappear at the aim point before reaching the wall")
 
 
 func _verify_lingering_field_runtime() -> void:
@@ -2114,6 +2114,18 @@ func _expected_net_gun_aim_origin(config: Dictionary) -> Vector2:
 		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
 		CommandoFirearmRuntime.COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
 		CommandoFirearmRuntime.COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
+	)
+
+
+func _get_runtime_projectile_impact_reason(projectile: Dictionary, context: Dictionary) -> String:
+	return CommandoFirearmProjectileImpactState.get_impact_reason(
+		projectile,
+		context,
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.FIELD_WIDTH
 	)
 
 
