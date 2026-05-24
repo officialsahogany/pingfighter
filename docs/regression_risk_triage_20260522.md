@@ -6708,6 +6708,25 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
   scripts with no GDScript warnings.
 
+215th follow-up on 2026-05-24:
+
+- Commit: `b6b34e4a2 godot: drop Commando direct profile bridges`.
+- Scope: removed the private `_get_bazooka_fire_profile()` and
+  `_get_net_gun_fire_profile()` runtime bridges. The bazooka and net-gun fire
+  paths now call `CommandoFirearmProfileResolver.get_weapon_profile()` directly
+  at the spawn handoff, while AK-47 keeps its runtime profile helper because it
+  mutates the profile with recoil spread state.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3382` lines /
+  `112` functions to `3384` lines / `110` functions. The two-line increase is
+  from expanding direct resolver calls at the fire handoff.
+- Validation: focused profile / projectile / runtime coverage passed:
+  `commando_firearm_profile_resolver_smoke`,
+  `commando_firearm_projectile_spawn_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
