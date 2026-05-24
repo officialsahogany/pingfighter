@@ -44,6 +44,22 @@ static func build_flames(effect: Dictionary) -> Array:
 	return flames
 
 
+static func seed_effect_flames(effect: Dictionary) -> void:
+	if not is_fire_zone(effect):
+		return
+	effect["flames"] = build_flames(effect)
+
+
+static func update_effect_flames(effect: Dictionary, fps_scale: float) -> void:
+	if not is_fire_zone(effect):
+		return
+	effect["flames"] = get_flames_for_frame(effect, fps_scale)
+
+
+static func is_fire_zone(effect: Dictionary) -> bool:
+	return str(effect.get("kind", "")) == "fire_zone"
+
+
 static func get_flame_count() -> int:
 	return FLAME_COUNT
 

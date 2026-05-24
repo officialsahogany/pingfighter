@@ -2433,8 +2433,7 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
 		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
 	)
-	if CommandoFirearmLingeringEffectState.is_fire_zone(effect):
-		effect["flames"] = CommandoFirearmLingeringFireFlameState.build_flames(effect)
+	CommandoFirearmLingeringFireFlameState.seed_effect_flames(effect)
 	CommandoFirearmValueUtils.append_limited(lingering_effects, effect, LINGERING_EFFECT_LIMIT)
 	return CommandoFirearmLingeringEffectState.build_spawn_result(effect, duration)
 
@@ -2453,8 +2452,7 @@ func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dict
 	for index in range(lingering_effects.size() - 1, -1, -1):
 		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
 		CommandoFirearmLingeringEffectState.advance_timers(effect, step, LINGERING_EFFECT_PHASE_STEP)
-		if CommandoFirearmLingeringEffectState.is_fire_zone(effect):
-			effect["flames"] = CommandoFirearmLingeringFireFlameState.get_flames_for_frame(effect, step)
+		CommandoFirearmLingeringFireFlameState.update_effect_flames(effect, step)
 		if CommandoFirearmLingeringEffectState.is_active(effect):
 			_apply_active_lingering_effect(index, effect, step, context, deps, result)
 		else:

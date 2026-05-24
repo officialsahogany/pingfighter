@@ -546,10 +546,17 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(is_equal_approx(float(slow_status_effect.get("status_duration_frames", 0.0)), 36.0), "lingering status field helper should preserve explicit status durations")
 	_expect(is_equal_approx(float(slow_status_effect.get("status_interval_frames", 0.0)), 8.0), "lingering status field helper should preserve explicit status intervals")
 	_expect(is_equal_approx(float(slow_status_effect.get("slow_multiplier", 0.0)), 0.45), "lingering status field helper should preserve slow multipliers")
+	var fire_flame_count := CommandoFirearmLingeringFireFlameState.get_flame_count()
 	var non_fire_seed_effect := {"kind": "field"}
 	_expect(not CommandoFirearmLingeringEffectState.is_fire_zone(non_fire_seed_effect), "lingering fire-zone owner should reject non-fire effects")
+	_expect(not CommandoFirearmLingeringFireFlameState.is_fire_zone(non_fire_seed_effect), "lingering fire flame owner should reject non-fire effects")
+	CommandoFirearmLingeringFireFlameState.seed_effect_flames(non_fire_seed_effect)
 	_expect(not non_fire_seed_effect.has("flames"), "lingering fire spawn path should ignore non-fire effects")
-	var fire_flame_count := CommandoFirearmLingeringFireFlameState.get_flame_count()
+	var direct_fire_seed_effect := {"kind": "fire_zone", "width": 80.0, "height": 40.0}
+	CommandoFirearmLingeringFireFlameState.seed_effect_flames(direct_fire_seed_effect)
+	_expect(CommandoFirearmValueUtils.get_array(direct_fire_seed_effect.get("flames", [])).size() == fire_flame_count, "lingering fire owner should seed fire-zone flames")
+	CommandoFirearmLingeringFireFlameState.update_effect_flames(direct_fire_seed_effect, 1.0)
+	_expect(CommandoFirearmValueUtils.get_array(direct_fire_seed_effect.get("flames", [])).size() == fire_flame_count, "lingering fire owner should update seeded fire-zone flames")
 	runtime.lingering_effects.clear()
 	var fire_spawn_result: Dictionary = runtime._spawn_lingering_effect("suicide_drone", {"id": 78, "pos": Vector2(100.0, 80.0)}, {})
 	var fire_seed_effect: Dictionary = {}
