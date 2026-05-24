@@ -1048,14 +1048,6 @@ func _verify_runtime_value_utils_integration() -> void:
 	}
 	var active_clamp_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(active_lingering_effect, active_lingering_context, 280.0, 90.0)
 	_expect(bool(active_clamp_result.get("commando_net_gun_boss_clamped", false)), "active lingering clamp-result owner should preserve live net clamps")
-	var active_clamp_merge_result := {}
-	var active_clamp_merge_context := {
-		"boss_pos": Vector2(20.0, 90.0),
-		"boss_paddle_width": 20.0,
-	}
-	runtime._apply_active_lingering_clamp(active_lingering_effect, active_clamp_merge_context, active_clamp_merge_result)
-	_expect(bool(active_clamp_merge_result.get("commando_net_gun_boss_clamped", false)), "active lingering clamp helper should merge clamp results")
-	_expect(active_clamp_merge_context.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "active lingering clamp helper should merge clamp data into context")
 	runtime.lingering_effects = [{
 		"weapon_id": "net_gun",
 		"boss_trapped": true,
@@ -1577,6 +1569,7 @@ func _verify_removed_net_field_clamp_bridges() -> void:
 		"_build_net_field_boss_clamp_result",
 		"_apply_net_field_boss_clamp",
 		"_get_active_lingering_clamp_result",
+		"_apply_active_lingering_clamp",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field clamp bridge %s" % bridge_name)
 

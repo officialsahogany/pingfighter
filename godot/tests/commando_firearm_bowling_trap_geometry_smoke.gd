@@ -190,6 +190,8 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"_build_bowling_trap_capture_result",
 		"_soften_bowling_trap_guard_ball",
 		"_get_bowling_trap_guard_knockback_velocity",
+		"_is_stage2_speed_defense_boss_immune",
+		"_is_stage2_speed_defense_registry_immune",
 		"_get_bowling_trap_launch_direction",
 		"_bowling_trap_hits_ball",
 	]:

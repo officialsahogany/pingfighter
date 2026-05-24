@@ -886,7 +886,30 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 	_clear_bowling_trap_guard()
 
 	var next_ball_vel: Vector2 = CommandoFirearmBowlingTrapGeometry.soften_guard_ball(ball_vel, restore_speed)
-	if _is_stage2_speed_defense_boss_immune(context, deps):
+	var stage2_boss_immune := false
+	if int(context.get("current_stage", 0)) == 2:
+		stage2_boss_immune = (
+			bool(context.get("stage2_speed_defense_status_immunity_active", false))
+			or bool(context.get("stage2_speed_defense_active", false))
+		)
+	var stage2_skill_state: Object = deps.get("stage2_boss_skill_state", null)
+	if (
+		not stage2_boss_immune
+		and stage2_skill_state != null
+		and stage2_skill_state.has_method("is_boss_status_immune")
+		and bool(stage2_skill_state.is_boss_status_immune())
+	):
+		stage2_boss_immune = true
+	var registry: Object = deps.get("registry", null)
+	var registry_stage2_skill_state: Object = CommandoFirearmValueUtils.get_instance(registry, "stage2_boss_skill_state")
+	if (
+		not stage2_boss_immune
+		and registry_stage2_skill_state != null
+		and registry_stage2_skill_state.has_method("is_boss_status_immune")
+		and bool(registry_stage2_skill_state.is_boss_status_immune())
+	):
+		stage2_boss_immune = true
+	if stage2_boss_immune:
 		return CommandoFirearmBowlingTrapGeometry.build_guard_immune_result(next_ball_vel)
 
 	var boss_center: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
@@ -3140,11 +3163,6 @@ func _apply_active_lingering_effect(
 			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
 		)
 	_apply_lingering_effect_status(effect, context, deps, fps_scale)
-	_apply_active_lingering_clamp(effect, context, result)
-	lingering_effects[index] = effect
-
-
-func _apply_active_lingering_clamp(effect: Dictionary, context: Dictionary, result: Dictionary) -> void:
 	var clamp_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(
 		effect,
 		context,
@@ -3152,6 +3170,7 @@ func _apply_active_lingering_clamp(effect: Dictionary, context: Dictionary, resu
 		NET_GUN_MIN_HEIGHT
 	)
 	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
+	lingering_effects[index] = effect
 
 
 func _break_hooked_net_fields() -> void:
@@ -3241,33 +3260,6 @@ func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, dep
 	CommandoFirearmLingeringStatusState.reset_status_cooldown(
 		effect,
 		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES
-	)
-
-
-func _is_stage2_speed_defense_boss_immune(context: Dictionary = {}, deps: Dictionary = {}) -> bool:
-	if int(context.get("current_stage", 0)) == 2:
-		if (
-			bool(context.get("stage2_speed_defense_status_immunity_active", false))
-			or bool(context.get("stage2_speed_defense_active", false))
-		):
-			return true
-	var stage2_skill_state: Object = deps.get("stage2_boss_skill_state", null)
-	if (
-		stage2_skill_state != null
-		and stage2_skill_state.has_method("is_boss_status_immune")
-		and bool(stage2_skill_state.is_boss_status_immune())
-	):
-		return true
-	var registry: Object = deps.get("registry", null)
-	return _is_stage2_speed_defense_registry_immune(registry)
-
-
-func _is_stage2_speed_defense_registry_immune(registry: Object) -> bool:
-	var stage2_skill_state: Object = CommandoFirearmValueUtils.get_instance(registry, "stage2_boss_skill_state")
-	return (
-		stage2_skill_state != null
-		and stage2_skill_state.has_method("is_boss_status_immune")
-		and bool(stage2_skill_state.is_boss_status_immune())
 	)
 
 
