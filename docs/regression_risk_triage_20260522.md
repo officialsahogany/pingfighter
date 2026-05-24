@@ -9174,3 +9174,26 @@ commits rather than standalone `fix` commits:
   `project_resource_loader_import_preference_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors.
+
+338th follow-up on 2026-05-25:
+
+- Commit:
+  `b4e14b61b godot: move Commando support call update dispatch`.
+- Scope: moved fire-support call update dispatch out of
+  `commando_firearm_runtime.gd` and into
+  `CommandoFirearmSupportProjectileResolver.advance_runtime_support_calls()`.
+  The support projectile owner now resolves the fire-support weapon profile,
+  advances active calls, spawns support projectiles, and dispatches aircraft
+  loop start / stop audio events. Runtime now calls the owner helper directly
+  from `update_effects()` and no longer keeps `_update_support_calls()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1965` lines /
+  `32` functions to `1953` lines / `31` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_support_projectile_resolver_smoke`,
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_audio_dispatcher_smoke`,
+  `commando_supply_drop_audio_cleanup_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors.
