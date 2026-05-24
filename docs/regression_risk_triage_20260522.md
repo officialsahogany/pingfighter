@@ -7367,6 +7367,27 @@ Hundredth split on 2026-05-24:
   `commando_firearm_value_utils_smoke`. The projectile-impact smoke now
   rejects the removed `_get_projectile_impact_reason()` runtime bridge.
 
+250th follow-up on 2026-05-24:
+
+- Commit:
+  `17b7cd4bf godot: inline Commando impact result bridges`.
+- Scope: removed two small Commando runtime bridge helpers. AK-47 accumulated
+  boss-damage payloads are now applied directly from
+  `CommandoFirearmAk47HitState.build_accumulated_damage_payload()` inside the
+  weapon-hit result path, and Stage 2 projectile rock impact cleanup now calls
+  `CommandoFirearmStage2RockInteractionResolver.destroy_projectile_impact_rocks()`
+  directly from the projectile update path.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3069` lines /
+  `62` functions to `3059` lines / `60` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_ak47_hit_state_smoke`,
+  `commando_firearm_stage2_rock_interaction_resolver_smoke`,
+  `commando_firearm_boss_damage_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The focused owner smokes now reject
+  `_apply_ak47_accumulated_boss_damage()` and
+  `_destroy_stage2_rocks_for_projectile_impact()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
