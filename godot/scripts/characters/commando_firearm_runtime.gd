@@ -993,10 +993,8 @@ func get_actor_draw_context() -> Dictionary:
 		PISTOL_FIRE_DELAY_FRAMES,
 		PISTOL_POST_FIRE_ANIMATION_FRAMES
 	)
-	var weapon_fire_sheet_state: Dictionary = CommandoFirearmDrawStateResolver.build_weapon_fire_sheet_state(
-		weapon_fire_sheet_id,
-		weapon_fire_sheet_timer_frames,
-		weapon_fire_sheet_max_frames,
+	var weapon_fire_sheet_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_weapon_fire_sheet_state(
+		self,
 		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
 	)
 	var ak47_state: Dictionary = CommandoFirearmDrawStateResolver.build_ak47_state(

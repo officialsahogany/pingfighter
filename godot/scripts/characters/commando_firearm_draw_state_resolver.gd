@@ -151,6 +151,17 @@ static func build_weapon_fire_sheet_state(
 	}
 
 
+static func build_runtime_weapon_fire_sheet_state(target: Object, frame_count: int) -> Dictionary:
+	if target == null:
+		return build_weapon_fire_sheet_state("", 0.0, 0.0, frame_count)
+	return build_weapon_fire_sheet_state(
+		str(target.get("weapon_fire_sheet_id")),
+		float(target.get("weapon_fire_sheet_timer_frames")),
+		float(target.get("weapon_fire_sheet_max_frames")),
+		frame_count
+	)
+
+
 static func build_ak47_state(
 	trigger_held: bool,
 	fire_interval_frames: float,

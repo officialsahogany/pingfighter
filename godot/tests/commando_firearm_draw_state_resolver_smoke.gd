@@ -99,6 +99,13 @@ func _verify_direct_weapon_fire_sheet_state() -> void:
 
 	var missing_id: Dictionary = CommandoFirearmDrawStateResolver.build_weapon_fire_sheet_state("", 20.0, 40.0, 8)
 	_expect(not bool(missing_id.get("active", true)), "weapon-fire sheet should be inactive without weapon id")
+	var runtime := CommandoFirearmRuntime.new()
+	runtime.weapon_fire_sheet_id = "ak47"
+	runtime.weapon_fire_sheet_timer_frames = 20.0
+	runtime.weapon_fire_sheet_max_frames = 40.0
+	var runtime_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_weapon_fire_sheet_state(runtime, 8)
+	_expect(bool(runtime_state.get("active", false)), "runtime weapon-fire sheet should detect active timers")
+	_expect(str(runtime_state.get("weapon_id", "")) == "ak47", "runtime weapon-fire sheet should preserve weapon id")
 
 
 func _verify_direct_weapon_draw_states() -> void:
