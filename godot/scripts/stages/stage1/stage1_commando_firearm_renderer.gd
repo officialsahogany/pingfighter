@@ -75,6 +75,10 @@ static func prewarm_assets() -> void:
 		pass
 
 
+func prewarm_runtime_assets() -> void:
+	prewarm_assets()
+
+
 static func prewarm_assets_step() -> bool:
 	if _prewarmed:
 		return true

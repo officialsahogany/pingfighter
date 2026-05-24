@@ -29,6 +29,9 @@ func _init() -> void:
 
 func _verify_actor_perf_forwarding() -> void:
 	var actor_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_actor_renderer.gd")
+	var player_actor_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
+	var player_sprite_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_player_sprite_renderer.gd")
+	var commando_renderer_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_commando_firearm_renderer.gd")
 	var effects_drawer_source := FileAccess.get_file_as_string("res://scripts/core/battle_playfield_effects_drawer.gd")
 	_expect(
 		actor_source.find("func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null)") >= 0,
@@ -53,6 +56,17 @@ func _verify_actor_perf_forwarding() -> void:
 	_expect(
 		effects_drawer_source.find("default_args") >= 0,
 		"battle playfield effects drawer should inspect default arguments when forwarding perf logger"
+	)
+	_expect(
+		actor_source.find("player_renderer.prewarm_runtime_assets()") >= 0
+			and actor_source.find("commando_firearm_renderer.prewarm_runtime_assets()") >= 0,
+		"Stage 1 actor prewarm should delegate through runtime renderer instances"
+	)
+	_expect(
+		player_actor_source.find("func prewarm_runtime_assets() -> void:") >= 0
+			and player_sprite_source.find("func prewarm_runtime_assets() -> void:") >= 0
+			and commando_renderer_source.find("func prewarm_runtime_assets() -> void:") >= 0,
+		"Stage 1 runtime renderers should expose instance prewarm hooks"
 	)
 
 

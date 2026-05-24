@@ -3,7 +3,6 @@ extends RefCounted
 const Stage1ContextReader := preload("res://scripts/stages/stage1/stage1_context_reader.gd")
 const Stage1PlayfieldRenderer := preload("res://scripts/stages/stage1/stage1_playfield_renderer.gd")
 const Stage1PlayerActorRenderer := preload("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
-const Stage1PlayerSpriteRenderer := preload("res://scripts/stages/stage1/stage1_player_sprite_renderer.gd")
 const Stage1BossActorRenderer := preload("res://scripts/stages/stage1/stage1_boss_actor_renderer.gd")
 const Stage1DaljiSpinningTopRenderer := preload("res://scripts/stages/stage1/stage1_dalji_spinning_top_renderer.gd")
 const Stage1CommandoFirearmRenderer := preload("res://scripts/stages/stage1/stage1_commando_firearm_renderer.gd")
@@ -16,8 +15,10 @@ var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
 
 
 func prewarm_assets() -> void:
-	Stage1PlayerSpriteRenderer.prewarm_assets()
-	Stage1CommandoFirearmRenderer.prewarm_assets()
+	if player_renderer != null and player_renderer.has_method("prewarm_runtime_assets"):
+		player_renderer.prewarm_runtime_assets()
+	if commando_firearm_renderer != null and commando_firearm_renderer.has_method("prewarm_runtime_assets"):
+		commando_firearm_renderer.prewarm_runtime_assets()
 
 
 func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -> void:

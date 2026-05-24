@@ -22,6 +22,14 @@ var _silhouette_rim_material: ShaderMaterial
 
 
 static func prewarm_assets() -> void:
+	_prewarm_shared_assets()
+
+
+func prewarm_runtime_assets() -> void:
+	_prewarm_shared_assets()
+
+
+static func _prewarm_shared_assets() -> void:
 	_character_rim_shader_ready = CharacterTopdownRimShader is Shader
 
 

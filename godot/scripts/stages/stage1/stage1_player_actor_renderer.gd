@@ -53,6 +53,11 @@ func _init() -> void:
 	ImpactShockwaveTextureCache.prewarm()
 
 
+func prewarm_runtime_assets() -> void:
+	if sprite_renderer != null and sprite_renderer.has_method("prewarm_runtime_assets"):
+		sprite_renderer.prewarm_runtime_assets()
+
+
 func draw(
 	canvas: CanvasItem,
 	context: Dictionary,
