@@ -1409,7 +1409,11 @@ func _update_ak47_input(
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
 		_clear_ak47_trigger_state()
-		return _ak47_fire_failed(special_gauge, "ak47_empty")
+		return CommandoFirearmFireResultState.build_fire_failed_result("ak47", special_gauge, "ak47_empty", {
+			"fire_interval_frames": ak47_fire_interval_frames,
+			"burst_shots_remaining": ak47_burst_shots_remaining,
+			"movement_speed_multiplier": get_movement_speed_multiplier(),
+		})
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_duration"):
 		weapon_controller.consume_current_weapon_duration(1.0)
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
@@ -1424,7 +1428,11 @@ func _update_ak47_input(
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
 			_clear_ak47_trigger_state()
-			return _ak47_fire_failed(special_gauge, "ak47_ammo_unavailable")
+			return CommandoFirearmFireResultState.build_fire_failed_result("ak47", special_gauge, "ak47_ammo_unavailable", {
+				"fire_interval_frames": ak47_fire_interval_frames,
+				"burst_shots_remaining": ak47_burst_shots_remaining,
+				"movement_speed_multiplier": get_movement_speed_multiplier(),
+			})
 	last_fire_msec = now_msec
 	_spawn_firearm_effect("ak47", config, deps, _get_ak47_fire_profile())
 	CommandoFirearmAudioDispatcher.play_fire_audio("ak47", deps)
@@ -1462,14 +1470,6 @@ func _update_ak47_input(
 		movement_multiplier,
 		special_gauge
 	)
-
-
-func _ak47_fire_failed(special_gauge: float, reason: String) -> Dictionary:
-	return CommandoFirearmFireResultState.build_fire_failed_result("ak47", special_gauge, reason, {
-		"fire_interval_frames": ak47_fire_interval_frames,
-		"burst_shots_remaining": ak47_burst_shots_remaining,
-		"movement_speed_multiplier": get_movement_speed_multiplier(),
-	})
 
 
 func _trigger_firearm_skill_cooldown(

@@ -137,10 +137,21 @@ func _verify_runtime_delegates_fire_result_state() -> void:
 	_expect(is_equal_approx(float(pistol.get("fire_delay_frames", 0.0)), 5.0), "runtime pistol failed wrapper should preserve fire delay")
 
 	runtime.ak47_fire_interval_frames = 6.0
+	runtime.ak47_last_action_pressed = true
+	runtime.ak47_trigger_held = true
 	runtime.ak47_burst_shots_remaining = 1
-	var ak47: Dictionary = runtime._ak47_fire_failed(500.0, "ak47_empty")
-	_expect(str(ak47.get("weapon_id", "")) == "ak47", "runtime AK-47 failed wrapper should delegate")
-	_expect(int(ak47.get("burst_shots_remaining", -1)) == 1, "runtime AK-47 failed wrapper should preserve burst count")
+	var ak47: Dictionary = runtime._update_ak47_input(
+		{"action_pressed": true},
+		500.0,
+		{},
+		{},
+		{"weapon_id": "ak47", "ammo_current": 0, "can_fire": true},
+		0
+	)
+	_expect(str(ak47.get("weapon_id", "")) == "ak47", "runtime AK-47 failed path should preserve weapon id")
+	_expect(str(ak47.get("failure_reason", "")) == "ak47_empty", "runtime AK-47 failed path should preserve failure reason")
+	_expect(is_equal_approx(float(ak47.get("fire_interval_frames", 0.0)), 6.0), "runtime AK-47 failed path should preserve interval timer")
+	_expect(int(ak47.get("burst_shots_remaining", -1)) == 0, "runtime AK-47 failed path should clear burst count")
 
 	runtime.bazooka_cooldown_frames = 7.0
 	runtime.bazooka_control_lock_frames = 8.0
@@ -190,6 +201,7 @@ func _verify_runtime_delegates_fire_result_state() -> void:
 	_expect(runtime_source.find("func _bazooka_fire_failed(") == -1, "runtime should not keep the bazooka fire-failed bridge")
 	_expect(runtime_source.find("func _net_gun_fire_failed(") == -1, "runtime should not keep the net-gun fire-failed bridge")
 	_expect(runtime_source.find("func _bowling_trap_fire_failed(") == -1, "runtime should not keep the bowling-trap fire-failed bridge")
+	_expect(runtime_source.find("func _ak47_fire_failed(") == -1, "runtime should not keep the AK-47 fire-failed bridge")
 
 
 func _expect(condition: bool, message: String) -> void:
