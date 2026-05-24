@@ -27,6 +27,12 @@ class FakeRegistry:
 		return null
 
 
+class FakeShotCounter:
+	extends RefCounted
+
+	var shot_serial := 0
+
+
 func _init() -> void:
 	_verify_direct_bowling_trap_geometry()
 	_verify_direct_bowling_trap_guard_state()
@@ -136,6 +142,30 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	_expect(appended_traps.size() == 1, "install append helper should append one trap body")
 	_expect(appended_flashes.size() == 1, "install append helper should append one marker flash")
 	_expect(int(appended_trap.get("id", 0)) == 17, "install append helper should preserve runtime trap id")
+	var runtime_traps: Array = []
+	var runtime_flashes: Array = []
+	var counter := FakeShotCounter.new()
+	counter.shot_serial = 20
+	var runtime_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.append_runtime_install_effects(
+		runtime_traps,
+		runtime_flashes,
+		counter,
+		{"player_pos": Vector2(100.0, 640.0), "paddle_width": 80.0, "paddle_height": 45.0},
+		{"color": Color.RED, "secondary": Color.BLUE},
+		"bowling_trap",
+		760.0,
+		750.0,
+		60.0,
+		20.0,
+		0.6,
+		48.0,
+		Vector2(0.0, -15.0),
+		4,
+		3
+	)
+	_expect(counter.shot_serial == 21, "runtime install append helper should claim the next shot id")
+	_expect(int(runtime_trap.get("id", 0)) == 21, "runtime install append helper should use the claimed trap id")
+	_expect(runtime_traps.size() == 1 and runtime_flashes.size() == 1, "runtime install append helper should append trap and marker payloads")
 	_expect(
 		CommandoFirearmBowlingTrapGeometry.update_install_state(install_trap, 48.0, 48.0)["state"] == "waiting",
 		"install state update should enter waiting state when timer expires"
@@ -385,6 +415,14 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 	_expect(
 		runtime_source.find("CommandoFirearmBowlingTrapGeometry.advance_runtime_traps") >= 0,
 		"runtime should delegate bowling-trap lifecycle advancement to the geometry owner"
+	)
+	_expect(
+		runtime_source.find("CommandoFirearmBowlingTrapGeometry.append_runtime_install_effects") >= 0,
+		"runtime should delegate bowling-trap runtime install append to the geometry owner"
+	)
+	_expect(
+		runtime_source.find("CommandoFirearmBowlingTrapGeometry.append_install_effects") < 0,
+		"runtime should not call the lower-level bowling-trap install helper directly"
 	)
 	for bridge_name in [
 		"_is_bowling_trap_install_in_player_field",

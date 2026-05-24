@@ -1,5 +1,6 @@
 extends RefCounted
 
+const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 
@@ -45,6 +46,43 @@ static func append_install_effects(
 		flash_limit
 	)
 	return trap
+
+
+static func append_runtime_install_effects(
+	bowling_traps: Array,
+	impact_flashes: Array,
+	runtime_owner: Object,
+	config: Dictionary,
+	profile: Dictionary,
+	weapon_id: String,
+	field_width: float,
+	field_height: float,
+	trap_width: float,
+	trap_height: float,
+	min_field_y_ratio: float,
+	install_frames: float,
+	capture_ball_offset: Vector2,
+	trap_limit: int,
+	flash_limit: int
+) -> Dictionary:
+	var trap_id: int = CommandoFirearmProjectileSpawnState.claim_next_shot_id(runtime_owner)
+	return append_install_effects(
+		bowling_traps,
+		impact_flashes,
+		config,
+		profile,
+		weapon_id,
+		trap_id,
+		field_width,
+		field_height,
+		trap_width,
+		trap_height,
+		min_field_y_ratio,
+		install_frames,
+		capture_ball_offset,
+		trap_limit,
+		flash_limit
+	)
 
 
 static func get_install_pos(

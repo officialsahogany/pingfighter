@@ -1586,13 +1586,13 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
 		return
 	if kind == "trap" or weapon_id == "bowling_trap":
-		CommandoFirearmBowlingTrapGeometry.append_install_effects(
+		CommandoFirearmBowlingTrapGeometry.append_runtime_install_effects(
 			bowling_traps,
 			impact_flashes,
+			self,
 			config,
 			profile,
 			weapon_id,
-			CommandoFirearmProjectileSpawnState.claim_next_shot_id(self),
 			FIELD_WIDTH,
 			FIELD_HEIGHT,
 			BOWLING_TRAP_WIDTH,
