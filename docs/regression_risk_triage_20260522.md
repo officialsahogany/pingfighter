@@ -8373,11 +8373,11 @@ commits rather than standalone `fix` commits:
   result and then delegate damage / gauge accumulation to the pending-result
   owner.
 - Runtime facade size: `commando_firearm_runtime.gd` moved from `2550` lines /
-  `35` functions to `2451` lines / `35` functions.
+  `35` functions to `2533` lines / `35` functions.
 - Validation: focused Commando coverage passed:
   `commando_firearm_pending_result_state_smoke` and
   `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
-  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
   `git diff --check` on the committed Commando files reported no whitespace
   errors.
 
@@ -8390,7 +8390,7 @@ commits rather than standalone `fix` commits:
   smoke caps for ellipse segments and alpha.
 - Validation: focused Stage 1 coverage passed:
   `stage1_actor_render_budget_smoke`. The Godot headless load check passed,
-  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
   `git diff --check` on the committed Stage 1 files reported no whitespace
   errors.
 
