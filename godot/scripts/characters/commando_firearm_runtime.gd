@@ -1624,104 +1624,40 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 
 
 func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var step: float = max(0.0, fps_scale)
-	var result: Dictionary = {}
-	for index in range(projectiles.size() - 1, -1, -1):
-		var projectile: Dictionary = CommandoFirearmValueUtils.get_dict(projectiles[index])
-		var projectile_kind: String = CommandoFirearmValueUtils.get_projectile_kind(projectile)
-		var projectile_weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(
-			projectile,
-			BASE_WEAPON_ID
-		)
-		var is_pistol_projectile: bool = CommandoFirearmValueUtils.is_pistol_weapon(
-			projectile_weapon_id,
-			BASE_WEAPON_ID
-		)
-		var motion_result: Dictionary = CommandoFirearmProjectileMotionState.advance_runtime_projectile_motion(
-			projectile,
-			projectile_kind,
-			projectile_weapon_id,
-			is_pistol_projectile,
-			context,
-			deps,
-			step,
-			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-			PISTOL_WALL_BOUNCE_MARGIN,
-			PISTOL_WALL_BOUNCE_MAX,
-			PISTOL_WALL_BOUNCE_DAMPING,
-			BAZOOKA_ACCELERATION,
-			BAZOOKA_MAX_SPEED,
-			BAZOOKA_SMOKE_TRAIL_LIMIT,
-			COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-			COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
-			NET_GUN_ROPE_TRAIL_LIMIT
-		)
-		if bool(motion_result.get("consumed", false)):
-			projectiles.remove_at(index)
-			continue
-		projectile = CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile))
-		projectiles[index] = projectile
-		if projectile_kind == "drone":
-			var drone_result: Dictionary = CommandoFirearmSuicideDroneState.resolve_runtime_collision_at_index(
-				projectiles,
-				index,
-				impact_flashes,
-				self,
-				projectile,
-				context,
-				deps,
-				step,
-				Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-				SUICIDE_DRONE_SIZE,
-				SUICIDE_DRONE_ROTOR_BASE_SPEED,
-				FIELD_WIDTH,
-				WEAPON_PROFILES,
-				WEAPON_PROFILE_OVERRIDES,
-				WEAPON_HIT_FEEDBACK,
-				HIT_FEEDBACK_PROFILE_OVERRIDES,
-				BASE_WEAPON_ID,
-				SUICIDE_DRONE_COOLDOWN_FRAMES,
-				SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
-				SUICIDE_DRONE_BALL_FAN_DEGREES,
-				float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
-				FLASH_LIMIT
-			)
-			if not drone_result.is_empty():
-				result.merge(drone_result, true)
-				context.merge(drone_result, true)
-				continue
-			continue
-		var impact_reason: String = CommandoFirearmProjectileImpactState.get_impact_reason(
-			projectile,
-			context,
-			WEAPON_PROFILES,
-			WEAPON_PROFILE_OVERRIDES,
-			BASE_WEAPON_ID,
-			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-			FIELD_WIDTH
-		)
-		if impact_reason != "":
-			var impact_result: Dictionary = CommandoFirearmProjectileImpactState.dispatch_runtime_impact(
-				impact_flashes,
-				self,
-				projectile,
-				impact_reason,
-				projectile_weapon_id,
-				context,
-				deps,
-				WEAPON_PROFILES,
-				WEAPON_PROFILE_OVERRIDES,
-				WEAPON_HIT_FEEDBACK,
-				HIT_FEEDBACK_PROFILE_OVERRIDES,
-				BASE_WEAPON_ID,
-				float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
-				FLASH_LIMIT
-			)
-			result.merge(impact_result, true)
-			context.merge(impact_result, true)
-			projectiles.remove_at(index)
-	return result
+	return CommandoFirearmProjectileMotionState.advance_runtime_projectiles(
+		projectiles,
+		impact_flashes,
+		self,
+		fps_scale,
+		context,
+		deps,
+		{
+			"weapon_profiles": WEAPON_PROFILES,
+			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
+			"weapon_hit_feedback": WEAPON_HIT_FEEDBACK,
+			"hit_feedback_profile_overrides": HIT_FEEDBACK_PROFILE_OVERRIDES,
+			"base_weapon_id": BASE_WEAPON_ID,
+			"field_width": FIELD_WIDTH,
+			"field_height": FIELD_HEIGHT,
+			"pistol_wall_bounce_margin": PISTOL_WALL_BOUNCE_MARGIN,
+			"pistol_wall_bounce_max": PISTOL_WALL_BOUNCE_MAX,
+			"pistol_wall_bounce_damping": PISTOL_WALL_BOUNCE_DAMPING,
+			"bazooka_acceleration": BAZOOKA_ACCELERATION,
+			"bazooka_max_speed": BAZOOKA_MAX_SPEED,
+			"bazooka_smoke_trail_limit": BAZOOKA_SMOKE_TRAIL_LIMIT,
+			"net_gun_muzzle_source": COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+			"fire_sheet_source_cell_size": COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+			"fire_sheet_player_foot_y_offset": COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+			"net_gun_rope_trail_limit": NET_GUN_ROPE_TRAIL_LIMIT,
+			"suicide_drone_size": SUICIDE_DRONE_SIZE,
+			"suicide_drone_rotor_base_speed": SUICIDE_DRONE_ROTOR_BASE_SPEED,
+			"suicide_drone_cooldown_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
+			"suicide_drone_ball_speed_multiplier": SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+			"suicide_drone_ball_fan_degrees": SUICIDE_DRONE_BALL_FAN_DEGREES,
+			"grenade_explosion_duration_frames": float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+			"flash_limit": FLASH_LIMIT,
+		}
+	)
 
 
 func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> void:

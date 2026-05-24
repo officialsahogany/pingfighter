@@ -210,8 +210,13 @@ func _verify_removed_runtime_projectile_motion_bridges() -> void:
 	]:
 		_expect(source.find("func %s(" % bridge_name) < 0, "runtime should not keep projectile motion bridge %s" % bridge_name)
 	_expect(
-		source.find("CommandoFirearmProjectileMotionState.advance_runtime_projectile_motion") >= 0,
-		"runtime should delegate projectile frame motion to the owner"
+		source.find("CommandoFirearmProjectileMotionState.advance_runtime_projectiles") >= 0,
+		"runtime should delegate projectile update orchestration to the owner"
+	)
+	var owner_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_projectile_motion_state.gd")
+	_expect(
+		owner_source.find("advance_runtime_projectile_motion") >= 0,
+		"projectile motion owner should keep the frame motion helper"
 	)
 
 

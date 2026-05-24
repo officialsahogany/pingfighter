@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmStage2RockInteractionResolver := preload("res://scripts/characters/commando_firearm_stage2_rock_interaction_resolver.gd")
 const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
@@ -249,3 +250,115 @@ static func advance_runtime_projectile_motion(
 		"velocity": velocity,
 		"rock_bounced": bool(rock_bounce_result.get("bounced", false)),
 	}
+
+
+static func advance_runtime_projectiles(
+	projectiles: Array,
+	impact_flashes: Array,
+	runtime_owner: Object,
+	fps_scale: float,
+	context: Dictionary,
+	deps: Dictionary,
+	options: Dictionary
+) -> Dictionary:
+	var step: float = max(0.0, fps_scale)
+	var result: Dictionary = {}
+	var base_weapon_id: String = str(options.get("base_weapon_id", "pistol"))
+	var field_width: float = float(options.get("field_width", 760.0))
+	var field_size := Vector2(field_width, float(options.get("field_height", 750.0)))
+	for index in range(projectiles.size() - 1, -1, -1):
+		var projectile: Dictionary = CommandoFirearmValueUtils.get_dict(projectiles[index])
+		var projectile_kind: String = CommandoFirearmValueUtils.get_projectile_kind(projectile)
+		var projectile_weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(
+			projectile,
+			base_weapon_id
+		)
+		var is_pistol_projectile: bool = CommandoFirearmValueUtils.is_pistol_weapon(
+			projectile_weapon_id,
+			base_weapon_id
+		)
+		var motion_result: Dictionary = advance_runtime_projectile_motion(
+			projectile,
+			projectile_kind,
+			projectile_weapon_id,
+			is_pistol_projectile,
+			context,
+			deps,
+			step,
+			field_size,
+			float(options.get("pistol_wall_bounce_margin", 10.0)),
+			int(options.get("pistol_wall_bounce_max", 1)),
+			float(options.get("pistol_wall_bounce_damping", 0.85)),
+			float(options.get("bazooka_acceleration", 0.0)),
+			float(options.get("bazooka_max_speed", 0.0)),
+			int(options.get("bazooka_smoke_trail_limit", 0)),
+			CommandoFirearmValueUtils.get_vector2(options.get("net_gun_muzzle_source", Vector2.ZERO), Vector2.ZERO),
+			CommandoFirearmValueUtils.get_vector2(options.get("fire_sheet_source_cell_size", Vector2.ZERO), Vector2.ZERO),
+			float(options.get("fire_sheet_player_foot_y_offset", 0.0)),
+			int(options.get("net_gun_rope_trail_limit", 0))
+		)
+		if bool(motion_result.get("consumed", false)):
+			projectiles.remove_at(index)
+			continue
+		projectile = CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile))
+		projectiles[index] = projectile
+		if projectile_kind == "drone":
+			var drone_result: Dictionary = CommandoFirearmSuicideDroneState.resolve_runtime_collision_at_index(
+				projectiles,
+				index,
+				impact_flashes,
+				runtime_owner,
+				projectile,
+				context,
+				deps,
+				step,
+				field_size,
+				CommandoFirearmValueUtils.get_vector2(options.get("suicide_drone_size", Vector2.ZERO), Vector2.ZERO),
+				float(options.get("suicide_drone_rotor_base_speed", 0.0)),
+				field_width,
+				CommandoFirearmValueUtils.get_dict(options.get("weapon_profiles", {})),
+				CommandoFirearmValueUtils.get_dict(options.get("weapon_profile_overrides", {})),
+				CommandoFirearmValueUtils.get_dict(options.get("weapon_hit_feedback", {})),
+				CommandoFirearmValueUtils.get_dict(options.get("hit_feedback_profile_overrides", {})),
+				base_weapon_id,
+				float(options.get("suicide_drone_cooldown_frames", 0.0)),
+				float(options.get("suicide_drone_ball_speed_multiplier", 1.0)),
+				float(options.get("suicide_drone_ball_fan_degrees", 0.0)),
+				float(options.get("grenade_explosion_duration_frames", 0.0)),
+				int(options.get("flash_limit", 24))
+			)
+			if not drone_result.is_empty():
+				result.merge(drone_result, true)
+				context.merge(drone_result, true)
+				continue
+			continue
+		var impact_reason: String = CommandoFirearmProjectileImpactState.get_impact_reason(
+			projectile,
+			context,
+			CommandoFirearmValueUtils.get_dict(options.get("weapon_profiles", {})),
+			CommandoFirearmValueUtils.get_dict(options.get("weapon_profile_overrides", {})),
+			base_weapon_id,
+			field_size,
+			field_width
+		)
+		if impact_reason != "":
+			var impact_result: Dictionary = CommandoFirearmProjectileImpactState.dispatch_runtime_impact(
+				impact_flashes,
+				runtime_owner,
+				projectile,
+				impact_reason,
+				projectile_weapon_id,
+				context,
+				deps,
+				CommandoFirearmValueUtils.get_dict(options.get("weapon_profiles", {})),
+				CommandoFirearmValueUtils.get_dict(options.get("weapon_profile_overrides", {})),
+				CommandoFirearmValueUtils.get_dict(options.get("weapon_hit_feedback", {})),
+				CommandoFirearmValueUtils.get_dict(options.get("hit_feedback_profile_overrides", {})),
+				base_weapon_id,
+				float(options.get("grenade_explosion_duration_frames", 0.0)),
+				int(options.get("flash_limit", 24))
+			)
+			result.merge(impact_result, true)
+			context.merge(impact_result, true)
+			projectiles.remove_at(index)
+	return result
