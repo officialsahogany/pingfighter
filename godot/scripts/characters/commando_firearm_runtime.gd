@@ -1007,17 +1007,13 @@ func get_actor_draw_context() -> Dictionary:
 		BAZOOKA_FIRING_POSE_FRAMES,
 		BAZOOKA_MUZZLE_FLASH_FRAMES
 	)
-	var net_gun_state: Dictionary = CommandoFirearmDrawStateResolver.build_net_gun_state(
-		net_gun_cooldown_frames,
+	var net_gun_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_net_gun_state(
+		self,
 		NET_GUN_COOLDOWN_FRAMES,
-		net_gun_control_lock_frames,
 		NET_GUN_CONTROL_LOCK_FRAMES,
-		net_gun_throw_pose_frames,
 		NET_GUN_THROW_POSE_FRAMES,
-		net_gun_harpoon_flash_frames,
 		NET_GUN_HARPOON_FLASH_FRAMES,
-		get_movement_speed_multiplier(),
-		CommandoFirearmLingeringNetFieldState.has_active_hooked_net_field(lingering_effects)
+		get_movement_speed_multiplier()
 	)
 	var bowling_trap_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_bowling_trap_state(
 		bowling_traps,

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
+const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 const VISIBLE_EFFECT_ARRAY_FIELDS := [
@@ -278,6 +279,41 @@ static func build_net_gun_state(
 		"player_slow_multiplier": player_slow_multiplier,
 		"hooked_net_active": hooked_net_active,
 	}
+
+
+static func build_runtime_net_gun_state(
+	target: Object,
+	cooldown_max_frames: float,
+	control_lock_max_frames: float,
+	throw_pose_max_frames: float,
+	harpoon_flash_max_frames: float,
+	player_slow_multiplier: float
+) -> Dictionary:
+	if target == null:
+		return build_net_gun_state(
+			0.0,
+			cooldown_max_frames,
+			0.0,
+			control_lock_max_frames,
+			0.0,
+			throw_pose_max_frames,
+			0.0,
+			harpoon_flash_max_frames,
+			player_slow_multiplier,
+			false
+		)
+	return build_net_gun_state(
+		float(target.get("net_gun_cooldown_frames")),
+		cooldown_max_frames,
+		float(target.get("net_gun_control_lock_frames")),
+		control_lock_max_frames,
+		float(target.get("net_gun_throw_pose_frames")),
+		throw_pose_max_frames,
+		float(target.get("net_gun_harpoon_flash_frames")),
+		harpoon_flash_max_frames,
+		player_slow_multiplier,
+		CommandoFirearmLingeringNetFieldState.has_active_hooked_net_field(target.get("lingering_effects"))
+	)
 
 
 static func build_bowling_trap_state(

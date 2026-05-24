@@ -159,6 +159,16 @@ func _verify_direct_weapon_draw_states() -> void:
 	)
 	_expect(bool(net_gun.get("throw_pose", false)), "net-gun state should expose throw pose while pose timer is active")
 	_expect(bool(net_gun.get("hooked_net_active", false)), "net-gun state should preserve hooked-net flag")
+	var runtime_net_gun := CommandoFirearmRuntime.new()
+	runtime_net_gun.net_gun_cooldown_frames = 12.0
+	runtime_net_gun.net_gun_control_lock_frames = 13.0
+	runtime_net_gun.net_gun_throw_pose_frames = 14.0
+	runtime_net_gun.net_gun_harpoon_flash_frames = 15.0
+	runtime_net_gun.lingering_effects = [{"weapon_id": "net_gun", "hooked_player": true, "dissolve": false}]
+	var runtime_net_gun_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_net_gun_state(runtime_net_gun, 120.0, 30.0, 30.0, 12.0, 0.7)
+	_expect(bool(runtime_net_gun_state.get("throw_pose", false)), "runtime net-gun state should expose throw pose")
+	_expect(is_equal_approx(float(runtime_net_gun_state.get("harpoon_flash_frames", 0.0)), 15.0), "runtime net-gun state should read harpoon flash")
+	_expect(bool(runtime_net_gun_state.get("hooked_net_active", false)), "runtime net-gun state should detect hooked net fields")
 
 	var bowling: Dictionary = CommandoFirearmDrawStateResolver.build_bowling_trap_state(16.0, 120.0, 17.0, 30.0, 18.0, 48.0, true, 0.4)
 	_expect(bool(bowling.get("installing", false)), "bowling-trap state should preserve installing flag")
