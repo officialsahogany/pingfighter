@@ -5655,6 +5655,26 @@ Hundredth split on 2026-05-24:
   passed; both wrappers still printed the known nonfatal Windows root
   certificate store message from Godot.
 
+156th follow-up on 2026-05-24:
+
+- Commit: `69673e6e1 godot: add Horn Strawberry dedicated audio cues`.
+- Scope: added the missing Godot sound assets / imports for Horn Strawberry's
+  horn charge, field build, field break, and build-break cues, then routed the
+  transform, eat, stem fire / hit, field, horn, and bomb-trigger paths through
+  dedicated `GameAudio` players and gains. The mythic audio router now has an
+  explicit eat-loop stop and field-break route; horn impact and bomb explosion
+  remain intentional no-extra-cue methods instead of falling back to unrelated
+  Power Smash / grenade sounds. The Horn Strawberry audio/VFX smoke now checks
+  file loadability, player-factory setup, fallback removal, eat-stop, field
+  break, and no-extra-cue impact / explosion behavior.
+- Validation: focused Horn Strawberry coverage passed:
+  `horn_strawberry_audio_vfx_smoke`, `horn_strawberry_mask_port_smoke`,
+  `horn_strawberry_skill_hud_smoke`, and
+  `horn_strawberry_round_boundary_smoke`. `run_warning_scan.ps1` scanned 1322
+  scripts with no GDScript warnings, and `run_headless_load_check.ps1` passed;
+  both wrappers still printed the known nonfatal Windows root certificate store
+  message from Godot.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

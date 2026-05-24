@@ -2764,10 +2764,11 @@ This section is intentionally long; use search to find the nearest owner.
   sounds, Drive / Power Smashing sounds, Dash Spirit delete sound, launch
   sound, Commando supply / fire-support radio and aircraft loops, Commando
   firearm-specific fire / impact cue wrappers, AK-47 rapid-fire layered
-  player mixing, round-set sound, Stage 2 hydro / stone-break / rock-hit /
-  rock-spawn / boss-cry / quake-loop cues, Stage 1 BGM looping with Python's per-track gain, pitch
-  randomization, and
-  audio-player factory delegation.
+  player mixing, Horn Strawberry transform / eat / stem / field / horn /
+  bomb-trigger dedicated cues, round-set sound, Stage 2 hydro / stone-break /
+  rock-hit / rock-spawn / boss-cry / quake-loop cues, Stage 1 BGM looping
+  with Python's per-track gain, pitch randomization, and audio-player factory
+  delegation.
 - `scripts/audio/gameplay_loop_audio_cleanup.gd`
   Owns the shared hard-stop list for non-BGM gameplay loop sounds across
   score events, scoreboard / serve-wait frames, round restart, ball reset,
@@ -4914,7 +4915,9 @@ This section is intentionally long; use search to find the nearest owner.
   transformed body is active.
 - `scripts/items/mythic_item_audio_router.gd`
   Owns mythic / passive item cue routing and fallback order, including
-  Ragnarok / Poseidon loop-handle caching, Horn Strawberry skill cues, and the
+  Ragnarok / Poseidon loop-handle caching, Horn Strawberry skill cues
+  including eat-loop stop, field break / build-break cues, and intentional
+  no-extra-cue horn-impact / bomb-explosion routing, and the
   shared screen-shake feedback helpers used by mythic item runtime helpers.
   `mythic_item_runtime.gd` should call this owner or let focused helpers call
   it directly instead of reintroducing one-line `_play_*` bridge methods.
