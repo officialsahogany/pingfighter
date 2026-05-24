@@ -8153,3 +8153,21 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
   `git diff --check` on the touched Commando files reported no whitespace
   errors.
+
+283rd follow-up on 2026-05-24:
+
+- Commit:
+  `197cde136 godot: move Commando pistol draw state`.
+- Scope: moved Commando pistol draw-state field reads into
+  `CommandoFirearmDrawStateResolver.build_runtime_pistol_state()`. The runtime
+  still supplies the pistol delay / post-fire timing constants, but the
+  cooldown, control-lock, pending-fire, and post-fire timer reads now live with
+  the draw-state owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2663` lines /
+  `35` functions to `2658` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors.

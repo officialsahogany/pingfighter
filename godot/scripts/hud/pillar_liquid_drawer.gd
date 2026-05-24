@@ -14,6 +14,8 @@ const LIQUID_EDGE_SEARCH_STEPS := 8
 const LIQUID_SURFACE_GLOW_MIN_HEIGHT := 2.0
 const LIQUID_STABLE_FULL_THRESHOLD := 0.999
 const LIQUID_STABLE_FULL_SEGMENTS := 48
+const LIQUID_FAST_LOD_SCALE := 0.60
+const LIQUID_FAST_SEGMENTS := 24
 const DASH_SECTOR_SEGMENTS := 14
 const DASH_INNER_SECTOR_SEGMENTS := 9
 const DASH_PULSE_ARC_POINTS := 9
@@ -41,6 +43,9 @@ func draw_pillar_liquid_fill(
 	var inner_radius: float = max(4.0, radius)
 	if _is_stable_full_fill_ratio(clamped_ratio):
 		_draw_stable_full_liquid(canvas, center, inner_radius, top_color, bottom_color)
+		return
+	if quality_scale <= LIQUID_FAST_LOD_SCALE:
+		_draw_fast_lod_liquid(canvas, center, inner_radius, clamped_ratio, top_color, bottom_color, wave_glow)
 		return
 
 	var fill_height: float = inner_radius * 2.0 * clamped_ratio
@@ -175,6 +180,49 @@ func _draw_stable_full_liquid(canvas: CanvasItem, center: Vector2, radius: float
 		fill_points.append(point)
 		fill_colors.append(top_color.lerp(bottom_color, gradient_t))
 	canvas.draw_polygon(fill_points, fill_colors)
+
+
+func _draw_fast_lod_liquid(
+	canvas: CanvasItem,
+	center: Vector2,
+	radius: float,
+	fill_ratio: float,
+	top_color: Color,
+	bottom_color: Color,
+	wave_glow: Color
+) -> void:
+	var fill_top: float = center.y + radius - radius * 2.0 * fill_ratio
+	var local_y: float = clamp(fill_top - center.y, -radius, radius)
+	var half_width: float = sqrt(max(0.0, radius * radius - local_y * local_y))
+	if half_width <= 0.5:
+		return
+	var right_angle: float = atan2(local_y, half_width)
+	var left_angle: float = atan2(local_y, -half_width)
+	while left_angle <= right_angle:
+		left_angle += TAU
+
+	var fill_points := PackedVector2Array()
+	var fill_colors := PackedColorArray()
+	var top_left := Vector2(center.x - half_width, center.y + local_y)
+	var top_right := Vector2(center.x + half_width, center.y + local_y)
+	var top_gradient: float = clamp((top_left.y - (center.y - radius)) / max(1.0, radius * 2.0), 0.0, 1.0)
+	var surface_color: Color = top_color.lerp(bottom_color, top_gradient)
+	fill_points.append(top_left)
+	fill_colors.append(surface_color)
+	fill_points.append(top_right)
+	fill_colors.append(surface_color)
+
+	var segment_count: int = max(8, int(ceil((left_angle - right_angle) / TAU * float(LIQUID_FAST_SEGMENTS))))
+	for idx in range(1, segment_count):
+		var angle: float = lerpf(right_angle, left_angle, float(idx) / float(segment_count))
+		var point: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
+		var gradient_t: float = clamp((point.y - (center.y - radius)) / max(1.0, radius * 2.0), 0.0, 1.0)
+		fill_points.append(point)
+		fill_colors.append(top_color.lerp(bottom_color, gradient_t))
+
+	canvas.draw_polygon(fill_points, fill_colors)
+	var surface_alpha: float = clamp(0.20 + 0.18 * fill_ratio, 0.0, 0.42)
+	canvas.draw_line(top_left, top_right, Color(wave_glow.r, wave_glow.g, wave_glow.b, surface_alpha), 2.0, true)
 
 
 func draw_dash_sector_liquid(
