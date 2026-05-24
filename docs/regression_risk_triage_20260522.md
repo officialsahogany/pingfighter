@@ -8782,3 +8782,19 @@ commits rather than standalone `fix` commits:
   `commando_firearm_projectile_motion_state_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1335` scripts with no GDScript
   warnings, and `git diff --check` reported no whitespace errors.
+
+318th follow-up on 2026-05-24:
+
+- Commit:
+  `4d80eb304 godot: move Commando shell casing append`.
+- Scope: moved runtime shell-casing append selection into
+  `CommandoFirearmShellCasingState.append_runtime_shell()`. Runtime now
+  delegates AK-47 / pistol casing construction and bounded append behavior to
+  the shell owner after projectile spawn.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2096` lines /
+  `35` functions to `2081` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_shell_casing_state_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1335` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors.
