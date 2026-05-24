@@ -75,6 +75,7 @@ func update(delta: float, owner: Object, registry: Object, runtime: Object = nul
 			eating = false
 			cooldown_sec = EAT_COOLDOWN_SEC
 			_recover_dash_token(registry)
+			_play_audio(runtime, registry, "_stop_horn_strawberry_eat_audio")
 			_start_stem_burst(_get_player_stem_origin(owner), runtime, registry)
 			head_bob_timer_sec = 0.4
 			return

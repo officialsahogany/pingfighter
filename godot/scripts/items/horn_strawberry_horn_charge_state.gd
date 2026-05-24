@@ -204,11 +204,10 @@ func _update_phase_offset() -> void:
 	player_center = player_origin + current_offset
 
 
-func _apply_boss_impact(owner: Object, registry: Object, runtime: Object) -> void:
+func _apply_boss_impact(owner: Object, registry: Object, _runtime: Object) -> void:
 	var boss_rect: Rect2 = _get_boss_rect(owner)
 	if boss_rect.size.x <= 0.0 or boss_rect.size.y <= 0.0:
 		return
-	_play_audio(runtime, registry, "_play_horn_strawberry_horn_impact_audio")
 	target_center = _get_charge_target_center(owner)
 	var direction: float = 1.0 if player_origin.x <= target_center.x else -1.0
 	if abs(player_origin.x - target_center.x) <= 0.01:

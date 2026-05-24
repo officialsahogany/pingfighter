@@ -291,6 +291,12 @@ func play_horn_strawberry_eat_audio(runtime: Object, registry: Object) -> void:
 	)
 
 
+func stop_horn_strawberry_eat_audio(runtime: Object, registry: Object) -> void:
+	var audio: Object = runtime._get_instance(registry, "game_audio")
+	if audio != null and audio.has_method("stop_horn_strawberry_eat"):
+		audio.stop_horn_strawberry_eat()
+
+
 func play_horn_strawberry_stem_fire_audio(runtime: Object, registry: Object) -> void:
 	_play_first_available(
 		runtime._get_instance(registry, "game_audio"),
@@ -308,7 +314,21 @@ func play_horn_strawberry_stem_hit_audio(runtime: Object, registry: Object) -> v
 func play_horn_strawberry_field_audio(runtime: Object, registry: Object) -> void:
 	_play_first_available(
 		runtime._get_instance(registry, "game_audio"),
-		["play_horn_strawberry_field", "play_shield_kiting_launch", "play_active_item"]
+		["play_horn_strawberry_field", "play_active_item"]
+	)
+
+
+func play_horn_strawberry_field_break_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_field_break", "play_active_item"]
+	)
+
+
+func play_horn_strawberry_field_build_break_audio(runtime: Object, registry: Object) -> void:
+	_play_first_available(
+		runtime._get_instance(registry, "game_audio"),
+		["play_horn_strawberry_field_build_break", "play_active_item"]
 	)
 
 
@@ -322,21 +342,21 @@ func play_horn_strawberry_horn_charge_audio(runtime: Object, registry: Object) -
 func play_horn_strawberry_horn_impact_audio(runtime: Object, registry: Object) -> void:
 	_play_first_available(
 		runtime._get_instance(registry, "game_audio"),
-		["play_horn_strawberry_horn_impact", "play_paddle_hit", "play_active_item"]
+		["play_horn_strawberry_horn_impact"]
 	)
 
 
 func play_horn_strawberry_bomb_throw_audio(runtime: Object, registry: Object) -> void:
 	_play_first_available(
 		runtime._get_instance(registry, "game_audio"),
-		["play_horn_strawberry_bomb_throw", "play_throw", "play_active_item"]
+		["play_horn_strawberry_bomb_throw", "play_horn_strawberry_stem_hit", "play_shrapnel_armor_hit", "play_active_item"]
 	)
 
 
 func play_horn_strawberry_bomb_explosion_audio(runtime: Object, registry: Object) -> void:
 	_play_first_available(
 		runtime._get_instance(registry, "game_audio"),
-		["play_horn_strawberry_bomb_explosion", "play_grenade_explosion", "play_active_item"]
+		["play_horn_strawberry_bomb_explosion"]
 	)
 
 

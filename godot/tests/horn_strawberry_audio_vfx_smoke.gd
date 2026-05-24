@@ -57,6 +57,9 @@ class FakeAudio:
 	func play_horn_strawberry_eat() -> void:
 		calls.append("play_horn_strawberry_eat")
 
+	func stop_horn_strawberry_eat() -> void:
+		calls.append("stop_horn_strawberry_eat")
+
 	func play_horn_strawberry_stem_fire() -> void:
 		calls.append("play_horn_strawberry_stem_fire")
 
@@ -65,6 +68,12 @@ class FakeAudio:
 
 	func play_horn_strawberry_field() -> void:
 		calls.append("play_horn_strawberry_field")
+
+	func play_horn_strawberry_field_break() -> void:
+		calls.append("play_horn_strawberry_field_break")
+
+	func play_horn_strawberry_field_build_break() -> void:
+		calls.append("play_horn_strawberry_field_build_break")
 
 	func play_horn_strawberry_horn_charge() -> void:
 		calls.append("play_horn_strawberry_horn_charge")
@@ -77,6 +86,26 @@ class FakeAudio:
 
 	func play_horn_strawberry_bomb_explosion() -> void:
 		calls.append("play_horn_strawberry_bomb_explosion")
+
+
+class RecordingPlayerFactory:
+	extends RefCounted
+
+	var created := {}
+
+	func create(parent: Node, name: String, path: String, volume_db: float) -> AudioStreamPlayer:
+		var player := AudioStreamPlayer.new()
+		player.name = name
+		player.volume_db = volume_db
+		player.stream = AudioStreamWAV.new()
+		created[name] = {
+			"path": path,
+			"volume_db": volume_db,
+			"player": player,
+		}
+		if parent != null:
+			parent.add_child(player)
+		return player
 
 
 class FakeStatusEffectState:
@@ -141,6 +170,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_audio_assets()
+	_verify_game_audio_dedicated_sfx()
 	_verify_transform_cinematic_phase_context()
 	_verify_transform_audio_and_visible_event()
 	_verify_skill_audio_edges()
@@ -157,10 +187,55 @@ func _init() -> void:
 func _verify_audio_assets() -> void:
 	_expect(GameAudio.HORN_STRAWBERRY_CHANGE_SOUND_PATH == "res://assets/sounds/strawberrychange.wav", "transform sound should use the legacy strawberrychange wav")
 	_expect(GameAudio.HORN_STRAWBERRY_EAT_SOUND_PATH == "res://assets/sounds/strawberryeat.wav", "eat sound should use the legacy strawberryeat wav")
-	_expect(FileAccess.file_exists(GameAudio.HORN_STRAWBERRY_CHANGE_SOUND_PATH), "strawberrychange wav should exist in the Godot asset tree")
-	_expect(FileAccess.file_exists(GameAudio.HORN_STRAWBERRY_EAT_SOUND_PATH), "strawberryeat wav should exist in the Godot asset tree")
-	_expect(ProjectResourceLoader.load_audio_stream(GameAudio.HORN_STRAWBERRY_CHANGE_SOUND_PATH) != null, "strawberrychange wav should load as a Godot audio stream")
-	_expect(ProjectResourceLoader.load_audio_stream(GameAudio.HORN_STRAWBERRY_EAT_SOUND_PATH) != null, "strawberryeat wav should load as a Godot audio stream")
+	_expect(GameAudio.HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH == "res://assets/sounds/arrow.wav", "stem fire should use the legacy arrow wav")
+	_expect(GameAudio.HORN_STRAWBERRY_STEM_HIT_SOUND_PATH == "res://assets/sounds/bullethit.wav", "stem hit should use the legacy bullethit wav")
+	_expect(GameAudio.HORN_STRAWBERRY_HORN_CHARGE_SOUND_PATH == "res://assets/sounds/horncharge.wav", "horn charge should use the legacy horncharge wav")
+	_expect(GameAudio.HORN_STRAWBERRY_FIELD_BUILD_SOUND_PATH == "res://assets/sounds/bonemake3.wav", "field build should use the legacy bonemake3 wav")
+	_expect(GameAudio.HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH == "res://assets/sounds/bonebreak.wav", "field break should use the legacy bonebreak wav")
+	_expect(GameAudio.HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH == "res://assets/sounds/shurikenhit.wav", "field build break should use the legacy shurikenhit wav")
+	_expect(GameAudio.HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH == "res://assets/sounds/bullethit.wav", "bomb trigger should use the legacy bullethit wav")
+	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_CHANGE_SOUND_PATH, "strawberrychange")
+	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_EAT_SOUND_PATH, "strawberryeat")
+	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH, "arrow")
+	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_STEM_HIT_SOUND_PATH, "bullethit")
+	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_HORN_CHARGE_SOUND_PATH, "horncharge")
+	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_FIELD_BUILD_SOUND_PATH, "bonemake3")
+	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH, "bonebreak")
+	_expect_audio_asset(GameAudio.HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH, "shurikenhit")
+
+
+func _verify_game_audio_dedicated_sfx() -> void:
+	var host := Node.new()
+	var factory := RecordingPlayerFactory.new()
+	var audio: Object = GameAudio.new()
+	audio.player_factory = factory
+	audio.owner_node = host
+	audio._setup_item_command_sfx()
+
+	_expect_created_sfx(factory, "HornStrawberryChangeSfx", GameAudio.HORN_STRAWBERRY_CHANGE_SOUND_PATH, GameAudio.HORN_STRAWBERRY_CHANGE_GAIN_DB)
+	_expect_created_sfx(factory, "HornStrawberryEatSfx", GameAudio.HORN_STRAWBERRY_EAT_SOUND_PATH, GameAudio.HORN_STRAWBERRY_EAT_GAIN_DB)
+	_expect_created_sfx(factory, "HornStrawberryStemFireSfx", GameAudio.HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH, GameAudio.HORN_STRAWBERRY_STEM_FIRE_GAIN_DB)
+	_expect_created_sfx(factory, "HornStrawberryStemHitSfx", GameAudio.HORN_STRAWBERRY_STEM_HIT_SOUND_PATH, GameAudio.HORN_STRAWBERRY_STEM_HIT_GAIN_DB)
+	_expect_created_sfx(factory, "HornStrawberryHornChargeSfx", GameAudio.HORN_STRAWBERRY_HORN_CHARGE_SOUND_PATH, GameAudio.HORN_STRAWBERRY_HORN_CHARGE_GAIN_DB)
+	_expect_created_sfx(factory, "HornStrawberryFieldBuildSfx", GameAudio.HORN_STRAWBERRY_FIELD_BUILD_SOUND_PATH, GameAudio.HORN_STRAWBERRY_FIELD_GAIN_DB)
+	_expect_created_sfx(factory, "HornStrawberryFieldBreakSfx", GameAudio.HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH, GameAudio.HORN_STRAWBERRY_FIELD_GAIN_DB)
+	_expect_created_sfx(factory, "HornStrawberryFieldBuildBreakSfx", GameAudio.HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH, GameAudio.HORN_STRAWBERRY_FIELD_BUILD_BREAK_GAIN_DB)
+	_expect_created_sfx(factory, "HornStrawberryBombTriggerSfx", GameAudio.HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH, GameAudio.HORN_STRAWBERRY_BOMB_TRIGGER_GAIN_DB)
+
+	var source := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd").replace("\r\n", "\n")
+	_expect(_function_body(source, "func play_horn_strawberry_change() -> void:").find("randf_range") < 0, "transform cue should not pitch-randomize the legacy sample")
+	_expect(_function_body(source, "func play_horn_strawberry_eat() -> void:").find("randf_range") < 0, "eat cue should not pitch-randomize the legacy sample")
+	_expect(_function_body(source, "func play_horn_strawberry_stem_fire() -> void:").find("horn_strawberry_stem_fire_sfx") >= 0, "stem fire should play the dedicated arrow cue")
+	_expect(_function_body(source, "func play_horn_strawberry_stem_hit() -> void:").find("horn_strawberry_stem_hit_sfx") >= 0, "stem hit should play the dedicated bullethit cue")
+	_expect(_function_body(source, "func play_horn_strawberry_field() -> void:").find("horn_strawberry_field_build_sfx") >= 0, "field build should play the dedicated bonemake3 cue")
+	_expect(_function_body(source, "func play_horn_strawberry_field() -> void:").find("shield_kiting_launch_sfx") < 0, "field build should not reuse Shield Kiting launch audio")
+	_expect(_function_body(source, "func play_horn_strawberry_field_break() -> void:").find("horn_strawberry_field_break_sfx") >= 0, "field break should play the dedicated bonebreak cue")
+	_expect(_function_body(source, "func play_horn_strawberry_field_build_break() -> void:").find("horn_strawberry_field_build_break_sfx") >= 0, "field build-break should play the dedicated shurikenhit cue")
+	_expect(_function_body(source, "func play_horn_strawberry_horn_charge() -> void:").find("horn_strawberry_horn_charge_sfx") >= 0, "horn charge should play the dedicated horncharge cue")
+	_expect(_function_body(source, "func play_horn_strawberry_horn_charge() -> void:").find("power_smash_launch_sfx") < 0, "horn charge should not reuse Power Smash launch audio")
+	_expect(_function_body(source, "func play_horn_strawberry_bomb_throw() -> void:").find("horn_strawberry_bomb_trigger_sfx") >= 0, "bomb throw should play the dedicated trigger cue")
+	_expect(_function_body(source, "func play_horn_strawberry_bomb_throw() -> void:").find("throw_sfx") < 0, "bomb throw should not reuse generic throw audio")
+	host.free()
 
 
 func _verify_transform_cinematic_phase_context() -> void:
@@ -216,6 +291,7 @@ func _verify_skill_audio_edges() -> void:
 	_expect(audio.calls.has("play_horn_strawberry_eat"), "eat input should play strawberryeat")
 	input_reader.snapshot = {}
 	runtime.update(owner, registry, 0.8)
+	_expect(audio.calls.has("stop_horn_strawberry_eat"), "eat finish should stop strawberryeat")
 	_expect(audio.calls.has("play_horn_strawberry_stem_fire"), "eat finish should play stem fire audio")
 	var eat_context: Dictionary = runtime.get_horn_strawberry_eat_context()
 	owner.values["boss_pos"] = _get_first_projectile_boss_pos(eat_context)
@@ -229,6 +305,19 @@ func _verify_skill_audio_edges() -> void:
 	runtime.update(owner, registry, 0.5)
 	runtime.update(owner, registry, 0.5)
 	_expect(audio.calls == ["play_horn_strawberry_field"], "field build should play one field audio cue")
+	input_reader.snapshot = {}
+	runtime.update(owner, registry, 0.5)
+	var field_context: Dictionary = runtime.get_horn_strawberry_field_context()
+	var barriers: Array = field_context.get("barriers", [])
+	if not barriers.is_empty() and barriers[0] is Dictionary:
+		var barrier: Dictionary = barriers[0]
+		_expect(
+			runtime.notify_horn_strawberry_field_hit(int(barrier.get("id", 0)), _get_vector2(barrier, "position"), {"registry": registry, "audio": audio}),
+			"field hit should notify the active barrier"
+		)
+		_expect(audio.calls.has("play_horn_strawberry_field_break"), "field hit should play bonebreak")
+	else:
+		_expect(false, "field build should expose a barrier for break audio smoke")
 
 	audio.calls.clear()
 	runtime.horn_strawberry_field_state.reset()
@@ -241,7 +330,7 @@ func _verify_skill_audio_edges() -> void:
 	_expect(audio.calls.has("play_horn_strawberry_horn_charge"), "horn charge should play launch audio")
 	input_reader.snapshot = {}
 	runtime.update(owner, registry, 0.43)
-	_expect(audio.calls.has("play_horn_strawberry_horn_impact"), "horn charge impact should play impact audio")
+	_expect(not audio.calls.has("play_horn_strawberry_horn_impact"), "horn charge should not add a separate impact cue")
 
 	bundle = _make_transformed_bundle(true)
 	runtime = bundle.get("runtime")
@@ -256,7 +345,7 @@ func _verify_skill_audio_edges() -> void:
 		"right_pressed": true,
 	}
 	runtime.update(owner, registry, 0.5)
-	_expect(audio.calls.has("play_horn_strawberry_bomb_throw"), "bomb hold should play throw audio")
+	_expect(audio.calls.has("play_horn_strawberry_bomb_throw"), "bomb activation should play the legacy bullethit trigger")
 	var bomb_context: Dictionary = runtime.get_horn_strawberry_bomb_context()
 	var bombs: Array = bomb_context.get("bombs", [])
 	if not bombs.is_empty() and bombs[0] is Dictionary:
@@ -265,7 +354,7 @@ func _verify_skill_audio_edges() -> void:
 		owner.values["boss_pos"] = bomb_pos - Vector2(50.0, 20.0)
 		input_reader.snapshot = {}
 		runtime.update(owner, registry, 0.0)
-		_expect(audio.calls.has("play_horn_strawberry_bomb_explosion"), "bomb collision should play explosion audio")
+		_expect(not audio.calls.has("play_horn_strawberry_bomb_explosion"), "bomb collision should not add a separate explosion cue")
 	else:
 		_expect(false, "bomb throw should expose a bomb for explosion audio smoke")
 
@@ -308,6 +397,33 @@ func _get_first_projectile_boss_pos(eat_context: Dictionary) -> Vector2:
 func _get_vector2(source: Dictionary, key: String) -> Vector2:
 	var value: Variant = source.get(key, Vector2.ZERO)
 	return value if value is Vector2 else Vector2.ZERO
+
+
+func _expect_audio_asset(path: String, label: String) -> void:
+	_expect(FileAccess.file_exists(path), "%s wav should exist in the Godot asset tree" % label)
+	_expect(ProjectResourceLoader.load_audio_stream(path) != null, "%s wav should load as a Godot audio stream" % label)
+
+
+func _expect_created_sfx(factory: RecordingPlayerFactory, name: String, path: String, volume_db: float) -> void:
+	var created: Dictionary = _as_dict(factory.created.get(name, {}))
+	_expect(str(created.get("path", "")) == path, "%s should use %s" % [name, path])
+	_expect(abs(float(created.get("volume_db", 0.0)) - volume_db) <= 0.001, "%s should use the expected gain" % name)
+	_expect(created.get("player", null) is AudioStreamPlayer, "%s should expose an AudioStreamPlayer" % name)
+
+
+func _function_body(source: String, marker: String) -> String:
+	var start := source.find(marker)
+	_expect(start >= 0, "%s should exist in GameAudio" % marker)
+	if start < 0:
+		return ""
+	var end := source.find("\n\nfunc ", start + marker.length())
+	if end < 0:
+		end = source.length()
+	return source.substr(start, end - start)
+
+
+func _as_dict(value: Variant) -> Dictionary:
+	return value if value is Dictionary else {}
 
 
 func _expect(condition: bool, message: String) -> void:

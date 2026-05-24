@@ -303,7 +303,7 @@ func _update_paint_splatters(delta: float, owner: Object, registry: Object) -> v
 		_apply_boss_paint_slow(registry)
 
 
-func _create_explosion(position: Vector2, hit_boss: bool, boss_rect: Rect2, registry: Object, runtime: Object) -> void:
+func _create_explosion(position: Vector2, hit_boss: bool, boss_rect: Rect2, registry: Object, _runtime: Object) -> void:
 	explosions.append({
 		"position": position,
 		"timer_sec": EXPLOSION_DURATION_SEC,
@@ -319,7 +319,6 @@ func _create_explosion(position: Vector2, hit_boss: bool, boss_rect: Rect2, regi
 		"blob_count": 4 + int(abs(sin(float(last_explosion_count + 2))) * 3.0),
 	})
 	last_explosion_count += 1
-	_play_audio(runtime, registry, "_play_horn_strawberry_bomb_explosion_audio")
 	if hit_boss:
 		_apply_boss_hit(position, boss_rect, registry)
 

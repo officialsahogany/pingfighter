@@ -222,9 +222,13 @@ func notify_field_hit(runtime: Object, barrier_id: int, impact_pos: Vector2 = Ve
 	var field_state: Object = runtime.horn_strawberry_field_state
 	if field_state == null or not field_state.notify_barrier_hit(barrier_id):
 		return false
-	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_wall_hit"):
-		audio.play_wall_hit(12.0)
+	var registry: Object = deps.get("registry", null)
+	if registry != null:
+		_play_horn_strawberry_audio(runtime, registry, "_play_horn_strawberry_field_break_audio")
+	else:
+		var audio: Object = deps.get("audio", null)
+		if audio != null and audio.has_method("play_horn_strawberry_field_break"):
+			audio.play_horn_strawberry_field_break()
 	var ball_effects: Object = deps.get("ball_effects", null)
 	if ball_effects != null and ball_effects.has_method("register_hit_pulse"):
 		ball_effects.register_hit_pulse(impact_pos, Vector2(0.0, -1.0), 0.72, "horn_strawberry_field")
