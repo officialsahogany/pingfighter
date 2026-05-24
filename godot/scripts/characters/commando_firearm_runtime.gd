@@ -13,9 +13,7 @@ const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/
 const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
-const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
-const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
 const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
@@ -937,7 +935,28 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 	)
 	pistol_feedbacks = CommandoFirearmPistolFeedbackState.advance_feedbacks(pistol_feedbacks, fps_scale)
 	impact_flashes = CommandoFirearmValueUtils.advance_timed_effects(impact_flashes, fps_scale)
-	var lingering_result: Dictionary = _update_lingering_effects(fps_scale, context, deps)
+	var lingering_result: Dictionary = CommandoFirearmLingeringEffectState.advance_runtime_effects(
+		self,
+		context,
+		deps,
+		fps_scale,
+		NET_GUN_DASH_BREAK_FRAMES,
+		LINGERING_EFFECT_PHASE_STEP,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+		NET_GUN_WIDTH,
+		NET_GUN_MIN_HEIGHT,
+		LINGERING_STATUS_TARGET,
+		LINGERING_STATUS_ID_SLOW,
+		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+		LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
+		LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
+		LINGERING_STATUS_DEFAULT_SOURCE
+	)
 	if not lingering_result.is_empty():
 		context.merge(lingering_result, true)
 	var result: Dictionary = ball_motion_result.duplicate(true)
@@ -1862,57 +1881,3 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
 		LINGERING_EFFECT_LIMIT
 	)
-
-
-func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var step: float = CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
-	var result: Dictionary = {}
-	var dash_trigger_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_dash_break_if_triggered(
-		lingering_effects,
-		context,
-		deps,
-		net_gun_last_dash_active,
-		NET_GUN_DASH_BREAK_FRAMES
-	)
-	net_gun_last_dash_active = bool(dash_trigger_result.get("dash_active", false))
-	for index in range(lingering_effects.size() - 1, -1, -1):
-		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
-		CommandoFirearmLingeringEffectState.advance_timers(effect, step, LINGERING_EFFECT_PHASE_STEP)
-		CommandoFirearmLingeringFireFlameState.update_effect_flames(effect, step)
-		if CommandoFirearmLingeringEffectState.is_active(effect):
-			_apply_active_lingering_effect(index, effect, step, context, deps, result)
-		else:
-			lingering_effects.remove_at(index)
-	return result
-
-
-func _apply_active_lingering_effect(
-	index: int,
-	effect: Dictionary,
-	timer_step: float,
-	context: Dictionary,
-	deps: Dictionary,
-	result: Dictionary
-) -> void:
-	var clamp_result: Dictionary = CommandoFirearmLingeringEffectState.apply_active_effect(
-		effect,
-		context,
-		deps,
-		timer_step,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
-		NET_GUN_WIDTH,
-		NET_GUN_MIN_HEIGHT,
-		LINGERING_STATUS_TARGET,
-		LINGERING_STATUS_ID_SLOW,
-		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
-		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
-		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
-		LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
-		LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
-		LINGERING_STATUS_DEFAULT_SOURCE
-	)
-	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
-	lingering_effects[index] = effect

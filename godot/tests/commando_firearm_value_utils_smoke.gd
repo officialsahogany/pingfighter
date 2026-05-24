@@ -1106,7 +1106,7 @@ func _verify_runtime_value_utils_integration() -> void:
 		"status_id": "",
 	}]
 	runtime.lingering_effects[0] = active_lingering_effect
-	runtime._apply_active_lingering_effect(0, CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]), 1.0, active_lingering_context, {}, active_lingering_result)
+	_apply_active_runtime_lingering_effect(runtime, 0, CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]), 1.0, active_lingering_context, {}, active_lingering_result)
 	_expect(bool(active_lingering_result.get("commando_net_gun_boss_clamped", false)), "active lingering helper should merge clamp results into update results")
 	_expect(active_lingering_context.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "active lingering helper should merge clamp results into context")
 	_expect(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("pos", Vector2.ZERO) == Vector2(100.0, 100.0), "active lingering helper should store the updated effect back into the array")
@@ -1359,7 +1359,8 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(str(helper_status_call.get("source", "")) == "net_field", "lingering status apply helper should preserve explicit source")
 	_expect(is_equal_approx(float(direct_apply_status_effect.get("status_cooldown_frames", 0.0)), 9.0), "lingering status apply helper should reset cooldown after apply")
 	runtime.lingering_effects = [live_status_effect]
-	runtime._apply_active_lingering_effect(
+	_apply_active_runtime_lingering_effect(
+		runtime,
 		0,
 		CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]),
 		1.0,
@@ -1383,7 +1384,8 @@ func _verify_runtime_value_utils_integration() -> void:
 		"height": 40.0,
 	}
 	runtime.lingering_effects = [default_apply_status_effect]
-	runtime._apply_active_lingering_effect(
+	_apply_active_runtime_lingering_effect(
+		runtime,
 		0,
 		CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]),
 		1.0,
@@ -1393,7 +1395,8 @@ func _verify_runtime_value_utils_integration() -> void:
 	)
 	_expect(str((fake_status_state.calls[1] as Dictionary).get("source", "")) == "commando_firearm_lingering", "lingering status effect path should use default source")
 	_expect(is_equal_approx(float((fake_status_state.calls[1] as Dictionary).get("duration_frames", 0.0)), 18.0), "lingering status effect path should use default duration")
-	runtime._apply_active_lingering_effect(
+	_apply_active_runtime_lingering_effect(
+		runtime,
 		0,
 		CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]),
 		1.0,
@@ -1401,7 +1404,8 @@ func _verify_runtime_value_utils_integration() -> void:
 		{},
 		{}
 	)
-	runtime._apply_active_lingering_effect(
+	_apply_active_runtime_lingering_effect(
+		runtime,
 		0,
 		CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]),
 		1.0,
@@ -1415,7 +1419,7 @@ func _verify_runtime_value_utils_integration() -> void:
 		{"id": "expired", "timer_frames": 0.0, "phase": 0.0},
 		{"id": "last", "timer_frames": 2.0, "phase": 0.0},
 	]
-	runtime._update_lingering_effects(1.0, {}, {})
+	_advance_runtime_lingering_effects(runtime, 1.0, {}, {})
 	_expect(runtime.lingering_effects.size() == 2, "lingering update should remove exactly one expired effect")
 	_expect(str(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("id", "")) == "first", "lingering update should preserve earlier effects")
 	_expect(str(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("id", "")) == "last", "lingering update should preserve later effects")
@@ -1441,17 +1445,17 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(not bool(CommandoFirearmValueUtils.get_dict(direct_dash_break_effects[1]).get("rope_broken", false)), "direct net dash break helper should leave dissolving nets unchanged")
 	runtime.net_gun_last_dash_active = false
 	runtime.lingering_effects = []
-	runtime._update_lingering_effects(1.0, {"dash_snapshot": {"active": true}}, {})
+	_advance_runtime_lingering_effects(runtime, 1.0, {"dash_snapshot": {"active": true}}, {})
 	_expect(runtime.net_gun_last_dash_active, "lingering update should store active dash state")
-	runtime._update_lingering_effects(1.0, {"dash_snapshot": {"active": true}}, {})
+	_advance_runtime_lingering_effects(runtime, 1.0, {"dash_snapshot": {"active": true}}, {})
 	_expect(runtime.net_gun_last_dash_active, "lingering update should keep repeated active dash state")
-	runtime._update_lingering_effects(1.0, {"dash_snapshot": {"active": false}}, {})
+	_advance_runtime_lingering_effects(runtime, 1.0, {"dash_snapshot": {"active": false}}, {})
 	_expect(not runtime.net_gun_last_dash_active, "lingering update should store inactive dash state")
 	var fake_dash_state := FakeDashState.new(true)
-	runtime._update_lingering_effects(1.0, {"dash_snapshot": null}, {"dash_state": fake_dash_state})
+	_advance_runtime_lingering_effects(runtime, 1.0, {"dash_snapshot": null}, {"dash_state": fake_dash_state})
 	_expect(runtime.net_gun_last_dash_active, "lingering update should read active dash state dependencies")
 	fake_dash_state.active = false
-	runtime._update_lingering_effects(1.0, {"dash_snapshot": null}, {"dash_state": fake_dash_state})
+	_advance_runtime_lingering_effects(runtime, 1.0, {"dash_snapshot": null}, {"dash_state": fake_dash_state})
 	_expect(not runtime.net_gun_last_dash_active, "lingering update should clear dependency dash state")
 	var direct_marked_broken_net := {
 		"weapon_id": "net_gun",
@@ -1935,6 +1939,70 @@ func _doping_defaults() -> Dictionary:
 		"bazooka_cooldown_frames": CommandoFirearmRuntime.DOPING_POTION_BAZOOKA_COOLDOWN_FRAMES,
 		"bazooka_control_lock_frames": CommandoFirearmRuntime.DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES,
 	}
+
+
+func _apply_active_runtime_lingering_effect(
+	runtime: Object,
+	index: int,
+	effect: Dictionary,
+	timer_step: float,
+	context: Dictionary,
+	deps: Dictionary,
+	result: Dictionary
+) -> void:
+	CommandoFirearmLingeringEffectState.apply_runtime_active_effect_at_index(
+		runtime.lingering_effects,
+		index,
+		effect,
+		timer_step,
+		context,
+		deps,
+		result,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+		CommandoFirearmRuntime.COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+		CommandoFirearmRuntime.COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+		CommandoFirearmRuntime.NET_GUN_WIDTH,
+		CommandoFirearmRuntime.NET_GUN_MIN_HEIGHT,
+		CommandoFirearmRuntime.LINGERING_STATUS_TARGET,
+		CommandoFirearmRuntime.LINGERING_STATUS_ID_SLOW,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+		CommandoFirearmRuntime.LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
+		CommandoFirearmRuntime.LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_SOURCE
+	)
+
+
+func _advance_runtime_lingering_effects(
+	runtime: Object,
+	fps_scale: float,
+	context: Dictionary,
+	deps: Dictionary
+) -> Dictionary:
+	return CommandoFirearmLingeringEffectState.advance_runtime_effects(
+		runtime,
+		context,
+		deps,
+		fps_scale,
+		CommandoFirearmRuntime.NET_GUN_DASH_BREAK_FRAMES,
+		CommandoFirearmRuntime.LINGERING_EFFECT_PHASE_STEP,
+		Vector2(CommandoFirearmRuntime.FIELD_WIDTH, CommandoFirearmRuntime.FIELD_HEIGHT),
+		CommandoFirearmRuntime.COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+		CommandoFirearmRuntime.COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+		CommandoFirearmRuntime.COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+		CommandoFirearmRuntime.NET_GUN_WIDTH,
+		CommandoFirearmRuntime.NET_GUN_MIN_HEIGHT,
+		CommandoFirearmRuntime.LINGERING_STATUS_TARGET,
+		CommandoFirearmRuntime.LINGERING_STATUS_ID_SLOW,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+		CommandoFirearmRuntime.LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
+		CommandoFirearmRuntime.LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
+		CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_SOURCE
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

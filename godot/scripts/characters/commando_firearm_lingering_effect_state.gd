@@ -295,6 +295,123 @@ static func merge_clamp_result(result: Dictionary, context: Dictionary, clamp_re
 	apply_clamp_payload(context, clamp_result)
 
 
+static func apply_runtime_active_effect_at_index(
+	lingering_effects: Array,
+	index: int,
+	effect: Dictionary,
+	timer_step: float,
+	context: Dictionary,
+	deps: Dictionary,
+	result: Dictionary,
+	field_size: Vector2,
+	net_gun_muzzle_source: Vector2,
+	fire_sheet_source_cell_size: Vector2,
+	fire_sheet_player_foot_y_offset: float,
+	net_gun_width: float,
+	net_gun_min_height: float,
+	status_target: String,
+	status_id_slow: String,
+	status_duration_frames: float,
+	status_interval_frames: float,
+	status_slow_multiplier: float,
+	status_min_slow_multiplier: float,
+	status_max_slow_multiplier: float,
+	status_source: String
+) -> void:
+	var clamp_result: Dictionary = apply_active_effect(
+		effect,
+		context,
+		deps,
+		timer_step,
+		field_size,
+		net_gun_muzzle_source,
+		fire_sheet_source_cell_size,
+		fire_sheet_player_foot_y_offset,
+		net_gun_width,
+		net_gun_min_height,
+		status_target,
+		status_id_slow,
+		status_duration_frames,
+		status_interval_frames,
+		status_slow_multiplier,
+		status_min_slow_multiplier,
+		status_max_slow_multiplier,
+		status_source
+	)
+	merge_clamp_result(result, context, clamp_result)
+	if index >= 0 and index < lingering_effects.size():
+		lingering_effects[index] = effect
+
+
+static func advance_runtime_effects(
+	runtime_owner: Object,
+	context: Dictionary,
+	deps: Dictionary,
+	fps_scale: float,
+	dash_break_frames: float,
+	phase_step: float,
+	field_size: Vector2,
+	net_gun_muzzle_source: Vector2,
+	fire_sheet_source_cell_size: Vector2,
+	fire_sheet_player_foot_y_offset: float,
+	net_gun_width: float,
+	net_gun_min_height: float,
+	status_target: String,
+	status_id_slow: String,
+	status_duration_frames: float,
+	status_interval_frames: float,
+	status_slow_multiplier: float,
+	status_min_slow_multiplier: float,
+	status_max_slow_multiplier: float,
+	status_source: String
+) -> Dictionary:
+	if runtime_owner == null:
+		return {}
+	var lingering_effects: Array = CommandoFirearmValueUtils.get_array(runtime_owner.get("lingering_effects"))
+	var step: float = get_timer_step(fps_scale)
+	var result: Dictionary = {}
+	var dash_trigger_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_dash_break_if_triggered(
+		lingering_effects,
+		context,
+		deps,
+		bool(runtime_owner.get("net_gun_last_dash_active")),
+		dash_break_frames
+	)
+	runtime_owner.set("net_gun_last_dash_active", bool(dash_trigger_result.get("dash_active", false)))
+	for index in range(lingering_effects.size() - 1, -1, -1):
+		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
+		advance_timers(effect, step, phase_step)
+		CommandoFirearmLingeringFireFlameState.update_effect_flames(effect, step)
+		if is_active(effect):
+			apply_runtime_active_effect_at_index(
+				lingering_effects,
+				index,
+				effect,
+				step,
+				context,
+				deps,
+				result,
+				field_size,
+				net_gun_muzzle_source,
+				fire_sheet_source_cell_size,
+				fire_sheet_player_foot_y_offset,
+				net_gun_width,
+				net_gun_min_height,
+				status_target,
+				status_id_slow,
+				status_duration_frames,
+				status_interval_frames,
+				status_slow_multiplier,
+				status_min_slow_multiplier,
+				status_max_slow_multiplier,
+				status_source
+			)
+		else:
+			lingering_effects.remove_at(index)
+	runtime_owner.set("lingering_effects", lingering_effects)
+	return result
+
+
 static func apply_active_effect(
 	effect: Dictionary,
 	context: Dictionary,
