@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
+const CommandoFirearmBowlingTrapGuardState := preload("res://scripts/characters/commando_firearm_bowling_trap_guard_state.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 
 var _failures: Array[String] = []
@@ -28,6 +29,7 @@ class FakeRegistry:
 
 func _init() -> void:
 	_verify_direct_bowling_trap_geometry()
+	_verify_direct_bowling_trap_guard_state()
 	_verify_runtime_delegates_bowling_trap_geometry()
 	_verify_removed_runtime_bowling_trap_geometry_bridges()
 
@@ -236,6 +238,55 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	)
 
 
+func _verify_direct_bowling_trap_guard_state() -> void:
+	var runtime := CommandoFirearmRuntime.new()
+	_expect(
+		CommandoFirearmBowlingTrapGuardState.consume_runtime_boss_guard(
+			runtime,
+			Vector2.ZERO,
+			{},
+			{},
+			CommandoFirearmRuntime.FIELD_WIDTH,
+			CommandoFirearmRuntime.BASE_WEAPON_ID,
+			CommandoFirearmRuntime.WEAPON_PROFILES,
+			CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+			CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+			CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+			CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
+			CommandoFirearmRuntime.BOWLING_TRAP_GUARD_STUN_FRAMES,
+			CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES,
+			CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_DECAY
+		).is_empty(),
+		"guard state owner should ignore unarmed runtime guard state"
+	)
+	CommandoFirearmBowlingTrapGeometry.apply_guard_state(
+		runtime,
+		{"armed": true, "restore_speed": 7.0, "source": ""}
+	)
+	var immune_result: Dictionary = CommandoFirearmBowlingTrapGuardState.consume_runtime_boss_guard(
+		runtime,
+		Vector2.ZERO,
+		{"current_stage": 2, "stage2_speed_defense_active": true},
+		{},
+		CommandoFirearmRuntime.FIELD_WIDTH,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
+		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_STUN_FRAMES,
+		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES,
+		CommandoFirearmRuntime.BOWLING_TRAP_GUARD_KNOCKBACK_DECAY
+	)
+	_expect(bool(immune_result.get("boss_status_immune", false)), "guard state owner should preserve Stage 2 immunity handling")
+	_expect(not runtime.is_bowling_trap_guard_armed(), "guard state owner should clear consumed runtime guard state")
+	_expect(
+		_get_vector2(immune_result.get("ball_vel", Vector2.ZERO), Vector2.ZERO) == Vector2(0.0, 7.0),
+		"guard state owner should soften the ball before immunity exits"
+	)
+
+
 func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	_expect(
@@ -280,6 +331,10 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 
 func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(
+		runtime_source.find("CommandoFirearmBowlingTrapGuardState.consume_runtime_boss_guard") >= 0,
+		"runtime should delegate bowling-trap boss-guard consumption to the guard-state owner"
+	)
 	for bridge_name in [
 		"_is_bowling_trap_install_in_player_field",
 		"_get_bowling_trap_install_pos",
@@ -310,6 +365,12 @@ func _get_dict(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value
 	return {}
+
+
+func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
+	if value is Vector2:
+		return value
+	return fallback
 
 
 func _expect(condition: bool, message: String) -> void:

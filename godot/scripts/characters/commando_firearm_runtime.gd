@@ -4,6 +4,7 @@ const ActiveItemThrowController := preload("res://scripts/items/active_item_thro
 const CommandoFirearmAk47HitState := preload("res://scripts/characters/commando_firearm_ak47_hit_state.gd")
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
+const CommandoFirearmBowlingTrapGuardState := preload("res://scripts/characters/commando_firearm_bowling_trap_guard_state.gd")
 const CommandoFirearmControlState := preload("res://scripts/characters/commando_firearm_control_state.gd")
 const CommandoFirearmCooldownState := preload("res://scripts/characters/commando_firearm_cooldown_state.gd")
 const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/commando_firearm_draw_state_resolver.gd")
@@ -822,81 +823,21 @@ func is_bowling_trap_guard_armed() -> bool:
 
 
 func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
-	if not bowling_trap_guard_armed:
-		return {}
-
-	var source: String = bowling_trap_guard_source
-	if source == "":
-		source = "commando_bowling_trap_guard"
-	var restore_speed: float = max(1.0, bowling_trap_guard_restore_speed)
-	CommandoFirearmBowlingTrapGeometry.apply_guard_state(
+	return CommandoFirearmBowlingTrapGuardState.consume_runtime_boss_guard(
 		self,
-		CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state()
-	)
-
-	var next_ball_vel: Vector2 = CommandoFirearmBowlingTrapGeometry.soften_guard_ball(ball_vel, restore_speed)
-	if CommandoFirearmBowlingTrapGeometry.is_stage2_boss_status_immune(context, deps):
-		return CommandoFirearmBowlingTrapGeometry.build_guard_immune_result(next_ball_vel)
-
-	var boss_center: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
-	var knockback_vel: float = CommandoFirearmBowlingTrapGeometry.get_guard_knockback_velocity(
-		boss_center,
+		ball_vel,
 		context,
+		deps,
 		FIELD_WIDTH,
-		BOWLING_TRAP_GUARD_KNOCKBACK_POWER
-	)
-	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
-		"bowling_trap",
-		WEAPON_HIT_FEEDBACK,
-		HIT_FEEDBACK_PROFILE_OVERRIDES
-	)
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-		"bowling_trap",
+		BASE_WEAPON_ID,
 		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
-	var status_effect_state: Object = deps.get("status_effect_state", null)
-	var applied_status := false
-	if status_effect_state != null and status_effect_state.has_method("apply_status"):
-		status_effect_state.apply_status(
-			"boss",
-			"stun",
-			BOWLING_TRAP_GUARD_STUN_FRAMES,
-			CommandoFirearmBowlingTrapGeometry.build_guard_status_data(
-				knockback_vel,
-				BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES,
-				BOWLING_TRAP_GUARD_KNOCKBACK_DECAY,
-				source
-			),
-			source
-		)
-		applied_status = true
-
-	var ai_state: Object = deps.get("ai_state", null)
-	if not applied_status and ai_state != null and ai_state.has_method("start_paddle_hit_knockback"):
-		ai_state.start_paddle_hit_knockback(
-			knockback_vel,
-			BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES,
-			BOWLING_TRAP_GUARD_KNOCKBACK_DECAY,
-			true
-		)
-
-	CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(
-		boss_center,
-		CommandoFirearmValueUtils.get_color(profile.get("color", Color.WHITE), Color.WHITE),
-		next_ball_vel,
-		float(feedback_profile.get("intensity", 0.82)),
-		deps
-	)
-	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(feedback_profile, deps)
-	CommandoFirearmHitFeedbackDispatcher.trigger_boss_hit_animation(context, deps)
-	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(boss_center, next_ball_vel, 0.9, "bowling_trap_guard", deps, BASE_WEAPON_ID)
-	return CommandoFirearmBowlingTrapGeometry.build_guard_hit_result(
-		next_ball_vel,
-		knockback_vel,
-		source,
+		WEAPON_PROFILE_OVERRIDES,
+		WEAPON_HIT_FEEDBACK,
+		HIT_FEEDBACK_PROFILE_OVERRIDES,
+		BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
 		BOWLING_TRAP_GUARD_STUN_FRAMES,
-		restore_speed
+		BOWLING_TRAP_GUARD_KNOCKBACK_FRAMES,
+		BOWLING_TRAP_GUARD_KNOCKBACK_DECAY
 	)
 
 
