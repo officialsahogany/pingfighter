@@ -105,6 +105,40 @@ func _verify_direct_projectile_motion_state() -> void:
 	_expect(rope_projectile.get("origin", Vector2.ZERO) == Vector2(3.0, 4.0), "net rope helper should preserve origin")
 	_expect((rope_projectile.get("rope_points", []) as Array) == [Vector2.ONE, Vector2(10.0, 20.0)], "net rope helper should append and trim rope points")
 
+	var runtime_motion_projectile := {
+		"kind": "rocket",
+		"weapon_id": "bazooka",
+		"speed": 8.0,
+		"velocity": Vector2.UP * 8.0,
+		"pos": Vector2(100.0, 200.0),
+		"life_frames": 12.0,
+		"smoke_trail_limit": 2,
+	}
+	var runtime_motion_result: Dictionary = CommandoFirearmProjectileMotionState.advance_runtime_projectile_motion(
+		runtime_motion_projectile,
+		"rocket",
+		"bazooka",
+		false,
+		{},
+		{},
+		1.0,
+		Vector2(760.0, 750.0),
+		10.0,
+		1,
+		0.85,
+		0.8,
+		20.0,
+		4,
+		Vector2(106.0, 82.0),
+		Vector2(160.0, 160.0),
+		12.0,
+		4
+	)
+	var runtime_motion_payload: Dictionary = runtime_motion_result.get("projectile", {})
+	_expect(not bool(runtime_motion_result.get("consumed", true)), "runtime motion helper should keep active projectiles")
+	_expect((runtime_motion_payload.get("velocity", Vector2.ZERO) as Vector2).length() > 8.0, "runtime motion helper should delegate rocket acceleration")
+	_expect(is_equal_approx(float(runtime_motion_payload.get("life_frames", 0.0)), 11.0), "runtime motion helper should finalize life timer")
+
 
 func _verify_runtime_delegates_projectile_motion_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
@@ -175,6 +209,10 @@ func _verify_removed_runtime_projectile_motion_bridges() -> void:
 		"_update_net_projectile_rope",
 	]:
 		_expect(source.find("func %s(" % bridge_name) < 0, "runtime should not keep projectile motion bridge %s" % bridge_name)
+	_expect(
+		source.find("CommandoFirearmProjectileMotionState.advance_runtime_projectile_motion") >= 0,
+		"runtime should delegate projectile frame motion to the owner"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

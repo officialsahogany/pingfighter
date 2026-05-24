@@ -1837,91 +1837,30 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			projectile_weapon_id,
 			BASE_WEAPON_ID
 		)
-		var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-		var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
-		if projectile_kind == "drone":
-			velocity = CommandoFirearmSuicideDroneState.get_homing_velocity(
-				pos,
-				projectile,
-				CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH),
-				fps_scale
-			)
-		elif projectile_kind == "rocket":
-			var motion_result: Dictionary = CommandoFirearmProjectileMotionState.update_rocket_motion(
-				projectile,
-				pos,
-				velocity,
-				step,
-				BAZOOKA_ACCELERATION,
-				BAZOOKA_MAX_SPEED,
-				BAZOOKA_SMOKE_TRAIL_LIMIT
-			)
-			CommandoFirearmProjectileMotionState.replace_projectile_payload(
-				projectile,
-				CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile))
-			)
-			velocity = CommandoFirearmValueUtils.get_vector2(motion_result.get("velocity", velocity), velocity)
-		var linear_motion: Dictionary = CommandoFirearmProjectileMotionState.advance_linear_motion(
+		var motion_result: Dictionary = CommandoFirearmProjectileMotionState.advance_runtime_projectile_motion(
 			projectile,
-			pos,
-			velocity,
-			step
-		)
-		var prev_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(linear_motion.get("prev_pos", pos), pos)
-		pos = CommandoFirearmValueUtils.get_vector2(linear_motion.get("pos", pos), pos)
-		velocity = CommandoFirearmValueUtils.get_vector2(linear_motion.get("velocity", velocity), velocity)
-		if is_pistol_projectile:
-			var field_width: float = max(PISTOL_WALL_BOUNCE_MARGIN * 2.0, float(context.get("width", FIELD_WIDTH)))
-			var bounce_result: Dictionary = CommandoFirearmProjectileMotionState.apply_pistol_side_wall_bounce(
-				projectile,
-				pos,
-				velocity,
-				field_width,
-				PISTOL_WALL_BOUNCE_MARGIN,
-				PISTOL_WALL_BOUNCE_MAX,
-				PISTOL_WALL_BOUNCE_DAMPING
-			)
-			if bool(bounce_result.get("bounced", false)):
-				CommandoFirearmProjectileMotionState.replace_projectile_payload(
-					projectile,
-					CommandoFirearmValueUtils.get_dict(bounce_result.get("projectile", projectile))
-				)
-				pos = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", pos), pos)
-				velocity = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", velocity), velocity)
-		CommandoFirearmProjectileMotionState.write_motion_fields(projectile, prev_pos, pos, velocity)
-		var rock_bounce_result: Dictionary = CommandoFirearmStage2RockInteractionResolver.apply_pistol_rock_bounce(
-			projectile,
+			projectile_kind,
+			projectile_weapon_id,
+			is_pistol_projectile,
 			context,
 			deps,
-			is_pistol_projectile
+			step,
+			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+			PISTOL_WALL_BOUNCE_MARGIN,
+			PISTOL_WALL_BOUNCE_MAX,
+			PISTOL_WALL_BOUNCE_DAMPING,
+			BAZOOKA_ACCELERATION,
+			BAZOOKA_MAX_SPEED,
+			BAZOOKA_SMOKE_TRAIL_LIMIT,
+			COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+			COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+			NET_GUN_ROPE_TRAIL_LIMIT
 		)
-		if bool(rock_bounce_result.get("consumed", false)):
+		if bool(motion_result.get("consumed", false)):
 			projectiles.remove_at(index)
 			continue
-		if bool(rock_bounce_result.get("bounced", false)):
-			pos = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", pos), pos)
-			velocity = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", velocity), velocity)
-		if projectile_kind == "net":
-			var next_projectile: Dictionary = CommandoFirearmProjectileMotionState.update_net_projectile_rope(
-				projectile,
-				pos,
-				CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
-					context,
-					COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-					Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-					COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-					COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
-				),
-				NET_GUN_ROPE_TRAIL_LIMIT
-			)
-			CommandoFirearmProjectileMotionState.replace_projectile_payload(projectile, next_projectile)
-		CommandoFirearmProjectileMotionState.finalize_frame_motion(
-			projectile,
-			CommandoFirearmValueUtils.get_vector2(projectile.get("prev_pos", prev_pos), prev_pos),
-			pos,
-			velocity,
-			step
-		)
+		projectile = CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile))
 		projectiles[index] = projectile
 		if projectile_kind == "drone":
 			var drone_result: Dictionary = _resolve_suicide_drone_collision(index, projectile, context, deps, step)
