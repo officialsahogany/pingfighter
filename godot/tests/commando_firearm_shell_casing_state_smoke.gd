@@ -76,17 +76,24 @@ func _verify_direct_shell_casing_state() -> void:
 
 func _verify_runtime_delegates_shell_casing_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	runtime._spawn_ak47_shell_casing(
-		Vector2(100.0, 200.0),
-		Vector2.UP,
-		{"player_pos": Vector2(90.0, 600.0), "paddle_height": 40.0},
-		7
+	runtime.shot_serial = 6
+	runtime._spawn_firearm_effect(
+		"ak47",
+		{"player_pos": Vector2(90.0, 600.0), "paddle_height": 40.0, "boss_pos": Vector2(330.0, 60.0)},
+		{},
+		{"kind": "bullet", "speed": 16.0, "angle_offset": 0.0}
 	)
 	var context: Dictionary = runtime.get_actor_draw_context()
 	var shells: Array = context.get("commando_firearm_shell_casings", [])
-	_expect(shells.size() == 1, "runtime should delegate AK-47 shell creation")
+	_expect(shells.size() == 1, "runtime fire path should create AK-47 shell casing")
 	if shells.size() == 1:
-		_expect((shells[0] as Dictionary).get("pos", Vector2.ZERO) == Vector2(111.0, 194.0), "runtime shell position should match helper")
+		var shell: Dictionary = shells[0]
+		_expect(str(shell.get("weapon_id", "")) == "ak47", "runtime shell casing should preserve weapon id")
+		_expect(int(shell.get("id", 0)) == 7, "runtime shell casing should use projectile shot id")
+		_expect(is_equal_approx(float(shell.get("floor_y", 0.0)), 645.0), "runtime shell casing should preserve floor clamp")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(not runtime_source.contains("func _spawn_ak47_shell_casing("), "runtime should not keep AK-47 shell spawn bridge")
+	_expect(not runtime_source.contains("func _spawn_pistol_shell_casing("), "runtime should not keep pistol shell spawn bridge")
 
 
 func _expect(condition: bool, message: String) -> void:

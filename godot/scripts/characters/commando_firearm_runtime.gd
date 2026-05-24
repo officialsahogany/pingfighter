@@ -2138,9 +2138,32 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 	)
 	CommandoFirearmValueUtils.append_limited(projectiles, projectile, PROJECTILE_LIMIT)
 	if weapon_id == "ak47":
-		_spawn_ak47_shell_casing(origin, direction, config, shot_id)
+		CommandoFirearmValueUtils.append_limited(
+			shell_casings,
+			CommandoFirearmShellCasingState.build_ak47_shell(
+				origin,
+				direction,
+				config,
+				shot_id,
+				FIELD_HEIGHT,
+				AK47_SHELL_LIFETIME_FRAMES
+			),
+			SHELL_CASING_LIMIT
+		)
 	elif weapon_id == "pistol" or weapon_id == "commando_pistol":
-		_spawn_pistol_shell_casing(origin, direction, config, shot_id, weapon_id)
+		CommandoFirearmValueUtils.append_limited(
+			shell_casings,
+			CommandoFirearmShellCasingState.build_pistol_shell(
+				origin,
+				direction,
+				config,
+				shot_id,
+				weapon_id,
+				FIELD_HEIGHT,
+				PISTOL_SHELL_LIFETIME_FRAMES
+			),
+			SHELL_CASING_LIMIT
+		)
 
 
 func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, weapon_id: String, deps: Dictionary) -> void:
@@ -2552,29 +2575,6 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			if projectile_kind == "drone" and not CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
 				CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	return result
-
-
-func _spawn_ak47_shell_casing(origin: Vector2, direction: Vector2, config: Dictionary, shot_id: int) -> void:
-	CommandoFirearmValueUtils.append_limited(shell_casings, CommandoFirearmShellCasingState.build_ak47_shell(
-		origin,
-		direction,
-		config,
-		shot_id,
-		FIELD_HEIGHT,
-		AK47_SHELL_LIFETIME_FRAMES
-	), SHELL_CASING_LIMIT)
-
-
-func _spawn_pistol_shell_casing(origin: Vector2, direction: Vector2, config: Dictionary, shot_id: int, weapon_id: String = "commando_pistol") -> void:
-	CommandoFirearmValueUtils.append_limited(shell_casings, CommandoFirearmShellCasingState.build_pistol_shell(
-		origin,
-		direction,
-		config,
-		shot_id,
-		weapon_id,
-		FIELD_HEIGHT,
-		PISTOL_SHELL_LIFETIME_FRAMES
-	), SHELL_CASING_LIMIT)
 
 
 func _update_shell_casings(fps_scale: float) -> void:
