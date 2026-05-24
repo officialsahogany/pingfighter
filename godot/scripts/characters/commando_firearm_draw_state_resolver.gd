@@ -511,6 +511,65 @@ static func build_runtime_actor_context(
 	)
 
 
+static func build_runtime_draw_context(
+	target: Object,
+	timing: Dictionary,
+	movement_speed_multiplier: float
+) -> Dictionary:
+	var slingshot_state: Dictionary = build_runtime_slingshot_state(
+		target,
+		float(timing.get("slingshot_charge_threshold_frames", 180.0)),
+		float(timing.get("slingshot_charge_tick_interval_frames", 30.0)),
+		float(timing.get("slingshot_cooldown_max_frames", 0.0)),
+		float(timing.get("slingshot_control_lock_max_frames", 0.0))
+	)
+	var pistol_state: Dictionary = build_runtime_pistol_state(
+		target,
+		float(timing.get("pistol_fire_delay_max_frames", 0.0)),
+		float(timing.get("pistol_post_fire_animation_max_frames", 0.0))
+	)
+	var weapon_fire_sheet_state: Dictionary = build_runtime_weapon_fire_sheet_state(
+		target,
+		int(timing.get("weapon_fire_sheet_frame_count", 0))
+	)
+	var ak47_state: Dictionary = build_runtime_ak47_state(target, movement_speed_multiplier)
+	var bazooka_state: Dictionary = build_runtime_bazooka_state(
+		target,
+		float(timing.get("bazooka_fire_animation_max_frames", 0.0)),
+		float(timing.get("bazooka_firing_pose_max_frames", 0.0)),
+		float(timing.get("bazooka_muzzle_flash_max_frames", 0.0))
+	)
+	var net_gun_state: Dictionary = build_runtime_net_gun_state(
+		target,
+		float(timing.get("net_gun_cooldown_max_frames", 0.0)),
+		float(timing.get("net_gun_control_lock_max_frames", 0.0)),
+		float(timing.get("net_gun_throw_pose_max_frames", 0.0)),
+		float(timing.get("net_gun_harpoon_flash_max_frames", 0.0)),
+		movement_speed_multiplier
+	)
+	var bowling_trap_state: Dictionary = build_runtime_bowling_trap_state(
+		target,
+		float(timing.get("bowling_trap_cooldown_max_frames", 0.0)),
+		float(timing.get("bowling_trap_control_lock_max_frames", 0.0)),
+		float(timing.get("bowling_trap_install_pose_max_frames", 0.0))
+	)
+	var suicide_drone_state: Dictionary = build_runtime_suicide_drone_state(
+		target,
+		float(timing.get("suicide_drone_cooldown_max_frames", 0.0))
+	)
+	return build_runtime_actor_context(
+		target,
+		pistol_state,
+		slingshot_state,
+		ak47_state,
+		bazooka_state,
+		net_gun_state,
+		bowling_trap_state,
+		suicide_drone_state,
+		weapon_fire_sheet_state
+	)
+
+
 static func has_visible_effects(effect_arrays: Array, timer_values: Array) -> bool:
 	for value in effect_arrays:
 		if value is Array and not (value as Array).is_empty():

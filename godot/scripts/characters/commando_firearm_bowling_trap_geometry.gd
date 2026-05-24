@@ -383,6 +383,27 @@ static func build_guard_status_data(
 	}
 
 
+static func is_stage2_boss_status_immune(context: Dictionary, deps: Dictionary) -> bool:
+	var stage2_boss_immune := false
+	if int(context.get("current_stage", 0)) == 2:
+		stage2_boss_immune = (
+			bool(context.get("stage2_speed_defense_status_immunity_active", false))
+			or bool(context.get("stage2_speed_defense_active", false))
+		)
+	var stage2_skill_state: Object = deps.get("stage2_boss_skill_state", null)
+	if not stage2_boss_immune and _is_status_immune_owner(stage2_skill_state):
+		stage2_boss_immune = true
+	var registry: Object = deps.get("registry", null)
+	var registry_stage2_skill_state: Object = CommandoFirearmValueUtils.get_instance(registry, "stage2_boss_skill_state")
+	if not stage2_boss_immune and _is_status_immune_owner(registry_stage2_skill_state):
+		stage2_boss_immune = true
+	return stage2_boss_immune
+
+
+static func _is_status_immune_owner(owner: Object) -> bool:
+	return owner != null and owner.has_method("is_boss_status_immune") and bool(owner.is_boss_status_immune())
+
+
 static func build_guard_immune_result(ball_vel: Vector2) -> Dictionary:
 	return {
 		"ball_vel": ball_vel,

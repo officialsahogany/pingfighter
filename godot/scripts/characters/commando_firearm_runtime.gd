@@ -271,6 +271,27 @@ const SUICIDE_DRONE_BALL_SPEED_MULTIPLIER := 3.0
 const SUICIDE_DRONE_BALL_FAN_DEGREES := 25.0
 const SUICIDE_DRONE_LIFE_FRAMES := 3600.0
 
+const DRAW_CONTEXT_TIMING := {
+	"slingshot_charge_threshold_frames": SLINGSHOT_CHARGE_THRESHOLD_3,
+	"slingshot_charge_tick_interval_frames": SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES,
+	"slingshot_cooldown_max_frames": SLINGSHOT_COOLDOWN_FRAMES,
+	"slingshot_control_lock_max_frames": SLINGSHOT_CONTROL_LOCK_FRAMES,
+	"pistol_fire_delay_max_frames": PISTOL_FIRE_DELAY_FRAMES,
+	"pistol_post_fire_animation_max_frames": PISTOL_POST_FIRE_ANIMATION_FRAMES,
+	"weapon_fire_sheet_frame_count": COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT,
+	"bazooka_fire_animation_max_frames": BAZOOKA_FIRE_ANIMATION_FRAMES,
+	"bazooka_firing_pose_max_frames": BAZOOKA_FIRING_POSE_FRAMES,
+	"bazooka_muzzle_flash_max_frames": BAZOOKA_MUZZLE_FLASH_FRAMES,
+	"net_gun_cooldown_max_frames": NET_GUN_COOLDOWN_FRAMES,
+	"net_gun_control_lock_max_frames": NET_GUN_CONTROL_LOCK_FRAMES,
+	"net_gun_throw_pose_max_frames": NET_GUN_THROW_POSE_FRAMES,
+	"net_gun_harpoon_flash_max_frames": NET_GUN_HARPOON_FLASH_FRAMES,
+	"bowling_trap_cooldown_max_frames": BOWLING_TRAP_COOLDOWN_FRAMES,
+	"bowling_trap_control_lock_max_frames": BOWLING_TRAP_CONTROL_LOCK_FRAMES,
+	"bowling_trap_install_pose_max_frames": BOWLING_TRAP_INSTALL_FRAMES,
+	"suicide_drone_cooldown_max_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
+}
+
 const WEAPON_PROFILES := {
 	"pistol": {
 		"kind": "bullet",
@@ -814,30 +835,7 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 	)
 
 	var next_ball_vel: Vector2 = CommandoFirearmBowlingTrapGeometry.soften_guard_ball(ball_vel, restore_speed)
-	var stage2_boss_immune := false
-	if int(context.get("current_stage", 0)) == 2:
-		stage2_boss_immune = (
-			bool(context.get("stage2_speed_defense_status_immunity_active", false))
-			or bool(context.get("stage2_speed_defense_active", false))
-		)
-	var stage2_skill_state: Object = deps.get("stage2_boss_skill_state", null)
-	if (
-		not stage2_boss_immune
-		and stage2_skill_state != null
-		and stage2_skill_state.has_method("is_boss_status_immune")
-		and bool(stage2_skill_state.is_boss_status_immune())
-	):
-		stage2_boss_immune = true
-	var registry: Object = deps.get("registry", null)
-	var registry_stage2_skill_state: Object = CommandoFirearmValueUtils.get_instance(registry, "stage2_boss_skill_state")
-	if (
-		not stage2_boss_immune
-		and registry_stage2_skill_state != null
-		and registry_stage2_skill_state.has_method("is_boss_status_immune")
-		and bool(registry_stage2_skill_state.is_boss_status_immune())
-	):
-		stage2_boss_immune = true
-	if stage2_boss_immune:
+	if CommandoFirearmBowlingTrapGeometry.is_stage2_boss_status_immune(context, deps):
 		return CommandoFirearmBowlingTrapGeometry.build_guard_immune_result(next_ball_vel)
 
 	var boss_center: Vector2 = CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH)
@@ -981,60 +979,10 @@ func get_recent_hit_events() -> Array:
 
 
 func get_actor_draw_context() -> Dictionary:
-	var slingshot_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_slingshot_state(
+	return CommandoFirearmDrawStateResolver.build_runtime_draw_context(
 		self,
-		SLINGSHOT_CHARGE_THRESHOLD_3,
-		SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES,
-		SLINGSHOT_COOLDOWN_FRAMES,
-		SLINGSHOT_CONTROL_LOCK_FRAMES
-	)
-	var pistol_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_pistol_state(
-		self,
-		PISTOL_FIRE_DELAY_FRAMES,
-		PISTOL_POST_FIRE_ANIMATION_FRAMES
-	)
-	var weapon_fire_sheet_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_weapon_fire_sheet_state(
-		self,
-		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
-	)
-	var ak47_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_ak47_state(
-		self,
+		DRAW_CONTEXT_TIMING,
 		get_movement_speed_multiplier()
-	)
-	var bazooka_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_bazooka_state(
-		self,
-		BAZOOKA_FIRE_ANIMATION_FRAMES,
-		BAZOOKA_FIRING_POSE_FRAMES,
-		BAZOOKA_MUZZLE_FLASH_FRAMES
-	)
-	var net_gun_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_net_gun_state(
-		self,
-		NET_GUN_COOLDOWN_FRAMES,
-		NET_GUN_CONTROL_LOCK_FRAMES,
-		NET_GUN_THROW_POSE_FRAMES,
-		NET_GUN_HARPOON_FLASH_FRAMES,
-		get_movement_speed_multiplier()
-	)
-	var bowling_trap_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_bowling_trap_state(
-		self,
-		BOWLING_TRAP_COOLDOWN_FRAMES,
-		BOWLING_TRAP_CONTROL_LOCK_FRAMES,
-		BOWLING_TRAP_INSTALL_FRAMES
-	)
-	var suicide_drone_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_suicide_drone_state(
-		self,
-		SUICIDE_DRONE_COOLDOWN_FRAMES
-	)
-	return CommandoFirearmDrawStateResolver.build_runtime_actor_context(
-		self,
-		pistol_state,
-		slingshot_state,
-		ak47_state,
-		bazooka_state,
-		net_gun_state,
-		bowling_trap_state,
-		suicide_drone_state,
-		weapon_fire_sheet_state
 	)
 
 

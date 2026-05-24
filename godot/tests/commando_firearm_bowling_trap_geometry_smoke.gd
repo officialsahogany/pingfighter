@@ -6,6 +6,26 @@ const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firea
 var _failures: Array[String] = []
 
 
+class FakeStage2SkillState:
+	extends RefCounted
+
+	var immune := false
+
+	func is_boss_status_immune() -> bool:
+		return immune
+
+
+class FakeRegistry:
+	extends RefCounted
+
+	var stage2_boss_skill_state: Object = null
+
+	func get_instance(key: String) -> Object:
+		if key == "stage2_boss_skill_state":
+			return stage2_boss_skill_state
+		return null
+
+
 func _init() -> void:
 	_verify_direct_bowling_trap_geometry()
 	_verify_runtime_delegates_bowling_trap_geometry()
@@ -173,6 +193,29 @@ func _verify_direct_bowling_trap_geometry() -> void:
 	var status_data: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_status_data(22.0, 6.0, 0.8, "guard")
 	_expect(bool(status_data.get("knockback_active", false)), "guard status data should mark active knockback")
 	_expect(str(status_data.get("source", "")) == "guard", "guard status data should preserve source")
+	_expect(
+		not CommandoFirearmBowlingTrapGeometry.is_stage2_boss_status_immune({}, {}),
+		"stage2 boss immunity helper should default false"
+	)
+	_expect(
+		CommandoFirearmBowlingTrapGeometry.is_stage2_boss_status_immune(
+			{"current_stage": 2, "stage2_speed_defense_active": true},
+			{}
+		),
+		"stage2 boss immunity helper should read active speed defense context"
+	)
+	var skill_state := FakeStage2SkillState.new()
+	skill_state.immune = true
+	_expect(
+		CommandoFirearmBowlingTrapGeometry.is_stage2_boss_status_immune({}, {"stage2_boss_skill_state": skill_state}),
+		"stage2 boss immunity helper should read injected skill state"
+	)
+	var registry := FakeRegistry.new()
+	registry.stage2_boss_skill_state = skill_state
+	_expect(
+		CommandoFirearmBowlingTrapGeometry.is_stage2_boss_status_immune({}, {"registry": registry}),
+		"stage2 boss immunity helper should read registry skill state"
+	)
 	var immune_result: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_immune_result(Vector2(0.0, 4.0))
 	_expect(bool(immune_result.get("boss_status_immune", false)), "guard immune result should expose boss immunity")
 	_expect(not bool(immune_result.get("commando_bowling_trap_guard_hit", true)), "guard immune result should not mark a guard hit")
