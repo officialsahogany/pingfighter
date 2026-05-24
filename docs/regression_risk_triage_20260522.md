@@ -8330,7 +8330,7 @@ commits rather than standalone `fix` commits:
   Stage 2 boss status-immunity detection for bowling-trap guard consumption
   into `CommandoFirearmBowlingTrapGeometry.is_stage2_boss_status_immune()`.
 - Runtime facade size: `commando_firearm_runtime.gd` moved from `2630` lines /
-  `35` functions to `2554` lines / `35` functions across the draw-context and
+  `35` functions to `2578` lines / `35` functions across the draw-context and
   guard-immunity cleanup.
 - Validation: focused Commando coverage passed:
   `commando_firearm_draw_state_resolver_smoke`,
