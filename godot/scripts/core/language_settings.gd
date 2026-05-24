@@ -10,12 +10,14 @@ const LANGUAGE_KOREAN := "ko"
 const LANGUAGE_ENGLISH := "en"
 const LANGUAGE_CHINESE := "zh"
 const LANGUAGE_JAPANESE := "ja"
+const LANGUAGE_SPANISH := "es"
 const DEFAULT_LANGUAGE := LANGUAGE_KOREAN
 const SUPPORTED_LANGUAGES: Array[String] = [
 	LANGUAGE_KOREAN,
 	LANGUAGE_ENGLISH,
 	LANGUAGE_CHINESE,
 	LANGUAGE_JAPANESE,
+	LANGUAGE_SPANISH,
 ]
 
 const LANGUAGE_NATIVE_NAMES := {
@@ -23,6 +25,7 @@ const LANGUAGE_NATIVE_NAMES := {
 	LANGUAGE_ENGLISH: "English",
 	LANGUAGE_CHINESE: "简体中文",
 	LANGUAGE_JAPANESE: "日本語",
+	LANGUAGE_SPANISH: "Español",
 }
 
 const ITEM_DISPLAY_EN := {
@@ -256,6 +259,83 @@ const ITEM_DISPLAY_JA := {
 	"baal_boots": "バアルのブーツ",
 }
 
+const ITEM_DISPLAY_ES := {
+	"gauge_charge": "Bebida energética",
+	"life_elixir": "Elixir de vida",
+	"ammo_box": "Caja de munición",
+	"doping_potion": "Inyector estimulante",
+	"vitamin_pill": "Bebida vitamínica",
+	"strange_vial": "Vial extraño",
+	"aipill": "Píldora IA",
+	"pandora_box": "Caja de Pandora",
+	"grenade": "Granada",
+	"flare": "Bengala",
+	"tear_gas": "Gas lacrimógeno",
+	"dynamite": "Dinamita",
+	"molotov": "Molotov",
+	"stopwatch": "Cronómetro",
+	"magnet_field": "Campo magnético",
+	"long_boost": "Poción de crecimiento",
+	"regeneration_potion": "Poción de regeneración",
+	"holy_barrier": "Barrera sagrada",
+	"dash_boost": "Impulso de dash",
+	"wall": "Muro de ladrillos",
+	"boomerang": "Búmeran",
+	"banana": "Banana",
+	"soap": "Jabón",
+	"spider_mine": "Mina araña",
+	"elixir_of_mastery": "Elixir de maestría",
+	"speedboots": "Botas de velocidad",
+	"speedgear": "Cinturón corrector",
+	"gravitybelt": "Cinturón cero G",
+	"sensor": "Cinturón sensor de peligro",
+	"spikeboots": "Botas con púas",
+	"dowsing_pendulum": "Péndulo zahorí",
+	"dowsing_goggles": "Gafas zahoríes",
+	"yachaman_soul": "Yelmo de Yachaman",
+	"slot_add": "Mochila",
+	"chargebag": "Bolsa de carga",
+	"battery": "Batería",
+	"revival": "Talismán de reencarnación",
+	"master": "Martillo del reparador",
+	"gold_digger": "Buscador de oro",
+	"gold_bar": "Lingote de oro",
+	"lucky_coin": "Moneda de la suerte",
+	"adversity_armor": "Armadura de adversidad",
+	"shrapnel_armor": "Armadura de metralla",
+	"sage_ring": "Anillo del sabio",
+	"cooltime": "Bola refrigerante",
+	"timer_belt": "Cinturón temporizador",
+	"fuel_pouch": "Bolsa de combustible",
+	"bluetooth_ring": "Anillo Bluetooth",
+	"star_detector": "Detector de estrellas",
+	"foul_whistle": "Silbato de falta",
+	"smartphone": "Smartphone",
+	"neural_helmet": "Casco neural",
+	"venom_mist_gauntlet": "Guantelete de niebla venenosa",
+	"reinforced_boomerang_gauntlet": "Guante búmeran reforzado",
+	"commando_arm": "Brazo comando",
+	"rainbow_fur_glove": "Guante de pelaje arcoíris",
+	"knee_pads": "Cargador de patadas",
+	"dashgear": "Equipo de dash",
+	"soul_burst": "Estallido de alma",
+	"bulkup": "Traje de volumen",
+	"dashholder": "Portadashes",
+	"bulletproof_hat": "Sombrero antibalas",
+	"spiked_helmet": "Yelmo con púas",
+	"pandora_legacy": "Legado de Pandora",
+	"megingjord": "Megingjord",
+	"ragnarok_hammer": "Martillo Ragnarok",
+	"hermes_shoes": "Zapatos de Hermes",
+	"poseidon_trident": "Tridente de Poseidón",
+	"sacred_laurel": "Laurel sagrado",
+	"transcendent_crown": "Corona trascendente",
+	"heavenly_cape": "Capa celestial",
+	"horn_strawberry_mask": "Máscara de fresa cornuda",
+	"celestial_armor": "Armadura celestial inamovible",
+	"baal_boots": "Botas de Baal",
+}
+
 const MYTHIC_DESCRIPTION_EN := {
 	"speedboots": "While equipped, increases player movement speed by the rolled option value.",
 	"speedgear": "While equipped, left/right turning deceleration is increased by 2.5x.",
@@ -413,6 +493,59 @@ const MYTHIC_DESCRIPTION_JA := {
 	"celestial_armor": "発動時、ゲージを消費して迫るスタンを無視できます。",
 	"baal_boots": "天候開始時、バアルの力で現在の天候を吸収しゲージを回復します。吸収した天候はそのラウンド中に追加効果を与えます。",
 	"elixir_of_mastery": "使用時、所持中のパークをランダムに1つ選びLv.5へ上げます。この神話アクティブアイテムは使用後に消費されます。",
+}
+
+const MYTHIC_DESCRIPTION_ES := {
+	"speedboots": "Mientras están equipadas, aumentan la velocidad de movimiento del jugador según el valor de la tirada.",
+	"speedgear": "Mientras está equipado, la desaceleración al girar izquierda/derecha aumenta 2.5 veces.",
+	"gravitybelt": "La entrada de movimiento alcanza la velocidad máxima al instante y al soltarla te detienes de inmediato.",
+	"sensor": "Hace dash automáticamente en peligro. El auto-dash no consume energía ni fichas de dash.",
+	"spikeboots": "Reduce la recuperación del dash y la recarga de fichas de dash según el valor de la tirada.",
+	"dowsing_pendulum": "Atrae los objetos del campo dentro del alcance de la tirada hacia la paleta del jugador.",
+	"dowsing_goggles": "Añade una opción extra de perk común con cierta probabilidad en las pantallas de elección de perks.",
+	"yachaman_soul": "Justo antes de conceder un punto, puede transformarte en guerrero bomba y bloquear el marcador. Durante la transformación, la velocidad es 3 y el tamaño de la paleta 70%.",
+	"slot_add": "Mientras está equipada, aumenta los espacios de objetos activos según el valor de la tirada.",
+	"chargebag": "Mientras está equipada, ganas energía extra cada vez que la pelota toca una pared.",
+	"battery": "Mientras está equipada, conserva parte de tu energía al pasar a la siguiente fase.",
+	"revival": "Se activa una vez antes de la derrota, evita el fin de partida y reinicia la fase desde el principio.",
+	"master": "Mientras está equipado, alarga el Muro de ladrillos, reduce la recarga de objetos activos y aumenta su peso de aparición en el campo.",
+	"gold_digger": "Mientras está equipado, aumenta el oro obtenido y parte de la energía ganada según el valor de la tirada.",
+	"gold_bar": "Tesoro solo para vender. Mientras lo llevas, la velocidad baja un 30%, pero puede venderse por 2000 de oro.",
+	"lucky_coin": "Mientras está equipada, las apariciones de objetos del campo pueden crear un objeto bonus adicional.",
+	"adversity_armor": "Tras conceder un punto, puede crear un muro invencible en la siguiente ronda y aumentar la velocidad de la pelota en el siguiente saque.",
+	"shrapnel_armor": "Cuando la paleta del jugador golpea la pelota, puede gastar energía para disparar metralla hacia arriba que aturde y empuja brevemente al jefe.",
+	"sage_ring": "Mientras está equipado, sube en 1 el nivel efectivo de todos los perks invertidos. La velocidad y el tamaño corporal se reducen según la tirada.",
+	"cooltime": "Mientras está equipada, reduce la recarga de reutilización de objetos activos según el valor de la tirada.",
+	"timer_belt": "Mientras está equipado, reduce la recarga de todas las habilidades de personaje según el valor de la tirada.",
+	"fuel_pouch": "Mientras está equipada, aumenta la energía máxima del jugador según el valor de la tirada.",
+	"bluetooth_ring": "Mientras está equipado, aumenta la energía ganada cuando la paleta golpea la pelota.",
+	"star_detector": "Mientras está equipado, las gotas de puntos estrella pueden crear una gota bonus adicional.",
+	"foul_whistle": "Al perder una ronda, puede cancelar el punto y reiniciar la ronda.",
+	"smartphone": "Usa automáticamente objetos de recuperación con poca energía y puede activar Cronómetro o Barrera sagrada en emergencias.",
+	"neural_helmet": "Reduce el coste de energía de la Píldora IA y aumenta su aparición. La entrada de dirección cancela la Píldora IA al instante mientras está activa.",
+	"venom_mist_gauntlet": "Solo Viper. Patada Hwarang carga veneno en la pelota; si el jefe bloquea la pelota infectada, aparece niebla venenosa alrededor del jefe y ralentiza movimiento y energía especial.",
+	"reinforced_boomerang_gauntlet": "Mejora el Búmeran a una versión metálica y mejora velocidad de lanzamiento, guiado, aparición, empuje y tiempo de aturdimiento.",
+	"commando_arm": "Apoya objetos de combate arrojadizos. Granada, Bengala y Molotov vuelan más rápido y explotan más amplio; Dinamita, Banana, Jabón y Búmeran se preparan antes; el gas lacrimógeno dura más.",
+	"rainbow_fur_glove": "Cuando la paleta golpea la pelota, puede reducir al instante las recargas de habilidades de personaje equipadas.",
+	"knee_pads": "Mientras está equipado, golpear la pelota con medio dash carga energía según la ganancia base.",
+	"dashgear": "Aumenta la distancia de dash y puede cancelar el coste de la siguiente ficha de dash.",
+	"soul_burst": "Cuando no hay ficha de dash disponible, gasta energía especial para activar dash completo en vez de medio dash.",
+	"bulkup": "Mientras está equipado, aumenta el tamaño corporal de la paleta del jugador.",
+	"dashholder": "Mientras está equipado, aumenta en 1 el máximo de fichas de dash.",
+	"bulletproof_hat": "Mientras está equipado, reduce la duración de aturdimiento del jugador.",
+	"spiked_helmet": "Mientras está equipado, reduce la velocidad de empuje aplicada al jugador.",
+	"pandora_legacy": "Puede activarse al ganar una ronda y permite elegir uno de tres objetos.",
+	"megingjord": "Otorga oportunidades extra de elección de perks, hasta dos activaciones encadenadas por paquete de elección.",
+	"ragnarok_hammer": "Al devolver la pelota, gasta energía para crear una pelota aturdidora que empuja y aturde al jefe al volver.",
+	"hermes_shoes": "Zapatos alados de un mensajero divino. Aumentan la velocidad del jugador según el valor de la tirada.",
+	"poseidon_trident": "Durante la recuperación del dash, crea remolinos gigantes a ambos lados que rebotan con fuerza hacia arriba las pelotas smash del jefe.",
+	"sacred_laurel": "Hojas de laurel orbitan al jugador y ofrecen protección.",
+	"transcendent_crown": "Aumenta el nivel de efecto de todos los perks ya invertidos según el valor de la tirada.",
+	"heavenly_cape": "Añade un espacio de orbe de habilidad y reduce la recarga de todas las habilidades del jugador.",
+	"horn_strawberry_mask": "Usa el comando A-D-A-D-A-D una vez por recorrido de Fase 1 para transformarte en Fresa cornuda.",
+	"celestial_armor": "Puede ignorar un aturdimiento entrante gastando energía cuando se activa.",
+	"baal_boots": "Cuando empieza el clima, absorbe el clima actual con el poder de Baal y restaura energía. El clima absorbido otorga un efecto extra durante la ronda.",
+	"elixir_of_mastery": "Al usarlo, elige al azar un perk poseído y lo sube a Lv.5. Este objeto activo mítico se consume tras su uso.",
 }
 
 const PERK_NAME_EN := {
@@ -586,6 +719,63 @@ const PERK_NAME_JA := {
 	"convert_to_gold": "ゴールド変換",
 }
 
+const PERK_NAME_ES := {
+	"dash_lightweight": "Ligereza",
+	"dash_module_control": "Control de módulo",
+	"dash_jump": "Salto",
+	"dash_amplification": "Amplificación",
+	"item_luck": "Suerte",
+	"item_cooldown_mastery": "Maestría",
+	"item_gauge_mastery": "Pericia",
+	"active_duration_boost": "Cafeína",
+	"passive_polish": "Pulido",
+	"alchemy": "Alquimia",
+	"treasure_map": "Mapa del tesoro",
+	"active_slot_expand": "Expansión de bolsa",
+	"move_speed": "Rapidez",
+	"accessory_slot_expand": "Expansión",
+	"paddle_bulk": "Volumen",
+	"boost_charging": "Carga de impulso",
+	"sacred_laurel": "Hoja de laurel",
+	"skill_cooldown_training": "Entrenamiento",
+	"smasher_burst_up": "Estallido",
+	"smasher_dash_spirit": "Espíritu de dash",
+	"smasher_unlock_magnetic_grip": "Desbloquear Agarre Magnum",
+	"smasher_unlock_plasma": "Desbloquear Plasma",
+	"smasher_unlock_recovery": "Desbloquear Recuperación",
+	"smasher_unlock_cleanse": "Desbloquear Purga",
+	"smasher_unlock_shield_kiting": "Desbloquear Cometa escudo",
+	"smasher_unlock_ghost_shot": "Desbloquear Disparo fantasma",
+	"smasher_unlock_warp_gate": "Desbloquear Portal warp",
+	"smasher_unlock_smasher_wheel": "Desbloquear Rueda Smasher",
+	"smasher_extension_gear": "Equipo de extensión",
+	"viper_unlock_venom_edge": "Desbloquear Filo venenoso",
+	"viper_unlock_emp": "Desbloquear Golpe EMP",
+	"viper_unlock_chaos_spear": "Desbloquear Lanza del caos",
+	"viper_unlock_dual_glitch": "Desbloquear Glitch dual",
+	"viper_unlock_ignition_aura": "Desbloquear Aura de ignición",
+	"viper_phantom_kick": "Patada fantasma",
+	"viper_hwarang_kick": "Patada Hwarang",
+	"viper_dark_blade": "Hoja oscura",
+	"viper_jetpack_enhance": "Mejora de jetpack",
+	"viper_kick_enhance": "Mejora de patada",
+	"viper_blade_amp": "Amplificador de hoja",
+	"viper_four_poisons": "Cuatro venenos",
+	"soldier_unlock_net_gun": "Pistola red trampa",
+	"soldier_unlock_fire_support": "Apoyo de fuego",
+	"soldier_unlock_bowling_trap": "Trampa de bolos",
+	"soldier_unlock_suicide_drone": "Dron suicida",
+	"soldier_unlock_bazooka": "Bazuca",
+	"soldier_unlock_ak47": "AK-47",
+	"soldier_unlock_beretta": "Beretta",
+	"instant_full_gauge": "Energía completa",
+	"instant_dimension_gate": "Portal dimensional",
+	"instant_treasure_hunt": "Caza del tesoro",
+	"instant_monkey_grace": "Gracia del mono",
+	"instant_refresh": "Actualizar",
+	"convert_to_gold": "Convertir en oro",
+}
+
 const PERK_SUMMARY_EN := {
 	"dash_lightweight": "Dash cooldown reduced.",
 	"dash_module_control": "Dash recovery reduced.",
@@ -757,6 +947,104 @@ const PERK_SUMMARY_JA := {
 	"convert_to_gold": "パークをスキップし、ゲーム内ゴールド500を獲得します。",
 }
 
+const PERK_SUMMARY_ES := {
+	"dash_lightweight": "Reduce la recarga del dash.",
+	"dash_module_control": "Reduce la recuperación del dash.",
+	"dash_jump": "Aumenta la distancia de dash.",
+	"dash_amplification": "Aumenta el máximo de fichas de dash.",
+	"item_luck": "Reduce el retraso de aparición de objetos.",
+	"item_cooldown_mastery": "Reduce la recarga de objetos activos.",
+	"item_gauge_mastery": "Gana energía al usar objetos activos.",
+	"active_duration_boost": "Los objetos activos temporizados duran más.",
+	"passive_polish": "Refuerza los efectos pasivos.",
+	"alchemy": "Los objetos usados pueden conservarse.",
+	"treasure_map": "Mejora la probabilidad mítica y la proporción de drops pasivos.",
+	"active_slot_expand": "Permite guardar más objetos activos.",
+	"move_speed": "Aumenta la velocidad de movimiento.",
+	"accessory_slot_expand": "Añade espacios de accesorio.",
+	"paddle_bulk": "Aumenta el tamaño de la paleta.",
+	"boost_charging": "El próximo dash puede no consumir ficha y recargarse más rápido.",
+	"sacred_laurel": "Hojas de laurel protectoras bloquean la pelota.",
+	"skill_cooldown_training": "Las habilidades del jugador se recargan más rápido.",
+	"smasher_burst_up": "El dash agranda brevemente la paleta.",
+	"smasher_dash_spirit": "Sombras láser pueden bloquear la pelota durante el dash.",
+	"smasher_unlock_magnetic_grip": "Desbloquea Agarre Magnum.",
+	"smasher_unlock_plasma": "Desbloquea Plasma.",
+	"smasher_unlock_recovery": "Desbloquea Recuperación.",
+	"smasher_unlock_cleanse": "Desbloquea Purga.",
+	"smasher_unlock_shield_kiting": "Desbloquea Cometa escudo.",
+	"smasher_unlock_ghost_shot": "Desbloquea Disparo fantasma.",
+	"smasher_unlock_warp_gate": "Desbloquea Portal warp.",
+	"smasher_unlock_smasher_wheel": "Desbloquea Rueda Smasher.",
+	"smasher_extension_gear": "Aumenta la duración de habilidades utilitarias de Smasher.",
+	"viper_unlock_venom_edge": "Desbloquea Filo venenoso.",
+	"viper_unlock_emp": "Desbloquea Golpe EMP.",
+	"viper_unlock_chaos_spear": "Desbloquea Lanza del caos.",
+	"viper_unlock_dual_glitch": "Desbloquea Glitch dual.",
+	"viper_unlock_ignition_aura": "Desbloquea Aura de ignición.",
+	"viper_phantom_kick": "Permite Patada fantasma tras Patada marcial.",
+	"viper_hwarang_kick": "Permite Patada Hwarang tras el golpe de dash.",
+	"viper_dark_blade": "Permite Hoja oscura tras combos de Viper.",
+	"viper_jetpack_enhance": "Mejora el control aéreo de Viper.",
+	"viper_kick_enhance": "Mejora las habilidades de patada de Viper.",
+	"viper_blade_amp": "Refuerza las ondas de Hoja aérea y Hoja oscura.",
+	"viper_four_poisons": "Mejora EMP, Filo venenoso, Lanza del caos y Glitch dual.",
+	"soldier_unlock_net_gun": "Desbloquea Pistola red trampa.",
+	"soldier_unlock_fire_support": "Desbloquea Apoyo de fuego.",
+	"soldier_unlock_bowling_trap": "Desbloquea Trampa de bolos.",
+	"soldier_unlock_suicide_drone": "Desbloquea Dron suicida.",
+	"soldier_unlock_bazooka": "Desbloquea Bazuca.",
+	"soldier_unlock_ak47": "Desbloquea AK-47.",
+	"soldier_unlock_beretta": "Desbloquea Beretta.",
+	"instant_full_gauge": "Rellena al instante toda la energía y recargas.",
+	"instant_dimension_gate": "Aumenta brevemente el flujo de aparición de objetos.",
+	"instant_treasure_hunt": "Busca recompensas de tesoro.",
+	"instant_monkey_grace": "Llena espacios activos vacíos con suministros.",
+	"instant_refresh": "Actualiza las opciones de perk una vez más.",
+	"convert_to_gold": "Omite el perk y gana 500 de oro en partida.",
+}
+
+const PERK_LOCALIZATION_ALIASES := {
+	"item_caffeine": "active_duration_boost",
+	"item_polish": "passive_polish",
+	"item_recycle": "alchemy",
+	"downtown_treasure_map": "treasure_map",
+	"item_bag_expansion": "active_slot_expand",
+	"common_swiftness": "move_speed",
+	"common_expansion": "accessory_slot_expand",
+	"common_bulk_up": "paddle_bulk",
+	"perk_boost_charge": "boost_charging",
+	"perk_laurel_shield": "sacred_laurel",
+	"common_training": "skill_cooldown_training",
+	"dash_acceleration": "smasher_burst_up",
+	"dash_spirit": "smasher_dash_spirit",
+	"unlock_magnum_grip": "smasher_unlock_magnetic_grip",
+	"unlock_plasma": "smasher_unlock_plasma",
+	"unlock_recovery_skill": "smasher_unlock_recovery",
+	"unlock_cleanse": "smasher_unlock_cleanse",
+	"unlock_shield_kiting": "smasher_unlock_shield_kiting",
+	"unlock_ghost_shot": "smasher_unlock_ghost_shot",
+	"unlock_warp_gate": "smasher_unlock_warp_gate",
+	"unlock_smasher_wheel": "smasher_unlock_smasher_wheel",
+	"extension_gear": "smasher_extension_gear",
+	"unlock_nerve_strike": "viper_unlock_venom_edge",
+	"unlock_dive_strike": "viper_unlock_emp",
+	"unlock_chaos_spear": "viper_unlock_chaos_spear",
+	"unlock_dual_glitch": "viper_unlock_dual_glitch",
+	"unlock_ignition_aura": "viper_unlock_ignition_aura",
+	"double_marshal_kick": "viper_phantom_kick",
+	"core_flip": "viper_hwarang_kick",
+	"dark_blade": "viper_dark_blade",
+	"jetpack_enhance": "viper_jetpack_enhance",
+	"kick_enhance": "viper_kick_enhance",
+	"blade_amp": "viper_blade_amp",
+	"four_poisons": "viper_four_poisons",
+	"soldier_pistol_perk": "soldier_unlock_beretta",
+	"instant_gauge_full": "instant_full_gauge",
+	"instant_monkey_blessing": "instant_monkey_grace",
+	"common_refresh": "instant_refresh",
+}
+
 const CHARACTER_EN := {
 	"smasher": {
 		"name": "Smasher",
@@ -901,6 +1189,54 @@ const CHARACTER_JA := {
 	},
 }
 
+const CHARACTER_ES := {
+	"smasher": {
+		"name": "Smasher",
+		"character_name": "Mika",
+		"class_name": "Smasher",
+		"role": "Golpeadora central",
+		"tagline": "Smashes en cadena con explosión de energía",
+		"description": "Personaje de avance frontal que impone el ritmo con smashes a plena potencia.",
+		"special": "Árbol de habilidades exclusivo de Smasher",
+	},
+	"commando": {
+		"name": "Commando",
+		"character_name": "Rena",
+		"class_name": "Commando",
+		"role": "Control táctico",
+		"tagline": "Táctica que cambia de arma",
+		"description": "Táctica militar que remodela el campo con llamadas de suministro y cambios de arma.",
+		"special": "Experiencia de combate y superioridad táctica",
+	},
+	"baltor": {
+		"name": "Baltor",
+		"character_name": "Kohaku",
+		"class_name": "Baltor",
+		"role": "Guardiana de la forja",
+		"tagline": "Control de distancia de guardiana de forja",
+		"description": "Defensora compacta que aguanta abajo, controla la distancia con martillo de forja y Escudo de Thor, y mejora ataque y defensa.",
+		"special": "Módulos de sinergia de Escudo de Thor y torreta",
+	},
+	"optimus": {
+		"name": "Optimus",
+		"character_name": "Io",
+		"class_name": "Optimus",
+		"role": "Cicladora de cartas",
+		"tagline": "Remontada mecánica",
+		"description": "Gira habilidades de estilo carta con recargas separadas para cambiar el impulso de una crisis.",
+		"special": "Equipo exclusivo de la línea Smasher",
+	},
+	"viper": {
+		"name": "Viper",
+		"character_name": "Serin",
+		"class_name": "Viper",
+		"role": "Asesina cibernética",
+		"tagline": "Asesina de cortes encadenados",
+		"description": "Personaje de combos rápidos que se cuela por aperturas con hojas y Patada fantasma.",
+		"special": "Árbol de habilidades exclusivo de Hoja de plasma",
+	},
+}
+
 const SKILL_DATA_ZH := {
 	"plasma": {"korean": "等离子", "description": "向前发射等离子球。接触的敌人会减速，蓄力越久减速越强。", "how_to_use": "按住W/上后松开", "motion_hint": "向前发射等离子球"},
 	"recovery": {"korean": "恢复", "description": "立即取消冲刺后摇，并短时间获得50%移动速度加成。", "how_to_use": "冲刺后摇中按W/上", "motion_hint": "绿色光芒取消后摇并加速"},
@@ -965,6 +1301,39 @@ const SKILL_DATA_JA := {
 	"core_flip": {"korean": "花郎キック", "description": "花郎の精神でボールを蹴り、読みにくい斜線で反撃します。", "how_to_use": "ダッシュ打球後にAとDを同時押し", "motion_hint": "2回壁を蹴ってボールへ突進"},
 	"dual_glitch": {"korean": "デュアルグリッチ", "description": "古代バイパー技術で自身を分裂させます。分身はプレイヤーの移動を鏡写しにし、左右からボールを守ります。", "how_to_use": "A, D, A, Dまたは左-右-左-右を入力", "motion_hint": "左右の分身パドルを召喚"},
 	"ignition_aura": {"korean": "イグニッションオーラ", "description": "体内の炎エネルギーを増幅します。すべてのアップグレードレベルが一定時間上がり、ゴールドボーナスも上昇します。", "how_to_use": "条件達成後に発動", "motion_hint": "イグニッションオーラを解放"},
+}
+
+const SKILL_DATA_ES := {
+	"plasma": {"korean": "Plasma", "description": "Dispara una esfera de plasma hacia delante. Los enemigos que la toquen se ralentizan; cuanto más cargues, mayor será la ralentización.", "how_to_use": "Mantén W/Arriba y suelta", "motion_hint": "Dispara una esfera de plasma hacia delante"},
+	"recovery": {"korean": "Recuperación", "description": "Cancela al instante la recuperación del dash y otorga brevemente +50% de velocidad de movimiento.", "how_to_use": "Pulsa W/Arriba durante la recuperación del dash", "motion_hint": "Luz verde que cancela la recuperación y acelera"},
+	"cleanse": {"korean": "Purga", "description": "Elimina al instante estados como aturdimiento o ralentización y otorga inmunidad temporal.", "how_to_use": "Pulsa W mientras sufres un estado alterado", "motion_hint": "Purga dorada que limpia estados"},
+	"shield_kiting": {"korean": "Cometa escudo", "description": "Carga hasta 0.36 s y lanza un escudo de energía. Al acertar, la velocidad de la pelota sube 30% y el escudo vuelve al instante.", "how_to_use": "Doble clic izquierdo o doble toque de SPACE", "motion_hint": "Lanza y recupera el escudo de energía"},
+	"drive": {"korean": "Drive", "description": "Golpea la pelota con curva. Si anticipas la entrada antes de que llegue, mejora la precisión.", "how_to_use": "Izquierda/Derecha + clic izquierdo a la vez", "motion_hint": "Cambia la trayectoria con un golpe curvo"},
+	"power_smashing": {"korean": "Smash poderoso", "description": "Lanza la pelota con un smash potente. La dirección izquierda/derecha controla hacia dónde sale.", "how_to_use": "Mantén Izquierda/Derecha + clic izquierdo", "motion_hint": "Dispara la pelota con un smash"},
+	"magnum_grip": {"korean": "Agarre Magnum", "description": "Atrae la pelota hacia la paleta con un campo magnético fuerte. Devolver la pelota atraída eleva el límite de velocidad a 45.", "how_to_use": "Pulsa Izquierda+Derecha a la vez", "motion_hint": "Atrae la pelota con magnetismo"},
+	"ghost_shot": {"korean": "Disparo fantasma", "description": "La pelota serpentea y un fantasma la persigue. Con energía 420 o más sustituye al Smash poderoso.", "how_to_use": "Con energía 420 o más, mantén Izquierda/Derecha + clic izquierdo", "motion_hint": "Pelota serpenteante con persecución fantasmal"},
+	"warp_gate": {"korean": "Portal warp", "description": "Despliega un portal dimensional durante un tiempo. Permite cruzar paredes laterales sin gastar energía adicional.", "how_to_use": "Mantén S o Abajo al menos 0.5 s", "motion_hint": "Abre un portal para cruzar paredes laterales"},
+	"smasher_wheel": {"korean": "Rueda Smasher", "description": "La paleta gira durante 1.2 s. Al tocar la pelota, la relanza hacia el jefe a gran velocidad con curva fuerte.", "how_to_use": "Introduce A-W-D o D-W-A en 0.6 s", "motion_hint": "Gira la paleta y relanza la pelota"},
+	"supply_drop": {"korean": "Lanzamiento de suministros", "description": "Llama por radio a un avión de suministros para soltar un objeto aleatorio o un arma alquilada.", "how_to_use": "Mantén S/Abajo o clic derecho 1 s", "motion_hint": "Llamada de radio al avión de suministros"},
+	"emergency_supply": {"korean": "Recarga", "description": "Llama por radio a un proveedor. Tras una breve demora, rellena la munición del arma seleccionada.", "how_to_use": "Pulsa Abajo dos veces en el sitio", "motion_hint": "Tras la radio, el proveedor recarga"},
+	"commando_pistol": {"korean": "Beretta", "description": "Usa una Beretta con el doble de cadencia que la pistola, +20% velocidad de bala y +30% precisión. Sus 8 balas solo se recuperan con Recarga.", "how_to_use": "Tras seleccionar arma, clic izquierdo o SPACE", "motion_hint": "Dispara la Beretta"},
+	"bazooka": {"korean": "Bazuca", "description": "Mientras está seleccionada, disparar activa una breve recarga de orbe de habilidad. Recarga repone una bala cada vez.", "how_to_use": "Tras seleccionar arma, clic izquierdo o SPACE", "motion_hint": "Dispara la bazuca"},
+	"ak47": {"korean": "AK-47", "description": "Mientras está seleccionada, cada disparo activa una breve recarga de orbe de habilidad. Al llenar la energía de recarga, recupera munición y duración.", "how_to_use": "Tras seleccionar arma, clic izquierdo o SPACE", "motion_hint": "Ráfaga de AK-47"},
+	"net_gun": {"korean": "Pistola red", "description": "Mientras está seleccionada, disparar activa una breve recarga de orbe de habilidad. Recarga repone un disparo cada vez.", "how_to_use": "Tras seleccionar arma, clic izquierdo o SPACE", "motion_hint": "Dispara la red"},
+	"fire_support": {"korean": "Apoyo de fuego", "description": "Mientras está seleccionado, pedir apoyo activa una breve recarga de orbe de habilidad. La energía de recarga llena repone llamadas.", "how_to_use": "Tras seleccionar arma, clic izquierdo o SPACE", "motion_hint": "Solicita apoyo de fuego"},
+	"bowling_trap": {"korean": "Trampa de bolos", "description": "Mientras está seleccionada, colocar la trampa activa una breve recarga de orbe de habilidad. Recarga repone una carga cada vez.", "how_to_use": "Tras seleccionar arma, clic izquierdo o SPACE", "motion_hint": "Coloca una trampa de bolos"},
+	"suicide_drone": {"korean": "Dron suicida", "description": "Mientras está seleccionado, lanzar el dron activa una breve recarga de orbe de habilidad. Recarga repone un dron cada vez.", "how_to_use": "Tras seleccionar arma, clic izquierdo o SPACE", "motion_hint": "Lanza un dron suicida"},
+	"shadow_step": {"korean": "Paso sombrío", "description": "Te teletransporta a la posición anterior al dash. Abre rutas de combo con una patada trasera rápida.", "how_to_use": "Pulsa S durante o justo después del dash", "motion_hint": "Deja una sombra y vuelve al punto inicial"},
+	"blade_rush": {"korean": "Hoja aérea", "description": "Dispara una onda de hoja hacia delante en el aire. Tiene breve preparación; las pelotas alcanzadas usan límite de velocidad 40 sin importar la dificultad.", "how_to_use": "Pulsa W o Arriba en el aire", "motion_hint": "Dispara una gran cuchillada púrpura"},
+	"nerve_strike": {"korean": "Filo venenoso", "description": "Corre detrás del rival y corta desde atrás para infligir confusión.", "how_to_use": "Tras una habilidad de hoja, pulsa W o Arriba antes de aterrizar", "motion_hint": "Vuela detrás del jefe y corta para confundir"},
+	"dive_strike": {"korean": "Golpe EMP", "description": "Libera un pulso EMP con impacto fuerte. La potencia del pulso escala con la altura en el aire.", "how_to_use": "Mantén S o Abajo 0.3 s en el aire", "motion_hint": "Cae en picado con un pulso EMP"},
+	"marshal_kick": {"korean": "Patada marcial", "description": "Rebota en una pared y corre hacia la pelota. Sirve como puente de combo.", "how_to_use": "Después de Paso sombrío, habilidades de hoja o Patada Hwarang", "motion_hint": "Rebota en la pared y corre hacia la pelota"},
+	"phantom_kick": {"korean": "Patada fantasma", "description": "Inyecta energía oscura en el rebote de Patada marcial.", "how_to_use": "Pulsa S o Abajo tras acertar Patada marcial", "motion_hint": "Patada de antimateria oscura"},
+	"dark_blade": {"korean": "Hoja oscura", "description": "Dispara una cuchillada aérea reforzada dentro de los 3 s tras golpear la pelota. Al acertar abre la ventana de Patada marcial.", "how_to_use": "Tras aciertos de Paso sombrío, Hoja aérea o Patadas marcial/fantasma/Hwarang", "motion_hint": "Dispara una cuchillada reforzada rojo oscuro"},
+	"chaos_spear": {"korean": "Lanza del caos", "description": "Lanza una lanza del caos. Se forma un agujero negro en el centro del mapa que absorbe la pelota y proyectiles normales.", "how_to_use": "En tierra, introduce A, W, D", "motion_hint": "Agujero negro central que absorbe pelota y proyectiles"},
+	"core_flip": {"korean": "Patada Hwarang", "description": "Patea la pelota con espíritu Hwarang y contraataca en una diagonal difícil de leer.", "how_to_use": "Tras golpear con dash, pulsa A y D a la vez", "motion_hint": "Rebota dos veces en paredes y corre hacia la pelota"},
+	"dual_glitch": {"korean": "Glitch dual", "description": "Divide tu cuerpo con tecnología antigua de Viper. Los clones reflejan el movimiento del jugador y defienden desde ambos lados.", "how_to_use": "Introduce A, D, A, D o Izquierda-Derecha-Izquierda-Derecha", "motion_hint": "Invoca paletas clon izquierda y derecha"},
+	"ignition_aura": {"korean": "Aura de ignición", "description": "Amplifica la energía ígnea interna. Todos los niveles de mejora suben durante un tiempo y también aumenta el bonus de oro.", "how_to_use": "Activa tras cumplir las condiciones", "motion_hint": "Libera el aura de ignición"},
 }
 
 const EXACT_TEXT_EN := {
@@ -1258,6 +1627,8 @@ const EXACT_TEXT_EN := {
 	"넉백 거리": "Knockback Distance",
 	"스턴 시간": "Stun Time",
 	"대쉬 개수": "Dash Count",
+	"대쉬 후딜 시간": "Dash Recovery Time",
+	"대쉬 쿨타임": "Dash Cooldown",
 	"모든 퍽 레벨": "All Perk Levels",
 	"스킬 구슬 슬롯": "Skill Orb Slot",
 	"변신 비용": "Transform Cost",
@@ -1314,6 +1685,7 @@ const EXACT_TEXT_EN := {
 	"대쉬토큰 회복 시간": "Dash Token Recovery Time",
 	"몸집크기": "Body Size",
 	"넉백 저항력": "Knockback Resistance",
+	"스턴 저항력": "Stun Resistance",
 	"대시쿨타임": "Dash Cooldown",
 	"아이템쿨타임": "Item Cooldown",
 	"화재": "Fire",
@@ -1669,6 +2041,8 @@ const EXACT_TEXT_ZH := {
 	"넉백 거리": "击退距离",
 	"스턴 시간": "眩晕时间",
 	"대쉬 개수": "冲刺次数",
+	"대쉬 후딜 시간": "冲刺后摇时间",
+	"대쉬 쿨타임": "冲刺冷却",
 	"모든 퍽 레벨": "所有升级等级",
 	"스킬 구슬 슬롯": "技能珠栏位",
 	"변신 비용": "变身费用",
@@ -1725,6 +2099,7 @@ const EXACT_TEXT_ZH := {
 	"대쉬토큰 회복 시간": "冲刺令牌恢复时间",
 	"몸집크기": "体型",
 	"넉백 저항력": "击退抗性",
+	"스턴 저항력": "眩晕抗性",
 	"대시쿨타임": "冲刺冷却",
 	"아이템쿨타임": "道具冷却",
 	"화재": "火灾",
@@ -2080,6 +2455,8 @@ const EXACT_TEXT_JA := {
 	"넉백 거리": "ノックバック距離",
 	"스턴 시간": "スタン時間",
 	"대쉬 개수": "ダッシュ数",
+	"대쉬 후딜 시간": "ダッシュ後隙時間",
+	"대쉬 쿨타임": "ダッシュクールタイム",
 	"모든 퍽 레벨": "全パークレベル",
 	"스킬 구슬 슬롯": "スキル珠スロット",
 	"변신 비용": "変身費用",
@@ -2136,6 +2513,7 @@ const EXACT_TEXT_JA := {
 	"대쉬토큰 회복 시간": "ダッシュトークン回復時間",
 	"몸집크기": "体サイズ",
 	"넉백 저항력": "ノックバック耐性",
+	"스턴 저항력": "スタン耐性",
 	"대시쿨타임": "ダッシュクールタイム",
 	"아이템쿨타임": "アイテムクールタイム",
 	"화재": "火災",
@@ -2200,6 +2578,420 @@ const EXACT_TEXT_JA := {
 	"초": "秒",
 }
 
+const EXACT_TEXT_ES := {
+	"체력": "PV",
+	"스테이지 진입 준비 중": "Preparando entrada de fase",
+	"잠시만 기다려 주세요": "Espera un momento",
+	"전투 데이터 준비 중": "Preparando datos de combate",
+	"전투 상태 초기화 중": "Inicializando estado de combate",
+	"스테이지 입장 연출 준비 중": "Preparando intro de fase",
+	"준비 완료": "Listo",
+	"스테이지 전환 중": "Cambiando de fase",
+	"다음 보스 예고": "Vista previa del próximo jefe",
+	"게임 데이터 준비 중": "Preparando datos del juego",
+	"데이터를 준비하는 중입니다": "Preparando datos",
+	"나노 조각을 동기화하는 중": "Sincronizando fragmentos nano",
+	"전투 준비 완료": "Combate listo",
+	"전투 화면 준비 중": "Preparando pantalla de combate",
+	"인트로 리소스 확인 중": "Comprobando recursos de intro",
+	"핵심 전투 리소스 불러오는 중": "Cargando recursos centrales de combate",
+	"플레이어 리소스 불러오는 중": "Cargando recursos del jugador",
+	"보스 리소스 불러오는 중": "Cargando recursos del jefe",
+	"스매셔 스킬 아이콘 준비 중": "Preparando iconos de habilidad de Smasher",
+	"바이퍼 스킬 아이콘 준비 중": "Preparando iconos de habilidad de Viper",
+	"전투 캐시 정리 중": "Finalizando caché de combate",
+	"오디오 장치 준비 중": "Preparando dispositivo de audio",
+	"스테이지 BGM 준비 중": "Preparando BGM de fase",
+	"전투 리소스 마무리 중": "Finalizando recursos de combate",
+	"시작 모듈 준비 중": "Preparando módulos de inicio",
+	"아이템 런타임 준비 중": "Preparando runtime de objetos",
+	"업데이트 런타임 준비 중": "Preparando runtime de actualización",
+	"공 물리 런타임 준비 중": "Preparando física de la pelota",
+	"드로우 런타임 준비 중": "Preparando runtime de dibujo",
+	"스테이지 인트로 준비 중": "Preparando intro de fase",
+	"스테이지 런타임 준비 중": "Preparando runtime de fase",
+	"결과 화면 리소스 준비 중": "Preparando recursos de resultados",
+	"첫 프레임 정리 중": "Finalizando primer fotograma",
+	"캐릭터 선택": "Selección de personaje",
+	"대표 스킬": "Habilidades principales",
+	"뒤로": "Atrás",
+	"챔피언리그": "Liga Campeón",
+	"신화리그": "Liga Mítica",
+	"난이도": "Dificultad",
+	"전신 LIVE2D": "Live2D cuerpo completo",
+	"준비중": "Preparando",
+	"속도": "Velocidad",
+	"파워": "Poder",
+	"방어": "Defensa",
+	"아이템 상자 1개": "1 caja de objeto",
+	"아이템 상자 2개": "2 cajas de objeto",
+	"아이템 상자 3개": "3 cajas de objeto",
+	"아이템 상자 4개": "4 cajas de objeto",
+	"아이템 상자 5개": "5 cajas de objeto",
+	"액티브 아이템": "Objeto activo",
+	"패시브 아이템": "Objeto pasivo",
+	"신화 아이템": "Objeto mítico",
+	"액티브": "Activo",
+	"패시브": "Pasivo",
+	"신화": "Mítico",
+	"스타포인트": "Puntos estrella",
+	"퍽": "Perk",
+	"보상": "Recompensa",
+	"획득 퍽": "Perks obtenidos",
+	"퍽 선택": "Elección de perk",
+	"퍽 선택권": "Elección de perk",
+	"퍽 정보": "Info de perk",
+	"획득 퍽 없음": "Sin perks obtenidos",
+	"이번 결과는 아이템 보상만 획득했습니다.": "En este resultado solo se obtuvieron recompensas de objetos.",
+	"획득한 퍽 없음": "Sin perks obtenidos",
+	"획득 보상 없음": "Sin recompensas obtenidas",
+	"획득 아이템": "Objetos obtenidos",
+	"획득 골드": "Oro obtenido",
+	"다음 스테이지": "Siguiente fase",
+	"나가기": "Salir",
+	"획득!": "¡Obtenido!",
+	"플레이어 승리": "Victoria del jugador",
+	"Live2D 포즈": "Pose Live2D",
+	"승리 연출 테스트": "Prueba de secuencia de victoria",
+	"건들지마": "No me toques",
+	"일반상자": "Caja normal",
+	"고급상자": "Caja avanzada",
+	"신화 확정상자": "Caja mítica garantizada",
+	"인게임": "En partida",
+	"상자 보상": "Recompensa de caja",
+	"획득한 퍽 효과를 적용합니다.": "Aplica el efecto del perk obtenido.",
+	"보물탐색": "Caza del tesoro",
+	"아무것도 찾지 못했습니다": "No se encontró nada",
+	"보물탐색: 꽝": "Caza del tesoro: nada",
+	"목록 준비 중": "Preparando lista",
+	"리소스 준비 중": "Preparando recursos",
+	"캐릭터": "Personaje",
+	"캐릭터 정보": "Info de personaje",
+	"장비": "Equipo",
+	"장비 슬롯": "Espacios de equipo",
+	"패시브 보관함": "Almacén pasivo",
+	"패시브 아이템 없음": "Sin objetos pasivos",
+	"능력치": "Estadísticas",
+	"롤 옵션": "Opciones de tirada",
+	"미장착": "No equipado",
+	"패시브 장비가 연결되면 이 슬롯에 표시됩니다.": "El equipo pasivo aparecerá en este espacio cuando esté equipado.",
+	"보유": "Poseído",
+	"장착": "Equipado",
+	"해금": "Desbloquear",
+	"부위": "Parte",
+	"머리": "Cabeza",
+	"상의": "Parte superior",
+	"왼팔": "Brazo izquierdo",
+	"오른팔": "Brazo derecho",
+	"팔": "Brazo",
+	"벨트": "Cinturón",
+	"등": "Espalda",
+	"무릎": "Rodilla",
+	"신발": "Calzado",
+	"장신구": "Accesorio",
+	"장신구 1": "Accesorio 1",
+	"장신구 2": "Accesorio 2",
+	"장신구 3": "Accesorio 3",
+	"장신구 4": "Accesorio 4",
+	"장신": "Acc.",
+	"뿔딸기": "Fresa cornuda",
+	"이그니션": "Ignición",
+	"듀얼": "Dual",
+	"팬텀 킥": "Patada fantasma",
+	"EMP 스트라이크": "Golpe EMP",
+	"연금술!": "¡Alquimia!",
+	"재시작!": "¡Reinicio!",
+	"무효!": "¡Bloqueado!",
+	"윤회의 부적 발동!": "¡Talismán de reencarnación activado!",
+	"메긴교르드의 효과 발동!": "¡Efecto de Megingjord activado!",
+	"판도라의 유산": "Legado de Pandora",
+	"아이템을 선택하세요": "Elige un objeto",
+	"선택": "Seleccionar",
+	"←/→ / 클릭 / Enter": "←/→ / Clic / Enter",
+	"엘릭서 오브 마스터리": "Elixir de maestría",
+	"퍽의 운명이 결정됩니다...": "Se decide el destino de un perk...",
+	"[ Space / Click 으로 계속 ]": "[ Space / Clic para continuar ]",
+	"Lv.5 달성!": "¡Lv.5 alcanzado!",
+	"뿔딸기변신!": "¡Transformación en Fresa cornuda!",
+	"스매셔": "Smasher",
+	"바이퍼": "Viper",
+	"코만도": "Commando",
+	"발토르": "Baltor",
+	"옵티머스": "Optimus",
+	"미카": "Mika",
+	"레나": "Rena",
+	"코하쿠": "Kohaku",
+	"이오": "Io",
+	"세린": "Serin",
+	"달지": "Dalji",
+	"악어장군": "General Caimán",
+	"홍련": "Hongryun",
+	"인왕": "Inwang",
+	"소림사": "Templo Shaolin",
+	"정글": "Jungla",
+	"멘헤라": "Menhera",
+	"테트리서": "Tetrisser",
+	"아카무 리고": "Akamu Rigo",
+	"미노타우로스": "Minotauro",
+	"최종 관문": "Puerta final",
+	"4천왕": "Cuatro Reyes",
+	"진엔딩": "Final verdadero",
+	"헤드샷!": "¡Disparo a la cabeza!",
+	"레그샷!": "¡Disparo a la pierna!",
+	"상모돌리기": "Giro Sangmo",
+	"팽이치기": "Golpe de peonza",
+	"타격발동": "Al golpear",
+	"즉시발동": "Instantáneo",
+	"타격": "Golpe",
+	"즉시": "Instantáneo",
+	"공을 휘감아 아래로 몰아붙입니다. 플레이어가 가드하면 즉시 멈춥니다.": "Envuelve la pelota y la empuja hacia abajo. Se detiene al instante si el jugador bloquea.",
+	"달지가 팽이를 소환합니다. 팽이에 닿은 공은 무작위 방향으로 튕깁니다.": "Dalji invoca una peonza. Las pelotas que la tocan rebotan en direcciones aleatorias.",
+	"정글지진": "Terremoto de jungla",
+	"물대포": "Cañón de agua",
+	"스피드디펜스": "Defensa rápida",
+	"자동 / 바위 등장 후": "Auto / tras aparecer rocas",
+	"쿨타임 30초": "Recarga 30 s",
+	"쿨타임 40초": "Recarga 40 s",
+	"바닥을 흔들어 바위와 충격을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.": "Sacude el suelo para crear rocas y ondas de impacto. Mayor presión añade más rocas caídas.",
+	"물대포를 충전해 전장을 가로지르는 물줄기를 발사합니다.": "Carga un cañón de agua y dispara un chorro que cruza la arena.",
+	"짧은 시간 동안 보스 이동과 반응이 빨라지고 상태 이상을 막습니다.": "Aumenta brevemente el movimiento y la reacción del jefe y bloquea estados alterados.",
+	"스피드디펜스!": "¡Defensa rápida!",
+	"분노 발구르기!": "¡Pisotón de ira!",
+	"물대포 충전!": "¡Cargando cañón de agua!",
+	"물대포 발사!": "¡Cañón de agua!",
+	"정글지진!": "¡Terremoto de jungla!",
+	"물대포 준비!": "¡Cañón de agua listo!",
+	"지진 준비!": "¡Terremoto listo!",
+	"방어 준비!": "¡Defensa lista!",
+	"물대포 조준 중": "Apuntando cañón de agua",
+	"정글을 흔든다": "Sacudiendo la jungla",
+	"악어장군 분노!": "¡Ira del General Caimán!",
+	"물대포 조준!": "¡Apuntando cañón de agua!",
+	"물대포 중단!": "¡Cañón de agua cancelado!",
+	"방어벽 낙하!": "¡Barrera cayendo!",
+	"파편 주의!": "¡Cuidado con la metralla!",
+	"멘헤라걸": "Chica Menhera",
+	"눈물샤워": "Lluvia de lágrimas",
+	"저주상자": "Cofre maldito",
+	"사이코볼": "Pelota psíquica",
+	"전장 위로 눈물을 떨어뜨려 공을 둔화시키고 보스 쪽 압박을 만듭니다.": "Hace caer lágrimas sobre la arena para ralentizar la pelota y crear presión del lado del jefe.",
+	"저주 상자를 던져 폭발과 연기를 남기고 공의 흐름을 어지럽힙니다.": "Lanza un cofre maldito que deja explosión y humo, alterando el flujo de la pelota.",
+	"사이코볼 상태로 전장을 흔들며 공 충돌에 강한 히트스톱을 겁니다.": "Sacude la arena en estado de Pelota psíquica y aplica un hitstop fuerte en colisiones de pelota.",
+	"굴절 자기장": "Campo magnético refractor",
+	"자기장": "Campo magnético",
+	"25초마다 자동 발동": "Auto cada 25 s",
+	"공을 보스 주변에서 굴절시키고 종료 시 감속 구체를 발사합니다.": "Refracta la pelota alrededor del jefe y al terminar dispara una esfera ralentizadora.",
+	"위빠사나 명상": "Meditación Vipassana",
+	"명상": "Meditación",
+	"18초 쿨타임 후 보스 타격": "Golpe al jefe tras 18 s de recarga",
+	"공을 숫자 8 궤도로 붙잡고 명상 종료 후 추가 가속으로 플레이어 쪽으로 쏩니다.": "Mantiene la pelota en una trayectoria de ocho y, al acabar la meditación, la lanza hacia el jugador con aceleración extra.",
+	"홍련 화염탄": "Bola de fuego de Hongryun",
+	"홍련 화염구": "Bola de fuego de Hongryun",
+	"홍련 인페르노": "Inferno de Hongryun",
+	"홍련폭염": "Inferno de Hongryun",
+	"화염탄": "Bola de fuego",
+	"화염기관": "Máquina de llamas",
+	"인페르노 예열": "Cargando inferno",
+	"폭염 예열": "Cargando inferno",
+	"쿨타임 3.5~5.0초": "Recarga 3.5-5.0 s",
+	"구슬 5칸 / 보스 적중": "5 orbes / golpe al jefe",
+	"용 구슬 5칸": "5 orbes de dragón",
+	"쿨타임 변동": "Recarga variable",
+	"홍련이 화염구를 발사합니다. 맞으면 용 구슬 게이지가 1칸 충전됩니다.": "Hongryun dispara una bola de fuego. Si te alcanza, carga 1 espacio del indicador de orbes de dragón.",
+	"5번 맞으면 홍련이 공을 화염 용처럼 돌진시킵니다. 가드와 진입 각도를 흔듭니다.": "Tras 5 impactos, Hongryun lanza la pelota como un dragón de fuego, alterando el bloqueo y los ángulos de entrada.",
+	"전장에 화염 장치를 가동해 불길과 연기로 플레이어 진영을 압박합니다.": "Activa dispositivos de llamas en la arena, presionando el lado del jugador con fuego y humo.",
+	"자동": "Auto",
+	"보스 타격": "Golpe al jefe",
+	"상태": "Estado",
+	"없음": "Ninguno",
+	"내구": "Durabilidad",
+	"좌클릭": "Clic izquierdo",
+	"클릭": "Clic",
+	"게이지 비용": "Coste de energía",
+	"이펙트 미리보기": "Vista de efecto",
+	"준비": "Preparación",
+	"발동": "Activar",
+	"또는": "o",
+	"슈퍼아머": "Súper armadura",
+	"분신 독 슬래시": "Corte venenoso del clon",
+	"홀드 후 손 떼면 발동": "Mantén y suelta para activar",
+	"대쉬후딜 중": "Durante la recuperación del dash",
+	"상태이상 중": "Con estado alterado",
+	"더블클릭": "Doble clic",
+	"더블탭": "Doble toque",
+	"홀드 발동": "Mantén para activar",
+	"단독": "Solo",
+	"홀드 시 반대쪽 자동 발동": "Al mantener, activa automáticamente el lado opuesto",
+	"0.5초 홀드 발동": "Mantén 0.5 s",
+	"우회전 발동": "Horario",
+	"좌회전 발동": "Antihorario",
+	"대쉬 중/직후": "Durante/después del dash",
+	"체공 중": "En el aire",
+	"블레이드 계열 사용 후": "Tras habilidad de hoja",
+	"0.3초 홀드": "Mantén 0.3 s",
+	"연계 후": "Tras combo",
+	"마샬 킥 적중 후": "Tras acertar Patada marcial",
+	"연계 타격 후 공중": "En el aire tras golpe de combo",
+	"대쉬 타격 후": "Tras golpe de dash",
+	"지상에서": "En tierra",
+	"1초 홀드": "Mantén 1 s",
+	"제자리에서": "En el sitio",
+	"무기 선택 후": "Tras seleccionar arma",
+	"1초 유지": "Mantén 1 s",
+	"0.5초 유지": "Mantén 0.5 s",
+	"즉시 발동": "Activación instantánea",
+	"발동 중": "Activando",
+	"사용됨": "Usado",
+	"대기": "Espera",
+	"잠김": "Bloqueado",
+	"충전": "Carga",
+	"쿨타임 25초": "Recarga 25 s",
+	"쿨타임 35초": "Recarga 35 s",
+	"쿨타임 70초": "Recarga 70 s",
+	"탄약": "Munición",
+	"탄환": "Balas",
+	"호출권": "Llamadas",
+	"무제한": "Ilimitado",
+	"재장전": "Recarga",
+	"게이지": "Energía",
+	"장착 스킬": "Habilidades equipadas",
+	"대시 거리": "Distancia de dash",
+	"대시 후딜시간": "Recuperación del dash",
+	"대시 토큰": "Fichas de dash",
+	"퍽 골드": "Oro de perk",
+	"방향 전환": "Control de giro",
+	"이동 반응": "Respuesta de movimiento",
+	"감속": "Desaceleración",
+	"패배 방지": "Prevención de derrota",
+	"판매가": "Precio de venta",
+	"이동속도": "Velocidad de movimiento",
+	"이동 속도": "Velocidad de movimiento",
+	"넉백 거리": "Distancia de empuje",
+	"스턴 시간": "Tiempo de aturdimiento",
+	"대쉬 개수": "Cantidad de dash",
+	"대쉬 후딜 시간": "Tiempo de recuperación del dash",
+	"대쉬 쿨타임": "Recarga de dash",
+	"모든 퍽 레벨": "Todos los niveles de perk",
+	"스킬 구슬 슬롯": "Espacio de orbe de habilidad",
+	"변신 비용": "Coste de transformación",
+	"공 타격 게이지": "Energía al golpear pelota",
+	"추가 선택 확률": "Probabilidad de elección extra",
+	"매직찬스": "Oportunidad mágica",
+	"승리시 유산 발동률": "Activación de legado al vencer",
+	"발동 확률": "Probabilidad de activación",
+	"발동확률": "Probabilidad de activación",
+	"공속 증가": "Aumento de velocidad de pelota",
+	"게이지 소모": "Consumo de energía",
+	"월계수 잎": "Hojas de laurel",
+	"모든 퍽 레벨 증가": "Aumento de todos los niveles de perk",
+	"쿨타임": "Recarga",
+	"소용돌이 크기": "Tamaño del remolino",
+	"스킬 쿨타임 감소": "Reducción de recarga de habilidad",
+	"게이지 회복": "Recuperación de energía",
+	"변신 지속시간": "Duración de transformación",
+	"끌어당기는 범위": "Alcance de atracción",
+	"추가 퍽 등장 확률": "Probabilidad de perk extra",
+	"변신 부활 확률": "Probabilidad de resurrección transformada",
+	"자동대쉬 쿨타임": "Recarga de auto-dash",
+	"슬롯 추가": "Añadir espacio",
+	"벽 반사 게이지": "Energía por rebote en pared",
+	"게이지 보존": "Conservación de energía",
+	"벽돌 길이": "Longitud del muro de ladrillos",
+	"아이템 쿨타임": "Recarga de objeto",
+	"벽돌 스폰율": "Aparición de muro de ladrillos",
+	"골드 획득량": "Oro obtenido",
+	"더블 스폰 확률": "Probabilidad de aparición doble",
+	"보호 지속시간": "Duración de protección",
+	"파편 개수": "Cantidad de metralla",
+	"넉백 단계": "Nivel de empuje",
+	"이동속도 감소": "Reducción de velocidad",
+	"몸집크기 감소": "Reducción de tamaño corporal",
+	"스킬 쿨타임": "Recarga de habilidad",
+	"최대 게이지": "Energía máxima",
+	"게이지 획득량": "Energía ganada",
+	"스타포인트 드랍율": "Tasa de drop de puntos estrella",
+	"라운드 패배 시 무효화 확률": "Probabilidad de anular derrota de ronda",
+	"AI알약 게이지 소모": "Coste de energía de Píldora IA",
+	"AI알약 스폰율": "Aparición de Píldora IA",
+	"독안개 지속시간": "Duración de niebla venenosa",
+	"부메랑 발사속도": "Velocidad de lanzamiento de búmeran",
+	"부메랑 유도성능": "Guiado de búmeran",
+	"부메랑 스폰율": "Aparición de búmeran",
+	"투척 속도": "Velocidad de lanzamiento",
+	"폭발 범위": "Radio de explosión",
+	"연막탄 지속시간": "Duración de gas lacrimógeno",
+	"준비시간 단축": "Reducción de preparación",
+	"대쉬 거리": "Distancia de dash",
+	"부스트차징 발동확률": "Probabilidad de Carga de impulso",
+	"하프대쉬 게이지": "Energía de medio dash",
+	"대쉬토큰 회복 시간": "Tiempo de recuperación de ficha de dash",
+	"몸집크기": "Tamaño corporal",
+	"넉백 저항력": "Resistencia al empuje",
+	"스턴 저항력": "Resistencia al aturdimiento",
+	"대시쿨타임": "Recarga de dash",
+	"아이템쿨타임": "Recarga de objeto",
+	"화재": "Fuego",
+	"빙판": "Hielo",
+	"소나기": "Lluvia",
+	"우박": "Granizo",
+	"사막화": "Desertificación",
+	"화재가 번집니다": "El fuego se propaga",
+	"빙판이 깔립니다": "El hielo cubre el campo",
+	"소나기가 쏟아집니다": "Cae una lluvia intensa",
+	"우박이 떨어집니다": "Empieza a caer granizo",
+	"사막화가 시작됩니다": "Comienza la desertificación",
+	"미풍이 잦아들었습니다": "La brisa se calma",
+	"강풍이 멎었습니다": "El vendaval cesa",
+	"불길이 꺼졌습니다": "Las llamas se apagan",
+	"빙판이 녹았습니다": "El hielo se derrite",
+	"소나기가 그쳤습니다": "La lluvia cesa",
+	"우박이 그쳤습니다": "El granizo cesa",
+	"모래가 가라앉았습니다": "La arena se asienta",
+	"제한 없음": "Ilimitado",
+	"약함": "Débil",
+	"낮음": "Bajo",
+	"보통": "Normal",
+	"강함": "Fuerte",
+	"최대": "Máximo",
+	"절대적인": "Absoluto",
+	"궁극의": "Definitivo",
+	"초신성의": "De supernova",
+	"신화적인": "Mítico",
+	"절대무쌍한": "Inigualable",
+	"고대영웅의": "De héroe antiguo",
+	"고급": "Avanzado",
+	"장인의": "De artesano",
+	"고품질의": "De alta calidad",
+	"신성한": "Divino",
+	"명장의": "De maestro",
+	"완벽한": "Perfecto",
+	"영롱한": "Radiante",
+	"찬란한": "Brillante",
+	"비범한": "Excepcional",
+	"고성능의": "De alto rendimiento",
+	"세련된": "Refinado",
+	"괜찮은": "Sólido",
+	"평범한": "Estándar",
+	"무난한": "Confiable",
+	"실용적인": "Práctico",
+	"준수한": "Equilibrado",
+	"보강된": "Reforzado",
+	"균형 잡힌": "Bien equilibrado",
+	"낡은": "Viejo",
+	"오래된": "Antiguo",
+	"녹슨": "Oxidado",
+	"손상된": "Dañado",
+	"떼묻은": "Gastado",
+	"싸구려": "Barato",
+	"저급의": "De baja calidad",
+	"부실한": "Endeble",
+	"회": "vez/veces",
+	"개": "u.",
+	"칸": "espacio(s)",
+	"골드": "oro",
+	"초": "s",
+}
+
 const QUALITY_PREFIXES_EN := {
 	"top": ["Absolute", "Ultimate", "Supernova", "Mythic", "Peerless", "Ancient Hero's"],
 	"high": ["Advanced", "Artisan", "High-Quality", "Divine", "Masterwork", "Perfect", "Radiant", "Brilliant", "Exceptional", "High-Performance"],
@@ -2219,6 +3011,13 @@ const QUALITY_PREFIXES_JA := {
 	"high": ["高級", "職人の", "高品質の", "神聖な", "名匠の", "完璧な", "玲瓏な", "輝かしい", "非凡な", "高性能の"],
 	"mid": ["洗練された", "良質な", "標準の", "安定した", "実用的な", "堅実な", "補強された", "バランスの取れた"],
 	"low": ["古びた", "古い", "錆びた", "損傷した", "汚れた", "安物の", "低級の", "脆い", ""],
+}
+
+const QUALITY_PREFIXES_ES := {
+	"top": ["Absoluto", "Definitivo", "De supernova", "Mítico", "Inigualable", "De héroe antiguo"],
+	"high": ["Avanzado", "De artesano", "De alta calidad", "Divino", "De maestro", "Perfecto", "Radiante", "Brillante", "Excepcional", "De alto rendimiento"],
+	"mid": ["Refinado", "Sólido", "Estándar", "Confiable", "Práctico", "Equilibrado", "Reforzado", "Bien equilibrado"],
+	"low": ["Viejo", "Antiguo", "Oxidado", "Dañado", "Gastado", "Barato", "De baja calidad", "Endeble", ""],
 }
 
 const TEXT := {
@@ -2292,6 +3091,7 @@ const TEXT := {
 		"language.en": "English",
 		"language.zh": "简体中文",
 		"language.ja": "日本語",
+		"language.es": "Español",
 		"main_menu.quit_prompt": "나가시겠습니까?",
 		"main_menu.yes": "예",
 		"main_menu.no": "아니오",
@@ -2366,6 +3166,7 @@ const TEXT := {
 		"language.en": "English",
 		"language.zh": "Simplified Chinese",
 		"language.ja": "Japanese",
+		"language.es": "Spanish",
 		"main_menu.quit_prompt": "Quit the game?",
 		"main_menu.yes": "Yes",
 		"main_menu.no": "No",
@@ -2440,6 +3241,7 @@ const TEXT := {
 		"language.en": "英语",
 		"language.zh": "简体中文",
 		"language.ja": "日语",
+		"language.es": "西班牙语",
 		"main_menu.quit_prompt": "要退出游戏吗？",
 		"main_menu.yes": "是",
 		"main_menu.no": "否",
@@ -2514,9 +3316,85 @@ const TEXT := {
 		"language.en": "英語",
 		"language.zh": "簡体字中国語",
 		"language.ja": "日本語",
+		"language.es": "スペイン語",
 		"main_menu.quit_prompt": "ゲームを終了しますか？",
 		"main_menu.yes": "はい",
 		"main_menu.no": "いいえ",
+	},
+	LANGUAGE_SPANISH: {
+		"app.title": "DiskHearts - Ringpia",
+		"pause.title": "Pausa",
+		"pause.continue": "Continuar",
+		"pause.character_info": "Info de personaje",
+		"pause.options": "Opciones",
+		"settings.title": "Ajustes",
+		"settings.tab.sound": "Sonido",
+		"settings.tab.display": "Pantalla",
+		"settings.tab.controls": "Controles",
+		"settings.tab.language": "Idioma",
+		"settings.back": "Volver",
+		"settings.close": "Cerrar",
+		"settings.save": "Guardar",
+		"sound.bgm_volume": "Volumen BGM",
+		"sound.sfx_volume": "Volumen SFX",
+		"display.mode": "Modo de pantalla",
+		"display.mode.fullscreen": "Pantalla completa",
+		"display.mode.exclusive": "Exclusivo",
+		"display.mode.windowed": "Ventana",
+		"display.desc.exclusive": "Usa pantalla completa exclusiva y evita la composición DWM.",
+		"display.desc.fullscreen": "Usa pantalla completa con resolución nativa.",
+		"display.desc.windowed": "Usa modo ventana con fondos laterales.",
+		"display.render_fps": "FPS de render",
+		"display.fps.unlimited": "Ilimitado",
+		"display.fps.monitor": "Monitor %d Hz",
+		"display.remember.title": "Guardar ajustes de pantalla actuales",
+		"display.remember.subtitle": "Usar este modo y ritmo de refresco al próximo inicio",
+		"display.auto60.title": "Cambio automático a 60Hz",
+		"display.auto60.subtitle": "Úsalo solo si un monitor necesita ritmo de 60Hz",
+		"display.recommend.apply": "Aplicar recomendado",
+		"display.apply60": "Modo 60Hz",
+		"display.recommendation.ready": "Monitor de %dHz detectado: los FPS de render seguirán la tasa de refresco actual.\nSi cambias de monitor, se actualizará al aplicar de nuevo.",
+		"display.recommendation.monitor": "Monitor de %dHz detectado: los FPS de render siguen la tasa actual.\nSe recomienda pantalla completa exclusiva con VSync Auto.",
+		"display.recommendation.default": "Monitor de %dHz detectado: pon los FPS de render en Hz del monitor para sincronizar automáticamente.\nAplicar recomendado guarda ajustes según la tasa actual.",
+		"display.recommendation.fallback": "Pon los FPS de render en Hz del monitor para ajustar el ritmo automáticamente.\nSe recomienda pantalla completa exclusiva con VSync Auto.",
+		"controls.device": "Dispositivo de entrada",
+		"controls.keyboard_mouse": "Teclado+ratón",
+		"controls.joypad": "Gamepad",
+		"controls.vibration": "Sensibilidad de vibración",
+		"controls.map.move": "Mover",
+		"controls.map.dash_skill": "Dash / Habilidad",
+		"controls.map.active_item": "Objeto activo",
+		"controls.map.supply_hold": "Mantener suministro",
+		"controls.map.weapon_switch": "Cambiar arma",
+		"controls.map.confirm_cancel_pause": "Confirmar / Cancelar / Pausa",
+		"controls.value.joypad.move": "Stick izquierdo / D-pad",
+		"controls.value.joypad.dash_skill": "Dash: B o Abajo / Habilidad: A / X / RT",
+		"controls.value.joypad.active_item": "LB/RB o stick derecho izquierda/derecha para elegir / Y para usar",
+		"controls.value.joypad.supply_hold": "LT",
+		"controls.value.joypad.weapon_switch": "Stick derecho arriba/abajo / R3",
+		"controls.value.joypad.confirm_cancel_pause": "A / B / Menú",
+		"controls.value.keyboard.move": "A,D,W,S / Flechas",
+		"controls.value.keyboard.dash_skill": "Space / X / Clic izquierdo",
+		"controls.value.keyboard.active_item": "1 / 2 / 3",
+		"controls.value.keyboard.supply_hold": "S / Clic derecho",
+		"controls.value.keyboard.weapon_switch": "Rueda del ratón / Botón central",
+		"controls.value.keyboard.confirm_cancel_pause": "Enter / Esc",
+		"vibration.1": "Débil",
+		"vibration.2": "Baja",
+		"vibration.3": "Normal",
+		"vibration.4": "Fuerte",
+		"vibration.5": "Máxima",
+		"language.title": "Idioma",
+		"language.subtitle": "El idioma se guarda y aplica de inmediato.",
+		"language.current": "Idioma actual: %s",
+		"language.ko": "Coreano",
+		"language.en": "Inglés",
+		"language.zh": "Chino simplificado",
+		"language.ja": "Japonés",
+		"language.es": "Español",
+		"main_menu.quit_prompt": "¿Salir del juego?",
+		"main_menu.yes": "Sí",
+		"main_menu.no": "No",
 	},
 }
 
@@ -2564,6 +3442,8 @@ static func normalize_language(language: String) -> String:
 		normalized = LANGUAGE_CHINESE
 	if normalized == "ja_jp" or normalized == "ja-jp" or normalized == "japanese" or normalized == "日本語" or normalized == "にほんご":
 		normalized = LANGUAGE_JAPANESE
+	if normalized == "es_es" or normalized == "es-es" or normalized == "es_mx" or normalized == "es-mx" or normalized == "spanish" or normalized == "espanol" or normalized == "español":
+		normalized = LANGUAGE_SPANISH
 	if SUPPORTED_LANGUAGES.has(normalized):
 		return normalized
 	return DEFAULT_LANGUAGE
@@ -2579,6 +3459,8 @@ static func get_native_language_name(language: String) -> String:
 
 
 static func _get_exact_text_map(language: String) -> Dictionary:
+	if language == LANGUAGE_SPANISH:
+		return EXACT_TEXT_ES
 	if language == LANGUAGE_CHINESE:
 		return EXACT_TEXT_ZH
 	if language == LANGUAGE_JAPANESE:
@@ -2587,6 +3469,8 @@ static func _get_exact_text_map(language: String) -> Dictionary:
 
 
 static func _get_item_display_map(language: String) -> Dictionary:
+	if language == LANGUAGE_SPANISH:
+		return ITEM_DISPLAY_ES
 	if language == LANGUAGE_JAPANESE:
 		return ITEM_DISPLAY_JA
 	if language == LANGUAGE_CHINESE:
@@ -2595,6 +3479,8 @@ static func _get_item_display_map(language: String) -> Dictionary:
 
 
 static func _get_mythic_description_map(language: String) -> Dictionary:
+	if language == LANGUAGE_SPANISH:
+		return MYTHIC_DESCRIPTION_ES
 	if language == LANGUAGE_JAPANESE:
 		return MYTHIC_DESCRIPTION_JA
 	if language == LANGUAGE_CHINESE:
@@ -2603,6 +3489,8 @@ static func _get_mythic_description_map(language: String) -> Dictionary:
 
 
 static func _get_perk_name_map(language: String) -> Dictionary:
+	if language == LANGUAGE_SPANISH:
+		return PERK_NAME_ES
 	if language == LANGUAGE_CHINESE:
 		return PERK_NAME_ZH
 	if language == LANGUAGE_JAPANESE:
@@ -2611,6 +3499,8 @@ static func _get_perk_name_map(language: String) -> Dictionary:
 
 
 static func _get_perk_summary_map(language: String) -> Dictionary:
+	if language == LANGUAGE_SPANISH:
+		return PERK_SUMMARY_ES
 	if language == LANGUAGE_CHINESE:
 		return PERK_SUMMARY_ZH
 	if language == LANGUAGE_JAPANESE:
@@ -2618,7 +3508,13 @@ static func _get_perk_summary_map(language: String) -> Dictionary:
 	return PERK_SUMMARY_EN
 
 
+static func _get_perk_localization_key(perk_id: String) -> String:
+	return str(PERK_LOCALIZATION_ALIASES.get(perk_id, perk_id))
+
+
 static func _get_character_map(language: String) -> Dictionary:
+	if language == LANGUAGE_SPANISH:
+		return CHARACTER_ES
 	if language == LANGUAGE_CHINESE:
 		return CHARACTER_ZH
 	if language == LANGUAGE_JAPANESE:
@@ -2627,6 +3523,8 @@ static func _get_character_map(language: String) -> Dictionary:
 
 
 static func _get_quality_prefix_map(language: String) -> Dictionary:
+	if language == LANGUAGE_SPANISH:
+		return QUALITY_PREFIXES_ES
 	if language == LANGUAGE_CHINESE:
 		return QUALITY_PREFIXES_ZH
 	if language == LANGUAGE_JAPANESE:
@@ -2692,6 +3590,8 @@ static func localize_character_data(character_data: Dictionary) -> Dictionary:
 	var key := str(result.get("runtime_id", result.get("key", result.get("id", "")))).strip_edges().to_lower()
 	if key == "soldier":
 		key = "commando"
+	elif key == "blacksmith":
+		key = "baltor"
 	var localized: Dictionary = _get_character_map(language).get(key, {})
 	for field in localized.keys():
 		result[str(field)] = localized[field]
@@ -2729,7 +3629,7 @@ static func localize_perk_data(perk_data: Dictionary) -> Dictionary:
 	if language == LANGUAGE_KOREAN:
 		return perk_data
 	var result := _localize_visible_dictionary(perk_data.duplicate(true), "")
-	var perk_id := str(result.get("id", ""))
+	var perk_id := _get_perk_localization_key(str(result.get("id", "")))
 	var perk_name_map := _get_perk_name_map(language)
 	var perk_summary_map := _get_perk_summary_map(language)
 	if perk_name_map.has(perk_id):
@@ -2760,6 +3660,8 @@ static func localize_skill_config_data(skill_data: Dictionary, skill_name: Strin
 		localized = SKILL_DATA_ZH.get(skill_name, {})
 	elif language == LANGUAGE_JAPANESE:
 		localized = SKILL_DATA_JA.get(skill_name, {})
+	elif language == LANGUAGE_SPANISH:
+		localized = SKILL_DATA_ES.get(skill_name, {})
 	else:
 		return
 	for field in localized.keys():
@@ -2774,6 +3676,8 @@ static func format_stage_label(stage: int) -> String:
 		return "第%d关" % stage
 	if language == LANGUAGE_JAPANESE:
 		return "ステージ%d" % stage
+	if language == LANGUAGE_SPANISH:
+		return "Fase %d" % stage
 	return "스테이지 %d" % stage
 
 
@@ -2786,6 +3690,8 @@ static func format_stage_character_label(stage: int, character_name: String) -> 
 		return "第%d关 / %s" % [stage, localized_name]
 	if language == LANGUAGE_JAPANESE:
 		return "ステージ%d / %s" % [stage, localized_name]
+	if language == LANGUAGE_SPANISH:
+		return "Fase %d / %s" % [stage, localized_name]
 	return "스테이지 %d  /  %s" % [stage, localized_name]
 
 
@@ -2797,6 +3703,8 @@ static func format_stage_result_label(stage: int) -> String:
 		return "第%d关结果" % stage
 	if language == LANGUAGE_JAPANESE:
 		return "ステージ%d結果" % stage
+	if language == LANGUAGE_SPANISH:
+		return "Resultados de fase %d" % stage
 	return "스테이지 %d 결과" % stage
 
 
@@ -2808,6 +3716,8 @@ static func format_stage_transition_subtitle(stage: int) -> String:
 		return "第%d关 / 下一个首领预告" % stage
 	if language == LANGUAGE_JAPANESE:
 		return "ステージ%d / 次のボス予告" % stage
+	if language == LANGUAGE_SPANISH:
+		return "Fase %d / Vista previa del próximo jefe" % stage
 	return "스테이지 %d  /  다음 보스 예고" % stage
 
 
@@ -2819,6 +3729,8 @@ static func format_stage_transition_status(stage: int) -> String:
 		return "正在准备第%d关首领数据" % stage
 	if language == LANGUAGE_JAPANESE:
 		return "ステージ%dのボスデータを準備中" % stage
+	if language == LANGUAGE_SPANISH:
+		return "Preparando datos del jefe de fase %d" % stage
 	return "스테이지 %d 보스 데이터를 준비 중" % stage
 
 
@@ -2830,6 +3742,8 @@ static func format_item_box_summary(count: int) -> String:
 		return "%d个道具箱" % count
 	if language == LANGUAGE_JAPANESE:
 		return "アイテム箱%d個" % count
+	if language == LANGUAGE_SPANISH:
+		return "%d caja%s de objeto" % [count, "" if count == 1 else "s"]
 	return "아이템 상자 %d개" % count
 
 
@@ -2851,6 +3765,8 @@ static func format_select_label(name: String) -> String:
 		return "选择%s" % localized_name
 	if language == LANGUAGE_JAPANESE:
 		return "%sを選択" % localized_name
+	if language == LANGUAGE_SPANISH:
+		return "Seleccionar %s" % localized_name
 	return "%s 선택" % localized_name
 
 
@@ -2901,6 +3817,7 @@ static func _localize_visible_string(key: String, value: String, parent_key: Str
 		"hint": true,
 		"name_prefix": true,
 		"unit": true,
+		"value": true,
 	}
 	if visible_keys.has(key) or parent_key == "descriptions":
 		return translate_text(value)
@@ -2914,42 +3831,56 @@ static func _translate_known_patterns(text: String) -> String:
 			return "能量 %s" % text.substr("게이지 ".length())
 		if language == LANGUAGE_JAPANESE:
 			return "ゲージ %s" % text.substr("게이지 ".length())
+		if language == LANGUAGE_SPANISH:
+			return "Energía %s" % text.substr("게이지 ".length())
 		return "Gauge %s" % text.substr("게이지 ".length())
 	if text.begins_with("대시 토큰 "):
 		if language == LANGUAGE_CHINESE:
 			return "冲刺令牌 %s" % text.substr("대시 토큰 ".length())
 		if language == LANGUAGE_JAPANESE:
 			return "ダッシュトークン %s" % text.substr("대시 토큰 ".length())
+		if language == LANGUAGE_SPANISH:
+			return "Fichas de dash %s" % text.substr("대시 토큰 ".length())
 		return "Dash Tokens %s" % text.substr("대시 토큰 ".length())
 	if text.begins_with("선택 대기: "):
 		if language == LANGUAGE_CHINESE:
 			return "待选择：%s" % text.substr("선택 대기: ".length())
 		if language == LANGUAGE_JAPANESE:
 			return "選択待ち：%s" % text.substr("선택 대기: ".length())
+		if language == LANGUAGE_SPANISH:
+			return "Elecciones pendientes: %s" % text.substr("선택 대기: ".length())
 		return "Choices Waiting: %s" % text.substr("선택 대기: ".length())
 	if text.begins_with("선택 대기 "):
 		if language == LANGUAGE_CHINESE:
 			return "待选择 %s" % text.substr("선택 대기 ".length())
 		if language == LANGUAGE_JAPANESE:
 			return "選択待ち %s" % text.substr("선택 대기 ".length())
+		if language == LANGUAGE_SPANISH:
+			return "Elecciones pendientes %s" % text.substr("선택 대기 ".length())
 		return "Choices Waiting %s" % text.substr("선택 대기 ".length())
 	if text.begins_with("퍽 골드: "):
 		if language == LANGUAGE_CHINESE:
 			return "升级金币：%s" % text.substr("퍽 골드: ".length())
 		if language == LANGUAGE_JAPANESE:
 			return "パークゴールド：%s" % text.substr("퍽 골드: ".length())
+		if language == LANGUAGE_SPANISH:
+			return "Oro de perk: %s" % text.substr("퍽 골드: ".length())
 		return "Perk Gold: %s" % text.substr("퍽 골드: ".length())
 	if text.begins_with("퍽 골드 "):
 		if language == LANGUAGE_CHINESE:
 			return "升级金币 %s" % text.substr("퍽 골드 ".length())
 		if language == LANGUAGE_JAPANESE:
 			return "パークゴールド %s" % text.substr("퍽 골드 ".length())
+		if language == LANGUAGE_SPANISH:
+			return "Oro de perk %s" % text.substr("퍽 골드 ".length())
 		return "Perk Gold %s" % text.substr("퍽 골드 ".length())
 	if text.begins_with("추가 ") and text.ends_with("개"):
 		if language == LANGUAGE_CHINESE:
 			return "额外%s个" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
 		if language == LANGUAGE_JAPANESE:
 			return "追加%s個" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
+		if language == LANGUAGE_SPANISH:
+			return "%s extra" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
 		return "Extra %s" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
 	if text.begins_with("보유 ") and text.find(" / 장착 ") >= 0:
 		var parts := text.replace("보유 ", "").split(" / 장착 ", false)
@@ -2958,24 +3889,32 @@ static func _translate_known_patterns(text: String) -> String:
 				return "持有 %s / 装备 %s" % [parts[0], parts[1]]
 			if language == LANGUAGE_JAPANESE:
 				return "所持 %s / 装備 %s" % [parts[0], parts[1]]
+			if language == LANGUAGE_SPANISH:
+				return "Poseído %s / Equipado %s" % [parts[0], parts[1]]
 			return "Owned %s / Equipped %s" % [parts[0], parts[1]]
 	if text.begins_with("장착: "):
 		if language == LANGUAGE_CHINESE:
 			return "装备：%s" % translate_text(text.substr("장착: ".length()))
 		if language == LANGUAGE_JAPANESE:
 			return "装備：%s" % translate_text(text.substr("장착: ".length()))
+		if language == LANGUAGE_SPANISH:
+			return "Equipado: %s" % translate_text(text.substr("장착: ".length()))
 		return "Equipped: %s" % translate_text(text.substr("장착: ".length()))
 	if text.begins_with("부위 : "):
 		if language == LANGUAGE_CHINESE:
 			return "部位：%s" % translate_text(text.substr("부위 : ".length()))
 		if language == LANGUAGE_JAPANESE:
 			return "部位：%s" % translate_text(text.substr("부위 : ".length()))
+		if language == LANGUAGE_SPANISH:
+			return "Parte: %s" % translate_text(text.substr("부위 : ".length()))
 		return "Part: %s" % translate_text(text.substr("부위 : ".length()))
 	if text.begins_with("슬롯 "):
 		if language == LANGUAGE_CHINESE:
 			return "栏位 %s" % text.substr("슬롯 ".length())
 		if language == LANGUAGE_JAPANESE:
 			return "スロット %s" % text.substr("슬롯 ".length())
+		if language == LANGUAGE_SPANISH:
+			return "Espacio %s" % text.substr("슬롯 ".length())
 		return "Slot %s" % text.substr("슬롯 ".length())
 	if text.begins_with("비용 ") and text.find("  쿨타임 ") >= 0:
 		var skill_parts := text.replace("비용 ", "").split("  쿨타임 ", false)
@@ -2984,6 +3923,8 @@ static func _translate_known_patterns(text: String) -> String:
 				return "费用 %s  冷却 %s" % [skill_parts[0], translate_text(skill_parts[1])]
 			if language == LANGUAGE_JAPANESE:
 				return "費用 %s  クールタイム %s" % [skill_parts[0], translate_text(skill_parts[1])]
+			if language == LANGUAGE_SPANISH:
+				return "Coste %s  Recarga %s" % [skill_parts[0], translate_text(skill_parts[1])]
 			return "Cost %s  Cooldown %s" % [skill_parts[0], translate_text(skill_parts[1])]
 	if text.begins_with("스테이지 ") and text.ends_with(" 결과 화면"):
 		var stage_result := text.replace("스테이지 ", "").replace(" 결과 화면", "")
@@ -2991,6 +3932,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "第%s关结果画面" % stage_result
 		if language == LANGUAGE_JAPANESE:
 			return "ステージ%s結果画面" % stage_result
+		if language == LANGUAGE_SPANISH:
+			return "Pantalla de resultados de fase %s" % stage_result
 		return "Stage %s Result Screen" % stage_result
 	if text.begins_with("스테이지 ") and text.ends_with(" 결과"):
 		var stage_number := text.replace("스테이지 ", "").replace(" 결과", "")
@@ -2998,6 +3941,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "第%s关结果" % stage_number
 		if language == LANGUAGE_JAPANESE:
 			return "ステージ%s結果" % stage_number
+		if language == LANGUAGE_SPANISH:
+			return "Resultados de fase %s" % stage_number
 		return "Stage %s Results" % stage_number
 	if text.begins_with("스테이지 "):
 		var stage_label := text.replace("스테이지 ", "")
@@ -3006,12 +3951,16 @@ static func _translate_known_patterns(text: String) -> String:
 				return "第%s关" % stage_label
 			if language == LANGUAGE_JAPANESE:
 				return "ステージ%s" % stage_label
+			if language == LANGUAGE_SPANISH:
+				return "Fase %s" % stage_label
 			return "Stage %s" % stage_label
 	if text.ends_with(" 선택"):
 		if language == LANGUAGE_CHINESE:
 			return "选择%s" % translate_text(text.substr(0, text.length() - 3))
 		if language == LANGUAGE_JAPANESE:
 			return "%sを選択" % translate_text(text.substr(0, text.length() - 3))
+		if language == LANGUAGE_SPANISH:
+			return "Seleccionar %s" % translate_text(text.substr(0, text.length() - 3))
 		return "Select %s" % translate_text(text.substr(0, text.length() - 3))
 	if text.begins_with("쿨타임 ") and text.ends_with("초"):
 		var seconds := text.replace("쿨타임 ", "").replace("초", "")
@@ -3019,6 +3968,8 @@ static func _translate_known_patterns(text: String) -> String:
 			return "冷却%s秒" % seconds
 		if language == LANGUAGE_JAPANESE:
 			return "クールタイム%s秒" % seconds
+		if language == LANGUAGE_SPANISH:
+			return "Recarga %ss" % seconds
 		return "Cooldown %ss" % seconds
 	if text.ends_with("초"):
 		var plain_seconds := text.substr(0, text.length() - 1)
@@ -3027,12 +3978,16 @@ static func _translate_known_patterns(text: String) -> String:
 				return "%s秒" % plain_seconds
 			if language == LANGUAGE_JAPANESE:
 				return "%s秒" % plain_seconds
+			if language == LANGUAGE_SPANISH:
+				return "%ss" % plain_seconds
 			return "%ss" % plain_seconds
 	if text.ends_with(" 발견"):
 		if language == LANGUAGE_CHINESE:
 			return "发现%s" % translate_text(text.substr(0, text.length() - 3))
 		if language == LANGUAGE_JAPANESE:
 			return "%s発見" % translate_text(text.substr(0, text.length() - 3))
+		if language == LANGUAGE_SPANISH:
+			return "%s encontrado" % translate_text(text.substr(0, text.length() - 3))
 		return "%s Found" % translate_text(text.substr(0, text.length() - 3))
 	return ""
 

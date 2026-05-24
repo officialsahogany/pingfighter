@@ -1,0 +1,267 @@
+extends SceneTree
+
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
+const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
+const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
+
+const ACTIVE_ITEM_EXTRAS := [
+	"ammo_box",
+	"doping_potion",
+	"elixir_of_mastery",
+]
+
+var _failures: Array[String] = []
+var _language_settings_snapshot: Dictionary = {}
+
+
+func _init() -> void:
+	_language_settings_snapshot = _snapshot_settings_file(LanguageSettings.SETTINGS_PATH)
+	_verify_translation_map_coverage()
+
+	for language in _get_non_korean_languages():
+		LanguageSettings.set_language(language)
+		_verify_translation_maps_have_no_hangul(language)
+		_verify_runtime_surfaces_have_no_hangul(language)
+
+	_restore_language_settings_snapshot()
+
+	if _failures.is_empty():
+		print("localization_coverage_smoke: ok")
+		quit(0)
+		return
+
+	for failure in _failures:
+		push_error(failure)
+	quit(1)
+
+
+func _get_non_korean_languages() -> Array[String]:
+	return [
+		LanguageSettings.LANGUAGE_ENGLISH,
+		LanguageSettings.LANGUAGE_CHINESE,
+		LanguageSettings.LANGUAGE_JAPANESE,
+		LanguageSettings.LANGUAGE_SPANISH,
+	]
+
+
+func _verify_translation_map_coverage() -> void:
+	var korean_text: Dictionary = LanguageSettings.TEXT.get(LanguageSettings.LANGUAGE_KOREAN, {})
+	for language in LanguageSettings.get_language_options():
+		var localized_text: Dictionary = LanguageSettings.TEXT.get(language, {})
+		_verify_same_keys(korean_text, localized_text, "TEXT[%s]" % language)
+
+	_verify_same_keys(LanguageSettings.ITEM_DISPLAY_EN, LanguageSettings.ITEM_DISPLAY_ZH, "ITEM_DISPLAY_ZH")
+	_verify_same_keys(LanguageSettings.ITEM_DISPLAY_EN, LanguageSettings.ITEM_DISPLAY_JA, "ITEM_DISPLAY_JA")
+	_verify_same_keys(LanguageSettings.ITEM_DISPLAY_EN, LanguageSettings.ITEM_DISPLAY_ES, "ITEM_DISPLAY_ES")
+	_verify_same_keys(LanguageSettings.MYTHIC_DESCRIPTION_EN, LanguageSettings.MYTHIC_DESCRIPTION_ZH, "MYTHIC_DESCRIPTION_ZH")
+	_verify_same_keys(LanguageSettings.MYTHIC_DESCRIPTION_EN, LanguageSettings.MYTHIC_DESCRIPTION_JA, "MYTHIC_DESCRIPTION_JA")
+	_verify_same_keys(LanguageSettings.MYTHIC_DESCRIPTION_EN, LanguageSettings.MYTHIC_DESCRIPTION_ES, "MYTHIC_DESCRIPTION_ES")
+	_verify_same_keys(LanguageSettings.PERK_NAME_EN, LanguageSettings.PERK_NAME_ZH, "PERK_NAME_ZH")
+	_verify_same_keys(LanguageSettings.PERK_NAME_EN, LanguageSettings.PERK_NAME_JA, "PERK_NAME_JA")
+	_verify_same_keys(LanguageSettings.PERK_NAME_EN, LanguageSettings.PERK_NAME_ES, "PERK_NAME_ES")
+	_verify_same_keys(LanguageSettings.PERK_SUMMARY_EN, LanguageSettings.PERK_SUMMARY_ZH, "PERK_SUMMARY_ZH")
+	_verify_same_keys(LanguageSettings.PERK_SUMMARY_EN, LanguageSettings.PERK_SUMMARY_JA, "PERK_SUMMARY_JA")
+	_verify_same_keys(LanguageSettings.PERK_SUMMARY_EN, LanguageSettings.PERK_SUMMARY_ES, "PERK_SUMMARY_ES")
+	_verify_same_nested_keys(LanguageSettings.CHARACTER_EN, LanguageSettings.CHARACTER_ZH, "CHARACTER_ZH")
+	_verify_same_nested_keys(LanguageSettings.CHARACTER_EN, LanguageSettings.CHARACTER_JA, "CHARACTER_JA")
+	_verify_same_nested_keys(LanguageSettings.CHARACTER_EN, LanguageSettings.CHARACTER_ES, "CHARACTER_ES")
+	_verify_same_nested_keys(LanguageSettings.SKILL_DATA_ZH, LanguageSettings.SKILL_DATA_JA, "SKILL_DATA_JA")
+	_verify_same_nested_keys(LanguageSettings.SKILL_DATA_ZH, LanguageSettings.SKILL_DATA_ES, "SKILL_DATA_ES")
+	_verify_same_keys(LanguageSettings.EXACT_TEXT_EN, LanguageSettings.EXACT_TEXT_ZH, "EXACT_TEXT_ZH")
+	_verify_same_keys(LanguageSettings.EXACT_TEXT_EN, LanguageSettings.EXACT_TEXT_JA, "EXACT_TEXT_JA")
+	_verify_same_keys(LanguageSettings.EXACT_TEXT_EN, LanguageSettings.EXACT_TEXT_ES, "EXACT_TEXT_ES")
+	_verify_same_keys(LanguageSettings.QUALITY_PREFIXES_EN, LanguageSettings.QUALITY_PREFIXES_ZH, "QUALITY_PREFIXES_ZH")
+	_verify_same_keys(LanguageSettings.QUALITY_PREFIXES_EN, LanguageSettings.QUALITY_PREFIXES_JA, "QUALITY_PREFIXES_JA")
+	_verify_same_keys(LanguageSettings.QUALITY_PREFIXES_EN, LanguageSettings.QUALITY_PREFIXES_ES, "QUALITY_PREFIXES_ES")
+
+
+func _verify_translation_maps_have_no_hangul(language: String) -> void:
+	_scan_values(LanguageSettings.TEXT.get(language, {}), "TEXT[%s]" % language)
+	_scan_values(LanguageSettings._get_exact_text_map(language), "EXACT_TEXT[%s]" % language)
+	_scan_values(LanguageSettings._get_item_display_map(language), "ITEM_DISPLAY[%s]" % language)
+	_scan_values(LanguageSettings._get_mythic_description_map(language), "MYTHIC_DESCRIPTION[%s]" % language)
+	_scan_values(LanguageSettings._get_perk_name_map(language), "PERK_NAME[%s]" % language)
+	_scan_values(LanguageSettings._get_perk_summary_map(language), "PERK_SUMMARY[%s]" % language)
+	_scan_values(LanguageSettings._get_character_map(language), "CHARACTER[%s]" % language)
+	_scan_values(LanguageSettings._get_quality_prefix_map(language), "QUALITY_PREFIXES[%s]" % language)
+	if language == LanguageSettings.LANGUAGE_CHINESE:
+		_scan_values(LanguageSettings.SKILL_DATA_ZH, "SKILL_DATA_ZH")
+	elif language == LanguageSettings.LANGUAGE_JAPANESE:
+		_scan_values(LanguageSettings.SKILL_DATA_JA, "SKILL_DATA_JA")
+	elif language == LanguageSettings.LANGUAGE_SPANISH:
+		_scan_values(LanguageSettings.SKILL_DATA_ES, "SKILL_DATA_ES")
+
+
+func _verify_runtime_surfaces_have_no_hangul(language: String) -> void:
+	_verify_active_item_catalog(language)
+	_verify_mythic_item_catalog(language)
+	_verify_perk_catalog(language)
+	_verify_character_select(language)
+	_verify_skill_configs(language)
+	_verify_formatter_outputs(language)
+
+
+func _verify_active_item_catalog(language: String) -> void:
+	var catalog := ActiveItemCatalog.new()
+	var item_ids: Array = ActiveItemCatalog.FIELD_SPAWN_ORDER.duplicate()
+	for item_id in ACTIVE_ITEM_EXTRAS:
+		if not item_ids.has(item_id):
+			item_ids.append(item_id)
+	for item_id in item_ids:
+		var item_data: Dictionary = catalog.build_item_by_name(str(item_id))
+		_expect(not item_data.is_empty(), "active item %s should build for %s" % [item_id, language])
+		_scan_values(item_data, "active item %s[%s]" % [item_id, language])
+
+
+func _verify_mythic_item_catalog(language: String) -> void:
+	var catalog := MythicItemCatalog.new()
+	for item_id in MythicItemCatalog.FIELD_SPAWN_ORDER:
+		var item_data: Dictionary = catalog.build_item_by_name(str(item_id))
+		_expect(not item_data.is_empty(), "mythic item %s should build for %s" % [item_id, language])
+		_scan_values(item_data, "mythic item %s[%s]" % [item_id, language])
+
+
+func _verify_perk_catalog(language: String) -> void:
+	var catalog := RuntimePerkCatalog.new()
+	_scan_values(catalog.get_all_perk_data(), "runtime perks[%s]" % language)
+	_scan_values(catalog.get_debug_perk_entries(), "debug perk entries[%s]" % language)
+
+
+func _verify_character_select(language: String) -> void:
+	var characters: Array = LanguageSettings.localize_character_list(CharacterSelectData.get_characters())
+	_expect(not characters.is_empty(), "character select data should be available for %s" % language)
+	_scan_values(characters, "character select[%s]" % language)
+	for index in range(characters.size()):
+		var character_value: Variant = characters[index]
+		if not character_value is Dictionary:
+			continue
+		var character: Dictionary = character_value
+		var stats_value: Variant = character.get("stats", {})
+		if stats_value is Dictionary:
+			_scan_dictionary_keys(stats_value, "character select[%s].%d.stats" % [language, index])
+
+
+func _verify_skill_configs(language: String) -> void:
+	var smasher := SmasherSkillConfig.new()
+	for skill_id in SmasherSkillConfig.SKILL_DATA.keys():
+		_scan_values(smasher.get_skill_data(str(skill_id)), "smasher skill %s[%s]" % [skill_id, language])
+
+	var commando := CommandoSkillConfig.new()
+	for skill_id in CommandoSkillConfig.SKILL_DATA.keys():
+		_scan_values(commando.get_skill_data(str(skill_id)), "commando skill %s[%s]" % [skill_id, language])
+
+	var viper := ViperSkillConfig.new()
+	for skill_id in ViperSkillConfig.SKILL_DATA.keys():
+		_scan_values(viper.get_skill_data(str(skill_id)), "viper skill %s[%s]" % [skill_id, language])
+
+
+func _verify_formatter_outputs(language: String) -> void:
+	var raw_characters: Array = CharacterSelectData.get_characters()
+	var raw_character_name := ""
+	if not raw_characters.is_empty() and raw_characters[0] is Dictionary:
+		raw_character_name = str(raw_characters[0].get("name", ""))
+
+	_scan_values(LanguageSettings.format_stage_label(5), "format_stage_label[%s]" % language)
+	_scan_values(LanguageSettings.format_stage_result_label(5), "format_stage_result_label[%s]" % language)
+	_scan_values(LanguageSettings.format_stage_transition_subtitle(5), "format_stage_transition_subtitle[%s]" % language)
+	_scan_values(LanguageSettings.format_stage_transition_status(5), "format_stage_transition_status[%s]" % language)
+	_scan_values(LanguageSettings.format_item_box_summary(3), "format_item_box_summary[%s]" % language)
+	if raw_character_name != "":
+		_scan_values(LanguageSettings.format_stage_character_label(5, raw_character_name), "format_stage_character_label[%s]" % language)
+		_scan_values(LanguageSettings.format_select_label(raw_character_name), "format_select_label[%s]" % language)
+
+	for source_text in LanguageSettings.EXACT_TEXT_EN.keys():
+		_scan_values(LanguageSettings.translate_text(str(source_text)), "translate_text exact[%s]" % language)
+
+
+func _verify_same_nested_keys(expected: Dictionary, actual: Dictionary, actual_name: String) -> void:
+	_verify_same_keys(expected, actual, actual_name)
+	for key_value in expected.keys():
+		if not actual.has(key_value):
+			continue
+		var expected_value: Variant = expected[key_value]
+		var actual_value: Variant = actual[key_value]
+		if expected_value is Dictionary and actual_value is Dictionary:
+			_verify_same_keys(expected_value, actual_value, "%s.%s" % [actual_name, key_value])
+
+
+func _verify_same_keys(expected: Dictionary, actual: Dictionary, actual_name: String) -> void:
+	for key_value in expected.keys():
+		if not actual.has(key_value):
+			_failures.append("%s is missing key %s" % [actual_name, key_value])
+	for key_value in actual.keys():
+		if not expected.has(key_value):
+			_failures.append("%s has extra key %s" % [actual_name, key_value])
+
+
+func _scan_values(value: Variant, context: String) -> void:
+	if value is String:
+		_expect_no_hangul(str(value), context)
+	elif value is Dictionary:
+		var dictionary: Dictionary = value
+		for key_value in dictionary.keys():
+			_scan_values(dictionary[key_value], "%s.%s" % [context, key_value])
+	elif value is Array:
+		var array: Array = value
+		for index in range(array.size()):
+			_scan_values(array[index], "%s[%d]" % [context, index])
+
+
+func _scan_dictionary_keys(value: Variant, context: String) -> void:
+	if not value is Dictionary:
+		return
+	var dictionary: Dictionary = value
+	for key_value in dictionary.keys():
+		_expect_no_hangul(str(key_value), "%s key" % context)
+
+
+func _expect_no_hangul(text: String, context: String) -> void:
+	if _has_hangul(text):
+		_failures.append("%s leaked Korean text: %s" % [context, text])
+
+
+func _has_hangul(text: String) -> bool:
+	for index in range(text.length()):
+		var code := text.unicode_at(index)
+		if code >= 0x1100 and code <= 0x11FF:
+			return true
+		if code >= 0x3130 and code <= 0x318F:
+			return true
+		if code >= 0xAC00 and code <= 0xD7AF:
+			return true
+	return false
+
+
+func _snapshot_settings_file(path: String) -> Dictionary:
+	var had_original := FileAccess.file_exists(path)
+	var original_bytes := PackedByteArray()
+	if had_original:
+		original_bytes = FileAccess.get_file_as_bytes(path)
+	return {
+		"had": had_original,
+		"bytes": original_bytes,
+	}
+
+
+func _restore_language_settings_snapshot() -> void:
+	if _language_settings_snapshot.is_empty():
+		return
+	if bool(_language_settings_snapshot.get("had", false)):
+		var file := FileAccess.open(LanguageSettings.SETTINGS_PATH, FileAccess.WRITE)
+		if file != null:
+			file.store_buffer(_language_settings_snapshot.get("bytes", PackedByteArray()))
+			file.close()
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LanguageSettings.SETTINGS_PATH))
+	LanguageSettings.reset_cache_for_tests()
+	LanguageSettings.apply_saved_language()
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

@@ -43,7 +43,7 @@ const SOUND_FOCUS_COUNT := 3
 const DISPLAY_FOCUS_COUNT := 9
 const CONTROLS_BASE_FOCUS_COUNT := 2
 const CONTROLS_JOYPAD_FOCUS_COUNT := 3
-const LANGUAGE_FOCUS_COUNT := 5
+const LANGUAGE_FOCUS_COUNT := 6
 
 const PANEL_COLOR := Color(16.0 / 255.0, 20.0 / 255.0, 32.0 / 255.0, 0.96)
 const PANEL_BORDER := Color(82.0 / 255.0, 165.0 / 255.0, 220.0 / 255.0, 0.86)
@@ -561,6 +561,10 @@ func _handle_language_click(position: Vector2, owner: Object, panel_rect: Rect2)
 		options_focus = 3
 		_set_language_option(LanguageSettings.LANGUAGE_JAPANESE, owner)
 		return {"handled": true}
+	if _get_language_spanish_rect(panel_rect).has_point(position):
+		options_focus = 4
+		_set_language_option(LanguageSettings.LANGUAGE_SPANISH, owner)
+		return {"handled": true}
 	if _get_language_back_button_rect(panel_rect).has_point(position):
 		return _close_options_page()
 	return {"handled": true}
@@ -757,6 +761,8 @@ func _activate_language_focus(owner: Object) -> Dictionary:
 		3:
 			_set_language_option(LanguageSettings.LANGUAGE_JAPANESE, owner)
 		4:
+			_set_language_option(LanguageSettings.LANGUAGE_SPANISH, owner)
+		5:
 			return _close_options_page()
 	return {"handled": true}
 
@@ -1253,10 +1259,19 @@ func _draw_language_tab(canvas: CanvasItem, font: Font, panel_rect: Rect2, mouse
 		options_focus == 3,
 		mouse_pos
 	)
+	_draw_mode_pill(
+		canvas,
+		font,
+		_get_language_spanish_rect(panel_rect),
+		_text("language.es"),
+		language_code == LanguageSettings.LANGUAGE_SPANISH,
+		options_focus == 4,
+		mouse_pos
+	)
 	var current_name := LanguageSettings.get_native_language_name(language_code)
-	_draw_text(canvas, font, _text("language.current") % current_name, panel_rect.position + Vector2(96.0, 230.0), 18, Color.WHITE)
+	_draw_text(canvas, font, _text("language.current") % current_name, panel_rect.position + Vector2(96.0, 260.0), 18, Color.WHITE)
 	_draw_recommendation_block(canvas, font, _get_language_note_rect(panel_rect), _text("language.subtitle"))
-	_draw_button(canvas, font, _get_language_back_button_rect(panel_rect), _get_options_back_label(), options_focus == 4, mouse_pos)
+	_draw_button(canvas, font, _get_language_back_button_rect(panel_rect), _get_options_back_label(), options_focus == 5, mouse_pos)
 
 
 func _get_vibration_level_label(level: int = 0) -> String:
@@ -1559,8 +1574,12 @@ func _get_language_japanese_rect(panel_rect: Rect2) -> Rect2:
 	return Rect2(panel_rect.position + Vector2(560.0, 154.0), Vector2(130.0, 44.0))
 
 
+func _get_language_spanish_rect(panel_rect: Rect2) -> Rect2:
+	return Rect2(panel_rect.position + Vector2(116.0, 208.0), Vector2(130.0, 44.0))
+
+
 func _get_language_note_rect(panel_rect: Rect2) -> Rect2:
-	return Rect2(panel_rect.position + Vector2(96.0, 262.0), Vector2(panel_rect.size.x - 192.0, 40.0))
+	return Rect2(panel_rect.position + Vector2(96.0, 292.0), Vector2(panel_rect.size.x - 192.0, 40.0))
 
 
 func _get_language_back_button_rect(panel_rect: Rect2) -> Rect2:

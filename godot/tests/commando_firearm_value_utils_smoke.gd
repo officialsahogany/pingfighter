@@ -1790,6 +1790,7 @@ func _verify_removed_doping_value_bridges() -> void:
 		"_get_pistol_cooldown_frames",
 		"_get_doping_potion_context_from_deps",
 		"_get_doping_potion_context_from_config",
+		"_get_doping_potion_defaults",
 		"_apply_doping_potion_to_pistol_config",
 		"_normalize_doping_potion_context",
 		"_get_doping_fire_rate_multiplier",
