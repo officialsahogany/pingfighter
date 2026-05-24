@@ -498,7 +498,27 @@ func _verify_runtime_delegates_suicide_drone_state() -> void:
 	var steered: Dictionary = runtime.projectiles[0]
 	_expect((steered.get("velocity", Vector2.ZERO) as Vector2).x > 0.0, "runtime active input path should steer the drone projectile")
 
-	var detonation_result: Dictionary = runtime._detonate_suicide_drone_at_index(0, steered, "manual", config, {})
+	var detonation_result: Dictionary = CommandoFirearmSuicideDroneState.detonate_runtime_projectile_at_index(
+		runtime.projectiles,
+		0,
+		runtime.impact_flashes,
+		runtime,
+		steered,
+		"manual",
+		config,
+		{},
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.FIELD_WIDTH,
+		CommandoFirearmRuntime.SUICIDE_DRONE_COOLDOWN_FRAMES,
+		CommandoFirearmRuntime.SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+		CommandoFirearmRuntime.SUICIDE_DRONE_BALL_FAN_DEGREES,
+		24.0,
+		CommandoFirearmRuntime.FLASH_LIMIT
+	)
 	_expect(str(detonation_result.get("commando_suicide_drone_reason", "")) == "manual", "runtime detonation path should expose detonation reason")
 	var clamped_projectile := {"pos": Vector2(-10.0, 800.0), "size": Vector2(48.0, 48.0)}
 	clamped_projectile = CommandoFirearmSuicideDroneState.clamp_projectile(
@@ -525,9 +545,11 @@ func _verify_removed_runtime_active_projectile_bridges() -> void:
 	_expect(not runtime_source.contains("func _get_drone_velocity("), "runtime should not keep suicide-drone homing velocity bridge")
 	_expect(not runtime_source.contains("func _clamp_suicide_drone_projectile("), "runtime should not keep suicide-drone clamp bridge")
 	_expect(not runtime_source.contains("func _spawn_suicide_drone_fire_zone("), "runtime should not keep suicide-drone fire-zone bridge")
+	_expect(not runtime_source.contains("func _resolve_suicide_drone_collision("), "runtime should not keep suicide-drone collision bridge")
+	_expect(not runtime_source.contains("func _detonate_suicide_drone_at_index("), "runtime should not keep suicide-drone detonation-at-index bridge")
 	_expect(not runtime_source.contains("CommandoFirearmSuicideDroneGeometry"), "runtime should not directly depend on suicide-drone geometry")
-	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.resolve_runtime_collision"), "runtime should delegate suicide-drone collision reason resolution to state owner")
-	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.detonate_runtime_projectile"), "runtime should delegate suicide-drone detonation orchestration to state owner")
+	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.resolve_runtime_collision_at_index"), "runtime should delegate suicide-drone collision reason resolution to state owner")
+	_expect(runtime_source.contains("CommandoFirearmSuicideDroneState.detonate_runtime_projectile_at_index"), "runtime should delegate suicide-drone detonation orchestration to state owner")
 	_expect(not runtime_source.contains("CommandoFirearmSuicideDroneState.append_runtime_detonation_flash"), "runtime should not call lower-level suicide-drone detonation flash append directly")
 	_expect(not runtime_source.contains("CommandoFirearmSuicideDroneState.explosion_hits_runtime_boss"), "runtime should not call lower-level suicide-drone explosion boss tests directly")
 	_expect(not runtime_source.contains("CommandoFirearmSuicideDroneState.dispatch_miss_detonation_feedback"), "runtime should not call lower-level suicide-drone miss feedback directly")

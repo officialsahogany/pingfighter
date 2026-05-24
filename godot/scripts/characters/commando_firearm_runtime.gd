@@ -1491,7 +1491,27 @@ func _update_active_suicide_drone_input(
 	))
 	suicide_drone_last_action_pressed = action_pressed
 	if float(projectile.get("grace_timer_frames", 0.0)) <= 0.0 and action_just_pressed:
-		var detonate_result: Dictionary = _detonate_suicide_drone_at_index(index, projectile, "manual", config, deps)
+		var detonate_result: Dictionary = CommandoFirearmSuicideDroneState.detonate_runtime_projectile_at_index(
+			projectiles,
+			index,
+			impact_flashes,
+			self,
+			projectile,
+			"manual",
+			config,
+			deps,
+			WEAPON_PROFILES,
+			WEAPON_PROFILE_OVERRIDES,
+			WEAPON_HIT_FEEDBACK,
+			HIT_FEEDBACK_PROFILE_OVERRIDES,
+			BASE_WEAPON_ID,
+			FIELD_WIDTH,
+			SUICIDE_DRONE_COOLDOWN_FRAMES,
+			SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+			SUICIDE_DRONE_BALL_FAN_DEGREES,
+			float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+			FLASH_LIMIT
+		)
 		detonate_result["special_gauge"] = special_gauge
 		return detonate_result
 	return CommandoFirearmSuicideDroneState.build_active_input_result(projectile, special_gauge)
@@ -1737,7 +1757,30 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 		projectile = CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile))
 		projectiles[index] = projectile
 		if projectile_kind == "drone":
-			var drone_result: Dictionary = _resolve_suicide_drone_collision(index, projectile, context, deps, step)
+			var drone_result: Dictionary = CommandoFirearmSuicideDroneState.resolve_runtime_collision_at_index(
+				projectiles,
+				index,
+				impact_flashes,
+				self,
+				projectile,
+				context,
+				deps,
+				step,
+				Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+				SUICIDE_DRONE_SIZE,
+				SUICIDE_DRONE_ROTOR_BASE_SPEED,
+				FIELD_WIDTH,
+				WEAPON_PROFILES,
+				WEAPON_PROFILE_OVERRIDES,
+				WEAPON_HIT_FEEDBACK,
+				HIT_FEEDBACK_PROFILE_OVERRIDES,
+				BASE_WEAPON_ID,
+				SUICIDE_DRONE_COOLDOWN_FRAMES,
+				SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+				SUICIDE_DRONE_BALL_FAN_DEGREES,
+				float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+				FLASH_LIMIT
+			)
 			if not drone_result.is_empty():
 				result.merge(drone_result, true)
 				context.merge(drone_result, true)
@@ -1773,60 +1816,6 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			context.merge(impact_result, true)
 			projectiles.remove_at(index)
 	return result
-
-
-func _resolve_suicide_drone_collision(
-	index: int,
-	projectile: Dictionary,
-	context: Dictionary,
-	deps: Dictionary,
-	fps_scale: float
-) -> Dictionary:
-	var collision_state: Dictionary = CommandoFirearmSuicideDroneState.resolve_runtime_collision(
-		projectile,
-		fps_scale,
-		context,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		SUICIDE_DRONE_SIZE,
-		SUICIDE_DRONE_ROTOR_BASE_SPEED,
-		FIELD_WIDTH
-	)
-	if collision_state.is_empty():
-		return {}
-	projectile = CommandoFirearmValueUtils.get_dict(collision_state.get("projectile", projectile))
-	projectiles[index] = projectile
-	var reason: String = str(collision_state.get("reason", ""))
-	return _detonate_suicide_drone_at_index(index, projectile, reason, context, deps) if reason != "" else {}
-
-
-func _detonate_suicide_drone_at_index(
-	index: int,
-	projectile: Dictionary,
-	reason: String,
-	context: Dictionary,
-	deps: Dictionary
-) -> Dictionary:
-	if index >= 0 and index < projectiles.size():
-		projectiles.remove_at(index)
-	return CommandoFirearmSuicideDroneState.detonate_runtime_projectile(
-		impact_flashes,
-		self,
-		projectile,
-		reason,
-		context,
-		deps,
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES,
-		WEAPON_HIT_FEEDBACK,
-		HIT_FEEDBACK_PROFILE_OVERRIDES,
-		BASE_WEAPON_ID,
-		FIELD_WIDTH,
-		SUICIDE_DRONE_COOLDOWN_FRAMES,
-		SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
-		SUICIDE_DRONE_BALL_FAN_DEGREES,
-		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
-		FLASH_LIMIT
-	)
 
 
 func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> void:

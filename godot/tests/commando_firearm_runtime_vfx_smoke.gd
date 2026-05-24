@@ -5,6 +5,7 @@ const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/co
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
+const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
@@ -500,7 +501,27 @@ func _verify_suicide_drone_edge_only_blast_does_not_stun() -> void:
 		"secondary": Color(0.45, 0.86, 1.0),
 	}
 	runtime.projectiles.append(projectile.duplicate(true))
-	var result: Dictionary = runtime._detonate_suicide_drone_at_index(0, projectile, "manual", config, deps)
+	var result: Dictionary = CommandoFirearmSuicideDroneState.detonate_runtime_projectile_at_index(
+		runtime.projectiles,
+		0,
+		runtime.impact_flashes,
+		runtime,
+		projectile,
+		"manual",
+		config,
+		deps,
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		CommandoFirearmRuntime.FIELD_WIDTH,
+		CommandoFirearmRuntime.SUICIDE_DRONE_COOLDOWN_FRAMES,
+		CommandoFirearmRuntime.SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+		CommandoFirearmRuntime.SUICIDE_DRONE_BALL_FAN_DEGREES,
+		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+		CommandoFirearmRuntime.FLASH_LIMIT
+	)
 	_expect(bool(result.get("commando_suicide_drone_detonated", false)), "suicide drone edge-only blast should still detonate")
 	_expect(not bool(result.get("commando_suicide_drone_hit_boss", true)), "suicide drone edge-only blast should report no boss hit")
 	var status_effect_state: Object = setup.get("status_effect_state", null)

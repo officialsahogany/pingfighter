@@ -88,8 +88,10 @@ func _verify_runtime_delegates_suicide_drone_ball_boost_resolver() -> void:
 	_expect(is_equal_approx(float(result.get("commando_suicide_drone_ball_restore_speed", 0.0)), 9.0), "boost-result owner should preserve restore speed")
 	_expect(is_equal_approx(float(result.get("commando_suicide_drone_ball_boosted_speed", 0.0)), 27.0), "boost-result owner should preserve boosted speed")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
-	var detonate_body := _function_body(runtime_source, "func _detonate_suicide_drone_at_index(")
-	_expect(detonate_body.find("CommandoFirearmSuicideDroneBallBoostResolver.build_boost_result(") >= 0, "runtime detonation path should call the suicide-drone ball boost owner directly")
+	var suicide_drone_state_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
+	_expect(runtime_source.find("CommandoFirearmSuicideDroneState.detonate_runtime_projectile_at_index") >= 0, "runtime detonation path should delegate through the suicide-drone state owner")
+	_expect(runtime_source.find("CommandoFirearmSuicideDroneBallBoostResolver.build_boost_result(") < 0, "runtime should not build suicide-drone ball boost results inline")
+	_expect(suicide_drone_state_source.find("CommandoFirearmSuicideDroneBallBoostResolver.build_boost_result(") >= 0, "suicide-drone state owner should call the ball boost owner")
 	_expect(not runtime_source.contains("func _build_suicide_drone_ball_boost_result("), "runtime should not keep suicide-drone ball boost result bridge")
 	_expect(not runtime_source.contains("func _get_suicide_drone_ball_fan_angle("), "runtime should not keep suicide-drone fan-angle bridge")
 

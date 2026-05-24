@@ -185,6 +185,70 @@ static func resolve_runtime_collision(
 	}
 
 
+static func resolve_runtime_collision_at_index(
+	projectiles: Array,
+	index: int,
+	impact_flashes: Array,
+	runtime_owner: Object,
+	projectile: Dictionary,
+	context: Dictionary,
+	deps: Dictionary,
+	fps_scale: float,
+	field_size: Vector2,
+	default_size: Vector2,
+	rotor_base_speed: float,
+	field_width: float,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	weapon_hit_feedback: Dictionary,
+	hit_feedback_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	cooldown_frames: float,
+	ball_speed_multiplier: float,
+	ball_fan_degrees: float,
+	grenade_explosion_duration_frames: float,
+	flash_limit: int
+) -> Dictionary:
+	var collision_state: Dictionary = resolve_runtime_collision(
+		projectile,
+		fps_scale,
+		context,
+		field_size,
+		default_size,
+		rotor_base_speed,
+		field_width
+	)
+	if collision_state.is_empty():
+		return {}
+	var next_projectile: Dictionary = CommandoFirearmValueUtils.get_dict(collision_state.get("projectile", projectile))
+	if index >= 0 and index < projectiles.size():
+		projectiles[index] = next_projectile
+	var reason: String = str(collision_state.get("reason", ""))
+	if reason == "":
+		return {}
+	return detonate_runtime_projectile_at_index(
+		projectiles,
+		index,
+		impact_flashes,
+		runtime_owner,
+		next_projectile,
+		reason,
+		context,
+		deps,
+		weapon_profiles,
+		weapon_profile_overrides,
+		weapon_hit_feedback,
+		hit_feedback_profile_overrides,
+		base_weapon_id,
+		field_width,
+		cooldown_frames,
+		ball_speed_multiplier,
+		ball_fan_degrees,
+		grenade_explosion_duration_frames,
+		flash_limit
+	)
+
+
 static func clamp_projectile(projectile: Dictionary, field_size: Vector2, default_size: Vector2) -> Dictionary:
 	var next_projectile: Dictionary = projectile.duplicate(true)
 	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(next_projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
@@ -454,6 +518,50 @@ static func detonate_runtime_projectile(
 		context,
 		ball_speed_multiplier,
 		ball_fan_degrees
+	)
+
+
+static func detonate_runtime_projectile_at_index(
+	projectiles: Array,
+	index: int,
+	impact_flashes: Array,
+	runtime_owner: Object,
+	projectile: Dictionary,
+	reason: String,
+	context: Dictionary,
+	deps: Dictionary,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	weapon_hit_feedback: Dictionary,
+	hit_feedback_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	field_width: float,
+	cooldown_frames: float,
+	ball_speed_multiplier: float,
+	ball_fan_degrees: float,
+	grenade_explosion_duration_frames: float,
+	flash_limit: int
+) -> Dictionary:
+	if index >= 0 and index < projectiles.size():
+		projectiles.remove_at(index)
+	return detonate_runtime_projectile(
+		impact_flashes,
+		runtime_owner,
+		projectile,
+		reason,
+		context,
+		deps,
+		weapon_profiles,
+		weapon_profile_overrides,
+		weapon_hit_feedback,
+		hit_feedback_profile_overrides,
+		base_weapon_id,
+		field_width,
+		cooldown_frames,
+		ball_speed_multiplier,
+		ball_fan_degrees,
+		grenade_explosion_duration_frames,
+		flash_limit
 	)
 
 
