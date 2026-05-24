@@ -2473,15 +2473,7 @@ func _apply_active_lingering_effect(
 	deps: Dictionary,
 	result: Dictionary
 ) -> void:
-	var should_sync_rope_origin: bool = CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect)
-	if not should_sync_rope_origin:
-		should_sync_rope_origin = (
-			CommandoFirearmLingeringNetFieldState.is_net_gun_effect(effect)
-			and bool(effect.get("rope_broken", false))
-			and bool(effect.get("dissolve", false))
-			and CommandoFirearmLingeringEffectState.get_rope_snap_timer(effect) > 0.0
-		)
-	if should_sync_rope_origin:
+	if CommandoFirearmLingeringNetFieldState.should_sync_rope_origin(effect):
 		effect["origin"] = CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
 			context,
 			COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,

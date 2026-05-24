@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
+const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 
 var _failures: Array[String] = []
@@ -58,6 +59,28 @@ func _verify_direct_lingering_effect_state() -> void:
 	_expect(CommandoFirearmLingeringEffectState.is_fire_zone(effect), "fire-zone helper should detect fire zones")
 	_expect(CommandoFirearmLingeringEffectState.is_active({"timer_frames": 0.1}), "active helper should accept positive timers")
 	_expect(not CommandoFirearmLingeringEffectState.is_active({"timer_frames": 0.0}), "active helper should reject expired timers")
+	_expect(
+		CommandoFirearmLingeringNetFieldState.should_sync_rope_origin({"weapon_id": "net_gun", "hooked_player": true}),
+		"net rope origin helper should sync active hooked nets"
+	)
+	_expect(
+		CommandoFirearmLingeringNetFieldState.should_sync_rope_origin({
+			"weapon_id": "net_gun",
+			"dissolve": true,
+			"rope_broken": true,
+			"rope_snap_timer": 3.0,
+		}),
+		"net rope origin helper should sync dissolving broken ropes while snap timer is active"
+	)
+	_expect(
+		not CommandoFirearmLingeringNetFieldState.should_sync_rope_origin({
+			"weapon_id": "net_gun",
+			"dissolve": true,
+			"rope_broken": true,
+			"rope_snap_timer": 0.0,
+		}),
+		"net rope origin helper should stop syncing expired broken ropes"
+	)
 
 	var result := {}
 	var context := {}
