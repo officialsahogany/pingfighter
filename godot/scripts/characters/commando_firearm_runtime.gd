@@ -2441,27 +2441,22 @@ func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dic
 	var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(motion.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
 	var launch_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(motion.get("launch_vel", Vector2.ZERO), Vector2.ZERO)
 	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(captured_pos, launch_vel, 0.86, "bowling_trap_launch", deps, BASE_WEAPON_ID)
-	var guard_source: String = _arm_bowling_trap_guard(trap, float(motion.get("original_speed", 1.0)))
-	return CommandoFirearmBowlingTrapGeometry.build_release_result(
-		motion,
-		guard_source,
-		BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
-		BOWLING_TRAP_GUARD_STUN_FRAMES,
-		BOWLING_TRAP_GUARD_SPEED_REDUCTION
-	)
-
-
-func _arm_bowling_trap_guard(trap: Dictionary, original_speed: float) -> String:
 	var guard_state: Dictionary = CommandoFirearmBowlingTrapGeometry.build_guard_state(
 		trap,
-		original_speed,
+		float(motion.get("original_speed", 1.0)),
 		BOWLING_TRAP_GUARD_SPEED_REDUCTION
 	)
 	bowling_trap_guard_armed = bool(guard_state.get("armed", false))
 	bowling_trap_guard_original_speed = float(guard_state.get("original_speed", 0.0))
 	bowling_trap_guard_restore_speed = float(guard_state.get("restore_speed", 0.0))
 	bowling_trap_guard_source = str(guard_state.get("source", ""))
-	return str(guard_state.get("source", ""))
+	return CommandoFirearmBowlingTrapGeometry.build_release_result(
+		motion,
+		bowling_trap_guard_source,
+		BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
+		BOWLING_TRAP_GUARD_STUN_FRAMES,
+		BOWLING_TRAP_GUARD_SPEED_REDUCTION
+	)
 
 
 func _clear_bowling_trap_guard() -> void:

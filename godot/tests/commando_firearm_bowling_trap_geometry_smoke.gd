@@ -171,9 +171,14 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 	if bowling_state_value is Dictionary:
 		bowling_state = bowling_state_value
 	_expect(is_equal_approx(float(bowling_state.get("install_progress", 0.0)), 0.4), "runtime draw context should use delegated install progress")
-	var guard_source: String = runtime._arm_bowling_trap_guard({"id": 9}, 6.0)
-	_expect(guard_source == "commando_bowling_trap_guard_9", "runtime guard arm wrapper should return delegated source")
-	_expect(runtime.is_bowling_trap_guard_armed(), "runtime guard arm wrapper should apply armed state")
+	var release_result: Dictionary = runtime._release_bowling_trap_ball({
+		"id": 9,
+		"pos": Vector2(100.0, 100.0),
+		"captured_ball_pos": Vector2(100.0, 85.0),
+		"captured_original_speed": 6.0,
+	}, {}, {})
+	_expect(str(release_result.get("commando_bowling_trap_guard_source", "")) == "commando_bowling_trap_guard_9", "runtime release path should expose delegated guard source")
+	_expect(runtime.is_bowling_trap_guard_armed(), "runtime release path should apply armed guard state")
 	runtime._clear_bowling_trap_guard()
 	_expect(not runtime.is_bowling_trap_guard_armed(), "runtime guard clear wrapper should apply cleared state")
 
@@ -194,6 +199,7 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"_is_stage2_speed_defense_registry_immune",
 		"_get_bowling_trap_launch_direction",
 		"_bowling_trap_hits_ball",
+		"_arm_bowling_trap_guard",
 		"_apply_bowling_trap_guard_state",
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep bowling-trap geometry bridge %s" % bridge_name)
