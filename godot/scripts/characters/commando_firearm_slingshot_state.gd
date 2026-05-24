@@ -32,6 +32,15 @@ static func build_charge_canceled_result(base_weapon_id: String, special_gauge: 
 	}
 
 
+static func apply_canceled_state(target: Object) -> void:
+	if target == null:
+		return
+	target.set("slingshot_charging", false)
+	target.set("slingshot_charge_timer_frames", 0.0)
+	target.set("slingshot_charge_level", 0)
+	target.set("slingshot_gauge_spent", 0.0)
+
+
 static func build_release_result(
 	base_weapon_id: String,
 	charge_level: int,

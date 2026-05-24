@@ -47,6 +47,17 @@ func _verify_direct_slingshot_state() -> void:
 	var canceled: Dictionary = CommandoFirearmSlingshotState.build_charge_canceled_result("pistol", 40.0)
 	_expect(bool(canceled.get("charge_canceled", false)), "canceled result should expose charge cancellation")
 
+	var cancel_runtime := CommandoFirearmRuntime.new()
+	cancel_runtime.slingshot_charging = true
+	cancel_runtime.slingshot_charge_timer_frames = 55.0
+	cancel_runtime.slingshot_charge_level = 2
+	cancel_runtime.slingshot_gauge_spent = 20.0
+	CommandoFirearmSlingshotState.apply_canceled_state(cancel_runtime)
+	_expect(not cancel_runtime.slingshot_charging, "canceled state helper should clear charging flag")
+	_expect(is_equal_approx(cancel_runtime.slingshot_charge_timer_frames, 0.0), "canceled state helper should clear timer")
+	_expect(cancel_runtime.slingshot_charge_level == 0, "canceled state helper should clear charge level")
+	_expect(is_equal_approx(cancel_runtime.slingshot_gauge_spent, 0.0), "canceled state helper should clear spent gauge")
+
 	var released: Dictionary = CommandoFirearmSlingshotState.build_release_result("pistol", 2, 95.0, 12.0, "released", 60.0)
 	_expect(bool(released.get("fired", false)), "release result should expose fired state")
 	_expect(int(released.get("charge_level", 0)) == 2, "release result should preserve charge level")
@@ -113,6 +124,7 @@ func _verify_runtime_delegates_slingshot_state() -> void:
 	_expect(not runtime_source.contains("func _update_slingshot_charge_level("), "runtime should not keep slingshot charge-level bridge")
 	_expect(not runtime_source.contains("func _get_slingshot_fire_profile("), "runtime should not keep slingshot fire-profile bridge")
 	_expect(not runtime_source.contains("func _apply_slingshot_hit_effects("), "runtime should not keep slingshot hit-effect bridge")
+	_expect(not runtime_source.contains("func _cancel_slingshot_charge("), "runtime should not keep slingshot cancel-state bridge")
 
 
 func _expect(condition: bool, message: String) -> void:

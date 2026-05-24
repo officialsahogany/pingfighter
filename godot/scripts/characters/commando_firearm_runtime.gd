@@ -582,10 +582,10 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	if weapon_id == BASE_WEAPON_ID:
 		_clear_ak47_trigger_state()
 		if slingshot_charging:
-			special_gauge = _cancel_slingshot_charge(special_gauge)
+			CommandoFirearmSlingshotState.apply_canceled_state(self)
 		return _update_pistol_input(input_snapshot, special_gauge, config, deps, current_weapon, now_msec)
 	if slingshot_charging:
-		special_gauge = _cancel_slingshot_charge(special_gauge)
+		CommandoFirearmSlingshotState.apply_canceled_state(self)
 	if weapon_id == "commando_pistol":
 		_clear_ak47_trigger_state()
 		return _update_pistol_input(input_snapshot, special_gauge, config, deps, current_weapon, now_msec)
@@ -686,10 +686,7 @@ func _clear_serve_wait_firearm_input_state() -> void:
 	bowling_trap_last_action_pressed = false
 	suicide_drone_last_action_pressed = false
 	if slingshot_charging:
-		slingshot_charging = false
-		slingshot_charge_timer_frames = 0.0
-		slingshot_charge_level = 0
-		slingshot_gauge_spent = 0.0
+		CommandoFirearmSlingshotState.apply_canceled_state(self)
 	slingshot_last_action_pressed = false
 	slingshot_control_lock_frames = 0.0
 	pistol_fire_delay_frames = 0.0
@@ -724,7 +721,7 @@ func _handle_firearm_reset_input(
 		return {}
 	_clear_ak47_trigger_state()
 	if slingshot_charging:
-		special_gauge = _cancel_slingshot_charge(special_gauge)
+		CommandoFirearmSlingshotState.apply_canceled_state(self)
 	return {
 		"handled": true,
 		"weapon_id": BASE_WEAPON_ID,
@@ -1926,14 +1923,6 @@ func _release_slingshot(special_gauge: float, config: Dictionary, deps: Dictiona
 		reason,
 		special_gauge
 	)
-
-
-func _cancel_slingshot_charge(special_gauge: float) -> float:
-	slingshot_charging = false
-	slingshot_charge_timer_frames = 0.0
-	slingshot_charge_level = 0
-	slingshot_gauge_spent = 0.0
-	return special_gauge
 
 
 func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictionary, profile_override: Dictionary = {}) -> void:
