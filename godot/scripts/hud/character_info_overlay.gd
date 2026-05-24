@@ -3365,6 +3365,8 @@ func _get_header_status_text(pending: int, gold: int) -> String:
 		_header_status_text = "Choices Waiting " + str(pending) + "   Perk Gold " + str(gold)
 	elif language == LanguageSettings.LANGUAGE_CHINESE:
 		_header_status_text = "待选择 " + str(pending) + "   升级金币 " + str(gold)
+	elif language == LanguageSettings.LANGUAGE_JAPANESE:
+		_header_status_text = "選択待ち " + str(pending) + "   パークゴールド " + str(gold)
 	else:
 		_header_status_text = "선택 대기 " + str(pending) + "   퍽 골드 " + str(gold)
 	return _header_status_text

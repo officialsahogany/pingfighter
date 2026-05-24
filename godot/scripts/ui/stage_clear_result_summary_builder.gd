@@ -150,6 +150,8 @@ static func build_perk_info_summary(
 				title = "%s +%d" % [title, extra_count]
 			elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 				title = "%s 另%d个" % [title, extra_count]
+			elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+				title = "%s 他%d個" % [title, extra_count]
 			else:
 				title = "%s 외 %d개" % [title, extra_count]
 		return {
@@ -165,6 +167,8 @@ static func build_perk_info_summary(
 			detail = "The next run will open perk choices for the amount acquired."
 		elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 			detail = "下次进行时会按获得数量打开升级选择窗口。"
+		elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+			detail = "次回進行時、獲得数ぶんパーク選択画面が開きます。"
 		return {
 			"kind": "starpoint",
 			"eyebrow": LanguageSettings.translate_text("퍽 선택"),

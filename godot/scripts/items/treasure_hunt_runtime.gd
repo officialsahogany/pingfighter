@@ -137,6 +137,8 @@ func _format_result_text(result_label: String, display_name: String) -> String:
 		return "%s Found: %s" % [result_label, display_name]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "发现%s：%s" % [result_label, display_name]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "%s発見：%s" % [result_label, display_name]
 	return "%s 발견: %s" % [result_label, display_name]
 
 
@@ -145,6 +147,8 @@ func _format_feedback_text(display_name: String) -> String:
 		return "Treasure Hunt: %s" % display_name
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "寻宝：%s" % display_name
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "宝探し：%s" % display_name
 	return "보물탐색: %s" % display_name
 
 

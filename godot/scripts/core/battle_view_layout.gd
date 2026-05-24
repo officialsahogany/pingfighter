@@ -335,6 +335,8 @@ func get_render_fps_cap_label(cap: int, window: Window = null) -> String:
 			return "Monitor %d Hz" % _get_monitor_refresh_rate(window)
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 			return "显示器 %d Hz" % _get_monitor_refresh_rate(window)
+		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+			return "モニター %d Hz" % _get_monitor_refresh_rate(window)
 		return "모니터 %d Hz" % _get_monitor_refresh_rate(window)
 	return "%d FPS" % normalized_cap
 
@@ -370,17 +372,23 @@ func get_display_pacing_recommendation(
 			return "%dHz monitor detected: render FPS will follow the current refresh rate.\nIf you change monitors, the next apply will follow the new refresh rate." % monitor_rate
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 			return "检测到%dHz显示器：渲染FPS将跟随当前刷新率。\n更换显示器后，下次应用会跟随新的刷新率。" % monitor_rate
+		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+			return "%dHzモニターを検出：描画FPSは現在のリフレッシュレートに追従します。\nモニターを変更すると、次回適用時に新しいリフレッシュレートへ追従します。" % monitor_rate
 		return "%dHz 모니터 감지: 현재 주사율에 렌더 FPS를 자동으로 맞춥니다.\n모니터를 바꾸면 다음 적용 시 새 주사율을 따라갑니다." % monitor_rate
 	if normalized_cap == RENDER_FPS_CAP_MONITOR:
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 			return "%dHz monitor detected: render FPS follows the current refresh rate.\nExclusive fullscreen and VSync Auto are the cleanest settings." % monitor_rate
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 			return "检测到%dHz显示器：渲染FPS将跟随当前刷新率。\n推荐使用独占全屏和VSync自动。" % monitor_rate
+		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+			return "%dHzモニターを検出：描画FPSは現在のリフレッシュレートに追従します。\n排他全画面とVSync Autoが最も安定します。" % monitor_rate
 		return "%dHz 모니터 감지: 렌더 FPS는 현재 주사율을 따라갑니다.\n독점 전체화면과 VSync Auto가 가장 깔끔합니다." % monitor_rate
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 		return "%dHz monitor detected: set render FPS to monitor Hz for automatic pacing.\nUse Recommended to save settings based on the current refresh rate." % monitor_rate
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "检测到%dHz显示器：将渲染FPS设为显示器Hz可自动匹配。\n使用推荐会保存基于当前刷新率的设置。" % monitor_rate
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "%dHzモニターを検出：描画FPSをモニターHzにすると自動で合わせます。\n推奨値を使うと現在のリフレッシュレート基準で保存します。" % monitor_rate
 	return "%dHz 모니터 감지: 렌더 FPS를 모니터 Hz로 두면 자동으로 맞춰집니다.\n권장값 적용을 누르면 현재 주사율 기반 설정으로 저장합니다." % monitor_rate
 
 

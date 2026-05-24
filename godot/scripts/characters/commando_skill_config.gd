@@ -370,7 +370,7 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 	var language := LanguageSettings.get_language()
 	if language == LanguageSettings.LANGUAGE_KOREAN:
 		return
-	if language == LanguageSettings.LANGUAGE_CHINESE:
+	if language == LanguageSettings.LANGUAGE_CHINESE or language == LanguageSettings.LANGUAGE_JAPANESE:
 		LanguageSettings.localize_skill_config_data(data, skill_name)
 		return
 	match skill_name:

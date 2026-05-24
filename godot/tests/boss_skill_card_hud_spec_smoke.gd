@@ -7,6 +7,7 @@ const Stage3BossSkillHudRenderer := preload("res://scripts/stages/stage3/stage3_
 const Stage4PonkBossSkillHudRenderer := preload("res://scripts/stages/stage4/stage4_ponk_boss_skill_hud_renderer.gd")
 const Stage5HongryunBossSkillHudRenderer := preload("res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd")
 const Stage5HongryunState := preload("res://scripts/stages/stage5/stage5_hongryun_state.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _failures: Array[String] = []
 
@@ -19,6 +20,7 @@ func _init() -> void:
 	_verify_stage_renderers_have_hover_tooltips()
 	_verify_stage1_layout_uses_spec()
 	_verify_stage5_layout_and_inferno_contract()
+	_verify_japanese_status_labels()
 
 	if _failures.is_empty():
 		print("boss_skill_card_hud_spec_smoke: ok")
@@ -182,6 +184,13 @@ func _verify_stage5_layout_and_inferno_contract() -> void:
 		var expected_size: Vector2 = _get_vector2(BossSkillCardHudSpec.get_card_metrics(260.0).get("card_size", Vector2.ZERO))
 		var first_rect: Rect2 = rects[0]
 		_expect(_vector2_equal(first_rect.size, expected_size), "Stage 5 Hongryun layout rect should use the shared official card size")
+
+
+func _verify_japanese_status_labels() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
+	_expect(BossSkillCardHudSpec._format_cooldown_label(3.0) == "クールタイム3秒", "boss skillcard cooldown labels should localize to Japanese")
+	_expect(BossSkillCardHudSpec._format_seconds(3.5) == "3.5秒", "boss skillcard seconds should localize to Japanese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
 func _metrics_equal(left: Dictionary, right: Dictionary) -> bool:

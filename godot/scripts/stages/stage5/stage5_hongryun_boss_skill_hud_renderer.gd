@@ -551,6 +551,8 @@ func _get_tooltip_status_text(skill: Dictionary) -> String:
 		return "Charge %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "充能 %d%%" % progress_percent
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "チャージ %d%%" % progress_percent
 	return "충전 %d%%" % progress_percent
 
 

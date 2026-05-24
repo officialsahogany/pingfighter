@@ -173,6 +173,13 @@ func _format_asset_label(character_name: String, asset_kind: String) -> String:
 			"animation": "动画",
 			"parts": "部件图像",
 		}.get(asset_kind, "资源")]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "%s %s" % [character_name, {
+			"card": "カード画像",
+			"still": "静止画",
+			"animation": "アニメーション",
+			"parts": "パーツ画像",
+		}.get(asset_kind, "リソース")]
 	return "%s %s" % [character_name, {
 		"card": "카드 이미지",
 		"still": "스틸 이미지",

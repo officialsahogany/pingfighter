@@ -3,6 +3,7 @@ extends SceneTree
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const TreasureHuntRuntime := preload("res://scripts/items/treasure_hunt_runtime.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _failures: Array[String] = []
 
@@ -45,6 +46,7 @@ func _init() -> void:
 	_verify_effective_treasure_map_chance()
 	_verify_reward_pools_skip_owned_one_time_items()
 	_verify_grant_routes_to_mythic_runtime()
+	_verify_japanese_feedback_text()
 
 	if _failures.is_empty():
 		print("treasure_hunt_runtime_smoke: ok")
@@ -100,6 +102,14 @@ func _verify_grant_routes_to_mythic_runtime() -> void:
 	var mythic_result: Dictionary = runtime._grant_passive_or_mythic_reward("megingjord", "legendary", owner, registry)
 	_expect(bool(mythic_result.get("ok", false)), "mythic treasure reward should grant successfully")
 	_expect(_inventory_has_item(mythic_runtime, "megingjord"), "mythic reward should enter mythic inventory")
+
+
+func _verify_japanese_feedback_text() -> void:
+	var runtime := TreasureHuntRuntime.new()
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
+	_expect(runtime._format_result_text("神話", "スピードブーツ") == "神話発見：スピードブーツ", "treasure result text should localize to Japanese")
+	_expect(runtime._format_feedback_text("スピードブーツ") == "宝探し：スピードブーツ", "treasure feedback text should localize to Japanese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
 func _inventory_has_item(runtime: Object, item_name: String) -> bool:

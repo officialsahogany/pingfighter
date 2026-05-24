@@ -2,6 +2,7 @@ extends SceneTree
 
 const WeatherEventState := preload("res://scripts/stages/common/weather_event_state.gd")
 const WeatherEventRenderer := preload("res://scripts/stages/common/weather_event_renderer.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 
 class FakeOwner:
@@ -376,6 +377,10 @@ func _init() -> void:
 		})
 	weather.apply_fire_paddle_hit_knockback(true, Vector2(380.0, 360.0), {}, {})
 	_expect(weather.weather_particles.size() <= WeatherEventState.FIRE_VISUAL_PARTICLE_CAP, "fire hit burst should trim old fire particles")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
+	_expect(weather._get_start_text("breeze", -1) == "そよ風が左へ吹きます", "breeze start text should localize to Japanese")
+	_expect(weather._get_start_text("gust", 1) == "強風が右へ吹き荒れます", "gust start text should localize to Japanese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 	print("weather_event_state_smoke: ok")
 	quit(0)

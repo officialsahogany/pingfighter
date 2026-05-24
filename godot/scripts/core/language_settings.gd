@@ -1789,6 +1789,417 @@ const EXACT_TEXT_ZH := {
 	"초": "秒",
 }
 
+const EXACT_TEXT_JA := {
+	"체력": "体力",
+	"스테이지 진입 준비 중": "ステージ進入準備中",
+	"잠시만 기다려 주세요": "しばらくお待ちください",
+	"전투 데이터 준비 중": "戦闘データ準備中",
+	"전투 상태 초기화 중": "戦闘状態初期化中",
+	"스테이지 입장 연출 준비 중": "ステージ入場演出準備中",
+	"준비 완료": "準備完了",
+	"스테이지 전환 중": "ステージ切替中",
+	"다음 보스 예고": "次のボス予告",
+	"게임 데이터 준비 중": "ゲームデータ準備中",
+	"데이터를 준비하는 중입니다": "データを準備中です",
+	"나노 조각을 동기화하는 중": "ナノ片を同期中",
+	"전투 준비 완료": "戦闘準備完了",
+	"전투 화면 준비 중": "戦闘画面準備中",
+	"인트로 리소스 확인 중": "イントロリソース確認中",
+	"핵심 전투 리소스 불러오는 중": "核心戦闘リソース読込中",
+	"플레이어 리소스 불러오는 중": "プレイヤーリソース読込中",
+	"보스 리소스 불러오는 중": "ボスリソース読込中",
+	"스매셔 스킬 아이콘 준비 중": "スマッシャースキルアイコン準備中",
+	"바이퍼 스킬 아이콘 준비 중": "バイパースキルアイコン準備中",
+	"전투 캐시 정리 중": "戦闘キャッシュ整理中",
+	"오디오 장치 준비 중": "オーディオデバイス準備中",
+	"스테이지 BGM 준비 중": "ステージBGM準備中",
+	"전투 리소스 마무리 중": "戦闘リソース仕上げ中",
+	"시작 모듈 준비 중": "起動モジュール準備中",
+	"아이템 런타임 준비 중": "アイテムランタイム準備中",
+	"업데이트 런타임 준비 중": "更新ランタイム準備中",
+	"공 물리 런타임 준비 중": "ボール物理ランタイム準備中",
+	"드로우 런타임 준비 중": "描画ランタイム準備中",
+	"스테이지 인트로 준비 중": "ステージイントロ準備中",
+	"스테이지 런타임 준비 중": "ステージランタイム準備中",
+	"결과 화면 리소스 준비 중": "結果画面リソース準備中",
+	"첫 프레임 정리 중": "初回フレーム整理中",
+	"캐릭터 선택": "キャラクター選択",
+	"대표 스킬": "代表スキル",
+	"뒤로": "戻る",
+	"챔피언리그": "チャンピオンリーグ",
+	"신화리그": "神話リーグ",
+	"난이도": "難易度",
+	"전신 LIVE2D": "全身LIVE2D",
+	"준비중": "準備中",
+	"속도": "速度",
+	"파워": "パワー",
+	"방어": "防御",
+	"아이템 상자 1개": "アイテム箱1個",
+	"아이템 상자 2개": "アイテム箱2個",
+	"아이템 상자 3개": "アイテム箱3個",
+	"아이템 상자 4개": "アイテム箱4個",
+	"아이템 상자 5개": "アイテム箱5個",
+	"액티브 아이템": "アクティブアイテム",
+	"패시브 아이템": "パッシブアイテム",
+	"신화 아이템": "神話アイテム",
+	"액티브": "アクティブ",
+	"패시브": "パッシブ",
+	"신화": "神話",
+	"스타포인트": "スターポイント",
+	"퍽": "パーク",
+	"보상": "報酬",
+	"획득 퍽": "獲得パーク",
+	"퍽 선택": "パーク選択",
+	"퍽 선택권": "パーク選択権",
+	"퍽 정보": "パーク情報",
+	"획득 퍽 없음": "獲得パークなし",
+	"이번 결과는 아이템 보상만 획득했습니다.": "今回の結果ではアイテム報酬のみ獲得しました。",
+	"획득한 퍽 없음": "獲得したパークなし",
+	"획득 보상 없음": "獲得報酬なし",
+	"획득 아이템": "獲得アイテム",
+	"획득 골드": "獲得ゴールド",
+	"다음 스테이지": "次のステージ",
+	"나가기": "退出",
+	"획득!": "獲得！",
+	"플레이어 승리": "プレイヤー勝利",
+	"Live2D 포즈": "Live2Dポーズ",
+	"승리 연출 테스트": "勝利演出テスト",
+	"건들지마": "触らないで",
+	"일반상자": "通常箱",
+	"고급상자": "高級箱",
+	"신화 확정상자": "神話確定箱",
+	"인게임": "ゲーム内",
+	"상자 보상": "箱報酬",
+	"획득한 퍽 효과를 적용합니다.": "獲得したパーク効果を適用します。",
+	"보물탐색": "宝探し",
+	"아무것도 찾지 못했습니다": "何も見つかりませんでした",
+	"보물탐색: 꽝": "宝探し：はずれ",
+	"목록 준비 중": "リスト準備中",
+	"리소스 준비 중": "リソース準備中",
+	"캐릭터": "キャラクター",
+	"캐릭터 정보": "キャラクター情報",
+	"장비": "装備",
+	"장비 슬롯": "装備スロット",
+	"패시브 보관함": "パッシブ保管庫",
+	"패시브 아이템 없음": "パッシブアイテムなし",
+	"능력치": "能力値",
+	"롤 옵션": "ロールオプション",
+	"미장착": "未装備",
+	"패시브 장비가 연결되면 이 슬롯에 표시됩니다.": "パッシブ装備が接続されるとこのスロットに表示されます。",
+	"보유": "所持",
+	"장착": "装備",
+	"해금": "解放",
+	"부위": "部位",
+	"머리": "頭",
+	"상의": "上着",
+	"왼팔": "左腕",
+	"오른팔": "右腕",
+	"팔": "腕",
+	"벨트": "ベルト",
+	"등": "背中",
+	"무릎": "膝",
+	"신발": "靴",
+	"장신구": "アクセサリ",
+	"장신구 1": "アクセサリ1",
+	"장신구 2": "アクセサリ2",
+	"장신구 3": "アクセサリ3",
+	"장신구 4": "アクセサリ4",
+	"장신": "飾",
+	"뿔딸기": "角いちご",
+	"이그니션": "イグニッション",
+	"듀얼": "デュアル",
+	"팬텀 킥": "ファントムキック",
+	"EMP 스트라이크": "EMPストライク",
+	"연금술!": "錬金術！",
+	"재시작!": "再スタート！",
+	"무효!": "無効！",
+	"윤회의 부적 발동!": "輪廻のお守り発動！",
+	"메긴교르드의 효과 발동!": "メギンギョルズの効果発動！",
+	"판도라의 유산": "パンドラの遺産",
+	"아이템을 선택하세요": "アイテムを選択してください",
+	"선택": "選択",
+	"←/→ / 클릭 / Enter": "←/→ / クリック / Enter",
+	"엘릭서 오브 마스터리": "熟練のエリクサー",
+	"퍽의 운명이 결정됩니다...": "パークの運命が決まります...",
+	"[ Space / Click 으로 계속 ]": "[ Space / Click で続行 ]",
+	"Lv.5 달성!": "Lv.5達成！",
+	"뿔딸기변신!": "角いちご変身！",
+	"스매셔": "スマッシャー",
+	"바이퍼": "バイパー",
+	"코만도": "コマンドー",
+	"발토르": "バルトル",
+	"옵티머스": "オプティマス",
+	"미카": "ミカ",
+	"레나": "レナ",
+	"코하쿠": "コハク",
+	"이오": "イオ",
+	"세린": "セリン",
+	"달지": "ダルジ",
+	"악어장군": "ワニ将軍",
+	"홍련": "紅蓮",
+	"인왕": "仁王",
+	"소림사": "少林寺",
+	"정글": "ジャングル",
+	"멘헤라": "メンヘラ",
+	"테트리서": "テトリサー",
+	"아카무 리고": "アカム・リゴ",
+	"미노타우로스": "ミノタウロス",
+	"최종 관문": "最終関門",
+	"4천왕": "四天王",
+	"진엔딩": "真エンディング",
+	"헤드샷!": "ヘッドショット！",
+	"레그샷!": "レッグショット！",
+	"상모돌리기": "サンモ回し",
+	"팽이치기": "コマ打ち",
+	"타격발동": "命中発動",
+	"즉시발동": "即時発動",
+	"타격": "命中",
+	"즉시": "即時",
+	"공을 휘감아 아래로 몰아붙입니다. 플레이어가 가드하면 즉시 멈춥니다.": "ボールを絡め取り下へ押し込みます。プレイヤーがガードすると即座に止まります。",
+	"달지가 팽이를 소환합니다. 팽이에 닿은 공은 무작위 방향으로 튕깁니다.": "ダルジがコマを召喚します。コマに触れたボールはランダム方向へ弾かれます。",
+	"정글지진": "ジャングル地震",
+	"물대포": "水砲",
+	"스피드디펜스": "スピードディフェンス",
+	"자동 / 바위 등장 후": "自動 / 岩出現後",
+	"쿨타임 30초": "クールタイム30秒",
+	"쿨타임 40초": "クールタイム40秒",
+	"바닥을 흔들어 바위와 충격을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.": "床を揺らして岩と衝撃を起こします。圧迫段階が高いほど落石が増えます。",
+	"물대포를 충전해 전장을 가로지르는 물줄기를 발사합니다.": "水砲をチャージし、戦場を横切る水流を発射します。",
+	"짧은 시간 동안 보스 이동과 반응이 빨라지고 상태 이상을 막습니다.": "短時間、ボスの移動と反応が速くなり、状態異常を防ぎます。",
+	"스피드디펜스!": "スピードディフェンス！",
+	"분노 발구르기!": "怒りの踏みつけ！",
+	"물대포 충전!": "水砲チャージ！",
+	"물대포 발사!": "水砲発射！",
+	"정글지진!": "ジャングル地震！",
+	"물대포 준비!": "水砲準備！",
+	"지진 준비!": "地震準備！",
+	"방어 준비!": "防御準備！",
+	"물대포 조준 중": "水砲照準中",
+	"정글을 흔든다": "ジャングルを揺らす",
+	"악어장군 분노!": "ワニ将軍怒り！",
+	"물대포 조준!": "水砲照準！",
+	"물대포 중단!": "水砲中断！",
+	"방어벽 낙하!": "防御壁落下！",
+	"파편 주의!": "破片注意！",
+	"멘헤라걸": "メンヘラガール",
+	"눈물샤워": "涙シャワー",
+	"저주상자": "呪い箱",
+	"사이코볼": "サイコボール",
+	"전장 위로 눈물을 떨어뜨려 공을 둔화시키고 보스 쪽 압박을 만듭니다.": "戦場に涙を落としてボールを遅くし、ボス側の圧迫を作ります。",
+	"저주 상자를 던져 폭발과 연기를 남기고 공의 흐름을 어지럽힙니다.": "呪い箱を投げ、爆発と煙を残してボールの流れを乱します。",
+	"사이코볼 상태로 전장을 흔들며 공 충돌에 강한 히트스톱을 겁니다.": "サイコボール状態で戦場を揺らし、ボール衝突に強いヒットストップをかけます。",
+	"굴절 자기장": "屈折磁場",
+	"자기장": "磁場",
+	"25초마다 자동 발동": "25秒ごとに自動発動",
+	"공을 보스 주변에서 굴절시키고 종료 시 감속 구체를 발사합니다.": "ボールをボス周辺で屈折させ、終了時に減速球体を発射します。",
+	"위빠사나 명상": "ヴィパッサナー瞑想",
+	"명상": "瞑想",
+	"18초 쿨타임 후 보스 타격": "18秒クールタイム後にボス命中",
+	"공을 숫자 8 궤도로 붙잡고 명상 종료 후 추가 가속으로 플레이어 쪽으로 쏩니다.": "ボールを8の字軌道に捕らえ、瞑想終了後に追加加速でプレイヤー側へ撃ちます。",
+	"홍련 화염탄": "紅蓮火炎弾",
+	"홍련 화염구": "紅蓮火球",
+	"홍련 인페르노": "紅蓮インフェルノ",
+	"홍련폭염": "紅蓮爆炎",
+	"화염탄": "火炎弾",
+	"화염기관": "火炎機関",
+	"인페르노 예열": "インフェルノ予熱",
+	"폭염 예열": "爆炎予熱",
+	"쿨타임 3.5~5.0초": "クールタイム3.5〜5.0秒",
+	"구슬 5칸 / 보스 적중": "珠5枠 / ボス命中",
+	"용 구슬 5칸": "竜珠5枠",
+	"쿨타임 변동": "クールタイム変動",
+	"홍련이 화염구를 발사합니다. 맞으면 용 구슬 게이지가 1칸 충전됩니다.": "紅蓮が火球を発射します。命中すると竜珠ゲージが1枠チャージされます。",
+	"5번 맞으면 홍련이 공을 화염 용처럼 돌진시킵니다. 가드와 진입 각도를 흔듭니다.": "5回命中すると、紅蓮がボールを火竜のように突進させ、ガードと進入角度を崩します。",
+	"전장에 화염 장치를 가동해 불길과 연기로 플레이어 진영을 압박합니다.": "戦場に火炎装置を作動させ、炎と煙でプレイヤー陣営を圧迫します。",
+	"자동": "自動",
+	"보스 타격": "ボス命中",
+	"상태": "状態",
+	"없음": "なし",
+	"내구": "耐久",
+	"좌클릭": "左クリック",
+	"클릭": "クリック",
+	"게이지 비용": "ゲージ費用",
+	"이펙트 미리보기": "エフェクトプレビュー",
+	"준비": "準備",
+	"발동": "発動",
+	"또는": "または",
+	"슈퍼아머": "スーパーアーマー",
+	"분신 독 슬래시": "分身毒スラッシュ",
+	"홀드 후 손 떼면 발동": "長押し後に離して発動",
+	"대쉬후딜 중": "ダッシュ後隙中",
+	"상태이상 중": "状態異常中",
+	"더블클릭": "ダブルクリック",
+	"더블탭": "ダブルタップ",
+	"홀드 발동": "長押し発動",
+	"단독": "単独",
+	"홀드 시 반대쪽 자동 발동": "長押し中、反対側が自動発動",
+	"0.5초 홀드 발동": "0.5秒長押し発動",
+	"우회전 발동": "右回転発動",
+	"좌회전 발동": "左回転発動",
+	"대쉬 중/직후": "ダッシュ中/直後",
+	"체공 중": "空中",
+	"블레이드 계열 사용 후": "ブレード系使用後",
+	"0.3초 홀드": "0.3秒長押し",
+	"연계 후": "連携後",
+	"마샬 킥 적중 후": "マーシャルキック命中後",
+	"연계 타격 후 공중": "連携打撃後の空中",
+	"대쉬 타격 후": "ダッシュ打撃後",
+	"지상에서": "地上で",
+	"1초 홀드": "1秒長押し",
+	"제자리에서": "その場で",
+	"무기 선택 후": "武器選択後",
+	"1초 유지": "1秒維持",
+	"0.5초 유지": "0.5秒維持",
+	"즉시 발동": "即時発動",
+	"발동 중": "発動中",
+	"사용됨": "使用済み",
+	"대기": "待機",
+	"잠김": "ロック",
+	"충전": "チャージ",
+	"쿨타임 25초": "クールタイム25秒",
+	"쿨타임 35초": "クールタイム35秒",
+	"쿨타임 70초": "クールタイム70秒",
+	"탄약": "弾薬",
+	"탄환": "弾",
+	"호출권": "呼び出し券",
+	"무제한": "無制限",
+	"재장전": "リロード",
+	"게이지": "ゲージ",
+	"장착 스킬": "装備スキル",
+	"대시 거리": "ダッシュ距離",
+	"대시 후딜시간": "ダッシュ後隙時間",
+	"대시 토큰": "ダッシュトークン",
+	"퍽 골드": "パークゴールド",
+	"방향 전환": "方向転換",
+	"이동 반응": "移動反応",
+	"감속": "減速",
+	"패배 방지": "敗北防止",
+	"판매가": "売却価格",
+	"이동속도": "移動速度",
+	"이동 속도": "移動速度",
+	"넉백 거리": "ノックバック距離",
+	"스턴 시간": "スタン時間",
+	"대쉬 개수": "ダッシュ数",
+	"모든 퍽 레벨": "全パークレベル",
+	"스킬 구슬 슬롯": "スキル珠スロット",
+	"변신 비용": "変身費用",
+	"공 타격 게이지": "打球ゲージ",
+	"추가 선택 확률": "追加選択確率",
+	"매직찬스": "マジックチャンス",
+	"승리시 유산 발동률": "勝利時遺産発動率",
+	"발동 확률": "発動確率",
+	"발동확률": "発動確率",
+	"공속 증가": "球速増加",
+	"게이지 소모": "ゲージ消費",
+	"월계수 잎": "月桂の葉",
+	"모든 퍽 레벨 증가": "全パークレベル増加",
+	"쿨타임": "クールタイム",
+	"소용돌이 크기": "渦の大きさ",
+	"스킬 쿨타임 감소": "スキルクールタイム短縮",
+	"게이지 회복": "ゲージ回復",
+	"변신 지속시간": "変身持続時間",
+	"끌어당기는 범위": "引き寄せ範囲",
+	"추가 퍽 등장 확률": "追加パーク出現率",
+	"변신 부활 확률": "変身復活確率",
+	"자동대쉬 쿨타임": "自動ダッシュクールタイム",
+	"슬롯 추가": "スロット追加",
+	"벽 반사 게이지": "壁反射ゲージ",
+	"게이지 보존": "ゲージ保持",
+	"벽돌 길이": "レンガ壁の長さ",
+	"아이템 쿨타임": "アイテムクールタイム",
+	"벽돌 스폰율": "レンガ壁出現率",
+	"골드 획득량": "ゴールド獲得量",
+	"더블 스폰 확률": "ダブル出現率",
+	"보호 지속시간": "保護持続時間",
+	"파편 개수": "破片数",
+	"넉백 단계": "ノックバック段階",
+	"이동속도 감소": "移動速度低下",
+	"몸집크기 감소": "体サイズ低下",
+	"스킬 쿨타임": "スキルクールタイム",
+	"최대 게이지": "最大ゲージ",
+	"게이지 획득량": "ゲージ獲得量",
+	"스타포인트 드랍율": "スターポイントドロップ率",
+	"라운드 패배 시 무효화 확률": "ラウンド敗北時無効化確率",
+	"AI알약 게이지 소모": "AIピルゲージ消費",
+	"AI알약 스폰율": "AIピル出現率",
+	"독안개 지속시간": "毒霧持続時間",
+	"부메랑 발사속도": "ブーメラン発射速度",
+	"부메랑 유도성능": "ブーメラン誘導性能",
+	"부메랑 스폰율": "ブーメラン出現率",
+	"투척 속도": "投擲速度",
+	"폭발 범위": "爆発範囲",
+	"연막탄 지속시간": "催涙弾持続時間",
+	"준비시간 단축": "準備時間短縮",
+	"대쉬 거리": "ダッシュ距離",
+	"부스트차징 발동확률": "ブーストチャージ発動率",
+	"하프대쉬 게이지": "ハーフダッシュゲージ",
+	"대쉬토큰 회복 시간": "ダッシュトークン回復時間",
+	"몸집크기": "体サイズ",
+	"넉백 저항력": "ノックバック耐性",
+	"대시쿨타임": "ダッシュクールタイム",
+	"아이템쿨타임": "アイテムクールタイム",
+	"화재": "火災",
+	"빙판": "氷床",
+	"소나기": "にわか雨",
+	"우박": "雹",
+	"사막화": "砂漠化",
+	"화재가 번집니다": "火が広がります",
+	"빙판이 깔립니다": "氷床が広がります",
+	"소나기가 쏟아집니다": "にわか雨が降り注ぎます",
+	"우박이 떨어집니다": "雹が降り始めます",
+	"사막화가 시작됩니다": "砂漠化が始まります",
+	"미풍이 잦아들었습니다": "そよ風が弱まりました",
+	"강풍이 멎었습니다": "強風が止みました",
+	"불길이 꺼졌습니다": "炎が消えました",
+	"빙판이 녹았습니다": "氷床が溶けました",
+	"소나기가 그쳤습니다": "にわか雨が止みました",
+	"우박이 그쳤습니다": "雹が止みました",
+	"모래가 가라앉았습니다": "砂が落ち着きました",
+	"제한 없음": "制限なし",
+	"약함": "弱い",
+	"낮음": "低い",
+	"보통": "普通",
+	"강함": "強い",
+	"최대": "最大",
+	"절대적인": "絶対的な",
+	"궁극의": "究極の",
+	"초신성의": "超新星の",
+	"신화적인": "神話的な",
+	"절대무쌍한": "無双の",
+	"고대영웅의": "古代英雄の",
+	"고급": "高級",
+	"장인의": "職人の",
+	"고품질의": "高品質の",
+	"신성한": "神聖な",
+	"명장의": "名匠の",
+	"완벽한": "完璧な",
+	"영롱한": "玲瓏な",
+	"찬란한": "輝かしい",
+	"비범한": "非凡な",
+	"고성능의": "高性能の",
+	"세련된": "洗練された",
+	"괜찮은": "良質な",
+	"평범한": "標準の",
+	"무난한": "安定した",
+	"실용적인": "実用的な",
+	"준수한": "堅実な",
+	"보강된": "補強された",
+	"균형 잡힌": "バランスの取れた",
+	"낡은": "古びた",
+	"오래된": "古い",
+	"녹슨": "錆びた",
+	"손상된": "損傷した",
+	"떼묻은": "汚れた",
+	"싸구려": "安物の",
+	"저급의": "低級の",
+	"부실한": "脆い",
+	"회": "回",
+	"개": "個",
+	"칸": "枠",
+	"골드": "ゴールド",
+	"초": "秒",
+}
+
 const QUALITY_PREFIXES_EN := {
 	"top": ["Absolute", "Ultimate", "Supernova", "Mythic", "Peerless", "Ancient Hero's"],
 	"high": ["Advanced", "Artisan", "High-Quality", "Divine", "Masterwork", "Perfect", "Radiant", "Brilliant", "Exceptional", "High-Performance"],
@@ -1801,6 +2212,13 @@ const QUALITY_PREFIXES_ZH := {
 	"high": ["高级", "匠人", "高品质", "神圣", "名匠", "完美", "玲珑", "灿烂", "非凡", "高性能"],
 	"mid": ["精致", "不错", "标准", "可靠", "实用", "均衡", "加固", "平衡"],
 	"low": ["陈旧", "老旧", "生锈", "受损", "污旧", "廉价", "低级", "劣质", ""],
+}
+
+const QUALITY_PREFIXES_JA := {
+	"top": ["絶対的な", "究極の", "超新星の", "神話的な", "無双の", "古代英雄の"],
+	"high": ["高級", "職人の", "高品質の", "神聖な", "名匠の", "完璧な", "玲瓏な", "輝かしい", "非凡な", "高性能の"],
+	"mid": ["洗練された", "良質な", "標準の", "安定した", "実用的な", "堅実な", "補強された", "バランスの取れた"],
+	"low": ["古びた", "古い", "錆びた", "損傷した", "汚れた", "安物の", "低級の", "脆い", ""],
 }
 
 const TEXT := {
@@ -1873,6 +2291,7 @@ const TEXT := {
 		"language.ko": "한국어",
 		"language.en": "English",
 		"language.zh": "简体中文",
+		"language.ja": "日本語",
 		"main_menu.quit_prompt": "나가시겠습니까?",
 		"main_menu.yes": "예",
 		"main_menu.no": "아니오",
@@ -1946,6 +2365,7 @@ const TEXT := {
 		"language.ko": "Korean",
 		"language.en": "English",
 		"language.zh": "Simplified Chinese",
+		"language.ja": "Japanese",
 		"main_menu.quit_prompt": "Quit the game?",
 		"main_menu.yes": "Yes",
 		"main_menu.no": "No",
@@ -2019,9 +2439,84 @@ const TEXT := {
 		"language.ko": "韩语",
 		"language.en": "英语",
 		"language.zh": "简体中文",
+		"language.ja": "日语",
 		"main_menu.quit_prompt": "要退出游戏吗？",
 		"main_menu.yes": "是",
 		"main_menu.no": "否",
+	},
+	LANGUAGE_JAPANESE: {
+		"app.title": "DiskHearts - Ringpia",
+		"pause.title": "一時停止",
+		"pause.continue": "続ける",
+		"pause.character_info": "キャラクター情報",
+		"pause.options": "オプション",
+		"settings.title": "設定",
+		"settings.tab.sound": "サウンド",
+		"settings.tab.display": "表示",
+		"settings.tab.controls": "操作",
+		"settings.tab.language": "言語",
+		"settings.back": "戻る",
+		"settings.close": "閉じる",
+		"settings.save": "保存",
+		"sound.bgm_volume": "BGM音量",
+		"sound.sfx_volume": "効果音音量",
+		"display.mode": "画面モード",
+		"display.mode.fullscreen": "全画面",
+		"display.mode.exclusive": "排他",
+		"display.mode.windowed": "ウィンドウ",
+		"display.desc.exclusive": "排他全画面でDWM合成を回避します。",
+		"display.desc.fullscreen": "ネイティブ解像度の全画面で表示します。",
+		"display.desc.windowed": "柱背景つきのウィンドウモードで表示します。",
+		"display.render_fps": "描画FPS",
+		"display.fps.unlimited": "制限なし",
+		"display.fps.monitor": "モニター %d Hz",
+		"display.remember.title": "現在の表示設定を保存",
+		"display.remember.subtitle": "次回起動からこの画面モードとリフレッシュ設定を使用",
+		"display.auto60.title": "60Hzモード自動切替",
+		"display.auto60.subtitle": "特定モニターで60Hzペーシングが必要な時のみ使用",
+		"display.recommend.apply": "推奨値を適用",
+		"display.apply60": "60Hzモード",
+		"display.recommendation.ready": "%dHzモニターを検出：描画FPSは現在のリフレッシュレートに追従します。\nモニターを変更すると、次回適用時に新しいリフレッシュレートへ追従します。",
+		"display.recommendation.monitor": "%dHzモニターを検出：描画FPSは現在のリフレッシュレートに追従します。\n排他全画面とVSync Autoを推奨します。",
+		"display.recommendation.default": "%dHzモニターを検出：描画FPSをモニターHzにすると自動で合わせます。\n推奨値を適用すると現在のリフレッシュレート基準で保存します。",
+		"display.recommendation.fallback": "描画FPSをモニターHzにすると現在のリフレッシュレートへ自動で合わせます。\n排他全画面とVSync Autoを推奨します。",
+		"controls.device": "入力デバイス",
+		"controls.keyboard_mouse": "キーボード+マウス",
+		"controls.joypad": "ゲームパッド",
+		"controls.vibration": "振動感度",
+		"controls.map.move": "移動",
+		"controls.map.dash_skill": "ダッシュ / スキル",
+		"controls.map.active_item": "アクティブアイテム",
+		"controls.map.supply_hold": "補給ホールド",
+		"controls.map.weapon_switch": "武器切替",
+		"controls.map.confirm_cancel_pause": "決定 / キャンセル / 一時停止",
+		"controls.value.joypad.move": "左スティック / D-pad",
+		"controls.value.joypad.dash_skill": "ダッシュ：Bまたは下 / スキル：A / X / RT",
+		"controls.value.joypad.active_item": "LB/RBまたは右スティック左右で選択 / Yで使用",
+		"controls.value.joypad.supply_hold": "LT",
+		"controls.value.joypad.weapon_switch": "右スティック上下 / R3",
+		"controls.value.joypad.confirm_cancel_pause": "A / B / メニュー",
+		"controls.value.keyboard.move": "A,D,W,S / 矢印キー",
+		"controls.value.keyboard.dash_skill": "Space / X / 左クリック",
+		"controls.value.keyboard.active_item": "1 / 2 / 3",
+		"controls.value.keyboard.supply_hold": "S / 右クリック",
+		"controls.value.keyboard.weapon_switch": "マウスホイール / 中ボタン",
+		"controls.value.keyboard.confirm_cancel_pause": "Enter / Esc",
+		"vibration.1": "弱い",
+		"vibration.2": "低い",
+		"vibration.3": "普通",
+		"vibration.4": "強い",
+		"vibration.5": "最大",
+		"language.title": "言語",
+		"language.subtitle": "言語はすぐ保存され、適用されます。",
+		"language.current": "現在の言語：%s",
+		"language.ko": "韓国語",
+		"language.en": "英語",
+		"language.zh": "簡体字中国語",
+		"language.ja": "日本語",
+		"main_menu.quit_prompt": "ゲームを終了しますか？",
+		"main_menu.yes": "はい",
+		"main_menu.no": "いいえ",
 	},
 }
 
@@ -2067,7 +2562,7 @@ static func normalize_language(language: String) -> String:
 		normalized = LANGUAGE_KOREAN
 	if normalized == "zh_cn" or normalized == "zh-cn" or normalized == "zh_hans" or normalized == "zh-hans" or normalized == "chinese" or normalized == "中文" or normalized == "简体中文":
 		normalized = LANGUAGE_CHINESE
-	if normalized == "ja_jp" or normalized == "ja-jp" or normalized == "japanese" or normalized == "日本語":
+	if normalized == "ja_jp" or normalized == "ja-jp" or normalized == "japanese" or normalized == "日本語" or normalized == "にほんご":
 		normalized = LANGUAGE_JAPANESE
 	if SUPPORTED_LANGUAGES.has(normalized):
 		return normalized
@@ -2086,6 +2581,8 @@ static func get_native_language_name(language: String) -> String:
 static func _get_exact_text_map(language: String) -> Dictionary:
 	if language == LANGUAGE_CHINESE:
 		return EXACT_TEXT_ZH
+	if language == LANGUAGE_JAPANESE:
+		return EXACT_TEXT_JA
 	return EXACT_TEXT_EN
 
 
@@ -2108,24 +2605,32 @@ static func _get_mythic_description_map(language: String) -> Dictionary:
 static func _get_perk_name_map(language: String) -> Dictionary:
 	if language == LANGUAGE_CHINESE:
 		return PERK_NAME_ZH
+	if language == LANGUAGE_JAPANESE:
+		return PERK_NAME_JA
 	return PERK_NAME_EN
 
 
 static func _get_perk_summary_map(language: String) -> Dictionary:
 	if language == LANGUAGE_CHINESE:
 		return PERK_SUMMARY_ZH
+	if language == LANGUAGE_JAPANESE:
+		return PERK_SUMMARY_JA
 	return PERK_SUMMARY_EN
 
 
 static func _get_character_map(language: String) -> Dictionary:
 	if language == LANGUAGE_CHINESE:
 		return CHARACTER_ZH
+	if language == LANGUAGE_JAPANESE:
+		return CHARACTER_JA
 	return CHARACTER_EN
 
 
 static func _get_quality_prefix_map(language: String) -> Dictionary:
 	if language == LANGUAGE_CHINESE:
 		return QUALITY_PREFIXES_ZH
+	if language == LANGUAGE_JAPANESE:
+		return QUALITY_PREFIXES_JA
 	return QUALITY_PREFIXES_EN
 
 
@@ -2249,9 +2754,14 @@ static func localize_reward_data(reward_data: Dictionary) -> Dictionary:
 
 
 static func localize_skill_config_data(skill_data: Dictionary, skill_name: String) -> void:
-	if get_language() != LANGUAGE_CHINESE:
+	var language := get_language()
+	var localized: Dictionary = {}
+	if language == LANGUAGE_CHINESE:
+		localized = SKILL_DATA_ZH.get(skill_name, {})
+	elif language == LANGUAGE_JAPANESE:
+		localized = SKILL_DATA_JA.get(skill_name, {})
+	else:
 		return
-	var localized: Dictionary = SKILL_DATA_ZH.get(skill_name, {})
 	for field in localized.keys():
 		skill_data[str(field)] = localized[field]
 
@@ -2262,6 +2772,8 @@ static func format_stage_label(stage: int) -> String:
 		return "Stage %d" % stage
 	if language == LANGUAGE_CHINESE:
 		return "第%d关" % stage
+	if language == LANGUAGE_JAPANESE:
+		return "ステージ%d" % stage
 	return "스테이지 %d" % stage
 
 
@@ -2272,6 +2784,8 @@ static func format_stage_character_label(stage: int, character_name: String) -> 
 		return "Stage %d / %s" % [stage, localized_name]
 	if language == LANGUAGE_CHINESE:
 		return "第%d关 / %s" % [stage, localized_name]
+	if language == LANGUAGE_JAPANESE:
+		return "ステージ%d / %s" % [stage, localized_name]
 	return "스테이지 %d  /  %s" % [stage, localized_name]
 
 
@@ -2281,6 +2795,8 @@ static func format_stage_result_label(stage: int) -> String:
 		return "Stage %d Results" % stage
 	if language == LANGUAGE_CHINESE:
 		return "第%d关结果" % stage
+	if language == LANGUAGE_JAPANESE:
+		return "ステージ%d結果" % stage
 	return "스테이지 %d 결과" % stage
 
 
@@ -2290,6 +2806,8 @@ static func format_stage_transition_subtitle(stage: int) -> String:
 		return "Stage %d / Next Boss Preview" % stage
 	if language == LANGUAGE_CHINESE:
 		return "第%d关 / 下一个首领预告" % stage
+	if language == LANGUAGE_JAPANESE:
+		return "ステージ%d / 次のボス予告" % stage
 	return "스테이지 %d  /  다음 보스 예고" % stage
 
 
@@ -2299,6 +2817,8 @@ static func format_stage_transition_status(stage: int) -> String:
 		return "Preparing Stage %d boss data" % stage
 	if language == LANGUAGE_CHINESE:
 		return "正在准备第%d关首领数据" % stage
+	if language == LANGUAGE_JAPANESE:
+		return "ステージ%dのボスデータを準備中" % stage
 	return "스테이지 %d 보스 데이터를 준비 중" % stage
 
 
@@ -2308,6 +2828,8 @@ static func format_item_box_summary(count: int) -> String:
 		return "%d Item Box%s" % [count, "" if count == 1 else "es"]
 	if language == LANGUAGE_CHINESE:
 		return "%d个道具箱" % count
+	if language == LANGUAGE_JAPANESE:
+		return "アイテム箱%d個" % count
 	return "아이템 상자 %d개" % count
 
 
@@ -2327,6 +2849,8 @@ static func format_select_label(name: String) -> String:
 		return "Select %s" % localized_name
 	if language == LANGUAGE_CHINESE:
 		return "选择%s" % localized_name
+	if language == LANGUAGE_JAPANESE:
+		return "%sを選択" % localized_name
 	return "%s 선택" % localized_name
 
 
@@ -2388,89 +2912,127 @@ static func _translate_known_patterns(text: String) -> String:
 	if text.begins_with("게이지 "):
 		if language == LANGUAGE_CHINESE:
 			return "能量 %s" % text.substr("게이지 ".length())
+		if language == LANGUAGE_JAPANESE:
+			return "ゲージ %s" % text.substr("게이지 ".length())
 		return "Gauge %s" % text.substr("게이지 ".length())
 	if text.begins_with("대시 토큰 "):
 		if language == LANGUAGE_CHINESE:
 			return "冲刺令牌 %s" % text.substr("대시 토큰 ".length())
+		if language == LANGUAGE_JAPANESE:
+			return "ダッシュトークン %s" % text.substr("대시 토큰 ".length())
 		return "Dash Tokens %s" % text.substr("대시 토큰 ".length())
 	if text.begins_with("선택 대기: "):
 		if language == LANGUAGE_CHINESE:
 			return "待选择：%s" % text.substr("선택 대기: ".length())
+		if language == LANGUAGE_JAPANESE:
+			return "選択待ち：%s" % text.substr("선택 대기: ".length())
 		return "Choices Waiting: %s" % text.substr("선택 대기: ".length())
 	if text.begins_with("선택 대기 "):
 		if language == LANGUAGE_CHINESE:
 			return "待选择 %s" % text.substr("선택 대기 ".length())
+		if language == LANGUAGE_JAPANESE:
+			return "選択待ち %s" % text.substr("선택 대기 ".length())
 		return "Choices Waiting %s" % text.substr("선택 대기 ".length())
 	if text.begins_with("퍽 골드: "):
 		if language == LANGUAGE_CHINESE:
 			return "升级金币：%s" % text.substr("퍽 골드: ".length())
+		if language == LANGUAGE_JAPANESE:
+			return "パークゴールド：%s" % text.substr("퍽 골드: ".length())
 		return "Perk Gold: %s" % text.substr("퍽 골드: ".length())
 	if text.begins_with("퍽 골드 "):
 		if language == LANGUAGE_CHINESE:
 			return "升级金币 %s" % text.substr("퍽 골드 ".length())
+		if language == LANGUAGE_JAPANESE:
+			return "パークゴールド %s" % text.substr("퍽 골드 ".length())
 		return "Perk Gold %s" % text.substr("퍽 골드 ".length())
 	if text.begins_with("추가 ") and text.ends_with("개"):
 		if language == LANGUAGE_CHINESE:
 			return "额外%s个" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
+		if language == LANGUAGE_JAPANESE:
+			return "追加%s個" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
 		return "Extra %s" % text.substr("추가 ".length(), text.length() - "추가 ".length() - 1)
 	if text.begins_with("보유 ") and text.find(" / 장착 ") >= 0:
 		var parts := text.replace("보유 ", "").split(" / 장착 ", false)
 		if parts.size() == 2:
 			if language == LANGUAGE_CHINESE:
 				return "持有 %s / 装备 %s" % [parts[0], parts[1]]
+			if language == LANGUAGE_JAPANESE:
+				return "所持 %s / 装備 %s" % [parts[0], parts[1]]
 			return "Owned %s / Equipped %s" % [parts[0], parts[1]]
 	if text.begins_with("장착: "):
 		if language == LANGUAGE_CHINESE:
 			return "装备：%s" % translate_text(text.substr("장착: ".length()))
+		if language == LANGUAGE_JAPANESE:
+			return "装備：%s" % translate_text(text.substr("장착: ".length()))
 		return "Equipped: %s" % translate_text(text.substr("장착: ".length()))
 	if text.begins_with("부위 : "):
 		if language == LANGUAGE_CHINESE:
+			return "部位：%s" % translate_text(text.substr("부위 : ".length()))
+		if language == LANGUAGE_JAPANESE:
 			return "部位：%s" % translate_text(text.substr("부위 : ".length()))
 		return "Part: %s" % translate_text(text.substr("부위 : ".length()))
 	if text.begins_with("슬롯 "):
 		if language == LANGUAGE_CHINESE:
 			return "栏位 %s" % text.substr("슬롯 ".length())
+		if language == LANGUAGE_JAPANESE:
+			return "スロット %s" % text.substr("슬롯 ".length())
 		return "Slot %s" % text.substr("슬롯 ".length())
 	if text.begins_with("비용 ") and text.find("  쿨타임 ") >= 0:
 		var skill_parts := text.replace("비용 ", "").split("  쿨타임 ", false)
 		if skill_parts.size() == 2:
 			if language == LANGUAGE_CHINESE:
 				return "费用 %s  冷却 %s" % [skill_parts[0], translate_text(skill_parts[1])]
+			if language == LANGUAGE_JAPANESE:
+				return "費用 %s  クールタイム %s" % [skill_parts[0], translate_text(skill_parts[1])]
 			return "Cost %s  Cooldown %s" % [skill_parts[0], translate_text(skill_parts[1])]
 	if text.begins_with("스테이지 ") and text.ends_with(" 결과 화면"):
 		var stage_result := text.replace("스테이지 ", "").replace(" 결과 화면", "")
 		if language == LANGUAGE_CHINESE:
 			return "第%s关结果画面" % stage_result
+		if language == LANGUAGE_JAPANESE:
+			return "ステージ%s結果画面" % stage_result
 		return "Stage %s Result Screen" % stage_result
 	if text.begins_with("스테이지 ") and text.ends_with(" 결과"):
 		var stage_number := text.replace("스테이지 ", "").replace(" 결과", "")
 		if language == LANGUAGE_CHINESE:
 			return "第%s关结果" % stage_number
+		if language == LANGUAGE_JAPANESE:
+			return "ステージ%s結果" % stage_number
 		return "Stage %s Results" % stage_number
 	if text.begins_with("스테이지 "):
 		var stage_label := text.replace("스테이지 ", "")
 		if stage_label.is_valid_int():
 			if language == LANGUAGE_CHINESE:
 				return "第%s关" % stage_label
+			if language == LANGUAGE_JAPANESE:
+				return "ステージ%s" % stage_label
 			return "Stage %s" % stage_label
 	if text.ends_with(" 선택"):
 		if language == LANGUAGE_CHINESE:
 			return "选择%s" % translate_text(text.substr(0, text.length() - 3))
+		if language == LANGUAGE_JAPANESE:
+			return "%sを選択" % translate_text(text.substr(0, text.length() - 3))
 		return "Select %s" % translate_text(text.substr(0, text.length() - 3))
 	if text.begins_with("쿨타임 ") and text.ends_with("초"):
 		var seconds := text.replace("쿨타임 ", "").replace("초", "")
 		if language == LANGUAGE_CHINESE:
 			return "冷却%s秒" % seconds
+		if language == LANGUAGE_JAPANESE:
+			return "クールタイム%s秒" % seconds
 		return "Cooldown %ss" % seconds
 	if text.ends_with("초"):
 		var plain_seconds := text.substr(0, text.length() - 1)
 		if plain_seconds.is_valid_float():
 			if language == LANGUAGE_CHINESE:
 				return "%s秒" % plain_seconds
+			if language == LANGUAGE_JAPANESE:
+				return "%s秒" % plain_seconds
 			return "%ss" % plain_seconds
 	if text.ends_with(" 발견"):
 		if language == LANGUAGE_CHINESE:
 			return "发现%s" % translate_text(text.substr(0, text.length() - 3))
+		if language == LANGUAGE_JAPANESE:
+			return "%s発見" % translate_text(text.substr(0, text.length() - 3))
 		return "%s Found" % translate_text(text.substr(0, text.length() - 3))
 	return ""
 

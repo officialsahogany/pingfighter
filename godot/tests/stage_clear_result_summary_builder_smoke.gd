@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const SOURCE_STAGE := "stage"
 const SOURCE_BOX := "box"
@@ -12,6 +13,7 @@ func _init() -> void:
 	_verify_reward_summaries()
 	_verify_perk_info_summary()
 	_verify_perk_id_resolution()
+	_verify_japanese_perk_info_summary()
 	_verify_scene_delegates_summary_builder_directly()
 
 	if _failures.is_empty():
@@ -121,6 +123,23 @@ func _verify_perk_id_resolution() -> void:
 		StageClearResultSummaryBuilder.get_stage_summary_array({"perks": "bad"}, "perks").is_empty(),
 		"stage summary arrays should ignore malformed values"
 	)
+
+
+func _verify_japanese_perk_info_summary() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
+	var perk_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary(
+		[
+			{"type": "perk", "perk_id": "dash"},
+			{"type": "skill", "skill_id": "guard"},
+		],
+		3,
+		"ダッシュ強化",
+		"ダッシュ充填速度が増加します。"
+	)
+	_expect(str(perk_summary.get("title", "")) == "ダッシュ強化 他1個", "perk info extra count should localize to Japanese")
+	var starpoint_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary([], 2, "", "")
+	_expect(str(starpoint_summary.get("detail", "")) == "次回進行時、獲得数ぶんパーク選択画面が開きます。", "starpoint detail should localize to Japanese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
 func _verify_scene_delegates_summary_builder_directly() -> void:

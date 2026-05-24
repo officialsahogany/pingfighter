@@ -217,6 +217,8 @@ static func _format_cooldown_label(value: float) -> String:
 		return "Cooldown %s" % seconds_text
 	if language == LanguageSettings.LANGUAGE_CHINESE:
 		return "冷却%s" % seconds_text
+	if language == LanguageSettings.LANGUAGE_JAPANESE:
+		return "クールタイム%s" % seconds_text
 	return "쿨타임 %s" % seconds_text
 
 
@@ -229,10 +231,14 @@ static func _format_seconds(value: float) -> String:
 			return "%ds" % int(round(value))
 		if language == LanguageSettings.LANGUAGE_CHINESE:
 			return "%d秒" % int(round(value))
+		if language == LanguageSettings.LANGUAGE_JAPANESE:
+			return "%d秒" % int(round(value))
 		return "%d초" % int(round(value))
 	if language == LanguageSettings.LANGUAGE_ENGLISH:
 		return "%.1fs" % value
 	if language == LanguageSettings.LANGUAGE_CHINESE:
+		return "%.1f秒" % value
+	if language == LanguageSettings.LANGUAGE_JAPANESE:
 		return "%.1f秒" % value
 	return "%.1f초" % value
 
@@ -267,6 +273,8 @@ static func _get_tooltip_status_text(skill: Dictionary, style: Dictionary) -> St
 		return "Charge %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "充能 %d%%" % progress_percent
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "チャージ %d%%" % progress_percent
 	return "충전 %d%%" % progress_percent
 
 

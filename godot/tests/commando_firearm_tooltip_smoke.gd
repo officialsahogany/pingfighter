@@ -4,6 +4,7 @@ const CommandoFirearmSelectorRenderer := preload("res://scripts/hud/commando_fir
 const CommandoFirearmTooltipRenderer := preload("res://scripts/hud/commando_firearm_tooltip_renderer.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const CommandoWeaponController := preload("res://scripts/characters/commando_weapon_controller.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _failures: Array[String] = []
 
@@ -11,6 +12,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_permanent_firearm_tooltip_uses_final_cooldown()
 	_verify_rental_and_base_firearm_tooltip_text()
+	_verify_japanese_base_firearm_tooltip_text()
 
 	if _failures.is_empty():
 		print("commando_firearm_tooltip_smoke: ok")
@@ -127,6 +129,29 @@ func _verify_rental_and_base_firearm_tooltip_text() -> void:
 	_expect(str(rental_tooltip.get("ammo_text", "")) == "호출권 2/2", "rental firearm tooltip should expose weapon-specific ammo labels")
 	_expect(str(rental_tooltip.get("ownership_text", "")) == "대여 화기", "rental firearm tooltip should classify ownership in Korean")
 	_expect(str(rental_tooltip.get("reload_text", "")).contains("재장전 대상이 아닙니다"), "rental tooltip should clarify reload exclusion")
+
+
+func _verify_japanese_base_firearm_tooltip_text() -> void:
+	var selector := CommandoFirearmSelectorRenderer.new()
+	var tooltip := CommandoFirearmTooltipRenderer.new()
+	var skill_config := CommandoSkillConfig.new()
+	var controller := CommandoWeaponController.new()
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
+	var base_panel: Dictionary = selector.build_panel_state(Vector2(120.0, 280.0), 1.0, {"commando_weapon_controller": controller})
+	var base_tooltip: Dictionary = tooltip.build_hover_state(
+		base_panel,
+		Vector2(760.0, 750.0),
+		1.0,
+		{
+			"mouse_pos": _get_rect(base_panel.get("rect", Rect2())).get_center(),
+			"skill_config_snapshot": skill_config.get_snapshot(),
+		}
+	)
+	_expect(str(base_tooltip.get("ownership_text", "")) == "基本火器", "base firearm ownership should localize to Japanese")
+	_expect(str(base_tooltip.get("ready_text", "")) == "発射可能", "base firearm readiness should localize to Japanese")
+	_expect(str(base_tooltip.get("reload_text", "")).contains("150ゲージ"), "base firearm reload text should localize to Japanese")
+	_expect(str(base_tooltip.get("control_text", "")).contains("左クリック"), "base firearm controls should localize to Japanese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
 func _get_rect(value: Variant) -> Rect2:

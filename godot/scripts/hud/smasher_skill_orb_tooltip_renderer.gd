@@ -641,6 +641,8 @@ func _append_ignition_aura_runtime_bonus(description: String, hover_context: Dic
 		return "%s\nIgnition: invested perks Lv.+%d for 25s / gold +%d" % [description, active_bonus, gold_bonus]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "%s\n点火：25秒内已投资升级 Lv.+%d / 金币 +%d" % [description, active_bonus, gold_bonus]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "%s\nイグニッション：25秒間、投資パーク Lv.+%d / ゴールド +%d" % [description, active_bonus, gold_bonus]
 	return "%s\n이그니션: 25초 동안 투자 퍽 Lv.+%d / 골드 +%d" % [description, active_bonus, gold_bonus]
 
 
@@ -659,6 +661,13 @@ func _format_blade_amp_runtime_line(size_pct: int, projectile_speed_pct: int, hi
 			hit_speed_pct,
 			cost_cut,
 		]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "ブレード増幅：幅/距離 +%d%%、刃速 +%d%%、攻速 +%d%%、費用 -%d" % [
+			size_pct,
+			projectile_speed_pct,
+			hit_speed_pct,
+			cost_cut,
+		]
 	return "검기증폭: 폭/거리+%d%%, 검속+%d%%, 공속+%d%%, 비용-%d" % [
 		size_pct,
 		projectile_speed_pct,
@@ -672,6 +681,8 @@ func _format_blade_amp_lv3_line(homing_pct: int, followup_pct: int) -> String:
 		return "Lv3+: homing %d%%, extra blade %d%%" % [homing_pct, followup_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "Lv3+：追踪 %d%%，追加刀波 %d%%" % [homing_pct, followup_pct]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "Lv3+：誘導 %d%%、追加刃波 %d%%" % [homing_pct, followup_pct]
 	return "Lv3+: 유도 %d%%, 추가검기 %d%%" % [homing_pct, followup_pct]
 
 
@@ -680,6 +691,8 @@ func _format_kick_enhance_runtime_line(precision_pct: int, speed_pct: int) -> St
 		return "Kick Enhance: precision +%d%%, ball speed +%d%%" % [precision_pct, speed_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "踢击强化：精度 +%d%%，球速 +%d%%" % [precision_pct, speed_pct]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "キック強化：精度 +%d%%、球速 +%d%%" % [precision_pct, speed_pct]
 	return "킥 강화: 정밀도 +%d%%, 공속 +%d%%" % [precision_pct, speed_pct]
 
 
@@ -688,6 +701,8 @@ func _format_kick_knockback_runtime_line(knockback_chance_pct: int) -> String:
 		return "Lv3+: furnace knockback ball %d%%, guard knockback 150%%" % knockback_chance_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "Lv3+：熔炉击退球 %d%%，防御击退 150%%" % knockback_chance_pct
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "Lv3+：炉ノックバックボール %d%%、ガードノックバック 150%%" % knockback_chance_pct
 	return "Lv3+: 용광로 넉백볼 %d%%, 가드 넉백 150%%" % knockback_chance_pct
 
 
@@ -696,6 +711,8 @@ func _format_four_poisons_dive_line(prep_pct: int, sleep_pct: int) -> String:
 		return "Four Poisons: prep -%d%%, sleep +%d%%" % [prep_pct, sleep_pct]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "四毒：准备 -%d%%，睡眠 +%d%%" % [prep_pct, sleep_pct]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "四毒：準備 -%d%%、睡眠 +%d%%" % [prep_pct, sleep_pct]
 	return "사독: 준비 -%d%%, 수면 +%d%%" % [prep_pct, sleep_pct]
 
 
@@ -704,6 +721,8 @@ func _format_four_poisons_dual_line(duration_pct: int, clone_hp: int) -> String:
 		return "Four Poisons: duration +%d%%, clone HP %d" % [duration_pct, clone_hp]
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "四毒：持续 +%d%%，分身HP %d" % [duration_pct, clone_hp]
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "四毒：持続 +%d%%、分身HP %d" % [duration_pct, clone_hp]
 	return "사독: 지속 +%d%%, 분신 HP %d" % [duration_pct, clone_hp]
 
 
@@ -712,6 +731,8 @@ func _format_four_poisons_dual_lv5_line() -> String:
 		return "Four Poisons Lv5: clones copy skills while active"
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "四毒Lv5：主动期间分身复制技能"
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "四毒Lv5：アクティブ中、分身がスキルをコピー"
 	return "사독 Lv5: active 중 분신 스킬 복제"
 
 
@@ -719,6 +740,8 @@ func _format_four_poisons_nerve_line(confusion_pct: int) -> String:
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 		return "Four Poisons: confusion +%d%%" % confusion_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
+		return "四毒：混乱 +%d%%" % confusion_pct
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
 		return "四毒：混乱 +%d%%" % confusion_pct
 	return "사독: 혼란 +%d%%" % confusion_pct
 
@@ -728,6 +751,8 @@ func _format_cooldown_reduction_runtime_line(cooldown_pct: int) -> String:
 		return "cooldown -%d%%" % cooldown_pct
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "冷却 -%d%%" % cooldown_pct
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
+		return "クールタイム -%d%%" % cooldown_pct
 	return "쿨 -%d%%" % cooldown_pct
 
 
