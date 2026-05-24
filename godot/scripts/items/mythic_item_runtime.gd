@@ -545,17 +545,28 @@ func discard_inventory_item(index: int, owner: Object, registry: Object = null) 
 
 func debug_toggle_megingjord(owner: Object, registry: Object) -> bool:
 	_ensure_helpers_ready()
-	return debug_inventory.debug_toggle_megingjord(self, owner, registry, CONTEXT_CONSTANTS)
+	return ownership_runtime.toggle_inventory_item_by_name(
+		self,
+		str(CONTEXT_CONSTANTS.get("item_megingjord", "megingjord")),
+		owner,
+		registry
+	)
 
 
 func debug_toggle_item(item_name: String, owner: Object, registry: Object) -> bool:
 	_ensure_helpers_ready()
-	return debug_inventory.debug_toggle_item(self, item_name, owner, registry)
+	return ownership_runtime.toggle_inventory_item_by_name(self, item_name, owner, registry)
 
 
 func debug_add_item_to_inventory(item_name: String, owner: Object, registry: Object, roll_overrides: Dictionary = {}) -> bool:
 	_ensure_helpers_ready()
-	return debug_inventory.debug_add_item_to_inventory(self, item_name, owner, registry, roll_overrides)
+	return ownership_runtime.add_inventory_item_for_debug(
+		self,
+		item_name,
+		owner,
+		registry,
+		roll_overrides
+	)
 
 
 func debug_build_roll_editor_item(item_name: String, roll_overrides: Dictionary = {}) -> Dictionary:

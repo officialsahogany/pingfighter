@@ -322,9 +322,9 @@ This section is intentionally long; use search to find the nearest owner.
   max-two chain activation limit, extra-pick chance reads, and new-batch
   Dowsing trigger cleanup are delegated to
   `scripts/items/mythic_item_perk_choice_runtime.gd`; owned-item name
-  queries, public/debug inventory item read/count snapshots, roll-editor
-  inventory ensure routing, and one-time passive / used-Revival field-spawn
-  skip rules are delegated to
+  queries, public/debug inventory item read/count snapshots, debug inventory
+  toggle/add routing, roll-editor inventory ensure routing, and one-time
+  passive / used-Revival field-spawn skip rules are delegated to
   `scripts/items/mythic_item_ownership_runtime.gd`; the
   field-effect renderer now owns the Baal / Foul Whistle / Revival / Sensor
   draw fanout directly instead of bouncing through thin runtime `_draw_*`

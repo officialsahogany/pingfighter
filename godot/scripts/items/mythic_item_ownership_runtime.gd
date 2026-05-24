@@ -30,6 +30,27 @@ func get_inventory_item_counts(runtime: Object) -> Dictionary:
 	return counts
 
 
+func toggle_inventory_item_by_name(runtime: Object, item_name: String, owner: Object, registry: Object) -> bool:
+	if item_name == "":
+		return false
+	var index: int = runtime.equipment_index.find_inventory_index_by_name(runtime, item_name)
+	if index < 0:
+		return runtime.acquire_item(item_name, owner, registry, {}, true, true) >= 0
+	return runtime.toggle_inventory_item(index, owner, registry)
+
+
+func add_inventory_item_for_debug(
+	runtime: Object,
+	item_name: String,
+	owner: Object,
+	registry: Object,
+	roll_overrides: Dictionary = {}
+) -> bool:
+	if item_name == "":
+		return false
+	return runtime.acquire_item(item_name, owner, registry, roll_overrides, true, true) >= 0
+
+
 func ensure_inventory_item_for_roll_editor(runtime: Object, item_name: String, owner: Object, registry: Object) -> int:
 	if item_name == "":
 		return -1

@@ -1,35 +1,6 @@
 extends RefCounted
 
 
-func debug_toggle_megingjord(runtime: Object, owner: Object, registry: Object, constants: Dictionary) -> bool:
-	var item_megingjord: String = str(constants.get("item_megingjord", "megingjord"))
-	var index: int = runtime.equipment_index.find_inventory_index_by_name(runtime, item_megingjord)
-	if index < 0:
-		return runtime.acquire_item(item_megingjord, owner, registry, {}, true, true) >= 0
-	return runtime.toggle_inventory_item(index, owner, registry)
-
-
-func debug_toggle_item(runtime: Object, item_name: String, owner: Object, registry: Object) -> bool:
-	if item_name == "":
-		return false
-	var index: int = runtime.equipment_index.find_inventory_index_by_name(runtime, item_name)
-	if index < 0:
-		return runtime.acquire_item(item_name, owner, registry, {}, true, true) >= 0
-	return runtime.toggle_inventory_item(index, owner, registry)
-
-
-func debug_add_item_to_inventory(
-	runtime: Object,
-	item_name: String,
-	owner: Object,
-	registry: Object,
-	roll_overrides: Dictionary = {}
-) -> bool:
-	if item_name == "":
-		return false
-	return runtime.acquire_item(item_name, owner, registry, roll_overrides, true, true) >= 0
-
-
 func debug_build_roll_editor_item(runtime: Object, item_name: String, roll_overrides: Dictionary = {}) -> Dictionary:
 	if item_name == "":
 		return {}
