@@ -101,3 +101,43 @@ static func apply_serve_wait_firearm_input_cleared(target: Object) -> void:
 	else:
 		target.set("pistol_pending_config", {})
 	target.set("pistol_pending_weapon_id", "")
+
+
+static func handle_firearm_reset_input(
+	input_snapshot: Dictionary,
+	special_gauge: float,
+	weapon_controller: Object,
+	now_msec: int,
+	target: Object,
+	base_weapon_id: String
+) -> Dictionary:
+	var reset_pressed: bool = bool(input_snapshot.get(
+		"firearm_reset_just_pressed",
+		input_snapshot.get("mouse_middle_just_pressed", false)
+	))
+	if not reset_pressed:
+		return {}
+	if weapon_controller == null:
+		return {}
+	var previous_weapon_id := base_weapon_id
+	if weapon_controller.has_method("get_current_weapon_data"):
+		previous_weapon_id = str(weapon_controller.get_current_weapon_data().get("weapon_id", base_weapon_id))
+	var switched := false
+	if weapon_controller.has_method("select_base_weapon"):
+		switched = bool(weapon_controller.select_base_weapon(now_msec))
+	elif weapon_controller.has_method("set_current_weapon"):
+		switched = bool(weapon_controller.set_current_weapon(base_weapon_id))
+	if not switched:
+		return {}
+	apply_ak47_trigger_cleared(target)
+	if target != null and bool(target.get("slingshot_charging")):
+		CommandoFirearmSlingshotState.apply_canceled_state(target)
+	return {
+		"handled": true,
+		"weapon_id": base_weapon_id,
+		"current_weapon_id": base_weapon_id,
+		"previous_weapon_id": previous_weapon_id,
+		"weapon_switched": previous_weapon_id != base_weapon_id,
+		"firearm_reset": true,
+		"special_gauge": special_gauge,
+	}

@@ -585,7 +585,14 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 		return timed_result
 	if CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
 		return _update_active_suicide_drone_input(input_snapshot, special_gauge, config, deps)
-	var reset_result: Dictionary = _handle_firearm_reset_input(input_snapshot, special_gauge, weapon_controller, now_msec)
+	var reset_result: Dictionary = CommandoFirearmControlState.handle_firearm_reset_input(
+		input_snapshot,
+		special_gauge,
+		weapon_controller,
+		now_msec,
+		self,
+		BASE_WEAPON_ID
+	)
 	if not reset_result.is_empty():
 		if bool(reset_result.get("weapon_switched", false)):
 			CommandoFirearmAudioDispatcher.play_first_audio_method(deps, ["play_commando_weapon_change"])
@@ -664,44 +671,6 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 		"fired": true,
 		"special_gauge": special_gauge,
 		"skill_gold_award": 0,
-	}
-
-
-func _handle_firearm_reset_input(
-	input_snapshot: Dictionary,
-	special_gauge: float,
-	weapon_controller: Object,
-	now_msec: int
-) -> Dictionary:
-	var reset_pressed: bool = bool(input_snapshot.get(
-		"firearm_reset_just_pressed",
-		input_snapshot.get("mouse_middle_just_pressed", false)
-	))
-	if not reset_pressed:
-		return {}
-	if weapon_controller == null:
-		return {}
-	var previous_weapon_id := BASE_WEAPON_ID
-	if weapon_controller.has_method("get_current_weapon_data"):
-		previous_weapon_id = str(weapon_controller.get_current_weapon_data().get("weapon_id", BASE_WEAPON_ID))
-	var switched := false
-	if weapon_controller.has_method("select_base_weapon"):
-		switched = bool(weapon_controller.select_base_weapon(now_msec))
-	elif weapon_controller.has_method("set_current_weapon"):
-		switched = bool(weapon_controller.set_current_weapon(BASE_WEAPON_ID))
-	if not switched:
-		return {}
-	CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
-	if slingshot_charging:
-		CommandoFirearmSlingshotState.apply_canceled_state(self)
-	return {
-		"handled": true,
-		"weapon_id": BASE_WEAPON_ID,
-		"current_weapon_id": BASE_WEAPON_ID,
-		"previous_weapon_id": previous_weapon_id,
-		"weapon_switched": previous_weapon_id != BASE_WEAPON_ID,
-		"firearm_reset": true,
-		"special_gauge": special_gauge,
 	}
 
 

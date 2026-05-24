@@ -15,6 +15,40 @@ class FakeRoundState:
 		return waiting_for_serve
 
 
+class FakeSelectWeaponController:
+	extends RefCounted
+
+	var weapon_id := "ak47"
+	var can_select := true
+	var select_calls := 0
+	var last_now_msec := -1
+
+	func get_current_weapon_data() -> Dictionary:
+		return {"weapon_id": weapon_id}
+
+	func select_base_weapon(now_msec: int = -1) -> bool:
+		select_calls += 1
+		last_now_msec = now_msec
+		if can_select:
+			weapon_id = "pistol"
+		return can_select
+
+
+class FakeSetOnlyWeaponController:
+	extends RefCounted
+
+	var weapon_id := "bazooka"
+	var set_calls := 0
+
+	func get_current_weapon_data() -> Dictionary:
+		return {"weapon_id": weapon_id}
+
+	func set_current_weapon(next_weapon_id: String) -> bool:
+		set_calls += 1
+		weapon_id = next_weapon_id
+		return true
+
+
 func _init() -> void:
 	_verify_direct_control_state()
 	_verify_runtime_delegates_control_state()
@@ -115,6 +149,60 @@ func _verify_direct_control_state() -> void:
 	_expect(serve_clear_runtime.pistol_pending_config.is_empty(), "serve-wait clear owner should clear pending pistol config")
 	_expect(serve_clear_runtime.pistol_pending_weapon_id == "", "serve-wait clear owner should clear pending pistol weapon id")
 
+	_expect(
+		CommandoFirearmControlState.handle_firearm_reset_input({}, 10.0, FakeSelectWeaponController.new(), 123, clear_runtime, "pistol").is_empty(),
+		"firearm reset owner should ignore snapshots without reset input"
+	)
+	_expect(
+		CommandoFirearmControlState.handle_firearm_reset_input({"firearm_reset_just_pressed": true}, 10.0, null, 123, clear_runtime, "pistol").is_empty(),
+		"firearm reset owner should ignore missing weapon controller"
+	)
+	var reset_runtime := CommandoFirearmRuntime.new()
+	reset_runtime.ak47_trigger_held = true
+	reset_runtime.ak47_burst_shots_remaining = 3
+	reset_runtime.slingshot_charging = true
+	reset_runtime.slingshot_charge_timer_frames = 21.0
+	reset_runtime.slingshot_charge_level = 2
+	reset_runtime.slingshot_gauge_spent = 30.0
+	var select_controller := FakeSelectWeaponController.new()
+	var reset_result: Dictionary = CommandoFirearmControlState.handle_firearm_reset_input(
+		{"firearm_reset_just_pressed": true},
+		77.0,
+		select_controller,
+		4567,
+		reset_runtime,
+		"pistol"
+	)
+	_expect(bool(reset_result.get("firearm_reset", false)), "firearm reset owner should expose reset result")
+	_expect(str(reset_result.get("previous_weapon_id", "")) == "ak47", "firearm reset owner should report previous weapon")
+	_expect(str(reset_result.get("current_weapon_id", "")) == "pistol", "firearm reset owner should report base weapon")
+	_expect(bool(reset_result.get("weapon_switched", false)), "firearm reset owner should mark real weapon switches")
+	_expect(is_equal_approx(float(reset_result.get("special_gauge", 0.0)), 77.0), "firearm reset owner should preserve special gauge")
+	_expect(select_controller.select_calls == 1 and select_controller.last_now_msec == 4567, "firearm reset owner should use select_base_weapon with timing")
+	_expect(not reset_runtime.ak47_trigger_held, "firearm reset owner should clear AK-47 trigger hold")
+	_expect(reset_runtime.ak47_burst_shots_remaining == 0, "firearm reset owner should clear AK-47 burst state")
+	_expect(not reset_runtime.slingshot_charging, "firearm reset owner should cancel active slingshot charge")
+	var blocked_controller := FakeSelectWeaponController.new()
+	blocked_controller.can_select = false
+	var blocked_runtime := CommandoFirearmRuntime.new()
+	blocked_runtime.ak47_trigger_held = true
+	_expect(
+		CommandoFirearmControlState.handle_firearm_reset_input({"firearm_reset_just_pressed": true}, 10.0, blocked_controller, 123, blocked_runtime, "pistol").is_empty(),
+		"firearm reset owner should return empty when controller refuses reset"
+	)
+	_expect(blocked_runtime.ak47_trigger_held, "firearm reset owner should not clear runtime state when reset is refused")
+	var set_only_controller := FakeSetOnlyWeaponController.new()
+	var fallback_result: Dictionary = CommandoFirearmControlState.handle_firearm_reset_input(
+		{"mouse_middle_just_pressed": true},
+		12.0,
+		set_only_controller,
+		222,
+		CommandoFirearmRuntime.new(),
+		"pistol"
+	)
+	_expect(bool(fallback_result.get("firearm_reset", false)), "firearm reset owner should support set_current_weapon fallback")
+	_expect(set_only_controller.set_calls == 1 and set_only_controller.weapon_id == "pistol", "firearm reset owner should set the base weapon through fallback")
+
 
 func _verify_runtime_delegates_control_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
@@ -134,6 +222,7 @@ func _verify_runtime_delegates_control_state() -> void:
 	_expect(source.find("func _clear_ak47_trigger_state(") == -1, "runtime should not keep AK-47 trigger-clear bridge")
 	_expect(source.find("func _should_suppress_fire_input_for_serve_wait(") == -1, "runtime should not keep serve-wait suppression bridge")
 	_expect(source.find("func _clear_serve_wait_firearm_input_state(") == -1, "runtime should not keep serve-wait input-clear bridge")
+	_expect(source.find("func _handle_firearm_reset_input(") == -1, "runtime should not keep firearm-reset bridge")
 
 
 func _expect(condition: bool, message: String) -> void:
