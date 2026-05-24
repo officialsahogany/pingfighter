@@ -6451,6 +6451,25 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1325`
   scripts with no GDScript warnings.
 
+202nd follow-up on 2026-05-24:
+
+- Commit: `4a28d1a03 godot: drop Commando support projectile bridge`.
+- Scope: removed the private `_build_support_round_projectile()` runtime
+  bridge. `_spawn_support_round()` now calls
+  `CommandoFirearmSupportProjectileResolver.build_projectile()` directly while
+  keeping shot-id allocation and projectile-array limits in the runtime. The
+  support projectile resolver smoke now verifies the public spawn path and
+  guards that the runtime build bridge stays removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3527` lines /
+  `142` functions to `3507` lines / `141` functions.
+- Validation: focused support projectile / runtime coverage passed:
+  `commando_firearm_support_projectile_resolver_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_support_call_resolver_smoke`. `git diff --check` reported
+  only the existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1325`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

@@ -4139,8 +4139,9 @@ This section is intentionally long; use search to find the nearest owner.
   projectile metadata, and profile/default value projection.
   `commando_firearm_runtime.gd`
   keeps shot-id allocation, projectile-array limits, aircraft timing, audio,
-  VFX, and damage handoff while delegating only this support-round
-  dictionary construction.
+  VFX, and damage handoff while calling this resolver directly for
+  support-round dictionary construction instead of preserving a private build
+  bridge.
 - `scripts/characters/commando_firearm_suicide_drone_ball_boost_resolver.gd`
   Owns pure Commando suicide-drone ball-boost result math: deterministic
   fan-angle selection, original / restore speed fallback, boosted speed, and
