@@ -9065,3 +9065,22 @@ commits rather than standalone `fix` commits:
   `project_resource_loader_import_preference_smoke`. The Godot headless load
   check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
   GDScript warnings, and `git diff --check` reported no whitespace errors.
+
+333rd follow-up on 2026-05-25:
+
+- Commit:
+  `a18a2bb33 godot: move Commando suicide drone collision state`.
+- Scope: moved suicide-drone runtime collision resolution into
+  `CommandoFirearmSuicideDroneState.resolve_runtime_collision()`. The state
+  owner now advances the active manual projectile and resolves grace, ball,
+  boss-body, top-wall, and expiry reasons. Runtime stores the updated
+  projectile and detonates only when the owner returns a non-empty reason.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2067` lines /
+  `34` functions to `2055` lines / `34` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_projectile_impact_state_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors.
