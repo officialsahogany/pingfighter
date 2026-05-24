@@ -1324,15 +1324,19 @@ func _verify_runtime_value_utils_integration() -> void:
 	var direct_dash_repeat: Dictionary = CommandoFirearmLingeringNetFieldState.get_dash_trigger_result({"dash_snapshot": {"active": true}}, {}, true)
 	_expect(not bool(direct_dash_repeat.get("dash_triggered", false)), "direct net dash trigger helper should reject repeated active dash state")
 	runtime.net_gun_last_dash_active = false
-	_expect(runtime._consume_net_gun_dash_trigger({"dash_snapshot": {"active": true}}), "net dash trigger helper should fire on a new active dash")
-	_expect(runtime.net_gun_last_dash_active, "net dash trigger helper should store active dash state")
-	_expect(not runtime._consume_net_gun_dash_trigger({"dash_snapshot": {"active": true}}), "net dash trigger helper should not repeat while dash stays active")
-	_expect(not runtime._consume_net_gun_dash_trigger({"dash_snapshot": {"active": false}}), "net dash trigger helper should not fire when dash turns off")
-	_expect(not runtime.net_gun_last_dash_active, "net dash trigger helper should store inactive dash state")
+	runtime.lingering_effects = []
+	runtime._update_lingering_effects(1.0, {"dash_snapshot": {"active": true}}, {})
+	_expect(runtime.net_gun_last_dash_active, "lingering update should store active dash state")
+	runtime._update_lingering_effects(1.0, {"dash_snapshot": {"active": true}}, {})
+	_expect(runtime.net_gun_last_dash_active, "lingering update should keep repeated active dash state")
+	runtime._update_lingering_effects(1.0, {"dash_snapshot": {"active": false}}, {})
+	_expect(not runtime.net_gun_last_dash_active, "lingering update should store inactive dash state")
 	var fake_dash_state := FakeDashState.new(true)
-	_expect(runtime._consume_net_gun_dash_trigger({"dash_snapshot": null}, {"dash_state": fake_dash_state}), "net dash trigger helper should read dash state dependencies")
+	runtime._update_lingering_effects(1.0, {"dash_snapshot": null}, {"dash_state": fake_dash_state})
+	_expect(runtime.net_gun_last_dash_active, "lingering update should read active dash state dependencies")
 	fake_dash_state.active = false
-	_expect(not runtime._consume_net_gun_dash_trigger({"dash_snapshot": null}, {"dash_state": fake_dash_state}), "net dash trigger helper should clear dependency dash state without firing")
+	runtime._update_lingering_effects(1.0, {"dash_snapshot": null}, {"dash_state": fake_dash_state})
+	_expect(not runtime.net_gun_last_dash_active, "lingering update should clear dependency dash state")
 	var direct_marked_broken_net := {
 		"weapon_id": "net_gun",
 		"hooked_player": true,
@@ -1360,7 +1364,7 @@ func _verify_runtime_value_utils_integration() -> void:
 		{"weapon_id": "net_gun", "hooked_player": true, "dissolve": true},
 		{"weapon_id": "ak47", "hooked_player": true},
 	]
-	runtime._break_hooked_net_fields()
+	CommandoFirearmLingeringNetFieldState.break_active_hooked_net_fields(runtime.lingering_effects, 24.0)
 	var broken_net: Dictionary = CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0])
 	_expect(not bool(broken_net.get("hooked_player", true)), "break hooked nets should clear hooked state on active net fields")
 	_expect(bool(broken_net.get("dissolve", false)), "break hooked nets should start dissolve on active net fields")
@@ -1593,6 +1597,8 @@ func _verify_removed_net_field_predicate_bridges() -> void:
 		"_sync_net_field_rope_origin",
 		"_should_sync_net_field_rope_origin",
 		"_has_hooked_net_field",
+		"_consume_net_gun_dash_trigger",
+		"_break_hooked_net_fields",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field predicate bridge %s" % bridge_name)
 

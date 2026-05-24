@@ -3109,8 +3109,17 @@ func _spawn_net_dissolve_effect(projectile: Dictionary, context: Dictionary) -> 
 func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var step: float = CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
 	var result: Dictionary = {}
-	if _consume_net_gun_dash_trigger(context, deps):
-		_break_hooked_net_fields()
+	var dash_trigger_result: Dictionary = CommandoFirearmLingeringNetFieldState.get_dash_trigger_result(
+		context,
+		deps,
+		net_gun_last_dash_active
+	)
+	net_gun_last_dash_active = bool(dash_trigger_result.get("dash_active", false))
+	if bool(dash_trigger_result.get("dash_triggered", false)):
+		CommandoFirearmLingeringNetFieldState.break_active_hooked_net_fields(
+			lingering_effects,
+			NET_GUN_DASH_BREAK_FRAMES
+		)
 	for index in range(lingering_effects.size() - 1, -1, -1):
 		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
 		_advance_lingering_effect_frame(effect, step)
@@ -3119,16 +3128,6 @@ func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dict
 		else:
 			lingering_effects.remove_at(index)
 	return result
-
-
-func _consume_net_gun_dash_trigger(context: Dictionary, deps: Dictionary = {}) -> bool:
-	var trigger_result: Dictionary = CommandoFirearmLingeringNetFieldState.get_dash_trigger_result(
-		context,
-		deps,
-		net_gun_last_dash_active
-	)
-	net_gun_last_dash_active = bool(trigger_result.get("dash_active", false))
-	return bool(trigger_result.get("dash_triggered", false))
 
 
 func _advance_lingering_effect_frame(effect: Dictionary, fps_scale: float) -> void:
@@ -3171,15 +3170,6 @@ func _apply_active_lingering_effect(
 	)
 	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
 	lingering_effects[index] = effect
-
-
-func _break_hooked_net_fields() -> void:
-	for index in range(lingering_effects.size()):
-		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
-		if not CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect):
-			continue
-		CommandoFirearmLingeringNetFieldState.mark_hooked_field_broken(effect, NET_GUN_DASH_BREAK_FRAMES)
-		lingering_effects[index] = effect
 
 
 func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps: Dictionary) -> void:

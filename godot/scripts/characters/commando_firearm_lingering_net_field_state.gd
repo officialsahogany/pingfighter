@@ -25,6 +25,15 @@ static func mark_hooked_field_broken(effect: Dictionary, dash_break_frames: floa
 	effect["status_id"] = ""
 
 
+static func break_active_hooked_net_fields(effects: Array, dash_break_frames: float) -> void:
+	for index in range(effects.size()):
+		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(effects[index])
+		if not is_active_hooked_net_field(effect):
+			continue
+		mark_hooked_field_broken(effect, dash_break_frames)
+		effects[index] = effect
+
+
 static func get_dash_trigger_result(context: Dictionary, deps: Dictionary, last_dash_active: bool) -> Dictionary:
 	var dash_active: bool = is_player_dash_active(context, deps)
 	return {
