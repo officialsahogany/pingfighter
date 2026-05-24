@@ -731,12 +731,38 @@ func _verify_runtime_value_utils_integration() -> void:
 	var net_audio := FakeNetConstrictAudio.new()
 	runtime.net_constrict_last_dir = -1
 	runtime.net_constrict_last_tick_msec = 1000
-	runtime._update_net_constrict_input({"right_pressed": true}, 1400, {"game_audio": net_audio})
+	var net_constrict_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_constrict_input(
+		runtime.lingering_effects,
+		{"right_pressed": true},
+		1400,
+		runtime.net_constrict_last_dir,
+		runtime.net_constrict_last_tick_msec,
+		CommandoFirearmRuntime.NET_CONSTRICT_MIN,
+		CommandoFirearmRuntime.NET_CONSTRICT_STEP,
+		CommandoFirearmRuntime.NET_CONSTRICT_WINDOW_MSEC,
+		net_audio
+	)
+	runtime.lingering_effects = CommandoFirearmValueUtils.get_array(net_constrict_result.get("effects", runtime.lingering_effects))
+	runtime.net_constrict_last_dir = int(net_constrict_result.get("last_dir", runtime.net_constrict_last_dir))
+	runtime.net_constrict_last_tick_msec = int(net_constrict_result.get("last_tick_msec", runtime.net_constrict_last_tick_msec))
 	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("constrict_factor", 0.0)), 0.76), "net constrict input path should update the first active net")
 	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("constrict_factor", 0.0)), 0.68), "net constrict input path should update every active candidate")
 	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[2]).get("constrict_factor", 0.0)), 0.6), "net constrict input path should clamp active nets at the floor")
 	_expect(net_audio.capture_calls == 1, "net constrict input path should play capture audio when available")
-	runtime._update_net_constrict_input({"left_pressed": true}, 1410, {"game_audio": RefCounted.new()})
+	net_constrict_result = CommandoFirearmLingeringNetFieldState.apply_net_constrict_input(
+		runtime.lingering_effects,
+		{"left_pressed": true},
+		1410,
+		runtime.net_constrict_last_dir,
+		runtime.net_constrict_last_tick_msec,
+		CommandoFirearmRuntime.NET_CONSTRICT_MIN,
+		CommandoFirearmRuntime.NET_CONSTRICT_STEP,
+		CommandoFirearmRuntime.NET_CONSTRICT_WINDOW_MSEC,
+		RefCounted.new()
+	)
+	runtime.lingering_effects = CommandoFirearmValueUtils.get_array(net_constrict_result.get("effects", runtime.lingering_effects))
+	runtime.net_constrict_last_dir = int(net_constrict_result.get("last_dir", runtime.net_constrict_last_dir))
+	runtime.net_constrict_last_tick_msec = int(net_constrict_result.get("last_tick_msec", runtime.net_constrict_last_tick_msec))
 	_expect(is_equal_approx(float(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("constrict_factor", 0.0)), 0.72), "net constrict input path should tolerate audio deps without capture methods")
 	_expect(net_audio.capture_calls == 1, "net constrict input path should not call the previous audio dep again")
 	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_pos({"pos": Vector2(12.0, 34.0)}) == Vector2(12.0, 34.0), "net field pos owner should read effect positions")
@@ -1627,6 +1653,7 @@ func _verify_removed_net_field_predicate_bridges() -> void:
 		"_should_apply_net_constrict_input",
 		"_get_next_net_constrict_factor",
 		"_get_net_constrict_factor",
+		"_update_net_constrict_input",
 		"_apply_net_constrict_to_indices",
 		"_play_net_constrict_audio",
 		"_get_net_constrict_candidate_indices",

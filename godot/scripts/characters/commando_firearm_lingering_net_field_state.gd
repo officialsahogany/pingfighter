@@ -277,6 +277,44 @@ static func should_apply_net_constrict_input(dir_input: int, now_msec: int, last
 	return should_record_net_constrict_input(dir_input, last_dir) and now_msec - last_tick_msec <= window_msec
 
 
+static func apply_net_constrict_input(
+	effects: Array,
+	input_snapshot: Dictionary,
+	now_msec: int,
+	last_dir: int,
+	last_tick_msec: int,
+	min_constrict_factor: float,
+	constrict_step: float,
+	window_msec: int,
+	audio: Object
+) -> Dictionary:
+	var active_indices: Array[int] = []
+	for index in range(effects.size()):
+		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(effects[index])
+		if is_net_constrict_candidate(effect, min_constrict_factor):
+			active_indices.append(index)
+	if active_indices.is_empty():
+		return {}
+	var dir_input: int = get_net_constrict_input_direction(input_snapshot)
+	if not should_record_net_constrict_input(dir_input, last_dir):
+		return {}
+	var applied := false
+	if should_apply_net_constrict_input(dir_input, now_msec, last_dir, last_tick_msec, window_msec):
+		for index in active_indices:
+			var effect: Dictionary = CommandoFirearmValueUtils.get_dict(effects[index])
+			effect["constrict_factor"] = get_next_net_constrict_factor(effect, min_constrict_factor, constrict_step)
+			effects[index] = effect
+		applied = true
+		if audio != null and audio.has_method("play_commando_net_gun_capture"):
+			audio.play_commando_net_gun_capture()
+	return {
+		"effects": effects,
+		"last_dir": dir_input,
+		"last_tick_msec": now_msec,
+		"applied": applied,
+	}
+
+
 static func get_next_net_constrict_factor(effect: Dictionary, min_constrict_factor: float, constrict_step: float) -> float:
 	var current: float = get_net_constrict_factor(effect, get_initial_constrict_factor())
 	return max(min_constrict_factor, current - constrict_step)

@@ -561,7 +561,21 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	if weapon_controller == null or not weapon_controller.has_method("get_snapshot"):
 		return {}
 	var now_msec: int = Time.get_ticks_msec()
-	_update_net_constrict_input(input_snapshot, now_msec, deps)
+	var net_constrict_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_constrict_input(
+		lingering_effects,
+		input_snapshot,
+		now_msec,
+		net_constrict_last_dir,
+		net_constrict_last_tick_msec,
+		NET_CONSTRICT_MIN,
+		NET_CONSTRICT_STEP,
+		NET_CONSTRICT_WINDOW_MSEC,
+		deps.get("game_audio", null)
+	)
+	if not net_constrict_result.is_empty():
+		lingering_effects = CommandoFirearmValueUtils.get_array(net_constrict_result.get("effects", lingering_effects))
+		net_constrict_last_dir = int(net_constrict_result.get("last_dir", net_constrict_last_dir))
+		net_constrict_last_tick_msec = int(net_constrict_result.get("last_tick_msec", net_constrict_last_tick_msec))
 	var current_weapon: Dictionary = weapon_controller.get_current_weapon_data()
 	var weapon_id: String = str(current_weapon.get("weapon_id", BASE_WEAPON_ID))
 	if weapon_controller.has_method("update_timers"):
@@ -1793,61 +1807,6 @@ func _update_active_suicide_drone_input(
 	return CommandoFirearmSuicideDroneState.build_active_input_result(projectile, special_gauge)
 
 
-func _advance_slingshot_charge(special_gauge: float) -> Dictionary:
-	var charge_result: Dictionary = CommandoFirearmSlingshotState.advance_charge(
-		slingshot_charge_timer_frames,
-		slingshot_gauge_spent,
-		special_gauge,
-		SLINGSHOT_GAUGE_COST,
-		SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES,
-		SLINGSHOT_CHARGE_THRESHOLD_1,
-		SLINGSHOT_CHARGE_THRESHOLD_2,
-		SLINGSHOT_CHARGE_THRESHOLD_3
-	)
-	slingshot_charge_timer_frames = float(charge_result.get("charge_timer_frames", slingshot_charge_timer_frames))
-	slingshot_charge_level = int(charge_result.get("charge_level", slingshot_charge_level))
-	slingshot_gauge_spent = float(charge_result.get("gauge_spent", slingshot_gauge_spent))
-	return {
-		"special_gauge": float(charge_result.get("special_gauge", special_gauge)),
-		"force_release": bool(charge_result.get("force_release", false)),
-	}
-
-
-func _release_slingshot(special_gauge: float, config: Dictionary, deps: Dictionary, reason: String = "released") -> Dictionary:
-	var charge_level: int = slingshot_charge_level
-	var charge_time: float = slingshot_charge_timer_frames
-	slingshot_charging = false
-	slingshot_charge_timer_frames = 0.0
-	slingshot_charge_level = 0
-	slingshot_gauge_spent = 0.0
-	if charge_time < SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES or charge_level < 1:
-		return CommandoFirearmSlingshotState.build_charge_canceled_result(BASE_WEAPON_ID, special_gauge)
-	var slingshot_profile: Dictionary = CommandoFirearmSlingshotState.build_fire_profile(
-		CommandoFirearmProfileResolver.get_weapon_profile(
-			BASE_WEAPON_ID,
-			WEAPON_PROFILES,
-			WEAPON_PROFILE_OVERRIDES
-		),
-		charge_level,
-		SLINGSHOT_PYTHON_SPEED_BY_LEVEL,
-		SLINGSHOT_BASE_BULLET_SPEED,
-		SLINGSHOT_PELLET_SIZE
-	)
-	_spawn_firearm_effect(BASE_WEAPON_ID, config, deps, slingshot_profile)
-	CommandoFirearmAudioDispatcher.play_fire_audio(BASE_WEAPON_ID, deps)
-	last_fire_msec = Time.get_ticks_msec()
-	slingshot_cooldown_frames = SLINGSHOT_COOLDOWN_FRAMES
-	slingshot_control_lock_frames = SLINGSHOT_CONTROL_LOCK_FRAMES
-	return CommandoFirearmSlingshotState.build_release_result(
-		BASE_WEAPON_ID,
-		charge_level,
-		charge_time,
-		SLINGSHOT_CONTROL_LOCK_FRAMES,
-		reason,
-		special_gauge
-	)
-
-
 func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictionary, profile_override: Dictionary = {}) -> void:
 	var fire_sheet_state: Dictionary = CommandoFirearmFireSheetResolver.build_animation_state(
 		weapon_id,
@@ -2807,41 +2766,6 @@ func _apply_active_lingering_effect(
 	)
 	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
 	lingering_effects[index] = effect
-
-
-func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps: Dictionary) -> void:
-	# Mirrors pingfighter.py _update_net_constrict: alternating L/R input within
-	# a short window narrows hooked nets by NET_CONSTRICT_STEP, floored at NET_CONSTRICT_MIN.
-	var active_indices: Array[int] = []
-	for index in range(lingering_effects.size()):
-		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
-		if CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate(effect, NET_CONSTRICT_MIN):
-			active_indices.append(index)
-	if active_indices.is_empty():
-		return
-	var dir_input: int = CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction(input_snapshot)
-	if not CommandoFirearmLingeringNetFieldState.should_record_net_constrict_input(dir_input, net_constrict_last_dir):
-		return
-	if CommandoFirearmLingeringNetFieldState.should_apply_net_constrict_input(
-		dir_input,
-		now_msec,
-		net_constrict_last_dir,
-		net_constrict_last_tick_msec,
-		NET_CONSTRICT_WINDOW_MSEC
-	):
-		for index in active_indices:
-			var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
-			effect["constrict_factor"] = CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor(
-				effect,
-				NET_CONSTRICT_MIN,
-				NET_CONSTRICT_STEP
-			)
-			lingering_effects[index] = effect
-		var audio: Object = deps.get("game_audio", null)
-		if audio != null and audio.has_method("play_commando_net_gun_capture"):
-			audio.play_commando_net_gun_capture()
-	net_constrict_last_dir = dir_input
-	net_constrict_last_tick_msec = now_msec
 
 
 func _next_shot_id() -> int:

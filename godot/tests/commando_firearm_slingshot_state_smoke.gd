@@ -90,22 +90,6 @@ func _verify_direct_slingshot_state() -> void:
 
 func _verify_runtime_delegates_slingshot_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	runtime.slingshot_charge_timer_frames = 29.0
-	var charged: Dictionary = runtime._advance_slingshot_charge(100.0)
-	_expect(is_equal_approx(float(charged.get("special_gauge", 0.0)), 80.0), "runtime charge helper should delegate gauge drain")
-	_expect(is_equal_approx(runtime.slingshot_charge_timer_frames, 30.0), "runtime charge helper should store timer")
-	_expect(runtime.slingshot_charge_level == 1, "runtime charge helper should store charge level")
-	_expect(is_equal_approx(runtime.slingshot_gauge_spent, 20.0), "runtime charge helper should store spent gauge")
-
-	runtime.slingshot_charge_level = 2
-	runtime.slingshot_charge_timer_frames = 95.0
-	var released: Dictionary = runtime._release_slingshot(80.0, {"player_pos": Vector2(100.0, 680.0)}, {}, "released")
-	_expect(bool(released.get("fired", false)), "runtime release path should produce a slingshot fire result")
-	_expect(runtime.projectiles.size() == 1, "runtime release path should spawn a slingshot projectile")
-	var runtime_projectile: Dictionary = runtime.projectiles[0]
-	_expect(bool(runtime_projectile.get("slingshot", false)), "runtime release path should build slingshot fire profile")
-	_expect(int(runtime_projectile.get("charge_level", 0)) == 2, "runtime release path should preserve charge level")
-
 	var runtime_hit_result: Dictionary = runtime._apply_weapon_hit_result(
 		"pistol",
 		{"slingshot": true, "charge_level": 2, "pos": Vector2(100.0, 100.0), "velocity": Vector2.UP, "shot_roll": 0.99},
@@ -115,16 +99,14 @@ func _verify_runtime_delegates_slingshot_state() -> void:
 	_expect(int(runtime_hit_result.get("slingshot_charge_level", 0)) == 2, "runtime hit path should delegate charge level")
 	_expect(is_equal_approx(float(runtime_hit_result.get("stun_frames", 0.0)), 18.0), "runtime hit path should delegate stun scaling")
 
-	runtime.slingshot_charge_level = 0
-	runtime.slingshot_charge_timer_frames = 10.0
-	var canceled: Dictionary = runtime._release_slingshot(40.0, {}, {}, "released")
-	_expect(bool(canceled.get("charge_canceled", false)), "runtime short release should use canceled payload")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(not runtime_source.contains("func _update_slingshot_input("), "runtime should not keep the removed slingshot input bridge")
 	_expect(not runtime_source.contains("func _update_slingshot_charge_level("), "runtime should not keep slingshot charge-level bridge")
 	_expect(not runtime_source.contains("func _get_slingshot_fire_profile("), "runtime should not keep slingshot fire-profile bridge")
 	_expect(not runtime_source.contains("func _apply_slingshot_hit_effects("), "runtime should not keep slingshot hit-effect bridge")
 	_expect(not runtime_source.contains("func _cancel_slingshot_charge("), "runtime should not keep slingshot cancel-state bridge")
+	_expect(not runtime_source.contains("func _advance_slingshot_charge("), "runtime should not keep stale slingshot charge bridge")
+	_expect(not runtime_source.contains("func _release_slingshot("), "runtime should not keep stale slingshot release bridge")
 
 
 func _expect(condition: bool, message: String) -> void:
