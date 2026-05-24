@@ -64,6 +64,11 @@ func _verify_direct_fire_sheet_resolver() -> void:
 		CommandoFirearmFireSheetResolver.build_animation_state("pistol", 40.0, 60.0, 8).is_empty(),
 		"pistol should not build shared fire-sheet animation state"
 	)
+	var owner := CommandoFirearmRuntime.new()
+	var apply_state: Dictionary = CommandoFirearmFireSheetResolver.apply_runtime_animation_state(owner, "bazooka", 40.0, 60.0, 8)
+	_expect(str(apply_state.get("id", "")) == "bazooka", "runtime fire-sheet owner should return applied state")
+	_expect(owner.weapon_fire_sheet_id == "bazooka", "runtime fire-sheet owner should write applied sheet id")
+	_expect(is_equal_approx(owner.weapon_fire_sheet_timer_frames, 37.5), "runtime fire-sheet owner should write start timer")
 
 
 func _verify_runtime_uses_fire_sheet_resolver_boundary() -> void:
@@ -94,6 +99,10 @@ func _verify_removed_runtime_fire_sheet_bridges() -> void:
 		"_start_weapon_fire_sheet_animation",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep fire-sheet bridge %s" % bridge_name)
+	_expect(
+		source.find("CommandoFirearmFireSheetResolver.apply_runtime_animation_state") >= 0,
+		"runtime should delegate fire-sheet state writes to the resolver"
+	)
 
 
 func _fire_sheet_config() -> Dictionary:

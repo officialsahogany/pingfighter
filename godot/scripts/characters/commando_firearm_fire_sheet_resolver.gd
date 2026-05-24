@@ -62,3 +62,24 @@ static func build_animation_state(
 		"timer_frames": max(frame_duration, max_frames - frame_duration * float(start_frame)),
 		"max_frames": max_frames,
 	}
+
+
+static func apply_runtime_animation_state(
+	target: Object,
+	weapon_id: String,
+	default_frames: float,
+	long_frames: float,
+	frame_count: int
+) -> Dictionary:
+	var fire_sheet_state: Dictionary = build_animation_state(
+		weapon_id,
+		default_frames,
+		long_frames,
+		frame_count
+	)
+	if target == null or fire_sheet_state.is_empty():
+		return fire_sheet_state
+	target.set("weapon_fire_sheet_id", str(fire_sheet_state.get("id", "")))
+	target.set("weapon_fire_sheet_timer_frames", float(fire_sheet_state.get("timer_frames", 0.0)))
+	target.set("weapon_fire_sheet_max_frames", float(fire_sheet_state.get("max_frames", 0.0)))
+	return fire_sheet_state

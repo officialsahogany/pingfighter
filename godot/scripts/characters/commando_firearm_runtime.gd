@@ -1505,16 +1505,13 @@ func _update_active_suicide_drone_input(
 
 
 func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictionary, profile_override: Dictionary = {}) -> void:
-	var fire_sheet_state: Dictionary = CommandoFirearmFireSheetResolver.build_animation_state(
+	CommandoFirearmFireSheetResolver.apply_runtime_animation_state(
+		self,
 		weapon_id,
 		COMMANDO_WEAPON_FIRE_SHEET_DEFAULT_FRAMES,
 		COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
 		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
 	)
-	if not fire_sheet_state.is_empty():
-		weapon_fire_sheet_id = str(fire_sheet_state.get("id", ""))
-		weapon_fire_sheet_timer_frames = float(fire_sheet_state.get("timer_frames", 0.0))
-		weapon_fire_sheet_max_frames = float(fire_sheet_state.get("max_frames", 0.0))
 	var profile: Dictionary = profile_override.duplicate(true)
 	if profile.is_empty():
 		profile = CommandoFirearmProfileResolver.get_weapon_profile(
