@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_direct_profile_resolution()
+	_verify_spawn_profile_state()
 	_verify_runtime_profile_constants()
 	_verify_removed_runtime_profile_bridges()
 
@@ -76,6 +77,56 @@ func _verify_direct_profile_resolution() -> void:
 	_expect(absf(float(ak47_fire_profile.get("angle_offset", 99.0))) <= 0.18, "AK-47 fire profile should clamp random spread to recoil range")
 
 
+func _verify_spawn_profile_state() -> void:
+	var weapon_profiles := {
+		"pistol": {
+			"kind": "bullet",
+			"speed": 25.0,
+		},
+		"commando_pistol": {
+			"kind": "bullet",
+			"speed": 30.0,
+		},
+	}
+	var doped_state: Dictionary = CommandoFirearmProfileResolver.build_spawn_profile_state(
+		"commando_pistol",
+		{},
+		weapon_profiles,
+		{},
+		{"active": true, "pistol_speed_multiplier": 1.5},
+		{"pistol_speed_multiplier": 1.2},
+		"pistol",
+		25.0,
+		1.2,
+		PI / 12.0,
+		(PI / 12.0) * 0.70
+	)
+	var doped_profile: Dictionary = _get_dict(doped_state.get("profile", {}))
+	var doping_context: Dictionary = _get_dict(doped_state.get("doping_context", {}))
+	_expect(bool(doping_context.get("active", false)), "spawn profile state should normalize active doping context")
+	_expect(is_equal_approx(float(doped_profile.get("speed", 0.0)), 45.0), "doped commando pistol spawn profile should apply speed multiplier")
+	_expect(doped_profile.get("color", Color.BLACK) == Color(1.0, 0.47, 0.24), "doped commando pistol spawn profile should apply warm primary color")
+	_expect(doped_profile.get("secondary", Color.BLACK) == Color(1.0, 0.78, 0.22), "doped commando pistol spawn profile should apply warm secondary color")
+	_expect(doped_profile.has("angle_offset"), "pistol spawn profile should add spread angle when missing")
+	_expect(absf(float(doped_profile.get("angle_offset", 99.0))) <= (PI / 12.0) * 0.70, "commando pistol spawn profile should use beretta spread")
+
+	var override_state: Dictionary = CommandoFirearmProfileResolver.build_spawn_profile_state(
+		"pistol",
+		{"kind": "bullet", "angle_offset": 0.25},
+		weapon_profiles,
+		{},
+		{},
+		{},
+		"pistol",
+		25.0,
+		1.2,
+		PI / 12.0,
+		(PI / 12.0) * 0.70
+	)
+	var override_profile: Dictionary = _get_dict(override_state.get("profile", {}))
+	_expect(is_equal_approx(float(override_profile.get("angle_offset", 0.0)), 0.25), "spawn profile should preserve explicit angle offsets")
+
+
 func _verify_runtime_profile_constants() -> void:
 	var pistol: Dictionary = _get_runtime_weapon_profile("unknown_weapon")
 	_expect(str(pistol.get("kind", "")) == "bullet", "runtime weapon profile constants should keep pistol fallback")
@@ -112,6 +163,10 @@ func _verify_removed_runtime_profile_bridges() -> void:
 		"_get_net_gun_fire_profile",
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep profile bridge %s" % bridge_name)
+	_expect(
+		runtime_source.find("CommandoFirearmProfileResolver.build_spawn_profile_state") >= 0,
+		"runtime should delegate spawn profile preparation to the profile resolver"
+	)
 
 
 func _get_runtime_weapon_profile(weapon_id: String) -> Dictionary:

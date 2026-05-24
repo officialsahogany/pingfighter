@@ -1512,28 +1512,21 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		COMMANDO_WEAPON_FIRE_SHEET_LONG_FRAMES,
 		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
 	)
-	var profile: Dictionary = profile_override.duplicate(true)
-	if profile.is_empty():
-		profile = CommandoFirearmProfileResolver.get_weapon_profile(
-			weapon_id,
-			WEAPON_PROFILES,
-			WEAPON_PROFILE_OVERRIDES
-		)
-	var doping_context: Dictionary = CommandoFirearmValueUtils.normalize_doping_potion_context(
+	var spawn_profile_state: Dictionary = CommandoFirearmProfileResolver.build_spawn_profile_state(
+		weapon_id,
+		profile_override,
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES,
 		config,
-		DOPING_POTION_DEFAULTS
+		DOPING_POTION_DEFAULTS,
+		BASE_WEAPON_ID,
+		PISTOL_BULLET_SPEED,
+		DOPING_POTION_PISTOL_SPEED_MULTIPLIER,
+		PISTOL_SPREAD_RADIANS,
+		BERETTA_SPREAD_RADIANS
 	)
-	if weapon_id == "commando_pistol" and bool(doping_context.get("active", false)):
-		profile["speed"] = float(profile.get("speed", PISTOL_BULLET_SPEED)) * float(doping_context.get("pistol_speed_multiplier", DOPING_POTION_PISTOL_SPEED_MULTIPLIER))
-		profile["color"] = Color(1.0, 0.47, 0.24)
-		profile["secondary"] = Color(1.0, 0.78, 0.22)
-	if (
-		CommandoFirearmValueUtils.is_pistol_weapon(weapon_id, BASE_WEAPON_ID)
-		and not bool(profile.get("slingshot", false))
-		and not profile.has("angle_offset")
-	):
-		var spread_radians: float = BERETTA_SPREAD_RADIANS if weapon_id == "commando_pistol" else PISTOL_SPREAD_RADIANS
-		profile["angle_offset"] = randf_range(-spread_radians, spread_radians)
+	var profile: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_profile_state.get("profile", {}))
+	var doping_context: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_profile_state.get("doping_context", {}))
 	var kind: String = str(profile.get("kind", "bullet"))
 	var origin: Vector2 = CommandoFirearmOriginGeometry.get_firearm_origin(
 		weapon_id,
