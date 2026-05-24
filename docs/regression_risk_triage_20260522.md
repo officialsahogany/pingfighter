@@ -8408,3 +8408,24 @@ commits rather than standalone `fix` commits:
   check passed, `run_warning_scan.ps1` scanned `1334` scripts with no GDScript
   warnings, and `git diff --check` on the committed loader files reported no
   whitespace errors.
+
+297th follow-up on 2026-05-24:
+
+- Commits:
+  `06bf94dc9 godot: add resource loader smoke uid` and
+  `42fb2b7b1 godot: move Commando rope origin sync predicate`.
+- Scope: tracked the generated UID for the raw-first resource-loader smoke,
+  then moved the Commando net-gun rope-origin sync predicate out of
+  `CommandoFirearmRuntime._apply_active_lingering_effect()` and into
+  `CommandoFirearmLingeringNetFieldState.should_sync_rope_origin()`. Direct
+  smoke assertions now cover active hooked nets, dissolving broken ropes, and
+  expired snap timers.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2533` lines /
+  `35` functions to `2525` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors beyond the existing CRLF normalization notice.
