@@ -37,6 +37,23 @@ static func get_lingering_effect_profile(weapon_id: String, lingering_effect_pro
 	return {}
 
 
+static func build_ak47_fire_profile(
+	weapon_profiles: Dictionary,
+	overrides_by_id: Dictionary,
+	recoil_accumulation: float,
+	base_spread_radians: float
+) -> Dictionary:
+	var profile: Dictionary = get_weapon_profile(
+		"ak47",
+		weapon_profiles,
+		overrides_by_id
+	)
+	var spread: float = base_spread_radians + recoil_accumulation
+	profile["angle_offset"] = randf_range(-spread, spread)
+	profile["recoil_accumulation"] = recoil_accumulation
+	return profile
+
+
 static func get_profile(
 	profiles: Dictionary,
 	weapon_id: String,

@@ -62,6 +62,19 @@ func _verify_direct_profile_resolution() -> void:
 	_expect(str(lingering.get("kind", "")) == "net_field", "lingering resolver should normalize ids")
 	_expect(CommandoFirearmProfileResolver.get_lingering_effect_profile("missing", {}).is_empty(), "unknown lingering profiles should stay empty")
 
+	var ak47_fire_profile: Dictionary = CommandoFirearmProfileResolver.build_ak47_fire_profile(
+		{
+			"pistol": {"kind": "bullet"},
+			"ak47": {"kind": "bullet", "speed": 16.0},
+		},
+		{},
+		0.03,
+		0.15
+	)
+	_expect(str(ak47_fire_profile.get("kind", "")) == "bullet", "AK-47 fire profile should preserve base profile fields")
+	_expect(is_equal_approx(float(ak47_fire_profile.get("recoil_accumulation", 0.0)), 0.03), "AK-47 fire profile should expose recoil accumulation")
+	_expect(absf(float(ak47_fire_profile.get("angle_offset", 99.0))) <= 0.18, "AK-47 fire profile should clamp random spread to recoil range")
+
 
 func _verify_runtime_profile_constants() -> void:
 	var pistol: Dictionary = _get_runtime_weapon_profile("unknown_weapon")
@@ -94,6 +107,7 @@ func _verify_removed_runtime_profile_bridges() -> void:
 		"_get_hit_feedback_profile",
 		"_get_hit_result_profile",
 		"_get_lingering_effect_profile",
+		"_get_ak47_fire_profile",
 		"_get_bazooka_fire_profile",
 		"_get_net_gun_fire_profile",
 	]:

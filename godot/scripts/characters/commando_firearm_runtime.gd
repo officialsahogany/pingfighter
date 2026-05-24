@@ -1423,7 +1423,17 @@ func _update_ak47_input(
 				"movement_speed_multiplier": get_movement_speed_multiplier(),
 			})
 	last_fire_msec = now_msec
-	_spawn_firearm_effect("ak47", config, deps, _get_ak47_fire_profile())
+	_spawn_firearm_effect(
+		"ak47",
+		config,
+		deps,
+		CommandoFirearmProfileResolver.build_ak47_fire_profile(
+			WEAPON_PROFILES,
+			WEAPON_PROFILE_OVERRIDES,
+			ak47_recoil_accumulation,
+			AK47_BASE_SPREAD_RADIANS
+		)
+	)
 	CommandoFirearmAudioDispatcher.play_fire_audio("ak47", deps)
 	CommandoFirearmCooldownState.trigger_skill_cooldown(
 		"ak47",
@@ -1466,18 +1476,6 @@ func _update_ak47_input(
 		movement_multiplier,
 		special_gauge
 	)
-
-
-func _get_ak47_fire_profile() -> Dictionary:
-	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
-		"ak47",
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
-	var spread: float = AK47_BASE_SPREAD_RADIANS + ak47_recoil_accumulation
-	profile["angle_offset"] = randf_range(-spread, spread)
-	profile["recoil_accumulation"] = ak47_recoil_accumulation
-	return profile
 
 
 func _clear_ak47_trigger_state() -> void:
