@@ -6665,6 +6665,27 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
   scripts with no GDScript warnings.
 
+213th follow-up on 2026-05-24:
+
+- Commit: `b9e677c8b godot: drop Commando lingering payload bridges`.
+- Scope: removed the private `_get_lingering_effect_duration()`,
+  `_build_lingering_effect()`, and `_build_lingering_spawn_result()` runtime
+  bridges. `_spawn_lingering_effect()` now calls
+  `CommandoFirearmLingeringEffectState` duration, base-effect payload, and
+  spawn-result builders directly while the runtime keeps projectile impact
+  ownership, active lingering-effect storage, net/status/fire-zone side
+  effects, and array limit enforcement. The lingering smoke now verifies the
+  live spawn path and guards that the removed payload bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3422` lines /
+  `119` functions to `3402` lines / `116` functions.
+- Validation: focused lingering / value-utils / runtime coverage passed:
+  `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1326`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

@@ -4000,7 +4000,7 @@ This section is intentionally long; use search to find the nearest owner.
   runtime keeps active effect storage, projectile impact ownership, fire-zone
   flame updates, status application, and net dash-break mutation while
   calling the deterministic base lingering-effect math here directly instead
-  of preserving private timer / clamp bridge wrappers.
+  of preserving private duration / payload / timer / clamp bridge wrappers.
 - `scripts/characters/commando_firearm_lingering_fire_flame_state.gd`
   Owns pure Commando lingering fire-zone flame state: deterministic flame
   seeding, effect-size fallback reads, ring / size / lifetime patterns,
