@@ -7963,6 +7963,24 @@ Hundredth split on 2026-05-24:
   `git diff --check` on the touched Commando files reported no whitespace
   errors beyond the existing CRLF normalization notices.
 
+277th follow-up on 2026-05-24:
+
+- Commit:
+  `50fbabdd5 godot: move Commando aircraft ball path helper`.
+- Scope: moved fire-support aircraft ball-path scanning into
+  `CommandoFirearmSupportAircraftGeometry.any_ball_path_hits()`. The runtime
+  still preserves the current policy that fire-support aircraft are not
+  cancelled by ball contact, but the collision-route loop no longer lives in
+  `CommandoFirearmRuntime.resolve_ball_collision()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2694` lines /
+  `35` functions to `2690` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_support_aircraft_geometry_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors beyond the existing CRLF normalization notices.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
