@@ -926,20 +926,16 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 		ball_pos
 	)
 	var ball_radius: float = max(1.0, float(context.get("ball_size", scene.get("ball_size", 28.6))) * 0.5)
-	for value in support_calls:
-		@warning_ignore("shadowed_variable_base_class")
-		var call: Dictionary = CommandoFirearmValueUtils.get_dict(value)
-		if CommandoFirearmSupportAircraftGeometry.ball_path_hits(
-			call,
-			previous_ball_pos,
-			ball_pos,
-			ball_radius,
-			Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
-			SUPPORT_AIRCRAFT_COLLISION_SIZE
-		):
-			# Python FireSupportAircraft deliberately ignores ball hits; keep the
-			# collision route visible without starting a crash lifecycle.
-			return false
+	# Python FireSupportAircraft deliberately ignores ball hits; keep the
+	# collision route visible without starting a crash lifecycle.
+	CommandoFirearmSupportAircraftGeometry.any_ball_path_hits(
+		support_calls,
+		previous_ball_pos,
+		ball_pos,
+		ball_radius,
+		Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y),
+		SUPPORT_AIRCRAFT_COLLISION_SIZE
+	)
 	return false
 
 

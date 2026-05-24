@@ -39,6 +39,21 @@ static func get_active_collision_rect(
 	return Rect2()
 
 
+static func any_ball_path_hits(
+	calls: Array,
+	from_pos: Vector2,
+	to_pos: Vector2,
+	ball_radius: float,
+	fallback_pos: Vector2,
+	collision_size: Vector2
+) -> bool:
+	for value in calls:
+		var call_data: Dictionary = CommandoFirearmValueUtils.get_dict(value)
+		if ball_path_hits(call_data, from_pos, to_pos, ball_radius, fallback_pos, collision_size):
+			return true
+	return false
+
+
 static func ball_path_hits(
 	call_data: Dictionary,
 	from_pos: Vector2,

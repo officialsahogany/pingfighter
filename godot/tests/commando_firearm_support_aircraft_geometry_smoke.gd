@@ -56,6 +56,14 @@ func _verify_direct_support_aircraft_geometry() -> void:
 		"support aircraft owner should ignore non-matching call ids"
 	)
 	_expect(
+		CommandoFirearmSupportAircraftGeometry.any_ball_path_hits(active_calls, Vector2(0.0, 50.0), Vector2(250.0, 50.0), 10.0, fallback_pos, collision_size),
+		"support aircraft owner should detect any active aircraft hit"
+	)
+	_expect(
+		not CommandoFirearmSupportAircraftGeometry.any_ball_path_hits(active_calls, Vector2(0.0, 140.0), Vector2(250.0, 140.0), 10.0, fallback_pos, collision_size),
+		"support aircraft owner should ignore missed ball paths"
+	)
+	_expect(
 		CommandoFirearmSupportAircraftGeometry.ball_path_hits(call, Vector2(0.0, 50.0), Vector2(250.0, 50.0), 10.0, fallback_pos, collision_size),
 		"ball path should hit when the segment crosses the grown aircraft rect"
 	)
