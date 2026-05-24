@@ -6363,6 +6363,29 @@ Hundredth split on 2026-05-24:
   no whitespace errors. `run_headless_load_check.ps1` passed.
   `run_warning_scan.ps1` scanned `1323` scripts with no GDScript warnings.
 
+198th follow-up on 2026-05-24:
+
+- Commit: `f3c5a3b5f godot: add language options settings`.
+- Scope: added `scripts/core/language_settings.gd` as the persisted Korean /
+  English settings owner, applied the saved language during boot and main-menu
+  startup, and added a Language tab to `pause_menu_overlay.gd`. The pause /
+  settings overlay now resolves main-menu labels, sound / display / controls
+  labels, vibration labels, language labels, and quit-confirm copy through the
+  shared language owner. Main-menu settings changes call
+  `refresh_language_texts()` so visible quit-confirm labels can update
+  immediately.
+- Validation: focused language / input coverage passed:
+  `pause_menu_overlay_smoke` and `gamepad_input_mapping_smoke`. The pause-menu
+  smoke now snapshots and restores `user://language_settings.cfg`, verifies
+  Korean -> English -> Korean selection, owner text-refresh callbacks, English
+  pause labels, English control mapping labels, English vibration labels, and
+  four-tab gamepad shoulder navigation. The current full sorted
+  `commando_firearm*_smoke.gd` set also ran `45` scripts and passed after the
+  adjacent Commando audio cleanup. `git diff --check` reported only the
+  existing CRLF working-copy notice and no whitespace errors.
+  `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1323`
+  scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

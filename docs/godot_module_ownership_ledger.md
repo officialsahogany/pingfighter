@@ -2723,6 +2723,14 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the persisted 1-5 gamepad vibration sensitivity setting. Level 3 is
   the shipped rumble baseline, while the pause/settings controls tab edits
   the stored value and `battle_feedback_state.gd` applies it at dispatch time.
+- `scripts/core/language_settings.gd`
+  Owns the persisted UI language setting for the Godot port. It normalizes the
+  supported Korean / English locale codes, stores the selected language under
+  `user://language_settings.cfg`, applies the engine locale, and provides the
+  current shared text table for the pause/settings overlay and main-menu quit
+  confirmation. `boot_flow_scene.gd` and `main_menu_scene.gd` apply the saved
+  language on startup, while `pause_menu_overlay.gd` owns the visible language
+  tab interaction.
 - `scripts/effects/battle_effects_update_controller.gd`
   Owns per-frame battle-effect fanout: battle feedback timers, audio tick,
   dash-recovery loop sync, Drive text timer decay, Power Smashing text /
