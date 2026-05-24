@@ -264,6 +264,36 @@ func _verify_direct_actor_context() -> void:
 	_expect((visible_context.get("commando_firearm_projectiles", []) as Array).size() == 1, "visible actor context should include projectile arrays")
 	_expect((visible_context.get("commando_firearm_support_calls", []) as Array).size() == 1, "visible actor context should include support-call arrays")
 
+	var runtime := CommandoFirearmRuntime.new()
+	runtime.projectiles = [{"id": 9}]
+	runtime.support_calls = [{"id": 10}]
+	var runtime_context: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_actor_context(
+		runtime,
+		pistol_state,
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{}
+	)
+	_expect((runtime_context.get("commando_firearm_projectiles", []) as Array).size() == 1, "runtime actor context should read visible projectiles")
+	_expect((runtime_context.get("commando_firearm_support_calls", []) as Array).size() == 1, "runtime actor context should read visible support calls")
+	var null_runtime_context: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_actor_context(
+		null,
+		pistol_state,
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{}
+	)
+	_expect((null_runtime_context.get("commando_firearm_projectiles", []) as Array).is_empty(), "null runtime actor context should suppress arrays")
+	_expect(null_runtime_context.get("commando_firearm_pistol_state", {}) == pistol_state, "null runtime actor context should preserve state dictionaries")
+
 
 func _verify_direct_visibility_gate() -> void:
 	_expect(CommandoFirearmDrawStateResolver.has_visible_effects([[{"id": 1}], []], [0.0]), "visibility gate should detect non-empty effect arrays")

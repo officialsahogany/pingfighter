@@ -459,6 +459,58 @@ static func build_actor_context(
 	}
 
 
+static func build_runtime_actor_context(
+	target: Object,
+	pistol_state: Dictionary,
+	slingshot_state: Dictionary,
+	ak47_state: Dictionary,
+	bazooka_state: Dictionary,
+	net_gun_state: Dictionary,
+	bowling_trap_state: Dictionary,
+	suicide_drone_state: Dictionary,
+	weapon_fire_sheet_state: Dictionary
+) -> Dictionary:
+	if target == null:
+		return build_actor_context(
+			false,
+			[],
+			[],
+			[],
+			[],
+			[],
+			[],
+			pistol_state,
+			slingshot_state,
+			ak47_state,
+			bazooka_state,
+			net_gun_state,
+			bowling_trap_state,
+			suicide_drone_state,
+			weapon_fire_sheet_state,
+			[],
+			[]
+		)
+	return build_actor_context(
+		has_runtime_visible_effects(target),
+		CommandoFirearmValueUtils.get_array(target.get("projectiles")),
+		CommandoFirearmValueUtils.get_array(target.get("muzzle_flashes")),
+		CommandoFirearmValueUtils.get_array(target.get("impact_flashes")),
+		CommandoFirearmValueUtils.get_array(target.get("lingering_effects")),
+		CommandoFirearmValueUtils.get_array(target.get("shell_casings")),
+		CommandoFirearmValueUtils.get_array(target.get("pistol_feedbacks")),
+		pistol_state,
+		slingshot_state,
+		ak47_state,
+		bazooka_state,
+		net_gun_state,
+		bowling_trap_state,
+		suicide_drone_state,
+		weapon_fire_sheet_state,
+		CommandoFirearmValueUtils.get_array(target.get("support_calls")),
+		CommandoFirearmValueUtils.get_array(target.get("bowling_traps"))
+	)
+
+
 static func has_visible_effects(effect_arrays: Array, timer_values: Array) -> bool:
 	for value in effect_arrays:
 		if value is Array and not (value as Array).is_empty():

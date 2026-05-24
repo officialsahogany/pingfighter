@@ -1025,14 +1025,8 @@ func get_actor_draw_context() -> Dictionary:
 		self,
 		SUICIDE_DRONE_COOLDOWN_FRAMES
 	)
-	return CommandoFirearmDrawStateResolver.build_actor_context(
-		has_visible_effects(),
-		projectiles,
-		muzzle_flashes,
-		impact_flashes,
-		lingering_effects,
-		shell_casings,
-		pistol_feedbacks,
+	return CommandoFirearmDrawStateResolver.build_runtime_actor_context(
+		self,
 		pistol_state,
 		slingshot_state,
 		ak47_state,
@@ -1040,9 +1034,7 @@ func get_actor_draw_context() -> Dictionary:
 		net_gun_state,
 		bowling_trap_state,
 		suicide_drone_state,
-		weapon_fire_sheet_state,
-		support_calls,
-		bowling_traps
+		weapon_fire_sheet_state
 	)
 
 
