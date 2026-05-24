@@ -29,7 +29,7 @@ static func load_texture(path: String, missing_warning: String = "", failed_warn
 
 	var imported_exists: bool = _can_load_imported_resource(path)
 	if imported_exists:
-		var texture_resource: Resource = load(path)
+		var texture_resource: Resource = ResourceLoader.load(path)
 		if texture_resource is Texture2D:
 			_texture_cache[path] = texture_resource
 			return texture_resource
@@ -88,7 +88,7 @@ static func load_audio_stream(path: String, missing_warning: String = "", failed
 
 	var imported_exists: bool = _can_load_imported_resource(path)
 	if imported_exists:
-		var stream_resource: Resource = load(path)
+		var stream_resource: Resource = ResourceLoader.load(path)
 		if stream_resource is AudioStream:
 			_audio_cache[path] = stream_resource
 			return stream_resource

@@ -1,0 +1,52 @@
+extends SceneTree
+
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+
+const IMPORTED_TEXTURE_PATH := "res://assets/sprites/hud/stage2_game_frame_rock_leaf_imagegen_v3.png"
+const IMPORTED_AUDIO_PATH := "res://assets/bgm/stage2bgm.ogg"
+
+
+func _init() -> void:
+	ProjectResourceLoader.clear_caches()
+
+	var texture: Texture2D = ProjectResourceLoader.load_texture(IMPORTED_TEXTURE_PATH)
+	_expect(texture != null, "imported texture should load")
+	_expect(texture is ImageTexture, "source texture should prefer raw ImageTexture decode before imported fallback")
+	_expect(texture.resource_path == IMPORTED_TEXTURE_PATH, "imported texture should preserve the source resource path")
+
+	var audio: AudioStream = ProjectResourceLoader.load_audio_stream(IMPORTED_AUDIO_PATH)
+	_expect(audio != null, "imported audio should load")
+
+	var source := FileAccess.get_file_as_string("res://scripts/resources/project_resource_loader.gd")
+	var texture_body := _function_body(source, "static func load_texture(")
+	var audio_body := _function_body(source, "static func load_audio_stream(")
+	_expect(
+		texture_body.find("Image.load_from_file") < texture_body.find("_can_load_imported_resource"),
+		"texture loader should prefer raw PNG decoding before imported fallback"
+	)
+	_expect(
+		audio_body.find("load_from_file") < audio_body.find("_can_load_imported_resource"),
+		"audio loader should prefer raw audio decoding before imported fallback"
+	)
+
+	print("project_resource_loader_import_preference_smoke: ok")
+	quit(0)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next_func := source.find("\nstatic func ", start + signature.length())
+	if next_func < 0:
+		next_func = source.find("\nfunc ", start + signature.length())
+	if next_func < 0:
+		return source.substr(start)
+	return source.substr(start, next_func - start)
+
+
+func _expect(condition: bool, message: String) -> void:
+	if condition:
+		return
+	push_error(message)
+	quit(1)
