@@ -1555,14 +1555,14 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		FLASH_LIMIT
 	)
 	if kind == "support":
-		var support_start: Dictionary = CommandoFirearmSupportCallResolver.append_start_effects(
+		var support_start: Dictionary = CommandoFirearmSupportCallResolver.append_runtime_start_effects(
 			support_calls,
 			impact_flashes,
+			self,
 			origin,
 			target,
 			profile,
 			weapon_id,
-			CommandoFirearmProjectileSpawnState.claim_next_shot_id(self),
 			SUPPORT_CALL_LIMIT,
 			FLASH_LIMIT,
 			SUPPORT_CALL_DELAY_MIN_FRAMES,

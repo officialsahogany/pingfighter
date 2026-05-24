@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
+
 const SUPPORT_BOMB_RANDOM_X_RANGE := 300.0
 
 
@@ -161,6 +163,55 @@ static func append_start_effects(
 		"marker_flash": marker_flash,
 		"evicted_calls": evicted_calls,
 	}
+
+
+static func append_runtime_start_effects(
+	support_calls: Array,
+	impact_flashes: Array,
+	runtime_owner: Object,
+	origin: Vector2,
+	target: Vector2,
+	profile: Dictionary,
+	weapon_id: String,
+	support_limit: int,
+	flash_limit: int,
+	delay_min_frames: float,
+	delay_max_frames: float,
+	bomb_min_count: int,
+	bomb_max_count: int,
+	call_lock_frames: float,
+	aircraft_drop_arm_frames: float,
+	aircraft_y: float,
+	aircraft_speed: float,
+	aircraft_curve_amplitude: float = 0.0,
+	aircraft_curve_frequency: float = 0.0,
+	aircraft_curve_secondary_ratio: float = 0.0,
+	aircraft_start_x: float = -140.0
+) -> Dictionary:
+	var call_id: int = CommandoFirearmProjectileSpawnState.claim_next_shot_id(runtime_owner)
+	return append_start_effects(
+		support_calls,
+		impact_flashes,
+		origin,
+		target,
+		profile,
+		weapon_id,
+		call_id,
+		support_limit,
+		flash_limit,
+		delay_min_frames,
+		delay_max_frames,
+		bomb_min_count,
+		bomb_max_count,
+		call_lock_frames,
+		aircraft_drop_arm_frames,
+		aircraft_y,
+		aircraft_speed,
+		aircraft_curve_amplitude,
+		aircraft_curve_frequency,
+		aircraft_curve_secondary_ratio,
+		aircraft_start_x
+	)
 
 
 static func get_bomb_target(

@@ -6,6 +6,12 @@ const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/co
 var _failures: Array[String] = []
 
 
+class FakeShotCounter:
+	extends RefCounted
+
+	var shot_serial := 0
+
+
 func _init() -> void:
 	_verify_direct_support_call_resolver()
 	_verify_runtime_delegates_support_call_resolver()
@@ -91,6 +97,36 @@ func _verify_direct_support_call_resolver() -> void:
 	_expect(impact_flashes.size() == 1, "support start helper should append one marker within flash limit")
 	_expect(int(_get_dict(support_calls[0]).get("id", 0)) == 12, "support start helper should preserve the call id")
 	_expect(_get_array(start_result.get("evicted_calls", [])).size() == 1, "support start helper should return evicted calls for audio cleanup")
+	var runtime_calls: Array = []
+	var runtime_flashes: Array = []
+	var counter := FakeShotCounter.new()
+	counter.shot_serial = 40
+	var runtime_start: Dictionary = CommandoFirearmSupportCallResolver.append_runtime_start_effects(
+		runtime_calls,
+		runtime_flashes,
+		counter,
+		Vector2(10.0, 20.0),
+		target,
+		{"impact_radius": 50.0},
+		"fire_support",
+		2,
+		2,
+		120.0,
+		180.0,
+		2,
+		2,
+		42.0,
+		18.0,
+		320.0,
+		10.0,
+		44.0,
+		0.055,
+		0.35,
+		-360.0
+	)
+	_expect(counter.shot_serial == 41, "runtime support start helper should claim the next shot id")
+	_expect(int(_get_dict(runtime_start.get("call", {})).get("id", 0)) == 41, "runtime support start helper should use the claimed call id")
+	_expect(runtime_calls.size() == 1 and runtime_flashes.size() == 1, "runtime support start helper should append call and marker payloads")
 	var bomb_target_a: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(target, 0, 760.0, 750.0, 4)
 	var bomb_target_b: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(target, 1, 760.0, 750.0, 4)
 	_expect(_vector2_is_equal_approx(bomb_target_a, Vector2(618.2, 140.0)), "support bomb target should use deterministic random x spread from the marked point")
@@ -239,6 +275,14 @@ func _verify_removed_support_call_setup_bridges() -> void:
 		"_start_support_call",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep support-call setup bridge %s" % bridge_name)
+	_expect(
+		source.find("CommandoFirearmSupportCallResolver.append_runtime_start_effects") >= 0,
+		"runtime should delegate support-call runtime start append to the resolver"
+	)
+	_expect(
+		source.find("CommandoFirearmSupportCallResolver.append_start_effects") < 0,
+		"runtime should not call the lower-level support start helper directly"
+	)
 
 
 func _expect(condition: bool, message: String) -> void:
