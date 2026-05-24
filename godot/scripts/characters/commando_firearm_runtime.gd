@@ -2128,34 +2128,22 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 
 func _start_support_call(origin: Vector2, target: Vector2, profile: Dictionary, weapon_id: String, deps: Dictionary) -> void:
 	var call_id: int = _next_shot_id()
-	var delay_frames: float = _get_support_call_delay_frames(call_id, target)
-	var bomb_count: int = _get_support_bomb_count(call_id, target)
+	var delay_frames: float = CommandoFirearmSupportCallResolver.get_delay_frames(
+		call_id,
+		target,
+		SUPPORT_CALL_DELAY_MIN_FRAMES,
+		SUPPORT_CALL_DELAY_MAX_FRAMES
+	)
+	var bomb_count: int = CommandoFirearmSupportCallResolver.get_bomb_count(
+		call_id,
+		target,
+		SUPPORT_BOMB_MIN_COUNT,
+		SUPPORT_BOMB_MAX_COUNT
+	)
 	while support_calls.size() >= max(1, SUPPORT_CALL_LIMIT):
 		var evicted: Dictionary = _get_dict(support_calls.pop_front())
 		_stop_support_aircraft_audio(evicted, deps)
-	support_calls.append(_build_support_call_payload(
-		call_id,
-		origin,
-		target,
-		profile,
-		weapon_id,
-		delay_frames,
-		bomb_count
-	))
-	_play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
-	_append_limited(impact_flashes, _build_support_marker_flash(weapon_id, target, profile), FLASH_LIMIT)
-
-
-func _build_support_call_payload(
-	call_id: int,
-	origin: Vector2,
-	target: Vector2,
-	profile: Dictionary,
-	weapon_id: String,
-	delay_frames: float,
-	bomb_count: int
-) -> Dictionary:
-	return CommandoFirearmSupportCallResolver.build_call_payload(
+	support_calls.append(CommandoFirearmSupportCallResolver.build_call_payload(
 		call_id,
 		origin,
 		target,
@@ -2171,38 +2159,14 @@ func _build_support_call_payload(
 		SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
 		SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
 		SUPPORT_AIRCRAFT_START_X
-	)
-
-
-func _build_support_marker_flash(weapon_id: String, target: Vector2, profile: Dictionary) -> Dictionary:
-	return CommandoFirearmSupportCallResolver.build_marker_flash(
+	))
+	_play_first_audio_method(deps, ["play_commando_fire_support_radio", "play_commando_supply_radio"])
+	_append_limited(impact_flashes, CommandoFirearmSupportCallResolver.build_marker_flash(
 		weapon_id,
 		target,
 		profile,
 		SUPPORT_CALL_LOCK_FRAMES
-	)
-
-
-func _get_support_call_delay_frames(call_id: int, target: Vector2) -> float:
-	return CommandoFirearmSupportCallResolver.get_delay_frames(
-		call_id,
-		target,
-		SUPPORT_CALL_DELAY_MIN_FRAMES,
-		SUPPORT_CALL_DELAY_MAX_FRAMES
-	)
-
-
-func _get_support_bomb_count(call_id: int, target: Vector2) -> int:
-	return CommandoFirearmSupportCallResolver.get_bomb_count(
-		call_id,
-		target,
-		SUPPORT_BOMB_MIN_COUNT,
-		SUPPORT_BOMB_MAX_COUNT
-	)
-
-
-func _support_call_seed(call_id: int, target: Vector2) -> int:
-	return CommandoFirearmSupportCallResolver.support_call_seed(call_id, target)
+	), FLASH_LIMIT)
 
 
 func _start_bowling_trap_install(config: Dictionary, profile: Dictionary, weapon_id: String) -> void:
@@ -2348,7 +2312,14 @@ func _advance_support_call(call_data: Dictionary, step: float) -> Dictionary:
 @warning_ignore("shadowed_variable_base_class")
 func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Dictionary, spawn_index: int) -> void:
 	var target: Vector2 = _get_vector2(call.get("target", _get_boss_target_pos(context)), _get_boss_target_pos(context))
-	var bomb_target: Vector2 = _get_support_bomb_target(target, spawn_index, int(call.get("id", 0)))
+	var bomb_target: Vector2 = CommandoFirearmSupportCallResolver.get_bomb_target(
+		target,
+		spawn_index,
+		FIELD_WIDTH,
+		FIELD_HEIGHT,
+		int(call.get("id", 0)),
+		SUPPORT_BOMB_RANDOM_X_RANGE
+	)
 	bomb_target.y = SUPPORT_OPPONENT_WALL_Y
 	var aircraft_pos: Vector2 = _get_vector2(call.get("aircraft_pos", Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y)), Vector2(SUPPORT_AIRCRAFT_START_X, SUPPORT_AIRCRAFT_Y))
 	_spawn_support_round(
@@ -2358,17 +2329,6 @@ func _spawn_support_bomb(call: Dictionary, profile: Dictionary, context: Diction
 		int(call.get("id", 0)),
 		spawn_index,
 		aircraft_pos
-	)
-
-
-func _get_support_bomb_target(target: Vector2, spawn_index: int, call_id: int = 0) -> Vector2:
-	return CommandoFirearmSupportCallResolver.get_bomb_target(
-		target,
-		spawn_index,
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		call_id,
-		SUPPORT_BOMB_RANDOM_X_RANGE
 	)
 
 

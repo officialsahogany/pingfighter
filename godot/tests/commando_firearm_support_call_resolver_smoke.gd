@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_direct_support_call_resolver()
 	_verify_runtime_delegates_support_call_resolver()
+	_verify_removed_support_call_setup_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_support_call_resolver_smoke: ok")
@@ -152,11 +153,6 @@ func _verify_direct_support_call_resolver() -> void:
 
 func _verify_runtime_delegates_support_call_resolver() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	var target := Vector2(320.0, 180.0)
-	_expect(runtime._support_call_seed(4, target) == 4414083065, "runtime seed wrapper should delegate")
-	_expect(is_equal_approx(runtime._get_support_call_delay_frames(4, target), 148.0), "runtime delay wrapper should delegate")
-	_expect(runtime._get_support_bomb_count(4, target) == 2, "runtime bomb-count wrapper should delegate tuned 2-bomb count")
-	_expect(_vector2_is_equal_approx(runtime._get_support_bomb_target(target, 1, 4), Vector2(418.6, 177.0)), "runtime bomb-target wrapper should delegate the 200px random spread")
 	var advance_result: Dictionary = runtime._advance_support_call({
 		"call_timer_frames": 0.0,
 		"delay_frames": 0.0,
@@ -176,6 +172,19 @@ func _verify_runtime_delegates_support_call_resolver() -> void:
 	_expect(runtime._has_active_support_call_lock(), "runtime support active-lock wrapper should delegate active calls")
 	runtime.support_calls = [{"call_timer_frames": 0.0, "radio_active": false}]
 	_expect(not runtime._has_active_support_call_lock(), "runtime support active-lock wrapper should delegate inactive calls")
+
+
+func _verify_removed_support_call_setup_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_build_support_call_payload",
+		"_build_support_marker_flash",
+		"_get_support_call_delay_frames",
+		"_get_support_bomb_count",
+		"_support_call_seed",
+		"_get_support_bomb_target",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep support-call setup bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:
