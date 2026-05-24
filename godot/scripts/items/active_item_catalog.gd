@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const DEFAULT_COOLDOWN_MSEC := 10000
 const GAUGE_MAX := 500.0
 const GAUGE_CHARGE_AMOUNT := 220.0
@@ -58,58 +60,61 @@ const FIELD_SPAWN_ORDER := [
 
 
 func build_item_by_name(item_name: String) -> Dictionary:
+	var item_data: Dictionary = {}
 	match item_name:
 		"gauge_charge":
-			return _build_gauge_charge()
+			item_data = _build_gauge_charge()
 		"life_elixir":
-			return _build_life_elixir()
+			item_data = _build_life_elixir()
 		"ammo_box":
-			return _build_ammo_box()
+			item_data = _build_ammo_box()
 		"doping_potion":
-			return _build_doping_potion()
+			item_data = _build_doping_potion()
 		"vitamin_pill":
-			return _build_vitamin_pill()
+			item_data = _build_vitamin_pill()
 		"strange_vial":
-			return _build_strange_vial()
+			item_data = _build_strange_vial()
 		"aipill":
-			return _build_aipill()
+			item_data = _build_aipill()
 		"pandora_box":
-			return _build_pandora_box()
+			item_data = _build_pandora_box()
 		"grenade":
-			return _build_grenade()
+			item_data = _build_grenade()
 		"flare":
-			return _build_flare()
+			item_data = _build_flare()
 		"tear_gas":
-			return _build_tear_gas()
+			item_data = _build_tear_gas()
 		"dynamite":
-			return _build_dynamite()
+			item_data = _build_dynamite()
 		"molotov":
-			return _build_molotov()
+			item_data = _build_molotov()
 		"stopwatch":
-			return _build_stopwatch()
+			item_data = _build_stopwatch()
 		"magnet_field":
-			return _build_magnet_field()
+			item_data = _build_magnet_field()
 		"long_boost":
-			return _build_long_boost()
+			item_data = _build_long_boost()
 		"regeneration_potion":
-			return _build_regeneration_potion()
+			item_data = _build_regeneration_potion()
 		"holy_barrier":
-			return _build_holy_barrier()
+			item_data = _build_holy_barrier()
 		"dash_boost":
-			return _build_dash_boost()
+			item_data = _build_dash_boost()
 		"wall":
-			return _build_wall()
+			item_data = _build_wall()
 		"boomerang":
-			return _build_boomerang()
+			item_data = _build_boomerang()
 		"banana":
-			return _build_banana()
+			item_data = _build_banana()
 		"soap":
-			return _build_soap()
+			item_data = _build_soap()
 		"spider_mine":
-			return _build_spider_mine()
+			item_data = _build_spider_mine()
 		"elixir_of_mastery":
-			return _build_elixir_of_mastery()
-	return {}
+			item_data = _build_elixir_of_mastery()
+	if item_data.is_empty():
+		return {}
+	return LanguageSettings.localize_item_data(item_data)
 
 
 func build_random_spawn_item() -> Dictionary:

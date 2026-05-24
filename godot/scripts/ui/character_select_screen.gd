@@ -9,6 +9,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const ConfirmFlashOverlay := preload("res://scripts/ui/character_select_confirm_flash_overlay.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
 const BGM_BUS_NAME := "BGM"
@@ -64,7 +65,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_process(true)
 	_ensure_cache_dictionaries()
-	characters = CharacterSelectData.get_characters()
+	characters = LanguageSettings.localize_character_list(CharacterSelectData.get_characters())
 	_refresh_visible_indices()
 	_load_selection_state()
 	_prepare_hover_state()
@@ -895,7 +896,7 @@ func _draw_header(view_size: Vector2) -> void:
 	var title_pos := Vector2(column.position.x + 12.0, 54.0)
 	if view_size.x < 980.0:
 		title_pos = Vector2(34.0, 36.0)
-	_draw_text_left(font, "캐릭터 선택", title_pos, 30 if view_size.x >= 980.0 else 24, Color(1.0, 1.0, 1.0, 0.98))
+	_draw_text_left(font, LanguageSettings.translate_text("캐릭터 선택"), title_pos, 30 if view_size.x >= 980.0 else 24, Color(1.0, 1.0, 1.0, 0.98))
 	_draw_text_left(font, "SELECT YOUR CHARACTER", title_pos + Vector2(0.0, 34.0), 12, Color(0.0, 0.86, 1.0, 0.88))
 
 
@@ -969,7 +970,7 @@ func _draw_info_panel(rect: Rect2) -> void:
 	_draw_text_left(font, str(character.get("tagline", "")), rect.position + Vector2(26.0, 82.0), 17, Color(0.88, 0.92, 0.97, 0.98))
 	_draw_wrapped_text(font, str(character.get("description", "")), rect.position + Vector2(26.0, 108.0), rect.size.x - 52.0, 14, Color(0.73, 0.82, 0.90, 0.96), 22.0, 2)
 	_draw_difficulty(rect.position + Vector2(26.0, 137.0), int(character.get("difficulty_stars", 1)), accent)
-	_draw_text_left(font, "대표 스킬", rect.position + Vector2(26.0, 160.0), 13, Color(0.82, 0.88, 0.94, 0.92))
+	_draw_text_left(font, LanguageSettings.translate_text("대표 스킬"), rect.position + Vector2(26.0, 160.0), 13, Color(0.82, 0.88, 0.94, 0.92))
 	_draw_skill_icons(Rect2(rect.position + Vector2(26.0, 186.0), Vector2(rect.size.x - 52.0, 56.0)), selected_index, accent, glow)
 	var full_body_rect := Rect2(rect.position + Vector2(22.0, 252.0), Vector2(rect.size.x - 44.0, max(180.0, rect.size.y - 272.0)))
 	_draw_full_body_live2d_panel(full_body_rect, selected_index, character, accent)
@@ -1007,11 +1008,11 @@ func _draw_action_bar(view_size: Vector2) -> void:
 	champion_rect = Rect2(center_x - 145.0, bottom_y + 2.0, 140.0, 34.0)
 	mythic_rect = Rect2(center_x + 2.0, bottom_y + 2.0, 140.0, 34.0)
 	confirm_rect = Rect2(view_size.x - view_size.x * 0.09 - 214.0, bottom_y - 8.0, 214.0, 50.0)
-	_draw_button(back_rect, "뒤로", Color(0.55, 0.60, 0.68, 0.58), Color(0.08, 0.09, 0.12, 0.88), false)
-	_draw_league_button(champion_rect, "챔피언리그", "champion", Color(0.82, 0.30, 1.0, 1.0))
-	_draw_league_button(mythic_rect, "신화리그", "mythic", Color(1.0, 0.76, 0.26, 1.0))
+	_draw_button(back_rect, LanguageSettings.translate_text("뒤로"), Color(0.55, 0.60, 0.68, 0.58), Color(0.08, 0.09, 0.12, 0.88), false)
+	_draw_league_button(champion_rect, LanguageSettings.translate_text("챔피언리그"), "champion", Color(0.82, 0.30, 1.0, 1.0))
+	_draw_league_button(mythic_rect, LanguageSettings.translate_text("신화리그"), "mythic", Color(1.0, 0.76, 0.26, 1.0))
 	var select_name := str(character.get("character_name", character.get("name", "")))
-	_draw_button(confirm_rect, "%s 선택" % select_name, glow, Color(accent.r * 0.20, accent.g * 0.24, accent.b * 0.24, 0.94), true)
+	_draw_button(confirm_rect, LanguageSettings.format_select_label(select_name), glow, Color(accent.r * 0.20, accent.g * 0.24, accent.b * 0.24, 0.94), true)
 
 
 func _draw_texture_cover(texture: Texture2D, target: Rect2, texture_modulate: Color = Color.WHITE) -> void:
@@ -1059,7 +1060,7 @@ func _draw_badge(top_left: Vector2, label: String, accent: Color) -> void:
 
 func _draw_difficulty(top_left: Vector2, stars: int, accent: Color) -> void:
 	var font := ThemeDB.fallback_font
-	_draw_text_left(font, "난이도", top_left, 13, Color(0.82, 0.88, 0.94, 0.90))
+	_draw_text_left(font, LanguageSettings.translate_text("난이도"), top_left, 13, Color(0.82, 0.88, 0.94, 0.90))
 	var star_x := top_left.x + 52.0
 	for star_index in range(3):
 		var filled: bool = star_index < int(clamp(stars, 0, 3))
@@ -1104,8 +1105,8 @@ func _draw_full_body_live2d_panel(rect: Rect2, character_index: int, character: 
 		_draw_texture_contain(still_texture, inner_rect, Color.WHITE)
 		return
 	var font := ThemeDB.fallback_font
-	_draw_text_center(font, "전신 LIVE2D", rect.get_center() + Vector2(0.0, -14.0), 13, Color(0.72, 0.78, 0.86, 0.86))
-	_draw_text_center(font, "준비중", rect.get_center() + Vector2(0.0, 10.0), 13, Color(0.72, 0.78, 0.86, 0.86))
+	_draw_text_center(font, LanguageSettings.translate_text("전신 LIVE2D"), rect.get_center() + Vector2(0.0, -14.0), 13, Color(0.72, 0.78, 0.86, 0.86))
+	_draw_text_center(font, LanguageSettings.translate_text("준비중"), rect.get_center() + Vector2(0.0, 10.0), 13, Color(0.72, 0.78, 0.86, 0.86))
 
 
 func _draw_full_body_live2d_sheet(texture: Texture2D, target: Rect2, character: Dictionary) -> void:

@@ -17,6 +17,7 @@ const StageClearResultTextLayoutHelper := preload("res://scripts/ui/stage_clear_
 const StageClearResultCinematicPositionHelper := preload("res://scripts/ui/stage_clear_result_cinematic_position_helper.gd")
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const STAGE1_BACKGROUND_PATH := "res://assets/sprites/stage1/result/stage1_result_background_imagegen_v1.png"
 const DALJI_DEFEAT_SHEET_PATH := "res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png"
@@ -1489,12 +1490,12 @@ func _roll_reward(kind: String) -> Dictionary:
 			if not rolled.is_empty():
 				return rolled
 	if _is_guaranteed_mythic_box_kind(kind) or _is_advanced_box_kind(kind):
-		return {"type": "mythic", "label": "신화 아이템"}
+		return {"type": "mythic", "label": LanguageSettings.translate_text("신화 아이템")}
 	var roll: float = randf()
 	if roll < 0.60:
-		return {"type": "active", "label": "액티브 아이템"}
+		return {"type": "active", "label": LanguageSettings.translate_text("액티브 아이템")}
 	if roll < 0.80:
-		return {"type": "passive", "label": "패시브 아이템"}
+		return {"type": "passive", "label": LanguageSettings.translate_text("패시브 아이템")}
 	var amount: int = (
 		FALLBACK_STARPOINT_SINGLE_AMOUNT
 		if randf() < FALLBACK_STARPOINT_SINGLE_CHANCE
@@ -1762,7 +1763,7 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 	var muted := Color(0.20, 0.36, 0.42, alpha * 0.86)
 
 	var header_rect := Rect2(rect.position, Vector2(rect.size.x, 58.0 * scale))
-	_draw_centered_text(font, "스테이지 %d 결과" % current_stage, header_rect, int(round(42.0 * scale)), accent)
+	_draw_centered_text(font, LanguageSettings.format_stage_result_label(current_stage), header_rect, int(round(42.0 * scale)), accent)
 	var divider_y: float = rect.position.y + 68.0 * scale
 	draw_line(
 		Vector2(rect.position.x + 34.0 * scale, divider_y),
@@ -1772,7 +1773,7 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 	)
 
 	var stat_rect := Rect2(rect.position + Vector2(34.0 * scale, 92.0 * scale), Vector2(250.0, 78.0) * scale)
-	_draw_metric_tile(font, stat_rect, "획득 골드", "%d G" % PLACEHOLDER_GOLD, muted, accent, alpha)
+	_draw_metric_tile(font, stat_rect, LanguageSettings.translate_text("획득 골드"), "%d G" % PLACEHOLDER_GOLD, muted, accent, alpha)
 	var reward_summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state(
 		stage_reward_snapshot,
 		_boxes,
@@ -1792,13 +1793,13 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 		Vector2(rect.size.x - 68.0 * scale, max(150.0 * scale, button_top - body_top - 24.0 * scale))
 	)
 	if perks.is_empty() and item_rewards.is_empty():
-		_draw_text(font, "획득 보상 없음", body_rect.position + Vector2(0.0, 30.0 * scale), int(round(20.0 * scale)), muted)
+		_draw_text(font, LanguageSettings.translate_text("획득 보상 없음"), body_rect.position + Vector2(0.0, 30.0 * scale), int(round(20.0 * scale)), muted)
 	elif not perks.is_empty() and not item_rewards.is_empty():
 		var column_gap: float = 24.0 * scale
 		var column_width: float = (body_rect.size.x - column_gap) * 0.5
 		_draw_reward_section(
 			font,
-			"획득 퍽",
+			LanguageSettings.translate_text("획득 퍽"),
 			perks,
 			Rect2(body_rect.position, Vector2(column_width, body_rect.size.y)),
 			scale,
@@ -1806,16 +1807,16 @@ func _draw_cyber_scroll_contents(rect: Rect2, scale: float, font: Font, alpha: f
 		)
 		_draw_reward_section(
 			font,
-			"획득 아이템",
+			LanguageSettings.translate_text("획득 아이템"),
 			item_rewards,
 			Rect2(body_rect.position + Vector2(column_width + column_gap, 0.0), Vector2(column_width, body_rect.size.y)),
 			scale,
 			alpha
 		)
 	elif not perks.is_empty():
-		_draw_reward_section(font, "획득 퍽", perks, body_rect, scale, alpha)
+		_draw_reward_section(font, LanguageSettings.translate_text("획득 퍽"), perks, body_rect, scale, alpha)
 	else:
-		_draw_reward_section(font, "획득 아이템", item_rewards, body_rect, scale, alpha)
+		_draw_reward_section(font, LanguageSettings.translate_text("획득 아이템"), item_rewards, body_rect, scale, alpha)
 
 	_draw_scroll_buttons(rect, scale, font, alpha)
 
@@ -2012,7 +2013,7 @@ func _draw_scroll_buttons(rect: Rect2, scale: float, font: Font, alpha: float) -
 		next_fill = next_fill.lerp(Color(1.0, 1.0, 1.0, alpha), 0.20)
 		next_border = Color(0.92, 1.0, 1.0, alpha)
 	_draw_panel(next_rect, next_fill, next_border, max(1.5, 2.4 * scale), 14.0 * scale)
-	_draw_centered_text(font, "다음 스테이지", next_rect, int(round(26.0 * scale)), Color(0.02, 0.06, 0.08, alpha))
+	_draw_centered_text(font, LanguageSettings.translate_text("다음 스테이지"), next_rect, int(round(26.0 * scale)), Color(0.02, 0.06, 0.08, alpha))
 
 	var exit_hovered: bool = clickable and _hovered_button == "exit"
 	var exit_fill := Color(0.06, 0.07, 0.12, alpha * 0.92)
@@ -2023,14 +2024,14 @@ func _draw_scroll_buttons(rect: Rect2, scale: float, font: Font, alpha: float) -
 		exit_border = Color(1.0, 0.48, 0.96, alpha)
 		exit_text_color = Color(1.0, 0.96, 1.0, alpha)
 	_draw_panel(exit_rect, exit_fill, exit_border, max(1.5, 2.0 * scale), 14.0 * scale)
-	_draw_centered_text(font, "나가기", exit_rect, int(round(26.0 * scale)), exit_text_color)
+	_draw_centered_text(font, LanguageSettings.translate_text("나가기"), exit_rect, int(round(26.0 * scale)), exit_text_color)
 
 
 @warning_ignore("shadowed_variable_base_class")
 func _draw_footer(view_size: Vector2, scale: float, font: Font) -> void:
 	_draw_text(
 		font,
-		"스테이지 %d 결과 화면" % current_stage,
+		LanguageSettings.translate_text("스테이지 %d 결과 화면" % current_stage),
 		Vector2(34.0, view_size.y - 26.0 * scale),
 		int(round(24.0 * scale)),
 		Color(0.86, 0.88, 1.0, 0.82)
@@ -2271,7 +2272,7 @@ func _apply_standalone_preview_defaults() -> void:
 	boss_score = 0
 	current_stage = 1
 	reward_plan = {
-		"summary": "아이템 상자 5개",
+		"summary": LanguageSettings.format_item_box_summary(5),
 		"boxes": [
 			{"kind": "normal"},
 			{"kind": "normal"},

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const BASE_CHOICE_COUNT := 3
 
 const COMMON_PERKS := {
@@ -719,7 +721,9 @@ func get_choices(
 			if not _has_choice_id(result, str(instant_choice.get("id", ""))):
 				result.append(instant_choice)
 
-	result.append(GOLD_CHOICE.duplicate(true))
+	var gold_choice := GOLD_CHOICE.duplicate(true)
+	gold_choice["id"] = "convert_to_gold"
+	result.append(LanguageSettings.localize_perk_data(gold_choice))
 	return result
 
 
@@ -729,19 +733,32 @@ func get_all_perk_data() -> Dictionary:
 	data.merge(SMASHER_PERKS, true)
 	data.merge(VIPER_PERKS, true)
 	data.merge(SOLDIER_PERKS, true)
-	return data
+	if LanguageSettings.get_language() != LanguageSettings.LANGUAGE_ENGLISH:
+		return data
+	var localized: Dictionary = {}
+	for skill_id in data.keys():
+		var perk_data: Dictionary = data[skill_id].duplicate(true)
+		perk_data["id"] = str(skill_id)
+		localized[skill_id] = LanguageSettings.localize_perk_data(perk_data)
+	return localized
 
 
 func get_perk_data(skill_id: String) -> Dictionary:
 	var all_data: Dictionary = get_all_perk_data()
 	if all_data.has(skill_id):
 		var data: Dictionary = all_data[skill_id]
-		return data.duplicate(true)
+		var result := data.duplicate(true)
+		result["id"] = skill_id
+		return LanguageSettings.localize_perk_data(result)
 	if INSTANT_PERKS.has(skill_id):
 		var instant_data: Dictionary = INSTANT_PERKS[skill_id]
-		return instant_data.duplicate(true)
+		var instant_result := instant_data.duplicate(true)
+		instant_result["id"] = skill_id
+		return LanguageSettings.localize_perk_data(instant_result)
 	if skill_id == "convert_to_gold":
-		return GOLD_CHOICE.duplicate(true)
+		var gold_choice := GOLD_CHOICE.duplicate(true)
+		gold_choice["id"] = "convert_to_gold"
+		return LanguageSettings.localize_perk_data(gold_choice)
 	return {}
 
 
@@ -755,7 +772,7 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	var gold_choice: Dictionary = GOLD_CHOICE.duplicate(true)
 	gold_choice["id"] = "convert_to_gold"
 	gold_choice["debug_group"] = "instant"
-	entries.append(gold_choice)
+	entries.append(LanguageSettings.localize_perk_data(gold_choice))
 	entries.sort_custom(func(a, b): return _debug_sort_key(a) < _debug_sort_key(b))
 	return entries
 
@@ -769,7 +786,7 @@ func _append_pool_choices(output: Array, pool: Dictionary, runtime_levels: Dicti
 			continue
 		var next_level: int = current_level + 1
 		var choice: Dictionary = _build_level_choice(skill_id, skill_data, current_level, next_level, character_restriction)
-		output.append(choice)
+		output.append(LanguageSettings.localize_perk_data(choice))
 
 
 func _append_instant_choices(output: Array) -> void:
@@ -781,7 +798,7 @@ func _append_instant_choices(output: Array) -> void:
 		choice["next_level"] = 0
 		choice["max_level"] = 0
 		choice["character_restriction"] = ""
-		output.append(choice)
+		output.append(LanguageSettings.localize_perk_data(choice))
 
 
 func _append_debug_pool_entries(output: Array, pool: Dictionary, debug_group: String) -> void:
@@ -789,7 +806,7 @@ func _append_debug_pool_entries(output: Array, pool: Dictionary, debug_group: St
 		var data: Dictionary = pool[skill_id].duplicate(true)
 		data["id"] = skill_id
 		data["debug_group"] = debug_group
-		output.append(data)
+		output.append(LanguageSettings.localize_perk_data(data))
 
 
 func _debug_sort_key(entry: Dictionary) -> String:

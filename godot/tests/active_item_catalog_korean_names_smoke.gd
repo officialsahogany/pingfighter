@@ -2,6 +2,7 @@ extends SceneTree
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemPickupFeedback := preload("res://scripts/items/active_item_pickup_feedback.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const EXPECTED_DISPLAY_NAMES := {
 	"gauge_charge": "에너지드링크",
@@ -30,11 +31,16 @@ const EXPECTED_DISPLAY_NAMES := {
 }
 
 var _failures: Array[String] = []
+var _language_settings_snapshot: Dictionary = {}
 
 
 func _init() -> void:
+	_language_settings_snapshot = _snapshot_settings_file(LanguageSettings.SETTINGS_PATH)
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	_verify_catalog_display_names()
 	_verify_pickup_fallback_names()
+	_verify_english_catalog_display_names()
+	_restore_language_settings_snapshot()
 
 	if _failures.is_empty():
 		print("active_item_catalog_korean_names_smoke: ok")
@@ -61,7 +67,41 @@ func _verify_pickup_fallback_names() -> void:
 		if item_name == "ammo_box" or item_name == "doping_potion":
 			continue
 		var expected_name: String = str(EXPECTED_DISPLAY_NAMES[item_name])
-		_expect(str(feedback._get_korean_item_name(str(item_name))) == expected_name, "%s pickup fallback should use Korean display text" % item_name)
+		_expect(str(feedback._get_item_display_name(str(item_name))) == expected_name, "%s pickup fallback should use Korean display text" % item_name)
+
+
+func _verify_english_catalog_display_names() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_ENGLISH)
+	var catalog := ActiveItemCatalog.new()
+	_expect(str(catalog.build_item_by_name("gauge_charge").get("display_name", "")) == "Energy Drink", "English active item catalog should localize Energy Drink")
+	_expect(str(catalog.build_item_by_name("grenade").get("display_name", "")) == "Grenade", "English active item catalog should localize Grenade")
+	_expect(str(catalog.build_item_by_name("elixir_of_mastery").get("display_name", "")) == "Elixir of Mastery", "English active item catalog should localize Elixir of Mastery")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _snapshot_settings_file(path: String) -> Dictionary:
+	var had_original := FileAccess.file_exists(path)
+	var original_bytes := PackedByteArray()
+	if had_original:
+		original_bytes = FileAccess.get_file_as_bytes(path)
+	return {
+		"had": had_original,
+		"bytes": original_bytes,
+	}
+
+
+func _restore_language_settings_snapshot() -> void:
+	if _language_settings_snapshot.is_empty():
+		return
+	if bool(_language_settings_snapshot.get("had", false)):
+		var file := FileAccess.open(LanguageSettings.SETTINGS_PATH, FileAccess.WRITE)
+		if file != null:
+			file.store_buffer(_language_settings_snapshot.get("bytes", PackedByteArray()))
+			file.close()
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LanguageSettings.SETTINGS_PATH))
+	LanguageSettings.reset_cache_for_tests()
+	LanguageSettings.apply_saved_language()
 
 
 func _expect(condition: bool, message: String) -> void:

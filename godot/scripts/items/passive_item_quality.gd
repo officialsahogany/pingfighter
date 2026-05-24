@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const OPTION_COLOR_LOW := Color(230.0 / 255.0, 230.0 / 255.0, 230.0 / 255.0)
 const OPTION_COLOR_MID := Color(120.0 / 255.0, 170.0 / 255.0, 1.0)
 const OPTION_COLOR_HIGH := Color(180.0 / 255.0, 130.0 / 255.0, 1.0)
@@ -68,7 +70,7 @@ static func assign_item_prefix(item_data: Dictionary, force: bool = false) -> Di
 	elif average >= 1.0 / 3.0:
 		tier = "mid"
 
-	var prefixes: Array = _get_array(QUALITY_PREFIXES.get(tier, [""]))
+	var prefixes: Array = LanguageSettings.get_quality_prefixes(tier, _get_array(QUALITY_PREFIXES.get(tier, [""])))
 	var prefix := ""
 	if not prefixes.is_empty():
 		prefix = str(prefixes[randi() % prefixes.size()])
@@ -80,11 +82,7 @@ static func assign_item_prefix(item_data: Dictionary, force: bool = false) -> Di
 
 
 static func format_item_display_name(item_data: Dictionary) -> String:
-	var base_name := str(item_data.get("display_name", item_data.get("korean_name", item_data.get("name", "장비"))))
-	var prefix := str(item_data.get("name_prefix", "")).strip_edges()
-	if prefix == "":
-		return base_name
-	return "%s %s" % [prefix, base_name]
+	return LanguageSettings.format_item_display_name(item_data)
 
 
 static func get_item_quality_color(item_data: Dictionary, fallback: Color = Color.WHITE) -> Color:
@@ -127,9 +125,9 @@ static func get_roll_option_color(option: Dictionary) -> Color:
 
 
 static func format_roll_option_text(option: Dictionary) -> String:
-	var label := str(option.get("label", option.get("key", "")))
+	var label := LanguageSettings.translate_text(str(option.get("label", option.get("key", ""))))
 	var prefix := str(option.get("prefix", ""))
-	var unit := str(option.get("unit", ""))
+	var unit := LanguageSettings.translate_text(str(option.get("unit", "")))
 	var value := float(option.get("value", option.get("default", option.get("min", 0.0))))
 	var step := float(option.get("step", 1.0))
 	var value_text := "%.1f" % value if step > 0.0 and step < 1.0 else "%d" % int(round(value))

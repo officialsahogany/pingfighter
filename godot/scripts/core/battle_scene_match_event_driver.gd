@@ -3,6 +3,7 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const BattleSceneBossHealthFlow := preload("res://scripts/core/battle_scene_boss_health_flow.gd")
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 # Engine code-stage id where the demo sequence stops advancing automatically.
 # Keep this as a code-stage boundary; public stage numbering can differ from
@@ -321,9 +322,9 @@ func _build_stage_transition_loading_context() -> Dictionary:
 		"battle_initialized": true,
 		"stage_landing_intro_started": false,
 		"loading_progress": _get_stage_transition_loading_progress(),
-		"loading_title": "스테이지 전환 중",
-		"loading_subtitle": "스테이지 %d  /  다음 보스 예고" % _stage_transition_loading_next_stage,
-		"loading_status": "스테이지 %d 보스 데이터를 준비 중" % _stage_transition_loading_next_stage,
+		"loading_title": LanguageSettings.translate_text("스테이지 전환 중"),
+		"loading_subtitle": LanguageSettings.format_stage_transition_subtitle(_stage_transition_loading_next_stage),
+		"loading_status": LanguageSettings.format_stage_transition_status(_stage_transition_loading_next_stage),
 	}
 
 

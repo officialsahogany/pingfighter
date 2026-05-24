@@ -2,6 +2,7 @@ extends RefCounted
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const PassiveItemQuality := preload("res://scripts/items/passive_item_quality.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const DEFAULT_ITEM_COLOR := Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0)
 const ITEM_NAME_KO := {
@@ -39,16 +40,14 @@ func trigger_pickup_effect(field_item: Dictionary, effect_controller: Object, re
 	var display_name: String = str(item_data.get("display_name", ""))
 	effect_controller.trigger_pickup_effect(
 		field_item,
-		display_name if display_name != "" else _get_korean_item_name(item_name),
+		LanguageSettings.translate_text(display_name) if display_name != "" else _get_item_display_name(item_name),
 		_get_item_color(item_data),
 		registry
 	)
 
 
-func _get_korean_item_name(item_name: String) -> String:
-	if item_name == "life_elixir":
-		return "생명수"
-	return str(ITEM_NAME_KO.get(item_name, item_catalog.get_display_name(item_name)))
+func _get_item_display_name(item_name: String) -> String:
+	return str(ITEM_NAME_KO.get(item_name, item_catalog.get_display_name(item_name))) if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN else item_catalog.get_display_name(item_name)
 
 
 func _get_item_color(item_data: Dictionary) -> Color:

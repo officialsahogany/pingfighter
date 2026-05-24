@@ -2,6 +2,7 @@ extends RefCounted
 
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
 
@@ -68,10 +69,10 @@ func get_progress() -> float:
 
 func get_status_text() -> String:
 	if finished:
-		return "준비 완료"
+		return LanguageSettings.translate_text("준비 완료")
 	if current_job.is_empty():
-		return "목록 준비 중"
-	return str(current_job.get("label", "리소스 준비 중"))
+		return "Preparing List" if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH else "목록 준비 중"
+	return LanguageSettings.translate_text(str(current_job.get("label", "리소스 준비 중")))
 
 
 func get_loaded_scene() -> PackedScene:
@@ -79,7 +80,7 @@ func get_loaded_scene() -> PackedScene:
 
 
 func _add_character_select_assets() -> void:
-	var characters: Array = CharacterSelectData.get_characters()
+	var characters: Array = LanguageSettings.localize_character_list(CharacterSelectData.get_characters())
 	for character_value in characters:
 		if not (character_value is Dictionary):
 			continue
@@ -87,11 +88,11 @@ func _add_character_select_assets() -> void:
 		if not bool(character.get("unlocked", false)):
 			continue
 		var character_name := str(character.get("character_name", character.get("name", "캐릭터")))
-		_add_job(str(character.get("portrait_path", "")), "Texture2D", "%s 카드 이미지" % character_name)
-		_add_job(str(character.get("live2d_preview_still_path", "")), "Texture2D", "%s 스틸 이미지" % character_name)
+		_add_job(str(character.get("portrait_path", "")), "Texture2D", _format_asset_label(character_name, "card"))
+		_add_job(str(character.get("live2d_preview_still_path", "")), "Texture2D", _format_asset_label(character_name, "still"))
 		var fullframe_path := _primary_fullframe_path(character)
 		if fullframe_path != "":
-			_add_job(fullframe_path, "Texture2D", "%s 애니메이션" % character_name)
+			_add_job(fullframe_path, "Texture2D", _format_asset_label(character_name, "animation"))
 		elif character.has("live2d_layers"):
 			_add_layer_jobs(character, character_name)
 		var full_body_path := _primary_full_body_path(character)
@@ -138,7 +139,7 @@ func _add_layer_jobs(character: Dictionary, character_name: String) -> void:
 	for key in layers.keys():
 		var path := str(layers.get(key, ""))
 		if _path_exists(path):
-			_add_job(path, "Texture2D", "%s 파츠 이미지" % character_name)
+			_add_job(path, "Texture2D", _format_asset_label(character_name, "parts"))
 
 
 func _add_job(path: String, type_hint: String, label: String) -> void:
@@ -152,6 +153,25 @@ func _add_job(path: String, type_hint: String, label: String) -> void:
 		"type": type_hint,
 		"label": label,
 	})
+
+
+func _format_asset_label(character_name: String, asset_kind: String) -> String:
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
+		match asset_kind:
+			"card":
+				return "%s card image" % character_name
+			"still":
+				return "%s still image" % character_name
+			"animation":
+				return "%s animation" % character_name
+			"parts":
+				return "%s parts image" % character_name
+	return "%s %s" % [character_name, {
+		"card": "카드 이미지",
+		"still": "스틸 이미지",
+		"animation": "애니메이션",
+		"parts": "파츠 이미지",
+	}.get(asset_kind, "리소스")]
 
 
 func _request_next_job() -> void:

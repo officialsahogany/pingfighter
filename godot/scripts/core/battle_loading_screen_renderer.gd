@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const StainedGlassHost := preload("res://scripts/core/battle_loading_stained_glass_host.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const LOADING_WAVE_SHEET_PATH := "res://assets/ui/loading/loading_energy_wave_loop64_autosprite_v1.png"
 const LOADING_WAVE_ANCHOR_PATH := "res://assets/ui/loading/loading_energy_wave_anchor_imagegen_v1.png"
@@ -54,12 +55,12 @@ func build_snapshot(owner: Object, module_getter: Callable, context: Dictionary 
 	if context.has("loading_progress"):
 		progress = clampf(float(context.get("loading_progress", progress)), 0.0, 1.0)
 	return {
-		"title": str(context.get("loading_title", "스테이지 진입 준비 중")),
-		"subtitle": str(context.get("loading_subtitle", _build_subtitle(owner))),
-		"status": str(context.get(
+		"title": LanguageSettings.translate_text(str(context.get("loading_title", "스테이지 진입 준비 중"))),
+		"subtitle": LanguageSettings.translate_text(str(context.get("loading_subtitle", _build_subtitle(owner)))),
+		"status": LanguageSettings.translate_text(str(context.get(
 			"loading_status",
 			_resolve_status_text(module_getter, warmup_finished, battle_initialized, stage_landing_intro_started)
-		)),
+		))),
 		"progress": progress,
 	}
 
@@ -97,9 +98,9 @@ func draw(
 	var title_center := center + Vector2(0.0, -64.0)
 	_draw_centered_text(canvas, font, str(snapshot.get("title", "")), title_center, 28, Color.WHITE)
 	_draw_centered_text(canvas, font, str(snapshot.get("subtitle", "")), center + Vector2(0.0, -28.0), 15, Color(0.92, 0.78, 0.46, 0.92))
-	_draw_centered_text(canvas, font, str(snapshot.get("status", "")), center + Vector2(0.0, 16.0), 17, Color(0.76, 0.88, 0.96, 0.96))
+	_draw_centered_text(canvas, font, LanguageSettings.translate_text(str(snapshot.get("status", ""))), center + Vector2(0.0, 16.0), 17, Color(0.76, 0.88, 0.96, 0.96))
 	_draw_progress(canvas, font, center, view_size, display_progress, accent, gold)
-	_draw_centered_text(canvas, font, "잠시만 기다려 주세요", center + Vector2(0.0, 122.0), 13, Color(0.64, 0.74, 0.82, 0.72))
+	_draw_centered_text(canvas, font, LanguageSettings.translate_text("잠시만 기다려 주세요"), center + Vector2(0.0, 122.0), 13, Color(0.64, 0.74, 0.82, 0.72))
 
 
 func prewarm_assets() -> void:
@@ -404,13 +405,13 @@ func _resolve_status_text(
 	if not warmup_finished:
 		var warmup: Object = _get_module(module_getter, "battle_boot_warmup_controller")
 		if warmup != null and warmup.has_method("get_status_text"):
-			return str(warmup.get_status_text())
-		return "전투 데이터 준비 중"
+			return LanguageSettings.translate_text(str(warmup.get_status_text()))
+		return LanguageSettings.translate_text("전투 데이터 준비 중")
 	if not battle_initialized:
-		return "전투 상태 초기화 중"
+		return LanguageSettings.translate_text("전투 상태 초기화 중")
 	if not stage_landing_intro_started:
-		return "스테이지 입장 연출 준비 중"
-	return "준비 완료"
+		return LanguageSettings.translate_text("스테이지 입장 연출 준비 중")
+	return LanguageSettings.translate_text("준비 완료")
 
 
 func _get_warmup_progress(module_getter: Callable) -> float:
@@ -437,18 +438,18 @@ func _build_subtitle(owner: Object) -> String:
 	var character_name := str(_safe_owner_get(owner, "selected_character_name", ""))
 	if character_name.strip_edges() == "":
 		character_name = _character_name_from_runtime(str(_safe_owner_get(owner, "selected_character_type", "smasher")))
-	return "스테이지 %d  /  %s" % [stage, character_name]
+	return LanguageSettings.format_stage_character_label(stage, character_name)
 
 
 func _character_name_from_runtime(character_type: String) -> String:
 	match character_type.strip_edges().to_lower():
 		"viper":
-			return "바이퍼"
+			return LanguageSettings.translate_text("바이퍼")
 		"soldier", "commando":
-			return "코만도"
+			return LanguageSettings.translate_text("코만도")
 		"blacksmith":
-			return "발토르"
-	return "스매셔"
+			return LanguageSettings.translate_text("발토르")
+	return LanguageSettings.translate_text("스매셔")
 
 
 func _safe_owner_get(owner: Object, key: String, fallback: Variant) -> Variant:

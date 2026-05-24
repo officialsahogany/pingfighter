@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ActiveItemFieldSpawnPool := preload("res://scripts/items/active_item_field_spawn_pool.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const REWARD_ACTIVE := "active"
 const REWARD_PASSIVE := "passive"
@@ -253,12 +254,12 @@ func _build_placeholder_item_reward(reward_group: String) -> Dictionary:
 func _fallback_item_label(reward_group: String) -> String:
 	match reward_group:
 		REWARD_ACTIVE:
-			return "액티브 아이템"
+			return LanguageSettings.translate_text("액티브 아이템")
 		REWARD_PASSIVE:
-			return "패시브 아이템"
+			return LanguageSettings.translate_text("패시브 아이템")
 		REWARD_MYTHIC:
-			return "신화 아이템"
-	return "보상"
+			return LanguageSettings.translate_text("신화 아이템")
+	return LanguageSettings.translate_text("보상")
 
 
 func _grant_active_reward(reward: Dictionary, owner: Object, registry: Object) -> bool:

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const BAR_WIDTH := 200.0
 const BAR_HEIGHT := 8.0
 const BAR_Y_OFFSET := 35.0
@@ -75,7 +77,7 @@ func _draw_health_text(canvas: CanvasItem, bg_rect: Rect2, current_health: int, 
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
-	var label := "체력"
+	var label := LanguageSettings.translate_text("체력")
 	var value := "%02d/%02d" % [current_health, max_health]
 	var label_size: int = 13
 	var value_size: int = 13

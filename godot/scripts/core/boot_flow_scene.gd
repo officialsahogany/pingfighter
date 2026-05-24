@@ -300,10 +300,10 @@ func _draw_character_select_loading(view_size: Vector2) -> void:
 	var gold := Color(1.0, 0.72, 0.26, 1.0)
 	_draw_loading_energy_wave_layer(view_size, center, pulse)
 	var title_center := center + Vector2(0.0, -52.0)
-	_draw_centered_text(font, "게임 데이터 준비 중", title_center, 26, Color.WHITE)
-	var status_text := loading_status_text if loading_status_text != "" else "데이터를 준비하는 중입니다"
+	_draw_centered_text(font, LanguageSettings.translate_text("게임 데이터 준비 중"), title_center, 26, Color.WHITE)
+	var status_text := loading_status_text if loading_status_text != "" else LanguageSettings.translate_text("데이터를 준비하는 중입니다")
 	var display_progress := float(loading_display_percent) / 100.0
-	_draw_centered_text(font, status_text, center + Vector2(0.0, -8.0), 16, Color(0.76, 0.88, 0.96, 0.96))
+	_draw_centered_text(font, LanguageSettings.translate_text(status_text), center + Vector2(0.0, -8.0), 16, Color(0.76, 0.88, 0.96, 0.96))
 	var progress_w: float = clamp(view_size.x * 0.42, 340.0, 640.0)
 	var progress_rect := Rect2(Vector2(center.x - progress_w * 0.5, center.y + 34.0), Vector2(progress_w, 10.0))
 	draw_rect(progress_rect, Color(1.0, 1.0, 1.0, 0.12))
@@ -311,7 +311,7 @@ func _draw_character_select_loading(view_size: Vector2) -> void:
 	draw_rect(Rect2(progress_rect.position, Vector2(progress_rect.size.x * display_progress, progress_rect.size.y)), Color(accent.r, accent.g, accent.b, 0.92))
 	draw_line(progress_rect.position + Vector2(0.0, -8.0), progress_rect.position + Vector2(progress_rect.size.x, -8.0), Color(gold.r, gold.g, gold.b, 0.20), 1.0)
 	_draw_centered_text(font, "%d%%" % loading_display_percent, center + Vector2(0.0, 72.0), 18, Color(0.88, 0.94, 1.0, 0.94))
-	_draw_centered_text(font, "잠시만 기다려 주세요", center + Vector2(0.0, 106.0), 13, Color(0.64, 0.74, 0.82, 0.72))
+	_draw_centered_text(font, LanguageSettings.translate_text("잠시만 기다려 주세요"), center + Vector2(0.0, 106.0), 13, Color(0.64, 0.74, 0.82, 0.72))
 
 
 func _consider_main_menu_bgm_preload(loading_finished: bool) -> void:

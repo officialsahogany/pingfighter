@@ -2,12 +2,16 @@ extends SceneTree
 
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PassiveItemQuality := preload("res://scripts/items/passive_item_quality.gd")
 
 var _failures: Array[String] = []
+var _language_settings_snapshot: Dictionary = {}
 
 
 func _init() -> void:
+	_language_settings_snapshot = _snapshot_settings_file(LanguageSettings.SETTINGS_PATH)
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	seed(20260506)
 
 	var catalog: Object = MythicItemCatalog.new()
@@ -17,6 +21,8 @@ func _init() -> void:
 	_verify_runtime_acquisition_keeps_quality()
 	_verify_runtime_roll_changes_recompute_quality()
 	_verify_mythic_titles_use_rarity_gold(catalog)
+	_verify_english_quality_text(catalog)
+	_restore_language_settings_snapshot()
 
 	if _failures.is_empty():
 		print("passive_item_quality_prefix_smoke: ok")
@@ -106,6 +112,22 @@ func _verify_mythic_titles_use_rarity_gold(catalog: Object) -> void:
 	_expect(_same_color(PassiveItemQuality.get_item_quality_color(heavenly_cape, Color.BLACK), PassiveItemQuality.RARITY_COLOR_MYTHIC), "mythic rarity gold should override roll quality colors")
 
 
+func _verify_english_quality_text(catalog: Object) -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_ENGLISH)
+	var lucky_coin: Dictionary = _sync_with_roll(catalog, "lucky_coin", {"double_spawn_pct": 15.0})
+	var qualified_name := str(lucky_coin.get("qualified_display_name", ""))
+	_expect(qualified_name.ends_with("Lucky Coin"), "English passive quality name should keep the localized item base name")
+	_expect(qualified_name != "Lucky Coin", "English passive quality name should include an English quality prefix")
+	var option_text := PassiveItemQuality.format_roll_option_text({
+		"label": "이동속도",
+		"prefix": "+",
+		"value": 12.0,
+		"unit": "%",
+	})
+	_expect(option_text == "Move Speed +12%", "English roll option text should translate known labels")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
 func _sync_with_roll(catalog: Object, item_name: String, rolls: Dictionary) -> Dictionary:
 	var item_data: Dictionary = catalog.build_item_by_name(item_name)
 	item_data["rolls"] = rolls
@@ -129,6 +151,31 @@ func _same_color(value: Variant, expected: Color) -> bool:
 		and is_equal_approx(color.g, expected.g)
 		and is_equal_approx(color.b, expected.b)
 	)
+
+
+func _snapshot_settings_file(path: String) -> Dictionary:
+	var had_original := FileAccess.file_exists(path)
+	var original_bytes := PackedByteArray()
+	if had_original:
+		original_bytes = FileAccess.get_file_as_bytes(path)
+	return {
+		"had": had_original,
+		"bytes": original_bytes,
+	}
+
+
+func _restore_language_settings_snapshot() -> void:
+	if _language_settings_snapshot.is_empty():
+		return
+	if bool(_language_settings_snapshot.get("had", false)):
+		var file := FileAccess.open(LanguageSettings.SETTINGS_PATH, FileAccess.WRITE)
+		if file != null:
+			file.store_buffer(_language_settings_snapshot.get("bytes", PackedByteArray()))
+			file.close()
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LanguageSettings.SETTINGS_PATH))
+	LanguageSettings.reset_cache_for_tests()
+	LanguageSettings.apply_saved_language()
 
 
 func _expect(condition: bool, message: String) -> void:

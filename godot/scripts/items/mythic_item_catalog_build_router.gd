@@ -2,6 +2,7 @@ extends RefCounted
 
 const MythicItemCatalogBaseMetadata := preload("res://scripts/items/mythic_item_catalog_base_metadata.gd")
 const MythicItemCatalogIconMetadata := preload("res://scripts/items/mythic_item_catalog_icon_metadata.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var base_metadata_helper: Object = MythicItemCatalogBaseMetadata.new()
 var icon_metadata_helper: Object = MythicItemCatalogIconMetadata.new()
@@ -66,7 +67,7 @@ func build_item_by_name(catalog: Object, item_name: String) -> Dictionary:
 		return {}
 	var result: Variant = call(method_name, catalog)
 	if result is Dictionary:
-		return result
+		return LanguageSettings.localize_item_data(result)
 	return {}
 
 func _with_mythic_icon_item(

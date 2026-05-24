@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const BOOT_WARMUP_TOTAL_STEPS := 21
 const BOOT_WARMUP_STATUS_BY_STEP := {
 	0: "전투 화면 준비 중",
@@ -129,8 +131,8 @@ func get_progress() -> float:
 
 func get_status_text() -> String:
 	if boot_warmup_finished:
-		return "전투 준비 완료"
-	return str(BOOT_WARMUP_STATUS_BY_STEP.get(boot_warmup_step, "전투 데이터 준비 중"))
+		return LanguageSettings.translate_text("전투 준비 완료")
+	return LanguageSettings.translate_text(str(BOOT_WARMUP_STATUS_BY_STEP.get(boot_warmup_step, "전투 데이터 준비 중")))
 
 
 func get_total_steps() -> int:

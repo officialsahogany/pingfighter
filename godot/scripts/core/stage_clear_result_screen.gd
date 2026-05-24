@@ -5,6 +5,7 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const RESULT_SCENE_PATH := "res://scenes/stage_clear_result.tscn"
 const STARPOINT_CHOICE_REWARD_DELAY := 1.45
@@ -753,19 +754,19 @@ func _reset_stage5_for_result(registry: Object, stage_id: int) -> void:
 
 func _build_reward_plan(winning_score: int, losing_score: int) -> Dictionary:
 	var boxes: Array = []
-	var summary := "아이템 상자 1개"
+	var summary := LanguageSettings.format_item_box_summary(1)
 	if winning_score == 5 and losing_score == 0:
 		_append_stage_clear_boxes(boxes, 5)
-		summary = "아이템 상자 5개"
+		summary = LanguageSettings.format_item_box_summary(5)
 	elif winning_score == 5 and losing_score == 1:
 		_append_stage_clear_boxes(boxes, 4)
-		summary = "아이템 상자 4개"
+		summary = LanguageSettings.format_item_box_summary(4)
 	elif winning_score == 5 and losing_score == 2:
 		_append_stage_clear_boxes(boxes, 3)
-		summary = "아이템 상자 3개"
+		summary = LanguageSettings.format_item_box_summary(3)
 	elif winning_score == 5 and losing_score == 3:
 		_append_stage_clear_boxes(boxes, 2)
-		summary = "아이템 상자 2개"
+		summary = LanguageSettings.format_item_box_summary(2)
 	else:
 		_append_stage_clear_boxes(boxes, 1)
 	return {

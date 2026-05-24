@@ -1,28 +1,30 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 
 static func get_reward_detail_text(reward: Dictionary, perk_data: Dictionary, fallback_detail: String) -> String:
 	for key in ["description", "detail", "effect_text"]:
 		var direct: String = str(reward.get(key, ""))
 		if direct != "":
-			return direct
+			return LanguageSettings.translate_text(direct)
 
 	var description: String = str(perk_data.get("description", ""))
 	if description != "":
-		return description
+		return LanguageSettings.translate_text(description)
 	var descriptions_value: Variant = perk_data.get("descriptions", {})
 	if descriptions_value is Dictionary:
 		var descriptions: Dictionary = descriptions_value
 		var next_level: int = max(1, int(reward.get("next_level", 1)))
 		if descriptions.has(next_level):
-			return str(descriptions[next_level])
+			return LanguageSettings.translate_text(str(descriptions[next_level]))
 		if descriptions.has(1):
-			return str(descriptions[1])
+			return LanguageSettings.translate_text(str(descriptions[1]))
 	var detail: String = str(perk_data.get("detail", ""))
 	if detail != "":
-		return detail
+		return LanguageSettings.translate_text(detail)
 
-	return fallback_detail
+	return LanguageSettings.translate_text(fallback_detail)
 
 
 static func get_reward_perk_data(reward: Dictionary, perk_catalog: Object, perk_id: String) -> Dictionary:
@@ -51,12 +53,12 @@ static func get_reward_title(
 		return "%s +%d" % [starpoint_title_prefix, int(reward.get("amount", 0))]
 	var label: String = str(reward.get("label", ""))
 	if label != "":
-		return label
+		return LanguageSettings.translate_text(label)
 	if is_perk_reward:
 		var perk_name: String = str(perk_data.get("name", ""))
 		if perk_name != "":
-			return perk_name
-	return fallback_label
+			return LanguageSettings.translate_text(perk_name)
+	return LanguageSettings.translate_text(fallback_label)
 
 
 static func get_reward_text_state(
@@ -79,13 +81,13 @@ static func get_reward_text_state(
 static func get_reward_type_fallback_label(reward_type: String) -> String:
 	match reward_type:
 		"active":
-			return "액티브"
+			return LanguageSettings.translate_text("액티브")
 		"passive":
-			return "패시브"
+			return LanguageSettings.translate_text("패시브")
 		"mythic":
-			return "신화"
+			return LanguageSettings.translate_text("신화")
 		"starpoint":
-			return "스타포인트"
+			return LanguageSettings.translate_text("스타포인트")
 		"perk", "skill":
-			return "퍽"
-	return "보상"
+			return LanguageSettings.translate_text("퍽")
+	return LanguageSettings.translate_text("보상")

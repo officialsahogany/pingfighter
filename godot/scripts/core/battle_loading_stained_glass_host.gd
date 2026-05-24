@@ -1,5 +1,7 @@
 extends Control
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 const STAINED_GLASS_SHADER := """
 shader_type canvas_item;
 render_mode unshaded;
@@ -317,7 +319,7 @@ func _set_label_rect(label: Label, rect: Rect2) -> void:
 
 
 func _sync_text() -> void:
-	var title_text := str(snapshot.get("title", "스테이지 진입 준비 중"))
+	var title_text := LanguageSettings.translate_text(str(snapshot.get("title", "스테이지 진입 준비 중")))
 	if title_label != null:
 		title_label.text = title_text
 	if title_ghost_r != null:
@@ -325,12 +327,12 @@ func _sync_text() -> void:
 	if title_ghost_b != null:
 		title_ghost_b.text = title_text
 	if subtitle_label != null:
-		subtitle_label.text = str(snapshot.get("subtitle", ""))
+		subtitle_label.text = LanguageSettings.translate_text(str(snapshot.get("subtitle", "")))
 	if status_label != null:
-		status_label.text = str(snapshot.get("status", "전투 데이터 준비 중"))
+		status_label.text = LanguageSettings.translate_text(str(snapshot.get("status", "전투 데이터 준비 중")))
 	_sync_percent_label()
 	if hint_label != null:
-		hint_label.text = "나노 조각을 동기화하는 중"
+		hint_label.text = LanguageSettings.translate_text("나노 조각을 동기화하는 중")
 
 
 func _sync_shader() -> void:
