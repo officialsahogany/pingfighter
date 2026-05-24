@@ -7650,6 +7650,27 @@ Hundredth split on 2026-05-24:
   The bowling-trap geometry smoke now rejects `_release_bowling_trap_ball()` in
   the runtime facade.
 
+263rd follow-up on 2026-05-24:
+
+- Commit:
+  `b9eabc973 godot: move Commando linear projectile motion`.
+- Scope: moved the generic projectile one-frame advance into
+  `CommandoFirearmProjectileMotionState.advance_linear_motion()`. The runtime
+  projectile loop now delegates gravity application plus `prev_pos` / `pos` /
+  `velocity` calculation to the projectile motion owner, while keeping
+  collision, impact, VFX, and side-effect fanout in the runtime update loop.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2942` lines /
+  `46` functions to `2947` lines / `46` functions. This slice intentionally
+  favors state-owner coverage over facade line reduction; the next safe cuts
+  should keep targeting one-off runtime bridges.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_motion_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_stage2_rock_interaction_resolver_smoke`, and
+  `commando_firearm_projectile_impact_state_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1329` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
