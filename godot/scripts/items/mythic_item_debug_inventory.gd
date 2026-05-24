@@ -45,15 +45,6 @@ func debug_build_roll_editor_item(runtime: Object, item_name: String, roll_overr
 	return runtime.catalog.sync_roll_fields(item_data, false, true)
 
 
-func debug_ensure_item_for_roll_editor(runtime: Object, item_name: String, owner: Object, registry: Object) -> int:
-	if item_name == "":
-		return -1
-	var index: int = runtime.equipment_index.find_inventory_index_by_name(runtime, item_name)
-	if index >= 0:
-		return index
-	return runtime.acquire_item(item_name, owner, registry, {}, true, true)
-
-
 func debug_adjust_inventory_roll(
 	runtime: Object,
 	index: int,

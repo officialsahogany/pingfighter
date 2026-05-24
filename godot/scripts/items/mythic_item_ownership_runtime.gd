@@ -30,6 +30,15 @@ func get_inventory_item_counts(runtime: Object) -> Dictionary:
 	return counts
 
 
+func ensure_inventory_item_for_roll_editor(runtime: Object, item_name: String, owner: Object, registry: Object) -> int:
+	if item_name == "":
+		return -1
+	var index: int = runtime.equipment_index.find_inventory_index_by_name(runtime, item_name)
+	if index >= 0:
+		return index
+	return runtime.acquire_item(item_name, owner, registry, {}, true, true)
+
+
 func consume_equipped_item_name(
 	runtime: Object,
 	item_name: String,

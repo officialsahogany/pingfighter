@@ -23,6 +23,22 @@ func _init() -> void:
 	runtime.inventory_items.append({"name": ""})
 	_expect(int(runtime.get_debug_item_counts().get("lucky_coin", 0)) == 2, "ownership helper should count duplicate item names")
 	_expect(not runtime.get_debug_item_counts().has(""), "ownership helper should skip blank item names")
+	var item_count_before_ensure: int = runtime.inventory_items.size()
+	_expect(
+		runtime.debug_ensure_item_for_roll_editor("", null, null) == -1,
+		"roll editor inventory ensure should reject blank item names"
+	)
+	_expect(
+		runtime.debug_ensure_item_for_roll_editor("lucky_coin", null, null) == 0,
+		"roll editor inventory ensure should return the first owned matching item"
+	)
+	_expect(
+		runtime.inventory_items.size() == item_count_before_ensure,
+		"roll editor inventory ensure should not duplicate an owned item"
+	)
+	var speedboots_index: int = runtime.debug_ensure_item_for_roll_editor("speedboots", null, null)
+	_expect(speedboots_index >= item_count_before_ensure, "roll editor inventory ensure should acquire missing valid items")
+	_expect(runtime.has_owned_item_name("speedboots"), "roll editor inventory ensure should add the acquired item to ownership")
 
 	_expect(not runtime.should_skip_one_time_passive_spawn("revival"), "unused and unowned Revival should remain spawnable")
 	runtime.revival_state.used = true
@@ -43,12 +59,21 @@ func _init() -> void:
 		"runtime should delegate inventory item counts to ownership runtime"
 	)
 	_expect(
+		runtime_source.find("return ownership_runtime.ensure_inventory_item_for_roll_editor(self, item_name, owner, registry)") >= 0,
+		"runtime should delegate roll editor inventory ensure to ownership runtime"
+	)
+	_expect(
+		runtime_source.find("debug_inventory.debug_ensure_item_for_roll_editor") < 0,
+		"runtime should not route roll editor inventory ensure through debug inventory"
+	)
+	_expect(
 		runtime_source.find("var item_data: Dictionary = _get_dict(inventory_items[index])") < 0,
 		"runtime should not keep inventory item normalization inline"
 	)
 	var debug_source: String = FileAccess.get_file_as_string("res://scripts/items/mythic_item_debug_inventory.gd")
 	_expect(debug_source.find("func get_debug_item_counts(") < 0, "debug inventory should not duplicate ownership item count logic")
 	_expect(debug_source.find("func debug_get_inventory_item(") < 0, "debug inventory should not duplicate ownership item read logic")
+	_expect(debug_source.find("func debug_ensure_item_for_roll_editor(") < 0, "debug inventory should not duplicate roll editor inventory ensure logic")
 
 	print("mythic_item_ownership_runtime_smoke: ok")
 	quit(0)

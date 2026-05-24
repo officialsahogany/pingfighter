@@ -570,7 +570,7 @@ func get_debug_item_counts() -> Dictionary:
 
 func debug_ensure_item_for_roll_editor(item_name: String, owner: Object, registry: Object) -> int:
 	_ensure_helpers_ready()
-	return debug_inventory.debug_ensure_item_for_roll_editor(self, item_name, owner, registry)
+	return ownership_runtime.ensure_inventory_item_for_roll_editor(self, item_name, owner, registry)
 
 
 func debug_get_inventory_item(index: int) -> Dictionary:
