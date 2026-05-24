@@ -1262,21 +1262,21 @@ func _update_pistol_input(
 	):
 		return {}
 	if pistol_fire_delay_frames > 0.0:
-		return _pistol_fire_failed(special_gauge, "pistol_animation_busy", weapon_id)
+		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_animation_busy", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
 	if pistol_cooldown_frames > 0.0:
-		return _pistol_fire_failed(special_gauge, "pistol_cooldown", weapon_id)
+		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_cooldown", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
 	if bool(current_weapon.get("reloading", false)):
-		return _pistol_fire_failed(special_gauge, "pistol_reloading", weapon_id)
+		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_reloading", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
 	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	var magazines_current: int = int(current_weapon.get("magazines_current", 0))
 	if ammo_current <= 0:
 		if weapon_id == BASE_WEAPON_ID:
 			return _reload_base_pistol_from_fire_input(special_gauge, deps)
-		return _pistol_fire_failed(special_gauge, "pistol_empty", weapon_id)
+		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_empty", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			return _pistol_fire_failed(special_gauge, "pistol_ammo_unavailable", weapon_id)
+			return CommandoFirearmFireResultState.build_pistol_fire_failed_result(weapon_id, special_gauge, "pistol_ammo_unavailable", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
 	last_fire_msec = now_msec
 	var doping_defaults: Dictionary = _get_doping_potion_defaults()
 	var doping_context: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps(
@@ -1329,12 +1329,12 @@ func _update_pistol_input(
 
 func _reload_base_pistol_from_fire_input(special_gauge: float, deps: Dictionary) -> Dictionary:
 	if special_gauge < PISTOL_EMPTY_RELOAD_GAUGE_COST:
-		return _pistol_fire_failed(special_gauge, "pistol_reload_gauge_insufficient", BASE_WEAPON_ID)
+		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(BASE_WEAPON_ID, special_gauge, "pistol_reload_gauge_insufficient", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
 	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
 	if weapon_controller == null or not weapon_controller.has_method("start_weapon_reload"):
-		return _pistol_fire_failed(special_gauge, "pistol_reload_unavailable", BASE_WEAPON_ID)
+		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(BASE_WEAPON_ID, special_gauge, "pistol_reload_unavailable", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
 	if not bool(weapon_controller.start_weapon_reload(BASE_WEAPON_ID)):
-		return _pistol_fire_failed(special_gauge, "pistol_reload_unavailable", BASE_WEAPON_ID)
+		return CommandoFirearmFireResultState.build_pistol_fire_failed_result(BASE_WEAPON_ID, special_gauge, "pistol_reload_unavailable", pistol_cooldown_frames, pistol_control_lock_frames, pistol_fire_delay_frames)
 	var updated_weapon: Dictionary = {}
 	if weapon_controller.has_method("get_current_weapon_data"):
 		updated_weapon = weapon_controller.get_current_weapon_data()
@@ -1348,14 +1348,6 @@ func _reload_base_pistol_from_fire_input(special_gauge: float, deps: Dictionary)
 		PISTOL_FIRE_DELAY_FRAMES,
 		PISTOL_EMPTY_RELOAD_GAUGE_COST
 	)
-
-
-func _pistol_fire_failed(special_gauge: float, reason: String, weapon_id: String = "commando_pistol") -> Dictionary:
-	return CommandoFirearmFireResultState.build_fire_failed_result(weapon_id, special_gauge, reason, {
-		"cooldown_frames": pistol_cooldown_frames,
-		"control_lock_frames": pistol_control_lock_frames,
-		"fire_delay_frames": pistol_fire_delay_frames,
-	})
 
 
 func _get_doping_potion_defaults() -> Dictionary:

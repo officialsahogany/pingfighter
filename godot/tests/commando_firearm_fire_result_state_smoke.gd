@@ -33,6 +33,18 @@ func _verify_direct_fire_result_state() -> void:
 	_expect(is_equal_approx(float(result.get("special_gauge", 0.0)), 500.0), "fire failed result should preserve gauge")
 	_expect(is_equal_approx(float(result.get("cooldown_frames", 0.0)), 12.0), "fire failed result should merge extra fields")
 
+	var pistol_failed: Dictionary = CommandoFirearmFireResultState.build_pistol_fire_failed_result(
+		"commando_pistol",
+		500.0,
+		"pistol_busy",
+		3.0,
+		4.0,
+		5.0
+	)
+	_expect(str(pistol_failed.get("weapon_id", "")) == "commando_pistol", "pistol failed result should preserve weapon id")
+	_expect(str(pistol_failed.get("failure_reason", "")) == "pistol_busy", "pistol failed result should preserve reason")
+	_expect(is_equal_approx(float(pistol_failed.get("fire_delay_frames", 0.0)), 5.0), "pistol failed result should preserve fire delay")
+
 	var pending: Dictionary = CommandoFirearmFireResultState.build_pistol_shot_pending_result("commando_pistol", 12.0, 4.0)
 	_expect(bool(pending.get("shot_pending", false)), "pending pistol result should expose shot-pending state")
 	_expect(is_equal_approx(float(pending.get("fire_delay_frames", 0.0)), 12.0), "pending pistol result should preserve fire delay")
@@ -132,9 +144,17 @@ func _verify_runtime_delegates_fire_result_state() -> void:
 	runtime.pistol_cooldown_frames = 3.0
 	runtime.pistol_control_lock_frames = 4.0
 	runtime.pistol_fire_delay_frames = 5.0
-	var pistol: Dictionary = runtime._pistol_fire_failed(500.0, "pistol_busy", "commando_pistol")
-	_expect(str(pistol.get("weapon_id", "")) == "commando_pistol", "runtime pistol failed wrapper should delegate weapon id")
-	_expect(is_equal_approx(float(pistol.get("fire_delay_frames", 0.0)), 5.0), "runtime pistol failed wrapper should preserve fire delay")
+	var pistol: Dictionary = runtime._update_pistol_input(
+		{"action_pressed": true},
+		500.0,
+		{},
+		{},
+		{"weapon_id": "commando_pistol", "ammo_current": 1, "can_fire": true},
+		0
+	)
+	_expect(str(pistol.get("weapon_id", "")) == "commando_pistol", "runtime pistol failed path should preserve weapon id")
+	_expect(str(pistol.get("failure_reason", "")) == "pistol_animation_busy", "runtime pistol failed path should preserve failure reason")
+	_expect(is_equal_approx(float(pistol.get("fire_delay_frames", 0.0)), 5.0), "runtime pistol failed path should preserve fire delay")
 
 	runtime.ak47_fire_interval_frames = 6.0
 	runtime.ak47_last_action_pressed = true
@@ -202,6 +222,7 @@ func _verify_runtime_delegates_fire_result_state() -> void:
 	_expect(runtime_source.find("func _net_gun_fire_failed(") == -1, "runtime should not keep the net-gun fire-failed bridge")
 	_expect(runtime_source.find("func _bowling_trap_fire_failed(") == -1, "runtime should not keep the bowling-trap fire-failed bridge")
 	_expect(runtime_source.find("func _ak47_fire_failed(") == -1, "runtime should not keep the AK-47 fire-failed bridge")
+	_expect(runtime_source.find("func _pistol_fire_failed(") == -1, "runtime should not keep the pistol fire-failed bridge")
 
 
 func _expect(condition: bool, message: String) -> void:

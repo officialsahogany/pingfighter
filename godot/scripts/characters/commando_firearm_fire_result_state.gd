@@ -18,6 +18,21 @@ static func build_fire_failed_result(
 	return result
 
 
+static func build_pistol_fire_failed_result(
+	weapon_id: String,
+	special_gauge: float,
+	reason: String,
+	cooldown_frames: float,
+	control_lock_frames: float,
+	fire_delay_frames: float
+) -> Dictionary:
+	return build_fire_failed_result(weapon_id, special_gauge, reason, {
+		"cooldown_frames": cooldown_frames,
+		"control_lock_frames": control_lock_frames,
+		"fire_delay_frames": fire_delay_frames,
+	})
+
+
 static func build_pistol_shot_pending_result(
 	weapon_id: String,
 	fire_delay_frames: float,
