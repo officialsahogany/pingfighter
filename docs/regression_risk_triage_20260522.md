@@ -9318,3 +9318,30 @@ commits rather than standalone `fix` commits:
   GDScript warnings on rerun after one transient `exit code -1`, and
   `git diff --check` reported no whitespace errors aside from existing
   CRLF/LF normalization notices.
+
+344th follow-up on 2026-05-25:
+
+- Commit:
+  `a39138839 godot: move Commando lingering spawn orchestration`.
+- Scope: moved lingering-effect spawn orchestration into
+  `CommandoFirearmLingeringEffectState.spawn_runtime_lingering_effect()`. The
+  lingering owner now resolves the weapon lingering profile, reads the runtime
+  effect array, applies net / status / fire-zone spawn options, delegates to
+  the existing append helper, and writes the updated effect array back to the
+  runtime owner. Runtime keeps `_spawn_lingering_effect()` as a compatibility
+  facade for projectile-impact, suicide-drone, bowling-trap, and smoke-test
+  callers.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1749` lines /
+  `26` functions to `1745` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1338` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors
+  aside from the existing CRLF/LF normalization notice on
+  `commando_firearm_runtime.gd`.
