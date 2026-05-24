@@ -7031,6 +7031,18 @@ Hundredth split on 2026-05-24:
   `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now covers the
   real active lingering status path and rejects the removed status bridge.
 
+232nd follow-up on 2026-05-24:
+
+- Commit: `955c85df4 godot: add Japanese item localization tables`.
+- Scope: added the Japanese locale code / native name, active-item display
+  names, mythic item names / descriptions, Japanese locale alias normalization,
+  and item / mythic lookup routing in `language_settings.gd`.
+- Validation: focused localization coverage passed:
+  `language_settings_smoke`, `active_item_catalog_korean_names_smoke`, and
+  `pause_menu_overlay_smoke`. The language smoke now verifies Japanese locale
+  options, alias normalization, native label, active item names, and mythic
+  item descriptions.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
