@@ -4156,7 +4156,9 @@ This section is intentionally long; use search to find the nearest owner.
   fan-angle selection, original / restore speed fallback, boosted speed, and
   upward launch velocity metadata. `commando_firearm_runtime.gd` keeps
   detonation, cooldown, audio, VFX, boss-restore state application, and
-  result handoff while delegating only this result dictionary calculation.
+  result handoff while calling this owner directly for ball-hit boost result
+  dictionaries instead of preserving a private boost-result or fan-angle
+  bridge.
 - `scripts/characters/commando_firearm_suicide_drone_geometry.gd`
   Owns pure Commando suicide-drone geometry: spawn and player-lock anchors,
   centered drone rectangles, ball / boss rectangle hits, explosion-vs-boss
@@ -4170,10 +4172,13 @@ This section is intentionally long; use search to find the nearest owner.
   advancement, field-bound clamping, non-manual homing velocity, active
   suicide-drone projectile predicates / lookup, and fire / fire-failed /
   active-input / detonation result dictionaries.
-  `commando_firearm_runtime.gd` calls active projectile predicates / lookup
-  directly from this owner and keeps projectile-array ownership, input gate
-  side effects, detonation removal, cooldown mutation, audio, VFX, boss-hit
-  application, lingering effect spawning, and ball-boost merge sequencing.
+  `commando_firearm_runtime.gd` calls active projectile predicates / lookup,
+  projectile construction, input velocity mutation, homing velocity, field
+  clamping, and result dictionary builders directly from this owner and keeps
+  projectile-array ownership, input gate side effects, detonation removal,
+  cooldown mutation, audio, VFX, boss-hit application, lingering effect
+  spawning, and ball-boost merge sequencing. Do not reintroduce private runtime
+  suicide-drone state/result bridge methods for these owner calls.
 - `scripts/characters/commando_firearm_value_utils.gd`
   Owns tiny pure Commando firearm value helpers: limited append eviction
   safe Variant-to-Vector2 / Color / Dictionary / Array fallback reads,

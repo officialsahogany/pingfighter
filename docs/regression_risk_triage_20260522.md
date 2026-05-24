@@ -6599,9 +6599,32 @@ Hundredth split on 2026-05-24:
 - Validation: `language_settings_smoke`, `render_fps_cap_settings_smoke`, and
   `pause_menu_overlay_smoke` passed. The targeted combat-localization group of
   `21` smoke scripts passed again after the expanded table. `git diff --check`
-  reported only the existing CRLF / LF working-copy notices and no whitespace
-  errors. `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned
-  `1326` scripts with no GDScript warnings.
+ reported only the existing CRLF / LF working-copy notices and no whitespace
+ errors. `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned
+ `1326` scripts with no GDScript warnings.
+
+210th follow-up on 2026-05-24:
+
+- Commit: `99f4bd01e godot: drop Commando suicide drone state bridges`.
+- Scope: removed the remaining suicide-drone state/result bridge layer from
+  `commando_firearm_runtime.gd`. Fire, active-input, projectile construction,
+  input velocity mutation, detonation-result construction, homing velocity,
+  field clamping, and ball-boost result math now call
+  `CommandoFirearmSuicideDroneState` or
+  `CommandoFirearmSuicideDroneBallBoostResolver` directly. The runtime keeps
+  input gates, projectile-array ownership, detonation removal, cooldown
+  mutation, audio / VFX timing, boss-hit side effects, lingering residue, and
+  ball-boost merge sequencing.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3478` lines /
+  `134` functions to `3438` lines / `124` functions.
+- Validation: focused suicide-drone coverage passed:
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_suicide_drone_ball_boost_resolver_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The full sorted
+  `commando_firearm*_smoke.gd` set ran `46` scripts and passed.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` scanned `1326` scripts with no GDScript warnings.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
