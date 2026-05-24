@@ -7157,6 +7157,22 @@ Hundredth split on 2026-05-24:
   real Net Gun control-lock failure path and rejects the removed failure
   bridge.
 
+239th follow-up on 2026-05-24:
+
+- Commit: `834fa1fb5 godot: inline Commando bazooka failure result`.
+- Scope: removed `_bazooka_fire_failed()` from
+  `commando_firearm_runtime.gd`. Bazooka input now builds its failure result
+  directly with the live cooldown / control-lock / fire-animation /
+  firing-pose / muzzle-flash timer payload at each failure branch.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3225` lines /
+  `77` functions to `3222` lines / `76` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The fire-result smoke now drives the
+  real Bazooka control-lock failure path and rejects the removed failure
+  bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
