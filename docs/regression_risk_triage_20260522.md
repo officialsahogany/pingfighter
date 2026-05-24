@@ -8343,7 +8343,7 @@ commits rather than standalone `fix` commits:
 293rd follow-up on 2026-05-24:
 
 - Commit:
-  `3d6e4a4d8 godot: add Stage 1 playfield depth layers`.
+  `86358fd3f godot: move Commando timer helpers and add Stage 1 depth`.
 - Scope: added budgeted Stage 1 playfield depth-tone bands with LOD-capped
   constants and budget-smoke coverage. The same commit also moved Commando
   pending result consumption into
