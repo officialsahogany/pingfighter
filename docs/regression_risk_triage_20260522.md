@@ -7739,6 +7739,58 @@ Hundredth split on 2026-05-24:
   `git diff --check` reported no whitespace errors. The control-state smoke now
   rejects `_clear_ak47_trigger_state()` in the runtime facade.
 
+267th follow-up on 2026-05-24:
+
+- Commit:
+  `eafaf86f2 godot: add Brazilian Portuguese localization`.
+- Scope: added the `pt-BR` language option plus Brazilian Portuguese text
+  coverage across the language settings maps, pause menu selector, character /
+  skill configs, active / passive / mythic / perk naming, Commando firearm
+  status and tooltips, Smasher / Viper skill tooltip surfaces, boss skill card
+  HUD specs, weather labels, treasure-hunt summaries, stage labels, character
+  select prewarm, and stage-clear result summaries.
+- Validation: focused localization coverage passed:
+  `language_settings_smoke` and `localization_coverage_smoke`. The affected
+  UI / gameplay text surfaces also passed:
+  `pause_menu_overlay_smoke`, `boss_skill_card_hud_spec_smoke`,
+  `weather_event_state_smoke`, `treasure_hunt_runtime_smoke`,
+  `commando_firearm_tooltip_smoke`, `commando_skill_tooltip_preview_smoke`,
+  `viper_skill_tooltip_preview_smoke`,
+  `stage_clear_result_summary_builder_smoke`,
+  `stage_clear_result_scene_click_reaction_smoke`,
+  `character_selection_viper_start_smoke`, and
+  `character_select_gamepad_navigation_smoke`. Additional PT-BR assertions
+  passed in `active_item_catalog_korean_names_smoke`,
+  `passive_item_quality_prefix_smoke`, `commando_weapon_controller_smoke`,
+  `viper_ignition_aura_port_smoke`, and `render_fps_cap_settings_smoke`.
+  A broad batched run briefly tripped `render_fps_cap_settings_smoke` on
+  display-settings state, but rerunning it alone before and after the rest of
+  the batch passed.
+- Safety checks: the Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond the existing CRLF
+  normalization notices.
+
+268th follow-up on 2026-05-24:
+
+- Commit:
+  `1131b38d7 godot: move Commando base pistol reload bridge`.
+- Scope: removed the Commando runtime `_reload_base_pistol_from_fire_input()`
+  bridge. Empty base-pistol fire input now delegates reload gating, weapon
+  controller start, reload-start audio, gauge spend, and reload-start result
+  construction to `CommandoFirearmPistolReloadState.start_base_empty_reload()`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2921` lines /
+  `43` functions to `2909` lines / `42` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_pistol_reload_state_smoke`,
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_audio_routing_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1331` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond the existing CRLF
+  normalization notices. The new pistol reload smoke rejects
+  `_reload_base_pistol_from_fire_input()` in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
