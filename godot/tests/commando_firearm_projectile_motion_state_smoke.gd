@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_direct_projectile_motion_state()
 	_verify_runtime_delegates_projectile_motion_state()
+	_verify_removed_runtime_projectile_motion_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_projectile_motion_state_smoke: ok")
@@ -68,14 +69,41 @@ func _verify_runtime_delegates_projectile_motion_state() -> void:
 	_expect(runtime._apply_pistol_side_wall_bounce(projectile, Vector2(8.0, 100.0), Vector2(-5.0, 2.0), {"width": 760.0}), "runtime pistol side-wall wrapper should delegate")
 	_expect(int(projectile.get("wall_bounces", 0)) == 1, "runtime pistol side-wall wrapper should mutate projectile")
 
-	var rocket_projectile := {"kind": "rocket", "speed": 8.0, "smoke_trail_limit": 2}
-	var rocket_velocity: Vector2 = runtime._update_rocket_motion(rocket_projectile, Vector2(100.0, 200.0), Vector2.UP * 8.0, 2.0)
-	_expect(rocket_velocity.length() > 8.0, "runtime rocket motion wrapper should delegate acceleration")
-	_expect((rocket_projectile.get("smoke_trail", []) as Array).size() == 1, "runtime rocket motion wrapper should mutate smoke trail")
+	runtime.projectiles = [{
+		"kind": "rocket",
+		"weapon_id": "bazooka",
+		"speed": 8.0,
+		"velocity": Vector2.UP * 8.0,
+		"pos": Vector2(100.0, 200.0),
+		"life_frames": 12.0,
+		"smoke_trail_limit": 2,
+	}]
+	runtime._update_projectiles(1.0, {"width": 760.0, "height": 750.0}, {})
+	var runtime_rocket: Dictionary = runtime.projectiles[0]
+	_expect((runtime_rocket.get("velocity", Vector2.ZERO) as Vector2).length() > 8.0, "runtime projectile update should delegate rocket acceleration")
+	_expect((runtime_rocket.get("smoke_trail", []) as Array).size() == 1, "runtime projectile update should mutate rocket smoke trail")
 
-	var net_projectile := {"rope_points": [Vector2.ZERO], "rope_trail_limit": 2}
-	runtime._update_net_projectile_rope(net_projectile, Vector2(10.0, 20.0), {"player_pos": Vector2(300.0, 680.0)})
-	_expect((net_projectile.get("rope_points", []) as Array).size() == 2, "runtime net rope wrapper should delegate rope update")
+	runtime.projectiles = [{
+		"kind": "net",
+		"weapon_id": "net_gun",
+		"velocity": Vector2.ZERO,
+		"pos": Vector2(10.0, 20.0),
+		"life_frames": 12.0,
+		"rope_points": [Vector2.ZERO],
+		"rope_trail_limit": 2,
+	}]
+	runtime._update_projectiles(1.0, {"player_pos": Vector2(300.0, 680.0)}, {})
+	var runtime_net: Dictionary = runtime.projectiles[0]
+	_expect((runtime_net.get("rope_points", []) as Array).size() == 2, "runtime projectile update should delegate net rope update")
+
+
+func _verify_removed_runtime_projectile_motion_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_update_rocket_motion",
+		"_update_net_projectile_rope",
+	]:
+		_expect(source.find("func %s(" % bridge_name) < 0, "runtime should not keep projectile motion bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:

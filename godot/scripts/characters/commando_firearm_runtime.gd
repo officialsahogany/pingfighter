@@ -2486,7 +2486,18 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 		if projectile_kind == "drone":
 			velocity = _get_drone_velocity(pos, projectile, context, fps_scale)
 		elif projectile_kind == "rocket":
-			velocity = _update_rocket_motion(projectile, pos, velocity, step)
+			var motion_result: Dictionary = CommandoFirearmProjectileMotionState.update_rocket_motion(
+				projectile,
+				pos,
+				velocity,
+				step,
+				BAZOOKA_ACCELERATION,
+				BAZOOKA_MAX_SPEED,
+				BAZOOKA_SMOKE_TRAIL_LIMIT
+			)
+			projectile.clear()
+			projectile.merge(CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile)), true)
+			velocity = CommandoFirearmValueUtils.get_vector2(motion_result.get("velocity", velocity), velocity)
 		if projectile.has("gravity"):
 			velocity.y += float(projectile.get("gravity", 0.0)) * step
 		var prev_pos: Vector2 = pos
@@ -2505,7 +2516,20 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			pos = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", pos), pos)
 			velocity = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", velocity), velocity)
 		if projectile_kind == "net":
-			_update_net_projectile_rope(projectile, pos, context)
+			var next_projectile: Dictionary = CommandoFirearmProjectileMotionState.update_net_projectile_rope(
+				projectile,
+				pos,
+				CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
+					context,
+					COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+					Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+					COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+					COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
+				),
+				NET_GUN_ROPE_TRAIL_LIMIT
+			)
+			projectile.clear()
+			projectile.merge(next_projectile, true)
 		projectile["prev_pos"] = CommandoFirearmValueUtils.get_vector2(projectile.get("prev_pos", prev_pos), prev_pos)
 		projectile["pos"] = pos
 		projectile["velocity"] = velocity
@@ -2573,38 +2597,6 @@ func _is_wall_bouncing_pistol(projectile: Dictionary) -> bool:
 		CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, ""),
 		BASE_WEAPON_ID
 	)
-
-
-func _update_rocket_motion(projectile: Dictionary, pos: Vector2, velocity: Vector2, step: float) -> Vector2:
-	var motion_result: Dictionary = CommandoFirearmProjectileMotionState.update_rocket_motion(
-		projectile,
-		pos,
-		velocity,
-		step,
-		BAZOOKA_ACCELERATION,
-		BAZOOKA_MAX_SPEED,
-		BAZOOKA_SMOKE_TRAIL_LIMIT
-	)
-	projectile.clear()
-	projectile.merge(CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile)), true)
-	return CommandoFirearmValueUtils.get_vector2(motion_result.get("velocity", velocity), velocity)
-
-
-func _update_net_projectile_rope(projectile: Dictionary, pos: Vector2, context: Dictionary) -> void:
-	var next_projectile: Dictionary = CommandoFirearmProjectileMotionState.update_net_projectile_rope(
-		projectile,
-		pos,
-		CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
-			context,
-			COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-			COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-			COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
-		),
-		NET_GUN_ROPE_TRAIL_LIMIT
-	)
-	projectile.clear()
-	projectile.merge(next_projectile, true)
 
 
 func _spawn_ak47_shell_casing(origin: Vector2, direction: Vector2, config: Dictionary, shot_id: int) -> void:
