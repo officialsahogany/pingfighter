@@ -12,6 +12,7 @@ const Stage1CommandoFirearmRenderer := preload("res://scripts/stages/stage1/stag
 const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
 const StatusEffectState := preload("res://scripts/status/status_effect_state.gd")
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
+const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
 
 var _failures: Array[String] = []
 
@@ -707,6 +708,8 @@ func _verify_weapon_hit_status_profiles() -> void:
 	_expect(is_equal_approx(float(support_status_data.get("knockback_decay_per_frame", 0.0)), ActiveItemThrowController.GRENADE_BOSS_KNOCKBACK_DECAY), "fire support bomb knockback decay should match grenade decay")
 	var support_flash: Dictionary = _find_impact_flash(runtime, "fire_support")
 	_expect(str(support_flash.get("kind", "")) == "grenade_explosion", "fire support bomb should render through the grenade explosion effect")
+	_expect(str(support_flash.get("explosion_style", "")) == GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_STYLE, "fire support bomb should use the high-quality airstrike explosion style")
+	_expect(int(support_flash.get("texture_layer_count", 0)) == GrenadeExplosionDrawer.FIRE_SUPPORT_TEXTURE_LAYER_COUNT, "fire support bomb should expose the airstrike texture layer budget")
 	_expect(is_equal_approx(float(support_flash.get("radius", 0.0)), ActiveItemThrowController.GRENADE_EXPLOSION_RADIUS), "fire support bomb explosion radius should match grenade radius")
 	_expect(is_equal_approx(float(support_flash.get("max_timer_frames", 0.0)), ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES), "fire support bomb explosion visual duration should match grenade duration")
 	_expect(not _has_lingering_effect_for_weapon(runtime, "fire_support"), "fire support should not add an extra blast-field residue over the grenade explosion effect")

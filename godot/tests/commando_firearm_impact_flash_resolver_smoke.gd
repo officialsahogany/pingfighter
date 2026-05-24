@@ -3,6 +3,7 @@ extends SceneTree
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
 
 var _failures: Array[String] = []
 
@@ -70,6 +71,8 @@ func _verify_direct_impact_flash_resolver() -> void:
 	_expect(is_equal_approx(float(fire_support.get("radius", 0.0)), 190.0), "fire-support impact flash should use explosion radius")
 	_expect(is_equal_approx(float(fire_support.get("timer_frames", 0.0)), 42.0), "fire-support impact flash should use grenade duration")
 	_expect(is_equal_approx(float(fire_support.get("max_duration_frames", 0.0)), 42.0), "fire-support max duration should mirror grenade duration")
+	_expect(str(fire_support.get("explosion_style", "")) == GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_STYLE, "fire-support impact flash should request the airstrike explosion renderer")
+	_expect(int(fire_support.get("texture_layer_count", 0)) == GrenadeExplosionDrawer.FIRE_SUPPORT_TEXTURE_LAYER_COUNT, "fire-support impact flash should expose the airstrike texture budget")
 
 
 func _verify_runtime_delegates_impact_flash_resolver() -> void:
@@ -97,6 +100,7 @@ func _verify_runtime_delegates_impact_flash_resolver() -> void:
 	var spawned: Dictionary = runtime._get_dict(runtime.impact_flashes[0])
 	_expect(str(spawned.get("kind", "")) == "grenade_explosion", "runtime spawn should preserve fire-support grenade visual kind")
 	_expect(is_equal_approx(float(spawned.get("max_timer_frames", 0.0)), float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES)), "runtime spawn should preserve fire-support visual duration")
+	_expect(str(spawned.get("explosion_style", "")) == GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_STYLE, "runtime spawn should preserve fire-support airstrike style")
 
 
 func _get_vector2(value: Variant) -> Vector2:

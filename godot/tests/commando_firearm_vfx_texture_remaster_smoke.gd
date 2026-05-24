@@ -59,13 +59,15 @@ func _verify_texture_piece_remaster_plan() -> void:
 	_expect(bool(plan.get("support_aircraft_texture_ready", false)), "fire-support stealth aircraft imagegen texture should prewarm")
 	_expect(plan.get("support_aircraft_draw_size", Vector2.ZERO) == Vector2(90.0, 80.4), "fire-support stealth aircraft should render at the 40% smaller tuned size")
 	_expect(bool(plan.get("support_bomb_texture_ready", false)), "fire-support bomb projectile imagegen texture should prewarm")
+	_expect(bool(plan.get("grenade_explosion_texture_pieces_ready", false)), "shared grenade explosion texture pieces should prewarm for fire-support airstrikes")
+	_expect(int(plan.get("support_airstrike_explosion_texture_layers", 0)) == 8, "fire-support airstrike explosion should expose its high-quality texture layers")
 	_expect(int(plan.get("bowling_trap_sheet_frame_count", 0)) == 16, "bowling trap AutoSprite sheets should expose sixteen runtime frames")
 	_expect(int(plan.get("muzzle_texture_layers", 0)) == 2, "one muzzle flash should produce two texture layers")
-	_expect(int(plan.get("impact_texture_layers", 0)) == 9, "impact flashes should count net/support/bullet texture layers while grenade-style fire support uses the shared grenade renderer")
+	_expect(int(plan.get("impact_texture_layers", 0)) == 17, "impact flashes should count net/support/bullet texture layers plus the fire-support airstrike burst")
 	_expect(int(plan.get("lingering_texture_layers", 0)) == 8, "lingering fields should count net/fire/trap/blast texture layers")
 	_expect(int(plan.get("pistol_feedback_entries", 0)) == 2, "headshot/legshot feedback entries should be counted for renderer QA")
 	var families: Array = plan.get("families", [])
-	for family in ["muzzle_glow", "impact_burst", "impact_ring", "lingering_field_glow", "projectile_silhouette", "bowling_trap_claw", "drone_rotor", "support_aircraft", "support_bomb_projectile"]:
+	for family in ["muzzle_glow", "impact_burst", "impact_ring", "lingering_field_glow", "projectile_silhouette", "bowling_trap_claw", "drone_rotor", "support_aircraft", "support_bomb_projectile", "support_airstrike_explosion"]:
 		_expect(families.has(family), "texture remaster plan should include %s" % family)
 
 
@@ -86,6 +88,9 @@ func _verify_weapon_visual_identity_report() -> void:
 		],
 		"commando_firearm_pistol_feedbacks": [
 			{"kind": "headshot", "text": "헤드샷!"},
+		],
+		"commando_firearm_impact_flashes": [
+			{"weapon_id": "fire_support", "kind": "grenade_explosion", "pos": Vector2(82.0, 42.0), "radius": 190.0},
 		],
 		"commando_firearm_support_calls": [
 			{"origin": Vector2(20.0, 30.0), "target": Vector2(60.0, 70.0), "aircraft_active": true},
@@ -111,6 +116,7 @@ func _verify_weapon_visual_identity_report() -> void:
 		"bazooka:accelerating_rocket_smoke",
 		"net_gun:harpoon_rope",
 		"fire_support:aircraft_silhouette",
+		"fire_support:airstrike_grenade_explosion",
 		"bowling_trap:ground_clamp_capturing",
 		"suicide_drone:manual_drone_rotor",
 	]:

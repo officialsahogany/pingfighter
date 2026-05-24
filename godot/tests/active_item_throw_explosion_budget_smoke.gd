@@ -34,6 +34,10 @@ func _verify_shared_grenade_explosion_budget() -> void:
 	_expect(GrenadeExplosionDrawer.GRENADE_EXPLOSION_FIRE_RINGS <= 5, "shared grenade explosion should cap fire rings")
 	_expect(GrenadeExplosionDrawer.GRENADE_EXPLOSION_SMOKE_PUFFS <= 3, "shared grenade explosion should cap smoke puffs")
 	_expect(GrenadeExplosionDrawer.GRENADE_EXPLOSION_SPARKS <= 4, "shared grenade explosion should cap sparks")
+	_expect(GrenadeExplosionDrawer.get_texture_layer_count({"source": "grenade"}) == 0, "shared grenade item explosions should keep the low-cost draw budget")
+	_expect(GrenadeExplosionDrawer.get_texture_layer_count({"weapon_id": "fire_support", "kind": "grenade_explosion"}) == GrenadeExplosionDrawer.FIRE_SUPPORT_TEXTURE_LAYER_COUNT, "fire-support airstrike explosions should expose their texture layer budget separately")
+	_expect(GrenadeExplosionDrawer.FIRE_SUPPORT_SMOKE_PUFFS <= 7, "fire-support airstrike smoke should stay capped")
+	_expect(GrenadeExplosionDrawer.FIRE_SUPPORT_SPARKS <= 10, "fire-support airstrike sparks should stay capped")
 	var source := FileAccess.get_file_as_string("res://scripts/effects/grenade_explosion_drawer.gd")
 	_expect(source.find("draw_arc(center, shockwave_radius, 0.0, TAU, 28") >= 0, "shared grenade explosion shockwave should use the reduced point count")
 

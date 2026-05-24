@@ -11,6 +11,7 @@ var grenade_icon_texture: Texture2D
 
 
 func prewarm_assets() -> void:
+	GrenadeExplosionDrawer.prewarm_assets()
 	_touch_texture(get_grenade_icon_texture())
 
 

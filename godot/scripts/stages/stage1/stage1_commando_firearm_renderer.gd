@@ -39,6 +39,7 @@ const REMASTER_TEXTURE_FAMILIES := [
 	"drone_rotor",
 	"support_aircraft",
 	"support_bomb_projectile",
+	"support_airstrike_explosion",
 ]
 
 const REQUIRED_VISUAL_FAMILIES := [
@@ -211,6 +212,8 @@ func build_texture_remaster_plan(context: Dictionary) -> Dictionary:
 		"support_aircraft_texture_ready": _get_support_aircraft_texture() != null,
 		"support_aircraft_draw_size": SUPPORT_AIRCRAFT_DRAW_SIZE,
 		"support_bomb_texture_ready": _get_support_bomb_texture() != null,
+		"grenade_explosion_texture_pieces_ready": GrenadeExplosionDrawer.are_texture_assets_ready(),
+		"support_airstrike_explosion_texture_layers": _get_support_airstrike_explosion_layer_count(impact_flashes),
 		"bowling_trap_sheet_frame_count": BOWLING_TRAP_SHEET_FRAME_COUNT,
 		"bowling_trap_sheet_cols": BOWLING_TRAP_SHEET_COLS,
 		"bowling_trap_sheet_rows": BOWLING_TRAP_SHEET_ROWS,
@@ -231,6 +234,10 @@ func build_visual_identity_report(context: Dictionary) -> Dictionary:
 		var projectile: Dictionary = _get_dict(value)
 		var family: String = _projectile_visual_family(projectile)
 		_add_visual_identity(counts, layers, family, _projectile_visual_layer(projectile, family))
+	for value in _get_array(draw_items.get("impact_flashes", [])):
+		var flash: Dictionary = _get_dict(value)
+		if str(flash.get("weapon_id", "")) == "fire_support" and str(flash.get("kind", "")) == "grenade_explosion":
+			_add_visual_identity(counts, layers, "fire_support", "airstrike_grenade_explosion")
 	for value in _get_array(draw_items.get("shell_casings", [])):
 		var shell: Dictionary = _get_dict(value)
 		if str(shell.get("weapon_id", "")) == "ak47":
@@ -414,11 +421,20 @@ func _get_impact_texture_layer_count(flashes: Array) -> int:
 		if kind == "support_marker":
 			count += 2
 		elif kind == "grenade_explosion":
-			count += 0
+			count += GrenadeExplosionDrawer.get_texture_layer_count(_get_dict(value))
 		elif kind == "net":
 			count += 4
 		else:
 			count += 3
+	return count
+
+
+func _get_support_airstrike_explosion_layer_count(flashes: Array) -> int:
+	var count := 0
+	for value in flashes:
+		var flash: Dictionary = _get_dict(value)
+		if str(flash.get("weapon_id", "")) == "fire_support" and str(flash.get("kind", "")) == "grenade_explosion":
+			count += GrenadeExplosionDrawer.get_texture_layer_count(flash)
 	return count
 
 
