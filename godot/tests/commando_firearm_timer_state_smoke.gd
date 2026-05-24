@@ -8,6 +8,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_runtime_timer_owner()
+	_verify_pending_pistol_fire_owner()
 
 	if _failures.is_empty():
 		print("commando_firearm_timer_state_smoke: ok")
@@ -59,6 +60,48 @@ func _verify_runtime_timer_owner() -> void:
 	runtime.pistol_cooldown_frames = 3.0
 	CommandoFirearmTimerState.advance_runtime_timers(runtime, 0.0, 0.25)
 	_expect(is_equal_approx(runtime.pistol_cooldown_frames, 3.0), "timer owner should ignore zero-step ticks")
+
+
+func _verify_pending_pistol_fire_owner() -> void:
+	var runtime := CommandoFirearmRuntime.new()
+	runtime.pistol_fire_delay_frames = 3.0
+	runtime.pistol_control_lock_frames = 4.0
+	runtime.pistol_cooldown_frames = 5.0
+	runtime.pistol_pending_weapon_id = "commando_pistol"
+	runtime.pistol_pending_config = {"player_pos": Vector2(1.0, 2.0)}
+
+	var pending: Dictionary = CommandoFirearmTimerState.advance_pending_pistol_fire(
+		runtime,
+		{"player_pos": Vector2(10.0, 20.0)},
+		1.0,
+		["player_pos"],
+		CommandoFirearmRuntime.BASE_WEAPON_ID
+	)
+	_expect(bool(pending.get("pending", false)), "pending pistol fire owner should report active pending state")
+	_expect(is_equal_approx(runtime.pistol_fire_delay_frames, 2.0), "pending pistol fire owner should decrement delay")
+	_expect(_get_dict(pending.get("result", {})).get("shot_pending", false), "pending pistol fire owner should return pending shot result")
+	_expect(runtime.pistol_pending_config.get("player_pos", Vector2.ZERO) == Vector2(10.0, 20.0), "pending pistol fire owner should refresh delayed shot geometry")
+
+	var ready: Dictionary = CommandoFirearmTimerState.advance_pending_pistol_fire(
+		runtime,
+		{},
+		3.0,
+		["player_pos"],
+		CommandoFirearmRuntime.BASE_WEAPON_ID
+	)
+	_expect(bool(ready.get("ready", false)), "pending pistol fire owner should report ready shot")
+	_expect(str(ready.get("weapon_id", "")) == "commando_pistol", "pending pistol fire owner should preserve weapon id")
+	_expect(_get_dict(ready.get("shot_config", {})).get("player_pos", Vector2.ZERO) == Vector2(10.0, 20.0), "pending pistol fire owner should preserve refreshed shot config")
+	_expect(_get_dict(ready.get("result", {})).get("fired", false), "pending pistol fire owner should return delayed fire result")
+	_expect(is_equal_approx(runtime.pistol_fire_delay_frames, 0.0), "pending pistol fire owner should clear delay after ready")
+	_expect(runtime.pistol_pending_weapon_id == "", "pending pistol fire owner should clear pending weapon")
+	_expect(runtime.pistol_pending_config.is_empty(), "pending pistol fire owner should clear pending config")
+
+
+func _get_dict(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
 
 
 func _expect(condition: bool, message: String) -> void:

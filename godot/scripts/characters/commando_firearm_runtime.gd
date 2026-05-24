@@ -951,26 +951,9 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 		result.merge(projectile_result, true)
 	if not lingering_result.is_empty():
 		result.merge(lingering_result, true)
-	var damage_result: Dictionary = CommandoFirearmPendingResultState.build_boss_damage_result(
-		pending_boss_damage_units,
-		pending_boss_damage_sources
-	)
-	if not damage_result.is_empty():
-		result.merge(damage_result, true)
-		pending_boss_damage_units = 0
-		pending_boss_damage_sources.clear()
-	var gauge_result: Dictionary = CommandoFirearmPendingResultState.build_special_gauge_result(
-		pending_special_gauge_gain,
-		pending_special_gauge_sources,
-		pending_special_gauge_hit_kind,
-		pending_pistol_feedback_timer_frames
-	)
-	if not gauge_result.is_empty():
-		result.merge(gauge_result, true)
-		pending_special_gauge_gain = 0.0
-		pending_special_gauge_sources.clear()
-		pending_special_gauge_hit_kind = ""
-		pending_pistol_feedback_timer_frames = 0.0
+	var pending_result: Dictionary = CommandoFirearmPendingResultState.consume_runtime_pending_results(self)
+	if not pending_result.is_empty():
+		result.merge(pending_result, true)
 	return result
 
 
@@ -991,26 +974,19 @@ func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: flo
 	if step <= 0.0:
 		return {}
 	CommandoFirearmTimerState.advance_runtime_timers(self, step, AK47_RECOIL_RECOVERY_PER_FRAME)
-	if pistol_fire_delay_frames <= 0.0:
-		return {}
-	CommandoFirearmValueUtils.refresh_pending_fire_geometry(
-		pistol_pending_config,
+	var pending_fire: Dictionary = CommandoFirearmTimerState.advance_pending_pistol_fire(
+		self,
 		config,
-		PISTOL_PENDING_FIRE_GEOMETRY_KEYS
+		step,
+		PISTOL_PENDING_FIRE_GEOMETRY_KEYS,
+		BASE_WEAPON_ID
 	)
-	pistol_fire_delay_frames = max(0.0, pistol_fire_delay_frames - step)
-	if pistol_fire_delay_frames > 0.0:
-		return CommandoFirearmFireResultState.build_pistol_shot_pending_result(
-			str(pistol_pending_weapon_id if pistol_pending_weapon_id != "" else "commando_pistol"),
-			pistol_fire_delay_frames,
-			pistol_control_lock_frames
-		)
-	var shot_config: Dictionary = pistol_pending_config.duplicate(true)
-	if shot_config.is_empty():
-		shot_config = config
-	var shot_weapon_id: String = str(pistol_pending_weapon_id if pistol_pending_weapon_id != "" else "commando_pistol")
-	pistol_pending_config.clear()
-	pistol_pending_weapon_id = ""
+	if pending_fire.is_empty():
+		return {}
+	if bool(pending_fire.get("pending", false)):
+		return CommandoFirearmValueUtils.get_dict(pending_fire.get("result", {}))
+	var shot_config: Dictionary = CommandoFirearmValueUtils.get_dict(pending_fire.get("shot_config", config))
+	var shot_weapon_id: String = str(pending_fire.get("weapon_id", BASE_WEAPON_ID))
 	_spawn_firearm_effect(shot_weapon_id, shot_config, deps)
 	CommandoFirearmAudioDispatcher.play_fire_audio(shot_weapon_id, deps)
 	# Start the post-fire animation window so the renderer plays the muzzle /
@@ -1018,11 +994,7 @@ func _update_firearm_timers(config: Dictionary, deps: Dictionary, fps_scale: flo
 	# flash) is the first cell shown during this window, so it lines up with
 	# `CommandoFirearmAudioDispatcher.play_fire_audio()` above.
 	pistol_post_fire_animation_frames = PISTOL_POST_FIRE_ANIMATION_FRAMES
-	return CommandoFirearmFireResultState.build_pistol_delayed_fire_result(
-		shot_weapon_id,
-		pistol_cooldown_frames,
-		pistol_control_lock_frames
-	)
+	return CommandoFirearmValueUtils.get_dict(pending_fire.get("result", {}))
 
 
 func _update_pistol_input(

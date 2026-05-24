@@ -56,6 +56,7 @@ func _verify_actor_perf_forwarding() -> void:
 
 func _verify_render_budget_constants() -> void:
 	var player_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_player_actor_renderer.gd")
+	var playfield_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_playfield_renderer.gd")
 	var pillar_background_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_pillar_background.gd")
 	_expect(player_source.find("const _HOVER_EMBER_SLOT_COUNT := 8") >= 0, "Viper hover ember draw slots should stay capped")
 	_expect(Stage1PlayfieldRenderer.DASH_AFTERIMAGE_MAX_COUNT <= 3, "Stage 1 dash afterimages should stay capped")
@@ -106,6 +107,15 @@ func _verify_render_budget_constants() -> void:
 	_expect(Stage1PlayfieldRenderer.STAGE1_OMINOUS_SHADOW_STEPS <= 7, "Stage 1 playfield ominous shadow steps should stay compact")
 	_expect(Stage1PlayfieldRenderer.STAGE1_OMINOUS_SHADOW_STEPS_LOD <= 3, "Stage 1 Viper LOD shadow steps should stay capped")
 	_expect(Stage1PlayfieldRenderer.STAGE1_OMINOUS_SHADOW_STEPS_SEVERE_LOD <= 2, "Stage 1 severe Viper LOD shadow steps should stay capped")
+	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_BAND_STEPS <= 5, "Stage 1 playfield depth layers should stay compact")
+	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_BAND_STEPS_LOD <= 3, "Stage 1 Viper LOD depth layers should stay compact")
+	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_BAND_STEPS_SEVERE_LOD <= 2, "Stage 1 severe Viper LOD depth layers should stay compact")
+	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_FAR_ALPHA <= 32.0 / 255.0, "Stage 1 far-depth tint should stay subtle")
+	_expect(Stage1PlayfieldRenderer.STAGE1_DEPTH_NEAR_ALPHA <= 24.0 / 255.0, "Stage 1 near-depth tint should stay subtle")
+	_expect(
+		playfield_source.find("_draw_stage1_depth_layers(canvas, context, width, height, quality_scale)") >= 0,
+		"Stage 1 playfield draw should include the 2.5D depth-tone layer"
+	)
 	_expect(Stage1BossActorRenderer.GROUND_SHADOW_ALPHAS.size() <= 2, "Stage 1 boss shadow should use at most two polygon layers")
 	_expect(Stage1BossActorRenderer.GROUND_SHADOW_SEGMENTS <= 12, "Stage 1 boss shadow should use a bounded ellipse segment count")
 	_expect(Stage1PillarChromeRenderer.GAME_BORDER_SHINE_LAYERS <= 2, "Stage 1 border shine should use at most two rect layers")

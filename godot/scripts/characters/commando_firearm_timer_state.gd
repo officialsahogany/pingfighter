@@ -1,5 +1,8 @@
 extends RefCounted
 
+const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+
 const TIMER_FIELDS := [
 	"slingshot_control_lock_frames",
 	"pistol_cooldown_frames",
@@ -44,3 +47,56 @@ static func advance_runtime_timers(
 	if float(target.get("weapon_fire_sheet_timer_frames")) <= 0.0:
 		target.set("weapon_fire_sheet_id", "")
 		target.set("weapon_fire_sheet_max_frames", 0.0)
+
+
+static func advance_pending_pistol_fire(
+	target: Object,
+	config: Dictionary,
+	step: float,
+	pending_geometry_keys: Array,
+	base_weapon_id: String
+) -> Dictionary:
+	if target == null:
+		return {}
+	var safe_step: float = max(0.0, step)
+	if safe_step <= 0.0:
+		return {}
+	var fire_delay_frames: float = float(target.get("pistol_fire_delay_frames"))
+	if fire_delay_frames <= 0.0:
+		return {}
+	var pending_config: Dictionary = CommandoFirearmValueUtils.get_dict(target.get("pistol_pending_config"))
+	CommandoFirearmValueUtils.refresh_pending_fire_geometry(
+		pending_config,
+		config,
+		pending_geometry_keys
+	)
+	fire_delay_frames = max(0.0, fire_delay_frames - safe_step)
+	target.set("pistol_fire_delay_frames", fire_delay_frames)
+	var weapon_id: String = str(target.get("pistol_pending_weapon_id"))
+	if weapon_id == "":
+		weapon_id = base_weapon_id
+	if fire_delay_frames > 0.0:
+		return {
+			"pending": true,
+			"result": CommandoFirearmFireResultState.build_pistol_shot_pending_result(
+				weapon_id,
+				fire_delay_frames,
+				float(target.get("pistol_control_lock_frames"))
+			),
+		}
+	var shot_config: Dictionary = pending_config.duplicate(true)
+	if shot_config.is_empty():
+		shot_config = config
+	pending_config.clear()
+	target.set("pistol_pending_config", pending_config)
+	target.set("pistol_pending_weapon_id", "")
+	return {
+		"ready": true,
+		"weapon_id": weapon_id,
+		"shot_config": shot_config,
+		"result": CommandoFirearmFireResultState.build_pistol_delayed_fire_result(
+			weapon_id,
+			float(target.get("pistol_cooldown_frames")),
+			float(target.get("pistol_control_lock_frames"))
+		),
+	}

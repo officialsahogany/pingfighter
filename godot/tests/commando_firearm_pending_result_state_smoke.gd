@@ -58,6 +58,23 @@ func _verify_direct_pending_result_state() -> void:
 	_expect(str(gauge_result.get("commando_firearm_last_pistol_hit_kind", "")) == "legshot", "special gauge result should expose hit kind")
 	_expect(CommandoFirearmPendingResultState.build_special_gauge_result(0.0, [], "", 0.0).is_empty(), "empty special gauge result should stay empty")
 
+	var direct_runtime := CommandoFirearmRuntime.new()
+	direct_runtime.pending_boss_damage_units = 2
+	direct_runtime.pending_boss_damage_sources = ["bazooka"]
+	direct_runtime.pending_special_gauge_gain = 15.0
+	direct_runtime.pending_special_gauge_sources = ["pistol"]
+	direct_runtime.pending_special_gauge_hit_kind = "headshot"
+	direct_runtime.pending_pistol_feedback_timer_frames = 12.0
+	var consumed: Dictionary = CommandoFirearmPendingResultState.consume_runtime_pending_results(direct_runtime)
+	_expect(int(consumed.get("commando_firearm_boss_damage_units", 0)) == 2, "runtime pending helper should emit damage")
+	_expect(is_equal_approx(float(consumed.get("commando_firearm_special_gauge_gain", 0.0)), 15.0), "runtime pending helper should emit gauge")
+	_expect(direct_runtime.pending_boss_damage_units == 0, "runtime pending helper should clear damage units")
+	_expect(direct_runtime.pending_boss_damage_sources.is_empty(), "runtime pending helper should clear damage sources")
+	_expect(is_equal_approx(direct_runtime.pending_special_gauge_gain, 0.0), "runtime pending helper should clear gauge gain")
+	_expect(direct_runtime.pending_special_gauge_sources.is_empty(), "runtime pending helper should clear gauge sources")
+	_expect(direct_runtime.pending_special_gauge_hit_kind == "", "runtime pending helper should clear hit kind")
+	_expect(is_equal_approx(direct_runtime.pending_pistol_feedback_timer_frames, 0.0), "runtime pending helper should clear feedback timer")
+
 
 func _verify_runtime_consumes_pending_result_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()

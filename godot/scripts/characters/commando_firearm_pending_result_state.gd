@@ -89,6 +89,33 @@ static func build_special_gauge_result(
 	}
 
 
+static func consume_runtime_pending_results(target: Object) -> Dictionary:
+	if target == null:
+		return {}
+	var result: Dictionary = {}
+	var damage_result: Dictionary = build_boss_damage_result(
+		int(target.get("pending_boss_damage_units")),
+		_get_array(target.get("pending_boss_damage_sources"))
+	)
+	if not damage_result.is_empty():
+		result.merge(damage_result, true)
+		target.set("pending_boss_damage_units", 0)
+		target.set("pending_boss_damage_sources", [])
+	var gauge_result: Dictionary = build_special_gauge_result(
+		float(target.get("pending_special_gauge_gain")),
+		_get_array(target.get("pending_special_gauge_sources")),
+		str(target.get("pending_special_gauge_hit_kind")),
+		float(target.get("pending_pistol_feedback_timer_frames"))
+	)
+	if not gauge_result.is_empty():
+		result.merge(gauge_result, true)
+		target.set("pending_special_gauge_gain", 0.0)
+		target.set("pending_special_gauge_sources", [])
+		target.set("pending_special_gauge_hit_kind", "")
+		target.set("pending_pistol_feedback_timer_frames", 0.0)
+	return result
+
+
 static func _get_array(value: Variant) -> Array:
 	if value is Array:
 		return value

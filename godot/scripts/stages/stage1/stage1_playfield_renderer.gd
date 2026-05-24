@@ -71,6 +71,12 @@ const STAGE1_CYBER_CIRCUIT_TICK_COUNT_SEVERE_LOD := 0
 const STAGE1_OMINOUS_SHADOW_STEPS := 7
 const STAGE1_OMINOUS_SHADOW_STEPS_LOD := 3
 const STAGE1_OMINOUS_SHADOW_STEPS_SEVERE_LOD := 1
+const STAGE1_DEPTH_BAND_STEPS := 5
+const STAGE1_DEPTH_BAND_STEPS_LOD := 3
+const STAGE1_DEPTH_BAND_STEPS_SEVERE_LOD := 2
+const STAGE1_DEPTH_FAR_ALPHA := 28.0 / 255.0
+const STAGE1_DEPTH_NEAR_ALPHA := 22.0 / 255.0
+const STAGE1_DEPTH_CENTER_LIGHT_ALPHA := 10.0 / 255.0
 const STAGE1_FLOOR_EDGE_VIGNETTE_STEPS := 8
 const STAGE1_FLOOR_EDGE_VIGNETTE_STEPS_LOD := 4
 const STAGE1_FLOOR_EDGE_VIGNETTE_STEPS_SEVERE_LOD := 2
@@ -107,6 +113,7 @@ func draw(canvas: CanvasItem, context: Dictionary, _shake_offset: Vector2) -> vo
 		canvas.draw_texture_rect(background_texture, Rect2(0.0, 0.0, width, height), false)
 	else:
 		_draw_actual_stage1_center_background(canvas, width, height, quality_scale)
+	_draw_stage1_depth_layers(canvas, context, width, height, quality_scale)
 	_draw_stage1_mood_grade(canvas, width, height, quality_scale)
 	_draw_stage1_cyberpunk_atmosphere(canvas, width, height, quality_scale)
 	_draw_stadium_electric_flow(canvas, width, height, quality_scale)
@@ -181,6 +188,50 @@ func _draw_actual_stage1_center_background(canvas: CanvasItem, width: float, hei
 
 	_draw_stadium_guide_marks(canvas, width, height, quality_scale)
 	_draw_floor_edge_vignette(canvas, width, height, quality_scale)
+
+
+func _draw_stage1_depth_layers(
+	canvas: CanvasItem,
+	context: Dictionary,
+	width: float,
+	height: float,
+	quality_scale: float
+) -> void:
+	if not bool(context.get("stage1_depth_layers_enabled", true)):
+		return
+	var steps: int = _get_lod_count(
+		STAGE1_DEPTH_BAND_STEPS,
+		STAGE1_DEPTH_BAND_STEPS_LOD,
+		STAGE1_DEPTH_BAND_STEPS_SEVERE_LOD,
+		quality_scale
+	)
+	var far_height: float = height * 0.38
+	var near_start_y: float = height * 0.68
+	var near_height: float = height - near_start_y
+	for idx in range(steps):
+		var t: float = 1.0 - float(idx) / float(steps)
+		var far_band_h: float = max(1.0, far_height / float(steps))
+		var far_alpha: float = STAGE1_DEPTH_FAR_ALPHA * t * t
+		canvas.draw_rect(
+			Rect2(0.0, far_band_h * float(idx), width, far_band_h + 1.0),
+			Color(0.02, 0.08, 0.105, far_alpha)
+		)
+
+		var near_band_h: float = max(1.0, near_height / float(steps))
+		var near_y: float = near_start_y + near_band_h * float(idx)
+		var near_ratio: float = float(idx + 1) / float(steps)
+		var near_alpha: float = STAGE1_DEPTH_NEAR_ALPHA * near_ratio * near_ratio
+		canvas.draw_rect(
+			Rect2(0.0, near_y, width, near_band_h + 1.0),
+			Color(0.82, 0.60, 0.28, near_alpha)
+		)
+
+	var center_h: float = height * 0.20
+	var center_y: float = height * 0.5 - center_h * 0.5
+	canvas.draw_rect(
+		Rect2(width * 0.10, center_y, width * 0.80, center_h),
+		Color(0.48, 0.72, 0.68, STAGE1_DEPTH_CENTER_LIGHT_ALPHA)
+	)
 
 
 func _ensure_floor_layout(width: float, height: float) -> void:
