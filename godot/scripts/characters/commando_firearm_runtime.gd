@@ -3936,19 +3936,7 @@ func _build_net_field_boss_clamp_result(boss_pos: Vector2, boss_width: float, cl
 
 
 func _update_lingering_fire_flames(effect: Dictionary, fps_scale: float) -> void:
-	effect["flames"] = _get_lingering_fire_flames_for_frame(effect, fps_scale)
-
-
-func _get_lingering_fire_flames_for_frame(effect: Dictionary, fps_scale: float) -> Array:
-	return CommandoFirearmLingeringFireFlameState.get_flames_for_frame(effect, fps_scale)
-
-
-func _get_lingering_fire_flames(effect: Dictionary) -> Array:
-	return CommandoFirearmLingeringFireFlameState.get_flames(effect)
-
-
-func _should_seed_lingering_fire_flames(flames: Array) -> bool:
-	return CommandoFirearmLingeringFireFlameState.should_seed_flames(flames)
+	effect["flames"] = CommandoFirearmLingeringFireFlameState.get_flames_for_frame(effect, fps_scale)
 
 
 func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, deps: Dictionary, fps_scale: float) -> void:

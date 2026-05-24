@@ -838,10 +838,10 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(float(fire_zone_frame_effect.get("timer_frames", 0.0)), 10.0), "lingering frame helper should advance timers")
 	_expect(is_equal_approx(float(fire_zone_frame_effect.get("phase", 0.0)), 1.24), "lingering frame helper should advance effect phase")
 	_expect(runtime._get_array(fire_zone_frame_effect.get("flames", [])).size() == fire_flame_count, "lingering frame helper should build fire-zone flames")
-	_expect(runtime._get_lingering_fire_flames({"flames": [{"lifetime": 3.0}]}).size() == 1, "fire flames reader should preserve valid flame arrays")
-	_expect(runtime._get_lingering_fire_flames({"flames": "bad"}).is_empty(), "fire flames reader should reject invalid flame arrays")
-	_expect(runtime._should_seed_lingering_fire_flames([]), "fire flames seed predicate should accept empty flame arrays")
-	_expect(not runtime._should_seed_lingering_fire_flames([{"lifetime": 3.0}]), "fire flames seed predicate should reject existing flame arrays")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flames({"flames": [{"lifetime": 3.0}]}).size() == 1, "fire flames owner reader should preserve valid flame arrays")
+	_expect(CommandoFirearmLingeringFireFlameState.get_flames({"flames": "bad"}).is_empty(), "fire flames owner reader should reject invalid flame arrays")
+	_expect(CommandoFirearmLingeringFireFlameState.should_seed_flames([]), "fire flames owner seed predicate should accept empty flame arrays")
+	_expect(not CommandoFirearmLingeringFireFlameState.should_seed_flames([{"lifetime": 3.0}]), "fire flames owner seed predicate should reject existing flame arrays")
 	var expired_fire_flame := {
 		"offset": Vector2.ZERO,
 		"size": 4.0,
@@ -970,11 +970,11 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(CommandoFirearmLingeringFireFlameState.get_flame_at_index(["bad"], 0).is_empty(), "fire flame indexed owner should reject non-dictionary entries")
 	_expect(CommandoFirearmLingeringFireFlameState.get_flame_at_index(advanced_fire_flames, -1).is_empty(), "fire flame indexed owner should reject negative indices")
 	_expect(CommandoFirearmLingeringFireFlameState.get_flame_at_index(advanced_fire_flames, 2).is_empty(), "fire flame indexed owner should reject out-of-range indices")
-	var seeded_fire_flames: Array = runtime._get_lingering_fire_flames_for_frame({"width": 80.0, "height": 40.0}, 2.0)
-	_expect(seeded_fire_flames.size() == fire_flame_count, "fire flames frame helper should seed missing flame arrays")
-	var invalid_fire_flames: Array = runtime._get_lingering_fire_flames_for_frame({"flames": "bad", "width": 80.0, "height": 40.0}, 2.0)
-	_expect(invalid_fire_flames.size() == fire_flame_count, "fire flames frame helper should seed invalid flame arrays")
-	var advanced_frame_fire_flames: Array = runtime._get_lingering_fire_flames_for_frame({
+	var seeded_fire_flames: Array = CommandoFirearmLingeringFireFlameState.get_flames_for_frame({"width": 80.0, "height": 40.0}, 2.0)
+	_expect(seeded_fire_flames.size() == fire_flame_count, "fire flames frame owner should seed missing flame arrays")
+	var invalid_fire_flames: Array = CommandoFirearmLingeringFireFlameState.get_flames_for_frame({"flames": "bad", "width": 80.0, "height": 40.0}, 2.0)
+	_expect(invalid_fire_flames.size() == fire_flame_count, "fire flames frame owner should seed invalid flame arrays")
+	var advanced_frame_fire_flames: Array = CommandoFirearmLingeringFireFlameState.get_flames_for_frame({
 		"flames": [
 			{
 				"offset": Vector2.ZERO,
@@ -987,8 +987,8 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"width": 80.0,
 		"height": 40.0,
 	}, 2.0)
-	_expect(advanced_frame_fire_flames.size() == 1, "fire flames frame helper should keep existing flame arrays")
-	_expect(is_equal_approx(float((advanced_frame_fire_flames[0] as Dictionary).get("lifetime", 0.0)), 18.0), "fire flames frame helper should advance existing flame arrays")
+	_expect(advanced_frame_fire_flames.size() == 1, "fire flames frame owner should keep existing flame arrays")
+	_expect(is_equal_approx(float((advanced_frame_fire_flames[0] as Dictionary).get("lifetime", 0.0)), 18.0), "fire flames frame owner should advance existing flame arrays")
 	var non_fire_frame_effect := {
 		"kind": "net_field",
 		"timer_frames": 8.0,
@@ -1496,6 +1496,9 @@ func _verify_runtime_delegates_value_utils() -> void:
 func _verify_removed_fire_flame_owner_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	for bridge_name in [
+		"_get_lingering_fire_flames_for_frame",
+		"_get_lingering_fire_flames",
+		"_should_seed_lingering_fire_flames",
 		"_advance_lingering_fire_flames",
 		"_get_lingering_fire_flame_at_index",
 		"_advance_lingering_fire_flame",
