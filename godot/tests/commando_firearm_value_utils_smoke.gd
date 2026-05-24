@@ -88,6 +88,7 @@ func _init() -> void:
 	_verify_removed_net_field_clamp_bridges()
 	_verify_removed_net_field_setup_bridges()
 	_verify_removed_lingering_status_setup_bridges()
+	_verify_removed_lingering_status_application_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -1126,86 +1127,86 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"boss_hitbox_height": 20.0,
 	}), "lingering hit helper should reject separated rects")
 	var lingering_status_cooldown := {"status_cooldown_frames": 5.0}
-	_expect(is_equal_approx(runtime._get_lingering_status_cooldown(lingering_status_cooldown), 5.0), "lingering status cooldown reader should read cooldowns")
-	_expect(is_equal_approx(runtime._get_lingering_status_cooldown({}), 0.0), "lingering status cooldown reader should default missing cooldowns")
-	_expect(is_equal_approx(runtime._get_lingering_status_cooldown({"status_cooldown_frames": -3.0}), 0.0), "lingering status cooldown reader should clamp negative cooldowns")
-	_expect(is_equal_approx(runtime._get_next_lingering_status_cooldown(lingering_status_cooldown, 2.0), 3.0), "lingering status cooldown next helper should reduce cooldowns")
-	_expect(is_equal_approx(runtime._get_next_lingering_status_cooldown(lingering_status_cooldown, -4.0), 5.0), "lingering status cooldown next helper should ignore negative frame steps")
-	_expect(is_equal_approx(runtime._get_next_lingering_status_cooldown(lingering_status_cooldown, 9.0), 0.0), "lingering status cooldown next helper should clamp at zero")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_cooldown(lingering_status_cooldown), 5.0), "lingering status cooldown reader should read cooldowns")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_cooldown({}), 0.0), "lingering status cooldown reader should default missing cooldowns")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_cooldown({"status_cooldown_frames": -3.0}), 0.0), "lingering status cooldown reader should clamp negative cooldowns")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_next_status_cooldown(lingering_status_cooldown, 2.0), 3.0), "lingering status cooldown next helper should reduce cooldowns")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_next_status_cooldown(lingering_status_cooldown, 0.0), 5.0), "lingering status cooldown next helper should ignore negative frame steps")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_next_status_cooldown(lingering_status_cooldown, 9.0), 0.0), "lingering status cooldown next helper should clamp at zero")
 	var stored_status_cooldown := {}
-	_expect(is_equal_approx(runtime._set_lingering_status_cooldown(stored_status_cooldown, 4.0), 4.0), "lingering status cooldown setter should return stored cooldowns")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.set_status_cooldown(stored_status_cooldown, 4.0), 4.0), "lingering status cooldown setter should return stored cooldowns")
 	_expect(is_equal_approx(float(stored_status_cooldown.get("status_cooldown_frames", 0.0)), 4.0), "lingering status cooldown setter should store cooldowns")
-	_expect(is_equal_approx(runtime._advance_lingering_status_cooldown(lingering_status_cooldown, 2.0), 3.0), "lingering status cooldown helper should reduce cooldowns")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.advance_status_cooldown(lingering_status_cooldown, 2.0), 3.0), "lingering status cooldown helper should reduce cooldowns")
 	_expect(is_equal_approx(float(lingering_status_cooldown.get("status_cooldown_frames", 0.0)), 3.0), "lingering status cooldown helper should store reduced cooldowns")
-	_expect(is_equal_approx(runtime._advance_lingering_status_cooldown(lingering_status_cooldown, -4.0), 3.0), "lingering status cooldown helper should ignore negative frame steps")
-	_expect(is_equal_approx(runtime._advance_lingering_status_cooldown(lingering_status_cooldown, 9.0), 0.0), "lingering status cooldown helper should clamp cooldowns at zero")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.advance_status_cooldown(lingering_status_cooldown, 0.0), 3.0), "lingering status cooldown helper should ignore negative frame steps")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.advance_status_cooldown(lingering_status_cooldown, 9.0), 0.0), "lingering status cooldown helper should clamp cooldowns at zero")
 	var default_lingering_status_cooldown := {}
-	_expect(is_equal_approx(runtime._advance_lingering_status_cooldown(default_lingering_status_cooldown, 1.0), 0.0), "lingering status cooldown helper should default missing cooldowns to zero")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.advance_status_cooldown(default_lingering_status_cooldown, 1.0), 0.0), "lingering status cooldown helper should default missing cooldowns to zero")
 	_expect(is_equal_approx(float(default_lingering_status_cooldown.get("status_cooldown_frames", -1.0)), 0.0), "lingering status cooldown helper should store default zero cooldowns")
-	_expect(is_equal_approx(runtime._get_lingering_status_slow_multiplier({"slow_multiplier": 0.45}), 0.45), "lingering status slow multiplier helper should read multipliers")
-	_expect(is_equal_approx(runtime._get_lingering_status_slow_multiplier({}), 1.0), "lingering status slow multiplier helper should default missing multipliers")
-	_expect(is_equal_approx(runtime._get_lingering_status_slow_multiplier({"slow_multiplier": 1.4}), 1.0), "lingering status slow multiplier helper should clamp high multipliers")
-	_expect(is_equal_approx(runtime._get_lingering_status_slow_multiplier({"slow_multiplier": -0.2}), 0.0), "lingering status slow multiplier helper should clamp low multipliers")
-	_expect(runtime._get_lingering_status_data_source({"source": "net_field"}) == "net_field", "lingering status data-source helper should read explicit sources")
-	_expect(runtime._get_lingering_status_data_source({}).is_empty(), "lingering status data-source helper should default missing sources to empty")
-	_expect(runtime._get_lingering_status_data_source({"source": ""}).is_empty(), "lingering status data-source helper should preserve explicit empty sources")
-	_expect(runtime._should_include_lingering_status_slow_multiplier("slow"), "lingering status slow-multiplier guard should accept slow statuses")
-	_expect(not runtime._should_include_lingering_status_slow_multiplier("burn"), "lingering status slow-multiplier guard should reject generic statuses")
-	_expect(not runtime._should_include_lingering_status_slow_multiplier(""), "lingering status slow-multiplier guard should reject missing statuses")
-	var slow_status_data: Dictionary = runtime._build_lingering_status_data({
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_slow_multiplier({"slow_multiplier": 0.45}, 1.0, 0.0, 1.0), 0.45), "lingering status slow multiplier helper should read multipliers")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_slow_multiplier({}, 1.0, 0.0, 1.0), 1.0), "lingering status slow multiplier helper should default missing multipliers")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_slow_multiplier({"slow_multiplier": 1.4}, 1.0, 0.0, 1.0), 1.0), "lingering status slow multiplier helper should clamp high multipliers")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_slow_multiplier({"slow_multiplier": -0.2}, 1.0, 0.0, 1.0), 0.0), "lingering status slow multiplier helper should clamp low multipliers")
+	_expect(CommandoFirearmLingeringStatusState.get_status_data_source({"source": "net_field"}) == "net_field", "lingering status data-source helper should read explicit sources")
+	_expect(CommandoFirearmLingeringStatusState.get_status_data_source({}).is_empty(), "lingering status data-source helper should default missing sources to empty")
+	_expect(CommandoFirearmLingeringStatusState.get_status_data_source({"source": ""}).is_empty(), "lingering status data-source helper should preserve explicit empty sources")
+	_expect(CommandoFirearmLingeringStatusState.should_include_status_slow_multiplier("slow", "slow"), "lingering status slow-multiplier guard should accept slow statuses")
+	_expect(not CommandoFirearmLingeringStatusState.should_include_status_slow_multiplier("burn", "slow"), "lingering status slow-multiplier guard should reject generic statuses")
+	_expect(not CommandoFirearmLingeringStatusState.should_include_status_slow_multiplier("", "slow"), "lingering status slow-multiplier guard should reject missing statuses")
+	var slow_status_data: Dictionary = CommandoFirearmLingeringStatusState.build_status_data({
 		"source": "net_field",
 		"slow_multiplier": 0.45,
-	}, "slow")
+	}, "slow", "slow", 1.0, 0.0, 1.0)
 	_expect(str(slow_status_data.get("source", "")) == "net_field", "lingering status data helper should preserve source")
 	_expect(is_equal_approx(float(slow_status_data.get("multiplier", 0.0)), 0.45), "lingering status data helper should include slow multipliers")
-	var clamped_slow_status_data: Dictionary = runtime._build_lingering_status_data({
+	var clamped_slow_status_data: Dictionary = CommandoFirearmLingeringStatusState.build_status_data({
 		"slow_multiplier": 1.4,
-	}, "slow")
+	}, "slow", "slow", 1.0, 0.0, 1.0)
 	_expect(is_equal_approx(float(clamped_slow_status_data.get("multiplier", 0.0)), 1.0), "lingering status data helper should clamp high slow multipliers")
-	var low_clamped_slow_status_data: Dictionary = runtime._build_lingering_status_data({
+	var low_clamped_slow_status_data: Dictionary = CommandoFirearmLingeringStatusState.build_status_data({
 		"slow_multiplier": -0.2,
-	}, "slow")
+	}, "slow", "slow", 1.0, 0.0, 1.0)
 	_expect(is_equal_approx(float(low_clamped_slow_status_data.get("multiplier", 1.0)), 0.0), "lingering status data helper should clamp low slow multipliers")
-	var generic_status_data: Dictionary = runtime._build_lingering_status_data({
+	var generic_status_data: Dictionary = CommandoFirearmLingeringStatusState.build_status_data({
 		"source": "fire_zone",
 		"slow_multiplier": 0.2,
-	}, "burn")
+	}, "burn", "slow", 1.0, 0.0, 1.0)
 	_expect(str(generic_status_data.get("source", "")) == "fire_zone", "lingering status data helper should preserve source for generic statuses")
 	_expect(not generic_status_data.has("multiplier"), "lingering status data helper should only add multipliers for slow")
 	var reset_status_cooldown := {"status_interval_frames": 8.0}
-	_expect(is_equal_approx(runtime._get_lingering_status_interval(reset_status_cooldown), 8.0), "lingering status interval helper should read interval frames")
-	_expect(is_equal_approx(runtime._get_lingering_status_interval({"status_interval_frames": -2.0}), 1.0), "lingering status interval helper should clamp intervals to one frame")
-	_expect(is_equal_approx(runtime._get_lingering_status_interval({}), 12.0), "lingering status interval helper should default missing intervals")
-	_expect(is_equal_approx(runtime._reset_lingering_status_cooldown(reset_status_cooldown), 8.0), "lingering status reset helper should use interval frames")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_interval(reset_status_cooldown, 12.0), 8.0), "lingering status interval helper should read interval frames")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_interval({"status_interval_frames": -2.0}, 12.0), 1.0), "lingering status interval helper should clamp intervals to one frame")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_interval({}, 12.0), 12.0), "lingering status interval helper should default missing intervals")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.reset_status_cooldown(reset_status_cooldown, 12.0), 8.0), "lingering status reset helper should use interval frames")
 	_expect(is_equal_approx(float(reset_status_cooldown.get("status_cooldown_frames", 0.0)), 8.0), "lingering status reset helper should store interval frames")
 	var min_reset_status_cooldown := {"status_interval_frames": -2.0}
-	_expect(is_equal_approx(runtime._reset_lingering_status_cooldown(min_reset_status_cooldown), 1.0), "lingering status reset helper should clamp intervals to one frame")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.reset_status_cooldown(min_reset_status_cooldown, 12.0), 1.0), "lingering status reset helper should clamp intervals to one frame")
 	var default_reset_status_cooldown := {}
-	_expect(is_equal_approx(runtime._reset_lingering_status_cooldown(default_reset_status_cooldown), 12.0), "lingering status reset helper should default missing intervals")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.reset_status_cooldown(default_reset_status_cooldown, 12.0), 12.0), "lingering status reset helper should default missing intervals")
 	var fake_status_state := FakeStatusEffectState.new()
-	_expect(runtime._get_lingering_status_id({"status_id": "slow"}) == "slow", "lingering status-id helper should read status ids")
-	_expect(runtime._get_lingering_status_id({}).is_empty(), "lingering status-id helper should default missing ids to empty")
-	_expect(runtime._is_lingering_status_effect_state(fake_status_state), "lingering status-state predicate should accept apply-capable objects")
-	_expect(not runtime._is_lingering_status_effect_state(null), "lingering status-state predicate should reject null")
-	_expect(not runtime._is_lingering_status_effect_state(RefCounted.new()), "lingering status-state predicate should reject objects without apply_status")
-	_expect(runtime._get_lingering_status_effect_state({"status_effect_state": fake_status_state}) == fake_status_state, "lingering status-state helper should return apply-capable status state")
-	_expect(runtime._get_lingering_status_effect_state({}) == null, "lingering status-state helper should ignore missing status state")
-	_expect(runtime._get_lingering_status_effect_state({"status_effect_state": RefCounted.new()}) == null, "lingering status-state helper should reject status state without apply_status")
-	_expect(runtime._get_lingering_status_application({}, {"status_effect_state": fake_status_state}).is_empty(), "lingering status application helper should reject missing status ids")
-	_expect(runtime._get_lingering_status_application({"status_id": "slow"}, {}).is_empty(), "lingering status application helper should reject missing status state")
-	_expect(runtime._get_lingering_status_application({"status_id": "slow"}, {"status_effect_state": RefCounted.new()}).is_empty(), "lingering status application helper should reject invalid status state")
-	var status_application: Dictionary = runtime._get_lingering_status_application({"status_id": "slow"}, {"status_effect_state": fake_status_state})
+	_expect(CommandoFirearmLingeringStatusState.get_status_id({"status_id": "slow"}) == "slow", "lingering status-id helper should read status ids")
+	_expect(CommandoFirearmLingeringStatusState.get_status_id({}).is_empty(), "lingering status-id helper should default missing ids to empty")
+	_expect(CommandoFirearmLingeringStatusState.is_status_effect_state(fake_status_state), "lingering status-state predicate should accept apply-capable objects")
+	_expect(not CommandoFirearmLingeringStatusState.is_status_effect_state(null), "lingering status-state predicate should reject null")
+	_expect(not CommandoFirearmLingeringStatusState.is_status_effect_state(RefCounted.new()), "lingering status-state predicate should reject objects without apply_status")
+	_expect(CommandoFirearmLingeringStatusState.get_status_effect_state({"status_effect_state": fake_status_state}) == fake_status_state, "lingering status-state helper should return apply-capable status state")
+	_expect(CommandoFirearmLingeringStatusState.get_status_effect_state({}) == null, "lingering status-state helper should ignore missing status state")
+	_expect(CommandoFirearmLingeringStatusState.get_status_effect_state({"status_effect_state": RefCounted.new()}) == null, "lingering status-state helper should reject status state without apply_status")
+	_expect(CommandoFirearmLingeringStatusState.get_status_application({}, {"status_effect_state": fake_status_state}).is_empty(), "lingering status application helper should reject missing status ids")
+	_expect(CommandoFirearmLingeringStatusState.get_status_application({"status_id": "slow"}, {}).is_empty(), "lingering status application helper should reject missing status state")
+	_expect(CommandoFirearmLingeringStatusState.get_status_application({"status_id": "slow"}, {"status_effect_state": RefCounted.new()}).is_empty(), "lingering status application helper should reject invalid status state")
+	var status_application: Dictionary = CommandoFirearmLingeringStatusState.get_status_application({"status_id": "slow"}, {"status_effect_state": fake_status_state})
 	_expect(str(status_application.get("status_id", "")) == "slow", "lingering status application helper should preserve valid status ids")
 	_expect(status_application.get("status_effect_state", null) == fake_status_state, "lingering status application helper should preserve valid status state")
-	_expect(runtime._has_lingering_status_application(status_application), "lingering status application guard should accept valid applications")
-	_expect(not runtime._has_lingering_status_application({}), "lingering status application guard should reject empty applications")
-	_expect(not runtime._has_lingering_status_application({"status_id": "slow"}), "lingering status application guard should reject missing status state")
-	_expect(not runtime._has_lingering_status_application({"status_id": "slow", "status_effect_state": RefCounted.new()}), "lingering status application guard should reject invalid status state")
-	_expect(runtime._get_lingering_status_application_id(status_application) == "slow", "lingering status application-id helper should read status ids")
-	_expect(runtime._get_lingering_status_application_id({}).is_empty(), "lingering status application-id helper should default missing ids to empty")
-	_expect(runtime._get_lingering_status_application_state(status_application) == fake_status_state, "lingering status application-state helper should read valid status state")
-	_expect(runtime._get_lingering_status_application_state({}) == null, "lingering status application-state helper should ignore missing status state")
-	_expect(runtime._get_lingering_status_application_state({"status_effect_state": RefCounted.new()}) == null, "lingering status application-state helper should reject invalid status state")
+	_expect(CommandoFirearmLingeringStatusState.has_status_application(status_application), "lingering status application guard should accept valid applications")
+	_expect(not CommandoFirearmLingeringStatusState.has_status_application({}), "lingering status application guard should reject empty applications")
+	_expect(not CommandoFirearmLingeringStatusState.has_status_application({"status_id": "slow"}), "lingering status application guard should reject missing status state")
+	_expect(not CommandoFirearmLingeringStatusState.has_status_application({"status_id": "slow", "status_effect_state": RefCounted.new()}), "lingering status application guard should reject invalid status state")
+	_expect(CommandoFirearmLingeringStatusState.get_status_application_id(status_application) == "slow", "lingering status application-id helper should read status ids")
+	_expect(CommandoFirearmLingeringStatusState.get_status_application_id({}).is_empty(), "lingering status application-id helper should default missing ids to empty")
+	_expect(CommandoFirearmLingeringStatusState.get_status_application_state(status_application) == fake_status_state, "lingering status application-state helper should read valid status state")
+	_expect(CommandoFirearmLingeringStatusState.get_status_application_state({}) == null, "lingering status application-state helper should ignore missing status state")
+	_expect(CommandoFirearmLingeringStatusState.get_status_application_state({"status_effect_state": RefCounted.new()}) == null, "lingering status application-state helper should reject invalid status state")
 	_expect(CommandoFirearmRuntime.LINGERING_STATUS_TARGET == "boss", "lingering status target constant should stay boss")
 	_expect(CommandoFirearmRuntime.LINGERING_STATUS_ID_SLOW == "slow", "lingering status slow-id constant should stay slow")
 	_expect(is_equal_approx(CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_DURATION_FRAMES, 18.0), "lingering status duration constant should match the shipped default")
@@ -1215,15 +1216,15 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(is_equal_approx(CommandoFirearmRuntime.LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER, 1.0), "lingering status slow default constant should match the shipped default")
 	_expect(is_equal_approx(CommandoFirearmRuntime.LINGERING_STATUS_MIN_SLOW_MULTIPLIER, 0.0), "lingering status slow min constant should stay zero")
 	_expect(is_equal_approx(CommandoFirearmRuntime.LINGERING_STATUS_MAX_SLOW_MULTIPLIER, 1.0), "lingering status slow max constant should stay one")
-	_expect(runtime._get_lingering_status_target() == "boss", "lingering status target helper should target the boss")
-	_expect(is_equal_approx(runtime._get_lingering_status_duration({"status_duration_frames": 32.0}), 32.0), "lingering status duration helper should read explicit durations")
-	_expect(is_equal_approx(runtime._get_lingering_status_duration({}), 18.0), "lingering status duration helper should default missing durations")
-	_expect(runtime._get_lingering_status_source({"source": "net_field"}) == "net_field", "lingering status source helper should read explicit sources")
-	_expect(runtime._get_lingering_status_source({}) == "commando_firearm_lingering", "lingering status source helper should default missing sources")
-	_expect(runtime._get_lingering_status_source({"source": ""}).is_empty(), "lingering status source helper should preserve explicit empty sources")
-	_expect(not runtime._is_lingering_status_cooldown_ready(0.1), "lingering status cooldown-ready helper should reject active cooldowns")
-	_expect(runtime._is_lingering_status_cooldown_ready(0.0), "lingering status cooldown-ready helper should accept zero cooldowns")
-	_expect(runtime._is_lingering_status_cooldown_ready(-0.1), "lingering status cooldown-ready helper should accept negative cooldowns")
+	_expect(CommandoFirearmLingeringStatusState.get_status_target("boss") == "boss", "lingering status target helper should target the boss")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_duration({"status_duration_frames": 32.0}, 18.0), 32.0), "lingering status duration helper should read explicit durations")
+	_expect(is_equal_approx(CommandoFirearmLingeringStatusState.get_status_duration({}, 18.0), 18.0), "lingering status duration helper should default missing durations")
+	_expect(CommandoFirearmLingeringStatusState.get_status_source({"source": "net_field"}, "commando_firearm_lingering") == "net_field", "lingering status source helper should read explicit sources")
+	_expect(CommandoFirearmLingeringStatusState.get_status_source({}, "commando_firearm_lingering") == "commando_firearm_lingering", "lingering status source helper should default missing sources")
+	_expect(CommandoFirearmLingeringStatusState.get_status_source({"source": ""}, "commando_firearm_lingering").is_empty(), "lingering status source helper should preserve explicit empty sources")
+	_expect(not CommandoFirearmLingeringStatusState.is_status_cooldown_ready(0.1), "lingering status cooldown-ready helper should reject active cooldowns")
+	_expect(CommandoFirearmLingeringStatusState.is_status_cooldown_ready(0.0), "lingering status cooldown-ready helper should accept zero cooldowns")
+	_expect(CommandoFirearmLingeringStatusState.is_status_cooldown_ready(-0.1), "lingering status cooldown-ready helper should accept negative cooldowns")
 	var overlapping_status_effect := {
 		"pos": Vector2(100.0, 100.0),
 		"width": 80.0,
@@ -1234,9 +1235,9 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"boss_paddle_width": 20.0,
 		"boss_hitbox_height": 20.0,
 	}
-	_expect(runtime._is_lingering_status_ready_to_apply(0.0, overlapping_status_effect, overlapping_status_context), "lingering status ready helper should accept ready overlapping effects")
-	_expect(not runtime._is_lingering_status_ready_to_apply(0.1, overlapping_status_effect, overlapping_status_context), "lingering status ready helper should reject active cooldowns")
-	_expect(not runtime._is_lingering_status_ready_to_apply(0.0, {
+	_expect(CommandoFirearmLingeringStatusState.is_status_ready_to_apply(0.0, overlapping_status_effect, overlapping_status_context), "lingering status ready helper should accept ready overlapping effects")
+	_expect(not CommandoFirearmLingeringStatusState.is_status_ready_to_apply(0.1, overlapping_status_effect, overlapping_status_context), "lingering status ready helper should reject active cooldowns")
+	_expect(not CommandoFirearmLingeringStatusState.is_status_ready_to_apply(0.0, {
 		"pos": Vector2(10.0, 10.0),
 		"width": 20.0,
 		"height": 20.0,
@@ -1247,7 +1248,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"width": 80.0,
 		"height": 40.0,
 	}
-	_expect(not runtime._can_apply_lingering_status(blocked_status_effect, {
+	_expect(not CommandoFirearmLingeringStatusState.can_apply_status(blocked_status_effect, {
 		"boss_pos": Vector2(90.0, 90.0),
 		"boss_paddle_width": 20.0,
 		"boss_hitbox_height": 20.0,
@@ -1259,7 +1260,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"width": 20.0,
 		"height": 20.0,
 	}
-	_expect(not runtime._can_apply_lingering_status(missed_status_effect, {
+	_expect(not CommandoFirearmLingeringStatusState.can_apply_status(missed_status_effect, {
 		"boss_pos": Vector2(200.0, 200.0),
 		"boss_paddle_width": 20.0,
 		"boss_hitbox_height": 20.0,
@@ -1270,7 +1271,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"width": 80.0,
 		"height": 40.0,
 	}
-	_expect(runtime._can_apply_lingering_status(ready_status_effect, {
+	_expect(CommandoFirearmLingeringStatusState.can_apply_status(ready_status_effect, {
 		"boss_pos": Vector2(90.0, 90.0),
 		"boss_paddle_width": 20.0,
 		"boss_hitbox_height": 20.0,
@@ -1617,6 +1618,36 @@ func _verify_removed_lingering_status_setup_bridges() -> void:
 		"_should_apply_lingering_effect_status_fields",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-status setup bridge %s" % bridge_name)
+
+
+func _verify_removed_lingering_status_application_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_get_lingering_status_id",
+		"_get_lingering_status_effect_state",
+		"_get_lingering_status_application",
+		"_has_lingering_status_application",
+		"_get_lingering_status_application_id",
+		"_get_lingering_status_application_state",
+		"_is_lingering_status_effect_state",
+		"_can_apply_lingering_status",
+		"_is_lingering_status_ready_to_apply",
+		"_get_lingering_status_target",
+		"_get_lingering_status_duration",
+		"_get_lingering_status_source",
+		"_build_lingering_status_data",
+		"_should_include_lingering_status_slow_multiplier",
+		"_get_lingering_status_data_source",
+		"_get_lingering_status_slow_multiplier",
+		"_reset_lingering_status_cooldown",
+		"_get_lingering_status_interval",
+		"_advance_lingering_status_cooldown",
+		"_set_lingering_status_cooldown",
+		"_get_lingering_status_cooldown",
+		"_get_next_lingering_status_cooldown",
+		"_is_lingering_status_cooldown_ready",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-status application bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:
