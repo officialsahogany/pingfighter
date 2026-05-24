@@ -8171,6 +8171,24 @@ commits rather than standalone `fix` commits:
   `git diff --check` on the touched Commando files reported no whitespace
   errors.
 
+287th follow-up on 2026-05-24:
+
+- Commit:
+  `acf480d91 godot: move Commando bazooka draw state`.
+- Scope: moved Commando bazooka draw-state field reads into
+  `CommandoFirearmDrawStateResolver.build_runtime_bazooka_state()`. The
+  runtime still supplies the bazooka fire-animation, firing-pose, and
+  muzzle-flash timing constants, while cooldown / lock / animation timer reads
+  now live with the draw-state owner.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2652` lines /
+  `35` functions to `2646` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_draw_state_resolver_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1333` scripts with no GDScript warnings, and
+  `git diff --check` on the touched Commando files reported no whitespace
+  errors.
+
 283rd follow-up on 2026-05-24:
 
 - Commit:
