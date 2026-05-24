@@ -4,6 +4,7 @@ const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
 const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 
@@ -173,6 +174,62 @@ static func build_net_dissolve_projectile(projectile: Dictionary) -> Dictionary:
 	var net_projectile: Dictionary = projectile.duplicate(true)
 	net_projectile["net_dissolve"] = true
 	return net_projectile
+
+
+static func append_runtime_spawn_effect(
+	lingering_effects: Array,
+	runtime_owner: Object,
+	weapon_id: String,
+	profile: Dictionary,
+	projectile: Dictionary,
+	context: Dictionary,
+	field_size: Vector2,
+	net_gun_width: float,
+	net_gun_height: float,
+	net_gun_min_height: float,
+	net_gun_dissolve_frames: float,
+	net_gun_dash_break_frames: float,
+	net_gun_player_slow_multiplier: float,
+	net_gun_muzzle_source: Vector2,
+	fire_sheet_source_cell_size: Vector2,
+	fire_sheet_player_foot_y_offset: float,
+	status_duration_frames: float,
+	status_interval_frames: float,
+	status_initial_cooldown_frames: float,
+	status_slow_multiplier: float,
+	effect_limit: int
+) -> Dictionary:
+	if profile.is_empty():
+		return {}
+	var effect_id: int = int(projectile.get("id", 0))
+	if effect_id == 0:
+		effect_id = CommandoFirearmProjectileSpawnState.claim_next_shot_id(runtime_owner)
+	var spawn_payload: Dictionary = build_spawn_payload(
+		weapon_id,
+		profile,
+		projectile,
+		context,
+		effect_id,
+		field_size,
+		net_gun_width,
+		net_gun_height,
+		net_gun_min_height,
+		net_gun_dissolve_frames,
+		net_gun_dash_break_frames,
+		net_gun_player_slow_multiplier,
+		net_gun_muzzle_source,
+		fire_sheet_source_cell_size,
+		fire_sheet_player_foot_y_offset,
+		status_duration_frames,
+		status_interval_frames,
+		status_initial_cooldown_frames,
+		status_slow_multiplier
+	)
+	var effect: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_payload.get("effect", {}))
+	if effect.is_empty():
+		return {}
+	CommandoFirearmValueUtils.append_limited(lingering_effects, effect, effect_limit)
+	return CommandoFirearmValueUtils.get_dict(spawn_payload.get("spawn_result", {}))
 
 
 static func advance_timers(effect: Dictionary, fps_scale: float, phase_step: float) -> void:

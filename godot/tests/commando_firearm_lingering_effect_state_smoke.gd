@@ -7,6 +7,12 @@ const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firea
 var _failures: Array[String] = []
 
 
+class FakeShotCounter:
+	extends RefCounted
+
+	var shot_serial := 0
+
+
 func _init() -> void:
 	_verify_direct_lingering_effect_state()
 	_verify_runtime_delegates_lingering_effect_state()
@@ -86,6 +92,37 @@ func _verify_direct_lingering_effect_state() -> void:
 	var dissolve_projectile: Dictionary = CommandoFirearmLingeringEffectState.build_net_dissolve_projectile({"id": 7, "net_dissolve": false})
 	_expect(bool(dissolve_projectile.get("net_dissolve", false)), "net dissolve projectile helper should force dissolve state")
 	_expect(int(dissolve_projectile.get("id", 0)) == 7, "net dissolve projectile helper should preserve source projectile fields")
+
+	var runtime_effects: Array = [{"id": 1}]
+	var counter := FakeShotCounter.new()
+	counter.shot_serial = 30
+	var runtime_spawn_result: Dictionary = CommandoFirearmLingeringEffectState.append_runtime_spawn_effect(
+		runtime_effects,
+		counter,
+		"suicide_drone",
+		{"kind": "fire_zone", "duration_frames": 150.0},
+		{"pos": Vector2(200.0, 300.0), "color": Color.BLUE},
+		{},
+		Vector2(760.0, 750.0),
+		280.0,
+		140.0,
+		90.0,
+		21.0,
+		24.0,
+		1.0,
+		Vector2(106.0, 82.0),
+		Vector2(160.0, 160.0),
+		12.0,
+		18.0,
+		12.0,
+		0.0,
+		1.0,
+		1
+	)
+	_expect(counter.shot_serial == 31, "runtime lingering append helper should claim an id when projectile id is missing")
+	_expect(runtime_effects.size() == 1, "runtime lingering append helper should enforce bounded append")
+	_expect(int((runtime_effects[0] as Dictionary).get("id", 0)) == 31, "runtime lingering append helper should append the claimed effect")
+	_expect(str(runtime_spawn_result.get("source", "")) == "commando_firearm_suicide_drone_lingering_31", "runtime lingering append helper should return spawn metadata")
 
 	var timer_effect := {
 		"timer_frames": 10.0,
@@ -189,8 +226,12 @@ func _verify_runtime_delegates_lingering_effect_state() -> void:
 		"runtime should delegate active lingering effect composition to the owner"
 	)
 	_expect(
-		runtime_source.find("CommandoFirearmLingeringEffectState.build_spawn_payload") >= 0,
-		"runtime should delegate lingering spawn payload composition to the owner"
+		runtime_source.find("CommandoFirearmLingeringEffectState.append_runtime_spawn_effect") >= 0,
+		"runtime should delegate lingering spawn append composition to the owner"
+	)
+	_expect(
+		runtime_source.find("CommandoFirearmLingeringEffectState.build_spawn_payload") < 0,
+		"runtime should not call the lower-level lingering spawn payload helper directly"
 	)
 
 

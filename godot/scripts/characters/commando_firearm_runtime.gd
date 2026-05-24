@@ -2046,15 +2046,13 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 	)
 	if profile.is_empty():
 		return {}
-	var effect_id: int = int(projectile.get("id", 0))
-	if effect_id == 0:
-		effect_id = CommandoFirearmProjectileSpawnState.claim_next_shot_id(self)
-	var spawn_payload: Dictionary = CommandoFirearmLingeringEffectState.build_spawn_payload(
+	return CommandoFirearmLingeringEffectState.append_runtime_spawn_effect(
+		lingering_effects,
+		self,
 		weapon_id,
 		profile,
 		projectile,
 		context,
-		effect_id,
 		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
 		NET_GUN_WIDTH,
 		NET_GUN_HEIGHT,
@@ -2068,13 +2066,9 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
 		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
 		LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
-		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
+		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+		LINGERING_EFFECT_LIMIT
 	)
-	var effect: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_payload.get("effect", {}))
-	if effect.is_empty():
-		return {}
-	CommandoFirearmValueUtils.append_limited(lingering_effects, effect, LINGERING_EFFECT_LIMIT)
-	return CommandoFirearmValueUtils.get_dict(spawn_payload.get("spawn_result", {}))
 
 
 func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
