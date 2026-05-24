@@ -8,7 +8,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_direct_projectile_impact_state()
-	_verify_runtime_delegates_environment_impact_state()
+	_verify_environment_impact_state()
 
 	if _failures.is_empty():
 		print("commando_firearm_projectile_impact_state_smoke: ok")
@@ -67,9 +67,8 @@ func _verify_direct_projectile_impact_state() -> void:
 	_expect(impact_reason == "target", "impact owner should route runtime projectiles through hit geometry")
 
 
-func _verify_runtime_delegates_environment_impact_state() -> void:
-	var runtime := CommandoFirearmRuntime.new()
-	var result: Dictionary = runtime._register_projectile_environment_impact(
+func _verify_environment_impact_state() -> void:
+	var result: Dictionary = CommandoFirearmProjectileImpactState.register_environment_impact(
 		{
 			"weapon_id": "bazooka",
 			"pos": Vector2(20.0, 30.0),
@@ -77,13 +76,16 @@ func _verify_runtime_delegates_environment_impact_state() -> void:
 		},
 		"wall",
 		{},
-		{}
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID
 	)
-	_expect(str(result.get("commando_firearm_environment_impact_weapon_id", "")) == "bazooka", "runtime environment impact wrapper should preserve weapon id")
-	_expect(str(result.get("commando_firearm_environment_impact_reason", "")) == "wall", "runtime environment impact wrapper should preserve reason")
-	_expect(result.get("commando_firearm_environment_impact_pos", Vector2.ZERO) == Vector2(20.0, 30.0), "runtime environment impact wrapper should preserve position")
+	_expect(str(result.get("commando_firearm_environment_impact_weapon_id", "")) == "bazooka", "environment impact owner should preserve weapon id")
+	_expect(str(result.get("commando_firearm_environment_impact_reason", "")) == "wall", "environment impact owner should preserve reason")
+	_expect(result.get("commando_firearm_environment_impact_pos", Vector2.ZERO) == Vector2(20.0, 30.0), "environment impact owner should preserve position")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(runtime_source.find("func _get_projectile_impact_reason(") == -1, "runtime should not keep projectile impact reason bridge")
+	_expect(runtime_source.find("func _register_projectile_environment_impact(") == -1, "runtime should not keep projectile environment-impact bridge")
 
 
 func _expect(condition: bool, message: String) -> void:

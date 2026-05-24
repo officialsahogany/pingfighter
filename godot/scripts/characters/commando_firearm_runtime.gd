@@ -2381,7 +2381,14 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			if impact_reason == "target":
 				_register_projectile_hit(projectile, context, deps)
 			elif impact_reason == "wall":
-				var wall_result: Dictionary = _register_projectile_environment_impact(projectile, impact_reason, context, deps)
+				var wall_result: Dictionary = CommandoFirearmProjectileImpactState.register_environment_impact(
+					projectile,
+					impact_reason,
+					deps,
+					WEAPON_HIT_FEEDBACK,
+					HIT_FEEDBACK_PROFILE_OVERRIDES,
+					BASE_WEAPON_ID
+				)
 				result.merge(wall_result, true)
 				context.merge(wall_result, true)
 			elif CommandoFirearmHitGeometry.is_net_gun_weapon(projectile_weapon_id):
@@ -2553,23 +2560,6 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 	CommandoFirearmHitFeedbackDispatcher.trigger_boss_hit_animation(context, deps)
 	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(pos, velocity, intensity, weapon_id, deps, BASE_WEAPON_ID)
 	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
-
-
-func _register_projectile_environment_impact(projectile: Dictionary, reason: String, _context: Dictionary, deps: Dictionary) -> Dictionary:
-	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
-	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
-		weapon_id,
-		WEAPON_HIT_FEEDBACK,
-		HIT_FEEDBACK_PROFILE_OVERRIDES
-	)
-	var intensity: float = float(feedback_profile.get("intensity", 0.5))
-	var color: Color = CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE)
-	CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
-	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(feedback_profile, deps)
-	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
-	return CommandoFirearmProjectileImpactState.build_environment_impact_result(weapon_id, reason, pos)
 
 
 func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:

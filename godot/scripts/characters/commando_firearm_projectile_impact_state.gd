@@ -4,6 +4,8 @@ const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_f
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
+const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/commando_firearm_hit_feedback_dispatcher.gd")
 
 
 static func build_hit_event(
@@ -34,6 +36,30 @@ static func build_environment_impact_result(weapon_id: String, reason: String, p
 		"commando_firearm_environment_impact_weapon_id": weapon_id,
 		"commando_firearm_environment_impact_pos": pos,
 	}
+
+
+static func register_environment_impact(
+	projectile: Dictionary,
+	reason: String,
+	deps: Dictionary,
+	weapon_hit_feedback: Dictionary,
+	hit_feedback_profile_overrides: Dictionary,
+	base_weapon_id: String
+) -> Dictionary:
+	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, base_weapon_id)
+	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
+		weapon_id,
+		weapon_hit_feedback,
+		hit_feedback_profile_overrides
+	)
+	var intensity: float = float(feedback_profile.get("intensity", 0.5))
+	var color: Color = CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE)
+	CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
+	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(feedback_profile, deps)
+	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
+	return build_environment_impact_result(weapon_id, reason, pos)
 
 
 static func get_impact_reason(
