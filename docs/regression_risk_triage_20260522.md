@@ -6931,6 +6931,22 @@ Hundredth split on 2026-05-24:
   `commando_firearm_runtime_vfx_smoke`. `run_headless_load_check.ps1` passed,
   and `run_warning_scan.ps1` scanned `1326` scripts with no GDScript warnings.
 
+226th follow-up on 2026-05-24:
+
+- Commit: `a3404fa92 godot: drop Commando net candidate index bridge`.
+- Scope: removed `_get_net_constrict_candidate_indices()` from
+  `commando_firearm_runtime.gd`. The alternating-input constrict update now
+  scans active lingering effects inline, keeps filtering through
+  `CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate()`, and
+  then applies the existing owner-calculated constrict factor.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3281` lines /
+  `91` functions to `3276` lines / `90` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now rejects the
+  removed candidate-index bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

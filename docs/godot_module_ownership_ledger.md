@@ -4036,13 +4036,14 @@ This section is intentionally long; use search to find the nearest owner.
   the boss-clamp side-effect hook while the spawn path calls `apply_net_fields()`
   directly for live / dissolve net payloads, dash-break handling calls
   `mark_hooked_field_broken()` directly, and the alternating-input constrict
-  path calls the helper's next-factor calculation directly. Active lingering
-  effect updates also resolve rope-origin resync inline for hooked and snapping
-  dissolve nets instead of routing through private rope-origin bridges. Tests
-  cover the real spawn / break / constrict / rope-origin paths plus this
+  path performs its candidate-index scan inline before calling the helper's
+  next-factor calculation directly. Active lingering effect updates also
+  resolve rope-origin resync inline for hooked and snapping dissolve nets
+  instead of routing through private rope-origin bridges. Tests cover the real
+  spawn / break / constrict / candidate-index / rope-origin paths plus this
   helper's deterministic lifecycle / profile / geometry / shape / height-limit
   / clamp / predicate / constrict-factor calculations instead of runtime
-  position, net-height, setup, clamp, and predicate bridges.
+  position, net-height, setup, clamp, predicate, and candidate-index bridges.
 - `scripts/characters/commando_firearm_lingering_status_state.gd`
   Owns pure Commando lingering status state: profile-derived status payload
   fields, status application candidate dictionaries, slow-multiplier status
