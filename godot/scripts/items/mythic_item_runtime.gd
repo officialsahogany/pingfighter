@@ -565,7 +565,7 @@ func debug_build_roll_editor_item(item_name: String, roll_overrides: Dictionary 
 
 func get_debug_item_counts() -> Dictionary:
 	_ensure_helpers_ready()
-	return debug_inventory.get_debug_item_counts(self)
+	return ownership_runtime.get_inventory_item_counts(self)
 
 
 func debug_ensure_item_for_roll_editor(item_name: String, owner: Object, registry: Object) -> int:

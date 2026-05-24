@@ -19,6 +19,17 @@ func get_inventory_item(runtime: Object, index: int) -> Dictionary:
 	return item_data.duplicate(true)
 
 
+func get_inventory_item_counts(runtime: Object) -> Dictionary:
+	var counts: Dictionary = {}
+	for item_value in runtime.inventory_items:
+		var item_data: Dictionary = runtime._get_dict(item_value)
+		var item_name: String = str(item_data.get("name", ""))
+		if item_name == "":
+			continue
+		counts[item_name] = int(counts.get(item_name, 0)) + 1
+	return counts
+
+
 func consume_equipped_item_name(
 	runtime: Object,
 	item_name: String,

@@ -45,17 +45,6 @@ func debug_build_roll_editor_item(runtime: Object, item_name: String, roll_overr
 	return runtime.catalog.sync_roll_fields(item_data, false, true)
 
 
-func get_debug_item_counts(runtime: Object) -> Dictionary:
-	var counts: Dictionary = {}
-	for item_value in runtime.inventory_items:
-		var item_data: Dictionary = runtime._get_dict(item_value)
-		var item_name: String = str(item_data.get("name", ""))
-		if item_name == "":
-			continue
-		counts[item_name] = int(counts.get(item_name, 0)) + 1
-	return counts
-
-
 func debug_ensure_item_for_roll_editor(runtime: Object, item_name: String, owner: Object, registry: Object) -> int:
 	if item_name == "":
 		return -1
