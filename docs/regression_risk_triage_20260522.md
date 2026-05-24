@@ -7610,6 +7610,25 @@ Hundredth split on 2026-05-24:
   The bowling-trap geometry smoke now rejects `_update_bowling_trap_capture()`
   in the runtime facade.
 
+261st follow-up on 2026-05-24:
+
+- Commit:
+  `e630fa02e godot: inline Commando bowling trap capture start bridge`.
+- Scope: removed the Commando runtime `_capture_bowling_trap_ball()` bridge.
+  The waiting-trap hit path now builds the captured trap state directly through
+  `CommandoFirearmBowlingTrapGeometry.build_capture_state()`, stores it back
+  into the runtime trap list, and preserves the same capture feedback, hit
+  pulse, impact audio, and capture-result payload order.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2958` lines /
+  `48` functions to `2953` lines / `47` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_audio_routing_smoke`. The Godot headless load check passed,
+  and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings.
+  The bowling-trap geometry smoke now rejects `_capture_bowling_trap_ball()` in
+  the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
