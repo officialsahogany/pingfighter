@@ -2532,7 +2532,8 @@ func _detonate_suicide_drone_at_index(
 	if hit_boss:
 		_register_projectile_hit(projectile, context, deps)
 	else:
-		_spawn_suicide_drone_fire_zone(projectile, context, deps)
+		if CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone(projectile, deps).is_empty():
+			_spawn_lingering_effect("suicide_drone", projectile, context)
 		CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(pos, CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE), CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 1.0, deps)
 		CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
 			CommandoFirearmProfileResolver.get_hit_feedback_profile(
@@ -2597,7 +2598,9 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 	pending_pistol_feedback_timer_frames = float(gauge_state.get("feedback_timer_frames", pending_pistol_feedback_timer_frames))
 	var lingering_result: Dictionary = {}
 	if weapon_id == "suicide_drone":
-		lingering_result = _spawn_suicide_drone_fire_zone(projectile, context, deps)
+		lingering_result = CommandoFirearmSuicideDroneState.trigger_active_item_fire_zone(projectile, deps)
+		if lingering_result.is_empty():
+			lingering_result = _spawn_lingering_effect(weapon_id, projectile, context)
 	else:
 		lingering_result = _spawn_lingering_effect(weapon_id, projectile, context)
 	if not lingering_result.is_empty():
@@ -2864,22 +2867,6 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		effect["flames"] = CommandoFirearmLingeringFireFlameState.build_flames(effect)
 	CommandoFirearmValueUtils.append_limited(lingering_effects, effect, LINGERING_EFFECT_LIMIT)
 	return CommandoFirearmLingeringEffectState.build_spawn_result(effect, duration)
-
-
-func _spawn_suicide_drone_fire_zone(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var active_item_runtime: Object = deps.get("active_item_runtime", null)
-	var registry: Object = deps.get("registry", null)
-	if active_item_runtime == null:
-		active_item_runtime = CommandoFirearmValueUtils.get_instance(registry, "active_item_runtime")
-	if active_item_runtime != null and active_item_runtime.has_method("trigger_molotov_fire_zone"):
-		active_item_runtime.trigger_molotov_fire_zone(pos, null, registry, false)
-		return {
-			"kind": "fire_zone",
-			"duration_frames": ActiveItemThrowController.MOLOTOV_FIRE_DURATION_FRAMES,
-			"source": "active_item_molotov_fire_zone",
-		}
-	return _spawn_lingering_effect("suicide_drone", projectile, context)
 
 
 func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:

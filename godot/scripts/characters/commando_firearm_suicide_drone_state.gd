@@ -1,5 +1,6 @@
 extends RefCounted
 
+const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmMuzzleFlashResolver := preload("res://scripts/characters/commando_firearm_muzzle_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmSuicideDroneGeometry := preload("res://scripts/characters/commando_firearm_suicide_drone_geometry.gd")
@@ -244,4 +245,28 @@ static func build_detonation_result(
 		"commando_suicide_drone_pos": pos,
 		"commando_suicide_drone_hit_boss": hit_boss,
 		"commando_suicide_drone_cooldown_frames": cooldown_frames,
+	}
+
+
+static func trigger_active_item_fire_zone(projectile: Dictionary, deps: Dictionary) -> Dictionary:
+	var registry: Object = deps.get("registry", null)
+	var active_item_runtime: Object = deps.get("active_item_runtime", null)
+	if active_item_runtime == null:
+		active_item_runtime = CommandoFirearmValueUtils.get_instance(registry, "active_item_runtime")
+	if active_item_runtime == null or not active_item_runtime.has_method("trigger_molotov_fire_zone"):
+		return {}
+	active_item_runtime.trigger_molotov_fire_zone(
+		CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
+		null,
+		registry,
+		false
+	)
+	return build_active_item_fire_zone_result()
+
+
+static func build_active_item_fire_zone_result() -> Dictionary:
+	return {
+		"kind": "fire_zone",
+		"duration_frames": ActiveItemThrowController.MOLOTOV_FIRE_DURATION_FRAMES,
+		"source": "active_item_molotov_fire_zone",
 	}
