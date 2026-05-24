@@ -1,6 +1,7 @@
 ﻿extends RefCounted
 
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
+const CommandoFirearmAk47InputState := preload("res://scripts/characters/commando_firearm_ak47_input_state.gd")
 const CommandoFirearmAmmoWeaponInputState := preload("res://scripts/characters/commando_firearm_ammo_weapon_input_state.gd")
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
@@ -1051,112 +1052,30 @@ func _update_ak47_input(
 	current_weapon: Dictionary,
 	now_msec: int
 ) -> Dictionary:
-	var weapon_controller: Object = deps.get("commando_weapon_controller", null)
-	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	var previous_action_pressed: bool = ak47_last_action_pressed
-	var action_just_pressed: bool = bool(input_snapshot.get("action_just_pressed", action_pressed and not previous_action_pressed))
-	ak47_last_action_pressed = action_pressed
-	if not action_pressed or bool(input_snapshot.get("down_pressed", false)):
-		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
-		return {}
-	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
-		weapon_controller,
-		now_msec,
-		SWITCH_FIRE_SUPPRESS_MSEC
-	):
-		ak47_trigger_held = true
-		return {}
-	if action_just_pressed:
-		ak47_trigger_held = true
-		ak47_burst_shots_remaining = AK47_INITIAL_BURST_SHOTS
-		ak47_fire_interval_frames = 0.0
-	else:
-		ak47_trigger_held = true
-	var doping_context: Dictionary = CommandoFirearmValueUtils.get_doping_potion_context_from_deps(
-		deps,
-		DOPING_POTION_DEFAULTS
-	)
-	var doping_active: bool = bool(doping_context.get("active", false))
-	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
-	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
-		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
-		return CommandoFirearmFireResultState.build_fire_failed_result("ak47", special_gauge, "ak47_empty", {
-			"fire_interval_frames": ak47_fire_interval_frames,
-			"burst_shots_remaining": ak47_burst_shots_remaining,
-			"movement_speed_multiplier": get_movement_speed_multiplier(),
-		})
-	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_duration"):
-		weapon_controller.consume_current_weapon_duration(1.0)
-	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
-		current_weapon = weapon_controller.get_current_weapon_data()
-	if ak47_fire_interval_frames > 0.0:
-		return CommandoFirearmFireResultState.build_ak47_holding_result(
-			special_gauge,
-			ak47_fire_interval_frames,
-			ak47_burst_shots_remaining,
-			AK47_MOVEMENT_SPEED_MULTIPLIER
-		)
-	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
-		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
-			return CommandoFirearmFireResultState.build_fire_failed_result("ak47", special_gauge, "ak47_ammo_unavailable", {
-				"fire_interval_frames": ak47_fire_interval_frames,
-				"burst_shots_remaining": ak47_burst_shots_remaining,
-				"movement_speed_multiplier": get_movement_speed_multiplier(),
-			})
-	last_fire_msec = now_msec
-	_spawn_firearm_effect(
-		"ak47",
+	return CommandoFirearmAk47InputState.update_runtime_input(
+		self,
+		input_snapshot,
+		special_gauge,
 		config,
 		deps,
-		CommandoFirearmProfileResolver.build_ak47_fire_profile(
-			WEAPON_PROFILES,
-			WEAPON_PROFILE_OVERRIDES,
-			ak47_recoil_accumulation,
-			AK47_BASE_SPREAD_RADIANS
-		)
-	)
-	CommandoFirearmAudioDispatcher.play_fire_audio("ak47", deps)
-	CommandoFirearmCooldownState.trigger_skill_cooldown(
-		"ak47",
+		current_weapon,
 		now_msec,
-		deps,
-		doping_context,
-		doping_active,
-		DOPING_POTION_FIRE_RATE_MULTIPLIER
-	)
-	ak47_recoil_accumulation = min(AK47_MAX_RECOIL, ak47_recoil_accumulation + AK47_RECOIL_PER_SHOT)
-	if ak47_burst_shots_remaining > 0:
-		ak47_burst_shots_remaining -= 1
-	ak47_fire_interval_max_frames = CommandoFirearmValueUtils.get_ak47_fire_interval_frames(
-		doping_context,
-		doping_active,
-		AK47_FIRE_INTERVAL_FRAMES,
-		DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES
-	)
-	ak47_fire_interval_frames = ak47_fire_interval_max_frames
-	var updated_weapon: Dictionary = current_weapon
-	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
-		updated_weapon = weapon_controller.get_current_weapon_data()
-	var remaining_ammo: int = int(updated_weapon.get("ammo_current", max(0, ammo_current - 1)))
-	if str(updated_weapon.get("weapon_id", "ak47")) != "ak47":
-		remaining_ammo = max(0, ammo_current - 1)
-	if remaining_ammo <= 0:
-		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
-	var movement_multiplier: float = AK47_MOVEMENT_SPEED_MULTIPLIER if remaining_ammo > 0 else 1.0
-	var ammo_max_result: int = int(updated_weapon.get("ammo_max", current_weapon.get("ammo_max", AK47_AMMO_MAX)))
-	if str(updated_weapon.get("weapon_id", "ak47")) != "ak47":
-		ammo_max_result = int(current_weapon.get("ammo_max", AK47_AMMO_MAX))
-	return CommandoFirearmFireResultState.build_ak47_fired_result(
-		remaining_ammo,
-		ammo_max_result,
-		updated_weapon,
-		AK47_DURATION_FRAMES,
-		ak47_fire_interval_frames,
-		ak47_burst_shots_remaining,
-		ak47_recoil_accumulation,
-		movement_multiplier,
-		special_gauge
+		{
+			"switch_fire_suppress_msec": SWITCH_FIRE_SUPPRESS_MSEC,
+			"weapon_profiles": WEAPON_PROFILES,
+			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
+			"doping_potion_defaults": DOPING_POTION_DEFAULTS,
+			"doping_fire_rate_multiplier": DOPING_POTION_FIRE_RATE_MULTIPLIER,
+			"doping_ak47_fire_interval_frames": DOPING_POTION_AK47_FIRE_INTERVAL_FRAMES,
+			"ak47_ammo_max": AK47_AMMO_MAX,
+			"ak47_duration_frames": AK47_DURATION_FRAMES,
+			"ak47_fire_interval_frames": AK47_FIRE_INTERVAL_FRAMES,
+			"ak47_initial_burst_shots": AK47_INITIAL_BURST_SHOTS,
+			"ak47_base_spread_radians": AK47_BASE_SPREAD_RADIANS,
+			"ak47_recoil_per_shot": AK47_RECOIL_PER_SHOT,
+			"ak47_max_recoil": AK47_MAX_RECOIL,
+			"ak47_movement_speed_multiplier": AK47_MOVEMENT_SPEED_MULTIPLIER,
+		}
 	)
 
 
