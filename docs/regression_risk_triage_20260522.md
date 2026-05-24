@@ -7225,6 +7225,22 @@ Hundredth split on 2026-05-24:
   direct pistol builder, drives the real pistol animation-busy failure path,
   and rejects the removed runtime bridge.
 
+243rd follow-up on 2026-05-24:
+
+- Commit:
+  `e88678d8d godot: inline Commando pending pistol geometry refresh`.
+- Scope: removed `_refresh_pending_pistol_fire_geometry()` from
+  `commando_firearm_runtime.gd`. The delayed pistol timer path now calls
+  `CommandoFirearmValueUtils.refresh_pending_fire_geometry()` directly while
+  preserving the pending shot geometry refresh contract.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3166` lines /
+  `73` functions to `3162` lines / `72` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_fire_result_state_smoke`. The value-utils smoke now drives
+  the real pending pistol timer path and rejects the removed refresh bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
