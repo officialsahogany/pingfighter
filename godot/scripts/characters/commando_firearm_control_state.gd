@@ -30,3 +30,10 @@ static func get_movement_speed_multiplier(
 	if active_suicide_drone:
 		return 0.0
 	return ak47_multiplier if ak47_trigger_held else 1.0
+
+
+static func apply_ak47_trigger_cleared(target: Object) -> void:
+	if target == null:
+		return
+	target.set("ak47_trigger_held", false)
+	target.set("ak47_burst_shots_remaining", 0)

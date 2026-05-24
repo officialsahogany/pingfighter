@@ -580,30 +580,30 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	current_weapon = weapon_controller.get_current_weapon_data()
 	weapon_id = str(current_weapon.get("weapon_id", BASE_WEAPON_ID))
 	if weapon_id == BASE_WEAPON_ID:
-		_clear_ak47_trigger_state()
+		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 		if slingshot_charging:
 			CommandoFirearmSlingshotState.apply_canceled_state(self)
 		return _update_pistol_input(input_snapshot, special_gauge, config, deps, current_weapon, now_msec)
 	if slingshot_charging:
 		CommandoFirearmSlingshotState.apply_canceled_state(self)
 	if weapon_id == "commando_pistol":
-		_clear_ak47_trigger_state()
+		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 		return _update_pistol_input(input_snapshot, special_gauge, config, deps, current_weapon, now_msec)
 	if weapon_id == "ak47":
 		return _update_ak47_input(input_snapshot, special_gauge, config, deps, current_weapon, now_msec)
 	if weapon_id == "bazooka":
-		_clear_ak47_trigger_state()
+		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 		return _update_bazooka_input(input_snapshot, special_gauge, config, deps, current_weapon, now_msec)
 	if weapon_id == "net_gun":
-		_clear_ak47_trigger_state()
+		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 		return _update_net_gun_input(input_snapshot, special_gauge, config, deps, current_weapon, now_msec)
 	if weapon_id == "bowling_trap":
-		_clear_ak47_trigger_state()
+		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 		return _update_bowling_trap_input(input_snapshot, special_gauge, config, deps, current_weapon, now_msec)
 	if weapon_id == "suicide_drone":
-		_clear_ak47_trigger_state()
+		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 		return _update_suicide_drone_input(input_snapshot, special_gauge, config, deps, current_weapon, now_msec)
-	_clear_ak47_trigger_state()
+	CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 	if not bool(input_snapshot.get("action_pressed", false)):
 		return {}
 	if not CommandoFirearmInputResolver.input_action_just_pressed(input_snapshot):
@@ -681,7 +681,7 @@ func _should_suppress_fire_input_for_serve_wait(
 
 
 func _clear_serve_wait_firearm_input_state() -> void:
-	_clear_ak47_trigger_state()
+	CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 	ak47_last_action_pressed = false
 	bowling_trap_last_action_pressed = false
 	suicide_drone_last_action_pressed = false
@@ -719,7 +719,7 @@ func _handle_firearm_reset_input(
 		switched = bool(weapon_controller.set_current_weapon(BASE_WEAPON_ID))
 	if not switched:
 		return {}
-	_clear_ak47_trigger_state()
+	CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 	if slingshot_charging:
 		CommandoFirearmSlingshotState.apply_canceled_state(self)
 	return {
@@ -770,8 +770,7 @@ func reset() -> void:
 	pistol_pending_config.clear()
 	ak47_fire_interval_frames = 0.0
 	ak47_fire_interval_max_frames = AK47_FIRE_INTERVAL_FRAMES
-	ak47_burst_shots_remaining = 0
-	ak47_trigger_held = false
+	CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 	ak47_last_action_pressed = false
 	ak47_recoil_accumulation = 0.0
 	bazooka_cooldown_frames = 0.0
@@ -1378,7 +1377,7 @@ func _update_ak47_input(
 	var action_just_pressed: bool = bool(input_snapshot.get("action_just_pressed", action_pressed and not previous_action_pressed))
 	ak47_last_action_pressed = action_pressed
 	if not action_pressed or bool(input_snapshot.get("down_pressed", false)):
-		_clear_ak47_trigger_state()
+		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 		return {}
 	if CommandoFirearmInputResolver.is_fire_suppressed_after_switch(
 		weapon_controller,
@@ -1400,7 +1399,7 @@ func _update_ak47_input(
 	var doping_active: bool = bool(doping_context.get("active", false))
 	var ammo_current: int = int(current_weapon.get("ammo_current", 0))
 	if ammo_current <= 0 or not bool(current_weapon.get("can_fire", true)):
-		_clear_ak47_trigger_state()
+		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 		return CommandoFirearmFireResultState.build_fire_failed_result("ak47", special_gauge, "ak47_empty", {
 			"fire_interval_frames": ak47_fire_interval_frames,
 			"burst_shots_remaining": ak47_burst_shots_remaining,
@@ -1419,7 +1418,7 @@ func _update_ak47_input(
 		)
 	if weapon_controller != null and weapon_controller.has_method("consume_current_weapon_ammo"):
 		if not bool(weapon_controller.consume_current_weapon_ammo(1)):
-			_clear_ak47_trigger_state()
+			CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 			return CommandoFirearmFireResultState.build_fire_failed_result("ak47", special_gauge, "ak47_ammo_unavailable", {
 				"fire_interval_frames": ak47_fire_interval_frames,
 				"burst_shots_remaining": ak47_burst_shots_remaining,
@@ -1463,7 +1462,7 @@ func _update_ak47_input(
 	if str(updated_weapon.get("weapon_id", "ak47")) != "ak47":
 		remaining_ammo = max(0, ammo_current - 1)
 	if remaining_ammo <= 0:
-		_clear_ak47_trigger_state()
+		CommandoFirearmControlState.apply_ak47_trigger_cleared(self)
 	var movement_multiplier: float = AK47_MOVEMENT_SPEED_MULTIPLIER if remaining_ammo > 0 else 1.0
 	var ammo_max_result: int = int(updated_weapon.get("ammo_max", current_weapon.get("ammo_max", AK47_AMMO_MAX)))
 	if str(updated_weapon.get("weapon_id", "ak47")) != "ak47":
@@ -1479,11 +1478,6 @@ func _update_ak47_input(
 		movement_multiplier,
 		special_gauge
 	)
-
-
-func _clear_ak47_trigger_state() -> void:
-	ak47_trigger_held = false
-	ak47_burst_shots_remaining = 0
 
 
 func _update_bazooka_input(

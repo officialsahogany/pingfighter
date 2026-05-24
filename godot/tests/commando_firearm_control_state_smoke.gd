@@ -36,6 +36,13 @@ func _verify_direct_control_state() -> void:
 	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, true, true, 0.5, 0.7), 0.5), "movement multiplier should keep AK-47 hold slow while ignoring hooked-net state")
 	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(true, false, false, 0.5, 0.7), 0.0), "movement multiplier should lock during active suicide drone")
 
+	var clear_runtime := CommandoFirearmRuntime.new()
+	clear_runtime.ak47_trigger_held = true
+	clear_runtime.ak47_burst_shots_remaining = 2
+	CommandoFirearmControlState.apply_ak47_trigger_cleared(clear_runtime)
+	_expect(not clear_runtime.ak47_trigger_held, "AK-47 trigger clear owner should release trigger hold")
+	_expect(clear_runtime.ak47_burst_shots_remaining == 0, "AK-47 trigger clear owner should clear burst state")
+
 
 func _verify_runtime_delegates_control_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
@@ -51,6 +58,8 @@ func _verify_runtime_delegates_control_state() -> void:
 	runtime.ak47_trigger_held = false
 	runtime.projectiles = [{"weapon_id": "suicide_drone", "kind": "drone"}]
 	_expect(is_equal_approx(runtime.get_movement_speed_multiplier(), 0.0), "runtime movement multiplier should read active drone lock")
+	var source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(source.find("func _clear_ak47_trigger_state(") == -1, "runtime should not keep AK-47 trigger-clear bridge")
 
 
 func _expect(condition: bool, message: String) -> void:
