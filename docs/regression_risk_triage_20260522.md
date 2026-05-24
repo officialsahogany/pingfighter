@@ -7173,6 +7173,22 @@ Hundredth split on 2026-05-24:
   real Bazooka control-lock failure path and rejects the removed failure
   bridge.
 
+240th follow-up on 2026-05-24:
+
+- Commit: `6a1c92bc5 godot: inline Commando ak47 failure result`.
+- Scope: removed `_ak47_fire_failed()` from
+  `commando_firearm_runtime.gd`. AK-47 input now builds its empty / ammo-
+  unavailable failure result directly from the live interval / burst /
+  movement-speed payload at each failure branch.
+- Runtime facade size: `commando_firearm_runtime.gd` stayed at `3222` lines
+  while moving from `76` functions to `75` functions. The line count is flat
+  because the removed bridge was replaced by two explicit failure payloads.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The fire-result smoke now drives the
+  real AK-47 empty-ammo failure path and rejects the removed failure bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
