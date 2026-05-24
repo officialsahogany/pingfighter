@@ -8462,3 +8462,22 @@ commits rather than standalone `fix` commits:
   `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
   `git diff --check` reported no whitespace errors beyond CRLF normalization
   notices.
+
+300th follow-up on 2026-05-24:
+
+- Commit:
+  `780b67c59 godot: move Commando fire flame effect helpers`.
+- Scope: moved fire-zone flame seeding and per-frame flame refresh out of
+  `CommandoFirearmRuntime` and into
+  `CommandoFirearmLingeringFireFlameState.seed_effect_flames()` /
+  `update_effect_flames()`. Runtime lingering updates now delegate flame
+  ownership while keeping the same deterministic flame count and frame refresh
+  behavior.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2502` lines /
+  `35` functions to `2500` lines / `35` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. The Godot headless load check passed,
+  `run_warning_scan.ps1` scanned `1334` scripts with no GDScript warnings, and
+  `git diff --check` reported no whitespace errors beyond CRLF normalization
+  notices.
