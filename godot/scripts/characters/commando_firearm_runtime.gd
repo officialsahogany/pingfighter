@@ -3012,7 +3012,9 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 		NET_GUN_MIN_HEIGHT,
 		NET_GUN_HEIGHT
 	)
-	var effect_id: int = _get_lingering_effect_id(projectile)
+	var effect_id: int = int(projectile.get("id", 0))
+	if effect_id == 0:
+		effect_id = _next_shot_id()
 	var net_effect_height: float = CommandoFirearmLingeringNetFieldState.get_net_effect_height(
 		profile,
 		context,
@@ -3082,13 +3084,6 @@ func _trigger_active_item_molotov_fire_zone(pos: Vector2, deps: Dictionary) -> b
 		return false
 	active_item_runtime.trigger_molotov_fire_zone(pos, null, registry, false)
 	return true
-
-
-func _get_lingering_effect_id(projectile: Dictionary) -> int:
-	var effect_id: int = int(projectile.get("id", 0))
-	if effect_id == 0:
-		return _next_shot_id()
-	return effect_id
 
 
 func _apply_lingering_net_fields(

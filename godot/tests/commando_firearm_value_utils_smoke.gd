@@ -428,12 +428,18 @@ func _verify_runtime_value_utils_integration() -> void:
 	_expect(net_shape.size() == 36, "net shape owner should generate the expected outline point count")
 	_expect(CommandoFirearmValueUtils.get_vector2(net_shape[0], Vector2.ZERO).is_equal_approx(Vector2(41.0, 0.0)), "net shape owner should preserve the deterministic first point")
 	runtime.shot_serial = 40
-	_expect(runtime._get_lingering_effect_id({"id": 77}) == 77, "lingering effect-id helper should preserve explicit ids")
-	_expect(runtime.shot_serial == 40, "lingering effect-id helper should not consume serials for explicit ids")
-	_expect(runtime._get_lingering_effect_id({}) == 41, "lingering effect-id helper should allocate missing ids")
-	_expect(runtime.shot_serial == 41, "lingering effect-id helper should advance serials for missing ids")
-	_expect(runtime._get_lingering_effect_id({"id": 0}) == 42, "lingering effect-id helper should allocate zero ids")
-	_expect(runtime.shot_serial == 42, "lingering effect-id helper should advance serials for zero ids")
+	runtime.lingering_effects.clear()
+	runtime._spawn_lingering_effect("suicide_drone", {"id": 77, "pos": Vector2(100.0, 80.0)}, {})
+	_expect(int(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[0]).get("id", 0)) == 77, "lingering spawn path should preserve explicit ids")
+	_expect(runtime.shot_serial == 40, "lingering spawn path should not consume serials for explicit ids")
+	runtime._spawn_lingering_effect("suicide_drone", {"pos": Vector2(100.0, 80.0)}, {})
+	_expect(int(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[1]).get("id", 0)) == 41, "lingering spawn path should allocate missing ids")
+	_expect(runtime.shot_serial == 41, "lingering spawn path should advance serials for missing ids")
+	runtime._spawn_lingering_effect("suicide_drone", {"id": 0, "pos": Vector2(100.0, 80.0)}, {})
+	_expect(int(CommandoFirearmValueUtils.get_dict(runtime.lingering_effects[2]).get("id", 0)) == 42, "lingering spawn path should allocate zero ids")
+	_expect(runtime.shot_serial == 42, "lingering spawn path should advance serials for zero ids")
+	var runtime_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(not runtime_source.contains("func _get_lingering_effect_id("), "runtime should not keep a lingering effect-id bridge")
 	var base_lingering_effect: Dictionary = CommandoFirearmLingeringEffectState.build_effect(
 		"suicide_drone",
 		{
