@@ -1576,7 +1576,16 @@ func _update_bazooka_input(
 	bazooka_firing_pose_frames = BAZOOKA_FIRING_POSE_FRAMES
 	bazooka_muzzle_flash_frames = BAZOOKA_MUZZLE_FLASH_FRAMES
 	_trigger_firearm_skill_cooldown("bazooka", now_msec, deps, doping_context, doping_active)
-	_spawn_firearm_effect("bazooka", config, deps, _get_bazooka_fire_profile())
+	_spawn_firearm_effect(
+		"bazooka",
+		config,
+		deps,
+		CommandoFirearmProfileResolver.get_weapon_profile(
+			"bazooka",
+			WEAPON_PROFILES,
+			WEAPON_PROFILE_OVERRIDES
+		)
+	)
 	CommandoFirearmAudioDispatcher.play_fire_audio("bazooka", deps)
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
@@ -1605,14 +1614,6 @@ func _bazooka_fire_failed(special_gauge: float, reason: String) -> Dictionary:
 		"firing_pose_frames": bazooka_firing_pose_frames,
 		"muzzle_flash_frames": bazooka_muzzle_flash_frames,
 	})
-
-
-func _get_bazooka_fire_profile() -> Dictionary:
-	return CommandoFirearmProfileResolver.get_weapon_profile(
-		"bazooka",
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
 
 
 func _update_net_gun_input(
@@ -1659,7 +1660,16 @@ func _update_net_gun_input(
 	var skill_config: Object = deps.get("skill_config", null)
 	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
 		skill_state.trigger_configured_cooldown("net_gun", now_msec, skill_config)
-	_spawn_firearm_effect("net_gun", config, deps, _get_net_gun_fire_profile())
+	_spawn_firearm_effect(
+		"net_gun",
+		config,
+		deps,
+		CommandoFirearmProfileResolver.get_weapon_profile(
+			"net_gun",
+			WEAPON_PROFILES,
+			WEAPON_PROFILE_OVERRIDES
+		)
+	)
 	CommandoFirearmAudioDispatcher.play_fire_audio("net_gun", deps)
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
@@ -1686,14 +1696,6 @@ func _net_gun_fire_failed(special_gauge: float, reason: String) -> Dictionary:
 		"throw_pose_frames": net_gun_throw_pose_frames,
 		"harpoon_flash_frames": net_gun_harpoon_flash_frames,
 	})
-
-
-func _get_net_gun_fire_profile() -> Dictionary:
-	return CommandoFirearmProfileResolver.get_weapon_profile(
-		"net_gun",
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES
-	)
 
 
 func _start_weapon_fire_sheet_animation(weapon_id: String) -> void:

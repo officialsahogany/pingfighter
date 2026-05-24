@@ -94,6 +94,8 @@ func _verify_removed_runtime_profile_bridges() -> void:
 		"_get_hit_feedback_profile",
 		"_get_hit_result_profile",
 		"_get_lingering_effect_profile",
+		"_get_bazooka_fire_profile",
+		"_get_net_gun_fire_profile",
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep profile bridge %s" % bridge_name)
 
