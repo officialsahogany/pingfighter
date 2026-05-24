@@ -7286,15 +7286,18 @@ Hundredth split on 2026-05-24:
 
 - Commit:
   `74fdf4e17 godot: add Spanish localization and Commando defaults cleanup`.
-- Scope: folded Commando firearm Doping Potion default values into the
-  `DOPING_POTION_DEFAULTS` constant and removed the `_get_doping_potion_defaults()`
-  facade helper. The value-utils smoke now rejects that bridge alongside the
-  earlier Doping Potion value bridges. This commit also contains the
-  concurrently staged Spanish localization surface: `language_settings.gd`
-  adds Spanish language metadata and item / mythic / perk / character text
-  maps, the pause menu exposes Spanish as a language option, and the new
-  `localization_coverage_smoke.gd` checks non-Korean runtime surfaces for
-  coverage and stray Hangul.
+- Scope: added Spanish (`es`) as a supported Godot language across
+  `LanguageSettings`, the pause-menu language tab, active / mythic / passive
+  item names, perk names and summaries, character-select data, skill config
+  localization, exact-text translation, quality prefixes, and common runtime
+  formatter output. The pass also added `localization_coverage_smoke.gd` to
+  compare non-Korean map coverage and reject Hangul leaks on runtime-facing
+  localized surfaces.
+- Commando cleanup included in the same commit: folded the Commando firearm
+  Doping Potion default values into the `DOPING_POTION_DEFAULTS` constant,
+  routed the pistol / AK-47 / Bazooka / projectile-profile paths to the
+  constant, and removed `_get_doping_potion_defaults()` from the firearm
+  facade.
 - Runtime facade size: `commando_firearm_runtime.gd` moved from `3112` lines /
   `68` functions to `3109` lines / `67` functions.
 - Validation: focused Commando coverage passed:
