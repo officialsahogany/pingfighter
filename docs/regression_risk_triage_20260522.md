@@ -7262,6 +7262,26 @@ Hundredth split on 2026-05-24:
   fallback, missing-state no-op behavior, and rejects the removed runtime
   cooldown bridges.
 
+245th follow-up on 2026-05-24:
+
+- Commit:
+  `7a9f71f7b godot: trim Commando readiness and serve wait bridges`.
+- Scope: moved Commando firearm readiness checks into
+  `CommandoFirearmCooldownState.is_ready()` and removed `_is_ready()` from
+  `commando_firearm_runtime.gd`. Also inlined the one-call
+  `_is_round_waiting_for_serve()` helper into the serve-wait input suppression
+  path so the facade keeps the release-gate behavior without an extra bridge.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3129` lines /
+  `70` functions to `3112` lines / `68` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_cooldown_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `commando_firearm_fire_result_state_smoke`. The cooldown smoke now covers
+  readiness queries and rejects `_is_ready()`, while the runtime VFX smoke
+  covers serve-wait press suppression, held-input suppression until release,
+  fresh-fire recovery, and the config `waiting_for_serve` fallback.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
