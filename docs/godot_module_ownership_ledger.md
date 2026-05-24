@@ -4140,11 +4140,13 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_value_utils.gd`
   Owns tiny pure Commando firearm value helpers: limited append eviction
   safe Variant-to-Vector2 / Color / Dictionary / Array fallback reads,
+  projectile target / weapon-id / kind reads,
   doping-potion context normalization / dependency reads / config projection,
   pending pistol-fire geometry refresh, generic timed-effect array advancement,
-  and registry instance fallback lookup. `commando_firearm_runtime.gd` keeps
-  its private wrapper names so callers stay unchanged; shot-id state remains
-  in the runtime.
+  and registry instance fallback lookup. `commando_firearm_runtime.gd` now
+  calls the projectile value reads directly while keeping remaining private
+  wrappers for the broader value helper surface; shot-id state remains in the
+  runtime.
 - `scripts/characters/commando_input_reader.gd`
   Owns Commando raw input on top of the shared Smasher snapshot and adds
   mouse-wheel weapon switching. Wheel events route only when the selected

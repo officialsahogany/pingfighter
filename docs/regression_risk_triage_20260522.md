@@ -6054,6 +6054,20 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+181st follow-up on 2026-05-24:
+
+- Commit: `3219a3e9d godot: drop Commando projectile value bridges`.
+- Scope: removed the projectile target, weapon-id, and kind value wrappers
+  from `commando_firearm_runtime.gd`. Projectile update, impact-reason,
+  hit-event, environment-impact, stage-rock-impact, and flash spawn paths now
+  call `commando_firearm_value_utils.gd` directly; runtime keeps projectile
+  array ownership, hit / environment side effects, profile resolution, and
+  boss-target fallback selection.
+- Validation: `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
