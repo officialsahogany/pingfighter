@@ -783,23 +783,17 @@ func needs_effect_update() -> bool:
 
 
 func is_player_control_locked() -> bool:
-	return CommandoFirearmControlState.is_player_control_locked(
-		[
-			slingshot_control_lock_frames,
-			pistol_control_lock_frames,
-			bazooka_control_lock_frames,
-			net_gun_control_lock_frames,
-			bowling_trap_control_lock_frames,
-		],
+	return CommandoFirearmControlState.is_runtime_player_control_locked(
+		self,
 		CommandoFirearmSupportCallResolver.has_active_lock(support_calls),
 		CommandoFirearmSuicideDroneState.has_active_projectile(projectiles)
 	)
 
 
 func get_movement_speed_multiplier() -> float:
-	return CommandoFirearmControlState.get_movement_speed_multiplier(
+	return CommandoFirearmControlState.get_runtime_movement_speed_multiplier(
+		self,
 		CommandoFirearmSuicideDroneState.has_active_projectile(projectiles),
-		ak47_trigger_held,
 		CommandoFirearmLingeringNetFieldState.has_active_hooked_net_field(lingering_effects),
 		AK47_MOVEMENT_SPEED_MULTIPLIER,
 		NET_GUN_PLAYER_SLOW_MULTIPLIER

@@ -72,12 +72,19 @@ func _verify_direct_control_state() -> void:
 	_expect(CommandoFirearmControlState.is_player_control_locked([0.0, 1.0], false, false), "control lock gate should read active timers")
 	_expect(CommandoFirearmControlState.is_player_control_locked([0.0], true, false), "control lock gate should read support-call lock")
 	_expect(CommandoFirearmControlState.is_player_control_locked([0.0], false, true), "control lock gate should read active drone lock")
+	var lock_runtime := CommandoFirearmRuntime.new()
+	lock_runtime.net_gun_control_lock_frames = 2.0
+	_expect(CommandoFirearmControlState.is_runtime_player_control_locked(lock_runtime, false, false), "runtime control lock owner should read runtime timers")
+	lock_runtime.net_gun_control_lock_frames = 0.0
+	_expect(CommandoFirearmControlState.is_runtime_player_control_locked(lock_runtime, true, false), "runtime control lock owner should read support-call lock")
 
 	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, false, false, 0.5, 0.7), 1.0), "movement multiplier should default neutral")
 	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, true, false, 0.5, 0.7), 0.5), "movement multiplier should read AK-47 hold slow")
 	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, false, true, 0.5, 0.7), 1.0), "movement multiplier should ignore hooked-net state")
 	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(false, true, true, 0.5, 0.7), 0.5), "movement multiplier should keep AK-47 hold slow while ignoring hooked-net state")
 	_expect(is_equal_approx(CommandoFirearmControlState.get_movement_speed_multiplier(true, false, false, 0.5, 0.7), 0.0), "movement multiplier should lock during active suicide drone")
+	lock_runtime.ak47_trigger_held = true
+	_expect(is_equal_approx(CommandoFirearmControlState.get_runtime_movement_speed_multiplier(lock_runtime, false, false, 0.5, 0.7), 0.5), "runtime movement owner should read AK-47 trigger hold")
 
 	var clear_runtime := CommandoFirearmRuntime.new()
 	clear_runtime.ak47_trigger_held = true

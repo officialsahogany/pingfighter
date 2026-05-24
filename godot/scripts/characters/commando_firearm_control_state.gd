@@ -2,6 +2,14 @@ extends RefCounted
 
 const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
 
+const CONTROL_LOCK_TIMER_FIELDS := [
+	"slingshot_control_lock_frames",
+	"pistol_control_lock_frames",
+	"bazooka_control_lock_frames",
+	"net_gun_control_lock_frames",
+	"bowling_trap_control_lock_frames",
+]
+
 
 static func needs_effect_update(
 	visible_effects: bool,
@@ -22,6 +30,18 @@ static func is_player_control_locked(
 	return active_support_call_lock or active_suicide_drone
 
 
+static func is_runtime_player_control_locked(
+	target: Object,
+	active_support_call_lock: bool,
+	active_suicide_drone: bool
+) -> bool:
+	var lock_timers: Array = []
+	if target != null:
+		for field_value in CONTROL_LOCK_TIMER_FIELDS:
+			lock_timers.append(float(target.get(str(field_value))))
+	return is_player_control_locked(lock_timers, active_support_call_lock, active_suicide_drone)
+
+
 static func get_movement_speed_multiplier(
 	active_suicide_drone: bool,
 	ak47_trigger_held: bool,
@@ -32,6 +52,22 @@ static func get_movement_speed_multiplier(
 	if active_suicide_drone:
 		return 0.0
 	return ak47_multiplier if ak47_trigger_held else 1.0
+
+
+static func get_runtime_movement_speed_multiplier(
+	target: Object,
+	active_suicide_drone: bool,
+	active_hooked_net_field: bool,
+	ak47_multiplier: float,
+	net_gun_multiplier: float
+) -> float:
+	return get_movement_speed_multiplier(
+		active_suicide_drone,
+		bool(target.get("ak47_trigger_held")) if target != null else false,
+		active_hooked_net_field,
+		ak47_multiplier,
+		net_gun_multiplier
+	)
 
 
 static func apply_ak47_trigger_cleared(target: Object) -> void:
