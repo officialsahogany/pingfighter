@@ -9286,3 +9286,35 @@ commits rather than standalone `fix` commits:
   check passed, `run_warning_scan.ps1` scanned `1337` scripts with no
   GDScript warnings on rerun, and `git diff --check` reported no whitespace
   errors.
+
+343rd follow-up on 2026-05-25:
+
+- Commit:
+  `50a879391 godot: move Commando fire spawn orchestration`.
+- Scope: moved the firearm spawn orchestration body into the new
+  `CommandoFirearmFireSpawnState.spawn_runtime_firearm_effect()` owner. The
+  new owner now applies weapon fire-sheet state, resolves spawn profiles /
+  origin geometry, appends muzzle flashes, routes support-call and
+  bowling-trap start effects, and delegates projectile / shell spawning to the
+  projectile owner. Runtime keeps `_spawn_firearm_effect()` as a compatibility
+  facade for existing input, timer, and smoke-test callers, but the heavy spawn
+  body no longer lives in `commando_firearm_runtime.gd`.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `1874` lines /
+  `26` functions to `1749` lines / `26` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_fire_sheet_resolver_smoke`,
+  `commando_firearm_muzzle_flash_resolver_smoke`,
+  `commando_firearm_shell_casing_state_smoke`,
+  `commando_firearm_projectile_spawn_state_smoke`,
+  `commando_firearm_bowling_trap_geometry_smoke`,
+  `commando_firearm_support_call_resolver_smoke`,
+  `commando_firearm_fire_result_state_smoke`,
+  `commando_firearm_suicide_drone_state_smoke`,
+  `commando_firearm_boss_damage_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_value_utils_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed. `run_warning_scan.ps1` scanned `1338` scripts with no
+  GDScript warnings on rerun after one transient `exit code -1`, and
+  `git diff --check` reported no whitespace errors aside from existing
+  CRLF/LF normalization notices.
