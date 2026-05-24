@@ -3909,9 +3909,10 @@ This section is intentionally long; use search to find the nearest owner.
   lookup, first-available no-arg method calls, weapon fire / impact routing
   through resolver-owned cue lists, weapon-specific cue fallback to generic
   fire / impact methods, per-round pistol reload cue repetition, and
-  suicide-drone loop stop dispatch. The runtime keeps gameplay timing and
-  support-aircraft active flags while calling the dispatcher directly instead
-  of preserving private fire / impact audio bridges.
+  suicide-drone loop stop dispatch, plus support-aircraft loop start / stop
+  state flag gating for fire-support calls. The runtime keeps gameplay timing
+  while calling the dispatcher directly instead of preserving private fire /
+  impact or support-aircraft audio bridges.
 - `scripts/characters/commando_firearm_bowling_trap_geometry.gd`
   Owns pure Commando bowling-trap geometry, state payloads, and kinematic
   helpers: install position / payload / marker dictionaries, install and

@@ -6341,6 +6341,28 @@ Hundredth split on 2026-05-24:
   `run_headless_load_check.ps1` passed. `run_warning_scan.ps1` scanned `1323`
   scripts with no GDScript warnings.
 
+197th follow-up on 2026-05-24:
+
+- Commit: `2daa1888d godot: move Commando support aircraft audio cleanup`.
+- Scope: moved the private `_start_support_aircraft_audio()`,
+  `_stop_support_aircraft_audio()`, and `_stop_all_support_aircraft_audio()`
+  runtime bridges into `commando_firearm_audio_dispatcher.gd`. Runtime support
+  call updates, evictions, and reset cleanup now call the dispatcher owner
+  directly. The dispatcher smoke now verifies aircraft loop start / stop
+  idempotency, stop-all active-call cleanup, missing-audio no-op behavior, and
+  removed runtime bridge guards.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3618` lines /
+  `153` functions to `3594` lines / `150` functions.
+- Validation: focused support-aircraft audio coverage passed:
+  `commando_firearm_audio_dispatcher_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_supply_drop_audio_cleanup_smoke`, and
+  `commando_firearm_support_call_resolver_smoke`. After fixing the test local
+  shadowing warning, `commando_firearm_audio_dispatcher_smoke` passed again.
+  `git diff --check` reported only the existing CRLF working-copy notice and
+  no whitespace errors. `run_headless_load_check.ps1` passed.
+  `run_warning_scan.ps1` scanned `1323` scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
