@@ -1883,6 +1883,8 @@ func _get_start_text(next_type: String, direction: int) -> String:
 		"breeze":
 			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 				return "A breeze blows %s" % ("left" if direction < 0 else "right")
+			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
+				return "Una brisa sopla hacia la %s" % ("izquierda" if direction < 0 else "derecha")
 			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 				return "微风向%s吹拂" % ("左" if direction < 0 else "右")
 			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -1891,6 +1893,8 @@ func _get_start_text(next_type: String, direction: int) -> String:
 		"gust":
 			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 				return "A strong gust drives %s" % ("left" if direction < 0 else "right")
+			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
+				return "Una ráfaga fuerte empuja hacia la %s" % ("izquierda" if direction < 0 else "derecha")
 			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 				return "强风向%s侧猛吹" % ("左" if direction < 0 else "右")
 			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

@@ -2,6 +2,7 @@ extends SceneTree
 
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 const SETTINGS_PATH := "user://display_settings.cfg"
 const SETTINGS_BACKUP_PATH := "user://display_settings.last_good.cfg"
@@ -376,6 +377,22 @@ func _verify_display_pacing_recommendation_helpers() -> void:
 	))
 	_expect(recommendation.find(str(monitor_rate)) >= 0, "display pacing recommendation should mention the detected monitor refresh rate")
 	_expect(recommendation.find("자동") >= 0, "display pacing recommendation should describe automatic monitor-rate pacing")
+
+
+	_verify_spanish_display_pacing_text(layout)
+
+
+func _verify_spanish_display_pacing_text(layout: Object) -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	_expect(str(layout.get_render_fps_cap_label(BattleViewLayout.RENDER_FPS_CAP_MONITOR, null)).begins_with("Monitor "), "monitor cap label should localize to Spanish")
+	var spanish_recommendation := str(layout.get_display_pacing_recommendation(
+		null,
+		BattleViewLayout.DISPLAY_MODE_EXCLUSIVE_FULLSCREEN,
+		BattleViewLayout.RENDER_FPS_CAP_MONITOR,
+		BattleViewLayout.VSYNC_MODE_AUTO
+	))
+	_expect(spanish_recommendation.find("FPS de render") >= 0, "display pacing recommendation should localize to Spanish")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
 func _verify_high_refresh_render_quality_lod() -> void:

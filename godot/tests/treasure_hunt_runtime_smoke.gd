@@ -47,6 +47,7 @@ func _init() -> void:
 	_verify_reward_pools_skip_owned_one_time_items()
 	_verify_grant_routes_to_mythic_runtime()
 	_verify_japanese_feedback_text()
+	_verify_spanish_feedback_text()
 
 	if _failures.is_empty():
 		print("treasure_hunt_runtime_smoke: ok")
@@ -109,6 +110,14 @@ func _verify_japanese_feedback_text() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
 	_expect(runtime._format_result_text("神話", "スピードブーツ") == "神話発見：スピードブーツ", "treasure result text should localize to Japanese")
 	_expect(runtime._format_feedback_text("スピードブーツ") == "宝探し：スピードブーツ", "treasure feedback text should localize to Japanese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_spanish_feedback_text() -> void:
+	var runtime := TreasureHuntRuntime.new()
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	_expect(runtime._format_result_text("Mítico", "Botas de velocidad") == "Mítico encontrado: Botas de velocidad", "treasure result text should localize to Spanish")
+	_expect(runtime._format_feedback_text("Botas de velocidad") == "Búsqueda del tesoro: Botas de velocidad", "treasure feedback text should localize to Spanish")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

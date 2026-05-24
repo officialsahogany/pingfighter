@@ -14,6 +14,7 @@ func _init() -> void:
 	_verify_perk_info_summary()
 	_verify_perk_id_resolution()
 	_verify_japanese_perk_info_summary()
+	_verify_spanish_perk_info_summary()
 	_verify_scene_delegates_summary_builder_directly()
 
 	if _failures.is_empty():
@@ -139,6 +140,23 @@ func _verify_japanese_perk_info_summary() -> void:
 	_expect(str(perk_summary.get("title", "")) == "ダッシュ強化 他1個", "perk info extra count should localize to Japanese")
 	var starpoint_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary([], 2, "", "")
 	_expect(str(starpoint_summary.get("detail", "")) == "次回進行時、獲得数ぶんパーク選択画面が開きます。", "starpoint detail should localize to Japanese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_spanish_perk_info_summary() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	var perk_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary(
+		[
+			{"type": "perk", "perk_id": "dash"},
+			{"type": "skill", "skill_id": "guard"},
+		],
+		3,
+		"Dash",
+		"Mejora el dash."
+	)
+	_expect(str(perk_summary.get("title", "")) == "Dash +1", "perk info extra count should localize to Spanish")
+	var starpoint_summary: Dictionary = StageClearResultSummaryBuilder.build_perk_info_summary([], 2, "", "")
+	_expect(str(starpoint_summary.get("detail", "")) == "La siguiente partida abrirá elecciones de perks por la cantidad obtenida.", "starpoint detail should localize to Spanish")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 

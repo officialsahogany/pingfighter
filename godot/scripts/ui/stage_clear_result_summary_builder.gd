@@ -148,6 +148,8 @@ static func build_perk_info_summary(
 			var extra_count: int = perks.size() - 1
 			if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 				title = "%s +%d" % [title, extra_count]
+			elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
+				title = "%s +%d" % [title, extra_count]
 			elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 				title = "%s 另%d个" % [title, extra_count]
 			elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
@@ -165,6 +167,8 @@ static func build_perk_info_summary(
 		var detail := "다음 진행 시 획득한 수만큼 퍽 선택창이 열립니다."
 		if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 			detail = "The next run will open perk choices for the amount acquired."
+		elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
+			detail = "La siguiente partida abrirá elecciones de perks por la cantidad obtenida."
 		elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 			detail = "下次进行时会按获得数量打开升级选择窗口。"
 		elif LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

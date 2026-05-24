@@ -549,6 +549,8 @@ func _get_tooltip_status_text(skill: Dictionary) -> String:
 	var progress_percent := int(round(clampf(float(skill.get("progress", 0.0)), 0.0, 1.0) * 100.0))
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
 		return "Charge %d%%" % progress_percent
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
+		return "Carga %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
 		return "充能 %d%%" % progress_percent
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:

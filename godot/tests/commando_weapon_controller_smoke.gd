@@ -6,6 +6,7 @@ const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_co
 const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
 const CommandoSupplyDropState := preload("res://scripts/characters/commando_supply_drop_state.gd")
 const CommandoWeaponController := preload("res://scripts/characters/commando_weapon_controller.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PlayerMovementState := preload("res://scripts/characters/player_movement_state.gd")
 
 var _failures: Array[String] = []
@@ -120,6 +121,10 @@ func _verify_late_firearm_python_ammo_counts() -> void:
 	var drone_weapon: Dictionary = drone_controller.get_current_weapon_data()
 	_expect(int(drone_weapon.get("ammo_current", -1)) == 4, "suicide drone should expose the Python 4-drone ammo count")
 	_expect(int(drone_weapon.get("ammo_max", -1)) == 4, "suicide drone max ammo should stay at four")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	var spanish_ak47_text: String = fire_support_controller._get_ak47_ammo_text({"ammo_current": 2, "ammo_max": 4, "duration_frames": 90.0})
+	_expect(spanish_ak47_text.find("2/4") >= 0 and spanish_ak47_text.find("Durabilidad 1.5s") >= 0, "AK-47 ammo text should localize durability to Spanish")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
 func _verify_stage_boundary_weapon_policy() -> void:

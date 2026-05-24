@@ -1,6 +1,7 @@
 extends SceneTree
 
 const HorizontalTimerGaugeStack := preload("res://scripts/hud/horizontal_timer_gauge_stack.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
@@ -357,6 +358,13 @@ func _test_tooltip_and_timer_stack_contract() -> void:
 		{"runtime_perk_state": perk_state}
 	)
 	_expect(description.find("Lv.+2") >= 0 and description.find("+50") >= 0, "Ignition tooltip should expose its live +level and gold bonuses")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	var spanish_description: String = tooltip._build_description_with_runtime_bonus(
+		{"name": "ignition_aura", "description": "base"},
+		{"runtime_perk_state": perk_state}
+	)
+	_expect(spanish_description.find("Ignici") >= 0 and spanish_description.find("oro +50") >= 0, "Ignition tooltip bonus line should localize to Spanish")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 	var stack: Object = HorizontalTimerGaugeStack.new()
 	_expect(int(stack.claim("ignition_aura", true)) == 0, "Ignition timer should be able to own the bottom timer-stack row when alone")

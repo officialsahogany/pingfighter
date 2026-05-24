@@ -99,6 +99,11 @@ func _init() -> void:
 	var renderer: Object = WeatherEventRenderer.new()
 	var registry := FakeRegistry.new()
 
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	_expect(weather._get_start_text("breeze", -1) == "Una brisa sopla hacia la izquierda", "breeze start text should localize to Spanish")
+	_expect(weather._get_start_text("gust", 1) == "Una ráfaga fuerte empuja hacia la derecha", "gust start text should localize to Spanish")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
 	owner.selected_character_type = "viper"
 	var inactive_player_result := {
 		"player_pos": owner.player_pos,
@@ -380,6 +385,9 @@ func _init() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
 	_expect(weather._get_start_text("breeze", -1) == "そよ風が左へ吹きます", "breeze start text should localize to Japanese")
 	_expect(weather._get_start_text("gust", 1) == "強風が右へ吹き荒れます", "gust start text should localize to Japanese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	_expect(weather._get_start_text("breeze", -1) == "Una brisa sopla hacia la izquierda", "breeze start text should localize to Spanish")
+	_expect(weather._get_start_text("gust", 1) == "Una ráfaga fuerte empuja hacia la derecha", "gust start text should localize to Spanish")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 	print("weather_event_state_smoke: ok")

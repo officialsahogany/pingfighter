@@ -21,6 +21,7 @@ func _init() -> void:
 	_verify_stage1_layout_uses_spec()
 	_verify_stage5_layout_and_inferno_contract()
 	_verify_japanese_status_labels()
+	_verify_spanish_status_labels()
 
 	if _failures.is_empty():
 		print("boss_skill_card_hud_spec_smoke: ok")
@@ -190,6 +191,16 @@ func _verify_japanese_status_labels() -> void:
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_JAPANESE)
 	_expect(BossSkillCardHudSpec._format_cooldown_label(3.0) == "クールタイム3秒", "boss skillcard cooldown labels should localize to Japanese")
 	_expect(BossSkillCardHudSpec._format_seconds(3.5) == "3.5秒", "boss skillcard seconds should localize to Japanese")
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
+
+
+func _verify_spanish_status_labels() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_SPANISH)
+	_expect(BossSkillCardHudSpec._format_cooldown_label(3.0) == "Recarga 3s", "boss skillcard cooldown labels should localize to Spanish")
+	_expect(BossSkillCardHudSpec._format_seconds(3.5) == "3.5s", "boss skillcard seconds should localize to Spanish")
+	_expect(BossSkillCardHudSpec._get_tooltip_status_text({"progress": 0.42}, {}) == "Carga 42%", "boss skillcard charge text should localize to Spanish")
+	_expect(Stage1DaljiBossSkillHudRenderer.new()._get_tooltip_status_text({"progress": 0.5}) == "Carga 50%", "Stage 1 boss skillcard charge text should localize to Spanish")
+	_expect(Stage5HongryunBossSkillHudRenderer.new()._get_tooltip_status_text({"progress": 0.5}) == "Carga 50%", "Stage 5 boss skillcard charge text should localize to Spanish")
 	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 
 
