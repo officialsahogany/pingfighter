@@ -9020,3 +9020,26 @@ commits rather than standalone `fix` commits:
   `700/1335` with Godot `-1`, then the immediate rerun scanned all `1335`
   scripts with no GDScript warnings. `git diff --check` reported no
   whitespace errors.
+
+331st follow-up on 2026-05-25:
+
+- Commit:
+  `a99a405b9 godot: move Commando boss hit impact dispatch`.
+- Scope: moved boss-hit impact dispatch into
+  `CommandoFirearmProjectileImpactState.append_runtime_boss_hit()`. The
+  projectile-impact owner now owns hit-event append, shared impact particles,
+  screen feedback, boss-hit animation, ball-hit pulse registration, and impact
+  audio routing for normal projectile boss hits. Runtime still coordinates the
+  high-level projectile hit flow, combat result application, pending-result
+  queueing, and lingering effect spawn.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `2093` lines /
+  `34` functions to `2084` lines / `34` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_projectile_impact_state_smoke`,
+  `commando_firearm_hit_feedback_dispatcher_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_boss_damage_smoke`,
+  `commando_firearm_hit_result_state_smoke`, and
+  `project_resource_loader_import_preference_smoke`. The Godot headless load
+  check passed, `run_warning_scan.ps1` scanned `1335` scripts with no
+  GDScript warnings, and `git diff --check` reported no whitespace errors.
