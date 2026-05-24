@@ -1549,9 +1549,12 @@ func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictiona
 		bool(profile.get("vertical_launch", false)),
 		angle_offset
 	)
-	CommandoFirearmValueUtils.append_limited(
+	CommandoFirearmMuzzleFlashResolver.append_runtime_flash(
 		muzzle_flashes,
-		CommandoFirearmMuzzleFlashResolver.build_flash(origin, direction, profile, weapon_id),
+		origin,
+		direction,
+		profile,
+		weapon_id,
 		FLASH_LIMIT
 	)
 	if kind == "support":

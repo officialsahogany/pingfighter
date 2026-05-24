@@ -54,6 +54,19 @@ func _verify_direct_muzzle_flash_resolver() -> void:
 	_expect(is_equal_approx(float(fallback.get("timer_frames", 0.0)), 1.0), "muzzle flash timer should clamp to one frame")
 	_expect(_get_color(fallback.get("color", Color.WHITE)) == Color(1.0, 0.7, 0.2), "muzzle flash should use fallback color")
 
+	var flashes: Array = [{"weapon_id": "old"}]
+	var appended: Dictionary = CommandoFirearmMuzzleFlashResolver.append_runtime_flash(
+		flashes,
+		Vector2(12.0, 34.0),
+		Vector2.UP,
+		profile,
+		"bazooka",
+		1
+	)
+	_expect(flashes.size() == 1, "runtime muzzle flash helper should enforce bounded append")
+	_expect(str(appended.get("weapon_id", "")) == "bazooka", "runtime muzzle flash helper should return appended flash")
+	_expect(str(_get_dict(flashes[0]).get("weapon_id", "")) == "bazooka", "runtime muzzle flash helper should evict older flashes over the limit")
+
 
 func _verify_runtime_uses_muzzle_flash_resolver() -> void:
 	var runtime := CommandoFirearmRuntime.new()
@@ -86,6 +99,14 @@ func _verify_runtime_uses_muzzle_flash_resolver() -> void:
 func _verify_removed_runtime_muzzle_flash_bridge() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(source.find("func _spawn_muzzle_flash(") < 0, "runtime should not keep muzzle-flash append bridge")
+	_expect(
+		source.find("CommandoFirearmMuzzleFlashResolver.append_runtime_flash") >= 0,
+		"runtime should delegate muzzle-flash append to the resolver"
+	)
+	_expect(
+		source.find("CommandoFirearmMuzzleFlashResolver.build_flash") < 0,
+		"runtime should not call the lower-level muzzle-flash builder directly"
+	)
 
 
 func _get_vector2(value: Variant) -> Vector2:
@@ -98,6 +119,12 @@ func _get_color(value: Variant) -> Color:
 	if value is Color:
 		return value
 	return Color.WHITE
+
+
+func _get_dict(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
 
 
 func _expect(condition: bool, message: String) -> void:

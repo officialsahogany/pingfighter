@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+
 
 static func build_flash(
 	origin: Vector2,
@@ -18,3 +20,16 @@ static func build_flash(
 		"max_timer_frames": timer_frames,
 		"color": profile.get("secondary", Color(1.0, 0.7, 0.2)),
 	}
+
+
+static func append_runtime_flash(
+	muzzle_flashes: Array,
+	origin: Vector2,
+	direction: Vector2,
+	profile: Dictionary,
+	weapon_id: String,
+	flash_limit: int
+) -> Dictionary:
+	var flash: Dictionary = build_flash(origin, direction, profile, weapon_id)
+	CommandoFirearmValueUtils.append_limited(muzzle_flashes, flash, flash_limit)
+	return flash
