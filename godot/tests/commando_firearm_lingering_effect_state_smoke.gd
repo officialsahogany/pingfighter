@@ -42,6 +42,47 @@ func _verify_direct_lingering_effect_state() -> void:
 	var spawn_result: Dictionary = CommandoFirearmLingeringEffectState.build_spawn_result(effect, 90.0)
 	_expect(str(spawn_result.get("kind", "")) == "fire_zone", "spawn result should preserve effect kind")
 	_expect(is_equal_approx(float(spawn_result.get("duration_frames", 0.0)), 90.0), "spawn result should preserve duration")
+	var spawn_payload: Dictionary = CommandoFirearmLingeringEffectState.build_spawn_payload(
+		"net_gun",
+		{
+			"kind": "net_field",
+			"duration_frames": 240.0,
+			"dissolve_frames": 21.0,
+			"status_id": "slow",
+			"width": 280.0,
+			"height": 140.0,
+			"min_height": 90.0,
+		},
+		{"id": 23, "pos": Vector2(240.0, 120.0), "target": Vector2(260.0, 320.0)},
+		{
+			"boss_hitbox_height": 100.0,
+			"player_pos": Vector2(130.0, 620.0),
+			"paddle_width": 150.0,
+			"paddle_height": 44.0,
+		},
+		23,
+		Vector2(760.0, 750.0),
+		280.0,
+		140.0,
+		90.0,
+		21.0,
+		24.0,
+		1.0,
+		Vector2(106.0, 82.0),
+		Vector2(160.0, 160.0),
+		12.0,
+		18.0,
+		12.0,
+		0.0,
+		1.0
+	)
+	var payload_effect: Dictionary = spawn_payload.get("effect", {})
+	var payload_net_rect: Rect2 = payload_effect.get("net_rect", Rect2())
+	var payload_spawn_result: Dictionary = spawn_payload.get("spawn_result", {})
+	_expect(str(payload_effect.get("source", "")) == "commando_firearm_net_gun_lingering_23", "spawn payload should build stable effect sources")
+	_expect(payload_net_rect.size == Vector2(280.0, 110.0), "spawn payload should attach net geometry fields")
+	_expect(str(payload_effect.get("status_id", "")) == "slow", "spawn payload should attach status fields")
+	_expect(str(payload_spawn_result.get("kind", "")) == "net_field", "spawn payload should include spawn result metadata")
 	var dissolve_projectile: Dictionary = CommandoFirearmLingeringEffectState.build_net_dissolve_projectile({"id": 7, "net_dissolve": false})
 	_expect(bool(dissolve_projectile.get("net_dissolve", false)), "net dissolve projectile helper should force dissolve state")
 	_expect(int(dissolve_projectile.get("id", 0)) == 7, "net dissolve projectile helper should preserve source projectile fields")
@@ -146,6 +187,10 @@ func _verify_runtime_delegates_lingering_effect_state() -> void:
 	_expect(
 		runtime_source.find("CommandoFirearmLingeringEffectState.apply_active_effect") >= 0,
 		"runtime should delegate active lingering effect composition to the owner"
+	)
+	_expect(
+		runtime_source.find("CommandoFirearmLingeringEffectState.build_spawn_payload") >= 0,
+		"runtime should delegate lingering spawn payload composition to the owner"
 	)
 
 

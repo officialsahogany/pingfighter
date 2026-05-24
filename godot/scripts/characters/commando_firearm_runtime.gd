@@ -2169,36 +2169,18 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 
 
 func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, context: Dictionary, result: Dictionary) -> void:
-	if not CommandoFirearmValueUtils.is_pistol_weapon(weapon_id, BASE_WEAPON_ID):
-		return
-	var shot_roll: float = CommandoFirearmValueUtils.get_pistol_shot_roll(projectile, context)
-	var doping_multiplier: float = CommandoFirearmValueUtils.get_pistol_hit_doping_multiplier(
+	var apply_result: Dictionary = CommandoFirearmPistolHitState.apply_runtime_hit_effects(
+		weapon_id,
 		projectile,
 		context,
-		DOPING_POTION_HEAD_LEG_MULTIPLIER
-	)
-	var hit_chances: Dictionary = CommandoFirearmValueUtils.get_pistol_hit_chances(
-		context,
-		doping_multiplier,
-		PISTOL_HEAD_SHOT_CHANCE,
-		PISTOL_LEG_SHOT_CHANCE
-	)
-	var head_chance: float = float(hit_chances.get("head_chance", 0.0))
-	var leg_chance: float = float(hit_chances.get("leg_chance", 0.0))
-	var hit_payload: Dictionary = CommandoFirearmPistolHitState.build_hit_payload(
-		weapon_id,
-		pistol_boss_hit_count,
-		shot_roll,
-		head_chance,
-		leg_chance,
-		doping_multiplier,
-		PISTOL_HIT_TUNING
-	)
-	var apply_result: Dictionary = CommandoFirearmPistolHitState.apply_hit_payload(
-		hit_payload,
 		result,
+		pistol_boss_hit_count,
 		pistol_feedbacks,
-		context,
+		BASE_WEAPON_ID,
+		DOPING_POTION_HEAD_LEG_MULTIPLIER,
+		PISTOL_HEAD_SHOT_CHANCE,
+		PISTOL_LEG_SHOT_CHANCE,
+		PISTOL_HIT_TUNING,
 		FIELD_WIDTH,
 		FIELD_HEIGHT,
 		PISTOL_HIT_TEXT_TIMER_FRAMES,
@@ -2216,83 +2198,35 @@ func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context:
 	)
 	if profile.is_empty():
 		return {}
-	var is_net: bool = weapon_id == "net_gun"
-	var dissolve: bool = bool(projectile.get("net_dissolve", false))
-	var duration: float = CommandoFirearmLingeringEffectState.get_duration(
-		profile,
-		is_net,
-		dissolve,
-		NET_GUN_DISSOLVE_FRAMES
-	)
-	var projectile_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
-	var pos: Vector2 = CommandoFirearmLingeringNetFieldState.get_lingering_effect_pos(
-		profile,
-		projectile,
-		context,
-		projectile_pos,
-		CommandoFirearmOriginGeometry.get_boss_target_pos(context, FIELD_WIDTH),
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		NET_GUN_WIDTH,
-		NET_GUN_MIN_HEIGHT,
-		NET_GUN_HEIGHT
-	)
 	var effect_id: int = int(projectile.get("id", 0))
 	if effect_id == 0:
 		effect_id = CommandoFirearmProjectileSpawnState.claim_next_shot_id(self)
-	var net_effect_height: float = CommandoFirearmLingeringNetFieldState.get_net_effect_height(
-		profile,
-		context,
-		NET_GUN_MIN_HEIGHT,
-		NET_GUN_HEIGHT
-	)
-	var effect_size: Vector2 = CommandoFirearmLingeringEffectState.get_size(
-		profile,
-		projectile,
-		is_net,
-		NET_GUN_WIDTH,
-		net_effect_height
-	)
-	var effect: Dictionary = CommandoFirearmLingeringEffectState.build_effect(
+	var spawn_payload: Dictionary = CommandoFirearmLingeringEffectState.build_spawn_payload(
 		weapon_id,
 		profile,
 		projectile,
-		pos,
+		context,
 		effect_id,
-		effect_size,
-		duration
-	)
-	if is_net:
-		CommandoFirearmLingeringNetFieldState.apply_net_fields(
-			effect,
-			profile,
-			projectile,
-			CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
-				context,
-				COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-				Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-				COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-				COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET
-			),
-			pos,
-			effect_size,
-			effect_id,
-			dissolve,
-			NET_GUN_DASH_BREAK_FRAMES,
-			NET_GUN_PLAYER_SLOW_MULTIPLIER
-		)
-	CommandoFirearmLingeringStatusState.apply_effect_status_fields(
-		effect,
-		profile,
-		dissolve,
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		NET_GUN_WIDTH,
+		NET_GUN_HEIGHT,
+		NET_GUN_MIN_HEIGHT,
+		NET_GUN_DISSOLVE_FRAMES,
+		NET_GUN_DASH_BREAK_FRAMES,
+		NET_GUN_PLAYER_SLOW_MULTIPLIER,
+		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
 		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
 		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
 		LINGERING_STATUS_INITIAL_COOLDOWN_FRAMES,
 		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER
 	)
-	CommandoFirearmLingeringFireFlameState.seed_effect_flames(effect)
+	var effect: Dictionary = CommandoFirearmValueUtils.get_dict(spawn_payload.get("effect", {}))
+	if effect.is_empty():
+		return {}
 	CommandoFirearmValueUtils.append_limited(lingering_effects, effect, LINGERING_EFFECT_LIMIT)
-	return CommandoFirearmLingeringEffectState.build_spawn_result(effect, duration)
+	return CommandoFirearmValueUtils.get_dict(spawn_payload.get("spawn_result", {}))
 
 
 func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:

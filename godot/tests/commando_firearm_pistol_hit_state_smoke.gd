@@ -89,6 +89,35 @@ func _verify_direct_pistol_hit_state() -> void:
 	_expect(int(result.get("damage_units", 0)) == 2, "pistol hit apply owner should apply damage units")
 	_expect(feedbacks.size() == 1, "pistol hit apply owner should append requested feedback")
 
+	var runtime_result := {}
+	var runtime_feedbacks: Array = []
+	var runtime_apply_result: Dictionary = CommandoFirearmPistolHitState.apply_runtime_hit_effects(
+		"commando_pistol",
+		{
+			"active_item_doping_potion_active": true,
+			"active_item_doping_potion_head_leg_multiplier": 2.0,
+		},
+		_boss_context().merged({"commando_pistol_shot_roll": 0.21}, true),
+		runtime_result,
+		0,
+		runtime_feedbacks,
+		"pistol",
+		2.0,
+		0.10,
+		0.12,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		760.0,
+		750.0,
+		60.0,
+		"?ㅻ뱶??",
+		"?덇렇??",
+		4
+	)
+	_expect(int(runtime_apply_result.get("next_hit_count", -1)) == 1, "runtime pistol hit owner should return hit count")
+	_expect(str(runtime_result.get("pistol_hit_kind", "")) == "legshot", "runtime pistol hit owner should apply doped hit chances")
+	_expect(is_equal_approx(float(runtime_result.get("pistol_head_chance", 0.0)), 0.20), "runtime pistol hit owner should expose doped head chance")
+	_expect(runtime_feedbacks.size() == 1, "runtime pistol hit owner should append feedback")
+
 
 func _verify_runtime_delegates_pistol_hit_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
@@ -104,6 +133,11 @@ func _verify_runtime_delegates_pistol_hit_state() -> void:
 	_expect(str(result.get("pistol_hit_kind", "")) == "headshot", "runtime pistol hit wrapper should merge helper fields")
 	_expect(int(result.get("damage_units", 0)) == 2, "runtime pistol hit wrapper should apply damage delta")
 	_expect(_get_array(runtime.pistol_feedbacks).size() == 1, "runtime pistol hit wrapper should keep feedback side effect")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(
+		runtime_source.find("CommandoFirearmPistolHitState.apply_runtime_hit_effects") >= 0,
+		"runtime should delegate pistol hit composition to the owner"
+	)
 
 
 func _boss_context() -> Dictionary:

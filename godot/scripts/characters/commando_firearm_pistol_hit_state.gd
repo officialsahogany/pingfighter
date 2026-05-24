@@ -111,6 +111,62 @@ static func apply_hit_payload(
 	}
 
 
+static func apply_runtime_hit_effects(
+	weapon_id: String,
+	projectile: Dictionary,
+	context: Dictionary,
+	result: Dictionary,
+	current_hit_count: int,
+	feedbacks: Array,
+	base_weapon_id: String,
+	doping_head_leg_multiplier: float,
+	head_shot_chance: float,
+	leg_shot_chance: float,
+	tuning: Dictionary,
+	field_width: float,
+	field_height: float,
+	hit_text_timer_frames: float,
+	headshot_label: String,
+	legshot_label: String,
+	feedback_limit: int
+) -> Dictionary:
+	if not CommandoFirearmValueUtils.is_pistol_weapon(weapon_id, base_weapon_id):
+		return {}
+	var shot_roll: float = CommandoFirearmValueUtils.get_pistol_shot_roll(projectile, context)
+	var doping_multiplier: float = CommandoFirearmValueUtils.get_pistol_hit_doping_multiplier(
+		projectile,
+		context,
+		doping_head_leg_multiplier
+	)
+	var hit_chances: Dictionary = CommandoFirearmValueUtils.get_pistol_hit_chances(
+		context,
+		doping_multiplier,
+		head_shot_chance,
+		leg_shot_chance
+	)
+	var hit_payload: Dictionary = build_hit_payload(
+		weapon_id,
+		current_hit_count,
+		shot_roll,
+		float(hit_chances.get("head_chance", 0.0)),
+		float(hit_chances.get("leg_chance", 0.0)),
+		doping_multiplier,
+		tuning
+	)
+	return apply_hit_payload(
+		hit_payload,
+		result,
+		feedbacks,
+		context,
+		field_width,
+		field_height,
+		hit_text_timer_frames,
+		headshot_label,
+		legshot_label,
+		feedback_limit
+	)
+
+
 static func append_feedback_from_payload(
 	hit_payload: Dictionary,
 	feedbacks: Array,

@@ -1,8 +1,10 @@
 extends RefCounted
 
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
+const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
 const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
+const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 
 static func get_duration(
@@ -62,6 +64,108 @@ static func build_spawn_result(effect: Dictionary, duration: float) -> Dictionar
 		"kind": str(effect.get("kind", "")),
 		"duration_frames": duration,
 		"source": str(effect.get("source", "")),
+	}
+
+
+static func build_spawn_payload(
+	weapon_id: String,
+	profile: Dictionary,
+	projectile: Dictionary,
+	context: Dictionary,
+	effect_id: int,
+	field_size: Vector2,
+	net_gun_width: float,
+	net_gun_height: float,
+	net_gun_min_height: float,
+	net_gun_dissolve_frames: float,
+	net_gun_dash_break_frames: float,
+	net_gun_player_slow_multiplier: float,
+	net_gun_muzzle_source: Vector2,
+	fire_sheet_source_cell_size: Vector2,
+	fire_sheet_player_foot_y_offset: float,
+	status_duration_frames: float,
+	status_interval_frames: float,
+	status_initial_cooldown_frames: float,
+	status_slow_multiplier: float
+) -> Dictionary:
+	if profile.is_empty():
+		return {}
+	var is_net: bool = weapon_id == "net_gun"
+	var dissolve: bool = bool(projectile.get("net_dissolve", false))
+	var duration: float = get_duration(
+		profile,
+		is_net,
+		dissolve,
+		net_gun_dissolve_frames
+	)
+	var projectile_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var pos: Vector2 = CommandoFirearmLingeringNetFieldState.get_lingering_effect_pos(
+		profile,
+		projectile,
+		context,
+		projectile_pos,
+		CommandoFirearmOriginGeometry.get_boss_target_pos(context, field_size.x),
+		field_size.x,
+		field_size.y,
+		net_gun_width,
+		net_gun_min_height,
+		net_gun_height
+	)
+	var net_effect_height: float = CommandoFirearmLingeringNetFieldState.get_net_effect_height(
+		profile,
+		context,
+		net_gun_min_height,
+		net_gun_height
+	)
+	var effect_size: Vector2 = get_size(
+		profile,
+		projectile,
+		is_net,
+		net_gun_width,
+		net_effect_height
+	)
+	var effect: Dictionary = build_effect(
+		weapon_id,
+		profile,
+		projectile,
+		pos,
+		effect_id,
+		effect_size,
+		duration
+	)
+	if is_net:
+		CommandoFirearmLingeringNetFieldState.apply_net_fields(
+			effect,
+			profile,
+			projectile,
+			CommandoFirearmOriginGeometry.get_commando_fire_sheet_world_pos(
+				context,
+				net_gun_muzzle_source,
+				field_size,
+				fire_sheet_source_cell_size,
+				fire_sheet_player_foot_y_offset
+			),
+			pos,
+			effect_size,
+			effect_id,
+			dissolve,
+			net_gun_dash_break_frames,
+			net_gun_player_slow_multiplier
+		)
+	CommandoFirearmLingeringStatusState.apply_effect_status_fields(
+		effect,
+		profile,
+		dissolve,
+		status_duration_frames,
+		status_interval_frames,
+		status_initial_cooldown_frames,
+		status_slow_multiplier
+	)
+	CommandoFirearmLingeringFireFlameState.seed_effect_flames(effect)
+	return {
+		"effect": effect,
+		"duration": duration,
+		"spawn_result": build_spawn_result(effect, duration),
 	}
 
 
