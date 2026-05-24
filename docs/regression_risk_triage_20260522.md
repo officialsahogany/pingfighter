@@ -6916,6 +6916,21 @@ Hundredth split on 2026-05-24:
   real `_apply_lingering_effect_status()` path and rejects the removed status
   owner bridges.
 
+225th follow-up on 2026-05-24:
+
+- Commit: `cb9178c5a godot: drop Commando rope origin owner bridges`.
+- Scope: removed `_sync_net_field_rope_origin()` and
+  `_should_sync_net_field_rope_origin()` from `commando_firearm_runtime.gd`.
+  Active lingering-effect updates now decide hooked / snapping dissolve net
+  rope-origin resync inline and write the current Commando net-gun muzzle
+  origin directly before status and clamp handling.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3289` lines /
+  `93` functions to `3281` lines / `91` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke`. `run_headless_load_check.ps1` passed,
+  and `run_warning_scan.ps1` scanned `1326` scripts with no GDScript warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
