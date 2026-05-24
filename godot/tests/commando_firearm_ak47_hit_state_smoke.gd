@@ -39,6 +39,12 @@ func _verify_direct_ak47_hit_state() -> void:
 	var stacked_fields: Dictionary = _get_dict(stacked.get("result_fields", {}))
 	_expect(int(stacked_fields.get("damage_units", 0)) == 2, "AK-47 threshold hit should preserve larger existing damage units")
 
+	var runtime_result := {"damage_units": 2}
+	var apply_result: Dictionary = CommandoFirearmAk47HitState.apply_runtime_accumulated_damage("ak47", runtime_result, 19, 20)
+	_expect(int(apply_result.get("next_hit_count", -1)) == 0, "AK-47 runtime apply helper should return next hit count")
+	_expect(bool(runtime_result.get("ak47_accumulated_damage_ready", false)), "AK-47 runtime apply helper should merge ready fields")
+	_expect(int(runtime_result.get("damage_units", 0)) == 2, "AK-47 runtime apply helper should preserve merged damage units")
+
 
 func _verify_runtime_delegates_ak47_hit_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()

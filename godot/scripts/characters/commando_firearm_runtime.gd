@@ -2075,15 +2075,13 @@ func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context
 		SLINGSHOT_KNOCKBACK_MULT
 	)
 	_apply_pistol_hit_effects(weapon_id, projectile, context, result)
-	var ak47_hit_payload: Dictionary = CommandoFirearmAk47HitState.build_accumulated_damage_payload(
+	var ak47_apply_result: Dictionary = CommandoFirearmAk47HitState.apply_runtime_accumulated_damage(
 		weapon_id,
+		result,
 		ak47_boss_hit_count,
-		int(result.get("damage_units", 0)),
 		AK47_BOSS_DAMAGE_HIT_THRESHOLD
 	)
-	if not ak47_hit_payload.is_empty():
-		ak47_boss_hit_count = int(ak47_hit_payload.get("next_hit_count", ak47_boss_hit_count))
-		result.merge(CommandoFirearmValueUtils.get_dict(ak47_hit_payload.get("result_fields", {})), true)
+	ak47_boss_hit_count = int(ak47_apply_result.get("next_hit_count", ak47_boss_hit_count))
 	CommandoFirearmHitResultState.apply_runtime_status_results(
 		result,
 		profile,
