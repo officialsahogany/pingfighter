@@ -65,9 +65,20 @@ func _verify_direct_projectile_motion_state() -> void:
 
 func _verify_runtime_delegates_projectile_motion_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	var projectile := {"weapon_id": "commando_pistol", "wall_bounces": 0}
-	_expect(runtime._apply_pistol_side_wall_bounce(projectile, Vector2(8.0, 100.0), Vector2(-5.0, 2.0), {"width": 760.0}), "runtime pistol side-wall wrapper should delegate")
-	_expect(int(projectile.get("wall_bounces", 0)) == 1, "runtime pistol side-wall wrapper should mutate projectile")
+
+	runtime.projectiles = [{
+		"kind": "bullet",
+		"weapon_id": "commando_pistol",
+		"wall_bounces": 0,
+		"velocity": Vector2(-5.0, 2.0),
+		"pos": Vector2(13.0, 100.0),
+		"life_frames": 12.0,
+	}]
+	runtime._update_projectiles(1.0, {"width": 760.0, "height": 750.0}, {})
+	var runtime_pistol: Dictionary = runtime.projectiles[0]
+	_expect(int(runtime_pistol.get("wall_bounces", 0)) == 1, "runtime projectile update should mutate pistol side-wall bounce count")
+	_expect(runtime_pistol.get("pos", Vector2.ZERO) == Vector2(10.0, 102.0), "runtime projectile update should clamp pistol side-wall bounce position")
+	_expect((runtime_pistol.get("velocity", Vector2.ZERO) as Vector2).x > 0.0, "runtime projectile update should flip pistol side-wall bounce velocity")
 
 	runtime.projectiles = [{
 		"kind": "rocket",
@@ -100,6 +111,9 @@ func _verify_runtime_delegates_projectile_motion_state() -> void:
 func _verify_removed_runtime_projectile_motion_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	for bridge_name in [
+		"_apply_pistol_side_wall_bounce",
+		"_apply_stage2_pistol_rock_bounce",
+		"_is_wall_bouncing_pistol",
 		"_update_rocket_motion",
 		"_update_net_projectile_rope",
 	]:

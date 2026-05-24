@@ -2481,6 +2481,10 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			projectile,
 			BASE_WEAPON_ID
 		)
+		var is_pistol_projectile: bool = CommandoFirearmValueUtils.is_pistol_weapon(
+			projectile_weapon_id,
+			BASE_WEAPON_ID
+		)
 		var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 		var velocity: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
 		if projectile_kind == "drone":
@@ -2502,13 +2506,31 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			velocity.y += float(projectile.get("gravity", 0.0)) * step
 		var prev_pos: Vector2 = pos
 		pos += velocity * step
-		if _apply_pistol_side_wall_bounce(projectile, pos, velocity, context):
-			pos = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", pos), pos)
-			velocity = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", velocity), velocity)
+		if is_pistol_projectile:
+			var field_width: float = max(PISTOL_WALL_BOUNCE_MARGIN * 2.0, float(context.get("width", FIELD_WIDTH)))
+			var bounce_result: Dictionary = CommandoFirearmProjectileMotionState.apply_pistol_side_wall_bounce(
+				projectile,
+				pos,
+				velocity,
+				field_width,
+				PISTOL_WALL_BOUNCE_MARGIN,
+				PISTOL_WALL_BOUNCE_MAX,
+				PISTOL_WALL_BOUNCE_DAMPING
+			)
+			if bool(bounce_result.get("bounced", false)):
+				projectile.clear()
+				projectile.merge(CommandoFirearmValueUtils.get_dict(bounce_result.get("projectile", projectile)), true)
+				pos = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", pos), pos)
+				velocity = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", velocity), velocity)
 		projectile["prev_pos"] = prev_pos
 		projectile["pos"] = pos
 		projectile["velocity"] = velocity
-		var rock_bounce_result: Dictionary = _apply_stage2_pistol_rock_bounce(projectile, context, deps)
+		var rock_bounce_result: Dictionary = CommandoFirearmStage2RockInteractionResolver.apply_pistol_rock_bounce(
+			projectile,
+			context,
+			deps,
+			is_pistol_projectile
+		)
 		if bool(rock_bounce_result.get("consumed", false)):
 			projectiles.remove_at(index)
 			continue
@@ -2558,45 +2580,6 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			if projectile_kind == "drone" and not CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
 				CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	return result
-
-
-func _apply_pistol_side_wall_bounce(projectile: Dictionary, pos: Vector2, velocity: Vector2, context: Dictionary) -> bool:
-	if not _is_wall_bouncing_pistol(projectile):
-		return false
-	var field_width: float = max(PISTOL_WALL_BOUNCE_MARGIN * 2.0, float(context.get("width", FIELD_WIDTH)))
-	var bounce_result: Dictionary = CommandoFirearmProjectileMotionState.apply_pistol_side_wall_bounce(
-		projectile,
-		pos,
-		velocity,
-		field_width,
-		PISTOL_WALL_BOUNCE_MARGIN,
-		PISTOL_WALL_BOUNCE_MAX,
-		PISTOL_WALL_BOUNCE_DAMPING
-	)
-	if not bool(bounce_result.get("bounced", false)):
-		return false
-	projectile.clear()
-	projectile.merge(CommandoFirearmValueUtils.get_dict(bounce_result.get("projectile", projectile)), true)
-	return true
-
-
-func _apply_stage2_pistol_rock_bounce(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
-	return CommandoFirearmStage2RockInteractionResolver.apply_pistol_rock_bounce(
-		projectile,
-		context,
-		deps,
-		CommandoFirearmValueUtils.is_pistol_weapon(
-			CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, ""),
-			BASE_WEAPON_ID
-		)
-	)
-
-
-func _is_wall_bouncing_pistol(projectile: Dictionary) -> bool:
-	return CommandoFirearmValueUtils.is_pistol_weapon(
-		CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, ""),
-		BASE_WEAPON_ID
-	)
 
 
 func _spawn_ak47_shell_casing(origin: Vector2, direction: Vector2, config: Dictionary, shot_id: int) -> void:
