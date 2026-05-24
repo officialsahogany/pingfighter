@@ -76,7 +76,7 @@ func _verify_runtime_delegates_lingering_effect_state() -> void:
 		60.0
 	)
 	_expect(str(runtime_effect.get("source", "")) == "commando_firearm_net_gun_lingering_9", "runtime effect builder should delegate sources")
-	_expect(runtime._is_lingering_effect_active({"timer_frames": 0.1}), "runtime active wrapper should delegate")
+	_expect(CommandoFirearmLingeringEffectState.is_active({"timer_frames": 0.1}), "active owner should remain the timer-state boundary")
 
 
 func _expect(condition: bool, message: String) -> void:

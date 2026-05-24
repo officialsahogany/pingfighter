@@ -2,6 +2,7 @@ extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
+const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmLingeringFireFlameState := preload("res://scripts/characters/commando_firearm_lingering_fire_flame_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
 const CommandoFirearmLingeringStatusState := preload("res://scripts/characters/commando_firearm_lingering_status_state.gd")
@@ -90,6 +91,7 @@ func _init() -> void:
 	_verify_removed_net_field_setup_bridges()
 	_verify_removed_lingering_status_setup_bridges()
 	_verify_removed_lingering_status_application_bridges()
+	_verify_removed_lingering_effect_timer_bridges()
 	_verify_removed_hit_geometry_result_bridges()
 	_verify_removed_support_aircraft_geometry_bridges()
 
@@ -806,37 +808,37 @@ func _verify_runtime_delegates_value_utils() -> void:
 		"rope_broken": true,
 		"rope_snap_timer": 3.0,
 	}
-	_expect(is_equal_approx(runtime._get_lingering_effect_timer(lingering_timer_effect), 10.0), "lingering current-timer helper should read explicit timers")
-	_expect(is_equal_approx(runtime._get_lingering_effect_timer({}), 0.0), "lingering current-timer helper should default missing timers to zero")
-	_expect(is_equal_approx(runtime._get_lingering_effect_phase(lingering_timer_effect), 2.0), "lingering current-phase helper should read explicit phases")
-	_expect(is_equal_approx(runtime._get_lingering_effect_phase({}), 0.0), "lingering current-phase helper should default missing phases to zero")
-	_expect(is_equal_approx(runtime._get_lingering_rope_snap_timer(lingering_timer_effect), 3.0), "lingering rope-snap current-timer helper should read explicit snap timers")
-	_expect(is_equal_approx(runtime._get_lingering_rope_snap_timer({}), 0.0), "lingering rope-snap current-timer helper should default missing snap timers to zero")
-	_expect(runtime._has_lingering_effect_timer(0.1), "lingering positive-timer helper should accept positive timers")
-	_expect(not runtime._has_lingering_effect_timer(0.0), "lingering positive-timer helper should reject zero timers")
-	_expect(is_equal_approx(runtime._get_lingering_effect_timer_step(-5.0), 0.0), "lingering timer-step helper should clamp negative steps")
-	_expect(is_equal_approx(runtime._get_lingering_effect_timer_step(4.0), 4.0), "lingering timer-step helper should preserve positive steps")
-	_expect(is_equal_approx(runtime._get_next_lingering_effect_timer(lingering_timer_effect, 4.0), 6.0), "lingering next-timer helper should reduce active timers")
-	_expect(is_equal_approx(runtime._get_next_lingering_effect_phase(lingering_timer_effect, 4.0), 2.48), "lingering next-phase helper should advance effect phase")
-	_expect(is_equal_approx(runtime._get_lingering_effect_phase_step(4.0), 0.48), "lingering phase-step helper should preserve phase advance")
-	_expect(runtime._should_advance_lingering_rope_snap_timer(lingering_timer_effect), "lingering rope-snap predicate should accept broken ropes")
-	_expect(is_equal_approx(runtime._get_next_lingering_rope_snap_timer(lingering_timer_effect, 4.0), 0.0), "lingering rope-snap next-timer helper should clamp expired snap timers")
-	runtime._advance_lingering_effect_timers(lingering_timer_effect, 4.0)
-	_expect(is_equal_approx(float(lingering_timer_effect.get("timer_frames", 0.0)), 6.0), "lingering timer helper should reduce active timers by the frame step")
-	_expect(is_equal_approx(float(lingering_timer_effect.get("phase", 0.0)), 2.48), "lingering timer helper should advance phase by the frame step")
-	_expect(is_equal_approx(float(lingering_timer_effect.get("rope_snap_timer", 0.0)), 0.0), "lingering timer helper should clamp rope snap timers at zero")
-	runtime._advance_lingering_effect_timers(lingering_timer_effect, -5.0)
-	_expect(is_equal_approx(float(lingering_timer_effect.get("timer_frames", 0.0)), 6.0), "lingering timer helper should ignore negative frame steps")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_timer(lingering_timer_effect), 10.0), "lingering current-timer owner should read explicit timers")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_timer({}), 0.0), "lingering current-timer owner should default missing timers to zero")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_phase(lingering_timer_effect), 2.0), "lingering current-phase owner should read explicit phases")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_phase({}), 0.0), "lingering current-phase owner should default missing phases to zero")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_rope_snap_timer(lingering_timer_effect), 3.0), "lingering rope-snap current-timer owner should read explicit snap timers")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_rope_snap_timer({}), 0.0), "lingering rope-snap current-timer owner should default missing snap timers to zero")
+	_expect(CommandoFirearmLingeringEffectState.has_timer(0.1), "lingering positive-timer owner should accept positive timers")
+	_expect(not CommandoFirearmLingeringEffectState.has_timer(0.0), "lingering positive-timer owner should reject zero timers")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_timer_step(-5.0), 0.0), "lingering timer-step owner should clamp negative steps")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_timer_step(4.0), 4.0), "lingering timer-step owner should preserve positive steps")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_next_timer(lingering_timer_effect, 4.0), 6.0), "lingering next-timer owner should reduce active timers")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_next_phase(lingering_timer_effect, 4.0, CommandoFirearmRuntime.LINGERING_EFFECT_PHASE_STEP), 2.48), "lingering next-phase owner should advance effect phase")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_phase_step(4.0, CommandoFirearmRuntime.LINGERING_EFFECT_PHASE_STEP), 0.48), "lingering phase-step owner should preserve phase advance")
+	_expect(CommandoFirearmLingeringEffectState.should_advance_rope_snap_timer(lingering_timer_effect), "lingering rope-snap predicate owner should accept broken ropes")
+	_expect(is_equal_approx(CommandoFirearmLingeringEffectState.get_next_rope_snap_timer(lingering_timer_effect, 4.0), 0.0), "lingering rope-snap next-timer owner should clamp expired snap timers")
+	CommandoFirearmLingeringEffectState.advance_timers(lingering_timer_effect, 4.0, CommandoFirearmRuntime.LINGERING_EFFECT_PHASE_STEP)
+	_expect(is_equal_approx(float(lingering_timer_effect.get("timer_frames", 0.0)), 6.0), "lingering timer owner should reduce active timers by the frame step")
+	_expect(is_equal_approx(float(lingering_timer_effect.get("phase", 0.0)), 2.48), "lingering timer owner should advance phase by the frame step")
+	_expect(is_equal_approx(float(lingering_timer_effect.get("rope_snap_timer", 0.0)), 0.0), "lingering timer owner should clamp rope snap timers at zero")
+	CommandoFirearmLingeringEffectState.advance_timers(lingering_timer_effect, -5.0, CommandoFirearmRuntime.LINGERING_EFFECT_PHASE_STEP)
+	_expect(is_equal_approx(float(lingering_timer_effect.get("timer_frames", 0.0)), 6.0), "lingering timer owner should ignore negative frame steps")
 	var plain_lingering_timer_effect := {
 		"timer_frames": 2.0,
 		"phase": 0.5,
 		"rope_snap_timer": 7.0,
 	}
-	runtime._advance_lingering_effect_timers(plain_lingering_timer_effect, 4.0)
-	_expect(is_equal_approx(float(plain_lingering_timer_effect.get("timer_frames", 0.0)), 0.0), "lingering timer helper should clamp expired timers at zero")
-	_expect(is_equal_approx(float(plain_lingering_timer_effect.get("rope_snap_timer", 0.0)), 7.0), "lingering timer helper should not touch rope timers unless the rope is broken")
-	_expect(runtime._is_lingering_fire_zone({"kind": "fire_zone"}), "lingering fire-zone helper should recognize fire zones")
-	_expect(not runtime._is_lingering_fire_zone({"kind": "net_field"}), "lingering fire-zone helper should reject other effect kinds")
+	CommandoFirearmLingeringEffectState.advance_timers(plain_lingering_timer_effect, 4.0, CommandoFirearmRuntime.LINGERING_EFFECT_PHASE_STEP)
+	_expect(is_equal_approx(float(plain_lingering_timer_effect.get("timer_frames", 0.0)), 0.0), "lingering timer owner should clamp expired timers at zero")
+	_expect(is_equal_approx(float(plain_lingering_timer_effect.get("rope_snap_timer", 0.0)), 7.0), "lingering timer owner should not touch rope timers unless the rope is broken")
+	_expect(CommandoFirearmLingeringEffectState.is_fire_zone({"kind": "fire_zone"}), "lingering fire-zone owner should recognize fire zones")
+	_expect(not CommandoFirearmLingeringEffectState.is_fire_zone({"kind": "net_field"}), "lingering fire-zone owner should reject other effect kinds")
 	var fire_zone_frame_effect := {
 		"kind": "fire_zone",
 		"timer_frames": 12.0,
@@ -1011,25 +1013,25 @@ func _verify_runtime_delegates_value_utils() -> void:
 	runtime._advance_lingering_effect_frame(non_fire_frame_effect, -5.0)
 	_expect(is_equal_approx(float(non_fire_frame_effect.get("timer_frames", 0.0)), 6.0), "lingering frame helper should ignore negative frame steps")
 	_expect(is_equal_approx(float(non_fire_frame_effect.get("phase", 0.0)), 0.24), "lingering frame helper should not advance phase for negative frame steps")
-	_expect(runtime._is_lingering_effect_active({"timer_frames": 0.1}), "lingering active helper should accept positive timers")
-	_expect(not runtime._is_lingering_effect_active({"timer_frames": 0.0}), "lingering active helper should reject expired timers")
-	_expect(not runtime._is_lingering_effect_active({}), "lingering active helper should reject missing timers")
+	_expect(CommandoFirearmLingeringEffectState.is_active({"timer_frames": 0.1}), "lingering active owner should accept positive timers")
+	_expect(not CommandoFirearmLingeringEffectState.is_active({"timer_frames": 0.0}), "lingering active owner should reject expired timers")
+	_expect(not CommandoFirearmLingeringEffectState.is_active({}), "lingering active owner should reject missing timers")
 	var lingering_merge_result := {"kept": "result"}
 	var lingering_merge_context := {"kept": "context"}
-	_expect(not runtime._has_lingering_clamp_result({}), "lingering clamp-result predicate should reject empty payloads")
-	_expect(runtime._has_lingering_clamp_result({"boss_pos": Vector2(60.0, 90.0)}), "lingering clamp-result predicate should accept payloads")
+	_expect(not CommandoFirearmLingeringEffectState.has_clamp_result({}), "lingering clamp-result predicate owner should reject empty payloads")
+	_expect(CommandoFirearmLingeringEffectState.has_clamp_result({"boss_pos": Vector2(60.0, 90.0)}), "lingering clamp-result predicate owner should accept payloads")
 	var clamp_payload_target := {"boss_pos": Vector2.ZERO}
-	runtime._apply_lingering_clamp_payload(clamp_payload_target, {"boss_pos": Vector2(60.0, 90.0)})
-	_expect(clamp_payload_target.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "lingering clamp-payload helper should merge clamp data into targets")
-	runtime._merge_lingering_clamp_result(lingering_merge_result, lingering_merge_context, {})
-	_expect(lingering_merge_result == {"kept": "result"}, "lingering clamp merge helper should ignore empty clamp results")
-	_expect(lingering_merge_context == {"kept": "context"}, "lingering clamp merge helper should leave context unchanged for empty clamp results")
-	runtime._merge_lingering_clamp_result(lingering_merge_result, lingering_merge_context, {
+	CommandoFirearmLingeringEffectState.apply_clamp_payload(clamp_payload_target, {"boss_pos": Vector2(60.0, 90.0)})
+	_expect(clamp_payload_target.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "lingering clamp-payload owner should merge clamp data into targets")
+	CommandoFirearmLingeringEffectState.merge_clamp_result(lingering_merge_result, lingering_merge_context, {})
+	_expect(lingering_merge_result == {"kept": "result"}, "lingering clamp merge owner should ignore empty clamp results")
+	_expect(lingering_merge_context == {"kept": "context"}, "lingering clamp merge owner should leave context unchanged for empty clamp results")
+	CommandoFirearmLingeringEffectState.merge_clamp_result(lingering_merge_result, lingering_merge_context, {
 		"boss_pos": Vector2(60.0, 90.0),
 		"commando_net_gun_boss_clamped": true,
 	})
-	_expect(lingering_merge_result.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "lingering clamp merge helper should merge clamp data into update results")
-	_expect(bool(lingering_merge_context.get("commando_net_gun_boss_clamped", false)), "lingering clamp merge helper should merge clamp data into context")
+	_expect(lingering_merge_result.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "lingering clamp merge owner should merge clamp data into update results")
+	_expect(bool(lingering_merge_context.get("commando_net_gun_boss_clamped", false)), "lingering clamp merge owner should merge clamp data into context")
 	var active_lingering_result := {}
 	var active_lingering_context := {
 		"boss_pos": Vector2(20.0, 90.0),
@@ -1663,6 +1665,29 @@ func _verify_removed_lingering_status_application_bridges() -> void:
 		"_get_lingering_boss_rect_size",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-status application bridge %s" % bridge_name)
+
+
+func _verify_removed_lingering_effect_timer_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_advance_lingering_effect_timers",
+		"_get_lingering_effect_timer_step",
+		"_get_next_lingering_effect_timer",
+		"_get_next_lingering_effect_phase",
+		"_get_lingering_effect_timer",
+		"_get_lingering_effect_phase",
+		"_get_lingering_effect_phase_step",
+		"_should_advance_lingering_rope_snap_timer",
+		"_get_next_lingering_rope_snap_timer",
+		"_get_lingering_rope_snap_timer",
+		"_is_lingering_fire_zone",
+		"_is_lingering_effect_active",
+		"_has_lingering_effect_timer",
+		"_merge_lingering_clamp_result",
+		"_has_lingering_clamp_result",
+		"_apply_lingering_clamp_payload",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-effect timer bridge %s" % bridge_name)
 
 
 func _verify_removed_hit_geometry_result_bridges() -> void:

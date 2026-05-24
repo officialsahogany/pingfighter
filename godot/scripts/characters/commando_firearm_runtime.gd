@@ -3239,7 +3239,7 @@ func _apply_lingering_net_fields(
 
 
 func _seed_lingering_fire_flames(effect: Dictionary) -> void:
-	if not _is_lingering_fire_zone(effect):
+	if not CommandoFirearmLingeringEffectState.is_fire_zone(effect):
 		return
 	effect["flames"] = CommandoFirearmLingeringFireFlameState.build_flames(effect)
 
@@ -3276,14 +3276,14 @@ func _get_net_effect_height(profile: Dictionary, context: Dictionary) -> float:
 
 
 func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var step: float = _get_lingering_effect_timer_step(fps_scale)
+	var step: float = CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
 	var result: Dictionary = {}
 	if _consume_net_gun_dash_trigger(context, deps):
 		_break_hooked_net_fields()
 	for index in range(lingering_effects.size() - 1, -1, -1):
 		var effect: Dictionary = _get_lingering_effect_at_index(index)
 		_advance_lingering_effect_frame(effect, step)
-		if _is_lingering_effect_active(effect):
+		if CommandoFirearmLingeringEffectState.is_active(effect):
 			_apply_active_lingering_effect(index, effect, step, context, deps, result)
 		else:
 			_remove_lingering_effect_at_index(index)
@@ -3301,74 +3301,10 @@ func _consume_net_gun_dash_trigger(context: Dictionary, deps: Dictionary = {}) -
 
 
 func _advance_lingering_effect_frame(effect: Dictionary, fps_scale: float) -> void:
-	var step: float = _get_lingering_effect_timer_step(fps_scale)
-	_advance_lingering_effect_timers(effect, step)
-	if _is_lingering_fire_zone(effect):
+	var step: float = CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
+	CommandoFirearmLingeringEffectState.advance_timers(effect, step, LINGERING_EFFECT_PHASE_STEP)
+	if CommandoFirearmLingeringEffectState.is_fire_zone(effect):
 		_update_lingering_fire_flames(effect, step)
-
-
-func _advance_lingering_effect_timers(effect: Dictionary, fps_scale: float) -> void:
-	CommandoFirearmLingeringEffectState.advance_timers(effect, fps_scale, LINGERING_EFFECT_PHASE_STEP)
-
-
-func _get_lingering_effect_timer_step(fps_scale: float) -> float:
-	return CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
-
-
-func _get_next_lingering_effect_timer(effect: Dictionary, step: float) -> float:
-	return CommandoFirearmLingeringEffectState.get_next_timer(effect, step)
-
-
-func _get_next_lingering_effect_phase(effect: Dictionary, step: float) -> float:
-	return CommandoFirearmLingeringEffectState.get_next_phase(effect, step, LINGERING_EFFECT_PHASE_STEP)
-
-
-func _get_lingering_effect_timer(effect: Dictionary) -> float:
-	return CommandoFirearmLingeringEffectState.get_timer(effect)
-
-
-func _get_lingering_effect_phase(effect: Dictionary) -> float:
-	return CommandoFirearmLingeringEffectState.get_phase(effect)
-
-
-func _get_lingering_effect_phase_step(step: float) -> float:
-	return CommandoFirearmLingeringEffectState.get_phase_step(step, LINGERING_EFFECT_PHASE_STEP)
-
-
-func _should_advance_lingering_rope_snap_timer(effect: Dictionary) -> bool:
-	return CommandoFirearmLingeringEffectState.should_advance_rope_snap_timer(effect)
-
-
-func _get_next_lingering_rope_snap_timer(effect: Dictionary, step: float) -> float:
-	return CommandoFirearmLingeringEffectState.get_next_rope_snap_timer(effect, step)
-
-
-func _get_lingering_rope_snap_timer(effect: Dictionary) -> float:
-	return CommandoFirearmLingeringEffectState.get_rope_snap_timer(effect)
-
-
-func _is_lingering_fire_zone(effect: Dictionary) -> bool:
-	return CommandoFirearmLingeringEffectState.is_fire_zone(effect)
-
-
-func _is_lingering_effect_active(effect: Dictionary) -> bool:
-	return CommandoFirearmLingeringEffectState.is_active(effect)
-
-
-func _has_lingering_effect_timer(timer_frames: float) -> bool:
-	return CommandoFirearmLingeringEffectState.has_timer(timer_frames)
-
-
-func _merge_lingering_clamp_result(result: Dictionary, context: Dictionary, clamp_result: Dictionary) -> void:
-	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
-
-
-func _has_lingering_clamp_result(clamp_result: Dictionary) -> bool:
-	return CommandoFirearmLingeringEffectState.has_clamp_result(clamp_result)
-
-
-func _apply_lingering_clamp_payload(target: Dictionary, clamp_result: Dictionary) -> void:
-	CommandoFirearmLingeringEffectState.apply_clamp_payload(target, clamp_result)
 
 
 func _apply_active_lingering_effect(
@@ -3398,13 +3334,13 @@ func _should_sync_net_field_rope_origin(effect: Dictionary) -> bool:
 		_is_net_gun_effect(effect)
 		and bool(effect.get("rope_broken", false))
 		and bool(effect.get("dissolve", false))
-		and _get_lingering_rope_snap_timer(effect) > 0.0
+		and CommandoFirearmLingeringEffectState.get_rope_snap_timer(effect) > 0.0
 	)
 
 
 func _apply_active_lingering_clamp(effect: Dictionary, context: Dictionary, result: Dictionary) -> void:
 	var clamp_result: Dictionary = _get_active_lingering_clamp_result(effect, context)
-	_merge_lingering_clamp_result(result, context, clamp_result)
+	CommandoFirearmLingeringEffectState.merge_clamp_result(result, context, clamp_result)
 
 
 func _get_active_lingering_clamp_result(effect: Dictionary, context: Dictionary) -> Dictionary:
@@ -3555,7 +3491,7 @@ func _apply_lingering_effect_status(effect: Dictionary, context: Dictionary, dep
 	if not CommandoFirearmLingeringStatusState.can_apply_status(
 		effect,
 		context,
-		_get_lingering_effect_timer_step(fps_scale)
+		CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
 	):
 		return
 	_apply_lingering_status_application(effect, status_application)
