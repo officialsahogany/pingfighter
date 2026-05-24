@@ -66,14 +66,16 @@ func _verify_direct_pistol_feedback_state() -> void:
 
 func _verify_runtime_delegates_pistol_feedback_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	var result := {}
-	runtime._apply_pistol_hit_effects(
-		"commando_pistol",
-		{"pistol_shot_roll": 0.11},
-		{"boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0},
-		result
-	)
-	_expect(str(result.get("pistol_hit_kind", "")) == "legshot", "runtime pistol hit path should still classify feedback hits")
+	var context := {"boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0}
+	runtime._register_projectile_hit({
+		"weapon_id": "commando_pistol",
+		"kind": "bullet",
+		"pos": Vector2(320.0, 82.0),
+		"velocity": Vector2(0.0, -10.0),
+		"pistol_shot_roll": 0.11,
+	}, context, {})
+	var result: Dictionary = runtime.update_effects(0.0, Time.get_ticks_msec(), context, {})
+	_expect(str(result.get("commando_firearm_last_pistol_hit_kind", "")) == "legshot", "runtime pistol hit path should still classify feedback hits")
 	var feedbacks: Array = runtime.get_actor_draw_context().get("commando_firearm_pistol_feedbacks", [])
 	_expect(feedbacks.size() == 1, "runtime spawn should append supported feedback")
 	runtime.update_effects(60.0, Time.get_ticks_msec(), {}, {})

@@ -523,14 +523,19 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 
 func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var effect_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_effect_update_state.gd")
 	var fire_spawn_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 	_expect(
 		runtime_source.find("CommandoFirearmBowlingTrapGuardState.consume_runtime_boss_guard") >= 0,
 		"runtime should delegate bowling-trap boss-guard consumption to the guard-state owner"
 	)
 	_expect(
-		runtime_source.find("CommandoFirearmBowlingTrapGeometry.advance_runtime_bowling_traps") >= 0,
-		"runtime should delegate bowling-trap lifecycle advancement to the geometry owner"
+		runtime_source.find("CommandoFirearmEffectUpdateState.advance_runtime_effects") >= 0,
+		"runtime should delegate effect update orchestration"
+	)
+	_expect(
+		effect_source.find("CommandoFirearmBowlingTrapGeometry.advance_runtime_bowling_traps") >= 0,
+		"effect update owner should delegate bowling-trap lifecycle advancement to the geometry owner"
 	)
 	_expect(
 		runtime_source.find("CommandoFirearmBowlingTrapGeometry.advance_runtime_traps") < 0,

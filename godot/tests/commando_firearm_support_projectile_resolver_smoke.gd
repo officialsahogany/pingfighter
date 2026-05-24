@@ -260,11 +260,13 @@ func _verify_runtime_delegates_support_projectile_resolver() -> void:
 
 func _verify_removed_runtime_support_projectile_bridge() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	var effect_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_effect_update_state.gd")
 	_expect(source.find("func _build_support_round_projectile(") < 0, "runtime should not keep support projectile build bridge")
 	_expect(source.find("func _spawn_support_round(") < 0, "runtime should not keep support projectile append bridge")
 	_expect(source.find("func _spawn_support_bomb(") < 0, "runtime should not keep support bomb append bridge")
 	_expect(source.find("func _update_support_calls(") < 0, "runtime should not keep support call update bridge")
-	_expect(source.find("CommandoFirearmSupportProjectileResolver.advance_runtime_support_calls") >= 0, "runtime should delegate support call projectile advancement")
+	_expect(source.find("CommandoFirearmEffectUpdateState.advance_runtime_effects") >= 0, "runtime should delegate effect update orchestration")
+	_expect(effect_source.find("CommandoFirearmSupportProjectileResolver.advance_runtime_support_calls") >= 0, "effect update owner should delegate support call projectile advancement")
 	_expect(source.find("CommandoFirearmSupportProjectileResolver.advance_runtime_calls") < 0, "runtime should not call the lower-level support call advance helper directly")
 
 

@@ -223,9 +223,14 @@ func _verify_runtime_delegates_lingering_effect_state() -> void:
 	_expect(not runtime_source.contains("func _spawn_net_dissolve_effect("), "runtime should not keep net dissolve lingering bridge")
 	_expect(not runtime_source.contains("func _update_lingering_effects("), "runtime should not keep lingering update bridge")
 	_expect(not runtime_source.contains("func _apply_active_lingering_effect("), "runtime should not keep active lingering effect bridge")
+	var effect_source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_effect_update_state.gd")
 	_expect(
-		runtime_source.find("CommandoFirearmLingeringEffectState.advance_runtime_effects") >= 0,
-		"runtime should delegate active lingering effect advancement to the owner"
+		runtime_source.find("CommandoFirearmEffectUpdateState.advance_runtime_effects") >= 0,
+		"runtime should delegate effect update orchestration"
+	)
+	_expect(
+		effect_source.find("CommandoFirearmLingeringEffectState.advance_runtime_effects") >= 0,
+		"effect update owner should delegate active lingering effect advancement to the owner"
 	)
 	_expect(
 		runtime_source.find("CommandoFirearmLingeringEffectState.spawn_runtime_lingering_effect") >= 0,

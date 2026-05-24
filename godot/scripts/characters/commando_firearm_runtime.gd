@@ -7,24 +7,21 @@ const CommandoFirearmBowlingTrapGuardState := preload("res://scripts/characters/
 const CommandoFirearmControlState := preload("res://scripts/characters/commando_firearm_control_state.gd")
 const CommandoFirearmCooldownState := preload("res://scripts/characters/commando_firearm_cooldown_state.gd")
 const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/commando_firearm_draw_state_resolver.gd")
+const CommandoFirearmEffectUpdateState := preload("res://scripts/characters/commando_firearm_effect_update_state.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSpawnState := preload("res://scripts/characters/commando_firearm_fire_spawn_state.gd")
 const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
 const CommandoFirearmLingeringEffectState := preload("res://scripts/characters/commando_firearm_lingering_effect_state.gd")
 const CommandoFirearmLingeringNetFieldState := preload("res://scripts/characters/commando_firearm_lingering_net_field_state.gd")
-const CommandoFirearmPendingResultState := preload("res://scripts/characters/commando_firearm_pending_result_state.gd")
-const CommandoFirearmPistolFeedbackState := preload("res://scripts/characters/commando_firearm_pistol_feedback_state.gd")
 const CommandoFirearmPistolReloadState := preload("res://scripts/characters/commando_firearm_pistol_reload_state.gd")
 const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmProjectileMotionState := preload("res://scripts/characters/commando_firearm_projectile_motion_state.gd")
 const CommandoFirearmProjectileSpawnState := preload("res://scripts/characters/commando_firearm_projectile_spawn_state.gd")
-const CommandoFirearmShellCasingState := preload("res://scripts/characters/commando_firearm_shell_casing_state.gd")
 const CommandoFirearmSlingshotState := preload("res://scripts/characters/commando_firearm_slingshot_state.gd")
 const CommandoFirearmSupportAircraftGeometry := preload("res://scripts/characters/commando_firearm_support_aircraft_geometry.gd")
 const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/commando_firearm_support_call_resolver.gd")
-const CommandoFirearmSupportProjectileResolver := preload("res://scripts/characters/commando_firearm_support_projectile_resolver.gd")
 const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 const CommandoFirearmTimerState := preload("res://scripts/characters/commando_firearm_timer_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
@@ -862,109 +859,80 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 
 
 func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
-	muzzle_flashes = CommandoFirearmValueUtils.advance_timed_effects(muzzle_flashes, fps_scale)
-	CommandoFirearmSupportProjectileResolver.advance_runtime_support_calls(
-		support_calls,
-		projectiles,
+	return CommandoFirearmEffectUpdateState.advance_runtime_effects(
 		self,
+		fps_scale,
 		context,
 		deps,
-		fps_scale,
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		SUPPORT_AIRCRAFT_START_X,
-		SUPPORT_AIRCRAFT_Y,
-		SUPPORT_AIRCRAFT_SPEED,
-		SUPPORT_BOMB_INTERVAL_FRAMES,
-		SUPPORT_AIRCRAFT_FINISH_MARGIN,
-		SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
-		SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
-		SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
-		SUPPORT_BOMB_INITIAL_VY,
-		SUPPORT_BOMB_GRAVITY,
-		SUPPORT_BOMB_HORIZONTAL_JITTER,
-		SUPPORT_OPPONENT_WALL_Y,
-		SUPPORT_MISSILE_FLIGHT_FRAMES,
-		SUPPORT_MISSILE_LIFE_FRAMES,
-		SUPPORT_BOMB_RANDOM_X_RANGE,
-		PROJECTILE_LIMIT
+		{
+			"weapon_profiles": WEAPON_PROFILES,
+			"weapon_profile_overrides": WEAPON_PROFILE_OVERRIDES,
+			"weapon_hit_feedback": WEAPON_HIT_FEEDBACK,
+			"hit_feedback_profile_overrides": HIT_FEEDBACK_PROFILE_OVERRIDES,
+			"base_weapon_id": BASE_WEAPON_ID,
+			"field_width": FIELD_WIDTH,
+			"field_height": FIELD_HEIGHT,
+			"support_aircraft_start_x": SUPPORT_AIRCRAFT_START_X,
+			"support_aircraft_y": SUPPORT_AIRCRAFT_Y,
+			"support_aircraft_speed": SUPPORT_AIRCRAFT_SPEED,
+			"support_bomb_interval_frames": SUPPORT_BOMB_INTERVAL_FRAMES,
+			"support_aircraft_finish_margin": SUPPORT_AIRCRAFT_FINISH_MARGIN,
+			"support_aircraft_curve_amplitude": SUPPORT_AIRCRAFT_CURVE_AMPLITUDE,
+			"support_aircraft_curve_frequency": SUPPORT_AIRCRAFT_CURVE_FREQUENCY,
+			"support_aircraft_curve_secondary_ratio": SUPPORT_AIRCRAFT_CURVE_SECONDARY_RATIO,
+			"support_bomb_initial_vy": SUPPORT_BOMB_INITIAL_VY,
+			"support_bomb_gravity": SUPPORT_BOMB_GRAVITY,
+			"support_bomb_horizontal_jitter": SUPPORT_BOMB_HORIZONTAL_JITTER,
+			"support_opponent_wall_y": SUPPORT_OPPONENT_WALL_Y,
+			"support_missile_flight_frames": SUPPORT_MISSILE_FLIGHT_FRAMES,
+			"support_missile_life_frames": SUPPORT_MISSILE_LIFE_FRAMES,
+			"support_bomb_random_x_range": SUPPORT_BOMB_RANDOM_X_RANGE,
+			"projectile_limit": PROJECTILE_LIMIT,
+			"grenade_explosion_duration_frames": float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+			"flash_limit": FLASH_LIMIT,
+			"bowling_trap_install_frames": BOWLING_TRAP_INSTALL_FRAMES,
+			"bowling_trap_capture_frames": BOWLING_TRAP_CAPTURE_FRAMES,
+			"bowling_trap_capture_ball_offset": BOWLING_TRAP_CAPTURE_BALL_OFFSET,
+			"bowling_trap_height": BOWLING_TRAP_HEIGHT,
+			"bowling_trap_capture_height": BOWLING_TRAP_CAPTURE_HEIGHT,
+			"bowling_trap_width": BOWLING_TRAP_WIDTH,
+			"trap_launch_speed_multiplier": BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
+			"trap_launch_angle_step": BOWLING_TRAP_LAUNCH_ANGLE_STEP,
+			"bowling_trap_guard_speed_reduction": BOWLING_TRAP_GUARD_SPEED_REDUCTION,
+			"bowling_trap_guard_knockback_power": BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
+			"bowling_trap_guard_stun_frames": BOWLING_TRAP_GUARD_STUN_FRAMES,
+			"pistol_wall_bounce_margin": PISTOL_WALL_BOUNCE_MARGIN,
+			"pistol_wall_bounce_max": PISTOL_WALL_BOUNCE_MAX,
+			"pistol_wall_bounce_damping": PISTOL_WALL_BOUNCE_DAMPING,
+			"bazooka_acceleration": BAZOOKA_ACCELERATION,
+			"bazooka_max_speed": BAZOOKA_MAX_SPEED,
+			"bazooka_smoke_trail_limit": BAZOOKA_SMOKE_TRAIL_LIMIT,
+			"net_gun_muzzle_source": COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
+			"fire_sheet_source_cell_size": COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
+			"fire_sheet_player_foot_y_offset": COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
+			"net_gun_rope_trail_limit": NET_GUN_ROPE_TRAIL_LIMIT,
+			"suicide_drone_size": SUICIDE_DRONE_SIZE,
+			"suicide_drone_rotor_base_speed": SUICIDE_DRONE_ROTOR_BASE_SPEED,
+			"suicide_drone_cooldown_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
+			"suicide_drone_ball_speed_multiplier": SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
+			"suicide_drone_ball_fan_degrees": SUICIDE_DRONE_BALL_FAN_DEGREES,
+			"ak47_shell_gravity": AK47_SHELL_GRAVITY,
+			"ak47_shell_bounce_decay": AK47_SHELL_BOUNCE_DECAY,
+			"ak47_shell_max_bounces": AK47_SHELL_MAX_BOUNCES,
+			"net_gun_dash_break_frames": NET_GUN_DASH_BREAK_FRAMES,
+			"lingering_effect_phase_step": LINGERING_EFFECT_PHASE_STEP,
+			"net_gun_width": NET_GUN_WIDTH,
+			"net_gun_min_height": NET_GUN_MIN_HEIGHT,
+			"lingering_status_target": LINGERING_STATUS_TARGET,
+			"lingering_status_id_slow": LINGERING_STATUS_ID_SLOW,
+			"lingering_status_duration_frames": LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
+			"lingering_status_interval_frames": LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
+			"lingering_status_slow_multiplier": LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
+			"lingering_status_min_slow_multiplier": LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
+			"lingering_status_max_slow_multiplier": LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
+			"lingering_status_source": LINGERING_STATUS_DEFAULT_SOURCE,
+		}
 	)
-	var ball_motion_result: Dictionary = CommandoFirearmBowlingTrapGeometry.advance_runtime_bowling_traps(
-		bowling_traps,
-		impact_flashes,
-		self,
-		context,
-		deps,
-		fps_scale,
-		WEAPON_PROFILES,
-		WEAPON_PROFILE_OVERRIDES,
-		WEAPON_HIT_FEEDBACK,
-		HIT_FEEDBACK_PROFILE_OVERRIDES,
-		BASE_WEAPON_ID,
-		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
-		FLASH_LIMIT,
-		BOWLING_TRAP_INSTALL_FRAMES,
-		BOWLING_TRAP_CAPTURE_FRAMES,
-		BOWLING_TRAP_CAPTURE_BALL_OFFSET,
-		BOWLING_TRAP_HEIGHT,
-		BOWLING_TRAP_CAPTURE_HEIGHT,
-		BOWLING_TRAP_WIDTH,
-		BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
-		BOWLING_TRAP_LAUNCH_ANGLE_STEP,
-		BOWLING_TRAP_GUARD_SPEED_REDUCTION,
-		BOWLING_TRAP_GUARD_KNOCKBACK_POWER,
-		BOWLING_TRAP_GUARD_STUN_FRAMES
-	)
-	if not ball_motion_result.is_empty():
-		context.merge(ball_motion_result, true)
-	var projectile_result: Dictionary = _update_projectiles(fps_scale, context, deps)
-	if not projectile_result.is_empty():
-		context.merge(projectile_result, true)
-	shell_casings = CommandoFirearmShellCasingState.advance_shells(
-		shell_casings,
-		fps_scale,
-		FIELD_WIDTH,
-		FIELD_HEIGHT,
-		AK47_SHELL_GRAVITY,
-		AK47_SHELL_BOUNCE_DECAY,
-		AK47_SHELL_MAX_BOUNCES
-	)
-	pistol_feedbacks = CommandoFirearmPistolFeedbackState.advance_feedbacks(pistol_feedbacks, fps_scale)
-	impact_flashes = CommandoFirearmValueUtils.advance_timed_effects(impact_flashes, fps_scale)
-	var lingering_result: Dictionary = CommandoFirearmLingeringEffectState.advance_runtime_effects(
-		self,
-		context,
-		deps,
-		fps_scale,
-		NET_GUN_DASH_BREAK_FRAMES,
-		LINGERING_EFFECT_PHASE_STEP,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		COMMANDO_NET_GUN_FIRE_MUZZLE_SOURCE,
-		COMMANDO_FIRE_SHEET_SOURCE_CELL_SIZE,
-		COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET,
-		NET_GUN_WIDTH,
-		NET_GUN_MIN_HEIGHT,
-		LINGERING_STATUS_TARGET,
-		LINGERING_STATUS_ID_SLOW,
-		LINGERING_STATUS_DEFAULT_DURATION_FRAMES,
-		LINGERING_STATUS_DEFAULT_INTERVAL_FRAMES,
-		LINGERING_STATUS_DEFAULT_SLOW_MULTIPLIER,
-		LINGERING_STATUS_MIN_SLOW_MULTIPLIER,
-		LINGERING_STATUS_MAX_SLOW_MULTIPLIER,
-		LINGERING_STATUS_DEFAULT_SOURCE
-	)
-	if not lingering_result.is_empty():
-		context.merge(lingering_result, true)
-	var result: Dictionary = ball_motion_result.duplicate(true)
-	if not projectile_result.is_empty():
-		result.merge(projectile_result, true)
-	if not lingering_result.is_empty():
-		result.merge(lingering_result, true)
-	var pending_result: Dictionary = CommandoFirearmPendingResultState.consume_runtime_pending_results(self)
-	if not pending_result.is_empty():
-		result.merge(pending_result, true)
-	return result
 
 
 func get_recent_hit_events() -> Array:
