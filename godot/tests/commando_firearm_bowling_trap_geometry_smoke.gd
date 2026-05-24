@@ -203,6 +203,16 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 	_expect(runtime.is_bowling_trap_guard_armed(), "runtime release path should apply armed guard state")
 	runtime._clear_bowling_trap_guard()
 	_expect(not runtime.is_bowling_trap_guard_armed(), "runtime guard clear wrapper should apply cleared state")
+	var spawn_runtime := CommandoFirearmRuntime.new()
+	spawn_runtime._spawn_firearm_effect(
+		"bowling_trap",
+		{"player_pos": Vector2(100.0, 640.0), "paddle_width": 80.0, "paddle_height": 45.0},
+		{},
+		{"kind": "trap", "color": Color.RED, "secondary": Color.BLUE}
+	)
+	_expect(spawn_runtime.bowling_traps.size() == 1, "runtime trap fire path should append one delegated trap")
+	_expect(spawn_runtime.impact_flashes.size() == 1, "runtime trap fire path should append one delegated marker flash")
+	_expect(int((spawn_runtime.bowling_traps[0] as Dictionary).get("id", 0)) == 1, "runtime trap fire path should preserve delegated shot id")
 
 
 func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
