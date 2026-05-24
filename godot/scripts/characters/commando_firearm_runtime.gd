@@ -3,13 +3,13 @@ extends RefCounted
 const ActiveItemThrowController := preload("res://scripts/items/active_item_throw_controller.gd")
 const CommandoFirearmAk47HitState := preload("res://scripts/characters/commando_firearm_ak47_hit_state.gd")
 const CommandoFirearmAudioDispatcher := preload("res://scripts/characters/commando_firearm_audio_dispatcher.gd")
-const CommandoFirearmAudioResolver := preload("res://scripts/characters/commando_firearm_audio_resolver.gd")
 const CommandoFirearmBowlingTrapGeometry := preload("res://scripts/characters/commando_firearm_bowling_trap_geometry.gd")
 const CommandoFirearmControlState := preload("res://scripts/characters/commando_firearm_control_state.gd")
 const CommandoFirearmDrawStateResolver := preload("res://scripts/characters/commando_firearm_draw_state_resolver.gd")
 const CommandoFirearmFireResultState := preload("res://scripts/characters/commando_firearm_fire_result_state.gd")
 const CommandoFirearmFireSheetResolver := preload("res://scripts/characters/commando_firearm_fire_sheet_resolver.gd")
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
+const CommandoFirearmHitFeedbackDispatcher := preload("res://scripts/characters/commando_firearm_hit_feedback_dispatcher.gd")
 const CommandoFirearmHitResultState := preload("res://scripts/characters/commando_firearm_hit_result_state.gd")
 const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmInputResolver := preload("res://scripts/characters/commando_firearm_input_resolver.gd")
@@ -856,7 +856,7 @@ func is_player_control_locked() -> bool:
 			net_gun_control_lock_frames,
 			bowling_trap_control_lock_frames,
 		],
-		_has_active_support_call_lock(),
+		CommandoFirearmSupportCallResolver.has_active_lock(support_calls),
 		CommandoFirearmSuicideDroneState.has_active_projectile(projectiles)
 	)
 
@@ -873,10 +873,6 @@ func get_movement_speed_multiplier() -> float:
 
 func is_bowling_trap_guard_armed() -> bool:
 	return bowling_trap_guard_armed
-
-
-func _has_active_support_call_lock() -> bool:
-	return CommandoFirearmSupportCallResolver.has_active_lock(support_calls)
 
 
 func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
@@ -936,16 +932,16 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 			true
 		)
 
-	_spawn_shared_impact_particles(
+	CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(
 		boss_center,
 		CommandoFirearmValueUtils.get_color(profile.get("color", Color.WHITE), Color.WHITE),
 		next_ball_vel,
 		float(feedback_profile.get("intensity", 0.82)),
 		deps
 	)
-	_trigger_hit_feedback(feedback_profile, deps)
-	_trigger_boss_hit_animation(context, deps)
-	_register_ball_hit_pulse(boss_center, next_ball_vel, 0.9, "bowling_trap_guard", deps)
+	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(feedback_profile, deps)
+	CommandoFirearmHitFeedbackDispatcher.trigger_boss_hit_animation(context, deps)
+	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(boss_center, next_ball_vel, 0.9, "bowling_trap_guard", deps, BASE_WEAPON_ID)
 	return CommandoFirearmBowlingTrapGeometry.build_guard_hit_result(
 		next_ball_vel,
 		knockback_vel,
@@ -2434,7 +2430,7 @@ func _capture_bowling_trap_ball(index: int, trap: Dictionary, context: Dictionar
 	var ball_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_original_vel", Vector2.ZERO), Vector2.ZERO)
 	var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_ball_pos", Vector2.ZERO), Vector2.ZERO)
 	bowling_traps[index] = captured_trap
-	_trigger_hit_feedback(
+	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
 		CommandoFirearmProfileResolver.get_hit_feedback_profile(
 			"bowling_trap",
 			WEAPON_HIT_FEEDBACK,
@@ -2442,7 +2438,7 @@ func _capture_bowling_trap_ball(index: int, trap: Dictionary, context: Dictionar
 		),
 		deps
 	)
-	_register_ball_hit_pulse(captured_pos, ball_vel, 0.62, "bowling_trap_capture", deps)
+	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(captured_pos, ball_vel, 0.62, "bowling_trap_capture", deps, BASE_WEAPON_ID)
 	CommandoFirearmAudioDispatcher.play_impact_audio("bowling_trap", deps)
 
 
@@ -2479,7 +2475,7 @@ func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dic
 	)
 	_spawn_impact_flash(pseudo_projectile)
 	_spawn_lingering_effect("bowling_trap", pseudo_projectile, context)
-	_trigger_hit_feedback(
+	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
 		CommandoFirearmProfileResolver.get_hit_feedback_profile(
 			"bowling_trap",
 			WEAPON_HIT_FEEDBACK,
@@ -2489,7 +2485,7 @@ func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dic
 	)
 	var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(motion.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
 	var launch_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(motion.get("launch_vel", Vector2.ZERO), Vector2.ZERO)
-	_register_ball_hit_pulse(captured_pos, launch_vel, 0.86, "bowling_trap_launch", deps)
+	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(captured_pos, launch_vel, 0.86, "bowling_trap_launch", deps, BASE_WEAPON_ID)
 	var guard_source: String = _arm_bowling_trap_guard(trap, float(motion.get("original_speed", 1.0)))
 	return CommandoFirearmBowlingTrapGeometry.build_release_result(
 		motion,
@@ -2806,8 +2802,8 @@ func _detonate_suicide_drone_at_index(
 		_register_projectile_hit(projectile, context, deps)
 	else:
 		_spawn_weapon_lingering_effect("suicide_drone", projectile, context, deps)
-		_spawn_shared_impact_particles(pos, CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE), CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 1.0, deps)
-		_trigger_hit_feedback(
+		CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(pos, CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE), CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 1.0, deps)
+		CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
 			CommandoFirearmProfileResolver.get_hit_feedback_profile(
 				"suicide_drone",
 				WEAPON_HIT_FEEDBACK,
@@ -2815,7 +2811,7 @@ func _detonate_suicide_drone_at_index(
 			),
 			deps
 		)
-		_register_ball_hit_pulse(pos, CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 0.86, "suicide_drone", deps)
+		CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(pos, CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 0.86, "suicide_drone", deps, BASE_WEAPON_ID)
 		CommandoFirearmAudioDispatcher.play_impact_audio("suicide_drone", deps)
 	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	suicide_drone_cooldown_frames = SUICIDE_DRONE_COOLDOWN_FRAMES
@@ -2930,10 +2926,10 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 		combat_result
 	)
 	CommandoFirearmValueUtils.append_limited(hit_events, hit_event, HIT_EVENT_LIMIT)
-	_spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
-	_trigger_hit_feedback(feedback_profile, deps)
-	_trigger_boss_hit_animation(context, deps)
-	_register_ball_hit_pulse(pos, velocity, intensity, weapon_id, deps)
+	CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
+	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(feedback_profile, deps)
+	CommandoFirearmHitFeedbackDispatcher.trigger_boss_hit_animation(context, deps)
+	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(pos, velocity, intensity, weapon_id, deps, BASE_WEAPON_ID)
 	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
 
 
@@ -2948,8 +2944,8 @@ func _register_projectile_environment_impact(projectile: Dictionary, reason: Str
 	)
 	var intensity: float = float(feedback_profile.get("intensity", 0.5))
 	var color: Color = CommandoFirearmValueUtils.get_color(projectile.get("color", Color.WHITE), Color.WHITE)
-	_spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
-	_trigger_hit_feedback(feedback_profile, deps)
+	CommandoFirearmHitFeedbackDispatcher.spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
+	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(feedback_profile, deps)
 	CommandoFirearmAudioDispatcher.play_impact_audio(weapon_id, deps)
 	return CommandoFirearmProjectileImpactState.build_environment_impact_result(weapon_id, reason, pos)
 
@@ -3545,47 +3541,6 @@ func _is_stage2_speed_defense_registry_immune(registry: Object) -> bool:
 		stage2_skill_state != null
 		and stage2_skill_state.has_method("is_boss_status_immune")
 		and bool(stage2_skill_state.is_boss_status_immune())
-	)
-
-
-func _spawn_shared_impact_particles(pos: Vector2, color: Color, velocity: Vector2, intensity: float, deps: Dictionary) -> void:
-	var impact_effects: Object = deps.get("impact_effects", null)
-	if impact_effects == null or not impact_effects.has_method("spawn_hit_particles"):
-		return
-	impact_effects.spawn_hit_particles(pos, color, velocity, intensity, velocity.length())
-
-
-func _trigger_hit_feedback(feedback_profile: Dictionary, deps: Dictionary) -> void:
-	var feedback: Object = deps.get("feedback", null)
-	if feedback == null:
-		return
-	var shake_amount: float = float(feedback_profile.get("shake_amount", 0.04))
-	var shake_intensity: float = float(feedback_profile.get("shake_intensity", 1.2))
-	if feedback.has_method("max_screen_shake"):
-		feedback.max_screen_shake(shake_amount, shake_intensity)
-	elif feedback.has_method("set_screen_shake"):
-		feedback.set_screen_shake(shake_amount, shake_intensity)
-
-
-func _trigger_boss_hit_animation(context: Dictionary, deps: Dictionary) -> void:
-	var animation_state: Object = deps.get("animation_state", null)
-	if animation_state == null or not animation_state.has_method("trigger_boss_hit"):
-		return
-	animation_state.trigger_boss_hit(
-		float(context.get("boss_vel", 0.0)),
-		bool(context.get("boss_has_hit_sprite", false))
-	)
-
-
-func _register_ball_hit_pulse(pos: Vector2, velocity: Vector2, intensity: float, weapon_id: String, deps: Dictionary) -> void:
-	var ball_effects: Object = deps.get("ball_effects", null)
-	if ball_effects == null or not ball_effects.has_method("register_hit_pulse"):
-		return
-	ball_effects.register_hit_pulse(
-		pos,
-		velocity,
-		clamp(intensity, 0.0, 1.0),
-		CommandoFirearmAudioResolver.get_ball_hit_pulse_kind(weapon_id, BASE_WEAPON_ID)
 	)
 
 
