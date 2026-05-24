@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 
 var _failures: Array[String] = []
@@ -110,7 +111,11 @@ func _verify_direct_suicide_drone_state() -> void:
 
 func _verify_runtime_delegates_suicide_drone_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	var profile := runtime._get_weapon_profile("suicide_drone")
+	var profile := CommandoFirearmProfileResolver.get_weapon_profile(
+		"suicide_drone",
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES
+	)
 	var projectile: Dictionary = runtime._build_suicide_drone_projectile(
 		profile,
 		Vector2(100.0, 200.0),

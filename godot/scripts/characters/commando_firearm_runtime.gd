@@ -892,8 +892,16 @@ func consume_bowling_trap_boss_guard(ball_vel: Vector2, context: Dictionary, dep
 
 	var boss_center: Vector2 = _get_boss_target_pos(context)
 	var knockback_vel: float = _get_bowling_trap_guard_knockback_velocity(boss_center, context)
-	var feedback_profile: Dictionary = _get_hit_feedback_profile("bowling_trap")
-	var profile: Dictionary = _get_weapon_profile("bowling_trap")
+	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
+		"bowling_trap",
+		WEAPON_HIT_FEEDBACK,
+		HIT_FEEDBACK_PROFILE_OVERRIDES
+	)
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"bowling_trap",
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
 	var status_effect_state: Object = deps.get("status_effect_state", null)
 	var applied_status := false
 	if status_effect_state != null and status_effect_state.has_method("apply_status"):
@@ -1415,7 +1423,11 @@ func _get_bazooka_control_lock_frames(doping_context: Dictionary, doping_active:
 
 
 func _get_ak47_fire_profile() -> Dictionary:
-	var profile: Dictionary = _get_weapon_profile("ak47")
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"ak47",
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
 	var spread: float = AK47_BASE_SPREAD_RADIANS + ak47_recoil_accumulation
 	profile["angle_offset"] = randf_range(-spread, spread)
 	profile["recoil_accumulation"] = ak47_recoil_accumulation
@@ -1505,7 +1517,11 @@ func _bazooka_fire_failed(special_gauge: float, reason: String) -> Dictionary:
 
 
 func _get_bazooka_fire_profile() -> Dictionary:
-	return _get_weapon_profile("bazooka")
+	return CommandoFirearmProfileResolver.get_weapon_profile(
+		"bazooka",
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
 
 
 func _update_net_gun_input(
@@ -1582,7 +1598,11 @@ func _net_gun_fire_failed(special_gauge: float, reason: String) -> Dictionary:
 
 
 func _get_net_gun_fire_profile() -> Dictionary:
-	return _get_weapon_profile("net_gun")
+	return CommandoFirearmProfileResolver.get_weapon_profile(
+		"net_gun",
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
 
 
 func _start_weapon_fire_sheet_animation(weapon_id: String) -> void:
@@ -1652,7 +1672,16 @@ func _update_bowling_trap_input(
 	var skill_config: Object = deps.get("skill_config", null)
 	if skill_state != null and skill_state.has_method("trigger_configured_cooldown"):
 		skill_state.trigger_configured_cooldown("bowling_trap", now_msec, skill_config)
-	_spawn_firearm_effect("bowling_trap", config, deps, _get_weapon_profile("bowling_trap"))
+	_spawn_firearm_effect(
+		"bowling_trap",
+		config,
+		deps,
+		CommandoFirearmProfileResolver.get_weapon_profile(
+			"bowling_trap",
+			WEAPON_PROFILES,
+			WEAPON_PROFILE_OVERRIDES
+		)
+	)
 	_play_fire_audio("bowling_trap", deps)
 	var updated_weapon: Dictionary = current_weapon
 	if weapon_controller != null and weapon_controller.has_method("get_current_weapon_data"):
@@ -1792,7 +1821,11 @@ func _suicide_drone_fire_failed(special_gauge: float, reason: String) -> Diction
 
 
 func _spawn_suicide_drone(config: Dictionary) -> void:
-	var profile: Dictionary = _get_weapon_profile("suicide_drone")
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"suicide_drone",
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
 	var origin: Vector2 = _get_suicide_drone_spawn_pos(config)
 	var shot_id: int = _next_shot_id()
 	_append_limited(projectiles, _build_suicide_drone_projectile(profile, origin, config, shot_id), PROJECTILE_LIMIT)
@@ -1997,7 +2030,11 @@ func _cancel_slingshot_charge(special_gauge: float) -> float:
 
 func _get_slingshot_fire_profile(charge_level: int) -> Dictionary:
 	return CommandoFirearmSlingshotState.build_fire_profile(
-		_get_weapon_profile(BASE_WEAPON_ID),
+		CommandoFirearmProfileResolver.get_weapon_profile(
+			BASE_WEAPON_ID,
+			WEAPON_PROFILES,
+			WEAPON_PROFILE_OVERRIDES
+		),
 		charge_level,
 		SLINGSHOT_PYTHON_SPEED_BY_LEVEL,
 		SLINGSHOT_BASE_BULLET_SPEED,
@@ -2085,7 +2122,13 @@ func _get_net_gun_draw_state() -> Dictionary:
 
 func _spawn_firearm_effect(weapon_id: String, config: Dictionary, deps: Dictionary, profile_override: Dictionary = {}) -> void:
 	_start_weapon_fire_sheet_animation(weapon_id)
-	var profile: Dictionary = profile_override.duplicate(true) if not profile_override.is_empty() else _get_weapon_profile(weapon_id)
+	var profile: Dictionary = profile_override.duplicate(true)
+	if profile.is_empty():
+		profile = CommandoFirearmProfileResolver.get_weapon_profile(
+			weapon_id,
+			WEAPON_PROFILES,
+			WEAPON_PROFILE_OVERRIDES
+		)
 	var doping_context: Dictionary = _get_doping_potion_context_from_config(config)
 	if weapon_id == "commando_pistol" and bool(doping_context.get("active", false)):
 		profile["speed"] = float(profile.get("speed", PISTOL_BULLET_SPEED)) * float(doping_context.get("pistol_speed_multiplier", DOPING_POTION_PISTOL_SPEED_MULTIPLIER))
@@ -2293,7 +2336,11 @@ func _spawn_muzzle_flash(origin: Vector2, direction: Vector2, profile: Dictionar
 
 func _update_support_calls(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
 	var step: float = max(0.0, fps_scale)
-	var profile: Dictionary = _get_weapon_profile("fire_support")
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"fire_support",
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
 	for index in range(support_calls.size() - 1, -1, -1):
 		@warning_ignore("shadowed_variable_base_class")
 		var call: Dictionary = _get_dict(support_calls[index])
@@ -2390,7 +2437,14 @@ func _capture_bowling_trap_ball(index: int, trap: Dictionary, context: Dictionar
 	var ball_vel: Vector2 = _get_vector2(captured_trap.get("captured_original_vel", Vector2.ZERO), Vector2.ZERO)
 	var captured_pos: Vector2 = _get_vector2(captured_trap.get("captured_ball_pos", Vector2.ZERO), Vector2.ZERO)
 	bowling_traps[index] = captured_trap
-	_trigger_hit_feedback(_get_hit_feedback_profile("bowling_trap"), deps)
+	_trigger_hit_feedback(
+		CommandoFirearmProfileResolver.get_hit_feedback_profile(
+			"bowling_trap",
+			WEAPON_HIT_FEEDBACK,
+			HIT_FEEDBACK_PROFILE_OVERRIDES
+		),
+		deps
+	)
 	_register_ball_hit_pulse(captured_pos, ball_vel, 0.62, "bowling_trap_capture", deps)
 	_play_impact_audio("bowling_trap", deps)
 
@@ -2420,7 +2474,11 @@ func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dic
 		BOWLING_TRAP_LAUNCH_SPEED_MULTIPLIER,
 		BOWLING_TRAP_LAUNCH_ANGLE_STEP
 	)
-	var profile: Dictionary = _get_weapon_profile("bowling_trap")
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"bowling_trap",
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
 	var pseudo_projectile: Dictionary = CommandoFirearmBowlingTrapGeometry.build_release_pseudo_projectile(
 		trap,
 		motion,
@@ -2428,7 +2486,14 @@ func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dic
 	)
 	_spawn_impact_flash(pseudo_projectile)
 	_spawn_lingering_effect("bowling_trap", pseudo_projectile, context)
-	_trigger_hit_feedback(_get_hit_feedback_profile("bowling_trap"), deps)
+	_trigger_hit_feedback(
+		CommandoFirearmProfileResolver.get_hit_feedback_profile(
+			"bowling_trap",
+			WEAPON_HIT_FEEDBACK,
+			HIT_FEEDBACK_PROFILE_OVERRIDES
+		),
+		deps
+	)
 	var captured_pos: Vector2 = _get_vector2(motion.get("captured_pos", Vector2.ZERO), Vector2.ZERO)
 	var launch_vel: Vector2 = _get_vector2(motion.get("launch_vel", Vector2.ZERO), Vector2.ZERO)
 	_register_ball_hit_pulse(captured_pos, launch_vel, 0.86, "bowling_trap_launch", deps)
@@ -2759,7 +2824,14 @@ func _detonate_suicide_drone_at_index(
 	else:
 		_spawn_weapon_lingering_effect("suicide_drone", projectile, context, deps)
 		_spawn_shared_impact_particles(pos, _get_color(projectile.get("color", Color.WHITE), Color.WHITE), _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 1.0, deps)
-		_trigger_hit_feedback(_get_hit_feedback_profile("suicide_drone"), deps)
+		_trigger_hit_feedback(
+			CommandoFirearmProfileResolver.get_hit_feedback_profile(
+				"suicide_drone",
+				WEAPON_HIT_FEEDBACK,
+				HIT_FEEDBACK_PROFILE_OVERRIDES
+			),
+			deps
+		)
 		_register_ball_hit_pulse(pos, _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO), 0.86, "suicide_drone", deps)
 		_play_impact_audio("suicide_drone", deps)
 	_stop_suicide_drone_audio(deps)
@@ -2805,7 +2877,11 @@ func _suicide_drone_hits_boss(projectile: Dictionary, context: Dictionary) -> bo
 
 
 func _suicide_drone_explosion_hits_boss(projectile: Dictionary, context: Dictionary) -> bool:
-	var profile: Dictionary = _get_weapon_profile("suicide_drone")
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		"suicide_drone",
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
 	return CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(
 		projectile,
 		CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
@@ -2827,7 +2903,11 @@ func _get_projectile_impact_reason(projectile: Dictionary, context: Dictionary) 
 		_get_boss_target_pos(context)
 	)
 	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	var profile: Dictionary = _get_weapon_profile(weapon_id)
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		weapon_id,
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
 	var boss_rect: Rect2 = CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH)
 	return CommandoFirearmHitGeometry.get_projectile_impact_reason(
 		projectile,
@@ -2846,7 +2926,11 @@ func _spawn_impact_flash(projectile: Dictionary) -> void:
 		impact_flashes,
 		CommandoFirearmImpactFlashResolver.build_flash(
 			projectile,
-			_get_weapon_profile(weapon_id),
+			CommandoFirearmProfileResolver.get_weapon_profile(
+				weapon_id,
+				WEAPON_PROFILES,
+				WEAPON_PROFILE_OVERRIDES
+			),
 			float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES)
 		),
 		FLASH_LIMIT
@@ -2857,7 +2941,11 @@ func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps:
 	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
 	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
-	var feedback_profile: Dictionary = _get_hit_feedback_profile(weapon_id)
+	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
+		weapon_id,
+		WEAPON_HIT_FEEDBACK,
+		HIT_FEEDBACK_PROFILE_OVERRIDES
+	)
 	var intensity: float = float(feedback_profile.get("intensity", 0.5))
 	var color: Color = _get_color(projectile.get("color", Color.WHITE), Color.WHITE)
 	var combat_result: Dictionary = _apply_weapon_hit_result(weapon_id, projectile, context, deps)
@@ -2887,7 +2975,11 @@ func _register_projectile_environment_impact(projectile: Dictionary, reason: Str
 	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
 	var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var velocity: Vector2 = _get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
-	var feedback_profile: Dictionary = _get_hit_feedback_profile(weapon_id)
+	var feedback_profile: Dictionary = CommandoFirearmProfileResolver.get_hit_feedback_profile(
+		weapon_id,
+		WEAPON_HIT_FEEDBACK,
+		HIT_FEEDBACK_PROFILE_OVERRIDES
+	)
 	var intensity: float = float(feedback_profile.get("intensity", 0.5))
 	var color: Color = _get_color(projectile.get("color", Color.WHITE), Color.WHITE)
 	_spawn_shared_impact_particles(pos, color, velocity, intensity, deps)
@@ -2898,7 +2990,11 @@ func _register_projectile_environment_impact(projectile: Dictionary, reason: Str
 
 func _destroy_stage2_rocks_for_projectile_impact(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> int:
 	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	var profile: Dictionary = _get_weapon_profile(weapon_id)
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
+		weapon_id,
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES
+	)
 	return CommandoFirearmStage2RockInteractionResolver.destroy_projectile_impact_rocks(
 		projectile,
 		context,
@@ -2909,7 +3005,11 @@ func _destroy_stage2_rocks_for_projectile_impact(projectile: Dictionary, context
 
 
 func _apply_weapon_hit_result(weapon_id: String, projectile: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var profile: Dictionary = _get_hit_result_profile(weapon_id)
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_hit_result_profile(
+		weapon_id,
+		WEAPON_HIT_RESULTS,
+		HIT_RESULT_PROFILE_OVERRIDES
+	)
 	if profile.is_empty():
 		return {}
 	var status_effect_state: Object = deps.get("status_effect_state", null)
@@ -3100,7 +3200,10 @@ func _consume_pending_special_gauge_result() -> Dictionary:
 
 
 func _spawn_lingering_effect(weapon_id: String, projectile: Dictionary, context: Dictionary) -> Dictionary:
-	var profile: Dictionary = _get_lingering_effect_profile(weapon_id)
+	var profile: Dictionary = CommandoFirearmProfileResolver.get_lingering_effect_profile(
+		weapon_id,
+		WEAPON_LINGERING_EFFECTS
+	)
 	if profile.is_empty():
 		return {}
 	var is_net: bool = weapon_id == "net_gun"
@@ -3702,22 +3805,6 @@ func _get_player_paddle_scale_from_config(config: Dictionary, paddle_width: floa
 
 func _get_boss_target_pos(config: Dictionary) -> Vector2:
 	return CommandoFirearmOriginGeometry.get_boss_target_pos(config, FIELD_WIDTH)
-
-
-func _get_weapon_profile(weapon_id: String) -> Dictionary:
-	return CommandoFirearmProfileResolver.get_weapon_profile(weapon_id, WEAPON_PROFILES, WEAPON_PROFILE_OVERRIDES)
-
-
-func _get_hit_feedback_profile(weapon_id: String) -> Dictionary:
-	return CommandoFirearmProfileResolver.get_hit_feedback_profile(weapon_id, WEAPON_HIT_FEEDBACK, HIT_FEEDBACK_PROFILE_OVERRIDES)
-
-
-func _get_hit_result_profile(weapon_id: String) -> Dictionary:
-	return CommandoFirearmProfileResolver.get_hit_result_profile(weapon_id, WEAPON_HIT_RESULTS, HIT_RESULT_PROFILE_OVERRIDES)
-
-
-func _get_lingering_effect_profile(weapon_id: String) -> Dictionary:
-	return CommandoFirearmProfileResolver.get_lingering_effect_profile(weapon_id, WEAPON_LINGERING_EFFECTS)
 
 
 func _append_limited(target: Array, value: Dictionary, limit: int) -> void:
