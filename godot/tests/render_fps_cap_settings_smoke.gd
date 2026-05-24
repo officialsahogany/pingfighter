@@ -53,6 +53,17 @@ func _verify_render_fps_cap_runtime_options() -> void:
 		int(layout.get_saved_render_fps_cap()) == BattleViewLayout.RENDER_FPS_CAP_MONITOR,
 		"missing display settings should default render FPS to the current monitor rate"
 	)
+	_expect(FileAccess.file_exists(SETTINGS_PATH), "missing display settings should be materialized with default graphics values")
+	var default_config := ConfigFile.new()
+	default_config.load(SETTINGS_PATH)
+	_expect(
+		int(default_config.get_value("meta", "settings_schema_version", 0)) >= BattleViewLayout.SETTINGS_SCHEMA_VERSION,
+		"materialized default display settings should stamp the current schema"
+	)
+	_expect(
+		int(default_config.get_value("graphics", "render_fps_cap", 0)) == BattleViewLayout.RENDER_FPS_CAP_MONITOR,
+		"materialized default display settings should persist monitor-rate render pacing"
+	)
 
 	_expect(int(layout.apply_render_fps_cap(null, 0)) == 0, "unlimited cap should normalize to zero")
 	_expect(int(Engine.get("max_fps")) == 0, "unlimited cap should clear Engine.max_fps")

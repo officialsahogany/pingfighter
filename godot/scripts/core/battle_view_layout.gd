@@ -561,7 +561,14 @@ func _load_display_settings() -> ConfigFile:
 	_settings_load_count += 1
 	var exists := FileAccess.file_exists(SETTINGS_PATH)
 	if not exists:
-		_record_settings_load("missing", exists, ERR_FILE_NOT_FOUND, config)
+		_set_default_display_settings_payload(config)
+		var default_save_result := config.save(SETTINGS_PATH)
+		_record_settings_save("missing_defaults", config, default_save_result)
+		if default_save_result == OK:
+			_save_last_good_display_settings(config)
+			_record_settings_load("missing_defaults", exists, OK, config)
+		else:
+			_record_settings_load("missing_defaults_failed", exists, default_save_result, config)
 		return config
 	var load_state := "ok"
 	var load_result := _load_config_file(config)
@@ -674,11 +681,16 @@ func _repair_empty_display_settings_payload(config: ConfigFile) -> String:
 		if _has_display_settings_payload(backup_config):
 			_copy_display_settings_payload(backup_config, config)
 			return "repair_backup"
+	_set_default_display_settings_payload(config)
+	return "repair_defaults"
+
+
+func _set_default_display_settings_payload(config: ConfigFile) -> void:
 	config.set_value("graphics", "remember_display_mode", false)
 	config.set_value("graphics", "render_fps_cap", RENDER_FPS_CAP_DEFAULT)
 	config.set_value("graphics", "vsync_mode", VSYNC_MODE_AUTO)
 	config.set_value("graphics", "auto_60hz_refresh_rate", false)
-	return "repair_defaults"
+	_stamp_display_settings_schema(config)
 
 
 func _complete_missing_display_settings(config: ConfigFile) -> String:
