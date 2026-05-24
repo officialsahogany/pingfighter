@@ -162,9 +162,8 @@ This section is intentionally long; use search to find the nearest owner.
   / stack-cap query ownership delegated to
   `scripts/items/mythic_item_roll_query.gd` with focused item helpers calling
   that owner directly instead of private runtime roll-query bridge methods,
-  Poseidon's Trident dash
-  trigger, vortex / capture / water-trail / charge-flash particle lifecycle,
-  ball reflection, and boss-hit cleanup delegated to
+  Poseidon's Trident equipped / roll queries, dash trigger, vortex / capture /
+  water-trail / charge-flash particle lifecycle, ball reflection, and boss-hit cleanup delegated to
   `scripts/items/mythic_item_poseidon_runtime.gd`, Baal's Boots weather
   arming / absorb cinematic / round effect activation / projectile and boss
   debuff lifecycle delegated to

@@ -3,6 +3,14 @@ extends RefCounted
 const ITEM_POSEIDON_TRIDENT := "poseidon_trident"
 
 
+func is_equipped(runtime: Object) -> bool:
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_POSEIDON_TRIDENT)
+
+
+func is_active(runtime: Object) -> bool:
+	return is_equipped(runtime)
+
+
 func apply_wave_to_ball(
 	runtime: Object,
 	scene: Dictionary,
@@ -16,7 +24,7 @@ func apply_wave_to_ball(
 		return update_captured_ball(runtime, ball_pos, fps_scale, scene, deps, constants)
 	if runtime.poseidon_water_trail_active:
 		add_water_trail(runtime, ball_pos, constants)
-	if not runtime.is_equipped(ITEM_POSEIDON_TRIDENT):
+	if not is_equipped(runtime):
 		return {}
 	if not runtime.poseidon_vortex_active:
 		return {}
@@ -70,7 +78,7 @@ func get_vortex_size(runtime: Object) -> float:
 func is_ball_motion_active(runtime: Object, constants: Dictionary) -> bool:
 	if runtime.poseidon_capture_active or runtime.poseidon_water_trail_active:
 		return true
-	if not runtime.is_equipped(ITEM_POSEIDON_TRIDENT):
+	if not is_equipped(runtime):
 		return false
 	return (
 		runtime.poseidon_vortex_active
@@ -113,7 +121,7 @@ func clear_runtime(runtime: Object) -> void:
 
 
 func poll_idle_dash_trigger(runtime: Object, owner: Object, registry: Object) -> void:
-	if not runtime.is_equipped(ITEM_POSEIDON_TRIDENT):
+	if not is_equipped(runtime):
 		return
 	update_dash_trigger(runtime, owner, registry)
 	if runtime.update_gate.has_transient_runtime_update_work(runtime):
@@ -134,7 +142,7 @@ func update_runtime(
 	if (
 		was_cooling
 		and runtime.poseidon_effect_cooldown_frames <= 0.0
-		and runtime.is_equipped(ITEM_POSEIDON_TRIDENT)
+		and is_equipped(runtime)
 	):
 		start_water_explosion(runtime, constants)
 		runtime.audio_router.play_poseidon_charge_audio(runtime, registry)
@@ -164,7 +172,7 @@ func update_dash_trigger(runtime: Object, owner: Object, registry: Object) -> vo
 		runtime.poseidon_last_dash_direction = direction
 
 	var just_started_recovery: bool = recovering and not runtime.poseidon_dash_was_recovering and runtime.poseidon_dash_was_active
-	if runtime.is_equipped(ITEM_POSEIDON_TRIDENT) and just_started_recovery:
+	if is_equipped(runtime) and just_started_recovery:
 		var trigger_direction: float = direction
 		if abs(trigger_direction) <= 0.01:
 			trigger_direction = runtime.poseidon_last_dash_direction
@@ -181,7 +189,7 @@ func try_trigger_vortex(
 	direction: float,
 	constants: Dictionary
 ) -> bool:
-	if not runtime.is_equipped(ITEM_POSEIDON_TRIDENT):
+	if not is_equipped(runtime):
 		return false
 	if runtime.poseidon_effect_cooldown_frames > 0.0:
 		return false

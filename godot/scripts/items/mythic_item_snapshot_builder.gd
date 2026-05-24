@@ -2,7 +2,6 @@ extends RefCounted
 
 const ITEM_MEGINGJORD := "megingjord"
 const ITEM_RAGNAROK_HAMMER := "ragnarok_hammer"
-const ITEM_POSEIDON_TRIDENT := "poseidon_trident"
 const BASE_SPECIAL_GAUGE_MAX := 500.0
 const VENOM_MIST_RADIUS := 120.0
 
@@ -265,7 +264,7 @@ func build_snapshot(runtime: Object) -> Dictionary:
 		"ragnarok_hammer_gauge_cost": runtime.get_ragnarok_gauge_cost(),
 		"ragnarok_hammer_stun_ball_active": runtime.ragnarok_stun_ball_active,
 		"ragnarok_hammer_boss_stun_active": runtime.ragnarok_boss_stun_timer_frames > 0.0,
-		"poseidon_trident_equipped": runtime.is_equipped(ITEM_POSEIDON_TRIDENT),
+		"poseidon_trident_equipped": runtime.poseidon_runtime.is_equipped(runtime),
 		"poseidon_trident_cooldown": runtime.get_poseidon_cooldown(),
 		"poseidon_trident_cooldown_remaining": max(0.0, runtime.poseidon_effect_cooldown_frames / 60.0),
 		"poseidon_trident_gauge_cost": runtime.get_poseidon_gauge_cost(),

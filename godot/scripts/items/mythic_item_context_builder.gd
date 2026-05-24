@@ -159,10 +159,9 @@ func get_transcendent_crown_context(runtime: Object) -> Dictionary:
 	}
 
 
-func get_poseidon_context(runtime: Object, constants: Dictionary) -> Dictionary:
-	var item_poseidon_trident: String = str(constants.get("item_poseidon_trident", "poseidon_trident"))
+func get_poseidon_context(runtime: Object, _constants: Dictionary) -> Dictionary:
 	return {
-		"equipped": runtime.is_equipped(item_poseidon_trident),
+		"equipped": runtime.poseidon_runtime.is_equipped(runtime),
 		"cooldown": runtime.get_poseidon_cooldown(),
 		"cooldown_remaining": max(0.0, runtime.poseidon_effect_cooldown_frames / 60.0),
 		"gauge_cost": runtime.get_poseidon_gauge_cost(),

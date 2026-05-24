@@ -107,6 +107,7 @@ func _init() -> void:
 	_expect_original_icon_assets(item_data, "Poseidon Trident")
 	_expect(ResourceLoader.exists("res://assets/sounds/poseidon.wav"), "Poseidon wave sound should load")
 	_expect(ResourceLoader.exists("res://assets/sounds/poseidoncharge.wav"), "Poseidon charge-ready sound should load")
+	_expect_poseidon_query_ownership()
 
 	var field_spawn_items: Array = catalog.get_field_spawn_items()
 	_expect(_array_has_item(field_spawn_items, "poseidon_trident"), "Poseidon Trident should be in the mythic field-spawn list")
@@ -279,6 +280,18 @@ func _expect_poseidon_releases_through_ball_update_controller() -> void:
 	_expect(not bool(context.get("skip_ball_motion_step", true)), "controller Poseidon release should clear the motion-skip flag")
 	_expect(_as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO).y < start_capture_pos.y - 80.0, "controller Poseidon capture should spiral upward before release")
 	_expect(_as_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO).y < 0.0, "controller Poseidon release should launch the ball upward")
+
+
+func _expect_poseidon_query_ownership() -> void:
+	var poseidon_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_poseidon_runtime.gd")
+	var context_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_context_builder.gd")
+	var snapshot_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_snapshot_builder.gd")
+	var syncer_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_owner_syncer.gd")
+	_expect(poseidon_source.find("func is_equipped(") >= 0, "Poseidon helper should own equipped checks")
+	_expect(poseidon_source.find("runtime.is_equipped(ITEM_POSEIDON_TRIDENT)") < 0, "Poseidon helper should not call the generic runtime equipped facade")
+	_expect(context_source.find("poseidon_runtime.is_equipped(runtime)") >= 0, "Poseidon context should delegate equipped checks to the helper")
+	_expect(snapshot_source.find("\"poseidon_trident_equipped\": runtime.poseidon_runtime.is_equipped(runtime)") >= 0, "Poseidon snapshot should delegate equipped checks to the helper")
+	_expect(syncer_source.find("owner.set(\"poseidon_trident_equipped\", runtime.poseidon_runtime.is_equipped(runtime))") >= 0, "Poseidon owner sync should delegate equipped checks to the helper")
 
 
 func _array_has_item(items: Array, item_name: String) -> bool:

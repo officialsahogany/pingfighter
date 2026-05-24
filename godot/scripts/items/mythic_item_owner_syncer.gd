@@ -257,7 +257,7 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 	owner.set("dashholder_equipped", runtime.is_dashholder_equipped())
 	owner.set("dashholder_dash_token_bonus", runtime.get_dashholder_dash_token_bonus())
 	owner.set("dash_token_capacity", runtime.get_dash_token_capacity(1))
-	owner.set("poseidon_trident_equipped", runtime.is_equipped(str(constants.get("item_poseidon_trident", "poseidon_trident"))))
+	owner.set("poseidon_trident_equipped", runtime.poseidon_runtime.is_equipped(runtime))
 	owner.set("poseidon_trident_context", runtime.get_poseidon_context())
 
 
