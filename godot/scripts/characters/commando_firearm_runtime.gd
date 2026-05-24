@@ -2172,8 +2172,26 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 					BOWLING_TRAP_WIDTH
 				)
 			):
-				_capture_bowling_trap_ball(index, trap, context, deps)
-				result = CommandoFirearmBowlingTrapGeometry.build_capture_result(CommandoFirearmValueUtils.get_dict(bowling_traps[index]))
+				var captured_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.build_capture_state(
+					trap,
+					context,
+					BOWLING_TRAP_CAPTURE_FRAMES,
+					BOWLING_TRAP_CAPTURE_BALL_OFFSET
+				)
+				var ball_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_original_vel", Vector2.ZERO), Vector2.ZERO)
+				var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_ball_pos", Vector2.ZERO), Vector2.ZERO)
+				bowling_traps[index] = captured_trap
+				CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
+					CommandoFirearmProfileResolver.get_hit_feedback_profile(
+						"bowling_trap",
+						WEAPON_HIT_FEEDBACK,
+						HIT_FEEDBACK_PROFILE_OVERRIDES
+					),
+					deps
+				)
+				CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(captured_pos, ball_vel, 0.62, "bowling_trap_capture", deps, BASE_WEAPON_ID)
+				CommandoFirearmAudioDispatcher.play_impact_audio("bowling_trap", deps)
+				result = CommandoFirearmBowlingTrapGeometry.build_capture_result(captured_trap)
 		elif state == "capturing":
 			var next_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.update_capture_state(
 				trap,
@@ -2194,29 +2212,6 @@ func _update_bowling_traps(fps_scale: float, context: Dictionary, deps: Dictiona
 		else:
 			bowling_traps[index] = trap
 	return result
-
-
-func _capture_bowling_trap_ball(index: int, trap: Dictionary, context: Dictionary, deps: Dictionary) -> void:
-	var captured_trap: Dictionary = CommandoFirearmBowlingTrapGeometry.build_capture_state(
-		trap,
-		context,
-		BOWLING_TRAP_CAPTURE_FRAMES,
-		BOWLING_TRAP_CAPTURE_BALL_OFFSET
-	)
-	var ball_vel: Vector2 = CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_original_vel", Vector2.ZERO), Vector2.ZERO)
-	var captured_pos: Vector2 = CommandoFirearmValueUtils.get_vector2(captured_trap.get("captured_ball_pos", Vector2.ZERO), Vector2.ZERO)
-	bowling_traps[index] = captured_trap
-	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
-		CommandoFirearmProfileResolver.get_hit_feedback_profile(
-			"bowling_trap",
-			WEAPON_HIT_FEEDBACK,
-			HIT_FEEDBACK_PROFILE_OVERRIDES
-		),
-		deps
-	)
-	CommandoFirearmHitFeedbackDispatcher.register_ball_hit_pulse(captured_pos, ball_vel, 0.62, "bowling_trap_capture", deps, BASE_WEAPON_ID)
-	CommandoFirearmAudioDispatcher.play_impact_audio("bowling_trap", deps)
-
 
 func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var motion: Dictionary = CommandoFirearmBowlingTrapGeometry.build_release_motion(
