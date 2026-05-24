@@ -2457,15 +2457,15 @@ func _arm_bowling_trap_guard(trap: Dictionary, original_speed: float) -> String:
 		original_speed,
 		BOWLING_TRAP_GUARD_SPEED_REDUCTION
 	)
-	_apply_bowling_trap_guard_state(guard_state)
+	bowling_trap_guard_armed = bool(guard_state.get("armed", false))
+	bowling_trap_guard_original_speed = float(guard_state.get("original_speed", 0.0))
+	bowling_trap_guard_restore_speed = float(guard_state.get("restore_speed", 0.0))
+	bowling_trap_guard_source = str(guard_state.get("source", ""))
 	return str(guard_state.get("source", ""))
 
 
 func _clear_bowling_trap_guard() -> void:
-	_apply_bowling_trap_guard_state(CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state())
-
-
-func _apply_bowling_trap_guard_state(guard_state: Dictionary) -> void:
+	var guard_state: Dictionary = CommandoFirearmBowlingTrapGeometry.build_cleared_guard_state()
 	bowling_trap_guard_armed = bool(guard_state.get("armed", false))
 	bowling_trap_guard_original_speed = float(guard_state.get("original_speed", 0.0))
 	bowling_trap_guard_restore_speed = float(guard_state.get("restore_speed", 0.0))

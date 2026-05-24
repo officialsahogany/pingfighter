@@ -194,6 +194,7 @@ func _verify_removed_runtime_bowling_trap_geometry_bridges() -> void:
 		"_is_stage2_speed_defense_registry_immune",
 		"_get_bowling_trap_launch_direction",
 		"_bowling_trap_hits_ball",
+		"_apply_bowling_trap_guard_state",
 	]:
 		_expect(runtime_source.find("func %s(" % bridge_name) == -1, "runtime should not keep bowling-trap geometry bridge %s" % bridge_name)
 
