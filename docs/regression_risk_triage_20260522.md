@@ -6270,6 +6270,31 @@ Hundredth split on 2026-05-24:
   `commando_firearm_impact_flash_resolver_smoke`, and
   `commando_firearm_fx_host_smoke`. The full sorted
   `commando_firearm*_smoke.gd` set ran `45` scripts and passed.
+ `git diff --check` reported only the existing CRLF working-copy notice and
+ no whitespace errors. `run_headless_load_check.ps1` passed.
+ `run_warning_scan.ps1` scanned `1322` scripts with no GDScript warnings.
+
+194th follow-up on 2026-05-24:
+
+- Commit: `c4d52fd61 godot: drop Commando value utility tail bridges`.
+- Scope: removed the remaining private value-utility tail bridges from
+  `commando_firearm_runtime.gd`: `_append_limited()` and `_get_instance()`.
+  Runtime now calls `CommandoFirearmValueUtils.append_limited()` directly for
+  projectile / flash / casing / feedback / hit-event / lingering-effect capped
+  arrays, and calls `CommandoFirearmValueUtils.get_instance()` directly for
+  Molotov fire-zone registry reads and Stage 2 speed-defense immunity checks.
+  `commando_firearm_value_utils_smoke.gd` now verifies the direct owner calls
+  and guards that the removed runtime bridges stay removed.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3664` lines /
+  `161` functions to `3656` lines / `159` functions.
+- Validation: focused value-utils / VFX coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_runtime_vfx_smoke`,
+  `commando_firearm_muzzle_flash_resolver_smoke`,
+  `commando_firearm_impact_flash_resolver_smoke`,
+  `commando_firearm_shell_casing_state_smoke`,
+  `commando_firearm_pistol_feedback_state_smoke`, and
+  `commando_firearm_lingering_effect_state_smoke`.
   `git diff --check` reported only the existing CRLF working-copy notice and
   no whitespace errors. `run_headless_load_check.ps1` passed.
   `run_warning_scan.ps1` scanned `1322` scripts with no GDScript warnings.
