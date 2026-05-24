@@ -5967,6 +5967,21 @@ Hundredth split on 2026-05-24:
   passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
   warnings.
 
+175th follow-up on 2026-05-24:
+
+- Commit: `ccd1a659e godot: drop Commando net field predicate bridges`.
+- Scope: removed the net-field predicate / constrict-factor bridge cluster
+  from `commando_firearm_runtime.gd`: net-effect classification,
+  active-hooked checks, boss-clamp predicate checks, player-dash predicate
+  wrapper, constrict input direction, alternating-input gates, and next-factor
+  reads now call `commando_firearm_lingering_net_field_state.gd` directly.
+  Runtime keeps hooked-net lookup, candidate-index scanning, actual
+  constrict-factor writes, net-constrict audio, and active-effect side effects.
+- Validation: `commando_firearm_value_utils_smoke` and
+  `commando_firearm_runtime_vfx_smoke` passed. `run_headless_load_check.ps1`
+  passed. `run_warning_scan.ps1` scanned 1322 scripts with no GDScript
+  warnings.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
