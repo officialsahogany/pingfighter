@@ -1001,16 +1001,10 @@ func get_actor_draw_context() -> Dictionary:
 		self,
 		get_movement_speed_multiplier()
 	)
-	var bazooka_state: Dictionary = CommandoFirearmDrawStateResolver.build_bazooka_state(
-		bazooka_cooldown_frames,
-		bazooka_cooldown_max_frames,
-		bazooka_control_lock_frames,
-		bazooka_control_lock_max_frames,
-		bazooka_fire_animation_frames,
+	var bazooka_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_bazooka_state(
+		self,
 		BAZOOKA_FIRE_ANIMATION_FRAMES,
-		bazooka_firing_pose_frames,
 		BAZOOKA_FIRING_POSE_FRAMES,
-		bazooka_muzzle_flash_frames,
 		BAZOOKA_MUZZLE_FLASH_FRAMES
 	)
 	var net_gun_state: Dictionary = CommandoFirearmDrawStateResolver.build_net_gun_state(

@@ -135,6 +135,15 @@ func _verify_direct_weapon_draw_states() -> void:
 	)
 	_expect(bool(bazooka.get("firing_pose", false)), "bazooka state should expose firing pose while pose timer is active")
 	_expect(is_equal_approx(float(bazooka.get("muzzle_flash_frames", 0.0)), 11.0), "bazooka state should preserve muzzle flash timer")
+	var runtime_bazooka := CommandoFirearmRuntime.new()
+	runtime_bazooka.bazooka_cooldown_frames = 7.0
+	runtime_bazooka.bazooka_control_lock_frames = 8.0
+	runtime_bazooka.bazooka_fire_animation_frames = 9.0
+	runtime_bazooka.bazooka_firing_pose_frames = 10.0
+	runtime_bazooka.bazooka_muzzle_flash_frames = 11.0
+	var runtime_bazooka_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_bazooka_state(runtime_bazooka, 15.0, 30.0, 5.0)
+	_expect(bool(runtime_bazooka_state.get("firing_pose", false)), "runtime bazooka state should expose firing pose")
+	_expect(is_equal_approx(float(runtime_bazooka_state.get("muzzle_flash_frames", 0.0)), 11.0), "runtime bazooka state should read muzzle flash")
 
 	var net_gun: Dictionary = CommandoFirearmDrawStateResolver.build_net_gun_state(
 		12.0,

@@ -220,6 +220,39 @@ static func build_bazooka_state(
 	}
 
 
+static func build_runtime_bazooka_state(
+	target: Object,
+	fire_animation_max_frames: float,
+	firing_pose_max_frames: float,
+	muzzle_flash_max_frames: float
+) -> Dictionary:
+	if target == null:
+		return build_bazooka_state(
+			0.0,
+			0.0,
+			0.0,
+			0.0,
+			0.0,
+			fire_animation_max_frames,
+			0.0,
+			firing_pose_max_frames,
+			0.0,
+			muzzle_flash_max_frames
+		)
+	return build_bazooka_state(
+		float(target.get("bazooka_cooldown_frames")),
+		float(target.get("bazooka_cooldown_max_frames")),
+		float(target.get("bazooka_control_lock_frames")),
+		float(target.get("bazooka_control_lock_max_frames")),
+		float(target.get("bazooka_fire_animation_frames")),
+		fire_animation_max_frames,
+		float(target.get("bazooka_firing_pose_frames")),
+		firing_pose_max_frames,
+		float(target.get("bazooka_muzzle_flash_frames")),
+		muzzle_flash_max_frames
+	)
+
+
 static func build_net_gun_state(
 	cooldown_frames: float,
 	cooldown_max_frames: float,
