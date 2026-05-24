@@ -163,7 +163,11 @@ func _verify_runtime_delegates_bowling_trap_geometry() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	_expect(runtime._get_bowling_trap_install_pos({}) == Vector2(457.5, 735.0), "runtime install-position wrapper should delegate")
 	runtime.bowling_traps = [{"id": 1, "state": "installing", "pos": Vector2(100.0, 200.0), "install_progress": 0.4}]
-	_expect(is_equal_approx(float(runtime._get_bowling_trap_draw_state().get("install_progress", 0.0)), 0.4), "runtime draw state should use delegated install progress")
+	var bowling_state_value: Variant = runtime.get_actor_draw_context().get("commando_firearm_bowling_trap_state", {})
+	var bowling_state: Dictionary = {}
+	if bowling_state_value is Dictionary:
+		bowling_state = bowling_state_value
+	_expect(is_equal_approx(float(bowling_state.get("install_progress", 0.0)), 0.4), "runtime draw context should use delegated install progress")
 	var guard_source: String = runtime._arm_bowling_trap_guard({"id": 9}, 6.0)
 	_expect(guard_source == "commando_bowling_trap_guard_9", "runtime guard arm wrapper should return delegated source")
 	_expect(runtime.is_bowling_trap_guard_armed(), "runtime guard arm wrapper should apply armed state")

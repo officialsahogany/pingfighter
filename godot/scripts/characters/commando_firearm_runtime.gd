@@ -1038,6 +1038,88 @@ func get_recent_hit_events() -> Array:
 
 
 func get_actor_draw_context() -> Dictionary:
+	var slingshot_state: Dictionary = CommandoFirearmDrawStateResolver.build_slingshot_state(
+		slingshot_charging,
+		slingshot_charge_timer_frames,
+		slingshot_charge_level,
+		SLINGSHOT_CHARGE_THRESHOLD_3,
+		SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES,
+		slingshot_cooldown_frames,
+		SLINGSHOT_COOLDOWN_FRAMES,
+		slingshot_gauge_spent,
+		slingshot_control_lock_frames,
+		SLINGSHOT_CONTROL_LOCK_FRAMES
+	)
+	var pistol_state: Dictionary = CommandoFirearmDrawStateResolver.build_pistol_state(
+		pistol_cooldown_frames,
+		pistol_cooldown_max_frames,
+		pistol_control_lock_frames,
+		pistol_control_lock_max_frames,
+		pistol_fire_delay_frames,
+		PISTOL_FIRE_DELAY_FRAMES,
+		pistol_post_fire_animation_frames,
+		PISTOL_POST_FIRE_ANIMATION_FRAMES
+	)
+	var weapon_fire_sheet_state: Dictionary = CommandoFirearmDrawStateResolver.build_weapon_fire_sheet_state(
+		weapon_fire_sheet_id,
+		weapon_fire_sheet_timer_frames,
+		weapon_fire_sheet_max_frames,
+		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
+	)
+	var ak47_state: Dictionary = CommandoFirearmDrawStateResolver.build_ak47_state(
+		ak47_trigger_held,
+		ak47_fire_interval_frames,
+		ak47_fire_interval_max_frames,
+		ak47_burst_shots_remaining,
+		ak47_recoil_accumulation,
+		get_movement_speed_multiplier()
+	)
+	var bazooka_state: Dictionary = CommandoFirearmDrawStateResolver.build_bazooka_state(
+		bazooka_cooldown_frames,
+		bazooka_cooldown_max_frames,
+		bazooka_control_lock_frames,
+		bazooka_control_lock_max_frames,
+		bazooka_fire_animation_frames,
+		BAZOOKA_FIRE_ANIMATION_FRAMES,
+		bazooka_firing_pose_frames,
+		BAZOOKA_FIRING_POSE_FRAMES,
+		bazooka_muzzle_flash_frames,
+		BAZOOKA_MUZZLE_FLASH_FRAMES
+	)
+	var net_gun_state: Dictionary = CommandoFirearmDrawStateResolver.build_net_gun_state(
+		net_gun_cooldown_frames,
+		NET_GUN_COOLDOWN_FRAMES,
+		net_gun_control_lock_frames,
+		NET_GUN_CONTROL_LOCK_FRAMES,
+		net_gun_throw_pose_frames,
+		NET_GUN_THROW_POSE_FRAMES,
+		net_gun_harpoon_flash_frames,
+		NET_GUN_HARPOON_FLASH_FRAMES,
+		get_movement_speed_multiplier(),
+		_has_hooked_net_field()
+	)
+	var bowling_trap_state: Dictionary = CommandoFirearmDrawStateResolver.build_bowling_trap_state(
+		bowling_trap_cooldown_frames,
+		BOWLING_TRAP_COOLDOWN_FRAMES,
+		bowling_trap_control_lock_frames,
+		BOWLING_TRAP_CONTROL_LOCK_FRAMES,
+		bowling_trap_install_pose_frames,
+		BOWLING_TRAP_INSTALL_FRAMES,
+		CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps),
+		CommandoFirearmBowlingTrapGeometry.get_install_progress(bowling_traps)
+	)
+	var suicide_drone_index: int = CommandoFirearmSuicideDroneState.get_active_projectile_index(projectiles)
+	var suicide_drone_projectile: Dictionary = {}
+	if suicide_drone_index >= 0:
+		suicide_drone_projectile = _get_dict(projectiles[suicide_drone_index])
+	var suicide_drone_state: Dictionary = CommandoFirearmDrawStateResolver.build_suicide_drone_state(
+		suicide_drone_index >= 0,
+		suicide_drone_cooldown_frames,
+		SUICIDE_DRONE_COOLDOWN_FRAMES,
+		float(suicide_drone_projectile.get("grace_timer_frames", 0.0)),
+		_get_vector2(suicide_drone_projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
+		_get_vector2(suicide_drone_projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
+	)
 	return CommandoFirearmDrawStateResolver.build_actor_context(
 		has_visible_effects(),
 		projectiles,
@@ -1046,14 +1128,14 @@ func get_actor_draw_context() -> Dictionary:
 		lingering_effects,
 		shell_casings,
 		pistol_feedbacks,
-		_get_pistol_draw_state(),
-		_get_slingshot_draw_state(),
-		_get_ak47_draw_state(),
-		_get_bazooka_draw_state(),
-		_get_net_gun_draw_state(),
-		_get_bowling_trap_draw_state(),
-		_get_suicide_drone_draw_state(),
-		_get_weapon_fire_sheet_draw_state(),
+		pistol_state,
+		slingshot_state,
+		ak47_state,
+		bazooka_state,
+		net_gun_state,
+		bowling_trap_state,
+		suicide_drone_state,
+		weapon_fire_sheet_state,
 		support_calls,
 		bowling_traps
 	)
@@ -1722,19 +1804,6 @@ func _bowling_trap_fire_failed(special_gauge: float, reason: String) -> Dictiona
 	})
 
 
-func _get_bowling_trap_draw_state() -> Dictionary:
-	return CommandoFirearmDrawStateResolver.build_bowling_trap_state(
-		bowling_trap_cooldown_frames,
-		BOWLING_TRAP_COOLDOWN_FRAMES,
-		bowling_trap_control_lock_frames,
-		BOWLING_TRAP_CONTROL_LOCK_FRAMES,
-		bowling_trap_install_pose_frames,
-		BOWLING_TRAP_INSTALL_FRAMES,
-		CommandoFirearmBowlingTrapGeometry.has_installing_trap(bowling_traps),
-		CommandoFirearmBowlingTrapGeometry.get_install_progress(bowling_traps)
-	)
-
-
 func _update_suicide_drone_input(
 	input_snapshot: Dictionary,
 	special_gauge: float,
@@ -1883,19 +1952,6 @@ func _get_suicide_drone_input_projectile_state(input_vector: Vector2, projectile
 	)
 
 
-func _get_suicide_drone_draw_state() -> Dictionary:
-	var index: int = CommandoFirearmSuicideDroneState.get_active_projectile_index(projectiles)
-	var projectile: Dictionary = _get_dict(projectiles[index]) if index >= 0 else {}
-	return CommandoFirearmDrawStateResolver.build_suicide_drone_state(
-		index >= 0,
-		suicide_drone_cooldown_frames,
-		SUICIDE_DRONE_COOLDOWN_FRAMES,
-		float(projectile.get("grace_timer_frames", 0.0)),
-		_get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
-		_get_vector2(projectile.get("velocity", Vector2.ZERO), Vector2.ZERO)
-	)
-
-
 func _is_ready(weapon_id: String, now_msec: int, deps: Dictionary) -> bool:
 	if weapon_id == "pistol" or weapon_id == "":
 		return true
@@ -2029,84 +2085,6 @@ func _get_slingshot_fire_profile(charge_level: int) -> Dictionary:
 		SLINGSHOT_PYTHON_SPEED_BY_LEVEL,
 		SLINGSHOT_BASE_BULLET_SPEED,
 		SLINGSHOT_PELLET_SIZE
-	)
-
-
-func _get_slingshot_draw_state() -> Dictionary:
-	return CommandoFirearmDrawStateResolver.build_slingshot_state(
-		slingshot_charging,
-		slingshot_charge_timer_frames,
-		slingshot_charge_level,
-		SLINGSHOT_CHARGE_THRESHOLD_3,
-		SLINGSHOT_GAUGE_DRAIN_INTERVAL_FRAMES,
-		slingshot_cooldown_frames,
-		SLINGSHOT_COOLDOWN_FRAMES,
-		slingshot_gauge_spent,
-		slingshot_control_lock_frames,
-		SLINGSHOT_CONTROL_LOCK_FRAMES
-	)
-
-
-func _get_pistol_draw_state() -> Dictionary:
-	return CommandoFirearmDrawStateResolver.build_pistol_state(
-		pistol_cooldown_frames,
-		pistol_cooldown_max_frames,
-		pistol_control_lock_frames,
-		pistol_control_lock_max_frames,
-		pistol_fire_delay_frames,
-		PISTOL_FIRE_DELAY_FRAMES,
-		pistol_post_fire_animation_frames,
-		PISTOL_POST_FIRE_ANIMATION_FRAMES
-	)
-
-
-func _get_weapon_fire_sheet_draw_state() -> Dictionary:
-	return CommandoFirearmDrawStateResolver.build_weapon_fire_sheet_state(
-		weapon_fire_sheet_id,
-		weapon_fire_sheet_timer_frames,
-		weapon_fire_sheet_max_frames,
-		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
-	)
-
-
-func _get_ak47_draw_state() -> Dictionary:
-	return CommandoFirearmDrawStateResolver.build_ak47_state(
-		ak47_trigger_held,
-		ak47_fire_interval_frames,
-		ak47_fire_interval_max_frames,
-		ak47_burst_shots_remaining,
-		ak47_recoil_accumulation,
-		get_movement_speed_multiplier()
-	)
-
-
-func _get_bazooka_draw_state() -> Dictionary:
-	return CommandoFirearmDrawStateResolver.build_bazooka_state(
-		bazooka_cooldown_frames,
-		bazooka_cooldown_max_frames,
-		bazooka_control_lock_frames,
-		bazooka_control_lock_max_frames,
-		bazooka_fire_animation_frames,
-		BAZOOKA_FIRE_ANIMATION_FRAMES,
-		bazooka_firing_pose_frames,
-		BAZOOKA_FIRING_POSE_FRAMES,
-		bazooka_muzzle_flash_frames,
-		BAZOOKA_MUZZLE_FLASH_FRAMES
-	)
-
-
-func _get_net_gun_draw_state() -> Dictionary:
-	return CommandoFirearmDrawStateResolver.build_net_gun_state(
-		net_gun_cooldown_frames,
-		NET_GUN_COOLDOWN_FRAMES,
-		net_gun_control_lock_frames,
-		NET_GUN_CONTROL_LOCK_FRAMES,
-		net_gun_throw_pose_frames,
-		NET_GUN_THROW_POSE_FRAMES,
-		net_gun_harpoon_flash_frames,
-		NET_GUN_HARPOON_FLASH_FRAMES,
-		get_movement_speed_multiplier(),
-		_has_hooked_net_field()
 	)
 
 

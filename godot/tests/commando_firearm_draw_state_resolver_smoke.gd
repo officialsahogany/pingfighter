@@ -194,9 +194,9 @@ func _verify_runtime_delegates_draw_state() -> void:
 	runtime.slingshot_gauge_spent = 90.0
 	runtime.slingshot_cooldown_frames = 5.0
 	runtime.slingshot_control_lock_frames = 6.0
-	var slingshot: Dictionary = runtime._get_slingshot_draw_state()
-	_expect(bool(slingshot.get("charging", false)), "runtime slingshot draw wrapper should preserve charging flag")
-	_expect(is_equal_approx(float(slingshot.get("charge_ratio", 0.0)), 0.25), "runtime slingshot draw wrapper should compute charge ratio")
+	var slingshot: Dictionary = _get_runtime_draw_state(runtime, "commando_firearm_slingshot_state")
+	_expect(bool(slingshot.get("charging", false)), "runtime slingshot draw context should preserve charging flag")
+	_expect(is_equal_approx(float(slingshot.get("charge_ratio", 0.0)), 0.25), "runtime slingshot draw context should compute charge ratio")
 
 	runtime.pistol_cooldown_frames = 2.0
 	runtime.pistol_cooldown_max_frames = 60.0
@@ -205,46 +205,46 @@ func _verify_runtime_delegates_draw_state() -> void:
 	runtime.pistol_fire_delay_frames = 4.0
 	runtime.pistol_post_fire_animation_frames = 5.0
 
-	var pistol: Dictionary = runtime._get_pistol_draw_state()
-	_expect(is_equal_approx(float(pistol.get("cooldown_frames", 0.0)), 2.0), "runtime pistol draw wrapper should preserve cooldown")
-	_expect(is_equal_approx(float(pistol.get("control_lock_frames", 0.0)), 3.0), "runtime pistol draw wrapper should preserve control lock")
-	_expect(is_equal_approx(float(pistol.get("fire_delay_frames", 0.0)), 4.0), "runtime pistol draw wrapper should preserve fire delay")
-	_expect(is_equal_approx(float(pistol.get("post_fire_animation_frames", 0.0)), 5.0), "runtime pistol draw wrapper should preserve post-fire timer")
-	_expect(bool(pistol.get("shot_pending", false)), "runtime pistol draw wrapper should expose pending shot")
-	_expect(bool(pistol.get("animation_active", false)), "runtime pistol draw wrapper should expose active animation")
+	var pistol: Dictionary = _get_runtime_draw_state(runtime, "commando_firearm_pistol_state")
+	_expect(is_equal_approx(float(pistol.get("cooldown_frames", 0.0)), 2.0), "runtime pistol draw context should preserve cooldown")
+	_expect(is_equal_approx(float(pistol.get("control_lock_frames", 0.0)), 3.0), "runtime pistol draw context should preserve control lock")
+	_expect(is_equal_approx(float(pistol.get("fire_delay_frames", 0.0)), 4.0), "runtime pistol draw context should preserve fire delay")
+	_expect(is_equal_approx(float(pistol.get("post_fire_animation_frames", 0.0)), 5.0), "runtime pistol draw context should preserve post-fire timer")
+	_expect(bool(pistol.get("shot_pending", false)), "runtime pistol draw context should expose pending shot")
+	_expect(bool(pistol.get("animation_active", false)), "runtime pistol draw context should expose active animation")
 
 	runtime.weapon_fire_sheet_id = "ak47"
 	runtime.weapon_fire_sheet_timer_frames = 20.0
 	runtime.weapon_fire_sheet_max_frames = 40.0
-	var fire_sheet: Dictionary = runtime._get_weapon_fire_sheet_draw_state()
-	_expect(bool(fire_sheet.get("active", false)), "runtime weapon-fire sheet wrapper should expose active state")
-	_expect(str(fire_sheet.get("weapon_id", "")) == "ak47", "runtime weapon-fire sheet wrapper should preserve id")
-	_expect(int(fire_sheet.get("frame_count", 0)) == CommandoFirearmRuntime.COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT, "runtime weapon-fire sheet wrapper should preserve frame count")
+	var fire_sheet: Dictionary = _get_runtime_draw_state(runtime, "commando_firearm_weapon_fire_sheet_state")
+	_expect(bool(fire_sheet.get("active", false)), "runtime weapon-fire sheet draw context should expose active state")
+	_expect(str(fire_sheet.get("weapon_id", "")) == "ak47", "runtime weapon-fire sheet draw context should preserve id")
+	_expect(int(fire_sheet.get("frame_count", 0)) == CommandoFirearmRuntime.COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT, "runtime weapon-fire sheet draw context should preserve frame count")
 
 	runtime.ak47_trigger_held = true
 	runtime.ak47_fire_interval_frames = 2.0
 	runtime.ak47_burst_shots_remaining = 1
 	runtime.ak47_recoil_accumulation = 0.4
-	var ak47: Dictionary = runtime._get_ak47_draw_state()
-	_expect(bool(ak47.get("trigger_held", false)), "runtime AK-47 draw wrapper should preserve trigger flag")
-	_expect(int(ak47.get("burst_shots_remaining", 0)) == 1, "runtime AK-47 draw wrapper should preserve burst count")
+	var ak47: Dictionary = _get_runtime_draw_state(runtime, "commando_firearm_ak47_state")
+	_expect(bool(ak47.get("trigger_held", false)), "runtime AK-47 draw context should preserve trigger flag")
+	_expect(int(ak47.get("burst_shots_remaining", 0)) == 1, "runtime AK-47 draw context should preserve burst count")
 
 	runtime.bazooka_cooldown_frames = 7.0
 	runtime.bazooka_control_lock_frames = 8.0
 	runtime.bazooka_fire_animation_frames = 9.0
 	runtime.bazooka_firing_pose_frames = 10.0
 	runtime.bazooka_muzzle_flash_frames = 11.0
-	var bazooka: Dictionary = runtime._get_bazooka_draw_state()
-	_expect(bool(bazooka.get("firing_pose", false)), "runtime bazooka draw wrapper should expose firing pose")
-	_expect(is_equal_approx(float(bazooka.get("muzzle_flash_frames", 0.0)), 11.0), "runtime bazooka draw wrapper should preserve muzzle flash")
+	var bazooka: Dictionary = _get_runtime_draw_state(runtime, "commando_firearm_bazooka_state")
+	_expect(bool(bazooka.get("firing_pose", false)), "runtime bazooka draw context should expose firing pose")
+	_expect(is_equal_approx(float(bazooka.get("muzzle_flash_frames", 0.0)), 11.0), "runtime bazooka draw context should preserve muzzle flash")
 
 	runtime.net_gun_cooldown_frames = 12.0
 	runtime.net_gun_control_lock_frames = 13.0
 	runtime.net_gun_throw_pose_frames = 14.0
 	runtime.net_gun_harpoon_flash_frames = 15.0
-	var net_gun: Dictionary = runtime._get_net_gun_draw_state()
-	_expect(bool(net_gun.get("throw_pose", false)), "runtime net-gun draw wrapper should expose throw pose")
-	_expect(is_equal_approx(float(net_gun.get("harpoon_flash_frames", 0.0)), 15.0), "runtime net-gun draw wrapper should preserve harpoon flash")
+	var net_gun: Dictionary = _get_runtime_draw_state(runtime, "commando_firearm_net_gun_state")
+	_expect(bool(net_gun.get("throw_pose", false)), "runtime net-gun draw context should expose throw pose")
+	_expect(is_equal_approx(float(net_gun.get("harpoon_flash_frames", 0.0)), 15.0), "runtime net-gun draw context should preserve harpoon flash")
 
 	runtime.bowling_traps = [{
 		"state": "installing",
@@ -253,9 +253,9 @@ func _verify_runtime_delegates_draw_state() -> void:
 	runtime.bowling_trap_cooldown_frames = 16.0
 	runtime.bowling_trap_control_lock_frames = 17.0
 	runtime.bowling_trap_install_pose_frames = 18.0
-	var bowling: Dictionary = runtime._get_bowling_trap_draw_state()
-	_expect(bool(bowling.get("installing", false)), "runtime bowling-trap draw wrapper should expose installing flag")
-	_expect(is_equal_approx(float(bowling.get("install_progress", 0.0)), 0.4), "runtime bowling-trap draw wrapper should preserve install progress")
+	var bowling: Dictionary = _get_runtime_draw_state(runtime, "commando_firearm_bowling_trap_state")
+	_expect(bool(bowling.get("installing", false)), "runtime bowling-trap draw context should expose installing flag")
+	_expect(is_equal_approx(float(bowling.get("install_progress", 0.0)), 0.4), "runtime bowling-trap draw context should preserve install progress")
 
 	runtime.projectiles = [{
 		"weapon_id": "suicide_drone",
@@ -265,10 +265,18 @@ func _verify_runtime_delegates_draw_state() -> void:
 		"velocity": Vector2(1.0, -2.0),
 	}]
 	runtime.suicide_drone_cooldown_frames = 19.0
-	var suicide_drone: Dictionary = runtime._get_suicide_drone_draw_state()
-	_expect(bool(suicide_drone.get("active", false)), "runtime suicide-drone draw wrapper should expose active flag")
-	_expect(is_equal_approx(float(suicide_drone.get("grace_frames", 0.0)), 6.0), "runtime suicide-drone draw wrapper should preserve grace timer")
-	_expect(_vector_close(suicide_drone.get("velocity", Vector2.ZERO), Vector2(1.0, -2.0)), "runtime suicide-drone draw wrapper should preserve velocity")
+	var suicide_drone: Dictionary = _get_runtime_draw_state(runtime, "commando_firearm_suicide_drone_state")
+	_expect(bool(suicide_drone.get("active", false)), "runtime suicide-drone draw context should expose active flag")
+	_expect(is_equal_approx(float(suicide_drone.get("grace_frames", 0.0)), 6.0), "runtime suicide-drone draw context should preserve grace timer")
+	_expect(_vector_close(suicide_drone.get("velocity", Vector2.ZERO), Vector2(1.0, -2.0)), "runtime suicide-drone draw context should preserve velocity")
+
+
+func _get_runtime_draw_state(runtime: Object, key: String) -> Dictionary:
+	var context: Dictionary = runtime.get_actor_draw_context()
+	var value: Variant = context.get(key, {})
+	if value is Dictionary:
+		return value
+	return {}
 
 
 func _expect(condition: bool, message: String) -> void:
