@@ -6980,7 +6980,8 @@ Hundredth split on 2026-05-24:
   `commando_firearm_value_utils_smoke`,
   `commando_firearm_lingering_effect_state_smoke`, and
   `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now rejects the
-  removed hooked-net query bridge.
+  removed hooked-net query bridge. `run_headless_load_check.ps1` passed, and
+  `run_warning_scan.ps1` scanned `1326` scripts with no GDScript warnings.
 
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
