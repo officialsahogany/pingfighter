@@ -6966,6 +6966,22 @@ Hundredth split on 2026-05-24:
   `commando_firearm_runtime_vfx_smoke`. The value-utils and bowling-trap smokes
   now reject the removed clamp / guard-immunity bridges.
 
+228th follow-up on 2026-05-24:
+
+- Commit: `aaa032a6d godot: move Commando hooked net query to owner`.
+- Scope: added
+  `CommandoFirearmLingeringNetFieldState.has_active_hooked_net_field()` and
+  removed `_has_hooked_net_field()` from `commando_firearm_runtime.gd`.
+  Movement-speed and draw-context paths now query the net-field owner directly
+  instead of keeping a runtime private scan bridge.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3268` lines /
+  `87` functions to `3260` lines / `86` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_value_utils_smoke`,
+  `commando_firearm_lingering_effect_state_smoke`, and
+  `commando_firearm_runtime_vfx_smoke`. The value-utils smoke now rejects the
+  removed hooked-net query bridge.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits

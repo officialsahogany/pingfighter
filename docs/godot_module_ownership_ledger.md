@@ -4028,9 +4028,10 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/commando_firearm_lingering_net_field_state.gd`
   Owns pure Commando lingering net-field state: live / dissolve lifecycle
   payloads, dash-break rope-broken payloads, profile-derived rope / origin /
-  player-slow fields, deterministic net outline generation, net-field position
-  and height clamping, dash-active / rising-trigger reads, alternating
-  constrict input predicates, and boss clamp rectangle / result math. The
+  player-slow fields, active hooked-field scans, deterministic net outline
+  generation, net-field position and height clamping, dash-active /
+  rising-trigger reads, alternating constrict input predicates, and boss clamp
+  rectangle / result math. The
   runtime keeps projectile impact ownership, active lingering-effect storage,
   stored previous-dash state, audio side effects, live spawn / field setup
   side-effect boundaries, candidate-index scanning, and constrict mutation
@@ -4040,8 +4041,8 @@ This section is intentionally long; use search to find the nearest owner.
   inline before calling the helper's next-factor calculation directly. Active
   lingering effect updates also resolve rope-origin resync and boss-clamp merge
   inline instead of routing through private rope-origin / clamp bridges. Tests
-  cover the real spawn / break / constrict / candidate-index / rope-origin paths
-  plus this
+  cover the real spawn / break / hooked-field query / constrict /
+  candidate-index / rope-origin paths plus this
   helper's deterministic lifecycle / profile / geometry / shape / height-limit
   / clamp / predicate / constrict-factor calculations instead of runtime
   position, net-height, setup, clamp, predicate, and candidate-index bridges.
