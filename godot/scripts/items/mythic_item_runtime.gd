@@ -1352,63 +1352,52 @@ func should_cancel_aipill_on_direction_key() -> bool:
 
 func is_venom_mist_gauntlet_equipped() -> bool:
 	_ensure_helpers_ready()
-	return roll_query.has_equipped_item_name(self, ITEM_VENOM_MIST_GAUNTLET)
+	return venom_mist_runtime.is_equipped(self)
 
 
 func is_venom_mist_gauntlet_active() -> bool:
 	_ensure_helpers_ready()
-	return is_venom_mist_gauntlet_equipped()
+	return venom_mist_runtime.is_active(self)
 
 
 func get_venom_mist_gauntlet_count() -> int:
 	_ensure_helpers_ready()
-	return roll_query.count_equipped_item_name(self, ITEM_VENOM_MIST_GAUNTLET)
+	return venom_mist_runtime.get_count(self)
 
 
 func get_venom_mist_trigger_chance_pct() -> float:
 	_ensure_helpers_ready()
-	if not is_venom_mist_gauntlet_equipped():
-		return 0.0
-	return clamp(
-		roll_query.get_equipped_roll_sum(self, ITEM_VENOM_MIST_GAUNTLET, "mist_trigger_chance_pct"),
-		0.0,
-		VenomMistRuntime.MAX_TRIGGER_CHANCE_PCT
-	)
+	return venom_mist_runtime.get_trigger_chance_pct(self)
 
 
 func get_venom_mist_trigger_chance() -> float:
 	_ensure_helpers_ready()
-	return get_venom_mist_trigger_chance_pct() / 100.0
+	return venom_mist_runtime.get_trigger_chance(self)
 
 
 func get_venom_mist_duration_sec() -> float:
 	_ensure_helpers_ready()
-	if not is_venom_mist_gauntlet_equipped():
-		return 0.0
-	var duration_sec: float = roll_query.get_equipped_roll_max(self, ITEM_VENOM_MIST_GAUNTLET, "mist_duration_sec")
-	if duration_sec <= 0.0:
-		duration_sec = VenomMistRuntime.DEFAULT_DURATION_SEC
-	return clamp(duration_sec, 2.0, 5.0)
+	return venom_mist_runtime.get_duration_sec(self)
 
 
 func get_venom_mist_boss_slow_multiplier() -> float:
 	_ensure_helpers_ready()
-	return max(0.05, 1.0 - VenomMistRuntime.BOSS_SLOW_AMOUNT)
+	return venom_mist_runtime.get_boss_slow_multiplier(self)
 
 
 func is_venom_mist_ball_poisoned() -> bool:
 	_ensure_helpers_ready()
-	return venom_mist_ball_poisoned
+	return venom_mist_runtime.is_ball_poisoned(self)
 
 
 func is_venom_mist_field_active() -> bool:
 	_ensure_helpers_ready()
-	return venom_mist_field_active
+	return venom_mist_runtime.is_field_active(self)
 
 
 func is_boss_in_venom_mist() -> bool:
 	_ensure_helpers_ready()
-	return venom_mist_field_active and venom_mist_boss_in_field
+	return venom_mist_runtime.is_boss_in_field(self)
 
 
 func get_venom_mist_context() -> Dictionary:

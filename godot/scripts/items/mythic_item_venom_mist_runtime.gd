@@ -1,5 +1,6 @@
 extends RefCounted
 
+const ITEM_VENOM_MIST_GAUNTLET := "venom_mist_gauntlet"
 const RADIUS := 120.0
 const DEFAULT_DURATION_SEC := 3.0
 const MAX_TRIGGER_CHANCE_PCT := 100.0
@@ -12,13 +13,64 @@ const PARTICLE_COUNT := 46
 const PARTICLE_MAX := 76
 
 
+func is_equipped(runtime: Object) -> bool:
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_VENOM_MIST_GAUNTLET)
+
+
+func is_active(runtime: Object) -> bool:
+	return is_equipped(runtime)
+
+
+func get_count(runtime: Object) -> int:
+	return runtime.roll_query.count_equipped_item_name(runtime, ITEM_VENOM_MIST_GAUNTLET)
+
+
+func get_trigger_chance_pct(runtime: Object) -> float:
+	if not is_equipped(runtime):
+		return 0.0
+	return clamp(
+		runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_VENOM_MIST_GAUNTLET, "mist_trigger_chance_pct"),
+		0.0,
+		MAX_TRIGGER_CHANCE_PCT
+	)
+
+
+func get_trigger_chance(runtime: Object) -> float:
+	return get_trigger_chance_pct(runtime) / 100.0
+
+
+func get_duration_sec(runtime: Object) -> float:
+	if not is_equipped(runtime):
+		return 0.0
+	var duration_sec: float = runtime.roll_query.get_equipped_roll_max(runtime, ITEM_VENOM_MIST_GAUNTLET, "mist_duration_sec")
+	if duration_sec <= 0.0:
+		duration_sec = DEFAULT_DURATION_SEC
+	return clamp(duration_sec, 2.0, 5.0)
+
+
+func get_boss_slow_multiplier(_runtime: Object) -> float:
+	return max(0.05, 1.0 - BOSS_SLOW_AMOUNT)
+
+
+func is_ball_poisoned(runtime: Object) -> bool:
+	return runtime.venom_mist_ball_poisoned
+
+
+func is_field_active(runtime: Object) -> bool:
+	return runtime.venom_mist_field_active
+
+
+func is_boss_in_field(runtime: Object) -> bool:
+	return runtime.venom_mist_field_active and runtime.venom_mist_boss_in_field
+
+
 func try_poison_ball(runtime: Object, deps: Dictionary) -> bool:
-	if not runtime.is_venom_mist_gauntlet_equipped():
+	if not is_equipped(runtime):
 		runtime.venom_mist_ball_poisoned = false
 		return false
 	if runtime.venom_mist_ball_poisoned:
 		return true
-	var chance: float = runtime.get_venom_mist_trigger_chance()
+	var chance: float = get_trigger_chance(runtime)
 	if chance <= 0.0 or randf() >= chance:
 		return false
 	runtime.venom_mist_ball_poisoned = true
@@ -39,10 +91,10 @@ func try_spawn_at_boss(
 	deps: Dictionary,
 	force: bool
 ) -> bool:
-	if not runtime.is_venom_mist_gauntlet_equipped():
+	if not is_equipped(runtime):
 		return false
 	if not force:
-		var chance: float = runtime.get_venom_mist_trigger_chance()
+		var chance: float = get_trigger_chance(runtime)
 		if chance <= 0.0 or randf() >= chance:
 			return false
 	start_field(runtime, boss_center, runtime._get_dict(deps).get("registry", null))
@@ -61,7 +113,7 @@ func clear_runtime(runtime: Object) -> void:
 
 
 func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale: float) -> void:
-	if not runtime.is_venom_mist_gauntlet_equipped():
+	if not is_equipped(runtime):
 		clear_runtime(runtime)
 		return
 	if runtime.venom_mist_field_active:
@@ -84,7 +136,7 @@ func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale:
 func start_field(runtime: Object, center: Vector2, registry: Object) -> void:
 	runtime.venom_mist_field_active = true
 	runtime.venom_mist_center = center
-	runtime.venom_mist_duration_frames = max(1.0, runtime.get_venom_mist_duration_sec() * 60.0)
+	runtime.venom_mist_duration_frames = max(1.0, get_duration_sec(runtime) * 60.0)
 	runtime.venom_mist_timer_frames = runtime.venom_mist_duration_frames
 	runtime.venom_mist_gauge_drain_accumulator = 0.0
 	runtime.venom_mist_boss_in_field = false

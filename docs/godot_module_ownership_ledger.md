@@ -134,8 +134,8 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/items/mythic_item_update_gate.gd`, Danger Sensor Belt /
   Smartphone auto-defense timing constants, threshold constants, and trigger
   logic delegated to `scripts/items/mythic_item_auto_defense_runtime.gd`,
-  Venom Mist Gauntlet field constants, poison / mist field / particle /
-  boss-gauge drain logic delegated to
+  Venom Mist Gauntlet field constants, equipped / count / roll queries,
+  poison / mist field / particle / boss-gauge drain logic delegated to
   `scripts/items/mythic_item_venom_mist_runtime.gd`, Rainbow Fur Glove
   proc constants, player-skill cooldown reduction, and aura particle
   lifecycle delegated to

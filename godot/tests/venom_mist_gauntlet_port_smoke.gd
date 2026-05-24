@@ -82,7 +82,12 @@ func _test_runtime_constant_ownership() -> void:
 	var helper_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_venom_mist_runtime.gd")
 	_expect(not runtime_source.contains("VENOM_MIST_CONSTANTS"), "runtime facade should not regain VENOM_MIST_CONSTANTS")
 	_expect(not runtime_source.contains("const VENOM_MIST_"), "runtime facade should not regain Venom Mist runtime constants")
+	_expect(runtime_source.find("return venom_mist_runtime.is_equipped(self)") >= 0, "runtime facade should delegate Venom Mist equipped checks")
+	_expect(runtime_source.find("return venom_mist_runtime.get_trigger_chance_pct(self)") >= 0, "runtime facade should delegate Venom Mist chance rolls")
+	_expect(runtime_source.find("roll_query.get_equipped_roll_sum(self, ITEM_VENOM_MIST_GAUNTLET") < 0, "runtime facade should not keep Venom Mist roll math inline")
 	_expect(helper_source.contains("const GAUGE_DRAIN_PER_FRAME"), "Venom Mist helper should keep gauge drain constants")
+	_expect(helper_source.find("func get_trigger_chance_pct(") >= 0, "Venom Mist helper should own trigger roll math")
+	_expect(helper_source.find("func get_duration_sec(") >= 0, "Venom Mist helper should own duration roll math")
 
 
 func _test_catalog_and_arm_slots() -> void:
