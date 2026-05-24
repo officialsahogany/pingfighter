@@ -143,8 +143,8 @@ This section is intentionally long; use search to find the nearest owner.
   Armor equipped / active / roll queries, constants, next-round shield /
   serve-speed boost / barrier particle lifecycle delegated to
   `scripts/items/mythic_item_adversity_armor_runtime.gd`,
-  Shrapnel Armor constants, player-hit proc / gauge spend / shard projectile /
-  dust / boss stun-knockback lifecycle delegated to
+  Shrapnel Armor equipped / roll queries, constants, player-hit proc /
+  gauge spend / shard projectile / dust / boss stun-knockback lifecycle delegated to
   `scripts/items/mythic_item_shrapnel_armor_runtime.gd`, Ragnarok Hammer
   player-hit trigger / stun-ball rally state / boss-hit stun-knockback /
   shock-loop audio / spark lifecycle delegated to

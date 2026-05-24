@@ -1,5 +1,6 @@
 extends RefCounted
 
+const ITEM_SHRAPNEL_ARMOR := "shrapnel_armor"
 const MAX_TRIGGER_CHANCE_PCT := 100.0
 const MAX_SHARD_COUNT := 24
 const MAX_GAUGE_COST := 200.0
@@ -16,19 +17,66 @@ const FIELD_HEIGHT := 750.0
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
 
 
+func is_equipped(runtime: Object) -> bool:
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_SHRAPNEL_ARMOR)
+
+
+func is_active(runtime: Object) -> bool:
+	return is_equipped(runtime)
+
+
+func get_trigger_chance_pct(runtime: Object) -> float:
+	if not is_equipped(runtime):
+		return 0.0
+	return clamp(
+		runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SHRAPNEL_ARMOR, "trigger_chance_pct"),
+		0.0,
+		MAX_TRIGGER_CHANCE_PCT
+	)
+
+
+func get_shard_count(runtime: Object) -> int:
+	if not is_equipped(runtime):
+		return 0
+	return clampi(
+		int(round(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SHRAPNEL_ARMOR, "shard_count"))),
+		0,
+		MAX_SHARD_COUNT
+	)
+
+
+func get_knockback_level(runtime: Object) -> int:
+	if not is_equipped(runtime):
+		return 0
+	return max(
+		1,
+		int(round(runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SHRAPNEL_ARMOR, "knockback_level")))
+	)
+
+
+func get_gauge_cost(runtime: Object) -> float:
+	if not is_equipped(runtime):
+		return 0.0
+	return clamp(
+		runtime.roll_query.get_equipped_roll_value(runtime, ITEM_SHRAPNEL_ARMOR, "gauge_cost"),
+		0.0,
+		MAX_GAUGE_COST
+	)
+
+
 func try_proc_player_hit(
 	runtime: Object,
 	ball_pos: Vector2,
 	context: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
-	if not runtime.is_shrapnel_armor_equipped():
+	if not is_equipped(runtime):
 		clear_runtime(runtime)
 		return {"activated": false}
-	var chance_pct: float = runtime.get_shrapnel_armor_trigger_chance_pct()
+	var chance_pct: float = get_trigger_chance_pct(runtime)
 	if chance_pct <= 0.0:
 		return {"activated": false}
-	var gauge_cost: float = runtime.get_shrapnel_armor_gauge_cost()
+	var gauge_cost: float = get_gauge_cost(runtime)
 	var current_special_gauge: float = current_gauge(runtime, context, deps)
 	if current_special_gauge + 0.001 < gauge_cost:
 		return {
@@ -47,8 +95,8 @@ func try_proc_player_hit(
 			"insufficient_gauge": true,
 			"gauge_cost": gauge_cost,
 		}
-	var shard_count: int = runtime.get_shrapnel_armor_shard_count()
-	var knockback_level: int = runtime.get_shrapnel_armor_knockback_level()
+	var shard_count: int = get_shard_count(runtime)
+	var knockback_level: int = get_knockback_level(runtime)
 	start_burst(runtime, resolve_spawn_center(runtime, ball_pos, context, deps), shard_count)
 	runtime.shrapnel_armor_last_proc_shard_count = shard_count
 	runtime.shrapnel_armor_last_gauge_cost = gauge_cost
@@ -161,7 +209,7 @@ func start_burst(runtime: Object, center: Vector2, shard_count: int) -> void:
 
 
 func update_runtime(runtime: Object, owner: Object, registry: Object, fps_scale: float) -> void:
-	if not runtime.is_shrapnel_armor_equipped():
+	if not is_equipped(runtime):
 		if is_effect_active(runtime):
 			clear_runtime(runtime)
 		return
@@ -306,7 +354,7 @@ func apply_boss_hit(
 	if abs(direction) <= 0.01:
 		direction = -1.0 if hit_pos.x >= boss_rect.get_center().x else 1.0
 	runtime.shrapnel_armor_boss_knockback_vel = (
-		direction * get_knockback_velocity(runtime.get_shrapnel_armor_knockback_level())
+		direction * get_knockback_velocity(get_knockback_level(runtime))
 	)
 	runtime.shrapnel_armor_boss_knockback_timer_frames = BOSS_KNOCKBACK_FRAMES
 	runtime.shrapnel_armor_boss_stun_timer_frames = max(

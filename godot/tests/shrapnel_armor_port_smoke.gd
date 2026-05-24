@@ -334,8 +334,13 @@ func _verify_runtime_constant_ownership() -> void:
 	_expect(not runtime_source.contains("SHRAPNEL_ARMOR_BOSS"), "runtime facade should not regain Shrapnel Armor boss-timer constants")
 	_expect(not runtime_source.contains("SHRAPNEL_ARMOR_FLASH"), "runtime facade should not regain Shrapnel Armor flash constants")
 	_expect(not runtime_source.contains("SHRAPNEL_ARMOR_DUST"), "runtime facade should not regain Shrapnel Armor dust constants")
+	_expect(runtime_source.find("return shrapnel_armor_runtime.is_equipped(self)") >= 0, "runtime facade should delegate Shrapnel Armor equipped checks")
+	_expect(runtime_source.find("return shrapnel_armor_runtime.get_trigger_chance_pct(self)") >= 0, "runtime facade should delegate Shrapnel Armor chance rolls")
+	_expect(runtime_source.find("roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR") < 0, "runtime facade should not keep Shrapnel Armor roll math inline")
 	_expect(helper_source.contains("const MAX_SHARD_COUNT"), "Shrapnel Armor helper should keep shard cap constants")
 	_expect(helper_source.contains("const BOSS_KNOCKBACK_DECAY"), "Shrapnel Armor helper should keep boss knockback constants")
+	_expect(helper_source.find("func get_shard_count(") >= 0, "Shrapnel Armor helper should own shard roll math")
+	_expect(helper_source.find("func get_gauge_cost(") >= 0, "Shrapnel Armor helper should own gauge-cost roll math")
 
 
 func _expect_shrapnel_rolls(catalog: Object) -> void:

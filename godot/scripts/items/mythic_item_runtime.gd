@@ -1674,52 +1674,32 @@ func notify_adversity_armor_barrier_hit(
 
 func is_shrapnel_armor_equipped() -> bool:
 	_ensure_helpers_ready()
-	return roll_query.has_equipped_item_name(self, ITEM_SHRAPNEL_ARMOR)
+	return shrapnel_armor_runtime.is_equipped(self)
 
 
 func is_shrapnel_armor_active() -> bool:
 	_ensure_helpers_ready()
-	return is_shrapnel_armor_equipped()
+	return shrapnel_armor_runtime.is_active(self)
 
 
 func get_shrapnel_armor_trigger_chance_pct() -> float:
 	_ensure_helpers_ready()
-	if not is_shrapnel_armor_equipped():
-		return 0.0
-	return clamp(
-		roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "trigger_chance_pct"),
-		0.0,
-		ShrapnelArmorRuntime.MAX_TRIGGER_CHANCE_PCT
-	)
+	return shrapnel_armor_runtime.get_trigger_chance_pct(self)
 
 
 func get_shrapnel_armor_shard_count() -> int:
 	_ensure_helpers_ready()
-	if not is_shrapnel_armor_equipped():
-		return 0
-	return clampi(
-		int(round(roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "shard_count"))),
-		0,
-		ShrapnelArmorRuntime.MAX_SHARD_COUNT
-	)
+	return shrapnel_armor_runtime.get_shard_count(self)
 
 
 func get_shrapnel_armor_knockback_level() -> int:
 	_ensure_helpers_ready()
-	if not is_shrapnel_armor_equipped():
-		return 0
-	return max(1, int(round(roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "knockback_level"))))
+	return shrapnel_armor_runtime.get_knockback_level(self)
 
 
 func get_shrapnel_armor_gauge_cost() -> float:
 	_ensure_helpers_ready()
-	if not is_shrapnel_armor_equipped():
-		return 0.0
-	return clamp(
-		roll_query.get_equipped_roll_value(self, ITEM_SHRAPNEL_ARMOR, "gauge_cost"),
-		0.0,
-		ShrapnelArmorRuntime.MAX_GAUGE_COST
-	)
+	return shrapnel_armor_runtime.get_gauge_cost(self)
 
 
 func get_shrapnel_armor_context() -> Dictionary:
