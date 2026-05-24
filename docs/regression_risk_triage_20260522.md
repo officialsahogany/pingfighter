@@ -7520,6 +7520,25 @@ Hundredth split on 2026-05-24:
   The lingering-effect owner smoke now rejects `_spawn_net_dissolve_effect()`
   in the runtime facade.
 
+256th follow-up on 2026-05-24:
+
+- Commit:
+  `b31d9b84f godot: move Commando net dissolve bridge`.
+- Scope: removed the Commando runtime `_spawn_net_dissolve_effect()` bridge.
+  Lingering-effect state now owns the dissolve payload marker through
+  `CommandoFirearmLingeringEffectState.build_net_dissolve_projectile()`, while
+  the runtime and focused tests call `_spawn_lingering_effect("net_gun", ...)`
+  with the owner-built projectile dictionary.
+- Runtime facade size: `commando_firearm_runtime.gd` moved from `3018` lines /
+  `55` functions to `3016` lines / `54` functions.
+- Validation: focused Commando coverage passed:
+  `commando_firearm_lingering_effect_state_smoke`,
+  `commando_firearm_runtime_vfx_smoke`, and
+  `commando_firearm_value_utils_smoke`. The Godot headless load check passed,
+  and `run_warning_scan.ps1` scanned `1329` scripts with no GDScript warnings.
+  The lingering-effect state smoke now rejects `_spawn_net_dissolve_effect()`
+  in the runtime facade.
+
 ## Review Lane Grouping / Blocker Traceability - 2026-05-23
 
 This pass closes the review-only follow-up that the cleanup sprint commits
