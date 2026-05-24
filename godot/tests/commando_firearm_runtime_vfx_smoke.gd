@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
+const CommandoFirearmImpactFlashResolver := preload("res://scripts/characters/commando_firearm_impact_flash_resolver.gd")
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
@@ -720,7 +721,15 @@ func _verify_weapon_hit_status_profiles() -> void:
 
 	var support_projectile: Dictionary = _direct_projectile("fire_support", Vector2(360.0, 82.0), Vector2(0.0, 12.0))
 	support_projectile["kind"] = "support"
-	runtime._spawn_impact_flash(support_projectile)
+	CommandoFirearmImpactFlashResolver.append_flash(
+		runtime.impact_flashes,
+		support_projectile,
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+		CommandoFirearmRuntime.FLASH_LIMIT
+	)
 	runtime._register_projectile_hit(support_projectile, config, deps)
 	var support_calls: Array = _get_array(status_effect_state.get_calls_for_source("commando_firearm_fire_support"))
 	_expect(support_calls.size() == 1, "fire support bomb should apply one shared boss stun")

@@ -49,6 +49,10 @@ func _verify_direct_pistol_feedback_state() -> void:
 	)
 	_expect(str(leg_feedback.get("text", "")) == "레그샷!", "legshot feedback should use Korean text")
 	_expect(CommandoFirearmPistolFeedbackState.build_feedback("normal", boss_rect, Vector2(760.0, 750.0), 60.0, "H", "L").is_empty(), "unsupported feedback should return empty")
+	var feedback_list: Array = []
+	CommandoFirearmPistolFeedbackState.append_feedback(feedback_list, "legshot", boss_rect, Vector2(760.0, 750.0), 60.0, "H", "L", 2)
+	_expect(feedback_list.size() == 1, "feedback append helper should append supported feedback")
+	_expect(str((feedback_list[0] as Dictionary).get("text", "")) == "L", "feedback append helper should preserve selected hit text")
 
 	var advanced: Dictionary = CommandoFirearmPistolFeedbackState.advance_feedback(head_feedback, 15.0)
 	_expect(bool(advanced.get("active", false)), "active feedback should stay active while timer remains")
@@ -62,10 +66,14 @@ func _verify_direct_pistol_feedback_state() -> void:
 
 func _verify_runtime_delegates_pistol_feedback_state() -> void:
 	var runtime := CommandoFirearmRuntime.new()
-	runtime._spawn_pistol_hit_feedback(
-		"legshot",
-		{"boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0}
+	var result := {}
+	runtime._apply_pistol_hit_effects(
+		"commando_pistol",
+		{"pistol_shot_roll": 0.11},
+		{"boss_pos": Vector2(330.0, 50.0), "boss_paddle_width": 100.0, "boss_hitbox_height": 40.0},
+		result
 	)
+	_expect(str(result.get("pistol_hit_kind", "")) == "legshot", "runtime pistol hit path should still classify feedback hits")
 	var feedbacks: Array = runtime.get_actor_draw_context().get("commando_firearm_pistol_feedbacks", [])
 	_expect(feedbacks.size() == 1, "runtime spawn should append supported feedback")
 	runtime.update_effects(60.0, Time.get_ticks_msec(), {}, {})
@@ -76,6 +84,7 @@ func _verify_runtime_delegates_pistol_feedback_state() -> void:
 func _verify_removed_runtime_pistol_feedback_bridges() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(source.find("func _build_pistol_hit_feedback") < 0, "runtime should not keep pistol feedback builder bridge")
+	_expect(source.find("func _spawn_pistol_hit_feedback") < 0, "runtime should not keep pistol feedback spawn bridge")
 	_expect(source.find("func _update_pistol_feedbacks") < 0, "runtime should not keep pistol feedback update bridge")
 
 

@@ -2311,7 +2311,15 @@ func _release_bowling_trap_ball(trap: Dictionary, context: Dictionary, deps: Dic
 		motion,
 		profile
 	)
-	_spawn_impact_flash(pseudo_projectile)
+	CommandoFirearmImpactFlashResolver.append_flash(
+		impact_flashes,
+		pseudo_projectile,
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES,
+		BASE_WEAPON_ID,
+		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+		FLASH_LIMIT
+	)
 	_spawn_lingering_effect("bowling_trap", pseudo_projectile, context)
 	CommandoFirearmHitFeedbackDispatcher.trigger_hit_feedback(
 		CommandoFirearmProfileResolver.get_hit_feedback_profile(
@@ -2458,7 +2466,15 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			FIELD_WIDTH
 		)
 		if impact_reason != "":
-			_spawn_impact_flash(projectile)
+			CommandoFirearmImpactFlashResolver.append_flash(
+				impact_flashes,
+				projectile,
+				WEAPON_PROFILES,
+				WEAPON_PROFILE_OVERRIDES,
+				BASE_WEAPON_ID,
+				float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+				FLASH_LIMIT
+			)
 			var rock_impact_profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
 				projectile_weapon_id,
 				WEAPON_PROFILES,
@@ -2483,21 +2499,6 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			if projectile_kind == "drone" and not CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
 				CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
 	return result
-
-
-func _spawn_pistol_hit_feedback(hit_kind: String, context: Dictionary) -> void:
-	var boss_rect: Rect2 = CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH)
-	var feedback: Dictionary = CommandoFirearmPistolFeedbackState.build_feedback(
-		hit_kind,
-		boss_rect,
-		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
-		PISTOL_HIT_TEXT_TIMER_FRAMES,
-		"헤드샷!",
-		"레그샷!"
-	)
-	if feedback.is_empty():
-		return
-	CommandoFirearmValueUtils.append_limited(pistol_feedbacks, feedback, PISTOL_FEEDBACK_LIMIT)
 
 
 func _resolve_suicide_drone_collision(
@@ -2544,7 +2545,15 @@ func _detonate_suicide_drone_at_index(
 ) -> Dictionary:
 	if index >= 0 and index < projectiles.size():
 		projectiles.remove_at(index)
-	_spawn_impact_flash(projectile)
+	CommandoFirearmImpactFlashResolver.append_flash(
+		impact_flashes,
+		projectile,
+		WEAPON_PROFILES,
+		WEAPON_PROFILE_OVERRIDES,
+		BASE_WEAPON_ID,
+		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+		FLASH_LIMIT
+	)
 	var pos: Vector2 = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var hit_boss: bool = CommandoFirearmSuicideDroneGeometry.explosion_hits_boss(
 		projectile,
@@ -2592,23 +2601,6 @@ func _detonate_suicide_drone_at_index(
 			true
 		)
 	return result
-
-
-func _spawn_impact_flash(projectile: Dictionary) -> void:
-	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, BASE_WEAPON_ID)
-	CommandoFirearmValueUtils.append_limited(
-		impact_flashes,
-		CommandoFirearmImpactFlashResolver.build_flash(
-			projectile,
-			CommandoFirearmProfileResolver.get_weapon_profile(
-				weapon_id,
-				WEAPON_PROFILES,
-				WEAPON_PROFILE_OVERRIDES
-			),
-			float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES)
-		),
-		FLASH_LIMIT
-	)
 
 
 func _register_projectile_hit(projectile: Dictionary, context: Dictionary, deps: Dictionary) -> void:
@@ -2808,7 +2800,16 @@ func _apply_pistol_hit_effects(weapon_id: String, projectile: Dictionary, contex
 	result.merge(CommandoFirearmValueUtils.get_dict(hit_payload.get("result_fields", {})), true)
 	var feedback_hit_kind: String = str(hit_payload.get("feedback_hit_kind", ""))
 	if feedback_hit_kind != "":
-		_spawn_pistol_hit_feedback(feedback_hit_kind, context)
+		CommandoFirearmPistolFeedbackState.append_feedback(
+			pistol_feedbacks,
+			feedback_hit_kind,
+			CommandoFirearmHitGeometry.get_boss_rect(context, FIELD_WIDTH),
+			Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+			PISTOL_HIT_TEXT_TIMER_FRAMES,
+			"헤드샷!",
+			"레그샷!",
+			PISTOL_FEEDBACK_LIMIT
+		)
 	var damage_units_delta: int = int(hit_payload.get("damage_units_delta", 0))
 	if damage_units_delta <= 0:
 		return

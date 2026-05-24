@@ -2,6 +2,7 @@ extends RefCounted
 
 const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
 const CommandoFirearmHitGeometry := preload("res://scripts/characters/commando_firearm_hit_geometry.gd")
+const CommandoFirearmProfileResolver := preload("res://scripts/characters/commando_firearm_profile_resolver.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 
 
@@ -35,3 +36,31 @@ static func build_flash(
 		flash["smoke_puff_count"] = GrenadeExplosionDrawer.FIRE_SUPPORT_SMOKE_PUFFS
 		flash["spark_count"] = GrenadeExplosionDrawer.FIRE_SUPPORT_SPARKS
 	return flash
+
+
+static func append_flash(
+	impact_flashes: Array,
+	projectile: Dictionary,
+	weapon_profiles: Dictionary,
+	weapon_profile_overrides: Dictionary,
+	base_weapon_id: String,
+	fire_support_duration_frames: float,
+	flash_limit: int
+) -> void:
+	var weapon_id: String = CommandoFirearmValueUtils.get_projectile_weapon_id(
+		projectile,
+		base_weapon_id
+	)
+	CommandoFirearmValueUtils.append_limited(
+		impact_flashes,
+		build_flash(
+			projectile,
+			CommandoFirearmProfileResolver.get_weapon_profile(
+				weapon_id,
+				weapon_profiles,
+				weapon_profile_overrides
+			),
+			fire_support_duration_frames
+		),
+		flash_limit
+	)

@@ -87,8 +87,17 @@ func _verify_runtime_uses_impact_flash_resolver() -> void:
 	}
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
 	_expect(not runtime_source.contains("func _build_impact_flash("), "runtime should not keep impact-flash build bridge")
+	_expect(not runtime_source.contains("func _spawn_impact_flash("), "runtime should not keep impact-flash append bridge")
 
-	runtime._spawn_impact_flash(support_projectile)
+	CommandoFirearmImpactFlashResolver.append_flash(
+		runtime.impact_flashes,
+		support_projectile,
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+		CommandoFirearmRuntime.FLASH_LIMIT
+	)
 	_expect(runtime.impact_flashes.size() == 1, "runtime spawn should append one impact flash")
 	var spawned: Dictionary = CommandoFirearmValueUtils.get_dict(runtime.impact_flashes[0])
 	_expect(str(spawned.get("kind", "")) == "grenade_explosion", "runtime spawn should preserve fire-support grenade visual kind")

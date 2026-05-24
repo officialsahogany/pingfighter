@@ -35,6 +35,29 @@ static func build_feedback(
 	}
 
 
+static func append_feedback(
+	feedbacks: Array,
+	hit_kind: String,
+	boss_rect: Rect2,
+	field_size: Vector2,
+	timer_frames: float,
+	headshot_text: String,
+	legshot_text: String,
+	feedback_limit: int
+) -> void:
+	var feedback: Dictionary = build_feedback(
+		hit_kind,
+		boss_rect,
+		field_size,
+		timer_frames,
+		headshot_text,
+		legshot_text
+	)
+	if feedback.is_empty():
+		return
+	CommandoFirearmValueUtils.append_limited(feedbacks, feedback, feedback_limit)
+
+
 static func advance_feedback(feedback: Dictionary, fps_scale: float) -> Dictionary:
 	var step: float = max(0.0, fps_scale)
 	var next_feedback: Dictionary = feedback.duplicate(true)
