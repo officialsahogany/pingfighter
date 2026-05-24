@@ -84,6 +84,7 @@ func _init() -> void:
 	_verify_direct_value_utils()
 	_verify_runtime_delegates_value_utils()
 	_verify_removed_fire_flame_owner_bridges()
+	_verify_removed_net_field_clamp_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_value_utils_smoke: ok")
@@ -722,57 +723,57 @@ func _verify_runtime_delegates_value_utils() -> void:
 	runtime._play_net_constrict_audio({})
 	runtime._play_net_constrict_audio({"game_audio": RefCounted.new()})
 	_expect(net_audio.capture_calls == 1, "net constrict audio helper should ignore missing capture audio methods")
-	_expect(runtime._get_net_field_pos({"pos": Vector2(12.0, 34.0)}) == Vector2(12.0, 34.0), "net field pos helper should read effect positions")
-	_expect(runtime._get_net_field_pos({"pos": "bad"}) == Vector2.ZERO, "net field pos helper should fall back for invalid positions")
-	_expect(is_equal_approx(runtime._get_net_field_effect_width({"width": -5.0}), 1.0), "net field width helper should clamp to a positive width")
-	_expect(is_equal_approx(runtime._get_net_field_effect_height({"height": 0.0}), 1.0), "net field height helper should clamp to a positive height")
-	_expect(runtime._get_net_field_boss_pos({"boss_pos": Vector2(90.0, 45.0)}) == Vector2(90.0, 45.0), "net field boss-pos helper should read context boss positions")
-	_expect(is_equal_approx(runtime._get_net_field_boss_width({"boss_width": 44.0}), 44.0), "net field boss-width helper should use boss_width fallback")
-	_expect(is_equal_approx(runtime._get_net_field_boss_width({"boss_width": 44.0, "boss_paddle_width": 36.0}), 36.0), "net field boss-width helper should prefer paddle width")
-	_expect(is_equal_approx(runtime._get_net_field_boss_width({"boss_paddle_width": -8.0}), 1.0), "net field boss-width helper should clamp to a positive width")
-	_expect(is_equal_approx(runtime._get_net_field_min_boss_clamp_width(50.0), 60.0), "net min boss clamp width should preserve boss padding")
-	_expect(is_equal_approx(runtime._get_net_field_min_boss_clamp_width(-8.0), 11.0), "net min boss clamp width should clamp invalid boss widths")
-	_expect(is_equal_approx(runtime._get_net_field_constricted_width(80.0, 0.5), 40.0), "net constricted width helper should scale by constrict factor")
-	_expect(is_equal_approx(runtime._get_net_field_constricted_width(-8.0, 0.5), 0.5), "net constricted width helper should clamp invalid field widths before scaling")
-	_expect(is_equal_approx(runtime._get_net_field_clamp_width({"weapon_id": "net_gun"}, 80.0, 20.0), 80.0), "net clamp width should stay full width when not hooked")
-	_expect(is_equal_approx(runtime._get_net_field_clamp_width({
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_pos({"pos": Vector2(12.0, 34.0)}) == Vector2(12.0, 34.0), "net field pos owner should read effect positions")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_pos({"pos": "bad"}) == Vector2.ZERO, "net field pos owner should fall back for invalid positions")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_effect_width({"width": -5.0}, 280.0), 1.0), "net field width owner should clamp to a positive width")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_effect_height({"height": 0.0}, 90.0), 1.0), "net field height owner should clamp to a positive height")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_boss_pos({"boss_pos": Vector2(90.0, 45.0)}) == Vector2(90.0, 45.0), "net field boss-pos owner should read context boss positions")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_boss_width({"boss_width": 44.0}), 44.0), "net field boss-width owner should use boss_width fallback")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_boss_width({"boss_width": 44.0, "boss_paddle_width": 36.0}), 36.0), "net field boss-width owner should prefer paddle width")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_boss_width({"boss_paddle_width": -8.0}), 1.0), "net field boss-width owner should clamp to a positive width")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_min_boss_clamp_width(50.0), 60.0), "net min boss clamp width owner should preserve boss padding")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_min_boss_clamp_width(-8.0), 11.0), "net min boss clamp width owner should clamp invalid boss widths")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_constricted_width(80.0, 0.5), 40.0), "net constricted width owner should scale by constrict factor")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_constricted_width(-8.0, 0.5), 0.5), "net constricted width owner should clamp invalid field widths before scaling")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_clamp_width({"weapon_id": "net_gun"}, 80.0, 20.0), 80.0), "net clamp width owner should stay full width when not hooked")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_clamp_width({
 		"weapon_id": "net_gun",
 		"hooked_player": true,
 		"constrict_factor": 0.5,
-	}, 80.0, 20.0), 40.0), "net clamp width should shrink hooked nets by constrict factor")
-	_expect(is_equal_approx(runtime._get_net_field_clamp_width({
+	}, 80.0, 20.0), 40.0), "net clamp width owner should shrink hooked nets by constrict factor")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_clamp_width({
 		"weapon_id": "net_gun",
 		"hooked_player": true,
 		"constrict_factor": 0.1,
-	}, 80.0, 50.0), 60.0), "net clamp width should keep enough width for boss paddle")
-	_expect(runtime._get_net_field_clamp_size({"weapon_id": "net_gun"}, 80.0, 0.0, 20.0) == Vector2(80.0, 1.0), "net clamp size helper should preserve width and clamp invalid heights")
-	_expect(runtime._get_net_field_clamp_origin(Vector2(100.0, 100.0), Vector2(80.0, 40.0)) == Vector2(60.0, 80.0), "net clamp origin helper should center clamp size around the field position")
-	_expect(runtime._get_net_field_clamp_rect({
+	}, 80.0, 50.0), 60.0), "net clamp width owner should keep enough width for boss paddle")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_clamp_size({"weapon_id": "net_gun"}, 80.0, 0.0, 20.0) == Vector2(80.0, 1.0), "net clamp size owner should preserve width and clamp invalid heights")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_clamp_origin(Vector2(100.0, 100.0), Vector2(80.0, 40.0)) == Vector2(60.0, 80.0), "net clamp origin owner should center clamp size around the field position")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_clamp_rect({
 		"weapon_id": "net_gun",
-	}, Vector2(100.0, 100.0), 80.0, 40.0, 20.0) == Rect2(Vector2(60.0, 80.0), Vector2(80.0, 40.0)), "net clamp rect should center the full net field")
-	_expect(runtime._get_net_field_clamp_rect({
+	}, Vector2(100.0, 100.0), 80.0, 40.0, 20.0) == Rect2(Vector2(60.0, 80.0), Vector2(80.0, 40.0)), "net clamp rect owner should center the full net field")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_clamp_rect({
 		"weapon_id": "net_gun",
 		"hooked_player": true,
 		"constrict_factor": 0.5,
-	}, Vector2(100.0, 100.0), 80.0, 40.0, 20.0) == Rect2(Vector2(80.0, 80.0), Vector2(40.0, 40.0)), "net clamp rect should center the shrunken net field")
+	}, Vector2(100.0, 100.0), 80.0, 40.0, 20.0) == Rect2(Vector2(80.0, 80.0), Vector2(40.0, 40.0)), "net clamp rect owner should center the shrunken net field")
 	var net_clamp_rect := Rect2(Vector2(60.0, 80.0), Vector2(80.0, 40.0))
-	_expect(is_equal_approx(runtime._get_net_field_safe_boss_width(-8.0), 1.0), "net clamp safe boss-width helper should clamp invalid widths")
-	_expect(is_equal_approx(runtime._get_net_field_safe_boss_width(20.0), 20.0), "net clamp safe boss-width helper should preserve positive widths")
-	_expect(is_equal_approx(runtime._get_net_field_boss_clamp_min_x(net_clamp_rect), 60.0), "net clamp min-x helper should use the clamp rect left edge")
-	_expect(is_equal_approx(runtime._get_net_field_boss_clamp_max_x(20.0, net_clamp_rect), 120.0), "net clamp max-x helper should reserve boss width at the right edge")
-	_expect(is_equal_approx(runtime._get_net_field_clamped_boss_x(20.0, 20.0, net_clamp_rect), 60.0), "net clamp boss-x helper should clamp left of the field")
-	_expect(is_equal_approx(runtime._get_net_field_clamped_boss_x(130.0, 20.0, net_clamp_rect), 120.0), "net clamp boss-x helper should clamp right of the field")
-	_expect(is_equal_approx(runtime._get_net_field_clamped_boss_x(100.0, 20.0, net_clamp_rect), 100.0), "net clamp boss-x helper should preserve in-range positions")
-	_expect(runtime._get_net_field_clamped_boss_pos(Vector2(20.0, 90.0), 20.0, net_clamp_rect) == Vector2(60.0, 90.0), "net clamp boss-pos helper should clamp x while preserving y")
-	_expect(runtime._get_net_field_clamped_boss_pos(Vector2(100.0, 90.0), 20.0, net_clamp_rect) == Vector2(100.0, 90.0), "net clamp boss-pos helper should preserve in-range positions")
-	_expect(runtime._should_emit_net_field_boss_clamp_result(Vector2(20.0, 90.0), Vector2(60.0, 90.0)), "net clamp result predicate should emit changed boss positions")
-	_expect(not runtime._should_emit_net_field_boss_clamp_result(Vector2(100.0, 90.0), Vector2(100.0, 90.0)), "net clamp result predicate should ignore unchanged boss positions")
-	var empty_clamp_result: Dictionary = runtime._build_net_field_boss_clamp_result(Vector2(100.0, 90.0), 20.0, net_clamp_rect)
-	_expect(empty_clamp_result.is_empty(), "net clamp result helper should stay empty when the boss is already inside the field")
-	var left_clamp_result: Dictionary = runtime._build_net_field_boss_clamp_result(Vector2(20.0, 90.0), 20.0, net_clamp_rect)
-	_expect(bool(left_clamp_result.get("commando_net_gun_boss_clamped", false)), "net clamp result helper should flag clamped boss positions")
-	_expect(left_clamp_result.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "net clamp result helper should return the clamped boss position")
-	_expect(left_clamp_result.get("commando_net_gun_clamp_rect", Rect2()) == net_clamp_rect, "net clamp result helper should preserve the clamp rect")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_safe_boss_width(-8.0), 1.0), "net clamp safe boss-width owner should clamp invalid widths")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_safe_boss_width(20.0), 20.0), "net clamp safe boss-width owner should preserve positive widths")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_boss_clamp_min_x(net_clamp_rect), 60.0), "net clamp min-x owner should use the clamp rect left edge")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_boss_clamp_max_x(20.0, net_clamp_rect), 120.0), "net clamp max-x owner should reserve boss width at the right edge")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_clamped_boss_x(20.0, 20.0, net_clamp_rect), 60.0), "net clamp boss-x owner should clamp left of the field")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_clamped_boss_x(130.0, 20.0, net_clamp_rect), 120.0), "net clamp boss-x owner should clamp right of the field")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_field_clamped_boss_x(100.0, 20.0, net_clamp_rect), 100.0), "net clamp boss-x owner should preserve in-range positions")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_clamped_boss_pos(Vector2(20.0, 90.0), 20.0, net_clamp_rect) == Vector2(60.0, 90.0), "net clamp boss-pos owner should clamp x while preserving y")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_field_clamped_boss_pos(Vector2(100.0, 90.0), 20.0, net_clamp_rect) == Vector2(100.0, 90.0), "net clamp boss-pos owner should preserve in-range positions")
+	_expect(CommandoFirearmLingeringNetFieldState.should_emit_net_field_boss_clamp_result(Vector2(20.0, 90.0), Vector2(60.0, 90.0)), "net clamp result predicate owner should emit changed boss positions")
+	_expect(not CommandoFirearmLingeringNetFieldState.should_emit_net_field_boss_clamp_result(Vector2(100.0, 90.0), Vector2(100.0, 90.0)), "net clamp result predicate owner should ignore unchanged boss positions")
+	var empty_clamp_result: Dictionary = CommandoFirearmLingeringNetFieldState.build_net_field_boss_clamp_result(Vector2(100.0, 90.0), 20.0, net_clamp_rect)
+	_expect(empty_clamp_result.is_empty(), "net clamp result owner should stay empty when the boss is already inside the field")
+	var left_clamp_result: Dictionary = CommandoFirearmLingeringNetFieldState.build_net_field_boss_clamp_result(Vector2(20.0, 90.0), 20.0, net_clamp_rect)
+	_expect(bool(left_clamp_result.get("commando_net_gun_boss_clamped", false)), "net clamp result owner should flag clamped boss positions")
+	_expect(left_clamp_result.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "net clamp result owner should return the clamped boss position")
+	_expect(left_clamp_result.get("commando_net_gun_clamp_rect", Rect2()) == net_clamp_rect, "net clamp result owner should preserve the clamp rect")
 	var clamp_result: Dictionary = runtime._apply_net_field_boss_clamp({
 		"weapon_id": "net_gun",
 		"boss_trapped": true,
@@ -1543,6 +1544,31 @@ func _verify_removed_fire_flame_owner_bridges() -> void:
 		"_clamp_lingering_fire_flame_drift_size",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep fire-flame owner bridge %s" % bridge_name)
+
+
+func _verify_removed_net_field_clamp_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_get_net_field_pos",
+		"_get_net_field_effect_width",
+		"_get_net_field_effect_height",
+		"_get_net_field_boss_pos",
+		"_get_net_field_boss_width",
+		"_get_net_field_clamp_width",
+		"_get_net_field_min_boss_clamp_width",
+		"_get_net_field_constricted_width",
+		"_get_net_field_clamp_rect",
+		"_get_net_field_clamp_size",
+		"_get_net_field_clamp_origin",
+		"_get_net_field_clamped_boss_x",
+		"_get_net_field_safe_boss_width",
+		"_get_net_field_boss_clamp_min_x",
+		"_get_net_field_boss_clamp_max_x",
+		"_get_net_field_clamped_boss_pos",
+		"_should_emit_net_field_boss_clamp_result",
+		"_build_net_field_boss_clamp_result",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field clamp bridge %s" % bridge_name)
 
 
 func _expect(condition: bool, message: String) -> void:
