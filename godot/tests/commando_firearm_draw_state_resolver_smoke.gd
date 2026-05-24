@@ -112,6 +112,14 @@ func _verify_direct_weapon_draw_states() -> void:
 	var ak47: Dictionary = CommandoFirearmDrawStateResolver.build_ak47_state(true, 2.0, 6.0, 1, 0.4, 0.5)
 	_expect(bool(ak47.get("trigger_held", false)), "AK-47 state should preserve trigger flag")
 	_expect(is_equal_approx(float(ak47.get("movement_speed_multiplier", 0.0)), 0.5), "AK-47 state should preserve movement multiplier")
+	var runtime := CommandoFirearmRuntime.new()
+	runtime.ak47_trigger_held = true
+	runtime.ak47_fire_interval_frames = 2.0
+	runtime.ak47_burst_shots_remaining = 1
+	runtime.ak47_recoil_accumulation = 0.4
+	var runtime_ak47: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_ak47_state(runtime, 0.5)
+	_expect(bool(runtime_ak47.get("trigger_held", false)), "runtime AK-47 state should read trigger flag")
+	_expect(int(runtime_ak47.get("burst_shots_remaining", 0)) == 1, "runtime AK-47 state should read burst count")
 
 	var bazooka: Dictionary = CommandoFirearmDrawStateResolver.build_bazooka_state(
 		7.0,

@@ -180,6 +180,19 @@ static func build_ak47_state(
 	}
 
 
+static func build_runtime_ak47_state(target: Object, movement_speed_multiplier: float) -> Dictionary:
+	if target == null:
+		return build_ak47_state(false, 0.0, 0.0, 0, 0.0, movement_speed_multiplier)
+	return build_ak47_state(
+		bool(target.get("ak47_trigger_held")),
+		float(target.get("ak47_fire_interval_frames")),
+		float(target.get("ak47_fire_interval_max_frames")),
+		int(target.get("ak47_burst_shots_remaining")),
+		float(target.get("ak47_recoil_accumulation")),
+		movement_speed_multiplier
+	)
+
+
 static func build_bazooka_state(
 	cooldown_frames: float,
 	cooldown_max_frames: float,

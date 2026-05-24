@@ -997,12 +997,8 @@ func get_actor_draw_context() -> Dictionary:
 		self,
 		COMMANDO_WEAPON_FIRE_SHEET_FRAME_COUNT
 	)
-	var ak47_state: Dictionary = CommandoFirearmDrawStateResolver.build_ak47_state(
-		ak47_trigger_held,
-		ak47_fire_interval_frames,
-		ak47_fire_interval_max_frames,
-		ak47_burst_shots_remaining,
-		ak47_recoil_accumulation,
+	var ak47_state: Dictionary = CommandoFirearmDrawStateResolver.build_runtime_ak47_state(
+		self,
 		get_movement_speed_multiplier()
 	)
 	var bazooka_state: Dictionary = CommandoFirearmDrawStateResolver.build_bazooka_state(
