@@ -88,6 +88,7 @@ func _init() -> void:
 	_verify_runtime_delegates_value_utils()
 	_verify_removed_fire_flame_owner_bridges()
 	_verify_removed_net_field_clamp_bridges()
+	_verify_removed_net_field_predicate_bridges()
 	_verify_removed_net_field_setup_bridges()
 	_verify_removed_lingering_status_setup_bridges()
 	_verify_removed_lingering_status_application_bridges()
@@ -681,16 +682,16 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(bool(dissolved_net_effect.get("rope_broken", false)), "lingering net field helper should mark dissolving net ropes broken")
 	_expect(is_equal_approx(float(dissolved_net_effect.get("rope_snap_duration", 0.0)), 24.0), "lingering net field helper should default rope snap duration")
 	_expect(is_equal_approx(float(dissolved_net_effect.get("player_slow_multiplier", 0.0)), 1.0), "lingering net field helper should default player slow multipliers to neutral")
-	_expect(runtime._is_net_gun_effect({"weapon_id": "net_gun"}), "net-gun effect helper should recognize net effects")
-	_expect(not runtime._is_net_gun_effect({"weapon_id": "ak47"}), "net-gun effect helper should reject other weapon effects")
-	_expect(runtime._is_active_hooked_net_field({"weapon_id": "net_gun", "hooked_player": true}), "active hooked net helper should accept hooked live nets")
-	_expect(not runtime._is_active_hooked_net_field({"weapon_id": "net_gun", "hooked_player": true, "dissolve": true}), "active hooked net helper should reject dissolving nets")
-	_expect(runtime._is_boss_clamping_net_field({"weapon_id": "net_gun", "boss_trapped": true}), "boss-clamping net helper should accept trapped live nets")
-	_expect(not runtime._is_boss_clamping_net_field({"weapon_id": "net_gun", "boss_trapped": true, "dissolve": true}), "boss-clamping net helper should reject dissolving nets")
-	_expect(not runtime._is_boss_clamping_net_field({"weapon_id": "net_gun", "boss_trapped": false}), "boss-clamping net helper should require trapped boss state")
-	_expect(runtime._is_net_constrict_candidate({"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.8}), "net constrict candidate helper should accept active nets above the minimum")
-	_expect(not runtime._is_net_constrict_candidate({"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.6}), "net constrict candidate helper should reject nets at the minimum")
-	_expect(not runtime._is_net_constrict_candidate({"weapon_id": "net_gun", "hooked_player": true, "dissolve": true, "constrict_factor": 0.8}), "net constrict candidate helper should reject dissolving nets")
+	_expect(CommandoFirearmLingeringNetFieldState.is_net_gun_effect({"weapon_id": "net_gun"}), "net-gun effect owner should recognize net effects")
+	_expect(not CommandoFirearmLingeringNetFieldState.is_net_gun_effect({"weapon_id": "ak47"}), "net-gun effect owner should reject other weapon effects")
+	_expect(CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field({"weapon_id": "net_gun", "hooked_player": true}), "active hooked net owner should accept hooked live nets")
+	_expect(not CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field({"weapon_id": "net_gun", "hooked_player": true, "dissolve": true}), "active hooked net owner should reject dissolving nets")
+	_expect(CommandoFirearmLingeringNetFieldState.is_boss_clamping_net_field({"weapon_id": "net_gun", "boss_trapped": true}), "boss-clamping net owner should accept trapped live nets")
+	_expect(not CommandoFirearmLingeringNetFieldState.is_boss_clamping_net_field({"weapon_id": "net_gun", "boss_trapped": true, "dissolve": true}), "boss-clamping net owner should reject dissolving nets")
+	_expect(not CommandoFirearmLingeringNetFieldState.is_boss_clamping_net_field({"weapon_id": "net_gun", "boss_trapped": false}), "boss-clamping net owner should require trapped boss state")
+	_expect(CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate({"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.8}, CommandoFirearmRuntime.NET_CONSTRICT_MIN), "net constrict candidate owner should accept active nets above the minimum")
+	_expect(not CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate({"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.6}, CommandoFirearmRuntime.NET_CONSTRICT_MIN), "net constrict candidate owner should reject nets at the minimum")
+	_expect(not CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate({"weapon_id": "net_gun", "hooked_player": true, "dissolve": true, "constrict_factor": 0.8}, CommandoFirearmRuntime.NET_CONSTRICT_MIN), "net constrict candidate owner should reject dissolving nets")
 	runtime.lingering_effects = [
 		{"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.8},
 		{"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.6},
@@ -701,24 +702,24 @@ func _verify_runtime_delegates_value_utils() -> void:
 	var candidate_indices: Array[int] = runtime._get_net_constrict_candidate_indices()
 	_expect(candidate_indices.size() == 2, "net constrict candidate index helper should return only active constrictable nets")
 	_expect(candidate_indices[0] == 0 and candidate_indices[1] == 4, "net constrict candidate index helper should preserve source indices")
-	_expect(runtime._get_net_constrict_input_direction({"left_pressed": true}) == -1, "net constrict input helper should map left to -1")
-	_expect(runtime._get_net_constrict_input_direction({"right_pressed": true}) == 1, "net constrict input helper should map right to 1")
-	_expect(runtime._get_net_constrict_input_direction({"left_pressed": true, "right_pressed": true}) == 0, "net constrict input helper should cancel opposing directions")
-	_expect(runtime._get_net_constrict_input_direction({}) == 0, "net constrict input helper should map no input to zero")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction({"left_pressed": true}) == -1, "net constrict input owner should map left to -1")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction({"right_pressed": true}) == 1, "net constrict input owner should map right to 1")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction({"left_pressed": true, "right_pressed": true}) == 0, "net constrict input owner should cancel opposing directions")
+	_expect(CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction({}) == 0, "net constrict input owner should map no input to zero")
 	runtime.net_constrict_last_dir = -1
 	runtime.net_constrict_last_tick_msec = 1000
-	_expect(not runtime._should_record_net_constrict_input(0), "net constrict record helper should ignore neutral input")
-	_expect(not runtime._should_record_net_constrict_input(-1), "net constrict record helper should ignore repeated direction")
-	_expect(runtime._should_record_net_constrict_input(1), "net constrict record helper should accept alternating direction")
-	_expect(runtime._should_apply_net_constrict_input(1, 1400), "net constrict apply helper should accept alternating input inside the timing window")
-	_expect(not runtime._should_apply_net_constrict_input(1, 1401), "net constrict apply helper should reject alternating input outside the timing window")
-	_expect(not runtime._should_apply_net_constrict_input(-1, 1400), "net constrict apply helper should reject repeated direction inside the timing window")
-	_expect(is_equal_approx(runtime._get_net_constrict_factor({}), 1.0), "net constrict factor reader should use the initial constrict default")
-	_expect(is_equal_approx(runtime._get_net_constrict_factor({"constrict_factor": 0.75}), 0.75), "net constrict factor reader should preserve explicit values")
-	_expect(is_equal_approx(runtime._get_next_net_constrict_factor({}), 0.96), "net constrict factor helper should step down from the default value")
-	_expect(is_equal_approx(runtime._get_next_net_constrict_factor({"constrict_factor": 0.8}), 0.76), "net constrict factor helper should step down active nets")
-	_expect(is_equal_approx(runtime._get_next_net_constrict_factor({"constrict_factor": 0.62}), 0.6), "net constrict factor helper should clamp near-minimum nets")
-	_expect(is_equal_approx(runtime._get_next_net_constrict_factor({"constrict_factor": 0.6}), 0.6), "net constrict factor helper should keep minimum nets at the floor")
+	_expect(not CommandoFirearmLingeringNetFieldState.should_record_net_constrict_input(0, runtime.net_constrict_last_dir), "net constrict record owner should ignore neutral input")
+	_expect(not CommandoFirearmLingeringNetFieldState.should_record_net_constrict_input(-1, runtime.net_constrict_last_dir), "net constrict record owner should ignore repeated direction")
+	_expect(CommandoFirearmLingeringNetFieldState.should_record_net_constrict_input(1, runtime.net_constrict_last_dir), "net constrict record owner should accept alternating direction")
+	_expect(CommandoFirearmLingeringNetFieldState.should_apply_net_constrict_input(1, 1400, runtime.net_constrict_last_dir, runtime.net_constrict_last_tick_msec, CommandoFirearmRuntime.NET_CONSTRICT_WINDOW_MSEC), "net constrict apply owner should accept alternating input inside the timing window")
+	_expect(not CommandoFirearmLingeringNetFieldState.should_apply_net_constrict_input(1, 1401, runtime.net_constrict_last_dir, runtime.net_constrict_last_tick_msec, CommandoFirearmRuntime.NET_CONSTRICT_WINDOW_MSEC), "net constrict apply owner should reject alternating input outside the timing window")
+	_expect(not CommandoFirearmLingeringNetFieldState.should_apply_net_constrict_input(-1, 1400, runtime.net_constrict_last_dir, runtime.net_constrict_last_tick_msec, CommandoFirearmRuntime.NET_CONSTRICT_WINDOW_MSEC), "net constrict apply owner should reject repeated direction inside the timing window")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_constrict_factor({}, CommandoFirearmLingeringNetFieldState.get_initial_constrict_factor()), 1.0), "net constrict factor owner should use the initial constrict default")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_net_constrict_factor({"constrict_factor": 0.75}, CommandoFirearmLingeringNetFieldState.get_initial_constrict_factor()), 0.75), "net constrict factor owner should preserve explicit values")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor({}, CommandoFirearmRuntime.NET_CONSTRICT_MIN, CommandoFirearmRuntime.NET_CONSTRICT_STEP), 0.96), "net constrict factor owner should step down from the default value")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor({"constrict_factor": 0.8}, CommandoFirearmRuntime.NET_CONSTRICT_MIN, CommandoFirearmRuntime.NET_CONSTRICT_STEP), 0.76), "net constrict factor owner should step down active nets")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor({"constrict_factor": 0.62}, CommandoFirearmRuntime.NET_CONSTRICT_MIN, CommandoFirearmRuntime.NET_CONSTRICT_STEP), 0.6), "net constrict factor owner should clamp near-minimum nets")
+	_expect(is_equal_approx(CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor({"constrict_factor": 0.6}, CommandoFirearmRuntime.NET_CONSTRICT_MIN, CommandoFirearmRuntime.NET_CONSTRICT_STEP), 0.6), "net constrict factor owner should keep minimum nets at the floor")
 	runtime.lingering_effects = [
 		{"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.8},
 		{"weapon_id": "net_gun", "hooked_player": true, "constrict_factor": 0.72},
@@ -786,7 +787,7 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(bool(left_clamp_result.get("commando_net_gun_boss_clamped", false)), "net clamp result owner should flag clamped boss positions")
 	_expect(left_clamp_result.get("boss_pos", Vector2.ZERO) == Vector2(60.0, 90.0), "net clamp result owner should return the clamped boss position")
 	_expect(left_clamp_result.get("commando_net_gun_clamp_rect", Rect2()) == net_clamp_rect, "net clamp result owner should preserve the clamp rect")
-	var clamp_result: Dictionary = runtime._apply_net_field_boss_clamp({
+	var clamp_result: Dictionary = CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp({
 		"weapon_id": "net_gun",
 		"boss_trapped": true,
 		"pos": Vector2(100.0, 100.0),
@@ -795,13 +796,13 @@ func _verify_runtime_delegates_value_utils() -> void:
 	}, {
 		"boss_pos": Vector2(20.0, 90.0),
 		"boss_paddle_width": 20.0,
-	})
+	}, CommandoFirearmRuntime.NET_GUN_WIDTH, CommandoFirearmRuntime.NET_GUN_MIN_HEIGHT)
 	_expect(bool(clamp_result.get("commando_net_gun_boss_clamped", false)), "net boss clamp should return a clamp result for trapped live nets")
-	_expect(runtime._apply_net_field_boss_clamp({
+	_expect(CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp({
 		"weapon_id": "net_gun",
 		"boss_trapped": true,
 		"dissolve": true,
-	}, {"boss_pos": Vector2(20.0, 90.0)}).is_empty(), "net boss clamp should ignore dissolving nets")
+	}, {"boss_pos": Vector2(20.0, 90.0)}, CommandoFirearmRuntime.NET_GUN_WIDTH, CommandoFirearmRuntime.NET_GUN_MIN_HEIGHT).is_empty(), "net boss clamp should ignore dissolving nets")
 	var lingering_timer_effect := {
 		"timer_frames": 10.0,
 		"phase": 2.0,
@@ -1579,8 +1580,26 @@ func _verify_removed_net_field_clamp_bridges() -> void:
 		"_get_net_field_clamped_boss_pos",
 		"_should_emit_net_field_boss_clamp_result",
 		"_build_net_field_boss_clamp_result",
+		"_apply_net_field_boss_clamp",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field clamp bridge %s" % bridge_name)
+
+
+func _verify_removed_net_field_predicate_bridges() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	for bridge_name in [
+		"_is_player_dash_active",
+		"_is_net_gun_effect",
+		"_is_active_hooked_net_field",
+		"_is_boss_clamping_net_field",
+		"_is_net_constrict_candidate",
+		"_get_net_constrict_input_direction",
+		"_should_record_net_constrict_input",
+		"_should_apply_net_constrict_input",
+		"_get_next_net_constrict_factor",
+		"_get_net_constrict_factor",
+	]:
+		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep net-field predicate bridge %s" % bridge_name)
 
 
 func _verify_removed_net_field_setup_bridges() -> void:

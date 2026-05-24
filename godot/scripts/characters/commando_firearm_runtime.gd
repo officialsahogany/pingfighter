@@ -3328,10 +3328,10 @@ func _sync_net_field_rope_origin(effect: Dictionary, context: Dictionary) -> voi
 
 
 func _should_sync_net_field_rope_origin(effect: Dictionary) -> bool:
-	if _is_active_hooked_net_field(effect):
+	if CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect):
 		return true
 	return (
-		_is_net_gun_effect(effect)
+		CommandoFirearmLingeringNetFieldState.is_net_gun_effect(effect)
 		and bool(effect.get("rope_broken", false))
 		and bool(effect.get("dissolve", false))
 		and CommandoFirearmLingeringEffectState.get_rope_snap_timer(effect) > 0.0
@@ -3344,7 +3344,12 @@ func _apply_active_lingering_clamp(effect: Dictionary, context: Dictionary, resu
 
 
 func _get_active_lingering_clamp_result(effect: Dictionary, context: Dictionary) -> Dictionary:
-	return _apply_net_field_boss_clamp(effect, context)
+	return CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(
+		effect,
+		context,
+		NET_GUN_WIDTH,
+		NET_GUN_MIN_HEIGHT
+	)
 
 
 func _store_lingering_effect_at_index(index: int, effect: Dictionary) -> void:
@@ -3362,7 +3367,7 @@ func _remove_lingering_effect_at_index(index: int) -> void:
 func _break_hooked_net_fields() -> void:
 	for index in range(lingering_effects.size()):
 		var effect: Dictionary = _get_lingering_effect_at_index(index)
-		if not _is_active_hooked_net_field(effect):
+		if not CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect):
 			continue
 		_mark_hooked_net_field_broken(effect)
 		_store_lingering_effect_at_index(index, effect)
@@ -3378,99 +3383,47 @@ func _update_net_constrict_input(input_snapshot: Dictionary, now_msec: int, deps
 	var active_indices: Array[int] = _get_net_constrict_candidate_indices()
 	if active_indices.is_empty():
 		return
-	var dir_input: int = _get_net_constrict_input_direction(input_snapshot)
-	if not _should_record_net_constrict_input(dir_input):
+	var dir_input: int = CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction(input_snapshot)
+	if not CommandoFirearmLingeringNetFieldState.should_record_net_constrict_input(dir_input, net_constrict_last_dir):
 		return
-	if _should_apply_net_constrict_input(dir_input, now_msec):
+	if CommandoFirearmLingeringNetFieldState.should_apply_net_constrict_input(
+		dir_input,
+		now_msec,
+		net_constrict_last_dir,
+		net_constrict_last_tick_msec,
+		NET_CONSTRICT_WINDOW_MSEC
+	):
 		_apply_net_constrict_to_indices(active_indices)
 		_play_net_constrict_audio(deps)
 	net_constrict_last_dir = dir_input
 	net_constrict_last_tick_msec = now_msec
 
 
-func _apply_net_field_boss_clamp(effect: Dictionary, context: Dictionary) -> Dictionary:
-	return CommandoFirearmLingeringNetFieldState.apply_net_field_boss_clamp(
-		effect,
-		context,
-		NET_GUN_WIDTH,
-		NET_GUN_MIN_HEIGHT
-	)
-
-
-func _is_player_dash_active(context: Dictionary, deps: Dictionary = {}) -> bool:
-	return CommandoFirearmLingeringNetFieldState.is_player_dash_active(context, deps)
-
-
 func _has_hooked_net_field() -> bool:
 	for value in lingering_effects:
 		var effect: Dictionary = _get_dict(value)
-		if _is_active_hooked_net_field(effect):
+		if CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect):
 			return true
 	return false
-
-
-func _is_net_gun_effect(effect: Dictionary) -> bool:
-	return CommandoFirearmLingeringNetFieldState.is_net_gun_effect(effect)
-
-
-func _is_active_hooked_net_field(effect: Dictionary) -> bool:
-	return CommandoFirearmLingeringNetFieldState.is_active_hooked_net_field(effect)
-
-
-func _is_boss_clamping_net_field(effect: Dictionary) -> bool:
-	return CommandoFirearmLingeringNetFieldState.is_boss_clamping_net_field(effect)
-
-
-func _is_net_constrict_candidate(effect: Dictionary) -> bool:
-	return CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate(effect, NET_CONSTRICT_MIN)
 
 
 func _get_net_constrict_candidate_indices() -> Array[int]:
 	var active_indices: Array[int] = []
 	for index in range(lingering_effects.size()):
 		var effect: Dictionary = _get_lingering_effect_at_index(index)
-		if _is_net_constrict_candidate(effect):
+		if CommandoFirearmLingeringNetFieldState.is_net_constrict_candidate(effect, NET_CONSTRICT_MIN):
 			active_indices.append(index)
 	return active_indices
-
-
-func _get_net_constrict_input_direction(input_snapshot: Dictionary) -> int:
-	return CommandoFirearmLingeringNetFieldState.get_net_constrict_input_direction(input_snapshot)
-
-
-func _should_record_net_constrict_input(dir_input: int) -> bool:
-	return CommandoFirearmLingeringNetFieldState.should_record_net_constrict_input(dir_input, net_constrict_last_dir)
-
-
-func _should_apply_net_constrict_input(dir_input: int, now_msec: int) -> bool:
-	return CommandoFirearmLingeringNetFieldState.should_apply_net_constrict_input(
-		dir_input,
-		now_msec,
-		net_constrict_last_dir,
-		net_constrict_last_tick_msec,
-		NET_CONSTRICT_WINDOW_MSEC
-	)
-
-
-func _get_next_net_constrict_factor(effect: Dictionary) -> float:
-	return CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor(
-		effect,
-		NET_CONSTRICT_MIN,
-		NET_CONSTRICT_STEP
-	)
-
-
-func _get_net_constrict_factor(effect: Dictionary) -> float:
-	return CommandoFirearmLingeringNetFieldState.get_net_constrict_factor(
-		effect,
-		CommandoFirearmLingeringNetFieldState.get_initial_constrict_factor()
-	)
 
 
 func _apply_net_constrict_to_indices(active_indices: Array[int]) -> void:
 	for index in active_indices:
 		var effect: Dictionary = _get_lingering_effect_at_index(index)
-		effect["constrict_factor"] = _get_next_net_constrict_factor(effect)
+		effect["constrict_factor"] = CommandoFirearmLingeringNetFieldState.get_next_net_constrict_factor(
+			effect,
+			NET_CONSTRICT_MIN,
+			NET_CONSTRICT_STEP
+		)
 		_store_lingering_effect_at_index(index, effect)
 
 
