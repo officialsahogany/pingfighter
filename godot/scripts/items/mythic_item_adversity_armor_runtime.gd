@@ -1,5 +1,6 @@
 extends RefCounted
 
+const ITEM_ADVERSITY_ARMOR := "adversity_armor"
 const MAX_TRIGGER_CHANCE_PCT := 100.0
 const DEFAULT_SERVE_SPEED_BONUS_PCT := 20.0
 const FLASH_FRAMES := 30.0
@@ -12,8 +13,40 @@ const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
 
 
+func is_equipped(runtime: Object) -> bool:
+	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_ADVERSITY_ARMOR)
+
+
+func is_active(runtime: Object) -> bool:
+	return is_equipped(runtime)
+
+
+func is_invincible(runtime: Object) -> bool:
+	return is_equipped(runtime) and runtime.adversity_armor_invincible_timer_frames > 0.0
+
+
+func get_trigger_chance_pct(runtime: Object) -> float:
+	if not is_equipped(runtime):
+		return 0.0
+	return clamp(
+		runtime.roll_query.get_equipped_roll_value(runtime, ITEM_ADVERSITY_ARMOR, "trigger_chance_pct"),
+		0.0,
+		MAX_TRIGGER_CHANCE_PCT
+	)
+
+
+func get_invincible_duration_sec(runtime: Object) -> float:
+	if not is_equipped(runtime):
+		return 0.0
+	return max(0.0, runtime.roll_query.get_equipped_roll_value(runtime, ITEM_ADVERSITY_ARMOR, "invincible_duration_sec"))
+
+
+func get_serve_speed_bonus_pct(runtime: Object) -> float:
+	return DEFAULT_SERVE_SPEED_BONUS_PCT if is_equipped(runtime) else 0.0
+
+
 func get_ball_collision_context(runtime: Object) -> Dictionary:
-	if not runtime.is_adversity_armor_invincible():
+	if not is_invincible(runtime):
 		return {"adversity_armor_invincible": false}
 	return {
 		"adversity_armor_invincible": true,
@@ -22,10 +55,10 @@ func get_ball_collision_context(runtime: Object) -> Dictionary:
 
 
 func try_queue_after_loss(runtime: Object, deps: Dictionary) -> bool:
-	if not runtime.is_adversity_armor_equipped():
+	if not is_equipped(runtime):
 		clear_runtime(runtime)
 		return false
-	var chance_pct: float = runtime.get_adversity_armor_trigger_chance_pct()
+	var chance_pct: float = get_trigger_chance_pct(runtime)
 	if chance_pct <= 0.0:
 		runtime.adversity_armor_last_trigger_roll_pct = -1.0
 		runtime.adversity_armor_last_triggered = false
@@ -46,14 +79,14 @@ func try_queue_after_loss(runtime: Object, deps: Dictionary) -> bool:
 
 
 func on_round_start(runtime: Object, owner: Object, registry: Object) -> void:
-	if not runtime.is_adversity_armor_equipped():
+	if not is_equipped(runtime):
 		clear_runtime(runtime)
 		runtime._sync_owner(owner, registry)
 		return
 	if not runtime.adversity_armor_pending_invincible:
 		return
 	runtime.adversity_armor_pending_invincible = false
-	var duration_frames: float = runtime.get_adversity_armor_invincible_duration_sec() * 60.0
+	var duration_frames: float = get_invincible_duration_sec(runtime) * 60.0
 	runtime.adversity_armor_invincible_timer_frames = max(0.0, duration_frames)
 	runtime.adversity_armor_invincible_total_frames = runtime.adversity_armor_invincible_timer_frames
 	runtime.adversity_armor_flash_timer_frames = FLASH_FRAMES
@@ -70,13 +103,13 @@ func on_round_start(runtime: Object, owner: Object, registry: Object) -> void:
 
 
 func consume_serve_speed_bonus(runtime: Object) -> float:
-	if not runtime.is_adversity_armor_equipped():
+	if not is_equipped(runtime):
 		runtime.adversity_armor_serve_speed_boost_pending = false
 		return 0.0
 	if not runtime.adversity_armor_serve_speed_boost_pending:
 		return 0.0
 	runtime.adversity_armor_serve_speed_boost_pending = false
-	return runtime.get_adversity_armor_serve_speed_bonus_pct() / 100.0
+	return get_serve_speed_bonus_pct(runtime) / 100.0
 
 
 func notify_barrier_hit(
@@ -85,7 +118,7 @@ func notify_barrier_hit(
 	ball_vel: Vector2,
 	deps: Dictionary
 ) -> void:
-	if not runtime.is_adversity_armor_invincible():
+	if not is_invincible(runtime):
 		return
 	runtime.adversity_armor_last_reflect_center = impact_pos
 	runtime.adversity_armor_flash_timer_frames = max(
@@ -136,7 +169,7 @@ func get_timer_ratio(runtime: Object) -> float:
 
 
 func update_runtime(runtime: Object, owner: Object, fps_scale: float) -> void:
-	if not runtime.is_adversity_armor_equipped():
+	if not is_equipped(runtime):
 		if (
 			is_effect_active(runtime)
 			or runtime.adversity_armor_pending_invincible

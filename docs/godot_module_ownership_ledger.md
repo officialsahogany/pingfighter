@@ -140,8 +140,9 @@ This section is intentionally long; use search to find the nearest owner.
   equipped / roll queries, proc constants, player-skill cooldown reduction,
   and aura particle lifecycle delegated to
   `scripts/items/mythic_item_rainbow_fur_glove_runtime.gd`, Adversity
-  Armor constants, next-round shield / serve-speed boost / barrier particle
-  lifecycle delegated to `scripts/items/mythic_item_adversity_armor_runtime.gd`,
+  Armor equipped / active / roll queries, constants, next-round shield /
+  serve-speed boost / barrier particle lifecycle delegated to
+  `scripts/items/mythic_item_adversity_armor_runtime.gd`,
   Shrapnel Armor constants, player-hit proc / gauge spend / shard projectile /
   dust / boss stun-knockback lifecycle delegated to
   `scripts/items/mythic_item_shrapnel_armor_runtime.gd`, Ragnarok Hammer

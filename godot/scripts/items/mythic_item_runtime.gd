@@ -1605,40 +1605,32 @@ func try_proc_rainbow_fur_glove_player_hit(
 
 func is_adversity_armor_equipped() -> bool:
 	_ensure_helpers_ready()
-	return roll_query.has_equipped_item_name(self, ITEM_ADVERSITY_ARMOR)
+	return adversity_armor_runtime.is_equipped(self)
 
 
 func is_adversity_armor_active() -> bool:
 	_ensure_helpers_ready()
-	return is_adversity_armor_equipped()
+	return adversity_armor_runtime.is_active(self)
 
 
 func is_adversity_armor_invincible() -> bool:
 	_ensure_helpers_ready()
-	return is_adversity_armor_equipped() and adversity_armor_invincible_timer_frames > 0.0
+	return adversity_armor_runtime.is_invincible(self)
 
 
 func get_adversity_armor_trigger_chance_pct() -> float:
 	_ensure_helpers_ready()
-	if not is_adversity_armor_equipped():
-		return 0.0
-	return clamp(
-		roll_query.get_equipped_roll_value(self, ITEM_ADVERSITY_ARMOR, "trigger_chance_pct"),
-		0.0,
-		AdversityArmorRuntime.MAX_TRIGGER_CHANCE_PCT
-	)
+	return adversity_armor_runtime.get_trigger_chance_pct(self)
 
 
 func get_adversity_armor_invincible_duration_sec() -> float:
 	_ensure_helpers_ready()
-	if not is_adversity_armor_equipped():
-		return 0.0
-	return max(0.0, roll_query.get_equipped_roll_value(self, ITEM_ADVERSITY_ARMOR, "invincible_duration_sec"))
+	return adversity_armor_runtime.get_invincible_duration_sec(self)
 
 
 func get_adversity_armor_serve_speed_bonus_pct() -> float:
 	_ensure_helpers_ready()
-	return AdversityArmorRuntime.DEFAULT_SERVE_SPEED_BONUS_PCT if is_adversity_armor_equipped() else 0.0
+	return adversity_armor_runtime.get_serve_speed_bonus_pct(self)
 
 
 func get_adversity_armor_context() -> Dictionary:

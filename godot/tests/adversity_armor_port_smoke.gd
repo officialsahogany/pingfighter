@@ -124,7 +124,12 @@ func _verify_runtime_constant_ownership() -> void:
 	_expect(not runtime_source.contains("const ADVERSITY_ARMOR_MAX"), "runtime facade should not regain Adversity Armor cap constants")
 	_expect(not runtime_source.contains("const ADVERSITY_ARMOR_FLASH"), "runtime facade should not regain Adversity Armor flash constants")
 	_expect(not runtime_source.contains("const ADVERSITY_ARMOR_BARRIER"), "runtime facade should not regain Adversity Armor barrier constants")
+	_expect(runtime_source.find("return adversity_armor_runtime.is_equipped(self)") >= 0, "runtime facade should delegate Adversity Armor equipped checks")
+	_expect(runtime_source.find("return adversity_armor_runtime.get_trigger_chance_pct(self)") >= 0, "runtime facade should delegate Adversity Armor chance rolls")
+	_expect(runtime_source.find("roll_query.get_equipped_roll_value(self, ITEM_ADVERSITY_ARMOR") < 0, "runtime facade should not keep Adversity Armor roll math inline")
 	_expect(helper_source.contains("const DEFAULT_SERVE_SPEED_BONUS_PCT"), "Adversity Armor helper should keep serve-speed constants")
+	_expect(helper_source.find("func get_trigger_chance_pct(") >= 0, "Adversity Armor helper should own trigger roll math")
+	_expect(helper_source.find("func get_invincible_duration_sec(") >= 0, "Adversity Armor helper should own duration roll math")
 
 
 func _verify_catalog() -> void:
