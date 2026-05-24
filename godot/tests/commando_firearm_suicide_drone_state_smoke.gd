@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_direct_suicide_drone_state()
 	_verify_runtime_delegates_suicide_drone_state()
+	_verify_removed_runtime_active_projectile_bridges()
 
 	if _failures.is_empty():
 		print("commando_firearm_suicide_drone_state_smoke: ok")
@@ -128,6 +129,13 @@ func _verify_runtime_delegates_suicide_drone_state() -> void:
 	var clamped_projectile := {"pos": Vector2(-10.0, 800.0), "size": Vector2(48.0, 48.0)}
 	runtime._clamp_suicide_drone_projectile(clamped_projectile)
 	_expect(clamped_projectile.get("pos", Vector2.ZERO) == Vector2(24.0, 726.0), "runtime clamp wrapper should delegate")
+
+
+func _verify_removed_runtime_active_projectile_bridges() -> void:
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/characters/commando_firearm_runtime.gd")
+	_expect(not runtime_source.contains("func _has_active_suicide_drone_projectile("), "runtime should not keep active suicide-drone predicate bridge")
+	_expect(not runtime_source.contains("func _get_active_suicide_drone_index("), "runtime should not keep active suicide-drone lookup bridge")
+	_expect(not runtime_source.contains("func _is_suicide_drone_projectile("), "runtime should not keep suicide-drone projectile predicate bridge")
 
 
 func _expect(condition: bool, message: String) -> void:

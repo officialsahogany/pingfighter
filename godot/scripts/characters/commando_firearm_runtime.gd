@@ -558,7 +558,7 @@ func update_input(input_snapshot: Dictionary, special_gauge: float, config: Dict
 	var timed_result: Dictionary = _update_firearm_timers(config, deps, 1.0)
 	if bool(timed_result.get("fired", false)):
 		return timed_result
-	if _has_active_suicide_drone_projectile():
+	if CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
 		return _update_active_suicide_drone_input(input_snapshot, special_gauge, config, deps)
 	var reset_result: Dictionary = _handle_firearm_reset_input(input_snapshot, special_gauge, weapon_controller, now_msec)
 	if not reset_result.is_empty():
@@ -854,13 +854,13 @@ func is_player_control_locked() -> bool:
 			bowling_trap_control_lock_frames,
 		],
 		_has_active_support_call_lock(),
-		_has_active_suicide_drone_projectile()
+		CommandoFirearmSuicideDroneState.has_active_projectile(projectiles)
 	)
 
 
 func get_movement_speed_multiplier() -> float:
 	return CommandoFirearmControlState.get_movement_speed_multiplier(
-		_has_active_suicide_drone_projectile(),
+		CommandoFirearmSuicideDroneState.has_active_projectile(projectiles),
 		ak47_trigger_held,
 		_has_hooked_net_field(),
 		AK47_MOVEMENT_SPEED_MULTIPLIER,
@@ -1737,7 +1737,7 @@ func _update_suicide_drone_input(
 		return {}
 	if suicide_drone_cooldown_frames > 0.0:
 		return _suicide_drone_fire_failed(special_gauge, "suicide_drone_cooldown")
-	if _has_active_suicide_drone_projectile():
+	if CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
 		return _suicide_drone_fire_failed(special_gauge, "suicide_drone_active")
 	if not _is_ready("suicide_drone", now_msec, deps):
 		return _suicide_drone_fire_failed(special_gauge, "configured_cooldown")
@@ -1768,7 +1768,7 @@ func _update_active_suicide_drone_input(
 	config: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
-	var index: int = _get_active_suicide_drone_index()
+	var index: int = CommandoFirearmSuicideDroneState.get_active_projectile_index(projectiles)
 	if index < 0:
 		return {}
 	var projectile: Dictionary = _get_dict(projectiles[index])
@@ -1861,7 +1861,7 @@ func _get_suicide_drone_input_projectile_state(input_vector: Vector2, projectile
 
 
 func _get_suicide_drone_draw_state() -> Dictionary:
-	var index: int = _get_active_suicide_drone_index()
+	var index: int = CommandoFirearmSuicideDroneState.get_active_projectile_index(projectiles)
 	var projectile: Dictionary = _get_dict(projectiles[index]) if index >= 0 else {}
 	return CommandoFirearmDrawStateResolver.build_suicide_drone_state(
 		index >= 0,
@@ -2543,7 +2543,7 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			elif CommandoFirearmHitGeometry.is_net_gun_weapon(projectile_weapon_id):
 				_spawn_net_dissolve_effect(projectile, context)
 			projectiles.remove_at(index)
-			if projectile_kind == "drone" and not _has_active_suicide_drone_projectile():
+			if projectile_kind == "drone" and not CommandoFirearmSuicideDroneState.has_active_projectile(projectiles):
 				_stop_suicide_drone_audio(deps)
 	return result
 
@@ -3637,18 +3637,6 @@ func _play_reload_progress_audio(timer_result: Dictionary, deps: Dictionary) -> 
 
 func _stop_suicide_drone_audio(deps: Dictionary) -> void:
 	CommandoFirearmAudioDispatcher.stop_suicide_drone_audio(deps)
-
-
-func _has_active_suicide_drone_projectile() -> bool:
-	return CommandoFirearmSuicideDroneState.has_active_projectile(projectiles)
-
-
-func _get_active_suicide_drone_index() -> int:
-	return CommandoFirearmSuicideDroneState.get_active_projectile_index(projectiles)
-
-
-func _is_suicide_drone_projectile(projectile: Dictionary) -> bool:
-	return CommandoFirearmSuicideDroneState.is_projectile(projectile)
 
 
 func _update_muzzle_flashes(fps_scale: float) -> void:

@@ -368,18 +368,6 @@ func _verify_runtime_delegates_value_utils() -> void:
 	_expect(runtime._get_projectile_kind({"kind": "drone"}) == "drone", "runtime projectile kind wrapper should delegate explicit kinds")
 	_expect(runtime._get_projectile_kind({}) == "", "runtime projectile kind wrapper should use the empty fallback")
 	_expect(runtime._get_projectile_kind({}, "bullet") == "bullet", "runtime projectile kind wrapper should allow explicit fallbacks")
-	_expect(runtime._is_suicide_drone_projectile({"weapon_id": "suicide_drone", "kind": "drone"}), "suicide-drone projectile helper should require matching weapon and kind")
-	_expect(not runtime._is_suicide_drone_projectile({"weapon_id": "suicide_drone", "kind": "rocket"}), "suicide-drone projectile helper should reject wrong kind")
-	_expect(not runtime._is_suicide_drone_projectile({"kind": "drone"}), "suicide-drone projectile helper should reject missing weapon id")
-	runtime.projectiles = [
-		{"weapon_id": "ak47", "kind": "bullet"},
-		{"weapon_id": "suicide_drone", "kind": "drone"},
-	]
-	_expect(runtime._get_active_suicide_drone_index() == 1, "active suicide-drone lookup should return the matching projectile index")
-	_expect(runtime._has_active_suicide_drone_projectile(), "active suicide-drone helper should report a live drone")
-	runtime.projectiles = [{"weapon_id": "suicide_drone", "kind": "rocket"}]
-	_expect(runtime._get_active_suicide_drone_index() == -1, "active suicide-drone lookup should ignore non-drone kinds")
-	_expect(not runtime._has_active_suicide_drone_projectile(), "active suicide-drone helper should report no live drone when none match")
 	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": 90.0}, false, false), 90.0), "lingering duration helper should use normal duration frames")
 	_expect(is_equal_approx(runtime._get_lingering_effect_duration({"duration_frames": -4.0}, false, false), 1.0), "lingering duration helper should clamp normal durations to one frame")
 	_expect(is_equal_approx(runtime._get_lingering_effect_duration({}, false, false), 1.0), "lingering duration helper should default missing normal durations to one frame")
