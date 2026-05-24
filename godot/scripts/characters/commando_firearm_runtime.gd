@@ -3122,19 +3122,14 @@ func _update_lingering_effects(fps_scale: float, context: Dictionary, deps: Dict
 		)
 	for index in range(lingering_effects.size() - 1, -1, -1):
 		var effect: Dictionary = CommandoFirearmValueUtils.get_dict(lingering_effects[index])
-		_advance_lingering_effect_frame(effect, step)
+		CommandoFirearmLingeringEffectState.advance_timers(effect, step, LINGERING_EFFECT_PHASE_STEP)
+		if CommandoFirearmLingeringEffectState.is_fire_zone(effect):
+			effect["flames"] = CommandoFirearmLingeringFireFlameState.get_flames_for_frame(effect, step)
 		if CommandoFirearmLingeringEffectState.is_active(effect):
 			_apply_active_lingering_effect(index, effect, step, context, deps, result)
 		else:
 			lingering_effects.remove_at(index)
 	return result
-
-
-func _advance_lingering_effect_frame(effect: Dictionary, fps_scale: float) -> void:
-	var step: float = CommandoFirearmLingeringEffectState.get_timer_step(fps_scale)
-	CommandoFirearmLingeringEffectState.advance_timers(effect, step, LINGERING_EFFECT_PHASE_STEP)
-	if CommandoFirearmLingeringEffectState.is_fire_zone(effect):
-		effect["flames"] = CommandoFirearmLingeringFireFlameState.get_flames_for_frame(effect, step)
 
 
 func _apply_active_lingering_effect(

@@ -847,10 +847,11 @@ func _verify_runtime_value_utils_integration() -> void:
 		"height": 40.0,
 		"id": 3,
 	}
-	runtime._advance_lingering_effect_frame(fire_zone_frame_effect, 2.0)
-	_expect(is_equal_approx(float(fire_zone_frame_effect.get("timer_frames", 0.0)), 10.0), "lingering frame helper should advance timers")
-	_expect(is_equal_approx(float(fire_zone_frame_effect.get("phase", 0.0)), 1.24), "lingering frame helper should advance effect phase")
-	_expect(CommandoFirearmValueUtils.get_array(fire_zone_frame_effect.get("flames", [])).size() == fire_flame_count, "lingering frame helper should build fire-zone flames")
+	CommandoFirearmLingeringEffectState.advance_timers(fire_zone_frame_effect, 2.0, CommandoFirearmRuntime.LINGERING_EFFECT_PHASE_STEP)
+	fire_zone_frame_effect["flames"] = CommandoFirearmLingeringFireFlameState.get_flames_for_frame(fire_zone_frame_effect, 2.0)
+	_expect(is_equal_approx(float(fire_zone_frame_effect.get("timer_frames", 0.0)), 10.0), "lingering frame owners should advance timers")
+	_expect(is_equal_approx(float(fire_zone_frame_effect.get("phase", 0.0)), 1.24), "lingering frame owners should advance effect phase")
+	_expect(CommandoFirearmValueUtils.get_array(fire_zone_frame_effect.get("flames", [])).size() == fire_flame_count, "lingering frame owners should build fire-zone flames")
 	_expect(CommandoFirearmLingeringFireFlameState.get_flames({"flames": [{"lifetime": 3.0}]}).size() == 1, "fire flames owner reader should preserve valid flame arrays")
 	_expect(CommandoFirearmLingeringFireFlameState.get_flames({"flames": "bad"}).is_empty(), "fire flames owner reader should reject invalid flame arrays")
 	_expect(CommandoFirearmLingeringFireFlameState.should_seed_flames([]), "fire flames owner seed predicate should accept empty flame arrays")
@@ -1007,12 +1008,12 @@ func _verify_runtime_value_utils_integration() -> void:
 		"timer_frames": 8.0,
 		"phase": 0.0,
 	}
-	runtime._advance_lingering_effect_frame(non_fire_frame_effect, 2.0)
-	_expect(is_equal_approx(float(non_fire_frame_effect.get("timer_frames", 0.0)), 6.0), "lingering frame helper should advance non-fire timers")
-	_expect(not non_fire_frame_effect.has("flames"), "lingering frame helper should not build flames for non-fire effects")
-	runtime._advance_lingering_effect_frame(non_fire_frame_effect, -5.0)
-	_expect(is_equal_approx(float(non_fire_frame_effect.get("timer_frames", 0.0)), 6.0), "lingering frame helper should ignore negative frame steps")
-	_expect(is_equal_approx(float(non_fire_frame_effect.get("phase", 0.0)), 0.24), "lingering frame helper should not advance phase for negative frame steps")
+	CommandoFirearmLingeringEffectState.advance_timers(non_fire_frame_effect, 2.0, CommandoFirearmRuntime.LINGERING_EFFECT_PHASE_STEP)
+	_expect(is_equal_approx(float(non_fire_frame_effect.get("timer_frames", 0.0)), 6.0), "lingering frame owner should advance non-fire timers")
+	_expect(not non_fire_frame_effect.has("flames"), "lingering frame owner should not build flames for non-fire effects")
+	CommandoFirearmLingeringEffectState.advance_timers(non_fire_frame_effect, -5.0, CommandoFirearmRuntime.LINGERING_EFFECT_PHASE_STEP)
+	_expect(is_equal_approx(float(non_fire_frame_effect.get("timer_frames", 0.0)), 6.0), "lingering frame owner should ignore negative frame steps")
+	_expect(is_equal_approx(float(non_fire_frame_effect.get("phase", 0.0)), 0.24), "lingering frame owner should not advance phase for negative frame steps")
 	_expect(CommandoFirearmLingeringEffectState.is_active({"timer_frames": 0.1}), "lingering active owner should accept positive timers")
 	_expect(not CommandoFirearmLingeringEffectState.is_active({"timer_frames": 0.0}), "lingering active owner should reject expired timers")
 	_expect(not CommandoFirearmLingeringEffectState.is_active({}), "lingering active owner should reject missing timers")
@@ -1714,6 +1715,7 @@ func _verify_removed_lingering_effect_timer_bridges() -> void:
 		"_has_lingering_clamp_result",
 		"_apply_lingering_clamp_payload",
 		"_get_lingering_effect_size",
+		"_advance_lingering_effect_frame",
 	]:
 		_expect(source.find("func %s" % bridge_name) < 0, "runtime should not keep lingering-effect timer bridge %s" % bridge_name)
 
