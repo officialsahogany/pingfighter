@@ -1331,7 +1331,7 @@ func _compute_core_flip_wall_climb_center(t1: float, config: Dictionary, deps: D
 
 
 func _get_core_flip_duration_frames(base_frames: float, deps: Dictionary) -> float:
-	return max(1.0, base_frames * _get_marshal_prep_duration_mult(deps))
+	return skill_scaling.get_core_flip_duration_frames(base_frames, _get_kick_enhance_level(deps))
 
 
 func _apply_core_flip_hit(config: Dictionary, deps: Dictionary) -> Dictionary:

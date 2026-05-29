@@ -82,6 +82,10 @@ func get_marshal_duration_frames(base_frames: float, kick_enhance_level: int, ma
 	return max(1.0, speed_base * get_marshal_prep_duration_mult(kick_enhance_level))
 
 
+func get_core_flip_duration_frames(base_frames: float, kick_enhance_level: int) -> float:
+	return max(1.0, base_frames * get_marshal_prep_duration_mult(kick_enhance_level))
+
+
 func get_marshal_hit_speed(
 	current_speed: float,
 	kick_enhance_level: int,
