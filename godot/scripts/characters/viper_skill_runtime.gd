@@ -3840,11 +3840,12 @@ func _update_blade_motion(
 		if ball_vel.y > 0.0:
 			var ball_pos: Vector2 = _get_vector2(config.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
 			var ball_size: float = float(config.get("ball_size", 28.6))
-			var ball_center_y: float = ball_pos.y + ball_size * 0.5
-			var player_center_y: float = blade_motion_pos.y + _get_paddle_size(config).y * 0.5
-			force_dark_blade_autofire = (
-				ball_center_y <= player_center_y
-				and (player_center_y - ball_center_y) <= DARK_BLADE_AUTO_FIRE_NEAR_Y
+			force_dark_blade_autofire = ViperSkillGeometry.blade_dark_auto_fire_near_ball(
+				ball_pos,
+				ball_size,
+				blade_motion_pos,
+				_get_paddle_size(config),
+				DARK_BLADE_AUTO_FIRE_NEAR_Y
 			)
 	if force_dark_blade_autofire:
 		blade_motion_phase = 1

@@ -75,6 +75,18 @@ static func blade_motion_phase_progress(phase_frames: float, duration_frames: fl
 	return min(1.0, phase_frames / max(1.0, duration_frames))
 
 
+static func blade_dark_auto_fire_near_ball(
+	ball_pos: Vector2,
+	ball_size: float,
+	blade_pos: Vector2,
+	paddle_size: Vector2,
+	near_y: float
+) -> bool:
+	var ball_center_y: float = ball_pos.y + ball_size * 0.5
+	var blade_center_y: float = blade_pos.y + paddle_size.y * 0.5
+	return ball_center_y <= blade_center_y and (blade_center_y - ball_center_y) <= near_y
+
+
 static func blade_hit_velocity(
 	ball_vel: Vector2,
 	impact_boost: float,
