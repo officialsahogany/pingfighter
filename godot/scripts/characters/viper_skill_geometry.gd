@@ -531,6 +531,20 @@ static func core_flip_start_motion(origin_center: Vector2, target_center: Vector
 	}
 
 
+static func core_flip_spin_degrees(phase: int, phase_t: float) -> float:
+	var safe_t: float = clamp(phase_t, 0.0, 1.0)
+	match phase:
+		0:
+			return safe_t * 720.0
+		1:
+			return 720.0 + safe_t * 120.0
+		2:
+			return 1440.0 + safe_t * 360.0
+		3:
+			return 1800.0 + (1.0 - pow(1.0 - safe_t, 2.0)) * 90.0
+	return 0.0
+
+
 static func core_flip_wall_climb_center(
 	t1: float,
 	config: Dictionary,
@@ -597,10 +611,9 @@ static func core_flip_kick_motion(apex_center: Vector2, target_center: Vector2, 
 static func core_flip_return_motion(return_start_center: Vector2, origin_center: Vector2, return_t: float) -> Dictionary:
 	var safe_t: float = clamp(return_t, 0.0, 1.0)
 	var ease_t: float = safe_t * safe_t
-	var spin_degrees: float = 1800.0 + (1.0 - pow(1.0 - safe_t, 2.0)) * 90.0
 	return {
 		"center": return_start_center.lerp(origin_center, ease_t),
-		"spin_degrees": spin_degrees,
+		"spin_degrees": core_flip_spin_degrees(3, safe_t),
 	}
 
 

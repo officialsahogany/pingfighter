@@ -1240,7 +1240,7 @@ func _update_core_flip(
 		0:
 			core_flip_web_lines.clear()
 			var t0: float = min(1.0, core_flip_phase_frames / CORE_FLIP_PHASE0_FRAMES)
-			core_flip_spin_angle_degrees = t0 * 720.0
+			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(0, t0)
 			next_pos = _center_to_player_pos(core_flip_origin_center, config)
 			if t0 >= 1.0:
 				_enter_core_flip_phase(1, deps)
@@ -1248,7 +1248,7 @@ func _update_core_flip(
 			core_flip_target_center = _get_ball_pos(config)
 			var phase1_cap: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE1_FRAMES, deps)
 			var t1: float = min(1.0, core_flip_phase_frames / phase1_cap)
-			core_flip_spin_angle_degrees = 720.0 + t1 * 120.0
+			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(1, t1)
 			var center1: Vector2 = _compute_core_flip_wall_climb_center(t1, config, deps)
 			next_pos = _center_to_player_pos(center1, config)
 			var leg_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_LEG_FRAMES, deps)
@@ -1282,7 +1282,7 @@ func _update_core_flip(
 			)
 			var kick_center: Vector2 = _get_vector2(kick_motion.get("center", core_flip_apex_center), core_flip_apex_center)
 			core_flip_kick_dir = int(kick_motion.get("dir", core_flip_kick_dir))
-			core_flip_spin_angle_degrees = 1440.0 + t2 * 360.0
+			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(2, t2)
 			next_pos = _center_to_player_pos(kick_center, config)
 			if not core_flip_ball_hit and kick_center.distance_to(_get_ball_pos(config)) <= CORE_FLIP_HIT_RADIUS:
 				core_flip_ball_hit = true
