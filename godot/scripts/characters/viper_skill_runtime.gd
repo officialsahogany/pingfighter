@@ -1298,28 +1298,20 @@ func _enter_core_flip_phase(next_phase: int, deps: Dictionary) -> void:
 
 
 func _compute_core_flip_wall_climb_center(t1: float, config: Dictionary, deps: Dictionary) -> Vector2:
-	var width: float = float(config.get("width", config.get("play_right", 760.0)))
-	var left_wall_x: float = max(core_flip_paddle_size.x * 0.5, 15.0)
-	var right_wall_x: float = width - max(core_flip_paddle_size.x * 0.5, 15.0)
-	var first_wall_x: float = left_wall_x if core_flip_kick_dir >= 0 else right_wall_x
-	var second_wall_x: float = right_wall_x if core_flip_kick_dir >= 0 else left_wall_x
 	var leg_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_LEG_FRAMES, deps)
-	var cling_frames: float = min(leg_frames - 2.0, _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_CLING_FRAMES, deps))
-	var travel_frames: float = max(2.0, leg_frames - cling_frames)
-	var leg_index: int = max(0, int(floor(core_flip_phase_frames / max(1.0, leg_frames))))
-	var leg_elapsed: float = fmod(core_flip_phase_frames, max(1.0, leg_frames))
-	var prev_x: float = core_flip_origin_center.x if leg_index == 0 else (first_wall_x if (leg_index - 1) % 2 == 0 else second_wall_x)
-	var next_x: float = first_wall_x if leg_index % 2 == 0 else second_wall_x
-	var pos_x: float = next_x
-	var wall_hop: float = 0.0
-	if leg_elapsed < travel_frames:
-		var leg_t: float = leg_elapsed / travel_frames
-		var leg_ease: float = leg_t * leg_t * (3.0 - 2.0 * leg_t)
-		pos_x = lerpf(prev_x, next_x, leg_ease)
-		wall_hop = sin(leg_t * PI) * 18.0
-	var goal_y: float = clamp(core_flip_target_center.y + CORE_FLIP_KICK_TRIGGER_Y * 0.75, 120.0, 650.0)
-	var pos_y: float = lerpf(core_flip_origin_center.y, goal_y, t1) - wall_hop
-	return Vector2(clamp(pos_x, core_flip_paddle_size.x * 0.5, width - core_flip_paddle_size.x * 0.5), clamp(pos_y, core_flip_paddle_size.y * 0.5, float(config.get("height", 750.0)) - core_flip_paddle_size.y * 0.5))
+	var cling_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_CLING_FRAMES, deps)
+	return ViperSkillGeometry.core_flip_wall_climb_center(
+		t1,
+		config,
+		core_flip_paddle_size,
+		core_flip_origin_center,
+		core_flip_target_center,
+		core_flip_kick_dir,
+		core_flip_phase_frames,
+		leg_frames,
+		cling_frames,
+		CORE_FLIP_KICK_TRIGGER_Y
+	)
 
 
 func _get_core_flip_duration_frames(base_frames: float, deps: Dictionary) -> float:

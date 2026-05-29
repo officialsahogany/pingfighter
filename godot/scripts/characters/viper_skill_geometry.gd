@@ -109,6 +109,44 @@ static func core_flip_velocity_to_target(
 	return delta.normalized() * speed
 
 
+static func core_flip_wall_climb_center(
+	t1: float,
+	config: Dictionary,
+	player_paddle_size: Vector2,
+	origin_center: Vector2,
+	target_center: Vector2,
+	kick_dir: int,
+	phase_frames: float,
+	leg_frames: float,
+	cling_frames: float,
+	kick_trigger_y: float
+) -> Vector2:
+	var width: float = float(config.get("width", config.get("play_right", 760.0)))
+	var left_wall_x: float = max(player_paddle_size.x * 0.5, 15.0)
+	var right_wall_x: float = width - max(player_paddle_size.x * 0.5, 15.0)
+	var first_wall_x: float = left_wall_x if kick_dir >= 0 else right_wall_x
+	var second_wall_x: float = right_wall_x if kick_dir >= 0 else left_wall_x
+	var safe_cling_frames: float = min(leg_frames - 2.0, cling_frames)
+	var travel_frames: float = max(2.0, leg_frames - safe_cling_frames)
+	var leg_index: int = max(0, int(floor(phase_frames / max(1.0, leg_frames))))
+	var leg_elapsed: float = fmod(phase_frames, max(1.0, leg_frames))
+	var prev_x: float = origin_center.x if leg_index == 0 else (first_wall_x if (leg_index - 1) % 2 == 0 else second_wall_x)
+	var next_x: float = first_wall_x if leg_index % 2 == 0 else second_wall_x
+	var pos_x: float = next_x
+	var wall_hop: float = 0.0
+	if leg_elapsed < travel_frames:
+		var leg_t: float = leg_elapsed / travel_frames
+		var leg_ease: float = leg_t * leg_t * (3.0 - 2.0 * leg_t)
+		pos_x = lerpf(prev_x, next_x, leg_ease)
+		wall_hop = sin(leg_t * PI) * 18.0
+	var goal_y: float = clamp(target_center.y + kick_trigger_y * 0.75, 120.0, 650.0)
+	var pos_y: float = lerpf(origin_center.y, goal_y, t1) - wall_hop
+	return Vector2(
+		clamp(pos_x, player_paddle_size.x * 0.5, width - player_paddle_size.x * 0.5),
+		clamp(pos_y, player_paddle_size.y * 0.5, float(config.get("height", 750.0)) - player_paddle_size.y * 0.5)
+	)
+
+
 static func aimed_kick_launch_angle(
 	kick_dir: int,
 	ball_pos: Vector2,
