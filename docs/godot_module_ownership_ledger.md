@@ -3664,7 +3664,7 @@ This section is intentionally long; use search to find the nearest owner.
   instead of reintroducing private runtime read bridges.
 - `scripts/characters/viper_skill_geometry.gd`
   Owns shared Viper skill geometry helpers: player / ball / boss center
-  extraction, player-position clamping, blade / ball hit rects, segment-rect
+  extraction, player-position clamping, blade projectile motion, blade / ball hit rects, segment-rect
   intersection, EMP Strike shockwave boss reach / ring-touch tests plus boss
   slip start / motion calculation, Viper kick knockback velocity calculation,
   Nerve Strike dash / return / clone slash motion, Core Flip wall-climb center and bank

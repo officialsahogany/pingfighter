@@ -21,6 +21,28 @@ static func blade_rect(pos: Vector2, width: float, dark_mode: bool, normal_heigh
 	return Rect2(Vector2(pos.x - width * 0.5, pos.y - hit_height), Vector2(width, hit_height))
 
 
+static func blade_projectile_motion(
+	pos: Vector2,
+	ball_pos: Vector2,
+	fps_scale: float,
+	base_speed: float,
+	blade_amp_level: int,
+	dark_mode: bool,
+	allow_homing: bool
+) -> Vector2:
+	var amp_level: int = max(0, blade_amp_level)
+	var next_pos: Vector2 = pos
+	var projectile_speed_mult: float = 1.0 + float(amp_level * 10) / 100.0
+	next_pos.y -= base_speed * projectile_speed_mult * fps_scale
+	if allow_homing:
+		var homing: float = 0.0 if amp_level < 3 else (0.30 if dark_mode else 0.60)
+		if homing > 0.0:
+			var homing_dx: float = ball_pos.x - next_pos.x
+			if abs(homing_dx) > 0.5:
+				next_pos.x += clamp(homing_dx * 0.35 * homing, -18.0 * homing, 18.0 * homing) * fps_scale
+	return next_pos
+
+
 static func ball_rect(scene: Dictionary, context: Dictionary) -> Rect2:
 	var resolved_ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	var ball_size: float = max(1.0, float(context.get("ball_size", scene.get("ball_size", 28.6))))

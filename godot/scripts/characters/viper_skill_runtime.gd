@@ -3907,15 +3907,16 @@ func _update_blade_windows(fps_scale: float, context: Dictionary, deps: Dictiona
 func _advance_blade_projectile(fps_scale: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	var blade_amp_level: int = max(0, _get_blade_amp_level(deps))
-	var projectile_speed_mult: float = 1.0 + float(blade_amp_level * 10) / 100.0
-	blade_projectile_pos.y -= BLADE_PROJECTILE_SPEED * projectile_speed_mult * fps_scale
-	if not blade_projectile_hit_ball and not blade_projectile_fadeout:
-		var homing: float = 0.0 if blade_amp_level < 3 else (0.30 if blade_dark_mode else 0.60)
-		if homing > 0.0:
-			var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
-			var homing_dx: float = ball_pos.x - blade_projectile_pos.x
-			if abs(homing_dx) > 0.5:
-				blade_projectile_pos.x += clamp(homing_dx * 0.35 * homing, -18.0 * homing, 18.0 * homing) * fps_scale
+	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
+	blade_projectile_pos = ViperSkillGeometry.blade_projectile_motion(
+		blade_projectile_pos,
+		ball_pos,
+		fps_scale,
+		BLADE_PROJECTILE_SPEED,
+		blade_amp_level,
+		blade_dark_mode,
+		not blade_projectile_hit_ball and not blade_projectile_fadeout
+	)
 	blade_projectile_trail.append(blade_projectile_pos)
 	while blade_projectile_trail.size() > BLADE_TRAIL_MAX:
 		blade_projectile_trail.pop_front()
@@ -3949,15 +3950,16 @@ func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, co
 		var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 		var dark_mode: bool = bool(projectile.get("dark_mode", false))
 		var blade_amp_level: int = max(0, _get_blade_amp_level(deps))
-		var projectile_speed_mult: float = 1.0 + float(blade_amp_level * 10) / 100.0
-		pos.y -= BLADE_PROJECTILE_SPEED * projectile_speed_mult * fps_scale
-		if not bool(projectile.get("hit_ball", false)) and not bool(projectile.get("fadeout", false)):
-			var homing: float = 0.0 if blade_amp_level < 3 else (0.30 if dark_mode else 0.60)
-			if homing > 0.0:
-				var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
-				var homing_dx: float = ball_pos.x - pos.x
-				if abs(homing_dx) > 0.5:
-					pos.x += clamp(homing_dx * 0.35 * homing, -18.0 * homing, 18.0 * homing) * fps_scale
+		var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
+		pos = ViperSkillGeometry.blade_projectile_motion(
+			pos,
+			ball_pos,
+			fps_scale,
+			BLADE_PROJECTILE_SPEED,
+			blade_amp_level,
+			dark_mode,
+			not bool(projectile.get("hit_ball", false)) and not bool(projectile.get("fadeout", false))
+		)
 		projectile["pos"] = pos
 		var trail: Array = projectile.get("trail", [])
 		trail.append(pos)
