@@ -4831,25 +4831,12 @@ func _set_shadow_curve(frames: float, force: float, curve_dir: int) -> void:
 
 func _compute_shadow_launch_angle(kick_dir: int, context: Dictionary, deps: Dictionary) -> float:
 	var aim_level: int = _get_kick_enhance_level(deps)
-	var bias: float = 0.24 + (1.0 - 0.24) * min(float(aim_level) * 0.09, 0.90)
 	var ball_pos: Vector2 = _get_ball_pos(context)
 	var boss_pos: Vector2 = _get_vector2(
 		context.get("boss_pos", Vector2(float(context.get("width", 760.0)) * 0.5, 25.0)),
 		Vector2(float(context.get("width", 760.0)) * 0.5, 25.0)
 	)
-	var boss_dx: float = boss_pos.x - ball_pos.x
-	var away_dir: int = -1 if boss_dx > 0.0 else (1 if boss_dx < 0.0 else kick_dir)
-	var raw_random: float = randf_range(-55.0, 55.0)
-	var avoidance: float = float(away_dir) * randf_range(25.0, 50.0)
-	var final_angle: float = raw_random * (1.0 - bias) + avoidance * bias
-	var min_angle: float = 15.0
-	if kick_dir > 0 and final_angle < 0.0:
-		final_angle = max(final_angle, -min_angle * 0.5)
-	elif kick_dir < 0 and final_angle > 0.0:
-		final_angle = min(final_angle, min_angle * 0.5)
-	if abs(final_angle) < min_angle:
-		final_angle = min_angle * (1.0 if final_angle >= 0.0 else -1.0)
-	return clamp(final_angle, -60.0, 60.0)
+	return ViperSkillGeometry.aimed_kick_launch_angle(kick_dir, ball_pos, boss_pos, aim_level, 0.24, 15.0)
 
 
 func _get_ball_rect(scene: Dictionary, context: Dictionary) -> Rect2:
@@ -5047,22 +5034,10 @@ func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 func _compute_marshal_launch_angle(kick_dir: int, config: Dictionary, deps: Dictionary) -> float:
 	var aim_level: int = _get_kick_enhance_level(deps)
 	var base_bias: float = 0.8 if marshal_is_double else 0.6
-	var bias: float = base_bias + (1.0 - base_bias) * min(float(aim_level) * 0.09, 0.90)
 	var ball_pos: Vector2 = _get_ball_pos(config)
 	var boss_pos: Vector2 = _get_vector2(config.get("boss_pos", Vector2(float(config.get("width", 760.0)) * 0.5, 25.0)), Vector2.ZERO)
-	var boss_dx: float = boss_pos.x - ball_pos.x
-	var away_dir: int = -1 if boss_dx > 0.0 else (1 if boss_dx < 0.0 else kick_dir)
-	var raw_angle: float = randf_range(-55.0, 55.0)
-	var avoidance: float = float(away_dir) * randf_range(25.0, 50.0)
-	var final_angle: float = raw_angle * (1.0 - bias) + avoidance * bias
 	var min_angle: float = 25.0 if marshal_is_double else 20.0
-	if kick_dir > 0 and final_angle < 0.0:
-		final_angle = max(final_angle, -min_angle * 0.5)
-	elif kick_dir < 0 and final_angle > 0.0:
-		final_angle = min(final_angle, min_angle * 0.5)
-	if abs(final_angle) < min_angle:
-		final_angle = min_angle * (1.0 if final_angle >= 0.0 else -1.0)
-	return clamp(final_angle, -60.0, 60.0)
+	return ViperSkillGeometry.aimed_kick_launch_angle(kick_dir, ball_pos, boss_pos, aim_level, base_bias, min_angle)
 
 
 func _get_marshal_duration_frames(base_frames: float, deps: Dictionary, double_fast: bool = false) -> float:

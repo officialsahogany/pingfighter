@@ -109,6 +109,29 @@ static func core_flip_velocity_to_target(
 	return delta.normalized() * speed
 
 
+static func aimed_kick_launch_angle(
+	kick_dir: int,
+	ball_pos: Vector2,
+	boss_pos: Vector2,
+	aim_level: int,
+	base_bias: float,
+	min_angle: float
+) -> float:
+	var bias: float = base_bias + (1.0 - base_bias) * min(float(aim_level) * 0.09, 0.90)
+	var boss_dx: float = boss_pos.x - ball_pos.x
+	var away_dir: int = -1 if boss_dx > 0.0 else (1 if boss_dx < 0.0 else kick_dir)
+	var raw_angle: float = randf_range(-55.0, 55.0)
+	var avoidance: float = float(away_dir) * randf_range(25.0, 50.0)
+	var final_angle: float = raw_angle * (1.0 - bias) + avoidance * bias
+	if kick_dir > 0 and final_angle < 0.0:
+		final_angle = max(final_angle, -min_angle * 0.5)
+	elif kick_dir < 0 and final_angle > 0.0:
+		final_angle = min(final_angle, min_angle * 0.5)
+	if abs(final_angle) < min_angle:
+		final_angle = min_angle * (1.0 if final_angle >= 0.0 else -1.0)
+	return clamp(final_angle, -60.0, 60.0)
+
+
 static func limit_effective_velocity(velocity: Vector2, impact_boost: float, max_effective_speed: float) -> Vector2:
 	if max_effective_speed <= 0.0:
 		return velocity

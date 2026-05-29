@@ -3662,6 +3662,12 @@ This section is intentionally long; use search to find the nearest owner.
   `viper_skill_snapshot_builder.gd`, and
   `viper_skill_timer_gauge_renderer.gd` should call this owner directly
   instead of reintroducing private runtime read bridges.
+- `scripts/characters/viper_skill_geometry.gd`
+  Owns shared Viper skill geometry helpers: player / ball / boss center
+  extraction, player-position clamping, blade / ball hit rects, segment-rect
+  intersection, Core Flip bank velocity, and the common aimed kick launch
+  angle used by Shadow Step and Marshal Kick. `viper_skill_runtime.gd` keeps
+  skill-state ownership and delegates reusable geometry / launch math here.
 - `scripts/characters/viper_skill_context_builder.gd`
   Owns renderer / ball-collision / boss-AI context dictionaries for Viper
   skill runtime. It reads derived visibility fields through
