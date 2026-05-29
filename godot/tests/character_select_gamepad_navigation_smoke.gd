@@ -1,12 +1,21 @@
 extends SceneTree
 
 const CharacterSelectScreen := preload("res://scripts/ui/character_select_screen.gd")
+const GameSelectionState := preload("res://scripts/core/game_selection_state.gd")
 
 var _failures: Array[String] = []
 
 
 func _init() -> void:
+	var selection_state: Node = GameSelectionState.new()
+	_expect(
+		str(selection_state.get_selection().get("league_mode", "")) == "junior",
+		"GameSelectionState should default new character-select sessions to Junior League"
+	)
+	selection_state.free()
+
 	var screen: Control = CharacterSelectScreen.new()
+	_expect(screen.selected_league_mode == "junior", "character select should default to Junior League")
 	screen.characters = [
 		{"id": "smasher", "unlocked": true},
 		{"id": "soldier", "unlocked": true},

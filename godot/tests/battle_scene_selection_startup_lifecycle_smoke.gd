@@ -53,6 +53,8 @@ class FakeSelectionStartupLifecycle:
 func _init() -> void:
 	_verify_selection_startup_lifecycle_applies_battle_state()
 	_verify_selection_startup_lifecycle_normalizes_fallbacks()
+	_verify_selection_startup_lifecycle_defaults_missing_league_to_junior()
+	_verify_selection_startup_lifecycle_accepts_junior()
 	_verify_selection_startup_lifecycle_accepts_optimus()
 	_verify_startup_controller_delegates_selection_surface()
 
@@ -102,6 +104,35 @@ func _verify_selection_startup_lifecycle_normalizes_fallbacks() -> void:
 	_expect(str(owner.data.get("selected_runtime_character_id", "")) == "soldier", "selection startup should preserve the supported Commando runtime id")
 	_expect(str(owner.data.get("selected_character_type", "")) == "soldier", "selection startup should mirror the Commando runtime type")
 	_expect(str(owner.data.get("ai_mode", "")) == "champion", "selection startup should fall back unknown league mode")
+
+
+func _verify_selection_startup_lifecycle_defaults_missing_league_to_junior() -> void:
+	var lifecycle: Object = BattleSceneSelectionStartupLifecycle.new()
+	var owner := FakeOwner.new()
+	owner.selection_state.selection = {
+		"stage_id": 1,
+		"character_id": "ufo_player",
+		"runtime_character_id": "smasher",
+	}
+
+	lifecycle.apply_selection_state(owner)
+
+	_expect(str(owner.data.get("ai_mode", "")) == "junior", "selection startup should default missing league mode to Junior League")
+
+
+func _verify_selection_startup_lifecycle_accepts_junior() -> void:
+	var lifecycle: Object = BattleSceneSelectionStartupLifecycle.new()
+	var owner := FakeOwner.new()
+	owner.selection_state.selection = {
+		"stage_id": 1,
+		"character_id": "ufo_player",
+		"runtime_character_id": "smasher",
+		"league_mode": "junior league",
+	}
+
+	lifecycle.apply_selection_state(owner)
+
+	_expect(str(owner.data.get("ai_mode", "")) == "junior", "selection startup should preserve junior league")
 
 
 func _verify_selection_startup_lifecycle_accepts_optimus() -> void:

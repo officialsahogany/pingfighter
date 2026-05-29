@@ -8,11 +8,12 @@ const DEFAULT_CHARACTER_NAME := "\uc2a4\ub9e4\uc154"
 const VIPER_RUNTIME_CHARACTER_ID := "viper"
 const COMMANDO_RUNTIME_CHARACTER_ID := "soldier"
 const OPTIMUS_RUNTIME_CHARACTER_ID := "optimus"
+const DEFAULT_LEAGUE_MODE := "junior"
 
 var character_id: String = DEFAULT_CHARACTER_ID
 var runtime_character_id: String = DEFAULT_RUNTIME_CHARACTER_ID
 var character_name: String = DEFAULT_CHARACTER_NAME
-var league_mode: String = "champion"
+var league_mode: String = DEFAULT_LEAGUE_MODE
 var stage_id: int = 1
 var skip_battle_logo_once: bool = false
 
@@ -56,6 +57,8 @@ func get_selection() -> Dictionary:
 
 func _normalize_league_mode(mode: String) -> String:
 	var normalized: String = mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
+	if normalized == "junior" or normalized == "juniorleague":
+		return "junior"
 	if normalized == "mythic" or normalized == "mythicleague":
 		return "mythic"
 	return "champion"

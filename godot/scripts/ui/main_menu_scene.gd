@@ -228,6 +228,9 @@ func _handle_settings_overlay_input(event: InputEvent) -> void:
 func _handle_main_menu_gamepad_input(event: InputEvent) -> bool:
 	if not GamepadInput.is_gamepad_event(event):
 		return false
+	if GamepadInput.should_suppress_right_stick_event(event):
+		_mark_input_as_handled()
+		return true
 	if transitioning or intro_reveal_active:
 		_mark_input_as_handled()
 		return true
@@ -624,6 +627,7 @@ func _setup_start_transition_layer() -> void:
 
 
 func _start_character_select_entry_transition() -> void:
+	_request_skip_battle_logo_once()
 	start_transition_active = true
 	start_transition_elapsed = 0.0
 	_set_menu_buttons_disabled(true)
@@ -635,6 +639,12 @@ func _start_character_select_entry_transition() -> void:
 		start_transition_layer.visible = true
 		start_transition_layer.queue_redraw()
 	_play_start_transition_sound()
+
+
+func _request_skip_battle_logo_once() -> void:
+	var state := get_node_or_null("/root/GameSelectionState")
+	if state != null and state.has_method("request_skip_battle_logo_once"):
+		state.request_skip_battle_logo_once()
 
 
 func _start_background_zoom_tween() -> void:

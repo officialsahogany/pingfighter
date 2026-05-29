@@ -2,10 +2,11 @@ extends RefCounted
 
 const CARD_ROOT := "res://assets/ui/character_cards/"
 const LIVE2D_ROOT := "res://assets/ui/character_live2d/"
+const CHARACTER_SELECT_ORDER := ["ufo_player", "soldier", "viper", "blacksmith", "optimus"]
 
 
 static func get_characters() -> Array:
-	return [
+	var characters: Array = [
 		{
 			"id": "ufo_player",
 			"runtime_id": "smasher",
@@ -14,7 +15,7 @@ static func get_characters() -> Array:
 			"skill_icon_paths": [
 				"res://assets/sprites/skills/smasher_power_smashing_skill_orb.png",
 				"res://assets/sprites/skills/smasher_drive_skill_orb.png",
-				"res://assets/sprites/skills/smasher_ghost_shot_skill_orb.png",
+				"res://assets/sprites/skills/smasher_shield_kiting_skill_orb.png",
 			],
 			"full_body_live2d_path": LIVE2D_ROOT + "smasher_fullbody_hover_idle_loop49_assetanim_v2_realesrgan_animev3_hq1024_frame0_safe.png",
 			"full_body_live2d_sheet_path": LIVE2D_ROOT + "smasher_fullbody_hover_idle_loop49_assetanim_v2_realesrgan_animev3_hq1024_safe.png",
@@ -24,6 +25,8 @@ static func get_characters() -> Array:
 			"full_body_live2d_interval": 0.033,
 			"full_body_live2d_trim_rect": Rect2(203.0, 6.0, 628.0, 1000.0),
 			"full_body_live2d_stage_scale": 0.96,
+			"full_body_live2d_stage_x_scale": 0.90,
+			"full_body_live2d_stage_y_scale": 1.12,
 			"full_body_live2d_stage_x_offset_ratio": 0.0,
 			"full_body_live2d_stage_y_offset_ratio": 0.01,
 			"name": "스매셔",
@@ -495,9 +498,11 @@ static func get_characters() -> Array:
 			"full_body_live2d_count": 49,
 			"full_body_live2d_interval": 0.033,
 			"full_body_live2d_trim_rect": Rect2(40.0, 0.0, 920.0, 1000.0),
-			"full_body_live2d_stage_scale": 0.96,
+			"full_body_live2d_stage_scale": 1.08,
+			"full_body_live2d_stage_x_scale": 0.782,
+			"full_body_live2d_stage_y_scale": 1.20,
 			"full_body_live2d_stage_x_offset_ratio": 0.0,
-			"full_body_live2d_stage_y_offset_ratio": 0.02,
+			"full_body_live2d_stage_y_offset_ratio": 0.015,
 			"name": "발토르",
 			"character_name": "코하쿠",
 			"class_name": "발토르",
@@ -505,7 +510,8 @@ static func get_characters() -> Array:
 			"description": "아담한 체구로 낮게 버티며 화로빛 해머와 토르쉴드로 거리를 잡고 공수를 함께 끌어올린다.",
 			"special": "토르쉴드·포탑 시너지 모듈",
 			"stats": {"속도": 5, "파워": 7, "방어": 5},
-			"unlocked": true,
+			"unlocked": false,
+			"unlock_hint": "해금 후 플레이 가능",
 			"card_color": Color8(190, 137, 76),
 			"glow_color": Color8(235, 180, 95),
 			"portrait_path": CARD_ROOT + "baltor_card_kohaku_moe_hammerbehind_l2d_imagegen_v9_cutout_clean_padded.png",
@@ -738,7 +744,8 @@ static func get_characters() -> Array:
 			"description": "별개 쿨타임의 카드형 스킬을 굴려 위기의 흐름을 뒤집는다.",
 			"special": "스매셔 계열 전용 장비",
 			"stats": {"속도": 5, "파워": 7, "방어": 5},
-			"unlocked": true,
+			"unlocked": false,
+			"unlock_hint": "해금 후 플레이 가능",
 			"card_color": Color8(120, 200, 255),
 			"glow_color": Color8(150, 220, 255),
 			"portrait_path": CARD_ROOT + "optimus_engineer_glasses_manual_fishnet_l2d_samecrop_cutout_v1.png",
@@ -874,9 +881,9 @@ static func get_characters() -> Array:
 			"tagline": "연속 슬래시 어쌔신",
 			"difficulty_stars": 3,
 			"skill_icon_paths": [
-				"res://assets/sprites/skills/viper_dark_blade_skill_orb.png",
+				"res://assets/sprites/skills/viper_shadow_step_skill_orb.png",
 				"res://assets/sprites/skills/viper_marshal_kick_skill_orb.png",
-				"res://assets/sprites/skills/viper_ignition_aura_skill_orb.png",
+				"res://assets/sprites/skills/viper_blade_rush_skill_orb.png",
 			],
 			"full_body_live2d_path": LIVE2D_ROOT + "viper_serin_fullbody_closed_suit_idle_loop49_autosprite_asset_v2_realesrgan_animev3_hq1024_frame0_safe.png",
 			"full_body_live2d_sheet_path": LIVE2D_ROOT + "viper_serin_fullbody_closed_suit_idle_loop49_autosprite_asset_v2_realesrgan_animev3_hq1024_safe.png",
@@ -1073,6 +1080,28 @@ static func get_characters() -> Array:
 			"live2d_layers": _layer_paths("viper"),
 		},
 	]
+	return _ordered_characters(characters)
+
+
+static func _ordered_characters(characters: Array) -> Array:
+	var characters_by_id: Dictionary = {}
+	var ordered: Array = []
+	for character_value in characters:
+		if not (character_value is Dictionary):
+			continue
+		var character: Dictionary = character_value
+		characters_by_id[str(character.get("id", ""))] = character
+	for character_id in CHARACTER_SELECT_ORDER:
+		if characters_by_id.has(character_id):
+			ordered.append(characters_by_id[character_id])
+	for character_value in characters:
+		if not (character_value is Dictionary):
+			ordered.append(character_value)
+			continue
+		var character: Dictionary = character_value
+		if not CHARACTER_SELECT_ORDER.has(str(character.get("id", ""))):
+			ordered.append(character)
+	return ordered
 
 
 static func _layer_paths(character_key: String) -> Dictionary:

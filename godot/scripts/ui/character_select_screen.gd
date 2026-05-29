@@ -10,10 +10,16 @@ const ConfirmFlashOverlay := preload("res://scripts/ui/character_select_confirm_
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
+const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
+const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 
 const CHARACTER_SELECT_BGM_PATH := "res://assets/bgm/character select.wav"
 const BGM_BUS_NAME := "BGM"
 const BGM_TOGGLE_KEY := KEY_B
+const FULL_BODY_LIVE2D_RENA_FLOOR_Y_RATIO := 0.902
+const LOCKED_CHARACTER_FEEDBACK_DURATION := 1.4
+const DEFAULT_LEAGUE_MODE := "junior"
 
 @export var battle_scene_path: String = "res://scenes/main.tscn"
 @export_file("*.tscn") var main_menu_scene_path: String = "res://scenes/main_menu.tscn"
@@ -24,20 +30,25 @@ var visible_indices: Array = []
 var portrait_textures: Dictionary = {}
 var selected_index: int = 0
 var hovered_index: int = -1
+var hovered_skill_index: int = -1
 var hover_lifts: Array = []
 var hover_scales: Array = []
 var card_rects: Dictionary = {}
+var skill_icon_rects: Dictionary = {}
 var skill_icon_textures: Dictionary = {}
+var skill_config_instances: Dictionary = {}
 var full_body_live2d_textures: Dictionary = {}
 var full_body_live2d_still_textures: Dictionary = {}
 var confirm_rect := Rect2()
 var back_rect := Rect2()
+var junior_rect := Rect2()
 var champion_rect := Rect2()
 var mythic_rect := Rect2()
+var language_rect := Rect2()
 var preview_rect_cache := Rect2()
 var animation_time: float = 0.0
 var preview: Control = null
-var selected_league_mode: String = "champion"
+var selected_league_mode: String = DEFAULT_LEAGUE_MODE
 
 var character_select_bgm_player: AudioStreamPlayer = null
 var character_select_bgm_loop_enabled: bool = false
@@ -59,6 +70,7 @@ var confirm_intro_exit_flash_started: bool = false
 var confirm_intro_exit_flash_overlay: Control = null
 var gamepad_menu_horizontal_latch: int = 0
 var gamepad_menu_vertical_latch: int = 0
+var locked_character_feedback_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -95,6 +107,8 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	animation_time += delta
+	if locked_character_feedback_timer > 0.0:
+		locked_character_feedback_timer = maxf(0.0, locked_character_feedback_timer - delta)
 	_update_hover_from_mouse(get_local_mouse_position())
 	_update_hover_animation(delta)
 	_update_preview_layout()
@@ -118,8 +132,17 @@ func _gui_input(event: InputEvent) -> void:
 	if confirm_intro_active:
 		accept_event()
 		return
+	language_rect = _language_button_rect(_resolved_view_size())
+	if language_rect.has_point(pos):
+		_cycle_language()
+		accept_event()
+		return
 	if confirm_rect.has_point(pos):
 		_confirm_selection()
+		accept_event()
+		return
+	if junior_rect.has_point(pos):
+		_select_league_mode("junior")
 		accept_event()
 		return
 	if champion_rect.has_point(pos):
@@ -185,6 +208,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _handle_gamepad_unhandled_input(event: InputEvent) -> void:
+	if GamepadInput.should_suppress_right_stick_event(event):
+		if is_inside_tree() and get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		return
 	if confirm_intro_active:
 		if is_inside_tree() and get_viewport() != null:
 			get_viewport().set_input_as_handled()
@@ -269,6 +296,7 @@ func _draw() -> void:
 	_draw_preview_frame(preview_rect_value)
 	_draw_info_panel(info_rect)
 	_draw_action_bar(view_size)
+	_draw_skill_hover_tooltip(view_size)
 
 
 func _resolved_view_size() -> Vector2:
@@ -283,16 +311,13 @@ func _refresh_visible_indices() -> void:
 	visible_indices.clear()
 	for i in range(characters.size()):
 		var character_value: Variant = characters[i]
-		if character_value is Dictionary and bool(character_value.get("unlocked", false)):
-			visible_indices.append(i)
-	if visible_indices.is_empty():
-		for i in range(characters.size()):
+		if character_value is Dictionary:
 			visible_indices.append(i)
 	if visible_indices.is_empty():
 		selected_index = -1
 		return
-	if not visible_indices.has(selected_index):
-		selected_index = int(visible_indices[0])
+	if not visible_indices.has(selected_index) or not _is_character_unlocked(characters[selected_index]):
+		selected_index = _first_unlocked_visible_index()
 
 
 func _load_selection_state() -> void:
@@ -300,19 +325,36 @@ func _load_selection_state() -> void:
 	if state == null or not state.has_method("get_selection"):
 		return
 	var selection: Dictionary = state.get_selection()
-	selected_league_mode = "mythic" if str(selection.get("league_mode", "champion")) == "mythic" else "champion"
+	selected_league_mode = _normalize_league_mode(str(selection.get("league_mode", DEFAULT_LEAGUE_MODE)))
 	var desired_id := str(selection.get("character_id", ""))
 	var desired_runtime_id := str(selection.get("runtime_character_id", ""))
 	for i in range(characters.size()):
 		var character: Dictionary = characters[i]
-		if str(character.get("id", "")) == desired_id:
+		if str(character.get("id", "")) == desired_id and _is_character_unlocked(character):
 			selected_index = i
 			return
 	for i in range(characters.size()):
 		var character: Dictionary = characters[i]
-		if str(character.get("runtime_id", "")) == desired_runtime_id:
+		if str(character.get("runtime_id", "")) == desired_runtime_id and _is_character_unlocked(character):
 			selected_index = i
 			return
+
+
+func _first_unlocked_visible_index() -> int:
+	for visible_index in visible_indices:
+		var index := int(visible_index)
+		if index < 0 or index >= characters.size():
+			continue
+		var character_value: Variant = characters[index]
+		if character_value is Dictionary:
+			var character: Dictionary = character_value
+			if _is_character_unlocked(character):
+				return index
+	return int(visible_indices[0]) if not visible_indices.is_empty() else -1
+
+
+func _is_character_unlocked(character: Dictionary) -> bool:
+	return bool(character.get("unlocked", false))
 
 
 func _prepare_hover_state() -> void:
@@ -410,8 +452,12 @@ func _ensure_cache_dictionaries() -> void:
 		portrait_textures = {}
 	if card_rects == null:
 		card_rects = {}
+	if skill_icon_rects == null:
+		skill_icon_rects = {}
 	if skill_icon_textures == null:
 		skill_icon_textures = {}
+	if skill_config_instances == null:
+		skill_config_instances = {}
 	if full_body_live2d_textures == null:
 		full_body_live2d_textures = {}
 	if full_body_live2d_still_textures == null:
@@ -465,6 +511,12 @@ func _is_key_pressed(event: InputEvent, keycode: int) -> bool:
 
 func _update_hover_from_mouse(pos: Vector2) -> void:
 	hovered_index = -1
+	hovered_skill_index = -1
+	for icon_idx in skill_icon_rects.keys():
+		var skill_rect: Rect2 = skill_icon_rects[icon_idx]
+		if skill_rect.has_point(pos):
+			hovered_skill_index = int(icon_idx)
+			break
 	for idx in card_rects.keys():
 		var card_rect: Rect2 = card_rects[idx]
 		if card_rect.has_point(pos):
@@ -504,6 +556,9 @@ func _select_index(index: int) -> void:
 	if index < 0 or index >= characters.size() or index == selected_index:
 		return
 	selected_index = index
+	hovered_skill_index = -1
+	skill_icon_rects.clear()
+	locked_character_feedback_timer = 0.0
 	_stop_click_motion_voice()
 	_sync_preview()
 	queue_redraw()
@@ -532,7 +587,8 @@ func _confirm_selection() -> void:
 	if selected_index < 0 or selected_index >= characters.size():
 		return
 	var character: Dictionary = characters[selected_index]
-	if not bool(character.get("unlocked", false)):
+	if not _is_character_unlocked(character):
+		_show_locked_character_feedback()
 		return
 	_store_selection(character)
 	character_confirmed.emit(str(character.get("id", "")), str(character.get("runtime_id", "")))
@@ -540,6 +596,11 @@ func _confirm_selection() -> void:
 		if _try_begin_confirm_intro(character, battle_scene_path):
 			return
 		_change_to_battle_scene(battle_scene_path)
+
+
+func _show_locked_character_feedback() -> void:
+	locked_character_feedback_timer = LOCKED_CHARACTER_FEEDBACK_DURATION
+	queue_redraw()
 
 
 func _go_back() -> void:
@@ -565,11 +626,68 @@ func _store_selection(character: Dictionary) -> void:
 
 
 func _select_league_mode(mode: String) -> void:
-	selected_league_mode = "mythic" if mode == "mythic" else "champion"
+	selected_league_mode = _normalize_league_mode(mode)
 	var state: Node = get_node_or_null("/root/GameSelectionState")
 	if state != null and state.has_method("set_league_mode"):
 		state.set_league_mode(selected_league_mode)
 	queue_redraw()
+
+
+func _cycle_language() -> void:
+	var options := LanguageSettings.get_language_options()
+	if options.is_empty():
+		return
+	var current_language := LanguageSettings.get_language()
+	var current_index := options.find(current_language)
+	var next_index := 0
+	if current_index >= 0:
+		next_index = (current_index + 1) % options.size()
+	_apply_language(str(options[next_index]))
+
+
+func _apply_language(language: String) -> void:
+	var selected_character_id := ""
+	var selected_runtime_id := ""
+	if selected_index >= 0 and selected_index < characters.size():
+		var current_value: Variant = characters[selected_index]
+		if current_value is Dictionary:
+			var current_character: Dictionary = current_value
+			selected_character_id = str(current_character.get("id", ""))
+			selected_runtime_id = str(current_character.get("runtime_id", ""))
+	LanguageSettings.set_language(language)
+	characters = LanguageSettings.localize_character_list(CharacterSelectData.get_characters())
+	_refresh_visible_indices()
+	var restored_index := _find_character_index(selected_character_id, selected_runtime_id)
+	if restored_index >= 0:
+		selected_index = restored_index
+	_prepare_hover_state()
+	hovered_index = -1
+	hovered_skill_index = -1
+	skill_icon_rects.clear()
+	_sync_preview()
+	queue_redraw()
+
+
+func _find_character_index(character_id: String, runtime_character_id: String) -> int:
+	for i in range(characters.size()):
+		var character_value: Variant = characters[i]
+		if not (character_value is Dictionary):
+			continue
+		var character: Dictionary = character_value
+		if character_id != "" and str(character.get("id", "")) == character_id:
+			return i
+		if runtime_character_id != "" and str(character.get("runtime_id", "")) == runtime_character_id:
+			return i
+	return -1
+
+
+func _normalize_league_mode(mode: String) -> String:
+	var normalized: String = mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
+	if normalized == "junior" or normalized == "juniorleague":
+		return "junior"
+	if normalized == "mythic" or normalized == "mythicleague":
+		return "mythic"
+	return "champion"
 
 
 func _try_begin_confirm_intro(character: Dictionary, next_scene_path: String) -> bool:
@@ -908,6 +1026,8 @@ func _draw_card_column(rect: Rect2) -> void:
 	card_rects = _layout_cards(_resolved_view_size())
 	for idx in visible_indices:
 		_draw_character_card(int(idx), card_rects.get(int(idx), Rect2()))
+	language_rect = _language_button_rect(_resolved_view_size())
+	_draw_language_button(language_rect, accent)
 
 
 func _draw_character_card(index: int, rect: Rect2) -> void:
@@ -918,6 +1038,7 @@ func _draw_character_card(index: int, rect: Rect2) -> void:
 	var glow := _character_color(character, "glow_color", accent)
 	var selected := index == selected_index
 	var hovered := index == hovered_index
+	var unlocked := _is_character_unlocked(character)
 	var font := ThemeDB.fallback_font
 	if selected or hovered:
 		draw_rect(rect.grow(8.0), Color(glow.r, glow.g, glow.b, 0.16 if selected else 0.08))
@@ -926,16 +1047,28 @@ func _draw_character_card(index: int, rect: Rect2) -> void:
 	var texture: Texture2D = portrait_textures.get(index, null)
 	if texture != null:
 		var source_rect := _character_card_face_source_rect(texture, image_rect, character)
-		draw_texture_rect_region(texture, image_rect, source_rect, Color(1.0, 1.0, 1.0, 0.96))
+		draw_texture_rect_region(texture, image_rect, source_rect, Color(1.0, 1.0, 1.0, 0.96 if unlocked else 0.36))
 	else:
-		draw_rect(image_rect, Color(accent.r, accent.g, accent.b, 0.22))
+		draw_rect(image_rect, Color(accent.r, accent.g, accent.b, 0.22 if unlocked else 0.08))
+	if not unlocked:
+		_draw_locked_card_overlay(image_rect, accent)
 	draw_rect(Rect2(rect.position.x, rect.end.y - 34.0, rect.size.x, 34.0), Color(0.0, 0.0, 0.0, 0.72))
 	var character_name := str(character.get("character_name", character.get("name", "")))
-	_draw_text_center(font, character_name, Vector2(rect.get_center().x, rect.end.y - 17.0), 15, Color.WHITE)
-	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.92 if selected else 0.36), false, 2.0 if selected else 1.0)
+	_draw_text_center(font, character_name, Vector2(rect.get_center().x, rect.end.y - 17.0), 15, Color.WHITE if unlocked else Color(0.78, 0.82, 0.88, 0.90))
+	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.92 if selected else (0.24 if unlocked else 0.16)), false, 2.0 if selected else 1.0)
 	draw_rect(rect.grow(-5.0), Color(1.0, 1.0, 1.0, 0.10 if selected else 0.06), false, 1.0)
 	if selected:
 		_draw_corner_ticks(rect.grow(6.0), glow, 22.0)
+
+
+func _draw_locked_card_overlay(image_rect: Rect2, accent: Color) -> void:
+	var font := ThemeDB.fallback_font
+	draw_rect(image_rect, Color(0.0, 0.0, 0.0, 0.46))
+	var badge_width: float = min(92.0, max(64.0, image_rect.size.x - 24.0))
+	var badge_rect := Rect2(image_rect.position + Vector2(12.0, 12.0), Vector2(badge_width, 25.0))
+	draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.72))
+	draw_rect(badge_rect, Color(accent.r, accent.g, accent.b, 0.72), false, 1.0)
+	_draw_text_center(font, LanguageSettings.translate_text("해금 필요"), badge_rect.get_center(), 12, Color(0.92, 0.96, 1.0, 0.96))
 
 
 func _draw_preview_frame(rect: Rect2) -> void:
@@ -964,16 +1097,30 @@ func _draw_info_panel(rect: Rect2) -> void:
 	var character_class_name := str(character.get("class_name", character.get("name", "")))
 	var character_name := str(character.get("character_name", character.get("name", "")))
 	var role := str(character.get("role", ""))
+	var unlocked := _is_character_unlocked(character)
 	_draw_text_left(font, role, rect.position + Vector2(26.0, 22.0), 14, Color(accent.r, accent.g, accent.b, 0.94))
 	_draw_text_left(font, character_name, rect.position + Vector2(26.0, 47.0), 31, Color.WHITE)
 	_draw_badge(rect.position + Vector2(96.0, 48.0), character_class_name, accent)
 	_draw_text_left(font, str(character.get("tagline", "")), rect.position + Vector2(26.0, 82.0), 17, Color(0.88, 0.92, 0.97, 0.98))
 	_draw_wrapped_text(font, str(character.get("description", "")), rect.position + Vector2(26.0, 108.0), rect.size.x - 52.0, 14, Color(0.73, 0.82, 0.90, 0.96), 22.0, 2)
 	_draw_difficulty(rect.position + Vector2(26.0, 137.0), int(character.get("difficulty_stars", 1)), accent)
-	_draw_text_left(font, LanguageSettings.translate_text("대표 스킬"), rect.position + Vector2(26.0, 160.0), 13, Color(0.82, 0.88, 0.94, 0.92))
-	_draw_skill_icons(Rect2(rect.position + Vector2(26.0, 186.0), Vector2(rect.size.x - 52.0, 56.0)), selected_index, accent, glow)
+	if unlocked:
+		_draw_text_left(font, LanguageSettings.translate_text("대표 스킬"), rect.position + Vector2(26.0, 160.0), 13, Color(0.82, 0.88, 0.94, 0.92))
+		_draw_skill_icons(Rect2(rect.position + Vector2(26.0, 186.0), Vector2(rect.size.x - 52.0, 56.0)), selected_index, character, accent, glow)
+	else:
+		skill_icon_rects.clear()
+		_draw_locked_info_status(Rect2(rect.position + Vector2(26.0, 160.0), Vector2(rect.size.x - 52.0, 76.0)), character, accent)
 	var full_body_rect := Rect2(rect.position + Vector2(22.0, 252.0), Vector2(rect.size.x - 44.0, max(180.0, rect.size.y - 272.0)))
 	_draw_full_body_live2d_panel(full_body_rect, selected_index, character, accent)
+
+
+func _draw_locked_info_status(rect: Rect2, character: Dictionary, accent: Color) -> void:
+	var font := ThemeDB.fallback_font
+	var hint := str(character.get("unlock_hint", "해금 후 플레이 가능"))
+	draw_rect(rect, Color(0.0, 0.0, 0.0, 0.30))
+	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.38), false, 1.0)
+	_draw_text_left(font, LanguageSettings.translate_text("해금 필요"), rect.position + Vector2(12.0, 10.0), 15, Color(1.0, 0.90, 0.54, 0.98))
+	_draw_text_left(font, LanguageSettings.translate_text(hint), rect.position + Vector2(12.0, 38.0), 13, Color(0.82, 0.88, 0.94, 0.90))
 
 
 func _draw_stats(origin: Vector2, max_width: float, character: Dictionary) -> void:
@@ -1005,13 +1152,19 @@ func _draw_action_bar(view_size: Vector2) -> void:
 	var bottom_y: float = view_size.y - 98.0
 	back_rect = Rect2(_card_column_rect(view_size).position.x + 14.0, bottom_y + 2.0, 106.0, 34.0)
 	var center_x: float = view_size.x * 0.5
-	champion_rect = Rect2(center_x - 145.0, bottom_y + 2.0, 140.0, 34.0)
-	mythic_rect = Rect2(center_x + 2.0, bottom_y + 2.0, 140.0, 34.0)
+	junior_rect = Rect2(center_x - 184.0, bottom_y + 2.0, 118.0, 34.0)
+	champion_rect = Rect2(center_x - 59.0, bottom_y + 2.0, 118.0, 34.0)
+	mythic_rect = Rect2(center_x + 66.0, bottom_y + 2.0, 118.0, 34.0)
 	confirm_rect = Rect2(view_size.x - view_size.x * 0.09 - 214.0, bottom_y - 8.0, 214.0, 50.0)
 	_draw_button(back_rect, LanguageSettings.translate_text("뒤로"), Color(0.55, 0.60, 0.68, 0.58), Color(0.08, 0.09, 0.12, 0.88), false)
+	_draw_league_button(junior_rect, LanguageSettings.translate_text("주니어리그"), "junior", Color(0.38, 0.92, 0.45, 1.0))
 	_draw_league_button(champion_rect, LanguageSettings.translate_text("챔피언리그"), "champion", Color(0.82, 0.30, 1.0, 1.0))
 	_draw_league_button(mythic_rect, LanguageSettings.translate_text("신화리그"), "mythic", Color(1.0, 0.76, 0.26, 1.0))
 	var select_name := str(character.get("character_name", character.get("name", "")))
+	if not character.is_empty() and not _is_character_unlocked(character):
+		var locked_label := "아직 해금되지 않음" if locked_character_feedback_timer > 0.0 else "해금 필요"
+		_draw_button(confirm_rect, LanguageSettings.translate_text(locked_label), Color(0.62, 0.66, 0.74, 0.82), Color(0.055, 0.060, 0.072, 0.94), true)
+		return
 	_draw_button(confirm_rect, LanguageSettings.format_select_label(select_name), glow, Color(accent.r * 0.20, accent.g * 0.24, accent.b * 0.24, 0.94), true)
 
 
@@ -1068,22 +1221,222 @@ func _draw_difficulty(top_left: Vector2, stars: int, accent: Color) -> void:
 		_draw_text_left(font, "★", Vector2(star_x + float(star_index) * 21.0, top_left.y - 1.0), 18, star_color)
 
 
-func _draw_skill_icons(rect: Rect2, character_index: int, accent: Color, glow: Color) -> void:
+func _draw_skill_icons(rect: Rect2, character_index: int, character: Dictionary, accent: Color, glow: Color) -> void:
 	_ensure_cache_dictionaries()
 	var icon_size := 50.0
 	var gap := 12.0
 	var icons_value: Variant = skill_icon_textures.get(character_index, [])
 	var icons: Array = icons_value if icons_value is Array else []
+	var skill_ids := _get_character_skill_preview_ids(character)
+	skill_icon_rects.clear()
 	for icon_index in range(3):
 		var icon_rect := Rect2(rect.position + Vector2(float(icon_index) * (icon_size + gap), 0.0), Vector2(icon_size, icon_size))
-		draw_rect(icon_rect.grow(4.0), Color(glow.r, glow.g, glow.b, 0.12))
+		var has_skill_data := icon_index < skill_ids.size() and str(skill_ids[icon_index]).strip_edges() != ""
+		if has_skill_data:
+			skill_icon_rects[icon_index] = icon_rect
+		var hovered := has_skill_data and icon_index == hovered_skill_index
+		draw_rect(icon_rect.grow(5.0 if hovered else 4.0), Color(glow.r, glow.g, glow.b, 0.22 if hovered else 0.12))
 		draw_rect(icon_rect, Color(0.008, 0.010, 0.016, 0.95))
 		if icon_index < icons.size() and icons[icon_index] is Texture2D:
 			_draw_texture_cover(icons[icon_index], icon_rect.grow(-4.0), Color.WHITE)
 		else:
 			draw_circle(icon_rect.get_center(), 14.0, Color(accent.r, accent.g, accent.b, 0.22))
 			draw_circle(icon_rect.get_center(), 6.0, Color(accent.r, accent.g, accent.b, 0.75))
-		draw_rect(icon_rect, Color(accent.r, accent.g, accent.b, 0.86), false, 1.0)
+		draw_rect(icon_rect, Color(accent.r, accent.g, accent.b, 0.96 if hovered else 0.86), false, 2.0 if hovered else 1.0)
+
+
+func _draw_skill_hover_tooltip(view_size: Vector2) -> void:
+	if hovered_skill_index < 0:
+		return
+	if selected_index < 0 or selected_index >= characters.size():
+		return
+	if not skill_icon_rects.has(hovered_skill_index):
+		return
+	var character: Dictionary = characters[selected_index]
+	var skill_data: Dictionary = _get_skill_preview_data(character, hovered_skill_index)
+	if skill_data.is_empty():
+		return
+	var anchor_rect: Rect2 = skill_icon_rects[hovered_skill_index]
+	var accent := _character_color(character, "card_color", Color(0.0, 0.9, 1.0))
+	var skill_color := _skill_data_color(skill_data, accent)
+	var font := ThemeDB.fallback_font
+	var width: float = min(342.0, max(268.0, view_size.x - 48.0))
+	if view_size.x < 980.0:
+		width = min(326.0, max(236.0, view_size.x - 48.0))
+	var text_width: float = width - 24.0
+	var title := str(skill_data.get("korean", skill_data.get("name", ""))).strip_edges()
+	var meta := _format_skill_meta(skill_data)
+	var use_text := str(skill_data.get("how_to_use", "")).strip_edges()
+	var description := str(skill_data.get("description", "")).strip_edges()
+	var title_lines: Array[String] = _get_wrapped_text_lines(font, title, text_width, 17, 2)
+	var meta_lines: Array[String] = _get_wrapped_text_lines(font, meta, text_width, 12, 1)
+	var use_lines: Array[String] = _get_wrapped_text_lines(font, use_text, text_width, 12, 2)
+	var desc_lines: Array[String] = _get_wrapped_text_lines(font, description, text_width, 13, 5)
+	var height := 22.0 + float(title_lines.size()) * 21.0
+	if not meta_lines.is_empty():
+		height += float(meta_lines.size()) * 16.0 + 2.0
+	if not use_lines.is_empty():
+		height += float(use_lines.size()) * 16.0 + 4.0
+	if not desc_lines.is_empty():
+		height += 8.0 + float(desc_lines.size()) * 18.0
+	height += 10.0
+	var pos := Vector2(anchor_rect.end.x + 14.0, anchor_rect.position.y - 12.0)
+	if pos.x + width > view_size.x - 18.0:
+		pos.x = anchor_rect.position.x - width - 14.0
+	pos.x = clamp(pos.x, 18.0, max(18.0, view_size.x - width - 18.0))
+	pos.y = clamp(pos.y, 18.0, max(18.0, view_size.y - height - 18.0))
+	var tooltip_rect := Rect2(pos, Vector2(width, height))
+	draw_rect(tooltip_rect.grow(7.0), Color(skill_color.r, skill_color.g, skill_color.b, 0.10))
+	draw_rect(tooltip_rect, Color(0.006, 0.009, 0.015, 0.97))
+	draw_rect(tooltip_rect, Color(skill_color.r, skill_color.g, skill_color.b, 0.86), false, 1.5)
+	draw_rect(tooltip_rect.grow(-5.0), Color(1.0, 1.0, 1.0, 0.07), false, 1.0)
+	var y: float = tooltip_rect.position.y + 12.0
+	y = _draw_text_line_block(font, title_lines, Vector2(tooltip_rect.position.x + 12.0, y), 17, Color.WHITE, 21.0)
+	if not meta_lines.is_empty():
+		y += 2.0
+		y = _draw_text_line_block(font, meta_lines, Vector2(tooltip_rect.position.x + 12.0, y), 12, Color(skill_color.r, skill_color.g, skill_color.b, 0.94), 16.0)
+	if not use_lines.is_empty():
+		y += 4.0
+		y = _draw_text_line_block(font, use_lines, Vector2(tooltip_rect.position.x + 12.0, y), 12, Color(0.83, 0.91, 1.0, 0.92), 16.0)
+	if not desc_lines.is_empty():
+		y += 7.0
+		draw_line(Vector2(tooltip_rect.position.x + 12.0, y), Vector2(tooltip_rect.end.x - 12.0, y), Color(skill_color.r, skill_color.g, skill_color.b, 0.26), 1.0)
+		y += 6.0
+		_draw_text_line_block(font, desc_lines, Vector2(tooltip_rect.position.x + 12.0, y), 13, Color(0.84, 0.89, 0.95, 0.96), 18.0)
+
+
+func _get_skill_preview_data(character: Dictionary, icon_index: int) -> Dictionary:
+	var skill_ids := _get_character_skill_preview_ids(character)
+	if icon_index < 0 or icon_index >= skill_ids.size():
+		return {}
+	var skill_id := str(skill_ids[icon_index]).strip_edges()
+	if skill_id == "":
+		return {}
+	var skill_config := _get_skill_config_for_character(character)
+	if skill_config == null or not skill_config.has_method("get_skill_data"):
+		return {}
+	var data_value: Variant = skill_config.get_skill_data(skill_id)
+	if data_value is Dictionary:
+		var skill_data: Dictionary = data_value
+		if not skill_data.is_empty():
+			return skill_data
+	return {}
+
+
+func _get_character_skill_preview_ids(character: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	var configured_ids_value: Variant = character.get("skill_preview_ids", [])
+	if configured_ids_value is Array:
+		for id_value in configured_ids_value:
+			result.append(str(id_value))
+	if not result.is_empty():
+		return result
+	var icon_paths_value: Variant = character.get("skill_icon_paths", [])
+	if icon_paths_value is Array:
+		for path_value in icon_paths_value:
+			result.append(_infer_skill_id_from_icon_path(str(path_value), character))
+	return result
+
+
+func _infer_skill_id_from_icon_path(path: String, character: Dictionary) -> String:
+	var file_name := path
+	var slash_index: int = max(path.rfind("/"), path.rfind("\\"))
+	if slash_index >= 0:
+		file_name = path.substr(slash_index + 1)
+	if file_name.ends_with(".png"):
+		file_name = file_name.substr(0, file_name.length() - 4)
+	if file_name.ends_with("_skill_orb"):
+		file_name = file_name.substr(0, file_name.length() - "_skill_orb".length())
+	var runtime_id := str(character.get("runtime_id", character.get("id", ""))).strip_edges().to_lower()
+	var prefix := "commando" if runtime_id == "soldier" else runtime_id
+	if prefix == "commando" and file_name == "commando_pistol":
+		return "commando_pistol"
+	if prefix != "" and file_name.begins_with("%s_" % prefix):
+		return file_name.substr(prefix.length() + 1)
+	return file_name
+
+
+func _get_skill_config_for_character(character: Dictionary) -> Object:
+	var runtime_id := str(character.get("runtime_id", character.get("id", ""))).strip_edges().to_lower()
+	if runtime_id == "soldier":
+		runtime_id = "commando"
+	match runtime_id:
+		"smasher":
+			if not skill_config_instances.has("smasher"):
+				skill_config_instances["smasher"] = SmasherSkillConfig.new()
+			return skill_config_instances["smasher"]
+		"commando":
+			if not skill_config_instances.has("commando"):
+				skill_config_instances["commando"] = CommandoSkillConfig.new()
+			return skill_config_instances["commando"]
+		"viper":
+			if not skill_config_instances.has("viper"):
+				skill_config_instances["viper"] = ViperSkillConfig.new()
+			return skill_config_instances["viper"]
+	return null
+
+
+func _skill_data_color(skill_data: Dictionary, fallback: Color) -> Color:
+	var value: Variant = skill_data.get("color", fallback)
+	return value if value is Color else fallback
+
+
+func _format_skill_meta(skill_data: Dictionary) -> String:
+	var cost: float = float(skill_data.get("cost", 0.0))
+	var cooldown: float = float(skill_data.get("cooldown", 0.0))
+	if cost > 0.0 and cooldown > 0.0:
+		return LanguageSettings.translate_text("비용 %s  쿨타임 %s초" % [_format_number(cost), _format_number(cooldown)])
+	if cooldown > 0.0:
+		return LanguageSettings.translate_text("쿨타임 %s초" % _format_number(cooldown))
+	if cost > 0.0:
+		return "비용 %s" % _format_number(cost)
+	return ""
+
+
+func _format_number(value: float) -> String:
+	var rounded: float = round(value)
+	if is_equal_approx(value, rounded):
+		return str(int(rounded))
+	var text := "%.1f" % value
+	if text.ends_with(".0"):
+		text = text.substr(0, text.length() - 2)
+	return text
+
+
+func _get_wrapped_text_lines(font: Font, source_text: String, max_width: float, font_size: int, max_lines: int) -> Array[String]:
+	var result: Array[String] = []
+	if source_text.strip_edges() == "" or max_lines <= 0:
+		return result
+	var paragraphs := source_text.split("\n", false)
+	for paragraph_value in paragraphs:
+		var paragraph := str(paragraph_value).strip_edges()
+		if paragraph == "":
+			continue
+		var words := paragraph.split(" ", false)
+		var current_line := ""
+		for word_value in words:
+			var word := str(word_value)
+			var candidate := word if current_line == "" else "%s %s" % [current_line, word]
+			if font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x <= max_width or current_line == "":
+				current_line = candidate
+			else:
+				result.append(current_line)
+				if result.size() >= max_lines:
+					return result
+				current_line = word
+		if current_line != "":
+			result.append(current_line)
+			if result.size() >= max_lines:
+				return result
+	return result
+
+
+func _draw_text_line_block(font: Font, lines: Array[String], top_left: Vector2, font_size: int, color: Color, line_step: float) -> float:
+	var y := top_left.y
+	for line in lines:
+		_draw_text_left(font, line, Vector2(top_left.x, y), font_size, color)
+		y += line_step
+	return y
 
 
 func _draw_full_body_live2d_panel(rect: Rect2, character_index: int, character: Dictionary, accent: Color) -> void:
@@ -1127,14 +1480,49 @@ func _draw_full_body_live2d_sheet(texture: Texture2D, target: Rect2, character: 
 		var trim_rect: Rect2 = trim_value
 		if trim_rect.size.x > 1.0 and trim_rect.size.y > 1.0:
 			source_rect = Rect2(source_rect.position + trim_rect.position, trim_rect.size)
-	var fit_rect := _fit_region_rect(source_rect.size, target)
+	var fit_rect := _build_full_body_live2d_fit_rect(source_rect.size, target, character)
+	draw_texture_rect_region(texture, fit_rect, source_rect, Color.WHITE)
+
+
+func _build_full_body_live2d_fit_rect(source_size: Vector2, target: Rect2, character: Dictionary) -> Rect2:
+	var fit_rect := _fit_region_rect(source_size, target)
 	var stage_scale: float = max(0.40, float(character.get("full_body_live2d_stage_scale", 1.0)))
 	fit_rect = _scale_rect(fit_rect, stage_scale)
+	var stage_x_scale: float = max(0.40, float(character.get("full_body_live2d_stage_x_scale", 1.0)))
+	var stage_y_scale: float = max(0.40, float(character.get("full_body_live2d_stage_y_scale", 1.0)))
+	if abs(stage_x_scale - 1.0) > 0.001 or abs(stage_y_scale - 1.0) > 0.001:
+		fit_rect = _scale_rect_nonuniform(fit_rect, stage_x_scale, stage_y_scale)
 	fit_rect.position += Vector2(
 		target.size.x * float(character.get("full_body_live2d_stage_x_offset_ratio", 0.0)),
 		target.size.y * float(character.get("full_body_live2d_stage_y_offset_ratio", 0.0))
 	)
-	draw_texture_rect_region(texture, fit_rect, source_rect, Color.WHITE)
+	return _align_full_body_live2d_to_floor(fit_rect, target, character)
+
+
+func _align_full_body_live2d_to_floor(rect: Rect2, target: Rect2, character: Dictionary) -> Rect2:
+	if not bool(character.get("full_body_live2d_align_bottom_to_rena_floor", true)):
+		return rect
+	var floor_ratio: float = clamp(
+		float(character.get("full_body_live2d_floor_y_ratio", FULL_BODY_LIVE2D_RENA_FLOOR_Y_RATIO)),
+		0.58,
+		1.05
+	)
+	var floor_offset_ratio: float = float(character.get("full_body_live2d_floor_y_offset_ratio", 0.0))
+	var floor_y: float = target.position.y + target.size.y * (floor_ratio + floor_offset_ratio)
+	rect.position.y += floor_y - rect.end.y
+	if bool(character.get("full_body_live2d_fit_within_floor_panel", true)):
+		rect = _fit_full_body_live2d_within_floor_panel(rect, target, floor_y)
+	return rect
+
+
+func _fit_full_body_live2d_within_floor_panel(rect: Rect2, target: Rect2, floor_y: float) -> Rect2:
+	var available_height: float = max(1.0, floor_y - target.position.y)
+	if rect.position.y >= target.position.y or rect.size.y <= available_height:
+		return rect
+	var scale_factor: float = available_height / rect.size.y
+	var center_x: float = rect.get_center().x
+	var scaled_size := rect.size * scale_factor
+	return Rect2(Vector2(center_x - scaled_size.x * 0.5, floor_y - scaled_size.y), scaled_size)
 
 
 func _draw_texture_contain(texture: Texture2D, target: Rect2, texture_modulate: Color = Color.WHITE) -> void:
@@ -1159,6 +1547,13 @@ func _scale_rect(rect: Rect2, scale_factor: float) -> Rect2:
 	return Rect2(center - scaled_size * 0.5, scaled_size)
 
 
+func _scale_rect_nonuniform(rect: Rect2, x_scale: float, y_scale: float) -> Rect2:
+	var center_x: float = rect.get_center().x
+	var bottom_y: float = rect.end.y
+	var scaled_size := Vector2(rect.size.x * x_scale, rect.size.y * y_scale)
+	return Rect2(Vector2(center_x - scaled_size.x * 0.5, bottom_y - scaled_size.y), scaled_size)
+
+
 func _draw_button(rect: Rect2, label: String, border: Color, fill: Color, prominent: bool) -> void:
 	var font := ThemeDB.fallback_font
 	draw_rect(rect.grow(5.0), Color(border.r, border.g, border.b, 0.10 if prominent else 0.04))
@@ -1175,6 +1570,32 @@ func _draw_league_button(rect: Rect2, label: String, mode: String, border_color:
 	draw_rect(rect, Color(border_color.r, border_color.g, border_color.b, fill_alpha))
 	draw_rect(rect, Color(border_color.r, border_color.g, border_color.b, border_alpha), false, 1.5 if selected else 1.0)
 	_draw_text_center(ThemeDB.fallback_font, label, rect.get_center(), 14, Color(1.0, 1.0, 1.0, 0.96 if selected else 0.70))
+
+
+func _draw_language_button(rect: Rect2, accent: Color) -> void:
+	var hovered := rect.has_point(get_local_mouse_position())
+	var border := Color(accent.r, accent.g, accent.b, 0.88 if hovered else 0.64)
+	var fill := Color(accent.r * 0.16, accent.g * 0.18, accent.b * 0.20, 0.94 if hovered else 0.86)
+	_draw_button(rect, "LANGUAGE  %s" % _language_code_label(LanguageSettings.get_language()), border, fill, false)
+
+
+func _language_code_label(language: String) -> String:
+	match LanguageSettings.normalize_language(language):
+		LanguageSettings.LANGUAGE_KOREAN:
+			return "KO"
+		LanguageSettings.LANGUAGE_ENGLISH:
+			return "EN"
+		LanguageSettings.LANGUAGE_CHINESE:
+			return "ZH"
+		LanguageSettings.LANGUAGE_JAPANESE:
+			return "JA"
+		LanguageSettings.LANGUAGE_SPANISH:
+			return "ES"
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
+			return "PT-BR"
+		LanguageSettings.LANGUAGE_RUSSIAN:
+			return "RU"
+	return language.strip_edges().to_upper()
 
 
 func _draw_wrapped_text(font: Font, source_text: String, top_left: Vector2, max_width: float, font_size: int, color: Color, line_step: float, max_lines: int) -> void:
@@ -1237,6 +1658,14 @@ func _card_column_rect(view_size: Vector2) -> Rect2:
 	var left: float = clamp(view_size.x * 0.085, 86.0, 150.0)
 	var width: float = clamp(view_size.x * 0.114, 178.0, 206.0)
 	return Rect2(left, top, width, view_size.y - top - 84.0)
+
+
+func _language_button_rect(view_size: Vector2) -> Rect2:
+	if view_size.x < 980.0:
+		var mobile_width: float = min(156.0, max(132.0, view_size.x - 68.0))
+		return Rect2(view_size.x - mobile_width - 34.0, 34.0, mobile_width, 32.0)
+	var column := _card_column_rect(view_size)
+	return Rect2(column.position.x + 14.0, column.end.y - 72.0, column.size.x - 28.0, 34.0)
 
 
 func _preview_rect(view_size: Vector2) -> Rect2:

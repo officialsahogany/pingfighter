@@ -1,6 +1,7 @@
 extends RefCounted
 
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const DEFAULT_LEAGUE_MODE := "junior"
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
 
@@ -20,11 +21,13 @@ func apply_selection_state(owner: Object) -> void:
 	owner.set("selected_runtime_character_id", runtime_character_id)
 	owner.set("selected_character_type", runtime_character_id)
 	owner.set("selected_character_name", str(selection.get("character_name", "\uc2a4\ub9e4\uc154")))
-	owner.set("ai_mode", normalize_league_mode(str(selection.get("league_mode", "champion"))))
+	owner.set("ai_mode", normalize_league_mode(str(selection.get("league_mode", DEFAULT_LEAGUE_MODE))))
 
 
 func normalize_league_mode(mode: String) -> String:
 	var normalized: String = mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
+	if normalized == "junior" or normalized == "juniorleague":
+		return "junior"
 	if normalized == "mythic" or normalized == "mythicleague":
 		return "mythic"
 	return "champion"

@@ -85,8 +85,6 @@ func _add_character_select_assets() -> void:
 		if not (character_value is Dictionary):
 			continue
 		var character: Dictionary = character_value
-		if not bool(character.get("unlocked", false)):
-			continue
 		var character_name := str(character.get("character_name", character.get("name", "캐릭터")))
 		_add_job(str(character.get("portrait_path", "")), "Texture2D", _format_asset_label(character_name, "card"))
 		_add_job(str(character.get("live2d_preview_still_path", "")), "Texture2D", _format_asset_label(character_name, "still"))

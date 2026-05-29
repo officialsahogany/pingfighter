@@ -63,6 +63,11 @@ func _run() -> void:
 	_expect(str(baltor.get("class_name", "")) == "발토르", "Baltor select card should keep Baltor as the class name")
 	_expect(str(optimus.get("class_name", "")) == "옵티머스", "Optimus select card should keep Optimus as the class name")
 	_expect(str(viper.get("class_name", "")) == "바이퍼", "Viper select card should keep Viper as the class name")
+	_expect(bool(smasher.get("unlocked", false)), "Smasher should remain playable from a fresh character-select state")
+	_expect(bool(commando.get("unlocked", false)), "Commando should remain playable from a fresh character-select state")
+	_expect(not bool(baltor.get("unlocked", true)), "Kohaku should start locked until explicitly unlocked")
+	_expect(not bool(optimus.get("unlocked", true)), "Io should start locked until explicitly unlocked")
+	_expect(bool(viper.get("unlocked", false)), "Viper should remain playable from a fresh character-select state")
 	var rena_cutline_ratio: float = float(commando.get("live2d_card_cutline_ratio", -1.0))
 	_expect(is_equal_approx(rena_cutline_ratio, 0.79), "Rena should define the shared character-select bottom cutline baseline")
 	_expect(is_equal_approx(float(smasher.get("live2d_card_cutline_ratio", -1.0)), rena_cutline_ratio), "smasher preview bottom cutline should match Rena")
@@ -91,6 +96,8 @@ func _run() -> void:
 	var smasher_full_body_sheet_path := str(smasher.get("full_body_live2d_sheet_path", ""))
 	_expect(not smasher_full_body_path.contains("optimus"), "smasher should not use the optimus full-body panel asset")
 	_expect(not smasher_full_body_sheet_path.contains("optimus"), "smasher should not prewarm or render an optimus full-body sheet")
+	_expect(is_equal_approx(float(smasher.get("full_body_live2d_stage_x_scale", 1.0)), 0.90), "smasher full-body panel should slim the pressed full-body read")
+	_expect(is_equal_approx(float(smasher.get("full_body_live2d_stage_y_scale", 1.0)), 1.12), "smasher full-body panel should stretch vertically to avoid a pressed full-body read")
 	var smasher_texture := load(str(smasher.get("portrait_path", ""))) as Texture2D
 	_expect(smasher_texture != null, "smasher female card asset should load")
 	var smasher_sheet := load(str(smasher.get("live2d_fullframe_sheet_path", ""))) as Texture2D
@@ -349,7 +356,9 @@ func _run() -> void:
 	_expect(is_equal_approx(baltor_full_body_trim.position.y, 0.0), "baltor full-body trim should preserve the new top headroom")
 	_expect(baltor_full_body_trim.size.y >= 1000.0, "baltor full-body trim should preserve the full headroom-safe pose")
 	_expect(baltor_full_body_trim.size.x >= 900.0, "baltor full-body trim should keep the hammer and shield read wide enough")
-	_expect(float(baltor.get("full_body_live2d_stage_scale", 1.0)) <= 0.96, "baltor full-body panel should render Kohaku with the padded headroom-safe trim")
+	_expect(is_equal_approx(float(baltor.get("full_body_live2d_stage_scale", 1.0)), 1.08), "baltor full-body panel should enlarge Kohaku after the wide prop-safe trim")
+	_expect(is_equal_approx(float(baltor.get("full_body_live2d_stage_x_scale", 1.0)), 0.782), "baltor full-body panel should slim the wide prop-safe trim horizontally")
+	_expect(is_equal_approx(float(baltor.get("full_body_live2d_stage_y_scale", 1.0)), 1.20), "baltor full-body panel should stretch Kohaku vertically so the right panel does not look pressed")
 	var baltor_full_body_sheet := load(str(baltor.get("full_body_live2d_sheet_path", ""))) as Texture2D
 	_expect(baltor_full_body_sheet != null, "baltor full-body Live2D sheet should load")
 	if baltor_full_body_sheet != null:
@@ -518,6 +527,7 @@ func _run() -> void:
 	_expect(preview_rect.size.x > info_rect.size.x * 1.55, "character select upper-body preview grid should be much wider than the full-body info grid")
 	_expect(info_rect.size.x <= 510.0, "character select full-body info grid should keep the narrow screenshot-style width")
 	_expect(preview_rect.end.x <= info_rect.position.x - 18.0, "character select preview and info grids should keep a clean gap")
+	_expect_full_body_floor_matches_rena(screen, info_rect)
 	var preview_node: Control = screen.get_node_or_null("LivePreview")
 	_expect(preview_node != null and preview_node.clip_contents, "card-style character preview should clip inside its frame")
 	_expect_click_motion_voice(screen, smasher, "smasher", "voice/smasherselect.mp3", 0.78, -6.0)
@@ -530,9 +540,15 @@ func _run() -> void:
 	_expect_click_motion_voice(screen, commando, "commando", "voice/commandoselect.mp3", 0.25, -5.0)
 	var baltor_index: int = _find_character_index(screen.characters, "blacksmith")
 	_expect(baltor_index >= 0, "character select screen should expose the baltor card")
+	_expect(screen.visible_indices.has(baltor_index), "locked Kohaku should stay visible in character select")
 	_expect_face_card_crop(screen, baltor_index, "baltor")
 	_expect(screen.full_body_live2d_textures.has(baltor_index), "baltor right panel should preload the full-body Live2D sheet")
 	screen._select_index(baltor_index)
+	var before_locked_confirm: Dictionary = state.get_selection()
+	screen._confirm_selection()
+	var after_locked_confirm: Dictionary = state.get_selection()
+	_expect(str(after_locked_confirm.get("character_id", "")) == str(before_locked_confirm.get("character_id", "")), "locked Kohaku confirm should not store Kohaku as the selected playable character")
+	_expect(float(screen.get("locked_character_feedback_timer")) > 0.0, "locked Kohaku confirm should arm the visible unlock-required feedback")
 	if preview_node != null:
 		var baltor_one_shot_config := _confirm_intro_config(screen.characters[baltor_index])
 		_expect(bool(preview_node.call("play_fullframe_one_shot", baltor_one_shot_config)), "baltor confirm intro should play through the Live2D preview one-shot path")
@@ -547,6 +563,9 @@ func _run() -> void:
 		_expect(baltor_stage_offset_value is Vector2 and is_zero_approx(float(baltor_stage_offset_value.y)), "baltor confirm intro should keep zero extra runtime y offset")
 		_expect(is_equal_approx(float(preview_node.get("one_shot_stage_scale")), 1.0), "baltor confirm intro should inherit the idle runtime scale")
 		_expect(bool(preview_node.get("one_shot_align_bottom_to_cutline")), "baltor confirm intro should pass bottom cutline alignment into the one-shot preview")
+	var optimus_index: int = _find_character_index(screen.characters, "optimus")
+	_expect(optimus_index >= 0, "character select screen should expose the optimus card")
+	_expect(screen.visible_indices.has(optimus_index), "locked Io should stay visible in character select")
 	var viper_index: int = _find_character_index(screen.characters, "viper")
 	_expect(viper_index >= 0, "character select screen should expose the viper card")
 	_expect_face_card_crop(screen, viper_index, "viper")
@@ -731,6 +750,52 @@ func _expect_face_card_crop(screen: Control, character_index: int, label: String
 	_expect(source.size.y <= texture_size.y * 0.46, "%s left card should crop to a face portrait instead of the full body image" % label)
 	_expect(source.position.y <= texture_size.y * 0.36, "%s left card face crop should stay near the upper portrait" % label)
 	_expect(source.end.y <= texture_size.y * 0.66, "%s left card face crop should avoid lower-body framing" % label)
+
+
+func _expect_full_body_floor_matches_rena(screen: Control, info_rect: Rect2) -> void:
+	var full_body_rect := Rect2(
+		info_rect.position + Vector2(22.0, 252.0),
+		Vector2(info_rect.size.x - 44.0, max(180.0, info_rect.size.y - 272.0))
+	)
+	var target := full_body_rect.grow(-10.0)
+	var reference_bottom := -1.0
+	for character_value in screen.characters:
+		if not (character_value is Dictionary):
+			continue
+		var character: Dictionary = character_value
+		if str(character.get("id", "")) != "soldier":
+			continue
+		reference_bottom = _full_body_draw_bottom(screen, target, character)
+		break
+	_expect(reference_bottom > 0.0, "Rena full-body panel should provide the shared floor baseline")
+	if reference_bottom <= 0.0:
+		return
+	for character_value in screen.characters:
+		if not (character_value is Dictionary):
+			continue
+		var character: Dictionary = character_value
+		var draw_rect: Rect2 = _full_body_draw_rect(screen, target, character)
+		var draw_bottom := draw_rect.end.y
+		if draw_bottom <= 0.0:
+			continue
+		var display_name := str(character.get("character_name", character.get("name", "")))
+		_expect(abs(draw_bottom - reference_bottom) <= 0.05, "%s full-body foot baseline should match Rena" % display_name)
+		_expect(draw_rect.position.y >= target.position.y - 0.05, "%s full-body art should stay inside the top of the right panel after floor alignment" % display_name)
+
+
+func _full_body_draw_bottom(screen: Control, target: Rect2, character: Dictionary) -> float:
+	var draw_rect := _full_body_draw_rect(screen, target, character)
+	return draw_rect.end.y
+
+
+func _full_body_draw_rect(screen: Control, target: Rect2, character: Dictionary) -> Rect2:
+	var trim_value: Variant = character.get("full_body_live2d_trim_rect", Rect2())
+	if not (trim_value is Rect2):
+		return Rect2()
+	var trim: Rect2 = trim_value
+	if trim.size.x <= 1.0 or trim.size.y <= 1.0:
+		return Rect2()
+	return screen._build_full_body_live2d_fit_rect(trim.size, target, character)
 
 
 func _expect_click_motion_voice(screen: Control, character: Dictionary, label: String, expected_suffix: String, expected_delay: float, expected_volume: float) -> void:

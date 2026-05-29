@@ -235,10 +235,18 @@ func _run() -> void:
 		_send_b_to_menu()
 		await process_frame
 		_expect(not bgm_player.playing, "B key should keep main-menu BGM muted before scene change")
+	var selection_state := get_root().get_node_or_null("GameSelectionState")
+	if selection_state != null and "skip_battle_logo_once" in selection_state:
+		selection_state.set("skip_battle_logo_once", false)
 	_send_gamepad_start_to_menu()
 	await process_frame
 	_expect(bool(menu.get("transitioning")), "start should lock the main menu while the entry animation plays")
 	_expect(current_scene == menu, "start should wait for the entry animation before changing scenes")
+	if selection_state != null and "skip_battle_logo_once" in selection_state:
+		_expect(
+			bool(selection_state.get("skip_battle_logo_once")),
+			"main menu start should request one battle-logo skip after an exhibition reset clears the flag"
+		)
 	var transition_layer := menu.get_node_or_null("StartTransitionLayer") as Control
 	_expect(transition_layer != null and transition_layer.visible, "start should show the one-second entry transition layer")
 	var start_sfx_player := menu.get("start_transition_sfx_player") as AudioStreamPlayer
