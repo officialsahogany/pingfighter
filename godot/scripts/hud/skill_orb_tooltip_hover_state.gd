@@ -16,11 +16,19 @@ var _cached_stage := 0
 var _cached_character_type := ""
 var _cached_result: Dictionary = {}
 var _cached_msec := -1000000
+var _gamepad_selected_character_type := ""
+var _gamepad_selected_stage := 0
+var _gamepad_selected_skill_name := ""
+var _gamepad_selected_skill_index := -1
 
 
 func update_hover_state(owner: Object, registry: Object) -> Dictionary:
 	if owner == null:
 		return {}
+
+	var gamepad_result: Dictionary = _get_gamepad_selection_result(owner, registry)
+	if not gamepad_result.is_empty():
+		return gamepad_result
 
 	var view_size: Vector2 = _get_owner_view_size(owner)
 	if view_size == Vector2.ZERO:
@@ -56,6 +64,43 @@ func update_hover_state(owner: Object, registry: Object) -> Dictionary:
 		result = _find_hovered_commando_firearm_fast(registry, mouse_pos, view_size, layout, scene_config)
 	_store_cached_result(owner, mouse_pos, view_size, result)
 	return result
+
+
+func cycle_gamepad_tooltip(owner: Object, registry: Object) -> Dictionary:
+	if owner == null:
+		clear_gamepad_tooltip_selection()
+		return {"handled": false, "active": false}
+	var selectable_skills: Array = _get_gamepad_selectable_skills(owner, registry)
+	if selectable_skills.is_empty():
+		clear_gamepad_tooltip_selection()
+		return {"handled": false, "active": false}
+
+	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
+	var stage: int = int(_get_owner_value(owner, "current_stage", 1))
+	var current_index := -1
+	if _gamepad_selected_character_type == character_type and _gamepad_selected_stage == stage:
+		for i in range(selectable_skills.size()):
+			if str(_get_dict(selectable_skills[i]).get("skill_name", "")) == _gamepad_selected_skill_name:
+				current_index = i
+				break
+
+	if current_index < 0:
+		return _set_gamepad_tooltip_selection(character_type, stage, 0, selectable_skills)
+	if current_index + 1 >= selectable_skills.size():
+		clear_gamepad_tooltip_selection()
+		return {"handled": true, "active": false}
+	return _set_gamepad_tooltip_selection(character_type, stage, current_index + 1, selectable_skills)
+
+
+func clear_gamepad_tooltip_selection() -> void:
+	_gamepad_selected_character_type = ""
+	_gamepad_selected_stage = 0
+	_gamepad_selected_skill_name = ""
+	_gamepad_selected_skill_index = -1
+
+
+func get_gamepad_selected_skill_name() -> String:
+	return _gamepad_selected_skill_name
 
 
 func _find_hovered_skill_fast(
@@ -104,6 +149,98 @@ func _find_hovered_skill_fast(
 		if rect.has_point(mouse_pos):
 			return {"skill_name": skill_name}
 	return {}
+
+
+func _get_gamepad_selection_result(owner: Object, registry: Object) -> Dictionary:
+	if _gamepad_selected_skill_name == "":
+		return {}
+	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
+	var stage: int = int(_get_owner_value(owner, "current_stage", 1))
+	if character_type != _gamepad_selected_character_type or stage != _gamepad_selected_stage:
+		clear_gamepad_tooltip_selection()
+		return {}
+	for entry_value in _get_gamepad_selectable_skills(owner, registry):
+		var entry: Dictionary = _get_dict(entry_value)
+		if str(entry.get("skill_name", "")) == _gamepad_selected_skill_name:
+			return {
+				"skill_name": _gamepad_selected_skill_name,
+				"gamepad_selected": true,
+			}
+	clear_gamepad_tooltip_selection()
+	return {}
+
+
+func _set_gamepad_tooltip_selection(
+	character_type: String,
+	stage: int,
+	index: int,
+	selectable_skills: Array
+) -> Dictionary:
+	if index < 0 or index >= selectable_skills.size():
+		clear_gamepad_tooltip_selection()
+		return {"handled": true, "active": false}
+	var entry: Dictionary = _get_dict(selectable_skills[index])
+	var skill_name: String = str(entry.get("skill_name", ""))
+	if skill_name == "":
+		clear_gamepad_tooltip_selection()
+		return {"handled": false, "active": false}
+	_gamepad_selected_character_type = character_type
+	_gamepad_selected_stage = stage
+	_gamepad_selected_skill_name = skill_name
+	_gamepad_selected_skill_index = index
+	return {
+		"handled": true,
+		"active": true,
+		"skill_name": skill_name,
+		"gamepad_selected": true,
+	}
+
+
+func _get_gamepad_selectable_skills(owner: Object, registry: Object) -> Array:
+	var horn_skills: Array = _get_horn_strawberry_gamepad_skills(registry)
+	if not horn_skills.is_empty():
+		return horn_skills
+	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
+	var skill_config: Object = _get_instance(registry, character_runtime.get_skill_config_key(character_type))
+	if skill_config == null or not skill_config.has_method("get_snapshot"):
+		return []
+	var snapshot: Dictionary = _get_dict(skill_config.get_snapshot())
+	var equipped_skills: Array = _get_array(snapshot.get("equipped_skills", []))
+	var skill_data_map: Dictionary = _get_dict(snapshot.get("skill_data", {}))
+	if equipped_skills.is_empty() or skill_data_map.is_empty():
+		return []
+	var result: Array = []
+	for skill_value in equipped_skills:
+		var skill_name: String = str(skill_value)
+		if skill_name == "" or not skill_data_map.has(skill_name):
+			continue
+		result.append({"skill_name": skill_name})
+	return result
+
+
+func _get_horn_strawberry_gamepad_skills(registry: Object) -> Array:
+	var mythic_item_runtime: Object = _get_cached_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("get_horn_strawberry_context"):
+		return []
+	var horn_context: Dictionary = _get_dict(mythic_item_runtime.get_horn_strawberry_context())
+	if not bool(horn_context.get("transformed", false)):
+		return []
+	var horn_renderer: Object = _get_cached_instance(registry, "horn_strawberry_skill_pillar_renderer")
+	if (
+		horn_renderer == null
+		or not horn_renderer.has_method("get_skill_order")
+		or not horn_renderer.has_method("get_skill_data_map")
+	):
+		return []
+	var order: Array = _get_array(horn_renderer.get_skill_order())
+	var data_map: Dictionary = _get_dict(horn_renderer.get_skill_data_map())
+	var result: Array = []
+	for skill_value in order:
+		var skill_name: String = str(skill_value)
+		if skill_name == "" or not data_map.has(skill_name):
+			continue
+		result.append({"skill_name": skill_name})
+	return result
 
 
 func _find_hovered_horn_strawberry_skill_fast(

@@ -105,17 +105,19 @@ func _verify_gamepad_switches_and_reset_for_commando() -> void:
 	var reader: Object = CommandoInputReader.new()
 	var owner := FakeOwner.new()
 
-	_expect(bool(reader.handle_weapon_switch_event(_axis_event(JOY_AXIS_RIGHT_Y, 0.85), owner, registry)), "right-stick down should cycle Commando firearms forward")
-	_expect(str(controller.get_snapshot().get("current_weapon_id", "")) == "net_gun", "right-stick down should select the next firearm")
-	_expect(audio.weapon_change_calls == 1, "right-stick cycle should play weapon.wav")
-	_expect(bool(reader.handle_weapon_switch_event(_axis_event(JOY_AXIS_RIGHT_Y, -0.85), owner, registry)), "right-stick up should cycle Commando firearms backward")
-	_expect(str(controller.get_snapshot().get("current_weapon_id", "")) == "pistol", "right-stick up should select the previous firearm")
-	_expect(audio.weapon_change_calls == 2, "right-stick reverse cycle should play weapon.wav")
+	_expect(bool(reader.handle_weapon_switch_event(_button_event(JOY_BUTTON_LEFT_STICK), owner, registry)), "L3 should cycle Commando firearms forward")
+	_expect(str(controller.get_snapshot().get("current_weapon_id", "")) == "net_gun", "L3 should select the next firearm")
+	_expect(audio.weapon_change_calls == 1, "L3 cycle should play weapon.wav")
+	_expect(bool(reader.handle_weapon_switch_event(_button_event(JOY_BUTTON_LEFT_STICK), owner, registry)), "L3 should keep cycling Commando firearms forward")
+	_expect(str(controller.get_snapshot().get("current_weapon_id", "")) == "ak47", "second L3 press should select the next firearm")
+	_expect(audio.weapon_change_calls == 2, "second L3 cycle should play weapon.wav")
 
 	controller.set_current_weapon("ak47")
-	_expect(bool(reader.handle_weapon_switch_event(_button_event(JOY_BUTTON_RIGHT_STICK), owner, registry)), "right-stick click should reset Commando firearm selection")
-	_expect(str(controller.get_snapshot().get("current_weapon_id", "")) == "pistol", "right-stick click should return to the base pistol")
-	_expect(audio.weapon_change_calls == 3, "right-stick reset should play weapon.wav only on a real change")
+	_expect(not bool(reader.handle_weapon_switch_event(_axis_event(JOY_AXIS_RIGHT_Y, 0.85), owner, registry)), "right-stick down should be ignored for Commando firearms")
+	_expect(str(controller.get_snapshot().get("current_weapon_id", "")) == "ak47", "right-stick motion should not change firearms")
+	_expect(not bool(reader.handle_weapon_switch_event(_button_event(JOY_BUTTON_RIGHT_STICK), owner, registry)), "right-stick click should be ignored for Commando firearms")
+	_expect(str(controller.get_snapshot().get("current_weapon_id", "")) == "ak47", "right-stick click should not reset firearms")
+	_expect(audio.weapon_change_calls == 2, "ignored right-stick input should not play weapon.wav")
 
 
 func _verify_gamepad_supply_hold_snapshot() -> void:

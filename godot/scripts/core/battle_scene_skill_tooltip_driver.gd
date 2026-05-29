@@ -24,7 +24,24 @@ func queue_tooltip_overlay_redraw(owner: Object, registry: Object) -> void:
 		overlay_host.queue_redraw(owner, registry)
 
 
+func cycle_gamepad_tooltip(owner: Object, registry: Object) -> bool:
+	var hover_state: Object = _get_instance(registry, "skill_orb_tooltip_hover_state")
+	if hover_state == null or not hover_state.has_method("cycle_gamepad_tooltip"):
+		return false
+	var result: Dictionary = hover_state.cycle_gamepad_tooltip(owner, registry)
+	if not bool(result.get("handled", false)):
+		return false
+	if bool(result.get("active", false)):
+		queue_tooltip_overlay_redraw(owner, registry)
+	else:
+		hide_tooltip_overlay(registry)
+	return true
+
+
 func hide_tooltip_overlay(registry: Object) -> void:
+	var hover_state: Object = _get_instance(registry, "skill_orb_tooltip_hover_state")
+	if hover_state != null and hover_state.has_method("clear_gamepad_tooltip_selection"):
+		hover_state.clear_gamepad_tooltip_selection()
 	var overlay_host: Object = _get_instance(registry, "skill_orb_tooltip_overlay_host")
 	if overlay_host != null and overlay_host.has_method("hide"):
 		overlay_host.hide()

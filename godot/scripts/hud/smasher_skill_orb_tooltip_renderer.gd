@@ -26,7 +26,7 @@ const CONTROL_ROWS := {
 		[["mouse_left", ""], ["accent", "더블클릭"], ["dim", "또는"], ["key", "SPACE"], ["accent", "더블탭"], ["text", "발동"]],
 	],
 	"drive": [
-		[["key", "A"], ["slash", "/"], ["key", "D"], ["plus", "+"], ["mouse_left", ""], ["accent", "발동"]],
+		[["key", "A"], ["slash", "/"], ["key", "D"], ["plus", "+"], ["mouse_left", ""], ["accent", "동시에 누르기"]],
 	],
 	"power_smashing": [
 		[["key", "A"], ["slash", "/"], ["key", "D"], ["plus", "+"], ["mouse_left", ""], ["accent", "홀드 발동"]],
@@ -165,6 +165,21 @@ func update_hover_state(canvas: CanvasItem, registry: Object, view_size: Vector2
 	var hover_context: Dictionary = _build_hover_context(canvas, registry, view_size, layout, scene_context)
 	if hover_context.is_empty():
 		return {}
+
+	var gamepad_skill_name: String = _get_gamepad_selected_skill_name(registry)
+	if gamepad_skill_name != "":
+		var selected_skill_data: Dictionary = _find_skill_by_name(hover_context, gamepad_skill_name)
+		if not selected_skill_data.is_empty():
+			var selected_rect: Rect2 = _get_rect2(selected_skill_data.get("slot_rect", Rect2()), Rect2())
+			if selected_rect.size != Vector2.ZERO:
+				hover_context["mouse_pos"] = selected_rect.position + selected_rect.size * 0.5
+			tooltip_hover_active = true
+			tooltip_hover_skill_name = str(selected_skill_data.get("name", gamepad_skill_name))
+			return {
+				"hover_type": "skill_orb",
+				"hover_context": hover_context,
+				"skill_data": selected_skill_data,
+			}
 
 	var skill_data: Dictionary = _find_hovered_skill(hover_context)
 	if skill_data.is_empty():
@@ -321,6 +336,85 @@ func _find_hovered_skill(hover_context: Dictionary) -> Dictionary:
 	return {}
 
 
+func _find_skill_by_name(hover_context: Dictionary, target_skill_name: String) -> Dictionary:
+	if target_skill_name == "":
+		return {}
+	if bool(hover_context.get("horn_strawberry_active", false)):
+		return _find_horn_strawberry_skill_by_name(hover_context, target_skill_name)
+	var snapshot: Dictionary = _get_dictionary(hover_context.get("skill_config_snapshot", {}))
+	var equipped_skills: Array = _get_array(snapshot.get("equipped_skills", []))
+	var skill_data_map: Dictionary = _get_dictionary(snapshot.get("skill_data", {}))
+	if equipped_skills.is_empty() or not skill_data_map.has(target_skill_name):
+		return {}
+	var skill_context: Dictionary = _get_dictionary(hover_context.get("skill_context", {}))
+	var scale_factor: float = float(hover_context.get("scale_factor", 1.0))
+	var orb_renderer: Object = hover_context.get("orb_renderer", null)
+	if orb_renderer == null or not orb_renderer.has_method("get_slot_positions"):
+		return {}
+	var positions: Array = orb_renderer.get_slot_positions(
+		_get_vector2(hover_context, "left_center", Vector2.ZERO),
+		float(hover_context.get("orb_radius", 55.0)),
+		scale_factor,
+		skill_context
+	)
+	var icon_radius: float = float(skill_context.get("skill_orb_radius", 24.0)) * scale_factor
+	var equipped_count: int = min(equipped_skills.size(), positions.size())
+	for i in range(equipped_count):
+		var skill_name: String = str(equipped_skills[i])
+		if skill_name != target_skill_name:
+			continue
+		var slot_center: Vector2 = _get_vector2_from_variant(positions[i], Vector2.ZERO)
+		var rect := Rect2(
+			slot_center - Vector2(icon_radius, icon_radius),
+			Vector2(icon_radius * 2.0, icon_radius * 2.0)
+		)
+		var data: Dictionary = _get_dictionary(skill_data_map.get(skill_name, {})).duplicate(true)
+		data["slot_rect"] = rect
+		return data
+	return {}
+
+
+func _find_horn_strawberry_skill_by_name(hover_context: Dictionary, target_skill_name: String) -> Dictionary:
+	var horn_renderer: Object = hover_context.get("horn_strawberry_skill_pillar_renderer", null)
+	if (
+		horn_renderer == null
+		or not horn_renderer.has_method("get_skill_order")
+		or not horn_renderer.has_method("get_skill_data_map")
+		or not horn_renderer.has_method("get_slot_positions")
+	):
+		return {}
+	var data_map: Dictionary = _get_dictionary(horn_renderer.get_skill_data_map())
+	if not data_map.has(target_skill_name):
+		return {}
+	var order: Array = _get_array(horn_renderer.get_skill_order())
+	var target_index := -1
+	for i in range(order.size()):
+		if str(order[i]) == target_skill_name:
+			target_index = i
+			break
+	if target_index < 0:
+		return {}
+	var skill_context: Dictionary = _get_dictionary(hover_context.get("skill_context", {}))
+	var scale_factor: float = float(hover_context.get("scale_factor", 1.0))
+	var positions: Array = horn_renderer.get_slot_positions(
+		_get_vector2(hover_context, "left_center", Vector2.ZERO),
+		float(hover_context.get("orb_radius", 55.0)),
+		scale_factor,
+		skill_context
+	)
+	if target_index >= positions.size():
+		return {}
+	var icon_radius: float = float(skill_context.get("skill_orb_radius", 24.0)) * scale_factor
+	var slot_center: Vector2 = _get_vector2_from_variant(positions[target_index], Vector2.ZERO)
+	var rect := Rect2(
+		slot_center - Vector2(icon_radius, icon_radius),
+		Vector2(icon_radius * 2.0, icon_radius * 2.0)
+	)
+	var data: Dictionary = _get_dictionary(data_map.get(target_skill_name, {})).duplicate(true)
+	data["slot_rect"] = rect
+	return data
+
+
 func _find_hovered_commando_firearm(hover_context: Dictionary) -> Dictionary:
 	if bool(hover_context.get("horn_strawberry_active", false)):
 		return {}
@@ -392,7 +486,13 @@ func _draw_tooltip(canvas: CanvasItem, hover_context: Dictionary, skill_data: Di
 	var small_size: int = max(9, int(round(10.0 * scale_factor)))
 	var max_text_width: float = tooltip_width - padding * 2.0
 	var description_text: String = _build_description_with_runtime_bonus(skill_data, hover_context)
-	var desc_lines: Array[String] = _wrap_text(description_text, font, normal_size, max_text_width, 5)
+	var desc_lines: Array[String] = _wrap_text(
+		description_text,
+		font,
+		normal_size,
+		max_text_width,
+		_get_description_max_lines(skill_data, hover_context)
+	)
 	var control_rows: Array = _build_control_rows(
 		str(skill_data.get("name", "")),
 		str(hover_context.get("selected_character_type", "smasher")),
@@ -551,6 +651,19 @@ func _build_description_with_runtime_bonus(skill_data: Dictionary, hover_context
 	if homing_pct > 0 or followup_pct > 0:
 		lines.append(_format_blade_amp_lv3_line(homing_pct, followup_pct))
 	return "%s\n%s" % [description, "\n".join(lines)]
+
+
+func _get_description_max_lines(skill_data: Dictionary, hover_context: Dictionary) -> int:
+	var skill_name: String = str(skill_data.get("name", ""))
+	if skill_name in ["blade_rush", "dark_blade"] and _get_runtime_skill_level(hover_context, "blade_amp") > 0:
+		return 7
+	if skill_name in ["shadow_step", "marshal_kick", "phantom_kick", "core_flip"] and _get_runtime_skill_level(hover_context, "kick_enhance") > 0:
+		return 7
+	if skill_name in ["dive_strike", "chaos_spear", "dual_glitch", "nerve_strike"] and _get_runtime_skill_level(hover_context, "four_poisons") > 0:
+		return 7
+	if skill_name == "ignition_aura":
+		return 6
+	return 5
 
 
 func _append_viper_kick_runtime_bonus(description: String, hover_context: Dictionary, skill_name: String) -> String:
@@ -1096,8 +1209,21 @@ func _get_instance(registry: Object, key: String) -> Object:
 	return registry.get_instance(key)
 
 
+func _get_gamepad_selected_skill_name(registry: Object) -> String:
+	var hover_state: Object = _get_instance(registry, "skill_orb_tooltip_hover_state")
+	if hover_state == null or not hover_state.has_method("get_gamepad_selected_skill_name"):
+		return ""
+	return str(hover_state.get_gamepad_selected_skill_name())
+
+
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
 	var value: Variant = source.get(key, fallback)
+	if value is Vector2:
+		return value
+	return fallback
+
+
+func _get_vector2_from_variant(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
 	return fallback
@@ -1117,5 +1243,11 @@ func _get_array(value: Variant) -> Array:
 
 func _get_color(value: Variant, fallback: Color) -> Color:
 	if value is Color:
+		return value
+	return fallback
+
+
+func _get_rect2(value: Variant, fallback: Rect2) -> Rect2:
+	if value is Rect2:
 		return value
 	return fallback

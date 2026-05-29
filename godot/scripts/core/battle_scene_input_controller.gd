@@ -1,10 +1,15 @@
 extends RefCounted
 
+const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+
 const FULLSCREEN_TOGGLE_KEY := KEY_F11
 const BGM_TOGGLE_KEY := KEY_B
 const FORCE_STAGE_CLEAR_KEY := KEY_F9
 const FORCE_STAGE_CLEAR_PLAYER_SCORE := 5
 const FORCE_STAGE_CLEAR_BOSS_SCORE := 0
+const RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC := 450
+
+var _right_stick_mouse_wheel_suppress_until_msec := 0
 
 
 func handle_unhandled_input(
@@ -17,6 +22,8 @@ func handle_unhandled_input(
 	if _handle_window_shortcut(event, owner, module_getter):
 		return
 	if _handle_bgm_shortcut(event, owner, module_getter):
+		return
+	if _handle_right_stick_suppression(event, owner):
 		return
 	if _is_stage_transition_loading_active(module_getter):
 		_queue_redraw(owner)
@@ -44,6 +51,8 @@ func handle_unhandled_input(
 	if overlay_input != null and overlay_input.has_method("handle_input"):
 		if bool(overlay_input.handle_input(event, owner, registry, module_getter, context)):
 			return
+	if _handle_skill_orb_tooltip_cycle(event, owner, registry, module_getter):
+		return
 	if _handle_commando_weapon_switch(event, owner, registry, module_getter):
 		return
 
@@ -53,6 +62,17 @@ func _handle_mobile_touch_input(event: InputEvent, owner: Object, module_getter:
 	if mobile_touch == null or not mobile_touch.has_method("handle_input"):
 		return false
 	return bool(mobile_touch.handle_input(event, owner, module_getter, scene_ready))
+
+
+func _handle_right_stick_suppression(event: InputEvent, owner: Object) -> bool:
+	if GamepadInput.should_suppress_right_stick_event(event):
+		_right_stick_mouse_wheel_suppress_until_msec = Time.get_ticks_msec() + RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC
+		_mark_handled(owner)
+		return true
+	if _is_mouse_wheel_event(event) and Time.get_ticks_msec() <= _right_stick_mouse_wheel_suppress_until_msec:
+		_mark_handled(owner)
+		return true
+	return false
 
 
 func _handle_window_shortcut(event: InputEvent, owner: Object, module_getter: Callable) -> bool:
@@ -107,6 +127,43 @@ func _handle_stage_clear_result_input(event: InputEvent, owner: Object, registry
 	_queue_redraw(owner)
 	_mark_handled(owner)
 	return true
+
+
+func _handle_skill_orb_tooltip_cycle(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
+	if not GamepadInput.is_skill_tooltip_cycle_event(event) and not _is_arrow_space_grip_skill_tooltip_event(event, owner):
+		return false
+	var skill_tooltip_driver: Object = _get_module(module_getter, "battle_scene_skill_tooltip_driver")
+	if skill_tooltip_driver == null or not skill_tooltip_driver.has_method("cycle_gamepad_tooltip"):
+		return false
+	if not bool(skill_tooltip_driver.cycle_gamepad_tooltip(owner, registry)):
+		return false
+	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _is_arrow_space_grip_skill_tooltip_event(event: InputEvent, owner: Object) -> bool:
+	if not _is_key_pressed(event, KEY_SHIFT):
+		return false
+	return _get_owner_grip_style(owner) == "space_arrows"
+
+
+func _get_owner_grip_style(owner: Object) -> String:
+	if owner == null:
+		return ""
+	for key in ["tutorial_grip_style", "junior_mika_grip_style"]:
+		if owner.has_meta(key):
+			var normalized: String = _normalize_grip_style(str(owner.get_meta(key, "")))
+			if normalized != "":
+				return normalized
+	return ""
+
+
+func _normalize_grip_style(value: String) -> String:
+	var normalized := value.strip_edges().to_lower().replace("-", "_").replace(" ", "_")
+	if normalized == "space_arrows" or normalized == "arrows_space":
+		return "space_arrows"
+	return normalized
 
 
 func _handle_force_stage_clear_shortcut(
@@ -182,6 +239,20 @@ func _is_key_pressed(event: InputEvent, keycode: int) -> bool:
 	if not key_event.pressed or key_event.echo:
 		return false
 	return key_event.keycode == keycode or key_event.physical_keycode == keycode
+
+
+func _is_mouse_wheel_event(event: InputEvent) -> bool:
+	if not (event is InputEventMouseButton):
+		return false
+	var mouse_event: InputEventMouseButton = event
+	if not mouse_event.pressed:
+		return false
+	return (
+		mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP
+		or mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN
+		or mouse_event.button_index == MOUSE_BUTTON_WHEEL_LEFT
+		or mouse_event.button_index == MOUSE_BUTTON_WHEEL_RIGHT
+	)
 
 
 func _is_intro_or_warmup_blocking(module_getter: Callable, context: Dictionary) -> bool:

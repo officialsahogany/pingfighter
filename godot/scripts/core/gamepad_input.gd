@@ -12,11 +12,15 @@ const PAUSE_BUTTONS := [JOY_BUTTON_START]
 const TAB_PREVIOUS_BUTTONS := [JOY_BUTTON_LEFT_SHOULDER]
 const TAB_NEXT_BUTTONS := [JOY_BUTTON_RIGHT_SHOULDER]
 const SUPPLY_HOLD_BUTTONS := []
-const FIREARM_RESET_BUTTONS := [JOY_BUTTON_RIGHT_STICK]
+const FIREARM_RESET_BUTTONS := []
+const FIREARM_NEXT_BUTTONS := [JOY_BUTTON_LEFT_STICK]
 const DOWN_ACTION_BUTTONS := [JOY_BUTTON_B]
 const ACTIVE_ITEM_USE_BUTTONS := [JOY_BUTTON_Y]
 const ACTIVE_ITEM_PREVIOUS_BUTTONS := [JOY_BUTTON_LEFT_SHOULDER]
 const ACTIVE_ITEM_NEXT_BUTTONS := [JOY_BUTTON_RIGHT_SHOULDER]
+const SKILL_TOOLTIP_CYCLE_BUTTONS := [JOY_BUTTON_BACK]
+const RIGHT_STICK_AXES := [JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y]
+const RIGHT_STICK_BUTTONS := [JOY_BUTTON_RIGHT_STICK]
 
 
 static func is_left_pressed() -> bool:
@@ -66,10 +70,6 @@ static func get_active_item_selection_direction() -> int:
 		return -1
 	if _is_any_button_pressed(ACTIVE_ITEM_NEXT_BUTTONS):
 		return 1
-	if _is_axis_below(JOY_AXIS_RIGHT_X, -MENU_AXIS_THRESHOLD):
-		return -1
-	if _is_axis_above(JOY_AXIS_RIGHT_X, MENU_AXIS_THRESHOLD):
-		return 1
 	return 0
 
 
@@ -101,14 +101,24 @@ static func is_active_item_use_event(event: InputEvent) -> bool:
 	return _is_joy_button_event(event, ACTIVE_ITEM_USE_BUTTONS)
 
 
+static func is_skill_tooltip_cycle_event(event: InputEvent) -> bool:
+	return _is_joy_button_event(event, SKILL_TOOLTIP_CYCLE_BUTTONS)
+
+
+static func should_suppress_right_stick_event(event: InputEvent) -> bool:
+	if event is InputEventJoypadMotion:
+		var motion_event: InputEventJoypadMotion = event
+		return RIGHT_STICK_AXES.has(motion_event.axis)
+	if event is InputEventJoypadButton:
+		var button_event: InputEventJoypadButton = event
+		return RIGHT_STICK_BUTTONS.has(button_event.button_index)
+	return false
+
+
 static func get_active_item_selection_direction_event(event: InputEvent) -> int:
 	if _is_joy_button_event(event, ACTIVE_ITEM_PREVIOUS_BUTTONS):
 		return -1
 	if _is_joy_button_event(event, ACTIVE_ITEM_NEXT_BUTTONS):
-		return 1
-	if _is_axis_event(event, JOY_AXIS_RIGHT_X, -1, MENU_AXIS_THRESHOLD):
-		return -1
-	if _is_axis_event(event, JOY_AXIS_RIGHT_X, 1, MENU_AXIS_THRESHOLD):
 		return 1
 	return 0
 
@@ -138,9 +148,7 @@ static func get_menu_vertical_event(event: InputEvent) -> int:
 
 
 static func get_weapon_cycle_direction_event(event: InputEvent) -> int:
-	if _is_axis_event(event, JOY_AXIS_RIGHT_Y, -1, MENU_AXIS_THRESHOLD):
-		return -1
-	if _is_axis_event(event, JOY_AXIS_RIGHT_Y, 1, MENU_AXIS_THRESHOLD):
+	if _is_joy_button_event(event, FIREARM_NEXT_BUTTONS):
 		return 1
 	return 0
 
