@@ -256,7 +256,9 @@ func store_active_item(
 	item_data["revealed"] = true
 	item_data["last_use_msec"] = last_item_use_msec
 	active_item_slots.append(item_data)
-	_select_slot(registry, active_item_slots.size() - 1)
+	var stored_slot_index: int = active_item_slots.size() - 1
+	field_item["stored_active_slot_index"] = stored_slot_index
+	_select_slot(registry, stored_slot_index)
 	return true
 
 

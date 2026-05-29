@@ -4,6 +4,7 @@ const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemBrickWallEffectRenderer := preload("res://scripts/items/active_item_brick_wall_effect_renderer.gd")
 const ActiveItemEffectRenderer := preload("res://scripts/items/active_item_effect_renderer.gd")
 const ActiveItemTimerGaugeRenderer := preload("res://scripts/items/active_item_timer_gauge_renderer.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 
 
@@ -49,7 +50,8 @@ func _verify_pickup_text_prewarm() -> void:
 	var renderer := ActiveItemEffectRenderer.new()
 	renderer.prewarm_assets()
 	_expect(renderer._text_size_cache.size() >= ActiveItemCatalog.FIELD_SPAWN_ORDER.size(), "pickup text prewarm should cache field item display labels")
-	_expect(renderer._text_size_cache.has("%d:%s" % [ActiveItemEffectRenderer.PICKUP_NOTICE_FONT_SIZE, ActiveItemEffectRenderer.PICKUP_NOTICE_TEXT]), "pickup text prewarm should cache the notice label")
+	_expect(renderer._text_size_cache.has("%d:%s" % [ActiveItemEffectRenderer.PICKUP_NOTICE_FONT_SIZE, LanguageSettings.translate_text(ActiveItemEffectRenderer.PICKUP_NOTICE_TEXT)]), "pickup text prewarm should cache the notice label")
+	_expect(renderer._text_size_cache.has("%d:%s" % [ActiveItemEffectRenderer.PICKUP_NOTICE_FONT_SIZE, "1번 키로 사용"]), "pickup text prewarm should cache active slot use labels")
 	var mythic_catalog: Object = MythicItemCatalog.new()
 	_expect(_has_cached_pickup_label(renderer, mythic_catalog, "dowsing_pendulum"), "pickup text prewarm should cache passive field item display labels")
 	_expect(_has_cached_pickup_label(renderer, mythic_catalog, "megingjord"), "pickup text prewarm should cache mythic field item display labels")

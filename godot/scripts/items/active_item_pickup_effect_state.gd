@@ -13,7 +13,7 @@ func trigger_pickup_effect(field_item: Dictionary, display_name: String, item_co
 	var item_data: Dictionary = _get_dictionary(field_item, "item_data").duplicate(true)
 	var start_pos: Vector2 = _get_vector2(field_item, "position", Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5))
 	_spawn_balloon_pop_particles(particles, start_pos, item_color)
-	return {
+	var pickup_effect: Dictionary = {
 		"item_data": item_data,
 		"display_name": display_name,
 		"timer": PICKUP_EFFECT_DURATION_SEC,
@@ -21,6 +21,10 @@ func trigger_pickup_effect(field_item: Dictionary, display_name: String, item_co
 		"position": start_pos,
 		"start_position": start_pos,
 	}
+	var use_hint_text: String = str(field_item.get("pickup_use_hint_text", "")).strip_edges()
+	if use_hint_text != "":
+		pickup_effect["use_hint_text"] = use_hint_text
+	return pickup_effect
 
 
 func has_pickup_effect(pickup_effect: Dictionary) -> bool:

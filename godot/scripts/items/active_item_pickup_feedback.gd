@@ -5,6 +5,7 @@ const PassiveItemQuality := preload("res://scripts/items/passive_item_quality.gd
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const DEFAULT_ITEM_COLOR := Color(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0)
+const ACTIVE_USE_HINT_FORMAT := "%d번 키로 사용"
 const ITEM_NAME_KO := {
 	"aipill": "AI 알약",
 	"banana": "바나나",
@@ -38,6 +39,7 @@ func trigger_pickup_effect(field_item: Dictionary, effect_controller: Object, re
 	var item_data: Dictionary = _get_dictionary(field_item, "item_data").duplicate(true)
 	var item_name: String = str(item_data.get("name", ""))
 	var display_name: String = str(item_data.get("display_name", ""))
+	_apply_active_item_use_hint(field_item, item_data)
 	effect_controller.trigger_pickup_effect(
 		field_item,
 		LanguageSettings.translate_text(display_name) if display_name != "" else _get_item_display_name(item_name),
@@ -60,6 +62,25 @@ func _is_passive_or_mythic_item(item_data: Dictionary) -> bool:
 	var item_type: String = str(item_data.get("type", "")).to_lower()
 	var rarity: String = str(item_data.get("rarity", "")).to_lower()
 	return item_type == "passive" or rarity == "passive" or item_type == "mythic" or rarity == "mythic" or item_type == "legendary" or rarity == "legendary"
+
+
+func _apply_active_item_use_hint(field_item: Dictionary, item_data: Dictionary) -> void:
+	field_item.erase("pickup_use_hint_text")
+	if _is_passive_or_mythic_item(item_data):
+		return
+	var slot_index: int = _get_active_slot_index(field_item)
+	if slot_index < 0:
+		return
+	field_item["pickup_use_hint_text"] = ACTIVE_USE_HINT_FORMAT % [slot_index + 1]
+
+
+func _get_active_slot_index(field_item: Dictionary) -> int:
+	var slot_index_value: Variant = field_item.get("stored_active_slot_index", -1)
+	if typeof(slot_index_value) == TYPE_INT:
+		return int(slot_index_value)
+	if typeof(slot_index_value) == TYPE_FLOAT:
+		return int(slot_index_value)
+	return -1
 
 
 func _get_color(value: Variant, fallback: Color) -> Color:

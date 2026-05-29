@@ -51,6 +51,8 @@ func collect_field_item_to_owner_slots(
 			false,
 			_build_can_store_callback(effect_controller)
 		))
+		if stored:
+			_mark_stored_active_slot_index(field_item, owner)
 
 	if stored and pickup_feedback_callback.is_valid():
 		if not bool(field_item.get("skip_pickup_feedback", false)):
@@ -145,6 +147,18 @@ func _build_can_store_callback(effect_controller: Object) -> Callable:
 	if effect_controller != null and effect_controller.has_method("can_store_item"):
 		return Callable(effect_controller, "can_store_item")
 	return Callable()
+
+
+func _mark_stored_active_slot_index(field_item: Dictionary, owner: Object) -> void:
+	if owner == null:
+		return
+	var active_item_slots_value: Variant = owner.get("active_item_slots")
+	if not (active_item_slots_value is Array):
+		return
+	var active_item_slots: Array = active_item_slots_value as Array
+	if active_item_slots.is_empty():
+		return
+	field_item["stored_active_slot_index"] = active_item_slots.size() - 1
 
 
 func _get_dictionary(source: Dictionary, key: String) -> Dictionary:

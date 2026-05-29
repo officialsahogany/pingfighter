@@ -26,11 +26,13 @@ func _verify_direct_pickup_effect() -> void:
 	var field_item := {
 		"item_data": {"id": "banana"},
 		"position": Vector2(240.0, 300.0),
+		"pickup_use_hint_text": "1번 키로 사용",
 	}
 
 	var effect: Dictionary = state.trigger_pickup_effect(field_item, "banana", Color.YELLOW, particles)
 	_expect(state.has_pickup_effect(effect), "pickup effect should become active after trigger")
 	_expect(effect.get("display_name", "") == "banana", "pickup effect should preserve display name")
+	_expect(effect.get("use_hint_text", "") == "1번 키로 사용", "pickup effect should preserve active-item use hint text")
 	_expect(effect.get("position", Vector2.ZERO) == Vector2(240.0, 300.0), "pickup effect should start at field item position")
 	_expect(particles.size() == ActiveItemPickupEffectState.BALLOON_POP_PARTICLE_COUNT, "pickup effect should spawn capped balloon pop particles")
 

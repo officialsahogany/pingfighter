@@ -12,6 +12,8 @@ const PICKUP_ICON_SIZE := 40.0
 const PICKUP_DISPLAY_FONT_SIZE := 16
 const PICKUP_NOTICE_FONT_SIZE := 14
 const PICKUP_NOTICE_TEXT := "획득!"
+const PICKUP_USE_HINT_TEXT_FORMAT := "%d번 키로 사용"
+const PICKUP_USE_HINT_PREWARM_SLOT_COUNT := 9
 const PICKUP_GLOW_RING_COUNT := 2
 const PICKUP_GLOW_ARC_POINT_COUNT := 18
 const MAX_PICKUP_PARTICLE_RENDER_COUNT := 28
@@ -220,9 +222,10 @@ func draw_pickup_effect(
 		canvas.draw_circle(center, PICKUP_ICON_SIZE * 0.45, Color(1.0, 100.0 / 255.0, 1.0, 0.85 * alpha))
 
 	var item_name: String = str(pickup_effect.get("display_name", ""))
+	var notice_text: String = _get_pickup_notice_text(pickup_effect)
 	sample_start = _perf_begin(detail_perf_logger)
 	_draw_centered_text(canvas, item_name, center + Vector2(0.0, 54.0), PICKUP_DISPLAY_FONT_SIZE, Color(1.0, 1.0, 1.0, alpha))
-	_draw_centered_text(canvas, LanguageSettings.translate_text(PICKUP_NOTICE_TEXT), center + Vector2(0.0, 70.0), PICKUP_NOTICE_FONT_SIZE, Color(1.0, 215.0 / 255.0, 0.0, alpha))
+	_draw_centered_text(canvas, notice_text, center + Vector2(0.0, 70.0), PICKUP_NOTICE_FONT_SIZE, Color(1.0, 215.0 / 255.0, 0.0, alpha))
 
 
 	_perf_end(detail_perf_logger, "active_item.pickup.text", sample_start)
@@ -673,6 +676,13 @@ func _get_pickup_icon_texture(pickup_effect: Dictionary, registry: Object) -> Te
 	return _get_item_icon_texture(_get_dictionary(pickup_effect, "item_data"), registry)
 
 
+func _get_pickup_notice_text(pickup_effect: Dictionary) -> String:
+	var use_hint_text: String = str(pickup_effect.get("use_hint_text", "")).strip_edges()
+	if use_hint_text != "":
+		return use_hint_text
+	return LanguageSettings.translate_text(PICKUP_NOTICE_TEXT)
+
+
 func _get_long_boost_icon_texture() -> Texture2D:
 	long_boost_icon_texture = _timer_gauge_renderer.get_long_boost_icon_texture()
 	return long_boost_icon_texture
@@ -721,6 +731,8 @@ func _prewarm_pickup_text() -> void:
 	if font == null:
 		return
 	_get_text_size(font, LanguageSettings.translate_text(PICKUP_NOTICE_TEXT), PICKUP_NOTICE_FONT_SIZE)
+	for slot_number in range(1, PICKUP_USE_HINT_PREWARM_SLOT_COUNT + 1):
+		_get_text_size(font, PICKUP_USE_HINT_TEXT_FORMAT % [slot_number], PICKUP_NOTICE_FONT_SIZE)
 	var active_catalog: Object = ActiveItemCatalog.new()
 	_prewarm_catalog_pickup_text(font, active_catalog, ActiveItemCatalog.FIELD_SPAWN_ORDER)
 	_prewarm_catalog_pickup_text(font, active_catalog, EXTRA_PICKUP_TEXT_PREWARM_ITEMS)
