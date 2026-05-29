@@ -377,6 +377,10 @@ static func nerve_strike_hits_target(strike_center: Vector2, target_center: Vect
 	return strike_center.distance_to(target_center) <= hit_radius
 
 
+static func nerve_strike_miss_text_pos(target_center: Vector2, y_offset: float) -> Vector2:
+	return target_center + Vector2(0.0, y_offset)
+
+
 static func nerve_strike_return_target_pos(config: Dictionary) -> Vector2:
 	var player_paddle_size: Vector2 = get_paddle_size(config)
 	var fallback_ball_pos := Vector2(float(config.get("width", 760.0)) * 0.5, 0.0)

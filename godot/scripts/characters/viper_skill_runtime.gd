@@ -3393,7 +3393,10 @@ func _update_nerve_strike_dash(config: Dictionary, deps: Dictionary) -> Dictiona
 			mythic_item_runtime.try_spawn_venom_mist_at_boss(nerve_strike_slash_center, deps, false)
 		return _award_skill_gold(deps, NERVE_STRIKE_HIT_GOLD)
 	nerve_strike_miss_text_timer = NERVE_STRIKE_MISS_TEXT_FRAMES
-	nerve_strike_miss_text_pos = _get_nerve_strike_target_center(config) + Vector2(0.0, -20.0)
+	nerve_strike_miss_text_pos = ViperSkillGeometry.nerve_strike_miss_text_pos(
+		_get_nerve_strike_target_center(config),
+		-20.0
+	)
 	nerve_strike_phase = 2
 	nerve_strike_phase_frames = 0.0
 	nerve_strike_freeze_active = false
