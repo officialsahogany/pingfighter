@@ -562,6 +562,20 @@ static func core_flip_wall_climb_center(
 	)
 
 
+static func core_flip_wall_contact_state(center: Vector2, width: float, phase_frames: float, leg_frames: float, cling_frames: float) -> Dictionary:
+	var wall_x: float = 2.0 if center.x < width * 0.5 else width - 2.0
+	var travel_frames: float = max(2.0, leg_frames - cling_frames)
+	var wall_touch_count: int = 0
+	if phase_frames >= travel_frames:
+		wall_touch_count = 1
+	if phase_frames >= leg_frames + travel_frames:
+		wall_touch_count = 2
+	return {
+		"line_to": Vector2(wall_x, center.y),
+		"touch_count": wall_touch_count,
+	}
+
+
 static func core_flip_kick_motion(apex_center: Vector2, target_center: Vector2, kick_t: float) -> Dictionary:
 	var safe_t: float = clamp(kick_t, 0.0, 1.0)
 	var ease_t: float = safe_t * safe_t

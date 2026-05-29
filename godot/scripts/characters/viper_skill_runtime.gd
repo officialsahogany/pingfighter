@@ -1245,16 +1245,19 @@ func _update_core_flip(
 			core_flip_spin_angle_degrees = 720.0 + t1 * 120.0
 			var center1: Vector2 = _compute_core_flip_wall_climb_center(t1, config, deps)
 			next_pos = _center_to_player_pos(center1, config)
-			var wall_x: float = 2.0 if center1.x < float(config.get("width", 760.0)) * 0.5 else float(config.get("width", 760.0)) - 2.0
-			core_flip_web_lines.clear()
-			core_flip_web_lines.append({"from": center1, "to": Vector2(wall_x, center1.y)})
 			var leg_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_LEG_FRAMES, deps)
-			var travel_frames: float = max(2.0, leg_frames - _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_CLING_FRAMES, deps))
-			var wall_touch_count: int = 0
-			if core_flip_phase_frames >= travel_frames:
-				wall_touch_count = 1
-			if core_flip_phase_frames >= leg_frames + travel_frames:
-				wall_touch_count = 2
+			var cling_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_CLING_FRAMES, deps)
+			var wall_contact: Dictionary = ViperSkillGeometry.core_flip_wall_contact_state(
+				center1,
+				float(config.get("width", 760.0)),
+				core_flip_phase_frames,
+				leg_frames,
+				cling_frames
+			)
+			var web_line_to: Vector2 = _get_vector2(wall_contact.get("line_to", center1), center1)
+			core_flip_web_lines.clear()
+			core_flip_web_lines.append({"from": center1, "to": web_line_to})
+			var wall_touch_count: int = int(wall_contact.get("touch_count", 0))
 			if wall_touch_count >= 2 or t1 >= 1.0:
 				core_flip_apex_center = center1
 				core_flip_target_center = _get_ball_pos(config)
