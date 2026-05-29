@@ -2,6 +2,7 @@ extends SceneTree
 
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
+const CommandoFirearmPistolHitState := preload("res://scripts/characters/commando_firearm_pistol_hit_state.gd")
 const CommandoFirearmRuntime := preload("res://scripts/characters/commando_firearm_runtime.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
@@ -110,7 +111,7 @@ func _verify_ammo_box_refills_owned_permanent_only() -> void:
 	var ak47: Dictionary = controller.get_weapon_data("ak47")
 	var pistol: Dictionary = controller.get_weapon_data("commando_pistol")
 	var rental: Dictionary = controller.get_weapon_data("bazooka")
-	_expect(int(ak47.get("ammo_current", 0)) == 60, "ammo_box should refill AK-47 ammo")
+	_expect(int(ak47.get("ammo_current", 0)) == 90, "ammo_box should refill AK-47 ammo")
 	_expect(is_equal_approx(float(ak47.get("duration_frames", 0.0)), 1800.0), "ammo_box should refill AK-47 duration")
 	_expect(int(pistol.get("ammo_current", 0)) == 8, "ammo_box should refill commando_pistol ammo")
 	_expect(int(pistol.get("magazines_current", -1)) == 0, "ammo_box should not create Beretta spare magazines")
@@ -178,14 +179,28 @@ func _verify_doping_potion_enhances_commando_pistol() -> void:
 	_expect(is_equal_approx(float(pistol_draw_state.get("control_lock_max_frames", 0.0)), 9.0), "doped pistol HUD state should use the 9-frame lock max")
 
 	var hit_result: Dictionary = {}
-	firearm_runtime._apply_pistol_hit_effects(
+	var hit_feedbacks: Array = []
+	CommandoFirearmPistolHitState.apply_runtime_hit_effects(
 		"commando_pistol",
 		{
 			"active_item_doping_potion_active": true,
 			"active_item_doping_potion_head_leg_multiplier": 2.0,
 		},
 		{"commando_pistol_shot_roll": 0.21},
-		hit_result
+		hit_result,
+		0,
+		hit_feedbacks,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		2.0,
+		CommandoFirearmRuntime.PISTOL_HEAD_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_LEG_SHOT_CHANCE,
+		CommandoFirearmRuntime.PISTOL_HIT_TUNING,
+		760.0,
+		750.0,
+		CommandoFirearmRuntime.PISTOL_HIT_TEXT_TIMER_FRAMES,
+		"HEAD",
+		"LEG",
+		4
 	)
 	_expect(str(hit_result.get("pistol_hit_kind", "")) == "legshot", "doping should turn a 0.21 roll into a legshot")
 	_expect(is_equal_approx(float(hit_result.get("pistol_head_chance", 0.0)), 0.20), "doping should double headshot chance")

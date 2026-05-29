@@ -245,7 +245,7 @@ func _verify_serve_wait_input_does_not_fire_firearms() -> void:
 		ak_deps
 	)
 	_expect(ak_serve_press.is_empty(), "serve-wait launch input should not fire AK-47")
-	_expect(int(ak_controller.get_current_weapon_data().get("ammo_current", -1)) == 60, "serve-wait AK-47 input should not spend ammo")
+	_expect(int(ak_controller.get_current_weapon_data().get("ammo_current", -1)) == 90, "serve-wait AK-47 input should not spend ammo")
 	ak_round.waiting_for_serve = false
 	var ak_held_after_serve: Dictionary = ak_runtime.update_input(
 		{"action_pressed": true, "action_just_pressed": false},
@@ -254,7 +254,7 @@ func _verify_serve_wait_input_does_not_fire_firearms() -> void:
 		ak_deps
 	)
 	_expect(ak_held_after_serve.is_empty(), "held serve input should not start AK-47 auto-fire after launch")
-	_expect(int(ak_controller.get_current_weapon_data().get("ammo_current", -1)) == 60, "held serve input should preserve AK-47 ammo")
+	_expect(int(ak_controller.get_current_weapon_data().get("ammo_current", -1)) == 90, "held serve input should preserve AK-47 ammo")
 	_expect(is_equal_approx(float(ak_runtime.get_movement_speed_multiplier()), 1.0), "held serve input should not leave AK-47 slowdown active")
 	ak_runtime.update_input({"action_pressed": false, "action_just_released": true}, 500.0, {}, ak_deps)
 	var fresh_ak_press: Dictionary = ak_runtime.update_input(
@@ -264,7 +264,7 @@ func _verify_serve_wait_input_does_not_fire_firearms() -> void:
 		ak_deps
 	)
 	_expect(bool(fresh_ak_press.get("fired", false)), "fresh post-serve press should still fire AK-47")
-	_expect(int(ak_controller.get_current_weapon_data().get("ammo_current", -1)) == 59, "fresh AK-47 press should spend exactly one bullet")
+	_expect(int(ak_controller.get_current_weapon_data().get("ammo_current", -1)) == 89, "fresh AK-47 press should spend exactly one bullet")
 
 
 func _verify_commando_pistol_afterdelay_locks_horizontal_input() -> void:
@@ -357,7 +357,7 @@ func _verify_ak47_hold_fire_slows_horizontal_movement() -> void:
 	_expect(is_equal_approx(float(result.get("player_speed", -1.0)), 3.0), "AK-47 held fire should clamp player speed to 50% of the normal max")
 	_expect(is_equal_approx(moved_pos.x, 103.0), "AK-47 held fire should still allow slowed horizontal movement")
 	_expect(is_equal_approx(float(runtime.get_movement_speed_multiplier()), 0.5), "AK-47 runtime should expose active movement slowdown to the player controller")
-	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 59, "AK-47 movement debuff shot should spend one bullet")
+	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 89, "AK-47 movement debuff shot should spend one bullet")
 
 
 func _verify_supply_drop_grants_one_rental_weapon() -> void:

@@ -3728,7 +3728,7 @@ This section is intentionally long; use search to find the nearest owner.
   with 4-round magazine / 2-spare-magazine total-12-shot / 120-frame reload
   state, bazooka 4-round permanent
   ammo state, net gun 3-round permanent ammo state, fire-support 2-radio-call
-  ammo state, AK-47 60-round ammo and
+  ammo state, AK-47 90-round ammo and
   1800-frame durability display / refill state, rental release on
   depletion, stage-rental cleanup, stage-start permanent-firearm refill,
   explicit round-reset preservation, save-snapshot export / restore for
@@ -3849,7 +3849,7 @@ This section is intentionally long; use search to find the nearest owner.
   harpoon projectile, rope trail, 240-frame capture field, 21-frame miss
   dissolve, dash rope break, 70% hooked-player movement slow, and boss X
   clamp inside the deployed net, AK-47 hold-fire state with 6-frame intervals,
-  first-trigger two-shot burst metadata, 60-round ammo spend, 1800-frame
+  first-trigger two-shot burst metadata, 90-round ammo spend, 1800-frame
   durability tick, recoil spread accumulation / recovery, 50% movement
   speed multiplier while held, Python-reference 16px/frame bullet speed
   and 60-frame bullet life, AK-47 accumulated boss-health damage every 20 hits, and the

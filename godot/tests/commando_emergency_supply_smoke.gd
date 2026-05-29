@@ -64,7 +64,7 @@ func _verify_double_tap_starts_delivery_for_permanent_weapon() -> void:
 	for _i in range(5):
 		_expect(bool(weapon_controller.consume_current_weapon_ammo(1)), "ak47 ammo should be consumable before refill")
 	_expect(bool(weapon_controller.consume_current_weapon_duration(120.0)), "ak47 durability should be consumable before refill")
-	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", 0)) == 55, "ak47 should start the refill test below max ammo")
+	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", 0)) == 85, "ak47 should start the refill test below max ammo")
 	_expect(is_equal_approx(float(weapon_controller.get_current_weapon_data().get("duration_frames", 0.0)), 1680.0), "ak47 should start the refill test below max durability")
 
 	var deps := _deps(skill_config, skill_state, weapon_controller, audio, delivery_state, owner)
@@ -78,13 +78,13 @@ func _verify_double_tap_starts_delivery_for_permanent_weapon() -> void:
 	_expect(str(second.get("weapon_id", "")) == "ak47", "emergency supply should report the selected firearm")
 	_expect(audio.supply_radio_calls == 1, "activation should play the supply radio cue")
 	_expect(audio.reload_calls == 0, "reload cue should NOT play until the soldier reaches the player")
-	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", 0)) == 55, "ammo must stay drained until the soldier delivers the supply")
+	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", 0)) == 85, "ammo must stay drained until the soldier delivers the supply")
 	_expect(bool(delivery_state.is_active()), "delivery state should be active after activation")
 	_expect(skill_state.get_configured_cooldown_remaining("emergency_supply", 1200, skill_config) > 0.0, "successful emergency supply should trigger cooldown immediately")
 
 	_drive_delivery_until_complete(delivery_state, deps)
 
-	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", 0)) == 60, "delivery handover should refill the selected permanent weapon to max")
+	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", 0)) == 90, "delivery handover should refill the selected permanent weapon to max")
 	_expect(is_equal_approx(float(weapon_controller.get_current_weapon_data().get("duration_frames", 0.0)), 1800.0), "delivery handover should refill AK-47 durability to max")
 	_expect(audio.reload_calls == 1, "reload cue should play exactly once at handover")
 
