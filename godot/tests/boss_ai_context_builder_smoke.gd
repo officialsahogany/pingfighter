@@ -170,6 +170,14 @@ func _init() -> void:
 	_expect(abs(float(stage1_context.get("boss_mistake_chance", 0.0)) - 0.10) <= 0.001, "Stage 1 Dalji boss mistake chance should be 10%")
 	_expect(bool(stage1_context.get("whip_marker", false)), "Stage 1 boss context should merge Dalji whip AI context")
 
+	owner.ai_mode = "junior"
+	var junior_stage1_context: Dictionary = builder.build_context(owner, registry)
+	_expect(abs(float(junior_stage1_context.get("boss_mistake_chance", 0.0)) - 0.20) <= 0.001, "Junior Stage 1 Dalji boss mistake chance should be 20%")
+	owner.current_stage = 2
+	var junior_stage2_context: Dictionary = builder.build_context(owner, registry)
+	_expect(abs(float(junior_stage2_context.get("boss_mistake_chance", 0.0)) - 0.14) <= 0.001, "Junior Stage 2 boss mistake chance should be 14%")
+	owner.ai_mode = "champion"
+
 	owner.current_stage = 3
 	var stage3_context: Dictionary = builder.build_context(owner, registry)
 	_expect(abs(float(stage3_context.get("boss_mistake_chance", 0.0)) - 0.08) <= 0.001, "Stage 3 Menhera Girl boss mistake chance should be 8%")
@@ -181,6 +189,17 @@ func _init() -> void:
 	_expect(abs(float(stage3_context.get("boss_dash_max_distance", 0.0)) - 316.8 * 1.10) <= 0.001, "Stage 3 boss dash distance should use the +5% per-stage ramp")
 	_expect(abs(float(stage3_context.get("boss_dash_cooldown_min_seconds", 0.0)) - 40.0 * 0.90) <= 0.001, "Stage 3 boss dash min cooldown should use the -5% per-stage ramp")
 	_expect(abs(float(stage3_context.get("boss_dash_cooldown_max_seconds", 0.0)) - 55.0 * 0.90) <= 0.001, "Stage 3 boss dash max cooldown should use the -5% per-stage ramp")
+
+	owner.ai_mode = "junior league"
+	var junior_stage3_context: Dictionary = builder.build_context(owner, registry)
+	_expect(abs(float(junior_stage3_context.get("boss_mistake_chance", 0.0)) - 0.13) <= 0.001, "Junior Stage 3 boss mistake chance should be 13%")
+	_expect(abs(float(junior_stage3_context.get("boss_stage_speed_multiplier", 0.0)) - 1.06) <= 0.001, "Junior Stage 3 boss stage speed multiplier should remain stage-only")
+	_expect(abs(float(junior_stage3_context.get("boss_league_movement_multiplier", 0.0)) - 0.90) <= 0.001, "Junior boss movement should expose the -10% league multiplier")
+	_expect(abs(float(junior_stage3_context.get("boss_max_speed", 0.0)) - 6.3175 * 1.06 * 0.90) <= 0.001, "Junior boss base max speed should be 10% slower")
+	_expect(abs(float(junior_stage3_context.get("boss_movement_accel", 0.0)) - 0.798 * 1.5 * 1.06 * 0.90) <= 0.001, "Junior boss acceleration should be 10% slower")
+	_expect(abs(float(junior_stage3_context.get("boss_movement_decel", 0.0)) - 0.798 * 1.5 * 1.06 * 0.90) <= 0.001, "Junior boss deceleration should be 10% slower")
+	_expect(abs(float(junior_stage3_context.get("boss_movement_max_speed", 0.0)) - 6.3175 * 1.5 * 1.06 * 0.90) <= 0.001, "Junior boss actual max speed should be 10% slower")
+	owner.ai_mode = "champion"
 
 	owner.current_stage = 4
 	var stage4_context: Dictionary = builder.build_context(owner, registry)
@@ -214,6 +233,7 @@ func _verify_context(context: Dictionary, source: String) -> void:
 	_expect(abs(float(context.get("ball_boost_decay_rate", 0.0)) - 0.97) <= 0.001, "%s should copy boost decay" % source)
 	_expect(abs(float(context.get("ball_min_boost", 0.0)) - 0.65) <= 0.001, "%s should copy min boost" % source)
 	_expect(abs(float(context.get("boss_stage_speed_multiplier", 0.0)) - 1.03) <= 0.001, "%s should add +3%% boss speed on Stage 2" % source)
+	_expect(abs(float(context.get("boss_league_movement_multiplier", 0.0)) - 1.0) <= 0.001, "%s should keep Champion boss movement at 100%%" % source)
 	_expect(abs(float(context.get("boss_max_speed", 0.0)) - 6.3175 * 1.03) <= 0.001, "%s should scale base boss max speed per stage" % source)
 	_expect(abs(float(context.get("boss_movement_accel", 0.0)) - 0.798 * 1.5 * 1.03) <= 0.001, "%s should scale boss movement acceleration per stage" % source)
 	_expect(abs(float(context.get("boss_movement_decel", 0.0)) - 0.798 * 1.5 * 1.03) <= 0.001, "%s should scale boss movement deceleration per stage" % source)

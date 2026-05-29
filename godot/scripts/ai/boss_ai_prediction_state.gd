@@ -6,6 +6,10 @@ const BOSS_MISTAKE_CHANCE: float = 0.10
 const BOSS_MISTAKE_ERROR_MIN: float = 78.0
 const BOSS_MISTAKE_ERROR_MAX: float = 140.0
 const BOSS_MISTAKE_SPEED_SCALE: float = 4.5
+const JUNIOR_POWER_SMASH_MISTAKE_CHANCE: float = 0.80
+const JUNIOR_POWER_SMASH_MISTAKE_ERROR_MIN: float = 170.0
+const JUNIOR_POWER_SMASH_MISTAKE_ERROR_MAX: float = 260.0
+const JUNIOR_POWER_SMASH_MISTAKE_SPEED_SCALE: float = 7.0
 const BOSS_FAST_BALL_SPEED: float = 15.0
 const BOSS_MEDIUM_BALL_SPEED: float = 10.0
 const BOSS_FAST_PREDICT_FRAMES: float = 8.0
@@ -75,13 +79,19 @@ func _roll_approach_decision(ball_vel: Vector2, context: Dictionary) -> void:
 	approach_mistake_active = false
 	boss_fail_error_offset = 0.0
 	var mistake_chance: float = clamp(float(context.get("boss_mistake_chance", BOSS_MISTAKE_CHANCE)), 0.0, 1.0)
-	if bool(context.get("power_smashing_parabola_active", false)) and int(context.get("power_smashing_combo_consumed", 0)) >= 3:
+	var junior_power_smash_active: bool = _is_junior_power_smash_active(context)
+	if junior_power_smash_active:
+		mistake_chance = max(mistake_chance, JUNIOR_POWER_SMASH_MISTAKE_CHANCE)
+	elif bool(context.get("power_smashing_parabola_active", false)) and int(context.get("power_smashing_combo_consumed", 0)) >= 3:
 		mistake_chance *= 0.5
 	if randf() < mistake_chance:
 		var current_speed: float = ball_vel.length()
+		var mistake_error_min: float = JUNIOR_POWER_SMASH_MISTAKE_ERROR_MIN if junior_power_smash_active else BOSS_MISTAKE_ERROR_MIN
+		var mistake_error_max: float = JUNIOR_POWER_SMASH_MISTAKE_ERROR_MAX if junior_power_smash_active else BOSS_MISTAKE_ERROR_MAX
+		var mistake_speed_scale: float = JUNIOR_POWER_SMASH_MISTAKE_SPEED_SCALE if junior_power_smash_active else BOSS_MISTAKE_SPEED_SCALE
 		var mistake_magnitude: float = min(
-			BOSS_MISTAKE_ERROR_MAX,
-			max(BOSS_MISTAKE_ERROR_MIN, current_speed * BOSS_MISTAKE_SPEED_SCALE)
+			mistake_error_max,
+			max(mistake_error_min, current_speed * mistake_speed_scale)
 		)
 		var mistake_direction := -1.0 if randf() < 0.5 else 1.0
 		approach_mistake_active = true
@@ -101,6 +111,22 @@ func _get_predict_frames(ball_vel: Vector2) -> float:
 	if ball_speed > BOSS_MEDIUM_BALL_SPEED:
 		return BOSS_MEDIUM_PREDICT_FRAMES
 	return BOSS_SLOW_PREDICT_FRAMES
+
+
+func _is_junior_power_smash_active(context: Dictionary) -> bool:
+	return (
+		bool(context.get("power_smashing_parabola_active", false))
+		and _normalize_league_mode(str(context.get("ai_mode", "champion"))) == "junior"
+	)
+
+
+func _normalize_league_mode(ai_mode: String) -> String:
+	var normalized: String = ai_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
+	if normalized == "junior" or normalized == "juniorleague":
+		return "junior"
+	if normalized == "mythic" or normalized == "mythicleague":
+		return "mythic"
+	return "champion"
 
 
 func _predict_arrival_x(

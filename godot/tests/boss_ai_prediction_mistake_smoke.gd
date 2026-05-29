@@ -8,6 +8,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_verify_context_mistake_chance_overrides_default()
 	_verify_power_smash_halves_context_mistake_chance()
+	_verify_junior_power_smash_forces_high_mistake_chance()
 
 	if _failures.is_empty():
 		print("boss_ai_prediction_mistake_smoke: ok")
@@ -36,7 +37,28 @@ func _verify_power_smash_halves_context_mistake_chance() -> void:
 	_expect(mistakes > 30 and mistakes < 130, "Power-smash focus should halve a 100% context chance instead of forcing every prediction")
 
 
-func _predict_with_chance(chance: float, focused_power_smash: bool, seed_value: int) -> float:
+func _verify_junior_power_smash_forces_high_mistake_chance() -> void:
+	var mistakes := 0
+	var large_mistakes := 0
+	var trials := 200
+	for index in range(trials):
+		var prediction := _predict_with_chance(0.0, true, index, "junior", 0)
+		var offset: float = abs(prediction - 500.0)
+		if offset >= 78.0:
+			mistakes += 1
+		if offset >= 170.0:
+			large_mistakes += 1
+	_expect(mistakes >= 135 and mistakes <= 185, "Junior power-smash should force roughly 80% boss prediction mistakes")
+	_expect(large_mistakes == mistakes, "Junior power-smash mistakes should use the hard-to-guard error offset")
+
+
+func _predict_with_chance(
+	chance: float,
+	focused_power_smash: bool,
+	seed_value: int,
+	ai_mode: String = "champion",
+	combo_consumed: int = 3
+) -> float:
 	seed(seed_value)
 	var state: Object = BossAiPredictionState.new()
 	return float(state.predict_future_x(
@@ -47,9 +69,10 @@ func _predict_with_chance(chance: float, focused_power_smash: bool, seed_value: 
 		2000.0,
 		100.0,
 		{
+			"ai_mode": ai_mode,
 			"boss_mistake_chance": chance,
 			"power_smashing_parabola_active": focused_power_smash,
-			"power_smashing_combo_consumed": 3 if focused_power_smash else 0,
+			"power_smashing_combo_consumed": combo_consumed if focused_power_smash else 0,
 		}
 	))
 

@@ -16,6 +16,9 @@ const DEFAULT_BOSS_MISTAKE_CHANCE: float = 0.10
 const STAGE2_BOSS_MISTAKE_CHANCE: float = 0.09
 const STAGE3_MENHERA_MISTAKE_CHANCE: float = 0.08
 const STAGE4_PONK_MISTAKE_CHANCE: float = 0.07
+const JUNIOR_DEFAULT_BOSS_MISTAKE_CHANCE: float = 0.15
+const JUNIOR_STAGE1_DALJI_BOSS_MISTAKE_CHANCE: float = 0.20
+const JUNIOR_BOSS_MISTAKE_STAGE_RATE: float = 0.01
 const BASE_BOSS_ACCEL: float = 0.798
 const BASE_BOSS_DECEL: float = 0.798
 const BASE_BOSS_MAX_SPEED: float = 6.3175
@@ -23,6 +26,7 @@ const BASE_BOSS_DASH_MAX_DISTANCE: float = 316.8
 const BASE_BOSS_DASH_COOLDOWN_MIN_SECONDS: float = 40.0
 const BASE_BOSS_DASH_COOLDOWN_MAX_SECONDS: float = 55.0
 const CHAMPION_BOSS_SPEED_MULTIPLIER: float = 1.5
+const JUNIOR_BOSS_MOVEMENT_MULTIPLIER: float = 0.90
 const BOSS_STAGE_SPEED_RATE: float = 0.03
 const BOSS_STAGE_SPEED_CAP: float = 0.50
 const BOSS_DASH_DISTANCE_STAGE_RATE: float = 0.05
@@ -45,16 +49,18 @@ func build_context(owner: Object, registry: Object) -> Dictionary:
 func _build_base_context(owner: Object, registry: Object, current_stage: int, character_type: String) -> Dictionary:
 	var round_state: Object = _get_instance(registry, "round_flow_state")
 	var power_state: Object = _get_instance(registry, "smasher_power_smash_state") if _is_smasher(character_type) else null
-	var boss_movement_profile: Dictionary = _build_boss_movement_profile(current_stage)
+	var ai_mode: String = str(_get_owner_value(owner, "ai_mode", "champion"))
+	var boss_movement_profile: Dictionary = _build_boss_movement_profile(current_stage, ai_mode)
 	var boss_dash_profile: Dictionary = _build_boss_dash_profile(current_stage)
 	return {
 		"width": WIDTH,
 		"play_left": PLAY_LEFT,
 		"play_right": PLAY_RIGHT,
 		"current_stage": current_stage,
-		"ai_mode": str(_get_owner_value(owner, "ai_mode", "champion")),
+		"ai_mode": ai_mode,
 		"boss_paddle_width": BOSS_PADDLE_WIDTH,
 		"boss_stage_speed_multiplier": boss_movement_profile["boss_stage_speed_multiplier"],
+		"boss_league_movement_multiplier": boss_movement_profile["boss_league_movement_multiplier"],
 		"boss_max_speed": boss_movement_profile["boss_max_speed"],
 		"boss_movement_accel": boss_movement_profile["boss_movement_accel"],
 		"boss_movement_decel": boss_movement_profile["boss_movement_decel"],
@@ -68,7 +74,7 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"boss_dash_cooldown_min_seconds": boss_dash_profile["boss_dash_cooldown_min_seconds"],
 		"boss_dash_cooldown_max_seconds": boss_dash_profile["boss_dash_cooldown_max_seconds"],
 		"boss_dash_stun_seconds": 0.60,
-		"boss_mistake_chance": _get_stage_boss_mistake_chance(current_stage),
+		"boss_mistake_chance": _get_stage_boss_mistake_chance(current_stage, ai_mode),
 		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
 		"waiting_for_serve": _is_waiting_for_serve(round_state),
 		"player_serves": _does_player_serve(round_state),
@@ -144,7 +150,9 @@ func _is_smasher(character_type: String) -> bool:
 	return character_type == "smasher"
 
 
-func _get_stage_boss_mistake_chance(current_stage: int) -> float:
+func _get_stage_boss_mistake_chance(current_stage: int, ai_mode: String) -> float:
+	if _normalize_league_mode(ai_mode) == "junior":
+		return _get_junior_stage_boss_mistake_chance(current_stage)
 	if current_stage == 2:
 		return STAGE2_BOSS_MISTAKE_CHANCE
 	if current_stage == 3:
@@ -154,15 +162,43 @@ func _get_stage_boss_mistake_chance(current_stage: int) -> float:
 	return DEFAULT_BOSS_MISTAKE_CHANCE
 
 
-func _build_boss_movement_profile(current_stage: int) -> Dictionary:
+func _get_junior_stage_boss_mistake_chance(current_stage: int) -> float:
+	if current_stage == 1:
+		return JUNIOR_STAGE1_DALJI_BOSS_MISTAKE_CHANCE
+	var stage_offset: int = _get_stage_offset(current_stage)
+	return clamp(
+		JUNIOR_DEFAULT_BOSS_MISTAKE_CHANCE - float(stage_offset) * JUNIOR_BOSS_MISTAKE_STAGE_RATE,
+		0.0,
+		1.0
+	)
+
+
+func _build_boss_movement_profile(current_stage: int, ai_mode: String) -> Dictionary:
 	var stage_multiplier: float = _get_boss_stage_speed_multiplier(current_stage)
+	var league_multiplier: float = _get_boss_league_movement_multiplier(ai_mode)
 	return {
 		"boss_stage_speed_multiplier": stage_multiplier,
-		"boss_max_speed": BASE_BOSS_MAX_SPEED * stage_multiplier,
-		"boss_movement_accel": BASE_BOSS_ACCEL * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier,
-		"boss_movement_decel": BASE_BOSS_DECEL * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier,
-		"boss_movement_max_speed": BASE_BOSS_MAX_SPEED * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier,
+		"boss_league_movement_multiplier": league_multiplier,
+		"boss_max_speed": BASE_BOSS_MAX_SPEED * stage_multiplier * league_multiplier,
+		"boss_movement_accel": BASE_BOSS_ACCEL * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier * league_multiplier,
+		"boss_movement_decel": BASE_BOSS_DECEL * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier * league_multiplier,
+		"boss_movement_max_speed": BASE_BOSS_MAX_SPEED * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier * league_multiplier,
 	}
+
+
+func _get_boss_league_movement_multiplier(ai_mode: String) -> float:
+	if _normalize_league_mode(ai_mode) == "junior":
+		return JUNIOR_BOSS_MOVEMENT_MULTIPLIER
+	return 1.0
+
+
+func _normalize_league_mode(ai_mode: String) -> String:
+	var normalized: String = ai_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
+	if normalized == "junior" or normalized == "juniorleague":
+		return "junior"
+	if normalized == "mythic" or normalized == "mythicleague":
+		return "mythic"
+	return "champion"
 
 
 func _build_boss_dash_profile(current_stage: int) -> Dictionary:
