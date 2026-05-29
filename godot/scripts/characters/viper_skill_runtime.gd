@@ -4433,9 +4433,14 @@ func _update_marshal_kick(
 				_enter_marshal_charge(config, deps)
 		2:
 			var t2: float = min(1.0, marshal_phase_frames / _get_marshal_duration_frames(MARSHAL_KICK_CHARGE_FRAMES, deps, true))
-			var target_pos: Vector2 = _get_ball_pos(config) - _get_paddle_size(config) * 0.5
-			marshal_charge_target_pos = _get_ball_pos(config)
-			next_pos = marshal_charge_start_pos.lerp(target_pos, t2 * t2)
+			var charge_ball_pos: Vector2 = _get_ball_pos(config)
+			marshal_charge_target_pos = charge_ball_pos
+			next_pos = ViperSkillGeometry.marshal_charge_position(
+				marshal_charge_start_pos,
+				charge_ball_pos,
+				_get_paddle_size(config),
+				t2
+			)
 			_spawn_marshal_motion_particle(_get_player_center(next_pos, config), "charge", 0.75)
 			if not marshal_ball_hit:
 				var player_center: Vector2 = _get_player_center(next_pos, config)

@@ -632,6 +632,16 @@ static func marshal_reclimb_wall_target(
 	return Vector2(wall_center_x, wall_center_y) - paddle_size * 0.5
 
 
+static func marshal_charge_position(
+	charge_start_pos: Vector2,
+	ball_pos: Vector2,
+	paddle_size: Vector2,
+	charge_t: float
+) -> Vector2:
+	var target_pos: Vector2 = ball_pos - paddle_size * 0.5
+	return charge_start_pos.lerp(target_pos, charge_t * charge_t)
+
+
 static func marshal_return_target(
 	return_start_pos: Vector2,
 	paddle_size: Vector2,
