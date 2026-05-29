@@ -244,6 +244,7 @@ func _apply_state() -> void:
 	var prep_progress: float = clamp(float(_state.get("prep_progress", 0.0)), 0.0, 1.0)
 	var shock_progress: float = clamp(float(_state.get("shockwave_progress", 0.0)), 0.0, 1.0)
 	var shock_alpha: float = clamp(float(_state.get("shockwave_alpha", 0.0)), 0.0, 1.0)
+	var shock_radius: float = max(38.0, float(_state.get("shockwave_radius", 38.0 + shock_progress * 220.0)))
 	var height_ratio: float = clamp(float(_state.get("height_ratio", 0.0)), 0.0, 1.0)
 	var player_center: Vector2 = _as_vector2(_state.get("screen_player_center", Vector2.ZERO), Vector2.ZERO)
 	var foot: Vector2 = _as_vector2(_state.get("screen_foot", player_center), player_center)
@@ -272,7 +273,7 @@ func _apply_state() -> void:
 		_jet_material.set_shader_parameter("alpha", 0.84 if jet_visible else 0.0)
 
 	var shock_visible := shock_alpha > 0.01
-	var shock_width: float = (120.0 + 740.0 * shock_progress) * render_scale
+	var shock_width: float = max(120.0 + 740.0 * shock_progress, shock_radius * 2.0 + 96.0) * render_scale
 	var shock_height: float = BASE_SHOCKWAVE_HEIGHT * (0.86 + (1.0 - shock_progress) * 0.28) * render_scale
 	_apply_quad(_shockwave_quad, shock_center + Vector2(0.0, -12.0 * render_scale), Vector2(shock_width, shock_height), shock_visible, shock_alpha)
 	if _shockwave_material != null:
@@ -282,7 +283,7 @@ func _apply_state() -> void:
 		_shockwave_material.set_shader_parameter("flash", shock_flash_value)
 		_shockwave_material.set_shader_parameter("alpha", shock_alpha)
 
-	_sync_continuous_particles(render_scale, hold_active, phase, prep_alpha, player_center, foot, shock_visible, shock_center, shock_alpha, shock_progress)
+	_sync_continuous_particles(render_scale, hold_active, phase, prep_alpha, player_center, foot, shock_visible, shock_center, shock_alpha, shock_progress, shock_radius)
 	_sync_one_shot_particles(hit_pos, render_scale)
 
 
@@ -296,7 +297,8 @@ func _sync_continuous_particles(
 	shock_visible: bool,
 	shock_center: Vector2,
 	shock_alpha: float,
-	shock_progress: float
+	shock_progress: float,
+	shock_radius: float
 ) -> void:
 	if _charge_particles != null:
 		_charge_particles.position = player_center
@@ -311,7 +313,7 @@ func _sync_continuous_particles(
 		_jet_particles.emitting = phase == 1
 	if _shockwave_particles != null:
 		_shockwave_particles.position = shock_center
-		_shockwave_particles.scale = Vector2(render_scale * (1.0 + shock_progress * 2.25), render_scale * 0.48)
+		_shockwave_particles.scale = Vector2(render_scale * max(1.0 + shock_progress * 2.25, shock_radius / 130.0), render_scale * 0.48)
 		_shockwave_particles.emitting = shock_visible
 		var shock_mat: ParticleProcessMaterial = _shockwave_particles.process_material
 		if shock_mat != null:
@@ -382,9 +384,9 @@ func _draw_shockwave_texture_layers(render_scale: float) -> void:
 	var center: Vector2 = _as_vector2(_state.get("screen_shockwave_center", Vector2.ZERO), Vector2.ZERO)
 	var progress: float = clamp(float(_state.get("shockwave_progress", 0.0)), 0.0, 1.0)
 	var alpha: float = clamp(float(_state.get("shockwave_alpha", 0.0)), 0.0, 1.0)
+	var shock_radius: float = max(38.0, float(_state.get("shockwave_radius", 38.0 + progress * 220.0))) * render_scale
 	for i in range(SHOCKWAVE_TEXTURE_RINGS):
-		var ring_progress: float = clamp(progress + float(i) * 0.11, 0.0, 1.0)
-		var radius: float = (38.0 + ring_progress * 220.0 + float(i) * 24.0) * render_scale
+		var radius: float = max(12.0 * render_scale, shock_radius - float(i) * 28.0 * render_scale)
 		_draw_ring_texture(center + Vector2(0.0, -8.0 * render_scale), radius, Color(0.36, 0.96, 1.0, alpha * (0.38 - float(i) * 0.07)))
 	_draw_centered_texture(ImpactFlareTextureCache.get_burst_texture(), center, (96.0 + progress * 58.0) * render_scale, Color(1.0, 0.72, 0.24, alpha * (0.28 + shock_flash_value * 0.26)))
 

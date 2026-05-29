@@ -83,9 +83,9 @@ const SKILL_DATA := {
 		"cost": 150.0,
 		"color": Color(1.0, 120.0 / 255.0, 50.0 / 255.0),
 		"cooldown": 70.0,
-		"description": "강한 충격으로 EMP 펄스를 퍼트립니다.\n체공 높이에 비례해 펄스 강도가 증가합니다.",
+		"description": "강한 충격으로 원형 EMP 펄스를 끝까지 퍼트려 공을 튕기고 상대를 감전 둔화시킵니다.\n원형 파동의 테두리가 보스에게 닿으면 보스를 슬립 상태로 만듭니다.\n체공 높이에 비례해 펄스 강도가 증가합니다.",
 		"how_to_use": "체공 중 S키 또는 아래쪽 방향키를 0.3초 이상 누르기",
-		"motion_hint": "급강하 EMP 펄스로 통제불능 부여",
+		"motion_hint": "끝까지 퍼지는 원형 EMP 둔화",
 		"effect_type": "dive_impact",
 	},
 	"marshal_kick": {
@@ -271,9 +271,9 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 			data["motion_hint"] = "Fly behind the boss and slash to confuse"
 		"dive_strike":
 			data["korean"] = "EMP Strike"
-			data["description"] = "Release an EMP pulse with a hard impact. Pulse strength scales with airborne height."
+			data["description"] = "Release the circular EMP pulse with a hard impact, bouncing the ball and disrupting enemy movement. The same expanding ring reaches the boss and applies EMP slip. Pulse strength scales with airborne height."
 			data["how_to_use"] = "Hold S or Down for 0.3s while airborne"
-			data["motion_hint"] = "Dive with an EMP pulse"
+			data["motion_hint"] = "Full-reach circular EMP slow"
 		"marshal_kick":
 			data["korean"] = "Martial Kick"
 			data["description"] = "Kick off a wall and rush toward the ball. Used as a combo bridge."

@@ -697,6 +697,7 @@ func draw_dive_effects(
 				runtime.dive_shockwave_pos,
 				shake_offset,
 				shockwave_frames,
+				runtime.dive_shockwave_max_radius,
 				effect_lod_scale
 			)
 	elif runtime.dive_shockwave_timer > 0.0:
@@ -706,6 +707,7 @@ func draw_dive_effects(
 			runtime.dive_shockwave_pos,
 			shake_offset,
 			shockwave_frames,
+			runtime.dive_shockwave_max_radius,
 			effect_lod_scale
 		)
 	draw_dual_glitch_clone_dive_effects(
@@ -736,19 +738,21 @@ func draw_dive_shockwave(
 	pos: Vector2,
 	shake_offset: Vector2,
 	shockwave_frames: float,
+	shockwave_max_radius: float,
 	effect_lod_scale: float = 1.0
 ) -> void:
 	var severe_lod: bool = effect_lod_scale <= SEVERE_LOD_SCALE_THRESHOLD
 	var progress: float = 1.0 - clamp(timer / max(1.0, shockwave_frames), 0.0, 1.0)
 	var center: Vector2 = pos + shake_offset
-	var alpha: float = max(0.0, 1.0 - progress)
-	var half_width: float = 50.0 + 380.0 * progress
+	var alpha: float = clamp(1.0 - progress * 0.78, 0.0, 1.0)
+	var current_radius: float = lerp(34.0, max(300.0, shockwave_max_radius), progress)
+	var half_width: float = 50.0 + current_radius * progress
 	var y: float = center.y
 	canvas.draw_line(Vector2(center.x - half_width, y), Vector2(center.x + half_width, y), Color(0.90, 0.96, 1.0, 0.34 * alpha), 15.0, true)
 	canvas.draw_line(Vector2(center.x - half_width * 0.82, y - 10.0), Vector2(center.x + half_width * 0.82, y - 10.0), Color(0.35, 0.92, 1.0, 0.42 * alpha), 5.0, true)
 	var ring_count: int = 1 if severe_lod else 3
 	for i in range(ring_count):
-		var radius: float = 34.0 + progress * 210.0 + float(i) * 28.0
+		var radius: float = max(10.0, current_radius - float(i) * 28.0)
 		ImpactShockwaveTextureCache.draw_full_ring(canvas, center + Vector2(0.0, -8.0), radius, Color(0.38, 0.95, 1.0), alpha * (0.30 - float(i) * 0.06))
 	if not severe_lod:
 		ImpactFlareTextureCache.draw_glow(canvas, center + Vector2(0.0, -8.0), 58.0 + progress * 40.0, Color(1.0, 0.70, 0.20), alpha * 0.20)
@@ -836,7 +840,9 @@ func build_emp_strike_fx_state(
 		hit_text_pos.x = clamp(hit_text_pos.x, 96.0, 664.0)
 		hit_text_pos.y = clamp(hit_text_pos.y, 84.0, 704.0)
 	var shock_progress: float = 1.0 - clamp(runtime.dive_shockwave_timer / max(1.0, shockwave_frames), 0.0, 1.0)
-	var shock_alpha: float = clamp(runtime.dive_shockwave_timer / max(1.0, shockwave_frames), 0.0, 1.0)
+	var shock_alpha: float = 0.0
+	if runtime.dive_shockwave_timer > 0.0:
+		shock_alpha = clamp(1.0 - shock_progress * 0.78, 0.0, 1.0)
 	return {
 		"render_scale": render_scale,
 		"phase": runtime.dive_phase if runtime.dive_active else -1,
@@ -845,6 +851,7 @@ func build_emp_strike_fx_state(
 		"prep_progress": clamp(runtime.dive_phase_frames / max(1.0, runtime.dive_prep_frames_snapshot), 0.0, 1.0) if runtime.dive_active and runtime.dive_phase == 0 else 0.0,
 		"shockwave_progress": shock_progress,
 		"shockwave_alpha": shock_alpha,
+		"shockwave_radius": runtime.get_emp_shockwave_radius(),
 		"height_ratio": clamp(runtime.dive_height_snapshot / jetpack_max_height, 0.0, 1.0),
 		"hit_text_timer": runtime.dive_hit_text_timer,
 		"hit_text_frames": hit_text_frames,

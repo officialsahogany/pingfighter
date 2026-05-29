@@ -124,6 +124,9 @@ const DIVE_GAUGE_COST := 150.0
 const DIVE_JETPACK_MAX_HEIGHT := 200.0
 const DIVE_SHOCKWAVE_HEIGHT := 120.0
 const DIVE_SHOCKWAVE_FRAMES := 60.0
+const DIVE_SHOCKWAVE_START_RADIUS := 34.0
+const DIVE_SHOCKWAVE_BASE_MAX_RADIUS := 300.0
+const DIVE_SHOCKWAVE_RING_HALF_THICKNESS := 24.0
 const DIVE_SLIP_DURATION_MIN := 54.0
 const DIVE_SLIP_DURATION_MAX := 90.0
 const DIVE_SLIP_SPEED := 4.0
@@ -395,6 +398,8 @@ var dive_height_snapshot := 0.0
 var dive_prep_frames_snapshot := DIVE_PREP_FRAMES
 var dive_shockwave_timer := 0.0
 var dive_shockwave_pos := Vector2.ZERO
+var dive_shockwave_max_radius := DIVE_SHOCKWAVE_BASE_MAX_RADIUS
+var dive_shockwave_boss_effect_applied := false
 var dive_ball_boosted := false
 var dive_particles: Array = []
 var dive_slip_timer := 0.0
@@ -802,6 +807,16 @@ func is_phantom_kick_speed_limit_disabled() -> bool:
 
 func get_boss_ai_context() -> Dictionary:
 	return context_builder.build_boss_ai_context(self)
+
+
+func get_emp_shockwave_progress() -> float:
+	if dive_shockwave_timer <= 0.0:
+		return 1.0 if dive_shockwave_pos != Vector2.ZERO else 0.0
+	return 1.0 - clamp(dive_shockwave_timer / max(1.0, DIVE_SHOCKWAVE_FRAMES), 0.0, 1.0)
+
+
+func get_emp_shockwave_radius() -> float:
+	return lerp(DIVE_SHOCKWAVE_START_RADIUS, dive_shockwave_max_radius, get_emp_shockwave_progress())
 
 
 func is_kick_skill_knockback_ball_active() -> bool:
@@ -2899,7 +2914,9 @@ func _update_dive_strike(
 ) -> Dictionary:
 	var fps_scale: float = max(0.0, delta * 60.0)
 	if dive_phase == 2:
+		var previous_radius: float = get_emp_shockwave_radius()
 		dive_shockwave_timer = max(0.0, dive_shockwave_timer - fps_scale)
+		_update_dive_shockwave_boss_effect(previous_radius, get_emp_shockwave_radius(), config, deps)
 		if dive_shockwave_timer <= 0.0:
 			dive_active = false
 			dive_phase = 0
@@ -2966,6 +2983,8 @@ func _enter_dive_landing(config: Dictionary, deps: Dictionary) -> void:
 	dive_shockwave_timer = DIVE_SHOCKWAVE_FRAMES
 	dive_shockwave_pos = Vector2(dive_player_pos.x + dive_paddle_size.x * 0.5, dive_floor_y + dive_paddle_size.y)
 	dive_shockwave_spawn_msec = Time.get_ticks_msec()
+	dive_shockwave_max_radius = _get_dive_shockwave_boss_reach_radius(config)
+	dive_shockwave_boss_effect_applied = false
 	dive_ball_boosted = false
 	_set_viper_jetpack_offset_y(deps, 0.0)
 	_trigger_feedback(deps, 0.18, 5.0)
@@ -3069,6 +3088,65 @@ func _start_dive_slip_for_height(
 	dive_slip_vel = slip_dir * DIVE_SLIP_SPEED
 
 
+func _get_dive_shockwave_boss_reach_radius(config: Dictionary) -> float:
+	var boss_pos: Vector2 = _get_vector2(
+		config.get("boss_pos", Vector2(float(config.get("width", 760.0)) * 0.5 - 50.0, 25.0)),
+		Vector2.ZERO
+	)
+	var boss_width: float = max(1.0, float(config.get("boss_paddle_width", 100.0)))
+	var boss_height: float = max(1.0, float(config.get("boss_hitbox_height", 40.0)))
+	var boss_center: Vector2 = boss_pos + Vector2(boss_width * 0.5, boss_height * 0.5)
+	return max(
+		DIVE_SHOCKWAVE_BASE_MAX_RADIUS,
+		dive_shockwave_pos.distance_to(boss_center) + DIVE_SHOCKWAVE_RING_HALF_THICKNESS
+	)
+
+
+func _update_dive_shockwave_boss_effect(
+	previous_radius: float,
+	current_radius: float,
+	config: Dictionary,
+	deps: Dictionary
+) -> void:
+	if dive_shockwave_boss_effect_applied:
+		return
+	if _dive_shockwave_ring_touches_boss(previous_radius, current_radius, config):
+		_apply_dive_shockwave_boss_effects(config, deps)
+
+
+func _dive_shockwave_ring_touches_boss(previous_radius: float, current_radius: float, config: Dictionary) -> bool:
+	var boss_pos: Vector2 = _get_vector2(
+		config.get("boss_pos", Vector2(float(config.get("width", 760.0)) * 0.5 - 50.0, 25.0)),
+		Vector2.ZERO
+	)
+	var boss_width: float = max(1.0, float(config.get("boss_paddle_width", 100.0)))
+	var boss_height: float = max(1.0, float(config.get("boss_hitbox_height", 40.0)))
+	var closest_x: float = clamp(dive_shockwave_pos.x, boss_pos.x, boss_pos.x + boss_width)
+	var closest_y: float = clamp(dive_shockwave_pos.y, boss_pos.y, boss_pos.y + boss_height)
+	var boss_distance: float = dive_shockwave_pos.distance_to(Vector2(closest_x, closest_y))
+	var ring_inner: float = min(previous_radius, current_radius) - DIVE_SHOCKWAVE_RING_HALF_THICKNESS
+	var ring_outer: float = max(previous_radius, current_radius) + DIVE_SHOCKWAVE_RING_HALF_THICKNESS
+	return ring_inner <= boss_distance and ring_outer >= boss_distance
+
+
+func _apply_dive_shockwave_boss_effects(config: Dictionary, deps: Dictionary) -> void:
+	_start_dive_slip_for_height(
+		_get_dive_shockwave_slip_reference_pos(config),
+		config,
+		deps,
+		dive_height_snapshot,
+		true
+	)
+	dive_shockwave_boss_effect_applied = true
+
+
+func _get_dive_shockwave_slip_reference_pos(config: Dictionary) -> Vector2:
+	var ball_pos: Variant = config.get("ball_pos", null)
+	if ball_pos is Vector2:
+		return ball_pos
+	return dive_shockwave_pos
+
+
 func apply_emp_slip_boss_motion(boss_pos: Vector2, context: Dictionary, fps_scale: float) -> Dictionary:
 	if dive_slip_timer <= 0.0:
 		dive_slip_vel = 0.0
@@ -3107,6 +3185,8 @@ func _reset_dive_runtime(clear_hold: bool = false) -> void:
 	dive_prep_frames_snapshot = DIVE_PREP_FRAMES
 	dive_shockwave_timer = 0.0
 	dive_shockwave_pos = Vector2.ZERO
+	dive_shockwave_max_radius = DIVE_SHOCKWAVE_BASE_MAX_RADIUS
+	dive_shockwave_boss_effect_applied = false
 	dive_ball_boosted = false
 	dive_particles.clear()
 	dive_slip_timer = 0.0
@@ -3459,11 +3539,7 @@ func _get_four_poisons_additive_cooldown_seconds(
 
 
 func _apply_nerve_strike_confusion(deps: Dictionary) -> void:
-	var status_effect_state: Object = deps.get("status_effect_state", null)
-	if status_effect_state == null:
-		var registry: Object = deps.get("registry", null)
-		if registry != null and registry.has_method("get_instance"):
-			status_effect_state = registry.get_instance("status_effect_state")
+	var status_effect_state: Object = _get_status_effect_state(deps)
 	if status_effect_state == null or not status_effect_state.has_method("apply_status"):
 		return
 	var venom_confusion_pct: int = _get_four_poisons_scaled_pct(
@@ -3480,6 +3556,16 @@ func _apply_nerve_strike_confusion(deps: Dictionary) -> void:
 		{"cleansable": true},
 		"viper_nerve_strike"
 	)
+
+
+func _get_status_effect_state(deps: Dictionary) -> Object:
+	var status_effect_state: Object = deps.get("status_effect_state", null)
+	if status_effect_state != null:
+		return status_effect_state
+	var registry: Object = deps.get("registry", null)
+	if registry != null and registry.has_method("get_instance"):
+		return registry.get_instance("status_effect_state")
+	return null
 
 
 func _get_nerve_strike_target_pos(config: Dictionary) -> Vector2:

@@ -108,6 +108,21 @@ class FakePerkState:
 		return gold
 
 
+class FakeStatusEffectState:
+	var applications: Array = []
+
+	func apply_status(target: String, status_id: String, duration_frames: float, data: Dictionary = {}, source: String = "") -> Dictionary:
+		var entry := {
+			"target": target,
+			"status_id": status_id,
+			"duration_frames": duration_frames,
+			"data": data.duplicate(true),
+			"source": source,
+		}
+		applications.append(entry)
+		return entry
+
+
 func _init() -> void:
 	_test_four_poisons_catalog_text_sync()
 	_test_emp_audio_asset_parity()
@@ -115,6 +130,7 @@ func _init() -> void:
 	_test_emp_fx_host_remaster_stack()
 	_test_emp_fx_host_reset_hides_detached_runtime()
 	_test_emp_activation_impact_slip_and_four_poisons_scaling()
+	_test_emp_shockwave_reach_applies_slip_without_ball_hit()
 	_test_emp_startup_cancel_and_super_armor()
 	print("viper_emp_strike_port_smoke: ok")
 	quit(0)
@@ -243,9 +259,10 @@ func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
 	var feedback := FakeFeedback.new()
 	var perk_state := FakePerkState.new()
 	perk_state.four_poisons_level = 5
+	var status_state := FakeStatusEffectState.new()
 	var jetpack := ViperJetpackState.new()
 	jetpack.set_offset_y(-120.0, {"audio": audio})
-	var deps := _deps(input, skill_config, skill_state, audio, orb, feedback, perk_state, jetpack)
+	var deps := _deps(input, skill_config, skill_state, audio, orb, feedback, perk_state, jetpack, status_state)
 	var config := _base_config()
 	var player_pos := Vector2(302.5, 580.0)
 
@@ -272,6 +289,19 @@ func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
 	_expect(bool(snap.get("dive_active", false)), "EMP should remain active during the landing shockwave window")
 	_expect(int(snap.get("dive_phase", -1)) == 2, "EMP should land and enter the shockwave phase")
 	_expect(audio.strike == 1, "EMP landing should play the strike audio")
+	_expect(float(snap.get("dive_shockwave_radius", 0.0)) > 30.0, "EMP circular shockwave should start from the landing ring")
+	_expect(float(snap.get("dive_shockwave_max_radius", 0.0)) > 650.0, "EMP circular shockwave should expand far enough to reach the boss")
+	var fx_state: Dictionary = runtime.particle_drawer.build_emp_strike_fx_state(
+		runtime,
+		Vector2.ZERO,
+		{"render_scale": 1.0, "game_offset": Vector2.ZERO},
+		60.0,
+		200.0,
+		60.0
+	)
+	_expect(float(fx_state.get("shockwave_alpha", 0.0)) > 0.0, "EMP should keep the original circular shockwave visual active")
+	_expect(float(fx_state.get("shockwave_radius", 0.0)) > 30.0, "EMP should drive boss reach through the original shockwave radius")
+	_expect(not fx_state.has("boss_wave_active"), "EMP should not spawn a separate boss-side wave layer")
 
 	var scene := {
 		"ball_pos": Vector2(380.0, 690.0),
@@ -291,6 +321,14 @@ func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
 	_expect(_get_vector2(hit_feedback_snap, "dive_hit_text_pos", Vector2.ZERO).distance_to(scene["ball_pos"]) < 0.01, "EMP hit text should anchor to the impacted ball")
 	runtime.update_effects(10.0, Time.get_ticks_msec(), config, deps)
 	_expect(float(runtime.get_snapshot().get("dive_hit_text_timer", 0.0)) < float(hit_feedback_snap.get("dive_hit_text_timer", 0.0)), "EMP hit text should tick down through the effect update path")
+	var wave_guard := 0
+	while not bool(runtime.get_snapshot().get("dive_shockwave_boss_effect_applied", false)) and wave_guard < 60:
+		wave_guard += 1
+		runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 350.0)), config, deps)
+	var wave_snap: Dictionary = runtime.get_snapshot()
+	_expect(bool(wave_snap.get("dive_shockwave_boss_effect_applied", false)), "EMP runtime should remember that the circular shockwave applied its boss EMP effect")
+	_expect(status_state.applications.is_empty(), "EMP shockwave should not apply confusion in the original parity behavior")
+	_expect(float(wave_snap.get("dive_shockwave_radius", 0.0)) > 650.0, "EMP circular shockwave should reach the boss-side hitbox")
 	var actor_context: Dictionary = runtime.get_actor_draw_context()
 	_expect(bool(actor_context.get("viper_emp_slip_active", false)), "EMP slip should expose a boss draw overlay state")
 	_expect(float(actor_context.get("viper_emp_slip_ratio", 0.0)) > 0.0, "EMP boss draw overlay should expose remaining slip ratio")
@@ -304,6 +342,45 @@ func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
 	boss_context.merge(runtime.get_boss_ai_context(), true)
 	var boss_result: Dictionary = boss_ai.update(1.0 / 60.0, Vector2(300.0, 25.0), 0.0, boss_context)
 	_expect(_get_vector2(boss_result, "boss_pos", Vector2.ZERO).x > 300.0, "EMP slip should move the boss paddle away from the hit side")
+
+
+func _test_emp_shockwave_reach_applies_slip_without_ball_hit() -> void:
+	var runtime: Object = ViperSkillRuntime.new()
+	var input := FakeInput.new()
+	var skill_config := FakeSkillConfig.new()
+	var skill_state := FakeSkillState.new()
+	var audio := FakeAudio.new()
+	var orb := FakeOrbHud.new()
+	var feedback := FakeFeedback.new()
+	var perk_state := FakePerkState.new()
+	perk_state.four_poisons_level = 5
+	var status_state := FakeStatusEffectState.new()
+	var jetpack := ViperJetpackState.new()
+	jetpack.set_offset_y(-120.0, {"audio": audio})
+	var deps := _deps(input, skill_config, skill_state, audio, orb, feedback, perk_state, jetpack, status_state)
+	var config := _base_config()
+	var player_pos := Vector2(302.5, 580.0)
+
+	input.snapshot["down_pressed"] = true
+	var result: Dictionary = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, deps)
+	runtime.dive_hold_start_msec = Time.get_ticks_msec() - 301
+	result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, 500.0, config, deps)
+	player_pos = _get_vector2(result, "player_pos", player_pos)
+	for _i in range(30):
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 350.0)), config, deps)
+		if result.has("player_pos"):
+			player_pos = _get_vector2(result, "player_pos", player_pos)
+
+	_expect(float(runtime.get_snapshot().get("dive_slip_timer", 0.0)) <= 0.0, "test setup should not apply EMP slip before the ring reaches the boss")
+	var wave_guard := 0
+	while not bool(runtime.get_snapshot().get("dive_shockwave_boss_effect_applied", false)) and wave_guard < 60:
+		wave_guard += 1
+		result = runtime.try_activate_before_movement(1.0 / 60.0, player_pos, float(result.get("special_gauge", 350.0)), config, deps)
+	_expect(bool(runtime.get_snapshot().get("dive_shockwave_boss_effect_applied", false)), "EMP ring should apply the boss EMP effect even without a ball hit")
+	_expect(float(runtime.get_snapshot().get("dive_slip_timer", 0.0)) > 90.0, "EMP ring boss contact should start the original EMP slip with Four Poisons scaling")
+	_expect(status_state.applications.is_empty(), "EMP ring boss contact should not apply confusion")
+	_expect(perk_state.gold == 0, "EMP ring boss contact without ball hit should not award ball-hit skill gold")
+	_expect(float(runtime.get_snapshot().get("dive_hit_text_timer", 0.0)) <= 0.0, "EMP ring boss contact without ball hit should not show ball-hit text")
 
 
 func _test_emp_startup_cancel_and_super_armor() -> void:
@@ -352,7 +429,8 @@ func _deps(
 	orb: Object,
 	feedback: Object,
 	perk_state: Object,
-	jetpack: Object
+	jetpack: Object,
+	status_state: Object = null
 ) -> Dictionary:
 	return {
 		"input_reader": input,
@@ -363,6 +441,7 @@ func _deps(
 		"feedback": feedback,
 		"runtime_perk_state": perk_state,
 		"viper_jetpack_state": jetpack,
+		"status_effect_state": status_state,
 	}
 
 
@@ -378,6 +457,7 @@ func _base_config() -> Dictionary:
 		"player_floor_y": 700.0,
 		"boss_pos": Vector2(300.0, 25.0),
 		"boss_paddle_width": 100.0,
+		"boss_hitbox_height": 40.0,
 	}
 
 
