@@ -156,8 +156,8 @@ func _build_dowsing_goggles(catalog: Object) -> Dictionary:
 
 func _build_yachaman_soul(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
-		"display_name": "야차맨의 투구",
-		"korean_name": "야차맨의 투구",
+		"display_name": "야차맨의 영혼",
+		"korean_name": "야차맨의 영혼",
 		"description": "실점 직전에 일정 확률로 폭탄 전사의 형상으로 변신하여 점수를 막습니다. 변신 중에는 이동속도 3, 패들 크기 70%가 됩니다.",
 		"color": Color(30.0 / 255.0, 30.0 / 255.0, 35.0 / 255.0),
 	}, catalog, "yachaman_soul", "passive", "head", catalog.get_field_chance("yachaman_soul"))

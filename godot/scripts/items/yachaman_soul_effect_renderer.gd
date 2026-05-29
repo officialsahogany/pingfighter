@@ -6,9 +6,9 @@ const ORANGE := Color(1.0, 120.0 / 255.0, 0.0)
 const GOLD := Color(1.0, 210.0 / 255.0, 90.0 / 255.0)
 const GATHER_FRAMES := 60.0
 const BURST_FRAMES := 30.0
-const HELMET_DARK := Color(25.0 / 255.0, 25.0 / 255.0, 30.0 / 255.0)
-const HELMET_HIGHLIGHT := Color(45.0 / 255.0, 45.0 / 255.0, 50.0 / 255.0)
-const HELMET_RIM := Color(15.0 / 255.0, 15.0 / 255.0, 18.0 / 255.0)
+const SOUL_CORE_DARK := Color(24.0 / 255.0, 18.0 / 255.0, 26.0 / 255.0)
+const SOUL_CORE_HIGHLIGHT := Color(1.0, 160.0 / 255.0, 70.0 / 255.0)
+const SOUL_CORE_RIM := Color(1.0, 84.0 / 255.0, 24.0 / 255.0)
 
 
 func draw_revival_event(canvas: CanvasItem, state: Object, shake_offset: Vector2 = Vector2.ZERO) -> void:
@@ -31,7 +31,7 @@ func draw_bomb_kit(canvas: CanvasItem, state: Object, shake_offset: Vector2 = Ve
 		return
 	var context: Dictionary = state.get_context()
 	_draw_bomb_explosion(canvas, context, shake_offset)
-	_draw_helmet_return(canvas, context, shake_offset)
+	_draw_core_return(canvas, context, shake_offset)
 	_draw_bomb_spin(canvas, context, shake_offset)
 
 
@@ -86,9 +86,9 @@ func _draw_bomb_spin(canvas: CanvasItem, context: Dictionary, shake_offset: Vect
 				center.x - sin(angle) * orbit_rx + forward + sin(trail_angle) * orbit_rx,
 				spin_center_y - cos(trail_angle) * orbit_ry
 			)
-			_draw_spin_helmet(canvas, trail_center, radius, trail_angle, 0.45 - float(i) * 0.10, false)
+			_draw_spin_core(canvas, trail_center, radius, trail_angle, 0.45 - float(i) * 0.10, false)
 		canvas.draw_circle(center, radius + 6.0, _with_alpha(ORANGE, 0.16), false, 3.0)
-	_draw_spin_helmet(canvas, center, radius, angle if phase == 1 or phase == 2 else 0.0, 1.0, true)
+	_draw_spin_core(canvas, center, radius, angle if phase == 1 or phase == 2 else 0.0, 1.0, true)
 	if phase == 2:
 		for i in range(5):
 			var y: float = center.y - 8.0 + float(i) * 4.0
@@ -121,7 +121,7 @@ func _draw_bomb_explosion(canvas: CanvasItem, context: Dictionary, shake_offset:
 		canvas.draw_circle(pos, size * 0.5, _with_alpha(color, clampf(life / max_life, 0.0, 1.0)))
 
 
-func _draw_helmet_return(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+func _draw_core_return(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
 	if not bool(context.get("helmet_returning", false)):
 		return
 	var center: Vector2 = context.get("helmet_return_pos", Vector2.ZERO) + shake_offset
@@ -133,11 +133,11 @@ func _draw_helmet_return(canvas: CanvasItem, context: Dictionary, shake_offset: 
 	for i in range(3):
 		var back_t: float = max(0.0, progress - float(i + 1) * 0.08) / max(0.01, progress)
 		var trail_center: Vector2 = start.lerp(center, back_t)
-		_draw_spin_helmet(canvas, trail_center, radius - float(i), 0.0, max(0.16, 0.42 - float(i) * 0.10), false)
-	_draw_spin_helmet(canvas, center, radius, 0.0, 1.0, true)
+		_draw_spin_core(canvas, trail_center, radius - float(i), 0.0, max(0.16, 0.42 - float(i) * 0.10), false)
+	_draw_spin_core(canvas, center, radius, 0.0, 1.0, true)
 
 
-func _draw_spin_helmet(
+func _draw_spin_core(
 	canvas: CanvasItem,
 	center: Vector2,
 	radius: float,
@@ -145,20 +145,22 @@ func _draw_spin_helmet(
 	alpha: float,
 	draw_flame: bool
 ) -> void:
-	var flip_strength: float = abs(cos(spin_angle * 1.7))
-	var shell_h: float = max(8.0, radius * 2.0 * (0.45 + flip_strength * 0.55))
-	_draw_ellipse(canvas, center, Vector2(radius, shell_h * 0.5), _with_alpha(HELMET_DARK, alpha), 24)
-	_draw_ellipse(canvas, center + Vector2(-2.0, -3.0), Vector2(radius * 0.60, shell_h * 0.28), _with_alpha(HELMET_HIGHLIGHT, min(alpha, 0.64)), 18)
-	if shell_h >= radius + 8.0:
-		_draw_ellipse(canvas, center + Vector2(0.0, 1.0), Vector2(radius * 0.52, shell_h * 0.10), _with_alpha(Color(60.0 / 255.0, 60.0 / 255.0, 68.0 / 255.0), min(alpha, 0.56)), 14)
+	var pulse: float = 0.5 + 0.5 * sin(spin_angle * 2.3)
+	var core_radius := Vector2(radius * (0.92 + pulse * 0.10), radius * (0.84 + pulse * 0.14))
+	canvas.draw_circle(center, radius + 5.0 + pulse * 2.0, _with_alpha(ORANGE, 0.12 * alpha))
+	_draw_ellipse(canvas, center, core_radius, _with_alpha(SOUL_CORE_DARK, alpha), 24)
+	_draw_ellipse(canvas, center + Vector2(-3.0, -3.5), core_radius * 0.44, _with_alpha(SOUL_CORE_HIGHLIGHT, min(alpha, 0.48)), 18)
+	canvas.draw_circle(center + Vector2(2.0, 2.0), radius * 0.34, _with_alpha(DARK_CORE, 0.76 * alpha))
 	if draw_flame:
-		var fuse_base := center + Vector2(0.0, -shell_h * 0.5 + 3.0)
-		var fuse_tip := center + Vector2(3.0, -shell_h * 0.5 - 7.0 + sin(spin_angle * 2.5) * 2.0)
-		canvas.draw_line(fuse_base, fuse_tip, _with_alpha(Color(90.0 / 255.0, 80.0 / 255.0, 70.0 / 255.0), alpha), 2.0, true)
-		var wobble: float = sin(spin_angle * 3.1) * 2.0
-		canvas.draw_circle(fuse_tip + Vector2(wobble, -1.0), 4.0, _with_alpha(Color(1.0, 220.0 / 255.0, 80.0 / 255.0), min(alpha, 0.92)))
-		canvas.draw_circle(fuse_tip + Vector2(wobble, -2.0), 2.4, _with_alpha(Color(1.0, 120.0 / 255.0, 0.0), alpha))
-	_draw_ellipse(canvas, center, Vector2(radius, shell_h * 0.5), _with_alpha(HELMET_RIM, alpha), 24, false, 1.0)
+		var spark_base := center + Vector2(sin(spin_angle * 2.0) * 3.0, -radius - 3.0)
+		canvas.draw_circle(spark_base, 5.0 + pulse * 2.0, _with_alpha(GOLD, min(alpha, 0.70)))
+		canvas.draw_circle(spark_base + Vector2(0.0, -2.0), 2.7 + pulse, _with_alpha(ORANGE, alpha))
+	for i in range(4):
+		var angle: float = spin_angle + float(i) * TAU / 4.0
+		var start: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius * 0.72
+		var end: Vector2 = center + Vector2(cos(angle), sin(angle)) * (radius + 4.0 + pulse * 3.0)
+		canvas.draw_line(start, end, _with_alpha(GOLD, max(0.0, 0.42 - float(i) * 0.06) * alpha), 1.0, true)
+	_draw_ellipse(canvas, center, core_radius + Vector2(1.5, 1.5), _with_alpha(SOUL_CORE_RIM, alpha), 24, false, 1.0)
 
 
 func _draw_ellipse(

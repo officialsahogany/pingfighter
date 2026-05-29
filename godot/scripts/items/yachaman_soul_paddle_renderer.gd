@@ -5,6 +5,9 @@ const DARK := Color(35.0 / 255.0, 35.0 / 255.0, 40.0 / 255.0)
 const DARKER := Color(18.0 / 255.0, 18.0 / 255.0, 22.0 / 255.0)
 const BELT := Color(120.0 / 255.0, 90.0 / 255.0, 20.0 / 255.0)
 const SHOE := Color(40.0 / 255.0, 40.0 / 255.0, 45.0 / 255.0)
+const SKIN := Color(94.0 / 255.0, 72.0 / 255.0, 58.0 / 255.0)
+const SKIN_SHADOW := Color(62.0 / 255.0, 48.0 / 255.0, 42.0 / 255.0)
+const HAIR := Color(35.0 / 255.0, 27.0 / 255.0, 25.0 / 255.0)
 const FLAME_YELLOW := Color(1.0, 220.0 / 255.0, 80.0 / 255.0)
 const FLAME_ORANGE := Color(1.0, 140.0 / 255.0, 0.0)
 
@@ -19,7 +22,7 @@ func draw(
 	paddle_size: Vector2,
 	shake_offset: Vector2 = Vector2.ZERO,
 	alpha: float = 1.0,
-	context: Dictionary = {}
+	_context: Dictionary = {}
 ) -> Rect2:
 	if canvas == null:
 		return Rect2(player_pos, paddle_size)
@@ -33,7 +36,7 @@ func draw(
 	_draw_legs(canvas, Vector2(cx, foot_y - 18.0 + bob), body_scale, alpha)
 	_draw_body(canvas, Vector2(cx, foot_y - 42.0 + bob), body_scale, alpha)
 	_draw_arms(canvas, Vector2(cx, foot_y - 42.0 + bob), body_scale, alpha)
-	_draw_head(canvas, Vector2(cx, foot_y - 58.0 + bob), body_scale, alpha, bool(context.get("helmet_removed", false)))
+	_draw_head(canvas, Vector2(cx, foot_y - 58.0 + bob), body_scale, alpha)
 	return Rect2(Vector2(cx - 38.0 * body_scale, foot_y - 76.0 * body_scale), Vector2(76.0, 78.0) * body_scale)
 
 
@@ -91,23 +94,32 @@ func _draw_arms(canvas: CanvasItem, center: Vector2, scale: float, alpha: float)
 		canvas.draw_circle(hand, 3.0 * scale, _with_alpha(DARK, alpha))
 
 
-func _draw_head(canvas: CanvasItem, center: Vector2, scale: float, alpha: float, helmet_is_removed: bool = false) -> void:
-	var radius: float = 14.0 * scale
-	if helmet_is_removed:
-		var exposed_radius: float = 10.0 * scale
-		canvas.draw_circle(center + Vector2(0.0, 2.0) * scale, exposed_radius, _with_alpha(Color(70.0 / 255.0, 58.0 / 255.0, 50.0 / 255.0), alpha))
-		canvas.draw_circle(center + Vector2(-3.0, -1.0) * scale, 1.2 * scale, _with_alpha(Color.BLACK, alpha))
-		canvas.draw_circle(center + Vector2(3.0, -1.0) * scale, 1.2 * scale, _with_alpha(Color.BLACK, alpha))
-		canvas.draw_line(center + Vector2(-3.0, 4.0) * scale, center + Vector2(3.0, 4.0) * scale, _with_alpha(DARKER, 0.82 * alpha), max(1.0, scale))
-		return
-	canvas.draw_circle(center, radius, _with_alpha(BLACK, alpha))
-	canvas.draw_circle(center + Vector2(-2.5, -3.0) * scale, radius * 0.68, _with_alpha(DARK, 0.78 * alpha))
-	canvas.draw_circle(center, radius, _with_alpha(DARKER, alpha), false, max(1.0, scale))
-	var fuse_base: Vector2 = center + Vector2(0.0, -radius + 2.0 * scale)
-	var fuse_tip: Vector2 = center + Vector2(3.0, -radius - 10.0 + sin(_walk_timer * 0.2) * 2.0) * scale
-	canvas.draw_line(fuse_base, fuse_tip, _with_alpha(Color(90.0 / 255.0, 80.0 / 255.0, 70.0 / 255.0), alpha), 2.0 * scale)
-	canvas.draw_circle(fuse_tip + Vector2(0.0, -2.0) * scale, 4.0 * scale, _with_alpha(FLAME_YELLOW, alpha))
-	canvas.draw_circle(fuse_tip + Vector2(0.0, -3.0) * scale, 2.3 * scale, _with_alpha(FLAME_ORANGE, alpha))
+func _draw_head(canvas: CanvasItem, center: Vector2, scale: float, alpha: float) -> void:
+	var face_center: Vector2 = center + Vector2(0.0, 2.0) * scale
+	var face_radius: float = 10.5 * scale
+	canvas.draw_circle(face_center, face_radius, _with_alpha(SKIN, alpha))
+	canvas.draw_circle(face_center + Vector2(2.5, 2.0) * scale, face_radius * 0.72, _with_alpha(SKIN_SHADOW, 0.35 * alpha))
+	_draw_hair_tufts(canvas, face_center, scale, alpha)
+	canvas.draw_circle(face_center + Vector2(-3.2, -1.5) * scale, 1.25 * scale, _with_alpha(Color.BLACK, alpha))
+	canvas.draw_circle(face_center + Vector2(3.2, -1.5) * scale, 1.25 * scale, _with_alpha(Color.BLACK, alpha))
+	canvas.draw_line(
+		face_center + Vector2(-3.4, 4.2) * scale,
+		face_center + Vector2(3.4, 4.2) * scale,
+		_with_alpha(DARKER, 0.82 * alpha),
+		max(1.0, scale)
+	)
+	var flame_base: Vector2 = face_center + Vector2(0.0, -face_radius - 4.0 * scale)
+	canvas.draw_circle(flame_base, 3.5 * scale, _with_alpha(FLAME_ORANGE, 0.22 * alpha))
+	canvas.draw_circle(flame_base + Vector2(0.0, -2.0) * scale, 4.0 * scale, _with_alpha(FLAME_YELLOW, 0.82 * alpha))
+	canvas.draw_circle(flame_base + Vector2(0.0, -3.0) * scale, 2.3 * scale, _with_alpha(FLAME_ORANGE, alpha))
+
+
+func _draw_hair_tufts(canvas: CanvasItem, face_center: Vector2, scale: float, alpha: float) -> void:
+	for i in range(5):
+		var x: float = (float(i) - 2.0) * 3.0
+		var root: Vector2 = face_center + Vector2(x, -7.4) * scale
+		var tip: Vector2 = face_center + Vector2(x * 0.45, -12.4 - abs(float(i) - 2.0) * 0.8) * scale
+		canvas.draw_line(root, tip, _with_alpha(HAIR, alpha), 2.2 * scale, true)
 
 
 func _draw_ellipse(canvas: CanvasItem, center: Vector2, radius: Vector2, color: Color, segments: int = 20) -> void:

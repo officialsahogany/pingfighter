@@ -219,6 +219,7 @@ func _verify_catalog_registration() -> void:
 	_expect(not item_data.is_empty(), "Yachaman Soul should build from the mythic catalog")
 	_expect(str(item_data.get("slot", "")) == "head", "Yachaman Soul should use the head slot")
 	_expect(str(item_data.get("name", "")) == "yachaman_soul", "Yachaman Soul catalog name should be stable")
+	_expect(str(item_data.get("display_name", "")) == "야차맨의 영혼", "Yachaman Soul display name should avoid the old helmet label")
 	_expect(str(item_data.get("icon_path", "")) == "res://assets/sprites/items/yachaman_soul.png", "Yachaman Soul should expose its PNG icon")
 	_expect(_catalog_has_item(catalog.get_field_spawn_items(), "yachaman_soul"), "Yachaman Soul should be in the field spawn pool")
 	_expect(is_equal_approx(catalog.get_field_chance("yachaman_soul"), 0.004), "Yachaman Soul field chance should match the reference")
@@ -362,7 +363,7 @@ func _verify_bomb_spin_skill_flow() -> void:
 	runtime.update(owner, registry, 1.0 / 60.0)
 	var context: Dictionary = runtime.get_yachaman_context()
 	_expect(bool(context.get("bomb_spin_active", false)), "Space/click plus direction should start Yachaman bomb spin")
-	_expect(bool(context.get("helmet_removed", false)), "Bomb spin should remove the helmet from the transformed body")
+	_expect(bool(context.get("helmet_removed", false)), "Bomb spin should detach the soul core from the transformed body")
 	_expect(audio.throw_calls >= 1, "Bomb spin should play a throw-style cue")
 
 	input_reader.snapshot = {}
@@ -370,16 +371,16 @@ func _verify_bomb_spin_skill_flow() -> void:
 	for _i in range(16):
 		if loaded:
 			break
-		var helmet_pos: Vector2 = runtime.get_yachaman_context().get("bomb_spin_helmet_pos", Vector2.ZERO)
-		if helmet_pos != Vector2.ZERO:
-			owner.values["ball_pos"] = helmet_pos
+		var core_pos: Vector2 = runtime.get_yachaman_context().get("bomb_spin_helmet_pos", Vector2.ZERO)
+		if core_pos != Vector2.ZERO:
+			owner.values["ball_pos"] = core_pos
 			owner.values["ball_vel"] = Vector2(0.0, 8.0)
 		runtime.update(owner, registry, 1.0 / 60.0)
 		loaded = bool(runtime.get_ball_draw_context().get("bomb_ball_loaded", false))
-	_expect(loaded, "Bomb spin helmet collision should load the bomb onto the ball")
+	_expect(loaded, "Bomb spin soul-core collision should load the bomb onto the ball")
 	_expect(runtime.has_ball_draw_context(), "Loaded Yachaman bomb should expose a ball draw context")
 	var loaded_ball_vel: Vector2 = owner.values.get("ball_vel", Vector2.ZERO)
-	_expect(loaded_ball_vel.y < 0.0, "Loaded bomb ball should bounce upward from the helmet")
+	_expect(loaded_ball_vel.y < 0.0, "Loaded bomb ball should bounce upward from the soul core")
 
 	var boss_result: Dictionary = runtime.consume_yachaman_bomb_boss_hit(
 		Vector2(380.0, 120.0),
