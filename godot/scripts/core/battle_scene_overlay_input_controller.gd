@@ -42,6 +42,22 @@ func handle_input(
 ) -> bool:
 	var character_debug_picker: Object = _get_module(module_getter, "character_debug_picker")
 	var stage_debug_picker: Object = _get_module(module_getter, "stage_debug_picker")
+	var grip_overlay: Object = _get_module(module_getter, "grip_style_selection_overlay")
+	if _is_grip_style_selection_active(module_getter):
+		if grip_overlay != null and grip_overlay.has_method("handle_input"):
+			var handled_grip: bool = bool(grip_overlay.handle_input(event, owner, registry, _get_view_size(owner)))
+			if handled_grip:
+				_queue_redraw(owner)
+				_mark_handled(owner)
+		return true
+	var skill_tooltip_hint: Object = _get_module(module_getter, "skill_orb_tooltip_tutorial_hint")
+	if _is_skill_orb_tooltip_tutorial_active(module_getter):
+		if skill_tooltip_hint != null and skill_tooltip_hint.has_method("handle_input"):
+			var handled_skill_tutorial: bool = bool(skill_tooltip_hint.handle_input(event, owner, registry, _get_view_size(owner)))
+			if handled_skill_tutorial:
+				_queue_redraw(owner)
+				_mark_handled(owner)
+		return true
 	if _is_key_pressed(event, CHARACTER_DEBUG_KEY):
 		_switch_debug_menu(DEBUG_MENU_CHARACTER_PICKER, owner, module_getter)
 		return true
@@ -447,6 +463,14 @@ func _is_character_info_active(module_getter: Callable) -> bool:
 
 func _is_pause_menu_active(module_getter: Callable) -> bool:
 	return _call_modal_gate_bool(module_getter, "is_pause_menu_active")
+
+
+func _is_grip_style_selection_active(module_getter: Callable) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_grip_style_selection_active")
+
+
+func _is_skill_orb_tooltip_tutorial_active(module_getter: Callable) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_skill_orb_tooltip_tutorial_active")
 
 
 func _is_elixir_cinematic_active(module_getter: Callable) -> bool:

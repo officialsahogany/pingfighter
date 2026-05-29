@@ -113,6 +113,22 @@ const MODULES := {
 		"path": "res://scripts/hud/ball_speed_debug_overlay.gd",
 		"label": "ball speed debug overlay",
 	},
+	"junior_mika_tutorial_hint": {
+		"path": "res://scripts/hud/junior_mika_tutorial_hint.gd",
+		"label": "junior Mika tutorial hint",
+	},
+	"skill_orb_tooltip_tutorial_hint": {
+		"path": "res://scripts/hud/skill_orb_tooltip_tutorial_hint.gd",
+		"label": "skill orb tooltip tutorial hint",
+	},
+	"active_item_use_tutorial_hint": {
+		"path": "res://scripts/hud/active_item_use_tutorial_hint.gd",
+		"label": "active item use tutorial hint",
+	},
+	"grip_style_selection_overlay": {
+		"path": "res://scripts/hud/grip_style_selection_overlay.gd",
+		"label": "grip style selection overlay",
+	},
 }
 
 

@@ -56,6 +56,14 @@ func is_pause_menu_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "pause_menu_overlay", "is_active")
 
 
+func is_grip_style_selection_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "grip_style_selection_overlay", "is_active")
+
+
+func is_skill_orb_tooltip_tutorial_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "skill_orb_tooltip_tutorial_hint", "blocks_battle_physics")
+
+
 func is_active_item_debug_spawn_menu_open(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "active_item_runtime", "is_debug_spawn_menu_open")
 
@@ -82,6 +90,10 @@ func _should_block_battle_physics(module_getter: Callable, perf_logger: Object =
 	if _timed_module_bool(perf_logger, "physics.modal_gate.active_item_debug", module_getter, "active_item_runtime", "is_debug_spawn_menu_open"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.pause_menu", module_getter, "pause_menu_overlay", "is_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.grip_style_selection", module_getter, "grip_style_selection_overlay", "is_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.skill_orb_tooltip_tutorial", module_getter, "skill_orb_tooltip_tutorial_hint", "blocks_battle_physics"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.character_info", module_getter, "character_info_overlay", "is_active"):
 		return true

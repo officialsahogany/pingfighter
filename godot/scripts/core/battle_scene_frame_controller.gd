@@ -34,6 +34,17 @@ func process_idle(
 		_perf_end(perf_logger, "process.frame.total", total_start)
 		return
 
+	var grip_overlay: Object = _get_module(module_getter, "grip_style_selection_overlay")
+	if grip_overlay != null and grip_overlay.has_method("update"):
+		sample_start = _perf_begin(perf_logger)
+		var grip_redraw: bool = bool(grip_overlay.update(delta, owner, registry, module_getter))
+		_perf_end(perf_logger, "process.frame.grip_style_selection", sample_start)
+		if grip_redraw:
+			_queue_redraw(owner)
+		if grip_overlay.has_method("is_active") and bool(grip_overlay.is_active()):
+			_perf_end(perf_logger, "process.frame.total", total_start)
+			return
+
 	var result_screen: Object = _get_stage_clear_result_screen(module_getter)
 	if _is_stage_clear_result_active(result_screen):
 		if result_screen.has_method("update"):
@@ -67,6 +78,24 @@ func process_idle(
 		sample_start = _perf_begin(perf_logger)
 		update_driver.update_scoreboard_visuals(owner, registry, delta)
 		_perf_end(perf_logger, "process.frame.scoreboard_visuals", sample_start)
+	var junior_mika_hint: Object = _get_module(module_getter, "junior_mika_tutorial_hint")
+	if junior_mika_hint != null and junior_mika_hint.has_method("update"):
+		sample_start = _perf_begin(perf_logger)
+		if bool(junior_mika_hint.update(delta, owner, registry)):
+			_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.junior_mika_hint", sample_start)
+	var skill_tooltip_hint: Object = _get_module(module_getter, "skill_orb_tooltip_tutorial_hint")
+	if skill_tooltip_hint != null and skill_tooltip_hint.has_method("update"):
+		sample_start = _perf_begin(perf_logger)
+		if bool(skill_tooltip_hint.update(delta, owner, registry, module_getter)):
+			_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.skill_orb_tooltip_tutorial", sample_start)
+	var active_item_use_hint: Object = _get_module(module_getter, "active_item_use_tutorial_hint")
+	if active_item_use_hint != null and active_item_use_hint.has_method("update"):
+		sample_start = _perf_begin(perf_logger)
+		if bool(active_item_use_hint.update(delta, owner, registry, module_getter)):
+			_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.active_item_use_tutorial", sample_start)
 	_update_result_texture_prewarm(module_getter, perf_logger)
 	# Manual render interpolation needs a fresh draw on render frames, not only
 	# on 60 Hz physics frames.
@@ -147,6 +176,13 @@ func process_physics(
 		_perf_end(perf_logger, "physics.frame.total", total_start)
 		return
 	_perf_end(perf_logger, "physics.frame.gate.stage_clear_result", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	if _process_grip_selection_physics_gate(delta, owner, registry, module_getter):
+		_perf_end(perf_logger, "physics.frame.gate.grip_style_selection", sample_start)
+		_perf_end(perf_logger, "physics.frame.total", total_start)
+		return
+	_perf_end(perf_logger, "physics.frame.gate.grip_style_selection", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
 	if _should_block_battle_physics(module_getter, perf_logger):
@@ -259,6 +295,35 @@ func draw(
 	_call(callbacks, "draw_mobile_touch_controls")
 	_perf_end(perf_logger, "draw.frame.mobile_touch", mobile_touch_start)
 
+	var grip_overlay: Object = _get_module(module_getter, "grip_style_selection_overlay")
+	if grip_overlay != null and grip_overlay.has_method("is_active") and bool(grip_overlay.is_active()):
+		var grip_start: int = _perf_begin(perf_logger)
+		if grip_overlay.has_method("draw"):
+			grip_overlay.draw(canvas, owner, view_size)
+		_perf_end(perf_logger, "draw.frame.grip_style_selection", grip_start)
+		_perf_end(perf_logger, "draw.frame.total", total_start)
+		return
+
+	var junior_mika_hint: Object = _get_module(module_getter, "junior_mika_tutorial_hint")
+	if junior_mika_hint != null and junior_mika_hint.has_method("draw"):
+		var hint_start: int = _perf_begin(perf_logger)
+		junior_mika_hint.draw(canvas, owner, view_size)
+		_perf_end(perf_logger, "draw.frame.junior_mika_hint", hint_start)
+
+	var skill_tooltip_hint: Object = _get_module(module_getter, "skill_orb_tooltip_tutorial_hint")
+	if skill_tooltip_hint != null and skill_tooltip_hint.has_method("draw"):
+		var tooltip_hint_start: int = _perf_begin(perf_logger)
+		skill_tooltip_hint.draw(canvas, owner, registry, view_size)
+		_perf_end(perf_logger, "draw.frame.skill_orb_tooltip_tutorial", tooltip_hint_start)
+
+	var active_item_use_hint: Object = _get_module(module_getter, "active_item_use_tutorial_hint")
+	if active_item_use_hint != null and active_item_use_hint.has_method("draw"):
+		var active_item_hint_start: int = _perf_begin(perf_logger)
+		active_item_use_hint.draw(canvas, owner, registry, view_size)
+		_perf_end(perf_logger, "draw.frame.active_item_use_tutorial", active_item_hint_start)
+
+	_draw_skill_cutin_if_active(canvas, registry, module_getter, view_size, perf_logger)
+
 	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
 	if overlay_frame != null and overlay_frame.has_method("draw"):
 		var overlay_start: int = _perf_begin(perf_logger)
@@ -292,6 +357,46 @@ func _is_intro_or_warmup_blocking(module_getter: Callable, callbacks: Dictionary
 		_call_bool(callbacks, "is_battle_initialized"),
 		_call_bool(callbacks, "is_stage_landing_intro_started")
 	))
+
+
+func _process_grip_selection_physics_gate(
+	_delta: float,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> bool:
+	var grip_overlay: Object = _get_module(module_getter, "grip_style_selection_overlay")
+	if grip_overlay == null or not grip_overlay.has_method("update"):
+		return false
+	if bool(grip_overlay.update(0.0, owner, registry, module_getter)):
+		_queue_redraw(owner)
+	return grip_overlay.has_method("is_active") and bool(grip_overlay.is_active())
+
+
+func _draw_skill_cutin_if_active(
+	canvas: CanvasItem,
+	registry: Object,
+	module_getter: Callable,
+	view_size: Vector2,
+	perf_logger: Object
+) -> void:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return
+	var power_state: Variant = registry.get_cached_instance("smasher_power_smash_state")
+	if typeof(power_state) != TYPE_OBJECT or power_state == null:
+		return
+	if not power_state.has_method("is_cutin_active") or not bool(power_state.is_cutin_active()):
+		return
+	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
+	if overlay_frame != null and overlay_frame.has_method("has_blocking_activity"):
+		if bool(overlay_frame.has_blocking_activity(module_getter)):
+			return
+	var cutin_host: Variant = registry.get_cached_instance("skill_cutin_overlay_host")
+	if typeof(cutin_host) != TYPE_OBJECT or cutin_host == null:
+		return
+	var cutin_start: int = _perf_begin(perf_logger)
+	cutin_host.draw(canvas, power_state.cutin_state, view_size)
+	_perf_end(perf_logger, "draw.frame.skill_cutin", cutin_start)
 
 
 func _get_readiness_controller(module_getter: Callable) -> Object:
