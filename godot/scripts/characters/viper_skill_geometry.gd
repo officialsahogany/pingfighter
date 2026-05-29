@@ -524,6 +524,13 @@ static func core_flip_bank_velocity(speed: float, kick_dir: int, config: Diction
 	return Vector2(float(safe_dir) * 0.65, -0.76).normalized() * speed
 
 
+static func core_flip_start_motion(origin_center: Vector2, target_center: Vector2, apex_y_offset: float) -> Dictionary:
+	return {
+		"apex_center": target_center + Vector2(0.0, apex_y_offset),
+		"kick_dir": 1 if target_center.x >= origin_center.x else -1,
+	}
+
+
 static func core_flip_wall_climb_center(
 	t1: float,
 	config: Dictionary,

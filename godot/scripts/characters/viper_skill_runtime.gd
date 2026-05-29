@@ -224,6 +224,7 @@ const CORE_FLIP_PHASE3_FRAMES := 9.0
 const CORE_FLIP_ZIGZAG_LEG_FRAMES := 28.08
 const CORE_FLIP_ZIGZAG_CLING_FRAMES := 11.7
 const CORE_FLIP_KICK_TRIGGER_Y := 200.0
+const CORE_FLIP_APEX_OFFSET_Y := -30.0
 const CORE_FLIP_HIT_RADIUS := 60.0
 const CORE_FLIP_SPEED_MULT := 2.2
 const CORE_FLIP_MIN_SPEED := 11.0
@@ -1183,10 +1184,15 @@ func _start_core_flip(
 	core_flip_paddle_size = _get_paddle_size(config)
 	core_flip_origin_center = player_pos + core_flip_paddle_size * 0.5
 	core_flip_target_center = _get_ball_pos(config)
-	core_flip_apex_center = core_flip_target_center + Vector2(0.0, -30.0)
+	var core_flip_start_motion: Dictionary = ViperSkillGeometry.core_flip_start_motion(
+		core_flip_origin_center,
+		core_flip_target_center,
+		CORE_FLIP_APEX_OFFSET_Y
+	)
+	core_flip_apex_center = _get_vector2(core_flip_start_motion.get("apex_center", core_flip_target_center), core_flip_target_center)
 	core_flip_visual_pos = player_pos
 	core_flip_return_start_center = core_flip_origin_center
-	core_flip_kick_dir = 1 if core_flip_target_center.x >= core_flip_origin_center.x else -1
+	core_flip_kick_dir = int(core_flip_start_motion.get("kick_dir", core_flip_kick_dir))
 	core_flip_ball_hit = false
 	core_flip_spin_angle_degrees = 0.0
 	core_flip_spin_sound_started = true
