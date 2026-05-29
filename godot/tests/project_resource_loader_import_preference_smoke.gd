@@ -21,10 +21,21 @@ func _init() -> void:
 
 	var source := FileAccess.get_file_as_string("res://scripts/resources/project_resource_loader.gd")
 	var texture_body := _function_body(source, "static func load_texture(")
+	var threaded_prewarm_body := _function_body(source, "static func prewarm_texture_threaded_step(")
 	var audio_body := _function_body(source, "static func load_audio_stream(")
 	_expect(
 		texture_body.find("Image.load_from_file") < texture_body.find("_can_load_imported_resource"),
 		"texture loader should prefer raw PNG decoding before imported fallback"
+	)
+	_expect(
+		source.find("THREADED_TEXTURE_PREWARM_MAX_MSEC") >= 0
+			and source.find("THREADED_TEXTURE_PREWARM_MAX_POLLS") >= 0,
+		"threaded texture prewarm should have a bounded fallback guard"
+	)
+	_expect(
+		threaded_prewarm_body.find("_is_threaded_texture_prewarm_stale") >= 0
+			and threaded_prewarm_body.find("load_texture(path, missing_warning, failed_warning)") >= 0,
+		"threaded texture prewarm should fall back to source loading instead of stalling indefinitely"
 	)
 	_expect(
 		audio_body.find("load_from_file") < audio_body.find("_can_load_imported_resource"),

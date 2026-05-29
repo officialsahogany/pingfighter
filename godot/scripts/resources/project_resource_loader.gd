@@ -3,6 +3,12 @@ extends RefCounted
 static var _texture_cache: Dictionary = {}
 static var _audio_cache: Dictionary = {}
 static var _font_cache: Dictionary = {}
+static var _threaded_texture_prewarm_path: String = ""
+static var _threaded_texture_prewarm_started_msec: int = 0
+static var _threaded_texture_prewarm_poll_count: int = 0
+
+const THREADED_TEXTURE_PREWARM_MAX_MSEC := 2500
+const THREADED_TEXTURE_PREWARM_MAX_POLLS := 240
 
 
 static func load_texture(path: String, missing_warning: String = "", failed_warning: String = "") -> Texture2D:
@@ -59,6 +65,58 @@ static func store_texture(path: String, texture: Texture2D) -> void:
 	if texture.resource_path == "":
 		texture.resource_path = path
 	_texture_cache[path] = texture
+
+
+static func prewarm_texture_threaded_step(
+	path: String,
+	missing_warning: String = "",
+	failed_warning: String = ""
+) -> Dictionary:
+	if path == "":
+		return {"done": true, "texture": null}
+	var cached_texture: Texture2D = get_cached_texture(path)
+	if cached_texture != null:
+		return {"done": true, "texture": cached_texture}
+	var resource_loader_texture: Texture2D = _get_resource_loader_texture(path)
+	if resource_loader_texture != null:
+		_texture_cache[path] = resource_loader_texture
+		return {"done": true, "texture": resource_loader_texture}
+	if not _is_thread_loadable_texture_path(path):
+		return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+
+	if _threaded_texture_prewarm_path == "":
+		var request_error := ResourceLoader.load_threaded_request(path, "Texture2D", true)
+		if request_error != OK and request_error != ERR_BUSY:
+			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+		_threaded_texture_prewarm_path = path
+		_threaded_texture_prewarm_started_msec = Time.get_ticks_msec()
+		_threaded_texture_prewarm_poll_count = 0
+		return {"done": false, "texture": null}
+	if _threaded_texture_prewarm_path != path:
+		if _is_threaded_texture_prewarm_stale():
+			_clear_threaded_texture_prewarm()
+			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+		return {"done": false, "texture": null}
+
+	var progress_values: Array = []
+	var status := ResourceLoader.load_threaded_get_status(path, progress_values)
+	match status:
+		ResourceLoader.THREAD_LOAD_LOADED:
+			_clear_threaded_texture_prewarm()
+			var resource: Resource = ResourceLoader.load_threaded_get(path)
+			if resource is Texture2D:
+				var texture: Texture2D = resource
+				store_texture(path, texture)
+				return {"done": true, "texture": texture}
+			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			_clear_threaded_texture_prewarm()
+			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+	_threaded_texture_prewarm_poll_count += 1
+	if _is_threaded_texture_prewarm_stale():
+		_clear_threaded_texture_prewarm()
+		return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+	return {"done": false, "texture": null}
 
 
 static func load_audio_stream(path: String, missing_warning: String = "", failed_warning: String = "") -> AudioStream:
@@ -195,7 +253,27 @@ static func _get_resource_loader_texture(path: String) -> Texture2D:
 	return null
 
 
+static func _is_thread_loadable_texture_path(path: String) -> bool:
+	return FileAccess.file_exists("%s.import" % path) or ResourceLoader.exists(path, "Texture2D")
+
+
+static func _is_threaded_texture_prewarm_stale() -> bool:
+	if _threaded_texture_prewarm_path == "":
+		return false
+	if _threaded_texture_prewarm_poll_count >= THREADED_TEXTURE_PREWARM_MAX_POLLS:
+		return true
+	var elapsed_msec := Time.get_ticks_msec() - _threaded_texture_prewarm_started_msec
+	return elapsed_msec >= THREADED_TEXTURE_PREWARM_MAX_MSEC
+
+
+static func _clear_threaded_texture_prewarm() -> void:
+	_threaded_texture_prewarm_path = ""
+	_threaded_texture_prewarm_started_msec = 0
+	_threaded_texture_prewarm_poll_count = 0
+
+
 static func clear_caches() -> void:
 	_texture_cache.clear()
 	_audio_cache.clear()
 	_font_cache.clear()
+	_clear_threaded_texture_prewarm()
