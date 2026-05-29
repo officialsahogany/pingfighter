@@ -531,6 +531,10 @@ static func core_flip_start_motion(origin_center: Vector2, target_center: Vector
 	}
 
 
+static func core_flip_miss_text_pos(origin_center: Vector2, apex_y_offset: float) -> Vector2:
+	return origin_center + Vector2(0.0, apex_y_offset)
+
+
 static func core_flip_kick_direction(from_center: Vector2, target_center: Vector2) -> int:
 	return 1 if target_center.x >= from_center.x else -1
 
