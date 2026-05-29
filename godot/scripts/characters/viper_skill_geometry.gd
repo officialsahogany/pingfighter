@@ -652,6 +652,10 @@ static func marshal_return_target(
 	return Vector2(clamp(return_start_pos.x, play_left, play_right - paddle_size.x), floor_y)
 
 
+static func marshal_wall_kick_dir(wall_center: Vector2, field_width: float) -> int:
+	return 1 if wall_center.x < field_width * 0.5 else -1
+
+
 static func limit_effective_velocity(velocity: Vector2, impact_boost: float, max_effective_speed: float) -> Vector2:
 	if max_effective_speed <= 0.0:
 		return velocity

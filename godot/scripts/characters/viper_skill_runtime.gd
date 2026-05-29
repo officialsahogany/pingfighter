@@ -4949,7 +4949,7 @@ func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 	var min_speed: float = MARSHAL_KICK_DOUBLE_MIN_SPEED if marshal_is_double else MARSHAL_KICK_MIN_SPEED
 	var next_speed: float = max(current_speed * speed_mult * speed_bonus, min_speed)
 	var width: float = float(config.get("width", config.get("play_right", 760.0)))
-	var kick_dir: int = 1 if _get_player_center(marshal_wall_pos, config).x < width * 0.5 else -1
+	var kick_dir: int = ViperSkillGeometry.marshal_wall_kick_dir(_get_player_center(marshal_wall_pos, config), width)
 	var angle: float = _compute_marshal_launch_angle(kick_dir, config, deps)
 	var next_vel: Vector2 = ViperSkillGeometry.aimed_kick_launch_velocity(next_speed, angle)
 	var ball_pos: Vector2 = _get_ball_pos(config)
