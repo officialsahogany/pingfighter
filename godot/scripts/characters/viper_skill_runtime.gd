@@ -1284,7 +1284,7 @@ func _update_core_flip(
 			core_flip_kick_dir = int(kick_motion.get("dir", core_flip_kick_dir))
 			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(2, t2)
 			next_pos = _center_to_player_pos(kick_center, config)
-			if not core_flip_ball_hit and kick_center.distance_to(_get_ball_pos(config)) <= CORE_FLIP_HIT_RADIUS:
+			if not core_flip_ball_hit and ViperSkillGeometry.core_flip_kick_hits_ball(kick_center, _get_ball_pos(config), CORE_FLIP_HIT_RADIUS):
 				core_flip_ball_hit = true
 				core_flip_target_center = kick_center
 				if not core_flip_kick_sound_played:

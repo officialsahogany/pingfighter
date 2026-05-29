@@ -615,6 +615,10 @@ static func core_flip_kick_motion(apex_center: Vector2, target_center: Vector2, 
 	}
 
 
+static func core_flip_kick_hits_ball(kick_center: Vector2, ball_center: Vector2, hit_radius: float) -> bool:
+	return kick_center.distance_to(ball_center) <= hit_radius
+
+
 static func core_flip_return_motion(return_start_center: Vector2, origin_center: Vector2, return_t: float) -> Dictionary:
 	var safe_t: float = clamp(return_t, 0.0, 1.0)
 	var ease_t: float = safe_t * safe_t
