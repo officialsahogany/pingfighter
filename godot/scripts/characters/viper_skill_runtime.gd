@@ -3803,7 +3803,12 @@ func _update_blade_motion(
 	var rest_frames: float = BLADE_DARK_REST_FRAMES if blade_dark_mode else BLADE_REST_FRAMES
 	var spin_turns: float = BLADE_DARK_SPIN_TURNS if blade_dark_mode else BLADE_NORMAL_SPIN_TURNS
 	if blade_motion_phase < 2:
-		blade_motion_pos.y = min(_get_player_floor_y(config), player_pos.y + BLADE_PREP_FALL_SPEED * fps_scale)
+		blade_motion_pos.y = ViperSkillGeometry.blade_prep_fall_y(
+			player_pos.y,
+			_get_player_floor_y(config),
+			fps_scale,
+			BLADE_PREP_FALL_SPEED
+		)
 		next_pos = blade_motion_pos
 	var force_dark_blade_autofire := false
 	if ViperSkillGeometry.blade_dark_auto_fire_window_active(

@@ -89,6 +89,10 @@ static func blade_motion_start_position(
 	return Vector2(player_pos.x, floor_y + pop_offset)
 
 
+static func blade_prep_fall_y(player_y: float, floor_y: float, fps_scale: float, prep_fall_speed: float) -> float:
+	return min(floor_y, player_y + prep_fall_speed * fps_scale)
+
+
 static func blade_motion_spin_angle(phase: int, progress: float, spin_turns: float) -> float:
 	var safe_progress: float = clamp(progress, 0.0, 1.0)
 	match phase:
