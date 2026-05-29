@@ -127,6 +127,25 @@ static func shadow_step_hologram_progress(frames: float, duration: float) -> flo
 	return clamp(frames / max(1.0, duration), 0.0, 1.0)
 
 
+static func shadow_step_curve_motion(
+	ball_vel: Vector2,
+	timer: float,
+	total_frames: float,
+	force: float,
+	curve_dir: int,
+	fps_scale: float
+) -> Dictionary:
+	var progress: float = 1.0 - timer / max(1.0, total_frames)
+	var rot_deg: float = (1.0 - progress) * force * 0.35
+	var curved_vel: Vector2 = ball_vel.rotated(float(curve_dir) * deg_to_rad(rot_deg))
+	var next_timer: float = max(0.0, timer - fps_scale)
+	return {
+		"ball_vel": curved_vel,
+		"timer": next_timer,
+		"active": next_timer > 0.0,
+	}
+
+
 static func shadow_step_hologram_hit_rect(target: Vector2, paddle_size: Vector2, hitbox_padding: Vector2) -> Rect2:
 	var collision_size: Vector2 = paddle_size + hitbox_padding
 	return Rect2(target - collision_size * 0.5, collision_size)

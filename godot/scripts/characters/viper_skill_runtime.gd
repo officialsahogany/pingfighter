@@ -926,12 +926,17 @@ func apply_shadow_step_ball_motion(fps_scale: float, scene: Dictionary, context:
 		ball_vel = _get_vector2(result.get("ball_vel", ball_vel), ball_vel)
 
 	if shadow_curve_active and ball_vel.length() > 0.0:
-		var progress: float = 1.0 - shadow_curve_timer / max(1.0, shadow_curve_total)
-		var rot_deg: float = (1.0 - progress) * shadow_curve_force * 0.35
-		var curved_vel: Vector2 = ball_vel.rotated(float(shadow_curve_dir) * deg_to_rad(rot_deg))
-		shadow_curve_timer = max(0.0, shadow_curve_timer - fps_scale)
-		if shadow_curve_timer <= 0.0:
-			shadow_curve_active = false
+		var curve_motion: Dictionary = ViperSkillGeometry.shadow_step_curve_motion(
+			ball_vel,
+			shadow_curve_timer,
+			shadow_curve_total,
+			shadow_curve_force,
+			shadow_curve_dir,
+			fps_scale
+		)
+		var curved_vel: Vector2 = _get_vector2(curve_motion.get("ball_vel", ball_vel), ball_vel)
+		shadow_curve_timer = float(curve_motion.get("timer", 0.0))
+		shadow_curve_active = bool(curve_motion.get("active", false))
 		if curved_vel != ball_vel:
 			result["ball_vel"] = curved_vel
 	return result
