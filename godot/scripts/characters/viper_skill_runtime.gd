@@ -3875,7 +3875,7 @@ func _update_blade_motion(
 			var offset_y: float = 0.0
 			var base_y: float = blade_phase2_base_y
 			if blade_motion_frames < jump_up_frames:
-				var jt0: float = blade_motion_frames / max(1.0, jump_up_frames)
+				var jt0: float = ViperSkillGeometry.blade_motion_phase_progress(blade_motion_frames, jump_up_frames)
 				offset_y = -jump_peak * sin(jt0 * PI * 0.5)
 			else:
 				var jt1: float = ViperSkillGeometry.blade_motion_phase_progress(
