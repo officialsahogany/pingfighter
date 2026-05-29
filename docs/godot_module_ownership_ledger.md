@@ -3670,8 +3670,8 @@ This section is intentionally long; use search to find the nearest owner.
   Shadow Step wave motion / curve velocity / hit profile / hologram progress / hitbox rects,
   Viper kick knockback velocity calculation,
   Nerve Strike dash / return / clone slash motion, Core Flip wall-climb center and bank
-  velocity, and the common aimed kick launch angle used by Shadow Step and
-  Marshal Kick. `viper_skill_runtime.gd` keeps skill-state ownership and
+  velocity, and the common aimed kick launch angle / velocity used by Shadow
+  Step and Marshal Kick. `viper_skill_runtime.gd` keeps skill-state ownership and
   delegates reusable geometry / launch math here.
 - `scripts/characters/viper_skill_context_builder.gd`
   Owns renderer / ball-collision / boss-AI context dictionaries for Viper

@@ -4745,8 +4745,7 @@ func _apply_shadow_step_hit(
 	var next_speed: float = max(current_speed * multiplier, SHADOW_STEP_MIN_HIT_SPEED)
 	var safe_dir: int = 1 if curve_dir >= 0 else -1
 	var launch_angle: float = _compute_shadow_launch_angle(safe_dir, context, deps)
-	var launch_rad: float = deg_to_rad(-90.0 + launch_angle)
-	var next_vel := Vector2(cos(launch_rad), sin(launch_rad)) * next_speed
+	var next_vel: Vector2 = ViperSkillGeometry.aimed_kick_launch_velocity(next_speed, launch_angle)
 	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
 	_set_shadow_curve(curve_frames, curve_force, safe_dir)
 	audio_router.play_shadow_kick_sound(deps)
@@ -4927,8 +4926,7 @@ func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 	var width: float = float(config.get("width", config.get("play_right", 760.0)))
 	var kick_dir: int = 1 if _get_player_center(marshal_wall_pos, config).x < width * 0.5 else -1
 	var angle: float = _compute_marshal_launch_angle(kick_dir, config, deps)
-	var rad: float = deg_to_rad(-90.0 + angle)
-	var next_vel: Vector2 = Vector2(cos(rad), sin(rad)) * next_speed
+	var next_vel: Vector2 = ViperSkillGeometry.aimed_kick_launch_velocity(next_speed, angle)
 	var ball_pos: Vector2 = _get_ball_pos(config)
 	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, config)
 	var curve_frames: float = MARSHAL_KICK_CURVE_FRAMES * (2.5 if marshal_is_double else 1.0)

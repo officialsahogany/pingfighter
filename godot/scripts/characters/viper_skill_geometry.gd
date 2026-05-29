@@ -585,6 +585,11 @@ static func aimed_kick_launch_angle(
 	return clamp(final_angle, -60.0, 60.0)
 
 
+static func aimed_kick_launch_velocity(speed: float, launch_angle_degrees: float) -> Vector2:
+	var rad: float = deg_to_rad(-90.0 + launch_angle_degrees)
+	return Vector2(cos(rad), sin(rad)) * speed
+
+
 static func limit_effective_velocity(velocity: Vector2, impact_boost: float, max_effective_speed: float) -> Vector2:
 	if max_effective_speed <= 0.0:
 		return velocity
