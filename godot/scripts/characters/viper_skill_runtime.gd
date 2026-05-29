@@ -3375,7 +3375,11 @@ func _update_nerve_strike_dash(config: Dictionary, deps: Dictionary) -> Dictiona
 		return {}
 
 	var nerve_strike_player_center: Vector2 = nerve_strike_pos + nerve_strike_paddle_size * 0.5
-	nerve_strike_hit_confirmed = nerve_strike_player_center.distance_to(_get_nerve_strike_boss_center(config)) <= NERVE_STRIKE_HIT_RADIUS
+	nerve_strike_hit_confirmed = ViperSkillGeometry.nerve_strike_hits_target(
+		nerve_strike_player_center,
+		_get_nerve_strike_boss_center(config),
+		NERVE_STRIKE_HIT_RADIUS
+	)
 	nerve_strike_phase = 1
 	nerve_strike_phase_frames = 0.0
 	nerve_strike_slash_triggered = false
@@ -3613,7 +3617,7 @@ func _update_nerve_strike_clone_slashes(fps_scale: float, context: Dictionary, d
 				entry["pos"] = _get_vector2(motion.get("pos", origin), origin)
 				if progress >= 1.0:
 					var pos: Vector2 = _get_vector2(entry.get("pos", target), target)
-					var hit: bool = pos.distance_to(live_target) <= NERVE_STRIKE_HIT_RADIUS
+					var hit: bool = ViperSkillGeometry.nerve_strike_hits_target(pos, live_target, NERVE_STRIKE_HIT_RADIUS)
 					if hit and not bool(entry.get("hit_applied", false)):
 						entry["hit_applied"] = true
 						_apply_nerve_strike_confusion(deps)

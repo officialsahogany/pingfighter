@@ -373,6 +373,10 @@ static func nerve_strike_boss_center(config: Dictionary) -> Vector2:
 	return boss_pos + Vector2(boss_width * 0.5, boss_height * 0.5)
 
 
+static func nerve_strike_hits_target(strike_center: Vector2, target_center: Vector2, hit_radius: float) -> bool:
+	return strike_center.distance_to(target_center) <= hit_radius
+
+
 static func nerve_strike_return_target_pos(config: Dictionary) -> Vector2:
 	var player_paddle_size: Vector2 = get_paddle_size(config)
 	var fallback_ball_pos := Vector2(float(config.get("width", 760.0)) * 0.5, 0.0)
