@@ -102,6 +102,10 @@ func reset() -> void:
 		_inferno_burst_fx_host.tear_down(false)
 
 
+func clear_transient_canvas_items() -> void:
+	reset()
+
+
 func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, perf_logger: Object = null) -> void:
 	if canvas == null:
 		return

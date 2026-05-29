@@ -79,6 +79,14 @@ func prewarm_runtime_assets() -> void:
 	prewarm_assets()
 
 
+func clear_transient_canvas_items() -> void:
+	if _is_valid_fx_host():
+		if fx_host.has_method("set_active"):
+			fx_host.set_active(false)
+		else:
+			fx_host.visible = false
+
+
 static func prewarm_assets_step() -> bool:
 	if _prewarmed:
 		return true

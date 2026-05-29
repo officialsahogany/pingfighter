@@ -78,6 +78,13 @@ func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -
 	_perf_end(perf_logger, "actors.stage5.commando_firearm", sample_start)
 
 
+func clear_transient_canvas_items() -> void:
+	_clear_renderer_transients(playfield_renderer)
+	_clear_renderer_transients(player_renderer)
+	_clear_renderer_transients(boss_renderer)
+	_clear_renderer_transients(commando_firearm_renderer)
+
+
 func get_imagegen_asset_status() -> Dictionary:
 	var result := {}
 	if playfield_renderer != null and playfield_renderer.has_method("get_imagegen_asset_status"):
@@ -102,3 +109,8 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
+
+
+func _clear_renderer_transients(renderer: Object) -> void:
+	if renderer != null and renderer.has_method("clear_transient_canvas_items"):
+		renderer.clear_transient_canvas_items()

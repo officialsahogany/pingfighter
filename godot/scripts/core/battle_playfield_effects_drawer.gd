@@ -18,13 +18,18 @@ func draw_actors(
 	var lookup_start: int = _perf_begin(perf_logger)
 	var actor_renderer: Object = _get_stage_instance(registry, current_stage, "actor_renderer", "stage1_actor_renderer")
 	_perf_end(perf_logger, "actors.lookup_renderer", lookup_start)
-	if actor_renderer != null and not actor_context.is_empty():
-		var draw_start: int = _perf_begin(perf_logger)
-		if _method_accepts_argument_count(actor_renderer, "draw", 3):
-			actor_renderer.draw(canvas, actor_context, perf_logger)
-		else:
-			actor_renderer.draw(canvas, actor_context)
-		_perf_end(perf_logger, "actors.renderer_draw", draw_start)
+	_clear_inactive_stage_actor_transients(registry, current_stage, actor_renderer)
+	if actor_renderer == null:
+		return
+	if actor_context.is_empty():
+		_clear_transient_canvas_items(actor_renderer)
+		return
+	var draw_start: int = _perf_begin(perf_logger)
+	if _method_accepts_argument_count(actor_renderer, "draw", 3):
+		actor_renderer.draw(canvas, actor_context, perf_logger)
+	else:
+		actor_renderer.draw(canvas, actor_context)
+	_perf_end(perf_logger, "actors.renderer_draw", draw_start)
 
 
 func draw_power_smash_effects(
@@ -494,6 +499,21 @@ func _get_stage_instance(registry: Object, current_stage: int, role: String, fal
 		if routed != null:
 			return routed
 	return _get_instance(registry, fallback_key)
+
+
+func _clear_inactive_stage_actor_transients(registry: Object, current_stage: int, current_renderer: Object) -> void:
+	for stage in [1, 2, 3, 4, 5]:
+		if stage == current_stage:
+			continue
+		var renderer: Object = _get_stage_instance(registry, stage, "actor_renderer", "stage1_actor_renderer")
+		if renderer == null or renderer == current_renderer:
+			continue
+		_clear_transient_canvas_items(renderer)
+
+
+func _clear_transient_canvas_items(renderer: Object) -> void:
+	if renderer != null and renderer.has_method("clear_transient_canvas_items"):
+		renderer.clear_transient_canvas_items()
 
 
 func _get_dict(value: Variant) -> Dictionary:

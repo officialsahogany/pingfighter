@@ -101,6 +101,10 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	_draw_starpoint_drops(canvas, context, shake_offset)
 
 
+func clear_transient_canvas_items() -> void:
+	CommonStarpointVisualHost.hide_all_existing_hosts()
+
+
 func _draw_psychoball_field(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
 	if not bool(context.get("stage3_emotional_overdrive_active", false)):
 		return

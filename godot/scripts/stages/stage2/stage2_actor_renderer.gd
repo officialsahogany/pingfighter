@@ -77,10 +77,21 @@ func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -
 	_perf_end(perf_logger, "actors.stage2.commando_firearm", sample_start)
 
 
+func clear_transient_canvas_items() -> void:
+	_clear_renderer_transients(player_renderer)
+	_clear_renderer_transients(boss_renderer)
+	_clear_renderer_transients(commando_firearm_renderer)
+
+
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _clear_renderer_transients(renderer: Object) -> void:
+	if renderer != null and renderer.has_method("clear_transient_canvas_items"):
+		renderer.clear_transient_canvas_items()
 
 
 func _perf_begin(perf_logger: Object) -> int:

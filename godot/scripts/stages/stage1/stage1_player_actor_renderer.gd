@@ -58,6 +58,11 @@ func prewarm_runtime_assets() -> void:
 		sprite_renderer.prewarm_runtime_assets()
 
 
+func clear_transient_canvas_items() -> void:
+	if sprite_renderer != null and sprite_renderer.has_method("clear_transient_canvas_items"):
+		sprite_renderer.clear_transient_canvas_items()
+
+
 func draw(
 	canvas: CanvasItem,
 	context: Dictionary,
