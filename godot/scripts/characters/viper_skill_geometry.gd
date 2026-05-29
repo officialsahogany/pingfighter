@@ -590,6 +590,31 @@ static func aimed_kick_launch_velocity(speed: float, launch_angle_degrees: float
 	return Vector2(cos(rad), sin(rad)) * speed
 
 
+static func marshal_initial_wall_target(
+	player_pos: Vector2,
+	player_center_pos: Vector2,
+	ball_pos: Vector2,
+	paddle_size: Vector2,
+	field_width: float,
+	floor_y: float,
+	wall_inset: float,
+	min_y: float,
+	max_y: float,
+	min_rise: float,
+	max_rise: float
+) -> Dictionary:
+	var wall_center_x: float = wall_inset if ball_pos.x >= field_width * 0.5 else field_width - wall_inset
+	var ground_y: float = floor_y + paddle_size.y * 0.5
+	var height_ratio: float = clamp((player_center_pos.y - min_y) / max(1.0, ground_y - min_y), 0.0, 1.0)
+	var rise: float = min_rise + (max_rise - min_rise) * height_ratio
+	var wall_center_y: float = clamp(player_center_pos.y - rise, min_y, max_y)
+	var wall_pos: Vector2 = Vector2(wall_center_x, wall_center_y) - paddle_size * 0.5
+	return {
+		"pos": wall_pos,
+		"side": 1 if wall_pos.x > player_pos.x else -1,
+	}
+
+
 static func limit_effective_velocity(velocity: Vector2, impact_boost: float, max_effective_speed: float) -> Vector2:
 	if max_effective_speed <= 0.0:
 		return velocity

@@ -4327,14 +4327,21 @@ func _start_marshal_kick(player_pos: Vector2, special_gauge: float, config: Dict
 	var marshal_field_width: float = float(config.get("width", config.get("play_right", 760.0)))
 	var marshal_player_center: Vector2 = _get_player_center(player_pos, config)
 	var marshal_ball_pos: Vector2 = _get_ball_pos(config)
-	var marshal_wall_center_x: float = MARSHAL_KICK_WALL_INSET if marshal_ball_pos.x >= marshal_field_width * 0.5 else marshal_field_width - MARSHAL_KICK_WALL_INSET
-	var marshal_ground_y: float = float(config.get("player_floor_y", 700.0)) + marshal_paddle_size.y * 0.5
-	var marshal_min_y: float = 200.0
-	var marshal_height_ratio: float = clamp((marshal_player_center.y - marshal_min_y) / max(1.0, marshal_ground_y - marshal_min_y), 0.0, 1.0)
-	var marshal_rise: float = 50.0 + (200.0 - 50.0) * marshal_height_ratio
-	var marshal_wall_center_y: float = clamp(marshal_player_center.y - marshal_rise, marshal_min_y, 650.0)
-	marshal_wall_pos = Vector2(marshal_wall_center_x, marshal_wall_center_y) - marshal_paddle_size * 0.5
-	marshal_wall_side = 1 if marshal_wall_pos.x > player_pos.x else -1
+	var wall_target: Dictionary = ViperSkillGeometry.marshal_initial_wall_target(
+		player_pos,
+		marshal_player_center,
+		marshal_ball_pos,
+		marshal_paddle_size,
+		marshal_field_width,
+		float(config.get("player_floor_y", 700.0)),
+		MARSHAL_KICK_WALL_INSET,
+		200.0,
+		650.0,
+		50.0,
+		200.0
+	)
+	marshal_wall_pos = _get_vector2(wall_target.get("pos", player_pos), player_pos)
+	marshal_wall_side = int(wall_target.get("side", 0))
 	marshal_reclimb_start_pos = Vector2.ZERO
 	marshal_charge_start_pos = Vector2.ZERO
 	marshal_return_start_pos = Vector2.ZERO
