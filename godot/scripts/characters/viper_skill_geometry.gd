@@ -652,6 +652,11 @@ static func marshal_return_target(
 	return Vector2(clamp(return_start_pos.x, play_left, play_right - paddle_size.x), floor_y)
 
 
+static func marshal_return_position(return_start_pos: Vector2, return_target: Vector2, return_t: float) -> Vector2:
+	var smooth_t: float = return_t * return_t * (3.0 - 2.0 * return_t)
+	return return_start_pos.lerp(return_target, smooth_t)
+
+
 static func marshal_wall_kick_dir(wall_center: Vector2, field_width: float) -> int:
 	return 1 if wall_center.x < field_width * 0.5 else -1
 

@@ -4476,7 +4476,7 @@ func _update_marshal_kick(
 				play_right,
 				target_y
 			)
-			next_pos = marshal_return_start_pos.lerp(return_target, t4 * t4 * (3.0 - 2.0 * t4))
+			next_pos = ViperSkillGeometry.marshal_return_position(marshal_return_start_pos, return_target, t4)
 			_spawn_marshal_motion_particle(_get_player_center(next_pos, config), "trail", 0.4)
 			if t4 >= 1.0:
 				next_pos = return_target
