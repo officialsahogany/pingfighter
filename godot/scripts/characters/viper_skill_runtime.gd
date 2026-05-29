@@ -4944,10 +4944,15 @@ func _clamp_player_pos(pos: Vector2, play_left: float, play_right: float, paddle
 func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 	var current_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 	var current_speed: float = current_vel.length()
-	var speed_bonus: float = 1.0 + float(_get_kick_enhance_level(deps)) * 0.04
-	var speed_mult: float = MARSHAL_KICK_DOUBLE_SPEED_MULT if marshal_is_double else MARSHAL_KICK_SPEED_MULT
-	var min_speed: float = MARSHAL_KICK_DOUBLE_MIN_SPEED if marshal_is_double else MARSHAL_KICK_MIN_SPEED
-	var next_speed: float = max(current_speed * speed_mult * speed_bonus, min_speed)
+	var next_speed: float = skill_scaling.get_marshal_hit_speed(
+		current_speed,
+		_get_kick_enhance_level(deps),
+		marshal_is_double,
+		MARSHAL_KICK_SPEED_MULT,
+		MARSHAL_KICK_MIN_SPEED,
+		MARSHAL_KICK_DOUBLE_SPEED_MULT,
+		MARSHAL_KICK_DOUBLE_MIN_SPEED
+	)
 	var width: float = float(config.get("width", config.get("play_right", 760.0)))
 	var kick_dir: int = ViperSkillGeometry.marshal_wall_kick_dir(_get_player_center(marshal_wall_pos, config), width)
 	var angle: float = _compute_marshal_launch_angle(kick_dir, config, deps)

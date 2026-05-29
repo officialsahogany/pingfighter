@@ -3662,6 +3662,10 @@ This section is intentionally long; use search to find the nearest owner.
   `viper_skill_snapshot_builder.gd`, and
   `viper_skill_timer_gauge_renderer.gd` should call this owner directly
   instead of reintroducing private runtime read bridges.
+- `scripts/characters/viper_skill_scaling.gd`
+  Owns reusable Viper scalar / balance helpers: Four Poisons percentage and
+  additive cooldown math, Dual Glitch clone HP scaling, Blade skill cost
+  scaling, and Marshal Kick prep-duration / hit-speed scaling.
 - `scripts/characters/viper_skill_geometry.gd`
   Owns shared Viper skill geometry helpers: player / ball / boss center
   extraction, player-position clamping, blade projectile launch / hit-velocity motion, blade / ball hit rects, segment-rect

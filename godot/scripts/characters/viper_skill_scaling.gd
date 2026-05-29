@@ -82,6 +82,21 @@ func get_marshal_duration_frames(base_frames: float, kick_enhance_level: int, ma
 	return max(1.0, speed_base * get_marshal_prep_duration_mult(kick_enhance_level))
 
 
+func get_marshal_hit_speed(
+	current_speed: float,
+	kick_enhance_level: int,
+	marshal_is_double: bool,
+	speed_mult: float,
+	min_speed: float,
+	double_speed_mult: float,
+	double_min_speed: float
+) -> float:
+	var speed_bonus: float = 1.0 + float(kick_enhance_level) * 0.04
+	var selected_speed_mult: float = double_speed_mult if marshal_is_double else speed_mult
+	var selected_min_speed: float = double_min_speed if marshal_is_double else min_speed
+	return max(current_speed * selected_speed_mult * speed_bonus, selected_min_speed)
+
+
 func get_marshal_prep_duration_mult(kick_enhance_level: int) -> float:
 	var prep_cut_pct: float = min(float(kick_enhance_level) * 7.0, 90.0)
 	return max(0.1, 1.0 - prep_cut_pct / 100.0)
