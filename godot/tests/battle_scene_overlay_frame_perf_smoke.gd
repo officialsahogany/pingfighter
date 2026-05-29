@@ -334,6 +334,10 @@ func _verify_runtime_perk_update_receives_perf_logger() -> void:
 
 	var handled: bool = bool(controller.process_idle(0.016, owner, null, Callable(self, "_get_module")))
 	_expect(handled, "active runtime perk choice should block the gameplay frame")
+	_expect(
+		bool(controller.has_blocking_activity(Callable(self, "_get_module"))),
+		"active runtime perk choice should be exposed to draw-time cutin gates"
+	)
 	_expect(runtime_state.update_calls == 0, "runtime perk update should prefer the perf-aware path when available")
 	_expect(runtime_state.update_with_perf_calls == 1, "runtime perk perf-aware update should run once")
 	_expect(owner.redraw_count == 1, "runtime perk update should queue one redraw")

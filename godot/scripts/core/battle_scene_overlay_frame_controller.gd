@@ -295,6 +295,10 @@ func _is_ball_speed_debug_active(module_getter: Callable) -> bool:
 	return bool(ball_speed_debug.is_active())
 
 
+func has_blocking_activity(module_getter: Callable) -> bool:
+	return _has_process_overlay_activity(module_getter)
+
+
 func _has_process_overlay_activity(module_getter: Callable) -> bool:
 	var modal_gate: Object = _get_modal_gate(module_getter)
 	return (
