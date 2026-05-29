@@ -3554,19 +3554,27 @@ func _update_nerve_strike_clone_slashes(fps_scale: float, context: Dictionary, d
 					entry["timer"] = 0.0
 					entry["target"] = _get_nerve_strike_boss_center(context)
 			"travel":
-				var timer: float = min(DUAL_GLITCH_NERVE_TRAVEL_FRAMES, float(entry.get("timer", 0.0)) + fps_scale)
-				entry["timer"] = timer
-				var progress: float = clamp(timer / max(1.0, DUAL_GLITCH_NERVE_TRAVEL_FRAMES), 0.0, 1.0)
-				if progress <= 0.70:
-					var current_target: Vector2 = _get_vector2(entry.get("target", Vector2.ZERO), Vector2.ZERO)
-					entry["target"] = current_target.lerp(_get_nerve_strike_boss_center(context), 0.16)
 				var origin: Vector2 = _get_vector2(entry.get("origin", Vector2.ZERO), Vector2.ZERO)
-				var target: Vector2 = _get_vector2(entry.get("target", origin), origin)
-				var eased: float = 0.5 - 0.5 * cos(progress * PI)
-				entry["pos"] = origin.lerp(target, eased)
+				var live_target: Vector2 = _get_nerve_strike_boss_center(context)
+				var current_target: Vector2 = _get_vector2(entry.get("target", origin), origin)
+				var motion: Dictionary = ViperSkillGeometry.nerve_strike_clone_slash_motion(
+					origin,
+					current_target,
+					live_target,
+					float(entry.get("timer", 0.0)),
+					fps_scale,
+					DUAL_GLITCH_NERVE_TRAVEL_FRAMES,
+					0.70,
+					0.16
+				)
+				var progress: float = float(motion.get("progress", 0.0))
+				var target: Vector2 = _get_vector2(motion.get("target", current_target), current_target)
+				entry["timer"] = float(motion.get("timer", 0.0))
+				entry["target"] = target
+				entry["pos"] = _get_vector2(motion.get("pos", origin), origin)
 				if progress >= 1.0:
 					var pos: Vector2 = _get_vector2(entry.get("pos", target), target)
-					var hit: bool = pos.distance_to(_get_nerve_strike_boss_center(context)) <= NERVE_STRIKE_HIT_RADIUS
+					var hit: bool = pos.distance_to(live_target) <= NERVE_STRIKE_HIT_RADIUS
 					if hit and not bool(entry.get("hit_applied", false)):
 						entry["hit_applied"] = true
 						_apply_nerve_strike_confusion(deps)

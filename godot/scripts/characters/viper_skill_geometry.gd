@@ -241,6 +241,30 @@ static func nerve_strike_return_motion(start_pos: Vector2, target_pos: Vector2, 
 	}
 
 
+static func nerve_strike_clone_slash_motion(
+	origin: Vector2,
+	current_target: Vector2,
+	live_target: Vector2,
+	current_timer: float,
+	fps_scale: float,
+	travel_frames: float,
+	tracking_end_ratio: float,
+	tracking_strength: float
+) -> Dictionary:
+	var timer: float = min(travel_frames, current_timer + fps_scale)
+	var progress: float = clamp(timer / max(1.0, travel_frames), 0.0, 1.0)
+	var next_target: Vector2 = current_target
+	if progress <= tracking_end_ratio:
+		next_target = next_target.lerp(live_target, tracking_strength)
+	var eased: float = 0.5 - 0.5 * cos(progress * PI)
+	return {
+		"timer": timer,
+		"progress": progress,
+		"target": next_target,
+		"pos": origin.lerp(next_target, eased),
+	}
+
+
 static func player_floor_y(config: Dictionary) -> float:
 	return float(config.get("player_floor_y", float(config.get("height", 750.0)) - get_paddle_size(config).y))
 
