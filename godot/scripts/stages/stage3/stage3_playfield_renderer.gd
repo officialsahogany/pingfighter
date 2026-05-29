@@ -63,6 +63,9 @@ const KUROMI_AWAKE_SPARKLE_COUNT_SEVERE_LOD := 1
 const KUROMI_SPIT_WARNING_MARK_COUNT := 4
 const KUROMI_SPIT_WARNING_MARK_COUNT_LOD := 3
 const KUROMI_SPIT_WARNING_MARK_COUNT_SEVERE_LOD := 2
+const KUROMI_SPIT_WARNING_LINE_LENGTH := 166.0
+const KUROMI_SPIT_WARNING_GLOW_WIDTH := 8.0
+const KUROMI_SPIT_WARNING_CORE_WIDTH := 3.2
 const KUROMI_CRACK_PARTICLE_DRAW_LIMIT := 36
 const KUROMI_CRACK_PARTICLE_DRAW_LIMIT_LOD := 22
 const KUROMI_CRACK_PARTICLE_DRAW_LIMIT_SEVERE_LOD := 14
@@ -249,6 +252,10 @@ func get_performance_snapshot() -> Dictionary:
 		"kuromi_petrified_tail_point_count": KUROMI_PETRIFIED_TAIL_POINT_COUNT,
 		"kuromi_awakening_ring_segments": KUROMI_AWAKENING_RING_SEGMENTS,
 		"kuromi_awakening_crack_line_count": KUROMI_AWAKENING_CRACK_LINE_COUNT,
+		"kuromi_spit_warning_mark_count": KUROMI_SPIT_WARNING_MARK_COUNT,
+		"kuromi_spit_warning_line_length": KUROMI_SPIT_WARNING_LINE_LENGTH,
+		"kuromi_spit_warning_core_width": KUROMI_SPIT_WARNING_CORE_WIDTH,
+		"kuromi_spit_warning_contrast_stroke": true,
 		"kuromi_crack_particle_draw_limit": KUROMI_CRACK_PARTICLE_DRAW_LIMIT,
 		"kuromi_crack_particle_detailed_draw_limit": KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT,
 		"viper_airborne_lod_supported": true,
@@ -1065,21 +1072,33 @@ func _draw_kuromi_spit_warning(canvas: CanvasItem, mouth_center: Vector2, direct
 		return
 	var dir := Vector2(cos(direction), sin(direction))
 	var side := Vector2(-dir.y, dir.x)
+	var pulse: float = 0.78 + 0.22 * sin(time_sec * 18.0)
+	var start: Vector2 = mouth_center + dir * 10.0
+	var end: Vector2 = mouth_center + dir * KUROMI_SPIT_WARNING_LINE_LENGTH
 	var mark_count: int = _get_lod_count(
 		KUROMI_SPIT_WARNING_MARK_COUNT,
 		KUROMI_SPIT_WARNING_MARK_COUNT_LOD,
 		KUROMI_SPIT_WARNING_MARK_COUNT_SEVERE_LOD,
 		_active_quality_scale
 	)
+	canvas.draw_line(start, end, Color(0.22, 0.02, 0.10, 0.48 * alpha), KUROMI_SPIT_WARNING_GLOW_WIDTH + 3.0, true)
+	canvas.draw_line(start, end, Color(1.0, 0.10, 0.46, (0.40 + 0.12 * pulse) * alpha), KUROMI_SPIT_WARNING_GLOW_WIDTH, true)
+	canvas.draw_line(start, end, Color(1.0, 0.88, 0.96, (0.66 + 0.16 * pulse) * alpha), KUROMI_SPIT_WARNING_CORE_WIDTH, true)
 	for idx in range(1, mark_count + 1):
-		var distance: float = 18.0 + float(idx) * 20.0
+		var distance: float = 22.0 + float(idx) * 28.0
 		var pos: Vector2 = mouth_center + dir * distance
-		var radius: float = 3.0 + float(idx) * 0.6
-		canvas.draw_circle(pos, radius, Color(1.0, 0.36, 0.66, alpha * (0.44 - float(idx) * 0.045)))
-	canvas.draw_line(mouth_center + dir * 10.0, mouth_center + dir * 128.0, Color(1.0, 0.42, 0.74, 0.20 * alpha), 2.0, true)
-	var arrow_tip := mouth_center + dir * 118.0
-	canvas.draw_line(arrow_tip, arrow_tip - dir * 16.0 + side * 10.0, Color(1.0, 0.72, 0.86, 0.36 * alpha), 2.0, true)
-	canvas.draw_line(arrow_tip, arrow_tip - dir * 16.0 - side * 10.0, Color(1.0, 0.72, 0.86, 0.36 * alpha), 2.0, true)
+		var radius: float = 4.4 + float(idx) * 0.75
+		var mark_alpha: float = alpha * (0.64 - float(idx) * 0.055)
+		canvas.draw_circle(pos, radius + 2.4, Color(0.22, 0.02, 0.10, 0.34 * alpha))
+		canvas.draw_circle(pos, radius, Color(1.0, 0.18, 0.54, mark_alpha))
+		canvas.draw_circle(pos - dir * 1.2 - side * 0.6, maxf(1.2, radius * 0.36), Color(1.0, 0.96, 1.0, 0.72 * alpha))
+	var arrow_tip := end
+	var left_arrow: Vector2 = arrow_tip - dir * 24.0 + side * 15.0
+	var right_arrow: Vector2 = arrow_tip - dir * 24.0 - side * 15.0
+	for arrow_end in [left_arrow, right_arrow]:
+		canvas.draw_line(arrow_tip, arrow_end, Color(0.22, 0.02, 0.10, 0.54 * alpha), 7.0, true)
+		canvas.draw_line(arrow_tip, arrow_end, Color(1.0, 0.12, 0.50, 0.72 * alpha), 4.5, true)
+		canvas.draw_line(arrow_tip, arrow_end, Color(1.0, 0.88, 0.96, 0.76 * alpha), 2.0, true)
 
 
 func _draw_awake_kuromi_tail(canvas: CanvasItem, context: Dictionary, center: Vector2, head_size: float, ball_pos: Vector2, quality_scale: float) -> void:
