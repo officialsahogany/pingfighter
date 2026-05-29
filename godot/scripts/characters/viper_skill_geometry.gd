@@ -64,6 +64,46 @@ static func dive_shockwave_ring_touches_boss(
 	return ring_inner <= boss_distance and ring_outer >= boss_distance
 
 
+static func emp_slip_boss_motion(
+	boss_pos: Vector2,
+	context: Dictionary,
+	fps_scale: float,
+	slip_timer: float,
+	slip_duration: float,
+	slip_vel: float
+) -> Dictionary:
+	if slip_timer <= 0.0:
+		return {
+			"boss_pos": boss_pos,
+			"boss_vel": 0.0,
+			"slip_timer": 0.0,
+			"slip_vel": 0.0,
+		}
+	var next_pos: Vector2 = boss_pos
+	var next_slip_vel: float = slip_vel
+	var play_left: float = float(context.get("play_left", 0.0))
+	var play_right: float = float(context.get("play_right", context.get("width", 760.0)))
+	var boss_width: float = max(1.0, float(context.get("boss_paddle_width", 100.0)))
+	var ratio: float = clamp(slip_timer / max(1.0, slip_duration), 0.0, 1.0)
+	var motion_vel: float = next_slip_vel * ratio
+	next_pos.x += motion_vel * fps_scale
+	if next_pos.x <= play_left:
+		next_pos.x = play_left
+		next_slip_vel = abs(next_slip_vel) * 0.5
+	elif next_pos.x >= play_right - boss_width:
+		next_pos.x = play_right - boss_width
+		next_slip_vel = -abs(next_slip_vel) * 0.5
+	var next_timer: float = max(0.0, slip_timer - fps_scale)
+	if next_timer <= 0.0:
+		next_slip_vel = 0.0
+	return {
+		"boss_pos": next_pos,
+		"boss_vel": motion_vel,
+		"slip_timer": next_timer,
+		"slip_vel": next_slip_vel,
+	}
+
+
 static func phantom_kick_knockback_velocity(ball_pos: Vector2, boss_pos: Vector2, boss_width: float, base_speed: float) -> float:
 	var boss_center_x: float = boss_pos.x + boss_width * 0.5
 	var knockback_dir: float = 1.0 if ball_pos.x > boss_center_x else -1.0

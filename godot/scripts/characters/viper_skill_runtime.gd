@@ -3055,27 +3055,19 @@ func _get_dive_shockwave_slip_reference_pos(config: Dictionary) -> Vector2:
 
 
 func apply_emp_slip_boss_motion(boss_pos: Vector2, context: Dictionary, fps_scale: float) -> Dictionary:
-	if dive_slip_timer <= 0.0:
-		dive_slip_vel = 0.0
-		return {"boss_pos": boss_pos, "boss_vel": 0.0}
-	var play_left: float = float(context.get("play_left", 0.0))
-	var play_right: float = float(context.get("play_right", context.get("width", 760.0)))
-	var boss_width: float = max(1.0, float(context.get("boss_paddle_width", 100.0)))
-	var ratio: float = clamp(dive_slip_timer / max(1.0, dive_slip_duration), 0.0, 1.0)
-	var motion_vel: float = dive_slip_vel * ratio
-	boss_pos.x += motion_vel * fps_scale
-	if boss_pos.x <= play_left:
-		boss_pos.x = play_left
-		dive_slip_vel = abs(dive_slip_vel) * 0.5
-	elif boss_pos.x >= play_right - boss_width:
-		boss_pos.x = play_right - boss_width
-		dive_slip_vel = -abs(dive_slip_vel) * 0.5
-	dive_slip_timer = max(0.0, dive_slip_timer - fps_scale)
-	if dive_slip_timer <= 0.0:
-		dive_slip_vel = 0.0
+	var motion: Dictionary = ViperSkillGeometry.emp_slip_boss_motion(
+		boss_pos,
+		context,
+		fps_scale,
+		dive_slip_timer,
+		dive_slip_duration,
+		dive_slip_vel
+	)
+	dive_slip_timer = float(motion.get("slip_timer", 0.0))
+	dive_slip_vel = float(motion.get("slip_vel", 0.0))
 	return {
-		"boss_pos": boss_pos,
-		"boss_vel": motion_vel,
+		"boss_pos": _get_vector2(motion.get("boss_pos", boss_pos), boss_pos),
+		"boss_vel": float(motion.get("boss_vel", 0.0)),
 	}
 
 
