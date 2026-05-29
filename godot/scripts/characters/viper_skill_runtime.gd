@@ -1264,11 +1264,15 @@ func _update_core_flip(
 			core_flip_web_lines.clear()
 			var p2_duration: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE2_FRAMES, deps)
 			var t2: float = min(1.0, core_flip_phase_frames / p2_duration)
-			var ease2: float = t2 * t2
 			if not core_flip_ball_hit:
 				core_flip_target_center = _get_ball_pos(config)
-			var kick_center: Vector2 = core_flip_apex_center.lerp(core_flip_target_center, ease2)
-			core_flip_kick_dir = 1 if core_flip_target_center.x >= kick_center.x else -1
+			var kick_motion: Dictionary = ViperSkillGeometry.core_flip_kick_motion(
+				core_flip_apex_center,
+				core_flip_target_center,
+				t2
+			)
+			var kick_center: Vector2 = _get_vector2(kick_motion.get("center", core_flip_apex_center), core_flip_apex_center)
+			core_flip_kick_dir = int(kick_motion.get("dir", core_flip_kick_dir))
 			core_flip_spin_angle_degrees = 1440.0 + t2 * 360.0
 			next_pos = _center_to_player_pos(kick_center, config)
 			if not core_flip_ball_hit and kick_center.distance_to(_get_ball_pos(config)) <= CORE_FLIP_HIT_RADIUS:

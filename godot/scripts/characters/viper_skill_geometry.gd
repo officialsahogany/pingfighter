@@ -562,6 +562,17 @@ static func core_flip_wall_climb_center(
 	)
 
 
+static func core_flip_kick_motion(apex_center: Vector2, target_center: Vector2, kick_t: float) -> Dictionary:
+	var safe_t: float = clamp(kick_t, 0.0, 1.0)
+	var ease_t: float = safe_t * safe_t
+	var center: Vector2 = apex_center.lerp(target_center, ease_t)
+	var kick_dir: int = 1 if target_center.x >= center.x else -1
+	return {
+		"center": center,
+		"dir": kick_dir,
+	}
+
+
 static func aimed_kick_launch_angle(
 	kick_dir: int,
 	ball_pos: Vector2,
