@@ -56,6 +56,10 @@ func _verify_autoload_consts() -> void:
 		String(ExhibitionResetHandler.TITLE_SCENE_PATH) == "res://scenes/main_menu.tscn",
 		"ExhibitionResetHandler should target main_menu.tscn as the title reset destination"
 	)
+	_expect(
+		String(ExhibitionResetHandler.DEFAULT_LEAGUE_MODE) == "junior",
+		"ExhibitionResetHandler should reset booth sessions to Junior League"
+	)
 
 
 func _verify_event_filter() -> void:

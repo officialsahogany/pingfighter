@@ -6,7 +6,7 @@ extends Node
 
 const RESET_KEY := KEY_F7
 const TITLE_SCENE_PATH := "res://scenes/main_menu.tscn"
-const DEFAULT_LEAGUE_MODE := "champion"
+const DEFAULT_LEAGUE_MODE := "junior"
 const DEFAULT_STAGE_ID := 1
 
 var _resetting: bool = false
