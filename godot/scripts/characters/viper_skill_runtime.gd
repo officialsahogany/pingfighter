@@ -810,13 +810,21 @@ func get_boss_ai_context() -> Dictionary:
 
 
 func get_emp_shockwave_progress() -> float:
-	if dive_shockwave_timer <= 0.0:
-		return 1.0 if dive_shockwave_pos != Vector2.ZERO else 0.0
-	return 1.0 - clamp(dive_shockwave_timer / max(1.0, DIVE_SHOCKWAVE_FRAMES), 0.0, 1.0)
+	return ViperSkillGeometry.emp_strike_shockwave_progress(
+		dive_shockwave_timer,
+		dive_shockwave_pos,
+		DIVE_SHOCKWAVE_FRAMES
+	)
 
 
 func get_emp_shockwave_radius() -> float:
-	return lerp(DIVE_SHOCKWAVE_START_RADIUS, dive_shockwave_max_radius, get_emp_shockwave_progress())
+	return ViperSkillGeometry.emp_strike_shockwave_radius(
+		dive_shockwave_timer,
+		dive_shockwave_pos,
+		DIVE_SHOCKWAVE_FRAMES,
+		DIVE_SHOCKWAVE_START_RADIUS,
+		dive_shockwave_max_radius
+	)
 
 
 func is_kick_skill_knockback_ball_active() -> bool:
@@ -2807,7 +2815,7 @@ func _start_dive_strike(
 	if dive_height_snapshot > 0.0:
 		dive_player_pos.y = dive_floor_y - dive_height_snapshot
 	dive_shockwave_timer = 0.0
-	dive_shockwave_pos = Vector2(dive_player_pos.x + dive_paddle_size.x * 0.5, dive_floor_y + dive_paddle_size.y)
+	dive_shockwave_pos = ViperSkillGeometry.emp_strike_shockwave_pos(dive_player_pos, dive_paddle_size, dive_floor_y)
 	dive_ball_boosted = false
 	dive_particles.clear()
 	_set_viper_jetpack_offset_y(deps, dive_player_pos.y - dive_floor_y)
@@ -2898,7 +2906,7 @@ func _enter_dive_landing(config: Dictionary, deps: Dictionary) -> void:
 	dive_floor_y = _get_player_floor_y(config)
 	dive_player_pos.y = dive_floor_y
 	dive_shockwave_timer = DIVE_SHOCKWAVE_FRAMES
-	dive_shockwave_pos = Vector2(dive_player_pos.x + dive_paddle_size.x * 0.5, dive_floor_y + dive_paddle_size.y)
+	dive_shockwave_pos = ViperSkillGeometry.emp_strike_shockwave_pos(dive_player_pos, dive_paddle_size, dive_floor_y)
 	dive_shockwave_spawn_msec = Time.get_ticks_msec()
 	dive_shockwave_max_radius = _get_dive_shockwave_boss_reach_radius(config)
 	dive_shockwave_boss_effect_applied = false

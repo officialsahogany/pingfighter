@@ -104,6 +104,26 @@ static func emp_strike_hit_velocity(ball_vel: Vector2) -> Vector2:
 	return Vector2(ball_vel.x, -abs(ball_vel.y))
 
 
+static func emp_strike_shockwave_pos(player_pos: Vector2, paddle_size: Vector2, floor_y: float) -> Vector2:
+	return Vector2(player_pos.x + paddle_size.x * 0.5, floor_y + paddle_size.y)
+
+
+static func emp_strike_shockwave_progress(timer: float, shockwave_pos: Vector2, total_frames: float) -> float:
+	if timer <= 0.0:
+		return 1.0 if shockwave_pos != Vector2.ZERO else 0.0
+	return 1.0 - clamp(timer / max(1.0, total_frames), 0.0, 1.0)
+
+
+static func emp_strike_shockwave_radius(
+	timer: float,
+	shockwave_pos: Vector2,
+	total_frames: float,
+	start_radius: float,
+	max_radius: float
+) -> float:
+	return lerp(start_radius, max_radius, emp_strike_shockwave_progress(timer, shockwave_pos, total_frames))
+
+
 static func dive_shockwave_boss_reach_radius(
 	config: Dictionary,
 	shockwave_pos: Vector2,
