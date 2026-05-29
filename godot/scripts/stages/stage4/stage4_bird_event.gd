@@ -548,7 +548,7 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 
 		if _starpoint_overlaps_any_player(drop, player_rects):
 			if _collect_starpoint_drop(drop, context, deps):
-				starpoint_drops.clear()
+				_finish_starpoint_modal_collection(index, write_index, drop_count)
 				return
 			if starpoint_drops.size() < drop_count:
 				return
@@ -557,6 +557,16 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		write_index += 1
 	if write_index < drop_count:
 		starpoint_drops.resize(write_index)
+
+
+func _finish_starpoint_modal_collection(collected_index: int, write_index: int, drop_count: int) -> void:
+	if starpoint_drops.size() < drop_count:
+		return
+	var tail_write := write_index
+	for tail_read in range(collected_index + 1, drop_count):
+		starpoint_drops[tail_write] = starpoint_drops[tail_read]
+		tail_write += 1
+	starpoint_drops.resize(tail_write)
 
 
 func _update_starpoint_particles(fps_scale: float) -> void:

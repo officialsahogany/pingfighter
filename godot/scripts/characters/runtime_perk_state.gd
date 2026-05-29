@@ -5,7 +5,6 @@ const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const Stage1PillarUILayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_renderer.gd")
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
-const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 
 const STARPOINT_PER_SKILL_CHOICE := 1
 const BASE_PERK_CHOICE_COUNT := 3
@@ -155,48 +154,11 @@ func collect_star_points(
 	feedback_timer = 1.0
 	if pending_skill_choices > 0 and not choice_active and not defer_choice_open:
 		_capture_resume_pre_choice_velocity(owner)
-		# Clear in-flight starpoint drops in every stage before the modal opens.
-		# The perk choice modal gates ALL battle physics (see
-		# battle_scene_modal_gate_controller._should_block_battle_physics), so
-		# any drop that was still falling at the moment of collection would
-		# freeze mid-air at its last position and stay visibly stuck on screen
-		# for as long as the player takes to pick a perk. Clearing the drop
-		# arrays here removes the freeze-stuck artifact entirely; bonus drops
-		# spawned alongside the collected primary are still in the arrays at
-		# this point, but the player can't reach them during the modal anyway.
-		_clear_in_flight_starpoints(registry)
 		open_next_choice(character_type, catalog, false, owner, registry)
 		if not choice_active:
 			resume_has_pre_choice_ball_vel = false
 	_sync_owner(owner)
 	return choice_active
-
-
-# Iterate every stage that owns a starpoint drop array and empty the in-flight
-# list. Drop / particle arrays are public on each stage module per the existing
-# convention, so we go through `module.get(...)` to stay tolerant of stages
-# that haven't been registered (early boot) or that don't expose the field on
-# this build.
-func _clear_in_flight_starpoints(registry: Object) -> void:
-	CommonStarpointVisualHost.hide_all_existing_hosts()
-	if registry == null:
-		return
-	var stage_keys: Array = [
-		"stage1_balloon_event",
-		"stage2_pillar_background",
-		"stage3_boss_skill_state",
-		"stage4_bird_event",
-	]
-	for key in stage_keys:
-		var module: Object = _get_instance(registry, key)
-		if module == null:
-			continue
-		var drops_var: Variant = module.get("starpoint_drops")
-		if drops_var is Array and not (drops_var as Array).is_empty():
-			(drops_var as Array).clear()
-		var particles_var: Variant = module.get("starpoint_particles")
-		if particles_var is Array and not (particles_var as Array).is_empty():
-			(particles_var as Array).clear()
 
 
 func open_next_choice(

@@ -1507,8 +1507,9 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 	var play_height: float = _get_play_height(context)
 	var drop_count := starpoint_drops.size()
 	var next_drops: Array = []
-	for drop in starpoint_drops:
-		var d: Dictionary = drop if drop is Dictionary else {}
+	for index in range(drop_count):
+		var drop_value: Variant = starpoint_drops[index]
+		var d: Dictionary = drop_value if drop_value is Dictionary else {}
 		d["life"] = float(d.get("life", 0.0)) - fps_scale
 		if float(d.get("life", 0.0)) <= 0.0:
 			continue
@@ -1543,13 +1544,22 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 
 		if _starpoint_overlaps_any_player(d, player_rects):
 			if _collect_starpoint_drop(d, context, deps):
-				starpoint_drops.clear()
+				_finish_starpoint_modal_collection(next_drops, index, drop_count)
 				return
 			if starpoint_drops.size() < drop_count:
 				return
 			continue
 		next_drops.append(d)
 	starpoint_drops = next_drops
+
+
+func _finish_starpoint_modal_collection(kept_drops: Array, collected_index: int, drop_count: int) -> void:
+	if starpoint_drops.size() < drop_count:
+		return
+	var preserved: Array = kept_drops.duplicate(false)
+	for tail_read in range(collected_index + 1, drop_count):
+		preserved.append(starpoint_drops[tail_read])
+	starpoint_drops = preserved
 
 
 func _starpoint_overlaps_any_player(drop: Dictionary, player_rects: Array[Rect2]) -> bool:
