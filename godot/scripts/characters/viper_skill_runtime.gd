@@ -1267,7 +1267,7 @@ func _update_core_flip(
 			if wall_touch_count >= 2 or t1 >= 1.0:
 				core_flip_apex_center = center1
 				core_flip_target_center = _get_ball_pos(config)
-				core_flip_kick_dir = 1 if core_flip_target_center.x >= core_flip_apex_center.x else -1
+				core_flip_kick_dir = ViperSkillGeometry.core_flip_kick_direction(core_flip_apex_center, core_flip_target_center)
 				_enter_core_flip_phase(2, deps)
 		2:
 			core_flip_web_lines.clear()

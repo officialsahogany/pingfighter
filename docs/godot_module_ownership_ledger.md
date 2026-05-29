@@ -3677,7 +3677,7 @@ This section is intentionally long; use search to find the nearest owner.
   jump / reclimb / charge / return motion, return target, and wall kick direction,
   Viper kick knockback velocity calculation,
   Nerve Strike dash / return / clone slash motion, Core Flip start / wall-climb /
-  wall-contact / kick / return motion, spin timing, and bank velocity, and the common aimed kick launch angle / velocity used by Shadow
+  wall-contact / kick-direction / kick / return motion, spin timing, and bank velocity, and the common aimed kick launch angle / velocity used by Shadow
   Step and Marshal Kick. `viper_skill_runtime.gd` keeps skill-state ownership and
   delegates reusable geometry / launch math here.
 - `scripts/characters/viper_skill_context_builder.gd`

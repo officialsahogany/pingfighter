@@ -527,8 +527,12 @@ static func core_flip_bank_velocity(speed: float, kick_dir: int, config: Diction
 static func core_flip_start_motion(origin_center: Vector2, target_center: Vector2, apex_y_offset: float) -> Dictionary:
 	return {
 		"apex_center": target_center + Vector2(0.0, apex_y_offset),
-		"kick_dir": 1 if target_center.x >= origin_center.x else -1,
+		"kick_dir": core_flip_kick_direction(origin_center, target_center),
 	}
+
+
+static func core_flip_kick_direction(from_center: Vector2, target_center: Vector2) -> int:
+	return 1 if target_center.x >= from_center.x else -1
 
 
 static func core_flip_spin_degrees(phase: int, phase_t: float) -> float:
@@ -601,10 +605,9 @@ static func core_flip_kick_motion(apex_center: Vector2, target_center: Vector2, 
 	var safe_t: float = clamp(kick_t, 0.0, 1.0)
 	var ease_t: float = safe_t * safe_t
 	var center: Vector2 = apex_center.lerp(target_center, ease_t)
-	var kick_dir: int = 1 if target_center.x >= center.x else -1
 	return {
 		"center": center,
-		"dir": kick_dir,
+		"dir": core_flip_kick_direction(center, target_center),
 	}
 
 
