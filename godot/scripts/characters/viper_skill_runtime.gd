@@ -4394,13 +4394,20 @@ func _update_marshal_kick(
 			next_pos = marshal_wall_pos
 			var t1: float = min(1.0, marshal_phase_frames / _get_marshal_duration_frames(MARSHAL_KICK_CLING_FRAMES, deps))
 			if t1 >= 1.0:
-				if abs(_get_ball_pos(config).x - _get_player_center(marshal_wall_pos, config).x) < MARSHAL_KICK_RECLIMB_THRESHOLD:
+				var ball_pos: Vector2 = _get_ball_pos(config)
+				var marshal_wall_center: Vector2 = _get_player_center(marshal_wall_pos, config)
+				if abs(ball_pos.x - marshal_wall_center.x) < MARSHAL_KICK_RECLIMB_THRESHOLD:
 					marshal_reclimb_start_pos = marshal_wall_pos
-					var width: float = float(config.get("width", config.get("play_right", 760.0)))
-					var paddle_size: Vector2 = _get_paddle_size(config)
-					var wall_center_x: float = width - MARSHAL_KICK_WALL_INSET if _get_player_center(marshal_wall_pos, config).x < width * 0.5 else MARSHAL_KICK_WALL_INSET
-					var wall_center_y: float = clamp(_get_ball_pos(config).y - 50.0, 120.0, 650.0)
-					marshal_wall_pos = Vector2(wall_center_x, wall_center_y) - paddle_size * 0.5
+					marshal_wall_pos = ViperSkillGeometry.marshal_reclimb_wall_target(
+						marshal_wall_center,
+						ball_pos,
+						_get_paddle_size(config),
+						float(config.get("width", config.get("play_right", 760.0))),
+						MARSHAL_KICK_WALL_INSET,
+						-50.0,
+						120.0,
+						650.0
+					)
 					_enter_marshal_phase(3, marshal_reclimb_start_pos)
 					_set_marshal_web_line(_get_player_center(marshal_reclimb_start_pos, config), _get_player_center(marshal_wall_pos, config))
 					audio_router.play_marshal_backstep_sound(deps)

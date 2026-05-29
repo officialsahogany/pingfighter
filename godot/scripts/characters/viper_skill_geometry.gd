@@ -615,6 +615,23 @@ static func marshal_initial_wall_target(
 	}
 
 
+static func marshal_reclimb_wall_target(
+	current_wall_center: Vector2,
+	ball_pos: Vector2,
+	paddle_size: Vector2,
+	field_width: float,
+	wall_inset: float,
+	ball_y_offset: float,
+	min_y: float,
+	max_y: float
+) -> Vector2:
+	var wall_center_x: float = wall_inset
+	if current_wall_center.x < field_width * 0.5:
+		wall_center_x = field_width - wall_inset
+	var wall_center_y: float = clamp(ball_pos.y + ball_y_offset, min_y, max_y)
+	return Vector2(wall_center_x, wall_center_y) - paddle_size * 0.5
+
+
 static func limit_effective_velocity(velocity: Vector2, impact_boost: float, max_effective_speed: float) -> Vector2:
 	if max_effective_speed <= 0.0:
 		return velocity
