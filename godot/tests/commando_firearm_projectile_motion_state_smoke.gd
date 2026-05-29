@@ -118,6 +118,7 @@ func _verify_direct_projectile_motion_state() -> void:
 		runtime_motion_projectile,
 		"rocket",
 		"bazooka",
+		"bazooka",
 		false,
 		{},
 		{},

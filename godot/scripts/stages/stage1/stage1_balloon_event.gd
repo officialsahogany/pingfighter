@@ -174,6 +174,40 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, deps: Dictio
 	return false
 
 
+func resolve_commando_bullet_collision(projectile: Dictionary, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
+	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID or balloons.is_empty():
+		return {}
+	if not _is_commando_balloon_pop_projectile(projectile):
+		return {}
+
+	var projectile_pos: Vector2 = _get_vector2(projectile, "pos", Vector2.ZERO)
+	var previous_projectile_pos: Vector2 = _get_vector2(projectile, "prev_pos", projectile_pos)
+	var projectile_radius: float = max(1.0, float(projectile.get("radius", 3.0)))
+	for i in range(balloons.size()):
+		var balloon: Dictionary = balloons[i]
+		var balloon_pos: Vector2 = _get_vector2(balloon, "pos", Vector2.ZERO)
+		var balloon_radius: float = float(balloon.get("radius", 30.0))
+		if not _ball_path_hits_balloon(previous_projectile_pos, projectile_pos, balloon_pos, balloon_radius + projectile_radius):
+			continue
+
+		balloons.remove_at(i)
+		_handle_balloon_pop(balloon, deps, context)
+		return {
+			"commando_firearm_balloon_popped": true,
+			"commando_firearm_balloon_special": bool(balloon.get("is_special", false)),
+			"commando_firearm_balloon_pos": balloon_pos,
+			"commando_firearm_balloon_weapon_id": str(projectile.get("weapon_id", "")),
+		}
+	return {}
+
+
+func _is_commando_balloon_pop_projectile(projectile: Dictionary) -> bool:
+	if str(projectile.get("kind", "bullet")) != "bullet":
+		return false
+	var weapon_id := str(projectile.get("weapon_id", ""))
+	return weapon_id in ["pistol", "commando_pistol", "ak47"]
+
+
 func absorb_chaos_spear_objects(center: Vector2, radius: float, deps: Dictionary = {}) -> Array:
 	if balloons.is_empty():
 		return []
@@ -707,7 +741,7 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 
 		if _starpoint_overlaps_any_player(d, player_rects):
 			if _collect_starpoint_drop(d, context, deps):
-				starpoint_drops.clear()
+				_finish_starpoint_modal_collection(index, write_index, drop_count)
 				return
 			if starpoint_drops.size() < drop_count:
 				return
@@ -716,6 +750,16 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		write_index += 1
 	if write_index < drop_count:
 		starpoint_drops.resize(write_index)
+
+
+func _finish_starpoint_modal_collection(collected_index: int, write_index: int, drop_count: int) -> void:
+	if starpoint_drops.size() < drop_count:
+		return
+	var tail_write := write_index
+	for tail_read in range(collected_index + 1, drop_count):
+		starpoint_drops[tail_write] = starpoint_drops[tail_read]
+		tail_write += 1
+	starpoint_drops.resize(tail_write)
 
 
 func _starpoint_overlaps_player(drop: Dictionary, player_rect: Rect2) -> bool:

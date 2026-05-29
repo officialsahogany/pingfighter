@@ -8,13 +8,11 @@ const Stage4BirdEvent := preload("res://scripts/stages/stage4/stage4_bird_event.
 var _failures: Array[String] = []
 
 
-class ClearingRuntimePerkState:
-	var target: Object = null
+class RuntimePerkStateStub:
 	var collect_calls := 0
 	var opens_choice := true
 
-	func _init(next_target: Object, next_opens_choice: bool = true) -> void:
-		target = next_target
+	func _init(_target: Object, next_opens_choice: bool = true) -> void:
 		opens_choice = next_opens_choice
 
 	func collect_star_points(
@@ -26,19 +24,15 @@ class ClearingRuntimePerkState:
 		_defer_choice_open: bool = false
 	) -> bool:
 		collect_calls += 1
-		if target != null:
-			var drops_value: Variant = target.get("starpoint_drops")
-			if drops_value is Array:
-				(drops_value as Array).clear()
 		return opens_choice
 
 
 func _init() -> void:
-	_verify_stage1_collection_stops_after_runtime_clear()
-	_verify_stage1_collection_stops_after_false_runtime_clear()
-	_verify_stage2_collection_stops_after_runtime_clear()
-	_verify_stage3_collection_stops_after_runtime_clear()
-	_verify_stage4_collection_stops_after_runtime_clear()
+	_verify_stage1_collection_preserves_remaining_drop_after_modal()
+	_verify_stage1_collection_continues_without_modal()
+	_verify_stage2_collection_preserves_remaining_drop_after_modal()
+	_verify_stage3_collection_preserves_remaining_drop_after_modal()
+	_verify_stage4_collection_preserves_remaining_drop_after_modal()
 
 	if _failures.is_empty():
 		print("starpoint_collection_compaction_smoke: ok")
@@ -49,64 +43,68 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_stage1_collection_stops_after_runtime_clear() -> void:
+func _verify_stage1_collection_preserves_remaining_drop_after_modal() -> void:
 	var event := Stage1BalloonEvent.new()
 	event.starpoint_drops = [
 		_make_drop(Vector2(100.0, 100.0), Stage1BalloonEvent.STARPOINT_DROP_SIZE),
 		_make_drop(Vector2(110.0, 100.0), Stage1BalloonEvent.STARPOINT_DROP_SIZE),
 	]
-	var runtime_state := ClearingRuntimePerkState.new(event)
+	var runtime_state := RuntimePerkStateStub.new(event)
 	event._update_starpoint_drops(0.0, _context(1), {"runtime_perk_state": runtime_state})
-	_expect(runtime_state.collect_calls == 1, "Stage 1 should collect exactly one starpoint before the modal clears drops")
-	_expect(event.starpoint_drops.is_empty(), "Stage 1 should keep runtime-cleared starpoint drops empty")
+	_expect(runtime_state.collect_calls == 1, "Stage 1 should collect exactly one starpoint before the modal opens")
+	_expect(event.starpoint_drops.size() == 1, "Stage 1 should preserve remaining starpoint drops after the modal opens")
+	_expect(_drop_pos(event.starpoint_drops[0]) == Vector2(110.0, 100.0), "Stage 1 should remove only the collected starpoint")
 
 
-func _verify_stage1_collection_stops_after_false_runtime_clear() -> void:
+func _verify_stage1_collection_continues_without_modal() -> void:
 	var event := Stage1BalloonEvent.new()
 	event.starpoint_drops = [
 		_make_drop(Vector2(100.0, 100.0), Stage1BalloonEvent.STARPOINT_DROP_SIZE),
 		_make_drop(Vector2(110.0, 100.0), Stage1BalloonEvent.STARPOINT_DROP_SIZE),
 	]
-	var runtime_state := ClearingRuntimePerkState.new(event, false)
+	var runtime_state := RuntimePerkStateStub.new(event, false)
 	event._update_starpoint_drops(0.0, _context(1), {"runtime_perk_state": runtime_state})
-	_expect(runtime_state.collect_calls == 1, "Stage 1 should stop after runtime clears drops even if no choice opens")
-	_expect(event.starpoint_drops.is_empty(), "Stage 1 false-open clear should not re-read the old second drop")
+	_expect(runtime_state.collect_calls == 2, "Stage 1 should continue normal collection when no modal opens")
+	_expect(event.starpoint_drops.is_empty(), "Stage 1 should remove collected drops when no modal opens")
 
 
-func _verify_stage2_collection_stops_after_runtime_clear() -> void:
+func _verify_stage2_collection_preserves_remaining_drop_after_modal() -> void:
 	var background := Stage2PillarBackground.new()
 	background.starpoint_drops = [
 		_make_drop(Vector2(100.0, 100.0), 12.0),
 		_make_drop(Vector2(110.0, 100.0), 12.0),
 	]
-	var runtime_state := ClearingRuntimePerkState.new(background)
+	var runtime_state := RuntimePerkStateStub.new(background)
 	background._update_starpoint_drops(0.0, _context(2), {"runtime_perk_state": runtime_state})
-	_expect(runtime_state.collect_calls == 1, "Stage 2 should collect exactly one starpoint before the modal clears drops")
-	_expect(background.starpoint_drops.is_empty(), "Stage 2 should keep runtime-cleared starpoint drops empty")
+	_expect(runtime_state.collect_calls == 1, "Stage 2 should collect exactly one starpoint before the modal opens")
+	_expect(background.starpoint_drops.size() == 1, "Stage 2 should preserve remaining starpoint drops after the modal opens")
+	_expect(_drop_pos(background.starpoint_drops[0]) == Vector2(110.0, 100.0), "Stage 2 should remove only the collected starpoint")
 
 
-func _verify_stage3_collection_stops_after_runtime_clear() -> void:
+func _verify_stage3_collection_preserves_remaining_drop_after_modal() -> void:
 	var boss_state := Stage3BossSkillState.new()
 	boss_state.starpoint_drops = [
 		_make_drop(Vector2(100.0, 100.0), Stage3BossSkillState.STARPOINT_DROP_SIZE),
 		_make_drop(Vector2(110.0, 100.0), Stage3BossSkillState.STARPOINT_DROP_SIZE),
 	]
-	var runtime_state := ClearingRuntimePerkState.new(boss_state)
+	var runtime_state := RuntimePerkStateStub.new(boss_state)
 	boss_state._update_starpoint_drops(0.0, _context(3), {"runtime_perk_state": runtime_state})
-	_expect(runtime_state.collect_calls == 1, "Stage 3 should collect exactly one starpoint before the modal clears drops")
-	_expect(boss_state.starpoint_drops.is_empty(), "Stage 3 should keep runtime-cleared starpoint drops empty")
+	_expect(runtime_state.collect_calls == 1, "Stage 3 should collect exactly one starpoint before the modal opens")
+	_expect(boss_state.starpoint_drops.size() == 1, "Stage 3 should preserve remaining starpoint drops after the modal opens")
+	_expect(_drop_pos(boss_state.starpoint_drops[0]) == Vector2(110.0, 100.0), "Stage 3 should remove only the collected starpoint")
 
 
-func _verify_stage4_collection_stops_after_runtime_clear() -> void:
+func _verify_stage4_collection_preserves_remaining_drop_after_modal() -> void:
 	var event := Stage4BirdEvent.new()
 	event.starpoint_drops = [
 		_make_drop(Vector2(100.0, 100.0), Stage4BirdEvent.STARPOINT_DROP_SIZE),
 		_make_drop(Vector2(110.0, 100.0), Stage4BirdEvent.STARPOINT_DROP_SIZE),
 	]
-	var runtime_state := ClearingRuntimePerkState.new(event)
+	var runtime_state := RuntimePerkStateStub.new(event)
 	event._update_starpoint_drops(0.0, _context(4), {"runtime_perk_state": runtime_state})
-	_expect(runtime_state.collect_calls == 1, "Stage 4 should collect exactly one starpoint before the modal clears drops")
-	_expect(event.starpoint_drops.is_empty(), "Stage 4 should keep runtime-cleared starpoint drops empty")
+	_expect(runtime_state.collect_calls == 1, "Stage 4 should collect exactly one starpoint before the modal opens")
+	_expect(event.starpoint_drops.size() == 1, "Stage 4 should preserve remaining starpoint drops after the modal opens")
+	_expect(_drop_pos(event.starpoint_drops[0]) == Vector2(110.0, 100.0), "Stage 4 should remove only the collected starpoint")
 
 
 func _context(stage_id: int) -> Dictionary:
@@ -134,6 +132,11 @@ func _make_drop(pos: Vector2, size: float) -> Dictionary:
 		"life": 600.0,
 		"float_timer": 0.0,
 	}
+
+
+func _drop_pos(drop: Dictionary) -> Vector2:
+	var value: Variant = drop.get("pos", Vector2.ZERO)
+	return value if value is Vector2 else Vector2.ZERO
 
 
 func _expect(condition: bool, message: String) -> void:

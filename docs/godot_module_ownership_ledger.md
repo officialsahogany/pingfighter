@@ -4091,8 +4091,10 @@ This section is intentionally long; use search to find the nearest owner.
   handoff while calling this owner directly for rocket acceleration, pistol
   side-wall bounce, and net-rope updates. Stage 2 pistol rock-bounce routing
   calls `CommandoFirearmStage2RockInteractionResolver` directly from the
-  projectile update path. Do not reintroduce private runtime projectile-motion
-  or bounce bridges for those helpers.
+  projectile update path, and Stage 1 balloon bullet pops route through
+  `CommandoFirearmStage1BalloonInteractionResolver` before normal boss /
+  wall impact dispatch. Do not reintroduce private runtime projectile-motion
+  or bounce / balloon bridges for those helpers.
 - `scripts/characters/commando_firearm_projectile_impact_state.gd`
   Owns pure Commando projectile impact payload scaffolding: boss hit-event
   dictionaries and environment-impact result dictionaries. The runtime keeps
@@ -4160,6 +4162,13 @@ This section is intentionally long; use search to find the nearest owner.
   stamping, and Commando pistol rock-bounce payload merging. The firearm
   runtime keeps projectile ownership, weapon-id checks, impact flashes, audio,
   damage / gauge result handoff, and the surrounding projectile update loop.
+- `scripts/characters/commando_firearm_stage1_balloon_interaction_resolver.gd`
+  Owns Commando firearm routing into Stage 1 balloon interactions: bullet-only
+  weapon filtering for base pistol / Beretta / AK-47, direct dependency and
+  registry lookup for the Stage 1 balloon event, duplicate target suppression,
+  and pop-result forwarding so projectile motion can consume the bullet
+  without spawning a boss-impact flash. `stage1_balloon_event.gd` owns the
+  actual balloon removal, pop VFX / audio, and special-balloon starpoint drop.
 - `scripts/characters/commando_firearm_support_aircraft_geometry.gd`
   Owns pure Commando fire-support aircraft geometry: collision-rect
   construction and ball-path segment intersection against the grown

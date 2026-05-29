@@ -2,6 +2,7 @@ extends RefCounted
 
 const CommandoFirearmOriginGeometry := preload("res://scripts/characters/commando_firearm_origin_geometry.gd")
 const CommandoFirearmProjectileImpactState := preload("res://scripts/characters/commando_firearm_projectile_impact_state.gd")
+const CommandoFirearmStage1BalloonInteractionResolver := preload("res://scripts/characters/commando_firearm_stage1_balloon_interaction_resolver.gd")
 const CommandoFirearmStage2RockInteractionResolver := preload("res://scripts/characters/commando_firearm_stage2_rock_interaction_resolver.gd")
 const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
@@ -140,7 +141,8 @@ static func update_net_projectile_rope(
 static func advance_runtime_projectile_motion(
 	projectile: Dictionary,
 	projectile_kind: String,
-	_projectile_weapon_id: String,
+	projectile_weapon_id: String,
+	base_weapon_id: String,
 	is_pistol_projectile: bool,
 	context: Dictionary,
 	deps: Dictionary,
@@ -219,6 +221,19 @@ static func advance_runtime_projectile_motion(
 	if bool(rock_bounce_result.get("bounced", false)):
 		pos = CommandoFirearmValueUtils.get_vector2(projectile.get("pos", pos), pos)
 		velocity = CommandoFirearmValueUtils.get_vector2(projectile.get("velocity", velocity), velocity)
+	var balloon_pop_result: Dictionary = CommandoFirearmStage1BalloonInteractionResolver.pop_balloon_for_projectile(
+		projectile,
+		context,
+		deps,
+		projectile_weapon_id,
+		base_weapon_id
+	)
+	if bool(balloon_pop_result.get("commando_firearm_balloon_popped", false)):
+		return {
+			"consumed": true,
+			"projectile": projectile,
+			"result": balloon_pop_result,
+		}
 	if projectile_kind == "net":
 		replace_projectile_payload(
 			projectile,
@@ -281,6 +296,7 @@ static func advance_runtime_projectiles(
 			projectile,
 			projectile_kind,
 			projectile_weapon_id,
+			base_weapon_id,
 			is_pistol_projectile,
 			context,
 			deps,
@@ -298,6 +314,10 @@ static func advance_runtime_projectiles(
 			int(options.get("net_gun_rope_trail_limit", 0))
 		)
 		if bool(motion_result.get("consumed", false)):
+			var consumed_result: Dictionary = CommandoFirearmValueUtils.get_dict(motion_result.get("result", {}))
+			if not consumed_result.is_empty():
+				result.merge(consumed_result, true)
+				context.merge(consumed_result, true)
 			projectiles.remove_at(index)
 			continue
 		projectile = CommandoFirearmValueUtils.get_dict(motion_result.get("projectile", projectile))

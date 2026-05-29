@@ -151,7 +151,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_active_unlock_waits_for_orb_flight()
 	_verify_soldier_unlock_syncs_commando_controller()
-	_verify_collect_starpoints_clears_in_flight_drops()
+	_verify_collect_starpoints_preserves_in_flight_drops()
 	_verify_starpoint_absorption_tracks_player_after_choice()
 	print("runtime_perk_active_unlock_flight_smoke: ok")
 	quit(0)
@@ -249,7 +249,7 @@ func _verify_soldier_unlock_syncs_commando_controller() -> void:
 	_expect(int(state.runtime_skill_levels.get("soldier_unlock_ak47", 0)) == 1, "soldier unlock level should be committed")
 
 
-func _verify_collect_starpoints_clears_in_flight_drops() -> void:
+func _verify_collect_starpoints_preserves_in_flight_drops() -> void:
 	var state := RuntimePerkState.new()
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new()
@@ -260,14 +260,14 @@ func _verify_collect_starpoints_clears_in_flight_drops() -> void:
 	_expect(opened, "collecting a full starpoint should open the perk choice modal")
 	_expect(state.is_choice_active(), "starpoint collection should activate the perk choice modal")
 	_expect(state.pending_skill_choices == 1, "starpoint collection should queue one pending choice")
-	_expect(registry.stage1_balloon_event.starpoint_drops.is_empty(), "Stage 1 in-flight starpoint drops should clear before the modal opens")
-	_expect(registry.stage1_balloon_event.starpoint_particles.is_empty(), "Stage 1 starpoint particles should clear before the modal opens")
-	_expect(registry.stage2_pillar_background.starpoint_drops.is_empty(), "Stage 2 in-flight starpoint drops should clear before the modal opens")
-	_expect(registry.stage2_pillar_background.starpoint_particles.is_empty(), "Stage 2 starpoint particles should clear before the modal opens")
-	_expect(registry.stage3_boss_skill_state.starpoint_drops.is_empty(), "Stage 3 in-flight starpoint drops should clear before the modal opens")
-	_expect(registry.stage3_boss_skill_state.starpoint_particles.is_empty(), "Stage 3 starpoint particles should clear before the modal opens")
-	_expect(registry.stage4_bird_event.starpoint_drops.is_empty(), "Stage 4 in-flight starpoint drops should clear before the modal opens")
-	_expect(registry.stage4_bird_event.starpoint_particles.is_empty(), "Stage 4 starpoint particles should clear before the modal opens")
+	_expect(not registry.stage1_balloon_event.starpoint_drops.is_empty(), "Stage 1 in-flight starpoint drops should survive the modal open")
+	_expect(not registry.stage1_balloon_event.starpoint_particles.is_empty(), "Stage 1 starpoint particles should survive the modal open")
+	_expect(not registry.stage2_pillar_background.starpoint_drops.is_empty(), "Stage 2 in-flight starpoint drops should survive the modal open")
+	_expect(not registry.stage2_pillar_background.starpoint_particles.is_empty(), "Stage 2 starpoint particles should survive the modal open")
+	_expect(not registry.stage3_boss_skill_state.starpoint_drops.is_empty(), "Stage 3 in-flight starpoint drops should survive the modal open")
+	_expect(not registry.stage3_boss_skill_state.starpoint_particles.is_empty(), "Stage 3 starpoint particles should survive the modal open")
+	_expect(not registry.stage4_bird_event.starpoint_drops.is_empty(), "Stage 4 in-flight starpoint drops should survive the modal open")
+	_expect(not registry.stage4_bird_event.starpoint_particles.is_empty(), "Stage 4 starpoint particles should survive the modal open")
 
 
 func _verify_starpoint_absorption_tracks_player_after_choice() -> void:
