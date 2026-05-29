@@ -3673,7 +3673,7 @@ This section is intentionally long; use search to find the nearest owner.
   intersection, EMP Strike hit velocity, shockwave position / radius /
   boss-reach / ring-touch tests plus boss slip start / motion calculation,
   Shadow Step wave motion / curve velocity / hit profile / hologram progress / hitbox rects,
-  Marshal Kick launch angle tuning, initial / reclimb wall targets,
+  Marshal Kick launch angle tuning, initial / reclimb wall targets and reclimb decision,
   phase progress, jump / reclimb / charge / return motion, charge hit test,
   return target, and wall kick direction,
   Viper kick knockback velocity calculation,

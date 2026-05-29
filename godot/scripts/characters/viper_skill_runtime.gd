@@ -4425,7 +4425,7 @@ func _update_marshal_kick(
 			if t1 >= 1.0:
 				var ball_pos: Vector2 = _get_ball_pos(config)
 				var marshal_wall_center: Vector2 = _get_player_center(marshal_wall_pos, config)
-				if abs(ball_pos.x - marshal_wall_center.x) < MARSHAL_KICK_RECLIMB_THRESHOLD:
+				if ViperSkillGeometry.marshal_should_reclimb(ball_pos, marshal_wall_center, MARSHAL_KICK_RECLIMB_THRESHOLD):
 					marshal_reclimb_start_pos = marshal_wall_pos
 					marshal_wall_pos = ViperSkillGeometry.marshal_reclimb_wall_target(
 						marshal_wall_center,

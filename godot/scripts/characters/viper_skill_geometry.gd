@@ -727,6 +727,10 @@ static func marshal_reclimb_wall_target(
 	return Vector2(wall_center_x, wall_center_y) - paddle_size * 0.5
 
 
+static func marshal_should_reclimb(ball_pos: Vector2, wall_center: Vector2, threshold: float) -> bool:
+	return abs(ball_pos.x - wall_center.x) < threshold
+
+
 static func marshal_reclimb_position(reclimb_start_pos: Vector2, wall_pos: Vector2, reclimb_t: float) -> Vector2:
 	var smooth_t: float = reclimb_t * reclimb_t * (3.0 - 2.0 * reclimb_t)
 	return reclimb_start_pos.lerp(wall_pos, smooth_t)
