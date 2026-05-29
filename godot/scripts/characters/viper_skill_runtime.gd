@@ -4720,13 +4720,21 @@ func _apply_shadow_step_hit(
 
 	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", context.get("ball_vel", Vector2.ZERO)), Vector2.ZERO)
-	var dx: float = abs(ball_pos.x - hit_center.x) / max(hit_size.x * 0.5, 1.0)
-	var dy: float = abs(ball_pos.y - hit_center.y) / max(hit_size.y * 0.5, 1.0)
-	var dist_ratio: float = min(1.0, max(dx, dy))
-	var center_t: float = 1.0 - dist_ratio
-	var speed_mult: float = SHADOW_STEP_HIT_SPEED_MIN + center_t * (SHADOW_STEP_HIT_SPEED_MAX - SHADOW_STEP_HIT_SPEED_MIN)
-	var curve_frames: float = SHADOW_STEP_HIT_CURVE_MIN + center_t * (SHADOW_STEP_HIT_CURVE_MAX - SHADOW_STEP_HIT_CURVE_MIN)
-	var curve_force: float = SHADOW_STEP_HIT_FORCE_MIN + center_t * (SHADOW_STEP_HIT_FORCE_MAX - SHADOW_STEP_HIT_FORCE_MIN)
+	var hit_profile: Dictionary = ViperSkillGeometry.shadow_step_hit_profile(
+		ball_pos,
+		hit_center,
+		hit_size,
+		SHADOW_STEP_HIT_SPEED_MIN,
+		SHADOW_STEP_HIT_SPEED_MAX,
+		SHADOW_STEP_HIT_CURVE_MIN,
+		SHADOW_STEP_HIT_CURVE_MAX,
+		SHADOW_STEP_HIT_FORCE_MIN,
+		SHADOW_STEP_HIT_FORCE_MAX
+	)
+	var center_t: float = float(hit_profile.get("center_t", 0.0))
+	var speed_mult: float = float(hit_profile.get("speed_mult", SHADOW_STEP_HIT_SPEED_MIN))
+	var curve_frames: float = float(hit_profile.get("curve_frames", SHADOW_STEP_HIT_CURVE_MIN))
+	var curve_force: float = float(hit_profile.get("curve_force", SHADOW_STEP_HIT_FORCE_MIN))
 	var speed_bonus: float = 1.0 + float(_get_kick_enhance_level(deps)) * 0.04
 	var current_speed: float = ball_vel.length()
 	var raw_multiplier: float = speed_mult * speed_bonus

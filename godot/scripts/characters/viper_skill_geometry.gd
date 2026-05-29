@@ -146,6 +146,29 @@ static func shadow_step_curve_motion(
 	}
 
 
+static func shadow_step_hit_profile(
+	ball_pos: Vector2,
+	hit_center: Vector2,
+	hit_size: Vector2,
+	speed_min: float,
+	speed_max: float,
+	curve_frames_min: float,
+	curve_frames_max: float,
+	force_min: float,
+	force_max: float
+) -> Dictionary:
+	var dx: float = abs(ball_pos.x - hit_center.x) / max(hit_size.x * 0.5, 1.0)
+	var dy: float = abs(ball_pos.y - hit_center.y) / max(hit_size.y * 0.5, 1.0)
+	var dist_ratio: float = min(1.0, max(dx, dy))
+	var center_t: float = 1.0 - dist_ratio
+	return {
+		"center_t": center_t,
+		"speed_mult": speed_min + center_t * (speed_max - speed_min),
+		"curve_frames": curve_frames_min + center_t * (curve_frames_max - curve_frames_min),
+		"curve_force": force_min + center_t * (force_max - force_min),
+	}
+
+
 static func shadow_step_hologram_hit_rect(target: Vector2, paddle_size: Vector2, hitbox_padding: Vector2) -> Rect2:
 	var collision_size: Vector2 = paddle_size + hitbox_padding
 	return Rect2(target - collision_size * 0.5, collision_size)
