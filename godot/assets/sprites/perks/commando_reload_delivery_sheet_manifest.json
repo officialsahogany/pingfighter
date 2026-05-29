@@ -1,0 +1,626 @@
+{
+  "asset": "commando_reload_delivery_sheet",
+  "generator": "imagegen anchor + AutoSprite generate_spritesheet",
+  "imagegen_source": "C:/Users/woduq/.codex/generated_images/019e5c8d-e29a-7c20-bc78-3de48d57a226/ig_0c1be3f321f9a470016a139a9868248191b9656a7f3443e987.png",
+  "workspace_anchor_magenta": "preview_outputs/commando_reload_delivery_support_soldier_v1/commando_reload_support_soldier_anchor_imagegen_v1_magenta.png",
+  "workspace_anchor_cutout": "preview_outputs/commando_reload_delivery_support_soldier_v1/commando_reload_support_soldier_anchor_imagegen_v1_cutout_hardkey.png",
+  "autosprite_character_id": "cmpkhm3ft0001hfkciu0oh1tj",
+  "autosprite_jobs": {
+    "run": {
+      "job_id": "wf_dfe6486a-1dfc-466a-b568-518f3c243322",
+      "spritesheet_id": "cmpkhoa440001840agdw39ua1",
+      "video_id": "cmpkhmm050008105gaimlgkvx",
+      "prompt_summary": "right-facing SD support soldier sprint carrying a compact ammo supply box"
+    },
+    "handover": {
+      "job_id": "wf_9aeba0ad-e22f-4a5d-8ebe-23c51d4e6bba",
+      "spritesheet_id": "cmpkia4ty001fomhjxsv2mg60",
+      "video_id": "cmpki8r8u00066v0x9zkjng3p",
+      "prompt_summary": "support soldier stops, opens box, presents reload supplies, then pulls back"
+    }
+  },
+  "source_sheet_raw": "preview_outputs/commando_reload_delivery_support_soldier_v1/commando_reload_support_soldier_run_right_autosprite_raw.png",
+  "source_sheet_cutout": "preview_outputs/commando_reload_delivery_support_soldier_v1/commando_reload_support_soldier_run_right_autosprite_cutout.png",
+  "source_atlas": "preview_outputs/commando_reload_delivery_support_soldier_v1/commando_reload_support_soldier_run_right_autosprite_atlas.json",
+  "handover_source_sheet_raw": "preview_outputs/commando_reload_delivery_support_soldier_v1/commando_reload_support_soldier_handover_autosprite_raw.png",
+  "handover_source_sheet_cutout": "preview_outputs/commando_reload_delivery_support_soldier_v1/commando_reload_support_soldier_handover_autosprite_cutout.png",
+  "handover_source_atlas": "preview_outputs/commando_reload_delivery_support_soldier_v1/commando_reload_support_soldier_handover_autosprite_atlas.json",
+  "runtime_sheet_right": "godot/assets/sprites/perks/commando_reload_delivery_sheet.png",
+  "runtime_sheet_left": "godot/assets/sprites/perks/commando_reload_delivery_sheet_left.png",
+  "runtime_source_copy": "godot/assets/sprites/perks/commando_reload_delivery_sheet_source_autosprite_v1.png",
+  "runtime_handover_source_copy": "godot/assets/sprites/perks/commando_reload_delivery_handover_sheet_source_autosprite_v1.png",
+  "runtime_grid": {
+    "rows": 4,
+    "cols": 4,
+    "frames": 16,
+    "cell_size": 128
+  },
+  "source_grid": {
+    "rows": 4,
+    "cols": 4,
+    "frames": 16,
+    "cell_size": 256
+  },
+  "runtime_mapping": {
+    "frames_1_8": "AutoSprite run frames 1-8",
+    "frames_9_12": "AutoSprite handover frames 5, 9, 12, 16",
+    "frames_13_16": "AutoSprite run frames 1-4 reused for exit run"
+  },
+  "frame_interval": {
+    "run_seconds": 0.08,
+    "handover_seconds": 0.18,
+    "owner": "commando_reload_delivery_state.gd"
+  },
+  "postprocess": {
+    "background_cleanup": "hard chroma key sampled from AutoSprite sheet border (#47704c), then per-cell alpha crop",
+    "shared_scale": 0.5482233502538071,
+    "target_bbox": [
+      112,
+      108
+    ],
+    "out_cell": 128,
+    "bottom_anchor_y": 120,
+    "left_sheet": "per-cell horizontal mirror preserving frame order"
+  },
+  "qa": {
+    "transparent_corners": true,
+    "edge_touch_frames_source": {
+      "run": [],
+      "handover": []
+    },
+    "edge_touch_frames_runtime": [],
+    "identity_note": "Separate support soldier NPC; not Lena / playable Commando. Brown hair, cap goggles, scarf, supply box."
+  },
+  "frames": [
+    {
+      "runtime_frame": 1,
+      "runtime_grid": [
+        0,
+        0
+      ],
+      "phase": "run",
+      "source_sheet": "run",
+      "source_frame": 1,
+      "source_grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "crop_bbox": [
+        53,
+        35,
+        192,
+        217
+      ],
+      "output_size": [
+        76,
+        100
+      ],
+      "paste_position": [
+        26,
+        20
+      ]
+    },
+    {
+      "runtime_frame": 2,
+      "runtime_grid": [
+        0,
+        1
+      ],
+      "phase": "run",
+      "source_sheet": "run",
+      "source_frame": 2,
+      "source_grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        256,
+        0,
+        512,
+        256
+      ],
+      "crop_bbox": [
+        53,
+        39,
+        192,
+        223
+      ],
+      "output_size": [
+        76,
+        101
+      ],
+      "paste_position": [
+        26,
+        19
+      ]
+    },
+    {
+      "runtime_frame": 3,
+      "runtime_grid": [
+        0,
+        2
+      ],
+      "phase": "run",
+      "source_sheet": "run",
+      "source_frame": 3,
+      "source_grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        512,
+        0,
+        768,
+        256
+      ],
+      "crop_bbox": [
+        70,
+        42,
+        193,
+        227
+      ],
+      "output_size": [
+        67,
+        101
+      ],
+      "paste_position": [
+        30,
+        19
+      ]
+    },
+    {
+      "runtime_frame": 4,
+      "runtime_grid": [
+        0,
+        3
+      ],
+      "phase": "run",
+      "source_sheet": "run",
+      "source_frame": 4,
+      "source_grid": [
+        0,
+        3
+      ],
+      "source_box": [
+        768,
+        0,
+        1024,
+        256
+      ],
+      "crop_bbox": [
+        75,
+        34,
+        194,
+        221
+      ],
+      "output_size": [
+        65,
+        103
+      ],
+      "paste_position": [
+        31,
+        17
+      ]
+    },
+    {
+      "runtime_frame": 5,
+      "runtime_grid": [
+        1,
+        0
+      ],
+      "phase": "run",
+      "source_sheet": "run",
+      "source_frame": 5,
+      "source_grid": [
+        1,
+        0
+      ],
+      "source_box": [
+        0,
+        256,
+        256,
+        512
+      ],
+      "crop_bbox": [
+        62,
+        33,
+        195,
+        209
+      ],
+      "output_size": [
+        73,
+        96
+      ],
+      "paste_position": [
+        27,
+        24
+      ]
+    },
+    {
+      "runtime_frame": 6,
+      "runtime_grid": [
+        1,
+        1
+      ],
+      "phase": "run",
+      "source_sheet": "run",
+      "source_frame": 6,
+      "source_grid": [
+        1,
+        1
+      ],
+      "source_box": [
+        256,
+        256,
+        512,
+        512
+      ],
+      "crop_bbox": [
+        71,
+        40,
+        194,
+        223
+      ],
+      "output_size": [
+        67,
+        100
+      ],
+      "paste_position": [
+        30,
+        20
+      ]
+    },
+    {
+      "runtime_frame": 7,
+      "runtime_grid": [
+        1,
+        2
+      ],
+      "phase": "run",
+      "source_sheet": "run",
+      "source_frame": 7,
+      "source_grid": [
+        1,
+        2
+      ],
+      "source_box": [
+        512,
+        256,
+        768,
+        512
+      ],
+      "crop_bbox": [
+        95,
+        40,
+        193,
+        227
+      ],
+      "output_size": [
+        54,
+        103
+      ],
+      "paste_position": [
+        37,
+        17
+      ]
+    },
+    {
+      "runtime_frame": 8,
+      "runtime_grid": [
+        1,
+        3
+      ],
+      "phase": "run",
+      "source_sheet": "run",
+      "source_frame": 8,
+      "source_grid": [
+        1,
+        3
+      ],
+      "source_box": [
+        768,
+        256,
+        1024,
+        512
+      ],
+      "crop_bbox": [
+        64,
+        32,
+        192,
+        211
+      ],
+      "output_size": [
+        70,
+        98
+      ],
+      "paste_position": [
+        29,
+        22
+      ]
+    },
+    {
+      "runtime_frame": 9,
+      "runtime_grid": [
+        2,
+        0
+      ],
+      "phase": "handover",
+      "source_sheet": "handover",
+      "source_frame": 5,
+      "source_grid": [
+        1,
+        0
+      ],
+      "source_box": [
+        0,
+        256,
+        256,
+        512
+      ],
+      "crop_bbox": [
+        87,
+        27,
+        182,
+        224
+      ],
+      "output_size": [
+        52,
+        108
+      ],
+      "paste_position": [
+        38,
+        12
+      ]
+    },
+    {
+      "runtime_frame": 10,
+      "runtime_grid": [
+        2,
+        1
+      ],
+      "phase": "handover",
+      "source_sheet": "handover",
+      "source_frame": 9,
+      "source_grid": [
+        2,
+        0
+      ],
+      "source_box": [
+        0,
+        512,
+        256,
+        768
+      ],
+      "crop_bbox": [
+        90,
+        29,
+        193,
+        224
+      ],
+      "output_size": [
+        56,
+        107
+      ],
+      "paste_position": [
+        36,
+        13
+      ]
+    },
+    {
+      "runtime_frame": 11,
+      "runtime_grid": [
+        2,
+        2
+      ],
+      "phase": "handover",
+      "source_sheet": "handover",
+      "source_frame": 12,
+      "source_grid": [
+        2,
+        3
+      ],
+      "source_box": [
+        768,
+        512,
+        1024,
+        768
+      ],
+      "crop_bbox": [
+        94,
+        35,
+        220,
+        224
+      ],
+      "output_size": [
+        69,
+        104
+      ],
+      "paste_position": [
+        29,
+        16
+      ]
+    },
+    {
+      "runtime_frame": 12,
+      "runtime_grid": [
+        2,
+        3
+      ],
+      "phase": "handover",
+      "source_sheet": "handover",
+      "source_frame": 16,
+      "source_grid": [
+        3,
+        3
+      ],
+      "source_box": [
+        768,
+        768,
+        1024,
+        1024
+      ],
+      "crop_bbox": [
+        85,
+        27,
+        194,
+        224
+      ],
+      "output_size": [
+        60,
+        108
+      ],
+      "paste_position": [
+        34,
+        12
+      ]
+    },
+    {
+      "runtime_frame": 13,
+      "runtime_grid": [
+        3,
+        0
+      ],
+      "phase": "exit",
+      "source_sheet": "run",
+      "source_frame": 1,
+      "source_grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "crop_bbox": [
+        53,
+        35,
+        192,
+        217
+      ],
+      "output_size": [
+        76,
+        100
+      ],
+      "paste_position": [
+        26,
+        20
+      ]
+    },
+    {
+      "runtime_frame": 14,
+      "runtime_grid": [
+        3,
+        1
+      ],
+      "phase": "exit",
+      "source_sheet": "run",
+      "source_frame": 2,
+      "source_grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        256,
+        0,
+        512,
+        256
+      ],
+      "crop_bbox": [
+        53,
+        39,
+        192,
+        223
+      ],
+      "output_size": [
+        76,
+        101
+      ],
+      "paste_position": [
+        26,
+        19
+      ]
+    },
+    {
+      "runtime_frame": 15,
+      "runtime_grid": [
+        3,
+        2
+      ],
+      "phase": "exit",
+      "source_sheet": "run",
+      "source_frame": 3,
+      "source_grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        512,
+        0,
+        768,
+        256
+      ],
+      "crop_bbox": [
+        70,
+        42,
+        193,
+        227
+      ],
+      "output_size": [
+        67,
+        101
+      ],
+      "paste_position": [
+        30,
+        19
+      ]
+    },
+    {
+      "runtime_frame": 16,
+      "runtime_grid": [
+        3,
+        3
+      ],
+      "phase": "exit",
+      "source_sheet": "run",
+      "source_frame": 4,
+      "source_grid": [
+        0,
+        3
+      ],
+      "source_box": [
+        768,
+        0,
+        1024,
+        256
+      ],
+      "crop_bbox": [
+        75,
+        34,
+        194,
+        221
+      ],
+      "output_size": [
+        65,
+        103
+      ],
+      "paste_position": [
+        31,
+        17
+      ]
+    }
+  ],
+  "sha256": {
+    "run_source_copy": "f5e20943c7344906d7eb96b2d0d5f54fa3a97d46b4cb26e48590098bf535ebf1",
+    "handover_source_copy": "6523a050b1d488bffc062f22a3d290b236b80debb61a2a40d3786f13b6f28263",
+    "right": "5bd26ff2ff2544a8449e5b35dc0fd9bdba736f6355585eb8d5bde8b4753b2a46",
+    "left": "5c972e2cc55a09f6ff3b4c5f7022fe9ef0dcce0c7bf9c699918a81e89cf67c64"
+  }
+}
