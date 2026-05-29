@@ -109,6 +109,67 @@ static func core_flip_velocity_to_target(
 	return delta.normalized() * speed
 
 
+static func core_flip_bank_velocity(speed: float, kick_dir: int, config: Dictionary, aim_level: int) -> Vector2:
+	var width: float = float(config.get("width", config.get("play_right", 760.0)))
+	var ball_pos: Vector2 = get_ball_pos(config)
+	var boss_pos: Vector2 = _get_vector2(config.get("boss_pos", Vector2(width * 0.5 - 50.0, 25.0)), Vector2(width * 0.5 - 50.0, 25.0))
+	var boss_width: float = max(1.0, float(config.get("boss_paddle_width", 100.0)))
+	var boss_height: float = max(1.0, float(config.get("boss_hitbox_height", 40.0)))
+	var boss_center := Vector2(boss_pos.x + boss_width * 0.5, boss_pos.y + boss_height * 0.5)
+	var bias: float = 0.6 + (1.0 - 0.6) * min(float(aim_level) * 0.09, 0.90)
+	var safe_dir: int = 1 if kick_dir >= 0 else -1
+	var wall_x: float = width if safe_dir > 0 else 0.0
+	var target_spread_x: float = max(20.0, 150.0 * (1.0 - bias))
+	var target_spread_y: float = max(10.0, 68.0 * (1.0 - bias))
+	var fallback_target_x: float = clamp(boss_center.x + randf_range(-target_spread_x, target_spread_x), 70.0, width - 70.0)
+	var fallback_target_y: float = max(70.0, min(ball_pos.y - 120.0, boss_center.y + randf_range(-target_spread_y, target_spread_y)))
+	var boss_avoid_margin_x: float = round(max(18.0, 54.0 - bias * 24.0))
+	var boss_avoid_margin_y: float = round(max(8.0, 24.0 - bias * 10.0))
+	var boss_avoid_rect := Rect2(boss_pos, Vector2(boss_width, boss_height)).grow_individual(
+		boss_avoid_margin_x,
+		boss_avoid_margin_y,
+		boss_avoid_margin_x,
+		boss_avoid_margin_y
+	)
+	var lane_gap_base: float = max(12.0, 42.0 - bias * 18.0)
+	var lane_gap_step: float = max(10.0, 30.0 - bias * 10.0)
+	var lane_jitter: float = max(2.0, 16.0 * (1.0 - bias))
+	var candidate_count: int = 3 + max(0, min(aim_level, 5))
+	var target_y_offsets := [
+		0.0,
+		-target_spread_y * 0.55,
+		target_spread_y * 0.55,
+		-target_spread_y,
+		target_spread_y,
+	]
+	var preferred_sides := [-1, 1] if safe_dir < 0 else [1, -1]
+	for side_pref in preferred_sides:
+		for y_off in target_y_offsets:
+			var candidate_y: float = boss_center.y + float(y_off) + randf_range(-lane_jitter, lane_jitter)
+			candidate_y = max(70.0, min(ball_pos.y - 120.0, candidate_y))
+			for idx in range(candidate_count):
+				var lane_gap: float = lane_gap_base + float(idx) * lane_gap_step
+				var candidate_x: float = boss_avoid_rect.position.x - lane_gap if int(side_pref) < 0 else boss_avoid_rect.position.x + boss_avoid_rect.size.x + lane_gap
+				candidate_x += randf_range(-lane_jitter, lane_jitter)
+				candidate_x = clamp(candidate_x, 28.0, width - 28.0)
+				var velocity: Vector2 = core_flip_velocity_to_target(speed, safe_dir, ball_pos, width, candidate_x, candidate_y)
+				if velocity.length() <= 0.01 or abs(velocity.x) <= 0.000001:
+					continue
+				var t_wall: float = (wall_x - ball_pos.x) / velocity.x
+				if not (t_wall > 0.03 and t_wall < 0.97):
+					continue
+				var bounce_y: float = ball_pos.y + velocity.y * t_wall
+				if bounce_y < 40.0 or bounce_y > ball_pos.y - 18.0:
+					continue
+				if segment_intersects_rect(Vector2(wall_x, bounce_y), Vector2(candidate_x, candidate_y), boss_avoid_rect):
+					continue
+				return velocity
+	var fallback_velocity: Vector2 = core_flip_velocity_to_target(speed, safe_dir, ball_pos, width, fallback_target_x, fallback_target_y)
+	if fallback_velocity.length() > 0.01:
+		return fallback_velocity
+	return Vector2(float(safe_dir) * 0.65, -0.76).normalized() * speed
+
+
 static func core_flip_wall_climb_center(
 	t1: float,
 	config: Dictionary,
