@@ -389,6 +389,10 @@ static func nerve_strike_return_target_pos(config: Dictionary) -> Vector2:
 	return clamp_player_pos(target, float(config.get("play_left", 0.0)), float(config.get("play_right", config.get("width", 760.0))), player_paddle_size.x)
 
 
+static func nerve_strike_phase_progress(phase_frames: float, duration: float) -> float:
+	return clamp(phase_frames / max(1.0, duration), 0.0, 1.0)
+
+
 static func nerve_strike_dash_motion(
 	start_pos: Vector2,
 	current_target_pos: Vector2,

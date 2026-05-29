@@ -3408,7 +3408,7 @@ func _update_nerve_strike_dash(config: Dictionary, deps: Dictionary) -> Dictiona
 
 func _update_nerve_strike_slash(config: Dictionary, deps: Dictionary) -> Dictionary:
 	var duration: float = NERVE_STRIKE_SLASH_HIT_FRAMES if nerve_strike_hit_confirmed else NERVE_STRIKE_SLASH_MISS_FRAMES
-	var progress: float = clamp(nerve_strike_phase_frames / max(1.0, duration), 0.0, 1.0)
+	var progress: float = ViperSkillGeometry.nerve_strike_phase_progress(nerve_strike_phase_frames, duration)
 	nerve_strike_pos = nerve_strike_dash_target_pos
 	if nerve_strike_hit_confirmed and not nerve_strike_slash_triggered and progress >= NERVE_STRIKE_SLASH_TRIGGER_RATIO:
 		nerve_strike_slash_triggered = true
