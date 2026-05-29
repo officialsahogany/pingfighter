@@ -4406,7 +4406,10 @@ func _update_marshal_kick(
 	}
 	match marshal_phase:
 		0:
-			var t0: float = min(1.0, marshal_phase_frames / _get_marshal_duration_frames(MARSHAL_KICK_JUMP_FRAMES, deps, true))
+			var t0: float = ViperSkillGeometry.marshal_phase_progress(
+				marshal_phase_frames,
+				_get_marshal_duration_frames(MARSHAL_KICK_JUMP_FRAMES, deps, true)
+			)
 			next_pos = ViperSkillGeometry.marshal_jump_position(marshal_start_pos, marshal_wall_pos, t0)
 			_set_marshal_web_line(_get_player_center(next_pos, config), _get_player_center(marshal_wall_pos, config))
 			_spawn_marshal_motion_particle(_get_player_center(next_pos, config), "trail", 0.65)
@@ -4415,7 +4418,10 @@ func _update_marshal_kick(
 				_trigger_feedback(deps, 0.08, 3.0)
 		1:
 			next_pos = marshal_wall_pos
-			var t1: float = min(1.0, marshal_phase_frames / _get_marshal_duration_frames(MARSHAL_KICK_CLING_FRAMES, deps))
+			var t1: float = ViperSkillGeometry.marshal_phase_progress(
+				marshal_phase_frames,
+				_get_marshal_duration_frames(MARSHAL_KICK_CLING_FRAMES, deps)
+			)
 			if t1 >= 1.0:
 				var ball_pos: Vector2 = _get_ball_pos(config)
 				var marshal_wall_center: Vector2 = _get_player_center(marshal_wall_pos, config)
@@ -4439,7 +4445,10 @@ func _update_marshal_kick(
 				else:
 					_enter_marshal_charge(config, deps)
 		3:
-			var t3: float = min(1.0, marshal_phase_frames / _get_marshal_duration_frames(MARSHAL_KICK_RECLIMB_FRAMES, deps))
+			var t3: float = ViperSkillGeometry.marshal_phase_progress(
+				marshal_phase_frames,
+				_get_marshal_duration_frames(MARSHAL_KICK_RECLIMB_FRAMES, deps)
+			)
 			next_pos = ViperSkillGeometry.marshal_reclimb_position(marshal_reclimb_start_pos, marshal_wall_pos, t3)
 			_set_marshal_web_line(_get_player_center(next_pos, config), _get_player_center(marshal_wall_pos, config))
 			_spawn_marshal_motion_particle(_get_player_center(next_pos, config), "trail", 0.8)
@@ -4455,7 +4464,10 @@ func _update_marshal_kick(
 			if not dmk_freeze_active:
 				_enter_marshal_charge(config, deps)
 		2:
-			var t2: float = min(1.0, marshal_phase_frames / _get_marshal_duration_frames(MARSHAL_KICK_CHARGE_FRAMES, deps, true))
+			var t2: float = ViperSkillGeometry.marshal_phase_progress(
+				marshal_phase_frames,
+				_get_marshal_duration_frames(MARSHAL_KICK_CHARGE_FRAMES, deps, true)
+			)
 			var charge_ball_pos: Vector2 = _get_ball_pos(config)
 			marshal_charge_target_pos = charge_ball_pos
 			next_pos = ViperSkillGeometry.marshal_charge_position(
@@ -4487,7 +4499,7 @@ func _update_marshal_kick(
 			if not dmk_freeze_active:
 				_enter_marshal_return(marshal_return_start_pos)
 		4:
-			var t4: float = min(1.0, marshal_phase_frames / MARSHAL_KICK_RETURN_FRAMES)
+			var t4: float = ViperSkillGeometry.marshal_phase_progress(marshal_phase_frames, MARSHAL_KICK_RETURN_FRAMES)
 			var paddle_size: Vector2 = _get_paddle_size(config)
 			var play_left: float = float(config.get("play_left", 0.0))
 			var play_right: float = float(config.get("play_right", config.get("width", 760.0)))

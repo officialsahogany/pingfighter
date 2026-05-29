@@ -701,6 +701,10 @@ static func marshal_initial_wall_target(
 	}
 
 
+static func marshal_phase_progress(phase_frames: float, duration_frames: float) -> float:
+	return min(1.0, phase_frames / duration_frames)
+
+
 static func marshal_jump_position(start_pos: Vector2, wall_pos: Vector2, jump_t: float) -> Vector2:
 	var eased_t: float = 1.0 - pow(1.0 - jump_t, 2.0)
 	return start_pos.lerp(wall_pos, eased_t)
