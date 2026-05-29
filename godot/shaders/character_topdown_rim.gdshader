@@ -11,7 +11,7 @@ void fragment() {
 
 	float alpha_above = texture(TEXTURE, UV - vec2(0.0, px_uv.y * rim_offset_px)).a;
 	float top_edge = step(0.5, base.a) * (1.0 - step(0.5, alpha_above));
-	float rim_alpha = top_edge * rim_intensity * rim_color.a * base.a;
 
-	COLOR = vec4(rim_color.rgb, rim_alpha);
+	vec3 final_rgb = mix(base.rgb, rim_color.rgb, top_edge * rim_intensity * rim_color.a);
+	COLOR = vec4(final_rgb, base.a);
 }

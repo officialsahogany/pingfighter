@@ -16,8 +16,6 @@ static var _character_rim_shader_ready: bool = false
 
 var customization_overlay_renderer: Object = PlayerCustomizationOverlayRenderer.new()
 var _wheel_spin_prewarmed_texture: Texture2D
-var _silhouette_rim_item: RID
-var _silhouette_rim_owner: RID
 var _silhouette_rim_material: ShaderMaterial
 
 
@@ -33,13 +31,8 @@ static func _prewarm_shared_assets() -> void:
 	_character_rim_shader_ready = CharacterTopdownRimShader is Shader
 
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_PREDELETE:
-		_free_silhouette_rim_item()
-
-
 func clear_transient_canvas_items() -> void:
-	_clear_silhouette_rim()
+	pass
 
 
 func draw(
@@ -52,7 +45,6 @@ func draw(
 	shake_offset: Vector2
 ) -> void:
 	_prewarm_wheel_spin_sheet_draw(canvas, context)
-	_clear_silhouette_rim()
 	if bool(context.get("player_victory_active", false)):
 		var victory_texture = context.get("player_victory_sheet", null)
 		if victory_texture is Texture2D:
@@ -991,14 +983,32 @@ func _draw_texture_region(
 		if flip_h:
 			_draw_flipped_texture_region(canvas, texture, source_rect, dest_rect, sprite_modulate)
 		else:
-			canvas.draw_texture_rect_region(texture, dest_rect, source_rect, sprite_modulate, false, true)
-			if enable_silhouette_rim:
-				_draw_silhouette_rim(canvas, texture, dest_rect, source_rect, context, sprite_modulate)
+			if enable_silhouette_rim and _silhouette_rim_should_apply(context, texture, dest_rect):
+				_draw_with_silhouette_rim(canvas, texture, dest_rect, source_rect, context, sprite_modulate)
+			else:
+				canvas.draw_texture_rect_region(texture, dest_rect, source_rect, sprite_modulate, false, true)
 		return
 	_draw_rotated_texture_region(canvas, texture, source_rect, dest_rect.get_center(), dest_rect.size, angle_degrees, sprite_modulate, flip_h)
 
 
-func _draw_silhouette_rim(
+func _silhouette_rim_should_apply(context: Dictionary, texture: Texture2D, dest_rect: Rect2) -> bool:
+	if texture == null:
+		return false
+	if not bool(context.get("stage1_player_silhouette_rim_enabled", true)):
+		return false
+	if bool(context.get("active_item_aipill_active", false)):
+		return false
+	var intensity: float = clamp(
+		float(context.get("stage1_player_rim_intensity", DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY)),
+		0.0,
+		1.0
+	)
+	if intensity <= 0.001 or dest_rect.size.x <= 0.0 or dest_rect.size.y <= 0.0:
+		return false
+	return true
+
+
+func _draw_with_silhouette_rim(
 	canvas: CanvasItem,
 	texture: Texture2D,
 	dest_rect: Rect2,
@@ -1006,25 +1016,17 @@ func _draw_silhouette_rim(
 	context: Dictionary,
 	sprite_modulate: Color
 ) -> void:
-	if canvas == null or texture == null:
+	if canvas == null:
 		return
-	if not bool(context.get("stage1_player_silhouette_rim_enabled", true)):
-		return
-	if bool(context.get("active_item_aipill_active", false)):
+	var material: ShaderMaterial = _get_silhouette_rim_material()
+	if material == null:
+		canvas.draw_texture_rect_region(texture, dest_rect, source_rect, sprite_modulate, false, true)
 		return
 	var intensity: float = clamp(
 		float(context.get("stage1_player_rim_intensity", DEFAULT_PLAYER_SILHOUETTE_RIM_INTENSITY)),
 		0.0,
 		1.0
 	)
-	if intensity <= 0.001 or dest_rect.size.x <= 0.0 or dest_rect.size.y <= 0.0:
-		return
-	var rim_item: RID = _ensure_silhouette_rim_item(canvas)
-	if not rim_item.is_valid():
-		return
-	var material: ShaderMaterial = _get_silhouette_rim_material()
-	if material == null:
-		return
 	material.set_shader_parameter("rim_intensity", intensity)
 	material.set_shader_parameter("rim_color", _as_color(
 		context.get("stage1_player_rim_color", Color(0.85, 0.95, 1.0, 1.0)),
@@ -1038,28 +1040,10 @@ func _draw_silhouette_rim(
 		max(1.0, float(texture.get_width())),
 		max(1.0, float(texture.get_height()))
 	))
-	RenderingServer.canvas_item_set_visible(rim_item, true)
-	RenderingServer.canvas_item_add_texture_rect_region(
-		rim_item,
-		dest_rect,
-		texture.get_rid(),
-		source_rect,
-		sprite_modulate,
-		false,
-		true
-	)
-
-
-func _ensure_silhouette_rim_item(canvas: CanvasItem) -> RID:
-	var owner: RID = canvas.get_canvas_item()
-	if not _silhouette_rim_item.is_valid():
-		_silhouette_rim_item = RenderingServer.canvas_item_create()
-		RenderingServer.canvas_item_set_draw_index(_silhouette_rim_item, 4096)
-	if _silhouette_rim_owner != owner:
-		RenderingServer.canvas_item_set_parent(_silhouette_rim_item, owner)
-		RenderingServer.canvas_item_set_material(_silhouette_rim_item, _get_silhouette_rim_material().get_rid())
-		_silhouette_rim_owner = owner
-	return _silhouette_rim_item
+	var prev_material: Material = canvas.material
+	canvas.material = material
+	canvas.draw_texture_rect_region(texture, dest_rect, source_rect, sprite_modulate, false, true)
+	canvas.material = prev_material
 
 
 func _get_silhouette_rim_material() -> ShaderMaterial:
@@ -1072,20 +1056,6 @@ func _get_silhouette_rim_material() -> ShaderMaterial:
 	material.set_shader_parameter("rim_offset_px", PLAYER_SILHOUETTE_RIM_OFFSET_PX)
 	_silhouette_rim_material = material
 	return _silhouette_rim_material
-
-
-func _clear_silhouette_rim() -> void:
-	if not _silhouette_rim_item.is_valid():
-		return
-	RenderingServer.canvas_item_clear(_silhouette_rim_item)
-	RenderingServer.canvas_item_set_visible(_silhouette_rim_item, false)
-
-
-func _free_silhouette_rim_item() -> void:
-	if _silhouette_rim_item.is_valid():
-		RenderingServer.free_rid(_silhouette_rim_item)
-	_silhouette_rim_item = RID()
-	_silhouette_rim_owner = RID()
 
 
 func _draw_ai_glitch_texture_region(
