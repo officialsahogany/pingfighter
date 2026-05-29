@@ -1297,7 +1297,7 @@ func _update_core_flip(
 			if t2 >= 1.0:
 				if not core_flip_ball_hit:
 					core_flip_miss_text_timer = CORE_FLIP_MISS_TEXT_FRAMES
-					core_flip_miss_text_pos = core_flip_origin_center + Vector2(0.0, -30.0)
+					core_flip_miss_text_pos = core_flip_origin_center + Vector2(0.0, CORE_FLIP_APEX_OFFSET_Y)
 				core_flip_return_start_center = kick_center
 				_enter_core_flip_phase(3, deps)
 		3:
