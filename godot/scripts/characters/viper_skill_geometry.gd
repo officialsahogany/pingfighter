@@ -539,6 +539,10 @@ static func core_flip_phase_progress(phase_frames: float, duration_frames: float
 	return min(1.0, phase_frames / duration_frames)
 
 
+static func core_flip_should_enter_kick_phase(wall_touch_count: int, climb_t: float) -> bool:
+	return wall_touch_count >= 2 or climb_t >= 1.0
+
+
 static func core_flip_spin_degrees(phase: int, phase_t: float) -> float:
 	var safe_t: float = clamp(phase_t, 0.0, 1.0)
 	match phase:

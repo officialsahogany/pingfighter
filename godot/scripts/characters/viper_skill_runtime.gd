@@ -1263,7 +1263,7 @@ func _update_core_flip(
 			var web_line_to: Vector2 = _get_vector2(wall_contact.get("line_to", center1), center1)
 			_set_core_flip_web_line(center1, web_line_to)
 			var wall_touch_count: int = int(wall_contact.get("touch_count", 0))
-			if wall_touch_count >= 2 or t1 >= 1.0:
+			if ViperSkillGeometry.core_flip_should_enter_kick_phase(wall_touch_count, t1):
 				core_flip_apex_center = center1
 				core_flip_target_center = _get_ball_pos(config)
 				core_flip_kick_dir = ViperSkillGeometry.core_flip_kick_direction(core_flip_apex_center, core_flip_target_center)
