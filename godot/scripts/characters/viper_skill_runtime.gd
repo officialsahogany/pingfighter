@@ -3850,15 +3850,22 @@ func _update_blade_motion(
 
 func _launch_blade_projectile(player_pos: Vector2, config: Dictionary, deps: Dictionary) -> void:
 	audio_router.play_blade_fire_sound(deps)
-	var center: Vector2 = player_pos + _get_paddle_size(config) * 0.5
-	var blade_amp_size_range_pct: int = min(max(0, _get_blade_amp_level(deps)), 5) * 10
-	var size_mult: float = (1.3 if blade_dark_mode else 1.0) * (1.0 + float(blade_amp_size_range_pct) / 100.0)
-	var range_mult: float = (2.0 if blade_dark_mode else 1.0) * (1.0 + float(blade_amp_size_range_pct) / 100.0)
+	var spec: Dictionary = ViperSkillGeometry.blade_projectile_launch_spec(
+		player_pos,
+		_get_paddle_size(config),
+		_get_blade_amp_level(deps),
+		blade_dark_mode,
+		BLADE_BASE_WIDTH,
+		BLADE_BASE_RANGE,
+		-20.0
+	)
+	var size_mult: float = float(spec.get("size_mult", 1.0))
+	var range_mult: float = float(spec.get("range_mult", 1.0))
 	blade_projectile_active = true
-	blade_projectile_pos = Vector2(center.x, center.y - 20.0)
-	blade_projectile_start_y = blade_projectile_pos.y
-	blade_projectile_target_y = blade_projectile_start_y - BLADE_BASE_RANGE * range_mult
-	blade_projectile_width = BLADE_BASE_WIDTH * size_mult
+	blade_projectile_pos = _get_vector2(spec.get("pos", Vector2.ZERO), Vector2.ZERO)
+	blade_projectile_start_y = float(spec.get("start_y", blade_projectile_pos.y))
+	blade_projectile_target_y = float(spec.get("target_y", blade_projectile_start_y))
+	blade_projectile_width = float(spec.get("width", BLADE_BASE_WIDTH))
 	blade_projectile_hit_ball = false
 	blade_projectile_trail.clear()
 	blade_projectile_fadeout = false
@@ -4071,16 +4078,25 @@ func _maybe_spawn_blade_amp_followup_blade(context: Dictionary, deps: Dictionary
 		return
 	var player_pos: Vector2 = _get_vector2(context.get("player_pos", blade_motion_pos), blade_motion_pos)
 	var player_size: Vector2 = _get_vector2(context.get("player_paddle_size", blade_paddle_size), blade_paddle_size)
-	var center: Vector2 = player_pos + player_size * 0.5
-	var blade_amp_size_range_pct: int = min(blade_amp_level, 5) * 10
-	var size_mult: float = (1.3 if dark_mode else 1.0) * (1.0 + float(blade_amp_size_range_pct) / 100.0)
-	var range_mult: float = (2.0 if dark_mode else 1.0) * (1.0 + float(blade_amp_size_range_pct) / 100.0)
-	var start_y: float = center.y - 20.0
+	var spec: Dictionary = ViperSkillGeometry.blade_projectile_launch_spec(
+		player_pos,
+		player_size,
+		blade_amp_level,
+		dark_mode,
+		BLADE_BASE_WIDTH,
+		BLADE_BASE_RANGE,
+		-20.0,
+		BLADE_AMP_FOLLOWUP_WIDTH_SCALE,
+		BLADE_AMP_FOLLOWUP_RANGE_SCALE,
+		80.0
+	)
+	var pos: Vector2 = _get_vector2(spec.get("pos", Vector2.ZERO), Vector2.ZERO)
+	var start_y: float = float(spec.get("start_y", pos.y))
 	blade_followup_projectiles.append({
-		"pos": Vector2(center.x, start_y),
+		"pos": pos,
 		"start_y": start_y,
-		"target_y": start_y - BLADE_BASE_RANGE * range_mult * BLADE_AMP_FOLLOWUP_RANGE_SCALE,
-		"width": max(80.0, BLADE_BASE_WIDTH * size_mult * BLADE_AMP_FOLLOWUP_WIDTH_SCALE),
+		"target_y": float(spec.get("target_y", start_y)),
+		"width": float(spec.get("width", BLADE_BASE_WIDTH)),
 		"dark_mode": dark_mode,
 		"trail": [],
 		"fadeout": false,

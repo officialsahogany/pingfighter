@@ -43,6 +43,34 @@ static func blade_projectile_motion(
 	return next_pos
 
 
+static func blade_projectile_launch_spec(
+	player_pos: Vector2,
+	paddle_size: Vector2,
+	blade_amp_level: int,
+	dark_mode: bool,
+	base_width: float,
+	base_range: float,
+	start_y_offset: float,
+	width_scale: float = 1.0,
+	range_scale: float = 1.0,
+	min_width: float = 0.0
+) -> Dictionary:
+	var amp_pct: int = min(max(0, blade_amp_level), 5) * 10
+	var amp_mult: float = 1.0 + float(amp_pct) / 100.0
+	var size_mult: float = (1.3 if dark_mode else 1.0) * amp_mult
+	var range_mult: float = (2.0 if dark_mode else 1.0) * amp_mult
+	var center: Vector2 = player_pos + paddle_size * 0.5
+	var start_pos := Vector2(center.x, center.y + start_y_offset)
+	return {
+		"pos": start_pos,
+		"start_y": start_pos.y,
+		"target_y": start_pos.y - base_range * range_mult * range_scale,
+		"width": max(min_width, base_width * size_mult * width_scale),
+		"size_mult": size_mult,
+		"range_mult": range_mult,
+	}
+
+
 static func blade_hit_velocity(
 	ball_vel: Vector2,
 	impact_boost: float,
