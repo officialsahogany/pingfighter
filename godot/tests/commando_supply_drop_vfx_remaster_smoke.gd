@@ -84,6 +84,7 @@ func _run() -> void:
 	_verify_aircraft_movement_speed_matches_python_reference()
 	var resolve_result: Dictionary = _supply_state.update(1.2, _deps)
 	_expect(bool(resolve_result.get("drop_resolved", false)), "supply drop should resolve before parachute VFX verification")
+	_verify_payload_stays_inside_center_background(resolve_result)
 	_probe.queue_redraw()
 	await process_frame
 	await process_frame
@@ -153,6 +154,8 @@ func _verify_aircraft_vfx_pipeline() -> void:
 	_expect(bool(sprite_status.get("left_loaded", false)), "right-to-left supply aircraft sheet should load")
 	_expect(bool(sprite_status.get("right_loaded", false)), "left-to-right mirrored supply aircraft sheet should load")
 	_expect(str(sprite_status.get("active_path", "")).ends_with("_right.png"), "default left-to-right flight should use the right-facing mirrored sheet")
+	var snapshot: Dictionary = _supply_state.get_snapshot()
+	_expect(is_equal_approx(_get_vector2(snapshot.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO).x, -360.0), "left-to-right supply aircraft should spawn from the same off-canvas edge lane as fire support")
 	_expect(is_equal_approx(float(sprite_status.get("speed_pixels_per_second", 0.0)), 120.0), "active aircraft should expose Python 2px/frame movement speed")
 	_expect(int(plan.get("aircraft_texture_layers", 0)) >= 3, "active aircraft should receive texture-piece VFX layers")
 	_expect(int(plan.get("visible_effect_count", 0)) >= 1, "active supply drop should count visible remaster effects")
@@ -166,7 +169,7 @@ func _verify_aircraft_movement_speed_matches_python_reference() -> void:
 	var after: Dictionary = _supply_state.get_snapshot()
 	var end_x: float = _get_vector2(after.get("aircraft_pos", Vector2.ZERO), Vector2.ZERO).x
 	_expect(is_equal_approx(end_x - start_x, 60.0), "supply aircraft should move at Python speed: 2px/frame, 120px/sec")
-	_expect(float(after.get("flight_duration", 0.0)) >= 7.7, "supply aircraft should take about 7.8 seconds to cross the playfield")
+	_expect(float(after.get("flight_duration", 0.0)) >= 12.0, "supply aircraft should take about 12.3 seconds to cross the screen-edge lane")
 
 
 func _verify_parachute_vfx_pipeline() -> void:
@@ -179,6 +182,14 @@ func _verify_parachute_vfx_pipeline() -> void:
 	_expect(bool(payload_status.get("active_loaded", false)), "supply payload parachute crate sprite should load")
 	_expect(str(payload_status.get("path", "")).ends_with("commando_supply_parachute_crate_imagegen_v1.png"), "supply payload should use the generated parachute crate PNG")
 	_verify_host_status("collectible")
+
+
+func _verify_payload_stays_inside_center_background(resolve_result: Dictionary) -> void:
+	var drop: Dictionary = resolve_result.get("drop", {}) if resolve_result.get("drop", {}) is Dictionary else {}
+	var drop_position: Vector2 = _get_vector2(drop.get("drop_position", Vector2.ZERO), Vector2.ZERO)
+	var aircraft_x: float = _get_vector2(_supply_state.get_snapshot().get("aircraft_pos", Vector2.ZERO), Vector2.ZERO).x
+	_expect(aircraft_x < 0.0, "test setup should still have the aircraft entering from the screen edge when the first payload resolves")
+	_expect(drop_position.x >= 32.0 and drop_position.x <= 728.0, "supply payload should stay inside the center background while the aircraft starts from the screen edge")
 
 
 func _verify_crash_vfx_pipeline() -> void:

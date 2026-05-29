@@ -141,7 +141,7 @@ func get_snapshot() -> Dictionary:
 		"visible": active and phase != PHASE_NONE and phase != PHASE_RADIO,
 		"pos": pos,
 		"draw_size": DRAW_SIZE,
-		"facing": facing,
+		"facing": _get_draw_facing(),
 		"frame": _get_frame_index(),
 		"alpha": _get_alpha(),
 		"leg_phase": leg_phase,
@@ -217,6 +217,12 @@ func _update_exit(delta: float) -> void:
 	pos.x += spawn_side * EXIT_SPEED * delta
 	if pos.x < -EXIT_MARGIN or pos.x > WIDTH + EXIT_MARGIN:
 		reset()
+
+
+func _get_draw_facing() -> float:
+	if phase == PHASE_EXIT:
+		return 1.0 if spawn_side > 0.0 else -1.0
+	return facing
 
 
 func _update_radio_anchor(context: Dictionary) -> void:

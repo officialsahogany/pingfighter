@@ -32,8 +32,10 @@ const PYTHON_NORMAL_MID_MIN_FRAMES := 40
 const PYTHON_NORMAL_MID_MAX_FRAMES := 80
 const PYTHON_NORMAL_SLOW_MIN_FRAMES := 100
 const PYTHON_NORMAL_SLOW_MAX_FRAMES := 180
-const AIRCRAFT_START_X := -88.0
-const AIRCRAFT_END_X := 848.0
+# Match the fire-support stealth lane: the aircraft starts at the screen edge
+# beyond the centered game canvas, while payloads remain clamped to the canvas.
+const AIRCRAFT_START_X := -360.0
+const AIRCRAFT_END_X := 1120.0
 const AIRCRAFT_ALTITUDE_Y := 56.0
 const AIRCRAFT_SPEED_PIXELS_PER_SECOND := PYTHON_AIRCRAFT_SPEED_PX_PER_FRAME / FRAME_SECONDS
 const AIRCRAFT_COLLISION_SIZE := Vector2(96.0, 44.0)
@@ -1070,7 +1072,7 @@ func _resolve_next_drop(deps: Dictionary) -> Dictionary:
 	if not pending_drop_delays.is_empty():
 		pending_drop_delays.pop_front()
 	var drop: Dictionary = drop_value.duplicate(true) if drop_value is Dictionary else {}
-	var drop_position: Vector2 = _get_payload_spawn_position()
+	var drop_position: Vector2 = _get_payload_spawn_position(deps)
 	drop["drop_position"] = drop_position
 	drop["collectible_pending"] = true
 	drop["drop_spawned"] = true
@@ -2029,8 +2031,27 @@ func _get_color(entry: Dictionary, key: String, fallback: Color) -> Color:
 	return fallback
 
 
-func _get_payload_spawn_position() -> Vector2:
+func _get_payload_spawn_position(deps: Dictionary = {}) -> Vector2:
+	var bounds: Vector2 = _get_payload_center_background_bounds(deps)
 	return Vector2(
-		clamp(aircraft_pos.x + PAYLOAD_SPAWN_OFFSET.x, 15.0, 745.0),
+		clamp(aircraft_pos.x + PAYLOAD_SPAWN_OFFSET.x, bounds.x, bounds.y),
 		clamp(aircraft_pos.y + PAYLOAD_SPAWN_OFFSET.y, 15.0, 735.0)
 	)
+
+
+func _get_payload_center_background_bounds(deps: Dictionary = {}) -> Vector2:
+	var play_width: float = max(1.0, float(deps.get("play_width", deps.get("width", DEFAULT_PLAY_WIDTH))))
+	var min_x: float = clamp(
+		float(deps.get("commando_supply_drop_center_min_x", COLLECTIBLE_DROP_SAFE_MARGIN)),
+		0.0,
+		play_width
+	)
+	var max_x: float = clamp(
+		float(deps.get("commando_supply_drop_center_max_x", play_width - COLLECTIBLE_DROP_SAFE_MARGIN)),
+		0.0,
+		play_width
+	)
+	if max_x < min_x:
+		var center_x: float = play_width * 0.5
+		return Vector2(center_x, center_x)
+	return Vector2(min_x, max_x)
