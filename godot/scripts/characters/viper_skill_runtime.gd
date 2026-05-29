@@ -904,7 +904,7 @@ func apply_shadow_step_ball_motion(fps_scale: float, scene: Dictionary, context:
 			shadow_wave_active = false
 			shadow_wave_trail.clear()
 		if shadow_wave_active and not shadow_wave_hit_ball and not shadow_hit_consumed:
-			var wave_rect := Rect2(shadow_wave_pos - SHADOW_STEP_WAVE_COLLISION_SIZE * 0.5, SHADOW_STEP_WAVE_COLLISION_SIZE)
+			var wave_rect: Rect2 = ViperSkillGeometry.shadow_step_wave_rect(shadow_wave_pos, SHADOW_STEP_WAVE_COLLISION_SIZE)
 			if wave_rect.intersects(_get_ball_rect(scene, motion_context)):
 				shadow_wave_hit_ball = true
 				result = _apply_shadow_step_hit(
@@ -4659,7 +4659,11 @@ func _try_shadow_hologram_hit(scene: Dictionary, context: Dictionary, deps: Dict
 	if progress <= 0.30:
 		return {}
 	var collision_size := Vector2(shadow_paddle_size.x + 60.0, shadow_paddle_size.y + 50.0)
-	var hit_rect := Rect2(shadow_hologram_target - collision_size * 0.5, collision_size)
+	var hit_rect: Rect2 = ViperSkillGeometry.shadow_step_hologram_hit_rect(
+		shadow_hologram_target,
+		shadow_paddle_size,
+		Vector2(60.0, 50.0)
+	)
 	if not hit_rect.intersects(_get_ball_rect(scene, context)):
 		return {}
 	shadow_hologram_kick_hit = true

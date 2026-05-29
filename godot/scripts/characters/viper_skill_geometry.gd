@@ -100,6 +100,15 @@ static func ball_rect(scene: Dictionary, context: Dictionary) -> Rect2:
 	return Rect2(resolved_ball_pos - Vector2(ball_size, ball_size) * 0.5, Vector2(ball_size, ball_size))
 
 
+static func shadow_step_wave_rect(pos: Vector2, collision_size: Vector2) -> Rect2:
+	return Rect2(pos - collision_size * 0.5, collision_size)
+
+
+static func shadow_step_hologram_hit_rect(target: Vector2, paddle_size: Vector2, hitbox_padding: Vector2) -> Rect2:
+	var collision_size: Vector2 = paddle_size + hitbox_padding
+	return Rect2(target - collision_size * 0.5, collision_size)
+
+
 static func emp_strike_hit_velocity(ball_vel: Vector2) -> Vector2:
 	return Vector2(ball_vel.x, -abs(ball_vel.y))
 
