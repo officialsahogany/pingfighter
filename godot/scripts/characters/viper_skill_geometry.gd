@@ -64,6 +64,33 @@ static func dive_shockwave_ring_touches_boss(
 	return ring_inner <= boss_distance and ring_outer >= boss_distance
 
 
+static func emp_slip_start_state(
+	ball_pos: Vector2,
+	context: Dictionary,
+	height_snapshot: float,
+	max_height: float,
+	min_duration: float,
+	max_duration: float,
+	emp_sleep_pct: int,
+	slip_speed: float
+) -> Dictionary:
+	var boss_pos: Vector2 = _get_vector2(
+		context.get("boss_pos", Vector2(float(context.get("width", 760.0)) * 0.5 - 50.0, 25.0)),
+		Vector2.ZERO
+	)
+	var boss_width: float = max(1.0, float(context.get("boss_paddle_width", 100.0)))
+	var boss_center_x: float = boss_pos.x + boss_width * 0.5
+	var slip_dir: float = 1.0 if ball_pos.x > boss_center_x else -1.0
+	var height_ratio: float = clamp(height_snapshot / max(1.0, max_height), 0.0, 1.0)
+	var base_duration: float = min_duration + (max_duration - min_duration) * height_ratio
+	var emp_sleep_multiplier: float = 1.0 + float(emp_sleep_pct) / 100.0
+	var duration: float = max(1.0, round(base_duration * emp_sleep_multiplier))
+	return {
+		"duration": duration,
+		"slip_vel": slip_dir * slip_speed,
+	}
+
+
 static func emp_slip_boss_motion(
 	boss_pos: Vector2,
 	context: Dictionary,

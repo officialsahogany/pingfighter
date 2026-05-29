@@ -2982,27 +2982,30 @@ func _start_dive_slip_for_height(
 	height_snapshot: float,
 	max_refresh: bool
 ) -> void:
-	var boss_pos: Vector2 = _get_vector2(context.get("boss_pos", Vector2(float(context.get("width", 760.0)) * 0.5 - 50.0, 25.0)), Vector2.ZERO)
-	var boss_width: float = max(1.0, float(context.get("boss_paddle_width", 100.0)))
-	var boss_center_x: float = boss_pos.x + boss_width * 0.5
-	var slip_dir: float = 1.0 if ball_pos.x > boss_center_x else -1.0
-	var height_ratio: float = clamp(height_snapshot / DIVE_JETPACK_MAX_HEIGHT, 0.0, 1.0)
-	var base_duration: float = DIVE_SLIP_DURATION_MIN + (DIVE_SLIP_DURATION_MAX - DIVE_SLIP_DURATION_MIN) * height_ratio
 	var emp_sleep_pct: int = _get_four_poisons_scaled_pct(
 		deps,
 		FOUR_POISONS_EMP_SLEEP_PCT_BY_LEVEL,
 		FOUR_POISONS_EMP_SLEEP_PCT_CAP,
 		FOUR_POISONS_EMP_SLEEP_PCT_PER_EXTRA_LEVEL
 	)
-	var emp_sleep_multiplier: float = 1.0 + float(emp_sleep_pct) / 100.0
-	var duration: float = max(1.0, round(base_duration * emp_sleep_multiplier))
+	var start_state: Dictionary = ViperSkillGeometry.emp_slip_start_state(
+		ball_pos,
+		context,
+		height_snapshot,
+		DIVE_JETPACK_MAX_HEIGHT,
+		DIVE_SLIP_DURATION_MIN,
+		DIVE_SLIP_DURATION_MAX,
+		emp_sleep_pct,
+		DIVE_SLIP_SPEED
+	)
+	var duration: float = float(start_state.get("duration", 1.0))
 	if max_refresh:
 		dive_slip_duration = max(dive_slip_duration, duration)
 		dive_slip_timer = max(dive_slip_timer, duration)
 	else:
 		dive_slip_duration = duration
 		dive_slip_timer = duration
-	dive_slip_vel = slip_dir * DIVE_SLIP_SPEED
+	dive_slip_vel = float(start_state.get("slip_vel", 0.0))
 
 
 func _get_dive_shockwave_boss_reach_radius(config: Dictionary) -> float:
