@@ -97,6 +97,16 @@ func get_marshal_hit_speed(
 	return max(current_speed * selected_speed_mult * speed_bonus, selected_min_speed)
 
 
+func get_core_flip_hit_speed(
+	current_speed: float,
+	kick_enhance_level: int,
+	speed_mult: float,
+	min_speed: float
+) -> float:
+	var speed_bonus: float = 1.0 + float(kick_enhance_level) * 0.04
+	return max(current_speed * speed_mult * speed_bonus, min_speed)
+
+
 func get_marshal_prep_duration_mult(kick_enhance_level: int) -> float:
 	var prep_cut_pct: float = min(float(kick_enhance_level) * 7.0, 90.0)
 	return max(0.1, 1.0 - prep_cut_pct / 100.0)

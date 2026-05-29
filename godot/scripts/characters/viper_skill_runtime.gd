@@ -1337,8 +1337,12 @@ func _get_core_flip_duration_frames(base_frames: float, deps: Dictionary) -> flo
 func _apply_core_flip_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 	var current_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 	var current_speed: float = current_vel.length()
-	var speed_bonus: float = 1.0 + float(_get_kick_enhance_level(deps)) * 0.04
-	var next_speed: float = max(current_speed * CORE_FLIP_SPEED_MULT * speed_bonus, CORE_FLIP_MIN_SPEED)
+	var next_speed: float = skill_scaling.get_core_flip_hit_speed(
+		current_speed,
+		_get_kick_enhance_level(deps),
+		CORE_FLIP_SPEED_MULT,
+		CORE_FLIP_MIN_SPEED
+	)
 	var next_vel: Vector2 = _compute_core_flip_bank_velocity(next_speed, core_flip_kick_dir, config, deps)
 	var ball_pos: Vector2 = _get_ball_pos(config)
 	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, config)
