@@ -4480,7 +4480,7 @@ func _update_marshal_kick(
 			if not marshal_ball_hit:
 				var player_center: Vector2 = _get_player_center(next_pos, config)
 				var ball_pos: Vector2 = _get_ball_pos(config)
-				if player_center.distance_to(ball_pos) <= MARSHAL_KICK_HIT_RADIUS:
+				if ViperSkillGeometry.marshal_charge_hits_ball(player_center, ball_pos, MARSHAL_KICK_HIT_RADIUS):
 					marshal_ball_hit = true
 					marshal_hit_msec = Time.get_ticks_msec()
 					marshal_last_hit_pos = ball_pos

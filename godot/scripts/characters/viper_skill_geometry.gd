@@ -742,6 +742,10 @@ static func marshal_charge_position(
 	return charge_start_pos.lerp(target_pos, charge_t * charge_t)
 
 
+static func marshal_charge_hits_ball(charge_center: Vector2, ball_pos: Vector2, hit_radius: float) -> bool:
+	return charge_center.distance_to(ball_pos) <= hit_radius
+
+
 static func marshal_return_target(
 	return_start_pos: Vector2,
 	paddle_size: Vector2,

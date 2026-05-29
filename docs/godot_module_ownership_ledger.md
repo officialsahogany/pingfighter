@@ -3674,7 +3674,8 @@ This section is intentionally long; use search to find the nearest owner.
   boss-reach / ring-touch tests plus boss slip start / motion calculation,
   Shadow Step wave motion / curve velocity / hit profile / hologram progress / hitbox rects,
   Marshal Kick launch angle tuning, initial / reclimb wall targets,
-  phase progress, jump / reclimb / charge / return motion, return target, and wall kick direction,
+  phase progress, jump / reclimb / charge / return motion, charge hit test,
+  return target, and wall kick direction,
   Viper kick knockback velocity calculation,
   Nerve Strike dash / return / clone slash motion, Core Flip start / wall-climb /
   wall-contact / kick-direction / kick / kick-hit / return motion, miss-text
