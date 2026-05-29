@@ -1159,7 +1159,8 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 		])
 		var quad := PackedVector2Array([top_left, top_right, bot_right, bot_left])
 		var tint := Color(1.0, 1.0, 1.0, global_alpha)
-		draw_polygon(quad, [tint], uv_array, texture)
+		var colors := PackedColorArray([tint, tint, tint, tint])
+		draw_polygon(quad, colors, uv_array, texture)
 
 	if hover_active:
 		_draw_box_hover_sparkles(draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, phase)

@@ -11,6 +11,7 @@ func _init() -> void:
 	_verify_texture_bundle_load()
 	_verify_audio_load()
 	_verify_scene_delegates_asset_loading()
+	_verify_result_box_polygon_colors()
 
 	if _failures.is_empty():
 		print("stage_clear_result_asset_loader_smoke: ok")
@@ -66,6 +67,15 @@ func _verify_scene_delegates_asset_loading() -> void:
 		source.find("ProjectResourceLoader.load_texture") < 0
 		and source.find("ProjectResourceLoader.load_audio_stream") < 0,
 		"result scene should not keep direct project resource loader calls"
+	)
+
+
+func _verify_result_box_polygon_colors() -> void:
+	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
+	_expect(
+		source.find("PackedColorArray([tint, tint, tint, tint])") >= 0
+		and source.find("draw_polygon(quad, colors, uv_array, texture)") >= 0,
+		"result box sheet draw should tint all four polygon vertices so the textured box renders in export builds"
 	)
 
 
