@@ -1,5 +1,5 @@
 param(
-    [string]$GodotExe = "$env:USERPROFILE\Downloads\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64.exe",
+    [string]$GodotExe = "",
     [string]$ProjectDir = (Split-Path -Parent $PSScriptRoot),
     [string]$EditorSettings = (Join-Path $env:APPDATA "Godot\editor_settings-4.6.tres"),
     [string]$AppUserDataDir = (Join-Path $env:APPDATA "Godot\app_userdata\pingfighter"),
@@ -7,6 +7,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
 
 $runningGodot = Get-Process | Where-Object { $_.ProcessName -like "Godot*" }
 if ($runningGodot) {
@@ -52,9 +53,10 @@ $text = Set-EditorLine $text "interface/editor/single_window_mode" "true"
 $text = Set-EditorLine $text "interface/multi_window/enable" "false"
 $text = Set-EditorLine $text "interface/multi_window/restore_windows_on_load" "false"
 $text = Set-EditorLine $text "interface/multi_window/maximize_window" "false"
-$text = Set-EditorLine $text "run/window_placement/game_embed_mode" "-1"
+$text = Set-EditorLine $text "run/window_placement/rect" "4"
+$text = Set-EditorLine $text "run/window_placement/game_embed_mode" "2"
 [System.IO.File]::WriteAllText($EditorSettings, $text, $utf8NoBom)
-Write-Output "Applied single-window and no-embed editor settings."
+Write-Output "Applied single-window, fullscreen placement, and no-embed editor settings."
 
 $projectCache = Join-Path $ProjectDir ".godot"
 $shaderCache = Join-Path $AppUserDataDir "shader_cache"
@@ -76,9 +78,7 @@ if (Test-Path -LiteralPath $shaderCache) {
 }
 
 if ($Launch) {
-    if (-not (Test-Path -LiteralPath $GodotExe -PathType Leaf)) {
-        throw "Godot executable not found: $GodotExe"
-    }
+    $godotPath = Resolve-GodotGuiPath -GodotExe $GodotExe
     $arguments = @(
         "--editor",
         "--path", $ProjectDir,
@@ -86,5 +86,6 @@ if ($Launch) {
         "--rendering-driver", "opengl3",
         "--rendering-method", "gl_compatibility"
     )
-    Start-Process -FilePath $GodotExe -ArgumentList $arguments -WorkingDirectory $ProjectDir
+    Write-Output "Godot: $godotPath"
+    Start-Process -FilePath $godotPath -ArgumentList $arguments -WorkingDirectory $ProjectDir
 }

@@ -5,30 +5,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-function Find-GodotConsole {
-    if ($GodotExe -and (Test-Path -LiteralPath $GodotExe -PathType Leaf)) {
-        return (Resolve-Path -LiteralPath $GodotExe).Path
-    }
-
-    $knownPath = "C:\Users\woduq\Downloads\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64_console.exe"
-    if (Test-Path -LiteralPath $knownPath -PathType Leaf) {
-        return $knownPath
-    }
-
-    $downloadDir = Join-Path $env:USERPROFILE "Downloads"
-    if (Test-Path -LiteralPath $downloadDir -PathType Container) {
-        $candidate = Get-ChildItem -LiteralPath $downloadDir -Recurse -Filter "Godot*_console.exe" -ErrorAction SilentlyContinue |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1
-        if ($null -ne $candidate) {
-            return $candidate.FullName
-        }
-    }
-
-    throw "Godot console executable not found. Pass -GodotExe with the full Godot console path."
-}
-
-$godotPath = Find-GodotConsole
+. (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
+$godotPath = Resolve-GodotConsolePath -GodotExe $GodotExe
 
 Write-Host "Godot: $godotPath"
 Write-Host "Project: $ProjectPath"
