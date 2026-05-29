@@ -3677,7 +3677,7 @@ This section is intentionally long; use search to find the nearest owner.
   phase progress, jump / reclimb / charge / return motion, charge hit test,
   return target, and wall kick direction,
   Viper kick knockback velocity calculation,
-  Nerve Strike dash / hit test / miss-text placement / slash progress /
+  Nerve Strike dash / hit test / miss-text placement / slash progress / slash trigger gate /
   return / clone slash motion, Core Flip start / wall-climb /
   wall-contact / kick-direction / kick / kick-hit / return motion, miss-text
   placement, phase gate / progress, spin timing, and bank velocity, and the common aimed kick launch angle / velocity used by Shadow

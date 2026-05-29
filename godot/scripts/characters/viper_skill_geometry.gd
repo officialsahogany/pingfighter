@@ -393,6 +393,10 @@ static func nerve_strike_phase_progress(phase_frames: float, duration: float) ->
 	return clamp(phase_frames / max(1.0, duration), 0.0, 1.0)
 
 
+static func nerve_strike_should_trigger_slash(hit_confirmed: bool, slash_triggered: bool, progress: float, trigger_ratio: float) -> bool:
+	return hit_confirmed and not slash_triggered and progress >= trigger_ratio
+
+
 static func nerve_strike_dash_motion(
 	start_pos: Vector2,
 	current_target_pos: Vector2,

@@ -3410,7 +3410,12 @@ func _update_nerve_strike_slash(config: Dictionary, deps: Dictionary) -> Diction
 	var duration: float = NERVE_STRIKE_SLASH_HIT_FRAMES if nerve_strike_hit_confirmed else NERVE_STRIKE_SLASH_MISS_FRAMES
 	var progress: float = ViperSkillGeometry.nerve_strike_phase_progress(nerve_strike_phase_frames, duration)
 	nerve_strike_pos = nerve_strike_dash_target_pos
-	if nerve_strike_hit_confirmed and not nerve_strike_slash_triggered and progress >= NERVE_STRIKE_SLASH_TRIGGER_RATIO:
+	if ViperSkillGeometry.nerve_strike_should_trigger_slash(
+		nerve_strike_hit_confirmed,
+		nerve_strike_slash_triggered,
+		progress,
+		NERVE_STRIKE_SLASH_TRIGGER_RATIO
+	):
 		nerve_strike_slash_triggered = true
 		nerve_strike_slash_vfx_frames = NERVE_STRIKE_SLASH_VFX_FRAMES
 		nerve_strike_slash_center = _get_nerve_strike_boss_center(config)
