@@ -1018,10 +1018,15 @@ boss sprite classes.
   - screenshots for visual changes
   - related issue or context when available
 
-## Manus Agent Session State (2026-05-11)
+## Manus Agent Session State (2026-05-11) — Historical Snapshot
 
-This section is maintained by the Manus agent. It records the current porting
-status so future sessions can resume without re-scanning the full project.
+> **⚠ Historical snapshot, not live status.** This section was written on
+> 2026-05-11. File counts, stage status, and character status below are
+> frozen at that date and must not be used as the current progress brief.
+> For the current refactoring state, see `docs/refactor_status_brief.md`.
+
+This section is maintained by the Manus agent. It records the porting
+status as of 2026-05-11 so the provenance of early decisions is auditable.
 
 ### Live Godot Project Snapshot
 
