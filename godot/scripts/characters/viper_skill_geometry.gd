@@ -535,6 +535,10 @@ static func core_flip_kick_direction(from_center: Vector2, target_center: Vector
 	return 1 if target_center.x >= from_center.x else -1
 
 
+static func core_flip_phase_progress(phase_frames: float, duration_frames: float) -> float:
+	return min(1.0, phase_frames / duration_frames)
+
+
 static func core_flip_spin_degrees(phase: int, phase_t: float) -> float:
 	var safe_t: float = clamp(phase_t, 0.0, 1.0)
 	match phase:

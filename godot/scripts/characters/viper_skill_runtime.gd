@@ -1239,7 +1239,7 @@ func _update_core_flip(
 	match core_flip_attack_phase:
 		0:
 			core_flip_web_lines.clear()
-			var t0: float = min(1.0, core_flip_phase_frames / CORE_FLIP_PHASE0_FRAMES)
+			var t0: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE0_FRAMES)
 			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(0, t0)
 			next_pos = _center_to_player_pos(core_flip_origin_center, config)
 			if t0 >= 1.0:
@@ -1247,7 +1247,7 @@ func _update_core_flip(
 		1:
 			core_flip_target_center = _get_ball_pos(config)
 			var phase1_cap: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE1_FRAMES, deps)
-			var t1: float = min(1.0, core_flip_phase_frames / phase1_cap)
+			var t1: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, phase1_cap)
 			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(1, t1)
 			var center1: Vector2 = _compute_core_flip_wall_climb_center(t1, config, deps)
 			next_pos = _center_to_player_pos(center1, config)
@@ -1272,7 +1272,7 @@ func _update_core_flip(
 		2:
 			core_flip_web_lines.clear()
 			var p2_duration: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE2_FRAMES, deps)
-			var t2: float = min(1.0, core_flip_phase_frames / p2_duration)
+			var t2: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, p2_duration)
 			if not core_flip_ball_hit:
 				core_flip_target_center = _get_ball_pos(config)
 			var kick_motion: Dictionary = ViperSkillGeometry.core_flip_kick_motion(
@@ -1302,7 +1302,7 @@ func _update_core_flip(
 				_enter_core_flip_phase(3, deps)
 		3:
 			core_flip_web_lines.clear()
-			var t3: float = min(1.0, core_flip_phase_frames / CORE_FLIP_PHASE3_FRAMES)
+			var t3: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE3_FRAMES)
 			var return_motion: Dictionary = ViperSkillGeometry.core_flip_return_motion(
 				core_flip_return_start_center,
 				core_flip_origin_center,
