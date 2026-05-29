@@ -1082,7 +1082,7 @@ func _reset_core_flip_runtime(clear_window: bool = false) -> void:
 		core_flip_dark_blade_handoff_frames = 0.0
 		core_flip_miss_text_timer = 0.0
 		core_flip_miss_text_pos = Vector2.ZERO
-	core_flip_web_lines.clear()
+	_clear_core_flip_web_lines()
 
 
 func _is_core_flip_ready_window_active(now_msec: int) -> bool:
@@ -1197,7 +1197,7 @@ func _start_core_flip(
 	core_flip_spin_angle_degrees = 0.0
 	core_flip_spin_sound_started = true
 	core_flip_kick_sound_played = false
-	core_flip_web_lines.clear()
+	_clear_core_flip_web_lines()
 	marshal_ready = false
 	marshal_ready_frames = 0.0
 	double_marshal_ready = false
@@ -1238,7 +1238,7 @@ func _update_core_flip(
 	}
 	match core_flip_attack_phase:
 		0:
-			core_flip_web_lines.clear()
+			_clear_core_flip_web_lines()
 			var t0: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE0_FRAMES)
 			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(0, t0)
 			next_pos = _center_to_player_pos(core_flip_origin_center, config)
@@ -1261,8 +1261,7 @@ func _update_core_flip(
 				cling_frames
 			)
 			var web_line_to: Vector2 = _get_vector2(wall_contact.get("line_to", center1), center1)
-			core_flip_web_lines.clear()
-			core_flip_web_lines.append({"from": center1, "to": web_line_to})
+			_set_core_flip_web_line(center1, web_line_to)
 			var wall_touch_count: int = int(wall_contact.get("touch_count", 0))
 			if wall_touch_count >= 2 or t1 >= 1.0:
 				core_flip_apex_center = center1
@@ -1270,7 +1269,7 @@ func _update_core_flip(
 				core_flip_kick_dir = ViperSkillGeometry.core_flip_kick_direction(core_flip_apex_center, core_flip_target_center)
 				_enter_core_flip_phase(2, deps)
 		2:
-			core_flip_web_lines.clear()
+			_clear_core_flip_web_lines()
 			var p2_duration: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE2_FRAMES, deps)
 			var t2: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, p2_duration)
 			if not core_flip_ball_hit:
@@ -1301,7 +1300,7 @@ func _update_core_flip(
 				core_flip_return_start_center = kick_center
 				_enter_core_flip_phase(3, deps)
 		3:
-			core_flip_web_lines.clear()
+			_clear_core_flip_web_lines()
 			var t3: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE3_FRAMES)
 			var return_motion: Dictionary = ViperSkillGeometry.core_flip_return_motion(
 				core_flip_return_start_center,
@@ -4883,6 +4882,15 @@ func _destroy_marshal_impact_objects(center: Vector2, deps: Dictionary) -> void:
 			continue
 		seen_instance_ids[instance_id] = true
 		target.absorb_chaos_spear_objects(center, MARSHAL_KICK_IMPACT_OBJECT_RADIUS, deps)
+
+
+func _clear_core_flip_web_lines() -> void:
+	core_flip_web_lines.clear()
+
+
+func _set_core_flip_web_line(from_center: Vector2, to_center: Vector2) -> void:
+	core_flip_web_lines.clear()
+	core_flip_web_lines.append({"from": from_center, "to": to_center})
 
 
 func _set_marshal_web_line(from_center: Vector2, to_center: Vector2) -> void:
