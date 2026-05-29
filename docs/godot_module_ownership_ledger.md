@@ -3630,7 +3630,7 @@ This section is intentionally long; use search to find the nearest owner.
   and the one-shot Phantom Kick boss-paddle knockback flag. It now also
   owns the Godot `blade_rush` / `dark_blade` projectile slice: airborne
   W activation, spin angle, spin / launch / jump-rest phase progress,
-  Dark Blade auto-fire window / proximity, blade and spin audio,
+  Dark Blade auto-fire state transition, blade and spin audio,
   projectile hitbox / homing / fadeout / fan VFX, 30-gold hit reward,
   Air Blade <-> Dark Blade follow-up windows, Dark Blade -> Marshal Kick
   handoff, and `blade_amp` cost / size / range / projectile-speed /
@@ -3671,7 +3671,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/viper_skill_geometry.gd`
   Owns shared Viper skill geometry helpers: player / ball / boss center
   extraction, player-position clamping, blade start-position combo pop, blade prep fall motion, blade projectile launch / hit-velocity motion, blade rest-position arc, blade horizontal control motion, blade / ball hit rects, segment-rect
-  intersection, EMP Strike hit velocity, shockwave position / radius /
+  intersection, Dark Blade auto-fire window / proximity decision,
+  EMP Strike hit velocity, shockwave position / radius /
   boss-reach / ring-touch tests plus boss slip start / motion calculation,
   Shadow Step wave motion / curve velocity / hit profile / hologram progress / hitbox rects,
   Marshal Kick launch angle tuning, initial / reclimb wall targets and reclimb decision,

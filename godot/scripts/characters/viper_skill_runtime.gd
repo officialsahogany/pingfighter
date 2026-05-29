@@ -3810,25 +3810,19 @@ func _update_blade_motion(
 			BLADE_PREP_FALL_SPEED
 		)
 		next_pos = blade_motion_pos
-	var force_dark_blade_autofire := false
-	if ViperSkillGeometry.blade_dark_auto_fire_window_active(
+	var force_dark_blade_autofire := ViperSkillGeometry.blade_dark_should_auto_fire(
 		blade_dark_mode,
 		blade_motion_phase,
 		blade_motion_total_frames,
 		DARK_BLADE_AUTO_FIRE_START_FRAMES,
-		DARK_BLADE_AUTO_FIRE_END_FRAMES
-	):
-		var ball_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
-		if ball_vel.y > 0.0:
-			var ball_pos: Vector2 = _get_vector2(config.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
-			var ball_size: float = float(config.get("ball_size", 28.6))
-			force_dark_blade_autofire = ViperSkillGeometry.blade_dark_auto_fire_near_ball(
-				ball_pos,
-				ball_size,
-				blade_motion_pos,
-				_get_paddle_size(config),
-				DARK_BLADE_AUTO_FIRE_NEAR_Y
-			)
+		DARK_BLADE_AUTO_FIRE_END_FRAMES,
+		_get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO),
+		_get_vector2(config.get("ball_pos", Vector2.ZERO), Vector2.ZERO),
+		float(config.get("ball_size", 28.6)),
+		blade_motion_pos,
+		_get_paddle_size(config),
+		DARK_BLADE_AUTO_FIRE_NEAR_Y
+	)
 	if force_dark_blade_autofire:
 		blade_motion_phase = 1
 		blade_motion_frames = decel_frames
