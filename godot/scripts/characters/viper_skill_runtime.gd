@@ -4464,7 +4464,13 @@ func _update_marshal_kick(
 			var play_left: float = float(config.get("play_left", 0.0))
 			var play_right: float = float(config.get("play_right", config.get("width", 760.0)))
 			var target_y: float = float(config.get("player_floor_y", float(config.get("height", 750.0)) - paddle_size.y))
-			var return_target: Vector2 = Vector2(clamp(marshal_return_start_pos.x, play_left, play_right - paddle_size.x), target_y)
+			var return_target: Vector2 = ViperSkillGeometry.marshal_return_target(
+				marshal_return_start_pos,
+				paddle_size,
+				play_left,
+				play_right,
+				target_y
+			)
 			next_pos = marshal_return_start_pos.lerp(return_target, t4 * t4 * (3.0 - 2.0 * t4))
 			_spawn_marshal_motion_particle(_get_player_center(next_pos, config), "trail", 0.4)
 			if t4 >= 1.0:

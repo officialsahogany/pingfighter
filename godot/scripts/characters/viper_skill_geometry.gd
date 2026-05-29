@@ -632,6 +632,16 @@ static func marshal_reclimb_wall_target(
 	return Vector2(wall_center_x, wall_center_y) - paddle_size * 0.5
 
 
+static func marshal_return_target(
+	return_start_pos: Vector2,
+	paddle_size: Vector2,
+	play_left: float,
+	play_right: float,
+	floor_y: float
+) -> Vector2:
+	return Vector2(clamp(return_start_pos.x, play_left, play_right - paddle_size.x), floor_y)
+
+
 static func limit_effective_velocity(velocity: Vector2, impact_boost: float, max_effective_speed: float) -> Vector2:
 	if max_effective_speed <= 0.0:
 		return velocity
