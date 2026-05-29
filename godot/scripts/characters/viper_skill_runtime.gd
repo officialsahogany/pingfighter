@@ -4384,7 +4384,7 @@ func _update_marshal_kick(
 	match marshal_phase:
 		0:
 			var t0: float = min(1.0, marshal_phase_frames / _get_marshal_duration_frames(MARSHAL_KICK_JUMP_FRAMES, deps, true))
-			next_pos = marshal_start_pos.lerp(marshal_wall_pos, 1.0 - pow(1.0 - t0, 2.0))
+			next_pos = ViperSkillGeometry.marshal_jump_position(marshal_start_pos, marshal_wall_pos, t0)
 			_set_marshal_web_line(_get_player_center(next_pos, config), _get_player_center(marshal_wall_pos, config))
 			_spawn_marshal_motion_particle(_get_player_center(next_pos, config), "trail", 0.65)
 			if t0 >= 1.0:
