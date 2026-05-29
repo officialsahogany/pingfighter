@@ -64,6 +64,30 @@ static func dive_shockwave_ring_touches_boss(
 	return ring_inner <= boss_distance and ring_outer >= boss_distance
 
 
+static func phantom_kick_knockback_velocity(ball_pos: Vector2, boss_pos: Vector2, boss_width: float, base_speed: float) -> float:
+	var boss_center_x: float = boss_pos.x + boss_width * 0.5
+	var knockback_dir: float = 1.0 if ball_pos.x > boss_center_x else -1.0
+	return knockback_dir * base_speed
+
+
+static func kick_guard_knockback_velocity(
+	boss_pos: Vector2,
+	boss_width: float,
+	context: Dictionary,
+	bonus_pct: int,
+	fire_base: float,
+	distance_multiplier: float
+) -> float:
+	var knockback_ratio: float = max(0.0, float(bonus_pct) / 100.0)
+	if knockback_ratio <= 0.0:
+		return 0.0
+	var base_power: float = fire_base * knockback_ratio * distance_multiplier
+	var width: float = float(context.get("width", context.get("play_right", 760.0)))
+	var boss_center_x: float = boss_pos.x + boss_width * 0.5
+	var direction: float = -1.0 if boss_center_x >= width * 0.5 else 1.0
+	return direction * base_power * randf_range(1.1, 1.2)
+
+
 static func center_to_player_pos(center: Vector2, config: Dictionary, player_paddle_size: Vector2) -> Vector2:
 	var play_left: float = float(config.get("play_left", 0.0))
 	var play_right: float = float(config.get("play_right", config.get("width", 760.0)))

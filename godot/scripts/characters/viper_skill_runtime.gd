@@ -1378,9 +1378,7 @@ func consume_phantom_kick_knockback(ball_pos: Vector2, boss_pos: Vector2, boss_w
 	phantom_kick_knockback_pending = false
 	if _is_stage2_speed_defense_boss_immune({}, deps):
 		return {}
-	var boss_center_x: float = boss_pos.x + boss_width * 0.5
-	var knockback_dir: float = 1.0 if ball_pos.x > boss_center_x else -1.0
-	var knockback_vel: float = knockback_dir * 18.0
+	var knockback_vel: float = ViperSkillGeometry.phantom_kick_knockback_velocity(ball_pos, boss_pos, boss_width, 18.0)
 	var ai_state: Object = deps.get("ai_state", null)
 	if ai_state != null and ai_state.has_method("start_paddle_hit_knockback"):
 		ai_state.start_paddle_hit_knockback(knockback_vel, 36.0, 0.88, true)
@@ -1394,14 +1392,14 @@ func consume_kick_skill_knockback(ball_pos: Vector2, boss_pos: Vector2, boss_wid
 		return {}
 	if _is_stage2_speed_defense_boss_immune(context, deps):
 		return {"viper_knockback_overlay_active": false}
-	var knockback_ratio: float = max(0.0, float(bonus_pct) / 100.0)
-	var knockback_vel := 0.0
-	if knockback_ratio > 0.0:
-		var base_power: float = KICK_GUARD_KNOCKBACK_FIRE_BASE * knockback_ratio * KICK_GUARD_DISTANCE_MULTIPLIER
-		var width: float = float(context.get("width", context.get("play_right", 760.0)))
-		var boss_center_x: float = boss_pos.x + boss_width * 0.5
-		var direction: float = -1.0 if boss_center_x >= width * 0.5 else 1.0
-		knockback_vel = direction * base_power * randf_range(1.1, 1.2)
+	var knockback_vel: float = ViperSkillGeometry.kick_guard_knockback_velocity(
+		boss_pos,
+		boss_width,
+		context,
+		bonus_pct,
+		KICK_GUARD_KNOCKBACK_FIRE_BASE,
+		KICK_GUARD_DISTANCE_MULTIPLIER
+	)
 	if abs(knockback_vel) <= 0.01:
 		return {"viper_knockback_overlay_active": false}
 	_trigger_feedback(deps, 0.10, 4.0)
