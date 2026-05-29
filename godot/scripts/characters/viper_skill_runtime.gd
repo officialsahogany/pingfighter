@@ -5025,11 +5025,9 @@ func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 
 func _compute_marshal_launch_angle(kick_dir: int, config: Dictionary, deps: Dictionary) -> float:
 	var aim_level: int = _get_kick_enhance_level(deps)
-	var base_bias: float = 0.8 if marshal_is_double else 0.6
 	var ball_pos: Vector2 = _get_ball_pos(config)
 	var boss_pos: Vector2 = _get_vector2(config.get("boss_pos", Vector2(float(config.get("width", 760.0)) * 0.5, 25.0)), Vector2.ZERO)
-	var min_angle: float = 25.0 if marshal_is_double else 20.0
-	return ViperSkillGeometry.aimed_kick_launch_angle(kick_dir, ball_pos, boss_pos, aim_level, base_bias, min_angle)
+	return ViperSkillGeometry.marshal_launch_angle(kick_dir, ball_pos, boss_pos, aim_level, marshal_is_double)
 
 
 func _get_marshal_duration_frames(base_frames: float, deps: Dictionary, double_fast: bool = false) -> float:

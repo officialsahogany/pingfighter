@@ -590,6 +590,18 @@ static func aimed_kick_launch_velocity(speed: float, launch_angle_degrees: float
 	return Vector2(cos(rad), sin(rad)) * speed
 
 
+static func marshal_launch_angle(
+	kick_dir: int,
+	ball_pos: Vector2,
+	boss_pos: Vector2,
+	aim_level: int,
+	is_double: bool
+) -> float:
+	var base_bias: float = 0.8 if is_double else 0.6
+	var min_angle: float = 25.0 if is_double else 20.0
+	return aimed_kick_launch_angle(kick_dir, ball_pos, boss_pos, aim_level, base_bias, min_angle)
+
+
 static func marshal_initial_wall_target(
 	player_pos: Vector2,
 	player_center_pos: Vector2,
