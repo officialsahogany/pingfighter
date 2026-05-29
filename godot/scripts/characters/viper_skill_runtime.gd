@@ -3955,11 +3955,12 @@ func _advance_blade_projectile(fps_scale: float, scene: Dictionary, context: Dic
 		blade_projectile_trail.pop_front()
 	var projectile_rect: Rect2 = _blade_rect(blade_projectile_pos, blade_projectile_width, blade_dark_mode)
 	_destroy_blade_stage2_rocks(projectile_rect, deps, context)
-	if (
-		bool(context.get("ball_active", false))
-		and not blade_projectile_hit_ball
-		and not blade_projectile_fadeout
-		and projectile_rect.intersects(_get_ball_rect(scene, context))
+	if ViperSkillGeometry.blade_projectile_hits_ball(
+		projectile_rect,
+		_get_ball_rect(scene, context),
+		bool(context.get("ball_active", false)),
+		blade_projectile_hit_ball,
+		blade_projectile_fadeout
 	):
 		blade_projectile_hit_ball = true
 		result = _apply_blade_hit(scene, context, deps, blade_dark_mode, true, true, true, 1.0)
@@ -4005,11 +4006,12 @@ func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, co
 		projectile["trail"] = trail
 		var projectile_rect: Rect2 = _blade_rect(pos, float(projectile.get("width", BLADE_BASE_WIDTH)), dark_mode)
 		_destroy_blade_stage2_rocks(projectile_rect, deps, context)
-		if (
-			bool(context.get("ball_active", false))
-			and not bool(projectile.get("hit_ball", false))
-			and not bool(projectile.get("fadeout", false))
-			and projectile_rect.intersects(_get_ball_rect(scene, context))
+		if ViperSkillGeometry.blade_projectile_hits_ball(
+			projectile_rect,
+			_get_ball_rect(scene, context),
+			bool(context.get("ball_active", false)),
+			bool(projectile.get("hit_ball", false)),
+			bool(projectile.get("fadeout", false))
 		):
 			projectile["hit_ball"] = true
 			result = _apply_blade_hit(

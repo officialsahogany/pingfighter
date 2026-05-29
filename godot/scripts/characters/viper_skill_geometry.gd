@@ -47,6 +47,16 @@ static func blade_projectile_should_start_fadeout(projectile_y: float, target_y:
 	return not already_fading and projectile_y <= target_y
 
 
+static func blade_projectile_hits_ball(
+	projectile_rect: Rect2,
+	target_ball_rect: Rect2,
+	ball_active: bool,
+	already_hit_ball: bool,
+	fading: bool
+) -> bool:
+	return ball_active and not already_hit_ball and not fading and projectile_rect.intersects(target_ball_rect)
+
+
 static func blade_projectile_launch_spec(
 	player_pos: Vector2,
 	paddle_size: Vector2,
