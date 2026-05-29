@@ -77,7 +77,24 @@ class FakeDashState:
 		reset_full_value = value
 
 	func get_snapshot() -> Dictionary:
-		return {"tokens": 2}
+		return {"tokens": reset_full_value if reset_full_value > 0 else 2}
+
+
+class FakeRuntimePerkDashAmp:
+	extends RefCounted
+
+	func get_runtime_skill_bonus(skill_id: String) -> int:
+		return 2 if skill_id == "dash_amplification" else 0
+
+
+class FakeMythicDashCapacity:
+	extends RefCounted
+
+	func get_dash_token_capacity(base_tokens: int, runtime_perk_state: Object = null) -> int:
+		var bonus := 1
+		if runtime_perk_state != null and runtime_perk_state.has_method("get_runtime_skill_bonus"):
+			bonus += int(runtime_perk_state.get_runtime_skill_bonus("dash_amplification"))
+		return max(1, base_tokens + bonus)
 
 
 class FakeAudio:
@@ -180,7 +197,7 @@ func _init() -> void:
 	_expect(smasher_state.reset_calls == 1 and runtime_perk.reset_calls == 1 and optimus_energy.reset_calls == 1, "character runtime states should reset")
 	_expect(skill_config.reset_runtime_skills_calls == 1 and skill_runtime.reset_calls == 1, "skill configs and runtimes should reset")
 	_expect(_drive_reset_calls == 1, "Drive input frame callback should run")
-	_expect(dash.reset_full_value == 1 and orb_hud.reset_dash_token_value == 2, "dash state should reset and sync HUD tokens")
+	_expect(dash.reset_full_value == 1 and orb_hud.reset_dash_token_value == 1, "dash state should reset and sync HUD tokens")
 	_expect(audio.stopped.size() == 12 and bool(audio.stopped.get("boomerang", false)) and bool(audio.stopped.get("spider_mine", false)) and bool(audio.stopped.get("chaos_blackhole", false)), "reset audio loops should stop")
 	_expect(stage_skill.reset_calls == 1 and stage_background.reset_calls == 1, "stage states should reset")
 	_expect(_ball_reset_calls == 1, "ball reset callback should run")
@@ -188,6 +205,29 @@ func _init() -> void:
 	_expect(not bool(result.get("optimus_charge_active", true)), "reset result should clear Optimus manual charge")
 	_expect(float(result.get("optimus_charge_hold_ratio", 1.0)) == 0.0, "reset result should clear Optimus manual charge progress")
 	_expect(not bool(result.get("megingjord_equipped", true)), "reset result should clear mythic equip flag")
+
+	var junior_orb_hud := FakeOrbHudState.new()
+	var junior_dash := FakeDashState.new()
+	var junior_result: Dictionary = controller.reset_game({
+		"orb_hud_state": junior_orb_hud,
+		"dash_state": junior_dash,
+		"starting_dash_tokens": 2,
+		"league_player_paddle_scale": 1.5,
+	}, {})
+	_expect(junior_dash.reset_full_value == 2 and junior_orb_hud.reset_dash_token_value == 2, "junior reset should fill and sync two starting dash tokens")
+	_expect(is_equal_approx(float(junior_result.get("player_paddle_width", 0.0)), 232.5), "junior reset should restore the enlarged league paddle width")
+	_expect(is_equal_approx(float(junior_result.get("player_paddle_visual_scale_override", 0.0)), 1.0), "junior reset should preserve normal player-image scale")
+
+	var boosted_orb_hud := FakeOrbHudState.new()
+	var boosted_dash := FakeDashState.new()
+	controller.reset_for_stage_transition({
+		"orb_hud_state": boosted_orb_hud,
+		"dash_state": boosted_dash,
+		"starting_dash_tokens": 2,
+		"runtime_perk_state": FakeRuntimePerkDashAmp.new(),
+		"mythic_item_runtime": FakeMythicDashCapacity.new(),
+	}, {})
+	_expect(boosted_dash.reset_full_value == 5 and boosted_orb_hud.reset_dash_token_value == 5, "stage transition dash reset should compose Junior, perk, and mythic capacity")
 
 	var legacy_skill := FakeResettable.new()
 	controller.reset_game({"skill_states": "legacy", "skill_state": legacy_skill}, {})

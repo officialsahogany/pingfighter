@@ -1568,10 +1568,11 @@ func _apply_level_side_effect(choice: Dictionary, owner: Object, registry: Objec
 		var dash_start: int = _perf_begin(perf_logger)
 		var dash_state: Object = _get_instance(registry, "smasher_dash_state")
 		if dash_state != null and dash_state.has_method("reset_full"):
-			var max_tokens: int = 1 + int(get_runtime_skill_bonus("dash_amplification"))
+			var base_tokens: int = _get_starting_dash_tokens(owner)
+			var max_tokens: int = base_tokens + int(get_runtime_skill_bonus("dash_amplification"))
 			var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
 			if mythic_item_runtime != null and mythic_item_runtime.has_method("get_dash_token_capacity"):
-				max_tokens = int(mythic_item_runtime.get_dash_token_capacity(1, self))
+				max_tokens = int(mythic_item_runtime.get_dash_token_capacity(base_tokens, self))
 			dash_state.reset_full(max_tokens)
 		_perf_end(perf_logger, "process.runtime_perk.level.dash_amplification", dash_start)
 	var sync_start: int = _perf_begin(perf_logger)
@@ -1945,6 +1946,17 @@ func _get_character_type(owner: Object) -> String:
 	if normalized == "soldier" or normalized == "commando":
 		return "soldier"
 	return "smasher"
+
+
+func _get_starting_dash_tokens(owner: Object) -> int:
+	if owner == null:
+		return 1
+	var owner_value: Variant = owner.get("starting_dash_tokens")
+	if owner_value != null:
+		return max(1, int(owner_value))
+	if _flight_scene_config != null and _flight_scene_config.has_method("get_starting_dash_tokens"):
+		return max(1, int(_flight_scene_config.get_starting_dash_tokens(owner)))
+	return 1
 
 
 func _get_array(value: Variant) -> Array:

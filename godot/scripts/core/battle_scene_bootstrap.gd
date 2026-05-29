@@ -12,9 +12,10 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	var player_y: float = float(context.get("player_y", 700.0))
 	var boss_y: float = float(context.get("boss_y", 25.0))
 	var player_paddle_width: float = float(context.get("player_paddle_width", 155.0))
-	var player_paddle_height := 50.0
-	var runtime_paddle_base_width := player_paddle_width
-	var runtime_paddle_base_height := player_paddle_height
+	var player_paddle_height: float = float(context.get("player_paddle_height", 50.0))
+	var runtime_paddle_base_width: float = float(context.get("runtime_paddle_base_width", player_paddle_width))
+	var runtime_paddle_base_height: float = float(context.get("runtime_paddle_base_height", player_paddle_height))
+	var player_paddle_visual_scale_override: float = -1.0
 	var boss_paddle_width: float = float(context.get("boss_paddle_width", 100.0))
 	var selected_character_type: String = str(context.get("selected_character_type", "smasher")).strip_edges().to_lower()
 	var special_gauge := 0.0
@@ -92,6 +93,11 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	_perf_end(perf_logger, "process.intro.initialize_battle.bootstrap.ball_physics", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
+	var starting_dash_tokens: int = max(1, int(context.get("starting_dash_tokens", 1)))
+	_initialize_dash_tokens(registry, starting_dash_tokens)
+	_perf_end(perf_logger, "process.intro.initialize_battle.bootstrap.dash_tokens", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
 	var optimus_snapshot: Dictionary = {}
 	if selected_character_type == "optimus":
 		var optimus_energy_state: Object = registry.get_instance("optimus_energy_state")
@@ -106,6 +112,14 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 		player_y = height - player_paddle_height
 		special_gauge = 500.0
 		special_gauge_max = 500.0
+	var league_player_paddle_scale: float = max(0.1, float(context.get("league_player_paddle_scale", 1.0)))
+	if not is_equal_approx(league_player_paddle_scale, 1.0):
+		player_paddle_visual_scale_override = max(0.1, player_paddle_width / 155.0)
+		player_paddle_width *= league_player_paddle_scale
+		player_paddle_height *= league_player_paddle_scale
+		runtime_paddle_base_width *= league_player_paddle_scale
+		runtime_paddle_base_height *= league_player_paddle_scale
+		player_y = height - player_paddle_height
 	_perf_end(perf_logger, "process.intro.initialize_battle.bootstrap.character_state", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
@@ -118,9 +132,11 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 		"player_paddle_width": player_paddle_width,
 		"player_paddle_height": player_paddle_height,
 		"player_paddle_scale": max(0.1, player_paddle_width / 155.0),
+		"player_paddle_visual_scale_override": player_paddle_visual_scale_override,
 		"runtime_paddle_base_width": runtime_paddle_base_width,
 		"runtime_paddle_base_height": runtime_paddle_base_height,
 		"runtime_paddle_scale": 1.0,
+		"starting_dash_tokens": starting_dash_tokens,
 		"boss_pos": boss_start_pos,
 		"boss_pos_prev": boss_start_pos,
 		"selected_character_type": selected_character_type,
@@ -146,6 +162,23 @@ func initialize(owner: Node, context: Dictionary, registry) -> Dictionary:
 	return snapshot
 
 
+func _initialize_dash_tokens(registry: Object, starting_dash_tokens: int) -> void:
+	var token_count: int = max(1, starting_dash_tokens)
+	var dash_state: Object = _get_instance(registry, "smasher_dash_state")
+	if dash_state != null and dash_state.has_method("reset_full"):
+		dash_state.reset_full(token_count)
+	var orb_hud_state: Object = _get_instance(registry, "orb_hud_state")
+	if orb_hud_state == null or not orb_hud_state.has_method("reset_dash_tokens"):
+		return
+	var current_tokens: int = token_count
+	if dash_state != null and dash_state.has_method("get_snapshot"):
+		var snapshot_value: Variant = dash_state.get_snapshot()
+		if snapshot_value is Dictionary:
+			var dash_snapshot: Dictionary = snapshot_value
+			current_tokens = int(dash_snapshot.get("tokens", token_count))
+	orb_hud_state.reset_dash_tokens(current_tokens)
+
+
 func _build_boss_health_snapshot(registry: Object, current_stage: int) -> Dictionary:
 	var flow: Object = _get_boss_health_flow(registry)
 	if flow != null and flow.has_method("build_stage_health_snapshot"):
@@ -165,6 +198,12 @@ func _get_perf_logger(registry: Object) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance("battle_perf_logger")
+
+
+func _get_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_instance"):
+		return null
+	return registry.get_instance(key)
 
 
 func _perf_begin(perf_logger: Object) -> int:

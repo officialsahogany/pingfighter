@@ -1,0 +1,46 @@
+{
+  "asset_id": "smasher_power_smashing_cutin_sheet",
+  "character": "smasher",
+  "character_name": "Mika",
+  "runtime_usage": "smasher_power_smashing_skill_cutin",
+  "status": "identity-correct interim sheet",
+  "generated_at": "2026-05-28",
+  "runtime_sheet": {
+    "path": "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [1024, 1024],
+    "sheet_size": [4096, 4096],
+    "frame_interval": "freeze-synced",
+    "freeze_duration_seconds": 1.65
+  },
+  "source": {
+    "path": "res://assets/ui/character_live2d/smasher_select_confirm_swing_bada_loop98_autosprite_v2_stable_realesrgan_animev3_hq1152_safe.png",
+    "provenance": "AutoSprite-derived accepted 98-frame character-select confirm sheet",
+    "source_cols": 14,
+    "source_rows": 7,
+    "source_cell_size": [1152, 1152],
+    "extracted_frame_indices": [44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 91, 94, 96, 97],
+    "postprocess": "deterministic frame extraction and 1152-to-1024 downscale"
+  },
+  "identity_lock": {
+    "anchor_paths": [
+      "res://assets/ui/character_live2d/smasher_fullbody_hover_idle_loop49_assetanim_v2_realesrgan_animev3_hq1024_safe.png",
+      "res://assets/ui/character_live2d/smasher_select_confirm_swing_bada_loop98_autosprite_v2_stable_realesrgan_animev3_hq1152_safe.png"
+    ],
+    "required_traits": [
+      "female Mika",
+      "black twin-tail hair",
+      "teal eyes",
+      "white and black bionic suit",
+      "cyan circular racket"
+    ]
+  },
+  "qa": {
+    "transparent_edge_alpha_count": 0,
+    "transparent_corner_errors": 0,
+    "sha256": "c8f7c197197248c8cc84ed358d89fb7897c2022259219b6ebf8c082a5833e5d4"
+  },
+  "notes": "The rejected AutoSprite cut-in candidate used the wrong male identity. This 16-frame sheet keeps Mika's current character-select identity and extends the cut-in cadence while a dedicated overhead power-smash pose is regenerated. Runtime draw adds red racket-charge aura procedurally before launch."
+}

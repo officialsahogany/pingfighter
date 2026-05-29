@@ -4,17 +4,20 @@ const PowerSmashEffectsState := preload("res://scripts/characters/smasher_power_
 const SmasherGhostShotState := preload("res://scripts/characters/smasher_ghost_shot_state.gd")
 const PowerSmashRuntimeState := preload("res://scripts/characters/smasher_power_smash_runtime_state.gd")
 const PowerSmashVelocityFacade := preload("res://scripts/characters/smasher_power_smash_velocity_facade.gd")
+const PowerSmashCutinState := preload("res://scripts/characters/smasher_power_smash_cutin_state.gd")
 
 var runtime_state: Object = PowerSmashRuntimeState.new()
 var effects_state: Object = PowerSmashEffectsState.new()
 var ghost_state: Object = SmasherGhostShotState.new()
 var velocity_facade: Object = PowerSmashVelocityFacade.new()
+var cutin_state: Object = PowerSmashCutinState.new()
 
 
 func reset(clear_text: bool = true) -> void:
 	runtime_state.reset(clear_text)
 	clear_effects()
 	ghost_state.reset()
+	cutin_state.reset()
 
 
 func can_activate(
@@ -41,14 +44,18 @@ func begin_activation(
 	new_combo_consumed: int,
 	text_duration_frames: float,
 	ghost_shot: bool = false,
-	current_msec: int = 0
+	current_msec: int = 0,
+	freeze_duration: float = 0.0
 ) -> void:
 	runtime_state.begin_activation(new_direction, new_arc_strength, new_combo_consumed, text_duration_frames)
 	clear_effects()
 	if ghost_shot:
 		ghost_state.begin(current_msec if current_msec > 0 else Time.get_ticks_msec())
+		cutin_state.reset()
 	else:
 		ghost_state.reset()
+		if freeze_duration > 0.0:
+			cutin_state.begin(freeze_duration)
 
 
 func lock_freeze_pose(pos: Vector2) -> void:
@@ -66,7 +73,8 @@ func apply_hit_velocity(
 	paddle_width: float,
 	base_speed: float,
 	ball_physics: Object,
-	combo_min_count: int
+	combo_min_count: int,
+	launch_speed_multiplier: float = 1.0
 ) -> Vector2:
 	return velocity_facade.apply_hit_velocity(
 		runtime_state,
@@ -76,7 +84,8 @@ func apply_hit_velocity(
 		paddle_width,
 		base_speed,
 		ball_physics,
-		combo_min_count
+		combo_min_count,
+		launch_speed_multiplier
 	)
 
 
@@ -144,6 +153,8 @@ func update_effects(fps_scale: float, ball_pos: Vector2, ball_active: bool, ball
 		get_combo_consumed()
 	)
 	ghost_state.update_effects(fps_scale, ball_pos, ball_active, ball_size)
+	if cutin_state.is_active():
+		cutin_state.update(fps_scale / 60.0)
 
 
 func update_text_timer(fps_scale: float) -> void:
@@ -228,3 +239,15 @@ func get_ghost_shot_last_visible_ball_pos() -> Vector2:
 
 func has_ghost_shot_visible_aura() -> bool:
 	return ghost_state.has_visible_aura()
+
+
+func is_cutin_active() -> bool:
+	return cutin_state.is_active()
+
+
+func get_cutin_progress() -> float:
+	return cutin_state.get_progress()
+
+
+func get_cutin_phase() -> String:
+	return cutin_state.get_phase()

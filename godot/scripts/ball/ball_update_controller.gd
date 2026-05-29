@@ -10,6 +10,7 @@ const STAGE5_HONGRYUN_GUARD_X_SHRINK := 24.0
 const STAGE5_HONGRYUN_GUARD_Y_SHRINK := 8.0
 const STAGE5_HONGRYUN_GUARD_PADDING_SCALE := 0.5
 const STAGE5_HONGRYUN_GUARD_UPWARD_BALL_FACTOR := 0.35
+const JUNIOR_POWER_SMASH_SPEED_CAP_MULT := 1.30
 
 var frame_motion_controller: Object = BallFrameMotionController.new()
 var motion_event_processor: Object = BallMotionEventProcessor.new()
@@ -584,6 +585,8 @@ func _update_ball_effects(scene: Dictionary, fps_scale: float, context: Dictiona
 
 func _get_power_smash_effective_speed_cap(scene: Dictionary, context: Dictionary, deps: Dictionary = {}) -> float:
 	var speed_cap: float = float(context.get("power_smash_max_ball_speed", 35.0))
+	if _normalize_league_mode(str(context.get("ai_mode", "champion"))) == "junior":
+		speed_cap *= JUNIOR_POWER_SMASH_SPEED_CAP_MULT
 	var impact_boost: float = max(1.0, float(scene.get("ball_impact_boost", 1.0)))
 	if impact_boost > 1.001:
 		speed_cap = max(speed_cap, float(context.get("impact_boost_max_ball_speed", 26.0)))
@@ -592,6 +595,15 @@ func _get_power_smash_effective_speed_cap(scene: Dictionary, context: Dictionary
 	if bool(context.get("fire_weather_speed_cap_active", false)):
 		speed_cap = min(speed_cap, float(context.get("fire_weather_max_ball_speed", 35.0)))
 	return speed_cap
+
+
+func _normalize_league_mode(ai_mode: String) -> String:
+	var normalized: String = ai_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
+	if normalized == "junior" or normalized == "juniorleague":
+		return "junior"
+	if normalized == "mythic" or normalized == "mythicleague":
+		return "mythic"
+	return "champion"
 
 
 func _is_speed_limit_disabled(context: Dictionary) -> bool:

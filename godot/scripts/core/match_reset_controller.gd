@@ -13,7 +13,7 @@ func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 	_stop_reset_audio(deps)
 	reset_stage_state(deps)
 	_call_callback(callbacks, "reset_ball")
-	return _build_reset_result(active_item_slots)
+	return _build_reset_result(active_item_slots, deps)
 
 
 func reset_for_stage_transition(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
@@ -127,10 +127,21 @@ func _reset_dash_state(deps: Dictionary, orb_hud_state: Object) -> void:
 	if dash_state == null:
 		return
 	if dash_state.has_method("reset_full"):
-		dash_state.reset_full(1)
+		dash_state.reset_full(_get_dash_token_capacity(deps))
 	if orb_hud_state != null and dash_state.has_method("get_snapshot") and orb_hud_state.has_method("reset_dash_tokens"):
 		var dash_snapshot: Dictionary = dash_state.get_snapshot()
 		orb_hud_state.reset_dash_tokens(int(dash_snapshot.get("tokens", 0)))
+
+
+func _get_dash_token_capacity(deps: Dictionary) -> int:
+	var base_tokens: int = max(1, int(deps.get("starting_dash_tokens", 1)))
+	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_dash_token_capacity"):
+		return max(1, int(mythic_item_runtime.get_dash_token_capacity(base_tokens, runtime_perk_state)))
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_runtime_skill_bonus"):
+		base_tokens += int(runtime_perk_state.get_runtime_skill_bonus("dash_amplification"))
+	return max(1, base_tokens)
 
 
 func _stop_reset_audio(deps: Dictionary) -> void:
@@ -167,16 +178,21 @@ func reset_stage_state(deps: Dictionary) -> void:
 		_call_reset(deps.get(key, null))
 
 
-func _build_reset_result(active_item_slots: Array) -> Dictionary:
+func _build_reset_result(active_item_slots: Array, deps: Dictionary = {}) -> Dictionary:
+	var league_player_paddle_scale: float = max(0.1, float(deps.get("league_player_paddle_scale", 1.0)))
+	var player_paddle_width: float = 155.0 * league_player_paddle_scale
+	var player_paddle_height: float = 50.0 * league_player_paddle_scale
+	var player_paddle_visual_scale_override: float = 1.0 if not is_equal_approx(league_player_paddle_scale, 1.0) else -1.0
 	return {
 		"special_gauge": 0.0,
 		"special_gauge_max": 500.0,
 		"drive_text_timer_frames": 0.0,
-		"player_paddle_width": 155.0,
-		"player_paddle_height": 50.0,
-		"player_paddle_scale": 1.0,
-		"runtime_paddle_base_width": 155.0,
-		"runtime_paddle_base_height": 50.0,
+		"player_paddle_width": player_paddle_width,
+		"player_paddle_height": player_paddle_height,
+		"player_paddle_scale": max(0.1, player_paddle_width / 155.0),
+		"player_paddle_visual_scale_override": player_paddle_visual_scale_override,
+		"runtime_paddle_base_width": player_paddle_width,
+		"runtime_paddle_base_height": player_paddle_height,
 		"runtime_paddle_scale": 1.0,
 		"optimus_energy_initialized": false,
 		"optimus_energy_ratio": 1.0,

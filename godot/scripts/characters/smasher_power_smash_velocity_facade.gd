@@ -15,7 +15,8 @@ func apply_hit_velocity(
 	paddle_width: float,
 	base_speed: float,
 	ball_physics: Object,
-	combo_min_count: int
+	combo_min_count: int,
+	launch_speed_multiplier: float = 1.0
 ) -> Vector2:
 	return hit_velocity_resolver.apply(
 		runtime_state,
@@ -25,7 +26,8 @@ func apply_hit_velocity(
 		paddle_width,
 		base_speed,
 		ball_physics,
-		combo_min_count
+		combo_min_count,
+		launch_speed_multiplier
 	)
 
 

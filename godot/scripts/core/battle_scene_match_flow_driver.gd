@@ -1,9 +1,11 @@
 extends RefCounted
 
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const BattleSceneMatchResetResultApplier := preload("res://scripts/core/battle_scene_match_reset_result_applier.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 
+var _fallback_scene_config: Object = BattleSceneConfig.new()
 var _fallback_reset_result_applier: Object = BattleSceneMatchResetResultApplier.new()
 
 
@@ -161,7 +163,8 @@ func reset_game(
 		return
 	var result: Dictionary = controller.reset_game(_get_match_flow_deps(
 		registry,
-		int(_get_owner_value(owner, "current_stage", 1))
+		int(_get_owner_value(owner, "current_stage", 1)),
+		owner
 	), {
 		"reset_drive_input": reset_drive_input_callback,
 		"reset_ball": reset_ball_callback,
@@ -183,7 +186,8 @@ func reset_for_stage_transition(
 		return
 	var result: Dictionary = controller.reset_for_stage_transition(_get_match_flow_deps(
 		registry,
-		int(_get_owner_value(owner, "current_stage", 1))
+		int(_get_owner_value(owner, "current_stage", 1)),
+		owner
 	), {
 		"reset_drive_input": reset_drive_input_callback,
 		"reset_ball": reset_ball_callback,
@@ -201,6 +205,8 @@ func _get_match_flow_deps(registry: Object, current_stage: int = 1, owner: Objec
 	deps["registry"] = registry
 	if owner != null:
 		deps["owner"] = owner
+		deps["starting_dash_tokens"] = _get_starting_dash_tokens(owner, registry)
+		deps["league_player_paddle_scale"] = _get_league_player_paddle_scale(owner, registry)
 	return deps
 
 
@@ -215,6 +221,31 @@ func _get_reset_result_applier(registry: Object) -> Object:
 	if applier != null and applier.has_method("apply_reset_result"):
 		return applier
 	return _fallback_reset_result_applier
+
+
+func _get_starting_dash_tokens(owner: Object, registry: Object) -> int:
+	if owner == null:
+		return 1
+	var owner_value: Variant = owner.get("starting_dash_tokens")
+	if owner_value != null:
+		return max(1, int(owner_value))
+	var config: Object = _get_instance(registry, "battle_scene_config")
+	if config == null:
+		config = _fallback_scene_config
+	if config != null and config.has_method("get_starting_dash_tokens"):
+		return max(1, int(config.get_starting_dash_tokens(owner)))
+	return 1
+
+
+func _get_league_player_paddle_scale(owner: Object, registry: Object) -> float:
+	if owner == null:
+		return 1.0
+	var config: Object = _get_instance(registry, "battle_scene_config")
+	if config == null:
+		config = _fallback_scene_config
+	if config != null and config.has_method("get_league_player_paddle_scale"):
+		return max(0.1, float(config.get_league_player_paddle_scale(owner)))
+	return 1.0
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:

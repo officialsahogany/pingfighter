@@ -55,7 +55,8 @@ func try_activate(context: Dictionary, deps: Dictionary, callbacks: Dictionary) 
 		combo_consumed,
 		float(context.get("text_duration_frames", 0.0)),
 		activated_skill == "ghost_shot",
-		current_msec
+		current_msec,
+		float(context.get("power_smash_freeze_duration", 0.0))
 	)
 
 	var combo_bonus_count: int = combo_consumed if combo_consumed >= combo_min_count else 0

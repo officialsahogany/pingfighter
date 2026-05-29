@@ -2,6 +2,8 @@ extends RefCounted
 
 const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
 
+const JUNIOR_POWER_SMASH_LAUNCH_SPEED_MULT := 1.30
+
 
 func apply(
 	ball_pos: Vector2,
@@ -21,7 +23,8 @@ func apply(
 		float(context.get("paddle_width", paddle_w)),
 		float(context.get("base_ball_speed", 6.0)),
 		physics,
-		int(context.get("combo_min_count", 2))
+		int(context.get("combo_min_count", 2)),
+		_get_power_smash_launch_speed_multiplier(context)
 	)
 	var ball_size: float = float(context.get("ball_size", 28.6))
 	var combo_count: int = int(power_state.get_combo_consumed())
@@ -32,3 +35,14 @@ func apply(
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
 	return BallContextReader.get_vector2(source, key, fallback)
+
+
+func _get_power_smash_launch_speed_multiplier(context: Dictionary) -> float:
+	return JUNIOR_POWER_SMASH_LAUNCH_SPEED_MULT if _normalize_league_mode(str(context.get("ai_mode", "champion"))) == "junior" else 1.0
+
+
+func _normalize_league_mode(ai_mode: String) -> String:
+	var normalized: String = ai_mode.strip_edges().to_lower().replace(" ", "").replace("_", "").replace("-", "")
+	if normalized == "junior" or normalized == "juniorleague":
+		return "junior"
+	return "champion"

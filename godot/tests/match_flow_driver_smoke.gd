@@ -12,6 +12,8 @@ class FakeOwner:
 	extends RefCounted
 
 	var current_stage := 4
+	var ai_mode := "junior"
+	var starting_dash_tokens := 2
 	var special_gauge := 99.0
 	var special_gauge_max := 900.0
 	var drive_text_timer_frames := 44.0
@@ -54,6 +56,10 @@ class FakeController:
 
 	var reset_calls := 0
 	var stage_transition_reset_calls := 0
+	var reset_starting_dash_tokens := -1
+	var stage_transition_starting_dash_tokens := -1
+	var reset_league_player_paddle_scale := 0.0
+	var saw_owner_in_reset := false
 	var result := {
 		"special_gauge": 0.0,
 		"special_gauge_max": 500.0,
@@ -79,6 +85,9 @@ class FakeController:
 
 	func reset_game(deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 		reset_calls += 1
+		reset_starting_dash_tokens = int(deps.get("starting_dash_tokens", -1))
+		reset_league_player_paddle_scale = float(deps.get("league_player_paddle_scale", 0.0))
+		saw_owner_in_reset = deps.get("owner", null) != null
 		if int(deps.get("current_stage", 0)) != 4:
 			return {}
 		var reset_drive_input_callback: Callable = callbacks.get("reset_drive_input", Callable())
@@ -91,6 +100,7 @@ class FakeController:
 
 	func reset_for_stage_transition(_deps: Dictionary, callbacks: Dictionary) -> Dictionary:
 		stage_transition_reset_calls += 1
+		stage_transition_starting_dash_tokens = int(_deps.get("starting_dash_tokens", -1))
 		var reset_drive_input_callback: Callable = callbacks.get("reset_drive_input", Callable())
 		if reset_drive_input_callback.is_valid():
 			reset_drive_input_callback.call()
@@ -202,6 +212,8 @@ func _init() -> void:
 
 	_expect(controller.reset_calls == 1, "reset game should call match flow controller")
 	_expect(context_builder.requested_stage == 4, "reset deps should use owner current stage")
+	_expect(controller.saw_owner_in_reset and controller.reset_starting_dash_tokens == 2, "reset deps should include Junior League starting dash tokens")
+	_expect(is_equal_approx(controller.reset_league_player_paddle_scale, 1.5), "reset deps should include Junior League paddle scale")
 	_expect(_drive_reset_calls == 1 and _ball_reset_calls == 1, "reset callbacks should be forwarded")
 	_expect(owner.special_gauge == 0.0 and owner.special_gauge_max == 500.0, "gauge values should reset")
 	_expect(owner.player_paddle_width == 155.0 and owner.player_paddle_scale == 1.0, "paddle values should reset")
@@ -267,6 +279,7 @@ func _init() -> void:
 		Callable(self, "_record_ball_reset")
 	)
 	_expect(controller.stage_transition_reset_calls == 1, "stage transition should use the preserving reset path")
+	_expect(controller.stage_transition_starting_dash_tokens == 2, "stage transition deps should keep Junior League starting dash tokens")
 	_expect(_drive_reset_calls == drive_resets_before + 1 and _ball_reset_calls == ball_resets_before + 1, "stage transition should forward reset callbacks")
 	_expect(active_item_runtime.reset_for_stage_transition_calls == 1 and active_item_runtime.saw_registry, "stage transition should reset active item transient runtime state")
 	_expect(owner.active_item_slots.size() == 1, "stage transition should preserve active item slots")

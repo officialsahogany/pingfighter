@@ -9,6 +9,7 @@ const FLOAT_KEYS := {
 	"player_paddle_width": 155.0,
 	"player_paddle_height": 50.0,
 	"player_paddle_scale": 1.0,
+	"player_paddle_visual_scale_override": -1.0,
 	"runtime_paddle_base_width": 155.0,
 	"runtime_paddle_base_height": 50.0,
 	"runtime_paddle_scale": 1.0,

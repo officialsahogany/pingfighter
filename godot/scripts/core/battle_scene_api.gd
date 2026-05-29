@@ -223,6 +223,7 @@ func configure_player_character(owner: Object, registry: Object, character_type:
 		owner.set("runtime_paddle_base_height", 50.0)
 		owner.set("runtime_paddle_scale", 1.0)
 		owner.set("player_paddle_scale", 1.0)
+		owner.set("player_paddle_visual_scale_override", -1.0)
 		owner.set("player_paddle_width", 155.0)
 		owner.set("player_paddle_height", 50.0)
 		_align_player_to_current_paddle(owner, previous_paddle_size)

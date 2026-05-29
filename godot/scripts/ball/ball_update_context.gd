@@ -31,10 +31,24 @@ func build_round_deps(registry, runtime_context: Dictionary = {}) -> Dictionary:
 
 
 func build_reset_config(owner: Object) -> Dictionary:
-	return static_config.build_reset_config(
-		owner_snapshot.get_owner_vector2(owner, "player_pos", Vector2.ZERO),
+	var player_pos: Vector2 = owner_snapshot.get_owner_vector2(owner, "player_pos", Vector2.ZERO)
+	var config: Dictionary = static_config.build_reset_config(
+		player_pos,
 		owner_snapshot.get_owner_vector2(owner, "boss_pos", Vector2.ZERO)
 	)
+	if player_pos != Vector2.ZERO:
+		config["player_y"] = player_pos.y
+	config["player_paddle_width"] = max(1.0, float(owner_snapshot.get_owner_value(
+		owner,
+		"player_paddle_width",
+		config.get("player_paddle_width", 155.0)
+	)))
+	config["player_paddle_height"] = max(1.0, float(owner_snapshot.get_owner_value(
+		owner,
+		"player_paddle_height",
+		config.get("player_paddle_height", 50.0)
+	)))
+	return config
 
 
 func build_serve_config(owner: Object) -> Dictionary:

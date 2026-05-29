@@ -109,6 +109,10 @@ const MODULES := {
 		"path": "res://scripts/hud/pause_menu_overlay.gd",
 		"label": "pause menu overlay",
 	},
+	"skill_cutin_overlay_host": {
+		"path": "res://scripts/hud/skill_cutin_overlay_host.gd",
+		"label": "skill cutin overlay host",
+	},
 	"ball_speed_debug_overlay": {
 		"path": "res://scripts/hud/ball_speed_debug_overlay.gd",
 		"label": "ball speed debug overlay",

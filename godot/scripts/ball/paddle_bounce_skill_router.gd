@@ -36,6 +36,7 @@ func try_activate_power_smashing(
 			"global_cooldown_frames": float(context.get("drive_global_cooldown_frames", 0.0)),
 			"combo_min_count": int(context.get("combo_min_count", 2)),
 			"current_msec": int(context.get("current_msec", Time.get_ticks_msec())),
+			"power_smash_freeze_duration": float(context.get("power_smash_freeze_duration", 0.0)),
 		},
 		{
 			"input_reader": deps.get("input_reader", null),

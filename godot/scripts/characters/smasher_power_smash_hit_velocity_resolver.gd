@@ -26,7 +26,8 @@ func apply(
 	paddle_width: float,
 	base_speed: float,
 	ball_physics: Object,
-	combo_min_count: int
+	combo_min_count: int,
+	launch_speed_multiplier: float = 1.0
 ) -> Vector2:
 	if power_state == null:
 		return ball_velocity
@@ -64,6 +65,10 @@ func apply(
 	if ball_velocity.y > 0.0:
 		ball_velocity.y = -abs(ball_velocity.y)
 
+	var safe_launch_speed_multiplier: float = max(0.01, launch_speed_multiplier)
+	if not is_equal_approx(safe_launch_speed_multiplier, 1.0):
+		ball_velocity *= safe_launch_speed_multiplier
+
 	var final_speed: float = ball_velocity.length()
 	power_state.set_target_speed(final_speed)
 	var initial_boost_multiplier: float = POWER_SMASH_INITIAL_STRAIGHT_MULT if direction == 0 else POWER_SMASH_INITIAL_SIDE_MULT
@@ -79,7 +84,12 @@ func apply(
 				POWER_SMASH_COMBO_SPEED_CAP
 			)
 			ball_velocity *= 1.0 + combo_final_bonus
-		ball_velocity = _clamp_launch_speed(ball_velocity, base_speed, effective_combo_count >= combo_min_count)
+		ball_velocity = _clamp_launch_speed(
+			ball_velocity,
+			base_speed,
+			effective_combo_count >= combo_min_count,
+			safe_launch_speed_multiplier
+		)
 		power_state.start_initial_boost(ball_velocity.length())
 
 	return ball_velocity
@@ -97,12 +107,17 @@ func _apply_dampened_multiplier(ball_physics: Object, current_speed: float, raw_
 	return raw_multiplier
 
 
-func _clamp_launch_speed(ball_velocity: Vector2, base_speed: float, combo_boosted: bool) -> Vector2:
+func _clamp_launch_speed(
+	ball_velocity: Vector2,
+	base_speed: float,
+	combo_boosted: bool,
+	max_speed_multiplier: float = 1.0
+) -> Vector2:
 	var current_speed: float = ball_velocity.length()
 	if current_speed <= 0.0:
 		return ball_velocity
 	var max_mult: float = POWER_SMASH_MAX_COMBO_LAUNCH_SPEED_MULT if combo_boosted else POWER_SMASH_MAX_LAUNCH_SPEED_MULT
-	var max_speed: float = max(base_speed, 0.1) * max_mult
+	var max_speed: float = max(base_speed, 0.1) * max_mult * max(1.0, max_speed_multiplier)
 	if current_speed <= max_speed:
 		return ball_velocity
 	return ball_velocity.normalized() * max_speed
