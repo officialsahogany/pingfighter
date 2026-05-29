@@ -3320,15 +3320,18 @@ func _update_nerve_strike(
 
 
 func _update_nerve_strike_dash(config: Dictionary, deps: Dictionary) -> Dictionary:
-	var progress: float = clamp(nerve_strike_phase_frames / max(1.0, NERVE_STRIKE_DASH_FRAMES), 0.0, 1.0)
-	if progress <= NERVE_STRIKE_TRACKING_END_RATIO:
-		var track_ratio: float = 1.0 - clamp(progress / max(0.01, NERVE_STRIKE_TRACKING_END_RATIO), 0.0, 1.0)
-		nerve_strike_dash_target_pos = nerve_strike_dash_target_pos.lerp(
-			_get_nerve_strike_target_pos(config),
-			clamp(NERVE_STRIKE_TRACKING_STRENGTH * track_ratio, 0.0, 1.0)
-		)
-	var eased: float = 0.5 - 0.5 * cos(progress * PI)
-	nerve_strike_pos = nerve_strike_start_pos.lerp(nerve_strike_dash_target_pos, eased)
+	var motion: Dictionary = ViperSkillGeometry.nerve_strike_dash_motion(
+		nerve_strike_start_pos,
+		nerve_strike_dash_target_pos,
+		_get_nerve_strike_target_pos(config),
+		nerve_strike_phase_frames,
+		NERVE_STRIKE_DASH_FRAMES,
+		NERVE_STRIKE_TRACKING_END_RATIO,
+		NERVE_STRIKE_TRACKING_STRENGTH
+	)
+	var progress: float = float(motion.get("progress", 0.0))
+	nerve_strike_dash_target_pos = _get_vector2(motion.get("target_pos", nerve_strike_dash_target_pos), nerve_strike_dash_target_pos)
+	nerve_strike_pos = _get_vector2(motion.get("pos", nerve_strike_pos), nerve_strike_pos)
 	if progress < 1.0:
 		return {}
 

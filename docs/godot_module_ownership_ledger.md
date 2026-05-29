@@ -3667,10 +3667,10 @@ This section is intentionally long; use search to find the nearest owner.
   extraction, player-position clamping, blade / ball hit rects, segment-rect
   intersection, EMP Strike shockwave boss reach / ring-touch tests plus boss
   slip start / motion calculation, Viper kick knockback velocity calculation,
-  Core Flip wall-climb center and bank velocity, and the common aimed kick
-  launch angle used by Shadow Step and Marshal Kick. `viper_skill_runtime.gd`
-  keeps skill-state ownership and delegates reusable geometry / launch math
-  here.
+  Nerve Strike dash tracking motion, Core Flip wall-climb center and bank
+  velocity, and the common aimed kick launch angle used by Shadow Step and
+  Marshal Kick. `viper_skill_runtime.gd` keeps skill-state ownership and
+  delegates reusable geometry / launch math here.
 - `scripts/characters/viper_skill_context_builder.gd`
   Owns renderer / ball-collision / boss-AI context dictionaries for Viper
   skill runtime. It reads derived visibility fields through

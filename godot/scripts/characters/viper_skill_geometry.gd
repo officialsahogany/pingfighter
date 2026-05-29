@@ -210,6 +210,28 @@ static func nerve_strike_return_target_pos(config: Dictionary) -> Vector2:
 	return clamp_player_pos(target, float(config.get("play_left", 0.0)), float(config.get("play_right", config.get("width", 760.0))), player_paddle_size.x)
 
 
+static func nerve_strike_dash_motion(
+	start_pos: Vector2,
+	current_target_pos: Vector2,
+	live_target_pos: Vector2,
+	phase_frames: float,
+	dash_frames: float,
+	tracking_end_ratio: float,
+	tracking_strength: float
+) -> Dictionary:
+	var progress: float = clamp(phase_frames / max(1.0, dash_frames), 0.0, 1.0)
+	var next_target_pos: Vector2 = current_target_pos
+	if progress <= tracking_end_ratio:
+		var track_ratio: float = 1.0 - clamp(progress / max(0.01, tracking_end_ratio), 0.0, 1.0)
+		next_target_pos = next_target_pos.lerp(live_target_pos, clamp(tracking_strength * track_ratio, 0.0, 1.0))
+	var eased: float = 0.5 - 0.5 * cos(progress * PI)
+	return {
+		"progress": progress,
+		"target_pos": next_target_pos,
+		"pos": start_pos.lerp(next_target_pos, eased),
+	}
+
+
 static func player_floor_y(config: Dictionary) -> float:
 	return float(config.get("player_floor_y", float(config.get("height", 750.0)) - get_paddle_size(config).y))
 
