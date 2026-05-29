@@ -3,6 +3,24 @@ extends RefCounted
 const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd")
 
 const STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT := 9
+const STAGE_RUNTIME_PREWARM_COMMON_LABELS := [
+	"weather",
+	"active_item",
+	"mythic_cinematic",
+	"perk_overlay",
+	"perk_debug_deferred",
+	"character_info_deferred",
+	"selected_character",
+	"ball_update",
+	"result_shell_deferred",
+]
+const STAGE2_RUNTIME_PREWARM_LABELS := [
+	"stage2_pillar_background",
+	"stage2_pillar_scene",
+	"stage2_playfield",
+	"stage2_skill_hud",
+	"stage2_monkey",
+]
 const STAGE4_RUNTIME_PREWARM_MODULE_KEYS := [
 	"stage4_ponk_gauge_hud_renderer",
 	"stage4_bird_event",
@@ -274,7 +292,12 @@ func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable
 	var prewarm_step_index := stage_runtime_prewarm_step_index
 	var sample_start: int = _perf_begin(perf_logger)
 	var step_complete := _run_stage_runtime_prewarm_step(owner, module_getter, current_stage, stage_runtime_prewarm_step_index)
-	_perf_end(perf_logger, "process.frame.stage_runtime_prewarm.step.%d" % prewarm_step_index, sample_start)
+	var step_label := _get_stage_runtime_prewarm_step_label(owner, current_stage, prewarm_step_index)
+	_perf_end(
+		perf_logger,
+		"process.frame.stage_runtime_prewarm.step.%d.%s" % [prewarm_step_index, step_label],
+		sample_start
+	)
 	if not step_complete:
 		return false
 	stage_runtime_prewarm_step_index += 1
@@ -331,7 +354,7 @@ func _get_stage_specific_runtime_prewarm_step_count(_owner: Object, current_stag
 		1:
 			return 5
 		2:
-			return 4
+			return STAGE2_RUNTIME_PREWARM_LABELS.size()
 		3:
 			return 3
 		4:
@@ -339,6 +362,77 @@ func _get_stage_specific_runtime_prewarm_step_count(_owner: Object, current_stag
 		5:
 			return 1 + STAGE5_RUNTIME_PREWARM_MODULE_KEYS.size()
 	return 0
+
+
+func _get_stage_runtime_prewarm_step_label(owner: Object, current_stage: int, step_index: int) -> String:
+	if step_index >= 0 and step_index < STAGE_RUNTIME_PREWARM_COMMON_LABELS.size():
+		return str(STAGE_RUNTIME_PREWARM_COMMON_LABELS[step_index])
+	var stage_step := step_index - STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT
+	var stage_step_count := _get_stage_specific_runtime_prewarm_step_count(owner, current_stage)
+	if stage_step >= stage_step_count:
+		return "pso_prewarmer"
+	match current_stage:
+		1:
+			return _get_stage1_runtime_prewarm_step_label(stage_step)
+		2:
+			if stage_step >= 0 and stage_step < STAGE2_RUNTIME_PREWARM_LABELS.size():
+				return str(STAGE2_RUNTIME_PREWARM_LABELS[stage_step])
+		3:
+			return _get_stage3_runtime_prewarm_step_label(stage_step)
+		4:
+			return _get_stage4_runtime_prewarm_step_label(stage_step)
+		5:
+			return _get_stage5_runtime_prewarm_step_label(stage_step)
+	return "stage%d_step%d" % [current_stage, stage_step]
+
+
+func _get_stage1_runtime_prewarm_step_label(stage_step: int) -> String:
+	match stage_step:
+		0:
+			return "stage1_pillar_background"
+		1:
+			return "stage1_pillar_scene"
+		2:
+			return "stage1_balloon"
+		3:
+			return "stage1_skill_hud"
+		4:
+			return "stage1_commando"
+	return "stage1_step%d" % stage_step
+
+
+func _get_stage3_runtime_prewarm_step_label(stage_step: int) -> String:
+	match stage_step:
+		0:
+			return "stage3_pillar_background"
+		1:
+			return "stage3_playfield"
+		2:
+			return "stage3_skill_hud"
+	return "stage3_step%d" % stage_step
+
+
+func _get_stage4_runtime_prewarm_step_label(stage_step: int) -> String:
+	match stage_step:
+		0:
+			return "stage4_pillar_background"
+		1:
+			return "stage4_playfield"
+		2:
+			return "stage4_actor_runtime"
+	var module_index := stage_step - 3
+	if module_index >= 0 and module_index < STAGE4_RUNTIME_PREWARM_MODULE_KEYS.size():
+		return str(STAGE4_RUNTIME_PREWARM_MODULE_KEYS[module_index])
+	return "stage4_step%d" % stage_step
+
+
+func _get_stage5_runtime_prewarm_step_label(stage_step: int) -> String:
+	if stage_step == 0:
+		return "stage5_pillar_background"
+	var module_index := stage_step - 1
+	if module_index >= 0 and module_index < STAGE5_RUNTIME_PREWARM_MODULE_KEYS.size():
+		return str(STAGE5_RUNTIME_PREWARM_MODULE_KEYS[module_index])
+	return "stage5_step%d" % stage_step
 
 
 func _run_stage_specific_runtime_prewarm_step(
@@ -351,7 +445,7 @@ func _run_stage_specific_runtime_prewarm_step(
 		1:
 			return _run_stage1_runtime_prewarm_step(owner, module_getter, stage_step)
 		2:
-			return _run_stage2_runtime_prewarm_step(module_getter, stage_step)
+			return _run_stage2_runtime_prewarm_step(owner, module_getter, stage_step)
 		3:
 			return _run_stage3_runtime_prewarm_step(module_getter, stage_step)
 		4:
@@ -397,16 +491,19 @@ func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 	return true
 
 
-func _run_stage2_runtime_prewarm_step(module_getter: Callable, stage_step: int) -> bool:
+func _run_stage2_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> bool:
 	match stage_step:
 		0:
 			return prewarm_stage2_pillar_background_step(module_getter)
 		1:
-			return prewarm_stage2_playfield_resources_step(module_getter)
+			var pillar_scene_drawer: Object = _get_module(module_getter, "stage2_pillar_scene_drawer")
+			return _prewarm_pillar_scene_assets_step(pillar_scene_drawer, module_getter, _get_selected_character_type(owner))
 		2:
+			return prewarm_stage2_playfield_resources_step(module_getter)
+		3:
 			var skill_hud: Object = _get_module(module_getter, "stage2_boss_skill_hud_renderer")
 			return _prewarm_module_assets_step(skill_hud)
-		3:
+		4:
 			var monkey_event: Object = _get_module(module_getter, "stage2_monkey_banana_event")
 			return _prewarm_module_assets_step(monkey_event)
 	return true
@@ -475,6 +572,9 @@ func _attach_battle_pso_prewarmer(owner: Object) -> void:
 
 func prewarm_stage2_runtime_resources(module_getter: Callable) -> void:
 	prewarm_stage2_pillar_background(module_getter)
+	var pillar_scene_drawer: Object = _get_module(module_getter, "stage2_pillar_scene_drawer")
+	while not _prewarm_pillar_scene_assets_step(pillar_scene_drawer, module_getter, "smasher"):
+		pass
 	prewarm_stage2_playfield_resources(module_getter)
 	var skill_hud: Object = _get_module(module_getter, "stage2_boss_skill_hud_renderer")
 	while not _prewarm_module_assets_step(skill_hud):
@@ -768,6 +868,7 @@ func _get_selected_character_runtime_module_keys(character_type: String) -> Arra
 			keys.append_array([
 				"smasher_input_reader",
 				"smasher_power_smash_state",
+				"skill_cutin_overlay_host",
 				"smasher_drive_input_state",
 				"smasher_combo_state",
 				"smasher_skill_state",

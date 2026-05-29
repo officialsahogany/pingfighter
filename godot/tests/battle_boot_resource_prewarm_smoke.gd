@@ -211,6 +211,7 @@ class FakeRegistry:
 	var viper_skill_config := FakePrewarmModule.new()
 	var viper_jetpack_state := FakePrewarmModule.new()
 	var stage2_bg := FakeStagedPrewarmModule.new()
+	var stage2_pillar_scene := FakeStagedPillarSceneModule.new()
 	var stage2_actor_renderer := FakeStagedPrewarmModule.new()
 	var stage2_skill_hud := FakeStagedPrewarmModule.new()
 	var stage2_monkey_event := FakeStagedPrewarmModule.new()
@@ -272,6 +273,8 @@ class FakeRegistry:
 				return commando_firearm_selector
 			"stage2_pillar_background":
 				return stage2_bg
+			"stage2_pillar_scene_drawer":
+				return stage2_pillar_scene
 			"stage2_actor_renderer":
 				return stage2_actor_renderer
 			"stage2_boss_skill_hud_renderer":
@@ -463,6 +466,13 @@ func _verify_stage2_staged_playfield_prewarm() -> void:
 	_expect(_registry.stage2_bg.step_calls == 3, "stage 2 runtime prewarm should stage pillar background chunks before playfield")
 	_expect(_registry.stage2_bg.monolithic_calls == 0, "stage 2 pillar background should not use the monolithic asset path when staged")
 	_expect(_registry.stage2_actor_renderer.step_calls == 0, "stage 2 playfield should wait for its own staged chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 2 pillar scene prewarm should hold on first chunk")
+	_expect(_registry.stage2_pillar_scene.step_calls == 1, "stage 2 pillar scene should advance one shared-HUD chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 2 pillar scene prewarm should keep staging")
+	_expect(_registry.stage2_pillar_scene.step_calls == 2, "stage 2 pillar scene should not skip shared-HUD chunks")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "completed stage 2 pillar scene should move to playfield on the following frame")
+	_expect(_registry.stage2_pillar_scene.step_calls == 3, "stage 2 pillar scene should complete through the step API")
+	_expect(_registry.stage2_pillar_scene.monolithic_calls == 0, "stage 2 pillar scene should not use the monolithic path when staged")
 	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "incomplete stage 2 playfield prewarm should hold the same chunk")
 	_expect(_registry.stage2_actor_renderer.step_calls == 1, "stage 2 playfield prewarm should advance by one actor chunk")
 	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "second incomplete stage 2 playfield prewarm should still hold")
