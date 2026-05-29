@@ -43,6 +43,29 @@ static func blade_projectile_motion(
 	return next_pos
 
 
+static func blade_hit_velocity(
+	ball_vel: Vector2,
+	impact_boost: float,
+	speed_cap: float,
+	blade_amp_level: int,
+	dark_mode: bool,
+	hit_speed_scale: float,
+	air_base_mult: float,
+	dark_base_mult: float
+) -> Vector2:
+	var current_speed: float = ball_vel.length()
+	var next_vel: Vector2 = ball_vel
+	if current_speed > 0.1:
+		var base_mult: float = dark_base_mult if dark_mode else air_base_mult
+		var hit_mult: float = base_mult * (1.0 + float(max(0, blade_amp_level) * 15) / 100.0) * max(0.0, hit_speed_scale)
+		var new_speed: float = current_speed * hit_mult
+		var ratio: float = new_speed / current_speed
+		next_vel = Vector2(ball_vel.x * ratio, -abs(ball_vel.y * ratio))
+	else:
+		next_vel = Vector2(0.0, -10.0)
+	return limit_effective_velocity(next_vel, impact_boost, speed_cap)
+
+
 static func ball_rect(scene: Dictionary, context: Dictionary) -> Rect2:
 	var resolved_ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	var ball_size: float = max(1.0, float(context.get("ball_size", scene.get("ball_size", 28.6))))

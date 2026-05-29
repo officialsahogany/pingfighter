@@ -4011,19 +4011,18 @@ func _apply_blade_hit(
 ) -> Dictionary:
 	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", context.get("ball_vel", Vector2.ZERO)), Vector2.ZERO)
-	var current_speed: float = ball_vel.length()
-	var next_vel: Vector2 = ball_vel
 	var impact_boost: float = max(1.0, float(scene.get("ball_impact_boost", 1.0)))
 	var speed_cap: float = DARK_BLADE_MAX_BALL_SPEED if dark_mode else AIR_BLADE_MAX_BALL_SPEED
-	var base_mult: float = 2.4 if dark_mode else 2.1
-	var hit_mult: float = base_mult * (1.0 + float(max(0, _get_blade_amp_level(deps)) * 15) / 100.0) * max(0.0, hit_speed_scale)
-	if current_speed > 0.1:
-		var new_speed: float = current_speed * hit_mult
-		var ratio: float = new_speed / current_speed
-		next_vel = Vector2(ball_vel.x * ratio, -abs(ball_vel.y * ratio))
-	else:
-		next_vel = Vector2(0.0, -10.0)
-	next_vel = _limit_effective_velocity(next_vel, impact_boost, speed_cap)
+	var next_vel: Vector2 = ViperSkillGeometry.blade_hit_velocity(
+		ball_vel,
+		impact_boost,
+		speed_cap,
+		_get_blade_amp_level(deps),
+		dark_mode,
+		hit_speed_scale,
+		2.1,
+		2.4
+	)
 	blade_hit_speed_cap_active = speed_cap
 	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
 	if dark_mode and allow_combo:
