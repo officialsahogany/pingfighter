@@ -3854,14 +3854,14 @@ func _update_blade_motion(
 	match blade_motion_phase:
 		0:
 			var t0: float = ViperSkillGeometry.blade_motion_phase_progress(blade_motion_frames, spin_frames)
-			blade_spin_angle = t0 * TAU * spin_turns
+			blade_spin_angle = ViperSkillGeometry.blade_motion_spin_angle(0, t0, spin_turns)
 			next_pos = blade_motion_pos
 			if t0 >= 1.0:
 				blade_motion_phase = 1
 				blade_motion_frames = 0.0
 		1:
 			var t1: float = ViperSkillGeometry.blade_motion_phase_progress(blade_motion_frames, decel_frames)
-			blade_spin_angle = TAU * spin_turns + (1.0 - t1) * deg_to_rad(90.0) * (1.0 - t1)
+			blade_spin_angle = ViperSkillGeometry.blade_motion_spin_angle(1, t1, spin_turns)
 			next_pos = blade_motion_pos
 			if t1 >= 1.0:
 				blade_motion_phase = 2
