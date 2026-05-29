@@ -104,6 +104,29 @@ static func shadow_step_wave_rect(pos: Vector2, collision_size: Vector2) -> Rect
 	return Rect2(pos - collision_size * 0.5, collision_size)
 
 
+static func shadow_step_wave_motion(
+	pos: Vector2,
+	direction: int,
+	speed: float,
+	fps_scale: float,
+	target_x: float
+) -> Dictionary:
+	var next_pos: Vector2 = pos
+	next_pos.x += float(direction) * speed * fps_scale
+	var reached_target: bool = (
+		(direction > 0 and next_pos.x >= target_x)
+		or (direction < 0 and next_pos.x <= target_x)
+	)
+	return {
+		"pos": next_pos,
+		"reached_target": reached_target,
+	}
+
+
+static func shadow_step_hologram_progress(frames: float, duration: float) -> float:
+	return clamp(frames / max(1.0, duration), 0.0, 1.0)
+
+
 static func shadow_step_hologram_hit_rect(target: Vector2, paddle_size: Vector2, hitbox_padding: Vector2) -> Rect2:
 	var collision_size: Vector2 = paddle_size + hitbox_padding
 	return Rect2(target - collision_size * 0.5, collision_size)

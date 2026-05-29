@@ -892,15 +892,18 @@ func apply_shadow_step_ball_motion(fps_scale: float, scene: Dictionary, context:
 	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 
 	if shadow_wave_active:
-		shadow_wave_pos.x += float(shadow_wave_dir) * SHADOW_STEP_WAVE_SPEED * fps_scale
+		var wave_motion: Dictionary = ViperSkillGeometry.shadow_step_wave_motion(
+			shadow_wave_pos,
+			shadow_wave_dir,
+			SHADOW_STEP_WAVE_SPEED,
+			fps_scale,
+			shadow_wave_target_x
+		)
+		shadow_wave_pos = _get_vector2(wave_motion.get("pos", shadow_wave_pos), shadow_wave_pos)
 		shadow_wave_trail.append(shadow_wave_pos)
 		while shadow_wave_trail.size() > SHADOW_STEP_WAVE_TRAIL_MAX:
 			shadow_wave_trail.pop_front()
-		var reached_wave_target: bool = (
-			(shadow_wave_dir > 0 and shadow_wave_pos.x >= shadow_wave_target_x)
-			or (shadow_wave_dir < 0 and shadow_wave_pos.x <= shadow_wave_target_x)
-		)
-		if reached_wave_target:
+		if bool(wave_motion.get("reached_target", false)):
 			shadow_wave_active = false
 			shadow_wave_trail.clear()
 		if shadow_wave_active and not shadow_wave_hit_ball and not shadow_hit_consumed:
@@ -4621,7 +4624,10 @@ func _update_shadow_step_visuals(fps_scale: float, context: Dictionary, deps: Di
 			shadow_kick_ready = false
 	if shadow_hologram_active:
 		shadow_hologram_frames += fps_scale
-		var progress: float = clamp(shadow_hologram_frames / max(1.0, SHADOW_STEP_HOLOGRAM_FRAMES), 0.0, 1.0)
+		var progress: float = ViperSkillGeometry.shadow_step_hologram_progress(
+			shadow_hologram_frames,
+			SHADOW_STEP_HOLOGRAM_FRAMES
+		)
 		if progress >= 0.95 and not shadow_hologram_dest_shock_spawned:
 			shadow_hologram_dest_shock_spawned = true
 			_spawn_shadow_activation_feedback(shadow_hologram_target, deps, 0.75)
@@ -4655,7 +4661,10 @@ func _update_shadow_step_visuals(fps_scale: float, context: Dictionary, deps: Di
 func _try_shadow_hologram_hit(scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	if shadow_hit_consumed or shadow_hologram_kick_hit:
 		return {}
-	var progress: float = clamp(shadow_hologram_frames / max(1.0, SHADOW_STEP_HOLOGRAM_FRAMES), 0.0, 1.0)
+	var progress: float = ViperSkillGeometry.shadow_step_hologram_progress(
+		shadow_hologram_frames,
+		SHADOW_STEP_HOLOGRAM_FRAMES
+	)
 	if progress <= 0.30:
 		return {}
 	var collision_size := Vector2(shadow_paddle_size.x + 60.0, shadow_paddle_size.y + 50.0)
