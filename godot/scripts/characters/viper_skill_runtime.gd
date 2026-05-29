@@ -3387,9 +3387,14 @@ func _update_nerve_strike_slash(config: Dictionary, deps: Dictionary) -> Diction
 
 func _update_nerve_strike_return(deps: Dictionary) -> Dictionary:
 	var duration: float = NERVE_STRIKE_RETURN_HIT_FRAMES if nerve_strike_hit_confirmed else NERVE_STRIKE_RETURN_MISS_FRAMES
-	var progress: float = clamp(nerve_strike_phase_frames / max(1.0, duration), 0.0, 1.0)
-	var eased: float = 1.0 - pow(1.0 - progress, 2.0)
-	nerve_strike_pos = nerve_strike_return_start_pos.lerp(nerve_strike_return_target_pos, eased)
+	var motion: Dictionary = ViperSkillGeometry.nerve_strike_return_motion(
+		nerve_strike_return_start_pos,
+		nerve_strike_return_target_pos,
+		nerve_strike_phase_frames,
+		duration
+	)
+	var progress: float = float(motion.get("progress", 0.0))
+	nerve_strike_pos = _get_vector2(motion.get("pos", nerve_strike_pos), nerve_strike_pos)
 	if progress < 1.0:
 		return {}
 	nerve_strike_pos = nerve_strike_return_target_pos

@@ -232,6 +232,15 @@ static func nerve_strike_dash_motion(
 	}
 
 
+static func nerve_strike_return_motion(start_pos: Vector2, target_pos: Vector2, phase_frames: float, duration: float) -> Dictionary:
+	var progress: float = clamp(phase_frames / max(1.0, duration), 0.0, 1.0)
+	var eased: float = 1.0 - pow(1.0 - progress, 2.0)
+	return {
+		"progress": progress,
+		"pos": start_pos.lerp(target_pos, eased),
+	}
+
+
 static func player_floor_y(config: Dictionary) -> float:
 	return float(config.get("player_floor_y", float(config.get("height", 750.0)) - get_paddle_size(config).y))
 
