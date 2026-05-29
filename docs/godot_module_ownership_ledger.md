@@ -3668,7 +3668,7 @@ This section is intentionally long; use search to find the nearest owner.
   intersection, EMP Strike hit velocity, shockwave position / radius /
   boss-reach / ring-touch tests plus boss slip start / motion calculation,
   Shadow Step wave motion / curve velocity / hit profile / hologram progress / hitbox rects,
-  Marshal Kick initial / reclimb wall targets, charge / return motion, return target, and wall kick direction,
+  Marshal Kick initial / reclimb wall targets, reclimb / charge / return motion, return target, and wall kick direction,
   Viper kick knockback velocity calculation,
   Nerve Strike dash / return / clone slash motion, Core Flip wall-climb center and bank
   velocity, and the common aimed kick launch angle / velocity used by Shadow
