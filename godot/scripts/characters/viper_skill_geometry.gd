@@ -27,6 +27,43 @@ static func ball_rect(scene: Dictionary, context: Dictionary) -> Rect2:
 	return Rect2(resolved_ball_pos - Vector2(ball_size, ball_size) * 0.5, Vector2(ball_size, ball_size))
 
 
+static func dive_shockwave_boss_reach_radius(
+	config: Dictionary,
+	shockwave_pos: Vector2,
+	base_max_radius: float,
+	ring_half_thickness: float
+) -> float:
+	var boss_pos: Vector2 = _get_vector2(
+		config.get("boss_pos", Vector2(float(config.get("width", 760.0)) * 0.5 - 50.0, 25.0)),
+		Vector2.ZERO
+	)
+	var boss_width: float = max(1.0, float(config.get("boss_paddle_width", 100.0)))
+	var boss_height: float = max(1.0, float(config.get("boss_hitbox_height", 40.0)))
+	var boss_center: Vector2 = boss_pos + Vector2(boss_width * 0.5, boss_height * 0.5)
+	return max(base_max_radius, shockwave_pos.distance_to(boss_center) + ring_half_thickness)
+
+
+static func dive_shockwave_ring_touches_boss(
+	previous_radius: float,
+	current_radius: float,
+	config: Dictionary,
+	shockwave_pos: Vector2,
+	ring_half_thickness: float
+) -> bool:
+	var boss_pos: Vector2 = _get_vector2(
+		config.get("boss_pos", Vector2(float(config.get("width", 760.0)) * 0.5 - 50.0, 25.0)),
+		Vector2.ZERO
+	)
+	var boss_width: float = max(1.0, float(config.get("boss_paddle_width", 100.0)))
+	var boss_height: float = max(1.0, float(config.get("boss_hitbox_height", 40.0)))
+	var closest_x: float = clamp(shockwave_pos.x, boss_pos.x, boss_pos.x + boss_width)
+	var closest_y: float = clamp(shockwave_pos.y, boss_pos.y, boss_pos.y + boss_height)
+	var boss_distance: float = shockwave_pos.distance_to(Vector2(closest_x, closest_y))
+	var ring_inner: float = min(previous_radius, current_radius) - ring_half_thickness
+	var ring_outer: float = max(previous_radius, current_radius) + ring_half_thickness
+	return ring_inner <= boss_distance and ring_outer >= boss_distance
+
+
 static func center_to_player_pos(center: Vector2, config: Dictionary, player_paddle_size: Vector2) -> Vector2:
 	var play_left: float = float(config.get("play_left", 0.0))
 	var play_right: float = float(config.get("play_right", config.get("width", 760.0)))

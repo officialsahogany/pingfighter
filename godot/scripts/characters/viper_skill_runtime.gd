@@ -3008,16 +3008,11 @@ func _start_dive_slip_for_height(
 
 
 func _get_dive_shockwave_boss_reach_radius(config: Dictionary) -> float:
-	var boss_pos: Vector2 = _get_vector2(
-		config.get("boss_pos", Vector2(float(config.get("width", 760.0)) * 0.5 - 50.0, 25.0)),
-		Vector2.ZERO
-	)
-	var boss_width: float = max(1.0, float(config.get("boss_paddle_width", 100.0)))
-	var boss_height: float = max(1.0, float(config.get("boss_hitbox_height", 40.0)))
-	var boss_center: Vector2 = boss_pos + Vector2(boss_width * 0.5, boss_height * 0.5)
-	return max(
+	return ViperSkillGeometry.dive_shockwave_boss_reach_radius(
+		config,
+		dive_shockwave_pos,
 		DIVE_SHOCKWAVE_BASE_MAX_RADIUS,
-		dive_shockwave_pos.distance_to(boss_center) + DIVE_SHOCKWAVE_RING_HALF_THICKNESS
+		DIVE_SHOCKWAVE_RING_HALF_THICKNESS
 	)
 
 
@@ -3034,18 +3029,13 @@ func _update_dive_shockwave_boss_effect(
 
 
 func _dive_shockwave_ring_touches_boss(previous_radius: float, current_radius: float, config: Dictionary) -> bool:
-	var boss_pos: Vector2 = _get_vector2(
-		config.get("boss_pos", Vector2(float(config.get("width", 760.0)) * 0.5 - 50.0, 25.0)),
-		Vector2.ZERO
+	return ViperSkillGeometry.dive_shockwave_ring_touches_boss(
+		previous_radius,
+		current_radius,
+		config,
+		dive_shockwave_pos,
+		DIVE_SHOCKWAVE_RING_HALF_THICKNESS
 	)
-	var boss_width: float = max(1.0, float(config.get("boss_paddle_width", 100.0)))
-	var boss_height: float = max(1.0, float(config.get("boss_hitbox_height", 40.0)))
-	var closest_x: float = clamp(dive_shockwave_pos.x, boss_pos.x, boss_pos.x + boss_width)
-	var closest_y: float = clamp(dive_shockwave_pos.y, boss_pos.y, boss_pos.y + boss_height)
-	var boss_distance: float = dive_shockwave_pos.distance_to(Vector2(closest_x, closest_y))
-	var ring_inner: float = min(previous_radius, current_radius) - DIVE_SHOCKWAVE_RING_HALF_THICKNESS
-	var ring_outer: float = max(previous_radius, current_radius) + DIVE_SHOCKWAVE_RING_HALF_THICKNESS
-	return ring_inner <= boss_distance and ring_outer >= boss_distance
 
 
 func _apply_dive_shockwave_boss_effects(config: Dictionary, deps: Dictionary) -> void:
