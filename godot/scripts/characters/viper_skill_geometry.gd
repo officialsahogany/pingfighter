@@ -100,6 +100,10 @@ static func ball_rect(scene: Dictionary, context: Dictionary) -> Rect2:
 	return Rect2(resolved_ball_pos - Vector2(ball_size, ball_size) * 0.5, Vector2(ball_size, ball_size))
 
 
+static func emp_strike_hit_velocity(ball_vel: Vector2) -> Vector2:
+	return Vector2(ball_vel.x, -abs(ball_vel.y))
+
+
 static func dive_shockwave_boss_reach_radius(
 	config: Dictionary,
 	shockwave_pos: Vector2,

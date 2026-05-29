@@ -2919,7 +2919,7 @@ func _apply_dive_strike_impact(scene: Dictionary, context: Dictionary, deps: Dic
 	dive_ball_boosted = true
 	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", context.get("ball_vel", Vector2.ZERO)), Vector2.ZERO)
-	var next_vel := Vector2(ball_vel.x, -abs(ball_vel.y))
+	var next_vel: Vector2 = ViperSkillGeometry.emp_strike_hit_velocity(ball_vel)
 	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
 	_start_dive_slip_for_height(ball_pos, context, deps, dive_height_snapshot, false)
 	dive_hit_text_timer = DIVE_HIT_TEXT_FRAMES
@@ -2962,7 +2962,7 @@ func _apply_dual_glitch_clone_dive_ball_motion(scene: Dictionary, context: Dicti
 func _apply_dual_glitch_clone_dive_impact(entry: Dictionary, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", context.get("ball_vel", Vector2.ZERO)), Vector2.ZERO)
-	var next_vel := Vector2(ball_vel.x, -abs(ball_vel.y))
+	var next_vel: Vector2 = ViperSkillGeometry.emp_strike_hit_velocity(ball_vel)
 	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
 	_start_dive_slip_for_height(ball_pos, context, deps, float(entry.get("height_snapshot", dive_height_snapshot)), true)
 	_trigger_feedback(deps, 0.13, 3.6)

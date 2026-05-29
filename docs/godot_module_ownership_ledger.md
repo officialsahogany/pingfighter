@@ -3665,8 +3665,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/viper_skill_geometry.gd`
   Owns shared Viper skill geometry helpers: player / ball / boss center
   extraction, player-position clamping, blade projectile launch / hit-velocity motion, blade / ball hit rects, segment-rect
-  intersection, EMP Strike shockwave boss reach / ring-touch tests plus boss
-  slip start / motion calculation, Viper kick knockback velocity calculation,
+  intersection, EMP Strike hit velocity, shockwave boss reach / ring-touch
+  tests plus boss slip start / motion calculation, Viper kick knockback velocity calculation,
   Nerve Strike dash / return / clone slash motion, Core Flip wall-climb center and bank
   velocity, and the common aimed kick launch angle used by Shadow Step and
   Marshal Kick. `viper_skill_runtime.gd` keeps skill-state ownership and
