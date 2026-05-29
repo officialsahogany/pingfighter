@@ -4,7 +4,9 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 
 const HUD_FRAME_TEXTURE_PATH := "res://assets/ui/commando_firearm_hud_frame_v1.png"
 const PISTOL_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_pistol_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png"
+const BERETTA_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_beretta_firearm_icon_imagegen_v1.png"
 const PISTOL_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_pistol_firearm_fire_recoil_sheet_autosprite_v1_realesrgan_animev3_hq1024.png"
+const BERETTA_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_beretta_firearm_fire_recoil_sheet_autosprite_v1.png"
 const AK47_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_ak47_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png"
 const AK47_FIRE_RECOIL_SHEET_PATH := "res://assets/sprites/hud/commando_ak47_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png"
 const NET_GUN_ICON_TEXTURE_PATH := "res://assets/sprites/hud/commando_net_gun_firearm_icon_imagegen_v1.png"
@@ -123,7 +125,9 @@ func prewarm_assets() -> void:
 func prewarm_assets_step() -> bool:
 	var weapon_texture_paths := [
 		PISTOL_ICON_TEXTURE_PATH,
+		BERETTA_ICON_TEXTURE_PATH,
 		PISTOL_FIRE_RECOIL_SHEET_PATH,
+		BERETTA_FIRE_RECOIL_SHEET_PATH,
 		AK47_ICON_TEXTURE_PATH,
 		AK47_FIRE_RECOIL_SHEET_PATH,
 		NET_GUN_ICON_TEXTURE_PATH,
@@ -195,7 +199,9 @@ func build_panel_state(center: Vector2, scale_factor: float, context: Dictionary
 		"rect": rect,
 		"hud_frame_path": HUD_FRAME_TEXTURE_PATH,
 		"pistol_icon_path": PISTOL_ICON_TEXTURE_PATH,
+		"beretta_icon_path": BERETTA_ICON_TEXTURE_PATH,
 		"pistol_fire_recoil_sheet_path": PISTOL_FIRE_RECOIL_SHEET_PATH,
+		"beretta_fire_recoil_sheet_path": BERETTA_FIRE_RECOIL_SHEET_PATH,
 		"ak47_icon_path": AK47_ICON_TEXTURE_PATH,
 		"ak47_fire_recoil_sheet_path": AK47_FIRE_RECOIL_SHEET_PATH,
 		"net_gun_icon_path": NET_GUN_ICON_TEXTURE_PATH,
@@ -540,7 +546,8 @@ func _draw_weapon_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, co
 
 func _draw_pistol_png_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String, alpha: float, pistol_state: Dictionary) -> bool:
 	if _is_pistol_fire_animation_active(weapon_id, pistol_state):
-		var sheet: Texture2D = _get_cached_weapon_texture(PISTOL_FIRE_RECOIL_SHEET_PATH)
+		var sheet_path := BERETTA_FIRE_RECOIL_SHEET_PATH if weapon_id == "commando_pistol" else PISTOL_FIRE_RECOIL_SHEET_PATH
+		var sheet: Texture2D = _get_cached_weapon_texture(sheet_path)
 		if sheet is Texture2D:
 			var frame: int = _get_pistol_fire_recoil_frame(pistol_state)
 			canvas.draw_texture_rect_region(
@@ -552,7 +559,8 @@ func _draw_pistol_png_picture(canvas: CanvasItem, rect: Rect2, weapon_id: String
 				true
 			)
 			return true
-	var icon: Texture2D = _get_cached_weapon_texture(PISTOL_ICON_TEXTURE_PATH)
+	var icon_path := BERETTA_ICON_TEXTURE_PATH if weapon_id == "commando_pistol" else PISTOL_ICON_TEXTURE_PATH
+	var icon: Texture2D = _get_cached_weapon_texture(icon_path)
 	if icon is Texture2D:
 		canvas.draw_texture_rect(icon, rect, false, Color(1.0, 1.0, 1.0, alpha))
 		return true

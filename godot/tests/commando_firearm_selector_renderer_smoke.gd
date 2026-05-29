@@ -27,7 +27,9 @@ func _verify_prewarm_assets() -> void:
 	renderer.prewarm_assets()
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/ui/commando_firearm_hud_frame_v1.png") is Texture2D, "firearm selector prewarm should cache the HUD frame")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_pistol_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the pistol HUD icon")
+	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_beretta_firearm_icon_imagegen_v1.png") is Texture2D, "firearm selector prewarm should cache the Beretta HUD icon")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_pistol_firearm_fire_recoil_sheet_autosprite_v1_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the pistol recoil sheet")
+	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_beretta_firearm_fire_recoil_sheet_autosprite_v1.png") is Texture2D, "firearm selector prewarm should cache the Beretta recoil sheet")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_ak47_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the AK-47 HUD icon")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_ak47_firearm_fire_recoil_sheet_autosprite_v2_realesrgan_animev3_hq1024.png") is Texture2D, "firearm selector prewarm should cache the AK-47 recoil sheet")
 	_expect(ProjectResourceLoader.get_cached_texture("res://assets/sprites/hud/commando_net_gun_firearm_icon_imagegen_v1.png") is Texture2D, "firearm selector prewarm should cache the net-gun HUD icon")
@@ -188,6 +190,8 @@ func _verify_single_fixed_panel_state() -> void:
 	var pistol_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
 	var pistol_ammo: Dictionary = _get_dict(pistol_panel.get("ammo_icon_state", {}))
 	_expect(str(pistol_panel.get("title", "")) == "베레타", "Commando pistol selector should use the Beretta display name")
+	_expect(str(pistol_panel.get("beretta_icon_path", "")) == "res://assets/sprites/hud/commando_beretta_firearm_icon_imagegen_v1.png", "Commando pistol selector should expose the dedicated Beretta HUD icon path")
+	_expect(str(pistol_panel.get("beretta_fire_recoil_sheet_path", "")) == "res://assets/sprites/hud/commando_beretta_firearm_fire_recoil_sheet_autosprite_v1.png", "Commando pistol selector should expose the dedicated AutoSprite Beretta recoil sheet path")
 	_expect(int(pistol_ammo.get("display_slots", 0)) == 8, "Commando pistol should expose eight bullet icon slots")
 	_expect(int(pistol_ammo.get("filled_slots", 0)) == 8, "full Commando pistol should draw eight filled bullet icons")
 	_expect(int(pistol_ammo.get("magazines_max", -1)) == 0 and int(pistol_ammo.get("magazines_current", -1)) == 0, "Beretta should not expose spare magazine icons")
@@ -195,6 +199,17 @@ func _verify_single_fixed_panel_state() -> void:
 	var spent_pistol_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
 	var spent_pistol_ammo: Dictionary = _get_dict(spent_pistol_panel.get("ammo_icon_state", {}))
 	_expect(int(spent_pistol_ammo.get("filled_slots", -1)) == 7, "spent Commando pistol ammo should remove one filled bullet icon")
+	var firing_commando_pistol_panel: Dictionary = renderer.build_panel_state(center, 1.0, {
+		"commando_weapon_controller": controller,
+		"commando_firearm_pistol_state": {
+			"fire_delay_frames": 0.0,
+			"fire_delay_max_frames": 24.0,
+			"post_fire_animation_frames": 18.0,
+			"post_fire_animation_max_frames": 18.0,
+		},
+	})
+	_expect(bool(firing_commando_pistol_panel.get("pistol_fire_recoil_active", false)), "firing Commando pistol panel should activate the dedicated AutoSprite Beretta recoil sheet")
+	_expect(int(firing_commando_pistol_panel.get("pistol_fire_recoil_frame", -1)) == 4, "first Beretta post-shot UI recoil frame should be the muzzle-flash frame")
 
 	_expect(bool(controller.set_current_weapon("ak47")), "AK-47 should be selectable for compressed ammo icon smoke")
 	var ak47_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
@@ -394,9 +409,15 @@ func _verify_firearm_png_assets(panel_state: Dictionary) -> void:
 	var icon_path: String = str(panel_state.get("pistol_icon_path", ""))
 	_expect(icon_path == "res://assets/sprites/hud/commando_pistol_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png", "firearm selector should expose the Real-ESRGAN pistol HUD icon path")
 	_verify_alpha_png_asset(icon_path, Vector2i(1024, 1024), "Real-ESRGAN pistol HUD icon")
+	var beretta_icon_path: String = str(panel_state.get("beretta_icon_path", ""))
+	_expect(beretta_icon_path == "res://assets/sprites/hud/commando_beretta_firearm_icon_imagegen_v1.png", "firearm selector should expose the imagegen Beretta HUD icon path")
+	_verify_alpha_png_asset(beretta_icon_path, Vector2i(1024, 1024), "imagegen Beretta HUD icon")
 	var sheet_path: String = str(panel_state.get("pistol_fire_recoil_sheet_path", ""))
 	_expect(sheet_path == "res://assets/sprites/hud/commando_pistol_firearm_fire_recoil_sheet_autosprite_v1_realesrgan_animev3_hq1024.png", "firearm selector should expose the Real-ESRGAN AutoSprite pistol recoil sheet path")
 	_verify_alpha_png_asset(sheet_path, Vector2i(4096, 4096), "Real-ESRGAN AutoSprite pistol recoil sheet")
+	var beretta_sheet_path: String = str(panel_state.get("beretta_fire_recoil_sheet_path", ""))
+	_expect(beretta_sheet_path == "res://assets/sprites/hud/commando_beretta_firearm_fire_recoil_sheet_autosprite_v1.png", "firearm selector should expose the AutoSprite Beretta recoil sheet path")
+	_verify_alpha_png_asset(beretta_sheet_path, Vector2i(2048, 2048), "AutoSprite Beretta recoil sheet")
 	var ak47_icon_path: String = str(panel_state.get("ak47_icon_path", ""))
 	_expect(ak47_icon_path == "res://assets/sprites/hud/commando_ak47_firearm_icon_imagegen_v1_realesrgan_animev3_hq1024.png", "firearm selector should expose the Real-ESRGAN AK-47 HUD icon path")
 	_verify_alpha_png_asset(ak47_icon_path, Vector2i(1024, 1024), "Real-ESRGAN AK-47 HUD icon")
