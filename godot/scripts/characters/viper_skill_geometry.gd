@@ -573,6 +573,16 @@ static func core_flip_kick_motion(apex_center: Vector2, target_center: Vector2, 
 	}
 
 
+static func core_flip_return_motion(return_start_center: Vector2, origin_center: Vector2, return_t: float) -> Dictionary:
+	var safe_t: float = clamp(return_t, 0.0, 1.0)
+	var ease_t: float = safe_t * safe_t
+	var spin_degrees: float = 1800.0 + (1.0 - pow(1.0 - safe_t, 2.0)) * 90.0
+	return {
+		"center": return_start_center.lerp(origin_center, ease_t),
+		"spin_degrees": spin_degrees,
+	}
+
+
 static func aimed_kick_launch_angle(
 	kick_dir: int,
 	ball_pos: Vector2,

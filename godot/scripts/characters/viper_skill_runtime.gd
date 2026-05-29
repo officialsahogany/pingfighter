@@ -1294,9 +1294,13 @@ func _update_core_flip(
 		3:
 			core_flip_web_lines.clear()
 			var t3: float = min(1.0, core_flip_phase_frames / CORE_FLIP_PHASE3_FRAMES)
-			var ease3: float = t3 * t3
-			core_flip_spin_angle_degrees = 1800.0 + (1.0 - pow(1.0 - t3, 2.0)) * 90.0
-			var return_center: Vector2 = core_flip_return_start_center.lerp(core_flip_origin_center, ease3)
+			var return_motion: Dictionary = ViperSkillGeometry.core_flip_return_motion(
+				core_flip_return_start_center,
+				core_flip_origin_center,
+				t3
+			)
+			core_flip_spin_angle_degrees = float(return_motion.get("spin_degrees", core_flip_spin_angle_degrees))
+			var return_center: Vector2 = _get_vector2(return_motion.get("center", core_flip_origin_center), core_flip_origin_center)
 			next_pos = _center_to_player_pos(return_center, config)
 			if t3 >= 1.0:
 				next_pos = _center_to_player_pos(core_flip_origin_center, config)
