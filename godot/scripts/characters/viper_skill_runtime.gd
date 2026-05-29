@@ -3830,11 +3830,12 @@ func _update_blade_motion(
 		blade_motion_pos.y = min(_get_player_floor_y(config), player_pos.y + BLADE_PREP_FALL_SPEED * fps_scale)
 		next_pos = blade_motion_pos
 	var force_dark_blade_autofire := false
-	if (
-		blade_dark_mode
-		and blade_motion_phase < 2
-		and blade_motion_total_frames >= DARK_BLADE_AUTO_FIRE_START_FRAMES
-		and blade_motion_total_frames <= DARK_BLADE_AUTO_FIRE_END_FRAMES
+	if ViperSkillGeometry.blade_dark_auto_fire_window_active(
+		blade_dark_mode,
+		blade_motion_phase,
+		blade_motion_total_frames,
+		DARK_BLADE_AUTO_FIRE_START_FRAMES,
+		DARK_BLADE_AUTO_FIRE_END_FRAMES
 	):
 		var ball_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 		if ball_vel.y > 0.0:

@@ -75,6 +75,16 @@ static func blade_motion_phase_progress(phase_frames: float, duration_frames: fl
 	return min(1.0, phase_frames / max(1.0, duration_frames))
 
 
+static func blade_dark_auto_fire_window_active(
+	dark_mode: bool,
+	motion_phase: int,
+	total_frames: float,
+	start_frames: float,
+	end_frames: float
+) -> bool:
+	return dark_mode and motion_phase < 2 and total_frames >= start_frames and total_frames <= end_frames
+
+
 static func blade_dark_auto_fire_near_ball(
 	ball_pos: Vector2,
 	ball_size: float,

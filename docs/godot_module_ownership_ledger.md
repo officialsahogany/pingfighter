@@ -3630,7 +3630,7 @@ This section is intentionally long; use search to find the nearest owner.
   and the one-shot Phantom Kick boss-paddle knockback flag. It now also
   owns the Godot `blade_rush` / `dark_blade` projectile slice: airborne
   W activation, spin / launch / jump-rest phase progress, Dark Blade auto-fire
-  proximity, blade and spin audio,
+  window / proximity, blade and spin audio,
   projectile hitbox / homing / fadeout / fan VFX, 30-gold hit reward,
   Air Blade <-> Dark Blade follow-up windows, Dark Blade -> Marshal Kick
   handoff, and `blade_amp` cost / size / range / projectile-speed /
