@@ -43,6 +43,10 @@ static func blade_projectile_motion(
 	return next_pos
 
 
+static func blade_projectile_should_start_fadeout(projectile_y: float, target_y: float, already_fading: bool) -> bool:
+	return not already_fading and projectile_y <= target_y
+
+
 static func blade_projectile_launch_spec(
 	player_pos: Vector2,
 	paddle_size: Vector2,
