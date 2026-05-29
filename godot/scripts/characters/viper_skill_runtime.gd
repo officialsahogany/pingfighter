@@ -3710,12 +3710,13 @@ func _start_blade_motion(
 		blade_spin_sound_active = true
 		blade_spin_audio = blade_audio
 
-	var start_pos: Vector2 = player_pos
-	if pop_up_from_combo:
-		var floor_y: float = _get_player_floor_y(config)
-		var current_offset: float = player_pos.y - floor_y
-		var pop_offset: float = min(current_offset, BLADE_COMBO_POP_MIN_OFFSET) - BLADE_COMBO_POP_EXTRA
-		start_pos = Vector2(player_pos.x, floor_y + pop_offset)
+	var start_pos: Vector2 = ViperSkillGeometry.blade_motion_start_position(
+		player_pos,
+		_get_player_floor_y(config),
+		pop_up_from_combo,
+		BLADE_COMBO_POP_MIN_OFFSET,
+		BLADE_COMBO_POP_EXTRA
+	)
 
 	blade_motion_active = true
 	blade_motion_phase = 0

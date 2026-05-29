@@ -75,6 +75,20 @@ static func blade_motion_phase_progress(phase_frames: float, duration_frames: fl
 	return min(1.0, phase_frames / max(1.0, duration_frames))
 
 
+static func blade_motion_start_position(
+	player_pos: Vector2,
+	floor_y: float,
+	pop_up_from_combo: bool,
+	combo_pop_min_offset: float,
+	combo_pop_extra: float
+) -> Vector2:
+	if not pop_up_from_combo:
+		return player_pos
+	var current_offset: float = player_pos.y - floor_y
+	var pop_offset: float = min(current_offset, combo_pop_min_offset) - combo_pop_extra
+	return Vector2(player_pos.x, floor_y + pop_offset)
+
+
 static func blade_motion_spin_angle(phase: int, progress: float, spin_turns: float) -> float:
 	var safe_progress: float = clamp(progress, 0.0, 1.0)
 	match phase:
