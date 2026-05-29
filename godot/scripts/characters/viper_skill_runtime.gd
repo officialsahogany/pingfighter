@@ -3971,10 +3971,14 @@ func _advance_blade_projectile(fps_scale: float, scene: Dictionary, context: Dic
 	):
 		blade_projectile_fadeout = true
 		blade_projectile_fadeout_frames = BLADE_FADEOUT_FRAMES
-	if blade_projectile_fadeout:
-		blade_projectile_fadeout_frames = max(0.0, blade_projectile_fadeout_frames - fps_scale)
-		if blade_projectile_fadeout_frames <= 0.0:
-			_clear_blade_projectile()
+	var fadeout_tick: Dictionary = ViperSkillGeometry.blade_projectile_fadeout_tick(
+		blade_projectile_fadeout,
+		blade_projectile_fadeout_frames,
+		fps_scale
+	)
+	blade_projectile_fadeout_frames = float(fadeout_tick.get("frames", blade_projectile_fadeout_frames))
+	if bool(fadeout_tick.get("expired", false)):
+		_clear_blade_projectile()
 	return result
 
 
@@ -4033,10 +4037,14 @@ func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, co
 		):
 			projectile["fadeout"] = true
 			projectile["fadeout_frames"] = BLADE_FADEOUT_FRAMES
-		if bool(projectile.get("fadeout", false)):
-			projectile["fadeout_frames"] = max(0.0, float(projectile.get("fadeout_frames", 0.0)) - fps_scale)
-			if float(projectile.get("fadeout_frames", 0.0)) <= 0.0:
-				continue
+		var fadeout_tick: Dictionary = ViperSkillGeometry.blade_projectile_fadeout_tick(
+			bool(projectile.get("fadeout", false)),
+			float(projectile.get("fadeout_frames", 0.0)),
+			fps_scale
+		)
+		projectile["fadeout_frames"] = float(fadeout_tick.get("frames", projectile.get("fadeout_frames", 0.0)))
+		if bool(fadeout_tick.get("expired", false)):
+			continue
 		updated.append(projectile)
 	blade_followup_projectiles = updated
 	return result

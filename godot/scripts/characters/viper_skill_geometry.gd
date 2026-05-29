@@ -47,6 +47,19 @@ static func blade_projectile_should_start_fadeout(projectile_y: float, target_y:
 	return not already_fading and projectile_y <= target_y
 
 
+static func blade_projectile_fadeout_tick(fading: bool, fadeout_frames: float, fps_scale: float) -> Dictionary:
+	if not fading:
+		return {
+			"frames": fadeout_frames,
+			"expired": false,
+		}
+	var next_frames: float = max(0.0, fadeout_frames - fps_scale)
+	return {
+		"frames": next_frames,
+		"expired": next_frames <= 0.0,
+	}
+
+
 static func blade_projectile_hits_ball(
 	projectile_rect: Rect2,
 	target_ball_rect: Rect2,
