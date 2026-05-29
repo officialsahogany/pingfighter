@@ -1,11 +1,15 @@
 extends RefCounted
 
+const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
+
+var _fallback_scene_config: Object = BattleSceneConfig.new()
+
 
 func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dictionary) -> void:
 	sync_runtime_perk_state_ref(runtime, registry)
 	sync_item_perk_level_bonus_to_runtime_perk_state(runtime, owner, registry)
 	sync_skill_cooldown_to_configs(runtime, registry)
-	sync_dash_token_capacity(runtime, registry)
+	sync_dash_token_capacity(runtime, owner, registry)
 	sync_player_status_resistance_to_movement(runtime, registry)
 	sync_gold_digger_to_runtime_perk_state(runtime, registry)
 	if owner == null:
@@ -256,7 +260,7 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 	owner.set("soul_burst_dash_active", runtime.soul_burst_dash_active)
 	owner.set("dashholder_equipped", runtime.is_dashholder_equipped())
 	owner.set("dashholder_dash_token_bonus", runtime.get_dashholder_dash_token_bonus())
-	owner.set("dash_token_capacity", runtime.get_dash_token_capacity(1))
+	owner.set("dash_token_capacity", runtime.get_dash_token_capacity(_get_starting_dash_tokens(owner)))
 	owner.set("poseidon_trident_equipped", runtime.poseidon_runtime.is_equipped(runtime))
 	owner.set("poseidon_trident_context", runtime.get_poseidon_context())
 
@@ -544,14 +548,14 @@ func cleanup_removed_player_skills(runtime: Object, registry: Object, removed_sk
 		runtime_perk_state.set("runtime_skill_levels", levels)
 
 
-func sync_dash_token_capacity(runtime: Object, registry: Object) -> void:
+func sync_dash_token_capacity(runtime: Object, owner: Object, registry: Object) -> void:
 	if registry == null:
 		return
 	var dash_state: Object = runtime._get_instance(registry, "smasher_dash_state")
 	if dash_state == null:
 		return
 	var runtime_perk_state: Object = runtime._get_instance(registry, "runtime_perk_state")
-	var max_tokens: int = runtime.get_dash_token_capacity(1, runtime_perk_state)
+	var max_tokens: int = runtime.get_dash_token_capacity(_get_starting_dash_tokens(owner), runtime_perk_state)
 	var changed := false
 	if dash_state.has_method("set_max_tokens"):
 		changed = bool(dash_state.set_max_tokens(max_tokens, true))
@@ -564,6 +568,17 @@ func sync_dash_token_capacity(runtime: Object, registry: Object) -> void:
 	if orb_hud_state != null and orb_hud_state.has_method("reset_dash_tokens"):
 		var dash_snapshot: Dictionary = dash_state.get_snapshot()
 		orb_hud_state.reset_dash_tokens(int(dash_snapshot.get("tokens", 0)))
+
+
+func _get_starting_dash_tokens(owner: Object) -> int:
+	if owner == null:
+		return 1
+	var owner_value: Variant = owner.get("starting_dash_tokens")
+	if owner_value != null:
+		return max(1, int(owner_value))
+	if _fallback_scene_config != null and _fallback_scene_config.has_method("get_starting_dash_tokens"):
+		return max(1, int(_fallback_scene_config.get_starting_dash_tokens(owner)))
+	return 1
 
 
 func sync_player_status_resistance_to_movement(runtime: Object, registry: Object) -> void:

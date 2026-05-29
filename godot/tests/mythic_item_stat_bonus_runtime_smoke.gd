@@ -23,6 +23,8 @@ class FakeOwner:
 	var dashholder_equipped := false
 	var dashholder_dash_token_bonus := 0
 	var dash_token_capacity := 1
+	var ai_mode := "champion"
+	var starting_dash_tokens := 1
 
 	func queue_redraw() -> void:
 		pass
@@ -100,6 +102,13 @@ func _init() -> void:
 		runtime.get_dash_token_capacity(1, FakeRuntimePerkState.new()) == 4,
 		"Dash Holder should stack with runtime dash amplification"
 	)
+	var junior_runtime := MythicItemRuntime.new()
+	var junior_owner := FakeOwner.new()
+	junior_owner.ai_mode = "junior"
+	junior_owner.starting_dash_tokens = 2
+	var junior_registry := FakeRegistry.new(junior_runtime)
+	_expect(junior_runtime.equip_item("dashholder", junior_owner, junior_registry, {}, false), "Dash Holder should equip in Junior League")
+	_expect(junior_owner.dash_token_capacity == 3, "Dash Holder should stack on Junior League's two-token baseline")
 
 	var gold_index: int = runtime.acquire_item("gold_bar", owner, registry, {}, false, false)
 	_expect(gold_index >= 0, "Gold Bar should be acquirable without equipment slot")
