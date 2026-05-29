@@ -71,6 +71,10 @@ static func blade_projectile_launch_spec(
 	}
 
 
+static func blade_motion_phase_progress(phase_frames: float, duration_frames: float) -> float:
+	return min(1.0, phase_frames / max(1.0, duration_frames))
+
+
 static func blade_hit_velocity(
 	ball_vel: Vector2,
 	impact_boost: float,
