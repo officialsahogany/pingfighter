@@ -211,6 +211,15 @@ func _prepare_selection_state() -> void:
 
 
 func _configure_app_window() -> void:
+	var embedded := Engine.is_embedded_in_editor()
+	var can_manage := false
+	if view_layout != null and view_layout.has_method("_can_manage_os_window"):
+		can_manage = view_layout._can_manage_os_window()
+	if OS.get_environment("PINGFIGHTER_BOOT_WINDOW_DEBUG") == "1":
+		print("[boot] embedded_in_editor=%s can_manage_window=%s window_mode=%s" % [
+			str(embedded), str(can_manage),
+			str(get_window().mode) if get_window() != null else "null",
+		])
 	if view_layout != null and view_layout.has_method("configure_window"):
 		view_layout.configure_window(get_window())
 
