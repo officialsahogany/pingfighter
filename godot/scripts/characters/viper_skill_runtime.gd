@@ -3874,20 +3874,15 @@ func _update_blade_motion(
 			var floor_y: float = _get_player_floor_y(config)
 			var jump_up_frames: float = 27.0 if blade_dark_mode else 18.0
 			var jump_peak: float = 320.0 if blade_dark_mode else 80.0
-			var offset_y: float = 0.0
-			var base_y: float = blade_phase2_base_y
-			if blade_motion_frames < jump_up_frames:
-				var jt0: float = ViperSkillGeometry.blade_motion_phase_progress(blade_motion_frames, jump_up_frames)
-				offset_y = -jump_peak * sin(jt0 * PI * 0.5)
-			else:
-				var jt1: float = ViperSkillGeometry.blade_motion_phase_progress(
-					blade_motion_frames - jump_up_frames,
-					rest_frames - jump_up_frames
-				)
-				var fall_progress: float = 1.0 - cos(jt1 * PI * 0.5)
-				offset_y = -jump_peak * (1.0 - fall_progress)
-				base_y = lerp(blade_phase2_base_y, floor_y, fall_progress)
-			next_pos = Vector2(blade_motion_pos.x, base_y + offset_y)
+			next_pos = ViperSkillGeometry.blade_motion_rest_position(
+				blade_motion_pos.x,
+				blade_phase2_base_y,
+				floor_y,
+				blade_motion_frames,
+				jump_up_frames,
+				rest_frames,
+				jump_peak
+			)
 			blade_motion_pos = next_pos
 			if blade_motion_frames >= rest_frames:
 				next_pos = Vector2(blade_motion_pos.x, floor_y)

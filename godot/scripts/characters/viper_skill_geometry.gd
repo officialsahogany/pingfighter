@@ -86,6 +86,28 @@ static func blade_motion_spin_angle(phase: int, progress: float, spin_turns: flo
 	return 0.0
 
 
+static func blade_motion_rest_position(
+	x_pos: float,
+	phase2_base_y: float,
+	floor_y: float,
+	phase_frames: float,
+	jump_up_frames: float,
+	rest_frames: float,
+	jump_peak: float
+) -> Vector2:
+	var offset_y: float = 0.0
+	var base_y: float = phase2_base_y
+	if phase_frames < jump_up_frames:
+		var jump_t: float = blade_motion_phase_progress(phase_frames, jump_up_frames)
+		offset_y = -jump_peak * sin(jump_t * PI * 0.5)
+	else:
+		var fall_t: float = blade_motion_phase_progress(phase_frames - jump_up_frames, rest_frames - jump_up_frames)
+		var fall_progress: float = 1.0 - cos(fall_t * PI * 0.5)
+		offset_y = -jump_peak * (1.0 - fall_progress)
+		base_y = lerp(phase2_base_y, floor_y, fall_progress)
+	return Vector2(x_pos, base_y + offset_y)
+
+
 static func blade_dark_auto_fire_window_active(
 	dark_mode: bool,
 	motion_phase: int,
