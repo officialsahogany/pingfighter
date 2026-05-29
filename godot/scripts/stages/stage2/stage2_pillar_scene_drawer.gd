@@ -20,6 +20,36 @@ const BLOCKING_OVERLAY_LOD_METHODS := [
 const STAGE2_STATIC_HUD_LOD_SCALE := BattleRenderQuality.FPS_CAP_EFFECT_SCALE
 
 var hud_scene_drawer: Object = Stage1PillarHudSceneDrawer.new()
+var _prewarm_step_index := 0
+var _prewarm_character_type := ""
+var _prewarm_finished_for := ""
+
+
+func prewarm_assets(module_getter: Callable, selected_character_type: String = "smasher") -> void:
+	while not prewarm_assets_step(module_getter, selected_character_type):
+		pass
+
+
+func prewarm_assets_step(module_getter: Callable, selected_character_type: String = "smasher") -> bool:
+	var character_type := str(selected_character_type)
+	if _prewarm_finished_for == character_type:
+		return true
+	if _prewarm_character_type != character_type:
+		_prewarm_character_type = character_type
+		_prewarm_step_index = 0
+	match _prewarm_step_index:
+		0:
+			if hud_scene_drawer != null and hud_scene_drawer.has_method("prewarm_assets_step"):
+				if not bool(hud_scene_drawer.prewarm_assets_step(module_getter, character_type)):
+					return false
+			elif hud_scene_drawer != null and hud_scene_drawer.has_method("prewarm_assets"):
+				hud_scene_drawer.prewarm_assets(module_getter, character_type)
+		_:
+			_prewarm_finished_for = character_type
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func draw(canvas: CanvasItem, context: Dictionary, registry, states: Dictionary) -> void:
@@ -78,6 +108,24 @@ func draw_pillar_hud_overlay(canvas: CanvasItem, context: Dictionary, registry, 
 		game_size,
 		time_seconds
 	)
+
+
+func draw_pillar_background_overlay(canvas: CanvasItem, context: Dictionary, registry, states: Dictionary) -> void:
+	if canvas == null or registry == null:
+		return
+	var perf_logger: Object = context.get("battle_perf_logger", null)
+	var sample_start: int = _perf_begin(perf_logger)
+	var view_size: Vector2 = _get_vector2(context, "view_size", Vector2.ZERO)
+	var game_offset: Vector2 = _get_vector2(context, "game_offset", Vector2.ZERO)
+	var game_size: Vector2 = _get_vector2(context, "game_size", Vector2.ZERO)
+	var width: float = float(context.get("width", 760.0))
+	var quality_scale: float = BattleRenderQuality.effect_scale(context)
+	var stage_background = states.get("stage_background", null)
+	if stage_background == null:
+		stage_background = registry.get_instance("stage2_pillar_background")
+	if stage_background != null and stage_background.has_method("draw_pillar_background_overlay"):
+		stage_background.draw_pillar_background_overlay(canvas, view_size, game_offset, game_size, width, perf_logger, quality_scale)
+	_perf_end(perf_logger, "stage2.pillar.background_overlay", sample_start)
 
 
 func draw_post_playfield_hud(canvas: CanvasItem, context: Dictionary, registry) -> void:

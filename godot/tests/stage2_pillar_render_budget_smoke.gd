@@ -219,7 +219,8 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Stage 2 background should not keep render-budget pass-through wrappers"
 	)
 	_expect(
-		_function_body(background_source, "func draw(").find("AMBIENT_FALLING_LEAF_RENDER_LIMIT_SEVERE_LOD") >= 0,
+		_function_body(background_source, "func draw(").find("_draw_ambient_layers(canvas, quality_scale)") >= 0
+			and _function_body(background_source, "func _draw_ambient_layers").find("AMBIENT_FALLING_LEAF_RENDER_LIMIT_SEVERE_LOD") >= 0,
 		"Stage 2 pillar background draw should disable ambient falling leaves under severe LOD"
 	)
 	_expect(
@@ -363,7 +364,8 @@ func _verify_draw_paths_use_render_caps() -> void:
 		"Stage 2 obstacle draw should cap water-splash rendering with severe LOD"
 	)
 	_expect(
-		_function_body(background_source, "func _prewarm_texture_step").find("ProjectResourceLoader.load_texture") >= 0
+		_function_body(background_source, "func _prewarm_texture_step").find("ProjectResourceLoader.prewarm_texture_threaded_step") >= 0
+			and _function_body(background_source, "func _load_texture_step").find("ProjectResourceLoader.load_texture") >= 0
 			and background_source.find("func _load_base_texture") < 0
 			and background_source.find("func _load_tree_texture") < 0
 			and background_source.find("func _load_game_frame_texture") < 0

@@ -1,6 +1,7 @@
 extends SceneTree
 
 const Stage2PillarBackground := preload("res://scripts/stages/stage2/stage2_pillar_background.gd")
+const Stage2PillarSceneDrawer := preload("res://scripts/stages/stage2/stage2_pillar_scene_drawer.gd")
 
 
 class Stage2DrawProbe:
@@ -9,10 +10,18 @@ class Stage2DrawProbe:
 	var background: Object = null
 	var draw_count := 0
 	var draw_result := false
+	var overlay_draw_result := false
 
 	func _draw() -> void:
 		draw_count += 1
 		draw_result = background.draw(
+			self,
+			Vector2(1280.0, 800.0),
+			Vector2(260.0, 25.0),
+			Vector2(760.0, 750.0),
+			760.0
+		)
+		overlay_draw_result = background.draw_pillar_background_overlay(
 			self,
 			Vector2(1280.0, 800.0),
 			Vector2(260.0, 25.0),
@@ -27,6 +36,9 @@ var frame_count := 0
 
 func _init() -> void:
 	var background: Object = Stage2PillarBackground.new()
+	var scene_drawer: Object = Stage2PillarSceneDrawer.new()
+	_expect(background.has_method("draw_pillar_background_overlay"), "Stage 2 pillar background should expose clipped overlay drawing")
+	_expect(scene_drawer.has_method("draw_pillar_background_overlay"), "Stage 2 pillar scene drawer should restore background during split overlay draws")
 	var asset_status: Dictionary = background.get_imagegen_asset_status()
 	_expect(bool(asset_status.get("base", false)), "Stage 2 pillar base image should load before drawing")
 	_expect(bool(asset_status.get("tree", false)), "Stage 2 pillar tree sprites should load before drawing")
@@ -56,6 +68,7 @@ func _process(_delta: float) -> bool:
 		return false
 	_expect(probe.draw_count > 0, "Stage 2 pillar draw probe should receive a draw callback")
 	_expect(probe.draw_result, "Stage 2 original pillar background draw should return true")
+	_expect(probe.overlay_draw_result, "Stage 2 pillar background overlay draw should return true")
 	print("stage2_pillar_draw_smoke: ok")
 	quit(0)
 	return true

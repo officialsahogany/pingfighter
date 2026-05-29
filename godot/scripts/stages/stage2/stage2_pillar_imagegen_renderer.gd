@@ -20,6 +20,22 @@ func draw(
 	_draw_imagegen_game_frame(canvas, game_offset, game_size, assets)
 
 
+func draw_background_overlay(
+	canvas: CanvasItem,
+	view_size: Vector2,
+	game_offset: Vector2,
+	game_size: Vector2,
+	assets: Dictionary
+) -> void:
+	if canvas == null:
+		return
+	var base_texture: Texture2D = assets.get("base_texture", null) as Texture2D
+	_draw_cover_texture_regions(canvas, base_texture, view_size, _get_background_overlay_rects(view_size, game_offset, game_size))
+	_draw_imagegen_unified_edge_lines(canvas, view_size, game_offset, game_size)
+	_draw_imagegen_tree_layers(canvas, view_size, game_offset, game_size, assets)
+	_draw_imagegen_game_frame(canvas, game_offset, game_size, assets)
+
+
 func _draw_cover_texture(canvas: CanvasItem, texture: Texture2D, view_size: Vector2) -> void:
 	if texture == null:
 		return
@@ -30,6 +46,39 @@ func _draw_cover_texture(canvas: CanvasItem, texture: Texture2D, view_size: Vect
 	var target_size: Vector2 = source_size * scale_factor
 	var target_pos: Vector2 = (view_size - target_size) * 0.5
 	canvas.draw_texture_rect(texture, Rect2(target_pos, target_size), false)
+
+
+func _draw_cover_texture_regions(canvas: CanvasItem, texture: Texture2D, view_size: Vector2, clip_rects: Array[Rect2]) -> void:
+	if texture == null:
+		return
+	var source_size: Vector2 = texture.get_size()
+	if source_size.x <= 0.0 or source_size.y <= 0.0:
+		return
+	var scale_factor: float = max(view_size.x / source_size.x, view_size.y / source_size.y)
+	if scale_factor <= 0.0:
+		return
+	var target_size: Vector2 = source_size * scale_factor
+	var target_pos: Vector2 = (view_size - target_size) * 0.5
+	var full_target := Rect2(target_pos, target_size)
+	for clip_rect in clip_rects:
+		var clipped := clip_rect.intersection(full_target)
+		if clipped.size.x <= 0.0 or clipped.size.y <= 0.0:
+			continue
+		var source_rect := Rect2(
+			(clipped.position - target_pos) / scale_factor,
+			clipped.size / scale_factor
+		)
+		canvas.draw_texture_rect_region(texture, clipped, source_rect, Color.WHITE, false, true)
+
+
+func _get_background_overlay_rects(view_size: Vector2, game_offset: Vector2, game_size: Vector2) -> Array[Rect2]:
+	var game_rect := Rect2(game_offset, game_size)
+	return [
+		Rect2(0.0, 0.0, max(0.0, game_rect.position.x), view_size.y),
+		Rect2(game_rect.end.x, 0.0, max(0.0, view_size.x - game_rect.end.x), view_size.y),
+		Rect2(game_rect.position.x, 0.0, max(0.0, game_rect.size.x), max(0.0, game_rect.position.y)),
+		Rect2(game_rect.position.x, game_rect.end.y, max(0.0, game_rect.size.x), max(0.0, view_size.y - game_rect.end.y)),
+	]
 
 
 func _draw_imagegen_unified_edge_lines(

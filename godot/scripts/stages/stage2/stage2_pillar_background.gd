@@ -1097,7 +1097,8 @@ func prewarm_assets_step(
 		return true
 	match _prewarm_step_index:
 		0, 1, 2, 3, 4, 5:
-			_prewarm_texture_step(_prewarm_step_index)
+			if not _prewarm_texture_step(_prewarm_step_index):
+				return false
 		6:
 			_ensure_ambient_layout(view_size, game_offset, game_size)
 		7:
@@ -1141,6 +1142,38 @@ func draw(canvas: CanvasItem, view_size: Vector2, game_offset: Vector2, game_siz
 		_draw_imagegen_pillars(canvas, view_size, game_offset, game_size)
 	else:
 		_draw_procedural_pillars(canvas, view_size, game_offset, game_size)
+	_draw_ambient_layers(canvas, quality_scale)
+	_perf_end("stage2_pillar_draw", perf_start)
+	return true
+
+
+func draw_pillar_background_overlay(
+	canvas: CanvasItem,
+	view_size: Vector2,
+	game_offset: Vector2,
+	game_size: Vector2,
+	_width: float,
+	_perf_logger: Object = null,
+	quality_scale: float = 1.0
+) -> bool:
+	var perf_start := _perf_begin()
+	if canvas == null or view_size.x <= 0.0 or view_size.y <= 0.0:
+		_perf_end("stage2_pillar_background_overlay", perf_start)
+		return false
+	var prepare_start := _perf_begin()
+	_ensure_textures()
+	_ensure_ambient_layout(view_size, game_offset, game_size)
+	_perf_end("stage2_pillar_overlay_prepare", prepare_start)
+	if base_texture != null:
+		_draw_imagegen_pillar_background_overlay(canvas, view_size, game_offset, game_size)
+	else:
+		_draw_procedural_pillars(canvas, view_size, game_offset, game_size)
+	_draw_ambient_layers(canvas, quality_scale)
+	_perf_end("stage2_pillar_background_overlay", perf_start)
+	return true
+
+
+func _draw_ambient_layers(canvas: CanvasItem, quality_scale: float) -> void:
 	ambient_visual_renderer.draw_ambient_layers(
 		canvas,
 		falling_leaves,
@@ -1159,19 +1192,82 @@ func draw(canvas: CanvasItem, view_size: Vector2, game_offset: Vector2, game_siz
 			SEVERE_LOD_ACTIVE_THRESHOLD
 		)
 	)
-	_perf_end("stage2_pillar_draw", perf_start)
-	return true
 
 
 func _ensure_textures() -> void:
 	if texture_loaded:
 		return
 	for step_index in range(6):
-		_prewarm_texture_step(step_index)
+		_load_texture_step(step_index)
 	texture_loaded = true
 
 
-func _prewarm_texture_step(step_index: int) -> void:
+func _prewarm_texture_step(step_index: int) -> bool:
+	match step_index:
+		0:
+			if base_texture != null:
+				return true
+			var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(Stage2PillarAssets.BASE_TEXTURE_PATH)
+			if not bool(result.get("done", true)):
+				return false
+			base_texture = result.get("texture", null) as Texture2D
+		1:
+			if tree_texture != null:
+				if tree_source_regions.is_empty():
+					tree_source_regions = Stage2PillarAssets.TREE_SOURCE_REGION_DATA.duplicate()
+				return true
+			var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(Stage2PillarAssets.TREE_TEXTURE_PATH)
+			if not bool(result.get("done", true)):
+				return false
+			tree_texture = result.get("texture", null) as Texture2D
+			if tree_texture != null and tree_source_regions.is_empty():
+				tree_source_regions = Stage2PillarAssets.TREE_SOURCE_REGION_DATA.duplicate()
+		2:
+			if game_frame_texture != null:
+				return true
+			var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(Stage2PillarAssets.GAME_FRAME_TEXTURE_PATH)
+			if not bool(result.get("done", true)):
+				return false
+			game_frame_texture = result.get("texture", null) as Texture2D
+		3:
+			if leaf_texture != null:
+				if leaf_source_regions.is_empty():
+					leaf_source_regions = Stage2PillarAssets.LEAF_SOURCE_REGION_DATA.duplicate()
+				return true
+			var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(Stage2PillarAssets.LEAF_TEXTURE_PATH)
+			if not bool(result.get("done", true)):
+				return false
+			leaf_texture = result.get("texture", null) as Texture2D
+			if leaf_texture != null and leaf_source_regions.is_empty():
+				leaf_source_regions = Stage2PillarAssets.LEAF_SOURCE_REGION_DATA.duplicate()
+		4:
+			if rock_texture != null:
+				if rock_source_regions.is_empty():
+					rock_source_regions = Stage2PillarAssets.ROCK_SOURCE_REGION_DATA.duplicate()
+				return true
+			var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(Stage2PillarAssets.ROCK_TEXTURE_PATH)
+			if not bool(result.get("done", true)):
+				return false
+			rock_texture = result.get("texture", null) as Texture2D
+			if rock_texture != null and rock_source_regions.is_empty():
+				rock_source_regions = Stage2PillarAssets.ROCK_SOURCE_REGION_DATA.duplicate()
+		5:
+			if rock_debris_texture != null:
+				if rock_debris_source_regions.is_empty():
+					rock_debris_source_regions = Stage2PillarAssets.ROCK_DEBRIS_SOURCE_REGION_DATA.duplicate()
+				return true
+			var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(Stage2PillarAssets.ROCK_DEBRIS_TEXTURE_PATH)
+			if not bool(result.get("done", true)):
+				return false
+			rock_debris_texture = result.get("texture", null) as Texture2D
+			if rock_debris_texture != null and rock_debris_source_regions.is_empty():
+				rock_debris_source_regions = Stage2PillarAssets.ROCK_DEBRIS_SOURCE_REGION_DATA.duplicate()
+	if step_index >= 5:
+		texture_loaded = true
+	return true
+
+
+func _load_texture_step(step_index: int) -> void:
 	match step_index:
 		0:
 			if base_texture == null:
@@ -1212,6 +1308,17 @@ func _draw_imagegen_pillars(canvas: CanvasItem, view_size: Vector2, game_offset:
 		_get_game_frame_source_hole()
 	)
 	imagegen_renderer.draw(canvas, view_size, game_offset, game_size, imagegen_assets)
+
+
+func _draw_imagegen_pillar_background_overlay(canvas: CanvasItem, view_size: Vector2, game_offset: Vector2, game_size: Vector2) -> void:
+	var imagegen_assets: Dictionary = imagegen_assets_builder.build_assets(
+		base_texture,
+		tree_texture,
+		tree_source_regions,
+		game_frame_texture,
+		_get_game_frame_source_hole()
+	)
+	imagegen_renderer.draw_background_overlay(canvas, view_size, game_offset, game_size, imagegen_assets)
 
 
 func _get_game_frame_source_hole() -> Rect2:
@@ -1723,7 +1830,7 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 
 		if Stage2StarpointDropQuery.overlaps_any_player(d, player_rects, collision_geometry, STARPOINT_DROP_SIZE):
 			if _collect_starpoint_drop(d, context, deps):
-				starpoint_drops.clear()
+				_finish_starpoint_modal_collection(index, write_index, drop_count)
 				return
 			if starpoint_drops.size() < drop_count:
 				return
@@ -1732,6 +1839,16 @@ func _update_starpoint_drops(fps_scale: float, context: Dictionary, deps: Dictio
 		write_index += 1
 	if write_index < drop_count:
 		starpoint_drops.resize(write_index)
+
+
+func _finish_starpoint_modal_collection(collected_index: int, write_index: int, drop_count: int) -> void:
+	if starpoint_drops.size() < drop_count:
+		return
+	var tail_write := write_index
+	for tail_read in range(collected_index + 1, drop_count):
+		starpoint_drops[tail_write] = starpoint_drops[tail_read]
+		tail_write += 1
+	starpoint_drops.resize(tail_write)
 
 
 func _collect_starpoint_drop(drop: Dictionary, context: Dictionary, deps: Dictionary) -> bool:
