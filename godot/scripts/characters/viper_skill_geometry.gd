@@ -108,6 +108,56 @@ static func blade_motion_rest_position(
 	return Vector2(x_pos, base_y + offset_y)
 
 
+static func blade_horizontal_control_motion(
+	player_pos: Vector2,
+	player_speed: float,
+	direction: float,
+	fps_scale: float,
+	config: Dictionary,
+	floor_y: float,
+	paddle_width: float,
+	jetpack_max_height: float,
+	airborne_bonus_max: float,
+	dark_mode: bool
+) -> Dictionary:
+	var max_speed: float = max(0.0, float(config.get("paddle_max_speed", config.get("paddle_speed", 4.0))))
+	var accel: float = max(0.0, float(config.get("paddle_accel", 0.38)))
+	var decel: float = max(0.0, float(config.get("paddle_decel", 0.38)))
+	var turn_decel: float = max(0.0, float(config.get("paddle_turn_decel", 1.0)))
+	var airborne_mult: float = 1.0
+	if player_pos.y < floor_y:
+		var height_ratio: float = clamp((floor_y - player_pos.y) / jetpack_max_height, 0.0, 1.0)
+		airborne_mult += height_ratio * airborne_bonus_max
+	max_speed *= airborne_mult
+	accel *= airborne_mult
+	if dark_mode:
+		max_speed *= 3.0
+		accel *= 3.0
+	if direction < 0.0:
+		var target_left: float = -max_speed
+		if player_speed > target_left:
+			player_speed -= accel * fps_scale
+		if player_speed > 0.0:
+			player_speed -= turn_decel * fps_scale
+	elif direction > 0.0:
+		var target_right: float = max_speed
+		if player_speed < target_right:
+			player_speed += accel * fps_scale
+		if player_speed < 0.0:
+			player_speed += turn_decel * fps_scale
+	else:
+		player_speed = move_toward(player_speed, 0.0, decel * fps_scale)
+	player_speed = clamp(player_speed, -max_speed, max_speed)
+	var next_pos := Vector2(player_pos.x + player_speed * fps_scale, player_pos.y)
+	next_pos = clamp_player_pos(
+		next_pos,
+		float(config.get("play_left", 0.0)),
+		float(config.get("play_right", config.get("width", 760.0))),
+		paddle_width
+	)
+	return {"player_pos": next_pos, "player_speed": player_speed}
+
+
 static func blade_dark_auto_fire_window_active(
 	dark_mode: bool,
 	motion_phase: int,
