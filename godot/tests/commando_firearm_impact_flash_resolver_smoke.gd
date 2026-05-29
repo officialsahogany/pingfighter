@@ -66,14 +66,15 @@ func _verify_direct_impact_flash_resolver() -> void:
 			"secondary": Color(1.0, 0.82, 0.25),
 		},
 		{"explosion_radius": 190.0},
-		42.0
+		float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES)
 	)
 	_expect(str(fire_support.get("kind", "")) == "grenade_explosion", "fire-support impact flash should use grenade explosion kind")
 	_expect(is_equal_approx(float(fire_support.get("radius", 0.0)), 190.0), "fire-support impact flash should use explosion radius")
-	_expect(is_equal_approx(float(fire_support.get("timer_frames", 0.0)), 42.0), "fire-support impact flash should use grenade duration")
-	_expect(is_equal_approx(float(fire_support.get("max_duration_frames", 0.0)), 42.0), "fire-support max duration should mirror grenade duration")
+	_expect(is_equal_approx(float(fire_support.get("timer_frames", 0.0)), float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES)), "fire-support impact flash should use airstrike duration")
+	_expect(is_equal_approx(float(fire_support.get("max_duration_frames", 0.0)), float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES)), "fire-support max duration should mirror airstrike duration")
 	_expect(str(fire_support.get("explosion_style", "")) == GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_STYLE, "fire-support impact flash should request the airstrike explosion renderer")
 	_expect(int(fire_support.get("texture_layer_count", 0)) == GrenadeExplosionDrawer.FIRE_SUPPORT_TEXTURE_LAYER_COUNT, "fire-support impact flash should expose the airstrike texture budget")
+	_expect(not fire_support.has("duration_frames"), "fire-support impact flash must not carry a static duration_frames key that overrides the animated timer_frames lookup in GrenadeExplosionDrawer.draw_zone")
 
 
 func _verify_runtime_uses_impact_flash_resolver() -> void:
@@ -95,14 +96,15 @@ func _verify_runtime_uses_impact_flash_resolver() -> void:
 		CommandoFirearmRuntime.WEAPON_PROFILES,
 		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
 		CommandoFirearmRuntime.BASE_WEAPON_ID,
-		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+		float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES),
 		CommandoFirearmRuntime.FLASH_LIMIT
 	)
 	_expect(runtime.impact_flashes.size() == 1, "runtime spawn should append one impact flash")
 	var spawned: Dictionary = CommandoFirearmValueUtils.get_dict(runtime.impact_flashes[0])
 	_expect(str(spawned.get("kind", "")) == "grenade_explosion", "runtime spawn should preserve fire-support grenade visual kind")
-	_expect(is_equal_approx(float(spawned.get("max_timer_frames", 0.0)), float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES)), "runtime spawn should preserve fire-support visual duration")
+	_expect(is_equal_approx(float(spawned.get("max_timer_frames", 0.0)), float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES)), "runtime spawn should preserve fire-support airstrike duration")
 	_expect(str(spawned.get("explosion_style", "")) == GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_STYLE, "runtime spawn should preserve fire-support airstrike style")
+	_expect(float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES) > float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES), "airstrike duration should outlast grenade duration so the bombing blast can settle")
 
 
 func _get_vector2(value: Variant) -> Vector2:

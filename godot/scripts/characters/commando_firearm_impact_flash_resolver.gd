@@ -23,7 +23,6 @@ static func build_flash(
 		"kind": flash_kind,
 		"pos": CommandoFirearmValueUtils.get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO),
 		"radius": impact_radius,
-		"duration_frames": flash_timer,
 		"timer_frames": flash_timer,
 		"max_duration_frames": flash_timer,
 		"max_timer_frames": flash_timer,

@@ -217,6 +217,10 @@ static func dispatch_runtime_impact(
 		grenade_explosion_duration_frames,
 		flash_limit
 	)
+	CommandoFirearmHitFeedbackDispatcher.trigger_explosion_screen_shake(
+		CommandoFirearmValueUtils.get_projectile_weapon_id(projectile, base_weapon_id),
+		deps
+	)
 	var rock_impact_profile: Dictionary = CommandoFirearmProfileResolver.get_weapon_profile(
 		projectile_weapon_id,
 		weapon_profiles,

@@ -25,6 +25,7 @@ const CommandoFirearmSupportCallResolver := preload("res://scripts/characters/co
 const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/commando_firearm_suicide_drone_state.gd")
 const CommandoFirearmTimerState := preload("res://scripts/characters/commando_firearm_timer_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
+const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -198,7 +199,7 @@ const DOPING_POTION_DEFAULTS := {
 	"bazooka_control_lock_frames": DOPING_POTION_BAZOOKA_CONTROL_LOCK_FRAMES,
 }
 const AK47_BOSS_DAMAGE_HIT_THRESHOLD := 20
-const AK47_AMMO_MAX := 60
+const AK47_AMMO_MAX := 90
 const AK47_DURATION_FRAMES := 1800.0
 const AK47_FIRE_INTERVAL_FRAMES := 6.0
 const AK47_INITIAL_BURST_SHOTS := 2
@@ -256,6 +257,9 @@ const SUICIDE_DRONE_ROTOR_SPEED_SCALE := 2.0
 const SUICIDE_DRONE_BALL_SPEED_MULTIPLIER := 3.0
 const SUICIDE_DRONE_BALL_FAN_DEGREES := 25.0
 const SUICIDE_DRONE_LIFE_FRAMES := 3600.0
+const SUICIDE_DRONE_KNOCKBACK_POWER := 12.0
+const SUICIDE_DRONE_KNOCKBACK_FRAMES := PISTOL_BOSS_KNOCKBACK_FRAMES
+const SUICIDE_DRONE_KNOCKBACK_DECAY_PER_FRAME := PISTOL_BOSS_KNOCKBACK_DECAY_PER_FRAME
 
 const DRAW_CONTEXT_TIMING := {
 	"slingshot_charge_threshold_frames": SLINGSHOT_CHARGE_THRESHOLD_3,
@@ -439,7 +443,9 @@ const WEAPON_HIT_RESULTS := {
 	},
 	"suicide_drone": {
 		"stun_frames": 48.0,
-		"knockback_power": 0.0,
+		"knockback_power": SUICIDE_DRONE_KNOCKBACK_POWER,
+		"knockback_frames": SUICIDE_DRONE_KNOCKBACK_FRAMES,
+		"knockback_decay_per_frame": SUICIDE_DRONE_KNOCKBACK_DECAY_PER_FRAME,
 		"damage_units": 0,
 	},
 }
@@ -888,7 +894,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 			"support_missile_life_frames": SUPPORT_MISSILE_LIFE_FRAMES,
 			"support_bomb_random_x_range": SUPPORT_BOMB_RANDOM_X_RANGE,
 			"projectile_limit": PROJECTILE_LIMIT,
-			"grenade_explosion_duration_frames": float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+			"grenade_explosion_duration_frames": float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES),
 			"flash_limit": FLASH_LIMIT,
 			"bowling_trap_install_frames": BOWLING_TRAP_INSTALL_FRAMES,
 			"bowling_trap_capture_frames": BOWLING_TRAP_CAPTURE_FRAMES,
@@ -1173,7 +1179,7 @@ func _update_active_suicide_drone_input(
 			"suicide_drone_cooldown_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
 			"suicide_drone_ball_speed_multiplier": SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
 			"suicide_drone_ball_fan_degrees": SUICIDE_DRONE_BALL_FAN_DEGREES,
-			"grenade_explosion_duration_frames": float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+			"grenade_explosion_duration_frames": float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES),
 			"flash_limit": FLASH_LIMIT,
 		}
 	)
@@ -1268,7 +1274,7 @@ func _update_projectiles(fps_scale: float, context: Dictionary, deps: Dictionary
 			"suicide_drone_cooldown_frames": SUICIDE_DRONE_COOLDOWN_FRAMES,
 			"suicide_drone_ball_speed_multiplier": SUICIDE_DRONE_BALL_SPEED_MULTIPLIER,
 			"suicide_drone_ball_fan_degrees": SUICIDE_DRONE_BALL_FAN_DEGREES,
-			"grenade_explosion_duration_frames": float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+			"grenade_explosion_duration_frames": float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES),
 			"flash_limit": FLASH_LIMIT,
 		}
 	)

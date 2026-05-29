@@ -664,7 +664,7 @@ func _verify_ak47_hold_burst_ammo_duration_and_slowdown() -> void:
 
 	var first: Dictionary = runtime.update_input({"action_pressed": true, "action_just_pressed": true}, 500.0, config, deps)
 	_expect(bool(first.get("fired", false)), "AK-47 first trigger press should fire immediately")
-	_expect(int(first.get("ammo_current", -1)) == 59, "AK-47 first shot should spend one of 60 bullets")
+	_expect(int(first.get("ammo_current", -1)) == 89, "AK-47 first shot should spend one of 90 bullets")
 	_expect(is_equal_approx(float(first.get("duration_frames", 0.0)), 1799.0), "AK-47 active durability should tick while the trigger is held")
 	_expect(is_equal_approx(float(first.get("movement_speed_multiplier", 1.0)), 0.5), "AK-47 held fire should expose the Python 50% movement debuff")
 	_expect(is_equal_approx(float(runtime.get_movement_speed_multiplier()), 0.5), "AK-47 runtime should keep movement debuff while trigger is held")
@@ -685,7 +685,7 @@ func _verify_ak47_hold_burst_ammo_duration_and_slowdown() -> void:
 		_expect(not bool(waiting.get("fired", false)), "AK-47 should wait for the 6-frame fire interval between burst shots")
 	var second: Dictionary = runtime.update_input({"action_pressed": true, "action_just_pressed": false}, 500.0, config, deps)
 	_expect(bool(second.get("fired", false)), "AK-47 held trigger should fire the second burst shot after 6 frames")
-	_expect(int(second.get("ammo_current", -1)) == 58, "AK-47 second burst shot should spend another bullet")
+	_expect(int(second.get("ammo_current", -1)) == 88, "AK-47 second burst shot should spend another bullet")
 	_expect(int(second.get("burst_shots_remaining", -1)) == 0, "AK-47 initial burst should consume its two-shot budget")
 	_expect(is_equal_approx(float(second.get("recoil_accumulation", 0.0)), 0.06), "AK-47 second shot should keep accumulating recoil spread")
 	var second_projectile: Dictionary = _get_dict(_get_array(runtime.get_actor_draw_context().get("commando_firearm_projectiles", []))[1])
@@ -696,7 +696,7 @@ func _verify_ak47_hold_burst_ammo_duration_and_slowdown() -> void:
 	for _i in range(6):
 		third = runtime.update_input({"action_pressed": true, "action_just_pressed": false}, 500.0, config, deps)
 	_expect(bool(third.get("fired", false)), "AK-47 held trigger should continue into automatic fire after the burst")
-	_expect(int(third.get("ammo_current", -1)) == 57, "AK-47 automatic fire should continue spending ammo")
+	_expect(int(third.get("ammo_current", -1)) == 87, "AK-47 automatic fire should continue spending ammo")
 	_expect(_get_array(audio.fire_calls).size() == 3, "AK-47 three shots should play three rapid-fire cues")
 	_expect(is_equal_approx(float(third.get("recoil_accumulation", 0.0)), 0.09), "AK-47 automatic fire should keep accumulating recoil spread")
 	var held_context: Dictionary = runtime.get_actor_draw_context()
@@ -709,9 +709,9 @@ func _verify_ak47_hold_burst_ammo_duration_and_slowdown() -> void:
 	runtime.update_input({"action_pressed": false, "action_just_released": true}, 500.0, config, deps)
 	_expect(is_equal_approx(float(runtime.get_movement_speed_multiplier()), 1.0), "AK-47 release should clear the movement debuff")
 	var weapon_data: Dictionary = controller.get_current_weapon_data()
-	_expect(int(weapon_data.get("ammo_current", -1)) == 57, "AK-47 controller ammo should stay synced after held fire")
+	_expect(int(weapon_data.get("ammo_current", -1)) == 87, "AK-47 controller ammo should stay synced after held fire")
 	_expect(float(weapon_data.get("duration_frames", 1800.0)) < 1800.0, "AK-47 controller should expose consumed durability")
-	_expect(str(weapon_data.get("ammo_text", "")).begins_with("탄약 57/60 · 내구 "), "AK-47 ammo text should include bullets and durability")
+	_expect(str(weapon_data.get("ammo_text", "")).begins_with("탄약 87/90 · 내구 "), "AK-47 ammo text should include bullets and durability")
 
 
 func _verify_removed_ak47_runtime_bridges() -> void:
@@ -743,11 +743,13 @@ func _verify_weapon_hit_status_profiles() -> void:
 
 	runtime._register_projectile_hit(_direct_projectile("suicide_drone", Vector2(360.0, 82.0), Vector2(8.0, -8.0)), config, deps)
 	var drone_calls: Array = _get_array(status_effect_state.get_calls_for_source("commando_firearm_suicide_drone"))
-	_expect(drone_calls.size() == 1, "suicide drone hit should apply only the original 0.8s boss stun")
+	_expect(drone_calls.size() == 1, "suicide drone hit should apply the original 0.8s boss stun with light knockback")
 	_expect(str(_get_dict(drone_calls[0]).get("status_id", "")) == "stun", "suicide drone should apply boss stun")
 	var drone_status_data: Dictionary = _get_dict(_get_dict(drone_calls[0]).get("data", {}))
-	_expect(is_equal_approx(float(drone_status_data.get("knockback_vel", 999.0)), 0.0), "suicide drone stun should not push the boss with the old slow drift knockback")
-	_expect(not bool(drone_status_data.get("knockback_active", true)), "suicide drone stun should freeze without knockback motion")
+	_expect(is_equal_approx(abs(float(drone_status_data.get("knockback_vel", 0.0))), CommandoFirearmRuntime.SUICIDE_DRONE_KNOCKBACK_POWER), "suicide drone explosion should nudge the boss with the light drone knockback")
+	_expect(bool(drone_status_data.get("knockback_active", false)), "suicide drone stun should expose a short knockback motion")
+	_expect(is_equal_approx(float(drone_status_data.get("knockback_frames", 0.0)), CommandoFirearmRuntime.SUICIDE_DRONE_KNOCKBACK_FRAMES), "suicide drone knockback should use the shared short motion window")
+	_expect(is_equal_approx(float(drone_status_data.get("knockback_decay_per_frame", 0.0)), CommandoFirearmRuntime.SUICIDE_DRONE_KNOCKBACK_DECAY_PER_FRAME), "suicide drone knockback should decay through the shared fire-event feel")
 
 	var support_projectile: Dictionary = _direct_projectile("fire_support", Vector2(360.0, 82.0), Vector2(0.0, 12.0))
 	support_projectile["kind"] = "support"
@@ -757,7 +759,7 @@ func _verify_weapon_hit_status_profiles() -> void:
 		CommandoFirearmRuntime.WEAPON_PROFILES,
 		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
 		CommandoFirearmRuntime.BASE_WEAPON_ID,
-		float(ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES),
+		float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES),
 		CommandoFirearmRuntime.FLASH_LIMIT
 	)
 	runtime._register_projectile_hit(support_projectile, config, deps)
@@ -774,7 +776,7 @@ func _verify_weapon_hit_status_profiles() -> void:
 	_expect(str(support_flash.get("explosion_style", "")) == GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_STYLE, "fire support bomb should use the high-quality airstrike explosion style")
 	_expect(int(support_flash.get("texture_layer_count", 0)) == GrenadeExplosionDrawer.FIRE_SUPPORT_TEXTURE_LAYER_COUNT, "fire support bomb should expose the airstrike texture layer budget")
 	_expect(is_equal_approx(float(support_flash.get("radius", 0.0)), ActiveItemThrowController.GRENADE_EXPLOSION_RADIUS), "fire support bomb explosion radius should match grenade radius")
-	_expect(is_equal_approx(float(support_flash.get("max_timer_frames", 0.0)), ActiveItemThrowController.GRENADE_EXPLOSION_DURATION_FRAMES), "fire support bomb explosion visual duration should match grenade duration")
+	_expect(is_equal_approx(float(support_flash.get("max_timer_frames", 0.0)), float(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES)), "fire support bomb explosion visual duration should match airstrike duration")
 	_expect(not _has_lingering_effect_for_weapon(runtime, "fire_support"), "fire support should not add an extra blast-field residue over the grenade explosion effect")
 
 	var recent_events: Array = _get_array(runtime.get_recent_hit_events())

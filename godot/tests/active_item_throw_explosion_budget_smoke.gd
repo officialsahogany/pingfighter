@@ -36,8 +36,11 @@ func _verify_shared_grenade_explosion_budget() -> void:
 	_expect(GrenadeExplosionDrawer.GRENADE_EXPLOSION_SPARKS <= 4, "shared grenade explosion should cap sparks")
 	_expect(GrenadeExplosionDrawer.get_texture_layer_count({"source": "grenade"}) == 0, "shared grenade item explosions should keep the low-cost draw budget")
 	_expect(GrenadeExplosionDrawer.get_texture_layer_count({"weapon_id": "fire_support", "kind": "grenade_explosion"}) == GrenadeExplosionDrawer.FIRE_SUPPORT_TEXTURE_LAYER_COUNT, "fire-support airstrike explosions should expose their texture layer budget separately")
-	_expect(GrenadeExplosionDrawer.FIRE_SUPPORT_SMOKE_PUFFS <= 7, "fire-support airstrike smoke should stay capped")
-	_expect(GrenadeExplosionDrawer.FIRE_SUPPORT_SPARKS <= 10, "fire-support airstrike sparks should stay capped")
+	_expect(GrenadeExplosionDrawer.FIRE_SUPPORT_SMOKE_PUFFS <= 10, "fire-support airstrike smoke should stay capped")
+	_expect(GrenadeExplosionDrawer.FIRE_SUPPORT_SPARKS <= 16, "fire-support airstrike sparks should stay capped")
+	_expect(GrenadeExplosionDrawer.FIRE_SUPPORT_DEBRIS_CHUNKS <= 14, "fire-support airstrike debris chunks should stay capped")
+	_expect(GrenadeExplosionDrawer.FIRE_SUPPORT_MUSHROOM_PUFFS <= 6, "fire-support airstrike mushroom cap puffs should stay capped")
+	_expect(GrenadeExplosionDrawer.FIRE_SUPPORT_EXPLOSION_DURATION_FRAMES <= 60.0, "fire-support airstrike duration should stay capped so multiple bombs do not stack draw cost forever")
 	var source := FileAccess.get_file_as_string("res://scripts/effects/grenade_explosion_drawer.gd")
 	_expect(source.find("draw_arc(center, shockwave_radius, 0.0, TAU, 28") >= 0, "shared grenade explosion shockwave should use the reduced point count")
 

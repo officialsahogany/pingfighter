@@ -87,6 +87,7 @@ class FakeRuntimeOwner:
 func _init() -> void:
 	_verify_direct_projectile_impact_state()
 	_verify_environment_impact_state()
+	_verify_fire_support_impact_screen_shake()
 
 	if _failures.is_empty():
 		print("commando_firearm_projectile_impact_state_smoke: ok")
@@ -317,6 +318,75 @@ func _verify_environment_impact_state() -> void:
 	_expect(runtime_source.find("CommandoFirearmProjectileImpactState.build_hit_event(") == -1, "runtime should not build projectile hit events inline")
 	_expect(runtime_source.find("CommandoFirearmStage2RockInteractionResolver") == -1, "runtime should not own projectile impact rock cleanup")
 	_expect(runtime_source.find("CommandoFirearmHitGeometry.is_net_gun_weapon") == -1, "runtime should not own net-gun impact dissolve branching")
+
+
+func _verify_fire_support_impact_screen_shake() -> void:
+	var impact_flashes: Array = []
+	var feedback := FakeFeedback.new()
+	var impact_effects := FakeImpactEffects.new()
+	var audio := FakeAudio.new()
+	CommandoFirearmProjectileImpactState.dispatch_runtime_impact(
+		impact_flashes,
+		null,
+		{
+			"id": 42,
+			"weapon_id": "fire_support",
+			"kind": "support",
+			"pos": Vector2(380.0, 24.0),
+			"velocity": Vector2(0.0, 12.0),
+			"color": Color(1.0, 0.34, 0.16),
+			"secondary": Color(1.0, 0.82, 0.25),
+		},
+		"wall",
+		"fire_support",
+		{},
+		{
+			"feedback": feedback,
+			"impact_effects": impact_effects,
+			"audio": audio,
+		},
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		48.0,
+		4
+	)
+	_expect(feedback.calls.size() >= 2, "fire-support wall impact should trigger both the per-hit feedback AND the dedicated airstrike screen shake")
+	var has_explosion_shake: bool = false
+	for entry_value in feedback.calls:
+		var entry: Dictionary = entry_value
+		if float(entry.get("amount", 0.0)) >= 1.5 and float(entry.get("intensity", 0.0)) >= 10.0:
+			has_explosion_shake = true
+			break
+	_expect(has_explosion_shake, "fire-support airstrike must apply the dedicated big-bomb screen shake amount/intensity")
+
+	var bazooka_flashes: Array = []
+	var bazooka_feedback := FakeFeedback.new()
+	CommandoFirearmProjectileImpactState.dispatch_runtime_impact(
+		bazooka_flashes,
+		null,
+		{
+			"id": 43,
+			"weapon_id": "bazooka",
+			"kind": "rocket",
+			"pos": Vector2(120.0, 80.0),
+			"velocity": Vector2(0.0, -8.0),
+		},
+		"wall",
+		"bazooka",
+		{},
+		{"feedback": bazooka_feedback},
+		CommandoFirearmRuntime.WEAPON_PROFILES,
+		CommandoFirearmRuntime.WEAPON_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.WEAPON_HIT_FEEDBACK,
+		CommandoFirearmRuntime.HIT_FEEDBACK_PROFILE_OVERRIDES,
+		CommandoFirearmRuntime.BASE_WEAPON_ID,
+		24.0,
+		4
+	)
+	_expect(bazooka_feedback.calls.size() == 1, "non-fire-support impacts should still receive only the per-hit feedback shake, not the dedicated airstrike shake")
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -254,6 +254,37 @@ draw module creation, Stage 1 pillar mythic runtime lookup during draw,
 perk-debug overlay first visible draw, and the modal-gate physics regression
 where closed overlay checks lazy-created modules for a 158ms spike.
 
+## Godot Effect Drawer Static-Frame Trap
+
+When a Godot effect zone drawer reads its life/elapsed from a different key
+than the per-frame tickdown updates, the visual appears for the full duration
+as a frozen frame-0 still and then disappears -- the timer is decrementing,
+but the drawer is looking at the wrong field. Reference failure: the Commando
+fire-support airstrike used `GrenadeExplosionDrawer.draw_zone()`, which reads
+`duration_frames` first (fallback `timer_frames`), but
+`commando_firearm_impact_flash_resolver` set both `duration_frames` and
+`timer_frames` to the same initial value, and `advance_timed_effects()` only
+decrements `timer_frames`. The drawer therefore saw a constant elapsed=0 for
+the entire airstrike, producing a static "pop in / pop out" instead of the
+animated grenade-style blast.
+
+Standing rules for effect zone / impact flash wiring:
+- Pick ONE timer key (`timer_frames` OR `duration_frames`) per effect family
+  and use it consistently across resolver -> tick -> drawer. Do not duplicate
+  the same initial value into both keys "just in case."
+- If a shared drawer reads `duration_frames` first with `timer_frames`
+  fallback, any caller whose tickdown updates only `timer_frames` must NOT
+  set `duration_frames` in the zone dict at all. The fallback chain only
+  works if the unwanted-by-this-caller key is absent.
+- Add a focused smoke that asserts the impact-flash dict does NOT carry the
+  static-only key the drawer would prefer
+  (`commando_firearm_impact_flash_resolver_smoke.gd` is the reference: it
+  asserts `not fire_support.has("duration_frames")`).
+- When porting a grenade-style explosion to a new weapon / item / boss skill,
+  verify in-game that the explosion actually animates -- a static frame-0
+  render can hide behind correct radius / color / texture metadata and a
+  passing tick-decrement smoke.
+
 ## Direct Draw Request Routing
 
 When the user asks to "draw" something -- including Korean wording such
