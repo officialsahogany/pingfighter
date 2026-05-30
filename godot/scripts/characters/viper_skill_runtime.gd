@@ -1202,11 +1202,15 @@ func _has_core_flip_input_buffer(now_msec: int, input_snapshot: Dictionary) -> b
 		return false
 	if _has_core_flip_input_combo(input_snapshot):
 		_buffer_core_flip_input_until_ready_window_end()
-	return core_flip_buffered_until_msec >= now_msec
+	return _is_core_flip_input_buffer_active(now_msec)
 
 
 func _buffer_core_flip_input_until_ready_window_end() -> void:
 	core_flip_buffered_until_msec = _get_core_flip_ready_window_end_msec()
+
+
+func _is_core_flip_input_buffer_active(now_msec: int) -> bool:
+	return core_flip_buffered_until_msec >= now_msec
 
 
 func _validate_core_flip_input_buffer_window(now_msec: int) -> bool:
