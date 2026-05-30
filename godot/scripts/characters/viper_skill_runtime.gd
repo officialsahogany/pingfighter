@@ -293,6 +293,7 @@ const MARSHAL_HIT_PULSE_KIND := "viper_marshal"
 const MARSHAL_DOUBLE_HIT_PULSE_KIND := "viper_double_marshal"
 const MARSHAL_HIT_ENERGY_INTENSITY := 0.72
 const MARSHAL_DOUBLE_HIT_ENERGY_INTENSITY := 0.96
+const MARSHAL_HIT_PLAYER_COLLISION_COOLDOWN := 6.0
 const MARSHAL_HIT_MOTION_PARTICLE_COUNT := 14
 const MARSHAL_DOUBLE_HIT_MOTION_PARTICLE_COUNT := 22
 const CORE_FLIP_HIT_MOTION_PARTICLE_COUNT := 18
@@ -5121,7 +5122,7 @@ func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 	var result := {
 		"ball_vel": next_vel,
 		"ball_impact_boost": max(1.0, float(config.get("ball_impact_boost", 1.0))),
-		"player_collision_cooldown": max(6.0, float(config.get("player_collision_cooldown", 0.0))),
+		"player_collision_cooldown": max(MARSHAL_HIT_PLAYER_COLLISION_COOLDOWN, float(config.get("player_collision_cooldown", 0.0))),
 		"viper_phantom_kick_knockback_pending": phantom_kick_knockback_pending,
 	}
 	var gold_award: int = 50 if marshal_is_double else 30
