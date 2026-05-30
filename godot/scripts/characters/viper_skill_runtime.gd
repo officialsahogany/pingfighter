@@ -4114,9 +4114,9 @@ func _apply_blade_hit(
 
 func _maybe_spawn_blade_amp_followup_blade(context: Dictionary, deps: Dictionary, dark_mode: bool) -> void:
 	var blade_amp_level: int = max(0, _get_blade_amp_level(deps))
-	if blade_amp_level < 3:
+	var chance_pct: int = skill_scaling.get_blade_amp_followup_chance_pct(blade_amp_level)
+	if chance_pct <= 0:
 		return
-	var chance_pct: int = min(100, (blade_amp_level - 2) * 10)
 	if randf() >= float(chance_pct) / 100.0:
 		return
 	var player_pos: Vector2 = _get_vector2(context.get("player_pos", blade_motion_pos), blade_motion_pos)

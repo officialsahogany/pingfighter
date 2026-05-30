@@ -77,6 +77,13 @@ func get_blade_skill_cost(base_cost: float, blade_amp_level: int, skill_name: St
 	return base_cost
 
 
+func get_blade_amp_followup_chance_pct(blade_amp_level: int) -> int:
+	var safe_level: int = max(0, blade_amp_level)
+	if safe_level < 3:
+		return 0
+	return min(100, (safe_level - 2) * 10)
+
+
 func get_marshal_duration_frames(base_frames: float, kick_enhance_level: int, marshal_is_double: bool, double_fast: bool, double_fast_mult: float) -> float:
 	var speed_base: float = base_frames / double_fast_mult if (double_fast and marshal_is_double) else base_frames
 	return max(1.0, speed_base * get_marshal_prep_duration_mult(kick_enhance_level))

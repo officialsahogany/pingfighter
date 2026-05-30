@@ -3666,8 +3666,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/viper_skill_scaling.gd`
   Owns reusable Viper scalar / balance helpers: Four Poisons percentage and
   additive cooldown math, Dual Glitch clone HP scaling, Blade skill cost
-  scaling, Marshal Kick prep-duration / hit-speed scaling, and Core Flip
-  duration / hit-speed scaling.
+  scaling and Blade Amp follow-up chance scaling, Marshal Kick
+  prep-duration / hit-speed scaling, and Core Flip duration / hit-speed scaling.
 - `scripts/characters/viper_skill_geometry.gd`
   Owns shared Viper skill geometry helpers: player / ball / boss center
   extraction, player-position clamping, blade start-position combo pop, blade prep fall motion, blade projectile launch / hit-velocity motion, blade rest-position arc, blade horizontal control motion, blade / ball hit rects, segment-rect
