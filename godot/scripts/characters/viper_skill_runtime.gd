@@ -1190,13 +1190,17 @@ func _is_core_flip_ready_window_active(now_msec: int) -> bool:
 
 
 func _is_core_flip_ready_window_expired(now_msec: int) -> bool:
-	return now_msec > core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC
+	return now_msec > _get_core_flip_ready_window_end_msec()
+
+
+func _get_core_flip_ready_window_end_msec() -> int:
+	return core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC
 
 
 func _has_core_flip_input_buffer(now_msec: int, input_snapshot: Dictionary) -> bool:
 	if not _validate_core_flip_input_buffer_window(now_msec):
 		return false
-	var window_end_msec: int = core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC
+	var window_end_msec: int = _get_core_flip_ready_window_end_msec()
 	var combo_detected: bool = _is_core_flip_pressed_input_combo(input_snapshot)
 	if not combo_detected:
 		combo_detected = _is_core_flip_stored_input_combo()
