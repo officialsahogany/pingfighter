@@ -1117,7 +1117,11 @@ func _open_core_flip_ready_window(ready_msec: int) -> void:
 
 
 func _can_try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary) -> bool:
-	return not bool(dash_snapshot.get("is_half", false)) and not core_flip_consumed and _has_core_flip_dash_start()
+	return (
+		not bool(dash_snapshot.get("is_half", false))
+		and not core_flip_consumed
+		and _has_core_flip_dash_start()
+	)
 
 
 func _has_core_flip_dash_start() -> bool:
