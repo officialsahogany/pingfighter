@@ -118,6 +118,7 @@ const BLADE_AMP_FOLLOWUP_RANGE_SCALE := 0.88
 const BLADE_AMP_FOLLOWUP_HIT_SPEED_SCALE := 0.55
 const BLADE_AMP_FOLLOWUP_MIN_WIDTH := 80.0
 const BLADE_DUAL_GLITCH_REPLICA_MIN_SCALE := 0.1
+const BLADE_DUAL_GLITCH_REPLICA_HIT_SPEED_SCALE := 1.0
 const BLADE_PREP_FALL_SPEED := 3.0
 const BLADE_AIRBORNE_MOVE_BONUS_MAX := 2.15
 const BLADE_JETPACK_MAX_HEIGHT := 200.0
@@ -4180,7 +4181,7 @@ func _spawn_dual_glitch_clone_blades_for_current_cast(
 			start_y - travel,
 			width,
 			dark_mode,
-			1.0,
+			BLADE_DUAL_GLITCH_REPLICA_HIT_SPEED_SCALE,
 			{
 				"dual_glitch_replica": true,
 				"side": int(origin.get("side", 0)),
