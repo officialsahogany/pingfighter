@@ -306,6 +306,7 @@ const MARSHAL_HIT_MOTION_PARTICLE_LIFE_MAX := 34.0
 const MARSHAL_HIT_MOTION_PARTICLE_KIND := "impact"
 const MARSHAL_HIT_MOTION_PARTICLE_CHANCE := 1.0
 const CORE_FLIP_HIT_MOTION_PARTICLE_COUNT := 18
+const CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD := 12.0
 const PHANTOM_HIT_PARTICLE_COUNT := 85
 const PHANTOM_HIT_PARTICLE_MAX_COUNT := 90
 const VIPER_HIT_PARTICLE_GLOW_SIZE_THRESHOLD := 3.2
@@ -1417,7 +1418,10 @@ func _apply_core_flip_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 	var pulse_registered := _register_ball_hit_pulse(ball_pos, next_vel, deps, 0.92, "viper_core_flip")
 	for _i in range(CORE_FLIP_HIT_MOTION_PARTICLE_COUNT):
 		_spawn_marshal_motion_particle(
-			ball_pos + Vector2(randf_range(-12.0, 12.0), randf_range(-12.0, 12.0)),
+			ball_pos + Vector2(
+				randf_range(-CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD, CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD),
+				randf_range(-CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD, CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD)
+			),
 			"impact",
 			1.0,
 			randf_range(20.0, 38.0)
