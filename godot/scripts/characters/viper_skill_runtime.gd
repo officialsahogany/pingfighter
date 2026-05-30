@@ -115,6 +115,10 @@ const AIR_BLADE_MAX_BALL_SPEED := 40.0
 const DARK_BLADE_MAX_BALL_SPEED := 50.0
 const AIR_BLADE_HIT_SPEED_MULT := 2.1
 const DARK_BLADE_HIT_SPEED_MULT := 2.4
+const AIR_BLADE_HIT_SHAKE_AMOUNT := 0.15
+const DARK_BLADE_HIT_SHAKE_AMOUNT := 0.20
+const AIR_BLADE_HIT_SHAKE_INTENSITY := 4.8
+const DARK_BLADE_HIT_SHAKE_INTENSITY := 6.0
 const BLADE_AMP_FOLLOWUP_WIDTH_SCALE := 0.72
 const BLADE_AMP_FOLLOWUP_RANGE_SCALE := 0.88
 const BLADE_AMP_FOLLOWUP_HIT_SPEED_SCALE := 0.55
@@ -4100,7 +4104,11 @@ func _apply_blade_hit(
 					double_marshal_ready_frames = 0.0
 					marshal_first_hit_pending = false
 					marshal_first_hit_delay_frames = 0.0
-	_trigger_feedback(deps, 0.20 if dark_mode else 0.15, 6.0 if dark_mode else 4.8)
+	_trigger_feedback(
+		deps,
+		DARK_BLADE_HIT_SHAKE_AMOUNT if dark_mode else AIR_BLADE_HIT_SHAKE_AMOUNT,
+		DARK_BLADE_HIT_SHAKE_INTENSITY if dark_mode else AIR_BLADE_HIT_SHAKE_INTENSITY
+	)
 	var pulse_kind: String = "viper_dark_blade" if dark_mode else "viper_blade"
 	if not _register_ball_hit_pulse(ball_pos, next_vel, deps, 1.0 if dark_mode else 0.86, pulse_kind):
 		var hit_color := Color(1.0, 0.16, 0.24, 1.0) if dark_mode else Color(1.0, 0.38, 1.0, 1.0)
