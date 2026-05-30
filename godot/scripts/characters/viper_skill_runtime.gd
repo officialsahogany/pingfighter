@@ -258,6 +258,8 @@ const CORE_FLIP_HIT_RADIUS := 60.0
 const CORE_FLIP_SPEED_MULT := 2.2
 const CORE_FLIP_MIN_SPEED := 11.0
 const CORE_FLIP_HIT_GOLD := 30
+const CORE_FLIP_START_SHAKE_AMOUNT := 0.14
+const CORE_FLIP_START_SHAKE_INTENSITY := 4.5
 const CORE_FLIP_HIT_SHAKE_AMOUNT := 0.15
 const CORE_FLIP_HIT_SHAKE_INTENSITY := 6.0
 const CORE_FLIP_HIT_PULSE_INTENSITY := 0.92
@@ -1224,7 +1226,7 @@ func _start_core_flip(
 	if orb_hud_state != null and orb_hud_state.has_method("trigger_gauge_spin"):
 		orb_hud_state.trigger_gauge_spin(now_msec)
 	_cancel_dash_until_key_release(deps.get("dash_state", null))
-	_trigger_feedback(deps, 0.14, 4.5)
+	_trigger_feedback(deps, CORE_FLIP_START_SHAKE_AMOUNT, CORE_FLIP_START_SHAKE_INTENSITY)
 
 	_clear_core_flip_ready_window(true)
 	core_flip_attack_active = true
