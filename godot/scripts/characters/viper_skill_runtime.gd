@@ -1275,11 +1275,7 @@ func _can_start_core_flip(special_gauge: float, config: Dictionary, deps: Dictio
 		return false
 	if _is_core_flip_dash_active(deps):
 		return false
-	if _is_control_locked(deps):
-		return false
-	if not bool(config.get("ball_active", true)):
-		return false
-	if _is_round_waiting_for_serve(deps):
+	if not _is_core_flip_battle_state_ready(config, deps):
 		return false
 	var skill_config: Object = _get_viper_skill_config(deps)
 	if not _is_skill_equipped(skill_config, CORE_FLIP):
@@ -1294,6 +1290,14 @@ func _can_start_core_flip(special_gauge: float, config: Dictionary, deps: Dictio
 func _is_core_flip_dash_active(deps: Dictionary) -> bool:
 	var dash_snapshot: Dictionary = _get_dash_snapshot(deps.get("dash_state", null))
 	return bool(dash_snapshot.get("active", false))
+
+
+func _is_core_flip_battle_state_ready(config: Dictionary, deps: Dictionary) -> bool:
+	if _is_control_locked(deps):
+		return false
+	if not bool(config.get("ball_active", true)):
+		return false
+	return not _is_round_waiting_for_serve(deps)
 
 
 func _start_core_flip(
