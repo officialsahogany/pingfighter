@@ -301,6 +301,8 @@ const MARSHAL_DOUBLE_HIT_GOLD := 50
 const MARSHAL_HIT_MOTION_PARTICLE_COUNT := 14
 const MARSHAL_DOUBLE_HIT_MOTION_PARTICLE_COUNT := 22
 const MARSHAL_HIT_MOTION_PARTICLE_SPREAD := 10.0
+const MARSHAL_HIT_MOTION_PARTICLE_LIFE_MIN := 18.0
+const MARSHAL_HIT_MOTION_PARTICLE_LIFE_MAX := 34.0
 const CORE_FLIP_HIT_MOTION_PARTICLE_COUNT := 18
 const PHANTOM_HIT_PARTICLE_COUNT := 85
 const PHANTOM_HIT_PARTICLE_MAX_COUNT := 90
@@ -5105,7 +5107,7 @@ func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 			),
 			"impact",
 			1.0,
-			randf_range(18.0, 34.0)
+			randf_range(MARSHAL_HIT_MOTION_PARTICLE_LIFE_MIN, MARSHAL_HIT_MOTION_PARTICLE_LIFE_MAX)
 		)
 	_destroy_marshal_impact_objects(ball_pos, deps)
 	if marshal_is_double:
