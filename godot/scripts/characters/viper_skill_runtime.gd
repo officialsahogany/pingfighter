@@ -4030,15 +4030,13 @@ func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, co
 				bool(projectile.get("allow_combo", false)),
 				float(projectile.get("hit_speed_scale", 1.0))
 			)
-			projectile["fadeout"] = true
-			projectile["fadeout_frames"] = BLADE_FADEOUT_FRAMES
+			_start_blade_followup_projectile_fadeout(projectile)
 		if ViperSkillGeometry.blade_projectile_should_start_fadeout(
 			pos.y,
 			float(projectile.get("target_y", pos.y)),
 			bool(projectile.get("fadeout", false))
 		):
-			projectile["fadeout"] = true
-			projectile["fadeout_frames"] = BLADE_FADEOUT_FRAMES
+			_start_blade_followup_projectile_fadeout(projectile)
 		var fadeout_tick: Dictionary = ViperSkillGeometry.blade_projectile_fadeout_tick(
 			bool(projectile.get("fadeout", false)),
 			float(projectile.get("fadeout_frames", 0.0)),
@@ -4050,6 +4048,11 @@ func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, co
 		updated.append(projectile)
 	blade_followup_projectiles = updated
 	return result
+
+
+func _start_blade_followup_projectile_fadeout(projectile: Dictionary) -> void:
+	projectile["fadeout"] = true
+	projectile["fadeout_frames"] = BLADE_FADEOUT_FRAMES
 
 
 func _apply_blade_hit(
