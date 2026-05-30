@@ -293,6 +293,7 @@ const MARSHAL_HIT_PULSE_KIND := "viper_marshal"
 const MARSHAL_DOUBLE_HIT_PULSE_KIND := "viper_double_marshal"
 const MARSHAL_HIT_ENERGY_INTENSITY := 0.72
 const MARSHAL_DOUBLE_HIT_ENERGY_INTENSITY := 0.96
+const MARSHAL_FALLBACK_HIT_COLOR := Color(0.72, 0.0, 1.0, 1.0)
 const MARSHAL_HIT_PLAYER_COLLISION_COOLDOWN := 6.0
 const MARSHAL_HIT_GOLD := 30
 const MARSHAL_DOUBLE_HIT_GOLD := 50
@@ -5089,7 +5090,7 @@ func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 			ball_pos,
 			next_vel,
 			deps,
-			Color(0.72, 0.0, 1.0, 1.0),
+			MARSHAL_FALLBACK_HIT_COLOR,
 			MARSHAL_DOUBLE_HIT_PARTICLE_INTENSITY if marshal_is_double else MARSHAL_HIT_PARTICLE_INTENSITY,
 			MARSHAL_DOUBLE_HIT_ENERGY_SCALE if marshal_is_double else MARSHAL_HIT_ENERGY_SCALE,
 			MARSHAL_DOUBLE_HIT_ENERGY_INTENSITY if marshal_is_double else MARSHAL_HIT_ENERGY_INTENSITY
