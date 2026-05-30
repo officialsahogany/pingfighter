@@ -1089,8 +1089,7 @@ func register_player_ball_contact(deps: Dictionary = {}, _context: Dictionary = 
 		):
 			var skill_config: Object = _get_viper_skill_config(deps)
 			if _is_skill_equipped(skill_config, CORE_FLIP):
-				core_flip_ready_msec = now_msec
-				_clear_core_flip_input_buffer()
+				_open_core_flip_ready_window(now_msec)
 	var four_poisons_level: int = _get_runtime_skill_level(deps, "four_poisons")
 	if dive_active and dive_phase == 0 and four_poisons_level < 3:
 		_reset_dive_runtime(false)
@@ -1110,6 +1109,11 @@ func release_chaos_blackhole_from_hit(deps: Dictionary = {}, context: Dictionary
 func _clear_core_flip_ready_window(consume_ready: bool = true) -> void:
 	core_flip_ready_msec = 0
 	core_flip_consumed = consume_ready
+	_clear_core_flip_input_buffer()
+
+
+func _open_core_flip_ready_window(ready_msec: int) -> void:
+	core_flip_ready_msec = ready_msec
 	_clear_core_flip_input_buffer()
 
 
@@ -4863,8 +4867,7 @@ func _apply_shadow_step_hit(
 	phantom_strike_frames = 0.0
 	shadow_marshal_delay_frames = SHADOW_STEP_MARSHAL_DELAY_FRAMES
 	if not core_flip_consumed and core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
-		core_flip_ready_msec = Time.get_ticks_msec()
-		_clear_core_flip_input_buffer()
+		_open_core_flip_ready_window(Time.get_ticks_msec())
 	if shadow_was_airborne and _is_skill_equipped(_get_viper_skill_config(deps), DARK_BLADE):
 		dark_blade_window = true
 		dark_blade_window_frames = DARK_BLADE_WINDOW_FRAMES
