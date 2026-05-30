@@ -1273,8 +1273,7 @@ func _has_core_flip_conflicting_skill_active() -> bool:
 func _can_start_core_flip(special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int) -> bool:
 	if _has_core_flip_conflicting_skill_active():
 		return false
-	var dash_snapshot: Dictionary = _get_dash_snapshot(deps.get("dash_state", null))
-	if bool(dash_snapshot.get("active", false)):
+	if _is_core_flip_dash_active(deps):
 		return false
 	if _is_control_locked(deps):
 		return false
@@ -1290,6 +1289,11 @@ func _can_start_core_flip(special_gauge: float, config: Dictionary, deps: Dictio
 	if special_gauge < cost:
 		return false
 	return _is_configured_skill_ready(CORE_FLIP, deps, now_msec)
+
+
+func _is_core_flip_dash_active(deps: Dictionary) -> bool:
+	var dash_snapshot: Dictionary = _get_dash_snapshot(deps.get("dash_state", null))
+	return bool(dash_snapshot.get("active", false))
 
 
 func _start_core_flip(
