@@ -1205,18 +1205,22 @@ func _has_core_flip_input_buffer(now_msec: int, input_snapshot: Dictionary) -> b
 	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
 	var combo_detected: bool = left_pressed and right_pressed
 	if not combo_detected:
-		var left_age: int = input_sequence_frame - core_flip_left_press_frame
-		var right_age: int = input_sequence_frame - core_flip_right_press_frame
-		combo_detected = (
-			left_age >= 0
-			and right_age >= 0
-			and left_age <= CORE_FLIP_INPUT_MAX_AGE_FRAMES
-			and right_age <= CORE_FLIP_INPUT_MAX_AGE_FRAMES
-			and abs(core_flip_left_press_frame - core_flip_right_press_frame) <= CORE_FLIP_INPUT_FRAME_GAP
-		)
+		combo_detected = _is_core_flip_stored_input_combo()
 	if combo_detected:
 		core_flip_buffered_until_msec = window_end_msec
 	return core_flip_buffered_until_msec >= now_msec
+
+
+func _is_core_flip_stored_input_combo() -> bool:
+	var left_age: int = input_sequence_frame - core_flip_left_press_frame
+	var right_age: int = input_sequence_frame - core_flip_right_press_frame
+	return (
+		left_age >= 0
+		and right_age >= 0
+		and left_age <= CORE_FLIP_INPUT_MAX_AGE_FRAMES
+		and right_age <= CORE_FLIP_INPUT_MAX_AGE_FRAMES
+		and abs(core_flip_left_press_frame - core_flip_right_press_frame) <= CORE_FLIP_INPUT_FRAME_GAP
+	)
 
 
 func _can_start_core_flip(special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int) -> bool:
