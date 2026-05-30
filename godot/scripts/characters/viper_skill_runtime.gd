@@ -1181,12 +1181,16 @@ func _is_core_flip_ready_window_active(now_msec: int) -> bool:
 		return false
 	if core_flip_consumed:
 		return false
-	if _has_core_flip_dash_start() and core_flip_ready_msec < core_flip_last_dash_start_msec:
+	if _is_core_flip_ready_window_stale_for_dash():
 		return false
 	if _is_core_flip_ready_window_expired(now_msec):
 		_close_core_flip_ready_window()
 		return false
 	return true
+
+
+func _is_core_flip_ready_window_stale_for_dash() -> bool:
+	return _has_core_flip_dash_start() and core_flip_ready_msec < core_flip_last_dash_start_msec
 
 
 func _is_core_flip_ready_window_expired(now_msec: int) -> bool:
