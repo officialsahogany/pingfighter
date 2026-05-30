@@ -1110,16 +1110,19 @@ func _get_core_flip_dash_elapsed_msec(now_msec: int) -> int:
 	return now_msec - core_flip_last_dash_start_msec
 
 
+func _is_core_flip_contact_window_open(dash_active: bool, dash_elapsed_msec: int) -> bool:
+	if dash_elapsed_msec < 0:
+		return false
+	return dash_active or dash_elapsed_msec <= CORE_FLIP_DASH_SUCCESS_WINDOW_MSEC
+
+
 func _try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary, deps: Dictionary) -> void:
 	if bool(dash_snapshot.get("is_half", false)) or core_flip_consumed or not _has_core_flip_dash_start():
 		return
 	var now_msec: int = Time.get_ticks_msec()
 	var dash_active: bool = bool(dash_snapshot.get("active", false))
 	var dash_elapsed_msec := _get_core_flip_dash_elapsed_msec(now_msec)
-	if (
-		dash_elapsed_msec < 0
-		or (not dash_active and dash_elapsed_msec > CORE_FLIP_DASH_SUCCESS_WINDOW_MSEC)
-	):
+	if not _is_core_flip_contact_window_open(dash_active, dash_elapsed_msec):
 		return
 	var skill_config: Object = _get_viper_skill_config(deps)
 	if _is_skill_equipped(skill_config, CORE_FLIP):
