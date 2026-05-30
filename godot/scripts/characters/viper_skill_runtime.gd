@@ -307,6 +307,8 @@ const MARSHAL_HIT_MOTION_PARTICLE_KIND := "impact"
 const MARSHAL_HIT_MOTION_PARTICLE_CHANCE := 1.0
 const CORE_FLIP_HIT_MOTION_PARTICLE_COUNT := 18
 const CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD := 12.0
+const CORE_FLIP_HIT_MOTION_PARTICLE_LIFE_MIN := 20.0
+const CORE_FLIP_HIT_MOTION_PARTICLE_LIFE_MAX := 38.0
 const PHANTOM_HIT_PARTICLE_COUNT := 85
 const PHANTOM_HIT_PARTICLE_MAX_COUNT := 90
 const VIPER_HIT_PARTICLE_GLOW_SIZE_THRESHOLD := 3.2
@@ -1424,7 +1426,7 @@ func _apply_core_flip_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 			),
 			"impact",
 			1.0,
-			randf_range(20.0, 38.0)
+			randf_range(CORE_FLIP_HIT_MOTION_PARTICLE_LIFE_MIN, CORE_FLIP_HIT_MOTION_PARTICLE_LIFE_MAX)
 		)
 	if not pulse_registered:
 		_spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(1.0, 0.43, 0.78, 1.0), 1.15, 0.74, 0.92)
