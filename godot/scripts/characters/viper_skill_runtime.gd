@@ -1201,10 +1201,7 @@ func _has_core_flip_input_buffer(now_msec: int, input_snapshot: Dictionary) -> b
 	if not _validate_core_flip_input_buffer_window(now_msec):
 		return false
 	var window_end_msec: int = _get_core_flip_ready_window_end_msec()
-	var combo_detected: bool = _is_core_flip_pressed_input_combo(input_snapshot)
-	if not combo_detected:
-		combo_detected = _is_core_flip_stored_input_combo()
-	if combo_detected:
+	if _has_core_flip_input_combo(input_snapshot):
 		core_flip_buffered_until_msec = window_end_msec
 	return core_flip_buffered_until_msec >= now_msec
 
@@ -1217,6 +1214,13 @@ func _validate_core_flip_input_buffer_window(now_msec: int) -> bool:
 		_clear_core_flip_input_buffer()
 		return false
 	return true
+
+
+func _has_core_flip_input_combo(input_snapshot: Dictionary) -> bool:
+	return (
+		_is_core_flip_pressed_input_combo(input_snapshot)
+		or _is_core_flip_stored_input_combo()
+	)
 
 
 func _is_core_flip_pressed_input_combo(input_snapshot: Dictionary) -> bool:
