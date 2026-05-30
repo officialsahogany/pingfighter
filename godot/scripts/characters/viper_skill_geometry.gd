@@ -21,6 +21,18 @@ static func blade_rect(pos: Vector2, width: float, dark_mode: bool, normal_heigh
 	return Rect2(Vector2(pos.x - width * 0.5, pos.y - hit_height), Vector2(width, hit_height))
 
 
+static func blade_projectile_speed_multiplier(blade_amp_level: int) -> float:
+	var amp_level: int = max(0, blade_amp_level)
+	return 1.0 + float(amp_level * 10) / 100.0
+
+
+static func blade_projectile_homing_strength(blade_amp_level: int, dark_mode: bool) -> float:
+	var amp_level: int = max(0, blade_amp_level)
+	if amp_level < 3:
+		return 0.0
+	return 0.30 if dark_mode else 0.60
+
+
 static func blade_projectile_motion(
 	pos: Vector2,
 	ball_pos: Vector2,
@@ -30,12 +42,11 @@ static func blade_projectile_motion(
 	dark_mode: bool,
 	allow_homing: bool
 ) -> Vector2:
-	var amp_level: int = max(0, blade_amp_level)
 	var next_pos: Vector2 = pos
-	var projectile_speed_mult: float = 1.0 + float(amp_level * 10) / 100.0
+	var projectile_speed_mult: float = blade_projectile_speed_multiplier(blade_amp_level)
 	next_pos.y -= base_speed * projectile_speed_mult * fps_scale
 	if allow_homing:
-		var homing: float = 0.0 if amp_level < 3 else (0.30 if dark_mode else 0.60)
+		var homing: float = blade_projectile_homing_strength(blade_amp_level, dark_mode)
 		if homing > 0.0:
 			var homing_dx: float = ball_pos.x - next_pos.x
 			if abs(homing_dx) > 0.5:
