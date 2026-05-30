@@ -1116,8 +1116,12 @@ func _is_core_flip_contact_window_open(dash_active: bool, dash_elapsed_msec: int
 	return dash_active or dash_elapsed_msec <= CORE_FLIP_DASH_SUCCESS_WINDOW_MSEC
 
 
+func _can_try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary) -> bool:
+	return not bool(dash_snapshot.get("is_half", false)) and not core_flip_consumed and _has_core_flip_dash_start()
+
+
 func _try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary, deps: Dictionary) -> void:
-	if bool(dash_snapshot.get("is_half", false)) or core_flip_consumed or not _has_core_flip_dash_start():
+	if not _can_try_open_core_flip_ready_from_contact(dash_snapshot):
 		return
 	var now_msec: int = Time.get_ticks_msec()
 	var dash_active: bool = bool(dash_snapshot.get("active", false))
