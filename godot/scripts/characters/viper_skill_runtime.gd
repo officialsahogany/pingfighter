@@ -1177,9 +1177,7 @@ func _reset_core_flip_runtime(clear_window: bool = false) -> void:
 
 
 func _is_core_flip_ready_window_active(now_msec: int) -> bool:
-	if core_flip_ready_msec <= 0:
-		return false
-	if core_flip_consumed:
+	if not _has_core_flip_ready_window():
 		return false
 	if _is_core_flip_ready_window_stale_for_dash():
 		return false
@@ -1187,6 +1185,10 @@ func _is_core_flip_ready_window_active(now_msec: int) -> bool:
 		_close_core_flip_ready_window()
 		return false
 	return true
+
+
+func _has_core_flip_ready_window() -> bool:
+	return core_flip_ready_msec > 0 and not core_flip_consumed
 
 
 func _is_core_flip_ready_window_stale_for_dash() -> bool:
