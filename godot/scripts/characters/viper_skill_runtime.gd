@@ -113,6 +113,8 @@ const DARK_BLADE_WINDOW_FRAMES := 180.0
 const BLADE_HIT_GOLD := 30
 const AIR_BLADE_MAX_BALL_SPEED := 40.0
 const DARK_BLADE_MAX_BALL_SPEED := 50.0
+const AIR_BLADE_HIT_SPEED_MULT := 2.1
+const DARK_BLADE_HIT_SPEED_MULT := 2.4
 const BLADE_AMP_FOLLOWUP_WIDTH_SCALE := 0.72
 const BLADE_AMP_FOLLOWUP_RANGE_SCALE := 0.88
 const BLADE_AMP_FOLLOWUP_HIT_SPEED_SCALE := 0.55
@@ -4081,8 +4083,8 @@ func _apply_blade_hit(
 		_get_blade_amp_level(deps),
 		dark_mode,
 		hit_speed_scale,
-		2.1,
-		2.4
+		AIR_BLADE_HIT_SPEED_MULT,
+		DARK_BLADE_HIT_SPEED_MULT
 	)
 	blade_hit_speed_cap_active = speed_cap
 	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
