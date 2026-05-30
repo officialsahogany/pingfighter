@@ -54,6 +54,7 @@ const MARSHAL_KICK_PHANTOM_DELAY_FRAMES := 12.0
 const MARSHAL_KICK_DMK_FREEZE_FRAMES := 60.0
 const MARSHAL_KICK_DMK_TEXT_FRAMES := 80.0
 const MARSHAL_KICK_CURVE_FRAMES := 50.0
+const MARSHAL_DOUBLE_HIT_CURVE_FRAMES_MULT := 2.5
 const MARSHAL_KICK_CURVE_FORCE := 2.0
 const MARSHAL_KICK_IMPACT_OBJECT_RADIUS := 150.0
 const MARSHAL_KICK_TRAIL_MAX := 60
@@ -5066,7 +5067,7 @@ func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 	var next_vel: Vector2 = ViperSkillGeometry.aimed_kick_launch_velocity(next_speed, angle)
 	var ball_pos: Vector2 = _get_ball_pos(config)
 	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, config)
-	var curve_frames: float = MARSHAL_KICK_CURVE_FRAMES * (2.5 if marshal_is_double else 1.0)
+	var curve_frames: float = MARSHAL_KICK_CURVE_FRAMES * (MARSHAL_DOUBLE_HIT_CURVE_FRAMES_MULT if marshal_is_double else 1.0)
 	var curve_dir: int = 1 if next_vel.x > 0.0 else -1
 	_set_shadow_curve(curve_frames, MARSHAL_KICK_CURVE_FORCE, curve_dir)
 	shadow_starburst_active = true
