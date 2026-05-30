@@ -52,6 +52,10 @@ static func blade_projectile_trail_next(trail: Array, pos: Vector2, max_points: 
 	return next_trail
 
 
+static func blade_projectile_allows_homing(already_hit_ball: bool, fading: bool) -> bool:
+	return not already_hit_ball and not fading
+
+
 static func blade_projectile_should_start_fadeout(projectile_y: float, target_y: float, already_fading: bool) -> bool:
 	return not already_fading and projectile_y <= target_y
 

@@ -3948,7 +3948,7 @@ func _advance_blade_projectile(fps_scale: float, scene: Dictionary, context: Dic
 		BLADE_PROJECTILE_SPEED,
 		blade_amp_level,
 		blade_dark_mode,
-		not blade_projectile_hit_ball and not blade_projectile_fadeout
+		ViperSkillGeometry.blade_projectile_allows_homing(blade_projectile_hit_ball, blade_projectile_fadeout)
 	)
 	blade_projectile_trail = ViperSkillGeometry.blade_projectile_trail_next(
 		blade_projectile_trail,
@@ -4002,7 +4002,10 @@ func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, co
 			BLADE_PROJECTILE_SPEED,
 			blade_amp_level,
 			dark_mode,
-			not bool(projectile.get("hit_ball", false)) and not bool(projectile.get("fadeout", false))
+			ViperSkillGeometry.blade_projectile_allows_homing(
+				bool(projectile.get("hit_ball", false)),
+				bool(projectile.get("fadeout", false))
+			)
 		)
 		projectile["pos"] = pos
 		var trail: Array = projectile.get("trail", [])

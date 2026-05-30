@@ -3671,7 +3671,7 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/viper_skill_geometry.gd`
   Owns shared Viper skill geometry helpers: player / ball / boss center
   extraction, player-position clamping, blade start-position combo pop, blade prep fall motion, blade projectile launch / hit-velocity motion, blade rest-position arc, blade horizontal control motion, blade / ball hit rects, segment-rect
-  intersection, blade projectile trail append/limit, target-reach fadeout decision / fadeout timer / ball-hit gate,
+  intersection, blade projectile trail append/limit, homing gate, target-reach fadeout decision / fadeout timer / ball-hit gate,
   Dark Blade auto-fire window / proximity decision,
   EMP Strike hit velocity, shockwave position / radius /
   boss-reach / ring-touch tests plus boss slip start / motion calculation,
