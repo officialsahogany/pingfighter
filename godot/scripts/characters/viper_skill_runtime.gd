@@ -105,6 +105,7 @@ const BLADE_HITBOX_HEIGHT := 55.0
 const BLADE_DARK_HITBOX_HEIGHT := 83.0
 const BLADE_FADEOUT_FRAMES := 30.0
 const BLADE_TRAIL_MAX := 20
+const BLADE_FOLLOWUP_TRAIL_MAX := 16
 const BLADE_COMBO_DELAY_FRAMES := 30.0
 const BLADE_DASH_RELEASE_DELAY_FRAMES := 18.0
 const DARK_BLADE_WINDOW_FRAMES := 180.0
@@ -4009,7 +4010,7 @@ func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, co
 		)
 		projectile["pos"] = pos
 		var trail: Array = projectile.get("trail", [])
-		projectile["trail"] = ViperSkillGeometry.blade_projectile_trail_next(trail, pos, 16)
+		projectile["trail"] = ViperSkillGeometry.blade_projectile_trail_next(trail, pos, BLADE_FOLLOWUP_TRAIL_MAX)
 		var projectile_rect: Rect2 = _blade_rect(pos, float(projectile.get("width", BLADE_BASE_WIDTH)), dark_mode)
 		_destroy_blade_stage2_rocks(projectile_rect, deps, context)
 		if ViperSkillGeometry.blade_projectile_hits_ball(
