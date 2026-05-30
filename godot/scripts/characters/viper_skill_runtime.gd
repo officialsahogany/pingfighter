@@ -1280,8 +1280,7 @@ func _can_start_core_flip(special_gauge: float, config: Dictionary, deps: Dictio
 	var skill_config: Object = _get_viper_skill_config(deps)
 	if not _is_skill_equipped(skill_config, CORE_FLIP):
 		return false
-	var configured_cost: float = _get_skill_cost(skill_config, CORE_FLIP)
-	var cost: float = configured_cost if configured_cost > 0.0 else 120.0
+	var cost: float = _get_core_flip_activation_cost(skill_config)
 	if special_gauge < cost:
 		return false
 	return _is_configured_skill_ready(CORE_FLIP, deps, now_msec)
@@ -1298,6 +1297,11 @@ func _is_core_flip_battle_state_ready(config: Dictionary, deps: Dictionary) -> b
 	if not bool(config.get("ball_active", true)):
 		return false
 	return not _is_round_waiting_for_serve(deps)
+
+
+func _get_core_flip_activation_cost(skill_config: Object) -> float:
+	var configured_cost: float = _get_skill_cost(skill_config, CORE_FLIP)
+	return configured_cost if configured_cost > 0.0 else 120.0
 
 
 func _start_core_flip(
