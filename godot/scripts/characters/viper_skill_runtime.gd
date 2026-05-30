@@ -1107,8 +1107,12 @@ func release_chaos_blackhole_from_hit(deps: Dictionary = {}, context: Dictionary
 
 
 func _clear_core_flip_ready_window(consume_ready: bool = true) -> void:
-	core_flip_ready_msec = 0
 	core_flip_consumed = consume_ready
+	_close_core_flip_ready_window()
+
+
+func _close_core_flip_ready_window() -> void:
+	core_flip_ready_msec = 0
 	_clear_core_flip_input_buffer()
 
 
@@ -1154,8 +1158,7 @@ func _is_core_flip_ready_window_active(now_msec: int) -> bool:
 	if core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC and core_flip_ready_msec < core_flip_last_dash_start_msec:
 		return false
 	if now_msec - core_flip_ready_msec > CORE_FLIP_READY_WINDOW_MSEC:
-		core_flip_ready_msec = 0
-		_clear_core_flip_input_buffer()
+		_close_core_flip_ready_window()
 		return false
 	return true
 
