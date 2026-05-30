@@ -1201,14 +1201,16 @@ func _has_core_flip_input_buffer(now_msec: int, input_snapshot: Dictionary) -> b
 		_clear_core_flip_input_buffer()
 		return false
 	var window_end_msec: int = core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC
-	var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
-	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
-	var combo_detected: bool = left_pressed and right_pressed
+	var combo_detected: bool = _is_core_flip_pressed_input_combo(input_snapshot)
 	if not combo_detected:
 		combo_detected = _is_core_flip_stored_input_combo()
 	if combo_detected:
 		core_flip_buffered_until_msec = window_end_msec
 	return core_flip_buffered_until_msec >= now_msec
+
+
+func _is_core_flip_pressed_input_combo(input_snapshot: Dictionary) -> bool:
+	return bool(input_snapshot.get("left_pressed", false)) and bool(input_snapshot.get("right_pressed", false))
 
 
 func _is_core_flip_stored_input_combo() -> bool:
