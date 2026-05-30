@@ -254,6 +254,8 @@ const CORE_FLIP_HIT_RADIUS := 60.0
 const CORE_FLIP_SPEED_MULT := 2.2
 const CORE_FLIP_MIN_SPEED := 11.0
 const CORE_FLIP_HIT_GOLD := 30
+const CORE_FLIP_HIT_SHAKE_AMOUNT := 0.15
+const CORE_FLIP_HIT_SHAKE_INTENSITY := 6.0
 const CORE_FLIP_DARK_BLADE_HANDOFF_FRAMES := 30.0
 const CORE_FLIP_MISS_TEXT_FRAMES := 50.0
 const CORE_FLIP_MISS_TEXT_FLOAT_Y := 34.0
@@ -1418,7 +1420,7 @@ func _apply_core_flip_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 	shadow_starburst_frame = 0
 	shadow_starburst_timer = 0.0
 	shadow_starburst_is_double = false
-	_trigger_feedback(deps, 0.15, 6.0)
+	_trigger_feedback(deps, CORE_FLIP_HIT_SHAKE_AMOUNT, CORE_FLIP_HIT_SHAKE_INTENSITY)
 	var pulse_registered := _register_ball_hit_pulse(ball_pos, next_vel, deps, 0.92, "viper_core_flip")
 	for _i in range(CORE_FLIP_HIT_MOTION_PARTICLE_COUNT):
 		_spawn_marshal_motion_particle(
