@@ -289,6 +289,8 @@ const MARSHAL_HIT_PARTICLE_INTENSITY := 0.86
 const MARSHAL_DOUBLE_HIT_PARTICLE_INTENSITY := 1.30
 const MARSHAL_HIT_ENERGY_SCALE := 0.58
 const MARSHAL_DOUBLE_HIT_ENERGY_SCALE := 0.82
+const MARSHAL_HIT_PULSE_KIND := "viper_marshal"
+const MARSHAL_DOUBLE_HIT_PULSE_KIND := "viper_double_marshal"
 const MARSHAL_HIT_ENERGY_INTENSITY := 0.72
 const MARSHAL_DOUBLE_HIT_ENERGY_INTENSITY := 0.96
 const MARSHAL_HIT_MOTION_PARTICLE_COUNT := 14
@@ -5076,7 +5078,7 @@ func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
 		MARSHAL_DOUBLE_HIT_SHAKE_AMOUNT if marshal_is_double else MARSHAL_HIT_SHAKE_AMOUNT,
 		MARSHAL_DOUBLE_HIT_SHAKE_INTENSITY if marshal_is_double else MARSHAL_HIT_SHAKE_INTENSITY
 	)
-	var pulse_kind: String = "viper_double_marshal" if marshal_is_double else "viper_marshal"
+	var pulse_kind: String = MARSHAL_DOUBLE_HIT_PULSE_KIND if marshal_is_double else MARSHAL_HIT_PULSE_KIND
 	var pulse_intensity: float = MARSHAL_DOUBLE_HIT_ENERGY_INTENSITY if marshal_is_double else MARSHAL_HIT_ENERGY_INTENSITY
 	var pulse_registered := _register_ball_hit_pulse(ball_pos, next_vel, deps, pulse_intensity, pulse_kind)
 	if not pulse_registered:
