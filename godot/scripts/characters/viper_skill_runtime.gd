@@ -803,9 +803,7 @@ func observe_after_movement(delta: float, before_player_pos: Vector2, _after_pla
 		dash_origin_pos = before_player_pos
 		dash_origin_valid = true
 		core_flip_last_dash_start_msec = Time.get_ticks_msec()
-		core_flip_ready_msec = 0
-		core_flip_buffered_until_msec = 0
-		core_flip_consumed = bool(dash_snapshot.get("is_half", false))
+		_clear_core_flip_ready_window(bool(dash_snapshot.get("is_half", false)))
 	if dash_active or dash_recovering:
 		dash_grace_frames = SHADOW_STEP_DASH_GRACE_FRAMES
 	else:
@@ -1107,11 +1105,15 @@ func release_chaos_blackhole_from_hit(deps: Dictionary = {}, context: Dictionary
 	return _release_chaos_blackhole_from_hit_result(deps, context)
 
 
+func _clear_core_flip_ready_window(consume_ready: bool = true) -> void:
+	core_flip_ready_msec = 0
+	core_flip_consumed = consume_ready
+	core_flip_buffered_until_msec = 0
+
+
 func _reset_core_flip_runtime(clear_window: bool = false) -> void:
 	if clear_window:
-		core_flip_ready_msec = 0
-		core_flip_consumed = true
-		core_flip_buffered_until_msec = 0
+		_clear_core_flip_ready_window(true)
 		core_flip_last_dash_start_msec = CORE_FLIP_DASH_START_UNSET_MSEC
 	core_flip_attack_active = false
 	core_flip_attack_phase = 0
@@ -1224,9 +1226,7 @@ func _start_core_flip(
 	_cancel_dash_until_key_release(deps.get("dash_state", null))
 	_trigger_feedback(deps, 0.14, 4.5)
 
-	core_flip_ready_msec = 0
-	core_flip_consumed = true
-	core_flip_buffered_until_msec = 0
+	_clear_core_flip_ready_window(true)
 	core_flip_attack_active = true
 	core_flip_attack_phase = 0
 	core_flip_phase_frames = 0.0
