@@ -121,6 +121,8 @@ const AIR_BLADE_HIT_SHAKE_INTENSITY := 4.8
 const DARK_BLADE_HIT_SHAKE_INTENSITY := 6.0
 const AIR_BLADE_HIT_PULSE_INTENSITY := 0.86
 const DARK_BLADE_HIT_PULSE_INTENSITY := 1.0
+const AIR_BLADE_FALLBACK_HIT_COLOR := Color(1.0, 0.38, 1.0, 1.0)
+const DARK_BLADE_FALLBACK_HIT_COLOR := Color(1.0, 0.16, 0.24, 1.0)
 const AIR_BLADE_FALLBACK_PARTICLE_INTENSITY := 1.25
 const DARK_BLADE_FALLBACK_PARTICLE_INTENSITY := 1.6
 const AIR_BLADE_FALLBACK_EXPLOSION_SCALE := 0.82
@@ -4120,7 +4122,7 @@ func _apply_blade_hit(
 	var pulse_kind: String = "viper_dark_blade" if dark_mode else "viper_blade"
 	var pulse_intensity: float = DARK_BLADE_HIT_PULSE_INTENSITY if dark_mode else AIR_BLADE_HIT_PULSE_INTENSITY
 	if not _register_ball_hit_pulse(ball_pos, next_vel, deps, pulse_intensity, pulse_kind):
-		var hit_color := Color(1.0, 0.16, 0.24, 1.0) if dark_mode else Color(1.0, 0.38, 1.0, 1.0)
+		var hit_color := DARK_BLADE_FALLBACK_HIT_COLOR if dark_mode else AIR_BLADE_FALLBACK_HIT_COLOR
 		_spawn_fallback_hit_impact(
 			ball_pos,
 			next_vel,
