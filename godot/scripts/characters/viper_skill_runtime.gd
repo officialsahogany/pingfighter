@@ -1097,9 +1097,27 @@ func release_chaos_blackhole_from_hit(deps: Dictionary = {}, context: Dictionary
 	return _release_chaos_blackhole_from_hit_result(deps, context)
 
 
+func _clear_core_flip_input_buffer() -> void:
+	core_flip_buffered_until_msec = 0
+
+
+func _close_core_flip_ready_window() -> void:
+	core_flip_ready_msec = 0
+	_clear_core_flip_input_buffer()
+
+
 func _clear_core_flip_ready_window(consume_ready: bool = true) -> void:
 	core_flip_consumed = consume_ready
 	_close_core_flip_ready_window()
+
+
+func _open_core_flip_ready_window(ready_msec: int) -> void:
+	core_flip_ready_msec = ready_msec
+	_clear_core_flip_input_buffer()
+
+
+func _can_try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary) -> bool:
+	return not bool(dash_snapshot.get("is_half", false)) and not core_flip_consumed and _has_core_flip_dash_start()
 
 
 func _has_core_flip_dash_start() -> bool:
@@ -1116,10 +1134,6 @@ func _is_core_flip_contact_window_open(dash_active: bool, dash_elapsed_msec: int
 	return dash_active or dash_elapsed_msec <= CORE_FLIP_DASH_SUCCESS_WINDOW_MSEC
 
 
-func _can_try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary) -> bool:
-	return not bool(dash_snapshot.get("is_half", false)) and not core_flip_consumed and _has_core_flip_dash_start()
-
-
 func _try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary, deps: Dictionary) -> void:
 	if not _can_try_open_core_flip_ready_from_contact(dash_snapshot):
 		return
@@ -1131,20 +1145,6 @@ func _try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary, deps: Dic
 	var skill_config: Object = _get_viper_skill_config(deps)
 	if _is_skill_equipped(skill_config, CORE_FLIP):
 		_open_core_flip_ready_window(now_msec)
-
-
-func _close_core_flip_ready_window() -> void:
-	core_flip_ready_msec = 0
-	_clear_core_flip_input_buffer()
-
-
-func _open_core_flip_ready_window(ready_msec: int) -> void:
-	core_flip_ready_msec = ready_msec
-	_clear_core_flip_input_buffer()
-
-
-func _clear_core_flip_input_buffer() -> void:
-	core_flip_buffered_until_msec = 0
 
 
 func _reset_core_flip_runtime(clear_window: bool = false) -> void:
