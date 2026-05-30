@@ -1258,8 +1258,8 @@ func _is_core_flip_stored_input_combo() -> bool:
 	)
 
 
-func _can_start_core_flip(special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int) -> bool:
-	if (
+func _has_core_flip_conflicting_skill_active() -> bool:
+	return (
 		core_flip_attack_active
 		or marshal_active
 		or dive_active
@@ -1267,7 +1267,11 @@ func _can_start_core_flip(special_gauge: float, config: Dictionary, deps: Dictio
 		or blade_projectile_active
 		or shadow_hologram_active
 		or chaos_state != "idle"
-	):
+	)
+
+
+func _can_start_core_flip(special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int) -> bool:
+	if _has_core_flip_conflicting_skill_active():
 		return false
 	var dash_snapshot: Dictionary = _get_dash_snapshot(deps.get("dash_state", null))
 	if bool(dash_snapshot.get("active", false)):
