@@ -3987,14 +3987,14 @@ func _advance_blade_projectile(fps_scale: float, scene: Dictionary, context: Dic
 func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	var updated: Array = []
+	var blade_amp_level: int = max(0, _get_blade_amp_level(deps))
+	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	for projectile_value in blade_followup_projectiles:
 		if not (projectile_value is Dictionary):
 			continue
 		var projectile: Dictionary = projectile_value
 		var pos: Vector2 = _get_vector2(projectile.get("pos", Vector2.ZERO), Vector2.ZERO)
 		var dark_mode: bool = bool(projectile.get("dark_mode", false))
-		var blade_amp_level: int = max(0, _get_blade_amp_level(deps))
-		var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 		pos = ViperSkillGeometry.blade_projectile_motion(
 			pos,
 			ball_pos,
