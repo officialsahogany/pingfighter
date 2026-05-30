@@ -3950,9 +3950,11 @@ func _advance_blade_projectile(fps_scale: float, scene: Dictionary, context: Dic
 		blade_dark_mode,
 		not blade_projectile_hit_ball and not blade_projectile_fadeout
 	)
-	blade_projectile_trail.append(blade_projectile_pos)
-	while blade_projectile_trail.size() > BLADE_TRAIL_MAX:
-		blade_projectile_trail.pop_front()
+	blade_projectile_trail = ViperSkillGeometry.blade_projectile_trail_next(
+		blade_projectile_trail,
+		blade_projectile_pos,
+		BLADE_TRAIL_MAX
+	)
 	var projectile_rect: Rect2 = _blade_rect(blade_projectile_pos, blade_projectile_width, blade_dark_mode)
 	_destroy_blade_stage2_rocks(projectile_rect, deps, context)
 	if ViperSkillGeometry.blade_projectile_hits_ball(
@@ -4004,10 +4006,7 @@ func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, co
 		)
 		projectile["pos"] = pos
 		var trail: Array = projectile.get("trail", [])
-		trail.append(pos)
-		while trail.size() > 16:
-			trail.pop_front()
-		projectile["trail"] = trail
+		projectile["trail"] = ViperSkillGeometry.blade_projectile_trail_next(trail, pos, 16)
 		var projectile_rect: Rect2 = _blade_rect(pos, float(projectile.get("width", BLADE_BASE_WIDTH)), dark_mode)
 		_destroy_blade_stage2_rocks(projectile_rect, deps, context)
 		if ViperSkillGeometry.blade_projectile_hits_ball(

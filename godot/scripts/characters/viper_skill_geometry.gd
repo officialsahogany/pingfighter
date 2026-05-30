@@ -43,6 +43,15 @@ static func blade_projectile_motion(
 	return next_pos
 
 
+static func blade_projectile_trail_next(trail: Array, pos: Vector2, max_points: int) -> Array:
+	var next_trail: Array = trail.duplicate()
+	next_trail.append(pos)
+	var safe_max_points: int = max(0, max_points)
+	while next_trail.size() > safe_max_points:
+		next_trail.pop_front()
+	return next_trail
+
+
 static func blade_projectile_should_start_fadeout(projectile_y: float, target_y: float, already_fading: bool) -> bool:
 	return not already_fading and projectile_y <= target_y
 
