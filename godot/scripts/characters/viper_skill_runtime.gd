@@ -4138,21 +4138,15 @@ func _maybe_spawn_blade_amp_followup_blade(context: Dictionary, deps: Dictionary
 	)
 	var pos: Vector2 = _get_vector2(spec.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var start_y: float = float(spec.get("start_y", pos.y))
-	blade_followup_projectiles.append({
-		"pos": pos,
-		"start_y": start_y,
-		"target_y": float(spec.get("target_y", start_y)),
-		"width": float(spec.get("width", BLADE_BASE_WIDTH)),
-		"dark_mode": dark_mode,
-		"trail": [],
-		"fadeout": false,
-		"fadeout_frames": 0.0,
-		"hit_ball": false,
-		"allow_gold": false,
-		"allow_followup": false,
-		"allow_combo": false,
-		"hit_speed_scale": BLADE_AMP_FOLLOWUP_HIT_SPEED_SCALE,
-	})
+	blade_followup_projectiles.append(_build_blade_followup_projectile(
+		pos,
+		start_y,
+		float(spec.get("target_y", start_y)),
+		float(spec.get("width", BLADE_BASE_WIDTH)),
+		dark_mode,
+		BLADE_AMP_FOLLOWUP_HIT_SPEED_SCALE,
+		{}
+	))
 
 
 func _spawn_dual_glitch_clone_blades_for_current_cast(
@@ -4173,23 +4167,47 @@ func _spawn_dual_glitch_clone_blades_for_current_cast(
 			continue
 		var origin: Dictionary = origin_value
 		var start_y: float = float(origin.get("y", dual_glitch_base_pos.y)) - 20.0
-		blade_followup_projectiles.append({
-			"pos": Vector2(float(origin.get("x", dual_glitch_base_pos.x)), start_y),
-			"start_y": start_y,
-			"target_y": start_y - travel,
-			"width": width,
-			"dark_mode": dark_mode,
-			"trail": [],
-			"fadeout": false,
-			"fadeout_frames": 0.0,
-			"hit_ball": false,
-			"allow_gold": false,
-			"allow_followup": false,
-			"allow_combo": false,
-			"hit_speed_scale": 1.0,
-			"dual_glitch_replica": true,
-			"side": int(origin.get("side", 0)),
-		})
+		blade_followup_projectiles.append(_build_blade_followup_projectile(
+			Vector2(float(origin.get("x", dual_glitch_base_pos.x)), start_y),
+			start_y,
+			start_y - travel,
+			width,
+			dark_mode,
+			1.0,
+			{
+				"dual_glitch_replica": true,
+				"side": int(origin.get("side", 0)),
+			}
+		))
+
+
+func _build_blade_followup_projectile(
+	pos: Vector2,
+	start_y: float,
+	target_y: float,
+	width: float,
+	dark_mode: bool,
+	hit_speed_scale: float,
+	extra_fields: Dictionary
+) -> Dictionary:
+	var projectile := {
+		"pos": pos,
+		"start_y": start_y,
+		"target_y": target_y,
+		"width": width,
+		"dark_mode": dark_mode,
+		"trail": [],
+		"fadeout": false,
+		"fadeout_frames": 0.0,
+		"hit_ball": false,
+		"allow_gold": false,
+		"allow_followup": false,
+		"allow_combo": false,
+		"hit_speed_scale": hit_speed_scale,
+	}
+	for key in extra_fields.keys():
+		projectile[key] = extra_fields[key]
+	return projectile
 
 
 func _blade_rect(pos: Vector2, width: float, dark_mode: bool) -> Rect2:
