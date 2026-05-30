@@ -106,6 +106,7 @@ const BLADE_DARK_HITBOX_HEIGHT := 83.0
 const BLADE_FADEOUT_FRAMES := 30.0
 const BLADE_TRAIL_MAX := 20
 const BLADE_FOLLOWUP_TRAIL_MAX := 16
+const BLADE_FOLLOWUP_START_Y_OFFSET := -20.0
 const BLADE_COMBO_DELAY_FRAMES := 30.0
 const BLADE_DASH_RELEASE_DELAY_FRAMES := 18.0
 const DARK_BLADE_WINDOW_FRAMES := 180.0
@@ -4135,7 +4136,7 @@ func _maybe_spawn_blade_amp_followup_blade(context: Dictionary, deps: Dictionary
 		dark_mode,
 		BLADE_BASE_WIDTH,
 		BLADE_BASE_RANGE,
-		-20.0,
+		BLADE_FOLLOWUP_START_Y_OFFSET,
 		BLADE_AMP_FOLLOWUP_WIDTH_SCALE,
 		BLADE_AMP_FOLLOWUP_RANGE_SCALE,
 		80.0
@@ -4170,7 +4171,7 @@ func _spawn_dual_glitch_clone_blades_for_current_cast(
 		if not (origin_value is Dictionary):
 			continue
 		var origin: Dictionary = origin_value
-		var start_y: float = float(origin.get("y", dual_glitch_base_pos.y)) - 20.0
+		var start_y: float = float(origin.get("y", dual_glitch_base_pos.y)) + BLADE_FOLLOWUP_START_Y_OFFSET
 		blade_followup_projectiles.append(_build_blade_followup_projectile(
 			Vector2(float(origin.get("x", dual_glitch_base_pos.x)), start_y),
 			start_y,
