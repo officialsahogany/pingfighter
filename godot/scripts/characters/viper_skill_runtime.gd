@@ -129,6 +129,7 @@ const AIR_BLADE_FALLBACK_EXPLOSION_SCALE := 0.82
 const DARK_BLADE_FALLBACK_EXPLOSION_SCALE := 1.05
 const AIR_BLADE_FALLBACK_EXPLOSION_INTENSITY := 0.95
 const DARK_BLADE_FALLBACK_EXPLOSION_INTENSITY := 1.15
+const BLADE_HIT_PLAYER_COLLISION_COOLDOWN := 6.0
 const BLADE_AMP_FOLLOWUP_WIDTH_SCALE := 0.72
 const BLADE_AMP_FOLLOWUP_RANGE_SCALE := 0.88
 const BLADE_AMP_FOLLOWUP_HIT_SPEED_SCALE := 0.55
@@ -4137,7 +4138,7 @@ func _apply_blade_hit(
 	var result := {
 		"ball_vel": next_vel,
 		"ball_impact_boost": impact_boost,
-		"player_collision_cooldown": max(6.0, float(scene.get("player_collision_cooldown", 0.0))),
+		"player_collision_cooldown": max(BLADE_HIT_PLAYER_COLLISION_COOLDOWN, float(scene.get("player_collision_cooldown", 0.0))),
 	}
 	if allow_gold:
 		result.merge(_award_skill_gold(deps, BLADE_HIT_GOLD), true)
