@@ -240,6 +240,8 @@ const FOUR_POISONS_DUAL_GLITCH_CLONE_HP_BY_LEVEL := [2, 2, 2, 3, 3, 4]
 const FOUR_POISONS_DUAL_GLITCH_CLONE_HP_CAP := 6
 const CORE_FLIP_READY_WINDOW_MSEC := 700
 const CORE_FLIP_DASH_SUCCESS_WINDOW_MSEC := 400
+const CORE_FLIP_DASH_START_UNSET_MSEC := -100000
+const CORE_FLIP_DASH_START_VALID_AFTER_MSEC := -99999
 const CORE_FLIP_INPUT_FRAME_GAP := 4
 const CORE_FLIP_INPUT_MAX_AGE_FRAMES := 16
 const CORE_FLIP_DEFAULT_PADDLE_SIZE := Vector2(155.0, 50.0)
@@ -520,7 +522,7 @@ var venom_edge_stationary_active := false
 var core_flip_ready_msec := 0
 var core_flip_consumed := true
 var core_flip_buffered_until_msec := 0
-var core_flip_last_dash_start_msec := -100000
+var core_flip_last_dash_start_msec := CORE_FLIP_DASH_START_UNSET_MSEC
 var core_flip_attack_active := false
 var core_flip_attack_phase := 0
 var core_flip_phase_frames := 0.0
@@ -1077,7 +1079,7 @@ func apply_emp_strike_ball_motion(_fps_scale: float, scene: Dictionary, context:
 
 func register_player_ball_contact(deps: Dictionary = {}, _context: Dictionary = {}) -> void:
 	var dash_snapshot: Dictionary = _get_dash_snapshot(deps.get("dash_state", null))
-	if not bool(dash_snapshot.get("is_half", false)) and not core_flip_consumed and core_flip_last_dash_start_msec > -99999:
+	if not bool(dash_snapshot.get("is_half", false)) and not core_flip_consumed and core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
 		var now_msec: int = Time.get_ticks_msec()
 		var dash_active: bool = bool(dash_snapshot.get("active", false))
 		if (
@@ -1109,7 +1111,7 @@ func _reset_core_flip_runtime(clear_window: bool = false) -> void:
 		core_flip_ready_msec = 0
 		core_flip_consumed = true
 		core_flip_buffered_until_msec = 0
-		core_flip_last_dash_start_msec = -100000
+		core_flip_last_dash_start_msec = CORE_FLIP_DASH_START_UNSET_MSEC
 	core_flip_attack_active = false
 	core_flip_attack_phase = 0
 	core_flip_phase_frames = 0.0
@@ -1136,7 +1138,7 @@ func _is_core_flip_ready_window_active(now_msec: int) -> bool:
 		return false
 	if core_flip_consumed:
 		return false
-	if core_flip_last_dash_start_msec > -99999 and core_flip_ready_msec < core_flip_last_dash_start_msec:
+	if core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC and core_flip_ready_msec < core_flip_last_dash_start_msec:
 		return false
 	if now_msec - core_flip_ready_msec > CORE_FLIP_READY_WINDOW_MSEC:
 		core_flip_ready_msec = 0
@@ -4853,7 +4855,7 @@ func _apply_shadow_step_hit(
 	phantom_strike_active = false
 	phantom_strike_frames = 0.0
 	shadow_marshal_delay_frames = SHADOW_STEP_MARSHAL_DELAY_FRAMES
-	if not core_flip_consumed and core_flip_last_dash_start_msec > -99999:
+	if not core_flip_consumed and core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
 		core_flip_ready_msec = Time.get_ticks_msec()
 		core_flip_buffered_until_msec = 0
 	if shadow_was_airborne and _is_skill_equipped(_get_viper_skill_config(deps), DARK_BLADE):
