@@ -116,6 +116,7 @@ const DARK_BLADE_MAX_BALL_SPEED := 50.0
 const BLADE_AMP_FOLLOWUP_WIDTH_SCALE := 0.72
 const BLADE_AMP_FOLLOWUP_RANGE_SCALE := 0.88
 const BLADE_AMP_FOLLOWUP_HIT_SPEED_SCALE := 0.55
+const BLADE_AMP_FOLLOWUP_MIN_WIDTH := 80.0
 const BLADE_PREP_FALL_SPEED := 3.0
 const BLADE_AIRBORNE_MOVE_BONUS_MAX := 2.15
 const BLADE_JETPACK_MAX_HEIGHT := 200.0
@@ -4139,7 +4140,7 @@ func _maybe_spawn_blade_amp_followup_blade(context: Dictionary, deps: Dictionary
 		BLADE_FOLLOWUP_START_Y_OFFSET,
 		BLADE_AMP_FOLLOWUP_WIDTH_SCALE,
 		BLADE_AMP_FOLLOWUP_RANGE_SCALE,
-		80.0
+		BLADE_AMP_FOLLOWUP_MIN_WIDTH
 	)
 	var pos: Vector2 = _get_vector2(spec.get("pos", Vector2.ZERO), Vector2.ZERO)
 	var start_y: float = float(spec.get("start_y", pos.y))
