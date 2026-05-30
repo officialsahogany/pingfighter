@@ -1080,7 +1080,7 @@ func apply_emp_strike_ball_motion(_fps_scale: float, scene: Dictionary, context:
 
 func register_player_ball_contact(deps: Dictionary = {}, _context: Dictionary = {}) -> void:
 	var dash_snapshot: Dictionary = _get_dash_snapshot(deps.get("dash_state", null))
-	if not bool(dash_snapshot.get("is_half", false)) and not core_flip_consumed and core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
+	if not bool(dash_snapshot.get("is_half", false)) and not core_flip_consumed and _has_core_flip_dash_start():
 		var now_msec: int = Time.get_ticks_msec()
 		var dash_active: bool = bool(dash_snapshot.get("active", false))
 		if (
@@ -1109,6 +1109,10 @@ func release_chaos_blackhole_from_hit(deps: Dictionary = {}, context: Dictionary
 func _clear_core_flip_ready_window(consume_ready: bool = true) -> void:
 	core_flip_consumed = consume_ready
 	_close_core_flip_ready_window()
+
+
+func _has_core_flip_dash_start() -> bool:
+	return core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC
 
 
 func _close_core_flip_ready_window() -> void:
@@ -1155,7 +1159,7 @@ func _is_core_flip_ready_window_active(now_msec: int) -> bool:
 		return false
 	if core_flip_consumed:
 		return false
-	if core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC and core_flip_ready_msec < core_flip_last_dash_start_msec:
+	if _has_core_flip_dash_start() and core_flip_ready_msec < core_flip_last_dash_start_msec:
 		return false
 	if now_msec - core_flip_ready_msec > CORE_FLIP_READY_WINDOW_MSEC:
 		_close_core_flip_ready_window()
@@ -4869,7 +4873,7 @@ func _apply_shadow_step_hit(
 	phantom_strike_active = false
 	phantom_strike_frames = 0.0
 	shadow_marshal_delay_frames = SHADOW_STEP_MARSHAL_DELAY_FRAMES
-	if not core_flip_consumed and core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
+	if not core_flip_consumed and _has_core_flip_dash_start():
 		_open_core_flip_ready_window(Time.get_ticks_msec())
 	if shadow_was_airborne and _is_skill_equipped(_get_viper_skill_config(deps), DARK_BLADE):
 		dark_blade_window = true
