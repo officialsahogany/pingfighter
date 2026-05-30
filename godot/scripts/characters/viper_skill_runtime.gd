@@ -1183,20 +1183,24 @@ func _is_core_flip_ready_window_active(now_msec: int) -> bool:
 		return false
 	if _has_core_flip_dash_start() and core_flip_ready_msec < core_flip_last_dash_start_msec:
 		return false
-	if now_msec - core_flip_ready_msec > CORE_FLIP_READY_WINDOW_MSEC:
+	if _is_core_flip_ready_window_expired(now_msec):
 		_close_core_flip_ready_window()
 		return false
 	return true
+
+
+func _is_core_flip_ready_window_expired(now_msec: int) -> bool:
+	return now_msec > core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC
 
 
 func _has_core_flip_input_buffer(now_msec: int, input_snapshot: Dictionary) -> bool:
 	if core_flip_ready_msec <= 0:
 		_clear_core_flip_input_buffer()
 		return false
-	var window_end_msec: int = core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC
-	if now_msec > window_end_msec:
+	if _is_core_flip_ready_window_expired(now_msec):
 		_clear_core_flip_input_buffer()
 		return false
+	var window_end_msec: int = core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC
 	var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
 	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
 	var combo_detected: bool = left_pressed and right_pressed
