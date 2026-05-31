@@ -869,6 +869,7 @@ func _get_selected_character_runtime_module_keys(character_type: String) -> Arra
 				"smasher_input_reader",
 				"smasher_power_smash_state",
 				"skill_cutin_overlay_host",
+				"lingpet_acquire_cutin_overlay_host",
 				"smasher_drive_input_state",
 				"smasher_combo_state",
 				"smasher_skill_state",
@@ -964,6 +965,9 @@ func prewarm_runtime_perk_overlay_resources_step(module_getter: Callable) -> boo
 	var overlay_renderer: Object = _get_module(module_getter, "runtime_perk_overlay_renderer")
 	if overlay_renderer != null and overlay_renderer.has_method("prewarm_assets"):
 		overlay_renderer.prewarm_assets()
+	var treasure_hunt_runtime: Object = _get_module(module_getter, "treasure_hunt_runtime")
+	if treasure_hunt_runtime != null and treasure_hunt_runtime.has_method("prewarm_assets"):
+		treasure_hunt_runtime.prewarm_assets()
 	battle_runtime_perk_overlay_prewarmed = true
 	return true
 

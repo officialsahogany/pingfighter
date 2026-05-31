@@ -68,7 +68,8 @@ const CENTERED_TEXT_SIZE_CACHE_LIMIT := 256
 const WRAP_TEXT_CACHE_LIMIT := 1024
 const PASSIVE_FRAME_COLOR_CACHE_LIMIT := 128
 const PASSIVE_INVENTORY_COLUMN_TARGET := 84.0
-const STAT_ROW_COUNT := 14
+const STAT_ROW_COUNT := 8
+const LINGPET_HATCH_REQUIRED_HITS := 2
 const CHARACTER_CARD_GLOW_LAYERS := 1
 const CHARACTER_CARD_RING_SEGMENTS := 12
 const FALLBACK_SYMBOL_RING_SEGMENTS := 8
@@ -367,6 +368,7 @@ var _layout_equipment_rect := Rect2()
 var _layout_skill_rect := Rect2()
 var _layout_active_items_rect := Rect2()
 var _layout_perk_rect := Rect2()
+var _layout_lingpet_rect := Rect2()
 var _layout_stats_rect := Rect2()
 var _layout_inventory_rect := Rect2()
 var _last_passive_grid_start := Vector2.ZERO
@@ -1227,40 +1229,23 @@ func _prewarm_stats_layout(font: Font, owner: Object, registry: Object, module_g
 	var runtime_state: Object = _get_prewarm_instance(registry, module_getter, "runtime_perk_state")
 	var active_item_runtime: Object = _get_prewarm_instance(registry, module_getter, "active_item_runtime")
 	var mythic_item_runtime: Object = _get_prewarm_instance(registry, module_getter, "mythic_item_runtime")
+	var lingpet_runtime: Object = _get_prewarm_instance(registry, module_getter, "lingpet_egg_runtime")
 	var character_type: String = _get_character_type(owner)
-	var skill_config: Object = _get_prewarm_skill_config(registry, module_getter, character_type)
-	var skill_snapshot: Dictionary = skill_config.get_snapshot() if skill_config != null and skill_config.has_method("get_snapshot") else {}
-	var dash_snapshot: Dictionary = _get_prewarm_smasher_dash_snapshot(registry, module_getter, character_type)
-	var runtime_snapshot: Dictionary = runtime_state.get_snapshot() if runtime_state != null and runtime_state.has_method("get_snapshot") else {}
-	var stat_sources: Array = [runtime_state, active_item_runtime, mythic_item_runtime]
-	var active_slots: Array = _get_array(_safe_owner_get(owner, "active_item_slots", []))
-	var active_item_slot_capacity: int = _get_active_item_slot_capacity_for_sources(runtime_state, mythic_item_runtime)
+	var stat_sources: Array = [runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime]
 	_build_stats(
 		owner,
 		registry,
-		active_item_slot_capacity,
 		runtime_state,
 		active_item_runtime,
 		mythic_item_runtime,
 		character_type,
-		skill_snapshot,
-		dash_snapshot,
-		runtime_snapshot,
 		stat_sources,
-		active_slots,
 		true
 	)
 	_update_stats_layout(_layout_stats_rect, _stats_row_count)
 	for i in range(_stats_layout_visible_count):
 		_text_size(font, _stats_label_cache[i], _stats_layout_row_size)
 		_get_stats_value_width(font, i, _stats_value_cache[i], _stats_layout_row_size)
-
-
-func _get_prewarm_smasher_dash_snapshot(registry: Object, module_getter: Callable, character_type: String) -> Dictionary:
-	if character_type != "smasher":
-		return {}
-	var dash_state: Object = _get_prewarm_instance(registry, module_getter, "smasher_dash_state")
-	return dash_state.get_snapshot() if dash_state != null and dash_state.has_method("get_snapshot") else {}
 
 
 func _resolve_prewarm_view_size(owner: Object, requested_view_size: Vector2 = Vector2.ZERO) -> Vector2:
@@ -1474,7 +1459,6 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	var runtime_state: Object = _get_instance(registry, "runtime_perk_state")
 	var runtime_snapshot: Dictionary = runtime_state.get_snapshot() if runtime_state != null and runtime_state.has_method("get_snapshot") else {}
 	var character_type: String = _get_character_type(owner)
-	var dash_snapshot: Dictionary = _get_smasher_dash_snapshot(registry, character_type)
 	_draw_header(canvas, owner, panel_rect, font, registry, runtime_state, runtime_snapshot, character_type)
 	_perf_end(perf_logger, "character_info.frame", sample_start)
 
@@ -1484,6 +1468,7 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 		mouse_pos = viewport.get_mouse_position()
 	var active_item_runtime: Object = _get_instance(registry, "active_item_runtime")
 	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	var lingpet_runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
 	var active_item_hud_visuals: Object = _get_instance(registry, "active_item_hud_visuals")
 	var runtime_perk_icon_renderer: Object = _get_instance(registry, "runtime_perk_icon_renderer")
 	var runtime_perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
@@ -1495,6 +1480,7 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	_frame_stat_sources.append(runtime_state)
 	_frame_stat_sources.append(active_item_runtime)
 	_frame_stat_sources.append(mythic_item_runtime)
+	_frame_stat_sources.append(lingpet_runtime)
 	var stat_sources: Array = _frame_stat_sources
 
 	_frame_hover_data.clear()
@@ -1516,7 +1502,11 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	_perf_end(perf_logger, "character_info.perks", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	_draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, active_item_slot_capacity, runtime_state, active_item_runtime, mythic_item_runtime, character_type, skill_snapshot, dash_snapshot, runtime_snapshot, stat_sources, active_item_slots)
+	_draw_lingpet_panel(canvas, owner, _layout_lingpet_rect, font)
+	_perf_end(perf_logger, "character_info.lingpet", sample_start)
+
+	sample_start = _perf_begin(perf_logger)
+	_draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources)
 	_perf_end(perf_logger, "character_info.stats", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
@@ -1561,7 +1551,16 @@ func _update_frame_layout(view_size: Vector2) -> void:
 	_layout_equipment_rect = _section_rect(left_rect, 0.0, 0.58)
 	_layout_skill_rect = _section_rect(left_rect, 0.60, 0.19)
 	_layout_active_items_rect = _section_rect(left_rect, 0.80, 0.20)
-	_layout_perk_rect = _section_rect(right_rect, 0.0, 0.40)
+	var right_top_rect := _section_rect(right_rect, 0.0, 0.40)
+	var right_top_gap := 12.0
+	if right_top_rect.size.x >= 560.0:
+		var lingpet_w: float = clamp(right_top_rect.size.x * 0.34, 230.0, 320.0)
+		_layout_perk_rect = Rect2(right_top_rect.position, Vector2(right_top_rect.size.x - lingpet_w - right_top_gap, right_top_rect.size.y))
+		_layout_lingpet_rect = Rect2(_layout_perk_rect.end.x + right_top_gap, right_top_rect.position.y, lingpet_w, right_top_rect.size.y)
+	else:
+		var perk_h: float = max(64.0, right_top_rect.size.y * 0.54 - right_top_gap * 0.5)
+		_layout_perk_rect = Rect2(right_top_rect.position, Vector2(right_top_rect.size.x, perk_h))
+		_layout_lingpet_rect = Rect2(right_top_rect.position.x, _layout_perk_rect.end.y + right_top_gap, right_top_rect.size.x, max(64.0, right_top_rect.end.y - _layout_perk_rect.end.y - right_top_gap))
 	_layout_stats_rect = _section_rect(right_rect, 0.42, 0.58)
 
 
@@ -2162,38 +2161,176 @@ func _draw_perk_grid(
 	return hover_data
 
 
+func _draw_lingpet_panel(canvas: CanvasItem, owner: Object, rect: Rect2, font: Font) -> void:
+	_draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
+	_draw_text_xy(canvas, font, "링펫", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
+
+	var content_rect := Rect2(rect.position.x + 12.0, rect.position.y + 36.0, rect.size.x - 24.0, rect.size.y - 48.0)
+	canvas.draw_rect(content_rect, OVERLAY_GRID_FILL)
+	var snapshot: Dictionary = _get_lingpet_panel_snapshot(owner)
+	var state: String = str(snapshot.get("state", "none"))
+	var hits: int = int(snapshot.get("hatch_hits", 0))
+	var required_hits: int = max(1, int(snapshot.get("required_hits", LINGPET_HATCH_REQUIRED_HITS)))
+	var progress: float = clamp(float(hits) / float(required_hits), 0.0, 1.0)
+	var compact: bool = content_rect.size.x < 260.0 or content_rect.size.y < 145.0
+	var icon_size: float = clamp(min(content_rect.size.x * (0.36 if not compact else 0.28), content_rect.size.y * 0.54), 38.0, 82.0)
+	var icon_rect: Rect2
+	var text_x: float
+	var text_y: float
+	var text_w: float
+	if compact:
+		icon_rect = Rect2(content_rect.position.x + 10.0, content_rect.position.y + 10.0, icon_size, icon_size)
+		text_x = icon_rect.end.x + 10.0
+		text_y = content_rect.position.y + 23.0
+		text_w = max(96.0, content_rect.end.x - text_x - 10.0)
+	else:
+		icon_rect = Rect2(content_rect.position.x + 16.0, content_rect.position.y + content_rect.size.y * 0.5 - icon_size * 0.5, icon_size, icon_size)
+		text_x = icon_rect.end.x + 18.0
+		text_y = content_rect.position.y + 36.0
+		text_w = max(120.0, content_rect.end.x - text_x - 12.0)
+	_draw_lingpet_egg_icon(canvas, icon_rect, state, progress)
+
+	var title: String = str(snapshot.get("title", "링펫 알 없음"))
+	var subtitle: String = str(snapshot.get("subtitle", "미획득"))
+	var body: String = str(snapshot.get("body", ""))
+	_draw_text_xy(canvas, font, title, text_x, text_y, 15, Color.WHITE)
+	_draw_text_xy(canvas, font, subtitle, text_x, text_y + 24.0, 12, ACCENT_GOLD if state == "egg" else TEXT_SOFT)
+	_draw_lingpet_wrapped_text(canvas, font, body, text_x, text_y + 48.0, text_w, 4)
+	if state == "egg":
+		var meter_rect := Rect2(text_x, min(content_rect.end.y - 24.0, text_y + 94.0), text_w, 8.0)
+		_draw_lingpet_progress_bar(canvas, meter_rect, progress)
+
+
+func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
+	var lingpet_id: String = str(_safe_owner_get(owner, "lingpet_id", ""))
+	if lingpet_id == "":
+		lingpet_id = str(_safe_owner_get(owner, "active_lingpet_id", ""))
+	if lingpet_id == "":
+		lingpet_id = str(_safe_owner_get(owner, "current_lingpet_id", ""))
+	var state: String = str(_safe_owner_get(owner, "lingpet_state", "")).to_lower()
+	if state == "":
+		state = str(_safe_owner_get(owner, "ringpet_state", "")).to_lower()
+	var hits: int = int(_safe_owner_get(owner, "lingpet_hatch_hits", _safe_owner_get(owner, "ringpet_hatch_hits", 0)))
+	var required_hits: int = max(1, int(_safe_owner_get(owner, "lingpet_hatch_required_hits", _safe_owner_get(owner, "ringpet_hatch_required_hits", LINGPET_HATCH_REQUIRED_HITS))))
+	if state == "":
+		if lingpet_id != "":
+			state = "companion"
+		elif hits > 0:
+			state = "egg"
+		else:
+			state = "none"
+	var display_name: String = _get_lingpet_display_name(lingpet_id)
+	match state:
+		"egg", "hatching", "알":
+			return {
+				"state": "egg",
+				"title": "링펫 알",
+				"subtitle": "공 충돌 " + _format_int_pair(hits, required_hits),
+				"body": "공에 맞을 때마다 금이 가고, 가득 차면 링펫이 깨어납니다.",
+				"hatch_hits": hits,
+				"required_hits": required_hits,
+			}
+		"companion", "active", "owned", "동행":
+			return {
+				"state": "companion",
+				"title": display_name,
+				"subtitle": "동행 중",
+				"body": str(_safe_owner_get(owner, "lingpet_effect_text", "링펫 효과는 다음 단계에서 연결됩니다.")),
+				"hatch_hits": required_hits,
+				"required_hits": required_hits,
+			}
+		_:
+			return {
+				"state": "none",
+				"title": "링펫 알 없음",
+				"subtitle": "미획득",
+				"body": "주니어리그에서 미카로 플레이하면 첫 링펫 알이 나타납니다.",
+				"hatch_hits": 0,
+				"required_hits": required_hits,
+			}
+
+
+func _get_lingpet_display_name(lingpet_id: String) -> String:
+	match lingpet_id:
+		"maribo":
+			return "마리보"
+		"":
+			return "링펫"
+		_:
+			return lingpet_id
+
+
+func _draw_lingpet_egg_icon(canvas: CanvasItem, rect: Rect2, state: String, progress: float) -> void:
+	var center := rect.get_center()
+	var rx: float = rect.size.x * 0.34
+	var ry: float = rect.size.y * 0.43
+	var egg_color := Color(1.0, 170.0 / 255.0, 218.0 / 255.0, 0.28)
+	var ring_color := Color(85.0 / 255.0, 218.0 / 255.0, 1.0, 0.82)
+	if state == "companion":
+		egg_color = Color(105.0 / 255.0, 245.0 / 255.0, 170.0 / 255.0, 0.24)
+		ring_color = STAT_BUFF_COLOR
+	for i in range(5, 0, -1):
+		canvas.draw_circle(center, max(rx, ry) + float(i) * 3.0, Color(ring_color.r, ring_color.g, ring_color.b, 0.018 * float(i)))
+	canvas.draw_colored_polygon(_lingpet_ellipse_points(center, rx, ry), egg_color)
+	canvas.draw_arc(center, max(rx, ry) * 0.84, 0.0, TAU, FALLBACK_SYMBOL_RING_SEGMENTS, ring_color, 2.0)
+	canvas.draw_circle(center + Vector2(-rx * 0.24, -ry * 0.22), max(2.0, rx * 0.09), Color(1.0, 1.0, 1.0, 0.58))
+	if state == "egg" and progress > 0.0:
+		var crack_color := Color(1.0, 245.0 / 255.0, 170.0 / 255.0, 0.88)
+		var crack_bottom: float = center.y - ry * 0.2 + ry * 0.95 * progress
+		canvas.draw_polyline(PackedVector2Array([
+			center + Vector2(-rx * 0.08, -ry * 0.62),
+			center + Vector2(rx * 0.10, -ry * 0.30),
+			center + Vector2(-rx * 0.02, -ry * 0.06),
+			Vector2(center.x + rx * 0.18, crack_bottom),
+		]), crack_color, 1.8)
+	elif state == "none":
+		_draw_locked_slot_rect(canvas, rect.grow(-8.0), OVERLAY_GRID_EMPTY_TEXT)
+	else:
+		_draw_text_centered_xy(canvas, ThemeDB.fallback_font, "M", center.x, center.y + 4.0, int(rect.size.x * 0.30), Color.WHITE)
+
+
+func _lingpet_ellipse_points(center: Vector2, rx: float, ry: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for i in range(18):
+		var angle: float = TAU * float(i) / 18.0
+		points.append(center + Vector2(cos(angle) * rx, sin(angle) * ry))
+	return points
+
+
+func _draw_lingpet_progress_bar(canvas: CanvasItem, rect: Rect2, progress: float) -> void:
+	canvas.draw_rect(rect, Color(8.0 / 255.0, 12.0 / 255.0, 20.0 / 255.0, 0.96))
+	canvas.draw_rect(Rect2(rect.position, Vector2(rect.size.x * clamp(progress, 0.0, 1.0), rect.size.y)), Color(85.0 / 255.0, 218.0 / 255.0, 1.0, 0.82))
+	canvas.draw_rect(rect, Color(85.0 / 255.0, 218.0 / 255.0, 1.0, 0.85), false, 1.0)
+
+
+func _draw_lingpet_wrapped_text(canvas: CanvasItem, font: Font, text: String, x: float, y: float, max_width: float, max_lines: int) -> void:
+	var lines: Array = _wrap_text_to_width(font, LanguageSettings.translate_text(text), 11, max_width, max_lines)
+	for i in range(lines.size()):
+		_draw_text_xy(canvas, font, str(lines[i]), x, y + float(i) * 18.0, 11, OVERLAY_GRID_EMPTY_TEXT)
+
+
 func _draw_stats_panel(
 	canvas: CanvasItem,
 	owner: Object,
 	registry: Object,
 	rect: Rect2,
 	font: Font,
-	active_item_slot_capacity: int = -1,
 	runtime_state_override: Object = null,
 	active_item_runtime_override: Object = null,
 	mythic_item_runtime_override: Object = null,
 	character_type_override: String = "",
-	skill_snapshot_override: Dictionary = {},
-	dash_snapshot_override: Dictionary = {},
-	runtime_snapshot_override: Variant = null,
-	stat_sources_override: Array = [],
-	active_slots_override: Variant = null
+	stat_sources_override: Array = []
 ) -> void:
 	_draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
 	_draw_text_xy(canvas, font, "능력치", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
 	_build_stats(
 		owner,
 		registry,
-		active_item_slot_capacity,
 		runtime_state_override,
 		active_item_runtime_override,
 		mythic_item_runtime_override,
 		character_type_override,
-		skill_snapshot_override,
-		dash_snapshot_override,
-		runtime_snapshot_override,
 		stat_sources_override,
-		active_slots_override,
 		false
 	)
 	var stats_count: int = _stats_row_count
@@ -2253,34 +2390,16 @@ func _update_stats_layout(rect: Rect2, stats_count: int) -> void:
 func _build_stats(
 	owner: Object,
 	registry: Object,
-	active_item_slot_capacity: int = -1,
 	runtime_state_override: Object = null,
 	active_item_runtime_override: Object = null,
 	mythic_item_runtime_override: Object = null,
 	character_type_override: String = "",
-	skill_snapshot_override: Dictionary = {},
-	dash_snapshot_override: Dictionary = {},
-	runtime_snapshot_override: Variant = null,
 	stat_sources_override: Array = [],
-	active_slots_override: Variant = null,
 	write_row_cache: bool = true
 ) -> Array:
 	var character_type: String = character_type_override
 	if character_type == "":
 		character_type = _get_character_type(owner)
-	var dash_snapshot: Dictionary = dash_snapshot_override
-	if dash_snapshot.is_empty():
-		dash_snapshot = _get_smasher_dash_snapshot(registry, character_type)
-	var skill_snapshot: Dictionary = skill_snapshot_override
-	if skill_snapshot.is_empty():
-		var skill_config: Object = _get_skill_config(registry, character_type)
-		skill_snapshot = skill_config.get_snapshot() if skill_config != null and skill_config.has_method("get_snapshot") else {}
-	var equipped: Array = _get_array(skill_snapshot.get("equipped_skills", []))
-	var active_slots: Array = []
-	if active_slots_override is Array:
-		active_slots = active_slots_override
-	else:
-		active_slots = _get_array(_safe_owner_get(owner, "active_item_slots", []))
 	var runtime_state: Object = runtime_state_override
 	if runtime_state == null:
 		runtime_state = _get_instance(registry, "runtime_perk_state")
@@ -2290,15 +2409,8 @@ func _build_stats(
 	var mythic_item_runtime: Object = mythic_item_runtime_override
 	if mythic_item_runtime == null:
 		mythic_item_runtime = _get_instance(registry, "mythic_item_runtime")
-	var stat_sources: Array = stat_sources_override if not stat_sources_override.is_empty() else [runtime_state, active_item_runtime, mythic_item_runtime]
-	var runtime_snapshot: Dictionary = {}
-	if runtime_snapshot_override is Dictionary:
-		runtime_snapshot = runtime_snapshot_override
-	elif runtime_state != null and runtime_state.has_method("get_snapshot"):
-		runtime_snapshot = runtime_state.get_snapshot()
-	var levels: Dictionary = _get_dict(runtime_snapshot.get("runtime_skill_levels", {}))
-	if levels.is_empty() and not runtime_snapshot.has("runtime_skill_levels"):
-		levels = _get_dict(_safe_owner_get(owner, "runtime_perk_levels", {}))
+	var lingpet_runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	var stat_sources: Array = stat_sources_override if not stat_sources_override.is_empty() else [runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime]
 	var smasher_recovery_state: Object = _get_instance(registry, "smasher_recovery_state") if character_type == "smasher" else null
 	var combo_key: String = _character_runtime.get_combo_state_key(character_type) if _character_runtime != null else ""
 	var combo_state: Object = _get_instance(registry, combo_key) if combo_key != "" else null
@@ -2322,24 +2434,16 @@ func _build_stats(
 	var dash_recovery_seconds: float = _frames_to_seconds(_get_effective_dash_recovery_frames(stat_sources))
 	var dash_cooldown_seconds: float = _frames_to_seconds(_get_effective_dash_recharge_frames(stat_sources))
 	var item_cooldown_seconds: float = float(_get_effective_default_active_item_cooldown_msec(registry, stat_sources)) / 1000.0
-	if active_item_slot_capacity < 1:
-		active_item_slot_capacity = _get_active_item_slot_capacity_for_sources(runtime_state, mythic_item_runtime)
 
 	_ensure_stats_row_cache(STAT_ROW_COUNT)
-	_write_simple_stat_row(0, "게이지", _format_int_pair(int(float(_safe_owner_get(owner, "special_gauge", 0.0))), int(max_gauge)), ACCENT_BLUE, write_row_cache)
-	_write_delta_stat_row(1, "이동 속도", "%.2f" % move_speed, base_move_speed, move_speed, true, write_row_cache)
-	_write_delta_stat_row(2, "몸집크기", "%.0fpx" % paddle_width, base_paddle_width, paddle_width, true, write_row_cache)
-	_write_delta_stat_row(3, LanguageSettings.translate_text("게이지 획득량"), "%dpt" % int(round(gauge_gain)), base_gauge_gain, gauge_gain, true, write_row_cache)
-	_write_delta_stat_row(4, "최대 게이지", "%dpt" % int(round(max_gauge)), base_max_gauge, max_gauge, true, write_row_cache)
-	_write_delta_stat_row(5, "대시 거리", "%dpx" % int(round(dash_distance)), base_dash_distance, dash_distance, true, write_row_cache)
-	_write_delta_stat_row(6, "대시 후딜시간", "%.2f초" % dash_recovery_seconds, base_dash_recovery_seconds, dash_recovery_seconds, false, write_row_cache)
-	_write_delta_stat_row(7, "대시쿨타임", "%.2f초" % dash_cooldown_seconds, base_dash_cooldown_seconds, dash_cooldown_seconds, false, write_row_cache)
-	_write_delta_stat_row(8, "아이템쿨타임", "%.2f초" % item_cooldown_seconds, base_item_cooldown_seconds, item_cooldown_seconds, false, write_row_cache)
-	_write_simple_stat_row(9, "대시 토큰", _format_int_pair(int(dash_snapshot.get("tokens", 0)), max(1, int(dash_snapshot.get("max_tokens", 1)))), ACCENT_GOLD, write_row_cache)
-	_write_simple_stat_row(10, "장착 스킬", _format_int_pair(equipped.size(), int(skill_snapshot.get("max_slots", 5))), TEXT_SOFT, write_row_cache)
-	_write_simple_stat_row(11, "액티브 아이템", _format_int_pair(active_slots.size(), active_item_slot_capacity), TEXT_SOFT, write_row_cache)
-	_write_simple_stat_row(12, LanguageSettings.translate_text("획득 퍽"), "%d" % levels.size(), TEXT_SOFT, write_row_cache)
-	_write_simple_stat_row(13, "퍽 골드", "%d" % _get_runtime_perk_gold(owner, runtime_snapshot), ACCENT_GOLD, write_row_cache)
+	_write_delta_stat_row(0, "이동 속도", "%.2f" % move_speed, base_move_speed, move_speed, true, write_row_cache)
+	_write_delta_stat_row(1, "몸집크기", "%.0fpx" % paddle_width, base_paddle_width, paddle_width, true, write_row_cache)
+	_write_delta_stat_row(2, LanguageSettings.translate_text("게이지 획득량"), "%dpt" % int(round(gauge_gain)), base_gauge_gain, gauge_gain, true, write_row_cache)
+	_write_delta_stat_row(3, "최대 게이지", "%dpt" % int(round(max_gauge)), base_max_gauge, max_gauge, true, write_row_cache)
+	_write_delta_stat_row(4, "대시 거리", "%dpx" % int(round(dash_distance)), base_dash_distance, dash_distance, true, write_row_cache)
+	_write_delta_stat_row(5, "대시 후딜시간", "%.2f초" % dash_recovery_seconds, base_dash_recovery_seconds, dash_recovery_seconds, false, write_row_cache)
+	_write_delta_stat_row(6, "대시쿨타임", "%.2f초" % dash_cooldown_seconds, base_dash_cooldown_seconds, dash_cooldown_seconds, false, write_row_cache)
+	_write_delta_stat_row(7, "아이템쿨타임", "%.2f초" % item_cooldown_seconds, base_item_cooldown_seconds, item_cooldown_seconds, false, write_row_cache)
 	_stats_row_count = STAT_ROW_COUNT
 	return _stats_row_cache
 
@@ -3592,7 +3696,7 @@ func _active_item_label_cache_matches(slots: Array) -> bool:
 
 
 func _prewarm_static_text(font: Font, owner: Object) -> void:
-	for text in ["퍽", "Lv.1", "Lv.2", "Lv.3", "Lv.4", "Lv.5", "0 / 3", "0 / 5", "-", "E"]:
+	for text in ["퍽", "Lv.1", "Lv.2", "Lv.3", "Lv.4", "Lv.5", "0 / 2", "0 / 3", "0 / 5", "-", "E"]:
 		for size in [8, 9, 10, 11, 12, 13, 14, 15]:
 			_text_size(font, str(text), int(size))
 	_ensure_equipment_slot_metadata_cache()
@@ -4561,6 +4665,7 @@ func _get_stat_sources(registry: Object) -> Array:
 		_get_instance(registry, "runtime_perk_state"),
 		_get_instance(registry, "active_item_runtime"),
 		_get_instance(registry, "mythic_item_runtime"),
+		_get_instance(registry, "lingpet_egg_runtime"),
 	]
 
 

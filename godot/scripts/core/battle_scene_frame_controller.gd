@@ -34,6 +34,21 @@ func process_idle(
 		_perf_end(perf_logger, "process.frame.total", total_start)
 		return
 
+	# The lingpet acquisition cut-in pauses battle physics via the modal gate, so
+	# its reveal clock must advance from this ungated idle pump (not the gated
+	# update driver) and keep the scene repainting while it holds for a click.
+	var lingpet_acquire_runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
+	if (
+		lingpet_acquire_runtime != null
+		and lingpet_acquire_runtime.has_method("is_acquire_cutin_active")
+		and bool(lingpet_acquire_runtime.is_acquire_cutin_active())
+	):
+		if lingpet_acquire_runtime.has_method("advance_acquire_cutin"):
+			lingpet_acquire_runtime.advance_acquire_cutin(delta)
+		_queue_redraw(owner)
+		_perf_end(perf_logger, "process.frame.total", total_start)
+		return
+
 	var grip_overlay: Object = _get_module(module_getter, "grip_style_selection_overlay")
 	if grip_overlay != null and grip_overlay.has_method("update"):
 		sample_start = _perf_begin(perf_logger)
@@ -323,6 +338,7 @@ func draw(
 		_perf_end(perf_logger, "draw.frame.active_item_use_tutorial", active_item_hint_start)
 
 	_draw_skill_cutin_if_active(canvas, registry, module_getter, view_size, perf_logger)
+	_draw_lingpet_acquire_cutin_if_active(canvas, registry, view_size, perf_logger)
 
 	var overlay_frame: Object = _get_overlay_frame_controller(module_getter)
 	if overlay_frame != null and overlay_frame.has_method("draw"):
@@ -397,6 +413,29 @@ func _draw_skill_cutin_if_active(
 	var cutin_start: int = _perf_begin(perf_logger)
 	cutin_host.draw(canvas, power_state.cutin_state, view_size)
 	_perf_end(perf_logger, "draw.frame.skill_cutin", cutin_start)
+
+
+func _draw_lingpet_acquire_cutin_if_active(
+	canvas: CanvasItem,
+	registry: Object,
+	view_size: Vector2,
+	perf_logger: Object
+) -> void:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return
+	# The lingpet runtime is instantiated + cached earlier this frame by the
+	# playfield scene drawer, so a cached lookup is enough here (no lazy init).
+	var runtime: Variant = registry.get_cached_instance("lingpet_egg_runtime")
+	if typeof(runtime) != TYPE_OBJECT or runtime == null:
+		return
+	if not runtime.has_method("is_acquire_cutin_active") or not bool(runtime.is_acquire_cutin_active()):
+		return
+	var host: Variant = registry.get_cached_instance("lingpet_acquire_cutin_overlay_host")
+	if typeof(host) != TYPE_OBJECT or host == null:
+		return
+	var start: int = _perf_begin(perf_logger)
+	host.draw(canvas, runtime, view_size)
+	_perf_end(perf_logger, "draw.frame.lingpet_acquire_cutin", start)
 
 
 func _get_readiness_controller(module_getter: Callable) -> Object:

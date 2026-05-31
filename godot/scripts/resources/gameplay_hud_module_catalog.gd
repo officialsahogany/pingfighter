@@ -113,6 +113,10 @@ const MODULES := {
 		"path": "res://scripts/hud/skill_cutin_overlay_host.gd",
 		"label": "skill cutin overlay host",
 	},
+	"lingpet_acquire_cutin_overlay_host": {
+		"path": "res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd",
+		"label": "lingpet acquire cutin overlay host",
+	},
 	"ball_speed_debug_overlay": {
 		"path": "res://scripts/hud/ball_speed_debug_overlay.gd",
 		"label": "ball speed debug overlay",

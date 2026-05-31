@@ -72,8 +72,18 @@ func is_elixir_cinematic_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "active_item_runtime", "is_elixir_cinematic_active")
 
 
+func is_lingpet_acquire_cutin_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "lingpet_egg_runtime", "is_acquire_cutin_active")
+
+
+func is_treasure_hunt_effect_active(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "treasure_hunt_runtime", "is_effect_active")
+
+
 func _should_block_battle_physics(module_getter: Callable, perf_logger: Object = null) -> bool:
 	if _timed_module_bool(perf_logger, "physics.modal_gate.runtime_perk_choice", module_getter, "runtime_perk_state", "is_choice_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.treasure_hunt", module_getter, "treasure_hunt_runtime", "is_effect_active"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.character_debug", module_getter, "character_debug_picker", "is_open"):
 		return true
@@ -98,6 +108,8 @@ func _should_block_battle_physics(module_getter: Callable, perf_logger: Object =
 	if _timed_module_bool(perf_logger, "physics.modal_gate.character_info", module_getter, "character_info_overlay", "is_active"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.elixir_cinematic", module_getter, "active_item_runtime", "is_elixir_cinematic_active"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.lingpet_acquire_cutin", module_getter, "lingpet_egg_runtime", "is_acquire_cutin_active"):
 		return true
 	return false
 

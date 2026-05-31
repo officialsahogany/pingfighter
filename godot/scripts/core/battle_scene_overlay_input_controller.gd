@@ -40,6 +40,22 @@ func handle_input(
 	module_getter: Callable,
 	context: Dictionary
 ) -> bool:
+	# Highest priority: the fullscreen lingpet acquisition cut-in. While it is up
+	# it swallows all input; once the reveal has finished playing, a click/confirm
+	# dismisses it and resumes the paused battle.
+	if _is_lingpet_acquire_cutin_active(module_getter):
+		var lingpet_runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
+		if (
+			lingpet_runtime != null
+			and lingpet_runtime.has_method("is_acquire_cutin_awaiting_dismiss")
+			and bool(lingpet_runtime.is_acquire_cutin_awaiting_dismiss())
+			and _is_elixir_confirm_event(event)
+		):
+			if lingpet_runtime.has_method("dismiss_acquire_cutin") and bool(lingpet_runtime.dismiss_acquire_cutin()):
+				_queue_redraw(owner)
+				_mark_handled(owner)
+		return true
+
 	var character_debug_picker: Object = _get_module(module_getter, "character_debug_picker")
 	var stage_debug_picker: Object = _get_module(module_getter, "stage_debug_picker")
 	var grip_overlay: Object = _get_module(module_getter, "grip_style_selection_overlay")
@@ -475,6 +491,10 @@ func _is_skill_orb_tooltip_tutorial_active(module_getter: Callable) -> bool:
 
 func _is_elixir_cinematic_active(module_getter: Callable) -> bool:
 	return _call_modal_gate_bool(module_getter, "is_elixir_cinematic_active")
+
+
+func _is_lingpet_acquire_cutin_active(module_getter: Callable) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_lingpet_acquire_cutin_active")
 
 
 func _is_elixir_confirm_event(event: InputEvent) -> bool:
