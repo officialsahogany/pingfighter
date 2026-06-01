@@ -236,8 +236,7 @@ func _draw_skill_tooltip(
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
-	var skill_id: String = str(skill.get("id", ""))
-	var info: Dictionary = _get_tooltip_info(skill_id)
+	var info: Dictionary = _get_tooltip_info(skill)
 	if info.is_empty():
 		return
 
@@ -381,7 +380,14 @@ func _get_skillcard_texture_path(skill_id: String) -> String:
 	return ""
 
 
-func _get_tooltip_info(skill_id: String) -> Dictionary:
+func _get_tooltip_info(value: Variant) -> Dictionary:
+	var skill: Dictionary = {}
+	var skill_id := ""
+	if value is Dictionary:
+		skill = value as Dictionary
+		skill_id = str(skill.get("id", ""))
+	else:
+		skill_id = str(value)
 	if skill_id == "whip":
 		return {
 			"name": "상모돌리기",
@@ -396,8 +402,8 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 			"cooldown_seconds": 16.0,
 			"description": "달지가 팽이를 소환합니다. 팽이에 닿은 공은 무작위 방향으로 튕깁니다.",
 		}
-	if skill_id == LingpetRailCard.SKILL_ID:
-		return LingpetRailCard.tooltip_info()
+	if LingpetRailCard.is_lingpet_skill(skill) or skill_id == LingpetRailCard.SKILL_ID:
+		return LingpetRailCard.tooltip_info(skill)
 	return {}
 
 

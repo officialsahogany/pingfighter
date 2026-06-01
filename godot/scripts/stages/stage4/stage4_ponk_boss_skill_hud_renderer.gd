@@ -228,7 +228,7 @@ func _get_skill_source_rect(skill_id: String, texture: Texture2D) -> Rect2:
 
 func _get_tooltip_info(skill: Dictionary) -> Dictionary:
 	if LingpetRailCard.is_lingpet_skill(skill):
-		return LingpetRailCard.tooltip_info()
+		return LingpetRailCard.tooltip_info(skill)
 	return {
 		"name": str(skill.get("name", skill.get("label", skill.get("short_label", "")))),
 		"trigger": str(skill.get("trigger", "")),

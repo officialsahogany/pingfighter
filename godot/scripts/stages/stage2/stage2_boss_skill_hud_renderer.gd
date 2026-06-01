@@ -101,7 +101,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 			hovered_rect,
 			view_size,
 			pillar_w,
-			_get_tooltip_info(str(hovered_skill.get("id", ""))),
+			_get_tooltip_info(hovered_skill),
 			scale_factor,
 			{
 				"background_color": Color(0.035, 0.050, 0.060, 0.94),
@@ -220,7 +220,14 @@ func _get_skillcard_texture_path(skill_id: String) -> String:
 	return ""
 
 
-func _get_tooltip_info(skill_id: String) -> Dictionary:
+func _get_tooltip_info(value: Variant) -> Dictionary:
+	var skill: Dictionary = {}
+	var skill_id := ""
+	if value is Dictionary:
+		skill = value as Dictionary
+		skill_id = str(skill.get("id", ""))
+	else:
+		skill_id = str(value)
 	if skill_id == "jungle_quake":
 		return {
 			"name": "정글지진",
@@ -242,8 +249,8 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 			"cooldown": "쿨타임 25초",
 			"description": "짧은 시간 동안 보스 이동과 반응이 빨라지고 상태 이상을 막습니다.",
 		}
-	if skill_id == LingpetRailCard.SKILL_ID:
-		return LingpetRailCard.tooltip_info()
+	if LingpetRailCard.is_lingpet_skill(skill) or skill_id == LingpetRailCard.SKILL_ID:
+		return LingpetRailCard.tooltip_info(skill)
 	return {}
 
 

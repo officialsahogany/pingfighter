@@ -136,27 +136,44 @@ static func append_entry(hud_context: Dictionary, registry: Object, skills_key: 
 	hud_context[active_flag_key] = true
 
 
-static func tooltip_info() -> Dictionary:
+static func tooltip_info(skill: Dictionary = {}) -> Dictionary:
 	# Provides BOTH cooldown keys so every stage's tooltip path resolves it:
 	# stage1/4 read cooldown_seconds; the shared spec (stage2/3) derives the
 	# string from cooldown_seconds; stage5's own tooltip reads the cooldown string.
-	return {
-		"name": SKILL_NAME,
+	var skill_name := str(skill.get("label", skill.get("name", SKILL_NAME))).strip_edges()
+	if skill_name == "":
+		skill_name = SKILL_NAME
+	var trigger_label := str(skill.get("trigger_label", skill.get("trigger", ""))).strip_edges()
+	if trigger_label == "":
+		trigger_label = "자동발동"
+	var cooldown_seconds := float(skill.get("cooldown_total", skill.get("cooldown_seconds", COOLDOWN_SECONDS)))
+	if cooldown_seconds <= 0.0:
+		cooldown_seconds = COOLDOWN_SECONDS
+	var description := str(skill.get("description", "")).strip_edges()
+	if description == "":
+		description = SKILL_NAME
+	var info := {
+		"name": skill_name,
 		"trigger": "자동발동",
-		"cooldown_seconds": COOLDOWN_SECONDS,
-		"cooldown": _localized_cooldown_text(),
+		"cooldown_seconds": cooldown_seconds,
+		"cooldown": _localized_cooldown_text(cooldown_seconds),
 		"description": "마리보가 물의 창을 던집니다. 상대 진영 벽에 닿으면 5초 동안 가로로 넓은 물장판을 만듭니다.",
 	}
+	info["trigger"] = trigger_label
+	info["description"] = description
+	return info
 
 
-static func _localized_cooldown_text() -> String:
+static func _localized_cooldown_text(cooldown_seconds: float = COOLDOWN_SECONDS) -> String:
 	var language: String = LanguageSettings.get_language()
+	if not is_equal_approx(cooldown_seconds, COOLDOWN_SECONDS):
+		return "Cooldown %.0fs" % cooldown_seconds
 	if language == LanguageSettings.LANGUAGE_ENGLISH:
-		return "Cooldown %.0fs" % COOLDOWN_SECONDS
+		return "Cooldown %.0fs" % cooldown_seconds
 	if language == LanguageSettings.LANGUAGE_SPANISH:
-		return "Recarga %.0fs" % COOLDOWN_SECONDS
+		return "Recarga %.0fs" % cooldown_seconds
 	if language == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-		return "Recarga %.0fs" % COOLDOWN_SECONDS
+		return "Recarga %.0fs" % cooldown_seconds
 	if language == LanguageSettings.LANGUAGE_RUSSIAN:
 		return "Перезарядка %.0fс" % COOLDOWN_SECONDS
 	if language == LanguageSettings.LANGUAGE_CHINESE:

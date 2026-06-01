@@ -416,7 +416,7 @@ func _draw_skill_tooltip(
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
-	var info: Dictionary = _get_tooltip_info(str(skill.get("id", "")))
+	var info: Dictionary = _get_tooltip_info(skill)
 	if info.is_empty():
 		return
 
@@ -524,7 +524,14 @@ func _get_orb_fill_source_rect(frame_index: int, texture: Texture2D) -> Rect2:
 	return Rect2(Vector2(float(col) * cell.x, float(row) * cell.y), cell)
 
 
-func _get_tooltip_info(skill_id: String) -> Dictionary:
+func _get_tooltip_info(value: Variant) -> Dictionary:
+	var skill: Dictionary = {}
+	var skill_id := ""
+	if value is Dictionary:
+		skill = value as Dictionary
+		skill_id = str(skill.get("id", ""))
+	else:
+		skill_id = str(value)
 	if skill_id == "hongryun_fireball":
 		return {
 			"name": "홍련 화염구",
@@ -539,8 +546,8 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 			"cooldown": "용 구슬 5칸",
 			"description": "5번 맞으면 홍련이 공을 화염 용처럼 돌진시킵니다. 가드와 진입 각도를 흔듭니다.",
 		}
-	if skill_id == LingpetRailCard.SKILL_ID:
-		return LingpetRailCard.tooltip_info()
+	if LingpetRailCard.is_lingpet_skill(skill) or skill_id == LingpetRailCard.SKILL_ID:
+		return LingpetRailCard.tooltip_info(skill)
 	return {}
 
 

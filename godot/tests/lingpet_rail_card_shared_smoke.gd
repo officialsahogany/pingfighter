@@ -143,6 +143,18 @@ func _verify_tooltip_info() -> void:
 	_expect(absf(float(info.get("cooldown_seconds", 0.0)) - 40.0) <= 0.01, "tooltip should expose cooldown_seconds 40 (stage1/4 + shared spec)")
 	_expect(not str(info.get("cooldown", "")).is_empty(), "tooltip should expose a cooldown string (stage5 own tooltip reads it)")
 	_expect(not str(info.get("description", "")).is_empty(), "tooltip should expose a description")
+	var future_skill_info := LingpetRailCard.tooltip_info({
+		"id": "test_bubble_guard",
+		"is_lingpet": true,
+		"label": "Bubble Guard",
+		"trigger_label": "Auto",
+		"cooldown_total": 18.0,
+		"description": "Future lingpet tooltip copy",
+	})
+	_expect(str(future_skill_info.get("name", "")) == "Bubble Guard", "tooltip should use the live lingpet card label, not the Maribo fallback")
+	_expect(str(future_skill_info.get("trigger", "")) == "Auto", "tooltip should use the live lingpet trigger label")
+	_expect(absf(float(future_skill_info.get("cooldown_seconds", 0.0)) - 18.0) <= 0.01, "tooltip should use the live lingpet skill cooldown")
+	_expect(str(future_skill_info.get("description", "")) == "Future lingpet tooltip copy", "tooltip should use the live lingpet skill description")
 
 
 func _verify_all_stage_rails_wire_shared_helper() -> void:
