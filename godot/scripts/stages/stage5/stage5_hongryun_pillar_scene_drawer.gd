@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
 const VASE_LANTERN_PATH := "res://assets/sprites/hud/stage5_hongryun_vase_lantern_sprites_imagegen_v2.png"
 const SNAKE_POT_PATH := "res://assets/sprites/hud/stage5_hongryun_snake_pot_imagegen_v1.png"
@@ -422,6 +423,9 @@ func _draw_stage5_hongryun_boss_skill_hud(
 	hud_context["game_offset"] = game_offset
 	hud_context["game_size"] = game_size
 	hud_context["time_seconds"] = float(Time.get_ticks_msec()) / 1000.0
+	# Stage 5 routes through this Hongryun drawer, so append the persistent
+	# companion card here as well as the legacy compatibility drawer.
+	LingpetRailCard.append_entry(hud_context, registry, "stage5_boss_skill_hud_skills", "stage5_boss_skill_hud_active")
 	renderer.draw(canvas, hud_context)
 
 
