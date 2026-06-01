@@ -480,6 +480,18 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetCatalog.get_hatch_candidates({"league_mode": "champion", "character_type": "smasher"}, []).is_empty(), "catalog should keep Junior League eligibility gating")
 	var live_catalog_issues: Array[String] = LingpetCatalog.validate_catalog(true)
 	_expect(live_catalog_issues.is_empty(), "live lingpet catalog should validate cleanly: %s" % str(live_catalog_issues))
+	for live_pet_id in LingpetCatalog.get_pet_ids():
+		var live_skill: Dictionary = LingpetCatalog.get_active_skill(live_pet_id)
+		var live_skill_id := str(live_skill.get("id", "")).strip_edges()
+		var live_skill_enabled := bool(live_skill.get("enabled", true))
+		var live_runtime_kind := str(live_skill.get("runtime_kind", "")).strip_edges().to_lower()
+		if live_skill_enabled:
+			_expect(live_skill_id != "", "%s enabled active skill should publish a skill id" % live_pet_id)
+			_expect(live_runtime_kind != "" and live_runtime_kind != "none", "%s enabled active skill should publish a concrete runtime kind" % live_pet_id)
+			_expect(LingpetSkillDispatcher.is_supported_kind(live_runtime_kind), "%s enabled active skill runtime kind should be wired into the dispatcher" % live_pet_id)
+			_expect(LingpetSkillDispatcher.has_supported_runtime(live_skill_id), "%s enabled active skill id should resolve to a supported runtime" % live_pet_id)
+		else:
+			_expect(not LingpetSkillDispatcher.has_supported_runtime(live_skill_id), "%s disabled placeholder skill should not resolve to a live runtime" % live_pet_id)
 	var maribo_skill := LingpetCatalog.get_active_skill("maribo")
 	_expect(is_equal_approx(float(maribo_skill.get("windup_seconds", 0.0)), 1.0), "Maribo Hydro Sphere wind-up timing should live in the active-skill catalog entry")
 	var draft_entries := {
