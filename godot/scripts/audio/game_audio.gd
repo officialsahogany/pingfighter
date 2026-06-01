@@ -2,6 +2,7 @@ extends RefCounted
 
 const GameAudioPlayerFactory := preload("res://scripts/audio/game_audio_player_factory.gd")
 const BgmMuteState := preload("res://scripts/audio/bgm_mute_state.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const PADDLE_HIT_SOUND_PATH := "res://assets/sounds/paddle_hit.wav"
 const SERVE_SOUND_PATH := "res://assets/sounds/serve.wav"
@@ -83,6 +84,7 @@ const COMMANDO_SUICIDE_DRONE_GAIN_DB := 0.0
 const ITEM_GET_SOUND_PATH := "res://assets/sounds/itemget.wav"
 const DRINK_SOUND_PATH := "res://assets/sounds/drink.wav"
 const ACTIVE_ITEM_SOUND_PATH := "res://assets/sounds/activeitem.wav"
+const TREASURE_HUNT_MINING_SOUND_PATH := "res://assets/sounds/mining.wav"
 const ALCHEMY_SOUND_PATH := "res://assets/sounds/alchemy.wav"
 const PANDORA_SOUND_PATH := "res://assets/sounds/pandora.wav"
 const LUCKY_COIN_SPAWN_SOUND_PATH := "res://assets/sounds/lucky_coin_spawn.wav"
@@ -135,6 +137,7 @@ const SOAP_SLIP_SOUND_PATH := "res://assets/sounds/bananastep.wav"
 const SPIDER_MINE_WALK_SOUND_PATH := "res://assets/sounds/spiderminewalk.wav"
 const SPIDER_MINE_SETUP_SOUND_PATH := "res://assets/sounds/spiderminesetup.wav"
 const POWER_SMASH_SOUND_PATH := "res://assets/sounds/power_smash.wav"
+const MIKA_POWER_SMASHING_VOICE_PATH := "res://assets/sounds/mika_powersmashing.mp3"
 const POWER_SMASH_LAUNCH_SOUND_PATH := "res://assets/sounds/power_smash_launch.wav"
 const ROUND_SET_SOUND_PATH := "res://assets/sounds/roundset.wav"
 const BALL_SPAWN_INTRO_SOUND_PATH := "res://assets/sounds/stagestart_godot_short.wav"
@@ -277,6 +280,7 @@ var commando_suicide_drone_sfx: AudioStreamPlayer
 var item_get_sfx: AudioStreamPlayer
 var drink_sfx: AudioStreamPlayer
 var active_item_sfx: AudioStreamPlayer
+var treasure_hunt_mining_sfx: AudioStreamPlayer
 var alchemy_sfx: AudioStreamPlayer
 var pandora_sfx: AudioStreamPlayer
 var lucky_coin_spawn_sfx: AudioStreamPlayer
@@ -320,6 +324,7 @@ var soap_slip_sfx: AudioStreamPlayer
 var spider_mine_walk_sfx: AudioStreamPlayer
 var spider_mine_setup_sfx: AudioStreamPlayer
 var power_smash_sfx: AudioStreamPlayer
+var mika_power_smashing_voice_sfx: AudioStreamPlayer
 var power_smash_launch_sfx: AudioStreamPlayer
 var round_set_sfx: AudioStreamPlayer
 var ball_spawn_intro_sfx: AudioStreamPlayer
@@ -368,6 +373,8 @@ var stage5_bgm: AudioStreamPlayer
 var stage2_bgm_rng := RandomNumberGenerator.new()
 var stage2_bgm_rng_ready := false
 var _audio_setup_step := 0
+var _audio_setup_stream_prewarm_group := -1
+var _audio_setup_stream_prewarm_index := 0
 var _bgm_setup_step := 0
 
 
@@ -382,7 +389,12 @@ func setup_step(parent: Node) -> bool:
 	if owner_node != parent:
 		owner_node = parent
 		_audio_setup_step = 0
+		_audio_setup_stream_prewarm_group = -1
+		_audio_setup_stream_prewarm_index = 0
 		_bgm_setup_step = 0
+
+	if not _prewarm_audio_setup_streams_step():
+		return false
 
 	match _audio_setup_step:
 		0:
@@ -406,6 +418,8 @@ func setup_step(parent: Node) -> bool:
 
 	_apply_audio_buses_and_volumes()
 	_audio_setup_step += 1
+	_audio_setup_stream_prewarm_group = -1
+	_audio_setup_stream_prewarm_index = 0
 	return _is_setup_complete()
 
 
@@ -501,6 +515,7 @@ func _setup_item_command_sfx() -> void:
 	item_get_sfx = player_factory.create(owner_node, "ItemGetSfx", ITEM_GET_SOUND_PATH, -5.0)
 	drink_sfx = player_factory.create(owner_node, "DrinkSfx", DRINK_SOUND_PATH, -5.0)
 	active_item_sfx = player_factory.create(owner_node, "ActiveItemSfx", ACTIVE_ITEM_SOUND_PATH, -5.0)
+	treasure_hunt_mining_sfx = player_factory.create(owner_node, "TreasureHuntMiningSfx", TREASURE_HUNT_MINING_SOUND_PATH, -6.0)
 	alchemy_sfx = player_factory.create(owner_node, "AlchemySfx", ALCHEMY_SOUND_PATH, -4.5)
 	pandora_sfx = player_factory.create(owner_node, "PandoraSfx", PANDORA_SOUND_PATH, -5.0)
 	lucky_coin_spawn_sfx = player_factory.create(owner_node, "LuckyCoinSpawnSfx", LUCKY_COIN_SPAWN_SOUND_PATH, -5.0)
@@ -554,6 +569,7 @@ func _setup_projectile_item_sfx() -> void:
 
 func _setup_stage_feedback_sfx() -> void:
 	power_smash_sfx = player_factory.create(owner_node, "PowerSmashSfx", POWER_SMASH_SOUND_PATH, -4.0)
+	mika_power_smashing_voice_sfx = player_factory.create(owner_node, "MikaPowerSmashingVoiceSfx", MIKA_POWER_SMASHING_VOICE_PATH, -2.5)
 	power_smash_launch_sfx = player_factory.create(owner_node, "PowerSmashLaunchSfx", POWER_SMASH_LAUNCH_SOUND_PATH, -4.0)
 	round_set_sfx = player_factory.create(owner_node, "RoundSetSfx", ROUND_SET_SOUND_PATH, SCOREBOARD_SOUND_VOLUME_DB)
 	ball_spawn_intro_sfx = player_factory.create(owner_node, "BallSpawnIntroSfx", BALL_SPAWN_INTRO_SOUND_PATH, -4.0)
@@ -641,6 +657,235 @@ func _setup_bgm_players_step() -> bool:
 			return true
 	_bgm_setup_step += 1
 	return _bgm_setup_step > 7
+
+
+func _prewarm_audio_setup_streams_step() -> bool:
+	var paths: Array[String] = _get_audio_setup_stream_paths(_audio_setup_step)
+	if paths.is_empty():
+		return true
+	if _audio_setup_stream_prewarm_group != _audio_setup_step:
+		_audio_setup_stream_prewarm_group = _audio_setup_step
+		_audio_setup_stream_prewarm_index = 0
+	while _audio_setup_stream_prewarm_index < paths.size():
+		var path := str(paths[_audio_setup_stream_prewarm_index])
+		_audio_setup_stream_prewarm_index += 1
+		if not _should_prewarm_audio_stream(path):
+			continue
+		if ProjectResourceLoader.get_cached_audio_stream(path) != null:
+			continue
+		ProjectResourceLoader.load_audio_stream(path)
+		return _audio_setup_stream_prewarm_index >= paths.size()
+	return true
+
+
+func _get_audio_setup_stream_paths(step: int) -> Array[String]:
+	match step:
+		0:
+			return [
+				PADDLE_HIT_SOUND_PATH,
+				SERVE_SOUND_PATH,
+				PINGPONG_SERVE_SOUND_PATH,
+				WALL_HIT_SOUND_PATH,
+				DASH_SOUND_PATH,
+				HALF_DASH_SOUND_PATH,
+				DASH_DELAY_SOUND_PATH,
+				DASH_CHARGE_SOUND_PATH,
+				BUST_UP_DASH_SOUND_PATH,
+				BOOST_CHARGING_SOUND_PATH,
+				SOUL_BURST_DASH_SOUND_PATH,
+				DASH_SPIRIT_DELETE_SOUND_PATH,
+			]
+		1:
+			return [
+				DRIVE_SOUND_PATH,
+				PLASMA_CHARGE_SOUND_PATH,
+				PLASMA_SHOOT_SOUND_PATH,
+				PLASMA_SHOCK_SOUND_PATH,
+				RECOVERY_SOUND_PATH,
+				CLEANSE_SOUND_PATH,
+				WARP_GATE_SOUND_PATH,
+				MAGNUM_GRIP_SOUND_PATH,
+				SMASHER_WHEEL_SOUND_PATH,
+				SHIELD_KITING_WIND_UP_SOUND_PATH,
+				SHIELD_KITING_LAUNCH_SOUND_PATH,
+				SHIELD_KITING_HIT_SOUND_PATH,
+				WHIP_SOUND_PATH,
+				VIPER_JETPACK_SOUND_PATH,
+				VIPER_BACKSTEP_SOUND_PATH,
+				VIPER_SHADOW_KICK_SOUND_PATH,
+				VIPER_DIVE_PREP_SOUND_PATH,
+				VIPER_DIVE_STRIKE_SOUND_PATH,
+				VIPER_IGNITION_AURA_SOUND_PATH,
+				VIPER_IGNITION_AURA_FALLBACK_SOUND_PATH,
+				VIPER_PHANTOM_SHOW_SOUND_PATH,
+				VIPER_PHANTOM_KICK_HIT_SOUND_PATH,
+				VIPER_BLADE_SOUND_PATH,
+				VIPER_BLADE_SPIN_SOUND_PATH,
+				VIPER_VENOM_MOVING_SOUND_PATH,
+				VIPER_VENOM_ATTACK_SOUND_PATH,
+				VIPER_HWARANG_KICK_SOUND_PATH,
+				VIPER_KICK_GUARD_KNOCKBACK_SOUND_PATH,
+				CHAOS_SPEAR_WINDUP_SOUND_PATH,
+				CHAOS_SPEAR_FLYING_SOUND_PATH,
+				CHAOS_SPEAR_IMPACT_SOUND_PATH,
+				CHAOS_SPEAR_BLACKHOLE_SOUND_PATH,
+			]
+		2:
+			return [
+				COMMANDO_SUPPLY_RADIO_SOUND_PATH,
+				COMMANDO_SUPPLY_AIRCRAFT_SOUND_PATH,
+				COMMANDO_WEAPON_CHANGE_SOUND_PATH,
+				COMMANDO_SLINGSHOT_FIRE_SOUND_PATH,
+				COMMANDO_PISTOL_READY_SOUND_PATH,
+				COMMANDO_PISTOL_FIRE_SOUND_PATH,
+				COMMANDO_PISTOL_RELOAD_START_SOUND_PATH,
+				COMMANDO_PISTOL_RELOAD_SOUND_PATH,
+				COMMANDO_RELOAD_SOUND_PATH,
+				COMMANDO_AK47_FIRE_SOUND_PATH,
+				COMMANDO_BAZOOKA_FIRE_SOUND_PATH,
+				COMMANDO_NET_CAPTURE_SOUND_PATH,
+				COMMANDO_BOWLING_TRAP_INSTALL_SOUND_PATH,
+				COMMANDO_BOWLING_TRAP_SNAP_SOUND_PATH,
+				COMMANDO_SUICIDE_DRONE_SOUND_PATH,
+			]
+		3:
+			return [
+				ITEM_GET_SOUND_PATH,
+				DRINK_SOUND_PATH,
+				ACTIVE_ITEM_SOUND_PATH,
+				TREASURE_HUNT_MINING_SOUND_PATH,
+				ALCHEMY_SOUND_PATH,
+				PANDORA_SOUND_PATH,
+				LUCKY_COIN_SPAWN_SOUND_PATH,
+				FOUL_WHISTLE_SOUND_PATH,
+				MEGINGJORD_SOUND_PATH,
+				LEGENDARY_OPEN_SOUND_PATH,
+				RESULT_BOX_OPEN_SOUND_PATH,
+				LEGENDARY_AFTER_SOUND_PATH,
+				LEGENDARY_ENDING_SOUND_PATH,
+				RAGNAROK_SHOT_SOUND_PATH,
+				RAGNAROK_BOOM_SOUND_PATH,
+				RAGNAROK_SHOCK_SOUND_PATH,
+				ELECTRIC_SHOCK_SOUND_PATH,
+				POSEIDON_WAVE_SOUND_PATH,
+				POSEIDON_CHARGE_SOUND_PATH,
+				TIMEWATCH_SOUND_PATH,
+				THROW_BEFORE_SOUND_PATH,
+				THROW_SOUND_PATH,
+				HORN_STRAWBERRY_CHANGE_SOUND_PATH,
+				HORN_STRAWBERRY_EAT_SOUND_PATH,
+				HORN_STRAWBERRY_STEM_FIRE_SOUND_PATH,
+				HORN_STRAWBERRY_STEM_HIT_SOUND_PATH,
+				HORN_STRAWBERRY_HORN_CHARGE_SOUND_PATH,
+				HORN_STRAWBERRY_FIELD_BUILD_SOUND_PATH,
+				HORN_STRAWBERRY_FIELD_BREAK_SOUND_PATH,
+				HORN_STRAWBERRY_FIELD_BUILD_BREAK_SOUND_PATH,
+				HORN_STRAWBERRY_BOMB_TRIGGER_SOUND_PATH,
+			]
+		4:
+			return [
+				GRENADE_SOUND_PATH,
+				FLASHBOMB_SOUND_PATH,
+				SMOKEBOMB_SOUND_PATH,
+				FIREBOMB_SOUND_PATH,
+				BOOMERANG_SOUND_PATH,
+				BOOMERANG_HIT_SOUND_PATH,
+				SHRAPNEL_ARMOR_FIRE_SOUND_PATH,
+				SHRAPNEL_ARMOR_HIT_SOUND_PATH,
+				BANANA_THROW_SOUND_PATH,
+				BANANA_SLIP_SOUND_PATH,
+				SOAP_THROW_SOUND_PATH,
+				SOAP_LAND_SOUND_PATH,
+				SOAP_SLIP_SOUND_PATH,
+				SPIDER_MINE_WALK_SOUND_PATH,
+				SPIDER_MINE_SETUP_SOUND_PATH,
+			]
+		5:
+			var stage_paths: Array[String] = [
+				POWER_SMASH_SOUND_PATH,
+				MIKA_POWER_SMASHING_VOICE_PATH,
+				POWER_SMASH_LAUNCH_SOUND_PATH,
+				ROUND_SET_SOUND_PATH,
+				BALL_SPAWN_INTRO_SOUND_PATH,
+				BALLOON_POP_SOUND_PATH,
+				STAGE1_BALLOON_DOOR_SOUND_PATH,
+				STAGE1_BALLOON_MACHINE_SOUND_PATH,
+				STAR_COLLECT_SOUND_PATH,
+				STAGE2_HYDRO_SOUND_PATH,
+				STAGE2_STONEBREAK_SOUND_PATH,
+				STAGE2_ROCKHIT_SOUND_PATH,
+				STAGE2_ROCK_SPAWN_SOUND_PATH,
+				STAGE2_QUAKE_SOUND_PATH,
+				STAGE2_BOSS_CRY_SOUND_PATH,
+				STAGE2_SPEED_DEFENSE_START_SOUND_PATH,
+				STAGE2_SPEED_DEFENSE_HIT_SOUND_PATH,
+				STAGE2_SPEED_DEFENSE_BLOCK_SOUND_PATH,
+				STAGE3_TAIL_SOUND_PATH,
+				STAGE3_PSYCHOBALL_SOUND_PATH,
+				STAGE3_DOLLCURSE_SOUND_PATH,
+				STAGE3_TEARS_SOUND_PATH,
+				STAGE3_CHEST_LAND_SOUND_PATH,
+				STAGE3_CURSE_EXPLODE_SOUND_PATH,
+				STAGE3_KUROMI_AWAKE_SOUND_PATH,
+				STAGE3_KUROMI_STONEBREAK_SOUND_PATH,
+				STAGE3_KUROMI_TONGUE_SOUND_PATH,
+				STAGE3_KUROMI_SWALLOW_SOUND_PATH,
+				STAGE4_MOON_SHOOT_SOUND_PATH,
+				STAGE4_FRAGMENT_SHOOT_SOUND_PATH,
+				STAGE4_TEMPLE_HIT_SOUND_PATH,
+				STAGE4_BIRDKILL_SOUND_PATH,
+				STAGE4_MAGNETIC_SOUND_PATH,
+				STAGE4_MEDITATION_SOUND_PATH,
+				STAGE4_MEDITATION_AFTER_SOUND_PATH,
+				STAGE5_HONGRYUN_FIREBALL_SOUND_PATH,
+				STAGE5_HONGRYUN_CHARGE_SOUND_PATH,
+				STAGE5_HONGRYUN_SHOOT_SOUND_PATH,
+				LEAF_SHIELD_SOUND_PATH,
+			]
+			for hurt_path in STAGE5_HONGRYUN_HURT_SOUND_PATHS:
+				stage_paths.append(str(hurt_path))
+			return stage_paths
+		6:
+			return _get_required_bgm_stream_paths()
+	return []
+
+
+func _get_required_bgm_stream_paths() -> Array[String]:
+	var paths: Array[String] = []
+	for bgm_name in ["stage1", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5"]:
+		var bgm_key := str(bgm_name)
+		if _should_setup_bgm_player(bgm_key):
+			paths.append(_get_bgm_stream_path(bgm_key))
+	return paths
+
+
+func _get_bgm_stream_path(bgm_name: String) -> String:
+	if bgm_name == "stage1":
+		return STAGE1_BGM_PATH
+	if bgm_name == "stage2":
+		return STAGE2_BGM_PATH
+	if bgm_name == "stage2_alt":
+		return STAGE2_ALT_BGM_PATH
+	if bgm_name == "stage3":
+		return STAGE3_BGM_PATH
+	if bgm_name == "stage4":
+		return STAGE4_BGM_PATH
+	if bgm_name == "stage4_phase2":
+		return STAGE4_PHASE2_BGM_PATH
+	if bgm_name == "stage5":
+		return STAGE5_BGM_PATH
+	return ""
+
+
+func _should_prewarm_audio_stream(path: String) -> bool:
+	return (
+		path != ""
+		and (
+			FileAccess.file_exists(path)
+			or FileAccess.file_exists("%s.import" % path)
+			or ResourceLoader.exists(path, "AudioStream")
+		)
+	)
 
 
 func _is_setup_complete() -> bool:
@@ -1237,6 +1482,11 @@ func play_active_item() -> void:
 	_play_with_pitch(active_item_sfx, randf_range(0.98, 1.02))
 
 
+func play_treasure_hunt_mining() -> void:
+	if not _play_with_pitch(treasure_hunt_mining_sfx, randf_range(0.98, 1.02)):
+		play_stage2_rockhit()
+
+
 func play_alchemy() -> void:
 	if not _play_with_pitch(alchemy_sfx, randf_range(0.98, 1.04)):
 		play_active_item()
@@ -1556,6 +1806,10 @@ func play_spider_mine_setup() -> void:
 
 func play_power_smash() -> void:
 	_play_with_pitch(power_smash_sfx, randf_range(0.98, 1.02))
+
+
+func play_power_smashing_cutin_voice() -> void:
+	_play_with_pitch(mika_power_smashing_voice_sfx, 1.0)
 
 
 func play_power_smash_launch() -> void:
@@ -2299,6 +2553,7 @@ func _get_sfx_players() -> Array:
 		item_get_sfx,
 		drink_sfx,
 		active_item_sfx,
+		treasure_hunt_mining_sfx,
 		alchemy_sfx,
 		pandora_sfx,
 		lucky_coin_spawn_sfx,
@@ -2342,6 +2597,7 @@ func _get_sfx_players() -> Array:
 		spider_mine_walk_sfx,
 		spider_mine_setup_sfx,
 		power_smash_sfx,
+		mika_power_smashing_voice_sfx,
 		power_smash_launch_sfx,
 		round_set_sfx,
 		ball_spawn_intro_sfx,
