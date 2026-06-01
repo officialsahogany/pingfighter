@@ -28,21 +28,39 @@ class FakeOwner:
 class FakeRegistry:
 	var mythic_item_runtime: Object
 	var runtime_perk_state: Object
+	var game_audio: Object
 
-	func _init(mythic_runtime: Object, perk_state: Object) -> void:
+	func _init(mythic_runtime: Object, perk_state: Object, audio: Object = null) -> void:
 		mythic_item_runtime = mythic_runtime
 		runtime_perk_state = perk_state
+		game_audio = audio
 
 	func get_instance(key: String) -> Object:
 		if key == "mythic_item_runtime":
 			return mythic_item_runtime
 		if key == "runtime_perk_state":
 			return runtime_perk_state
+		if key == "game_audio":
+			return game_audio
 		return null
+
+
+class FakeAudio:
+	var mining_calls := 0
+	var rockhit_calls := 0
+
+	func play_treasure_hunt_mining() -> void:
+		mining_calls += 1
+
+	func play_stage2_rockhit() -> void:
+		rockhit_calls += 1
 
 
 func _init() -> void:
 	_verify_effect_state_reset()
+	_verify_start_delays_reward_until_mining_finishes()
+	_verify_mining_hit_uses_original_audio_hook()
+	_verify_mining_sheet_prewarm_hook()
 	_verify_effective_treasure_map_chance()
 	_verify_reward_pools_skip_owned_one_time_items()
 	_verify_grant_routes_to_mythic_runtime()
@@ -63,11 +81,49 @@ func _init() -> void:
 func _verify_effect_state_reset() -> void:
 	var runtime := TreasureHuntRuntime.new()
 	runtime.last_result = {"ok": true, "result_type": "empty"}
+	runtime.effect_phase = "result"
 	runtime.result_started_msec = Time.get_ticks_msec()
 	_expect(runtime.is_effect_active(), "active result should expose a temporary draw effect")
 	runtime.reset()
 	_expect(runtime.get_last_result().is_empty(), "reset should clear the last treasure result")
 	_expect(not runtime.is_effect_active(), "reset should stop the treasure result effect")
+
+
+func _verify_start_delays_reward_until_mining_finishes() -> void:
+	var mythic_runtime := MythicItemRuntime.new()
+	var perk_state := RuntimePerkState.new()
+	var registry := FakeRegistry.new(mythic_runtime, perk_state)
+	var runtime := TreasureHuntRuntime.new()
+	var owner := FakeOwner.new()
+	var result: Dictionary = runtime.start(owner, registry)
+	_expect(bool(result.get("ok", false)), "treasure hunt should start a pending mining effect")
+	_expect(runtime.get_effect_phase() == "mining", "treasure hunt should start in mining phase")
+	_expect(runtime.get_last_result().is_empty(), "treasure reward result should stay hidden during mining")
+	_expect(mythic_runtime.get_snapshot().get("inventory_items", []).is_empty(), "treasure reward should not grant before mining finishes")
+	runtime.effect_started_msec = Time.get_ticks_msec() - 3001
+	_expect(runtime.is_effect_active(), "mining effect should advance into a visible result after three seconds")
+	_expect(runtime.get_effect_phase() == "result", "treasure hunt should reveal the result after mining")
+	_expect(not runtime.get_last_result().is_empty(), "treasure result should be stored after reveal")
+
+
+func _verify_mining_hit_uses_original_audio_hook() -> void:
+	var mythic_runtime := MythicItemRuntime.new()
+	var perk_state := RuntimePerkState.new()
+	var audio := FakeAudio.new()
+	var registry := FakeRegistry.new(mythic_runtime, perk_state, audio)
+	var runtime := TreasureHuntRuntime.new()
+	var owner := FakeOwner.new()
+	runtime.start(owner, registry)
+	runtime.effect_started_msec = Time.get_ticks_msec() - 91
+	runtime.is_effect_active()
+	_expect(audio.mining_calls == 1, "treasure mining hit should use the original mining SFX hook")
+	_expect(audio.rockhit_calls == 0, "treasure mining should not fall back to stage rock hit when mining SFX exists")
+
+
+func _verify_mining_sheet_prewarm_hook() -> void:
+	var runtime := TreasureHuntRuntime.new()
+	_expect(runtime.has_method("prewarm_assets_step"), "treasure hunt runtime should expose staged asset prewarm")
+	_expect(bool(runtime.prewarm_assets_step()), "treasure hunt mining asset prewarm should complete safely")
 
 
 func _verify_effective_treasure_map_chance() -> void:

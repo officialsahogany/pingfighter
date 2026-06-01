@@ -1,0 +1,27 @@
+{
+  "asset": "instant_treasure_hunt_mining_sheet_autosprite_v1.png",
+  "source_anchor": "instant_treasure_hunt_mining_anchor_imagegen_v1.png",
+  "raw_anchor": "instant_treasure_hunt_mining_anchor_raw_imagegen_v1.png",
+  "autosprite_asset_id": "cmptibbt80092uqkj5iowrr19",
+  "autosprite_job_id": "wf_cdcbea8b-f8ab-4888-8810-a47afba65754",
+  "autosprite_sheet_id": "cmptidiqu009ruqkjzv571mi8",
+  "grid": {
+    "columns": 8,
+    "rows": 4,
+    "frame_count": 32,
+    "frame_size": 256
+  },
+  "runtime": {
+    "duration_msec": 3000,
+    "swing_interval_msec": 360,
+    "impact_sound_offset_msec": 90,
+    "visible_swing_frame_count": 16,
+    "loop": false,
+    "blend": "normal alpha"
+  },
+  "postprocess": [
+    "Downloaded AutoSprite 32-frame 256px sheet and atlas.",
+    "Repacked source 6x6 atlas frames into an 8x4 runtime sheet.",
+    "Scaled each frame to 232px inside the 256px cell to preserve transparent margins."
+  ]
+}

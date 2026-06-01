@@ -2,41 +2,92 @@ extends RefCounted
 
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const TREASURE_MAP_SKILL_ID := "downtown_treasure_map"
 const LEGENDARY_CHANCE := 0.20
 const PASSIVE_REWARD_CHANCE := 0.60
 const TREASURE_MAP_LEGENDARY_BONUS_PER_LEVEL := 0.03
+const MINING_DURATION_MSEC := 3000
 const RESULT_EFFECT_MSEC := 2400
+const EFFECT_PHASE_IDLE := "idle"
+const EFFECT_PHASE_MINING := "mining"
+const EFFECT_PHASE_RESULT := "result"
+const MINING_SHEET_PATH := "res://assets/sprites/perks/instant_treasure_hunt_mining_sheet_autosprite_v1.png"
+const MINING_SHEET_FRAME_COUNT := 32
+const MINING_SHEET_COLUMNS := 8
+const MINING_SHEET_ROWS := 4
+const MINING_SWING_INTERVAL_MSEC := 360
+const MINING_SWING_FRAME_COUNT := 16
+const MINING_HIT_OFFSET_MSEC := 90
 
 var mythic_item_catalog: Object = MythicItemCatalog.new()
+var effect_phase := EFFECT_PHASE_IDLE
+var effect_started_msec := -1000000
 var result_started_msec := -1000000
 var last_result: Dictionary = {}
+var _pending_owner: Object = null
+var _pending_registry: Object = null
+var _mining_last_swing_index := -1
+var _mining_sheet_texture: Texture2D = null
+var _item_icon_texture_cache: Dictionary = {}
 
 
 func reset() -> void:
+	effect_phase = EFFECT_PHASE_IDLE
+	effect_started_msec = -1000000
 	result_started_msec = -1000000
 	last_result.clear()
+	_pending_owner = null
+	_pending_registry = null
+	_mining_last_swing_index = -1
+
+
+func prewarm_assets() -> void:
+	_get_mining_sheet_texture()
+
+
+func prewarm_assets_step() -> bool:
+	prewarm_assets()
+	return true
 
 
 func start(owner: Object, registry: Object) -> Dictionary:
 	if owner == null:
 		return {"ok": false}
-	var result: Dictionary = _roll_result(owner, registry)
-	if not bool(result.get("ok", false)):
-		return result
-	last_result = result.duplicate(true)
-	result_started_msec = Time.get_ticks_msec()
-	_play_result_audio(registry, str(result.get("result_type", "")))
-	return result
+	_pending_owner = owner
+	_pending_registry = registry
+	last_result.clear()
+	effect_phase = EFFECT_PHASE_MINING
+	effect_started_msec = Time.get_ticks_msec()
+	result_started_msec = -1000000
+	_mining_last_swing_index = -1
+	return {
+		"ok": true,
+		"result_type": "pending",
+		"display_text": LanguageSettings.translate_text("보물탐색중..."),
+		"feedback_text": LanguageSettings.translate_text("보물탐색중..."),
+	}
 
 
 func is_effect_active() -> bool:
-	return Time.get_ticks_msec() - result_started_msec < RESULT_EFFECT_MSEC and not last_result.is_empty()
+	_advance_effect_if_needed()
+	if effect_phase == EFFECT_PHASE_MINING:
+		return true
+	return effect_phase == EFFECT_PHASE_RESULT and not last_result.is_empty()
 
 
 func draw_effect(canvas: CanvasItem, view_size: Vector2) -> void:
-	if canvas == null or not is_effect_active():
+	if canvas == null:
+		return
+	_advance_effect_if_needed()
+	if effect_phase == EFFECT_PHASE_MINING:
+		_draw_mining_effect(canvas, view_size)
+		return
+	if effect_phase == EFFECT_PHASE_RESULT:
+		_draw_result_effect(canvas, view_size)
+		return
+	if not is_effect_active():
 		return
 	var elapsed: float = float(Time.get_ticks_msec() - result_started_msec)
 	var ratio: float = clamp(elapsed / float(RESULT_EFFECT_MSEC), 0.0, 1.0)
@@ -67,6 +118,59 @@ func get_last_result() -> Dictionary:
 	return last_result.duplicate(true)
 
 
+func get_effect_phase() -> String:
+	_advance_effect_if_needed()
+	return effect_phase
+
+
+func get_mining_progress() -> float:
+	if effect_phase == EFFECT_PHASE_RESULT:
+		return 1.0
+	if effect_phase != EFFECT_PHASE_MINING:
+		return 0.0
+	return clamp(float(Time.get_ticks_msec() - effect_started_msec) / float(MINING_DURATION_MSEC), 0.0, 1.0)
+
+
+func _advance_effect_if_needed() -> void:
+	if effect_phase == EFFECT_PHASE_MINING:
+		var now_msec: int = Time.get_ticks_msec()
+		_maybe_play_mining_hit_audio(now_msec)
+		if now_msec - effect_started_msec >= MINING_DURATION_MSEC:
+			_reveal_result(now_msec)
+	elif effect_phase == EFFECT_PHASE_RESULT:
+		if Time.get_ticks_msec() - result_started_msec >= RESULT_EFFECT_MSEC:
+			effect_phase = EFFECT_PHASE_IDLE
+
+
+func _reveal_result(now_msec: int) -> void:
+	var owner: Object = _pending_owner
+	var registry: Object = _pending_registry
+	_pending_owner = null
+	_pending_registry = null
+	if owner == null:
+		effect_phase = EFFECT_PHASE_IDLE
+		return
+	var result: Dictionary = _roll_result(owner, registry)
+	if not bool(result.get("ok", false)):
+		result = _empty_result()
+	last_result = result.duplicate(true)
+	result_started_msec = now_msec
+	effect_phase = EFFECT_PHASE_RESULT
+	_play_first_audio(registry, ["play_stage2_stonebreak"])
+	_play_result_audio(registry, str(result.get("result_type", "")))
+
+
+func _maybe_play_mining_hit_audio(now_msec: int) -> void:
+	var elapsed_msec: int = now_msec - effect_started_msec
+	if elapsed_msec < MINING_HIT_OFFSET_MSEC:
+		return
+	var swing_index: int = int(floor(float(elapsed_msec - MINING_HIT_OFFSET_MSEC) / float(MINING_SWING_INTERVAL_MSEC)))
+	if swing_index == _mining_last_swing_index:
+		return
+	_mining_last_swing_index = swing_index
+	_play_first_audio(_pending_registry, ["play_treasure_hunt_mining", "play_stage2_rockhit"])
+
+
 func _roll_result(owner: Object, registry: Object) -> Dictionary:
 	var roll: float = randf()
 	var legendary_chance: float = _get_legendary_chance(registry)
@@ -85,6 +189,16 @@ func _roll_result(owner: Object, registry: Object) -> Dictionary:
 		"item_name": "",
 		"display_text": LanguageSettings.translate_text("아무것도 찾지 못했습니다"),
 		"feedback_text": _format_feedback_text(LanguageSettings.translate_text("아무것도 찾지 못했습니다")),
+	}
+
+
+func _empty_result() -> Dictionary:
+	return {
+		"ok": true,
+		"result_type": "empty",
+		"item_name": "",
+		"display_text": LanguageSettings.translate_text("아무것도 찾지 못했습니다..."),
+		"feedback_text": _format_feedback_text(LanguageSettings.translate_text("아무것도 찾지 못했습니다...")),
 	}
 
 
@@ -122,11 +236,13 @@ func _grant_passive_or_mythic_reward(
 		if not acquired_item.is_empty() and mythic_item_catalog.has_method("format_item_display_name")
 		else mythic_item_catalog.get_display_name(item_name)
 	)
+	var icon_path: String = mythic_item_catalog.get_icon_path(item_name)
 	var result_label := LanguageSettings.translate_text("신화" if result_type == "legendary" else "패시브")
 	return {
 		"ok": true,
 		"result_type": result_type,
 		"item_name": item_name,
+		"icon_path": icon_path,
 		"display_text": _format_result_text(result_label, display_name),
 		"feedback_text": _format_feedback_text(display_name),
 	}
@@ -232,6 +348,188 @@ func _play_result_audio(registry: Object, result_type: String) -> void:
 		audio.play_active_item()
 
 
+func _play_first_audio(registry: Object, method_names: Array) -> void:
+	var audio: Object = _get_instance(registry, "game_audio")
+	if audio == null:
+		return
+	for method_value in method_names:
+		var method_name: String = str(method_value)
+		if method_name != "" and audio.has_method(method_name):
+			audio.call(method_name)
+			return
+
+
+func _draw_mining_effect(canvas: CanvasItem, view_size: Vector2) -> void:
+	var progress: float = get_mining_progress()
+	var elapsed: float = float(Time.get_ticks_msec() - effect_started_msec)
+	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.78))
+	_draw_cave_wash(canvas, view_size, elapsed, 1.0)
+	var center := Vector2(view_size.x * 0.5, view_size.y * 0.48)
+	if not _draw_mining_sheet(canvas, center, view_size, elapsed):
+		_draw_fallback_mining(canvas, center, elapsed)
+	var dots := ".".repeat(int(floor(elapsed / 250.0)) % 4)
+	_draw_centered_text(
+		canvas,
+		LanguageSettings.translate_text("보물탐색중%s" % dots),
+		center + Vector2(0.0, 150.0),
+		30,
+		Color(1.0, 0.84, 0.25, 1.0)
+	)
+	_draw_progress_bar(canvas, center + Vector2(0.0, 190.0), progress)
+
+
+func _draw_cave_wash(canvas: CanvasItem, view_size: Vector2, elapsed: float, alpha: float) -> void:
+	var height: int = max(0, int(view_size.y))
+	for y in range(0, height, 18):
+		var wave: float = sin(float(y) * 0.035 + elapsed * 0.004)
+		var line_alpha: float = (0.05 + 0.025 * wave) * alpha
+		canvas.draw_line(
+			Vector2(0.0, float(y)),
+			Vector2(view_size.x, float(y)),
+			Color(0.22, 0.18, 0.12, line_alpha),
+			3.0
+		)
+
+
+func _draw_mining_sheet(canvas: CanvasItem, center: Vector2, view_size: Vector2, elapsed: float) -> bool:
+	var texture: Texture2D = _get_mining_sheet_texture()
+	if texture == null:
+		return false
+	var frame_width: float = float(texture.get_width()) / float(MINING_SHEET_COLUMNS)
+	var frame_height: float = float(texture.get_height()) / float(MINING_SHEET_ROWS)
+	if frame_width <= 0.0 or frame_height <= 0.0:
+		return false
+	var cycle_ratio: float = fmod(max(0.0, elapsed), float(MINING_SWING_INTERVAL_MSEC)) / float(MINING_SWING_INTERVAL_MSEC)
+	var frame_index: int = clamp(int(floor(cycle_ratio * float(MINING_SWING_FRAME_COUNT))), 0, MINING_SWING_FRAME_COUNT - 1)
+	var column: int = frame_index % MINING_SHEET_COLUMNS
+	var row: int = int(floor(float(frame_index) / float(MINING_SHEET_COLUMNS)))
+	var source := Rect2(Vector2(float(column) * frame_width, float(row) * frame_height), Vector2(frame_width, frame_height))
+	var draw_size: float = clamp(min(view_size.x * 0.44, view_size.y * 0.42), 210.0, 330.0)
+	var target := Rect2(center - Vector2(draw_size, draw_size) * 0.5 + Vector2(0.0, -18.0), Vector2(draw_size, draw_size))
+	canvas.draw_texture_rect_region(texture, target, source)
+	return true
+
+
+func _draw_fallback_mining(canvas: CanvasItem, center: Vector2, elapsed: float) -> void:
+	var rock_center := center + Vector2(0.0, 18.0)
+	var rock_points := PackedVector2Array([
+		rock_center + Vector2(-78.0, 36.0),
+		rock_center + Vector2(-84.0, -8.0),
+		rock_center + Vector2(-54.0, -54.0),
+		rock_center + Vector2(-8.0, -74.0),
+		rock_center + Vector2(42.0, -62.0),
+		rock_center + Vector2(78.0, -26.0),
+		rock_center + Vector2(86.0, 24.0),
+		rock_center + Vector2(50.0, 58.0),
+		rock_center + Vector2(-34.0, 52.0),
+	])
+	canvas.draw_colored_polygon(rock_points, Color(0.31, 0.30, 0.28, 1.0))
+	canvas.draw_polyline(rock_points, Color(0.55, 0.53, 0.48, 1.0), 3.0, true)
+	for gem in [
+		[Vector2(-36.0, -24.0), Color(1.0, 0.82, 0.12, 1.0)],
+		[Vector2(24.0, -34.0), Color(0.1, 0.78, 1.0, 1.0)],
+		[Vector2(48.0, -4.0), Color(1.0, 0.2, 0.46, 1.0)],
+		[Vector2(-18.0, 18.0), Color(0.35, 1.0, 0.55, 1.0)],
+	]:
+		var gem_center: Vector2 = rock_center + gem[0]
+		var gem_color: Color = gem[1]
+		var diamond := PackedVector2Array([
+			gem_center + Vector2(0.0, -8.0),
+			gem_center + Vector2(8.0, 0.0),
+			gem_center + Vector2(0.0, 8.0),
+			gem_center + Vector2(-8.0, 0.0),
+		])
+		canvas.draw_colored_polygon(diamond, gem_color)
+	var swing_phase: float = fmod(elapsed / float(MINING_SWING_INTERVAL_MSEC), 1.0)
+	var angle_deg: float = -58.0 + 92.0 * clamp((swing_phase - 0.35) / 0.25, 0.0, 1.0)
+	if swing_phase > 0.60:
+		angle_deg = 30.0 * (1.0 - clamp((swing_phase - 0.60) / 0.40, 0.0, 1.0))
+	var angle: float = deg_to_rad(angle_deg)
+	var pivot := rock_center + Vector2(92.0, -84.0)
+	var handle_end := pivot + Vector2(54.0, 118.0).rotated(angle)
+	var head_left := pivot + Vector2(-62.0, 22.0).rotated(angle)
+	var head_right := pivot + Vector2(60.0, -42.0).rotated(angle)
+	canvas.draw_line(pivot, handle_end, Color(0.50, 0.31, 0.12, 1.0), 13.0)
+	canvas.draw_line(pivot, handle_end, Color(0.82, 0.58, 0.28, 1.0), 8.0)
+	canvas.draw_line(head_left, head_right, Color(0.08, 0.09, 0.10, 1.0), 13.0)
+	canvas.draw_line(head_left, head_right, Color(0.62, 0.66, 0.68, 1.0), 8.0)
+	if swing_phase >= 0.48 and swing_phase < 0.68:
+		var impact := rock_center + Vector2(28.0, -28.0)
+		var impact_ratio: float = clamp((swing_phase - 0.48) / 0.20, 0.0, 1.0)
+		canvas.draw_circle(impact, 26.0 + impact_ratio * 45.0, Color(1.0, 0.92, 0.45, 0.24 * (1.0 - impact_ratio)))
+		for i in range(8):
+			var dir := Vector2.RIGHT.rotated(float(i) * TAU / 8.0 + elapsed * 0.01)
+			canvas.draw_circle(impact + dir * (20.0 + 45.0 * impact_ratio), 3.0, Color(1.0, 0.72, 0.18, 1.0 - impact_ratio))
+
+
+func _draw_progress_bar(canvas: CanvasItem, center: Vector2, progress: float) -> void:
+	var bar_size := Vector2(300.0, 16.0)
+	var rect := Rect2(center - bar_size * 0.5, bar_size)
+	canvas.draw_rect(rect.grow(3.0), Color(0.18, 0.16, 0.13, 1.0))
+	canvas.draw_rect(rect, Color(0.08, 0.075, 0.065, 1.0))
+	var fill_rect := Rect2(rect.position, Vector2(rect.size.x * clamp(progress, 0.0, 1.0), rect.size.y))
+	canvas.draw_rect(fill_rect, Color(1.0, 0.70, 0.16, 1.0))
+	canvas.draw_line(rect.position + Vector2(2.0, 3.0), rect.position + Vector2(max(2.0, fill_rect.size.x - 2.0), 3.0), Color(1.0, 0.95, 0.56, 0.8), 2.0)
+	canvas.draw_rect(rect, Color(0.72, 0.62, 0.34, 1.0), false, 2.0)
+
+
+func _draw_result_effect(canvas: CanvasItem, view_size: Vector2) -> void:
+	if last_result.is_empty():
+		return
+	var elapsed: float = float(Time.get_ticks_msec() - result_started_msec)
+	var ratio: float = clamp(elapsed / float(RESULT_EFFECT_MSEC), 0.0, 1.0)
+	var alpha: float = 1.0
+	if ratio < 0.18:
+		alpha = ratio / 0.18
+	elif ratio > 0.78:
+		alpha = 1.0 - ((ratio - 0.78) / 0.22)
+	alpha = clamp(alpha, 0.0, 1.0)
+	var result_type: String = str(last_result.get("result_type", "empty"))
+	var accent: Color = _get_result_color(result_type)
+	var center := Vector2(view_size.x * 0.5, view_size.y * 0.46)
+	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, 0.72 * alpha))
+	_draw_cave_wash(canvas, view_size, float(Time.get_ticks_msec() - effect_started_msec), alpha)
+	if result_type == "empty":
+		_draw_empty_result(canvas, center, alpha)
+	else:
+		_draw_found_result(canvas, center, result_type, accent, alpha)
+
+
+func _draw_found_result(canvas: CanvasItem, center: Vector2, result_type: String, accent: Color, alpha: float) -> void:
+	var pulse: float = 1.0 + 0.08 * sin(float(Time.get_ticks_msec() - result_started_msec) * 0.006)
+	var icon_center := center + Vector2(0.0, -58.0 + sin(float(Time.get_ticks_msec() - result_started_msec) * 0.004) * 10.0)
+	for i in range(8):
+		var radius: float = (66.0 + float(i) * 8.0) * pulse
+		canvas.draw_circle(icon_center, radius, Color(accent.r, accent.g, accent.b, (0.11 - float(i) * 0.011) * alpha))
+	var icon_texture: Texture2D = _get_result_icon_texture()
+	if icon_texture != null:
+		var icon_size := Vector2(112.0, 112.0)
+		canvas.draw_texture_rect(icon_texture, Rect2(icon_center - icon_size * 0.5, icon_size), false, Color(1.0, 1.0, 1.0, alpha))
+	else:
+		_draw_result_symbol(canvas, icon_center, result_type, accent, alpha)
+	var title: String = "★ 신화 아이템 발견! ★" if result_type == "legendary" else "아이템을 발견했습니다!"
+	_draw_centered_text(canvas, LanguageSettings.translate_text(title), center + Vector2(0.0, 72.0), 30, Color(accent.r, accent.g, accent.b, alpha))
+	_draw_centered_text(
+		canvas,
+		LanguageSettings.translate_text(str(last_result.get("display_text", ""))),
+		center + Vector2(0.0, 120.0),
+		22,
+		Color(0.92, 0.96, 1.0, alpha)
+	)
+
+
+func _draw_empty_result(canvas: CanvasItem, center: Vector2, alpha: float) -> void:
+	var shake := Vector2(sin(float(Time.get_ticks_msec()) * 0.016) * 5.0, cos(float(Time.get_ticks_msec()) * 0.014) * 3.0)
+	_draw_centered_text(canvas, "?", center + Vector2(0.0, -54.0) + shake, 92, Color(0.70, 0.72, 0.78, alpha))
+	_draw_centered_text(
+		canvas,
+		LanguageSettings.translate_text("아무것도 찾지 못했습니다..."),
+		center + Vector2(0.0, 54.0),
+		30,
+		Color(0.66, 0.68, 0.74, alpha)
+	)
+
+
 func _draw_result_symbol(canvas: CanvasItem, center: Vector2, result_type: String, color: Color, alpha: float) -> void:
 	var radius := 30.0
 	canvas.draw_circle(center, radius, Color(color.r, color.g, color.b, 0.24 * alpha))
@@ -267,6 +565,41 @@ func _draw_text(canvas: CanvasItem, text: String, baseline: Vector2, font_size: 
 	if font == null:
 		return
 	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
+
+
+func _draw_centered_text(canvas: CanvasItem, text: String, center: Vector2, font_size: int, color: Color) -> void:
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	var baseline := center + Vector2(-text_size.x * 0.5, text_size.y * 0.35)
+	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
+
+
+func _get_mining_sheet_texture() -> Texture2D:
+	if _mining_sheet_texture != null:
+		return _mining_sheet_texture
+	_mining_sheet_texture = ProjectResourceLoader.load_texture(
+		MINING_SHEET_PATH,
+		"",
+		"Failed to load treasure hunt mining sheet"
+	)
+	return _mining_sheet_texture
+
+
+func _get_result_icon_texture() -> Texture2D:
+	var icon_path: String = str(last_result.get("icon_path", ""))
+	if icon_path == "":
+		return null
+	if _item_icon_texture_cache.has(icon_path):
+		var cached: Variant = _item_icon_texture_cache[icon_path]
+		if cached is Texture2D:
+			return cached
+		_item_icon_texture_cache.erase(icon_path)
+	var texture: Texture2D = ProjectResourceLoader.load_texture(icon_path, "", "")
+	if texture != null:
+		_item_icon_texture_cache[icon_path] = texture
+	return texture
 
 
 func _get_instance(registry: Object, key: String) -> Object:
