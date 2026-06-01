@@ -11,6 +11,7 @@ const LingpetCompanionSwitchState := preload("res://scripts/lingpet/lingpet_comp
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSaveStore := preload("res://scripts/lingpet/lingpet_save_store.gd")
+const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
 const PaddleBounceEventRouter := preload("res://scripts/ball/paddle_bounce_event_router.gd")
 const HydroPuddleTextureCache := preload("res://scripts/effects/hydro_puddle_texture_cache.gd")
 
@@ -1535,10 +1536,10 @@ func _verify_lunabi_free_flight_profile() -> void:
 	}
 	_expect(LingpetCatalog.has_pet("lunabi"), "catalog should recognize Lunabi for owned/runtime adoption")
 	_expect(LingpetCatalog.get_hatch_candidates(eligible_context, []).has("lunabi"), "Lunabi should be eligible from the shared unidentified Junior League egg")
-	_expect(str(LingpetCatalog.get_motion_style("lunabi")) == "free_flight", "Lunabi should use the free-flight companion motion style")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_companion_flight.png"), "Lunabi companion free-flight sheet should exist")
+	_expect(str(LingpetCatalog.get_motion_style("lunabi")) == "sortie_flight", "Lunabi should use the offscreen sortie-flight companion motion style")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_companion_flight.png"), "Lunabi companion sortie-flight sheet should exist")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_companion_strike.png"), "Lunabi companion strike sheet should exist")
-	_expect(str(LingpetCatalog.get_visual_path("lunabi", "companion_walk")).ends_with("lunabi_companion_flight.png"), "Lunabi runtime walk slot should resolve to the free-flight sheet")
+	_expect(str(LingpetCatalog.get_visual_path("lunabi", "companion_walk")).ends_with("lunabi_companion_flight.png"), "Lunabi runtime walk slot should resolve to the sortie-flight sheet")
 	_expect(str(LingpetCatalog.get_visual_path("lunabi", "companion_strike")).ends_with("lunabi_companion_strike.png"), "Lunabi runtime strike slot should resolve to the ball-swoop sheet")
 
 	var owner := FakeOwner.new()
@@ -1553,21 +1554,35 @@ func _verify_lunabi_free_flight_profile() -> void:
 	var start_pos: Vector2 = owner.lingpet_companion_pos
 	var player_lane_y: float = owner.player_pos.y + owner.player_paddle_height * 0.5
 	_expect(absf(start_pos.y - player_lane_y) > 20.0, "Lunabi should not start locked to the player-height patrol lane")
+	_expect(start_pos.x < 0.0 or start_pos.x > 760.0 or start_pos.y < 0.0 or start_pos.y > 750.0, "Lunabi should begin a sortie from outside the visible playfield")
 	var snapshot: Dictionary = runtime.get_snapshot()
-	_expect(str(snapshot.get("companion_motion_style", "")) == "free_flight", "Lunabi snapshot should expose free-flight motion style")
-	_expect(snapshot.get("companion_free_flight_target", Vector2.ZERO) is Vector2, "Lunabi snapshot should expose a free-flight target")
+	_expect(str(snapshot.get("companion_motion_style", "")) == "sortie_flight", "Lunabi snapshot should expose sortie-flight motion style")
+	_expect(snapshot.get("companion_free_flight_target", Vector2.ZERO) is Vector2, "Lunabi snapshot should expose a sortie destination")
+	_expect(snapshot.get("companion_motion_velocity", Vector2.ZERO) is Vector2, "Lunabi snapshot should expose sortie velocity for save/restore")
+	_expect(float(snapshot.get("companion_motion_speed_ratio", 0.0)) > 0.0, "Lunabi sortie should expose a speed ratio for wing-flap cadence")
 	_expect(is_equal_approx(float(snapshot.get("companion_defense_rate", -1.0)), 0.0), "Lunabi should not use Maribo's defensive intercept rate")
 	_expect(str(snapshot.get("companion_skill_id", "")) == "", "disabled Lunabi placeholder skill should not publish a rail-card id")
 
 	var saw_offscreen_target := false
-	for _i in range(80):
+	var saw_hidden_period := false
+	for _i in range(120):
 		runtime.update(0.25, owner)
 		snapshot = runtime.get_snapshot()
 		var target: Vector2 = snapshot.get("companion_free_flight_target", Vector2.ZERO)
 		if target.x < 0.0 or target.x > 760.0 or target.y < 0.0 or target.y > 750.0:
 			saw_offscreen_target = true
+		if not bool(snapshot.get("companion_visible", true)) and float(snapshot.get("companion_patrol_pause", 0.0)) > 0.0:
+			saw_hidden_period = true
 			break
-	_expect(saw_offscreen_target, "Lunabi free flight should sometimes target outside the screen")
+	_expect(saw_offscreen_target, "Lunabi sortie flight should target outside the screen")
+	_expect(saw_hidden_period, "Lunabi sortie flight should disappear offscreen for a short hidden interval")
+
+	var motion_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_state.gd")
+	_expect(motion_source.find("SORTIE_TURN_RATE") >= 0 and motion_source.find("SORTIE_ACCELERATION") >= 0, "Lunabi sortie flight should steer through slow turn-rate and acceleration limits")
+	var animator := LingpetCompanionSpriteAnimator.new()
+	var slow_frame: int = int(animator.get_walk_frame(0.0, 500, 0.0))
+	var fast_frame: int = int(animator.get_walk_frame(0.0, 500, 1.0))
+	_expect(fast_frame != slow_frame and fast_frame > slow_frame, "Lunabi wing-flap frame cadence should increase with flight speed")
 
 	owner.ball_active = true
 	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -6.0)

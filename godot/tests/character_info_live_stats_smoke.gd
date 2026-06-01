@@ -163,7 +163,7 @@ func _init() -> void:
 	_expect(str(lunabi_panel_snapshot.get("pet_id", "")) == "lunabi", "Lunabi panel snapshot should preserve its catalog pet id")
 	_expect(lunabi_skill_specs.is_empty(), "Lunabi placeholder active/passive data should not show Maribo skill icons")
 	_expect(_find_stat(lunabi_stats, "액티브 쿨타임").is_empty(), "Lunabi should not show an active cooldown stat until its active skill ships")
-	_expect(str(_find_stat(lunabi_stats, "이동 속도").get("value", "")) == "3.17", "Lunabi character-info speed should use its own catalog stat, not Maribo's")
+	_expect(str(_find_stat(lunabi_stats, "이동 속도").get("value", "")) == "4.75", "Lunabi character-info speed should use its own sortie-flight catalog stat, not Maribo's")
 	_expect(lunabi_art_texture != null and str(lunabi_art_texture.resource_path).ends_with("lunabi_cutin_art.png"), "Lunabi character-info art should resolve through the catalog cutin_art path")
 
 	print("character_info_live_stats_smoke: ok")

@@ -221,6 +221,41 @@ func is_companion_active(pet_id: String = "") -> bool:
 	return _state == STATE_COMPANION and (normalized_pet_id == "" or _pet_id == normalized_pet_id)
 
 
+func debug_grant_and_activate_pet(pet_id: String, owner: Object = null, show_acquire_cutin: bool = false) -> bool:
+	var normalized_pet_id := _normalize_pet_id(pet_id)
+	if normalized_pet_id == "":
+		return false
+	_state = STATE_COMPANION
+	_set_current_pet_id(normalized_pet_id)
+	_egg_state.set_hatched(_get_current_required_hits())
+	_companion_pos = Vector2.ZERO
+	_reset_companion_runtime_state()
+	_switch_transition_state.reset()
+	_hatch_flash_timer = 0.0
+	_acquire_cutin_state.reset()
+	_prewarm_current_visuals()
+	if owner != null:
+		var owner_slots: Array[String] = _collection_state.get_battle_slots_from_owner(owner)
+		_collection_state.set_battle_slots(owner_slots)
+		_collection_state.set_active_slot_index(_collection_state.get_active_slot_index_from_owner(owner))
+	_mark_current_pet_owned(owner)
+	var slots: Array[String] = _collection_state.get_battle_slots()
+	var slot_index: int = slots.find(normalized_pet_id)
+	if slot_index >= 0:
+		_collection_state.select_active_slot(slot_index, owner)
+	else:
+		var active_slot_index: int = _collection_state.get_active_slot_index()
+		if active_slot_index >= 0 and active_slot_index < slots.size():
+			slots[active_slot_index] = normalized_pet_id
+			_collection_state.set_battle_slots(slots)
+			_collection_state.set_active_slot_index(active_slot_index)
+	_initialize_companion_patrol(owner, true)
+	if show_acquire_cutin:
+		_acquire_cutin_state.start()
+	_sync_owner(owner)
+	return true
+
+
 func get_lingpet_slots() -> Array[String]:
 	return _collection_state.get_battle_slots()
 
@@ -778,6 +813,8 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"switch_particles": COMPANION_SWITCH_TRANSITION_PARTICLES,
 		"animator": _companion_sprite_animator,
 		"patrol_pause": _companion_motion_state.patrol_pause,
+		"motion_speed_ratio": _companion_motion_state.motion_speed_ratio if _get_current_motion_style() == "sortie_flight" else 0.0,
+		"companion_visible": _companion_motion_state.motion_visible,
 		"windup_seconds": _get_current_skill_windup_seconds(),
 		"walk_fallback": MARIBO_COMPANION_WALK_SHEET,
 		"strike_fallback": MARIBO_COMPANION_STRIKE_SHEET,

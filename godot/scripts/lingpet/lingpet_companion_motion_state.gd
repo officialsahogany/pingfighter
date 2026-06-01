@@ -21,6 +21,7 @@ const COMPANION_DEFENSE_INTERCEPT_SPEED := 155.0
 const COMPANION_DEFENSE_TARGET_TOLERANCE := 8.0
 const MOTION_STYLE_PATROL := "patrol"
 const MOTION_STYLE_FREE_FLIGHT := "free_flight"
+const MOTION_STYLE_SORTIE_FLIGHT := "sortie_flight"
 const FREE_FLIGHT_MARGIN_X := 96.0
 const FREE_FLIGHT_MARGIN_Y := 72.0
 const FREE_FLIGHT_INSIDE_MARGIN_X := 42.0
@@ -29,10 +30,25 @@ const FREE_FLIGHT_TARGET_TOLERANCE := 12.0
 const FREE_FLIGHT_TARGET_INTERVAL_MIN := 0.55
 const FREE_FLIGHT_TARGET_INTERVAL_MAX := 1.65
 const FREE_FLIGHT_EXIT_CHANCE := 0.28
+const SORTIE_OFFSCREEN_MARGIN_X := 190.0
+const SORTIE_OFFSCREEN_MARGIN_Y := 150.0
+const SORTIE_EDGE_Y_MIN := 72.0
+const SORTIE_EDGE_Y_MAX := FIELD_HEIGHT - 86.0
+const SORTIE_EDGE_X_MIN := 70.0
+const SORTIE_EDGE_X_MAX := FIELD_WIDTH - 70.0
+const SORTIE_HIDDEN_SECONDS_MIN := 0.80
+const SORTIE_HIDDEN_SECONDS_MAX := 2.20
+const SORTIE_TURN_RATE := 1.05
+const SORTIE_ACCELERATION := 210.0
+const SORTIE_START_SPEED_RATIO := 0.52
+const SORTIE_REACH_TOLERANCE := 54.0
 
 var pos := Vector2.ZERO
 var motion_style := MOTION_STYLE_PATROL
 var free_flight_target := Vector2.ZERO
+var motion_velocity := Vector2.ZERO
+var motion_speed_ratio := 0.0
+var motion_visible := true
 var patrol_dir := 0.0
 var patrol_pause := 0.0
 var patrol_change_timer := 0.0
@@ -51,6 +67,9 @@ func reset() -> void:
 	pos = Vector2.ZERO
 	motion_style = MOTION_STYLE_PATROL
 	free_flight_target = Vector2.ZERO
+	motion_velocity = Vector2.ZERO
+	motion_speed_ratio = 0.0
+	motion_visible = true
 	patrol_dir = 0.0
 	patrol_pause = 0.0
 	patrol_change_timer = 0.0
@@ -75,7 +94,11 @@ func clear_defense_intercept() -> void:
 
 func _normalize_motion_style(value: String) -> String:
 	var normalized := value.strip_edges().to_lower()
-	return MOTION_STYLE_FREE_FLIGHT if normalized == MOTION_STYLE_FREE_FLIGHT else MOTION_STYLE_PATROL
+	if normalized == MOTION_STYLE_SORTIE_FLIGHT:
+		return MOTION_STYLE_SORTIE_FLIGHT
+	if normalized == MOTION_STYLE_FREE_FLIGHT:
+		return MOTION_STYLE_FREE_FLIGHT
+	return MOTION_STYLE_PATROL
 
 
 func _get_vector2_from_variant(value: Variant, fallback: Vector2) -> Vector2:
@@ -98,6 +121,9 @@ func update(
 	motion_style_value: String = MOTION_STYLE_PATROL
 ) -> void:
 	motion_style = _normalize_motion_style(motion_style_value)
+	if motion_style == MOTION_STYLE_SORTIE_FLIGHT:
+		_update_sortie_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max)
+		return
 	if motion_style == MOTION_STYLE_FREE_FLIGHT:
 		_update_free_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max)
 		return
@@ -111,15 +137,20 @@ func update(
 
 	var safe_delta: float = maxf(0.0, delta)
 	pos.y = patrol_lane_y
+	motion_visible = true
 	if freeze_motion:
 		clear_defense_intercept()
+		motion_speed_ratio = 0.0
 		return
 	if safe_delta <= 0.0:
+		motion_speed_ratio = 0.0 if patrol_pause > 0.0 else _speed_ratio(patrol_speed, speed_min, speed_max)
 		return
 	if _try_update_defense_intercept(safe_delta, owner, defense_rate, speed_min):
+		motion_speed_ratio = _speed_ratio(COMPANION_DEFENSE_INTERCEPT_SPEED, speed_min, speed_max)
 		return
 	if patrol_pause > 0.0:
 		patrol_pause = maxf(0.0, patrol_pause - safe_delta)
+		motion_speed_ratio = 0.0
 		return
 
 	patrol_change_timer = maxf(0.0, patrol_change_timer - safe_delta)
@@ -146,6 +177,7 @@ func update(
 			patrol_change_timer = _next_range(COMPANION_PATROL_CHANGE_INTERVAL_MIN, COMPANION_PATROL_CHANGE_INTERVAL_MAX)
 		elif patrol_change_timer <= 0.0:
 			_choose_next_action(speed_min, speed_max)
+	motion_speed_ratio = _speed_ratio(absf(patrol_speed), speed_min, speed_max)
 
 
 func initialize(
@@ -157,6 +189,9 @@ func initialize(
 	motion_style_value: String = MOTION_STYLE_PATROL
 ) -> void:
 	motion_style = _normalize_motion_style(motion_style_value)
+	if motion_style == MOTION_STYLE_SORTIE_FLIGHT:
+		_initialize_sortie_flight(owner, randomize_x, trigger_count, speed_min, speed_max)
+		return
 	if motion_style == MOTION_STYLE_FREE_FLIGHT:
 		_initialize_free_flight(owner, randomize_x, trigger_count, speed_min, speed_max)
 		return
@@ -183,6 +218,8 @@ func initialize(
 	patrol_pause = maxf(0.0, patrol_pause)
 	if patrol_change_timer <= 0.0:
 		patrol_change_timer = _next_range(COMPANION_PATROL_CHANGE_INTERVAL_MIN, COMPANION_PATROL_CHANGE_INTERVAL_MAX)
+	motion_visible = true
+	motion_speed_ratio = 0.0
 
 
 func sync_lane(owner: Object) -> void:
@@ -203,9 +240,15 @@ func restore(
 ) -> void:
 	motion_style = _normalize_motion_style(motion_style_value)
 	free_flight_target = _get_vector2_from_variant(
-		snapshot.get("companion_free_flight_target", free_flight_target),
+		snapshot.get("companion_sortie_target", snapshot.get("companion_free_flight_target", free_flight_target)),
 		free_flight_target
 	)
+	motion_velocity = _get_vector2_from_variant(
+		snapshot.get("companion_motion_velocity", motion_velocity),
+		motion_velocity
+	)
+	motion_speed_ratio = clampf(float(snapshot.get("companion_motion_speed_ratio", motion_speed_ratio)), 0.0, 1.0)
+	motion_visible = bool(snapshot.get("companion_visible", motion_visible))
 	var restored_dir: float = float(snapshot.get("companion_patrol_dir", patrol_dir))
 	if restored_dir > 0.0:
 		patrol_dir = 1.0
@@ -230,6 +273,10 @@ func get_snapshot(speed_default: float, speed_min: float, speed_max: float, defe
 	return {
 		"companion_motion_style": motion_style,
 		"companion_free_flight_target": free_flight_target,
+		"companion_sortie_target": free_flight_target,
+		"companion_motion_velocity": motion_velocity,
+		"companion_motion_speed_ratio": motion_speed_ratio,
+		"companion_visible": motion_visible,
 		"companion_patrol_dir": patrol_dir,
 		"companion_patrol_pause": patrol_pause,
 		"companion_patrol_change_timer": patrol_change_timer,
@@ -253,6 +300,10 @@ func get_save_snapshot() -> Dictionary:
 	return {
 		"companion_motion_style": motion_style,
 		"companion_free_flight_target": free_flight_target,
+		"companion_sortie_target": free_flight_target,
+		"companion_motion_velocity": motion_velocity,
+		"companion_motion_speed_ratio": motion_speed_ratio,
+		"companion_visible": motion_visible,
 		"companion_patrol_dir": patrol_dir,
 		"companion_patrol_pause": patrol_pause,
 		"companion_patrol_change_timer": patrol_change_timer,
@@ -267,6 +318,9 @@ func configure_for_tests(test_pos: Vector2, test_seed: int, test_decision_timer:
 	patrol_seed = test_seed
 	defense_decision_timer = maxf(0.0, test_decision_timer)
 	defense_intercept_active = test_intercept_active
+	motion_velocity = Vector2.ZERO
+	motion_speed_ratio = 0.0
+	motion_visible = true
 
 
 func _update_free_flight(
@@ -287,7 +341,9 @@ func _update_free_flight(
 
 	var safe_delta: float = maxf(0.0, delta)
 	clear_defense_intercept()
+	motion_visible = true
 	if freeze_motion or safe_delta <= 0.0:
+		motion_speed_ratio = 0.0 if freeze_motion else _speed_ratio(patrol_speed, speed_min, speed_max)
 		return
 	patrol_change_timer = maxf(0.0, patrol_change_timer - safe_delta)
 	if (
@@ -301,11 +357,13 @@ func _update_free_flight(
 	var distance := offset.length()
 	if distance > 0.01:
 		var step := minf(distance, patrol_speed * safe_delta)
+		motion_velocity = offset / distance * (step / safe_delta)
 		pos += offset / distance * step
 		if absf(offset.x) > 1.0:
 			patrol_dir = 1.0 if offset.x > 0.0 else -1.0
 	pos.x = clampf(pos.x, patrol_min_x, patrol_max_x)
 	pos.y = clampf(pos.y, -FREE_FLIGHT_MARGIN_Y, FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y)
+	motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
 
 
 func _initialize_free_flight(
@@ -337,6 +395,112 @@ func _initialize_free_flight(
 	)
 	if patrol_change_timer <= 0.0 or free_flight_target == Vector2.ZERO:
 		_choose_free_flight_target(speed_min, speed_max)
+	motion_visible = true
+	motion_speed_ratio = _speed_ratio(patrol_speed, speed_min, speed_max)
+
+
+func _update_sortie_flight(
+	delta: float,
+	owner: Object,
+	freeze_motion: bool,
+	trigger_count: int,
+	speed_min: float,
+	speed_max: float
+) -> void:
+	if patrol_seed <= 0 or free_flight_target == Vector2.ZERO:
+		_initialize_sortie_flight(owner, true, trigger_count, speed_min, speed_max)
+	if pos == Vector2.ZERO:
+		_initialize_sortie_flight(owner, true, trigger_count, speed_min, speed_max)
+		return
+
+	var safe_delta: float = maxf(0.0, delta)
+	clear_defense_intercept()
+	if freeze_motion:
+		motion_speed_ratio = 0.0
+		return
+	if patrol_pause > 0.0:
+		motion_visible = false
+		motion_velocity = Vector2.ZERO
+		motion_speed_ratio = 0.0
+		patrol_pause = maxf(0.0, patrol_pause - safe_delta)
+		if patrol_pause <= 0.0:
+			_start_sortie_route(owner, trigger_count, speed_min, speed_max)
+		return
+
+	motion_visible = true
+	if safe_delta <= 0.0:
+		motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
+		return
+	var offset := free_flight_target - pos
+	var distance := offset.length()
+	if distance <= SORTIE_REACH_TOLERANCE:
+		_begin_sortie_hidden(speed_min, speed_max)
+		return
+	var desired_dir := offset / maxf(0.001, distance)
+	if motion_velocity.length() <= 0.01:
+		motion_velocity = desired_dir * maxf(speed_min, patrol_speed * SORTIE_START_SPEED_RATIO)
+	var current_dir := motion_velocity.normalized()
+	var turn_angle := clampf(current_dir.angle_to(desired_dir), -SORTIE_TURN_RATE * safe_delta, SORTIE_TURN_RATE * safe_delta)
+	var next_dir := current_dir.rotated(turn_angle).normalized()
+	var next_speed := move_toward(motion_velocity.length(), patrol_speed, SORTIE_ACCELERATION * safe_delta)
+	motion_velocity = next_dir * next_speed
+	pos += motion_velocity * safe_delta
+	if absf(motion_velocity.x) > 1.0:
+		patrol_dir = 1.0 if motion_velocity.x > 0.0 else -1.0
+	motion_speed_ratio = _speed_ratio(next_speed, speed_min, speed_max)
+	if pos.distance_to(free_flight_target) <= SORTIE_REACH_TOLERANCE:
+		_begin_sortie_hidden(speed_min, speed_max)
+
+
+func _initialize_sortie_flight(
+	owner: Object,
+	_randomize_pos: bool,
+	trigger_count: int,
+	speed_min: float,
+	speed_max: float
+) -> void:
+	if patrol_seed <= 0:
+		patrol_seed = _build_seed(owner, trigger_count)
+	_start_sortie_route(owner, trigger_count, speed_min, speed_max)
+
+
+func _start_sortie_route(owner: Object, trigger_count: int, speed_min: float, speed_max: float) -> void:
+	if patrol_seed <= 0:
+		patrol_seed = _build_seed(owner, trigger_count)
+	patrol_speed = _next_range(maxf(speed_min, 210.0), maxf(speed_max, 360.0))
+	var start_side: int = int(floor(_next_unit() * 4.0)) % 4
+	var end_side: int = (start_side + 2 + (0 if _next_unit() < 0.72 else (1 if _next_unit() < 0.5 else -1))) % 4
+	pos = _get_sortie_edge_point(start_side)
+	free_flight_target = _get_sortie_edge_point(end_side)
+	var route_dir := (free_flight_target - pos).normalized()
+	var entry_bias: float = _next_range(-0.38, 0.38)
+	motion_velocity = route_dir.rotated(entry_bias) * patrol_speed * SORTIE_START_SPEED_RATIO
+	patrol_dir = 1.0 if motion_velocity.x >= 0.0 else -1.0
+	patrol_pause = 0.0
+	patrol_change_timer = 0.0
+	motion_visible = true
+	motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
+
+
+func _begin_sortie_hidden(speed_min: float, speed_max: float) -> void:
+	pos = free_flight_target
+	motion_velocity = Vector2.ZERO
+	motion_speed_ratio = 0.0
+	motion_visible = false
+	patrol_pause = _next_range(SORTIE_HIDDEN_SECONDS_MIN, SORTIE_HIDDEN_SECONDS_MAX)
+	patrol_speed = _next_speed(speed_min, speed_max)
+
+
+func _get_sortie_edge_point(side: int) -> Vector2:
+	match side:
+		0:
+			return Vector2(-SORTIE_OFFSCREEN_MARGIN_X, _next_range(SORTIE_EDGE_Y_MIN, SORTIE_EDGE_Y_MAX))
+		1:
+			return Vector2(FIELD_WIDTH + SORTIE_OFFSCREEN_MARGIN_X, _next_range(SORTIE_EDGE_Y_MIN, SORTIE_EDGE_Y_MAX))
+		2:
+			return Vector2(_next_range(SORTIE_EDGE_X_MIN, SORTIE_EDGE_X_MAX), -SORTIE_OFFSCREEN_MARGIN_Y)
+		_:
+			return Vector2(_next_range(SORTIE_EDGE_X_MIN, SORTIE_EDGE_X_MAX), FIELD_HEIGHT + SORTIE_OFFSCREEN_MARGIN_Y)
 
 
 func _sync_free_flight_bounds() -> void:
@@ -468,6 +632,13 @@ func _next_range(min_value: float, max_value: float) -> float:
 
 func _next_speed(speed_min: float, speed_max: float) -> float:
 	return _next_range(speed_min, speed_max)
+
+
+func _speed_ratio(current_speed: float, speed_min: float, speed_max: float) -> float:
+	var _unused_speed_min := speed_min
+	if speed_max <= 0.0:
+		return 1.0 if current_speed > 0.0 else 0.0
+	return clampf(current_speed / speed_max, 0.0, 1.0)
 
 
 func _next_unit() -> float:

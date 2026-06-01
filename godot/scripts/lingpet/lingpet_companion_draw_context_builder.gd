@@ -33,9 +33,11 @@ func build_config(params: Dictionary) -> Dictionary:
 		"windup_seconds": windup_seconds,
 		"casting_windup": casting_windup,
 		"attacking": attacking,
+		"companion_visible": bool(params.get("companion_visible", true)),
 		"walk_texture": _get_visual_texture(current_profile, "companion_walk", params.get("walk_fallback", null) as Texture2D),
 		"strike_texture": _get_visual_texture(current_profile, "companion_strike", params.get("strike_fallback", null) as Texture2D),
 		"cast_texture": _get_visual_texture(current_profile, "companion_cast", params.get("cast_fallback", null) as Texture2D),
+		"motion_speed_ratio": clampf(_get_float(params.get("motion_speed_ratio", 0.0)), 0.0, 1.0),
 	}
 
 

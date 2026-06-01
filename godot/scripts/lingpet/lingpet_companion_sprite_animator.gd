@@ -9,6 +9,8 @@ const SHEET_ROWS := 5
 const SHEET_FRAME_COUNT := 25
 const IDLE_FRAME := 12
 const WALK_FPS := 14.0
+const FLIGHT_FPS_MIN := 9.0
+const FLIGHT_FPS_MAX := 26.0
 const WALK_DRAW_SIZE := Vector2(82.0, 82.0)
 const WALK_Y_OFFSET := -6.0
 const STRIKE_START_FRAME := 18
@@ -74,12 +76,14 @@ func get_cast_frame(windup_elapsed: float, windup_seconds: float) -> int:
 	return clampi(int(progress * float(SHEET_FRAME_COUNT)), 0, max_frame)
 
 
-func get_walk_frame(patrol_pause: float, ticks_msec: int = -1) -> int:
-	if patrol_pause > 0.0:
+func get_walk_frame(patrol_pause: float, ticks_msec: int = -1, speed_ratio: float = 0.0) -> int:
+	var ratio := clampf(speed_ratio, 0.0, 1.0)
+	if patrol_pause > 0.0 and ratio <= 0.0:
 		return clampi(IDLE_FRAME, 0, SHEET_FRAME_COUNT - 1)
 	var current_ticks: int = Time.get_ticks_msec() if ticks_msec < 0 else ticks_msec
 	var elapsed: float = float(current_ticks) / 1000.0
-	return int(elapsed * WALK_FPS) % SHEET_FRAME_COUNT
+	var fps: float = WALK_FPS if ratio <= 0.0 else lerpf(FLIGHT_FPS_MIN, FLIGHT_FPS_MAX, ratio)
+	return int(elapsed * fps) % SHEET_FRAME_COUNT
 
 
 func get_strike_start_frame(frames_to_contact: float) -> int:
@@ -100,11 +104,12 @@ func build_draw_rects(
 	center: Vector2,
 	patrol_pause: float,
 	windup_elapsed: float,
-	windup_seconds: float
+	windup_seconds: float,
+	speed_ratio: float = 0.0
 ) -> Dictionary:
 	if texture == null:
 		return {}
-	var frame: int = get_frame(mode, patrol_pause, windup_elapsed, windup_seconds)
+	var frame: int = get_frame(mode, patrol_pause, windup_elapsed, windup_seconds, speed_ratio)
 	var draw_size: Vector2 = get_draw_size(mode)
 	return {
 		"frame": frame,
@@ -113,14 +118,14 @@ func build_draw_rects(
 	}
 
 
-func get_frame(mode: String, patrol_pause: float, windup_elapsed: float, windup_seconds: float) -> int:
+func get_frame(mode: String, patrol_pause: float, windup_elapsed: float, windup_seconds: float, speed_ratio: float = 0.0) -> int:
 	match mode:
 		MODE_CAST:
 			return get_cast_frame(windup_elapsed, windup_seconds)
 		MODE_STRIKE:
 			return get_strike_frame()
 		_:
-			return get_walk_frame(patrol_pause)
+			return get_walk_frame(patrol_pause, -1, speed_ratio)
 
 
 func get_source_rect(texture: Texture2D, frame: int) -> Rect2:

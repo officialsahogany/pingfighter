@@ -76,7 +76,7 @@ const PETS := {
 	"lunabi": {
 		"id": "lunabi",
 		"display_name": "루나비",
-		"motion_style": "free_flight",
+		"motion_style": "sortie_flight",
 		"hatch_weight": 1.0,
 		"required_hits": 2,
 		"unlock": {
@@ -84,9 +84,9 @@ const PETS := {
 			"character_type": "smasher",
 		},
 		"stats": {
-			"patrol_speed_default": 190.0,
-			"patrol_speed_min": 135.0,
-			"patrol_speed_max": 255.0,
+			"patrol_speed_default": 285.0,
+			"patrol_speed_min": 210.0,
+			"patrol_speed_max": 390.0,
 			"catch_width": 88.0,
 			"catch_height": 58.0,
 			"defense_rate": 0.0,

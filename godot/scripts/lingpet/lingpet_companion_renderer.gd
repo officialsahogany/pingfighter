@@ -6,6 +6,8 @@ const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_c
 func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> void:
 	if canvas == null:
 		return
+	if not bool(config.get("companion_visible", true)):
+		return
 	var radius: float = float(config.get("radius", 16.0))
 	var hit_flash: float = float(config.get("hit_flash", 0.0))
 	var gauge_flash: float = float(config.get("gauge_flash", 0.0))
@@ -55,7 +57,8 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		center,
 		float(config.get("patrol_pause", 0.0)),
 		float(config.get("windup_elapsed", 0.0)),
-		float(config.get("windup_seconds", 0.0))
+		float(config.get("windup_seconds", 0.0)),
+		float(config.get("motion_speed_ratio", 0.0))
 	)
 	if rects.is_empty():
 		return
