@@ -461,6 +461,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	var broken_issues: Array[String] = LingpetCatalog.validate_entries(broken_entries, false)
 	_expect(_issues_contain(broken_issues, "stats.patrol_speed_default must be > 0"), "catalog validator should catch invalid movement stats before a new lingpet ships")
 	_expect(_issues_contain(broken_issues, "missing visuals.companion_walk"), "catalog validator should catch missing companion visual paths")
+	_expect(_issues_contain(broken_issues, "missing active_skill.runtime_kind"), "catalog validator should require active-skill runtime kind metadata")
 	_expect(_issues_contain(broken_issues, "missing active_skill.card_texture_path"), "catalog validator should catch missing skill-card art paths")
 	_expect(_issues_contain(broken_issues, "active_skill.cooldown must be > 0"), "catalog validator should catch invalid active-skill cooldowns")
 	_expect(_issues_contain(broken_issues, "missing effect_text"), "catalog validator should catch missing ringpet effect text")
@@ -475,6 +476,14 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 				"league_mode": "junior",
 				"character_type": "smasher",
 			},
+			"active_skill": {
+				"id": "test_bubble_guard",
+				"runtime_kind": "bubble_guard",
+				"name": "Bubble Guard",
+				"description": "Test future skill metadata",
+				"cooldown": 18.0,
+				"card_texture_path": "res://test/bubble_guard.png",
+			},
 		},
 	}
 	var multi_candidates: Array[String] = LingpetCatalog.get_hatch_candidates_from_entries(multi_entries, eligible_context, [])
@@ -486,8 +495,12 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetCatalog.get_display_name("maribo") == "마리보", "catalog should own lingpet display names")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("maribo_egg_v002.png"), "catalog should own Maribo egg visual paths")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "companion_walk")).ends_with("maribo_companion_walk.png"), "catalog should own Maribo companion visual paths")
+	_expect(str(LingpetCatalog.get_active_skill_entry("maribo_hydro_sphere").get("runtime_kind", "")) == "hydro_sphere", "catalog should expose Maribo active-skill runtime kind by skill id")
+	_expect(str(LingpetCatalog.get_active_skill_runtime_kind_from_entries(multi_entries, "test_bubble_guard")) == "bubble_guard", "catalog should resolve future lingpet skill runtime kinds from active_skill metadata")
 	_expect(LingpetSkillDispatcher.is_hydro_sphere("maribo_hydro_sphere"), "skill dispatcher should recognize the current Maribo active skill")
+	_expect(LingpetSkillDispatcher.is_supported_kind("hydro_sphere"), "skill dispatcher should expose supported runtime kinds for future lingpet skill modules")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var dispatcher_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 	var collection_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_collection_state.gd")
 	_expect(runtime_source.find("lingpet_collection_state.gd") >= 0, "egg runtime should delegate owned collection + hatch candidate selection to the collection-state helper")
 	_expect(collection_source.find("LingpetCatalog.pick_hatch_pet_id") >= 0, "collection-state helper should pick the hidden egg identity through the catalog")
@@ -495,6 +508,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(runtime_source.find("_pick_hatch_pet_id") >= 0, "egg runtime should keep a narrow hatch-selection hook for future weighted random lingpets")
 	_expect(runtime_source.find("_update_companion_skill_effects") >= 0, "egg runtime should route companion active skills through a dispatcher hook")
 	_expect(runtime_source.find("LingpetSkillDispatcher.get_skill_kind") >= 0, "egg runtime should dispatch active skill behavior by skill id")
+	_expect(dispatcher_source.find("LingpetCatalog.get_active_skill_runtime_kind") >= 0, "skill dispatcher should resolve active-skill runtime kind through the catalog before falling back to legacy ids")
 	_expect(runtime_source.find("lingpet_companion_skill_state.gd") >= 0, "egg runtime should delegate shared active-skill cooldown/wind-up state to the companion skill-state controller")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_skill_state.gd"), "companion skill-state controller should exist for future lingpet active skills")
 	_expect(runtime_source.find("lingpet_visual_texture_cache.gd") >= 0, "egg runtime should delegate catalog visual texture loading to the visual cache module")

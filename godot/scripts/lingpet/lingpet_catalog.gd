@@ -24,6 +24,7 @@ const REQUIRED_VISUAL_KEYS := [
 ]
 const REQUIRED_ACTIVE_SKILL_KEYS := [
 	"id",
+	"runtime_kind",
 	"name",
 	"description",
 	"cooldown",
@@ -63,6 +64,7 @@ const PETS := {
 		},
 		"active_skill": {
 			"id": "maribo_hydro_sphere",
+			"runtime_kind": "hydro_sphere",
 			"name": "하이드로 스피어",
 			"description": "물의 기운이 담긴 창을 던집니다. 상대 진영 벽에 닿으면 5초 동안 가로로 넓은 물장판을 만듭니다.",
 			"cooldown": 40.0,
@@ -115,6 +117,33 @@ static func get_active_skill(pet_id: String) -> Dictionary:
 	if skill is Dictionary:
 		return (skill as Dictionary).duplicate(true)
 	return {}
+
+
+static func get_active_skill_entry(skill_id: String) -> Dictionary:
+	return get_active_skill_entry_from_entries(PETS, skill_id)
+
+
+static func get_active_skill_entry_from_entries(entries: Dictionary, skill_id: String) -> Dictionary:
+	var normalized := _normalize_skill_id(skill_id)
+	if normalized == "":
+		return {}
+	for raw_pet_id in entries.keys():
+		var entry: Variant = entries.get(raw_pet_id, {})
+		if not (entry is Dictionary):
+			continue
+		var skill: Variant = (entry as Dictionary).get("active_skill", {})
+		if skill is Dictionary and _normalize_skill_id(str((skill as Dictionary).get("id", ""))) == normalized:
+			return (skill as Dictionary).duplicate(true)
+	return {}
+
+
+static func get_active_skill_runtime_kind(skill_id: String) -> String:
+	return get_active_skill_runtime_kind_from_entries(PETS, skill_id)
+
+
+static func get_active_skill_runtime_kind_from_entries(entries: Dictionary, skill_id: String) -> String:
+	var skill := get_active_skill_entry_from_entries(entries, skill_id)
+	return str(skill.get("runtime_kind", "")).strip_edges().to_lower()
 
 
 static func get_visual_path(pet_id: String, visual_key: String) -> String:
@@ -296,6 +325,10 @@ static func _matches_unlock(entry: Dictionary, context: Dictionary) -> bool:
 
 
 static func _normalize_pet_id(value: String) -> String:
+	return value.strip_edges().to_lower()
+
+
+static func _normalize_skill_id(value: String) -> String:
 	return value.strip_edges().to_lower()
 
 
