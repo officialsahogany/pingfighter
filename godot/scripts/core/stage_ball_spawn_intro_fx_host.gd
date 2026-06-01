@@ -119,20 +119,43 @@ var _outro_idle_entered := false
 static var _vortex_texture: Texture2D = null
 static var _orbit_rings_texture: Texture2D = null
 static var _ray_burst_texture: Texture2D = null
+static var _prewarm_assets_step_index := 0
 
 
 static func prewarm_assets() -> void:
-	StageBallSpawnIntroTextureCache.get_glow_texture()
-	StageBallSpawnIntroTextureCache.get_ball_body_texture()
-	_get_vortex_texture()
-	_get_orbit_rings_texture()
-	_get_ray_burst_texture()
-	WritheEmber.prewarm()
-	_build_phase1_vortex_shader_material()
-	_build_phase1_inflow_process_material()
-	_build_core_shader_material()
-	_build_particle_process_material(Vector3(0.0, -1.0, 0.0), false)
-	_build_particle_process_material(Vector3(0.0, -1.0, 0.0), true)
+	while not prewarm_assets_step():
+		pass
+
+
+static func prewarm_assets_step() -> bool:
+	match _prewarm_assets_step_index:
+		0:
+			StageBallSpawnIntroTextureCache.get_glow_texture()
+		1:
+			StageBallSpawnIntroTextureCache.get_ball_body_texture()
+		2:
+			_get_vortex_texture()
+		3:
+			_get_orbit_rings_texture()
+		4:
+			_get_ray_burst_texture()
+		5:
+			WritheEmber.prewarm()
+		6:
+			_build_phase1_vortex_shader_material()
+		7:
+			_build_phase1_inflow_process_material()
+		8:
+			_build_core_shader_material()
+		9:
+			_build_particle_process_material(Vector3(0.0, -1.0, 0.0), false)
+		10:
+			_build_particle_process_material(Vector3(0.0, -1.0, 0.0), true)
+		_:
+			_prewarm_assets_step_index = 0
+			return true
+	_prewarm_assets_step_index += 1
+	return false
 
 
 static func build_pipeline_status() -> Dictionary:

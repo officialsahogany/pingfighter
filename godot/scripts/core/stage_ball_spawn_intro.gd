@@ -117,12 +117,28 @@ var phase_2_updater: Object = StageBallSpawnIntroPhase2Updater.new()
 var phase_3_updater: Object = StageBallSpawnIntroPhase3Updater.new()
 var fx_host: Node = null
 var pillar_overlay_host: Node = null
+var _asset_prewarm_step_index := 0
 
 
 # === Public API ===
 func prewarm_assets() -> void:
-	StageBallSpawnIntroTextureCache.prewarm()
-	StageBallSpawnIntroFxHost.prewarm_assets()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	match _asset_prewarm_step_index:
+		0:
+			if not StageBallSpawnIntroTextureCache.prewarm_step():
+				return false
+		1:
+			if not StageBallSpawnIntroFxHost.prewarm_assets_step():
+				return false
+		_:
+			_asset_prewarm_step_index = 0
+			return true
+	_asset_prewarm_step_index += 1
+	return false
 
 
 func begin(owner: Object, registry: Object) -> bool:

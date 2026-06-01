@@ -71,30 +71,48 @@ static func _draw_ring_texture(
 
 
 static func _build_ring_texture(side: String) -> ImageTexture:
-	var image: Image = Image.create(TEXTURE_SIZE, TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	var data := PackedByteArray()
+	data.resize(TEXTURE_SIZE * TEXTURE_SIZE * 4)
 	var center_coord: float = (float(TEXTURE_SIZE) - 1.0) * 0.5
 	var max_dist: float = max(1.0, center_coord)
+	var offset := 0
 
 	for y in range(TEXTURE_SIZE):
 		var dy: float = float(y) - center_coord
 		for x in range(TEXTURE_SIZE):
 			var dx: float = float(x) - center_coord
 			if side == "left" and dx < 0.0:
-				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 0.0))
+				_write_pixel(data, offset, 255, 255, 255, 0)
+				offset += 4
 				continue
 			if side == "right" and dx > 0.0:
-				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 0.0))
+				_write_pixel(data, offset, 255, 255, 255, 0)
+				offset += 4
 				continue
 
 			var distance_ratio: float = sqrt(dx * dx + dy * dy) / max_dist
 			if distance_ratio > 1.0:
-				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 0.0))
+				_write_pixel(data, offset, 255, 255, 255, 0)
+				offset += 4
 				continue
 
 			var ring_delta: float = abs(distance_ratio - RING_RADIUS_RATIO)
 			var core: float = pow(clamp(1.0 - ring_delta / CORE_THICKNESS_RATIO, 0.0, 1.0), 1.7)
 			var halo: float = pow(clamp(1.0 - ring_delta / HALO_THICKNESS_RATIO, 0.0, 1.0), 2.4)
 			var alpha: float = clamp(core * 0.90 + halo * 0.42, 0.0, 1.0)
-			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+			_write_pixel(data, offset, 255, 255, 255, _alpha_to_byte(alpha))
+			offset += 4
 
+	var image: Image = Image.create_from_data(TEXTURE_SIZE, TEXTURE_SIZE, false, Image.FORMAT_RGBA8, data)
 	return ImageTexture.create_from_image(image)
+
+
+static func _write_pixel(data: PackedByteArray, offset: int, r: int, g: int, b: int, a: int) -> void:
+	data[offset] = r
+	data[offset + 1] = g
+	data[offset + 2] = b
+	data[offset + 3] = a
+
+
+static func _alpha_to_byte(alpha: float) -> int:
+	return int(clamp(round(alpha * 255.0), 0.0, 255.0))
