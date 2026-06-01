@@ -1,7 +1,6 @@
 extends SceneTree
 
 const BattleSceneInputController := preload("res://scripts/core/battle_scene_input_controller.gd")
-const LingpetBattleSlotHud := preload("res://scripts/hud/lingpet_battle_slot_hud.gd")
 
 var _failures: Array[String] = []
 
@@ -48,16 +47,6 @@ class FakeReadiness:
 		return false
 
 
-class FakeViewLayout:
-	extends RefCounted
-
-	func build_game_layout(_view_size: Vector2, _width: float, _height: float) -> Dictionary:
-		return {
-			"game_offset": Vector2(140.0, 0.0),
-			"game_size": Vector2(912.0, 900.0),
-		}
-
-
 class FakeRegistry:
 	extends RefCounted
 
@@ -75,8 +64,8 @@ class FakeRegistry:
 
 func _init() -> void:
 	_verify_lingpet_cycle_key_avoids_item_number_keys()
-	_verify_click_switch_uses_shared_slot_rect()
-	_verify_renderer_and_input_are_wired()
+	_verify_lingpet_slot_click_hud_is_removed()
+	_verify_renderer_and_input_hide_battle_slot_hud()
 	if _failures.is_empty():
 		print("lingpet_battle_slot_hud_smoke: ok")
 		quit(0)
@@ -114,41 +103,38 @@ func _verify_lingpet_cycle_key_avoids_item_number_keys() -> void:
 	_expect(owner.redraws == 1, "successful lingpet cycle key should request redraw")
 
 
-func _verify_click_switch_uses_shared_slot_rect() -> void:
+func _verify_lingpet_slot_click_hud_is_removed() -> void:
 	var owner := FakeOwner.new()
 	var runtime := FakeRuntime.new()
 	var registry := _make_registry(runtime)
 	var input := BattleSceneInputController.new()
-	var rects := LingpetBattleSlotHud.build_slot_rects(
-		Vector2(140.0, 0.0),
-		Vector2(912.0, 900.0),
-		{"height": 750.0}
-	)
 	input.handle_unhandled_input(
-		_mouse_click(rects[2].get_center()),
+		_mouse_click(Vector2(88.0, 518.0)),
 		owner,
 		registry,
 		Callable(registry, "get_instance"),
 		{"battle_initialized": true, "stage_landing_intro_started": true}
 	)
-	_expect(runtime.switched_slots == [2], "left-click inside the third drawn lingpet slot should switch slot 2")
+	_expect(runtime.switched_slots.is_empty(), "battle-screen lingpet slot clicks should be removed with the visible slot HUD")
+	_expect(owner.redraws == 0, "removed lingpet slot HUD click area should not request redraw")
 
 
-func _verify_renderer_and_input_are_wired() -> void:
+func _verify_renderer_and_input_hide_battle_slot_hud() -> void:
 	var hud_source := FileAccess.get_file_as_string("res://scripts/hud/stage1_pillar_ui_renderer.gd")
 	var input_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
-	_expect(hud_source.find("lingpet_battle_slot_hud.gd") >= 0, "pillar HUD renderer should preload the lingpet battle slot HUD helper")
-	_expect(hud_source.find("LingpetBattleSlotHud.draw") >= 0, "pillar HUD renderer should draw the lingpet battle slots")
-	_expect(input_source.find("LingpetBattleSlotHud.get_cycle_direction_for_key") >= 0, "battle input should route the lingpet cycle key through the shared slot helper")
+	_expect(hud_source.find("lingpet_battle_slot_hud.gd") < 0, "pillar HUD renderer should not preload the removed lingpet battle slot HUD helper")
+	_expect(hud_source.find("LingpetBattleSlotHud.draw") < 0, "pillar HUD renderer should not draw the lingpet battle slot list")
+	_expect(not FileAccess.file_exists("res://scripts/hud/lingpet_battle_slot_hud.gd"), "lingpet battle slot HUD helper should be removed from the battle UI")
+	_expect(input_source.find("lingpet_battle_slot_hud.gd") < 0, "battle input should not depend on the removed lingpet battle slot HUD helper")
+	_expect(input_source.find("_get_lingpet_cycle_direction") >= 0, "battle input should keep the non-number-key lingpet cycle shortcut")
 	_expect(input_source.find("cycle_lingpet_slot") >= 0, "battle input should cycle lingpets instead of consuming active-item number keys")
-	_expect(input_source.find("LingpetBattleSlotHud.get_slot_index_at_position") >= 0, "battle input should route mouse clicks through the shared lingpet slot helper")
+	_expect(input_source.find("get_slot_index_at_position") < 0, "battle input should not keep hidden mouse hit-areas for the removed slot HUD")
 
 
 func _make_registry(runtime: Object) -> FakeRegistry:
 	return FakeRegistry.new({
 		"lingpet_egg_runtime": runtime,
 		"battle_scene_readiness_controller": FakeReadiness.new(),
-		"battle_view_layout": FakeViewLayout.new(),
 	})
 
 

@@ -1,7 +1,6 @@
 extends RefCounted
 
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
-const LingpetBattleSlotHud := preload("res://scripts/hud/lingpet_battle_slot_hud.gd")
 
 const GAME_WIDTH := 760.0
 const GAME_HEIGHT := 750.0
@@ -10,6 +9,7 @@ const BGM_TOGGLE_KEY := KEY_B
 const FORCE_STAGE_CLEAR_KEY := KEY_F9
 const FORCE_STAGE_CLEAR_PLAYER_SCORE := 5
 const FORCE_STAGE_CLEAR_BOSS_SCORE := 0
+const LINGPET_CYCLE_KEY := KEY_L
 const RIGHT_STICK_MOUSE_WHEEL_SUPPRESS_MSEC := 450
 
 var _right_stick_mouse_wheel_suppress_until_msec := 0
@@ -122,7 +122,7 @@ func _handle_lingpet_slot_switch(event: InputEvent, owner: Object, registry: Obj
 		runtime = _get_instance(registry, "lingpet_egg_runtime")
 	if runtime == null:
 		return false
-	var cycle_direction := LingpetBattleSlotHud.get_cycle_direction_for_key(event)
+	var cycle_direction := _get_lingpet_cycle_direction(event)
 	if cycle_direction != 0:
 		if not runtime.has_method("cycle_lingpet_slot"):
 			return false
@@ -131,31 +131,18 @@ func _handle_lingpet_slot_switch(event: InputEvent, owner: Object, registry: Obj
 		_queue_redraw(owner)
 		_mark_handled(owner)
 		return true
-	var slot_index := _get_lingpet_slot_click_index(event, owner, module_getter)
-	if slot_index < 0:
-		return false
-	if not runtime.has_method("switch_lingpet_slot"):
-		return false
-	if not bool(runtime.switch_lingpet_slot(slot_index, owner)):
-		return false
-	_queue_redraw(owner)
-	_mark_handled(owner)
-	return true
+	return false
 
 
-func _get_lingpet_slot_click_index(event: InputEvent, owner: Object, module_getter: Callable) -> int:
-	if not (event is InputEventMouseButton):
-		return -1
-	var mouse_event: InputEventMouseButton = event
-	if not mouse_event.pressed or mouse_event.button_index != MOUSE_BUTTON_LEFT:
-		return -1
-	var layout := _build_input_game_layout(owner, module_getter)
-	return LingpetBattleSlotHud.get_slot_index_at_position(
-		mouse_event.position,
-		_get_vector2(layout.get("game_offset", Vector2.ZERO), Vector2.ZERO),
-		_get_vector2(layout.get("game_size", Vector2(GAME_WIDTH, GAME_HEIGHT)), Vector2(GAME_WIDTH, GAME_HEIGHT)),
-		{"height": GAME_HEIGHT}
-	)
+func _get_lingpet_cycle_direction(event: InputEvent) -> int:
+	if not (event is InputEventKey):
+		return 0
+	var key_event: InputEventKey = event
+	if not key_event.pressed or key_event.echo:
+		return 0
+	if key_event.keycode == LINGPET_CYCLE_KEY or key_event.physical_keycode == LINGPET_CYCLE_KEY:
+		return 1
+	return 0
 
 
 func _handle_stage_clear_result_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
