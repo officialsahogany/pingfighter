@@ -11,9 +11,9 @@ const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_c
 const LingpetCompanionSkillState := preload("res://scripts/lingpet/lingpet_companion_skill_state.gd")
 const LingpetEggFieldState := preload("res://scripts/lingpet/lingpet_egg_field_state.gd")
 const LingpetEggFieldRenderer := preload("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
-const LingpetHydroSphereSkill := preload("res://scripts/lingpet/lingpet_hydro_sphere_skill.gd")
 const LingpetRuntimeSnapshotBuilder := preload("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
+const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 const LingpetVisualTextureCache := preload("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
 const MARIBO_EGG_TEXTURE := preload("res://assets/sprites/lingpet/maribo_egg_v002.png")
 const MARIBO_EGG_TEXTURE_CRACK_1 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png")
@@ -94,7 +94,7 @@ var _collection_state: Object = LingpetCollectionState.new()
 var _companion_renderer: Object = LingpetCompanionRenderer.new()
 var _companion_sprite_animator: Object = LingpetCompanionSpriteAnimator.new()
 var _companion_skill_state: Object = LingpetCompanionSkillState.new()
-var _hydro_sphere_skill: Object = LingpetHydroSphereSkill.new()
+var _skill_runtime_host: Object = LingpetSkillRuntimeHost.new()
 var _snapshot_builder: Object = LingpetRuntimeSnapshotBuilder.new()
 var _visual_texture_cache: Object = LingpetVisualTextureCache.new()
 var _acquire_cutin_state: Object = LingpetAcquireCutinState.new()
@@ -150,7 +150,7 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 	if _state == STATE_EGG:
 		_draw_egg(canvas, _egg_state.pos + shake_offset)
 	elif _state == STATE_COMPANION:
-		_hydro_sphere_skill.draw(canvas, shake_offset)
+		_skill_runtime_host.draw(canvas, shake_offset)
 		_draw_companion(canvas, _companion_pos + shake_offset)
 		if _hatch_flash_timer > 0.0:
 			_draw_hatch_flash(canvas, _egg_state.pos + shake_offset)
@@ -162,7 +162,7 @@ func has_visible_effects() -> bool:
 		or _state == STATE_COMPANION
 		or _hatch_flash_timer > 0.0
 		or _acquire_cutin_state.active
-		or _hydro_sphere_skill.has_visible_effects()
+		or _skill_runtime_host.has_visible_effects()
 	)
 
 
@@ -243,7 +243,7 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
 	_companion_body_hit_state.reset_all()
 	_companion_skill_state.reset_all()
 	_reset_companion_defense()
-	_reset_hydro_sphere_transients()
+	_reset_skill_runtime_transients()
 	_prewarm_current_visuals()
 	_mark_current_pet_owned(owner)
 	_sync_owner(owner)
@@ -271,7 +271,7 @@ func get_companion_strike_frame_for_tests() -> int:
 
 
 func get_hydro_puddle_particle_count_for_tests() -> int:
-	return _hydro_sphere_skill.get_particle_count_for_tests()
+	return _skill_runtime_host.get_hydro_puddle_particle_count_for_tests()
 
 
 func configure_companion_motion_for_tests(test_pos: Vector2, test_seed: int, test_decision_timer: float, test_intercept_active: bool) -> void:
@@ -312,7 +312,7 @@ func get_snapshot() -> Dictionary:
 		_companion_skill_state,
 		_get_current_skill_windup_seconds(),
 		COMPANION_SKILL_FLASH_SECONDS,
-		_hydro_sphere_skill
+		_skill_runtime_host
 	)
 	var switch_ratio := _get_companion_switch_transition_ratio()
 	snapshot["companion_switch_transition"] = switch_ratio
@@ -425,23 +425,23 @@ func reset_for_tests() -> void:
 	_companion_body_hit_state.reset_all()
 	_companion_skill_state.reset_all()
 	_reset_companion_defense()
-	_reset_hydro_sphere_transients()
+	_reset_skill_runtime_transients()
 	_acquire_cutin_state.reset()
 	_reset_companion_switch_transition()
 	_has_synced_none = false
 
 
 func reset_round(_deps: Dictionary = {}) -> void:
-	_reset_hydro_sphere_transients()
+	_reset_skill_runtime_transients()
 	_reset_companion_defense()
 	_reset_companion_switch_transition()
 	_companion_skill_state.reset_round_transients()
 	_companion_body_hit_state.reset_round_transients()
 
 
-func _reset_hydro_sphere_transients() -> void:
+func _reset_skill_runtime_transients() -> void:
 	_companion_skill_state.cancel_windup()
-	_hydro_sphere_skill.reset()
+	_skill_runtime_host.reset()
 
 
 func _begin_companion_switch_transition(from_pet_id: String, to_pet_id: String) -> void:
@@ -486,7 +486,7 @@ func _spawn_egg(owner: Object) -> void:
 	_companion_body_hit_state.reset_all()
 	_companion_skill_state.reset_all()
 	_reset_companion_defense()
-	_reset_hydro_sphere_transients()
+	_reset_skill_runtime_transients()
 	_acquire_cutin_state.reset()
 	_reset_companion_switch_transition()
 	_has_synced_none = false
@@ -507,7 +507,7 @@ func _resolve_ball_hit(owner: Object) -> bool:
 		_companion_sprite_animator.reset_all()
 		_companion_body_hit_state.reset_all()
 		_companion_skill_state.reset_all()
-		_reset_hydro_sphere_transients()
+		_reset_skill_runtime_transients()
 		_reset_companion_switch_transition()
 		_hatch_flash_timer = LingpetEggFieldRenderer.HATCH_FLASH_SECONDS
 		_acquire_cutin_state.start()
@@ -555,7 +555,7 @@ func _adopt_owned_pet(owner: Object, pet_id: String) -> void:
 	_companion_body_hit_state.reset_all()
 	_companion_skill_state.reset_all()
 	_reset_companion_defense()
-	_reset_hydro_sphere_transients()
+	_reset_skill_runtime_transients()
 	_reset_companion_switch_transition()
 	_hatch_flash_timer = 0.0
 	_prewarm_current_visuals()
@@ -742,34 +742,33 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null) -> bool
 	# like a player-paddle guard so it stops controlling the ball; otherwise the
 	# whip re-forces the ball down next frame and the companion bounce is ignored.
 	return true
+
+
 func _update_companion_skill_effects(delta: float, owner: Object, registry: Object = null) -> void:
-	match LingpetSkillDispatcher.get_skill_kind(_get_current_skill_id()):
-		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
-			_update_hydro_sphere_skill(delta, owner, registry)
-		_:
-			_companion_skill_state.cancel_windup()
-
-
-func _update_hydro_sphere_skill(delta: float, owner: Object, registry: Object = null) -> void:
 	var safe_delta: float = maxf(0.0, delta)
-	_hydro_sphere_skill.update(safe_delta, owner, registry)
+	var skill_id := _get_current_skill_id()
+	if not LingpetSkillDispatcher.has_supported_runtime(skill_id):
+		_companion_skill_state.cancel_windup()
+		return
+	_skill_runtime_host.update(safe_delta, owner, registry, skill_id)
 	_advance_companion_skill_windup(safe_delta, owner, registry)
 	if (
 		_state == STATE_COMPANION
 		and not _companion_skill_state.windup_active
 		and _companion_skill_state.cooldown <= 0.0
-		and not _hydro_sphere_skill.is_projectile_active()
+		and not _skill_runtime_host.is_launch_blocked(skill_id)
 	):
 		_try_activate_companion_skill(owner, registry)
 
 
 func _try_activate_companion_skill(owner: Object, _registry: Object = null) -> bool:
-	if not LingpetSkillDispatcher.is_hydro_sphere(_get_current_skill_id()):
+	var skill_id := _get_current_skill_id()
+	if not LingpetSkillDispatcher.has_supported_runtime(skill_id):
 		return false
 	if (
 		_state != STATE_COMPANION
 		or _companion_skill_state.cooldown > 0.0
-		or _hydro_sphere_skill.is_projectile_active()
+		or _skill_runtime_host.is_launch_blocked(skill_id)
 		or _companion_skill_state.windup_active
 		or not bool(_get_owner_value(owner, "ball_active", false))
 	):
@@ -777,7 +776,7 @@ func _try_activate_companion_skill(owner: Object, _registry: Object = null) -> b
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
 	# Wind-up gives ~1s lead, so prewarm before the first puddle frame.
-	_hydro_sphere_skill.prewarm()
+	_skill_runtime_host.prewarm(skill_id)
 	# Arm the telegraphed throw wind-up. The projectile launches when the wind-up
 	# completes (_advance_companion_skill_windup); cooldown is set then, not here.
 	_companion_skill_state.arm_windup()
@@ -786,32 +785,23 @@ func _try_activate_companion_skill(owner: Object, _registry: Object = null) -> b
 
 func _advance_companion_skill_windup(delta: float, owner: Object, registry: Object) -> void:
 	if _companion_skill_state.advance_windup(delta, _get_current_skill_windup_seconds()):
-		match LingpetSkillDispatcher.get_skill_kind(_get_current_skill_id()):
-			LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
-				_launch_hydro_sphere_projectile(owner, registry)
-			_:
-				_companion_skill_state.cancel_windup()
+		_launch_companion_skill(owner, registry)
 
 
-func _launch_hydro_sphere_projectile(owner: Object, registry: Object) -> void:
+func _launch_companion_skill(owner: Object, registry: Object) -> void:
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
+	var skill_id := _get_current_skill_id()
 	var origin: Vector2 = _companion_pos + Vector2(0.0, -COMPANION_RADIUS - 8.0)
-	_hydro_sphere_skill.launch(origin)
+	if not _skill_runtime_host.launch(skill_id, origin):
+		_companion_skill_state.cancel_windup()
+		return
 	_companion_skill_state.complete_launch(
 		origin,
 		float(_get_current_active_skill().get("cooldown", COMPANION_SKILL_COOLDOWN_SECONDS)),
 		COMPANION_SKILL_FLASH_SECONDS
 	)
-	_trigger_companion_skill_feedback(registry)
-
-
-func _trigger_companion_skill_feedback(registry: Object) -> void:
-	if registry == null:
-		return
-	var audio: Object = _get_registry_instance(registry, "game_audio")
-	if audio != null and audio.has_method("play_stage2_hydro"):
-		audio.play_stage2_hydro()
+	_skill_runtime_host.trigger_launch_feedback(skill_id, registry)
 
 
 func _get_companion_hit_flash_ratio() -> float:
@@ -853,7 +843,7 @@ func _get_egg_texture_for_hits() -> Texture2D:
 func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 	# Priority: hydro-cast wind-up > ball-hit strike > walk/idle. The committed
 	# skill cast takes the top visual slot while it is telegraphing the throw.
-	var casting_windup: bool = _companion_skill_state.windup_active and LingpetSkillDispatcher.is_hydro_sphere(_get_current_skill_id())
+	var casting_windup: bool = _companion_skill_state.windup_active and _skill_runtime_host.should_show_cast_windup(_get_current_skill_id())
 	var attacking: bool = _companion_sprite_animator.strike_active
 	_companion_renderer.draw_companion(canvas, center, {
 		"radius": COMPANION_RADIUS,
@@ -937,17 +927,3 @@ func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
 
 func _get_owner_vector2(owner: Object, key: String, fallback: Vector2) -> Vector2:
 	return BattleSceneOwnerReader.get_vector2(owner, key, fallback)
-
-
-func _get_registry_instance(registry: Object, key: String) -> Object:
-	if registry == null:
-		return null
-	if registry.has_method("get_cached_instance"):
-		var cached: Variant = registry.get_cached_instance(key)
-		if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
-			return cached as Object
-	if registry.has_method("get_instance"):
-		var value: Variant = registry.get_instance(key)
-		if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
-			return value as Object
-	return null

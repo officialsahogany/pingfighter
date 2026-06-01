@@ -1,0 +1,94 @@
+extends RefCounted
+
+const LingpetHydroSphereSkill := preload("res://scripts/lingpet/lingpet_hydro_sphere_skill.gd")
+const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
+
+var _hydro_sphere_skill: Object = LingpetHydroSphereSkill.new()
+
+
+func reset() -> void:
+	_hydro_sphere_skill.reset()
+
+
+func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "") -> void:
+	var safe_delta := maxf(0.0, delta)
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			_hydro_sphere_skill.update(safe_delta, owner, registry)
+		_:
+			pass
+
+
+func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
+	_hydro_sphere_skill.draw(canvas, shake_offset)
+
+
+func has_visible_effects() -> bool:
+	return _hydro_sphere_skill.has_visible_effects()
+
+
+func prewarm(skill_id: String) -> void:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			_hydro_sphere_skill.prewarm()
+		_:
+			pass
+
+
+func is_launch_blocked(skill_id: String) -> bool:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			return _hydro_sphere_skill.is_projectile_active()
+		_:
+			return false
+
+
+func launch(skill_id: String, origin: Vector2) -> bool:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			_hydro_sphere_skill.launch(origin)
+			return true
+		_:
+			return false
+
+
+func should_show_cast_windup(skill_id: String) -> bool:
+	return LingpetSkillDispatcher.has_supported_runtime(skill_id)
+
+
+func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			_play_hydro_feedback(registry)
+		_:
+			pass
+
+
+func get_snapshot() -> Dictionary:
+	return _hydro_sphere_skill.get_snapshot()
+
+
+func get_hydro_puddle_particle_count_for_tests() -> int:
+	return _hydro_sphere_skill.get_particle_count_for_tests()
+
+
+func _play_hydro_feedback(registry: Object) -> void:
+	if registry == null:
+		return
+	var audio: Object = _get_registry_instance(registry, "game_audio")
+	if audio != null and audio.has_method("play_stage2_hydro"):
+		audio.play_stage2_hydro()
+
+
+func _get_registry_instance(registry: Object, key: String) -> Object:
+	if registry == null:
+		return null
+	if registry.has_method("get_cached_instance"):
+		var cached: Variant = registry.get_cached_instance(key)
+		if typeof(cached) == TYPE_OBJECT and is_instance_valid(cached):
+			return cached as Object
+	if registry.has_method("get_instance"):
+		var value: Variant = registry.get_instance(key)
+		if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
+			return value as Object
+	return null
