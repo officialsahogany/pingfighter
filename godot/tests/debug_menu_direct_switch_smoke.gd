@@ -114,6 +114,7 @@ class FakeRegistry:
 	var perk_picker := FakeToggleOverlay.new()
 	var stage_picker := FakeToggleOverlay.new()
 	var weather_picker := FakeToggleOverlay.new()
+	var lingpet_picker := FakeToggleOverlay.new()
 	var ball_speed := FakeBallSpeedOverlay.new()
 	var character_info := FakeCharacterInfo.new()
 
@@ -131,6 +132,8 @@ class FakeRegistry:
 				return stage_picker
 			"weather_debug_picker":
 				return weather_picker
+			"lingpet_debug_picker":
+				return lingpet_picker
 			"ball_speed_debug_overlay":
 				return ball_speed
 			"character_info_overlay":
@@ -171,8 +174,12 @@ func _init() -> void:
 	_expect(not registry.ball_speed.active, "switching to weather debug should close ball-speed debug")
 	_expect(registry.weather_picker.open, "weather debug should be open")
 
+	_expect(_press(input, owner, KEY_F10), "F10 should switch directly to lingpet debug")
+	_expect(not registry.weather_picker.open, "switching to lingpet debug should close weather debug")
+	_expect(registry.lingpet_picker.open, "lingpet debug should be open")
+
 	_expect(_press(input, owner, KEY_F2), "F2 should switch back from weather debug")
-	_expect(not registry.weather_picker.open, "switching to item spawn should close weather debug")
+	_expect(not registry.lingpet_picker.open, "switching to item spawn should close lingpet debug")
 	_expect(registry.active_item_runtime.open, "item spawn debug should reopen after direct switch")
 
 	_expect(_press(input, owner, KEY_F2), "pressing the already-open debug key should close that debug")
@@ -185,7 +192,7 @@ func _init() -> void:
 	_expect(registry.character_info.last_module_getter_valid, "TAB character info prewarm should receive module getter")
 	_expect(registry.character_info.last_include_shared_icon_assets, "TAB character info prewarm should include shared icon assets")
 	_expect(registry.character_info.last_view_size.x > 0.0 and registry.character_info.last_view_size.y > 0.0, "TAB character info prewarm should receive the current view size")
-	_expect(owner.redraw_count >= 8, "each debug key switch should queue redraw")
+	_expect(owner.redraw_count >= 9, "each debug key switch should queue redraw")
 	registry.character_info.close()
 	registry.character_info.last_owner = null
 	registry.character_info.last_registry = null

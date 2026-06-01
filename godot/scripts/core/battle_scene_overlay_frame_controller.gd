@@ -71,6 +71,11 @@ func process_idle(
 			_queue_redraw(owner)
 			_perf_end(perf_logger, "process.overlay.weather_debug", sample_start)
 			return true
+		"lingpet_debug":
+			sample_start = _perf_begin(perf_logger)
+			_queue_redraw(owner)
+			_perf_end(perf_logger, "process.overlay.lingpet_debug", sample_start)
+			return true
 		"mythic_management":
 			sample_start = _perf_begin(perf_logger)
 			_queue_redraw(owner)
@@ -176,6 +181,13 @@ func draw(
 				weather_debug_picker.draw(canvas, owner, registry, view_size)
 			_perf_end(perf_logger, "draw.overlay.weather_debug", sample_start)
 			return
+		"lingpet_debug":
+			sample_start = _perf_begin(perf_logger)
+			var lingpet_debug_picker: Object = _get_module(module_getter, "lingpet_debug_picker")
+			if lingpet_debug_picker != null and lingpet_debug_picker.has_method("draw"):
+				lingpet_debug_picker.draw(canvas, owner, registry, view_size)
+			_perf_end(perf_logger, "draw.overlay.lingpet_debug", sample_start)
+			return
 		"mythic_management":
 			sample_start = _perf_begin(perf_logger)
 			var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
@@ -272,6 +284,10 @@ func _is_weather_debug_picker_open(module_getter: Callable, modal_gate: Object =
 	return _call_modal_gate_bool(module_getter, "is_weather_debug_picker_open", false, modal_gate)
 
 
+func _is_lingpet_debug_picker_open(module_getter: Callable, modal_gate: Object = null) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_lingpet_debug_picker_open", false, modal_gate)
+
+
 func _is_active_item_debug_spawn_menu_open(module_getter: Callable, modal_gate: Object = null) -> bool:
 	return _call_modal_gate_bool(module_getter, "is_active_item_debug_spawn_menu_open", false, modal_gate)
 
@@ -317,6 +333,8 @@ func _get_blocking_process_overlay_activity(module_getter: Callable, modal_gate:
 		return "stage_debug"
 	if _is_weather_debug_picker_open(module_getter, modal_gate):
 		return "weather_debug"
+	if _is_lingpet_debug_picker_open(module_getter, modal_gate):
+		return "lingpet_debug"
 	if _is_mythic_management_menu_open(module_getter, modal_gate):
 		return "mythic_management"
 	if _is_pandora_legacy_selection_active(module_getter, modal_gate):
@@ -347,6 +365,8 @@ func _get_primary_draw_overlay_activity(module_getter: Callable, modal_gate: Obj
 		return "stage_debug"
 	if _is_weather_debug_picker_open(module_getter, modal_gate):
 		return "weather_debug"
+	if _is_lingpet_debug_picker_open(module_getter, modal_gate):
+		return "lingpet_debug"
 	if _is_mythic_management_menu_open(module_getter, modal_gate):
 		return "mythic_management"
 	if _is_pandora_legacy_selection_active(module_getter, modal_gate):
@@ -401,6 +421,8 @@ func _close_clean_capture_overlays(owner: Object, module_getter: Callable) -> bo
 		closed_any = _close_overlay_menu("stage_debug_picker", "close", module_getter) or closed_any
 	if _is_weather_debug_picker_open(module_getter):
 		closed_any = _close_overlay_menu("weather_debug_picker", "close", module_getter) or closed_any
+	if _is_lingpet_debug_picker_open(module_getter):
+		closed_any = _close_overlay_menu("lingpet_debug_picker", "close", module_getter) or closed_any
 	if _is_mythic_management_menu_open(module_getter):
 		closed_any = _close_mythic_management_debug_menu(module_getter) or closed_any
 	if _is_active_item_debug_spawn_menu_open(module_getter):

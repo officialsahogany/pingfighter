@@ -13,6 +13,7 @@ const WEATHER_DEBUG_KEY := KEY_F6
 # before unhandled-input reaches this controller.
 const RUNTIME_PERK_DEBUG_KEY := KEY_F8
 const BALL_SPEED_DEBUG_KEY := KEY_F9
+const LINGPET_DEBUG_KEY := KEY_F10
 const CHARACTER_INFO_KEY := KEY_TAB
 const PAUSE_MENU_KEY := KEY_ESCAPE
 const DEBUG_MENU_CHARACTER_PICKER := "character_picker"
@@ -22,6 +23,7 @@ const DEBUG_MENU_PERK_PICKER := "perk_picker"
 const DEBUG_MENU_STAGE_PICKER := "stage_picker"
 const DEBUG_MENU_WEATHER_PICKER := "weather_picker"
 const DEBUG_MENU_BALL_SPEED := "ball_speed"
+const DEBUG_MENU_LINGPET_PICKER := "lingpet_picker"
 const DEBUG_MENU_KEYS := [
 	DEBUG_MENU_CHARACTER_PICKER,
 	DEBUG_MENU_ITEM_SPAWN,
@@ -30,6 +32,7 @@ const DEBUG_MENU_KEYS := [
 	DEBUG_MENU_STAGE_PICKER,
 	DEBUG_MENU_WEATHER_PICKER,
 	DEBUG_MENU_BALL_SPEED,
+	DEBUG_MENU_LINGPET_PICKER,
 ]
 
 
@@ -95,6 +98,9 @@ func handle_input(
 	if _is_key_pressed(event, WEATHER_DEBUG_KEY):
 		_switch_debug_menu(DEBUG_MENU_WEATHER_PICKER, owner, module_getter)
 		return true
+	if _is_key_pressed(event, LINGPET_DEBUG_KEY):
+		_switch_debug_menu(DEBUG_MENU_LINGPET_PICKER, owner, module_getter)
+		return true
 	if _is_character_debug_picker_open(module_getter):
 		if character_debug_picker != null and character_debug_picker.has_method("handle_input"):
 			var handled_character_debug: bool = bool(character_debug_picker.handle_input(
@@ -129,6 +135,19 @@ func handle_input(
 				_get_view_size(owner)
 			))
 			if handled_stage_debug:
+				_queue_redraw(owner)
+				_mark_handled(owner)
+		return true
+	var lingpet_debug_picker: Object = _get_module(module_getter, "lingpet_debug_picker")
+	if _is_lingpet_debug_picker_open(module_getter):
+		if lingpet_debug_picker != null and lingpet_debug_picker.has_method("handle_input"):
+			var handled_lingpet_debug: bool = bool(lingpet_debug_picker.handle_input(
+				event,
+				owner,
+				registry,
+				_get_view_size(owner)
+			))
+			if handled_lingpet_debug:
 				_queue_redraw(owner)
 				_mark_handled(owner)
 		return true
@@ -299,6 +318,8 @@ func _is_debug_menu_open(menu_key: String, module_getter: Callable) -> bool:
 			return _is_weather_debug_picker_open(module_getter)
 		DEBUG_MENU_BALL_SPEED:
 			return _is_ball_speed_debug_active(module_getter)
+		DEBUG_MENU_LINGPET_PICKER:
+			return _is_lingpet_debug_picker_open(module_getter)
 	return false
 
 
@@ -334,6 +355,10 @@ func _open_debug_menu(menu_key: String, owner: Object, module_getter: Callable) 
 			var ball_speed_debug: Object = _get_module(module_getter, "ball_speed_debug_overlay")
 			if ball_speed_debug != null and ball_speed_debug.has_method("toggle"):
 				ball_speed_debug.toggle()
+		DEBUG_MENU_LINGPET_PICKER:
+			var lingpet_debug_picker: Object = _get_module(module_getter, "lingpet_debug_picker")
+			if lingpet_debug_picker != null and lingpet_debug_picker.has_method("toggle"):
+				lingpet_debug_picker.toggle(owner)
 
 
 func _close_all_debug_menus(module_getter: Callable) -> void:
@@ -357,6 +382,8 @@ func _close_debug_menu(menu_key: String, module_getter: Callable) -> void:
 			_close_overlay_menu("weather_debug_picker", "close", module_getter)
 		DEBUG_MENU_BALL_SPEED:
 			_close_ball_speed_debug(module_getter)
+		DEBUG_MENU_LINGPET_PICKER:
+			_close_overlay_menu("lingpet_debug_picker", "close", module_getter)
 
 
 func _close_active_item_debug_menu(module_getter: Callable) -> void:
@@ -473,6 +500,10 @@ func _is_stage_debug_picker_open(module_getter: Callable) -> bool:
 
 func _is_weather_debug_picker_open(module_getter: Callable) -> bool:
 	return _call_modal_gate_bool(module_getter, "is_weather_debug_picker_open")
+
+
+func _is_lingpet_debug_picker_open(module_getter: Callable) -> bool:
+	return _call_modal_gate_bool(module_getter, "is_lingpet_debug_picker_open")
 
 
 func _is_character_info_active(module_getter: Callable) -> bool:

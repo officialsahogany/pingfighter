@@ -89,6 +89,10 @@ const MODULES := {
 		"path": "res://scripts/core/weather_debug_picker.gd",
 		"label": "weather debug picker",
 	},
+	"lingpet_debug_picker": {
+		"path": "res://scripts/core/lingpet_debug_picker.gd",
+		"label": "lingpet debug picker",
+	},
 	"penguin_logo_intro": {
 		"path": "res://scripts/core/penguin_logo_intro.gd",
 		"label": "penguin logo intro",

@@ -40,6 +40,10 @@ func is_weather_debug_picker_open(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "weather_debug_picker", "is_open")
 
 
+func is_lingpet_debug_picker_open(module_getter: Callable) -> bool:
+	return _module_bool(module_getter, "lingpet_debug_picker", "is_open")
+
+
 func is_mythic_management_menu_open(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "mythic_item_runtime", "is_debug_management_menu_open")
 
@@ -92,6 +96,8 @@ func _should_block_battle_physics(module_getter: Callable, perf_logger: Object =
 	if _timed_module_bool(perf_logger, "physics.modal_gate.stage_debug", module_getter, "stage_debug_picker", "is_open"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.weather_debug", module_getter, "weather_debug_picker", "is_open"):
+		return true
+	if _timed_module_bool(perf_logger, "physics.modal_gate.lingpet_debug", module_getter, "lingpet_debug_picker", "is_open"):
 		return true
 	if _timed_module_bool(perf_logger, "physics.modal_gate.mythic_management", module_getter, "mythic_item_runtime", "is_debug_management_menu_open"):
 		return true

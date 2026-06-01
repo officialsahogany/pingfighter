@@ -89,6 +89,7 @@ func _verify_closed_gate_uses_cached_lookup_without_lazy_creation() -> void:
 		"runtime_perk_debug_picker",
 		"stage_debug_picker",
 		"weather_debug_picker",
+		"lingpet_debug_picker",
 		"mythic_item_runtime",
 		"active_item_runtime",
 		"pause_menu_overlay",
@@ -102,6 +103,10 @@ func _verify_closed_gate_uses_cached_lookup_without_lazy_creation() -> void:
 	_expect(
 		perf_logger.labels.has("physics.modal_gate.pause_menu"),
 		"modal gate perf should expose the pause-menu branch"
+	)
+	_expect(
+		perf_logger.labels.has("physics.modal_gate.lingpet_debug"),
+		"modal gate perf should expose the lingpet debug branch"
 	)
 	_expect(
 		perf_logger.labels.has("physics.modal_gate.elixir_cinematic"),

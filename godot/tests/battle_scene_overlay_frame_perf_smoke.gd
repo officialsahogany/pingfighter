@@ -28,6 +28,7 @@ class FakeModalGate:
 	var perk_debug_picker: Object = null
 	var stage_debug_picker: Object = null
 	var weather_debug_picker: Object = null
+	var lingpet_debug_picker: Object = null
 	var active_item_runtime: Object = null
 	var mythic_item_runtime: Object = null
 	var character_info: Object = null
@@ -52,6 +53,9 @@ class FakeModalGate:
 
 	func is_weather_debug_picker_open(_module_getter: Callable) -> bool:
 		return _is_open(weather_debug_picker)
+
+	func is_lingpet_debug_picker_open(_module_getter: Callable) -> bool:
+		return _is_open(lingpet_debug_picker)
 
 	func is_mythic_management_menu_open(_module_getter: Callable) -> bool:
 		return _is_open(mythic_item_runtime, "is_debug_management_menu_open")
@@ -260,6 +264,7 @@ func _verify_closed_overlay_checks_are_cached_only() -> void:
 		"runtime_perk_debug_picker",
 		"stage_debug_picker",
 		"weather_debug_picker",
+		"lingpet_debug_picker",
 		"mythic_item_runtime",
 		"active_item_runtime",
 		"pause_menu_overlay",
@@ -390,11 +395,12 @@ func _verify_clean_capture_closes_debug_overlays() -> void:
 	var perk_debug := FakeOverlay.new()
 	var stage_debug := FakeOverlay.new()
 	var weather_debug := FakeOverlay.new()
+	var lingpet_debug := FakeOverlay.new()
 	var mythic_debug := FakeMythicDebug.new()
 	var active_runtime := FakeActiveItemRuntime.new()
 	var ball_speed := FakeBallSpeedDebug.new()
 	var character_info := FakeCharacterInfo.new()
-	for overlay in [character_debug, perk_debug, stage_debug, weather_debug]:
+	for overlay in [character_debug, perk_debug, stage_debug, weather_debug, lingpet_debug]:
 		overlay.open = true
 	mythic_debug.open = true
 	active_runtime.open = true
@@ -404,6 +410,7 @@ func _verify_clean_capture_closes_debug_overlays() -> void:
 	modal_gate.perk_debug_picker = perk_debug
 	modal_gate.stage_debug_picker = stage_debug
 	modal_gate.weather_debug_picker = weather_debug
+	modal_gate.lingpet_debug_picker = lingpet_debug
 	modal_gate.mythic_item_runtime = mythic_debug
 	modal_gate.active_item_runtime = active_runtime
 	modal_gate.ball_speed_debug = ball_speed
@@ -416,6 +423,7 @@ func _verify_clean_capture_closes_debug_overlays() -> void:
 		"runtime_perk_debug_picker": perk_debug,
 		"stage_debug_picker": stage_debug,
 		"weather_debug_picker": weather_debug,
+		"lingpet_debug_picker": lingpet_debug,
 		"mythic_item_runtime": mythic_debug,
 		"active_item_runtime": active_runtime,
 		"ball_speed_debug_overlay": ball_speed,
@@ -430,6 +438,7 @@ func _verify_clean_capture_closes_debug_overlays() -> void:
 	_expect(not perk_debug.open and perk_debug.close_calls == 1, "clean capture should close perk debug")
 	_expect(not stage_debug.open and stage_debug.close_calls == 1, "clean capture should close stage debug")
 	_expect(not weather_debug.open and weather_debug.close_calls == 1, "clean capture should close weather debug")
+	_expect(not lingpet_debug.open and lingpet_debug.close_calls == 1, "clean capture should close lingpet debug")
 	_expect(not mythic_debug.open and mythic_debug.close_calls == 1, "clean capture should close mythic debug")
 	_expect(not active_runtime.open and active_runtime.close_calls == 1, "clean capture should close active item debug")
 	_expect(not ball_speed.active and ball_speed.close_calls == 1, "clean capture should close ball speed debug")

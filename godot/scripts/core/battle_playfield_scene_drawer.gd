@@ -11,6 +11,7 @@ const BLOCKING_OVERLAY_LOD_METHODS := [
 	"is_perk_debug_picker_open",
 	"is_stage_debug_picker_open",
 	"is_weather_debug_picker_open",
+	"is_lingpet_debug_picker_open",
 	"is_mythic_management_menu_open",
 	"is_pandora_legacy_selection_active",
 	"is_character_info_active",
