@@ -15,6 +15,7 @@ const LingpetCompanionSwitchState := preload("res://scripts/lingpet/lingpet_comp
 const LingpetEggFieldState := preload("res://scripts/lingpet/lingpet_egg_field_state.gd")
 const LingpetEggFieldRenderer := preload("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
 const LingpetRuntimeSnapshotBuilder := preload("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
+const LingpetSaveRestorePlanner := preload("res://scripts/lingpet/lingpet_save_restore_planner.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 const MARIBO_EGG_TEXTURE := preload("res://assets/sprites/lingpet/maribo_egg_v002.png")
@@ -101,6 +102,7 @@ var _companion_strike_anticipator: Object = LingpetCompanionStrikeAnticipator.ne
 var _companion_skill_state: Object = LingpetCompanionSkillState.new()
 var _skill_runtime_host: Object = LingpetSkillRuntimeHost.new()
 var _snapshot_builder: Object = LingpetRuntimeSnapshotBuilder.new()
+var _save_restore_planner: Object = LingpetSaveRestorePlanner.new()
 var _acquire_cutin_state: Object = LingpetAcquireCutinState.new()
 var _switch_transition_state: Object = LingpetCompanionSwitchState.new()
 var _has_synced_none := false
@@ -352,24 +354,13 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 		}
 
 	_set_current_pet_id(str(snapshot.get("pet_id", PET_ID)))
-	_collection_state.set_owned_pet_ids(snapshot.get("owned_pet_ids", []))
-	_collection_state.set_battle_slots(snapshot.get("battle_slot_pet_ids", snapshot.get("lingpet_slots", [])))
-	_collection_state.set_active_slot_index(int(snapshot.get("active_slot_index", 0)))
-	var active_pet_id := _normalize_pet_id(str(snapshot.get("active_pet_id", "")))
-	if active_pet_id != "":
-		_collection_state.add_pet(null, active_pet_id)
-		if _collection_state.get_battle_slots()[_collection_state.get_active_slot_index()] == "":
-			_collection_state.set_battle_slots([active_pet_id, "", ""])
-			_collection_state.set_active_slot_index(0)
-
 	var restored_state: String = _normalize_lingpet_state(str(snapshot.get("state", STATE_NONE)))
-	var owned_pet_id := _find_active_slot_pet_id(owner)
-	if restored_state == STATE_COMPANION or _collection_state.get_owned_pet_ids().has(_pet_id) or not active_pet_id.is_empty() or not owned_pet_id.is_empty():
+	var restore_plan: Dictionary = _save_restore_planner.build_plan(snapshot, owner, _collection_state, _pet_id, restored_state)
+	restore_reason = str(restore_plan.get("restore_reason", "ok"))
+	_set_current_pet_id(str(restore_plan.get("pet_id", _pet_id)))
+	var target_state := str(restore_plan.get("target_state", STATE_NONE))
+	if target_state == STATE_COMPANION:
 		_state = STATE_COMPANION
-		if not active_pet_id.is_empty():
-			_set_current_pet_id(active_pet_id)
-		elif not owned_pet_id.is_empty():
-			_set_current_pet_id(owned_pet_id)
 		_egg_state.set_hatched(_get_current_required_hits())
 		var companion_fallback := Vector2.ZERO
 		_companion_pos = _get_vector2_from_variant(snapshot.get("companion_pos", companion_fallback), companion_fallback)
@@ -377,22 +368,10 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 		_restore_companion_patrol(snapshot)
 		if owner != null:
 			_initialize_companion_patrol(owner, _companion_pos == Vector2.ZERO)
-	elif restored_state == STATE_EGG:
-		restore_reason = "egg_reset_on_entry"
-		if owner != null and _should_spawn_lingpet_egg(owner):
-			_spawn_egg(owner)
-		else:
-			_state = STATE_NONE
-			_set_current_pet_id(PET_ID)
-			_egg_state.reset_all()
-			_companion_pos = Vector2.ZERO
-			_reset_companion_patrol()
+	elif target_state == STATE_EGG and bool(restore_plan.get("spawn_fresh_egg", false)):
+		_spawn_egg(owner)
 	else:
-		_state = STATE_NONE
-		_set_current_pet_id(PET_ID)
-		_egg_state.reset_all()
-		_companion_pos = Vector2.ZERO
-		_reset_companion_patrol()
+		_clear_lingpet_field_state()
 	if owner != null:
 		if _state == STATE_COMPANION:
 			_mark_current_pet_owned(owner)
@@ -434,6 +413,14 @@ func reset_round(_deps: Dictionary = {}) -> void:
 func _reset_skill_runtime_transients() -> void:
 	_companion_skill_state.cancel_windup()
 	_skill_runtime_host.reset()
+
+
+func _clear_lingpet_field_state() -> void:
+	_state = STATE_NONE
+	_set_current_pet_id(PET_ID)
+	_egg_state.reset_all()
+	_companion_pos = Vector2.ZERO
+	_reset_companion_patrol()
 
 
 func _reset_companion_runtime_state(reset_defense: bool = true) -> void:

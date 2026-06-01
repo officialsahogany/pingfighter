@@ -196,6 +196,12 @@ This section is intentionally long; use search to find the nearest owner.
   target pet ids, trigger count, ratio calculation, reset, and snapshot fields
   consumed by the companion renderer. Battle HUD visibility and input routing
   should not reintroduce these transient VFX fields into `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_save_restore_planner.gd`
+  Owns Ringpet save-restore target decisions: snapshot-owned ids, battle slot
+  ids, active slot, active pet id, legacy egg reset semantics, and the final
+  companion / fresh-egg / none restore plan. `lingpet_egg_runtime.gd` should
+  apply the returned plan to runtime state, not re-interpret save payloads
+  inline.
 - `scripts/lingpet/lingpet_collection_state.gd`
   Owns Ringpet owned-collection state and owner-key compatibility: save
   `owned_pet_ids`, `lingpet_owned_pet_ids` / `owned_lingpet_ids` /
