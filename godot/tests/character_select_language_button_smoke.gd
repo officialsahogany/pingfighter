@@ -38,6 +38,7 @@ func _init() -> void:
 	_expect(language_rect.position.x >= column_rect.position.x, "language button should start inside the desktop card column")
 	_expect(language_rect.end.x <= column_rect.end.x, "language button should end inside the desktop card column")
 	_expect(language_rect.end.y <= column_rect.end.y, "language button should stay under the desktop card list")
+	_verify_localized_info_panel_layout(screen)
 
 	screen.free()
 	_restore_language_settings_snapshot()
@@ -62,6 +63,68 @@ func _selected_character_id(screen: Control) -> String:
 	if character_value is Dictionary:
 		return str((character_value as Dictionary).get("id", ""))
 	return ""
+
+
+func _verify_localized_info_panel_layout(screen: Control) -> void:
+	var languages := [
+		LanguageSettings.LANGUAGE_KOREAN,
+		LanguageSettings.LANGUAGE_ENGLISH,
+		LanguageSettings.LANGUAGE_CHINESE,
+		LanguageSettings.LANGUAGE_JAPANESE,
+		LanguageSettings.LANGUAGE_SPANISH,
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL,
+		LanguageSettings.LANGUAGE_RUSSIAN,
+	]
+	var panel_rect := Rect2(Vector2.ZERO, Vector2(690.0, 1360.0))
+	var font := ThemeDB.fallback_font
+	for language in languages:
+		LanguageSettings.set_language(language)
+		var localized_characters: Array = LanguageSettings.localize_character_list(CharacterSelectData.get_characters())
+		for character_value in localized_characters:
+			if not character_value is Dictionary:
+				continue
+			var character: Dictionary = character_value
+			var layout_value: Variant = screen.call("_build_info_panel_layout", panel_rect, character, font)
+			_expect(layout_value is Dictionary, "info panel layout should be available for %s/%s" % [language, str(character.get("id", ""))])
+			if not layout_value is Dictionary:
+				continue
+			var layout: Dictionary = layout_value
+			var full_body_rect := _layout_rect(layout, "full_body_rect")
+			var difficulty_top_left := _layout_vector(layout, "difficulty_top_left")
+			var description_top_left := _layout_vector(layout, "description_top_left")
+			var description_bottom := description_top_left.y + float(_layout_array_size(layout, "description_lines")) * 20.0
+			_expect(
+				difficulty_top_left.y >= description_bottom + 4.0,
+				"difficulty label should not overlap localized description for %s/%s" % [language, str(character.get("id", ""))]
+			)
+			var protected_bottom: float = difficulty_top_left.y + 24.0
+			if bool(character.get("unlocked", false)):
+				protected_bottom = max(protected_bottom, _layout_rect(layout, "skill_rect").end.y)
+			else:
+				protected_bottom = max(protected_bottom, _layout_rect(layout, "locked_status_rect").end.y)
+			_expect(
+				full_body_rect.position.y >= protected_bottom + 16.0,
+				"full-body Live2D panel should stay below localized text for %s/%s" % [language, str(character.get("id", ""))]
+			)
+			_expect(
+				full_body_rect.position.y >= panel_rect.position.y + 252.0,
+				"full-body Live2D panel should preserve the baseline start for %s/%s" % [language, str(character.get("id", ""))]
+			)
+
+
+func _layout_rect(layout: Dictionary, key: String) -> Rect2:
+	var value: Variant = layout.get(key, Rect2())
+	return value if value is Rect2 else Rect2()
+
+
+func _layout_vector(layout: Dictionary, key: String) -> Vector2:
+	var value: Variant = layout.get(key, Vector2.ZERO)
+	return value if value is Vector2 else Vector2.ZERO
+
+
+func _layout_array_size(layout: Dictionary, key: String) -> int:
+	var value: Variant = layout.get(key, [])
+	return value.size() if value is Array else 0
 
 
 func _snapshot_settings_file(path: String) -> Dictionary:

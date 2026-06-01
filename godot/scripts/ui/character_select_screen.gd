@@ -1094,24 +1094,98 @@ func _draw_info_panel(rect: Rect2) -> void:
 	draw_rect(rect, Color(0.016, 0.020, 0.031, 0.96))
 	draw_rect(rect, Color(accent.r, accent.g, accent.b, 0.76), false, 2.0)
 	draw_rect(rect.grow(-6.0), Color(1.0, 1.0, 1.0, 0.075), false, 1.0)
+	var layout := _build_info_panel_layout(rect, character, font)
 	var character_class_name := str(character.get("class_name", character.get("name", "")))
 	var character_name := str(character.get("character_name", character.get("name", "")))
-	var role := str(character.get("role", ""))
 	var unlocked := _is_character_unlocked(character)
-	_draw_text_left(font, role, rect.position + Vector2(26.0, 22.0), 14, Color(accent.r, accent.g, accent.b, 0.94))
-	_draw_text_left(font, character_name, rect.position + Vector2(26.0, 47.0), 31, Color.WHITE)
-	_draw_badge(rect.position + Vector2(96.0, 48.0), character_class_name, accent)
-	_draw_text_left(font, str(character.get("tagline", "")), rect.position + Vector2(26.0, 82.0), 17, Color(0.88, 0.92, 0.97, 0.98))
-	_draw_wrapped_text(font, str(character.get("description", "")), rect.position + Vector2(26.0, 108.0), rect.size.x - 52.0, 14, Color(0.73, 0.82, 0.90, 0.96), 22.0, 2)
-	_draw_difficulty(rect.position + Vector2(26.0, 137.0), int(character.get("difficulty_stars", 1)), accent)
+	_draw_text_line_block(font, _layout_string_lines(layout, "role_lines"), layout.get("role_top_left", rect.position), 14, Color(accent.r, accent.g, accent.b, 0.94), 18.0)
+	_draw_text_left(font, character_name, layout.get("name_top_left", rect.position), 31, Color.WHITE)
+	_draw_badge(layout.get("badge_top_left", rect.position), character_class_name, accent)
+	_draw_text_line_block(font, _layout_string_lines(layout, "tagline_lines"), layout.get("tagline_top_left", rect.position), 17, Color(0.88, 0.92, 0.97, 0.98), 22.0)
+	_draw_text_line_block(font, _layout_string_lines(layout, "description_lines"), layout.get("description_top_left", rect.position), 14, Color(0.73, 0.82, 0.90, 0.96), 20.0)
+	_draw_difficulty(layout.get("difficulty_top_left", rect.position), int(character.get("difficulty_stars", 1)), accent)
 	if unlocked:
-		_draw_text_left(font, LanguageSettings.translate_text("대표 스킬"), rect.position + Vector2(26.0, 160.0), 13, Color(0.82, 0.88, 0.94, 0.92))
-		_draw_skill_icons(Rect2(rect.position + Vector2(26.0, 186.0), Vector2(rect.size.x - 52.0, 56.0)), selected_index, character, accent, glow)
+		_draw_text_left(font, LanguageSettings.translate_text("대표 스킬"), layout.get("skills_label_top_left", rect.position), 13, Color(0.82, 0.88, 0.94, 0.92))
+		_draw_skill_icons(layout.get("skill_rect", Rect2()), selected_index, character, accent, glow)
 	else:
 		skill_icon_rects.clear()
-		_draw_locked_info_status(Rect2(rect.position + Vector2(26.0, 160.0), Vector2(rect.size.x - 52.0, 76.0)), character, accent)
-	var full_body_rect := Rect2(rect.position + Vector2(22.0, 252.0), Vector2(rect.size.x - 44.0, max(180.0, rect.size.y - 272.0)))
-	_draw_full_body_live2d_panel(full_body_rect, selected_index, character, accent)
+		_draw_locked_info_status(layout.get("locked_status_rect", Rect2()), character, accent)
+	_draw_full_body_live2d_panel(layout.get("full_body_rect", Rect2()), selected_index, character, accent)
+
+
+func _build_info_panel_layout(rect: Rect2, character: Dictionary, font: Font) -> Dictionary:
+	var content_left := rect.position.x + 26.0
+	var content_width: float = max(80.0, rect.size.x - 52.0)
+	var content_right := content_left + content_width
+	var y := rect.position.y + 22.0
+	var layout := {
+		"role_top_left": Vector2(content_left, y),
+	}
+	var role_lines := _get_wrapped_text_lines(font, str(character.get("role", "")), content_width, 14, 2)
+	layout["role_lines"] = role_lines
+	y += max(18.0, float(role_lines.size()) * 18.0)
+
+	var name_top_left := Vector2(content_left, y + 6.0)
+	layout["name_top_left"] = name_top_left
+	var character_name := str(character.get("character_name", character.get("name", "")))
+	var class_label := str(character.get("class_name", character.get("name", "")))
+	var name_size := font.get_string_size(character_name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 31)
+	var badge_size := _badge_size(font, class_label, 14)
+	var badge_top_left := Vector2(content_left + name_size.x + 18.0, name_top_left.y + 1.0)
+	var name_bottom: float = name_top_left.y + 37.0
+	if class_label.strip_edges() != "":
+		if badge_top_left.x + badge_size.x > content_right:
+			badge_top_left = Vector2(content_left, name_top_left.y + 40.0)
+		name_bottom = max(name_bottom, badge_top_left.y + badge_size.y + 6.0)
+	layout["badge_top_left"] = badge_top_left
+	y = name_bottom
+
+	var tagline_lines := _get_wrapped_text_lines(font, str(character.get("tagline", "")), content_width, 17, 2)
+	var tagline_top_left := Vector2(content_left, y)
+	layout["tagline_top_left"] = tagline_top_left
+	layout["tagline_lines"] = tagline_lines
+	if not tagline_lines.is_empty():
+		y = tagline_top_left.y + float(tagline_lines.size()) * 22.0
+	else:
+		y += 4.0
+
+	var description_lines := _get_wrapped_text_lines(font, str(character.get("description", "")), content_width, 14, 3)
+	var description_top_left := Vector2(content_left, y + 5.0)
+	layout["description_top_left"] = description_top_left
+	layout["description_lines"] = description_lines
+	if not description_lines.is_empty():
+		y = description_top_left.y + float(description_lines.size()) * 20.0
+	else:
+		y = description_top_left.y
+
+	var difficulty_top_left := Vector2(content_left, y + 6.0)
+	layout["difficulty_top_left"] = difficulty_top_left
+	y = difficulty_top_left.y + 24.0
+
+	if _is_character_unlocked(character):
+		var skills_label_top_left := Vector2(content_left, y + 2.0)
+		var skill_rect := Rect2(Vector2(content_left, skills_label_top_left.y + 26.0), Vector2(content_width, 56.0))
+		layout["skills_label_top_left"] = skills_label_top_left
+		layout["skill_rect"] = skill_rect
+		y = skill_rect.end.y
+	else:
+		var locked_status_rect := Rect2(Vector2(content_left, y + 4.0), Vector2(content_width, 76.0))
+		layout["locked_status_rect"] = locked_status_rect
+		y = locked_status_rect.end.y
+
+	var full_body_top: float = max(rect.position.y + 252.0, y + 22.0)
+	var full_body_size := Vector2(max(80.0, rect.size.x - 44.0), max(180.0, rect.end.y - full_body_top - 20.0))
+	layout["full_body_rect"] = Rect2(Vector2(rect.position.x + 22.0, full_body_top), full_body_size)
+	return layout
+
+
+func _layout_string_lines(layout: Dictionary, key: String) -> Array[String]:
+	var result: Array[String] = []
+	var lines_value: Variant = layout.get(key, [])
+	if lines_value is Array:
+		for line_value in lines_value:
+			result.append(str(line_value))
+	return result
 
 
 func _draw_locked_info_status(rect: Rect2, character: Dictionary, accent: Color) -> void:
@@ -1204,11 +1278,17 @@ func _draw_badge(top_left: Vector2, label: String, accent: Color) -> void:
 	if label.strip_edges() == "":
 		return
 	var font := ThemeDB.fallback_font
-	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 14)
-	var badge_rect := Rect2(top_left, Vector2(text_size.x + 22.0, 25.0))
+	var badge_rect := Rect2(top_left, _badge_size(font, label, 14))
 	draw_rect(badge_rect, Color(accent.r, accent.g, accent.b, 0.16))
 	draw_rect(badge_rect, Color(accent.r, accent.g, accent.b, 0.86), false, 1.0)
 	_draw_text_center(font, label, badge_rect.get_center() + Vector2(0.0, -1.0), 13, Color(0.88, 1.0, 1.0, 0.96))
+
+
+func _badge_size(font: Font, label: String, font_size: int) -> Vector2:
+	if label.strip_edges() == "":
+		return Vector2.ZERO
+	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	return Vector2(text_size.x + 22.0, 25.0)
 
 
 func _draw_difficulty(top_left: Vector2, stars: int, accent: Color) -> void:
