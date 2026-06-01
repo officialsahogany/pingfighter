@@ -372,6 +372,11 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_body_hit_state.gd"), "companion body-hit state module should exist")
 	_expect(runtime_source.find("lingpet_companion_motion_state.gd") >= 0, "egg runtime should delegate companion patrol/defense motion to the motion-state module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_motion_state.gd"), "companion motion-state module should exist")
+	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
+	_expect(runtime_source.find("lingpet_companion_draw_context_builder.gd") >= 0, "egg runtime should delegate companion draw config assembly to the draw-context builder")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd"), "companion draw-context builder module should exist")
+	_expect(draw_context_source.find("build_config") >= 0, "companion draw-context builder should own renderer config assembly")
+	_expect(draw_context_source.find("companion_strike") >= 0 and draw_context_source.find("companion_cast") >= 0, "companion draw-context builder should resolve companion visual textures")
 	var strike_anticipator_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_strike_anticipator.gd")
 	_expect(runtime_source.find("lingpet_companion_strike_anticipator.gd") >= 0, "egg runtime should delegate anticipatory strike prediction to the strike-anticipator module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_strike_anticipator.gd"), "companion strike-anticipator module should exist")
@@ -590,7 +595,8 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# future PNG swap or grid change cannot silently desync the frame math.
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_walk.png"), "Maribo companion should use a PNG-backed back-view walk sheet")
 	_expect(runtime_source.find("MARIBO_COMPANION_WALK_SHEET") >= 0, "companion rendering should reference the walk-sheet texture")
-	_expect(runtime_source.find("_get_current_visual_texture(\"companion_walk\"") >= 0, "companion rendering should resolve walk visuals through the catalog with a Maribo fallback")
+	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
+	_expect(draw_context_source.find("companion_walk") >= 0, "companion draw context should resolve walk visuals through the catalog with a Maribo fallback")
 	_expect(runtime_source.find("lingpet_companion_renderer.gd") >= 0, "egg runtime should delegate companion sprite drawing to the companion renderer")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_renderer.gd"), "companion renderer module should exist")
 	var companion_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
@@ -615,7 +621,7 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# Ball-hit strike sheet (same 5x5/25 grid) played on companion ball contact.
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_strike.png"), "Maribo companion should have a back-view ball-hit strike sheet")
 	_expect(runtime_source.find("MARIBO_COMPANION_STRIKE_SHEET") >= 0, "companion rendering should reference the strike sheet")
-	_expect(runtime_source.find("_get_current_visual_texture(\"companion_strike\"") >= 0, "companion rendering should resolve strike visuals through the catalog with a Maribo fallback")
+	_expect(draw_context_source.find("companion_strike") >= 0, "companion draw context should resolve strike visuals through the catalog with a Maribo fallback")
 	_expect(sprite_animator_source.find("get_strike_frame") >= 0, "companion sprite animator should map the strike timer to sheet frames")
 	# Impact-synced reaction: the ball-hit must seed the SHORT residual so the
 	# thrust/apex frame renders at contact, NOT the full duration (which replayed
@@ -631,7 +637,7 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# Hydro-cast wind-up sheet (telegraphed spear throw before the projectile launches).
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png"), "Maribo companion should have a back-view hydro-cast wind-up sheet")
 	_expect(runtime_source.find("MARIBO_COMPANION_HYDRO_CAST_SHEET") >= 0, "companion rendering should reference the hydro-cast wind-up sheet")
-	_expect(runtime_source.find("_get_current_visual_texture(\"companion_cast\"") >= 0, "companion rendering should resolve cast visuals through the catalog with a Maribo fallback")
+	_expect(draw_context_source.find("companion_cast") >= 0, "companion draw context should resolve cast visuals through the catalog with a Maribo fallback")
 	_expect(sprite_animator_source.find("get_cast_frame") >= 0, "companion sprite animator should map the wind-up timer to cast sheet frames")
 	_expect(runtime_source.find("COMPANION_SKILL_WINDUP_SECONDS") >= 0, "Hydro Sphere should declare a wind-up duration before launch")
 	var cast_sheet: Texture2D = load("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png") as Texture2D

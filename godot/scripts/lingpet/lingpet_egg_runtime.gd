@@ -5,6 +5,7 @@ const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
+const LingpetCompanionDrawContextBuilder := preload("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_companion_motion_state.gd")
 const LingpetCompanionRenderer := preload("res://scripts/lingpet/lingpet_companion_renderer.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
@@ -93,6 +94,7 @@ var _hatch_flash_timer := 0.0
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _collection_state: Object = LingpetCollectionState.new()
 var _current_profile: Object = LingpetCurrentProfile.new()
+var _companion_draw_context_builder: Object = LingpetCompanionDrawContextBuilder.new()
 var _companion_renderer: Object = LingpetCompanionRenderer.new()
 var _companion_sprite_animator: Object = LingpetCompanionSpriteAnimator.new()
 var _companion_strike_anticipator: Object = LingpetCompanionStrikeAnticipator.new()
@@ -769,20 +771,6 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 	_skill_runtime_host.trigger_launch_feedback(skill_id, registry)
 
 
-func _get_companion_hit_flash_ratio() -> float:
-	return _companion_body_hit_state.get_hit_flash_ratio(_state == STATE_COMPANION)
-
-
-func _get_companion_hit_gauge_flash_ratio() -> float:
-	return _companion_body_hit_state.get_gauge_flash_ratio(_state == STATE_COMPANION)
-
-
-func _get_companion_skill_flash_ratio() -> float:
-	if _state != STATE_COMPANION or COMPANION_SKILL_FLASH_SECONDS <= 0.0:
-		return 0.0
-	return _companion_skill_state.get_flash_ratio(COMPANION_SKILL_FLASH_SECONDS)
-
-
 func _draw_egg(canvas: CanvasItem, center: Vector2) -> void:
 	_egg_renderer.draw_egg(
 		canvas,
@@ -806,31 +794,26 @@ func _get_egg_texture_for_hits() -> Texture2D:
 
 
 func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
-	# Priority: hydro-cast wind-up > ball-hit strike > walk/idle. The committed
-	# skill cast takes the top visual slot while it is telegraphing the throw.
-	var casting_windup: bool = _companion_skill_state.windup_active and _skill_runtime_host.should_show_cast_windup(_get_current_skill_id())
-	var attacking: bool = _companion_sprite_animator.strike_active
-	_companion_renderer.draw_companion(canvas, center, {
+	_companion_renderer.draw_companion(canvas, center, _companion_draw_context_builder.build_config({
+		"companion_active": _state == STATE_COMPANION,
 		"radius": COMPANION_RADIUS,
 		"burst_particles": COMPANION_SKILL_BURST_PARTICLES,
-		"hit_flash": _get_companion_hit_flash_ratio(),
-		"gauge_flash": _get_companion_hit_gauge_flash_ratio(),
-		"skill_flash": _get_companion_skill_flash_ratio(),
-		"switch_transition": _switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS),
+		"body_hit_state": _companion_body_hit_state,
+		"skill_state": _companion_skill_state,
+		"switch_state": _switch_transition_state,
+		"skill_runtime_host": _skill_runtime_host,
+		"current_profile": _current_profile,
+		"skill_id": _get_current_skill_id(),
+		"skill_flash_seconds": COMPANION_SKILL_FLASH_SECONDS,
+		"switch_transition_seconds": COMPANION_SWITCH_TRANSITION_SECONDS,
 		"switch_particles": COMPANION_SWITCH_TRANSITION_PARTICLES,
-		"switch_trigger_count": _switch_transition_state.trigger_count,
-		"gauge_trigger_count": _companion_body_hit_state.gauge_trigger_count,
-		"skill_trigger_count": _companion_skill_state.trigger_count,
 		"animator": _companion_sprite_animator,
 		"patrol_pause": _companion_motion_state.patrol_pause,
-		"windup_elapsed": _companion_skill_state.windup_elapsed,
 		"windup_seconds": _get_current_skill_windup_seconds(),
-		"casting_windup": casting_windup,
-		"attacking": attacking,
-		"walk_texture": _get_current_visual_texture("companion_walk", MARIBO_COMPANION_WALK_SHEET),
-		"strike_texture": _get_current_visual_texture("companion_strike", MARIBO_COMPANION_STRIKE_SHEET),
-		"cast_texture": _get_current_visual_texture("companion_cast", MARIBO_COMPANION_HYDRO_CAST_SHEET),
-	})
+		"walk_fallback": MARIBO_COMPANION_WALK_SHEET,
+		"strike_fallback": MARIBO_COMPANION_STRIKE_SHEET,
+		"cast_fallback": MARIBO_COMPANION_HYDRO_CAST_SHEET,
+	}))
 
 
 func _maybe_arm_companion_strike(owner: Object) -> void:

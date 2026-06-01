@@ -173,6 +173,12 @@ This section is intentionally long; use search to find the nearest owner.
   horizontal future-position tolerance, latch reset, and animator strike start.
   The real bounce / gauge reward remains in `lingpet_companion_body_hit_state.gd`;
   this helper is visual timing only.
+- `scripts/lingpet/lingpet_companion_draw_context_builder.gd`
+  Owns Ringpet companion renderer config assembly: hit / gauge / skill flash
+  ratios, switch-transition ratio and trigger counts, cast-vs-strike priority,
+  patrol / wind-up timing fields, and current-profile walk / strike / cast
+  texture resolution. `lingpet_companion_renderer.gd` should receive a finished
+  config dictionary instead of making runtime-state decisions itself.
 - `scripts/lingpet/lingpet_companion_renderer.gd`
   Owns Ringpet companion draw presentation: idle bob / glow, walk / strike /
   cast sprite blitting, hit flash rings, skill flash rings, and direct-hit
