@@ -9,6 +9,7 @@ const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_comp
 const LingpetCompanionRenderer := preload("res://scripts/lingpet/lingpet_companion_renderer.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
 const LingpetCompanionSkillState := preload("res://scripts/lingpet/lingpet_companion_skill_state.gd")
+const LingpetCompanionStrikeAnticipator := preload("res://scripts/lingpet/lingpet_companion_strike_anticipator.gd")
 const LingpetCompanionSwitchState := preload("res://scripts/lingpet/lingpet_companion_switch_state.gd")
 const LingpetEggFieldState := preload("res://scripts/lingpet/lingpet_egg_field_state.gd")
 const LingpetEggFieldRenderer := preload("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
@@ -25,8 +26,8 @@ const MARIBO_EGG_TEXTURE_CRACK_2 := preload("res://assets/sprites/lingpet/maribo
 # state holds the animator's idle frame and the breathing bob is code-driven.
 const MARIBO_COMPANION_WALK_SHEET := preload("res://assets/sprites/lingpet/maribo_companion_walk.png")
 # Back-view ball-hit strike (AutoSprite animate_asset one-shot, same 5x5/25 grid
-# as the walk sheet). Started anticipatorily before contact (see the strike
-# constants + _maybe_arm_companion_strike), overriding walk/idle while playing.
+# as the walk sheet). Started anticipatorily before contact by
+# LingpetCompanionStrikeAnticipator, overriding walk/idle while playing.
 const MARIBO_COMPANION_STRIKE_SHEET := preload("res://assets/sprites/lingpet/maribo_companion_strike.png")
 # Back-view hydro-spear cast wind-up (AutoSprite animate_asset, same 5x5/25 grid).
 # Played while _companion_skill_state.windup_active over the active skill's
@@ -43,8 +44,8 @@ const BALL_RADIUS_FALLBACK := 14.3
 const SAVE_SNAPSHOT_VERSION := 1
 const MARIBO_GAUGE_GAIN_BONUS_PCT := 10.0
 const COMPANION_RADIUS := 16.0
-# Anticipatory strike (mirrors player/boss _maybe_trigger_anticipated_hit): the
-# swing is started BEFORE the ball arrives by predicting time-to-contact and
+# Anticipatory strike helper mirrors player/boss _maybe_trigger_anticipated_hit:
+# the swing is started BEFORE the ball arrives by predicting time-to-contact and
 # choosing an entry frame so the spear-thrust APEX lands at contact -- exactly
 # how the other characters' attack sheets fire. The sheet's first ~8 cells (0-7)
 # are dead-air, the wind-up/coil is ~8-19, the thrust apex is ~22 (held 22-23),
@@ -94,6 +95,7 @@ var _collection_state: Object = LingpetCollectionState.new()
 var _current_profile: Object = LingpetCurrentProfile.new()
 var _companion_renderer: Object = LingpetCompanionRenderer.new()
 var _companion_sprite_animator: Object = LingpetCompanionSpriteAnimator.new()
+var _companion_strike_anticipator: Object = LingpetCompanionStrikeAnticipator.new()
 var _companion_skill_state: Object = LingpetCompanionSkillState.new()
 var _skill_runtime_host: Object = LingpetSkillRuntimeHost.new()
 var _snapshot_builder: Object = LingpetRuntimeSnapshotBuilder.new()
@@ -831,53 +833,16 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 	})
 
 
-# Anticipatory predictor: mirrors player_actor_animation_state._maybe_trigger_
-# anticipated_hit. Each frame, if the ball is descending toward the companion's
-# lane within reach, predict frames-to-contact and start the strike at an entry
-# frame so the thrust apex lands on the ball -- the swing thus begins BEFORE
-# contact, like the other characters. Visual-only: the real bounce/gauge still
-# fire on overlap in _resolve_companion_ball_hit.
 func _maybe_arm_companion_strike(owner: Object) -> void:
-	if not bool(_get_owner_value(owner, "ball_active", false)):
-		_companion_sprite_animator.reset_latch()
-		return
-	var ball_vel: Vector2 = _get_owner_vector2(owner, "ball_vel", Vector2.ZERO)
-	if ball_vel.y <= 0.0:
-		# Ball not descending toward the companion lane -> allow a fresh arm later.
-		_companion_sprite_animator.reset_latch()
-		return
-	if _companion_sprite_animator.strike_latched or _companion_sprite_animator.strike_active:
-		return
-	if _companion_body_hit_state.cooldown > 0.0:
-		_companion_sprite_animator.reset_latch()
-		return
-	if _companion_pos == Vector2.ZERO:
-		return
-
-	var ball_pos: Vector2 = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
-	var ball_radius: float = maxf(1.0, float(_get_owner_value(owner, "ball_size", BALL_RADIUS_FALLBACK * 2.0)) * 0.5)
-	var hit_half_height := _get_current_hit_half_height()
-	var hit_half_width := _get_current_hit_half_width()
-	var vertical_gap: float = (_companion_pos.y - hit_half_height) - (ball_pos.y + ball_radius)
-	if vertical_gap < 0.0:
-		return
-	if vertical_gap > LingpetCompanionSpriteAnimator.STRIKE_MAX_GAP:
-		return
-
-	var impact_boost: float = maxf(0.01, float(_get_owner_value(owner, "ball_impact_boost", 1.0)))
-	var downward_speed: float = maxf(0.01, ball_vel.y * impact_boost)
-	var frames_to_contact: float = vertical_gap / downward_speed
-	var start_frame: int = _companion_sprite_animator.get_strike_start_frame(frames_to_contact)
-	if start_frame < 0:
-		return
-
-	var future_ball_x: float = ball_pos.x + ball_vel.x * impact_boost * frames_to_contact
-	var x_tolerance: float = hit_half_width + ball_radius + LingpetCompanionSpriteAnimator.STRIKE_X_TOLERANCE
-	if absf(future_ball_x - _companion_pos.x) > x_tolerance:
-		return
-
-	_companion_sprite_animator.begin_strike(start_frame)
-	_companion_sprite_animator.strike_latched = true
+	_companion_strike_anticipator.maybe_arm(
+		owner,
+		_companion_pos,
+		_get_current_hit_half_width(),
+		_get_current_hit_half_height(),
+		_companion_body_hit_state.cooldown,
+		_companion_sprite_animator,
+		BALL_RADIUS_FALLBACK
+	)
 
 
 func _draw_hatch_flash(canvas: CanvasItem, center: Vector2) -> void:
@@ -886,7 +851,3 @@ func _draw_hatch_flash(canvas: CanvasItem, center: Vector2) -> void:
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
 	return BattleSceneOwnerReader.get_value(owner, key, fallback)
-
-
-func _get_owner_vector2(owner: Object, key: String, fallback: Vector2) -> Vector2:
-	return BattleSceneOwnerReader.get_vector2(owner, key, fallback)

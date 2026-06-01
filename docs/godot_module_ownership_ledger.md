@@ -162,11 +162,17 @@ This section is intentionally long; use search to find the nearest owner.
   body-hit orchestration and delegates companion movement decisions here.
 - `scripts/lingpet/lingpet_companion_sprite_animator.gd`
   Owns Ringpet companion sprite animation math: walk / idle frame selection,
-  cast wind-up frame mapping, strike playback state, anticipatory strike entry
-  frame selection, source-rect slicing, draw-size offsets, and sheet geometry.
+  cast wind-up frame mapping, strike playback state, strike entry-frame mapping,
+  source-rect slicing, draw-size offsets, and sheet geometry.
   `lingpet_companion_renderer.gd` uses this animator for draw rects, while
   future companion sheets should extend this animator instead of adding more
   frame math to the runtime.
+- `scripts/lingpet/lingpet_companion_strike_anticipator.gd`
+  Owns Ringpet companion visual strike anticipation: ball-active / descending
+  checks, contact time prediction, current catalog hit-footprint inputs,
+  horizontal future-position tolerance, latch reset, and animator strike start.
+  The real bounce / gauge reward remains in `lingpet_companion_body_hit_state.gd`;
+  this helper is visual timing only.
 - `scripts/lingpet/lingpet_companion_renderer.gd`
   Owns Ringpet companion draw presentation: idle bob / glow, walk / strike /
   cast sprite blitting, hit flash rings, skill flash rings, and direct-hit
