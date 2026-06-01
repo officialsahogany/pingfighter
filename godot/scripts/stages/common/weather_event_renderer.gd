@@ -10,25 +10,25 @@ const FIRE_DETAILED_SPARK_RENDER_LIMIT := 8
 const FIRE_OVERLAY_HEAT_LINE_COUNT := 4
 const LOD_ACTIVE_THRESHOLD := 0.99
 const SEVERE_LOD_ACTIVE_THRESHOLD := 0.66
-const WEATHER_RENDER_PARTICLE_LIMIT_LOD := 48
-const WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 32
-const WIND_RENDER_PARTICLE_LIMIT_LOD := 24
-const WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 16
-const FIRE_RENDER_PARTICLE_LIMIT_LOD := 32
-const FIRE_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 24
-const FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_LOD := 4
-const FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_SEVERE_LOD := 2
-const FIRE_DETAILED_SPARK_RENDER_LIMIT_LOD := 4
-const FIRE_DETAILED_SPARK_RENDER_LIMIT_SEVERE_LOD := 2
-const FIRE_OVERLAY_HEAT_LINE_COUNT_LOD := 2
+const WEATHER_RENDER_PARTICLE_LIMIT_LOD := 36
+const WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 24
+const WIND_RENDER_PARTICLE_LIMIT_LOD := 18
+const WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 12
+const FIRE_RENDER_PARTICLE_LIMIT_LOD := 24
+const FIRE_RENDER_PARTICLE_LIMIT_SEVERE_LOD := 18
+const FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_LOD := 3
+const FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_SEVERE_LOD := 1
+const FIRE_DETAILED_SPARK_RENDER_LIMIT_LOD := 3
+const FIRE_DETAILED_SPARK_RENDER_LIMIT_SEVERE_LOD := 1
+const FIRE_OVERLAY_HEAT_LINE_COUNT_LOD := 1
 const FIRE_OVERLAY_HEAT_LINE_COUNT_SEVERE_LOD := 1
 const ICE_OVERLAY_LINE_COUNT := 10
-const ICE_OVERLAY_LINE_COUNT_LOD := 6
-const ICE_OVERLAY_LINE_COUNT_SEVERE_LOD := 4
-const PARTICLE_RENDER_STRIDE_LOD := 1
-const PARTICLE_RENDER_STRIDE_SEVERE_LOD := 2
-const SAND_POLYGON_STRIDE_LOD := 2
-const SAND_POLYGON_STRIDE_SEVERE_LOD := 3
+const ICE_OVERLAY_LINE_COUNT_LOD := 4
+const ICE_OVERLAY_LINE_COUNT_SEVERE_LOD := 2
+const PARTICLE_RENDER_STRIDE_LOD := 2
+const PARTICLE_RENDER_STRIDE_SEVERE_LOD := 3
+const SAND_POLYGON_STRIDE_LOD := 3
+const SAND_POLYGON_STRIDE_SEVERE_LOD := 5
 const SAND_RENDER_SEGMENT_BUCKET_SIZE := 4
 const SAND_RENDER_SEGMENT_LIMIT_PER_SIDE := 18
 const SAND_VERTICAL_START := 60.0
@@ -252,11 +252,12 @@ func _draw_sand_wall_polygon(
 	var fill_color := Color(SAND_BASE_COLOR.r, SAND_BASE_COLOR.g, SAND_BASE_COLOR.b, 0.92 * dissolve_alpha)
 	canvas.draw_colored_polygon(points, fill_color)
 
-	# Inner shadow band along the wall side to give depth read.
-	var shadow_polygon: PackedVector2Array = _build_sand_shadow_polygon(side, points)
-	if shadow_polygon.size() >= 3:
-		var shadow_color := Color(SAND_DARK_COLOR.r, SAND_DARK_COLOR.g, SAND_DARK_COLOR.b, 0.42 * dissolve_alpha)
-		canvas.draw_colored_polygon(shadow_polygon, shadow_color)
+	if not _is_severe_lod_active(effect_lod_scale):
+		# Inner shadow band along the wall side to give depth read.
+		var shadow_polygon: PackedVector2Array = _build_sand_shadow_polygon(side, points)
+		if shadow_polygon.size() >= 3:
+			var shadow_color := Color(SAND_DARK_COLOR.r, SAND_DARK_COLOR.g, SAND_DARK_COLOR.b, 0.42 * dissolve_alpha)
+			canvas.draw_colored_polygon(shadow_polygon, shadow_color)
 
 	# Outline only along the visible silhouette (skip the closing wall edges).
 	var outline_points: PackedVector2Array = PackedVector2Array()
@@ -267,11 +268,12 @@ func _draw_sand_wall_polygon(
 		var outline_color := Color(SAND_OUTLINE_COLOR.r, SAND_OUTLINE_COLOR.g, SAND_OUTLINE_COLOR.b, 0.82 * dissolve_alpha)
 		canvas.draw_polyline(outline_points, outline_color, 1.4, true)
 
-	# Crest highlight: skim a slightly inset bright ribbon along peaks for an organic dune feel.
-	var highlight_points: PackedVector2Array = _build_sand_highlight_polyline(side, depths, shake_offset, axis_start, effect_lod_scale)
-	if highlight_points.size() >= 2:
-		var highlight_color := Color(SAND_HIGHLIGHT_COLOR.r, SAND_HIGHLIGHT_COLOR.g, SAND_HIGHLIGHT_COLOR.b, 0.42 * dissolve_alpha)
-		canvas.draw_polyline(highlight_points, highlight_color, 1.0, true)
+	if not _is_severe_lod_active(effect_lod_scale):
+		# Crest highlight: skim a slightly inset bright ribbon along peaks for an organic dune feel.
+		var highlight_points: PackedVector2Array = _build_sand_highlight_polyline(side, depths, shake_offset, axis_start, effect_lod_scale)
+		if highlight_points.size() >= 2:
+			var highlight_color := Color(SAND_HIGHLIGHT_COLOR.r, SAND_HIGHLIGHT_COLOR.g, SAND_HIGHLIGHT_COLOR.b, 0.42 * dissolve_alpha)
+			canvas.draw_polyline(highlight_points, highlight_color, 1.0, true)
 
 
 func _build_sand_shadow_polygon(side: String, surface_points: PackedVector2Array) -> PackedVector2Array:

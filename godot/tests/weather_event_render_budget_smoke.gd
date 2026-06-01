@@ -84,20 +84,20 @@ func _verify_state_render_lod_budgets() -> void:
 		"state fallback should keep the full particle budget at normal quality"
 	)
 	_expect(
-		weather._get_render_particle_limit(0.58) <= WeatherEventState.WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD,
+		weather._get_render_particle_limit(0.58) <= 24,
 		"state fallback should use the severe particle budget at 72 FPS quality"
 	)
 	weather.weather_event_type = "gust"
 	_expect(
-		weather._get_render_particle_limit(0.58) <= WeatherEventState.WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD,
+		weather._get_render_particle_limit(0.58) <= 12,
 		"state fallback should use the severe wind particle budget at 72 FPS quality"
 	)
 	_expect(
-		weather._get_sand_render_stride(0.58) >= WeatherEventState.SAND_RENDER_STRIDE_SEVERE_LOD,
+		weather._get_sand_render_stride(0.58) >= 5,
 		"state fallback should stride sand segments under severe render LOD"
 	)
 	_expect(
-		weather._get_particle_render_stride(0.58) >= WeatherEventState.PARTICLE_RENDER_STRIDE_SEVERE_LOD,
+		weather._get_particle_render_stride(0.58) >= 3,
 		"state fallback should stride weather particles under severe render LOD"
 	)
 
@@ -108,15 +108,15 @@ func _verify_renderer_render_lod_budgets() -> void:
 	var wind_context := {"type": "breeze"}
 	var rain_context := {"type": "rain"}
 	_expect(
-		renderer._get_render_particle_limit(fire_context, 0.58) <= WeatherEventRenderer.FIRE_RENDER_PARTICLE_LIMIT_SEVERE_LOD,
+		renderer._get_render_particle_limit(fire_context, 0.58) <= 18,
 		"texture weather renderer should use the severe fire particle budget at 72 FPS quality"
 	)
 	_expect(
-		renderer._get_render_particle_limit(wind_context, 0.58) <= WeatherEventRenderer.WIND_RENDER_PARTICLE_LIMIT_SEVERE_LOD,
+		renderer._get_render_particle_limit(wind_context, 0.58) <= 12,
 		"texture weather renderer should use the severe wind particle budget at 72 FPS quality"
 	)
 	_expect(
-		renderer._get_render_particle_limit(rain_context, 0.58) <= WeatherEventRenderer.WEATHER_RENDER_PARTICLE_LIMIT_SEVERE_LOD,
+		renderer._get_render_particle_limit(rain_context, 0.58) <= 24,
 		"texture weather renderer should use the severe generic particle budget at 72 FPS quality"
 	)
 	_expect(
@@ -125,15 +125,15 @@ func _verify_renderer_render_lod_budgets() -> void:
 			WeatherEventRenderer.FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_LOD,
 			WeatherEventRenderer.FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_SEVERE_LOD,
 			0.58
-		) <= WeatherEventRenderer.FIRE_DETAILED_EXPLOSION_RENDER_LIMIT_SEVERE_LOD,
+		) <= 1,
 		"texture weather renderer should reduce detailed fire explosion particles under severe render LOD"
 	)
 	_expect(
-		renderer._get_sand_polygon_stride(0.58) >= WeatherEventRenderer.SAND_POLYGON_STRIDE_SEVERE_LOD,
+		renderer._get_sand_polygon_stride(0.58) >= 5,
 		"texture weather renderer should decimate sand polygon vertices under severe render LOD"
 	)
 	_expect(
-		renderer._get_particle_render_stride(0.58) >= WeatherEventRenderer.PARTICLE_RENDER_STRIDE_SEVERE_LOD,
+		renderer._get_particle_render_stride(0.58) >= 3,
 		"texture weather renderer should stride particles under severe render LOD"
 	)
 
@@ -279,6 +279,12 @@ func _verify_draw_context_route() -> void:
 		"texture weather renderer should accept an effect LOD scale"
 	)
 	_expect(
+		_function_body(renderer_source, "func _draw_sand_wall_polygon").find("if not _is_severe_lod_active(effect_lod_scale):") >= 0
+		and _function_body(renderer_source, "func _draw_sand_wall_polygon").find("_build_sand_shadow_polygon") >= 0
+		and _function_body(renderer_source, "func _draw_sand_wall_polygon").find("_build_sand_highlight_polyline") >= 0,
+		"texture weather renderer should skip decorative sand shadow/highlight work under severe LOD"
+	)
+	_expect(
 		state_source.find("effect_lod_scale: float = 1.0") >= 0,
 		"weather state fallback draw should accept an effect LOD scale"
 	)
@@ -286,6 +292,16 @@ func _verify_draw_context_route() -> void:
 		state_source.find("func has_visible_effects()") >= 0,
 		"weather state should expose a fast visible-effect guard for inactive draw skips"
 	)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next_func := source.find("\nfunc ", start + signature.length())
+	if next_func < 0:
+		return source.substr(start)
+	return source.substr(start, next_func - start)
 
 
 func _expect(condition: bool, message: String) -> void:
