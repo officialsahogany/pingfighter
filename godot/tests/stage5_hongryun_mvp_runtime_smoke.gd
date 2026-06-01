@@ -217,7 +217,7 @@ func _verify_fireball_hit_and_parry() -> void:
 	_expect(bool(hit_result.get("stage5_hongryun_fireball_hit_player", false)), "fireball hit should be reported")
 	_expect(is_equal_approx(float(hit_result.get("stage5_hongryun_dragon_orb_count", 0.0)), 1.0), "fireball hit should charge one dragon orb")
 	_expect(status.has_status("player", "stun"), "fireball hit should apply player stun")
-	_expect(movement.knockback_count == 1 and abs(movement.last_velocity) == 12.0, "fireball hit should apply the original 12px knockback")
+	_expect(movement.knockback_count == 1 and abs(movement.last_velocity) == 18.0, "fireball hit should apply the tuned 18px knockback")
 	_expect(audio.hurt_count == 1, "fireball hit should play a Hongryun hurt cue")
 
 	var immune_state := Stage5HongryunState.new()
@@ -494,9 +494,7 @@ func _verify_fire_machine_event_phase_collision_and_draw_context() -> void:
 	_expect(saw_breath, "fire machine should fire a dragon breath stream during spraying")
 	_expect(saw_zone, "fire machine breath should leave a floor fire zone")
 
-	var hud_skill: Dictionary = event.get_hud_skill_context()
-	_expect(str(hud_skill.get("id", "")) == "hongryun_fire_machine", "fire machine should expose the reserved Stage 5 HUD card id")
-	_expect(float(hud_skill.get("cooldown_total", 0.0)) > 0.0, "fire machine HUD card should expose cooldown metadata")
+	_expect(not event.has_method("get_hud_skill_context"), "fire machine is a Stage 5 map event and should not expose a boss skill-card context")
 
 	var draw_context: Dictionary = event.get_actor_draw_context()
 	_expect(draw_context.has("stage5_hongryun_fire_machine_dragons"), "fire machine draw context should expose dragon head state")

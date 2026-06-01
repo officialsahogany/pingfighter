@@ -77,7 +77,7 @@ const INFERNO_SAFETY_MAX_SEC := 8.0
 # funnel helpers that sapped variability. Phase 2 now matches original parity.
 const PLAYER_STUN_FRAMES := 18.0
 const PLAYER_FIREBALL_STUN_IMMUNITY_FRAMES := 24.0
-const PLAYER_FIREBALL_KNOCKBACK := 12.0
+const PLAYER_FIREBALL_KNOCKBACK := 18.0
 const PLAYER_INFERNO_KNOCKBACK := 24.0
 const PLAYER_KNOCKBACK_FRAMES := 18.0
 const PLAYER_KNOCKBACK_DECAY := 0.88
@@ -257,7 +257,6 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage5_boss_skill_hud_skills": [
 			_get_fireball_hud_skill(),
 			_get_inferno_hud_skill(),
-			# Fire machine HUD skill is appended by the Stage 5 pillar scene drawer.
 		],
 	}
 
