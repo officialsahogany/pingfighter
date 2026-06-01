@@ -1,4 +1,4 @@
-# DiskHearts - Ringpia
+# DiskHearts - Lingpia
 
 This repository now develops the repo-local Godot project **디스크하츠 - 링피아**.
 
