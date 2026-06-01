@@ -209,14 +209,6 @@ func trigger_lid_open() -> void:
 		_light_envelope_tween.tween_property(self, "light_envelope", 0.0, 1.30).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
-func _process(delta: float) -> void:
-	if not visible:
-		return
-	elapsed_sec += delta
-	_apply_state()
-	queue_redraw()
-
-
 func _draw() -> void:
 	if not _active or _state.is_empty():
 		return

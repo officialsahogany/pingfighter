@@ -6,6 +6,7 @@ const WritheEmber := preload("res://scripts/effects/writhe_ember_material.gd")
 
 func _initialize() -> void:
 	var status: Dictionary = ResultBoxOpenFxHost.build_pipeline_status()
+	var source := FileAccess.get_file_as_string("res://scripts/effects/result_box_open_fx_host.gd")
 	var ok: bool = true
 	for key in [
 		"result_box_open_fx_shader_pipeline",
@@ -23,6 +24,9 @@ func _initialize() -> void:
 	if not WritheEmber.has_preset("result_box_burst_mythic"):
 		push_error("WritheEmber missing preset: result_box_burst_mythic")
 		ok = false
+	if source.find("func _process") >= 0:
+		push_error("Result box open host should stay controller-driven without its own _process callback")
+		ok = false
 	var host: Node2D = ResultBoxOpenFxHost.new()
 	host.name = "ResultBoxOpenFxHostSmoke"
 	root.add_child(host)
@@ -37,6 +41,9 @@ func _initialize() -> void:
 		"lid_open_id": -1,
 	}
 	host.sync_state(state, true)
+	if host.is_processing():
+		push_error("Result box open host should not enable process during sync_state")
+		ok = false
 	state["open_progress"] = 0.70
 	state["lid_open_id"] = 1
 	host.sync_state(state, true)
