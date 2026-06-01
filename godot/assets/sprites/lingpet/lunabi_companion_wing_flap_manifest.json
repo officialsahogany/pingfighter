@@ -1,0 +1,352 @@
+{
+  "asset_id": "lunabi_companion_wing_flap_v1",
+  "character": "lunabi",
+  "display_name": "\ub8e8\ub098\ube44",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_companion_move_wing_flap",
+  "source_autosprite": {
+    "character_id": "cmpvprmun008w828nzjzqegwg",
+    "spritesheet_id": "cmpvuqo4f000787g7o931atmo",
+    "job_id": "wf_d8beea7a-d66e-461a-8adb-6168733498fb",
+    "video_id": "cmpvup0ou00avis4un1sihu6c",
+    "prompt": "Back-view SD bat lingpet flying forward for in-game movement. Strong readable bat wing flaps; body stays small and stable; seamless loop."
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell premultiplied-alpha repack",
+    "source_cell_size": [
+      512,
+      512
+    ],
+    "source_scale_repack": 0.84,
+    "reason": "Keeps the established Lunabi 5x5 runtime layout while avoiding chroma-key matte bleed."
+  },
+  "qa": {
+    "raw": {
+      "path": "D:/main/bosspong/.tmp/lunabi_move_wing_flap_v1/lunabi_move_wing_flap_raw_512_25f.png",
+      "size": [
+        2560,
+        2560
+      ],
+      "edge_alpha_count": 0,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            64,
+            84,
+            451,
+            421
+          ],
+          "size": [
+            387,
+            337
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            99,
+            89,
+            449,
+            418
+          ],
+          "size": [
+            350,
+            329
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            103,
+            55,
+            460,
+            388
+          ],
+          "size": [
+            357,
+            333
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            50,
+            83,
+            461,
+            418
+          ],
+          "size": [
+            411,
+            335
+          ]
+        },
+        {
+          "frame": 16,
+          "bbox": [
+            70,
+            96,
+            442,
+            430
+          ],
+          "size": [
+            372,
+            334
+          ]
+        },
+        {
+          "frame": 20,
+          "bbox": [
+            66,
+            92,
+            451,
+            427
+          ],
+          "size": [
+            385,
+            335
+          ]
+        },
+        {
+          "frame": 24,
+          "bbox": [
+            64,
+            84,
+            451,
+            422
+          ],
+          "size": [
+            387,
+            338
+          ]
+        }
+      ]
+    },
+    "final": {
+      "path": "D:/main/bosspong/godot/assets/sprites/lingpet/lunabi_companion_wing_flap.png",
+      "res_path": "res://assets/sprites/lingpet/lunabi_companion_wing_flap.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        640,
+        640
+      ],
+      "source_scale_repack": 0.84,
+      "sha256": "394e2f743c429ad2306425dcc984c26eda05c8e9946d8dea28418923ce672c37",
+      "bytes": 250780,
+      "edge_alpha_count": 0,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            22,
+            26,
+            107,
+            101
+          ],
+          "size": [
+            85,
+            75
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            29,
+            27,
+            107,
+            100
+          ],
+          "size": [
+            78,
+            73
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            30,
+            20,
+            109,
+            94
+          ],
+          "size": [
+            79,
+            74
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            19,
+            26,
+            109,
+            100
+          ],
+          "size": [
+            90,
+            74
+          ]
+        },
+        {
+          "frame": 16,
+          "bbox": [
+            23,
+            28,
+            105,
+            102
+          ],
+          "size": [
+            82,
+            74
+          ]
+        },
+        {
+          "frame": 20,
+          "bbox": [
+            22,
+            27,
+            107,
+            102
+          ],
+          "size": [
+            85,
+            75
+          ]
+        },
+        {
+          "frame": 24,
+          "bbox": [
+            22,
+            26,
+            107,
+            101
+          ],
+          "size": [
+            85,
+            75
+          ]
+        }
+      ]
+    }
+  },
+  "outputs": {
+    "wing_flap": {
+      "path": "D:/main/bosspong/godot/assets/sprites/lingpet/lunabi_companion_wing_flap.png",
+      "res_path": "res://assets/sprites/lingpet/lunabi_companion_wing_flap.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        640,
+        640
+      ],
+      "source_scale_repack": 0.84,
+      "sha256": "394e2f743c429ad2306425dcc984c26eda05c8e9946d8dea28418923ce672c37",
+      "bytes": 250780,
+      "edge_alpha_count": 0,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            22,
+            26,
+            107,
+            101
+          ],
+          "size": [
+            85,
+            75
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            29,
+            27,
+            107,
+            100
+          ],
+          "size": [
+            78,
+            73
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            30,
+            20,
+            109,
+            94
+          ],
+          "size": [
+            79,
+            74
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            19,
+            26,
+            109,
+            100
+          ],
+          "size": [
+            90,
+            74
+          ]
+        },
+        {
+          "frame": 16,
+          "bbox": [
+            23,
+            28,
+            105,
+            102
+          ],
+          "size": [
+            82,
+            74
+          ]
+        },
+        {
+          "frame": 20,
+          "bbox": [
+            22,
+            27,
+            107,
+            102
+          ],
+          "size": [
+            85,
+            75
+          ]
+        },
+        {
+          "frame": 24,
+          "bbox": [
+            22,
+            26,
+            107,
+            101
+          ],
+          "size": [
+            85,
+            75
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -97,7 +97,7 @@ const PETS := {
 			"egg": "res://assets/sprites/lingpet/maribo_egg_v002.png",
 			"egg_crack_1": "res://assets/sprites/lingpet/maribo_egg_v002_crack1.png",
 			"egg_crack_2": "res://assets/sprites/lingpet/maribo_egg_v002_crack2.png",
-			"companion_walk": "res://assets/sprites/lingpet/lunabi_companion_flight.png",
+			"companion_walk": "res://assets/sprites/lingpet/lunabi_companion_wing_flap.png",
 			"companion_strike": "res://assets/sprites/lingpet/lunabi_companion_strike.png",
 			"companion_cast": "res://assets/sprites/lingpet/lunabi_companion_strike.png",
 			"cutin_art": "res://assets/sprites/lingpet/lunabi_cutin_art.png",
