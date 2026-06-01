@@ -200,16 +200,24 @@ This section is intentionally long; use search to find the nearest owner.
   player-height independent companion draw,
   post-hatch Maribo body ball-contact soft bounce with internal cooldown,
   Ringpet common body-contact gauge gain, generic companion skill cooldown /
-  wind-up / launch handoff, and the shared boss-skill rail Ringpet card
-  surface. It exposes the acquisition cut-in API for modal / input / overlay
-  controllers, but the reveal and dismiss timing state lives in
-  `lingpet_acquire_cutin_state.gd`.
+  wind-up / launch handoff into `lingpet_skill_runtime_host.gd`, and the shared
+  boss-skill rail Ringpet card surface. It exposes the acquisition cut-in API
+  for modal / input / overlay controllers, but the reveal and dismiss timing
+  state lives in `lingpet_acquire_cutin_state.gd`.
+- `scripts/lingpet/lingpet_skill_runtime_host.gd`
+  Owns Ringpet active-skill module dispatch: skill-kind lookup, skill-specific
+  prewarm / update / draw / visible-effect checks, launch blocking, launch
+  calls, cast-windup visual gating, launch feedback, and skill snapshot merge.
+  Future Ringpet active skills should add a focused skill module plus a
+  dispatcher / host branch here instead of adding concrete projectile or field
+  behavior to `lingpet_egg_runtime.gd`.
 - `scripts/lingpet/lingpet_hydro_sphere_skill.gd`
   Owns Maribo Hydro Sphere's skill-specific runtime: projectile travel,
   opponent-wall impact, horizontal elliptical puddle, slow status refresh,
   splash / ambient droplet particles, procedural puddle texture drawing, and
-  Hydro Sphere snapshot keys. `lingpet_egg_runtime.gd` should call this module
-  instead of growing more Maribo-specific projectile / puddle code inline.
+  Hydro Sphere snapshot keys. `lingpet_skill_runtime_host.gd` calls this module
+  instead of letting `lingpet_egg_runtime.gd` grow Maribo-specific projectile /
+  puddle code inline.
 - `scripts/lingpet/lingpet_save_store.gd`
   Owns the Ringpet save-file route: loading / saving the runtime snapshot
   from `user://lingpet_save.cfg`, restoring it during battle bootstrap,

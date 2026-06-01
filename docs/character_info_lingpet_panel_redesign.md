@@ -147,15 +147,16 @@
    - `validate_catalog(true)`가 통과해야 한다. 새 링펫의 필수 스탯, 알/동행/타격/시전/컷인
      비주얼 경로, 액티브 스킬카드 경로, 효과 텍스트가 빠지면 스모크에서 실패해야 한다.
   - 새 링펫은 카탈로그의 `visuals` 경로(알/금간 알/동행/타격/시전/컷인)와
-    `active_skill.card_texture_path`를 채운 뒤 스킬 런타임을 `lingpet_skill_dispatcher.gd`에 연결한다.
+    `active_skill.card_texture_path`를 채운 뒤 스킬 종류를 `lingpet_skill_dispatcher.gd`에 연결한다.
   - 카탈로그 `visuals` 경로의 실제 텍스처 로드/캐시는 `lingpet_visual_texture_cache.gd`가 담당한다.
   - 알의 스폰 위치, 플레이어 접촉 흔들림, 공 피격, 서브 공 무시, 부화 카운트는
     `lingpet_egg_field_state.gd`가 담당한다.
   - 알/부화 렌더링(금 간 알 빛, 부화 플래시, 파편 burst)은
     `lingpet_egg_field_renderer.gd`가 담당한다.
   - 마리보 하이드로 스피어처럼 투사체/장판/VFX가 있는 액티브는
-     `lingpet_hydro_sphere_skill.gd` 패턴으로 전용 스킬 모듈을 만들고, `lingpet_egg_runtime.gd`에는
-     쿨타임/시전 준비/발사 위임만 남긴다.
+    `lingpet_hydro_sphere_skill.gd` 패턴으로 전용 스킬 모듈을 만들고,
+    `lingpet_skill_runtime_host.gd`에 prewarm/update/draw/launch 분기를 연결한다.
+    `lingpet_egg_runtime.gd`에는 쿨타임/시전 준비/발사 위임만 남긴다.
    - 공통 액티브 상태(쿨타임, 시전 준비, 발사 원점, 플래시, 트리거 카운트)는
      `lingpet_companion_skill_state.gd`가 담당한다.
   - 공통 동행 이동 상태(플레이어 높이 순찰, 랜덤 정지/이동, 방어율 인터셉트,
