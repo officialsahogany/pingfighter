@@ -2,7 +2,7 @@ extends Node
 
 const SCREENSHOT_KEY := KEY_F12
 const SCREENSHOT_DIR := "D:/screenshot"
-const SCREENSHOT_PREFIX := "diskhearts_ringpia_"
+const SCREENSHOT_PREFIX := "diskhearts_lingpia_"
 
 var capture_in_progress := false
 var last_saved_path := ""

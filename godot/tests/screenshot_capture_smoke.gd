@@ -19,7 +19,7 @@ func _init() -> void:
 		"minute": 10,
 		"second": 11,
 	}, 42)
-	_expect(path == "D:/screenshot/diskhearts_ringpia_20260508_091011_042.png", "screenshot path should be timestamped")
+	_expect(path == "D:/screenshot/diskhearts_lingpia_20260508_091011_042.png", "screenshot path should be timestamped")
 	_expect(capture.ensure_screenshot_directory() == OK, "screenshot directory should be creatable")
 
 	capture.free()
