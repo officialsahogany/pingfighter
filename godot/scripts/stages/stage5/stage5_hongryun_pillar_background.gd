@@ -11,6 +11,24 @@ const SPIRAL_BURST_LIFETIME_SEC := 0.72
 const FIRE_IMPACT_LIFETIME_SEC := 0.42
 const MAX_SPIRAL_BURSTS := 6
 const MAX_FIRE_IMPACTS := 12
+const LOD_ACTIVE_THRESHOLD := 0.7
+const SEVERE_LOD_ACTIVE_THRESHOLD := 0.6
+const SPIRAL_BURST_ARM_COUNT := 4
+const SPIRAL_BURST_ARM_COUNT_LOD := 3
+const SPIRAL_BURST_ARM_COUNT_SEVERE_LOD := 2
+const SPIRAL_BURST_PRIMARY_SEGMENTS := 32
+const SPIRAL_BURST_PRIMARY_SEGMENTS_LOD := 22
+const SPIRAL_BURST_PRIMARY_SEGMENTS_SEVERE_LOD := 14
+const SPIRAL_BURST_SECONDARY_SEGMENTS := 24
+const SPIRAL_BURST_SECONDARY_SEGMENTS_LOD := 14
+const FIRE_IMPACT_OUTER_SEGMENTS := 40
+const FIRE_IMPACT_OUTER_SEGMENTS_LOD := 28
+const FIRE_IMPACT_OUTER_SEGMENTS_SEVERE_LOD := 20
+const FIRE_IMPACT_INNER_SEGMENTS := 24
+const FIRE_IMPACT_INNER_SEGMENTS_LOD := 14
+const VIGNETTE_STEPS := 7
+const VIGNETTE_STEPS_LOD := 4
+const VIGNETTE_STEPS_SEVERE_LOD := 3
 
 var base_texture: Texture2D = null
 var inferno_texture: Texture2D = null
@@ -125,10 +143,10 @@ func draw(
 	var full_rect := Rect2(Vector2.ZERO, target_size)
 	_draw_base(canvas, full_rect)
 	_draw_inferno_overlay(canvas, full_rect)
-	_draw_pillar_heat_tint(canvas, full_rect, game_offset, game_size)
-	_draw_spiral_bursts(canvas, full_rect, game_offset, game_size)
-	_draw_fire_impacts(canvas, game_offset)
-	_draw_vignette(canvas, full_rect)
+	_draw_pillar_heat_tint(canvas, full_rect, game_offset, game_size, _quality_scale)
+	_draw_spiral_bursts(canvas, full_rect, game_offset, game_size, _quality_scale)
+	_draw_fire_impacts(canvas, game_offset, _quality_scale)
+	_draw_vignette(canvas, full_rect, _quality_scale)
 	return true
 
 
@@ -146,7 +164,7 @@ func draw_pillar_background_overlay(
 	var target_size := view_size
 	if target_size.x <= 0.0 or target_size.y <= 0.0:
 		target_size = game_offset * 2.0 + game_size
-	_draw_spiral_bursts(canvas, Rect2(Vector2.ZERO, target_size), game_offset, game_size)
+	_draw_spiral_bursts(canvas, Rect2(Vector2.ZERO, target_size), game_offset, game_size, _quality_scale)
 
 
 func _ensure_textures() -> void:
@@ -205,8 +223,9 @@ func _draw_inferno_overlay(canvas: CanvasItem, rect: Rect2) -> void:
 	canvas.draw_rect(rect, Color(0.72, 0.04, 0.015, 0.16 * inferno_blend))
 
 
-func _draw_pillar_heat_tint(canvas: CanvasItem, rect: Rect2, game_offset: Vector2, game_size: Vector2) -> void:
+func _draw_pillar_heat_tint(canvas: CanvasItem, rect: Rect2, game_offset: Vector2, game_size: Vector2, quality_scale: float) -> void:
 	var pillar_alpha := 0.18 + inferno_blend * 0.18
+	var severe_lod := _is_severe_lod(quality_scale)
 	var left_rect := Rect2(rect.position, Vector2(maxf(0.0, game_offset.x), rect.size.y))
 	var right_x := game_offset.x + game_size.x
 	var right_rect := Rect2(Vector2(right_x, rect.position.y), Vector2(maxf(0.0, rect.size.x - right_x), rect.size.y))
@@ -214,15 +233,20 @@ func _draw_pillar_heat_tint(canvas: CanvasItem, rect: Rect2, game_offset: Vector
 		if side_rect.size.x <= 0.0:
 			continue
 		canvas.draw_rect(side_rect, Color(0.20, 0.045, 0.025, pillar_alpha))
-		canvas.draw_rect(side_rect.grow(-4.0), Color(0.58, 0.10, 0.045, 0.06 + inferno_blend * 0.07), false, 2.0)
+		if not severe_lod:
+			canvas.draw_rect(side_rect.grow(-4.0), Color(0.58, 0.10, 0.045, 0.06 + inferno_blend * 0.07), false, 2.0)
 
 
-func _draw_spiral_bursts(canvas: CanvasItem, rect: Rect2, game_offset: Vector2, game_size: Vector2) -> void:
+func _draw_spiral_bursts(canvas: CanvasItem, rect: Rect2, game_offset: Vector2, game_size: Vector2, quality_scale: float) -> void:
 	if _spiral_bursts.is_empty():
 		return
 	var center := game_offset + game_size * 0.5
 	if game_size.x <= 0.0 or game_size.y <= 0.0:
 		center = rect.get_center()
+	var arm_count: int = _get_lod_count(SPIRAL_BURST_ARM_COUNT, SPIRAL_BURST_ARM_COUNT_LOD, SPIRAL_BURST_ARM_COUNT_SEVERE_LOD, quality_scale)
+	var primary_segments: int = _get_lod_count(SPIRAL_BURST_PRIMARY_SEGMENTS, SPIRAL_BURST_PRIMARY_SEGMENTS_LOD, SPIRAL_BURST_PRIMARY_SEGMENTS_SEVERE_LOD, quality_scale)
+	var secondary_segments: int = SPIRAL_BURST_SECONDARY_SEGMENTS_LOD if quality_scale <= LOD_ACTIVE_THRESHOLD else SPIRAL_BURST_SECONDARY_SEGMENTS
+	var severe_lod := _is_severe_lod(quality_scale)
 	for value in _spiral_bursts:
 		if not (value is Dictionary):
 			continue
@@ -234,13 +258,17 @@ func _draw_spiral_bursts(canvas: CanvasItem, rect: Rect2, game_offset: Vector2, 
 		var phase := float(burst.get("phase", 0.0))
 		var alpha := (1.0 - progress) * (0.38 + inferno_blend * 0.22)
 		var radius := (54.0 + progress * 160.0) * intensity
-		for arm in range(4):
-			var start := phase + float(arm) * TAU / 4.0 + progress * TAU * 1.25
-			canvas.draw_arc(center, radius + float(arm) * 10.0, start, start + PI * 0.72, 32, Color(1.0, 0.28, 0.10, alpha), 2.4, true)
-			canvas.draw_arc(center, radius * 0.68 + float(arm) * 7.0, -start, -start + PI * 0.48, 24, Color(1.0, 0.78, 0.22, alpha * 0.52), 1.4, true)
+		for arm in range(arm_count):
+			var start := phase + float(arm) * TAU / float(maxi(1, arm_count)) + progress * TAU * 1.25
+			canvas.draw_arc(center, radius + float(arm) * 10.0, start, start + PI * 0.72, primary_segments, Color(1.0, 0.28, 0.10, alpha), 2.4, true)
+			if not severe_lod:
+				canvas.draw_arc(center, radius * 0.68 + float(arm) * 7.0, -start, -start + PI * 0.48, secondary_segments, Color(1.0, 0.78, 0.22, alpha * 0.52), 1.4, true)
 
 
-func _draw_fire_impacts(canvas: CanvasItem, game_offset: Vector2) -> void:
+func _draw_fire_impacts(canvas: CanvasItem, game_offset: Vector2, quality_scale: float) -> void:
+	var outer_segments: int = _get_lod_count(FIRE_IMPACT_OUTER_SEGMENTS, FIRE_IMPACT_OUTER_SEGMENTS_LOD, FIRE_IMPACT_OUTER_SEGMENTS_SEVERE_LOD, quality_scale)
+	var inner_segments: int = FIRE_IMPACT_INNER_SEGMENTS_LOD if quality_scale <= LOD_ACTIVE_THRESHOLD else FIRE_IMPACT_INNER_SEGMENTS
+	var severe_lod := _is_severe_lod(quality_scale)
 	for value in _fire_impacts:
 		if not (value is Dictionary):
 			continue
@@ -252,15 +280,16 @@ func _draw_fire_impacts(canvas: CanvasItem, game_offset: Vector2) -> void:
 		var alpha := 1.0 - progress
 		var radius := (18.0 + progress * 46.0) * float(impact.get("scale", 1.0))
 		canvas.draw_circle(pos, radius * 0.45, Color(1.0, 0.16, 0.04, 0.18 * alpha))
-		canvas.draw_arc(pos, radius, 0.0, TAU, 40, Color(1.0, 0.38, 0.12, 0.72 * alpha), 3.0, true)
-		canvas.draw_arc(pos, radius * 0.62, -time_sec * 7.0, -time_sec * 7.0 + PI, 24, Color(1.0, 0.86, 0.22, 0.52 * alpha), 1.8, true)
+		canvas.draw_arc(pos, radius, 0.0, TAU, outer_segments, Color(1.0, 0.38, 0.12, 0.72 * alpha), 3.0, true)
+		if not severe_lod:
+			canvas.draw_arc(pos, radius * 0.62, -time_sec * 7.0, -time_sec * 7.0 + PI, inner_segments, Color(1.0, 0.86, 0.22, 0.52 * alpha), 1.8, true)
 
 
-func _draw_vignette(canvas: CanvasItem, rect: Rect2) -> void:
+func _draw_vignette(canvas: CanvasItem, rect: Rect2, quality_scale: float) -> void:
 	var alpha := 0.10 + inferno_blend * 0.30
 	if alpha <= 0.001:
 		return
-	var steps := 7
+	var steps := _get_lod_count(VIGNETTE_STEPS, VIGNETTE_STEPS_LOD, VIGNETTE_STEPS_SEVERE_LOD, quality_scale)
 	for idx in range(steps):
 		var t := float(idx + 1) / float(steps)
 		var grow := rect.size.length() * 0.015 * float(idx)
@@ -274,6 +303,18 @@ func _move_toward_float(value: float, target: float, delta: float) -> float:
 	if value > target:
 		return maxf(target, value - delta)
 	return value
+
+
+func _get_lod_count(normal_count: int, lod_count: int, severe_count: int, quality_scale: float) -> int:
+	if quality_scale <= SEVERE_LOD_ACTIVE_THRESHOLD:
+		return severe_count
+	if quality_scale <= LOD_ACTIVE_THRESHOLD:
+		return lod_count
+	return normal_count
+
+
+func _is_severe_lod(quality_scale: float) -> bool:
+	return quality_scale <= SEVERE_LOD_ACTIVE_THRESHOLD
 
 
 func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:

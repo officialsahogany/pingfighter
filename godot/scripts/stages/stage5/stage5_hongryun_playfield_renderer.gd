@@ -11,9 +11,13 @@ const FIREBALL_FALLBACK_ATLAS_PATH := "res://assets/sprites/hud/stage5_hongryun_
 const TRAIL_HEAD_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_layered_cyber_base_imagegen_v1.png"
 const TRAIL_NODE_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_layered_cyber_base_imagegen_v2.png"
 const FIRE_MACHINE_DRAGON_HEAD_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_dragon_head_sheet_imagegen_v3_16f.png"
+const CENTER_BORDER_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryun_center_border_imagegen_v1.png"
 const INFERNO_CHARGE_FX_HOST_NAME := "Stage5HongryunInfernoChargeFxHost"
 const INFERNO_TRAIL_FX_HOST_NAME := "Stage5HongryunInfernoTrailFxHost"
 const INFERNO_BURST_FX_HOST_NAME := "Stage5HongryunInfernoBurstFxHost"
+const CENTER_BORDER_IMAGEGEN_DRAW_ENABLED := true
+const CENTER_BORDER_FALLBACK_STROKE := 2.0
+const CENTER_BORDER_COLLISION_EDGE_BAND_PX := 13.0
 # Below this quality LOD we skip the node-backed shader/particle FX
 # entirely and rely on the direct-draw aura fallback only.
 const INFERNO_CHARGE_NODE_FX_QUALITY_GATE := 0.45
@@ -40,6 +44,7 @@ var fireball_atlas: Texture2D = null
 var trail_head_texture: Texture2D = null
 var trail_node_texture: Texture2D = null
 var fire_machine_dragon_head_texture: Texture2D = null
+var center_border_texture: Texture2D = null
 var textures_loaded := false
 var time_sec := 0.0
 var _last_draw_msec := 0
@@ -76,10 +81,12 @@ func prewarm_assets_step() -> bool:
 		3:
 			fire_machine_dragon_head_texture = ProjectResourceLoader.load_texture(FIRE_MACHINE_DRAGON_HEAD_TEXTURE_PATH)
 		4:
-			InfernoChargeFxHost.prewarm_assets()
+			center_border_texture = ProjectResourceLoader.load_texture(CENTER_BORDER_TEXTURE_PATH)
 		5:
-			InfernoTrailFxHost.prewarm_assets()
+			InfernoChargeFxHost.prewarm_assets()
 		6:
+			InfernoTrailFxHost.prewarm_assets()
+		7:
 			InfernoBurstFxHost.prewarm_assets()
 		_:
 			textures_loaded = true
@@ -145,6 +152,12 @@ func get_imagegen_asset_status() -> Dictionary:
 		"stage5_trail_head_texture": trail_head_texture != null,
 		"stage5_trail_node_texture": trail_node_texture != null,
 		"stage5_fire_machine_dragon_head_texture": fire_machine_dragon_head_texture != null,
+		"stage5_center_border_texture": center_border_texture != null,
+		"stage5_center_border_path": CENTER_BORDER_TEXTURE_PATH,
+		"stage5_center_border_draw_enabled": CENTER_BORDER_IMAGEGEN_DRAW_ENABLED,
+		"stage5_center_border_fallback_stroke": CENTER_BORDER_FALLBACK_STROKE,
+		"stage5_center_border_collision_edge_band_px": CENTER_BORDER_COLLISION_EDGE_BAND_PX,
+		"stage5_center_border_inner_guides_removed": true,
 		"trail_render_limit": TRAIL_RENDER_LIMIT,
 		"trail_render_limit_lod": TRAIL_RENDER_LIMIT_LOD,
 		"trail_render_limit_severe_lod": TRAIL_RENDER_LIMIT_SEVERE_LOD,
@@ -175,10 +188,21 @@ func _draw_playfield_heat(canvas: CanvasItem, width: float, height: float, conte
 func _draw_stage5_border(canvas: CanvasItem, width: float, height: float, context: Dictionary, quality_scale: float) -> void:
 	var inferno_active := bool(context.get("stage5_hongryun_inferno_active", false))
 	var alpha := 0.42 if inferno_active else 0.26
+	if CENTER_BORDER_IMAGEGEN_DRAW_ENABLED and center_border_texture != null:
+		var border_alpha := 1.0 if inferno_active else 0.94
+		canvas.draw_texture_rect(
+			center_border_texture,
+			Rect2(0.0, 0.0, width, height),
+			false,
+			Color(1.0, 0.94 + alpha * 0.06, 0.86 + alpha * 0.10, border_alpha)
+		)
+		if inferno_active:
+			canvas.draw_rect(Rect2(0.0, 0.0, width, height), Color(1.0, 0.16, 0.04, 0.10), false, 2.0, true)
+		return
 	var border_color := Color(0.92, 0.18, 0.08, alpha)
-	var stroke := 4.0 if quality_scale > 0.65 else 2.0
+	var stroke := CENTER_BORDER_FALLBACK_STROKE if quality_scale > 0.65 else 1.0
 	canvas.draw_rect(Rect2(0.0, 0.0, width, height), border_color, false, stroke, true)
-	canvas.draw_rect(Rect2(8.0, 8.0, maxf(1.0, width - 16.0), maxf(1.0, height - 16.0)), Color(1.0, 0.62, 0.18, alpha * 0.34), false, 1.0, true)
+	canvas.draw_rect(Rect2(3.0, 3.0, maxf(1.0, width - 6.0), maxf(1.0, height - 6.0)), Color(1.0, 0.62, 0.18, alpha * 0.28), false, 1.0, true)
 
 
 func _draw_fire_machine_event(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, quality_scale: float) -> void:
