@@ -10,13 +10,13 @@ const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_comp
 const LingpetCompanionRenderer := preload("res://scripts/lingpet/lingpet_companion_renderer.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
 const LingpetCompanionSkillState := preload("res://scripts/lingpet/lingpet_companion_skill_state.gd")
+const LingpetCompanionSkillController := preload("res://scripts/lingpet/lingpet_companion_skill_controller.gd")
 const LingpetCompanionStrikeAnticipator := preload("res://scripts/lingpet/lingpet_companion_strike_anticipator.gd")
 const LingpetCompanionSwitchState := preload("res://scripts/lingpet/lingpet_companion_switch_state.gd")
 const LingpetEggFieldState := preload("res://scripts/lingpet/lingpet_egg_field_state.gd")
 const LingpetEggFieldRenderer := preload("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
 const LingpetRuntimeSnapshotBuilder := preload("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
 const LingpetSaveRestorePlanner := preload("res://scripts/lingpet/lingpet_save_restore_planner.gd")
-const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
 const MARIBO_EGG_TEXTURE := preload("res://assets/sprites/lingpet/maribo_egg_v002.png")
 const MARIBO_EGG_TEXTURE_CRACK_1 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png")
@@ -100,6 +100,7 @@ var _companion_renderer: Object = LingpetCompanionRenderer.new()
 var _companion_sprite_animator: Object = LingpetCompanionSpriteAnimator.new()
 var _companion_strike_anticipator: Object = LingpetCompanionStrikeAnticipator.new()
 var _companion_skill_state: Object = LingpetCompanionSkillState.new()
+var _companion_skill_controller: Object = LingpetCompanionSkillController.new()
 var _skill_runtime_host: Object = LingpetSkillRuntimeHost.new()
 var _snapshot_builder: Object = LingpetRuntimeSnapshotBuilder.new()
 var _save_restore_planner: Object = LingpetSaveRestorePlanner.new()
@@ -689,47 +690,31 @@ func _resolve_companion_ball_hit(owner: Object, registry: Object = null) -> bool
 
 
 func _update_companion_skill_effects(delta: float, owner: Object, registry: Object = null) -> void:
-	var safe_delta: float = maxf(0.0, delta)
 	var skill_id := _get_current_skill_id()
-	if not LingpetSkillDispatcher.has_supported_runtime(skill_id):
-		_companion_skill_state.cancel_windup()
-		return
-	_skill_runtime_host.update(safe_delta, owner, registry, skill_id)
-	_advance_companion_skill_windup(safe_delta, owner, registry)
-	if (
-		_state == STATE_COMPANION
-		and not _companion_skill_state.windup_active
-		and _companion_skill_state.cooldown <= 0.0
-		and not _skill_runtime_host.is_launch_blocked(skill_id)
-	):
-		_try_activate_companion_skill(owner, registry)
+	var decision: Dictionary = _companion_skill_controller.update(delta, {
+		"state": _state,
+		"companion_state": STATE_COMPANION,
+		"owner": owner,
+		"registry": registry,
+		"skill_id": skill_id,
+		"skill_state": _companion_skill_state,
+		"skill_runtime_host": _skill_runtime_host,
+		"windup_seconds": _get_current_skill_windup_seconds(),
+		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
+	})
+	match str(decision.get("action", LingpetCompanionSkillController.ACTION_NONE)):
+		LingpetCompanionSkillController.ACTION_ARM:
+			_arm_companion_skill(owner, skill_id)
+		LingpetCompanionSkillController.ACTION_LAUNCH:
+			_launch_companion_skill(owner, registry)
+		_:
+			pass
 
 
-func _try_activate_companion_skill(owner: Object, _registry: Object = null) -> bool:
-	var skill_id := _get_current_skill_id()
-	if not LingpetSkillDispatcher.has_supported_runtime(skill_id):
-		return false
-	if (
-		_state != STATE_COMPANION
-		or _companion_skill_state.cooldown > 0.0
-		or _skill_runtime_host.is_launch_blocked(skill_id)
-		or _companion_skill_state.windup_active
-		or not bool(_get_owner_value(owner, "ball_active", false))
-	):
-		return false
+func _arm_companion_skill(owner: Object, skill_id: String) -> bool:
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
-	# Wind-up gives ~1s lead, so prewarm before the first puddle frame.
-	_skill_runtime_host.prewarm(skill_id)
-	# Arm the telegraphed throw wind-up. The projectile launches when the wind-up
-	# completes (_advance_companion_skill_windup); cooldown is set then, not here.
-	_companion_skill_state.arm_windup()
-	return true
-
-
-func _advance_companion_skill_windup(delta: float, owner: Object, registry: Object) -> void:
-	if _companion_skill_state.advance_windup(delta, _get_current_skill_windup_seconds()):
-		_launch_companion_skill(owner, registry)
+	return _companion_skill_controller.arm_windup(_companion_skill_state, _skill_runtime_host, skill_id)
 
 
 func _launch_companion_skill(owner: Object, registry: Object) -> void:
@@ -737,15 +722,15 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 		_initialize_companion_patrol(owner, true)
 	var skill_id := _get_current_skill_id()
 	var origin: Vector2 = _companion_pos + Vector2(0.0, -COMPANION_RADIUS - 8.0)
-	if not _skill_runtime_host.launch(skill_id, origin):
-		_companion_skill_state.cancel_windup()
-		return
-	_companion_skill_state.complete_launch(
+	_companion_skill_controller.complete_launch(
+		_companion_skill_state,
+		_skill_runtime_host,
+		skill_id,
 		origin,
 		float(_get_current_active_skill().get("cooldown", COMPANION_SKILL_COOLDOWN_SECONDS)),
-		COMPANION_SKILL_FLASH_SECONDS
+		COMPANION_SKILL_FLASH_SECONDS,
+		registry
 	)
-	_skill_runtime_host.trigger_launch_feedback(skill_id, registry)
 
 
 func _draw_egg(canvas: CanvasItem, center: Vector2) -> void:

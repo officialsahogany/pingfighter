@@ -155,6 +155,12 @@ This section is intentionally long; use search to find the nearest owner.
   fields. Pet-specific skill modules should own their projectile / field /
   status behavior, while `lingpet_egg_runtime.gd` uses this state controller
   for the common cast lifecycle.
+- `scripts/lingpet/lingpet_companion_skill_controller.gd`
+  Owns Ringpet companion active-skill arm / launch decisions: supported
+  runtime id guard, host update, wind-up completion, ready-to-arm checks,
+  skill prewarm before cast wind-up, launch completion, cooldown / flash
+  commit, and launch feedback. `lingpet_egg_runtime.gd` should keep only the
+  narrow update hook plus companion-position / launch-origin application.
 - `scripts/lingpet/lingpet_companion_motion_state.gd`
   Owns Ringpet companion shared motion state: player-height patrol lane,
   stop-and-go randomized movement, save / restore patrol snapshot keys, and
