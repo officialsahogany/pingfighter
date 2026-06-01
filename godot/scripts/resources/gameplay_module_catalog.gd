@@ -6,6 +6,7 @@ const HudCatalog := preload("res://scripts/resources/gameplay_hud_module_catalog
 const BallCatalog := preload("res://scripts/resources/gameplay_ball_module_catalog.gd")
 const ActorCatalog := preload("res://scripts/resources/gameplay_actor_module_catalog.gd")
 const ItemCatalog := preload("res://scripts/resources/gameplay_item_module_catalog.gd")
+const LingpetCatalog := preload("res://scripts/resources/gameplay_lingpet_module_catalog.gd")
 const StatusCatalog := preload("res://scripts/resources/gameplay_status_module_catalog.gd")
 const EffectAudioCatalog := preload("res://scripts/resources/gameplay_effect_audio_module_catalog.gd")
 const ResourceCatalog := preload("res://scripts/resources/gameplay_resource_module_catalog.gd")
@@ -17,6 +18,7 @@ var catalogs: Array = [
 	BallCatalog.new(),
 	ActorCatalog.new(),
 	ItemCatalog.new(),
+	LingpetCatalog.new(),
 	StatusCatalog.new(),
 	EffectAudioCatalog.new(),
 	ResourceCatalog.new(),

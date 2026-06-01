@@ -29,6 +29,9 @@ func initialize(owner: CanvasItem, registry: Object, context: Dictionary = {}) -
 		_apply_owner_snapshot(owner, bootstrap_snapshot)
 		_perf_end(perf_logger, "process.intro.initialize_battle.lifecycle.apply_snapshot", sample_start)
 		sample_start = _perf_begin(perf_logger)
+		_restore_lingpet_save(owner, registry)
+		_perf_end(perf_logger, "process.intro.initialize_battle.lifecycle.restore_lingpet", sample_start)
+		sample_start = _perf_begin(perf_logger)
 		_prepare_stage_clear_result_baseline(owner, registry, int(startup_context.get("current_stage", 1)))
 		_perf_end(perf_logger, "process.intro.initialize_battle.lifecycle.result_baseline", sample_start)
 
@@ -51,6 +54,12 @@ func _apply_owner_snapshot(owner: Object, snapshot: Dictionary) -> void:
 		return
 	for key in snapshot.keys():
 		owner.set(str(key), snapshot[key])
+
+
+func _restore_lingpet_save(owner: Object, registry: Object) -> void:
+	var save_store: Object = _get_instance(registry, "lingpet_save_store")
+	if save_store != null and save_store.has_method("restore_runtime"):
+		save_store.restore_runtime(owner, registry)
 
 
 func _get_instance(registry: Object, key: String) -> Object:

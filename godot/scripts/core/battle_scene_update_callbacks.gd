@@ -27,6 +27,7 @@ func build_frame_callbacks(owner: Object, registry: Object) -> Dictionary:
 		"update_mythic_items": Callable(self, "_update_mythic_items").bind(owner, registry),
 		"update_active_items": Callable(self, "_update_active_items").bind(owner, registry),
 		"update_boss_ai": Callable(self, "_update_boss_ai").bind(owner, registry),
+		"update_lingpet": Callable(self, "_update_lingpet").bind(owner, registry),
 		"serve_ball": Callable(self, "_serve_ball").bind(owner, registry),
 		"queue_redraw": Callable(owner, "queue_redraw"),
 		"queue_skill_orb_tooltip_overlay_redraw": Callable(self, "_queue_skill_orb_tooltip_overlay_redraw").bind(owner, registry),
@@ -127,6 +128,16 @@ func _update_boss_ai(delta: float, owner: Object, registry: Object) -> void:
 	_perf_end(perf_logger, "physics.callback.boss_ai", sample_start)
 
 
+func _update_lingpet(delta: float, owner: Object, registry: Object) -> void:
+	var perf_logger: Object = _get_perf_logger(registry)
+	var sample_start: int = _perf_begin(perf_logger)
+	var runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	if runtime != null and runtime.has_method("update"):
+		if bool(runtime.update(delta, owner, registry)):
+			_save_lingpet_runtime(owner, registry)
+	_perf_end(perf_logger, "physics.callback.lingpet", sample_start)
+
+
 func _serve_ball(owner: Object, registry: Object) -> void:
 	var perf_logger: Object = _get_perf_logger(registry)
 	var sample_start: int = _perf_begin(perf_logger)
@@ -134,6 +145,12 @@ func _serve_ball(owner: Object, registry: Object) -> void:
 	if ball_driver != null:
 		ball_driver.serve_ball(owner, registry)
 	_perf_end(perf_logger, "physics.callback.serve_ball", sample_start)
+
+
+func _save_lingpet_runtime(owner: Object, registry: Object) -> void:
+	var save_store: Object = _get_instance(registry, "lingpet_save_store")
+	if save_store != null and save_store.has_method("save_runtime"):
+		save_store.save_runtime(owner, registry)
 
 
 func _update_ball(delta: float, owner: Object, registry: Object) -> void:

@@ -78,6 +78,7 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		if not _is_stage3_kuromi_ball_hidden(deps):
 			_call_delta(callbacks, "update_ball", delta)
 
+	_call_delta(callbacks, "update_lingpet", delta)
 	_call_delta(callbacks, "update_effects", delta)
 	_call(callbacks, "queue_redraw")
 
