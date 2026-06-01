@@ -44,16 +44,39 @@ const PLAYER_GROUND_SHADOW_HOVER_ALPHA_BONUS := 0.06
 var sprite_renderer: Object = Stage1PlayerSpriteRenderer.new()
 var dash_side_gauge_renderer: Object = Stage1DashSideGaugeRenderer.new()
 var horn_strawberry_paddle_renderer: Object = HornStrawberryPaddleRenderer.new()
-
-
-func _init() -> void:
-	ImpactFlareTextureCache.prewarm()
-	ImpactShockwaveTextureCache.prewarm()
+var _prewarm_step_index := 0
 
 
 func prewarm_runtime_assets() -> void:
-	if sprite_renderer != null and sprite_renderer.has_method("prewarm_runtime_assets"):
-		sprite_renderer.prewarm_runtime_assets()
+	while not prewarm_runtime_assets_step():
+		pass
+
+
+func prewarm_runtime_assets_step() -> bool:
+	match _prewarm_step_index:
+		0:
+			ImpactFlareTextureCache.get_glow_texture()
+		1:
+			ImpactFlareTextureCache.get_burst_texture()
+		2:
+			ImpactFlareTextureCache.get_sparkle_texture()
+		3:
+			ImpactShockwaveTextureCache.get_full_ring_texture()
+		4:
+			ImpactShockwaveTextureCache.get_wall_ring_texture("left")
+		5:
+			ImpactShockwaveTextureCache.get_wall_ring_texture("right")
+		6:
+			if sprite_renderer != null and sprite_renderer.has_method("prewarm_runtime_assets_step"):
+				if not bool(sprite_renderer.prewarm_runtime_assets_step()):
+					return false
+			elif sprite_renderer != null and sprite_renderer.has_method("prewarm_runtime_assets"):
+				sprite_renderer.prewarm_runtime_assets()
+		_:
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func clear_transient_canvas_items() -> void:

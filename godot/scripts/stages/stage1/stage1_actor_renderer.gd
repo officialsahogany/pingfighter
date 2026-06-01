@@ -12,13 +12,33 @@ var player_renderer: Object = Stage1PlayerActorRenderer.new()
 var boss_renderer: Object = Stage1BossActorRenderer.new()
 var spinning_top_renderer: Object = Stage1DaljiSpinningTopRenderer.new()
 var commando_firearm_renderer: Object = Stage1CommandoFirearmRenderer.new()
+var _prewarm_step_index := 0
 
 
 func prewarm_assets() -> void:
-	if player_renderer != null and player_renderer.has_method("prewarm_runtime_assets"):
-		player_renderer.prewarm_runtime_assets()
-	if commando_firearm_renderer != null and commando_firearm_renderer.has_method("prewarm_runtime_assets"):
-		commando_firearm_renderer.prewarm_runtime_assets()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	match _prewarm_step_index:
+		0:
+			if player_renderer != null and player_renderer.has_method("prewarm_runtime_assets_step"):
+				if not bool(player_renderer.prewarm_runtime_assets_step()):
+					return false
+			elif player_renderer != null and player_renderer.has_method("prewarm_runtime_assets"):
+				player_renderer.prewarm_runtime_assets()
+		1:
+			if commando_firearm_renderer != null and commando_firearm_renderer.has_method("prewarm_assets_step"):
+				if not bool(commando_firearm_renderer.prewarm_assets_step()):
+					return false
+			elif commando_firearm_renderer != null and commando_firearm_renderer.has_method("prewarm_runtime_assets"):
+				commando_firearm_renderer.prewarm_runtime_assets()
+		_:
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func draw(canvas: CanvasItem, context: Dictionary, perf_logger: Object = null) -> void:

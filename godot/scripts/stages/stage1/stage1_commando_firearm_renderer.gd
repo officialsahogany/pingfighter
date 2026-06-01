@@ -92,34 +92,42 @@ static func prewarm_assets_step() -> bool:
 		return true
 	match _prewarm_step_index:
 		0:
-			ImpactFlareTextureCache.prewarm()
+			ImpactFlareTextureCache.get_glow_texture()
 		1:
-			ImpactShockwaveTextureCache.prewarm()
+			ImpactFlareTextureCache.get_burst_texture()
 		2:
-			Stage1CommandoFirearmFxHost.prewarm_assets()
+			ImpactFlareTextureCache.get_sparkle_texture()
 		3:
+			ImpactShockwaveTextureCache.get_full_ring_texture()
+		4:
+			ImpactShockwaveTextureCache.get_wall_ring_texture("left")
+		5:
+			ImpactShockwaveTextureCache.get_wall_ring_texture("right")
+		6:
+			Stage1CommandoFirearmFxHost.prewarm_assets()
+		7:
 			var fx_probe: Node = Stage1CommandoFirearmFxHost.new()
 			if fx_probe != null and fx_probe.has_method("prewarm_node_pipeline"):
 				fx_probe.prewarm_node_pipeline()
 				fx_probe.free()
-		4:
-			_get_slingshot_stone_texture()
-		5:
-			_get_bowling_trap_installed_texture()
-		6:
-			_get_bowling_trap_capture_sheet_texture()
-		7:
-			_get_bowling_trap_launch_sheet_texture()
 		8:
-			_get_support_aircraft_texture()
+			_get_slingshot_stone_texture()
 		9:
+			_get_bowling_trap_installed_texture()
+		10:
+			_get_bowling_trap_capture_sheet_texture()
+		11:
+			_get_bowling_trap_launch_sheet_texture()
+		12:
+			_get_support_aircraft_texture()
+		13:
 			_get_support_bomb_texture()
 		_:
 			_prewarmed = true
 			_prewarm_step_index = 0
 			return true
 	_prewarm_step_index += 1
-	if _prewarm_step_index > 9:
+	if _prewarm_step_index > 13:
 		_prewarmed = true
 		_prewarm_step_index = 0
 		return true
