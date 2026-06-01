@@ -36,6 +36,7 @@ func _init() -> void:
 	_expect(abs(float(result.get("boss_vel", 0.0)) - expected_first_frame_speed) <= 0.001, "Stage 3 boss dash should use the shared dash speed curve")
 	_expect(int(dash_snapshot.get("tokens", -1)) == 0, "Stage 3 boss dash should consume the boss dash token")
 	_expect(recharge_frames >= expected_min_recharge and recharge_frames <= expected_max_recharge, "Stage 3 boss dash recharge should use -10% cooldown")
+	_verify_two_dash_tokens_leave_one_after_dash()
 	_verify_inactive_grenade_knockback_does_not_move_boss()
 
 	if _failures.is_empty():
@@ -58,6 +59,17 @@ func _verify_inactive_grenade_knockback_does_not_move_boss() -> void:
 	var result_pos: Vector2 = result.get("boss_pos", Vector2.ZERO)
 	_expect(is_equal_approx(result_pos.x, boss_pos.x), "inactive stun knockback should not move the boss")
 	_expect(is_equal_approx(float(result.get("boss_vel", -1.0)), 0.0), "inactive stun knockback should report zero boss velocity")
+
+
+func _verify_two_dash_tokens_leave_one_after_dash() -> void:
+	var context: Dictionary = _build_stage3_context()
+	context["ai_mode"] = "mythic"
+	context["boss_dash_max_tokens"] = 2
+	var state: Object = BossAiState.new()
+	state.update(1.0 / 60.0, Vector2(40.0, 25.0), 0.0, context)
+	var dash_snapshot: Dictionary = state.get_dash_token_snapshot()
+	_expect(int(dash_snapshot.get("max_tokens", 0)) == 2, "two-token boss dash context should raise max tokens")
+	_expect(int(dash_snapshot.get("tokens", -1)) == 1, "two-token boss dash should leave one token after the first dash")
 
 
 func _build_stage3_context() -> Dictionary:

@@ -27,6 +27,9 @@ const BASE_BOSS_DASH_COOLDOWN_MIN_SECONDS: float = 40.0
 const BASE_BOSS_DASH_COOLDOWN_MAX_SECONDS: float = 55.0
 const CHAMPION_BOSS_SPEED_MULTIPLIER: float = 1.5
 const JUNIOR_BOSS_MOVEMENT_MULTIPLIER: float = 0.90
+const MYTHIC_BOSS_MOVEMENT_MULTIPLIER: float = 1.10
+const DEFAULT_BOSS_DASH_MAX_TOKENS: int = 1
+const MYTHIC_BOSS_DASH_MAX_TOKENS: int = 2
 const BOSS_STAGE_SPEED_RATE: float = 0.03
 const BOSS_STAGE_SPEED_CAP: float = 0.50
 const BOSS_DASH_DISTANCE_STAGE_RATE: float = 0.05
@@ -66,7 +69,7 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 		"boss_movement_decel": boss_movement_profile["boss_movement_decel"],
 		"boss_movement_max_speed": boss_movement_profile["boss_movement_max_speed"],
 		"boss_dash_enabled": _is_boss_dash_enabled(current_stage),
-		"boss_dash_max_tokens": 1,
+		"boss_dash_max_tokens": _get_boss_dash_max_tokens(ai_mode),
 		"boss_dash_stage_distance_multiplier": boss_dash_profile["boss_dash_stage_distance_multiplier"],
 		"boss_dash_stage_cooldown_multiplier": boss_dash_profile["boss_dash_stage_cooldown_multiplier"],
 		"boss_dash_max_distance": boss_dash_profile["boss_dash_max_distance"],
@@ -187,9 +190,18 @@ func _build_boss_movement_profile(current_stage: int, ai_mode: String) -> Dictio
 
 
 func _get_boss_league_movement_multiplier(ai_mode: String) -> float:
-	if _normalize_league_mode(ai_mode) == "junior":
+	var normalized_mode: String = _normalize_league_mode(ai_mode)
+	if normalized_mode == "junior":
 		return JUNIOR_BOSS_MOVEMENT_MULTIPLIER
+	if normalized_mode == "mythic":
+		return MYTHIC_BOSS_MOVEMENT_MULTIPLIER
 	return 1.0
+
+
+func _get_boss_dash_max_tokens(ai_mode: String) -> int:
+	if _normalize_league_mode(ai_mode) == "mythic":
+		return MYTHIC_BOSS_DASH_MAX_TOKENS
+	return DEFAULT_BOSS_DASH_MAX_TOKENS
 
 
 func _normalize_league_mode(ai_mode: String) -> String:
