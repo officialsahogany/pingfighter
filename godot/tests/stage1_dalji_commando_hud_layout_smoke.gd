@@ -441,6 +441,7 @@ func _verify_stage1_status_orb_base_render_budgets() -> void:
 	_expect(SmasherSkillOrbSocketRenderer.ACTIVATION_FLASH_LAYER_COUNT <= 1, "skill-orb activation flash should keep a bounded layer budget")
 	_expect(SmasherSkillOrbCooldownRenderer.COOLDOWN_SECTOR_SEGMENTS <= 14, "skill-orb cooldown sectors should keep a bounded polygon budget")
 	_expect(SmasherSkillOrbCooldownRenderer.COOLDOWN_RING_SEGMENTS <= 14, "skill-orb cooldown rings should keep a bounded arc budget")
+	_expect(SmasherSkillOrbCooldownRenderer.COOLDOWN_RING_SEGMENTS_STATIC_LOD >= 14, "skill-orb static cooldown rings should not collapse into octagonal silhouettes")
 	_expect(Stage1PillarUiRenderer.SENSOR_FRAME_ARC_SEGMENTS <= 16, "Stage 1 sensor cooldown HUD should keep a bounded frame arc budget")
 	_expect(Stage1PillarUiRenderer.SENSOR_FRAME_ARC_SEGMENTS_LOD <= 12, "Stage 1 sensor cooldown HUD should keep a tight LOD frame arc budget")
 	_expect(Stage1PillarUiRenderer.SENSOR_PROGRESS_ARC_SEGMENTS <= 16, "Stage 1 sensor cooldown HUD should keep a bounded progress arc budget")

@@ -112,7 +112,7 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 		pillar_drawer.draw_pillar_orb_glass(canvas, center, radius, Color(0.50, 0.74, 1.0, 1.0))
 	if frame_texture is Texture2D:
 		var texture: Texture2D = frame_texture
-		var spin_angle: float = 0.0 if static_hud_lod else float(context.get("frame_spin_angle", 0.0))
+		var spin_angle: float = _get_frame_spin_angle(context)
 		pillar_drawer.draw_rotating_orb_frame_texture(canvas, texture, center, radius, spin_angle)
 
 	if flash_timer > 0.0 and not static_hud_lod:
@@ -165,3 +165,9 @@ func _update_display_ratio(target_ratio: float, time_seconds: float) -> float:
 	if abs(_display_full_ratio - clamped_target) <= LIQUID_DISPLAY_SNAP_EPSILON:
 		_display_full_ratio = clamped_target
 	return _display_full_ratio
+
+
+func _get_frame_spin_angle(context: Dictionary) -> float:
+	# Static HUD LOD trims ornamental layers, but the event-triggered frame spin
+	# is just the already-drawn frame texture with a transform while active.
+	return float(context.get("frame_spin_angle", 0.0))

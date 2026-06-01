@@ -1,7 +1,11 @@
 extends SceneTree
 
 const PillarGaugeOrbRenderer := preload("res://scripts/hud/pillar_gauge_orb_renderer.gd")
+const PillarDashOrbRenderer := preload("res://scripts/hud/pillar_dash_orb_renderer.gd")
 const PillarLiquidDrawer := preload("res://scripts/hud/pillar_liquid_drawer.gd")
+const OrbHudState := preload("res://scripts/hud/orb_hud_state.gd")
+const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.gd")
+const SmasherPlayerDashController := preload("res://scripts/characters/smasher_player_dash_controller.gd")
 
 var _failures: Array[String] = []
 
@@ -13,6 +17,16 @@ func _init() -> void:
 
 	var full_ratio: float = gauge_renderer._update_display_ratio(1.0, 10.016)
 	_expect(is_equal_approx(full_ratio, 1.0), "full gauge display should snap to stable full instead of lingering below max")
+	_expect(
+		is_equal_approx(gauge_renderer._get_frame_spin_angle({"pillar_hud_static_lod": true, "frame_spin_angle": 37.0}), 37.0),
+		"static HUD LOD should preserve the gauge frame spin feedback angle"
+	)
+	var dash_renderer := PillarDashOrbRenderer.new()
+	_expect(
+		is_equal_approx(dash_renderer._get_frame_spin_angle({"pillar_hud_static_lod": true, "frame_spin_angle": -42.0}), -42.0),
+		"static HUD LOD should preserve the dash frame spin feedback angle"
+	)
+	_verify_dash_spin_feedback_path()
 
 	var liquid_drawer := PillarLiquidDrawer.new()
 	_expect(liquid_drawer._is_stable_full_fill_ratio(1.0), "full liquid should use the stable non-animated fill")
@@ -69,6 +83,44 @@ func _init() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _verify_dash_spin_feedback_path() -> void:
+	var orb_state: Object = OrbHudState.new()
+	orb_state.reset_dash_tokens(1)
+	orb_state.sync_dash_token_spin(0, 1000)
+	_expect(
+		float(orb_state.get_dash_token_spin_angle(1100)) > 0.0,
+		"dash token drop should produce a visible frame spin angle"
+	)
+
+	orb_state.reset_dash_tokens(1)
+	var dash_state: Object = SmasherDashState.new()
+	dash_state.reset_full(1)
+	var controller: Object = SmasherPlayerDashController.new()
+	var result: Dictionary = controller.handle_dash_input(
+		true,
+		1.0,
+		Vector2(302.5, 700.0),
+		0.0,
+		{
+			"special_gauge": 0.0,
+			"play_left": 0.0,
+			"play_right": 760.0,
+			"paddle_width": 155.0,
+			"paddle_height": 50.0,
+		},
+		{
+			"dash_state": dash_state,
+			"orb_hud_state": orb_state,
+		}
+	)
+	_expect(bool(result.get("handled_by_dash", false)), "normal dash input should be handled")
+	var spin_start: int = int(orb_state.get_dash_token_spin_start_msec())
+	_expect(
+		float(orb_state.get_dash_token_spin_angle(spin_start + 100)) > 0.0,
+		"normal dash start should trigger the dash orb frame spin"
+	)
 
 
 func _function_body(source: String, signature: String) -> String:

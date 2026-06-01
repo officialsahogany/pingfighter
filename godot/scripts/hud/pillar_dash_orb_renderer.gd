@@ -95,7 +95,7 @@ func draw(canvas: CanvasItem, center: Vector2, orb_radius: float, t: float, scal
 
 	if frame_texture is Texture2D:
 		var texture: Texture2D = frame_texture
-		var spin_angle: float = 0.0 if static_hud_lod else float(context.get("frame_spin_angle", 0.0))
+		var spin_angle: float = _get_frame_spin_angle(context)
 		pillar_drawer.draw_rotating_orb_frame_texture(canvas, texture, center, radius, spin_angle)
 
 	var glass_rim_color: Color = _get_color(context, "glass_rim_color", Color(1.0, 0.56, 0.50, 1.0))
@@ -159,6 +159,12 @@ func _get_color(context: Dictionary, key: String, fallback: Color) -> Color:
 
 func _is_hud_lod_active(context: Dictionary) -> bool:
 	return float(context.get("hud_lod_scale", 1.0)) < 0.85
+
+
+func _get_frame_spin_angle(context: Dictionary) -> float:
+	# Static HUD LOD keeps costly ornamentals off, while preserving the cheap
+	# event-triggered frame texture rotation for dash-token feedback.
+	return float(context.get("frame_spin_angle", 0.0))
 
 
 # Push the orb's boost / half-ready state into the shader FX host. Returns true
