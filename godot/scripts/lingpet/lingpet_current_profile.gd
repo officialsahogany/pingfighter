@@ -46,6 +46,10 @@ func get_effect_text() -> String:
 	return LingpetCatalog.get_effect_text(pet_id)
 
 
+func get_motion_style() -> String:
+	return LingpetCatalog.get_motion_style(pet_id)
+
+
 func get_skill_id() -> String:
 	return str(get_active_skill().get("id", ""))
 

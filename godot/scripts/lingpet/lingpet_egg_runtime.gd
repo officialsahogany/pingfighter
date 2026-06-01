@@ -18,9 +18,9 @@ const LingpetEggFieldRenderer := preload("res://scripts/lingpet/lingpet_egg_fiel
 const LingpetRuntimeSnapshotBuilder := preload("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
 const LingpetSaveRestorePlanner := preload("res://scripts/lingpet/lingpet_save_restore_planner.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
-const MARIBO_EGG_TEXTURE := preload("res://assets/sprites/lingpet/maribo_egg_v002.png")
-const MARIBO_EGG_TEXTURE_CRACK_1 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png")
-const MARIBO_EGG_TEXTURE_CRACK_2 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack2.png")
+const LINGPET_EGG_TEXTURE := preload("res://assets/sprites/lingpet/maribo_egg_v002.png")
+const LINGPET_EGG_TEXTURE_CRACK_1 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png")
+const LINGPET_EGG_TEXTURE_CRACK_2 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack2.png")
 # AutoSprite back-view walk sheet (player-side view). Runtime-ready 640x640 PNG,
 # 5 cols x 5 rows = 25 frames, 128px cells. Source provenance:
 # godot/lingpet/maribo/maribo_walk_back_autosprite_v001.png (256px native cells).
@@ -518,7 +518,7 @@ func _mark_pet_owned(owner: Object, pet_id: String) -> void:
 
 func _get_effect_text() -> String:
 	if _state == STATE_EGG:
-		return "공에 %d회 맞히면 공명으로 %s가 깨어납니다." % [_get_current_required_hits(), _get_current_display_name()]
+		return "공에 %d회 맞히면 미확인 알이 깨어납니다." % _get_current_required_hits()
 	if _state == STATE_COMPANION:
 		return _current_profile.get_effect_text()
 	return ""
@@ -554,6 +554,10 @@ func _get_current_stat(stat_name: String, fallback: float) -> float:
 
 func _get_current_active_skill() -> Dictionary:
 	return _current_profile.get_active_skill()
+
+
+func _get_current_motion_style() -> String:
+	return _current_profile.get_motion_style()
 
 
 func _get_current_skill_id() -> String:
@@ -620,7 +624,8 @@ func _update_companion_motion(delta: float, owner: Object) -> void:
 		_get_current_defense_rate(),
 		_companion_skill_state.trigger_count,
 		_get_current_stat("patrol_speed_min", COMPANION_PATROL_SPEED_MIN),
-		_get_current_stat("patrol_speed_max", COMPANION_PATROL_SPEED_MAX)
+		_get_current_stat("patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
+		_get_current_motion_style()
 	)
 	_companion_pos = _companion_motion_state.pos
 
@@ -632,7 +637,8 @@ func _initialize_companion_patrol(owner: Object, randomize_x: bool) -> void:
 		randomize_x,
 		_companion_skill_state.trigger_count,
 		_get_current_stat("patrol_speed_min", COMPANION_PATROL_SPEED_MIN),
-		_get_current_stat("patrol_speed_max", COMPANION_PATROL_SPEED_MAX)
+		_get_current_stat("patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
+		_get_current_motion_style()
 	)
 	_companion_pos = _companion_motion_state.pos
 
@@ -642,7 +648,8 @@ func _restore_companion_patrol(snapshot: Dictionary) -> void:
 	_companion_motion_state.restore(
 		snapshot,
 		_get_current_stat("patrol_speed_min", COMPANION_PATROL_SPEED_MIN),
-		_get_current_stat("patrol_speed_max", COMPANION_PATROL_SPEED_MAX)
+		_get_current_stat("patrol_speed_max", COMPANION_PATROL_SPEED_MAX),
+		_get_current_motion_style()
 	)
 	_companion_pos = _companion_motion_state.pos
 
@@ -748,11 +755,11 @@ func _get_egg_texture_for_hits() -> Texture2D:
 	var visual_key: String = _egg_renderer.get_visual_key_for_hits(_egg_state.hatch_hits, _get_current_required_hits())
 	match visual_key:
 		"egg_crack_2":
-			return _get_current_visual_texture("egg_crack_2", MARIBO_EGG_TEXTURE_CRACK_2)
+			return _get_current_visual_texture("egg_crack_2", LINGPET_EGG_TEXTURE_CRACK_2)
 		"egg_crack_1":
-			return _get_current_visual_texture("egg_crack_1", MARIBO_EGG_TEXTURE_CRACK_1)
+			return _get_current_visual_texture("egg_crack_1", LINGPET_EGG_TEXTURE_CRACK_1)
 		_:
-			return _get_current_visual_texture("egg", MARIBO_EGG_TEXTURE)
+			return _get_current_visual_texture("egg", LINGPET_EGG_TEXTURE)
 
 
 func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:

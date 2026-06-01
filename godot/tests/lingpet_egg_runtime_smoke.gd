@@ -280,7 +280,7 @@ func _init() -> void:
 	_verify_egg_player_contact_nudges_and_wobbles()
 	_verify_player_serve_ball_does_not_hatch_egg()
 	_verify_egg_hit_uses_player_paddle_reflection()
-	_verify_two_ball_hits_hatch_maribo()
+	_verify_two_ball_hits_hatch_unidentified_egg()
 	_verify_acquire_cutin_triggers_on_hatch()
 	_verify_owned_maribo_is_kept_as_companion()
 	_verify_lingpet_battle_slot_model()
@@ -299,6 +299,7 @@ func _init() -> void:
 	_verify_battle_lifecycle_restores_lingpet_save()
 	_verify_maribo_companion_gauge_bonus()
 	_verify_maribo_defense_rate_intercepts_descending_ball()
+	_verify_lunabi_free_flight_profile()
 	_verify_ineligible_conditions_do_not_spawn()
 
 	if _failures.is_empty():
@@ -345,12 +346,12 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(FileAccess.file_exists("res://scripts/stages/common/lingpet_rail_card.gd"), "shared lingpet rail card helper should exist")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png"), "Maribo Hydro Sphere rail card should ship a landscape (boss-card class) imagegen PNG")
 	_expect(drawer_source.find("lingpet_egg_runtime") >= 0, "playfield drawer should keep drawing the ringpet companion after hatching")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002.png"), "Maribo egg should use a PNG-backed runtime asset")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png"), "Maribo egg should have a first-hit cracked PNG variant")
-	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002_crack2.png"), "Maribo egg should have a second-hit cracked PNG variant")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002.png"), "shared unidentified lingpet egg should use a PNG-backed runtime asset")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png"), "shared unidentified lingpet egg should have a first-hit cracked PNG variant")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002_crack2.png"), "shared unidentified lingpet egg should have a second-hit cracked PNG variant")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
-	_expect(runtime_source.find("MARIBO_EGG_TEXTURE_CRACK_1") >= 0, "field egg rendering should switch to the first cracked asset after one hit")
-	_expect(runtime_source.find("MARIBO_EGG_TEXTURE_CRACK_2") >= 0, "field egg rendering should switch to the second cracked asset after two hits")
+	_expect(runtime_source.find("LINGPET_EGG_TEXTURE_CRACK_1") >= 0, "field egg rendering should switch to the first cracked asset after one hit")
+	_expect(runtime_source.find("LINGPET_EGG_TEXTURE_CRACK_2") >= 0, "field egg rendering should switch to the second cracked asset after two hits")
 	_expect(runtime_source.find("lingpet_egg_field_renderer.gd") >= 0, "egg runtime should delegate field egg rendering to the egg renderer module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_egg_field_renderer.gd"), "egg-field renderer module should exist")
 	var egg_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
@@ -458,6 +459,9 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(modal_gate != null and modal_gate.has_method("is_lingpet_acquire_cutin_active"), "modal gate controller should implement the cut-in gate method")
 	var host: Object = GameplayModuleRegistry.new().get_instance("lingpet_acquire_cutin_overlay_host")
 	_expect(host != null and host.has_method("draw"), "lingpet acquisition cut-in host should be registered and drawable")
+	var cutin_host_dynamic_source: String = FileAccess.get_file_as_string("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
+	_expect(cutin_host_dynamic_source.find("LingpetCatalog.get_visual_path") >= 0, "lingpet acquisition cut-in host should resolve art through the hatched pet catalog entry")
+	_expect(cutin_host_dynamic_source.find("_get_runtime_pet_id") >= 0, "lingpet acquisition cut-in host should read the hatched pet id from runtime instead of staying Maribo-only")
 
 
 func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
@@ -466,9 +470,13 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 		"character_type": "smasher",
 	}
 	var candidates: Array[String] = LingpetCatalog.get_hatch_candidates(eligible_context, [])
-	_expect(candidates.has("maribo"), "catalog should expose Maribo as the current eligible random hatch candidate")
-	_expect(str(LingpetCatalog.pick_hatch_pet_id(eligible_context, [])) == "maribo", "single-candidate hatch pick should currently resolve to Maribo")
-	_expect(LingpetCatalog.get_hatch_candidates(eligible_context, ["maribo"]).is_empty(), "owned lingpets should be removed from the random hatch candidate pool")
+	_expect(candidates.has("maribo") and candidates.has("lunabi"), "catalog should expose every shipped Junior Smasher lingpet as an unidentified egg hatch candidate")
+	var hatch_rng := RandomNumberGenerator.new()
+	hatch_rng.seed = 7
+	_expect(candidates.has(str(LingpetCatalog.pick_hatch_pet_id(eligible_context, [], hatch_rng))), "weighted hatch pick should resolve to one of the current unidentified egg candidates")
+	var after_maribo_owned_live: Array[String] = LingpetCatalog.get_hatch_candidates(eligible_context, ["maribo"])
+	_expect(not after_maribo_owned_live.has("maribo") and after_maribo_owned_live.has("lunabi"), "owned lingpets should be removed without hiding other unidentified egg candidates")
+	_expect(LingpetCatalog.get_hatch_candidates(eligible_context, ["maribo", "lunabi"]).is_empty(), "random hatch candidates should empty only after all current lingpets are owned")
 	_expect(LingpetCatalog.get_hatch_candidates({"league_mode": "champion", "character_type": "smasher"}, []).is_empty(), "catalog should keep Junior League eligibility gating")
 	var live_catalog_issues: Array[String] = LingpetCatalog.validate_catalog(true)
 	_expect(live_catalog_issues.is_empty(), "live lingpet catalog should validate cleanly: %s" % str(live_catalog_issues))
@@ -556,7 +564,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(str(LingpetCatalog.pick_hatch_pet_id_from_entries(multi_entries, eligible_context, ["maribo"])) == "test_bubble", "multi-candidate picker should resolve the remaining eligible pet after ownership filtering")
 	_expect(LingpetCatalog.get_required_hits("maribo") == 2, "catalog should own Maribo hatch-hit requirements")
 	_expect(LingpetCatalog.get_display_name("maribo") == "마리보", "catalog should own lingpet display names")
-	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("maribo_egg_v002.png"), "catalog should own Maribo egg visual paths")
+	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("maribo_egg_v002.png"), "catalog should own the current shared unidentified egg visual path")
+	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("maribo_egg_v002.png"), "Lunabi should hatch from the same shared unidentified egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "companion_walk")).ends_with("maribo_companion_walk.png"), "catalog should own Maribo companion visual paths")
 	_expect(str(LingpetCatalog.get_active_skill_entry("maribo_hydro_sphere").get("runtime_kind", "")) == "hydro_sphere", "catalog should expose Maribo active-skill runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_runtime_kind_from_entries(multi_entries, "test_bubble_guard")) == "bubble_guard", "catalog should resolve future lingpet skill runtime kinds from active_skill metadata")
@@ -688,10 +697,10 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 func _verify_junior_mika_spawn_syncs_character_info_keys() -> void:
 	var owner := FakeOwner.new()
 	var runtime: Object = LingpetEggRuntime.new()
-	_expect(runtime.update(0.0, owner), "Junior Mika should spawn the first Maribo egg immediately")
+	_expect(runtime.update(0.0, owner), "Junior Mika should spawn the first unidentified lingpet egg immediately")
 	var snapshot: Dictionary = runtime.get_snapshot()
-	_expect(str(snapshot.get("state", "")) == "egg", "first Maribo state should become egg")
-	_expect(str(owner.lingpet_id) == "maribo", "owner should publish the Maribo id for the character-info panel")
+	_expect(str(snapshot.get("state", "")) == "egg", "first unidentified lingpet state should become egg")
+	_expect(str(owner.lingpet_id) == "" and str(owner.current_lingpet_id) == "" and str(owner.active_lingpet_id) == "", "egg state should not publish the hidden lingpet identity before hatch")
 	_expect(str(owner.lingpet_state) == "egg", "owner should publish egg state")
 	_expect(int(owner.lingpet_hatch_hits) == 0, "egg should start at 0 hatch hits")
 	_expect(int(owner.lingpet_hatch_required_hits) == 2, "egg should require two hits to hatch")
@@ -702,6 +711,7 @@ func _verify_junior_mika_spawn_syncs_character_info_keys() -> void:
 	var panel: Dictionary = CharacterInfoOverlay.new()._get_lingpet_panel_snapshot(owner)
 	_expect(str(panel.get("state", "")) == "egg", "character-info ringpet panel should read the shared egg state")
 	_expect(str(panel.get("subtitle", "")).find("0 / 2") >= 0, "character-info panel should show hatch progress")
+	_expect(str(owner.lingpet_effect_text).find("미확인 알") >= 0, "egg effect text should describe an unidentified egg without spoiling the lingpet")
 
 
 func _verify_egg_player_contact_nudges_and_wobbles() -> void:
@@ -759,8 +769,12 @@ func _verify_egg_hit_uses_player_paddle_reflection() -> void:
 	_expect(owner.ball_pos.y < egg_pos.y, "egg hit should separate the ball above the egg after reflection")
 
 
-func _verify_two_ball_hits_hatch_maribo() -> void:
+func _verify_two_ball_hits_hatch_unidentified_egg() -> void:
 	var owner := FakeOwner.new()
+	var hatch_candidates: Array[String] = LingpetCatalog.get_hatch_candidates({
+		"league_mode": "junior",
+		"character_type": "smasher",
+	}, [])
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.update(0.0, owner)
 	var egg_pos: Vector2 = owner.lingpet_egg_pos
@@ -772,18 +786,21 @@ func _verify_two_ball_hits_hatch_maribo() -> void:
 	_expect(owner.ball_vel.y < 0.0, "egg hit should reflect a downward ball toward the opponent side")
 
 	_register_hit(runtime, owner, egg_pos, 2)
-	_expect(str(owner.lingpet_state) == "companion", "second hit should hatch Maribo into companion state")
-	_expect(str(owner.active_lingpet_id) == "maribo", "hatched Maribo should become the active lingpet")
-	_expect(owner.lingpet_owned_pet_ids.has("maribo"), "hatched Maribo should be added to the owned pet id list")
-	_expect((owner.lingpet_slots as Array).size() == 3 and str((owner.lingpet_slots as Array)[0]) == "maribo", "hatched Maribo should auto-fill the first lingpet battle slot")
-	_expect(int(owner.lingpet_active_slot_index) == 0, "hatched Maribo should use slot 0 as the active battle slot")
-	_expect(bool(owner.lingpet_collection.get("maribo", false)), "hatched Maribo should be marked in the lingpet collection")
-	_expect(is_equal_approx(float(runtime.get_gauge_gain_per_hit(50.0)), 55.0), "hatched Maribo should expose a 10% gauge-gain bonus")
-	_expect(runtime.has_visible_effects(), "hatched Maribo should keep visible companion effects after hatching")
-	_expect(owner.lingpet_companion_pos is Vector2 and owner.lingpet_companion_pos != Vector2.ZERO, "hatched Maribo should publish companion position")
-	_expect(float(runtime.get_snapshot().get("hatch_flash_timer", 0.0)) > 0.0, "hatched Maribo should keep the egg-break animation active briefly")
+	var hatched_id := str(owner.active_lingpet_id)
+	_expect(str(owner.lingpet_state) == "companion", "second hit should hatch the unidentified egg into companion state")
+	_expect(hatch_candidates.has(hatched_id), "hatched lingpet should be one of the current unidentified egg candidates")
+	_expect(owner.lingpet_owned_pet_ids.has(hatched_id), "hatched lingpet should be added to the owned pet id list")
+	_expect((owner.lingpet_slots as Array).size() == 3 and str((owner.lingpet_slots as Array)[0]) == hatched_id, "hatched lingpet should auto-fill the first lingpet battle slot")
+	_expect(int(owner.lingpet_active_slot_index) == 0, "hatched lingpet should use slot 0 as the active battle slot")
+	_expect(bool(owner.lingpet_collection.get(hatched_id, false)), "hatched lingpet should be marked in the lingpet collection")
+	var expected_bonus_pct: float = LingpetCatalog.get_stat(hatched_id, "gauge_gain_bonus_pct", 0.0)
+	var expected_gain: float = floor(50.0 * (1.0 + expected_bonus_pct / 100.0))
+	_expect(is_equal_approx(float(runtime.get_gauge_gain_per_hit(50.0)), expected_gain), "hatched lingpet should expose its catalog gauge-gain bonus")
+	_expect(runtime.has_visible_effects(), "hatched lingpet should keep visible companion effects after hatching")
+	_expect(owner.lingpet_companion_pos is Vector2 and owner.lingpet_companion_pos != Vector2.ZERO, "hatched lingpet should publish companion position")
+	_expect(float(runtime.get_snapshot().get("hatch_flash_timer", 0.0)) > 0.0, "hatched lingpet should keep the egg-break animation active briefly")
 	var panel: Dictionary = CharacterInfoOverlay.new()._get_lingpet_panel_snapshot(owner)
-	_expect(str(panel.get("title", "")) == "마리보", "character-info panel should show Maribo after hatching")
+	_expect(str(panel.get("title", "")) == LingpetCatalog.get_display_name(hatched_id), "character-info panel should reveal the hatched lingpet after hatching")
 	_expect(str(panel.get("subtitle", "")) == "동행 중", "character-info panel should show companion status after hatching")
 
 
@@ -805,7 +822,7 @@ func _verify_acquire_cutin_triggers_on_hatch() -> void:
 	_register_hit(runtime, owner, egg_pos, 1)
 	_expect(not bool(runtime.is_acquire_cutin_active()), "acquisition cut-in should not start before the egg fully hatches")
 	_register_hit(runtime, owner, egg_pos, 2)
-	_expect(str(owner.lingpet_state) == "companion", "second hit should hatch Maribo before the cut-in check")
+	_expect(str(owner.lingpet_state) == "companion", "second hit should hatch the unidentified egg before the cut-in check")
 	_expect(bool(runtime.is_acquire_cutin_active()), "hatching should trigger the fullscreen acquisition cut-in")
 	_expect(is_equal_approx(float(runtime.get_acquire_cutin_progress()), 0.0), "acquisition cut-in should start at zero progress")
 	_expect(not bool(runtime.is_acquire_cutin_awaiting_dismiss()), "acquisition cut-in should not be dismissable before the reveal finishes")
@@ -1295,11 +1312,12 @@ func _verify_save_snapshot_roundtrip() -> void:
 	owner.ball_active = true
 	_register_hit(runtime, owner, egg_pos, 1)
 	_register_hit(runtime, owner, egg_pos, 2)
+	var hatched_id := str(owner.active_lingpet_id)
 
 	var snapshot: Dictionary = runtime.get_save_snapshot()
 	_expect(int(snapshot.get("version", 0)) == 1, "lingpet save snapshot should carry a schema version")
-	_expect((snapshot.get("owned_pet_ids", []) as Array).has("maribo"), "lingpet save snapshot should preserve owned Maribo")
-	_expect(str((snapshot.get("battle_slot_pet_ids", []) as Array)[0]) == "maribo", "lingpet save snapshot should preserve the battle slot assignment")
+	_expect((snapshot.get("owned_pet_ids", []) as Array).has(hatched_id), "lingpet save snapshot should preserve the hatched lingpet")
+	_expect(str((snapshot.get("battle_slot_pet_ids", []) as Array)[0]) == hatched_id, "lingpet save snapshot should preserve the battle slot assignment")
 	_expect(int(snapshot.get("active_slot_index", -1)) == 0, "lingpet save snapshot should preserve the active battle slot index")
 
 	var restored_owner := FakeOwner.new()
@@ -1307,10 +1325,10 @@ func _verify_save_snapshot_roundtrip() -> void:
 	var restored: Object = LingpetEggRuntime.new()
 	var restore_result: Dictionary = restored.apply_save_snapshot(snapshot, restored_owner)
 	_expect(bool(restore_result.get("restored", false)), "lingpet save snapshot should restore successfully")
-	_expect(str(restored_owner.lingpet_state) == "companion", "restored owned Maribo should sync companion state")
-	_expect(restored_owner.owned_lingpet_ids.has("maribo"), "restore should republish owned pet ids to the owner")
-	_expect(str((restored_owner.lingpet_slots as Array)[0]) == "maribo", "restore should republish battle slot assignment")
-	_expect(bool(restored_owner.owned_lingpets.get("maribo", false)), "restore should republish owned collection to the owner")
+	_expect(str(restored_owner.lingpet_state) == "companion", "restored owned lingpet should sync companion state")
+	_expect(restored_owner.owned_lingpet_ids.has(hatched_id), "restore should republish owned pet ids to the owner")
+	_expect(str((restored_owner.lingpet_slots as Array)[0]) == hatched_id, "restore should republish battle slot assignment")
+	_expect(bool(restored_owner.owned_lingpets.get(hatched_id, false)), "restore should republish owned collection to the owner")
 
 
 func _verify_save_store_persists_and_restores_maribo() -> void:
@@ -1498,14 +1516,64 @@ func _verify_maribo_defense_rate_intercepts_descending_ball() -> void:
 	_expect(not bool(owner.lingpet_companion_defense_intercept_active), "Maribo defense intercept should clear once the ball is no longer active")
 
 
+func _verify_lunabi_free_flight_profile() -> void:
+	var eligible_context := {
+		"league_mode": "junior",
+		"character_type": "smasher",
+	}
+	_expect(LingpetCatalog.has_pet("lunabi"), "catalog should recognize Lunabi for owned/runtime adoption")
+	_expect(LingpetCatalog.get_hatch_candidates(eligible_context, []).has("lunabi"), "Lunabi should be eligible from the shared unidentified Junior League egg")
+	_expect(str(LingpetCatalog.get_motion_style("lunabi")) == "free_flight", "Lunabi should use the free-flight companion motion style")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_companion_flight.png"), "Lunabi companion free-flight sheet should exist")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_companion_strike.png"), "Lunabi companion strike sheet should exist")
+	_expect(str(LingpetCatalog.get_visual_path("lunabi", "companion_walk")).ends_with("lunabi_companion_flight.png"), "Lunabi runtime walk slot should resolve to the free-flight sheet")
+	_expect(str(LingpetCatalog.get_visual_path("lunabi", "companion_strike")).ends_with("lunabi_companion_strike.png"), "Lunabi runtime strike slot should resolve to the ball-swoop sheet")
+
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["lunabi"]
+	owner.lingpet_slots = ["lunabi", "", ""]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	_expect(str(owner.active_lingpet_id) == "lunabi", "owned Lunabi should become the active companion through the slot model")
+	_expect(str(owner.lingpet_skill_id) == "", "disabled Lunabi placeholder skill should not publish an owner skill-card id")
+	_expect(not bool(owner.lingpet_skill_ready), "disabled Lunabi placeholder skill should not start ready")
+
+	var start_pos: Vector2 = owner.lingpet_companion_pos
+	var player_lane_y: float = owner.player_pos.y + owner.player_paddle_height * 0.5
+	_expect(absf(start_pos.y - player_lane_y) > 20.0, "Lunabi should not start locked to the player-height patrol lane")
+	var snapshot: Dictionary = runtime.get_snapshot()
+	_expect(str(snapshot.get("companion_motion_style", "")) == "free_flight", "Lunabi snapshot should expose free-flight motion style")
+	_expect(snapshot.get("companion_free_flight_target", Vector2.ZERO) is Vector2, "Lunabi snapshot should expose a free-flight target")
+	_expect(is_equal_approx(float(snapshot.get("companion_defense_rate", -1.0)), 0.0), "Lunabi should not use Maribo's defensive intercept rate")
+	_expect(str(snapshot.get("companion_skill_id", "")) == "", "disabled Lunabi placeholder skill should not publish a rail-card id")
+
+	var saw_offscreen_target := false
+	for _i in range(80):
+		runtime.update(0.25, owner)
+		snapshot = runtime.get_snapshot()
+		var target: Vector2 = snapshot.get("companion_free_flight_target", Vector2.ZERO)
+		if target.x < 0.0 or target.x > 760.0 or target.y < 0.0 or target.y > 750.0:
+			saw_offscreen_target = true
+			break
+	_expect(saw_offscreen_target, "Lunabi free flight should sometimes target outside the screen")
+
+	owner.ball_active = true
+	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -6.0)
+	owner.ball_vel = Vector2(0.0, 12.0)
+	runtime.update(0.01, owner)
+	_expect(owner.ball_vel.y < 0.0, "Lunabi overlap should bounce the ball")
+	_expect(int(owner.lingpet_companion_contact_count) == 1, "Lunabi overlap should register one companion contact")
+	_expect(bool(runtime.is_companion_striking_for_tests()), "Lunabi should play the ball-swoop strike sheet on contact")
+
+
 func _verify_ineligible_conditions_do_not_spawn() -> void:
 	var champion_owner := FakeOwner.new()
 	champion_owner.ai_mode = "champion"
-	_expect(not LingpetEggRuntime.new().update(0.0, champion_owner), "Champion League should not spawn the first Maribo egg")
+	_expect(not LingpetEggRuntime.new().update(0.0, champion_owner), "Champion League should not spawn the first unidentified lingpet egg")
 
 	var viper_owner := FakeOwner.new()
 	viper_owner.selected_character_type = "viper"
-	_expect(not LingpetEggRuntime.new().update(0.0, viper_owner), "Junior non-Mika character should not spawn the first Maribo egg")
+	_expect(not LingpetEggRuntime.new().update(0.0, viper_owner), "Junior non-Mika character should not spawn the first unidentified lingpet egg")
 
 
 func _find_stat(stats: Array, label: String) -> Dictionary:

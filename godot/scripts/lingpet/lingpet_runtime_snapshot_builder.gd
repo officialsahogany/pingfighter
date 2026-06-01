@@ -31,6 +31,8 @@ func build_runtime_snapshot(
 	skill_runtime_host: Object
 ) -> Dictionary:
 	var companion_active: bool = state == STATE_COMPANION
+	var skill_enabled := bool(active_skill.get("enabled", true))
+	var skill_active := companion_active and skill_enabled
 	var skill_id := str(active_skill.get("id", ""))
 	var skill_name := str(active_skill.get("name", ""))
 	var skill_description := str(active_skill.get("description", ""))
@@ -42,10 +44,10 @@ func build_runtime_snapshot(
 		"companion_pos": companion_pos,
 		"companion_catch_width": catch_width,
 		"companion_catch_height": catch_height,
-		"companion_skill_id": skill_id if companion_active else "",
-		"companion_skill_name": skill_name if companion_active else "",
-		"companion_skill_description": skill_description if companion_active else "",
-		"companion_skill_card_path": str(active_skill.get("card_texture_path", "")) if companion_active else "",
+		"companion_skill_id": skill_id if skill_active else "",
+		"companion_skill_name": skill_name if skill_active else "",
+		"companion_skill_description": skill_description if skill_active else "",
+		"companion_skill_card_path": str(active_skill.get("card_texture_path", "")) if skill_active else "",
 		"hatch_flash_timer": hatch_flash_timer,
 		"owned_pet_ids": owned_pet_ids.duplicate(),
 		"battle_slot_pet_ids": battle_slot_pet_ids.duplicate(),
@@ -66,7 +68,7 @@ func build_runtime_snapshot(
 	if body_hit_state != null:
 		snapshot.merge(body_hit_state.get_snapshot(companion_active, hit_gauge_gain), true)
 	if skill_state != null:
-		snapshot.merge(skill_state.get_snapshot(companion_active, skill_id, skill_cooldown, skill_windup_seconds, skill_flash_seconds), true)
+		snapshot.merge(skill_state.get_snapshot(skill_active, skill_id, skill_cooldown, skill_windup_seconds, skill_flash_seconds), true)
 	if skill_runtime_host != null:
 		snapshot.merge(skill_runtime_host.get_snapshot(), true)
 	return snapshot
@@ -134,10 +136,12 @@ func sync_owner(
 	if owner == null:
 		return
 	var companion_active: bool = state == STATE_COMPANION
-	var public_pet_id: String = pet_id if state != STATE_NONE else ""
-	var skill_id := str(active_skill.get("id", "")) if companion_active else ""
-	var skill_name := str(active_skill.get("name", "")) if companion_active else ""
-	var skill_cooldown := float(active_skill.get("cooldown", 0.0))
+	var public_pet_id: String = pet_id if companion_active else ""
+	var skill_enabled := bool(active_skill.get("enabled", true))
+	var skill_active := companion_active and skill_enabled
+	var skill_id := str(active_skill.get("id", "")) if skill_active else ""
+	var skill_name := str(active_skill.get("name", "")) if skill_active else ""
+	var skill_cooldown := float(active_skill.get("cooldown", 0.0)) if skill_active else 0.0
 	owner.set("lingpet_id", public_pet_id)
 	owner.set("active_lingpet_id", public_pet_id if companion_active else "")
 	owner.set("current_lingpet_id", public_pet_id)
@@ -157,7 +161,7 @@ func sync_owner(
 	_set_pair(owner, "lingpet_companion_defense_rate", "ringpet_companion_defense_rate", defense_rate if companion_active else 0.0)
 	_sync_motion_owner(owner, motion_state)
 	_sync_body_hit_owner(owner, body_hit_state, hit_gauge_gain if companion_active else 0.0)
-	_sync_skill_owner(owner, skill_state, skill_id, skill_name, skill_cooldown, companion_active)
+	_sync_skill_owner(owner, skill_state, skill_id, skill_name, skill_cooldown, skill_active)
 	_set_pair(owner, "lingpet_gauge_gain_bonus_pct", "ringpet_gauge_gain_bonus_pct", gauge_gain_bonus_pct if companion_active else 0.0)
 	owner.set("lingpet_effect_text", effect_text)
 

@@ -19,8 +19,20 @@ const COMPANION_DEFENSE_DECISION_INTERVAL_MAX := 0.95
 const COMPANION_DEFENSE_LOOKAHEAD_MAX_GAP := 320.0
 const COMPANION_DEFENSE_INTERCEPT_SPEED := 155.0
 const COMPANION_DEFENSE_TARGET_TOLERANCE := 8.0
+const MOTION_STYLE_PATROL := "patrol"
+const MOTION_STYLE_FREE_FLIGHT := "free_flight"
+const FREE_FLIGHT_MARGIN_X := 96.0
+const FREE_FLIGHT_MARGIN_Y := 72.0
+const FREE_FLIGHT_INSIDE_MARGIN_X := 42.0
+const FREE_FLIGHT_INSIDE_MARGIN_Y := 70.0
+const FREE_FLIGHT_TARGET_TOLERANCE := 12.0
+const FREE_FLIGHT_TARGET_INTERVAL_MIN := 0.55
+const FREE_FLIGHT_TARGET_INTERVAL_MAX := 1.65
+const FREE_FLIGHT_EXIT_CHANCE := 0.28
 
 var pos := Vector2.ZERO
+var motion_style := MOTION_STYLE_PATROL
+var free_flight_target := Vector2.ZERO
 var patrol_dir := 0.0
 var patrol_pause := 0.0
 var patrol_change_timer := 0.0
@@ -37,6 +49,8 @@ var defense_last_roll := 1.0
 
 func reset() -> void:
 	pos = Vector2.ZERO
+	motion_style = MOTION_STYLE_PATROL
+	free_flight_target = Vector2.ZERO
 	patrol_dir = 0.0
 	patrol_pause = 0.0
 	patrol_change_timer = 0.0
@@ -59,6 +73,20 @@ func clear_defense_intercept() -> void:
 	defense_intercept_target_x = 0.0
 
 
+func _normalize_motion_style(value: String) -> String:
+	var normalized := value.strip_edges().to_lower()
+	return MOTION_STYLE_FREE_FLIGHT if normalized == MOTION_STYLE_FREE_FLIGHT else MOTION_STYLE_PATROL
+
+
+func _get_vector2_from_variant(value: Variant, fallback: Vector2) -> Vector2:
+	if value is Vector2:
+		return value
+	if value is Dictionary:
+		var data := value as Dictionary
+		return Vector2(float(data.get("x", fallback.x)), float(data.get("y", fallback.y)))
+	return fallback
+
+
 func update(
 	delta: float,
 	owner: Object,
@@ -66,14 +94,19 @@ func update(
 	defense_rate: float,
 	trigger_count: int,
 	speed_min: float,
-	speed_max: float
+	speed_max: float,
+	motion_style_value: String = MOTION_STYLE_PATROL
 ) -> void:
+	motion_style = _normalize_motion_style(motion_style_value)
+	if motion_style == MOTION_STYLE_FREE_FLIGHT:
+		_update_free_flight(delta, owner, freeze_motion, trigger_count, speed_min, speed_max)
+		return
 	if patrol_seed <= 0 or patrol_min_x <= 0.0 or patrol_max_x <= patrol_min_x:
-		initialize(owner, pos == Vector2.ZERO, trigger_count, speed_min, speed_max)
+		initialize(owner, pos == Vector2.ZERO, trigger_count, speed_min, speed_max, motion_style)
 	else:
 		sync_lane(owner)
 	if pos == Vector2.ZERO:
-		initialize(owner, true, trigger_count, speed_min, speed_max)
+		initialize(owner, true, trigger_count, speed_min, speed_max, motion_style)
 		return
 
 	var safe_delta: float = maxf(0.0, delta)
@@ -115,7 +148,18 @@ func update(
 			_choose_next_action(speed_min, speed_max)
 
 
-func initialize(owner: Object, randomize_x: bool, trigger_count: int, speed_min: float, speed_max: float) -> void:
+func initialize(
+	owner: Object,
+	randomize_x: bool,
+	trigger_count: int,
+	speed_min: float,
+	speed_max: float,
+	motion_style_value: String = MOTION_STYLE_PATROL
+) -> void:
+	motion_style = _normalize_motion_style(motion_style_value)
+	if motion_style == MOTION_STYLE_FREE_FLIGHT:
+		_initialize_free_flight(owner, randomize_x, trigger_count, speed_min, speed_max)
+		return
 	sync_lane(owner)
 	if patrol_seed <= 0:
 		patrol_seed = _build_seed(owner, trigger_count)
@@ -151,7 +195,17 @@ func sync_lane(owner: Object) -> void:
 		pos.y = patrol_lane_y
 
 
-func restore(snapshot: Dictionary, speed_min: float, speed_max: float) -> void:
+func restore(
+	snapshot: Dictionary,
+	speed_min: float,
+	speed_max: float,
+	motion_style_value: String = MOTION_STYLE_PATROL
+) -> void:
+	motion_style = _normalize_motion_style(motion_style_value)
+	free_flight_target = _get_vector2_from_variant(
+		snapshot.get("companion_free_flight_target", free_flight_target),
+		free_flight_target
+	)
 	var restored_dir: float = float(snapshot.get("companion_patrol_dir", patrol_dir))
 	if restored_dir > 0.0:
 		patrol_dir = 1.0
@@ -174,6 +228,8 @@ func restore(snapshot: Dictionary, speed_min: float, speed_max: float) -> void:
 
 func get_snapshot(speed_default: float, speed_min: float, speed_max: float, defense_rate: float) -> Dictionary:
 	return {
+		"companion_motion_style": motion_style,
+		"companion_free_flight_target": free_flight_target,
 		"companion_patrol_dir": patrol_dir,
 		"companion_patrol_pause": patrol_pause,
 		"companion_patrol_change_timer": patrol_change_timer,
@@ -195,6 +251,8 @@ func get_snapshot(speed_default: float, speed_min: float, speed_max: float, defe
 
 func get_save_snapshot() -> Dictionary:
 	return {
+		"companion_motion_style": motion_style,
+		"companion_free_flight_target": free_flight_target,
 		"companion_patrol_dir": patrol_dir,
 		"companion_patrol_pause": patrol_pause,
 		"companion_patrol_change_timer": patrol_change_timer,
@@ -209,6 +267,115 @@ func configure_for_tests(test_pos: Vector2, test_seed: int, test_decision_timer:
 	patrol_seed = test_seed
 	defense_decision_timer = maxf(0.0, test_decision_timer)
 	defense_intercept_active = test_intercept_active
+
+
+func _update_free_flight(
+	delta: float,
+	owner: Object,
+	freeze_motion: bool,
+	trigger_count: int,
+	speed_min: float,
+	speed_max: float
+) -> void:
+	if patrol_seed <= 0 or patrol_max_x <= patrol_min_x:
+		_initialize_free_flight(owner, pos == Vector2.ZERO, trigger_count, speed_min, speed_max)
+	else:
+		_sync_free_flight_bounds()
+	if pos == Vector2.ZERO:
+		_initialize_free_flight(owner, true, trigger_count, speed_min, speed_max)
+		return
+
+	var safe_delta: float = maxf(0.0, delta)
+	clear_defense_intercept()
+	if freeze_motion or safe_delta <= 0.0:
+		return
+	patrol_change_timer = maxf(0.0, patrol_change_timer - safe_delta)
+	if (
+		free_flight_target == Vector2.ZERO
+		or patrol_change_timer <= 0.0
+		or pos.distance_to(free_flight_target) <= FREE_FLIGHT_TARGET_TOLERANCE
+	):
+		_choose_free_flight_target(speed_min, speed_max)
+
+	var offset := free_flight_target - pos
+	var distance := offset.length()
+	if distance > 0.01:
+		var step := minf(distance, patrol_speed * safe_delta)
+		pos += offset / distance * step
+		if absf(offset.x) > 1.0:
+			patrol_dir = 1.0 if offset.x > 0.0 else -1.0
+	pos.x = clampf(pos.x, patrol_min_x, patrol_max_x)
+	pos.y = clampf(pos.y, -FREE_FLIGHT_MARGIN_Y, FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y)
+
+
+func _initialize_free_flight(
+	owner: Object,
+	randomize_pos: bool,
+	trigger_count: int,
+	speed_min: float,
+	speed_max: float
+) -> void:
+	_sync_free_flight_bounds()
+	if patrol_seed <= 0:
+		patrol_seed = _build_seed(owner, trigger_count)
+	if randomize_pos or pos == Vector2.ZERO:
+		pos = Vector2(
+			_next_range(FREE_FLIGHT_INSIDE_MARGIN_X, FIELD_WIDTH - FREE_FLIGHT_INSIDE_MARGIN_X),
+			_next_range(FREE_FLIGHT_INSIDE_MARGIN_Y, FIELD_HEIGHT - FREE_FLIGHT_INSIDE_MARGIN_Y)
+		)
+	else:
+		pos = Vector2(
+			clampf(pos.x, patrol_min_x, patrol_max_x),
+			clampf(pos.y, -FREE_FLIGHT_MARGIN_Y, FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y)
+		)
+	if is_zero_approx(patrol_dir):
+		patrol_dir = -1.0 if _next_unit() < 0.5 else 1.0
+	patrol_speed = clampf(
+		patrol_speed if patrol_speed > 0.0 else _next_speed(speed_min, speed_max),
+		speed_min,
+		speed_max
+	)
+	if patrol_change_timer <= 0.0 or free_flight_target == Vector2.ZERO:
+		_choose_free_flight_target(speed_min, speed_max)
+
+
+func _sync_free_flight_bounds() -> void:
+	patrol_lane_y = FIELD_HEIGHT * 0.5
+	patrol_min_x = -FREE_FLIGHT_MARGIN_X
+	patrol_max_x = FIELD_WIDTH + FREE_FLIGHT_MARGIN_X
+
+
+func _choose_free_flight_target(speed_min: float, speed_max: float) -> void:
+	patrol_speed = _next_speed(speed_min, speed_max)
+	patrol_pause = 0.0
+	patrol_change_timer = _next_range(FREE_FLIGHT_TARGET_INTERVAL_MIN, FREE_FLIGHT_TARGET_INTERVAL_MAX)
+	if _next_unit() < FREE_FLIGHT_EXIT_CHANCE:
+		var side_roll := _next_unit()
+		if side_roll < 0.25:
+			free_flight_target = Vector2(
+				-FREE_FLIGHT_MARGIN_X,
+				_next_range(-FREE_FLIGHT_MARGIN_Y, FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y)
+			)
+		elif side_roll < 0.50:
+			free_flight_target = Vector2(
+				FIELD_WIDTH + FREE_FLIGHT_MARGIN_X,
+				_next_range(-FREE_FLIGHT_MARGIN_Y, FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y)
+			)
+		elif side_roll < 0.75:
+			free_flight_target = Vector2(
+				_next_range(-FREE_FLIGHT_MARGIN_X, FIELD_WIDTH + FREE_FLIGHT_MARGIN_X),
+				-FREE_FLIGHT_MARGIN_Y
+			)
+		else:
+			free_flight_target = Vector2(
+				_next_range(-FREE_FLIGHT_MARGIN_X, FIELD_WIDTH + FREE_FLIGHT_MARGIN_X),
+				FIELD_HEIGHT + FREE_FLIGHT_MARGIN_Y
+			)
+		return
+	free_flight_target = Vector2(
+		_next_range(FREE_FLIGHT_INSIDE_MARGIN_X, FIELD_WIDTH - FREE_FLIGHT_INSIDE_MARGIN_X),
+		_next_range(FREE_FLIGHT_INSIDE_MARGIN_Y, FIELD_HEIGHT - FREE_FLIGHT_INSIDE_MARGIN_Y)
+	)
 
 
 func _try_update_defense_intercept(delta: float, owner: Object, defense_rate: float, speed_min: float) -> bool:

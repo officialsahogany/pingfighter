@@ -1,6 +1,6 @@
 extends RefCounted
 
-# Fullscreen acquisition cut-in for the Maribo lingpet. Drawn on top of the HUD
+# Fullscreen acquisition cut-in for the newly hatched lingpet. Drawn on top of the HUD
 # (mirrors skill_cutin_overlay_host) and registered as a PHYSICS-PAUSING modal:
 # the modal gate blocks battle physics while it is active, and the reveal is
 # advanced by the frame controller's ungated idle pump (advance_acquire_cutin),
@@ -9,26 +9,30 @@ extends RefCounted
 # the egg hatches into the companion, and holds until a click/confirm dismisses
 # it (no auto fade-out).
 #
-# Art is the ORIGINAL outsourced illustration (v003), NOT the SD walk sheet.
-# Primary cut-in visual is the upscaled AutoSprite Live2D-style sheet. The crisp
-# outsourced PNG remains as fallback/reference if the sheet is disabled.
-# Provenance: v003 magenta -> magenta-key nukki -> maribo_cutin_art.png (static)
+# Art uses each pet's catalog cut-in, not the SD walk sheet. The primary cut-in
+# visual is the upscaled AutoSprite Live2D-style sheet; the crisp outsourced PNG
+# remains as fallback/reference if the sheet is disabled.
+# Maribo provenance: v003 magenta -> magenta-key nukki -> maribo_cutin_art.png (static)
 #   -> AutoSprite character pose + custom cut-in loop (legendary, 1024px/16)
 #   -> deterministic 84% safe-margin repack -> Real-ESRGAN x2 per cell
 #   -> maribo_cutin_anim.png (2048px/frame, 4x4, 16 frames, 8192px sheet).
 
-const CUTIN_ART: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_art.png")
-const CUTIN_ANIM_SHEET: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_anim.png")
-const CUTIN_ANIM_MANIFEST := "res://assets/sprites/lingpet/maribo_cutin_anim_manifest.json"
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+
+const DEFAULT_PET_ID := "maribo"
+const FALLBACK_CUTIN_ART: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_art.png")
+const FALLBACK_CUTIN_ANIM_SHEET: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_anim.png")
+const FALLBACK_CUTIN_ANIM_MANIFEST := "res://assets/sprites/lingpet/maribo_cutin_anim_manifest.json"
 const CUTIN_ANIM_COLS := 4
 const CUTIN_ANIM_ROWS := 4
 const CUTIN_ANIM_FRAMES := 16
 const CUTIN_ANIM_FPS := 16.0
 const USE_ANIMATED_CUTIN := true
-# Click-triggered EXIT ACTION sheet: Maribo raises the spear overhead, then a
-# water-spray burst erupts; the overlay fades out and resumes gameplay. Driven by
+# Click-triggered EXIT ACTION sheet: the current pet plays its catalog dismiss
+# animation, then the overlay fades out and resumes gameplay. Driven by
 # the runtime's is_acquire_cutin_dismissing() / get_acquire_cutin_dismiss_progress().
-const CUTIN_DISMISS_SHEET: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png")
+const FALLBACK_CUTIN_DISMISS_SHEET: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png")
 const CUTIN_DISMISS_COLS := 5
 const CUTIN_DISMISS_ROWS := 5
 const CUTIN_DISMISS_FRAMES := 25
@@ -45,7 +49,6 @@ const STATIC_ART_BREATH_HZ := 0.72
 const STATIC_ART_SCALE_PULSE := 0.018
 const TITLE_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 
-const TITLE_TEXT := "마리보"
 const SUBTITLE_TEXT := "공명으로 깨어난 링펫 · 동행 시작"
 
 const DIM_ALPHA_MAX := 0.66
@@ -90,21 +93,28 @@ var _recon_cols := 0
 var _recon_rows := 0
 var _recon_filled: PackedByteArray = PackedByteArray()
 var _recon_bbox := Rect2(0.0, 0.0, 1.0, 1.0)
+var _asset_pet_id := ""
+var _title_text := "마리보"
+var _cutin_art: Texture2D = FALLBACK_CUTIN_ART
+var _cutin_anim_sheet: Texture2D = FALLBACK_CUTIN_ANIM_SHEET
+var _cutin_anim_manifest := FALLBACK_CUTIN_ANIM_MANIFEST
+var _cutin_dismiss_sheet: Texture2D = FALLBACK_CUTIN_DISMISS_SHEET
 
 
 func prewarm_assets() -> void:
 	# Textures + font are const-preloaded at script load. The one piece of real
 	# prewarm work is loading the baked silhouette occupancy mask so the first
 	# reconstruction frame does not parse JSON / build the mask on the hot path.
+	_sync_assets_for_pet(DEFAULT_PET_ID)
 	_load_reconstruction_mask()
 
 
 func _load_reconstruction_mask() -> void:
 	if _recon_ready:
 		return
-	if not FileAccess.file_exists(CUTIN_ANIM_MANIFEST):
+	if not FileAccess.file_exists(_cutin_anim_manifest):
 		return
-	var txt: String = FileAccess.get_file_as_string(CUTIN_ANIM_MANIFEST)
+	var txt: String = FileAccess.get_file_as_string(_cutin_anim_manifest)
 	if txt.is_empty():
 		return
 	var data: Variant = JSON.parse_string(txt)
@@ -143,6 +153,7 @@ func draw(canvas: CanvasItem, runtime: Object, view_size: Vector2) -> void:
 		return
 	if view_size.x <= 1.0 or view_size.y <= 1.0:
 		return
+	_sync_assets_for_pet(_get_runtime_pet_id(runtime))
 
 	# Click-triggered exit action takes over the whole overlay: spear-raise +
 	# water-spray, then fade out (gameplay resumes when the runtime clears active).
@@ -165,6 +176,60 @@ func draw(canvas: CanvasItem, runtime: Object, view_size: Vector2) -> void:
 	_draw_title(canvas, view_size, progress)
 	_draw_flash(canvas, view_size, progress)
 	_draw_dismiss_hint(canvas, view_size, progress)
+
+
+func _sync_assets_for_pet(pet_id: String) -> void:
+	var normalized := pet_id.strip_edges().to_lower()
+	if normalized == "" or not LingpetCatalog.has_pet(normalized):
+		normalized = DEFAULT_PET_ID
+	if normalized == _asset_pet_id:
+		return
+	_asset_pet_id = normalized
+	_title_text = LingpetCatalog.get_display_name(normalized)
+	_cutin_art = _load_catalog_texture(normalized, "cutin_art", FALLBACK_CUTIN_ART)
+	_cutin_anim_sheet = _load_catalog_texture(normalized, "cutin_anim", FALLBACK_CUTIN_ANIM_SHEET)
+	_cutin_dismiss_sheet = _load_catalog_texture(normalized, "cutin_dismiss_anim", FALLBACK_CUTIN_DISMISS_SHEET)
+	var anim_path := LingpetCatalog.get_visual_path(normalized, "cutin_anim")
+	_cutin_anim_manifest = _manifest_path_from_anim_path(anim_path)
+	if _cutin_anim_manifest == "" or not FileAccess.file_exists(_cutin_anim_manifest):
+		_cutin_anim_manifest = FALLBACK_CUTIN_ANIM_MANIFEST
+	_reset_reconstruction_mask()
+	_load_reconstruction_mask()
+
+
+func _get_runtime_pet_id(runtime: Object) -> String:
+	if runtime != null and runtime.has_method("get_snapshot"):
+		var snapshot: Variant = runtime.get_snapshot()
+		if snapshot is Dictionary:
+			var data := snapshot as Dictionary
+			var pet_id := str(data.get("active_pet_id", ""))
+			if pet_id == "":
+				pet_id = str(data.get("pet_id", ""))
+			return pet_id
+	return DEFAULT_PET_ID
+
+
+func _load_catalog_texture(pet_id: String, visual_key: String, fallback: Texture2D) -> Texture2D:
+	var path := LingpetCatalog.get_visual_path(pet_id, visual_key)
+	if path == "" or not FileAccess.file_exists(path):
+		return fallback
+	var texture := ProjectResourceLoader.load_texture(path, "", "")
+	return texture if texture != null else fallback
+
+
+func _manifest_path_from_anim_path(anim_path: String) -> String:
+	var path := anim_path.strip_edges()
+	if path == "" or not path.ends_with(".png"):
+		return ""
+	return path.substr(0, path.length() - 4) + "_manifest.json"
+
+
+func _reset_reconstruction_mask() -> void:
+	_recon_ready = false
+	_recon_cols = 0
+	_recon_rows = 0
+	_recon_filled = PackedByteArray()
+	_recon_bbox = Rect2(0.0, 0.0, 1.0, 1.0)
 
 
 func _overlay_fade(progress: float) -> float:
@@ -269,7 +334,7 @@ func _draw_art(canvas: CanvasItem, view_size: Vector2, progress: float) -> void:
 	var t: float = float(Time.get_ticks_msec()) / 1000.0
 	var entrance: float = _ease_out_back(rise_raw)
 	var restore_progress: float = clampf((progress - INTRO_END) / maxf(0.01, TEXT_START - INTRO_END), 0.0, 1.0)
-	if USE_ANIMATED_CUTIN and CUTIN_ANIM_SHEET != null and CUTIN_ANIM_SHEET.get_width() > 1:
+	if USE_ANIMATED_CUTIN and _cutin_anim_sheet != null and _cutin_anim_sheet.get_width() > 1:
 		_draw_art_animated(canvas, view_size, t, entrance, rise_raw, alpha, restore_progress)
 	else:
 		_draw_art_static(canvas, view_size, t, entrance, rise_raw, alpha, restore_progress)
@@ -287,7 +352,7 @@ func _draw_art_animated(
 	# Live2D-style: the AutoSprite asset animation carries the breathing / sway /
 	# spear-bob, so we only frame-step the loop and apply the entrance punch +
 	# aura chrome. No squash/stretch here (the frames already deform the art).
-	var sheet: Texture2D = CUTIN_ANIM_SHEET
+	var sheet: Texture2D = _cutin_anim_sheet
 	var cols: int = maxi(1, CUTIN_ANIM_COLS)
 	var rows: int = maxi(1, CUTIN_ANIM_ROWS)
 	var cw: float = float(sheet.get_width()) / float(cols)
@@ -339,7 +404,7 @@ func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progre
 
 	# Exit action frame: play 0..N over the action portion, then hold the last frame.
 	var action_t: float = clampf(dismiss_progress / maxf(0.01, DISMISS_ACTION_PORTION), 0.0, 1.0)
-	var sheet: Texture2D = CUTIN_DISMISS_SHEET
+	var sheet: Texture2D = _cutin_dismiss_sheet
 	if sheet != null and sheet.get_width() > 1:
 		var cols: int = maxi(1, CUTIN_DISMISS_COLS)
 		var rows: int = maxi(1, CUTIN_DISMISS_ROWS)
@@ -397,10 +462,10 @@ func _draw_dismiss_spray(canvas: CanvasItem, origin: Vector2, view_size: Vector2
 
 func _draw_dismiss_title(canvas: CanvasItem, view_size: Vector2, out_fade: float) -> void:
 	var title_size_px: int = int(view_size.y * 0.072)
-	var title_dim: Vector2 = TITLE_FONT.get_string_size(TITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px)
+	var title_dim: Vector2 = TITLE_FONT.get_string_size(_title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px)
 	var title_pos := Vector2((view_size.x - title_dim.x) * 0.5, view_size.y * 0.80)
-	canvas.draw_string(TITLE_FONT, title_pos + Vector2(2, 2), TITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px, Color(0.0, 0.05, 0.10, 0.55 * out_fade))
-	canvas.draw_string(TITLE_FONT, title_pos, TITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px, Color(TITLE_COLOR.r, TITLE_COLOR.g, TITLE_COLOR.b, out_fade))
+	canvas.draw_string(TITLE_FONT, title_pos + Vector2(2, 2), _title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px, Color(0.0, 0.05, 0.10, 0.55 * out_fade))
+	canvas.draw_string(TITLE_FONT, title_pos, _title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px, Color(TITLE_COLOR.r, TITLE_COLOR.g, TITLE_COLOR.b, out_fade))
 
 
 func _draw_art_static(
@@ -414,9 +479,9 @@ func _draw_art_static(
 ) -> void:
 	# Main crisp-art path: animate the original illustration with continuous
 	# runtime motion (no frame stepping and no draw_set_transform).
-	if CUTIN_ART == null:
+	if _cutin_art == null:
 		return
-	var art_size: Vector2 = CUTIN_ART.get_size()
+	var art_size: Vector2 = _cutin_art.get_size()
 	if art_size.x <= 1.0 or art_size.y <= 1.0:
 		return
 	var target_h: float = view_size.y * STATIC_ART_VIEW_H_RATIO
@@ -439,7 +504,7 @@ func _draw_art_static(
 	_draw_art_aura(canvas, center, maxf(draw_size.x, draw_size.y) * 0.5, t, alpha, rise_raw)
 	canvas.draw_circle(center, draw_size.y * 0.46, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, glow_alpha))
 	var art_rect := Rect2(pos, draw_size)
-	_draw_restoring_texture(canvas, CUTIN_ART, Rect2(Vector2.ZERO, art_size), art_rect, t, alpha, restore_progress)
+	_draw_restoring_texture(canvas, _cutin_art, Rect2(Vector2.ZERO, art_size), art_rect, t, alpha, restore_progress)
 	if restore_progress >= 0.72:
 		_draw_art_shimmer(canvas, art_rect, alpha, t)
 
@@ -838,14 +903,14 @@ func _draw_title(canvas: CanvasItem, view_size: Vector2, progress: float) -> voi
 		return
 
 	var title_size_px: int = int(view_size.y * 0.072)
-	var title_dim: Vector2 = TITLE_FONT.get_string_size(TITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px)
+	var title_dim: Vector2 = TITLE_FONT.get_string_size(_title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px)
 	var slide: float = lerpf(view_size.y * 0.04, 0.0, appear)
 	var title_pos := Vector2(
 		(view_size.x - title_dim.x) * 0.5,
 		view_size.y * 0.80 + slide
 	)
-	canvas.draw_string(TITLE_FONT, title_pos + Vector2(2, 2), TITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px, Color(0.0, 0.05, 0.10, 0.55 * alpha))
-	canvas.draw_string(TITLE_FONT, title_pos, TITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px, Color(TITLE_COLOR.r, TITLE_COLOR.g, TITLE_COLOR.b, alpha))
+	canvas.draw_string(TITLE_FONT, title_pos + Vector2(2, 2), _title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px, Color(0.0, 0.05, 0.10, 0.55 * alpha))
+	canvas.draw_string(TITLE_FONT, title_pos, _title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px, Color(TITLE_COLOR.r, TITLE_COLOR.g, TITLE_COLOR.b, alpha))
 
 	var sub_size_px: int = int(view_size.y * 0.032)
 	var sub_dim: Vector2 = TITLE_FONT.get_string_size(SUBTITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size_px)

@@ -73,6 +73,49 @@ const PETS := {
 		},
 		"effect_text": "공을 받아칠 때 게이지 획득량 +10% / 링펫이 공을 직접 튕기면 게이지 +40 / 하이드로 스피어: 40초마다 물창을 던져 상대 진영에 5초 둔화 장판을 만듭니다.",
 	},
+	"lunabi": {
+		"id": "lunabi",
+		"display_name": "루나비",
+		"motion_style": "free_flight",
+		"hatch_weight": 1.0,
+		"required_hits": 2,
+		"unlock": {
+			"league_mode": "junior",
+			"character_type": "smasher",
+		},
+		"stats": {
+			"patrol_speed_default": 190.0,
+			"patrol_speed_min": 135.0,
+			"patrol_speed_max": 255.0,
+			"catch_width": 88.0,
+			"catch_height": 58.0,
+			"defense_rate": 0.0,
+			"hit_gauge_gain": 40.0,
+			"gauge_gain_bonus_pct": 0.0,
+		},
+		"visuals": {
+			"egg": "res://assets/sprites/lingpet/maribo_egg_v002.png",
+			"egg_crack_1": "res://assets/sprites/lingpet/maribo_egg_v002_crack1.png",
+			"egg_crack_2": "res://assets/sprites/lingpet/maribo_egg_v002_crack2.png",
+			"companion_walk": "res://assets/sprites/lingpet/lunabi_companion_flight.png",
+			"companion_strike": "res://assets/sprites/lingpet/lunabi_companion_strike.png",
+			"companion_cast": "res://assets/sprites/lingpet/lunabi_companion_strike.png",
+			"cutin_art": "res://assets/sprites/lingpet/lunabi_cutin_art.png",
+			"cutin_anim": "res://assets/sprites/lingpet/lunabi_cutin_anim.png",
+			"cutin_dismiss_anim": "res://assets/sprites/lingpet/lunabi_cutin_dismiss_anim.png",
+		},
+		"active_skill": {
+			"id": "lunabi_free_flight",
+			"runtime_kind": "none",
+			"enabled": false,
+			"name": "자유비행",
+			"description": "전장 전체를 자유롭게 날아다니다가 공과 겹치면 날개로 받아칩니다.",
+			"cooldown": 1.0,
+			"windup_seconds": 0.0,
+			"card_texture_path": "res://assets/sprites/lingpet/lunabi_cutin_art.png",
+		},
+		"effect_text": "전장 전체를 자유비행합니다. 중앙 배경에 머물지 않고 가끔 화면 밖으로 사라졌다가 다시 들어오며, 공과 겹치면 날개로 받아칩니다.",
+	},
 }
 
 
@@ -168,6 +211,10 @@ static func get_visual_path(pet_id: String, visual_key: String) -> String:
 
 static func get_effect_text(pet_id: String) -> String:
 	return str(get_entry(pet_id).get("effect_text", ""))
+
+
+static func get_motion_style(pet_id: String) -> String:
+	return str(get_entry(pet_id).get("motion_style", "patrol")).strip_edges().to_lower()
 
 
 static func validate_catalog(require_existing_files: bool = false) -> Array[String]:

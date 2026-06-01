@@ -1,0 +1,491 @@
+{
+  "asset_id": "lunabi_acquisition_cutin_anim",
+  "character": "lunabi",
+  "display_name": "루나비",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
+  "static_art": {
+    "path": "godot/assets/sprites/lingpet/lunabi_cutin_art.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "sha256": "5e79c0bc22ba9d750d03195a03dff9b2f4a1e3593474647673123d82bd4f6364",
+    "bytes": 1209971
+  },
+  "magenta_source": {
+    "path": "godot/assets/sprites/lingpet/lunabi_cutin_art_magenta_source.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "sha256": "7a27512cb41c88ac076371c6aaf1b553dd65be0fcd5af2c042b7a8b9375841fa",
+    "bytes": 1205540
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/lunabi_cutin_anim.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [
+      2048,
+      2048
+    ],
+    "sheet_size": [
+      8192,
+      8192
+    ],
+    "frame_interval": "looped at 16 fps",
+    "source_scale_repack": 0.84,
+    "upscale_scale": 2.0,
+    "sha256": "d8d0e44aa276af9d93f4a88341abd3dc6c5f25bf37f76726f766f39d831ebba5"
+  },
+  "dismiss_sheet": {
+    "path": "res://assets/sprites/lingpet/lunabi_cutin_dismiss_anim.png",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      5120,
+      5120
+    ],
+    "source_scale_repack": 0.84,
+    "sha256": "0a092e9b95c82f27c9921d823864d76cd5a690c183418f0c6fa3827471aa77af"
+  },
+  "postprocess": {
+    "main_operation": "AutoSprite 1024 cells were premultiplied-alpha resized to 84 percent and centered back into each 1024 cell, then each cell was upscaled to 2048 with source alpha recombined.",
+    "dismiss_operation": "AutoSprite 1024 dismiss cells were premultiplied-alpha resized to 84 percent and centered back into each 1024 cell for safe margins.",
+    "tool": "Pillow per-cell deterministic repack plus Real-ESRGAN alpha-preserved upscale for main loop",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2.0,
+      "repacked_source": ".tmp/lunabi_cutin/postprocess_s84_x2/maribo_acquire_cutin_repacked_s84_1024.png",
+      "recombined_output": ".tmp/lunabi_cutin/postprocess_s84_x2/maribo_acquire_cutin_repacked_s84_realesrgan_x2.png",
+      "preview": ".tmp/lunabi_cutin/postprocess_s84_x2/preview_upscaled_contact.png"
+    }
+  },
+  "qa": {
+    "raw_main_sample_margins_ltrb": [
+      [
+        0,
+        43,
+        83,
+        24,
+        144
+      ],
+      [
+        2,
+        57,
+        78,
+        31,
+        145
+      ],
+      [
+        4,
+        70,
+        78,
+        38,
+        142
+      ],
+      [
+        6,
+        75,
+        83,
+        40,
+        142
+      ],
+      [
+        8,
+        67,
+        91,
+        35,
+        139
+      ],
+      [
+        10,
+        51,
+        94,
+        27,
+        138
+      ],
+      [
+        12,
+        38,
+        91,
+        19,
+        141
+      ],
+      [
+        14,
+        33,
+        86,
+        17,
+        139
+      ],
+      [
+        15,
+        36,
+        84,
+        19,
+        131
+      ]
+    ],
+    "upscaled_main_sample_margins_ltrb": [
+      [
+        0,
+        235,
+        304,
+        203,
+        406
+      ],
+      [
+        1,
+        244,
+        299,
+        208,
+        406
+      ],
+      [
+        2,
+        259,
+        294,
+        216,
+        407
+      ],
+      [
+        3,
+        271,
+        294,
+        222,
+        402
+      ],
+      [
+        4,
+        280,
+        294,
+        227,
+        402
+      ],
+      [
+        5,
+        288,
+        294,
+        230,
+        398
+      ],
+      [
+        6,
+        289,
+        302,
+        230,
+        402
+      ],
+      [
+        7,
+        285,
+        310,
+        227,
+        398
+      ],
+      [
+        8,
+        275,
+        315,
+        221,
+        398
+      ],
+      [
+        9,
+        262,
+        318,
+        215,
+        396
+      ],
+      [
+        10,
+        250,
+        321,
+        208,
+        396
+      ],
+      [
+        11,
+        237,
+        321,
+        200,
+        400
+      ],
+      [
+        12,
+        227,
+        316,
+        196,
+        400
+      ],
+      [
+        13,
+        221,
+        312,
+        191,
+        402
+      ],
+      [
+        14,
+        220,
+        308,
+        191,
+        398
+      ],
+      [
+        15,
+        224,
+        305,
+        195,
+        384
+      ]
+    ],
+    "dismiss_repacked_sample_margins_ltrb": [
+      [
+        0,
+        118,
+        151,
+        102,
+        191
+      ],
+      [
+        2,
+        119,
+        148,
+        100,
+        208
+      ],
+      [
+        4,
+        98,
+        138,
+        88,
+        217
+      ],
+      [
+        6,
+        82,
+        107,
+        143,
+        245
+      ],
+      [
+        8,
+        147,
+        82,
+        118,
+        288
+      ],
+      [
+        10,
+        127,
+        82,
+        88,
+        314
+      ],
+      [
+        12,
+        135,
+        82,
+        82,
+        309
+      ],
+      [
+        14,
+        82,
+        82,
+        82,
+        300
+      ],
+      [
+        16,
+        82,
+        95,
+        82,
+        154
+      ],
+      [
+        18,
+        82,
+        93,
+        82,
+        120
+      ],
+      [
+        20,
+        213,
+        91,
+        82,
+        155
+      ],
+      [
+        22,
+        82,
+        84,
+        82,
+        155
+      ],
+      [
+        24,
+        82,
+        91,
+        82,
+        155
+      ]
+    ],
+    "main_edge_alpha_count": 0,
+    "dismiss_edge_alpha_count": 0,
+    "raw_main_contact_preview": ".tmp/lunabi_cutin/lunabi_acquire_cutin_raw_contact.png",
+    "upscaled_main_contact_preview": ".tmp/lunabi_cutin/postprocess_s84_x2/preview_upscaled_contact.png",
+    "dismiss_contact_preview": ".tmp/lunabi_cutin/lunabi_acquire_dismiss_repacked_contact.png"
+  },
+  "reconstruction_frame0": {
+    "frame_index": 0,
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "alpha_threshold": 0.102,
+    "alpha_bbox": [
+      0.1182,
+      0.1509,
+      0.7793,
+      0.646
+    ],
+    "note": "Per-cell frame-0 alpha occupancy + tight bbox for the digital reconstruction; empty cells skip shard/bevel/flash so only Lunabi's silhouette assembles.",
+    "occupancy": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "source_autosprite": {
+    "character_id": "cmpvprmun008w828nzjzqegwg",
+    "character_name": "Lunabi (lingpet)",
+    "base_upload_source": ".tmp/lunabi_cutin/lunabi_autosprite_base_padded.png",
+    "pose_id": "cmpvpsons0016rhwrota1fytl",
+    "pose_job_id": "cf_dfea62f3-0a1e-44cc-96f3-e7028bef4eb5",
+    "pose_name": "Acquire Cutin",
+    "pose_prompt": "High-quality anime acquisition cut-in pose for Lunabi, a cute chibi bat Ringpet. Keep the same dark plum fur, oversized purple ears, violet eyes, tiny fangs, wing-arms, crescent moon chest charm, silver armor accents, and floating gold ring orbit. Full-body hero framing, 3/4 facing viewer, wings open like a cape, joyful mischievous expression, moonlit magic glow. Keep the whole character and ring safely inside frame with generous transparent margins. No text, no UI, no extra characters, no crop.",
+    "main_spritesheet_id": "cmpvpvx76000uisbcvr2fd91n",
+    "main_spritesheet_job_id": "wf_ef9484f8-9eed-4e87-9cc3-f2d428c01932",
+    "main_video_id": "cmpvptv9z002g5xa4ykpya0j0",
+    "main_raw_sheet_local_path": ".tmp/lunabi_cutin/lunabi_acquire_cutin_raw_1024_16f.png",
+    "main_raw_atlas_local_path": ".tmp/lunabi_cutin/lunabi_acquire_cutin_raw_1024_16f_atlas.json",
+    "main_prompt": "16-frame high-quality acquisition cut-in loop for Lunabi the bat Ringpet. Keep Lunabi full-body pose and identity stable. Only subtle Live2D-style motion: breathing, tiny ear twitch, wing membrane sway, ring orbit glint, moonstone sparkle, soft moonlit aura pulse. Transparent background, generous safe margins, no text, no UI, no extra characters, no crop.",
+    "dismiss_spritesheet_id": "cmpvq3vet00ag828nboxqidhu",
+    "dismiss_spritesheet_job_id": "wf_74847697-4ab1-44e3-821e-5739efdae8fe",
+    "dismiss_video_id": "cmpvq1iw0003m5jq74zziwero",
+    "dismiss_raw_sheet_local_path": ".tmp/lunabi_cutin/lunabi_acquire_dismiss_raw_1024_25f.png",
+    "dismiss_raw_atlas_local_path": ".tmp/lunabi_cutin/lunabi_acquire_dismiss_raw_1024_25f_atlas.json",
+    "dismiss_prompt": "25-frame click-triggered acquisition cut-in exit action for Lunabi the bat Ringpet. Lunabi lifts the glowing crescent moon orb, flutters wing-arms once, the floating gold ring sweeps upward, then a violet moonlight sparkle burst disperses. Transparent background, generous safe margins, no text, no UI, no extra characters, no crop.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "status": "Lunabi acquisition cut-in pose + AutoSprite 16f Live2D-style loop + Real-ESRGAN x2, plus 25f dismiss action sheet."
+}
