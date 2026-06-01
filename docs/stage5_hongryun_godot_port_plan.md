@@ -74,7 +74,8 @@ Python 원본에 `stage6_hongryeon_*`, `stage6_honglyeon_*`, `honglyeon_*`처럼
 6. 보스 스킬 카드 HUD
    - 새 HUD 구조를 만들지 않는다.
    - `stage1/stage1_dalji_boss_skill_hud_renderer.gd`, `stage2/stage2_boss_skill_hud_renderer.gd`, `stage3/stage3_boss_skill_hud_renderer.gd`, `stage4/stage4_ponk_boss_skill_hud_renderer.gd`를 레퍼런스로 fork한다.
-   - 홍련탄, 홍련폭염, 화염기계 / 용숨결 같은 trigger와 cooldown metadata를 카드 렌더러에 제공한다.
+   - 카드 렌더러에는 홍련 보스 스킬인 홍련탄과 홍련폭염만 제공한다.
+   - 화염기계 / 용숨결은 Stage 1 풍선기계처럼 맵 이벤트이므로 보스 스킬 카드에 넣지 않는다.
 
 7. 화염기계 / 용숨결 이벤트
    - `events/stage5_event_integration.py`, `events/stage5_fire_machine_event.py`를 timing / spawn payload 참조로 사용한다.

@@ -101,7 +101,7 @@ the current Godot asset tree, and the owning Godot stage / boss module.
   `items/[name]_boss_sheet.png` staging convention -- the Python runtime
   loader at `entities/stage1_boss_sprite.py` read everything under
   `assets/...`, so prior regenerated sheets overwrote the `assets/` paths,
-  not `items/`. For current DiskHearts - Ringpia work, use this only as
+  not `items/`. For current DiskHearts - Lingpia work, use this only as
   provenance / parity context and promote accepted sheets into the Godot
   asset path owned by the Stage 1 boss renderer.
   v7 single-sheet rollback reference is preserved at

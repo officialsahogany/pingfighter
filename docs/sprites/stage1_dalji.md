@@ -1,7 +1,7 @@
 # Stage 1 Dalji Sprite Notes
 
 This is the compact per-boss runtime contract for Stage 1 Dalji in the
-current Godot project, DiskHearts - Ringpia. The long provenance and
+current Godot project, DiskHearts - Lingpia. The long provenance and
 generation history still lives in `CLAUDE.md` for now, but new runtime work
 should start here plus
 `docs/sprites/boss_sprite_runtime_contract.md`.
