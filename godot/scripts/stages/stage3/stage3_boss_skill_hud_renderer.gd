@@ -36,6 +36,10 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var game_size: Vector2 = _as_vector2(context.get("game_size", Vector2.ZERO), Vector2.ZERO)
 	if game_offset.x <= 0.0 or game_size.y <= 0.0:
 		return
+	var entries := _skill_entries(skills)
+	if entries.is_empty():
+		return
+	entries.sort_custom(Callable(self, "_sort_entries"))
 	var pillar_w: float = max(0.0, game_offset.x)
 	var metrics: Dictionary = BossSkillCardHudSpec.get_card_metrics(pillar_w)
 	var scale_factor: float = float(metrics.get("scale_factor", 1.0))
@@ -45,7 +49,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var card_gap: float = float(metrics.get("card_gap", 2.0))
 	var margin_x: float = float(metrics.get("margin_x", 3.0))
 	var margin_y: float = float(metrics.get("margin_y", 5.0))
-	var total_h: float = float(skills.size()) * (card_h + card_gap) - card_gap
+	var total_h: float = float(entries.size()) * (card_h + card_gap) - card_gap
 	var card_x: float = max(1.0, pillar_w - card_w - margin_x)
 	var avoid_rect: Rect2 = _as_rect2(context.get("commando_firearm_panel_rect", Rect2()), Rect2())
 	var start_y: float = BossSkillCardHudSpec.resolve_stack_start_y(
@@ -61,10 +65,8 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var mouse_pos: Vector2 = BossSkillCardHudSpec.get_mouse_position(canvas)
 	var hovered_skill: Dictionary = {}
 	var hovered_rect := Rect2()
-	for i in range(skills.size()):
-		if not (skills[i] is Dictionary):
-			continue
-		var skill: Dictionary = skills[i]
+	for i in range(entries.size()):
+		var skill: Dictionary = entries[i]
 		var rect := Rect2(Vector2(card_x, start_y + float(i) * (card_h + card_gap)), Vector2(card_w, card_h))
 		_draw_card(canvas, rect, skill, scale_factor)
 		if rect.has_point(mouse_pos):
@@ -214,6 +216,18 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 	if skill_id == LingpetRailCard.SKILL_ID:
 		return LingpetRailCard.tooltip_info()
 	return {}
+
+
+func _skill_entries(skills: Array) -> Array:
+	var entries := []
+	for value in skills:
+		if value is Dictionary:
+			entries.append(value)
+	return entries
+
+
+func _sort_entries(a: Dictionary, b: Dictionary) -> bool:
+	return BossSkillCardHudSpec.compare_skill_entries_by_next_activation(a, b)
 
 
 func _get_array(value: Variant) -> Array:

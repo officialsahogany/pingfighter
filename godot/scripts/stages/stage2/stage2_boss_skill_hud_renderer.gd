@@ -58,6 +58,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var entries := _skill_entries(skills)
 	if entries.is_empty():
 		return
+	entries.sort_custom(Callable(self, "_sort_entries"))
 
 	var pillar_w: float = max(0.0, game_offset.x)
 	var metrics: Dictionary = BossSkillCardHudSpec.get_card_metrics(pillar_w)
@@ -184,6 +185,10 @@ func _skill_entries(skills: Array) -> Array:
 		if value is Dictionary:
 			entries.append(value)
 	return entries
+
+
+func _sort_entries(a: Dictionary, b: Dictionary) -> bool:
+	return BossSkillCardHudSpec.compare_skill_entries_by_next_activation(a, b)
 
 
 func _get_array(value: Variant) -> Array:

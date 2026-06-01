@@ -224,26 +224,7 @@ func _skill_entries(skills: Array) -> Array:
 
 
 func _sort_entries(a: Dictionary, b: Dictionary) -> bool:
-	var priority_a: int = _entry_priority(a)
-	var priority_b: int = _entry_priority(b)
-	if priority_a != priority_b:
-		return priority_a < priority_b
-	var progress_a: float = clampf(float(a.get("progress", 0.0)), 0.0, 1.0)
-	var progress_b: float = clampf(float(b.get("progress", 0.0)), 0.0, 1.0)
-	if not is_equal_approx(progress_a, progress_b):
-		return progress_a > progress_b
-	return str(a.get("id", "")) < str(b.get("id", ""))
-
-
-func _entry_priority(skill: Dictionary) -> int:
-	var status: String = str(skill.get("status", "charging"))
-	if status == "casting":
-		return 0
-	if bool(skill.get("ready", false)) or status == "ready":
-		return 1
-	if status == "locked":
-		return 3
-	return 2
+	return BossSkillCardHudSpec.compare_skill_entries_by_next_activation(a, b)
 
 
 func _prune_queue_positions(entries: Array) -> void:

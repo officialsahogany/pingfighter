@@ -19,6 +19,8 @@ const TOOLTIP_MAX_DESC_LINES := 2
 const TOOLTIP_SCALE_MIN := 0.85
 const TOOLTIP_SCALE_MAX := 1.15
 const TOOLTIP_MIN_LEFT_WIDTH := 120.0
+const SORT_ACTIVE_REMAINING := -0.001
+const SORT_INACTIVE_REMAINING := 100000000.0
 
 
 static func get_scale_factor(pillar_width: float) -> float:
@@ -70,6 +72,53 @@ static func get_mouse_position(canvas: CanvasItem) -> Vector2:
 	if viewport == null:
 		return Vector2(-100000.0, -100000.0)
 	return viewport.get_mouse_position()
+
+
+static func compare_skill_entries_by_next_activation(a: Dictionary, b: Dictionary) -> bool:
+	var remaining_a: float = get_skill_entry_next_activation_sort_value(a)
+	var remaining_b: float = get_skill_entry_next_activation_sort_value(b)
+	if not is_equal_approx(remaining_a, remaining_b):
+		return remaining_a < remaining_b
+	var priority_a: int = get_skill_entry_status_sort_priority(a)
+	var priority_b: int = get_skill_entry_status_sort_priority(b)
+	if priority_a != priority_b:
+		return priority_a < priority_b
+	return str(a.get("id", "")) < str(b.get("id", ""))
+
+
+static func get_skill_entry_next_activation_sort_value(skill: Dictionary) -> float:
+	var status: String = str(skill.get("status", "charging"))
+	if bool(skill.get("used", false)) or status == "used" or status == "locked":
+		return SORT_INACTIVE_REMAINING
+	if bool(skill.get("active", false)) or status == "casting" or status == "inferno_charge":
+		return SORT_ACTIVE_REMAINING
+	if bool(skill.get("ready", false)) or status == "ready":
+		return 0.0
+	if _has_numeric_value(skill, "sort_remaining"):
+		return maxf(0.0, float(skill.get("sort_remaining", 0.0)))
+	if _has_numeric_value(skill, "next_activation_remaining"):
+		return maxf(0.0, float(skill.get("next_activation_remaining", 0.0)))
+	if _has_numeric_value(skill, "cooldown_remaining"):
+		return maxf(0.0, float(skill.get("cooldown_remaining", 0.0)))
+	if _has_numeric_value(skill, "remaining"):
+		return maxf(0.0, float(skill.get("remaining", 0.0)))
+	var progress: float = clampf(float(skill.get("progress", 0.0)), 0.0, 1.0)
+	if _has_numeric_value(skill, "cooldown_total"):
+		return maxf(0.0, (1.0 - progress) * maxf(0.0, float(skill.get("cooldown_total", 0.0))))
+	if _has_numeric_value(skill, "total"):
+		return maxf(0.0, (1.0 - progress) * maxf(0.0, float(skill.get("total", 0.0))))
+	return maxf(0.0, 1.0 - progress)
+
+
+static func get_skill_entry_status_sort_priority(skill: Dictionary) -> int:
+	var status: String = str(skill.get("status", "charging"))
+	if bool(skill.get("active", false)) or status == "casting" or status == "inferno_charge":
+		return 0
+	if bool(skill.get("ready", false)) or status == "ready":
+		return 1
+	if bool(skill.get("used", false)) or status == "used" or status == "locked":
+		return 3
+	return 2
 
 
 static func draw_skill_tooltip(
@@ -354,3 +403,11 @@ static func _as_color(value: Variant, fallback: Color = Color.WHITE) -> Color:
 	if value is Color:
 		return value
 	return fallback
+
+
+static func _has_numeric_value(source: Dictionary, key: String) -> bool:
+	if not source.has(key):
+		return false
+	var value: Variant = source.get(key)
+	var value_type := typeof(value)
+	return value_type == TYPE_INT or value_type == TYPE_FLOAT
