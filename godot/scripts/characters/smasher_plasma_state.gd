@@ -56,11 +56,33 @@ var _last_player_pos := Vector2(FIELD_WIDTH * 0.5, PLAYER_Y)
 var _last_player_size := Vector2(155.0, 50.0)
 var _last_boss_pos := Vector2(FIELD_WIDTH * 0.5 - BOSS_PADDLE_WIDTH * 0.5, 25.0)
 var _last_boss_size := Vector2(BOSS_PADDLE_WIDTH, BOSS_HITBOX_HEIGHT)
+var _prewarm_step_index := 0
 
 
-func _init() -> void:
-	ImpactFlareTextureCache.prewarm()
-	ImpactShockwaveTextureCache.prewarm()
+func prewarm_assets() -> void:
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	match _prewarm_step_index:
+		0:
+			ImpactFlareTextureCache.get_glow_texture()
+		1:
+			ImpactFlareTextureCache.get_burst_texture()
+		2:
+			ImpactFlareTextureCache.get_sparkle_texture()
+		3:
+			ImpactShockwaveTextureCache.get_full_ring_texture()
+		4:
+			ImpactShockwaveTextureCache.get_wall_ring_texture("left")
+		5:
+			ImpactShockwaveTextureCache.get_wall_ring_texture("right")
+		_:
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func reset() -> void:

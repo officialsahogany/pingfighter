@@ -32,11 +32,33 @@ var speed_boost_total_frames := BOOST_DURATION_FRAMES
 var light_particles: Array[Dictionary] = []
 var _last_player_pos := Vector2(760.0 * 0.5, 700.0)
 var _last_player_size := DEFAULT_PLAYER_SIZE
+var _prewarm_step_index := 0
 
 
-func _init() -> void:
-	ImpactFlareTextureCache.prewarm()
-	ImpactShockwaveTextureCache.prewarm()
+func prewarm_assets() -> void:
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	match _prewarm_step_index:
+		0:
+			ImpactFlareTextureCache.get_glow_texture()
+		1:
+			ImpactFlareTextureCache.get_burst_texture()
+		2:
+			ImpactFlareTextureCache.get_sparkle_texture()
+		3:
+			ImpactShockwaveTextureCache.get_full_ring_texture()
+		4:
+			ImpactShockwaveTextureCache.get_wall_ring_texture("left")
+		5:
+			ImpactShockwaveTextureCache.get_wall_ring_texture("right")
+		_:
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func reset() -> void:
