@@ -77,6 +77,7 @@ func apply(
 		)
 
 	var boss_vel_override: float = float(context.get("boss_vel", 0.0))
+	var speed_limit_disabled_override: Variant = null
 	var viper_skill_runtime: Object = deps.get("viper_skill_runtime", null)
 	var phantom_speed_limit_was_disabled := false
 	if viper_skill_runtime != null and viper_skill_runtime.has_method("is_phantom_kick_speed_limit_disabled"):
@@ -116,6 +117,8 @@ func apply(
 			deps
 		)
 		next_ball_vel = _get_vector2(ragnarok_result, "ball_vel", next_ball_vel)
+		if ragnarok_result.has("speed_limit_disabled"):
+			speed_limit_disabled_override = bool(ragnarok_result.get("speed_limit_disabled", false))
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_poseidon_boss_hit"):
 		var poseidon_result: Dictionary = mythic_item_runtime.apply_poseidon_boss_hit(next_ball_vel)
 		next_ball_vel = _get_vector2(poseidon_result, "ball_vel", next_ball_vel)
@@ -169,6 +172,8 @@ func apply(
 		result["kick_skill_knockback_consumed"] = true
 	if phantom_speed_limit_was_disabled:
 		result["speed_limit_disabled"] = false
+	elif speed_limit_disabled_override != null:
+		result["speed_limit_disabled"] = bool(speed_limit_disabled_override)
 	if viper_skill_runtime != null and viper_skill_runtime.has_method("is_kick_skill_knockback_ball_active"):
 		result["viper_knockback_overlay_active"] = bool(viper_skill_runtime.is_kick_skill_knockback_ball_active())
 	elif context.has("viper_knockback_overlay_active"):

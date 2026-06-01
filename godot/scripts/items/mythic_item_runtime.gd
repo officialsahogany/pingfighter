@@ -1637,6 +1637,9 @@ func get_ball_collision_context() -> Dictionary:
 	_ensure_helpers_ready()
 	var context: Dictionary = adversity_armor_runtime.get_ball_collision_context(self)
 	context.merge(horn_strawberry_field_state.get_ball_collision_context(), true)
+	if ragnarok_stun_ball_active:
+		context["speed_limit_disabled"] = true
+		context["ragnarok_hammer_speed_limit_disabled"] = true
 	return context
 
 

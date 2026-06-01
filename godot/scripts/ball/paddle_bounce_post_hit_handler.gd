@@ -54,6 +54,7 @@ func apply(
 	var shrapnel_armor_result: Dictionary = {}
 	var runtime_perk_gold: int = -1
 	var clear_smasher_wheel_speed_cap := false
+	var speed_limit_disabled_override: Variant = null
 	if is_player:
 		var gauge_before_player_hit: float = special_gauge
 		var player_start: int = _perf_begin(perf_logger)
@@ -169,6 +170,8 @@ func apply(
 			ball_vel = _get_vector2(ragnarok_result, "ball_vel", ball_vel)
 			special_gauge = float(ragnarok_result.get("special_gauge", special_gauge))
 			context["special_gauge"] = special_gauge
+			if ragnarok_result.has("speed_limit_disabled"):
+				speed_limit_disabled_override = bool(ragnarok_result.get("speed_limit_disabled", false))
 		if mythic_item_runtime != null and mythic_item_runtime.has_method("try_apply_knee_pads_player_hit"):
 			var knee_pads_result: Dictionary = mythic_item_runtime.try_apply_knee_pads_player_hit(
 				ball_pos,
@@ -295,6 +298,8 @@ func apply(
 		result["viper_knockback_overlay_active"] = bool(boss_result.get("viper_knockback_overlay_active", false))
 	if boss_result.has("speed_limit_disabled"):
 		result["speed_limit_disabled"] = bool(boss_result.get("speed_limit_disabled", false))
+	elif speed_limit_disabled_override != null:
+		result["speed_limit_disabled"] = bool(speed_limit_disabled_override)
 	if not boss_result.is_empty():
 		for key in [
 			"commando_bowling_trap_guard_consumed",

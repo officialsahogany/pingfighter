@@ -4,7 +4,12 @@ const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
+const BallFrameMotionController := preload("res://scripts/ball/ball_frame_motion_controller.gd")
+const BallPhysics := preload("res://scripts/ball/ball_physics.gd")
+const BallUpdateController := preload("res://scripts/ball/ball_update_controller.gd")
+const PaddleBounceController := preload("res://scripts/ball/paddle_bounce_controller.gd")
 const PaddleBounceRallyFeedbackRouter := preload("res://scripts/ball/paddle_bounce_rally_feedback_router.gd")
+const PaddleBounceState := preload("res://scripts/ball/paddle_bounce_state.gd")
 
 
 class FakeOwner:
@@ -88,6 +93,17 @@ class FakeRegistry:
 		return null
 
 
+class FakeBossGuardMotionStepper:
+	func step(ball_pos: Vector2, _motion_delta: Vector2, _ball_vel: Vector2, _context: Dictionary) -> Dictionary:
+		return {
+			"ball_pos": ball_pos,
+			"event": "boss_paddle",
+			"paddle_x": 330.0,
+			"paddle_w": 100.0,
+			"is_player": false,
+		}
+
+
 func _init() -> void:
 	var catalog: Object = MythicItemCatalog.new()
 	var hammer_data: Dictionary = catalog.build_item_by_name("ragnarok_hammer")
@@ -154,6 +170,18 @@ func _init() -> void:
 	_expect(bool(player_result.get("activated", false)), "100% trigger roll should create a stun ball")
 	_expect(is_equal_approx(float(player_result.get("special_gauge", 0.0)), 70.0), "Ragnarok Hammer should spend its gauge-cost roll")
 	_expect(is_equal_approx(_get_vec(player_result, "ball_vel").length(), 12.5), "Ragnarok Hammer should apply the ball speed boost roll")
+	_expect(bool(player_result.get("speed_limit_disabled", false)), "Ragnarok stun-ball launch should disable the ball speed cap")
+	var active_collision_context: Dictionary = runtime.get_ball_collision_context()
+	_expect(bool(active_collision_context.get("speed_limit_disabled", false)), "active Ragnarok stun ball should expose uncapped ball physics")
+	var uncapped_scene := {
+		"ball_vel": Vector2(90.0, 0.0),
+		"ball_impact_boost": 1.0,
+		"max_ball_speed": 26.0,
+		"impact_boost_max_ball_speed": 26.0,
+		"speed_limit_disabled": bool(active_collision_context.get("speed_limit_disabled", false)),
+	}
+	BallFrameMotionController.new().apply_ball_speed_limits(uncapped_scene, {"ball_physics": BallPhysics.new()})
+	_expect(is_equal_approx(_get_vec(uncapped_scene, "ball_vel").length(), 90.0), "active Ragnarok stun ball should bypass frame speed caps before the boss guards")
 	_expect(audio.shot_count == 1, "stun-ball activation should play the shot cue")
 	_expect(bool(runtime.get_ball_draw_context().get("ragnarok_hammer_ball_active", false)), "ball draw context should mark the charged ball")
 
@@ -168,6 +196,17 @@ func _init() -> void:
 		deps
 	)
 	_expect(bool(boss_result.get("applied", false)), "boss counter should consume the charged Ragnarok ball")
+	_expect(not bool(boss_result.get("speed_limit_disabled", true)), "Ragnarok boss guard should restore the ball speed cap")
+	_expect(not bool(runtime.get_ball_collision_context().get("speed_limit_disabled", false)), "consumed Ragnarok stun ball should stop exposing uncapped physics")
+	var capped_scene := {
+		"ball_vel": Vector2(90.0, 0.0),
+		"ball_impact_boost": 1.0,
+		"max_ball_speed": 26.0,
+		"impact_boost_max_ball_speed": 26.0,
+		"speed_limit_disabled": false,
+	}
+	BallFrameMotionController.new().apply_ball_speed_limits(capped_scene, {"ball_physics": BallPhysics.new()})
+	_expect(_get_vec(capped_scene, "ball_vel").length() <= 26.01, "normal frame speed cap should return after Ragnarok boss guard")
 	_expect(audio.boom_count == 1, "Ragnarok boss impact should play the boom cue")
 	_expect(audio.electric_play_count == 1 and audio.electric_loop_active, "Ragnarok electric stun should start the Lightning Fury shock loop")
 	_expect(feedback.shake_amount >= 1.38 and feedback.shake_intensity >= 22.0, "Ragnarok stun-ball boss impact should trigger the extended strong screen shake")
@@ -203,8 +242,79 @@ func _init() -> void:
 	_expect(audio.electric_stop_count >= 1 and not audio.electric_loop_active, "Ragnarok electric shock loop should stop when stun expires")
 	_expect(not bool(runtime.get_boss_ai_context().get("ragnarok_hammer_boss_stun_active", false)), "Ragnarok stun should expire through runtime update")
 
+	_verify_speed_limit_lifecycle_through_ball_update()
+
 	print("ragnarok_hammer_port_smoke: ok")
 	quit(0)
+
+
+func _verify_speed_limit_lifecycle_through_ball_update() -> void:
+	var runtime: Object = MythicItemRuntime.new()
+	var owner := FakeOwner.new()
+	var audio := FakeAudio.new()
+	var feedback := FakeFeedback.new()
+	var registry := FakeRegistry.new(audio, feedback)
+	_expect(runtime.equip_item(
+		"ragnarok_hammer",
+		owner,
+		registry,
+		{
+			"trigger_chance": 100.0,
+			"stun_duration": 1.0,
+			"speed_boost": 25.0,
+			"gauge_cost": 0.0,
+		},
+		false
+	), "Ragnarok Hammer speed-limit lifecycle test should equip the item")
+	var activation_result: Dictionary = runtime.try_apply_ragnarok_player_hit(
+		Vector2(80.0, 0.0),
+		100.0,
+		{},
+		{"registry": registry, "feedback": feedback}
+	)
+	_expect(bool(activation_result.get("activated", false)), "Ragnarok speed-limit lifecycle test should arm a stun ball")
+	_expect(bool(runtime.get_ball_collision_context().get("speed_limit_disabled", false)), "armed Ragnarok ball should disable speed caps before guard")
+	var update_context := {
+		"selected_character_type": "smasher",
+		"ball_active": true,
+		"width": 760.0,
+		"height": 750.0,
+		"ball_size": 28.6,
+		"ball_pos": Vector2(380.0, 58.0),
+		"ball_vel": Vector2(90.0, 0.0),
+		"ball_impact_boost": 1.0,
+		"player_pos": Vector2(302.5, 680.0),
+		"player_paddle_size": Vector2(155.0, 50.0),
+		"boss_pos": Vector2(330.0, 25.0),
+		"boss_paddle_size": Vector2(100.0, 40.0),
+		"boss_paddle_width": 100.0,
+		"boss_y": 25.0,
+		"boss_hitbox_height": 40.0,
+		"player_collision_cooldown": 0.0,
+		"boss_collision_cooldown": 0.0,
+		"min_ball_speed": 3.0,
+		"max_ball_speed": 26.0,
+		"impact_boost_max_ball_speed": 26.0,
+		"max_bounce_angle": 60.0,
+		"rally_speed_cap_increase_per_hit": 0.0,
+	}
+	var ball_result: Dictionary = BallUpdateController.new().update(
+		1.0 / 60.0,
+		update_context,
+		{
+			"mythic_item_runtime": runtime,
+			"ball_physics": BallPhysics.new(),
+			"paddle_bounce_controller": PaddleBounceController.new(),
+			"paddle_bounce_state": PaddleBounceState.new(),
+			"motion_stepper": FakeBossGuardMotionStepper.new(),
+			"registry": registry,
+			"feedback": feedback,
+		}
+	)
+	var snapshot: Dictionary = ball_result.get("snapshot", {})
+	_expect(not bool(runtime.get_ball_collision_context().get("speed_limit_disabled", false)), "boss guard should clear Ragnarok's uncapped state")
+	_expect(not bool(snapshot.get("speed_limit_disabled", true)), "boss guard frame should publish the restored speed-limit state")
+	_expect(_get_vec(snapshot, "ball_vel").length() <= 26.01, "boss-guarded Ragnarok ball should be capped again immediately")
 
 
 func _array_has_item(items: Array, item_name: String) -> bool:
