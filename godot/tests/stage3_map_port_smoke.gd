@@ -236,6 +236,7 @@ func _init() -> void:
 	_expect(int(playfield_perf.get("ellipse_points_cache_count", 0)) > 0, "Stage 3 playfield prewarm should cache stadium emblem ellipse geometry")
 	_expect(int(playfield_perf.get("heart_particle_limit", 99)) <= 8, "Stage 3 playfield heart particles should stay within the draw budget")
 	_expect(int(playfield_perf.get("stadium_circle_segments", 99)) <= 16, "Stage 3 stadium rings should stay within the draw budget")
+	_expect(int(playfield_perf.get("stadium_circle_segments", 0)) >= 16, "Stage 3 stadium rings should preserve a round silhouette")
 	_expect(int(playfield_perf.get("stadium_inner_segments", 99)) <= 10, "Stage 3 stadium inner arcs should stay within the draw budget")
 	_expect(int(playfield_perf.get("stadium_flow_arc_segments", 99)) <= 3, "Stage 3 stadium flow arcs should stay within the draw budget")
 	_expect(int(playfield_perf.get("kuromi_shadow_layers", 99)) <= 2, "Stage 3 Kuromi shadow layers should stay within the draw budget")
@@ -254,10 +255,15 @@ func _init() -> void:
 	_expect(int(playfield_perf.get("kuromi_crack_particle_detailed_draw_limit", 999)) <= 10, "Stage 3 Kuromi crack particles should cap detailed polygon drawing")
 	_expect(bool(playfield_perf.get("viper_airborne_lod_supported", false)), "Stage 3 playfield should expose shared Viper airborne LOD support")
 	_expect(bool(playfield_perf.get("shared_render_quality_lod_supported", false)), "Stage 3 playfield should expose shared render-quality LOD support")
-	_expect(int(playfield_perf.get("stadium_circle_segments_severe_lod", 999)) <= 10, "Stage 3 stadium rings should use a severe Viper LOD segment cap")
+	_expect(int(playfield_perf.get("stadium_circle_segments_severe_lod", 0)) >= 16, "Stage 3 stadium rings should preserve a round silhouette in severe Viper LOD")
+	_expect(int(playfield_perf.get("stadium_dash_length_severe_lod", 0)) >= 48, "Stage 3 stadium should stretch severe Viper LOD dash spans")
+	_expect(int(playfield_perf.get("stadium_gap_length_severe_lod", 0)) >= 54, "Stage 3 stadium should stretch severe Viper LOD dash gaps")
+	_expect(bool(playfield_perf.get("stadium_severe_lod_skips_inner_arc", false)), "Stage 3 stadium should skip decorative inner arcs in severe Viper LOD")
+	_expect(bool(playfield_perf.get("stadium_severe_lod_skips_flow", false)), "Stage 3 stadium should skip decorative electric flow in severe Viper LOD")
 	_expect(int(playfield_perf.get("kuromi_tongue_point_max_severe_lod", 999)) <= 10, "Stage 3 Kuromi tongue should use a severe Viper LOD point cap")
 	_expect(int(playfield_perf.get("kuromi_crack_particle_draw_limit_lod", 999)) <= 22, "Stage 3 Kuromi crack particles should tighten during airborne LOD")
-	_expect(int(playfield_perf.get("kuromi_crack_particle_draw_limit_severe_lod", 999)) <= 14, "Stage 3 Kuromi crack particles should use a severe Viper cap")
+	_expect(int(playfield_perf.get("kuromi_crack_particle_draw_limit_severe_lod", 999)) <= 10, "Stage 3 Kuromi crack particles should use a severe Viper cap")
+	_expect(int(playfield_perf.get("kuromi_crack_particle_detailed_draw_limit_severe_lod", 999)) <= 2, "Stage 3 Kuromi crack particles should use a severe Viper detailed-polygon cap")
 	var glide_context := {
 		"selected_character_type": "viper",
 		"viper_jetpack_airborne": true,

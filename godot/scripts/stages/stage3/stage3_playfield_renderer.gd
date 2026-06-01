@@ -19,13 +19,17 @@ const MAX_BORDER_TEXTURE_CACHE_ENTRIES := 9
 const MAX_ELLIPSE_POINTS_CACHE_ENTRIES := 128
 const STADIUM_CIRCLE_SEGMENTS := 16
 const STADIUM_CIRCLE_SEGMENTS_LOD := 12
-const STADIUM_CIRCLE_SEGMENTS_SEVERE_LOD := 10
+const STADIUM_CIRCLE_SEGMENTS_SEVERE_LOD := 16
 const STADIUM_INNER_SEGMENTS := 10
 const STADIUM_INNER_SEGMENTS_LOD := 8
-const STADIUM_INNER_SEGMENTS_SEVERE_LOD := 6
+const STADIUM_INNER_SEGMENTS_SEVERE_LOD := 4
 const STADIUM_FLOW_ARC_SEGMENTS := 3
 const STADIUM_FLOW_ARC_SEGMENTS_LOD := 2
 const STADIUM_FLOW_ARC_SEGMENTS_SEVERE_LOD := 1
+const STADIUM_DASH_LENGTH := 36
+const STADIUM_GAP_LENGTH := 30
+const STADIUM_DASH_LENGTH_SEVERE_LOD := 48
+const STADIUM_GAP_LENGTH_SEVERE_LOD := 54
 const KUROMI_SHADOW_LAYERS := 2
 const KUROMI_SHADOW_LAYERS_LOD := 1
 const KUROMI_SHADOW_LAYERS_SEVERE_LOD := 1
@@ -41,7 +45,7 @@ const KUROMI_TONGUE_POINT_MAX_LOD := 14
 const KUROMI_TONGUE_POINT_MAX_SEVERE_LOD := 10
 const KUROMI_IDLE_TAIL_POINT_COUNT := 8
 const KUROMI_IDLE_TAIL_POINT_COUNT_LOD := 5
-const KUROMI_IDLE_TAIL_POINT_COUNT_SEVERE_LOD := 4
+const KUROMI_IDLE_TAIL_POINT_COUNT_SEVERE_LOD := 3
 const KUROMI_PETRIFIED_TAIL_POINT_COUNT := 4
 const KUROMI_PETRIFIED_TAIL_POINT_COUNT_LOD := 3
 const KUROMI_PETRIFIED_TAIL_POINT_COUNT_SEVERE_LOD := 3
@@ -68,10 +72,10 @@ const KUROMI_SPIT_WARNING_GLOW_WIDTH := 8.0
 const KUROMI_SPIT_WARNING_CORE_WIDTH := 3.2
 const KUROMI_CRACK_PARTICLE_DRAW_LIMIT := 36
 const KUROMI_CRACK_PARTICLE_DRAW_LIMIT_LOD := 22
-const KUROMI_CRACK_PARTICLE_DRAW_LIMIT_SEVERE_LOD := 14
+const KUROMI_CRACK_PARTICLE_DRAW_LIMIT_SEVERE_LOD := 10
 const KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT := 10
 const KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT_LOD := 6
-const KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT_SEVERE_LOD := 3
+const KUROMI_CRACK_PARTICLE_DETAILED_DRAW_LIMIT_SEVERE_LOD := 2
 const KUROMI_CRACK_PARTICLE_SIMPLE_SIZE_THRESHOLD := 8.0
 
 const PASTEL_PINK := Color(1.0, 182.0 / 255.0, 193.0 / 255.0, 1.0)
@@ -263,6 +267,10 @@ func get_performance_snapshot() -> Dictionary:
 		"heart_particle_draw_limit_severe_lod": HEART_PARTICLE_DRAW_LIMIT_SEVERE_LOD,
 		"stadium_circle_segments_lod": STADIUM_CIRCLE_SEGMENTS_LOD,
 		"stadium_circle_segments_severe_lod": STADIUM_CIRCLE_SEGMENTS_SEVERE_LOD,
+		"stadium_dash_length_severe_lod": STADIUM_DASH_LENGTH_SEVERE_LOD,
+		"stadium_gap_length_severe_lod": STADIUM_GAP_LENGTH_SEVERE_LOD,
+		"stadium_severe_lod_skips_inner_arc": true,
+		"stadium_severe_lod_skips_flow": true,
 		"kuromi_tongue_point_max_lod": KUROMI_TONGUE_POINT_MAX_LOD,
 		"kuromi_tongue_point_max_severe_lod": KUROMI_TONGUE_POINT_MAX_SEVERE_LOD,
 		"kuromi_crack_particle_draw_limit_lod": KUROMI_CRACK_PARTICLE_DRAW_LIMIT_LOD,
@@ -390,6 +398,7 @@ func _draw_stadium_line(
 	var center: Vector2 = Vector2(width * 0.5, height * 0.5) + shake_offset
 	var circle_radius: float = 120.0
 	var line_color: Color = _get_emotional_color()
+	var severe_lod: bool = _is_severe_lod_active(quality_scale)
 	var circle_segments: int = _get_lod_count(
 		STADIUM_CIRCLE_SEGMENTS,
 		STADIUM_CIRCLE_SEGMENTS_LOD,
@@ -406,10 +415,11 @@ func _draw_stadium_line(
 	canvas.draw_circle(center, circle_radius, Color(1.0, 1.0, 1.0, 0.10))
 	canvas.draw_arc(center, circle_radius, 0.0, TAU, circle_segments, WHITE, 3.0, true)
 	canvas.draw_arc(center, circle_radius - 5.0, 0.0, TAU, circle_segments, line_color, 2.0, true)
-	canvas.draw_arc(center, circle_radius - 10.0, 0.0, TAU, inner_segments, Color(LAVENDER.r, LAVENDER.g, LAVENDER.b, 0.40), 1.0, true)
+	if not severe_lod:
+		canvas.draw_arc(center, circle_radius - 10.0, 0.0, TAU, inner_segments, Color(LAVENDER.r, LAVENDER.g, LAVENDER.b, 0.40), 1.0, true)
 
-	var dash_length: int = 36
-	var gap_length: int = 30
+	var dash_length: int = STADIUM_DASH_LENGTH_SEVERE_LOD if severe_lod else STADIUM_DASH_LENGTH
+	var gap_length: int = STADIUM_GAP_LENGTH_SEVERE_LOD if severe_lod else STADIUM_GAP_LENGTH
 	for x in range(0, maxi(0, int(center.x - circle_radius)), dash_length + gap_length):
 		var left_end_x: float = minf(float(x + dash_length), center.x - circle_radius)
 		canvas.draw_line(Vector2(float(x), center.y), Vector2(left_end_x, center.y), line_color, 3.0, true)
@@ -418,9 +428,10 @@ func _draw_stadium_line(
 		canvas.draw_line(Vector2(float(x), center.y), Vector2(right_end_x, center.y), line_color, 3.0, true)
 	_perf_end(perf_logger, "stage3.playfield.stadium_lines", sample_start)
 
-	sample_start = _perf_begin(perf_logger)
-	_draw_stadium_electric_flow(canvas, width, center, circle_radius, dash_length, gap_length, quality_scale)
-	_perf_end(perf_logger, "stage3.playfield.stadium_flow", sample_start)
+	if not severe_lod:
+		sample_start = _perf_begin(perf_logger)
+		_draw_stadium_electric_flow(canvas, width, center, circle_radius, dash_length, gap_length, quality_scale)
+		_perf_end(perf_logger, "stage3.playfield.stadium_flow", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_kuromi(canvas, context, center, 60.0, quality_scale)
 	_perf_end(perf_logger, "stage3.playfield.kuromi", sample_start)
