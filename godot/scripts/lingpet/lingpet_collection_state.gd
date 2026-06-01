@@ -108,7 +108,7 @@ func find_first_owned_pet_id(owner: Object) -> String:
 
 
 func find_active_slot_pet_id(owner: Object) -> String:
-	var slots := get_battle_slots_from_owner(owner)
+	var slots: Array[String] = get_battle_slots_from_owner(owner)
 	var slot_index := get_active_slot_index_from_owner(owner)
 	if slot_index >= 0 and slot_index < slots.size() and slots[slot_index] != "":
 		battle_slot_pet_ids = slots
@@ -123,7 +123,7 @@ func find_active_slot_pet_id(owner: Object) -> String:
 
 
 func select_active_slot(slot_index: int, owner: Object = null) -> String:
-	var slots := get_battle_slots_from_owner(owner)
+	var slots: Array[String] = get_battle_slots_from_owner(owner)
 	var clamped_index := clampi(slot_index, 0, MAX_BATTLE_SLOTS - 1)
 	if clamped_index >= slots.size() or slots[clamped_index] == "":
 		return ""
@@ -135,7 +135,7 @@ func select_active_slot(slot_index: int, owner: Object = null) -> String:
 
 
 func find_next_occupied_slot_index(direction: int = 1, owner: Object = null) -> int:
-	var slots := get_battle_slots_from_owner(owner)
+	var slots: Array[String] = get_battle_slots_from_owner(owner)
 	if slots.is_empty():
 		return -1
 	var current_index := get_active_slot_index_from_owner(owner)
@@ -148,11 +148,11 @@ func find_next_occupied_slot_index(direction: int = 1, owner: Object = null) -> 
 
 
 func get_battle_slots_from_owner(owner: Object) -> Array[String]:
-	var slots := battle_slot_pet_ids.duplicate()
+	var slots: Array[String] = battle_slot_pet_ids.duplicate()
 	for key in OWNER_SLOT_KEYS:
 		var ids: Variant = _get_owner_value(owner, str(key), null)
 		if ids is Array:
-			var owner_slots := normalize_slot_array(ids)
+			var owner_slots: Array[String] = normalize_slot_array(ids)
 			if _has_any_slot(owner_slots):
 				slots = owner_slots
 				break
@@ -279,7 +279,7 @@ func _assign_pet_to_first_empty_slot(slots: Array[String], pet_id: String) -> in
 
 
 func _sync_owner_slots(owner: Object) -> void:
-	var slots := battle_slot_pet_ids.duplicate()
+	var slots: Array[String] = battle_slot_pet_ids.duplicate()
 	for key in OWNER_SLOT_KEYS:
 		owner.set(str(key), slots.duplicate())
 	for key in OWNER_ACTIVE_SLOT_KEYS:
