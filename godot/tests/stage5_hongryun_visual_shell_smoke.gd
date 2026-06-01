@@ -11,6 +11,7 @@ const Stage5HongryunPillarSceneDrawer := preload("res://scripts/stages/stage5/st
 const Stage5HongryunPlayfieldRenderer := preload("res://scripts/stages/stage5/stage5_hongryun_playfield_renderer.gd")
 const Stage5HongryunBossActorRenderer := preload("res://scripts/stages/stage5/stage5_hongryun_boss_actor_renderer.gd")
 const Stage5HongryunActorRenderer := preload("res://scripts/stages/stage5/stage5_hongryun_actor_renderer.gd")
+const Stage5HongryunBossSkillHudRenderer := preload("res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd")
 
 var _failures: Array[String] = []
 
@@ -88,6 +89,10 @@ func _verify_background_contract() -> void:
 	_expect(background.has_method("trigger_spiral_burst"), "Hongryun background should expose spiral burst hook")
 	_expect(background.has_method("set_inferno_mode"), "Hongryun background should expose inferno mode hook")
 	_expect(background.has_method("add_fire_impact"), "Hongryun background should expose fire impact hook")
+	_expect(Stage5HongryunPillarBackground.SPIRAL_BURST_ARM_COUNT_SEVERE_LOD <= 2, "Hongryun background severe LOD should reduce spiral burst arms")
+	_expect(Stage5HongryunPillarBackground.SPIRAL_BURST_PRIMARY_SEGMENTS_SEVERE_LOD <= 14, "Hongryun background severe LOD should reduce spiral arc segments")
+	_expect(Stage5HongryunPillarBackground.FIRE_IMPACT_OUTER_SEGMENTS_SEVERE_LOD <= 20, "Hongryun background severe LOD should reduce fire impact arc segments")
+	_expect(Stage5HongryunPillarBackground.VIGNETTE_STEPS_SEVERE_LOD <= 3, "Hongryun background severe LOD should reduce vignette passes")
 
 	background.trigger_spiral_burst(true)
 	background.add_fire_impact(300.0, 420.0)
@@ -120,6 +125,13 @@ func _verify_renderer_asset_status() -> void:
 	var playfield_status: Dictionary = playfield.get_imagegen_asset_status()
 	_expect(bool(playfield_status.get("stage5_fireball_atlas", false)), "playfield should load fireball atlas")
 	_expect(str(playfield_status.get("stage5_fireball_atlas_path", "")).ends_with("stage5_hongryun_fireball_sheet_autosprite_v1.png"), "playfield should prefer AutoSprite fireball sheet")
+	_expect(bool(playfield_status.get("stage5_center_border_texture", false)), "playfield should load the imagegen Hongryun center border")
+	_expect(bool(playfield_status.get("stage5_center_border_draw_enabled", false)), "playfield should draw the imagegen Hongryun center border")
+	_expect(str(playfield_status.get("stage5_center_border_path", "")).ends_with("stage5_hongryun_center_border_imagegen_v1.png"), "playfield should use the accepted Hongryun center border PNG")
+	_expect(float(playfield_status.get("stage5_center_border_fallback_stroke", 99.0)) <= 2.0, "playfield fallback border should stay thin if the PNG is missing")
+	_expect(float(playfield_status.get("stage5_center_border_collision_edge_band_px", 99.0)) <= 13.0, "playfield border should stay in the ball collision edge band")
+	_expect(bool(playfield_status.get("stage5_center_border_inner_guides_removed", false)), "playfield border should not draw misleading inner guide lines")
+	_verify_stage5_center_border_collision_edge_asset()
 	_expect(int(playfield_status.get("trail_render_limit", 0)) <= 30, "playfield trail renderer should cap rendered trail nodes")
 
 	var boss := Stage5HongryunBossActorRenderer.new()
@@ -142,7 +154,26 @@ func _verify_renderer_asset_status() -> void:
 	actor.prewarm_assets()
 	var actor_status: Dictionary = actor.get_imagegen_asset_status()
 	_expect(bool(actor_status.get("stage5_fireball_atlas", false)), "actor wrapper should report playfield assets")
+	_expect(bool(actor_status.get("stage5_center_border_texture", false)), "actor wrapper should report the Hongryun center border asset")
 	_expect(bool(actor_status.get("stage5_hongryun_walk", false)), "actor wrapper should report boss assets")
+
+
+func _verify_stage5_center_border_collision_edge_asset() -> void:
+	var path := "res://assets/sprites/hud/stage5_hongryun_center_border_imagegen_v1.png"
+	var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+	_expect(image != null, "Stage 5 center border PNG should load for collision-edge alpha audit")
+	if image == null:
+		return
+	_expect(image.get_size() == Vector2i(760, 750), "Stage 5 center border PNG should match the 760x750 playfield")
+	if image.get_format() != Image.FORMAT_RGBA8:
+		image.convert(Image.FORMAT_RGBA8)
+	var inner_clear_margin_px := 28
+	var inner_alpha_pixels := 0
+	for y in range(inner_clear_margin_px, image.get_height() - inner_clear_margin_px):
+		for x in range(inner_clear_margin_px, image.get_width() - inner_clear_margin_px):
+			if image.get_pixel(x, y).a > 0.01:
+				inner_alpha_pixels += 1
+	_expect(inner_alpha_pixels == 0, "Stage 5 center border PNG should leave the inner playfield clear of false wall lines")
 
 
 func _verify_stage5_high_refresh_lod_contract() -> void:
@@ -154,14 +185,26 @@ func _verify_stage5_high_refresh_lod_contract() -> void:
 	var pillar := Stage5HongryunPillarSceneDrawer.new()
 	var playfield_quality_scale: float = playfield._get_playfield_quality_scale(context)
 	var pillar_quality_scale: float = pillar._get_pillar_quality_scale(context)
+	var pillar_hud_context: Dictionary = pillar._with_stage5_hud_lod_context(context, pillar_quality_scale)
 	var boss_source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_hongryun_boss_actor_renderer.gd")
+	var pillar_source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_hongryun_pillar_scene_drawer.gd")
+	var boss_hud_source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd")
 	BattleRenderQuality.reset_cache_for_test()
 	Engine.set("max_fps", previous_max_fps)
 
 	_expect(playfield_quality_scale < 0.85, "Stage 5 playfield should honor high-refresh render LOD for smasher")
 	_expect(pillar_quality_scale < 0.85, "Stage 5 pillar chrome should honor high-refresh render LOD for smasher")
+	_expect(
+		bool(pillar_hud_context.get("pillar_hud_static_lod", false)),
+		"Stage 5 pillar HUD should trim ornamental shared HUD layers during high-refresh render LOD"
+	)
+	_expect(Stage5HongryunPillarSceneDrawer.INFERNO_PILLAR_TRAIL_RENDER_LIMIT_SEVERE_LOD <= 6, "Stage 5 pillar flourish should cap inferno letterbox wisps under severe LOD")
+	_expect(Stage5HongryunBossSkillHudRenderer.EMPTY_ORB_ARC_SEGMENTS_SEVERE_LOD <= 14, "Stage 5 boss skill HUD should reduce dragon orb arc segments under severe LOD")
 	_expect(boss_source.find("BattleRenderQuality.effect_scale(context)") >= 0, "Stage 5 boss actor should honor shared render quality LOD")
 	_expect(boss_source.find("ViperAirborneLod.effect_scale(context)") < 0, "Stage 5 boss actor should not bypass shared high-refresh LOD")
+	_expect(pillar_source.find("_with_stage5_hud_lod_context(context, quality_scale)") >= 0, "Stage 5 pillar draw should route shared HUD through the LOD helper")
+	_expect(pillar_source.find("stage5_pillar_hud_static_lod") >= 0, "Stage 5 pillar HUD should expose its static LOD marker")
+	_expect(boss_hud_source.find("stage5_hud_quality_scale") >= 0, "Stage 5 boss skill HUD should receive the pillar quality scale")
 
 
 func _verify_state_actor_draw_contract() -> void:
