@@ -187,6 +187,9 @@ func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2
 
 
 func _is_scoreboard_overlay_active(states: Dictionary, registry: Object) -> bool:
+	var result_screen: Object = _get_instance(registry, "stage_clear_result_screen")
+	if result_screen != null and result_screen.has_method("is_active") and bool(result_screen.is_active()):
+		return false
 	var scoreboard_state: Object = states.get("scoreboard_state", null)
 	if scoreboard_state == null and registry != null and registry.has_method("get_instance"):
 		scoreboard_state = registry.get_instance("scoreboard_state")

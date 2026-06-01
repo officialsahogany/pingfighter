@@ -103,6 +103,9 @@ func draw(
 	effects_drawer.draw_power_smash_effects(canvas, registry, power_state, shake_offset, draw_context)
 	_perf_end(perf_logger, "08.power_smash", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_draw_lingpet_runtime(canvas, registry, shake_offset, draw_context)
+	_perf_end(perf_logger, "08b.lingpet", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	ball_drawer.draw_ball(canvas, registry, draw_context_builder, draw_context, draw_deps, shake_offset, width, height, perf_logger)
 	_perf_end(perf_logger, "09.ball", sample_start)
 	sample_start = _perf_begin(perf_logger)
@@ -234,6 +237,9 @@ func _uses_blocking_overlay_lod(registry: Object, draw_context: Dictionary) -> b
 
 
 func _is_scoreboard_overlay_active(registry: Object) -> bool:
+	var result_screen: Object = _get_instance(registry, "stage_clear_result_screen")
+	if result_screen != null and result_screen.has_method("is_active") and bool(result_screen.is_active()):
+		return false
 	var scoreboard_state: Object = _get_instance(registry, "scoreboard_state")
 	return scoreboard_state != null and scoreboard_state.has_method("is_active") and bool(scoreboard_state.is_active())
 
@@ -296,6 +302,20 @@ func _draw_active_item_field(
 			active_item_runtime.draw_field_items(canvas, registry, shake_offset, perf_logger)
 		else:
 			active_item_runtime.draw_field_items(canvas, registry, shake_offset)
+
+
+func _draw_lingpet_runtime(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2,
+	draw_context: Dictionary
+) -> void:
+	var runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	if runtime == null or not runtime.has_method("draw"):
+		return
+	if runtime.has_method("has_visible_effects") and not bool(runtime.has_visible_effects()):
+		return
+	runtime.draw(canvas, shake_offset, draw_context)
 
 
 func _get_method_argument_count(target: Object, method_name: String) -> int:

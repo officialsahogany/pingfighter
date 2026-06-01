@@ -33,6 +33,8 @@ func draw_scoreboard_overlay(
 	draw_context: Dictionary = {},
 	perf_logger: Object = null
 ) -> void:
+	if _is_stage_clear_result_active(registry):
+		return
 	var scoreboard_state: Object = _get_instance(registry, "scoreboard_state")
 	if scoreboard_state == null or not scoreboard_state.is_active():
 		return
@@ -56,3 +58,8 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _is_stage_clear_result_active(registry: Object) -> bool:
+	var result_screen: Object = _get_instance(registry, "stage_clear_result_screen")
+	return result_screen != null and result_screen.has_method("is_active") and bool(result_screen.is_active())
