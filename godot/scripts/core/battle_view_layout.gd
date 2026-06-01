@@ -60,6 +60,7 @@ static var _runtime_render_fps_cap := RENDER_FPS_CAP_DEFAULT
 static var _runtime_physics_ticks_per_second := PHYSICS_TICKS_PROJECT_DEFAULT
 static var _project_physics_ticks_per_second := PHYSICS_TICKS_PROJECT_DEFAULT
 static var _project_physics_ticks_initialized := false
+static var _runtime_window_geometry_configured := false
 static var _configure_window_count := 0
 static var _last_configure_window_summary := "not_called"
 static var _last_settings_save_summary := "not_saved"
@@ -78,21 +79,39 @@ func configure_window(window: Window) -> void:
 	var saved_vsync_mode: int = get_saved_vsync_mode()
 	var saved_render_cap: int = get_saved_render_fps_cap()
 	var settings_load_summary := get_settings_load_summary()
+	var window_geometry_action := "unmanaged"
 	if can_manage_window:
 		if remember_display_mode:
-			apply_display_mode(window, saved_display_mode)
-		elif not is_fullscreen(window):
-			var target_rect := _build_default_window_rect()
-			if target_rect.size.x > 0 and target_rect.size.y > 0:
-				window.size = target_rect.size
-				window.position = target_rect.position
+			if saved_display_mode == DISPLAY_MODE_WINDOWED and not is_fullscreen(window):
 				_remember_windowed_geometry(window)
+				window_geometry_action = "preserve_windowed"
+			else:
+				var applied_mode := apply_display_mode(window, saved_display_mode)
+				window_geometry_action = "apply_%s" % applied_mode
+				if applied_mode == DISPLAY_MODE_WINDOWED:
+					_remember_windowed_geometry(window)
+		elif not is_fullscreen(window):
+			if _runtime_window_geometry_configured:
+				window_geometry_action = "preserve_windowed"
+			else:
+				var target_rect := _build_default_window_rect()
+				if target_rect.size.x > 0 and target_rect.size.y > 0:
+					window.size = target_rect.size
+					window.position = target_rect.position
+					window_geometry_action = "apply_default"
+				else:
+					window_geometry_action = "default_unavailable"
+			_remember_windowed_geometry(window)
+		else:
+			window_geometry_action = "preserve_fullscreen"
+		_runtime_window_geometry_configured = true
 	apply_auto_refresh_rate(window, get_auto_refresh_rate_enabled())
 	apply_render_fps_cap(window, saved_render_cap, saved_vsync_mode)
 	apply_vsync_mode(saved_vsync_mode, window)
-	_last_configure_window_summary = "count=%d can_manage=%s saved_window=%s remember=%s saved_cap=%s saved_vsync=%s actual_window=%s actual_vsync=%s config=%s" % [
+	_last_configure_window_summary = "count=%d can_manage=%s geometry=%s saved_window=%s remember=%s saved_cap=%s saved_vsync=%s actual_window=%s actual_vsync=%s config=%s" % [
 		_configure_window_count,
 		"on" if can_manage_window else "off",
+		window_geometry_action,
 		saved_display_mode,
 		"on" if remember_display_mode else "off",
 		str(get_render_fps_cap_label(saved_render_cap, window)).replace(" ", "_"),
