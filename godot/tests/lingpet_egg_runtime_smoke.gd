@@ -5,8 +5,11 @@ const BattleSceneLifecycle := preload("res://scripts/core/battle_scene_lifecycle
 const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module_registry.gd")
 const BallRoundState := preload("res://scripts/ball/ball_round_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSaveStore := preload("res://scripts/lingpet/lingpet_save_store.gd")
 const PaddleBounceEventRouter := preload("res://scripts/ball/paddle_bounce_event_router.gd")
+const HydroPuddleTextureCache := preload("res://scripts/effects/hydro_puddle_texture_cache.gd")
 
 var _failures: Array[String] = []
 
@@ -65,12 +68,6 @@ class FakeOwner:
 	var ringpet_companion_hit_cooldown := 0.0
 	var lingpet_companion_hit_gauge_gain := 0.0
 	var ringpet_companion_hit_gauge_gain := 0.0
-	var lingpet_companion_hit_gauge_cooldown := 0.0
-	var ringpet_companion_hit_gauge_cooldown := 0.0
-	var lingpet_companion_hit_gauge_cooldown_duration := 6.0
-	var ringpet_companion_hit_gauge_cooldown_duration := 6.0
-	var lingpet_companion_hit_gauge_ready := false
-	var ringpet_companion_hit_gauge_ready := false
 	var lingpet_companion_hit_gauge_last_gain := 0.0
 	var ringpet_companion_hit_gauge_last_gain := 0.0
 	var lingpet_companion_hit_gauge_trigger_count := 0
@@ -144,12 +141,6 @@ class FakeBattleOwner:
 	var ringpet_companion_hit_cooldown := 0.0
 	var lingpet_companion_hit_gauge_gain := 0.0
 	var ringpet_companion_hit_gauge_gain := 0.0
-	var lingpet_companion_hit_gauge_cooldown := 0.0
-	var ringpet_companion_hit_gauge_cooldown := 0.0
-	var lingpet_companion_hit_gauge_cooldown_duration := 6.0
-	var ringpet_companion_hit_gauge_cooldown_duration := 6.0
-	var lingpet_companion_hit_gauge_ready := false
-	var ringpet_companion_hit_gauge_ready := false
 	var lingpet_companion_hit_gauge_last_gain := 0.0
 	var ringpet_companion_hit_gauge_last_gain := 0.0
 	var lingpet_companion_hit_gauge_trigger_count := 0
@@ -269,6 +260,7 @@ class FakeRegistry:
 
 func _init() -> void:
 	_verify_registry_and_frame_wiring()
+	_verify_lingpet_catalog_random_hatch_scaffold()
 	_verify_junior_mika_spawn_syncs_character_info_keys()
 	_verify_egg_player_contact_nudges_and_wobbles()
 	_verify_player_serve_ball_does_not_hatch_egg()
@@ -285,6 +277,7 @@ func _init() -> void:
 	_verify_companion_paddle_hit_width()
 	_verify_companion_guards_dalji_whip()
 	_verify_companion_skill_card_hydro_sphere()
+	_verify_hydro_puddle_vfx()
 	_verify_save_snapshot_roundtrip()
 	_verify_save_store_persists_and_restores_maribo()
 	_verify_battle_lifecycle_restores_lingpet_save()
@@ -325,6 +318,7 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(hit_router_source.find("get_gauge_gain_per_hit") >= 0, "player hit gauge routing should read lingpet gauge bonuses")
 	_expect(character_info_source.find("_frame_stat_sources.append(lingpet_runtime)") >= 0, "character info stats should include lingpet stat sources")
 	_expect(pillar_hud_source.find("\"lingpet_runtime\"") >= 0, "shared pillar HUD should pass lingpet runtime to the pillar UI")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_catalog.gd"), "lingpet catalog should exist as the random hatch source of truth")
 	# Old separate bottom-left vertical lingpet card was removed; the skill now rides EVERY stage's boss skill-card rail via the shared LingpetRailCard helper.
 	_expect(pillar_ui_source.find("_draw_lingpet_card(") < 0, "old separate lingpet pillar card call site should be removed from the pillar UI renderer")
 	_expect(pillar_ui_source.find("draw_pillar_card") < 0, "pillar UI renderer should no longer call the runtime pillar card draw path")
@@ -341,10 +335,29 @@ func _verify_registry_and_frame_wiring() -> void:
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	_expect(runtime_source.find("MARIBO_EGG_TEXTURE_CRACK_1") >= 0, "field egg rendering should switch to the first cracked asset after one hit")
 	_expect(runtime_source.find("MARIBO_EGG_TEXTURE_CRACK_2") >= 0, "field egg rendering should switch to the second cracked asset after two hits")
-	_expect(runtime_source.find("_draw_egg_crack_light") >= 0, "field egg rendering should leak light from cracked shell paths after a hatch hit")
-	_expect(runtime_source.find("HATCH_BREAK_SHARD_COUNT") >= 0, "field hatch should keep a shell-fragment burst spec")
-	_expect(runtime_source.find("_draw_hatch_shell_burst") >= 0, "field hatch should draw breaking egg fragments during the hatch flash")
-	_expect(runtime_source.find("HYDRO_SPHERE_PUDDLE_HALF_WIDTH") >= 0 and runtime_source.find("HYDRO_SPHERE_PUDDLE_HALF_HEIGHT") >= 0, "Maribo Hydro Sphere puddle should be a wide ellipse (half-width/half-height), not a circle radius")
+	_expect(runtime_source.find("lingpet_egg_field_renderer.gd") >= 0, "egg runtime should delegate field egg rendering to the egg renderer module")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_egg_field_renderer.gd"), "egg-field renderer module should exist")
+	var egg_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
+	_expect(egg_renderer_source.find("_draw_egg_crack_light") >= 0, "field egg rendering should leak light from cracked shell paths after a hatch hit")
+	_expect(egg_renderer_source.find("HATCH_BREAK_SHARD_COUNT") >= 0, "field hatch should keep a shell-fragment burst spec")
+	_expect(egg_renderer_source.find("_draw_hatch_shell_burst") >= 0, "field hatch should draw breaking egg fragments during the hatch flash")
+	_expect(runtime_source.find("lingpet_egg_field_state.gd") >= 0, "egg runtime should delegate floor egg contact/hit/hatch state to the egg-field state module")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_egg_field_state.gd"), "egg-field state module should exist")
+	var egg_field_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_state.gd")
+	_expect(egg_field_source.find("resolve_ball_hit") >= 0, "egg-field state should own egg ball-hit cracking logic")
+	_expect(egg_field_source.find("update_player_contact") >= 0, "egg-field state should own player-contact nudge/wobble logic")
+	_expect(runtime_source.find("lingpet_runtime_snapshot_builder.gd") >= 0, "egg runtime should delegate live/save snapshot and owner sync payloads to the snapshot builder")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd"), "lingpet runtime snapshot builder module should exist")
+	var snapshot_builder_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
+	_expect(snapshot_builder_source.find("build_runtime_snapshot") >= 0, "snapshot builder should own live runtime snapshot assembly")
+	_expect(snapshot_builder_source.find("build_save_snapshot") >= 0, "snapshot builder should own save snapshot assembly")
+	_expect(snapshot_builder_source.find("sync_owner") >= 0, "snapshot builder should own owner compatibility key sync")
+	_expect(runtime_source.find("lingpet_companion_body_hit_state.gd") >= 0, "egg runtime should delegate companion body hit bounce/gauge state to the body-hit module")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_body_hit_state.gd"), "companion body-hit state module should exist")
+	_expect(runtime_source.find("lingpet_companion_motion_state.gd") >= 0, "egg runtime should delegate companion patrol/defense motion to the motion-state module")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_motion_state.gd"), "companion motion-state module should exist")
+	var hydro_skill_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_hydro_sphere_skill.gd")
+	_expect(hydro_skill_source.find("PUDDLE_HALF_WIDTH") >= 0 and hydro_skill_source.find("PUDDLE_HALF_HEIGHT") >= 0, "Maribo Hydro Sphere puddle should be a wide ellipse (half-width/half-height), not a circle radius")
 	_verify_companion_walk_sheet_wiring(runtime_source)
 	_verify_acquire_cutin_wiring(runtime_source)
 
@@ -382,6 +395,8 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(cutin_host_source.find("CUTIN_DISMISS_SHEET") >= 0, "cut-in host should play the spear-raise + water-spray exit sheet")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png"), "Maribo cut-in should ship the exit-action (spear-raise + water-spray) sheet")
 	_expect(runtime_source.find("is_acquire_cutin_active") >= 0, "lingpet runtime should expose the acquisition cut-in active flag")
+	_expect(runtime_source.find("lingpet_acquire_cutin_state.gd") >= 0, "lingpet runtime should delegate cut-in timing state to the acquire-cutin state module")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_acquire_cutin_state.gd"), "lingpet acquire cut-in state module should exist")
 	_expect(runtime_source.find("get_acquire_cutin_progress") >= 0, "lingpet runtime should expose the acquisition cut-in progress")
 	_expect(runtime_source.find("advance_acquire_cutin") >= 0, "lingpet runtime should advance the cut-in from the ungated idle pump")
 	_expect(runtime_source.find("is_acquire_cutin_awaiting_dismiss") >= 0, "lingpet runtime should expose the post-reveal dismissable state")
@@ -411,14 +426,101 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(host != null and host.has_method("draw"), "lingpet acquisition cut-in host should be registered and drawable")
 
 
+func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
+	var eligible_context := {
+		"league_mode": "junior",
+		"character_type": "smasher",
+	}
+	var candidates: Array[String] = LingpetCatalog.get_hatch_candidates(eligible_context, [])
+	_expect(candidates.has("maribo"), "catalog should expose Maribo as the current eligible random hatch candidate")
+	_expect(str(LingpetCatalog.pick_hatch_pet_id(eligible_context, [])) == "maribo", "single-candidate hatch pick should currently resolve to Maribo")
+	_expect(LingpetCatalog.get_hatch_candidates(eligible_context, ["maribo"]).is_empty(), "owned lingpets should be removed from the random hatch candidate pool")
+	_expect(LingpetCatalog.get_hatch_candidates({"league_mode": "champion", "character_type": "smasher"}, []).is_empty(), "catalog should keep Junior League eligibility gating")
+	var live_catalog_issues: Array[String] = LingpetCatalog.validate_catalog(true)
+	_expect(live_catalog_issues.is_empty(), "live lingpet catalog should validate cleanly: %s" % str(live_catalog_issues))
+	var broken_entries := {
+		"broken": {
+			"id": "broken",
+			"display_name": "검수 실패 샘플",
+			"hatch_weight": 1.0,
+			"required_hits": 2,
+			"unlock": {},
+			"stats": {
+				"patrol_speed_default": 0.0,
+			},
+			"visuals": {
+				"egg": "res://missing/broken_egg.png",
+			},
+			"active_skill": {
+				"id": "broken_skill",
+				"cooldown": 0.0,
+			},
+			"effect_text": "",
+		},
+	}
+	var broken_issues: Array[String] = LingpetCatalog.validate_entries(broken_entries, false)
+	_expect(_issues_contain(broken_issues, "stats.patrol_speed_default must be > 0"), "catalog validator should catch invalid movement stats before a new lingpet ships")
+	_expect(_issues_contain(broken_issues, "missing visuals.companion_walk"), "catalog validator should catch missing companion visual paths")
+	_expect(_issues_contain(broken_issues, "missing active_skill.card_texture_path"), "catalog validator should catch missing skill-card art paths")
+	_expect(_issues_contain(broken_issues, "active_skill.cooldown must be > 0"), "catalog validator should catch invalid active-skill cooldowns")
+	_expect(_issues_contain(broken_issues, "missing effect_text"), "catalog validator should catch missing ringpet effect text")
+	var multi_entries := {
+		"maribo": LingpetCatalog.get_entry("maribo"),
+		"test_bubble": {
+			"id": "test_bubble",
+			"display_name": "테스트 버블",
+			"hatch_weight": 3.0,
+			"required_hits": 2,
+			"unlock": {
+				"league_mode": "junior",
+				"character_type": "smasher",
+			},
+		},
+	}
+	var multi_candidates: Array[String] = LingpetCatalog.get_hatch_candidates_from_entries(multi_entries, eligible_context, [])
+	_expect(multi_candidates.has("maribo") and multi_candidates.has("test_bubble"), "catalog selection helper should support multiple eligible lingpet candidates")
+	var after_maribo_owned: Array[String] = LingpetCatalog.get_hatch_candidates_from_entries(multi_entries, eligible_context, ["maribo"])
+	_expect(not after_maribo_owned.has("maribo") and after_maribo_owned.has("test_bubble"), "multi-candidate selection should exclude already owned lingpets without hiding other candidates")
+	_expect(str(LingpetCatalog.pick_hatch_pet_id_from_entries(multi_entries, eligible_context, ["maribo"])) == "test_bubble", "multi-candidate picker should resolve the remaining eligible pet after ownership filtering")
+	_expect(LingpetCatalog.get_required_hits("maribo") == 2, "catalog should own Maribo hatch-hit requirements")
+	_expect(LingpetCatalog.get_display_name("maribo") == "마리보", "catalog should own lingpet display names")
+	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("maribo_egg_v002.png"), "catalog should own Maribo egg visual paths")
+	_expect(str(LingpetCatalog.get_visual_path("maribo", "companion_walk")).ends_with("maribo_companion_walk.png"), "catalog should own Maribo companion visual paths")
+	_expect(LingpetSkillDispatcher.is_hydro_sphere("maribo_hydro_sphere"), "skill dispatcher should recognize the current Maribo active skill")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var collection_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_collection_state.gd")
+	_expect(runtime_source.find("lingpet_collection_state.gd") >= 0, "egg runtime should delegate owned collection + hatch candidate selection to the collection-state helper")
+	_expect(collection_source.find("LingpetCatalog.pick_hatch_pet_id") >= 0, "collection-state helper should pick the hidden egg identity through the catalog")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_collection_state.gd"), "lingpet collection-state helper should exist")
+	_expect(runtime_source.find("_pick_hatch_pet_id") >= 0, "egg runtime should keep a narrow hatch-selection hook for future weighted random lingpets")
+	_expect(runtime_source.find("_update_companion_skill_effects") >= 0, "egg runtime should route companion active skills through a dispatcher hook")
+	_expect(runtime_source.find("LingpetSkillDispatcher.get_skill_kind") >= 0, "egg runtime should dispatch active skill behavior by skill id")
+	_expect(runtime_source.find("lingpet_companion_skill_state.gd") >= 0, "egg runtime should delegate shared active-skill cooldown/wind-up state to the companion skill-state controller")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_skill_state.gd"), "companion skill-state controller should exist for future lingpet active skills")
+	_expect(runtime_source.find("lingpet_visual_texture_cache.gd") >= 0, "egg runtime should delegate catalog visual texture loading to the visual cache module")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_visual_texture_cache.gd"), "lingpet visual texture cache module should exist")
+	var visual_cache_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
+	_expect(visual_cache_source.find("LingpetCatalog.get_visual_path") >= 0, "visual cache should query catalog visual paths instead of hardcoding only Maribo paths")
+	_expect(visual_cache_source.find("ProjectResourceLoader.load_texture") >= 0, "visual cache should route texture loads through the shared project resource loader")
+
+
 func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# The hatched companion now renders from the AutoSprite back-view walk sheet
 	# (idle is derived from the same sheet). Seal the asset + grid spec so a
 	# future PNG swap or grid change cannot silently desync the frame math.
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_walk.png"), "Maribo companion should use a PNG-backed back-view walk sheet")
 	_expect(runtime_source.find("MARIBO_COMPANION_WALK_SHEET") >= 0, "companion rendering should reference the walk-sheet texture")
-	_expect(runtime_source.find("draw_texture_rect_region") >= 0, "companion rendering should blit walk-sheet cells, not draw a procedural body")
-	_expect(runtime_source.find("_get_companion_sprite_frame") >= 0, "companion rendering should resolve a sheet frame per draw")
+	_expect(runtime_source.find("_get_current_visual_texture(\"companion_walk\"") >= 0, "companion rendering should resolve walk visuals through the catalog with a Maribo fallback")
+	_expect(runtime_source.find("lingpet_companion_renderer.gd") >= 0, "egg runtime should delegate companion sprite drawing to the companion renderer")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_renderer.gd"), "companion renderer module should exist")
+	var companion_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
+	_expect(companion_renderer_source.find("draw_texture_rect_region") >= 0, "companion renderer should blit walk-sheet cells, not draw a procedural body")
+	_expect(companion_renderer_source.find("_draw_burst") >= 0, "companion renderer should own hit/gauge/skill flash burst drawing")
+	_expect(runtime_source.find("lingpet_companion_sprite_animator.gd") >= 0, "egg runtime should delegate companion frame/source-rect math to the sprite animator")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_sprite_animator.gd"), "companion sprite animator module should exist")
+	var sprite_animator_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
+	_expect(sprite_animator_source.find("get_walk_frame") >= 0, "companion sprite animator should resolve walk/idle frames")
+	_expect(sprite_animator_source.find("get_source_rect") >= 0, "companion sprite animator should resolve sheet source rects")
 	var sheet: Texture2D = load("res://assets/sprites/lingpet/maribo_companion_walk.png") as Texture2D
 	_expect(sheet != null, "companion walk sheet should load as a Texture2D")
 	if sheet != null:
@@ -433,13 +535,14 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# Ball-hit strike sheet (same 5x5/25 grid) played on companion ball contact.
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_strike.png"), "Maribo companion should have a back-view ball-hit strike sheet")
 	_expect(runtime_source.find("MARIBO_COMPANION_STRIKE_SHEET") >= 0, "companion rendering should reference the strike sheet")
-	_expect(runtime_source.find("_get_companion_strike_frame") >= 0, "companion should map the strike timer to sheet frames")
+	_expect(runtime_source.find("_get_current_visual_texture(\"companion_strike\"") >= 0, "companion rendering should resolve strike visuals through the catalog with a Maribo fallback")
+	_expect(sprite_animator_source.find("get_strike_frame") >= 0, "companion sprite animator should map the strike timer to sheet frames")
 	# Impact-synced reaction: the ball-hit must seed the SHORT residual so the
 	# thrust/apex frame renders at contact, NOT the full duration (which replayed
 	# the long wind-up after the bounce = late-strike regression).
 	_expect(runtime_source.find("_maybe_arm_companion_strike") >= 0, "companion should arm the strike anticipatorily (like player/boss attack sheets), not only on contact")
 	_expect(runtime_source.find("frames_to_contact") >= 0, "anticipatory strike should predict time-to-contact to pick an entry frame")
-	_expect(runtime_source.find("COMPANION_STRIKE_START_FRAME") >= 0, "strike should declare a wind-up start frame (skip dead-air, show coil before the thrust)")
+	_expect(sprite_animator_source.find("STRIKE_START_FRAME") >= 0, "strike animator should declare a wind-up start frame (skip dead-air, show coil before the thrust)")
 	var strike_sheet: Texture2D = load("res://assets/sprites/lingpet/maribo_companion_strike.png") as Texture2D
 	_expect(strike_sheet != null, "companion strike sheet should load as a Texture2D")
 	if strike_sheet != null:
@@ -447,7 +550,8 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# Hydro-cast wind-up sheet (telegraphed spear throw before the projectile launches).
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png"), "Maribo companion should have a back-view hydro-cast wind-up sheet")
 	_expect(runtime_source.find("MARIBO_COMPANION_HYDRO_CAST_SHEET") >= 0, "companion rendering should reference the hydro-cast wind-up sheet")
-	_expect(runtime_source.find("_get_companion_cast_frame") >= 0, "companion should map the wind-up timer to cast sheet frames")
+	_expect(runtime_source.find("_get_current_visual_texture(\"companion_cast\"") >= 0, "companion rendering should resolve cast visuals through the catalog with a Maribo fallback")
+	_expect(sprite_animator_source.find("get_cast_frame") >= 0, "companion sprite animator should map the wind-up timer to cast sheet frames")
 	_expect(runtime_source.find("COMPANION_SKILL_WINDUP_SECONDS") >= 0, "Hydro Sphere should declare a wind-up duration before launch")
 	var cast_sheet: Texture2D = load("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png") as Texture2D
 	_expect(cast_sheet != null, "companion hydro-cast sheet should load as a Texture2D")
@@ -811,7 +915,6 @@ func _verify_companion_hit_gauge_passive() -> void:
 	_expect(is_equal_approx(owner.special_gauge, 140.0), "Maribo body hit should restore the original +40 gauge passive")
 	_expect(is_equal_approx(owner.lingpet_companion_hit_gauge_last_gain, 40.0), "Maribo body hit should publish the passive gauge gain")
 	_expect(int(owner.lingpet_companion_hit_gauge_trigger_count) == 1, "Maribo body hit should count the passive gauge trigger")
-	_expect(owner.lingpet_companion_hit_gauge_cooldown > 5.0, "Maribo body hit gauge passive should enter its original 6-second cooldown")
 	_expect(feedback.gauge_flashes == 1, "Maribo body hit gauge passive should trigger gauge flash feedback")
 	_expect(orb_hud_state.gauge_spins == 1, "Maribo body hit gauge passive should trigger the gauge orb spin")
 	_expect(is_equal_approx(owner.lingpet_skill_last_gain, 0.0), "Maribo body-hit passive should not masquerade as Hydro Sphere direct gauge gain")
@@ -819,15 +922,9 @@ func _verify_companion_hit_gauge_passive() -> void:
 	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -160.0)
 	runtime.update(0.43, owner, registry)
 	_hit_companion(runtime, owner, registry, owner.lingpet_companion_pos)
-	_expect(is_equal_approx(owner.special_gauge, 140.0), "Maribo body hit gauge passive cooldown should block repeated +40 grants")
-	_expect(int(owner.lingpet_companion_hit_gauge_trigger_count) == 1, "blocked passive gain should not increment trigger count")
-	_expect(feedback.gauge_flashes == 1, "blocked passive gain should not flash gauge again")
-
-	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -160.0)
-	runtime.update(6.1, owner, registry)
-	_hit_companion(runtime, owner, registry, owner.lingpet_companion_pos)
-	_expect(is_equal_approx(owner.special_gauge, 180.0), "Maribo body hit gauge passive should grant +40 again after cooldown")
-	_expect(int(owner.lingpet_companion_hit_gauge_trigger_count) == 2, "recharged passive gain should increment trigger count")
+	_expect(is_equal_approx(owner.special_gauge, 180.0), "Maribo body hit gauge gain should be a common ringpet stat without a resonance-charge cooldown")
+	_expect(int(owner.lingpet_companion_hit_gauge_trigger_count) == 2, "repeat body-hit gauge gain should increment trigger count without a resonance-charge cooldown")
+	_expect(feedback.gauge_flashes == 2, "repeat body-hit gauge gain should flash gauge again")
 
 
 func _verify_companion_strike_anticipates_contact() -> void:
@@ -973,6 +1070,52 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count, "Hydro Sphere should not relaunch until the re-armed wind-up completes")
 	runtime.update(LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS + 0.05, owner, registry)
 	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count + 1, "Hydro Sphere should relaunch after its 40-second cooldown plus the wind-up")
+
+
+func _verify_hydro_puddle_vfx() -> void:
+	# Texture-fragment cache builds clean (square radial-faded textures).
+	var caustic: Texture2D = HydroPuddleTextureCache.get_caustic_texture()
+	var surface: Texture2D = HydroPuddleTextureCache.get_surface_texture()
+	var foam: Texture2D = HydroPuddleTextureCache.get_foam_ring_texture()
+	var droplet: Texture2D = HydroPuddleTextureCache.get_droplet_texture()
+	for tex in [caustic, surface, foam, droplet]:
+		_expect(tex != null and tex.get_width() > 1 and tex.get_height() > 1, "hydro puddle texture cache should build a non-empty texture")
+
+	# Driving the skill to a wall impact must seed a splash particle burst.
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	var audio := FakePaddleAudio.new()
+	var status_state := FakeStatusEffectState.new()
+	var registry := FakeRegistry.new({
+		"game_audio": audio,
+		"status_effect_state": status_state,
+	})
+	runtime.update(0.0, owner, registry)
+	owner.ball_active = true
+	runtime.update(0.0, owner, registry)  # arm wind-up
+	runtime.update(LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS + 0.05, owner, registry)  # launch projectile
+	_expect(bool(runtime.get_snapshot().get("hydro_sphere_projectile_active", false)), "hydro projectile should be in flight before the splash")
+	# Step in small frames until the projectile reaches the opponent wall and spawns
+	# the puddle; the spawning frame's small delta keeps the splash particles alive.
+	var spawned := false
+	for i in range(80):
+		runtime.update(0.05, owner, registry)
+		if bool(runtime.get_snapshot().get("hydro_sphere_puddle_active", false)):
+			spawned = true
+			break
+	_expect(spawned, "hydro puddle should spawn after the projectile reaches the opponent wall")
+	_expect(runtime.get_hydro_puddle_particle_count_for_tests() > 0, "wall impact should seed a splash particle burst")
+
+	# Source wiring: the puddle draws via the texture cache + caustic layers + particles.
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var hydro_skill_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_hydro_sphere_skill.gd")
+	_expect(runtime_source.find("lingpet_hydro_sphere_skill.gd") >= 0, "egg runtime should delegate Hydro Sphere projectile/puddle behavior to the skill module")
+	_expect(hydro_skill_source.find("HydroPuddleTextureCache") >= 0, "Hydro Sphere module should draw through the procedural texture cache")
+	_expect(hydro_skill_source.find("_draw_particles") >= 0, "Hydro Sphere module should draw pooled water particles")
+	_expect(hydro_skill_source.find("_blit_hydro_caustic") >= 0, "Hydro Sphere module should blit scroll-animated caustic layers")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_hydro_sphere_skill.gd"), "Hydro Sphere skill module should exist")
+	_expect(FileAccess.file_exists("res://scripts/effects/hydro_puddle_texture_cache.gd"), "hydro puddle texture cache script should exist")
 
 
 func _verify_save_snapshot_roundtrip() -> void:
@@ -1136,12 +1279,12 @@ func _verify_maribo_companion_gauge_bonus() -> void:
 
 	var overlay := CharacterInfoOverlay.new()
 	var lingpet_stats: Array = overlay._build_lingpet_stats(owner)
-	_expect(str(_find_stat(lingpet_stats, "이동 속도").get("value", "")).find("70~135") >= 0, "character-info lingpet stats should show Maribo speed as a range")
-	_expect(str(_find_stat(lingpet_stats, "캐치 범위").get("value", "")).find("100x44") >= 0, "character-info lingpet stats should show the catch footprint")
-	_expect(str(_find_stat(lingpet_stats, "게이지 획득량").get("value", "")).find("+10%") >= 0, "character-info lingpet stats should show the passive gauge bonus")
-	_expect(str(_find_stat(lingpet_stats, "게이지 획득량").get("value", "")).find("+40") >= 0, "character-info lingpet stats should show the direct hit gauge gain")
+	_expect(str(_find_stat(lingpet_stats, "이동 속도").get("value", "")) == "2.00", "character-info lingpet stats should show Maribo speed as a slower single player-style value")
+	_expect(str(_find_stat(lingpet_stats, "몸집크기").get("value", "")).find("100x44") >= 0, "character-info lingpet stats should show the body-size footprint")
+	_expect(_find_stat(lingpet_stats, "캐치 범위").is_empty(), "character-info lingpet stats should not show the old catch-range label")
+	_expect(str(_find_stat(lingpet_stats, "게이지 획득량").get("value", "")) == "40pt", "character-info lingpet stats should show the direct hit gauge gain as a common stat")
 	_expect(str(_find_stat(lingpet_stats, "액티브 쿨타임").get("value", "")) == "40초", "character-info lingpet stats should show Hydro Sphere cooldown")
-	_expect(str(_find_stat(lingpet_stats, "공명 충전 쿨타임").get("value", "")) == "6초", "character-info lingpet stats should show resonance charge cooldown")
+	_expect(_find_stat(lingpet_stats, "공명 충전 쿨타임").is_empty(), "character-info lingpet stats should not show the removed resonance-charge cooldown")
 	_expect(str(_find_stat(lingpet_stats, "방어율").get("value", "")) == "30%", "character-info lingpet stats should show the real defense rate")
 	_expect(_find_stat(lingpet_stats, "대시 토큰").is_empty(), "character-info lingpet stats should not show unimplemented dash tokens")
 
@@ -1169,10 +1312,7 @@ func _verify_maribo_defense_rate_intercepts_descending_ball() -> void:
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.update(0.0, owner)
 	var start_pos: Vector2 = owner.lingpet_companion_pos
-	runtime.set("_companion_pos", Vector2(120.0, start_pos.y))
-	runtime.set("_companion_patrol_seed", 2)
-	runtime.set("_companion_defense_decision_timer", 0.0)
-	runtime.set("_companion_defense_intercept_active", false)
+	runtime.configure_companion_motion_for_tests(Vector2(120.0, start_pos.y), 2, 0.0, false)
 	owner.ball_active = true
 	owner.ball_pos = Vector2(520.0, start_pos.y - 230.0)
 	owner.ball_vel = Vector2(0.0, 12.0)
@@ -1203,6 +1343,13 @@ func _find_stat(stats: Array, label: String) -> Dictionary:
 			if str(stat.get("label", "")) == label:
 				return stat
 	return {}
+
+
+func _issues_contain(issues: Array[String], needle: String) -> bool:
+	for issue in issues:
+		if issue.find(needle) >= 0:
+			return true
+	return false
 
 
 func _expect(condition: bool, message: String) -> void:

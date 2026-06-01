@@ -9,10 +9,11 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.gd")
 const SmasherDashSpiritState := preload("res://scripts/characters/smasher_dash_spirit_state.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const MARIBO_CUTIN_ART_TEXTURE := preload("res://assets/sprites/lingpet/maribo_cutin_art.png")
 const MARIBO_HYDRO_SPHERE_CARD_TEXTURE := preload("res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png")
 const MARIBO_RESONANCE_BOOST_ICON_PATH := "res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png"
-const MARIBO_RESONANCE_CHARGE_ICON_PATH := "res://assets/sprites/lingpet/maribo_resonance_charge_passive_icon_imagegen_v1.png"
+const LINGPET_SPEED_DISPLAY_PX_PER_POINT := 60.0
 
 const SPECIAL_GAUGE_MAX := 500.0
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
@@ -115,6 +116,8 @@ var _last_passive_inventory_content_height := 0.0
 var _last_equipment_rect := Rect2()
 var _last_skill_rect := Rect2()
 var _last_active_items_rect := Rect2()
+var _last_lingpet_skill_icon_rects: Array[Rect2] = []
+var _last_lingpet_stat_row_rects: Array[Rect2] = []
 var _last_equipment_slot_rects: Dictionary = {}
 var _equipment_hover_uses_indexed_layout := false
 var _equipment_layout_content_rect := Rect2()
@@ -576,6 +579,12 @@ func _get_hover_signature(mouse_pos: Vector2) -> String:
 		if perk_signature != "":
 			return perk_signature
 		return "perk_grid"
+	var lingpet_skill_signature: String = _get_lingpet_skill_hover_signature(mouse_pos)
+	if lingpet_skill_signature != "":
+		return lingpet_skill_signature
+	var lingpet_stat_signature: String = _get_lingpet_stat_hover_signature(mouse_pos)
+	if lingpet_stat_signature != "":
+		return lingpet_stat_signature
 	return ""
 
 
@@ -632,7 +641,43 @@ func _hover_signature_contains_mouse(signature: String, mouse_pos: Vector2) -> b
 				_last_perk_grid_columns,
 				_last_perk_grid_item_count
 			)
+		"lingpet_skill":
+			return _lingpet_skill_signature_contains_mouse(key_text, mouse_pos)
+		"lingpet_stat":
+			return _lingpet_stat_signature_contains_mouse(key_text, mouse_pos)
 	return false
+
+
+func _get_lingpet_skill_hover_signature(mouse_pos: Vector2) -> String:
+	for i in range(_last_lingpet_skill_icon_rects.size()):
+		if _last_lingpet_skill_icon_rects[i].has_point(mouse_pos):
+			return "lingpet_skill:%d" % i
+	return ""
+
+
+func _lingpet_skill_signature_contains_mouse(key_text: String, mouse_pos: Vector2) -> bool:
+	if not key_text.is_valid_int():
+		return false
+	var index: int = int(key_text)
+	if index < 0 or index >= _last_lingpet_skill_icon_rects.size():
+		return false
+	return _last_lingpet_skill_icon_rects[index].has_point(mouse_pos)
+
+
+func _get_lingpet_stat_hover_signature(mouse_pos: Vector2) -> String:
+	for i in range(_last_lingpet_stat_row_rects.size()):
+		if _last_lingpet_stat_row_rects[i].has_point(mouse_pos):
+			return "lingpet_stat:%d" % i
+	return ""
+
+
+func _lingpet_stat_signature_contains_mouse(key_text: String, mouse_pos: Vector2) -> bool:
+	if not key_text.is_valid_int():
+		return false
+	var index: int = int(key_text)
+	if index < 0 or index >= _last_lingpet_stat_row_rects.size():
+		return false
+	return _last_lingpet_stat_row_rects[index].has_point(mouse_pos)
 
 
 func _get_equipment_hover_signature(mouse_pos: Vector2) -> String:
@@ -1547,31 +1592,36 @@ func _update_frame_layout(view_size: Vector2) -> void:
 	var content_top := _layout_panel_rect.position.y + 66.0
 	var content_bottom := _layout_panel_rect.end.y - 12.0
 	var content_height: float = max(300.0, content_bottom - content_top)
-	var main_rect := Rect2(
+	var column_gap := 18.0
+	var inventory_height: float = clamp(content_height * 0.18, 86.0, 150.0)
+	if content_height < 520.0:
+		inventory_height = 82.0
+	var main_bottom: float = content_bottom - inventory_height - 10.0
+	var main_height: float = max(230.0, main_bottom - content_top)
+	var left_w: float = min(470.0, (_layout_panel_rect.size.x - inner_margin * 2.0 - column_gap) * 0.45)
+	var right_w: float = _layout_panel_rect.size.x - inner_margin * 2.0 - column_gap - left_w
+	var left_rect := Rect2(_layout_panel_rect.position.x + inner_margin, content_top, left_w, main_height)
+	var right_rect := Rect2(left_rect.end.x + column_gap, content_top, right_w, main_height)
+	_layout_inventory_rect = Rect2(
 		_layout_panel_rect.position.x + inner_margin,
-		content_top,
+		main_bottom + 14.0,
 		_layout_panel_rect.size.x - inner_margin * 2.0,
-		content_height
+		max(90.0, content_bottom - main_bottom - 14.0)
 	)
-	var top_gap := 14.0
-	var top_h: float = clamp(content_height * 0.46, 240.0, 420.0)
-	if content_height - top_h - top_gap < 220.0:
-		top_h = max(150.0, content_height - top_gap - 220.0)
-	var top_rect := Rect2(main_rect.position, Vector2(main_rect.size.x, top_h))
-	_layout_stats_rect = Rect2(main_rect.position.x, top_rect.end.y + top_gap, main_rect.size.x, max(180.0, main_rect.end.y - top_rect.end.y - top_gap))
-	_layout_equipment_rect = Rect2()
-	_layout_skill_rect = Rect2()
-	_layout_active_items_rect = Rect2()
-	_layout_inventory_rect = Rect2()
-	var top_column_gap := 16.0
-	if top_rect.size.x >= 760.0:
-		var lingpet_w: float = clamp(top_rect.size.x * 0.36, 340.0, 470.0)
-		_layout_perk_rect = Rect2(top_rect.position, Vector2(top_rect.size.x - lingpet_w - top_column_gap, top_rect.size.y))
-		_layout_lingpet_rect = Rect2(_layout_perk_rect.end.x + top_column_gap, top_rect.position.y, lingpet_w, top_rect.size.y)
+	_layout_equipment_rect = _section_rect(left_rect, 0.0, 0.58)
+	_layout_skill_rect = _section_rect(left_rect, 0.60, 0.19)
+	_layout_active_items_rect = _section_rect(left_rect, 0.80, 0.20)
+	var right_top_rect := _section_rect(right_rect, 0.0, 0.58)
+	var right_top_gap := 12.0
+	if right_top_rect.size.x >= 560.0:
+		var lingpet_w: float = clamp(right_top_rect.size.x * 0.34, 230.0, 320.0)
+		_layout_perk_rect = Rect2(right_top_rect.position, Vector2(right_top_rect.size.x - lingpet_w - right_top_gap, right_top_rect.size.y))
+		_layout_lingpet_rect = Rect2(_layout_perk_rect.end.x + right_top_gap, right_top_rect.position.y, lingpet_w, right_top_rect.size.y)
 	else:
-		var perk_h: float = max(82.0, top_rect.size.y * 0.52 - top_gap * 0.5)
-		_layout_perk_rect = Rect2(top_rect.position, Vector2(top_rect.size.x, perk_h))
-		_layout_lingpet_rect = Rect2(top_rect.position.x, _layout_perk_rect.end.y + top_gap, top_rect.size.x, max(78.0, top_rect.end.y - _layout_perk_rect.end.y - top_gap))
+		var perk_h: float = max(64.0, right_top_rect.size.y * 0.54 - right_top_gap * 0.5)
+		_layout_perk_rect = Rect2(right_top_rect.position, Vector2(right_top_rect.size.x, perk_h))
+		_layout_lingpet_rect = Rect2(right_top_rect.position.x, _layout_perk_rect.end.y + right_top_gap, right_top_rect.size.x, max(64.0, right_top_rect.end.y - _layout_perk_rect.end.y - right_top_gap))
+	_layout_stats_rect = _section_rect(right_rect, 0.60, 0.40)
 
 
 func _section_rect(column_rect: Rect2, start_ratio: float, height_ratio: float) -> Rect2:
@@ -2172,6 +2222,7 @@ func _draw_perk_grid(
 
 
 func _draw_lingpet_panel(canvas: CanvasItem, owner: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary) -> Dictionary:
+	_last_lingpet_skill_icon_rects.clear()
 	_draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
 	_draw_text_xy(canvas, font, "링펫", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
 
@@ -2243,6 +2294,7 @@ func _draw_lingpet_companion_panel(
 	var icon_y: float = content_rect.end.y - skill_row_h + (skill_row_h - icon_size) * 0.48
 	for i in range(skill_specs.size()):
 		var icon_rect := Rect2(icon_x + float(i) * (icon_size + icon_gap), icon_y, icon_size, icon_size)
+		_last_lingpet_skill_icon_rects.append(icon_rect)
 		var spec: Dictionary = skill_specs[i]
 		hover_data = _draw_lingpet_skill_icon(canvas, font, icon_rect, spec, mouse_pos, hover_data)
 	return hover_data
@@ -2332,14 +2384,11 @@ func _get_lingpet_skill_icon_texture_path(texture_id: String) -> String:
 	match texture_id:
 		"resonance_boost":
 			return MARIBO_RESONANCE_BOOST_ICON_PATH
-		"resonance_charge":
-			return MARIBO_RESONANCE_CHARGE_ICON_PATH
 	return ""
 
 
 func _prewarm_lingpet_skill_icon_assets() -> void:
 	_touch_texture(_get_lingpet_skill_icon_texture("resonance_boost"))
-	_touch_texture(_get_lingpet_skill_icon_texture("resonance_charge"))
 
 
 func _touch_texture(texture: Texture2D) -> void:
@@ -2360,14 +2409,6 @@ func _draw_lingpet_skill_symbol(canvas: CanvasItem, font: Font, rect: Rect2, id:
 				canvas.draw_arc(center, arc_radius, -0.2 + float(i) * 0.42, PI + float(i) * 0.34, FALLBACK_SYMBOL_RING_SEGMENTS, Color(1.0, 1.0, 1.0, 0.36), 1.2)
 			canvas.draw_circle(center, radius * 0.22, Color(1.0, 1.0, 1.0, 0.86))
 			_draw_text_centered_xy(canvas, font, "+", center.x, center.y + radius * 0.18, int(radius * 0.95), Color.WHITE)
-		"resonance_charge":
-			canvas.draw_polyline(PackedVector2Array([
-				center + Vector2(-radius * 0.55, radius * 0.28),
-				center + Vector2(-radius * 0.15, -radius * 0.18),
-				center + Vector2(radius * 0.08, radius * 0.08),
-				center + Vector2(radius * 0.55, -radius * 0.42),
-			]), Color.WHITE, 2.4)
-			_draw_text_centered_xy(canvas, font, "40", center.x, center.y + radius * 0.58, int(radius * 0.62), Color.WHITE)
 		_:
 			_draw_fallback_symbol(canvas, rect, color, id)
 
@@ -2439,7 +2480,6 @@ func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
 				"body": str(_safe_owner_get(owner, "lingpet_effect_text", "링펫 효과는 다음 단계에서 연결됩니다.")),
 				"gauge_gain_bonus_pct": float(_safe_owner_get(owner, "lingpet_gauge_gain_bonus_pct", _safe_owner_get(owner, "ringpet_gauge_gain_bonus_pct", 10.0))),
 				"companion_hit_gauge_gain": float(_safe_owner_get(owner, "lingpet_companion_hit_gauge_gain", _safe_owner_get(owner, "ringpet_companion_hit_gauge_gain", 40.0))),
-				"companion_hit_gauge_cooldown_duration": float(_safe_owner_get(owner, "lingpet_companion_hit_gauge_cooldown_duration", _safe_owner_get(owner, "ringpet_companion_hit_gauge_cooldown_duration", 6.0))),
 				"companion_skill_name": str(_safe_owner_get(owner, "lingpet_skill_name", _safe_owner_get(owner, "ringpet_skill_name", "하이드로 스피어"))),
 				"companion_skill_cooldown_duration": float(_safe_owner_get(owner, "lingpet_skill_cooldown_duration", _safe_owner_get(owner, "ringpet_skill_cooldown_duration", 40.0))),
 				"companion_patrol_speed_default": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_default", _safe_owner_get(owner, "ringpet_companion_patrol_speed_default", 120.0))),
@@ -2463,6 +2503,8 @@ func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
 
 
 func _get_lingpet_display_name(lingpet_id: String) -> String:
+	if LingpetCatalog.has_pet(lingpet_id):
+		return LingpetCatalog.get_display_name(lingpet_id)
 	match lingpet_id:
 		"maribo":
 			return "마리보"
@@ -2478,8 +2520,6 @@ func _get_lingpet_skill_specs(snapshot: Dictionary) -> Array:
 		skill_name = "하이드로 스피어"
 	var active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration", 40.0))
 	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 10.0))
-	var hit_gain: float = float(snapshot.get("companion_hit_gauge_gain", 40.0))
-	var hit_cooldown: float = float(snapshot.get("companion_hit_gauge_cooldown_duration", 6.0))
 	return [
 		{
 			"id": "hydro_sphere",
@@ -2498,15 +2538,6 @@ func _get_lingpet_skill_specs(snapshot: Dictionary) -> Array:
 			"color": STAT_BUFF_COLOR,
 			"badge": "P",
 			"icon_texture_id": "resonance_boost",
-		},
-		{
-			"id": "resonance_charge",
-			"title": "공명 충전",
-			"subtitle": "패시브 · 직접 튕김 +" + _format_plain_number(hit_gain),
-			"body": "마리보가 공을 직접 튕기면 게이지를 추가로 획득합니다. 쿨타임 " + _format_seconds_text(hit_cooldown) + ".",
-			"color": ACCENT_GOLD,
-			"badge": "P",
-			"icon_texture_id": "resonance_charge",
 		},
 	]
 
@@ -2647,6 +2678,7 @@ func _draw_stat_rows(
 ) -> Dictionary:
 	canvas.draw_rect(rect, Color(10.0 / 255.0, 14.0 / 255.0, 24.0 / 255.0, 0.34))
 	_draw_text_xy(canvas, font, title, rect.position.x + 2.0, rect.position.y + 20.0, 12, ACCENT_BLUE)
+	_last_lingpet_stat_row_rects.clear()
 	var row_count: int = rows.size()
 	if row_count <= 0:
 		_draw_text_centered_xy(canvas, font, "표시할 능력치 없음", rect.get_center().x, rect.get_center().y + 4.0, 12, OVERLAY_GRID_EMPTY_TEXT)
@@ -2670,6 +2702,8 @@ func _draw_stat_rows(
 		var baseline_y: float = start_y + float(i) * line_gap
 		if baseline_y > rect.end.y - 8.0:
 			break
+		var row_rect := Rect2(rect.position.x, baseline_y - float(row_size) - 5.0, rect.size.x, line_gap)
+		_last_lingpet_stat_row_rects.append(row_rect)
 		var label: String = str(row.get("label", ""))
 		var value_text: String = str(row.get("value", ""))
 		var value_color: Color = _get_color(row.get("color", Color.WHITE))
@@ -2678,7 +2712,6 @@ func _draw_stat_rows(
 		_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, row_size, value_color)
 		var tooltip_body: String = str(row.get("tooltip_body", ""))
 		if tooltip_body != "":
-			var row_rect := Rect2(rect.position.x, baseline_y - float(row_size) - 5.0, rect.size.x, line_gap)
 			if row_rect.has_point(mouse_pos):
 				hover_data = _set_hover_data(
 					hover_data,
@@ -2706,21 +2739,20 @@ func _build_lingpet_stats(owner: Object) -> Array:
 		return [
 			_make_display_stat_row("상태", "미획득", OVERLAY_GRID_EMPTY_TEXT),
 		]
+	var speed_default: float = float(snapshot.get("companion_patrol_speed_default", 120.0))
 	var speed_min: float = float(snapshot.get("companion_patrol_speed_min", 70.0))
 	var speed_max: float = float(snapshot.get("companion_patrol_speed_max", 135.0))
 	var catch_width: float = float(snapshot.get("companion_catch_width", 100.0))
 	var catch_height: float = float(snapshot.get("companion_catch_height", 44.0))
-	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 10.0))
 	var hit_gain: float = float(snapshot.get("companion_hit_gauge_gain", 40.0))
 	var active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration", 40.0))
-	var charge_cooldown: float = float(snapshot.get("companion_hit_gauge_cooldown_duration", 6.0))
 	var defense_rate: float = float(snapshot.get("companion_defense_rate", 0.0))
+	var speed_display: float = speed_default / LINGPET_SPEED_DISPLAY_PX_PER_POINT
 	return [
-		_make_display_stat_row("이동 속도", "%s~%spx/s" % [_format_plain_number(speed_min), _format_plain_number(speed_max)], Color.WHITE, "마리보가 플레이어 진영에서 독자적으로 순찰할 때 사용하는 랜덤 이동 속도 범위입니다."),
-		_make_display_stat_row("캐치 범위", "%sx%spx" % [_format_plain_number(catch_width), _format_plain_number(catch_height)], Color.WHITE, "마리보가 공을 튕겨낼 때 쓰는 실제 판정 범위입니다."),
-		_make_display_stat_row("게이지 획득량", "받아치기 +%s / 직접 +%s" % [_format_percent_text(gauge_bonus_pct), _format_plain_number(hit_gain)], STAT_BUFF_COLOR, "플레이어가 공을 받아치면 게이지 획득량이 증가하고, 마리보가 직접 공을 튕기면 게이지를 추가로 얻습니다."),
+		_make_display_stat_row("이동 속도", "%.2f" % speed_display, Color.WHITE, "마리보가 플레이어 진영에서 독자적으로 순찰할 때 쓰는 기본 이동 속도입니다. 실제 순찰은 %s~%spx/s 사이에서 자연스럽게 변동됩니다." % [_format_plain_number(speed_min), _format_plain_number(speed_max)]),
+		_make_display_stat_row("몸집크기", "%sx%spx" % [_format_plain_number(catch_width), _format_plain_number(catch_height)], Color.WHITE, "마리보가 공을 튕겨낼 때 쓰는 실제 판정 범위입니다."),
+		_make_display_stat_row("게이지 획득량", "%spt" % _format_plain_number(hit_gain), STAT_BUFF_COLOR, "링펫이 공을 직접 튕겼을 때 얻는 공통 기본 게이지 획득량입니다."),
 		_make_display_stat_row("액티브 쿨타임", _format_seconds_text(active_cooldown), Color.WHITE, "하이드로 스피어를 다시 사용할 수 있게 되는 시간입니다."),
-		_make_display_stat_row("공명 충전 쿨타임", _format_seconds_text(charge_cooldown), Color.WHITE, "마리보가 직접 공을 튕겼을 때 게이지 +40 효과가 다시 발동할 수 있게 되는 시간입니다."),
 		_make_display_stat_row("방어율", _format_percent_text(defense_rate * 100.0), STAT_BUFF_COLOR, "공을 적극적으로 막으러 이동할 확률입니다. 높을수록 수비 행동을 더 자주 시도합니다."),
 	]
 

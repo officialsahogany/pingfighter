@@ -1,6 +1,6 @@
 extends RefCounted
 
-# Shared "lingpet (Maribo) Hydro Sphere" rail card. The hatched companion casts on
+# Shared lingpet skill rail card. The hatched companion casts on
 # EVERY stage, so its skill card rides EVERY stage's boss skill-card rail rather
 # than a separate pillar card. Each stage's boss-skill HUD composition calls
 # append_entry() (which also force-enables the rail's active flag so a stage with
@@ -25,23 +25,37 @@ const SIDE_STRIP_BASE := 2.0
 # Decoded card art, shared (loaded once) across all five stage renderers.
 static var _texture: Texture2D = null
 static var _texture_loaded := false
+static var _texture_cache: Dictionary = {}
 
 
 static func prewarm() -> void:
-	if _texture_loaded:
-		return
 	_texture_loaded = true
-	_texture = ProjectResourceLoader.load_texture(
-		TEXTURE_PATH,
+	_texture = _load_texture(TEXTURE_PATH)
+
+
+static func texture(path: String = TEXTURE_PATH) -> Texture2D:
+	var resolved_path := path.strip_edges()
+	if resolved_path == "":
+		resolved_path = TEXTURE_PATH
+	if resolved_path == TEXTURE_PATH and not _texture_loaded:
+		prewarm()
+	return _load_texture(resolved_path)
+
+
+static func _load_texture(path: String) -> Texture2D:
+	if _texture_cache.has(path):
+		var cached: Variant = _texture_cache[path]
+		if cached is Texture2D:
+			return cached as Texture2D
+		_texture_cache.erase(path)
+	var loaded := ProjectResourceLoader.load_texture(
+		path,
 		"[LingpetRailCard] missing skillcard texture: %s",
 		"[LingpetRailCard] failed to load skillcard texture: %s"
 	)
-
-
-static func texture() -> Texture2D:
-	if not _texture_loaded:
-		prewarm()
-	return _texture
+	if loaded != null:
+		_texture_cache[path] = loaded
+	return loaded
 
 
 static func is_lingpet_skill(skill: Dictionary) -> bool:
@@ -62,7 +76,12 @@ static func _resolve_lingpet_runtime(registry: Object) -> Object:
 
 static func build_entry(registry: Object) -> Dictionary:
 	var runtime: Object = _resolve_lingpet_runtime(registry)
-	if runtime == null or not runtime.has_method("is_maribo_companion_active") or not bool(runtime.is_maribo_companion_active()):
+	if runtime == null:
+		return {}
+	if runtime.has_method("is_companion_active"):
+		if not bool(runtime.is_companion_active()):
+			return {}
+	elif not runtime.has_method("is_maribo_companion_active") or not bool(runtime.is_maribo_companion_active()):
 		return {}
 	if not runtime.has_method("get_snapshot"):
 		return {}
@@ -96,6 +115,8 @@ static func build_entry(registry: Object) -> Dictionary:
 		"color": ACCENT,
 		"is_lingpet": true,
 		"accent_color": ACCENT,
+		"card_texture_path": str(snapshot.get("companion_skill_card_path", TEXTURE_PATH)),
+		"description": str(snapshot.get("companion_skill_description", "")),
 	}
 
 
@@ -162,7 +183,7 @@ static func draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_
 	var fill_ratio: float = 1.0 if active or ready else progress
 	if used:
 		fill_ratio = 0.0
-	_draw_gauge(canvas, rect, fill_ratio, accent)
+	_draw_gauge(canvas, rect, fill_ratio, accent, str(skill.get("card_texture_path", TEXTURE_PATH)))
 
 	if active:
 		var active_pulse: float = 0.5 + 0.5 * sin(time_seconds * 6.7)
@@ -217,10 +238,10 @@ static func draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_
 	)
 
 
-static func _draw_gauge(canvas: CanvasItem, rect: Rect2, fill_ratio: float, accent: Color) -> void:
+static func _draw_gauge(canvas: CanvasItem, rect: Rect2, fill_ratio: float, accent: Color, texture_path: String) -> void:
 	var clamped_fill: float = clampf(fill_ratio, 0.0, 1.0)
 	canvas.draw_rect(rect, Color(0.06, 0.045, 0.075, 1.0))
-	var card_texture: Texture2D = texture()
+	var card_texture: Texture2D = texture(texture_path)
 	if card_texture == null:
 		canvas.draw_rect(rect, Color(accent.r * 0.16, accent.g * 0.16, accent.b * 0.16, 1.0))
 		if clamped_fill > 0.0:

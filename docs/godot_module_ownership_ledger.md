@@ -110,6 +110,112 @@ This section is intentionally long; use search to find the nearest owner.
   active-item and character-skill duration gauges. Timed effects claim a
   key while drawing so older active bars stay lower and newer bars stack
   upward instead of skill and item modules hardcoding overlapping rows.
+- `scripts/lingpet/lingpet_catalog.gd`
+  Owns Ringpet identity metadata and hatch-pool selection: pet ids,
+  Korean display names, hatch weights, unlock conditions, required hatch
+  hits, baseline companion stats, active-skill metadata, and effect text.
+  `lingpet_egg_runtime.gd`, character-info UI, save reset code, and
+  rail-card helpers should read future Ringpet identity data from this
+  catalog instead of adding new hardcoded pet ids locally.
+  The `*_from_entries()` hatch helpers are the focused multi-candidate
+  smoke seam for future Ringpets: add the live catalog entry, then verify
+  eligibility, ownership exclusion, and weighted selection before exposing
+  the new pet in play.
+  `validate_catalog(true)` is the release guard for live Ringpet entries:
+  required stats, egg / companion / cut-in visual paths, active-skill card
+  art, and effect text must be complete before a new pet can ship.
+- `scripts/lingpet/lingpet_visual_texture_cache.gd`
+  Owns Ringpet catalog visual texture loading and prewarm: it resolves
+  `pet_id + visual_key` through `lingpet_catalog.gd`, loads the PNG through
+  `ProjectResourceLoader`, caches successful textures, and falls back to the
+  caller-provided texture when a path is empty or fails. Future Ringpet art
+  should add catalog `visuals` paths and reuse this cache instead of adding
+  more per-pet texture dictionaries to `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_egg_field_state.gd`
+  Owns Ringpet floor-egg field behavior: spawn position near the player paddle,
+  player-contact nudge / wobble, egg ball-hit overlap state, player-serve
+  bounce-without-crack semantics, paddle-style ball reflection, hit cooldown,
+  hatch-hit counting, and egg snapshot fields. `lingpet_egg_runtime.gd` keeps
+  the state transition into companion mode and the hatch flash / cut-in trigger.
+- `scripts/lingpet/lingpet_egg_field_renderer.gd`
+  Owns Ringpet floor-egg rendering: intact / cracked egg texture placement,
+  glow, crack light leakage, hatch flash rings, and deterministic shell-shard
+  burst geometry. `lingpet_egg_runtime.gd` supplies egg state and catalog-backed
+  textures, but egg / hatch draw math should stay in this renderer.
+- `scripts/lingpet/lingpet_companion_skill_state.gd`
+  Owns Ringpet active-skill shared state: cooldown countdown, wind-up timing,
+  launch origin, flash timer / ratio, trigger count, and snapshot payload
+  fields. Pet-specific skill modules should own their projectile / field /
+  status behavior, while `lingpet_egg_runtime.gd` uses this state controller
+  for the common cast lifecycle.
+- `scripts/lingpet/lingpet_companion_motion_state.gd`
+  Owns Ringpet companion shared motion state: player-height patrol lane,
+  stop-and-go randomized movement, save / restore patrol snapshot keys, and
+  defense-rate intercept movement. `lingpet_egg_runtime.gd` keeps hatch /
+  body-hit orchestration and delegates companion movement decisions here.
+- `scripts/lingpet/lingpet_companion_sprite_animator.gd`
+  Owns Ringpet companion sprite animation math: walk / idle frame selection,
+  cast wind-up frame mapping, strike playback state, anticipatory strike entry
+  frame selection, source-rect slicing, draw-size offsets, and sheet geometry.
+  `lingpet_companion_renderer.gd` uses this animator for draw rects, while
+  future companion sheets should extend this animator instead of adding more
+  frame math to the runtime.
+- `scripts/lingpet/lingpet_companion_renderer.gd`
+  Owns Ringpet companion draw presentation: idle bob / glow, walk / strike /
+  cast sprite blitting, hit flash rings, skill flash rings, and direct-hit
+  gauge burst rays. `lingpet_egg_runtime.gd` supplies current textures and
+  transient state, but companion draw math should stay in this renderer.
+- `scripts/lingpet/lingpet_companion_body_hit_state.gd`
+  Owns Ringpet companion body-contact behavior: wide catch-box overlap state,
+  contact cooldown, last contact position, player-paddle-style ball reflection,
+  boss ball-control release hooks, paddle-hit audio, body-hit gauge gain, and
+  hit / gauge flash snapshot fields. Future Ringpets with different body-hit
+  rules should extend this helper instead of adding more collision math to
+  `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_collection_state.gd`
+  Owns Ringpet owned-collection state and owner-key compatibility: save
+  `owned_pet_ids`, `lingpet_owned_pet_ids` / `owned_lingpet_ids` /
+  `owned_ringpet_ids`, collection dictionaries, first-owned companion adoption,
+  and catalog-backed hatch candidate selection. Future Ringpet acquisition
+  routes should update this helper instead of adding more collection key scans
+  to `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_acquire_cutin_state.gd`
+  Owns Ringpet acquisition cut-in timing state: reveal progress, hold-until-
+  dismiss semantics, click-triggered exit-action progress, hard reset, and
+  auto-close when the exit action completes. `lingpet_egg_runtime.gd` keeps
+  the public modal / input / overlay API and delegates timing here so future
+  Ringpet reveal variants do not add more cut-in clocks to the runtime.
+- `scripts/lingpet/lingpet_runtime_snapshot_builder.gd`
+  Owns Ringpet runtime data projection: live snapshot assembly, save snapshot
+  assembly, and owner compatibility key sync for both `lingpet_*` and
+  `ringpet_*` consumers. `lingpet_egg_runtime.gd` supplies current state /
+  catalog stats / helper modules, but UI, HUD, and save-facing payload shapes
+  should stay centralized here.
+- `scripts/lingpet/lingpet_egg_runtime.gd`
+  Owns the first Ringpet runtime slice: catalog-backed Junior League +
+  Mika eligibility, hidden egg identity selection, owner-state sync for the
+  character information panel via `lingpet_runtime_snapshot_builder.gd`,
+  Maribo companion +10% player-hit gauge gain,
+  owned-collection sync plus save-snapshot export / restore, hatch flash timing,
+  player-height independent companion draw,
+  post-hatch Maribo body ball-contact soft bounce with internal cooldown,
+  Ringpet common body-contact gauge gain, generic companion skill cooldown /
+  wind-up / launch handoff, and the shared boss-skill rail Ringpet card
+  surface. It exposes the acquisition cut-in API for modal / input / overlay
+  controllers, but the reveal and dismiss timing state lives in
+  `lingpet_acquire_cutin_state.gd`.
+- `scripts/lingpet/lingpet_hydro_sphere_skill.gd`
+  Owns Maribo Hydro Sphere's skill-specific runtime: projectile travel,
+  opponent-wall impact, horizontal elliptical puddle, slow status refresh,
+  splash / ambient droplet particles, procedural puddle texture drawing, and
+  Hydro Sphere snapshot keys. `lingpet_egg_runtime.gd` should call this module
+  instead of growing more Maribo-specific projectile / puddle code inline.
+- `scripts/lingpet/lingpet_save_store.gd`
+  Owns the Ringpet save-file route: loading / saving the runtime snapshot
+  from `user://lingpet_save.cfg`, restoring it during battle bootstrap,
+  and clearing egg / companion run-state snapshots so Ringpet eggs restart
+  fresh on game re-entry instead of carrying a previous roguelike run.
+  Default reset data comes from `lingpet_catalog.gd`.
 - `scripts/items/mythic_item_catalog.gd` and
   `scripts/items/mythic_item_runtime.gd`
   Own the first mythic/passive equipment slice in the Godot port. The
@@ -125,7 +231,7 @@ This section is intentionally long; use search to find the nearest owner.
   Gauntlet (`reinforced_boomerang_gauntlet`), Commando Arm
   (`commando_arm`), Rainbow Fur Glove, Adversity Armor, Shrapnel Armor,
   Megingjord, Ragnarok Hammer, Poseidon's Trident,
-  Heavenly Cape, Baal's Boots, Yachaman Soul, and Pandora's Legacy:
+  Heavenly Cape, Baal's Boots, and Pandora's Legacy:
   body-part slot metadata,
   owned-vs-equipped passive inventory state, debug acquire/equip/toggle
   state, acquire/equip/unequip/toggle/discard orchestration delegated to
@@ -176,11 +282,6 @@ This section is intentionally long; use search to find the nearest owner.
   Heavenly Cape skill-cooldown reduction, sixth skill-slot bonus, and
   player-skill cooldown / max-slot composition delegated to
   `scripts/items/mythic_item_heavenly_cape_runtime.gd`,
-  Yachaman Soul score-prevention revival roll, 90-frame gather / burst
-  event, transformed-state defeat semantics, reset-ready latch, skill /
-  control locks, and owner-sync context delegated to
-  `scripts/items/mythic_item_yachaman_soul_runtime.gd` and
-  `scripts/items/yachaman_soul_state.gd`,
   Megingjord activation effect reset, active query, start/audio/redraw
   fanout, particle / bolt construction, elapsed timing, and draw forwarding
   delegated to `scripts/items/mythic_item_activation_effect_runtime.gd`,
@@ -269,9 +370,7 @@ This section is intentionally long; use search to find the nearest owner.
   Baal's Boots weather-event absorption: delayed trigger, same-frame source
   weather force-end, sand-terrain zeroing before rebuild, gauge recovery,
   absorbed wind speed boost, fire/ice ball marks, and rain/hail projectile
-  boss debuffs, Yachaman Soul boss-score cancellation, Bomberman-style
-  transformed paddle stats, per-round use limit, and post-animation
-  reset-ready handoff, and Pandora's Legacy round-win trigger chance, 3-card
+  boss debuffs, and Pandora's Legacy round-win trigger chance, 3-card
   selection generation, active-overflow / passive / mythic reward routing,
   and modal pause/draw/input state. Pandora's Legacy queues from
   `match_score_event_controller.gd`, opens after scoreboard reset /
@@ -357,11 +456,6 @@ This section is intentionally long; use search to find the nearest owner.
   the Stage 1 player actor path and transform cinematic landing phase.
   `scripts/items/horn_strawberry_timer_gauge_renderer.gd` owns the timed
   transform duration gauge on the shared right-bottom timer stack;
-  `scripts/items/yachaman_soul_effect_renderer.gd` owns the Yachaman Soul
-  gather / burst revival event rings, sparks, and flash fallback drawing,
-  while `scripts/items/yachaman_soul_paddle_renderer.gd` owns the transformed
-  Bomberman-style player body, fuse, and flame rendered through the Stage 1
-  player actor path;
   `scripts/items/mythic_item_momentum_field_renderer.gd` owns Knee Pads flash
   ring/ray/particle drawing and Soul Burst wind-trail, shockwave, ellipse-arc,
   and dash-particle drawing while the shared field renderer passes runtime
@@ -403,7 +497,7 @@ This section is intentionally long; use search to find the nearest owner.
   Timer Belt, Fuel Pouch, Kick Charger, Bulk-Up Suit, Dash Gear, Dash
   Holder, Gravity Belt, Gold Bar, Reinforced Boomerang Gauntlet, Commando Arm, Megingjord,
   Ragnarok Hammer, Poseidon's Trident, Heavenly Cape, Baal's Boots,
-  Yachaman Soul, and Pandora's Legacy.
+  and Pandora's Legacy.
   `scripts/items/mythic_item_catalog_presentation.gd` owns
   display-name lookup, quality-prefix formatting, and quality color lookup
   behind the public catalog API. `scripts/items/mythic_item_catalog_fixed_options.gd`
@@ -2245,7 +2339,7 @@ This section is intentionally long; use search to find the nearest owner.
   Commando unlock choice cards, pending firearm-swap dialogs, and debug
   grant feedback use catalog / skill-config Korean display names instead
   of leaking `soldier_*` internal ids.
-  Smasher scaling perks now include `dash_acceleration` / 버스트업: the
+  Shared dash scaling perks now include `dash_acceleration` / 버스트업: the
   runtime state exposes level * 70% dash collision-height scaling and
   keeps effective Lv.6+ bonus sources live instead of hard-capping at
   the base Lv.5 card text.
@@ -2512,7 +2606,7 @@ This section is intentionally long; use search to find the nearest owner.
   wall clamping and impact positions plus player / boss paddle hitbox
   overlap snapshots, active Brick Wall overlap snapshots, and active Holy
   Barrier bottom-wall overlap snapshots. The player-paddle branch also
-  consumes Smasher `dash_acceleration` context to vertically inflate only
+  consumes shared `dash_acceleration` context to vertically inflate only
   the collision hitbox during an active dash, matching the Python
   "visual paddle unchanged, hit range expanded" behavior.
 - `scripts/ball/ball_update_controller.gd`
@@ -2971,7 +3065,7 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/core/battle_playfield_effects_drawer.gd`
   Owns playfield actor / effect draw helpers inside the transformed pass:
   actor draw handoff, Power Smashing effect handoff, impact / combo effect
-  drawing, Smasher `dash_acceleration` silk-ribbon dash trail / aura
+  drawing, shared `dash_acceleration` silk-ribbon dash trail / aura
   drawing from the live dash snapshot, and related focused effect renderer
   delegation.
 - `scripts/core/battle_perf_logger.gd`
@@ -4470,7 +4564,7 @@ This section is intentionally long; use search to find the nearest owner.
   idle frame, anticipated ball-contact attack timing plus exact-contact
   fallback protection, and default boss frame timing constants.
 - `scripts/characters/smasher_dash_state.gd`
-  Owns the Smasher dash facade: dash-key release state, input-facing
+  Owns the legacy-named shared dash facade: dash-key release state, input-facing
   start/chain gates, and coordination between dash motion and dash-token
   recharge state. Raw input polling lives in `smasher_input_reader.gd`, and
   `battle_scene_actor_update_driver.gd` applies returned player positions;
@@ -4579,7 +4673,7 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the app-wide F12 screenshot shortcut as an autoload. It listens
   above individual boot, character-select, and battle input ladders,
   captures the root viewport after the current draw frame, and saves PNGs
-  under `user://screenshots/` with timestamped `diskhearts_ringpia_*`
+  under `user://screenshots/` with timestamped `diskhearts_lingpia_*`
   filenames.
 - `scripts/core/battle_scene_shell.gd`
   Owns the thin Node2D shell inherited by `scenes/main.gd`: registry
@@ -5041,31 +5135,6 @@ This section is intentionally long; use search to find the nearest owner.
   hold, 400-gauge spend, 30 deterministic hopping bombs over 1 second, boss
   stun / knockback on explosion, 5-second paint splatter slow, and lingering
   bomb / paint cleanup.
-- `scripts/items/yachaman_soul_state.gd`
-  Owns Yachaman Soul's score-prevention state machine: idle, revival-event,
-  transformed, 60-frame gather, 30-frame burst, one-use-per-round latch,
-  reset-ready handoff, transformed-state defeat diagnostics, transformed
-  bomb-spin windup / spin / dash / recovery / cooldown state, helmet detach /
-  return timing, loaded-ball flagging, and bomb explosion particles.
-- `scripts/items/mythic_item_yachaman_soul_runtime.gd`
-  Owns Yachaman Soul's mythic-runtime facade: equipment sync, rolled
-  activation chance, boss-score cancellation, revival-event startup, audio /
-  redraw fanout, transformed speed / paddle-size exposure, skill / control
-  lock queries, bomb-spin input polling, owner motion, bomb-ball loading,
-  boss-hit explosion consumption, status / feedback / audio handoff, round
-  reset, and full-runtime clear coordination.
-- `scripts/items/yachaman_soul_effect_renderer.gd`
-  Owns Yachaman Soul's direct CanvasItem fallback VFX for revival gather /
-  burst rings, radial sparks, final flash, detached spinning helmet trails,
-  helmet return, and bomb explosion particles. It receives a compact context
-  from the mythic field renderer and does not allocate textures in the draw
-  path.
-- `scripts/items/yachaman_soul_paddle_renderer.gd`
-  Owns the transformed Yachaman player-body draw path rendered by
-  `stage1_player_actor_renderer.gd`: compact body, helmet highlights, fuse,
-  flame, exposed head while the helmet is detached, eye blink, and movement
-  bob. The normal paddle and Commando overlays are suppressed while this
-  transformed body is active.
 - `scripts/items/mythic_item_audio_router.gd`
   Owns mythic / passive item cue routing and fallback order, including
   Ragnarok / Poseidon loop-handle caching, Horn Strawberry skill cues
@@ -5086,8 +5155,7 @@ This section is intentionally long; use search to find the nearest owner.
   config sync, removed-skill cleanup, dash-token capacity sync, player status
   resistance sync, Gold Digger runtime-perk sync, item perk-level bonus sync,
   Fuel Pouch gauge max sync, Boomerang active-slot visual sync, transient
-  owner-state sync, Yachaman Soul equipped / transformed / revival-event
-  context sync, Bulk-Up paddle-scale sync, and shared player / boss center
+  owner-state sync, Bulk-Up paddle-scale sync, and shared player / boss center
   reads used by Poseidon Trident and Baal's Boots. The runtime facade may keep
   high-level context-supplying sync entry points, but should not reintroduce
   one-line private bridges for these detail methods or owner-geometry reads;
@@ -5097,9 +5165,7 @@ This section is intentionally long; use search to find the nearest owner.
   Owns aggregate player stat composition for mythic / passive items. Player
   speed composition should pass Baal's Boots constants directly to
   `scripts/items/mythic_item_baal_boots_runtime.gd` instead of reintroducing
-  a private runtime Baal speed getter bridge. Yachaman Soul transformed speed,
-  paddle-size multiplier, skill lock, and control lock queries are composed
-  here so player-control builders consume one stat-bonus surface.
+  a private runtime Baal speed getter bridge.
 - `scripts/items/mythic_item_lifecycle_runtime.gd`,
   `scripts/items/mythic_item_equipment_facade.gd`, and
   `scripts/items/mythic_item_roll_editor_runtime.gd`
@@ -5135,7 +5201,7 @@ This section is intentionally long; use search to find the nearest owner.
   It calls constants-free focused update owners directly for Smartphone,
   Kick Charger, Soul Burst, Foul Whistle, Revival Charm, Danger Sensor Belt,
   Venom Mist Gauntlet, Rainbow Fur Glove, Celestial Armor, Hermes Shoes,
-  Shrapnel Armor, Horn Strawberry Mask, and Yachaman Soul. Do not reintroduce
+  Shrapnel Armor, and Horn Strawberry Mask. Do not reintroduce
   private runtime `_update_*` bridges for those paths. It also calls
   `mythic_item_update_gate.gd`
   directly for runtime-work detection and `mythic_item_poseidon_runtime.gd`
@@ -5161,8 +5227,8 @@ This section is intentionally long; use search to find the nearest owner.
   item owners directly for Venom Mist alpha, Celestial Armor wave state,
   Rainbow Fur Glove aura state, Hermes Shoes host state, Adversity Armor timer
   / barrier / visible state, Shrapnel Armor visible state, Knee Pads / Soul
-  Burst draw state, Ragnarok elapsed timing, Yachaman Soul revival-event /
-  transformed draw context, visible-field perf counters, and lazy Horn
+  Burst draw state, Ragnarok elapsed timing, visible-field perf counters,
+  and lazy Horn
   Strawberry sub-context reads gated by visible state.
   `scripts/items/mythic_item_ragnarok_runtime.gd` owns the public elapsed-time
   helper methods for Ragnarok ball / impact state; do not reintroduce

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+
 const SAVE_PATH := "user://lingpet_save.cfg"
 const SAVE_SCHEMA_VERSION := 1
 const META_SECTION := "meta"
@@ -73,10 +75,10 @@ func restore_runtime(owner: Object, registry: Object) -> Dictionary:
 	if _is_volatile_run_snapshot(snapshot):
 		clear_snapshot("cleared_run_state_on_entry")
 		var reset_result: Dictionary = runtime.apply_save_snapshot({
-			"pet_id": "maribo",
+			"pet_id": LingpetCatalog.get_default_pet_id(),
 			"state": "egg",
 			"hatch_hits": 0,
-			"required_hits": 3,
+			"required_hits": LingpetCatalog.get_required_hits(LingpetCatalog.get_default_pet_id()),
 			"owned_pet_ids": [],
 		}, owner)
 		reset_result["loaded_from_file"] = true
@@ -133,4 +135,4 @@ func _is_volatile_run_snapshot(snapshot: Dictionary) -> bool:
 	if str(snapshot.get("active_pet_id", "")) != "":
 		return true
 	var owned_ids: Variant = snapshot.get("owned_pet_ids", [])
-	return owned_ids is Array and (owned_ids as Array).has("maribo")
+	return owned_ids is Array and not (owned_ids as Array).is_empty()

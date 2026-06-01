@@ -16,6 +16,9 @@ class FakeLingpetRuntime:
 	var active := true
 	var snapshot := {}
 
+	func is_companion_active(_pet_id: String = "") -> bool:
+		return active
+
 	func is_maribo_companion_active() -> bool:
 		return active
 
@@ -59,6 +62,8 @@ func _make_runtime(active: bool, cooldown: float, ready: bool, projectile: bool,
 	runtime.snapshot = {
 		"companion_skill_id": "maribo_hydro_sphere" if active else "",
 		"companion_skill_name": "하이드로 스피어",
+		"companion_skill_description": "물의 기운이 담긴 창을 던집니다.",
+		"companion_skill_card_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
 		"companion_skill_cooldown": cooldown,
 		"companion_skill_cooldown_duration": 40.0,
 		"companion_skill_ready": ready,
@@ -89,6 +94,8 @@ func _verify_build_entry_states() -> void:
 	_expect(str(charging.get("id", "")) == "maribo_hydro_sphere", "rail entry id should be maribo_hydro_sphere")
 	_expect(bool(charging.get("is_lingpet", false)), "rail entry should carry is_lingpet")
 	_expect(charging.get("accent_color", Color.BLACK) == LingpetRailCard.ACCENT, "rail entry accent should be the cyan ally accent")
+	_expect(str(charging.get("card_texture_path", "")).ends_with("maribo_hydro_sphere_skillcard_imagegen_v2.png"), "rail entry should carry the catalog-backed skill-card texture path")
+	_expect(not str(charging.get("description", "")).is_empty(), "rail entry should carry the companion skill description for tooltip paths")
 	_expect(str(charging.get("status", "")) == "charging", "remaining cooldown should read as charging")
 	_expect(absf(float(charging.get("progress", -1.0)) - 0.5) <= 0.01, "progress should be 1 - cooldown/duration (20/40 -> 0.5)")
 

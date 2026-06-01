@@ -156,10 +156,10 @@ func _init() -> void:
 	var layout_overlay := CharacterInfoOverlay.new()
 	layout_overlay.prewarm_assets(FakeOwner.new(), _registry, Callable(), false)
 	_expect(layout_overlay._layout_panel_rect.size != Vector2.ZERO, "character info prewarm should prepare the frame layout when a viewport is available")
-	_expect(layout_overlay._layout_equipment_rect.size == Vector2.ZERO, "lingpet character info redesign should hide the old equipment slot panel")
-	_expect(layout_overlay._layout_skill_rect.size == Vector2.ZERO, "lingpet character info redesign should hide the old skill slot panel")
-	_expect(layout_overlay._layout_active_items_rect.size == Vector2.ZERO, "lingpet character info redesign should hide the old active item panel")
-	_expect(layout_overlay._layout_inventory_rect.size == Vector2.ZERO, "lingpet character info redesign should hide the old passive inventory panel")
+	_expect(layout_overlay._layout_equipment_rect.size != Vector2.ZERO, "character info should keep the equipment slot panel visible")
+	_expect(layout_overlay._layout_skill_rect.size != Vector2.ZERO, "character info should keep the skill slot panel visible")
+	_expect(layout_overlay._layout_active_items_rect.size != Vector2.ZERO, "character info should keep the active item panel visible")
+	_expect(layout_overlay._layout_inventory_rect.size != Vector2.ZERO, "character info should keep the passive inventory panel visible")
 	_expect(layout_overlay._last_perk_grid_rect.size != Vector2.ZERO, "character info prewarm should prepare perk grid bounds")
 	_expect(layout_overlay._layout_lingpet_rect.size != Vector2.ZERO, "character info prewarm should prepare the lingpet build panel")
 	_expect(layout_overlay._stats_row_cache.size() >= 8, "character info prewarm should prepare the compact live stat rows")
@@ -174,9 +174,7 @@ func _init() -> void:
 	var lingpet_art_rect: Rect2 = layout_overlay._get_lingpet_companion_art_rect(lingpet_content_rect, lingpet_skill_row_h)
 	_expect(lingpet_art_rect.size.y >= 120.0, "720p lingpet panel should reserve enough height for the Maribo full-body art")
 	_expect(FileAccess.file_exists(CharacterInfoOverlay.MARIBO_RESONANCE_BOOST_ICON_PATH), "maribo resonance boost passive icon asset should exist")
-	_expect(FileAccess.file_exists(CharacterInfoOverlay.MARIBO_RESONANCE_CHARGE_ICON_PATH), "maribo resonance charge passive icon asset should exist")
 	_expect(layout_overlay._lingpet_skill_icon_texture_cache.has(CharacterInfoOverlay.MARIBO_RESONANCE_BOOST_ICON_PATH), "character info prewarm should cache the resonance boost passive icon")
-	_expect(layout_overlay._lingpet_skill_icon_texture_cache.has(CharacterInfoOverlay.MARIBO_RESONANCE_CHARGE_ICON_PATH), "character info prewarm should cache the resonance charge passive icon")
 
 	var text_cache_size: int = overlay._text_size_cache.size()
 	var wrap_cache_size: int = overlay._wrap_text_cache.size()
@@ -592,12 +590,16 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info layout cache should be keyed by view size"
 	)
 	_expect(
-		source.find("_layout_equipment_rect = Rect2()") >= 0,
-		"character info lingpet redesign should retire the old equipment panel rect"
+		source.find("_layout_equipment_rect = _section_rect(left_rect, 0.0, 0.58)") >= 0,
+		"character info layout should keep the equipment panel rect alive beside the lingpet layout"
 	)
 	_expect(
-		source.find("var main_rect := Rect2(") >= 0,
-		"character info layout should build the compact main rect without temporary Vector2 values"
+		source.find("_layout_inventory_rect = Rect2(") >= 0,
+		"character info layout should keep the passive inventory panel rect alive"
+	)
+	_expect(
+		source.find("var left_rect := Rect2(") >= 0 and source.find("var right_rect := Rect2(") >= 0,
+		"character info layout should build explicit player and lingpet columns"
 	)
 	_expect(
 		source.find("return Rect2(column_rect.position.x, y, column_rect.size.x, max(64.0, height))") >= 0,
@@ -1610,6 +1612,26 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 	_expect(
 		_function_body(source, "func _draw_active_items(").find("hover_data = _set_hover_data(") >= 0,
 		"character info active item hover should reuse the frame hover dictionary"
+	)
+	_expect(
+		source.find("var _last_lingpet_skill_icon_rects: Array[Rect2] = []") >= 0,
+		"lingpet skill icon hover rects should be cached for redraw tracking"
+	)
+	_expect(
+		source.find("var _last_lingpet_stat_row_rects: Array[Rect2] = []") >= 0,
+		"lingpet stat row hover rects should be cached for redraw tracking"
+	)
+	_expect(
+		_function_body(source, "func _get_hover_signature(").find("_get_lingpet_skill_hover_signature(mouse_pos)") >= 0,
+		"lingpet skill icons should participate in mouse-motion hover redraws"
+	)
+	_expect(
+		_function_body(source, "func _get_hover_signature(").find("_get_lingpet_stat_hover_signature(mouse_pos)") >= 0,
+		"lingpet stat rows should participate in mouse-motion hover redraws"
+	)
+	_expect(
+		_function_body(source, "func _draw_lingpet_skill_icon(").find("hover_data = _set_hover_data(") >= 0,
+		"lingpet skill hover should reuse the frame hover dictionary"
 	)
 	_expect(
 		source.find("return _tooltip_entry_lines_cache.duplicate(true)") < 0,
