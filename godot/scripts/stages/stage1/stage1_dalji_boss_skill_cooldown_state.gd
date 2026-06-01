@@ -9,6 +9,7 @@ const SPINNING_TOP_COOLDOWN_FRAMES := 960.0
 const WHIP_COOLDOWN_FRAMES := 1320.0
 const READY_FLASH_FRAMES := 24.0
 const CAST_FLASH_FRAMES := 30.0
+const HUD_SORT_FRAMES_PER_SECOND := 60.0
 
 var skill_runtime := {}
 
@@ -190,12 +191,18 @@ func _get_runtime(skill_id: String) -> Dictionary:
 func _build_hud_skill(skill_id: String, label: String, trigger_type: String, color: Color) -> Dictionary:
 	var runtime: Dictionary = _get_runtime(skill_id)
 	var duration: float = max(1.0, float(runtime.get("duration", 1.0)))
+	var remaining_frames: float = max(0.0, duration - float(runtime.get("timer", 0.0)))
+	var duration_seconds: float = duration / HUD_SORT_FRAMES_PER_SECOND
+	var remaining_seconds: float = remaining_frames / HUD_SORT_FRAMES_PER_SECOND
 	return {
 		"id": skill_id,
 		"label": label,
 		"trigger_type": trigger_type,
 		"trigger_label": "즉시" if trigger_type == TRIGGER_INSTANT else "타격",
 		"progress": clamp(float(runtime.get("timer", 0.0)) / duration, 0.0, 1.0),
+		"cooldown_remaining": remaining_seconds,
+		"cooldown_total": duration_seconds,
+		"sort_remaining": remaining_seconds,
 		"ready": bool(runtime.get("ready", false)),
 		"used": bool(runtime.get("used", false)),
 		"status": str(runtime.get("status", "charging")),
