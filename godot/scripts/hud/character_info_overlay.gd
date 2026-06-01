@@ -176,6 +176,7 @@ var _equipment_silhouette_right_leg_poly := PackedVector2Array()
 var _active_item_catalog: Object = ActiveItemCatalog.new()
 var _active_item_icon_renderer: Object = ActiveItemHudSlotIconRenderer.new()
 var _character_runtime: Object = PlayerCharacterRuntime.new()
+var _lingpet_art_texture_cache: Dictionary = {}
 var _lingpet_skill_icon_texture_cache: Dictionary = {}
 var _shared_icon_assets_prewarmed := false
 var _static_text_prewarmed := false
@@ -1530,8 +1531,6 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	var runtime_perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
 	var skill_config: Object = _get_skill_config(registry, character_type)
 	var skill_snapshot: Dictionary = skill_config.get_snapshot() if skill_config != null and skill_config.has_method("get_snapshot") else {}
-	var active_item_slot_capacity: int = _get_active_item_slot_capacity_for_sources(runtime_state, mythic_item_runtime)
-	var active_item_slots: Array = _get_array(_safe_owner_get(owner, "active_item_slots", []))
 	_frame_stat_sources.clear()
 	_frame_stat_sources.append(runtime_state)
 	_frame_stat_sources.append(active_item_runtime)
@@ -2284,7 +2283,7 @@ func _draw_lingpet_companion_panel(
 
 	var art_rect: Rect2 = _get_lingpet_companion_art_rect(content_rect, skill_row_h)
 	canvas.draw_rect(art_rect, Color(7.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 0.34))
-	_draw_lingpet_art(canvas, art_rect)
+	_draw_lingpet_art(canvas, art_rect, str(snapshot.get("pet_id", "")))
 
 	var icon_count: int = max(1, skill_specs.size())
 	var icon_gap: float = 9.0
@@ -2309,15 +2308,41 @@ func _get_lingpet_companion_art_rect(content_rect: Rect2, skill_row_h: float) ->
 	)
 
 
-func _draw_lingpet_art(canvas: CanvasItem, rect: Rect2) -> void:
+func _draw_lingpet_art(canvas: CanvasItem, rect: Rect2, pet_id: String = "") -> void:
 	var glow_center := rect.get_center()
 	var glow_radius: float = min(rect.size.x, rect.size.y) * 0.42
 	for i in range(4, 0, -1):
 		canvas.draw_circle(glow_center, glow_radius + float(i) * 11.0, Color(0.0, 205.0 / 255.0, 1.0, 0.018 * float(i)))
-	if MARIBO_CUTIN_ART_TEXTURE != null:
-		_draw_texture_contained(canvas, MARIBO_CUTIN_ART_TEXTURE, rect.grow(-4.0), Color(1.0, 1.0, 1.0, 0.96))
+	var art_texture: Texture2D = _get_lingpet_art_texture(pet_id)
+	if art_texture != null:
+		_draw_texture_contained(canvas, art_texture, rect.grow(-4.0), Color(1.0, 1.0, 1.0, 0.96))
 		return
 	_draw_lingpet_egg_icon(canvas, Rect2(rect.get_center() - Vector2(44.0, 44.0), Vector2(88.0, 88.0)), "companion", 1.0)
+
+
+func _get_lingpet_art_texture(pet_id: String) -> Texture2D:
+	var path := ""
+	var normalized_pet_id := pet_id.strip_edges().to_lower()
+	if LingpetCatalog.has_pet(normalized_pet_id):
+		path = LingpetCatalog.get_visual_path(normalized_pet_id, "cutin_art")
+	if path == "":
+		path = LingpetCatalog.get_visual_path("maribo", "cutin_art")
+	if path == "" or not FileAccess.file_exists(path):
+		return MARIBO_CUTIN_ART_TEXTURE
+	if _lingpet_art_texture_cache.has(path):
+		var cached_texture: Variant = _lingpet_art_texture_cache[path]
+		if cached_texture is Texture2D:
+			return cached_texture as Texture2D
+		_lingpet_art_texture_cache.erase(path)
+	var texture := ProjectResourceLoader.load_texture(
+		path,
+		"Missing lingpet art texture at %s",
+		"Failed to load lingpet art texture at %s"
+	)
+	if texture != null:
+		_lingpet_art_texture_cache[path] = texture
+		return texture
+	return MARIBO_CUTIN_ART_TEXTURE
 
 
 func _draw_lingpet_skill_icon(
@@ -2334,8 +2359,14 @@ func _draw_lingpet_skill_icon(
 	canvas.draw_rect(rect, OVERLAY_SLOT_FILL)
 	canvas.draw_rect(rect, border_color, false, 2.0 if hovered else 1.0)
 	var inner := rect.grow(-4.0)
-	if bool(spec.get("use_card", false)) and MARIBO_HYDRO_SPHERE_CARD_TEXTURE != null:
-		_draw_texture_cover(canvas, MARIBO_HYDRO_SPHERE_CARD_TEXTURE, inner, Color(1.0, 1.0, 1.0, 0.94))
+	if bool(spec.get("use_card", false)):
+		var card_texture: Texture2D = _get_lingpet_skill_icon_texture(str(spec.get("card_texture_path", "")))
+		if card_texture == null and str(spec.get("id", "")) == "maribo_hydro_sphere":
+			card_texture = MARIBO_HYDRO_SPHERE_CARD_TEXTURE
+		if card_texture != null:
+			_draw_texture_cover(canvas, card_texture, inner, Color(1.0, 1.0, 1.0, 0.94))
+		else:
+			_draw_lingpet_skill_symbol(canvas, font, inner, str(spec.get("id", "")), color)
 	else:
 		var texture: Texture2D = _get_lingpet_skill_icon_texture(str(spec.get("icon_texture_id", "")))
 		if texture != null:
@@ -2381,6 +2412,8 @@ func _get_lingpet_skill_icon_texture(texture_id: String) -> Texture2D:
 
 
 func _get_lingpet_skill_icon_texture_path(texture_id: String) -> String:
+	if texture_id.begins_with("res://"):
+		return texture_id
 	match texture_id:
 		"resonance_boost":
 			return MARIBO_RESONANCE_BOOST_ICON_PATH
@@ -2473,21 +2506,32 @@ func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
 				"required_hits": required_hits,
 			}
 		"companion", "active", "owned", "동행":
+			var catalog_skill := LingpetCatalog.get_active_skill(lingpet_id)
+			var catalog_skill_enabled := bool(catalog_skill.get("enabled", true))
+			var catalog_skill_id := str(catalog_skill.get("id", "")) if catalog_skill_enabled else ""
+			var catalog_skill_name := str(catalog_skill.get("name", "")) if catalog_skill_enabled else ""
+			var catalog_skill_description := str(catalog_skill.get("description", "")) if catalog_skill_enabled else ""
+			var catalog_skill_card_path := str(catalog_skill.get("card_texture_path", "")) if catalog_skill_enabled else ""
+			var catalog_skill_cooldown := float(catalog_skill.get("cooldown", 0.0)) if catalog_skill_enabled else 0.0
 			return {
 				"state": "companion",
+				"pet_id": lingpet_id,
 				"title": display_name,
 				"subtitle": "동행 중",
 				"body": str(_safe_owner_get(owner, "lingpet_effect_text", "링펫 효과는 다음 단계에서 연결됩니다.")),
-				"gauge_gain_bonus_pct": float(_safe_owner_get(owner, "lingpet_gauge_gain_bonus_pct", _safe_owner_get(owner, "ringpet_gauge_gain_bonus_pct", 10.0))),
-				"companion_hit_gauge_gain": float(_safe_owner_get(owner, "lingpet_companion_hit_gauge_gain", _safe_owner_get(owner, "ringpet_companion_hit_gauge_gain", 40.0))),
-				"companion_skill_name": str(_safe_owner_get(owner, "lingpet_skill_name", _safe_owner_get(owner, "ringpet_skill_name", "하이드로 스피어"))),
-				"companion_skill_cooldown_duration": float(_safe_owner_get(owner, "lingpet_skill_cooldown_duration", _safe_owner_get(owner, "ringpet_skill_cooldown_duration", 40.0))),
-				"companion_patrol_speed_default": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_default", _safe_owner_get(owner, "ringpet_companion_patrol_speed_default", 120.0))),
-				"companion_patrol_speed_min": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_min", _safe_owner_get(owner, "ringpet_companion_patrol_speed_min", 70.0))),
-				"companion_patrol_speed_max": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_max", _safe_owner_get(owner, "ringpet_companion_patrol_speed_max", 135.0))),
-				"companion_catch_width": float(_safe_owner_get(owner, "lingpet_companion_catch_width", _safe_owner_get(owner, "ringpet_companion_catch_width", 100.0))),
-				"companion_catch_height": float(_safe_owner_get(owner, "lingpet_companion_catch_height", _safe_owner_get(owner, "ringpet_companion_catch_height", 44.0))),
-				"companion_defense_rate": float(_safe_owner_get(owner, "lingpet_companion_defense_rate", _safe_owner_get(owner, "ringpet_companion_defense_rate", 0.30))),
+				"gauge_gain_bonus_pct": float(_safe_owner_get(owner, "lingpet_gauge_gain_bonus_pct", _safe_owner_get(owner, "ringpet_gauge_gain_bonus_pct", LingpetCatalog.get_stat(lingpet_id, "gauge_gain_bonus_pct", 0.0)))),
+				"companion_hit_gauge_gain": float(_safe_owner_get(owner, "lingpet_companion_hit_gauge_gain", _safe_owner_get(owner, "ringpet_companion_hit_gauge_gain", LingpetCatalog.get_stat(lingpet_id, "hit_gauge_gain", 40.0)))),
+				"companion_skill_id": str(_safe_owner_get(owner, "lingpet_skill_id", _safe_owner_get(owner, "ringpet_skill_id", catalog_skill_id))),
+				"companion_skill_name": str(_safe_owner_get(owner, "lingpet_skill_name", _safe_owner_get(owner, "ringpet_skill_name", catalog_skill_name))),
+				"companion_skill_description": str(_safe_owner_get(owner, "lingpet_skill_description", _safe_owner_get(owner, "ringpet_skill_description", catalog_skill_description))),
+				"companion_skill_card_path": str(_safe_owner_get(owner, "lingpet_skill_card_path", _safe_owner_get(owner, "ringpet_skill_card_path", catalog_skill_card_path))),
+				"companion_skill_cooldown_duration": float(_safe_owner_get(owner, "lingpet_skill_cooldown_duration", _safe_owner_get(owner, "ringpet_skill_cooldown_duration", catalog_skill_cooldown))),
+				"companion_patrol_speed_default": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_default", _safe_owner_get(owner, "ringpet_companion_patrol_speed_default", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_default", 120.0)))),
+				"companion_patrol_speed_min": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_min", _safe_owner_get(owner, "ringpet_companion_patrol_speed_min", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_min", 70.0)))),
+				"companion_patrol_speed_max": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_max", _safe_owner_get(owner, "ringpet_companion_patrol_speed_max", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_max", 135.0)))),
+				"companion_catch_width": float(_safe_owner_get(owner, "lingpet_companion_catch_width", _safe_owner_get(owner, "ringpet_companion_catch_width", LingpetCatalog.get_stat(lingpet_id, "catch_width", 100.0)))),
+				"companion_catch_height": float(_safe_owner_get(owner, "lingpet_companion_catch_height", _safe_owner_get(owner, "ringpet_companion_catch_height", LingpetCatalog.get_stat(lingpet_id, "catch_height", 44.0)))),
+				"companion_defense_rate": float(_safe_owner_get(owner, "lingpet_companion_defense_rate", _safe_owner_get(owner, "ringpet_companion_defense_rate", LingpetCatalog.get_stat(lingpet_id, "defense_rate", 0.0)))),
 				"hatch_hits": required_hits,
 				"required_hits": required_hits,
 			}
@@ -2515,22 +2559,29 @@ func _get_lingpet_display_name(lingpet_id: String) -> String:
 
 
 func _get_lingpet_skill_specs(snapshot: Dictionary) -> Array:
-	var skill_name: String = str(snapshot.get("companion_skill_name", "하이드로 스피어"))
-	if skill_name == "":
-		skill_name = "하이드로 스피어"
-	var active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration", 40.0))
-	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 10.0))
-	return [
-		{
-			"id": "hydro_sphere",
+	var specs: Array = []
+	var skill_id: String = str(snapshot.get("companion_skill_id", "")).strip_edges()
+	if skill_id != "":
+		var skill_name: String = str(snapshot.get("companion_skill_name", "")).strip_edges()
+		if skill_name == "":
+			skill_name = "액티브 스킬"
+		var active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration", 0.0))
+		var skill_description: String = str(snapshot.get("companion_skill_description", "")).strip_edges()
+		if skill_description == "":
+			skill_description = "링펫이 전투 중 자동으로 사용하는 액티브 스킬입니다."
+		specs.append({
+			"id": skill_id,
 			"title": skill_name,
 			"subtitle": "액티브 · 쿨타임 " + _format_seconds_text(active_cooldown),
-			"body": "물의 기운이 담긴 창을 던집니다. 상대 진영 벽에 닿으면 5초 동안 가로로 넓은 둔화 물장판을 남깁니다.",
+			"body": skill_description,
 			"color": Color(80.0 / 255.0, 220.0 / 255.0, 1.0),
 			"badge": "A",
 			"use_card": true,
-		},
-		{
+			"card_texture_path": str(snapshot.get("companion_skill_card_path", "")),
+		})
+	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 0.0))
+	if gauge_bonus_pct > 0.0:
+		specs.append({
 			"id": "resonance_boost",
 			"title": "공명 증폭",
 			"subtitle": "패시브 · 받아치기 +" + _format_percent_text(gauge_bonus_pct),
@@ -2538,8 +2589,8 @@ func _get_lingpet_skill_specs(snapshot: Dictionary) -> Array:
 			"color": STAT_BUFF_COLOR,
 			"badge": "P",
 			"icon_texture_id": "resonance_boost",
-		},
-	]
+		})
+	return specs
 
 
 func _draw_lingpet_egg_icon(canvas: CanvasItem, rect: Rect2, state: String, progress: float) -> void:
@@ -2745,16 +2796,22 @@ func _build_lingpet_stats(owner: Object) -> Array:
 	var catch_width: float = float(snapshot.get("companion_catch_width", 100.0))
 	var catch_height: float = float(snapshot.get("companion_catch_height", 44.0))
 	var hit_gain: float = float(snapshot.get("companion_hit_gauge_gain", 40.0))
+	var skill_id: String = str(snapshot.get("companion_skill_id", "")).strip_edges()
+	var skill_name: String = str(snapshot.get("companion_skill_name", "")).strip_edges()
+	if skill_name == "":
+		skill_name = "액티브 스킬"
 	var active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration", 40.0))
 	var defense_rate: float = float(snapshot.get("companion_defense_rate", 0.0))
 	var speed_display: float = speed_default / LINGPET_SPEED_DISPLAY_PX_PER_POINT
-	return [
+	var rows := [
 		_make_display_stat_row("이동 속도", "%.2f" % speed_display, Color.WHITE, "마리보가 플레이어 진영에서 독자적으로 순찰할 때 쓰는 기본 이동 속도입니다. 실제 순찰은 %s~%spx/s 사이에서 자연스럽게 변동됩니다." % [_format_plain_number(speed_min), _format_plain_number(speed_max)]),
 		_make_display_stat_row("몸집크기", "%sx%spx" % [_format_plain_number(catch_width), _format_plain_number(catch_height)], Color.WHITE, "마리보가 공을 튕겨낼 때 쓰는 실제 판정 범위입니다."),
 		_make_display_stat_row("게이지 획득량", "%spt" % _format_plain_number(hit_gain), STAT_BUFF_COLOR, "링펫이 공을 직접 튕겼을 때 얻는 공통 기본 게이지 획득량입니다."),
-		_make_display_stat_row("액티브 쿨타임", _format_seconds_text(active_cooldown), Color.WHITE, "하이드로 스피어를 다시 사용할 수 있게 되는 시간입니다."),
 		_make_display_stat_row("방어율", _format_percent_text(defense_rate * 100.0), STAT_BUFF_COLOR, "공을 적극적으로 막으러 이동할 확률입니다. 높을수록 수비 행동을 더 자주 시도합니다."),
 	]
+	if skill_id != "":
+		rows.insert(3, _make_display_stat_row("액티브 쿨타임", _format_seconds_text(active_cooldown), Color.WHITE, "%s을(를) 다시 사용할 수 있게 되는 시간입니다." % skill_name))
+	return rows
 
 
 func _make_display_stat_row(label: String, value_text: String, color: Color, tooltip_body: String = "") -> Dictionary:
@@ -2859,7 +2916,6 @@ func _build_stats(
 	var dash_recovery_seconds: float = _frames_to_seconds(_get_effective_dash_recovery_frames(stat_sources))
 	var dash_cooldown_seconds: float = _frames_to_seconds(_get_effective_dash_recharge_frames(stat_sources))
 	var item_cooldown_seconds: float = float(_get_effective_default_active_item_cooldown_msec(registry, stat_sources)) / 1000.0
-
 	_ensure_stats_row_cache(STAT_ROW_COUNT)
 	_write_delta_stat_row(0, "이동 속도", "%.2f" % move_speed, base_move_speed, move_speed, true, write_row_cache)
 	_write_delta_stat_row(1, "몸집크기", "%.0fpx" % paddle_width, base_paddle_width, paddle_width, true, write_row_cache)

@@ -137,6 +137,7 @@ func _init() -> void:
 	_expect(not _find_stat(lingpet_stats, "몸집크기").is_empty(), "Maribo catch range should be labeled as body size")
 	_expect(_find_stat(lingpet_stats, "캐치 범위").is_empty(), "Maribo stats should not expose the old catch-range label")
 	_expect(str(_find_stat(lingpet_stats, "게이지 획득량").get("value", "")) == "40pt", "Maribo direct-hit gauge gain should be shown as the ringpet common stat")
+	_expect(str(_find_stat(lingpet_stats, "액티브 쿨타임").get("value", "")) == "40초", "Maribo stats should show Hydro Sphere cooldown")
 	_expect(_find_stat(lingpet_stats, "공명 충전 쿨타임").is_empty(), "Maribo stats should not expose the removed resonance-charge cooldown")
 	var defense_stat: Dictionary = _find_stat(lingpet_stats, "방어율")
 	_expect(str(defense_stat.get("value", "")) == "30%", "Maribo defense rate should be visible in lingpet stats")
@@ -144,6 +145,26 @@ func _init() -> void:
 		str(defense_stat.get("tooltip_body", "")).find("공을 적극적으로 막으러 이동할 확률") >= 0,
 		"Maribo defense rate should explain the actual intercept behavior in a tooltip"
 	)
+	var maribo_panel_snapshot: Dictionary = overlay._get_lingpet_panel_snapshot(lingpet_owner)
+	var maribo_skill_specs: Array = overlay._get_lingpet_skill_specs(maribo_panel_snapshot)
+	_expect(maribo_skill_specs.size() == 2, "Maribo character-info panel should show one active skill and one real passive icon")
+	_expect(str((maribo_skill_specs[0] as Dictionary).get("id", "")) == "maribo_hydro_sphere", "Maribo active icon should use the catalog skill id")
+	_expect(str((maribo_skill_specs[0] as Dictionary).get("card_texture_path", "")).find("maribo_hydro_sphere") >= 0, "Maribo active icon should use the catalog skill-card texture")
+	_expect(str((maribo_skill_specs[1] as Dictionary).get("id", "")) == "resonance_boost", "Maribo gauge bonus should remain as the one passive skill icon")
+
+	var lunabi_owner := FakeOwner.new({
+		"lingpet_id": "lunabi",
+		"lingpet_state": "companion",
+	})
+	var lunabi_panel_snapshot: Dictionary = overlay._get_lingpet_panel_snapshot(lunabi_owner)
+	var lunabi_skill_specs: Array = overlay._get_lingpet_skill_specs(lunabi_panel_snapshot)
+	var lunabi_stats: Array = overlay._build_lingpet_stats(lunabi_owner)
+	var lunabi_art_texture: Texture2D = overlay._get_lingpet_art_texture("lunabi")
+	_expect(str(lunabi_panel_snapshot.get("pet_id", "")) == "lunabi", "Lunabi panel snapshot should preserve its catalog pet id")
+	_expect(lunabi_skill_specs.is_empty(), "Lunabi placeholder active/passive data should not show Maribo skill icons")
+	_expect(_find_stat(lunabi_stats, "액티브 쿨타임").is_empty(), "Lunabi should not show an active cooldown stat until its active skill ships")
+	_expect(str(_find_stat(lunabi_stats, "이동 속도").get("value", "")) == "3.17", "Lunabi character-info speed should use its own catalog stat, not Maribo's")
+	_expect(lunabi_art_texture != null and str(lunabi_art_texture.resource_path).ends_with("lunabi_cutin_art.png"), "Lunabi character-info art should resolve through the catalog cutin_art path")
 
 	print("character_info_live_stats_smoke: ok")
 	quit(0)
