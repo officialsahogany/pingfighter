@@ -115,8 +115,8 @@ func _init() -> void:
 		load(StageClearResultScene.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH).get_size() == Vector2(16128.0, 8064.0),
 		"Stage 2 boss result click Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
 	)
-	_expect(bool(status.get("stage2_boss_defeat_live2d_sheet_loaded", false)), "Stage 2 boss result Live2D should load")
-	_expect(bool(status.get("stage2_boss_defeat_click_reaction_sheet_loaded", false)), "Stage 2 boss result click Live2D should load")
+	_expect(not bool(status.get("stage2_boss_defeat_live2d_sheet_loaded", true)), "Stage 1 result should not load the Stage 2 boss result Live2D sheet")
+	_expect(not bool(status.get("stage2_boss_defeat_click_reaction_sheet_loaded", true)), "Stage 1 result should not load the Stage 2 boss result click sheet")
 	_expect(not bool(status.get("stage2_boss_defeat_live2d_active", true)), "Stage 1 result should keep the Stage 2 boss result actor inactive")
 	_expect(not bool(status.get("stage2_boss_defeat_click_reaction_active", true)), "Stage 1 result should keep the Stage 2 boss click reaction inactive")
 	_expect(int(status.get("stage2_boss_defeat_live2d_frame_count", 0)) == 98, "Stage 2 boss result Live2D should expose 98 frames")
@@ -140,6 +140,8 @@ func _init() -> void:
 	}, Callable())
 	var stage2_status: Dictionary = stage2_scene.get_interaction_status()
 	_expect(bool(stage2_status.get("stage2_boss_defeat_live2d_active", false)), "Stage 2 result should activate the alligator boss Live2D")
+	_expect(bool(stage2_status.get("stage2_boss_defeat_live2d_sheet_loaded", false)), "Stage 2 result should load the Stage 2 boss result Live2D sheet")
+	_expect(bool(stage2_status.get("stage2_boss_defeat_click_reaction_sheet_loaded", false)), "Stage 2 result should load the Stage 2 boss result click sheet")
 	var stage2_draw_rect: Rect2 = stage2_status.get("stage2_boss_defeat_live2d_draw_rect", Rect2())
 	_expect(stage2_draw_rect.size.x > 0.0 and stage2_draw_rect.size.y > 0.0, "Stage 2 boss Live2D draw rect should be available")
 	stage2_scene.update_result_scene(0.22)
@@ -237,6 +239,52 @@ func _init() -> void:
 	status = scene.get_interaction_status()
 	_expect(not bool(status.get("player_victory_click_reaction_active", true)), "Smasher click reaction should return to the base loop")
 	_expect(is_equal_approx(float(status.get("player_victory_reaction_alpha", 1.0)), 0.0), "Smasher click should fade fully back to the base loop")
+
+	var commando_scene: Control = RESULT_SCENE.instantiate() as Control
+	_expect(commando_scene != null, "stage clear result scene should instantiate for Commando victory Live2D")
+	root.add_child(commando_scene)
+	commando_scene.configure({
+		"player_score": 5,
+		"boss_score": 0,
+		"current_stage": 1,
+		"selected_character_type": "soldier",
+		"reward_plan": {
+			"summary": "",
+			"boxes": [
+				{"kind": "normal"},
+			],
+			"reward_count": 1,
+		},
+	}, Callable())
+	var commando_status: Dictionary = commando_scene.get_interaction_status()
+	_expect(str(commando_status.get("selected_character_type", "")) == "soldier", "Commando result scene should preserve the selected character type")
+	_expect(
+		str(commando_status.get("player_victory_sheet_path", "")) == StageClearResultScene.COMMANDO_VICTORY_SHEET_PATH,
+		"Commando victory should use the Commando result base Live2D sheet"
+	)
+	_expect(
+		str(commando_status.get("player_victory_click_reaction_sheet_path", "")) == StageClearResultScene.COMMANDO_CLICK_REACTION_SHEET_PATH,
+		"Commando victory should use the Commando result click Live2D sheet"
+	)
+	_expect(bool(commando_status.get("player_victory_sheet_loaded", false)), "Commando result base Live2D should load")
+	_expect(bool(commando_status.get("player_victory_click_reaction_sheet_loaded", false)), "Commando result click Live2D should load")
+	commando_scene.update_result_scene(0.55)
+	commando_status = commando_scene.get_interaction_status()
+	var commando_base_frame_before_click: int = int(commando_status.get("player_victory_base_frame", 0))
+	_expect(commando_base_frame_before_click > 0, "test should click Commando from a non-neutral base Live2D frame")
+	var commando_click_rect: Rect2 = commando_status.get("player_victory_click_rect", Rect2())
+	var commando_click := InputEventMouseButton.new()
+	commando_click.button_index = MOUSE_BUTTON_LEFT
+	commando_click.pressed = true
+	commando_click.position = commando_click_rect.get_center()
+	_expect(commando_scene.handle_result_input(commando_click), "Commando click should be consumed by the result scene")
+	commando_status = commando_scene.get_interaction_status()
+	_expect(bool(commando_status.get("player_victory_click_reaction_active", false)), "Commando click should start the reaction sheet")
+	_expect(
+		int(commando_status.get("player_victory_click_transition_base_frame", -1)) == commando_base_frame_before_click,
+		"Commando click should freeze the current base frame for blend-in"
+	)
+	commando_scene.free()
 
 	scene.update_result_scene(1.10)
 	status = scene.get_interaction_status()

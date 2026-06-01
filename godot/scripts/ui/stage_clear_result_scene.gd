@@ -27,6 +27,8 @@ const STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH := "res://assets/sprites/stage2/stage
 const STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/stage2/stage2_alligator_general_result_defeat_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1152.png"
 const SMASHER_VICTORY_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
 const SMASHER_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png"
+const COMMANDO_VICTORY_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_base_loop_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
+const COMMANDO_CLICK_REACTION_SHEET_PATH := "res://assets/sprites/characters/commando/commando_result_victory_click_reaction_98f_autosprite_v1_realesrgan_animev3_hq1408.png"
 const RESULT_SCROLL_PANEL_PATH := "res://assets/sprites/result_scroll/stage_clear_cyber_scroll_imagegen_v1_alpha.png"
 
 const DALJI_FRAME_COUNT := 98
@@ -128,6 +130,7 @@ var timer: float = 0.0
 var player_score: int = 0
 var boss_score: int = 0
 var current_stage: int = 1
+var selected_character_type: String = "smasher"
 var reward_plan: Dictionary = {}
 var stage_reward_snapshot: Dictionary = {}
 var confirmed_callback: Callable = Callable()
@@ -155,6 +158,8 @@ var _stage2_boss_defeat_live2d_sheet: Texture2D
 var _stage2_boss_defeat_click_reaction_sheet: Texture2D
 var _player_victory_sheet: Texture2D
 var _player_victory_click_reaction_sheet: Texture2D
+var _player_victory_sheet_loaded_path: String = ""
+var _player_victory_click_reaction_sheet_loaded_path: String = ""
 var _scroll_texture: Texture2D
 var _result_box_sheet_common: Texture2D
 var _result_box_sheet_mythic: Texture2D
@@ -189,20 +194,45 @@ var _starpoint_choice_gate_box_index: int = -1
 
 static var _prewarm_asset_step_index: int = 0
 static var _prewarm_asset_status: Dictionary = {}
+static var _prewarm_asset_character_type: String = "smasher"
+static var _prewarm_asset_stage_id: int = 1
 
 
-static func prewarm_assets() -> Dictionary:
-	while not prewarm_assets_step():
+static func prewarm_assets(character_type: String = "smasher", stage_id: int = 1) -> Dictionary:
+	while not prewarm_assets_step(character_type, stage_id):
 		pass
 	return _prewarm_asset_status.duplicate()
 
 
-static func prewarm_assets_step() -> bool:
-	StageClearResultAssetLoader.prewarm_assets_step(
+static func prewarm_assets_step(character_type: String = "smasher", stage_id: int = 1) -> bool:
+	return _prewarm_assets_step_impl(false, character_type, stage_id)
+
+
+static func prewarm_assets_threaded_step(character_type: String = "smasher", stage_id: int = 1) -> bool:
+	return _prewarm_assets_step_impl(true, character_type, stage_id)
+
+
+static func _prewarm_assets_step_impl(
+	use_threaded_texture_loads: bool,
+	character_type: String = "smasher",
+	stage_id: int = 1
+) -> bool:
+	var normalized_character: String = _normalize_player_victory_character_type(character_type)
+	var normalized_stage_id: int = max(1, stage_id)
+	if _prewarm_asset_character_type != normalized_character or _prewarm_asset_stage_id != normalized_stage_id:
+		_prewarm_asset_step_index = 0
+		_prewarm_asset_status.clear()
+		_prewarm_asset_character_type = normalized_character
+		_prewarm_asset_stage_id = normalized_stage_id
+	_prewarm_asset_status["selected_character_type"] = normalized_character
+	_prewarm_asset_status["current_stage"] = normalized_stage_id
+	if not StageClearResultAssetLoader.prewarm_assets_step(
 		_prewarm_asset_step_index,
 		_prewarm_asset_status,
-		_result_asset_paths()
-	)
+		_result_asset_paths(normalized_character, normalized_stage_id),
+		use_threaded_texture_loads
+	):
+		return false
 	_prewarm_asset_step_index += 1
 	if _prewarm_asset_step_index >= PREWARM_ASSET_STEP_COUNT:
 		_prewarm_asset_step_index = 0
@@ -213,27 +243,53 @@ static func prewarm_assets_step() -> bool:
 static func reset_prewarm_assets_for_test() -> void:
 	_prewarm_asset_step_index = 0
 	_prewarm_asset_status.clear()
+	_prewarm_asset_character_type = "smasher"
+	_prewarm_asset_stage_id = 1
 
 
 static func get_prewarm_asset_status() -> Dictionary:
 	return _prewarm_asset_status.duplicate()
 
 
-static func _result_asset_paths() -> Dictionary:
-	return {
+static func _result_asset_paths(character_type: String = "smasher", stage_id: int = 1) -> Dictionary:
+	var normalized_character: String = _normalize_player_victory_character_type(character_type)
+	var normalized_stage_id: int = max(1, stage_id)
+	var paths := {
 		"background_texture": STAGE1_BACKGROUND_PATH,
-		"dalji_defeat_sheet": DALJI_DEFEAT_SHEET_PATH,
-		"dalji_click_reaction_sheet": DALJI_CLICK_REACTION_SHEET_PATH,
-		"stage2_boss_defeat_live2d_sheet": STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
-		"stage2_boss_defeat_click_reaction_sheet": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
-		"player_victory_sheet": SMASHER_VICTORY_SHEET_PATH,
-		"player_victory_click_reaction_sheet": SMASHER_CLICK_REACTION_SHEET_PATH,
+		"player_victory_sheet": _get_player_victory_sheet_path_for_character(normalized_character),
+		"player_victory_click_reaction_sheet": _get_player_victory_click_reaction_sheet_path_for_character(normalized_character),
 		"scroll_texture": RESULT_SCROLL_PANEL_PATH,
 		"result_box_sheet_common": RESULT_BOX_SHEET_COMMON_PATH,
 		"result_box_sheet_mythic": RESULT_BOX_SHEET_MYTHIC_PATH,
 		"result_box_sheet_guaranteed_mythic": RESULT_BOX_SHEET_GUARANTEED_MYTHIC_PATH,
-		"dalji_click_voice": DALJI_CLICK_VOICE_PATH,
 	}
+	if normalized_stage_id == 2:
+		paths["stage2_boss_defeat_live2d_sheet"] = STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH
+		paths["stage2_boss_defeat_click_reaction_sheet"] = STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH
+	else:
+		paths["dalji_defeat_sheet"] = DALJI_DEFEAT_SHEET_PATH
+		paths["dalji_click_reaction_sheet"] = DALJI_CLICK_REACTION_SHEET_PATH
+		paths["dalji_click_voice"] = DALJI_CLICK_VOICE_PATH
+	return paths
+
+
+static func _normalize_player_victory_character_type(character_type: String) -> String:
+	var normalized: String = str(character_type).strip_edges().to_lower()
+	if normalized == "soldier" or normalized == "commando":
+		return "soldier"
+	return "smasher"
+
+
+static func _get_player_victory_sheet_path_for_character(character_type: String) -> String:
+	if _normalize_player_victory_character_type(character_type) == "soldier":
+		return COMMANDO_VICTORY_SHEET_PATH
+	return SMASHER_VICTORY_SHEET_PATH
+
+
+static func _get_player_victory_click_reaction_sheet_path_for_character(character_type: String) -> String:
+	if _normalize_player_victory_character_type(character_type) == "soldier":
+		return COMMANDO_CLICK_REACTION_SHEET_PATH
+	return SMASHER_CLICK_REACTION_SHEET_PATH
 
 
 func _ready() -> void:
@@ -262,6 +318,13 @@ func configure(
 	player_score = int(data.get("player_score", 0))
 	boss_score = int(data.get("boss_score", 0))
 	current_stage = int(data.get("current_stage", 1))
+	var previous_character_type: String = selected_character_type
+	selected_character_type = _normalize_player_victory_character_type(str(data.get("selected_character_type", selected_character_type)))
+	if selected_character_type != previous_character_type:
+		_player_victory_sheet = null
+		_player_victory_click_reaction_sheet = null
+		_player_victory_sheet_loaded_path = ""
+		_player_victory_click_reaction_sheet_loaded_path = ""
 	var plan_value: Variant = data.get("reward_plan", {})
 	reward_plan = plan_value if plan_value is Dictionary else {}
 	var stage_reward_value: Variant = data.get("stage_reward_snapshot", {})
@@ -352,6 +415,9 @@ func handle_result_input(event: InputEvent) -> bool:
 	if _is_runtime_perk_choice_active():
 		_cancel_scroll_drag()
 		return _handle_runtime_perk_input(event)
+	if _is_treasure_hunt_effect_active():
+		_cancel_scroll_drag()
+		return true
 
 	if GamepadInput.is_gamepad_event(event):
 		if GamepadInput.is_confirm_event(event):
@@ -433,8 +499,16 @@ func _is_mythic_acquisition_cinematic_active() -> bool:
 	)
 
 
+func _is_treasure_hunt_effect_active() -> bool:
+	return (
+		_treasure_hunt_runtime != null
+		and _treasure_hunt_runtime.has_method("is_effect_active")
+		and bool(_treasure_hunt_runtime.is_effect_active())
+	)
+
+
 func _handle_advance_input() -> bool:
-	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active():
+	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active():
 		return true
 	match _scroll_phase:
 		"hidden":
@@ -453,7 +527,7 @@ func _handle_escape_input() -> bool:
 
 
 func _open_next_idle_box() -> bool:
-	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active():
+	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active():
 		return false
 	for i in range(_boxes.size()):
 		var box: Dictionary = _boxes[i] if _boxes[i] is Dictionary else {}
@@ -642,8 +716,9 @@ func get_interaction_status() -> Dictionary:
 		"dalji_click_voice_loaded": _dalji_click_voice_stream != null,
 		"dalji_click_voice_player_ready": _dalji_click_voice_player != null,
 		"dalji_click_voice_playing": _dalji_click_voice_player != null and _dalji_click_voice_player.playing,
-		"player_victory_sheet_path": SMASHER_VICTORY_SHEET_PATH,
-		"player_victory_click_reaction_sheet_path": SMASHER_CLICK_REACTION_SHEET_PATH,
+		"selected_character_type": selected_character_type,
+		"player_victory_sheet_path": _get_player_victory_sheet_path_for_character(selected_character_type),
+		"player_victory_click_reaction_sheet_path": _get_player_victory_click_reaction_sheet_path_for_character(selected_character_type),
 		"stage2_boss_defeat_live2d_sheet_path": STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH,
 		"stage2_boss_defeat_live2d_sheet_loaded": _stage2_boss_defeat_live2d_sheet != null,
 		"stage2_boss_defeat_click_reaction_sheet_path": STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH,
@@ -713,6 +788,7 @@ func get_interaction_status() -> Dictionary:
 		"starpoint_choice_gate_active": _starpoint_choice_gate_active,
 		"starpoint_choice_gate_box_index": _starpoint_choice_gate_box_index,
 		"runtime_perk_choice_active": _is_runtime_perk_choice_active(),
+		"treasure_hunt_effect_active": _is_treasure_hunt_effect_active(),
 		"box_open_audio_ready": _game_audio != null and _game_audio.has_method("play_result_box_open"),
 	}
 
@@ -790,7 +866,7 @@ func append_box_resolved_perk_reward(box_index: int, perk_reward: Dictionary) ->
 
 
 func _draw_runtime_perk_overlay(view_size: Vector2) -> void:
-	if not _is_runtime_perk_choice_active():
+	if not _should_draw_runtime_perk_overlay():
 		return
 	var overlay_renderer: Object = _runtime_perk_overlay_renderer
 	if overlay_renderer == null or not overlay_renderer.has_method("draw"):
@@ -806,6 +882,18 @@ func _draw_runtime_perk_overlay(view_size: Vector2) -> void:
 		_mythic_item_runtime,
 		_treasure_hunt_runtime
 	)
+
+
+func _should_draw_runtime_perk_overlay() -> bool:
+	if _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active():
+		return true
+	if _runtime_perk_overlay_renderer != null and _runtime_perk_overlay_renderer.has_method("has_visible_effects"):
+		return bool(_runtime_perk_overlay_renderer.has_visible_effects(
+			_runtime_perk_state,
+			_mythic_item_runtime,
+			_treasure_hunt_runtime
+		))
+	return false
 
 
 func _is_runtime_perk_choice_active() -> bool:
@@ -1435,7 +1523,7 @@ func _draw_star_polygon_scaled(
 func _handle_box_click(mouse_position: Vector2) -> bool:
 	if _boxes.is_empty():
 		return false
-	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active():
+	if _starpoint_choice_gate_active or _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active():
 		return true
 	if _scroll_phase != "hidden":
 		return false
@@ -1669,7 +1757,7 @@ func _update_scroll(delta: float) -> void:
 		_scroll_phase,
 		_scroll_timer,
 		delta,
-		_starpoint_choice_gate_active or _is_runtime_perk_choice_active(),
+		_starpoint_choice_gate_active or _is_runtime_perk_choice_active() or _is_treasure_hunt_effect_active(),
 		StageClearResultInteractionState.all_boxes_opened(_boxes),
 		SCROLL_DELAY,
 		SCROLL_UNFURL_DURATION
@@ -2340,6 +2428,9 @@ func _draw_wrapped_text(
 
 
 func _load_textures() -> void:
+	var paths: Dictionary = _result_asset_paths(selected_character_type, current_stage)
+	var player_victory_path: String = str(paths.get("player_victory_sheet", ""))
+	var player_victory_click_path: String = str(paths.get("player_victory_click_reaction_sheet", ""))
 	var loaded: Dictionary = StageClearResultAssetLoader.load_textures(
 		{
 			"background_texture": _background_texture,
@@ -2347,14 +2438,18 @@ func _load_textures() -> void:
 			"dalji_click_reaction_sheet": _dalji_click_reaction_sheet,
 			"stage2_boss_defeat_live2d_sheet": _stage2_boss_defeat_live2d_sheet,
 			"stage2_boss_defeat_click_reaction_sheet": _stage2_boss_defeat_click_reaction_sheet,
-			"player_victory_sheet": _player_victory_sheet,
-			"player_victory_click_reaction_sheet": _player_victory_click_reaction_sheet,
+			"player_victory_sheet": _player_victory_sheet if _player_victory_sheet_loaded_path == player_victory_path else null,
+			"player_victory_click_reaction_sheet": (
+				_player_victory_click_reaction_sheet
+				if _player_victory_click_reaction_sheet_loaded_path == player_victory_click_path
+				else null
+			),
 			"scroll_texture": _scroll_texture,
 			"result_box_sheet_common": _result_box_sheet_common,
 			"result_box_sheet_mythic": _result_box_sheet_mythic,
 			"result_box_sheet_guaranteed_mythic": _result_box_sheet_guaranteed_mythic,
 		},
-		_result_asset_paths()
+		paths
 	)
 	_background_texture = loaded.get("background_texture") as Texture2D
 	_dalji_defeat_sheet = loaded.get("dalji_defeat_sheet") as Texture2D
@@ -2363,6 +2458,8 @@ func _load_textures() -> void:
 	_stage2_boss_defeat_click_reaction_sheet = loaded.get("stage2_boss_defeat_click_reaction_sheet") as Texture2D
 	_player_victory_sheet = loaded.get("player_victory_sheet") as Texture2D
 	_player_victory_click_reaction_sheet = loaded.get("player_victory_click_reaction_sheet") as Texture2D
+	_player_victory_sheet_loaded_path = player_victory_path if _player_victory_sheet != null else ""
+	_player_victory_click_reaction_sheet_loaded_path = player_victory_click_path if _player_victory_click_reaction_sheet != null else ""
 	_scroll_texture = loaded.get("scroll_texture") as Texture2D
 	_result_box_sheet_common = loaded.get("result_box_sheet_common") as Texture2D
 	_result_box_sheet_mythic = loaded.get("result_box_sheet_mythic") as Texture2D
@@ -2370,6 +2467,9 @@ func _load_textures() -> void:
 
 
 func _load_audio() -> void:
+	if current_stage == 2:
+		_dalji_click_voice_stream = null
+		return
 	_dalji_click_voice_stream = StageClearResultAssetLoader.load_dalji_click_voice(_dalji_click_voice_stream, DALJI_CLICK_VOICE_PATH)
 
 

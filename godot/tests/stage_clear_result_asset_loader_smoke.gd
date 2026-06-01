@@ -47,6 +47,26 @@ func _verify_texture_bundle_load() -> void:
 		stage2_click_sheet != null and stage2_click_sheet.get_size() == Vector2(16128.0, 8064.0),
 		"asset loader should load the Real-ESRGAN hq1152 Stage 2 boss result click Live2D sheet"
 	)
+	var commando_paths: Dictionary = StageClearResultScene._result_asset_paths("soldier")
+	_expect(
+		str(commando_paths.get("player_victory_sheet", "")) == StageClearResultScene.COMMANDO_VICTORY_SHEET_PATH,
+		"result asset paths should route Commando player victories to the Commando result Live2D base sheet"
+	)
+	_expect(
+		str(commando_paths.get("player_victory_click_reaction_sheet", "")) == StageClearResultScene.COMMANDO_CLICK_REACTION_SHEET_PATH,
+		"result asset paths should route Commando player victory clicks to the Commando result Live2D reaction sheet"
+	)
+	var commando_textures: Dictionary = StageClearResultAssetLoader.load_textures({}, commando_paths)
+	var commando_sheet := commando_textures.get("player_victory_sheet") as Texture2D
+	_expect(
+		commando_sheet != null and commando_sheet.get_size() == Vector2(15488.0, 12672.0),
+		"asset loader should load the Commando result base Live2D hq1408 11x9 sheet"
+	)
+	var commando_click_sheet := commando_textures.get("player_victory_click_reaction_sheet") as Texture2D
+	_expect(
+		commando_click_sheet != null and commando_click_sheet.get_size() == Vector2(15488.0, 12672.0),
+		"asset loader should load the Commando result click Live2D hq1408 11x9 sheet"
+	)
 
 
 func _verify_audio_load() -> void:

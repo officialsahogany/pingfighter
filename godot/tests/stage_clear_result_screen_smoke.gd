@@ -10,6 +10,7 @@ class FakeOwner:
 	extends Node2D
 
 	var current_stage := 1
+	var selected_character_type := "smasher"
 	var active_item_slots: Array = []
 	var passive_item_inventory: Array = []
 	var runtime_perk_levels: Dictionary = {}
@@ -98,6 +99,7 @@ class FakeRuntimePerkState:
 	var open_calls := 0
 	var choose_calls := 0
 	var last_defer_choice_open := false
+	var last_choice_context: Dictionary = {}
 	var last_selected_choice: Dictionary = {}
 	var selected_choice_sequence := 0
 
@@ -121,9 +123,12 @@ class FakeRuntimePerkState:
 		_catalog: Object,
 		_exclude_instant: bool = false,
 		_owner: Object = null,
-		_registry: Object = null
+		_registry: Object = null,
+		_perf_logger: Object = null,
+		choice_context: Dictionary = {}
 	) -> void:
 		open_calls += 1
+		last_choice_context = choice_context.duplicate(true)
 		if pending_skill_choices > 0:
 			choice_active = true
 
@@ -334,6 +339,7 @@ func _init() -> void:
 	_verify_stage_clear_box_kind_odds()
 	_verify_scene_shell_prewarm_is_light()
 	_verify_prewarm_assets_are_staged()
+	_verify_prewarm_assets_follow_selected_character()
 	_verify_screen_defers_unwarmed_scene_spawn()
 	_verify_screen_opens_for_player_win()
 	_verify_box_open_audio_routes_from_screen()
@@ -392,9 +398,51 @@ func _verify_prewarm_assets_are_staged() -> void:
 	)
 	var status: Dictionary = screen.get("_prewarm_assets_status")
 	_expect(bool(status.get("result_scene_packed", false)), "result screen staged prewarm should load the packed scene")
+	_expect(int(status.get("current_stage", 0)) == 1, "result screen staged prewarm should remember the current stage")
 	_expect(bool(status.get("background_texture", false)), "result screen staged prewarm should load the result background")
+	_expect(bool(status.get("dalji_defeat_sheet", false)), "Stage 1 result prewarm should load the Dalji base sheet")
+	_expect(bool(status.get("dalji_click_reaction_sheet", false)), "Stage 1 result prewarm should load the Dalji click sheet")
+	_expect(not status.has("stage2_boss_defeat_live2d_sheet"), "Stage 1 result prewarm should skip Stage 2 boss base sheets")
+	_expect(not status.has("stage2_boss_defeat_click_reaction_sheet"), "Stage 1 result prewarm should skip Stage 2 boss click sheets")
 	_expect(bool(status.get("result_box_sheet_guaranteed_mythic", false)), "result screen staged prewarm should load the guaranteed mythic result box sheet")
 	_expect(bool(status.get("result_box_fx", false)), "result screen staged prewarm should prewarm result-box FX")
+
+	var stage2_owner := FakeOwner.new()
+	stage2_owner.current_stage = 2
+	calls = 0
+	while not bool(screen.prewarm_assets_step(stage2_owner)):
+		calls += 1
+		_expect(calls <= StageClearResultScene.PREWARM_ASSET_STEP_COUNT + 1, "Stage 2 result prewarm should complete within the declared step budget")
+	status = screen.get("_prewarm_assets_status")
+	_expect(int(status.get("current_stage", 0)) == 2, "Stage 2 result prewarm should remember the current stage")
+	_expect(bool(status.get("stage2_boss_defeat_live2d_sheet", false)), "Stage 2 result prewarm should load the Stage 2 boss base sheet")
+	_expect(bool(status.get("stage2_boss_defeat_click_reaction_sheet", false)), "Stage 2 result prewarm should load the Stage 2 boss click sheet")
+	_expect(not status.has("dalji_defeat_sheet"), "Stage 2 result prewarm should skip the Dalji base sheet")
+	_expect(not status.has("dalji_click_reaction_sheet"), "Stage 2 result prewarm should skip the Dalji click sheet")
+	stage2_owner.free()
+
+
+func _verify_prewarm_assets_follow_selected_character() -> void:
+	StageClearResultScene.reset_prewarm_assets_for_test()
+	var screen: Object = StageClearResultScreen.new()
+	var owner := FakeOwner.new()
+	owner.selected_character_type = "soldier"
+	var calls := 0
+	while not bool(screen.prewarm_assets_step(owner)):
+		calls += 1
+		_expect(calls <= StageClearResultScene.PREWARM_ASSET_STEP_COUNT + 1, "Commando result prewarm should complete within the declared step budget")
+	var status: Dictionary = screen.get("_prewarm_assets_status")
+	_expect(str(status.get("selected_character_type", "")) == "soldier", "result screen staged prewarm should remember the selected Commando character")
+	_expect(bool(status.get("player_victory_sheet", false)), "Commando result prewarm should load the selected player victory base sheet")
+	_expect(bool(status.get("player_victory_click_reaction_sheet", false)), "Commando result prewarm should load the selected player victory click sheet")
+	owner.selected_character_type = "viper"
+	calls = 0
+	while not bool(screen.prewarm_assets_step(owner)):
+		calls += 1
+		_expect(calls <= StageClearResultScene.PREWARM_ASSET_STEP_COUNT + 1, "unsupported result victory characters should complete fallback prewarm")
+	status = screen.get("_prewarm_assets_status")
+	_expect(str(status.get("selected_character_type", "")) == "smasher", "unsupported result victory characters should prewarm the Smasher fallback sheet")
+	owner.free()
 
 
 func _verify_screen_defers_unwarmed_scene_spawn() -> void:
@@ -607,6 +655,9 @@ func _verify_starpoint_choice_waits_on_result_screen() -> void:
 		screen.update(0.05)
 	_expect(runtime_state.choice_active, "perk choice should open after the delayed starpoint animation")
 	_expect(runtime_state.open_calls == 1, "deferred starpoint should open one perk-choice modal")
+	_expect(str(runtime_state.last_choice_context.get("source", "")) == "result_box_starpoint_choice", "result-screen starpoint choices should carry their box source context")
+	_expect(bool(runtime_state.last_choice_context.get("defer_instant_dimension_gate_until_spawn_intro_end", false)), "result-screen starpoint choices should defer instant dimension gate until the next spawn intro ends")
+	_expect(bool(runtime_state.last_choice_context.get("defer_instant_full_gauge_until_spawn_intro_end", false)), "result-screen starpoint choices should defer instant full gauge until the next spawn intro ends")
 	_expect(audio.runtime_perk_choice_open_calls == 1, "deferred result-screen perk choice should play its open SFX once")
 	_expect(result_scene.visible, "result scene should remain visible behind the perk choice")
 	scene_status = result_scene.get_interaction_status()

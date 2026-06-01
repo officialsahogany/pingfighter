@@ -187,12 +187,36 @@ func prewarm_scene_shell() -> bool:
 
 
 func prewarm_assets_step(_owner: Object = null, _registry: Object = null) -> bool:
+	return _prewarm_assets_step_impl(false, _owner)
+
+
+func prewarm_assets_threaded_step(_owner: Object = null, _registry: Object = null) -> bool:
+	return _prewarm_assets_step_impl(true, _owner)
+
+
+func _prewarm_assets_step_impl(use_threaded_texture_loads: bool, owner: Object = null) -> bool:
+	var prewarm_owner: Object = owner if owner != null else _pending_owner
+	var selected_character_type: String = _get_result_victory_character_type(prewarm_owner)
+	var stage_id: int = _get_current_stage(prewarm_owner) if prewarm_owner != null else current_stage
+	if (
+		str(_prewarm_assets_status.get("selected_character_type", "")) != selected_character_type
+		or int(_prewarm_assets_status.get("current_stage", stage_id)) != stage_id
+	):
+		_prewarm_assets_step_index = 0
+		_prewarm_assets_status.clear()
 	if _prewarm_assets_step_index == 0:
+		_prewarm_assets_status["selected_character_type"] = selected_character_type
+		_prewarm_assets_status["current_stage"] = stage_id
 		_prewarm_assets_status["result_scene_packed"] = _get_result_scene_packed() != null
 		_prewarm_assets_step_index = 1
 		return false
 
-	if not StageClearResultScene.prewarm_assets_step():
+	var scene_step_done := false
+	if use_threaded_texture_loads:
+		scene_step_done = bool(StageClearResultScene.prewarm_assets_threaded_step(selected_character_type, stage_id))
+	else:
+		scene_step_done = bool(StageClearResultScene.prewarm_assets_step(selected_character_type, stage_id))
+	if not scene_step_done:
 		return false
 	var scene_status: Dictionary = StageClearResultScene.get_prewarm_asset_status()
 	for key in scene_status.keys():
@@ -230,6 +254,7 @@ func _spawn_result_scene(owner: Object) -> bool:
 			"player_score": player_score,
 			"boss_score": boss_score,
 			"current_stage": current_stage,
+			"selected_character_type": _get_result_victory_character_type(_pending_owner),
 			"reward_plan": get_reward_plan(),
 			"stage_reward_snapshot": _last_stage_reward_snapshot.duplicate(true),
 			"runtime_perk_state": _get_instance(_pending_registry, "runtime_perk_state"),
@@ -271,24 +296,35 @@ func _has_result_scene() -> bool:
 
 func _are_scene_assets_ready_for_spawn() -> bool:
 	var scene_status: Dictionary = StageClearResultScene.get_prewarm_asset_status()
-	for key in [
+	if str(scene_status.get("selected_character_type", "")) != _get_result_victory_character_type(_pending_owner):
+		return false
+	if int(scene_status.get("current_stage", 0)) != current_stage:
+		return false
+	for key in _get_required_scene_asset_keys(current_stage):
+		if not bool(scene_status.get(key, false)):
+			return false
+	return true
+
+
+func _get_required_scene_asset_keys(stage_id: int) -> Array[String]:
+	var keys: Array[String] = [
 		"background_texture",
-		"dalji_defeat_sheet",
-		"dalji_click_reaction_sheet",
-		"stage2_boss_defeat_live2d_sheet",
-		"stage2_boss_defeat_click_reaction_sheet",
 		"player_victory_sheet",
 		"player_victory_click_reaction_sheet",
 		"scroll_texture",
 		"result_box_sheet_common",
 		"result_box_sheet_mythic",
 		"result_box_sheet_guaranteed_mythic",
-		"dalji_click_voice",
 		"result_box_fx",
-	]:
-		if not bool(scene_status.get(key, false)):
-			return false
-	return true
+	]
+	if stage_id == 2:
+		keys.append("stage2_boss_defeat_live2d_sheet")
+		keys.append("stage2_boss_defeat_click_reaction_sheet")
+	else:
+		keys.append("dalji_defeat_sheet")
+		keys.append("dalji_click_reaction_sheet")
+		keys.append("dalji_click_voice")
+	return keys
 
 
 func _get_result_scene_packed() -> PackedScene:
@@ -447,7 +483,13 @@ func _open_deferred_starpoint_choice() -> void:
 		runtime_perk_catalog,
 		false,
 		_pending_owner,
-		_pending_registry
+		_pending_registry,
+		null,
+		{
+			"source": "result_box_starpoint_choice",
+			"defer_instant_dimension_gate_until_spawn_intro_end": true,
+			"defer_instant_full_gauge_until_spawn_intro_end": true,
+		}
 	)
 	if (
 		runtime_perk_state.has_method("is_choice_active")
@@ -715,6 +757,12 @@ func _get_selected_character_type(owner: Object) -> String:
 		return "soldier"
 	if normalized == "optimus" or normalized == "io":
 		return "optimus"
+	return "smasher"
+
+
+func _get_result_victory_character_type(owner: Object) -> String:
+	if _get_selected_character_type(owner) == "soldier":
+		return "soldier"
 	return "smasher"
 
 

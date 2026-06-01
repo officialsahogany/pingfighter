@@ -40,6 +40,9 @@ static func load_textures(current: Dictionary, paths: Dictionary) -> Dictionary:
 		if loaded.get(key, null) != null:
 			continue
 		var path: String = str(paths.get(key, ""))
+		if path == "":
+			loaded.erase(key)
+			continue
 		var messages: Array = TEXTURE_MESSAGES.get(key, ["", ""])
 		loaded[key] = ProjectResourceLoader.load_texture(path, str(messages[0]), str(messages[1]))
 	return loaded
@@ -55,14 +58,34 @@ static func load_dalji_click_voice(current: AudioStream, path: String) -> AudioS
 	)
 
 
-static func prewarm_assets_step(step_index: int, status: Dictionary, paths: Dictionary) -> void:
+static func prewarm_assets_step(
+	step_index: int,
+	status: Dictionary,
+	paths: Dictionary,
+	use_threaded_texture_loads: bool = false
+) -> bool:
 	if step_index >= 0 and step_index < TEXTURE_KEYS.size():
 		var texture_key: String = str(TEXTURE_KEYS[step_index])
-		status[texture_key] = ProjectResourceLoader.load_texture(str(paths.get(texture_key, ""))) != null
-		return
+		var path: String = str(paths.get(texture_key, ""))
+		if path == "":
+			status.erase(texture_key)
+			return true
+		if use_threaded_texture_loads:
+			var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(path)
+			if not bool(result.get("done", true)):
+				return false
+			status[texture_key] = result.get("texture", null) is Texture2D
+		else:
+			status[texture_key] = ProjectResourceLoader.load_texture(path) != null
+		return true
 	if step_index == TEXTURE_KEYS.size():
-		status["dalji_click_voice"] = ProjectResourceLoader.load_audio_stream(str(paths.get("dalji_click_voice", ""))) != null
-		return
+		var voice_path: String = str(paths.get("dalji_click_voice", ""))
+		if voice_path == "":
+			status.erase("dalji_click_voice")
+			return true
+		status["dalji_click_voice"] = ProjectResourceLoader.load_audio_stream(voice_path) != null
+		return true
 	if step_index == TEXTURE_KEYS.size() + 1:
 		ResultBoxOpenFxHost.prewarm_assets()
 		status["result_box_fx"] = true
+	return true
