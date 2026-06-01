@@ -44,6 +44,10 @@ func _verify_render_budgets() -> void:
 	_expect(Stage4PlayfieldRenderer.DESTRUCTION_WAVE_CORE_POINT_COUNT_LOD <= 12, "destruction wave core polygons should use a tighter airborne LOD budget")
 	_expect(Stage4PlayfieldRenderer.DESTRUCTION_WAVE_CORE_LAYER_COUNT <= 4, "destruction wave core layers should stay within the reduced budget")
 	_expect(Stage4PlayfieldRenderer.DESTRUCTION_WAVE_CORE_LAYER_COUNT_LOD <= 3, "destruction wave core layers should use a tighter airborne LOD budget")
+	_expect(Stage4PlayfieldRenderer.MAX_RENDERED_MOON_FRAGMENTS <= 28, "red moon fragments should cap projectile texture rendering")
+	_expect(Stage4PlayfieldRenderer.MAX_RENDERED_MOON_FRAGMENTS_LOD <= 16, "red moon fragments should use a tighter shared render-quality LOD cap")
+	_expect(Stage4PlayfieldRenderer.MOON_FRAGMENT_TRAIL_POINT_LIMIT <= 10, "red moon fragment trails should cap per-projectile particles")
+	_expect(Stage4PlayfieldRenderer.MOON_FRAGMENT_TRAIL_POINT_LIMIT_LOD <= 4, "red moon fragment trails should use a tighter shared render-quality LOD cap")
 
 	var renderer := Stage4PlayfieldRenderer.new()
 	var status: Dictionary = renderer.get_imagegen_asset_status()
@@ -57,6 +61,10 @@ func _verify_render_budgets() -> void:
 	_expect(int(status.get("destruction_wave_trail_render_limit_lod", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_DESTRUCTION_WAVE_TRAIL_LOD, "asset status should expose the wave-trail LOD cap")
 	_expect(is_equal_approx(float(status.get("red_moon_fragment_image_scale_min", 0.0)), Stage4PlayfieldRenderer.RED_MOON_FRAGMENT_IMAGE_SCALE_MIN), "asset status should expose the red moon fragment minimum image scale")
 	_expect(is_equal_approx(float(status.get("red_moon_fragment_image_scale_max", 0.0)), Stage4PlayfieldRenderer.RED_MOON_FRAGMENT_IMAGE_SCALE_MAX), "asset status should expose the red moon fragment maximum image scale")
+	_expect(int(status.get("red_moon_fragment_render_limit", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_MOON_FRAGMENTS, "asset status should expose the red moon fragment render cap")
+	_expect(int(status.get("red_moon_fragment_render_limit_lod", 0)) == Stage4PlayfieldRenderer.MAX_RENDERED_MOON_FRAGMENTS_LOD, "asset status should expose the red moon fragment LOD render cap")
+	_expect(int(status.get("red_moon_fragment_trail_point_limit", 0)) == Stage4PlayfieldRenderer.MOON_FRAGMENT_TRAIL_POINT_LIMIT, "asset status should expose the red moon fragment trail cap")
+	_expect(int(status.get("red_moon_fragment_trail_point_limit_lod", 0)) == Stage4PlayfieldRenderer.MOON_FRAGMENT_TRAIL_POINT_LIMIT_LOD, "asset status should expose the red moon fragment trail LOD cap")
 	_expect(Stage4PlayfieldRenderer.RED_MOON_FRAGMENT_IMAGE_SCALE_MIN <= 2.8, "red moon fragment images should still allow the original small visual scale")
 	_expect(is_equal_approx(Stage4PlayfieldRenderer.RED_MOON_FRAGMENT_IMAGE_SCALE_MAX, 5.5), "red moon fragment images should use the tuned maximum visual scale")
 
@@ -88,6 +96,14 @@ func _verify_viper_airborne_lod_budget() -> void:
 		"glide context should reduce floating leaf sprites"
 	)
 	_expect(
+		renderer._get_lod_count(
+			Stage4PlayfieldRenderer.MAX_RENDERED_MOON_FRAGMENTS,
+			Stage4PlayfieldRenderer.MAX_RENDERED_MOON_FRAGMENTS_LOD,
+			glide_quality
+		) == Stage4PlayfieldRenderer.MAX_RENDERED_MOON_FRAGMENTS_LOD,
+		"glide context should reduce red moon fragment rendering"
+	)
+	_expect(
 		renderer._get_lod_count(10, 5, 1.0) == 10,
 		"normal quality should keep the full render cap"
 	)
@@ -114,6 +130,14 @@ func _verify_shared_fps_cap_lod_budget() -> void:
 			quality
 		) == Stage4PlayfieldRenderer.MAX_RENDERED_DESTRUCTION_WAVE_TRAIL_LOD,
 		"shared FPS-cap quality should reduce Stage 4 decorative trail particles"
+	)
+	_expect(
+		renderer._get_lod_count(
+			Stage4PlayfieldRenderer.MOON_FRAGMENT_TRAIL_POINT_LIMIT,
+			Stage4PlayfieldRenderer.MOON_FRAGMENT_TRAIL_POINT_LIMIT_LOD,
+			quality
+		) == Stage4PlayfieldRenderer.MOON_FRAGMENT_TRAIL_POINT_LIMIT_LOD,
+		"shared FPS-cap quality should reduce red moon fragment trail particles"
 	)
 
 	Engine.set("max_fps", old_max_fps)
@@ -168,6 +192,15 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(
 		_function_body(source, "func _draw_destruction_wave_core").find("core_point_count") >= 0,
 		"destruction wave core should use reduced polygon point count"
+	)
+	_expect(
+		_function_body(source, "func draw_moon_fragments").find("_get_playfield_quality_scale(context)") >= 0
+		and _function_body(source, "func draw_moon_fragments").find("MAX_RENDERED_MOON_FRAGMENTS_LOD") >= 0,
+		"red moon fragment draw should use shared render-quality LOD caps"
+	)
+	_expect(
+		_function_body(source, "func _draw_moon_fragment").find("_recent_start(trail, trail_point_limit)") >= 0,
+		"red moon fragment draw should cap per-fragment trail particles"
 	)
 	_expect(
 		_function_body(source, "func draw").find("_get_playfield_quality_scale(context)") >= 0,

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoint_visual_host.gd")
 
 const WIDTH := 760.0
@@ -22,9 +23,13 @@ const STAR_DETECTOR_BONUS_DROP_OFFSET_CHOICES := [-36.0, -24.0, 24.0, 36.0]
 const MAX_STAGE4_STARPOINT_DROPS := 12
 const MAX_STAGE4_STARPOINT_PARTICLES := 96
 const GOLD_DUST_RENDER_LIMIT := 36
+const GOLD_DUST_RENDER_LIMIT_LOD := 18
 const CROW_FRAGMENT_RENDER_LIMIT := 24
+const CROW_FRAGMENT_RENDER_LIMIT_LOD := 12
 const CROW_PARTICLE_RENDER_LIMIT := 32
+const CROW_PARTICLE_RENDER_LIMIT_LOD := 16
 const STARPOINT_PARTICLE_RENDER_LIMIT := 48
+const STARPOINT_PARTICLE_RENDER_LIMIT_LOD := 24
 
 var rng := RandomNumberGenerator.new()
 var star_bird_sheet: Texture2D = null
@@ -94,21 +99,24 @@ func draw(canvas: CanvasItem, context: Dictionary = {}, shake_offset: Vector2 = 
 	if canvas == null:
 		return
 	_ensure_textures()
+	var quality_scale: float = _get_render_quality_scale(context)
+	var fragment_render_limit: int = _get_lod_count(CROW_FRAGMENT_RENDER_LIMIT, CROW_FRAGMENT_RENDER_LIMIT_LOD, quality_scale)
+	var particle_render_limit: int = _get_lod_count(CROW_PARTICLE_RENDER_LIMIT, CROW_PARTICLE_RENDER_LIMIT_LOD, quality_scale)
 	var birds: Array = _as_array(context.get("stage4_star_birds", crows))
 	for bird_value in birds:
 		if bird_value is Dictionary:
-			_draw_gold_dust(canvas, bird_value as Dictionary, shake_offset)
+			_draw_gold_dust(canvas, bird_value as Dictionary, shake_offset, quality_scale)
 	var fragments: Array = _as_array(context.get("stage4_star_bird_fragments", crow_fragments))
-	for fragment_index in range(_recent_start(fragments, CROW_FRAGMENT_RENDER_LIMIT), fragments.size()):
+	for fragment_index in range(_recent_start(fragments, fragment_render_limit), fragments.size()):
 		var fragment_value: Variant = fragments[fragment_index]
 		if fragment_value is Dictionary:
 			_draw_fragment(canvas, fragment_value as Dictionary, shake_offset)
 	var particles: Array = _as_array(context.get("stage4_star_bird_particles", crow_particles))
-	for particle_index in range(_recent_start(particles, CROW_PARTICLE_RENDER_LIMIT), particles.size()):
+	for particle_index in range(_recent_start(particles, particle_render_limit), particles.size()):
 		var particle_value: Variant = particles[particle_index]
 		if particle_value is Dictionary:
 			_draw_particle(canvas, particle_value as Dictionary, shake_offset)
-	_draw_starpoint_particles(canvas, context, shake_offset)
+	_draw_starpoint_particles(canvas, context, shake_offset, quality_scale)
 	_draw_starpoint_drops(canvas, context, shake_offset)
 	for bird_value in birds:
 		if bird_value is Dictionary:
@@ -222,9 +230,14 @@ func get_asset_status() -> Dictionary:
 		"star_bird_frame_count": STAR_BIRD_FRAME_COUNT,
 		"star_bird_gold_dust_max": GOLD_DUST_MAX,
 		"star_bird_gold_dust_render_limit": GOLD_DUST_RENDER_LIMIT,
+		"star_bird_gold_dust_render_limit_lod": GOLD_DUST_RENDER_LIMIT_LOD,
 		"star_bird_fragment_render_limit": CROW_FRAGMENT_RENDER_LIMIT,
+		"star_bird_fragment_render_limit_lod": CROW_FRAGMENT_RENDER_LIMIT_LOD,
 		"star_bird_particle_render_limit": CROW_PARTICLE_RENDER_LIMIT,
+		"star_bird_particle_render_limit_lod": CROW_PARTICLE_RENDER_LIMIT_LOD,
 		"starpoint_particle_render_limit": STARPOINT_PARTICLE_RENDER_LIMIT,
+		"starpoint_particle_render_limit_lod": STARPOINT_PARTICLE_RENDER_LIMIT_LOD,
+		"shared_render_quality_lod_supported": true,
 	}
 
 
@@ -592,9 +605,11 @@ func _update_starpoint_particles(fps_scale: float) -> void:
 		starpoint_particles.resize(write_index)
 
 
-func _draw_gold_dust(canvas: CanvasItem, crow: Dictionary, shake_offset: Vector2) -> void:
+func _draw_gold_dust(canvas: CanvasItem, crow: Dictionary, shake_offset: Vector2, quality_scale: float) -> void:
 	var dust: Array = _as_array(crow.get("gold_dust", []))
-	for particle_index in range(_recent_start(dust, GOLD_DUST_RENDER_LIMIT), dust.size()):
+	var lod_active: bool = _is_render_lod_active(quality_scale)
+	var render_limit: int = _get_lod_count(GOLD_DUST_RENDER_LIMIT, GOLD_DUST_RENDER_LIMIT_LOD, quality_scale)
+	for particle_index in range(_recent_start(dust, render_limit), dust.size()):
 		var particle_value: Variant = dust[particle_index]
 		if not (particle_value is Dictionary):
 			continue
@@ -606,10 +621,11 @@ func _draw_gold_dust(canvas: CanvasItem, crow: Dictionary, shake_offset: Vector2
 			continue
 		var center := Vector2(float(particle.get("x", 0.0)), float(particle.get("y", 0.0))) + shake_offset
 		var radius: float = maxf(1.0, float(particle.get("size", 1.6)) * (0.75 + 0.45 * twinkle))
-		canvas.draw_circle(center, radius * 3.0, Color(1.0, 0.70, 0.16, alpha * 0.16))
+		if not lod_active:
+			canvas.draw_circle(center, radius * 3.0, Color(1.0, 0.70, 0.16, alpha * 0.16))
 		canvas.draw_circle(center, radius + 1.0, Color(1.0, 0.84, 0.32, alpha * 0.45))
 		canvas.draw_circle(center, radius, Color(1.0, 0.96, 0.68, alpha))
-		if alpha > 0.43 and radius <= 2.4:
+		if not lod_active and alpha > 0.43 and radius <= 2.4:
 			canvas.draw_line(center + Vector2(-radius * 3.0, 0.0), center + Vector2(radius * 3.0, 0.0), Color(1.0, 0.88, 0.49, alpha * 0.32), 1.0, true)
 			canvas.draw_line(center + Vector2(0.0, -radius * 3.0), center + Vector2(0.0, radius * 3.0), Color(1.0, 0.88, 0.49, alpha * 0.32), 1.0, true)
 
@@ -727,9 +743,10 @@ func _draw_particle(canvas: CanvasItem, particle: Dictionary, shake_offset: Vect
 	canvas.draw_circle(center, size, color)
 
 
-func _draw_starpoint_particles(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+func _draw_starpoint_particles(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, quality_scale: float) -> void:
 	var particles: Array = _as_array(context.get("stage4_starpoint_particles", starpoint_particles))
-	for particle_index in range(_recent_start(particles, STARPOINT_PARTICLE_RENDER_LIMIT), particles.size()):
+	var render_limit: int = _get_lod_count(STARPOINT_PARTICLE_RENDER_LIMIT, STARPOINT_PARTICLE_RENDER_LIMIT_LOD, quality_scale)
+	for particle_index in range(_recent_start(particles, render_limit), particles.size()):
 		var particle_value: Variant = particles[particle_index]
 		var particle: Dictionary = particle_value if particle_value is Dictionary else {}
 		var alpha: float = clampf(float(particle.get("alpha", 0.0)), 0.0, 1.0)
@@ -831,6 +848,22 @@ func _recent_start(source: Array, render_limit: int) -> int:
 	if render_limit <= 0:
 		return source.size()
 	return max(0, source.size() - render_limit)
+
+
+func _get_render_quality_scale(context: Dictionary) -> float:
+	return BattleRenderQuality.effect_scale(context)
+
+
+func _is_render_lod_active(quality_scale: float) -> bool:
+	return quality_scale < 0.85
+
+
+func _get_lod_count(base_count: int, lod_count: int, quality_scale: float) -> int:
+	if base_count <= 0:
+		return 0
+	if not _is_render_lod_active(quality_scale):
+		return base_count
+	return clampi(lod_count, 0, base_count)
 
 
 func _trim_array_from_front(source: Array, max_size: int) -> void:

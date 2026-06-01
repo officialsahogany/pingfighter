@@ -77,6 +77,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		stage3_skill_context = stage3_skill_state.get_actor_draw_context() if stage3_skill_state != null and stage3_skill_state.has_method("get_actor_draw_context") else {}
 
 	var stage4_map_context: Dictionary = {}
+	var stage4_wall_flash_context: Dictionary = {}
 	if current_stage == 4:
 		var stage4_map_state = deps.get("stage4_map_state", null)
 		stage4_map_context = stage4_map_state.get_actor_draw_context({
@@ -86,6 +87,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 			"stage4_brazier_monk_event": deps.get("stage4_brazier_monk_event", null),
 			"stage4_ponk_skill_state": deps.get("stage4_ponk_skill_state", null),
 		}) if stage4_map_state != null and stage4_map_state.has_method("get_actor_draw_context") else {}
+		stage4_wall_flash_context = _get_stage4_wall_flash_context(deps.get("impact_effects", null))
 
 	var stage5_hongryun_context: Dictionary = {}
 	var stage5_hongryun_fire_machine_context: Dictionary = {}
@@ -658,6 +660,7 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		actor_context.merge(stage3_skill_context, true)
 	if current_stage == 4:
 		actor_context.merge(stage4_map_context, true)
+		actor_context.merge(stage4_wall_flash_context, true)
 	if current_stage == 5:
 		actor_context.merge(stage5_hongryun_context, true)
 		actor_context.merge(stage5_hongryun_fire_machine_context, true)
@@ -863,6 +866,18 @@ func _get_stage1_wall_flash_context(impact_effects: Object) -> Dictionary:
 		"stage1_wall_flash_position": impact_effects.get_wall_border_flash_position(),
 		"stage1_wall_flash_side": str(impact_effects.get_wall_border_flash_side()),
 		"stage1_wall_flash_speed": float(impact_effects.get_wall_border_flash_speed()),
+	}
+
+
+func _get_stage4_wall_flash_context(impact_effects: Object) -> Dictionary:
+	if impact_effects == null or not impact_effects.has_method("get_wall_border_flash_timer"):
+		return {}
+	return {
+		"stage4_wall_flash_timer": float(impact_effects.get_wall_border_flash_timer()),
+		"stage4_wall_flash_duration": float(impact_effects.get_wall_border_flash_duration()),
+		"stage4_wall_flash_position": impact_effects.get_wall_border_flash_position(),
+		"stage4_wall_flash_side": str(impact_effects.get_wall_border_flash_side()),
+		"stage4_wall_flash_speed": float(impact_effects.get_wall_border_flash_speed()),
 	}
 
 

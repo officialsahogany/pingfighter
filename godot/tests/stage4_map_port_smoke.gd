@@ -9,6 +9,7 @@ const BallUpdateController := preload("res://scripts/ball/ball_update_controller
 const WallBounceController := preload("res://scripts/ball/wall_bounce_controller.gd")
 const BattleDrawActorContext := preload("res://scripts/core/battle_draw_actor_context.gd")
 const BattleDrawSceneContext := preload("res://scripts/core/battle_draw_scene_context.gd")
+const ImpactEffects := preload("res://scripts/effects/impact_effects.gd")
 const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module_registry.gd")
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 const StageLandingIntro := preload("res://scripts/core/stage_landing_intro.gd")
@@ -32,6 +33,7 @@ const StatusEffectState := preload("res://scripts/status/status_effect_state.gd"
 
 const STAGE4_IMAGE_ASSETS := [
 	{"path": "res://assets/sprites/hud/stage4_center_background_base_imagegen_v2.png", "size": Vector2(760.0, 750.0)},
+	{"path": "res://assets/sprites/hud/stage4_center_thin_border_imagegen_v1.png", "size": Vector2(760.0, 750.0)},
 	{"path": "res://assets/sprites/hud/stage4_center_temple_building_imagegen_v4.png", "size": Vector2(1254.0, 1254.0)},
 	{"path": "res://assets/sprites/hud/stage4_center_ambient_sprites_imagegen_v3.png", "size": Vector2(1772.0, 886.0)},
 	{"path": "res://assets/sprites/hud/stage4_floating_temple_aura_sheet_imagegen_v1.png", "size": Vector2(256.0, 256.0)},
@@ -360,6 +362,11 @@ func _init() -> void:
 	_expect(int(actor_asset_status.get("aura_frame_count", 0)) == 16, "Stage 4 aura sheet should slice into sixteen frames")
 	_expect(int(actor_asset_status.get("explosion_frame_count", 0)) == 16, "Stage 4 explosion sheet should slice into sixteen frames")
 	_expect(int(actor_asset_status.get("red_moon_fragment_frame_count", 0)) == 16, "Stage 4 red moon fragment atlas should slice into sixteen frames")
+	_expect(bool(actor_asset_status.get("center_border_texture", false)), "Stage 4 playfield should prewarm the imagegen thin center border")
+	_expect(bool(actor_asset_status.get("center_border_draw_enabled", false)), "Stage 4 playfield should draw the center background border")
+	_expect(float(actor_asset_status.get("center_border_thickness", 99.0)) <= 2.0, "Stage 4 center background border should stay thin like the Stage 1/2 treatment")
+	_expect(bool(actor_asset_status.get("wall_contact_flash_enabled", false)), "Stage 4 playfield should enable wall-hit border flashes")
+	_expect(float(actor_asset_status.get("wall_contact_flash_duration_sec", 0.0)) > 0.0, "Stage 4 wall-hit border flash should expose a visible timer")
 	_expect(int(actor_asset_status.get("magnetic_field_frame_count", 0)) == 16, "Stage 4 Ponk magnetic field sheet should slice into sixteen frames")
 	_expect(int(actor_asset_status.get("magnetic_fx_shader_layers", 0)) >= 5, "Stage 4 Ponk magnetic field should expose lattice, arc, collapse, orb, and trail shader layers")
 	_expect(int(actor_asset_status.get("magnetic_fx_gpu_particle_layers", 0)) >= 1, "Stage 4 Ponk magnetic field should expose prism shard GPU particles")
@@ -371,6 +378,9 @@ func _init() -> void:
 
 	var playfield_renderer: Object = Stage4PlayfieldRenderer.new()
 	playfield_renderer.prewarm_assets()
+	_expect(bool(playfield_renderer.get_imagegen_asset_status().get("center_border_texture", false)), "Stage 4 direct playfield construction should load the imagegen thin border")
+	_expect(bool(playfield_renderer.get_imagegen_asset_status().get("center_border_draw_enabled", false)), "Stage 4 direct playfield construction should keep the thin center border enabled")
+	_expect(bool(playfield_renderer.get_imagegen_asset_status().get("wall_contact_flash_enabled", false)), "Stage 4 direct playfield construction should keep wall-hit border flashes enabled")
 	_expect(int(playfield_renderer.get_imagegen_asset_status().get("explosion_frame_count", 0)) == 16, "Stage 4 direct playfield construction should keep the selected 4x4 explosion sheet")
 	_expect(float(playfield_renderer.get_imagegen_asset_status().get("explosion_frame_interval_sec", 1.0)) <= 0.04, "Stage 4 temple explosion frames should advance at a snappy burst cadence")
 	_expect(bool(playfield_renderer.get_imagegen_asset_status().get("debris_hint_removed", false)), "Stage 4 temple debris should use event-owned physics particles instead of the old boxed hint draw")
@@ -466,6 +476,7 @@ func _init() -> void:
 		playfield_source.find("_draw_texture_region_rotated(canvas, red_moon_fragment_atlas") >= 0,
 		"Stage 4 red moon fragment atlas draw should apply projectile self-rotation"
 	)
+	_expect(playfield_source.find("_draw_stage4_wall_contact_flash") >= 0, "Stage 4 playfield renderer should draw wall-hit border flashes from actor context")
 	_expect(Stage4ActorRenderer.new().has_method("draw"), "Stage 4 actor renderer preload should parse")
 	_expect(Stage4PonkBossActorRenderer.new().has_method("draw"), "Stage 4 Ponk boss placeholder renderer should parse")
 
@@ -497,6 +508,15 @@ func _init() -> void:
 		}
 	)
 	_expect(_as_vector2(wall_response.get("ball_vel", Vector2.ZERO), Vector2.ZERO).length() > 0.0, "Stage 4 wall bounce should call the shared shake API without freezing")
+	var stage4_impact_effects := ImpactEffects.new()
+	stage4_impact_effects.spawn_wall_impact(Vector2(4.0, 280.0), "left", 24.0)
+	var wall_flash_context: Dictionary = BattleDrawActorContext.new().build(
+		{"current_stage": 4, "width": 760.0, "height": 750.0},
+		{"impact_effects": stage4_impact_effects}
+	)
+	_expect(float(wall_flash_context.get("stage4_wall_flash_timer", 0.0)) > 0.0, "Stage 4 actor context should export the wall-hit border flash timer")
+	_expect(str(wall_flash_context.get("stage4_wall_flash_side", "")) == "left", "Stage 4 actor context should preserve the wall-hit side for border flashes")
+	_expect(is_equal_approx(_as_vector2(wall_flash_context.get("stage4_wall_flash_position", Vector2.ZERO), Vector2.ZERO).y, 280.0), "Stage 4 actor context should preserve the wall-hit y position for border flashes")
 	var guarded_wall_response: Dictionary = wall_bounce.process(
 		Vector2(8.0, 0.0),
 		1.0,

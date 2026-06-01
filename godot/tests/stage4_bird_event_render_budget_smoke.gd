@@ -22,14 +22,21 @@ func _init() -> void:
 
 func _verify_render_budgets() -> void:
 	_expect(Stage4BirdEvent.GOLD_DUST_RENDER_LIMIT <= 36, "gold dust should cap rendered decorative particles per bird")
+	_expect(Stage4BirdEvent.GOLD_DUST_RENDER_LIMIT_LOD <= 18, "gold dust should use a tighter shared render-quality LOD cap")
 	_expect(Stage4BirdEvent.CROW_FRAGMENT_RENDER_LIMIT <= 24, "star-bird fragments should cap rendered decorative pieces")
+	_expect(Stage4BirdEvent.CROW_FRAGMENT_RENDER_LIMIT_LOD <= 12, "star-bird fragments should use a tighter shared render-quality LOD cap")
 	_expect(Stage4BirdEvent.CROW_PARTICLE_RENDER_LIMIT <= 32, "star-bird debris particles should cap rendered decorative pieces")
+	_expect(Stage4BirdEvent.CROW_PARTICLE_RENDER_LIMIT_LOD <= 16, "star-bird debris particles should use a tighter shared render-quality LOD cap")
 	_expect(Stage4BirdEvent.STARPOINT_PARTICLE_RENDER_LIMIT <= 48, "starpoint particles should cap rendered decorative pieces")
+	_expect(Stage4BirdEvent.STARPOINT_PARTICLE_RENDER_LIMIT_LOD <= 24, "starpoint particles should use a tighter shared render-quality LOD cap")
 
 	var event := Stage4BirdEvent.new()
 	var status: Dictionary = event.get_asset_status()
+	_expect(bool(status.get("shared_render_quality_lod_supported", false)), "asset status should expose shared render-quality LOD support")
 	_expect(int(status.get("star_bird_gold_dust_render_limit", 0)) == Stage4BirdEvent.GOLD_DUST_RENDER_LIMIT, "asset status should expose the gold-dust render cap")
+	_expect(int(status.get("star_bird_gold_dust_render_limit_lod", 0)) == Stage4BirdEvent.GOLD_DUST_RENDER_LIMIT_LOD, "asset status should expose the gold-dust LOD render cap")
 	_expect(int(status.get("starpoint_particle_render_limit", 0)) == Stage4BirdEvent.STARPOINT_PARTICLE_RENDER_LIMIT, "asset status should expose the starpoint render cap")
+	_expect(int(status.get("starpoint_particle_render_limit_lod", 0)) == Stage4BirdEvent.STARPOINT_PARTICLE_RENDER_LIMIT_LOD, "asset status should expose the starpoint LOD render cap")
 
 
 func _verify_recent_start_helper() -> void:
@@ -54,20 +61,29 @@ func _verify_draw_paths_use_render_caps() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/stages/stage4/stage4_bird_event.gd")
 	_expect(source != "", "stage4 bird event source should be readable")
 	_expect(
-		_function_body(source, "func draw").find("_recent_start(fragments, CROW_FRAGMENT_RENDER_LIMIT)") >= 0,
+		_function_body(source, "func draw").find("_get_render_quality_scale(context)") >= 0,
+		"star-bird draw should calculate the shared render-quality LOD scale"
+	)
+	_expect(
+		_function_body(source, "func draw").find("CROW_FRAGMENT_RENDER_LIMIT_LOD") >= 0,
 		"star-bird draw should cap fragment rendering"
 	)
 	_expect(
-		_function_body(source, "func draw").find("_recent_start(particles, CROW_PARTICLE_RENDER_LIMIT)") >= 0,
+		_function_body(source, "func draw").find("CROW_PARTICLE_RENDER_LIMIT_LOD") >= 0,
 		"star-bird draw should cap debris-particle rendering"
 	)
 	_expect(
-		_function_body(source, "func _draw_gold_dust").find("_recent_start(dust, GOLD_DUST_RENDER_LIMIT)") >= 0,
+		_function_body(source, "func _draw_gold_dust").find("GOLD_DUST_RENDER_LIMIT_LOD") >= 0
+		and _function_body(source, "func _draw_gold_dust").find("not lod_active") >= 0,
 		"gold-dust draw should cap per-bird decorative rendering"
 	)
 	_expect(
-		_function_body(source, "func _draw_starpoint_particles").find("_recent_start(particles, STARPOINT_PARTICLE_RENDER_LIMIT)") >= 0,
+		_function_body(source, "func _draw_starpoint_particles").find("STARPOINT_PARTICLE_RENDER_LIMIT_LOD") >= 0,
 		"starpoint-particle draw should cap decorative rendering"
+	)
+	_expect(
+		_function_body(source, "func _get_render_quality_scale").find("BattleRenderQuality.effect_scale(context)") >= 0,
+		"star-bird LOD should reuse the shared render-quality helper"
 	)
 
 

@@ -4,6 +4,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
 const CENTER_BACKGROUND_PATH := "res://assets/sprites/hud/stage4_center_background_base_imagegen_v2.png"
+const CENTER_BORDER_PATH := "res://assets/sprites/hud/stage4_center_thin_border_imagegen_v1.png"
 const TEMPLE_BUILDING_PATH := "res://assets/sprites/hud/stage4_center_temple_building_imagegen_v4.png"
 const AMBIENT_ATLAS_PATH := "res://assets/sprites/hud/stage4_center_ambient_sprites_imagegen_v3.png"
 const AURA_SHEET_PATH := "res://assets/sprites/hud/stage4_floating_temple_aura_sheet_imagegen_v1.png"
@@ -24,6 +25,10 @@ const RED_MOON_FRAGMENT_COLUMNS := 4
 const RED_MOON_FRAGMENT_ROWS := 4
 const RED_MOON_FRAGMENT_IMAGE_SCALE_MIN := 2.8
 const RED_MOON_FRAGMENT_IMAGE_SCALE_MAX := 5.5
+const MAX_RENDERED_MOON_FRAGMENTS := 28
+const MAX_RENDERED_MOON_FRAGMENTS_LOD := 16
+const MOON_FRAGMENT_TRAIL_POINT_LIMIT := 10
+const MOON_FRAGMENT_TRAIL_POINT_LIMIT_LOD := 4
 const TEMPLE_COLLAPSE_DURATION_SEC := 5.0
 const EXPLOSION_START_COLLAPSE_PROGRESS := 0.08
 const EXPLOSION_FRAME_INTERVAL_SEC := 0.032
@@ -33,6 +38,13 @@ const TEMPLE_DRAW_SIZE := Vector2(380.0, 380.0)
 const TEMPLE_CENTER := Vector2(380.0, 282.0)
 const TEMPLE_FLOAT_AMPLITUDE := 7.0
 const TEMPLE_FLOAT_SPEED := 2.10
+const STAGE4_CENTER_BORDER_DRAW_ENABLED := true
+const STAGE4_CENTER_BORDER_THICKNESS := 2.0
+const STAGE4_WALL_FLASH_DURATION_SEC := 15.0 / 60.0
+const STAGE4_WALL_FLASH_SIDE_STRIP_STEPS := 3
+const STAGE4_WALL_FLASH_SIDE_STRIP_STEPS_LOD := 2
+const STAGE4_WALL_FLASH_SATELLITE_COUNT := 2
+const STAGE4_WALL_FLASH_SATELLITE_COUNT_LOD := 1
 const PLAYFIELD_AURA_SHEET_DRAW_ENABLED := false
 const DRAW_DESTRUCTION_DUST_CLOUDS := false
 const STAGE4_STADIUM_LINE_DRAW_ENABLED := false
@@ -107,6 +119,7 @@ const FLOATING_LEAF_SPECS := [
 ]
 
 var center_background: Texture2D = null
+var center_border_texture: Texture2D = null
 var temple_building: Texture2D = null
 var ambient_atlas: Texture2D = null
 var aura_sheet: Texture2D = null
@@ -130,23 +143,25 @@ func prewarm_assets_step() -> bool:
 		0:
 			center_background = ProjectResourceLoader.load_texture(CENTER_BACKGROUND_PATH)
 		1:
-			temple_building = ProjectResourceLoader.load_texture(TEMPLE_BUILDING_PATH)
+			center_border_texture = ProjectResourceLoader.load_texture(CENTER_BORDER_PATH)
 		2:
-			ambient_atlas = ProjectResourceLoader.load_texture(AMBIENT_ATLAS_PATH)
+			temple_building = ProjectResourceLoader.load_texture(TEMPLE_BUILDING_PATH)
 		3:
-			aura_sheet = ProjectResourceLoader.load_texture(AURA_SHEET_PATH)
+			ambient_atlas = ProjectResourceLoader.load_texture(AMBIENT_ATLAS_PATH)
 		4:
-			explosion_sheet = ProjectResourceLoader.load_texture(EXPLOSION_SHEET_PATH)
+			aura_sheet = ProjectResourceLoader.load_texture(AURA_SHEET_PATH)
 		5:
-			debris_atlas = ProjectResourceLoader.load_texture(DEBRIS_ATLAS_PATH)
+			explosion_sheet = ProjectResourceLoader.load_texture(EXPLOSION_SHEET_PATH)
 		6:
+			debris_atlas = ProjectResourceLoader.load_texture(DEBRIS_ATLAS_PATH)
+		7:
 			red_moon_fragment_atlas = ProjectResourceLoader.load_texture(RED_MOON_FRAGMENT_ATLAS_PATH)
 		_:
 			textures_loaded = true
 			_prewarm_step_index = 0
 			return true
 	_prewarm_step_index += 1
-	if _prewarm_step_index > 6:
+	if _prewarm_step_index > 7:
 		textures_loaded = true
 		_prewarm_step_index = 0
 		return true
@@ -178,6 +193,7 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 	_draw_ambient_props(canvas, context, scale, shake_offset, quality_scale)
 	_draw_destruction_particles(canvas, context, scale, shake_offset, quality_scale)
 	_draw_stage4_border(canvas, width, height, context, shake_offset)
+	_draw_stage4_wall_contact_flash(canvas, context, width, height, shake_offset, quality_scale)
 	_draw_destruction_overlays(canvas, context, width, height, scale, shake_offset, quality_scale)
 
 
@@ -191,15 +207,25 @@ func draw_moon_fragments(canvas: CanvasItem, context: Dictionary, shake_offset: 
 	var width: float = maxf(1.0, float(context.get("width", LOGICAL_SIZE.x)))
 	var height: float = maxf(1.0, float(context.get("height", LOGICAL_SIZE.y)))
 	var scale := Vector2(width / LOGICAL_SIZE.x, height / LOGICAL_SIZE.y)
-	for fragment_value in fragments:
+	var quality_scale: float = _get_playfield_quality_scale(context)
+	var fragment_render_limit: int = _get_lod_count(MAX_RENDERED_MOON_FRAGMENTS, MAX_RENDERED_MOON_FRAGMENTS_LOD, quality_scale)
+	var trail_point_limit: int = _get_lod_count(MOON_FRAGMENT_TRAIL_POINT_LIMIT, MOON_FRAGMENT_TRAIL_POINT_LIMIT_LOD, quality_scale)
+	for fragment_index in range(_recent_start(fragments, fragment_render_limit), fragments.size()):
+		var fragment_value: Variant = fragments[fragment_index]
 		if fragment_value is Dictionary:
-			_draw_moon_fragment(canvas, fragment_value as Dictionary, scale, shake_offset)
+			_draw_moon_fragment(canvas, fragment_value as Dictionary, scale, shake_offset, trail_point_limit)
 
 
 func get_imagegen_asset_status() -> Dictionary:
 	_ensure_textures()
 	return {
 		"center_background": center_background != null,
+		"center_border_texture": center_border_texture != null,
+		"center_border_draw_enabled": STAGE4_CENTER_BORDER_DRAW_ENABLED,
+		"center_border_thickness": STAGE4_CENTER_BORDER_THICKNESS,
+		"wall_contact_flash_enabled": true,
+		"wall_contact_flash_duration_sec": STAGE4_WALL_FLASH_DURATION_SEC,
+		"wall_contact_flash_side_strip_steps": STAGE4_WALL_FLASH_SIDE_STRIP_STEPS,
 		"temple_building": temple_building != null,
 		"ambient_atlas": ambient_atlas != null,
 		"aura_sheet": aura_sheet != null,
@@ -220,6 +246,10 @@ func get_imagegen_asset_status() -> Dictionary:
 		"red_moon_fragment_frame_count": RED_MOON_FRAGMENT_COLUMNS * RED_MOON_FRAGMENT_ROWS,
 		"red_moon_fragment_image_scale_min": RED_MOON_FRAGMENT_IMAGE_SCALE_MIN,
 		"red_moon_fragment_image_scale_max": RED_MOON_FRAGMENT_IMAGE_SCALE_MAX,
+		"red_moon_fragment_render_limit": MAX_RENDERED_MOON_FRAGMENTS,
+		"red_moon_fragment_render_limit_lod": MAX_RENDERED_MOON_FRAGMENTS_LOD,
+		"red_moon_fragment_trail_point_limit": MOON_FRAGMENT_TRAIL_POINT_LIMIT,
+		"red_moon_fragment_trail_point_limit_lod": MOON_FRAGMENT_TRAIL_POINT_LIMIT_LOD,
 		"floating_motion_enabled": true,
 		"floating_lantern_count": LANTERN_SPECS.size(),
 		"floating_leaf_count": FLOATING_LEAF_SPECS.size(),
@@ -761,8 +791,44 @@ func _draw_fallback_brazier(canvas: CanvasItem, context: Dictionary, scale: Vect
 
 
 func _draw_stage4_border(canvas: CanvasItem, width: float, height: float, context: Dictionary, shake_offset: Vector2) -> void:
+	if STAGE4_CENTER_BORDER_DRAW_ENABLED:
+		_draw_stage4_center_border(canvas, width, height, context, shake_offset)
 	if not STAGE4_STADIUM_LINE_DRAW_ENABLED:
 		return
+	_draw_stage4_stadium_line_border(canvas, width, height, context, shake_offset)
+
+
+func _draw_stage4_center_border(canvas: CanvasItem, width: float, height: float, context: Dictionary, shake_offset: Vector2) -> void:
+	if center_border_texture != null:
+		canvas.draw_texture_rect(center_border_texture, Rect2(shake_offset, Vector2(width, height)), false)
+		return
+	var red: float = clampf(float(context.get("stage4_moon_red_intensity", 0.0)), 0.0, 1.0)
+	var outer := Color(0.74 + red * 0.16, 0.48 - red * 0.16, 0.22 - red * 0.06, 0.62)
+	var inner := Color(0.28 + red * 0.16, 0.82 - red * 0.38, 0.86 - red * 0.44, 0.30)
+	var shadow := Color(0.02, 0.01, 0.03, 0.36)
+	var outer_rect := Rect2(Vector2(1.0, 1.0) + shake_offset, Vector2(width - 2.0, height - 2.0))
+	var inner_rect := Rect2(Vector2(7.0, 7.0) + shake_offset, Vector2(width - 14.0, height - 14.0))
+	canvas.draw_rect(outer_rect, shadow, false, STAGE4_CENTER_BORDER_THICKNESS + 1.0, true)
+	canvas.draw_rect(outer_rect, outer, false, STAGE4_CENTER_BORDER_THICKNESS, true)
+	canvas.draw_rect(inner_rect, inner, false, 1.0, true)
+	var corner_len: float = 34.0
+	var inset: float = 12.0
+	var right: float = width - inset
+	var bottom: float = height - inset
+	var accent := Color(0.88, 0.64, 0.24, 0.48)
+	for corner in [
+		Vector2(inset, inset),
+		Vector2(right, inset),
+		Vector2(inset, bottom),
+		Vector2(right, bottom),
+	]:
+		var x_dir: float = 1.0 if corner.x < width * 0.5 else -1.0
+		var y_dir: float = 1.0 if corner.y < height * 0.5 else -1.0
+		canvas.draw_line(corner + shake_offset, corner + Vector2(corner_len * x_dir, 0.0) + shake_offset, accent, 1.0, true)
+		canvas.draw_line(corner + shake_offset, corner + Vector2(0.0, corner_len * y_dir) + shake_offset, accent, 1.0, true)
+
+
+func _draw_stage4_stadium_line_border(canvas: CanvasItem, width: float, height: float, context: Dictionary, shake_offset: Vector2) -> void:
 	var red: float = clampf(float(context.get("stage4_moon_red_intensity", 0.0)), 0.0, 1.0)
 	var outer := Color(0.72 + red * 0.22, 0.48 - red * 0.18, 0.18 - red * 0.08, 0.82)
 	var inner := Color(0.12 + red * 0.45, 0.72 - red * 0.42, 0.72 - red * 0.55, 0.35 + red * 0.20)
@@ -772,6 +838,112 @@ func _draw_stage4_border(canvas: CanvasItem, width: float, height: float, contex
 		var x: float = 18.0 + float(idx) * (width - 36.0) / 15.0
 		canvas.draw_line(Vector2(x, 9.0) + shake_offset, Vector2(x + 10.0, 24.0) + shake_offset, Color(0.95, 0.66, 0.25, 0.36), 1.0, true)
 		canvas.draw_line(Vector2(x, height - 9.0) + shake_offset, Vector2(x - 10.0, height - 24.0) + shake_offset, Color(0.95, 0.66, 0.25, 0.36), 1.0, true)
+
+
+func _draw_stage4_wall_contact_flash(
+	canvas: CanvasItem,
+	context: Dictionary,
+	width: float,
+	height: float,
+	shake_offset: Vector2,
+	quality_scale: float
+) -> void:
+	var timer: float = float(context.get("stage4_wall_flash_timer", 0.0))
+	if timer <= 0.0:
+		return
+	var duration: float = maxf(0.001, float(context.get("stage4_wall_flash_duration", STAGE4_WALL_FLASH_DURATION_SEC)))
+	var ratio: float = clampf(timer / duration, 0.0, 1.0)
+	if ratio <= 0.0:
+		return
+	var impact_pos: Vector2 = _as_vector2(
+		context.get("stage4_wall_flash_position", Vector2(width * 0.5, height * 0.5)),
+		Vector2(width * 0.5, height * 0.5)
+	)
+	var side: String = str(context.get("stage4_wall_flash_side", "")).strip_edges().to_lower()
+	if side != "left" and side != "right":
+		side = "left" if impact_pos.x <= width * 0.5 else "right"
+	if side != "left" and side != "right":
+		return
+	var speed_scale: float = clampf(float(context.get("stage4_wall_flash_speed", 0.0)) / 35.0, 0.70, 1.45)
+	var side_dir: float = 1.0 if side == "left" else -1.0
+	var wall_x: float = STAGE4_CENTER_BORDER_THICKNESS * 0.5 if side == "left" else width - STAGE4_CENTER_BORDER_THICKNESS * 0.5
+	var spark_y: float = clampf(impact_pos.y, 16.0, height - 16.0)
+	var strip_steps: int = _get_lod_count(
+		STAGE4_WALL_FLASH_SIDE_STRIP_STEPS,
+		STAGE4_WALL_FLASH_SIDE_STRIP_STEPS_LOD,
+		quality_scale
+	)
+	for i in range(strip_steps):
+		var side_t: float = 1.0 - float(i) / maxf(1.0, float(strip_steps))
+		var side_alpha: float = 0.12 * ratio * side_t * side_t
+		var strip_x: float = float(i) if side == "left" else width - 1.0 - float(i)
+		canvas.draw_rect(
+			Rect2(Vector2(strip_x, 0.0) + shake_offset, Vector2(1.0, height)),
+			Color(0.32, 0.94, 1.0, side_alpha)
+		)
+	var local_span: float = 82.0 + 36.0 * speed_scale
+	var y0: float = clampf(spark_y - local_span, 0.0, height)
+	var y1: float = clampf(spark_y + local_span, 0.0, height)
+	canvas.draw_line(
+		Vector2(wall_x, y0) + shake_offset,
+		Vector2(wall_x, y1) + shake_offset,
+		Color(1.0, 0.82, 0.30, 0.30 * ratio),
+		1.15 + 0.65 * speed_scale,
+		true
+	)
+	canvas.draw_line(
+		Vector2(wall_x, spark_y) + shake_offset,
+		Vector2(wall_x + side_dir * (24.0 + 14.0 * speed_scale), spark_y) + shake_offset,
+		Color(1.0, 0.96, 0.66, 0.46 * ratio),
+		1.25 + 0.45 * speed_scale,
+		true
+	)
+	_draw_stage4_wall_flash_sparkle(canvas, Vector2(wall_x, spark_y) + shake_offset, side_dir, ratio, speed_scale, quality_scale)
+
+
+func _draw_stage4_wall_flash_sparkle(
+	canvas: CanvasItem,
+	center: Vector2,
+	side_dir: float,
+	ratio: float,
+	speed_scale: float,
+	quality_scale: float
+) -> void:
+	var glow_alpha: float = minf(0.24, 0.13 * ratio * speed_scale)
+	var core_alpha: float = minf(0.54, 0.32 * ratio * speed_scale)
+	canvas.draw_circle(center, 5.0 + 5.0 * ratio * speed_scale, Color(0.36, 0.92, 1.0, glow_alpha))
+	canvas.draw_circle(center, 1.8 + 1.8 * ratio, Color(1.0, 0.96, 0.72, core_alpha))
+	var horizontal_len: float = 22.0 * ratio * speed_scale
+	var vertical_len: float = 10.0 * ratio * speed_scale
+	canvas.draw_line(
+		center + Vector2(-side_dir * 2.0, 0.0),
+		center + Vector2(side_dir * horizontal_len, 0.0),
+		Color(1.0, 0.91, 0.46, 0.42 * ratio),
+		1.45,
+		true
+	)
+	canvas.draw_line(
+		center + Vector2(0.0, -vertical_len),
+		center + Vector2(0.0, vertical_len),
+		Color(0.42, 0.95, 1.0, 0.28 * ratio),
+		1.0,
+		true
+	)
+	var satellite_count: int = _get_lod_count(
+		STAGE4_WALL_FLASH_SATELLITE_COUNT,
+		STAGE4_WALL_FLASH_SATELLITE_COUNT_LOD,
+		quality_scale
+	)
+	for i in range(satellite_count):
+		var y_offset: float = (-18.0 if i == 0 else 18.0) * ratio
+		var tick_center: Vector2 = center + Vector2(side_dir * (5.0 + float(i) * 3.0), y_offset)
+		canvas.draw_line(
+			tick_center + Vector2(-side_dir * 3.0, -3.0),
+			tick_center + Vector2(side_dir * (9.0 + 4.0 * speed_scale), 3.0),
+			Color(0.92, 0.98, 1.0, 0.26 * ratio),
+			1.0,
+			true
+		)
 
 
 func _draw_destruction_overlays(canvas: CanvasItem, context: Dictionary, width: float, height: float, scale: Vector2, shake_offset: Vector2, quality_scale: float) -> void:
@@ -894,14 +1066,15 @@ func _draw_ellipse_outline(canvas: CanvasItem, center: Vector2, radius: Vector2,
 		previous = current
 
 
-func _draw_moon_fragment(canvas: CanvasItem, fragment: Dictionary, scale: Vector2, shake_offset: Vector2) -> void:
+func _draw_moon_fragment(canvas: CanvasItem, fragment: Dictionary, scale: Vector2, shake_offset: Vector2, trail_point_limit: int = MOON_FRAGMENT_TRAIL_POINT_LIMIT) -> void:
 	var pos := Vector2(float(fragment.get("x", 0.0)), float(fragment.get("y", 0.0))) * scale + shake_offset
 	var size: float = maxf(3.0, float(fragment.get("size", 10.0)) * scale.x)
 	var visual_scale: float = _get_moon_fragment_visual_scale(fragment)
 	var visual_radius: float = size * visual_scale * 0.5
 	var rotation: float = deg_to_rad(float(fragment.get("rotation", 0.0)))
 	var trail: Array = _as_array(fragment.get("trail", []))
-	for idx in range(trail.size()):
+	var trail_start: int = _recent_start(trail, trail_point_limit)
+	for idx in range(trail_start, trail.size()):
 		var trail_pos: Vector2 = _as_vector2(trail[idx], Vector2.ZERO) * scale + shake_offset
 		var t: float = float(idx + 1) / maxf(1.0, float(trail.size()))
 		canvas.draw_circle(trail_pos, maxf(1.2, size * (0.25 + t * 0.26)), Color(1.0, 0.22, 0.08, 0.10 + t * 0.20))
