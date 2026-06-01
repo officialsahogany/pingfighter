@@ -24,9 +24,14 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 	var current_msec: int = Time.get_ticks_msec()
 	var player_paddle_width: float = max(1.0, float(_get_owner_value(owner, "player_paddle_width", PADDLE_WIDTH)))
 	var player_paddle_height: float = max(1.0, float(_get_owner_value(owner, "player_paddle_height", PADDLE_HEIGHT)))
+	var runtime_paddle_base_width: float = max(1.0, float(_get_owner_value(owner, "runtime_paddle_base_width", player_paddle_width)))
 	var runtime_player_paddle_scale: float = max(0.1, float(_get_owner_value(owner, "player_paddle_scale", player_paddle_width / PADDLE_WIDTH)))
 	var player_paddle_visual_scale_override: float = float(_get_owner_value(owner, "player_paddle_visual_scale_override", -1.0))
-	var player_paddle_scale: float = max(0.1, player_paddle_visual_scale_override if player_paddle_visual_scale_override > 0.0 else runtime_player_paddle_scale)
+	var player_paddle_scale: float = _resolve_player_visual_paddle_scale(
+		runtime_player_paddle_scale,
+		player_paddle_visual_scale_override,
+		runtime_paddle_base_width
+	)
 	var layout: Dictionary = _build_game_layout(owner, registry, WIDTH, HEIGHT)
 	var dash_snapshot: Dictionary = _get_dash_snapshot(registry)
 	var viper_knockback_overlay_active: bool = bool(_get_owner_value(owner, "viper_knockback_overlay_active", false))
@@ -123,6 +128,15 @@ func _build_game_layout(owner: Object, registry, width: float, height: float) ->
 		"game_size": Vector2(width, height),
 		"render_scale": 1.0,
 	}
+
+
+func _resolve_player_visual_paddle_scale(runtime_scale: float, visual_override: float, runtime_base_width: float) -> float:
+	var safe_runtime_scale: float = maxf(0.1, runtime_scale)
+	if visual_override <= 0.0:
+		return safe_runtime_scale
+	var base_scale: float = maxf(0.1, runtime_base_width / PADDLE_WIDTH)
+	var dynamic_effect_scale: float = safe_runtime_scale / base_scale
+	return maxf(0.1, visual_override * dynamic_effect_scale)
 
 
 func _get_layout_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:
