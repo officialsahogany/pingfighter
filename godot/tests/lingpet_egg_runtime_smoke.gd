@@ -41,6 +41,22 @@ class FakeOwner:
 	var lingpet_egg_pos := Vector2.ZERO
 	var lingpet_companion_pos := Vector2.ZERO
 	var ringpet_companion_pos := Vector2.ZERO
+	var lingpet_companion_patrol_speed_default := 120.0
+	var ringpet_companion_patrol_speed_default := 120.0
+	var lingpet_companion_patrol_speed_min := 70.0
+	var ringpet_companion_patrol_speed_min := 70.0
+	var lingpet_companion_patrol_speed_max := 135.0
+	var ringpet_companion_patrol_speed_max := 135.0
+	var lingpet_companion_catch_width := 100.0
+	var ringpet_companion_catch_width := 100.0
+	var lingpet_companion_catch_height := 44.0
+	var ringpet_companion_catch_height := 44.0
+	var lingpet_companion_defense_rate := 0.0
+	var ringpet_companion_defense_rate := 0.0
+	var lingpet_companion_defense_intercept_active := false
+	var ringpet_companion_defense_intercept_active := false
+	var lingpet_companion_defense_intercept_target_x := 0.0
+	var ringpet_companion_defense_intercept_target_x := 0.0
 	var lingpet_companion_contact_count := 0
 	var ringpet_companion_contact_count := 0
 	var lingpet_companion_last_contact_pos := Vector2.ZERO
@@ -73,6 +89,8 @@ class FakeOwner:
 	var ringpet_skill_last_gain := 0.0
 	var lingpet_skill_trigger_count := 0
 	var ringpet_skill_trigger_count := 0
+	var lingpet_gauge_gain_bonus_pct := 0.0
+	var ringpet_gauge_gain_bonus_pct := 0.0
 	var lingpet_effect_text := ""
 	var lingpet_owned_pet_ids: Array = []
 	var owned_lingpet_ids: Array = []
@@ -102,6 +120,22 @@ class FakeBattleOwner:
 	var lingpet_egg_pos := Vector2.ZERO
 	var lingpet_companion_pos := Vector2.ZERO
 	var ringpet_companion_pos := Vector2.ZERO
+	var lingpet_companion_patrol_speed_default := 120.0
+	var ringpet_companion_patrol_speed_default := 120.0
+	var lingpet_companion_patrol_speed_min := 70.0
+	var ringpet_companion_patrol_speed_min := 70.0
+	var lingpet_companion_patrol_speed_max := 135.0
+	var ringpet_companion_patrol_speed_max := 135.0
+	var lingpet_companion_catch_width := 100.0
+	var ringpet_companion_catch_width := 100.0
+	var lingpet_companion_catch_height := 44.0
+	var ringpet_companion_catch_height := 44.0
+	var lingpet_companion_defense_rate := 0.0
+	var ringpet_companion_defense_rate := 0.0
+	var lingpet_companion_defense_intercept_active := false
+	var ringpet_companion_defense_intercept_active := false
+	var lingpet_companion_defense_intercept_target_x := 0.0
+	var ringpet_companion_defense_intercept_target_x := 0.0
 	var lingpet_companion_contact_count := 0
 	var ringpet_companion_contact_count := 0
 	var lingpet_companion_last_contact_pos := Vector2.ZERO
@@ -134,6 +168,8 @@ class FakeBattleOwner:
 	var ringpet_skill_last_gain := 0.0
 	var lingpet_skill_trigger_count := 0
 	var ringpet_skill_trigger_count := 0
+	var lingpet_gauge_gain_bonus_pct := 0.0
+	var ringpet_gauge_gain_bonus_pct := 0.0
 	var lingpet_effect_text := ""
 	var lingpet_owned_pet_ids: Array = []
 	var owned_lingpet_ids: Array = []
@@ -253,6 +289,7 @@ func _init() -> void:
 	_verify_save_store_persists_and_restores_maribo()
 	_verify_battle_lifecycle_restores_lingpet_save()
 	_verify_maribo_companion_gauge_bonus()
+	_verify_maribo_defense_rate_intercepts_descending_ball()
 	_verify_ineligible_conditions_do_not_spawn()
 
 	if _failures.is_empty():
@@ -1086,9 +1123,29 @@ func _verify_maribo_companion_gauge_bonus() -> void:
 	runtime.update(0.0, owner)
 	_expect(bool(runtime.is_maribo_companion_active()), "owned Maribo should activate the companion effect")
 	_expect(str(owner.lingpet_effect_text).find("+10%") >= 0, "owner effect text should describe Maribo's gauge bonus")
+	var snapshot: Dictionary = runtime.get_snapshot()
+	_expect(is_equal_approx(float(snapshot.get("companion_patrol_speed_min", 0.0)), 70.0), "Maribo snapshot should expose patrol speed min for the character-info panel")
+	_expect(is_equal_approx(float(snapshot.get("companion_patrol_speed_max", 0.0)), 135.0), "Maribo snapshot should expose patrol speed max for the character-info panel")
+	_expect(is_equal_approx(float(snapshot.get("companion_catch_width", 0.0)), 100.0), "Maribo snapshot should expose the real horizontal catch footprint")
+	_expect(is_equal_approx(float(snapshot.get("companion_catch_height", 0.0)), 44.0), "Maribo snapshot should expose the real vertical catch footprint")
+	_expect(is_equal_approx(float(snapshot.get("companion_defense_rate", 0.0)), 0.30), "Maribo snapshot should expose defense rate only once AI is wired")
+	_expect(is_equal_approx(float(owner.lingpet_companion_patrol_speed_min), 70.0), "owner should sync Maribo speed range for character-info")
+	_expect(is_equal_approx(float(owner.lingpet_companion_catch_width), 100.0), "owner should sync Maribo catch width for character-info")
+	_expect(is_equal_approx(float(owner.lingpet_companion_defense_rate), 0.30), "owner should sync Maribo defense rate for character-info")
 	_expect(is_equal_approx(float(runtime.get_gauge_gain_per_hit(50.0)), 55.0), "Maribo should turn 50 gauge gain into 55")
 
-	var overlay_gain: float = CharacterInfoOverlay.new()._get_effective_gauge_gain_per_hit("smasher", null, [runtime])
+	var overlay := CharacterInfoOverlay.new()
+	var lingpet_stats: Array = overlay._build_lingpet_stats(owner)
+	_expect(str(_find_stat(lingpet_stats, "이동 속도").get("value", "")).find("70~135") >= 0, "character-info lingpet stats should show Maribo speed as a range")
+	_expect(str(_find_stat(lingpet_stats, "캐치 범위").get("value", "")).find("100x44") >= 0, "character-info lingpet stats should show the catch footprint")
+	_expect(str(_find_stat(lingpet_stats, "게이지 획득량").get("value", "")).find("+10%") >= 0, "character-info lingpet stats should show the passive gauge bonus")
+	_expect(str(_find_stat(lingpet_stats, "게이지 획득량").get("value", "")).find("+40") >= 0, "character-info lingpet stats should show the direct hit gauge gain")
+	_expect(str(_find_stat(lingpet_stats, "액티브 쿨타임").get("value", "")) == "40초", "character-info lingpet stats should show Hydro Sphere cooldown")
+	_expect(str(_find_stat(lingpet_stats, "공명 충전 쿨타임").get("value", "")) == "6초", "character-info lingpet stats should show resonance charge cooldown")
+	_expect(str(_find_stat(lingpet_stats, "방어율").get("value", "")) == "30%", "character-info lingpet stats should show the real defense rate")
+	_expect(_find_stat(lingpet_stats, "대시 토큰").is_empty(), "character-info lingpet stats should not show unimplemented dash tokens")
+
+	var overlay_gain: float = overlay._get_effective_gauge_gain_per_hit("smasher", null, [runtime])
 	_expect(is_equal_approx(overlay_gain, 55.0), "character-info gauge-gain stat should read the Maribo bonus")
 
 	var router := PaddleBounceEventRouter.new()
@@ -1106,6 +1163,29 @@ func _verify_maribo_companion_gauge_bonus() -> void:
 	_expect(is_equal_approx(gauge_after_drive, 100.0), "Maribo should not bypass drive-hit gauge gain blocking")
 
 
+func _verify_maribo_defense_rate_intercepts_descending_ball() -> void:
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	var start_pos: Vector2 = owner.lingpet_companion_pos
+	runtime.set("_companion_pos", Vector2(120.0, start_pos.y))
+	runtime.set("_companion_patrol_seed", 2)
+	runtime.set("_companion_defense_decision_timer", 0.0)
+	runtime.set("_companion_defense_intercept_active", false)
+	owner.ball_active = true
+	owner.ball_pos = Vector2(520.0, start_pos.y - 230.0)
+	owner.ball_vel = Vector2(0.0, 12.0)
+	runtime.update(0.50, owner)
+	_expect(bool(owner.lingpet_companion_defense_intercept_active), "Maribo defense rate should sometimes arm an intercept on a descending ball")
+	_expect(owner.lingpet_companion_pos.x > 170.0, "armed Maribo defense intercept should move toward the predicted ball X")
+	_expect(owner.lingpet_companion_defense_intercept_target_x > owner.lingpet_companion_pos.x, "defense target should stay ahead of the companion while chasing")
+
+	owner.ball_active = false
+	runtime.update(0.10, owner)
+	_expect(not bool(owner.lingpet_companion_defense_intercept_active), "Maribo defense intercept should clear once the ball is no longer active")
+
+
 func _verify_ineligible_conditions_do_not_spawn() -> void:
 	var champion_owner := FakeOwner.new()
 	champion_owner.ai_mode = "champion"
@@ -1114,6 +1194,15 @@ func _verify_ineligible_conditions_do_not_spawn() -> void:
 	var viper_owner := FakeOwner.new()
 	viper_owner.selected_character_type = "viper"
 	_expect(not LingpetEggRuntime.new().update(0.0, viper_owner), "Junior non-Mika character should not spawn the first Maribo egg")
+
+
+func _find_stat(stats: Array, label: String) -> Dictionary:
+	for value in stats:
+		if value is Dictionary:
+			var stat: Dictionary = value
+			if str(stat.get("label", "")) == label:
+				return stat
+	return {}
 
 
 func _expect(condition: bool, message: String) -> void:

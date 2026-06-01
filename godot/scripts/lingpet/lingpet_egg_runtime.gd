@@ -99,6 +99,12 @@ const COMPANION_PATROL_CHANGE_INTERVAL_MIN := 0.45
 const COMPANION_PATROL_CHANGE_INTERVAL_MAX := 1.40
 const COMPANION_PATROL_SURPRISE_CHANCE_PER_SECOND := 0.30
 const COMPANION_PATROL_SEED_MOD := 2147483647
+const COMPANION_DEFENSE_RATE := 0.30
+const COMPANION_DEFENSE_DECISION_INTERVAL_MIN := 0.55
+const COMPANION_DEFENSE_DECISION_INTERVAL_MAX := 0.95
+const COMPANION_DEFENSE_LOOKAHEAD_MAX_GAP := 320.0
+const COMPANION_DEFENSE_INTERCEPT_SPEED := 155.0
+const COMPANION_DEFENSE_TARGET_TOLERANCE := 8.0
 # Paddle-like hit footprint: a wide axis-aligned box centered on the companion,
 # so it catches the ball over a ~100px horizontal span like a mini player paddle
 # (replacing the old 44px circle). Ball radius is added per-axis (paddle parity).
@@ -176,6 +182,10 @@ var _companion_patrol_speed := 0.0
 var _companion_patrol_lane_y := 0.0
 var _companion_patrol_min_x := 0.0
 var _companion_patrol_max_x := 0.0
+var _companion_defense_decision_timer := 0.0
+var _companion_defense_intercept_active := false
+var _companion_defense_intercept_target_x := 0.0
+var _companion_defense_last_roll := 1.0
 var _companion_last_contact_pos := Vector2.ZERO
 var _companion_skill_origin := Vector2.ZERO
 var _companion_contact_count := 0
@@ -388,9 +398,19 @@ func get_snapshot() -> Dictionary:
 		"companion_patrol_change_timer": _companion_patrol_change_timer,
 		"companion_patrol_seed": _companion_patrol_seed,
 		"companion_patrol_speed": _companion_patrol_speed,
+		"companion_patrol_speed_default": COMPANION_PATROL_SPEED,
+		"companion_patrol_speed_min": COMPANION_PATROL_SPEED_MIN,
+		"companion_patrol_speed_max": COMPANION_PATROL_SPEED_MAX,
 		"companion_patrol_lane_y": _companion_patrol_lane_y,
 		"companion_patrol_min_x": _companion_patrol_min_x,
 		"companion_patrol_max_x": _companion_patrol_max_x,
+		"companion_catch_width": COMPANION_HIT_HALF_WIDTH * 2.0,
+		"companion_catch_height": COMPANION_HIT_HALF_HEIGHT * 2.0,
+		"companion_defense_rate": COMPANION_DEFENSE_RATE if is_maribo_companion_active() else 0.0,
+		"companion_defense_intercept_active": _companion_defense_intercept_active,
+		"companion_defense_intercept_target_x": _companion_defense_intercept_target_x,
+		"companion_defense_decision_timer": _companion_defense_decision_timer,
+		"companion_defense_last_roll": _companion_defense_last_roll,
 		"companion_contact_count": _companion_contact_count,
 		"companion_last_contact_pos": _companion_last_contact_pos,
 		"companion_hit_cooldown": _companion_hit_cooldown,
@@ -549,6 +569,8 @@ func reset_for_tests() -> void:
 	_companion_hit_gauge_last_gain = 0.0
 	_companion_skill_trigger_count = 0
 	_companion_skill_last_gain = 0.0
+	_clear_companion_defense_intercept()
+	_companion_defense_decision_timer = 0.0
 	_reset_hydro_sphere_transients()
 	_acquire_cutin_active = false
 	_acquire_cutin_elapsed = 0.0
@@ -559,6 +581,8 @@ func reset_for_tests() -> void:
 
 func reset_round(_deps: Dictionary = {}) -> void:
 	_reset_hydro_sphere_transients()
+	_clear_companion_defense_intercept()
+	_companion_defense_decision_timer = 0.0
 	_companion_skill_flash_timer = 0.0
 	_companion_hit_flash_timer = 0.0
 	_companion_hit_gauge_flash_timer = 0.0
@@ -608,6 +632,8 @@ func _spawn_egg(owner: Object) -> void:
 	_companion_hit_gauge_last_gain = 0.0
 	_companion_skill_trigger_count = 0
 	_companion_skill_last_gain = 0.0
+	_clear_companion_defense_intercept()
+	_companion_defense_decision_timer = 0.0
 	_reset_hydro_sphere_transients()
 	_acquire_cutin_active = false
 	_acquire_cutin_elapsed = 0.0
@@ -765,6 +791,22 @@ func _sync_owner(owner: Object) -> void:
 	owner.set("lingpet_egg_pos", _egg_pos)
 	owner.set("lingpet_companion_pos", _companion_pos)
 	owner.set("ringpet_companion_pos", _companion_pos)
+	owner.set("lingpet_companion_patrol_speed_default", COMPANION_PATROL_SPEED)
+	owner.set("ringpet_companion_patrol_speed_default", COMPANION_PATROL_SPEED)
+	owner.set("lingpet_companion_patrol_speed_min", COMPANION_PATROL_SPEED_MIN)
+	owner.set("ringpet_companion_patrol_speed_min", COMPANION_PATROL_SPEED_MIN)
+	owner.set("lingpet_companion_patrol_speed_max", COMPANION_PATROL_SPEED_MAX)
+	owner.set("ringpet_companion_patrol_speed_max", COMPANION_PATROL_SPEED_MAX)
+	owner.set("lingpet_companion_catch_width", COMPANION_HIT_HALF_WIDTH * 2.0)
+	owner.set("ringpet_companion_catch_width", COMPANION_HIT_HALF_WIDTH * 2.0)
+	owner.set("lingpet_companion_catch_height", COMPANION_HIT_HALF_HEIGHT * 2.0)
+	owner.set("ringpet_companion_catch_height", COMPANION_HIT_HALF_HEIGHT * 2.0)
+	owner.set("lingpet_companion_defense_rate", COMPANION_DEFENSE_RATE if _state == STATE_COMPANION else 0.0)
+	owner.set("ringpet_companion_defense_rate", COMPANION_DEFENSE_RATE if _state == STATE_COMPANION else 0.0)
+	owner.set("lingpet_companion_defense_intercept_active", _companion_defense_intercept_active)
+	owner.set("ringpet_companion_defense_intercept_active", _companion_defense_intercept_active)
+	owner.set("lingpet_companion_defense_intercept_target_x", _companion_defense_intercept_target_x)
+	owner.set("ringpet_companion_defense_intercept_target_x", _companion_defense_intercept_target_x)
 	owner.set("lingpet_companion_contact_count", _companion_contact_count)
 	owner.set("ringpet_companion_contact_count", _companion_contact_count)
 	owner.set("lingpet_companion_last_contact_pos", _companion_last_contact_pos)
@@ -797,6 +839,8 @@ func _sync_owner(owner: Object) -> void:
 	owner.set("ringpet_skill_last_gain", _companion_skill_last_gain)
 	owner.set("lingpet_skill_trigger_count", _companion_skill_trigger_count)
 	owner.set("ringpet_skill_trigger_count", _companion_skill_trigger_count)
+	owner.set("lingpet_gauge_gain_bonus_pct", MARIBO_GAUGE_GAIN_BONUS_PCT if _state == STATE_COMPANION else 0.0)
+	owner.set("ringpet_gauge_gain_bonus_pct", MARIBO_GAUGE_GAIN_BONUS_PCT if _state == STATE_COMPANION else 0.0)
 	owner.set("lingpet_effect_text", _get_effect_text())
 
 
@@ -824,6 +868,8 @@ func _adopt_owned_maribo(owner: Object) -> void:
 	_companion_hit_gauge_last_gain = 0.0
 	_companion_skill_trigger_count = 0
 	_companion_skill_last_gain = 0.0
+	_clear_companion_defense_intercept()
+	_companion_defense_decision_timer = 0.0
 	_reset_hydro_sphere_transients()
 	_hatch_flash_timer = 0.0
 	_ball_was_inside = false
@@ -948,8 +994,11 @@ func _update_companion_motion(delta: float, owner: Object) -> void:
 	_companion_pos.y = _companion_patrol_lane_y
 	# Plant the feet during the spear-throw wind-up so the throw origin is stable.
 	if _companion_skill_windup_active:
+		_clear_companion_defense_intercept()
 		return
 	if safe_delta <= 0.0:
+		return
+	if _try_update_companion_defense_intercept(safe_delta, owner):
 		return
 	if _companion_patrol_pause > 0.0:
 		_companion_patrol_pause = maxf(0.0, _companion_patrol_pause - safe_delta)
@@ -979,6 +1028,65 @@ func _update_companion_motion(delta: float, owner: Object) -> void:
 			_companion_patrol_change_timer = _next_companion_patrol_range(COMPANION_PATROL_CHANGE_INTERVAL_MIN, COMPANION_PATROL_CHANGE_INTERVAL_MAX)
 		elif _companion_patrol_change_timer <= 0.0:
 			_choose_next_companion_patrol_action()
+
+
+func _try_update_companion_defense_intercept(delta: float, owner: Object) -> bool:
+	if COMPANION_DEFENSE_RATE <= 0.0:
+		_clear_companion_defense_intercept()
+		return false
+	if not bool(_get_owner_value(owner, "ball_active", false)):
+		_clear_companion_defense_intercept()
+		_companion_defense_decision_timer = 0.0
+		return false
+	var ball_vel: Vector2 = _get_owner_vector2(owner, "ball_vel", Vector2.ZERO)
+	if ball_vel.y <= 0.0:
+		_clear_companion_defense_intercept()
+		_companion_defense_decision_timer = 0.0
+		return false
+	var ball_pos: Vector2 = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
+	var ball_radius: float = maxf(1.0, float(_get_owner_value(owner, "ball_size", BALL_RADIUS_FALLBACK * 2.0)) * 0.5)
+	var vertical_gap: float = (_companion_patrol_lane_y - COMPANION_HIT_HALF_HEIGHT) - (ball_pos.y + ball_radius)
+	if vertical_gap < 0.0:
+		_clear_companion_defense_intercept()
+		return false
+	if _companion_defense_intercept_active:
+		return _advance_companion_defense_intercept(delta)
+	_companion_defense_decision_timer = maxf(0.0, _companion_defense_decision_timer - delta)
+	if _companion_defense_decision_timer > 0.0 or vertical_gap > COMPANION_DEFENSE_LOOKAHEAD_MAX_GAP:
+		return false
+	_companion_defense_decision_timer = _next_companion_patrol_range(
+		COMPANION_DEFENSE_DECISION_INTERVAL_MIN,
+		COMPANION_DEFENSE_DECISION_INTERVAL_MAX
+	)
+	_companion_defense_last_roll = _next_companion_patrol_unit()
+	if _companion_defense_last_roll >= COMPANION_DEFENSE_RATE:
+		return false
+	var impact_boost: float = maxf(0.01, float(_get_owner_value(owner, "ball_impact_boost", 1.0)))
+	var frames_to_contact: float = vertical_gap / maxf(0.01, ball_vel.y * impact_boost)
+	var future_ball_x: float = ball_pos.x + ball_vel.x * impact_boost * frames_to_contact
+	_companion_defense_intercept_target_x = clampf(future_ball_x, _companion_patrol_min_x, _companion_patrol_max_x)
+	_companion_defense_intercept_active = true
+	_companion_patrol_pause = 0.0
+	return _advance_companion_defense_intercept(delta)
+
+
+func _advance_companion_defense_intercept(delta: float) -> bool:
+	var target_x: float = clampf(_companion_defense_intercept_target_x, _companion_patrol_min_x, _companion_patrol_max_x)
+	var distance: float = target_x - _companion_pos.x
+	if absf(distance) <= COMPANION_DEFENSE_TARGET_TOLERANCE:
+		_companion_pos.x = target_x
+		_companion_patrol_dir = 0.0
+		return true
+	_companion_patrol_dir = 1.0 if distance > 0.0 else -1.0
+	_companion_patrol_speed = clampf(COMPANION_DEFENSE_INTERCEPT_SPEED, COMPANION_PATROL_SPEED_MIN, COMPANION_DEFENSE_INTERCEPT_SPEED)
+	_companion_pos.x = move_toward(_companion_pos.x, target_x, COMPANION_DEFENSE_INTERCEPT_SPEED * maxf(0.0, delta))
+	_companion_pos.x = clampf(_companion_pos.x, _companion_patrol_min_x, _companion_patrol_max_x)
+	return true
+
+
+func _clear_companion_defense_intercept() -> void:
+	_companion_defense_intercept_active = false
+	_companion_defense_intercept_target_x = 0.0
 
 
 func _initialize_companion_patrol(owner: Object, randomize_x: bool) -> void:
@@ -1063,6 +1171,8 @@ func _reset_companion_patrol() -> void:
 	_companion_patrol_lane_y = 0.0
 	_companion_patrol_min_x = 0.0
 	_companion_patrol_max_x = 0.0
+	_companion_defense_decision_timer = 0.0
+	_clear_companion_defense_intercept()
 
 
 func _choose_next_companion_patrol_action() -> void:

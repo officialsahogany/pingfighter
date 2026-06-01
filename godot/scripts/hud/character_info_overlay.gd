@@ -5,9 +5,14 @@ const ActiveItemHudSlotIconRenderer := preload("res://scripts/hud/active_item_hu
 const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_config.gd")
 const PassiveItemQuality := preload("res://scripts/items/passive_item_quality.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.gd")
 const SmasherDashSpiritState := preload("res://scripts/characters/smasher_dash_spirit_state.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const MARIBO_CUTIN_ART_TEXTURE := preload("res://assets/sprites/lingpet/maribo_cutin_art.png")
+const MARIBO_HYDRO_SPHERE_CARD_TEXTURE := preload("res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png")
+const MARIBO_RESONANCE_BOOST_ICON_PATH := "res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png"
+const MARIBO_RESONANCE_CHARGE_ICON_PATH := "res://assets/sprites/lingpet/maribo_resonance_charge_passive_icon_imagegen_v1.png"
 
 const SPECIAL_GAUGE_MAX := 500.0
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
@@ -168,6 +173,7 @@ var _equipment_silhouette_right_leg_poly := PackedVector2Array()
 var _active_item_catalog: Object = ActiveItemCatalog.new()
 var _active_item_icon_renderer: Object = ActiveItemHudSlotIconRenderer.new()
 var _character_runtime: Object = PlayerCharacterRuntime.new()
+var _lingpet_skill_icon_texture_cache: Dictionary = {}
 var _shared_icon_assets_prewarmed := false
 var _static_text_prewarmed := false
 var _active_item_text_prewarmed := false
@@ -1129,6 +1135,7 @@ func prewarm_assets(
 		return
 	_prewarm_layout_caches(owner, registry, module_getter, view_size)
 	_prewarm_draw_caches(font, owner, registry, module_getter)
+	_prewarm_lingpet_skill_icon_assets()
 	if include_shared_icon_assets and not _shared_icon_assets_prewarmed:
 		_shared_icon_assets_prewarmed = _prewarm_shared_icon_assets(registry, module_getter)
 	_prewarm_visible_item_icons(owner, registry, module_getter)
@@ -1232,7 +1239,7 @@ func _prewarm_stats_layout(font: Font, owner: Object, registry: Object, module_g
 	var lingpet_runtime: Object = _get_prewarm_instance(registry, module_getter, "lingpet_egg_runtime")
 	var character_type: String = _get_character_type(owner)
 	var stat_sources: Array = [runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime]
-	_build_stats(
+	var player_rows: Array = _build_stats(
 		owner,
 		registry,
 		runtime_state,
@@ -1242,10 +1249,14 @@ func _prewarm_stats_layout(font: Font, owner: Object, registry: Object, module_g
 		stat_sources,
 		true
 	)
-	_update_stats_layout(_layout_stats_rect, _stats_row_count)
-	for i in range(_stats_layout_visible_count):
-		_text_size(font, _stats_label_cache[i], _stats_layout_row_size)
-		_get_stats_value_width(font, i, _stats_value_cache[i], _stats_layout_row_size)
+	var lingpet_rows: Array = _build_lingpet_stats(owner)
+	for rows in [player_rows, lingpet_rows]:
+		for row_value in rows:
+			if not (row_value is Dictionary):
+				continue
+			var row: Dictionary = row_value
+			_text_size(font, str(row.get("label", "")), 13)
+			_text_size(font, str(row.get("value", "")), 13)
 
 
 func _resolve_prewarm_view_size(owner: Object, requested_view_size: Vector2 = Vector2.ZERO) -> Vector2:
@@ -1485,33 +1496,37 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 
 	_frame_hover_data.clear()
 	var hover_data: Dictionary = _frame_hover_data
-	sample_start = _perf_begin(perf_logger)
-	hover_data = _draw_equipment_slots(canvas, owner, registry, _layout_equipment_rect, font, mouse_pos, hover_data, active_item_hud_visuals, mythic_item_runtime, runtime_state)
-	_perf_end(perf_logger, "character_info.equipment", sample_start)
+	if _layout_equipment_rect.size != Vector2.ZERO:
+		sample_start = _perf_begin(perf_logger)
+		hover_data = _draw_equipment_slots(canvas, owner, registry, _layout_equipment_rect, font, mouse_pos, hover_data, active_item_hud_visuals, mythic_item_runtime, runtime_state)
+		_perf_end(perf_logger, "character_info.equipment", sample_start)
 
-	sample_start = _perf_begin(perf_logger)
-	hover_data = _draw_skill_slots(canvas, owner, registry, _layout_skill_rect, font, mouse_pos, hover_data, character_type, skill_snapshot, runtime_perk_icon_renderer)
-	_perf_end(perf_logger, "character_info.skills", sample_start)
+	if _layout_skill_rect.size != Vector2.ZERO:
+		sample_start = _perf_begin(perf_logger)
+		hover_data = _draw_skill_slots(canvas, owner, registry, _layout_skill_rect, font, mouse_pos, hover_data, character_type, skill_snapshot, runtime_perk_icon_renderer)
+		_perf_end(perf_logger, "character_info.skills", sample_start)
 
-	sample_start = _perf_begin(perf_logger)
-	hover_data = _draw_active_items(canvas, owner, registry, _layout_active_items_rect, font, mouse_pos, hover_data, active_item_slot_capacity, active_item_hud_visuals, stat_sources, active_item_slots)
-	_perf_end(perf_logger, "character_info.active_items", sample_start)
+	if _layout_active_items_rect.size != Vector2.ZERO:
+		sample_start = _perf_begin(perf_logger)
+		hover_data = _draw_active_items(canvas, owner, registry, _layout_active_items_rect, font, mouse_pos, hover_data, active_item_slot_capacity, active_item_hud_visuals, stat_sources, active_item_slots)
+		_perf_end(perf_logger, "character_info.active_items", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
 	hover_data = _draw_perk_grid(canvas, owner, registry, _layout_perk_rect, font, mouse_pos, hover_data, runtime_state, runtime_perk_icon_renderer, runtime_snapshot, runtime_perk_catalog, _get_array(skill_snapshot.get("equipped_skills", [])))
 	_perf_end(perf_logger, "character_info.perks", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	_draw_lingpet_panel(canvas, owner, _layout_lingpet_rect, font)
+	hover_data = _draw_lingpet_panel(canvas, owner, _layout_lingpet_rect, font, mouse_pos, hover_data)
 	_perf_end(perf_logger, "character_info.lingpet", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	_draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources)
+	hover_data = _draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data)
 	_perf_end(perf_logger, "character_info.stats", sample_start)
 
-	sample_start = _perf_begin(perf_logger)
-	hover_data = _draw_passive_inventory(canvas, owner, registry, _layout_inventory_rect, font, mouse_pos, hover_data, active_item_hud_visuals, mythic_item_runtime, runtime_state)
-	_perf_end(perf_logger, "character_info.passive_inventory", sample_start)
+	if _layout_inventory_rect.size != Vector2.ZERO:
+		sample_start = _perf_begin(perf_logger)
+		hover_data = _draw_passive_inventory(canvas, owner, registry, _layout_inventory_rect, font, mouse_pos, hover_data, active_item_hud_visuals, mythic_item_runtime, runtime_state)
+		_perf_end(perf_logger, "character_info.passive_inventory", sample_start)
 
 	if not hover_data.is_empty():
 		sample_start = _perf_begin(perf_logger)
@@ -1532,36 +1547,31 @@ func _update_frame_layout(view_size: Vector2) -> void:
 	var content_top := _layout_panel_rect.position.y + 66.0
 	var content_bottom := _layout_panel_rect.end.y - 12.0
 	var content_height: float = max(300.0, content_bottom - content_top)
-	var column_gap := 18.0
-	var inventory_height: float = clamp(content_height * 0.18, 86.0, 150.0)
-	if content_height < 520.0:
-		inventory_height = 82.0
-	var main_bottom: float = content_bottom - inventory_height - 10.0
-	var main_height: float = max(230.0, main_bottom - content_top)
-	var left_w: float = min(470.0, (_layout_panel_rect.size.x - inner_margin * 2.0 - column_gap) * 0.45)
-	var right_w: float = _layout_panel_rect.size.x - inner_margin * 2.0 - column_gap - left_w
-	var left_rect := Rect2(_layout_panel_rect.position.x + inner_margin, content_top, left_w, main_height)
-	var right_rect := Rect2(left_rect.end.x + column_gap, content_top, right_w, main_height)
-	_layout_inventory_rect = Rect2(
+	var main_rect := Rect2(
 		_layout_panel_rect.position.x + inner_margin,
-		main_bottom + 14.0,
+		content_top,
 		_layout_panel_rect.size.x - inner_margin * 2.0,
-		max(90.0, content_bottom - main_bottom - 14.0)
+		content_height
 	)
-	_layout_equipment_rect = _section_rect(left_rect, 0.0, 0.58)
-	_layout_skill_rect = _section_rect(left_rect, 0.60, 0.19)
-	_layout_active_items_rect = _section_rect(left_rect, 0.80, 0.20)
-	var right_top_rect := _section_rect(right_rect, 0.0, 0.40)
-	var right_top_gap := 12.0
-	if right_top_rect.size.x >= 560.0:
-		var lingpet_w: float = clamp(right_top_rect.size.x * 0.34, 230.0, 320.0)
-		_layout_perk_rect = Rect2(right_top_rect.position, Vector2(right_top_rect.size.x - lingpet_w - right_top_gap, right_top_rect.size.y))
-		_layout_lingpet_rect = Rect2(_layout_perk_rect.end.x + right_top_gap, right_top_rect.position.y, lingpet_w, right_top_rect.size.y)
+	var top_gap := 14.0
+	var top_h: float = clamp(content_height * 0.46, 240.0, 420.0)
+	if content_height - top_h - top_gap < 220.0:
+		top_h = max(150.0, content_height - top_gap - 220.0)
+	var top_rect := Rect2(main_rect.position, Vector2(main_rect.size.x, top_h))
+	_layout_stats_rect = Rect2(main_rect.position.x, top_rect.end.y + top_gap, main_rect.size.x, max(180.0, main_rect.end.y - top_rect.end.y - top_gap))
+	_layout_equipment_rect = Rect2()
+	_layout_skill_rect = Rect2()
+	_layout_active_items_rect = Rect2()
+	_layout_inventory_rect = Rect2()
+	var top_column_gap := 16.0
+	if top_rect.size.x >= 760.0:
+		var lingpet_w: float = clamp(top_rect.size.x * 0.36, 340.0, 470.0)
+		_layout_perk_rect = Rect2(top_rect.position, Vector2(top_rect.size.x - lingpet_w - top_column_gap, top_rect.size.y))
+		_layout_lingpet_rect = Rect2(_layout_perk_rect.end.x + top_column_gap, top_rect.position.y, lingpet_w, top_rect.size.y)
 	else:
-		var perk_h: float = max(64.0, right_top_rect.size.y * 0.54 - right_top_gap * 0.5)
-		_layout_perk_rect = Rect2(right_top_rect.position, Vector2(right_top_rect.size.x, perk_h))
-		_layout_lingpet_rect = Rect2(right_top_rect.position.x, _layout_perk_rect.end.y + right_top_gap, right_top_rect.size.x, max(64.0, right_top_rect.end.y - _layout_perk_rect.end.y - right_top_gap))
-	_layout_stats_rect = _section_rect(right_rect, 0.42, 0.58)
+		var perk_h: float = max(82.0, top_rect.size.y * 0.52 - top_gap * 0.5)
+		_layout_perk_rect = Rect2(top_rect.position, Vector2(top_rect.size.x, perk_h))
+		_layout_lingpet_rect = Rect2(top_rect.position.x, _layout_perk_rect.end.y + top_gap, top_rect.size.x, max(78.0, top_rect.end.y - _layout_perk_rect.end.y - top_gap))
 
 
 func _section_rect(column_rect: Rect2, start_ratio: float, height_ratio: float) -> Rect2:
@@ -2161,7 +2171,7 @@ func _draw_perk_grid(
 	return hover_data
 
 
-func _draw_lingpet_panel(canvas: CanvasItem, owner: Object, rect: Rect2, font: Font) -> void:
+func _draw_lingpet_panel(canvas: CanvasItem, owner: Object, rect: Rect2, font: Font, mouse_pos: Vector2, hover_data: Dictionary) -> Dictionary:
 	_draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
 	_draw_text_xy(canvas, font, "링펫", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
 
@@ -2169,6 +2179,9 @@ func _draw_lingpet_panel(canvas: CanvasItem, owner: Object, rect: Rect2, font: F
 	canvas.draw_rect(content_rect, OVERLAY_GRID_FILL)
 	var snapshot: Dictionary = _get_lingpet_panel_snapshot(owner)
 	var state: String = str(snapshot.get("state", "none"))
+	if state == "companion":
+		return _draw_lingpet_companion_panel(canvas, content_rect, font, snapshot, mouse_pos, hover_data)
+
 	var hits: int = int(snapshot.get("hatch_hits", 0))
 	var required_hits: int = max(1, int(snapshot.get("required_hits", LINGPET_HATCH_REQUIRED_HITS)))
 	var progress: float = clamp(float(hits) / float(required_hits), 0.0, 1.0)
@@ -2199,6 +2212,194 @@ func _draw_lingpet_panel(canvas: CanvasItem, owner: Object, rect: Rect2, font: F
 	if state == "egg":
 		var meter_rect := Rect2(text_x, min(content_rect.end.y - 24.0, text_y + 94.0), text_w, 8.0)
 		_draw_lingpet_progress_bar(canvas, meter_rect, progress)
+	return hover_data
+
+
+func _draw_lingpet_companion_panel(
+	canvas: CanvasItem,
+	content_rect: Rect2,
+	font: Font,
+	snapshot: Dictionary,
+	mouse_pos: Vector2,
+	hover_data: Dictionary
+) -> Dictionary:
+	var title: String = str(snapshot.get("title", "링펫"))
+	var subtitle: String = str(snapshot.get("subtitle", "동행 중"))
+	var skill_specs: Array = _get_lingpet_skill_specs(snapshot)
+	var skill_row_h: float = clamp(content_rect.size.y * 0.22, 58.0, 78.0)
+	var title_y: float = content_rect.position.y + 26.0
+	_draw_text_centered_xy(canvas, font, title, content_rect.get_center().x, title_y, 18, Color.WHITE)
+	_draw_text_centered_xy(canvas, font, subtitle, content_rect.get_center().x, title_y + 23.0, 12, STAT_BUFF_COLOR)
+
+	var art_rect: Rect2 = _get_lingpet_companion_art_rect(content_rect, skill_row_h)
+	canvas.draw_rect(art_rect, Color(7.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 0.34))
+	_draw_lingpet_art(canvas, art_rect)
+
+	var icon_count: int = max(1, skill_specs.size())
+	var icon_gap: float = 9.0
+	var icon_size: float = clamp((content_rect.size.x - 24.0 - icon_gap * float(icon_count - 1)) / float(icon_count), 38.0, 58.0)
+	var icon_total_w: float = icon_size * float(icon_count) + icon_gap * float(icon_count - 1)
+	var icon_x: float = content_rect.get_center().x - icon_total_w * 0.5
+	var icon_y: float = content_rect.end.y - skill_row_h + (skill_row_h - icon_size) * 0.48
+	for i in range(skill_specs.size()):
+		var icon_rect := Rect2(icon_x + float(i) * (icon_size + icon_gap), icon_y, icon_size, icon_size)
+		var spec: Dictionary = skill_specs[i]
+		hover_data = _draw_lingpet_skill_icon(canvas, font, icon_rect, spec, mouse_pos, hover_data)
+	return hover_data
+
+
+func _get_lingpet_companion_art_rect(content_rect: Rect2, skill_row_h: float) -> Rect2:
+	return Rect2(
+		content_rect.position.x + 10.0,
+		content_rect.position.y + 44.0,
+		content_rect.size.x - 20.0,
+		max(82.0, content_rect.size.y - skill_row_h - 54.0)
+	)
+
+
+func _draw_lingpet_art(canvas: CanvasItem, rect: Rect2) -> void:
+	var glow_center := rect.get_center()
+	var glow_radius: float = min(rect.size.x, rect.size.y) * 0.42
+	for i in range(4, 0, -1):
+		canvas.draw_circle(glow_center, glow_radius + float(i) * 11.0, Color(0.0, 205.0 / 255.0, 1.0, 0.018 * float(i)))
+	if MARIBO_CUTIN_ART_TEXTURE != null:
+		_draw_texture_contained(canvas, MARIBO_CUTIN_ART_TEXTURE, rect.grow(-4.0), Color(1.0, 1.0, 1.0, 0.96))
+		return
+	_draw_lingpet_egg_icon(canvas, Rect2(rect.get_center() - Vector2(44.0, 44.0), Vector2(88.0, 88.0)), "companion", 1.0)
+
+
+func _draw_lingpet_skill_icon(
+	canvas: CanvasItem,
+	font: Font,
+	rect: Rect2,
+	spec: Dictionary,
+	mouse_pos: Vector2,
+	hover_data: Dictionary
+) -> Dictionary:
+	var color: Color = _get_color(spec.get("color", ACCENT_BLUE))
+	var hovered: bool = rect.has_point(mouse_pos)
+	var border_color: Color = Color(color.r, color.g, color.b, 1.0 if hovered else 0.72)
+	canvas.draw_rect(rect, OVERLAY_SLOT_FILL)
+	canvas.draw_rect(rect, border_color, false, 2.0 if hovered else 1.0)
+	var inner := rect.grow(-4.0)
+	if bool(spec.get("use_card", false)) and MARIBO_HYDRO_SPHERE_CARD_TEXTURE != null:
+		_draw_texture_cover(canvas, MARIBO_HYDRO_SPHERE_CARD_TEXTURE, inner, Color(1.0, 1.0, 1.0, 0.94))
+	else:
+		var texture: Texture2D = _get_lingpet_skill_icon_texture(str(spec.get("icon_texture_id", "")))
+		if texture != null:
+			_draw_texture_contained(canvas, texture, inner, Color(1.0, 1.0, 1.0, 0.96))
+		else:
+			_draw_lingpet_skill_symbol(canvas, font, inner, str(spec.get("id", "")), color)
+	var badge: String = str(spec.get("badge", ""))
+	if badge != "":
+		var badge_rect := Rect2(rect.end.x - 22.0, rect.position.y + 3.0, 19.0, 14.0)
+		canvas.draw_rect(badge_rect, Color(0.0, 0.0, 0.0, 0.58))
+		canvas.draw_rect(badge_rect, Color(color.r, color.g, color.b, 0.88), false, 1.0)
+		_draw_text_centered_xy(canvas, font, badge, badge_rect.get_center().x, badge_rect.position.y + 11.0, 8, Color.WHITE)
+	if hovered:
+		hover_data = _set_hover_data(
+			hover_data,
+			str(spec.get("title", "")),
+			str(spec.get("subtitle", "")),
+			str(spec.get("body", "")),
+			color,
+			null,
+			rect
+		)
+	return hover_data
+
+
+func _get_lingpet_skill_icon_texture(texture_id: String) -> Texture2D:
+	var path: String = _get_lingpet_skill_icon_texture_path(texture_id)
+	if path == "":
+		return null
+	if _lingpet_skill_icon_texture_cache.has(path):
+		var cached_texture: Variant = _lingpet_skill_icon_texture_cache[path]
+		if cached_texture is Texture2D:
+			return cached_texture as Texture2D
+		_lingpet_skill_icon_texture_cache.erase(path)
+	var texture := ProjectResourceLoader.load_texture(
+		path,
+		"Missing lingpet skill icon at %s",
+		"Failed to load lingpet skill icon at %s"
+	)
+	if texture != null:
+		_lingpet_skill_icon_texture_cache[path] = texture
+	return texture
+
+
+func _get_lingpet_skill_icon_texture_path(texture_id: String) -> String:
+	match texture_id:
+		"resonance_boost":
+			return MARIBO_RESONANCE_BOOST_ICON_PATH
+		"resonance_charge":
+			return MARIBO_RESONANCE_CHARGE_ICON_PATH
+	return ""
+
+
+func _prewarm_lingpet_skill_icon_assets() -> void:
+	_touch_texture(_get_lingpet_skill_icon_texture("resonance_boost"))
+	_touch_texture(_get_lingpet_skill_icon_texture("resonance_charge"))
+
+
+func _touch_texture(texture: Texture2D) -> void:
+	if texture != null:
+		texture.get_size()
+
+
+func _draw_lingpet_skill_symbol(canvas: CanvasItem, font: Font, rect: Rect2, id: String, color: Color) -> void:
+	var center := rect.get_center()
+	var radius: float = min(rect.size.x, rect.size.y) * 0.36
+	canvas.draw_circle(center, radius + 7.0, Color(color.r, color.g, color.b, 0.12))
+	canvas.draw_circle(center, radius, Color(color.r, color.g, color.b, 0.26))
+	canvas.draw_arc(center, radius, 0.0, TAU, FALLBACK_SYMBOL_RING_SEGMENTS, color, 2.0)
+	match id:
+		"resonance_boost":
+			for i in range(3):
+				var arc_radius: float = radius * (0.55 + float(i) * 0.18)
+				canvas.draw_arc(center, arc_radius, -0.2 + float(i) * 0.42, PI + float(i) * 0.34, FALLBACK_SYMBOL_RING_SEGMENTS, Color(1.0, 1.0, 1.0, 0.36), 1.2)
+			canvas.draw_circle(center, radius * 0.22, Color(1.0, 1.0, 1.0, 0.86))
+			_draw_text_centered_xy(canvas, font, "+", center.x, center.y + radius * 0.18, int(radius * 0.95), Color.WHITE)
+		"resonance_charge":
+			canvas.draw_polyline(PackedVector2Array([
+				center + Vector2(-radius * 0.55, radius * 0.28),
+				center + Vector2(-radius * 0.15, -radius * 0.18),
+				center + Vector2(radius * 0.08, radius * 0.08),
+				center + Vector2(radius * 0.55, -radius * 0.42),
+			]), Color.WHITE, 2.4)
+			_draw_text_centered_xy(canvas, font, "40", center.x, center.y + radius * 0.58, int(radius * 0.62), Color.WHITE)
+		_:
+			_draw_fallback_symbol(canvas, rect, color, id)
+
+
+func _draw_texture_contained(canvas: CanvasItem, texture: Texture2D, rect: Rect2, modulate: Color = Color.WHITE) -> void:
+	if texture == null:
+		return
+	var source_size: Vector2 = texture.get_size()
+	if source_size.x <= 0.0 or source_size.y <= 0.0:
+		return
+	var scale: float = min(rect.size.x / source_size.x, rect.size.y / source_size.y)
+	var dest_size: Vector2 = source_size * scale
+	var dest := Rect2(rect.get_center() - dest_size * 0.5, dest_size)
+	canvas.draw_texture_rect(texture, dest, false, modulate)
+
+
+func _draw_texture_cover(canvas: CanvasItem, texture: Texture2D, rect: Rect2, modulate: Color = Color.WHITE) -> void:
+	if texture == null:
+		return
+	var source_size: Vector2 = texture.get_size()
+	if source_size.x <= 0.0 or source_size.y <= 0.0 or rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var source := Rect2(Vector2.ZERO, source_size)
+	var target_ratio: float = rect.size.x / rect.size.y
+	var source_ratio: float = source_size.x / source_size.y
+	if source_ratio > target_ratio:
+		source.size.x = source_size.y * target_ratio
+		source.position.x = (source_size.x - source.size.x) * 0.5
+	else:
+		source.size.y = source_size.x / target_ratio
+		source.position.y = (source_size.y - source.size.y) * 0.5
+	canvas.draw_texture_rect_region(texture, rect, source, modulate, false, true)
 
 
 func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
@@ -2236,6 +2437,17 @@ func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
 				"title": display_name,
 				"subtitle": "동행 중",
 				"body": str(_safe_owner_get(owner, "lingpet_effect_text", "링펫 효과는 다음 단계에서 연결됩니다.")),
+				"gauge_gain_bonus_pct": float(_safe_owner_get(owner, "lingpet_gauge_gain_bonus_pct", _safe_owner_get(owner, "ringpet_gauge_gain_bonus_pct", 10.0))),
+				"companion_hit_gauge_gain": float(_safe_owner_get(owner, "lingpet_companion_hit_gauge_gain", _safe_owner_get(owner, "ringpet_companion_hit_gauge_gain", 40.0))),
+				"companion_hit_gauge_cooldown_duration": float(_safe_owner_get(owner, "lingpet_companion_hit_gauge_cooldown_duration", _safe_owner_get(owner, "ringpet_companion_hit_gauge_cooldown_duration", 6.0))),
+				"companion_skill_name": str(_safe_owner_get(owner, "lingpet_skill_name", _safe_owner_get(owner, "ringpet_skill_name", "하이드로 스피어"))),
+				"companion_skill_cooldown_duration": float(_safe_owner_get(owner, "lingpet_skill_cooldown_duration", _safe_owner_get(owner, "ringpet_skill_cooldown_duration", 40.0))),
+				"companion_patrol_speed_default": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_default", _safe_owner_get(owner, "ringpet_companion_patrol_speed_default", 120.0))),
+				"companion_patrol_speed_min": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_min", _safe_owner_get(owner, "ringpet_companion_patrol_speed_min", 70.0))),
+				"companion_patrol_speed_max": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_max", _safe_owner_get(owner, "ringpet_companion_patrol_speed_max", 135.0))),
+				"companion_catch_width": float(_safe_owner_get(owner, "lingpet_companion_catch_width", _safe_owner_get(owner, "ringpet_companion_catch_width", 100.0))),
+				"companion_catch_height": float(_safe_owner_get(owner, "lingpet_companion_catch_height", _safe_owner_get(owner, "ringpet_companion_catch_height", 44.0))),
+				"companion_defense_rate": float(_safe_owner_get(owner, "lingpet_companion_defense_rate", _safe_owner_get(owner, "ringpet_companion_defense_rate", 0.30))),
 				"hatch_hits": required_hits,
 				"required_hits": required_hits,
 			}
@@ -2258,6 +2470,45 @@ func _get_lingpet_display_name(lingpet_id: String) -> String:
 			return "링펫"
 		_:
 			return lingpet_id
+
+
+func _get_lingpet_skill_specs(snapshot: Dictionary) -> Array:
+	var skill_name: String = str(snapshot.get("companion_skill_name", "하이드로 스피어"))
+	if skill_name == "":
+		skill_name = "하이드로 스피어"
+	var active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration", 40.0))
+	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 10.0))
+	var hit_gain: float = float(snapshot.get("companion_hit_gauge_gain", 40.0))
+	var hit_cooldown: float = float(snapshot.get("companion_hit_gauge_cooldown_duration", 6.0))
+	return [
+		{
+			"id": "hydro_sphere",
+			"title": skill_name,
+			"subtitle": "액티브 · 쿨타임 " + _format_seconds_text(active_cooldown),
+			"body": "물의 기운이 담긴 창을 던집니다. 상대 진영 벽에 닿으면 5초 동안 가로로 넓은 둔화 물장판을 남깁니다.",
+			"color": Color(80.0 / 255.0, 220.0 / 255.0, 1.0),
+			"badge": "A",
+			"use_card": true,
+		},
+		{
+			"id": "resonance_boost",
+			"title": "공명 증폭",
+			"subtitle": "패시브 · 받아치기 +" + _format_percent_text(gauge_bonus_pct),
+			"body": "플레이어가 공을 받아칠 때 게이지 획득량이 증가합니다.",
+			"color": STAT_BUFF_COLOR,
+			"badge": "P",
+			"icon_texture_id": "resonance_boost",
+		},
+		{
+			"id": "resonance_charge",
+			"title": "공명 충전",
+			"subtitle": "패시브 · 직접 튕김 +" + _format_plain_number(hit_gain),
+			"body": "마리보가 공을 직접 튕기면 게이지를 추가로 획득합니다. 쿨타임 " + _format_seconds_text(hit_cooldown) + ".",
+			"color": ACCENT_GOLD,
+			"badge": "P",
+			"icon_texture_id": "resonance_charge",
+		},
+	]
 
 
 func _draw_lingpet_egg_icon(canvas: CanvasItem, rect: Rect2, state: String, progress: float) -> void:
@@ -2319,8 +2570,10 @@ func _draw_stats_panel(
 	active_item_runtime_override: Object = null,
 	mythic_item_runtime_override: Object = null,
 	character_type_override: String = "",
-	stat_sources_override: Array = []
-) -> void:
+	stat_sources_override: Array = [],
+	mouse_pos: Vector2 = Vector2.INF,
+	hover_data: Dictionary = {}
+) -> Dictionary:
 	_draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
 	_draw_text_xy(canvas, font, "능력치", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
 	_build_stats(
@@ -2333,16 +2586,156 @@ func _draw_stats_panel(
 		stat_sources_override,
 		false
 	)
-	var stats_count: int = _stats_row_count
-	_update_stats_layout(rect, stats_count)
-	for i in range(_stats_layout_visible_count):
-		var baseline_y: float = _stats_layout_baseline_y[i]
-		_draw_text_xy(canvas, font, _stats_label_cache[i], _stats_layout_label_x[i], baseline_y, _stats_layout_row_size, TEXT_DIM)
+	var lingpet_rows: Array = _build_lingpet_stats(owner)
+	var inner_rect := Rect2(rect.position.x + 12.0, rect.position.y + 38.0, rect.size.x - 24.0, rect.size.y - 50.0)
+	var column_gap := 18.0
+	var player_rect: Rect2
+	var lingpet_rect: Rect2
+	if inner_rect.size.x >= 620.0:
+		var column_w: float = (inner_rect.size.x - column_gap) * 0.5
+		player_rect = Rect2(inner_rect.position, Vector2(column_w, inner_rect.size.y))
+		lingpet_rect = Rect2(player_rect.end.x + column_gap, inner_rect.position.y, column_w, inner_rect.size.y)
+		var divider_x: float = player_rect.end.x + column_gap * 0.5
+		canvas.draw_line(Vector2(divider_x, inner_rect.position.y + 2.0), Vector2(divider_x, inner_rect.end.y - 2.0), Color(78.0 / 255.0, 112.0 / 255.0, 165.0 / 255.0, 0.34), 1.0)
+	else:
+		var row_gap := 10.0
+		var row_h: float = (inner_rect.size.y - row_gap) * 0.5
+		player_rect = Rect2(inner_rect.position, Vector2(inner_rect.size.x, row_h))
+		lingpet_rect = Rect2(inner_rect.position.x, player_rect.end.y + row_gap, inner_rect.size.x, row_h)
+	_draw_cached_player_stat_rows(canvas, font, "플레이어 능력치", player_rect)
+	hover_data = _draw_stat_rows(canvas, font, "링펫 능력치", lingpet_rows, lingpet_rect, mouse_pos, hover_data)
+	return hover_data
+
+
+func _draw_cached_player_stat_rows(canvas: CanvasItem, font: Font, title: String, rect: Rect2) -> void:
+	canvas.draw_rect(rect, Color(10.0 / 255.0, 14.0 / 255.0, 24.0 / 255.0, 0.34))
+	_draw_text_xy(canvas, font, title, rect.position.x + 2.0, rect.position.y + 20.0, 12, ACCENT_BLUE)
+	var row_count: int = _stats_row_count
+	if row_count <= 0:
+		_draw_text_centered_xy(canvas, font, "표시할 능력치 없음", rect.get_center().x, rect.get_center().y + 4.0, 12, OVERLAY_GRID_EMPTY_TEXT)
+		return
+	var start_y: float = rect.position.y + 46.0
+	var available_h: float = max(1.0, rect.end.y - start_y - 8.0)
+	var line_gap: float = min(26.0, available_h / float(max(1, row_count)))
+	var row_size := 13
+	if line_gap < 20.0:
+		row_size = 12
+	if line_gap < 18.0:
+		row_size = 11
+	line_gap = max(16.0, line_gap)
+	var label_x: float = rect.position.x + 2.0
+	var value_right_x: float = rect.end.x - 2.0
+	for i in range(row_count):
+		var baseline_y: float = start_y + float(i) * line_gap
+		if baseline_y > rect.end.y - 8.0:
+			break
+		_draw_text_xy(canvas, font, _stats_label_cache[i], label_x, baseline_y, row_size, TEXT_DIM)
 		var value_text: String = _stats_value_cache[i]
 		var value_color: Color = _stats_color_cache[i]
-		var value_width: float = _get_stats_value_width(font, i, value_text, _stats_layout_row_size)
-		var value_right_x: float = _stats_layout_value_right_x[i]
-		_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, _stats_layout_row_size, value_color)
+		var value_width: float = _get_stats_value_width(font, i, value_text, row_size)
+		_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, row_size, value_color)
+
+
+func _draw_stat_rows(
+	canvas: CanvasItem,
+	font: Font,
+	title: String,
+	rows: Array,
+	rect: Rect2,
+	mouse_pos: Vector2 = Vector2.INF,
+	hover_data: Dictionary = {}
+) -> Dictionary:
+	canvas.draw_rect(rect, Color(10.0 / 255.0, 14.0 / 255.0, 24.0 / 255.0, 0.34))
+	_draw_text_xy(canvas, font, title, rect.position.x + 2.0, rect.position.y + 20.0, 12, ACCENT_BLUE)
+	var row_count: int = rows.size()
+	if row_count <= 0:
+		_draw_text_centered_xy(canvas, font, "표시할 능력치 없음", rect.get_center().x, rect.get_center().y + 4.0, 12, OVERLAY_GRID_EMPTY_TEXT)
+		return hover_data
+	var start_y: float = rect.position.y + 46.0
+	var available_h: float = max(1.0, rect.end.y - start_y - 8.0)
+	var line_gap: float = min(26.0, available_h / float(max(1, row_count)))
+	var row_size := 13
+	if line_gap < 20.0:
+		row_size = 12
+	if line_gap < 18.0:
+		row_size = 11
+	line_gap = max(16.0, line_gap)
+	var label_x: float = rect.position.x + 2.0
+	var value_right_x: float = rect.end.x - 2.0
+	for i in range(row_count):
+		var row_value: Variant = rows[i]
+		if not (row_value is Dictionary):
+			continue
+		var row: Dictionary = row_value
+		var baseline_y: float = start_y + float(i) * line_gap
+		if baseline_y > rect.end.y - 8.0:
+			break
+		var label: String = str(row.get("label", ""))
+		var value_text: String = str(row.get("value", ""))
+		var value_color: Color = _get_color(row.get("color", Color.WHITE))
+		_draw_text_xy(canvas, font, label, label_x, baseline_y, row_size, TEXT_DIM)
+		var value_width: float = _text_size(font, value_text, row_size).x
+		_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, row_size, value_color)
+		var tooltip_body: String = str(row.get("tooltip_body", ""))
+		if tooltip_body != "":
+			var row_rect := Rect2(rect.position.x, baseline_y - float(row_size) - 5.0, rect.size.x, line_gap)
+			if row_rect.has_point(mouse_pos):
+				hover_data = _set_hover_data(
+					hover_data,
+					str(row.get("tooltip_title", label)),
+					str(row.get("tooltip_subtitle", value_text)),
+					tooltip_body,
+					value_color,
+					null,
+					row_rect
+				)
+	return hover_data
+
+
+func _build_lingpet_stats(owner: Object) -> Array:
+	var snapshot: Dictionary = _get_lingpet_panel_snapshot(owner)
+	var state: String = str(snapshot.get("state", "none"))
+	if state == "egg":
+		var hits: int = int(snapshot.get("hatch_hits", 0))
+		var required_hits: int = max(1, int(snapshot.get("required_hits", LINGPET_HATCH_REQUIRED_HITS)))
+		return [
+			_make_display_stat_row("상태", "알", ACCENT_GOLD),
+			_make_display_stat_row("부화 진행", _format_int_pair(hits, required_hits), TEXT_SOFT),
+		]
+	if state != "companion":
+		return [
+			_make_display_stat_row("상태", "미획득", OVERLAY_GRID_EMPTY_TEXT),
+		]
+	var speed_min: float = float(snapshot.get("companion_patrol_speed_min", 70.0))
+	var speed_max: float = float(snapshot.get("companion_patrol_speed_max", 135.0))
+	var catch_width: float = float(snapshot.get("companion_catch_width", 100.0))
+	var catch_height: float = float(snapshot.get("companion_catch_height", 44.0))
+	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 10.0))
+	var hit_gain: float = float(snapshot.get("companion_hit_gauge_gain", 40.0))
+	var active_cooldown: float = float(snapshot.get("companion_skill_cooldown_duration", 40.0))
+	var charge_cooldown: float = float(snapshot.get("companion_hit_gauge_cooldown_duration", 6.0))
+	var defense_rate: float = float(snapshot.get("companion_defense_rate", 0.0))
+	return [
+		_make_display_stat_row("이동 속도", "%s~%spx/s" % [_format_plain_number(speed_min), _format_plain_number(speed_max)], Color.WHITE, "마리보가 플레이어 진영에서 독자적으로 순찰할 때 사용하는 랜덤 이동 속도 범위입니다."),
+		_make_display_stat_row("캐치 범위", "%sx%spx" % [_format_plain_number(catch_width), _format_plain_number(catch_height)], Color.WHITE, "마리보가 공을 튕겨낼 때 쓰는 실제 판정 범위입니다."),
+		_make_display_stat_row("게이지 획득량", "받아치기 +%s / 직접 +%s" % [_format_percent_text(gauge_bonus_pct), _format_plain_number(hit_gain)], STAT_BUFF_COLOR, "플레이어가 공을 받아치면 게이지 획득량이 증가하고, 마리보가 직접 공을 튕기면 게이지를 추가로 얻습니다."),
+		_make_display_stat_row("액티브 쿨타임", _format_seconds_text(active_cooldown), Color.WHITE, "하이드로 스피어를 다시 사용할 수 있게 되는 시간입니다."),
+		_make_display_stat_row("공명 충전 쿨타임", _format_seconds_text(charge_cooldown), Color.WHITE, "마리보가 직접 공을 튕겼을 때 게이지 +40 효과가 다시 발동할 수 있게 되는 시간입니다."),
+		_make_display_stat_row("방어율", _format_percent_text(defense_rate * 100.0), STAT_BUFF_COLOR, "공을 적극적으로 막으러 이동할 확률입니다. 높을수록 수비 행동을 더 자주 시도합니다."),
+	]
+
+
+func _make_display_stat_row(label: String, value_text: String, color: Color, tooltip_body: String = "") -> Dictionary:
+	var row := {
+		"label": LanguageSettings.translate_text(label),
+		"value": LanguageSettings.translate_text(value_text),
+		"color": color,
+	}
+	if tooltip_body != "":
+		row["tooltip_title"] = LanguageSettings.translate_text(label)
+		row["tooltip_subtitle"] = LanguageSettings.translate_text(value_text)
+		row["tooltip_body"] = LanguageSettings.translate_text(tooltip_body)
+	return row
 
 
 func _update_stats_layout(rect: Rect2, stats_count: int) -> void:
@@ -4582,6 +4975,24 @@ func _trim_label(text: String, max_len: int) -> String:
 
 func _format_int_pair(current: int, maximum: int) -> String:
 	return str(current) + " / " + str(maximum)
+
+
+func _format_seconds_text(seconds: float) -> String:
+	if is_equal_approx(seconds, round(seconds)):
+		return "%d초" % int(round(seconds))
+	return "%.1f초" % seconds
+
+
+func _format_percent_text(percent: float) -> String:
+	if is_equal_approx(percent, round(percent)):
+		return "%d%%" % int(round(percent))
+	return "%.1f%%" % percent
+
+
+func _format_plain_number(value: float) -> String:
+	if is_equal_approx(value, round(value)):
+		return "%d" % int(round(value))
+	return "%.1f" % value
 
 
 func _perk_level_text(perk: Dictionary) -> String:

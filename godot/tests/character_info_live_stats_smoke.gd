@@ -2,6 +2,7 @@ extends SceneTree
 
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 
@@ -54,6 +55,7 @@ class CooldownPenaltyRuntime:
 
 
 func _init() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	var overlay: Object = CharacterInfoOverlay.new()
 	var perk_state: Object = RuntimePerkState.new()
 	var active_runtime: Object = ActiveItemRuntime.new()
@@ -74,6 +76,9 @@ func _init() -> void:
 	_expect(active_runtime.effect_controller.activate_vitamin_pill(owner, registry), "vitamin pill should activate for the smoke test")
 
 	var stats: Array = overlay._build_stats(owner, registry)
+	_expect(stats.size() >= 8, "TAB stats should keep the eight live combat stat rows")
+	_expect(_find_stat(stats, "게이지").is_empty(), "TAB stats should omit current gauge summary")
+	_expect(_find_stat(stats, "대시 토큰").is_empty(), "TAB stats should omit dash token summary")
 	_expect(
 		abs(_stat_float(stats, "이동 속도") - 10.08) < 0.02,
 		"TAB move speed should include common swiftness and active-item speed buffs"
@@ -83,7 +88,7 @@ func _init() -> void:
 		"TAB move speed buffs should be highlighted as a buff color"
 	)
 	_expect(
-		abs(_stat_seconds(stats, "아이템쿨타임") - 8.70) < 0.02,
+		abs(_stat_seconds(stats, "아이템쿨타임") - 6.09) < 0.02,
 		"TAB active-item cooldown should include runtime perk reductions"
 	)
 	_expect(
@@ -109,8 +114,8 @@ func _init() -> void:
 	)
 	stats = overlay._build_stats(owner, registry)
 	_expect(
-		str(_find_stat(stats, "액티브 아이템").get("value", "")) == "0 / 5",
-		"TAB active item capacity should include passive item slot bonuses"
+		_find_stat(stats, "액티브 아이템").is_empty(),
+		"TAB stats should leave active item slot counts to the dedicated active-item panel"
 	)
 
 	var debuff_active_runtime: Object = ActiveItemRuntime.new()
@@ -120,6 +125,19 @@ func _init() -> void:
 	_expect(
 		_is_debuff_color(_stat_color(debuff_stats, "아이템쿨타임")),
 		"TAB active-item cooldown increases should be highlighted as a debuff color"
+	)
+
+	var lingpet_owner := FakeOwner.new({
+		"lingpet_id": "maribo",
+		"lingpet_state": "companion",
+		"lingpet_companion_defense_rate": 0.30,
+	})
+	var lingpet_stats: Array = overlay._build_lingpet_stats(lingpet_owner)
+	var defense_stat: Dictionary = _find_stat(lingpet_stats, "방어율")
+	_expect(str(defense_stat.get("value", "")) == "30%", "Maribo defense rate should be visible in lingpet stats")
+	_expect(
+		str(defense_stat.get("tooltip_body", "")).find("공을 적극적으로 막으러 이동할 확률") >= 0,
+		"Maribo defense rate should explain the actual intercept behavior in a tooltip"
 	)
 
 	print("character_info_live_stats_smoke: ok")

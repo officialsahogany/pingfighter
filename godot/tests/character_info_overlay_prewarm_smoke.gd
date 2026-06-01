@@ -156,17 +156,27 @@ func _init() -> void:
 	var layout_overlay := CharacterInfoOverlay.new()
 	layout_overlay.prewarm_assets(FakeOwner.new(), _registry, Callable(), false)
 	_expect(layout_overlay._layout_panel_rect.size != Vector2.ZERO, "character info prewarm should prepare the frame layout when a viewport is available")
-	_expect(layout_overlay._equipment_slot_rect_list_cache.size() > 0, "character info prewarm should prepare equipment slot layout caches")
-	_expect(layout_overlay._equipment_slot_frame_cache_slot_count > 0, "character info prewarm should prepare equipment frame caches")
-	_expect(layout_overlay._skill_slot_rect_cache.size() > 0, "character info prewarm should prepare skill slot layout caches")
-	_expect(layout_overlay._active_slot_rect_cache.size() > 0, "character info prewarm should prepare active item slot layout caches")
-	_expect(layout_overlay._last_passive_inventory_grid_rect.size != Vector2.ZERO, "character info prewarm should prepare passive inventory grid bounds")
-	_expect(layout_overlay._passive_grid_cell_rect_cache.size() > 0, "character info prewarm should prepare passive inventory cell caches")
+	_expect(layout_overlay._layout_equipment_rect.size == Vector2.ZERO, "lingpet character info redesign should hide the old equipment slot panel")
+	_expect(layout_overlay._layout_skill_rect.size == Vector2.ZERO, "lingpet character info redesign should hide the old skill slot panel")
+	_expect(layout_overlay._layout_active_items_rect.size == Vector2.ZERO, "lingpet character info redesign should hide the old active item panel")
+	_expect(layout_overlay._layout_inventory_rect.size == Vector2.ZERO, "lingpet character info redesign should hide the old passive inventory panel")
 	_expect(layout_overlay._last_perk_grid_rect.size != Vector2.ZERO, "character info prewarm should prepare perk grid bounds")
-	_expect(layout_overlay._stats_row_cache.size() >= 14, "character info prewarm should prepare live stat rows")
-	_expect(layout_overlay._stats_layout_visible_count > 0, "character info prewarm should prepare stat row layout")
-	_expect(layout_overlay._stats_value_width_cache[0] > 0.0, "character info prewarm should prepare stat value width cache")
-	_expect(layout_overlay._passive_inventory_count_text_width > 0.0, "character info prewarm should prepare passive inventory count width")
+	_expect(layout_overlay._layout_lingpet_rect.size != Vector2.ZERO, "character info prewarm should prepare the lingpet build panel")
+	_expect(layout_overlay._stats_row_cache.size() >= 8, "character info prewarm should prepare the compact live stat rows")
+	_expect(layout_overlay._build_lingpet_stats(FakeOwner.new()).size() > 0, "character info prewarm should expose lingpet stat rows")
+	var lingpet_content_rect := Rect2(
+		layout_overlay._layout_lingpet_rect.position.x + 12.0,
+		layout_overlay._layout_lingpet_rect.position.y + 36.0,
+		layout_overlay._layout_lingpet_rect.size.x - 24.0,
+		layout_overlay._layout_lingpet_rect.size.y - 48.0
+	)
+	var lingpet_skill_row_h: float = clamp(lingpet_content_rect.size.y * 0.22, 58.0, 78.0)
+	var lingpet_art_rect: Rect2 = layout_overlay._get_lingpet_companion_art_rect(lingpet_content_rect, lingpet_skill_row_h)
+	_expect(lingpet_art_rect.size.y >= 120.0, "720p lingpet panel should reserve enough height for the Maribo full-body art")
+	_expect(FileAccess.file_exists(CharacterInfoOverlay.MARIBO_RESONANCE_BOOST_ICON_PATH), "maribo resonance boost passive icon asset should exist")
+	_expect(FileAccess.file_exists(CharacterInfoOverlay.MARIBO_RESONANCE_CHARGE_ICON_PATH), "maribo resonance charge passive icon asset should exist")
+	_expect(layout_overlay._lingpet_skill_icon_texture_cache.has(CharacterInfoOverlay.MARIBO_RESONANCE_BOOST_ICON_PATH), "character info prewarm should cache the resonance boost passive icon")
+	_expect(layout_overlay._lingpet_skill_icon_texture_cache.has(CharacterInfoOverlay.MARIBO_RESONANCE_CHARGE_ICON_PATH), "character info prewarm should cache the resonance charge passive icon")
 
 	var text_cache_size: int = overlay._text_size_cache.size()
 	var wrap_cache_size: int = overlay._wrap_text_cache.size()
@@ -232,8 +242,8 @@ func _init() -> void:
 	_verify_acquired_perk_cache_reuses_catalog_rows()
 	_verify_passive_inventory_summary_cache_tracks_equipped_state()
 	_verify_active_item_label_cache_reuses_catalog_rows()
-	_verify_stats_reuse_active_item_slot_capacity_sources()
-	_verify_smasher_dash_snapshot_is_character_gated()
+	_verify_compact_stats_reuse_frame_sources()
+	_verify_stats_do_not_read_dash_token_snapshot()
 
 	print("character_info_overlay_prewarm_smoke: ok")
 	quit(0)
@@ -455,11 +465,11 @@ func _verify_active_item_label_cache_reuses_catalog_rows() -> void:
 	_expect(_function_body(source, "func _refresh_active_item_label_cache(").find("continue") >= 0, "active item refresh should skip unchanged cached rows")
 
 
-func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
+func _verify_compact_stats_reuse_frame_sources() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/hud/character_info_overlay.gd")
 	_expect(
 		source.find("var active_item_slot_capacity: int = _get_active_item_slot_capacity_for_sources(runtime_state, mythic_item_runtime)") >= 0,
-		"character info stats should reuse active item slot capacity sources"
+		"character info active-item panel should reuse active item slot capacity sources"
 	)
 	_expect(
 		source.find("var active_item_hud_visuals: Object = _get_instance(registry, \"active_item_hud_visuals\")") >= 0,
@@ -490,8 +500,8 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info draw should resolve the viewport once when reading the mouse position"
 	)
 	_expect(
-		source.find("var dash_snapshot: Dictionary = _get_smasher_dash_snapshot(registry, character_type)") >= 0,
-		"character info draw should fetch smasher dash snapshot only after resolving character type"
+		_function_body(source, "func draw(").find("var dash_snapshot: Dictionary = _get_smasher_dash_snapshot(registry, character_type)") < 0,
+		"character info draw should not fetch dash-token snapshots for the compact stat panel"
 	)
 	_expect(
 		source.find("func _get_smasher_dash_snapshot(registry: Object, character_type: String) -> Dictionary:") >= 0,
@@ -534,8 +544,8 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info prewarm should include a stats layout cache helper"
 	)
 	_expect(
-		_function_body(source, "func _prewarm_stats_layout(").find("_get_stats_value_width(font, i, _stats_value_cache[i], _stats_layout_row_size)") >= 0,
-		"character info stats prewarm should populate value width caches"
+		_function_body(source, "func _prewarm_stats_layout(").find("_text_size(font, str(row.get(\"value\", \"\")), 13)") >= 0,
+		"character info stats prewarm should populate compact stat text caches"
 	)
 	_expect(
 		source.find("func _prewarm_visible_item_icons(owner: Object, registry: Object, module_getter: Callable) -> void:") >= 0,
@@ -582,12 +592,12 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info layout cache should be keyed by view size"
 	)
 	_expect(
-		source.find("_layout_equipment_rect = _section_rect(left_rect, 0.0, 0.58)") >= 0,
-		"character info layout cache should precompute the equipment rect"
+		source.find("_layout_equipment_rect = Rect2()") >= 0,
+		"character info lingpet redesign should retire the old equipment panel rect"
 	)
 	_expect(
-		source.find("var left_rect := Rect2(_layout_panel_rect.position.x + inner_margin, content_top, left_w, main_height)") >= 0,
-		"character info layout should build column rects without temporary Vector2 values"
+		source.find("var main_rect := Rect2(") >= 0,
+		"character info layout should build the compact main rect without temporary Vector2 values"
 	)
 	_expect(
 		source.find("return Rect2(column_rect.position.x, y, column_rect.size.x, max(64.0, height))") >= 0,
@@ -842,12 +852,12 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info stat pair labels should use a scalar helper instead of format arrays"
 	)
 	_expect(
-		source.find("_format_int_pair(active_slots.size(), active_item_slot_capacity)") >= 0,
-		"character info stats should not repeat registry lookups or build format arrays for active item slot capacity"
+		source.find("hover_data = _draw_active_items(canvas, owner, registry, _layout_active_items_rect, font, mouse_pos, hover_data, active_item_slot_capacity, active_item_hud_visuals, stat_sources, active_item_slots)") >= 0,
+		"character info active-item panel should receive the cached slot capacity and active slots"
 	)
 	_expect(
 		source.find("\"%d / %d\" % [active_slots.size(), active_item_slot_capacity]") < 0,
-		"character info stats should avoid per-frame format arrays for active item slot capacity"
+		"character info active-item panel should avoid per-frame format arrays for slot capacity"
 	)
 	_expect(
 		source.find("var _frame_stat_sources: Array = []") >= 0,
@@ -860,6 +870,10 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 	_expect(
 		source.find("var stat_sources: Array = _frame_stat_sources") >= 0,
 		"character info draw should pass the reused frame-level stat sources"
+	)
+	_expect(
+		source.find("_frame_stat_sources.append(lingpet_runtime)") >= 0,
+		"character info draw should include lingpet stat bonuses in the reused frame-level stat sources"
 	)
 	_expect(
 		source.find("var active_item_slots: Array = _get_array(_safe_owner_get(owner, \"active_item_slots\", []))") >= 0,
@@ -1070,11 +1084,11 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info equipment draw should build its content rect without temporary Vector2 allocations"
 	)
 	_expect(
-		source.find("_draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, active_item_slot_capacity, runtime_state, active_item_runtime, mythic_item_runtime, character_type, skill_snapshot, dash_snapshot, runtime_snapshot, stat_sources, active_item_slots)") >= 0,
-		"character info stats draw should reuse frame-level runtime sources, snapshots, stat sources, and active slots"
+		source.find("hover_data = _draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data)") >= 0,
+		"character info stats draw should reuse frame-level runtime sources, compact stat sources, and hover state"
 	)
 	_expect(
-		source.find("var stat_sources: Array = stat_sources_override if not stat_sources_override.is_empty() else [runtime_state, active_item_runtime, mythic_item_runtime]") >= 0,
+		source.find("var stat_sources: Array = stat_sources_override if not stat_sources_override.is_empty() else [runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime]") >= 0,
 		"character info stats builder should reuse frame-level stat sources when provided"
 	)
 	_expect(
@@ -1082,28 +1096,36 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info stats builder should keep direct-call row dictionaries optional"
 	)
 	_expect(
-		_function_body(source, "func _draw_stats_panel(").find("active_slots_override,\n\t\tfalse") >= 0,
+		_function_body(source, "func _draw_stats_panel(").find("stat_sources_override,\n\t\tfalse") >= 0,
 		"character info stats draw should skip row dictionary writes"
 	)
 	_expect(
-		source.find("if levels.is_empty() and not runtime_snapshot.has(\"runtime_skill_levels\"):") >= 0,
-		"character info stats should only read owner perk levels when the snapshot lacks levels"
+		source.find("_write_simple_stat_row(9, \"대시 토큰\"") < 0,
+		"character info stats should omit dash token summaries"
 	)
 	_expect(
-		source.find("_get_runtime_perk_gold(owner, runtime_snapshot)") >= 0,
-		"character info stats should route perk gold fallback through a lazy helper"
+		source.find("_write_simple_stat_row(10, \"장착 스킬\"") < 0,
+		"character info stats should omit equipped skill summaries"
 	)
 	_expect(
 		source.find("var _stats_row_count := 0") >= 0,
 		"character info stats panel should keep the reusable stats row count"
 	)
 	_expect(
-		source.find("var stats_count: int = _stats_row_count") >= 0,
-		"character info stats panel should reuse the cached stats count during layout"
+		source.find("var row_count: int = _stats_row_count") >= 0,
+		"character info player stats draw should reuse the cached stats row count"
 	)
 	_expect(
 		_function_body(source, "func _draw_stats_panel(").find("var stats: Array = _build_stats(") < 0,
 		"character info stats panel should not allocate a returned stats array binding during draw"
+	)
+	_expect(
+		_function_body(source, "func _draw_stat_rows(").find("tooltip_body") >= 0,
+		"lingpet stat rows should support focused hover tooltip bodies"
+	)
+	_expect(
+		source.find("공을 적극적으로 막으러 이동할 확률입니다") >= 0,
+		"Maribo defense-rate stat should explain its intercept behavior"
 	)
 	_expect(
 		source.find("_stats_row_count = STAT_ROW_COUNT") >= 0,
@@ -1182,11 +1204,11 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info stats draw should not unpack row dictionaries during the draw loop"
 	)
 	_expect(
-		source.find("_draw_text_xy(canvas, font, _stats_label_cache[i], _stats_layout_label_x[i], baseline_y, _stats_layout_row_size, TEXT_DIM)") >= 0,
-		"character info stats draw should read label positions from typed scalar caches"
+		source.find("_draw_text_xy(canvas, font, _stats_label_cache[i], label_x, baseline_y, row_size, TEXT_DIM)") >= 0,
+		"character info stats draw should read labels from typed scalar caches"
 	)
 	_expect(
-		source.find("_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, _stats_layout_row_size, value_color)") >= 0,
+		source.find("_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, row_size, value_color)") >= 0,
 		"character info stats values should draw through the scalar baseline helper"
 	)
 	_expect(
@@ -1198,7 +1220,7 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info stats draw should not recalculate value text sizes every frame"
 	)
 	_expect(
-		source.find("var value_width: float = _get_stats_value_width(font, i, value_text, _stats_layout_row_size)") >= 0,
+		source.find("var value_width: float = _get_stats_value_width(font, i, value_text, row_size)") >= 0,
 		"character info stats draw should read value widths from cache"
 	)
 	_expect(
@@ -1238,12 +1260,12 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 		"character info stats layout should reuse the column stride while rebuilding row positions"
 	)
 	_expect(
-		source.find("var value_right_x: float = _stats_layout_value_right_x[i]") >= 0,
-		"character info stats panel should reuse cached value right edges during row draw"
+		source.find("var value_right_x: float = rect.end.x - 2.0") >= 0,
+		"character info stats panel should use a stable scalar value-right edge during row draw"
 	)
 	_expect(
-		source.find("if active_item_slot_capacity < 1:") >= 0,
-		"direct character info stats calls should still compute slot capacity when no cached value is provided"
+		source.find("_write_simple_stat_row(11, \"액티브 아이템\"") < 0,
+		"character info stats should omit active item slot summaries"
 	)
 	_expect(
 		source.find("_passive_item_roll_entries_cache_item_hash") >= 0,
@@ -1703,7 +1725,7 @@ func _verify_stats_reuse_active_item_slot_capacity_sources() -> void:
 	)
 
 
-func _verify_smasher_dash_snapshot_is_character_gated() -> void:
+func _verify_stats_do_not_read_dash_token_snapshot() -> void:
 	var overlay := CharacterInfoOverlay.new()
 	var registry := FakeRegistry.new()
 	var dash_state := FakeDashState.new()
@@ -1716,7 +1738,7 @@ func _verify_smasher_dash_snapshot_is_character_gated() -> void:
 
 	owner.selected_character_type = "smasher"
 	overlay._build_stats(owner, registry)
-	_expect(dash_state.snapshot_calls == 1, "smasher character info stats should read smasher dash state")
+	_expect(dash_state.snapshot_calls == 0, "compact character info stats should not read dash-token state")
 
 
 func _function_body(source: String, signature: String) -> String:
