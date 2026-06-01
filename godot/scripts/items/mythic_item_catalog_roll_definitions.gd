@@ -583,12 +583,12 @@ const REINFORCED_BOOMERANG_GAUNTLET_ROLL_OPTIONS := [
 	{
 		"key": "boomerang_spawn_bonus_pct",
 		"label": "부메랑 스폰율",
-		"min": 300.0,
-		"max": 500.0,
+		"min": 150.0,
+		"max": 250.0,
 		"step": 1.0,
 		"unit": "%",
 		"prefix": "+",
-		"default": 400.0,
+		"default": 200.0,
 	},
 ]
 

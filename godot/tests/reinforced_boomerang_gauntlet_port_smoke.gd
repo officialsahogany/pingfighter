@@ -91,17 +91,17 @@ func _init() -> void:
 	_expect(_array_has_item(mythic_catalog.get_field_spawn_items(), "reinforced_boomerang_gauntlet"), "gauntlet should spawn as a passive field item")
 	_expect(_roll_option_has_range(mythic_catalog, "boomerang_launch_speed_pct", 30.0, 60.0), "launch speed roll should match Python")
 	_expect(_roll_option_has_range(mythic_catalog, "boomerang_homing_pct", 20.0, 50.0), "homing roll should match Python")
-	_expect(_roll_option_has_range(mythic_catalog, "boomerang_spawn_bonus_pct", 300.0, 500.0), "spawn roll should match Python")
+	_expect(_roll_option_has_values(mythic_catalog, "boomerang_spawn_bonus_pct", 150.0, 250.0, 200.0), "spawn roll should match current tuning")
 
 	_expect(runtime.equip_item("reinforced_boomerang_gauntlet", owner, registry, {
 		"boomerang_launch_speed_pct": 60.0,
 		"boomerang_homing_pct": 50.0,
-		"boomerang_spawn_bonus_pct": 500.0,
+		"boomerang_spawn_bonus_pct": 250.0,
 	}, false), "first gauntlet should equip into an arm slot")
 	_expect(runtime.acquire_item("reinforced_boomerang_gauntlet", owner, registry, {
 		"boomerang_launch_speed_pct": 60.0,
 		"boomerang_homing_pct": 50.0,
-		"boomerang_spawn_bonus_pct": 500.0,
+		"boomerang_spawn_bonus_pct": 250.0,
 	}, true, false) >= 0, "second gauntlet duplicate should equip into the other arm slot")
 
 	var snapshot: Dictionary = runtime.get_snapshot()
@@ -109,7 +109,7 @@ func _init() -> void:
 	_expect(int(snapshot.get("reinforced_boomerang_gauntlet_count", 0)) == 2, "two gauntlets should stack across both arm slots")
 	_expect_close(float(snapshot.get("reinforced_boomerang_gauntlet_launch_speed_pct", 0.0)), 120.0, "launch speed should stack")
 	_expect_close(float(snapshot.get("reinforced_boomerang_gauntlet_homing_pct", 0.0)), 100.0, "homing should stack")
-	_expect_close(float(snapshot.get("reinforced_boomerang_gauntlet_spawn_bonus_pct", 0.0)), 1000.0, "boomerang spawn bonus should stack")
+	_expect_close(float(snapshot.get("reinforced_boomerang_gauntlet_spawn_bonus_pct", 0.0)), 500.0, "boomerang spawn bonus should stack")
 	_expect_close(float(snapshot.get("boomerang_launch_speed_multiplier", 0.0)), 2.2, "launch speed multiplier should use stacked rolls")
 	_expect_close(float(snapshot.get("boomerang_homing_multiplier", 0.0)), 2.0, "homing multiplier should use stacked rolls")
 	_expect_close(float(snapshot.get("boomerang_knockback_multiplier", 0.0)), 1.4, "fixed knockback multiplier should be active")
@@ -124,7 +124,7 @@ func _init() -> void:
 	var candidates: Array[Dictionary] = field_spawn_controller._build_spawn_candidates(registry)
 	var boomerang_candidate: Dictionary = _find_item(candidates, "boomerang")
 	_expect(not boomerang_candidate.is_empty(), "boomerang should remain in active field candidates")
-	_expect_close(float(boomerang_candidate.get("chance", 0.0)), 0.015 * 11.0, "boomerang field chance should receive gauntlet spawn multiplier")
+	_expect_close(float(boomerang_candidate.get("chance", 0.0)), 0.015 * 6.0, "boomerang field chance should receive gauntlet spawn multiplier")
 
 	var active_slots: Array = []
 	var boomerang_item: Dictionary = active_catalog.build_item_by_name("boomerang")
@@ -177,6 +177,21 @@ func _roll_option_has_range(catalog: Object, option_key: String, minimum: float,
 		return (
 			abs(float(option.get("min", 0.0)) - minimum) <= 0.000001
 			and abs(float(option.get("max", 0.0)) - maximum) <= 0.000001
+		)
+	return false
+
+
+func _roll_option_has_values(catalog: Object, option_key: String, minimum: float, maximum: float, default_value: float) -> bool:
+	for option_value in catalog.get_roll_options("reinforced_boomerang_gauntlet"):
+		if not (option_value is Dictionary):
+			continue
+		var option: Dictionary = option_value
+		if str(option.get("key", "")) != option_key:
+			continue
+		return (
+			abs(float(option.get("min", 0.0)) - minimum) <= 0.000001
+			and abs(float(option.get("max", 0.0)) - maximum) <= 0.000001
+			and abs(float(option.get("default", 0.0)) - default_value) <= 0.000001
 		)
 	return false
 

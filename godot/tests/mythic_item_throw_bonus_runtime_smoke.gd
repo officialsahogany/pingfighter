@@ -54,7 +54,7 @@ func _verify_reinforced_boomerang_gauntlet() -> void:
 		runtime.equip_item("reinforced_boomerang_gauntlet", owner, null, {
 			"boomerang_launch_speed_pct": 60.0,
 			"boomerang_homing_pct": 40.0,
-			"boomerang_spawn_bonus_pct": 400.0,
+			"boomerang_spawn_bonus_pct": 200.0,
 		}, false),
 		"first Reinforced Boomerang Gauntlet should equip"
 	)
@@ -62,7 +62,7 @@ func _verify_reinforced_boomerang_gauntlet() -> void:
 		runtime.acquire_item("reinforced_boomerang_gauntlet", owner, null, {
 			"boomerang_launch_speed_pct": 60.0,
 			"boomerang_homing_pct": 60.0,
-			"boomerang_spawn_bonus_pct": 600.0,
+			"boomerang_spawn_bonus_pct": 250.0,
 		}, true, false) >= 0,
 		"second Reinforced Boomerang Gauntlet should equip"
 	)
@@ -71,11 +71,11 @@ func _verify_reinforced_boomerang_gauntlet() -> void:
 	_expect(owner.reinforced_boomerang_gauntlet_count == 2, "owner should count both gauntlets")
 	_expect_close(runtime.get_boomerang_launch_speed_pct(), 120.0, "launch speed should stack")
 	_expect_close(runtime.get_boomerang_homing_pct(), 100.0, "homing should stack")
-	_expect_close(runtime.get_boomerang_spawn_bonus_pct(), 1000.0, "spawn bonus should stack")
+	_expect_close(runtime.get_boomerang_spawn_bonus_pct(), 450.0, "spawn bonus should stack")
 	_expect_close(runtime.get_boomerang_launch_speed_multiplier(), 2.2, "launch speed multiplier should reflect stacked roll")
 	_expect_close(runtime.get_boomerang_homing_multiplier(), 2.0, "homing multiplier should reflect stacked roll")
-	_expect_close(runtime.get_boomerang_item_spawn_multiplier(), 11.0, "spawn multiplier should reflect stacked roll")
-	_expect_close(runtime.get_boomerang_item_spawn_chance(0.006), 0.066, "spawn chance should scale by multiplier")
+	_expect_close(runtime.get_boomerang_item_spawn_multiplier(), 5.5, "spawn multiplier should reflect stacked roll")
+	_expect_close(runtime.get_boomerang_item_spawn_chance(0.006), 0.033, "spawn chance should scale by multiplier")
 	_expect_close(runtime.get_boomerang_knockback_multiplier(), 1.4, "gauntlet should expose fixed knockback multiplier")
 	_expect_close(runtime.get_boomerang_stun_multiplier(), 1.6, "gauntlet should expose fixed stun multiplier")
 
