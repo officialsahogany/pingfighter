@@ -15,11 +15,33 @@ const WIDE_SKILLCARD_ASPECT_MIN := 2.5
 
 var _textures := {}
 var _queue_positions := {}
+var _prewarm_step_index := 0
+var _prewarmed := false
 
 
 func prewarm_assets() -> void:
-	_get_skill_texture("magnetic_field")
-	_get_skill_texture("meditation")
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarmed:
+		return true
+	match _prewarm_step_index:
+		0:
+			_get_skill_texture("magnetic_field")
+		1:
+			_get_skill_texture("meditation")
+		_:
+			_prewarmed = true
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	if _prewarm_step_index > 1:
+		_prewarmed = true
+		_prewarm_step_index = 0
+		return true
+	return false
 
 
 func reset() -> void:
