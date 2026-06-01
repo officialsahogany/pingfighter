@@ -23,6 +23,7 @@ func finish_intro(intro: Object, owner: Object, registry: Object, target_pos: Ve
 			elif round_state.has_method("reset_round_wait"):
 				round_state.reset_round_wait()
 		intro._sync_serve_input(registry)
+	_flush_post_intro_runtime_perk_effects(owner, registry)
 	intro.serve_handoff_done = false
 
 
@@ -36,6 +37,12 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _flush_post_intro_runtime_perk_effects(owner: Object, registry: Object) -> void:
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state != null and runtime_perk_state.has_method("on_ball_spawn_intro_finished"):
+		runtime_perk_state.on_ball_spawn_intro_finished(owner, registry)
 
 
 func _stop_intro_audio(registry: Object) -> void:

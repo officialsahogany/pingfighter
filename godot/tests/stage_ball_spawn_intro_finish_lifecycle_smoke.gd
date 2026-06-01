@@ -19,14 +19,30 @@ class FakeRoundState:
 		reset_wait += 1
 
 
+class FakeRuntimePerkState:
+	extends RefCounted
+
+	var intro_finished_calls := 0
+	var last_owner: Object = null
+	var last_registry: Object = null
+
+	func on_ball_spawn_intro_finished(owner: Object, registry: Object) -> void:
+		intro_finished_calls += 1
+		last_owner = owner
+		last_registry = registry
+
+
 class FakeRegistry:
 	extends RefCounted
 
 	var round_state := FakeRoundState.new()
+	var runtime_perk_state := FakeRuntimePerkState.new()
 
 	func get_instance(key: String) -> Object:
 		if key == "round_flow_state":
 			return round_state
+		if key == "runtime_perk_state":
+			return runtime_perk_state
 		return null
 
 
@@ -107,6 +123,7 @@ func _verify_finish_lifecycle_resets_and_resumes_serve() -> void:
 	_expect(registry.round_state.prepared == 1, "finish lifecycle should prepare serve after intro")
 	_expect(registry.round_state.reset_wait == 0, "finish lifecycle should prefer prepare_serve_after_intro")
 	_expect(intro.synced_serve_input == 1, "finish lifecycle should sync serve input edges")
+	_expect(registry.runtime_perk_state.intro_finished_calls == 1, "finish lifecycle should flush runtime perk effects after the intro ends")
 
 	var handed_off_intro := FakeIntro.new()
 	handed_off_intro.active = false
@@ -117,6 +134,7 @@ func _verify_finish_lifecycle_resets_and_resumes_serve() -> void:
 	_expect(handed_off_intro.owner_snapshot.is_empty(), "finish lifecycle should preserve live ball state after early handoff")
 	_expect(handed_off_registry.round_state.prepared == 0, "finish lifecycle should not prepare serve twice after early handoff")
 	_expect(handed_off_intro.synced_serve_input == 0, "finish lifecycle should not resync serve input after early handoff")
+	_expect(handed_off_registry.runtime_perk_state.intro_finished_calls == 1, "finish lifecycle should still flush runtime perk effects after the residual overlay ends")
 
 
 func _verify_lifecycle_delegates_finish_surface() -> void:

@@ -10,6 +10,8 @@ class FakeOwner:
 	extends RefCounted
 
 	var selected_character_type := "smasher"
+	var current_stage := 1
+	var special_gauge := 0.0
 	var runtime_perk_levels: Dictionary = {}
 	var runtime_perk_effective_levels: Dictionary = {}
 	var runtime_perk_pending_choices := 0
@@ -42,6 +44,16 @@ class FakeGameAudio:
 		weapon_change_calls += 1
 
 
+class FakeActiveItemRuntime:
+	extends RefCounted
+
+	var dimension_gate_calls := 0
+
+	func activate_dimension_gate(_registry: Object = null) -> bool:
+		dimension_gate_calls += 1
+		return true
+
+
 class FakeRuntimePerkCatalog:
 	extends RefCounted
 
@@ -56,6 +68,7 @@ class FakeSkillConfig:
 
 	var equipped_skills: Array = ["drive", "power_smashing"]
 	var unlock_calls := 0
+	var reset_cooldown_calls := 0
 	var runtime_cooldown_multiplier := 1.0
 
 	func get_snapshot() -> Dictionary:
@@ -75,6 +88,18 @@ class FakeSkillConfig:
 
 	func set_runtime_cooldown_multiplier(multiplier: float) -> void:
 		runtime_cooldown_multiplier = multiplier
+
+	func reset_cooldowns() -> void:
+		reset_cooldown_calls += 1
+
+
+class FakeDashState:
+	extends RefCounted
+
+	var refill_calls := 0
+
+	func refill_tokens() -> void:
+		refill_calls += 1
 
 
 class FakeCommandoWeaponController:
@@ -108,6 +133,8 @@ class FakeRegistry:
 	var skill_config := FakeSkillConfig.new()
 	var commando_skill_config := FakeSkillConfig.new()
 	var commando_weapon_controller := FakeCommandoWeaponController.new()
+	var smasher_dash_state := FakeDashState.new()
+	var active_item_runtime := FakeActiveItemRuntime.new()
 	var battle_view_layout := BattleViewLayout.new()
 	var battle_scene_config := BattleSceneConfig.new()
 	var game_audio := FakeGameAudio.new()
@@ -124,10 +151,16 @@ class FakeRegistry:
 				return runtime_perk_catalog
 			"smasher_skill_config":
 				return skill_config
+			"smasher_skill_state":
+				return skill_config
+			"smasher_dash_state":
+				return smasher_dash_state
 			"commando_skill_config":
 				return commando_skill_config
 			"commando_weapon_controller":
 				return commando_weapon_controller
+			"active_item_runtime":
+				return active_item_runtime
 			"battle_view_layout":
 				return battle_view_layout
 			"battle_scene_config":
@@ -151,6 +184,8 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_active_unlock_waits_for_orb_flight()
 	_verify_soldier_unlock_syncs_commando_controller()
+	_verify_result_box_dimension_gate_waits_for_next_spawn_intro_finish()
+	_verify_result_box_full_gauge_waits_for_next_spawn_intro_finish()
 	_verify_collect_starpoints_preserves_in_flight_drops()
 	_verify_starpoint_absorption_tracks_player_after_choice()
 	print("runtime_perk_active_unlock_flight_smoke: ok")
@@ -247,6 +282,93 @@ func _verify_soldier_unlock_syncs_commando_controller() -> void:
 	_expect(registry.commando_weapon_controller.last_highlight_skill == "ak47", "soldier firearm HUD highlight should target the unlocked weapon")
 	_expect(registry.game_audio.weapon_change_calls == 1, "soldier firearm unlock should play weapon.wav")
 	_expect(int(state.runtime_skill_levels.get("soldier_unlock_ak47", 0)) == 1, "soldier unlock level should be committed")
+
+
+func _verify_result_box_dimension_gate_waits_for_next_spawn_intro_finish() -> void:
+	var state := RuntimePerkState.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	var view_size := Vector2(1488.0, 918.0)
+	registry.runtime_perk_catalog.choices = [{
+		"id": "instant_dimension_gate",
+		"name": "차원개방",
+		"is_instant": true,
+		"icon_color": Color(0.52, 0.86, 1.0),
+	}]
+	state.pending_skill_choices = 1
+	state.open_next_choice(
+		"smasher",
+		registry.runtime_perk_catalog,
+		false,
+		owner,
+		registry,
+		null,
+		{RuntimePerkState.CHOICE_CONTEXT_DEFER_DIMENSION_GATE_UNTIL_SPAWN_END: true}
+	)
+	state.animation_time = 0.30
+
+	state.choose_selected(owner, registry, view_size)
+
+	_expect(not state.is_choice_active(), "deferred dimension-gate choice should close the modal after selection")
+	_expect(state.has_pending_dimension_gate_after_spawn_intro(), "result-box dimension gate should queue after the selection")
+	_expect(registry.active_item_runtime.dimension_gate_calls == 0, "dimension gate should not activate on the result screen")
+
+	var same_stage_result: Dictionary = state.on_ball_spawn_intro_finished(owner, registry)
+	_expect(bool(same_stage_result.get("wait_for_stage_advance", false)), "queued dimension gate should wait until the stage has advanced")
+	_expect(registry.active_item_runtime.dimension_gate_calls == 0, "same-stage intro finish should not consume result-box dimension gate")
+	_expect(state.has_pending_dimension_gate_after_spawn_intro(), "same-stage intro finish should keep the queued dimension gate")
+
+	owner.current_stage = 2
+	var next_stage_result: Dictionary = state.on_ball_spawn_intro_finished(owner, registry)
+	_expect(bool(next_stage_result.get("dimension_gate_activated", false)), "next-stage spawn intro finish should activate queued dimension gate")
+	_expect(registry.active_item_runtime.dimension_gate_calls == 1, "dimension gate should activate exactly once after the next spawn intro")
+	_expect(not state.has_pending_dimension_gate_after_spawn_intro(), "activated dimension gate should clear the queued effect")
+
+
+func _verify_result_box_full_gauge_waits_for_next_spawn_intro_finish() -> void:
+	var state := RuntimePerkState.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	var view_size := Vector2(1488.0, 918.0)
+	owner.special_gauge = 120.0
+	registry.runtime_perk_catalog.choices = [{
+		"id": "instant_gauge_full",
+		"name": "풀게이징",
+		"is_instant": true,
+		"icon_color": Color(1.0, 0.9, 0.25),
+	}]
+	state.pending_skill_choices = 1
+	state.open_next_choice(
+		"smasher",
+		registry.runtime_perk_catalog,
+		false,
+		owner,
+		registry,
+		null,
+		{RuntimePerkState.CHOICE_CONTEXT_DEFER_FULL_GAUGE_UNTIL_SPAWN_END: true}
+	)
+	state.animation_time = 0.30
+
+	state.choose_selected(owner, registry, view_size)
+
+	_expect(not state.is_choice_active(), "deferred full-gauge choice should close the modal after selection")
+	_expect(state.has_pending_full_gauge_after_spawn_intro(), "result-box full gauge should queue after the selection")
+	_expect(is_equal_approx(owner.special_gauge, 120.0), "full gauge should not fill gauge on the result screen")
+	_expect(registry.smasher_dash_state.refill_calls == 0, "full gauge should not refill dash tokens on the result screen")
+	_expect(registry.skill_config.reset_cooldown_calls == 0, "full gauge should not reset cooldowns on the result screen")
+
+	var same_stage_result: Dictionary = state.on_ball_spawn_intro_finished(owner, registry)
+	_expect(bool(same_stage_result.get("wait_for_stage_advance", false)), "queued full gauge should wait until the stage has advanced")
+	_expect(is_equal_approx(owner.special_gauge, 120.0), "same-stage intro finish should not consume queued full gauge")
+	_expect(state.has_pending_full_gauge_after_spawn_intro(), "same-stage intro finish should keep the queued full gauge")
+
+	owner.current_stage = 2
+	var next_stage_result: Dictionary = state.on_ball_spawn_intro_finished(owner, registry)
+	_expect(bool(next_stage_result.get("full_gauge_activated", false)), "next-stage spawn intro finish should activate queued full gauge")
+	_expect(is_equal_approx(owner.special_gauge, 500.0), "queued full gauge should fill special gauge after the next spawn intro")
+	_expect(registry.smasher_dash_state.refill_calls == 1, "queued full gauge should refill dash tokens after the next spawn intro")
+	_expect(registry.skill_config.reset_cooldown_calls == 1, "queued full gauge should reset cooldowns after the next spawn intro")
+	_expect(not state.has_pending_full_gauge_after_spawn_intro(), "activated full gauge should clear the queued effect")
 
 
 func _verify_collect_starpoints_preserves_in_flight_drops() -> void:

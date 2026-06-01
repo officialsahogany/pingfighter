@@ -43,6 +43,8 @@ const MAX_ITEM_RECYCLE_CHANCE := 0.90
 const PERK_LAUREL_SHIELD_ID := "perk_laurel_shield"
 const DASH_ACCELERATION_ID := "dash_acceleration"
 const DASH_ACCELERATION_BONUS_PER_LEVEL := 0.70
+const CHOICE_CONTEXT_DEFER_DIMENSION_GATE_UNTIL_SPAWN_END := "defer_instant_dimension_gate_until_spawn_intro_end"
+const CHOICE_CONTEXT_DEFER_FULL_GAUGE_UNTIL_SPAWN_END := "defer_instant_full_gauge_until_spawn_intro_end"
 const DOWNTOWN_TREASURE_MAP_ID := "downtown_treasure_map"
 const TREASURE_MAP_FIELD_MYTHIC_BONUS_PER_LEVEL := 1.50
 const TREASURE_MAP_PASSIVE_DROP_SHARE_BONUS_PER_LEVEL := 0.03
@@ -101,6 +103,16 @@ var choice_flight_effect: Dictionary = {}
 var starpoint_absorption_effect: Dictionary = {}
 var gamepad_choice_horizontal_latch := 0
 var gamepad_unlock_swap_horizontal_latch := 0
+var current_choice_context: Dictionary = {}
+var pending_dimension_gate_after_spawn_intro := false
+var pending_dimension_gate_origin_stage := 0
+var pending_dimension_gate_feedback_text := ""
+var pending_full_gauge_after_spawn_intro := false
+var pending_full_gauge_origin_stage := 0
+var pending_full_gauge_feedback_text := ""
+var _skill_cooldown_pause_active := false
+var _skill_cooldown_pause_owner: Object = null
+var _skill_cooldown_pause_registry: Object = null
 var _flight_scene_config: Object = BattleSceneConfig.new()
 var _flight_view_layout: Object = BattleViewLayout.new()
 var _flight_pillar_layout: Object = Stage1PillarUILayout.new()
@@ -108,6 +120,7 @@ var _flight_orb_positioner: Object = SmasherSkillOrbRenderer.new()
 
 
 func reset() -> void:
+	_resume_skill_cooldowns_for_choice()
 	runtime_skill_levels.clear()
 	starpoint_for_skills = 0
 	pending_skill_choices = 0
@@ -132,6 +145,13 @@ func reset() -> void:
 	choice_flight_effect.clear()
 	gamepad_choice_horizontal_latch = 0
 	gamepad_unlock_swap_horizontal_latch = 0
+	current_choice_context.clear()
+	pending_dimension_gate_after_spawn_intro = false
+	pending_dimension_gate_origin_stage = 0
+	pending_dimension_gate_feedback_text = ""
+	pending_full_gauge_after_spawn_intro = false
+	pending_full_gauge_origin_stage = 0
+	pending_full_gauge_feedback_text = ""
 	_clear_resume_safety()
 	resume_pre_choice_ball_vel = Vector2.ZERO
 	resume_has_pre_choice_ball_vel = false
@@ -167,17 +187,23 @@ func open_next_choice(
 	exclude_instant: bool = false,
 	owner: Object = null,
 	registry: Object = null,
-	perf_logger: Object = null
+	perf_logger: Object = null,
+	choice_context: Dictionary = {}
 ) -> void:
 	choice_flight_effect.clear()
 	if pending_skill_choices <= 0:
 		choice_active = false
 		current_choices.clear()
+		current_choice_context.clear()
+		_resume_skill_cooldowns_for_choice()
 		return
 	if catalog == null or not catalog.has_method("get_choices"):
 		choice_active = false
+		current_choice_context.clear()
+		_resume_skill_cooldowns_for_choice()
 		return
 
+	current_choice_context = choice_context.duplicate(true)
 	var sample_start: int = _perf_begin(perf_logger)
 	var item_bonus_choice_count: int = _get_item_perk_choice_count_bonus(owner, registry)
 	_perf_end(perf_logger, "process.runtime_perk.open_next_choice.item_bonus", sample_start)
@@ -189,7 +215,10 @@ func open_next_choice(
 		pending_skill_choices = max(0, pending_skill_choices - 1)
 		choice_active = pending_skill_choices > 0
 		if choice_active:
-			open_next_choice(character_type, catalog, exclude_instant, owner, registry)
+			open_next_choice(character_type, catalog, exclude_instant, owner, registry, perf_logger, current_choice_context)
+		else:
+			current_choice_context.clear()
+			_resume_skill_cooldowns_for_choice()
 		return
 	if item_bonus_choice_count > 0 and current_choices.size() >= target_choice_count + 1:
 		var bonus_card_index: int = current_choices.size() - 2
@@ -204,6 +233,7 @@ func open_next_choice(
 	gamepad_choice_horizontal_latch = 0
 	animation_time = 0.0
 	choice_active = true
+	_pause_skill_cooldowns_for_choice(owner, registry)
 	sample_start = _perf_begin(perf_logger)
 	_build_particles()
 	_perf_end(perf_logger, "process.runtime_perk.open_next_choice.particles", sample_start)
@@ -763,6 +793,7 @@ func _finish_successful_choice(
 	choice: Dictionary = {}
 ) -> void:
 	var sample_start: int = _perf_begin(perf_logger)
+	var next_choice_context: Dictionary = current_choice_context.duplicate(true)
 	last_selected_id = choice_id
 	last_selected_choice = _build_selected_choice_snapshot(choice_id, choice)
 	selected_choice_sequence += 1
@@ -780,9 +811,14 @@ func _finish_successful_choice(
 	var catalog := _get_catalog(registry)
 	if pending_skill_choices > 0 and catalog != null:
 		sample_start = _perf_begin(perf_logger)
-		open_next_choice(character_type, catalog, false, owner, registry, perf_logger)
+		open_next_choice(character_type, catalog, false, owner, registry, perf_logger, next_choice_context)
 		_perf_end(perf_logger, "process.runtime_perk.finish_success.open_next_choice", sample_start)
+	elif not has_pending_unlock_swap():
+		current_choice_context.clear()
 	if not choice_active and not has_pending_unlock_swap():
+		sample_start = _perf_begin(perf_logger)
+		_resume_skill_cooldowns_for_choice()
+		_perf_end(perf_logger, "process.runtime_perk.finish_success.resume_skill_cooldowns", sample_start)
 		sample_start = _perf_begin(perf_logger)
 		_try_arm_resume_safety(owner, registry)
 		_perf_end(perf_logger, "process.runtime_perk.finish_success.resume_safety", sample_start)
@@ -878,12 +914,22 @@ func apply_choice(choice: Dictionary, owner: Object, registry: Object, perf_logg
 		return true
 
 	if choice_id == "instant_gauge_full":
+		if _should_defer_full_gauge_until_spawn_intro_end():
+			_queue_full_gauge_after_spawn_intro(owner, str(choice.get("name", choice_id)))
+			feedback_text = str(choice.get("name", choice_id))
+			feedback_timer = 1.2
+			return true
 		_apply_full_gauge(owner, registry)
 		feedback_text = "게이지 완충"
 		feedback_timer = 1.2
 		return true
 
 	if choice_id == "instant_dimension_gate":
+		if _should_defer_dimension_gate_until_spawn_intro_end():
+			_queue_dimension_gate_after_spawn_intro(owner, str(choice.get("name", choice_id)))
+			feedback_text = str(choice.get("name", choice_id))
+			feedback_timer = 1.2
+			return true
 		if not _apply_dimension_gate(registry):
 			return false
 		feedback_text = "차원개방"
@@ -1019,6 +1065,11 @@ func get_snapshot() -> Dictionary:
 		"last_selected_id": last_selected_id,
 		"last_selected_choice": last_selected_choice.duplicate(true),
 		"selected_choice_sequence": selected_choice_sequence,
+		"current_choice_context": current_choice_context.duplicate(true),
+		"pending_dimension_gate_after_spawn_intro": pending_dimension_gate_after_spawn_intro,
+		"pending_dimension_gate_origin_stage": pending_dimension_gate_origin_stage,
+		"pending_full_gauge_after_spawn_intro": pending_full_gauge_after_spawn_intro,
+		"pending_full_gauge_origin_stage": pending_full_gauge_origin_stage,
 	}
 
 
@@ -1421,6 +1472,7 @@ func cancel_pending_unlock_swap(owner: Object = null) -> bool:
 	pending_unlock_swap.clear()
 	unlock_swap_selected_index = 0
 	gamepad_unlock_swap_horizontal_latch = 0
+	current_choice_context.clear()
 	feedback_text = "교체 취소"
 	feedback_timer = 0.8
 	_sync_owner(owner)
@@ -1581,6 +1633,91 @@ func _apply_dimension_gate(registry: Object) -> bool:
 	return bool(active_item_runtime.activate_dimension_gate(registry))
 
 
+func _should_defer_dimension_gate_until_spawn_intro_end() -> bool:
+	return bool(current_choice_context.get(CHOICE_CONTEXT_DEFER_DIMENSION_GATE_UNTIL_SPAWN_END, false))
+
+
+func _should_defer_full_gauge_until_spawn_intro_end() -> bool:
+	return bool(current_choice_context.get(CHOICE_CONTEXT_DEFER_FULL_GAUGE_UNTIL_SPAWN_END, false))
+
+
+func _queue_dimension_gate_after_spawn_intro(owner: Object, pending_feedback_text: String = "") -> void:
+	pending_dimension_gate_after_spawn_intro = true
+	pending_dimension_gate_origin_stage = _get_current_stage(owner)
+	pending_dimension_gate_feedback_text = pending_feedback_text
+
+
+func has_pending_dimension_gate_after_spawn_intro() -> bool:
+	return pending_dimension_gate_after_spawn_intro
+
+
+func _queue_full_gauge_after_spawn_intro(owner: Object, pending_feedback_text: String = "") -> void:
+	pending_full_gauge_after_spawn_intro = true
+	pending_full_gauge_origin_stage = _get_current_stage(owner)
+	pending_full_gauge_feedback_text = pending_feedback_text
+
+
+func has_pending_full_gauge_after_spawn_intro() -> bool:
+	return pending_full_gauge_after_spawn_intro
+
+
+func on_ball_spawn_intro_finished(owner: Object, registry: Object) -> Dictionary:
+	var result := {
+		"dimension_gate_pending": pending_dimension_gate_after_spawn_intro,
+		"dimension_gate_activated": false,
+		"dimension_gate_failed": false,
+		"full_gauge_pending": pending_full_gauge_after_spawn_intro,
+		"full_gauge_activated": false,
+		"wait_for_stage_advance": false,
+	}
+	if not pending_dimension_gate_after_spawn_intro and not pending_full_gauge_after_spawn_intro:
+		return result
+	var current_stage_value: int = _get_current_stage(owner)
+	if (
+		pending_dimension_gate_after_spawn_intro
+		and pending_dimension_gate_origin_stage > 0
+		and current_stage_value == pending_dimension_gate_origin_stage
+	):
+		result["wait_for_stage_advance"] = true
+	else:
+		if pending_dimension_gate_after_spawn_intro:
+			var dimension_feedback_text := pending_dimension_gate_feedback_text
+			pending_dimension_gate_after_spawn_intro = false
+			pending_dimension_gate_origin_stage = 0
+			pending_dimension_gate_feedback_text = ""
+			if _apply_dimension_gate(registry):
+				result["dimension_gate_activated"] = true
+				feedback_text = _resolve_pending_instant_feedback_text(dimension_feedback_text, "instant_dimension_gate")
+				feedback_timer = 1.2
+			else:
+				result["dimension_gate_failed"] = true
+	if (
+		pending_full_gauge_after_spawn_intro
+		and pending_full_gauge_origin_stage > 0
+		and current_stage_value == pending_full_gauge_origin_stage
+	):
+		result["wait_for_stage_advance"] = true
+	else:
+		if pending_full_gauge_after_spawn_intro:
+			var full_gauge_feedback_text := pending_full_gauge_feedback_text
+			pending_full_gauge_after_spawn_intro = false
+			pending_full_gauge_origin_stage = 0
+			pending_full_gauge_feedback_text = ""
+			_apply_full_gauge(owner, registry)
+			result["full_gauge_activated"] = true
+			feedback_text = _resolve_pending_instant_feedback_text(full_gauge_feedback_text, "instant_gauge_full")
+			feedback_timer = 1.2
+	if bool(result.get("dimension_gate_activated", false)) or bool(result.get("dimension_gate_failed", false)) or bool(result.get("full_gauge_activated", false)):
+		_sync_owner(owner)
+	return result
+
+
+func _resolve_pending_instant_feedback_text(pending_feedback_text: String, fallback: String) -> String:
+	if pending_feedback_text != "":
+		return pending_feedback_text
+	return fallback
+
+
 func _apply_monkey_blessing(owner: Object, registry: Object) -> bool:
 	if owner == null:
 		return false
@@ -1728,6 +1865,31 @@ func _sync_owner(owner: Object) -> void:
 	owner.set("runtime_perk_choice_active", is_choice_active())
 	owner.set("item_perk_level_bonus", item_perk_level_bonus)
 	owner.set("viper_ignition_aura_active", viper_ignition_aura_active)
+
+
+func _pause_skill_cooldowns_for_choice(owner: Object, registry: Object) -> void:
+	if _skill_cooldown_pause_active or owner == null or registry == null:
+		return
+	var skill_tooltip_driver: Object = _get_instance(registry, "battle_scene_skill_tooltip_driver")
+	if skill_tooltip_driver == null or not skill_tooltip_driver.has_method("pause_skill_cooldowns"):
+		return
+	skill_tooltip_driver.pause_skill_cooldowns(owner, registry)
+	_skill_cooldown_pause_active = true
+	_skill_cooldown_pause_owner = owner
+	_skill_cooldown_pause_registry = registry
+
+
+func _resume_skill_cooldowns_for_choice() -> void:
+	if not _skill_cooldown_pause_active:
+		return
+	var owner: Object = _skill_cooldown_pause_owner
+	var registry: Object = _skill_cooldown_pause_registry
+	_skill_cooldown_pause_active = false
+	_skill_cooldown_pause_owner = null
+	_skill_cooldown_pause_registry = null
+	var skill_tooltip_driver: Object = _get_instance(registry, "battle_scene_skill_tooltip_driver")
+	if skill_tooltip_driver != null and skill_tooltip_driver.has_method("resume_skill_cooldowns"):
+		skill_tooltip_driver.resume_skill_cooldowns(owner, registry)
 
 
 func _sync_runtime_perk_owner_effects(owner: Object, registry: Object, perf_logger: Object = null) -> void:
@@ -1908,6 +2070,15 @@ func _get_character_type(owner: Object) -> String:
 	if normalized == "soldier" or normalized == "commando":
 		return "soldier"
 	return "smasher"
+
+
+func _get_current_stage(owner: Object) -> int:
+	if owner == null:
+		return 0
+	var value: Variant = owner.get("current_stage")
+	if value == null:
+		return 0
+	return max(0, int(value))
 
 
 func _get_starting_dash_tokens(owner: Object) -> int:
