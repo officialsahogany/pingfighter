@@ -75,12 +75,14 @@ func _start_scoreboard_or_reset_ball(
 	if scoreboard_state.has_method("trigger_top_mini_sparkle"):
 		scoreboard_state.trigger_top_mini_sparkle()
 	if scoreboard_state.has_method("start"):
-		scoreboard_state.start(
-			int(score_result.get("player_score", 0)),
-			int(score_result.get("boss_score", 0)),
-			bool(score_result.get("match_finished", false)),
-			scoring_side
-		)
+		var player_score := int(score_result.get("player_score", 0))
+		var boss_score := int(score_result.get("boss_score", 0))
+		var match_finished := bool(score_result.get("match_finished", false))
+		var win_goal := int(score_result.get("win_goal", 5))
+		if _method_accepts_argument_count(scoreboard_state, "start", 5):
+			scoreboard_state.start(player_score, boss_score, match_finished, scoring_side, win_goal)
+		else:
+			scoreboard_state.start(player_score, boss_score, match_finished, scoring_side)
 
 
 func _start_scoreboard_wait(deps: Dictionary) -> void:
@@ -96,6 +98,18 @@ func _play_score_audio(deps: Dictionary) -> void:
 	_stop_score_audio_loops(audio)
 	if audio.has_method("play_round_set"):
 		audio.play_round_set()
+
+
+func _method_accepts_argument_count(target: Object, method_name: String, argument_count: int) -> bool:
+	if target == null:
+		return false
+	for method_value in target.get_method_list():
+		var method_info: Dictionary = method_value if method_value is Dictionary else {}
+		if str(method_info.get("name", "")) != method_name:
+			continue
+		var args: Array = method_info.get("args", [])
+		return args.size() >= argument_count
+	return false
 
 
 func _stop_score_audio_loops(audio: Object) -> void:

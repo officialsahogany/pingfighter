@@ -19,6 +19,7 @@ class FakeScoreState:
 			"player_score": 3,
 			"boss_score": 1,
 			"match_finished": true,
+			"win_goal": 7,
 			"next_player_serves": false,
 		}
 
@@ -47,8 +48,14 @@ class FakeScoreboardState:
 	func trigger_top_mini_sparkle() -> void:
 		sparkle_calls += 1
 
-	func start(player_score: int, boss_score: int, match_finished: bool, scoring_side: String) -> void:
-		start_args = [player_score, boss_score, match_finished, scoring_side]
+	func start(
+		player_score: int,
+		boss_score: int,
+		match_finished: bool,
+		scoring_side: String,
+		win_goal: int = 5
+	) -> void:
+		start_args = [player_score, boss_score, match_finished, scoring_side, win_goal]
 
 
 class FakeBattleResources:
@@ -191,7 +198,7 @@ func _init() -> void:
 	_expect(stage_background.expression == "sad", "player score should set sad stage expression")
 	_expect(round_state.set_player_serves_calls == 1 and not round_state.player_serves, "next serve should sync from score result")
 	_expect(scoreboard.sparkle_calls == 1, "scoreboard should trigger mini sparkle")
-	_expect(scoreboard.start_args == [3, 1, true, "player"], "scoreboard should start from score result")
+	_expect(scoreboard.start_args == [3, 1, true, "player", 7], "scoreboard should start from score result")
 	_expect(battle_resources.begin_calls == 1 and battle_resources.character_type == "smasher" and battle_resources.current_stage == 1, "score event should start result texture prewarm for the current character and stage")
 	_expect(bool(battle_resources.result_context.get("player_victory_active", false)) and bool(battle_resources.result_context.get("boss_defeat_active", false)), "player score should prewarm player victory and boss defeat result textures")
 	_expect(round_state.scoreboard_wait_calls == 1, "round state should enter scoreboard wait")

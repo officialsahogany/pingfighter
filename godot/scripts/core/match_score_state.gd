@@ -78,6 +78,7 @@ func _score_result(match_finished: bool) -> Dictionary:
 		"boss_score": boss_score,
 		"deuce_mode": deuce_mode,
 		"deuce_goal": deuce_goal,
+		"win_goal": WIN_GOAL,
 		"match_finished": match_finished,
 	}
 
