@@ -1,6 +1,8 @@
 extends RefCounted
 
-const DEFAULT_ACTIVE_ITEM_COOLDOWN_MS := 10000
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+
+const DEFAULT_ACTIVE_ITEM_COOLDOWN_MS := ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC
 const COOLDOWN_FLASH_DURATION_MS := 400
 
 var selected_active_item_index := 0
@@ -28,7 +30,7 @@ func get_slot_status(
 	slot_index: int,
 	item_data: Dictionary,
 	current_time_msec: int,
-	time_since_round_start_msec: int,
+	_time_since_round_start_msec: int,
 	registry: Object = null,
 	runtime_perk_state: Object = null
 ) -> Dictionary:
@@ -56,11 +58,6 @@ func get_slot_status(
 				var progress: float = float(flash_elapsed) / float(COOLDOWN_FLASH_DURATION_MS)
 				var pulse: float = progress / 0.2 if progress < 0.2 else 1.0 - ((progress - 0.2) / 0.8)
 				status["cooldown_flash_pulse"] = max(0.0, pulse)
-
-	var item_name: String = str(item_data.get("name", item_data.get("effect", "")))
-	var throw_limit: int = get_active_item_throw_lock_msec(item_name)
-	if throw_limit > 0 and time_since_round_start_msec < throw_limit:
-		status["throw_lock_remaining_seconds"] = int(float(throw_limit - time_since_round_start_msec) / 1000.0) + 1
 
 	var alchemy_until_msec: int = int(item_data.get("alchemy_notice_until_msec", -1))
 	if alchemy_until_msec > current_time_msec:
@@ -94,21 +91,6 @@ func get_active_item_cooldown_msec(item_data: Dictionary, registry: Object = nul
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_active_item_cooldown_msec"):
 		cooldown_msec = int(mythic_item_runtime.get_active_item_cooldown_msec(cooldown_msec))
 	return max(0, cooldown_msec)
-
-
-func get_active_item_throw_lock_msec(item_name: String) -> int:
-	if (
-		item_name == "molotov"
-		or item_name == "grenade"
-		or item_name == "flare"
-		or item_name == "spider_mine"
-		or item_name == "dynamite"
-		or item_name == "boomerang"
-	):
-		return 3000
-	if item_name == "banana" or item_name == "soap":
-		return 5000
-	return 0
 
 
 func _get_instance(registry: Object, key: String) -> Object:
