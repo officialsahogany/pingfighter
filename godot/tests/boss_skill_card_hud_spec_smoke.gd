@@ -18,7 +18,10 @@ func _init() -> void:
 	_verify_stage_renderers_share_spec()
 	_verify_stage_renderers_use_commando_avoidance()
 	_verify_stage_renderers_have_hover_tooltips()
+	_verify_stage_renderers_sort_by_next_activation()
 	_verify_stage1_layout_uses_spec()
+	_verify_stage1_layout_sorts_by_next_activation()
+	_verify_common_next_activation_sort()
 	_verify_stage5_layout_and_inferno_contract()
 	_verify_japanese_status_labels()
 	_verify_spanish_status_labels()
@@ -126,7 +129,24 @@ func _verify_stage_renderers_have_hover_tooltips() -> void:
 		_expect(source.find("draw_skill_tooltip") >= 0, "%s should draw a skillcard tooltip on hover" % path)
 		_expect(source.find("_get_tooltip_info") >= 0, "%s should provide localized skillcard tooltip copy" % path)
 	var stage5_source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd")
-	_expect(stage5_source.find("hongryun_fire_machine") >= 0 and stage5_source.find("화염기관") >= 0, "Stage 5 fire-machine card should have localized tooltip copy")
+	var stage5_pillar_source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_hongryun_pillar_scene_drawer.gd")
+	var stage5_legacy_pillar_source := FileAccess.get_file_as_string("res://scripts/stages/stage5/stage5_pillar_scene_drawer.gd")
+	_expect(stage5_source.find("\"hongryun_fire_machine\"") < 0, "Stage 5 fire machine should not be a Hongryun boss skill card")
+	_expect(stage5_pillar_source.find("_append_fire_machine_hud_skill") < 0, "Stage 5 Hongryun pillar drawer should not append the fire machine to boss skill cards")
+	_expect(stage5_legacy_pillar_source.find("_append_fire_machine_hud_skill") < 0, "Stage 5 legacy pillar drawer should not append the fire machine to boss skill cards")
+
+
+func _verify_stage_renderers_sort_by_next_activation() -> void:
+	var renderer_paths := [
+		"res://scripts/stages/stage1/stage1_dalji_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage2/stage2_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage3/stage3_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage4/stage4_ponk_boss_skill_hud_renderer.gd",
+		"res://scripts/stages/stage5/stage5_hongryun_boss_skill_hud_renderer.gd",
+	]
+	for path in renderer_paths:
+		var source := FileAccess.get_file_as_string(path)
+		_expect(source.find("compare_skill_entries_by_next_activation") >= 0, "%s should sort the rail by next scheduled activation" % path)
 
 
 func _verify_stage1_layout_uses_spec() -> void:
@@ -152,12 +172,44 @@ func _verify_stage1_layout_uses_spec() -> void:
 	_expect(_vector2_equal(first_rect.size, expected_size), "Stage 1 Dalji layout rect should use the shared official card size")
 
 
+func _verify_stage1_layout_sorts_by_next_activation() -> void:
+	var renderer := Stage1DaljiBossSkillHudRenderer.new()
+	var context := {
+		"current_stage": 1,
+		"stage1_dalji_boss_skill_hud_active": true,
+		"view_size": Vector2(1280.0, 800.0),
+		"game_offset": Vector2(260.0, 25.0),
+		"game_size": Vector2(760.0, 750.0),
+		"stage1_dalji_boss_skill_hud_skills": [
+			{"id": "later", "status": "charging", "sort_remaining": 6.0, "progress": 0.90},
+			{"id": "locked", "status": "locked", "sort_remaining": 0.1, "progress": 0.99},
+			{"id": "soon", "status": "charging", "sort_remaining": 1.0, "progress": 0.10},
+		],
+	}
+	var layout: Dictionary = renderer.build_card_layout(context)
+	var entries: Array = layout.get("entries", [])
+	_expect(entries.size() == 3, "Stage 1 Dalji layout should keep all sortable skill entries")
+	_expect(_entry_ids(entries) == ["soon", "later", "locked"], "Stage 1 Dalji layout should put the next scheduled skill at the top")
+
+
+func _verify_common_next_activation_sort() -> void:
+	var entries := [
+		{"id": "locked", "status": "locked", "cooldown_remaining": 0.1, "cooldown_total": 10.0, "progress": 0.99},
+		{"id": "later", "status": "charging", "cooldown_remaining": 8.0, "cooldown_total": 10.0, "progress": 0.20},
+		{"id": "casting", "status": "casting", "cooldown_remaining": 40.0, "cooldown_total": 40.0, "progress": 1.0},
+		{"id": "soon", "status": "charging", "cooldown_remaining": 2.0, "cooldown_total": 40.0, "progress": 0.95},
+		{"id": "ready", "status": "ready", "ready": true, "cooldown_remaining": 0.0, "cooldown_total": 25.0, "progress": 1.0},
+	]
+	entries.sort_custom(Callable(self, "_sort_by_next_activation"))
+	_expect(_entry_ids(entries) == ["casting", "ready", "soon", "later", "locked"], "shared boss skillcard sort should use next activation time, with locked/used last")
+
+
 func _verify_stage5_layout_and_inferno_contract() -> void:
 	var state := Stage5HongryunState.new()
 	state.debug_set_dragon_orb_count(4)
 	var context: Dictionary = state.get_hud_context()
 	var skills: Array = context.get("stage5_boss_skill_hud_skills", [])
-	_expect(skills.size() == 2, "Stage 5 Hongryun HUD context should ship two cards before fire-machine")
+	_expect(skills.size() == 2, "Stage 5 Hongryun HUD context should ship only the two Hongryun boss skill cards")
 	var inferno: Dictionary = _find_skill(skills, "hongryun_inferno")
 	_expect(str(inferno.get("render_kind", "")) == "dragon_orb_gauge", "Stage 5 inferno card should expose the dragon-orb render kind")
 	_expect(str(inferno.get("status", "")) == "charging", "Stage 5 inferno card should charge before 5 dragon orbs")
@@ -245,6 +297,18 @@ func _find_skill(skills: Array, skill_id: String) -> Dictionary:
 		if value is Dictionary and str((value as Dictionary).get("id", "")) == skill_id:
 			return value
 	return {}
+
+
+func _entry_ids(entries: Array) -> Array[String]:
+	var ids: Array[String] = []
+	for entry in entries:
+		if entry is Dictionary:
+			ids.append(str((entry as Dictionary).get("id", "")))
+	return ids
+
+
+func _sort_by_next_activation(a: Dictionary, b: Dictionary) -> bool:
+	return BossSkillCardHudSpec.compare_skill_entries_by_next_activation(a, b)
 
 
 func _expect(condition: bool, message: String) -> void:
