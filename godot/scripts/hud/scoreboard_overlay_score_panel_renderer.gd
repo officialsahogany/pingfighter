@@ -2,6 +2,10 @@ extends RefCounted
 
 const ScoreboardLedDigits := preload("res://scripts/hud/scoreboard_led_digits.gd")
 
+const SCORE_PANEL_GLOW_STRIDE := 4
+const SCORE_PANEL_DRAW_INACTIVE_SOCKETS := false
+const SCORE_PANEL_DRAW_LED_HIGHLIGHT := false
+
 var led_digits: Object = ScoreboardLedDigits.new()
 
 
@@ -59,7 +63,9 @@ func draw(
 		dot_radius,
 		0.4 + combined_pulse,
 		alpha,
-		3
+		SCORE_PANEL_GLOW_STRIDE,
+		SCORE_PANEL_DRAW_INACTIVE_SOCKETS,
+		SCORE_PANEL_DRAW_LED_HIGHLIGHT
 	)
 	led_digits.draw_number(
 		canvas,
@@ -70,7 +76,9 @@ func draw(
 		dot_radius,
 		0.4 + combined_pulse,
 		alpha,
-		3
+		SCORE_PANEL_GLOW_STRIDE,
+		SCORE_PANEL_DRAW_INACTIVE_SOCKETS,
+		SCORE_PANEL_DRAW_LED_HIGHLIGHT
 	)
 
 	var vs_rect: Rect2 = Rect2(center_x - 28.0, score_area.position.y + score_area.size.y * 0.5 - 22.0, 56.0, 44.0)
