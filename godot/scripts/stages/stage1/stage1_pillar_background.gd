@@ -30,10 +30,10 @@ var butterfly_sheet_texture: Texture2D
 
 var ambient_state: Object = Stage1PillarAmbientState.new()
 var layer_renderer: Object = Stage1PillarLayerRenderer.new()
+var _prewarm_assets_step_index := 0
 
 
 func _init() -> void:
-	_load_textures()
 	ambient_state.init_state()
 
 
@@ -53,12 +53,51 @@ func prewarm_assets(
 	game_offset: Vector2 = Vector2(260.0, 0.0),
 	game_size: Vector2 = Vector2(760.0, 750.0)
 ) -> void:
-	_load_textures()
-	ambient_state.update_layout(view_size, game_offset, game_size)
-	_touch_texture(hanji_texture)
-	_touch_texture(tree_sprite_texture)
-	_touch_texture(cloud_sprite_texture)
-	_touch_texture(butterfly_sheet_texture)
+	while not prewarm_assets_step(view_size, game_offset, game_size):
+		pass
+
+
+func prewarm_assets_step(
+	view_size: Vector2 = Vector2(1280.0, 800.0),
+	game_offset: Vector2 = Vector2(260.0, 0.0),
+	game_size: Vector2 = Vector2(760.0, 750.0)
+) -> bool:
+	match _prewarm_assets_step_index:
+		0:
+			var hanji_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(HANJI_TEXTURE_PATH)
+			if not bool(hanji_result.get("done", true)):
+				return false
+			hanji_texture = hanji_result.get("texture", hanji_texture) as Texture2D
+		1:
+			var tree_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(TREE_SPRITE_TEXTURE_PATH)
+			if not bool(tree_result.get("done", true)):
+				return false
+			tree_sprite_texture = tree_result.get("texture", tree_sprite_texture) as Texture2D
+		2:
+			var cloud_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(CLOUD_SPRITE_TEXTURE_PATH)
+			if not bool(cloud_result.get("done", true)):
+				return false
+			cloud_sprite_texture = cloud_result.get("texture", cloud_sprite_texture) as Texture2D
+		3:
+			var butterfly_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(BUTTERFLY_SHEET_TEXTURE_PATH)
+			if not bool(butterfly_result.get("done", true)):
+				return false
+			butterfly_sheet_texture = butterfly_result.get("texture", butterfly_sheet_texture) as Texture2D
+		4:
+			ambient_state.update_layout(view_size, game_offset, game_size)
+		5:
+			_touch_texture(hanji_texture)
+		6:
+			_touch_texture(tree_sprite_texture)
+		7:
+			_touch_texture(cloud_sprite_texture)
+		8:
+			_touch_texture(butterfly_sheet_texture)
+		_:
+			_prewarm_assets_step_index = 0
+			return true
+	_prewarm_assets_step_index += 1
+	return false
 
 
 func reset() -> void:
