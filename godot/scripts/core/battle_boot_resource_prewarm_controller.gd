@@ -1,8 +1,9 @@
 extends RefCounted
 
 const BattlePsoPrewarmer := preload("res://scripts/core/battle_pso_prewarmer.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
-const STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT := 9
+const STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT := 10
 const STAGE_RUNTIME_PREWARM_COMMON_LABELS := [
 	"weather",
 	"active_item",
@@ -13,6 +14,7 @@ const STAGE_RUNTIME_PREWARM_COMMON_LABELS := [
 	"selected_character",
 	"ball_update",
 	"result_shell_deferred",
+	"lingpet_rail_card",
 ]
 const STAGE2_RUNTIME_PREWARM_LABELS := [
 	"stage2_pillar_background",
@@ -339,6 +341,11 @@ func _run_stage_runtime_prewarm_step(
 			return prewarm_ball_update_runtime_resources_step(owner, module_getter)
 		8:
 			mark_stage_clear_result_shell_deferred()
+		9:
+			# Lingpet rail card art (the hatched companion's skill card rides every
+			# stage's boss skill rail, so warm it once here rather than lazy-loading
+			# in any stage's HUD draw hot path).
+			LingpetRailCard.prewarm()
 		_:
 			var stage_step := step_index - STAGE_RUNTIME_PREWARM_COMMON_STEP_COUNT
 			var stage_step_count := _get_stage_specific_runtime_prewarm_step_count(owner, current_stage)

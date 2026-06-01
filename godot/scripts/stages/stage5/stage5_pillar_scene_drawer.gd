@@ -2,6 +2,7 @@ extends RefCounted
 
 const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
 var hud_scene_drawer: Object = Stage1PillarHudSceneDrawer.new()
 
@@ -113,6 +114,8 @@ func _draw_stage5_hongryun_boss_skill_hud(
 	hud_context["game_offset"] = game_offset
 	hud_context["game_size"] = game_size
 	hud_context["time_seconds"] = float(Time.get_ticks_msec()) / 1000.0
+	# Hatched lingpet rides this stage's boss skill rail too (companion persists across stages).
+	LingpetRailCard.append_entry(hud_context, registry, "stage5_boss_skill_hud_skills", "stage5_boss_skill_hud_active")
 	renderer.draw(canvas, hud_context)
 
 

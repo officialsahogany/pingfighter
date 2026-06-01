@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
 const JUNGLE_QUAKE_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage2_jungle_quake_skillcard_imagegen_v1.png"
 const SPEED_DEFENSE_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage2_speed_defense_skillcard_imagegen_v3.png"
@@ -109,6 +110,9 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 
 
 func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, font: Font) -> void:
+	if LingpetRailCard.is_lingpet_skill(skill):
+		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, Time.get_ticks_msec() / 1000.0)
+		return
 	var status: String = str(skill.get("status", "charging"))
 	var ready: bool = bool(skill.get("ready", false)) or status == "ready"
 	var active: bool = status == "casting"
@@ -233,6 +237,8 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 			"cooldown": "쿨타임 25초",
 			"description": "짧은 시간 동안 보스 이동과 반응이 빨라지고 상태 이상을 막습니다.",
 		}
+	if skill_id == LingpetRailCard.SKILL_ID:
+		return LingpetRailCard.tooltip_info()
 	return {}
 
 

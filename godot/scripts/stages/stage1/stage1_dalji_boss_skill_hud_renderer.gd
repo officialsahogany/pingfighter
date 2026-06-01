@@ -3,6 +3,7 @@ extends RefCounted
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
 const WHIP_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage1_dalji_whip_skillcard_imagegen_v1.png"
 const SPINNING_TOP_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage1_dalji_spinning_top_skillcard_imagegen_v1.png"
@@ -162,6 +163,9 @@ func _union_rects(rects: Array) -> Rect2:
 
 
 func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, time_seconds: float) -> void:
+	if LingpetRailCard.is_lingpet_skill(skill):
+		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, time_seconds)
+		return
 	var status: String = str(skill.get("status", "charging"))
 	var ready: bool = bool(skill.get("ready", false)) or status == "ready"
 	var active: bool = status == "casting"
@@ -411,6 +415,8 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 			"cooldown_seconds": 16.0,
 			"description": "달지가 팽이를 소환합니다. 팽이에 닿은 공은 무작위 방향으로 튕깁니다.",
 		}
+	if skill_id == LingpetRailCard.SKILL_ID:
+		return LingpetRailCard.tooltip_info()
 	return {}
 
 

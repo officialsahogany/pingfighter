@@ -2,6 +2,7 @@ extends RefCounted
 
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 
 # Stage 3's pillar HUD shares the Stage 1 orb renderer. At glide/FPS-cap
@@ -101,6 +102,8 @@ func _draw_stage3_boss_skill_hud(
 	hud_context["view_size"] = view_size
 	hud_context["game_offset"] = game_offset
 	hud_context["game_size"] = game_size
+	# Hatched lingpet rides this stage's boss skill rail too (companion persists across stages).
+	LingpetRailCard.append_entry(hud_context, registry, "stage3_boss_skill_hud_skills", "stage3_boss_skill_hud_active")
 	renderer.draw(canvas, hud_context)
 
 

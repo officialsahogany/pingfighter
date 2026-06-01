@@ -3,6 +3,7 @@ extends RefCounted
 const Stage1ActiveItemHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_active_item_hud_scene_drawer.gd")
 const Stage1TopMiniScoreboardSceneDrawer := preload("res://scripts/stages/stage1/stage1_top_mini_scoreboard_scene_drawer.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
 const BASE_PREWARM_MODULE_KEYS := [
 	"scoreboard_renderer",
@@ -272,6 +273,11 @@ func _draw_stage1_dalji_boss_skill_hud(
 	var firearm_panel_rect: Rect2 = _get_rect(firearm_panel_state.get("rect", Rect2()))
 	if firearm_panel_rect.size.x > 0.0 and firearm_panel_rect.size.y > 0.0:
 		hud_context["commando_firearm_panel_rect"] = firearm_panel_rect
+	# The hatched lingpet casts on every stage, so its skill card rides every
+	# stage's boss skill-card rail via the shared helper (gated on companion-active,
+	# so egg / none states never expose it). append_entry also force-enables the
+	# rail's active flag so the card shows even when no boss skill is live.
+	LingpetRailCard.append_entry(hud_context, registry, "stage1_dalji_boss_skill_hud_skills", "stage1_dalji_boss_skill_hud_active")
 	renderer.draw(canvas, hud_context)
 
 

@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
 const MAGNETIC_FIELD_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage4_ponk_refraction_magnetic_field_skillcard_imagegen_v1.png"
 const MEDITATION_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage4_ponk_vipassana_meditation_skillcard_imagegen_v1.png"
@@ -112,6 +113,9 @@ func get_asset_status() -> Dictionary:
 
 
 func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, time_seconds: float) -> void:
+	if LingpetRailCard.is_lingpet_skill(skill):
+		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, time_seconds)
+		return
 	var status: String = str(skill.get("status", "charging"))
 	var ready: bool = bool(skill.get("ready", false)) or status == "ready"
 	var active: bool = bool(skill.get("active", false)) or status == "casting"
@@ -201,6 +205,8 @@ func _get_skill_source_rect(skill_id: String, texture: Texture2D) -> Rect2:
 
 
 func _get_tooltip_info(skill: Dictionary) -> Dictionary:
+	if LingpetRailCard.is_lingpet_skill(skill):
+		return LingpetRailCard.tooltip_info()
 	return {
 		"name": str(skill.get("name", skill.get("label", skill.get("short_label", "")))),
 		"trigger": str(skill.get("trigger", "")),

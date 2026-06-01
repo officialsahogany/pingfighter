@@ -1,6 +1,7 @@
 extends RefCounted
 
 const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
 var hud_scene_drawer: Object = Stage1PillarHudSceneDrawer.new()
 
@@ -69,6 +70,8 @@ func _draw_stage4_ponk_boss_skill_hud(
 	hud_context["view_size"] = view_size
 	hud_context["game_offset"] = game_offset
 	hud_context["game_size"] = game_size
+	# Hatched lingpet rides this stage's boss skill rail too (companion persists across stages).
+	LingpetRailCard.append_entry(hud_context, registry, "stage4_ponk_boss_skill_hud_skills", "stage4_ponk_boss_skill_hud_active")
 	renderer.draw(canvas, hud_context)
 	return true
 

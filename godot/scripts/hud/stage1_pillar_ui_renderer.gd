@@ -111,6 +111,13 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 		active_skill_orb_renderer.draw_orbs(canvas, left_center, orb_radius, time_seconds, scale_factor, skill_orb_context)
 		_perf_end(perf_logger, "stage1.pillar_ui.skill_orbs", sample_start)
 
+	var skill_cluster_bounds := Rect2()
+	if active_skill_orb_renderer != null and active_skill_orb_renderer.has_method("get_cluster_bounds"):
+		skill_cluster_bounds = active_skill_orb_renderer.get_cluster_bounds(left_center, orb_radius, scale_factor, skill_orb_context)
+	# The hatched lingpet's skill card now rides the Dalji boss skill-card rail
+	# (composed in stage1_pillar_hud_scene_drawer._build_lingpet_boss_rail_entry),
+	# so the separate bottom-left vertical pillar card is no longer drawn here.
+
 	# Boost / sector / half-ready overlays moved to the GPU shader host. Look up
 	# (or lazily create) the host once per frame so player + boss dash share the
 	# same slot pool, and bracket the dash orb calls with begin/end_frame so any
@@ -187,9 +194,6 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 
 	if combo_renderer != null:
 		sample_start = _perf_begin(perf_logger)
-		var skill_cluster_bounds := Rect2()
-		if active_skill_orb_renderer != null and active_skill_orb_renderer.has_method("get_cluster_bounds"):
-			skill_cluster_bounds = active_skill_orb_renderer.get_cluster_bounds(left_center, orb_radius, scale_factor, skill_orb_context)
 		var combo_rect: Rect2 = layout_helper.build_combo_rect(left_center, scale_factor, skill_cluster_bounds)
 		combo_renderer.draw_hud(canvas, context.get("combo_state", null), combo_rect, scale_factor)
 		_perf_end(perf_logger, "stage1.pillar_ui.combo", sample_start)

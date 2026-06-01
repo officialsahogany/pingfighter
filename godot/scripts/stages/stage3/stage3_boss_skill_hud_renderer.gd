@@ -2,6 +2,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_card_hud_spec.gd")
+const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 
 const SKILLCARD_ATLAS_PATH := "res://assets/sprites/stage3/menhera_boss_skill_cards_imagegen_v1.png"
 const SKILLCARD_ID_TO_INDEX := {
@@ -88,6 +89,9 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 
 
 func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float) -> void:
+	if LingpetRailCard.is_lingpet_skill(skill):
+		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, Time.get_ticks_msec() / 1000.0)
+		return
 	var status: String = str(skill.get("status", "charging"))
 	var ready: bool = bool(skill.get("ready", false)) or status == "ready"
 	var active: bool = status == "casting"
@@ -207,6 +211,8 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 			"cooldown": "쿨타임 70초",
 			"description": "사이코볼 상태로 전장을 흔들며 공 충돌에 강한 히트스톱을 겁니다.",
 		}
+	if skill_id == LingpetRailCard.SKILL_ID:
+		return LingpetRailCard.tooltip_info()
 	return {}
 
 

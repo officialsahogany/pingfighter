@@ -42,7 +42,7 @@ func handle_input(
 ) -> bool:
 	# Highest priority: the fullscreen lingpet acquisition cut-in. While it is up
 	# it swallows all input; once the reveal has finished playing, a click/confirm
-	# dismisses it and resumes the paused battle.
+	# starts the exit action which then fades out and resumes the paused battle.
 	if _is_lingpet_acquire_cutin_active(module_getter):
 		var lingpet_runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
 		if (
@@ -51,7 +51,9 @@ func handle_input(
 			and bool(lingpet_runtime.is_acquire_cutin_awaiting_dismiss())
 			and _is_elixir_confirm_event(event)
 		):
-			if lingpet_runtime.has_method("dismiss_acquire_cutin") and bool(lingpet_runtime.dismiss_acquire_cutin()):
+			# Click does NOT close instantly -- it starts the spear-raise + water-spray
+			# exit action, which then fades out and resumes gameplay on its own.
+			if lingpet_runtime.has_method("begin_acquire_cutin_dismiss") and bool(lingpet_runtime.begin_acquire_cutin_dismiss()):
 				_queue_redraw(owner)
 				_mark_handled(owner)
 		return true

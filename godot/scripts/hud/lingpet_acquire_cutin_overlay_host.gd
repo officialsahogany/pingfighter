@@ -1,31 +1,48 @@
 extends RefCounted
 
-# Fullscreen acquisition cut-in for the Maribo lingpet. Overlay-only (does NOT
-# pause gameplay): the ball keeps moving underneath while this draws on top of
-# the HUD, mirroring skill_cutin_overlay_host. Driven by lingpet_egg_runtime's
+# Fullscreen acquisition cut-in for the Maribo lingpet. Drawn on top of the HUD
+# (mirrors skill_cutin_overlay_host) and registered as a PHYSICS-PAUSING modal:
+# the modal gate blocks battle physics while it is active, and the reveal is
+# advanced by the frame controller's ungated idle pump (advance_acquire_cutin),
+# not by the gated gameplay update. Driven by lingpet_egg_runtime's
 # is_acquire_cutin_active() / get_acquire_cutin_progress(); triggered once when
-# the egg hatches into the companion.
+# the egg hatches into the companion, and holds until a click/confirm dismisses
+# it (no auto fade-out).
 #
 # Art is the ORIGINAL outsourced illustration (v003), NOT the SD walk sheet.
-# Primary cut-in visual is a Live2D-style ANIMATION sheet: the v003 nukki art
-# was animated via AutoSprite's asset pipeline (animate_asset, which animates the
-# supplied image directly instead of re-deriving a humanoid -- so the trident
-# spear and all detail are preserved, unlike the character-iso path). The frames
-# carry the breathing / sway / spear-bob, so the host does NOT add squash/stretch
-# on top; it only adds the entrance punch + aura chrome. The static PNG remains a
-# fallback if the sheet is missing.
+# Primary cut-in visual is the upscaled AutoSprite Live2D-style sheet. The crisp
+# outsourced PNG remains as fallback/reference if the sheet is disabled.
 # Provenance: v003 magenta -> magenta-key nukki -> maribo_cutin_art.png (static)
-#   -> AutoSprite create_asset + animate_asset (legendary, looping)
-#   -> generate_asset_spritesheet 512px/49 -> Real-ESRGAN x2 (alpha-safe)
-#   -> maribo_cutin_anim.png (1024px/frame, 7x7, 49 frames, 7168px sheet).
+#   -> AutoSprite character pose + custom cut-in loop (legendary, 1024px/16)
+#   -> deterministic 84% safe-margin repack -> Real-ESRGAN x2 per cell
+#   -> maribo_cutin_anim.png (2048px/frame, 4x4, 16 frames, 8192px sheet).
 
 const CUTIN_ART: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_art.png")
 const CUTIN_ANIM_SHEET: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_anim.png")
-const CUTIN_ANIM_COLS := 7
-const CUTIN_ANIM_ROWS := 7
-const CUTIN_ANIM_FRAMES := 49
-const CUTIN_ANIM_FPS := 14.0
-const ANIM_CELL_VIEW_H_RATIO := 0.92
+const CUTIN_ANIM_MANIFEST := "res://assets/sprites/lingpet/maribo_cutin_anim_manifest.json"
+const CUTIN_ANIM_COLS := 4
+const CUTIN_ANIM_ROWS := 4
+const CUTIN_ANIM_FRAMES := 16
+const CUTIN_ANIM_FPS := 16.0
+const USE_ANIMATED_CUTIN := true
+# Click-triggered EXIT ACTION sheet: Maribo raises the spear overhead, then a
+# water-spray burst erupts; the overlay fades out and resumes gameplay. Driven by
+# the runtime's is_acquire_cutin_dismissing() / get_acquire_cutin_dismiss_progress().
+const CUTIN_DISMISS_SHEET: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png")
+const CUTIN_DISMISS_COLS := 5
+const CUTIN_DISMISS_ROWS := 5
+const CUTIN_DISMISS_FRAMES := 25
+# Frames play over the first DISMISS_ACTION_PORTION of the dismiss window, then the
+# final frame holds while the overlay fades out (DISMISS_FADE_START -> 1.0). The
+# extra water-spray burst peaks near the spear-raise apex.
+const DISMISS_ACTION_PORTION := 0.74
+const DISMISS_FADE_START := 0.64
+const DISMISS_SPRAY_PEAK := 0.56
+const ANIM_CELL_VIEW_H_RATIO := 0.70
+const STATIC_ART_VIEW_H_RATIO := 0.74
+const STATIC_ART_MAX_W_RATIO := 0.92
+const STATIC_ART_BREATH_HZ := 0.72
+const STATIC_ART_SCALE_PULSE := 0.018
 const TITLE_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 
 const TITLE_TEXT := "마리보"
@@ -37,6 +54,24 @@ const OCEAN_GLOW := Color(0.24, 0.78, 1.0)
 const RESONANCE := Color(0.55, 1.0, 0.95)
 const TITLE_COLOR := Color(0.62, 1.0, 0.96)
 const SPEED_LINE_COUNT := 22
+const RESTORE_DATA_BIT_COUNT := 56
+const RESTORE_SOLID_START := 0.94
+const RESTORE_FRAGMENT_COLOR := Color(0.44, 1.0, 0.96)
+# Digital reconstruction tuning (all in normalized restore_progress space, 0..1).
+# Pacing handles for the "code-data shards assemble -> hologram densifies ->
+# scan-printer solidifies -> lock-in" sequence; tweak here to retune feel.
+const RESTORE_VOXEL_COLS := 10
+const RESTORE_VOXEL_ROWS := 10
+const RESTORE_VOXEL_LAND := 0.72
+const RESTORE_PRINT_START := 0.44
+const RESTORE_PRINT_END := 0.93
+const RESTORE_CODE_GLYPH_COUNT := 16
+const RESTORE_GLYPH_TOKENS := ["01", "10", "11", "00", "0x7F", "0xA3", "101", "010", "0xFF", "110", "0x1C", "001", "0xE0", "100", "0x3D", "011"]
+# Futuristic data palette: near-white core, hot cyan, magenta chromatic partner.
+const DATA_CORE := Color(0.80, 1.0, 1.0)
+const DATA_HOT := Color(0.34, 0.96, 1.0)
+const DATA_MAGENTA := Color(1.0, 0.36, 0.82)
+const GRID_COLOR := Color(0.24, 0.78, 1.0)
 
 # Phase breakpoints over normalized reveal progress (0..1). Progress is clamped
 # at 1.0 by the runtime, so progress >= HOLD_PROGRESS means the reveal finished
@@ -45,12 +80,56 @@ const INTRO_END := 0.12
 const TEXT_START := 0.62
 const HOLD_PROGRESS := 0.999
 
+# Baked frame-0 alpha occupancy (loaded once from the manifest in prewarm). The
+# reconstruction iterates the voxel grid; cells outside Maribo's silhouette must
+# skip the shard/bevel/snap-flash draws or the transparent cell padding lights up
+# as a "restoring box" instead of "restoring Maribo". Empty until loaded; the
+# draw path falls back to a centered-ellipse cull so it is never a full rectangle.
+var _recon_ready := false
+var _recon_cols := 0
+var _recon_rows := 0
+var _recon_filled: PackedByteArray = PackedByteArray()
+var _recon_bbox := Rect2(0.0, 0.0, 1.0, 1.0)
+
 
 func prewarm_assets() -> void:
-	# Texture + font are const-preloaded at script load, so there is nothing to
-	# lazy-load here. Method kept for parity with other overlay hosts and so the
-	# prewarm controller can instantiate this host ahead of the hatch frame.
-	pass
+	# Textures + font are const-preloaded at script load. The one piece of real
+	# prewarm work is loading the baked silhouette occupancy mask so the first
+	# reconstruction frame does not parse JSON / build the mask on the hot path.
+	_load_reconstruction_mask()
+
+
+func _load_reconstruction_mask() -> void:
+	if _recon_ready:
+		return
+	if not FileAccess.file_exists(CUTIN_ANIM_MANIFEST):
+		return
+	var txt: String = FileAccess.get_file_as_string(CUTIN_ANIM_MANIFEST)
+	if txt.is_empty():
+		return
+	var data: Variant = JSON.parse_string(txt)
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	var entry: Variant = (data as Dictionary).get("reconstruction_frame0", null)
+	if typeof(entry) != TYPE_DICTIONARY:
+		return
+	var cols: int = int((entry as Dictionary).get("grid_cols", 0))
+	var rows: int = int((entry as Dictionary).get("grid_rows", 0))
+	var occ: Variant = (entry as Dictionary).get("occupancy", [])
+	if cols <= 0 or rows <= 0 or typeof(occ) != TYPE_ARRAY or (occ as Array).size() != cols * rows:
+		return
+	var occ_arr: Array = occ
+	_recon_filled = PackedByteArray()
+	_recon_filled.resize(occ_arr.size())
+	for i in occ_arr.size():
+		_recon_filled[i] = 1 if int(occ_arr[i]) != 0 else 0
+	_recon_cols = cols
+	_recon_rows = rows
+	var bb: Variant = (entry as Dictionary).get("alpha_bbox", [0.0, 0.0, 1.0, 1.0])
+	if typeof(bb) == TYPE_ARRAY and (bb as Array).size() == 4:
+		var bb_arr: Array = bb
+		_recon_bbox = Rect2(float(bb_arr[0]), float(bb_arr[1]), float(bb_arr[2]), float(bb_arr[3]))
+	_recon_ready = true
 
 
 func prewarm_runtime_nodes(_owner: Object = null) -> void:
@@ -64,12 +143,23 @@ func draw(canvas: CanvasItem, runtime: Object, view_size: Vector2) -> void:
 		return
 	if view_size.x <= 1.0 or view_size.y <= 1.0:
 		return
+
+	# Click-triggered exit action takes over the whole overlay: spear-raise +
+	# water-spray, then fade out (gameplay resumes when the runtime clears active).
+	if runtime.has_method("is_acquire_cutin_dismissing") and bool(runtime.is_acquire_cutin_dismissing()):
+		var dismiss_progress: float = 0.0
+		if runtime.has_method("get_acquire_cutin_dismiss_progress"):
+			dismiss_progress = clampf(float(runtime.get_acquire_cutin_dismiss_progress()), 0.0, 1.0)
+		_draw_dismiss_action(canvas, view_size, dismiss_progress)
+		return
+
 	var progress: float = 0.0
 	if runtime.has_method("get_acquire_cutin_progress"):
 		progress = clampf(float(runtime.get_acquire_cutin_progress()), 0.0, 1.0)
 
 	_draw_dim(canvas, view_size, progress)
 	_draw_resonance_bg(canvas, view_size, progress)
+	_draw_digital_stage(canvas, view_size, progress)
 	_draw_speed_lines(canvas, view_size, progress)
 	_draw_art(canvas, view_size, progress)
 	_draw_title(canvas, view_size, progress)
@@ -118,6 +208,43 @@ func _draw_resonance_bg(canvas: CanvasItem, view_size: Vector2, progress: float)
 		canvas.draw_arc(center, radius, 0.0, TAU, 48, Color(RESONANCE.r, RESONANCE.g, RESONANCE.b, ring_alpha), maxf(2.0, view_size.y * 0.004), true)
 
 
+func _draw_digital_stage(canvas: CanvasItem, view_size: Vector2, progress: float) -> void:
+	# A faint Tron-style perspective grid + rising data columns behind the
+	# character, selling the "VR / code-space" the lingpet materializes from.
+	# Kept very low-alpha so it adds depth without fighting the hero art.
+	var fade: float = _overlay_fade(progress)
+	if fade <= 0.0:
+		return
+	var t: float = float(Time.get_ticks_msec()) / 1000.0
+	var horizon: float = view_size.y * 0.60
+	var vp := Vector2(view_size.x * 0.5, horizon)
+	var grid_a: float = 0.10 * fade
+	var line_w: float = maxf(1.0, view_size.y * 0.0013)
+	# Receding floor lines (denser toward the horizon).
+	var rows := 9
+	for i in rows:
+		var f: float = float(i + 1) / float(rows)
+		var y: float = lerpf(view_size.y * 1.02, horizon, 1.0 - pow(1.0 - f, 1.9))
+		var a: float = grid_a * (0.30 + 0.70 * f)
+		canvas.draw_line(Vector2(0.0, y), Vector2(view_size.x, y), Color(GRID_COLOR.r, GRID_COLOR.g, GRID_COLOR.b, a), line_w, true)
+	# Radiating floor verticals toward the vanishing point.
+	var verts := 12
+	for j in verts + 1:
+		var fx: float = float(j) / float(verts)
+		var bottom := Vector2(lerpf(-view_size.x * 0.25, view_size.x * 1.25, fx), view_size.y * 1.02)
+		canvas.draw_line(vp, bottom, Color(GRID_COLOR.r, GRID_COLOR.g, GRID_COLOR.b, grid_a * 0.55), line_w, true)
+	# Rising data columns above the horizon (scrolling code-stream feel).
+	var cols := 7
+	for k in cols:
+		var cx: float = view_size.x * ((float(k) + 0.5) / float(cols))
+		var scroll: float = fposmod(t * 0.32 + _hash01(k, 3, 29), 1.0)
+		var dy: float = lerpf(horizon, view_size.y * 0.04, scroll)
+		var ca: float = grid_a * 1.7 * (0.35 + 0.65 * sin(scroll * PI))
+		if ca <= 0.01:
+			continue
+		canvas.draw_line(Vector2(cx, dy), Vector2(cx, dy - view_size.y * 0.09), Color(DATA_HOT.r, DATA_HOT.g, DATA_HOT.b, ca), maxf(1.0, view_size.y * 0.0018), true)
+
+
 func _draw_speed_lines(canvas: CanvasItem, view_size: Vector2, progress: float) -> void:
 	if progress < INTRO_END or progress >= HOLD_PROGRESS:
 		return
@@ -141,10 +268,11 @@ func _draw_art(canvas: CanvasItem, view_size: Vector2, progress: float) -> void:
 		return
 	var t: float = float(Time.get_ticks_msec()) / 1000.0
 	var entrance: float = _ease_out_back(rise_raw)
-	if CUTIN_ANIM_SHEET != null and CUTIN_ANIM_SHEET.get_width() > 1:
-		_draw_art_animated(canvas, view_size, t, entrance, rise_raw, alpha)
+	var restore_progress: float = clampf((progress - INTRO_END) / maxf(0.01, TEXT_START - INTRO_END), 0.0, 1.0)
+	if USE_ANIMATED_CUTIN and CUTIN_ANIM_SHEET != null and CUTIN_ANIM_SHEET.get_width() > 1:
+		_draw_art_animated(canvas, view_size, t, entrance, rise_raw, alpha, restore_progress)
 	else:
-		_draw_art_static(canvas, view_size, t, entrance, rise_raw, alpha)
+		_draw_art_static(canvas, view_size, t, entrance, rise_raw, alpha, restore_progress)
 
 
 func _draw_art_animated(
@@ -153,7 +281,8 @@ func _draw_art_animated(
 	t: float,
 	entrance: float,
 	rise_raw: float,
-	alpha: float
+	alpha: float,
+	restore_progress: float
 ) -> void:
 	# Live2D-style: the AutoSprite asset animation carries the breathing / sway /
 	# spear-bob, so we only frame-step the loop and apply the entrance punch +
@@ -165,7 +294,13 @@ func _draw_art_animated(
 	var ch: float = float(sheet.get_height()) / float(rows)
 	if cw <= 1.0 or ch <= 1.0:
 		return
-	var frame: int = int(t * CUTIN_ANIM_FPS) % maxi(1, CUTIN_ANIM_FRAMES)
+	# Freeze the source frame during reconstruction so the assembling shards /
+	# scanline reference a STABLE silhouette. A changing source frame mid-build
+	# makes the textured shards jitter and the body shimmer; the Live2D breathing
+	# loop only starts once the art has locked solid (>= RESTORE_SOLID_START).
+	var frame: int = 0
+	if restore_progress >= RESTORE_SOLID_START:
+		frame = int(t * CUTIN_ANIM_FPS) % maxi(1, CUTIN_ANIM_FRAMES)
 	var col: int = frame % cols
 	var row: int = int(floor(float(frame) / float(cols)))
 	var src := Rect2(float(col) * cw, float(row) * ch, cw, ch)
@@ -174,7 +309,7 @@ func _draw_art_animated(
 	# the whole cell generously; the character then reads at roughly hero scale.
 	var target_h: float = view_size.y * ANIM_CELL_VIEW_H_RATIO * entrance
 	var scale: float = target_h / ch
-	var max_w: float = view_size.x * 0.94
+	var max_w: float = view_size.x * 0.98
 	if cw * scale > max_w:
 		scale = max_w / cw
 	var dw: float = cw * scale
@@ -187,7 +322,85 @@ func _draw_art_animated(
 	var char_radius: float = dh * 0.31
 	_draw_art_aura(canvas, center, char_radius * 1.18, t, alpha, rise_raw)
 	canvas.draw_circle(center, char_radius, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.20 * alpha))
-	canvas.draw_texture_rect_region(sheet, Rect2(pos, Vector2(dw, dh)), src, Color(1.0, 1.0, 1.0, alpha))
+	_draw_restoring_texture(canvas, sheet, src, Rect2(pos, Vector2(dw, dh)), t, alpha, restore_progress)
+
+
+func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progress: float) -> void:
+	# Overlay fades out over [DISMISS_FADE_START, 1.0] so the screen closes naturally.
+	var out_fade: float = 1.0 - _smoothstep_range(DISMISS_FADE_START, 1.0, dismiss_progress)
+	if out_fade <= 0.0:
+		return
+	var t: float = float(Time.get_ticks_msec()) / 1000.0
+	var center := Vector2(view_size.x * 0.5, view_size.y * 0.46)
+
+	# Background dim + ocean wash, fading with the overlay.
+	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, DIM_ALPHA_MAX * out_fade))
+	canvas.draw_circle(center, view_size.length() * 0.30, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.14 * out_fade))
+
+	# Exit action frame: play 0..N over the action portion, then hold the last frame.
+	var action_t: float = clampf(dismiss_progress / maxf(0.01, DISMISS_ACTION_PORTION), 0.0, 1.0)
+	var sheet: Texture2D = CUTIN_DISMISS_SHEET
+	if sheet != null and sheet.get_width() > 1:
+		var cols: int = maxi(1, CUTIN_DISMISS_COLS)
+		var rows: int = maxi(1, CUTIN_DISMISS_ROWS)
+		var cw: float = float(sheet.get_width()) / float(cols)
+		var ch: float = float(sheet.get_height()) / float(rows)
+		if cw > 1.0 and ch > 1.0:
+			var frame: int = clampi(int(action_t * float(CUTIN_DISMISS_FRAMES)), 0, CUTIN_DISMISS_FRAMES - 1)
+			var col: int = frame % cols
+			var row: int = int(floor(float(frame) / float(cols)))
+			var src := Rect2(float(col) * cw, float(row) * ch, cw, ch)
+			var target_h: float = view_size.y * ANIM_CELL_VIEW_H_RATIO
+			var scale: float = target_h / ch
+			var max_w: float = view_size.x * 0.98
+			if cw * scale > max_w:
+				scale = max_w / cw
+			var dw: float = cw * scale
+			var dh: float = ch * scale
+			var pos := Vector2(center.x - dw * 0.5, center.y - dh * 0.5)
+			var char_radius: float = dh * 0.31
+			_draw_art_aura(canvas, center, char_radius * 1.18, t, out_fade, 1.0)
+			canvas.draw_circle(center, char_radius, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.18 * out_fade))
+			canvas.draw_texture_rect_region(sheet, Rect2(pos, Vector2(dw, dh)), src, Color(1.0, 1.0, 1.0, out_fade))
+			# Spray burst above the body (where the raised spear tip sits).
+			_draw_dismiss_spray(canvas, Vector2(center.x, center.y - dh * 0.40), view_size, action_t, out_fade, t)
+
+	# Keep the title under the action, fading out with the overlay.
+	_draw_dismiss_title(canvas, view_size, out_fade)
+
+
+func _draw_dismiss_spray(canvas: CanvasItem, origin: Vector2, view_size: Vector2, action_t: float, out_fade: float, t: float) -> void:
+	# A turquoise water-spray burst that swells as the spear reaches its apex and
+	# disperses after, sitting on top of the sheet's own spray for extra punch.
+	var sp: float = clampf((action_t - (DISMISS_SPRAY_PEAK - 0.16)) / 0.40, 0.0, 1.0)
+	var intensity: float = sin(sp * PI) * out_fade
+	if intensity <= 0.02:
+		return
+	var max_r: float = view_size.y * 0.20
+	var r: float = lerpf(view_size.y * 0.03, max_r, sp)
+	# Expanding ring shockwave.
+	canvas.draw_arc(origin, r, 0.0, TAU, 40, Color(RESONANCE.r, RESONANCE.g, RESONANCE.b, intensity * 0.55), maxf(2.0, view_size.y * 0.005), true)
+	canvas.draw_arc(origin, r * 0.78, 0.0, TAU, 36, Color(0.92, 1.0, 1.0, intensity * 0.32), maxf(1.5, view_size.y * 0.003), true)
+	# Upward / outward droplet streaks.
+	for i in 14:
+		var ang: float = -PI * 0.5 + (float(i) / 14.0 - 0.5) * PI * 1.15 + sin(t * 3.0 + float(i)) * 0.05
+		var dir := Vector2(cos(ang), sin(ang))
+		var streak_r: float = r * (0.72 + 0.28 * _hash01(i, 3, 41))
+		var tip: Vector2 = origin + dir * streak_r
+		var tail: Vector2 = origin + dir * streak_r * 0.66
+		var a: float = intensity * (0.45 + 0.4 * _hash01(i, 7, 53))
+		canvas.draw_line(tail, tip, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, a), maxf(1.5, view_size.y * 0.0035), true)
+		canvas.draw_circle(tip, maxf(1.5, view_size.y * 0.005 * (0.6 + 0.6 * sp)), Color(0.86, 1.0, 1.0, a))
+	# Bright core flash at the spear tip.
+	canvas.draw_circle(origin, maxf(2.0, view_size.y * 0.018 * (1.0 - sp)), Color(0.95, 1.0, 1.0, intensity * 0.7))
+
+
+func _draw_dismiss_title(canvas: CanvasItem, view_size: Vector2, out_fade: float) -> void:
+	var title_size_px: int = int(view_size.y * 0.072)
+	var title_dim: Vector2 = TITLE_FONT.get_string_size(TITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px)
+	var title_pos := Vector2((view_size.x - title_dim.x) * 0.5, view_size.y * 0.80)
+	canvas.draw_string(TITLE_FONT, title_pos + Vector2(2, 2), TITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px, Color(0.0, 0.05, 0.10, 0.55 * out_fade))
+	canvas.draw_string(TITLE_FONT, title_pos, TITLE_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size_px, Color(TITLE_COLOR.r, TITLE_COLOR.g, TITLE_COLOR.b, out_fade))
 
 
 func _draw_art_static(
@@ -196,37 +409,362 @@ func _draw_art_static(
 	t: float,
 	entrance: float,
 	rise_raw: float,
-	alpha: float
+	alpha: float,
+	restore_progress: float
 ) -> void:
-	# Fallback when the animation sheet is missing: animate the single static
-	# illustration with feet-anchored squash & stretch + sway + aura (no
-	# draw_set_transform, which would trip the rotated-canvas trap).
+	# Main crisp-art path: animate the original illustration with continuous
+	# runtime motion (no frame stepping and no draw_set_transform).
 	if CUTIN_ART == null:
 		return
 	var art_size: Vector2 = CUTIN_ART.get_size()
 	if art_size.x <= 1.0 or art_size.y <= 1.0:
 		return
-	var target_h: float = view_size.y * 0.64
+	var target_h: float = view_size.y * STATIC_ART_VIEW_H_RATIO
 	var scale_factor: float = target_h / art_size.y
-	var max_w: float = view_size.x * 0.86
+	var max_w: float = view_size.x * STATIC_ART_MAX_W_RATIO
 	if art_size.x * scale_factor > max_w:
 		scale_factor = max_w / art_size.x
 	var base_size: Vector2 = art_size * scale_factor
-	var breathe: float = sin(t * TAU * 0.55)
-	var sx: float = 1.0 + breathe * 0.045
-	var sy: float = 1.0 - breathe * 0.035
-	var draw_size := Vector2(base_size.x * entrance * sx, base_size.y * entrance * sy)
+	var breathe: float = sin(t * TAU * STATIC_ART_BREATH_HZ)
+	var pulse_scale: float = 1.0 + breathe * STATIC_ART_SCALE_PULSE
+	var draw_size: Vector2 = base_size * entrance * pulse_scale
 	var settle_center_y: float = view_size.y * 0.42
 	var enter_offset: float = lerpf(view_size.y * 0.14, 0.0, _ease_out_cubic(rise_raw))
-	var feet_y: float = settle_center_y + base_size.y * 0.5 + enter_offset
-	var sway_x: float = sin(t * TAU * 0.27) * view_size.x * 0.014
+	var bob_y: float = sin(t * TAU * 0.36) * view_size.y * 0.004
+	var feet_y: float = settle_center_y + base_size.y * 0.5 + enter_offset + bob_y
+	var sway_x: float = sin(t * TAU * 0.31) * view_size.x * 0.010
 	var pos := Vector2(view_size.x * 0.5 - draw_size.x * 0.5 + sway_x, feet_y - draw_size.y)
 	var center := Vector2(pos.x + draw_size.x * 0.5, pos.y + draw_size.y * 0.5)
 	var glow_alpha: float = (0.22 + 0.08 * breathe) * alpha
 	_draw_art_aura(canvas, center, maxf(draw_size.x, draw_size.y) * 0.5, t, alpha, rise_raw)
 	canvas.draw_circle(center, draw_size.y * 0.46, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, glow_alpha))
-	canvas.draw_texture_rect(CUTIN_ART, Rect2(pos, draw_size), false, Color(1.0, 1.0, 1.0, alpha))
-	_draw_art_shimmer(canvas, Rect2(pos, draw_size), alpha, t)
+	var art_rect := Rect2(pos, draw_size)
+	_draw_restoring_texture(canvas, CUTIN_ART, Rect2(Vector2.ZERO, art_size), art_rect, t, alpha, restore_progress)
+	if restore_progress >= 0.72:
+		_draw_art_shimmer(canvas, art_rect, alpha, t)
+
+
+func _draw_restoring_texture(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	src_rect: Rect2,
+	art_rect: Rect2,
+	t: float,
+	alpha: float,
+	restore_progress: float
+) -> void:
+	if texture == null or art_rect.size.x <= 1.0 or art_rect.size.y <= 1.0:
+		return
+	if restore_progress < RESTORE_SOLID_START:
+		# Digital reconstruction: scattered code-data shards converge, a chromatic
+		# hologram densifies, then a scan-printer solidifies the art bottom-to-top.
+		_draw_data_restore_stream(canvas, art_rect, t, alpha, restore_progress)
+		_draw_code_glyph_stream(canvas, art_rect, t, alpha, restore_progress)
+		_draw_holo_ghost(canvas, texture, src_rect, art_rect, t, alpha, restore_progress)
+		_draw_voxel_assembly(canvas, texture, src_rect, art_rect, t, alpha, restore_progress)
+		_draw_scanline_print(canvas, texture, src_rect, art_rect, t, alpha, restore_progress)
+		return
+	# Locked solid: full art + a quick chromatic settle + completion shockwave.
+	canvas.draw_texture_rect_region(texture, art_rect, src_rect, Color(1.0, 1.0, 1.0, alpha))
+	var settle: float = 1.0 - _smoothstep_range(RESTORE_SOLID_START, 1.0, restore_progress)
+	if settle > 0.01:
+		var jx: float = art_rect.size.x * 0.012 * settle
+		canvas.draw_texture_rect_region(texture, Rect2(art_rect.position + Vector2(-jx, 0.0), art_rect.size), src_rect, Color(1.0, 0.22, 0.30, alpha * 0.32 * settle))
+		canvas.draw_texture_rect_region(texture, Rect2(art_rect.position + Vector2(jx, 0.0), art_rect.size), src_rect, Color(0.24, 0.92, 1.0, alpha * 0.32 * settle))
+	_draw_completion_burst(canvas, art_rect, t, alpha, restore_progress)
+
+
+func _draw_holo_ghost(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	src_rect: Rect2,
+	art_rect: Rect2,
+	t: float,
+	alpha: float,
+	restore_progress: float
+) -> void:
+	# Cyan/magenta chromatic hologram of the full art that densifies as the data
+	# shards assemble. Texture-modulated, so the transparent cell padding stays
+	# empty (no rectangular box residue in the margins).
+	var holo: float = _smoothstep_range(0.12, RESTORE_VOXEL_LAND, restore_progress)
+	if holo <= 0.01:
+		return
+	var flicker: float = 0.82 + 0.18 * sin(t * 26.0 + restore_progress * 12.0)
+	var base_a: float = alpha * holo * 0.5 * flicker
+	if base_a <= 0.01:
+		return
+	var split: float = art_rect.size.x * 0.010 * (1.0 - holo)
+	canvas.draw_texture_rect_region(texture, Rect2(art_rect.position + Vector2(-split, 0.0), art_rect.size), src_rect, Color(DATA_HOT.r, DATA_HOT.g, DATA_HOT.b, base_a))
+	canvas.draw_texture_rect_region(texture, Rect2(art_rect.position + Vector2(split, 0.0), art_rect.size), src_rect, Color(DATA_MAGENTA.r, DATA_MAGENTA.g, DATA_MAGENTA.b, base_a * 0.5))
+	canvas.draw_texture_rect_region(texture, art_rect, src_rect, Color(DATA_CORE.r, DATA_CORE.g, DATA_CORE.b, base_a * 0.7))
+
+
+func _draw_voxel_assembly(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	src_rect: Rect2,
+	art_rect: Rect2,
+	t: float,
+	alpha: float,
+	restore_progress: float
+) -> void:
+	# Texture-carrying data shards fly in from scattered VR-space positions and
+	# snap into their grid slots, leaving glowing cube edges + motion trails.
+	# Shards below the rising scan-printer line are already solid, so skip them.
+	var cols: int = maxi(1, RESTORE_VOXEL_COLS)
+	var rows: int = maxi(1, RESTORE_VOXEL_ROWS)
+	var cell_src := Vector2(src_rect.size.x / float(cols), src_rect.size.y / float(rows))
+	var cell_dst := Vector2(art_rect.size.x / float(cols), art_rect.size.y / float(rows))
+	var print_phase: float = _smoothstep_range(RESTORE_PRINT_START, RESTORE_PRINT_END, restore_progress)
+	var scan_frac: float = 2.0
+	if print_phase > 0.0:
+		scan_frac = _recon_scan_frac(print_phase)
+	for gy in rows:
+		var cell_yfrac: float = (float(gy) + 0.5) / float(rows)
+		if cell_yfrac > scan_frac:
+			continue
+		for gx in cols:
+			# Build only over Maribo's silhouette. Cells outside the baked alpha
+			# mask are transparent padding; drawing shards/bevels/flashes there
+			# would read as a "restoring box" instead of "restoring Maribo".
+			if not _cell_visible(gx, gy):
+				continue
+			var order: float = _hash01(gx, gy, 13)
+			var start: float = order * 0.42
+			var local: float = clampf((restore_progress - start) / maxf(0.01, RESTORE_VOXEL_LAND - start), 0.0, 1.0)
+			if local >= 1.0:
+				continue
+			var eased: float = _ease_out_cubic(local)
+			var src := Rect2(src_rect.position + Vector2(cell_src.x * float(gx), cell_src.y * float(gy)), cell_src)
+			var slot_center := art_rect.position + Vector2(cell_dst.x * (float(gx) + 0.5), cell_dst.y * (float(gy) + 0.5))
+			var scatter: Vector2 = _restore_fragment_scatter(gx, gy, art_rect)
+			var jitter := Vector2(sin(t * 8.0 + order * 17.0), cos(t * 7.1 + order * 23.0)) * art_rect.size.y * 0.006 * (1.0 - eased)
+			var cur := slot_center + scatter * (1.0 - eased) + jitter
+			var sscale: float = lerpf(0.16, 1.0, eased)
+			var dst := Rect2(cur - cell_dst * sscale * 0.5, cell_dst * sscale)
+			var a: float = alpha * clampf(local * 2.2, 0.0, 1.0)
+			if a <= 0.02:
+				continue
+			# Motion trail behind the shard (toward where it came from).
+			var to_slot := slot_center - cur
+			if to_slot.length() > 1.0 and eased < 0.92:
+				var tail_dir := -to_slot.normalized()
+				var tail_len: float = minf(cell_dst.x, cell_dst.y) * lerpf(2.6, 0.2, eased)
+				canvas.draw_line(cur, cur + tail_dir * tail_len, Color(DATA_HOT.r, DATA_HOT.g, DATA_HOT.b, a * 0.45), maxf(1.0, dst.size.y * 0.16), true)
+			# Textured shard, tinted cyan in flight and resolving to true color.
+			var tint: Color = DATA_HOT.lerp(Color(1.0, 1.0, 1.0, 1.0), eased)
+			canvas.draw_texture_rect_region(texture, dst, src, Color(tint.r, tint.g, tint.b, a))
+			# Cube bevel: bright top/left, dim bottom/right.
+			var ew: float = maxf(1.0, dst.size.y * 0.07)
+			canvas.draw_line(dst.position, dst.position + Vector2(dst.size.x, 0.0), Color(DATA_CORE.r, DATA_CORE.g, DATA_CORE.b, a * 0.9), ew, true)
+			canvas.draw_line(dst.position, dst.position + Vector2(0.0, dst.size.y), Color(DATA_CORE.r, DATA_CORE.g, DATA_CORE.b, a * 0.7), ew, true)
+			canvas.draw_line(dst.position + Vector2(0.0, dst.size.y), dst.end, Color(GRID_COLOR.r, GRID_COLOR.g, GRID_COLOR.b, a * 0.5), ew, true)
+			canvas.draw_line(dst.position + Vector2(dst.size.x, 0.0), dst.end, Color(GRID_COLOR.r, GRID_COLOR.g, GRID_COLOR.b, a * 0.5), ew, true)
+			# Snap flash at the instant the shard locks into its slot.
+			if local > 0.82:
+				var snap: float = (local - 0.82) / 0.18
+				var snap_a: float = alpha * (1.0 - snap) * 0.8
+				var slot_rect := Rect2(slot_center - cell_dst * 0.5, cell_dst)
+				canvas.draw_rect(slot_rect, Color(DATA_CORE.r, DATA_CORE.g, DATA_CORE.b, snap_a), false, maxf(1.0, cell_dst.y * 0.12))
+
+
+func _draw_scanline_print(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	src_rect: Rect2,
+	art_rect: Rect2,
+	t: float,
+	alpha: float,
+	restore_progress: float
+) -> void:
+	# A bright scanner sweeps feet->head, "printing" the solid art below it with a
+	# chromatic-split fresh edge, while the hologram remains above the line.
+	var print_phase: float = _smoothstep_range(RESTORE_PRINT_START, RESTORE_PRINT_END, restore_progress)
+	if print_phase <= 0.0:
+		return
+	var scan_frac: float = _recon_scan_frac(print_phase)
+	var solid_top: float = clampf(scan_frac, 0.0, 1.0)
+	# Solid (printed) region below the scan line. Texture-modulated, so the
+	# transparent padding outside Maribo stays empty (no box edge).
+	if solid_top < 1.0:
+		_draw_texture_band(canvas, texture, src_rect, art_rect, solid_top, 1.0, Color(1.0, 1.0, 1.0, alpha))
+	# Chromatic-split fresh edge just below the line.
+	var eb_top: float = clampf(scan_frac, 0.0, 1.0)
+	var eb_bot: float = clampf(scan_frac + 0.05, 0.0, 1.0)
+	if eb_bot > eb_top:
+		var split: float = art_rect.size.x * 0.012 * (1.0 - print_phase * 0.4)
+		_draw_texture_band(canvas, texture, src_rect, Rect2(art_rect.position + Vector2(-split, 0.0), art_rect.size), eb_top, eb_bot, Color(1.0, 0.22, 0.30, alpha * 0.5))
+		_draw_texture_band(canvas, texture, src_rect, Rect2(art_rect.position + Vector2(split, 0.0), art_rect.size), eb_top, eb_bot, Color(0.24, 0.92, 1.0, alpha * 0.5))
+	# Bright scan line + glow + travelling sparks, clamped to the character bbox so
+	# the geometric beam reads as scanning Maribo, not a full-frame rectangle bar.
+	var bx0: float = (art_rect.position.x + art_rect.size.x * _recon_bbox.position.x) if _recon_ready else art_rect.position.x
+	var bx1: float = (art_rect.position.x + art_rect.size.x * (_recon_bbox.position.x + _recon_bbox.size.x)) if _recon_ready else (art_rect.position.x + art_rect.size.x)
+	var by0: float = _recon_bbox.position.y if _recon_ready else 0.0
+	var by1: float = (_recon_bbox.position.y + _recon_bbox.size.y) if _recon_ready else 1.0
+	if scan_frac >= by0 - 0.06 and scan_frac <= by1 + 0.06:
+		var ly: float = art_rect.position.y + art_rect.size.y * clampf(scan_frac, 0.0, 1.0)
+		var span: float = maxf(1.0, bx1 - bx0)
+		var pulse: float = 0.6 + 0.4 * sin(t * 30.0)
+		canvas.draw_line(Vector2(bx0, ly), Vector2(bx1, ly), Color(DATA_HOT.r, DATA_HOT.g, DATA_HOT.b, alpha * 0.30 * pulse), maxf(3.0, art_rect.size.y * 0.018), true)
+		canvas.draw_line(Vector2(bx0, ly), Vector2(bx1, ly), Color(DATA_CORE.r, DATA_CORE.g, DATA_CORE.b, alpha * 0.92), maxf(1.5, art_rect.size.y * 0.005), true)
+		for s in 5:
+			var sx: float = bx0 + span * fposmod(_hash01(s, 4, 53) + t * 0.6, 1.0)
+			var sa: float = alpha * (0.4 + 0.5 * sin(t * 18.0 + float(s)))
+			if sa > 0.05:
+				canvas.draw_circle(Vector2(sx, ly), maxf(1.5, art_rect.size.y * 0.006), Color(DATA_CORE.r, DATA_CORE.g, DATA_CORE.b, sa))
+
+
+func _draw_texture_band(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	src_rect: Rect2,
+	art_rect: Rect2,
+	y_top: float,
+	y_bottom: float,
+	modulate: Color
+) -> void:
+	# Draws the [y_top, y_bottom] vertical slice (height fractions measured from
+	# the top) of the texture into the matching slice of art_rect.
+	if y_bottom <= y_top or modulate.a <= 0.0:
+		return
+	var src := Rect2(
+		src_rect.position.x,
+		src_rect.position.y + src_rect.size.y * y_top,
+		src_rect.size.x,
+		src_rect.size.y * (y_bottom - y_top)
+	)
+	var dst := Rect2(
+		art_rect.position.x,
+		art_rect.position.y + art_rect.size.y * y_top,
+		art_rect.size.x,
+		art_rect.size.y * (y_bottom - y_top)
+	)
+	canvas.draw_texture_rect_region(texture, dst, src, modulate)
+
+
+func _recon_scan_frac(print_phase: float) -> float:
+	# The scan-printer sweeps the character's vertical extent (feet -> head),
+	# not the full transparent-padded cell, so the beam reads as scanning Maribo.
+	# Voxel assembly and the scanline share this so their boundaries stay in sync.
+	var by0: float = 0.0
+	var by1: float = 1.0
+	if _recon_ready:
+		by0 = _recon_bbox.position.y
+		by1 = _recon_bbox.position.y + _recon_bbox.size.y
+	return lerpf(by1 + 0.05, by0 - 0.05, clampf(print_phase, 0.0, 1.0))
+
+
+func _cell_visible(gx: int, gy: int) -> bool:
+	# True when the reconstruction voxel cell overlaps Maribo's baked silhouette.
+	if _recon_ready and _recon_cols == RESTORE_VOXEL_COLS and _recon_rows == RESTORE_VOXEL_ROWS:
+		return _recon_filled[gy * _recon_cols + gx] != 0
+	# Fallback (no baked mask): cull corners/edges with a centered ellipse so the
+	# assembly never reads as a full rectangle even without the manifest.
+	var nx: float = (float(gx) + 0.5) / float(RESTORE_VOXEL_COLS) * 2.0 - 1.0
+	var ny: float = (float(gy) + 0.5) / float(RESTORE_VOXEL_ROWS) * 2.0 - 1.0
+	return (nx * nx) / (0.90 * 0.90) + (ny * ny) / (0.98 * 0.98) <= 1.0
+
+
+func _draw_data_restore_stream(canvas: CanvasItem, art_rect: Rect2, t: float, alpha: float, restore_progress: float) -> void:
+	var gather: float = _ease_out_cubic(restore_progress)
+	var center: Vector2 = art_rect.get_center()
+	for i in RESTORE_DATA_BIT_COUNT:
+		var seed_value: float = _hash01(i, 7, 41)
+		var target := Vector2(
+			art_rect.position.x + art_rect.size.x * _hash01(i, 2, 59),
+			art_rect.position.y + art_rect.size.y * _hash01(i, 3, 67)
+		)
+		var angle: float = seed_value * TAU + t * (0.14 + 0.10 * _hash01(i, 5, 71))
+		var distance: float = art_rect.size.length() * lerpf(0.42, 0.96, _hash01(i, 11, 83))
+		var start: Vector2 = center + Vector2(cos(angle), sin(angle)) * distance
+		var drift := Vector2(sin(t * 4.0 + seed_value * 11.0), cos(t * 3.5 + seed_value * 13.0)) * art_rect.size.y * 0.012
+		var pos: Vector2 = start.lerp(target, gather) + drift * (1.0 - gather)
+		var bit_alpha: float = alpha * (1.0 - _smoothstep_range(0.74, 1.0, restore_progress)) * (0.35 + 0.45 * _hash01(i, 17, 97))
+		if bit_alpha <= 0.02:
+			continue
+		var bit_len: float = maxf(3.0, art_rect.size.y * lerpf(0.010, 0.022, _hash01(i, 23, 101)))
+		var bit_h: float = maxf(1.5, art_rect.size.y * 0.004)
+		canvas.draw_rect(Rect2(pos, Vector2(bit_len, bit_h)), Color(RESTORE_FRAGMENT_COLOR.r, RESTORE_FRAGMENT_COLOR.g, RESTORE_FRAGMENT_COLOR.b, bit_alpha))
+		if i % 4 == 0:
+			var tail_dir: Vector2 = (target - pos).normalized()
+			canvas.draw_line(pos - tail_dir * bit_len * 1.6, pos, Color(0.82, 1.0, 1.0, bit_alpha * 0.55), maxf(1.0, bit_h), true)
+
+
+func _draw_code_glyph_stream(canvas: CanvasItem, art_rect: Rect2, t: float, alpha: float, restore_progress: float) -> void:
+	# A handful of hex / binary glyphs spiral inward toward the forming body,
+	# selling the "made of code-data" concept. Fades out before the lock-in.
+	var fade: float = 1.0 - _smoothstep_range(0.70, RESTORE_SOLID_START, restore_progress)
+	if fade <= 0.02:
+		return
+	var gather: float = _ease_out_cubic(restore_progress)
+	var center: Vector2 = art_rect.get_center()
+	var glyph_px: int = maxi(8, int(art_rect.size.y * 0.026))
+	var token_n: int = RESTORE_GLYPH_TOKENS.size()
+	for i in RESTORE_CODE_GLYPH_COUNT:
+		var seed_value: float = _hash01(i, 9, 61)
+		var target := Vector2(
+			art_rect.position.x + art_rect.size.x * _hash01(i, 2, 73),
+			art_rect.position.y + art_rect.size.y * _hash01(i, 3, 79)
+		)
+		var angle: float = seed_value * TAU + t * (0.4 + 0.5 * _hash01(i, 5, 83))
+		var distance: float = art_rect.size.length() * lerpf(0.30, 0.78, _hash01(i, 7, 89))
+		var start: Vector2 = center + Vector2(cos(angle), sin(angle)) * distance
+		var pos: Vector2 = start.lerp(target, gather)
+		var ga: float = alpha * fade * (0.30 + 0.40 * _hash01(i, 13, 91))
+		if ga <= 0.03:
+			continue
+		var token: String = RESTORE_GLYPH_TOKENS[i % token_n]
+		canvas.draw_string(TITLE_FONT, pos, token, HORIZONTAL_ALIGNMENT_LEFT, -1, glyph_px, Color(DATA_HOT.r, DATA_HOT.g, DATA_HOT.b, ga))
+
+
+func _draw_completion_burst(canvas: CanvasItem, art_rect: Rect2, t: float, alpha: float, restore_progress: float) -> void:
+	var burst: float = _smoothstep_range(RESTORE_SOLID_START, 1.0, restore_progress)
+	var center: Vector2 = art_rect.get_center()
+	# Expanding chromatic shockwave ring at the lock-in moment.
+	var fade: float = 1.0 - burst
+	if fade > 0.01:
+		var max_r: float = art_rect.size.length() * 0.5
+		var r: float = lerpf(art_rect.size.y * 0.14, max_r, burst)
+		var ring_a: float = fade * alpha * 0.8
+		var rw: float = maxf(2.0, art_rect.size.y * 0.01)
+		canvas.draw_arc(center, r, 0.0, TAU, 56, Color(DATA_CORE.r, DATA_CORE.g, DATA_CORE.b, ring_a), rw, true)
+		canvas.draw_arc(center, r * 1.04, 0.0, TAU, 56, Color(DATA_HOT.r, DATA_HOT.g, DATA_HOT.b, ring_a * 0.45), rw * 0.6, true)
+		for i in 14:
+			var ang: float = (float(i) / 14.0) * TAU + t * 0.5
+			var sp: Vector2 = center + Vector2(cos(ang), sin(ang)) * r * (0.86 + 0.1 * sin(t * 6.0 + float(i)))
+			canvas.draw_circle(sp, maxf(1.5, art_rect.size.y * 0.006), Color(DATA_CORE.r, DATA_CORE.g, DATA_CORE.b, ring_a))
+	# Lingering idle data-motes over the locked art (kept to the central band).
+	var idle_a: float = alpha * (0.18 + 0.12 * sin(t * 3.0)) * (1.0 - burst * 0.5)
+	if idle_a > 0.02:
+		for i in 8:
+			var seed_value: float = _hash01(i, 19, 127)
+			var p := Vector2(
+				art_rect.position.x + art_rect.size.x * (0.22 + 0.56 * _hash01(i, 29, 131)),
+				art_rect.position.y + art_rect.size.y * (0.18 + 0.62 * _hash01(i, 31, 137))
+			)
+			var tw: float = 0.5 + 0.5 * sin(t * 7.0 + seed_value * TAU)
+			canvas.draw_circle(p, maxf(1.2, art_rect.size.y * 0.005 * tw), Color(DATA_CORE.r, DATA_CORE.g, DATA_CORE.b, idle_a * tw))
+
+
+func _restore_fragment_scatter(gx: int, gy: int, art_rect: Rect2) -> Vector2:
+	var angle: float = _hash01(gx, gy, 151) * TAU
+	var radius: float = art_rect.size.length() * lerpf(0.30, 0.78, _hash01(gx, gy, 157))
+	var side_bias := Vector2(
+		(_hash01(gx, gy, 163) - 0.5) * art_rect.size.x * 0.75,
+		(_hash01(gx, gy, 167) - 0.5) * art_rect.size.y * 0.58
+	)
+	return Vector2(cos(angle), sin(angle)) * radius + side_bias
+
+
+func _smoothstep_range(edge0: float, edge1: float, value: float) -> float:
+	var span: float = maxf(0.0001, edge1 - edge0)
+	var x: float = clampf((value - edge0) / span, 0.0, 1.0)
+	return x * x * (3.0 - 2.0 * x)
+
+
+func _hash01(a: int, b: int, salt: int) -> float:
+	var n: float = sin(float(a * 127 + b * 311 + salt * 743)) * 43758.5453123
+	return fposmod(n, 1.0)
 
 
 func _ease_out_back(t: float) -> float:

@@ -19,6 +19,9 @@ class FakeOwner:
 	var player_pos := Vector2(263.75, 675.0)
 	var player_paddle_width := 232.5
 	var player_paddle_height := 75.0
+	var boss_pos := Vector2(330.0, 25.0)
+	var boss_paddle_width := 100.0
+	var boss_hitbox_height := 40.0
 	var ball_active := false
 	var ball_pos := Vector2.ZERO
 	var ball_vel := Vector2.ZERO
@@ -44,14 +47,26 @@ class FakeOwner:
 	var ringpet_companion_last_contact_pos := Vector2.ZERO
 	var lingpet_companion_hit_cooldown := 0.0
 	var ringpet_companion_hit_cooldown := 0.0
+	var lingpet_companion_hit_gauge_gain := 0.0
+	var ringpet_companion_hit_gauge_gain := 0.0
+	var lingpet_companion_hit_gauge_cooldown := 0.0
+	var ringpet_companion_hit_gauge_cooldown := 0.0
+	var lingpet_companion_hit_gauge_cooldown_duration := 6.0
+	var ringpet_companion_hit_gauge_cooldown_duration := 6.0
+	var lingpet_companion_hit_gauge_ready := false
+	var ringpet_companion_hit_gauge_ready := false
+	var lingpet_companion_hit_gauge_last_gain := 0.0
+	var ringpet_companion_hit_gauge_last_gain := 0.0
+	var lingpet_companion_hit_gauge_trigger_count := 0
+	var ringpet_companion_hit_gauge_trigger_count := 0
 	var lingpet_skill_id := ""
 	var ringpet_skill_id := ""
 	var lingpet_skill_name := ""
 	var ringpet_skill_name := ""
 	var lingpet_skill_cooldown := 0.0
 	var ringpet_skill_cooldown := 0.0
-	var lingpet_skill_cooldown_duration := 6.0
-	var ringpet_skill_cooldown_duration := 6.0
+	var lingpet_skill_cooldown_duration := 40.0
+	var ringpet_skill_cooldown_duration := 40.0
 	var lingpet_skill_ready := false
 	var ringpet_skill_ready := false
 	var lingpet_skill_last_gain := 0.0
@@ -93,14 +108,26 @@ class FakeBattleOwner:
 	var ringpet_companion_last_contact_pos := Vector2.ZERO
 	var lingpet_companion_hit_cooldown := 0.0
 	var ringpet_companion_hit_cooldown := 0.0
+	var lingpet_companion_hit_gauge_gain := 0.0
+	var ringpet_companion_hit_gauge_gain := 0.0
+	var lingpet_companion_hit_gauge_cooldown := 0.0
+	var ringpet_companion_hit_gauge_cooldown := 0.0
+	var lingpet_companion_hit_gauge_cooldown_duration := 6.0
+	var ringpet_companion_hit_gauge_cooldown_duration := 6.0
+	var lingpet_companion_hit_gauge_ready := false
+	var ringpet_companion_hit_gauge_ready := false
+	var lingpet_companion_hit_gauge_last_gain := 0.0
+	var ringpet_companion_hit_gauge_last_gain := 0.0
+	var lingpet_companion_hit_gauge_trigger_count := 0
+	var ringpet_companion_hit_gauge_trigger_count := 0
 	var lingpet_skill_id := ""
 	var ringpet_skill_id := ""
 	var lingpet_skill_name := ""
 	var ringpet_skill_name := ""
 	var lingpet_skill_cooldown := 0.0
 	var ringpet_skill_cooldown := 0.0
-	var lingpet_skill_cooldown_duration := 6.0
-	var ringpet_skill_cooldown_duration := 6.0
+	var lingpet_skill_cooldown_duration := 40.0
+	var ringpet_skill_cooldown_duration := 40.0
 	var lingpet_skill_ready := false
 	var ringpet_skill_ready := false
 	var lingpet_skill_last_gain := 0.0
@@ -142,6 +169,53 @@ class FakeOrbHudState:
 		gauge_spins += 1
 
 
+class FakePaddleAudio:
+	extends RefCounted
+
+	var paddle_hits := 0
+	var hydro_count := 0
+
+	func play_paddle_hit() -> void:
+		paddle_hits += 1
+
+	func play_stage2_hydro() -> void:
+		hydro_count += 1
+
+
+class FakeStatusEffectState:
+	extends RefCounted
+
+	var calls: Array[Dictionary] = []
+
+	func apply_status(target: String, status_id: String, duration_frames: float, data: Dictionary = {}, source: String = "") -> Dictionary:
+		var status_call := {
+			"target": target,
+			"status_id": status_id,
+			"duration_frames": duration_frames,
+			"data": data.duplicate(true),
+			"source": source,
+		}
+		calls.append(status_call)
+		return status_call
+
+	func get_calls_for_source(source: String) -> Array[Dictionary]:
+		var matches: Array[Dictionary] = []
+		for status_call in calls:
+			if str(status_call.get("source", "")) == source:
+				matches.append(status_call)
+		return matches
+
+
+class FakeWhip:
+	extends RefCounted
+
+	var player_hits := 0
+
+	func register_player_hit(_ball_vel: Vector2, _context: Dictionary) -> Dictionary:
+		player_hits += 1
+		return {}
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -169,7 +243,12 @@ func _init() -> void:
 	_verify_companion_visual_and_pillar_card()
 	_verify_companion_patrol_edge_pause_and_speed_change()
 	_verify_companion_ball_collision_soft_bounce()
-	_verify_companion_skill_card_gauge_charge()
+	_verify_companion_strike_anticipates_contact()
+	_verify_companion_paddle_bounce_and_sound()
+	_verify_companion_hit_gauge_passive()
+	_verify_companion_paddle_hit_width()
+	_verify_companion_guards_dalji_whip()
+	_verify_companion_skill_card_hydro_sphere()
 	_verify_save_snapshot_roundtrip()
 	_verify_save_store_persists_and_restores_maribo()
 	_verify_battle_lifecycle_restores_lingpet_save()
@@ -209,7 +288,15 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(hit_router_source.find("get_gauge_gain_per_hit") >= 0, "player hit gauge routing should read lingpet gauge bonuses")
 	_expect(character_info_source.find("_frame_stat_sources.append(lingpet_runtime)") >= 0, "character info stats should include lingpet stat sources")
 	_expect(pillar_hud_source.find("\"lingpet_runtime\"") >= 0, "shared pillar HUD should pass lingpet runtime to the pillar UI")
-	_expect(pillar_ui_source.find("draw_pillar_card") >= 0, "shared pillar UI should draw the ringpet card beside the skill cluster")
+	# Old separate bottom-left vertical lingpet card was removed; the skill now rides EVERY stage's boss skill-card rail via the shared LingpetRailCard helper.
+	_expect(pillar_ui_source.find("_draw_lingpet_card(") < 0, "old separate lingpet pillar card call site should be removed from the pillar UI renderer")
+	_expect(pillar_ui_source.find("draw_pillar_card") < 0, "pillar UI renderer should no longer call the runtime pillar card draw path")
+	_expect(pillar_hud_source.find("LingpetRailCard") >= 0 and pillar_hud_source.find("append_entry(") >= 0, "Stage 1 boss-HUD composition should append the lingpet card via the shared LingpetRailCard helper")
+	_expect(pillar_hud_source.find("stage1_dalji_boss_skill_hud_skills") >= 0, "Stage 1 lingpet append should target the boss skill-card rail array")
+	var dalji_hud_renderer_source: String = FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_dalji_boss_skill_hud_renderer.gd")
+	_expect(dalji_hud_renderer_source.find("LingpetRailCard") >= 0 and dalji_hud_renderer_source.find("is_lingpet_skill") >= 0, "Dalji boss skill HUD renderer should delegate the lingpet card to the shared helper")
+	_expect(FileAccess.file_exists("res://scripts/stages/common/lingpet_rail_card.gd"), "shared lingpet rail card helper should exist")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png"), "Maribo Hydro Sphere rail card should ship a landscape (boss-card class) imagegen PNG")
 	_expect(drawer_source.find("lingpet_egg_runtime") >= 0, "playfield drawer should keep drawing the ringpet companion after hatching")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002.png"), "Maribo egg should use a PNG-backed runtime asset")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png"), "Maribo egg should have a first-hit cracked PNG variant")
@@ -220,6 +307,7 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(runtime_source.find("_draw_egg_crack_light") >= 0, "field egg rendering should leak light from cracked shell paths after a hatch hit")
 	_expect(runtime_source.find("HATCH_BREAK_SHARD_COUNT") >= 0, "field hatch should keep a shell-fragment burst spec")
 	_expect(runtime_source.find("_draw_hatch_shell_burst") >= 0, "field hatch should draw breaking egg fragments during the hatch flash")
+	_expect(runtime_source.find("HYDRO_SPHERE_PUDDLE_HALF_WIDTH") >= 0 and runtime_source.find("HYDRO_SPHERE_PUDDLE_HALF_HEIGHT") >= 0, "Maribo Hydro Sphere puddle should be a wide ellipse (half-width/half-height), not a circle radius")
 	_verify_companion_walk_sheet_wiring(runtime_source)
 	_verify_acquire_cutin_wiring(runtime_source)
 
@@ -233,13 +321,37 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_cutin_anim.png"), "Maribo acquisition cut-in should use the AutoSprite Live2D-style animation sheet")
 	_expect(FileAccess.file_exists("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd"), "lingpet acquisition cut-in overlay host should exist")
 	var cutin_host_source: String = FileAccess.get_file_as_string("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
+	_expect(cutin_host_source.find("USE_ANIMATED_CUTIN := true") >= 0, "cut-in host should default to the upscaled Live2D-style animation sheet")
+	_expect(cutin_host_source.find("CUTIN_ANIM_COLS := 4") >= 0, "cut-in host should use the 4x4 Maribo acquisition cut-in sheet")
+	_expect(cutin_host_source.find("CUTIN_ANIM_FRAMES := 16") >= 0, "cut-in host should use the 16-frame Maribo acquisition cut-in sheet")
 	_expect(cutin_host_source.find("CUTIN_ANIM_SHEET") >= 0, "cut-in host should reference the Live2D-style animation sheet")
 	_expect(cutin_host_source.find("draw_texture_rect_region") >= 0, "cut-in host should frame-step the animation sheet")
+	_expect(cutin_host_source.find("RESTORE_VOXEL_COLS") >= 0, "cut-in host should assemble Maribo from a virtual data-fragment grid")
+	_expect(cutin_host_source.find("_draw_voxel_assembly") >= 0, "cut-in host should fly code-data shards into the final Live2D cut-in")
+	_expect(cutin_host_source.find("_draw_holo_ghost") >= 0, "cut-in host should densify a chromatic hologram as the data shards assemble")
+	_expect(cutin_host_source.find("_draw_scanline_print") >= 0, "cut-in host should solidify the restored art with a scan-printer sweep")
+	# The shards/bevels must build only over Maribo's baked silhouette (not the
+	# transparent frame padding), gated by the manifest occupancy mask.
+	_expect(cutin_host_source.find("reconstruction_frame0") >= 0, "cut-in host should read the baked frame-0 alpha occupancy (silhouette, not a box)")
+	_expect(cutin_host_source.find("_cell_visible") >= 0, "cut-in host should skip empty silhouette cells when assembling the data shards")
+	var cutin_manifest_source: String = FileAccess.get_file_as_string("res://assets/sprites/lingpet/maribo_cutin_anim_manifest.json")
+	_expect(cutin_manifest_source.find("reconstruction_frame0") >= 0, "cut-in manifest should bake the per-cell frame-0 occupancy + alpha bbox the reconstruction reads")
+	_expect(cutin_host_source.find("_draw_data_restore_stream") >= 0, "cut-in host should draw loose coding-data bits before the cut-in fully restores")
+	_expect(cutin_host_source.find("_draw_restoring_texture") >= 0, "cut-in host should gate the final texture through the restoration reveal")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_cutin_anim_manifest.json"), "Maribo acquisition cut-in should record its AutoSprite + Real-ESRGAN provenance")
+	_expect(cutin_host_source.find("_draw_art_static") >= 0, "cut-in host should keep the smooth static-art primary path")
+	_expect(cutin_host_source.find("_draw_spear_blade_repair") < 0, "cut-in host should not patch Maribo's spear with procedural overlays")
+	_expect(cutin_host_source.find("_draw_dismiss_action") >= 0, "cut-in host should draw the click-triggered exit action")
+	_expect(cutin_host_source.find("CUTIN_DISMISS_SHEET") >= 0, "cut-in host should play the spear-raise + water-spray exit sheet")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png"), "Maribo cut-in should ship the exit-action (spear-raise + water-spray) sheet")
 	_expect(runtime_source.find("is_acquire_cutin_active") >= 0, "lingpet runtime should expose the acquisition cut-in active flag")
 	_expect(runtime_source.find("get_acquire_cutin_progress") >= 0, "lingpet runtime should expose the acquisition cut-in progress")
 	_expect(runtime_source.find("advance_acquire_cutin") >= 0, "lingpet runtime should advance the cut-in from the ungated idle pump")
 	_expect(runtime_source.find("is_acquire_cutin_awaiting_dismiss") >= 0, "lingpet runtime should expose the post-reveal dismissable state")
-	_expect(runtime_source.find("dismiss_acquire_cutin") >= 0, "lingpet runtime should support click dismissal of the cut-in")
+	_expect(runtime_source.find("dismiss_acquire_cutin") >= 0, "lingpet runtime should support hard dismissal of the cut-in")
+	_expect(runtime_source.find("begin_acquire_cutin_dismiss") >= 0, "lingpet runtime should start the click-triggered exit action")
+	_expect(runtime_source.find("is_acquire_cutin_dismissing") >= 0, "lingpet runtime should expose the exit-action (dismissing) state")
+	_expect(runtime_source.find("get_acquire_cutin_dismiss_progress") >= 0, "lingpet runtime should expose the exit-action progress for the host")
 	var hud_catalog_source: String = FileAccess.get_file_as_string("res://scripts/resources/gameplay_hud_module_catalog.gd")
 	_expect(hud_catalog_source.find("lingpet_acquire_cutin_overlay_host") >= 0, "HUD module catalog should register the lingpet acquisition cut-in host")
 	var frame_controller_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_frame_controller.gd")
@@ -254,8 +366,8 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(modal_gate_source.find("is_lingpet_acquire_cutin_active") >= 0, "modal gate should expose the lingpet acquisition cut-in as a physics-blocking modal")
 	_expect(modal_gate_source.find("physics.modal_gate.lingpet_acquire_cutin") >= 0, "modal gate should block battle physics while the acquisition cut-in is active")
 	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_overlay_input_controller.gd")
-	_expect(input_source.find("is_acquire_cutin_awaiting_dismiss") >= 0, "overlay input controller should only dismiss the cut-in after the reveal finishes")
-	_expect(input_source.find("dismiss_acquire_cutin") >= 0, "overlay input controller should dismiss the cut-in on click/confirm")
+	_expect(input_source.find("is_acquire_cutin_awaiting_dismiss") >= 0, "overlay input controller should only act after the reveal finishes")
+	_expect(input_source.find("begin_acquire_cutin_dismiss") >= 0, "overlay input controller should start the exit action on click/confirm (not close instantly)")
 	var modal_gate: Object = GameplayModuleRegistry.new().get_instance("battle_scene_modal_gate_controller")
 	_expect(modal_gate != null and modal_gate.has_method("is_lingpet_acquire_cutin_active"), "modal gate controller should implement the cut-in gate method")
 	var host: Object = GameplayModuleRegistry.new().get_instance("lingpet_acquire_cutin_overlay_host")
@@ -281,6 +393,29 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 		_expect(sheet.get_width() % cols == 0, "walk sheet width must divide evenly into the column count")
 		_expect(sheet.get_height() % rows == 0, "walk sheet height must divide evenly into the row count")
 		_expect(frames <= cols * rows, "declared frame count must fit the walk-sheet grid")
+	# Ball-hit strike sheet (same 5x5/25 grid) played on companion ball contact.
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_strike.png"), "Maribo companion should have a back-view ball-hit strike sheet")
+	_expect(runtime_source.find("MARIBO_COMPANION_STRIKE_SHEET") >= 0, "companion rendering should reference the strike sheet")
+	_expect(runtime_source.find("_get_companion_strike_frame") >= 0, "companion should map the strike timer to sheet frames")
+	# Impact-synced reaction: the ball-hit must seed the SHORT residual so the
+	# thrust/apex frame renders at contact, NOT the full duration (which replayed
+	# the long wind-up after the bounce = late-strike regression).
+	_expect(runtime_source.find("_maybe_arm_companion_strike") >= 0, "companion should arm the strike anticipatorily (like player/boss attack sheets), not only on contact")
+	_expect(runtime_source.find("frames_to_contact") >= 0, "anticipatory strike should predict time-to-contact to pick an entry frame")
+	_expect(runtime_source.find("COMPANION_STRIKE_START_FRAME") >= 0, "strike should declare a wind-up start frame (skip dead-air, show coil before the thrust)")
+	var strike_sheet: Texture2D = load("res://assets/sprites/lingpet/maribo_companion_strike.png") as Texture2D
+	_expect(strike_sheet != null, "companion strike sheet should load as a Texture2D")
+	if strike_sheet != null:
+		_expect(strike_sheet.get_width() % 5 == 0 and strike_sheet.get_height() % 5 == 0, "strike sheet must divide evenly into the 5x5 grid")
+	# Hydro-cast wind-up sheet (telegraphed spear throw before the projectile launches).
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png"), "Maribo companion should have a back-view hydro-cast wind-up sheet")
+	_expect(runtime_source.find("MARIBO_COMPANION_HYDRO_CAST_SHEET") >= 0, "companion rendering should reference the hydro-cast wind-up sheet")
+	_expect(runtime_source.find("_get_companion_cast_frame") >= 0, "companion should map the wind-up timer to cast sheet frames")
+	_expect(runtime_source.find("COMPANION_SKILL_WINDUP_SECONDS") >= 0, "Hydro Sphere should declare a wind-up duration before launch")
+	var cast_sheet: Texture2D = load("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png") as Texture2D
+	_expect(cast_sheet != null, "companion hydro-cast sheet should load as a Texture2D")
+	if cast_sheet != null:
+		_expect(cast_sheet.get_width() % 5 == 0 and cast_sheet.get_height() % 5 == 0, "hydro-cast sheet must divide evenly into the 5x5 grid")
 	var player_serve_snapshot: Dictionary = BallRoundState.new().build_serve_snapshot(
 		true,
 		Vector2(300.0, 675.0),
@@ -446,10 +581,19 @@ func _verify_acquire_cutin_triggers_on_hatch() -> void:
 	_expect(bool(runtime.is_acquire_cutin_active()), "acquisition cut-in should HOLD after the reveal (no auto-close)")
 	_expect(bool(runtime.is_acquire_cutin_awaiting_dismiss()), "finished reveal should be dismissable")
 	_expect(is_equal_approx(float(runtime.get_acquire_cutin_progress()), 1.0), "held reveal progress should clamp at 1.0")
-	# Click/confirm dismissal resumes the battle.
-	_expect(bool(runtime.dismiss_acquire_cutin()), "dismiss should consume the active cut-in")
-	_expect(not bool(runtime.is_acquire_cutin_active()), "dismissed cut-in should be inactive so battle physics resumes")
-	_expect(not bool(runtime.dismiss_acquire_cutin()), "dismissing an inactive cut-in should be a no-op")
+	# Click/confirm does NOT close instantly -- it starts the spear-raise + water-spray
+	# exit action; the cut-in stays active (gameplay paused) until the action+fade end.
+	_expect(bool(runtime.begin_acquire_cutin_dismiss()), "click should start the exit action")
+	_expect(bool(runtime.is_acquire_cutin_dismissing()), "exit action should be playing after the click")
+	_expect(bool(runtime.is_acquire_cutin_active()), "cut-in should stay active (gameplay paused) during the exit action")
+	_expect(not bool(runtime.is_acquire_cutin_awaiting_dismiss()), "a second click must not re-trigger the exit action once it is playing")
+	_expect(not bool(runtime.begin_acquire_cutin_dismiss()), "begin_acquire_cutin_dismiss should be a no-op once already dismissing")
+	_expect(float(runtime.get_acquire_cutin_dismiss_progress()) >= 0.0, "exit action should expose a dismiss progress for the host")
+	# Advancing through the exit action + fade auto-closes the cut-in and resumes play.
+	runtime.advance_acquire_cutin(2.0)
+	_expect(not bool(runtime.is_acquire_cutin_active()), "exit action completing should resume battle physics on its own")
+	_expect(not bool(runtime.is_acquire_cutin_dismissing()), "dismissing state should clear once the exit action finishes")
+	_expect(not bool(runtime.begin_acquire_cutin_dismiss()), "starting the exit action on an inactive cut-in should be a no-op")
 
 	# Re-adopting an already-owned Maribo (no hatch event) must NOT replay the
 	# acquisition cut-in.
@@ -480,7 +624,6 @@ func _verify_companion_visual_and_pillar_card() -> void:
 	var first_pos: Vector2 = owner.lingpet_companion_pos
 	var expected_lane_y: float = owner.player_pos.y + owner.player_paddle_height * 0.5
 	_expect(runtime.has_visible_effects(), "owned Maribo companion should remain visible on the playfield")
-	_expect(runtime.has_pillar_card(), "owned Maribo companion should expose a left-pillar card")
 	_expect(absf(first_pos.y - expected_lane_y) <= 1.0, "owned Maribo companion should start on the player-height patrol lane")
 	_expect(first_pos.x >= 42.0 and first_pos.x <= 718.0, "owned Maribo companion should start inside the patrol bounds")
 	owner.player_pos.x += 120.0
@@ -537,49 +680,262 @@ func _verify_companion_ball_collision_soft_bounce() -> void:
 	_expect(int(snapshot.get("companion_contact_count", 0)) == count_after_first_hit, "runtime snapshot should expose Maribo contact count")
 
 
-func _verify_companion_skill_card_gauge_charge() -> void:
+func _verify_companion_guards_dalji_whip() -> void:
+	# Bug: during Dalji's 상모돌리기 whip the ball is owned by the skill (forced
+	# downward each frame), so the companion bounce was ignored. The companion hit
+	# must route through the whip's register_player_hit (same as a player paddle
+	# guard) so the whip releases the ball and it reflects upward.
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var whip := FakeWhip.new()
+	var registry := FakeRegistry.new({"stage1_dalji_whip_skill_state": whip})
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner, registry)
+	owner.ball_active = true
+	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -6.0)
+	owner.ball_vel = Vector2(0.0, 12.0)
+	runtime.update(0.01, owner, registry)
+	_expect(int(owner.lingpet_companion_contact_count) == 1, "companion should register the hit during the whip")
+	_expect(whip.player_hits == 1, "companion hit must notify the Dalji whip via register_player_hit so it releases the ball")
+	_expect(owner.ball_vel.y < 0.0, "ball must reflect upward toward the boss even during the whip")
+
+
+func _verify_companion_paddle_hit_width() -> void:
+	# The hit zone is now a wide paddle-like box (~100px), not the old 44px circle.
+	# A ball offset ~45px horizontally (which the old radius-22 circle would miss)
+	# is caught; a ball well beyond the width is not.
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	var companion_pos: Vector2 = owner.lingpet_companion_pos
+	owner.ball_active = true
+	owner.ball_pos = companion_pos + Vector2(45.0, 0.0)
+	owner.ball_vel = Vector2(0.0, 8.0)
+	runtime.update(0.01, owner)
+	_expect(int(owner.lingpet_companion_contact_count) == 1, "wide paddle footprint should catch a ball ~45px off-center (old circle would miss)")
+
+	var owner2 := FakeOwner.new()
+	owner2.lingpet_owned_pet_ids = ["maribo"]
+	var runtime2: Object = LingpetEggRuntime.new()
+	runtime2.update(0.0, owner2)
+	owner2.ball_active = true
+	owner2.ball_pos = owner2.lingpet_companion_pos + Vector2(90.0, 0.0)
+	owner2.ball_vel = Vector2(0.0, 8.0)
+	runtime2.update(0.01, owner2)
+	_expect(int(owner2.lingpet_companion_contact_count) == 0, "a ball well beyond the ~100px width should not be caught")
+
+
+func _verify_companion_paddle_bounce_and_sound() -> void:
+	# When Maribo hits the ball it must reflect like a PLAYER PADDLE: launched
+	# toward the boss (upward), with the angle driven by the horizontal hit offset
+	# and the incoming speed preserved -- and play the player paddle-hit sound.
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var audio := FakePaddleAudio.new()
+	var registry := FakeRegistry.new({"game_audio": audio})
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner, registry)
+	var companion_pos: Vector2 = owner.lingpet_companion_pos
+	owner.ball_active = true
+	# Overlap with a horizontal offset so the launch angle is non-trivial.
+	owner.ball_pos = companion_pos + Vector2(10.0, -6.0)
+	owner.ball_vel = Vector2(0.0, 14.0)
+	runtime.update(0.01, owner, registry)
+	# Launched toward the boss (upward), not a soft normal reflection.
+	_expect(owner.ball_vel.y < 0.0, "Maribo hit must launch the ball toward the boss (upward), like a player paddle")
+	# Speed preserved (paddle parity, not the old 0.96 soft slowdown).
+	_expect(absf(owner.ball_vel.length() - 14.0) <= 0.5, "Maribo hit should preserve the incoming ball speed (paddle physics)")
+	# Right-side hit (hit_pos > 0) should bias the launch toward +x (paddle angle).
+	_expect(owner.ball_vel.x > 0.0, "off-center hit should angle the launch like a paddle (hit_pos sign)")
+	# Launch within the paddle max-angle cone (<= 60 deg from straight up).
+	_expect(absf(owner.ball_vel.x) <= absf(owner.ball_vel.y) * 1.8, "launch angle should stay within the paddle bounce cone")
+	# Player paddle-hit sound played.
+	_expect(audio.paddle_hits == 1, "Maribo hit should play the player paddle-hit sound")
+
+
+func _verify_companion_hit_gauge_passive() -> void:
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	owner.special_gauge = 100.0
+	var feedback := FakeFeedback.new()
+	var orb_hud_state := FakeOrbHudState.new()
+	var audio := FakePaddleAudio.new()
+	var registry := FakeRegistry.new({
+		"battle_feedback_state": feedback,
+		"orb_hud_state": orb_hud_state,
+		"game_audio": audio,
+	})
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner, registry)
+	owner.ball_active = true
+
+	_hit_companion(runtime, owner, registry, owner.lingpet_companion_pos)
+	_expect(is_equal_approx(owner.special_gauge, 140.0), "Maribo body hit should restore the original +40 gauge passive")
+	_expect(is_equal_approx(owner.lingpet_companion_hit_gauge_last_gain, 40.0), "Maribo body hit should publish the passive gauge gain")
+	_expect(int(owner.lingpet_companion_hit_gauge_trigger_count) == 1, "Maribo body hit should count the passive gauge trigger")
+	_expect(owner.lingpet_companion_hit_gauge_cooldown > 5.0, "Maribo body hit gauge passive should enter its original 6-second cooldown")
+	_expect(feedback.gauge_flashes == 1, "Maribo body hit gauge passive should trigger gauge flash feedback")
+	_expect(orb_hud_state.gauge_spins == 1, "Maribo body hit gauge passive should trigger the gauge orb spin")
+	_expect(is_equal_approx(owner.lingpet_skill_last_gain, 0.0), "Maribo body-hit passive should not masquerade as Hydro Sphere direct gauge gain")
+
+	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -160.0)
+	runtime.update(0.43, owner, registry)
+	_hit_companion(runtime, owner, registry, owner.lingpet_companion_pos)
+	_expect(is_equal_approx(owner.special_gauge, 140.0), "Maribo body hit gauge passive cooldown should block repeated +40 grants")
+	_expect(int(owner.lingpet_companion_hit_gauge_trigger_count) == 1, "blocked passive gain should not increment trigger count")
+	_expect(feedback.gauge_flashes == 1, "blocked passive gain should not flash gauge again")
+
+	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -160.0)
+	runtime.update(6.1, owner, registry)
+	_hit_companion(runtime, owner, registry, owner.lingpet_companion_pos)
+	_expect(is_equal_approx(owner.special_gauge, 180.0), "Maribo body hit gauge passive should grant +40 again after cooldown")
+	_expect(int(owner.lingpet_companion_hit_gauge_trigger_count) == 2, "recharged passive gain should increment trigger count")
+
+
+func _verify_companion_strike_anticipates_contact() -> void:
+	# Like the player/boss attack sheets, the companion must start the strike
+	# swing BEFORE the ball reaches it (anticipatory), so the wind-up is visible
+	# ahead of contact and the thrust lands on the ball -- not after it bounced.
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	var companion_pos: Vector2 = owner.lingpet_companion_pos
+	owner.ball_active = true
+	# Ball ABOVE the companion, descending, X-aligned, NOT yet overlapping.
+	owner.ball_pos = Vector2(companion_pos.x, companion_pos.y - 70.0)
+	owner.ball_vel = Vector2(0.0, 8.0)
+	runtime.update(0.0139, owner)
+	# Anticipation fired before any contact: strike active, no bounce yet.
+	_expect(int(owner.lingpet_companion_contact_count) == 0, "ball is still above the companion -> no contact yet")
+	_expect(bool(runtime.is_companion_striking_for_tests()), "strike must ARM before the ball reaches the companion (anticipatory, like other characters)")
+	var strike_frame: int = int(runtime.get_companion_strike_frame_for_tests())
+	_expect(strike_frame >= 8, "anticipatory strike skips the dead-air and starts in the wind-up")
+	_expect(strike_frame < 22, "anticipatory strike shows the wind-up BEFORE the thrust apex (선행모션 precedes contact)")
+
+	# A receding ball (moving away) must NOT arm a strike.
+	var owner2 := FakeOwner.new()
+	owner2.lingpet_owned_pet_ids = ["maribo"]
+	var runtime2: Object = LingpetEggRuntime.new()
+	runtime2.update(0.0, owner2)
+	owner2.ball_active = true
+	owner2.ball_pos = Vector2(owner2.lingpet_companion_pos.x, owner2.lingpet_companion_pos.y - 70.0)
+	owner2.ball_vel = Vector2(0.0, -8.0)
+	runtime2.update(0.0139, owner2)
+	_expect(not bool(runtime2.is_companion_striking_for_tests()), "a receding ball must not arm an anticipatory strike")
+
+	# Actual overlap still bounces and counts, with the swing active (pre-armed or
+	# reactive fallback) and not double-counted within the cooldown.
+	var owner3 := FakeOwner.new()
+	owner3.lingpet_owned_pet_ids = ["maribo"]
+	var runtime3: Object = LingpetEggRuntime.new()
+	runtime3.update(0.0, owner3)
+	owner3.ball_active = true
+	owner3.ball_pos = owner3.lingpet_companion_pos + Vector2(0.0, -6.0)
+	owner3.ball_vel = Vector2(0.0, 14.0)
+	runtime3.update(0.01, owner3)
+	_expect(owner3.ball_vel.y < 0.0, "overlap must still bounce the ball")
+	_expect(int(owner3.lingpet_companion_contact_count) == 1, "overlap must still register one contact")
+	_expect(bool(runtime3.is_companion_striking_for_tests()), "strike should be playing on contact (pre-armed or reactive fallback)")
+	owner3.ball_pos = owner3.lingpet_companion_pos + Vector2(0.0, -5.0)
+	owner3.ball_vel = Vector2(0.0, 14.0)
+	runtime3.update(0.0, owner3)
+	_expect(int(owner3.lingpet_companion_contact_count) == 1, "cooldown should prevent same-overlap re-count")
+
+
+func _verify_companion_skill_card_hydro_sphere() -> void:
 	var owner := FakeOwner.new()
 	owner.lingpet_owned_pet_ids = ["maribo"]
 	owner.special_gauge = 100.0
 	var runtime: Object = LingpetEggRuntime.new()
-	var feedback := FakeFeedback.new()
-	var orb_hud_state := FakeOrbHudState.new()
+	var audio := FakePaddleAudio.new()
+	var status_state := FakeStatusEffectState.new()
 	var registry := FakeRegistry.new({
-		"battle_feedback_state": feedback,
-		"orb_hud_state": orb_hud_state,
+		"game_audio": audio,
+		"status_effect_state": status_state,
 	})
 	runtime.update(0.0, owner, registry)
 	owner.ball_active = true
-	_expect(str(owner.lingpet_skill_id) == "maribo_resonance", "owned Maribo should publish its skill-card id")
-	_expect(str(owner.lingpet_skill_name) == "공명 충전", "owned Maribo should publish its Korean skill-card name")
+	_expect(str(owner.lingpet_skill_id) == "maribo_hydro_sphere", "owned Maribo should publish its Hydro Sphere skill-card id")
+	_expect(str(owner.lingpet_skill_name) == "하이드로 스피어", "owned Maribo should publish its Korean Hydro Sphere skill-card name")
 	_expect(bool(owner.lingpet_skill_ready), "owned Maribo skill should start ready")
 
-	_hit_companion(runtime, owner, registry, owner.lingpet_companion_pos)
-	_expect(is_equal_approx(owner.special_gauge, 140.0), "Maribo skill should grant 40 gauge on ready body contact")
-	_expect(int(owner.lingpet_skill_trigger_count) == 1, "Maribo skill should count its first trigger")
-	_expect(is_equal_approx(owner.lingpet_skill_last_gain, 40.0), "Maribo skill should publish the applied gauge gain")
-	_expect(owner.lingpet_skill_cooldown > 5.0, "Maribo skill should enter a six-second cooldown")
+	# Source keys the boss-rail composition layer reads to build the merged card.
+	var rail_snap: Dictionary = runtime.get_snapshot()
+	_expect(bool(runtime.is_maribo_companion_active()), "owned Maribo should be companion-active for the boss-rail entry gate")
+	_expect(str(rail_snap.get("companion_skill_id", "")) == "maribo_hydro_sphere", "active companion snapshot should expose the hydro sphere skill id for the rail entry")
+	_expect(absf(float(rail_snap.get("companion_skill_cooldown_duration", 0.0)) - 40.0) <= 0.01, "lingpet rail entry should source the 40s companion cooldown duration")
+	_expect(rail_snap.has("companion_skill_ready"), "lingpet rail entry should source ready state from the companion snapshot")
+	_expect(rail_snap.has("companion_skill_flash_ratio"), "lingpet rail entry should source a normalized flash ratio (not the raw 24-frame boss unit)")
+
+	# Egg / pre-hatch state must NOT expose a rail entry -- the lingpet stays a mystery until it hatches.
+	var egg_owner := FakeOwner.new()
+	var egg_runtime: Object = LingpetEggRuntime.new()
+	egg_runtime.update(0.0, egg_owner)
+	_expect(not bool(egg_runtime.is_maribo_companion_active()), "pre-hatch lingpet must not be companion-active (no rail card before hatch)")
+	var egg_snap: Dictionary = egg_runtime.get_snapshot()
+	_expect(str(egg_snap.get("companion_skill_id", "")) == "", "pre-hatch snapshot should not expose a hydro sphere rail entry id")
+	_expect(not bool(egg_snap.get("companion_skill_ready", false)), "pre-hatch snapshot should report the companion skill as not ready")
+
+	# First skill update arms the telegraphed throw wind-up (no launch yet).
+	runtime.update(0.0, owner, registry)
+	var windup_snap: Dictionary = runtime.get_snapshot()
+	_expect(bool(windup_snap.get("companion_skill_winding_up", false)), "Hydro Sphere should enter a telegraphed throw wind-up before launching")
+	_expect(not bool(windup_snap.get("hydro_sphere_projectile_active", false)), "Hydro Sphere should NOT launch the projectile during the wind-up")
+	_expect(int(owner.lingpet_skill_trigger_count) == 0, "Hydro Sphere wind-up should not count a launch yet")
+	_expect(audio.hydro_count == 0, "Hydro Sphere should hold its launch cue until the wind-up releases")
+
+	# Completing the wind-up launches the projectile, counts the cast, and starts the 40s cooldown.
+	runtime.update(LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS + 0.05, owner, registry)
+	_expect(is_equal_approx(owner.special_gauge, 100.0), "Hydro Sphere should not replace Maribo's passive gauge bonus with a gauge grant")
+	_expect(int(owner.lingpet_skill_trigger_count) == 1, "Hydro Sphere should count its launch after the wind-up")
+	_expect(is_equal_approx(owner.lingpet_skill_last_gain, 0.0), "Hydro Sphere should publish zero direct gauge gain")
+	_expect(owner.lingpet_skill_cooldown > 39.0, "Hydro Sphere should enter a 40-second cooldown at launch")
 	_expect(not bool(owner.lingpet_skill_ready), "Maribo skill should not be ready during cooldown")
-	_expect(feedback.gauge_flashes == 1, "Maribo skill gauge gain should trigger gauge flash feedback")
-	_expect(orb_hud_state.gauge_spins == 1, "Maribo skill gauge gain should trigger gauge orb spin")
+	_expect(audio.hydro_count == 1, "Hydro Sphere should play the water hydro cue on launch")
 	var skill_snapshot: Dictionary = runtime.get_snapshot()
+	_expect(not bool(skill_snapshot.get("companion_skill_winding_up", false)), "Hydro Sphere wind-up should clear once the projectile launches")
 	_expect(float(skill_snapshot.get("companion_skill_flash_timer", 0.0)) > 0.0, "Maribo skill should expose an activation flash timer for playfield/card VFX")
+	var flash_ratio: float = float(skill_snapshot.get("companion_skill_flash_ratio", 0.0))
+	_expect(flash_ratio > 0.0 and flash_ratio <= 1.0, "Maribo skill flash ratio should be normalized 0..1 so the rail flash glow actually lights up")
 	_expect(skill_snapshot.get("companion_skill_origin", Vector2.ZERO) is Vector2 and skill_snapshot.get("companion_skill_origin", Vector2.ZERO) != Vector2.ZERO, "Maribo skill should remember its activation origin for VFX")
+	_expect(bool(skill_snapshot.get("hydro_sphere_projectile_active", false)), "Hydro Sphere should launch a projectile before the wall splash")
 	var first_trigger_count: int = int(owner.lingpet_skill_trigger_count)
 
-	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -90.0)
-	runtime.update(0.43, owner, registry)
-	_hit_companion(runtime, owner, registry, owner.lingpet_companion_pos)
-	_expect(int(owner.lingpet_companion_contact_count) >= 2, "Maribo body should keep colliding while the skill is on cooldown")
-	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count, "Maribo skill cooldown should block repeated gauge grants")
-	_expect(is_equal_approx(owner.special_gauge, 140.0), "Maribo skill cooldown should preserve gauge after the blocked trigger")
+	owner.boss_pos = Vector2(owner.lingpet_companion_pos.x - owner.boss_paddle_width * 0.5, 25.0)
+	runtime.update(1.6, owner, registry)
+	skill_snapshot = runtime.get_snapshot()
+	_expect(not bool(skill_snapshot.get("hydro_sphere_projectile_active", true)), "Hydro Sphere projectile should stop when it reaches the opponent wall")
+	_expect(bool(skill_snapshot.get("hydro_sphere_puddle_active", false)), "Hydro Sphere should create a wet floor puddle after the wall impact")
+	var puddle_hw: float = float(skill_snapshot.get("hydro_sphere_puddle_half_width", 0.0))
+	var puddle_hh: float = float(skill_snapshot.get("hydro_sphere_puddle_half_height", 0.0))
+	_expect(puddle_hw > 0.0 and puddle_hh > 0.0, "Hydro Sphere puddle should expose its ellipse half-extents")
+	_expect(puddle_hw > puddle_hh * 1.5, "Hydro Sphere puddle should be a WIDE horizontal ellipse (width >> height)")
+	var slow_calls: Array[Dictionary] = status_state.get_calls_for_source("maribo_hydro_sphere_puddle")
+	_expect(not slow_calls.is_empty(), "Hydro Sphere puddle should apply boss slow while the boss touches it")
+	if not slow_calls.is_empty():
+		var first_slow: Dictionary = slow_calls[0]
+		_expect(str(first_slow.get("target", "")) == "boss", "Hydro Sphere puddle slow should target the boss")
+		_expect(str(first_slow.get("status_id", "")) == "slow", "Hydro Sphere puddle should apply the slow status")
+		_expect(is_equal_approx(float(first_slow.get("duration_frames", 0.0)), 4.0), "Hydro Sphere puddle should refresh a short slow while touched")
+		_expect(is_equal_approx(float((first_slow.get("data", {}) as Dictionary).get("multiplier", 0.0)), 0.65), "Hydro Sphere puddle should use the intended slow multiplier")
 
 	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -90.0)
-	runtime.update(6.1, owner, registry)
-	_expect(bool(owner.lingpet_skill_ready), "Maribo skill should become ready after cooldown expires")
 	_hit_companion(runtime, owner, registry, owner.lingpet_companion_pos)
-	_expect(is_equal_approx(owner.special_gauge, 180.0), "Maribo skill should grant gauge again after cooldown")
-	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count + 1, "Maribo skill should count the second ready trigger")
+	_expect(int(owner.lingpet_companion_contact_count) >= 1, "Maribo body should keep colliding while the skill is on cooldown")
+	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count, "Hydro Sphere cooldown should block repeated launches")
+	_expect(is_equal_approx(owner.special_gauge, 140.0), "Hydro Sphere cooldown should still allow Maribo's body-hit +40 passive")
+	_expect(is_equal_approx(owner.lingpet_skill_last_gain, 0.0), "Hydro Sphere should keep zero direct gauge gain while the body-hit passive is separate")
+	_expect(is_equal_approx(owner.lingpet_companion_hit_gauge_last_gain, 40.0), "body-hit passive should publish +40 separately from the Hydro Sphere rail skill")
+
+	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -90.0)
+	# Cooldown expiry re-arms the wind-up; the relaunch only fires once it completes.
+	runtime.update(40.1, owner, registry)
+	_expect(bool(runtime.get_snapshot().get("companion_skill_winding_up", false)), "Hydro Sphere should re-arm its throw wind-up after the cooldown expires")
+	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count, "Hydro Sphere should not relaunch until the re-armed wind-up completes")
+	runtime.update(LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS + 0.05, owner, registry)
+	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count + 1, "Hydro Sphere should relaunch after its 40-second cooldown plus the wind-up")
 
 
 func _verify_save_snapshot_roundtrip() -> void:
