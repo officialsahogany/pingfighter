@@ -418,25 +418,11 @@ func _draw_stage5_hongryun_boss_skill_hud(
 		return
 	var hud_context: Dictionary = context.duplicate(true)
 	hud_context.merge(state.get_hud_context(null, context), true)
-	_append_fire_machine_hud_skill(registry, hud_context)
 	hud_context["view_size"] = view_size
 	hud_context["game_offset"] = game_offset
 	hud_context["game_size"] = game_size
 	hud_context["time_seconds"] = float(Time.get_ticks_msec()) / 1000.0
 	renderer.draw(canvas, hud_context)
-
-
-func _append_fire_machine_hud_skill(registry: Object, hud_context: Dictionary) -> void:
-	var fire_machine: Object = registry.get_instance("stage5_hongryun_fire_machine_event")
-	if fire_machine == null or not fire_machine.has_method("get_hud_skill_context"):
-		return
-	var skill_context: Dictionary = fire_machine.get_hud_skill_context()
-	if skill_context.is_empty():
-		return
-	var existing_value: Variant = hud_context.get("stage5_boss_skill_hud_skills", [])
-	var skills: Array = existing_value.duplicate(true) if existing_value is Array else []
-	skills.append(skill_context)
-	hud_context["stage5_boss_skill_hud_skills"] = skills
 
 
 func _get_stage5_boss_skill_renderer(registry: Object) -> Object:

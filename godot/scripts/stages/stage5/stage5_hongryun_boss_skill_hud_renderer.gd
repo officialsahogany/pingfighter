@@ -10,7 +10,6 @@ const INFERNO_SKILLCARD_TEXTURE_PATH := "res://assets/sprites/hud/stage5_hongryu
 const ORB_FILL_SHEET_PATH := "res://assets/sprites/hud/stage5_hongryun_orb_fill_sheet_autosprite_v1.png"
 const FIREBALL_FALLBACK_SHEET_PATH := "res://assets/sprites/hud/stage5_hongryun_motion_sprites_imagegen_v2.png"
 const INFERNO_FALLBACK_SHEET_PATH := "res://assets/sprites/hud/stage5_hongryun_dragon_head_sheet_imagegen_v3_16f.png"
-const FIRE_MACHINE_FALLBACK_SHEET_PATH := "res://assets/sprites/hud/stage5_hongryun_dragon_head_sheet_imagegen_v3_16f.png"
 const CARD_TEXTURE_COLS := 4
 const CARD_TEXTURE_ROWS := 4
 const ORB_FILL_SHEET_COLS := 4
@@ -33,8 +32,6 @@ const FIREBALL_CARD_COLOR := Color(0.95, 0.42, 0.30, 1.0)
 const FIREBALL_SIDE_STRIP := Color(0.86, 0.20, 0.18, 0.72)
 const INFERNO_CARD_COLOR := Color(1.0, 0.20, 0.20, 1.0)
 const INFERNO_SIDE_STRIP := Color(1.0, 0.32, 0.18, 0.86)
-const FIRE_MACHINE_CARD_COLOR := Color(0.85, 0.55, 0.20, 1.0)
-const FIRE_MACHINE_SIDE_STRIP := Color(0.90, 0.48, 0.12, 0.78)
 const DRAGON_ORB_FILL := Color(1.0, 0.32, 0.20, 1.0)
 const DRAGON_ORB_EMPTY := Color(0.45, 0.15, 0.12, 0.45)
 const DRAGON_ORB_READY_PULSE_FREQ := 4.5
@@ -70,8 +67,6 @@ func prewarm_assets_step() -> bool:
 		1:
 			_get_skill_texture("hongryun_inferno")
 		2:
-			_get_skill_texture("hongryun_fire_machine")
-		3:
 			_get_orb_fill_texture()
 		_:
 			_prewarmed = true
@@ -187,7 +182,6 @@ func get_asset_status() -> Dictionary:
 	return {
 		"fireball_card_texture": _get_skill_texture("hongryun_fireball") != null,
 		"inferno_card_texture": _get_skill_texture("hongryun_inferno") != null,
-		"fire_machine_card_texture": _get_skill_texture("hongryun_fire_machine") != null,
 		"orb_fill_sheet_texture": _get_orb_fill_texture() != null,
 	}
 
@@ -474,8 +468,6 @@ func _get_skill_texture_paths(skill_id: String) -> Array[String]:
 		return [FIREBALL_SKILLCARD_TEXTURE_PATH, FIREBALL_FALLBACK_SHEET_PATH]
 	if skill_id == "hongryun_inferno":
 		return [INFERNO_SKILLCARD_TEXTURE_PATH, INFERNO_FALLBACK_SHEET_PATH]
-	if skill_id == "hongryun_fire_machine":
-		return [FIRE_MACHINE_FALLBACK_SHEET_PATH]
 	return []
 
 
@@ -527,13 +519,6 @@ func _get_tooltip_info(skill_id: String) -> Dictionary:
 			"trigger": "구슬 5칸 / 보스 적중",
 			"cooldown": "용 구슬 5칸",
 			"description": "5번 맞으면 홍련이 공을 화염 용처럼 돌진시킵니다. 가드와 진입 각도를 흔듭니다.",
-		}
-	if skill_id == "hongryun_fire_machine":
-		return {
-			"name": "화염기관",
-			"trigger": "자동",
-			"cooldown": "쿨타임 변동",
-			"description": "전장에 화염 장치를 가동해 불길과 연기로 플레이어 진영을 압박합니다.",
 		}
 	if skill_id == LingpetRailCard.SKILL_ID:
 		return LingpetRailCard.tooltip_info()
@@ -603,16 +588,12 @@ func _get_border_color(status: String, ready: bool, active: bool, locked: bool, 
 func _get_side_strip_color(skill_id: String) -> Color:
 	if skill_id == "hongryun_inferno":
 		return INFERNO_SIDE_STRIP
-	if skill_id == "hongryun_fire_machine":
-		return FIRE_MACHINE_SIDE_STRIP
 	return FIREBALL_SIDE_STRIP
 
 
 func _default_skill_color(skill_id: String) -> Color:
 	if skill_id == "hongryun_inferno":
 		return INFERNO_CARD_COLOR
-	if skill_id == "hongryun_fire_machine":
-		return FIRE_MACHINE_CARD_COLOR
 	return FIREBALL_CARD_COLOR
 
 

@@ -138,7 +138,7 @@ func has_actor_draw_context() -> bool:
 	return active or not fire_zones.is_empty() or not fire_streams.is_empty() or not smoke_particles.is_empty()
 
 
-func get_hud_skill_context() -> Dictionary:
+func _get_deprecated_hud_skill_context() -> Dictionary:
 	var skill_status := "casting" if active else ("ready" if cooldown_timer <= 0.0 else "charging")
 	var total: float = maxf(1.0, MAX_COOLDOWN_FRAMES)
 	var progress: float = 1.0 if active else clampf(1.0 - cooldown_timer / total, 0.0, 1.0)
