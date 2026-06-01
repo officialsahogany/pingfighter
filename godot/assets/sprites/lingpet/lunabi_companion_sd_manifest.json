@@ -1,0 +1,467 @@
+{
+  "asset_id": "lunabi_companion_sd_back_view_v1",
+  "character": "lunabi",
+  "display_name": "\ub8e8\ub098\ube44",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_companion_back_view_free_flight_assets",
+  "note": "Front-facing AutoSprite candidates were rejected after user correction. Accepted branch uses a back-view first-frame pose so the player-side in-game SD character reads like Maribo.",
+  "source_autosprite": {
+    "character_id": "cmpvprmun008w828nzjzqegwg",
+    "character_name": "Lunabi (lingpet)",
+    "back_pose_id": "cmpvrexvr002tza3y4ufdvoam",
+    "back_pose_local_path": ".tmp/lunabi_companion_sd_v1/lunabi_back_flight_pose.png",
+    "rejected_front_spritesheet_ids": [
+      "cmpvrb0y8004bzs2y3xpcyelg",
+      "cmpvratfh0046zs2ynahhpj1v"
+    ]
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic back-view repack",
+    "source_cell_size": [
+      512,
+      512
+    ],
+    "source_scale_repack": 0.84,
+    "reason": "Adds safe transparent margins, especially for the ball-swoop frames that touched source-cell edges."
+  },
+  "outputs": {
+    "flight": {
+      "path": "D:/main/bosspong/godot/assets/sprites/lingpet/lunabi_companion_flight.png",
+      "res_path": "res://assets/sprites/lingpet/lunabi_companion_flight.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        640,
+        640
+      ],
+      "source_scale_repack": 0.84,
+      "sha256": "ecb1a3f91d60c4291020a715e867bba2681da7399093dee18156101d5fccf935",
+      "bytes": 295581,
+      "edge_alpha_count": 0,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            16,
+            28,
+            111,
+            104
+          ],
+          "size": [
+            95,
+            76
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            17,
+            27,
+            112,
+            104
+          ],
+          "size": [
+            95,
+            77
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            18,
+            25,
+            111,
+            106
+          ],
+          "size": [
+            93,
+            81
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            18,
+            24,
+            110,
+            107
+          ],
+          "size": [
+            92,
+            83
+          ]
+        },
+        {
+          "frame": 16,
+          "bbox": [
+            17,
+            25,
+            111,
+            105
+          ],
+          "size": [
+            94,
+            80
+          ]
+        },
+        {
+          "frame": 20,
+          "bbox": [
+            17,
+            27,
+            111,
+            104
+          ],
+          "size": [
+            94,
+            77
+          ]
+        },
+        {
+          "frame": 24,
+          "bbox": [
+            16,
+            28,
+            111,
+            104
+          ],
+          "size": [
+            95,
+            76
+          ]
+        }
+      ],
+      "runtime_slot": "companion_walk",
+      "runtime_intent": "back-view free-flight loop",
+      "autosprite_spritesheet_id": "cmpvrizvz002qjdzr2fcxov80",
+      "autosprite_job_id": "wf_cad31d34-eb4a-4709-9211-d617f581995e",
+      "video_id": "cmpvrhabu0039za3yq4d0l59z"
+    },
+    "strike": {
+      "path": "D:/main/bosspong/godot/assets/sprites/lingpet/lunabi_companion_strike.png",
+      "res_path": "res://assets/sprites/lingpet/lunabi_companion_strike.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        192,
+        192
+      ],
+      "sheet_size": [
+        960,
+        960
+      ],
+      "source_scale_repack": 0.84,
+      "sha256": "508abe442ef3714ae15bfb27b36e9732d5a04a96ca9122e7ea7cc346132e574b",
+      "bytes": 507980,
+      "edge_alpha_count": 0,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            26,
+            43,
+            165,
+            154
+          ],
+          "size": [
+            139,
+            111
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            15,
+            44,
+            176,
+            162
+          ],
+          "size": [
+            161,
+            118
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            41,
+            47,
+            151,
+            148
+          ],
+          "size": [
+            110,
+            101
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            41,
+            30,
+            175,
+            148
+          ],
+          "size": [
+            134,
+            118
+          ]
+        },
+        {
+          "frame": 16,
+          "bbox": [
+            42,
+            61,
+            176,
+            163
+          ],
+          "size": [
+            134,
+            102
+          ]
+        },
+        {
+          "frame": 20,
+          "bbox": [
+            31,
+            26,
+            156,
+            145
+          ],
+          "size": [
+            125,
+            119
+          ]
+        },
+        {
+          "frame": 24,
+          "bbox": [
+            44,
+            31,
+            148,
+            144
+          ],
+          "size": [
+            104,
+            113
+          ]
+        }
+      ],
+      "runtime_slot": "companion_strike",
+      "runtime_intent": "back-view ball-hit swoop one-shot",
+      "autosprite_spritesheet_id": "cmpvrixo8006kzs2yig5w45t7",
+      "autosprite_job_id": "wf_258ad659-c2f9-4f22-85bd-558008dc784b",
+      "video_id": "cmpvrhado003dza3yqybqikul"
+    }
+  },
+  "qa": {
+    "flight_raw": {
+      "path": "D:/main/bosspong/.tmp/lunabi_companion_sd_v1/lunabi_back_free_flight_raw_512_25f.png",
+      "size": [
+        2560,
+        2560
+      ],
+      "edge_alpha_count": 0,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            40,
+            94,
+            472,
+            436
+          ],
+          "size": [
+            432,
+            342
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            41,
+            90,
+            473,
+            438
+          ],
+          "size": [
+            432,
+            348
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            43,
+            80,
+            471,
+            445
+          ],
+          "size": [
+            428,
+            365
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            46,
+            75,
+            467,
+            449
+          ],
+          "size": [
+            421,
+            374
+          ]
+        },
+        {
+          "frame": 16,
+          "bbox": [
+            44,
+            80,
+            468,
+            444
+          ],
+          "size": [
+            424,
+            364
+          ]
+        },
+        {
+          "frame": 20,
+          "bbox": [
+            40,
+            91,
+            470,
+            436
+          ],
+          "size": [
+            430,
+            345
+          ]
+        },
+        {
+          "frame": 24,
+          "bbox": [
+            39,
+            93,
+            472,
+            435
+          ],
+          "size": [
+            433,
+            342
+          ]
+        }
+      ]
+    },
+    "strike_raw": {
+      "path": "D:/main/bosspong/.tmp/lunabi_companion_sd_v1/lunabi_back_ball_swoop_raw_512_25f.png",
+      "size": [
+        2560,
+        2560
+      ],
+      "edge_alpha_count": 129,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            40,
+            94,
+            472,
+            436
+          ],
+          "size": [
+            432,
+            342
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            0,
+            98,
+            512,
+            466
+          ],
+          "size": [
+            512,
+            368
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            89,
+            106,
+            426,
+            417
+          ],
+          "size": [
+            337,
+            311
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            89,
+            52,
+            504,
+            417
+          ],
+          "size": [
+            415,
+            365
+          ]
+        },
+        {
+          "frame": 16,
+          "bbox": [
+            0,
+            153,
+            512,
+            470
+          ],
+          "size": [
+            512,
+            317
+          ]
+        },
+        {
+          "frame": 20,
+          "bbox": [
+            57,
+            40,
+            444,
+            408
+          ],
+          "size": [
+            387,
+            368
+          ]
+        },
+        {
+          "frame": 24,
+          "bbox": [
+            98,
+            56,
+            418,
+            404
+          ],
+          "size": [
+            320,
+            348
+          ]
+        }
+      ]
+    }
+  }
+}
