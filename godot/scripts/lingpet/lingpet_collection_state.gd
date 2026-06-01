@@ -134,6 +134,19 @@ func select_active_slot(slot_index: int, owner: Object = null) -> String:
 	return slots[clamped_index]
 
 
+func find_next_occupied_slot_index(direction: int = 1, owner: Object = null) -> int:
+	var slots := get_battle_slots_from_owner(owner)
+	if slots.is_empty():
+		return -1
+	var current_index := get_active_slot_index_from_owner(owner)
+	var step := 1 if direction >= 0 else -1
+	for offset in range(1, MAX_BATTLE_SLOTS + 1):
+		var next_index := posmod(current_index + step * offset, MAX_BATTLE_SLOTS)
+		if next_index < slots.size() and slots[next_index] != "":
+			return next_index
+	return -1
+
+
 func get_battle_slots_from_owner(owner: Object) -> Array[String]:
 	var slots := battle_slot_pet_ids.duplicate()
 	for key in OWNER_SLOT_KEYS:

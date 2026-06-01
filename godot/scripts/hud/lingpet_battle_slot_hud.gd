@@ -4,8 +4,8 @@ const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 
 const SLOT_COUNT := 3
-const SLOT_KEYS := [KEY_7, KEY_8, KEY_9]
-const SLOT_KEY_LABELS := ["7", "8", "9"]
+const CYCLE_KEY := KEY_L
+const CYCLE_KEY_LABEL := "L"
 const EMPTY_LABEL := "+"
 
 static var _layout_helper: Object = Stage1PillarUiLayout.new()
@@ -37,6 +37,15 @@ static func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, _
 		title_size,
 		Color(0.35, 0.96, 1.0, 0.92)
 	)
+	canvas.draw_string(
+		font,
+		label_pos + Vector2(38.0 * scale_factor, 0.0),
+		CYCLE_KEY_LABEL,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		title_size,
+		Color(0.96, 0.86, 0.35, 0.90)
+	)
 	for i in range(SLOT_COUNT):
 		_draw_slot(canvas, font, rects[i], slots[i], i, active_index, scale_factor)
 
@@ -58,17 +67,15 @@ static func build_slot_rects(game_offset: Vector2, game_size: Vector2, context: 
 	return rects
 
 
-static func get_slot_index_for_key(event: InputEvent) -> int:
+static func get_cycle_direction_for_key(event: InputEvent) -> int:
 	if not (event is InputEventKey):
-		return -1
+		return 0
 	var key_event: InputEventKey = event
 	if not key_event.pressed or key_event.echo:
-		return -1
-	for i in range(SLOT_COUNT):
-		var keycode: int = int(SLOT_KEYS[i])
-		if key_event.keycode == keycode or key_event.physical_keycode == keycode:
-			return i
-	return -1
+		return 0
+	if key_event.keycode == CYCLE_KEY or key_event.physical_keycode == CYCLE_KEY:
+		return 1
+	return 0
 
 
 static func get_slot_index_at_position(position: Vector2, game_offset: Vector2, game_size: Vector2, context: Dictionary = {}) -> int:
@@ -96,16 +103,6 @@ static func _draw_slot(
 	canvas.draw_rect(rect, border, false, maxf(1.0, 2.0 * scale_factor))
 	if active:
 		canvas.draw_rect(rect.grow(3.0 * scale_factor), Color(0.18, 0.92, 1.0, 0.18), false, maxf(1.0, 1.0 * scale_factor))
-	var key_size := maxi(8, int(round(9.0 * scale_factor)))
-	canvas.draw_string(
-		font,
-		rect.position + Vector2(3.0 * scale_factor, 9.0 * scale_factor),
-		str(SLOT_KEY_LABELS[index]),
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		key_size,
-		Color(0.96, 0.86, 0.35, 0.90)
-	)
 	var label := EMPTY_LABEL
 	if occupied:
 		label = _get_pet_short_label(pet_id)

@@ -22,11 +22,17 @@ class FakeRuntime:
 	extends RefCounted
 
 	var switched_slots: Array[int] = []
+	var cycled_directions: Array[int] = []
 	var switch_result := true
+	var cycle_result := true
 
 	func switch_lingpet_slot(slot_index: int, _owner: Object = null) -> bool:
 		switched_slots.append(slot_index)
 		return switch_result
+
+	func cycle_lingpet_slot(direction: int = 1, _owner: Object = null) -> bool:
+		cycled_directions.append(direction)
+		return cycle_result
 
 	func get_snapshot() -> Dictionary:
 		return {
@@ -68,7 +74,7 @@ class FakeRegistry:
 
 
 func _init() -> void:
-	_verify_key_switches_lingpet_slot()
+	_verify_lingpet_cycle_key_avoids_item_number_keys()
 	_verify_click_switch_uses_shared_slot_rect()
 	_verify_renderer_and_input_are_wired()
 	if _failures.is_empty():
@@ -80,7 +86,7 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_key_switches_lingpet_slot() -> void:
+func _verify_lingpet_cycle_key_avoids_item_number_keys() -> void:
 	var owner := FakeOwner.new()
 	var runtime := FakeRuntime.new()
 	var registry := _make_registry(runtime)
@@ -92,8 +98,20 @@ func _verify_key_switches_lingpet_slot() -> void:
 		Callable(registry, "get_instance"),
 		{"battle_initialized": true, "stage_landing_intro_started": true}
 	)
-	_expect(runtime.switched_slots == [1], "KEY_8 should switch to lingpet battle slot 1")
-	_expect(owner.redraws == 1, "successful lingpet slot key switch should request redraw")
+	_expect(runtime.switched_slots.is_empty(), "KEY_8 should stay reserved for future active-item slots")
+	_expect(runtime.cycled_directions.is_empty(), "KEY_8 should not cycle lingpet slots")
+	_expect(owner.redraws == 0, "ignored item number key should not request redraw")
+
+	input.handle_unhandled_input(
+		_key_event(KEY_L),
+		owner,
+		registry,
+		Callable(registry, "get_instance"),
+		{"battle_initialized": true, "stage_landing_intro_started": true}
+	)
+	_expect(runtime.cycled_directions == [1], "KEY_L should cycle to the next occupied lingpet battle slot")
+	_expect(runtime.switched_slots.is_empty(), "KEY_L should use runtime cycle logic instead of direct numeric slot switching")
+	_expect(owner.redraws == 1, "successful lingpet cycle key should request redraw")
 
 
 func _verify_click_switch_uses_shared_slot_rect() -> void:
@@ -121,7 +139,8 @@ func _verify_renderer_and_input_are_wired() -> void:
 	var input_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
 	_expect(hud_source.find("lingpet_battle_slot_hud.gd") >= 0, "pillar HUD renderer should preload the lingpet battle slot HUD helper")
 	_expect(hud_source.find("LingpetBattleSlotHud.draw") >= 0, "pillar HUD renderer should draw the lingpet battle slots")
-	_expect(input_source.find("LingpetBattleSlotHud.get_slot_index_for_key") >= 0, "battle input should route 7/8/9 through the shared lingpet slot helper")
+	_expect(input_source.find("LingpetBattleSlotHud.get_cycle_direction_for_key") >= 0, "battle input should route the lingpet cycle key through the shared slot helper")
+	_expect(input_source.find("cycle_lingpet_slot") >= 0, "battle input should cycle lingpets instead of consuming active-item number keys")
 	_expect(input_source.find("LingpetBattleSlotHud.get_slot_index_at_position") >= 0, "battle input should route mouse clicks through the shared lingpet slot helper")
 
 

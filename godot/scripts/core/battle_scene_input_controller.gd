@@ -117,15 +117,24 @@ func _handle_commando_weapon_switch(event: InputEvent, owner: Object, registry: 
 
 
 func _handle_lingpet_slot_switch(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
-	var slot_index := LingpetBattleSlotHud.get_slot_index_for_key(event)
-	if slot_index < 0:
-		slot_index = _get_lingpet_slot_click_index(event, owner, module_getter)
-	if slot_index < 0:
-		return false
 	var runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
 	if runtime == null:
 		runtime = _get_instance(registry, "lingpet_egg_runtime")
-	if runtime == null or not runtime.has_method("switch_lingpet_slot"):
+	if runtime == null:
+		return false
+	var cycle_direction := LingpetBattleSlotHud.get_cycle_direction_for_key(event)
+	if cycle_direction != 0:
+		if not runtime.has_method("cycle_lingpet_slot"):
+			return false
+		if not bool(runtime.cycle_lingpet_slot(cycle_direction, owner)):
+			return false
+		_queue_redraw(owner)
+		_mark_handled(owner)
+		return true
+	var slot_index := _get_lingpet_slot_click_index(event, owner, module_getter)
+	if slot_index < 0:
+		return false
+	if not runtime.has_method("switch_lingpet_slot"):
 		return false
 	if not bool(runtime.switch_lingpet_slot(slot_index, owner)):
 		return false

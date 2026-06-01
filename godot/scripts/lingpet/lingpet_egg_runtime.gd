@@ -241,6 +241,15 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
 	return true
 
 
+func cycle_lingpet_slot(direction: int = 1, owner: Object = null) -> bool:
+	var next_slot_index: int = _collection_state.find_next_occupied_slot_index(direction, owner)
+	if next_slot_index < 0:
+		return false
+	if next_slot_index == _collection_state.get_active_slot_index_from_owner(owner):
+		return false
+	return switch_lingpet_slot(next_slot_index, owner)
+
+
 # Test-only accessors: the strike state is transient visual state that is
 # intentionally NOT persisted in get_snapshot()/save schema, so the smoke reads
 # it directly to assert the anticipatory pre-contact timing.
