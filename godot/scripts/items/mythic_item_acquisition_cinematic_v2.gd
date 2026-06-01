@@ -33,6 +33,7 @@ const ICON_SIZE := 96.0
 const BACKPLATE_BASE_SIZE := 620.0
 const ARC_LENGTH := 720.0
 const ARC_THICKNESS := 96.0
+const PROCEDURAL_TEXTURE_PREWARM_ROWS_PER_STEP := 48
 
 var active := false
 var phase := PHASE_BUILDUP
@@ -83,9 +84,16 @@ var _vignette_texture: Texture2D = null
 var _paddle_glow_intensity := 0.0
 
 static var _assets_prewarmed := false
+static var _prewarm_assets_step_index := 0
 static var _shared_icon_backdrop_texture: Texture2D = null
 static var _shared_vignette_texture: Texture2D = null
 static var _shared_white_flash_texture: Texture2D = null
+static var _icon_backdrop_prewarm_data := PackedByteArray()
+static var _icon_backdrop_prewarm_y := 0
+static var _vignette_prewarm_data := PackedByteArray()
+static var _vignette_prewarm_y := 0
+static var _white_flash_prewarm_data := PackedByteArray()
+static var _white_flash_prewarm_y := 0
 
 
 static func should_use_item_data(source: Dictionary) -> bool:
@@ -95,27 +103,63 @@ static func should_use_item_data(source: Dictionary) -> bool:
 
 
 static func prewarm_assets() -> void:
+	while not prewarm_assets_step():
+		pass
+
+
+static func prewarm_assets_step() -> bool:
 	if _assets_prewarmed:
-		return
-	ProjectResourceLoader.load_texture(
-		BACKPLATE_TEXTURE_PATH,
-		"Missing mythic acquisition backplate texture: %s",
-		"Failed to load mythic acquisition backplate texture: %s"
+		return true
+	match _prewarm_assets_step_index:
+		0:
+			if not _prewarm_texture_path_step(
+				BACKPLATE_TEXTURE_PATH,
+				"Missing mythic acquisition backplate texture: %s",
+				"Failed to load mythic acquisition backplate texture: %s"
+			):
+				return false
+		1:
+			if not _prewarm_texture_path_step(
+				SHARD_TEXTURE_PATH,
+				"Missing mythic acquisition shard texture: %s",
+				"Failed to load mythic acquisition shard texture: %s"
+			):
+				return false
+		2:
+			if not _prewarm_texture_path_step(
+				ARC_TEXTURE_PATH,
+				"Missing mythic acquisition arc texture: %s",
+				"Failed to load mythic acquisition arc texture: %s"
+			):
+				return false
+		3:
+			if not _prewarm_icon_backdrop_texture_step():
+				return false
+		4:
+			if not _prewarm_soft_vignette_texture_step():
+				return false
+		5:
+			if not _prewarm_soft_white_flash_texture_step():
+				return false
+		_:
+			_assets_prewarmed = true
+			_prewarm_assets_step_index = 0
+			return true
+	_prewarm_assets_step_index += 1
+	return false
+
+
+static func _prewarm_texture_path_step(
+	path: String,
+	missing_warning: String,
+	failed_warning: String
+) -> bool:
+	var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
+		path,
+		missing_warning,
+		failed_warning
 	)
-	ProjectResourceLoader.load_texture(
-		SHARD_TEXTURE_PATH,
-		"Missing mythic acquisition shard texture: %s",
-		"Failed to load mythic acquisition shard texture: %s"
-	)
-	ProjectResourceLoader.load_texture(
-		ARC_TEXTURE_PATH,
-		"Missing mythic acquisition arc texture: %s",
-		"Failed to load mythic acquisition arc texture: %s"
-	)
-	_get_or_build_icon_backdrop_texture()
-	_get_or_build_soft_vignette_texture()
-	_get_or_build_soft_white_flash_texture()
-	_assets_prewarmed = true
+	return bool(result.get("done", true))
 
 
 static func resolve_player_center(runtime_owner: Object, constants: Dictionary = {}) -> Vector2:
@@ -372,19 +416,67 @@ func _build_icon_backdrop_texture() -> Texture2D:
 	return _get_or_build_icon_backdrop_texture()
 
 
+static func _prewarm_icon_backdrop_texture_step() -> bool:
+	if _shared_icon_backdrop_texture != null:
+		_icon_backdrop_prewarm_data = PackedByteArray()
+		_icon_backdrop_prewarm_y = 0
+		return true
+	var size: int = 256
+	if _icon_backdrop_prewarm_data.is_empty():
+		_icon_backdrop_prewarm_data.resize(size * size * 4)
+		_icon_backdrop_prewarm_y = 0
+	var center_x: float = float(size) * 0.5
+	var center_y: float = float(size) * 0.5
+	var radius: float = float(size) * 0.5
+	var red := _color_to_byte(0.012)
+	var green := _color_to_byte(0.010)
+	var blue := _color_to_byte(0.024)
+	var end_y: int = int(min(size, _icon_backdrop_prewarm_y + PROCEDURAL_TEXTURE_PREWARM_ROWS_PER_STEP))
+	var offset: int = _icon_backdrop_prewarm_y * size * 4
+	for y in range(_icon_backdrop_prewarm_y, end_y):
+		for x in range(size):
+			var dx: float = float(x) - center_x
+			var dy: float = float(y) - center_y
+			var d: float = sqrt(dx * dx + dy * dy) / radius
+			var alpha: float = float(clamp(1.0 - smoothstep(0.34, 1.0, d), 0.0, 1.0))
+			alpha = pow(alpha, 1.25) * 0.74
+			_write_pixel(_icon_backdrop_prewarm_data, offset, red, green, blue, _alpha_to_byte(alpha))
+			offset += 4
+	_icon_backdrop_prewarm_y = end_y
+	if _icon_backdrop_prewarm_y < size:
+		return false
+	var image: Image = Image.create_from_data(size, size, false, Image.FORMAT_RGBA8, _icon_backdrop_prewarm_data)
+	_shared_icon_backdrop_texture = ImageTexture.create_from_image(image)
+	_icon_backdrop_prewarm_data = PackedByteArray()
+	_icon_backdrop_prewarm_y = 0
+	return true
+
+
 static func _get_or_build_icon_backdrop_texture() -> Texture2D:
 	if _shared_icon_backdrop_texture != null:
 		return _shared_icon_backdrop_texture
+	_icon_backdrop_prewarm_data = PackedByteArray()
+	_icon_backdrop_prewarm_y = 0
 	var size: int = 256
-	var image: Image = Image.create(size, size, false, Image.FORMAT_RGBA8)
-	var center: Vector2 = Vector2(float(size) * 0.5, float(size) * 0.5)
+	var data := PackedByteArray()
+	data.resize(size * size * 4)
+	var center_x: float = float(size) * 0.5
+	var center_y: float = float(size) * 0.5
 	var radius: float = float(size) * 0.5
+	var offset := 0
+	var red := _color_to_byte(0.012)
+	var green := _color_to_byte(0.010)
+	var blue := _color_to_byte(0.024)
 	for y in range(size):
 		for x in range(size):
-			var d: float = Vector2(float(x), float(y)).distance_to(center) / radius
+			var dx: float = float(x) - center_x
+			var dy: float = float(y) - center_y
+			var d: float = sqrt(dx * dx + dy * dy) / radius
 			var alpha: float = float(clamp(1.0 - smoothstep(0.34, 1.0, d), 0.0, 1.0))
 			alpha = pow(alpha, 1.25) * 0.74
-			image.set_pixel(x, y, Color(0.012, 0.010, 0.024, alpha))
+			_write_pixel(data, offset, red, green, blue, _alpha_to_byte(alpha))
+			offset += 4
+	var image: Image = Image.create_from_data(size, size, false, Image.FORMAT_RGBA8, data)
 	_shared_icon_backdrop_texture = ImageTexture.create_from_image(image)
 	return _shared_icon_backdrop_texture
 
@@ -393,25 +485,65 @@ func _build_soft_vignette_texture() -> Texture2D:
 	return _get_or_build_soft_vignette_texture()
 
 
+static func _prewarm_soft_vignette_texture_step() -> bool:
+	if _shared_vignette_texture != null:
+		_vignette_prewarm_data = PackedByteArray()
+		_vignette_prewarm_y = 0
+		return true
+	var width: int = int(FIELD_WIDTH)
+	var height: int = int(FIELD_HEIGHT)
+	if _vignette_prewarm_data.is_empty():
+		_vignette_prewarm_data.resize(width * height * 4)
+		_vignette_prewarm_y = 0
+	var center_x: float = float(width) * 0.5
+	var center_y: float = float(height) * 0.5
+	var half_width: float = max(1.0, float(width) * 0.5)
+	var half_height: float = max(1.0, float(height) * 0.5)
+	var end_y: int = int(min(height, _vignette_prewarm_y + PROCEDURAL_TEXTURE_PREWARM_ROWS_PER_STEP))
+	var offset: int = _vignette_prewarm_y * width * 4
+	for y in range(_vignette_prewarm_y, end_y):
+		var normalized_y: float = (float(y) - center_y) / half_height
+		for x in range(width):
+			var normalized_x: float = (float(x) - center_x) / half_width
+			var d: float = sqrt(normalized_x * normalized_x + normalized_y * normalized_y)
+			var alpha: float = 1.0 - smoothstep(0.62, 1.0, d)
+			alpha = pow(clamp(alpha, 0.0, 1.0), 0.92) * 0.78
+			_write_pixel(_vignette_prewarm_data, offset, 0, 0, 0, _alpha_to_byte(alpha))
+			offset += 4
+	_vignette_prewarm_y = end_y
+	if _vignette_prewarm_y < height:
+		return false
+	var image: Image = Image.create_from_data(width, height, false, Image.FORMAT_RGBA8, _vignette_prewarm_data)
+	_shared_vignette_texture = ImageTexture.create_from_image(image)
+	_vignette_prewarm_data = PackedByteArray()
+	_vignette_prewarm_y = 0
+	return true
+
+
 static func _get_or_build_soft_vignette_texture() -> Texture2D:
 	if _shared_vignette_texture != null:
 		return _shared_vignette_texture
+	_vignette_prewarm_data = PackedByteArray()
+	_vignette_prewarm_y = 0
 	var width: int = int(FIELD_WIDTH)
 	var height: int = int(FIELD_HEIGHT)
-	var image: Image = Image.create(width, height, false, Image.FORMAT_RGBA8)
-	var center := Vector2(float(width) * 0.5, float(height) * 0.5)
-	var half_size := Vector2(float(width) * 0.5, float(height) * 0.5)
+	var data := PackedByteArray()
+	data.resize(width * height * 4)
+	var center_x: float = float(width) * 0.5
+	var center_y: float = float(height) * 0.5
+	var half_width: float = max(1.0, float(width) * 0.5)
+	var half_height: float = max(1.0, float(height) * 0.5)
+	var offset := 0
 	for y in range(height):
+		var normalized_y: float = (float(y) - center_y) / half_height
 		for x in range(width):
-			var p := Vector2(float(x), float(y))
-			var normalized := Vector2(
-				(p.x - center.x) / max(1.0, half_size.x),
-				(p.y - center.y) / max(1.0, half_size.y)
-			)
-			var d: float = normalized.length()
+			var normalized_x: float = (float(x) - center_x) / half_width
+			var d: float = sqrt(normalized_x * normalized_x + normalized_y * normalized_y)
 			var alpha: float = 1.0 - smoothstep(0.62, 1.0, d)
 			alpha = pow(clamp(alpha, 0.0, 1.0), 0.92) * 0.78
-			image.set_pixel(x, y, Color(0.0, 0.0, 0.0, alpha))
+			_write_pixel(data, offset, 0, 0, 0, _alpha_to_byte(alpha))
+			offset += 4
+	var image: Image = Image.create_from_data(width, height, false, Image.FORMAT_RGBA8, data)
 	_shared_vignette_texture = ImageTexture.create_from_image(image)
 	return _shared_vignette_texture
 
@@ -420,27 +552,82 @@ func _build_soft_white_flash_texture() -> Texture2D:
 	return _get_or_build_soft_white_flash_texture()
 
 
+static func _prewarm_soft_white_flash_texture_step() -> bool:
+	if _shared_white_flash_texture != null:
+		_white_flash_prewarm_data = PackedByteArray()
+		_white_flash_prewarm_y = 0
+		return true
+	var width: int = int(FIELD_WIDTH)
+	var height: int = int(FIELD_HEIGHT)
+	if _white_flash_prewarm_data.is_empty():
+		_white_flash_prewarm_data.resize(width * height * 4)
+		_white_flash_prewarm_y = 0
+	var center_x: float = float(width) * 0.5
+	var center_y: float = float(height) * 0.5
+	var half_width: float = max(1.0, float(width) * 0.5)
+	var half_height: float = max(1.0, float(height) * 0.5)
+	var end_y: int = int(min(height, _white_flash_prewarm_y + PROCEDURAL_TEXTURE_PREWARM_ROWS_PER_STEP))
+	var offset: int = _white_flash_prewarm_y * width * 4
+	for y in range(_white_flash_prewarm_y, end_y):
+		var normalized_y: float = (float(y) - center_y) / half_height
+		for x in range(width):
+			var normalized_x: float = (float(x) - center_x) / half_width
+			var d: float = sqrt(normalized_x * normalized_x + normalized_y * normalized_y)
+			var alpha: float = 1.0 - smoothstep(0.54, 1.0, d)
+			alpha = pow(clamp(alpha, 0.0, 1.0), 0.58)
+			_write_pixel(_white_flash_prewarm_data, offset, 255, 255, 255, _alpha_to_byte(alpha))
+			offset += 4
+	_white_flash_prewarm_y = end_y
+	if _white_flash_prewarm_y < height:
+		return false
+	var image: Image = Image.create_from_data(width, height, false, Image.FORMAT_RGBA8, _white_flash_prewarm_data)
+	_shared_white_flash_texture = ImageTexture.create_from_image(image)
+	_white_flash_prewarm_data = PackedByteArray()
+	_white_flash_prewarm_y = 0
+	return true
+
+
 static func _get_or_build_soft_white_flash_texture() -> Texture2D:
 	if _shared_white_flash_texture != null:
 		return _shared_white_flash_texture
+	_white_flash_prewarm_data = PackedByteArray()
+	_white_flash_prewarm_y = 0
 	var width: int = int(FIELD_WIDTH)
 	var height: int = int(FIELD_HEIGHT)
-	var image: Image = Image.create(width, height, false, Image.FORMAT_RGBA8)
-	var center := Vector2(float(width) * 0.5, float(height) * 0.5)
-	var half_size := Vector2(float(width) * 0.5, float(height) * 0.5)
+	var data := PackedByteArray()
+	data.resize(width * height * 4)
+	var center_x: float = float(width) * 0.5
+	var center_y: float = float(height) * 0.5
+	var half_width: float = max(1.0, float(width) * 0.5)
+	var half_height: float = max(1.0, float(height) * 0.5)
+	var offset := 0
 	for y in range(height):
+		var normalized_y: float = (float(y) - center_y) / half_height
 		for x in range(width):
-			var p := Vector2(float(x), float(y))
-			var normalized := Vector2(
-				(p.x - center.x) / max(1.0, half_size.x),
-				(p.y - center.y) / max(1.0, half_size.y)
-			)
-			var d: float = normalized.length()
+			var normalized_x: float = (float(x) - center_x) / half_width
+			var d: float = sqrt(normalized_x * normalized_x + normalized_y * normalized_y)
 			var alpha: float = 1.0 - smoothstep(0.54, 1.0, d)
 			alpha = pow(clamp(alpha, 0.0, 1.0), 0.58)
-			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+			_write_pixel(data, offset, 255, 255, 255, _alpha_to_byte(alpha))
+			offset += 4
+	var image: Image = Image.create_from_data(width, height, false, Image.FORMAT_RGBA8, data)
 	_shared_white_flash_texture = ImageTexture.create_from_image(image)
 	return _shared_white_flash_texture
+
+
+static func _write_pixel(data: PackedByteArray, offset: int, r: int, g: int, b: int, a: int) -> void:
+	data[offset] = r
+	data[offset + 1] = g
+	data[offset + 2] = b
+	data[offset + 3] = a
+
+
+static func _alpha_to_byte(alpha: float) -> int:
+	return int(clamp(round(alpha * 255.0), 0.0, 255.0))
+
+
+static func _color_to_byte(channel: float) -> int:
+	return int(clamp(round(channel * 255.0), 0.0, 255.0))
 
 
 func _recenter_on_viewport() -> void:

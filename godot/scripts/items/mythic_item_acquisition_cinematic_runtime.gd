@@ -73,9 +73,23 @@ func get_cinematic_script() -> Variant:
 
 
 func prewarm_assets() -> void:
+	while not prewarm_static_assets_step():
+		pass
+
+
+func prewarm_static_assets() -> void:
+	prewarm_assets()
+
+
+func prewarm_static_assets_step() -> bool:
 	var cinematic_script: Variant = get_cinematic_script()
-	if cinematic_script != null and cinematic_script.has_method("prewarm_assets"):
+	if cinematic_script == null:
+		return true
+	if cinematic_script.has_method("prewarm_assets_step"):
+		return bool(cinematic_script.prewarm_assets_step())
+	if cinematic_script.has_method("prewarm_assets"):
 		cinematic_script.prewarm_assets()
+	return true
 
 
 func ensure_host(runtime: Object, owner: Object) -> bool:

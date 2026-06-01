@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemHudState := preload("res://scripts/hud/active_item_hud_state.gd")
 const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_controller.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -83,6 +84,27 @@ func _init() -> void:
 	var hud_state := ActiveItemHudState.new()
 	var status: Dictionary = hud_state.get_slot_status(0, kept_item, Time.get_ticks_msec(), 5000, registry, perk_state)
 	_expect(float(status.get("alchemy_notice_ratio", 0.0)) > 0.0, "HUD status should expose the Alchemy notice")
+	_expect(int(ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC) == 7000, "default active-item cooldown should be 7 seconds")
+	_expect(
+		int(ActiveItemHudState.DEFAULT_ACTIVE_ITEM_COOLDOWN_MS) == int(ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC),
+		"active-item HUD cooldown fallback should track the catalog default"
+	)
+	_expect(
+		hud_state.get_active_item_cooldown_msec({}, registry, null) == ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC,
+		"active-item HUD default cooldown should use the shared 7-second value"
+	)
+	var post_serve_throw_status: Dictionary = hud_state.get_slot_status(
+		1,
+		{"name": "grenade", "last_use_msec": -1},
+		Time.get_ticks_msec(),
+		0,
+		registry,
+		perk_state
+	)
+	_expect(
+		int(post_serve_throw_status.get("throw_lock_remaining_seconds", -1)) == 0,
+		"throwable active items should not show a post-serve lockout timer"
+	)
 
 	var no_perk_state := RuntimePerkState.new()
 	_effect_calls = 0

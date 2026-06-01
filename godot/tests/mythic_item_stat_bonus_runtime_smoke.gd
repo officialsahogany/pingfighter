@@ -12,6 +12,13 @@ class FakeOwner:
 	var mythic_item_state: Dictionary = {}
 	var accessory_slot_count := 2
 	var runtime_accessory_slot_bonus := 0
+	var player_pos := Vector2(302.5, 700.0)
+	var player_paddle_width := 155.0
+	var player_paddle_height := 50.0
+	var player_paddle_scale := 1.0
+	var runtime_paddle_base_width := 155.0
+	var runtime_paddle_base_height := 50.0
+	var runtime_paddle_scale := 1.0
 	var player_speed_multiplier := 1.0
 	var player_turn_decel_multiplier := 1.0
 	var bulkup_equipped := false
@@ -81,6 +88,9 @@ func _init() -> void:
 	)
 	_expect(owner.bulkup_equipped, "owner sync should expose Bulk-Up equipped state")
 	_expect_close(owner.bulkup_body_size_pct, 15.0, "owner sync should expose Bulk-Up roll")
+	_expect_close(owner.player_paddle_width, 155.0 * 1.15, "owner sync should resize Bulk-Up paddle width")
+	_expect_close(owner.player_paddle_height, 50.0 * 1.15, "owner sync should resize Bulk-Up paddle height")
+	_expect_close(owner.player_paddle_scale, 1.15, "owner sync should resize Bulk-Up paddle draw scale")
 	_expect_close(runtime.get_player_paddle_scale(), 1.15, "Bulk-Up should scale the paddle")
 	_expect_close(runtime.get_player_paddle_width(100.0), 115.0, "Bulk-Up should scale paddle width")
 	_expect_close(runtime.get_player_paddle_height(20.0), 23.0, "Bulk-Up should scale paddle height")
