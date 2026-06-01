@@ -244,11 +244,7 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
 	_set_current_pet_id(next_pet_id)
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
-	_companion_sprite_animator.reset_all()
-	_companion_body_hit_state.reset_all()
-	_companion_skill_state.reset_all()
-	_reset_companion_defense()
-	_reset_skill_runtime_transients()
+	_reset_companion_runtime_state()
 	_prewarm_current_visuals()
 	_mark_current_pet_owned(owner)
 	_sync_owner(owner)
@@ -421,11 +417,7 @@ func reset_for_tests() -> void:
 	_reset_companion_patrol()
 	_collection_state.reset()
 	_hatch_flash_timer = 0.0
-	_companion_sprite_animator.reset_all()
-	_companion_body_hit_state.reset_all()
-	_companion_skill_state.reset_all()
-	_reset_companion_defense()
-	_reset_skill_runtime_transients()
+	_reset_companion_runtime_state()
 	_acquire_cutin_state.reset()
 	_switch_transition_state.reset()
 	_has_synced_none = false
@@ -444,6 +436,15 @@ func _reset_skill_runtime_transients() -> void:
 	_skill_runtime_host.reset()
 
 
+func _reset_companion_runtime_state(reset_defense: bool = true) -> void:
+	_companion_sprite_animator.reset_all()
+	_companion_body_hit_state.reset_all()
+	_companion_skill_state.reset_all()
+	if reset_defense:
+		_reset_companion_defense()
+	_reset_skill_runtime_transients()
+
+
 func _spawn_egg(owner: Object) -> void:
 	_state = STATE_EGG
 	_set_current_pet_id(_pick_hatch_pet_id(owner))
@@ -451,11 +452,7 @@ func _spawn_egg(owner: Object) -> void:
 	_companion_pos = Vector2.ZERO
 	_reset_companion_patrol()
 	_hatch_flash_timer = 0.0
-	_companion_sprite_animator.reset_all()
-	_companion_body_hit_state.reset_all()
-	_companion_skill_state.reset_all()
-	_reset_companion_defense()
-	_reset_skill_runtime_transients()
+	_reset_companion_runtime_state()
 	_acquire_cutin_state.reset()
 	_switch_transition_state.reset()
 	_has_synced_none = false
@@ -473,10 +470,7 @@ func _resolve_ball_hit(owner: Object) -> bool:
 		_companion_pos = _egg_state.pos
 		_initialize_companion_patrol(owner, false)
 		_egg_state.reset_contact_motion()
-		_companion_sprite_animator.reset_all()
-		_companion_body_hit_state.reset_all()
-		_companion_skill_state.reset_all()
-		_reset_skill_runtime_transients()
+		_reset_companion_runtime_state(false)
 		_switch_transition_state.reset()
 		_hatch_flash_timer = LingpetEggFieldRenderer.HATCH_FLASH_SECONDS
 		_acquire_cutin_state.start()
@@ -518,11 +512,7 @@ func _adopt_owned_pet(owner: Object, pet_id: String) -> void:
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
 	_initialize_companion_patrol(owner, true)
-	_companion_sprite_animator.reset_all()
-	_companion_body_hit_state.reset_all()
-	_companion_skill_state.reset_all()
-	_reset_companion_defense()
-	_reset_skill_runtime_transients()
+	_reset_companion_runtime_state()
 	_switch_transition_state.reset()
 	_hatch_flash_timer = 0.0
 	_prewarm_current_visuals()
