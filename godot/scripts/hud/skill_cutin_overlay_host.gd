@@ -10,7 +10,6 @@ const CUTIN_STANDARD_COLUMNS := 4
 const POWER_SMASHING_COLOR := Color(1.0, 100.0 / 255.0, 50.0 / 255.0)
 const WIPE_COLOR := Color(1.0, 100.0 / 255.0, 50.0 / 255.0, 0.85)
 const FLASH_COLOR := Color(1.0, 0.88, 0.7, 1.0)
-const RIM_COLOR := Color(0.27, 0.87, 0.8, 0.6)
 const CHARGE_CORE_COLOR := Color(1.0, 0.12, 0.05, 1.0)
 const CHARGE_HOT_COLOR := Color(1.0, 0.55, 0.16, 1.0)
 const DIM_ALPHA_MAX := 0.6
@@ -147,13 +146,6 @@ func _draw_cutin_sheet(canvas: CanvasItem, view_size: Vector2, progress: float, 
 	if phase == "flash":
 		var flash_local: float = clampf((progress - 0.82) / 0.18, 0.0, 1.0)
 		alpha = lerpf(1.0, 0.0, flash_local)
-	var rim_rect := draw_rect.grow(view_size.y * 0.012)
-	canvas.draw_rect(
-		rim_rect,
-		Color(RIM_COLOR.r, RIM_COLOR.g, RIM_COLOR.b, 0.10 * alpha),
-		false,
-		max(2.0, view_size.y * 0.008)
-	)
 	canvas.draw_texture_rect_region(
 		_cutin_sheet_texture,
 		draw_rect,
@@ -232,36 +224,36 @@ func _draw_red_charge_aura(
 func _charge_point_ratio(frame_index: int) -> Vector2:
 	match clampi(frame_index, 0, CUTIN_FRAME_COUNT - 1):
 		0:
-			return Vector2(0.62, 0.18)
+			return Vector2(0.39, 0.51)
 		1:
-			return Vector2(0.66, 0.19)
+			return Vector2(0.40, 0.51)
 		2:
-			return Vector2(0.70, 0.18)
+			return Vector2(0.40, 0.50)
 		3:
-			return Vector2(0.75, 0.17)
+			return Vector2(0.40, 0.50)
 		4:
-			return Vector2(0.61, 0.28)
+			return Vector2(0.41, 0.50)
 		5:
-			return Vector2(0.54, 0.33)
+			return Vector2(0.41, 0.50)
 		6:
-			return Vector2(0.43, 0.35)
+			return Vector2(0.41, 0.49)
 		7:
-			return Vector2(0.31, 0.43)
+			return Vector2(0.41, 0.45)
 		8:
-			return Vector2(0.19, 0.54)
+			return Vector2(0.53, 0.48)
 		9:
-			return Vector2(0.22, 0.55)
+			return Vector2(0.55, 0.54)
 		10:
-			return Vector2(0.25, 0.55)
+			return Vector2(0.48, 0.60)
 		11:
-			return Vector2(0.27, 0.55)
+			return Vector2(0.46, 0.63)
 		12:
-			return Vector2(0.20, 0.61)
+			return Vector2(0.47, 0.63)
 		13:
-			return Vector2(0.23, 0.61)
+			return Vector2(0.47, 0.63)
 		14:
-			return Vector2(0.25, 0.61)
-	return Vector2(0.27, 0.61)
+			return Vector2(0.47, 0.63)
+	return Vector2(0.48, 0.63)
 
 
 func _draw_title_text(canvas: CanvasItem, view_size: Vector2, progress: float, phase: String) -> void:
