@@ -40,6 +40,7 @@ class FakeFeedback:
 
 func _init() -> void:
 	_verify_catalog_and_assets()
+	_verify_catalog_offers_for_all_characters()
 	_verify_runtime_scaling_and_collision()
 	_verify_controller_audio_routing()
 
@@ -50,12 +51,23 @@ func _init() -> void:
 func _verify_catalog_and_assets() -> void:
 	var catalog: Object = RuntimePerkCatalog.new()
 	var data: Dictionary = catalog.get_perk_data("dash_acceleration")
-	_expect(str(data.get("name", "")) == "버스트업", "Burst Up should be registered with the Korean name")
+	_expect(str(data.get("id", "")) == "dash_acceleration", "Burst Up should be registered by id")
+	_expect(str(data.get("name", "")) != "", "Burst Up should expose a localized display name")
 	_expect(int(data.get("max_level", 0)) == 5, "Burst Up should scale to Lv.5")
-	_expect(str(data.get("tree", "")) == "smasher", "Burst Up should live in the Smasher perk tree")
-	_expect(str(data.get("character_restriction", "")) == "smasher", "Burst Up should be Smasher-restricted")
+	_expect(str(data.get("tree", "")) == "dash", "Burst Up should live in the shared dash perk tree")
+	_expect(str(data.get("character_restriction", "")) == "", "Burst Up should not be character-restricted")
 	_expect(ProjectResourceLoader.load_texture("res://assets/sprites/perks/dash_acceleration_perk_icon.png") != null, "Burst Up perk icon should load")
 	_expect(ProjectResourceLoader.load_audio_stream("res://assets/sounds/bustup.wav") != null, "Burst Up dash sound should load")
+
+
+func _verify_catalog_offers_for_all_characters() -> void:
+	var catalog: Object = RuntimePerkCatalog.new()
+	for character_type in ["smasher", "viper", "soldier", "commando", "blacksmith", "optimus"]:
+		var choices: Array = catalog.get_choices(character_type, {}, true, 200)
+		_expect(
+			_has_choice_id(choices, "dash_acceleration"),
+			"Burst Up should be offered to %s as a shared dash perk" % character_type
+		)
 
 
 func _verify_runtime_scaling_and_collision() -> void:
@@ -144,3 +156,10 @@ func _expect(condition: bool, message: String) -> void:
 		return
 	push_error(message)
 	quit(1)
+
+
+func _has_choice_id(choices: Array, skill_id: String) -> bool:
+	for choice in choices:
+		if str(choice.get("id", "")) == skill_id:
+			return true
+	return false

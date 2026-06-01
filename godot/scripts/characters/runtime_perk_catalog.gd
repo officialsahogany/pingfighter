@@ -47,6 +47,20 @@ const COMMON_PERKS := {
 		"icon_color": Color(100.0 / 255.0, 1.0, 150.0 / 255.0),
 		"tree": "dash",
 	},
+	"dash_acceleration": {
+		"name": "버스트업",
+		"max_level": 5,
+		"descriptions": {
+			1: "대쉬시 패들 크기 70% 증가",
+			2: "대쉬시 패들 크기 140% 증가",
+			3: "대쉬시 패들 크기 210% 증가",
+			4: "대쉬시 패들 크기 280% 증가",
+			5: "대쉬시 패들 크기 350% 증가",
+		},
+		"detail": "대쉬 순간 패들이 폭발적으로 확장되어 더 넓은 범위의 공을 받아냅니다.",
+		"icon_color": Color(1.0, 100.0 / 255.0, 50.0 / 255.0),
+		"tree": "dash",
+	},
 	"dash_amplification": {
 		"name": "증폭",
 		"max_level": 3,
@@ -255,21 +269,6 @@ const COMMON_PERKS := {
 }
 
 const SMASHER_PERKS := {
-	"dash_acceleration": {
-		"name": "버스트업",
-		"max_level": 5,
-		"descriptions": {
-			1: "대쉬시 패들 크기 70% 증가",
-			2: "대쉬시 패들 크기 140% 증가",
-			3: "대쉬시 패들 크기 210% 증가",
-			4: "대쉬시 패들 크기 280% 증가",
-			5: "대쉬시 패들 크기 350% 증가",
-		},
-		"detail": "대쉬 순간 패들이 폭발적으로 확장되어 더 넓은 범위의 공을 받아냅니다.",
-		"icon_color": Color(1.0, 100.0 / 255.0, 50.0 / 255.0),
-		"tree": "smasher",
-		"character_restriction": "smasher",
-	},
 	"dash_spirit": {
 		"name": "대쉬스피릿",
 		"max_level": 5,
@@ -604,7 +603,7 @@ const SOLDIER_PERKS := {
 		"name": "베레타",
 		"max_level": 1,
 		"descriptions": {1: "베레타 해금"},
-		"detail": "기본 권총은 유지한 채 베레타를 별도 영구 화기류로 해금합니다. 베레타는 권총보다 연사가 2배 빠르고 탄속 20%, 정확도 30%가 향상되며 탄약 8발은 재장전 스킬로만 보충합니다.",
+		"detail": "기본 권총은 유지한 채 베레타를 별도 영구 화기류로 해금합니다. 베레타는 준비동작 없이 즉시 발사되며 권총보다 연사가 2배 빠르고 탄속 20%, 정확도 30%가 향상되고 탄약 12발은 재장전 스킬로만 보충합니다.",
 		"icon_color": Color(140.0 / 255.0, 130.0 / 255.0, 120.0 / 255.0),
 		"tree": "soldier_unlock",
 		"character_restriction": "soldier",
