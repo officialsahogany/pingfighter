@@ -93,7 +93,14 @@ func draw(
 			symbol_renderer.draw(canvas, slot_pos, icon_radius, skill_name, skill_color, is_active)
 
 		if is_on_cooldown:
-			cooldown_renderer.draw(canvas, slot_pos, icon_radius + socket_overlap * scale_factor, cooldown_ratio, pillar_drawer)
+			cooldown_renderer.draw(
+				canvas,
+				slot_pos,
+				icon_radius + socket_overlap * scale_factor,
+				cooldown_ratio,
+				pillar_drawer,
+				static_hud_lod
+			)
 
 
 func _get_cooldown_remaining(

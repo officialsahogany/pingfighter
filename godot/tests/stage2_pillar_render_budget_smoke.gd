@@ -184,6 +184,8 @@ func _verify_draw_paths_use_render_caps() -> void:
 	var warmup_plan_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_plan.gd")
 	var pillar_ui_source := FileAccess.get_file_as_string("res://scripts/hud/stage1_pillar_ui_renderer.gd")
 	var status_context_source := FileAccess.get_file_as_string("res://scripts/hud/stage1_pillar_status_orb_context_builder.gd")
+	var skill_slot_source := FileAccess.get_file_as_string("res://scripts/hud/smasher_skill_orb_slot_renderer.gd")
+	var skill_cooldown_source := FileAccess.get_file_as_string("res://scripts/hud/smasher_skill_orb_cooldown_renderer.gd")
 	_expect(background_source != "", "Stage 2 pillar background source should be readable")
 	_expect(
 		background_source.find("func _ensure_texture(") < 0,
@@ -199,6 +201,8 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(warmup_plan_source != "", "Battle boot warmup plan source should be readable")
 	_expect(pillar_ui_source != "", "shared pillar UI renderer source should be readable")
 	_expect(status_context_source != "", "shared pillar status context source should be readable")
+	_expect(skill_slot_source != "", "skill orb slot renderer source should be readable")
+	_expect(skill_cooldown_source != "", "skill orb cooldown renderer source should be readable")
 	_expect(
 		_function_body(background_source, "func draw_playfield_overlay").find("LEAF_PARTICLE_RENDER_LIMIT_SEVERE_LOD") >= 0,
 		"Stage 2 overlay draw should pass the leaf severe render cap"
@@ -241,6 +245,16 @@ func _verify_draw_paths_use_render_caps() -> void:
 	_expect(
 		status_context_source.find("\"show_count_text\": not static_hud_lod") < 0,
 		"Stage 2 pillar HUD restore should keep dash count text on its normal renderer path"
+	)
+	_expect(
+		skill_slot_source.find("static_hud_lod") >= 0
+			and skill_slot_source.find("cooldown_renderer.draw(") >= 0,
+		"skill orb slots should forward static HUD LOD to cooldown rendering"
+	)
+	_expect(
+		skill_cooldown_source.find("COOLDOWN_RING_SEGMENTS_STATIC_LOD") >= 0
+			and _function_body(skill_cooldown_source, "func draw(").find("and not static_hud_lod") >= 0,
+		"skill orb cooldown draw should use a cheaper static HUD LOD path"
 	)
 	_expect(
 		_function_body(background_source, "func draw_playfield_overlay").find("STARPOINT_PARTICLE_RENDER_LIMIT_SEVERE_LOD") >= 0,
