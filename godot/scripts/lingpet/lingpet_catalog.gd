@@ -80,14 +80,26 @@ static func get_default_pet_id() -> String:
 
 
 static func has_pet(pet_id: String) -> bool:
-	return PETS.has(_normalize_pet_id(pet_id))
+	return is_pet_enabled_from_entries(PETS, pet_id)
 
 
-static func get_pet_ids() -> Array[String]:
+static func get_pet_ids(include_disabled: bool = false) -> Array[String]:
 	var result: Array[String] = []
 	for pet_id in PETS.keys():
-		result.append(str(pet_id))
+		var entry: Variant = PETS.get(pet_id, {})
+		if include_disabled or (entry is Dictionary and _is_entry_enabled(entry as Dictionary)):
+			result.append(str(pet_id))
 	return result
+
+
+static func is_pet_enabled(pet_id: String) -> bool:
+	return is_pet_enabled_from_entries(PETS, pet_id)
+
+
+static func is_pet_enabled_from_entries(entries: Dictionary, pet_id: String) -> bool:
+	var normalized := _normalize_pet_id(pet_id)
+	var entry: Variant = _get_entry_from_entries(entries, normalized)
+	return entry is Dictionary and _is_entry_enabled(entry as Dictionary)
 
 
 static func get_entry(pet_id: String) -> Dictionary:
@@ -197,6 +209,8 @@ static func validate_entry(pet_id: String, entry: Dictionary, require_existing_f
 	var unlock: Variant = entry.get("unlock", {})
 	if not (unlock is Dictionary):
 		issues.append("%s: unlock must be a Dictionary" % normalized)
+	if not _is_entry_enabled(entry):
+		return issues
 	_validate_required_stats(normalized, entry, issues)
 	_validate_required_visuals(normalized, entry, issues, require_existing_files)
 	_validate_active_skill(normalized, entry, issues, require_existing_files)
@@ -271,7 +285,13 @@ static func get_hatch_candidates_from_entries(entries: Dictionary, context: Dict
 	for raw_pet_id in entries.keys():
 		var pet_id := _normalize_pet_id(str(raw_pet_id))
 		var entry: Variant = entries.get(raw_pet_id, {})
-		if pet_id != "" and entry is Dictionary and not bool(owned_lookup.get(pet_id, false)) and _matches_unlock(entry as Dictionary, context):
+		if (
+			pet_id != ""
+			and entry is Dictionary
+			and _is_entry_enabled(entry as Dictionary)
+			and not bool(owned_lookup.get(pet_id, false))
+			and _matches_unlock(entry as Dictionary, context)
+		):
 			result.append(pet_id)
 	return result
 
@@ -299,15 +319,25 @@ static func pick_hatch_pet_id_from_entries(entries: Dictionary, context: Diction
 
 static func _get_entry_weight(entries: Dictionary, pet_id: String) -> float:
 	var normalized := _normalize_pet_id(pet_id)
-	var entry: Variant = entries.get(normalized, {})
-	if not (entry is Dictionary):
-		for raw_pet_id in entries.keys():
-			if _normalize_pet_id(str(raw_pet_id)) == normalized:
-				entry = entries.get(raw_pet_id, {})
-				break
+	var entry: Variant = _get_entry_from_entries(entries, normalized)
 	if entry is Dictionary:
 		return maxf(0.0, float((entry as Dictionary).get("hatch_weight", 1.0)))
 	return 0.0
+
+
+static func _get_entry_from_entries(entries: Dictionary, pet_id: String) -> Variant:
+	var normalized := _normalize_pet_id(pet_id)
+	var entry: Variant = entries.get(normalized, null)
+	if entry is Dictionary:
+		return entry
+	for raw_pet_id in entries.keys():
+		if _normalize_pet_id(str(raw_pet_id)) == normalized:
+			return entries.get(raw_pet_id, null)
+	return null
+
+
+static func _is_entry_enabled(entry: Dictionary) -> bool:
+	return bool(entry.get("enabled", true))
 
 
 static func _matches_unlock(entry: Dictionary, context: Dictionary) -> bool:

@@ -6,6 +6,7 @@ const GameplayModuleRegistry := preload("res://scripts/resources/gameplay_module
 const BallRoundState := preload("res://scripts/ball/ball_round_state.gd")
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSaveStore := preload("res://scripts/lingpet/lingpet_save_store.gd")
 const PaddleBounceEventRouter := preload("res://scripts/ball/paddle_bounce_event_router.gd")
@@ -451,6 +452,24 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetCatalog.get_hatch_candidates({"league_mode": "champion", "character_type": "smasher"}, []).is_empty(), "catalog should keep Junior League eligibility gating")
 	var live_catalog_issues: Array[String] = LingpetCatalog.validate_catalog(true)
 	_expect(live_catalog_issues.is_empty(), "live lingpet catalog should validate cleanly: %s" % str(live_catalog_issues))
+	var draft_entries := {
+		"maribo": LingpetCatalog.get_entry("maribo"),
+		"draft_bat": {
+			"id": "draft_bat",
+			"display_name": "드래프트 배트",
+			"enabled": false,
+			"hatch_weight": 1.0,
+			"required_hits": 2,
+			"unlock": {
+				"league_mode": "junior",
+				"character_type": "smasher",
+			},
+		},
+	}
+	var draft_candidates: Array[String] = LingpetCatalog.get_hatch_candidates_from_entries(draft_entries, eligible_context, [])
+	_expect(draft_candidates.has("maribo") and not draft_candidates.has("draft_bat"), "disabled draft lingpets should never enter the random hatch pool")
+	_expect(not LingpetCatalog.is_pet_enabled_from_entries(draft_entries, "draft_bat"), "disabled draft lingpets should not be treated as live pet ids")
+	_expect(LingpetCatalog.validate_entries(draft_entries, true).is_empty(), "disabled draft lingpets should not require final visual/skill assets before shipping")
 	var broken_entries := {
 		"broken": {
 			"id": "broken",
@@ -827,6 +846,13 @@ func _verify_lingpet_battle_slot_model() -> void:
 	var collection_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_collection_state.gd")
 	_expect(runtime_source.find("func cycle_lingpet_slot") >= 0, "lingpet runtime should expose a non-number-key slot cycle method")
 	_expect(collection_source.find("func find_next_occupied_slot_index") >= 0, "lingpet collection state should find the next occupied battle slot for cycling")
+	var collection_state := LingpetCollectionState.new()
+	var test_slots: Array[String] = ["maribo", "", "future_pet"]
+	collection_state.battle_slot_pet_ids = test_slots
+	collection_state.active_slot_index = 0
+	_expect(int(collection_state.find_next_occupied_slot_index(1, null)) == 2, "lingpet slot cycling should skip empty slots and land on the next occupied slot")
+	collection_state.active_slot_index = 2
+	_expect(int(collection_state.find_next_occupied_slot_index(-1, null)) == 0, "reverse lingpet slot cycling should skip empty slots and wrap to the previous occupied slot")
 
 	runtime.call("_begin_companion_switch_transition", "maribo", "maribo")
 	var switch_snapshot: Dictionary = runtime.get_snapshot()
