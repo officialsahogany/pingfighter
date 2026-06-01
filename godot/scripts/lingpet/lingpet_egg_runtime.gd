@@ -108,7 +108,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	_companion_sprite_animator.advance(delta)
 
 	if _state == STATE_NONE:
-		var owned_pet_id := _find_first_owned_pet_id(owner)
+		var owned_pet_id := _find_active_slot_pet_id(owner)
 		if owned_pet_id != "":
 			_adopt_owned_pet(owner, owned_pet_id)
 			return true
@@ -209,6 +209,38 @@ func is_companion_active(pet_id: String = "") -> bool:
 	return _state == STATE_COMPANION and (normalized_pet_id == "" or _pet_id == normalized_pet_id)
 
 
+func get_lingpet_slots() -> Array[String]:
+	return _collection_state.get_battle_slots()
+
+
+func get_active_lingpet_slot_index() -> int:
+	return _collection_state.get_active_slot_index()
+
+
+func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
+	var next_pet_id: String = _collection_state.select_active_slot(slot_index, owner)
+	if next_pet_id == "":
+		return false
+	if _state != STATE_COMPANION:
+		_adopt_owned_pet(owner, next_pet_id)
+		return true
+	if next_pet_id == _pet_id:
+		_sync_owner(owner)
+		return true
+	_pet_id = next_pet_id
+	if _companion_pos == Vector2.ZERO:
+		_initialize_companion_patrol(owner, true)
+	_companion_sprite_animator.reset_all()
+	_companion_body_hit_state.reset_all()
+	_companion_skill_state.reset_all()
+	_reset_companion_defense()
+	_reset_hydro_sphere_transients()
+	_prewarm_current_visuals()
+	_mark_current_pet_owned(owner)
+	_sync_owner(owner)
+	return true
+
+
 # Test-only accessors: the strike state is transient visual state that is
 # intentionally NOT persisted in get_snapshot()/save schema, so the smoke reads
 # it directly to assert the anticipatory pre-contact timing.
@@ -248,6 +280,8 @@ func get_snapshot() -> Dictionary:
 		_get_current_active_skill(),
 		_hatch_flash_timer,
 		_collection_state.get_owned_pet_ids(),
+		_collection_state.get_battle_slots(),
+		_collection_state.get_active_slot_index(),
 		_get_current_gauge_gain_bonus_pct(),
 		_egg_state,
 		_companion_motion_state,
@@ -273,6 +307,8 @@ func get_save_snapshot() -> Dictionary:
 		_egg_state.pos,
 		_companion_pos,
 		_collection_state.get_owned_pet_ids(),
+		_collection_state.get_battle_slots(),
+		_collection_state.get_active_slot_index(),
 		_get_current_gauge_gain_bonus_pct(),
 		_companion_motion_state
 	)
@@ -297,12 +333,17 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 	if _pet_id == "":
 		_pet_id = PET_ID
 	_collection_state.set_owned_pet_ids(snapshot.get("owned_pet_ids", []))
+	_collection_state.set_battle_slots(snapshot.get("battle_slot_pet_ids", snapshot.get("lingpet_slots", [])))
+	_collection_state.set_active_slot_index(int(snapshot.get("active_slot_index", 0)))
 	var active_pet_id := _normalize_pet_id(str(snapshot.get("active_pet_id", "")))
 	if active_pet_id != "":
 		_collection_state.add_pet(null, active_pet_id)
+		if _collection_state.get_battle_slots()[_collection_state.get_active_slot_index()] == "":
+			_collection_state.set_battle_slots([active_pet_id, "", ""])
+			_collection_state.set_active_slot_index(0)
 
 	var restored_state: String = _normalize_lingpet_state(str(snapshot.get("state", STATE_NONE)))
-	var owned_pet_id := _find_first_owned_pet_id(owner)
+	var owned_pet_id := _find_active_slot_pet_id(owner)
 	if restored_state == STATE_COMPANION or _collection_state.get_owned_pet_ids().has(_pet_id) or not active_pet_id.is_empty() or not owned_pet_id.is_empty():
 		_state = STATE_COMPANION
 		if not active_pet_id.is_empty():
@@ -433,6 +474,8 @@ func _sync_owner(owner: Object) -> void:
 		_get_current_stat("catch_width", COMPANION_HIT_HALF_WIDTH * 2.0),
 		_get_current_stat("catch_height", COMPANION_HIT_HALF_HEIGHT * 2.0),
 		_get_current_defense_rate(),
+		_collection_state.get_battle_slots(),
+		_collection_state.get_active_slot_index(),
 		_companion_motion_state,
 		_companion_body_hit_state,
 		_get_current_hit_gauge_gain(),
@@ -484,6 +527,10 @@ func _should_spawn_lingpet_egg(owner: Object) -> bool:
 
 func _find_first_owned_pet_id(owner: Object) -> String:
 	return _collection_state.find_first_owned_pet_id(owner)
+
+
+func _find_active_slot_pet_id(owner: Object) -> String:
+	return _collection_state.find_active_slot_pet_id(owner)
 
 
 func _pick_hatch_pet_id(owner: Object) -> String:

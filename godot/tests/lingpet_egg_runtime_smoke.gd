@@ -96,6 +96,12 @@ class FakeOwner:
 	var ringpet_collection: Dictionary = {}
 	var owned_lingpets: Dictionary = {}
 	var owned_ringpets: Dictionary = {}
+	var lingpet_slots: Array = ["", "", ""]
+	var ringpet_slots: Array = ["", "", ""]
+	var lingpet_slot_pet_ids: Array = ["", "", ""]
+	var ringpet_slot_pet_ids: Array = ["", "", ""]
+	var lingpet_active_slot_index := 0
+	var ringpet_active_slot_index := 0
 
 
 class FakeBattleOwner:
@@ -169,6 +175,12 @@ class FakeBattleOwner:
 	var ringpet_collection: Dictionary = {}
 	var owned_lingpets: Dictionary = {}
 	var owned_ringpets: Dictionary = {}
+	var lingpet_slots: Array = ["", "", ""]
+	var ringpet_slots: Array = ["", "", ""]
+	var lingpet_slot_pet_ids: Array = ["", "", ""]
+	var ringpet_slot_pet_ids: Array = ["", "", ""]
+	var lingpet_active_slot_index := 0
+	var ringpet_active_slot_index := 0
 
 
 class FakeBootstrap:
@@ -268,6 +280,7 @@ func _init() -> void:
 	_verify_two_ball_hits_hatch_maribo()
 	_verify_acquire_cutin_triggers_on_hatch()
 	_verify_owned_maribo_is_kept_as_companion()
+	_verify_lingpet_battle_slot_model()
 	_verify_companion_visual_and_pillar_card()
 	_verify_companion_patrol_edge_pause_and_speed_change()
 	_verify_companion_ball_collision_soft_bounce()
@@ -691,6 +704,8 @@ func _verify_two_ball_hits_hatch_maribo() -> void:
 	_expect(str(owner.lingpet_state) == "companion", "second hit should hatch Maribo into companion state")
 	_expect(str(owner.active_lingpet_id) == "maribo", "hatched Maribo should become the active lingpet")
 	_expect(owner.lingpet_owned_pet_ids.has("maribo"), "hatched Maribo should be added to the owned pet id list")
+	_expect((owner.lingpet_slots as Array).size() == 3 and str((owner.lingpet_slots as Array)[0]) == "maribo", "hatched Maribo should auto-fill the first lingpet battle slot")
+	_expect(int(owner.lingpet_active_slot_index) == 0, "hatched Maribo should use slot 0 as the active battle slot")
 	_expect(bool(owner.lingpet_collection.get("maribo", false)), "hatched Maribo should be marked in the lingpet collection")
 	_expect(is_equal_approx(float(runtime.get_gauge_gain_per_hit(50.0)), 55.0), "hatched Maribo should expose a 10% gauge-gain bonus")
 	_expect(runtime.has_visible_effects(), "hatched Maribo should keep visible companion effects after hatching")
@@ -769,6 +784,43 @@ func _verify_owned_maribo_is_kept_as_companion() -> void:
 	_expect(str(snapshot.get("state", "")) == "companion", "owned Maribo should restore companion runtime state")
 	_expect(str(owner.lingpet_state) == "companion", "owned Maribo should publish companion state to the owner")
 	_expect(str(owner.active_lingpet_id) == "maribo", "owned Maribo should become the active lingpet")
+
+
+func _verify_lingpet_battle_slot_model() -> void:
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	owner.lingpet_slots = ["", "maribo", ""]
+	owner.lingpet_active_slot_index = 1
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(runtime.update(0.0, owner), "runtime should adopt the lingpet from the active battle slot")
+	_expect(str(owner.active_lingpet_id) == "maribo", "active battle slot should publish its lingpet as the active companion")
+	_expect(int(owner.lingpet_active_slot_index) == 1, "owner should preserve the selected active lingpet slot")
+	_expect(str((owner.lingpet_slots as Array)[1]) == "maribo", "owner should keep exactly three battle slot entries")
+	var snapshot: Dictionary = runtime.get_snapshot()
+	var slots: Array = snapshot.get("battle_slot_pet_ids", []) as Array
+	_expect(slots.size() == 3 and str(slots[1]) == "maribo", "runtime snapshot should expose the three lingpet battle slots")
+	_expect(int(snapshot.get("active_slot_index", -1)) == 1, "runtime snapshot should expose the active lingpet slot index")
+	_expect(str(snapshot.get("active_pet_id", "")) == "maribo", "runtime snapshot should expose the active slot pet id")
+	_expect(not bool(runtime.switch_lingpet_slot(0, owner)), "switching to an empty lingpet slot should fail")
+	_expect(bool(runtime.switch_lingpet_slot(1, owner)), "switching to the occupied active lingpet slot should succeed")
+	var save_snapshot: Dictionary = runtime.get_save_snapshot()
+	_expect(str((save_snapshot.get("battle_slot_pet_ids", []) as Array)[1]) == "maribo", "save snapshot should carry the three battle slots")
+	_expect(int(save_snapshot.get("active_slot_index", -1)) == 1, "save snapshot should carry the active slot index")
+
+	var restored_owner := FakeOwner.new()
+	var restored_runtime: Object = LingpetEggRuntime.new()
+	var restore_result: Dictionary = restored_runtime.apply_save_snapshot({
+		"version": 1,
+		"pet_id": "maribo",
+		"state": "companion",
+		"owned_pet_ids": ["maribo"],
+		"battle_slot_pet_ids": ["", "maribo", ""],
+		"active_slot_index": 1,
+		"active_pet_id": "maribo",
+	}, restored_owner)
+	_expect(bool(restore_result.get("restored", false)), "slot-backed lingpet save snapshot should restore")
+	_expect(int(restored_owner.lingpet_active_slot_index) == 1, "restore should republish the active battle slot index")
+	_expect(str((restored_owner.lingpet_slots as Array)[1]) == "maribo", "restore should republish the lingpet battle slots")
 
 
 func _verify_companion_visual_and_pillar_card() -> void:
@@ -1144,6 +1196,8 @@ func _verify_save_snapshot_roundtrip() -> void:
 	var snapshot: Dictionary = runtime.get_save_snapshot()
 	_expect(int(snapshot.get("version", 0)) == 1, "lingpet save snapshot should carry a schema version")
 	_expect((snapshot.get("owned_pet_ids", []) as Array).has("maribo"), "lingpet save snapshot should preserve owned Maribo")
+	_expect(str((snapshot.get("battle_slot_pet_ids", []) as Array)[0]) == "maribo", "lingpet save snapshot should preserve the battle slot assignment")
+	_expect(int(snapshot.get("active_slot_index", -1)) == 0, "lingpet save snapshot should preserve the active battle slot index")
 
 	var restored_owner := FakeOwner.new()
 	restored_owner.ai_mode = "champion"
@@ -1152,6 +1206,7 @@ func _verify_save_snapshot_roundtrip() -> void:
 	_expect(bool(restore_result.get("restored", false)), "lingpet save snapshot should restore successfully")
 	_expect(str(restored_owner.lingpet_state) == "companion", "restored owned Maribo should sync companion state")
 	_expect(restored_owner.owned_lingpet_ids.has("maribo"), "restore should republish owned pet ids to the owner")
+	_expect(str((restored_owner.lingpet_slots as Array)[0]) == "maribo", "restore should republish battle slot assignment")
 	_expect(bool(restored_owner.owned_lingpets.get("maribo", false)), "restore should republish owned collection to the owner")
 
 

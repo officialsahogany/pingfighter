@@ -14,6 +14,8 @@ func build_runtime_snapshot(
 	active_skill: Dictionary,
 	hatch_flash_timer: float,
 	owned_pet_ids: Array,
+	battle_slot_pet_ids: Array,
+	active_slot_index: int,
 	gauge_gain_bonus_pct: float,
 	egg_state: Object,
 	motion_state: Object,
@@ -45,6 +47,10 @@ func build_runtime_snapshot(
 		"companion_skill_card_path": str(active_skill.get("card_texture_path", "")) if companion_active else "",
 		"hatch_flash_timer": hatch_flash_timer,
 		"owned_pet_ids": owned_pet_ids.duplicate(),
+		"battle_slot_pet_ids": battle_slot_pet_ids.duplicate(),
+		"lingpet_slots": battle_slot_pet_ids.duplicate(),
+		"active_slot_index": active_slot_index,
+		"active_pet_id": pet_id if companion_active else "",
 		"gauge_gain_bonus_pct": gauge_gain_bonus_pct if companion_active else 0.0,
 	}
 	if egg_state != null:
@@ -74,6 +80,8 @@ func build_save_snapshot(
 	egg_pos: Vector2,
 	companion_pos: Vector2,
 	owned_pet_ids: Array,
+	battle_slot_pet_ids: Array,
+	active_slot_index: int,
 	gauge_gain_bonus_pct: float,
 	motion_state: Object
 ) -> Dictionary:
@@ -87,6 +95,9 @@ func build_save_snapshot(
 		"egg_pos": egg_pos,
 		"companion_pos": companion_pos,
 		"owned_pet_ids": owned_pet_ids.duplicate(),
+		"battle_slot_pet_ids": battle_slot_pet_ids.duplicate(),
+		"lingpet_slots": battle_slot_pet_ids.duplicate(),
+		"active_slot_index": active_slot_index,
 		"active_pet_id": pet_id if companion_active else "",
 		"gauge_gain_bonus_pct": gauge_gain_bonus_pct if companion_active else 0.0,
 	}
@@ -109,6 +120,8 @@ func sync_owner(
 	catch_width: float,
 	catch_height: float,
 	defense_rate: float,
+	battle_slot_pet_ids: Array,
+	active_slot_index: int,
 	motion_state: Object,
 	body_hit_state: Object,
 	hit_gauge_gain: float,
@@ -127,6 +140,9 @@ func sync_owner(
 	owner.set("lingpet_id", public_pet_id)
 	owner.set("active_lingpet_id", public_pet_id if companion_active else "")
 	owner.set("current_lingpet_id", public_pet_id)
+	_set_pair(owner, "lingpet_slots", "ringpet_slots", battle_slot_pet_ids.duplicate())
+	_set_pair(owner, "lingpet_slot_pet_ids", "ringpet_slot_pet_ids", battle_slot_pet_ids.duplicate())
+	_set_pair(owner, "lingpet_active_slot_index", "ringpet_active_slot_index", active_slot_index)
 	_set_pair(owner, "lingpet_state", "ringpet_state", state)
 	_set_pair(owner, "lingpet_hatch_hits", "ringpet_hatch_hits", hatch_hits)
 	_set_pair(owner, "lingpet_hatch_required_hits", "ringpet_hatch_required_hits", required_hits)

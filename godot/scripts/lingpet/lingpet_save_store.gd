@@ -80,6 +80,8 @@ func restore_runtime(owner: Object, registry: Object) -> Dictionary:
 			"hatch_hits": 0,
 			"required_hits": LingpetCatalog.get_required_hits(LingpetCatalog.get_default_pet_id()),
 			"owned_pet_ids": [],
+			"battle_slot_pet_ids": ["", "", ""],
+			"active_slot_index": 0,
 		}, owner)
 		reset_result["loaded_from_file"] = true
 		reset_result["load_summary"] = last_load_summary
@@ -125,7 +127,10 @@ func _should_save_snapshot(snapshot: Dictionary) -> bool:
 	if str(snapshot.get("active_pet_id", "")) != "":
 		return true
 	var owned_ids: Variant = snapshot.get("owned_pet_ids", [])
-	return owned_ids is Array and not (owned_ids as Array).is_empty()
+	if owned_ids is Array and not (owned_ids as Array).is_empty():
+		return true
+	var slot_ids: Variant = snapshot.get("battle_slot_pet_ids", snapshot.get("lingpet_slots", []))
+	return slot_ids is Array and _has_any_slot(slot_ids as Array)
 
 
 func _is_volatile_run_snapshot(snapshot: Dictionary) -> bool:
@@ -135,4 +140,14 @@ func _is_volatile_run_snapshot(snapshot: Dictionary) -> bool:
 	if str(snapshot.get("active_pet_id", "")) != "":
 		return true
 	var owned_ids: Variant = snapshot.get("owned_pet_ids", [])
-	return owned_ids is Array and not (owned_ids as Array).is_empty()
+	if owned_ids is Array and not (owned_ids as Array).is_empty():
+		return true
+	var slot_ids: Variant = snapshot.get("battle_slot_pet_ids", snapshot.get("lingpet_slots", []))
+	return slot_ids is Array and _has_any_slot(slot_ids as Array)
+
+
+func _has_any_slot(slots: Array) -> bool:
+	for raw_id in slots:
+		if str(raw_id).strip_edges() != "":
+			return true
+	return false
