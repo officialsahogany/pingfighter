@@ -5,6 +5,7 @@ const Stage1PillarStatusOrbContextBuilder := preload("res://scripts/hud/stage1_p
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_host.gd")
 const CommandoFirearmHudRainbowFxHost := preload("res://scripts/hud/commando_firearm_hud_rainbow_fx_host.gd")
+const LingpetBattleSlotHud := preload("res://scripts/hud/lingpet_battle_slot_hud.gd")
 
 const COMMANDO_FIREARM_SELECTOR_OFFSET := Vector2(28.0, -64.0)
 const SENSOR_FRAME_ARC_SEGMENTS := 16
@@ -117,6 +118,7 @@ func draw(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2, time_sec
 	# The hatched lingpet's skill card now rides the Dalji boss skill-card rail
 	# (composed in stage1_pillar_hud_scene_drawer._build_lingpet_boss_rail_entry),
 	# so the separate bottom-left vertical pillar card is no longer drawn here.
+	LingpetBattleSlotHud.draw(canvas, game_offset, game_size, time_seconds, context)
 
 	# Boost / sector / half-ready overlays moved to the GPU shader host. Look up
 	# (or lazily create) the host once per frame so player + boss dash share the

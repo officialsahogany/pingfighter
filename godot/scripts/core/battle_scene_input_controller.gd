@@ -1,7 +1,10 @@
 extends RefCounted
 
 const GamepadInput := preload("res://scripts/core/gamepad_input.gd")
+const LingpetBattleSlotHud := preload("res://scripts/hud/lingpet_battle_slot_hud.gd")
 
+const GAME_WIDTH := 760.0
+const GAME_HEIGHT := 750.0
 const FULLSCREEN_TOGGLE_KEY := KEY_F11
 const BGM_TOGGLE_KEY := KEY_B
 const FORCE_STAGE_CLEAR_KEY := KEY_F9
@@ -51,6 +54,8 @@ func handle_unhandled_input(
 	if overlay_input != null and overlay_input.has_method("handle_input"):
 		if bool(overlay_input.handle_input(event, owner, registry, module_getter, context)):
 			return
+	if _handle_lingpet_slot_switch(event, owner, registry, module_getter):
+		return
 	if _handle_skill_orb_tooltip_cycle(event, owner, registry, module_getter):
 		return
 	if _handle_commando_weapon_switch(event, owner, registry, module_getter):
@@ -109,6 +114,39 @@ func _handle_commando_weapon_switch(event: InputEvent, owner: Object, registry: 
 	_queue_redraw(owner)
 	_mark_handled(owner)
 	return true
+
+
+func _handle_lingpet_slot_switch(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
+	var slot_index := LingpetBattleSlotHud.get_slot_index_for_key(event)
+	if slot_index < 0:
+		slot_index = _get_lingpet_slot_click_index(event, owner, module_getter)
+	if slot_index < 0:
+		return false
+	var runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
+	if runtime == null:
+		runtime = _get_instance(registry, "lingpet_egg_runtime")
+	if runtime == null or not runtime.has_method("switch_lingpet_slot"):
+		return false
+	if not bool(runtime.switch_lingpet_slot(slot_index, owner)):
+		return false
+	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
+
+
+func _get_lingpet_slot_click_index(event: InputEvent, owner: Object, module_getter: Callable) -> int:
+	if not (event is InputEventMouseButton):
+		return -1
+	var mouse_event: InputEventMouseButton = event
+	if not mouse_event.pressed or mouse_event.button_index != MOUSE_BUTTON_LEFT:
+		return -1
+	var layout := _build_input_game_layout(owner, module_getter)
+	return LingpetBattleSlotHud.get_slot_index_at_position(
+		mouse_event.position,
+		_get_vector2(layout.get("game_offset", Vector2.ZERO), Vector2.ZERO),
+		_get_vector2(layout.get("game_size", Vector2(GAME_WIDTH, GAME_HEIGHT)), Vector2(GAME_WIDTH, GAME_HEIGHT)),
+		{"height": GAME_HEIGHT}
+	)
 
 
 func _handle_stage_clear_result_input(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
@@ -356,6 +394,25 @@ func _get_view_size(owner: Object) -> Vector2:
 		if viewport != null:
 			return viewport.get_visible_rect().size
 	return Vector2(760.0, 750.0)
+
+
+func _build_input_game_layout(owner: Object, module_getter: Callable) -> Dictionary:
+	var view_size := _get_view_size(owner)
+	var view_layout: Object = _get_module(module_getter, "battle_view_layout")
+	if view_layout != null and view_layout.has_method("build_game_layout"):
+		return view_layout.build_game_layout(view_size, GAME_WIDTH, GAME_HEIGHT)
+	var game_size := Vector2(GAME_WIDTH, GAME_HEIGHT)
+	return {
+		"view_size": view_size,
+		"game_offset": (view_size - game_size) * 0.5,
+		"game_size": game_size,
+	}
+
+
+func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:
+	if value is Vector2:
+		return value
+	return fallback
 
 
 func _mark_handled(owner: Object) -> void:
