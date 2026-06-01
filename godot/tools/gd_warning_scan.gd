@@ -7,8 +7,16 @@ func _initialize() -> void:
 	_collect_scripts("res://tools", paths)
 	paths.sort()
 	print("gd_warning_scan: scanning %d scripts" % paths.size())
-	var verbose_files := OS.get_cmdline_user_args().has("--verbose-files")
-	for index in range(paths.size()):
+	var args := OS.get_cmdline_user_args()
+	var verbose_files := args.has("--verbose-files")
+	var start_index := clampi(_get_int_arg("--start-index=", 0), 0, paths.size())
+	var max_count := _get_int_arg("--max-count=", -1)
+	var end_index := paths.size()
+	if max_count >= 0:
+		end_index = min(paths.size(), start_index + max_count)
+	if start_index > 0 or end_index < paths.size():
+		print("gd_warning_scan: chunk %d..%d/%d" % [start_index, end_index, paths.size()])
+	for index in range(start_index, end_index):
 		var path := paths[index]
 		if verbose_files:
 			print("gd_warning_scan: check %s" % path)
@@ -23,9 +31,17 @@ func _initialize() -> void:
 		if not verbose_files and index > 0 and index % 50 == 0:
 			OS.delay_msec(1)
 	if not verbose_files:
-		print("gd_warning_scan: checked %d/%d" % [paths.size(), paths.size()])
+		print("gd_warning_scan: checked %d/%d" % [end_index, paths.size()])
 	print("gd_warning_scan: done")
 	quit()
+
+
+func _get_int_arg(prefix: String, default_value: int) -> int:
+	for arg in OS.get_cmdline_user_args():
+		var text := str(arg)
+		if text.begins_with(prefix):
+			return int(text.substr(prefix.length()))
+	return default_value
 
 
 func _collect_scripts(dir_path: String, paths: Array[String]) -> void:
