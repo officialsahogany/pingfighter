@@ -24,6 +24,7 @@ const BASE_PREWARM_MODULE_KEYS := [
 	"boss_ai_state",
 	"runtime_perk_state",
 	"mythic_item_runtime",
+	"lingpet_egg_runtime",
 	"stage1_dalji_boss_skill_cooldown_state",
 ]
 
@@ -195,6 +196,7 @@ func _draw_stage1_pillar_ui(
 	var sensor_context: Dictionary = mythic_item_runtime.get_sensor_context() if mythic_item_runtime != null and mythic_item_runtime.has_method("get_sensor_context") else {}
 	var horn_strawberry_context: Dictionary = mythic_item_runtime.get_horn_strawberry_context() if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_context") else {}
 	var horn_strawberry_skill_pillar_renderer: Object = _get_cached_module(registry, "horn_strawberry_skill_pillar_renderer")
+	var lingpet_runtime: Object = _get_cached_module(registry, "lingpet_egg_runtime")
 	_perf_end(perf_logger, "stage1.pillar.ui_prepare", prep_start)
 	var renderer_start: int = _perf_begin(perf_logger)
 	renderer.draw(canvas, game_offset, game_size, time_seconds, {
@@ -235,6 +237,7 @@ func _draw_stage1_pillar_ui(
 		"dash_frame_texture": _get_value(textures, "dash_token_frame_texture"),
 		"dash_frame_spin_angle": orb_state.get_dash_token_spin_angle(now_msec) if orb_state != null else 0.0,
 		"sensor_context": sensor_context,
+		"lingpet_runtime": lingpet_runtime,
 		"boss_dash_visible": not bool(context.get("arena_mode_enabled", false)),
 		"boss_dash_snapshot": boss_dash_snapshot,
 		"boss_dash_frame_texture": null,
