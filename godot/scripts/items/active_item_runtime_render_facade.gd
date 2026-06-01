@@ -30,7 +30,8 @@ func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
 		0:
 			_call_prewarm_assets(field_renderer)
 		1:
-			_call_prewarm_assets(throw_renderer)
+			if not _call_prewarm_assets_step(throw_renderer):
+				return false
 		2:
 			if not _call_prewarm_assets_step(effect_renderer, [active_item_hud_visuals]):
 				return false

@@ -178,14 +178,14 @@ func _verify_activation_helper_owns_item_targets_and_blockers() -> void:
 		["play_throw_before", "play_active_item"]
 	)
 
-	var locked_controller: Object = ActiveItemThrowController.new()
-	var locked_registry := FakeRegistry.new(null, FakeRoundState.new(Time.get_ticks_msec()))
+	var round_start_controller: Object = ActiveItemThrowController.new()
+	var round_start_registry := FakeRegistry.new(null, FakeRoundState.new(Time.get_ticks_msec()))
 	_expect(
-		not activation.activate_grenade(locked_controller, owner, locked_registry),
-		"activation helper should block throws during round-start lockout"
+		activation.activate_grenade(round_start_controller, owner, round_start_registry),
+		"activation helper should allow throws immediately after serve"
 	)
-	_expect(locked_controller.get_pending_throws().is_empty(), "round-start lockout should not queue pending throw")
-	_expect(locked_registry.audio.calls.is_empty(), "round-start lockout should not play activation audio")
+	_expect(round_start_controller.get_pending_throws().size() == 1, "immediate post-serve throw should queue a pending throw")
+	_expect(round_start_registry.audio.calls == ["play_throw_before"], "immediate post-serve throw should play the normal throw windup audio")
 
 	var windup_controller: Object = ActiveItemThrowController.new()
 	var windup_registry := FakeRegistry.new()

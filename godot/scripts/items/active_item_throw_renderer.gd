@@ -67,27 +67,47 @@ var _tear_gas_renderer: Object = TearGasRenderer.new()
 var _boomerang_renderer: Object = BoomerangRenderer.new()
 var _spider_mine_renderer: Object = SpiderMineRenderer.new()
 var _slip_renderer: Object = SlipRenderer.new()
+var _prewarm_step_index := 0
 
 
 func prewarm_assets() -> void:
-	_grenade_renderer.prewarm_assets()
-	grenade_icon_texture = _grenade_renderer.get_grenade_icon_texture()
-	_flare_renderer.prewarm_assets()
-	flare_icon_texture = _flare_renderer.get_flare_icon_texture()
-	_molotov_renderer.prewarm_assets()
-	molotov_icon_texture = _molotov_renderer.get_molotov_icon_texture()
-	_dynamite_renderer.prewarm_assets()
-	dynamite_icon_texture = _dynamite_renderer.get_dynamite_icon_texture()
-	_tear_gas_renderer.prewarm_assets()
-	_boomerang_renderer.prewarm_assets()
-	_spider_mine_renderer.prewarm_assets()
-	_sync_spider_mine_texture_aliases()
-	_slip_renderer.prewarm_assets()
-	_touch_texture(_get_tear_gas_icon_texture())
-	_touch_texture(_get_boomerang_icon_texture())
-	_touch_texture(_get_boomerang_icon_texture(true))
-	_touch_texture(_get_banana_icon_texture())
-	_touch_texture(_get_soap_icon_texture())
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	match _prewarm_step_index:
+		0:
+			_grenade_renderer.prewarm_assets()
+			grenade_icon_texture = _grenade_renderer.get_grenade_icon_texture()
+		1:
+			_flare_renderer.prewarm_assets()
+			flare_icon_texture = _flare_renderer.get_flare_icon_texture()
+		2:
+			_molotov_renderer.prewarm_assets()
+			molotov_icon_texture = _molotov_renderer.get_molotov_icon_texture()
+		3:
+			_dynamite_renderer.prewarm_assets()
+			dynamite_icon_texture = _dynamite_renderer.get_dynamite_icon_texture()
+		4:
+			_tear_gas_renderer.prewarm_assets()
+			_touch_texture(_get_tear_gas_icon_texture())
+		5:
+			_boomerang_renderer.prewarm_assets()
+			_touch_texture(_get_boomerang_icon_texture())
+			_touch_texture(_get_boomerang_icon_texture(true))
+		6:
+			_spider_mine_renderer.prewarm_assets()
+			_sync_spider_mine_texture_aliases()
+		7:
+			_slip_renderer.prewarm_assets()
+			_touch_texture(_get_banana_icon_texture())
+			_touch_texture(_get_soap_icon_texture())
+		_:
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func get_spider_mine_asset_status() -> Dictionary:

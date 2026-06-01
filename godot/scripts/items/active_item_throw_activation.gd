@@ -83,7 +83,7 @@ func activate_flare(controller: Object, owner: Object, registry: Object) -> bool
 
 
 func activate_tear_gas(controller: Object, owner: Object, registry: Object) -> bool:
-	if _is_activation_blocked(controller, registry, _get_int(controller, "TEAR_GAS_THROW_LOCK_MSEC", 3000)):
+	if _is_activation_blocked(controller, registry, _get_int(controller, "TEAR_GAS_THROW_LOCK_MSEC", 0)):
 		return false
 
 	var boss_pos: Vector2 = get_boss_position(owner)
@@ -108,7 +108,7 @@ func activate_tear_gas(controller: Object, owner: Object, registry: Object) -> b
 
 
 func activate_dynamite(controller: Object, owner: Object, registry: Object) -> bool:
-	if _is_activation_blocked(controller, registry, _get_int(controller, "DYNAMITE_THROW_LOCK_MSEC", 3000)):
+	if _is_activation_blocked(controller, registry, _get_int(controller, "DYNAMITE_THROW_LOCK_MSEC", 0)):
 		return false
 
 	var boss_pos: Vector2 = get_boss_position(owner)
@@ -129,7 +129,7 @@ func activate_dynamite(controller: Object, owner: Object, registry: Object) -> b
 
 
 func activate_molotov(controller: Object, owner: Object, registry: Object) -> bool:
-	if _is_activation_blocked(controller, registry, _get_int(controller, "MOLOTOV_THROW_LOCK_MSEC", 3000)):
+	if _is_activation_blocked(controller, registry, _get_int(controller, "MOLOTOV_THROW_LOCK_MSEC", 0)):
 		return false
 
 	var boss_pos: Vector2 = get_boss_position(owner)
@@ -212,7 +212,7 @@ func activate_boomerang(
 
 
 func activate_banana(controller: Object, owner: Object, registry: Object) -> bool:
-	if _is_activation_blocked(controller, registry, _get_int(controller, "BANANA_THROW_LOCK_MSEC", 5000)):
+	if _is_activation_blocked(controller, registry, _get_int(controller, "BANANA_THROW_LOCK_MSEC", 0)):
 		return false
 
 	var boss_pos: Vector2 = get_boss_position(owner)
@@ -233,7 +233,7 @@ func activate_banana(controller: Object, owner: Object, registry: Object) -> boo
 
 
 func activate_soap(controller: Object, owner: Object, registry: Object) -> bool:
-	if _is_activation_blocked(controller, registry, _get_int(controller, "SOAP_THROW_LOCK_MSEC", 5000)):
+	if _is_activation_blocked(controller, registry, _get_int(controller, "SOAP_THROW_LOCK_MSEC", 0)):
 		return false
 
 	var boss_pos: Vector2 = get_boss_position(owner)
@@ -259,7 +259,7 @@ func activate_spider_mine(
 	registry: Object,
 	deploy_callback: Callable = Callable()
 ) -> bool:
-	if _is_activation_blocked(controller, registry, _get_int(controller, "SPIDER_MINE_THROW_LOCK_MSEC", 3000)):
+	if _is_activation_blocked(controller, registry, _get_int(controller, "SPIDER_MINE_THROW_LOCK_MSEC", 0)):
 		return false
 
 	if deploy_callback.is_valid():
@@ -271,7 +271,9 @@ func activate_spider_mine(
 func is_throw_locked(controller: Object, registry: Object, lock_msec: int = -1) -> bool:
 	var effective_lock_msec: int = lock_msec
 	if effective_lock_msec < 0:
-		effective_lock_msec = _get_int(controller, "THROW_LOCK_MSEC", 3000)
+		effective_lock_msec = _get_int(controller, "THROW_LOCK_MSEC", 0)
+	if effective_lock_msec <= 0:
+		return false
 	var round_state: Object = _get_instance(registry, "round_flow_state")
 	if round_state == null or not round_state.has_method("get_round_start_time_msec"):
 		return false

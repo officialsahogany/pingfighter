@@ -2,7 +2,7 @@ extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
-const DEFAULT_COOLDOWN_MSEC := 10000
+const DEFAULT_COOLDOWN_MSEC := 7000
 const GAUGE_MAX := 500.0
 const GAUGE_CHARGE_AMOUNT := 220.0
 
