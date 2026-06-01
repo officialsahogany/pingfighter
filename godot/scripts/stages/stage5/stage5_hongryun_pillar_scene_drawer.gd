@@ -32,7 +32,11 @@ const LOTUS_FRAME_INTERVAL_SEC := 1.0 / 12.0
 const SNAKE_FRAME_INTERVAL_SEC := 1.0 / 10.0
 const INFERNO_PILLAR_TRAIL_RENDER_LIMIT := 14
 const INFERNO_PILLAR_TRAIL_RENDER_LIMIT_LOD := 9
+const INFERNO_PILLAR_TRAIL_RENDER_LIMIT_SEVERE_LOD := 6
 const INFERNO_PILLAR_EDGE_BIAS_MIN := 0.18
+const STAGE5_STATIC_HUD_LOD_SCALE := BattleRenderQuality.FPS_CAP_EFFECT_SCALE
+const STAGE5_PILLAR_LOD_THRESHOLD := 0.7
+const STAGE5_PILLAR_SEVERE_LOD_THRESHOLD := 0.6
 # Pillar-letterbox aura widens as the ball drifts outside the central
 # playfield. The real ball trail already renders into the letterbox via the
 # transformed playfield pass, so this stage only adds ambient pillar wisps
@@ -151,7 +155,16 @@ func draw(canvas: CanvasItem, context: Dictionary, registry: Object, states: Dic
 	_perf_end(perf_logger, "stage5.pillar.chrome", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	hud_scene_drawer.draw(canvas, context, registry, states, view_size, game_offset, game_size, time_seconds)
+	hud_scene_drawer.draw(
+		canvas,
+		_with_stage5_hud_lod_context(context, quality_scale),
+		registry,
+		states,
+		view_size,
+		game_offset,
+		game_size,
+		time_seconds
+	)
 	_perf_end(perf_logger, "stage5.pillar.hud_scene", sample_start)
 	_perf_end(perf_logger, "stage5.pillar.total", total_start)
 
@@ -165,7 +178,16 @@ func draw_pillar_hud_overlay(canvas: CanvasItem, context: Dictionary, registry: 
 	var game_offset: Vector2 = _get_vector2(context, "game_offset", Vector2.ZERO)
 	var game_size: Vector2 = _get_vector2(context, "game_size", Vector2.ZERO)
 	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
-	hud_scene_drawer.draw(canvas, context, registry, states, view_size, game_offset, game_size, time_seconds)
+	hud_scene_drawer.draw(
+		canvas,
+		_with_stage5_hud_lod_context(context, _get_pillar_quality_scale(context)),
+		registry,
+		states,
+		view_size,
+		game_offset,
+		game_size,
+		time_seconds
+	)
 	_perf_end(perf_logger, "stage5.pillar.hud_overlay_scene", sample_start)
 
 
@@ -293,7 +315,11 @@ func _draw_pillar_specs(
 func _draw_motion_sparks(canvas: CanvasItem, pillar_rect: Rect2, time_seconds: float, inferno_blend: float, quality_scale: float) -> void:
 	if pillar_rect.size.x <= 4.0 or motion_sprites_texture == null:
 		return
-	var spark_count := 4 if quality_scale > 0.8 else 2
+	var spark_count := 4
+	if _is_pillar_severe_lod(quality_scale):
+		spark_count = 1
+	elif quality_scale <= 0.8:
+		spark_count = 2
 	for idx in range(spark_count):
 		var phase := time_seconds * (0.55 + float(idx) * 0.13) + float(idx) * 1.7
 		var center := pillar_rect.position + Vector2(
@@ -350,7 +376,12 @@ func _draw_inferno_pillar_flourish(
 	# scene canvas (see CLAUDE.md "Godot 플레이필드 = 풀 캔버스, 필러는 레터박스").
 	# Here we only paint ambient pillar wisps and overshoot-aware bleed that
 	# react to how far the actual head has crossed the playfield boundary.
-	var render_limit := INFERNO_PILLAR_TRAIL_RENDER_LIMIT if quality_scale >= 0.7 else INFERNO_PILLAR_TRAIL_RENDER_LIMIT_LOD
+	var render_limit := _get_pillar_lod_count(
+		INFERNO_PILLAR_TRAIL_RENDER_LIMIT,
+		INFERNO_PILLAR_TRAIL_RENDER_LIMIT_LOD,
+		INFERNO_PILLAR_TRAIL_RENDER_LIMIT_SEVERE_LOD,
+		quality_scale
+	)
 	var start_index: int = max(0, trail.size() - render_limit)
 	var head_point := _as_vector2(trail[trail.size() - 1], Vector2(field_width * 0.5, field_height * 0.5))
 	var head_left_overshoot: float = maxf(0.0, -head_point.x)
@@ -367,10 +398,10 @@ func _draw_inferno_pillar_flourish(
 		var size := Vector2(38.0 + 82.0 * t * edge_bias, 18.0 + 42.0 * t)
 		if draw_left:
 			var left_boost: float = 1.0 + minf(2.0, head_left_overshoot / 90.0) * t
-			_draw_inferno_pillar_wisp(canvas, left_rect, Vector2(game_offset.x + 10.0, y), size * left_boost, t, alpha * left_boost, false, time_seconds, idx)
+			_draw_inferno_pillar_wisp(canvas, left_rect, Vector2(game_offset.x + 10.0, y), size * left_boost, t, alpha * left_boost, false, time_seconds, idx, quality_scale)
 		if draw_right:
 			var right_boost: float = 1.0 + minf(2.0, head_right_overshoot / 90.0) * t
-			_draw_inferno_pillar_wisp(canvas, right_rect, Vector2(game_offset.x + game_size.x - 10.0, y), size * right_boost, t, alpha * right_boost, true, time_seconds, idx)
+			_draw_inferno_pillar_wisp(canvas, right_rect, Vector2(game_offset.x + game_size.x - 10.0, y), size * right_boost, t, alpha * right_boost, true, time_seconds, idx, quality_scale)
 
 
 func _draw_inferno_pillar_wisp(
@@ -382,10 +413,12 @@ func _draw_inferno_pillar_wisp(
 	alpha: float,
 	right_side: bool,
 	time_seconds: float,
-	idx: int
+	idx: int,
+	quality_scale: float
 ) -> void:
 	if pillar_rect.size.x <= 4.0 or alpha <= 0.0:
 		return
+	var severe_lod := _is_pillar_severe_lod(quality_scale)
 	var side_anchor_x := pillar_rect.position.x + pillar_rect.size.x * (0.30 if right_side else 0.70)
 	var drift := sin(time_seconds * 4.1 + float(idx) * 0.61) * pillar_rect.size.x * 0.12
 	var center := Vector2(side_anchor_x + drift, edge_point.y + sin(time_seconds * 3.4 + float(idx)) * 10.0)
@@ -393,13 +426,14 @@ func _draw_inferno_pillar_wisp(
 	var core_color := Color(1.0, 0.46, 0.12, alpha)
 	canvas.draw_line(edge_point, center, glow_color, maxf(8.0, size.y * 0.48), true)
 	canvas.draw_line(edge_point, center, core_color, maxf(2.0, size.y * 0.18), true)
-	canvas.draw_circle(center, size.y * 0.92, Color(1.0, 0.07, 0.02, alpha * 0.22))
+	if not severe_lod:
+		canvas.draw_circle(center, size.y * 0.92, Color(1.0, 0.07, 0.02, alpha * 0.22))
 	canvas.draw_circle(center, size.y * 0.42, Color(1.0, 0.78, 0.20, alpha * 0.46))
-	if motion_sprites_texture != null and idx % 2 == 0:
+	if motion_sprites_texture != null and idx % 2 == 0 and not severe_lod:
 		var frame := (idx + int(floor(time_seconds * 12.0))) % MOTION_SPRITES_FRAMES
 		var rect := Rect2(center - size * 0.5, size)
 		_draw_sheet_frame(canvas, motion_sprites_texture, frame, rect, Color(1.0, 0.36, 0.12, minf(0.75, alpha * 1.8)), right_side, MOTION_SPRITES_COLS, MOTION_SPRITES_ROWS)
-	if t > 0.72:
+	if t > 0.72 and not severe_lod:
 		canvas.draw_arc(center, size.x * 0.38, -time_seconds * 5.0, PI * 1.35 - time_seconds * 5.0, 30, Color(1.0, 0.86, 0.26, alpha * 0.82), 2.0, true)
 
 
@@ -423,6 +457,7 @@ func _draw_stage5_hongryun_boss_skill_hud(
 	hud_context["game_offset"] = game_offset
 	hud_context["game_size"] = game_size
 	hud_context["time_seconds"] = float(Time.get_ticks_msec()) / 1000.0
+	hud_context["stage5_hud_quality_scale"] = _get_pillar_quality_scale(context)
 	# Stage 5 routes through this Hongryun drawer, so append the persistent
 	# companion card here as well as the legacy compatibility drawer.
 	LingpetRailCard.append_entry(hud_context, registry, "stage5_boss_skill_hud_skills", "stage5_boss_skill_hud_active")
@@ -573,6 +608,28 @@ func _as_array(value: Variant) -> Array:
 
 func _get_pillar_quality_scale(context: Dictionary) -> float:
 	return BattleRenderQuality.effect_scale(context)
+
+
+func _with_stage5_hud_lod_context(context: Dictionary, quality_scale: float) -> Dictionary:
+	var high_refresh_lod_active := BattleRenderQuality.is_high_refresh_lod_active()
+	if quality_scale > STAGE5_STATIC_HUD_LOD_SCALE and not high_refresh_lod_active:
+		return context
+	var hud_context: Dictionary = context.duplicate()
+	hud_context["stage5_pillar_hud_static_lod"] = true
+	hud_context["pillar_hud_static_lod"] = true
+	return hud_context
+
+
+func _get_pillar_lod_count(normal_count: int, lod_count: int, severe_count: int, quality_scale: float) -> int:
+	if quality_scale <= STAGE5_PILLAR_SEVERE_LOD_THRESHOLD:
+		return severe_count
+	if quality_scale <= STAGE5_PILLAR_LOD_THRESHOLD:
+		return lod_count
+	return normal_count
+
+
+func _is_pillar_severe_lod(quality_scale: float) -> bool:
+	return quality_scale <= STAGE5_PILLAR_SEVERE_LOD_THRESHOLD
 
 
 func _perf_begin(perf_logger: Object) -> int:

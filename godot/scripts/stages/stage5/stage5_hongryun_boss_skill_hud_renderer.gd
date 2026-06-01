@@ -27,6 +27,14 @@ const TOOLTIP_MAX_DESC_LINES := 2
 const TOOLTIP_SCALE_MIN := 0.85
 const TOOLTIP_SCALE_MAX := 1.15
 const TOOLTIP_MIN_LEFT_WIDTH := 120.0
+const LOD_ACTIVE_THRESHOLD := 0.7
+const SEVERE_LOD_ACTIVE_THRESHOLD := 0.6
+const EMPTY_ORB_ARC_SEGMENTS := 28
+const EMPTY_ORB_ARC_SEGMENTS_LOD := 20
+const EMPTY_ORB_ARC_SEGMENTS_SEVERE_LOD := 14
+const INFERNO_WEDGE_SEGMENTS_BASE := 18.0
+const INFERNO_WEDGE_SEGMENTS_BASE_LOD := 12.0
+const INFERNO_WEDGE_SEGMENTS_BASE_SEVERE_LOD := 8.0
 
 const FIREBALL_CARD_COLOR := Color(0.95, 0.42, 0.30, 1.0)
 const FIREBALL_SIDE_STRIP := Color(0.86, 0.20, 0.18, 0.72)
@@ -156,6 +164,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	var game_offset: Vector2 = _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
 	var pillar_w: float = maxf(0.0, game_offset.x)
 	var time_seconds: float = float(context.get("time_seconds", Time.get_ticks_msec() / 1000.0))
+	var quality_scale: float = float(context.get("stage5_hud_quality_scale", 1.0))
 	var mouse_pos: Vector2 = _get_mouse_position(canvas)
 	var hovered_skill: Dictionary = {}
 	var hovered_rect := Rect2()
@@ -169,7 +178,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		current_y = lerpf(current_y, target_y, minf(1.0, QUEUE_LERP_SPEED / 60.0))
 		_queue_positions[key] = current_y
 		var rect := Rect2(Vector2(target_rect.position.x, round(current_y)), target_rect.size)
-		_draw_card(canvas, rect, entry, scale_factor, time_seconds)
+		_draw_card(canvas, rect, entry, scale_factor, time_seconds, quality_scale)
 		if rect.has_point(mouse_pos):
 			hovered_skill = entry
 			hovered_rect = rect
@@ -186,7 +195,7 @@ func get_asset_status() -> Dictionary:
 	}
 
 
-func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, time_seconds: float) -> void:
+func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, time_seconds: float, quality_scale: float) -> void:
 	if LingpetRailCard.is_lingpet_skill(skill):
 		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, time_seconds)
 		return
@@ -204,7 +213,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	if status == "inferno_charge":
 		var charge_pulse: float = 0.55 + 0.45 * sin(time_seconds * INFERNO_CHARGE_PULSE_FREQ)
 		canvas.draw_rect(rect, Color(1.0, 0.22, 0.12, 0.18 + charge_pulse * 0.16))
-		_draw_inferno_charge_wedge(canvas, rect, float(skill.get("inferno_charge_progress", 0.0)), scale_factor)
+		_draw_inferno_charge_wedge(canvas, rect, float(skill.get("inferno_charge_progress", 0.0)), scale_factor, quality_scale)
 	elif active:
 		var active_pulse: float = 0.55 + 0.45 * sin(time_seconds * 7.0)
 		canvas.draw_rect(rect, Color(1.0, 0.38, 0.12, 0.14 + active_pulse * 0.12))
@@ -224,7 +233,8 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 			ready,
 			status == "inferno_charge",
 			time_seconds,
-			scale_factor
+			scale_factor,
+			quality_scale
 		)
 
 	var border := _get_border_color(status, ready, active, locked, time_seconds)
@@ -273,7 +283,8 @@ func _draw_dragon_orb_overlay(
 	ready: bool,
 	inferno_charge: bool,
 	time_seconds: float,
-	scale_factor: float
+	scale_factor: float,
+	quality_scale: float
 ) -> void:
 	var max_count: int = max(1, gauge_max)
 	var clamped_gauge: float = clampf(gauge, 0.0, float(max_count))
@@ -292,6 +303,7 @@ func _draw_dragon_orb_overlay(
 	var y: float = rect.end.y - slot_h - maxf(1.0, rect.size.y * 0.08)
 	var full_count: int = int(floor(clamped_gauge))
 	var frac: float = clamped_gauge - float(full_count)
+	var severe_lod := _is_severe_lod(quality_scale)
 	var pulse: float = 1.0
 	if ready:
 		pulse = 0.7 + 0.3 * sin(time_seconds * DRAGON_ORB_READY_PULSE_FREQ)
@@ -305,12 +317,12 @@ func _draw_dragon_orb_overlay(
 		var alpha_scale: float = pulse
 		if inferno_charge:
 			alpha_scale *= 0.55 + 0.25 * sin(time_seconds * INFERNO_CHARGE_PULSE_FREQ + float(idx))
-		_draw_empty_orb_slot(canvas, slot_rect, scale_factor)
+		_draw_empty_orb_slot(canvas, slot_rect, scale_factor, quality_scale)
 		if fill > 0.0:
 			var frame_index: int = _resolve_orb_fill_frame(idx, fill, time_seconds)
 			if not _draw_orb_fill_frame(canvas, slot_rect, frame_index, alpha_scale):
 				_draw_procedural_orb_fill(canvas, slot_rect, fill, alpha_scale)
-		if ready:
+		if ready and not severe_lod:
 			canvas.draw_rect(slot_rect.grow(0.75 * scale_factor), Color(DRAGON_ORB_FILL.r, DRAGON_ORB_FILL.g, DRAGON_ORB_FILL.b, 0.22 * pulse), false, maxf(1.0, round(scale_factor)))
 
 
@@ -334,12 +346,14 @@ func _resolve_orb_fill_frame(slot_index: int, fill: float, time_seconds: float) 
 	return clampi(int(round(clampf(fill, 0.0, 1.0) * float(ORB_FILL_FRAME_COUNT - 1))), 0, ORB_FILL_FRAME_COUNT - 1)
 
 
-func _draw_empty_orb_slot(canvas: CanvasItem, slot_rect: Rect2, scale_factor: float) -> void:
+func _draw_empty_orb_slot(canvas: CanvasItem, slot_rect: Rect2, scale_factor: float, quality_scale: float) -> void:
 	var center: Vector2 = slot_rect.get_center()
 	var radius: float = minf(slot_rect.size.x, slot_rect.size.y) * 0.48
+	var segments: int = _get_lod_count(EMPTY_ORB_ARC_SEGMENTS, EMPTY_ORB_ARC_SEGMENTS_LOD, EMPTY_ORB_ARC_SEGMENTS_SEVERE_LOD, quality_scale)
 	canvas.draw_circle(center, radius, Color(DRAGON_ORB_EMPTY.r, DRAGON_ORB_EMPTY.g, DRAGON_ORB_EMPTY.b, 0.34))
-	canvas.draw_arc(center, radius, 0.0, TAU, 28, Color(1.0, 0.34, 0.20, 0.54), maxf(1.0, round(0.9 * scale_factor)), true)
-	canvas.draw_arc(center, radius * 0.70, 0.0, TAU, 28, Color(0.92, 0.12, 0.08, 0.32), maxf(1.0, round(0.65 * scale_factor)), true)
+	canvas.draw_arc(center, radius, 0.0, TAU, segments, Color(1.0, 0.34, 0.20, 0.54), maxf(1.0, round(0.9 * scale_factor)), true)
+	if not _is_severe_lod(quality_scale):
+		canvas.draw_arc(center, radius * 0.70, 0.0, TAU, segments, Color(0.92, 0.12, 0.08, 0.32), maxf(1.0, round(0.65 * scale_factor)), true)
 
 
 func _draw_orb_fill_frame(canvas: CanvasItem, slot_rect: Rect2, frame_index: int, alpha_scale: float) -> bool:
@@ -367,7 +381,7 @@ func _draw_procedural_orb_fill(canvas: CanvasItem, slot_rect: Rect2, fill: float
 	canvas.draw_circle(center, radius, Color(DRAGON_ORB_FILL.r, DRAGON_ORB_FILL.g, DRAGON_ORB_FILL.b, minf(1.0, DRAGON_ORB_FILL.a * alpha_scale)))
 
 
-func _draw_inferno_charge_wedge(canvas: CanvasItem, rect: Rect2, progress: float, scale_factor: float) -> void:
+func _draw_inferno_charge_wedge(canvas: CanvasItem, rect: Rect2, progress: float, scale_factor: float, quality_scale: float) -> void:
 	var clamped_progress: float = clampf(progress, 0.0, 1.0)
 	if clamped_progress <= 0.0:
 		return
@@ -375,7 +389,12 @@ func _draw_inferno_charge_wedge(canvas: CanvasItem, rect: Rect2, progress: float
 	var center := Vector2(rect.end.x - radius * 0.35, rect.position.y + radius * 0.30)
 	var points := PackedVector2Array()
 	points.append(center)
-	var steps: int = max(5, int(ceil(18.0 * clamped_progress)))
+	var segment_base: float = INFERNO_WEDGE_SEGMENTS_BASE
+	if quality_scale <= SEVERE_LOD_ACTIVE_THRESHOLD:
+		segment_base = INFERNO_WEDGE_SEGMENTS_BASE_SEVERE_LOD
+	elif quality_scale <= LOD_ACTIVE_THRESHOLD:
+		segment_base = INFERNO_WEDGE_SEGMENTS_BASE_LOD
+	var steps: int = max(5, int(ceil(segment_base * clamped_progress)))
 	var start_angle: float = -PI * 0.5
 	var sweep: float = -TAU * clamped_progress
 	for step in range(steps + 1):
@@ -645,6 +664,18 @@ func _draw_text(canvas: CanvasItem, font: Font, pos: Vector2, text: String, font
 
 func _get_tooltip_scale(scale_factor: float) -> float:
 	return clampf(scale_factor, TOOLTIP_SCALE_MIN, TOOLTIP_SCALE_MAX)
+
+
+func _get_lod_count(normal_count: int, lod_count: int, severe_count: int, quality_scale: float) -> int:
+	if quality_scale <= SEVERE_LOD_ACTIVE_THRESHOLD:
+		return severe_count
+	if quality_scale <= LOD_ACTIVE_THRESHOLD:
+		return lod_count
+	return normal_count
+
+
+func _is_severe_lod(quality_scale: float) -> bool:
+	return quality_scale <= SEVERE_LOD_ACTIVE_THRESHOLD
 
 
 func _get_mouse_position(canvas: CanvasItem) -> Vector2:
