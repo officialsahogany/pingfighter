@@ -1,6 +1,7 @@
 extends SceneTree
 
 const BattleBootResourcePrewarmController := preload("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
+const BattleBootWarmupController := preload("res://scripts/core/battle_boot_warmup_controller.gd")
 
 
 class FakeOwner:
@@ -37,11 +38,24 @@ class FakeActiveItemRuntime:
 
 class FakeMythicItemRuntime:
 	var prewarm_count := 0
+	var acquisition_asset_prewarm_count := 0
+	var acquisition_asset_step_calls := 0
+	var acquisition_asset_complete_after := 3
 	var acquisition_prewarm_count := 0
 	var last_acquisition_owner: Object = null
 
 	func prewarm_assets() -> void:
 		prewarm_count += 1
+
+	func prewarm_acquisition_cinematic_assets_step() -> bool:
+		acquisition_asset_step_calls += 1
+		if acquisition_asset_step_calls >= acquisition_asset_complete_after:
+			acquisition_asset_prewarm_count += 1
+			return true
+		return false
+
+	func prewarm_acquisition_cinematic_assets() -> void:
+		acquisition_asset_prewarm_count += 1
 
 	func prewarm_acquisition_cinematic(owner: Object = null) -> void:
 		acquisition_prewarm_count += 1
@@ -70,23 +84,31 @@ class FakeStagedPrewarmModule:
 
 class FakeStagedResultScreen:
 	var step_calls := 0
+	var threaded_step_calls := 0
 	var prewarm_count := 0
 	var shell_prewarm_count := 0
 	var complete_after := 4
+	var last_owner: Object = null
 
 	func prewarm_scene_shell() -> bool:
 		shell_prewarm_count += 1
 		return true
 
-	func prewarm_assets_step() -> bool:
+	func prewarm_assets_threaded_step(owner: Object = null, _registry: Object = null) -> bool:
+		threaded_step_calls += 1
+		return prewarm_assets_step(owner, _registry)
+
+	func prewarm_assets_step(owner: Object = null, _registry: Object = null) -> bool:
 		step_calls += 1
+		last_owner = owner
 		if step_calls >= complete_after:
 			prewarm_count += 1
 			return true
 		return false
 
-	func prewarm_assets() -> void:
+	func prewarm_assets(owner: Object = null, _registry: Object = null) -> void:
 		prewarm_count += 1
+		last_owner = owner
 
 
 class FakeBattleResources:
@@ -183,6 +205,7 @@ class FakeCharacterInfo:
 
 
 class FakeRegistry:
+	var resource_prewarm := BattleBootResourcePrewarmController.new()
 	var battle_resources := FakeBattleResources.new()
 	var weather := FakePrewarmModule.new()
 	var active_item_runtime := FakeActiveItemRuntime.new()
@@ -202,6 +225,8 @@ class FakeRegistry:
 	var stage1_skill_hud := FakeStagedPrewarmModule.new()
 	var stage1_actor_renderer := FakePrewarmModule.new()
 	var commando_firearm_selector := FakeStagedPrewarmModule.new()
+	var smasher_plasma_state := FakeStagedPrewarmModule.new()
+	var smasher_recovery_state := FakeStagedPrewarmModule.new()
 	var smasher_warp_gate_state := FakePrewarmModule.new()
 	var smasher_wheel_state := FakePrewarmModule.new()
 	var smasher_shield_kiting_state := FakePrewarmModule.new()
@@ -233,6 +258,8 @@ class FakeRegistry:
 
 	func get_instance(key: String) -> Object:
 		match key:
+			"battle_boot_resource_prewarm_controller":
+				return resource_prewarm
 			"battle_resources":
 				return battle_resources
 			"weather_event_renderer":
@@ -271,6 +298,10 @@ class FakeRegistry:
 				return stage1_actor_renderer
 			"commando_firearm_selector_renderer":
 				return commando_firearm_selector
+			"smasher_plasma_state":
+				return smasher_plasma_state
+			"smasher_recovery_state":
+				return smasher_recovery_state
 			"stage2_pillar_background":
 				return stage2_bg
 			"stage2_pillar_scene_drawer":
@@ -345,8 +376,10 @@ func _init() -> void:
 	_expect(_registry.active_item_runtime.prewarm_count == 0, "stage runtime prewarm should avoid monolithic active item loading when staged")
 	_expect(_registry.active_item_runtime.last_visuals == _registry.active_item_hud_visuals, "active item prewarm should receive HUD visuals")
 	_expect(_registry.mythic_item_runtime.prewarm_count == 0, "stage runtime prewarm should defer mythic debug assets until needed")
-	_expect(_registry.mythic_item_runtime.acquisition_prewarm_count == 1, "stage runtime prewarm should warm mythic field-pickup cinematic once")
-	_expect(_registry.mythic_item_runtime.last_acquisition_owner == owner, "mythic field-pickup cinematic prewarm should receive the battle owner")
+	_expect(_registry.mythic_item_runtime.acquisition_asset_step_calls == 3, "stage runtime prewarm should stage mythic field-pickup cinematic static assets")
+	_expect(_registry.mythic_item_runtime.acquisition_asset_prewarm_count == 1, "stage runtime prewarm should warm mythic field-pickup cinematic static assets once")
+	_expect(_registry.mythic_item_runtime.acquisition_prewarm_count == 0, "stage runtime prewarm should not build the mythic field-pickup Node2D host before the first battle frame")
+	_expect(_registry.mythic_item_runtime.last_acquisition_owner == null, "asset-only mythic field-pickup prewarm should not require the battle owner")
 	_expect(_registry.perk_icon_renderer.prewarm_count == 1, "stage runtime prewarm should warm runtime perk choice icons before the first card draw")
 	_expect(_registry.perk_overlay_renderer.prewarm_count == 1, "stage runtime prewarm should warm runtime perk overlay text caches before the first overlay draw")
 	_expect(_registry.perk_debug_picker.prewarm_count == 0, "stage runtime prewarm should defer perk debug picker assets until opened")
@@ -360,6 +393,10 @@ func _init() -> void:
 	_expect(_registry.commando_reload_delivery_state.monolithic_calls == 0, "Commando reload delivery prewarm should avoid monolithic loading when staged")
 	_expect(_registry.smasher_warp_gate_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher warp gate assets once")
 	_expect(_registry.smasher_wheel_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher wheel assets once")
+	_expect(_registry.smasher_plasma_state.step_calls == 3, "stage runtime prewarm should stage Smasher plasma textures")
+	_expect(_registry.smasher_plasma_state.monolithic_calls == 0, "Smasher plasma prewarm should avoid the monolithic asset path when staged")
+	_expect(_registry.smasher_recovery_state.step_calls == 3, "stage runtime prewarm should stage Smasher recovery textures")
+	_expect(_registry.smasher_recovery_state.monolithic_calls == 0, "Smasher recovery prewarm should avoid the monolithic asset path when staged")
 	_expect(_registry.smasher_shield_kiting_state.prewarm_count == 1, "stage runtime prewarm should warm Smasher shield assets once")
 
 	_verify_full_stage_clear_result_prewarm_remains_staged()
@@ -372,6 +409,7 @@ func _init() -> void:
 	_verify_battle_texture_prewarm_is_staged()
 	_verify_viper_runtime_node_prewarm()
 	_verify_boot_warmup_uses_staged_runtime_prewarm()
+	_verify_boot_warmup_result_step_uses_result_prewarm_signature()
 
 	if _failures.is_empty():
 		print("battle_boot_resource_prewarm_smoke: ok")
@@ -389,26 +427,37 @@ func _get_module(key: String) -> Object:
 func _verify_full_stage_clear_result_prewarm_remains_staged() -> void:
 	_registry = FakeRegistry.new()
 	var controller := BattleBootResourcePrewarmController.new()
+	var owner := FakeOwner.new()
+	owner.selected_character_type = "soldier"
 	_expect(
-		not controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module")),
+		not controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module"), owner),
 		"full result prewarm should hold until the staged result screen reports completion"
 	)
 	_expect(_registry.result_screen.step_calls == 1, "full result prewarm should advance one staged result chunk")
 	_expect(
-		not controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module")),
+		not controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module"), owner),
 		"full result prewarm should keep staging result assets"
 	)
 	_expect(
-		not controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module")),
+		not controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module"), owner),
 		"full result prewarm should still hold before the final chunk"
 	)
 	_expect(
-		controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module")),
+		controller.prewarm_stage_clear_result_resources_step(Callable(self, "_get_module"), owner),
 		"full result prewarm should complete when the staged result path finishes"
 	)
 	_expect(_registry.result_screen.prewarm_count == 1, "full result prewarm should finish the heavy result asset path once")
 	_expect(_registry.result_screen.step_calls == 4, "full result prewarm should use every staged result chunk")
+	_expect(_registry.result_screen.threaded_step_calls == 4, "full result background prewarm should use the threaded staged path")
+	_expect(_registry.result_screen.last_owner == owner, "full result prewarm should pass the selected-character owner")
 	_expect(_registry.result_screen.shell_prewarm_count == 0, "full result prewarm should not be replaced by shell prewarm")
+	_expect(not controller.has_stage_clear_result_resource_prewarm_work(owner), "completed result prewarm should stop idle work for the selected result character")
+	var stage2_owner := FakeOwner.new()
+	stage2_owner.current_stage = 2
+	stage2_owner.selected_character_type = "soldier"
+	_expect(controller.has_stage_clear_result_resource_prewarm_work(stage2_owner), "Stage 1 result prewarm should not mark Stage 2 result sheets ready")
+	var smasher_owner := FakeOwner.new()
+	_expect(controller.has_stage_clear_result_resource_prewarm_work(smasher_owner), "Commando result prewarm should not mark Smasher result sheets ready")
 
 
 func _verify_stage1_staged_visual_prewarm() -> void:
@@ -660,7 +709,11 @@ func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:
 	)
 	_expect(
 		source.find("\"prewarm_stage_clear_result_resources_step\"") >= 0,
-		"boot warmup should advance full stage-clear result prewarm one chunk per frame"
+		"boot warmup should stage full stage-clear result assets before the first battle frame"
+	)
+	_expect(
+		source.find("\"prewarm_stage_clear_result_shell_resources_step\"") < 0,
+		"boot warmup should not stop at the lightweight stage-clear result shell"
 	)
 	_expect(
 		source.find("\"prewarm_stage_runtime_resources\")") < 0,
@@ -670,6 +723,19 @@ func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:
 		source.find("\"prewarm_stage_clear_result_resources\")") < 0,
 		"boot warmup should not run the monolithic stage-clear result prewarm loop in one process frame"
 	)
+
+
+func _verify_boot_warmup_result_step_uses_result_prewarm_signature() -> void:
+	_registry = FakeRegistry.new()
+	var warmup := BattleBootWarmupController.new()
+	var owner := FakeOwner.new()
+	owner.selected_character_type = "soldier"
+	warmup.set("boot_warmup_step", 18)
+	for _i in range(4):
+		warmup.run_boot_warmup_step(owner, Callable(self, "_get_module"), Callable(), Callable())
+	_expect(int(warmup.get("boot_warmup_step")) == 19, "boot result warmup should finish without swapping result prewarm arguments")
+	_expect(_registry.result_screen.threaded_step_calls == 4, "boot result warmup should advance the threaded result asset path")
+	_expect(_registry.result_screen.last_owner == owner, "boot result warmup should pass the owner as the result prewarm owner argument")
 
 
 func _expect(condition: bool, message: String) -> void:

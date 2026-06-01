@@ -17,6 +17,7 @@ const UPDATE_MODULE_KEYS := [
 	"battle_scene_boss_health_flow",
 	"battle_scene_effects_update_driver",
 	"battle_scene_effects_update_result_applier",
+	"lingpet_egg_runtime",
 	"battle_scene_match_flow_driver",
 	"battle_scene_match_reset_result_applier",
 	"match_score_event_controller",
@@ -87,33 +88,40 @@ const MATCH_ITEM_RUNTIME_PREWARM_KEYS := [
 	"mythic_item_runtime",
 	"treasure_hunt_runtime",
 ]
-const MATCH_PLAYER_SKILL_PREWARM_KEYS := [
+const MATCH_PLAYER_SKILL_COMMON_PREWARM_KEYS := [
+	"laurel_leaf_shield_state",
+	"monkey_blessing_delivery_state",
+	"commando_reload_delivery_state",
+	"runtime_perk_state",
+]
+const MATCH_SMASHER_SKILL_PREWARM_KEYS := [
 	"smasher_skill_state",
-	"viper_skill_state",
-	"commando_skill_state",
-	"optimus_energy_state",
 	"smasher_drive_input_state",
 	"smasher_plasma_state",
 	"smasher_recovery_state",
 	"smasher_cleanse_state",
-	"status_effect_state",
 	"smasher_warp_gate_state",
 	"smasher_wheel_state",
 	"smasher_magnum_grip_state",
 	"smasher_dash_spirit_state",
 	"smasher_shield_kiting_state",
-	"laurel_leaf_shield_state",
-	"monkey_blessing_delivery_state",
-	"commando_reload_delivery_state",
-	"runtime_perk_state",
 	"smasher_skill_config",
+	"smasher_dash_state",
+]
+const MATCH_VIPER_SKILL_PREWARM_KEYS := [
+	"viper_skill_state",
 	"viper_skill_config",
-	"commando_skill_config",
 	"viper_skill_runtime",
+]
+const MATCH_COMMANDO_SKILL_PREWARM_KEYS := [
+	"commando_skill_state",
+	"commando_skill_config",
 	"commando_emergency_supply_state",
 	"commando_firearm_runtime",
 	"commando_supply_drop_state",
-	"smasher_dash_state",
+]
+const MATCH_OPTIMUS_SKILL_PREWARM_KEYS := [
+	"optimus_energy_state",
 ]
 const STAGE_RUNTIME_COMMON_PREWARM_KEYS := [
 	"weather_event_state",
@@ -349,8 +357,7 @@ func _prewarm_match_flow_context_step(owner: Object, registry: Object) -> bool:
 		_get_instance(registry, key)
 		update_prewarm_substep_index += 1
 		return false
-	update_prewarm_detail_label = "match_deps.finalize"
-	_prewarm_match_flow_context(registry)
+	update_prewarm_detail_label = "match_deps.deferred_finalize"
 	return true
 
 
@@ -445,13 +452,29 @@ func _get_effects_context_prewarm_keys(owner: Object) -> Array:
 
 
 func _get_match_flow_context_prewarm_keys(owner: Object) -> Array:
+	var character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
 	var current_stage: int = int(_get_owner_value(owner, "current_stage", 1))
 	var keys: Array = []
 	keys.append_array(MATCH_STATE_PREWARM_KEYS)
 	keys.append_array(MATCH_ITEM_RUNTIME_PREWARM_KEYS)
-	keys.append_array(MATCH_PLAYER_SKILL_PREWARM_KEYS)
-	keys.append_array(_get_stage_runtime_prewarm_keys(current_stage, true))
+	keys.append_array(_get_match_player_skill_prewarm_keys(character_type))
+	keys.append_array(_get_stage_runtime_prewarm_keys(current_stage, false))
 	return _unique_non_empty_keys(keys)
+
+
+func _get_match_player_skill_prewarm_keys(character_type: String) -> Array:
+	var normalized_character: String = character_runtime.normalize(character_type)
+	var keys: Array = []
+	keys.append_array(MATCH_PLAYER_SKILL_COMMON_PREWARM_KEYS)
+	if character_runtime.is_viper(normalized_character):
+		keys.append_array(MATCH_VIPER_SKILL_PREWARM_KEYS)
+	elif character_runtime.is_commando(normalized_character):
+		keys.append_array(MATCH_COMMANDO_SKILL_PREWARM_KEYS)
+	elif character_runtime.is_optimus(normalized_character):
+		keys.append_array(MATCH_OPTIMUS_SKILL_PREWARM_KEYS)
+	else:
+		keys.append_array(MATCH_SMASHER_SKILL_PREWARM_KEYS)
+	return keys
 
 
 func _get_stage_runtime_prewarm_keys(current_stage: int, include_all_stages: bool) -> Array:

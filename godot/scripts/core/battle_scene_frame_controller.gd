@@ -111,7 +111,10 @@ func process_idle(
 		if bool(active_item_use_hint.update(delta, owner, registry, module_getter)):
 			_queue_redraw(owner)
 		_perf_end(perf_logger, "process.frame.active_item_use_tutorial", sample_start)
-	_update_result_texture_prewarm(module_getter, perf_logger)
+	if _is_safe_result_prewarm_window(module_getter):
+		_update_result_texture_prewarm(module_getter, perf_logger)
+		if _is_stage_clear_result_prewarm_window(module_getter):
+			_update_stage_clear_result_prewarm(owner, module_getter, perf_logger)
 	# Manual render interpolation needs a fresh draw on render frames, not only
 	# on 60 Hz physics frames.
 	_queue_redraw(owner)
@@ -466,6 +469,45 @@ func _is_runtime_perk_choice_active(module_getter: Callable) -> bool:
 	return _call_modal_gate_bool(module_getter, "is_runtime_perk_choice_active")
 
 
+func _is_safe_result_prewarm_window(module_getter: Callable) -> bool:
+	# Result sheets can finish a threaded load with a large one-frame upload;
+	# keep that work inside the score pause, away from live rallies and serve input.
+	var scoreboard_state: Object = _get_module(module_getter, "scoreboard_state")
+	return (
+		scoreboard_state != null
+		and scoreboard_state.has_method("is_active")
+		and bool(scoreboard_state.is_active())
+	)
+
+
+func _is_stage_clear_result_prewarm_window(module_getter: Callable) -> bool:
+	var scoreboard_state: Object = _get_module(module_getter, "scoreboard_state")
+	if (
+		scoreboard_state == null
+		or not scoreboard_state.has_method("is_active")
+		or not bool(scoreboard_state.is_active())
+	):
+		return false
+	if scoreboard_state.has_method("has_pending_game_reset") and not bool(scoreboard_state.has_pending_game_reset()):
+		return false
+	return _scoreboard_snapshot_is_player_match_win(scoreboard_state)
+
+
+func _scoreboard_snapshot_is_player_match_win(scoreboard_state: Object) -> bool:
+	if (
+		scoreboard_state == null
+		or not scoreboard_state.has_method("get_player_points")
+		or not scoreboard_state.has_method("get_boss_points")
+	):
+		return false
+	var player_points: int = int(scoreboard_state.get_player_points())
+	var boss_points: int = int(scoreboard_state.get_boss_points())
+	if scoreboard_state.has_method("get_win_goal"):
+		var win_goal: int = max(1, int(scoreboard_state.get_win_goal()))
+		return player_points >= win_goal and player_points > boss_points
+	return player_points > boss_points
+
+
 func _is_stage_transition_loading_active(match_event_driver: Object) -> bool:
 	return (
 		match_event_driver != null
@@ -483,6 +525,23 @@ func _update_result_texture_prewarm(module_getter: Callable, perf_logger: Object
 	var sample_start: int = _perf_begin(perf_logger)
 	resources.update_result_texture_prewarm()
 	_perf_end(perf_logger, "process.frame.result_texture_prewarm", sample_start)
+
+
+func _update_stage_clear_result_prewarm(owner: Object, module_getter: Callable, perf_logger: Object) -> void:
+	var result_screen: Object = _get_stage_clear_result_screen(module_getter)
+	if _is_stage_clear_result_active(result_screen):
+		return
+	var prewarm_controller: Object = _get_module(module_getter, "battle_boot_resource_prewarm_controller")
+	if prewarm_controller == null or not prewarm_controller.has_method("prewarm_stage_clear_result_resources_step"):
+		return
+	if (
+		prewarm_controller.has_method("has_stage_clear_result_resource_prewarm_work")
+		and not bool(prewarm_controller.has_stage_clear_result_resource_prewarm_work(owner))
+	):
+		return
+	var sample_start: int = _perf_begin(perf_logger)
+	prewarm_controller.prewarm_stage_clear_result_resources_step(module_getter, owner)
+	_perf_end(perf_logger, "process.frame.stage_clear_result_prewarm", sample_start)
 
 
 func _call_readiness_bool(module_getter: Callable, method_name: String, fallback: bool = false) -> bool:

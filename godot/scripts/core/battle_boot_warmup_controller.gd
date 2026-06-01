@@ -46,7 +46,7 @@ const BOOT_WARMUP_SAMPLE_LABEL_BY_STEP := {
 	15: "15_modules_draw_runtime",
 	16: "16_stage_intro_resources",
 	17: "17_stage_runtime_resources",
-	18: "18_stage_clear_result_resources",
+	18: "18_stage_clear_result_assets",
 	19: "19_initialize_battle",
 	20: "20_first_redraw",
 }
@@ -181,7 +181,7 @@ func run_boot_warmup_step(
 		9:
 			_call_resource_prewarm_with_owner(owner, module_getter, "prime_battle_bgm")
 		10:
-			_call_resource_prewarm_with_owner(owner, module_getter, "finish_battle_resource_prewarm")
+			should_advance = _call_resource_prewarm_bool(owner, module_getter, "finish_battle_resource_prewarm")
 		11:
 			should_advance = _prewarm_module_group_step(owner, module_getter, "battle_startup")
 		12:
@@ -199,7 +199,7 @@ func run_boot_warmup_step(
 		17:
 			should_advance = _call_resource_prewarm_bool(owner, module_getter, "prewarm_stage_runtime_resources_step")
 		18:
-			should_advance = _call_resource_prewarm_bool_no_owner(module_getter, "prewarm_stage_clear_result_resources_step")
+			should_advance = _call_stage_clear_result_resources_prewarm_bool(owner, module_getter)
 		19:
 			if initialize_battle.is_valid():
 				initialize_battle.call(false)
@@ -348,6 +348,13 @@ func _call_resource_prewarm_bool_no_owner(module_getter: Callable, method_name: 
 	return bool(resource_prewarm.call(method_name, module_getter))
 
 
+func _call_stage_clear_result_resources_prewarm_bool(owner: Object, module_getter: Callable) -> bool:
+	var resource_prewarm: Object = _get_resource_prewarm_controller(module_getter)
+	if resource_prewarm == null or not resource_prewarm.has_method("prewarm_stage_clear_result_resources_step"):
+		return true
+	return bool(resource_prewarm.call("prewarm_stage_clear_result_resources_step", module_getter, owner))
+
+
 func _get_boot_warmup_sample_label(owner: Object, module_getter: Callable) -> String:
 	var label := str(BOOT_WARMUP_SAMPLE_LABEL_BY_STEP.get(
 		boot_warmup_step,
@@ -364,10 +371,20 @@ func _get_boot_warmup_sample_label(owner: Object, module_getter: Callable) -> St
 			var audio_step := _get_int_property(audio, "_audio_setup_step", -1)
 			if audio_step >= 0:
 				label += ".sub_%02d" % audio_step
+				var stream_prewarm_group := _get_int_property(audio, "_audio_setup_stream_prewarm_group", -1)
+				var stream_prewarm_index := _get_int_property(audio, "_audio_setup_stream_prewarm_index", -1)
+				if stream_prewarm_group == audio_step and stream_prewarm_index >= 0:
+					label += ".stream_%02d" % stream_prewarm_index
 			if audio_step == 6:
 				var bgm_step := _get_int_property(audio, "_bgm_setup_step", -1)
 				if bgm_step >= 0:
 					label += ".%s" % _get_bgm_setup_sample_label(bgm_step)
+		10:
+			if _get_current_stage(owner) == 1:
+				var stage1_background: Object = _get_module(module_getter, "stage1_pillar_background")
+				var stage1_background_step := _get_int_property(stage1_background, "_prewarm_assets_step_index", -1)
+				if stage1_background_step >= 0:
+					label += ".stage1_bg_%02d" % stage1_background_step
 		11:
 			label += _get_module_group_sample_suffix(owner, module_getter, "battle_startup")
 		12:

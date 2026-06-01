@@ -13,7 +13,7 @@ const STAGE_TRANSITION_LOADING_MIN_SECONDS := 2.20
 const STAGE_TRANSITION_LOADING_START_PROGRESS := 0.0
 const STAGE_TRANSITION_LOADING_PRE_COMPLETE_PROGRESS := 0.92
 const STAGE_TRANSITION_LOADING_FINAL_REVEAL_SECONDS := 0.24
-const STAGE_TRANSITION_WORK_STEP_DONE := 8
+const STAGE_TRANSITION_WORK_STEP_DONE := 9
 
 var _fallback_boss_health_flow: Object = BattleSceneBossHealthFlow.new()
 var _stage_transition_loading_active := false
@@ -278,10 +278,13 @@ func _run_stage_transition_loading_work_step(owner: Object, registry: Object, ne
 			if not _prewarm_stage_transition_runtime_resources(owner, registry):
 				return false
 		5:
-			_stop_stage_gameplay_audio(registry)
+			if not _prewarm_stage_clear_result_transition_resources(owner, registry):
+				return false
 		6:
-			_stop_stage_bgm(registry)
+			_stop_stage_gameplay_audio(registry)
 		7:
+			_stop_stage_bgm(registry)
+		8:
 			_play_stage_bgm(registry, next_stage)
 		_:
 			return true
@@ -448,6 +451,20 @@ func _prewarm_stage_transition_runtime_resources(owner: Object, registry: Object
 	if not prewarm_controller.has_method("prewarm_stage_runtime_resources"):
 		return true
 	prewarm_controller.prewarm_stage_runtime_resources(owner, Callable(registry, "get_instance"))
+	return true
+
+
+func _prewarm_stage_clear_result_transition_resources(owner: Object, registry: Object) -> bool:
+	var prewarm_controller: Object = _get_instance(registry, "battle_boot_resource_prewarm_controller")
+	if prewarm_controller == null:
+		return true
+	if registry == null or not registry.has_method("get_instance"):
+		return true
+	if prewarm_controller.has_method("prewarm_stage_clear_result_resources_step"):
+		return bool(prewarm_controller.prewarm_stage_clear_result_resources_step(Callable(registry, "get_instance"), owner))
+	if not prewarm_controller.has_method("prewarm_stage_clear_result_resources"):
+		return true
+	prewarm_controller.prewarm_stage_clear_result_resources(Callable(registry, "get_instance"), owner)
 	return true
 
 

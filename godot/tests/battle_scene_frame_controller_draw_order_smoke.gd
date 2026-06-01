@@ -118,6 +118,74 @@ class FakeUpdateDriver:
 	func update(_owner: Object, _registry: Object, _delta: float) -> void:
 		order.append("battle_update")
 
+	func update_scoreboard_visuals(_owner: Object, _registry: Object, _delta: float) -> void:
+		order.append("scoreboard_visuals")
+
+	func update_scoreboard_overlay(_owner: Object, _registry: Object, _delta: float) -> void:
+		order.append("scoreboard_overlay")
+
+
+class FakeReadiness:
+	extends RefCounted
+
+	func is_intro_or_warmup_blocking(
+		_module_getter: Callable,
+		_battle_initialized: bool,
+		_stage_landing_intro_started: bool
+	) -> bool:
+		return false
+
+
+class FakeScoreboardState:
+	extends RefCounted
+
+	var active := false
+	var player_points := 0
+	var boss_points := 0
+	var win_goal := 5
+	var pending_game_reset := false
+
+	func is_active() -> bool:
+		return active
+
+	func get_player_points() -> int:
+		return player_points
+
+	func get_boss_points() -> int:
+		return boss_points
+
+	func get_win_goal() -> int:
+		return win_goal
+
+	func has_pending_game_reset() -> bool:
+		return pending_game_reset
+
+
+class FakeStageClearResultScreen:
+	extends RefCounted
+
+	var active := false
+
+	func is_active() -> bool:
+		return active
+
+
+class FakeResultPrewarmController:
+	extends RefCounted
+
+	var calls := 0
+	var has_work := true
+	var last_owner: Object = null
+
+	func has_stage_clear_result_resource_prewarm_work(_owner: Object = null) -> bool:
+		return has_work
+
+	func prewarm_stage_clear_result_resources_step(_module_getter: Callable, owner: Object = null) -> bool:
+		calls += 1
+		last_owner = owner
+		has_work = false
+		return true
+
 
 class FakePerfLogger:
 	extends RefCounted
@@ -169,6 +237,7 @@ func _init() -> void:
 	_verify_pillar_overlay_can_skip_background_for_detached_host()
 	_verify_inactive_runtime_perk_overlay_skips_draw()
 	_verify_draw_perf_logging_lives_outside_frame_controller_sample()
+	_verify_stage_clear_result_prewarm_waits_for_stage_clear_scoreboard()
 
 	if _failures.is_empty():
 		print("battle_scene_frame_controller_draw_order_smoke: ok")
@@ -456,6 +525,107 @@ func _verify_draw_perf_logging_lives_outside_frame_controller_sample() -> void:
 	var shell_total_idx: int = shell_source.find("_perf_end(perf_logger, \"draw.shell.total\", shell_start)")
 	var shell_log_idx: int = shell_source.find("_perf_maybe_log(perf_logger)", shell_total_idx)
 	_expect(shell_total_idx >= 0 and shell_log_idx > shell_total_idx, "battle shell should print BattlePerf logs after draw.shell.total is closed")
+
+
+func _verify_stage_clear_result_prewarm_waits_for_stage_clear_scoreboard() -> void:
+	var controller: Object = BattleSceneFrameController.new()
+	var owner := FakeOwner.new()
+	var scoreboard := FakeScoreboardState.new()
+	var prewarm := FakeResultPrewarmController.new()
+	var perf_logger := FakePerfLogger.new()
+	_modules = {
+		"battle_perf_logger": perf_logger,
+		"battle_scene_readiness_controller": FakeReadiness.new(),
+		"battle_scene_update_driver": FakeUpdateDriver.new(),
+		"scoreboard_state": scoreboard,
+		"stage_clear_result_screen": FakeStageClearResultScreen.new(),
+		"battle_boot_resource_prewarm_controller": prewarm,
+	}
+
+	controller.process_idle(
+		0.016,
+		owner,
+		null,
+		Callable(self, "_get_module"),
+		{
+			"is_battle_initialized": Callable(self, "_true_callback"),
+			"is_stage_landing_intro_started": Callable(self, "_true_callback"),
+		}
+	)
+	controller.process_idle(
+		0.016,
+		owner,
+		null,
+		Callable(self, "_get_module"),
+		{
+			"is_battle_initialized": Callable(self, "_true_callback"),
+			"is_stage_landing_intro_started": Callable(self, "_true_callback"),
+		}
+	)
+
+	_expect(prewarm.calls == 0, "normal battle idle should not advance heavy stage-clear result prewarm")
+	_expect(
+		not perf_logger.labels.has("process.frame.stage_clear_result_prewarm"),
+		"normal battle idle should not sample heavy stage-clear result prewarm work"
+	)
+
+	scoreboard.active = true
+	scoreboard.player_points = 1
+	controller.process_idle(
+		0.016,
+		owner,
+		null,
+		Callable(self, "_get_module"),
+		{
+			"is_battle_initialized": Callable(self, "_true_callback"),
+			"is_stage_landing_intro_started": Callable(self, "_true_callback"),
+		}
+	)
+
+	_expect(prewarm.calls == 0, "normal scoreboards should not advance heavy stage-clear result prewarm")
+	_expect(
+		not perf_logger.labels.has("process.frame.stage_clear_result_prewarm"),
+		"normal scoreboards should not sample heavy stage-clear result prewarm work"
+	)
+
+	scoreboard.player_points = 5
+	scoreboard.win_goal = 7
+	scoreboard.pending_game_reset = true
+	controller.process_idle(
+		0.016,
+		owner,
+		null,
+		Callable(self, "_get_module"),
+		{
+			"is_battle_initialized": Callable(self, "_true_callback"),
+			"is_stage_landing_intro_started": Callable(self, "_true_callback"),
+		}
+	)
+
+	_expect(prewarm.calls == 0, "stage-clear prewarm should honor the scoreboard win goal")
+	_expect(
+		not perf_logger.labels.has("process.frame.stage_clear_result_prewarm"),
+		"unfinished custom-goal scoreboard should not sample stage-clear result prewarm work"
+	)
+
+	scoreboard.player_points = 7
+	controller.process_idle(
+		0.016,
+		owner,
+		null,
+		Callable(self, "_get_module"),
+		{
+			"is_battle_initialized": Callable(self, "_true_callback"),
+			"is_stage_landing_intro_started": Callable(self, "_true_callback"),
+		}
+	)
+
+	_expect(prewarm.calls == 1, "stage-clear scoreboard should advance stage-clear result prewarm while play is paused")
+	_expect(prewarm.last_owner == owner, "stage-clear result prewarm should receive the battle owner for selected-character assets")
+	_expect(
+		perf_logger.labels.has("process.frame.stage_clear_result_prewarm"),
+		"stage-clear scoreboard should sample background stage-clear result prewarm work"
+	)
 
 
 func _get_split_callbacks() -> Dictionary:

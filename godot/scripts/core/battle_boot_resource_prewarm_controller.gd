@@ -67,6 +67,7 @@ var battle_runtime_perk_debug_prewarmed: bool = false
 var battle_character_info_prewarmed: bool = false
 var battle_stage_clear_result_shell_prewarmed: bool = false
 var battle_stage_clear_result_prewarmed: bool = false
+var battle_stage_clear_result_prewarmed_for := ""
 var stage_intro_resources_prewarmed: bool = false
 var stage_intro_resources_prewarm_step_index: int = 0
 var stage_runtime_resources_prewarmed_for_stage: int = 0
@@ -101,7 +102,8 @@ func prewarm_battle_resources(owner: Object, module_getter: Callable) -> void:
 	while not prewarm_battle_audio_setup_step(owner, module_getter):
 		pass
 	prime_battle_bgm(owner, module_getter)
-	finish_battle_resource_prewarm(owner, module_getter)
+	while not finish_battle_resource_prewarm(owner, module_getter):
+		pass
 
 
 func prewarm_battle_core_resources(owner: Object, module_getter: Callable) -> void:
@@ -230,21 +232,32 @@ func prime_battle_bgm(owner: Object, module_getter: Callable) -> void:
 		audio.prime_stage_bgm(_get_current_stage(owner))
 
 
-func finish_battle_resource_prewarm(owner: Object, module_getter: Callable) -> void:
+func finish_battle_resource_prewarm(owner: Object, module_getter: Callable) -> bool:
 	if battle_resources_prewarmed:
-		return
+		return true
 	if _get_current_stage(owner) == 1:
-		prewarm_stage1_pillar_background(module_getter)
+		if not prewarm_stage1_pillar_background_step(module_getter):
+			return false
 	battle_resources_prewarmed = true
+	return true
 
 
 func prewarm_stage1_pillar_background(module_getter: Callable) -> void:
+	while not prewarm_stage1_pillar_background_step(module_getter):
+		pass
+
+
+func prewarm_stage1_pillar_background_step(module_getter: Callable) -> bool:
 	if battle_pillar_background_prewarmed:
-		return
-	battle_pillar_background_prewarmed = true
+		return true
 	var stage_background: Object = _get_module(module_getter, "stage1_pillar_background")
-	if stage_background != null and stage_background.has_method("prewarm_assets"):
+	if stage_background != null and stage_background.has_method("prewarm_assets_step"):
+		if not bool(stage_background.prewarm_assets_step()):
+			return false
+	elif stage_background != null and stage_background.has_method("prewarm_assets"):
 		stage_background.prewarm_assets()
+	battle_pillar_background_prewarmed = true
+	return true
 
 
 func prewarm_stage_intro_resources(owner: Object, module_getter: Callable) -> void:
@@ -263,7 +276,10 @@ func prewarm_stage_intro_resources_step(owner: Object, module_getter: Callable) 
 				landing_intro.prewarm_assets(current_stage)
 		1:
 			var ball_spawn_intro: Object = _get_module(module_getter, "stage_ball_spawn_intro")
-			if ball_spawn_intro != null and ball_spawn_intro.has_method("prewarm_assets"):
+			if ball_spawn_intro != null and ball_spawn_intro.has_method("prewarm_assets_step"):
+				if not bool(ball_spawn_intro.prewarm_assets_step()):
+					return false
+			elif ball_spawn_intro != null and ball_spawn_intro.has_method("prewarm_assets"):
 				ball_spawn_intro.prewarm_assets()
 		_:
 			stage_intro_resources_prewarmed = true
@@ -327,8 +343,7 @@ func _run_stage_runtime_prewarm_step(
 		1:
 			return prewarm_active_item_runtime_resources_step(module_getter)
 		2:
-			prewarm_mythic_acquisition_cinematic_resources(owner, module_getter)
-			mark_mythic_item_runtime_assets_deferred()
+			return prewarm_mythic_acquisition_cinematic_resources_step(owner, module_getter)
 		3:
 			return prewarm_runtime_perk_overlay_resources_step(module_getter)
 		4:
@@ -465,7 +480,7 @@ func _run_stage_specific_runtime_prewarm_step(
 func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, stage_step: int) -> bool:
 	match stage_step:
 		0:
-			prewarm_stage1_pillar_background(module_getter)
+			return prewarm_stage1_pillar_background_step(module_getter)
 		1:
 			var pillar_scene_drawer: Object = _get_module(module_getter, "stage1_pillar_scene_drawer")
 			if pillar_scene_drawer != null and pillar_scene_drawer.has_method("prewarm_assets_step"):
@@ -806,9 +821,21 @@ func prewarm_mythic_item_runtime_resources(module_getter: Callable) -> void:
 
 
 func prewarm_mythic_acquisition_cinematic_resources(owner: Object, module_getter: Callable) -> void:
+	while not prewarm_mythic_acquisition_cinematic_resources_step(owner, module_getter):
+		pass
+
+
+func prewarm_mythic_acquisition_cinematic_resources_step(owner: Object, module_getter: Callable) -> bool:
 	var mythic_item_runtime: Object = _get_module(module_getter, "mythic_item_runtime")
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("prewarm_acquisition_cinematic"):
+	if mythic_item_runtime != null and mythic_item_runtime.has_method("prewarm_acquisition_cinematic_assets_step"):
+		if not bool(mythic_item_runtime.prewarm_acquisition_cinematic_assets_step()):
+			return false
+	elif mythic_item_runtime != null and mythic_item_runtime.has_method("prewarm_acquisition_cinematic_assets"):
+		mythic_item_runtime.prewarm_acquisition_cinematic_assets()
+	elif mythic_item_runtime != null and mythic_item_runtime.has_method("prewarm_acquisition_cinematic"):
 		mythic_item_runtime.prewarm_acquisition_cinematic(owner)
+	mark_mythic_item_runtime_assets_deferred()
+	return true
 
 
 func mark_mythic_item_runtime_assets_deferred() -> void:
@@ -881,6 +908,7 @@ func _get_selected_character_runtime_module_keys(character_type: String) -> Arra
 				"smasher_combo_state",
 				"smasher_skill_state",
 				"smasher_skill_config",
+				"smasher_plasma_state",
 				"smasher_drive_bounce_state",
 				"smasher_drive_counter_state",
 				"smasher_drive_activation_controller",
@@ -1009,8 +1037,8 @@ func mark_character_info_assets_deferred() -> void:
 	battle_character_info_prewarmed = true
 
 
-func prewarm_stage_clear_result_resources(module_getter: Callable) -> void:
-	while not prewarm_stage_clear_result_resources_step(module_getter):
+func prewarm_stage_clear_result_resources(module_getter: Callable, owner: Object = null) -> void:
+	while not prewarm_stage_clear_result_resources_step(module_getter, owner):
 		pass
 
 
@@ -1023,20 +1051,37 @@ func prewarm_stage_clear_result_shell_resources(module_getter: Callable) -> void
 		result_screen.prewarm_scene_shell()
 
 
+func prewarm_stage_clear_result_shell_resources_step(module_getter: Callable) -> bool:
+	prewarm_stage_clear_result_shell_resources(module_getter)
+	return true
+
+
 func mark_stage_clear_result_shell_deferred() -> void:
 	battle_stage_clear_result_shell_prewarmed = true
 
 
-func prewarm_stage_clear_result_resources_step(module_getter: Callable) -> bool:
-	if battle_stage_clear_result_prewarmed:
+func has_stage_clear_result_resource_prewarm_work(owner: Object = null) -> bool:
+	return (
+		not battle_stage_clear_result_prewarmed
+		or battle_stage_clear_result_prewarmed_for != _get_stage_clear_result_prewarm_key(owner)
+	)
+
+
+func prewarm_stage_clear_result_resources_step(module_getter: Callable, owner: Object = null) -> bool:
+	var result_prewarm_key := _get_stage_clear_result_prewarm_key(owner)
+	if battle_stage_clear_result_prewarmed and battle_stage_clear_result_prewarmed_for == result_prewarm_key:
 		return true
 	var result_screen: Object = _get_module(module_getter, "stage_clear_result_screen")
-	if result_screen != null and result_screen.has_method("prewarm_assets_step"):
-		if not bool(result_screen.prewarm_assets_step()):
+	if result_screen != null and result_screen.has_method("prewarm_assets_threaded_step"):
+		if not bool(result_screen.prewarm_assets_threaded_step(owner)):
+			return false
+	elif result_screen != null and result_screen.has_method("prewarm_assets_step"):
+		if not bool(result_screen.prewarm_assets_step(owner)):
 			return false
 	elif result_screen != null and result_screen.has_method("prewarm_assets"):
-		result_screen.prewarm_assets()
+		result_screen.prewarm_assets(owner)
 	battle_stage_clear_result_prewarmed = true
+	battle_stage_clear_result_prewarmed_for = result_prewarm_key
 	return true
 
 
@@ -1101,6 +1146,16 @@ func _get_selected_character_type(owner: Object) -> String:
 	if value == "viper":
 		return "viper"
 	return "smasher"
+
+
+func _get_result_victory_character_type(owner: Object) -> String:
+	if _get_selected_character_type(owner) == "soldier":
+		return "soldier"
+	return "smasher"
+
+
+func _get_stage_clear_result_prewarm_key(owner: Object) -> String:
+	return "%s:%d" % [_get_result_victory_character_type(owner), _get_current_stage(owner)]
 
 
 func _build_resource_context(owner: Object) -> Dictionary:

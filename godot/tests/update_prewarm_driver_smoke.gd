@@ -113,7 +113,11 @@ func _init() -> void:
 	_expect(context.effects_deps_calls == 1, "prewarm should prime effects deps")
 	_expect(context.effects_deps_stage == 4, "prewarm should prime effects deps for selected stage")
 	_expect(context.effects_deps_character == "viper", "prewarm should prime effects deps for selected character")
-	_expect(context.match_deps_calls == 1, "prewarm should prime match flow deps")
+	_expect(context.match_deps_calls == 0, "prewarm should defer full match flow deps until score or reset flow needs them")
+	_expect(registry.requested_keys.has("viper_skill_runtime"), "prewarm should still warm selected Viper match/runtime deps")
+	_expect(not registry.requested_keys.has("commando_firearm_runtime"), "prewarm should not warm unselected Commando firearm deps")
+	_expect(not registry.requested_keys.has("stage2_pillar_background"), "prewarm should not warm off-stage Stage 2 background deps")
+	_expect(registry.requested_keys.has("stage4_ponk_skill_state"), "prewarm should still warm selected Stage 4 deps")
 
 	driver.prewarm_ball_update(owner, registry)
 	_expect(ball_driver.prewarm_calls == 1, "ball prewarm should be forwarded to ball update driver")

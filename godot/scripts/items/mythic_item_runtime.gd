@@ -442,6 +442,21 @@ func prewarm_acquisition_cinematic(owner: Object = null, registry: Object = null
 	acquisition_cinematic_runtime.prewarm(self, owner, registry)
 
 
+func prewarm_acquisition_cinematic_assets() -> void:
+	_ensure_helpers_ready()
+	while not prewarm_acquisition_cinematic_assets_step():
+		pass
+
+
+func prewarm_acquisition_cinematic_assets_step() -> bool:
+	_ensure_helpers_ready()
+	if acquisition_cinematic_runtime != null and acquisition_cinematic_runtime.has_method("prewarm_static_assets_step"):
+		return bool(acquisition_cinematic_runtime.prewarm_static_assets_step())
+	if acquisition_cinematic_runtime != null and acquisition_cinematic_runtime.has_method("prewarm_static_assets"):
+		acquisition_cinematic_runtime.prewarm_static_assets()
+	return true
+
+
 func build_starting_equipment_slots() -> Dictionary:
 	_ensure_helpers_ready()
 	return {}
