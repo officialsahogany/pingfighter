@@ -148,6 +148,8 @@
      비주얼 경로, 액티브 스킬카드 경로, 효과 텍스트가 빠지면 스모크에서 실패해야 한다.
   - 새 링펫은 카탈로그의 `visuals` 경로(알/금간 알/동행/타격/시전/컷인)와
     `active_skill.card_texture_path`를 채운 뒤 스킬 종류를 `lingpet_skill_dispatcher.gd`에 연결한다.
+  - 현재 선택된 링펫의 이름/스탯/스킬/효과 텍스트 조회와 비주얼 접근은
+    `lingpet_current_profile.gd`가 담당한다.
   - 카탈로그 `visuals` 경로의 실제 텍스처 로드/캐시는 `lingpet_visual_texture_cache.gd`가 담당한다.
   - 알의 스폰 위치, 플레이어 접촉 흔들림, 공 피격, 서브 공 무시, 부화 카운트는
     `lingpet_egg_field_state.gd`가 담당한다.

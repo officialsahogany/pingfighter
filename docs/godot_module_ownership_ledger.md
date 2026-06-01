@@ -131,6 +131,13 @@ This section is intentionally long; use search to find the nearest owner.
   caller-provided texture when a path is empty or fails. Future Ringpet art
   should add catalog `visuals` paths and reuse this cache instead of adding
   more per-pet texture dictionaries to `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_current_profile.gd`
+  Owns the currently selected Ringpet profile view: normalized pet id,
+  display name, hatch-hit requirement, stats, active-skill metadata, effect
+  text, hit footprint helpers, and selected-pet visual prewarm / texture lookup
+  through `lingpet_visual_texture_cache.gd`. `lingpet_egg_runtime.gd` should
+  update this helper when the active pet id changes instead of querying
+  `lingpet_catalog.gd` directly.
 - `scripts/lingpet/lingpet_egg_field_state.gd`
   Owns Ringpet floor-egg field behavior: spawn position near the player paddle,
   player-contact nudge / wobble, egg ball-hit overlap state, player-serve

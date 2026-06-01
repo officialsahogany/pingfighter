@@ -2,9 +2,9 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
-const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
+const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_companion_motion_state.gd")
 const LingpetCompanionRenderer := preload("res://scripts/lingpet/lingpet_companion_renderer.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
@@ -15,7 +15,6 @@ const LingpetEggFieldRenderer := preload("res://scripts/lingpet/lingpet_egg_fiel
 const LingpetRuntimeSnapshotBuilder := preload("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
-const LingpetVisualTextureCache := preload("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
 const MARIBO_EGG_TEXTURE := preload("res://assets/sprites/lingpet/maribo_egg_v002.png")
 const MARIBO_EGG_TEXTURE_CRACK_1 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png")
 const MARIBO_EGG_TEXTURE_CRACK_2 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack2.png")
@@ -35,7 +34,7 @@ const MARIBO_COMPANION_STRIKE_SHEET := preload("res://assets/sprites/lingpet/mar
 # projectile launches.
 const MARIBO_COMPANION_HYDRO_CAST_SHEET := preload("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png")
 
-const PET_ID := LingpetCatalog.DEFAULT_PET_ID
+const PET_ID := LingpetCurrentProfile.DEFAULT_PET_ID
 const STATE_NONE := "none"
 const STATE_EGG := "egg"
 const STATE_COMPANION := "companion"
@@ -92,12 +91,12 @@ var _companion_motion_state: Object = LingpetCompanionMotionState.new()
 var _hatch_flash_timer := 0.0
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
 var _collection_state: Object = LingpetCollectionState.new()
+var _current_profile: Object = LingpetCurrentProfile.new()
 var _companion_renderer: Object = LingpetCompanionRenderer.new()
 var _companion_sprite_animator: Object = LingpetCompanionSpriteAnimator.new()
 var _companion_skill_state: Object = LingpetCompanionSkillState.new()
 var _skill_runtime_host: Object = LingpetSkillRuntimeHost.new()
 var _snapshot_builder: Object = LingpetRuntimeSnapshotBuilder.new()
-var _visual_texture_cache: Object = LingpetVisualTextureCache.new()
 var _acquire_cutin_state: Object = LingpetAcquireCutinState.new()
 var _switch_transition_state: Object = LingpetCompanionSwitchState.new()
 var _has_synced_none := false
@@ -223,6 +222,10 @@ func get_active_lingpet_slot_index() -> int:
 	return _collection_state.get_active_slot_index()
 
 
+func _set_current_pet_id(value: String) -> void:
+	_pet_id = _current_profile.set_pet_id(value, PET_ID)
+
+
 func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
 	var next_pet_id: String = _collection_state.select_active_slot(slot_index, owner)
 	if next_pet_id == "":
@@ -234,7 +237,7 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
 		_sync_owner(owner)
 		return true
 	_switch_transition_state.begin(_pet_id, next_pet_id, COMPANION_SWITCH_TRANSITION_SECONDS)
-	_pet_id = next_pet_id
+	_set_current_pet_id(next_pet_id)
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
 	_companion_sprite_animator.reset_all()
@@ -348,9 +351,7 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 			"reason": "empty_snapshot",
 		}
 
-	_pet_id = _normalize_pet_id(str(snapshot.get("pet_id", PET_ID)))
-	if _pet_id == "":
-		_pet_id = PET_ID
+	_set_current_pet_id(str(snapshot.get("pet_id", PET_ID)))
 	_collection_state.set_owned_pet_ids(snapshot.get("owned_pet_ids", []))
 	_collection_state.set_battle_slots(snapshot.get("battle_slot_pet_ids", snapshot.get("lingpet_slots", [])))
 	_collection_state.set_active_slot_index(int(snapshot.get("active_slot_index", 0)))
@@ -366,9 +367,9 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 	if restored_state == STATE_COMPANION or _collection_state.get_owned_pet_ids().has(_pet_id) or not active_pet_id.is_empty() or not owned_pet_id.is_empty():
 		_state = STATE_COMPANION
 		if not active_pet_id.is_empty():
-			_pet_id = active_pet_id
+			_set_current_pet_id(active_pet_id)
 		elif not owned_pet_id.is_empty():
-			_pet_id = owned_pet_id
+			_set_current_pet_id(owned_pet_id)
 		_egg_state.set_hatched(_get_current_required_hits())
 		var companion_fallback := Vector2.ZERO
 		_companion_pos = _get_vector2_from_variant(snapshot.get("companion_pos", companion_fallback), companion_fallback)
@@ -382,13 +383,13 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 			_spawn_egg(owner)
 		else:
 			_state = STATE_NONE
-			_pet_id = PET_ID
+			_set_current_pet_id(PET_ID)
 			_egg_state.reset_all()
 			_companion_pos = Vector2.ZERO
 			_reset_companion_patrol()
 	else:
 		_state = STATE_NONE
-		_pet_id = PET_ID
+		_set_current_pet_id(PET_ID)
 		_egg_state.reset_all()
 		_companion_pos = Vector2.ZERO
 		_reset_companion_patrol()
@@ -410,7 +411,7 @@ func restore_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictio
 
 func reset_for_tests() -> void:
 	_state = STATE_NONE
-	_pet_id = PET_ID
+	_set_current_pet_id(PET_ID)
 	_egg_state.reset_all()
 	_companion_pos = Vector2.ZERO
 	_reset_companion_patrol()
@@ -441,9 +442,7 @@ func _reset_skill_runtime_transients() -> void:
 
 func _spawn_egg(owner: Object) -> void:
 	_state = STATE_EGG
-	_pet_id = _pick_hatch_pet_id(owner)
-	if _pet_id == "":
-		_pet_id = PET_ID
+	_set_current_pet_id(_pick_hatch_pet_id(owner))
 	_egg_state.spawn(owner)
 	_companion_pos = Vector2.ZERO
 	_reset_companion_patrol()
@@ -511,9 +510,7 @@ func _sync_owner(owner: Object) -> void:
 
 func _adopt_owned_pet(owner: Object, pet_id: String) -> void:
 	_state = STATE_COMPANION
-	_pet_id = _normalize_pet_id(pet_id)
-	if _pet_id == "":
-		_pet_id = PET_ID
+	_set_current_pet_id(pet_id)
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
 	_initialize_companion_patrol(owner, true)
@@ -541,7 +538,7 @@ func _get_effect_text() -> String:
 	if _state == STATE_EGG:
 		return "공에 %d회 맞히면 공명으로 %s가 깨어납니다." % [_get_current_required_hits(), _get_current_display_name()]
 	if _state == STATE_COMPANION:
-		return LingpetCatalog.get_effect_text(_pet_id)
+		return _current_profile.get_effect_text()
 	return ""
 
 
@@ -562,59 +559,59 @@ func _pick_hatch_pet_id(owner: Object) -> String:
 
 
 func _get_current_display_name() -> String:
-	return LingpetCatalog.get_display_name(_pet_id)
+	return _current_profile.get_display_name()
 
 
 func _get_current_required_hits() -> int:
-	return LingpetCatalog.get_required_hits(_pet_id, REQUIRED_HITS)
+	return _current_profile.get_required_hits(REQUIRED_HITS)
 
 
 func _get_current_stat(stat_name: String, fallback: float) -> float:
-	return LingpetCatalog.get_stat(_pet_id, stat_name, fallback)
+	return _current_profile.get_stat(stat_name, fallback)
 
 
 func _get_current_active_skill() -> Dictionary:
-	return LingpetCatalog.get_active_skill(_pet_id)
+	return _current_profile.get_active_skill()
 
 
 func _get_current_skill_id() -> String:
-	return str(_get_current_active_skill().get("id", ""))
+	return _current_profile.get_skill_id()
 
 
 func _get_current_skill_windup_seconds() -> float:
-	return maxf(0.0, float(_get_current_active_skill().get("windup_seconds", COMPANION_SKILL_WINDUP_SECONDS)))
+	return _current_profile.get_skill_windup_seconds(COMPANION_SKILL_WINDUP_SECONDS)
 
 
 func _get_current_gauge_gain_bonus_pct() -> float:
-	return _get_current_stat("gauge_gain_bonus_pct", MARIBO_GAUGE_GAIN_BONUS_PCT)
+	return _current_profile.get_gauge_gain_bonus_pct(MARIBO_GAUGE_GAIN_BONUS_PCT)
 
 
 func _get_current_hit_gauge_gain() -> float:
-	return _get_current_stat("hit_gauge_gain", COMPANION_HIT_GAUGE_GAIN)
+	return _current_profile.get_hit_gauge_gain(COMPANION_HIT_GAUGE_GAIN)
 
 
 func _get_current_defense_rate() -> float:
-	return _get_current_stat("defense_rate", COMPANION_DEFENSE_RATE)
+	return _current_profile.get_defense_rate(COMPANION_DEFENSE_RATE)
 
 
 func _get_current_hit_half_width() -> float:
-	return maxf(1.0, _get_current_stat("catch_width", COMPANION_HIT_HALF_WIDTH * 2.0) * 0.5)
+	return _current_profile.get_hit_half_width(COMPANION_HIT_HALF_WIDTH * 2.0)
 
 
 func _get_current_hit_half_height() -> float:
-	return maxf(1.0, _get_current_stat("catch_height", COMPANION_HIT_HALF_HEIGHT * 2.0) * 0.5)
+	return _current_profile.get_hit_half_height(COMPANION_HIT_HALF_HEIGHT * 2.0)
 
 
 func _normalize_pet_id(value: String) -> String:
-	return _collection_state.normalize_pet_id(value)
+	return _current_profile.normalize_pet_id(value)
 
 
 func _prewarm_current_visuals() -> void:
-	_visual_texture_cache.prewarm_pet(_pet_id)
+	_current_profile.prewarm_visuals()
 
 
 func _get_current_visual_texture(visual_key: String, fallback: Texture2D) -> Texture2D:
-	return _visual_texture_cache.get_texture(_pet_id, visual_key, fallback)
+	return _current_profile.get_visual_texture(visual_key, fallback)
 
 
 func _normalize_lingpet_state(value: String) -> String:
