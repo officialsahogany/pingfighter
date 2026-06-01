@@ -57,6 +57,7 @@ func register_player_hit(
 				gauge_gain = float(mythic_item_runtime.calculate_bluetooth_ring_gauge_charge(gauge_gain))
 			if mythic_item_runtime != null and mythic_item_runtime.has_method("apply_gold_digger_gauge_bonus"):
 				gauge_gain = float(mythic_item_runtime.apply_gold_digger_gauge_bonus(gauge_gain))
+			gauge_gain = _apply_lingpet_gauge_gain(gauge_gain, deps)
 		updated_gauge = min(updated_gauge + gauge_gain, float(context.get("gauge_max", updated_gauge)))
 		var feedback = deps.get("feedback", null)
 		if feedback != null:
@@ -87,6 +88,13 @@ func _get_horn_strawberry_gauge_on_hit(mythic_item_runtime: Object) -> float:
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_horn_strawberry_gauge_on_hit"):
 		return max(0.0, float(mythic_item_runtime.get_horn_strawberry_gauge_on_hit()))
 	return 0.0
+
+
+func _apply_lingpet_gauge_gain(gauge_gain: float, deps: Dictionary) -> float:
+	var lingpet_runtime: Object = deps.get("lingpet_egg_runtime", null)
+	if lingpet_runtime != null and lingpet_runtime.has_method("get_gauge_gain_per_hit"):
+		return max(0.0, float(lingpet_runtime.get_gauge_gain_per_hit(gauge_gain)))
+	return max(0.0, gauge_gain)
 
 
 func _resolve_hit_intensity(drive_activated: bool, power_activated: bool) -> float:

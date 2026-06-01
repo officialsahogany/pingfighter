@@ -28,6 +28,7 @@ func build_serve_snapshot(
 ) -> Dictionary:
 	var snapshot: Dictionary = build_common_snapshot()
 	snapshot["ball_active"] = true
+	snapshot["ball_serve_origin"] = "player" if player_is_serving else "boss"
 	var serve_velocity: Vector2 = _build_serve_velocity(player_is_serving, ball_physics)
 	snapshot["ball_vel"] = serve_velocity
 	_apply_serve_launch_boost(snapshot, serve_velocity, ball_physics)
@@ -51,6 +52,7 @@ func build_common_snapshot() -> Dictionary:
 		"ball_impact_boost": 1.0,
 		"ball_boost_decay_rate": BALL_IMPACT_BASE_DECAY_RATE,
 		"ball_min_boost": BALL_IMPACT_BASE_MIN_BOOST,
+		"ball_serve_origin": "",
 		"rally_speed_cap_bonus": 0.0,
 		"player_collision_cooldown": 0.0,
 		"boss_collision_cooldown": 0.0,

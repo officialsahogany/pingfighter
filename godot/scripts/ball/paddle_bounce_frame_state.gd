@@ -85,6 +85,7 @@ func build_result_snapshot(
 		"ball_impact_boost": float(frame["ball_impact_boost"]),
 		"ball_boost_decay_rate": float(frame["ball_boost_decay_rate"]),
 		"ball_min_boost": float(frame["ball_min_boost"]),
+		"ball_serve_origin": "",
 		"vertical_bounce_count": int(frame["vertical_bounce_count"]),
 		"ball_spin_strength": float(frame["ball_spin_strength"]),
 		"ball_spin_direction": int(frame["ball_spin_direction"]),

@@ -511,6 +511,7 @@ func _build_scene_snapshot(context: Dictionary) -> Dictionary:
 		"ball_impact_boost": float(context.get("ball_impact_boost", 1.0)),
 		"ball_boost_decay_rate": float(context.get("ball_boost_decay_rate", 0.975)),
 		"ball_min_boost": float(context.get("ball_min_boost", 0.70)),
+		"ball_serve_origin": str(context.get("ball_serve_origin", "")),
 		"rally_speed_cap_bonus": float(context.get("rally_speed_cap_bonus", 0.0)),
 		"player_collision_cooldown": float(context.get("player_collision_cooldown", 0.0)),
 		"boss_collision_cooldown": float(context.get("boss_collision_cooldown", 0.0)),

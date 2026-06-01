@@ -12,6 +12,7 @@ func build(owner: Object) -> Dictionary:
 		"ball_impact_boost": float(_get_owner_value(owner, "ball_impact_boost", 1.0)),
 		"ball_boost_decay_rate": float(_get_owner_value(owner, "ball_boost_decay_rate", 0.975)),
 		"ball_min_boost": float(_get_owner_value(owner, "ball_min_boost", 0.70)),
+		"ball_serve_origin": str(_get_owner_value(owner, "ball_serve_origin", "")),
 		"rally_speed_cap_bonus": float(_get_owner_value(owner, "rally_speed_cap_bonus", 0.0)),
 		"player_collision_cooldown": float(_get_owner_value(owner, "player_collision_cooldown", 0.0)),
 		"boss_collision_cooldown": float(_get_owner_value(owner, "boss_collision_cooldown", 0.0)),

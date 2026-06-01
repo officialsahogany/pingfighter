@@ -73,6 +73,7 @@ func _build_common_update_deps(registry) -> Dictionary:
 		"feedback": _get_instance(registry, "battle_feedback_state"),
 		"active_item_runtime": _get_instance(registry, "active_item_runtime"),
 		"mythic_item_runtime": _get_instance(registry, "mythic_item_runtime"),
+		"lingpet_egg_runtime": _get_instance(registry, "lingpet_egg_runtime"),
 		"weather_event_state": _get_instance(registry, "weather_event_state"),
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
 		"animation_state": _get_instance(registry, "actor_animation_state"),
@@ -188,6 +189,7 @@ func _build_common_round_deps(registry, perf_logger: Object = null, perf_label_p
 		"ball_physics": _get_round_instance(registry, "ball_physics", perf_logger, perf_label_prefix),
 		"active_item_runtime": _get_round_instance(registry, "active_item_runtime", perf_logger, perf_label_prefix),
 		"mythic_item_runtime": _get_round_instance(registry, "mythic_item_runtime", perf_logger, perf_label_prefix),
+		"lingpet_egg_runtime": _get_round_instance(registry, "lingpet_egg_runtime", perf_logger, perf_label_prefix),
 		"weather_event_state": _get_round_instance(registry, "weather_event_state", perf_logger, perf_label_prefix),
 	}
 

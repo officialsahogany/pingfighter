@@ -48,6 +48,10 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if commando_weapon_controller != null and commando_weapon_controller.has_method("reset_round"):
 		commando_weapon_controller.reset_round()
 
+	var lingpet_runtime = deps.get("lingpet_egg_runtime", null)
+	if lingpet_runtime != null and lingpet_runtime.has_method("reset_round"):
+		lingpet_runtime.reset_round(deps)
+
 	var feedback = deps.get("feedback", null)
 	if feedback != null:
 		var dash_token_max: int = _get_dash_token_max(dash_state)
