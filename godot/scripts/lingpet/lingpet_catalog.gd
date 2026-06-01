@@ -68,6 +68,7 @@ const PETS := {
 			"name": "하이드로 스피어",
 			"description": "물의 기운이 담긴 창을 던집니다. 상대 진영 벽에 닿으면 5초 동안 가로로 넓은 물장판을 만듭니다.",
 			"cooldown": 40.0,
+			"windup_seconds": 1.0,
 			"card_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
 		},
 		"effect_text": "공을 받아칠 때 게이지 획득량 +10% / 링펫이 공을 직접 튕기면 게이지 +40 / 하이드로 스피어: 40초마다 물창을 던져 상대 진영에 5초 둔화 장판을 만듭니다.",
@@ -266,6 +267,8 @@ static func _validate_active_skill(pet_id: String, entry: Dictionary, issues: Ar
 			issues.append("%s: missing active_skill.%s" % [pet_id, str(key)])
 	if float(skill_data.get("cooldown", 0.0)) <= 0.0:
 		issues.append("%s: active_skill.cooldown must be > 0" % pet_id)
+	if skill_data.has("windup_seconds") and float(skill_data.get("windup_seconds", 0.0)) < 0.0:
+		issues.append("%s: active_skill.windup_seconds must be >= 0" % pet_id)
 	var card_path := str(skill_data.get("card_texture_path", "")).strip_edges()
 	if card_path != "" and require_existing_files and not FileAccess.file_exists(card_path):
 		issues.append("%s: missing skill-card file %s" % [pet_id, card_path])

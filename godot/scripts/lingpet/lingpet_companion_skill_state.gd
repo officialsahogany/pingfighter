@@ -74,10 +74,17 @@ func get_windup_frame(windup_seconds: float, frame_count: int) -> int:
 	return clampi(int(progress * float(frame_count)), 0, max_frame)
 
 
-func get_snapshot(companion_active: bool, skill_id: String, skill_cooldown_duration: float, flash_seconds: float) -> Dictionary:
+func get_snapshot(
+	companion_active: bool,
+	skill_id: String,
+	skill_cooldown_duration: float,
+	skill_windup_seconds: float,
+	flash_seconds: float
+) -> Dictionary:
 	return {
 		"companion_skill_cooldown": cooldown,
 		"companion_skill_cooldown_duration": skill_cooldown_duration,
+		"companion_skill_windup_seconds": skill_windup_seconds if companion_active else 0.0,
 		"companion_skill_ready": companion_active and skill_id != "" and cooldown <= 0.0,
 		"companion_skill_last_gain": last_gain,
 		"companion_skill_trigger_count": trigger_count,

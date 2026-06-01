@@ -29,8 +29,9 @@ const MARIBO_COMPANION_WALK_SHEET := preload("res://assets/sprites/lingpet/marib
 # constants + _maybe_arm_companion_strike), overriding walk/idle while playing.
 const MARIBO_COMPANION_STRIKE_SHEET := preload("res://assets/sprites/lingpet/maribo_companion_strike.png")
 # Back-view hydro-spear cast wind-up (AutoSprite animate_asset, same 5x5/25 grid).
-# Played while _companion_skill_state.windup_active over COMPANION_SKILL_WINDUP_SECONDS;
-# the final frame (throw release) lands as the projectile launches.
+# Played while _companion_skill_state.windup_active over the active skill's
+# catalog windup_seconds; the final frame (throw release) lands as the
+# projectile launches.
 const MARIBO_COMPANION_HYDRO_CAST_SHEET := preload("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png")
 
 const PET_ID := LingpetCatalog.DEFAULT_PET_ID
@@ -309,6 +310,7 @@ func get_snapshot() -> Dictionary:
 		_companion_body_hit_state,
 		_get_current_hit_gauge_gain(),
 		_companion_skill_state,
+		_get_current_skill_windup_seconds(),
 		COMPANION_SKILL_FLASH_SECONDS,
 		_hydro_sphere_skill
 	)
@@ -613,6 +615,10 @@ func _get_current_skill_id() -> String:
 	return str(_get_current_active_skill().get("id", ""))
 
 
+func _get_current_skill_windup_seconds() -> float:
+	return maxf(0.0, float(_get_current_active_skill().get("windup_seconds", COMPANION_SKILL_WINDUP_SECONDS)))
+
+
 func _get_current_gauge_gain_bonus_pct() -> float:
 	return _get_current_stat("gauge_gain_bonus_pct", MARIBO_GAUGE_GAIN_BONUS_PCT)
 
@@ -779,7 +785,7 @@ func _try_activate_companion_skill(owner: Object, _registry: Object = null) -> b
 
 
 func _advance_companion_skill_windup(delta: float, owner: Object, registry: Object) -> void:
-	if _companion_skill_state.advance_windup(delta, COMPANION_SKILL_WINDUP_SECONDS):
+	if _companion_skill_state.advance_windup(delta, _get_current_skill_windup_seconds()):
 		match LingpetSkillDispatcher.get_skill_kind(_get_current_skill_id()):
 			LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
 				_launch_hydro_sphere_projectile(owner, registry)
@@ -863,7 +869,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"animator": _companion_sprite_animator,
 		"patrol_pause": _companion_motion_state.patrol_pause,
 		"windup_elapsed": _companion_skill_state.windup_elapsed,
-		"windup_seconds": COMPANION_SKILL_WINDUP_SECONDS,
+		"windup_seconds": _get_current_skill_windup_seconds(),
 		"casting_windup": casting_windup,
 		"attacking": attacking,
 		"walk_texture": _get_current_visual_texture("companion_walk", MARIBO_COMPANION_WALK_SHEET),

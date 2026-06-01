@@ -26,6 +26,7 @@ func build_runtime_snapshot(
 	body_hit_state: Object,
 	hit_gauge_gain: float,
 	skill_state: Object,
+	skill_windup_seconds: float,
 	skill_flash_seconds: float,
 	hydro_sphere_skill: Object
 ) -> Dictionary:
@@ -65,7 +66,7 @@ func build_runtime_snapshot(
 	if body_hit_state != null:
 		snapshot.merge(body_hit_state.get_snapshot(companion_active, hit_gauge_gain), true)
 	if skill_state != null:
-		snapshot.merge(skill_state.get_snapshot(companion_active, skill_id, skill_cooldown, skill_flash_seconds), true)
+		snapshot.merge(skill_state.get_snapshot(companion_active, skill_id, skill_cooldown, skill_windup_seconds, skill_flash_seconds), true)
 	if hydro_sphere_skill != null:
 		snapshot.merge(hydro_sphere_skill.get_snapshot(), true)
 	return snapshot

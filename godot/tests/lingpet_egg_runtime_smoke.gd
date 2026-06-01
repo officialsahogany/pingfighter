@@ -455,6 +455,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(LingpetCatalog.get_hatch_candidates({"league_mode": "champion", "character_type": "smasher"}, []).is_empty(), "catalog should keep Junior League eligibility gating")
 	var live_catalog_issues: Array[String] = LingpetCatalog.validate_catalog(true)
 	_expect(live_catalog_issues.is_empty(), "live lingpet catalog should validate cleanly: %s" % str(live_catalog_issues))
+	var maribo_skill := LingpetCatalog.get_active_skill("maribo")
+	_expect(is_equal_approx(float(maribo_skill.get("windup_seconds", 0.0)), 1.0), "Maribo Hydro Sphere wind-up timing should live in the active-skill catalog entry")
 	var draft_entries := {
 		"maribo": LingpetCatalog.get_entry("maribo"),
 		"draft_bat": {
@@ -500,6 +502,15 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(_issues_contain(broken_issues, "missing active_skill.card_texture_path"), "catalog validator should catch missing skill-card art paths")
 	_expect(_issues_contain(broken_issues, "active_skill.cooldown must be > 0"), "catalog validator should catch invalid active-skill cooldowns")
 	_expect(_issues_contain(broken_issues, "missing effect_text"), "catalog validator should catch missing ringpet effect text")
+	var broken_windup_entries := {
+		"broken_windup": LingpetCatalog.get_entry("maribo"),
+	}
+	var broken_windup_entry: Dictionary = broken_windup_entries["broken_windup"] as Dictionary
+	broken_windup_entry["id"] = "broken_windup"
+	var broken_windup_skill: Dictionary = broken_windup_entry["active_skill"] as Dictionary
+	broken_windup_skill["windup_seconds"] = -0.25
+	var broken_windup_issues: Array[String] = LingpetCatalog.validate_entries(broken_windup_entries, false)
+	_expect(_issues_contain(broken_windup_issues, "active_skill.windup_seconds must be >= 0"), "catalog validator should catch invalid active-skill wind-up timing")
 	var multi_entries := {
 		"maribo": LingpetCatalog.get_entry("maribo"),
 		"test_bubble": {
@@ -1112,6 +1123,7 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 	_expect(bool(runtime.is_maribo_companion_active()), "owned Maribo should be companion-active for the boss-rail entry gate")
 	_expect(str(rail_snap.get("companion_skill_id", "")) == "maribo_hydro_sphere", "active companion snapshot should expose the hydro sphere skill id for the rail entry")
 	_expect(absf(float(rail_snap.get("companion_skill_cooldown_duration", 0.0)) - 40.0) <= 0.01, "lingpet rail entry should source the 40s companion cooldown duration")
+	_expect(absf(float(rail_snap.get("companion_skill_windup_seconds", 0.0)) - 1.0) <= 0.01, "lingpet rail entry should source the catalog skill wind-up duration")
 	_expect(rail_snap.has("companion_skill_ready"), "lingpet rail entry should source ready state from the companion snapshot")
 	_expect(rail_snap.has("companion_skill_flash_ratio"), "lingpet rail entry should source a normalized flash ratio (not the raw 24-frame boss unit)")
 
