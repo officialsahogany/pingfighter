@@ -1,19 +1,53 @@
 extends SceneTree
 
 const SmasherPowerSmashState := preload("res://scripts/characters/smasher_power_smash_state.gd")
+const SmasherPowerSmashActivationController := preload("res://scripts/characters/smasher_power_smash_activation_controller.gd")
 const SkillCutinOverlayHost := preload("res://scripts/hud/skill_cutin_overlay_host.gd")
 const PowerSmashCutinState := preload("res://scripts/characters/smasher_power_smash_cutin_state.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const BallUpdateStaticConfig := preload("res://scripts/ball/ball_update_static_config.gd")
 
 const CUTIN_SHEET_PATH := "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png"
+const CUTIN_VOICE_PATH := "res://assets/sounds/mika_powersmashing.mp3"
+const CUTIN_SHEET_SIZE := 8192
 const FREEZE_DURATION := 1.65
 
 var _failures: Array[String] = []
 
 
+class FakePowerSmashInputReader:
+	extends RefCounted
+
+	func get_snapshot() -> Dictionary:
+		return {
+			"action_pressed": true,
+			"power_smash_direction": 0,
+		}
+
+
+class FakeActiveRoundState:
+	extends RefCounted
+
+	func is_waiting_for_serve() -> bool:
+		return false
+
+
+class FakePowerSmashAudio:
+	extends RefCounted
+
+	var power_smash_count := 0
+	var cutin_voice_count := 0
+
+	func play_power_smash() -> void:
+		power_smash_count += 1
+
+	func play_power_smashing_cutin_voice() -> void:
+		cutin_voice_count += 1
+
+
 func _init() -> void:
 	_test_power_smashing_starts_cutin()
+	_test_power_smashing_activation_plays_cutin_voice()
 	_test_ghost_shot_skips_cutin()
 	_test_cutin_ends_after_duration()
 	_test_cutin_progress_tracks_freeze()
@@ -22,6 +56,7 @@ func _init() -> void:
 	_test_clear_effects_preserves_cutin()
 	_test_cutin_host_draw_guards()
 	_test_cutin_host_prewarms_sheet()
+	_test_cutin_voice_asset_loads()
 	_test_power_smash_freeze_config_is_extended()
 	_test_zero_freeze_duration_skips_cutin()
 
@@ -39,6 +74,36 @@ func _test_power_smashing_starts_cutin() -> void:
 	state.begin_activation(1, 0.5, 0, 48.0, false, 1000, FREEZE_DURATION)
 	_expect(state.is_cutin_active(), "power_smashing should start cutin")
 	_expect(state.get_cutin_progress() == 0.0, "cutin progress should start at 0")
+
+
+func _test_power_smashing_activation_plays_cutin_voice() -> void:
+	var controller := SmasherPowerSmashActivationController.new()
+	var state := SmasherPowerSmashState.new()
+	var audio := FakePowerSmashAudio.new()
+	var result: Dictionary = controller.try_activate(
+		{
+			"ball_active": true,
+			"special_gauge": 500.0,
+			"gauge_cost": 300.0,
+			"text_duration_frames": 48.0,
+			"perfect_cooldown_frames": 0.0,
+			"global_cooldown_frames": 0.0,
+			"combo_min_count": 2,
+			"current_msec": 1000,
+			"power_smash_freeze_duration": FREEZE_DURATION,
+		},
+		{
+			"input_reader": FakePowerSmashInputReader.new(),
+			"power_state": state,
+			"round_state": FakeActiveRoundState.new(),
+			"audio": audio,
+		},
+		{}
+	)
+	_expect(bool(result.get("activated", false)), "power_smashing activation should succeed")
+	_expect(state.is_cutin_active(), "power_smashing activation should start cutin")
+	_expect(audio.cutin_voice_count == 1, "power_smashing activation should play Mika cutin voice once")
+	_expect(audio.power_smash_count == 1, "power_smashing activation should still play base power smash SFX")
 
 
 func _test_ghost_shot_skips_cutin() -> void:
@@ -115,8 +180,16 @@ func _test_cutin_host_prewarms_sheet() -> void:
 	var texture := ProjectResourceLoader.get_cached_texture(CUTIN_SHEET_PATH)
 	_expect(texture != null, "cutin sheet should prewarm into ProjectResourceLoader cache")
 	if texture != null:
-		_expect(texture.get_width() == 4096, "cutin sheet width should be 4096")
-		_expect(texture.get_height() == 4096, "cutin sheet height should be 4096")
+		_expect(texture.get_width() == CUTIN_SHEET_SIZE, "cutin sheet width should be %d" % CUTIN_SHEET_SIZE)
+		_expect(texture.get_height() == CUTIN_SHEET_SIZE, "cutin sheet height should be %d" % CUTIN_SHEET_SIZE)
+
+
+func _test_cutin_voice_asset_loads() -> void:
+	var stream: AudioStream = ProjectResourceLoader.load_audio_stream(CUTIN_VOICE_PATH)
+	_expect(stream != null, "Mika power-smashing cutin voice should load")
+	if stream != null:
+		_expect(stream.get_length() > 0.0, "Mika power-smashing cutin voice should have duration")
+		_expect(stream.get_length() <= FREEZE_DURATION + 0.05, "Mika power-smashing cutin voice should finish within cutin freeze")
 
 
 func _test_power_smash_freeze_config_is_extended() -> void:

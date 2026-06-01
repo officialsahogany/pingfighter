@@ -3,30 +3,93 @@
   "character": "smasher",
   "character_name": "Mika",
   "runtime_usage": "smasher_power_smashing_skill_cutin",
-  "status": "identity-correct interim sheet",
-  "generated_at": "2026-05-28",
+  "status": "dedicated power-smash impact cut-in autosprite v2 + Real-ESRGAN x2",
+  "generated_at": "2026-05-31",
   "runtime_sheet": {
     "path": "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png",
     "cols": 4,
     "rows": 4,
     "frame_count": 16,
-    "cell_size": [1024, 1024],
-    "sheet_size": [4096, 4096],
+    "cell_size": [
+      2048,
+      2048
+    ],
+    "sheet_size": [
+      8192,
+      8192
+    ],
     "frame_interval": "freeze-synced",
-    "freeze_duration_seconds": 1.65
+    "freeze_duration_seconds": 1.65,
+    "source_scale_repack": 0.84,
+    "blend_style": "Real-ESRGAN x2 alpha-preserved sheet with runtime procedural red charge aura aligned to v2 racket centers",
+    "upscale_scale": 2
   },
-  "source": {
-    "path": "res://assets/ui/character_live2d/smasher_select_confirm_swing_bada_loop98_autosprite_v2_stable_realesrgan_animev3_hq1152_safe.png",
-    "provenance": "AutoSprite-derived accepted 98-frame character-select confirm sheet",
-    "source_cols": 14,
-    "source_rows": 7,
-    "source_cell_size": [1152, 1152],
-    "extracted_frame_indices": [44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 91, 94, 96, 97],
-    "postprocess": "deterministic frame extraction and 1152-to-1024 downscale"
+  "source_autosprite": {
+    "character_id": "cmpsfz62u0086111qzio43tv7",
+    "character_name": "Mika Power Smash Cutin Anchor v1",
+    "anchor_local_path": ".tmp/smasher_power_cutin_regen_v1/smasher_power_cutin_anchor_from_current_frame10.png",
+    "start_pose_id": "cmpsg07xy0010u6saanh31kk9",
+    "start_pose_name": "Power Smash Pose",
+    "start_pose_local_path": ".tmp/smasher_power_cutin_regen_v1/autosprite_power_smash_pose.png",
+    "impact_pose_job_id": "cf_cbd24f21-f1e5-465f-9fbb-5cc89bf207c8",
+    "impact_pose_id": "cmpt5feq50008bdy1lbkht2c7",
+    "impact_pose_name": "Smash Impact",
+    "impact_pose_local_path": ".tmp/smasher_power_cutin_regen_v2/autosprite_power_smash_impact_pose.png",
+    "workflow_id": "wf_62d3dfb8-391e-4f64-b1aa-aa58e6f00218",
+    "video_id": "cmpt5gz7z000hheequ8dnr1zk",
+    "spritesheet_id": "cmpt5jv0n000w8anar6o8ko5c",
+    "raw_sheet_local_path": ".tmp/smasher_power_cutin_regen_v2/autosprite_power_smash_cutin_v2_raw_sheet.png",
+    "raw_atlas_local_path": ".tmp/smasher_power_cutin_regen_v2/autosprite_power_smash_cutin_v2_raw_atlas.json",
+    "frame_width": 1024,
+    "frame_height": 1024,
+    "frame_count": 16,
+    "columns": 4,
+    "remove_bg": "ultra",
+    "quality": "legendary",
+    "with_sound": false,
+    "first_frame_pose_id": "cmpsg07xy0010u6saanh31kk9",
+    "last_frame_pose_id": "cmpt5feq50008bdy1lbkht2c7",
+    "prompt": "16-frame anime skill cut-in for Mika Power Smashing. Start with cyan racket charging at chest in red-orange heat, twist shoulders and pull back, then lunge toward viewer. Final 4 frames must be a decisive down-forward smash into lower foreground: huge perspective racket disk, cyan rim, red-orange impact core, speed streaks. Keep black twin-tails, teal eyes, white/black bionic suit. No pet, shield, helmet, text or UI. Transparent background, safe margins, no crop box."
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic repack plus alpha feather",
+    "operation": "Each AutoSprite 1024 cell was premultiplied-alpha resized to 84 percent and centered back into a 1024 cell, then the repacked source boundary was feathered inward by 130px to soften AutoSprite edge cuts.",
+    "allowed_by_policy": "AutoSprite-derived deterministic postprocess only; no non-AutoSprite redraw or interpolation.",
+    "source_scale_repack": 0.84,
+    "edge_feather": {
+      "tool": "Pillow/NumPy smootherstep alpha mask",
+      "reason": "Prevent red/cyan trails and the final impact disk from reading as clipped by an invisible square after safe-margin repack.",
+      "inner_source_bounds": [
+        82,
+        82,
+        941,
+        941
+      ],
+      "feather_px": 130,
+      "selected_candidate": ".tmp/smasher_power_cutin_regen_v2/smasher_power_smashing_cutin_sheet_autosprite_v2_safe_s84.png",
+      "alternate_candidate": ".tmp/smasher_power_cutin_regen_v2/smasher_power_smashing_cutin_sheet_autosprite_v2_safe_s80.png",
+      "preview": ".tmp/smasher_power_cutin_regen_v2/smasher_power_smashing_cutin_v2_safe_s84_preview.png"
+    },
+    "realesrgan_upscale": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "command": "realesrgan-ncnn-vulkan.exe -i .tmp/smasher_power_cutin_realesrgan_v1/input_rgb -o .tmp/smasher_power_cutin_realesrgan_v1/upscaled_rgb -s 2 -n realesr-animevideov3 -m ./tools/realesrgan/models",
+      "source_runtime_before_upscale": ".tmp/smasher_power_cutin_realesrgan_v1/pre_realesrgan_runtime_smasher_power_smashing_cutin_sheet_4096.png",
+      "source_runtime_before_upscale_sha256": "ef0d5427d4e20cfaac626d4049ef06855b16ff696eeb69ff1d801822aae40a81",
+      "rgb_input_dir": ".tmp/smasher_power_cutin_realesrgan_v1/input_rgb",
+      "alpha_input_dir": ".tmp/smasher_power_cutin_realesrgan_v1/source_alpha",
+      "rgb_output_dir": ".tmp/smasher_power_cutin_realesrgan_v1/upscaled_rgb",
+      "recombined_output": ".tmp/smasher_power_cutin_realesrgan_v1/smasher_power_smashing_cutin_sheet_realesrgan_animev3_x2.png",
+      "preview": ".tmp/smasher_power_cutin_realesrgan_v1/smasher_power_smashing_cutin_realesrgan_x2_preview.png",
+      "alpha_preservation": "Split each 1024 source cell into alpha-bleed RGB + source alpha. Upscaled RGB with Real-ESRGAN, resized source alpha to 2048, recombined RGBA, then reassembled the original 4x4 frame grid.",
+      "runtime_asset_path": "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png"
+    }
   },
   "identity_lock": {
     "anchor_paths": [
-      "res://assets/ui/character_live2d/smasher_fullbody_hover_idle_loop49_assetanim_v2_realesrgan_animev3_hq1024_safe.png",
+      "res://assets/ui/skill_cutin/smasher_power_smashing_cutin_sheet.png previous runtime frame 10",
+      "res://assets/ui/character_live2d/smasher_female_bionic_white_chest_no_fins_smooth_menu_idle_loop49_autosprite_v8_realesrgan_animev3_hq1536_safe.png",
       "res://assets/ui/character_live2d/smasher_select_confirm_swing_bada_loop98_autosprite_v2_stable_realesrgan_animev3_hq1152_safe.png"
     ],
     "required_traits": [
@@ -34,13 +97,161 @@
       "black twin-tail hair",
       "teal eyes",
       "white and black bionic suit",
-      "cyan circular racket"
+      "cyan circular energy racket",
+      "red-orange overheat power-smash charge",
+      "decisive down-forward foreground impact release"
     ]
   },
   "qa": {
     "transparent_edge_alpha_count": 0,
     "transparent_corner_errors": 0,
-    "sha256": "c8f7c197197248c8cc84ed358d89fb7897c2022259219b6ebf8c082a5833e5d4"
+    "frames_with_edge_alpha": [],
+    "union_alpha_bbox": [
+      208,
+      207,
+      1839,
+      1840
+    ],
+    "frame_bboxes": [
+      [
+        208,
+        217,
+        1809,
+        1839
+      ],
+      [
+        208,
+        219,
+        1817,
+        1839
+      ],
+      [
+        208,
+        215,
+        1826,
+        1840
+      ],
+      [
+        208,
+        208,
+        1832,
+        1839
+      ],
+      [
+        208,
+        208,
+        1839,
+        1839
+      ],
+      [
+        208,
+        208,
+        1839,
+        1839
+      ],
+      [
+        208,
+        208,
+        1839,
+        1839
+      ],
+      [
+        208,
+        208,
+        1839,
+        1839
+      ],
+      [
+        567,
+        208,
+        1839,
+        1839
+      ],
+      [
+        540,
+        208,
+        1839,
+        1839
+      ],
+      [
+        300,
+        208,
+        1726,
+        1839
+      ],
+      [
+        238,
+        208,
+        1715,
+        1839
+      ],
+      [
+        229,
+        208,
+        1726,
+        1839
+      ],
+      [
+        210,
+        207,
+        1734,
+        1839
+      ],
+      [
+        210,
+        208,
+        1732,
+        1839
+      ],
+      [
+        208,
+        208,
+        1729,
+        1839
+      ]
+    ],
+    "adjacent_diff_avg": 13.823,
+    "adjacent_diffs": [
+      5.077,
+      6.01,
+      5.259,
+      5.305,
+      6.991,
+      15.376,
+      23.523,
+      34.692,
+      26.88,
+      28.055,
+      21.81,
+      8.035,
+      4.889,
+      6.687,
+      8.757
+    ],
+    "sha256": "7a959bd43f565de6e1e8ef1cbaebf9832f04dbad60d0072f2a4a331d48788f1c",
+    "realesrgan_output_sha256": "7a959bd43f565de6e1e8ef1cbaebf9832f04dbad60d0072f2a4a331d48788f1c",
+    "notes": "Real-ESRGAN x2 pass over v2 impact cut-in. RGB was upscaled with realesr-animevideov3, alpha was preserved from the source sheet and resized to 2048 per cell before 4x4 reassembly.",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "cell_size": [
+        2048,
+        2048
+      ],
+      "sheet_size": [
+        8192,
+        8192
+      ]
+    }
   },
-  "notes": "The rejected AutoSprite cut-in candidate used the wrong male identity. This 16-frame sheet keeps Mika's current character-select identity and extends the cut-in cadence while a dedicated overhead power-smash pose is regenerated. Runtime draw adds red racket-charge aura procedurally before launch."
+  "previous_versions": [
+    {
+      "status": "dedicated power-smash cut-in autosprite v1",
+      "generated_at": "2026-05-30",
+      "spritesheet_id": "cmpsg6br2009cgr9jogd7bsjg",
+      "sha256": "10b9ad9aaf506dd4b57d6b05edb0d7f9324b68d5aef40c0118e5323922d0fa40",
+      "runtime_backup_path": ".tmp/smasher_power_cutin_regen_v2/previous_runtime_smasher_power_smashing_cutin_sheet_v1_feathered.png"
+    }
+  ]
 }
