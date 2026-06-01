@@ -9,6 +9,7 @@ const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_comp
 const LingpetCompanionRenderer := preload("res://scripts/lingpet/lingpet_companion_renderer.gd")
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
 const LingpetCompanionSkillState := preload("res://scripts/lingpet/lingpet_companion_skill_state.gd")
+const LingpetCompanionSwitchState := preload("res://scripts/lingpet/lingpet_companion_switch_state.gd")
 const LingpetEggFieldState := preload("res://scripts/lingpet/lingpet_egg_field_state.gd")
 const LingpetEggFieldRenderer := preload("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
 const LingpetRuntimeSnapshotBuilder := preload("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
@@ -98,17 +99,14 @@ var _skill_runtime_host: Object = LingpetSkillRuntimeHost.new()
 var _snapshot_builder: Object = LingpetRuntimeSnapshotBuilder.new()
 var _visual_texture_cache: Object = LingpetVisualTextureCache.new()
 var _acquire_cutin_state: Object = LingpetAcquireCutinState.new()
+var _switch_transition_state: Object = LingpetCompanionSwitchState.new()
 var _has_synced_none := false
-var _switch_transition_timer := 0.0
-var _switch_transition_from_pet_id := ""
-var _switch_transition_to_pet_id := ""
-var _switch_transition_trigger_count := 0
 
 
 func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	if owner == null:
 		return false
-	_advance_companion_switch_transition(delta)
+	_switch_transition_state.advance(delta)
 	_egg_state.advance(delta)
 	_companion_body_hit_state.advance(delta)
 	_companion_skill_state.advance(delta)
@@ -235,7 +233,7 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
 	if next_pet_id == _pet_id:
 		_sync_owner(owner)
 		return true
-	_begin_companion_switch_transition(_pet_id, next_pet_id)
+	_switch_transition_state.begin(_pet_id, next_pet_id, COMPANION_SWITCH_TRANSITION_SECONDS)
 	_pet_id = next_pet_id
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
@@ -314,10 +312,7 @@ func get_snapshot() -> Dictionary:
 		COMPANION_SKILL_FLASH_SECONDS,
 		_skill_runtime_host
 	)
-	var switch_ratio := _get_companion_switch_transition_ratio()
-	snapshot["companion_switch_transition"] = switch_ratio
-	snapshot["companion_switch_from_pet_id"] = _switch_transition_from_pet_id if switch_ratio > 0.0 else ""
-	snapshot["companion_switch_to_pet_id"] = _switch_transition_to_pet_id if switch_ratio > 0.0 else ""
+	snapshot.merge(_switch_transition_state.get_snapshot(COMPANION_SWITCH_TRANSITION_SECONDS), true)
 	return snapshot
 
 
@@ -427,14 +422,14 @@ func reset_for_tests() -> void:
 	_reset_companion_defense()
 	_reset_skill_runtime_transients()
 	_acquire_cutin_state.reset()
-	_reset_companion_switch_transition()
+	_switch_transition_state.reset()
 	_has_synced_none = false
 
 
 func reset_round(_deps: Dictionary = {}) -> void:
 	_reset_skill_runtime_transients()
 	_reset_companion_defense()
-	_reset_companion_switch_transition()
+	_switch_transition_state.reset()
 	_companion_skill_state.reset_round_transients()
 	_companion_body_hit_state.reset_round_transients()
 
@@ -442,35 +437,6 @@ func reset_round(_deps: Dictionary = {}) -> void:
 func _reset_skill_runtime_transients() -> void:
 	_companion_skill_state.cancel_windup()
 	_skill_runtime_host.reset()
-
-
-func _begin_companion_switch_transition(from_pet_id: String, to_pet_id: String) -> void:
-	_switch_transition_from_pet_id = _normalize_pet_id(from_pet_id)
-	_switch_transition_to_pet_id = _normalize_pet_id(to_pet_id)
-	_switch_transition_trigger_count += 1
-	_switch_transition_timer = COMPANION_SWITCH_TRANSITION_SECONDS
-
-
-func _advance_companion_switch_transition(delta: float) -> void:
-	if _switch_transition_timer <= 0.0:
-		return
-	_switch_transition_timer = maxf(0.0, _switch_transition_timer - maxf(0.0, delta))
-	if _switch_transition_timer <= 0.0:
-		_switch_transition_from_pet_id = ""
-		_switch_transition_to_pet_id = ""
-
-
-func _reset_companion_switch_transition() -> void:
-	_switch_transition_timer = 0.0
-	_switch_transition_from_pet_id = ""
-	_switch_transition_to_pet_id = ""
-	_switch_transition_trigger_count = 0
-
-
-func _get_companion_switch_transition_ratio() -> float:
-	if _switch_transition_timer <= 0.0 or COMPANION_SWITCH_TRANSITION_SECONDS <= 0.0:
-		return 0.0
-	return clampf(_switch_transition_timer / COMPANION_SWITCH_TRANSITION_SECONDS, 0.0, 1.0)
 
 
 func _spawn_egg(owner: Object) -> void:
@@ -488,7 +454,7 @@ func _spawn_egg(owner: Object) -> void:
 	_reset_companion_defense()
 	_reset_skill_runtime_transients()
 	_acquire_cutin_state.reset()
-	_reset_companion_switch_transition()
+	_switch_transition_state.reset()
 	_has_synced_none = false
 	_prewarm_current_visuals()
 	_sync_owner(owner)
@@ -508,7 +474,7 @@ func _resolve_ball_hit(owner: Object) -> bool:
 		_companion_body_hit_state.reset_all()
 		_companion_skill_state.reset_all()
 		_reset_skill_runtime_transients()
-		_reset_companion_switch_transition()
+		_switch_transition_state.reset()
 		_hatch_flash_timer = LingpetEggFieldRenderer.HATCH_FLASH_SECONDS
 		_acquire_cutin_state.start()
 		_prewarm_current_visuals()
@@ -556,7 +522,7 @@ func _adopt_owned_pet(owner: Object, pet_id: String) -> void:
 	_companion_skill_state.reset_all()
 	_reset_companion_defense()
 	_reset_skill_runtime_transients()
-	_reset_companion_switch_transition()
+	_switch_transition_state.reset()
 	_hatch_flash_timer = 0.0
 	_prewarm_current_visuals()
 	_mark_current_pet_owned(owner)
@@ -851,9 +817,9 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"hit_flash": _get_companion_hit_flash_ratio(),
 		"gauge_flash": _get_companion_hit_gauge_flash_ratio(),
 		"skill_flash": _get_companion_skill_flash_ratio(),
-		"switch_transition": _get_companion_switch_transition_ratio(),
+		"switch_transition": _switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS),
 		"switch_particles": COMPANION_SWITCH_TRANSITION_PARTICLES,
-		"switch_trigger_count": _switch_transition_trigger_count,
+		"switch_trigger_count": _switch_transition_state.trigger_count,
 		"gauge_trigger_count": _companion_body_hit_state.gauge_trigger_count,
 		"skill_trigger_count": _companion_skill_state.trigger_count,
 		"animator": _companion_sprite_animator,

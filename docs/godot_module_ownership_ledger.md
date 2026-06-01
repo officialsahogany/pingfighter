@@ -172,6 +172,11 @@ This section is intentionally long; use search to find the nearest owner.
   hit / gauge flash snapshot fields. Future Ringpets with different body-hit
   rules should extend this helper instead of adding more collision math to
   `lingpet_egg_runtime.gd`.
+- `scripts/lingpet/lingpet_companion_switch_state.gd`
+  Owns Ringpet companion switch-transition state: transition timer, source /
+  target pet ids, trigger count, ratio calculation, reset, and snapshot fields
+  consumed by the companion renderer. Battle HUD visibility and input routing
+  should not reintroduce these transient VFX fields into `lingpet_egg_runtime.gd`.
 - `scripts/lingpet/lingpet_collection_state.gd`
   Owns Ringpet owned-collection state and owner-key compatibility: save
   `owned_pet_ids`, `lingpet_owned_pet_ids` / `owned_lingpet_ids` /
