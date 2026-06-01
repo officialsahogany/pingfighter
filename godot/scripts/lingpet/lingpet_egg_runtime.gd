@@ -625,6 +625,14 @@ func _get_current_defense_rate() -> float:
 	return _get_current_stat("defense_rate", COMPANION_DEFENSE_RATE)
 
 
+func _get_current_hit_half_width() -> float:
+	return maxf(1.0, _get_current_stat("catch_width", COMPANION_HIT_HALF_WIDTH * 2.0) * 0.5)
+
+
+func _get_current_hit_half_height() -> float:
+	return maxf(1.0, _get_current_stat("catch_height", COMPANION_HIT_HALF_HEIGHT * 2.0) * 0.5)
+
+
 func _normalize_pet_id(value: String) -> String:
 	return _collection_state.normalize_pet_id(value)
 
@@ -889,7 +897,9 @@ func _maybe_arm_companion_strike(owner: Object) -> void:
 
 	var ball_pos: Vector2 = _get_owner_vector2(owner, "ball_pos", Vector2.ZERO)
 	var ball_radius: float = maxf(1.0, float(_get_owner_value(owner, "ball_size", BALL_RADIUS_FALLBACK * 2.0)) * 0.5)
-	var vertical_gap: float = (_companion_pos.y - COMPANION_HIT_HALF_HEIGHT) - (ball_pos.y + ball_radius)
+	var hit_half_height := _get_current_hit_half_height()
+	var hit_half_width := _get_current_hit_half_width()
+	var vertical_gap: float = (_companion_pos.y - hit_half_height) - (ball_pos.y + ball_radius)
 	if vertical_gap < 0.0:
 		return
 	if vertical_gap > LingpetCompanionSpriteAnimator.STRIKE_MAX_GAP:
@@ -903,7 +913,7 @@ func _maybe_arm_companion_strike(owner: Object) -> void:
 		return
 
 	var future_ball_x: float = ball_pos.x + ball_vel.x * impact_boost * frames_to_contact
-	var x_tolerance: float = COMPANION_HIT_HALF_WIDTH + ball_radius + LingpetCompanionSpriteAnimator.STRIKE_X_TOLERANCE
+	var x_tolerance: float = hit_half_width + ball_radius + LingpetCompanionSpriteAnimator.STRIKE_X_TOLERANCE
 	if absf(future_ball_x - _companion_pos.x) > x_tolerance:
 		return
 
