@@ -3,6 +3,7 @@ extends SceneTree
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 const CharacterSelectData := preload("res://scripts/ui/character_select_data.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
@@ -53,6 +54,7 @@ class FakeRegistry:
 
 
 func _init() -> void:
+	LanguageSettings.set_language(LanguageSettings.LANGUAGE_KOREAN)
 	_verify_character_select_commando_copy()
 	_verify_catalog_choice_copy()
 	_verify_runtime_choice_overlay_labels()
@@ -130,7 +132,8 @@ func _verify_character_info_uses_commando_runtime() -> void:
 	_expect(str(overlay._perk_level_text(bazooka)) == "해금", "TAB perk grid should label single-level Commando unlocks in Korean")
 
 	var stats: Array = overlay._build_stats(owner, registry)
-	_expect(str(_find_stat(stats, "장착 스킬").get("value", "")) == "3 / 5", "TAB stats should count Commando fixed orbs plus equipped firearm")
+	_expect(_find_stat(stats, "장착 스킬").is_empty(), "TAB stats should leave skill counts to the dedicated equipped-skill panel")
+	_expect(not _find_stat(stats, "이동 속도").is_empty(), "TAB stats should still render combat stat rows for Commando")
 
 
 func _verify_swap_dialog_copy_uses_korean_skill_names() -> void:
