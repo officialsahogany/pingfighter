@@ -133,7 +133,7 @@ const PISTOL_HIT_TUNING := {
 	"hit_text_timer_frames": PISTOL_HIT_TEXT_TIMER_FRAMES,
 }
 const PISTOL_FEEDBACK_LIMIT := 4
-const PISTOL_AMMO_MAX := 4
+const PISTOL_AMMO_MAX := 5
 const PISTOL_COOLDOWN_FRAMES := 60.0
 const BERETTA_COOLDOWN_FRAMES := PISTOL_COOLDOWN_FRAMES / BERETTA_FIRE_RATE_MULTIPLIER
 const PISTOL_CONTROL_LOCK_FRAMES := 18.0
@@ -979,6 +979,9 @@ func _update_pistol_input(
 			"beretta_cooldown_frames": BERETTA_COOLDOWN_FRAMES,
 			"pistol_control_lock_frames": PISTOL_CONTROL_LOCK_FRAMES,
 			"pistol_fire_delay_frames": PISTOL_FIRE_DELAY_FRAMES,
+			"pistol_post_fire_animation_frames": PISTOL_POST_FIRE_ANIMATION_FRAMES,
+			"commando_pistol_control_lock_frames": 0.0,
+			"commando_pistol_fire_delay_frames": 0.0,
 			"pistol_empty_reload_gauge_cost": PISTOL_EMPTY_RELOAD_GAUGE_COST,
 			"doping_potion_pistol_cooldown_frames": DOPING_POTION_PISTOL_COOLDOWN_FRAMES,
 			"doping_potion_pistol_control_lock_frames": DOPING_POTION_PISTOL_CONTROL_LOCK_FRAMES,

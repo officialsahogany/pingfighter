@@ -192,13 +192,13 @@ func _verify_single_fixed_panel_state() -> void:
 	_expect(str(pistol_panel.get("title", "")) == "베레타", "Commando pistol selector should use the Beretta display name")
 	_expect(str(pistol_panel.get("beretta_icon_path", "")) == "res://assets/sprites/hud/commando_beretta_firearm_icon_imagegen_v1.png", "Commando pistol selector should expose the dedicated Beretta HUD icon path")
 	_expect(str(pistol_panel.get("beretta_fire_recoil_sheet_path", "")) == "res://assets/sprites/hud/commando_beretta_firearm_fire_recoil_sheet_autosprite_v1.png", "Commando pistol selector should expose the dedicated AutoSprite Beretta recoil sheet path")
-	_expect(int(pistol_ammo.get("display_slots", 0)) == 8, "Commando pistol should expose eight bullet icon slots")
-	_expect(int(pistol_ammo.get("filled_slots", 0)) == 8, "full Commando pistol should draw eight filled bullet icons")
+	_expect(int(pistol_ammo.get("display_slots", 0)) == 12, "Commando pistol should expose twelve bullet icon slots")
+	_expect(int(pistol_ammo.get("filled_slots", 0)) == 12, "full Commando pistol should draw twelve filled bullet icons")
 	_expect(int(pistol_ammo.get("magazines_max", -1)) == 0 and int(pistol_ammo.get("magazines_current", -1)) == 0, "Beretta should not expose spare magazine icons")
 	_expect(bool(controller.consume_current_weapon_ammo()), "Commando pistol ammo should be consumable for icon smoke")
 	var spent_pistol_panel: Dictionary = renderer.build_panel_state(center, 1.0, context)
 	var spent_pistol_ammo: Dictionary = _get_dict(spent_pistol_panel.get("ammo_icon_state", {}))
-	_expect(int(spent_pistol_ammo.get("filled_slots", -1)) == 7, "spent Commando pistol ammo should remove one filled bullet icon")
+	_expect(int(spent_pistol_ammo.get("filled_slots", -1)) == 11, "spent Commando pistol ammo should remove one filled bullet icon")
 	var firing_commando_pistol_panel: Dictionary = renderer.build_panel_state(center, 1.0, {
 		"commando_weapon_controller": controller,
 		"commando_firearm_pistol_state": {
@@ -275,9 +275,9 @@ func _verify_single_fixed_panel_state() -> void:
 		},
 	})
 	_expect(str(base_pistol_panel.get("title", "")) == "권총", "base selector should show the Korean pistol name")
-	_expect(str(base_pistol_panel.get("status", "")) == "탄약 4/4", "base selector should show the four-round pistol magazine")
+	_expect(str(base_pistol_panel.get("status", "")) == "탄약 5/5", "base selector should show the five-round pistol magazine")
 	var base_ammo: Dictionary = _get_dict(base_pistol_panel.get("ammo_icon_state", {}))
-	_expect(int(base_ammo.get("filled_slots", -1)) == 4 and int(base_ammo.get("display_slots", -1)) == 4, "base pistol should expose four bullet icons")
+	_expect(int(base_ammo.get("filled_slots", -1)) == 5 and int(base_ammo.get("display_slots", -1)) == 5, "base pistol should expose five bullet icons")
 	var base_icon_rect: Rect2 = _get_rect(base_pistol_panel.get("icon_rect", Rect2()))
 	var base_meter_rect: Rect2 = _get_rect(base_pistol_panel.get("meter_rect", Rect2()))
 	_expect(

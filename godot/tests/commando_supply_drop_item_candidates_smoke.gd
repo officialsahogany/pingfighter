@@ -76,7 +76,7 @@ func _verify_supply_drop_filters_python_item_candidates() -> void:
 	var controller: Object = CommandoWeaponController.new()
 	var deps := {"commando_weapon_controller": controller}
 	var ids_without_permanent: Array = _candidate_ids(supply_state._get_field_item_drop_candidates(deps))
-	_expect(not ids_without_permanent.has("ammo_box"), "ammo_box should be hidden when no permanent firearm can be reloaded")
+	_expect(ids_without_permanent.has("ammo_box"), "ammo_box should be eligible even before permanent firearms are owned")
 	_expect(ids_without_permanent.has("doping_potion"), "doping_potion should be eligible because the base pistol is always available")
 
 	controller.unlock_permanent_weapon("ak47", true)
@@ -113,7 +113,7 @@ func _verify_ammo_box_refills_owned_permanent_only() -> void:
 	var rental: Dictionary = controller.get_weapon_data("bazooka")
 	_expect(int(ak47.get("ammo_current", 0)) == 90, "ammo_box should refill AK-47 ammo")
 	_expect(is_equal_approx(float(ak47.get("duration_frames", 0.0)), 1800.0), "ammo_box should refill AK-47 duration")
-	_expect(int(pistol.get("ammo_current", 0)) == 8, "ammo_box should refill commando_pistol ammo")
+	_expect(int(pistol.get("ammo_current", 0)) == 12, "ammo_box should refill commando_pistol ammo to 12")
 	_expect(int(pistol.get("magazines_current", -1)) == 0, "ammo_box should not create Beretta spare magazines")
 	_expect(not bool(pistol.get("reloading", false)), "ammo_box should keep Beretta out of magazine reload state")
 	_expect(str(rental.get("kind", "")) == "rental" and int(rental.get("ammo_current", 0)) == 1, "ammo_box should not refill rental firearms")
@@ -170,13 +170,14 @@ func _verify_doping_potion_enhances_commando_pistol() -> void:
 			"active_item_runtime": active_runtime,
 		}
 	)
-	_expect(bool(fire_result.get("shot_queued", false)), "doped commando_pistol input should still queue the delayed shot")
+	_expect(bool(fire_result.get("fired", false)), "doped commando_pistol input should fire immediately")
+	_expect(not bool(fire_result.get("shot_queued", false)), "doped commando_pistol input should not queue a ready shot")
 	_expect(is_equal_approx(float(fire_result.get("cooldown_frames", 0.0)), 15.0), "doping should cut Beretta cooldown below its normal 30-frame cadence")
-	_expect(is_equal_approx(float(fire_result.get("control_lock_frames", 0.0)), 9.0), "doping should use the Python 9-frame pistol control lock")
+	_expect(is_equal_approx(float(fire_result.get("control_lock_frames", -1.0)), 0.0), "doping should not restore Beretta ready-motion lock")
 	_expect(bool(fire_result.get("doping_potion_active", false)), "fire result should expose the active doping flag")
 	var pistol_draw_state: Dictionary = firearm_runtime.get_actor_draw_context().get("commando_firearm_pistol_state", {})
 	_expect(is_equal_approx(float(pistol_draw_state.get("cooldown_max_frames", 0.0)), 15.0), "doped Beretta HUD state should use the 15-frame cooldown max")
-	_expect(is_equal_approx(float(pistol_draw_state.get("control_lock_max_frames", 0.0)), 9.0), "doped pistol HUD state should use the 9-frame lock max")
+	_expect(is_equal_approx(float(pistol_draw_state.get("control_lock_max_frames", -1.0)), 0.0), "doped Beretta HUD state should keep the instant-fire lock max at zero")
 
 	var hit_result: Dictionary = {}
 	var hit_feedbacks: Array = []

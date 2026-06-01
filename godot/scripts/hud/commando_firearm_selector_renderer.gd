@@ -1482,11 +1482,13 @@ func _draw_ak47_ammo_belt(canvas: CanvasItem, rect: Rect2, scale_factor: float, 
 
 
 func _draw_pistol_ammo_icons(canvas: CanvasItem, rect: Rect2, scale_factor: float, state: Dictionary) -> void:
-	var ammo_max: int = clampi(int(state.get("display_slots", 4)), 1, 8)
+	var ammo_max: int = clampi(int(state.get("display_slots", 4)), 1, 12)
 	var filled: int = clampi(int(state.get("filled_slots", 0)), 0, ammo_max)
-	var bullet_scale: float = min(scale_factor * 0.88, rect.size.y / 12.0)
+	var compact: bool = ammo_max > 8
+	var bullet_scale: float = min(scale_factor * (0.72 if compact else 0.88), rect.size.y / 12.0)
 	var bullet_width: float = 5.0 * bullet_scale
-	var bullet_spacing: float = max(7.0 * scale_factor, (rect.size.x - bullet_width) / max(1.0, float(ammo_max - 1)))
+	var minimum_spacing: float = (4.0 if compact else 7.0) * scale_factor
+	var bullet_spacing: float = max(minimum_spacing, (rect.size.x - bullet_width) / max(1.0, float(ammo_max - 1)))
 	var bullet_total_width: float = bullet_width + bullet_spacing * float(ammo_max - 1)
 	var start_x: float = rect.position.x + (rect.size.x - bullet_total_width) * 0.5
 	var bullet_height: float = max(7.0, 11.0 * bullet_scale)

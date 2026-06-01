@@ -214,6 +214,40 @@ static func build_pistol_shot_queued_result(
 	}
 
 
+static func build_pistol_shot_fired_result(
+	weapon_id: String,
+	updated_weapon: Dictionary,
+	fallback_ammo_current: int,
+	ammo_max_default: int,
+	fallback_magazines_current: int,
+	cooldown_frames: float,
+	control_lock_frames: float,
+	fire_delay_frames: float,
+	post_fire_animation_frames: float,
+	doping_context: Dictionary,
+	doping_active: bool,
+	special_gauge: float
+) -> Dictionary:
+	return {
+		"handled": true,
+		"weapon_id": weapon_id,
+		"fired": true,
+		"ammo_current": int(updated_weapon.get("ammo_current", fallback_ammo_current)),
+		"ammo_max": int(updated_weapon.get("ammo_max", ammo_max_default)),
+		"magazines_current": int(updated_weapon.get("magazines_current", fallback_magazines_current)),
+		"magazines_max": int(updated_weapon.get("magazines_max", 0)),
+		"cooldown_frames": cooldown_frames,
+		"control_lock_frames": control_lock_frames,
+		"fire_delay_frames": fire_delay_frames,
+		"post_fire_animation_frames": post_fire_animation_frames,
+		"doping_potion_active": doping_active,
+		"doping_potion_head_leg_multiplier": float(doping_context.get("head_leg_multiplier", 1.0)),
+		"doping_potion_pistol_speed_multiplier": float(doping_context.get("pistol_speed_multiplier", 1.0)),
+		"special_gauge": special_gauge,
+		"skill_gold_award": 0,
+	}
+
+
 static func build_ak47_holding_result(
 	special_gauge: float,
 	fire_interval_frames: float,

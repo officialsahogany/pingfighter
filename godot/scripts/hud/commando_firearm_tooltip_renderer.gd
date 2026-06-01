@@ -130,13 +130,13 @@ func _get_cooldown_seconds(weapon_id: String, skill_config_snapshot: Dictionary)
 func _get_description(weapon_id: String, skill_config_snapshot: Dictionary) -> String:
 	if weapon_id == "pistol":
 		return _pick_language_text(
-			"기본 권총은 4발 탄창을 사용하며 준비음 뒤에 조준 후 발사합니다.",
-			"The basic pistol uses a 4-round magazine and fires after a ready sound and aim delay.",
-			"基础手枪使用4发弹匣，在准备音和瞄准延迟后开火。",
-			"基本拳銃は4発マガジンを使い、準備音と照準遅延の後に発射します。",
-			"La pistola básica usa un cargador de 4 balas y dispara tras el sonido de preparación y la demora de apuntado.",
-			"A pistola básica usa um carregador de 4 balas e dispara após o som de preparo e a demora de mira.",
-			"Базовый пистолет использует магазин на 4 патрона и стреляет после звука готовности и задержки прицеливания."
+			"기본 권총은 5발 탄창을 사용하며 준비음 뒤에 조준 후 발사합니다.",
+			"The basic pistol uses a 5-round magazine and fires after a ready sound and aim delay.",
+			"基础手枪使用5发弹匣，在准备音和瞄准延迟后开火。",
+			"基本拳銃は5発マガジンを使い、準備音と照準遅延の後に発射します。",
+			"La pistola básica usa un cargador de 5 balas y dispara tras el sonido de preparación y la demora de apuntado.",
+			"A pistola básica usa um carregador de 5 balas e dispara após o som de preparo e a demora de mira.",
+			"Базовый пистолет использует магазин на 5 патронов и стреляет после звука готовности и задержки прицеливания."
 		)
 	var skill_data: Dictionary = _get_dict(_get_dict(skill_config_snapshot.get("skill_data", {})).get(weapon_id, {}))
 	var description: String = str(skill_data.get("description", ""))

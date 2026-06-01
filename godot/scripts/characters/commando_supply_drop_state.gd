@@ -74,7 +74,7 @@ const DEFAULT_FIELD_ITEM_DROP_CANDIDATES := [
 	{"item_id": "flare", "weight": 1.0},
 	{"item_id": "spider_mine", "weight": 0.9},
 	{"item_id": "dynamite", "weight": 0.8},
-	{"item_id": "ammo_box", "weight": 0.6},
+	{"item_id": "ammo_box", "weight": 1.0},
 	{"item_id": "doping_potion", "weight": 1.0},
 ]
 const DEFAULT_RENTAL_CANDIDATES := [
@@ -969,11 +969,11 @@ func _get_field_item_drop_candidates(deps: Dictionary) -> Array[Dictionary]:
 	return result
 
 
-func _is_field_item_candidate_available(item_id: String, deps: Dictionary) -> bool:
+func _is_field_item_candidate_available(item_id: String, _deps: Dictionary) -> bool:
 	if item_id == "doping_potion":
 		return true
 	if item_id == "ammo_box":
-		return _has_any_permanent_weapon(deps)
+		return true
 	return true
 
 

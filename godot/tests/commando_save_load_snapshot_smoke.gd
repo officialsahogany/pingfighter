@@ -117,11 +117,11 @@ func _verify_weapon_snapshot_round_trip() -> void:
 	var bazooka: Dictionary = restored.get_weapon_data("bazooka")
 	_expect(not bool(bazooka.get("can_fire", true)), "spent permanent bazooka should remain empty after save/load")
 	var ak47: Dictionary = restored.get_weapon_data("ak47")
-	_expect(int(ak47.get("ammo_current", 0)) == 53, "AK-47 ammo should survive save/load")
+	_expect(int(ak47.get("ammo_current", 0)) == 83, "AK-47 ammo should survive save/load")
 	_expect(is_equal_approx(float(ak47.get("duration_frames", 0.0)), 1380.0), "AK-47 duration should survive save/load")
 	var pistol: Dictionary = restored.get_weapon_data("commando_pistol")
 	_expect(not bool(pistol.get("reloading", false)), "Beretta should not restore a magazine reload state")
-	_expect(int(pistol.get("ammo_current", 0)) == 6, "Beretta ammo should survive save/load")
+	_expect(int(pistol.get("ammo_current", 0)) == 10, "Beretta ammo should survive save/load")
 	_expect(int(pistol.get("magazines_current", -1)) == 0, "Beretta spare magazines should stay disabled after save/load")
 	_expect(is_equal_approx(float(pistol.get("reload_timer_frames", 0.0)), 0.0), "Beretta reload timer should stay disabled after save/load")
 
@@ -131,7 +131,10 @@ func _verify_weapon_snapshot_round_trip() -> void:
 	var next_stage_result: Dictionary = restored.prepare_stage_start(4)
 	_expect(bool(next_stage_result.get("stage_start", false)), "next stage should still run after restore")
 	_expect(not restored.get_weapons().has("net_gun"), "next stage should clear restored older rentals")
-	_expect(bool(restored.get_weapon_data("bazooka").get("can_fire", false)), "next stage should refill restored permanent weapons")
+	_expect(not bool(restored.get_weapon_data("bazooka").get("can_fire", true)), "next stage should preserve restored spent permanent ammo")
+	var next_stage_ak47: Dictionary = restored.get_weapon_data("ak47")
+	_expect(int(next_stage_ak47.get("ammo_current", 0)) == 83, "next stage should preserve restored AK-47 ammo")
+	_expect(is_equal_approx(float(next_stage_ak47.get("duration_frames", 0.0)), 1380.0), "next stage should preserve restored AK-47 durability")
 
 
 func _verify_skill_cooldown_snapshot_round_trip() -> void:

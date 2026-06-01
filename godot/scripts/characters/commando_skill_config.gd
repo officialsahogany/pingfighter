@@ -92,7 +92,7 @@ const SKILL_DATA := {
 		"cost": 0.0,
 		"color": Color(200.0 / 255.0, 180.0 / 255.0, 120.0 / 255.0),
 		"cooldown": 0.0,
-		"description": "권총보다 연사가 2배 빠르고 탄속 20%, 정확도 30%가 향상된 베레타를 사용합니다.\n탄약 8발은 재장전 스킬로만 보충합니다.",
+		"description": "준비동작 없이 즉시 발사되며 권총보다 연사가 2배 빠르고 탄속 20%, 정확도 30%가 향상된 베레타를 사용합니다.\n탄약 12발은 재장전 스킬로만 보충합니다.",
 		"how_to_use": "무기 선택 후 좌클릭 또는 SPACE",
 		"motion_hint": "베레타 발사",
 		"effect_type": "firearm_pistol",
@@ -386,7 +386,7 @@ func _localize_skill_data(data: Dictionary, skill_name: String) -> void:
 			data["motion_hint"] = "Radio, then supply soldier refill"
 		"commando_pistol":
 			data["korean"] = "Beretta"
-			data["description"] = "Use a Beretta with twice the pistol fire rate, 20% faster bullets, and 30% better accuracy. Its 8 rounds are refilled only by Reload."
+			data["description"] = "Use a Beretta that fires instantly with no ready motion, twice the pistol fire rate, 20% faster bullets, and 30% better accuracy. Its 12 rounds are refilled only by Reload."
 			data["how_to_use"] = "Select weapon, then left-click or SPACE"
 			data["motion_hint"] = "Fire Beretta"
 		"bazooka":

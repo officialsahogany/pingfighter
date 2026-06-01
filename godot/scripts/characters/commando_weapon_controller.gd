@@ -4,9 +4,9 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 const BASE_WEAPON := "pistol"
 const PISTOL_ORB_SKILL := "commando_pistol"
-const PISTOL_AMMO_MAX := 4
+const PISTOL_AMMO_MAX := 5
 const PISTOL_RELOAD_FRAMES := 120.0
-const BERETTA_AMMO_MAX := 8
+const BERETTA_AMMO_MAX := 12
 const AK47_AMMO_MAX := 90
 const AK47_DURATION_FRAMES := 1800.0
 const BAZOOKA_AMMO_MAX := 4
@@ -291,18 +291,21 @@ func prepare_stage_start(stage_id: int, force: bool = false) -> Dictionary:
 			"stage": normalized_stage,
 			"removed_rentals": [],
 			"refilled_permanent": [],
+			"refilled_base_weapon": false,
+			"preserved_permanent": permanent_owned.keys().duplicate(),
 		}
 
 	var removed_rentals := remove_stage_rentals(normalized_stage)
-	var refilled_permanent := _refill_all_permanent_to_max()
-	base_weapon_runtime = _get_base_weapon_data(BASE_WEAPON)
+	var refilled_base_weapon := refill_weapon_to_max(BASE_WEAPON)
 	prepared_stage_id = normalized_stage
 	_reconcile_current_weapon()
 	return {
 		"stage_start": true,
 		"stage": normalized_stage,
 		"removed_rentals": removed_rentals,
-		"refilled_permanent": refilled_permanent,
+		"refilled_permanent": [],
+		"refilled_base_weapon": refilled_base_weapon,
+		"preserved_permanent": permanent_owned.keys().duplicate(),
 	}
 
 

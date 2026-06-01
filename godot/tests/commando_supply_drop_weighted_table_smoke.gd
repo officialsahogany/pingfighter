@@ -33,6 +33,7 @@ func _verify_default_field_table_matches_python_supply_pool() -> void:
 	_expect(field_ids == ["grenade", "molotov", "flare", "spider_mine", "dynamite", "ammo_box", "doping_potion"], "default field supply table should match the Python source pool")
 	_expect(not field_ids.has("gauge_charge"), "default field supply table should not include gauge_charge")
 	_expect(CommandoSupplyDropState.DEFAULT_FIELD_ITEM_ID == "grenade", "empty-candidate fallback should stay in the Python supply pool")
+	_expect(is_equal_approx(_get_field_item_weight("ammo_box"), 1.0), "ammo_box weight should keep supply-use drop chance near 20 percent")
 
 
 func _verify_python_drop_timing_patterns() -> void:
@@ -107,6 +108,14 @@ func _activate_supply(supply_state: Object, deps: Dictionary) -> void:
 
 func _get_array(value: Variant) -> Array:
 	return value if value is Array else []
+
+
+func _get_field_item_weight(item_id: String) -> float:
+	for candidate_value in CommandoSupplyDropState.DEFAULT_FIELD_ITEM_DROP_CANDIDATES:
+		var candidate: Dictionary = candidate_value if candidate_value is Dictionary else {}
+		if str(candidate.get("item_id", "")) == item_id:
+			return float(candidate.get("weight", 0.0))
+	return 0.0
 
 
 func _is_between(value: float, min_value: float, max_value: float) -> bool:

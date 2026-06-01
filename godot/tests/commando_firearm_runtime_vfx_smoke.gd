@@ -269,7 +269,7 @@ func _init() -> void:
 	_verify_base_pistol_empty_click_reloads_full_magazine()
 	_verify_base_pistol_uses_input_edges_after_switch()
 	_verify_pistol_side_wall_bounce()
-	_verify_commando_pistol_ammo_empty_and_delayed_fire()
+	_verify_commando_pistol_ammo_empty_and_instant_fire()
 	_verify_weapon_hit_status_profiles()
 	_verify_pistol_headshot_legshot_status_and_gauge()
 	_verify_pistol_hit_gauge_result_handoff()
@@ -807,7 +807,7 @@ func _verify_base_pistol_delayed_fire_runtime() -> void:
 	_expect(str(result.get("weapon_id", "")) == "pistol", "base pistol should preserve the save-compatible pistol id")
 	_expect(is_equal_approx(float(result.get("special_gauge", 0.0)), 100.0), "base pistol should not spend special gauge")
 	_expect(bool(runtime.is_player_control_locked()), "base pistol should apply the original pistol afterdelay lock while drawing")
-	_expect(int(result.get("ammo_current", -1)) == 3, "base pistol should spend one round from the four-round magazine when queued")
+	_expect(int(result.get("ammo_current", -1)) == 4, "base pistol should spend one round from the five-round magazine when queued")
 	_expect(audio.pistol_ready_calls == 1, "base pistol queued shot should play the gun-ready cue before firing")
 	var projectiles: Array = _get_array(runtime.get_actor_draw_context().get("commando_firearm_projectiles", []))
 	_expect(projectiles.is_empty(), "base pistol should wait through the draw/aim animation before creating a projectile")
@@ -922,8 +922,8 @@ func _verify_base_pistol_empty_click_reloads_full_magazine() -> void:
 	}
 	_expect(controller.unlock_permanent_weapon("net_gun", true), "base pistol reload setup should provide another firearm for switch-lock verification")
 	_expect(controller.set_current_weapon("pistol"), "base pistol reload setup should return to the base pistol")
-	for _i in range(4):
-		_expect(bool(controller.consume_current_weapon_ammo(1)), "base pistol setup should be able to empty the four-round magazine")
+	for _i in range(5):
+		_expect(bool(controller.consume_current_weapon_ammo(1)), "base pistol setup should be able to empty the five-round magazine")
 	_expect(int(controller.get_current_weapon_data().get("ammo_current", -1)) == 0, "base pistol setup should leave an empty magazine")
 	var insufficient: Dictionary = runtime.update_input(
 		{"action_pressed": true, "action_just_pressed": true, "action_just_released": false},
@@ -959,18 +959,18 @@ func _verify_base_pistol_empty_click_reloads_full_magazine() -> void:
 		deps
 	)
 	_expect(str(blocked_fire.get("failure_reason", "")) == "pistol_reloading", "base pistol should not fire while its magazine reload is in progress")
-	for _i in range(28):
+	for _i in range(23):
 		runtime.update_input({"action_pressed": false}, 0.0, _fire_config(), deps)
-	_expect(int(controller.get_current_weapon_data().get("reload_display_ammo", -1)) == 0, "base pistol reload should not show the first round before the first quarter")
+	_expect(int(controller.get_current_weapon_data().get("reload_display_ammo", -1)) == 0, "base pistol reload should not show the first round before the first fifth")
 	runtime.update_input({"action_pressed": false}, 0.0, _fire_config(), deps)
 	_expect(int(controller.get_current_weapon_data().get("reload_display_ammo", -1)) == 1, "base pistol reload should add bullets one at a time")
 	_expect(audio.pistol_reload_round_calls == 1, "base pistol reload should play one cue for the first loaded round")
-	for _i in range(90):
+	for _i in range(95):
 		runtime.update_input({"action_pressed": false}, 0.0, _fire_config(), deps)
 	var reloaded_weapon: Dictionary = controller.get_current_weapon_data()
 	_expect(not bool(reloaded_weapon.get("reloading", true)), "base pistol reload should finish after the original 120-frame reload timer")
-	_expect(int(reloaded_weapon.get("ammo_current", -1)) == 4, "base pistol reload should fill the magazine to four rounds after one 150-gauge spend")
-	_expect(audio.pistol_reload_round_calls == 4, "base pistol full reload should play one per-round cue for all four bullets")
+	_expect(int(reloaded_weapon.get("ammo_current", -1)) == 5, "base pistol reload should fill the magazine to five rounds after one 150-gauge spend")
+	_expect(audio.pistol_reload_round_calls == 5, "base pistol full reload should play one per-round cue for all five bullets")
 	_expect(controller.set_current_weapon("net_gun"), "firearm switching should unlock after base pistol reload completes")
 
 
@@ -1067,7 +1067,7 @@ func _verify_pistol_side_wall_bounce() -> void:
 	_expect(int(right_bullet.get("wall_bounces", 0)) == 1, "Commando pistol side-wall bounce should be counted once")
 
 
-func _verify_commando_pistol_ammo_empty_and_delayed_fire() -> void:
+func _verify_commando_pistol_ammo_empty_and_instant_fire() -> void:
 	var setup: Dictionary = _build_setup("commando_pistol")
 	var runtime: Object = setup.get("runtime", null)
 	var controller: Object = setup.get("controller", null)
@@ -1076,23 +1076,16 @@ func _verify_commando_pistol_ammo_empty_and_delayed_fire() -> void:
 	var config: Dictionary = _fire_config()
 
 	var first_queue: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, config, deps)
-	_expect(bool(first_queue.get("shot_queued", false)), "Commando pistol input should queue an aimed shot before the bullet exists")
-	_expect(not bool(first_queue.get("fired", false)), "Commando pistol should not spawn the bullet on the input frame")
-	_expect(int(first_queue.get("ammo_current", -1)) == 7, "Beretta should spend one bullet from the 8-round loaded magazine on input")
+	_expect(bool(first_queue.get("fired", false)), "Commando pistol should fire on the input frame without a ready motion")
+	_expect(not bool(first_queue.get("shot_queued", false)), "Commando pistol input should not queue an aimed shot")
+	_expect(int(first_queue.get("ammo_current", -1)) == 11, "Beretta should spend one bullet from the 12-round loaded magazine on input")
 	_expect(int(first_queue.get("magazines_current", -1)) == 0, "Beretta should not expose spare magazines")
 	_expect(is_equal_approx(float(first_queue.get("cooldown_frames", 0.0)), 30.0), "Beretta should fire twice as fast as the base pistol")
-	_expect(is_equal_approx(float(first_queue.get("control_lock_frames", 0.0)), 18.0), "Commando pistol should expose the Python 18-frame afterdelay")
-	_expect(is_equal_approx(float(first_queue.get("fire_delay_frames", 0.0)), 24.0), "Commando pistol should wait through the draw/aim animation before spawning")
-	_expect(_get_array(runtime.get_actor_draw_context().get("commando_firearm_projectiles", [])).is_empty(), "queued Commando pistol shot should not create a projectile yet")
-	_expect(audio.pistol_ready_calls == 1, "Commando pistol queued shot should play the ready/draw cue")
-
-	for _i in range(23):
-		runtime.update_input({"action_pressed": false}, 500.0, config, deps)
-	_expect(_get_array(runtime.get_actor_draw_context().get("commando_firearm_projectiles", [])).is_empty(), "Commando pistol should still be aiming before the 24-frame release")
-	var delayed_fire: Dictionary = runtime.update_input({"action_pressed": false}, 500.0, config, deps)
-	_expect(bool(delayed_fire.get("fired", false)), "Commando pistol should spawn after the Python draw/aim delay")
+	_expect(is_equal_approx(float(first_queue.get("control_lock_frames", -1.0)), 0.0), "Beretta should not lock movement for a ready motion")
+	_expect(is_equal_approx(float(first_queue.get("fire_delay_frames", -1.0)), 0.0), "Beretta should have no draw/aim delay")
+	_expect(audio.pistol_ready_calls == 0, "Commando pistol instant fire should skip the ready/draw cue")
 	var projectiles: Array = _get_array(runtime.get_actor_draw_context().get("commando_firearm_projectiles", []))
-	_expect(projectiles.size() == 1 and str(_get_dict(projectiles[0]).get("weapon_id", "")) == "commando_pistol", "delayed Commando pistol fire should create the real pistol projectile")
+	_expect(projectiles.size() == 1 and str(_get_dict(projectiles[0]).get("weapon_id", "")) == "commando_pistol", "instant Commando pistol fire should create the real pistol projectile")
 	var pistol_projectile: Dictionary = _get_dict(projectiles[0])
 	_expect(is_equal_approx(_get_vector2(pistol_projectile.get("velocity", Vector2.ZERO), Vector2.ZERO).length(), 30.0), "Beretta bullet should fly 20% faster than the base pistol")
 	_expect(
@@ -1101,16 +1094,16 @@ func _verify_commando_pistol_ammo_empty_and_delayed_fire() -> void:
 	)
 	var shells: Array = _get_array(runtime.get_actor_draw_context().get("commando_firearm_shell_casings", []))
 	_expect(shells.size() == 1 and str(_get_dict(shells[0]).get("weapon_id", "")) == "commando_pistol", "Commando pistol fire should eject a pistol shell casing")
-	_expect(_get_array(audio.fire_calls) == ["commando_pistol"], "Commando pistol gunshot should play on bullet spawn, not on input")
+	_expect(_get_array(audio.fire_calls) == ["commando_pistol"], "Commando pistol gunshot should play immediately on input")
 
 	var blocked: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, config, deps)
 	_expect(bool(blocked.get("fire_failed", false)) and str(blocked.get("failure_reason", "")) == "pistol_cooldown", "Beretta should block repeat input during its faster internal cooldown")
 
 	_wait_pistol_ready(runtime, deps, config)
-	for _shot_index in range(7):
+	for _shot_index in range(11):
 		_queue_and_resolve_pistol_shot(runtime, deps, config)
 		_wait_pistol_ready(runtime, deps, config)
-	_expect(int(controller.get_current_weapon_data().get("ammo_current", -1)) == 0, "eight Beretta shots should empty the 8-round loaded magazine")
+	_expect(int(controller.get_current_weapon_data().get("ammo_current", -1)) == 0, "twelve Beretta shots should empty the 12-round loaded magazine")
 	_expect(int(controller.get_current_weapon_data().get("magazines_current", -1)) == 0, "Beretta should stay without spare magazines after spending bullets")
 
 	var empty_fire: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, config, deps)
@@ -1119,7 +1112,7 @@ func _verify_commando_pistol_ammo_empty_and_delayed_fire() -> void:
 	var empty_weapon: Dictionary = controller.get_current_weapon_data()
 	_expect(not bool(empty_weapon.get("reloading", false)), "empty Beretta should not enter a reload timer")
 	_expect(int(empty_weapon.get("ammo_current", -1)) == 0, "empty Beretta fire input should not refill ammo")
-	_expect(str(empty_weapon.get("ammo_text", "")) == "탄약 0/8", "empty Beretta ammo text should stay ammo-only")
+	_expect(str(empty_weapon.get("ammo_text", "")) == "탄약 0/12", "empty Beretta ammo text should stay ammo-only")
 	_expect(audio.pistol_reload_start_calls == 0, "empty Beretta fire input should not play a reload-start cue")
 	_expect(audio.pistol_reload_round_calls == 0, "empty Beretta fire input should not play reload-round cues")
 
@@ -2042,12 +2035,9 @@ func _verify_stage1_renderer_context_reader() -> void:
 
 func _queue_and_resolve_pistol_shot(runtime: Object, deps: Dictionary, config: Dictionary) -> Dictionary:
 	var queued: Dictionary = runtime.update_input({"action_pressed": true}, 500.0, config, deps)
-	_expect(bool(queued.get("shot_queued", false)), "Commando pistol helper should queue a ready shot")
-	var result: Dictionary = {}
-	for _i in range(24):
-		result = runtime.update_input({"action_pressed": false}, 500.0, config, deps)
-	_expect(bool(result.get("fired", false)), "Commando pistol helper should resolve the delayed shot")
-	return result
+	_expect(bool(queued.get("fired", false)), "Commando pistol helper should fire immediately")
+	_expect(not bool(queued.get("shot_queued", false)), "Commando pistol helper should not queue a ready shot")
+	return queued
 
 
 func _wait_pistol_ready(runtime: Object, deps: Dictionary, config: Dictionary) -> void:

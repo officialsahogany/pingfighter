@@ -35,7 +35,7 @@ func _init() -> void:
 	_verify_late_firearm_python_ammo_counts()
 	_verify_firearm_runtime_consumes_after_readiness()
 	_verify_serve_wait_input_does_not_fire_firearms()
-	_verify_commando_pistol_afterdelay_locks_horizontal_input()
+	_verify_commando_pistol_instant_fire_keeps_horizontal_input()
 	_verify_ak47_hold_fire_slows_horizontal_movement()
 	_verify_supply_drop_grants_one_rental_weapon()
 	_verify_stage_boundary_weapon_policy()
@@ -147,10 +147,12 @@ func _verify_stage_boundary_weapon_policy() -> void:
 
 	var stage_one_result: Dictionary = controller.prepare_stage_start(1)
 	_expect(bool(stage_one_result.get("stage_start", false)), "first stage-start preparation should run once")
-	_expect(bool(controller.get_weapon_data("bazooka").get("can_fire", false)), "stage start should refill permanent firearms")
+	_expect(_get_array(stage_one_result.get("refilled_permanent", [])).is_empty(), "stage start should not report free permanent firearm refills")
+	_expect(not bool(controller.get_weapon_data("bazooka").get("can_fire", true)), "stage start should preserve spent permanent firearm ammo")
 	_expect(controller.get_weapons().has("ak47"), "same-stage rental should survive stage-start preparation")
 
-	_spend_current_weapon_ammo(controller, 4, "bazooka should spend all ammo again after stage refill")
+	_expect(controller.refill_weapon_to_max("bazooka"), "explicit Commando reload should still refill permanent firearms")
+	_spend_current_weapon_ammo(controller, 4, "bazooka should spend all ammo again after explicit reload")
 	var same_stage_result: Dictionary = controller.prepare_stage_start(1)
 	_expect(not bool(same_stage_result.get("stage_start", true)), "same stage should not keep refilling permanent firearms")
 	_expect(not bool(controller.get_weapon_data("bazooka").get("can_fire", true)), "same-stage preparation should leave spent permanent ammo alone")
@@ -159,7 +161,17 @@ func _verify_stage_boundary_weapon_policy() -> void:
 	_expect(bool(next_stage_result.get("stage_start", false)), "next stage preparation should run on stage change")
 	_expect(_get_array(next_stage_result.get("removed_rentals", [])).has("ak47"), "next stage should report removed rentals")
 	_expect(not controller.get_weapons().has("ak47"), "next stage should clear older rentals")
-	_expect(bool(controller.get_weapon_data("bazooka").get("can_fire", false)), "next stage should refill permanent firearms again")
+	_expect(not bool(controller.get_weapon_data("bazooka").get("can_fire", true)), "next stage should preserve spent permanent firearm ammo")
+
+	var base_controller := CommandoWeaponController.new()
+	_spend_current_weapon_ammo(base_controller, 3, "base pistol should spend ammo before stage transition")
+	_expect(base_controller.start_current_weapon_reload(), "base pistol should enter reload before stage transition")
+	var base_stage_result: Dictionary = base_controller.prepare_stage_start(2)
+	var base_weapon: Dictionary = base_controller.get_current_weapon_data()
+	_expect(_get_array(base_stage_result.get("refilled_permanent", [])).is_empty(), "stage transition should not report a base pistol refill")
+	_expect(bool(base_stage_result.get("refilled_base_weapon", false)), "stage transition should report the base pistol refill separately")
+	_expect(int(base_weapon.get("ammo_current", -1)) == 5, "stage transition should refill only the base pistol ammo")
+	_expect(not bool(base_weapon.get("reloading", true)), "stage transition should finish the base pistol refill state")
 
 
 func _verify_firearm_runtime_consumes_after_readiness() -> void:
@@ -205,7 +217,7 @@ func _verify_serve_wait_input_does_not_fire_firearms() -> void:
 		pistol_deps
 	)
 	_expect(serve_press.is_empty(), "serve-wait launch input should not queue the base pistol")
-	_expect(int(pistol_controller.get_current_weapon_data().get("ammo_current", -1)) == 4, "serve-wait base pistol input should not spend ammo")
+	_expect(int(pistol_controller.get_current_weapon_data().get("ammo_current", -1)) == 5, "serve-wait base pistol input should not spend ammo")
 	pistol_round.waiting_for_serve = false
 	var held_after_serve: Dictionary = pistol_runtime.update_input(
 		{"action_pressed": true, "action_just_pressed": false},
@@ -214,7 +226,7 @@ func _verify_serve_wait_input_does_not_fire_firearms() -> void:
 		pistol_deps
 	)
 	_expect(held_after_serve.is_empty(), "held serve input should stay suppressed after launch until release")
-	_expect(int(pistol_controller.get_current_weapon_data().get("ammo_current", -1)) == 4, "held serve input should still preserve base pistol ammo")
+	_expect(int(pistol_controller.get_current_weapon_data().get("ammo_current", -1)) == 5, "held serve input should still preserve base pistol ammo")
 	pistol_runtime.update_input({"action_pressed": false, "action_just_released": true}, 500.0, {}, pistol_deps)
 	var fresh_pistol_press: Dictionary = pistol_runtime.update_input(
 		{"action_pressed": true, "action_just_pressed": true},
@@ -267,16 +279,16 @@ func _verify_serve_wait_input_does_not_fire_firearms() -> void:
 	_expect(int(ak_controller.get_current_weapon_data().get("ammo_current", -1)) == 89, "fresh AK-47 press should spend exactly one bullet")
 
 
-func _verify_commando_pistol_afterdelay_locks_horizontal_input() -> void:
+func _verify_commando_pistol_instant_fire_keeps_horizontal_input() -> void:
 	var player := CommandoPlayerController.new()
 	var config := CommandoSkillConfig.new()
 	var skill_state := CommandoSkillState.new()
 	var weapon_controller := CommandoWeaponController.new()
 	var runtime := CommandoFirearmRuntime.new()
 	var input_reader := FakeInputReader.new()
-	_expect(config.unlock_and_equip_skill("commando_pistol"), "Commando pistol should unlock for afterdelay movement lock")
+	_expect(config.unlock_and_equip_skill("commando_pistol"), "Commando pistol should unlock for instant-fire movement smoke")
 	weapon_controller.sync_equipped_permanent(config)
-	_expect(weapon_controller.set_current_weapon("commando_pistol"), "Commando pistol should be selected for afterdelay movement lock")
+	_expect(weapon_controller.set_current_weapon("commando_pistol"), "Commando pistol should be selected for instant-fire movement smoke")
 	input_reader.snapshot = {
 		"action_pressed": true,
 		"right_pressed": true,
@@ -307,10 +319,10 @@ func _verify_commando_pistol_afterdelay_locks_horizontal_input() -> void:
 		deps
 	)
 	var moved_pos: Vector2 = _get_vector2(result.get("player_pos", Vector2.ZERO), Vector2.ZERO)
-	_expect(is_equal_approx(moved_pos.x, 100.0), "Commando pistol 18-frame afterdelay should lock horizontal movement on the shot frame")
-	_expect(is_equal_approx(float(result.get("player_speed", -1.0)), 0.0), "Commando pistol afterdelay should zero normal movement speed")
-	_expect(bool(runtime.is_player_control_locked()), "Commando pistol runtime should expose active control lock")
-	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 7, "afterdelay movement lock shot should still spend one pistol bullet")
+	_expect(moved_pos.x > 100.0, "Commando pistol instant fire should not lock horizontal movement on the shot frame")
+	_expect(float(result.get("player_speed", 0.0)) > 0.0, "Commando pistol instant fire should keep normal movement speed")
+	_expect(not bool(runtime.is_player_control_locked()), "Commando pistol runtime should not expose a ready-motion control lock")
+	_expect(int(weapon_controller.get_current_weapon_data().get("ammo_current", -1)) == 11, "instant-fire shot should still spend one pistol bullet")
 
 
 func _verify_ak47_hold_fire_slows_horizontal_movement() -> void:
@@ -418,15 +430,16 @@ func _verify_player_controller_stage_boundary_integration() -> void:
 		"commando_weapon_controller": controller,
 	}
 	_update_player_for_stage(player, deps, 1)
-	_expect(bool(controller.get_weapon_data("bazooka").get("can_fire", false)), "Commando player update should prepare and refill the current stage once")
+	_expect(not bool(controller.get_weapon_data("bazooka").get("can_fire", true)), "Commando player update should prepare the current stage without free firearm ammo")
 	_expect(controller.get_weapons().has("ak47"), "Commando player update should keep same-stage rentals")
 
-	_spend_current_weapon_ammo(controller, 4, "bazooka should spend all ammo after player-driven stage preparation")
+	_expect(controller.refill_weapon_to_max("bazooka"), "explicit reload should still refill after player-driven stage preparation")
+	_spend_current_weapon_ammo(controller, 4, "bazooka should spend all ammo after explicit reload")
 	_update_player_for_stage(player, deps, 1)
 	_expect(not bool(controller.get_weapon_data("bazooka").get("can_fire", true)), "Commando player update should not refill repeatedly inside the same stage")
 
 	_update_player_for_stage(player, deps, 2)
-	_expect(bool(controller.get_weapon_data("bazooka").get("can_fire", false)), "Commando player update should refill when the stage changes")
+	_expect(not bool(controller.get_weapon_data("bazooka").get("can_fire", true)), "Commando player update should preserve spent ammo when the stage changes")
 	_expect(not controller.get_weapons().has("ak47"), "Commando player update should clear older rentals on stage change")
 
 
