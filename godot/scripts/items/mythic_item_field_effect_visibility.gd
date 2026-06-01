@@ -27,8 +27,6 @@ func has_visible_field_effects(runtime: Object, ragnarok_impact_duration: float)
 		return true
 	if runtime.revival_runtime.is_effect_active(runtime):
 		return true
-	if runtime.yachaman_soul_runtime.has_visible_effects(runtime):
-		return true
 	if runtime.sensor_auto_dash_effect_timer_frames > 0.0:
 		return true
 	if runtime.venom_mist_field_active or not runtime.venom_mist_particles.is_empty():

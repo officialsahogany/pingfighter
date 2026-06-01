@@ -224,18 +224,6 @@ const DOWSING_GOGGLES_ROLL_OPTIONS := [
 	},
 ]
 
-const YACHAMAN_SOUL_ROLL_OPTIONS := [
-	{
-		"key": "activation_chance_pct",
-		"label": "변신 부활 확률",
-		"min": 50.0,
-		"max": 80.0,
-		"step": 1.0,
-		"unit": "%",
-		"default": 65.0,
-	},
-]
-
 const SPEEDBOOTS_ROLL_OPTIONS := [
 	{
 		"key": "speed_bonus_pct",
@@ -794,7 +782,6 @@ const ITEM_ROLL_OPTIONS := {
 	"horn_strawberry_mask": HORN_STRAWBERRY_MASK_ROLL_OPTIONS,
 	"dowsing_pendulum": DOWSING_PENDULUM_ROLL_OPTIONS,
 	"dowsing_goggles": DOWSING_GOGGLES_ROLL_OPTIONS,
-	"yachaman_soul": YACHAMAN_SOUL_ROLL_OPTIONS,
 	"speedboots": SPEEDBOOTS_ROLL_OPTIONS,
 	"sensor": SENSOR_ROLL_OPTIONS,
 	"slot_add": SLOT_ADD_ROLL_OPTIONS,

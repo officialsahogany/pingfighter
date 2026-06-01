@@ -317,8 +317,6 @@ func apply(
 			"horn_strawberry_horn_charge_consumed",
 			"horn_strawberry_bomb_hit",
 			"horn_strawberry_bomb_consumed",
-			"yachaman_bomb_hit",
-			"yachaman_bomb_consumed",
 			"suppress_paddle_hit_knockback",
 			"boss_status_immune",
 		]:

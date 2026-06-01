@@ -8,7 +8,6 @@ const FIELD_SPAWN_ORDER := [
 	"spikeboots",
 	"dowsing_pendulum",
 	"dowsing_goggles",
-	"yachaman_soul",
 	"slot_add",
 	"chargebag",
 	"battery",

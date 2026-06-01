@@ -52,13 +52,6 @@ func sync_owner(runtime: Object, owner: Object, registry: Object, constants: Dic
 	owner.set("revival_used", runtime.revival_state.used)
 	owner.set("revival_effect_active", runtime.is_revival_effect_active())
 	owner.set("revival_last_loss_type", runtime.revival_state.last_loss_type)
-	owner.set("yachaman_soul_equipped", runtime.is_yachaman_soul_equipped())
-	owner.set("yachaman_transformed", runtime.is_yachaman_transformed())
-	owner.set("yachaman_event_playing", runtime.is_yachaman_event_playing())
-	owner.set("yachaman_skills_locked", runtime.is_yachaman_skills_locked())
-	owner.set("yachaman_control_locked", runtime.is_yachaman_control_locked())
-	owner.set("yachaman_activation_chance_pct", runtime.get_yachaman_activation_chance_pct())
-	owner.set("yachaman_context", runtime.get_yachaman_context())
 	owner.set("sensor_equipped", runtime.is_sensor_equipped())
 	owner.set("sensor_enabled", runtime.sensor_enabled)
 	owner.set("sensor_ready", runtime.is_sensor_auto_dash_ready())
@@ -297,7 +290,6 @@ func sync_transient_owner_state(runtime: Object, owner: Object) -> void:
 	var shrapnel_context: Dictionary = runtime.get_shrapnel_armor_context()
 	var poseidon_context: Dictionary = runtime.get_poseidon_context()
 	var horn_strawberry_context: Dictionary = runtime.get_horn_strawberry_context()
-	var yachaman_context: Dictionary = runtime.get_yachaman_context()
 
 	state_changed = _put_state_if_changed(state, "megingjord_activation_active", runtime.is_activation_effect_active()) or state_changed
 	state_changed = _put_state_if_changed(state, "revival_effect_active", runtime.is_revival_effect_active()) or state_changed
@@ -353,10 +345,6 @@ func sync_transient_owner_state(runtime: Object, owner: Object) -> void:
 	state_changed = _put_state_if_changed(state, "horn_strawberry_transformed", runtime.is_horn_strawberry_transformed()) or state_changed
 	state_changed = _put_state_if_changed(state, "horn_strawberry_event_playing", runtime.is_horn_strawberry_event_playing()) or state_changed
 	state_changed = _put_state_if_changed(state, "horn_strawberry_context", horn_strawberry_context) or state_changed
-	state_changed = _put_state_if_changed(state, "yachaman_soul_equipped", runtime.is_yachaman_soul_equipped()) or state_changed
-	state_changed = _put_state_if_changed(state, "yachaman_transformed", runtime.is_yachaman_transformed()) or state_changed
-	state_changed = _put_state_if_changed(state, "yachaman_event_playing", runtime.is_yachaman_event_playing()) or state_changed
-	state_changed = _put_state_if_changed(state, "yachaman_context", yachaman_context) or state_changed
 
 	if state_changed:
 		owner.set("mythic_item_state", state)
@@ -386,12 +374,6 @@ func sync_transient_owner_state(runtime: Object, owner: Object) -> void:
 	_set_owner_if_changed(owner, runtime, "horn_strawberry_skills_locked", runtime.is_horn_strawberry_skills_locked())
 	_set_owner_if_changed(owner, runtime, "horn_strawberry_control_locked", runtime.is_horn_strawberry_control_locked())
 	_set_owner_if_changed(owner, runtime, "horn_strawberry_context", horn_strawberry_context)
-	_set_owner_if_changed(owner, runtime, "yachaman_soul_equipped", runtime.is_yachaman_soul_equipped())
-	_set_owner_if_changed(owner, runtime, "yachaman_transformed", runtime.is_yachaman_transformed())
-	_set_owner_if_changed(owner, runtime, "yachaman_event_playing", runtime.is_yachaman_event_playing())
-	_set_owner_if_changed(owner, runtime, "yachaman_skills_locked", runtime.is_yachaman_skills_locked())
-	_set_owner_if_changed(owner, runtime, "yachaman_control_locked", runtime.is_yachaman_control_locked())
-	_set_owner_if_changed(owner, runtime, "yachaman_context", yachaman_context)
 	_set_owner_if_changed(owner, runtime, "venom_mist_field_active", runtime.venom_mist_field_active)
 	_set_owner_if_changed(owner, runtime, "venom_mist_field_center", runtime.venom_mist_center)
 	_set_owner_if_changed(owner, runtime, "venom_mist_field_timer_frames", runtime.venom_mist_timer_frames)

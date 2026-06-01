@@ -38,7 +38,6 @@ const ITEM_HERMES_SHOES := "hermes_shoes"
 const ITEM_POSEIDON_TRIDENT := "poseidon_trident"
 const ITEM_HEAVENLY_CAPE := "heavenly_cape"
 const ITEM_HORN_STRAWBERRY_MASK := "horn_strawberry_mask"
-const ITEM_YACHAMAN_SOUL := "yachaman_soul"
 const ITEM_CELESTIAL_ARMOR := "celestial_armor"
 const ITEM_BAAL_BOOTS := "baal_boots"
 const ARM_SLOT_KEYS := ["left_arm", "right_arm"]
@@ -131,7 +130,6 @@ const CONTEXT_CONSTANTS := {
 	"item_dowsing_goggles": ITEM_DOWSING_GOGGLES,
 	"item_hermes_shoes": ITEM_HERMES_SHOES,
 	"item_horn_strawberry_mask": ITEM_HORN_STRAWBERRY_MASK,
-	"item_yachaman_soul": ITEM_YACHAMAN_SOUL,
 	"item_megingjord": ITEM_MEGINGJORD,
 	"item_poseidon_trident": ITEM_POSEIDON_TRIDENT,
 	"item_ragnarok_hammer": ITEM_RAGNAROK_HAMMER,
@@ -386,9 +384,6 @@ var shrapnel_armor_boss_stun_timer_frames := 0.0
 var shrapnel_armor_last_proc_shard_count := 0
 var shrapnel_armor_last_gauge_cost := 0.0
 var revival_runtime: Object = null
-var yachaman_soul_runtime: Object = null
-var yachaman_soul_state: Object = null
-var yachaman_soul_effect_renderer: Object = null
 var celestial_armor_runtime: Object = null
 var celestial_armor_state: Object = null
 var heavenly_cape_runtime: Object = null
@@ -1652,7 +1647,6 @@ func try_queue_adversity_armor_after_loss(deps: Dictionary = {}) -> bool:
 
 func on_round_start(owner: Object, registry: Object = null) -> void:
 	_ensure_helpers_ready()
-	yachaman_soul_runtime.reset_round(self)
 	horn_strawberry_mask_runtime.reset_round(self)
 	adversity_armor_runtime.on_round_start(self, owner, registry)
 	if owner != null:
@@ -1774,71 +1768,6 @@ func is_revival_effect_active() -> bool:
 func try_trigger_revival(loss_type: String = "round", context: Dictionary = {}) -> bool:
 	_ensure_helpers_ready()
 	return revival_runtime.try_trigger(self, loss_type, context, CONTEXT_CONSTANTS)
-
-
-func is_yachaman_soul_equipped() -> bool:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.is_equipped(self)
-
-
-func is_yachaman_transformed() -> bool:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.is_transformed(self)
-
-
-func is_yachaman_event_playing() -> bool:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.is_event_playing(self)
-
-
-func is_yachaman_skills_locked() -> bool:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.is_skills_locked(self)
-
-
-func is_yachaman_control_locked() -> bool:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.is_control_locked(self)
-
-
-func get_yachaman_activation_chance_pct() -> float:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.get_activation_chance_pct(self)
-
-
-func get_yachaman_move_speed() -> Variant:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.get_move_speed(self)
-
-
-func get_yachaman_paddle_size_multiplier() -> float:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.get_paddle_size_multiplier(self)
-
-
-func get_yachaman_context() -> Dictionary:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.get_context(self)
-
-
-func try_trigger_yachaman_revival(loss_type: String = "round", context: Dictionary = {}) -> bool:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.try_trigger_revival(self, loss_type, context)
-
-
-func consume_yachaman_revival_reset_ready() -> bool:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.consume_reset_ready(self)
-
-
-func consume_yachaman_bomb_boss_hit(
-	ball_pos: Vector2,
-	ball_vel: Vector2,
-	context: Dictionary = {},
-	deps: Dictionary = {}
-) -> Dictionary:
-	_ensure_helpers_ready()
-	return yachaman_soul_runtime.consume_bomb_boss_hit(self, ball_pos, ball_vel, context, deps)
 
 
 func is_gold_digger_equipped() -> bool:

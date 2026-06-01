@@ -138,16 +138,6 @@ func apply(
 		)
 		if horn_strawberry_result.has("boss_vel"):
 			boss_vel_override = float(horn_strawberry_result.get("boss_vel", boss_vel_override))
-	var yachaman_bomb_result: Dictionary = {}
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("consume_yachaman_bomb_boss_hit"):
-		yachaman_bomb_result = mythic_item_runtime.consume_yachaman_bomb_boss_hit(
-			next_ball_pos,
-			next_ball_vel,
-			context,
-			deps
-		)
-		if yachaman_bomb_result.has("boss_vel"):
-			boss_vel_override = float(yachaman_bomb_result.get("boss_vel", boss_vel_override))
 
 	var bowling_guard_result: Dictionary = _consume_commando_bowling_trap_guard_hit(
 		next_ball_pos,
@@ -197,10 +187,6 @@ func apply(
 		for key in horn_strawberry_result.keys():
 			if key != "boss_vel":
 				result[key] = horn_strawberry_result[key]
-	if not yachaman_bomb_result.is_empty():
-		for key in yachaman_bomb_result.keys():
-			if key != "boss_vel":
-				result[key] = yachaman_bomb_result[key]
 	if not suicide_drone_boost_result.is_empty():
 		for key in suicide_drone_boost_result.keys():
 			if key != "ball_vel":

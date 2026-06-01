@@ -25,7 +25,6 @@ func update(
 	runtime.soul_burst_runtime.update_runtime(runtime, fps_scale)
 	runtime.foul_whistle_runtime.update_runtime(runtime, fps_scale)
 	runtime.revival_runtime.update_runtime(runtime, fps_scale)
-	runtime.yachaman_soul_runtime.update(runtime, owner, registry, fps_scale)
 	runtime.auto_defense_runtime.update_sensor_runtime(runtime, fps_scale)
 	runtime.venom_mist_runtime.update_runtime(runtime, owner, registry, fps_scale)
 	runtime.rainbow_fur_glove_runtime.update_runtime(runtime, fps_scale)

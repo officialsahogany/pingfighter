@@ -57,15 +57,6 @@ func apply_player_movement_config(runtime: Object, config: Dictionary) -> void:
 		var move_speed: float = float(runtime.get_horn_strawberry_move_speed())
 		config["paddle_speed"] = move_speed
 		config["paddle_max_speed"] = move_speed
-	if runtime.is_yachaman_control_locked():
-		config["player_skill_input_locked"] = true
-		config["horizontal_input_locked"] = true
-	elif runtime.is_yachaman_skills_locked():
-		config["player_skill_input_locked"] = true
-	if runtime.is_yachaman_transformed():
-		var yachaman_speed: float = float(runtime.get_yachaman_move_speed())
-		config["paddle_speed"] = yachaman_speed
-		config["paddle_max_speed"] = yachaman_speed
 
 
 func get_player_speed_multiplier(runtime: Object, baal_boots_constants: Dictionary) -> float:
@@ -95,8 +86,7 @@ func get_player_paddle_scale(runtime: Object) -> float:
 		- runtime.get_sage_ring_body_penalty_pct() / 100.0
 	)
 	var horn_strawberry_scale: float = 1.0 + max(0.0, runtime.get_horn_strawberry_paddle_size_bonus_pct())
-	var yachaman_scale: float = runtime.get_yachaman_paddle_size_multiplier()
-	return max(0.1, equipment_scale * horn_strawberry_scale * yachaman_scale)
+	return max(0.1, equipment_scale * horn_strawberry_scale)
 
 
 func get_player_paddle_width(runtime: Object, base_width: float) -> float:

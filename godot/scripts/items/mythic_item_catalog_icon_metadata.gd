@@ -21,7 +21,6 @@ const ITEM_ICON_PATHS := {
 	"elixir_of_mastery": "res://assets/sprites/items/elixir_of_mastery.png",
 	"dowsing_pendulum": "res://assets/sprites/items/dowsing_pendulum.png",
 	"dowsing_goggles": "res://assets/sprites/items/dowsing_goggles.png",
-	"yachaman_soul": "res://assets/sprites/items/yachaman_soul.png",
 	"speedboots": "res://assets/sprites/items/speedboots.png",
 	"speedgear": "res://assets/sprites/items/speedgear.png",
 	"gravitybelt": "res://assets/sprites/items/gravitybelt.png",

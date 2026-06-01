@@ -659,7 +659,6 @@ func _is_original_skill_blocked(deps: Dictionary) -> bool:
 func _is_transform_skill_blocked(deps: Dictionary) -> bool:
 	for key in [
 		"odins_eye_transformed",
-		"yachaman_transformed",
 		"horn_strawberry_transformed",
 		"commando_transformed",
 		"character_transformed",
@@ -671,7 +670,6 @@ func _is_transform_skill_blocked(deps: Dictionary) -> bool:
 		var source: Object = deps.get(source_key, null)
 		if _object_reports_any_true(source, [
 			"is_odins_eye_transformed",
-			"is_yachaman_transformed",
 			"is_horn_strawberry_transformed",
 			"is_original_skill_transform_active",
 		]):
