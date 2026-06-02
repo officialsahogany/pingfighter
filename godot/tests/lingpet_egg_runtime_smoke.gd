@@ -655,9 +655,11 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# (idle is derived from the same sheet). Seal the asset + grid spec so a
 	# future PNG swap or grid change cannot silently desync the frame math.
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_walk.png"), "Maribo companion should use a PNG-backed back-view walk sheet")
-	_expect(runtime_source.find("MARIBO_COMPANION_WALK_SHEET") >= 0, "companion rendering should reference the walk-sheet texture")
+	_expect(runtime_source.find("MARIBO_COMPANION_WALK_SHEET") < 0, "companion rendering should no longer hard-preload a Maribo walk fallback")
 	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
-	_expect(draw_context_source.find("companion_walk") >= 0, "companion draw context should resolve walk visuals through the catalog with a Maribo fallback")
+	_expect(draw_context_source.find("companion_walk") >= 0, "companion draw context should resolve walk visuals through the current lingpet catalog profile")
+	_expect(runtime_source.find("\"walk_fallback\"") < 0, "runtime draw config should not pass a Maribo walk fallback after catalog-profile wiring")
+	_expect(draw_context_source.find("walk_fallback") < 0, "companion draw context should not accept a legacy walk fallback parameter")
 	_expect(runtime_source.find("lingpet_companion_renderer.gd") >= 0, "egg runtime should delegate companion sprite drawing to the companion renderer")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_renderer.gd"), "companion renderer module should exist")
 	var companion_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
@@ -681,8 +683,10 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 		_expect(frames <= cols * rows, "declared frame count must fit the walk-sheet grid")
 	# Ball-hit strike sheet (same 5x5/25 grid) played on companion ball contact.
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_strike.png"), "Maribo companion should have a back-view ball-hit strike sheet")
-	_expect(runtime_source.find("MARIBO_COMPANION_STRIKE_SHEET") >= 0, "companion rendering should reference the strike sheet")
-	_expect(draw_context_source.find("companion_strike") >= 0, "companion draw context should resolve strike visuals through the catalog with a Maribo fallback")
+	_expect(runtime_source.find("MARIBO_COMPANION_STRIKE_SHEET") < 0, "companion rendering should no longer hard-preload a Maribo strike fallback")
+	_expect(draw_context_source.find("companion_strike") >= 0, "companion draw context should resolve strike visuals through the current lingpet catalog profile")
+	_expect(runtime_source.find("\"strike_fallback\"") < 0, "runtime draw config should not pass a Maribo strike fallback after catalog-profile wiring")
+	_expect(draw_context_source.find("strike_fallback") < 0, "companion draw context should not accept a legacy strike fallback parameter")
 	_expect(sprite_animator_source.find("get_strike_frame") >= 0, "companion sprite animator should map the strike timer to sheet frames")
 	# Impact-synced reaction: the ball-hit must seed the SHORT residual so the
 	# thrust/apex frame renders at contact, NOT the full duration (which replayed
@@ -697,8 +701,10 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 		_expect(strike_sheet.get_width() % 5 == 0 and strike_sheet.get_height() % 5 == 0, "strike sheet must divide evenly into the 5x5 grid")
 	# Hydro-cast wind-up sheet (telegraphed spear throw before the projectile launches).
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png"), "Maribo companion should have a back-view hydro-cast wind-up sheet")
-	_expect(runtime_source.find("MARIBO_COMPANION_HYDRO_CAST_SHEET") >= 0, "companion rendering should reference the hydro-cast wind-up sheet")
-	_expect(draw_context_source.find("companion_cast") >= 0, "companion draw context should resolve cast visuals through the catalog with a Maribo fallback")
+	_expect(runtime_source.find("MARIBO_COMPANION_HYDRO_CAST_SHEET") < 0, "companion rendering should no longer hard-preload a Maribo cast fallback")
+	_expect(draw_context_source.find("companion_cast") >= 0, "companion draw context should resolve cast visuals through the current lingpet catalog profile")
+	_expect(runtime_source.find("\"cast_fallback\"") < 0, "runtime draw config should not pass a Maribo cast fallback after catalog-profile wiring")
+	_expect(draw_context_source.find("cast_fallback") < 0, "companion draw context should not accept a legacy cast fallback parameter")
 	_expect(sprite_animator_source.find("get_cast_frame") >= 0, "companion sprite animator should map the wind-up timer to cast sheet frames")
 	_expect(runtime_source.find("COMPANION_SKILL_WINDUP_SECONDS") >= 0, "Hydro Sphere should declare a wind-up duration before launch")
 	var cast_sheet: Texture2D = load("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png") as Texture2D

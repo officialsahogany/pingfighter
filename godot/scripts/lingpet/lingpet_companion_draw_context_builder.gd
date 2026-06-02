@@ -34,9 +34,9 @@ func build_config(params: Dictionary) -> Dictionary:
 		"casting_windup": casting_windup,
 		"attacking": attacking,
 		"companion_visible": bool(params.get("companion_visible", true)),
-		"walk_texture": _get_visual_texture(current_profile, "companion_walk", params.get("walk_fallback", null) as Texture2D),
-		"strike_texture": _get_visual_texture(current_profile, "companion_strike", params.get("strike_fallback", null) as Texture2D),
-		"cast_texture": _get_visual_texture(current_profile, "companion_cast", params.get("cast_fallback", null) as Texture2D),
+		"walk_texture": _get_visual_texture(current_profile, "companion_walk"),
+		"strike_texture": _get_visual_texture(current_profile, "companion_strike"),
+		"cast_texture": _get_visual_texture(current_profile, "companion_cast"),
 		"motion_speed_ratio": clampf(_get_float(params.get("motion_speed_ratio", 0.0)), 0.0, 1.0),
 	}
 
@@ -71,10 +71,10 @@ func _get_trigger_count(state: Object, property_name: String = "trigger_count") 
 	return int(state.get(property_name))
 
 
-func _get_visual_texture(current_profile: Object, visual_key: String, fallback: Texture2D) -> Texture2D:
+func _get_visual_texture(current_profile: Object, visual_key: String) -> Texture2D:
 	if current_profile == null:
-		return fallback
-	return current_profile.get_visual_texture(visual_key, fallback)
+		return null
+	return current_profile.get_visual_texture(visual_key, null)
 
 
 func _get_float(value: Variant) -> float:

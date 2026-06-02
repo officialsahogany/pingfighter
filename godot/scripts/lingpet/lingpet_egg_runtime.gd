@@ -22,21 +22,8 @@ const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_ru
 const LINGPET_EGG_TEXTURE := preload("res://assets/sprites/lingpet/maribo_egg_v002.png")
 const LINGPET_EGG_TEXTURE_CRACK_1 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png")
 const LINGPET_EGG_TEXTURE_CRACK_2 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack2.png")
-# AutoSprite back-view walk sheet (player-side view). Runtime-ready 640x640 PNG,
-# 5 cols x 5 rows = 25 frames, 128px cells. Source provenance:
-# godot/lingpet/maribo/maribo_walk_back_autosprite_v001.png (256px native cells).
-# Idle is DERIVED from this sheet (no separate idle asset): the patrol-paused
-# state holds the animator's idle frame and the breathing bob is code-driven.
-const MARIBO_COMPANION_WALK_SHEET := preload("res://assets/sprites/lingpet/maribo_companion_walk.png")
-# Back-view ball-hit strike (AutoSprite animate_asset one-shot, same 5x5/25 grid
-# as the walk sheet). Started anticipatorily before contact by
-# LingpetCompanionStrikeAnticipator, overriding walk/idle while playing.
-const MARIBO_COMPANION_STRIKE_SHEET := preload("res://assets/sprites/lingpet/maribo_companion_strike.png")
-# Back-view hydro-spear cast wind-up (AutoSprite animate_asset, same 5x5/25 grid).
-# Played while _companion_skill_state.windup_active over the active skill's
-# catalog windup_seconds; the final frame (throw release) lands as the
-# projectile launches.
-const MARIBO_COMPANION_HYDRO_CAST_SHEET := preload("res://assets/sprites/lingpet/maribo_companion_hydro_cast.png")
+# Companion walk/strike/cast sheets are resolved through LingpetCurrentProfile,
+# which routes every visual key through the catalog-backed visual texture cache.
 
 const PET_ID := LingpetCurrentProfile.DEFAULT_PET_ID
 const STATE_NONE := "none"
@@ -45,7 +32,6 @@ const STATE_COMPANION := "companion"
 const REQUIRED_HITS := 2
 const BALL_RADIUS_FALLBACK := 14.3
 const SAVE_SNAPSHOT_VERSION := 1
-const MARIBO_GAUGE_GAIN_BONUS_PCT := 10.0
 const COMPANION_RADIUS := 16.0
 # Anticipatory strike helper mirrors player/boss _maybe_trigger_anticipated_hit:
 # the swing is started BEFORE the ball arrives by predicting time-to-contact and
@@ -629,7 +615,7 @@ func _get_current_skill_windup_seconds() -> float:
 
 
 func _get_current_gauge_gain_bonus_pct() -> float:
-	return _current_profile.get_gauge_gain_bonus_pct(MARIBO_GAUGE_GAIN_BONUS_PCT)
+	return _current_profile.get_gauge_gain_bonus_pct(0.0)
 
 
 func _get_current_hit_gauge_gain() -> float:
@@ -844,9 +830,6 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"motion_speed_ratio": _companion_motion_state.motion_speed_ratio if _get_current_motion_style() == "sortie_flight" else 0.0,
 		"companion_visible": _companion_motion_state.motion_visible,
 		"windup_seconds": _get_current_skill_windup_seconds(),
-		"walk_fallback": MARIBO_COMPANION_WALK_SHEET,
-		"strike_fallback": MARIBO_COMPANION_STRIKE_SHEET,
-		"cast_fallback": MARIBO_COMPANION_HYDRO_CAST_SHEET,
 	}))
 
 
