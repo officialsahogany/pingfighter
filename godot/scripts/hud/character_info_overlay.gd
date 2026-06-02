@@ -73,7 +73,7 @@ const WRAP_TEXT_CACHE_LIMIT := 1024
 const PASSIVE_FRAME_COLOR_CACHE_LIMIT := 128
 const PASSIVE_INVENTORY_COLUMN_TARGET := 84.0
 const STAT_ROW_COUNT := 9
-const LINGPET_HATCH_REQUIRED_HITS := 2
+const LINGPET_HATCH_REQUIRED_HITS := 1
 const CHARACTER_CARD_GLOW_LAYERS := 1
 const CHARACTER_CARD_RING_SEGMENTS := 12
 const FALLBACK_SYMBOL_RING_SEGMENTS := 8
@@ -4243,7 +4243,7 @@ func _active_item_label_cache_matches(slots: Array) -> bool:
 
 
 func _prewarm_static_text(font: Font, owner: Object) -> void:
-	for text in ["퍽", "Lv.1", "Lv.2", "Lv.3", "Lv.4", "Lv.5", "0 / 2", "0 / 3", "0 / 5", "-", "E"]:
+	for text in ["퍽", "Lv.1", "Lv.2", "Lv.3", "Lv.4", "Lv.5", "0 / 1", "0 / 2", "0 / 3", "0 / 5", "-", "E"]:
 		for size in [8, 9, 10, 11, 12, 13, 14, 15]:
 			_text_size(font, str(text), int(size))
 	_ensure_equipment_slot_metadata_cache()

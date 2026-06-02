@@ -311,7 +311,7 @@ func _init() -> void:
 	_verify_egg_player_contact_nudges_and_wobbles()
 	_verify_player_serve_ball_does_not_hatch_egg()
 	_verify_egg_hit_uses_player_paddle_reflection()
-	_verify_two_ball_hits_hatch_unidentified_egg()
+	_verify_one_ball_hit_hatches_unidentified_egg()
 	_verify_acquire_cutin_triggers_on_hatch()
 	_verify_owned_maribo_is_kept_as_companion()
 	_verify_lingpet_battle_slot_model()
@@ -386,8 +386,8 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_egg_v002_crack2.png"), "shared unidentified lingpet egg should have a second-hit cracked PNG variant")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	_expect(runtime_source.find("LINGPET_EGG_TEXTURE") < 0, "field egg rendering should not hard-preload the shared egg PNGs")
-	_expect(runtime_source.find("\"egg_crack_1\"") >= 0, "field egg rendering should still request the first cracked catalog visual key after one hit")
-	_expect(runtime_source.find("\"egg_crack_2\"") >= 0, "field egg rendering should still request the second cracked catalog visual key after two hits")
+	_expect(runtime_source.find("\"egg_crack_1\"") >= 0, "field egg rendering should still keep the first cracked catalog visual key for multi-hit profiles")
+	_expect(runtime_source.find("\"egg_crack_2\"") >= 0, "field egg rendering should still keep the stronger cracked catalog visual key")
 	_expect(runtime_source.find("lingpet_egg_field_renderer.gd") >= 0, "egg runtime should delegate field egg rendering to the egg renderer module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_egg_field_renderer.gd"), "egg-field renderer module should exist")
 	var egg_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
@@ -555,7 +555,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 			"display_name": "드래프트 배트",
 			"enabled": false,
 			"hatch_weight": 1.0,
-			"required_hits": 2,
+			"required_hits": 1,
 			"unlock": {
 				"league_mode": "junior",
 				"character_type": "smasher",
@@ -571,7 +571,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 			"id": "broken",
 			"display_name": "검수 실패 샘플",
 			"hatch_weight": 1.0,
-			"required_hits": 2,
+			"required_hits": 1,
 			"unlock": {},
 			"stats": {
 				"patrol_speed_default": 0.0,
@@ -608,7 +608,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 			"id": "test_bubble",
 			"display_name": "테스트 버블",
 			"hatch_weight": 3.0,
-			"required_hits": 2,
+			"required_hits": 1,
 			"unlock": {
 				"league_mode": "junior",
 				"character_type": "smasher",
@@ -628,7 +628,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	var after_maribo_owned: Array[String] = LingpetCatalog.get_hatch_candidates_from_entries(multi_entries, eligible_context, ["maribo"])
 	_expect(not after_maribo_owned.has("maribo") and after_maribo_owned.has("test_bubble"), "multi-candidate selection should exclude already owned lingpets without hiding other candidates")
 	_expect(str(LingpetCatalog.pick_hatch_pet_id_from_entries(multi_entries, eligible_context, ["maribo"])) == "test_bubble", "multi-candidate picker should resolve the remaining eligible pet after ownership filtering")
-	_expect(LingpetCatalog.get_required_hits("maribo") == 2, "catalog should own Maribo hatch-hit requirements")
+	_expect(LingpetCatalog.get_required_hits("maribo") == 1, "catalog should own Maribo hatch-hit requirements")
 	_expect(LingpetCatalog.get_display_name("maribo") == "마리보", "catalog should own lingpet display names")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("maribo_egg_v002.png"), "catalog should own the current shared unidentified egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("maribo_egg_v002.png"), "Lunabi should hatch from the same shared unidentified egg visual path")
@@ -781,14 +781,14 @@ func _verify_junior_mika_spawn_syncs_character_info_keys() -> void:
 	_expect(str(owner.lingpet_id) == "" and str(owner.current_lingpet_id) == "" and str(owner.active_lingpet_id) == "", "egg state should not publish the hidden lingpet identity before hatch")
 	_expect(str(owner.lingpet_state) == "egg", "owner should publish egg state")
 	_expect(int(owner.lingpet_hatch_hits) == 0, "egg should start at 0 hatch hits")
-	_expect(int(owner.lingpet_hatch_required_hits) == 2, "egg should require two hits to hatch")
+	_expect(int(owner.lingpet_hatch_required_hits) == 1, "egg should require one hit to hatch")
 	_expect(owner.lingpet_egg_pos is Vector2, "egg should publish a playfield position")
 	var expected_floor_y := 750.0 - 28.0 - 18.0
 	_expect(absf(owner.lingpet_egg_pos.y - expected_floor_y) <= 1.0, "egg should start as a floor-placed brick-like object")
 
 	var panel: Dictionary = CharacterInfoOverlay.new()._get_lingpet_panel_snapshot(owner)
 	_expect(str(panel.get("state", "")) == "egg", "character-info ringpet panel should read the shared egg state")
-	_expect(str(panel.get("subtitle", "")).find("0 / 2") >= 0, "character-info panel should show hatch progress")
+	_expect(str(panel.get("subtitle", "")).find("0 / 1") >= 0, "character-info panel should show hatch progress")
 	_expect(str(owner.lingpet_effect_text).find("미확인 알") >= 0, "egg effect text should describe an unidentified egg without spoiling the lingpet")
 
 
@@ -829,7 +829,8 @@ func _verify_player_serve_ball_does_not_hatch_egg() -> void:
 	owner.ball_pos = egg_pos + Vector2(0.0, -90.0)
 	runtime.update(0.21, owner)
 	_register_hit(runtime, owner, egg_pos, 2)
-	_expect(int(owner.lingpet_hatch_hits) == 1, "non-player-serve ball hits should still crack the egg")
+	_expect(int(owner.lingpet_hatch_hits) == 1, "non-player-serve ball hits should still count as a hatch hit")
+	_expect(str(owner.lingpet_state) == "companion", "non-player-serve ball hit should hatch the Ringpet egg")
 
 
 func _verify_egg_hit_uses_player_paddle_reflection() -> void:
@@ -841,13 +842,14 @@ func _verify_egg_hit_uses_player_paddle_reflection() -> void:
 	owner.ball_pos = egg_pos + Vector2(30.0, -8.0)
 	owner.ball_vel = Vector2(0.0, 12.0)
 	runtime.update(0.0, owner)
-	_expect(int(owner.lingpet_hatch_hits) == 1, "egg paddle-reflection hit should still crack the egg")
+	_expect(int(owner.lingpet_hatch_hits) == 1, "egg paddle-reflection hit should count the hatch hit")
+	_expect(str(owner.lingpet_state) == "companion", "egg paddle-reflection hit should hatch the Ringpet egg")
 	_expect(owner.ball_vel.y < 0.0, "egg hit should reflect the ball toward the opponent side")
 	_expect(owner.ball_vel.x > 0.0, "right-side egg contact should angle the reflected ball to the right like a paddle hit")
 	_expect(owner.ball_pos.y < egg_pos.y, "egg hit should separate the ball above the egg after reflection")
 
 
-func _verify_two_ball_hits_hatch_unidentified_egg() -> void:
+func _verify_one_ball_hit_hatches_unidentified_egg() -> void:
 	var owner := FakeOwner.new()
 	var hatch_candidates: Array[String] = LingpetCatalog.get_hatch_candidates({
 		"league_mode": "junior",
@@ -859,13 +861,11 @@ func _verify_two_ball_hits_hatch_unidentified_egg() -> void:
 	owner.ball_active = true
 
 	_register_hit(runtime, owner, egg_pos, 1)
-	_expect(int(owner.lingpet_hatch_hits) == 1, "first hit should crack the egg but not yet hatch")
-	_expect(str(owner.lingpet_state) == "egg", "egg should still be unhatched after one hit")
+	_expect(int(owner.lingpet_hatch_hits) == 1, "first counted hit should fill the hatch counter")
+	_expect(str(owner.lingpet_state) == "companion", "first counted hit should hatch the unidentified egg into companion state")
 	_expect(owner.ball_vel.y < 0.0, "egg hit should reflect a downward ball toward the opponent side")
 
-	_register_hit(runtime, owner, egg_pos, 2)
 	var hatched_id := str(owner.active_lingpet_id)
-	_expect(str(owner.lingpet_state) == "companion", "second hit should hatch the unidentified egg into companion state")
 	_expect(hatch_candidates.has(hatched_id), "hatched lingpet should be one of the current unidentified egg candidates")
 	_expect(owner.lingpet_owned_pet_ids.has(hatched_id), "hatched lingpet should be added to the owned pet id list")
 	_expect((owner.lingpet_slots as Array).size() == 3 and str((owner.lingpet_slots as Array)[0]) == hatched_id, "hatched lingpet should auto-fill the first lingpet battle slot")
@@ -898,9 +898,7 @@ func _verify_acquire_cutin_triggers_on_hatch() -> void:
 	var egg_pos: Vector2 = owner.lingpet_egg_pos
 	owner.ball_active = true
 	_register_hit(runtime, owner, egg_pos, 1)
-	_expect(not bool(runtime.is_acquire_cutin_active()), "acquisition cut-in should not start before the egg fully hatches")
-	_register_hit(runtime, owner, egg_pos, 2)
-	_expect(str(owner.lingpet_state) == "companion", "second hit should hatch the unidentified egg before the cut-in check")
+	_expect(str(owner.lingpet_state) == "companion", "first counted hit should hatch the unidentified egg before the cut-in check")
 	_expect(bool(runtime.is_acquire_cutin_active()), "hatching should trigger the fullscreen acquisition cut-in")
 	_expect(is_equal_approx(float(runtime.get_acquire_cutin_progress()), 0.0), "acquisition cut-in should start at zero progress")
 	_expect(not bool(runtime.is_acquire_cutin_awaiting_dismiss()), "acquisition cut-in should not be dismissable before the reveal finishes")
@@ -1453,7 +1451,6 @@ func _verify_save_snapshot_roundtrip() -> void:
 	var egg_pos: Vector2 = owner.lingpet_egg_pos
 	owner.ball_active = true
 	_register_hit(runtime, owner, egg_pos, 1)
-	_register_hit(runtime, owner, egg_pos, 2)
 	var hatched_id := str(owner.active_lingpet_id)
 
 	var snapshot: Dictionary = runtime.get_save_snapshot()
@@ -1482,7 +1479,6 @@ func _verify_save_store_persists_and_restores_maribo() -> void:
 	var egg_pos: Vector2 = owner.lingpet_egg_pos
 	owner.ball_active = true
 	_register_hit(runtime, owner, egg_pos, 1)
-	_register_hit(runtime, owner, egg_pos, 2)
 
 	var save_store: Object = LingpetSaveStore.new()
 	save_store.set_save_path(companion_path)
@@ -1516,11 +1512,9 @@ func _verify_save_store_persists_and_restores_maribo() -> void:
 	var egg_owner := FakeOwner.new()
 	var egg_runtime: Object = LingpetEggRuntime.new()
 	egg_runtime.update(0.0, egg_owner)
-	egg_owner.ball_active = true
-	_register_hit(egg_runtime, egg_owner, egg_owner.lingpet_egg_pos, 1)
 	var egg_store: Object = LingpetSaveStore.new()
 	egg_store.set_save_path(egg_path)
-	_expect(bool(egg_store.save_runtime(egg_owner, FakeRegistry.new({"lingpet_egg_runtime": egg_runtime}))), "lingpet save store should clear volatile egg progress")
+	_expect(bool(egg_store.save_runtime(egg_owner, FakeRegistry.new({"lingpet_egg_runtime": egg_runtime}))), "lingpet save store should clear volatile egg state")
 	_expect(not FileAccess.file_exists(egg_path), "lingpet save store should not keep a pre-hatch egg save file")
 
 	_write_lingpet_snapshot(egg_path, {

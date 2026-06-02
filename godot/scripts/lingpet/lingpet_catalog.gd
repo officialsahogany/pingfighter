@@ -37,7 +37,7 @@ const PETS := {
 		"id": "maribo",
 		"display_name": "마리보",
 		"hatch_weight": 1.0,
-		"required_hits": 2,
+		"required_hits": 1,
 		"unlock": {
 			"league_mode": "junior",
 			"character_type": "smasher",
@@ -83,7 +83,7 @@ const PETS := {
 		"display_name": "루나비",
 		"motion_style": "sortie_flight",
 		"hatch_weight": 1.0,
-		"required_hits": 2,
+		"required_hits": 1,
 		"unlock": {
 			"league_mode": "junior",
 			"character_type": "smasher",
@@ -127,7 +127,7 @@ const PETS := {
 		"display_name": "Draft Bat",
 		"enabled": false,
 		"hatch_weight": 1.0,
-		"required_hits": 2,
+		"required_hits": 1,
 		"unlock": {
 			"league_mode": "junior",
 			"character_type": "smasher",
@@ -178,7 +178,7 @@ static func get_display_name(pet_id: String) -> String:
 	return str(get_entry(pet_id).get("display_name", _normalize_pet_id(pet_id)))
 
 
-static func get_required_hits(pet_id: String, fallback: int = 2) -> int:
+static func get_required_hits(pet_id: String, fallback: int = 1) -> int:
 	return max(1, int(get_entry(pet_id).get("required_hits", fallback)))
 
 

@@ -22,7 +22,7 @@ const RETURN_FADE := 0.26
 # One full forward+reverse pingpong play, then a short hold and fade-out.
 const REACTION_DURATION := float(FRAME_COUNT) * FRAME_INTERVAL
 const TOTAL_DURATION := REACTION_DURATION + RETURN_HOLD + RETURN_FADE
-const VIEW_HEIGHT := 300.0
+const VIEW_HEIGHT := 200.0
 const CENTER_OFFSET_Y := -70.0
 const CLICK_ZONE_HALF_WIDTH := 70.0
 const CLICK_ZONE_HALF_HEIGHT := 60.0
