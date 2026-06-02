@@ -275,7 +275,7 @@ func _resolve_hit(owner: Object, registry: Object, boss_rect: Rect2) -> void:
 		owner.set("boss_pos", next_pos)
 		if owner.get("boss_vel") != null:
 			owner.set("boss_vel", _last_knockback_velocity)
-	_play_paddle_hit(registry)
+	_play_boomerang_hit(registry)
 	_trail.clear()
 	_remember_boss_pos(next_pos)
 	_schedule_next_dash_or_finish()
@@ -424,9 +424,13 @@ func _draw_impact(canvas: CanvasItem, pos: Vector2, ratio: float, hit: bool) -> 
 		canvas.draw_line(start, end, Color(1.0, 1.0, 1.0, 0.42 * clamped), 1.5, true)
 
 
-func _play_paddle_hit(registry: Object) -> void:
+func _play_boomerang_hit(registry: Object) -> void:
 	var audio := _get_registry_instance(registry, "game_audio")
-	if audio != null and audio.has_method("play_paddle_hit"):
+	if audio == null:
+		return
+	if audio.has_method("play_boomerang_hit"):
+		audio.play_boomerang_hit()
+	elif audio.has_method("play_paddle_hit"):
 		audio.play_paddle_hit()
 
 

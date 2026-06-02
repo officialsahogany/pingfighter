@@ -56,6 +56,16 @@ const TITLE_FONT: Font = preload("res://assets/fonts/NanumSquareB.ttf")
 
 const SUBTITLE_TEXT := "공명으로 깨어난 링펫 · 동행 시작"
 
+# Painted "resonance awakening" portal backplate (imagegen, alpha-baked from a
+# pure-black additive source so the black margins composite transparently — no
+# square box residue, alpha bbox does not touch the canvas edge). Replaces the
+# old thin procedural rings + Tron-grid background with a premium painted portal,
+# uniform across all pets (resonance / 공명 theme). The motion envelope (entrance
+# pop, breath, scale pulse, expanding pulse rings) is applied procedurally at
+# draw time so the static texture reads alive WITHOUT a per-draw shader pass or
+# draw_set_transform (both unsafe in this immediate-mode overlay host).
+const RESONANCE_PORTAL_PATH := "res://assets/sprites/lingpet/effects/lingpet_acquire_resonance_backplate_imagegen_v1.png"
+
 const DIM_ALPHA_MAX := 0.66
 const OCEAN_DEEP := Color(0.04, 0.09, 0.18)
 const OCEAN_GLOW := Color(0.24, 0.78, 1.0)
@@ -80,6 +90,7 @@ const DATA_CORE := Color(0.80, 1.0, 1.0)
 const DATA_HOT := Color(0.34, 0.96, 1.0)
 const DATA_MAGENTA := Color(1.0, 0.36, 0.82)
 const GRID_COLOR := Color(0.24, 0.78, 1.0)
+const CUTIN_PREWARM_VISUAL_KEYS := ["cutin_art", "cutin_anim", "cutin_dismiss_anim"]
 
 # Phase breakpoints over normalized reveal progress (0..1). Progress is clamped
 # at 1.0 by the runtime, so progress >= HOLD_PROGRESS means the reveal finished
@@ -98,57 +109,147 @@ var _recon_cols := 0
 var _recon_rows := 0
 var _recon_filled: PackedByteArray = PackedByteArray()
 var _recon_bbox := Rect2(0.0, 0.0, 1.0, 1.0)
+var _recon_mask_cache: Dictionary = {}
+var _prewarm_pet_ids: Array[String] = []
+var _prewarm_pet_index := 0
+var _prewarm_visual_index := 0
+var _prewarm_finished := false
 var _asset_pet_id := ""
 var _title_text := "마리보"
 var _cutin_art: Texture2D = FALLBACK_CUTIN_ART
 var _cutin_anim_sheet: Texture2D = FALLBACK_CUTIN_ANIM_SHEET
 var _cutin_anim_manifest := FALLBACK_CUTIN_ANIM_MANIFEST
 var _cutin_dismiss_sheet: Texture2D = FALLBACK_CUTIN_DISMISS_SHEET
+var _portal_texture: Texture2D = null
 
 
 func prewarm_assets() -> void:
-	# Textures + font are const-preloaded at script load. The one piece of real
-	# prewarm work is loading the baked silhouette occupancy mask so the first
-	# reconstruction frame does not parse JSON / build the mask on the hot path.
-	_sync_assets_for_pet(DEFAULT_PET_ID)
-	_load_reconstruction_mask()
+	while not prewarm_assets_step():
+		pass
+
+
+func prewarm_assets_step() -> bool:
+	if _prewarm_finished:
+		return true
+	if _prewarm_pet_ids.is_empty():
+		_prewarm_pet_ids = LingpetCatalog.get_pet_ids()
+		if _prewarm_pet_ids.is_empty():
+			_prewarm_pet_ids = [DEFAULT_PET_ID]
+	if _prewarm_pet_index >= _prewarm_pet_ids.size():
+		_prewarm_pet_index = 0
+		_prewarm_visual_index = 0
+		_prewarm_finished = true
+		return true
+	var pet_id: String = str(_prewarm_pet_ids[_prewarm_pet_index]).strip_edges().to_lower()
+	if pet_id == "":
+		pet_id = DEFAULT_PET_ID
+	if _prewarm_visual_index < CUTIN_PREWARM_VISUAL_KEYS.size():
+		var visual_key: String = str(CUTIN_PREWARM_VISUAL_KEYS[_prewarm_visual_index])
+		var path: String = LingpetCatalog.get_visual_path(pet_id, visual_key)
+		if path != "" and FileAccess.file_exists(path):
+			var texture_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(path)
+			if not bool(texture_result.get("done", true)):
+				return false
+		_prewarm_visual_index += 1
+		return false
+	if _prewarm_visual_index == CUTIN_PREWARM_VISUAL_KEYS.size():
+		_prewarm_reconstruction_mask_for_pet(pet_id)
+		_prewarm_visual_index += 1
+		return false
+	_prewarm_pet_index += 1
+	_prewarm_visual_index = 0
+	return false
+
+
+func _prewarm_reconstruction_mask_for_pet(pet_id: String) -> void:
+	var anim_path: String = LingpetCatalog.get_visual_path(pet_id, "cutin_anim")
+	var manifest_path: String = _manifest_path_from_anim_path(anim_path)
+	if manifest_path == "" or not FileAccess.file_exists(manifest_path):
+		manifest_path = FALLBACK_CUTIN_ANIM_MANIFEST
+	_get_reconstruction_mask_data(manifest_path)
 
 
 func _load_reconstruction_mask() -> void:
 	if _recon_ready:
 		return
-	if not FileAccess.file_exists(_cutin_anim_manifest):
+	var mask_data: Dictionary = _get_reconstruction_mask_data(_cutin_anim_manifest)
+	if mask_data.is_empty():
 		return
-	var txt: String = FileAccess.get_file_as_string(_cutin_anim_manifest)
+	_apply_reconstruction_mask(mask_data)
+
+
+func _get_reconstruction_mask_data(manifest_path: String) -> Dictionary:
+	if manifest_path == "" or not FileAccess.file_exists(manifest_path):
+		return {}
+	var cached: Variant = _recon_mask_cache.get(manifest_path, null)
+	if cached is Dictionary:
+		return cached as Dictionary
+	var txt: String = FileAccess.get_file_as_string(manifest_path)
 	if txt.is_empty():
-		return
+		return {}
 	var data: Variant = JSON.parse_string(txt)
 	if typeof(data) != TYPE_DICTIONARY:
-		return
+		return {}
 	var entry: Variant = (data as Dictionary).get("reconstruction_frame0", null)
 	if typeof(entry) != TYPE_DICTIONARY:
-		return
+		return {}
 	var cols: int = int((entry as Dictionary).get("grid_cols", 0))
 	var rows: int = int((entry as Dictionary).get("grid_rows", 0))
 	var occ: Variant = (entry as Dictionary).get("occupancy", [])
 	if cols <= 0 or rows <= 0 or typeof(occ) != TYPE_ARRAY or (occ as Array).size() != cols * rows:
-		return
+		return {}
 	var occ_arr: Array = occ
-	_recon_filled = PackedByteArray()
-	_recon_filled.resize(occ_arr.size())
+	var filled := PackedByteArray()
+	filled.resize(occ_arr.size())
 	for i in occ_arr.size():
-		_recon_filled[i] = 1 if int(occ_arr[i]) != 0 else 0
-	_recon_cols = cols
-	_recon_rows = rows
+		filled[i] = 1 if int(occ_arr[i]) != 0 else 0
+	var bbox := Rect2(0.0, 0.0, 1.0, 1.0)
 	var bb: Variant = (entry as Dictionary).get("alpha_bbox", [0.0, 0.0, 1.0, 1.0])
 	if typeof(bb) == TYPE_ARRAY and (bb as Array).size() == 4:
 		var bb_arr: Array = bb
-		_recon_bbox = Rect2(float(bb_arr[0]), float(bb_arr[1]), float(bb_arr[2]), float(bb_arr[3]))
-	_recon_ready = true
+		bbox = Rect2(float(bb_arr[0]), float(bb_arr[1]), float(bb_arr[2]), float(bb_arr[3]))
+	var result := {
+		"cols": cols,
+		"rows": rows,
+		"filled": filled,
+		"bbox": bbox,
+	}
+	_recon_mask_cache[manifest_path] = result
+	return result
+
+
+func _apply_reconstruction_mask(mask_data: Dictionary) -> void:
+	_recon_cols = int(mask_data.get("cols", 0))
+	_recon_rows = int(mask_data.get("rows", 0))
+	var filled_value: Variant = mask_data.get("filled", PackedByteArray())
+	if filled_value is PackedByteArray:
+		_recon_filled = filled_value as PackedByteArray
+	else:
+		_recon_filled = PackedByteArray()
+	var bbox_value: Variant = mask_data.get("bbox", Rect2(0.0, 0.0, 1.0, 1.0))
+	if bbox_value is Rect2:
+		_recon_bbox = bbox_value as Rect2
+	else:
+		_recon_bbox = Rect2(0.0, 0.0, 1.0, 1.0)
+	_recon_ready = (
+		_recon_cols > 0
+		and _recon_rows > 0
+		and _recon_filled.size() == _recon_cols * _recon_rows
+	)
 
 
 func prewarm_runtime_nodes(_owner: Object = null) -> void:
 	prewarm_assets()
+	# Warm the shared resonance portal texture so the first reveal frame does not
+	# load a 1MB+ PNG on the (physics-paused) hot path.
+	_get_portal_texture()
+
+
+func _get_portal_texture() -> Texture2D:
+	if _portal_texture != null:
+		return _portal_texture
+	_portal_texture = ProjectResourceLoader.load_texture(RESONANCE_PORTAL_PATH, "", "")
+	return _portal_texture
 
 
 func draw(canvas: CanvasItem, runtime: Object, view_size: Vector2) -> void:
@@ -175,7 +276,6 @@ func draw(canvas: CanvasItem, runtime: Object, view_size: Vector2) -> void:
 
 	_draw_dim(canvas, view_size, progress)
 	_draw_resonance_bg(canvas, view_size, progress)
-	_draw_digital_stage(canvas, view_size, progress)
 	_draw_speed_lines(canvas, view_size, progress)
 	_draw_art(canvas, view_size, progress)
 	_draw_title(canvas, view_size, progress)
@@ -263,56 +363,47 @@ func _draw_resonance_bg(canvas: CanvasItem, view_size: Vector2, progress: float)
 		return
 	var center := Vector2(view_size.x * 0.5, view_size.y * 0.46)
 	var base_radius: float = view_size.length() * 0.5
-	# Soft ocean wash behind the character.
-	canvas.draw_circle(center, base_radius, Color(OCEAN_DEEP.r, OCEAN_DEEP.g, OCEAN_DEEP.b, 0.45 * fade))
-	canvas.draw_circle(center, base_radius * 0.62, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.18 * fade))
-	# Expanding resonance rings (the "공명" pulse).
+	# Soft deep wash for depth behind the painted portal.
+	canvas.draw_circle(center, base_radius, Color(OCEAN_DEEP.r, OCEAN_DEEP.g, OCEAN_DEEP.b, 0.42 * fade))
+
+	# Painted "resonance awakening" portal, drawn as two parallax layers with an
+	# entrance pop + slow breath + gentle scale pulse so the static texture reads
+	# alive. Alpha-baked margins composite transparently (no square box).
+	var portal: Texture2D = _get_portal_texture()
+	if portal != null and portal.get_width() > 1:
+		var t: float = float(Time.get_ticks_msec()) / 1000.0
+		var breath: float = sin(t * TAU * 0.16)
+		var entrance: float = lerpf(0.70, 1.0, _ease_out_cubic(clampf(progress / maxf(0.01, INTRO_END * 1.8), 0.0, 1.0)))
+		var min_dim: float = minf(view_size.x, view_size.y)
+		# Far halo layer: larger, dim, cool — adds outer-glow depth.
+		var far_diam: float = min_dim * (1.24 + breath * 0.012) * entrance
+		_blit_portal(canvas, portal, center, far_diam, Color(0.80, 0.95, 1.0, 0.30 * fade))
+		# Near hero layer: crisp portal, brighter, scale-pulses with the breath.
+		var near_diam: float = min_dim * (1.04 + breath * 0.022) * entrance
+		_blit_portal(canvas, portal, center, near_diam, Color(1.0, 1.0, 1.0, (0.66 + 0.10 * breath) * fade))
+	else:
+		# Fallback soft glow if the portal texture is unavailable.
+		canvas.draw_circle(center, base_radius * 0.62, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.18 * fade))
+
+	# Expanding resonance rings (the "공명" pulse) layered over the portal.
 	var ring_phase: float = clampf((progress - INTRO_END) / 0.5, 0.0, 1.0)
 	for i in 3:
 		var ring_t: float = float(i) / 3.0
 		var pulse: float = fposmod(ring_phase + ring_t, 1.0)
 		var radius: float = base_radius * (0.20 + pulse * 0.70)
-		var ring_alpha: float = (1.0 - pulse) * 0.40 * fade
+		var ring_alpha: float = (1.0 - pulse) * 0.34 * fade
 		if ring_alpha <= 0.01:
 			continue
 		canvas.draw_arc(center, radius, 0.0, TAU, 48, Color(RESONANCE.r, RESONANCE.g, RESONANCE.b, ring_alpha), maxf(2.0, view_size.y * 0.004), true)
 
 
-func _draw_digital_stage(canvas: CanvasItem, view_size: Vector2, progress: float) -> void:
-	# A faint Tron-style perspective grid + rising data columns behind the
-	# character, selling the "VR / code-space" the lingpet materializes from.
-	# Kept very low-alpha so it adds depth without fighting the hero art.
-	var fade: float = _overlay_fade(progress)
-	if fade <= 0.0:
+func _blit_portal(canvas: CanvasItem, portal: Texture2D, center: Vector2, diameter: float, modulate: Color) -> void:
+	if portal == null or modulate.a <= 0.0 or diameter <= 1.0:
 		return
-	var t: float = float(Time.get_ticks_msec()) / 1000.0
-	var horizon: float = view_size.y * 0.60
-	var vp := Vector2(view_size.x * 0.5, horizon)
-	var grid_a: float = 0.10 * fade
-	var line_w: float = maxf(1.0, view_size.y * 0.0013)
-	# Receding floor lines (denser toward the horizon).
-	var rows := 9
-	for i in rows:
-		var f: float = float(i + 1) / float(rows)
-		var y: float = lerpf(view_size.y * 1.02, horizon, 1.0 - pow(1.0 - f, 1.9))
-		var a: float = grid_a * (0.30 + 0.70 * f)
-		canvas.draw_line(Vector2(0.0, y), Vector2(view_size.x, y), Color(GRID_COLOR.r, GRID_COLOR.g, GRID_COLOR.b, a), line_w, true)
-	# Radiating floor verticals toward the vanishing point.
-	var verts := 12
-	for j in verts + 1:
-		var fx: float = float(j) / float(verts)
-		var bottom := Vector2(lerpf(-view_size.x * 0.25, view_size.x * 1.25, fx), view_size.y * 1.02)
-		canvas.draw_line(vp, bottom, Color(GRID_COLOR.r, GRID_COLOR.g, GRID_COLOR.b, grid_a * 0.55), line_w, true)
-	# Rising data columns above the horizon (scrolling code-stream feel).
-	var cols := 7
-	for k in cols:
-		var cx: float = view_size.x * ((float(k) + 0.5) / float(cols))
-		var scroll: float = fposmod(t * 0.32 + _hash01(k, 3, 29), 1.0)
-		var dy: float = lerpf(horizon, view_size.y * 0.04, scroll)
-		var ca: float = grid_a * 1.7 * (0.35 + 0.65 * sin(scroll * PI))
-		if ca <= 0.01:
-			continue
-		canvas.draw_line(Vector2(cx, dy), Vector2(cx, dy - view_size.y * 0.09), Color(DATA_HOT.r, DATA_HOT.g, DATA_HOT.b, ca), maxf(1.0, view_size.y * 0.0018), true)
+	var tex_size: Vector2 = portal.get_size()
+	var aspect: float = tex_size.y / maxf(1.0, tex_size.x)
+	var draw_size := Vector2(diameter, diameter * aspect)
+	canvas.draw_texture_rect(portal, Rect2(center - draw_size * 0.5, draw_size), false, modulate)
 
 
 func _draw_speed_lines(canvas: CanvasItem, view_size: Vector2, progress: float) -> void:
@@ -403,8 +494,15 @@ func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progre
 	var t: float = float(Time.get_ticks_msec()) / 1000.0
 	var center := Vector2(view_size.x * 0.5, view_size.y * 0.46)
 
-	# Background dim + ocean wash, fading with the overlay.
+	# Background dim + painted portal + soft wash, all fading with the overlay so
+	# the reveal -> dismiss transition does not pop the background.
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 0.0, DIM_ALPHA_MAX * out_fade))
+	var portal: Texture2D = _get_portal_texture()
+	if portal != null and portal.get_width() > 1:
+		var breath: float = sin(t * TAU * 0.16)
+		var min_dim: float = minf(view_size.x, view_size.y)
+		_blit_portal(canvas, portal, center, min_dim * (1.24 + breath * 0.012), Color(0.80, 0.95, 1.0, 0.26 * out_fade))
+		_blit_portal(canvas, portal, center, min_dim * (1.04 + breath * 0.022), Color(1.0, 1.0, 1.0, 0.58 * out_fade))
 	canvas.draw_circle(center, view_size.length() * 0.30, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.14 * out_fade))
 
 	# Exit action frame: play 0..N over the action portion, then hold the last frame.

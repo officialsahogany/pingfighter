@@ -225,10 +225,14 @@ class FakePaddleAudio:
 	extends RefCounted
 
 	var paddle_hits := 0
+	var boomerang_hits := 0
 	var hydro_count := 0
 
 	func play_paddle_hit() -> void:
 		paddle_hits += 1
+
+	func play_boomerang_hit() -> void:
+		boomerang_hits += 1
 
 	func play_stage2_hydro() -> void:
 		hydro_count += 1
@@ -492,6 +496,9 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	var cutin_host_dynamic_source: String = FileAccess.get_file_as_string("res://scripts/hud/lingpet_acquire_cutin_overlay_host.gd")
 	_expect(cutin_host_dynamic_source.find("LingpetCatalog.get_visual_path") >= 0, "lingpet acquisition cut-in host should resolve art through the hatched pet catalog entry")
 	_expect(cutin_host_dynamic_source.find("_get_runtime_pet_id") >= 0, "lingpet acquisition cut-in host should read the hatched pet id from runtime instead of staying Maribo-only")
+	_expect(host.has_method("prewarm_assets_step"), "lingpet acquisition cut-in host should expose staged prewarm for hatch-time cut-in assets")
+	_expect(cutin_host_dynamic_source.find("prewarm_texture_threaded_step") >= 0, "cut-in host should thread-prewarm catalog cut-in PNGs instead of sync-loading them on the draw frame")
+	_expect(cutin_host_dynamic_source.find("_recon_mask_cache") >= 0, "cut-in host should cache reconstruction masks instead of reparsing JSON on pet switches")
 
 
 func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
@@ -1690,6 +1697,7 @@ func _verify_lunabi_headbutt_skill() -> void:
 	var headbutt_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_headbutt_skill.gd")
 	_expect(headbutt_source.find("HOMING_TURN_RATE") >= 0 and headbutt_source.find("_get_homing_target") >= 0, "Lunabi Headbutt should keep steering toward the boss paddle while charging")
 	_expect(headbutt_source.find("start_paddle_hit_knockback") >= 0, "Lunabi Headbutt should use the boss AI knockback path for a natural rebound")
+	_expect(headbutt_source.find("play_boomerang_hit") >= 0, "Lunabi Headbutt hit should reuse the boomerang boss-hit sound")
 	_expect(headbutt_source.find("COMBO_MAX_COUNT := 3") >= 0 and headbutt_source.find("REPEAT_DELAY_MIN_SECONDS := 1.0") >= 0, "Lunabi Headbutt should support 1-3 dashes with 1-2 second repeat waits")
 
 	var owner := FakeOwner.new()
@@ -1748,7 +1756,8 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(boss_ai.knockback_calls == 1, "Lunabi Headbutt should hand the continuing knockback to boss_ai_state")
 	_expect(boss_ai.last_velocity > 0.0 and boss_ai.last_frames >= 30.0 and boss_ai.last_decay >= 0.90, "Lunabi Headbutt should use a longer decaying boss knockback so recovery is not instant")
 	_expect(_estimated_knockback_distance(24.0, boss_ai.last_velocity, boss_ai.last_frames, boss_ai.last_decay) >= 140.0, "Lunabi Headbutt nudge plus decaying recoil should travel about 150px")
-	_expect(audio.paddle_hits == 1, "Lunabi Headbutt hit should use the paddle-hit impact sound")
+	_expect(audio.boomerang_hits == 1, "Lunabi Headbutt hit should use the boomerang boss-hit sound")
+	_expect(audio.paddle_hits == 0, "Lunabi Headbutt hit should not use the generic paddle-hit sound when boomerang hit audio is available")
 	runtime.update(float(hit_snap.get("headbutt_repeat_wait_timer", 0.0)) + 0.05, owner, registry)
 	var repeat_launch_snap: Dictionary = runtime.get_snapshot()
 	_expect(bool(repeat_launch_snap.get("headbutt_active", false)), "Lunabi Headbutt should launch another dash after the repeat wait")
@@ -1778,7 +1787,8 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(str(miss_snap.get("headbutt_last_result", "")) == "miss", "Lunabi Headbutt snapshot should publish the last miss result")
 	_expect(str(miss_snap.get("headbutt_last_miss_reason", "")) == "moving_target", "Lunabi Headbutt miss should report the moving-target reason")
 	_expect(is_equal_approx(miss_owner.boss_pos.x, miss_boss_x_before), "missed Lunabi Headbutt should not knock back the boss paddle")
-	_expect(miss_audio.paddle_hits == 0, "missed Lunabi Headbutt should not play the paddle-hit impact sound")
+	_expect(miss_audio.boomerang_hits == 0, "missed Lunabi Headbutt should not play the boomerang boss-hit sound")
+	_expect(miss_audio.paddle_hits == 0, "missed Lunabi Headbutt should not play the paddle-hit fallback sound")
 
 
 func _verify_companion_click_reaction() -> void:

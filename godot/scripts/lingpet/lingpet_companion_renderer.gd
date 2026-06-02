@@ -3,14 +3,13 @@ extends RefCounted
 const LingpetCompanionSpriteAnimator := preload("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
 
 # Soft ambient aura tuning. The persistent companion glow (Lunabi / Maribo) is a
-# cached radial-falloff texture blitted at low normal-blend alpha -- NOT a hard
-# draw_circle disc -- so the SD body reads as wrapped in soft transparent light.
-# Kept deliberately faint and feathered ("아주 티 안 나게 투명"): a wide outer
-# halo + a slightly whiter core + a few faint drifting light motes, all driven
-# by a two-rate organic breathing ease. The flash/burst glows below stay sharp
-# on purpose -- those are gameplay feedback, not the ambient aura.
+# cached radial-falloff texture blitted as a few fully-overlapping low-alpha
+# layers -- NOT a hard draw_circle disc, and NOT discrete orbiting dots (those
+# read as "air bubbles") -- so the SD body reads as wrapped in one smooth, even
+# fluorescent glow. Kept deliberately faint and feathered ("아주 티 안 나게 투명"),
+# driven by a two-rate organic breathing ease. The flash/burst glows below stay
+# sharp on purpose -- those are gameplay feedback, not the ambient aura.
 const _SOFT_GLOW_TEX_SIZE := 64
-const _AURA_MOTE_COUNT := 4
 
 static var _soft_glow_texture: Texture2D = null
 
@@ -64,37 +63,24 @@ func _draw_soft_aura(canvas: CanvasItem, center: Vector2, radius: float, now_ms:
 	var breath_slow: float = 0.5 + 0.5 * sin(now_ms * 0.00082)
 	var breath_fast: float = 0.5 + 0.5 * sin(now_ms * 0.0021 + 1.3)
 	var breath: float = lerpf(breath_slow, breath_fast, 0.32)
-	# Wide outer halo (widest, faintest) + a tighter, slightly whiter core so the
-	# center reads as soft light rather than a saturated green ring. Peak alpha
-	# stays well below the old 0.17~0.24 hard disc and falls off feathered.
-	var outer_r: float = radius + lerpf(24.0, 31.0, breath)
-	var outer_a: float = lerpf(0.045, 0.072, breath)
-	var core_r: float = radius + lerpf(11.0, 15.0, breath)
-	var core_a: float = lerpf(0.060, 0.090, breath)
-	_blit_soft_glow(canvas, tex, center, outer_r, Color(0.24, 1.0, 0.80, outer_a))
-	_blit_soft_glow(canvas, tex, center, core_r, Color(0.66, 1.0, 0.92, core_a))
-	_draw_aura_motes(canvas, tex, center, radius, now_ms)
+	# Three concentric, fully overlapping low-alpha layers form ONE smooth, even
+	# fluorescent halo (no discrete dots / bubbles): a wide faint rim, a mid body,
+	# and a slightly whiter core. Stacking keeps the falloff continuous so it
+	# reads as a single soft glow wrapping the SD body, not separate rings.
+	var outer_r: float = radius + lerpf(25.0, 32.0, breath)
+	var outer_a: float = lerpf(0.040, 0.058, breath)
+	var mid_r: float = radius + lerpf(16.0, 21.0, breath)
+	var mid_a: float = lerpf(0.050, 0.072, breath)
+	var core_r: float = radius + lerpf(9.0, 13.0, breath)
+	var core_a: float = lerpf(0.060, 0.084, breath)
+	_blit_soft_glow(canvas, tex, center, outer_r, Color(0.20, 1.0, 0.74, outer_a))
+	_blit_soft_glow(canvas, tex, center, mid_r, Color(0.34, 1.0, 0.82, mid_a))
+	_blit_soft_glow(canvas, tex, center, core_r, Color(0.70, 1.0, 0.92, core_a))
 
 
 func _blit_soft_glow(canvas: CanvasItem, tex: Texture2D, center: Vector2, glow_radius: float, color: Color) -> void:
 	var r: float = maxf(1.0, glow_radius)
 	canvas.draw_texture_rect(tex, Rect2(center - Vector2(r, r), Vector2(r * 2.0, r * 2.0)), false, color)
-
-
-func _draw_aura_motes(canvas: CanvasItem, tex: Texture2D, center: Vector2, radius: float, now_ms: float) -> void:
-	for i in range(_AURA_MOTE_COUNT):
-		var fi: float = float(i)
-		# Slow orbit + gentle in/out drift + per-mote twinkle, all at very low
-		# alpha so the motes register only as a faint floating shimmer, never as
-		# discrete dots.
-		var ang: float = TAU * fi / float(_AURA_MOTE_COUNT) + now_ms * 0.00019 * (1.0 + 0.18 * fi) + fi * 0.7
-		var orbit: float = radius + 17.0 + 7.0 * sin(now_ms * 0.0012 + fi * 1.9)
-		var mote_bob: float = sin(now_ms * 0.0017 + fi * 2.3) * 3.0
-		var pos: Vector2 = center + Vector2(cos(ang), sin(ang)) * orbit + Vector2(0.0, mote_bob)
-		var twinkle: float = 0.5 + 0.5 * sin(now_ms * 0.0029 + fi * 1.27)
-		var mote_a: float = lerpf(0.035, 0.085, twinkle)
-		var mote_r: float = lerpf(4.5, 7.5, twinkle)
-		_blit_soft_glow(canvas, tex, pos, mote_r, Color(0.74, 1.0, 0.94, mote_a))
 
 
 # Cached soft radial-falloff glow sprite (white RGB, feathered alpha) built once
