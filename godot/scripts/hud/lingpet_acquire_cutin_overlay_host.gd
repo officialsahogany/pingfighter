@@ -173,7 +173,7 @@ func prewarm_pet_assets_step(pet_id: String = DEFAULT_PET_ID) -> bool:
 	if _pet_texture_prewarm_index < CUTIN_PREWARM_VISUAL_KEYS.size():
 		var visual_key: String = str(CUTIN_PREWARM_VISUAL_KEYS[_pet_texture_prewarm_index])
 		var path: String = LingpetCatalog.get_visual_path(normalized, visual_key)
-		if path != "" and FileAccess.file_exists(path):
+		if path != "":
 			var texture_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(path)
 			if not bool(texture_result.get("done", true)):
 				return false
@@ -341,12 +341,19 @@ func _get_runtime_pet_id(runtime: Object) -> String:
 
 func _load_catalog_texture(pet_id: String, visual_key: String, fallback: Texture2D = null) -> Texture2D:
 	var path := LingpetCatalog.get_visual_path(pet_id, visual_key)
-	if path == "" or not FileAccess.file_exists(path):
+	if path == "":
 		path = _get_fallback_visual_path(visual_key)
-	if path == "" or not FileAccess.file_exists(path):
+	if path == "":
 		return fallback
 	var texture := ProjectResourceLoader.load_texture(path, "", "")
-	return texture if texture != null else fallback
+	if texture != null:
+		return texture
+	var fallback_path := _get_fallback_visual_path(visual_key)
+	if fallback_path != "" and fallback_path != path:
+		texture = ProjectResourceLoader.load_texture(fallback_path, "", "")
+		if texture != null:
+			return texture
+	return fallback
 
 
 func _get_fallback_visual_path(visual_key: String) -> String:

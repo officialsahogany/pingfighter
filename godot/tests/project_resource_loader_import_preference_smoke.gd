@@ -30,6 +30,10 @@ func _init() -> void:
 		"texture loader should prefer raw PNG decoding before imported fallback"
 	)
 	_expect(
+		texture_body.find("ResourceLoader.exists(path, \"Texture2D\")") > texture_body.find("_can_load_imported_resource"),
+		"texture loader should accept ResourceLoader-visible textures in exported builds even when raw .import files are not visible"
+	)
+	_expect(
 		source.find("THREADED_TEXTURE_PREWARM_MAX_MSEC") >= 0
 			and source.find("THREADED_TEXTURE_PREWARM_MAX_POLLS") >= 0,
 		"threaded texture prewarm should have a bounded fallback guard"

@@ -535,8 +535,12 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(cutin_host_dynamic_source.find("Boot warmup must stay lightweight") >= 0, "boot prewarm should avoid decoding every lingpet cut-in texture at Stage 1 loading")
 	var boot_prewarm_body := _function_body(cutin_host_dynamic_source, "func prewarm_assets_step")
 	var pet_prewarm_body := _function_body(cutin_host_dynamic_source, "func prewarm_pet_assets_step")
+	var load_catalog_texture_body := _function_body(cutin_host_dynamic_source, "func _load_catalog_texture")
 	_expect(boot_prewarm_body.find("prewarm_texture_threaded_step") < 0, "boot cut-in prewarm should not request large per-pet PNG sheets")
 	_expect(pet_prewarm_body.find("prewarm_texture_threaded_step") >= 0, "per-pet cut-in prewarm should keep the threaded texture path for hatch-time assets")
+	_expect(pet_prewarm_body.find("FileAccess.file_exists(path)") < 0, "per-pet cut-in prewarm should not reject imported textures in exported builds")
+	_expect(load_catalog_texture_body.find("FileAccess.file_exists(path)") < 0, "cut-in texture loading should not require raw PNG files in exported builds")
+	_expect(load_catalog_texture_body.find("ProjectResourceLoader.load_texture(path") >= 0, "cut-in texture loading should delegate to ProjectResourceLoader so import remaps work in export")
 	_expect(cutin_host_dynamic_source.find("preload(\"res://assets/sprites/lingpet/maribo_cutin_anim.png\")") < 0, "cut-in host should not hard-preload the 8192px Maribo cut-in sheet during module instantiation")
 	_expect(cutin_host_dynamic_source.find("preload(\"res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png\")") < 0, "cut-in host should not hard-preload the dismiss sheet during module instantiation")
 	_expect(cutin_host_dynamic_source.find("_recon_mask_cache") >= 0, "cut-in host should cache reconstruction masks instead of reparsing JSON on pet switches")
@@ -762,10 +766,14 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# Directional facing: the walk sheet is the AutoSprite iso_walk_northeast
 	# 3/4-back view facing the direction of travel (rightward). Leftward travel
 	# is rendered by mirroring it (negative-width destination rect, no in-_draw
-	# draw_set_transform). Seal the patrol_dir -> face_left -> flip chain so the
-	# face-peek angle cannot silently collapse back to a single unflipped view.
-	_expect(runtime_source.find("\"patrol_dir\"") >= 0, "egg runtime should feed companion patrol direction into the draw config for facing")
-	_expect(draw_context_source.find("face_left") >= 0, "companion draw context should derive a face_left flag from patrol_dir")
+	# draw_set_transform). The facing must be latched from ACTUAL horizontal travel
+	# (dx), NOT raw patrol_dir -- patrol_dir toggles during pauses / reverse-and-
+	# pause decisions, which snapped the held spear sides while standing still (the
+	# "teleport on turn" bug). Seal the travel -> face_left -> flip chain so neither
+	# the latch nor the mirror silently regresses.
+	_expect(runtime_source.find("_companion_facing_left") >= 0, "egg runtime should latch companion facing to actual horizontal travel, not raw patrol_dir")
+	_expect(runtime_source.find("\"face_left\"") >= 0, "egg runtime should feed the latched facing into the draw config")
+	_expect(draw_context_source.find("face_left") >= 0, "companion draw context should pass the face_left flag through to the renderer")
 	_expect(companion_renderer_source.find("face_left") >= 0, "companion renderer should flip the walk sheet horizontally when facing left")
 	_expect(companion_renderer_source.find("-dest_rect.size.x") >= 0, "companion renderer should mirror via a negative-width destination rect (no in-_draw draw_set_transform)")
 	# Ball-hit strike sheet (same 5x5/25 grid) played on companion ball contact.

@@ -57,13 +57,14 @@ static func load_texture(path: String, missing_warning: String = "", failed_warn
 			return raw_texture
 
 	var imported_exists: bool = _can_load_imported_resource(path)
-	if imported_exists:
+	var resource_exists: bool = ResourceLoader.exists(path, "Texture2D")
+	if imported_exists or resource_exists:
 		var texture_resource: Resource = ResourceLoader.load(path)
 		if texture_resource is Texture2D:
 			_texture_cache[path] = texture_resource
 			return texture_resource
 
-	if not raw_exists and not imported_exists:
+	if not raw_exists and not imported_exists and not resource_exists:
 		_push_path_warning(missing_warning, path)
 	else:
 		_push_path_warning(failed_warning, path)
