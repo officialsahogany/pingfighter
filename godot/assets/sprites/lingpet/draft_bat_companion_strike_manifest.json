@@ -1,0 +1,203 @@
+{
+  "asset_id": "draft_bat_companion_strike_v1",
+  "character": "draft_bat",
+  "display_name": "Draft Bat",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_companion_strike_candidate",
+  "status": "Accepted candidate: back-view wing-slap strike from AutoSprite, remapped so runtime impact frame 22 lands on the source wing-slap peak.",
+  "source_autosprite": {
+    "original_character_id": "cmpwf2hxe007nj17muexwl28h",
+    "back_runtime_character_id": "cmpwfn3ah004j141712dv9e91",
+    "back_runtime_base_source": ".tmp/draft_bat_lingpet/draft_bat_back_runtime_base_from_walk_f0.png",
+    "base_source_path": "godot/assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1.png",
+    "accepted_spritesheet_id": "cmpwfp5en0009363x1socppyb",
+    "accepted_job_id": "wf_1e1acbeb-9932-4fdd-86f2-6a12da6b09ab",
+    "accepted_video_id": "cmpwfnnmp004t1417xche46fi",
+    "rejected_spritesheet_ids": [
+      "cmpwfk1kp003t1417cdzgz2tt"
+    ],
+    "rejected_job_ids": [
+      "wf_8a11c01a-6813-4dfc-affc-7cadb3ecb831"
+    ],
+    "rejection_note": "First strike candidate returned to front view and did not match the accepted back-view battle companion direction."
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic repack and frame remap",
+    "source_cell_size": [
+      512,
+      512
+    ],
+    "target_cell_size": [
+      192,
+      192
+    ],
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "source_scale_repack": 0.84,
+    "frame_map": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      9,
+      10,
+      11,
+      12,
+      13,
+      16,
+      24
+    ],
+    "impact_frame": 22,
+    "impact_source_frame": 13,
+    "reason": "LingpetCompanionSpriteAnimator uses frames 18..24 for strikes and frame 22 as contact; remap keeps AutoSprite provenance while aligning gameplay timing."
+  },
+  "outputs": {
+    "strike": {
+      "path": "D:\\main\\bosspong\\godot\\assets\\sprites\\lingpet\\draft_bat_companion_strike.png",
+      "res_path": "res://assets/sprites/lingpet/draft_bat_companion_strike.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        192,
+        192
+      ],
+      "sheet_size": [
+        960,
+        960
+      ],
+      "sha256": "9f6c1a93228cb7150fe24e387fc40e503fd9332b330de6cf85809f865d3b4264",
+      "bytes": 592057,
+      "edge_alpha_count": 0,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "source_frame": 0,
+          "bbox": [
+            22,
+            35,
+            169,
+            153
+          ],
+          "size": [
+            147,
+            118
+          ]
+        },
+        {
+          "frame": 4,
+          "source_frame": 4,
+          "bbox": [
+            21,
+            39,
+            170,
+            156
+          ],
+          "size": [
+            149,
+            117
+          ]
+        },
+        {
+          "frame": 9,
+          "source_frame": 9,
+          "bbox": [
+            26,
+            40,
+            162,
+            158
+          ],
+          "size": [
+            136,
+            118
+          ]
+        },
+        {
+          "frame": 13,
+          "source_frame": 13,
+          "bbox": [
+            43,
+            70,
+            146,
+            165
+          ],
+          "size": [
+            103,
+            95
+          ]
+        },
+        {
+          "frame": 18,
+          "source_frame": 9,
+          "bbox": [
+            26,
+            40,
+            162,
+            158
+          ],
+          "size": [
+            136,
+            118
+          ]
+        },
+        {
+          "frame": 20,
+          "source_frame": 11,
+          "bbox": [
+            20,
+            56,
+            165,
+            169
+          ],
+          "size": [
+            145,
+            113
+          ]
+        },
+        {
+          "frame": 22,
+          "source_frame": 13,
+          "bbox": [
+            43,
+            70,
+            146,
+            165
+          ],
+          "size": [
+            103,
+            95
+          ]
+        },
+        {
+          "frame": 24,
+          "source_frame": 24,
+          "bbox": [
+            23,
+            45,
+            169,
+            156
+          ],
+          "size": [
+            146,
+            111
+          ]
+        }
+      ]
+    }
+  }
+}

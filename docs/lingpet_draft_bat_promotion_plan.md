@@ -13,6 +13,7 @@
   - `res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1_chromakey.png`
   - `res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1_magenta_source.png`
   - `res://assets/sprites/lingpet/draft_bat_companion_walk.png` 후보 완료
+  - `res://assets/sprites/lingpet/draft_bat_companion_strike.png` 후보 완료
 - 현재 스모크 기준:
   - 비활성 링펫은 부화 후보에 들어가지 않는다.
   - 비활성 링펫은 최종 스프라이트/스킬 자산이 없어도 카탈로그 검증을 통과한다.
@@ -30,6 +31,16 @@
   - reject reason: 첫 후보는 정면/측면으로 크게 회전해 전투 동행 시트보다 쇼케이스 회전에 가까웠다.
   - final sheet: `res://assets/sprites/lingpet/draft_bat_companion_walk.png`
   - manifest: `res://assets/sprites/lingpet/draft_bat_companion_walk_manifest.json`
+- `companion_strike` 후보 완료
+  - back runtime character_id: `cmpwfn3ah004j141712dv9e91`
+  - accepted spritesheet_id: `cmpwfp5en0009363x1socppyb`
+  - accepted job_id: `wf_1e1acbeb-9932-4fdd-86f2-6a12da6b09ab`
+  - rejected spritesheet_id: `cmpwfk1kp003t1417cdzgz2tt`
+  - rejected job_id: `wf_8a11c01a-6813-4dfc-affc-7cadb3ecb831`
+  - reject reason: 첫 타격 후보는 다시 정면으로 돌아와 후면 동행 시트와 방향성이 맞지 않았다.
+  - final sheet: `res://assets/sprites/lingpet/draft_bat_companion_strike.png`
+  - manifest: `res://assets/sprites/lingpet/draft_bat_companion_strike_manifest.json`
+  - note: `LingpetCompanionSpriteAnimator`의 임팩트 프레임 22에 맞춰 AutoSprite 원본 후반 타격 피크를 결정적으로 재배치했다.
 
 ## 승격 전 필수 자산
 
