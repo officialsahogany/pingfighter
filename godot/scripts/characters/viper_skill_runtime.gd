@@ -1228,7 +1228,8 @@ func apply_shadow_step_ball_motion(fps_scale: float, scene: Dictionary, context:
 	var result: Dictionary = {}
 	if not bool(context.get("ball_active", false)):
 		return result
-	var motion_context: Dictionary = _build_viper_ball_motion_context(scene, context)
+	var motion_context: Dictionary = context.duplicate()
+	motion_context.merge(scene, true)
 	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 
 	if shadow_wave_active:
@@ -1286,7 +1287,8 @@ func apply_blade_rush_ball_motion(fps_scale: float, scene: Dictionary, context: 
 	var result: Dictionary = {}
 	if not (blade_projectile_active or not blade_followup_projectiles.is_empty()):
 		return result
-	var motion_context: Dictionary = _build_viper_ball_motion_context(scene, context)
+	var motion_context: Dictionary = context.duplicate()
+	motion_context.merge(scene, true)
 	if blade_projectile_active:
 		result = _advance_blade_projectile(fps_scale, scene, motion_context, deps)
 		if not result.is_empty():
@@ -4868,12 +4870,6 @@ func _get_shadow_hologram_progress() -> float:
 		shadow_hologram_frames,
 		SHADOW_STEP_HOLOGRAM_FRAMES
 	)
-
-
-func _build_viper_ball_motion_context(scene: Dictionary, context: Dictionary) -> Dictionary:
-	var motion_context: Dictionary = context.duplicate()
-	motion_context.merge(scene, true)
-	return motion_context
 
 
 func _try_shadow_hologram_hit(scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
