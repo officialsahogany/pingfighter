@@ -756,7 +756,7 @@ func try_activate_before_movement(
 		if dual_glitch_locked_player_x_valid:
 			var dual_play_left: float = float(config.get("play_left", 0.0))
 			var dual_play_right: float = float(config.get("play_right", 760.0))
-			dual_startup_pos.x = clamp(dual_glitch_locked_player_x, dual_play_left, max(dual_play_left, dual_play_right - _get_paddle_size(config).x))
+			dual_startup_pos.x = clamp(dual_glitch_locked_player_x, dual_play_left, max(dual_play_left, dual_play_right - ViperSkillGeometry.get_paddle_size(config).x))
 		dual_glitch_base_pos = dual_startup_pos
 		return {
 			"handled": true,
@@ -838,7 +838,7 @@ func try_activate_before_movement(
 			chaos_startup_pos.x = clamp(
 				chaos_locked_player_x,
 				chaos_play_left,
-				max(chaos_play_left, chaos_play_right - _get_paddle_size(config).x)
+				max(chaos_play_left, chaos_play_right - ViperSkillGeometry.get_paddle_size(config).x)
 			)
 		return {
 			"handled": true,
@@ -913,7 +913,7 @@ func try_activate_before_movement(
 				marshal_active = true
 				marshal_phase = 0
 				marshal_phase_frames = 0.0
-				marshal_paddle_size = _get_paddle_size(config)
+				marshal_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 				marshal_start_pos = player_pos
 				marshal_visual_pos = player_pos
 				var marshal_field_width: float = float(config.get("width", config.get("play_right", 760.0)))
@@ -1638,7 +1638,7 @@ func _start_core_flip(
 	core_flip_attack_active = true
 	core_flip_attack_phase = 0
 	core_flip_phase_frames = 0.0
-	core_flip_paddle_size = _get_paddle_size(config)
+	core_flip_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 	core_flip_origin_center = player_pos + core_flip_paddle_size * 0.5
 	core_flip_target_center = ViperSkillGeometry.get_ball_pos(config)
 	var core_flip_start_motion: Dictionary = ViperSkillGeometry.core_flip_start_motion(
@@ -1928,7 +1928,7 @@ func apply_shadow_step_paddle_hit(ball_vel: Vector2, context: Dictionary, deps: 
 			_clear_shadow_kick_ready()
 			return {}
 	var player_pos: Vector2 = _get_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
-	var player_size: Vector2 = _get_vector2(context.get("player_paddle_size", _get_paddle_size(context)), _get_paddle_size(context))
+	var player_size: Vector2 = _get_vector2(context.get("player_paddle_size", ViperSkillGeometry.get_paddle_size(context)), ViperSkillGeometry.get_paddle_size(context))
 	var hit_center: Vector2 = player_pos + player_size * 0.5
 	var hit_size: Vector2 = Vector2(
 		player_size.x + SHADOW_STEP_PADDLE_HIT_PADDING,
@@ -2361,7 +2361,7 @@ func _start_dual_glitch(
 	dual_glitch_locked_player_x = player_pos.x
 	dual_glitch_locked_player_x_valid = true
 	dual_glitch_base_pos = player_pos
-	dual_glitch_paddle_size = _get_paddle_size(config)
+	dual_glitch_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 	dual_glitch_fade_reason = ""
 	dual_glitch_start_msec = now_msec
 	_clear_dual_glitch_command_buffer()
@@ -2848,7 +2848,7 @@ func _try_update_ignition_aura_hold(
 		ignition_hold_start_msec = now_msec
 		ignition_charge_particles.clear()
 	ignition_hold_player_pos = player_pos
-	ignition_hold_paddle_size = _get_paddle_size(config)
+	ignition_hold_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 	var elapsed_msec: int = max(0, now_msec - ignition_hold_start_msec)
 	ignition_hold_ratio = clamp(float(elapsed_msec) / float(IGNITION_HOLD_REQUIRED_MSEC), 0.0, 1.0)
 	particle_drawer.spawn_ignition_charge_particles(
@@ -2934,13 +2934,13 @@ func _start_ignition_aura(
 	ignition_total_frames = IGNITION_DURATION_FRAMES
 	ignition_remaining_frames = ignition_total_frames
 	ignition_player_pos = player_pos
-	ignition_paddle_size = _get_paddle_size(config)
+	ignition_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 	ignition_ember_timer = 0.0
 	ignition_start_msec = now_msec
 	_set_runtime_ignition_aura_bonus(deps, true)
 	particle_drawer.spawn_ignition_aura_burst(
 		ignition_burst_particles,
-		player_pos + _get_paddle_size(config) * 0.5,
+		player_pos + ViperSkillGeometry.get_paddle_size(config) * 0.5,
 		IGNITION_PARTICLE_LIMIT
 	)
 	return {
@@ -3071,7 +3071,7 @@ func _try_update_dive_hold(
 		dive_hold_start_msec = now_msec
 		dive_charge_particles.clear()
 	dive_hold_player_pos = player_pos
-	dive_hold_paddle_size = _get_paddle_size(config)
+	dive_hold_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 	var elapsed_msec: int = max(0, now_msec - dive_hold_start_msec)
 	dive_hold_ratio = clamp(float(elapsed_msec) / float(DIVE_HOLD_REQUIRED_MSEC), 0.0, 1.0)
 	particle_drawer.spawn_dive_charge_particles(
@@ -3115,7 +3115,7 @@ func _start_dive_strike(
 	dive_active = true
 	dive_phase = 0
 	dive_phase_frames = 0.0
-	dive_paddle_size = _get_paddle_size(config)
+	dive_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 	dive_floor_y = ViperSkillGeometry.player_floor_y(config)
 	dive_player_pos = player_pos
 	dive_height_snapshot = max(0.0, runtime_action_router.get_viper_airborne_height(deps, config, player_pos))
@@ -3189,12 +3189,12 @@ func _update_dive_strike(
 
 	dive_phase_frames += fps_scale
 	if dive_paddle_size == Vector2.ZERO:
-		dive_paddle_size = _get_paddle_size(config)
+		dive_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 	dive_floor_y = ViperSkillGeometry.player_floor_y(config)
 	match dive_phase:
 		0:
 			dive_player_pos.x = player_pos.x
-			var prep_center: Vector2 = dive_player_pos + _get_paddle_size(config) * 0.5
+			var prep_center: Vector2 = dive_player_pos + ViperSkillGeometry.get_paddle_size(config) * 0.5
 			var prep_progress: float = clamp(dive_phase_frames / max(1.0, dive_prep_frames_snapshot), 0.0, 1.0)
 			particle_drawer.spawn_dive_prep_particles(
 				dive_particles,
@@ -3212,8 +3212,8 @@ func _update_dive_strike(
 			dive_player_pos.y = min(dive_floor_y, dive_player_pos.y + DIVE_SPEED * fps_scale)
 			runtime_action_router.set_viper_jetpack_offset_y(deps, dive_player_pos.y - dive_floor_y)
 			var trail_anchor := Vector2(
-				dive_player_pos.x + _get_paddle_size(config).x * 0.5,
-				dive_player_pos.y + _get_paddle_size(config).y
+				dive_player_pos.x + ViperSkillGeometry.get_paddle_size(config).x * 0.5,
+				dive_player_pos.y + ViperSkillGeometry.get_paddle_size(config).y
 			)
 			particle_drawer.spawn_dive_trail_particles(
 				dive_particles,
@@ -3512,7 +3512,7 @@ func _start_nerve_strike(
 	nerve_strike_dash_target_pos = ViperSkillGeometry.nerve_strike_target_pos(config, NERVE_STRIKE_TARGET_Y_OFFSET)
 	nerve_strike_return_start_pos = Vector2.ZERO
 	nerve_strike_return_target_pos = Vector2.ZERO
-	nerve_strike_paddle_size = _get_paddle_size(config)
+	nerve_strike_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 	nerve_strike_floor_y = ViperSkillGeometry.player_floor_y(config)
 	nerve_strike_hit_confirmed = false
 	nerve_strike_combo_used = true
@@ -3907,7 +3907,7 @@ func _start_blade_motion(
 	blade_motion_start_pos = start_pos
 	blade_motion_pos = start_pos
 	blade_phase2_base_y = start_pos.y
-	blade_paddle_size = _get_paddle_size(config)
+	blade_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 	_reset_blade_motion_combo_windows()
 	dark_blade_window = false
 	dark_blade_window_frames = 0.0
@@ -3998,7 +3998,7 @@ func _update_blade_motion(
 			fps_scale,
 			config,
 			ViperSkillGeometry.player_floor_y(config),
-			_get_paddle_size(config).x,
+			ViperSkillGeometry.get_paddle_size(config).x,
 			BLADE_JETPACK_MAX_HEIGHT,
 			BLADE_AIRBORNE_MOVE_BONUS_MAX,
 			blade_dark_mode
@@ -4028,7 +4028,7 @@ func _update_blade_motion(
 		_get_vector2(config.get("ball_pos", Vector2.ZERO), Vector2.ZERO),
 		float(config.get("ball_size", DARK_BLADE_DEFAULT_BALL_SIZE)),
 		blade_motion_pos,
-		_get_paddle_size(config),
+		ViperSkillGeometry.get_paddle_size(config),
 		DARK_BLADE_AUTO_FIRE_NEAR_Y
 	):
 		blade_motion_phase = 1
@@ -4085,7 +4085,7 @@ func _launch_blade_projectile(player_pos: Vector2, config: Dictionary, deps: Dic
 	audio_router.play_blade_fire_sound(deps)
 	var spec: Dictionary = ViperSkillGeometry.blade_projectile_launch_spec(
 		player_pos,
-		_get_paddle_size(config),
+		ViperSkillGeometry.get_paddle_size(config),
 		_get_runtime_skill_level(deps, "blade_amp"),
 		blade_dark_mode,
 		BLADE_BASE_WIDTH,
@@ -4560,7 +4560,7 @@ func _enter_marshal_reclimb_from_cling(ball_pos: Vector2, marshal_wall_center: V
 	marshal_wall_pos = ViperSkillGeometry.marshal_reclimb_wall_target(
 		marshal_wall_center,
 		ball_pos,
-		_get_paddle_size(config),
+		ViperSkillGeometry.get_paddle_size(config),
 		float(config.get("width", config.get("play_right", 760.0))),
 		MARSHAL_KICK_WALL_INSET,
 		-50.0,
@@ -4600,7 +4600,7 @@ func _update_marshal_charge_phase(config: Dictionary, deps: Dictionary, result: 
 	var next_pos: Vector2 = ViperSkillGeometry.marshal_charge_position(
 		marshal_charge_start_pos,
 		charge_ball_pos,
-		_get_paddle_size(config),
+		ViperSkillGeometry.get_paddle_size(config),
 		charge_progress
 	)
 	_spawn_marshal_motion_particle(ViperSkillGeometry.player_center(next_pos, config), "charge", 0.75)
@@ -4714,7 +4714,7 @@ func _update_marshal_charge_phase(config: Dictionary, deps: Dictionary, result: 
 
 func _update_marshal_return_phase(config: Dictionary) -> Vector2:
 	var return_progress: float = ViperSkillGeometry.marshal_phase_progress(marshal_phase_frames, MARSHAL_KICK_RETURN_FRAMES)
-	var paddle_size: Vector2 = _get_paddle_size(config)
+	var paddle_size: Vector2 = ViperSkillGeometry.get_paddle_size(config)
 	var play_left: float = float(config.get("play_left", 0.0))
 	var play_right: float = float(config.get("play_right", config.get("width", 760.0)))
 	var target_y: float = float(config.get("player_floor_y", float(config.get("height", 750.0)) - paddle_size.y))
@@ -4797,7 +4797,7 @@ func _start_shadow_step(
 	now_msec: int
 ) -> Dictionary:
 	var skill_config: Object = visibility_query.get_viper_skill_config(deps)
-	var player_size: Vector2 = _get_paddle_size(config)
+	var player_size: Vector2 = ViperSkillGeometry.get_paddle_size(config)
 	var target_pos: Vector2 = ViperSkillGeometry.clamp_player_pos(
 		dash_origin_pos,
 		float(config.get("play_left", 0.0)),
@@ -5062,10 +5062,6 @@ func _mark_kick_skill_knockback_pending(deps: Dictionary) -> void:
 	if bonus_pct <= 0:
 		return
 	kick_skill_knockback_pending_pct = bonus_pct
-
-
-func _get_paddle_size(config: Dictionary) -> Vector2:
-	return ViperSkillGeometry.get_paddle_size(config)
 
 
 func _get_viper_hologram_attack_sheet(kick_dir: int) -> Texture2D:
