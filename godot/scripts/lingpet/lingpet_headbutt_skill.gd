@@ -4,9 +4,15 @@ const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const DASH_SPEED := 1080.0
 const DASH_RADIUS := 25.0
+const HOMING_TURN_RATE := 5.80
+const HOMING_LEAD_SECONDS := 0.18
 const IMPACT_SECONDS := 0.34
 const MISS_FLASH_SECONDS := 0.24
 const KNOCKBACK_DISTANCE := 150.0
+const IMPACT_NUDGE_DISTANCE := 24.0
+const KNOCKBACK_VELOCITY := 13.0
+const KNOCKBACK_FRAMES := 30.0
+const KNOCKBACK_DECAY := 0.91
 const MOVING_MISS_SPEED_THRESHOLD := 0.75
 const GUARANTEED_MISS_SPEED := 9.0
 const MOVING_MISS_CHANCE := 0.42
@@ -24,6 +30,7 @@ var _impact_timer := 0.0
 var _miss_timer := 0.0
 var _last_result := ""
 var _last_miss_reason := ""
+var _last_knockback_velocity := 0.0
 var _hit_count := 0
 var _miss_count := 0
 var _last_boss_pos := Vector2.ZERO
@@ -42,6 +49,7 @@ func reset() -> void:
 	_miss_timer = 0.0
 	_last_result = ""
 	_last_miss_reason = ""
+	_last_knockback_velocity = 0.0
 	_last_boss_pos = Vector2.ZERO
 	_has_last_boss_pos = false
 
@@ -50,18 +58,25 @@ func prewarm() -> void:
 	pass
 
 
+func can_arm(params: Dictionary) -> bool:
+	if not bool(params.get("companion_visible", false)):
+		return false
+	var companion_pos: Vector2 = _as_vector2(params.get("companion_pos", Vector2.ZERO), Vector2.ZERO)
+	return _is_companion_onscreen(companion_pos)
+
+
 func launch(origin: Vector2, owner: Object) -> bool:
 	if owner == null:
 		return false
 	var boss_rect: Rect2 = _get_boss_rect(owner)
-	var boss_center: Vector2 = boss_rect.get_center()
 	_pos = origin
-	_target = boss_center
+	_target = _get_homing_target(owner, boss_rect)
 	_trail.clear()
 	_trail.append(_pos)
 	var moving_speed: float = _get_boss_moving_speed(owner, boss_rect.position)
 	_planned_miss = _should_miss_moving_target(origin, boss_rect.position, moving_speed)
 	if _planned_miss:
+		var boss_center: Vector2 = boss_rect.get_center()
 		var boss_vel: float = float(_get_owner_value(owner, "boss_vel", 0.0))
 		var miss_dir: float = float(sign(boss_vel))
 		if absf(miss_dir) <= 0.01:
@@ -149,6 +164,10 @@ func get_snapshot() -> Dictionary:
 		"headbutt_hit_count": _hit_count,
 		"headbutt_miss_count": _miss_count,
 		"headbutt_knockback_distance": KNOCKBACK_DISTANCE,
+		"headbutt_impact_nudge_distance": IMPACT_NUDGE_DISTANCE,
+		"headbutt_knockback_velocity": _last_knockback_velocity,
+		"headbutt_knockback_frames": KNOCKBACK_FRAMES,
+		"headbutt_knockback_decay": KNOCKBACK_DECAY,
 		"headbutt_moving_miss_chance": MOVING_MISS_CHANCE,
 	}
 
@@ -159,13 +178,16 @@ func _step_dash(delta: float, owner: Object, registry: Object) -> void:
 	_trail.append(_pos)
 	while _trail.size() > TRAIL_MAX_POINTS:
 		_trail.remove_at(0)
+	var boss_rect: Rect2 = _get_boss_rect(owner)
+	if not _planned_miss:
+		_target = _get_homing_target(owner, boss_rect)
+		_steer_toward_target(delta)
 	var remaining: float = (_target - _pos).length()
 	var step_distance: float = DASH_SPEED * delta
 	if step_distance >= remaining:
 		_pos = _target
 	else:
 		_pos += _dash_dir * step_distance
-	var boss_rect: Rect2 = _get_boss_rect(owner)
 	if not _planned_miss and _circle_hits_rect(_pos, DASH_RADIUS, boss_rect):
 		_resolve_hit(owner, registry, boss_rect)
 		return
@@ -190,11 +212,14 @@ func _resolve_hit(owner: Object, registry: Object, boss_rect: Rect2) -> void:
 	if absf(direction) <= 0.01:
 		direction = 1.0 if boss_rect.get_center().x <= FIELD_WIDTH * 0.5 else -1.0
 	var next_pos := boss_pos
-	next_pos.x = clampf(boss_pos.x + direction * KNOCKBACK_DISTANCE, 0.0, maxf(0.0, FIELD_WIDTH - boss_w))
+	_last_knockback_velocity = direction * KNOCKBACK_VELOCITY
+	var ai_knockback_applied := _apply_ai_knockback(registry, _last_knockback_velocity)
+	var impact_nudge := direction * (IMPACT_NUDGE_DISTANCE if ai_knockback_applied else KNOCKBACK_DISTANCE)
+	next_pos.x = clampf(boss_pos.x + impact_nudge, 0.0, maxf(0.0, FIELD_WIDTH - boss_w))
 	if owner != null:
 		owner.set("boss_pos", next_pos)
 		if owner.get("boss_vel") != null:
-			owner.set("boss_vel", 0.0)
+			owner.set("boss_vel", _last_knockback_velocity)
 	_play_paddle_hit(registry)
 	_trail.clear()
 	_remember_boss_pos(next_pos)
@@ -209,6 +234,23 @@ func _resolve_miss() -> void:
 	_last_result = "miss"
 	_miss_count += 1
 	_trail.clear()
+
+
+func _steer_toward_target(delta: float) -> void:
+	var offset := _target - _pos
+	if offset.length_squared() <= 1.0:
+		return
+	var desired_dir := offset.normalized()
+	var turn_angle := clampf(_dash_dir.angle_to(desired_dir), -HOMING_TURN_RATE * delta, HOMING_TURN_RATE * delta)
+	_dash_dir = _dash_dir.rotated(turn_angle).normalized()
+
+
+func _get_homing_target(owner: Object, boss_rect: Rect2) -> Vector2:
+	var target := boss_rect.get_center()
+	var boss_vel := float(_get_owner_value(owner, "boss_vel", 0.0))
+	target.x += boss_vel * 60.0 * HOMING_LEAD_SECONDS
+	target.x = clampf(target.x, boss_rect.size.x * 0.5, FIELD_WIDTH - boss_rect.size.x * 0.5)
+	return target
 
 
 func _should_miss_moving_target(origin: Vector2, boss_pos: Vector2, moving_speed: float) -> bool:
@@ -246,6 +288,23 @@ func _get_boss_rect(owner: Object) -> Rect2:
 func _remember_boss_pos(boss_pos: Vector2) -> void:
 	_last_boss_pos = boss_pos
 	_has_last_boss_pos = true
+
+
+func _is_companion_onscreen(companion_pos: Vector2) -> bool:
+	return (
+		companion_pos.x >= 0.0
+		and companion_pos.x <= FIELD_WIDTH
+		and companion_pos.y >= 0.0
+		and companion_pos.y <= FIELD_HEIGHT
+	)
+
+
+func _apply_ai_knockback(registry: Object, knockback_velocity: float) -> bool:
+	var ai_state := _get_registry_instance(registry, "boss_ai_state")
+	if ai_state != null and ai_state.has_method("start_paddle_hit_knockback"):
+		ai_state.start_paddle_hit_knockback(knockback_velocity, KNOCKBACK_FRAMES, KNOCKBACK_DECAY, true)
+		return true
+	return false
 
 
 func _deterministic_unit(origin: Vector2, boss_pos: Vector2, moving_speed: float) -> float:
@@ -296,6 +355,10 @@ func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
 
 func _get_owner_vector2(owner: Object, key: String, fallback: Vector2) -> Vector2:
 	var value: Variant = _get_owner_value(owner, key, fallback)
+	return value if value is Vector2 else fallback
+
+
+func _as_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	return value if value is Vector2 else fallback
 
 

@@ -53,6 +53,14 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return false
 
 
+func can_arm(skill_id: String, params: Dictionary) -> bool:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return _headbutt_skill.can_arm(params)
+		_:
+			return true
+
+
 func launch(skill_id: String, origin: Vector2, owner: Object = null) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:

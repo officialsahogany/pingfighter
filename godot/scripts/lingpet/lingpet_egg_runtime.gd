@@ -753,6 +753,8 @@ func _update_companion_skill_effects(delta: float, owner: Object, registry: Obje
 		"skill_runtime_host": _skill_runtime_host,
 		"windup_seconds": _get_current_skill_windup_seconds(),
 		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
+		"companion_visible": _companion_motion_state.motion_visible,
+		"companion_pos": _companion_pos,
 	})
 	match str(decision.get("action", LingpetCompanionSkillController.ACTION_NONE)):
 		LingpetCompanionSkillController.ACTION_ARM:

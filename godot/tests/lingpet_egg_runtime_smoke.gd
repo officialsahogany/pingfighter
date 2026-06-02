@@ -234,6 +234,23 @@ class FakePaddleAudio:
 		hydro_count += 1
 
 
+class FakeBossAiState:
+	extends RefCounted
+
+	var knockback_calls := 0
+	var last_velocity := 0.0
+	var last_frames := 0.0
+	var last_decay := 0.0
+	var last_replace := false
+
+	func start_paddle_hit_knockback(velocity: float, frames: float = 36.0, decay_per_frame: float = 0.85, replace_current: bool = true) -> void:
+		knockback_calls += 1
+		last_velocity = velocity
+		last_frames = frames
+		last_decay = decay_per_frame
+		last_replace = replace_current
+
+
 class FakeStatusEffectState:
 	extends RefCounted
 
@@ -1670,6 +1687,9 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_headbutt_skillcard_imagegen_v1.png"), "Lunabi Headbutt skill card should ship as an imagegen PNG")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_headbutt_skill_icon_imagegen_v1.png"), "Lunabi Headbutt skill icon should ship as an imagegen PNG")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_headbutt_skill.gd"), "Lunabi Headbutt skill module should exist")
+	var headbutt_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_headbutt_skill.gd")
+	_expect(headbutt_source.find("HOMING_TURN_RATE") >= 0 and headbutt_source.find("_get_homing_target") >= 0, "Lunabi Headbutt should keep steering toward the boss paddle while charging")
+	_expect(headbutt_source.find("start_paddle_hit_knockback") >= 0, "Lunabi Headbutt should use the boss AI knockback path for a natural rebound")
 
 	var owner := FakeOwner.new()
 	owner.lingpet_owned_pet_ids = ["lunabi"]
@@ -1679,8 +1699,15 @@ func _verify_lunabi_headbutt_skill() -> void:
 	owner.ball_active = true
 	var runtime: Object = LingpetEggRuntime.new()
 	var audio := FakePaddleAudio.new()
-	var registry := FakeRegistry.new({"game_audio": audio})
+	var boss_ai := FakeBossAiState.new()
+	var registry := FakeRegistry.new({"game_audio": audio, "boss_ai_state": boss_ai})
 	runtime.update(0.0, owner, registry)
+
+	runtime.configure_companion_motion_for_tests(Vector2(-72.0, 245.0), 2, 0.0, false)
+	runtime.update(0.0, owner, registry)
+	var offscreen_ready_snap: Dictionary = runtime.get_snapshot()
+	_expect(not bool(offscreen_ready_snap.get("companion_skill_winding_up", false)), "Lunabi Headbutt should wait while cooldown is ready but Lunabi is still offscreen")
+
 	runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
 	runtime.update(0.0, owner, registry)
 	var windup_snap: Dictionary = runtime.get_snapshot()
@@ -1709,7 +1736,10 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(int(runtime.get_headbutt_hit_count_for_tests()) == 1, "Lunabi Headbutt should hit a stationary boss paddle")
 	_expect(str(hit_snap.get("headbutt_last_result", "")) == "hit", "Lunabi Headbutt snapshot should publish the last hit result")
 	_expect(_vector2_distance(hit_snap.get("companion_pos", Vector2.ZERO), hit_snap.get("headbutt_companion_pos", Vector2.INF)) <= 0.1, "Lunabi's actual companion body should remain at the Headbutt impact position")
-	_expect(absf((owner.boss_pos.x - boss_x_before) - 150.0) <= 1.0, "Lunabi Headbutt should knock the boss paddle about 150px")
+	_expect(absf((owner.boss_pos.x - boss_x_before) - 24.0) <= 1.0, "Lunabi Headbutt should apply only a small immediate impact nudge before the ongoing recoil")
+	_expect(boss_ai.knockback_calls == 1, "Lunabi Headbutt should hand the continuing knockback to boss_ai_state")
+	_expect(boss_ai.last_velocity > 0.0 and boss_ai.last_frames >= 30.0 and boss_ai.last_decay >= 0.90, "Lunabi Headbutt should use a longer decaying boss knockback so recovery is not instant")
+	_expect(_estimated_knockback_distance(24.0, boss_ai.last_velocity, boss_ai.last_frames, boss_ai.last_decay) >= 140.0, "Lunabi Headbutt nudge plus decaying recoil should travel about 150px")
 	_expect(audio.paddle_hits == 1, "Lunabi Headbutt hit should use the paddle-hit impact sound")
 
 	var miss_owner := FakeOwner.new()
@@ -1789,6 +1819,14 @@ func _vector2_distance(a: Variant, b: Variant) -> float:
 	if not (a is Vector2) or not (b is Vector2):
 		return INF
 	return (a as Vector2).distance_to(b as Vector2)
+
+
+func _estimated_knockback_distance(initial_nudge: float, velocity: float, frames: float, decay: float) -> float:
+	var safe_decay := clampf(decay, 0.0, 0.999)
+	var travel := absf(initial_nudge)
+	if safe_decay <= 0.0:
+		return travel + absf(velocity)
+	return travel + absf(velocity) * (1.0 - pow(safe_decay, maxf(0.0, frames))) / (1.0 - safe_decay)
 
 
 func _expect(condition: bool, message: String) -> void:

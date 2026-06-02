@@ -64,6 +64,9 @@ func _should_arm(skill_id: String, skill_state: Object, skill_runtime_host: Obje
 		return false
 	if skill_runtime_host != null and bool(skill_runtime_host.is_launch_blocked(skill_id)):
 		return false
+	if skill_runtime_host != null and skill_runtime_host.has_method("can_arm"):
+		if not bool(skill_runtime_host.can_arm(skill_id, params)):
+			return false
 	return true
 
 
