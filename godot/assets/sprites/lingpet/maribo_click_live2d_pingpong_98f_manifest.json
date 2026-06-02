@@ -36,41 +36,50 @@
     "rows": 7,
     "frame_count": 98,
     "cell_size": [
-      1024,
-      1024
+      1152,
+      1152
     ],
     "sheet_size": [
-      14336,
-      7168
+      16128,
+      8064
     ],
     "frame_interval": "intended 16 fps one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
     "source_scale_repack": 0.92,
-    "sha256": "7458aabf6dabaf1900fea81fda3bf5e86a242511a43c0cbd756a8c5462a70bc2",
-    "bytes": 58428775
+    "sha256": "e4f418fd4b3adb7e5a083191ad6b7f2ba8330cd4194978837df29f19df652c9b",
+    "bytes": 66901009
   },
   "postprocess": {
-    "tool": "Pillow per-cell premultiplied-alpha 0.92 repack + deterministic pingpong reassembly",
-    "operation": "Each AutoSprite 1024 cell was premultiplied-alpha resized to 92 percent and centered back into a 1024 cell for safe margins, then a 98-frame sheet was built as forward 0..48 + reverse 48..0 (frame 48 held once at the apex, frame 0 == frame 97 for a clean one-shot pingpong return).",
-    "script": ".tmp/maribo_click_v1/repack_pingpong.py",
+    "tool": "AutoSprite-derived per-cell Real-ESRGAN animev3 x2 RGB/alpha split + 0.92 safe-margin pingpong repack",
+    "operation": "AutoSprite 49f source cells were alpha-bleed RGB upscaled through Real-ESRGAN animev3 x2, recombined with separately resized source alpha, safe-margin repacked at 0.92 into 1152px cells, then deterministic forward+reverse 98f pingpong reassembly.",
+    "script": ".tmp/maribo_click_hq/rebuild_maribo_click_sheet.py",
     "unsharp_mask": {
       "tool": "PIL ImageFilter.UnsharpMask",
       "params": {
-        "radius": 1.6,
-        "percent": 110,
+        "radius": 1.1,
+        "percent": 70,
         "threshold": 3
       },
-      "mode": "per-cell RGB unsharp on alpha-bled 1024 cells, recombined with original 1024 alpha; sheet size / grid / frame layout / VRAM unchanged.",
-      "sharpness_laplacian_var_visible_before": 424.5,
-      "sharpness_laplacian_var_visible_after": 1434.7,
-      "ratio": 3.38,
-      "script": ".tmp/click_sharpen/unsharp_test.py",
-      "note": "User requested real sharpening after ESRGAN-roundtrip proved a no-op at 1024 target. Mid strength chosen (strong 1.8/130 read slightly heavy / shimmer-risk on the 98-frame loop)."
+      "mode": "per-cell RGB unsharp after Real-ESRGAN upscale and before safe-margin alpha recombine."
     },
     "alpha_cleanup": {
-      "operation": "Post-sharpen alpha fringe cleanup: pixels with alpha <= 15 were set to fully transparent to remove low-alpha colored edge specks visible on dark compositing.",
+      "operation": "Post-upscale alpha cleanup: source alpha resized separately and pixels with alpha <= 15 set fully transparent after recombine.",
       "threshold": 15,
-      "preview": ".tmp/maribo_click_live2d_pingpong_98f_alpha15_black_preview.png",
       "a1_15_after": 0
+    },
+    "realesrgan_upscale": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2,
+      "source_raw": ".tmp/maribo_click_v1/maribo_click_raw_49f.png",
+      "rgb_alpha_split": true,
+      "rgb_upscale": "per-cell alpha-bleed RGB through Real-ESRGAN",
+      "alpha_recombine": "source alpha resized separately, alpha<=15 clipped after recombine",
+      "target_cell_size": [
+        1152,
+        1152
+      ],
+      "content_scale": 0.92,
+      "qc_path": ".tmp/maribo_click_hq/maribo_click_current_raw_realesrgan_animev3_hq1152_safe.qc.json"
     }
   },
   "qa": {
@@ -81,11 +90,102 @@
     "final_whole_sheet_edge_alpha": 0,
     "final_cells_with_edge_touch": 0,
     "pingpong_loop_closure": "frame0.bbox == frame97.bbox and frame48.bbox == frame49.bbox (verified)",
-    "fringe_check": "Composited over dark (#14141c) and light (#f5f5f5) backgrounds; no magenta/pink fringe, no box/ring residue.",
+    "fringe_check": "HQ1152 dark preview inspected at .tmp/maribo_click_hq/maribo_click_current_raw_realesrgan_animev3_hq1152_safe_dark_preview.png; same-size comparison inspected at .tmp/maribo_click_hq/compare_current_vs_hq1152_safe_dark.png.",
     "dark_contact_preview": ".tmp/maribo_click_v1/packed_contact_dark.png",
-    "white_contact_preview": ".tmp/maribo_click_v1/packed_contact_white.png"
+    "white_contact_preview": ".tmp/maribo_click_v1/packed_contact_white.png",
+    "final_cell_size": [
+      1152,
+      1152
+    ],
+    "realesrgan_qc_path": ".tmp/maribo_click_hq/maribo_click_current_raw_realesrgan_animev3_hq1152_safe.qc.json",
+    "sample_bboxes": {
+      "0": [
+        153,
+        175,
+        924,
+        981
+      ],
+      "6": [
+        175,
+        189,
+        917,
+        1010
+      ],
+      "12": [
+        184,
+        237,
+        921,
+        1027
+      ],
+      "18": [
+        46,
+        307,
+        878,
+        1034
+      ],
+      "24": [
+        46,
+        125,
+        1022,
+        1064
+      ],
+      "30": [
+        133,
+        46,
+        1106,
+        1074
+      ],
+      "36": [
+        164,
+        46,
+        1106,
+        1090
+      ],
+      "42": [
+        170,
+        85,
+        1103,
+        1102
+      ],
+      "48": [
+        98,
+        234,
+        1106,
+        1099
+      ],
+      "49": [
+        98,
+        234,
+        1106,
+        1099
+      ],
+      "60": [
+        163,
+        46,
+        1106,
+        1093
+      ],
+      "72": [
+        52,
+        115,
+        1014,
+        1071
+      ],
+      "84": [
+        174,
+        253,
+        916,
+        1032
+      ],
+      "97": [
+        153,
+        175,
+        924,
+        981
+      ]
+    }
   },
   "root_cause_note": "Maribo previously read lower-quality than Lunabi because (1) the v003 magenta source was NOT a flat #ff00ff chroma key (corners ranged R218-235, G10-36, B185-209), so chroma removal could never be clean; and (2) maribo's body is pink, which is close in hue to magenta, so AutoSprite removeBg left magenta/pink edge fringe. Per the CLAUDE.md chroma-key rule, a pink character should use a green (#00ff00) key, not magenta. Lunabi's dark-purple body + perfectly flat #ff00ff source avoided both problems. This asset fixes (1)+(2) by despilling to a clean transparent base before upload.",
-  "status": "Accepted asset candidate: AutoSprite 49f click reaction, 0.92 safe-margin repack, deterministic pingpong return to frame 0. Lingpet click-reaction runtime wiring (click input -> playback) is NOT yet implemented for either lunabi or maribo; this matches lunabi_click_live2d_pingpong_98f which is also a runtime-unwired candidate.",
-  "sharpen_status": "Unsharp-masked (radius1.6/percent110/threshold3), then alpha<=15 edge specks clipped for clean dark-background compositing. Pre-unsharp backup: .tmp/click_sharpen/maribo_click_pre_unsharp_backup.png."
+  "status": "Accepted runtime asset: existing AutoSprite 49f click reaction, Real-ESRGAN animev3 x2 per-cell RGB/alpha split, 1152px safe-margin repack, deterministic 98f pingpong return to frame 0. Applied to the Godot lingpet click-reaction path.",
+  "sharpen_status": "Replaced previous 1024 unsharp-only runtime sheet with HQ1152 Real-ESRGAN animev3 x2 + mild unsharp + alpha<=15 cleanup. Edge-touch QA: 0 cells."
 }
