@@ -374,21 +374,33 @@ func _draw_resonance_bg(canvas: CanvasItem, view_size: Vector2, progress: float)
 	# Soft deep wash for depth behind the painted portal.
 	canvas.draw_circle(center, base_radius, Color(OCEAN_DEEP.r, OCEAN_DEEP.g, OCEAN_DEEP.b, 0.42 * fade))
 
-	# Painted "resonance awakening" portal, drawn as two parallax layers with an
-	# entrance pop + slow breath + gentle scale pulse so the static texture reads
-	# alive. Alpha-baked margins composite transparently (no square box).
+	# Painted "resonance awakening" portal. Two counter-rotating parallax layers
+	# (a slow dim outer halo + a brighter inner ring) give it a living, spinning
+	# summon-circle feel, plus a chromatic-aberration shimmer, an entrance pop, a
+	# breath, and a pulsing core. Rotation uses rotated textured quads
+	# (draw_colored_polygon) -- NOT draw_set_transform (the documented overlay trap)
+	# and NOT a per-draw shader pass (Godot 4 has no per-command material, and a
+	# node-based shader material cannot sit behind the immediate character draw on
+	# this single-canvas overlay), so the spin stays local to the portal draws.
 	var portal: Texture2D = _get_portal_texture()
 	if portal != null and portal.get_width() > 1:
 		var t: float = float(Time.get_ticks_msec()) / 1000.0
 		var breath: float = sin(t * TAU * 0.16)
 		var entrance: float = lerpf(0.70, 1.0, _ease_out_cubic(clampf(progress / maxf(0.01, INTRO_END * 1.8), 0.0, 1.0)))
 		var min_dim: float = minf(view_size.x, view_size.y)
-		# Far halo layer: larger, dim, cool — adds outer-glow depth.
-		var far_diam: float = min_dim * (1.24 + breath * 0.012) * entrance
-		_blit_portal(canvas, portal, center, far_diam, Color(0.80, 0.95, 1.0, 0.30 * fade))
-		# Near hero layer: crisp portal, brighter, scale-pulses with the breath.
-		var near_diam: float = min_dim * (1.04 + breath * 0.022) * entrance
-		_blit_portal(canvas, portal, center, near_diam, Color(1.0, 1.0, 1.0, (0.66 + 0.10 * breath) * fade))
+		# Far halo layer: larger, dim, cool, slow counter-clockwise spin.
+		var far_diam: float = min_dim * (1.58 + breath * 0.014) * entrance
+		_draw_portal_quad(canvas, portal, center, far_diam, -t * 0.16, Color(0.80, 0.95, 1.0, 0.28 * fade))
+		# Near hero layer: brighter, clockwise spin, with a chromatic-aberration
+		# shimmer (cyan + magenta ghosts offset along an oscillating axis).
+		var near_diam: float = min_dim * (1.28 + breath * 0.024) * entrance
+		var near_angle: float = t * 0.30
+		var chroma: float = view_size.x * 0.004 * (0.6 + 0.4 * sin(t * 2.3))
+		_draw_portal_quad(canvas, portal, center + Vector2(chroma, 0.0), near_diam, near_angle, Color(0.42, 1.0, 1.0, 0.22 * fade))
+		_draw_portal_quad(canvas, portal, center - Vector2(chroma, 0.0), near_diam, near_angle, Color(1.0, 0.50, 0.95, 0.18 * fade))
+		_draw_portal_quad(canvas, portal, center, near_diam, near_angle, Color(1.0, 1.0, 1.0, (0.60 + 0.10 * breath) * fade))
+		# Bright pulsing core glow at the very center.
+		canvas.draw_circle(center, near_diam * 0.09, Color(0.86, 1.0, 1.0, (0.30 + 0.12 * breath) * fade))
 	else:
 		# Fallback soft glow if the portal texture is unavailable.
 		canvas.draw_circle(center, base_radius * 0.62, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.18 * fade))
@@ -403,6 +415,24 @@ func _draw_resonance_bg(canvas: CanvasItem, view_size: Vector2, progress: float)
 		if ring_alpha <= 0.01:
 			continue
 		canvas.draw_arc(center, radius, 0.0, TAU, 48, Color(RESONANCE.r, RESONANCE.g, RESONANCE.b, ring_alpha), maxf(2.0, view_size.y * 0.004), true)
+
+
+func _draw_portal_quad(canvas: CanvasItem, portal: Texture2D, center: Vector2, diameter: float, angle: float, modulate: Color) -> void:
+	# Draws the portal texture as a square quad rotated by `angle`. Rotating the
+	# four corner points while pinning the UVs to the texture corners spins the
+	# texture WITHOUT draw_set_transform, so the spin never leaks into the dim /
+	# character / title drawn on the same immediate canvas.
+	if portal == null or modulate.a <= 0.0 or diameter <= 1.0:
+		return
+	var h: float = diameter * 0.5
+	var ca: float = cos(angle)
+	var sa: float = sin(angle)
+	var corners := [Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)]
+	var pts := PackedVector2Array()
+	for c in corners:
+		pts.push_back(center + Vector2(c.x * ca - c.y * sa, c.x * sa + c.y * ca))
+	var uvs := PackedVector2Array([Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(1.0, 1.0), Vector2(0.0, 1.0)])
+	canvas.draw_colored_polygon(pts, modulate, uvs, portal)
 
 
 func _blit_portal(canvas: CanvasItem, portal: Texture2D, center: Vector2, diameter: float, modulate: Color) -> void:
@@ -509,8 +539,8 @@ func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progre
 	if portal != null and portal.get_width() > 1:
 		var breath: float = sin(t * TAU * 0.16)
 		var min_dim: float = minf(view_size.x, view_size.y)
-		_blit_portal(canvas, portal, center, min_dim * (1.24 + breath * 0.012), Color(0.80, 0.95, 1.0, 0.26 * out_fade))
-		_blit_portal(canvas, portal, center, min_dim * (1.04 + breath * 0.022), Color(1.0, 1.0, 1.0, 0.58 * out_fade))
+		_blit_portal(canvas, portal, center, min_dim * (1.58 + breath * 0.014), Color(0.80, 0.95, 1.0, 0.24 * out_fade))
+		_blit_portal(canvas, portal, center, min_dim * (1.28 + breath * 0.024), Color(1.0, 1.0, 1.0, 0.54 * out_fade))
 	canvas.draw_circle(center, view_size.length() * 0.30, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.14 * out_fade))
 
 	# Exit action frame: play 0..N over the action portion, then hold the last frame.

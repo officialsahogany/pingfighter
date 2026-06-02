@@ -463,6 +463,8 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(cutin_host_source.find("_draw_dismiss_action") >= 0, "cut-in host should draw the click-triggered exit action")
 	_expect(cutin_host_source.find("CUTIN_DISMISS_SHEET") >= 0, "cut-in host should play the spear-raise + water-spray exit sheet")
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png"), "Maribo cut-in should ship the exit-action (spear-raise + water-spray) sheet")
+	_expect(cutin_host_source.find("func _draw_portal_quad") >= 0 and cutin_host_source.find("draw_colored_polygon") >= 0, "cut-in host should rotate the painted resonance portal with textured quads")
+	_expect(cutin_host_source.find("_draw_resonance_bg") < cutin_host_source.find("func _draw_portal_quad"), "cut-in host should keep the portal-quad helper near the resonance background draw path")
 	_expect(runtime_source.find("is_acquire_cutin_active") >= 0, "lingpet runtime should expose the acquisition cut-in active flag")
 	_expect(runtime_source.find("lingpet_acquire_cutin_state.gd") >= 0, "lingpet runtime should delegate cut-in timing state to the acquire-cutin state module")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_acquire_cutin_state.gd"), "lingpet acquire cut-in state module should exist")
