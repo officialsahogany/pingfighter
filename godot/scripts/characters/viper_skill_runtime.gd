@@ -1121,7 +1121,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 		core_flip_dark_blade_handoff_frames = max(0.0, core_flip_dark_blade_handoff_frames - fps_scale)
 	if dark_blade_window:
 		dark_blade_window_frames = max(0.0, dark_blade_window_frames - fps_scale)
-		var core_flip_dark_ready := _is_core_flip_dark_blade_start_ready()
+		var core_flip_dark_ready := (core_flip_attack_active and core_flip_ball_hit) or core_flip_dark_blade_handoff_frames > 0.0
 		var marshal_dark_ready := marshal_active
 		if dark_blade_window_frames <= 0.0 or (
 			not _is_viper_airborne(deps)
@@ -1679,7 +1679,7 @@ func _update_core_flip(
 			_clear_core_flip_web_lines()
 			var t0: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE0_FRAMES)
 			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(0, t0)
-			next_pos = _center_to_player_pos(core_flip_origin_center, config)
+			next_pos = ViperSkillGeometry.center_to_player_pos(core_flip_origin_center, config, core_flip_paddle_size)
 			if t0 >= 1.0:
 				_enter_core_flip_phase(1, deps)
 		1:
@@ -1712,7 +1712,7 @@ func _update_core_flip_wall_climb_phase(config: Dictionary, deps: Dictionary) ->
 		cling_frames,
 		CORE_FLIP_KICK_TRIGGER_Y
 	)
-	var next_pos: Vector2 = _center_to_player_pos(center1, config)
+	var next_pos: Vector2 = ViperSkillGeometry.center_to_player_pos(center1, config, core_flip_paddle_size)
 	var wall_contact: Dictionary = ViperSkillGeometry.core_flip_wall_contact_state(
 		center1,
 		float(config.get("width", 760.0)),
@@ -1815,7 +1815,7 @@ func _update_core_flip_kick_phase(config: Dictionary, deps: Dictionary, result: 
 	var kick_center: Vector2 = _get_vector2(kick_motion.get("center", core_flip_apex_center), core_flip_apex_center)
 	core_flip_kick_dir = int(kick_motion.get("dir", core_flip_kick_dir))
 	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(2, t2)
-	var next_pos: Vector2 = _center_to_player_pos(kick_center, config)
+	var next_pos: Vector2 = ViperSkillGeometry.center_to_player_pos(kick_center, config, core_flip_paddle_size)
 	_try_apply_core_flip_kick_hit(kick_center, config, deps, result)
 	if t2 >= 1.0:
 		if not core_flip_ball_hit:
@@ -1839,9 +1839,9 @@ func _update_core_flip_return_phase(config: Dictionary, deps: Dictionary) -> Vec
 	)
 	core_flip_spin_angle_degrees = float(return_motion.get("spin_degrees", core_flip_spin_angle_degrees))
 	var return_center: Vector2 = _get_vector2(return_motion.get("center", core_flip_origin_center), core_flip_origin_center)
-	var next_pos: Vector2 = _center_to_player_pos(return_center, config)
+	var next_pos: Vector2 = ViperSkillGeometry.center_to_player_pos(return_center, config, core_flip_paddle_size)
 	if t3 >= 1.0:
-		next_pos = _center_to_player_pos(core_flip_origin_center, config)
+		next_pos = ViperSkillGeometry.center_to_player_pos(core_flip_origin_center, config, core_flip_paddle_size)
 		if dark_blade_window and _is_dark_blade_equipped(deps):
 			core_flip_dark_blade_handoff_frames = CORE_FLIP_DARK_BLADE_HANDOFF_FRAMES
 		else:
@@ -1855,10 +1855,6 @@ func _enter_core_flip_phase(next_phase: int, deps: Dictionary) -> void:
 	core_flip_phase_frames = 0.0
 	if next_phase == 1:
 		audio_router.play_marshal_backstep_sound(deps)
-
-
-func _center_to_player_pos(center: Vector2, config: Dictionary) -> Vector2:
-	return ViperSkillGeometry.center_to_player_pos(center, config, core_flip_paddle_size)
 
 
 func consume_phantom_kick_knockback(ball_pos: Vector2, boss_pos: Vector2, boss_width: float, deps: Dictionary = {}) -> Dictionary:
@@ -2978,11 +2974,13 @@ func _update_ignition_aura_runtime(fps_scale: float, context: Dictionary, deps: 
 		_finish_ignition_aura(deps)
 		return
 	if bool(context.get("waiting_for_serve", false)) or not _is_context_ball_active(context, true):
-		_sync_ignition_aura_anchor_from_context(context)
+		ignition_player_pos = _get_vector2(context.get("player_pos", ignition_player_pos), ignition_player_pos)
+		ignition_paddle_size = _get_vector2(context.get("player_paddle_size", ignition_paddle_size), ignition_paddle_size)
 		_set_runtime_ignition_aura_bonus(deps, true)
 		return
 
-	_sync_ignition_aura_anchor_from_context(context)
+	ignition_player_pos = _get_vector2(context.get("player_pos", ignition_player_pos), ignition_player_pos)
+	ignition_paddle_size = _get_vector2(context.get("player_paddle_size", ignition_paddle_size), ignition_paddle_size)
 	_set_runtime_ignition_aura_bonus(deps, true)
 	ignition_remaining_frames = max(0.0, ignition_remaining_frames - fps_scale)
 	ignition_ember_timer -= fps_scale
@@ -3006,11 +3004,6 @@ func _finish_ignition_aura(deps: Dictionary) -> void:
 	ignition_remaining_frames = 0.0
 	ignition_ember_timer = 0.0
 	_set_runtime_ignition_aura_bonus(deps, false)
-
-
-func _sync_ignition_aura_anchor_from_context(context: Dictionary) -> void:
-	ignition_player_pos = _get_vector2(context.get("player_pos", ignition_player_pos), ignition_player_pos)
-	ignition_paddle_size = _get_vector2(context.get("player_paddle_size", ignition_paddle_size), ignition_paddle_size)
 
 
 func _reset_ignition_aura_hold() -> void:
@@ -3084,7 +3077,7 @@ func _try_update_dive_hold(
 
 	if dive_hold_start_msec <= 0:
 		dive_hold_start_msec = now_msec
-		_clear_dive_charge_particles()
+		dive_charge_particles.clear()
 	dive_hold_player_pos = player_pos
 	dive_hold_paddle_size = _get_paddle_size(config)
 	var elapsed_msec: int = max(0, now_msec - dive_hold_start_msec)
@@ -3357,13 +3350,9 @@ func _reset_dive_hold() -> void:
 	dive_hold_ratio = 0.0
 	dive_hold_player_pos = Vector2.ZERO
 	dive_hold_paddle_size = Vector2(155.0, 50.0)
-	_clear_dive_charge_particles()
+	dive_charge_particles.clear()
 	if not dive_active:
 		_hide_fx_host(emp_fx_host)
-
-
-func _clear_dive_charge_particles() -> void:
-	dive_charge_particles.clear()
 
 
 func _trigger_runtime_cooldown_and_orb_gauge_spin(
@@ -3456,7 +3445,7 @@ func _try_start_blade_combo_from_dark_blade_motion(
 ) -> Dictionary:
 	if not (blade_dark_mode and blade_dark_combo_window):
 		return {}
-	if not _can_start_blade_combo_with_runtime_state(config, deps):
+	if _is_control_locked(deps) or not _is_config_ball_active(config):
 		return {}
 	var skill_config: Object = _get_viper_skill_config(deps)
 	if not _is_skill_equipped(skill_config, BLADE_RUSH):
@@ -3481,7 +3470,7 @@ func _can_start_dark_blade_combo_from_blade_motion(
 ) -> bool:
 	if not (split_combo_window_active or air_combo_window_active):
 		return false
-	if not _can_start_blade_combo_with_runtime_state(config, deps):
+	if _is_control_locked(deps) or not _is_config_ball_active(config):
 		return false
 	if not _is_skill_equipped(skill_config, DARK_BLADE):
 		return false
@@ -3494,12 +3483,12 @@ func _can_start_dark_blade_combo_from_blade_motion(
 func _can_start_nerve_strike_combo(special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int) -> bool:
 	if nerve_strike_combo_used or nerve_strike_active or blade_dark_mode:
 		return false
-	if not _can_start_blade_combo_with_runtime_state(config, deps):
+	if _is_control_locked(deps) or not _is_config_ball_active(config):
 		return false
 	var skill_config: Object = _get_viper_skill_config(deps)
 	if not _is_skill_equipped(skill_config, NERVE_STRIKE):
 		return false
-	if special_gauge < _get_nerve_strike_activation_cost(skill_config):
+	if special_gauge < _get_skill_cost_with_fallback(skill_config, NERVE_STRIKE, 90.0):
 		return false
 	var skill_state: Object = _get_viper_skill_state(deps)
 	if skill_state == null:
@@ -3508,24 +3497,9 @@ func _can_start_nerve_strike_combo(special_gauge: float, config: Dictionary, dep
 		return skill_state.get_cooldown_remaining(
 			NERVE_STRIKE,
 			now_msec,
-			_get_nerve_strike_cooldown_seconds(skill_config, deps)
+			_get_four_poisons_additive_cooldown_seconds(NERVE_STRIKE, skill_config, deps, 40.0)
 		) <= 0.0
 	return _is_configured_skill_ready(NERVE_STRIKE, deps, now_msec)
-
-
-func _can_start_blade_combo_with_runtime_state(config: Dictionary, deps: Dictionary) -> bool:
-	if _is_control_locked(deps):
-		return false
-	return _is_config_ball_active(config)
-
-
-func _get_nerve_strike_activation_cost(skill_config: Object) -> float:
-	var configured_cost: float = _get_skill_cost(skill_config, NERVE_STRIKE)
-	return 90.0 if configured_cost <= 0.0 else configured_cost
-
-
-func _get_nerve_strike_cooldown_seconds(skill_config: Object, deps: Dictionary) -> float:
-	return _get_four_poisons_additive_cooldown_seconds(NERVE_STRIKE, skill_config, deps, 40.0)
 
 
 func _start_nerve_strike(
@@ -3536,18 +3510,18 @@ func _start_nerve_strike(
 	now_msec: int
 ) -> Dictionary:
 	var skill_config: Object = _get_viper_skill_config(deps)
-	var cost: float = _get_nerve_strike_activation_cost(skill_config)
+	var cost: float = _get_skill_cost_with_fallback(skill_config, NERVE_STRIKE, 90.0)
 	var next_gauge: float = max(0.0, special_gauge - cost)
 	_trigger_runtime_cooldown_and_orb_gauge_spin(
 		NERVE_STRIKE,
 		now_msec,
 		skill_config,
 		deps,
-		_get_nerve_strike_cooldown_seconds(skill_config, deps)
+		_get_four_poisons_additive_cooldown_seconds(NERVE_STRIKE, skill_config, deps, 40.0)
 	)
 	_trigger_feedback(deps, 0.12, 4.2)
 	runtime_action_router.interrupt_viper_jetpack_thrust(deps)
-	_stop_blade_spin_sound(deps)
+	audio_router.stop_blade_spin_sound(self, deps)
 	_reset_blade_motion_only(deps)
 	nerve_strike_cast_id += 1
 	nerve_strike_active = true
@@ -3902,7 +3876,7 @@ func _can_start_dark_blade_from_window(special_gauge: float, config: Dictionary,
 		return false
 	if not _is_config_ball_active(config):
 		return false
-	var core_flip_dark_ready := _is_core_flip_dark_blade_start_ready()
+	var core_flip_dark_ready := (core_flip_attack_active and core_flip_ball_hit) or core_flip_dark_blade_handoff_frames > 0.0
 	var marshal_dark_ready := marshal_active
 	if not (_is_viper_airborne(deps) or core_flip_dark_ready or marshal_dark_ready):
 		return false
@@ -4015,13 +3989,6 @@ func _is_dark_blade_equipped(deps: Dictionary) -> bool:
 	return _is_skill_equipped(_get_viper_skill_config(deps), DARK_BLADE)
 
 
-func _is_core_flip_dark_blade_start_ready() -> bool:
-	return (
-		(core_flip_attack_active and core_flip_ball_hit)
-		or core_flip_dark_blade_handoff_frames > 0.0
-	)
-
-
 func _update_blade_motion(
 	delta: float,
 	player_pos: Vector2,
@@ -4088,13 +4055,15 @@ func _update_blade_motion(
 		_get_paddle_size(config),
 		DARK_BLADE_AUTO_FIRE_NEAR_Y
 	):
-		_enter_blade_decel_phase(decel_frames)
+		blade_motion_phase = 1
+		blade_motion_frames = decel_frames
 	match blade_motion_phase:
 		0:
 			var t0: float = ViperSkillGeometry.blade_motion_phase_progress(blade_motion_frames, spin_frames)
 			blade_spin_angle = ViperSkillGeometry.blade_motion_spin_angle(0, t0, spin_turns)
 			if t0 >= 1.0:
-				_enter_blade_decel_phase(0.0)
+				blade_motion_phase = 1
+				blade_motion_frames = 0.0
 			next_pos = blade_motion_pos
 		1:
 			var t1: float = ViperSkillGeometry.blade_motion_phase_progress(blade_motion_frames, decel_frames)
@@ -4104,7 +4073,7 @@ func _update_blade_motion(
 				blade_motion_frames = 0.0
 				blade_spin_angle = 0.0
 				blade_phase2_base_y = min(blade_motion_pos.y, _get_player_floor_y(config))
-				_stop_blade_spin_sound(deps)
+				audio_router.stop_blade_spin_sound(self, deps)
 				_launch_blade_projectile(blade_motion_pos, config, deps)
 			next_pos = blade_motion_pos
 		2:
@@ -4134,11 +4103,6 @@ func _update_blade_motion(
 		"player_speed": next_speed,
 		"special_gauge": special_gauge,
 	}
-
-
-func _enter_blade_decel_phase(start_frames: float) -> void:
-	blade_motion_phase = 1
-	blade_motion_frames = start_frames
 
 
 func _launch_blade_projectile(player_pos: Vector2, config: Dictionary, deps: Dictionary) -> void:
@@ -4522,12 +4486,8 @@ func _spawn_fallback_hit_impact(
 	)
 
 
-func _stop_blade_spin_sound(deps: Dictionary = {}) -> void:
-	audio_router.stop_blade_spin_sound(self, deps)
-
-
 func _reset_blade_motion_only(deps: Dictionary = {}) -> void:
-	_stop_blade_spin_sound(deps)
+	audio_router.stop_blade_spin_sound(self, deps)
 	blade_motion_active = false
 	_enter_blade_spin_phase()
 	blade_dark_mode = false
