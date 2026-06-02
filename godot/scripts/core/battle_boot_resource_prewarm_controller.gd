@@ -1169,7 +1169,7 @@ func _build_resource_context(owner: Object) -> Dictionary:
 	return {
 		"selected_character_type": _get_selected_character_type(owner),
 		"current_stage": _get_current_stage(owner),
-		"include_result_sheets": false,
+		"include_result_sheets": true,
 		"include_all_characters": false,
 		"include_all_stages": false,
 	}

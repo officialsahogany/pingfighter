@@ -679,8 +679,8 @@ func _verify_battle_texture_prewarm_is_staged() -> void:
 	_expect(controller.battle_boss_resources_prewarmed, "staged texture prewarm should satisfy the old boss flag")
 	_expect(_registry.battle_resources.load_all_calls == 0, "staged texture prewarm should use the cached transition path without load_all")
 	_expect(
-		not bool(_registry.battle_resources.last_context.get("include_result_sheets", true)),
-		"first battle texture prewarm should not load result sheets"
+		bool(_registry.battle_resources.last_context.get("include_result_sheets", false)),
+		"first battle texture prewarm should include round-result sheets before the first score event"
 	)
 	_expect(int(owner.battle_textures.get("loaded_stage", 0)) == 1, "owner should receive the battle texture cache")
 	_expect(owner.smasher_skill_icon_textures.has("wheel"), "owner should receive the selected character skill icon cache")
