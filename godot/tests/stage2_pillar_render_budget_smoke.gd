@@ -370,6 +370,10 @@ func _verify_draw_paths_use_render_caps() -> void:
 	]:
 		_expect(pillar_scene_source.find(label) >= 0, "Stage 2 pillar draw should expose BattlePerf label %s" % label)
 	_expect(
+		_function_body(pillar_scene_source, "func _draw_stage2_boss_skill_hud").find("context.duplicate()") < 0,
+		"Stage 2 boss skill HUD should build a compact draw context instead of copying the full battle context"
+	)
+	_expect(
 		_function_body(background_source, "func draw_playfield_obstacles").find("ROCK_FRAGMENT_RENDER_LIMIT_SEVERE_LOD") >= 0,
 		"Stage 2 obstacle draw should cap rock-fragment rendering with severe LOD"
 	)

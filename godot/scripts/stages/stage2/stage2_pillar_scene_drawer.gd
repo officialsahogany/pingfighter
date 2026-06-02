@@ -159,11 +159,14 @@ func _draw_stage2_boss_skill_hud(
 	if skill_state == null or not skill_state.has_method("get_hud_context"):
 		return
 	var stage_background: Object = registry.get_instance("stage2_pillar_background")
-	var hud_context: Dictionary = context.duplicate()
-	hud_context.merge(skill_state.get_hud_context(stage_background, context), true)
+	var hud_context: Dictionary = _get_dictionary(skill_state.get_hud_context(stage_background, context))
+	hud_context["current_stage"] = int(context.get("current_stage", 2))
 	hud_context["view_size"] = view_size
 	hud_context["game_offset"] = game_offset
 	hud_context["game_size"] = game_size
+	var avoid_rect_value: Variant = context.get("commando_firearm_panel_rect", Rect2())
+	if avoid_rect_value is Rect2:
+		hud_context["commando_firearm_panel_rect"] = avoid_rect_value
 	# Hatched lingpet rides this stage's boss skill rail too (companion persists across stages).
 	LingpetRailCard.append_entry(hud_context, registry, "stage2_boss_skill_hud_skills", "stage2_boss_skill_hud_active")
 	renderer.draw(canvas, hud_context)
@@ -184,6 +187,12 @@ func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2
 	if value is Vector2:
 		return value
 	return fallback
+
+
+func _get_dictionary(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
 
 
 func _is_scoreboard_overlay_active(states: Dictionary, registry: Object) -> bool:
