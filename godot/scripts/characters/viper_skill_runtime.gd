@@ -635,7 +635,7 @@ func reset() -> void:
 
 
 func reset_round(deps: Dictionary = {}) -> void:
-	var preserve_ignition_aura := _should_preserve_ignition_aura_on_round_reset(deps)
+	var preserve_ignition_aura := bool(deps.get("preserve_ignition_aura", true)) and ignition_active and ignition_remaining_frames > 0.0
 	previous_down_pressed = false
 	previous_left_pressed = false
 	previous_up_pressed = false
@@ -666,7 +666,14 @@ func reset_round(deps: Dictionary = {}) -> void:
 	_reset_chaos_spear_runtime(true, deps)
 	_reset_dual_glitch_runtime(true)
 	if preserve_ignition_aura:
-		_preserve_ignition_aura_round_carryover(deps)
+		# Ignition Aura is an explicit cross-round carryover exception: keep the
+		# timed buff, but clear hold / one-shot particles at the score boundary.
+		_reset_ignition_aura_hold()
+		ignition_burst_particles.clear()
+		ignition_charge_particles.clear()
+		ignition_live_embers.clear()
+		ignition_ember_timer = 0.0
+		_set_runtime_ignition_aura_bonus(deps, true)
 	else:
 		_set_runtime_ignition_aura_bonus(deps, false)
 		_reset_ignition_aura_runtime(true)
@@ -3016,7 +3023,7 @@ func _can_hold_ignition_aura(
 	var skill_config: Object = _get_viper_skill_config(deps)
 	if not _is_skill_equipped(skill_config, IGNITION_AURA):
 		return false
-	var cost: float = _get_ignition_aura_activation_cost(skill_config)
+	var cost: float = _get_skill_cost_with_fallback(skill_config, IGNITION_AURA, IGNITION_GAUGE_COST)
 	if special_gauge < cost:
 		return false
 	return _is_configured_skill_ready(IGNITION_AURA, deps, now_msec)
@@ -3030,7 +3037,7 @@ func _start_ignition_aura(
 	now_msec: int
 ) -> Dictionary:
 	var skill_config: Object = _get_viper_skill_config(deps)
-	var cost: float = _get_ignition_aura_activation_cost(skill_config)
+	var cost: float = _get_skill_cost_with_fallback(skill_config, IGNITION_AURA, IGNITION_GAUGE_COST)
 	var next_gauge: float = max(0.0, special_gauge - cost)
 	var skill_state: Object = _get_viper_skill_state(deps)
 	if skill_state != null:
@@ -3065,20 +3072,19 @@ func _start_ignition_aura(
 	}
 
 
-func _get_ignition_aura_activation_cost(skill_config: Object) -> float:
-	return _get_skill_cost_with_fallback(skill_config, IGNITION_AURA, IGNITION_GAUGE_COST)
-
-
 func _update_ignition_aura_runtime(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
 	particle_drawer.update_ignition_particle_array(ignition_charge_particles, fps_scale)
 	particle_drawer.update_ignition_particle_array(ignition_burst_particles, fps_scale)
 	particle_drawer.update_ignition_particle_array(ignition_live_embers, fps_scale)
 	if not ignition_active:
 		return
-	if _should_stop_ignition_aura_for_context(context):
+	var ignition_character_type: String = ""
+	if context.has("selected_character_type"):
+		ignition_character_type = str(context.get("selected_character_type", "viper")).strip_edges().to_lower()
+	if ignition_character_type != "" and ignition_character_type != "viper":
 		_finish_ignition_aura(deps)
 		return
-	if _should_pause_ignition_aura_for_round_boundary(context):
+	if bool(context.get("waiting_for_serve", false)) or not _is_context_ball_active(context, true):
 		_sync_ignition_aura_anchor_from_context(context)
 		_set_runtime_ignition_aura_bonus(deps, true)
 		return
@@ -3122,32 +3128,6 @@ func _reset_ignition_aura_runtime(clear_hold: bool = true) -> void:
 	ignition_live_embers.clear()
 	ignition_ember_timer = 0.0
 	ignition_start_msec = 0
-
-
-func _should_preserve_ignition_aura_on_round_reset(deps: Dictionary) -> bool:
-	return bool(deps.get("preserve_ignition_aura", true)) and ignition_active and ignition_remaining_frames > 0.0
-
-
-func _preserve_ignition_aura_round_carryover(deps: Dictionary) -> void:
-	# Ignition Aura is an explicit cross-round carryover exception: keep the
-	# timed buff, but clear hold / one-shot particles at the score boundary.
-	_reset_ignition_aura_hold()
-	ignition_burst_particles.clear()
-	ignition_charge_particles.clear()
-	ignition_live_embers.clear()
-	ignition_ember_timer = 0.0
-	_set_runtime_ignition_aura_bonus(deps, true)
-
-
-func _should_stop_ignition_aura_for_context(context: Dictionary) -> bool:
-	var character_type: String = ""
-	if context.has("selected_character_type"):
-		character_type = str(context.get("selected_character_type", "viper")).strip_edges().to_lower()
-	return character_type != "" and character_type != "viper"
-
-
-func _should_pause_ignition_aura_for_round_boundary(context: Dictionary) -> bool:
-	return bool(context.get("waiting_for_serve", false)) or not _is_context_ball_active(context, true)
 
 
 func _sync_ignition_aura_anchor_from_context(context: Dictionary) -> void:
@@ -3216,7 +3196,7 @@ func _try_update_dive_hold(
 	if not _is_skill_equipped(skill_config, DIVE_STRIKE):
 		_reset_dive_hold()
 		return {}
-	var cost: float = _get_dive_strike_activation_cost(skill_config)
+	var cost: float = _get_skill_cost_with_fallback(skill_config, DIVE_STRIKE, DIVE_GAUGE_COST)
 	if special_gauge < cost:
 		_reset_dive_hold()
 		return {}
@@ -3256,7 +3236,7 @@ func _start_dive_strike(
 	now_msec: int
 ) -> Dictionary:
 	var skill_config: Object = _get_viper_skill_config(deps)
-	var cost: float = _get_dive_strike_activation_cost(skill_config)
+	var cost: float = _get_skill_cost_with_fallback(skill_config, DIVE_STRIKE, DIVE_GAUGE_COST)
 	var next_gauge: float = max(0.0, special_gauge - cost)
 	var cooldown_seconds := _get_skill_cooldown_seconds_with_fallback(skill_config, DIVE_STRIKE, 70.0, false)
 	_trigger_runtime_cooldown_and_orb_gauge_spin(
@@ -3297,10 +3277,6 @@ func _start_dive_strike(
 		"special_gauge": next_gauge,
 		"player_collision_cooldown": DIVE_PLAYER_COLLISION_COOLDOWN,
 	}
-
-
-func _get_dive_strike_activation_cost(skill_config: Object) -> float:
-	return _get_skill_cost_with_fallback(skill_config, DIVE_STRIKE, DIVE_GAUGE_COST)
 
 
 func _update_dive_strike(
