@@ -748,7 +748,26 @@ func try_activate_before_movement(
 	var up_pressed: bool = bool(input_snapshot.get("up_pressed", false))
 	var up_edge: bool = up_pressed and not previous_up_pressed
 	previous_down_pressed = down_pressed
-	_record_viper_command_inputs(input_snapshot, now_msec, visibility_query.get_viper_skill_config(deps), deps)
+	var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
+	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
+	var left_edge: bool = left_pressed and not previous_left_pressed
+	var right_edge: bool = right_pressed and not previous_right_pressed
+	var command_skill_config: Object = visibility_query.get_viper_skill_config(deps)
+	_record_dual_glitch_command(left_edge, right_edge, up_edge, now_msec, command_skill_config, deps)
+	if left_edge:
+		core_flip_left_press_frame = input_sequence_frame
+	if right_edge:
+		core_flip_right_press_frame = input_sequence_frame
+	if chaos_state == "idle" and visibility_query.is_skill_equipped(command_skill_config, CHAOS_SPEAR):
+		if left_edge:
+			_push_chaos_command("a", now_msec)
+		if up_edge:
+			_push_chaos_command("w", now_msec)
+		if right_edge:
+			_push_chaos_command("d", now_msec)
+	previous_left_pressed = left_pressed
+	previous_up_pressed = up_pressed
+	previous_right_pressed = right_pressed
 	if nerve_strike_active:
 		return _update_nerve_strike(delta, player_pos, special_gauge, config, deps)
 	if dual_glitch_state == "startup":
@@ -1414,7 +1433,19 @@ func apply_emp_strike_ball_motion(_fps_scale: float, scene: Dictionary, context:
 
 func register_player_ball_contact(deps: Dictionary = {}, _context: Dictionary = {}) -> void:
 	var dash_snapshot: Dictionary = visibility_query.get_dash_snapshot(deps.get("dash_state", null))
-	_try_open_core_flip_ready_from_contact(dash_snapshot, deps)
+	if (
+		not bool(dash_snapshot.get("is_half", false))
+		and not core_flip_consumed
+		and core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC
+	):
+		var now_msec: int = Time.get_ticks_msec()
+		var dash_active: bool = bool(dash_snapshot.get("active", false))
+		var dash_elapsed_msec := now_msec - core_flip_last_dash_start_msec
+		if dash_elapsed_msec >= 0 and (dash_active or dash_elapsed_msec <= CORE_FLIP_DASH_SUCCESS_WINDOW_MSEC):
+			var skill_config: Object = visibility_query.get_viper_skill_config(deps)
+			if visibility_query.is_skill_equipped(skill_config, CORE_FLIP):
+				core_flip_ready_msec = now_msec
+				core_flip_buffered_until_msec = 0
 	var four_poisons_level: int = visibility_query.get_runtime_skill_level(deps, "four_poisons")
 	if dive_active and dive_phase == 0 and four_poisons_level < 3:
 		_reset_dive_runtime(false)
@@ -1431,7 +1462,20 @@ func release_chaos_blackhole_from_hit(deps: Dictionary = {}, context: Dictionary
 	return _release_chaos_blackhole_from_hit_result(deps, context)
 
 
-func _play_shadow_step_hit_feedback(ball_pos: Vector2, next_vel: Vector2, center_t: float, deps: Dictionary) -> void:
+func _finish_shadow_step_hit(
+	ball_pos: Vector2,
+	next_vel: Vector2,
+	center_t: float,
+	curve_frames: float,
+	curve_force: float,
+	safe_dir: int,
+	scene: Dictionary,
+	context: Dictionary,
+	deps: Dictionary
+) -> Dictionary:
+	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
+	_set_shadow_curve(curve_frames, curve_force, safe_dir)
+	audio_router.play_shadow_kick_sound(deps)
 	runtime_action_router.trigger_feedback(
 		deps,
 		SHADOW_HIT_SHAKE_AMOUNT_BASE + center_t * SHADOW_HIT_SHAKE_AMOUNT_CENTER_BONUS,
@@ -1453,23 +1497,6 @@ func _play_shadow_step_hit_feedback(ball_pos: Vector2, next_vel: Vector2, center
 			SHADOW_HIT_ENERGY_SCALE_BASE + center_t * SHADOW_HIT_ENERGY_SCALE_CENTER_BONUS,
 			SHADOW_HIT_ENERGY_INTENSITY_BASE + center_t * SHADOW_HIT_ENERGY_INTENSITY_CENTER_BONUS
 		)
-
-
-func _finish_shadow_step_hit(
-	ball_pos: Vector2,
-	next_vel: Vector2,
-	center_t: float,
-	curve_frames: float,
-	curve_force: float,
-	safe_dir: int,
-	scene: Dictionary,
-	context: Dictionary,
-	deps: Dictionary
-) -> Dictionary:
-	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
-	_set_shadow_curve(curve_frames, curve_force, safe_dir)
-	audio_router.play_shadow_kick_sound(deps)
-	_play_shadow_step_hit_feedback(ball_pos, next_vel, center_t, deps)
 	_mark_kick_skill_knockback_pending(deps)
 	shadow_starburst_active = true
 	shadow_starburst_pos = ball_pos
@@ -1486,26 +1513,6 @@ func _finish_shadow_step_hit(
 		gold_award = int(float(gold_award) * SHADOW_STEP_AIRBORNE_GOLD_MULT)
 	result.merge(runtime_action_router.award_skill_gold(deps, gold_award), true)
 	return _mark_result_released_chaos_hit(result, released_chaos)
-
-
-func _try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary, deps: Dictionary) -> void:
-	if bool(dash_snapshot.get("is_half", false)):
-		return
-	if core_flip_consumed:
-		return
-	if core_flip_last_dash_start_msec <= CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
-		return
-	var now_msec: int = Time.get_ticks_msec()
-	var dash_active: bool = bool(dash_snapshot.get("active", false))
-	var dash_elapsed_msec := now_msec - core_flip_last_dash_start_msec
-	if dash_elapsed_msec < 0:
-		return
-	if not (dash_active or dash_elapsed_msec <= CORE_FLIP_DASH_SUCCESS_WINDOW_MSEC):
-		return
-	var skill_config: Object = visibility_query.get_viper_skill_config(deps)
-	if visibility_query.is_skill_equipped(skill_config, CORE_FLIP):
-		core_flip_ready_msec = now_msec
-		core_flip_buffered_until_msec = 0
 
 
 func _reset_core_flip_runtime(clear_window: bool = false) -> void:
@@ -2201,31 +2208,6 @@ func _clear_phantom_kick_chain_window() -> void:
 	_clear_marshal_first_hit_pending()
 
 
-func _record_viper_command_inputs(input_snapshot: Dictionary, now_msec: int, skill_config: Object, deps: Dictionary) -> void:
-	var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
-	var up_pressed: bool = bool(input_snapshot.get("up_pressed", false))
-	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
-	var left_edge: bool = left_pressed and not previous_left_pressed
-	var up_edge: bool = up_pressed and not previous_up_pressed
-	var right_edge: bool = right_pressed and not previous_right_pressed
-	var can_record: bool = chaos_state == "idle" and visibility_query.is_skill_equipped(skill_config, CHAOS_SPEAR)
-	_record_dual_glitch_command(left_edge, right_edge, up_edge, now_msec, skill_config, deps)
-	if left_edge:
-		core_flip_left_press_frame = input_sequence_frame
-	if right_edge:
-		core_flip_right_press_frame = input_sequence_frame
-	if can_record:
-		if left_edge:
-			_push_chaos_command("a", now_msec)
-		if up_edge:
-			_push_chaos_command("w", now_msec)
-		if right_edge:
-			_push_chaos_command("d", now_msec)
-	previous_left_pressed = left_pressed
-	previous_up_pressed = up_pressed
-	previous_right_pressed = right_pressed
-
-
 func _record_dual_glitch_command(
 	left_edge: bool,
 	right_edge: bool,
@@ -2602,6 +2584,10 @@ func _get_four_poisons_scaled_pct(deps: Dictionary, values: Array, cap: int, per
 	return skill_scaling.get_four_poisons_scaled_pct(visibility_query.get_runtime_skill_level(deps, "four_poisons"), values, cap, per_extra_level)
 
 
+func _is_dual_glitch_clone_replication_active(deps: Dictionary) -> bool:
+	return dual_glitch_state == "active" and visibility_query.get_runtime_skill_level(deps, "four_poisons") >= 5
+
+
 func _update_dual_glitch_runtime(fps_scale: float, context: Dictionary) -> void:
 	if dual_glitch_state == "idle":
 		return
@@ -2712,7 +2698,7 @@ func apply_dual_glitch_clone_ball_hit(context: Dictionary = {}, _deps: Dictionar
 
 
 func _spawn_dual_glitch_clone_dive_entries_for_current_cast(deps: Dictionary) -> void:
-	if not (dual_glitch_state == "active" and visibility_query.get_runtime_skill_level(deps, "four_poisons") >= 5):
+	if not _is_dual_glitch_clone_replication_active(deps):
 		return
 	var origins: Array = visibility_query.get_dual_glitch_replication_origins(_get_dual_glitch_clone_rect_entries(true, false))
 	if origins.is_empty():
@@ -3709,7 +3695,7 @@ func _spawn_nerve_strike_slash_feedback(center: Vector2, deps: Dictionary) -> vo
 
 
 func _spawn_dual_glitch_clone_nerve_slashes_for_current_cast(deps: Dictionary, config: Dictionary) -> void:
-	if not (dual_glitch_state == "active" and visibility_query.get_runtime_skill_level(deps, "four_poisons") >= 5):
+	if not _is_dual_glitch_clone_replication_active(deps):
 		return
 	var origins: Array = visibility_query.get_dual_glitch_replication_origins(_get_dual_glitch_clone_rect_entries(true, false))
 	if origins.is_empty():
@@ -4310,7 +4296,7 @@ func _spawn_dual_glitch_clone_blades_for_current_cast(
 	size_mult: float,
 	range_mult: float
 ) -> void:
-	if not (dual_glitch_state == "active" and visibility_query.get_runtime_skill_level(deps, "four_poisons") >= 5):
+	if not _is_dual_glitch_clone_replication_active(deps):
 		return
 	var origins: Array = visibility_query.get_dual_glitch_replication_origins(_get_dual_glitch_clone_rect_entries(true, false))
 	if origins.is_empty():
