@@ -1114,7 +1114,59 @@ func try_activate_before_movement(
 			marshal_particles.clear()
 			return _start_blade_motion(marshal_blade_handoff_pos, special_gauge, config, deps, true, now_msec)
 		return _update_marshal_kick(delta, player_pos, special_gauge, config, deps)
-	var dive_result: Dictionary = _try_update_dive_hold(input_snapshot, player_pos, special_gauge, config, deps, now_msec)
+	var dive_result: Dictionary = {}
+	if not down_pressed:
+		_reset_dive_hold()
+	elif _has_viper_attack_motion_active(true):
+		_reset_dive_hold()
+	elif marshal_ready or double_marshal_ready or shadow_hologram_active or shadow_wave_active or shadow_marshal_delay_frames > 0.0:
+		_reset_dive_hold()
+	elif chaos_state != "idle":
+		_reset_dive_hold()
+	elif visibility_query.is_dash_motion_busy(deps) or visibility_query.is_control_locked(deps):
+		_reset_dive_hold()
+	elif not bool(config.get("ball_active", true)):
+		_reset_dive_hold()
+	elif visibility_query.is_round_waiting_for_serve(deps):
+		_reset_dive_hold()
+	elif _has_lateral_skill_input(input_snapshot):
+		_reset_dive_hold()
+	elif runtime_action_router.get_viper_airborne_height(deps, config, player_pos) <= 20.0:
+		_reset_dive_hold()
+	else:
+		var dive_hold_skill_config: Object = visibility_query.get_viper_skill_config(deps)
+		var can_hold_dive: bool = visibility_query.is_skill_equipped(dive_hold_skill_config, DIVE_STRIKE)
+		var dive_hold_cost: float = _get_skill_cost_with_fallback(dive_hold_skill_config, DIVE_STRIKE, DIVE_GAUGE_COST)
+		if can_hold_dive and special_gauge < dive_hold_cost:
+			can_hold_dive = false
+		if can_hold_dive:
+			can_hold_dive = visibility_query.is_configured_skill_ready(DIVE_STRIKE, deps, now_msec)
+		if not can_hold_dive:
+			_reset_dive_hold()
+		else:
+			if dive_hold_start_msec <= 0:
+				dive_hold_start_msec = now_msec
+				dive_charge_particles.clear()
+			dive_hold_player_pos = player_pos
+			dive_hold_paddle_size = ViperSkillGeometry.get_paddle_size(config)
+			var dive_elapsed_msec: int = max(0, now_msec - dive_hold_start_msec)
+			dive_hold_ratio = clamp(float(dive_elapsed_msec) / float(DIVE_HOLD_REQUIRED_MSEC), 0.0, 1.0)
+			particle_drawer.spawn_dive_charge_particles(
+				dive_charge_particles,
+				player_pos,
+				dive_hold_paddle_size,
+				dive_hold_ratio,
+				DIVE_CHARGE_PARTICLE_LIMIT
+			)
+			if dive_elapsed_msec >= DIVE_HOLD_REQUIRED_MSEC:
+				_reset_dive_hold()
+				dive_result = _start_dive_strike(player_pos, special_gauge, config, deps, now_msec)
+			else:
+				dive_result = {
+					"handled": false,
+					"activated": false,
+					"special_gauge": special_gauge,
+				}
 	if not dive_result.is_empty():
 		return dive_result
 	if pressed_edge:
@@ -2903,78 +2955,6 @@ func _set_runtime_ignition_aura_bonus(deps: Dictionary, active: bool) -> void:
 			)
 
 
-func _try_update_dive_hold(
-	input_snapshot: Dictionary,
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	var down_pressed: bool = bool(input_snapshot.get("down_pressed", false))
-	if not down_pressed:
-		_reset_dive_hold()
-		return {}
-	if _has_viper_attack_motion_active(true):
-		_reset_dive_hold()
-		return {}
-	if marshal_ready or double_marshal_ready or shadow_hologram_active or shadow_wave_active or shadow_marshal_delay_frames > 0.0:
-		_reset_dive_hold()
-		return {}
-	if chaos_state != "idle":
-		_reset_dive_hold()
-		return {}
-	if visibility_query.is_dash_motion_busy(deps) or visibility_query.is_control_locked(deps):
-		_reset_dive_hold()
-		return {}
-	if not bool(config.get("ball_active", true)):
-		_reset_dive_hold()
-		return {}
-	if visibility_query.is_round_waiting_for_serve(deps):
-		_reset_dive_hold()
-		return {}
-	if _has_lateral_skill_input(input_snapshot):
-		_reset_dive_hold()
-		return {}
-	if runtime_action_router.get_viper_airborne_height(deps, config, player_pos) <= 20.0:
-		_reset_dive_hold()
-		return {}
-	var skill_config: Object = visibility_query.get_viper_skill_config(deps)
-	if not visibility_query.is_skill_equipped(skill_config, DIVE_STRIKE):
-		_reset_dive_hold()
-		return {}
-	var cost: float = _get_skill_cost_with_fallback(skill_config, DIVE_STRIKE, DIVE_GAUGE_COST)
-	if special_gauge < cost:
-		_reset_dive_hold()
-		return {}
-	if not visibility_query.is_configured_skill_ready(DIVE_STRIKE, deps, now_msec):
-		_reset_dive_hold()
-		return {}
-
-	if dive_hold_start_msec <= 0:
-		dive_hold_start_msec = now_msec
-		dive_charge_particles.clear()
-	dive_hold_player_pos = player_pos
-	dive_hold_paddle_size = ViperSkillGeometry.get_paddle_size(config)
-	var elapsed_msec: int = max(0, now_msec - dive_hold_start_msec)
-	dive_hold_ratio = clamp(float(elapsed_msec) / float(DIVE_HOLD_REQUIRED_MSEC), 0.0, 1.0)
-	particle_drawer.spawn_dive_charge_particles(
-		dive_charge_particles,
-		player_pos,
-		dive_hold_paddle_size,
-		dive_hold_ratio,
-		DIVE_CHARGE_PARTICLE_LIMIT
-	)
-	if elapsed_msec >= DIVE_HOLD_REQUIRED_MSEC:
-		_reset_dive_hold()
-		return _start_dive_strike(player_pos, special_gauge, config, deps, now_msec)
-	return {
-		"handled": false,
-		"activated": false,
-		"special_gauge": special_gauge,
-	}
-
-
 func _start_dive_strike(
 	player_pos: Vector2,
 	special_gauge: float,
@@ -3312,11 +3292,80 @@ func _update_nerve_strike(
 	}
 	match nerve_strike_phase:
 		0:
-			result.merge(_update_nerve_strike_dash(config, deps), true)
+			var dash_motion: Dictionary = ViperSkillGeometry.nerve_strike_dash_motion(
+				nerve_strike_start_pos,
+				nerve_strike_dash_target_pos,
+				ViperSkillGeometry.nerve_strike_target_pos(config, NERVE_STRIKE_TARGET_Y_OFFSET),
+				nerve_strike_phase_frames,
+				NERVE_STRIKE_DASH_FRAMES,
+				NERVE_STRIKE_TRACKING_END_RATIO,
+				NERVE_STRIKE_TRACKING_STRENGTH
+			)
+			var dash_progress: float = float(dash_motion.get("progress", 0.0))
+			nerve_strike_dash_target_pos = _get_vector2(dash_motion.get("target_pos", nerve_strike_dash_target_pos), nerve_strike_dash_target_pos)
+			nerve_strike_pos = _get_vector2(dash_motion.get("pos", nerve_strike_pos), nerve_strike_pos)
+			if dash_progress >= 1.0:
+				var nerve_strike_player_center: Vector2 = nerve_strike_pos + nerve_strike_paddle_size * 0.5
+				nerve_strike_hit_confirmed = ViperSkillGeometry.nerve_strike_hits_target(
+					nerve_strike_player_center,
+					_get_nerve_strike_boss_center(config),
+					NERVE_STRIKE_HIT_RADIUS
+				)
+				nerve_strike_phase = 1
+				nerve_strike_phase_frames = 0.0
+				nerve_strike_slash_triggered = false
+				nerve_strike_slash_center = _get_nerve_strike_boss_center(config)
+				if nerve_strike_hit_confirmed:
+					nerve_strike_freeze_active = true
+					audio_router.play_phantom_show_sound(deps)
+					runtime_action_router.trigger_feedback(deps, 0.18, 5.2)
+					var mythic_item_runtime: Object = visibility_query.get_mythic_item_runtime(deps)
+					if mythic_item_runtime != null and mythic_item_runtime.has_method("try_spawn_venom_mist_at_boss"):
+						mythic_item_runtime.try_spawn_venom_mist_at_boss(nerve_strike_slash_center, deps, false)
+					result.merge(runtime_action_router.award_skill_gold(deps, NERVE_STRIKE_HIT_GOLD), true)
+				else:
+					nerve_strike_miss_text_timer = NERVE_STRIKE_MISS_TEXT_FRAMES
+					nerve_strike_miss_text_pos = ViperSkillGeometry.nerve_strike_miss_text_pos(
+						ViperSkillGeometry.nerve_strike_target_center(config, NERVE_STRIKE_TARGET_Y_OFFSET),
+						-20.0
+					)
+					_enter_nerve_strike_return_phase(config, deps)
 		1:
-			result.merge(_update_nerve_strike_slash(config, deps), true)
+			var slash_duration: float = NERVE_STRIKE_SLASH_HIT_FRAMES if nerve_strike_hit_confirmed else NERVE_STRIKE_SLASH_MISS_FRAMES
+			var slash_progress: float = ViperSkillGeometry.nerve_strike_phase_progress(nerve_strike_phase_frames, slash_duration)
+			nerve_strike_pos = nerve_strike_dash_target_pos
+			if ViperSkillGeometry.nerve_strike_should_trigger_slash(
+				nerve_strike_hit_confirmed,
+				nerve_strike_slash_triggered,
+				slash_progress,
+				NERVE_STRIKE_SLASH_TRIGGER_RATIO
+			):
+				nerve_strike_slash_triggered = true
+				nerve_strike_slash_vfx_frames = NERVE_STRIKE_SLASH_VFX_FRAMES
+				nerve_strike_slash_center = _get_nerve_strike_boss_center(config)
+				trigger_venom_edge_strike()
+				audio_router.play_nerve_strike_attack_sound(deps)
+				_spawn_nerve_strike_slash_feedback(nerve_strike_slash_center, deps)
+			if slash_progress >= 1.0:
+				if nerve_strike_hit_confirmed:
+					_apply_nerve_strike_confusion(deps)
+				_enter_nerve_strike_return_phase(config, deps)
 		2:
-			result.merge(_update_nerve_strike_return(deps), true)
+			var return_frames: float = NERVE_STRIKE_RETURN_HIT_FRAMES if nerve_strike_hit_confirmed else NERVE_STRIKE_RETURN_MISS_FRAMES
+			var return_motion: Dictionary = ViperSkillGeometry.nerve_strike_return_motion(
+				nerve_strike_return_start_pos,
+				nerve_strike_return_target_pos,
+				nerve_strike_phase_frames,
+				return_frames
+			)
+			var return_progress: float = float(return_motion.get("progress", 0.0))
+			nerve_strike_pos = _get_vector2(return_motion.get("pos", nerve_strike_pos), nerve_strike_pos)
+			if return_progress >= 1.0:
+				nerve_strike_pos = nerve_strike_return_target_pos
+				var nerve_strike_final_pos: Vector2 = nerve_strike_pos
+				runtime_action_router.force_viper_jetpack_land(deps)
+				_reset_nerve_strike_runtime(false)
+				result["player_pos"] = nerve_strike_final_pos
 		_:
 			_reset_nerve_strike_runtime(false)
 	if nerve_strike_active:
@@ -3331,93 +3380,6 @@ func _enter_nerve_strike_return_phase(config: Dictionary, deps: Dictionary) -> v
 	nerve_strike_return_start_pos = nerve_strike_pos
 	nerve_strike_return_target_pos = ViperSkillGeometry.nerve_strike_return_target_pos(config)
 	audio_router.play_nerve_strike_moving_sound(deps)
-
-
-func _update_nerve_strike_dash(config: Dictionary, deps: Dictionary) -> Dictionary:
-	var motion: Dictionary = ViperSkillGeometry.nerve_strike_dash_motion(
-		nerve_strike_start_pos,
-		nerve_strike_dash_target_pos,
-		ViperSkillGeometry.nerve_strike_target_pos(config, NERVE_STRIKE_TARGET_Y_OFFSET),
-		nerve_strike_phase_frames,
-		NERVE_STRIKE_DASH_FRAMES,
-		NERVE_STRIKE_TRACKING_END_RATIO,
-		NERVE_STRIKE_TRACKING_STRENGTH
-	)
-	var progress: float = float(motion.get("progress", 0.0))
-	nerve_strike_dash_target_pos = _get_vector2(motion.get("target_pos", nerve_strike_dash_target_pos), nerve_strike_dash_target_pos)
-	nerve_strike_pos = _get_vector2(motion.get("pos", nerve_strike_pos), nerve_strike_pos)
-	if progress < 1.0:
-		return {}
-
-	var nerve_strike_player_center: Vector2 = nerve_strike_pos + nerve_strike_paddle_size * 0.5
-	nerve_strike_hit_confirmed = ViperSkillGeometry.nerve_strike_hits_target(
-		nerve_strike_player_center,
-		_get_nerve_strike_boss_center(config),
-		NERVE_STRIKE_HIT_RADIUS
-	)
-	nerve_strike_phase = 1
-	nerve_strike_phase_frames = 0.0
-	nerve_strike_slash_triggered = false
-	nerve_strike_slash_center = _get_nerve_strike_boss_center(config)
-	if nerve_strike_hit_confirmed:
-		nerve_strike_freeze_active = true
-		audio_router.play_phantom_show_sound(deps)
-		runtime_action_router.trigger_feedback(deps, 0.18, 5.2)
-		var mythic_item_runtime: Object = visibility_query.get_mythic_item_runtime(deps)
-		if mythic_item_runtime != null and mythic_item_runtime.has_method("try_spawn_venom_mist_at_boss"):
-			mythic_item_runtime.try_spawn_venom_mist_at_boss(nerve_strike_slash_center, deps, false)
-		return runtime_action_router.award_skill_gold(deps, NERVE_STRIKE_HIT_GOLD)
-	nerve_strike_miss_text_timer = NERVE_STRIKE_MISS_TEXT_FRAMES
-	nerve_strike_miss_text_pos = ViperSkillGeometry.nerve_strike_miss_text_pos(
-		ViperSkillGeometry.nerve_strike_target_center(config, NERVE_STRIKE_TARGET_Y_OFFSET),
-		-20.0
-	)
-	_enter_nerve_strike_return_phase(config, deps)
-	return {}
-
-
-func _update_nerve_strike_slash(config: Dictionary, deps: Dictionary) -> Dictionary:
-	var duration: float = NERVE_STRIKE_SLASH_HIT_FRAMES if nerve_strike_hit_confirmed else NERVE_STRIKE_SLASH_MISS_FRAMES
-	var progress: float = ViperSkillGeometry.nerve_strike_phase_progress(nerve_strike_phase_frames, duration)
-	nerve_strike_pos = nerve_strike_dash_target_pos
-	if ViperSkillGeometry.nerve_strike_should_trigger_slash(
-		nerve_strike_hit_confirmed,
-		nerve_strike_slash_triggered,
-		progress,
-		NERVE_STRIKE_SLASH_TRIGGER_RATIO
-	):
-		nerve_strike_slash_triggered = true
-		nerve_strike_slash_vfx_frames = NERVE_STRIKE_SLASH_VFX_FRAMES
-		nerve_strike_slash_center = _get_nerve_strike_boss_center(config)
-		trigger_venom_edge_strike()
-		audio_router.play_nerve_strike_attack_sound(deps)
-		_spawn_nerve_strike_slash_feedback(nerve_strike_slash_center, deps)
-	if progress < 1.0:
-		return {}
-
-	if nerve_strike_hit_confirmed:
-		_apply_nerve_strike_confusion(deps)
-	_enter_nerve_strike_return_phase(config, deps)
-	return {}
-
-
-func _update_nerve_strike_return(deps: Dictionary) -> Dictionary:
-	var return_frames: float = NERVE_STRIKE_RETURN_HIT_FRAMES if nerve_strike_hit_confirmed else NERVE_STRIKE_RETURN_MISS_FRAMES
-	var motion: Dictionary = ViperSkillGeometry.nerve_strike_return_motion(
-		nerve_strike_return_start_pos,
-		nerve_strike_return_target_pos,
-		nerve_strike_phase_frames,
-		return_frames
-	)
-	var progress: float = float(motion.get("progress", 0.0))
-	nerve_strike_pos = _get_vector2(motion.get("pos", nerve_strike_pos), nerve_strike_pos)
-	if progress < 1.0:
-		return {}
-	nerve_strike_pos = nerve_strike_return_target_pos
-	var final_pos: Vector2 = nerve_strike_pos
-	runtime_action_router.force_viper_jetpack_land(deps)
-	_reset_nerve_strike_runtime(false)
-	return {"player_pos": final_pos}
 
 
 func _reset_nerve_strike_runtime(clear_clones: bool = false) -> void:
