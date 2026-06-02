@@ -1279,8 +1279,10 @@ This section is intentionally long; use search to find the nearest owner.
   Owns score-event fanout below match flow: scoring-side handoff to match
   score state, stage-background score reactions, next-server sync,
   scoreboard start / no-scoreboard ball reset fallback, scoreboard wait,
-  and score-event audio cleanup / round-set sound. Registered as
-  `match_score_event_controller`.
+  result-pose texture prewarm queuing, and score-event audio cleanup /
+  round-set sound. The texture prewarm path is queued instead of started
+  synchronously so the scoreboard can draw before threaded load requests
+  begin. Registered as `match_score_event_controller`.
 - `scripts/core/match_scoreboard_flow_controller.gd`
   Owns scoreboard-progress result handling below match flow: scoreboard
   timer update, player-win stage-clear result-screen handoff before
@@ -3411,7 +3413,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns battle texture paths and loading: player / boss sprites, ball
   texture, orb / HUD frame textures, Smasher and Viper skill icon
   textures, and missing-resource warnings through the shared project
-  resource loader.
+  resource loader. Round-result texture prewarm supports a one-frame delayed
+  queue so score-event handling does not start threaded texture requests
+  before the scoreboard has had a chance to draw.
   Smasher ball-contact attacks prefer the 4x2 `player_attack_sheet` when
   present, while legacy hit strips remain the fallback path. The scene
   bootstrap loads this map, while the battle scene state keeps the loaded
@@ -3565,16 +3569,14 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/hud/scoreboard_state.gd`
   Owns scoreboard overlay timing, scoreboard animation frame state, pending
   game-reset handoff, and top mini-scoreboard sparkle timing. It is the
-  single source for overlay draw-time status; normal round-end overlays use
-  the Python scoreboard's 15-frame fade-in with a shortened 30-frame hold so
-  the playfield does not read as frozen between serves, while game-reset /
-  result handoff overlays keep the original 90-frame hold cadence. It
-  exposes continuous idle-process frame values for high-refresh LED pulse
-  animation while physics-frame gameplay remains paused. Top mini-scoreboard
-  sparkle timers are also stepped from idle process so score flashes and deuce
-  pulses redraw smoothly on high-refresh displays. Match score rules live in
-  `match_score_state.gd`, and score-event sound playback is routed through
-  `match_flow_controller.gd` / `game_audio.gd`.
+  single source for overlay draw-time status; the round-end overlay uses the
+  Python scoreboard's 15-frame fade-in and 90-frame hold cadence, with
+  continuous idle-process frame values for high-refresh LED pulse animation
+  while physics-frame gameplay remains paused. Top mini-scoreboard sparkle
+  timers are also stepped from idle process so score flashes and deuce
+  pulses redraw smoothly on high-refresh displays. Match score rules live
+  in `match_score_state.gd`, and score-event sound playback is routed
+  through `match_flow_controller.gd` / `game_audio.gd`.
 - `scripts/hud/scoreboard_renderer.gd`
   Owns the public scoreboard draw API and delegates visual bodies to
   focused scoreboard helpers. The scene drawer decides when to draw it and
