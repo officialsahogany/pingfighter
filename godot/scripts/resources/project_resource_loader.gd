@@ -10,6 +10,15 @@ static var _threaded_texture_prewarm_stale_warning_sent: bool = false
 
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_MSEC := 15000
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_POLLS := 1200
+# Hard upper bound past the warn tier. A threaded load that never reaches
+# LOADED/FAILED (stuck status, evicted request, or an unrelated path that
+# permanently owns the shared slot) is abandoned at this bound and resolved
+# synchronously, so the prewarm loop -- and any caller waiting on done == true,
+# including a different path blocked behind the shared slot -- can never hang.
+# The warn tier above keeps slow-but-progressing loads on the threaded path;
+# only this tier bails to a bounded main-thread load.
+const THREADED_TEXTURE_PREWARM_MAX_MSEC := 30000
+const THREADED_TEXTURE_PREWARM_MAX_POLLS := 3000
 
 
 static func load_texture(path: String, missing_warning: String = "", failed_warning: String = "") -> Texture2D:
@@ -95,6 +104,15 @@ static func prewarm_texture_threaded_step(
 		_threaded_texture_prewarm_stale_warning_sent = false
 		return {"done": false, "texture": null}
 	if _threaded_texture_prewarm_path != path:
+		# A different path owns the shared threaded slot. Count the poll so a stuck
+		# slot is bounded for cross-path callers too, then bail to a synchronous load
+		# once the hard MAX bound is hit -- an unrelated stuck load must never block
+		# this path forever.
+		_threaded_texture_prewarm_poll_count += 1
+		if _is_threaded_texture_prewarm_expired():
+			_push_threaded_texture_prewarm_stale_warning()
+			_clear_threaded_texture_prewarm()
+			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
 		if _is_threaded_texture_prewarm_stale():
 			_push_threaded_texture_prewarm_stale_warning()
 		return {"done": false, "texture": null}
@@ -114,6 +132,13 @@ static func prewarm_texture_threaded_step(
 			_clear_threaded_texture_prewarm()
 			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
 	_threaded_texture_prewarm_poll_count += 1
+	# Bounded fallback: a load stuck in a non-terminal status forever must not hang the
+	# prewarm loop. Past the hard MAX bound, abandon the threaded attempt and resolve
+	# synchronously. The warn tier below keeps slow-but-progressing loads threaded.
+	if _is_threaded_texture_prewarm_expired():
+		_push_threaded_texture_prewarm_stale_warning()
+		_clear_threaded_texture_prewarm()
+		return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
 	if _is_threaded_texture_prewarm_stale():
 		_push_threaded_texture_prewarm_stale_warning()
 	return {"done": false, "texture": null}
@@ -264,6 +289,15 @@ static func _is_threaded_texture_prewarm_stale() -> bool:
 		return true
 	var elapsed_msec := Time.get_ticks_msec() - _threaded_texture_prewarm_started_msec
 	return elapsed_msec >= THREADED_TEXTURE_PREWARM_STALE_WARNING_MSEC
+
+
+static func _is_threaded_texture_prewarm_expired() -> bool:
+	if _threaded_texture_prewarm_path == "":
+		return false
+	if _threaded_texture_prewarm_poll_count >= THREADED_TEXTURE_PREWARM_MAX_POLLS:
+		return true
+	var elapsed_msec := Time.get_ticks_msec() - _threaded_texture_prewarm_started_msec
+	return elapsed_msec >= THREADED_TEXTURE_PREWARM_MAX_MSEC
 
 
 static func _push_threaded_texture_prewarm_stale_warning() -> void:

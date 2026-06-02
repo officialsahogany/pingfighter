@@ -5,6 +5,8 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const IMPORTED_TEXTURE_PATH := "res://assets/sprites/hud/stage2_game_frame_rock_leaf_imagegen_v3.png"
 const IMPORTED_AUDIO_PATH := "res://assets/bgm/stage2bgm.ogg"
 
+var _failed := false
+
 
 func _init() -> void:
 	# This intentionally pins source-first loading; stale imported cache files
@@ -42,6 +44,12 @@ func _init() -> void:
 		"audio loader should prefer raw audio decoding before imported fallback"
 	)
 
+	if _failed:
+		# quit() is deferred, so a failing _expect() that only called quit(1) would be
+		# overwritten by a later quit(0) and exit clean. Gate the success exit on the
+		# failure flag so a real regression actually fails the run.
+		quit(1)
+		return
 	print("project_resource_loader_import_preference_smoke: ok")
 	quit(0)
 
@@ -62,4 +70,5 @@ func _expect(condition: bool, message: String) -> void:
 	if condition:
 		return
 	push_error(message)
+	_failed = true
 	quit(1)
