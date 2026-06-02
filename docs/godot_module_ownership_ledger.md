@@ -3565,14 +3565,16 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/hud/scoreboard_state.gd`
   Owns scoreboard overlay timing, scoreboard animation frame state, pending
   game-reset handoff, and top mini-scoreboard sparkle timing. It is the
-  single source for overlay draw-time status; the round-end overlay uses the
-  Python scoreboard's 15-frame fade-in and 90-frame hold cadence, with
-  continuous idle-process frame values for high-refresh LED pulse animation
-  while physics-frame gameplay remains paused. Top mini-scoreboard sparkle
-  timers are also stepped from idle process so score flashes and deuce
-  pulses redraw smoothly on high-refresh displays. Match score rules live
-  in `match_score_state.gd`, and score-event sound playback is routed
-  through `match_flow_controller.gd` / `game_audio.gd`.
+  single source for overlay draw-time status; normal round-end overlays use
+  the Python scoreboard's 15-frame fade-in with a shortened 30-frame hold so
+  the playfield does not read as frozen between serves, while game-reset /
+  result handoff overlays keep the original 90-frame hold cadence. It
+  exposes continuous idle-process frame values for high-refresh LED pulse
+  animation while physics-frame gameplay remains paused. Top mini-scoreboard
+  sparkle timers are also stepped from idle process so score flashes and deuce
+  pulses redraw smoothly on high-refresh displays. Match score rules live in
+  `match_score_state.gd`, and score-event sound playback is routed through
+  `match_flow_controller.gd` / `game_audio.gd`.
 - `scripts/hud/scoreboard_renderer.gd`
   Owns the public scoreboard draw API and delegates visual bodies to
   focused scoreboard helpers. The scene drawer decides when to draw it and

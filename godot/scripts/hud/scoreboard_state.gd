@@ -5,8 +5,11 @@ const UPDATE_START_SERVE := 1
 const UPDATE_RESET_GAME := 2
 
 const SCOREBOARD_FADE_IN_DURATION := 15.0 / 60.0
-const SCOREBOARD_HOLD_DURATION := 90.0 / 60.0
-const SCOREBOARD_TOTAL_DURATION := SCOREBOARD_FADE_IN_DURATION + SCOREBOARD_HOLD_DURATION
+const SCOREBOARD_ROUND_HOLD_DURATION := 30.0 / 60.0
+const SCOREBOARD_MATCH_HOLD_DURATION := 90.0 / 60.0
+const SCOREBOARD_HOLD_DURATION := SCOREBOARD_MATCH_HOLD_DURATION
+const SCOREBOARD_ROUND_TOTAL_DURATION := SCOREBOARD_FADE_IN_DURATION + SCOREBOARD_ROUND_HOLD_DURATION
+const SCOREBOARD_TOTAL_DURATION := SCOREBOARD_FADE_IN_DURATION + SCOREBOARD_MATCH_HOLD_DURATION
 const TOP_MINI_SCORE_SPARKLE_DURATION := 1.0
 
 var active: bool = false
@@ -55,7 +58,7 @@ func update_scoreboard(delta: float) -> int:
 
 	timer += delta
 	animation_frame = int(floor(timer * 60.0))
-	if timer < SCOREBOARD_TOTAL_DURATION:
+	if timer < _get_total_duration():
 		return UPDATE_NONE
 
 	var result: int = UPDATE_RESET_GAME if pending_game_reset else UPDATE_START_SERVE
@@ -116,3 +119,7 @@ func get_last_scoring_side() -> String:
 
 func get_top_mini_score_sparkle_timer() -> float:
 	return top_mini_score_sparkle_timer
+
+
+func _get_total_duration() -> float:
+	return SCOREBOARD_TOTAL_DURATION if pending_game_reset else SCOREBOARD_ROUND_TOTAL_DURATION
