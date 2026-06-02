@@ -71,6 +71,9 @@ func _make_runtime(active: bool, cooldown: float, ready: bool, projectile: bool,
 		"companion_skill_winding_up": winding_up,
 		"hydro_sphere_projectile_active": projectile,
 		"hydro_sphere_puddle_active": puddle,
+		"headbutt_active": false,
+		"headbutt_impact_active": false,
+		"headbutt_miss_active": false,
 	}
 	return runtime
 
@@ -84,6 +87,7 @@ func _make_registry(runtime: Object) -> FakeRegistry:
 func _verify_is_lingpet_skill() -> void:
 	_expect(LingpetRailCard.is_lingpet_skill({"is_lingpet": true}), "is_lingpet_skill should detect the is_lingpet flag")
 	_expect(LingpetRailCard.is_lingpet_skill({"id": "maribo_hydro_sphere"}), "is_lingpet_skill should detect the maribo skill id")
+	_expect(LingpetRailCard.is_lingpet_skill({"id": "lunabi_headbutt"}), "is_lingpet_skill should detect the Lunabi skill id through the catalog")
 	_expect(not LingpetRailCard.is_lingpet_skill({"id": "whip"}), "is_lingpet_skill should reject boss skills")
 
 
@@ -109,6 +113,28 @@ func _verify_build_entry_states() -> void:
 	_expect(str(windup.get("status", "")) == "casting", "wind-up should read as casting on the rail card")
 	var projectile := LingpetRailCard.build_entry(_make_registry(_make_runtime(true, 30.0, false, true, false, false)))
 	_expect(str(projectile.get("status", "")) == "casting", "an in-flight hydro projectile should read as casting")
+
+	var lunabi_runtime := FakeLingpetRuntime.new()
+	lunabi_runtime.active = true
+	lunabi_runtime.snapshot = {
+		"companion_skill_id": "lunabi_headbutt",
+		"companion_skill_name": "박치기",
+		"companion_skill_description": "루나비가 상대 패들을 향해 돌진합니다.",
+		"companion_skill_card_path": "res://assets/sprites/lingpet/lunabi_headbutt_skillcard_imagegen_v1.png",
+		"companion_skill_cooldown": 12.0,
+		"companion_skill_cooldown_duration": 30.0,
+		"companion_skill_ready": false,
+		"companion_skill_flash_ratio": 0.0,
+		"companion_skill_winding_up": false,
+		"headbutt_active": true,
+		"headbutt_impact_active": false,
+		"headbutt_miss_active": false,
+	}
+	var lunabi_entry := LingpetRailCard.build_entry(_make_registry(lunabi_runtime))
+	_expect(str(lunabi_entry.get("id", "")) == "lunabi_headbutt", "rail entry should support Lunabi Headbutt")
+	_expect(str(lunabi_entry.get("status", "")) == "casting", "an active Lunabi Headbutt dash should read as casting")
+	_expect(absf(float(lunabi_entry.get("cooldown_total", 0.0)) - 30.0) <= 0.01, "Lunabi rail entry should carry its 30s cooldown")
+	_expect(str(lunabi_entry.get("card_texture_path", "")).ends_with("lunabi_headbutt_skillcard_imagegen_v1.png"), "Lunabi rail entry should carry the imagegen skill-card texture path")
 
 
 func _verify_build_entry_inactive_is_empty() -> void:
@@ -155,6 +181,16 @@ func _verify_tooltip_info() -> void:
 	_expect(str(future_skill_info.get("trigger", "")) == "Auto", "tooltip should use the live lingpet trigger label")
 	_expect(absf(float(future_skill_info.get("cooldown_seconds", 0.0)) - 18.0) <= 0.01, "tooltip should use the live lingpet skill cooldown")
 	_expect(str(future_skill_info.get("description", "")) == "Future lingpet tooltip copy", "tooltip should use the live lingpet skill description")
+	var lunabi_info := LingpetRailCard.tooltip_info({
+		"id": "lunabi_headbutt",
+		"is_lingpet": true,
+		"label": "박치기",
+		"trigger_label": "자동",
+		"cooldown_total": 30.0,
+		"description": "루나비가 돌진합니다.",
+	})
+	_expect(str(lunabi_info.get("name", "")) == "박치기", "tooltip should use the live Lunabi Headbutt label")
+	_expect(absf(float(lunabi_info.get("cooldown_seconds", 0.0)) - 30.0) <= 0.01, "tooltip should expose Lunabi Headbutt's 30s cooldown")
 
 
 func _verify_all_stage_rails_wire_shared_helper() -> void:

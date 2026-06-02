@@ -1,0 +1,56 @@
+{
+  "asset_id": "maribo_click_live2d_pingpong_98f",
+  "character": "maribo",
+  "display_name": "마리보",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/maribo_click_live2d_pingpong_98f.png",
+  "source_autosprite": {
+    "character_id": "cmpvvuv3p00hbpf2widl8v49q",
+    "character_name": "Maribo Lingpet Clean (click react)",
+    "base_upload_source": "godot/lingpet/maribo/maribo_autosprite_clean_base_padded_v1.png",
+    "base_provenance": "v003 magenta source despilled to a flat transparent base, tight-reframed to ~74% width / ~65% height fill (matches lunabi base_padded footprint), then uploaded as a NEW character to avoid the dirty-magenta fringe of the original maribo character.",
+    "pose_id": "cmpvvwkus00etpb8wo2znzhqp",
+    "pose_name": "Click React",
+    "spritesheet_id": "cmpvw345q00rbpf2w68l3bdb2",
+    "spritesheet_job_id": "wf_0c0e0992-f621-44cc-a712-0e5b91f4f3ea",
+    "video_id": "cmpvw0qw9003szakbkn3u6m07",
+    "raw_sheet_local_path": ".tmp/maribo_click_v1/maribo_click_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/maribo_click_v1/maribo_click_raw_49f_atlas.json",
+    "raw_grid": {"cols": 7, "rows": 7, "frame_count": 49, "cell_size": [1024, 1024]},
+    "prompt": "49-frame click-reaction Live2D one-shot for Maribo the chibi pink dolphin Ringpet. Start neutral, then a surprised bounce: eyes widen then settle into a cheerful smile, fins flick, the cyan trident spear lifts and tips slightly with a small cyan water-droplet splash sparkle, one brief playful sway/half-spin, teal shell armor shimmer, then settle. Keep identity, the full trident spear, and shell armor stable and fully inside frame at all times. Transparent background, generous safe margins, no text, no UI, no extra characters, no crop.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [1024, 1024],
+    "sheet_size": [14336, 7168],
+    "frame_interval": "intended 16 fps one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
+    "source_scale_repack": 0.92,
+    "sha256": "744bb948eeffd46f9e64440b3a2a7b00f7c61c6f060de52fbf0aa5a71e4292bd",
+    "bytes": 53846157
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell premultiplied-alpha 0.92 repack + deterministic pingpong reassembly",
+    "operation": "Each AutoSprite 1024 cell was premultiplied-alpha resized to 92 percent and centered back into a 1024 cell for safe margins, then a 98-frame sheet was built as forward 0..48 + reverse 48..0 (frame 48 held once at the apex, frame 0 == frame 97 for a clean one-shot pingpong return).",
+    "script": ".tmp/maribo_click_v1/repack_pingpong.py"
+  },
+  "qa": {
+    "raw_frame_count": 49,
+    "final_frame_count": 98,
+    "raw_grid_cols": 7,
+    "raw_edge_alpha_count": 0,
+    "final_whole_sheet_edge_alpha": 0,
+    "final_cells_with_edge_touch": 0,
+    "pingpong_loop_closure": "frame0.bbox == frame97.bbox and frame48.bbox == frame49.bbox (verified)",
+    "fringe_check": "Composited over dark (#14141c) and light (#f5f5f5) backgrounds; no magenta/pink fringe, no box/ring residue.",
+    "dark_contact_preview": ".tmp/maribo_click_v1/packed_contact_dark.png",
+    "white_contact_preview": ".tmp/maribo_click_v1/packed_contact_white.png"
+  },
+  "root_cause_note": "Maribo previously read lower-quality than Lunabi because (1) the v003 magenta source was NOT a flat #ff00ff chroma key (corners ranged R218-235, G10-36, B185-209), so chroma removal could never be clean; and (2) maribo's body is pink, which is close in hue to magenta, so AutoSprite removeBg left magenta/pink edge fringe. Per the CLAUDE.md chroma-key rule, a pink character should use a green (#00ff00) key, not magenta. Lunabi's dark-purple body + perfectly flat #ff00ff source avoided both problems. This asset fixes (1)+(2) by despilling to a clean transparent base before upload.",
+  "status": "Accepted asset candidate: AutoSprite 49f click reaction, 0.92 safe-margin repack, deterministic pingpong return to frame 0. Lingpet click-reaction runtime wiring (click input -> playback) is NOT yet implemented for either lunabi or maribo; this matches lunabi_click_live2d_pingpong_98f which is also a runtime-unwired candidate."
+}

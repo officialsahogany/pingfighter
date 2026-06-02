@@ -21,6 +21,7 @@ const REQUIRED_VISUAL_KEYS := [
 	"cutin_art",
 	"cutin_anim",
 	"cutin_dismiss_anim",
+	"click_reaction_anim",
 ]
 const REQUIRED_ACTIVE_SKILL_KEYS := [
 	"id",
@@ -61,6 +62,7 @@ const PETS := {
 			"cutin_art": "res://assets/sprites/lingpet/maribo_cutin_art.png",
 			"cutin_anim": "res://assets/sprites/lingpet/maribo_cutin_anim.png",
 			"cutin_dismiss_anim": "res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png",
+			"click_reaction_anim": "res://assets/sprites/lingpet/maribo_click_live2d_pingpong_98f.png",
 		},
 		"active_skill": {
 			"id": "maribo_hydro_sphere",
@@ -103,18 +105,19 @@ const PETS := {
 			"cutin_art": "res://assets/sprites/lingpet/lunabi_cutin_art.png",
 			"cutin_anim": "res://assets/sprites/lingpet/lunabi_cutin_anim.png",
 			"cutin_dismiss_anim": "res://assets/sprites/lingpet/lunabi_cutin_dismiss_anim.png",
+			"click_reaction_anim": "res://assets/sprites/lingpet/lunabi_click_live2d_pingpong_98f.png",
 		},
 		"active_skill": {
-			"id": "lunabi_free_flight",
-			"runtime_kind": "none",
-			"enabled": false,
-			"name": "자유비행",
-			"description": "전장 전체를 자유롭게 날아다니다가 공과 겹치면 날개로 받아칩니다.",
-			"cooldown": 1.0,
-			"windup_seconds": 0.0,
-			"card_texture_path": "res://assets/sprites/lingpet/lunabi_cutin_art.png",
+			"id": "lunabi_headbutt",
+			"runtime_kind": "headbutt",
+			"name": "박치기",
+			"description": "루나비가 상대 패들을 향해 돌진합니다. 맞으면 상대 패들이 약 150px 밀려나며, 상대가 이동 중이면 빗나갈 수 있습니다.",
+			"cooldown": 30.0,
+			"windup_seconds": 0.45,
+			"card_texture_path": "res://assets/sprites/lingpet/lunabi_headbutt_skillcard_imagegen_v1.png",
+			"icon_texture_path": "res://assets/sprites/lingpet/lunabi_headbutt_skill_icon_imagegen_v1.png",
 		},
-		"effect_text": "전장 전체를 자유비행합니다. 중앙 배경에 머물지 않고 가끔 화면 밖으로 사라졌다가 다시 들어오며, 공과 겹치면 날개로 받아칩니다.",
+		"effect_text": "전장 전체를 자유비행합니다. 가끔 화면 밖으로 사라졌다가 다시 들어오며, 공과 겹치면 날개로 받아칩니다. 박치기: 30초마다 상대 패들에 돌진해 약 150px 넉백을 노립니다.",
 	},
 }
 

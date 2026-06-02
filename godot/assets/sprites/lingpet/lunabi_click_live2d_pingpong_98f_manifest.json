@@ -1,0 +1,290 @@
+{
+  "asset_id": "lunabi_click_live2d_pingpong_98f",
+  "character": "lunabi",
+  "display_name": "루나비",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/lunabi_click_live2d_pingpong_98f.png",
+  "source_autosprite": {
+    "character_id": "cmpvprmun008w828nzjzqegwg",
+    "character_name": "Lunabi (lingpet)",
+    "pose_id": "cmpvpsons0016rhwrota1fytl",
+    "spritesheet_id": "cmpvqoyxz00695xa4deob42a5",
+    "spritesheet_job_id": "wf_1ceb4698-3264-4c6f-8dfe-180d17de9ad7",
+    "video_id": "cmpvqmn1a00co828nvv70m5do",
+    "raw_sheet_local_path": ".tmp/lunabi_click_live2d_v1/lunabi_click_live2d_raw_49f.png",
+    "raw_atlas_local_path": ".tmp/lunabi_click_live2d_v1/lunabi_click_live2d_raw_49f_atlas.json",
+    "prompt": "49-frame click reaction Live2D one-shot: surprised bounce, ears perk, wing flutter, bright eyes, mischievous wink, fang smile, moon orb sparkle, gold ring twinkle. Transparent safe margins.",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      14336,
+      7168
+    ],
+    "frame_interval": "intended 16 fps one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
+    "source_scale_repack": 0.92,
+    "sha256": "ab00748e7ba42e408f932fc5be65b232cf2c37900f204b46fccdd26d9c5e1d41",
+    "bytes": 74845419
+  },
+  "qa": {
+    "raw_frame_count": 49,
+    "final_frame_count": 98,
+    "raw_edge_alpha_count": 0,
+    "final_edge_alpha_count": 0,
+    "raw_sample_margins_ltrb": [
+      [
+        0,
+        43,
+        83,
+        24,
+        120
+      ],
+      [
+        4,
+        33,
+        92,
+        12,
+        123
+      ],
+      [
+        8,
+        82,
+        174,
+        30,
+        99
+      ],
+      [
+        12,
+        43,
+        115,
+        51,
+        112
+      ],
+      [
+        16,
+        54,
+        38,
+        67,
+        110
+      ],
+      [
+        20,
+        34,
+        33,
+        41,
+        115
+      ],
+      [
+        24,
+        47,
+        118,
+        49,
+        110
+      ],
+      [
+        28,
+        6,
+        174,
+        22,
+        120
+      ],
+      [
+        32,
+        6,
+        179,
+        24,
+        139
+      ],
+      [
+        36,
+        4,
+        179,
+        22,
+        150
+      ],
+      [
+        40,
+        6,
+        155,
+        20,
+        116
+      ],
+      [
+        44,
+        8,
+        142,
+        20,
+        120
+      ],
+      [
+        48,
+        8,
+        142,
+        19,
+        123
+      ]
+    ],
+    "final_sample_margins_ltrb": [
+      [
+        0,
+        80,
+        117,
+        63,
+        151
+      ],
+      [
+        4,
+        71,
+        125,
+        52,
+        154
+      ],
+      [
+        8,
+        116,
+        201,
+        68,
+        132
+      ],
+      [
+        12,
+        80,
+        146,
+        88,
+        144
+      ],
+      [
+        16,
+        90,
+        76,
+        102,
+        142
+      ],
+      [
+        20,
+        72,
+        71,
+        78,
+        146
+      ],
+      [
+        24,
+        84,
+        149,
+        86,
+        142
+      ],
+      [
+        28,
+        46,
+        201,
+        61,
+        151
+      ],
+      [
+        32,
+        46,
+        205,
+        63,
+        168
+      ],
+      [
+        36,
+        44,
+        205,
+        61,
+        179
+      ],
+      [
+        40,
+        46,
+        183,
+        59,
+        148
+      ],
+      [
+        44,
+        48,
+        171,
+        59,
+        151
+      ],
+      [
+        48,
+        48,
+        171,
+        58,
+        154
+      ],
+      [
+        49,
+        48,
+        171,
+        58,
+        154
+      ],
+      [
+        54,
+        48,
+        174,
+        59,
+        151
+      ],
+      [
+        60,
+        46,
+        199,
+        59,
+        181
+      ],
+      [
+        68,
+        42,
+        202,
+        58,
+        154
+      ],
+      [
+        76,
+        93,
+        89,
+        95,
+        148
+      ],
+      [
+        84,
+        70,
+        123,
+        98,
+        142
+      ],
+      [
+        92,
+        70,
+        133,
+        49,
+        154
+      ],
+      [
+        97,
+        80,
+        117,
+        63,
+        151
+      ]
+    ],
+    "preview": ".tmp/lunabi_click_live2d_v1/lunabi_click_live2d_pingpong_98f_contact.png",
+    "expansion_note": "Final sheet is deterministic 49+49 pingpong from AutoSprite source frames, not a newly generated 98-frame motion."
+  },
+  "status": "Accepted asset candidate: AutoSprite 49f click reaction, uniform safe-margin repack, deterministic pingpong return to frame 0."
+}

@@ -54,6 +54,8 @@ func handle_unhandled_input(
 	if overlay_input != null and overlay_input.has_method("handle_input"):
 		if bool(overlay_input.handle_input(event, owner, registry, module_getter, context)):
 			return
+	if _handle_lingpet_companion_click(event, owner, registry, module_getter):
+		return
 	if _handle_lingpet_slot_switch(event, owner, registry, module_getter):
 		return
 	if _handle_skill_orb_tooltip_cycle(event, owner, registry, module_getter):
@@ -132,6 +134,32 @@ func _handle_lingpet_slot_switch(event: InputEvent, owner: Object, registry: Obj
 		_mark_handled(owner)
 		return true
 	return false
+
+
+func _handle_lingpet_companion_click(event: InputEvent, owner: Object, registry: Object, module_getter: Callable) -> bool:
+	if not (event is InputEventMouseButton):
+		return false
+	var mouse_event: InputEventMouseButton = event
+	if not mouse_event.pressed or mouse_event.button_index != MOUSE_BUTTON_LEFT:
+		return false
+	var runtime: Object = _get_module(module_getter, "lingpet_egg_runtime")
+	if runtime == null:
+		runtime = _get_instance(registry, "lingpet_egg_runtime")
+	if runtime == null or not runtime.has_method("try_begin_companion_click_reaction"):
+		return false
+	var layout: Dictionary = _build_input_game_layout(owner, module_getter)
+	var game_offset: Vector2 = _get_vector2(layout.get("game_offset", Vector2.ZERO), Vector2.ZERO)
+	var game_size: Vector2 = _get_vector2(layout.get("game_size", Vector2(GAME_WIDTH, GAME_HEIGHT)), Vector2(GAME_WIDTH, GAME_HEIGHT))
+	var render_scale: float = maxf(0.001, float(layout.get("render_scale", 1.0)))
+	var game_rect := Rect2(game_offset, game_size)
+	if not game_rect.has_point(mouse_event.position):
+		return false
+	var playfield_pos: Vector2 = (mouse_event.position - game_offset) / render_scale
+	if not bool(runtime.try_begin_companion_click_reaction(playfield_pos)):
+		return false
+	_queue_redraw(owner)
+	_mark_handled(owner)
+	return true
 
 
 func _get_lingpet_cycle_direction(event: InputEvent) -> int:
@@ -402,6 +430,7 @@ func _build_input_game_layout(owner: Object, module_getter: Callable) -> Diction
 		"view_size": view_size,
 		"game_offset": (view_size - game_size) * 0.5,
 		"game_size": game_size,
+		"render_scale": 1.0,
 	}
 
 

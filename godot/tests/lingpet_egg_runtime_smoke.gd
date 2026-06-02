@@ -27,6 +27,7 @@ class FakeOwner:
 	var player_paddle_width := 232.5
 	var player_paddle_height := 75.0
 	var boss_pos := Vector2(330.0, 25.0)
+	var boss_vel := 0.0
 	var boss_paddle_width := 100.0
 	var boss_hitbox_height := 40.0
 	var ball_active := false
@@ -90,6 +91,8 @@ class FakeOwner:
 	var ringpet_skill_last_gain := 0.0
 	var lingpet_skill_trigger_count := 0
 	var ringpet_skill_trigger_count := 0
+	var lingpet_skill_icon_path := ""
+	var ringpet_skill_icon_path := ""
 	var lingpet_gauge_gain_bonus_pct := 0.0
 	var ringpet_gauge_gain_bonus_pct := 0.0
 	var lingpet_effect_text := ""
@@ -115,6 +118,10 @@ class FakeBattleOwner:
 	var ai_mode := "champion"
 	var arena_mode_enabled := false
 	var weather_type := ""
+	var boss_pos := Vector2(330.0, 25.0)
+	var boss_vel := 0.0
+	var boss_paddle_width := 100.0
+	var boss_hitbox_height := 40.0
 	var lingpet_id := ""
 	var active_lingpet_id := ""
 	var current_lingpet_id := ""
@@ -169,6 +176,8 @@ class FakeBattleOwner:
 	var ringpet_skill_last_gain := 0.0
 	var lingpet_skill_trigger_count := 0
 	var ringpet_skill_trigger_count := 0
+	var lingpet_skill_icon_path := ""
+	var ringpet_skill_icon_path := ""
 	var lingpet_gauge_gain_bonus_pct := 0.0
 	var ringpet_gauge_gain_bonus_pct := 0.0
 	var lingpet_effect_text := ""
@@ -301,6 +310,8 @@ func _init() -> void:
 	_verify_maribo_companion_gauge_bonus()
 	_verify_maribo_defense_rate_intercepts_descending_ball()
 	_verify_lunabi_free_flight_profile()
+	_verify_lunabi_headbutt_skill()
+	_verify_companion_click_reaction()
 	_verify_ineligible_conditions_do_not_spawn()
 
 	if _failures.is_empty():
@@ -581,9 +592,12 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("maribo_egg_v002.png"), "Lunabi should hatch from the same shared unidentified egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "companion_walk")).ends_with("maribo_companion_walk.png"), "catalog should own Maribo companion visual paths")
 	_expect(str(LingpetCatalog.get_active_skill_entry("maribo_hydro_sphere").get("runtime_kind", "")) == "hydro_sphere", "catalog should expose Maribo active-skill runtime kind by skill id")
+	_expect(str(LingpetCatalog.get_active_skill_entry("lunabi_headbutt").get("runtime_kind", "")) == "headbutt", "catalog should expose Lunabi headbutt runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_runtime_kind_from_entries(multi_entries, "test_bubble_guard")) == "bubble_guard", "catalog should resolve future lingpet skill runtime kinds from active_skill metadata")
 	_expect(LingpetSkillDispatcher.is_hydro_sphere("maribo_hydro_sphere"), "skill dispatcher should recognize the current Maribo active skill")
+	_expect(LingpetSkillDispatcher.is_headbutt("lunabi_headbutt"), "skill dispatcher should recognize the current Lunabi active skill")
 	_expect(LingpetSkillDispatcher.is_supported_kind("hydro_sphere"), "skill dispatcher should expose supported runtime kinds for future lingpet skill modules")
+	_expect(LingpetSkillDispatcher.is_supported_kind("headbutt"), "skill dispatcher should expose the Lunabi headbutt runtime kind")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
 	var dispatcher_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 	var skill_runtime_host_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
@@ -612,6 +626,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_skill_runtime_host.gd"), "lingpet skill runtime host should exist for future active-skill modules")
 	_expect(skill_runtime_host_source.find("LingpetSkillDispatcher.get_skill_kind") >= 0, "skill runtime host should dispatch concrete active-skill behavior by skill id")
 	_expect(skill_runtime_host_source.find("lingpet_hydro_sphere_skill.gd") >= 0, "skill runtime host should own the current Hydro Sphere module")
+	_expect(skill_runtime_host_source.find("lingpet_headbutt_skill.gd") >= 0, "skill runtime host should own the Lunabi Headbutt module")
 	_expect(dispatcher_source.find("LingpetCatalog.get_active_skill_runtime_kind") >= 0, "skill dispatcher should resolve active-skill runtime kind through the catalog before falling back to legacy ids")
 	_expect(runtime_source.find("lingpet_companion_skill_state.gd") >= 0, "egg runtime should delegate shared active-skill cooldown/wind-up state to the companion skill-state controller")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_skill_state.gd"), "companion skill-state controller should exist for future lingpet active skills")
@@ -1548,8 +1563,9 @@ func _verify_lunabi_free_flight_profile() -> void:
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.update(0.0, owner)
 	_expect(str(owner.active_lingpet_id) == "lunabi", "owned Lunabi should become the active companion through the slot model")
-	_expect(str(owner.lingpet_skill_id) == "", "disabled Lunabi placeholder skill should not publish an owner skill-card id")
-	_expect(not bool(owner.lingpet_skill_ready), "disabled Lunabi placeholder skill should not start ready")
+	_expect(str(owner.lingpet_skill_id) == "lunabi_headbutt", "owned Lunabi should publish its Headbutt skill-card id")
+	_expect(str(owner.lingpet_skill_name) == "박치기", "owned Lunabi should publish its Korean Headbutt skill-card name")
+	_expect(bool(owner.lingpet_skill_ready), "owned Lunabi Headbutt should start ready")
 
 	var start_pos: Vector2 = owner.lingpet_companion_pos
 	var player_lane_y: float = owner.player_pos.y + owner.player_paddle_height * 0.5
@@ -1564,7 +1580,11 @@ func _verify_lunabi_free_flight_profile() -> void:
 	var first_target: Vector2 = snapshot.get("companion_free_flight_target", Vector2.ZERO)
 	_expect(first_target.x >= 150.0 and first_target.x <= 610.0 and first_target.y >= 150.0 and first_target.y <= 480.0, "Lunabi ingress should initially aim toward the central playfield background")
 	_expect(is_equal_approx(float(snapshot.get("companion_defense_rate", -1.0)), 0.0), "Lunabi should not use Maribo's defensive intercept rate")
-	_expect(str(snapshot.get("companion_skill_id", "")) == "", "disabled Lunabi placeholder skill should not publish a rail-card id")
+	_expect(str(snapshot.get("companion_skill_id", "")) == "lunabi_headbutt", "Lunabi should publish a Headbutt rail-card id")
+	_expect(is_equal_approx(float(snapshot.get("companion_skill_cooldown_duration", 0.0)), 30.0), "Lunabi Headbutt should use the 30-second cooldown")
+	_expect(is_equal_approx(float(snapshot.get("companion_skill_windup_seconds", 0.0)), 0.45), "Lunabi Headbutt should expose its short charge wind-up")
+	_expect(str(snapshot.get("companion_skill_card_path", "")).ends_with("lunabi_headbutt_skillcard_imagegen_v1.png"), "Lunabi Headbutt should expose its imagegen skill-card art")
+	_expect(str(snapshot.get("companion_skill_icon_path", "")).ends_with("lunabi_headbutt_skill_icon_imagegen_v1.png"), "Lunabi Headbutt should expose its imagegen skill icon")
 
 	var ingress_speed_ratio: float = float(snapshot.get("companion_motion_speed_ratio", 0.0))
 	var saw_entry_deceleration := false
@@ -1622,6 +1642,89 @@ func _verify_lunabi_free_flight_profile() -> void:
 	_expect(owner.ball_vel.y < 0.0, "Lunabi overlap should bounce the ball")
 	_expect(int(owner.lingpet_companion_contact_count) == 1, "Lunabi overlap should register one companion contact")
 	_expect(bool(runtime.is_companion_striking_for_tests()), "Lunabi should play the ball-swoop strike sheet on contact")
+
+
+func _verify_lunabi_headbutt_skill() -> void:
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_headbutt_skillcard_imagegen_v1.png"), "Lunabi Headbutt skill card should ship as an imagegen PNG")
+	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/lunabi_headbutt_skill_icon_imagegen_v1.png"), "Lunabi Headbutt skill icon should ship as an imagegen PNG")
+	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_headbutt_skill.gd"), "Lunabi Headbutt skill module should exist")
+
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["lunabi"]
+	owner.lingpet_slots = ["lunabi", "", ""]
+	owner.boss_pos = Vector2(320.0, 25.0)
+	owner.boss_vel = 0.0
+	owner.ball_active = true
+	var runtime: Object = LingpetEggRuntime.new()
+	var audio := FakePaddleAudio.new()
+	var registry := FakeRegistry.new({"game_audio": audio})
+	runtime.update(0.0, owner, registry)
+	runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
+	runtime.update(0.0, owner, registry)
+	var windup_snap: Dictionary = runtime.get_snapshot()
+	_expect(bool(windup_snap.get("companion_skill_winding_up", false)), "Lunabi Headbutt should telegraph a short wind-up before the charge")
+	_expect(not bool(windup_snap.get("headbutt_active", false)), "Lunabi Headbutt should not dash before its wind-up releases")
+
+	runtime.update(0.50, owner, registry)
+	var launched_snap: Dictionary = runtime.get_snapshot()
+	_expect(bool(launched_snap.get("headbutt_active", false)), "Lunabi Headbutt should launch after its wind-up")
+	_expect(int(owner.lingpet_skill_trigger_count) == 1, "Lunabi Headbutt should count one launch")
+	_expect(owner.lingpet_skill_cooldown > 29.0, "Lunabi Headbutt should enter a 30-second cooldown at launch")
+	_expect(not bool(owner.lingpet_skill_ready), "Lunabi Headbutt should not be ready during cooldown")
+
+	var boss_x_before := owner.boss_pos.x
+	for _i in range(18):
+		runtime.update(0.05, owner, registry)
+		if int(runtime.get_headbutt_hit_count_for_tests()) > 0:
+			break
+	var hit_snap: Dictionary = runtime.get_snapshot()
+	_expect(int(runtime.get_headbutt_hit_count_for_tests()) == 1, "Lunabi Headbutt should hit a stationary boss paddle")
+	_expect(str(hit_snap.get("headbutt_last_result", "")) == "hit", "Lunabi Headbutt snapshot should publish the last hit result")
+	_expect(absf((owner.boss_pos.x - boss_x_before) - 150.0) <= 1.0, "Lunabi Headbutt should knock the boss paddle about 150px")
+	_expect(audio.paddle_hits == 1, "Lunabi Headbutt hit should use the paddle-hit impact sound")
+
+	var miss_owner := FakeOwner.new()
+	miss_owner.lingpet_owned_pet_ids = ["lunabi"]
+	miss_owner.lingpet_slots = ["lunabi", "", ""]
+	miss_owner.boss_pos = Vector2(320.0, 25.0)
+	miss_owner.boss_vel = 10.0
+	miss_owner.ball_active = true
+	var miss_runtime: Object = LingpetEggRuntime.new()
+	var miss_audio := FakePaddleAudio.new()
+	var miss_registry := FakeRegistry.new({"game_audio": miss_audio})
+	miss_runtime.update(0.0, miss_owner, miss_registry)
+	miss_runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
+	miss_runtime.update(0.0, miss_owner, miss_registry)
+	miss_runtime.update(0.50, miss_owner, miss_registry)
+	var miss_boss_x_before := miss_owner.boss_pos.x
+	for _i in range(24):
+		miss_runtime.update(0.05, miss_owner, miss_registry)
+		if int(miss_runtime.get_headbutt_miss_count_for_tests()) > 0:
+			break
+	var miss_snap: Dictionary = miss_runtime.get_snapshot()
+	_expect(int(miss_runtime.get_headbutt_miss_count_for_tests()) == 1, "Lunabi Headbutt should be able to miss a fast-moving boss paddle")
+	_expect(str(miss_snap.get("headbutt_last_result", "")) == "miss", "Lunabi Headbutt snapshot should publish the last miss result")
+	_expect(str(miss_snap.get("headbutt_last_miss_reason", "")) == "moving_target", "Lunabi Headbutt miss should report the moving-target reason")
+	_expect(is_equal_approx(miss_owner.boss_pos.x, miss_boss_x_before), "missed Lunabi Headbutt should not knock back the boss paddle")
+	_expect(miss_audio.paddle_hits == 0, "missed Lunabi Headbutt should not play the paddle-hit impact sound")
+
+
+func _verify_companion_click_reaction() -> void:
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	owner.lingpet_slots = ["maribo", "", ""]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
+	_expect(not bool(runtime.try_begin_companion_click_reaction(Vector2(40.0, 40.0))), "companion click reaction should ignore clicks outside the companion tap zone")
+	_expect(bool(runtime.try_begin_companion_click_reaction(Vector2(250.0, 245.0))), "companion click reaction should start from the companion tap zone")
+	_expect(bool(runtime.is_companion_click_reaction_active()), "companion click reaction should report active after a valid click")
+	runtime.update(5.0, owner)
+	_expect(not bool(runtime.is_companion_click_reaction_active()), "companion click reaction should automatically finish after one popup pass")
+	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
+	_expect(runtime_source.find("lingpet_companion_click_reaction_state.gd") >= 0, "lingpet runtime should delegate click-reaction timing state")
+	_expect(input_source.find("try_begin_companion_click_reaction") >= 0, "battle input should route playfield companion clicks to the lingpet runtime")
 
 
 func _verify_ineligible_conditions_do_not_spawn() -> void:

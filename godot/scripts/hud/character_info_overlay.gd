@@ -13,6 +13,7 @@ const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const MARIBO_CUTIN_ART_TEXTURE := preload("res://assets/sprites/lingpet/maribo_cutin_art.png")
 const MARIBO_HYDRO_SPHERE_CARD_TEXTURE := preload("res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png")
 const MARIBO_RESONANCE_BOOST_ICON_PATH := "res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png"
+const LUNABI_HEADBUTT_ICON_PATH := "res://assets/sprites/lingpet/lunabi_headbutt_skill_icon_imagegen_v1.png"
 const LINGPET_SPEED_DISPLAY_PX_PER_POINT := 60.0
 
 const SPECIAL_GAUGE_MAX := 500.0
@@ -2424,11 +2425,14 @@ func _get_lingpet_skill_icon_texture_path(texture_id: String) -> String:
 	match texture_id:
 		"resonance_boost":
 			return MARIBO_RESONANCE_BOOST_ICON_PATH
+		"lunabi_headbutt":
+			return LUNABI_HEADBUTT_ICON_PATH
 	return ""
 
 
 func _prewarm_lingpet_skill_icon_assets() -> void:
 	_touch_texture(_get_lingpet_skill_icon_texture("resonance_boost"))
+	_touch_texture(_get_lingpet_skill_icon_texture("lunabi_headbutt"))
 
 
 func _touch_texture(texture: Texture2D) -> void:
@@ -2519,6 +2523,7 @@ func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
 			var catalog_skill_name := str(catalog_skill.get("name", "")) if catalog_skill_enabled else ""
 			var catalog_skill_description := str(catalog_skill.get("description", "")) if catalog_skill_enabled else ""
 			var catalog_skill_card_path := str(catalog_skill.get("card_texture_path", "")) if catalog_skill_enabled else ""
+			var catalog_skill_icon_path := str(catalog_skill.get("icon_texture_path", "")) if catalog_skill_enabled else ""
 			var catalog_skill_cooldown := float(catalog_skill.get("cooldown", 0.0)) if catalog_skill_enabled else 0.0
 			return {
 				"state": "companion",
@@ -2532,6 +2537,7 @@ func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
 				"companion_skill_name": str(_safe_owner_get(owner, "lingpet_skill_name", _safe_owner_get(owner, "ringpet_skill_name", catalog_skill_name))),
 				"companion_skill_description": str(_safe_owner_get(owner, "lingpet_skill_description", _safe_owner_get(owner, "ringpet_skill_description", catalog_skill_description))),
 				"companion_skill_card_path": str(_safe_owner_get(owner, "lingpet_skill_card_path", _safe_owner_get(owner, "ringpet_skill_card_path", catalog_skill_card_path))),
+				"companion_skill_icon_path": str(_safe_owner_get(owner, "lingpet_skill_icon_path", _safe_owner_get(owner, "ringpet_skill_icon_path", catalog_skill_icon_path))),
 				"companion_skill_cooldown_duration": float(_safe_owner_get(owner, "lingpet_skill_cooldown_duration", _safe_owner_get(owner, "ringpet_skill_cooldown_duration", catalog_skill_cooldown))),
 				"companion_patrol_speed_default": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_default", _safe_owner_get(owner, "ringpet_companion_patrol_speed_default", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_default", 120.0)))),
 				"companion_patrol_speed_min": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_min", _safe_owner_get(owner, "ringpet_companion_patrol_speed_min", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_min", 70.0)))),
@@ -2576,6 +2582,7 @@ func _get_lingpet_skill_specs(snapshot: Dictionary) -> Array:
 		var skill_description: String = str(snapshot.get("companion_skill_description", "")).strip_edges()
 		if skill_description == "":
 			skill_description = "링펫이 전투 중 자동으로 사용하는 액티브 스킬입니다."
+		var icon_texture_id := str(snapshot.get("companion_skill_icon_path", "")).strip_edges()
 		specs.append({
 			"id": skill_id,
 			"title": skill_name,
@@ -2583,7 +2590,8 @@ func _get_lingpet_skill_specs(snapshot: Dictionary) -> Array:
 			"body": skill_description,
 			"color": Color(80.0 / 255.0, 220.0 / 255.0, 1.0),
 			"badge": "A",
-			"use_card": true,
+			"use_card": icon_texture_id == "",
+			"icon_texture_id": icon_texture_id,
 			"card_texture_path": str(snapshot.get("companion_skill_card_path", "")),
 		})
 	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 0.0))

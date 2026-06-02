@@ -4,6 +4,7 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const LingpetAcquireCutinState := preload("res://scripts/lingpet/lingpet_acquire_cutin_state.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
 const LingpetCompanionBodyHitState := preload("res://scripts/lingpet/lingpet_companion_body_hit_state.gd")
+const LingpetCompanionClickReactionState := preload("res://scripts/lingpet/lingpet_companion_click_reaction_state.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetCompanionDrawContextBuilder := preload("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
 const LingpetCompanionMotionState := preload("res://scripts/lingpet/lingpet_companion_motion_state.gd")
@@ -81,6 +82,17 @@ const COMPANION_SKILL_WINDUP_SECONDS := 1.0
 const COMPANION_SKILL_BURST_PARTICLES := 8
 const COMPANION_SWITCH_TRANSITION_SECONDS := 0.62
 const COMPANION_SWITCH_TRANSITION_PARTICLES := 12
+# Click-reaction popup: clicking the patrolling SD companion plays the
+# click-reaction Live2D sheet as a large popup above it (battle is NOT paused).
+# VIEW_HEIGHT is the rendered popup height in playfield px (far larger than the
+# SD body); CENTER_OFFSET_Y lifts the popup so it reads as the pet reacting
+# above itself; CLICK_ZONE_* is a generous tap box around the small SD body.
+# The popup sheet is the same 14x7 / 98-frame pingpong family as the
+# stage-clear click reaction.
+const COMPANION_CLICK_REACTION_VIEW_HEIGHT := 300.0
+const COMPANION_CLICK_REACTION_CENTER_OFFSET_Y := -70.0
+const COMPANION_CLICK_ZONE_HALF_WIDTH := 70.0
+const COMPANION_CLICK_ZONE_HALF_HEIGHT := 60.0
 # Fullscreen acquisition cut-in state lives in LingpetAcquireCutinState. The
 # runtime keeps the public API because modal/input/draw controllers call it.
 # The HUD host owns the artwork and restoration / exit-action rendering.
@@ -106,6 +118,7 @@ var _snapshot_builder: Object = LingpetRuntimeSnapshotBuilder.new()
 var _save_restore_planner: Object = LingpetSaveRestorePlanner.new()
 var _acquire_cutin_state: Object = LingpetAcquireCutinState.new()
 var _switch_transition_state: Object = LingpetCompanionSwitchState.new()
+var _companion_click_reaction_state: Object = LingpetCompanionClickReactionState.new()
 var _has_synced_none := false
 
 
@@ -118,6 +131,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	_companion_skill_state.advance(delta)
 	_hatch_flash_timer = maxf(0.0, _hatch_flash_timer - maxf(0.0, delta))
 	_companion_sprite_animator.advance(delta)
+	_companion_click_reaction_state.advance(delta)
 
 	if _state == STATE_NONE:
 		var owned_pet_id := _find_active_slot_pet_id(owner)
@@ -156,6 +170,8 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 	elif _state == STATE_COMPANION:
 		_skill_runtime_host.draw(canvas, shake_offset)
 		_draw_companion(canvas, _companion_pos + shake_offset)
+		if _companion_click_reaction_state.is_active():
+			_draw_companion_click_reaction(canvas, _companion_pos + shake_offset)
 		if _hatch_flash_timer > 0.0:
 			_draw_hatch_flash(canvas, _egg_state.pos + shake_offset)
 
@@ -311,6 +327,14 @@ func get_companion_strike_frame_for_tests() -> int:
 
 func get_hydro_puddle_particle_count_for_tests() -> int:
 	return _skill_runtime_host.get_hydro_puddle_particle_count_for_tests()
+
+
+func get_headbutt_hit_count_for_tests() -> int:
+	return _skill_runtime_host.get_headbutt_hit_count_for_tests()
+
+
+func get_headbutt_miss_count_for_tests() -> int:
+	return _skill_runtime_host.get_headbutt_miss_count_for_tests()
 
 
 func configure_companion_motion_for_tests(test_pos: Vector2, test_seed: int, test_decision_timer: float, test_intercept_active: bool) -> void:
@@ -771,7 +795,8 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 		origin,
 		float(_get_current_active_skill().get("cooldown", COMPANION_SKILL_COOLDOWN_SECONDS)),
 		COMPANION_SKILL_FLASH_SECONDS,
-		registry
+		registry,
+		owner
 	)
 
 
@@ -820,6 +845,61 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"strike_fallback": MARIBO_COMPANION_STRIKE_SHEET,
 		"cast_fallback": MARIBO_COMPANION_HYDRO_CAST_SHEET,
 	}))
+
+
+# Begin the in-battle click-reaction popup if the click landed on the patrolling
+# companion. Battle is NOT paused -- the reaction plays as a large popup above
+# the SD companion and fades out on its own. playfield_pos is in game/playfield
+# coordinates (caller converts the viewport click via the layout render_scale /
+# game_offset). Returns true when the click was consumed by the companion.
+func try_begin_companion_click_reaction(playfield_pos: Vector2) -> bool:
+	if _state != STATE_COMPANION:
+		return false
+	if _companion_pos == Vector2.ZERO:
+		return false
+	if _companion_click_reaction_state.is_active():
+		return true
+	if not _is_point_in_companion_click_zone(playfield_pos):
+		return false
+	_companion_click_reaction_state.start()
+	return true
+
+
+func is_companion_click_reaction_active() -> bool:
+	return _companion_click_reaction_state.is_active()
+
+
+func _is_point_in_companion_click_zone(playfield_pos: Vector2) -> bool:
+	if _companion_pos == Vector2.ZERO:
+		return false
+	return (
+		absf(playfield_pos.x - _companion_pos.x) <= COMPANION_CLICK_ZONE_HALF_WIDTH
+		and absf(playfield_pos.y - _companion_pos.y) <= COMPANION_CLICK_ZONE_HALF_HEIGHT
+	)
+
+
+func _draw_companion_click_reaction(canvas: CanvasItem, center: Vector2) -> void:
+	var tex: Texture2D = _get_current_visual_texture("click_reaction_anim", null)
+	if tex == null or tex.get_width() <= 1 or tex.get_height() <= 1:
+		return
+	var alpha: float = _companion_click_reaction_state.get_alpha()
+	if alpha <= 0.0:
+		return
+	var cols: int = LingpetCompanionClickReactionState.COLS
+	var rows: int = LingpetCompanionClickReactionState.ROWS
+	var cell_w: float = float(tex.get_width()) / float(cols)
+	var cell_h: float = float(tex.get_height()) / float(rows)
+	if cell_w <= 0.0 or cell_h <= 0.0:
+		return
+	var frame: int = _companion_click_reaction_state.get_frame()
+	var col: int = frame % cols
+	var row: int = int(float(frame) / float(cols))
+	var src := Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+	var disp_h: float = COMPANION_CLICK_REACTION_VIEW_HEIGHT
+	var disp_w: float = disp_h * (cell_w / cell_h)
+	var dest_center := center + Vector2(0.0, COMPANION_CLICK_REACTION_CENTER_OFFSET_Y)
+	var dest := Rect2(dest_center.x - disp_w * 0.5, dest_center.y - disp_h * 0.5, disp_w, disp_h)
+	canvas.draw_texture_rect_region(tex, dest, src, Color(1.0, 1.0, 1.0, alpha))
 
 
 func _maybe_arm_companion_strike(owner: Object) -> void:

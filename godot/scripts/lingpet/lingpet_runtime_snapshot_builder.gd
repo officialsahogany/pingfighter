@@ -48,6 +48,7 @@ func build_runtime_snapshot(
 		"companion_skill_name": skill_name if skill_active else "",
 		"companion_skill_description": skill_description if skill_active else "",
 		"companion_skill_card_path": str(active_skill.get("card_texture_path", "")) if skill_active else "",
+		"companion_skill_icon_path": str(active_skill.get("icon_texture_path", "")) if skill_active else "",
 		"hatch_flash_timer": hatch_flash_timer,
 		"owned_pet_ids": owned_pet_ids.duplicate(),
 		"battle_slot_pet_ids": battle_slot_pet_ids.duplicate(),

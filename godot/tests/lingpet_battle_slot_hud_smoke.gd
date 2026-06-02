@@ -22,8 +22,10 @@ class FakeRuntime:
 
 	var switched_slots: Array[int] = []
 	var cycled_directions: Array[int] = []
+	var companion_click_positions: Array[Vector2] = []
 	var switch_result := true
 	var cycle_result := true
+	var companion_click_result := false
 
 	func switch_lingpet_slot(slot_index: int, _owner: Object = null) -> bool:
 		switched_slots.append(slot_index)
@@ -32,6 +34,10 @@ class FakeRuntime:
 	func cycle_lingpet_slot(direction: int = 1, _owner: Object = null) -> bool:
 		cycled_directions.append(direction)
 		return cycle_result
+
+	func try_begin_companion_click_reaction(playfield_pos: Vector2) -> bool:
+		companion_click_positions.append(playfield_pos)
+		return companion_click_result
 
 	func get_snapshot() -> Dictionary:
 		return {
@@ -65,6 +71,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_lingpet_cycle_key_avoids_item_number_keys()
 	_verify_lingpet_slot_click_hud_is_removed()
+	_verify_lingpet_companion_click_uses_playfield_coordinates()
 	_verify_renderer_and_input_hide_battle_slot_hud()
 	if _failures.is_empty():
 		print("lingpet_battle_slot_hud_smoke: ok")
@@ -116,7 +123,28 @@ func _verify_lingpet_slot_click_hud_is_removed() -> void:
 		{"battle_initialized": true, "stage_landing_intro_started": true}
 	)
 	_expect(runtime.switched_slots.is_empty(), "battle-screen lingpet slot clicks should be removed with the visible slot HUD")
+	_expect(runtime.companion_click_positions.is_empty(), "removed lingpet slot HUD click area should not trigger the companion click reaction")
 	_expect(owner.redraws == 0, "removed lingpet slot HUD click area should not request redraw")
+
+
+func _verify_lingpet_companion_click_uses_playfield_coordinates() -> void:
+	var owner := FakeOwner.new()
+	var runtime := FakeRuntime.new()
+	runtime.companion_click_result = true
+	var registry := _make_registry(runtime)
+	var input := BattleSceneInputController.new()
+	input.handle_unhandled_input(
+		_mouse_click(Vector2(260.0 + 250.0, 75.0 + 245.0)),
+		owner,
+		registry,
+		Callable(registry, "get_instance"),
+		{"battle_initialized": true, "stage_landing_intro_started": true}
+	)
+	_expect(runtime.companion_click_positions.size() == 1, "clicking the in-playfield companion should ask the runtime to begin its reaction")
+	if runtime.companion_click_positions.size() == 1:
+		_expect(runtime.companion_click_positions[0] == Vector2(250.0, 245.0), "companion click should convert screen coords back into playfield coords")
+	_expect(runtime.switched_slots.is_empty(), "companion click should not use the old slot-switch click path")
+	_expect(owner.redraws == 1, "successful companion click reaction should request redraw")
 
 
 func _verify_renderer_and_input_hide_battle_slot_hud() -> void:

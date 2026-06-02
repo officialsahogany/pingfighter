@@ -42,11 +42,12 @@ func complete_launch(
 	origin: Vector2,
 	cooldown_seconds: float,
 	flash_seconds: float,
-	registry: Object
+	registry: Object,
+	owner: Object = null
 ) -> bool:
 	if skill_state == null or skill_runtime_host == null:
 		return false
-	if not skill_runtime_host.launch(skill_id, origin):
+	if not skill_runtime_host.launch(skill_id, origin, owner):
 		skill_state.cancel_windup()
 		return false
 	skill_state.complete_launch(origin, cooldown_seconds, flash_seconds)

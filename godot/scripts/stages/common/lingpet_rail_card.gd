@@ -14,6 +14,7 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 
 const SKILL_ID := "maribo_hydro_sphere"
 const SKILL_NAME := "하이드로 스피어"
@@ -31,6 +32,13 @@ static var _texture_cache: Dictionary = {}
 static func prewarm() -> void:
 	_texture_loaded = true
 	_texture = _load_texture(TEXTURE_PATH)
+	for pet_id in LingpetCatalog.get_pet_ids(true):
+		var active_skill: Dictionary = LingpetCatalog.get_active_skill(str(pet_id))
+		if not bool(active_skill.get("enabled", true)):
+			continue
+		var card_path := str(active_skill.get("card_texture_path", "")).strip_edges()
+		if card_path != "":
+			_load_texture(card_path)
 
 
 static func texture(path: String = TEXTURE_PATH) -> Texture2D:
@@ -59,7 +67,10 @@ static func _load_texture(path: String) -> Texture2D:
 
 
 static func is_lingpet_skill(skill: Dictionary) -> bool:
-	return bool(skill.get("is_lingpet", false)) or str(skill.get("id", "")) == SKILL_ID
+	if bool(skill.get("is_lingpet", false)):
+		return true
+	var skill_id := str(skill.get("id", "")).strip_edges().to_lower()
+	return skill_id == SKILL_ID or not LingpetCatalog.get_active_skill_entry(skill_id).is_empty()
 
 
 static func _resolve_lingpet_runtime(registry: Object) -> Object:
@@ -96,6 +107,9 @@ static func build_entry(registry: Object) -> Dictionary:
 	var casting: bool = (
 		bool(snapshot.get("hydro_sphere_projectile_active", false))
 		or bool(snapshot.get("hydro_sphere_puddle_active", false))
+		or bool(snapshot.get("headbutt_active", false))
+		or bool(snapshot.get("headbutt_impact_active", false))
+		or bool(snapshot.get("headbutt_miss_active", false))
 		or bool(snapshot.get("companion_skill_winding_up", false))
 	)
 	var status: String = "casting" if casting else ("ready" if ready else "charging")
@@ -166,8 +180,6 @@ static func tooltip_info(skill: Dictionary = {}) -> Dictionary:
 
 static func _localized_cooldown_text(cooldown_seconds: float = COOLDOWN_SECONDS) -> String:
 	var language: String = LanguageSettings.get_language()
-	if not is_equal_approx(cooldown_seconds, COOLDOWN_SECONDS):
-		return "Cooldown %.0fs" % cooldown_seconds
 	if language == LanguageSettings.LANGUAGE_ENGLISH:
 		return "Cooldown %.0fs" % cooldown_seconds
 	if language == LanguageSettings.LANGUAGE_SPANISH:
@@ -175,12 +187,12 @@ static func _localized_cooldown_text(cooldown_seconds: float = COOLDOWN_SECONDS)
 	if language == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
 		return "Recarga %.0fs" % cooldown_seconds
 	if language == LanguageSettings.LANGUAGE_RUSSIAN:
-		return "Перезарядка %.0fс" % COOLDOWN_SECONDS
+		return "Перезарядка %.0fс" % cooldown_seconds
 	if language == LanguageSettings.LANGUAGE_CHINESE:
-		return "冷却%.0f秒" % COOLDOWN_SECONDS
+		return "冷却%.0f秒" % cooldown_seconds
 	if language == LanguageSettings.LANGUAGE_JAPANESE:
-		return "クールタイム%.0f秒" % COOLDOWN_SECONDS
-	return "쿨타임 %.0f초" % COOLDOWN_SECONDS
+		return "クールタイム%.0f秒" % cooldown_seconds
+	return "쿨타임 %.0f초" % cooldown_seconds
 
 
 # Full, self-contained lingpet card render (background + v2 texture gauge fill +

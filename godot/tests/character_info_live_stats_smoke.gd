@@ -171,8 +171,10 @@ func _init() -> void:
 	var lunabi_stats: Array = overlay._build_lingpet_stats(lunabi_owner)
 	var lunabi_art_texture: Texture2D = overlay._get_lingpet_art_texture("lunabi")
 	_expect(str(lunabi_panel_snapshot.get("pet_id", "")) == "lunabi", "Lunabi panel snapshot should preserve its catalog pet id")
-	_expect(lunabi_skill_specs.is_empty(), "Lunabi placeholder active/passive data should not show Maribo skill icons")
-	_expect(_find_stat(lunabi_stats, "액티브 쿨타임").is_empty(), "Lunabi should not show an active cooldown stat until its active skill ships")
+	_expect(lunabi_skill_specs.size() == 1, "Lunabi character-info panel should show its shipped active skill icon")
+	_expect(str((lunabi_skill_specs[0] as Dictionary).get("id", "")) == "lunabi_headbutt", "Lunabi active icon should use the Headbutt catalog skill id")
+	_expect(str((lunabi_skill_specs[0] as Dictionary).get("icon_texture_id", "")).ends_with("lunabi_headbutt_skill_icon_imagegen_v1.png"), "Lunabi active icon should use the imagegen skill icon instead of Maribo's card")
+	_expect(str(_find_stat(lunabi_stats, "액티브 쿨타임").get("value", "")) == "30초", "Lunabi should show the Headbutt active cooldown stat")
 	_expect(str(_find_stat(lunabi_stats, "이동 속도").get("value", "")) == "4.75", "Lunabi character-info speed should use its own sortie-flight catalog stat, not Maribo's")
 	_expect(lunabi_art_texture != null and str(lunabi_art_texture.resource_path).ends_with("lunabi_cutin_art.png"), "Lunabi character-info art should resolve through the catalog cutin_art path")
 

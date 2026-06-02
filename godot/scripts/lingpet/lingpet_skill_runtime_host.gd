@@ -1,13 +1,16 @@
 extends RefCounted
 
 const LingpetHydroSphereSkill := preload("res://scripts/lingpet/lingpet_hydro_sphere_skill.gd")
+const LingpetHeadbuttSkill := preload("res://scripts/lingpet/lingpet_headbutt_skill.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 
 var _hydro_sphere_skill: Object = LingpetHydroSphereSkill.new()
+var _headbutt_skill: Object = LingpetHeadbuttSkill.new()
 
 
 func reset() -> void:
 	_hydro_sphere_skill.reset()
+	_headbutt_skill.reset()
 
 
 func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "") -> void:
@@ -15,22 +18,27 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
 			_hydro_sphere_skill.update(safe_delta, owner, registry)
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			_headbutt_skill.update(safe_delta, owner, registry)
 		_:
 			pass
 
 
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	_hydro_sphere_skill.draw(canvas, shake_offset)
+	_headbutt_skill.draw(canvas, shake_offset)
 
 
 func has_visible_effects() -> bool:
-	return _hydro_sphere_skill.has_visible_effects()
+	return _hydro_sphere_skill.has_visible_effects() or _headbutt_skill.has_visible_effects()
 
 
 func prewarm(skill_id: String) -> void:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
 			_hydro_sphere_skill.prewarm()
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			_headbutt_skill.prewarm()
 		_:
 			pass
 
@@ -39,15 +47,19 @@ func is_launch_blocked(skill_id: String) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
 			return _hydro_sphere_skill.is_projectile_active()
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return _headbutt_skill.is_active()
 		_:
 			return false
 
 
-func launch(skill_id: String, origin: Vector2) -> bool:
+func launch(skill_id: String, origin: Vector2, owner: Object = null) -> bool:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
 			_hydro_sphere_skill.launch(origin)
 			return true
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return _headbutt_skill.launch(origin, owner)
 		_:
 			return false
 
@@ -60,16 +72,28 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 	match LingpetSkillDispatcher.get_skill_kind(skill_id):
 		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
 			_play_hydro_feedback(registry)
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			pass
 		_:
 			pass
 
 
 func get_snapshot() -> Dictionary:
-	return _hydro_sphere_skill.get_snapshot()
+	var snapshot: Dictionary = _hydro_sphere_skill.get_snapshot()
+	snapshot.merge(_headbutt_skill.get_snapshot(), true)
+	return snapshot
 
 
 func get_hydro_puddle_particle_count_for_tests() -> int:
 	return _hydro_sphere_skill.get_particle_count_for_tests()
+
+
+func get_headbutt_hit_count_for_tests() -> int:
+	return _headbutt_skill.get_hit_count_for_tests()
+
+
+func get_headbutt_miss_count_for_tests() -> int:
+	return _headbutt_skill.get_miss_count_for_tests()
 
 
 func _play_hydro_feedback(registry: Object) -> void:
