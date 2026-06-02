@@ -31,6 +31,11 @@ const REQUIRED_ACTIVE_SKILL_KEYS := [
 	"cooldown",
 	"card_texture_path",
 ]
+const REQUIRED_PASSIVE_SKILL_KEYS := [
+	"id",
+	"name",
+	"description",
+]
 
 const PETS := {
 	"maribo": {
@@ -76,6 +81,15 @@ const PETS := {
 		"passive_icons": {
 			"gauge_gain_bonus": "res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png",
 		},
+		"passive_skill_pool": [
+			{
+				"id": "maribo_resonance_boost",
+				"name": "공명 증폭",
+				"description": "플레이어가 공을 받아칠 때 게이지 획득량이 증가합니다.",
+				"icon_texture_path": "res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png",
+				"gauge_gain_bonus_pct": 10.0,
+			},
+		],
 		"effect_text": "공을 받아칠 때 게이지 획득량 +10% / 링펫이 공을 직접 튕기면 게이지 +40 / 하이드로 스피어: 40초마다 물창을 던져 상대 진영에 5초 둔화 장판을 만듭니다.",
 	},
 	"lunabi": {
@@ -222,11 +236,20 @@ static func get_stat(pet_id: String, stat_name: String, fallback: float = 0.0) -
 	return fallback
 
 
-static func get_active_skill(pet_id: String) -> Dictionary:
-	var skill: Variant = get_entry(pet_id).get("active_skill", {})
-	if skill is Dictionary:
-		return (skill as Dictionary).duplicate(true)
+static func get_active_skill(pet_id: String, skill_id: String = "") -> Dictionary:
+	var active_pool := get_active_skill_pool(pet_id)
+	var normalized_skill_id := _normalize_skill_id(skill_id)
+	if normalized_skill_id != "":
+		for skill in active_pool:
+			if _normalize_skill_id(str(skill.get("id", ""))) == normalized_skill_id:
+				return skill.duplicate(true)
+	if not active_pool.is_empty():
+		return active_pool[0].duplicate(true)
 	return {}
+
+
+static func get_active_skill_pool(pet_id: String) -> Array[Dictionary]:
+	return _get_active_skill_pool_from_entry(get_entry(pet_id), true)
 
 
 static func get_active_skill_entry(skill_id: String) -> Dictionary:
@@ -241,9 +264,9 @@ static func get_active_skill_entry_from_entries(entries: Dictionary, skill_id: S
 		var entry: Variant = entries.get(raw_pet_id, {})
 		if not (entry is Dictionary):
 			continue
-		var skill: Variant = (entry as Dictionary).get("active_skill", {})
-		if skill is Dictionary and _normalize_skill_id(str((skill as Dictionary).get("id", ""))) == normalized:
-			return (skill as Dictionary).duplicate(true)
+		for skill in _get_active_skill_pool_from_entry(entry as Dictionary, true):
+			if _normalize_skill_id(str(skill.get("id", ""))) == normalized:
+				return skill.duplicate(true)
 	return {}
 
 
@@ -266,7 +289,80 @@ static func get_visual_path(pet_id: String, visual_key: String) -> String:
 static func get_passive_icon_path(pet_id: String, passive_id: String) -> String:
 	var passive_icons: Variant = get_entry(pet_id).get("passive_icons", {})
 	if passive_icons is Dictionary:
-		return str((passive_icons as Dictionary).get(passive_id, ""))
+		var icon_path := str((passive_icons as Dictionary).get(passive_id, ""))
+		if icon_path != "":
+			return icon_path
+	var passive := get_passive_skill(pet_id, passive_id)
+	return str(passive.get("icon_texture_path", ""))
+
+
+static func get_passive_skill(pet_id: String, passive_id: String = "") -> Dictionary:
+	var passive_pool := get_passive_skill_pool(pet_id)
+	var normalized_passive_id := _normalize_skill_id(passive_id)
+	if normalized_passive_id != "":
+		for passive in passive_pool:
+			if _normalize_skill_id(str(passive.get("id", ""))) == normalized_passive_id:
+				return passive.duplicate(true)
+	if not passive_pool.is_empty():
+		return passive_pool[0].duplicate(true)
+	return {}
+
+
+static func get_passive_skill_pool(pet_id: String) -> Array[Dictionary]:
+	return _get_passive_skill_pool_from_entry(get_entry(pet_id))
+
+
+static func get_passive_skill_entry(passive_id: String) -> Dictionary:
+	var normalized := _normalize_skill_id(passive_id)
+	if normalized == "":
+		return {}
+	for raw_pet_id in PETS.keys():
+		var entry: Variant = PETS.get(raw_pet_id, {})
+		if not (entry is Dictionary):
+			continue
+		for passive in _get_passive_skill_pool_from_entry(entry as Dictionary):
+			if _normalize_skill_id(str(passive.get("id", ""))) == normalized:
+				return passive.duplicate(true)
+	return {}
+
+
+static func pick_skill_loadout(pet_id: String, rng: RandomNumberGenerator = null) -> Dictionary:
+	var active_pool := get_active_skill_pool(pet_id)
+	var passive_pool := get_passive_skill_pool(pet_id)
+	var active_skill := _pick_skill_from_pool(active_pool, rng)
+	var passive_skill := _pick_skill_from_pool(passive_pool, rng)
+	return {
+		"active_skill_id": str(active_skill.get("id", "")),
+		"passive_skill_id": str(passive_skill.get("id", "")),
+	}
+
+
+static func build_default_loadout(pet_id: String) -> Dictionary:
+	var active_skill := get_active_skill(pet_id)
+	var passive_skill := get_passive_skill(pet_id)
+	return {
+		"active_skill_id": str(active_skill.get("id", "")),
+		"passive_skill_id": str(passive_skill.get("id", "")),
+	}
+
+
+static func normalize_active_skill_id(pet_id: String, skill_id: String) -> String:
+	var normalized := _normalize_skill_id(skill_id)
+	if normalized == "":
+		return ""
+	for skill in get_active_skill_pool(pet_id):
+		if _normalize_skill_id(str(skill.get("id", ""))) == normalized:
+			return str(skill.get("id", "")).strip_edges()
+	return ""
+
+
+static func normalize_passive_skill_id(pet_id: String, passive_id: String) -> String:
+	var normalized := _normalize_skill_id(passive_id)
+	if normalized == "":
+		return ""
+	for passive in get_passive_skill_pool(pet_id):
+		if _normalize_skill_id(str(passive.get("id", ""))) == normalized:
+			return str(passive.get("id", "")).strip_edges()
 	return ""
 
 
@@ -324,6 +420,7 @@ static func validate_entry(pet_id: String, entry: Dictionary, require_existing_f
 	_validate_required_visuals(normalized, entry, issues, require_existing_files)
 	_validate_active_skill(normalized, entry, issues, require_existing_files)
 	_validate_passive_icons(normalized, entry, issues, require_existing_files)
+	_validate_passive_skills(normalized, entry, issues, require_existing_files)
 	if str(entry.get("effect_text", "")).strip_edges() == "":
 		issues.append("%s: missing effect_text" % normalized)
 	return issues
@@ -367,17 +464,24 @@ static func _validate_required_visuals(pet_id: String, entry: Dictionary, issues
 
 static func _validate_active_skill(pet_id: String, entry: Dictionary, issues: Array[String], require_existing_files: bool) -> void:
 	var skill: Variant = entry.get("active_skill", {})
-	if not (skill is Dictionary):
+	var configured_pool := _get_configured_active_skill_pool_from_entry(entry)
+	if not (skill is Dictionary) and configured_pool.is_empty():
 		issues.append("%s: active_skill must be a Dictionary" % pet_id)
 		return
-	var skill_data: Dictionary = skill as Dictionary
+	if skill is Dictionary:
+		_validate_active_skill_data(pet_id, "active_skill", skill as Dictionary, issues, require_existing_files)
+	for i in range(configured_pool.size()):
+		_validate_active_skill_data(pet_id, "active_skill_pool[%d]" % i, configured_pool[i], issues, require_existing_files)
+
+
+static func _validate_active_skill_data(pet_id: String, label: String, skill_data: Dictionary, issues: Array[String], require_existing_files: bool) -> void:
 	for key in REQUIRED_ACTIVE_SKILL_KEYS:
 		if str(skill_data.get(key, "")).strip_edges() == "":
-			issues.append("%s: missing active_skill.%s" % [pet_id, str(key)])
+			issues.append("%s: missing %s.%s" % [pet_id, label, str(key)])
 	if float(skill_data.get("cooldown", 0.0)) <= 0.0:
-		issues.append("%s: active_skill.cooldown must be > 0" % pet_id)
+		issues.append("%s: %s.cooldown must be > 0" % [pet_id, label])
 	if skill_data.has("windup_seconds") and float(skill_data.get("windup_seconds", 0.0)) < 0.0:
-		issues.append("%s: active_skill.windup_seconds must be >= 0" % pet_id)
+		issues.append("%s: %s.windup_seconds must be >= 0" % [pet_id, label])
 	var card_path := str(skill_data.get("card_texture_path", "")).strip_edges()
 	if card_path != "" and require_existing_files and not FileAccess.file_exists(card_path):
 		issues.append("%s: missing skill-card file %s" % [pet_id, card_path])
@@ -399,6 +503,26 @@ static func _validate_passive_icons(pet_id: String, entry: Dictionary, issues: A
 			issues.append("%s: missing passive icon path for %s" % [pet_id, icon_key])
 		elif require_existing_files and not FileAccess.file_exists(path):
 			issues.append("%s: missing passive icon file %s" % [pet_id, path])
+
+
+static func _validate_passive_skills(pet_id: String, entry: Dictionary, issues: Array[String], require_existing_files: bool) -> void:
+	var passive_pool := _get_passive_skill_pool_from_entry(entry)
+	var seen_ids := {}
+	for i in range(passive_pool.size()):
+		var passive := passive_pool[i]
+		var passive_id := _normalize_skill_id(str(passive.get("id", "")))
+		for key in REQUIRED_PASSIVE_SKILL_KEYS:
+			if str(passive.get(key, "")).strip_edges() == "":
+				issues.append("%s: missing passive_skill_pool[%d].%s" % [pet_id, i, str(key)])
+		if passive_id != "":
+			if bool(seen_ids.get(passive_id, false)):
+				issues.append("%s: duplicate passive skill id %s" % [pet_id, passive_id])
+			seen_ids[passive_id] = true
+		var icon_path := str(passive.get("icon_texture_path", "")).strip_edges()
+		if icon_path != "" and require_existing_files and not FileAccess.file_exists(icon_path):
+			issues.append("%s: missing passive skill icon file %s" % [pet_id, icon_path])
+		if passive.has("gauge_gain_bonus_pct") and float(passive.get("gauge_gain_bonus_pct", 0.0)) < 0.0:
+			issues.append("%s: passive_skill_pool[%d].gauge_gain_bonus_pct must be >= 0" % [pet_id, i])
 
 
 static func get_hatch_candidates(context: Dictionary, owned_pet_ids: Array) -> Array[String]:
@@ -468,6 +592,47 @@ static func _get_entry_from_entries(entries: Dictionary, pet_id: String) -> Vari
 
 static func _is_entry_enabled(entry: Dictionary) -> bool:
 	return bool(entry.get("enabled", true))
+
+
+static func _get_active_skill_pool_from_entry(entry: Dictionary, include_primary_fallback: bool) -> Array[Dictionary]:
+	var pool := _get_configured_active_skill_pool_from_entry(entry)
+	if not pool.is_empty() or not include_primary_fallback:
+		return pool
+	var skill: Variant = entry.get("active_skill", {})
+	return _normalize_skill_pool(skill)
+
+
+static func _get_configured_active_skill_pool_from_entry(entry: Dictionary) -> Array[Dictionary]:
+	var active_pool: Variant = entry.get("active_skill_pool", entry.get("active_skills", []))
+	return _normalize_skill_pool(active_pool)
+
+
+static func _get_passive_skill_pool_from_entry(entry: Dictionary) -> Array[Dictionary]:
+	return _normalize_skill_pool(entry.get("passive_skill_pool", entry.get("passive_skills", [])))
+
+
+static func _normalize_skill_pool(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if value is Array:
+		for raw_skill in (value as Array):
+			if raw_skill is Dictionary:
+				result.append((raw_skill as Dictionary).duplicate(true))
+	elif value is Dictionary:
+		result.append((value as Dictionary).duplicate(true))
+	return result
+
+
+static func _pick_skill_from_pool(pool: Array[Dictionary], rng: RandomNumberGenerator = null) -> Dictionary:
+	if pool.is_empty():
+		return {}
+	if pool.size() == 1:
+		return pool[0].duplicate(true)
+	var index := 0
+	if rng != null:
+		index = rng.randi_range(0, pool.size() - 1)
+	else:
+		index = randi_range(0, pool.size() - 1)
+	return pool[index].duplicate(true)
 
 
 static func _matches_unlock(entry: Dictionary, context: Dictionary) -> bool:

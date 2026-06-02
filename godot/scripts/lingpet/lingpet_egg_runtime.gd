@@ -16,6 +16,7 @@ const LingpetCompanionStrikeAnticipator := preload("res://scripts/lingpet/lingpe
 const LingpetCompanionSwitchState := preload("res://scripts/lingpet/lingpet_companion_switch_state.gd")
 const LingpetEggFieldState := preload("res://scripts/lingpet/lingpet_egg_field_state.gd")
 const LingpetEggFieldRenderer := preload("res://scripts/lingpet/lingpet_egg_field_renderer.gd")
+const LingpetLoadoutState := preload("res://scripts/lingpet/lingpet_loadout_state.gd")
 const LingpetRuntimeSnapshotBuilder := preload("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
 const LingpetSaveRestorePlanner := preload("res://scripts/lingpet/lingpet_save_restore_planner.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
@@ -94,6 +95,7 @@ var _save_restore_planner: Object = LingpetSaveRestorePlanner.new()
 var _acquire_cutin_state: Object = LingpetAcquireCutinState.new()
 var _switch_transition_state: Object = LingpetCompanionSwitchState.new()
 var _companion_click_reaction_state: Object = LingpetCompanionClickReactionState.new()
+var _loadout_state: Object = LingpetLoadoutState.new()
 var _companion_skill_state_by_pet_id: Dictionary = {}
 var _has_synced_none := false
 
@@ -225,6 +227,7 @@ func debug_grant_and_activate_pet(pet_id: String, owner: Object = null, show_acq
 	_save_current_companion_skill_state()
 	_state = STATE_COMPANION
 	_set_current_pet_id(normalized_pet_id)
+	_apply_current_loadout(owner, true)
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
 	_reset_companion_runtime_state()
@@ -280,6 +283,7 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
 		return true
 	_switch_transition_state.begin(_pet_id, next_pet_id, COMPANION_SWITCH_TRANSITION_SECONDS)
 	_set_current_pet_id(next_pet_id)
+	_apply_current_loadout(owner, true)
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
 	_reset_companion_runtime_state()
@@ -360,7 +364,11 @@ func get_snapshot() -> Dictionary:
 		_companion_skill_state,
 		_get_current_skill_windup_seconds(),
 		COMPANION_SKILL_FLASH_SECONDS,
-		_skill_runtime_host
+		_skill_runtime_host,
+		_loadout_state.get_loadouts(),
+		_get_current_active_skill_pool(),
+		_get_current_passive_skill(),
+		_get_current_passive_skill_pool()
 	)
 	snapshot.merge(_switch_transition_state.get_snapshot(COMPANION_SWITCH_TRANSITION_SECONDS), true)
 	return snapshot
@@ -379,7 +387,8 @@ func get_save_snapshot() -> Dictionary:
 		_collection_state.get_battle_slots(),
 		_collection_state.get_active_slot_index(),
 		_get_current_gauge_gain_bonus_pct(),
-		_companion_motion_state
+		_companion_motion_state,
+		_loadout_state.get_loadouts()
 	)
 
 
@@ -399,6 +408,7 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 		}
 
 	_set_current_pet_id(str(snapshot.get("pet_id", PET_ID)))
+	_loadout_state.set_loadouts(snapshot.get("lingpet_loadouts", snapshot.get("ringpet_loadouts", {})))
 	var restored_state: String = _normalize_lingpet_state(str(snapshot.get("state", STATE_NONE)))
 	var restore_plan: Dictionary = _save_restore_planner.build_plan(snapshot, owner, _collection_state, _pet_id, restored_state)
 	restore_reason = str(restore_plan.get("restore_reason", "ok"))
@@ -406,6 +416,7 @@ func apply_save_snapshot(snapshot: Dictionary, owner: Object = null) -> Dictiona
 	var target_state := str(restore_plan.get("target_state", STATE_NONE))
 	if target_state == STATE_COMPANION:
 		_state = STATE_COMPANION
+		_apply_current_loadout(owner, true)
 		_egg_state.set_hatched(_get_current_required_hits())
 		var companion_fallback := Vector2.ZERO
 		_companion_pos = _get_vector2_from_variant(snapshot.get("companion_pos", companion_fallback), companion_fallback)
@@ -440,6 +451,7 @@ func reset_for_tests() -> void:
 	_companion_pos = Vector2.ZERO
 	_reset_companion_patrol()
 	_collection_state.reset()
+	_loadout_state.reset()
 	_hatch_flash_timer = 0.0
 	_reset_companion_runtime_state()
 	_companion_skill_state_by_pet_id.clear()
@@ -500,6 +512,7 @@ func _resolve_ball_hit(owner: Object) -> bool:
 
 	if bool(hit_result.get("hatched", false)):
 		_state = STATE_COMPANION
+		_apply_current_loadout(owner, true)
 		_companion_pos = _egg_state.pos
 		_initialize_companion_patrol(owner, false)
 		_egg_state.reset_contact_motion()
@@ -514,6 +527,10 @@ func _resolve_ball_hit(owner: Object) -> bool:
 
 
 func _sync_owner(owner: Object) -> void:
+	if _state == STATE_COMPANION:
+		_apply_current_loadout(owner, true)
+	else:
+		_loadout_state.sync_owner(owner, "")
 	_snapshot_builder.sync_owner(
 		owner,
 		_pet_id,
@@ -536,13 +553,16 @@ func _sync_owner(owner: Object) -> void:
 		_get_current_active_skill(),
 		_companion_skill_state,
 		_get_current_gauge_gain_bonus_pct(),
-		_get_effect_text()
+		_get_effect_text(),
+		_loadout_state.get_loadouts(),
+		_get_current_passive_skill()
 	)
 
 
 func _adopt_owned_pet(owner: Object, pet_id: String) -> void:
 	_state = STATE_COMPANION
 	_set_current_pet_id(pet_id)
+	_apply_current_loadout(owner, true)
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
 	_initialize_companion_patrol(owner, true)
@@ -640,6 +660,18 @@ func _get_current_active_skill() -> Dictionary:
 	return _current_profile.get_active_skill()
 
 
+func _get_current_active_skill_pool() -> Array[Dictionary]:
+	return _current_profile.get_active_skill_pool()
+
+
+func _get_current_passive_skill() -> Dictionary:
+	return _current_profile.get_passive_skill()
+
+
+func _get_current_passive_skill_pool() -> Array[Dictionary]:
+	return _current_profile.get_passive_skill_pool()
+
+
 func _get_current_motion_style() -> String:
 	return _current_profile.get_motion_style()
 
@@ -674,6 +706,17 @@ func _get_current_hit_half_height() -> float:
 
 func _normalize_pet_id(value: String) -> String:
 	return _current_profile.normalize_pet_id(value)
+
+
+func _apply_current_loadout(owner: Object, ensure: bool) -> void:
+	if _pet_id == "":
+		_current_profile.set_loadout("", "")
+		return
+	var loadout: Dictionary = _loadout_state.ensure_pet_loadout(owner, _pet_id) if ensure else _loadout_state.get_loadout(_pet_id)
+	_current_profile.set_loadout(
+		str(loadout.get("active_skill_id", "")),
+		str(loadout.get("passive_skill_id", ""))
+	)
 
 
 func _prewarm_current_visuals() -> void:
@@ -888,6 +931,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"switch_particles": COMPANION_SWITCH_TRANSITION_PARTICLES,
 		"animator": _companion_sprite_animator,
 		"patrol_pause": _companion_motion_state.patrol_pause,
+		"patrol_dir": _companion_motion_state.patrol_dir,
 		"motion_speed_ratio": 1.0 if _skill_runtime_host.has_companion_position_override(_get_current_skill_id()) else (_companion_motion_state.motion_speed_ratio if _get_current_motion_style() == "sortie_flight" else 0.0),
 		"companion_visible": _companion_motion_state.motion_visible or _skill_runtime_host.has_companion_position_override(_get_current_skill_id()),
 		"windup_seconds": _get_current_skill_windup_seconds(),

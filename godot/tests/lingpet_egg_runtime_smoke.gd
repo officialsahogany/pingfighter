@@ -79,6 +79,8 @@ class FakeOwner:
 	var ringpet_companion_hit_gauge_trigger_count := 0
 	var lingpet_skill_id := ""
 	var ringpet_skill_id := ""
+	var lingpet_active_skill_id := ""
+	var ringpet_active_skill_id := ""
 	var lingpet_skill_name := ""
 	var ringpet_skill_name := ""
 	var lingpet_skill_cooldown := 0.0
@@ -93,6 +95,14 @@ class FakeOwner:
 	var ringpet_skill_trigger_count := 0
 	var lingpet_skill_icon_path := ""
 	var ringpet_skill_icon_path := ""
+	var lingpet_passive_skill_id := ""
+	var ringpet_passive_skill_id := ""
+	var lingpet_passive_skill_name := ""
+	var ringpet_passive_skill_name := ""
+	var lingpet_passive_skill_description := ""
+	var ringpet_passive_skill_description := ""
+	var lingpet_passive_skill_icon_path := ""
+	var ringpet_passive_skill_icon_path := ""
 	var lingpet_gauge_gain_bonus_pct := 0.0
 	var ringpet_gauge_gain_bonus_pct := 0.0
 	var lingpet_effect_text := ""
@@ -103,6 +113,10 @@ class FakeOwner:
 	var ringpet_collection: Dictionary = {}
 	var owned_lingpets: Dictionary = {}
 	var owned_ringpets: Dictionary = {}
+	var lingpet_loadouts: Dictionary = {}
+	var ringpet_loadouts: Dictionary = {}
+	var owned_lingpet_loadouts: Dictionary = {}
+	var owned_ringpet_loadouts: Dictionary = {}
 	var lingpet_slots: Array = ["", "", ""]
 	var ringpet_slots: Array = ["", "", ""]
 	var lingpet_slot_pet_ids: Array = ["", "", ""]
@@ -164,6 +178,8 @@ class FakeBattleOwner:
 	var ringpet_companion_hit_gauge_trigger_count := 0
 	var lingpet_skill_id := ""
 	var ringpet_skill_id := ""
+	var lingpet_active_skill_id := ""
+	var ringpet_active_skill_id := ""
 	var lingpet_skill_name := ""
 	var ringpet_skill_name := ""
 	var lingpet_skill_cooldown := 0.0
@@ -178,6 +194,14 @@ class FakeBattleOwner:
 	var ringpet_skill_trigger_count := 0
 	var lingpet_skill_icon_path := ""
 	var ringpet_skill_icon_path := ""
+	var lingpet_passive_skill_id := ""
+	var ringpet_passive_skill_id := ""
+	var lingpet_passive_skill_name := ""
+	var ringpet_passive_skill_name := ""
+	var lingpet_passive_skill_description := ""
+	var ringpet_passive_skill_description := ""
+	var lingpet_passive_skill_icon_path := ""
+	var ringpet_passive_skill_icon_path := ""
 	var lingpet_gauge_gain_bonus_pct := 0.0
 	var ringpet_gauge_gain_bonus_pct := 0.0
 	var lingpet_effect_text := ""
@@ -188,6 +212,10 @@ class FakeBattleOwner:
 	var ringpet_collection: Dictionary = {}
 	var owned_lingpets: Dictionary = {}
 	var owned_ringpets: Dictionary = {}
+	var lingpet_loadouts: Dictionary = {}
+	var ringpet_loadouts: Dictionary = {}
+	var owned_lingpet_loadouts: Dictionary = {}
+	var owned_ringpet_loadouts: Dictionary = {}
 	var lingpet_slots: Array = ["", "", ""]
 	var ringpet_slots: Array = ["", "", ""]
 	var lingpet_slot_pet_ids: Array = ["", "", ""]
@@ -316,6 +344,7 @@ func _init() -> void:
 	_verify_owned_maribo_is_kept_as_companion()
 	_verify_lingpet_battle_slot_model()
 	_verify_companion_visual_and_pillar_card()
+	_verify_companion_patrol_ignores_viper_airborne_y()
 	_verify_companion_patrol_edge_pause_and_speed_change()
 	_verify_companion_ball_collision_soft_bounce()
 	_verify_companion_strike_anticipates_contact()
@@ -502,6 +531,14 @@ func _verify_acquire_cutin_wiring(runtime_source: String) -> void:
 	_expect(cutin_host_dynamic_source.find("_get_runtime_pet_id") >= 0, "lingpet acquisition cut-in host should read the hatched pet id from runtime instead of staying Maribo-only")
 	_expect(host.has_method("prewarm_assets_step"), "lingpet acquisition cut-in host should expose staged prewarm for hatch-time cut-in assets")
 	_expect(cutin_host_dynamic_source.find("prewarm_texture_threaded_step") >= 0, "cut-in host should thread-prewarm catalog cut-in PNGs instead of sync-loading them on the draw frame")
+	_expect(host.has_method("prewarm_pet_assets_step"), "lingpet acquisition cut-in host should expose per-pet texture prewarm instead of warming every pet during boot")
+	_expect(cutin_host_dynamic_source.find("Boot warmup must stay lightweight") >= 0, "boot prewarm should avoid decoding every lingpet cut-in texture at Stage 1 loading")
+	var boot_prewarm_body := _function_body(cutin_host_dynamic_source, "func prewarm_assets_step")
+	var pet_prewarm_body := _function_body(cutin_host_dynamic_source, "func prewarm_pet_assets_step")
+	_expect(boot_prewarm_body.find("prewarm_texture_threaded_step") < 0, "boot cut-in prewarm should not request large per-pet PNG sheets")
+	_expect(pet_prewarm_body.find("prewarm_texture_threaded_step") >= 0, "per-pet cut-in prewarm should keep the threaded texture path for hatch-time assets")
+	_expect(cutin_host_dynamic_source.find("preload(\"res://assets/sprites/lingpet/maribo_cutin_anim.png\")") < 0, "cut-in host should not hard-preload the 8192px Maribo cut-in sheet during module instantiation")
+	_expect(cutin_host_dynamic_source.find("preload(\"res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png\")") < 0, "cut-in host should not hard-preload the dismiss sheet during module instantiation")
 	_expect(cutin_host_dynamic_source.find("_recon_mask_cache") >= 0, "cut-in host should cache reconstruction masks instead of reparsing JSON on pet switches")
 
 
@@ -541,6 +578,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 		var live_skill_id := str(live_skill.get("id", "")).strip_edges()
 		var live_skill_enabled := bool(live_skill.get("enabled", true))
 		var live_runtime_kind := str(live_skill.get("runtime_kind", "")).strip_edges().to_lower()
+		var live_active_pool: Array[Dictionary] = LingpetCatalog.get_active_skill_pool(live_pet_id)
+		_expect(not live_active_pool.is_empty(), "%s should expose an active-skill pool for loadout selection" % live_pet_id)
 		if live_skill_enabled:
 			_expect(live_skill_id != "", "%s enabled active skill should publish a skill id" % live_pet_id)
 			_expect(live_runtime_kind != "" and live_runtime_kind != "none", "%s enabled active skill should publish a concrete runtime kind" % live_pet_id)
@@ -550,6 +589,11 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 			_expect(not LingpetSkillDispatcher.has_supported_runtime(live_skill_id), "%s disabled placeholder skill should not resolve to a live runtime" % live_pet_id)
 	var maribo_skill := LingpetCatalog.get_active_skill("maribo")
 	_expect(is_equal_approx(float(maribo_skill.get("windup_seconds", 0.0)), 1.0), "Maribo Hydro Sphere wind-up timing should live in the active-skill catalog entry")
+	var maribo_passive_pool: Array[Dictionary] = LingpetCatalog.get_passive_skill_pool("maribo")
+	_expect(maribo_passive_pool.size() == 1 and str(maribo_passive_pool[0].get("id", "")) == "maribo_resonance_boost", "Maribo should expose its current passive through the passive-skill pool")
+	var maribo_loadout: Dictionary = LingpetCatalog.build_default_loadout("maribo")
+	_expect(str(maribo_loadout.get("active_skill_id", "")) == "maribo_hydro_sphere", "default Maribo loadout should select Hydro Sphere until alternate skills ship")
+	_expect(str(maribo_loadout.get("passive_skill_id", "")) == "maribo_resonance_boost", "default Maribo loadout should select Resonance Boost until alternate passives ship")
 	var draft_entries := {
 		"maribo": LingpetCatalog.get_entry("maribo"),
 		"draft_bat": {
@@ -638,6 +682,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(str(LingpetCatalog.get_active_skill_entry("maribo_hydro_sphere").get("runtime_kind", "")) == "hydro_sphere", "catalog should expose Maribo active-skill runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("lunabi_headbutt").get("runtime_kind", "")) == "headbutt", "catalog should expose Lunabi headbutt runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_runtime_kind_from_entries(multi_entries, "test_bubble_guard")) == "bubble_guard", "catalog should resolve future lingpet skill runtime kinds from active_skill metadata")
+	_expect(str(LingpetCatalog.get_passive_skill("maribo", "maribo_resonance_boost").get("name", "")) == "공명 증폭", "catalog should resolve selected passive-skill metadata by id")
 	_expect(LingpetSkillDispatcher.is_hydro_sphere("maribo_hydro_sphere"), "skill dispatcher should recognize the current Maribo active skill")
 	_expect(LingpetSkillDispatcher.is_headbutt("lunabi_headbutt"), "skill dispatcher should recognize the current Lunabi active skill")
 	_expect(LingpetSkillDispatcher.is_supported_kind("hydro_sphere"), "skill dispatcher should expose supported runtime kinds for future lingpet skill modules")
@@ -714,6 +759,15 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 		_expect(sheet.get_width() % cols == 0, "walk sheet width must divide evenly into the column count")
 		_expect(sheet.get_height() % rows == 0, "walk sheet height must divide evenly into the row count")
 		_expect(frames <= cols * rows, "declared frame count must fit the walk-sheet grid")
+	# Directional facing: the walk sheet is the AutoSprite iso_walk_northeast
+	# 3/4-back view facing the direction of travel (rightward). Leftward travel
+	# is rendered by mirroring it (negative-width destination rect, no in-_draw
+	# draw_set_transform). Seal the patrol_dir -> face_left -> flip chain so the
+	# face-peek angle cannot silently collapse back to a single unflipped view.
+	_expect(runtime_source.find("\"patrol_dir\"") >= 0, "egg runtime should feed companion patrol direction into the draw config for facing")
+	_expect(draw_context_source.find("face_left") >= 0, "companion draw context should derive a face_left flag from patrol_dir")
+	_expect(companion_renderer_source.find("face_left") >= 0, "companion renderer should flip the walk sheet horizontally when facing left")
+	_expect(companion_renderer_source.find("-dest_rect.size.x") >= 0, "companion renderer should mirror via a negative-width destination rect (no in-_draw draw_set_transform)")
 	# Ball-hit strike sheet (same 5x5/25 grid) played on companion ball contact.
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_strike.png"), "Maribo companion should have a back-view ball-hit strike sheet")
 	_expect(runtime_source.find("MARIBO_COMPANION_STRIKE_SHEET") < 0, "companion rendering should no longer hard-preload a Maribo strike fallback")
@@ -873,12 +927,22 @@ func _verify_one_ball_hit_hatches_unidentified_egg() -> void:
 	_expect((owner.lingpet_slots as Array).size() == 3 and str((owner.lingpet_slots as Array)[0]) == hatched_id, "hatched lingpet should auto-fill the first lingpet battle slot")
 	_expect(int(owner.lingpet_active_slot_index) == 0, "hatched lingpet should use slot 0 as the active battle slot")
 	_expect(bool(owner.lingpet_collection.get(hatched_id, false)), "hatched lingpet should be marked in the lingpet collection")
+	var expected_loadout: Dictionary = LingpetCatalog.build_default_loadout(hatched_id)
+	_expect(owner.lingpet_loadouts is Dictionary and (owner.lingpet_loadouts as Dictionary).has(hatched_id), "hatched lingpet should receive a persisted active/passive loadout")
+	var hatched_loadout: Dictionary = (owner.lingpet_loadouts as Dictionary).get(hatched_id, {}) as Dictionary
+	_expect(str(hatched_loadout.get("active_skill_id", "")) == str(expected_loadout.get("active_skill_id", "")), "hatched lingpet loadout should store the selected active skill id")
+	_expect(str(hatched_loadout.get("passive_skill_id", "")) == str(expected_loadout.get("passive_skill_id", "")), "hatched lingpet loadout should store the selected passive skill id")
+	_expect(str(owner.lingpet_active_skill_id) == str(expected_loadout.get("active_skill_id", "")), "owner should publish the active skill selected by the lingpet loadout")
+	_expect(str(owner.lingpet_passive_skill_id) == str(expected_loadout.get("passive_skill_id", "")), "owner should publish the passive skill selected by the lingpet loadout")
 	var expected_bonus_pct: float = LingpetCatalog.get_stat(hatched_id, "gauge_gain_bonus_pct", 0.0)
 	var expected_gain: float = floor(50.0 * (1.0 + expected_bonus_pct / 100.0))
 	_expect(is_equal_approx(float(runtime.get_gauge_gain_per_hit(50.0)), expected_gain), "hatched lingpet should expose its catalog gauge-gain bonus")
 	_expect(runtime.has_visible_effects(), "hatched lingpet should keep visible companion effects after hatching")
 	_expect(owner.lingpet_companion_pos is Vector2 and owner.lingpet_companion_pos != Vector2.ZERO, "hatched lingpet should publish companion position")
-	_expect(float(runtime.get_snapshot().get("hatch_flash_timer", 0.0)) > 0.0, "hatched lingpet should keep the egg-break animation active briefly")
+	var runtime_snapshot: Dictionary = runtime.get_snapshot()
+	_expect(float(runtime_snapshot.get("hatch_flash_timer", 0.0)) > 0.0, "hatched lingpet should keep the egg-break animation active briefly")
+	_expect(str(runtime_snapshot.get("active_skill_id", "")) == str(expected_loadout.get("active_skill_id", "")), "runtime snapshot should expose the selected active skill id")
+	_expect(str(runtime_snapshot.get("passive_skill_id", "")) == str(expected_loadout.get("passive_skill_id", "")), "runtime snapshot should expose the selected passive skill id")
 	var panel: Dictionary = CharacterInfoOverlay.new()._get_lingpet_panel_snapshot(owner)
 	_expect(str(panel.get("title", "")) == LingpetCatalog.get_display_name(hatched_id), "character-info panel should reveal the hatched lingpet after hatching")
 	_expect(str(panel.get("subtitle", "")) == "동행 중", "character-info panel should show companion status after hatching")
@@ -1041,6 +1105,23 @@ func _verify_companion_visual_and_pillar_card() -> void:
 	_expect(snapshot.get("companion_pos", Vector2.ZERO) is Vector2, "save snapshot should keep companion visual position")
 	_expect(float(snapshot.get("companion_patrol_dir", 0.0)) != 0.0, "save snapshot should keep Maribo patrol direction")
 	_expect(float(snapshot.get("companion_patrol_speed", 0.0)) >= 70.0 and float(snapshot.get("companion_patrol_speed", 0.0)) <= 135.0, "save snapshot should keep Maribo's current patrol speed")
+
+
+func _verify_companion_patrol_ignores_viper_airborne_y() -> void:
+	var owner := FakeOwner.new()
+	owner.selected_character_type = "viper"
+	owner.player_pos = Vector2(302.5, 700.0)
+	owner.player_paddle_width = 155.0
+	owner.player_paddle_height = 50.0
+	owner.lingpet_owned_pet_ids = ["maribo"]
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.update(0.0, owner)
+	var grounded_y: float = owner.lingpet_companion_pos.y
+	owner.player_pos.y = 560.0
+	runtime.update(0.16, owner)
+	var airborne_follow_y: float = owner.player_pos.y + owner.player_paddle_height * 0.5
+	_expect(absf(owner.lingpet_companion_pos.y - grounded_y) <= 0.01, "Viper jetpack Y should not pull the Maribo patrol lane into the air")
+	_expect(absf(owner.lingpet_companion_pos.y - airborne_follow_y) > 80.0, "Maribo patrol should use the ground lane, not Viper's airborne player_pos.y")
 
 
 func _verify_companion_patrol_edge_pause_and_speed_change() -> void:
@@ -1460,6 +1541,7 @@ func _verify_save_snapshot_roundtrip() -> void:
 	_expect((snapshot.get("owned_pet_ids", []) as Array).has(hatched_id), "lingpet save snapshot should preserve the hatched lingpet")
 	_expect(str((snapshot.get("battle_slot_pet_ids", []) as Array)[0]) == hatched_id, "lingpet save snapshot should preserve the battle slot assignment")
 	_expect(int(snapshot.get("active_slot_index", -1)) == 0, "lingpet save snapshot should preserve the active battle slot index")
+	_expect(snapshot.get("lingpet_loadouts", {}) is Dictionary and (snapshot.get("lingpet_loadouts", {}) as Dictionary).has(hatched_id), "lingpet save snapshot should preserve selected skill loadouts")
 
 	var restored_owner := FakeOwner.new()
 	restored_owner.ai_mode = "champion"
@@ -1470,6 +1552,7 @@ func _verify_save_snapshot_roundtrip() -> void:
 	_expect(restored_owner.owned_lingpet_ids.has(hatched_id), "restore should republish owned pet ids to the owner")
 	_expect(str((restored_owner.lingpet_slots as Array)[0]) == hatched_id, "restore should republish battle slot assignment")
 	_expect(bool(restored_owner.owned_lingpets.get(hatched_id, false)), "restore should republish owned collection to the owner")
+	_expect(restored_owner.lingpet_loadouts is Dictionary and (restored_owner.lingpet_loadouts as Dictionary).has(hatched_id), "restore should republish the selected lingpet loadout")
 
 
 func _verify_save_store_persists_and_restores_maribo() -> void:
@@ -1957,6 +2040,20 @@ func _estimated_knockback_distance(initial_nudge: float, velocity: float, frames
 	if safe_decay <= 0.0:
 		return travel + absf(velocity)
 	return travel + absf(velocity) * (1.0 - pow(safe_decay, maxf(0.0, frames))) / (1.0 - safe_decay)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next_func := source.find("\nfunc ", start + signature.length())
+	var next_static_func := source.find("\nstatic func ", start + signature.length())
+	var end := source.length()
+	if next_func >= 0:
+		end = mini(end, next_func)
+	if next_static_func >= 0:
+		end = mini(end, next_static_func)
+	return source.substr(start, end - start)
 
 
 func _expect(condition: bool, message: String) -> void:

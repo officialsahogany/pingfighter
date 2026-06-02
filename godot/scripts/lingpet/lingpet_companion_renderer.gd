@@ -138,6 +138,15 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		return
 	var dest_rect: Rect2 = rects.get("dest", Rect2())
 	var source_rect: Rect2 = rects.get("source", Rect2())
+	# The walk sheet faces the direction of travel (iso_walk_northeast = rightward
+	# 3/4 back). When the companion moves left, mirror it with a negative-width
+	# destination rect -- the project's trap-free horizontal flip (no in-_draw
+	# draw_set_transform). See stage1_player_actor_renderer.gd for the same idiom.
+	if bool(config.get("face_left", false)):
+		dest_rect = Rect2(
+			dest_rect.position + Vector2(dest_rect.size.x, 0.0),
+			Vector2(-dest_rect.size.x, dest_rect.size.y)
+		)
 	canvas.draw_texture_rect_region(tex, dest_rect, source_rect, Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0)))
 
 

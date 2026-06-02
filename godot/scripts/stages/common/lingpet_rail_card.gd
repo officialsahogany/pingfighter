@@ -33,12 +33,12 @@ static func prewarm() -> void:
 	_texture_loaded = true
 	_texture = _load_texture(TEXTURE_PATH)
 	for pet_id in LingpetCatalog.get_pet_ids(true):
-		var active_skill: Dictionary = LingpetCatalog.get_active_skill(str(pet_id))
-		if not bool(active_skill.get("enabled", true)):
-			continue
-		var card_path := str(active_skill.get("card_texture_path", "")).strip_edges()
-		if card_path != "":
-			_load_texture(card_path)
+		for active_skill in LingpetCatalog.get_active_skill_pool(str(pet_id)):
+			if not bool(active_skill.get("enabled", true)):
+				continue
+			var card_path := str(active_skill.get("card_texture_path", "")).strip_edges()
+			if card_path != "":
+				_load_texture(card_path)
 
 
 static func texture(path: String = TEXTURE_PATH) -> Texture2D:

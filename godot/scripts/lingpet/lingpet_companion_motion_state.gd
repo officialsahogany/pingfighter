@@ -769,12 +769,12 @@ func _advance_defense_intercept(delta: float, speed_min: float) -> bool:
 
 
 func _resolve_lane(owner: Object) -> Dictionary:
-	var player_pos: Vector2 = _get_owner_vector2(owner, "player_pos", Vector2(FIELD_WIDTH * 0.5 - 77.5, FIELD_HEIGHT - 50.0))
 	var player_size := Vector2(
 		maxf(1.0, float(_get_owner_value(owner, "player_paddle_width", 155.0))),
 		maxf(1.0, float(_get_owner_value(owner, "player_paddle_height", 50.0)))
 	)
-	var lane_y: float = player_pos.y + player_size.y * COMPANION_PATROL_LANE_Y_OFFSET
+	var floor_y: float = _resolve_player_floor_y(owner, player_size)
+	var lane_y: float = floor_y + player_size.y * COMPANION_PATROL_LANE_Y_OFFSET
 	var min_x: float = maxf(COMPANION_PATROL_EDGE_MARGIN, COMPANION_RADIUS + 10.0)
 	var max_x: float = minf(FIELD_WIDTH - COMPANION_PATROL_EDGE_MARGIN, FIELD_WIDTH - COMPANION_RADIUS - 10.0)
 	return {
@@ -782,6 +782,15 @@ func _resolve_lane(owner: Object) -> Dictionary:
 		"min_x": min_x,
 		"max_x": max_x,
 	}
+
+
+func _resolve_player_floor_y(owner: Object, player_size: Vector2) -> float:
+	var fallback_floor_y: float = maxf(0.0, FIELD_HEIGHT - player_size.y)
+	return clampf(
+		float(_get_owner_value(owner, "player_floor_y", fallback_floor_y)),
+		0.0,
+		fallback_floor_y
+	)
 
 
 func _choose_next_action(speed_min: float, speed_max: float) -> void:
@@ -822,9 +831,14 @@ func _next_unit() -> float:
 
 func _build_seed(owner: Object, trigger_count: int) -> int:
 	var player_pos: Vector2 = _get_owner_vector2(owner, "player_pos", Vector2(FIELD_WIDTH * 0.5 - 77.5, FIELD_HEIGHT - 50.0))
+	var player_size := Vector2(
+		maxf(1.0, float(_get_owner_value(owner, "player_paddle_width", 155.0))),
+		maxf(1.0, float(_get_owner_value(owner, "player_paddle_height", 50.0)))
+	)
+	var player_floor_y: float = _resolve_player_floor_y(owner, player_size)
 	var raw_seed: int = int(absf(round(
 		player_pos.x * 13.0
-		+ player_pos.y * 17.0
+		+ player_floor_y * 17.0
 		+ pos.x * 19.0
 		+ pos.y * 23.0
 		+ float(trigger_count + 1) * 97.0

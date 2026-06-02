@@ -21,8 +21,8 @@ const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 const DEFAULT_PET_ID := "maribo"
-const FALLBACK_CUTIN_ART: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_art.png")
-const FALLBACK_CUTIN_ANIM_SHEET: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_anim.png")
+const FALLBACK_CUTIN_ART_PATH := "res://assets/sprites/lingpet/maribo_cutin_art.png"
+const FALLBACK_CUTIN_ANIM_SHEET_PATH := "res://assets/sprites/lingpet/maribo_cutin_anim.png"
 const FALLBACK_CUTIN_ANIM_MANIFEST := "res://assets/sprites/lingpet/maribo_cutin_anim_manifest.json"
 const CUTIN_ANIM_COLS := 4
 const CUTIN_ANIM_ROWS := 4
@@ -32,7 +32,7 @@ const USE_ANIMATED_CUTIN := true
 # Click-triggered EXIT ACTION sheet: the current pet plays its catalog dismiss
 # animation, then the overlay fades out and resumes gameplay. Driven by
 # the runtime's is_acquire_cutin_dismissing() / get_acquire_cutin_dismiss_progress().
-const FALLBACK_CUTIN_DISMISS_SHEET: Texture2D = preload("res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png")
+const FALLBACK_CUTIN_DISMISS_SHEET_PATH := "res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png"
 const CUTIN_DISMISS_COLS := 5
 const CUTIN_DISMISS_ROWS := 5
 const CUTIN_DISMISS_FRAMES := 25
@@ -112,14 +112,16 @@ var _recon_bbox := Rect2(0.0, 0.0, 1.0, 1.0)
 var _recon_mask_cache: Dictionary = {}
 var _prewarm_pet_ids: Array[String] = []
 var _prewarm_pet_index := 0
-var _prewarm_visual_index := 0
 var _prewarm_finished := false
+var _pet_texture_prewarm_pet_id := ""
+var _pet_texture_prewarm_index := 0
+var _pet_texture_prewarm_finished_for := ""
 var _asset_pet_id := ""
 var _title_text := "마리보"
-var _cutin_art: Texture2D = FALLBACK_CUTIN_ART
-var _cutin_anim_sheet: Texture2D = FALLBACK_CUTIN_ANIM_SHEET
+var _cutin_art: Texture2D = null
+var _cutin_anim_sheet: Texture2D = null
 var _cutin_anim_manifest := FALLBACK_CUTIN_ANIM_MANIFEST
-var _cutin_dismiss_sheet: Texture2D = FALLBACK_CUTIN_DISMISS_SHEET
+var _cutin_dismiss_sheet: Texture2D = null
 var _portal_texture: Texture2D = null
 var _portal_prewarm_attempted := false
 
@@ -145,28 +147,43 @@ func prewarm_assets_step() -> bool:
 			_prewarm_pet_ids = [DEFAULT_PET_ID]
 	if _prewarm_pet_index >= _prewarm_pet_ids.size():
 		_prewarm_pet_index = 0
-		_prewarm_visual_index = 0
 		_prewarm_finished = true
 		return true
 	var pet_id: String = str(_prewarm_pet_ids[_prewarm_pet_index]).strip_edges().to_lower()
 	if pet_id == "":
 		pet_id = DEFAULT_PET_ID
-	if _prewarm_visual_index < CUTIN_PREWARM_VISUAL_KEYS.size():
-		var visual_key: String = str(CUTIN_PREWARM_VISUAL_KEYS[_prewarm_visual_index])
-		var path: String = LingpetCatalog.get_visual_path(pet_id, visual_key)
+	# Boot warmup must stay lightweight: do not decode every pet's 8192px cut-in
+	# sheets at Stage 1 loading 81%. Cache only small JSON reconstruction masks;
+	# hatch-time callers can opt into `prewarm_pet_assets_step(pet_id)`.
+	_prewarm_reconstruction_mask_for_pet(pet_id)
+	_prewarm_pet_index += 1
+	return false
+
+
+func prewarm_pet_assets_step(pet_id: String = DEFAULT_PET_ID) -> bool:
+	var normalized := pet_id.strip_edges().to_lower()
+	if normalized == "" or not LingpetCatalog.has_pet(normalized):
+		normalized = DEFAULT_PET_ID
+	if _pet_texture_prewarm_finished_for == normalized:
+		return true
+	if _pet_texture_prewarm_pet_id != normalized:
+		_pet_texture_prewarm_pet_id = normalized
+		_pet_texture_prewarm_index = 0
+		_pet_texture_prewarm_finished_for = ""
+	if _pet_texture_prewarm_index < CUTIN_PREWARM_VISUAL_KEYS.size():
+		var visual_key: String = str(CUTIN_PREWARM_VISUAL_KEYS[_pet_texture_prewarm_index])
+		var path: String = LingpetCatalog.get_visual_path(normalized, visual_key)
 		if path != "" and FileAccess.file_exists(path):
 			var texture_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(path)
 			if not bool(texture_result.get("done", true)):
 				return false
-		_prewarm_visual_index += 1
+		_pet_texture_prewarm_index += 1
 		return false
-	if _prewarm_visual_index == CUTIN_PREWARM_VISUAL_KEYS.size():
-		_prewarm_reconstruction_mask_for_pet(pet_id)
-		_prewarm_visual_index += 1
-		return false
-	_prewarm_pet_index += 1
-	_prewarm_visual_index = 0
-	return false
+	_prewarm_reconstruction_mask_for_pet(normalized)
+	_pet_texture_prewarm_finished_for = normalized
+	_pet_texture_prewarm_pet_id = ""
+	_pet_texture_prewarm_index = 0
+	return true
 
 
 func _prewarm_reconstruction_mask_for_pet(pet_id: String) -> void:
@@ -299,9 +316,9 @@ func _sync_assets_for_pet(pet_id: String) -> void:
 		return
 	_asset_pet_id = normalized
 	_title_text = LingpetCatalog.get_display_name(normalized)
-	_cutin_art = _load_catalog_texture(normalized, "cutin_art", FALLBACK_CUTIN_ART)
-	_cutin_anim_sheet = _load_catalog_texture(normalized, "cutin_anim", FALLBACK_CUTIN_ANIM_SHEET)
-	_cutin_dismiss_sheet = _load_catalog_texture(normalized, "cutin_dismiss_anim", FALLBACK_CUTIN_DISMISS_SHEET)
+	_cutin_art = _load_catalog_texture(normalized, "cutin_art")
+	_cutin_anim_sheet = _load_catalog_texture(normalized, "cutin_anim")
+	_cutin_dismiss_sheet = _load_catalog_texture(normalized, "cutin_dismiss_anim")
 	var anim_path := LingpetCatalog.get_visual_path(normalized, "cutin_anim")
 	_cutin_anim_manifest = _manifest_path_from_anim_path(anim_path)
 	if _cutin_anim_manifest == "" or not FileAccess.file_exists(_cutin_anim_manifest):
@@ -322,12 +339,25 @@ func _get_runtime_pet_id(runtime: Object) -> String:
 	return DEFAULT_PET_ID
 
 
-func _load_catalog_texture(pet_id: String, visual_key: String, fallback: Texture2D) -> Texture2D:
+func _load_catalog_texture(pet_id: String, visual_key: String, fallback: Texture2D = null) -> Texture2D:
 	var path := LingpetCatalog.get_visual_path(pet_id, visual_key)
+	if path == "" or not FileAccess.file_exists(path):
+		path = _get_fallback_visual_path(visual_key)
 	if path == "" or not FileAccess.file_exists(path):
 		return fallback
 	var texture := ProjectResourceLoader.load_texture(path, "", "")
 	return texture if texture != null else fallback
+
+
+func _get_fallback_visual_path(visual_key: String) -> String:
+	match visual_key:
+		"cutin_art":
+			return FALLBACK_CUTIN_ART_PATH
+		"cutin_anim":
+			return FALLBACK_CUTIN_ANIM_SHEET_PATH
+		"cutin_dismiss_anim":
+			return FALLBACK_CUTIN_DISMISS_SHEET_PATH
+	return ""
 
 
 func _manifest_path_from_anim_path(anim_path: String) -> String:

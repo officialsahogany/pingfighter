@@ -2424,10 +2424,15 @@ func _get_lingpet_skill_icon_texture_path(texture_id: String) -> String:
 
 func _prewarm_lingpet_skill_icon_assets() -> void:
 	for pet_id in LingpetCatalog.get_pet_ids():
-		var skill: Dictionary = LingpetCatalog.get_active_skill(pet_id)
-		if bool(skill.get("enabled", true)):
+		for skill in LingpetCatalog.get_active_skill_pool(pet_id):
+			if not bool(skill.get("enabled", true)):
+				continue
 			_touch_texture(_get_lingpet_skill_icon_texture(str(skill.get("icon_texture_path", ""))))
 			_touch_texture(_get_lingpet_skill_icon_texture(str(skill.get("card_texture_path", ""))))
+		for passive in LingpetCatalog.get_passive_skill_pool(pet_id):
+			if not bool(passive.get("enabled", true)):
+				continue
+			_touch_texture(_get_lingpet_skill_icon_texture(str(passive.get("icon_texture_path", ""))))
 		_touch_texture(_get_lingpet_skill_icon_texture(LingpetCatalog.get_passive_icon_path(pet_id, "gauge_gain_bonus")))
 
 
@@ -2521,14 +2526,22 @@ func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
 			var catalog_skill_card_path := str(catalog_skill.get("card_texture_path", "")) if catalog_skill_enabled else ""
 			var catalog_skill_icon_path := str(catalog_skill.get("icon_texture_path", "")) if catalog_skill_enabled else ""
 			var catalog_skill_cooldown := float(catalog_skill.get("cooldown", 0.0)) if catalog_skill_enabled else 0.0
+			var owner_passive_id := str(_safe_owner_get(owner, "lingpet_passive_skill_id", _safe_owner_get(owner, "ringpet_passive_skill_id", "")))
+			var catalog_passive := LingpetCatalog.get_passive_skill(lingpet_id, owner_passive_id)
+			var catalog_passive_enabled := bool(catalog_passive.get("enabled", true))
+			var catalog_passive_id := str(catalog_passive.get("id", "")) if catalog_passive_enabled else ""
+			var catalog_passive_name := str(catalog_passive.get("name", "")) if catalog_passive_enabled else ""
+			var catalog_passive_description := str(catalog_passive.get("description", "")) if catalog_passive_enabled else ""
+			var catalog_passive_icon_path := str(catalog_passive.get("icon_texture_path", "")) if catalog_passive_enabled else ""
+			var catalog_gauge_bonus := float(catalog_passive.get("gauge_gain_bonus_pct", LingpetCatalog.get_stat(lingpet_id, "gauge_gain_bonus_pct", 0.0))) if catalog_passive_enabled else 0.0
 			return {
 				"state": "companion",
 				"pet_id": lingpet_id,
 				"title": display_name,
 				"subtitle": "동행 중",
 				"body": str(_safe_owner_get(owner, "lingpet_effect_text", "링펫 효과는 다음 단계에서 연결됩니다.")),
-				"gauge_gain_bonus_pct": float(_safe_owner_get(owner, "lingpet_gauge_gain_bonus_pct", _safe_owner_get(owner, "ringpet_gauge_gain_bonus_pct", LingpetCatalog.get_stat(lingpet_id, "gauge_gain_bonus_pct", 0.0)))),
-				"gauge_gain_bonus_icon_path": str(_safe_owner_get(owner, "lingpet_gauge_gain_bonus_icon_path", LingpetCatalog.get_passive_icon_path(lingpet_id, "gauge_gain_bonus"))),
+				"gauge_gain_bonus_pct": float(_safe_owner_get(owner, "lingpet_gauge_gain_bonus_pct", _safe_owner_get(owner, "ringpet_gauge_gain_bonus_pct", catalog_gauge_bonus))),
+				"gauge_gain_bonus_icon_path": str(_safe_owner_get(owner, "lingpet_gauge_gain_bonus_icon_path", catalog_passive_icon_path if catalog_passive_icon_path != "" else LingpetCatalog.get_passive_icon_path(lingpet_id, "gauge_gain_bonus"))),
 				"companion_hit_gauge_gain": float(_safe_owner_get(owner, "lingpet_companion_hit_gauge_gain", _safe_owner_get(owner, "ringpet_companion_hit_gauge_gain", LingpetCatalog.get_stat(lingpet_id, "hit_gauge_gain", 40.0)))),
 				"companion_skill_id": str(_safe_owner_get(owner, "lingpet_skill_id", _safe_owner_get(owner, "ringpet_skill_id", catalog_skill_id))),
 				"companion_skill_name": str(_safe_owner_get(owner, "lingpet_skill_name", _safe_owner_get(owner, "ringpet_skill_name", catalog_skill_name))),
@@ -2536,6 +2549,10 @@ func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
 				"companion_skill_card_path": str(_safe_owner_get(owner, "lingpet_skill_card_path", _safe_owner_get(owner, "ringpet_skill_card_path", catalog_skill_card_path))),
 				"companion_skill_icon_path": str(_safe_owner_get(owner, "lingpet_skill_icon_path", _safe_owner_get(owner, "ringpet_skill_icon_path", catalog_skill_icon_path))),
 				"companion_skill_cooldown_duration": float(_safe_owner_get(owner, "lingpet_skill_cooldown_duration", _safe_owner_get(owner, "ringpet_skill_cooldown_duration", catalog_skill_cooldown))),
+				"companion_passive_skill_id": str(_safe_owner_get(owner, "lingpet_passive_skill_id", _safe_owner_get(owner, "ringpet_passive_skill_id", catalog_passive_id))),
+				"companion_passive_skill_name": str(_safe_owner_get(owner, "lingpet_passive_skill_name", _safe_owner_get(owner, "ringpet_passive_skill_name", catalog_passive_name))),
+				"companion_passive_skill_description": str(_safe_owner_get(owner, "lingpet_passive_skill_description", _safe_owner_get(owner, "ringpet_passive_skill_description", catalog_passive_description))),
+				"companion_passive_skill_icon_path": str(_safe_owner_get(owner, "lingpet_passive_skill_icon_path", _safe_owner_get(owner, "ringpet_passive_skill_icon_path", catalog_passive_icon_path))),
 				"companion_patrol_speed_default": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_default", _safe_owner_get(owner, "ringpet_companion_patrol_speed_default", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_default", 120.0)))),
 				"companion_patrol_speed_min": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_min", _safe_owner_get(owner, "ringpet_companion_patrol_speed_min", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_min", 70.0)))),
 				"companion_patrol_speed_max": float(_safe_owner_get(owner, "lingpet_companion_patrol_speed_max", _safe_owner_get(owner, "ringpet_companion_patrol_speed_max", LingpetCatalog.get_stat(lingpet_id, "patrol_speed_max", 135.0)))),
@@ -2592,7 +2609,27 @@ func _get_lingpet_skill_specs(snapshot: Dictionary) -> Array:
 			"card_texture_path": str(snapshot.get("companion_skill_card_path", "")),
 		})
 	var gauge_bonus_pct: float = float(snapshot.get("gauge_gain_bonus_pct", 0.0))
-	if gauge_bonus_pct > 0.0:
+	var passive_id: String = str(snapshot.get("companion_passive_skill_id", "")).strip_edges()
+	if passive_id != "":
+		var passive_name: String = str(snapshot.get("companion_passive_skill_name", "")).strip_edges()
+		if passive_name == "":
+			passive_name = "패시브 스킬"
+		var passive_description: String = str(snapshot.get("companion_passive_skill_description", "")).strip_edges()
+		if passive_description == "":
+			passive_description = "링펫에게 배정된 패시브 스킬입니다."
+		var passive_subtitle := "패시브"
+		if gauge_bonus_pct > 0.0:
+			passive_subtitle += " · 받아치기 +" + _format_percent_text(gauge_bonus_pct)
+		specs.append({
+			"id": passive_id,
+			"title": passive_name,
+			"subtitle": passive_subtitle,
+			"body": passive_description,
+			"color": STAT_BUFF_COLOR,
+			"badge": "P",
+			"icon_texture_id": str(snapshot.get("companion_passive_skill_icon_path", snapshot.get("gauge_gain_bonus_icon_path", ""))),
+		})
+	elif gauge_bonus_pct > 0.0:
 		specs.append({
 			"id": "resonance_boost",
 			"title": "공명 증폭",

@@ -30,6 +30,11 @@ func build_config(params: Dictionary) -> Dictionary:
 		"skill_trigger_count": _get_trigger_count(skill_state),
 		"animator": animator,
 		"patrol_pause": _get_float(params.get("patrol_pause", 0.0)),
+		# Maribo's walk sheet is the AutoSprite iso_walk_northeast 3/4-back view
+		# (faces the right / direction of travel). Westward travel is rendered by
+		# mirroring it -- the AutoSprite-canonical "generate NE, flip for NW" model.
+		# patrol_dir < 0 means moving left, so flip the sprite horizontally.
+		"face_left": _get_float(params.get("patrol_dir", 0.0)) < 0.0,
 		"windup_elapsed": _get_float(skill_state.windup_elapsed if skill_state != null else 0.0),
 		"windup_seconds": windup_seconds,
 		"casting_windup": casting_windup,
