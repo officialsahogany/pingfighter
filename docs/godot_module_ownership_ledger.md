@@ -2991,6 +2991,12 @@ This section is intentionally long; use search to find the nearest owner.
   and Stage 1 runtime asset prewarm. The warmup controller delegates these
   actions here while preserving its public `prewarm_battle_resources()`
   wrapper for existing callers.
+- `scripts/core/battle_pso_prewarmer.gd`
+  Owns hidden offscreen draw warmup for first-use GPU / Vulkan paths after
+  boot texture resources are cached. This includes HUD / playfield
+  primitives, skill-icon texture draws, common shader variants, and Stage 1
+  round-result player / Dalji pose texture-region uploads so the first
+  scoreboard frame does not pay the upload cost.
 - `scripts/core/battle_scene_intro_input_controller.gd`
   Owns battle-scene intro input routing after boot / warmup gates:
   stage-landing skip / advance input, ball-spawn intro input, landing-to-
