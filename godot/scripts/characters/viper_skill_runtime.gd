@@ -847,7 +847,25 @@ func try_activate_before_movement(
 					and visibility_query.is_configured_skill_ready(CORE_FLIP, deps, now_msec)
 				):
 					return _start_core_flip(player_pos, special_gauge, config, deps, now_msec)
-	if _check_dual_glitch_command(now_msec):
+	if not dual_glitch_cmd_buffer.is_empty():
+		var first_dual_glitch_command: Dictionary = dual_glitch_cmd_buffer[0]
+		if now_msec - int(first_dual_glitch_command.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
+			dual_glitch_cmd_buffer.clear()
+	var dual_glitch_command_ready: bool = false
+	if dual_glitch_cmd_buffer.size() >= 4:
+		var first_dual_glitch_entry: Dictionary = dual_glitch_cmd_buffer[0]
+		var second_dual_glitch_entry: Dictionary = dual_glitch_cmd_buffer[1]
+		var third_dual_glitch_entry: Dictionary = dual_glitch_cmd_buffer[2]
+		var fourth_dual_glitch_entry: Dictionary = dual_glitch_cmd_buffer[3]
+		dual_glitch_command_ready = (
+			str(first_dual_glitch_entry.get("key", "")) == "a"
+			and str(second_dual_glitch_entry.get("key", "")) == "d"
+			and str(third_dual_glitch_entry.get("key", "")) == "a"
+			and str(fourth_dual_glitch_entry.get("key", "")) == "d"
+		)
+		if dual_glitch_command_ready:
+			dual_glitch_cmd_buffer.clear()
+	if dual_glitch_command_ready:
 		if (
 			dual_glitch_state == "idle"
 			and not _has_viper_attack_motion_active(true)
@@ -887,10 +905,23 @@ func try_activate_before_movement(
 			"allow_jetpack_overlay": true,
 			"locked_player_x": chaos_startup_pos.x,
 		}
-	if (
-		_check_chaos_command(now_msec)
-		and _can_start_chaos_spear(special_gauge, config, deps, now_msec)
-	):
+	var chaos_command_ready: bool = false
+	if chaos_cmd_buffer.size() >= 3:
+		var first_chaos_command: Dictionary = chaos_cmd_buffer[chaos_cmd_buffer.size() - 3]
+		var second_chaos_command: Dictionary = chaos_cmd_buffer[chaos_cmd_buffer.size() - 2]
+		var third_chaos_command: Dictionary = chaos_cmd_buffer[chaos_cmd_buffer.size() - 1]
+		if str(first_chaos_command.get("key", "")) == "a" and str(second_chaos_command.get("key", "")) == "w" and str(third_chaos_command.get("key", "")) == "d":
+			var first_chaos_time: int = int(first_chaos_command.get("time", 0))
+			var second_chaos_time: int = int(second_chaos_command.get("time", 0))
+			var third_chaos_time: int = int(third_chaos_command.get("time", 0))
+			chaos_command_ready = (
+				second_chaos_time - first_chaos_time <= CHAOS_CMD_WINDOW_MSEC
+				and third_chaos_time - second_chaos_time <= CHAOS_CMD_WINDOW_MSEC
+				and now_msec - third_chaos_time <= CHAOS_CMD_WINDOW_MSEC
+			)
+			if chaos_command_ready:
+				chaos_cmd_buffer.clear()
+	if chaos_command_ready and _can_start_chaos_spear(special_gauge, config, deps, now_msec):
 		return _start_chaos_spear(player_pos, special_gauge, config, deps, now_msec)
 	var ignition_result: Dictionary = _try_update_ignition_aura_hold(input_snapshot, player_pos, special_gauge, config, deps, now_msec)
 	if not ignition_result.is_empty():
@@ -2240,53 +2271,10 @@ func _push_dual_glitch_command(key_char: String, now_msec: int) -> void:
 		dual_glitch_cmd_buffer = []
 
 
-func _check_dual_glitch_command(now_msec: int) -> bool:
-	if not dual_glitch_cmd_buffer.is_empty():
-		var first: Dictionary = dual_glitch_cmd_buffer[0]
-		if now_msec - int(first.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
-			dual_glitch_cmd_buffer.clear()
-	if dual_glitch_cmd_buffer.size() < 4:
-		return false
-	var first_entry: Dictionary = dual_glitch_cmd_buffer[0]
-	var second_entry: Dictionary = dual_glitch_cmd_buffer[1]
-	var third_entry: Dictionary = dual_glitch_cmd_buffer[2]
-	var fourth_entry: Dictionary = dual_glitch_cmd_buffer[3]
-	if (
-		str(first_entry.get("key", "")) != "a"
-		or str(second_entry.get("key", "")) != "d"
-		or str(third_entry.get("key", "")) != "a"
-		or str(fourth_entry.get("key", "")) != "d"
-	):
-		return false
-	dual_glitch_cmd_buffer.clear()
-	return true
-
-
 func _push_chaos_command(key_char: String, now_msec: int) -> void:
 	chaos_cmd_buffer.append({"key": key_char, "time": now_msec})
 	while chaos_cmd_buffer.size() > CHAOS_CMD_BUFFER_MAX:
 		chaos_cmd_buffer.pop_front()
-
-
-func _check_chaos_command(now_msec: int) -> bool:
-	if chaos_cmd_buffer.size() < 3:
-		return false
-	var first: Dictionary = chaos_cmd_buffer[chaos_cmd_buffer.size() - 3]
-	var second: Dictionary = chaos_cmd_buffer[chaos_cmd_buffer.size() - 2]
-	var third: Dictionary = chaos_cmd_buffer[chaos_cmd_buffer.size() - 1]
-	if str(first.get("key", "")) != "a" or str(second.get("key", "")) != "w" or str(third.get("key", "")) != "d":
-		return false
-	var first_time: int = int(first.get("time", 0))
-	var second_time: int = int(second.get("time", 0))
-	var third_time: int = int(third.get("time", 0))
-	if second_time - first_time > CHAOS_CMD_WINDOW_MSEC:
-		return false
-	if third_time - second_time > CHAOS_CMD_WINDOW_MSEC:
-		return false
-	if now_msec - third_time > CHAOS_CMD_WINDOW_MSEC:
-		return false
-	chaos_cmd_buffer.clear()
-	return true
 
 
 func _start_dual_glitch(
