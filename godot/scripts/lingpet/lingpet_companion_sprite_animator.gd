@@ -105,12 +105,13 @@ func build_draw_rects(
 	patrol_pause: float,
 	windup_elapsed: float,
 	windup_seconds: float,
-	speed_ratio: float = 0.0
+	speed_ratio: float = 0.0,
+	draw_size_override: Vector2 = Vector2.ZERO
 ) -> Dictionary:
 	if texture == null:
 		return {}
 	var frame: int = get_frame(mode, patrol_pause, windup_elapsed, windup_seconds, speed_ratio)
-	var draw_size: Vector2 = get_draw_size(mode)
+	var draw_size: Vector2 = _resolve_draw_size(mode, draw_size_override)
 	return {
 		"frame": frame,
 		"source": get_source_rect(texture, frame),
@@ -149,6 +150,12 @@ func get_draw_size(mode: String) -> Vector2:
 			return STRIKE_DRAW_SIZE
 		_:
 			return WALK_DRAW_SIZE
+
+
+func _resolve_draw_size(mode: String, draw_size_override: Vector2) -> Vector2:
+	if draw_size_override.x > 0.0 and draw_size_override.y > 0.0:
+		return draw_size_override
+	return get_draw_size(mode)
 
 
 func get_y_offset(mode: String) -> float:
