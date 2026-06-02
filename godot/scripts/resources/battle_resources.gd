@@ -213,6 +213,8 @@ var _result_texture_prewarm_jobs: Array = []
 var _result_texture_prewarm_current: Dictionary = {}
 var _result_texture_prewarm_path: String = ""
 var _result_texture_prewarm_active: bool = false
+var _result_texture_prewarm_pending: Dictionary = {}
+var _result_texture_prewarm_pending_delay_frames: int = 0
 
 
 func prewarm_core_textures(_context: Dictionary = {}) -> void:
@@ -364,6 +366,34 @@ func begin_result_texture_prewarm(
 	current_stage: int = 1,
 	result_context: Dictionary = {}
 ) -> void:
+	_result_texture_prewarm_pending = {}
+	_result_texture_prewarm_pending_delay_frames = 0
+	_begin_result_texture_prewarm_now(character_type, current_stage, result_context)
+
+
+func queue_result_texture_prewarm(
+	character_type: String = DEFAULT_CHARACTER_TYPE,
+	current_stage: int = 1,
+	result_context: Dictionary = {},
+	delay_frames: int = 1
+) -> void:
+	_result_texture_prewarm_jobs.clear()
+	_result_texture_prewarm_current = {}
+	_result_texture_prewarm_path = ""
+	_result_texture_prewarm_active = false
+	_result_texture_prewarm_pending = {
+		"character_type": character_type,
+		"current_stage": current_stage,
+		"result_context": result_context.duplicate(true),
+	}
+	_result_texture_prewarm_pending_delay_frames = max(0, delay_frames)
+
+
+func _begin_result_texture_prewarm_now(
+	character_type: String = DEFAULT_CHARACTER_TYPE,
+	current_stage: int = 1,
+	result_context: Dictionary = {}
+) -> void:
 	_result_texture_prewarm_jobs.clear()
 	_result_texture_prewarm_current = {}
 	_result_texture_prewarm_path = ""
@@ -385,8 +415,19 @@ func begin_result_texture_prewarm(
 
 
 func update_result_texture_prewarm() -> bool:
+	if _has_pending_result_texture_prewarm():
+		if _result_texture_prewarm_pending_delay_frames > 0:
+			_result_texture_prewarm_pending_delay_frames -= 1
+			return false
+		var pending := _result_texture_prewarm_pending.duplicate(true)
+		_result_texture_prewarm_pending = {}
+		_begin_result_texture_prewarm_now(
+			str(pending.get("character_type", DEFAULT_CHARACTER_TYPE)),
+			int(pending.get("current_stage", 1)),
+			_get_dictionary(pending.get("result_context", {}))
+		)
 	if not _result_texture_prewarm_active:
-		return _result_texture_prewarm_jobs.is_empty()
+		return _result_texture_prewarm_jobs.is_empty() and not _has_pending_result_texture_prewarm()
 	var progress_values: Array = []
 	var status := ResourceLoader.load_threaded_get_status(_result_texture_prewarm_path, progress_values)
 	match status:
@@ -399,7 +440,11 @@ func update_result_texture_prewarm() -> bool:
 
 
 func has_result_texture_prewarm_work() -> bool:
-	return _result_texture_prewarm_active or not _result_texture_prewarm_jobs.is_empty()
+	return _result_texture_prewarm_active or not _result_texture_prewarm_jobs.is_empty() or _has_pending_result_texture_prewarm()
+
+
+func _has_pending_result_texture_prewarm() -> bool:
+	return not _result_texture_prewarm_pending.is_empty()
 
 
 func _load_texture_resource(path: String) -> Texture2D:
@@ -1273,6 +1318,12 @@ func _get_selected_character_type(context: Dictionary) -> String:
 
 func _get_current_stage(context: Dictionary) -> int:
 	return max(1, int(context.get("current_stage", 1)))
+
+
+func _get_dictionary(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
 
 
 func _normalize_character_type(value: Variant) -> String:

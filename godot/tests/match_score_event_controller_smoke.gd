@@ -62,9 +62,20 @@ class FakeBattleResources:
 	extends RefCounted
 
 	var begin_calls := 0
+	var queue_calls := 0
 	var character_type := ""
 	var current_stage := 0
 	var result_context: Dictionary = {}
+
+	func queue_result_texture_prewarm(
+		new_character_type: String,
+		new_current_stage: int,
+		new_result_context: Dictionary
+	) -> void:
+		queue_calls += 1
+		character_type = new_character_type
+		current_stage = new_current_stage
+		result_context = new_result_context.duplicate(true)
 
 	func begin_result_texture_prewarm(
 		new_character_type: String,
@@ -199,8 +210,9 @@ func _init() -> void:
 	_expect(round_state.set_player_serves_calls == 1 and not round_state.player_serves, "next serve should sync from score result")
 	_expect(scoreboard.sparkle_calls == 1, "scoreboard should trigger mini sparkle")
 	_expect(scoreboard.start_args == [3, 1, true, "player", 7], "scoreboard should start from score result")
-	_expect(battle_resources.begin_calls == 1 and battle_resources.character_type == "smasher" and battle_resources.current_stage == 1, "score event should start result texture prewarm for the current character and stage")
-	_expect(bool(battle_resources.result_context.get("player_victory_active", false)) and bool(battle_resources.result_context.get("boss_defeat_active", false)), "player score should prewarm player victory and boss defeat result textures")
+	_expect(battle_resources.queue_calls == 1 and battle_resources.begin_calls == 0, "score event should defer result texture prewarm until the scoreboard is visible")
+	_expect(battle_resources.character_type == "smasher" and battle_resources.current_stage == 1, "score event should queue result texture prewarm for the current character and stage")
+	_expect(bool(battle_resources.result_context.get("player_victory_active", false)) and bool(battle_resources.result_context.get("boss_defeat_active", false)), "player score should queue player victory and boss defeat result textures")
 	_expect(round_state.scoreboard_wait_calls == 1, "round state should enter scoreboard wait")
 	_expect(_reset_ball_calls == 0, "scoreboard flow should not reset ball immediately")
 	_expect(audio.stopped.size() == 12 and bool(audio.stopped.get("boomerang", false)) and bool(audio.stopped.get("spider_mine", false)) and bool(audio.stopped.get("chaos_blackhole", false)) and audio.play_round_set_calls == 1, "score audio should stop gameplay loops and play round set")

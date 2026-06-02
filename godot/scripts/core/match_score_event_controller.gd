@@ -30,10 +30,19 @@ func handle_score_event(scoring_side: String, deps: Dictionary, callbacks: Dicti
 
 func _start_score_result_texture_prewarm(scoring_side: String, deps: Dictionary) -> void:
 	var resources: Object = _get_battle_resources(deps)
-	if resources == null or not resources.has_method("begin_result_texture_prewarm"):
+	if resources == null:
 		return
 	var result_context: Dictionary = _build_score_result_texture_context(scoring_side)
 	if result_context.is_empty():
+		return
+	if resources.has_method("queue_result_texture_prewarm"):
+		resources.queue_result_texture_prewarm(
+			_get_selected_character_type(deps),
+			_get_current_stage(deps),
+			result_context
+		)
+		return
+	if not resources.has_method("begin_result_texture_prewarm"):
 		return
 	resources.begin_result_texture_prewarm(
 		_get_selected_character_type(deps),
