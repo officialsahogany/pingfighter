@@ -814,7 +814,7 @@ func try_activate_before_movement(
 			dual_glitch_state == "idle"
 			and not _has_viper_attack_motion_active(true)
 			and chaos_state != "startup"
-			and not _is_dash_or_control_locked(deps)
+			and not (_is_dash_motion_busy(deps) or _is_control_locked(deps))
 			and _is_config_ball_active(config, false)
 			and not _is_round_waiting_for_serve(deps)
 		):
@@ -859,7 +859,7 @@ func try_activate_before_movement(
 		return ignition_result
 
 	shadow_step_ready_frames = max(0.0, shadow_step_ready_frames - delta * 60.0)
-	if _is_blade_motion_active():
+	if blade_motion_active:
 		return _update_blade_motion(delta, player_pos, special_gauge, config, deps)
 	if marshal_active:
 		if up_edge and _can_start_dark_blade_from_window(special_gauge, config, deps):
@@ -962,7 +962,7 @@ func try_activate_before_movement(
 		and dash_origin_valid
 		and dash_grace_frames > 0.0
 		and not _has_lateral_skill_input(input_snapshot)
-		and not _has_shadow_step_projection_runtime_active()
+		and not (shadow_hologram_active or shadow_wave_active or shadow_marshal_delay_frames > 0.0)
 		and not marshal_ready
 		and not marshal_active
 		and not core_flip_attack_active
@@ -984,7 +984,9 @@ func observe_after_movement(delta: float, before_player_pos: Vector2, _after_pla
 		dash_origin_pos = before_player_pos
 		dash_origin_valid = true
 		core_flip_last_dash_start_msec = Time.get_ticks_msec()
-		_clear_core_flip_ready_window(bool(dash_snapshot.get("is_half", false)))
+		core_flip_consumed = bool(dash_snapshot.get("is_half", false))
+		core_flip_ready_msec = 0
+		core_flip_buffered_until_msec = 0
 	if dash_active or dash_recovering:
 		dash_grace_frames = SHADOW_STEP_DASH_GRACE_FRAMES
 	else:
@@ -1009,7 +1011,7 @@ func is_air_blade_dash_window_open(deps: Dictionary = {}) -> bool:
 
 
 func sync_blade_motion_position(player_pos: Vector2) -> void:
-	if _is_blade_motion_active():
+	if blade_motion_active:
 		blade_motion_pos = player_pos
 
 
@@ -1138,7 +1140,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 			blade_air_fire_frames += fps_scale
 			if blade_air_fire_frames >= BLADE_COMBO_DELAY_FRAMES:
 				blade_air_combo_window = true
-	elif not _is_blade_motion_active():
+	elif not blade_motion_active:
 		_reset_blade_motion_combo_windows()
 	if nerve_strike_miss_text_timer > 0.0:
 		nerve_strike_miss_text_timer = max(0.0, nerve_strike_miss_text_timer - fps_scale)
@@ -1280,15 +1282,15 @@ func apply_shadow_step_ball_motion(fps_scale: float, scene: Dictionary, context:
 
 func apply_blade_rush_ball_motion(fps_scale: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
-	if not (_is_primary_blade_projectile_active() or _has_blade_followup_projectiles()):
+	if not (blade_projectile_active or not blade_followup_projectiles.is_empty()):
 		return result
 	var motion_context: Dictionary = _build_viper_ball_motion_context(scene, context)
-	if _is_primary_blade_projectile_active():
+	if blade_projectile_active:
 		result = _advance_blade_projectile(fps_scale, scene, motion_context, deps)
 		if not result.is_empty():
 			scene.merge(result, true)
 			motion_context.merge(result, true)
-	if _has_blade_followup_projectiles():
+	if not blade_followup_projectiles.is_empty():
 		var follow_result: Dictionary = _advance_blade_followup_projectiles(fps_scale, scene, motion_context, deps)
 		if not follow_result.is_empty():
 			result.merge(follow_result, true)
@@ -1425,25 +1427,6 @@ func release_chaos_blackhole_from_hit(deps: Dictionary = {}, context: Dictionary
 	return _release_chaos_blackhole_from_hit_result(deps, context)
 
 
-func _clear_core_flip_input_buffer() -> void:
-	core_flip_buffered_until_msec = 0
-
-
-func _close_core_flip_ready_window() -> void:
-	core_flip_ready_msec = 0
-	_clear_core_flip_input_buffer()
-
-
-func _clear_core_flip_ready_window(consume_ready: bool = true) -> void:
-	core_flip_consumed = consume_ready
-	_close_core_flip_ready_window()
-
-
-func _open_core_flip_ready_window(ready_msec: int) -> void:
-	core_flip_ready_msec = ready_msec
-	_clear_core_flip_input_buffer()
-
-
 func _play_shadow_step_hit_feedback(ball_pos: Vector2, next_vel: Vector2, center_t: float, deps: Dictionary) -> void:
 	_trigger_feedback(
 		deps,
@@ -1517,12 +1500,15 @@ func _try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary, deps: Dic
 		return
 	var skill_config: Object = _get_viper_skill_config(deps)
 	if _is_skill_equipped(skill_config, CORE_FLIP):
-		_open_core_flip_ready_window(now_msec)
+		core_flip_ready_msec = now_msec
+		core_flip_buffered_until_msec = 0
 
 
 func _reset_core_flip_runtime(clear_window: bool = false) -> void:
 	if clear_window:
-		_clear_core_flip_ready_window(true)
+		core_flip_consumed = true
+		core_flip_ready_msec = 0
+		core_flip_buffered_until_msec = 0
 		core_flip_last_dash_start_msec = CORE_FLIP_DASH_START_UNSET_MSEC
 	core_flip_attack_active = false
 	core_flip_attack_phase = 0
@@ -1554,7 +1540,8 @@ func _is_core_flip_ready_window_active(now_msec: int) -> bool:
 	):
 		return false
 	if now_msec > core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC:
-		_close_core_flip_ready_window()
+		core_flip_ready_msec = 0
+		core_flip_buffered_until_msec = 0
 		return false
 	return true
 
@@ -1564,32 +1551,9 @@ func _has_viper_attack_motion_active(include_dive: bool = false) -> bool:
 		(include_dive and dive_active)
 		or core_flip_attack_active
 		or marshal_active
-		or _has_blade_motion_or_primary_projectile_active()
+		or blade_motion_active
+		or blade_projectile_active
 	)
-
-
-func _is_blade_motion_active() -> bool:
-	return blade_motion_active
-
-
-func _is_primary_blade_projectile_active() -> bool:
-	return blade_projectile_active
-
-
-func _has_blade_motion_or_primary_projectile_active() -> bool:
-	return _is_blade_motion_active() or _is_primary_blade_projectile_active()
-
-
-func _has_blade_followup_projectiles() -> bool:
-	return not blade_followup_projectiles.is_empty()
-
-
-func _has_shadow_step_projection_runtime_active() -> bool:
-	return shadow_hologram_active or shadow_wave_active or shadow_marshal_delay_frames > 0.0
-
-
-func _has_pending_marshal_combo_window() -> bool:
-	return marshal_ready or double_marshal_ready
 
 
 func _is_config_ball_active(config: Dictionary, fallback_active: bool = true) -> bool:
@@ -1633,14 +1597,10 @@ func _can_activate_configured_skill(
 	return _is_configured_skill_ready(skill_name, deps, now_msec)
 
 
-func _is_input_pressed(input_snapshot: Dictionary, input_name: String) -> bool:
-	return bool(input_snapshot.get(input_name, false))
-
-
 func _has_lateral_skill_input(input_snapshot: Dictionary) -> bool:
 	return (
-		_is_input_pressed(input_snapshot, "left_pressed")
-		or _is_input_pressed(input_snapshot, "right_pressed")
+		bool(input_snapshot.get("left_pressed", false))
+		or bool(input_snapshot.get("right_pressed", false))
 		or abs(float(input_snapshot.get("direction", 0.0))) > 0.01
 	)
 
@@ -1679,7 +1639,9 @@ func _start_core_flip(
 	_trigger_configured_cooldown_and_orb_gauge_spin(CORE_FLIP, skill_config, deps, now_msec)
 	_cancel_dash_until_key_release(deps.get("dash_state", null))
 	_trigger_feedback(deps, CORE_FLIP_START_SHAKE_AMOUNT, CORE_FLIP_START_SHAKE_INTENSITY)
-	_clear_core_flip_ready_window(true)
+	core_flip_consumed = true
+	core_flip_ready_msec = 0
+	core_flip_buffered_until_msec = 0
 	core_flip_attack_active = true
 	core_flip_attack_phase = 0
 	core_flip_phase_frames = 0.0
@@ -1832,7 +1794,7 @@ func _try_apply_core_flip_kick_hit(kick_center: Vector2, config: Dictionary, dep
 		_spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(1.0, 0.43, 0.78, 1.0), 1.15, 0.74, 0.92)
 	_destroy_marshal_impact_objects(ball_pos, deps)
 	_mark_kick_skill_knockback_pending(deps)
-	var mythic_item_runtime: Object = _get_mythic_item_runtime(deps)
+	var mythic_item_runtime: Object = visibility_query.get_mythic_item_runtime(deps)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("try_venom_mist_poison_ball"):
 		mythic_item_runtime.try_venom_mist_poison_ball(deps)
 	var core_flip_hit_result := {
@@ -2674,7 +2636,7 @@ func _reset_chaos_spear_runtime(clear_command: bool = false, deps: Dictionary = 
 
 func _get_four_poisons_prep_reduction_pct(deps: Dictionary) -> int:
 	return skill_scaling.get_four_poisons_prep_reduction_pct(
-		_get_four_poisons_runtime_level(deps),
+		_get_runtime_skill_level(deps, "four_poisons"),
 		FOUR_POISONS_PREP_REDUCTION_PCT_BY_LEVEL,
 		FOUR_POISONS_PREP_REDUCTION_PCT_CAP,
 		FOUR_POISONS_PREP_REDUCTION_PCT_PER_EXTRA_LEVEL
@@ -2682,23 +2644,11 @@ func _get_four_poisons_prep_reduction_pct(deps: Dictionary) -> int:
 
 
 func _get_four_poisons_scaled_pct(deps: Dictionary, values: Array, cap: int, per_extra_level: int) -> int:
-	return skill_scaling.get_four_poisons_scaled_pct(_get_four_poisons_runtime_level(deps), values, cap, per_extra_level)
-
-
-func _get_four_poisons_runtime_level(deps: Dictionary) -> int:
-	return _get_runtime_skill_level(deps, "four_poisons")
-
-
-func _is_dual_glitch_clone_alive(clone: Dictionary) -> bool:
-	return visibility_query.is_dual_glitch_clone_alive(clone)
-
-
-func _has_living_dual_glitch_clone() -> bool:
-	return visibility_query.has_living_dual_glitch_clone(dual_glitch_clones)
+	return skill_scaling.get_four_poisons_scaled_pct(_get_runtime_skill_level(deps, "four_poisons"), values, cap, per_extra_level)
 
 
 func _is_dual_glitch_clone_replication_active(deps: Dictionary) -> bool:
-	return dual_glitch_state == "active" and _get_four_poisons_runtime_level(deps) >= 5
+	return dual_glitch_state == "active" and _get_runtime_skill_level(deps, "four_poisons") >= 5
 
 
 func _update_dual_glitch_runtime(fps_scale: float, context: Dictionary) -> void:
@@ -2707,7 +2657,8 @@ func _update_dual_glitch_runtime(fps_scale: float, context: Dictionary) -> void:
 	if _should_stop_viper_context_effect(context):
 		_reset_dual_glitch_runtime(true)
 		return
-	_sync_dual_glitch_runtime_player_snapshot(context)
+	dual_glitch_base_pos = _get_vector2(context.get("player_pos", dual_glitch_base_pos), dual_glitch_base_pos)
+	dual_glitch_paddle_size = _get_vector2(context.get("player_paddle_size", dual_glitch_paddle_size), dual_glitch_paddle_size)
 	dual_glitch_phase_frames += fps_scale
 	for index in range(dual_glitch_clones.size()):
 		var clone_value: Variant = dual_glitch_clones[index]
@@ -2729,7 +2680,7 @@ func _update_dual_glitch_runtime(fps_scale: float, context: Dictionary) -> void:
 				dual_glitch_state = "active"
 				dual_glitch_phase_frames = 0.0
 		"active":
-			if not _has_living_dual_glitch_clone():
+			if not visibility_query.has_living_dual_glitch_clone(dual_glitch_clones):
 				_enter_dual_glitch_fade("destroyed")
 			elif dual_glitch_phase_frames >= dual_glitch_active_total_frames:
 				_enter_dual_glitch_fade("timeout")
@@ -2742,16 +2693,11 @@ func _update_dual_glitch_runtime(fps_scale: float, context: Dictionary) -> void:
 			continue
 		var clone: Dictionary = clone_value
 		if (
-			_is_dual_glitch_clone_alive(clone)
+			visibility_query.is_dual_glitch_clone_alive(clone)
 			or visibility_query.is_dual_glitch_clone_evaporating(clone, DUAL_GLITCH_EVAPORATION_FRAMES)
 		):
 			alive.append(clone)
 	dual_glitch_clones = alive
-
-
-func _sync_dual_glitch_runtime_player_snapshot(context: Dictionary) -> void:
-	dual_glitch_base_pos = _get_vector2(context.get("player_pos", dual_glitch_base_pos), dual_glitch_base_pos)
-	dual_glitch_paddle_size = _get_vector2(context.get("player_paddle_size", dual_glitch_paddle_size), dual_glitch_paddle_size)
 
 
 func _enter_dual_glitch_fade(reason: String) -> void:
@@ -2765,7 +2711,8 @@ func _enter_dual_glitch_fade(reason: String) -> void:
 
 func get_dual_glitch_clone_rects(context: Dictionary = {}, collision_only: bool = true) -> Array:
 	if not context.is_empty():
-		_sync_dual_glitch_runtime_player_snapshot(context)
+		dual_glitch_base_pos = _get_vector2(context.get("player_pos", dual_glitch_base_pos), dual_glitch_base_pos)
+		dual_glitch_paddle_size = _get_vector2(context.get("player_paddle_size", dual_glitch_paddle_size), dual_glitch_paddle_size)
 	var entries: Array = _get_dual_glitch_clone_rect_entries(collision_only, not collision_only)
 	var rects: Array = []
 	for entry_value in entries:
@@ -2795,7 +2742,7 @@ func apply_dual_glitch_clone_ball_hit(context: Dictionary = {}, _deps: Dictionar
 	if not (clone_value is Dictionary):
 		return {"hit": false}
 	var clone: Dictionary = clone_value
-	if not _is_dual_glitch_clone_alive(clone):
+	if not visibility_query.is_dual_glitch_clone_alive(clone):
 		return {"hit": false}
 	var hp: int = max(0, int(clone.get("hp", 0)) - 1)
 	clone["hp"] = hp
@@ -2804,7 +2751,7 @@ func apply_dual_glitch_clone_ball_hit(context: Dictionary = {}, _deps: Dictionar
 		clone["collision_enabled"] = false
 		clone["evaporation_frames"] = 0.0
 	dual_glitch_clones[clone_index] = clone
-	if destroyed and not _has_living_dual_glitch_clone():
+	if destroyed and not visibility_query.has_living_dual_glitch_clone(dual_glitch_clones):
 		_enter_dual_glitch_fade("destroyed")
 	return {
 		"hit": true,
@@ -2813,30 +2760,10 @@ func apply_dual_glitch_clone_ball_hit(context: Dictionary = {}, _deps: Dictionar
 	}
 
 
-func _get_dual_glitch_replication_origins() -> Array:
-	return visibility_query.get_dual_glitch_replication_origins(_get_dual_glitch_clone_rect_entries(true, false))
-
-
-func _get_dual_glitch_origin_side(origin: Dictionary) -> int:
-	return int(origin.get("side", 0))
-
-
-func _get_dual_glitch_origin_x(origin: Dictionary, fallback_x: float) -> float:
-	return float(origin.get("x", fallback_x))
-
-
-func _get_dual_glitch_origin_y(origin: Dictionary, fallback_y: float) -> float:
-	return float(origin.get("y", fallback_y))
-
-
-func _get_dual_glitch_clone_stagger_delay_mult(side: int) -> float:
-	return 1.0 if side < 0 else 2.0
-
-
 func _spawn_dual_glitch_clone_dive_entries_for_current_cast(deps: Dictionary) -> void:
 	if not _is_dual_glitch_clone_replication_active(deps):
 		return
-	var origins: Array = _get_dual_glitch_replication_origins()
+	var origins: Array = visibility_query.get_dual_glitch_replication_origins(_get_dual_glitch_clone_rect_entries(true, false))
 	if origins.is_empty():
 		return
 	var floor_y: float = dive_shockwave_pos.y
@@ -2844,15 +2771,15 @@ func _spawn_dual_glitch_clone_dive_entries_for_current_cast(deps: Dictionary) ->
 		if not (origin_value is Dictionary):
 			continue
 		var origin: Dictionary = origin_value
-		var side: int = _get_dual_glitch_origin_side(origin)
+		var side: int = int(origin.get("side", 0))
 		if side == 0:
 			continue
-		var delay_mult: float = _get_dual_glitch_clone_stagger_delay_mult(side)
+		var delay_mult: float = 1.0 if side < 0 else 2.0
 		dual_glitch_clone_dive_entries.append({
 			"side": side,
-			"x": _get_dual_glitch_origin_x(origin, dive_shockwave_pos.x),
+			"x": float(origin.get("x", dive_shockwave_pos.x)),
 			"y": floor_y,
-			"start_y": _get_dual_glitch_origin_y(origin, floor_y),
+			"start_y": float(origin.get("y", floor_y)),
 			"delay_frames": DUAL_GLITCH_DIVE_STAGGER_FRAMES * delay_mult,
 			"timer": 0.0,
 			"activated": false,
@@ -2890,10 +2817,6 @@ func _update_dual_glitch_clone_dive_entries(fps_scale: float, deps: Dictionary) 
 
 func _get_runtime_skill_level(deps: Dictionary, skill_id: String) -> int:
 	return visibility_query.get_runtime_skill_level(deps, skill_id)
-
-
-func _get_mythic_item_runtime(deps: Dictionary) -> Object:
-	return visibility_query.get_mythic_item_runtime(deps)
 
 
 func _absorb_chaos_field_objects(center: Vector2, deps: Dictionary) -> int:
@@ -2991,18 +2914,21 @@ func _can_hold_ignition_aura(
 		or dual_glitch_state != "idle"
 		or _has_viper_attack_motion_active()
 		or chaos_state != "idle"
-		or _has_shadow_step_projection_runtime_active()
+		or shadow_hologram_active
+		or shadow_wave_active
+		or shadow_marshal_delay_frames > 0.0
 		or phantom_strike_active
-		or _has_pending_marshal_combo_window()
+		or marshal_ready
+		or double_marshal_ready
 	):
 		return false
-	if _is_dash_or_control_locked(deps):
+	if _is_dash_motion_busy(deps) or _is_control_locked(deps):
 		return false
 	if not _is_config_ball_active(config) or bool(config.get("waiting_for_serve", false)):
 		return false
 	if _is_round_waiting_for_serve(deps):
 		return false
-	if _is_input_pressed(input_snapshot, "down_pressed") or _has_lateral_skill_input(input_snapshot):
+	if bool(input_snapshot.get("down_pressed", false)) or _has_lateral_skill_input(input_snapshot):
 		return false
 	if _get_viper_airborne_height(deps, config, player_pos) > 5.0:
 		return false
@@ -3142,13 +3068,13 @@ func _try_update_dive_hold(
 	if _has_viper_attack_motion_active(true):
 		_reset_dive_hold()
 		return {}
-	if _has_pending_marshal_combo_window() or _has_shadow_step_projection_runtime_active():
+	if marshal_ready or double_marshal_ready or shadow_hologram_active or shadow_wave_active or shadow_marshal_delay_frames > 0.0:
 		_reset_dive_hold()
 		return {}
 	if chaos_state != "idle":
 		_reset_dive_hold()
 		return {}
-	if _is_dash_or_control_locked(deps):
+	if _is_dash_motion_busy(deps) or _is_control_locked(deps):
 		_reset_dive_hold()
 		return {}
 	if not _is_config_ball_active(config):
@@ -3561,7 +3487,7 @@ func _try_start_blade_combo_from_dark_blade_motion(
 
 
 func _is_blade_motion_combo_phase_active() -> bool:
-	return _is_blade_motion_active() and blade_motion_phase == 2
+	return blade_motion_active and blade_motion_phase == 2
 
 
 func _can_start_dark_blade_combo_from_blade_motion(
@@ -3741,7 +3667,7 @@ func _update_nerve_strike_dash(config: Dictionary, deps: Dictionary) -> Dictiona
 		nerve_strike_freeze_active = true
 		audio_router.play_phantom_show_sound(deps)
 		_trigger_feedback(deps, 0.18, 5.2)
-		var mythic_item_runtime: Object = _get_mythic_item_runtime(deps)
+		var mythic_item_runtime: Object = visibility_query.get_mythic_item_runtime(deps)
 		if mythic_item_runtime != null and mythic_item_runtime.has_method("try_spawn_venom_mist_at_boss"):
 			mythic_item_runtime.try_spawn_venom_mist_at_boss(nerve_strike_slash_center, deps, false)
 		return _award_skill_gold(deps, NERVE_STRIKE_HIT_GOLD)
@@ -3894,7 +3820,7 @@ func _spawn_nerve_strike_slash_feedback(center: Vector2, deps: Dictionary) -> vo
 func _spawn_dual_glitch_clone_nerve_slashes_for_current_cast(deps: Dictionary, config: Dictionary) -> void:
 	if not _is_dual_glitch_clone_replication_active(deps):
 		return
-	var origins: Array = _get_dual_glitch_replication_origins()
+	var origins: Array = visibility_query.get_dual_glitch_replication_origins(_get_dual_glitch_clone_rect_entries(true, false))
 	if origins.is_empty():
 		return
 	var boss_center: Vector2 = _get_nerve_strike_boss_center(config)
@@ -3902,13 +3828,13 @@ func _spawn_dual_glitch_clone_nerve_slashes_for_current_cast(deps: Dictionary, c
 		if not (origin_value is Dictionary):
 			continue
 		var origin: Dictionary = origin_value
-		var side: int = _get_dual_glitch_origin_side(origin)
+		var side: int = int(origin.get("side", 0))
 		if side == 0:
 			continue
-		var delay_mult: float = _get_dual_glitch_clone_stagger_delay_mult(side)
+		var delay_mult: float = 1.0 if side < 0 else 2.0
 		var start := Vector2(
-			_get_dual_glitch_origin_x(origin, boss_center.x),
-			_get_dual_glitch_origin_y(origin, boss_center.y)
+			float(origin.get("x", boss_center.x)),
+			float(origin.get("y", boss_center.y))
 		)
 		nerve_strike_clone_slashes.append({
 			"cast_id": nerve_strike_cast_id,
@@ -3999,7 +3925,7 @@ func _can_start_air_blade(special_gauge: float, config: Dictionary, deps: Dictio
 func _can_start_dark_blade_from_window(special_gauge: float, config: Dictionary, deps: Dictionary) -> bool:
 	if not dark_blade_window:
 		return false
-	if _has_blade_motion_or_primary_projectile_active() or chaos_state == "startup":
+	if blade_motion_active or blade_projectile_active or chaos_state == "startup":
 		return false
 	if not _is_config_ball_active(config):
 		return false
@@ -4517,7 +4443,7 @@ func _spawn_dual_glitch_clone_blades_for_current_cast(
 ) -> void:
 	if not _is_dual_glitch_clone_replication_active(deps):
 		return
-	var origins: Array = _get_dual_glitch_replication_origins()
+	var origins: Array = visibility_query.get_dual_glitch_replication_origins(_get_dual_glitch_clone_rect_entries(true, false))
 	if origins.is_empty():
 		return
 	var width: float = BLADE_BASE_WIDTH * max(BLADE_DUAL_GLITCH_REPLICA_MIN_SCALE, size_mult)
@@ -4526,9 +4452,9 @@ func _spawn_dual_glitch_clone_blades_for_current_cast(
 		if not (origin_value is Dictionary):
 			continue
 		var origin: Dictionary = origin_value
-		var start_y: float = _get_dual_glitch_origin_y(origin, dual_glitch_base_pos.y) + BLADE_FOLLOWUP_START_Y_OFFSET
+		var start_y: float = float(origin.get("y", dual_glitch_base_pos.y)) + BLADE_FOLLOWUP_START_Y_OFFSET
 		_append_blade_followup_projectile(
-			Vector2(_get_dual_glitch_origin_x(origin, dual_glitch_base_pos.x), start_y),
+			Vector2(float(origin.get("x", dual_glitch_base_pos.x)), start_y),
 			start_y,
 			start_y - travel,
 			width,
@@ -4536,7 +4462,7 @@ func _spawn_dual_glitch_clone_blades_for_current_cast(
 			BLADE_DUAL_GLITCH_REPLICA_HIT_SPEED_SCALE,
 			{
 				"dual_glitch_replica": true,
-				"side": _get_dual_glitch_origin_side(origin),
+				"side": int(origin.get("side", 0)),
 			}
 		)
 
@@ -5125,7 +5051,8 @@ func _apply_shadow_step_hit(
 	phantom_strike_frames = 0.0
 	shadow_marshal_delay_frames = SHADOW_STEP_MARSHAL_DELAY_FRAMES
 	if not core_flip_consumed and core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
-		_open_core_flip_ready_window(Time.get_ticks_msec())
+		core_flip_ready_msec = Time.get_ticks_msec()
+		core_flip_buffered_until_msec = 0
 	if shadow_was_airborne and _is_dark_blade_equipped(deps):
 		_open_dark_blade_start_window()
 
@@ -5228,10 +5155,6 @@ func _is_viper_airborne(deps: Dictionary) -> bool:
 
 func _is_control_locked(deps: Dictionary) -> bool:
 	return visibility_query.is_control_locked(deps)
-
-
-func _is_dash_or_control_locked(deps: Dictionary) -> bool:
-	return _is_dash_motion_busy(deps) or _is_control_locked(deps)
 
 
 func _is_round_waiting_for_serve(deps: Dictionary) -> bool:
