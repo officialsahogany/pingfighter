@@ -93,6 +93,7 @@ const COMPANION_CLICK_REACTION_VIEW_HEIGHT := 300.0
 const COMPANION_CLICK_REACTION_CENTER_OFFSET_Y := -70.0
 const COMPANION_CLICK_ZONE_HALF_WIDTH := 70.0
 const COMPANION_CLICK_ZONE_HALF_HEIGHT := 60.0
+const COMPANION_CLICK_REACTION_PREWARM_KEYS := ["click_reaction_anim"]
 # Fullscreen acquisition cut-in state lives in LingpetAcquireCutinState. The
 # runtime keeps the public API because modal/input/draw controllers call it.
 # The HUD host owns the artwork and restoration / exit-action rendering.
@@ -653,6 +654,8 @@ func _normalize_pet_id(value: String) -> String:
 
 func _prewarm_current_visuals() -> void:
 	_current_profile.prewarm_visuals()
+	if _state == STATE_COMPANION:
+		_current_profile.prewarm_visual_keys(COMPANION_CLICK_REACTION_PREWARM_KEYS)
 
 
 func _get_current_visual_texture(visual_key: String, fallback: Texture2D) -> Texture2D:

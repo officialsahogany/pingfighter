@@ -82,5 +82,9 @@ func prewarm_visuals() -> void:
 	_visual_texture_cache.prewarm_pet(pet_id)
 
 
+func prewarm_visual_keys(keys: Array) -> void:
+	_visual_texture_cache.prewarm_pet(pet_id, keys)
+
+
 func get_visual_texture(visual_key: String, fallback: Texture2D) -> Texture2D:
 	return _visual_texture_cache.get_texture(pet_id, visual_key, fallback)

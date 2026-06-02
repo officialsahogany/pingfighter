@@ -1722,8 +1722,11 @@ func _verify_companion_click_reaction() -> void:
 	runtime.update(5.0, owner)
 	_expect(not bool(runtime.is_companion_click_reaction_active()), "companion click reaction should automatically finish after one popup pass")
 	var runtime_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_egg_runtime.gd")
+	var profile_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_current_profile.gd")
 	var input_source: String = FileAccess.get_file_as_string("res://scripts/core/battle_scene_input_controller.gd")
 	_expect(runtime_source.find("lingpet_companion_click_reaction_state.gd") >= 0, "lingpet runtime should delegate click-reaction timing state")
+	_expect(runtime_source.find("COMPANION_CLICK_REACTION_PREWARM_KEYS") >= 0, "lingpet runtime should prewarm the current companion's click reaction sheet once the companion is active")
+	_expect(profile_source.find("prewarm_visual_keys") >= 0, "lingpet current profile should support focused visual prewarm keys for large optional sheets")
 	_expect(input_source.find("try_begin_companion_click_reaction") >= 0, "battle input should route playfield companion clicks to the lingpet runtime")
 
 
