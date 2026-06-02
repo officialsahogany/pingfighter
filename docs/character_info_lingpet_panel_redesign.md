@@ -5,6 +5,14 @@
 링펫 ID/이름/부화 후보/스탯/스킬 메타데이터의 기준 소스:
 `godot/scripts/lingpet/lingpet_catalog.gd`.
 
+2026-06-02 추가: 링펫 스킬은 고정 단일값에서 **획득 로드아웃 구조**로 확장되었다.
+카탈로그는 `active_skill_pool` / `passive_skill_pool`을 지원하고, 현재 라이브
+콘텐츠는 기존 동작을 유지하기 위해 각 링펫의 첫 스킬을 기본값으로 쓴다. 실제
+획득 시 선택된 `active_skill_id` / `passive_skill_id`는
+`lingpet_loadout_state.gd`가 `lingpet_loadouts` / `ringpet_loadouts`에 보관한다.
+향후 링펫당 액티브 2개 + 패시브 2개를 채우면, 획득 순간 풀에서 1개씩 배정하는
+방식으로 확장한다.
+
 ## 1. 목적
 
 현재 링펫 정보는 우측 상단에 짧은 텍스트 패널(`_draw_lingpet_panel`)로만 있어

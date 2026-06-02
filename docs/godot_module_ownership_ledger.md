@@ -113,7 +113,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/lingpet/lingpet_catalog.gd`
   Owns Ringpet identity metadata and hatch-pool selection: pet ids,
   Korean display names, hatch weights, unlock conditions, required hatch
-  hits, baseline companion stats, active-skill metadata, and effect text.
+  hits, baseline companion stats, active-skill / passive-skill pool metadata,
+  loadout skill-id normalization, and effect text.
   `lingpet_egg_runtime.gd`, character-info UI, save reset code, and
   rail-card helpers should read future Ringpet identity data from this
   catalog instead of adding new hardcoded pet ids locally.
@@ -133,8 +134,9 @@ This section is intentionally long; use search to find the nearest owner.
   more per-pet texture dictionaries to `lingpet_egg_runtime.gd`.
 - `scripts/lingpet/lingpet_current_profile.gd`
   Owns the currently selected Ringpet profile view: normalized pet id,
-  display name, hatch-hit requirement, stats, active-skill metadata, effect
-  text, hit footprint helpers, and selected-pet visual prewarm / texture lookup
+  display name, hatch-hit requirement, stats, selected active-skill metadata,
+  selected passive-skill metadata, effect text, hit footprint helpers, and
+  selected-pet visual prewarm / texture lookup
   through `lingpet_visual_texture_cache.gd`. `lingpet_egg_runtime.gd` should
   update this helper when the active pet id changes instead of querying
   `lingpet_catalog.gd` directly.
@@ -208,6 +210,13 @@ This section is intentionally long; use search to find the nearest owner.
   companion / fresh-egg / none restore plan. `lingpet_egg_runtime.gd` should
   apply the returned plan to runtime state, not re-interpret save payloads
   inline.
+- `scripts/lingpet/lingpet_loadout_state.gd`
+  Owns Ringpet acquisition loadouts: per-pet selected active-skill id,
+  selected passive-skill id, `lingpet_loadouts` / `ringpet_loadouts` owner-key
+  compatibility, legacy missing-loadout defaults, and first-acquisition random
+  skill-pool selection. Future Ringpet skill rerolls, choice tickets, or
+  growth-driven loadout changes should update this helper instead of adding
+  more selected-skill dictionaries to `lingpet_egg_runtime.gd`.
 - `scripts/lingpet/lingpet_collection_state.gd`
   Owns Ringpet owned-collection state and owner-key compatibility: save
   `owned_pet_ids`, `lingpet_owned_pet_ids` / `owned_lingpet_ids` /
@@ -228,15 +237,17 @@ This section is intentionally long; use search to find the nearest owner.
   and current-pet texture lookup.
 - `scripts/lingpet/lingpet_runtime_snapshot_builder.gd`
   Owns Ringpet runtime data projection: live snapshot assembly, save snapshot
-  assembly, and owner compatibility key sync for both `lingpet_*` and
-  `ringpet_*` consumers. `lingpet_egg_runtime.gd` supplies current state /
-  catalog stats / helper modules, but UI, HUD, and save-facing payload shapes
-  should stay centralized here.
+  assembly, selected loadout / passive-skill projection, and owner
+  compatibility key sync for both `lingpet_*` and `ringpet_*` consumers.
+  `lingpet_egg_runtime.gd` supplies current state / catalog stats / helper
+  modules, but UI, HUD, and save-facing payload shapes should stay centralized
+  here.
 - `scripts/lingpet/lingpet_egg_runtime.gd`
   Owns the first Ringpet runtime slice: catalog-backed Junior League +
   Mika eligibility, hidden egg identity selection, owner-state sync for the
   character information panel via `lingpet_runtime_snapshot_builder.gd`,
-  Maribo companion +10% player-hit gauge gain,
+  selected-loadout application via `lingpet_loadout_state.gd`,
+  selected passive-skill player-hit gauge gain,
   owned-collection sync plus save-snapshot export / restore, hatch flash timing,
   player-height independent companion draw,
   post-hatch Maribo body ball-contact soft bounce with internal cooldown,
