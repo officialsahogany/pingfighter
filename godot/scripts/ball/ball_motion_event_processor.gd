@@ -33,7 +33,7 @@ func step_motion(
 	elif event == "horn_strawberry_field":
 		_process_horn_strawberry_field(step_result, scene, deps)
 	elif event == "holy_barrier":
-		_process_holy_barrier(step_result, scene, deps)
+		_process_holy_barrier(step_result, scene, context, deps)
 	elif event == "adversity_armor":
 		_process_adversity_armor(step_result, scene, deps)
 	elif event == "player_paddle" or event == "boss_paddle":
@@ -134,9 +134,20 @@ func _process_wall(step_result: Dictionary, scene: Dictionary, context: Dictiona
 	return bool(result.get("rematch_requested", false))
 
 
-func _process_holy_barrier(step_result: Dictionary, scene: Dictionary, deps: Dictionary) -> void:
+func _process_holy_barrier(step_result: Dictionary, scene: Dictionary, context: Dictionary, deps: Dictionary) -> void:
 	var ball_vel: Vector2 = _get_vector2(scene, "ball_vel", Vector2.ZERO)
-	scene["ball_vel"] = Vector2(ball_vel.x, -abs(ball_vel.y))
+	var reflected_vel := Vector2(ball_vel.x, -abs(ball_vel.y))
+	var whip_state: Object = deps.get("stage1_dalji_whip_skill_state", null)
+	if whip_state != null and whip_state.has_method("register_player_hit"):
+		var whip_result: Dictionary = whip_state.register_player_hit(reflected_vel, context)
+		if not whip_result.is_empty():
+			reflected_vel = _get_vector2(whip_result, "ball_vel", reflected_vel)
+			scene["ball_impact_boost"] = float(whip_result.get("ball_impact_boost", scene.get("ball_impact_boost", 1.0)))
+			scene["ball_boost_decay_rate"] = float(whip_result.get("ball_boost_decay_rate", scene.get("ball_boost_decay_rate", 0.975)))
+			scene["ball_min_boost"] = float(whip_result.get("ball_min_boost", scene.get("ball_min_boost", 0.70)))
+			if bool(whip_result.get("whip_deactivated", false)):
+				scene["stage1_dalji_whip_controls_speed"] = false
+	scene["ball_vel"] = reflected_vel
 	scene["ball_pos"] = _get_vector2(step_result, "ball_pos", _get_vector2(scene, "ball_pos", Vector2.ZERO))
 
 	var audio: Object = deps.get("audio", null)
