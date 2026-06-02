@@ -877,14 +877,74 @@ func try_activate_before_movement(
 			var dual_glitch_skill_config: Object = visibility_query.get_viper_skill_config(deps)
 			if _can_activate_configured_skill(dual_glitch_skill_config, special_gauge, deps, DUAL_GLITCH, now_msec):
 				return _start_dual_glitch(player_pos, special_gauge, config, deps, now_msec)
-	var blade_combo_result: Dictionary = {}
 	if up_edge and blade_motion_active and blade_motion_phase == 2:
 		if not blade_dark_mode:
-			blade_combo_result = _try_start_blade_combo_from_air_blade_motion(player_pos, special_gauge, config, deps, now_msec)
+			var air_blade_combo_skill_config: Object = visibility_query.get_viper_skill_config(deps)
+			var air_blade_has_nerve_and_dark: bool = (
+				visibility_query.is_skill_equipped(air_blade_combo_skill_config, NERVE_STRIKE)
+				and visibility_query.is_skill_equipped(air_blade_combo_skill_config, DARK_BLADE)
+			)
+			var air_blade_nerve_window_end_frame: float = (
+				NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
+				if air_blade_has_nerve_and_dark
+				else NERVE_STRIKE_WINDOW_END_FRAMES
+			)
+			var air_blade_nerve_combo_window_active: bool = (
+				not nerve_strike_combo_used
+				and not nerve_strike_active
+				and blade_motion_total_frames >= NERVE_STRIKE_WINDOW_START_FRAMES
+				and blade_motion_total_frames < air_blade_nerve_window_end_frame
+			)
+			var air_blade_skip_dark_combo: bool = false
+			if air_blade_nerve_combo_window_active:
+				var air_blade_can_start_nerve_combo: bool = false
+				if not (nerve_strike_combo_used or nerve_strike_active or blade_dark_mode):
+					if not (visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true))):
+						var air_blade_nerve_skill_config: Object = visibility_query.get_viper_skill_config(deps)
+						if visibility_query.is_skill_equipped(air_blade_nerve_skill_config, NERVE_STRIKE):
+							if special_gauge >= _get_skill_cost_with_fallback(air_blade_nerve_skill_config, NERVE_STRIKE, 90.0):
+								var air_blade_nerve_skill_state: Object = visibility_query.get_viper_skill_state(deps)
+								if air_blade_nerve_skill_state == null:
+									air_blade_can_start_nerve_combo = true
+								elif air_blade_nerve_skill_state.has_method("get_cooldown_remaining"):
+									air_blade_can_start_nerve_combo = air_blade_nerve_skill_state.get_cooldown_remaining(
+										NERVE_STRIKE,
+										now_msec,
+										_get_four_poisons_additive_cooldown_seconds(NERVE_STRIKE, air_blade_nerve_skill_config, deps, 40.0)
+									) <= 0.0
+								else:
+									air_blade_can_start_nerve_combo = visibility_query.is_configured_skill_ready(NERVE_STRIKE, deps, now_msec)
+				if air_blade_can_start_nerve_combo:
+					_clear_blade_projectile()
+					return _start_nerve_strike(player_pos, special_gauge, config, deps, now_msec)
+				if air_blade_has_nerve_and_dark and blade_motion_total_frames < NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES:
+					air_blade_skip_dark_combo = true
+			var air_blade_dark_split_combo_window_active: bool = (
+				air_blade_has_nerve_and_dark
+				and blade_motion_total_frames >= NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
+				and blade_motion_total_frames <= NERVE_STRIKE_WINDOW_END_FRAMES
+			)
+			if (
+				not air_blade_skip_dark_combo
+				and (air_blade_dark_split_combo_window_active or blade_air_combo_window)
+				and not visibility_query.is_control_locked(deps)
+				and bool(config.get("ball_active", true))
+				and visibility_query.is_skill_equipped(air_blade_combo_skill_config, DARK_BLADE)
+				and special_gauge >= _get_blade_skill_cost(air_blade_combo_skill_config, deps, DARK_BLADE)
+				and visibility_query.is_configured_skill_ready(DARK_BLADE, deps, -1)
+			):
+				_clear_blade_projectile()
+				return _start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec, true, true)
 		else:
-			blade_combo_result = _try_start_blade_combo_from_dark_blade_motion(player_pos, special_gauge, config, deps, now_msec)
-	if not blade_combo_result.is_empty():
-		return blade_combo_result
+			if blade_dark_mode and blade_dark_combo_window:
+				if not (visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true))):
+					var dark_blade_combo_skill_config: Object = visibility_query.get_viper_skill_config(deps)
+					if (
+						visibility_query.is_skill_equipped(dark_blade_combo_skill_config, BLADE_RUSH)
+						and special_gauge >= _get_blade_skill_cost(dark_blade_combo_skill_config, deps, BLADE_RUSH)
+					):
+						_clear_blade_projectile()
+						return _start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec, false, true)
 	if chaos_state == "startup":
 		var chaos_startup_pos: Vector2 = player_pos
 		if chaos_locked_player_x_valid:
@@ -1025,8 +1085,22 @@ func try_activate_before_movement(
 	if up_edge:
 		if _can_start_dark_blade_from_window(special_gauge, config, deps):
 			return _start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec)
-		if _can_start_air_blade(special_gauge, config, deps):
-			return _start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec)
+		var can_start_air_blade: bool = (
+			not _has_viper_attack_motion_active()
+			and chaos_state != "startup"
+			and not dark_blade_window
+			and bool(config.get("ball_active", true))
+			and visibility_query.is_viper_airborne(deps)
+			and not visibility_query.is_control_locked(deps)
+		)
+		if can_start_air_blade:
+			var air_blade_skill_config: Object = visibility_query.get_viper_skill_config(deps)
+			if (
+				visibility_query.is_skill_equipped(air_blade_skill_config, BLADE_RUSH)
+				and special_gauge >= _get_blade_skill_cost(air_blade_skill_config, deps, BLADE_RUSH)
+				and visibility_query.is_configured_skill_ready(BLADE_RUSH, deps, -1)
+			):
+				return _start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec)
 	if (
 		pressed_edge
 		and dash_origin_valid
@@ -1332,7 +1406,25 @@ func apply_shadow_step_ball_motion(fps_scale: float, scene: Dictionary, context:
 		ball_vel = _get_vector2(result.get("ball_vel", ball_vel), ball_vel)
 
 	if result.is_empty() and shadow_hologram_active:
-		result = _try_shadow_hologram_hit(scene, motion_context, deps)
+		if not (shadow_hit_consumed or shadow_hologram_kick_hit):
+			if ViperSkillGeometry.shadow_step_hologram_progress(shadow_hologram_frames, SHADOW_STEP_HOLOGRAM_FRAMES) > 0.30:
+				var hologram_collision_size: Vector2 = Vector2(shadow_paddle_size.x + 60.0, shadow_paddle_size.y + 50.0)
+				var hologram_hit_rect: Rect2 = ViperSkillGeometry.shadow_step_hologram_hit_rect(
+					shadow_hologram_target,
+					shadow_paddle_size,
+					Vector2(60.0, 50.0)
+				)
+				if hologram_hit_rect.intersects(ViperSkillGeometry.ball_rect(scene, motion_context)):
+					shadow_hologram_kick_hit = true
+					result = _apply_shadow_step_hit(
+						hologram_hit_rect.get_center(),
+						hologram_collision_size + Vector2(120.0, 160.0),
+						shadow_hologram_kick_dir,
+						"hologram",
+						scene,
+						motion_context,
+						deps
+					)
 		ball_vel = _get_vector2(result.get("ball_vel", ball_vel), ball_vel)
 
 	if shadow_curve_active and ball_vel.length() > 0.0:
@@ -1510,59 +1602,6 @@ func register_player_ball_contact(deps: Dictionary = {}, _context: Dictionary = 
 
 func release_chaos_blackhole_from_hit(deps: Dictionary = {}, context: Dictionary = {}) -> bool:
 	return _release_chaos_blackhole_from_hit_result(deps, context)
-
-
-func _finish_shadow_step_hit(
-	ball_pos: Vector2,
-	next_vel: Vector2,
-	center_t: float,
-	curve_frames: float,
-	curve_force: float,
-	safe_dir: int,
-	scene: Dictionary,
-	context: Dictionary,
-	deps: Dictionary
-) -> Dictionary:
-	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
-	_set_shadow_curve(curve_frames, curve_force, safe_dir)
-	audio_router.play_shadow_kick_sound(deps)
-	runtime_action_router.trigger_feedback(
-		deps,
-		SHADOW_HIT_SHAKE_AMOUNT_BASE + center_t * SHADOW_HIT_SHAKE_AMOUNT_CENTER_BONUS,
-		SHADOW_HIT_SHAKE_INTENSITY_BASE + center_t * SHADOW_HIT_SHAKE_INTENSITY_CENTER_BONUS
-	)
-	if not _register_ball_hit_pulse(
-		ball_pos,
-		next_vel,
-		deps,
-		SHADOW_HIT_ENERGY_INTENSITY_BASE + center_t * SHADOW_HIT_ENERGY_INTENSITY_CENTER_BONUS,
-		"viper_shadow_step"
-	):
-		_spawn_fallback_hit_impact(
-			ball_pos,
-			next_vel,
-			deps,
-			Color(0.72, 0.0, 1.0, 1.0),
-			SHADOW_HIT_PARTICLE_INTENSITY_BASE + center_t * SHADOW_HIT_PARTICLE_INTENSITY_CENTER_BONUS,
-			SHADOW_HIT_ENERGY_SCALE_BASE + center_t * SHADOW_HIT_ENERGY_SCALE_CENTER_BONUS,
-			SHADOW_HIT_ENERGY_INTENSITY_BASE + center_t * SHADOW_HIT_ENERGY_INTENSITY_CENTER_BONUS
-		)
-	_mark_kick_skill_knockback_pending(deps)
-	shadow_starburst_active = true
-	shadow_starburst_pos = ball_pos
-	shadow_starburst_frame = 0
-	shadow_starburst_timer = 0.0
-	shadow_starburst_is_double = false
-	var result := {
-		"ball_vel": next_vel,
-		"ball_impact_boost": max(1.0, float(scene.get("ball_impact_boost", 1.0))),
-		"player_collision_cooldown": max(6.0, float(scene.get("player_collision_cooldown", 0.0))),
-	}
-	var gold_award: int = SHADOW_STEP_HIT_GOLD
-	if shadow_was_airborne:
-		gold_award = int(float(gold_award) * SHADOW_STEP_AIRBORNE_GOLD_MULT)
-	result.merge(runtime_action_router.award_skill_gold(deps, gold_award), true)
-	return _mark_result_released_chaos_hit(result, released_chaos)
 
 
 func _reset_core_flip_runtime(clear_window: bool = false) -> void:
@@ -3285,115 +3324,6 @@ func _play_dive_strike_sound(deps: Dictionary) -> void:
 	audio_router.play_dive_strike_sound(deps)
 
 
-func _try_start_blade_combo_from_air_blade_motion(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	var combo_skill_config: Object = visibility_query.get_viper_skill_config(deps)
-	var nerve_and_dark_blade_equipped: bool = (
-		visibility_query.is_skill_equipped(combo_skill_config, NERVE_STRIKE)
-		and visibility_query.is_skill_equipped(combo_skill_config, DARK_BLADE)
-	)
-	var nerve_strike_window_end_frame: float = (
-		NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
-		if nerve_and_dark_blade_equipped
-		else NERVE_STRIKE_WINDOW_END_FRAMES
-	)
-	var nerve_strike_combo_window_active: bool = (
-		not nerve_strike_combo_used
-		and not nerve_strike_active
-		and blade_motion_total_frames >= NERVE_STRIKE_WINDOW_START_FRAMES
-		and blade_motion_total_frames < nerve_strike_window_end_frame
-	)
-	if nerve_strike_combo_window_active:
-		if _can_start_nerve_strike_combo(special_gauge, config, deps, now_msec):
-			_clear_blade_projectile()
-			return _start_nerve_strike(player_pos, special_gauge, config, deps, now_msec)
-		if nerve_and_dark_blade_equipped and blade_motion_total_frames < NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES:
-			return {}
-	var dark_blade_split_combo_window_active: bool = (
-		nerve_and_dark_blade_equipped
-		and blade_motion_total_frames >= NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
-		and blade_motion_total_frames <= NERVE_STRIKE_WINDOW_END_FRAMES
-	)
-	if _can_start_dark_blade_combo_from_blade_motion(
-		combo_skill_config,
-		special_gauge,
-		config,
-		deps,
-		dark_blade_split_combo_window_active,
-		blade_air_combo_window
-	):
-		_clear_blade_projectile()
-		return _start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec, true, true)
-	return {}
-
-
-func _try_start_blade_combo_from_dark_blade_motion(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	if not (blade_dark_mode and blade_dark_combo_window):
-		return {}
-	if visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true)):
-		return {}
-	var skill_config: Object = visibility_query.get_viper_skill_config(deps)
-	if not visibility_query.is_skill_equipped(skill_config, BLADE_RUSH):
-		return {}
-	if special_gauge < _get_blade_skill_cost(skill_config, deps, BLADE_RUSH):
-		return {}
-	_clear_blade_projectile()
-	return _start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec, false, true)
-
-
-func _can_start_dark_blade_combo_from_blade_motion(
-	skill_config: Object,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	split_combo_window_active: bool,
-	air_combo_window_active: bool
-) -> bool:
-	if not (split_combo_window_active or air_combo_window_active):
-		return false
-	if visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true)):
-		return false
-	if not visibility_query.is_skill_equipped(skill_config, DARK_BLADE):
-		return false
-	return (
-		special_gauge >= _get_blade_skill_cost(skill_config, deps, DARK_BLADE)
-		and visibility_query.is_configured_skill_ready(DARK_BLADE, deps, -1)
-	)
-
-
-func _can_start_nerve_strike_combo(special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int) -> bool:
-	if nerve_strike_combo_used or nerve_strike_active or blade_dark_mode:
-		return false
-	if visibility_query.is_control_locked(deps) or not bool(config.get("ball_active", true)):
-		return false
-	var skill_config: Object = visibility_query.get_viper_skill_config(deps)
-	if not visibility_query.is_skill_equipped(skill_config, NERVE_STRIKE):
-		return false
-	if special_gauge < _get_skill_cost_with_fallback(skill_config, NERVE_STRIKE, 90.0):
-		return false
-	var skill_state: Object = visibility_query.get_viper_skill_state(deps)
-	if skill_state == null:
-		return true
-	if skill_state.has_method("get_cooldown_remaining"):
-		return skill_state.get_cooldown_remaining(
-			NERVE_STRIKE,
-			now_msec,
-			_get_four_poisons_additive_cooldown_seconds(NERVE_STRIKE, skill_config, deps, 40.0)
-		) <= 0.0
-	return visibility_query.is_configured_skill_ready(NERVE_STRIKE, deps, now_msec)
-
-
 func _start_nerve_strike(
 	player_pos: Vector2,
 	special_gauge: float,
@@ -3742,25 +3672,6 @@ func _update_nerve_strike_clone_slashes(fps_scale: float, context: Dictionary, d
 		if str(entry.get("state", "")) != "slash" or float(entry.get("timer", 0.0)) > 0.0:
 			updated.append(entry)
 	nerve_strike_clone_slashes = updated
-
-
-func _can_start_air_blade(special_gauge: float, config: Dictionary, deps: Dictionary) -> bool:
-	if _has_viper_attack_motion_active() or chaos_state == "startup":
-		return false
-	if dark_blade_window:
-		return false
-	if not bool(config.get("ball_active", true)):
-		return false
-	if not visibility_query.is_viper_airborne(deps):
-		return false
-	if visibility_query.is_control_locked(deps):
-		return false
-	var skill_config: Object = visibility_query.get_viper_skill_config(deps)
-	if not visibility_query.is_skill_equipped(skill_config, BLADE_RUSH):
-		return false
-	if special_gauge < _get_blade_skill_cost(skill_config, deps, BLADE_RUSH):
-		return false
-	return visibility_query.is_configured_skill_ready(BLADE_RUSH, deps, -1)
 
 
 func _can_start_dark_blade_from_window(special_gauge: float, config: Dictionary, deps: Dictionary) -> bool:
@@ -4718,25 +4629,6 @@ func _start_shadow_step(
 	audio_router.play_shadow_step_sound(deps)
 	runtime_action_router.trigger_feedback(deps, 0.10, 5.0)
 	particle_drawer.spawn_shadow_activation_feedback(origin_center, deps.get("impact_effects", null), 1.0)
-	_prime_shadow_step_runtime(player_size, origin_center, target_center, reverse_dir, deps, now_msec)
-	return {
-		"handled": true,
-		"activated": true,
-		"player_pos": target_pos,
-		"player_speed": 0.0,
-		"special_gauge": next_gauge,
-		"skill_name": SHADOW_STEP,
-	}
-
-
-func _prime_shadow_step_runtime(
-	player_size: Vector2,
-	origin_center: Vector2,
-	target_center: Vector2,
-	reverse_dir: int,
-	deps: Dictionary,
-	now_msec: int
-) -> void:
 	dash_origin_valid = false
 	dash_grace_frames = 0.0
 	previous_dash_active = false
@@ -4766,6 +4658,14 @@ func _prime_shadow_step_runtime(
 	phantom_strike_active = true
 	phantom_strike_frames = SHADOW_STEP_PHANTOM_FRAMES
 	phantom_strike_curve_dir = reverse_dir
+	return {
+		"handled": true,
+		"activated": true,
+		"player_pos": target_pos,
+		"player_speed": 0.0,
+		"special_gauge": next_gauge,
+		"skill_name": SHADOW_STEP,
+	}
 
 
 func _reset_shadow_step_runtime() -> void:
@@ -4800,31 +4700,6 @@ func _reset_shadow_step_runtime() -> void:
 	phantom_strike_active = false
 	phantom_strike_frames = 0.0
 	phantom_strike_curve_dir = 1
-
-
-func _try_shadow_hologram_hit(scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
-	if shadow_hit_consumed or shadow_hologram_kick_hit:
-		return {}
-	if ViperSkillGeometry.shadow_step_hologram_progress(shadow_hologram_frames, SHADOW_STEP_HOLOGRAM_FRAMES) <= 0.30:
-		return {}
-	var collision_size := Vector2(shadow_paddle_size.x + 60.0, shadow_paddle_size.y + 50.0)
-	var hit_rect: Rect2 = ViperSkillGeometry.shadow_step_hologram_hit_rect(
-		shadow_hologram_target,
-		shadow_paddle_size,
-		Vector2(60.0, 50.0)
-	)
-	if not hit_rect.intersects(ViperSkillGeometry.ball_rect(scene, context)):
-		return {}
-	shadow_hologram_kick_hit = true
-	return _apply_shadow_step_hit(
-		hit_rect.get_center(),
-		collision_size + Vector2(120.0, 160.0),
-		shadow_hologram_kick_dir,
-		"hologram",
-		scene,
-		context,
-		deps
-	)
 
 
 func _apply_shadow_step_hit(
@@ -4885,7 +4760,46 @@ func _apply_shadow_step_hit(
 	)
 	var launch_angle: float = ViperSkillGeometry.aimed_kick_launch_angle(safe_dir, aim_ball_pos, boss_pos, aim_level, 0.24, 15.0)
 	var next_vel: Vector2 = ViperSkillGeometry.aimed_kick_launch_velocity(next_speed, launch_angle)
-	return _finish_shadow_step_hit(ball_pos, next_vel, center_t, curve_frames, curve_force, safe_dir, scene, context, deps)
+	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
+	_set_shadow_curve(curve_frames, curve_force, safe_dir)
+	audio_router.play_shadow_kick_sound(deps)
+	runtime_action_router.trigger_feedback(
+		deps,
+		SHADOW_HIT_SHAKE_AMOUNT_BASE + center_t * SHADOW_HIT_SHAKE_AMOUNT_CENTER_BONUS,
+		SHADOW_HIT_SHAKE_INTENSITY_BASE + center_t * SHADOW_HIT_SHAKE_INTENSITY_CENTER_BONUS
+	)
+	if not _register_ball_hit_pulse(
+		ball_pos,
+		next_vel,
+		deps,
+		SHADOW_HIT_ENERGY_INTENSITY_BASE + center_t * SHADOW_HIT_ENERGY_INTENSITY_CENTER_BONUS,
+		"viper_shadow_step"
+	):
+		_spawn_fallback_hit_impact(
+			ball_pos,
+			next_vel,
+			deps,
+			Color(0.72, 0.0, 1.0, 1.0),
+			SHADOW_HIT_PARTICLE_INTENSITY_BASE + center_t * SHADOW_HIT_PARTICLE_INTENSITY_CENTER_BONUS,
+			SHADOW_HIT_ENERGY_SCALE_BASE + center_t * SHADOW_HIT_ENERGY_SCALE_CENTER_BONUS,
+			SHADOW_HIT_ENERGY_INTENSITY_BASE + center_t * SHADOW_HIT_ENERGY_INTENSITY_CENTER_BONUS
+		)
+	_mark_kick_skill_knockback_pending(deps)
+	shadow_starburst_active = true
+	shadow_starburst_pos = ball_pos
+	shadow_starburst_frame = 0
+	shadow_starburst_timer = 0.0
+	shadow_starburst_is_double = false
+	var result := {
+		"ball_vel": next_vel,
+		"ball_impact_boost": max(1.0, float(scene.get("ball_impact_boost", 1.0))),
+		"player_collision_cooldown": max(6.0, float(scene.get("player_collision_cooldown", 0.0))),
+	}
+	var gold_award: int = SHADOW_STEP_HIT_GOLD
+	if shadow_was_airborne:
+		gold_award = int(float(gold_award) * SHADOW_STEP_AIRBORNE_GOLD_MULT)
+	result.merge(runtime_action_router.award_skill_gold(deps, gold_award), true)
+	return _mark_result_released_chaos_hit(result, released_chaos)
 
 
 func _set_shadow_curve(frames: float, force: float, curve_dir: int) -> void:
