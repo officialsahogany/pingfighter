@@ -13,7 +13,8 @@ func _init() -> void:
 	_verify_audio_load()
 	_verify_scene_delegates_asset_loading()
 	_verify_threaded_prewarm_uses_short_default_guard()
-	_verify_result_box_polygon_colors()
+	_verify_result_box_export_safe_texture_path()
+	_verify_result_box_texture_region_draw()
 
 	if _failures.is_empty():
 		print("stage_clear_result_asset_loader_smoke: ok")
@@ -106,12 +107,25 @@ func _verify_threaded_prewarm_uses_short_default_guard() -> void:
 	)
 
 
-func _verify_result_box_polygon_colors() -> void:
+func _verify_result_box_export_safe_texture_path() -> void:
+	for key in [
+		"result_box_sheet_common",
+		"result_box_sheet_mythic",
+		"result_box_sheet_guaranteed_mythic",
+	]:
+		_expect(
+			StageClearResultAssetLoader._prefers_imported_texture(key),
+			"%s should prefer imported texture loading so exported builds do not drop result box sheets" % key
+		)
+
+
+func _verify_result_box_texture_region_draw() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_scene.gd")
 	_expect(
-		source.find("PackedColorArray([tint, tint, tint, tint])") >= 0
-		and source.find("draw_polygon(quad, colors, uv_array, texture)") >= 0,
-		"result box sheet draw should tint all four polygon vertices so the textured box renders in export builds"
+		source.find("draw_set_transform(draw_center, box_rotation, Vector2.ONE)") >= 0
+		and source.find("draw_texture_rect_region(") >= 0
+		and source.find("_draw_result_box_fallback") >= 0,
+		"result box sheet draw should use texture-region drawing with an export-safe fallback"
 	)
 
 

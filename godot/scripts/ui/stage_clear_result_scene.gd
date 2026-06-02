@@ -1224,11 +1224,6 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 		0.40 * global_alpha
 	)
 
-	var top_left: Vector2 = StageClearResultLayoutHelper.rotate_around(Vector2(-hx, -hy), Vector2.ZERO, box_rotation) + draw_center
-	var top_right: Vector2 = StageClearResultLayoutHelper.rotate_around(Vector2(hx, -hy), Vector2.ZERO, box_rotation) + draw_center
-	var bot_right: Vector2 = StageClearResultLayoutHelper.rotate_around(Vector2(hx, hy), Vector2.ZERO, box_rotation) + draw_center
-	var bot_left: Vector2 = StageClearResultLayoutHelper.rotate_around(Vector2(-hx, hy), Vector2.ZERO, box_rotation) + draw_center
-
 	if hover_active:
 		_draw_box_hover_glow(draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, hover_pulse)
 
@@ -1246,26 +1241,64 @@ func _draw_floating_box(box: Dictionary, scale: float, hovered: bool) -> void:
 		var col: int = frame_index % RESULT_BOX_SHEET_GRID_COLS
 		@warning_ignore("integer_division")
 		var row: int = int(frame_index / RESULT_BOX_SHEET_GRID_COLS)
-		var uv_step_x: float = 1.0 / float(RESULT_BOX_SHEET_GRID_COLS)
-		var uv_step_y: float = 1.0 / float(RESULT_BOX_SHEET_GRID_ROWS)
-		var uv_left: float = float(col) * uv_step_x
-		var uv_top: float = float(row) * uv_step_y
-		var uv_array := PackedVector2Array([
-			Vector2(uv_left, uv_top),
-			Vector2(uv_left + uv_step_x, uv_top),
-			Vector2(uv_left + uv_step_x, uv_top + uv_step_y),
-			Vector2(uv_left, uv_top + uv_step_y),
-		])
-		var quad := PackedVector2Array([top_left, top_right, bot_right, bot_left])
-		var tint := Color(1.0, 1.0, 1.0, global_alpha)
-		var colors := PackedColorArray([tint, tint, tint, tint])
-		draw_polygon(quad, colors, uv_array, texture)
+		var source_rect := Rect2(
+			Vector2(float(col) * RESULT_BOX_SHEET_CELL_SIZE.x, float(row) * RESULT_BOX_SHEET_CELL_SIZE.y),
+			RESULT_BOX_SHEET_CELL_SIZE
+		)
+		draw_set_transform(draw_center, box_rotation, Vector2.ONE)
+		draw_texture_rect_region(
+			texture,
+			Rect2(Vector2(-hx, -hy), Vector2(frame_draw_size, frame_draw_size)),
+			source_rect,
+			Color(1.0, 1.0, 1.0, global_alpha),
+			false,
+			true
+		)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	else:
+		_draw_result_box_fallback(draw_center, hx, hy, box_rotation, scale, is_mythic, global_alpha, state, open_progress)
 
 	if hover_active:
 		_draw_box_hover_sparkles(draw_center, body_hx, body_hy, scale, is_mythic, global_alpha, phase)
 
 	if state == "opened":
 		_draw_reward_label(box, draw_center, body_hy, scale, global_alpha)
+
+
+func _draw_result_box_fallback(
+	draw_center: Vector2,
+	hx: float,
+	hy: float,
+	box_rotation: float,
+	draw_scale: float,
+	is_mythic: bool,
+	global_alpha: float,
+	state: String,
+	open_progress: float
+) -> void:
+	var base_color := Color(0.90, 0.44, 1.0, global_alpha) if is_mythic else Color(0.32, 0.82, 1.0, global_alpha)
+	var body_fill := Color(base_color.r * 0.45, base_color.g * 0.45, base_color.b * 0.55, 0.78 * global_alpha)
+	var lid_fill := Color(base_color.r, base_color.g, base_color.b, 0.66 * global_alpha)
+	var rim_color := Color(1.0, 0.90, 0.45, 0.92 * global_alpha) if is_mythic else Color(0.75, 1.0, 1.0, 0.86 * global_alpha)
+	var open_lift: float = 0.0
+	if state == "opening" or state == "opened":
+		open_lift = _smooth01(open_progress) * hy * 0.42
+	draw_set_transform(draw_center, box_rotation, Vector2.ONE)
+	var body_rect := Rect2(Vector2(-hx * 0.68, -hy * 0.05), Vector2(hx * 1.36, hy * 1.02))
+	var lid_rect := Rect2(Vector2(-hx * 0.76, -hy * 0.58 - open_lift), Vector2(hx * 1.52, hy * 0.46))
+	draw_rect(body_rect, body_fill)
+	draw_rect(body_rect, rim_color, false, max(1.5, 2.3 * draw_scale))
+	draw_rect(lid_rect, lid_fill)
+	draw_rect(lid_rect, rim_color, false, max(1.5, 2.2 * draw_scale))
+	draw_line(
+		Vector2(-hx * 0.56, body_rect.position.y + body_rect.size.y * 0.35),
+		Vector2(hx * 0.56, body_rect.position.y + body_rect.size.y * 0.35),
+		Color(1.0, 1.0, 1.0, 0.18 * global_alpha),
+		max(1.0, 1.5 * draw_scale)
+	)
+	draw_circle(Vector2.ZERO, max(3.0, 6.0 * draw_scale), rim_color)
+	draw_circle(Vector2.ZERO, max(1.4, 2.8 * draw_scale), Color(1.0, 1.0, 1.0, 0.78 * global_alpha))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_shadow_ellipse(center: Vector2, radius_x: float, radius_y: float, alpha: float) -> void:
