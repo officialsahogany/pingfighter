@@ -1,0 +1,44 @@
+{
+  "asset_id": "draft_bat_moon_orbit_skillcard_imagegen_v1",
+  "character": "draft_bat",
+  "skill_id": "draft_bat_moon_orbit",
+  "skill_name": "?? ??",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_active_skill_rail_card_candidate",
+  "source_imagegen": {
+    "tool": "built-in image_gen",
+    "generated_path": "C:\\Users\\woduq\\.codex\\generated_images\\019e78bc-6d10-77a1-90ba-1b30fea38e85\\ig_0bbd173426fa99ae016a1ea5472e5c819a84beb2c284a0f37f.png",
+    "prompt_summary": "Wide fantasy skill-card art for a purple bat lingpet launching a violet crescent moon-orbit projectile; no text.",
+    "generated_size": [
+      1625,
+      968
+    ]
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic crop/resize + gold-only existing Maribo rail-card frame overlay",
+    "crop_box": [
+      42,
+      86,
+      1600,
+      580
+    ],
+    "target_size": [
+      1720,
+      541
+    ],
+    "frame_source": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
+    "frame_mask": "gold/bronze/black-outline edge pixels only; cyan water strokes intentionally excluded",
+    "reason": "Built-in imagegen produced strong art at a taller 16:9-ish aspect. The card rail expects Maribo-style 1720x541 wide art, so this candidate is recomposed into the shipped rail-card ratio."
+  },
+  "output": {
+    "path": "D:\\main\\bosspong\\godot\\assets\\sprites\\lingpet\\draft_bat_moon_orbit_skillcard_imagegen_v1.png",
+    "res_path": "res://assets/sprites/lingpet/draft_bat_moon_orbit_skillcard_imagegen_v1.png",
+    "size": [
+      1720,
+      541
+    ],
+    "sha256": "5f4de7ba85cd0bdc45f289ce2a89f1d3c41c9893931ca591e53c80d9668dfb59",
+    "bytes": 1541967
+  },
+  "status": "Candidate skill card for Draft Bat Moon Orbit. Text-free, wide rail-card ratio, purple crescent projectile readable on the right."
+}

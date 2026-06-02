@@ -1,0 +1,42 @@
+{
+  "asset_id": "draft_bat_moon_orbit_skill_icon_imagegen_v1",
+  "character": "draft_bat",
+  "skill_id": "draft_bat_moon_orbit",
+  "skill_name": "?? ??",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_active_skill_info_panel_icon_candidate",
+  "source_imagegen": {
+    "tool": "built-in image_gen",
+    "generated_path": "C:\\Users\\woduq\\.codex\\generated_images\\019e78bc-6d10-77a1-90ba-1b30fea38e85\\ig_0bbd173426fa99ae016a1ea5472e5c819a84beb2c284a0f37f.png",
+    "generated_size": [
+      1625,
+      968
+    ],
+    "prompt_summary": "Purple bat lingpet launching a violet crescent moon-orbit projectile; no text."
+  },
+  "postprocess": {
+    "tool": "Pillow deterministic square crop/resize + HUD rim",
+    "crop_box": [
+      482,
+      60,
+      1430,
+      948
+    ],
+    "target_size": [
+      1254,
+      1254
+    ],
+    "reason": "Reuse the accepted Moon Orbit card art to keep icon identity consistent, while emphasizing the crescent projectile for small information-panel slots."
+  },
+  "output": {
+    "path": "D:\\main\\bosspong\\godot\\assets\\sprites\\lingpet\\draft_bat_moon_orbit_skill_icon_imagegen_v1.png",
+    "res_path": "res://assets/sprites/lingpet/draft_bat_moon_orbit_skill_icon_imagegen_v1.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "sha256": "b712bd854f2b8be684235d614345175597c77be11677e08b722e8eadd2da1a0c",
+    "bytes": 2214709
+  },
+  "status": "Candidate square icon for Draft Bat Moon Orbit. Text-free, projectile-forward crop."
+}

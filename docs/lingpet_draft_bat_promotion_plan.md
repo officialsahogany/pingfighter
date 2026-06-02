@@ -15,6 +15,8 @@
   - `res://assets/sprites/lingpet/draft_bat_companion_walk.png` 후보 완료
   - `res://assets/sprites/lingpet/draft_bat_companion_strike.png` 후보 완료
   - `res://assets/sprites/lingpet/draft_bat_companion_cast.png` 후보 완료
+  - `res://assets/sprites/lingpet/draft_bat_moon_orbit_skillcard_imagegen_v1.png` 후보 완료
+  - `res://assets/sprites/lingpet/draft_bat_moon_orbit_skill_icon_imagegen_v1.png` 후보 완료
 - 현재 스모크 기준:
   - 비활성 링펫은 부화 후보에 들어가지 않는다.
   - 비활성 링펫은 최종 스프라이트/스킬 자산이 없어도 카탈로그 검증을 통과한다.
@@ -49,6 +51,14 @@
   - final sheet: `res://assets/sprites/lingpet/draft_bat_companion_cast.png`
   - manifest: `res://assets/sprites/lingpet/draft_bat_companion_cast_manifest.json`
   - note: AutoSprite 원본은 초반부가 가장 밝아 런타임 시전 진행과 반대로 읽혔다. `LingpetCompanionSpriteAnimator`의 windup 0→24 재생에 맞춰 프레임 순서를 반전해 충전감이 뒤로 갈수록 강해지게 했다.
+- `월영 궤도` 스킬카드/아이콘 후보 완료
+  - source: built-in `image_gen`
+  - generated source: `C:\Users\woduq\.codex\generated_images\019e78bc-6d10-77a1-90ba-1b30fea38e85\ig_0bbd173426fa99ae016a1ea5472e5c819a84beb2c284a0f37f.png`
+  - skill card: `res://assets/sprites/lingpet/draft_bat_moon_orbit_skillcard_imagegen_v1.png`
+  - skill card manifest: `res://assets/sprites/lingpet/draft_bat_moon_orbit_skillcard_imagegen_v1_manifest.json`
+  - skill icon: `res://assets/sprites/lingpet/draft_bat_moon_orbit_skill_icon_imagegen_v1.png`
+  - skill icon manifest: `res://assets/sprites/lingpet/draft_bat_moon_orbit_skill_icon_imagegen_v1_manifest.json`
+  - note: built-in 이미지 생성 결과가 16:9에 가까워 그대로는 스킬 레일 비율과 맞지 않았다. 스킬카드는 마리보 카드와 같은 `1720x541` 비율로 리컴포즈했고, 아이콘은 같은 원본에서 초승달 궤도 중심으로 정사각 크롭했다.
 
 ## 승격 전 필수 자산
 
