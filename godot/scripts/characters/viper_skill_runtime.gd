@@ -729,34 +729,105 @@ func try_activate_before_movement(
 	if nerve_strike_active:
 		return _update_nerve_strike(delta, player_pos, special_gauge, config, deps)
 	if dual_glitch_state == "startup":
-		return _update_dual_glitch_startup_motion(player_pos, special_gauge, config)
+		var dual_startup_pos: Vector2 = player_pos
+		if dual_glitch_locked_player_x_valid:
+			var dual_play_left: float = float(config.get("play_left", 0.0))
+			var dual_play_right: float = float(config.get("play_right", 760.0))
+			dual_startup_pos.x = clamp(dual_glitch_locked_player_x, dual_play_left, max(dual_play_left, dual_play_right - _get_paddle_size(config).x))
+		dual_glitch_base_pos = dual_startup_pos
+		return {
+			"handled": true,
+			"activated": false,
+			"skill_name": DUAL_GLITCH,
+			"player_pos": dual_startup_pos,
+			"player_speed": 0.0,
+			"special_gauge": special_gauge,
+			"locked_player_x": dual_startup_pos.x,
+		}
 	if dive_active:
 		return _update_dive_strike(delta, player_pos, special_gauge, config, deps)
 	if core_flip_attack_active:
 		if up_edge and _can_start_dark_blade_from_window(special_gauge, config, deps):
-			return _start_dark_blade_from_core_flip_window(special_gauge, config, deps, now_msec)
+			var core_flip_blade_handoff_pos: Vector2 = core_flip_visual_pos
+			_reset_core_flip_runtime(false)
+			return _start_blade_motion(core_flip_blade_handoff_pos, special_gauge, config, deps, true, now_msec)
 		return _update_core_flip(delta, player_pos, special_gauge, config, deps)
-	var core_flip_result: Dictionary = _try_start_core_flip_from_ready_window(
-		player_pos,
-		special_gauge,
-		config,
-		deps,
-		input_snapshot,
-		now_msec
-	)
-	if not core_flip_result.is_empty():
-		return core_flip_result
-	var dual_glitch_result: Dictionary = _try_start_dual_glitch_from_command(player_pos, special_gauge, config, deps, now_msec)
-	if not dual_glitch_result.is_empty():
-		return dual_glitch_result
-	var blade_combo_result: Dictionary = _try_start_blade_combo_from_up_edge(up_edge, player_pos, special_gauge, config, deps, now_msec)
+	if _is_core_flip_ready_window_active(now_msec):
+		var core_flip_pressed_combo: bool = bool(input_snapshot.get("left_pressed", false)) and bool(input_snapshot.get("right_pressed", false))
+		var core_flip_left_press_age: int = input_sequence_frame - core_flip_left_press_frame
+		var core_flip_right_press_age: int = input_sequence_frame - core_flip_right_press_frame
+		var core_flip_stored_combo: bool = (
+			core_flip_left_press_age >= 0
+			and core_flip_left_press_age <= CORE_FLIP_INPUT_MAX_AGE_FRAMES
+			and core_flip_right_press_age >= 0
+			and core_flip_right_press_age <= CORE_FLIP_INPUT_MAX_AGE_FRAMES
+			and abs(core_flip_left_press_frame - core_flip_right_press_frame) <= CORE_FLIP_INPUT_FRAME_GAP
+		)
+		if core_flip_pressed_combo or core_flip_stored_combo:
+			core_flip_buffered_until_msec = core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC
+		if (
+			core_flip_buffered_until_msec >= now_msec
+			and not _has_viper_attack_motion_active(true)
+			and not shadow_hologram_active
+			and chaos_state == "idle"
+		):
+			var core_flip_dash_snapshot: Dictionary = _get_dash_snapshot(deps.get("dash_state", null))
+			if (
+				not bool(core_flip_dash_snapshot.get("active", false))
+				and not _is_control_locked(deps)
+				and _is_config_ball_active(config)
+				and not _is_round_waiting_for_serve(deps)
+			):
+				var core_flip_skill_config: Object = _get_viper_skill_config(deps)
+				var core_flip_cost: float = _get_core_flip_activation_cost(core_flip_skill_config)
+				if (
+					_is_skill_equipped(core_flip_skill_config, CORE_FLIP)
+					and special_gauge >= core_flip_cost
+					and _is_configured_skill_ready(CORE_FLIP, deps, now_msec)
+				):
+					return _start_core_flip(player_pos, special_gauge, config, deps, now_msec)
+	if _check_dual_glitch_command(now_msec):
+		if (
+			dual_glitch_state == "idle"
+			and not _has_viper_attack_motion_active(true)
+			and chaos_state != "startup"
+			and not _is_dash_or_control_locked(deps)
+			and _is_config_ball_active(config, false)
+			and not _is_round_waiting_for_serve(deps)
+		):
+			var dual_glitch_skill_config: Object = _get_viper_skill_config(deps)
+			if _can_activate_configured_skill(dual_glitch_skill_config, special_gauge, deps, DUAL_GLITCH, now_msec):
+				return _start_dual_glitch(player_pos, special_gauge, config, deps, now_msec)
+	var blade_combo_result: Dictionary = {}
+	if up_edge:
+		blade_combo_result = _try_start_blade_combo_from_motion(player_pos, special_gauge, config, deps, now_msec)
 	if not blade_combo_result.is_empty():
 		return blade_combo_result
 	if chaos_state == "startup":
-		return _update_chaos_spear_startup_motion(player_pos, special_gauge, config)
-	var chaos_spear_result: Dictionary = _try_start_chaos_spear_from_command(player_pos, special_gauge, config, deps, now_msec)
-	if not chaos_spear_result.is_empty():
-		return chaos_spear_result
+		var chaos_startup_pos: Vector2 = player_pos
+		if chaos_locked_player_x_valid:
+			var chaos_play_left: float = float(config.get("play_left", 0.0))
+			var chaos_play_right: float = float(config.get("play_right", 760.0))
+			chaos_startup_pos.x = clamp(
+				chaos_locked_player_x,
+				chaos_play_left,
+				max(chaos_play_left, chaos_play_right - _get_paddle_size(config).x)
+			)
+		return {
+			"handled": true,
+			"activated": false,
+			"skill_name": CHAOS_SPEAR,
+			"player_pos": chaos_startup_pos,
+			"player_speed": 0.0,
+			"special_gauge": special_gauge,
+			"allow_jetpack_overlay": true,
+			"locked_player_x": chaos_startup_pos.x,
+		}
+	if (
+		_check_chaos_command(now_msec)
+		and _can_start_chaos_spear(special_gauge, config, deps, now_msec)
+	):
+		return _start_chaos_spear(player_pos, special_gauge, config, deps, now_msec)
 	var ignition_result: Dictionary = _try_update_ignition_aura_hold(input_snapshot, player_pos, special_gauge, config, deps, now_msec)
 	if not ignition_result.is_empty():
 		return ignition_result
@@ -766,7 +837,11 @@ func try_activate_before_movement(
 		return _update_blade_motion(delta, player_pos, special_gauge, config, deps)
 	if marshal_active:
 		if up_edge and _can_start_dark_blade_from_window(special_gauge, config, deps):
-			return _start_dark_blade_from_marshal_window(special_gauge, config, deps, now_msec)
+			var marshal_blade_handoff_pos: Vector2 = marshal_visual_pos
+			_reset_marshal_runtime_fields()
+			_clear_dmk_presentation_state()
+			marshal_particles.clear()
+			return _start_blade_motion(marshal_blade_handoff_pos, special_gauge, config, deps, true, now_msec)
 		return _update_marshal_kick(delta, player_pos, special_gauge, config, deps)
 	var dive_result: Dictionary = _try_update_dive_hold(input_snapshot, player_pos, special_gauge, config, deps, now_msec)
 	if not dive_result.is_empty():
@@ -851,16 +926,11 @@ func try_activate_before_movement(
 					"player_speed": 0.0,
 					"special_gauge": marshal_next_gauge,
 				}
-	var blade_motion_start_result: Dictionary = _try_start_blade_motion_from_up_edge(
-		up_edge,
-		player_pos,
-		special_gauge,
-		config,
-		deps,
-		now_msec
-	)
-	if not blade_motion_start_result.is_empty():
-		return blade_motion_start_result
+	if up_edge:
+		if _can_start_dark_blade_from_window(special_gauge, config, deps):
+			return _start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec)
+		if _can_start_air_blade(special_gauge, config, deps):
+			return _start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec)
 	if (
 		pressed_edge
 		and dash_origin_valid
@@ -881,17 +951,14 @@ func try_activate_before_movement(
 func observe_after_movement(delta: float, before_player_pos: Vector2, _after_player_pos: Vector2, deps: Dictionary) -> void:
 	if dual_glitch_state in ["spawn", "active", "fade"]:
 		dual_glitch_base_pos = _after_player_pos
-	_update_dash_observation_after_movement(delta, before_player_pos, deps)
-
-
-func _update_dash_observation_after_movement(delta: float, before_player_pos: Vector2, deps: Dictionary) -> void:
 	var dash_snapshot: Dictionary = _get_dash_snapshot(deps.get("dash_state", null))
 	var dash_active: bool = bool(dash_snapshot.get("active", false))
 	var dash_recovering: bool = bool(dash_snapshot.get("recovering", false))
 	if dash_active and not previous_dash_active:
 		dash_origin_pos = before_player_pos
 		dash_origin_valid = true
-		_mark_core_flip_dash_started(dash_snapshot)
+		core_flip_last_dash_start_msec = Time.get_ticks_msec()
+		_clear_core_flip_ready_window(bool(dash_snapshot.get("is_half", false)))
 	if dash_active or dash_recovering:
 		dash_grace_frames = SHADOW_STEP_DASH_GRACE_FRAMES
 	else:
@@ -1033,7 +1100,9 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 			and not core_flip_dark_ready
 			and not marshal_dark_ready
 		):
-			_reset_dark_blade_start_window()
+			dark_blade_window = false
+			dark_blade_window_frames = 0.0
+			core_flip_dark_blade_handoff_frames = 0.0
 	_update_blade_motion_combo_windows(fps_scale)
 	if nerve_strike_miss_text_timer > 0.0:
 		nerve_strike_miss_text_timer = max(0.0, nerve_strike_miss_text_timer - fps_scale)
@@ -1046,7 +1115,24 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 	particle_drawer.update_dive_particle_array(dive_particles, fps_scale)
 	if core_flip_miss_text_timer > 0.0:
 		core_flip_miss_text_timer = max(0.0, core_flip_miss_text_timer - fps_scale)
-	_update_marshal_chain_timers(fps_scale, context, deps)
+	var marshal_timer_skill_config: Object = _get_viper_skill_config(deps)
+	_update_marshal_ready_window(fps_scale, context, marshal_timer_skill_config)
+	_update_pending_phantom_kick_window(fps_scale, context, deps, marshal_timer_skill_config)
+	_update_double_marshal_ready_window(fps_scale, context, marshal_timer_skill_config)
+	if dmk_freeze_active:
+		var dmk_prep_mult: float = skill_scaling.get_marshal_prep_duration_mult(_get_kick_enhance_level(deps))
+		dmk_freeze_frames = max(0.0, dmk_freeze_frames - fps_scale / max(0.1, dmk_prep_mult))
+		if dmk_freeze_frames <= 0.0:
+			dmk_freeze_active = false
+	if dmk_text_active:
+		dmk_text_frames = max(0.0, dmk_text_frames - fps_scale)
+		if dmk_text_frames <= 0.0:
+			dmk_text_active = false
+	if venom_edge_strike_active:
+		venom_edge_strike_elapsed_frames += fps_scale
+		if venom_edge_strike_elapsed_frames >= VENOM_EDGE_STRIKE_TOTAL_FRAMES:
+			venom_edge_strike_active = false
+			venom_edge_strike_elapsed_frames = 0.0
 	particle_drawer.update_particle_list(marshal_particles, fps_scale, 0.985, 0.0)
 	particle_drawer.update_particle_list(phantom_hit_particles, fps_scale, 0.97, 0.04)
 	_update_ignition_aura_runtime(fps_scale, context, deps)
@@ -1060,7 +1146,21 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 		return {}
 	if chaos_state == "idle":
 		return {}
-	_advance_chaos_spear_runtime(fps_scale, context, deps)
+	chaos_phase_frames += fps_scale
+	match chaos_state:
+		"startup":
+			_update_chaos_startup_phase(context, deps)
+		"flying":
+			_update_chaos_flying_phase(deps)
+		"impact":
+			_update_chaos_impact_phase(context, deps)
+		"blackhole":
+			if chaos_phase_frames >= CHAOS_BLACKHOLE_FRAMES:
+				_release_chaos_blackhole(false, context, deps)
+		"fade":
+			if chaos_phase_frames >= CHAOS_FADE_FRAMES:
+				audio_router.stop_chaos_blackhole_sound(deps)
+				_reset_chaos_spear_runtime(false)
 	return {}
 
 
@@ -1124,7 +1224,7 @@ func apply_shadow_step_ball_motion(fps_scale: float, scene: Dictionary, context:
 
 func apply_blade_rush_ball_motion(fps_scale: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
-	if not _has_blade_ball_motion_runtime_active():
+	if not (_is_primary_blade_projectile_active() or _has_blade_followup_projectiles()):
 		return result
 	var motion_context: Dictionary = _build_viper_ball_motion_context(scene, context)
 	if _is_primary_blade_projectile_active():
@@ -1200,10 +1300,29 @@ func _sync_chaos_blackhole_previous_ball_pos(ball_pos: Vector2) -> void:
 func apply_emp_strike_ball_motion(_fps_scale: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	if not _is_context_ball_active(context, false):
 		return {}
-	var ball_pos: Vector2 = _get_dive_motion_ball_pos(scene, context)
+	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	if dive_active and dive_phase == 2 and not dive_ball_boosted:
-		if _does_dive_shockwave_reach_ball(dive_shockwave_pos.y, ball_pos):
-			return _apply_dive_strike_impact(scene, context, deps)
+		var primary_vertical_gap: float = dive_shockwave_pos.y - ball_pos.y
+		if primary_vertical_gap >= 0.0 and primary_vertical_gap <= DIVE_SHOCKWAVE_HEIGHT:
+			dive_ball_boosted = true
+			var primary_ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", context.get("ball_vel", Vector2.ZERO)), Vector2.ZERO)
+			var primary_next_vel: Vector2 = ViperSkillGeometry.emp_strike_hit_velocity(primary_ball_vel)
+			var primary_released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
+			_start_dive_slip_for_height(ball_pos, context, deps, dive_height_snapshot, false)
+			dive_hit_text_timer = DIVE_HIT_TEXT_FRAMES
+			dive_hit_text_pos = ball_pos
+			dive_hit_text_height_ratio = clamp(dive_height_snapshot / DIVE_JETPACK_MAX_HEIGHT, 0.0, 1.0)
+			dive_hit_feedback_msec = Time.get_ticks_msec()
+			_trigger_feedback(deps, 0.20, 5.5)
+			if not _register_ball_hit_pulse(ball_pos, primary_next_vel, deps, 0.92, "viper_emp_strike"):
+				_spawn_fallback_hit_impact(ball_pos, primary_next_vel, deps, Color(0.40, 0.90, 1.0, 1.0), 1.25, 0.86, 1.0)
+			var primary_result := {
+				"ball_vel": primary_next_vel,
+				"ball_impact_boost": max(1.0, float(scene.get("ball_impact_boost", 1.0))),
+				"player_collision_cooldown": max(DIVE_PLAYER_COLLISION_COOLDOWN, float(scene.get("player_collision_cooldown", 0.0))),
+			}
+			primary_result.merge(_award_skill_gold(deps, 20), true)
+			return _mark_result_released_chaos_hit(primary_result, primary_released_chaos)
 	if dual_glitch_clone_dive_entries.is_empty():
 		return {}
 	for index in range(dual_glitch_clone_dive_entries.size()):
@@ -1213,11 +1332,24 @@ func apply_emp_strike_ball_motion(_fps_scale: float, scene: Dictionary, context:
 		var entry: Dictionary = entry_value
 		if not bool(entry.get("activated", false)) or bool(entry.get("ball_boosted", false)):
 			continue
-		if not _does_dual_glitch_clone_dive_entry_reach_ball(entry, ball_pos):
+		var clone_vertical_gap: float = float(entry.get("y", dive_shockwave_pos.y)) - ball_pos.y
+		if clone_vertical_gap < 0.0 or clone_vertical_gap > DIVE_SHOCKWAVE_HEIGHT:
 			continue
 		entry["ball_boosted"] = true
 		dual_glitch_clone_dive_entries[index] = entry
-		return _apply_dual_glitch_clone_dive_impact(entry, scene, context, deps)
+		var clone_ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", context.get("ball_vel", Vector2.ZERO)), Vector2.ZERO)
+		var clone_next_vel: Vector2 = ViperSkillGeometry.emp_strike_hit_velocity(clone_ball_vel)
+		var clone_released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
+		_start_dive_slip_for_height(ball_pos, context, deps, float(entry.get("height_snapshot", dive_height_snapshot)), true)
+		_trigger_feedback(deps, 0.13, 3.6)
+		_register_ball_hit_pulse(ball_pos, clone_next_vel, deps, 0.58, "viper_dual_glitch_emp")
+		var clone_result: Dictionary = {
+			"ball_vel": clone_next_vel,
+			"ball_impact_boost": max(1.0, float(scene.get("ball_impact_boost", 1.0))),
+			"player_collision_cooldown": max(DIVE_PLAYER_COLLISION_COOLDOWN, float(scene.get("player_collision_cooldown", 0.0))),
+			"viper_dual_glitch_clone_emp_hit": true,
+		}
+		return _mark_result_released_chaos_hit(clone_result, clone_released_chaos)
 	return {}
 
 
@@ -1259,17 +1391,7 @@ func _open_core_flip_ready_window(ready_msec: int) -> void:
 	_clear_core_flip_input_buffer()
 
 
-func _mark_core_flip_dash_started(dash_snapshot: Dictionary) -> void:
-	core_flip_last_dash_start_msec = Time.get_ticks_msec()
-	_clear_core_flip_ready_window(bool(dash_snapshot.get("is_half", false)))
-
-
-func _try_reopen_core_flip_ready_window_from_shadow_hit() -> void:
-	if not core_flip_consumed and _has_core_flip_dash_start():
-		_open_core_flip_ready_window(Time.get_ticks_msec())
-
-
-func _prime_shadow_step_hit_runtime_state() -> void:
+func _prime_shadow_step_hit_runtime(deps: Dictionary) -> void:
 	shadow_hit_consumed = true
 	_clear_shadow_kick_ready()
 	shadow_hologram_kick_hit = true
@@ -1277,20 +1399,10 @@ func _prime_shadow_step_hit_runtime_state() -> void:
 	phantom_strike_active = false
 	phantom_strike_frames = 0.0
 	shadow_marshal_delay_frames = SHADOW_STEP_MARSHAL_DELAY_FRAMES
-
-
-func _try_open_dark_blade_window_from_shadow_hit(deps: Dictionary) -> void:
-	if not shadow_was_airborne:
-		return
-	if not _is_dark_blade_equipped(deps):
-		return
-	_open_dark_blade_start_window()
-
-
-func _prime_shadow_step_hit_runtime(deps: Dictionary) -> void:
-	_prime_shadow_step_hit_runtime_state()
-	_try_reopen_core_flip_ready_window_from_shadow_hit()
-	_try_open_dark_blade_window_from_shadow_hit(deps)
+	if not core_flip_consumed and core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
+		_open_core_flip_ready_window(Time.get_ticks_msec())
+	if shadow_was_airborne and _is_dark_blade_equipped(deps):
+		_open_dark_blade_start_window()
 
 
 func _play_shadow_step_hit_feedback(ball_pos: Vector2, next_vel: Vector2, center_t: float, deps: Dictionary) -> void:
@@ -1317,43 +1429,6 @@ func _play_shadow_step_hit_feedback(ball_pos: Vector2, next_vel: Vector2, center
 		)
 
 
-func _start_shadow_step_hit_starburst(ball_pos: Vector2) -> void:
-	shadow_starburst_active = true
-	shadow_starburst_pos = ball_pos
-	shadow_starburst_frame = 0
-	shadow_starburst_timer = 0.0
-	shadow_starburst_is_double = false
-
-
-func _build_shadow_step_hit_result(next_vel: Vector2, scene: Dictionary, deps: Dictionary, released_chaos: bool) -> Dictionary:
-	var result := {
-		"ball_vel": next_vel,
-		"ball_impact_boost": max(1.0, float(scene.get("ball_impact_boost", 1.0))),
-		"player_collision_cooldown": max(6.0, float(scene.get("player_collision_cooldown", 0.0))),
-	}
-	var gold_award: int = SHADOW_STEP_HIT_GOLD
-	if shadow_was_airborne:
-		gold_award = int(float(gold_award) * SHADOW_STEP_AIRBORNE_GOLD_MULT)
-	result.merge(_award_skill_gold(deps, gold_award), true)
-	return _mark_result_released_chaos_hit(result, released_chaos)
-
-
-func _apply_shadow_step_hit_effects(
-	ball_pos: Vector2,
-	next_vel: Vector2,
-	center_t: float,
-	curve_frames: float,
-	curve_force: float,
-	safe_dir: int,
-	deps: Dictionary
-) -> void:
-	_set_shadow_curve(curve_frames, curve_force, safe_dir)
-	audio_router.play_shadow_kick_sound(deps)
-	_play_shadow_step_hit_feedback(ball_pos, next_vel, center_t, deps)
-	_mark_kick_skill_knockback_pending(deps)
-	_start_shadow_step_hit_starburst(ball_pos)
-
-
 func _finish_shadow_step_hit(
 	ball_pos: Vector2,
 	next_vel: Vector2,
@@ -1366,57 +1441,50 @@ func _finish_shadow_step_hit(
 	deps: Dictionary
 ) -> Dictionary:
 	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
-	_apply_shadow_step_hit_effects(ball_pos, next_vel, center_t, curve_frames, curve_force, safe_dir, deps)
-	return _build_shadow_step_hit_result(next_vel, scene, deps, released_chaos)
-
-
-func _can_try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary) -> bool:
-	return (
-		not bool(dash_snapshot.get("is_half", false))
-		and not core_flip_consumed
-		and _has_core_flip_dash_start()
-	)
-
-
-func _has_core_flip_dash_start() -> bool:
-	return core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC
-
-
-func _get_core_flip_dash_elapsed_msec(now_msec: int) -> int:
-	return now_msec - core_flip_last_dash_start_msec
-
-
-func _is_core_flip_contact_window_open(dash_active: bool, dash_elapsed_msec: int) -> bool:
-	if dash_elapsed_msec < 0:
-		return false
-	return dash_active or dash_elapsed_msec <= CORE_FLIP_DASH_SUCCESS_WINDOW_MSEC
+	_set_shadow_curve(curve_frames, curve_force, safe_dir)
+	audio_router.play_shadow_kick_sound(deps)
+	_play_shadow_step_hit_feedback(ball_pos, next_vel, center_t, deps)
+	_mark_kick_skill_knockback_pending(deps)
+	shadow_starburst_active = true
+	shadow_starburst_pos = ball_pos
+	shadow_starburst_frame = 0
+	shadow_starburst_timer = 0.0
+	shadow_starburst_is_double = false
+	var result := {
+		"ball_vel": next_vel,
+		"ball_impact_boost": max(1.0, float(scene.get("ball_impact_boost", 1.0))),
+		"player_collision_cooldown": max(6.0, float(scene.get("player_collision_cooldown", 0.0))),
+	}
+	var gold_award: int = SHADOW_STEP_HIT_GOLD
+	if shadow_was_airborne:
+		gold_award = int(float(gold_award) * SHADOW_STEP_AIRBORNE_GOLD_MULT)
+	result.merge(_award_skill_gold(deps, gold_award), true)
+	return _mark_result_released_chaos_hit(result, released_chaos)
 
 
 func _try_open_core_flip_ready_from_contact(dash_snapshot: Dictionary, deps: Dictionary) -> void:
-	if not _can_try_open_core_flip_ready_from_contact(dash_snapshot):
+	if bool(dash_snapshot.get("is_half", false)):
+		return
+	if core_flip_consumed:
+		return
+	if core_flip_last_dash_start_msec <= CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
 		return
 	var now_msec: int = Time.get_ticks_msec()
 	var dash_active: bool = bool(dash_snapshot.get("active", false))
-	var dash_elapsed_msec := _get_core_flip_dash_elapsed_msec(now_msec)
-	if not _is_core_flip_contact_window_open(dash_active, dash_elapsed_msec):
+	var dash_elapsed_msec := now_msec - core_flip_last_dash_start_msec
+	if dash_elapsed_msec < 0:
+		return
+	if not (dash_active or dash_elapsed_msec <= CORE_FLIP_DASH_SUCCESS_WINDOW_MSEC):
 		return
 	var skill_config: Object = _get_viper_skill_config(deps)
 	if _is_skill_equipped(skill_config, CORE_FLIP):
 		_open_core_flip_ready_window(now_msec)
 
 
-func _clear_core_flip_window_runtime() -> void:
-	_clear_core_flip_ready_window(true)
-	core_flip_last_dash_start_msec = CORE_FLIP_DASH_START_UNSET_MSEC
-
-
-func _clear_core_flip_persistent_feedback() -> void:
-	_clear_core_flip_dark_blade_handoff()
-	core_flip_miss_text_timer = 0.0
-	core_flip_miss_text_pos = Vector2.ZERO
-
-
-func _clear_core_flip_attack_runtime_state() -> void:
+func _reset_core_flip_runtime(clear_window: bool = false) -> void:
+	if clear_window:
+		_clear_core_flip_ready_window(true)
+		core_flip_last_dash_start_msec = CORE_FLIP_DASH_START_UNSET_MSEC
 	core_flip_attack_active = false
 	core_flip_attack_phase = 0
 	core_flip_phase_frames = 0.0
@@ -1431,101 +1499,25 @@ func _clear_core_flip_attack_runtime_state() -> void:
 	core_flip_spin_angle_degrees = 0.0
 	core_flip_spin_sound_started = false
 	core_flip_kick_sound_played = false
-
-
-func _reset_core_flip_runtime(clear_window: bool = false) -> void:
 	if clear_window:
-		_clear_core_flip_window_runtime()
-	_clear_core_flip_attack_runtime_state()
-	if clear_window:
-		_clear_core_flip_persistent_feedback()
+		core_flip_dark_blade_handoff_frames = 0.0
+		core_flip_miss_text_timer = 0.0
+		core_flip_miss_text_pos = Vector2.ZERO
 	_clear_core_flip_web_lines()
 
 
 func _is_core_flip_ready_window_active(now_msec: int) -> bool:
-	if not _has_core_flip_ready_window():
+	if core_flip_ready_msec <= 0 or core_flip_consumed:
 		return false
-	if _is_core_flip_ready_window_stale_for_dash():
+	if (
+		core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC
+		and core_flip_ready_msec < core_flip_last_dash_start_msec
+	):
 		return false
-	if _expire_core_flip_ready_window_if_needed(now_msec):
+	if now_msec > core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC:
+		_close_core_flip_ready_window()
 		return false
 	return true
-
-
-func _has_core_flip_ready_window() -> bool:
-	return core_flip_ready_msec > 0 and not core_flip_consumed
-
-
-func _is_core_flip_ready_window_stale_for_dash() -> bool:
-	return _has_core_flip_dash_start() and core_flip_ready_msec < core_flip_last_dash_start_msec
-
-
-func _expire_core_flip_ready_window_if_needed(now_msec: int) -> bool:
-	if not _is_core_flip_ready_window_expired(now_msec):
-		return false
-	_close_core_flip_ready_window()
-	return true
-
-
-func _is_core_flip_ready_window_expired(now_msec: int) -> bool:
-	return now_msec > _get_core_flip_ready_window_end_msec()
-
-
-func _get_core_flip_ready_window_end_msec() -> int:
-	return core_flip_ready_msec + CORE_FLIP_READY_WINDOW_MSEC
-
-
-func _has_core_flip_input_buffer(now_msec: int, input_snapshot: Dictionary) -> bool:
-	if not _validate_core_flip_input_buffer_window(now_msec):
-		return false
-	if _has_core_flip_input_combo(input_snapshot):
-		_buffer_core_flip_input_until_ready_window_end()
-	return _is_core_flip_input_buffer_active(now_msec)
-
-
-func _buffer_core_flip_input_until_ready_window_end() -> void:
-	core_flip_buffered_until_msec = _get_core_flip_ready_window_end_msec()
-
-
-func _is_core_flip_input_buffer_active(now_msec: int) -> bool:
-	return core_flip_buffered_until_msec >= now_msec
-
-
-func _reject_core_flip_input_buffer_window() -> bool:
-	_clear_core_flip_input_buffer()
-	return false
-
-
-func _validate_core_flip_input_buffer_window(now_msec: int) -> bool:
-	if core_flip_ready_msec <= 0:
-		return _reject_core_flip_input_buffer_window()
-	if _is_core_flip_ready_window_expired(now_msec):
-		return _reject_core_flip_input_buffer_window()
-	return true
-
-
-func _has_core_flip_input_combo(input_snapshot: Dictionary) -> bool:
-	return (
-		_is_core_flip_pressed_input_combo(input_snapshot)
-		or _is_core_flip_stored_input_combo()
-	)
-
-
-func _is_core_flip_pressed_input_combo(input_snapshot: Dictionary) -> bool:
-	return bool(input_snapshot.get("left_pressed", false)) and bool(input_snapshot.get("right_pressed", false))
-
-
-func _is_core_flip_input_press_recent(press_frame: int) -> bool:
-	var age: int = input_sequence_frame - press_frame
-	return age >= 0 and age <= CORE_FLIP_INPUT_MAX_AGE_FRAMES
-
-
-func _is_core_flip_stored_input_combo() -> bool:
-	return (
-		_is_core_flip_input_press_recent(core_flip_left_press_frame)
-		and _is_core_flip_input_press_recent(core_flip_right_press_frame)
-		and abs(core_flip_left_press_frame - core_flip_right_press_frame) <= CORE_FLIP_INPUT_FRAME_GAP
-	)
 
 
 func _has_viper_attack_motion_active(include_dive: bool = false) -> bool:
@@ -1549,10 +1541,6 @@ func _has_blade_motion_or_primary_projectile_active() -> bool:
 	return _is_blade_motion_active() or _is_primary_blade_projectile_active()
 
 
-func _has_blade_ball_motion_runtime_active() -> bool:
-	return _is_primary_blade_projectile_active() or _has_blade_followup_projectiles()
-
-
 func _has_blade_followup_projectiles() -> bool:
 	return not blade_followup_projectiles.is_empty()
 
@@ -1571,24 +1559,6 @@ func _is_config_ball_active(config: Dictionary, fallback_active: bool = true) ->
 
 func _is_context_ball_active(context: Dictionary, fallback_active: bool = true) -> bool:
 	return bool(context.get("ball_active", fallback_active))
-
-
-func _is_context_waiting_for_serve(context: Dictionary) -> bool:
-	return bool(context.get("waiting_for_serve", false))
-
-
-func _get_context_selected_character_type(context: Dictionary) -> String:
-	if not context.has("selected_character_type"):
-		return ""
-	return str(context.get("selected_character_type", "viper")).strip_edges().to_lower()
-
-
-func _is_config_waiting_for_serve(config: Dictionary) -> bool:
-	return bool(config.get("waiting_for_serve", false))
-
-
-func _has_enough_gauge_for_configured_skill(skill_config: Object, special_gauge: float, skill_name: String) -> bool:
-	return special_gauge >= _get_skill_cost(skill_config, skill_name)
 
 
 func _get_skill_cost_with_fallback(skill_config: Object, skill_name: String, fallback_cost: float) -> float:
@@ -1619,7 +1589,7 @@ func _can_activate_configured_skill(
 ) -> bool:
 	if not _is_skill_equipped(skill_config, skill_name):
 		return false
-	if not _has_enough_gauge_for_configured_skill(skill_config, special_gauge, skill_name):
+	if special_gauge < _get_skill_cost(skill_config, skill_name):
 		return false
 	return _is_configured_skill_ready(skill_name, deps, now_msec)
 
@@ -1636,64 +1606,6 @@ func _has_lateral_skill_input(input_snapshot: Dictionary) -> bool:
 	)
 
 
-func _has_ignition_hold_cancel_input(input_snapshot: Dictionary) -> bool:
-	return _is_input_pressed(input_snapshot, "down_pressed") or _has_lateral_skill_input(input_snapshot)
-
-
-func _has_core_flip_conflicting_skill_active() -> bool:
-	return (
-		_has_viper_attack_motion_active(true)
-		or shadow_hologram_active
-		or chaos_state != "idle"
-	)
-
-
-func _try_start_core_flip_from_ready_window(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	input_snapshot: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	if not _is_core_flip_ready_window_active(now_msec):
-		return {}
-	if not _has_core_flip_input_buffer(now_msec, input_snapshot):
-		return {}
-	if not _can_start_core_flip(special_gauge, config, deps, now_msec):
-		return {}
-	return _start_core_flip(player_pos, special_gauge, config, deps, now_msec)
-
-
-func _can_start_core_flip(special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int) -> bool:
-	if _has_core_flip_conflicting_skill_active():
-		return false
-	if _is_core_flip_dash_active(deps):
-		return false
-	if not _is_core_flip_battle_state_ready(config, deps):
-		return false
-	var skill_config: Object = _get_viper_skill_config(deps)
-	if not _is_skill_equipped(skill_config, CORE_FLIP):
-		return false
-	var cost: float = _get_core_flip_activation_cost(skill_config)
-	if special_gauge < cost:
-		return false
-	return _is_configured_skill_ready(CORE_FLIP, deps, now_msec)
-
-
-func _is_core_flip_dash_active(deps: Dictionary) -> bool:
-	var dash_snapshot: Dictionary = _get_dash_snapshot(deps.get("dash_state", null))
-	return bool(dash_snapshot.get("active", false))
-
-
-func _is_core_flip_battle_state_ready(config: Dictionary, deps: Dictionary) -> bool:
-	if _is_control_locked(deps):
-		return false
-	if not _is_config_ball_active(config):
-		return false
-	return not _is_round_waiting_for_serve(deps)
-
-
 func _get_core_flip_activation_cost(skill_config: Object) -> float:
 	var configured_cost: float = _get_skill_cost(skill_config, CORE_FLIP)
 	return configured_cost if configured_cost > 0.0 else 120.0
@@ -1701,13 +1613,6 @@ func _get_core_flip_activation_cost(skill_config: Object) -> float:
 
 func _get_core_flip_player_collision_cooldown(config: Dictionary) -> float:
 	return max(6.0, float(config.get("player_collision_cooldown", 0.0)))
-
-
-func _clear_core_flip_followup_windows() -> void:
-	_clear_marshal_ready_window()
-	_clear_double_marshal_ready_window()
-	_clear_marshal_first_hit_pending()
-	shadow_marshal_delay_frames = 0.0
 
 
 func _build_core_flip_motion_result(player_pos: Vector2, special_gauge: float, activated: bool, config: Dictionary) -> Dictionary:
@@ -1722,15 +1627,23 @@ func _build_core_flip_motion_result(player_pos: Vector2, special_gauge: float, a
 	}
 
 
-func _build_core_flip_hit_result(ball_vel: Vector2, config: Dictionary) -> Dictionary:
-	return {
-		"ball_vel": ball_vel,
-		"ball_impact_boost": max(1.0, float(config.get("ball_impact_boost", 1.0))),
-		"player_collision_cooldown": _get_core_flip_player_collision_cooldown(config),
-	}
-
-
-func _setup_core_flip_start_motion(player_pos: Vector2, config: Dictionary) -> void:
+func _start_core_flip(
+	player_pos: Vector2,
+	special_gauge: float,
+	config: Dictionary,
+	deps: Dictionary,
+	now_msec: int
+) -> Dictionary:
+	var skill_config: Object = _get_viper_skill_config(deps)
+	var cost: float = _get_core_flip_activation_cost(skill_config)
+	var next_gauge: float = max(0.0, special_gauge - cost)
+	_trigger_configured_cooldown_and_orb_gauge_spin(CORE_FLIP, skill_config, deps, now_msec)
+	_cancel_dash_until_key_release(deps.get("dash_state", null))
+	_trigger_feedback(deps, CORE_FLIP_START_SHAKE_AMOUNT, CORE_FLIP_START_SHAKE_INTENSITY)
+	_clear_core_flip_ready_window(true)
+	core_flip_attack_active = true
+	core_flip_attack_phase = 0
+	core_flip_phase_frames = 0.0
 	core_flip_paddle_size = _get_paddle_size(config)
 	core_flip_origin_center = player_pos + core_flip_paddle_size * 0.5
 	core_flip_target_center = _get_ball_pos(config)
@@ -1743,44 +1656,15 @@ func _setup_core_flip_start_motion(player_pos: Vector2, config: Dictionary) -> v
 	core_flip_visual_pos = player_pos
 	core_flip_return_start_center = core_flip_origin_center
 	core_flip_kick_dir = int(core_flip_start_motion.get("kick_dir", core_flip_kick_dir))
-
-
-func _prime_core_flip_activation_flags() -> void:
 	core_flip_ball_hit = false
 	core_flip_spin_angle_degrees = 0.0
 	core_flip_spin_sound_started = true
 	core_flip_kick_sound_played = false
 	_clear_core_flip_web_lines()
-	_clear_core_flip_followup_windows()
-
-
-func _trigger_core_flip_activation_effects(skill_config: Object, deps: Dictionary, now_msec: int) -> void:
-	_trigger_configured_cooldown_and_orb_gauge_spin(CORE_FLIP, skill_config, deps, now_msec)
-	_cancel_dash_until_key_release(deps.get("dash_state", null))
-	_trigger_feedback(deps, CORE_FLIP_START_SHAKE_AMOUNT, CORE_FLIP_START_SHAKE_INTENSITY)
-
-
-func _begin_core_flip_attack_runtime(player_pos: Vector2, config: Dictionary) -> void:
-	_clear_core_flip_ready_window(true)
-	core_flip_attack_active = true
-	core_flip_attack_phase = 0
-	core_flip_phase_frames = 0.0
-	_setup_core_flip_start_motion(player_pos, config)
-	_prime_core_flip_activation_flags()
-
-
-func _start_core_flip(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	var skill_config: Object = _get_viper_skill_config(deps)
-	var cost: float = _get_core_flip_activation_cost(skill_config)
-	var next_gauge: float = max(0.0, special_gauge - cost)
-	_trigger_core_flip_activation_effects(skill_config, deps, now_msec)
-	_begin_core_flip_attack_runtime(player_pos, config)
+	_clear_marshal_ready_window()
+	_clear_double_marshal_ready_window()
+	_clear_marshal_first_hit_pending()
+	shadow_marshal_delay_frames = 0.0
 	audio_router.play_core_flip_spin_sound(deps)
 	return _build_core_flip_motion_result(player_pos, next_gauge, true, config)
 
@@ -1810,32 +1694,36 @@ func _update_core_flip(
 	return result
 
 
-func _sync_core_flip_start_motion(t0: float, config: Dictionary) -> Vector2:
-	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(0, t0)
-	return _center_to_player_pos(core_flip_origin_center, config)
-
-
 func _update_core_flip_start_phase(config: Dictionary, deps: Dictionary) -> Vector2:
 	_clear_core_flip_web_lines()
 	var t0: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE0_FRAMES)
-	var next_pos: Vector2 = _sync_core_flip_start_motion(t0, config)
+	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(0, t0)
+	var next_pos: Vector2 = _center_to_player_pos(core_flip_origin_center, config)
 	if t0 >= 1.0:
 		_enter_core_flip_phase(1, deps)
 	return next_pos
 
 
-func _try_enter_core_flip_kick_phase(center1: Vector2, t1: float, wall_touch_count: int, config: Dictionary, deps: Dictionary) -> void:
-	if not ViperSkillGeometry.core_flip_should_enter_kick_phase(wall_touch_count, t1):
-		return
-	core_flip_apex_center = center1
+func _update_core_flip_wall_climb_phase(config: Dictionary, deps: Dictionary) -> Vector2:
+	var phase1_cap: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE1_FRAMES, deps)
+	var t1: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, phase1_cap)
 	core_flip_target_center = _get_ball_pos(config)
-	core_flip_kick_dir = ViperSkillGeometry.core_flip_kick_direction(core_flip_apex_center, core_flip_target_center)
-	_enter_core_flip_phase(2, deps)
-
-
-func _sync_core_flip_wall_contact(center1: Vector2, config: Dictionary, deps: Dictionary) -> int:
+	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(1, t1)
 	var leg_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_LEG_FRAMES, deps)
 	var cling_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_CLING_FRAMES, deps)
+	var center1: Vector2 = ViperSkillGeometry.core_flip_wall_climb_center(
+		t1,
+		config,
+		core_flip_paddle_size,
+		core_flip_origin_center,
+		core_flip_target_center,
+		core_flip_kick_dir,
+		core_flip_phase_frames,
+		leg_frames,
+		cling_frames,
+		CORE_FLIP_KICK_TRIGGER_Y
+	)
+	var next_pos: Vector2 = _center_to_player_pos(center1, config)
 	var wall_contact: Dictionary = ViperSkillGeometry.core_flip_wall_contact_state(
 		center1,
 		float(config.get("width", 760.0)),
@@ -1846,22 +1734,12 @@ func _sync_core_flip_wall_contact(center1: Vector2, config: Dictionary, deps: Di
 	var web_line_to: Vector2 = _get_vector2(wall_contact.get("line_to", center1), center1)
 	core_flip_web_lines.clear()
 	core_flip_web_lines.append({"from": center1, "to": web_line_to})
-	return int(wall_contact.get("touch_count", 0))
-
-
-func _sync_core_flip_wall_climb_motion(t1: float, config: Dictionary, deps: Dictionary) -> Vector2:
-	core_flip_target_center = _get_ball_pos(config)
-	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(1, t1)
-	return _compute_core_flip_wall_climb_center(t1, config, deps)
-
-
-func _update_core_flip_wall_climb_phase(config: Dictionary, deps: Dictionary) -> Vector2:
-	var phase1_cap: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE1_FRAMES, deps)
-	var t1: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, phase1_cap)
-	var center1: Vector2 = _sync_core_flip_wall_climb_motion(t1, config, deps)
-	var next_pos: Vector2 = _center_to_player_pos(center1, config)
-	var wall_touch_count: int = _sync_core_flip_wall_contact(center1, config, deps)
-	_try_enter_core_flip_kick_phase(center1, t1, wall_touch_count, config, deps)
+	var wall_touch_count: int = int(wall_contact.get("touch_count", 0))
+	if ViperSkillGeometry.core_flip_should_enter_kick_phase(wall_touch_count, t1):
+		core_flip_apex_center = center1
+		core_flip_target_center = _get_ball_pos(config)
+		core_flip_kick_dir = ViperSkillGeometry.core_flip_kick_direction(core_flip_apex_center, core_flip_target_center)
+		_enter_core_flip_phase(2, deps)
 	return next_pos
 
 
@@ -1875,106 +1753,37 @@ func _try_apply_core_flip_kick_hit(kick_center: Vector2, config: Dictionary, dep
 	if not core_flip_kick_sound_played:
 		audio_router.play_core_flip_kick_sound(deps)
 		core_flip_kick_sound_played = true
-	result.merge(_apply_core_flip_hit(config, deps), true)
+	var current_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+	var current_speed: float = current_vel.length()
+	var next_speed: float = skill_scaling.get_core_flip_hit_speed(
+		current_speed,
+		_get_kick_enhance_level(deps),
+		CORE_FLIP_SPEED_MULT,
+		CORE_FLIP_MIN_SPEED
+	)
+	var next_vel: Vector2 = ViperSkillGeometry.core_flip_bank_velocity(
+		next_speed,
+		core_flip_kick_dir,
+		config,
+		_get_kick_enhance_level(deps)
+	)
+	var ball_pos: Vector2 = _get_ball_pos(config)
+	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, config)
+	_set_shadow_curve(MARSHAL_KICK_CURVE_FRAMES, MARSHAL_KICK_CURVE_FORCE, 1 if next_vel.x > 0.0 else -1)
+	shadow_was_airborne = true
+	shadow_marshal_delay_frames = CORE_FLIP_MARSHAL_DELAY_FRAMES
+	marshal_phantom_allowed = true
 	if _is_dark_blade_equipped(deps):
 		_open_dark_blade_start_window()
-
-
-func _sync_core_flip_kick_motion(t2: float, config: Dictionary) -> Vector2:
-	if not core_flip_ball_hit:
-		core_flip_target_center = _get_ball_pos(config)
-	var kick_motion: Dictionary = ViperSkillGeometry.core_flip_kick_motion(
-		core_flip_apex_center,
-		core_flip_target_center,
-		t2
-	)
-	var kick_center: Vector2 = _get_vector2(kick_motion.get("center", core_flip_apex_center), core_flip_apex_center)
-	core_flip_kick_dir = int(kick_motion.get("dir", core_flip_kick_dir))
-	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(2, t2)
-	return kick_center
-
-
-func _finish_core_flip_kick_phase(kick_center: Vector2, deps: Dictionary) -> void:
-	if not core_flip_ball_hit:
-		core_flip_miss_text_timer = CORE_FLIP_MISS_TEXT_FRAMES
-		core_flip_miss_text_pos = ViperSkillGeometry.core_flip_miss_text_pos(
-			core_flip_origin_center,
-			CORE_FLIP_APEX_OFFSET_Y
-		)
-	core_flip_return_start_center = kick_center
-	_enter_core_flip_phase(3, deps)
-
-
-func _update_core_flip_kick_phase(config: Dictionary, deps: Dictionary, result: Dictionary) -> Vector2:
-	_clear_core_flip_web_lines()
-	var p2_duration: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE2_FRAMES, deps)
-	var t2: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, p2_duration)
-	var kick_center: Vector2 = _sync_core_flip_kick_motion(t2, config)
-	var next_pos: Vector2 = _center_to_player_pos(kick_center, config)
-	_try_apply_core_flip_kick_hit(kick_center, config, deps, result)
-	if t2 >= 1.0:
-		_finish_core_flip_kick_phase(kick_center, deps)
-	return next_pos
-
-
-func _finish_core_flip_return(deps: Dictionary) -> void:
-	if dark_blade_window and _is_dark_blade_equipped(deps):
-		_open_core_flip_dark_blade_handoff()
 	else:
-		_clear_core_flip_dark_blade_handoff()
-	_reset_core_flip_runtime(false)
-
-
-func _sync_core_flip_return_motion(t3: float, config: Dictionary) -> Vector2:
-	var return_motion: Dictionary = ViperSkillGeometry.core_flip_return_motion(
-		core_flip_return_start_center,
-		core_flip_origin_center,
-		t3
-	)
-	core_flip_spin_angle_degrees = float(return_motion.get("spin_degrees", core_flip_spin_angle_degrees))
-	var return_center: Vector2 = _get_vector2(return_motion.get("center", core_flip_origin_center), core_flip_origin_center)
-	return _center_to_player_pos(return_center, config)
-
-
-func _update_core_flip_return_phase(config: Dictionary, deps: Dictionary) -> Vector2:
-	_clear_core_flip_web_lines()
-	var t3: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE3_FRAMES)
-	var next_pos: Vector2 = _sync_core_flip_return_motion(t3, config)
-	if t3 >= 1.0:
-		next_pos = _center_to_player_pos(core_flip_origin_center, config)
-		_finish_core_flip_return(deps)
-	return next_pos
-
-
-func _enter_core_flip_phase(next_phase: int, deps: Dictionary) -> void:
-	core_flip_attack_phase = next_phase
-	core_flip_phase_frames = 0.0
-	if next_phase == 1:
-		audio_router.play_marshal_backstep_sound(deps)
-
-
-func _compute_core_flip_wall_climb_center(t1: float, config: Dictionary, deps: Dictionary) -> Vector2:
-	var leg_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_LEG_FRAMES, deps)
-	var cling_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_CLING_FRAMES, deps)
-	return ViperSkillGeometry.core_flip_wall_climb_center(
-		t1,
-		config,
-		core_flip_paddle_size,
-		core_flip_origin_center,
-		core_flip_target_center,
-		core_flip_kick_dir,
-		core_flip_phase_frames,
-		leg_frames,
-		cling_frames,
-		CORE_FLIP_KICK_TRIGGER_Y
-	)
-
-
-func _get_core_flip_duration_frames(base_frames: float, deps: Dictionary) -> float:
-	return skill_scaling.get_core_flip_duration_frames(base_frames, _get_kick_enhance_level(deps))
-
-
-func _spawn_core_flip_hit_motion_particles(ball_pos: Vector2) -> void:
+		dark_blade_window = false
+	shadow_starburst_active = true
+	shadow_starburst_pos = ball_pos
+	shadow_starburst_frame = 0
+	shadow_starburst_timer = 0.0
+	shadow_starburst_is_double = false
+	_trigger_feedback(deps, CORE_FLIP_HIT_SHAKE_AMOUNT, CORE_FLIP_HIT_SHAKE_INTENSITY)
+	var pulse_registered := _register_ball_hit_pulse(ball_pos, next_vel, deps, CORE_FLIP_HIT_PULSE_INTENSITY, CORE_FLIP_HIT_PULSE_KIND)
 	for _i in range(CORE_FLIP_HIT_MOTION_PARTICLE_COUNT):
 		_spawn_marshal_motion_particle(
 			ball_pos + Vector2(
@@ -1985,74 +1794,82 @@ func _spawn_core_flip_hit_motion_particles(ball_pos: Vector2) -> void:
 			CORE_FLIP_HIT_MOTION_PARTICLE_CHANCE,
 			randf_range(CORE_FLIP_HIT_MOTION_PARTICLE_LIFE_MIN, CORE_FLIP_HIT_MOTION_PARTICLE_LIFE_MAX)
 		)
-
-
-func _start_core_flip_hit_starburst(ball_pos: Vector2) -> void:
-	shadow_starburst_active = true
-	shadow_starburst_pos = ball_pos
-	shadow_starburst_frame = 0
-	shadow_starburst_timer = 0.0
-	shadow_starburst_is_double = false
-
-
-func _prime_core_flip_hit_followups(next_vel: Vector2, deps: Dictionary) -> void:
-	_set_shadow_curve(MARSHAL_KICK_CURVE_FRAMES, MARSHAL_KICK_CURVE_FORCE, 1 if next_vel.x > 0.0 else -1)
-	shadow_was_airborne = true
-	shadow_marshal_delay_frames = CORE_FLIP_MARSHAL_DELAY_FRAMES
-	marshal_phantom_allowed = true
-	if _is_dark_blade_equipped(deps):
-		_open_dark_blade_start_window()
-	else:
-		_close_dark_blade_start_window_preserving_frames()
-
-
-func _play_core_flip_hit_impact_feedback(ball_pos: Vector2, next_vel: Vector2, deps: Dictionary) -> void:
-	_trigger_feedback(deps, CORE_FLIP_HIT_SHAKE_AMOUNT, CORE_FLIP_HIT_SHAKE_INTENSITY)
-	var pulse_registered := _register_ball_hit_pulse(ball_pos, next_vel, deps, CORE_FLIP_HIT_PULSE_INTENSITY, CORE_FLIP_HIT_PULSE_KIND)
-	_spawn_core_flip_hit_motion_particles(ball_pos)
 	if not pulse_registered:
 		_spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(1.0, 0.43, 0.78, 1.0), 1.15, 0.74, 0.92)
-
-
-func _apply_core_flip_hit_world_effects(ball_pos: Vector2, deps: Dictionary) -> void:
 	_destroy_marshal_impact_objects(ball_pos, deps)
 	_mark_kick_skill_knockback_pending(deps)
 	var mythic_item_runtime: Object = _get_mythic_item_runtime(deps)
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("try_venom_mist_poison_ball"):
 		mythic_item_runtime.try_venom_mist_poison_ball(deps)
+	var core_flip_hit_result := {
+		"ball_vel": next_vel,
+		"ball_impact_boost": max(1.0, float(config.get("ball_impact_boost", 1.0))),
+		"player_collision_cooldown": _get_core_flip_player_collision_cooldown(config),
+	}
+	core_flip_hit_result.merge(_award_skill_gold(deps, CORE_FLIP_HIT_GOLD), true)
+	result.merge(_mark_result_released_chaos_hit(core_flip_hit_result, released_chaos), true)
+	if _is_dark_blade_equipped(deps):
+		_open_dark_blade_start_window()
 
 
-func _compute_core_flip_hit_velocity(config: Dictionary, deps: Dictionary) -> Vector2:
-	var current_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
-	var current_speed: float = current_vel.length()
-	var next_speed: float = skill_scaling.get_core_flip_hit_speed(
-		current_speed,
-		_get_kick_enhance_level(deps),
-		CORE_FLIP_SPEED_MULT,
-		CORE_FLIP_MIN_SPEED
+func _update_core_flip_kick_phase(config: Dictionary, deps: Dictionary, result: Dictionary) -> Vector2:
+	_clear_core_flip_web_lines()
+	var p2_duration: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE2_FRAMES, deps)
+	var t2: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, p2_duration)
+	if not core_flip_ball_hit:
+		core_flip_target_center = _get_ball_pos(config)
+	var kick_motion: Dictionary = ViperSkillGeometry.core_flip_kick_motion(
+		core_flip_apex_center,
+		core_flip_target_center,
+		t2
 	)
-	return _compute_core_flip_bank_velocity(next_speed, core_flip_kick_dir, config, deps)
+	var kick_center: Vector2 = _get_vector2(kick_motion.get("center", core_flip_apex_center), core_flip_apex_center)
+	core_flip_kick_dir = int(kick_motion.get("dir", core_flip_kick_dir))
+	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(2, t2)
+	var next_pos: Vector2 = _center_to_player_pos(kick_center, config)
+	_try_apply_core_flip_kick_hit(kick_center, config, deps, result)
+	if t2 >= 1.0:
+		if not core_flip_ball_hit:
+			core_flip_miss_text_timer = CORE_FLIP_MISS_TEXT_FRAMES
+			core_flip_miss_text_pos = ViperSkillGeometry.core_flip_miss_text_pos(
+				core_flip_origin_center,
+				CORE_FLIP_APEX_OFFSET_Y
+			)
+		core_flip_return_start_center = kick_center
+		_enter_core_flip_phase(3, deps)
+	return next_pos
 
 
-func _build_awarded_core_flip_hit_result(next_vel: Vector2, config: Dictionary, deps: Dictionary, released_chaos: bool) -> Dictionary:
-	var result := _build_core_flip_hit_result(next_vel, config)
-	result.merge(_award_skill_gold(deps, CORE_FLIP_HIT_GOLD), true)
-	return _mark_result_released_chaos_hit(result, released_chaos)
+func _update_core_flip_return_phase(config: Dictionary, deps: Dictionary) -> Vector2:
+	_clear_core_flip_web_lines()
+	var t3: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE3_FRAMES)
+	var return_motion: Dictionary = ViperSkillGeometry.core_flip_return_motion(
+		core_flip_return_start_center,
+		core_flip_origin_center,
+		t3
+	)
+	core_flip_spin_angle_degrees = float(return_motion.get("spin_degrees", core_flip_spin_angle_degrees))
+	var return_center: Vector2 = _get_vector2(return_motion.get("center", core_flip_origin_center), core_flip_origin_center)
+	var next_pos: Vector2 = _center_to_player_pos(return_center, config)
+	if t3 >= 1.0:
+		next_pos = _center_to_player_pos(core_flip_origin_center, config)
+		if dark_blade_window and _is_dark_blade_equipped(deps):
+			core_flip_dark_blade_handoff_frames = CORE_FLIP_DARK_BLADE_HANDOFF_FRAMES
+		else:
+			core_flip_dark_blade_handoff_frames = 0.0
+		_reset_core_flip_runtime(false)
+	return next_pos
 
 
-func _apply_core_flip_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
-	var next_vel: Vector2 = _compute_core_flip_hit_velocity(config, deps)
-	var ball_pos: Vector2 = _get_ball_pos(config)
-	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, config)
-	_prime_core_flip_hit_followups(next_vel, deps)
-	_start_core_flip_hit_starburst(ball_pos)
-	_play_core_flip_hit_impact_feedback(ball_pos, next_vel, deps)
-	_apply_core_flip_hit_world_effects(ball_pos, deps)
-	return _build_awarded_core_flip_hit_result(next_vel, config, deps, released_chaos)
+func _enter_core_flip_phase(next_phase: int, deps: Dictionary) -> void:
+	core_flip_attack_phase = next_phase
+	core_flip_phase_frames = 0.0
+	if next_phase == 1:
+		audio_router.play_marshal_backstep_sound(deps)
 
 
-func _compute_core_flip_bank_velocity(speed: float, kick_dir: int, config: Dictionary, deps: Dictionary) -> Vector2:
-	return ViperSkillGeometry.core_flip_bank_velocity(speed, kick_dir, config, _get_kick_enhance_level(deps))
+func _get_core_flip_duration_frames(base_frames: float, deps: Dictionary) -> float:
+	return skill_scaling.get_core_flip_duration_frames(base_frames, _get_kick_enhance_level(deps))
 
 
 func _center_to_player_pos(center: Vector2, config: Dictionary) -> Vector2:
@@ -2354,15 +2171,6 @@ func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 		perf_logger.finish_sample(label, start_usec)
 
 
-func _update_marshal_chain_timers(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
-	var skill_config: Object = _get_viper_skill_config(deps)
-	_update_marshal_ready_window(fps_scale, context, skill_config)
-	_update_pending_phantom_kick_window(fps_scale, context, deps, skill_config)
-	_update_double_marshal_ready_window(fps_scale, context, skill_config)
-	_update_dmk_presentation_timers(fps_scale, deps)
-	_update_venom_edge_strike_timer(fps_scale)
-
-
 func _update_marshal_ready_window(fps_scale: float, context: Dictionary, skill_config: Object) -> void:
 	if not marshal_ready:
 		return
@@ -2383,7 +2191,13 @@ func _update_pending_phantom_kick_window(
 	if marshal_first_hit_delay_frames > 0.0:
 		return
 	_clear_marshal_first_hit_pending()
-	if _can_open_phantom_kick_window(skill_config, context, deps):
+	if (
+		marshal_phantom_allowed
+		and shadow_was_airborne
+		and _has_phantom_kick_chain_skill(skill_config, deps)
+		and _context_has_enough_gauge(context, _get_marshal_skill_cost(skill_config, PHANTOM_KICK))
+		and _is_configured_skill_ready(PHANTOM_KICK, deps)
+	):
 		double_marshal_ready = true
 		double_marshal_ready_frames = MARSHAL_KICK_READY_FRAMES
 	else:
@@ -2396,35 +2210,6 @@ func _update_double_marshal_ready_window(fps_scale: float, context: Dictionary, 
 	double_marshal_ready_frames = max(0.0, double_marshal_ready_frames - fps_scale)
 	if double_marshal_ready_frames <= 0.0 or not _context_has_enough_gauge(context, _get_marshal_skill_cost(skill_config, PHANTOM_KICK)):
 		_clear_phantom_kick_chain_window()
-
-
-func _update_dmk_presentation_timers(fps_scale: float, deps: Dictionary) -> void:
-	_update_dmk_freeze_timer(fps_scale, deps)
-	_update_dmk_text_timer(fps_scale)
-
-
-func _update_dmk_freeze_timer(fps_scale: float, deps: Dictionary) -> void:
-	if dmk_freeze_active:
-		var prep_mult: float = _get_marshal_prep_duration_mult(deps)
-		dmk_freeze_frames = max(0.0, dmk_freeze_frames - fps_scale / max(0.1, prep_mult))
-		if dmk_freeze_frames <= 0.0:
-			dmk_freeze_active = false
-
-
-func _update_dmk_text_timer(fps_scale: float) -> void:
-	if dmk_text_active:
-		dmk_text_frames = max(0.0, dmk_text_frames - fps_scale)
-		if dmk_text_frames <= 0.0:
-			dmk_text_active = false
-
-
-func _update_venom_edge_strike_timer(fps_scale: float) -> void:
-	if not venom_edge_strike_active:
-		return
-	venom_edge_strike_elapsed_frames += fps_scale
-	if venom_edge_strike_elapsed_frames >= VENOM_EDGE_STRIKE_TOTAL_FRAMES:
-		venom_edge_strike_active = false
-		venom_edge_strike_elapsed_frames = 0.0
 
 
 # Public trigger for Venom Edge eye-slash strike. The Venom Edge runtime calls
@@ -2472,16 +2257,6 @@ func _has_phantom_kick_chain_skill(skill_config: Object, deps: Dictionary) -> bo
 	)
 
 
-func _can_open_phantom_kick_window(skill_config: Object, context: Dictionary, deps: Dictionary) -> bool:
-	return (
-		marshal_phantom_allowed
-		and shadow_was_airborne
-		and _has_phantom_kick_chain_skill(skill_config, deps)
-		and _context_has_enough_gauge(context, _get_marshal_skill_cost(skill_config, PHANTOM_KICK))
-		and _is_configured_skill_ready(PHANTOM_KICK, deps)
-	)
-
-
 func _clear_phantom_kick_chain_window() -> void:
 	marshal_phantom_allowed = false
 	_clear_double_marshal_ready_window()
@@ -2523,115 +2298,64 @@ func _record_dual_glitch_command(
 ) -> void:
 	if up_edge:
 		_clear_dual_glitch_command_buffer()
-	if not _can_record_dual_glitch_command(skill_config, deps, now_msec):
+	if (
+		dual_glitch_state != "idle"
+		or not _is_skill_equipped(skill_config, DUAL_GLITCH)
+		or not _is_configured_skill_ready(DUAL_GLITCH, deps)
+		or _is_core_flip_ready_window_active(now_msec)
+	):
 		_clear_dual_glitch_command_buffer()
 		return
-	_expire_dual_glitch_command(now_msec)
-	_record_dual_glitch_direction_edges(left_edge, right_edge, now_msec)
-
-
-func _record_dual_glitch_direction_edges(left_edge: bool, right_edge: bool, now_msec: int) -> void:
+	if not dual_glitch_cmd_buffer.is_empty():
+		var first: Dictionary = dual_glitch_cmd_buffer[0]
+		if now_msec - int(first.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
+			_clear_dual_glitch_command_buffer()
 	if left_edge:
 		_push_dual_glitch_command("a", now_msec)
 	if right_edge:
 		_push_dual_glitch_command("d", now_msec)
 
 
-func _can_record_dual_glitch_command(skill_config: Object, deps: Dictionary, now_msec: int) -> bool:
-	return (
-		dual_glitch_state == "idle"
-		and _is_skill_equipped(skill_config, DUAL_GLITCH)
-		and _is_configured_skill_ready(DUAL_GLITCH, deps)
-		and not _is_core_flip_ready_window_active(now_msec)
-	)
-
-
-func _expire_dual_glitch_command(now_msec: int) -> void:
-	if dual_glitch_cmd_buffer.is_empty():
-		return
-	var first: Dictionary = _get_first_dual_glitch_command_entry()
-	if _is_dual_glitch_command_expired(first, now_msec):
-		_clear_dual_glitch_command_buffer()
-
-
 func _push_dual_glitch_command(key_char: String, now_msec: int) -> void:
-	var expected: Array[String] = _get_dual_glitch_command_sequence()
-	_expire_dual_glitch_command(now_msec)
-	var progress: int = _get_dual_glitch_command_progress()
-	var expected_key: String = _get_dual_glitch_expected_command_key(expected, progress)
+	if not dual_glitch_cmd_buffer.is_empty():
+		var first: Dictionary = dual_glitch_cmd_buffer[0]
+		if now_msec - int(first.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
+			_clear_dual_glitch_command_buffer()
+	var progress: int = dual_glitch_cmd_buffer.size()
+	var expected_key := "a" if progress == 0 or progress == 2 or progress >= 4 else "d"
+	var entry := {"key": key_char, "time": now_msec}
 	if key_char == expected_key:
-		_record_matching_dual_glitch_command(key_char, now_msec, progress)
+		if progress == 0:
+			dual_glitch_cmd_buffer = [entry]
+		else:
+			dual_glitch_cmd_buffer.append(entry)
 		return
-	_record_mismatched_dual_glitch_command(key_char, now_msec)
-
-
-func _record_mismatched_dual_glitch_command(key_char: String, now_msec: int) -> void:
 	if key_char == "a":
-		_restart_dual_glitch_command_buffer(key_char, now_msec)
+		dual_glitch_cmd_buffer = [entry]
 	else:
 		dual_glitch_cmd_buffer = []
 
 
 func _check_dual_glitch_command(now_msec: int) -> bool:
-	var expected: Array[String] = _get_dual_glitch_command_sequence()
-	_expire_dual_glitch_command(now_msec)
-	if not _has_complete_dual_glitch_command_buffer(expected):
+	if not dual_glitch_cmd_buffer.is_empty():
+		var first: Dictionary = dual_glitch_cmd_buffer[0]
+		if now_msec - int(first.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
+			_clear_dual_glitch_command_buffer()
+	if dual_glitch_cmd_buffer.size() < 4:
 		return false
-	var first: Dictionary = _get_first_dual_glitch_command_entry()
-	if _is_dual_glitch_command_expired(first, now_msec):
-		_clear_dual_glitch_command_buffer()
-		return false
-	if not _has_dual_glitch_command_sequence(expected):
+	var first_entry: Dictionary = dual_glitch_cmd_buffer[0]
+	var second_entry: Dictionary = dual_glitch_cmd_buffer[1]
+	var third_entry: Dictionary = dual_glitch_cmd_buffer[2]
+	var fourth_entry: Dictionary = dual_glitch_cmd_buffer[3]
+	if (
+		str(first_entry.get("key", "")) != "a"
+		or str(second_entry.get("key", "")) != "d"
+		or str(third_entry.get("key", "")) != "a"
+		or str(fourth_entry.get("key", "")) != "d"
+	):
 		return false
 	_clear_dual_glitch_command_buffer()
 	return true
-
-
-func _get_dual_glitch_command_sequence() -> Array[String]:
-	return ["a", "d", "a", "d"]
-
-
-func _get_dual_glitch_expected_command_key(expected: Array[String], progress: int) -> String:
-	return str(expected[progress]) if progress < expected.size() else str(expected[0])
-
-
-func _get_dual_glitch_command_progress() -> int:
-	return dual_glitch_cmd_buffer.size()
-
-
-func _has_complete_dual_glitch_command_buffer(expected: Array[String]) -> bool:
-	return dual_glitch_cmd_buffer.size() >= expected.size()
-
-
-func _get_first_dual_glitch_command_entry() -> Dictionary:
-	return dual_glitch_cmd_buffer[0]
-
-
-func _has_dual_glitch_command_sequence(expected: Array[String]) -> bool:
-	for index in range(expected.size()):
-		var entry: Dictionary = dual_glitch_cmd_buffer[index]
-		if str(entry.get("key", "")) != str(expected[index]):
-			return false
-	return true
-
-
-func _record_matching_dual_glitch_command(key_char: String, now_msec: int, progress: int) -> void:
-	if progress == 0:
-		_restart_dual_glitch_command_buffer(key_char, now_msec)
-	else:
-		dual_glitch_cmd_buffer.append(_get_dual_glitch_command_entry(key_char, now_msec))
-
-
-func _get_dual_glitch_command_entry(key_char: String, now_msec: int) -> Dictionary:
-	return {"key": key_char, "time": now_msec}
-
-
-func _restart_dual_glitch_command_buffer(key_char: String, now_msec: int) -> void:
-	dual_glitch_cmd_buffer = [_get_dual_glitch_command_entry(key_char, now_msec)]
-
-
-func _is_dual_glitch_command_expired(first: Dictionary, now_msec: int) -> bool:
-	return now_msec - int(first.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC
 
 
 func _clear_dual_glitch_command_buffer() -> void:
@@ -2639,179 +2363,34 @@ func _clear_dual_glitch_command_buffer() -> void:
 
 
 func _push_chaos_command(key_char: String, now_msec: int) -> void:
-	chaos_cmd_buffer.append(_get_chaos_command_entry(key_char, now_msec))
-	_trim_chaos_command_buffer()
-
-
-func _get_chaos_command_entry(key_char: String, now_msec: int) -> Dictionary:
-	return {"key": key_char, "time": now_msec}
-
-
-func _trim_chaos_command_buffer() -> void:
+	chaos_cmd_buffer.append({"key": key_char, "time": now_msec})
 	while chaos_cmd_buffer.size() > CHAOS_CMD_BUFFER_MAX:
 		chaos_cmd_buffer.pop_front()
 
 
-func _has_complete_chaos_command_buffer() -> bool:
-	return chaos_cmd_buffer.size() >= 3
-
-
-func _get_recent_chaos_command_entries() -> Array:
-	return [
-		chaos_cmd_buffer[chaos_cmd_buffer.size() - 3],
-		chaos_cmd_buffer[chaos_cmd_buffer.size() - 2],
-		chaos_cmd_buffer[chaos_cmd_buffer.size() - 1],
-	]
-
-
-func _get_chaos_command_entry_key(entry: Dictionary) -> String:
-	return str(entry.get("key", ""))
-
-
-func _get_chaos_command_entry_time(entry: Dictionary) -> int:
-	return int(entry.get("time", 0))
-
-
 func _check_chaos_command(now_msec: int) -> bool:
-	if not _has_complete_chaos_command_buffer():
+	if chaos_cmd_buffer.size() < 3:
 		return false
-	var recent_entries: Array = _get_recent_chaos_command_entries()
-	if not _has_valid_recent_chaos_command_entries(recent_entries, now_msec):
+	var first: Dictionary = chaos_cmd_buffer[chaos_cmd_buffer.size() - 3]
+	var second: Dictionary = chaos_cmd_buffer[chaos_cmd_buffer.size() - 2]
+	var third: Dictionary = chaos_cmd_buffer[chaos_cmd_buffer.size() - 1]
+	if str(first.get("key", "")) != "a" or str(second.get("key", "")) != "w" or str(third.get("key", "")) != "d":
+		return false
+	var first_time: int = int(first.get("time", 0))
+	var second_time: int = int(second.get("time", 0))
+	var third_time: int = int(third.get("time", 0))
+	if second_time - first_time > CHAOS_CMD_WINDOW_MSEC:
+		return false
+	if third_time - second_time > CHAOS_CMD_WINDOW_MSEC:
+		return false
+	if now_msec - third_time > CHAOS_CMD_WINDOW_MSEC:
 		return false
 	_clear_chaos_spear_command_buffer()
 	return true
 
 
-func _has_valid_recent_chaos_command_entries(recent_entries: Array, now_msec: int) -> bool:
-	var first: Dictionary = recent_entries[0]
-	var second: Dictionary = recent_entries[1]
-	var third: Dictionary = recent_entries[2]
-	if not _has_chaos_command_key_sequence(first, second, third):
-		return false
-	if not _has_chaos_command_timing_window(first, second, third, now_msec):
-		return false
-	return true
-
-
-func _get_chaos_command_sequence() -> Array[String]:
-	return ["a", "w", "d"]
-
-
-func _is_chaos_command_entry_key(entry: Dictionary, expected_key: String) -> bool:
-	return _get_chaos_command_entry_key(entry) == expected_key
-
-
-func _has_chaos_command_key_sequence(first: Dictionary, second: Dictionary, third: Dictionary) -> bool:
-	var entries: Array = [first, second, third]
-	var expected: Array[String] = _get_chaos_command_sequence()
-	return _has_chaos_command_entries_matching_sequence(entries, expected)
-
-
-func _has_chaos_command_entries_matching_sequence(entries: Array, expected: Array[String]) -> bool:
-	for index in range(expected.size()):
-		if not _is_chaos_command_entry_key(entries[index], expected[index]):
-			return false
-	return true
-
-
-func _has_chaos_command_timing_window(first: Dictionary, second: Dictionary, third: Dictionary, now_msec: int) -> bool:
-	if not _has_chaos_command_entry_interval_within_window(first, second):
-		return false
-	if not _has_chaos_command_entry_interval_within_window(second, third):
-		return false
-	return _has_chaos_command_entry_elapsed_within_window(third, now_msec)
-
-
-func _has_chaos_command_entry_interval_within_window(start_entry: Dictionary, end_entry: Dictionary) -> bool:
-	return _is_chaos_command_interval_within_window(
-		_get_chaos_command_entry_time(start_entry),
-		_get_chaos_command_entry_time(end_entry)
-	)
-
-
-func _has_chaos_command_entry_elapsed_within_window(entry: Dictionary, now_msec: int) -> bool:
-	return _is_chaos_command_interval_within_window(_get_chaos_command_entry_time(entry), now_msec)
-
-
-func _is_chaos_command_interval_within_window(start_msec: int, end_msec: int) -> bool:
-	return end_msec - start_msec <= CHAOS_CMD_WINDOW_MSEC
-
-
 func _clear_chaos_spear_command_buffer() -> void:
 	chaos_cmd_buffer.clear()
-
-
-func _can_start_dual_glitch(
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> bool:
-	if dual_glitch_state != "idle":
-		return false
-	if _is_dual_glitch_start_motion_blocked():
-		return false
-	if _is_dash_or_control_locked(deps):
-		return false
-	if not _is_config_ball_active(config, false):
-		return false
-	if _is_round_waiting_for_serve(deps):
-		return false
-	return _can_activate_dual_glitch_skill(special_gauge, deps, now_msec)
-
-
-func _is_dual_glitch_start_motion_blocked() -> bool:
-	return _has_viper_attack_motion_active(true) or chaos_state == "startup"
-
-
-func _can_activate_dual_glitch_skill(special_gauge: float, deps: Dictionary, now_msec: int) -> bool:
-	var skill_config: Object = _get_viper_skill_config(deps)
-	return _can_activate_configured_skill(skill_config, special_gauge, deps, DUAL_GLITCH, now_msec)
-
-
-func _try_start_dual_glitch_from_command(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	if not _check_dual_glitch_command(now_msec):
-		return {}
-	if not _can_start_dual_glitch(special_gauge, config, deps, now_msec):
-		return {}
-	return _start_dual_glitch(player_pos, special_gauge, config, deps, now_msec)
-
-
-func _update_dual_glitch_startup_motion(player_pos: Vector2, special_gauge: float, config: Dictionary) -> Dictionary:
-	var dual_startup_pos: Vector2 = _get_dual_glitch_startup_pos(player_pos, config)
-	dual_glitch_base_pos = dual_startup_pos
-	return _build_dual_glitch_startup_motion_result(dual_startup_pos, special_gauge)
-
-
-func _build_dual_glitch_startup_motion_result(dual_startup_pos: Vector2, special_gauge: float) -> Dictionary:
-	return {
-		"handled": true,
-		"activated": false,
-		"skill_name": DUAL_GLITCH,
-		"player_pos": dual_startup_pos,
-		"player_speed": 0.0,
-		"special_gauge": special_gauge,
-		"locked_player_x": dual_startup_pos.x,
-	}
-
-
-func _get_dual_glitch_startup_pos(player_pos: Vector2, config: Dictionary) -> Vector2:
-	var dual_startup_pos: Vector2 = player_pos
-	if dual_glitch_locked_player_x_valid:
-		dual_startup_pos.x = _get_dual_glitch_locked_startup_x(config)
-	return dual_startup_pos
-
-
-func _get_dual_glitch_locked_startup_x(config: Dictionary) -> float:
-	var play_left: float = float(config.get("play_left", 0.0))
-	var play_right: float = float(config.get("play_right", 760.0))
-	return clamp(dual_glitch_locked_player_x, play_left, max(play_left, play_right - _get_paddle_size(config).x))
 
 
 func _start_dual_glitch(
@@ -2822,18 +2401,48 @@ func _start_dual_glitch(
 	now_msec: int
 ) -> Dictionary:
 	var skill_config: Object = _get_viper_skill_config(deps)
-	var next_gauge: float = _get_dual_glitch_start_next_gauge(skill_config, special_gauge)
-	_prime_dual_glitch_runtime(player_pos, config, deps, now_msec)
-	_trigger_dual_glitch_start_effects(skill_config, deps, now_msec)
-	return _build_dual_glitch_start_result(player_pos, next_gauge)
-
-
-func _get_dual_glitch_start_next_gauge(skill_config: Object, special_gauge: float) -> float:
 	var cost: float = _get_skill_cost(skill_config, DUAL_GLITCH)
-	return max(0.0, special_gauge - cost)
-
-
-func _build_dual_glitch_start_result(player_pos: Vector2, next_gauge: float) -> Dictionary:
+	var next_gauge: float = max(0.0, special_gauge - cost)
+	dual_glitch_state = "startup"
+	dual_glitch_phase_frames = 0.0
+	var duration_pct: float = float(_get_four_poisons_scaled_pct(
+		deps,
+		FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_BY_LEVEL,
+		FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_CAP,
+		FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_PER_EXTRA_LEVEL
+	))
+	dual_glitch_active_total_frames = max(1.0, DUAL_GLITCH_ACTIVE_FRAMES * (1.0 + duration_pct / 100.0))
+	dual_glitch_locked_player_x = player_pos.x
+	dual_glitch_locked_player_x_valid = true
+	dual_glitch_base_pos = player_pos
+	dual_glitch_paddle_size = _get_paddle_size(config)
+	dual_glitch_fade_reason = ""
+	dual_glitch_start_msec = now_msec
+	_clear_dual_glitch_command_buffer()
+	dual_glitch_clones.clear()
+	var clone_hp: int = skill_scaling.get_dual_glitch_clone_hp(
+		_get_runtime_skill_level(deps, "four_poisons"),
+		FOUR_POISONS_DUAL_GLITCH_CLONE_HP_BY_LEVEL,
+		FOUR_POISONS_DUAL_GLITCH_CLONE_HP_CAP
+	)
+	for side in [-1, 1]:
+		dual_glitch_clones.append({
+			"side": side,
+			"hp": clone_hp,
+			"max_hp": clone_hp,
+			"collision_enabled": true,
+			"evaporation_frames": -1.0,
+		})
+	var cooldown_seconds: float = _get_skill_cooldown_seconds_with_fallback(skill_config, DUAL_GLITCH, 45.0)
+	cooldown_seconds = _get_four_poisons_additive_cooldown_seconds(DUAL_GLITCH, skill_config, deps, cooldown_seconds)
+	_trigger_runtime_cooldown_and_orb_gauge_spin(
+		DUAL_GLITCH,
+		now_msec,
+		skill_config,
+		deps,
+		cooldown_seconds
+	)
+	_trigger_feedback(deps, 0.09, 3.2)
 	return {
 		"handled": true,
 		"activated": true,
@@ -2843,76 +2452,6 @@ func _build_dual_glitch_start_result(player_pos: Vector2, next_gauge: float) -> 
 		"special_gauge": next_gauge,
 		"locked_player_x": dual_glitch_locked_player_x,
 	}
-
-
-func _prime_dual_glitch_runtime(player_pos: Vector2, config: Dictionary, deps: Dictionary, now_msec: int) -> void:
-	dual_glitch_state = "startup"
-	dual_glitch_phase_frames = 0.0
-	dual_glitch_active_total_frames = _get_dual_glitch_active_total_frames(deps)
-	dual_glitch_locked_player_x = player_pos.x
-	dual_glitch_locked_player_x_valid = true
-	dual_glitch_base_pos = player_pos
-	dual_glitch_paddle_size = _get_paddle_size(config)
-	dual_glitch_fade_reason = ""
-	dual_glitch_start_msec = now_msec
-	_clear_dual_glitch_command_buffer()
-	_prime_dual_glitch_clones(deps)
-
-
-func _prime_dual_glitch_clones(deps: Dictionary) -> void:
-	dual_glitch_clones.clear()
-	var clone_hp: int = _get_dual_glitch_clone_hp(deps)
-	for side in [-1, 1]:
-		dual_glitch_clones.append(_get_dual_glitch_clone_entry(side, clone_hp))
-
-
-func _get_dual_glitch_clone_entry(side: int, clone_hp: int) -> Dictionary:
-	return {
-		"side": side,
-		"hp": clone_hp,
-		"max_hp": clone_hp,
-		"collision_enabled": true,
-		"evaporation_frames": -1.0,
-	}
-
-
-func _get_dual_glitch_active_total_frames(deps: Dictionary) -> float:
-	var duration_pct: float = float(_get_four_poisons_scaled_pct(
-		deps,
-		FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_BY_LEVEL,
-		FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_CAP,
-		FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_PER_EXTRA_LEVEL
-	))
-	return max(1.0, DUAL_GLITCH_ACTIVE_FRAMES * (1.0 + duration_pct / 100.0))
-
-
-func _get_dual_glitch_clone_hp(deps: Dictionary) -> int:
-	return skill_scaling.get_dual_glitch_clone_hp(
-		_get_runtime_skill_level(deps, "four_poisons"),
-		FOUR_POISONS_DUAL_GLITCH_CLONE_HP_BY_LEVEL,
-		FOUR_POISONS_DUAL_GLITCH_CLONE_HP_CAP
-	)
-
-
-func _trigger_dual_glitch_start_effects(skill_config: Object, deps: Dictionary, now_msec: int) -> void:
-	var cooldown_seconds: float = _get_dual_glitch_start_cooldown_seconds(skill_config, deps)
-	_trigger_runtime_cooldown_and_orb_gauge_spin(
-		DUAL_GLITCH,
-		now_msec,
-		skill_config,
-		deps,
-		cooldown_seconds
-	)
-	_trigger_feedback(deps, 0.09, 3.2)
-
-
-func _get_dual_glitch_start_cooldown_seconds(skill_config: Object, deps: Dictionary) -> float:
-	var cooldown_seconds: float = _get_dual_glitch_cooldown_seconds(skill_config)
-	return _get_four_poisons_additive_cooldown_seconds(DUAL_GLITCH, skill_config, deps, cooldown_seconds)
-
-
-func _get_dual_glitch_cooldown_seconds(skill_config: Object) -> float:
-	return _get_skill_cooldown_seconds_with_fallback(skill_config, DUAL_GLITCH, 45.0)
 
 
 func _can_start_chaos_spear(
@@ -2927,68 +2466,13 @@ func _can_start_chaos_spear(
 		return false
 	if not _is_config_ball_active(config, false):
 		return false
-	if _is_chaos_spear_airborne_blocked(deps):
+	var jetpack_state: Object = deps.get("viper_jetpack_state", null)
+	if jetpack_state != null and jetpack_state.has_method("is_airborne") and bool(jetpack_state.is_airborne(2.0)):
 		return false
 	if _is_round_waiting_for_serve(deps):
 		return false
-	return _can_activate_chaos_spear_skill(special_gauge, deps, now_msec)
-
-
-func _is_chaos_spear_airborne_blocked(deps: Dictionary) -> bool:
-	var jetpack_state: Object = deps.get("viper_jetpack_state", null)
-	if jetpack_state != null and jetpack_state.has_method("is_airborne"):
-		return bool(jetpack_state.is_airborne(2.0))
-	return false
-
-
-func _can_activate_chaos_spear_skill(special_gauge: float, deps: Dictionary, now_msec: int) -> bool:
 	var skill_config: Object = _get_viper_skill_config(deps)
 	return _can_activate_configured_skill(skill_config, special_gauge, deps, CHAOS_SPEAR, now_msec)
-
-
-func _try_start_chaos_spear_from_command(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	if not _check_chaos_command(now_msec):
-		return {}
-	if not _can_start_chaos_spear(special_gauge, config, deps, now_msec):
-		return {}
-	return _start_chaos_spear(player_pos, special_gauge, config, deps, now_msec)
-
-
-func _update_chaos_spear_startup_motion(player_pos: Vector2, special_gauge: float, config: Dictionary) -> Dictionary:
-	var chaos_startup_pos: Vector2 = _get_chaos_spear_startup_pos(player_pos, config)
-	return _build_chaos_spear_startup_motion_result(chaos_startup_pos, special_gauge)
-
-
-func _build_chaos_spear_startup_motion_result(chaos_startup_pos: Vector2, special_gauge: float) -> Dictionary:
-	return {
-		"handled": true,
-		"activated": false,
-		"skill_name": CHAOS_SPEAR,
-		"player_pos": chaos_startup_pos,
-		"player_speed": 0.0,
-		"special_gauge": special_gauge,
-		"allow_jetpack_overlay": true,
-		"locked_player_x": chaos_startup_pos.x,
-	}
-
-
-func _get_chaos_spear_startup_pos(player_pos: Vector2, config: Dictionary) -> Vector2:
-	var chaos_startup_pos: Vector2 = player_pos
-	if chaos_locked_player_x_valid:
-		chaos_startup_pos.x = _get_chaos_spear_locked_startup_x(config)
-	return chaos_startup_pos
-
-
-func _get_chaos_spear_locked_startup_x(config: Dictionary) -> float:
-	var chaos_play_left: float = float(config.get("play_left", 0.0))
-	var chaos_play_right: float = float(config.get("play_right", 760.0))
-	return clamp(chaos_locked_player_x, chaos_play_left, max(chaos_play_left, chaos_play_right - _get_paddle_size(config).x))
 
 
 func _start_chaos_spear(
@@ -2999,22 +2483,32 @@ func _start_chaos_spear(
 	now_msec: int
 ) -> Dictionary:
 	var skill_config: Object = _get_viper_skill_config(deps)
-	var cost: float = _get_chaos_spear_start_cost(skill_config)
-	_prime_chaos_spear_runtime(player_pos, config)
-	var next_gauge: float = _get_chaos_spear_start_next_gauge(special_gauge, cost)
-	_trigger_chaos_spear_start_effects(skill_config, deps, now_msec)
-	return _build_chaos_spear_start_result(player_pos, next_gauge)
-
-
-func _get_chaos_spear_start_cost(skill_config: Object) -> float:
-	return _get_skill_cost(skill_config, CHAOS_SPEAR)
-
-
-func _get_chaos_spear_start_next_gauge(special_gauge: float, cost: float) -> float:
-	return max(0.0, special_gauge - cost)
-
-
-func _build_chaos_spear_start_result(player_pos: Vector2, next_gauge: float) -> Dictionary:
+	var cost: float = _get_skill_cost(skill_config, CHAOS_SPEAR)
+	var player_center: Vector2 = _get_player_center(player_pos, config)
+	var ball_pos: Vector2 = _get_ball_pos(config)
+	chaos_target = Vector2(
+		float(config.get("width", 760.0)) * 0.5,
+		float(config.get("height", 750.0)) * 0.5 + 60.0
+	)
+	chaos_origin = Vector2(player_center.x, player_pos.y - 6.0)
+	chaos_current = chaos_origin
+	chaos_phase_frames = 0.0
+	chaos_prev_ball_valid = false
+	chaos_blackhole_origin_valid = false
+	chaos_base_radius = clamp(ball_pos.distance_to(chaos_target), 84.0, 264.0)
+	chaos_orbit_seed = randf_range(0.0, TAU)
+	_sync_chaos_flight_angle()
+	_reroll_chaos_impact_seed()
+	chaos_locked_player_x = player_pos.x
+	chaos_locked_player_x_valid = true
+	_reset_chaos_spear_start_flags()
+	chaos_state = "startup"
+	var next_gauge: float = max(0.0, special_gauge - cost)
+	_trigger_configured_cooldown_and_orb_gauge_spin(CHAOS_SPEAR, skill_config, deps, now_msec)
+	var feedback: Object = deps.get("feedback", null)
+	if feedback != null and feedback.has_method("set_screen_shake"):
+		feedback.set_screen_shake(0.08, 3.5)
+	audio_router.play_chaos_windup_sound(deps)
 	return {
 		"handled": true,
 		"activated": true,
@@ -3027,78 +2521,10 @@ func _build_chaos_spear_start_result(player_pos: Vector2, next_gauge: float) -> 
 	}
 
 
-func _prime_chaos_spear_runtime(player_pos: Vector2, config: Dictionary) -> void:
-	_prime_chaos_spear_position_runtime(player_pos, config)
-	_prime_chaos_spear_motion_seeds()
-	_lock_chaos_spear_player_x(player_pos)
-	_reset_chaos_spear_start_flags()
-	_enter_chaos_spear_startup_state()
-
-
-func _enter_chaos_spear_startup_state() -> void:
-	chaos_state = "startup"
-
-
-func _prime_chaos_spear_position_runtime(player_pos: Vector2, config: Dictionary) -> void:
-	var player_center: Vector2 = _get_player_center(player_pos, config)
-	var ball_pos: Vector2 = _get_ball_pos(config)
-	_prime_chaos_spear_start_position(player_pos, config, player_center)
-	_prime_chaos_blackhole_start_tracking(ball_pos)
-
-
-func _prime_chaos_spear_start_position(player_pos: Vector2, config: Dictionary, player_center: Vector2) -> void:
-	chaos_target = _get_chaos_spear_target(config)
-	chaos_origin = _get_chaos_spear_origin(player_center, player_pos)
-	_prime_chaos_spear_startup_phase()
-
-
-func _prime_chaos_blackhole_start_tracking(ball_pos: Vector2) -> void:
-	_invalidate_chaos_blackhole_ball_tracking()
-	_set_chaos_blackhole_start_base_radius(ball_pos)
-
-
 func _reset_chaos_spear_start_flags() -> void:
 	_reset_chaos_blackhole_gold_award_runtime()
 	_reset_chaos_impact_shake_flag()
-	_reset_chaos_release_start_flags()
-
-
-func _reset_chaos_release_start_flags() -> void:
 	_clear_pending_chaos_release()
-
-
-func _prime_chaos_spear_startup_phase() -> void:
-	chaos_current = chaos_origin
-	chaos_phase_frames = 0.0
-
-
-func _get_chaos_spear_target(config: Dictionary) -> Vector2:
-	return Vector2(
-		float(config.get("width", 760.0)) * 0.5,
-		float(config.get("height", 750.0)) * 0.5 + 60.0
-	)
-
-
-func _get_chaos_spear_origin(player_center: Vector2, player_pos: Vector2) -> Vector2:
-	return Vector2(player_center.x, player_pos.y - 6.0)
-
-
-func _set_chaos_blackhole_start_base_radius(ball_pos: Vector2) -> void:
-	chaos_base_radius = _get_chaos_blackhole_base_radius(ball_pos, chaos_target)
-
-
-func _get_chaos_blackhole_base_radius(ball_pos: Vector2, target: Vector2) -> float:
-	return clamp(ball_pos.distance_to(target), 84.0, 264.0)
-
-
-func _prime_chaos_spear_motion_seeds() -> void:
-	_reroll_chaos_orbit_seed()
-	_sync_chaos_flight_angle()
-	_reroll_chaos_impact_seed()
-
-
-func _reroll_chaos_orbit_seed() -> void:
-	chaos_orbit_seed = randf_range(0.0, TAU)
 
 
 func _sync_chaos_flight_angle() -> void:
@@ -3109,73 +2535,6 @@ func _reroll_chaos_impact_seed() -> void:
 	chaos_impact_seed = randf_range(0.0, TAU)
 
 
-func _lock_chaos_spear_player_x(player_pos: Vector2) -> void:
-	chaos_locked_player_x = player_pos.x
-	chaos_locked_player_x_valid = true
-
-
-func _clear_chaos_spear_player_x_lock() -> void:
-	chaos_locked_player_x = 0.0
-	chaos_locked_player_x_valid = false
-
-
-func _release_chaos_spear_player_x_lock() -> void:
-	chaos_locked_player_x_valid = false
-
-
-func _trigger_chaos_spear_start_effects(skill_config: Object, deps: Dictionary, now_msec: int) -> void:
-	_trigger_configured_cooldown_and_orb_gauge_spin(CHAOS_SPEAR, skill_config, deps, now_msec)
-	_trigger_chaos_spear_start_feedback(deps)
-	_play_chaos_spear_windup_sound(deps)
-
-
-func _play_chaos_spear_windup_sound(deps: Dictionary) -> void:
-	audio_router.play_chaos_windup_sound(deps)
-
-
-func _trigger_chaos_spear_start_feedback(deps: Dictionary) -> void:
-	var feedback: Object = _get_chaos_spear_start_feedback(deps)
-	_try_apply_chaos_spear_start_feedback(feedback)
-
-
-func _get_chaos_spear_start_feedback(deps: Dictionary) -> Object:
-	return deps.get("feedback", null)
-
-
-func _try_apply_chaos_spear_start_feedback(feedback: Object) -> void:
-	if feedback != null and feedback.has_method("set_screen_shake"):
-		feedback.set_screen_shake(0.08, 3.5)
-
-
-func _advance_chaos_spear_runtime(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
-	if _is_chaos_spear_runtime_idle():
-		return
-	_advance_chaos_phase_frames(fps_scale)
-	_dispatch_chaos_spear_phase_update(context, deps)
-
-
-func _is_chaos_spear_runtime_idle() -> bool:
-	return chaos_state == "idle"
-
-
-func _dispatch_chaos_spear_phase_update(context: Dictionary, deps: Dictionary) -> void:
-	match chaos_state:
-		"startup":
-			_update_chaos_startup_phase(context, deps)
-		"flying":
-			_update_chaos_flying_phase(deps)
-		"impact":
-			_update_chaos_impact_phase(context, deps)
-		"blackhole":
-			_update_chaos_blackhole_phase(context, deps)
-		"fade":
-			_update_chaos_fade_phase(deps)
-
-
-func _advance_chaos_phase_frames(fps_scale: float) -> void:
-	chaos_phase_frames += fps_scale
-
-
 func _update_chaos_startup_phase(context: Dictionary, deps: Dictionary) -> void:
 	var player_pos: Vector2 = _get_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
 	var player_size: Vector2 = _get_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
@@ -3184,7 +2543,13 @@ func _update_chaos_startup_phase(context: Dictionary, deps: Dictionary) -> void:
 	var frame_scale: float = max(0.0, 1.0 - prep_reduction_pct / 100.0)
 	var chaos_startup_frames: float = max(1.0, CHAOS_STARTUP_FRAMES * frame_scale)
 	if chaos_phase_frames >= chaos_startup_frames:
-		_enter_chaos_flying(deps)
+		audio_router.stop_chaos_windup_sound(deps)
+		chaos_state = "flying"
+		chaos_phase_frames = 0.0
+		chaos_origin = chaos_current
+		_sync_chaos_flight_angle()
+		chaos_locked_player_x_valid = false
+		audio_router.play_chaos_flying_sound(deps)
 
 
 func _update_chaos_flying_phase(deps: Dictionary) -> void:
@@ -3195,186 +2560,40 @@ func _update_chaos_flying_phase(deps: Dictionary) -> void:
 	var ease_t: float = 1.0 - pow(inverse_t, 3.0)
 	chaos_current = chaos_origin.lerp(center, ease_t)
 	if travel_t >= 1.0:
-		_enter_chaos_impact(deps)
+		audio_router.stop_chaos_flying_sound(deps)
+		chaos_state = "impact"
+		chaos_phase_frames = 0.0
+		chaos_current = chaos_target
+		_reroll_chaos_impact_seed()
+		_reset_chaos_impact_shake_flag()
+		_trigger_feedback(deps, 0.23, 5.5)
+		audio_router.play_chaos_impact_sound(deps)
+		audio_router.play_chaos_blackhole_sound(deps)
 
 
 func _update_chaos_impact_phase(context: Dictionary, deps: Dictionary) -> void:
-	_try_trigger_chaos_impact_shake(deps)
-	_try_enter_chaos_blackhole_after_impact(context)
-
-
-func _try_enter_chaos_blackhole_after_impact(context: Dictionary) -> void:
-	if _is_chaos_impact_complete():
-		_enter_chaos_blackhole(context)
-
-
-func _is_chaos_impact_complete() -> bool:
-	return _has_chaos_phase_reached(CHAOS_IMPACT_FRAMES)
-
-
-func _try_trigger_chaos_impact_shake(deps: Dictionary) -> void:
-	if not _should_trigger_chaos_impact_shake():
-		return
-	_trigger_chaos_impact_shake(deps)
-
-
-func _should_trigger_chaos_impact_shake() -> bool:
-	if not _is_chaos_impact_shake_window_open():
-		return false
-	if _has_chaos_impact_shake_triggered():
-		return false
-	return true
-
-
-func _is_chaos_impact_shake_window_open() -> bool:
-	return chaos_phase_frames >= CHAOS_IMPACT_FRAMES * 0.45
-
-
-func _has_chaos_impact_shake_triggered() -> bool:
-	return chaos_explosion_shaken
-
-
-func _trigger_chaos_impact_shake(deps: Dictionary) -> void:
-	chaos_explosion_shaken = true
-	_trigger_feedback(deps, 0.40, 8.0)
-
-
-func _update_chaos_blackhole_phase(context: Dictionary, deps: Dictionary) -> void:
-	_try_release_chaos_blackhole_after_duration(context, deps)
-
-
-func _try_release_chaos_blackhole_after_duration(context: Dictionary, deps: Dictionary) -> void:
-	if _is_chaos_blackhole_complete():
-		_release_chaos_blackhole(false, context, deps)
-
-
-func _is_chaos_blackhole_complete() -> bool:
-	return _has_chaos_phase_reached(CHAOS_BLACKHOLE_FRAMES)
-
-
-func _update_chaos_fade_phase(deps: Dictionary) -> void:
-	_try_complete_chaos_fade(deps)
-
-
-func _try_complete_chaos_fade(deps: Dictionary) -> void:
-	if _is_chaos_fade_complete():
-		_complete_chaos_fade(deps)
-
-
-func _is_chaos_fade_complete() -> bool:
-	return _has_chaos_phase_reached(CHAOS_FADE_FRAMES)
-
-
-func _has_chaos_phase_reached(frame_limit: float) -> bool:
-	return chaos_phase_frames >= frame_limit
-
-
-func _complete_chaos_fade(deps: Dictionary) -> void:
-	audio_router.stop_chaos_blackhole_sound(deps)
-	_reset_chaos_spear_runtime(false)
-
-
-func _enter_chaos_flying(deps: Dictionary) -> void:
-	audio_router.stop_chaos_windup_sound(deps)
-	_enter_chaos_flying_state()
-	audio_router.play_chaos_flying_sound(deps)
-
-
-func _enter_chaos_flying_state() -> void:
-	chaos_state = "flying"
-	chaos_phase_frames = 0.0
-	_prime_chaos_flying_motion_runtime()
-
-
-func _prime_chaos_flying_motion_runtime() -> void:
-	chaos_origin = chaos_current
-	_sync_chaos_flight_angle()
-	_release_chaos_spear_player_x_lock()
-
-
-func _enter_chaos_impact(deps: Dictionary) -> void:
-	audio_router.stop_chaos_flying_sound(deps)
-	_enter_chaos_impact_state()
-	_trigger_chaos_impact_start_effects(deps)
-
-
-func _trigger_chaos_impact_start_effects(deps: Dictionary) -> void:
-	_trigger_chaos_impact_start_feedback(deps)
-	_play_chaos_impact_start_audio(deps)
-
-
-func _trigger_chaos_impact_start_feedback(deps: Dictionary) -> void:
-	_trigger_feedback(deps, 0.23, 5.5)
-
-
-func _play_chaos_impact_start_audio(deps: Dictionary) -> void:
-	audio_router.play_chaos_impact_sound(deps)
-	audio_router.play_chaos_blackhole_sound(deps)
-
-
-func _enter_chaos_impact_state() -> void:
-	chaos_state = "impact"
-	chaos_phase_frames = 0.0
-	_prime_chaos_impact_runtime()
-
-
-func _prime_chaos_impact_runtime() -> void:
-	chaos_current = chaos_target
-	_reroll_chaos_impact_seed()
-	_reset_chaos_impact_shake_flag()
+	if chaos_phase_frames >= CHAOS_IMPACT_FRAMES * 0.45 and not chaos_explosion_shaken:
+		chaos_explosion_shaken = true
+		_trigger_feedback(deps, 0.40, 8.0)
+	if chaos_phase_frames >= CHAOS_IMPACT_FRAMES:
+		chaos_state = "blackhole"
+		chaos_phase_frames = 0.0
+		chaos_current = chaos_target
+		var ball_pos: Vector2 = _get_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+		_sync_chaos_blackhole_previous_ball_pos(ball_pos)
+		chaos_blackhole_ball_origin = chaos_prev_ball_center
+		chaos_blackhole_origin_valid = true
+		_reset_chaos_blackhole_gold_award_runtime()
+		chaos_fx_spawn_msec_seed = Time.get_ticks_msec()
 
 
 func _reset_chaos_impact_shake_flag() -> void:
 	chaos_explosion_shaken = false
 
 
-func _enter_chaos_blackhole(context: Dictionary) -> void:
-	_enter_chaos_blackhole_state()
-	_prime_chaos_blackhole_runtime(context)
-
-
-func _prime_chaos_blackhole_runtime(context: Dictionary) -> void:
-	_prime_chaos_blackhole_ball_tracking(context)
-	_prime_chaos_blackhole_reward_fx_runtime()
-
-
-func _prime_chaos_blackhole_reward_fx_runtime() -> void:
-	_reset_chaos_blackhole_gold_award_runtime()
-	_refresh_chaos_blackhole_fx_seed()
-
-
-func _enter_chaos_blackhole_state() -> void:
-	chaos_state = "blackhole"
-	chaos_phase_frames = 0.0
-	chaos_current = chaos_target
-
-
-func _prime_chaos_blackhole_ball_tracking(context: Dictionary) -> void:
-	var ball_pos: Vector2 = _get_chaos_blackhole_context_ball_pos(context)
-	_set_chaos_blackhole_tracking_origin(ball_pos)
-
-
-func _get_chaos_blackhole_context_ball_pos(context: Dictionary) -> Vector2:
-	return _get_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
-
-
-func _set_chaos_blackhole_tracking_origin(ball_pos: Vector2) -> void:
-	_sync_chaos_blackhole_previous_ball_pos(ball_pos)
-	_set_chaos_blackhole_origin_from_previous_ball()
-
-
-func _set_chaos_blackhole_origin_from_previous_ball() -> void:
-	chaos_blackhole_ball_origin = chaos_prev_ball_center
-	chaos_blackhole_origin_valid = true
-
-
 func _reset_chaos_blackhole_gold_award_runtime() -> void:
 	chaos_absorb_poll_frames = 0.0
 	chaos_gold_ticks_paid = 0
-
-
-func _refresh_chaos_blackhole_fx_seed() -> void:
-	chaos_fx_spawn_msec_seed = Time.get_ticks_msec()
 
 
 func _is_chaos_blackhole_active() -> bool:
@@ -3384,42 +2603,21 @@ func _is_chaos_blackhole_active() -> bool:
 func _release_chaos_blackhole(early_hit: bool, context: Dictionary, deps: Dictionary) -> void:
 	if not _is_chaos_blackhole_active():
 		return
-	_prepare_chaos_blackhole_release(early_hit, context)
-	_enter_chaos_release_fade(early_hit)
-	_stop_chaos_release_phase_sounds(deps)
-
-
-func _stop_chaos_release_phase_sounds(deps: Dictionary) -> void:
-	audio_router.stop_chaos_phase_sounds(deps)
-
-
-func _prepare_chaos_blackhole_release(early_hit: bool, context: Dictionary) -> void:
-	_prepare_chaos_blackhole_release_velocity(early_hit, context)
-	_invalidate_chaos_blackhole_ball_tracking()
-
-
-func _prepare_chaos_blackhole_release_velocity(early_hit: bool, context: Dictionary) -> void:
-	if _should_arm_pending_chaos_release(early_hit):
-		_arm_pending_chaos_release(context)
-	else:
+	if early_hit:
 		_clear_pending_chaos_release()
-
-
-func _should_arm_pending_chaos_release(early_hit: bool) -> bool:
-	return not early_hit
-
-
-func _arm_pending_chaos_release(context: Dictionary) -> void:
-	var current_vel: Vector2 = _get_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
-	var release_speed: float = max(max(16.0, 8.0 * 2.0), current_vel.length() * 1.6)
-	var release_angle: float = randf_range(0.0, TAU)
-	var release_velocity: Vector2 = Vector2(cos(release_angle), sin(release_angle)) * release_speed
-	_set_pending_chaos_release(release_velocity)
-
-
-func _set_pending_chaos_release(release_velocity: Vector2) -> void:
-	chaos_release_velocity = release_velocity
-	chaos_release_pending = true
+	else:
+		var current_vel: Vector2 = _get_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+		var release_speed: float = max(max(16.0, 8.0 * 2.0), current_vel.length() * 1.6)
+		var release_angle: float = randf_range(0.0, TAU)
+		chaos_release_velocity = Vector2(cos(release_angle), sin(release_angle)) * release_speed
+		chaos_release_pending = true
+	chaos_prev_ball_valid = false
+	chaos_blackhole_origin_valid = false
+	chaos_state = "fade"
+	chaos_phase_frames = 0.0
+	if early_hit:
+		chaos_cancel_flash_frames = 16.0
+	audio_router.stop_chaos_phase_sounds(deps)
 
 
 func _clear_pending_chaos_release() -> void:
@@ -3427,62 +2625,17 @@ func _clear_pending_chaos_release() -> void:
 	chaos_release_velocity = Vector2.ZERO
 
 
-func _invalidate_chaos_blackhole_ball_tracking() -> void:
-	_invalidate_chaos_blackhole_previous_ball_tracking()
-	_invalidate_chaos_blackhole_origin_tracking()
-
-
-func _enter_chaos_release_fade(early_hit: bool) -> void:
-	_enter_chaos_fade_state()
-	_start_chaos_cancel_flash_on_early_hit(early_hit)
-
-
-func _enter_chaos_fade_state() -> void:
-	chaos_state = "fade"
-	chaos_phase_frames = 0.0
-
-
-func _start_chaos_cancel_flash_on_early_hit(early_hit: bool) -> void:
-	if not _should_start_chaos_cancel_flash(early_hit):
-		return
-	_set_chaos_cancel_flash_frames(_get_chaos_cancel_flash_start_frames())
-
-
-func _should_start_chaos_cancel_flash(early_hit: bool) -> bool:
-	return early_hit
-
-
-func _set_chaos_cancel_flash_frames(frames: float) -> void:
-	chaos_cancel_flash_frames = frames
-
-
-func _get_chaos_cancel_flash_start_frames() -> float:
-	return 16.0
-
-
 func _release_chaos_blackhole_from_hit_result(deps: Dictionary, context: Dictionary = {}) -> bool:
-	if not _can_release_chaos_blackhole_from_hit_result():
+	if not _is_chaos_blackhole_active():
 		return false
-	_release_active_chaos_blackhole_from_hit(context, deps)
-	return true
-
-
-func _can_release_chaos_blackhole_from_hit_result() -> bool:
-	return _is_chaos_blackhole_active()
-
-
-func _release_active_chaos_blackhole_from_hit(context: Dictionary, deps: Dictionary) -> void:
 	_release_chaos_blackhole(true, context, deps)
+	return true
 
 
 func _mark_result_released_chaos_hit(result: Dictionary, released: bool) -> Dictionary:
 	if released:
-		_allow_released_chaos_ball_motion_step(result)
+		result["skip_ball_motion_step"] = false
 	return result
-
-
-func _allow_released_chaos_ball_motion_step(result: Dictionary) -> void:
-	result["skip_ball_motion_step"] = false
 
 
 func _reset_dual_glitch_runtime(clear_command: bool = false) -> void:
@@ -3503,102 +2656,27 @@ func _reset_dual_glitch_runtime(clear_command: bool = false) -> void:
 
 func _reset_chaos_spear_runtime(clear_command: bool = false, deps: Dictionary = {}) -> void:
 	audio_router.stop_all_chaos_spear_sounds(deps)
-	_reset_chaos_spear_phase_state()
-	_reset_chaos_spear_position_runtime()
-	_reset_chaos_spear_motion_seeds()
-	_clear_chaos_spear_player_x_lock()
-	_reset_chaos_spear_runtime_flags()
-	_clear_chaos_spear_command_buffer_if_requested(clear_command)
-	_hide_fx_host(chaos_fx_host)
-
-
-func _reset_chaos_spear_phase_state() -> void:
 	chaos_state = "idle"
 	chaos_phase_frames = 0.0
-
-
-func _clear_chaos_spear_command_buffer_if_requested(clear_command: bool) -> void:
-	if clear_command:
-		_clear_chaos_spear_command_buffer()
-
-
-func _reset_chaos_spear_position_runtime() -> void:
-	_reset_chaos_spear_core_positions()
-	_reset_chaos_blackhole_ball_tracking()
-	_reset_chaos_base_radius()
-
-
-func _reset_chaos_spear_core_positions() -> void:
 	chaos_origin = Vector2.ZERO
 	chaos_target = Vector2.ZERO
 	chaos_current = Vector2.ZERO
-
-
-func _reset_chaos_base_radius() -> void:
-	chaos_base_radius = 52.0
-
-
-func _reset_chaos_spear_motion_seeds() -> void:
-	_clear_chaos_orbit_seed()
-	_clear_chaos_flight_angle()
-	_clear_chaos_impact_seed()
-
-
-func _clear_chaos_orbit_seed() -> void:
-	chaos_orbit_seed = 0.0
-
-
-func _clear_chaos_flight_angle() -> void:
-	chaos_flight_angle = 0.0
-
-
-func _clear_chaos_impact_seed() -> void:
-	chaos_impact_seed = 0.0
-
-
-func _reset_chaos_spear_runtime_flags() -> void:
-	_clear_chaos_absorb_pulses()
-	_clear_chaos_cancel_flash_frames()
-	_reset_chaos_spear_start_flags()
-
-
-func _clear_chaos_absorb_pulses() -> void:
-	chaos_absorb_pulses.clear()
-
-
-func _clear_chaos_cancel_flash_frames() -> void:
-	_set_chaos_cancel_flash_frames(0.0)
-
-
-func _reset_chaos_blackhole_ball_tracking() -> void:
-	_reset_chaos_blackhole_previous_ball_tracking()
-	_reset_chaos_blackhole_origin_tracking()
-
-
-func _reset_chaos_blackhole_previous_ball_tracking() -> void:
-	_clear_chaos_blackhole_previous_ball_center()
-	_invalidate_chaos_blackhole_previous_ball_tracking()
-
-
-func _clear_chaos_blackhole_previous_ball_center() -> void:
 	chaos_prev_ball_center = Vector2.ZERO
-
-
-func _invalidate_chaos_blackhole_previous_ball_tracking() -> void:
 	chaos_prev_ball_valid = false
-
-
-func _reset_chaos_blackhole_origin_tracking() -> void:
-	_clear_chaos_blackhole_origin_position()
-	_invalidate_chaos_blackhole_origin_tracking()
-
-
-func _clear_chaos_blackhole_origin_position() -> void:
 	chaos_blackhole_ball_origin = Vector2.ZERO
-
-
-func _invalidate_chaos_blackhole_origin_tracking() -> void:
 	chaos_blackhole_origin_valid = false
+	chaos_base_radius = 52.0
+	chaos_orbit_seed = 0.0
+	chaos_flight_angle = 0.0
+	chaos_impact_seed = 0.0
+	chaos_locked_player_x = 0.0
+	chaos_locked_player_x_valid = false
+	chaos_absorb_pulses.clear()
+	chaos_cancel_flash_frames = 0.0
+	_reset_chaos_spear_start_flags()
+	if clear_command:
+		_clear_chaos_spear_command_buffer()
+	_hide_fx_host(chaos_fx_host)
 
 
 func _get_four_poisons_prep_reduction_pct(deps: Dictionary) -> int:
@@ -3622,10 +2700,6 @@ func _is_dual_glitch_clone_alive(clone: Dictionary) -> bool:
 	return visibility_query.is_dual_glitch_clone_alive(clone)
 
 
-func _is_dual_glitch_clone_evaporating(clone: Dictionary) -> bool:
-	return visibility_query.is_dual_glitch_clone_evaporating(clone, DUAL_GLITCH_EVAPORATION_FRAMES)
-
-
 func _has_living_dual_glitch_clone() -> bool:
 	return visibility_query.has_living_dual_glitch_clone(dual_glitch_clones)
 
@@ -3635,126 +2709,56 @@ func _is_dual_glitch_clone_replication_active(deps: Dictionary) -> bool:
 
 
 func _update_dual_glitch_runtime(fps_scale: float, context: Dictionary) -> void:
-	if _is_dual_glitch_runtime_idle():
+	if dual_glitch_state == "idle":
 		return
-	if _should_reset_dual_glitch_runtime_for_context(context):
+	if _should_stop_viper_context_effect(context):
 		_reset_dual_glitch_runtime(true)
 		return
 	_sync_dual_glitch_runtime_player_snapshot(context)
-	_advance_dual_glitch_phase_frames(fps_scale)
-	_update_dual_glitch_clone_evaporation_frames(fps_scale)
-	_update_dual_glitch_state_phase()
-	_prune_inactive_dual_glitch_clones()
-
-
-func _is_dual_glitch_runtime_idle() -> bool:
-	return dual_glitch_state == "idle"
-
-
-func _should_reset_dual_glitch_runtime_for_context(context: Dictionary) -> bool:
-	return _should_stop_viper_context_effect(context)
-
-
-func _advance_dual_glitch_phase_frames(fps_scale: float) -> void:
 	dual_glitch_phase_frames += fps_scale
-
-
-func _sync_dual_glitch_runtime_player_snapshot(context: Dictionary) -> void:
-	dual_glitch_base_pos = _get_dual_glitch_context_player_pos(context)
-	dual_glitch_paddle_size = _get_dual_glitch_context_paddle_size(context)
-
-
-func _get_dual_glitch_context_player_pos(context: Dictionary) -> Vector2:
-	return _get_vector2(context.get("player_pos", dual_glitch_base_pos), dual_glitch_base_pos)
-
-
-func _get_dual_glitch_context_paddle_size(context: Dictionary) -> Vector2:
-	return _get_vector2(context.get("player_paddle_size", dual_glitch_paddle_size), dual_glitch_paddle_size)
-
-
-func _update_dual_glitch_clone_evaporation_frames(fps_scale: float) -> void:
 	for index in range(dual_glitch_clones.size()):
-		_try_update_dual_glitch_clone_evaporation_frame(index, fps_scale)
-
-
-func _try_update_dual_glitch_clone_evaporation_frame(index: int, fps_scale: float) -> void:
-	var clone_value: Variant = dual_glitch_clones[index]
-	if not (clone_value is Dictionary):
-		return
-	var clone: Dictionary = clone_value
-	var evaporation_frames: float = _get_dual_glitch_clone_evaporation_frames(clone)
-	if not _should_advance_dual_glitch_clone_evaporation(evaporation_frames):
-		return
-	_set_dual_glitch_clone_evaporation_frames(index, clone, evaporation_frames + fps_scale)
-
-
-func _get_dual_glitch_clone_evaporation_frames(clone: Dictionary) -> float:
-	return float(clone.get("evaporation_frames", -1.0))
-
-
-func _should_advance_dual_glitch_clone_evaporation(evaporation_frames: float) -> bool:
-	return evaporation_frames >= 0.0
-
-
-func _set_dual_glitch_clone_evaporation_frames(index: int, clone: Dictionary, evaporation_frames: float) -> void:
-	clone["evaporation_frames"] = evaporation_frames
-	dual_glitch_clones[index] = clone
-
-
-func _update_dual_glitch_state_phase() -> void:
+		var clone_value: Variant = dual_glitch_clones[index]
+		if not (clone_value is Dictionary):
+			continue
+		var clone: Dictionary = clone_value
+		var evaporation_frames: float = float(clone.get("evaporation_frames", -1.0))
+		if evaporation_frames >= 0.0:
+			clone["evaporation_frames"] = evaporation_frames + fps_scale
+			dual_glitch_clones[index] = clone
 	match dual_glitch_state:
 		"startup":
-			if _has_dual_glitch_phase_reached(DUAL_GLITCH_STARTUP_FRAMES):
-				_enter_dual_glitch_spawn_phase()
+			if dual_glitch_phase_frames >= DUAL_GLITCH_STARTUP_FRAMES:
+				dual_glitch_state = "spawn"
+				dual_glitch_phase_frames = 0.0
+				dual_glitch_locked_player_x_valid = false
 		"spawn":
-			if _has_dual_glitch_phase_reached(DUAL_GLITCH_SPAWN_FRAMES):
-				_enter_dual_glitch_active_phase()
+			if dual_glitch_phase_frames >= DUAL_GLITCH_SPAWN_FRAMES:
+				dual_glitch_state = "active"
+				dual_glitch_phase_frames = 0.0
 		"active":
-			_update_dual_glitch_active_phase()
+			if not _has_living_dual_glitch_clone():
+				_enter_dual_glitch_fade("destroyed")
+			elif dual_glitch_phase_frames >= dual_glitch_active_total_frames:
+				_enter_dual_glitch_fade("timeout")
 		"fade":
-			_update_dual_glitch_fade_phase()
-
-
-func _has_dual_glitch_phase_reached(frame_limit: float) -> bool:
-	return dual_glitch_phase_frames >= frame_limit
-
-
-func _enter_dual_glitch_spawn_phase() -> void:
-	dual_glitch_state = "spawn"
-	dual_glitch_phase_frames = 0.0
-	dual_glitch_locked_player_x_valid = false
-
-
-func _enter_dual_glitch_active_phase() -> void:
-	dual_glitch_state = "active"
-	dual_glitch_phase_frames = 0.0
-
-
-func _update_dual_glitch_active_phase() -> void:
-	if not _has_living_dual_glitch_clone():
-		_enter_dual_glitch_fade("destroyed")
-	elif _has_dual_glitch_phase_reached(dual_glitch_active_total_frames):
-		_enter_dual_glitch_fade("timeout")
-
-
-func _update_dual_glitch_fade_phase() -> void:
-	if _has_dual_glitch_phase_reached(DUAL_GLITCH_FADE_FRAMES):
-		_reset_dual_glitch_runtime(false)
-
-
-func _prune_inactive_dual_glitch_clones() -> void:
+			if dual_glitch_phase_frames >= DUAL_GLITCH_FADE_FRAMES:
+				_reset_dual_glitch_runtime(false)
 	var alive: Array = []
 	for clone_value in dual_glitch_clones:
 		if not (clone_value is Dictionary):
 			continue
 		var clone: Dictionary = clone_value
-		if _should_keep_dual_glitch_clone_after_prune(clone):
+		if (
+			_is_dual_glitch_clone_alive(clone)
+			or visibility_query.is_dual_glitch_clone_evaporating(clone, DUAL_GLITCH_EVAPORATION_FRAMES)
+		):
 			alive.append(clone)
 	dual_glitch_clones = alive
 
 
-func _should_keep_dual_glitch_clone_after_prune(clone: Dictionary) -> bool:
-	return _is_dual_glitch_clone_alive(clone) or _is_dual_glitch_clone_evaporating(clone)
+func _sync_dual_glitch_runtime_player_snapshot(context: Dictionary) -> void:
+	dual_glitch_base_pos = _get_vector2(context.get("player_pos", dual_glitch_base_pos), dual_glitch_base_pos)
+	dual_glitch_paddle_size = _get_vector2(context.get("player_paddle_size", dual_glitch_paddle_size), dual_glitch_paddle_size)
 
 
 func _enter_dual_glitch_fade(reason: String) -> void:
@@ -3770,10 +2774,6 @@ func get_dual_glitch_clone_rects(context: Dictionary = {}, collision_only: bool 
 	if not context.is_empty():
 		_sync_dual_glitch_runtime_player_snapshot(context)
 	var entries: Array = _get_dual_glitch_clone_rect_entries(collision_only, not collision_only)
-	return _get_dual_glitch_clone_rects_from_entries(entries)
-
-
-func _get_dual_glitch_clone_rects_from_entries(entries: Array) -> Array:
 	var rects: Array = []
 	for entry_value in entries:
 		if entry_value is Dictionary:
@@ -3793,78 +2793,26 @@ func _get_dual_glitch_clone_rect_entries(collision_only: bool, include_evaporati
 
 
 func apply_dual_glitch_clone_ball_hit(context: Dictionary = {}, _deps: Dictionary = {}) -> Dictionary:
-	if not _can_apply_dual_glitch_clone_ball_hit():
+	if not (dual_glitch_state in ["active", "fade"]):
 		return {"hit": false}
-	var clone_index: int = _get_dual_glitch_clone_hit_index(context)
-	if not _is_valid_dual_glitch_clone_index(clone_index):
+	var clone_index: int = int(context.get("viper_dual_glitch_clone_index", -1))
+	if clone_index < 0 or clone_index >= dual_glitch_clones.size():
 		return {"hit": false}
-	var clone_value: Variant = _get_dual_glitch_clone_value(clone_index)
-	if not _is_dual_glitch_clone_hit_value(clone_value):
+	var clone_value: Variant = dual_glitch_clones[clone_index]
+	if not (clone_value is Dictionary):
 		return {"hit": false}
 	var clone: Dictionary = clone_value
-	if not _can_hit_dual_glitch_clone(clone):
+	if not _is_dual_glitch_clone_alive(clone):
 		return {"hit": false}
-	var hp: int = _get_damaged_dual_glitch_clone_hp(clone)
-	_set_dual_glitch_clone_hp(clone, hp)
-	var destroyed := _is_dual_glitch_clone_destroyed_by_hp(hp)
-	if destroyed:
-		_mark_dual_glitch_clone_destroyed(clone)
-	_store_dual_glitch_clone_hit_result(clone_index, clone)
-	_try_enter_dual_glitch_fade_after_clone_destroyed(destroyed)
-	return _build_dual_glitch_clone_ball_hit_result(destroyed, hp)
-
-
-func _can_apply_dual_glitch_clone_ball_hit() -> bool:
-	return dual_glitch_state in ["active", "fade"]
-
-
-func _get_dual_glitch_clone_hit_index(context: Dictionary) -> int:
-	return int(context.get("viper_dual_glitch_clone_index", -1))
-
-
-func _is_valid_dual_glitch_clone_index(clone_index: int) -> bool:
-	return clone_index >= 0 and clone_index < dual_glitch_clones.size()
-
-
-func _get_dual_glitch_clone_value(clone_index: int) -> Variant:
-	return dual_glitch_clones[clone_index]
-
-
-func _is_dual_glitch_clone_hit_value(clone_value: Variant) -> bool:
-	return clone_value is Dictionary
-
-
-func _can_hit_dual_glitch_clone(clone: Dictionary) -> bool:
-	return _is_dual_glitch_clone_alive(clone)
-
-
-func _get_damaged_dual_glitch_clone_hp(clone: Dictionary) -> int:
-	return max(0, int(clone.get("hp", 0)) - 1)
-
-
-func _set_dual_glitch_clone_hp(clone: Dictionary, hp: int) -> void:
+	var hp: int = max(0, int(clone.get("hp", 0)) - 1)
 	clone["hp"] = hp
-
-
-func _is_dual_glitch_clone_destroyed_by_hp(hp: int) -> bool:
-	return hp <= 0
-
-
-func _mark_dual_glitch_clone_destroyed(clone: Dictionary) -> void:
-	clone["collision_enabled"] = false
-	clone["evaporation_frames"] = 0.0
-
-
-func _store_dual_glitch_clone_hit_result(clone_index: int, clone: Dictionary) -> void:
+	var destroyed := hp <= 0
+	if destroyed:
+		clone["collision_enabled"] = false
+		clone["evaporation_frames"] = 0.0
 	dual_glitch_clones[clone_index] = clone
-
-
-func _try_enter_dual_glitch_fade_after_clone_destroyed(destroyed: bool) -> void:
 	if destroyed and not _has_living_dual_glitch_clone():
 		_enter_dual_glitch_fade("destroyed")
-
-
-func _build_dual_glitch_clone_ball_hit_result(destroyed: bool, hp: int) -> Dictionary:
 	return {
 		"hit": true,
 		"clone_destroyed": destroyed,
@@ -3892,22 +2840,6 @@ func _get_dual_glitch_clone_stagger_delay_mult(side: int) -> float:
 	return 1.0 if side < 0 else 2.0
 
 
-func _build_dual_glitch_clone_dive_entry(origin: Dictionary, side: int, floor_y: float) -> Dictionary:
-	var delay_mult: float = _get_dual_glitch_clone_stagger_delay_mult(side)
-	return {
-		"side": side,
-		"x": _get_dual_glitch_origin_x(origin, dive_shockwave_pos.x),
-		"y": floor_y,
-		"start_y": _get_dual_glitch_origin_y(origin, floor_y),
-		"delay_frames": DUAL_GLITCH_DIVE_STAGGER_FRAMES * delay_mult,
-		"timer": 0.0,
-		"activated": false,
-		"ball_boosted": false,
-		"height_snapshot": dive_height_snapshot,
-		"telegraph": false,
-	}
-
-
 func _spawn_dual_glitch_clone_dive_entries_for_current_cast(deps: Dictionary) -> void:
 	if not _is_dual_glitch_clone_replication_active(deps):
 		return
@@ -3916,17 +2848,25 @@ func _spawn_dual_glitch_clone_dive_entries_for_current_cast(deps: Dictionary) ->
 		return
 	var floor_y: float = dive_shockwave_pos.y
 	for origin_value in origins:
-		_try_append_dual_glitch_clone_dive_entry(origin_value, floor_y)
-
-
-func _try_append_dual_glitch_clone_dive_entry(origin_value: Variant, floor_y: float) -> void:
-	if not (origin_value is Dictionary):
-		return
-	var origin: Dictionary = origin_value
-	var side: int = _get_dual_glitch_origin_side(origin)
-	if side == 0:
-		return
-	dual_glitch_clone_dive_entries.append(_build_dual_glitch_clone_dive_entry(origin, side, floor_y))
+		if not (origin_value is Dictionary):
+			continue
+		var origin: Dictionary = origin_value
+		var side: int = _get_dual_glitch_origin_side(origin)
+		if side == 0:
+			continue
+		var delay_mult: float = _get_dual_glitch_clone_stagger_delay_mult(side)
+		dual_glitch_clone_dive_entries.append({
+			"side": side,
+			"x": _get_dual_glitch_origin_x(origin, dive_shockwave_pos.x),
+			"y": floor_y,
+			"start_y": _get_dual_glitch_origin_y(origin, floor_y),
+			"delay_frames": DUAL_GLITCH_DIVE_STAGGER_FRAMES * delay_mult,
+			"timer": 0.0,
+			"activated": false,
+			"ball_boosted": false,
+			"height_snapshot": dive_height_snapshot,
+			"telegraph": false,
+		})
 
 
 func _update_dual_glitch_clone_dive_entries(fps_scale: float, deps: Dictionary) -> void:
@@ -3938,41 +2878,21 @@ func _update_dual_glitch_clone_dive_entries(fps_scale: float, deps: Dictionary) 
 			continue
 		var entry: Dictionary = entry_value
 		if not bool(entry.get("activated", false)):
-			_update_pending_dual_glitch_clone_dive_entry(entry, fps_scale, deps)
+			var delay_frames: float = max(0.0, float(entry.get("delay_frames", 0.0)) - fps_scale)
+			entry["delay_frames"] = delay_frames
+			entry["telegraph"] = delay_frames > 0.0 and delay_frames <= DUAL_GLITCH_DIVE_TELEGRAPH_FRAMES
+			if delay_frames <= 0.0:
+				entry["activated"] = true
+				entry["telegraph"] = false
+				entry["timer"] = DIVE_SHOCKWAVE_FRAMES
+				var center := Vector2(float(entry.get("x", dive_shockwave_pos.x)), float(entry.get("y", dive_shockwave_pos.y)))
+				particle_drawer.spawn_dual_glitch_clone_dive_particles(dive_particles, center, DIVE_PARTICLE_LIMIT)
+				_trigger_feedback(deps, 0.08, 2.4)
 		else:
-			_update_active_dual_glitch_clone_dive_entry(entry, fps_scale)
-		if _should_keep_dual_glitch_clone_dive_entry(entry):
+			entry["timer"] = max(0.0, float(entry.get("timer", 0.0)) - fps_scale)
+		if (not bool(entry.get("activated", false))) or float(entry.get("timer", 0.0)) > 0.0:
 			updated.append(entry)
 	dual_glitch_clone_dive_entries = updated
-
-
-func _update_active_dual_glitch_clone_dive_entry(entry: Dictionary, fps_scale: float) -> void:
-	entry["timer"] = max(0.0, float(entry.get("timer", 0.0)) - fps_scale)
-
-
-func _should_keep_dual_glitch_clone_dive_entry(entry: Dictionary) -> bool:
-	return (not bool(entry.get("activated", false))) or float(entry.get("timer", 0.0)) > 0.0
-
-
-func _update_pending_dual_glitch_clone_dive_entry(entry: Dictionary, fps_scale: float, deps: Dictionary) -> void:
-	var delay_frames: float = max(0.0, float(entry.get("delay_frames", 0.0)) - fps_scale)
-	entry["delay_frames"] = delay_frames
-	entry["telegraph"] = delay_frames > 0.0 and delay_frames <= DUAL_GLITCH_DIVE_TELEGRAPH_FRAMES
-	if delay_frames <= 0.0:
-		_activate_dual_glitch_clone_dive_entry(entry, deps)
-
-
-func _activate_dual_glitch_clone_dive_entry(entry: Dictionary, deps: Dictionary) -> void:
-	entry["activated"] = true
-	entry["telegraph"] = false
-	entry["timer"] = DIVE_SHOCKWAVE_FRAMES
-	var center: Vector2 = _get_dual_glitch_clone_dive_entry_center(entry)
-	particle_drawer.spawn_dual_glitch_clone_dive_particles(dive_particles, center, DIVE_PARTICLE_LIMIT)
-	_trigger_feedback(deps, 0.08, 2.4)
-
-
-func _get_dual_glitch_clone_dive_entry_center(entry: Dictionary) -> Vector2:
-	return Vector2(float(entry.get("x", dive_shockwave_pos.x)), float(entry.get("y", dive_shockwave_pos.y)))
 
 
 func _get_runtime_skill_level(deps: Dictionary, skill_id: String) -> int:
@@ -4085,11 +3005,11 @@ func _can_hold_ignition_aura(
 		return false
 	if _is_dash_or_control_locked(deps):
 		return false
-	if not _is_config_ball_active(config) or _is_config_waiting_for_serve(config):
+	if not _is_config_ball_active(config) or bool(config.get("waiting_for_serve", false)):
 		return false
 	if _is_round_waiting_for_serve(deps):
 		return false
-	if _has_ignition_hold_cancel_input(input_snapshot):
+	if _is_input_pressed(input_snapshot, "down_pressed") or _has_lateral_skill_input(input_snapshot):
 		return false
 	if _get_viper_airborne_height(deps, config, player_pos) > 5.0:
 		return false
@@ -4112,32 +3032,16 @@ func _start_ignition_aura(
 	var skill_config: Object = _get_viper_skill_config(deps)
 	var cost: float = _get_ignition_aura_activation_cost(skill_config)
 	var next_gauge: float = max(0.0, special_gauge - cost)
-	_trigger_ignition_aura_start_effects(skill_config, deps, now_msec)
-	_prime_ignition_aura_runtime(player_pos, config, deps, now_msec)
-	return {
-		"handled": true,
-		"activated": true,
-		"skill_name": IGNITION_AURA,
-		"player_pos": player_pos,
-		"player_speed": 0.0,
-		"special_gauge": next_gauge,
-	}
-
-
-func _trigger_ignition_aura_start_effects(skill_config: Object, deps: Dictionary, now_msec: int) -> void:
 	var skill_state: Object = _get_viper_skill_state(deps)
 	if skill_state != null:
 		if skill_state.has_method("trigger_configured_cooldown"):
 			skill_state.trigger_configured_cooldown(IGNITION_AURA, now_msec, skill_config)
 		elif skill_state.has_method("trigger_cooldown"):
-			var cooldown_seconds := _get_ignition_aura_cooldown_seconds(skill_config)
+			var cooldown_seconds := _get_skill_cooldown_seconds_with_fallback(skill_config, IGNITION_AURA, 80.0)
 			skill_state.trigger_cooldown(IGNITION_AURA, now_msec, cooldown_seconds)
 	_trigger_orb_gauge_spin(deps, now_msec)
 	audio_router.play_ignition_aura_sound(deps)
 	_trigger_feedback(deps, 0.14, 4.2)
-
-
-func _prime_ignition_aura_runtime(player_pos: Vector2, config: Dictionary, deps: Dictionary, now_msec: int) -> void:
 	ignition_active = true
 	ignition_total_frames = IGNITION_DURATION_FRAMES
 	ignition_remaining_frames = ignition_total_frames
@@ -4151,14 +3055,18 @@ func _prime_ignition_aura_runtime(player_pos: Vector2, config: Dictionary, deps:
 		player_pos + _get_paddle_size(config) * 0.5,
 		IGNITION_PARTICLE_LIMIT
 	)
+	return {
+		"handled": true,
+		"activated": true,
+		"skill_name": IGNITION_AURA,
+		"player_pos": player_pos,
+		"player_speed": 0.0,
+		"special_gauge": next_gauge,
+	}
 
 
 func _get_ignition_aura_activation_cost(skill_config: Object) -> float:
 	return _get_skill_cost_with_fallback(skill_config, IGNITION_AURA, IGNITION_GAUGE_COST)
-
-
-func _get_ignition_aura_cooldown_seconds(skill_config: Object) -> float:
-	return _get_skill_cooldown_seconds_with_fallback(skill_config, IGNITION_AURA, 80.0)
 
 
 func _update_ignition_aura_runtime(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
@@ -4232,12 +3140,14 @@ func _preserve_ignition_aura_round_carryover(deps: Dictionary) -> void:
 
 
 func _should_stop_ignition_aura_for_context(context: Dictionary) -> bool:
-	var character_type: String = _get_context_selected_character_type(context)
+	var character_type: String = ""
+	if context.has("selected_character_type"):
+		character_type = str(context.get("selected_character_type", "viper")).strip_edges().to_lower()
 	return character_type != "" and character_type != "viper"
 
 
 func _should_pause_ignition_aura_for_round_boundary(context: Dictionary) -> bool:
-	return _is_context_waiting_for_serve(context) or not _is_context_ball_active(context, true)
+	return bool(context.get("waiting_for_serve", false)) or not _is_context_ball_active(context, true)
 
 
 func _sync_ignition_aura_anchor_from_context(context: Dictionary) -> void:
@@ -4278,49 +3188,49 @@ func _try_update_dive_hold(
 	if not down_pressed:
 		_reset_dive_hold()
 		return {}
-	if not _can_hold_dive_strike(input_snapshot, player_pos, special_gauge, config, deps, now_msec):
+	if _has_viper_attack_motion_active(true):
+		_reset_dive_hold()
+		return {}
+	if _has_pending_marshal_combo_window() or _has_shadow_step_projection_runtime_active():
+		_reset_dive_hold()
+		return {}
+	if chaos_state != "idle":
+		_reset_dive_hold()
+		return {}
+	if _is_dash_or_control_locked(deps):
+		_reset_dive_hold()
+		return {}
+	if not _is_config_ball_active(config):
+		_reset_dive_hold()
+		return {}
+	if _is_round_waiting_for_serve(deps):
+		_reset_dive_hold()
+		return {}
+	if _has_lateral_skill_input(input_snapshot):
+		_reset_dive_hold()
+		return {}
+	if _get_viper_airborne_height(deps, config, player_pos) <= 20.0:
+		_reset_dive_hold()
+		return {}
+	var skill_config: Object = _get_viper_skill_config(deps)
+	if not _is_skill_equipped(skill_config, DIVE_STRIKE):
+		_reset_dive_hold()
+		return {}
+	var cost: float = _get_dive_strike_activation_cost(skill_config)
+	if special_gauge < cost:
+		_reset_dive_hold()
+		return {}
+	if not _is_configured_skill_ready(DIVE_STRIKE, deps, now_msec):
 		_reset_dive_hold()
 		return {}
 
 	if dive_hold_start_msec <= 0:
-		_start_dive_hold_runtime(now_msec)
-	_sync_dive_hold_snapshot(player_pos, config)
-	var elapsed_msec: int = _get_dive_hold_elapsed_msec(now_msec)
-	_update_dive_hold_charge_progress(elapsed_msec, player_pos)
-	if _is_dive_hold_complete(elapsed_msec):
-		_reset_dive_hold()
-		return _start_dive_strike(player_pos, special_gauge, config, deps, now_msec)
-	return {
-		"handled": false,
-		"activated": false,
-		"special_gauge": special_gauge,
-	}
-
-
-func _start_dive_hold_runtime(now_msec: int) -> void:
-	dive_hold_start_msec = now_msec
-	_clear_dive_charge_particles()
-
-
-func _sync_dive_hold_snapshot(player_pos: Vector2, config: Dictionary) -> void:
+		dive_hold_start_msec = now_msec
+		_clear_dive_charge_particles()
 	dive_hold_player_pos = player_pos
 	dive_hold_paddle_size = _get_paddle_size(config)
-
-
-func _get_dive_hold_elapsed_msec(now_msec: int) -> int:
-	return max(0, now_msec - dive_hold_start_msec)
-
-
-func _update_dive_hold_charge_progress(elapsed_msec: int, player_pos: Vector2) -> void:
-	dive_hold_ratio = _get_dive_hold_ratio(elapsed_msec)
-	_spawn_dive_hold_charge_particles(player_pos)
-
-
-func _get_dive_hold_ratio(elapsed_msec: int) -> float:
-	return clamp(float(elapsed_msec) / float(DIVE_HOLD_REQUIRED_MSEC), 0.0, 1.0)
-
-
-func _spawn_dive_hold_charge_particles(player_pos: Vector2) -> void:
+	var elapsed_msec: int = max(0, now_msec - dive_hold_start_msec)
+	dive_hold_ratio = clamp(float(elapsed_msec) / float(DIVE_HOLD_REQUIRED_MSEC), 0.0, 1.0)
 	particle_drawer.spawn_dive_charge_particles(
 		dive_charge_particles,
 		player_pos,
@@ -4328,53 +3238,14 @@ func _spawn_dive_hold_charge_particles(player_pos: Vector2) -> void:
 		dive_hold_ratio,
 		DIVE_CHARGE_PARTICLE_LIMIT
 	)
-
-
-func _is_dive_hold_complete(elapsed_msec: int) -> bool:
-	return elapsed_msec >= DIVE_HOLD_REQUIRED_MSEC
-
-
-func _can_hold_dive_strike(
-	input_snapshot: Dictionary,
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> bool:
-	if _is_dive_hold_runtime_blocked(input_snapshot, config, deps):
-		return false
-	if not _has_dive_hold_airborne_height(deps, config, player_pos):
-		return false
-	var skill_config: Object = _get_viper_skill_config(deps)
-	if not _is_skill_equipped(skill_config, DIVE_STRIKE):
-		return false
-	var cost: float = _get_dive_strike_activation_cost(skill_config)
-	if special_gauge < cost:
-		return false
-	return _is_configured_skill_ready(DIVE_STRIKE, deps, now_msec)
-
-
-func _is_dive_hold_runtime_blocked(input_snapshot: Dictionary, config: Dictionary, deps: Dictionary) -> bool:
-	if _has_viper_attack_motion_active(true):
-		return true
-	if _has_pending_marshal_combo_window() or _has_shadow_step_projection_runtime_active():
-		return true
-	if chaos_state != "idle":
-		return true
-	if _is_dash_or_control_locked(deps):
-		return true
-	if not _is_config_ball_active(config):
-		return true
-	if _is_round_waiting_for_serve(deps):
-		return true
-	if _has_lateral_skill_input(input_snapshot):
-		return true
-	return false
-
-
-func _has_dive_hold_airborne_height(deps: Dictionary, config: Dictionary, player_pos: Vector2) -> bool:
-	return _get_viper_airborne_height(deps, config, player_pos) > 20.0
+	if elapsed_msec >= DIVE_HOLD_REQUIRED_MSEC:
+		_reset_dive_hold()
+		return _start_dive_strike(player_pos, special_gauge, config, deps, now_msec)
+	return {
+		"handled": false,
+		"activated": false,
+		"special_gauge": special_gauge,
+	}
 
 
 func _start_dive_strike(
@@ -4385,18 +3256,38 @@ func _start_dive_strike(
 	now_msec: int
 ) -> Dictionary:
 	var skill_config: Object = _get_viper_skill_config(deps)
-	var next_gauge: float = _get_dive_strike_next_gauge(special_gauge, skill_config)
-	_trigger_dive_strike_start_effects(skill_config, deps, now_msec)
-	_prime_dive_strike_runtime(player_pos, config, deps, now_msec)
-	return _build_dive_strike_start_result(next_gauge)
-
-
-func _get_dive_strike_next_gauge(special_gauge: float, skill_config: Object) -> float:
 	var cost: float = _get_dive_strike_activation_cost(skill_config)
-	return max(0.0, special_gauge - cost)
-
-
-func _build_dive_strike_start_result(next_gauge: float) -> Dictionary:
+	var next_gauge: float = max(0.0, special_gauge - cost)
+	var cooldown_seconds := _get_skill_cooldown_seconds_with_fallback(skill_config, DIVE_STRIKE, 70.0, false)
+	_trigger_runtime_cooldown_and_orb_gauge_spin(
+		DIVE_STRIKE,
+		now_msec,
+		skill_config,
+		deps,
+		_get_four_poisons_additive_cooldown_seconds(DIVE_STRIKE, skill_config, deps, cooldown_seconds)
+	)
+	runtime_action_router.interrupt_viper_jetpack_thrust(deps)
+	audio_router.play_dive_prep_sound(deps)
+	_trigger_feedback(deps, 0.08, 3.2)
+	dive_active = true
+	dive_phase = 0
+	dive_phase_frames = 0.0
+	dive_paddle_size = _get_paddle_size(config)
+	dive_floor_y = _get_player_floor_y(config)
+	dive_player_pos = player_pos
+	dive_height_snapshot = max(0.0, _get_viper_airborne_height(deps, config, player_pos))
+	var prep_reduction_pct: float = float(_get_four_poisons_prep_reduction_pct(deps))
+	dive_prep_frames_snapshot = max(1.0, DIVE_PREP_FRAMES * max(0.0, 1.0 - prep_reduction_pct / 100.0))
+	dive_effect_start_msec = now_msec
+	dive_shockwave_spawn_msec = 0
+	dive_hit_feedback_msec = 0
+	if dive_height_snapshot > 0.0:
+		dive_player_pos.y = dive_floor_y - dive_height_snapshot
+	dive_shockwave_timer = 0.0
+	dive_shockwave_pos = ViperSkillGeometry.emp_strike_shockwave_pos(dive_player_pos, dive_paddle_size, dive_floor_y)
+	dive_ball_boosted = false
+	dive_particles.clear()
+	runtime_action_router.set_viper_jetpack_offset_y(deps, dive_player_pos.y - dive_floor_y)
 	return {
 		"handled": true,
 		"activated": true,
@@ -4408,112 +3299,8 @@ func _build_dive_strike_start_result(next_gauge: float) -> Dictionary:
 	}
 
 
-func _trigger_dive_strike_start_effects(skill_config: Object, deps: Dictionary, now_msec: int) -> void:
-	_trigger_runtime_cooldown_and_orb_gauge_spin(
-		DIVE_STRIKE,
-		now_msec,
-		skill_config,
-		deps,
-		_get_dive_strike_effective_cooldown_seconds(skill_config, deps)
-	)
-	_trigger_dive_strike_start_presentation(deps)
-
-
-func _get_dive_strike_effective_cooldown_seconds(skill_config: Object, deps: Dictionary) -> float:
-	var cooldown_seconds := _get_dive_strike_base_cooldown_seconds(skill_config)
-	return _get_four_poisons_additive_cooldown_seconds(DIVE_STRIKE, skill_config, deps, cooldown_seconds)
-
-
-func _trigger_dive_strike_start_presentation(deps: Dictionary) -> void:
-	runtime_action_router.interrupt_viper_jetpack_thrust(deps)
-	_play_dive_prep_sound(deps)
-	_trigger_feedback(deps, 0.08, 3.2)
-
-
-func _prime_dive_strike_runtime(player_pos: Vector2, config: Dictionary, deps: Dictionary, now_msec: int) -> void:
-	_prime_dive_phase_runtime()
-	_prime_dive_pose_snapshot(player_pos, config, deps)
-	_prime_dive_prep_frames_snapshot(deps)
-	_mark_dive_effect_started(now_msec)
-	_apply_dive_start_height_offset()
-	_prime_dive_shockwave_runtime()
-	_clear_dive_particles()
-	_sync_dive_jetpack_offset_y(deps)
-
-
-func _prime_dive_pose_snapshot(player_pos: Vector2, config: Dictionary, deps: Dictionary) -> void:
-	_prime_dive_pose_geometry_snapshot(player_pos, config)
-	_prime_dive_height_snapshot(player_pos, config, deps)
-
-
-func _prime_dive_pose_geometry_snapshot(player_pos: Vector2, config: Dictionary) -> void:
-	dive_paddle_size = _get_paddle_size(config)
-	dive_floor_y = _get_player_floor_y(config)
-	dive_player_pos = player_pos
-
-
-func _prime_dive_height_snapshot(player_pos: Vector2, config: Dictionary, deps: Dictionary) -> void:
-	dive_height_snapshot = max(0.0, _get_viper_airborne_height(deps, config, player_pos))
-
-
-func _sync_dive_jetpack_offset_y(deps: Dictionary) -> void:
-	_set_viper_jetpack_offset_y(deps, dive_player_pos.y - dive_floor_y)
-
-
-func _prime_dive_phase_runtime() -> void:
-	dive_active = true
-	dive_phase = 0
-	dive_phase_frames = 0.0
-
-
-func _clear_dive_particles() -> void:
-	dive_particles.clear()
-
-
-func _prime_dive_shockwave_runtime() -> void:
-	_clear_dive_shockwave_timer()
-	_prime_dive_shockwave_pos()
-	_clear_dive_ball_boosted()
-
-
-func _clear_dive_shockwave_timer() -> void:
-	dive_shockwave_timer = 0.0
-
-
-func _prime_dive_shockwave_pos() -> void:
-	dive_shockwave_pos = ViperSkillGeometry.emp_strike_shockwave_pos(dive_player_pos, dive_paddle_size, dive_floor_y)
-
-
-func _clear_dive_ball_boosted() -> void:
-	dive_ball_boosted = false
-
-
-func _prime_dive_prep_frames_snapshot(deps: Dictionary) -> void:
-	dive_prep_frames_snapshot = _get_dive_prep_frames_snapshot(deps)
-
-
-func _get_dive_prep_frames_snapshot(deps: Dictionary) -> float:
-	var prep_reduction_pct: float = float(_get_four_poisons_prep_reduction_pct(deps))
-	return max(1.0, DIVE_PREP_FRAMES * max(0.0, 1.0 - prep_reduction_pct / 100.0))
-
-
-func _apply_dive_start_height_offset() -> void:
-	if dive_height_snapshot > 0.0:
-		dive_player_pos.y = dive_floor_y - dive_height_snapshot
-
-
-func _mark_dive_effect_started(now_msec: int) -> void:
-	dive_effect_start_msec = now_msec
-	dive_shockwave_spawn_msec = 0
-	dive_hit_feedback_msec = 0
-
-
 func _get_dive_strike_activation_cost(skill_config: Object) -> float:
 	return _get_skill_cost_with_fallback(skill_config, DIVE_STRIKE, DIVE_GAUGE_COST)
-
-
-func _get_dive_strike_base_cooldown_seconds(skill_config: Object) -> float:
-	return _get_skill_cooldown_seconds_with_fallback(skill_config, DIVE_STRIKE, 70.0, false)
 
 
 func _update_dive_strike(
@@ -4525,28 +3312,103 @@ func _update_dive_strike(
 ) -> Dictionary:
 	var fps_scale: float = max(0.0, delta * 60.0)
 	if dive_phase == 2:
-		_update_dive_shockwave_phase(fps_scale, config, deps)
-		return _build_dive_shockwave_update_result(special_gauge)
+		var previous_radius: float = get_emp_shockwave_radius()
+		dive_shockwave_timer = max(0.0, dive_shockwave_timer - fps_scale)
+		if (
+			not dive_shockwave_boss_effect_applied
+			and ViperSkillGeometry.dive_shockwave_ring_touches_boss(
+				previous_radius,
+				get_emp_shockwave_radius(),
+				config,
+				dive_shockwave_pos,
+				DIVE_SHOCKWAVE_RING_HALF_THICKNESS
+			)
+		):
+			var slip_reference_pos: Vector2 = dive_shockwave_pos
+			var ring_ball_pos: Variant = config.get("ball_pos", null)
+			if ring_ball_pos is Vector2:
+				slip_reference_pos = ring_ball_pos
+			_start_dive_slip_for_height(
+				slip_reference_pos,
+				config,
+				deps,
+				dive_height_snapshot,
+				true
+			)
+			dive_shockwave_boss_effect_applied = true
+		if dive_shockwave_timer <= 0.0:
+			dive_active = false
+			dive_phase = 0
+			dive_phase_frames = 0.0
+			dive_ball_boosted = false
+			dive_shockwave_timer = 0.0
+		return {
+			"handled": false,
+			"activated": false,
+			"special_gauge": special_gauge,
+		}
 
 	dive_phase_frames += fps_scale
-	_refresh_dive_motion_geometry(config)
+	if dive_paddle_size == Vector2.ZERO:
+		dive_paddle_size = _get_paddle_size(config)
+	dive_floor_y = _get_player_floor_y(config)
 	match dive_phase:
 		0:
-			_update_dive_prep_phase(player_pos, config, deps, fps_scale)
+			dive_player_pos.x = player_pos.x
+			var prep_center: Vector2 = dive_player_pos + _get_paddle_size(config) * 0.5
+			var prep_progress: float = clamp(dive_phase_frames / max(1.0, dive_prep_frames_snapshot), 0.0, 1.0)
+			particle_drawer.spawn_dive_prep_particles(
+				dive_particles,
+				prep_center,
+				prep_progress,
+				fps_scale,
+				DIVE_PARTICLE_LIMIT
+			)
+			runtime_action_router.set_viper_jetpack_offset_y(deps, dive_player_pos.y - dive_floor_y)
+			if dive_phase_frames >= dive_prep_frames_snapshot:
+				dive_phase = 1
+				dive_phase_frames = 0.0
 		1:
-			_update_dive_fall_phase(player_pos, config, deps, fps_scale)
-	return _build_dive_motion_update_result(special_gauge)
-
-
-func _build_dive_shockwave_update_result(special_gauge: float) -> Dictionary:
-	return {
-		"handled": false,
-		"activated": false,
-		"special_gauge": special_gauge,
-	}
-
-
-func _build_dive_motion_update_result(special_gauge: float) -> Dictionary:
+			dive_player_pos.x = player_pos.x
+			dive_player_pos.y = min(dive_floor_y, dive_player_pos.y + DIVE_SPEED * fps_scale)
+			runtime_action_router.set_viper_jetpack_offset_y(deps, dive_player_pos.y - dive_floor_y)
+			var trail_anchor := Vector2(
+				dive_player_pos.x + _get_paddle_size(config).x * 0.5,
+				dive_player_pos.y + _get_paddle_size(config).y
+			)
+			particle_drawer.spawn_dive_trail_particles(
+				dive_particles,
+				trail_anchor.x,
+				trail_anchor.y,
+				fps_scale,
+				DIVE_PARTICLE_LIMIT
+			)
+			if dive_player_pos.y >= dive_floor_y:
+				dive_phase = 2
+				dive_phase_frames = 0.0
+				dive_floor_y = _get_player_floor_y(config)
+				dive_player_pos.y = dive_floor_y
+				dive_shockwave_timer = DIVE_SHOCKWAVE_FRAMES
+				dive_shockwave_pos = ViperSkillGeometry.emp_strike_shockwave_pos(dive_player_pos, dive_paddle_size, dive_floor_y)
+				dive_shockwave_spawn_msec = Time.get_ticks_msec()
+				dive_shockwave_max_radius = ViperSkillGeometry.dive_shockwave_boss_reach_radius(
+					config,
+					dive_shockwave_pos,
+					DIVE_SHOCKWAVE_BASE_MAX_RADIUS,
+					DIVE_SHOCKWAVE_RING_HALF_THICKNESS
+				)
+				dive_shockwave_boss_effect_applied = false
+				dive_ball_boosted = false
+				runtime_action_router.set_viper_jetpack_offset_y(deps, 0.0)
+				_trigger_feedback(deps, 0.18, 5.0)
+				audio_router.play_dive_strike_sound(deps)
+				particle_drawer.spawn_dive_landing_particles(
+					dive_particles,
+					dive_shockwave_pos,
+					DIVE_PARTICLE_LIMIT,
+					DIVE_JETPACK_MAX_HEIGHT
+				)
+				_spawn_dual_glitch_clone_dive_entries_for_current_cast(deps)
 	return {
 		"handled": true,
 		"activated": false,
@@ -4556,172 +3418,6 @@ func _build_dive_motion_update_result(special_gauge: float) -> Dictionary:
 		"special_gauge": special_gauge,
 		"player_collision_cooldown": DIVE_PLAYER_COLLISION_COOLDOWN,
 	}
-
-
-func _update_dive_prep_phase(player_pos: Vector2, config: Dictionary, deps: Dictionary, fps_scale: float) -> void:
-	_sync_dive_player_x(player_pos)
-	_spawn_dive_prep_phase_particles(config, fps_scale)
-	_sync_dive_jetpack_offset_y(deps)
-	if dive_phase_frames >= dive_prep_frames_snapshot:
-		_enter_dive_fall_phase()
-
-
-func _spawn_dive_prep_phase_particles(config: Dictionary, fps_scale: float) -> void:
-	var center: Vector2 = dive_player_pos + _get_paddle_size(config) * 0.5
-	var prep_progress: float = _get_dive_prep_progress()
-	particle_drawer.spawn_dive_prep_particles(
-		dive_particles,
-		center,
-		prep_progress,
-		fps_scale,
-		DIVE_PARTICLE_LIMIT
-	)
-
-
-func _update_dive_fall_phase(player_pos: Vector2, config: Dictionary, deps: Dictionary, fps_scale: float) -> void:
-	_sync_dive_player_x(player_pos)
-	dive_player_pos.y = min(dive_floor_y, dive_player_pos.y + DIVE_SPEED * fps_scale)
-	_sync_dive_jetpack_offset_y(deps)
-	_spawn_dive_fall_phase_particles(config, fps_scale)
-	if dive_player_pos.y >= dive_floor_y:
-		_enter_dive_landing(config, deps)
-
-
-func _spawn_dive_fall_phase_particles(config: Dictionary, fps_scale: float) -> void:
-	var trail_anchor := Vector2(
-		dive_player_pos.x + _get_paddle_size(config).x * 0.5,
-		dive_player_pos.y + _get_paddle_size(config).y
-	)
-	particle_drawer.spawn_dive_trail_particles(
-		dive_particles,
-		trail_anchor.x,
-		trail_anchor.y,
-		fps_scale,
-		DIVE_PARTICLE_LIMIT
-	)
-
-
-func _update_dive_shockwave_phase(fps_scale: float, config: Dictionary, deps: Dictionary) -> void:
-	var previous_radius: float = get_emp_shockwave_radius()
-	dive_shockwave_timer = max(0.0, dive_shockwave_timer - fps_scale)
-	_update_dive_shockwave_boss_effect(previous_radius, get_emp_shockwave_radius(), config, deps)
-	if _is_dive_shockwave_timer_finished():
-		dive_active = false
-		dive_phase = 0
-		dive_phase_frames = 0.0
-		_clear_dive_ball_boosted()
-		_clear_dive_shockwave_timer()
-
-
-func _is_dive_shockwave_timer_finished() -> bool:
-	return dive_shockwave_timer <= 0.0
-
-
-func _sync_dive_player_x(player_pos: Vector2) -> void:
-	dive_player_pos.x = player_pos.x
-
-
-func _refresh_dive_motion_geometry(config: Dictionary) -> void:
-	if dive_paddle_size == Vector2.ZERO:
-		dive_paddle_size = _get_paddle_size(config)
-	dive_floor_y = _get_player_floor_y(config)
-
-
-func _get_dive_prep_progress() -> float:
-	return clamp(dive_phase_frames / max(1.0, dive_prep_frames_snapshot), 0.0, 1.0)
-
-
-func _enter_dive_fall_phase() -> void:
-	dive_phase = 1
-	dive_phase_frames = 0.0
-
-
-func _enter_dive_landing(config: Dictionary, deps: Dictionary) -> void:
-	_prime_dive_landing_runtime(config)
-	_trigger_dive_landing_effects(deps)
-
-
-func _trigger_dive_landing_effects(deps: Dictionary) -> void:
-	_set_viper_jetpack_offset_y(deps, 0.0)
-	_trigger_feedback(deps, 0.18, 5.0)
-	_play_dive_strike_sound(deps)
-	particle_drawer.spawn_dive_landing_particles(
-		dive_particles,
-		dive_shockwave_pos,
-		DIVE_PARTICLE_LIMIT,
-		DIVE_JETPACK_MAX_HEIGHT
-	)
-	_spawn_dual_glitch_clone_dive_entries_for_current_cast(deps)
-
-
-func _prime_dive_landing_runtime(config: Dictionary) -> void:
-	dive_phase = 2
-	dive_phase_frames = 0.0
-	dive_floor_y = _get_player_floor_y(config)
-	dive_player_pos.y = dive_floor_y
-	_open_dive_shockwave_runtime(config)
-
-
-func _open_dive_shockwave_runtime(config: Dictionary) -> void:
-	dive_shockwave_timer = DIVE_SHOCKWAVE_FRAMES
-	_prime_dive_shockwave_pos()
-	dive_shockwave_spawn_msec = Time.get_ticks_msec()
-	dive_shockwave_max_radius = _get_dive_shockwave_boss_reach_radius(config)
-	dive_shockwave_boss_effect_applied = false
-	_clear_dive_ball_boosted()
-
-
-func _does_dive_shockwave_reach_ball(shock_y: float, ball_pos: Vector2) -> bool:
-	var vertical_gap: float = shock_y - ball_pos.y
-	return vertical_gap >= 0.0 and vertical_gap <= DIVE_SHOCKWAVE_HEIGHT
-
-
-func _get_dive_motion_ball_pos(scene: Dictionary, context: Dictionary) -> Vector2:
-	return _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
-
-
-func _apply_dive_strike_impact(scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
-	dive_ball_boosted = true
-	var ball_pos: Vector2 = _get_dive_motion_ball_pos(scene, context)
-	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", context.get("ball_vel", Vector2.ZERO)), Vector2.ZERO)
-	var next_vel: Vector2 = ViperSkillGeometry.emp_strike_hit_velocity(ball_vel)
-	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
-	_start_dive_slip_for_height(ball_pos, context, deps, dive_height_snapshot, false)
-	dive_hit_text_timer = DIVE_HIT_TEXT_FRAMES
-	dive_hit_text_pos = ball_pos
-	dive_hit_text_height_ratio = clamp(dive_height_snapshot / DIVE_JETPACK_MAX_HEIGHT, 0.0, 1.0)
-	dive_hit_feedback_msec = Time.get_ticks_msec()
-	_trigger_feedback(deps, 0.20, 5.5)
-	if not _register_ball_hit_pulse(ball_pos, next_vel, deps, 0.92, "viper_emp_strike"):
-		_spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(0.40, 0.90, 1.0, 1.0), 1.25, 0.86, 1.0)
-	var result := {
-		"ball_vel": next_vel,
-		"ball_impact_boost": max(1.0, float(scene.get("ball_impact_boost", 1.0))),
-		"player_collision_cooldown": max(DIVE_PLAYER_COLLISION_COOLDOWN, float(scene.get("player_collision_cooldown", 0.0))),
-	}
-	result.merge(_award_skill_gold(deps, 20), true)
-	return _mark_result_released_chaos_hit(result, released_chaos)
-
-
-func _does_dual_glitch_clone_dive_entry_reach_ball(entry: Dictionary, ball_pos: Vector2) -> bool:
-	return _does_dive_shockwave_reach_ball(float(entry.get("y", dive_shockwave_pos.y)), ball_pos)
-
-
-func _apply_dual_glitch_clone_dive_impact(entry: Dictionary, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
-	var ball_pos: Vector2 = _get_dive_motion_ball_pos(scene, context)
-	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", context.get("ball_vel", Vector2.ZERO)), Vector2.ZERO)
-	var next_vel: Vector2 = ViperSkillGeometry.emp_strike_hit_velocity(ball_vel)
-	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, context)
-	_start_dive_slip_for_height(ball_pos, context, deps, float(entry.get("height_snapshot", dive_height_snapshot)), true)
-	_trigger_feedback(deps, 0.13, 3.6)
-	_register_ball_hit_pulse(ball_pos, next_vel, deps, 0.58, "viper_dual_glitch_emp")
-	var result: Dictionary = {
-		"ball_vel": next_vel,
-		"ball_impact_boost": max(1.0, float(scene.get("ball_impact_boost", 1.0))),
-		"player_collision_cooldown": max(DIVE_PLAYER_COLLISION_COOLDOWN, float(scene.get("player_collision_cooldown", 0.0))),
-		"viper_dual_glitch_clone_emp_hit": true,
-	}
-	return _mark_result_released_chaos_hit(result, released_chaos)
 
 
 func _start_dive_slip_for_height(
@@ -4753,50 +3449,7 @@ func _start_dive_slip_for_height(
 	else:
 		dive_slip_duration = duration
 		dive_slip_timer = duration
-	_set_dive_slip_velocity(float(start_state.get("slip_vel", 0.0)))
-
-
-func _set_dive_slip_velocity(slip_vel: float) -> void:
-	dive_slip_vel = slip_vel
-
-
-func _get_dive_shockwave_boss_reach_radius(config: Dictionary) -> float:
-	return ViperSkillGeometry.dive_shockwave_boss_reach_radius(
-		config,
-		dive_shockwave_pos,
-		DIVE_SHOCKWAVE_BASE_MAX_RADIUS,
-		DIVE_SHOCKWAVE_RING_HALF_THICKNESS
-	)
-
-
-func _update_dive_shockwave_boss_effect(
-	previous_radius: float,
-	current_radius: float,
-	config: Dictionary,
-	deps: Dictionary
-) -> void:
-	if dive_shockwave_boss_effect_applied:
-		return
-	if not ViperSkillGeometry.dive_shockwave_ring_touches_boss(
-		previous_radius,
-		current_radius,
-		config,
-		dive_shockwave_pos,
-		DIVE_SHOCKWAVE_RING_HALF_THICKNESS
-	):
-		return
-	var slip_reference_pos: Vector2 = dive_shockwave_pos
-	var ball_pos: Variant = config.get("ball_pos", null)
-	if ball_pos is Vector2:
-		slip_reference_pos = ball_pos
-	_start_dive_slip_for_height(
-		slip_reference_pos,
-		config,
-		deps,
-		dive_height_snapshot,
-		true
-	)
-	dive_shockwave_boss_effect_applied = true
+	dive_slip_vel = float(start_state.get("slip_vel", 0.0))
 
 
 func apply_emp_slip_boss_motion(boss_pos: Vector2, context: Dictionary, fps_scale: float) -> Dictionary:
@@ -4809,7 +3462,7 @@ func apply_emp_slip_boss_motion(boss_pos: Vector2, context: Dictionary, fps_scal
 		dive_slip_vel
 	)
 	dive_slip_timer = float(motion.get("slip_timer", 0.0))
-	_set_dive_slip_velocity(float(motion.get("slip_vel", 0.0)))
+	dive_slip_vel = float(motion.get("slip_vel", 0.0))
 	return {
 		"boss_pos": _get_vector2(motion.get("boss_pos", boss_pos), boss_pos),
 		"boss_vel": float(motion.get("boss_vel", 0.0)),
@@ -4832,7 +3485,7 @@ func _reset_dive_runtime(clear_hold: bool = false) -> void:
 	dive_shockwave_max_radius = DIVE_SHOCKWAVE_BASE_MAX_RADIUS
 	dive_shockwave_boss_effect_applied = false
 	dive_ball_boosted = false
-	_clear_dive_particles()
+	dive_particles.clear()
 	dive_slip_timer = 0.0
 	dive_slip_duration = 0.0
 	dive_slip_vel = 0.0
@@ -4859,7 +3512,7 @@ func _clear_dive_charge_particles() -> void:
 	dive_charge_particles.clear()
 
 
-func _trigger_viper_runtime_cooldown(
+func _trigger_runtime_cooldown_and_orb_gauge_spin(
 	skill_name: String,
 	now_msec: int,
 	skill_config: Object,
@@ -4874,16 +3527,6 @@ func _trigger_viper_runtime_cooldown(
 		cooldown_seconds,
 		visibility_query
 	)
-
-
-func _trigger_runtime_cooldown_and_orb_gauge_spin(
-	skill_name: String,
-	now_msec: int,
-	skill_config: Object,
-	deps: Dictionary,
-	cooldown_seconds: float
-) -> void:
-	_trigger_viper_runtime_cooldown(skill_name, now_msec, skill_config, deps, cooldown_seconds)
 	_trigger_orb_gauge_spin(deps, now_msec)
 
 
@@ -4893,23 +3536,6 @@ func _get_viper_airborne_height(deps: Dictionary, config: Dictionary, player_pos
 
 func _get_player_floor_y(config: Dictionary) -> float:
 	return ViperSkillGeometry.player_floor_y(config)
-
-
-func _set_viper_jetpack_offset_y(deps: Dictionary, offset_y: float) -> void:
-	runtime_action_router.set_viper_jetpack_offset_y(deps, offset_y)
-
-
-func _try_start_blade_combo_from_up_edge(
-	up_edge: bool,
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	if not up_edge:
-		return {}
-	return _try_start_blade_combo_from_motion(player_pos, special_gauge, config, deps, now_msec)
 
 
 func _play_dive_prep_sound(deps: Dictionary) -> void:
@@ -4927,7 +3553,7 @@ func _try_start_blade_combo_from_motion(
 	deps: Dictionary,
 	now_msec: int
 ) -> Dictionary:
-	if not _can_try_start_blade_combo_from_motion():
+	if not _is_blade_motion_combo_phase_active():
 		return {}
 	if not blade_dark_mode:
 		return _try_start_blade_combo_from_air_blade_motion(player_pos, special_gauge, config, deps, now_msec)
@@ -4942,7 +3568,10 @@ func _try_start_blade_combo_from_air_blade_motion(
 	now_msec: int
 ) -> Dictionary:
 	var combo_skill_config: Object = _get_viper_skill_config(deps)
-	var nerve_and_dark_blade_equipped := _are_nerve_and_dark_blade_equipped(combo_skill_config)
+	var nerve_and_dark_blade_equipped := (
+		_is_skill_equipped(combo_skill_config, NERVE_STRIKE)
+		and _is_skill_equipped(combo_skill_config, DARK_BLADE)
+	)
 	var nerve_strike_combo_attempt := _try_start_nerve_strike_combo_from_blade_motion(
 		player_pos,
 		special_gauge,
@@ -4952,26 +3581,26 @@ func _try_start_blade_combo_from_air_blade_motion(
 		nerve_and_dark_blade_equipped
 	)
 	if bool(nerve_strike_combo_attempt.get("handled", false)):
-		return _get_handled_blade_combo_attempt_result(nerve_strike_combo_attempt)
-	var dark_blade_combo_result := _try_start_dark_blade_combo_from_air_blade_motion(
-		player_pos,
+		var handled_result_value: Variant = nerve_strike_combo_attempt.get("result", {})
+		if handled_result_value is Dictionary:
+			var handled_result: Dictionary = handled_result_value
+			return handled_result
+		return {}
+	var dark_blade_split_combo_window_active := (
+		nerve_and_dark_blade_equipped
+		and blade_motion_total_frames >= NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
+		and blade_motion_total_frames <= NERVE_STRIKE_WINDOW_END_FRAMES
+	)
+	if _can_start_dark_blade_combo_from_blade_motion(
+		combo_skill_config,
 		special_gauge,
 		config,
 		deps,
-		now_msec,
-		combo_skill_config,
-		nerve_and_dark_blade_equipped
-	)
-	if not dark_blade_combo_result.is_empty():
-		return dark_blade_combo_result
-	return {}
-
-
-func _get_handled_blade_combo_attempt_result(combo_attempt: Dictionary) -> Dictionary:
-	var result_value: Variant = combo_attempt.get("result", {})
-	if result_value is Dictionary:
-		var result: Dictionary = result_value
-		return result
+		dark_blade_split_combo_window_active,
+		blade_air_combo_window
+	):
+		_clear_blade_projectile()
+		return _start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec, true, true)
 	return {}
 
 
@@ -4982,9 +3611,17 @@ func _try_start_blade_combo_from_dark_blade_motion(
 	deps: Dictionary,
 	now_msec: int
 ) -> Dictionary:
-	if not _can_try_start_air_blade_combo_from_dark_motion():
+	if not (blade_dark_mode and blade_dark_combo_window):
 		return {}
-	return _try_start_air_blade_combo_from_dark_blade_motion(player_pos, special_gauge, config, deps, now_msec)
+	if not _can_start_blade_combo_with_runtime_state(config, deps):
+		return {}
+	var skill_config: Object = _get_viper_skill_config(deps)
+	if not _is_skill_equipped(skill_config, BLADE_RUSH):
+		return {}
+	if special_gauge < _get_blade_skill_cost(skill_config, deps, BLADE_RUSH):
+		return {}
+	_clear_blade_projectile()
+	return _start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec, false, true)
 
 
 func _try_start_nerve_strike_combo_from_blade_motion(
@@ -4998,133 +3635,31 @@ func _try_start_nerve_strike_combo_from_blade_motion(
 	if not _is_nerve_strike_combo_window_active(nerve_and_dark_blade_equipped):
 		return {"handled": false, "result": {}}
 	if _can_start_nerve_strike_combo(special_gauge, config, deps, now_msec):
+		_clear_blade_projectile()
 		return {
 			"handled": true,
-			"result": _start_nerve_strike_combo_from_blade_motion(player_pos, special_gauge, config, deps, now_msec),
+			"result": _start_nerve_strike(player_pos, special_gauge, config, deps, now_msec),
 		}
-	if _should_hold_for_nerve_dark_blade_split(nerve_and_dark_blade_equipped):
+	if nerve_and_dark_blade_equipped and blade_motion_total_frames < NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES:
 		return {"handled": true, "result": {}}
 	return {"handled": false, "result": {}}
-
-
-func _can_try_start_blade_combo_from_motion() -> bool:
-	return _is_blade_motion_combo_phase_active()
 
 
 func _is_blade_motion_combo_phase_active() -> bool:
 	return _is_blade_motion_active() and blade_motion_phase == 2
 
 
-func _can_try_start_air_blade_combo_from_dark_motion() -> bool:
-	return blade_dark_mode and blade_dark_combo_window
-
-
-func _try_start_dark_blade_combo_from_air_blade_motion(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int,
-	combo_skill_config: Object,
-	nerve_and_dark_blade_equipped: bool
-) -> Dictionary:
-	if _can_start_dark_blade_combo_from_air_blade_motion(combo_skill_config, special_gauge, config, deps, nerve_and_dark_blade_equipped):
-		return _start_dark_blade_combo_from_blade_motion(player_pos, special_gauge, config, deps, now_msec)
-	return {}
-
-
-func _can_start_dark_blade_combo_from_air_blade_motion(
-	combo_skill_config: Object,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	nerve_and_dark_blade_equipped: bool
-) -> bool:
-	var dark_blade_split_combo_window_active := _is_dark_blade_split_combo_window_active(nerve_and_dark_blade_equipped)
-	return _can_start_dark_blade_combo_from_blade_motion(
-		combo_skill_config,
-		special_gauge,
-		config,
-		deps,
-		dark_blade_split_combo_window_active,
-		blade_air_combo_window
-	)
-
-
-func _try_start_air_blade_combo_from_dark_blade_motion(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	var can_start_air_blade_combo := _can_start_air_blade_combo_from_dark_blade_motion(special_gauge, config, deps)
-	if can_start_air_blade_combo:
-		return _start_air_blade_combo_from_dark_blade_motion(player_pos, special_gauge, config, deps, now_msec)
-	return {}
-
-
-func _start_nerve_strike_combo_from_blade_motion(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	_clear_blade_projectile()
-	return _start_nerve_strike(player_pos, special_gauge, config, deps, now_msec)
-
-
-func _start_dark_blade_combo_from_blade_motion(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	_clear_blade_projectile()
-	return _start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec, true, true)
-
-
-func _start_air_blade_combo_from_dark_blade_motion(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	_clear_blade_projectile()
-	return _start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec, false, true)
-
-
-func _are_nerve_and_dark_blade_equipped(skill_config: Object) -> bool:
-	return _is_skill_equipped(skill_config, NERVE_STRIKE) and _is_skill_equipped(skill_config, DARK_BLADE)
-
-
-func _should_hold_for_nerve_dark_blade_split(nerve_and_dark_blade_equipped: bool) -> bool:
-	return nerve_and_dark_blade_equipped and blade_motion_total_frames < NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
-
-
 func _is_nerve_strike_combo_window_active(nerve_and_dark_blade_equipped: bool) -> bool:
 	if nerve_strike_combo_used or nerve_strike_active:
 		return false
-	var nerve_strike_window_end_frame: float = _get_nerve_strike_combo_window_end_frame(nerve_and_dark_blade_equipped)
+	var nerve_strike_window_end_frame: float = (
+		NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
+		if nerve_and_dark_blade_equipped
+		else NERVE_STRIKE_WINDOW_END_FRAMES
+	)
 	return (
 		blade_motion_total_frames >= NERVE_STRIKE_WINDOW_START_FRAMES
 		and blade_motion_total_frames < nerve_strike_window_end_frame
-	)
-
-
-func _get_nerve_strike_combo_window_end_frame(nerve_and_dark_blade_equipped: bool) -> float:
-	return NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES if nerve_and_dark_blade_equipped else NERVE_STRIKE_WINDOW_END_FRAMES
-
-
-func _is_dark_blade_split_combo_window_active(nerve_and_dark_blade_equipped: bool) -> bool:
-	if not nerve_and_dark_blade_equipped:
-		return false
-	return (
-		blade_motion_total_frames >= NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
-		and blade_motion_total_frames <= NERVE_STRIKE_WINDOW_END_FRAMES
 	)
 
 
@@ -5136,33 +3671,16 @@ func _can_start_dark_blade_combo_from_blade_motion(
 	split_combo_window_active: bool,
 	air_combo_window_active: bool
 ) -> bool:
-	if not _has_blade_combo_window(split_combo_window_active, air_combo_window_active):
+	if not (split_combo_window_active or air_combo_window_active):
 		return false
 	if not _can_start_blade_combo_with_runtime_state(config, deps):
 		return false
 	if not _is_skill_equipped(skill_config, DARK_BLADE):
 		return false
 	return (
-		_has_enough_blade_skill_gauge(skill_config, deps, DARK_BLADE, special_gauge)
+		special_gauge >= _get_blade_skill_cost(skill_config, deps, DARK_BLADE)
 		and _is_configured_skill_ready(DARK_BLADE, deps)
 	)
-
-
-func _can_start_air_blade_combo_from_dark_blade_motion(special_gauge: float, config: Dictionary, deps: Dictionary) -> bool:
-	if not _can_start_blade_combo_with_runtime_state(config, deps):
-		return false
-	var skill_config: Object = _get_viper_skill_config(deps)
-	if not _is_skill_equipped(skill_config, BLADE_RUSH):
-		return false
-	return _has_enough_blade_skill_gauge(skill_config, deps, BLADE_RUSH, special_gauge)
-
-
-func _has_blade_combo_window(split_combo_window_active: bool, air_combo_window_active: bool) -> bool:
-	return split_combo_window_active or air_combo_window_active
-
-
-func _has_enough_blade_skill_gauge(skill_config: Object, deps: Dictionary, skill_name: String, special_gauge: float) -> bool:
-	return special_gauge >= _get_blade_skill_cost(skill_config, deps, skill_name)
 
 
 func _can_start_nerve_strike_combo(special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int) -> bool:
@@ -5173,9 +3691,18 @@ func _can_start_nerve_strike_combo(special_gauge: float, config: Dictionary, dep
 	var skill_config: Object = _get_viper_skill_config(deps)
 	if not _is_skill_equipped(skill_config, NERVE_STRIKE):
 		return false
-	if not _has_enough_nerve_strike_gauge(skill_config, special_gauge):
+	if special_gauge < _get_nerve_strike_activation_cost(skill_config):
 		return false
-	return _is_nerve_strike_ready(deps, now_msec, skill_config)
+	var skill_state: Object = _get_viper_skill_state(deps)
+	if skill_state == null:
+		return true
+	if skill_state.has_method("get_cooldown_remaining"):
+		return skill_state.get_cooldown_remaining(
+			NERVE_STRIKE,
+			now_msec,
+			_get_nerve_strike_cooldown_seconds(skill_config, deps)
+		) <= 0.0
+	return _is_configured_skill_ready(NERVE_STRIKE, deps, now_msec)
 
 
 func _can_start_blade_combo_with_runtime_state(config: Dictionary, deps: Dictionary) -> bool:
@@ -5189,28 +3716,20 @@ func _get_nerve_strike_activation_cost(skill_config: Object) -> float:
 	return 90.0 if configured_cost <= 0.0 else configured_cost
 
 
-func _has_enough_nerve_strike_gauge(skill_config: Object, special_gauge: float) -> bool:
-	return special_gauge >= _get_nerve_strike_activation_cost(skill_config)
-
-
-func _is_nerve_strike_ready(deps: Dictionary, now_msec: int, skill_config: Object) -> bool:
-	var skill_state: Object = _get_viper_skill_state(deps)
-	if skill_state == null:
-		return true
-	if skill_state.has_method("get_cooldown_remaining"):
-		return skill_state.get_cooldown_remaining(
-			NERVE_STRIKE,
-			now_msec,
-			_get_nerve_strike_cooldown_seconds(skill_config, deps)
-		) <= 0.0
-	return _is_configured_skill_ready(NERVE_STRIKE, deps, now_msec)
-
-
 func _get_nerve_strike_cooldown_seconds(skill_config: Object, deps: Dictionary) -> float:
 	return _get_four_poisons_additive_cooldown_seconds(NERVE_STRIKE, skill_config, deps, 40.0)
 
 
-func _trigger_nerve_strike_start_effects(skill_config: Object, deps: Dictionary, now_msec: int) -> void:
+func _start_nerve_strike(
+	player_pos: Vector2,
+	special_gauge: float,
+	config: Dictionary,
+	deps: Dictionary,
+	now_msec: int
+) -> Dictionary:
+	var skill_config: Object = _get_viper_skill_config(deps)
+	var cost: float = _get_nerve_strike_activation_cost(skill_config)
+	var next_gauge: float = max(0.0, special_gauge - cost)
 	_trigger_runtime_cooldown_and_orb_gauge_spin(
 		NERVE_STRIKE,
 		now_msec,
@@ -5222,9 +3741,6 @@ func _trigger_nerve_strike_start_effects(skill_config: Object, deps: Dictionary,
 	runtime_action_router.interrupt_viper_jetpack_thrust(deps)
 	_stop_blade_spin_sound(deps)
 	_reset_blade_motion_only(deps)
-
-
-func _prime_nerve_strike_runtime_state(player_pos: Vector2, config: Dictionary) -> void:
 	nerve_strike_cast_id += 1
 	nerve_strike_active = true
 	nerve_strike_phase = 0
@@ -5242,9 +3758,8 @@ func _prime_nerve_strike_runtime_state(player_pos: Vector2, config: Dictionary) 
 	nerve_strike_slash_triggered = false
 	nerve_strike_slash_vfx_frames = 0.0
 	nerve_strike_slash_center = _get_nerve_strike_target_center(config)
-
-
-func _build_nerve_strike_start_result(next_gauge: float) -> Dictionary:
+	audio_router.play_nerve_strike_moving_sound(deps)
+	_spawn_dual_glitch_clone_nerve_slashes_for_current_cast(deps, config)
 	return {
 		"handled": true,
 		"activated": true,
@@ -5253,47 +3768,6 @@ func _build_nerve_strike_start_result(next_gauge: float) -> Dictionary:
 		"player_speed": 0.0,
 		"special_gauge": next_gauge,
 	}
-
-
-func _start_nerve_strike(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	var skill_config: Object = _get_viper_skill_config(deps)
-	var next_gauge: float = _get_nerve_strike_next_gauge(skill_config, special_gauge)
-	_trigger_nerve_strike_start_effects(skill_config, deps, now_msec)
-	_prime_nerve_strike_runtime_state(player_pos, config)
-	_trigger_nerve_strike_launch_effects(deps, config)
-	return _build_nerve_strike_start_result(next_gauge)
-
-
-func _trigger_nerve_strike_launch_effects(deps: Dictionary, config: Dictionary) -> void:
-	audio_router.play_nerve_strike_moving_sound(deps)
-	_spawn_dual_glitch_clone_nerve_slashes_for_current_cast(deps, config)
-
-
-func _get_nerve_strike_next_gauge(skill_config: Object, special_gauge: float) -> float:
-	var cost: float = _get_nerve_strike_activation_cost(skill_config)
-	return max(0.0, special_gauge - cost)
-
-
-func _build_nerve_strike_update_result(player_pos: Vector2, special_gauge: float) -> Dictionary:
-	return {
-		"handled": true,
-		"activated": false,
-		"skill_name": NERVE_STRIKE,
-		"player_pos": player_pos,
-		"player_speed": 0.0,
-		"special_gauge": special_gauge,
-	}
-
-
-func _sync_nerve_strike_update_result_position(result: Dictionary) -> void:
-	if nerve_strike_active:
-		result["player_pos"] = nerve_strike_pos
 
 
 func _update_nerve_strike(
@@ -5305,7 +3779,14 @@ func _update_nerve_strike(
 ) -> Dictionary:
 	var fps_scale: float = max(0.0, delta * 60.0)
 	nerve_strike_phase_frames += fps_scale
-	var result := _build_nerve_strike_update_result(player_pos, special_gauge)
+	var result := {
+		"handled": true,
+		"activated": false,
+		"skill_name": NERVE_STRIKE,
+		"player_pos": player_pos,
+		"player_speed": 0.0,
+		"special_gauge": special_gauge,
+	}
 	match nerve_strike_phase:
 		0:
 			result.merge(_update_nerve_strike_dash(config, deps), true)
@@ -5315,7 +3796,8 @@ func _update_nerve_strike(
 			result.merge(_update_nerve_strike_return(deps), true)
 		_:
 			_reset_nerve_strike_runtime(false)
-	_sync_nerve_strike_update_result_position(result)
+	if nerve_strike_active:
+		result["player_pos"] = nerve_strike_pos
 	return result
 
 
@@ -5324,81 +3806,8 @@ func _enter_nerve_strike_return_phase(config: Dictionary, deps: Dictionary) -> v
 	nerve_strike_phase_frames = 0.0
 	nerve_strike_freeze_active = false
 	nerve_strike_return_start_pos = nerve_strike_pos
-	nerve_strike_return_target_pos = _get_nerve_strike_return_target_pos(config)
+	nerve_strike_return_target_pos = ViperSkillGeometry.nerve_strike_return_target_pos(config)
 	audio_router.play_nerve_strike_moving_sound(deps)
-
-
-func _enter_nerve_strike_slash_phase(config: Dictionary) -> void:
-	nerve_strike_phase = 1
-	nerve_strike_phase_frames = 0.0
-	nerve_strike_slash_triggered = false
-	nerve_strike_slash_center = _get_nerve_strike_boss_center(config)
-
-
-func _apply_nerve_strike_dash_hit_success(deps: Dictionary) -> Dictionary:
-	nerve_strike_freeze_active = true
-	audio_router.play_phantom_show_sound(deps)
-	_trigger_feedback(deps, 0.18, 5.2)
-	var mythic_item_runtime: Object = _get_mythic_item_runtime(deps)
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("try_spawn_venom_mist_at_boss"):
-		mythic_item_runtime.try_spawn_venom_mist_at_boss(nerve_strike_slash_center, deps, false)
-	return _award_skill_gold(deps, NERVE_STRIKE_HIT_GOLD)
-
-
-func _show_nerve_strike_miss_text(config: Dictionary) -> void:
-	nerve_strike_miss_text_timer = NERVE_STRIKE_MISS_TEXT_FRAMES
-	nerve_strike_miss_text_pos = ViperSkillGeometry.nerve_strike_miss_text_pos(
-		_get_nerve_strike_target_center(config),
-		-20.0
-	)
-
-
-func _should_trigger_nerve_strike_slash(progress: float) -> bool:
-	return ViperSkillGeometry.nerve_strike_should_trigger_slash(
-		nerve_strike_hit_confirmed,
-		nerve_strike_slash_triggered,
-		progress,
-		NERVE_STRIKE_SLASH_TRIGGER_RATIO
-	)
-
-
-func _trigger_nerve_strike_slash(config: Dictionary, deps: Dictionary) -> void:
-	nerve_strike_slash_triggered = true
-	nerve_strike_slash_vfx_frames = NERVE_STRIKE_SLASH_VFX_FRAMES
-	nerve_strike_slash_center = _get_nerve_strike_boss_center(config)
-	trigger_venom_edge_strike()
-	audio_router.play_nerve_strike_attack_sound(deps)
-	_spawn_nerve_strike_slash_feedback(nerve_strike_slash_center, deps)
-
-
-func _finish_nerve_strike_slash_phase(config: Dictionary, deps: Dictionary) -> void:
-	if nerve_strike_hit_confirmed:
-		_apply_nerve_strike_confusion(deps)
-	_enter_nerve_strike_return_phase(config, deps)
-
-
-func _get_nerve_strike_return_duration_frames() -> float:
-	return NERVE_STRIKE_RETURN_HIT_FRAMES if nerve_strike_hit_confirmed else NERVE_STRIKE_RETURN_MISS_FRAMES
-
-
-func _advance_nerve_strike_return_motion() -> float:
-	var motion: Dictionary = ViperSkillGeometry.nerve_strike_return_motion(
-		nerve_strike_return_start_pos,
-		nerve_strike_return_target_pos,
-		nerve_strike_phase_frames,
-		_get_nerve_strike_return_duration_frames()
-	)
-	var progress: float = float(motion.get("progress", 0.0))
-	nerve_strike_pos = _get_vector2(motion.get("pos", nerve_strike_pos), nerve_strike_pos)
-	return progress
-
-
-func _finish_nerve_strike_return_phase(deps: Dictionary) -> Dictionary:
-	nerve_strike_pos = nerve_strike_return_target_pos
-	var final_pos: Vector2 = nerve_strike_pos
-	runtime_action_router.force_viper_jetpack_land(deps)
-	_reset_nerve_strike_runtime(false)
-	return {"player_pos": final_pos}
 
 
 func _update_nerve_strike_dash(config: Dictionary, deps: Dictionary) -> Dictionary:
@@ -5423,10 +3832,23 @@ func _update_nerve_strike_dash(config: Dictionary, deps: Dictionary) -> Dictiona
 		_get_nerve_strike_boss_center(config),
 		NERVE_STRIKE_HIT_RADIUS
 	)
-	_enter_nerve_strike_slash_phase(config)
+	nerve_strike_phase = 1
+	nerve_strike_phase_frames = 0.0
+	nerve_strike_slash_triggered = false
+	nerve_strike_slash_center = _get_nerve_strike_boss_center(config)
 	if nerve_strike_hit_confirmed:
-		return _apply_nerve_strike_dash_hit_success(deps)
-	_show_nerve_strike_miss_text(config)
+		nerve_strike_freeze_active = true
+		audio_router.play_phantom_show_sound(deps)
+		_trigger_feedback(deps, 0.18, 5.2)
+		var mythic_item_runtime: Object = _get_mythic_item_runtime(deps)
+		if mythic_item_runtime != null and mythic_item_runtime.has_method("try_spawn_venom_mist_at_boss"):
+			mythic_item_runtime.try_spawn_venom_mist_at_boss(nerve_strike_slash_center, deps, false)
+		return _award_skill_gold(deps, NERVE_STRIKE_HIT_GOLD)
+	nerve_strike_miss_text_timer = NERVE_STRIKE_MISS_TEXT_FRAMES
+	nerve_strike_miss_text_pos = ViperSkillGeometry.nerve_strike_miss_text_pos(
+		_get_nerve_strike_target_center(config),
+		-20.0
+	)
 	_enter_nerve_strike_return_phase(config, deps)
 	return {}
 
@@ -5435,20 +3857,44 @@ func _update_nerve_strike_slash(config: Dictionary, deps: Dictionary) -> Diction
 	var duration: float = NERVE_STRIKE_SLASH_HIT_FRAMES if nerve_strike_hit_confirmed else NERVE_STRIKE_SLASH_MISS_FRAMES
 	var progress: float = ViperSkillGeometry.nerve_strike_phase_progress(nerve_strike_phase_frames, duration)
 	nerve_strike_pos = nerve_strike_dash_target_pos
-	if _should_trigger_nerve_strike_slash(progress):
-		_trigger_nerve_strike_slash(config, deps)
+	if ViperSkillGeometry.nerve_strike_should_trigger_slash(
+		nerve_strike_hit_confirmed,
+		nerve_strike_slash_triggered,
+		progress,
+		NERVE_STRIKE_SLASH_TRIGGER_RATIO
+	):
+		nerve_strike_slash_triggered = true
+		nerve_strike_slash_vfx_frames = NERVE_STRIKE_SLASH_VFX_FRAMES
+		nerve_strike_slash_center = _get_nerve_strike_boss_center(config)
+		trigger_venom_edge_strike()
+		audio_router.play_nerve_strike_attack_sound(deps)
+		_spawn_nerve_strike_slash_feedback(nerve_strike_slash_center, deps)
 	if progress < 1.0:
 		return {}
 
-	_finish_nerve_strike_slash_phase(config, deps)
+	if nerve_strike_hit_confirmed:
+		_apply_nerve_strike_confusion(deps)
+	_enter_nerve_strike_return_phase(config, deps)
 	return {}
 
 
 func _update_nerve_strike_return(deps: Dictionary) -> Dictionary:
-	var progress: float = _advance_nerve_strike_return_motion()
+	var return_frames: float = NERVE_STRIKE_RETURN_HIT_FRAMES if nerve_strike_hit_confirmed else NERVE_STRIKE_RETURN_MISS_FRAMES
+	var motion: Dictionary = ViperSkillGeometry.nerve_strike_return_motion(
+		nerve_strike_return_start_pos,
+		nerve_strike_return_target_pos,
+		nerve_strike_phase_frames,
+		return_frames
+	)
+	var progress: float = float(motion.get("progress", 0.0))
+	nerve_strike_pos = _get_vector2(motion.get("pos", nerve_strike_pos), nerve_strike_pos)
 	if progress < 1.0:
 		return {}
-	return _finish_nerve_strike_return_phase(deps)
+	nerve_strike_pos = nerve_strike_return_target_pos
+	var final_pos: Vector2 = nerve_strike_pos
+	runtime_action_router.force_viper_jetpack_land(deps)
+	_reset_nerve_strike_runtime(false)
+	return {"player_pos": final_pos}
 
 
 func _reset_nerve_strike_runtime(clear_clones: bool = false) -> void:
@@ -5496,7 +3942,11 @@ func _get_four_poisons_additive_cooldown_seconds(
 
 
 func _apply_nerve_strike_confusion(deps: Dictionary) -> void:
-	var status_effect_state: Object = _get_status_effect_state(deps)
+	var status_effect_state: Object = deps.get("status_effect_state", null)
+	if status_effect_state == null:
+		var registry: Object = deps.get("registry", null)
+		if registry != null and registry.has_method("get_instance"):
+			status_effect_state = registry.get_instance("status_effect_state")
 	if status_effect_state == null or not status_effect_state.has_method("apply_status"):
 		return
 	var venom_confusion_pct: int = _get_four_poisons_scaled_pct(
@@ -5515,16 +3965,6 @@ func _apply_nerve_strike_confusion(deps: Dictionary) -> void:
 	)
 
 
-func _get_status_effect_state(deps: Dictionary) -> Object:
-	var status_effect_state: Object = deps.get("status_effect_state", null)
-	if status_effect_state != null:
-		return status_effect_state
-	var registry: Object = deps.get("registry", null)
-	if registry != null and registry.has_method("get_instance"):
-		return registry.get_instance("status_effect_state")
-	return null
-
-
 func _get_nerve_strike_target_pos(config: Dictionary) -> Vector2:
 	return ViperSkillGeometry.nerve_strike_target_pos(config, NERVE_STRIKE_TARGET_Y_OFFSET)
 
@@ -5535,10 +3975,6 @@ func _get_nerve_strike_target_center(config: Dictionary) -> Vector2:
 
 func _get_nerve_strike_boss_center(config: Dictionary) -> Vector2:
 	return ViperSkillGeometry.nerve_strike_boss_center(config)
-
-
-func _get_nerve_strike_return_target_pos(config: Dictionary) -> Vector2:
-	return ViperSkillGeometry.nerve_strike_return_target_pos(config)
 
 
 func _spawn_nerve_strike_slash_feedback(center: Vector2, deps: Dictionary) -> void:
@@ -5552,25 +3988,6 @@ func _spawn_nerve_strike_slash_feedback(center: Vector2, deps: Dictionary) -> vo
 		0.95,
 		1.10
 	)
-
-
-func _build_nerve_strike_clone_slash_entry(origin: Dictionary, side: int, boss_center: Vector2) -> Dictionary:
-	var delay_mult: float = _get_dual_glitch_clone_stagger_delay_mult(side)
-	var start := Vector2(
-		_get_dual_glitch_origin_x(origin, boss_center.x),
-		_get_dual_glitch_origin_y(origin, boss_center.y)
-	)
-	return {
-		"cast_id": nerve_strike_cast_id,
-		"side": side,
-		"state": "pending",
-		"delay_frames": DUAL_GLITCH_NERVE_STAGGER_FRAMES * delay_mult,
-		"timer": 0.0,
-		"origin": start,
-		"pos": start,
-		"target": boss_center,
-		"hit_applied": false,
-	}
 
 
 func _spawn_dual_glitch_clone_nerve_slashes_for_current_cast(deps: Dictionary, config: Dictionary) -> void:
@@ -5587,58 +4004,22 @@ func _spawn_dual_glitch_clone_nerve_slashes_for_current_cast(deps: Dictionary, c
 		var side: int = _get_dual_glitch_origin_side(origin)
 		if side == 0:
 			continue
-		nerve_strike_clone_slashes.append(_build_nerve_strike_clone_slash_entry(origin, side, boss_center))
-
-
-func _advance_nerve_strike_clone_pending_entry(entry: Dictionary, fps_scale: float, context: Dictionary) -> void:
-	var delay_frames: float = max(0.0, float(entry.get("delay_frames", 0.0)) - fps_scale)
-	entry["delay_frames"] = delay_frames
-	if delay_frames <= 0.0:
-		entry["state"] = "travel"
-		entry["timer"] = 0.0
-		entry["target"] = _get_nerve_strike_boss_center(context)
-
-
-func _should_keep_nerve_strike_clone_slash_entry(entry: Dictionary) -> bool:
-	return str(entry.get("state", "")) != "slash" or float(entry.get("timer", 0.0)) > 0.0
-
-
-func _apply_nerve_strike_clone_travel_arrival(entry: Dictionary, pos: Vector2, live_target: Vector2, deps: Dictionary) -> void:
-	var hit: bool = ViperSkillGeometry.nerve_strike_hits_target(pos, live_target, NERVE_STRIKE_HIT_RADIUS)
-	if hit and not bool(entry.get("hit_applied", false)):
-		entry["hit_applied"] = true
-		_apply_nerve_strike_confusion(deps)
-		_spawn_nerve_strike_slash_feedback(pos, deps)
-	entry["state"] = "slash"
-	entry["timer"] = DUAL_GLITCH_NERVE_SLASH_FRAMES
-
-
-func _advance_nerve_strike_clone_travel_entry(entry: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
-	var origin: Vector2 = _get_vector2(entry.get("origin", Vector2.ZERO), Vector2.ZERO)
-	var live_target: Vector2 = _get_nerve_strike_boss_center(context)
-	var current_target: Vector2 = _get_vector2(entry.get("target", origin), origin)
-	var motion: Dictionary = ViperSkillGeometry.nerve_strike_clone_slash_motion(
-		origin,
-		current_target,
-		live_target,
-		float(entry.get("timer", 0.0)),
-		fps_scale,
-		DUAL_GLITCH_NERVE_TRAVEL_FRAMES,
-		0.70,
-		0.16
-	)
-	var progress: float = float(motion.get("progress", 0.0))
-	var target: Vector2 = _get_vector2(motion.get("target", current_target), current_target)
-	entry["timer"] = float(motion.get("timer", 0.0))
-	entry["target"] = target
-	entry["pos"] = _get_vector2(motion.get("pos", origin), origin)
-	if progress >= 1.0:
-		var pos: Vector2 = _get_vector2(entry.get("pos", target), target)
-		_apply_nerve_strike_clone_travel_arrival(entry, pos, live_target, deps)
-
-
-func _advance_nerve_strike_clone_slash_entry(entry: Dictionary, fps_scale: float) -> void:
-	entry["timer"] = max(0.0, float(entry.get("timer", 0.0)) - fps_scale)
+		var delay_mult: float = _get_dual_glitch_clone_stagger_delay_mult(side)
+		var start := Vector2(
+			_get_dual_glitch_origin_x(origin, boss_center.x),
+			_get_dual_glitch_origin_y(origin, boss_center.y)
+		)
+		nerve_strike_clone_slashes.append({
+			"cast_id": nerve_strike_cast_id,
+			"side": side,
+			"state": "pending",
+			"delay_frames": DUAL_GLITCH_NERVE_STAGGER_FRAMES * delay_mult,
+			"timer": 0.0,
+			"origin": start,
+			"pos": start,
+			"target": boss_center,
+			"hit_applied": false,
+		})
 
 
 func _update_nerve_strike_clone_slashes(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
@@ -5652,19 +4033,50 @@ func _update_nerve_strike_clone_slashes(fps_scale: float, context: Dictionary, d
 		var state: String = str(entry.get("state", "pending"))
 		match state:
 			"pending":
-				_advance_nerve_strike_clone_pending_entry(entry, fps_scale, context)
+				var delay_frames: float = max(0.0, float(entry.get("delay_frames", 0.0)) - fps_scale)
+				entry["delay_frames"] = delay_frames
+				if delay_frames <= 0.0:
+					entry["state"] = "travel"
+					entry["timer"] = 0.0
+					entry["target"] = _get_nerve_strike_boss_center(context)
 			"travel":
-				_advance_nerve_strike_clone_travel_entry(entry, fps_scale, context, deps)
+				var origin: Vector2 = _get_vector2(entry.get("origin", Vector2.ZERO), Vector2.ZERO)
+				var live_target: Vector2 = _get_nerve_strike_boss_center(context)
+				var current_target: Vector2 = _get_vector2(entry.get("target", origin), origin)
+				var motion: Dictionary = ViperSkillGeometry.nerve_strike_clone_slash_motion(
+					origin,
+					current_target,
+					live_target,
+					float(entry.get("timer", 0.0)),
+					fps_scale,
+					DUAL_GLITCH_NERVE_TRAVEL_FRAMES,
+					0.70,
+					0.16
+				)
+				var progress: float = float(motion.get("progress", 0.0))
+				var target: Vector2 = _get_vector2(motion.get("target", current_target), current_target)
+				entry["timer"] = float(motion.get("timer", 0.0))
+				entry["target"] = target
+				entry["pos"] = _get_vector2(motion.get("pos", origin), origin)
+				if progress >= 1.0:
+					var pos: Vector2 = _get_vector2(entry.get("pos", target), target)
+					var hit: bool = ViperSkillGeometry.nerve_strike_hits_target(pos, live_target, NERVE_STRIKE_HIT_RADIUS)
+					if hit and not bool(entry.get("hit_applied", false)):
+						entry["hit_applied"] = true
+						_apply_nerve_strike_confusion(deps)
+						_spawn_nerve_strike_slash_feedback(pos, deps)
+					entry["state"] = "slash"
+					entry["timer"] = DUAL_GLITCH_NERVE_SLASH_FRAMES
 			"slash":
-				_advance_nerve_strike_clone_slash_entry(entry, fps_scale)
+				entry["timer"] = max(0.0, float(entry.get("timer", 0.0)) - fps_scale)
 			_:
 				entry["timer"] = 0.0
-		if _should_keep_nerve_strike_clone_slash_entry(entry):
+		if str(entry.get("state", "")) != "slash" or float(entry.get("timer", 0.0)) > 0.0:
 			updated.append(entry)
 	nerve_strike_clone_slashes = updated
 
 
-func _can_start_air_blade_with_runtime_state(config: Dictionary, deps: Dictionary) -> bool:
+func _can_start_air_blade(special_gauge: float, config: Dictionary, deps: Dictionary) -> bool:
 	if _has_viper_attack_motion_active() or chaos_state == "startup":
 		return false
 	if dark_blade_window:
@@ -5675,25 +4087,15 @@ func _can_start_air_blade_with_runtime_state(config: Dictionary, deps: Dictionar
 		return false
 	if _is_control_locked(deps):
 		return false
-	return true
-
-
-func _can_activate_blade_skill(skill_config: Object, special_gauge: float, deps: Dictionary, skill_name: String) -> bool:
-	if not _is_skill_equipped(skill_config, skill_name):
-		return false
-	if special_gauge < _get_blade_skill_cost(skill_config, deps, skill_name):
-		return false
-	return _is_configured_skill_ready(skill_name, deps)
-
-
-func _can_start_air_blade(special_gauge: float, config: Dictionary, deps: Dictionary) -> bool:
-	if not _can_start_air_blade_with_runtime_state(config, deps):
-		return false
 	var skill_config: Object = _get_viper_skill_config(deps)
-	return _can_activate_blade_skill(skill_config, special_gauge, deps, BLADE_RUSH)
+	if not _is_skill_equipped(skill_config, BLADE_RUSH):
+		return false
+	if special_gauge < _get_blade_skill_cost(skill_config, deps, BLADE_RUSH):
+		return false
+	return _is_configured_skill_ready(BLADE_RUSH, deps)
 
 
-func _can_start_dark_blade_from_window_with_runtime_state(config: Dictionary, deps: Dictionary) -> bool:
+func _can_start_dark_blade_from_window(special_gauge: float, config: Dictionary, deps: Dictionary) -> bool:
 	if not dark_blade_window:
 		return false
 	if _has_blade_motion_or_primary_projectile_active() or chaos_state == "startup":
@@ -5706,45 +4108,12 @@ func _can_start_dark_blade_from_window_with_runtime_state(config: Dictionary, de
 		return false
 	if _is_control_locked(deps):
 		return false
-	return true
-
-
-func _can_start_dark_blade_from_window(special_gauge: float, config: Dictionary, deps: Dictionary) -> bool:
-	if not _can_start_dark_blade_from_window_with_runtime_state(config, deps):
-		return false
 	var skill_config: Object = _get_viper_skill_config(deps)
-	return _can_activate_blade_skill(skill_config, special_gauge, deps, DARK_BLADE)
-
-
-func _try_start_blade_motion_from_up_edge(
-	up_edge: bool,
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	if not up_edge:
-		return {}
-	if _can_start_dark_blade_from_window(special_gauge, config, deps):
-		return _start_blade_motion(player_pos, special_gauge, config, deps, true, now_msec)
-	if _can_start_air_blade(special_gauge, config, deps):
-		return _start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec)
-	return {}
-
-
-func _start_dark_blade_from_core_flip_window(special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int) -> Dictionary:
-	var handoff_pos: Vector2 = core_flip_visual_pos
-	_reset_core_flip_runtime(false)
-	return _start_blade_motion(handoff_pos, special_gauge, config, deps, true, now_msec)
-
-
-func _start_dark_blade_from_marshal_window(special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int) -> Dictionary:
-	var handoff_pos: Vector2 = marshal_visual_pos
-	_reset_marshal_runtime_fields()
-	_clear_dmk_presentation_state()
-	marshal_particles.clear()
-	return _start_blade_motion(handoff_pos, special_gauge, config, deps, true, now_msec)
+	if not _is_skill_equipped(skill_config, DARK_BLADE):
+		return false
+	if special_gauge < _get_blade_skill_cost(skill_config, deps, DARK_BLADE):
+		return false
+	return _is_configured_skill_ready(DARK_BLADE, deps)
 
 
 func _start_blade_motion(
@@ -5786,7 +4155,9 @@ func _start_blade_motion(
 	blade_phase2_base_y = start_pos.y
 	blade_paddle_size = _get_paddle_size(config)
 	_reset_blade_motion_combo_windows()
-	_reset_dark_blade_start_window()
+	dark_blade_window = false
+	dark_blade_window_frames = 0.0
+	core_flip_dark_blade_handoff_frames = 0.0
 	if dark_mode:
 		_clear_blade_projectile()
 	return {
@@ -5794,13 +4165,9 @@ func _start_blade_motion(
 		"activated": true,
 		"skill_name": skill_name,
 		"player_pos": start_pos,
-		"player_speed": _get_blade_motion_player_speed(config),
+		"player_speed": float(config.get("player_speed", 0.0)),
 		"special_gauge": next_gauge,
 	}
-
-
-func _get_blade_motion_player_speed(config: Dictionary) -> float:
-	return float(config.get("player_speed", 0.0))
 
 
 func _trigger_orb_gauge_spin(deps: Dictionary, now_msec: int) -> void:
@@ -5833,22 +4200,10 @@ func _enter_blade_spin_phase() -> void:
 
 
 func _reset_blade_motion_combo_windows() -> void:
-	_clear_air_blade_combo_window()
-	_clear_dark_blade_combo_window()
-
-
-func _reset_dark_blade_start_window() -> void:
-	_clear_dark_blade_start_window_state()
-	_clear_core_flip_dark_blade_handoff()
-
-
-func _clear_dark_blade_start_window_state() -> void:
-	dark_blade_window = false
-	dark_blade_window_frames = 0.0
-
-
-func _close_dark_blade_start_window_preserving_frames() -> void:
-	dark_blade_window = false
+	blade_air_fire_frames = 0.0
+	blade_air_combo_window = false
+	blade_dark_fire_frames = 0.0
+	blade_dark_combo_window = false
 
 
 func _open_dark_blade_start_window() -> void:
@@ -5860,73 +4215,11 @@ func _is_dark_blade_equipped(deps: Dictionary) -> bool:
 	return _is_skill_equipped(_get_viper_skill_config(deps), DARK_BLADE)
 
 
-func _open_core_flip_dark_blade_handoff() -> void:
-	core_flip_dark_blade_handoff_frames = CORE_FLIP_DARK_BLADE_HANDOFF_FRAMES
-
-
-func _clear_core_flip_dark_blade_handoff() -> void:
-	core_flip_dark_blade_handoff_frames = 0.0
-
-
 func _is_core_flip_dark_blade_start_ready() -> bool:
 	return (
 		(core_flip_attack_active and core_flip_ball_hit)
 		or core_flip_dark_blade_handoff_frames > 0.0
 	)
-
-
-func _apply_blade_horizontal_control(
-	delta: float,
-	player_pos: Vector2,
-	player_speed: float,
-	config: Dictionary,
-	deps: Dictionary
-) -> Dictionary:
-	var fps_scale: float = _get_blade_motion_fps_scale(delta)
-	if _is_dash_motion_busy(deps):
-		return {"player_pos": player_pos, "player_speed": 0.0}
-	var input_snapshot: Dictionary = _get_blade_horizontal_input_snapshot(deps)
-	var direction: float = _resolve_blade_horizontal_direction(input_snapshot)
-	return ViperSkillGeometry.blade_horizontal_control_motion(
-		player_pos,
-		player_speed,
-		direction,
-		fps_scale,
-		config,
-		_get_player_floor_y(config),
-		_get_paddle_size(config).x,
-		BLADE_JETPACK_MAX_HEIGHT,
-		BLADE_AIRBORNE_MOVE_BONUS_MAX,
-		blade_dark_mode
-	)
-
-
-func _get_blade_horizontal_input_snapshot(deps: Dictionary) -> Dictionary:
-	var input_reader: Object = deps.get("input_reader", null)
-	if input_reader == null or not input_reader.has_method("get_snapshot"):
-		return {}
-	var raw_input_snapshot: Variant = input_reader.get_snapshot()
-	if raw_input_snapshot is Dictionary:
-		return raw_input_snapshot
-	return {}
-
-
-func _resolve_blade_horizontal_direction(input_snapshot: Dictionary) -> float:
-	var direction: float = float(input_snapshot.get("direction", 0.0))
-	if abs(direction) > 0.01:
-		return -1.0 if direction < 0.0 else 1.0
-	var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
-	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
-	return 0.0 if left_pressed == right_pressed else (-1.0 if left_pressed else 1.0)
-
-
-func _get_blade_motion_fps_scale(delta: float) -> float:
-	return max(0.0, delta * 60.0)
-
-
-func _tick_blade_motion_frames(fps_scale: float) -> void:
-	blade_motion_frames += fps_scale
-	blade_motion_total_frames += fps_scale
 
 
 func _update_blade_motion(
@@ -5936,11 +4229,40 @@ func _update_blade_motion(
 	config: Dictionary,
 	deps: Dictionary
 ) -> Dictionary:
-	var fps_scale: float = _get_blade_motion_fps_scale(delta)
-	_tick_blade_motion_frames(fps_scale)
-	var horizontal_motion: Dictionary = _sync_blade_horizontal_motion(delta, player_pos, config, deps)
-	var next_pos: Vector2 = _get_vector2(horizontal_motion.get("player_pos", player_pos), player_pos)
-	var next_speed: float = float(horizontal_motion.get("player_speed", config.get("player_speed", 0.0)))
+	var fps_scale: float = max(0.0, delta * 60.0)
+	blade_motion_frames += fps_scale
+	blade_motion_total_frames += fps_scale
+	var next_pos: Vector2 = player_pos
+	var next_speed: float = 0.0
+	if not _is_dash_motion_busy(deps):
+		var input_snapshot: Dictionary = {}
+		var input_reader: Object = deps.get("input_reader", null)
+		if input_reader != null and input_reader.has_method("get_snapshot"):
+			var raw_input_snapshot: Variant = input_reader.get_snapshot()
+			if raw_input_snapshot is Dictionary:
+				input_snapshot = raw_input_snapshot
+		var direction: float = float(input_snapshot.get("direction", 0.0))
+		if abs(direction) > 0.01:
+			direction = -1.0 if direction < 0.0 else 1.0
+		else:
+			var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
+			var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
+			direction = 0.0 if left_pressed == right_pressed else (-1.0 if left_pressed else 1.0)
+		var movement_result: Dictionary = ViperSkillGeometry.blade_horizontal_control_motion(
+			player_pos,
+			float(config.get("player_speed", 0.0)),
+			direction,
+			fps_scale,
+			config,
+			_get_player_floor_y(config),
+			_get_paddle_size(config).x,
+			BLADE_JETPACK_MAX_HEIGHT,
+			BLADE_AIRBORNE_MOVE_BONUS_MAX,
+			blade_dark_mode
+		)
+		next_pos = _get_vector2(movement_result.get("player_pos", player_pos), player_pos)
+		next_speed = float(movement_result.get("player_speed", config.get("player_speed", 0.0)))
+	blade_motion_pos.x = next_pos.x
 	var spin_frames: float = BLADE_SPIN_FRAMES * (BLADE_DARK_SPIN_MULT if blade_dark_mode else 1.0)
 	var decel_frames: float = BLADE_DECEL_FRAMES * (BLADE_DARK_TIME_MULT if blade_dark_mode else 1.0)
 	var rest_frames: float = BLADE_DARK_REST_FRAMES if blade_dark_mode else BLADE_REST_FRAMES
@@ -5969,11 +4291,40 @@ func _update_blade_motion(
 		_enter_blade_decel_phase(decel_frames)
 	match blade_motion_phase:
 		0:
-			next_pos = _update_blade_spin_phase(spin_frames, spin_turns)
+			var t0: float = ViperSkillGeometry.blade_motion_phase_progress(blade_motion_frames, spin_frames)
+			blade_spin_angle = ViperSkillGeometry.blade_motion_spin_angle(0, t0, spin_turns)
+			if t0 >= 1.0:
+				_enter_blade_decel_phase(0.0)
+			next_pos = blade_motion_pos
 		1:
-			next_pos = _update_blade_decel_phase(decel_frames, spin_turns, config, deps)
+			var t1: float = ViperSkillGeometry.blade_motion_phase_progress(blade_motion_frames, decel_frames)
+			blade_spin_angle = ViperSkillGeometry.blade_motion_spin_angle(1, t1, spin_turns)
+			if t1 >= 1.0:
+				blade_motion_phase = 2
+				blade_motion_frames = 0.0
+				blade_spin_angle = 0.0
+				blade_phase2_base_y = min(blade_motion_pos.y, _get_player_floor_y(config))
+				_stop_blade_spin_sound(deps)
+				_launch_blade_projectile(blade_motion_pos, config, deps)
+			next_pos = blade_motion_pos
 		2:
-			next_pos = _update_blade_rest_phase(rest_frames, config, deps)
+			var floor_y: float = _get_player_floor_y(config)
+			var jump_up_frames: float = 27.0 if blade_dark_mode else 18.0
+			var jump_peak: float = 320.0 if blade_dark_mode else 80.0
+			next_pos = ViperSkillGeometry.blade_motion_rest_position(
+				blade_motion_pos.x,
+				blade_phase2_base_y,
+				floor_y,
+				blade_motion_frames,
+				jump_up_frames,
+				rest_frames,
+				jump_peak
+			)
+			blade_motion_pos = next_pos
+			if blade_motion_frames >= rest_frames:
+				next_pos = Vector2(blade_motion_pos.x, floor_y)
+				_reset_blade_motion_only()
+				runtime_action_router.force_viper_jetpack_land(deps)
 	blade_motion_pos = next_pos
 	return {
 		"handled": true,
@@ -5985,72 +4336,9 @@ func _update_blade_motion(
 	}
 
 
-func _sync_blade_horizontal_motion(delta: float, player_pos: Vector2, config: Dictionary, deps: Dictionary) -> Dictionary:
-	var movement_result: Dictionary = _apply_blade_horizontal_control(
-		delta,
-		player_pos,
-		_get_blade_motion_player_speed(config),
-		config,
-		deps
-	)
-	var next_pos: Vector2 = _get_vector2(movement_result.get("player_pos", player_pos), player_pos)
-	var next_speed: float = float(movement_result.get("player_speed", config.get("player_speed", 0.0)))
-	blade_motion_pos.x = next_pos.x
-	return {
-		"player_pos": next_pos,
-		"player_speed": next_speed,
-	}
-
-
 func _enter_blade_decel_phase(start_frames: float) -> void:
 	blade_motion_phase = 1
 	blade_motion_frames = start_frames
-
-
-func _update_blade_spin_phase(spin_frames: float, spin_turns: float) -> Vector2:
-	var t0: float = ViperSkillGeometry.blade_motion_phase_progress(blade_motion_frames, spin_frames)
-	blade_spin_angle = ViperSkillGeometry.blade_motion_spin_angle(0, t0, spin_turns)
-	if t0 >= 1.0:
-		_enter_blade_decel_phase(0.0)
-	return blade_motion_pos
-
-
-func _enter_blade_rest_phase(config: Dictionary) -> void:
-	blade_motion_phase = 2
-	blade_motion_frames = 0.0
-	blade_spin_angle = 0.0
-	blade_phase2_base_y = min(blade_motion_pos.y, _get_player_floor_y(config))
-
-
-func _update_blade_rest_phase(rest_frames: float, config: Dictionary, deps: Dictionary) -> Vector2:
-	var floor_y: float = _get_player_floor_y(config)
-	var jump_up_frames: float = 27.0 if blade_dark_mode else 18.0
-	var jump_peak: float = 320.0 if blade_dark_mode else 80.0
-	var next_pos: Vector2 = ViperSkillGeometry.blade_motion_rest_position(
-		blade_motion_pos.x,
-		blade_phase2_base_y,
-		floor_y,
-		blade_motion_frames,
-		jump_up_frames,
-		rest_frames,
-		jump_peak
-	)
-	blade_motion_pos = next_pos
-	if blade_motion_frames >= rest_frames:
-		next_pos = Vector2(blade_motion_pos.x, floor_y)
-		_reset_blade_motion_only()
-		runtime_action_router.force_viper_jetpack_land(deps)
-	return next_pos
-
-
-func _update_blade_decel_phase(decel_frames: float, spin_turns: float, config: Dictionary, deps: Dictionary) -> Vector2:
-	var t1: float = ViperSkillGeometry.blade_motion_phase_progress(blade_motion_frames, decel_frames)
-	blade_spin_angle = ViperSkillGeometry.blade_motion_spin_angle(1, t1, spin_turns)
-	if t1 >= 1.0:
-		_enter_blade_rest_phase(config)
-		_stop_blade_spin_sound(deps)
-		_launch_blade_projectile(blade_motion_pos, config, deps)
-	return blade_motion_pos
 
 
 func _launch_blade_projectile(player_pos: Vector2, config: Dictionary, deps: Dictionary) -> void:
@@ -6075,9 +4363,11 @@ func _launch_blade_projectile(player_pos: Vector2, config: Dictionary, deps: Dic
 	blade_projectile_width = float(spec.get("width", BLADE_BASE_WIDTH))
 	_reset_primary_blade_projectile_runtime_state()
 	if blade_dark_mode:
-		_clear_dark_blade_combo_window()
+		blade_dark_fire_frames = 0.0
+		blade_dark_combo_window = false
 	else:
-		_clear_air_blade_combo_window()
+		blade_air_fire_frames = 0.0
+		blade_air_combo_window = false
 		nerve_strike_combo_used = false
 	var impact_effects: Object = deps.get("impact_effects", null)
 	if impact_effects != null and impact_effects.has_method("create_energy_explosion"):
@@ -6111,20 +4401,10 @@ func _update_blade_motion_combo_windows(fps_scale: float) -> void:
 			_reset_blade_motion_combo_windows()
 
 
-func _clear_dark_blade_combo_window() -> void:
-	blade_dark_fire_frames = 0.0
-	blade_dark_combo_window = false
-
-
-func _clear_air_blade_combo_window() -> void:
-	blade_air_fire_frames = 0.0
-	blade_air_combo_window = false
-
-
 func _advance_blade_projectile(fps_scale: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
-	var blade_amp_level: int = _get_nonnegative_blade_amp_level(deps)
-	var ball_pos: Vector2 = _get_blade_projectile_ball_pos(scene, context)
+	var blade_amp_level: int = max(0, _get_blade_amp_level(deps))
+	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	blade_projectile_pos = ViperSkillGeometry.blade_projectile_motion(
 		blade_projectile_pos,
 		ball_pos,
@@ -6171,15 +4451,11 @@ func _advance_blade_projectile(fps_scale: float, scene: Dictionary, context: Dic
 	return result
 
 
-func _get_blade_projectile_ball_pos(scene: Dictionary, context: Dictionary) -> Vector2:
-	return _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
-
-
 func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	var updated: Array = []
-	var blade_amp_level: int = _get_nonnegative_blade_amp_level(deps)
-	var ball_pos: Vector2 = _get_blade_projectile_ball_pos(scene, context)
+	var blade_amp_level: int = max(0, _get_blade_amp_level(deps))
+	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	for projectile_value in blade_followup_projectiles:
 		if not (projectile_value is Dictionary):
 			continue
@@ -6252,27 +4528,6 @@ func _advance_blade_followup_projectiles(fps_scale: float, scene: Dictionary, co
 	return result
 
 
-func _play_blade_hit_feedback(ball_pos: Vector2, next_vel: Vector2, dark_mode: bool, deps: Dictionary) -> void:
-	_trigger_feedback(
-		deps,
-		DARK_BLADE_HIT_SHAKE_AMOUNT if dark_mode else AIR_BLADE_HIT_SHAKE_AMOUNT,
-		DARK_BLADE_HIT_SHAKE_INTENSITY if dark_mode else AIR_BLADE_HIT_SHAKE_INTENSITY
-	)
-	var pulse_kind: String = DARK_BLADE_HIT_PULSE_KIND if dark_mode else AIR_BLADE_HIT_PULSE_KIND
-	var pulse_intensity: float = DARK_BLADE_HIT_PULSE_INTENSITY if dark_mode else AIR_BLADE_HIT_PULSE_INTENSITY
-	if not _register_ball_hit_pulse(ball_pos, next_vel, deps, pulse_intensity, pulse_kind):
-		var hit_color := DARK_BLADE_FALLBACK_HIT_COLOR if dark_mode else AIR_BLADE_FALLBACK_HIT_COLOR
-		_spawn_fallback_hit_impact(
-			ball_pos,
-			next_vel,
-			deps,
-			hit_color,
-			DARK_BLADE_FALLBACK_PARTICLE_INTENSITY if dark_mode else AIR_BLADE_FALLBACK_PARTICLE_INTENSITY,
-			DARK_BLADE_FALLBACK_EXPLOSION_SCALE if dark_mode else AIR_BLADE_FALLBACK_EXPLOSION_SCALE,
-			DARK_BLADE_FALLBACK_EXPLOSION_INTENSITY if dark_mode else AIR_BLADE_FALLBACK_EXPLOSION_INTENSITY
-		)
-
-
 func _apply_blade_hit(
 	scene: Dictionary,
 	context: Dictionary,
@@ -6311,9 +4566,26 @@ func _apply_blade_hit(
 			marshal_phantom_allowed = false
 			_clear_double_marshal_ready_window()
 			_clear_marshal_first_hit_pending()
-	_play_blade_hit_feedback(ball_pos, next_vel, dark_mode, deps)
+	_trigger_feedback(
+		deps,
+		DARK_BLADE_HIT_SHAKE_AMOUNT if dark_mode else AIR_BLADE_HIT_SHAKE_AMOUNT,
+		DARK_BLADE_HIT_SHAKE_INTENSITY if dark_mode else AIR_BLADE_HIT_SHAKE_INTENSITY
+	)
+	var pulse_kind: String = DARK_BLADE_HIT_PULSE_KIND if dark_mode else AIR_BLADE_HIT_PULSE_KIND
+	var pulse_intensity: float = DARK_BLADE_HIT_PULSE_INTENSITY if dark_mode else AIR_BLADE_HIT_PULSE_INTENSITY
+	if not _register_ball_hit_pulse(ball_pos, next_vel, deps, pulse_intensity, pulse_kind):
+		var hit_color := DARK_BLADE_FALLBACK_HIT_COLOR if dark_mode else AIR_BLADE_FALLBACK_HIT_COLOR
+		_spawn_fallback_hit_impact(
+			ball_pos,
+			next_vel,
+			deps,
+			hit_color,
+			DARK_BLADE_FALLBACK_PARTICLE_INTENSITY if dark_mode else AIR_BLADE_FALLBACK_PARTICLE_INTENSITY,
+			DARK_BLADE_FALLBACK_EXPLOSION_SCALE if dark_mode else AIR_BLADE_FALLBACK_EXPLOSION_SCALE,
+			DARK_BLADE_FALLBACK_EXPLOSION_INTENSITY if dark_mode else AIR_BLADE_FALLBACK_EXPLOSION_INTENSITY
+		)
 	if allow_followup:
-		var blade_amp_level: int = _get_nonnegative_blade_amp_level(deps)
+		var blade_amp_level: int = max(0, _get_blade_amp_level(deps))
 		var chance_pct: int = skill_scaling.get_blade_amp_followup_chance_pct(blade_amp_level)
 		if chance_pct > 0 and randf() < float(chance_pct) / 100.0:
 			var player_pos: Vector2 = _get_vector2(context.get("player_pos", blade_motion_pos), blade_motion_pos)
@@ -6441,10 +4713,6 @@ func _get_blade_amp_level(deps: Dictionary) -> int:
 	return _get_runtime_skill_level(deps, "blade_amp")
 
 
-func _get_nonnegative_blade_amp_level(deps: Dictionary) -> int:
-	return max(0, _get_blade_amp_level(deps))
-
-
 func _register_ball_hit_pulse(ball_pos: Vector2, ball_vel: Vector2, deps: Dictionary, intensity: float, kind: String) -> bool:
 	return particle_drawer.register_ball_hit_pulse(ball_pos, ball_vel, deps.get("ball_effects", null), intensity, kind)
 
@@ -6477,9 +4745,10 @@ func _reset_blade_runtime() -> void:
 	_reset_blade_motion_only()
 	_clear_blade_projectile()
 	clear_blade_hit_speed_cap()
-	_clear_dark_blade_start_window_state()
+	dark_blade_window = false
+	dark_blade_window_frames = 0.0
 	nerve_strike_combo_used = false
-	_clear_blade_followup_projectiles()
+	blade_followup_projectiles.clear()
 
 
 func _reset_blade_motion_only(deps: Dictionary = {}) -> void:
@@ -6492,10 +4761,6 @@ func _reset_blade_motion_only(deps: Dictionary = {}) -> void:
 	blade_phase2_base_y = 0.0
 	blade_paddle_size = Vector2(155.0, 50.0)
 	_reset_blade_motion_combo_windows()
-
-
-func _clear_blade_followup_projectiles() -> void:
-	blade_followup_projectiles.clear()
 
 
 func _clear_blade_projectile() -> void:
@@ -6641,8 +4906,96 @@ func _update_marshal_charge_phase(config: Dictionary, deps: Dictionary, result: 
 			marshal_ball_hit = true
 			marshal_hit_msec = Time.get_ticks_msec()
 			marshal_last_hit_pos = ball_pos
-			var hit_result: Dictionary = _apply_marshal_hit(config, deps)
-			result.merge(hit_result, true)
+			var current_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+			var current_speed: float = current_vel.length()
+			var next_speed: float = skill_scaling.get_marshal_hit_speed(
+				current_speed,
+				_get_kick_enhance_level(deps),
+				marshal_is_double,
+				MARSHAL_KICK_SPEED_MULT,
+				MARSHAL_KICK_MIN_SPEED,
+				MARSHAL_KICK_DOUBLE_SPEED_MULT,
+				MARSHAL_KICK_DOUBLE_MIN_SPEED
+			)
+			var width: float = float(config.get("width", config.get("play_right", 760.0)))
+			var kick_dir: int = ViperSkillGeometry.marshal_wall_kick_dir(_get_player_center(marshal_wall_pos, config), width)
+			var aim_level: int = _get_kick_enhance_level(deps)
+			var boss_pos: Vector2 = _get_vector2(
+				config.get("boss_pos", Vector2(float(config.get("width", 760.0)) * 0.5, 25.0)),
+				Vector2.ZERO
+			)
+			var angle: float = ViperSkillGeometry.marshal_launch_angle(kick_dir, ball_pos, boss_pos, aim_level, marshal_is_double)
+			var next_vel: Vector2 = ViperSkillGeometry.aimed_kick_launch_velocity(next_speed, angle)
+			var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, config)
+			var curve_frames: float = MARSHAL_KICK_CURVE_FRAMES * (MARSHAL_DOUBLE_HIT_CURVE_FRAMES_MULT if marshal_is_double else 1.0)
+			var curve_dir: int = 1 if next_vel.x > 0.0 else -1
+			_set_shadow_curve(curve_frames, MARSHAL_KICK_CURVE_FORCE, curve_dir)
+			shadow_starburst_active = true
+			shadow_starburst_pos = ball_pos
+			shadow_starburst_frame = 0
+			shadow_starburst_timer = 0.0
+			shadow_starburst_is_double = marshal_is_double
+			if _is_dark_blade_equipped(deps):
+				_open_dark_blade_start_window()
+			_trigger_feedback(
+				deps,
+				MARSHAL_DOUBLE_HIT_SHAKE_AMOUNT if marshal_is_double else MARSHAL_HIT_SHAKE_AMOUNT,
+				MARSHAL_DOUBLE_HIT_SHAKE_INTENSITY if marshal_is_double else MARSHAL_HIT_SHAKE_INTENSITY
+			)
+			var pulse_kind: String = MARSHAL_DOUBLE_HIT_PULSE_KIND if marshal_is_double else MARSHAL_HIT_PULSE_KIND
+			var pulse_intensity: float = MARSHAL_DOUBLE_HIT_ENERGY_INTENSITY if marshal_is_double else MARSHAL_HIT_ENERGY_INTENSITY
+			var pulse_registered := _register_ball_hit_pulse(ball_pos, next_vel, deps, pulse_intensity, pulse_kind)
+			if not pulse_registered:
+				_spawn_fallback_hit_impact(
+					ball_pos,
+					next_vel,
+					deps,
+					MARSHAL_FALLBACK_HIT_COLOR,
+					MARSHAL_DOUBLE_HIT_PARTICLE_INTENSITY if marshal_is_double else MARSHAL_HIT_PARTICLE_INTENSITY,
+					MARSHAL_DOUBLE_HIT_ENERGY_SCALE if marshal_is_double else MARSHAL_HIT_ENERGY_SCALE,
+					MARSHAL_DOUBLE_HIT_ENERGY_INTENSITY if marshal_is_double else MARSHAL_HIT_ENERGY_INTENSITY
+				)
+			for _i in range(MARSHAL_DOUBLE_HIT_MOTION_PARTICLE_COUNT if marshal_is_double else MARSHAL_HIT_MOTION_PARTICLE_COUNT):
+				_spawn_marshal_motion_particle(
+					ball_pos + Vector2(
+						randf_range(-MARSHAL_HIT_MOTION_PARTICLE_SPREAD, MARSHAL_HIT_MOTION_PARTICLE_SPREAD),
+						randf_range(-MARSHAL_HIT_MOTION_PARTICLE_SPREAD, MARSHAL_HIT_MOTION_PARTICLE_SPREAD)
+					),
+					MARSHAL_HIT_MOTION_PARTICLE_KIND,
+					MARSHAL_HIT_MOTION_PARTICLE_CHANCE,
+					randf_range(MARSHAL_HIT_MOTION_PARTICLE_LIFE_MIN, MARSHAL_HIT_MOTION_PARTICLE_LIFE_MAX)
+				)
+			_destroy_marshal_impact_objects(ball_pos, deps)
+			if marshal_is_double:
+				phantom_kick_knockback_pending = true
+				phantom_kick_speed_limit_disabled = true
+				particle_drawer.spawn_phantom_hit_particles(
+					phantom_hit_particles,
+					ball_pos,
+					PHANTOM_HIT_PARTICLE_COUNT,
+					PHANTOM_HIT_PARTICLE_MAX_COUNT
+				)
+				audio_router.play_phantom_hit_sound(deps)
+				_clear_phantom_kick_chain_window()
+			else:
+				var skill_config: Object = _get_viper_skill_config(deps)
+				if shadow_was_airborne and marshal_phantom_allowed and _has_phantom_kick_chain_skill(skill_config, deps):
+					marshal_first_hit_pending = true
+					marshal_first_hit_delay_frames = MARSHAL_KICK_PHANTOM_DELAY_FRAMES
+				else:
+					_clear_phantom_kick_chain_window()
+			_mark_kick_skill_knockback_pending(deps)
+			var marshal_hit_result := {
+				"ball_vel": next_vel,
+				"ball_impact_boost": max(1.0, float(config.get("ball_impact_boost", 1.0))),
+				"player_collision_cooldown": max(MARSHAL_HIT_PLAYER_COLLISION_COOLDOWN, float(config.get("player_collision_cooldown", 0.0))),
+				"viper_phantom_kick_knockback_pending": phantom_kick_knockback_pending,
+			}
+			var gold_award: int = MARSHAL_DOUBLE_HIT_GOLD if marshal_is_double else MARSHAL_HIT_GOLD
+			if shadow_was_airborne:
+				gold_award = int(float(gold_award) * SHADOW_STEP_AIRBORNE_GOLD_MULT)
+			marshal_hit_result.merge(_award_skill_gold(deps, gold_award), true)
+			result.merge(_mark_result_released_chaos_hit(marshal_hit_result, released_chaos), true)
 			if marshal_is_double:
 				marshal_phase = 5
 				marshal_phase_frames = 0.0
@@ -7036,151 +5389,8 @@ func _cancel_dash_until_key_release(dash_state: Object) -> void:
 		dash_state.reset_round()
 
 
-func _apply_marshal_hit(config: Dictionary, deps: Dictionary) -> Dictionary:
-	var next_vel: Vector2 = _compute_marshal_hit_velocity(config, deps)
-	var ball_pos: Vector2 = _get_ball_pos(config)
-	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, config)
-	_prime_marshal_hit_followups(next_vel, ball_pos, deps)
-	_play_marshal_hit_impact_feedback(ball_pos, next_vel, deps)
-	_apply_marshal_hit_world_effects(ball_pos, deps)
-	return _build_awarded_marshal_hit_result(next_vel, config, deps, released_chaos)
-
-
-func _apply_marshal_hit_world_effects(ball_pos: Vector2, deps: Dictionary) -> void:
-	_destroy_marshal_impact_objects(ball_pos, deps)
-	if marshal_is_double:
-		_trigger_double_marshal_phantom_kick_followup(ball_pos, deps)
-	else:
-		_try_open_pending_phantom_kick_after_marshal_hit(deps)
-	_mark_kick_skill_knockback_pending(deps)
-
-
-func _trigger_double_marshal_phantom_kick_followup(ball_pos: Vector2, deps: Dictionary) -> void:
-	phantom_kick_knockback_pending = true
-	phantom_kick_speed_limit_disabled = true
-	particle_drawer.spawn_phantom_hit_particles(
-		phantom_hit_particles,
-		ball_pos,
-		PHANTOM_HIT_PARTICLE_COUNT,
-		PHANTOM_HIT_PARTICLE_MAX_COUNT
-	)
-	audio_router.play_phantom_hit_sound(deps)
-	_clear_phantom_kick_chain_window()
-
-
-func _try_open_pending_phantom_kick_after_marshal_hit(deps: Dictionary) -> void:
-	var skill_config: Object = _get_viper_skill_config(deps)
-	if shadow_was_airborne and marshal_phantom_allowed and _has_phantom_kick_chain_skill(skill_config, deps):
-		marshal_first_hit_pending = true
-		marshal_first_hit_delay_frames = MARSHAL_KICK_PHANTOM_DELAY_FRAMES
-	else:
-		_clear_phantom_kick_chain_window()
-
-
-func _build_awarded_marshal_hit_result(next_vel: Vector2, config: Dictionary, deps: Dictionary, released_chaos: bool) -> Dictionary:
-	var result := _build_marshal_hit_result(next_vel, config)
-	var gold_award: int = MARSHAL_DOUBLE_HIT_GOLD if marshal_is_double else MARSHAL_HIT_GOLD
-	if shadow_was_airborne:
-		gold_award = int(float(gold_award) * SHADOW_STEP_AIRBORNE_GOLD_MULT)
-	result.merge(_award_skill_gold(deps, gold_award), true)
-	return _mark_result_released_chaos_hit(result, released_chaos)
-
-
-func _build_marshal_hit_result(next_vel: Vector2, config: Dictionary) -> Dictionary:
-	return {
-		"ball_vel": next_vel,
-		"ball_impact_boost": max(1.0, float(config.get("ball_impact_boost", 1.0))),
-		"player_collision_cooldown": max(MARSHAL_HIT_PLAYER_COLLISION_COOLDOWN, float(config.get("player_collision_cooldown", 0.0))),
-		"viper_phantom_kick_knockback_pending": phantom_kick_knockback_pending,
-	}
-
-
-func _play_marshal_hit_impact_feedback(ball_pos: Vector2, next_vel: Vector2, deps: Dictionary) -> void:
-	_trigger_feedback(
-		deps,
-		MARSHAL_DOUBLE_HIT_SHAKE_AMOUNT if marshal_is_double else MARSHAL_HIT_SHAKE_AMOUNT,
-		MARSHAL_DOUBLE_HIT_SHAKE_INTENSITY if marshal_is_double else MARSHAL_HIT_SHAKE_INTENSITY
-	)
-	_register_marshal_hit_pulse_or_fallback(ball_pos, next_vel, deps)
-	_spawn_marshal_hit_motion_particles(ball_pos)
-
-
-func _register_marshal_hit_pulse_or_fallback(ball_pos: Vector2, next_vel: Vector2, deps: Dictionary) -> void:
-	var pulse_kind: String = MARSHAL_DOUBLE_HIT_PULSE_KIND if marshal_is_double else MARSHAL_HIT_PULSE_KIND
-	var pulse_intensity: float = MARSHAL_DOUBLE_HIT_ENERGY_INTENSITY if marshal_is_double else MARSHAL_HIT_ENERGY_INTENSITY
-	var pulse_registered := _register_ball_hit_pulse(ball_pos, next_vel, deps, pulse_intensity, pulse_kind)
-	if not pulse_registered:
-		_spawn_fallback_hit_impact(
-			ball_pos,
-			next_vel,
-			deps,
-			MARSHAL_FALLBACK_HIT_COLOR,
-			MARSHAL_DOUBLE_HIT_PARTICLE_INTENSITY if marshal_is_double else MARSHAL_HIT_PARTICLE_INTENSITY,
-			MARSHAL_DOUBLE_HIT_ENERGY_SCALE if marshal_is_double else MARSHAL_HIT_ENERGY_SCALE,
-			MARSHAL_DOUBLE_HIT_ENERGY_INTENSITY if marshal_is_double else MARSHAL_HIT_ENERGY_INTENSITY
-		)
-
-
-func _spawn_marshal_hit_motion_particles(ball_pos: Vector2) -> void:
-	for _i in range(MARSHAL_DOUBLE_HIT_MOTION_PARTICLE_COUNT if marshal_is_double else MARSHAL_HIT_MOTION_PARTICLE_COUNT):
-		_spawn_marshal_motion_particle(
-			ball_pos + Vector2(
-				randf_range(-MARSHAL_HIT_MOTION_PARTICLE_SPREAD, MARSHAL_HIT_MOTION_PARTICLE_SPREAD),
-				randf_range(-MARSHAL_HIT_MOTION_PARTICLE_SPREAD, MARSHAL_HIT_MOTION_PARTICLE_SPREAD)
-			),
-			MARSHAL_HIT_MOTION_PARTICLE_KIND,
-			MARSHAL_HIT_MOTION_PARTICLE_CHANCE,
-			randf_range(MARSHAL_HIT_MOTION_PARTICLE_LIFE_MIN, MARSHAL_HIT_MOTION_PARTICLE_LIFE_MAX)
-		)
-
-
-func _prime_marshal_hit_followups(next_vel: Vector2, ball_pos: Vector2, deps: Dictionary) -> void:
-	var curve_frames: float = MARSHAL_KICK_CURVE_FRAMES * (MARSHAL_DOUBLE_HIT_CURVE_FRAMES_MULT if marshal_is_double else 1.0)
-	var curve_dir: int = 1 if next_vel.x > 0.0 else -1
-	_set_shadow_curve(curve_frames, MARSHAL_KICK_CURVE_FORCE, curve_dir)
-	_prime_marshal_hit_starburst(ball_pos)
-	if _is_dark_blade_equipped(deps):
-		_open_dark_blade_start_window()
-
-
-func _prime_marshal_hit_starburst(ball_pos: Vector2) -> void:
-	shadow_starburst_active = true
-	shadow_starburst_pos = ball_pos
-	shadow_starburst_frame = 0
-	shadow_starburst_timer = 0.0
-	shadow_starburst_is_double = marshal_is_double
-
-
-func _compute_marshal_hit_velocity(config: Dictionary, deps: Dictionary) -> Vector2:
-	var current_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
-	var current_speed: float = current_vel.length()
-	var next_speed: float = skill_scaling.get_marshal_hit_speed(
-		current_speed,
-		_get_kick_enhance_level(deps),
-		marshal_is_double,
-		MARSHAL_KICK_SPEED_MULT,
-		MARSHAL_KICK_MIN_SPEED,
-		MARSHAL_KICK_DOUBLE_SPEED_MULT,
-		MARSHAL_KICK_DOUBLE_MIN_SPEED
-	)
-	var width: float = float(config.get("width", config.get("play_right", 760.0)))
-	var kick_dir: int = ViperSkillGeometry.marshal_wall_kick_dir(_get_player_center(marshal_wall_pos, config), width)
-	var aim_level: int = _get_kick_enhance_level(deps)
-	var ball_pos: Vector2 = _get_ball_pos(config)
-	var boss_pos: Vector2 = _get_vector2(
-		config.get("boss_pos", Vector2(float(config.get("width", 760.0)) * 0.5, 25.0)),
-		Vector2.ZERO
-	)
-	var angle: float = ViperSkillGeometry.marshal_launch_angle(kick_dir, ball_pos, boss_pos, aim_level, marshal_is_double)
-	return ViperSkillGeometry.aimed_kick_launch_velocity(next_speed, angle)
-
-
 func _get_marshal_duration_frames(base_frames: float, deps: Dictionary, double_fast: bool = false) -> float:
 	return skill_scaling.get_marshal_duration_frames(base_frames, _get_kick_enhance_level(deps), marshal_is_double, double_fast, MARSHAL_KICK_DOUBLE_FAST_MULT)
-
-
-func _get_marshal_prep_duration_mult(deps: Dictionary) -> float:
-	return skill_scaling.get_marshal_prep_duration_mult(_get_kick_enhance_level(deps))
 
 
 func _mark_kick_skill_knockback_pending(deps: Dictionary) -> void:

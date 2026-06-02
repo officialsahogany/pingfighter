@@ -131,6 +131,8 @@ func _test_air_and_dark_blade_hits_release_chaos() -> void:
 func _test_phantom_kick_hit_releases_chaos() -> void:
 	var runtime: Object = _blackhole_runtime()
 	runtime.marshal_is_double = true
+	runtime.marshal_phase = 2
+	runtime.marshal_phase_frames = 999.0
 	runtime.marshal_wall_pos = Vector2(40.0, 350.0)
 	var deps := _deps(runtime)
 	var config: Dictionary = _base_context()
@@ -140,7 +142,12 @@ func _test_phantom_kick_hit_releases_chaos() -> void:
 	config["boss_paddle_width"] = 100.0
 	config["ball_impact_boost"] = 1.0
 
-	var result: Dictionary = runtime.call("_apply_marshal_hit", config, deps)
+	runtime.marshal_charge_start_pos = (
+		_get_vector2(config, "ball_pos", Vector2.ZERO)
+		- _get_vector2(config, "player_paddle_size", Vector2(155.0, 50.0)) * 0.5
+	)
+	var result: Dictionary = {}
+	runtime.call("_update_marshal_charge_phase", config, deps, result)
 	_expect(str(runtime.get_snapshot().get("chaos_state", "")) == "fade", "Phantom Kick hit should end Chaos Spear blackhole immediately")
 	_expect(not bool(result.get("skip_ball_motion_step", true)), "Phantom Kick release should clear Chaos Spear's motion skip")
 	_expect(_get_vector2(result, "ball_vel", Vector2.ZERO).length() >= 22.0, "Phantom Kick should launch the held ball with the kick speed")
