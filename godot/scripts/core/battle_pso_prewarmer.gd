@@ -12,6 +12,7 @@ extends Node2D
 #   - Viper hover sheet (left/right) - viper airborne pose
 #   - Pillar HUD / overlay primitives, frame textures, orb liquid, and text
 #   - Stage 1 playfield texture+primitive combos
+#   - Stage 1 round-result player / Dalji pose texture-region uploads
 #   - Stage 2 center playfield and falling-leaf polygon/line primitives
 #   - Weather particles / warning panel primitives
 #   - Timer-stack first-use script path plus common timer-bar primitives
@@ -43,7 +44,7 @@ const OFFSCREEN_POSITION := Vector2(-100000.0, -100000.0)
 # Draw one warmup family per frame so the driver never has to compile every
 # boot PSO candidate in a single visible transition frame. Keep two extra
 # frames after the last draw to let the render server flush before freeing.
-const WARMUP_DRAW_STEPS := 13
+const WARMUP_DRAW_STEPS := 14
 const POST_WARMUP_FLUSH_FRAMES := 2
 const LIFETIME_FRAMES := WARMUP_DRAW_STEPS + POST_WARMUP_FLUSH_FRAMES
 
@@ -174,6 +175,8 @@ func _prewarm_draw_step(step_index: int) -> void:
 			_prewarm_stage3_pillar_background_textures()
 		12:
 			_prewarm_character_topdown_rim_shader()
+		13:
+			_prewarm_stage1_result_pose_textures()
 
 
 # Issue the same texture draw calls the air-strike / paddle-hit feedback path
@@ -714,6 +717,53 @@ func _prewarm_playfield_primitives() -> void:
 		null,
 		ellipse_transform,
 		Color(1.0, 0.92, 0.20, 0.32)
+	)
+
+
+func _prewarm_stage1_result_pose_textures() -> void:
+	_prewarm_cached_texture_region(
+		BattleResources.SMASHER_VICTORY_SHEET_PATH,
+		Rect2(0.0, 0.0, 160.0, 160.0),
+		Rect2(0.0, 2080.0, 160.0, 160.0)
+	)
+	_prewarm_cached_texture_region(
+		BattleResources.SMASHER_DEFEAT_SHEET_PATH,
+		Rect2(0.0, 0.0, 160.0, 160.0),
+		Rect2(170.0, 2080.0, 160.0, 160.0)
+	)
+	_prewarm_cached_texture_region(
+		BattleResources.VIPER_VICTORY_SHEET_PATH,
+		Rect2(0.0, 0.0, 160.0, 160.0),
+		Rect2(340.0, 2080.0, 160.0, 160.0)
+	)
+	_prewarm_cached_texture_region(
+		BattleResources.VIPER_DEFEAT_SHEET_PATH,
+		Rect2(0.0, 0.0, 160.0, 160.0),
+		Rect2(510.0, 2080.0, 160.0, 160.0)
+	)
+	_prewarm_cached_texture_region(
+		BattleResources.DALJI_BOSS_VICTORY_PATH,
+		Rect2(0.0, 0.0, 384.0, 512.0),
+		Rect2(0.0, 2250.0, 96.0, 112.0)
+	)
+	_prewarm_cached_texture_region(
+		BattleResources.DALJI_BOSS_DEFEAT_PATH,
+		Rect2(0.0, 0.0, 384.0, 512.0),
+		Rect2(106.0, 2250.0, 96.0, 112.0)
+	)
+
+
+func _prewarm_cached_texture_region(path: String, source_rect: Rect2, dest_rect: Rect2) -> void:
+	var texture := _get_texture(path)
+	if texture == null:
+		return
+	draw_texture_rect_region(
+		texture,
+		dest_rect,
+		source_rect,
+		Color(1.0, 1.0, 1.0, 0.82),
+		false,
+		true
 	)
 
 

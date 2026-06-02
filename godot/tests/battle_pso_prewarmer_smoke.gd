@@ -86,6 +86,7 @@ func _verify_second_pass_warmup_scope() -> void:
 	_expect(prewarmer.has_method("_prewarm_dash_token_boost_shader_states"), "prewarmer should cover dash token boost shader-state PSOs")
 	_expect(prewarmer.has_method("_prewarm_common_starpoint_drop_shader"), "prewarmer should cover common starpoint drop shader PSOs")
 	_expect(prewarmer.has_method("_prewarm_character_topdown_rim_shader"), "prewarmer should cover the player topdown rim shader PSO")
+	_expect(prewarmer.has_method("_prewarm_stage1_result_pose_textures"), "prewarmer should cover Stage 1 round-result pose texture uploads")
 	_expect(prewarmer.has_method("_prewarm_draw_step"), "prewarmer should stage warmup families across multiple draw frames")
 	_expect(prewarmer._weather_renderer != null, "prewarmer should own a weather renderer for weather PSO warmup")
 	_expect(prewarmer._status_orb_renderer != null, "prewarmer should own the pillar status orb renderer for real HUD warmup")
@@ -125,6 +126,11 @@ func _verify_second_pass_warmup_scope() -> void:
 		source.find("res://shaders/character_topdown_rim.gdshader") >= 0
 			and source.find("CharacterTopdownRimShader") >= 0,
 		"PSO prewarmer should preload the character topdown rim shader"
+	)
+	_expect(
+		source.find("SMASHER_VICTORY_SHEET_PATH") >= 0
+			and source.find("DALJI_BOSS_DEFEAT_PATH") >= 0,
+		"PSO prewarmer should draw cached Stage 1 result pose sheets before the first scoreboard"
 	)
 	prewarmer.free()
 
