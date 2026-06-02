@@ -38,6 +38,8 @@ func draw_companion(canvas: CanvasItem, center: Vector2, config: Dictionary) -> 
 		_draw_switch_transition(canvas, draw_center, radius, switch_transition, int(config.get("switch_particles", 12)), int(config.get("switch_trigger_count", 0)))
 	var sprite_alpha: float = 1.0 if switch_transition <= 0.0 else lerpf(0.42, 1.0, 1.0 - switch_transition)
 	_draw_companion_sprite(canvas, draw_center, config, sprite_alpha)
+	if switch_transition > 0.0:
+		_draw_switch_label(canvas, draw_center, str(config.get("display_name", "")), switch_transition)
 	if gauge_flash > 0.0:
 		var gauge_radius: float = lerpf(radius + 14.0, radius + 42.0, 1.0 - gauge_flash)
 		canvas.draw_circle(draw_center, gauge_radius, Color(1.0, 0.88, 0.24, 0.16 * gauge_flash))
@@ -202,3 +204,27 @@ func _draw_switch_transition(
 		var shard_size := lerpf(3.0, 1.4, eased)
 		canvas.draw_line(shard_pos, shard_target, Color(0.38, 1.0, 0.94, shard_alpha), maxf(1.0, 1.7 * ratio), true)
 		canvas.draw_circle(shard_pos, maxf(1.0, shard_size), Color(0.82, 1.0, 0.88, minf(0.88, shard_alpha + 0.18)))
+
+
+func _draw_switch_label(canvas: CanvasItem, center: Vector2, display_name: String, switch_ratio: float) -> void:
+	var name := display_name.strip_edges()
+	if name == "":
+		return
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	var ratio := clampf(switch_ratio, 0.0, 1.0)
+	if ratio <= 0.0:
+		return
+	var progress := 1.0 - ratio
+	var alpha := clampf(sin(progress * PI) * 1.35, 0.0, 1.0)
+	if alpha <= 0.01:
+		return
+	var font_size := 14
+	var width := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+	var pos := center + Vector2(-width * 0.5, -62.0 - 8.0 * sin(progress * PI))
+	var bg_rect := Rect2(pos + Vector2(-8.0, -font_size - 6.0), Vector2(width + 16.0, float(font_size) + 12.0))
+	canvas.draw_rect(bg_rect, Color(0.015, 0.035, 0.052, 0.58 * alpha))
+	canvas.draw_rect(bg_rect, Color(0.42, 1.0, 0.94, 0.62 * alpha), false, 1.4)
+	canvas.draw_string(font, pos + Vector2(1.0, 1.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.58 * alpha))
+	canvas.draw_string(font, pos, name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.78, 1.0, 0.95, 0.96 * alpha))

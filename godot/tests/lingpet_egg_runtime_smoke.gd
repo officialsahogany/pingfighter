@@ -1016,6 +1016,9 @@ func _verify_lingpet_battle_slot_model() -> void:
 
 	var renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
 	_expect(renderer_source.find("_draw_switch_transition") >= 0, "companion renderer should draw the lingpet slot switch transition")
+	_expect(renderer_source.find("_draw_switch_label") >= 0, "companion renderer should draw a short active-lingpet name label during switch transition")
+	var draw_context_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_draw_context_builder.gd")
+	_expect(draw_context_source.find("\"display_name\"") >= 0 and draw_context_source.find("get_display_name") >= 0, "companion draw context should pass the active lingpet display name to the switch label")
 
 
 func _verify_companion_visual_and_pillar_card() -> void:

@@ -25,6 +25,7 @@ func build_config(params: Dictionary) -> Dictionary:
 		"switch_transition": _get_switch_ratio(switch_state, switch_transition_seconds),
 		"switch_particles": int(params.get("switch_particles", 12)),
 		"switch_trigger_count": _get_trigger_count(switch_state),
+		"display_name": _get_display_name(current_profile),
 		"gauge_trigger_count": _get_trigger_count(body_hit_state, "gauge_trigger_count"),
 		"skill_trigger_count": _get_trigger_count(skill_state),
 		"animator": animator,
@@ -75,6 +76,12 @@ func _get_visual_texture(current_profile: Object, visual_key: String) -> Texture
 	if current_profile == null:
 		return null
 	return current_profile.get_visual_texture(visual_key, null)
+
+
+func _get_display_name(current_profile: Object) -> String:
+	if current_profile == null or not current_profile.has_method("get_display_name"):
+		return ""
+	return str(current_profile.get_display_name())
 
 
 func _get_float(value: Variant) -> float:
