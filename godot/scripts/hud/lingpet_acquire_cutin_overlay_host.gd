@@ -42,7 +42,12 @@ const CUTIN_DISMISS_FRAMES := 25
 const DISMISS_ACTION_PORTION := 0.74
 const DISMISS_FADE_START := 0.64
 const DISMISS_SPRAY_PEAK := 0.56
-const ANIM_CELL_VIEW_H_RATIO := 0.70
+# Raised from 0.70 to 0.85: the v4 steady cut-in and the spear-flourish dismiss
+# are both repacked at 0.90 cell-centered (so they read at the SAME body size),
+# which fills ~60% of the cell vs the old ~78%. The higher view ratio restores
+# the on-screen hero scale. Cut-in and dismiss share this constant, so they
+# stay size-locked to each other.
+const ANIM_CELL_VIEW_H_RATIO := 0.85
 const STATIC_ART_VIEW_H_RATIO := 0.74
 const STATIC_ART_MAX_W_RATIO := 0.92
 const STATIC_ART_BREATH_HZ := 0.72
@@ -427,8 +432,9 @@ func _draw_dismiss_action(canvas: CanvasItem, view_size: Vector2, dismiss_progre
 			_draw_art_aura(canvas, center, char_radius * 1.18, t, out_fade, 1.0)
 			canvas.draw_circle(center, char_radius, Color(OCEAN_GLOW.r, OCEAN_GLOW.g, OCEAN_GLOW.b, 0.18 * out_fade))
 			canvas.draw_texture_rect_region(sheet, Rect2(pos, Vector2(dw, dh)), src, Color(1.0, 1.0, 1.0, out_fade))
-			# Spray burst above the body (where the raised spear tip sits).
-			_draw_dismiss_spray(canvas, Vector2(center.x, center.y - dh * 0.40), view_size, action_t, out_fade, t)
+			# (Removed) The old turquoise mouth/spear-tip water spray read as an
+			# awkward "water cannon from the mouth". The dismiss is now a spear
+			# swing flourish (sheet motion only), so no procedural spray overlay.
 
 	# Keep the title under the action, fading out with the overlay.
 	_draw_dismiss_title(canvas, view_size, out_fade)
