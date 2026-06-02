@@ -1360,9 +1360,12 @@ func _verify_lingpet_skill_cooldown_survives_slot_switch() -> void:
 	_expect(bool(runtime.switch_lingpet_slot(1, owner)), "switching to the occupied Lunabi slot should succeed")
 	_expect(str(owner.active_lingpet_id) == "lunabi", "slot switch should activate Lunabi")
 	_expect(is_equal_approx(float(owner.lingpet_skill_cooldown), 0.0), "freshly switched Lunabi should publish its own ready skill state")
+	owner.ball_active = false
+	runtime.update(10.0, owner, registry)
 	_expect(bool(runtime.switch_lingpet_slot(0, owner)), "switching back to Maribo should succeed")
 	_expect(str(owner.active_lingpet_id) == "maribo", "slot switch should reactivate Maribo")
-	_expect(float(owner.lingpet_skill_cooldown) >= maribo_cooldown - 0.01, "switching away and back should not reset Maribo's active-skill cooldown")
+	var restored_cooldown: float = float(owner.lingpet_skill_cooldown)
+	_expect(restored_cooldown > 28.0 and restored_cooldown < maribo_cooldown - 9.5, "inactive Maribo cooldown should keep ticking while another lingpet is active")
 
 
 func _verify_hydro_puddle_vfx() -> void:

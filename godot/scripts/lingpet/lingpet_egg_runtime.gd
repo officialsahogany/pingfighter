@@ -105,6 +105,7 @@ func update(delta: float, owner: Object, registry: Object = null) -> bool:
 	_egg_state.advance(delta)
 	_companion_body_hit_state.advance(delta)
 	_companion_skill_state.advance(delta)
+	_advance_stored_companion_skill_cooldowns(delta)
 	_hatch_flash_timer = maxf(0.0, _hatch_flash_timer - maxf(0.0, delta))
 	_companion_sprite_animator.advance(delta)
 	_companion_click_reaction_state.advance(delta)
@@ -565,6 +566,22 @@ func _restore_current_companion_skill_state() -> void:
 	var snapshot: Variant = _companion_skill_state_by_pet_id.get(_pet_id, {})
 	if snapshot is Dictionary and _companion_skill_state != null and _companion_skill_state.has_method("apply_persistent_snapshot"):
 		_companion_skill_state.apply_persistent_snapshot(snapshot as Dictionary)
+
+
+func _advance_stored_companion_skill_cooldowns(delta: float) -> void:
+	var safe_delta: float = maxf(0.0, delta)
+	if safe_delta <= 0.0 or _companion_skill_state_by_pet_id.is_empty():
+		return
+	for raw_pet_id in _companion_skill_state_by_pet_id.keys():
+		var pet_id := str(raw_pet_id)
+		if _state == STATE_COMPANION and pet_id == _pet_id:
+			continue
+		var snapshot: Variant = _companion_skill_state_by_pet_id.get(raw_pet_id, {})
+		if not (snapshot is Dictionary):
+			continue
+		var updated: Dictionary = (snapshot as Dictionary).duplicate(true)
+		updated["cooldown"] = maxf(0.0, float(updated.get("cooldown", 0.0)) - safe_delta)
+		_companion_skill_state_by_pet_id[raw_pet_id] = updated
 
 
 func _mark_current_pet_owned(owner: Object) -> void:
