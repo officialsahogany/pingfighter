@@ -1301,8 +1301,9 @@ func apply_chaos_spear_ball_motion(fps_scale: float, scene: Dictionary, context:
 		result["ball_vel"] = chaos_release_velocity
 		result["skip_ball_motion_step"] = false
 		result["ball_impact_boost"] = 1.0
-		_clear_pending_chaos_release()
-	if not _is_chaos_blackhole_active():
+		chaos_release_pending = false
+		chaos_release_velocity = Vector2.ZERO
+	if chaos_state != "blackhole":
 		return result
 	if not _is_context_ball_active(context, false):
 		return result
@@ -1331,7 +1332,8 @@ func apply_chaos_spear_ball_motion(fps_scale: float, scene: Dictionary, context:
 	result["skip_ball_motion_step"] = true
 	result["player_collision_cooldown"] = max(6.0, float(scene.get("player_collision_cooldown", 0.0)))
 	result["ball_impact_boost"] = 1.0
-	_sync_chaos_blackhole_previous_ball_pos(new_pos)
+	chaos_prev_ball_center = new_pos
+	chaos_prev_ball_valid = true
 	var gold_award: int = 0
 	var target_gold_ticks: int = int(floor(elapsed_frames / CHAOS_GOLD_TICK_FRAMES))
 	if target_gold_ticks > chaos_gold_ticks_paid:
@@ -1346,11 +1348,6 @@ func apply_chaos_spear_ball_motion(fps_scale: float, scene: Dictionary, context:
 		if runtime_perk_state != null and runtime_perk_state.has_method("award_gold"):
 			result["runtime_perk_gold"] = int(runtime_perk_state.award_gold(gold_award))
 	return result
-
-
-func _sync_chaos_blackhole_previous_ball_pos(ball_pos: Vector2) -> void:
-	chaos_prev_ball_center = ball_pos
-	chaos_prev_ball_valid = true
 
 
 func apply_emp_strike_ball_motion(_fps_scale: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -2515,11 +2512,15 @@ func _start_chaos_spear(
 	chaos_blackhole_origin_valid = false
 	chaos_base_radius = clamp(ball_pos.distance_to(chaos_target), 84.0, 264.0)
 	chaos_orbit_seed = randf_range(0.0, TAU)
-	_sync_chaos_flight_angle()
-	_reroll_chaos_impact_seed()
+	chaos_flight_angle = (chaos_target - chaos_origin).angle()
+	chaos_impact_seed = randf_range(0.0, TAU)
 	chaos_locked_player_x = player_pos.x
 	chaos_locked_player_x_valid = true
-	_reset_chaos_spear_start_flags()
+	chaos_absorb_poll_frames = 0.0
+	chaos_gold_ticks_paid = 0
+	chaos_explosion_shaken = false
+	chaos_release_pending = false
+	chaos_release_velocity = Vector2.ZERO
 	chaos_state = "startup"
 	var next_gauge: float = max(0.0, special_gauge - cost)
 	_trigger_configured_cooldown_and_orb_gauge_spin(CHAOS_SPEAR, skill_config, deps, now_msec)
@@ -2539,20 +2540,6 @@ func _start_chaos_spear(
 	}
 
 
-func _reset_chaos_spear_start_flags() -> void:
-	_reset_chaos_blackhole_gold_award_runtime()
-	_reset_chaos_impact_shake_flag()
-	_clear_pending_chaos_release()
-
-
-func _sync_chaos_flight_angle() -> void:
-	chaos_flight_angle = (chaos_target - chaos_origin).angle()
-
-
-func _reroll_chaos_impact_seed() -> void:
-	chaos_impact_seed = randf_range(0.0, TAU)
-
-
 func _update_chaos_startup_phase(context: Dictionary, deps: Dictionary) -> void:
 	var player_pos: Vector2 = _get_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
 	var player_size: Vector2 = _get_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
@@ -2565,7 +2552,7 @@ func _update_chaos_startup_phase(context: Dictionary, deps: Dictionary) -> void:
 		chaos_state = "flying"
 		chaos_phase_frames = 0.0
 		chaos_origin = chaos_current
-		_sync_chaos_flight_angle()
+		chaos_flight_angle = (chaos_target - chaos_origin).angle()
 		chaos_locked_player_x_valid = false
 		audio_router.play_chaos_flying_sound(deps)
 
@@ -2582,8 +2569,8 @@ func _update_chaos_flying_phase(deps: Dictionary) -> void:
 		chaos_state = "impact"
 		chaos_phase_frames = 0.0
 		chaos_current = chaos_target
-		_reroll_chaos_impact_seed()
-		_reset_chaos_impact_shake_flag()
+		chaos_impact_seed = randf_range(0.0, TAU)
+		chaos_explosion_shaken = false
 		_trigger_feedback(deps, 0.23, 5.5)
 		audio_router.play_chaos_impact_sound(deps)
 		audio_router.play_chaos_blackhole_sound(deps)
@@ -2598,31 +2585,21 @@ func _update_chaos_impact_phase(context: Dictionary, deps: Dictionary) -> void:
 		chaos_phase_frames = 0.0
 		chaos_current = chaos_target
 		var ball_pos: Vector2 = _get_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
-		_sync_chaos_blackhole_previous_ball_pos(ball_pos)
+		chaos_prev_ball_center = ball_pos
+		chaos_prev_ball_valid = true
 		chaos_blackhole_ball_origin = chaos_prev_ball_center
 		chaos_blackhole_origin_valid = true
-		_reset_chaos_blackhole_gold_award_runtime()
+		chaos_absorb_poll_frames = 0.0
+		chaos_gold_ticks_paid = 0
 		chaos_fx_spawn_msec_seed = Time.get_ticks_msec()
 
 
-func _reset_chaos_impact_shake_flag() -> void:
-	chaos_explosion_shaken = false
-
-
-func _reset_chaos_blackhole_gold_award_runtime() -> void:
-	chaos_absorb_poll_frames = 0.0
-	chaos_gold_ticks_paid = 0
-
-
-func _is_chaos_blackhole_active() -> bool:
-	return chaos_state == "blackhole"
-
-
 func _release_chaos_blackhole(early_hit: bool, context: Dictionary, deps: Dictionary) -> void:
-	if not _is_chaos_blackhole_active():
+	if chaos_state != "blackhole":
 		return
 	if early_hit:
-		_clear_pending_chaos_release()
+		chaos_release_pending = false
+		chaos_release_velocity = Vector2.ZERO
 	else:
 		var current_vel: Vector2 = _get_vector2(context.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
 		var release_speed: float = max(max(16.0, 8.0 * 2.0), current_vel.length() * 1.6)
@@ -2637,14 +2614,8 @@ func _release_chaos_blackhole(early_hit: bool, context: Dictionary, deps: Dictio
 		chaos_cancel_flash_frames = 16.0
 	audio_router.stop_chaos_phase_sounds(deps)
 
-
-func _clear_pending_chaos_release() -> void:
-	chaos_release_pending = false
-	chaos_release_velocity = Vector2.ZERO
-
-
 func _release_chaos_blackhole_from_hit_result(deps: Dictionary, context: Dictionary = {}) -> bool:
-	if not _is_chaos_blackhole_active():
+	if chaos_state != "blackhole":
 		return false
 	_release_chaos_blackhole(true, context, deps)
 	return true
@@ -2691,7 +2662,11 @@ func _reset_chaos_spear_runtime(clear_command: bool = false, deps: Dictionary = 
 	chaos_locked_player_x_valid = false
 	chaos_absorb_pulses.clear()
 	chaos_cancel_flash_frames = 0.0
-	_reset_chaos_spear_start_flags()
+	chaos_absorb_poll_frames = 0.0
+	chaos_gold_ticks_paid = 0
+	chaos_explosion_shaken = false
+	chaos_release_pending = false
+	chaos_release_velocity = Vector2.ZERO
 	if clear_command:
 		_clear_chaos_spear_command_buffer()
 	_hide_fx_host(chaos_fx_host)
