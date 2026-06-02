@@ -826,6 +826,51 @@ boss sprite classes.
   one-time caching over repeated reconstruction.
 - Cache common source rects, animation frame metadata, scaled textures, and
   material variants when reused.
+- **Bounded threaded texture prewarm — keep the DEFAULT hard bound short.**
+  `ProjectResourceLoader.prewarm_texture_threaded_step()` shares ONE threaded
+  load slot and is polled once per frame by a caller that blocks its visible
+  progress bar on `done == true`. Every shipped caller runs behind a loading /
+  stage-transition / acquisition-cinematic screen (boot warmup steps, the
+  stage-transition work loop, stage-clear result assets, mythic / lingpet
+  cut-ins). There, a threaded load that gets STUCK in a non-terminal status
+  freezes the bar at whatever plateau that step maps to — the reported Stage 1
+  boot 48% (`finish_resources` → stage1 pillar bg), 81% (`stage_runtime_resources`),
+  86% (`stage_clear_result_assets`), and the Stage 2 transition 92%
+  (`STAGE_TRANSITION_LOADING_PRE_COMPLETE_PROGRESS`) freezes were all this. A
+  sub-2s sync fallback (`load_texture`) is INVISIBLE behind that same screen,
+  so a short bound + fast sync recovery is correct for the loading path.
+  Therefore `THREADED_TEXTURE_PREWARM_MAX_MSEC` / `_MAX_POLLS` MUST stay short
+  (currently 1800ms / 240). Raising the DEFAULT to "keep slow-but-progressing
+  loads threaded longer" (a 30s experiment) silently regresses EVERY
+  loading-screen caller back into multi-minute plateaus — it trades the
+  invisible main-thread hitch for a very visible bar freeze. The long
+  keep-threaded behavior is OPT-IN per caller via an explicit larger
+  `max_msec` / `max_polls` (only justified for a genuine live-gameplay caller
+  that would rather defer art than hitch). The regression is sealed by a
+  numeric assertion in `project_resource_loader_import_preference_smoke.gd`
+  (`MAX_MSEC <= 3000` / `MAX_POLLS <= 600`); do not loosen it. A genuinely
+  oversized source sheet (e.g. a 12k×6k+ Real-ESRGAN result Live2D sheet) is a
+  SEPARATE problem — downscale / compress the asset, do not widen the timeout
+  to mask the slow upload. The symptom is a single ~0.5–1.5s main-thread FREEZE
+  the first time the sheet uploads to VRAM (the GPU upload of a ~500–800MB
+  uncompressed texture cannot be backgrounded in Godot, so it stalls one frame
+  wherever it first lands — e.g. the demo `stage_transition_loading.step.5`
+  stage-clear-result prewarm froze 1510ms uploading the 15488×12672 / 16128×8064
+  hq1408/hq1152 result sheets). The fix is to import these big result/cutscene
+  Live2D sheets at DISPLAY-MATCHED size via `process/size_limit` in the `.import`
+  (the stage-clear result screen only draws the actor at ~760px, so 1408/1152px
+  source cells are ~2–9x oversampled; 2026-06 capped them to 896px cells via
+  `size_limit=9856`/`12544`). When you change the imported cell size you MUST
+  also: (a) keep the runtime per-cell slice constants
+  (`PLAYER_VICTORY_CELL_SIZE` etc. in `stage_clear_result_scene.gd`) equal to
+  the new imported cell px, and (b) keep any source-cell-pixel offsets (e.g. the
+  victory click-rect in `stage_clear_result_layout_helper.gd`) expressed against
+  the original authored source resolution (or scaled with the cell size) so the
+  on-screen geometry does not move. Source PNGs stay untouched — `size_limit`
+  only shrinks the imported texture, so there is no visible quality loss at the
+  display size. Trap when verifying: the open editor caches `.import` in memory
+  and re-reverts headless reimports of changed sheets, so chain `--import` +
+  the texture-loading smoke (or restart the editor) to read a consistent state.
 - Particle/effect cost is multiplicative: particle count x lifetime x layer
   count x translucent radius. Small-looking increases across multiple axes can
   still add visible frame cost.

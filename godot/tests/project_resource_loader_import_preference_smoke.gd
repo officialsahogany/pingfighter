@@ -62,13 +62,23 @@ func _verify_threaded_prewarm_short_guard(threaded_prewarm_body: String) -> void
 		"threaded texture prewarm should let callers set a shorter hard fallback guard"
 	)
 	_expect(
-		threaded_prewarm_body.find("emit_timeout_warning: bool = true") >= 0
+		threaded_prewarm_body.find("emit_timeout_warning: bool = false") >= 0
 			and threaded_prewarm_body.find("if emit_timeout_warning:") >= 0,
-		"threaded texture prewarm should let expected short-guard callers suppress timeout warnings"
+		"threaded texture prewarm should default loading-screen callers to a silent short fallback and gate the stuck-load warning behind the opt-in flag"
 	)
 	_expect(
 		threaded_prewarm_body.find("_is_threaded_texture_prewarm_expired(max_msec, max_polls)") >= 0,
 		"threaded texture prewarm should use the caller-provided hard fallback guard"
+	)
+	# Seal the regression: every shipped caller blocks a visible loading / transition
+	# progress bar on done == true, so a long default hard bound re-freezes the bar
+	# at the 81% / 86% / 92% plateaus (raising this to 30s is exactly the regression
+	# that surfaced those). The long "keep slow-but-progressing loads threaded"
+	# behavior must stay OPT-IN per caller, never the default.
+	_expect(
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC <= 3000
+			and ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS <= 600,
+		"threaded prewarm default hard bound must stay short (<=3000ms / <=600 polls); long keep-threaded is opt-in per caller"
 	)
 
 

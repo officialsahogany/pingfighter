@@ -10,15 +10,26 @@ static var _threaded_texture_prewarm_stale_warning_sent: bool = false
 
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_MSEC := 15000
 const THREADED_TEXTURE_PREWARM_STALE_WARNING_POLLS := 1200
-# Hard upper bound past the warn tier. A threaded load that never reaches
-# LOADED/FAILED (stuck status, evicted request, or an unrelated path that
-# permanently owns the shared slot) is abandoned at this bound and resolved
-# synchronously, so the prewarm loop -- and any caller waiting on done == true,
-# including a different path blocked behind the shared slot -- can never hang.
-# The warn tier above keeps slow-but-progressing loads on the threaded path;
-# only this tier bails to a bounded main-thread load.
-const THREADED_TEXTURE_PREWARM_MAX_MSEC := 30000
-const THREADED_TEXTURE_PREWARM_MAX_POLLS := 3000
+# Hard upper bound: a threaded load that never reaches LOADED/FAILED (stuck
+# status, evicted request, or an unrelated path that permanently owns the
+# shared slot) is abandoned at this bound and resolved synchronously, so the
+# prewarm loop -- and any caller waiting on done == true, including a different
+# path blocked behind the shared slot -- can never hang.
+#
+# This DEFAULT is intentionally short. Every shipped caller runs behind a
+# loading / stage-transition / acquisition-cinematic screen where the caller
+# blocks the visible progress bar on done == true. There, a stuck threaded
+# load just freezes the bar (the 81% / 86% / 92% plateaus players reported),
+# while a sub-2s sync fallback is invisible behind the same screen. So a short
+# bound + fast sync recovery is correct for the loading path. A long
+# "keep slow-but-progressing loads threaded" behavior (warn tier above, then
+# bail near 30s) is OPT-IN only -- pass an explicit larger max_msec / max_polls
+# from a genuine live-gameplay caller that would rather defer art than hitch
+# the main thread. Do NOT raise this default to suit one such caller; it
+# silently regresses every loading-screen prewarm back into multi-minute
+# plateaus. See AGENTS.md "Bounded threaded texture prewarm".
+const THREADED_TEXTURE_PREWARM_MAX_MSEC := 1800
+const THREADED_TEXTURE_PREWARM_MAX_POLLS := 240
 
 
 static func load_texture(path: String, missing_warning: String = "", failed_warning: String = "") -> Texture2D:
@@ -59,6 +70,23 @@ static func load_texture(path: String, missing_warning: String = "", failed_warn
 	return null
 
 
+static func load_imported_texture(path: String, missing_warning: String = "", failed_warning: String = "") -> Texture2D:
+	if _texture_cache.has(path):
+		var cached_texture: Variant = _texture_cache[path]
+		if cached_texture is Texture2D:
+			return cached_texture
+		_texture_cache.erase(path)
+
+	var imported_exists: bool = _can_load_imported_resource(path)
+	if imported_exists:
+		var texture_resource: Resource = ResourceLoader.load(path)
+		if texture_resource is Texture2D:
+			_texture_cache[path] = texture_resource
+			return texture_resource
+
+	return load_texture(path, missing_warning, failed_warning)
+
+
 static func get_cached_texture(path: String) -> Texture2D:
 	if not _texture_cache.has(path):
 		return null
@@ -83,7 +111,7 @@ static func prewarm_texture_threaded_step(
 	failed_warning: String = "",
 	max_msec: int = THREADED_TEXTURE_PREWARM_MAX_MSEC,
 	max_polls: int = THREADED_TEXTURE_PREWARM_MAX_POLLS,
-	emit_timeout_warning: bool = true
+	emit_timeout_warning: bool = false
 ) -> Dictionary:
 	if path == "":
 		return {"done": true, "texture": null}
