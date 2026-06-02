@@ -63,6 +63,7 @@ const EQUIPMENT_COLOR_KNEE := Color(120.0 / 255.0, 1.0, 205.0 / 255.0)
 const EQUIPMENT_COLOR_SHOES := Color(115.0 / 255.0, 230.0 / 255.0, 150.0 / 255.0)
 const EQUIPMENT_COLOR_ACCESSORY := Color(220.0 / 255.0, 175.0 / 255.0, 1.0)
 const BASE_ACCESSORY_SLOT_COUNT := 2
+const BASE_ACTIVE_ITEM_SLOT_COUNT := 3
 const UI_TEXT_SCALE := 1.12
 const OPEN_ANIMATION_DURATION := 0.14
 const MOUSE_MOTION_REDRAW_DISTANCE := 32.0
@@ -74,7 +75,7 @@ const CENTERED_TEXT_SIZE_CACHE_LIMIT := 256
 const WRAP_TEXT_CACHE_LIMIT := 1024
 const PASSIVE_FRAME_COLOR_CACHE_LIMIT := 128
 const PASSIVE_INVENTORY_COLUMN_TARGET := 84.0
-const STAT_ROW_COUNT := 8
+const STAT_ROW_COUNT := 9
 const LINGPET_HATCH_REQUIRED_HITS := 2
 const CHARACTER_CARD_GLOW_LAYERS := 1
 const CHARACTER_CARD_RING_SEGMENTS := 12
@@ -1285,6 +1286,8 @@ func _prewarm_stats_layout(font: Font, owner: Object, registry: Object, module_g
 	var lingpet_runtime: Object = _get_prewarm_instance(registry, module_getter, "lingpet_egg_runtime")
 	var character_type: String = _get_character_type(owner)
 	var stat_sources: Array = [runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime]
+	var active_item_slot_capacity: int = _get_active_item_slot_capacity_for_sources(runtime_state, mythic_item_runtime)
+	var active_item_slots: Array = _get_array(_safe_owner_get(owner, "active_item_slots", []))
 	var player_rows: Array = _build_stats(
 		owner,
 		registry,
@@ -1293,7 +1296,9 @@ func _prewarm_stats_layout(font: Font, owner: Object, registry: Object, module_g
 		mythic_item_runtime,
 		character_type,
 		stat_sources,
-		true
+		true,
+		active_item_slot_capacity,
+		active_item_slots
 	)
 	var lingpet_rows: Array = _build_lingpet_stats(owner)
 	for rows in [player_rows, lingpet_rows]:
@@ -1531,6 +1536,8 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	var runtime_perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
 	var skill_config: Object = _get_skill_config(registry, character_type)
 	var skill_snapshot: Dictionary = skill_config.get_snapshot() if skill_config != null and skill_config.has_method("get_snapshot") else {}
+	var active_item_slot_capacity: int = _get_active_item_slot_capacity_for_sources(runtime_state, mythic_item_runtime)
+	var active_item_slots: Array = _get_array(_safe_owner_get(owner, "active_item_slots", []))
 	_frame_stat_sources.clear()
 	_frame_stat_sources.append(runtime_state)
 	_frame_stat_sources.append(active_item_runtime)
@@ -1564,7 +1571,7 @@ func draw(canvas: CanvasItem, owner: Object, registry: Object, view_size: Vector
 	_perf_end(perf_logger, "character_info.lingpet", sample_start)
 
 	sample_start = _perf_begin(perf_logger)
-	hover_data = _draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data)
+	hover_data = _draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data, active_item_slot_capacity, active_item_slots)
 	_perf_end(perf_logger, "character_info.stats", sample_start)
 
 	if _layout_inventory_rect.size != Vector2.ZERO:
@@ -2654,7 +2661,9 @@ func _draw_stats_panel(
 	character_type_override: String = "",
 	stat_sources_override: Array = [],
 	mouse_pos: Vector2 = Vector2.INF,
-	hover_data: Dictionary = {}
+	hover_data: Dictionary = {},
+	active_item_slot_capacity_override: int = -1,
+	active_item_slots_override: Variant = null
 ) -> Dictionary:
 	_draw_panel(canvas, rect, SECTION_COLOR, SECTION_BORDER, 2.0)
 	_draw_text_xy(canvas, font, "능력치", rect.position.x + 12.0, rect.position.y + 24.0, 13, ACCENT_BLUE)
@@ -2666,7 +2675,9 @@ func _draw_stats_panel(
 		mythic_item_runtime_override,
 		character_type_override,
 		stat_sources_override,
-		false
+		false,
+		active_item_slot_capacity_override,
+		active_item_slots_override
 	)
 	var lingpet_rows: Array = _build_lingpet_stats(owner)
 	var inner_rect := Rect2(rect.position.x + 12.0, rect.position.y + 38.0, rect.size.x - 24.0, rect.size.y - 50.0)
@@ -2877,7 +2888,9 @@ func _build_stats(
 	mythic_item_runtime_override: Object = null,
 	character_type_override: String = "",
 	stat_sources_override: Array = [],
-	write_row_cache: bool = true
+	write_row_cache: bool = true,
+	active_item_slot_capacity_override: int = -1,
+	active_item_slots_override: Variant = null
 ) -> Array:
 	var character_type: String = character_type_override
 	if character_type == "":
@@ -2916,6 +2929,16 @@ func _build_stats(
 	var dash_recovery_seconds: float = _frames_to_seconds(_get_effective_dash_recovery_frames(stat_sources))
 	var dash_cooldown_seconds: float = _frames_to_seconds(_get_effective_dash_recharge_frames(stat_sources))
 	var item_cooldown_seconds: float = float(_get_effective_default_active_item_cooldown_msec(registry, stat_sources)) / 1000.0
+	var active_item_slot_capacity: int = active_item_slot_capacity_override
+	if active_item_slot_capacity < 1:
+		active_item_slot_capacity = _get_active_item_slot_capacity_for_sources(runtime_state, mythic_item_runtime)
+	var active_item_slot_count: int = _get_active_item_slot_count(owner, active_item_slots_override)
+	var active_item_slot_color: Color = _stat_delta_color(
+		float(BASE_ACTIVE_ITEM_SLOT_COUNT),
+		float(active_item_slot_capacity),
+		true
+	)
+
 	_ensure_stats_row_cache(STAT_ROW_COUNT)
 	_write_delta_stat_row(0, "이동 속도", "%.2f" % move_speed, base_move_speed, move_speed, true, write_row_cache)
 	_write_delta_stat_row(1, "몸집크기", "%.0fpx" % paddle_width, base_paddle_width, paddle_width, true, write_row_cache)
@@ -2925,6 +2948,7 @@ func _build_stats(
 	_write_delta_stat_row(5, "대시 후딜시간", "%.2f초" % dash_recovery_seconds, base_dash_recovery_seconds, dash_recovery_seconds, false, write_row_cache)
 	_write_delta_stat_row(6, "대시쿨타임", "%.2f초" % dash_cooldown_seconds, base_dash_cooldown_seconds, dash_cooldown_seconds, false, write_row_cache)
 	_write_delta_stat_row(7, "아이템쿨타임", "%.2f초" % item_cooldown_seconds, base_item_cooldown_seconds, item_cooldown_seconds, false, write_row_cache)
+	_write_simple_stat_row(8, "액티브 아이템 슬롯", _format_int_pair(active_item_slot_count, active_item_slot_capacity), active_item_slot_color, write_row_cache)
 	_stats_row_count = STAT_ROW_COUNT
 	return _stats_row_cache
 
@@ -5198,12 +5222,18 @@ func _get_active_item_slot_capacity(registry: Object) -> int:
 
 
 func _get_active_item_slot_capacity_for_sources(runtime_perk_state: Object, mythic_item_runtime: Object) -> int:
-	var capacity := 3
+	var capacity := BASE_ACTIVE_ITEM_SLOT_COUNT
 	if runtime_perk_state != null and runtime_perk_state.has_method("get_active_item_slot_capacity"):
 		capacity = int(runtime_perk_state.get_active_item_slot_capacity(capacity))
 	if mythic_item_runtime != null and mythic_item_runtime.has_method("get_active_item_slot_capacity"):
 		capacity = int(mythic_item_runtime.get_active_item_slot_capacity(capacity))
 	return max(1, capacity)
+
+
+func _get_active_item_slot_count(owner: Object, active_item_slots_override: Variant = null) -> int:
+	if active_item_slots_override is Array:
+		return (active_item_slots_override as Array).size()
+	return _get_array(_safe_owner_get(owner, "active_item_slots", [])).size()
 
 
 func _get_effective_active_item_cooldown_msec(item_data: Dictionary, registry: Object, stat_sources: Array = []) -> int:

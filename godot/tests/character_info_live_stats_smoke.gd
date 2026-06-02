@@ -76,9 +76,13 @@ func _init() -> void:
 	_expect(active_runtime.effect_controller.activate_vitamin_pill(owner, registry), "vitamin pill should activate for the smoke test")
 
 	var stats: Array = overlay._build_stats(owner, registry)
-	_expect(stats.size() >= 8, "TAB stats should keep the eight live combat stat rows")
+	_expect(stats.size() >= 9, "TAB stats should keep the live combat stat rows plus active-item slot count")
 	_expect(_find_stat(stats, "게이지").is_empty(), "TAB stats should omit current gauge summary")
 	_expect(_find_stat(stats, "대시 토큰").is_empty(), "TAB stats should omit dash token summary")
+	_expect(
+		str(_find_stat(stats, "액티브 아이템 슬롯").get("value", "")) == "0 / 3",
+		"TAB stats should show current active-item slots and base capacity"
+	)
 	_expect(
 		abs(_stat_float(stats, "이동 속도") - 10.08) < 0.02,
 		"TAB move speed should include common swiftness and active-item speed buffs"
@@ -112,10 +116,16 @@ func _init() -> void:
 		int(mythic_runtime.acquire_item("slot_add", owner, registry, {"slot_add_count": 2.0}, true, false)) >= 0,
 		"slot_add passive should be acquired and equipped"
 	)
+	owner.set("active_item_slots", [{"name": "banana"}, {"name": "soap"}])
 	stats = overlay._build_stats(owner, registry)
+	var active_slot_stat: Dictionary = _find_stat(stats, "액티브 아이템 슬롯")
 	_expect(
-		_find_stat(stats, "액티브 아이템").is_empty(),
-		"TAB stats should leave active item slot counts to the dedicated active-item panel"
+		str(active_slot_stat.get("value", "")) == "2 / 5",
+		"TAB stats should show active-item slot count with mythic slot expansion"
+	)
+	_expect(
+		_is_buff_color(_stat_color(stats, "액티브 아이템 슬롯")),
+		"TAB active-item slot capacity increases should be highlighted as a buff color"
 	)
 
 	var debuff_active_runtime: Object = ActiveItemRuntime.new()

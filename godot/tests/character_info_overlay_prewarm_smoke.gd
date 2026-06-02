@@ -1086,8 +1086,8 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info equipment draw should build its content rect without temporary Vector2 allocations"
 	)
 	_expect(
-		source.find("hover_data = _draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data)") >= 0,
-		"character info stats draw should reuse frame-level runtime sources, compact stat sources, and hover state"
+		source.find("hover_data = _draw_stats_panel(canvas, owner, registry, _layout_stats_rect, font, runtime_state, active_item_runtime, mythic_item_runtime, character_type, stat_sources, mouse_pos, hover_data, active_item_slot_capacity, active_item_slots)") >= 0,
+		"character info stats draw should reuse frame-level runtime sources, compact stat sources, active-item slots, capacity, and hover state"
 	)
 	_expect(
 		source.find("var stat_sources: Array = stat_sources_override if not stat_sources_override.is_empty() else [runtime_state, active_item_runtime, mythic_item_runtime, lingpet_runtime]") >= 0,
@@ -1266,8 +1266,8 @@ func _verify_compact_stats_reuse_frame_sources() -> void:
 		"character info stats panel should use a stable scalar value-right edge during row draw"
 	)
 	_expect(
-		source.find("_write_simple_stat_row(11, \"액티브 아이템\"") < 0,
-		"character info stats should omit active item slot summaries"
+		source.find("_write_simple_stat_row(8, \"액티브 아이템 슬롯\", _format_int_pair(active_item_slot_count, active_item_slot_capacity), active_item_slot_color, write_row_cache)") >= 0,
+		"character info stats should show active item slot count and capacity"
 	)
 	_expect(
 		source.find("_passive_item_roll_entries_cache_item_hash") >= 0,
