@@ -768,21 +768,41 @@ func try_activate_before_movement(
 			var dual_glitch_first_command: Dictionary = dual_glitch_cmd_buffer[0]
 			if now_msec - int(dual_glitch_first_command.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
 				dual_glitch_cmd_buffer.clear()
+		var dual_glitch_key_sequence: Array[String] = []
 		if left_edge:
-			_push_dual_glitch_command("a", now_msec)
+			dual_glitch_key_sequence.append("a")
 		if right_edge:
-			_push_dual_glitch_command("d", now_msec)
+			dual_glitch_key_sequence.append("d")
+		for dual_glitch_key_char in dual_glitch_key_sequence:
+			if not dual_glitch_cmd_buffer.is_empty():
+				var dual_glitch_loop_first_command: Dictionary = dual_glitch_cmd_buffer[0]
+				if now_msec - int(dual_glitch_loop_first_command.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
+					dual_glitch_cmd_buffer.clear()
+			var dual_glitch_progress: int = dual_glitch_cmd_buffer.size()
+			var dual_glitch_expected_key: String = "a" if dual_glitch_progress == 0 or dual_glitch_progress == 2 or dual_glitch_progress >= 4 else "d"
+			var dual_glitch_entry: Dictionary = {"key": dual_glitch_key_char, "time": now_msec}
+			if dual_glitch_key_char == dual_glitch_expected_key:
+				if dual_glitch_progress == 0:
+					dual_glitch_cmd_buffer = [dual_glitch_entry]
+				else:
+					dual_glitch_cmd_buffer.append(dual_glitch_entry)
+			elif dual_glitch_key_char == "a":
+				dual_glitch_cmd_buffer = [dual_glitch_entry]
+			else:
+				dual_glitch_cmd_buffer = []
 	if left_edge:
 		core_flip_left_press_frame = input_sequence_frame
 	if right_edge:
 		core_flip_right_press_frame = input_sequence_frame
 	if chaos_state == "idle" and visibility_query.is_skill_equipped(command_skill_config, CHAOS_SPEAR):
 		if left_edge:
-			_push_chaos_command("a", now_msec)
+			chaos_cmd_buffer.append({"key": "a", "time": now_msec})
 		if up_edge:
-			_push_chaos_command("w", now_msec)
+			chaos_cmd_buffer.append({"key": "w", "time": now_msec})
 		if right_edge:
-			_push_chaos_command("d", now_msec)
+			chaos_cmd_buffer.append({"key": "d", "time": now_msec})
+		while chaos_cmd_buffer.size() > CHAOS_CMD_BUFFER_MAX:
+			chaos_cmd_buffer.pop_front()
 	previous_left_pressed = left_pressed
 	previous_up_pressed = up_pressed
 	previous_right_pressed = right_pressed
@@ -983,7 +1003,103 @@ func try_activate_before_movement(
 				chaos_cmd_buffer.clear()
 	if chaos_command_ready and _can_start_chaos_spear(special_gauge, config, deps, now_msec):
 		return _start_chaos_spear(player_pos, special_gauge, config, deps, now_msec)
-	var ignition_result: Dictionary = _try_update_ignition_aura_hold(input_snapshot, player_pos, special_gauge, config, deps, now_msec)
+	var ignition_result: Dictionary = {}
+	if not up_pressed:
+		_reset_ignition_aura_hold()
+	else:
+		var can_hold_ignition_aura: bool = not (
+			ignition_active
+			or dive_active
+			or dive_hold_start_msec > 0
+			or dual_glitch_state != "idle"
+			or _has_viper_attack_motion_active()
+			or chaos_state != "idle"
+			or shadow_hologram_active
+			or shadow_wave_active
+			or shadow_marshal_delay_frames > 0.0
+			or phantom_strike_active
+			or marshal_ready
+			or double_marshal_ready
+		)
+		if can_hold_ignition_aura and (visibility_query.is_dash_motion_busy(deps) or visibility_query.is_control_locked(deps)):
+			can_hold_ignition_aura = false
+		if can_hold_ignition_aura and (not bool(config.get("ball_active", true)) or bool(config.get("waiting_for_serve", false))):
+			can_hold_ignition_aura = false
+		if can_hold_ignition_aura and visibility_query.is_round_waiting_for_serve(deps):
+			can_hold_ignition_aura = false
+		if can_hold_ignition_aura and (bool(input_snapshot.get("down_pressed", false)) or _has_lateral_skill_input(input_snapshot)):
+			can_hold_ignition_aura = false
+		if can_hold_ignition_aura and runtime_action_router.get_viper_airborne_height(deps, config, player_pos) > 5.0:
+			can_hold_ignition_aura = false
+		if can_hold_ignition_aura:
+			var ignition_hold_skill_config: Object = visibility_query.get_viper_skill_config(deps)
+			if not visibility_query.is_skill_equipped(ignition_hold_skill_config, IGNITION_AURA):
+				can_hold_ignition_aura = false
+			else:
+				var ignition_hold_cost: float = _get_skill_cost_with_fallback(ignition_hold_skill_config, IGNITION_AURA, IGNITION_GAUGE_COST)
+				if special_gauge < ignition_hold_cost:
+					can_hold_ignition_aura = false
+				else:
+					can_hold_ignition_aura = visibility_query.is_configured_skill_ready(IGNITION_AURA, deps, now_msec)
+		if not can_hold_ignition_aura:
+			_reset_ignition_aura_hold()
+		else:
+			if ignition_hold_start_msec <= 0:
+				ignition_hold_start_msec = now_msec
+				ignition_charge_particles.clear()
+			ignition_hold_player_pos = player_pos
+			ignition_hold_paddle_size = ViperSkillGeometry.get_paddle_size(config)
+			var ignition_elapsed_msec: int = max(0, now_msec - ignition_hold_start_msec)
+			ignition_hold_ratio = clamp(float(ignition_elapsed_msec) / float(IGNITION_HOLD_REQUIRED_MSEC), 0.0, 1.0)
+			particle_drawer.spawn_ignition_charge_particles(
+				ignition_charge_particles,
+				player_pos,
+				ignition_hold_paddle_size,
+				ignition_hold_ratio,
+				IGNITION_CHARGE_PARTICLE_LIMIT
+			)
+			if ignition_elapsed_msec >= IGNITION_HOLD_REQUIRED_MSEC:
+				_reset_ignition_aura_hold()
+				var ignition_start_skill_config: Object = visibility_query.get_viper_skill_config(deps)
+				var ignition_start_cost: float = _get_skill_cost_with_fallback(ignition_start_skill_config, IGNITION_AURA, IGNITION_GAUGE_COST)
+				var ignition_next_gauge: float = max(0.0, special_gauge - ignition_start_cost)
+				var ignition_skill_state: Object = visibility_query.get_viper_skill_state(deps)
+				if ignition_skill_state != null:
+					if ignition_skill_state.has_method("trigger_configured_cooldown"):
+						ignition_skill_state.trigger_configured_cooldown(IGNITION_AURA, now_msec, ignition_start_skill_config)
+					elif ignition_skill_state.has_method("trigger_cooldown"):
+						var ignition_cooldown_seconds := _get_skill_cooldown_seconds_with_fallback(ignition_start_skill_config, IGNITION_AURA, 80.0)
+						ignition_skill_state.trigger_cooldown(IGNITION_AURA, now_msec, ignition_cooldown_seconds)
+				_trigger_orb_gauge_spin(deps, now_msec)
+				audio_router.play_ignition_aura_sound(deps)
+				runtime_action_router.trigger_feedback(deps, 0.14, 4.2)
+				ignition_active = true
+				ignition_total_frames = IGNITION_DURATION_FRAMES
+				ignition_remaining_frames = ignition_total_frames
+				ignition_player_pos = player_pos
+				ignition_paddle_size = ViperSkillGeometry.get_paddle_size(config)
+				ignition_ember_timer = 0.0
+				ignition_start_msec = now_msec
+				_set_runtime_ignition_aura_bonus(deps, true)
+				particle_drawer.spawn_ignition_aura_burst(
+					ignition_burst_particles,
+					player_pos + ViperSkillGeometry.get_paddle_size(config) * 0.5,
+					IGNITION_PARTICLE_LIMIT
+				)
+				ignition_result = {
+					"handled": true,
+					"activated": true,
+					"skill_name": IGNITION_AURA,
+					"player_pos": player_pos,
+					"player_speed": 0.0,
+					"special_gauge": ignition_next_gauge,
+				}
+			else:
+				ignition_result = {
+					"handled": false,
+					"activated": false,
+					"special_gauge": special_gauge,
+				}
 	if not ignition_result.is_empty():
 		return ignition_result
 
@@ -1338,8 +1454,86 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 			venom_edge_strike_elapsed_frames = 0.0
 	particle_drawer.update_particle_list(marshal_particles, fps_scale, 0.985, 0.0)
 	particle_drawer.update_particle_list(phantom_hit_particles, fps_scale, 0.97, 0.04)
-	_update_ignition_aura_runtime(fps_scale, context, deps)
-	_update_dual_glitch_runtime(fps_scale, context)
+	particle_drawer.update_ignition_particle_array(ignition_charge_particles, fps_scale)
+	particle_drawer.update_ignition_particle_array(ignition_burst_particles, fps_scale)
+	particle_drawer.update_ignition_particle_array(ignition_live_embers, fps_scale)
+	if ignition_active:
+		var ignition_character_type: String = ""
+		if context.has("selected_character_type"):
+			ignition_character_type = str(context.get("selected_character_type", "viper")).strip_edges().to_lower()
+		if ignition_character_type != "" and ignition_character_type != "viper":
+			ignition_active = false
+			ignition_remaining_frames = 0.0
+			ignition_ember_timer = 0.0
+			_set_runtime_ignition_aura_bonus(deps, false)
+		elif bool(context.get("waiting_for_serve", false)) or not bool(context.get("ball_active", true)):
+			ignition_player_pos = _get_vector2(context.get("player_pos", ignition_player_pos), ignition_player_pos)
+			ignition_paddle_size = _get_vector2(context.get("player_paddle_size", ignition_paddle_size), ignition_paddle_size)
+			_set_runtime_ignition_aura_bonus(deps, true)
+		else:
+			ignition_player_pos = _get_vector2(context.get("player_pos", ignition_player_pos), ignition_player_pos)
+			ignition_paddle_size = _get_vector2(context.get("player_paddle_size", ignition_paddle_size), ignition_paddle_size)
+			_set_runtime_ignition_aura_bonus(deps, true)
+			ignition_remaining_frames = max(0.0, ignition_remaining_frames - fps_scale)
+			ignition_ember_timer -= fps_scale
+			if ignition_ember_timer <= 0.0:
+				ignition_ember_timer = IGNITION_EMBER_INTERVAL_FRAMES
+				particle_drawer.spawn_ignition_live_embers(
+					ignition_live_embers,
+					ignition_player_pos,
+					ignition_paddle_size,
+					IGNITION_EMBER_LIMIT
+				)
+			if ignition_remaining_frames <= 0.0:
+				ignition_active = false
+				ignition_remaining_frames = 0.0
+				ignition_ember_timer = 0.0
+				_set_runtime_ignition_aura_bonus(deps, false)
+	if dual_glitch_state != "idle":
+		if visibility_query.should_stop_viper_context_effect(context):
+			_reset_dual_glitch_runtime(true)
+		else:
+			dual_glitch_base_pos = _get_vector2(context.get("player_pos", dual_glitch_base_pos), dual_glitch_base_pos)
+			dual_glitch_paddle_size = _get_vector2(context.get("player_paddle_size", dual_glitch_paddle_size), dual_glitch_paddle_size)
+			dual_glitch_phase_frames += fps_scale
+			for dual_runtime_index in range(dual_glitch_clones.size()):
+				var dual_runtime_clone_value: Variant = dual_glitch_clones[dual_runtime_index]
+				if not (dual_runtime_clone_value is Dictionary):
+					continue
+				var dual_runtime_clone: Dictionary = dual_runtime_clone_value
+				var evaporation_frames: float = float(dual_runtime_clone.get("evaporation_frames", -1.0))
+				if evaporation_frames >= 0.0:
+					dual_runtime_clone["evaporation_frames"] = evaporation_frames + fps_scale
+					dual_glitch_clones[dual_runtime_index] = dual_runtime_clone
+			match dual_glitch_state:
+				"startup":
+					if dual_glitch_phase_frames >= DUAL_GLITCH_STARTUP_FRAMES:
+						dual_glitch_state = "spawn"
+						dual_glitch_phase_frames = 0.0
+						dual_glitch_locked_player_x_valid = false
+				"spawn":
+					if dual_glitch_phase_frames >= DUAL_GLITCH_SPAWN_FRAMES:
+						dual_glitch_state = "active"
+						dual_glitch_phase_frames = 0.0
+				"active":
+					if not visibility_query.has_living_dual_glitch_clone(dual_glitch_clones):
+						_enter_dual_glitch_fade("destroyed")
+					elif dual_glitch_phase_frames >= dual_glitch_active_total_frames:
+						_enter_dual_glitch_fade("timeout")
+				"fade":
+					if dual_glitch_phase_frames >= DUAL_GLITCH_FADE_FRAMES:
+						_reset_dual_glitch_runtime(false)
+			var dual_runtime_alive: Array = []
+			for dual_runtime_alive_value in dual_glitch_clones:
+				if not (dual_runtime_alive_value is Dictionary):
+					continue
+				var dual_runtime_alive_clone: Dictionary = dual_runtime_alive_value
+				if (
+					visibility_query.is_dual_glitch_clone_alive(dual_runtime_alive_clone)
+					or visibility_query.is_dual_glitch_clone_evaporating(dual_runtime_alive_clone, DUAL_GLITCH_EVAPORATION_FRAMES)
+				):
+					dual_runtime_alive.append(dual_runtime_alive_clone)
+			dual_glitch_clones = dual_runtime_alive
 	_update_dual_glitch_clone_dive_entries(fps_scale, deps)
 	chaos_spear_effect_renderer.update_chaos_absorb_pulses(chaos_absorb_pulses, chaos_target, fps_scale)
 	if chaos_cancel_flash_frames > 0.0:
@@ -1352,11 +1546,52 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 	chaos_phase_frames += fps_scale
 	match chaos_state:
 		"startup":
-			_update_chaos_startup_phase(context, deps)
+			var chaos_player_pos: Vector2 = _get_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
+			var chaos_player_size: Vector2 = _get_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
+			chaos_current = Vector2(chaos_player_pos.x + chaos_player_size.x * 0.5, chaos_player_pos.y - 6.0)
+			var prep_reduction_pct: float = float(_get_four_poisons_scaled_pct(deps, FOUR_POISONS_PREP_REDUCTION_PCT_BY_LEVEL, FOUR_POISONS_PREP_REDUCTION_PCT_CAP, FOUR_POISONS_PREP_REDUCTION_PCT_PER_EXTRA_LEVEL))
+			var frame_scale: float = max(0.0, 1.0 - prep_reduction_pct / 100.0)
+			var chaos_startup_frames: float = max(1.0, CHAOS_STARTUP_FRAMES * frame_scale)
+			if chaos_phase_frames >= chaos_startup_frames:
+				audio_router.stop_chaos_windup_sound(deps)
+				chaos_state = "flying"
+				chaos_phase_frames = 0.0
+				chaos_origin = chaos_current
+				chaos_flight_angle = (chaos_target - chaos_origin).angle()
+				chaos_locked_player_x_valid = false
+				audio_router.play_chaos_flying_sound(deps)
 		"flying":
-			_update_chaos_flying_phase(deps)
+			var travel_frames: float = max(1.0, CHAOS_TRAVEL_FRAMES)
+			var travel_t: float = clamp(chaos_phase_frames / travel_frames, 0.0, 1.0)
+			var inverse_t: float = 1.0 - travel_t
+			var ease_t: float = 1.0 - pow(inverse_t, 3.0)
+			chaos_current = chaos_origin.lerp(chaos_target, ease_t)
+			if travel_t >= 1.0:
+				audio_router.stop_chaos_flying_sound(deps)
+				chaos_state = "impact"
+				chaos_phase_frames = 0.0
+				chaos_current = chaos_target
+				chaos_impact_seed = randf_range(0.0, TAU)
+				chaos_explosion_shaken = false
+				runtime_action_router.trigger_feedback(deps, 0.23, 5.5)
+				audio_router.play_chaos_impact_sound(deps)
+				audio_router.play_chaos_blackhole_sound(deps)
 		"impact":
-			_update_chaos_impact_phase(context, deps)
+			if chaos_phase_frames >= CHAOS_IMPACT_FRAMES * 0.45 and not chaos_explosion_shaken:
+				chaos_explosion_shaken = true
+				runtime_action_router.trigger_feedback(deps, 0.40, 8.0)
+			if chaos_phase_frames >= CHAOS_IMPACT_FRAMES:
+				chaos_state = "blackhole"
+				chaos_phase_frames = 0.0
+				chaos_current = chaos_target
+				var chaos_ball_pos: Vector2 = _get_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+				chaos_prev_ball_center = chaos_ball_pos
+				chaos_prev_ball_valid = true
+				chaos_blackhole_ball_origin = chaos_prev_ball_center
+				chaos_blackhole_origin_valid = true
+				chaos_absorb_poll_frames = 0.0
+				chaos_gold_ticks_paid = 0
+				chaos_fx_spawn_msec_seed = Time.get_ticks_msec()
 		"blackhole":
 			if chaos_phase_frames >= CHAOS_BLACKHOLE_FRAMES:
 				_release_chaos_blackhole(false, context, deps)
@@ -1771,171 +2006,152 @@ func _update_core_flip(
 			if t0 >= 1.0:
 				_enter_core_flip_phase(1, deps)
 		1:
-			next_pos = _update_core_flip_wall_climb_phase(config, deps)
+			var phase1_cap: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_PHASE1_FRAMES, visibility_query.get_runtime_skill_level(deps, "kick_enhance"))
+			var t1: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, phase1_cap)
+			core_flip_target_center = ViperSkillGeometry.get_ball_pos(config)
+			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(1, t1)
+			var leg_frames: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_LEG_FRAMES, visibility_query.get_runtime_skill_level(deps, "kick_enhance"))
+			var cling_frames: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_CLING_FRAMES, visibility_query.get_runtime_skill_level(deps, "kick_enhance"))
+			var center1: Vector2 = ViperSkillGeometry.core_flip_wall_climb_center(
+				t1,
+				config,
+				core_flip_paddle_size,
+				core_flip_origin_center,
+				core_flip_target_center,
+				core_flip_kick_dir,
+				core_flip_phase_frames,
+				leg_frames,
+				cling_frames,
+				CORE_FLIP_KICK_TRIGGER_Y
+			)
+			next_pos = ViperSkillGeometry.center_to_player_pos(center1, config, core_flip_paddle_size)
+			var wall_contact: Dictionary = ViperSkillGeometry.core_flip_wall_contact_state(
+				center1,
+				float(config.get("width", 760.0)),
+				core_flip_phase_frames,
+				leg_frames,
+				cling_frames
+			)
+			var web_line_to: Vector2 = _get_vector2(wall_contact.get("line_to", center1), center1)
+			core_flip_web_lines.clear()
+			core_flip_web_lines.append({"from": center1, "to": web_line_to})
+			var wall_touch_count: int = int(wall_contact.get("touch_count", 0))
+			if ViperSkillGeometry.core_flip_should_enter_kick_phase(wall_touch_count, t1):
+				core_flip_apex_center = center1
+				core_flip_target_center = ViperSkillGeometry.get_ball_pos(config)
+				core_flip_kick_dir = ViperSkillGeometry.core_flip_kick_direction(core_flip_apex_center, core_flip_target_center)
+				_enter_core_flip_phase(2, deps)
 		2:
-			next_pos = _update_core_flip_kick_phase(config, deps, result)
+			core_flip_web_lines.clear()
+			var p2_duration: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_PHASE2_FRAMES, visibility_query.get_runtime_skill_level(deps, "kick_enhance"))
+			var t2: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, p2_duration)
+			if not core_flip_ball_hit:
+				core_flip_target_center = ViperSkillGeometry.get_ball_pos(config)
+			var kick_motion: Dictionary = ViperSkillGeometry.core_flip_kick_motion(
+				core_flip_apex_center,
+				core_flip_target_center,
+				t2
+			)
+			var kick_center: Vector2 = _get_vector2(kick_motion.get("center", core_flip_apex_center), core_flip_apex_center)
+			core_flip_kick_dir = int(kick_motion.get("dir", core_flip_kick_dir))
+			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(2, t2)
+			next_pos = ViperSkillGeometry.center_to_player_pos(kick_center, config, core_flip_paddle_size)
+			if (
+				not core_flip_ball_hit
+				and ViperSkillGeometry.core_flip_kick_hits_ball(kick_center, ViperSkillGeometry.get_ball_pos(config), CORE_FLIP_HIT_RADIUS)
+			):
+				core_flip_ball_hit = true
+				core_flip_target_center = kick_center
+				if not core_flip_kick_sound_played:
+					audio_router.play_core_flip_kick_sound(deps)
+					core_flip_kick_sound_played = true
+				var current_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
+				var current_speed: float = current_vel.length()
+				var next_speed: float = skill_scaling.get_core_flip_hit_speed(
+					current_speed,
+					visibility_query.get_runtime_skill_level(deps, "kick_enhance"),
+					CORE_FLIP_SPEED_MULT,
+					CORE_FLIP_MIN_SPEED
+				)
+				var next_vel: Vector2 = ViperSkillGeometry.core_flip_bank_velocity(
+					next_speed,
+					core_flip_kick_dir,
+					config,
+					visibility_query.get_runtime_skill_level(deps, "kick_enhance")
+				)
+				var ball_pos: Vector2 = ViperSkillGeometry.get_ball_pos(config)
+				var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, config)
+				_set_shadow_curve(MARSHAL_KICK_CURVE_FRAMES, MARSHAL_KICK_CURVE_FORCE, 1 if next_vel.x > 0.0 else -1)
+				shadow_was_airborne = true
+				shadow_marshal_delay_frames = CORE_FLIP_MARSHAL_DELAY_FRAMES
+				marshal_phantom_allowed = true
+				if visibility_query.is_skill_equipped(visibility_query.get_viper_skill_config(deps), DARK_BLADE):
+					_open_dark_blade_start_window()
+				else:
+					dark_blade_window = false
+				shadow_starburst_active = true
+				shadow_starburst_pos = ball_pos
+				shadow_starburst_frame = 0
+				shadow_starburst_timer = 0.0
+				shadow_starburst_is_double = false
+				runtime_action_router.trigger_feedback(deps, CORE_FLIP_HIT_SHAKE_AMOUNT, CORE_FLIP_HIT_SHAKE_INTENSITY)
+				var pulse_registered := _register_ball_hit_pulse(ball_pos, next_vel, deps, CORE_FLIP_HIT_PULSE_INTENSITY, CORE_FLIP_HIT_PULSE_KIND)
+				for _i in range(CORE_FLIP_HIT_MOTION_PARTICLE_COUNT):
+					_spawn_marshal_motion_particle(
+						ball_pos + Vector2(
+							randf_range(-CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD, CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD),
+							randf_range(-CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD, CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD)
+						),
+						CORE_FLIP_HIT_MOTION_PARTICLE_KIND,
+						CORE_FLIP_HIT_MOTION_PARTICLE_CHANCE,
+						randf_range(CORE_FLIP_HIT_MOTION_PARTICLE_LIFE_MIN, CORE_FLIP_HIT_MOTION_PARTICLE_LIFE_MAX)
+					)
+				if not pulse_registered:
+					_spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(1.0, 0.43, 0.78, 1.0), 1.15, 0.74, 0.92)
+				_destroy_marshal_impact_objects(ball_pos, deps)
+				_mark_kick_skill_knockback_pending(deps)
+				var mythic_item_runtime: Object = visibility_query.get_mythic_item_runtime(deps)
+				if mythic_item_runtime != null and mythic_item_runtime.has_method("try_venom_mist_poison_ball"):
+					mythic_item_runtime.try_venom_mist_poison_ball(deps)
+				var core_flip_hit_result := {
+					"ball_vel": next_vel,
+					"ball_impact_boost": max(1.0, float(config.get("ball_impact_boost", 1.0))),
+					"player_collision_cooldown": max(6.0, float(config.get("player_collision_cooldown", 0.0))),
+				}
+				core_flip_hit_result.merge(runtime_action_router.award_skill_gold(deps, CORE_FLIP_HIT_GOLD), true)
+				result.merge(_mark_result_released_chaos_hit(core_flip_hit_result, released_chaos), true)
+				if visibility_query.is_skill_equipped(visibility_query.get_viper_skill_config(deps), DARK_BLADE):
+					_open_dark_blade_start_window()
+			if t2 >= 1.0:
+				if not core_flip_ball_hit:
+					core_flip_miss_text_timer = CORE_FLIP_MISS_TEXT_FRAMES
+					core_flip_miss_text_pos = ViperSkillGeometry.core_flip_miss_text_pos(
+						core_flip_origin_center,
+						CORE_FLIP_APEX_OFFSET_Y
+					)
+				core_flip_return_start_center = kick_center
+				_enter_core_flip_phase(3, deps)
 		3:
-			next_pos = _update_core_flip_return_phase(config, deps)
+			core_flip_web_lines.clear()
+			var t3: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE3_FRAMES)
+			var return_motion: Dictionary = ViperSkillGeometry.core_flip_return_motion(
+				core_flip_return_start_center,
+				core_flip_origin_center,
+				t3
+			)
+			core_flip_spin_angle_degrees = float(return_motion.get("spin_degrees", core_flip_spin_angle_degrees))
+			var return_center: Vector2 = _get_vector2(return_motion.get("center", core_flip_origin_center), core_flip_origin_center)
+			next_pos = ViperSkillGeometry.center_to_player_pos(return_center, config, core_flip_paddle_size)
+			if t3 >= 1.0:
+				next_pos = ViperSkillGeometry.center_to_player_pos(core_flip_origin_center, config, core_flip_paddle_size)
+				if dark_blade_window and visibility_query.is_skill_equipped(visibility_query.get_viper_skill_config(deps), DARK_BLADE):
+					core_flip_dark_blade_handoff_frames = CORE_FLIP_DARK_BLADE_HANDOFF_FRAMES
+				else:
+					core_flip_dark_blade_handoff_frames = 0.0
+				_reset_core_flip_runtime(false)
 	core_flip_visual_pos = next_pos
 	result["player_pos"] = next_pos
 	return result
-
-
-func _update_core_flip_wall_climb_phase(config: Dictionary, deps: Dictionary) -> Vector2:
-	var phase1_cap: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_PHASE1_FRAMES, visibility_query.get_runtime_skill_level(deps, "kick_enhance"))
-	var t1: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, phase1_cap)
-	core_flip_target_center = ViperSkillGeometry.get_ball_pos(config)
-	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(1, t1)
-	var leg_frames: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_LEG_FRAMES, visibility_query.get_runtime_skill_level(deps, "kick_enhance"))
-	var cling_frames: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_CLING_FRAMES, visibility_query.get_runtime_skill_level(deps, "kick_enhance"))
-	var center1: Vector2 = ViperSkillGeometry.core_flip_wall_climb_center(
-		t1,
-		config,
-		core_flip_paddle_size,
-		core_flip_origin_center,
-		core_flip_target_center,
-		core_flip_kick_dir,
-		core_flip_phase_frames,
-		leg_frames,
-		cling_frames,
-		CORE_FLIP_KICK_TRIGGER_Y
-	)
-	var next_pos: Vector2 = ViperSkillGeometry.center_to_player_pos(center1, config, core_flip_paddle_size)
-	var wall_contact: Dictionary = ViperSkillGeometry.core_flip_wall_contact_state(
-		center1,
-		float(config.get("width", 760.0)),
-		core_flip_phase_frames,
-		leg_frames,
-		cling_frames
-	)
-	var web_line_to: Vector2 = _get_vector2(wall_contact.get("line_to", center1), center1)
-	core_flip_web_lines.clear()
-	core_flip_web_lines.append({"from": center1, "to": web_line_to})
-	var wall_touch_count: int = int(wall_contact.get("touch_count", 0))
-	if ViperSkillGeometry.core_flip_should_enter_kick_phase(wall_touch_count, t1):
-		core_flip_apex_center = center1
-		core_flip_target_center = ViperSkillGeometry.get_ball_pos(config)
-		core_flip_kick_dir = ViperSkillGeometry.core_flip_kick_direction(core_flip_apex_center, core_flip_target_center)
-		_enter_core_flip_phase(2, deps)
-	return next_pos
-
-
-func _try_apply_core_flip_kick_hit(kick_center: Vector2, config: Dictionary, deps: Dictionary, result: Dictionary) -> void:
-	if core_flip_ball_hit:
-		return
-	if not ViperSkillGeometry.core_flip_kick_hits_ball(kick_center, ViperSkillGeometry.get_ball_pos(config), CORE_FLIP_HIT_RADIUS):
-		return
-	core_flip_ball_hit = true
-	core_flip_target_center = kick_center
-	if not core_flip_kick_sound_played:
-		audio_router.play_core_flip_kick_sound(deps)
-		core_flip_kick_sound_played = true
-	var current_vel: Vector2 = _get_vector2(config.get("ball_vel", Vector2.ZERO), Vector2.ZERO)
-	var current_speed: float = current_vel.length()
-	var next_speed: float = skill_scaling.get_core_flip_hit_speed(
-		current_speed,
-		visibility_query.get_runtime_skill_level(deps, "kick_enhance"),
-		CORE_FLIP_SPEED_MULT,
-		CORE_FLIP_MIN_SPEED
-	)
-	var next_vel: Vector2 = ViperSkillGeometry.core_flip_bank_velocity(
-		next_speed,
-		core_flip_kick_dir,
-		config,
-		visibility_query.get_runtime_skill_level(deps, "kick_enhance")
-	)
-	var ball_pos: Vector2 = ViperSkillGeometry.get_ball_pos(config)
-	var released_chaos: bool = _release_chaos_blackhole_from_hit_result(deps, config)
-	_set_shadow_curve(MARSHAL_KICK_CURVE_FRAMES, MARSHAL_KICK_CURVE_FORCE, 1 if next_vel.x > 0.0 else -1)
-	shadow_was_airborne = true
-	shadow_marshal_delay_frames = CORE_FLIP_MARSHAL_DELAY_FRAMES
-	marshal_phantom_allowed = true
-	if visibility_query.is_skill_equipped(visibility_query.get_viper_skill_config(deps), DARK_BLADE):
-		_open_dark_blade_start_window()
-	else:
-		dark_blade_window = false
-	shadow_starburst_active = true
-	shadow_starburst_pos = ball_pos
-	shadow_starburst_frame = 0
-	shadow_starburst_timer = 0.0
-	shadow_starburst_is_double = false
-	runtime_action_router.trigger_feedback(deps, CORE_FLIP_HIT_SHAKE_AMOUNT, CORE_FLIP_HIT_SHAKE_INTENSITY)
-	var pulse_registered := _register_ball_hit_pulse(ball_pos, next_vel, deps, CORE_FLIP_HIT_PULSE_INTENSITY, CORE_FLIP_HIT_PULSE_KIND)
-	for _i in range(CORE_FLIP_HIT_MOTION_PARTICLE_COUNT):
-		_spawn_marshal_motion_particle(
-			ball_pos + Vector2(
-				randf_range(-CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD, CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD),
-				randf_range(-CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD, CORE_FLIP_HIT_MOTION_PARTICLE_SPREAD)
-			),
-			CORE_FLIP_HIT_MOTION_PARTICLE_KIND,
-			CORE_FLIP_HIT_MOTION_PARTICLE_CHANCE,
-			randf_range(CORE_FLIP_HIT_MOTION_PARTICLE_LIFE_MIN, CORE_FLIP_HIT_MOTION_PARTICLE_LIFE_MAX)
-		)
-	if not pulse_registered:
-		_spawn_fallback_hit_impact(ball_pos, next_vel, deps, Color(1.0, 0.43, 0.78, 1.0), 1.15, 0.74, 0.92)
-	_destroy_marshal_impact_objects(ball_pos, deps)
-	_mark_kick_skill_knockback_pending(deps)
-	var mythic_item_runtime: Object = visibility_query.get_mythic_item_runtime(deps)
-	if mythic_item_runtime != null and mythic_item_runtime.has_method("try_venom_mist_poison_ball"):
-		mythic_item_runtime.try_venom_mist_poison_ball(deps)
-	var core_flip_hit_result := {
-		"ball_vel": next_vel,
-		"ball_impact_boost": max(1.0, float(config.get("ball_impact_boost", 1.0))),
-		"player_collision_cooldown": max(6.0, float(config.get("player_collision_cooldown", 0.0))),
-	}
-	core_flip_hit_result.merge(runtime_action_router.award_skill_gold(deps, CORE_FLIP_HIT_GOLD), true)
-	result.merge(_mark_result_released_chaos_hit(core_flip_hit_result, released_chaos), true)
-	if visibility_query.is_skill_equipped(visibility_query.get_viper_skill_config(deps), DARK_BLADE):
-		_open_dark_blade_start_window()
-
-
-func _update_core_flip_kick_phase(config: Dictionary, deps: Dictionary, result: Dictionary) -> Vector2:
-	core_flip_web_lines.clear()
-	var p2_duration: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_PHASE2_FRAMES, visibility_query.get_runtime_skill_level(deps, "kick_enhance"))
-	var t2: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, p2_duration)
-	if not core_flip_ball_hit:
-		core_flip_target_center = ViperSkillGeometry.get_ball_pos(config)
-	var kick_motion: Dictionary = ViperSkillGeometry.core_flip_kick_motion(
-		core_flip_apex_center,
-		core_flip_target_center,
-		t2
-	)
-	var kick_center: Vector2 = _get_vector2(kick_motion.get("center", core_flip_apex_center), core_flip_apex_center)
-	core_flip_kick_dir = int(kick_motion.get("dir", core_flip_kick_dir))
-	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(2, t2)
-	var next_pos: Vector2 = ViperSkillGeometry.center_to_player_pos(kick_center, config, core_flip_paddle_size)
-	_try_apply_core_flip_kick_hit(kick_center, config, deps, result)
-	if t2 >= 1.0:
-		if not core_flip_ball_hit:
-			core_flip_miss_text_timer = CORE_FLIP_MISS_TEXT_FRAMES
-			core_flip_miss_text_pos = ViperSkillGeometry.core_flip_miss_text_pos(
-				core_flip_origin_center,
-				CORE_FLIP_APEX_OFFSET_Y
-			)
-		core_flip_return_start_center = kick_center
-		_enter_core_flip_phase(3, deps)
-	return next_pos
-
-
-func _update_core_flip_return_phase(config: Dictionary, deps: Dictionary) -> Vector2:
-	core_flip_web_lines.clear()
-	var t3: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE3_FRAMES)
-	var return_motion: Dictionary = ViperSkillGeometry.core_flip_return_motion(
-		core_flip_return_start_center,
-		core_flip_origin_center,
-		t3
-	)
-	core_flip_spin_angle_degrees = float(return_motion.get("spin_degrees", core_flip_spin_angle_degrees))
-	var return_center: Vector2 = _get_vector2(return_motion.get("center", core_flip_origin_center), core_flip_origin_center)
-	var next_pos: Vector2 = ViperSkillGeometry.center_to_player_pos(return_center, config, core_flip_paddle_size)
-	if t3 >= 1.0:
-		next_pos = ViperSkillGeometry.center_to_player_pos(core_flip_origin_center, config, core_flip_paddle_size)
-		if dark_blade_window and visibility_query.is_skill_equipped(visibility_query.get_viper_skill_config(deps), DARK_BLADE):
-			core_flip_dark_blade_handoff_frames = CORE_FLIP_DARK_BLADE_HANDOFF_FRAMES
-		else:
-			core_flip_dark_blade_handoff_frames = 0.0
-		_reset_core_flip_runtime(false)
-	return next_pos
 
 
 func _enter_core_flip_phase(next_phase: int, deps: Dictionary) -> void:
@@ -2290,32 +2506,6 @@ func _clear_phantom_kick_chain_window() -> void:
 	_clear_marshal_first_hit_pending()
 
 
-func _push_dual_glitch_command(key_char: String, now_msec: int) -> void:
-	if not dual_glitch_cmd_buffer.is_empty():
-		var first: Dictionary = dual_glitch_cmd_buffer[0]
-		if now_msec - int(first.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
-			dual_glitch_cmd_buffer.clear()
-	var progress: int = dual_glitch_cmd_buffer.size()
-	var expected_key := "a" if progress == 0 or progress == 2 or progress >= 4 else "d"
-	var entry := {"key": key_char, "time": now_msec}
-	if key_char == expected_key:
-		if progress == 0:
-			dual_glitch_cmd_buffer = [entry]
-		else:
-			dual_glitch_cmd_buffer.append(entry)
-		return
-	if key_char == "a":
-		dual_glitch_cmd_buffer = [entry]
-	else:
-		dual_glitch_cmd_buffer = []
-
-
-func _push_chaos_command(key_char: String, now_msec: int) -> void:
-	chaos_cmd_buffer.append({"key": key_char, "time": now_msec})
-	while chaos_cmd_buffer.size() > CHAOS_CMD_BUFFER_MAX:
-		chaos_cmd_buffer.pop_front()
-
-
 func _start_dual_glitch(
 	player_pos: Vector2,
 	special_gauge: float,
@@ -2451,60 +2641,6 @@ func _start_chaos_spear(
 	}
 
 
-func _update_chaos_startup_phase(context: Dictionary, deps: Dictionary) -> void:
-	var player_pos: Vector2 = _get_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
-	var player_size: Vector2 = _get_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
-	chaos_current = Vector2(player_pos.x + player_size.x * 0.5, player_pos.y - 6.0)
-	var prep_reduction_pct: float = float(_get_four_poisons_scaled_pct(deps, FOUR_POISONS_PREP_REDUCTION_PCT_BY_LEVEL, FOUR_POISONS_PREP_REDUCTION_PCT_CAP, FOUR_POISONS_PREP_REDUCTION_PCT_PER_EXTRA_LEVEL))
-	var frame_scale: float = max(0.0, 1.0 - prep_reduction_pct / 100.0)
-	var chaos_startup_frames: float = max(1.0, CHAOS_STARTUP_FRAMES * frame_scale)
-	if chaos_phase_frames >= chaos_startup_frames:
-		audio_router.stop_chaos_windup_sound(deps)
-		chaos_state = "flying"
-		chaos_phase_frames = 0.0
-		chaos_origin = chaos_current
-		chaos_flight_angle = (chaos_target - chaos_origin).angle()
-		chaos_locked_player_x_valid = false
-		audio_router.play_chaos_flying_sound(deps)
-
-
-func _update_chaos_flying_phase(deps: Dictionary) -> void:
-	var center: Vector2 = chaos_target
-	var travel_frames: float = max(1.0, CHAOS_TRAVEL_FRAMES)
-	var travel_t: float = clamp(chaos_phase_frames / travel_frames, 0.0, 1.0)
-	var inverse_t: float = 1.0 - travel_t
-	var ease_t: float = 1.0 - pow(inverse_t, 3.0)
-	chaos_current = chaos_origin.lerp(center, ease_t)
-	if travel_t >= 1.0:
-		audio_router.stop_chaos_flying_sound(deps)
-		chaos_state = "impact"
-		chaos_phase_frames = 0.0
-		chaos_current = chaos_target
-		chaos_impact_seed = randf_range(0.0, TAU)
-		chaos_explosion_shaken = false
-		runtime_action_router.trigger_feedback(deps, 0.23, 5.5)
-		audio_router.play_chaos_impact_sound(deps)
-		audio_router.play_chaos_blackhole_sound(deps)
-
-
-func _update_chaos_impact_phase(context: Dictionary, deps: Dictionary) -> void:
-	if chaos_phase_frames >= CHAOS_IMPACT_FRAMES * 0.45 and not chaos_explosion_shaken:
-		chaos_explosion_shaken = true
-		runtime_action_router.trigger_feedback(deps, 0.40, 8.0)
-	if chaos_phase_frames >= CHAOS_IMPACT_FRAMES:
-		chaos_state = "blackhole"
-		chaos_phase_frames = 0.0
-		chaos_current = chaos_target
-		var ball_pos: Vector2 = _get_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
-		chaos_prev_ball_center = ball_pos
-		chaos_prev_ball_valid = true
-		chaos_blackhole_ball_origin = chaos_prev_ball_center
-		chaos_blackhole_origin_valid = true
-		chaos_absorb_poll_frames = 0.0
-		chaos_gold_ticks_paid = 0
-		chaos_fx_spawn_msec_seed = Time.get_ticks_msec()
-
-
 func _release_chaos_blackhole(early_hit: bool, context: Dictionary, deps: Dictionary) -> void:
 	if chaos_state != "blackhole":
 		return
@@ -2589,55 +2725,6 @@ func _get_four_poisons_scaled_pct(deps: Dictionary, values: Array, cap: int, per
 
 func _is_dual_glitch_clone_replication_active(deps: Dictionary) -> bool:
 	return dual_glitch_state == "active" and visibility_query.get_runtime_skill_level(deps, "four_poisons") >= 5
-
-
-func _update_dual_glitch_runtime(fps_scale: float, context: Dictionary) -> void:
-	if dual_glitch_state == "idle":
-		return
-	if visibility_query.should_stop_viper_context_effect(context):
-		_reset_dual_glitch_runtime(true)
-		return
-	dual_glitch_base_pos = _get_vector2(context.get("player_pos", dual_glitch_base_pos), dual_glitch_base_pos)
-	dual_glitch_paddle_size = _get_vector2(context.get("player_paddle_size", dual_glitch_paddle_size), dual_glitch_paddle_size)
-	dual_glitch_phase_frames += fps_scale
-	for index in range(dual_glitch_clones.size()):
-		var clone_value: Variant = dual_glitch_clones[index]
-		if not (clone_value is Dictionary):
-			continue
-		var clone: Dictionary = clone_value
-		var evaporation_frames: float = float(clone.get("evaporation_frames", -1.0))
-		if evaporation_frames >= 0.0:
-			clone["evaporation_frames"] = evaporation_frames + fps_scale
-			dual_glitch_clones[index] = clone
-	match dual_glitch_state:
-		"startup":
-			if dual_glitch_phase_frames >= DUAL_GLITCH_STARTUP_FRAMES:
-				dual_glitch_state = "spawn"
-				dual_glitch_phase_frames = 0.0
-				dual_glitch_locked_player_x_valid = false
-		"spawn":
-			if dual_glitch_phase_frames >= DUAL_GLITCH_SPAWN_FRAMES:
-				dual_glitch_state = "active"
-				dual_glitch_phase_frames = 0.0
-		"active":
-			if not visibility_query.has_living_dual_glitch_clone(dual_glitch_clones):
-				_enter_dual_glitch_fade("destroyed")
-			elif dual_glitch_phase_frames >= dual_glitch_active_total_frames:
-				_enter_dual_glitch_fade("timeout")
-		"fade":
-			if dual_glitch_phase_frames >= DUAL_GLITCH_FADE_FRAMES:
-				_reset_dual_glitch_runtime(false)
-	var alive: Array = []
-	for clone_value in dual_glitch_clones:
-		if not (clone_value is Dictionary):
-			continue
-		var clone: Dictionary = clone_value
-		if (
-			visibility_query.is_dual_glitch_clone_alive(clone)
-			or visibility_query.is_dual_glitch_clone_evaporating(clone, DUAL_GLITCH_EVAPORATION_FRAMES)
-		):
-			alive.append(clone)
-	dual_glitch_clones = alive
 
 
 func _enter_dual_glitch_fade(reason: String) -> void:
@@ -2793,176 +2880,6 @@ func _absorb_chaos_field_objects(center: Vector2, deps: Dictionary) -> int:
 			"consumed": false,
 		})
 	return absorbed.size()
-
-
-func _try_update_ignition_aura_hold(
-	input_snapshot: Dictionary,
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	var up_pressed: bool = bool(input_snapshot.get("up_pressed", false))
-	if not up_pressed:
-		_reset_ignition_aura_hold()
-		return {}
-	if not _can_hold_ignition_aura(input_snapshot, player_pos, special_gauge, config, deps, now_msec):
-		_reset_ignition_aura_hold()
-		return {}
-
-	if ignition_hold_start_msec <= 0:
-		ignition_hold_start_msec = now_msec
-		ignition_charge_particles.clear()
-	ignition_hold_player_pos = player_pos
-	ignition_hold_paddle_size = ViperSkillGeometry.get_paddle_size(config)
-	var elapsed_msec: int = max(0, now_msec - ignition_hold_start_msec)
-	ignition_hold_ratio = clamp(float(elapsed_msec) / float(IGNITION_HOLD_REQUIRED_MSEC), 0.0, 1.0)
-	particle_drawer.spawn_ignition_charge_particles(
-		ignition_charge_particles,
-		player_pos,
-		ignition_hold_paddle_size,
-		ignition_hold_ratio,
-		IGNITION_CHARGE_PARTICLE_LIMIT
-	)
-	if elapsed_msec >= IGNITION_HOLD_REQUIRED_MSEC:
-		_reset_ignition_aura_hold()
-		return _start_ignition_aura(player_pos, special_gauge, config, deps, now_msec)
-	return {
-		"handled": false,
-		"activated": false,
-		"special_gauge": special_gauge,
-	}
-
-
-func _can_hold_ignition_aura(
-	input_snapshot: Dictionary,
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> bool:
-	if (
-		ignition_active
-		or dive_active
-		or dive_hold_start_msec > 0
-		or dual_glitch_state != "idle"
-		or _has_viper_attack_motion_active()
-		or chaos_state != "idle"
-		or shadow_hologram_active
-		or shadow_wave_active
-		or shadow_marshal_delay_frames > 0.0
-		or phantom_strike_active
-		or marshal_ready
-		or double_marshal_ready
-	):
-		return false
-	if visibility_query.is_dash_motion_busy(deps) or visibility_query.is_control_locked(deps):
-		return false
-	if not bool(config.get("ball_active", true)) or bool(config.get("waiting_for_serve", false)):
-		return false
-	if visibility_query.is_round_waiting_for_serve(deps):
-		return false
-	if bool(input_snapshot.get("down_pressed", false)) or _has_lateral_skill_input(input_snapshot):
-		return false
-	if runtime_action_router.get_viper_airborne_height(deps, config, player_pos) > 5.0:
-		return false
-	var skill_config: Object = visibility_query.get_viper_skill_config(deps)
-	if not visibility_query.is_skill_equipped(skill_config, IGNITION_AURA):
-		return false
-	var cost: float = _get_skill_cost_with_fallback(skill_config, IGNITION_AURA, IGNITION_GAUGE_COST)
-	if special_gauge < cost:
-		return false
-	return visibility_query.is_configured_skill_ready(IGNITION_AURA, deps, now_msec)
-
-
-func _start_ignition_aura(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	var skill_config: Object = visibility_query.get_viper_skill_config(deps)
-	var cost: float = _get_skill_cost_with_fallback(skill_config, IGNITION_AURA, IGNITION_GAUGE_COST)
-	var next_gauge: float = max(0.0, special_gauge - cost)
-	var skill_state: Object = visibility_query.get_viper_skill_state(deps)
-	if skill_state != null:
-		if skill_state.has_method("trigger_configured_cooldown"):
-			skill_state.trigger_configured_cooldown(IGNITION_AURA, now_msec, skill_config)
-		elif skill_state.has_method("trigger_cooldown"):
-			var cooldown_seconds := _get_skill_cooldown_seconds_with_fallback(skill_config, IGNITION_AURA, 80.0)
-			skill_state.trigger_cooldown(IGNITION_AURA, now_msec, cooldown_seconds)
-	_trigger_orb_gauge_spin(deps, now_msec)
-	audio_router.play_ignition_aura_sound(deps)
-	runtime_action_router.trigger_feedback(deps, 0.14, 4.2)
-	ignition_active = true
-	ignition_total_frames = IGNITION_DURATION_FRAMES
-	ignition_remaining_frames = ignition_total_frames
-	ignition_player_pos = player_pos
-	ignition_paddle_size = ViperSkillGeometry.get_paddle_size(config)
-	ignition_ember_timer = 0.0
-	ignition_start_msec = now_msec
-	_set_runtime_ignition_aura_bonus(deps, true)
-	particle_drawer.spawn_ignition_aura_burst(
-		ignition_burst_particles,
-		player_pos + ViperSkillGeometry.get_paddle_size(config) * 0.5,
-		IGNITION_PARTICLE_LIMIT
-	)
-	return {
-		"handled": true,
-		"activated": true,
-		"skill_name": IGNITION_AURA,
-		"player_pos": player_pos,
-		"player_speed": 0.0,
-		"special_gauge": next_gauge,
-	}
-
-
-func _update_ignition_aura_runtime(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
-	particle_drawer.update_ignition_particle_array(ignition_charge_particles, fps_scale)
-	particle_drawer.update_ignition_particle_array(ignition_burst_particles, fps_scale)
-	particle_drawer.update_ignition_particle_array(ignition_live_embers, fps_scale)
-	if not ignition_active:
-		return
-	var ignition_character_type: String = ""
-	if context.has("selected_character_type"):
-		ignition_character_type = str(context.get("selected_character_type", "viper")).strip_edges().to_lower()
-	if ignition_character_type != "" and ignition_character_type != "viper":
-		_finish_ignition_aura(deps)
-		return
-	if bool(context.get("waiting_for_serve", false)) or not bool(context.get("ball_active", true)):
-		ignition_player_pos = _get_vector2(context.get("player_pos", ignition_player_pos), ignition_player_pos)
-		ignition_paddle_size = _get_vector2(context.get("player_paddle_size", ignition_paddle_size), ignition_paddle_size)
-		_set_runtime_ignition_aura_bonus(deps, true)
-		return
-
-	ignition_player_pos = _get_vector2(context.get("player_pos", ignition_player_pos), ignition_player_pos)
-	ignition_paddle_size = _get_vector2(context.get("player_paddle_size", ignition_paddle_size), ignition_paddle_size)
-	_set_runtime_ignition_aura_bonus(deps, true)
-	ignition_remaining_frames = max(0.0, ignition_remaining_frames - fps_scale)
-	ignition_ember_timer -= fps_scale
-	if ignition_ember_timer <= 0.0:
-		ignition_ember_timer = IGNITION_EMBER_INTERVAL_FRAMES
-		particle_drawer.spawn_ignition_live_embers(
-			ignition_live_embers,
-			ignition_player_pos,
-			ignition_paddle_size,
-			IGNITION_EMBER_LIMIT
-		)
-	if ignition_remaining_frames <= 0.0:
-		_finish_ignition_aura(deps)
-
-
-func _finish_ignition_aura(deps: Dictionary) -> void:
-	if not ignition_active and ignition_remaining_frames <= 0.0:
-		_set_runtime_ignition_aura_bonus(deps, false)
-		return
-	ignition_active = false
-	ignition_remaining_frames = 0.0
-	ignition_ember_timer = 0.0
-	_set_runtime_ignition_aura_bonus(deps, false)
 
 
 func _reset_ignition_aura_hold() -> void:
