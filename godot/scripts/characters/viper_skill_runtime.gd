@@ -894,12 +894,13 @@ func try_activate_before_movement(
 					0.0,
 					special_gauge - visibility_query.get_marshal_skill_cost(marshal_start_skill_config, marshal_start_skill_name, PHANTOM_KICK)
 				)
-				_trigger_configured_cooldown_and_orb_gauge_spin(
+				_trigger_configured_skill_cooldown(
 					marshal_start_skill_name,
 					marshal_start_skill_config,
 					deps,
 					marshal_now_msec
 				)
+				_trigger_orb_gauge_spin(deps, marshal_now_msec)
 				runtime_action_router.trigger_feedback(deps, 0.12, 4.0)
 				_cancel_dash_until_key_release(deps.get("dash_state", null))
 				audio_router.play_marshal_backstep_sound(deps)
@@ -1617,7 +1618,8 @@ func _start_core_flip(
 	var cost: float = visibility_query.get_skill_cost(skill_config, CORE_FLIP)
 	cost = cost if cost > 0.0 else 120.0
 	var next_gauge: float = max(0.0, special_gauge - cost)
-	_trigger_configured_cooldown_and_orb_gauge_spin(CORE_FLIP, skill_config, deps, now_msec)
+	_trigger_configured_skill_cooldown(CORE_FLIP, skill_config, deps, now_msec)
+	_trigger_orb_gauge_spin(deps, now_msec)
 	_cancel_dash_until_key_release(deps.get("dash_state", null))
 	runtime_action_router.trigger_feedback(deps, CORE_FLIP_START_SHAKE_AMOUNT, CORE_FLIP_START_SHAKE_INTENSITY)
 	core_flip_consumed = true
@@ -2369,13 +2371,15 @@ func _start_dual_glitch(
 		})
 	var cooldown_seconds: float = _get_skill_cooldown_seconds_with_fallback(skill_config, DUAL_GLITCH, 45.0)
 	cooldown_seconds = _get_four_poisons_additive_cooldown_seconds(DUAL_GLITCH, skill_config, deps, cooldown_seconds)
-	_trigger_runtime_cooldown_and_orb_gauge_spin(
+	runtime_action_router.trigger_viper_runtime_cooldown(
 		DUAL_GLITCH,
 		now_msec,
 		skill_config,
 		deps,
-		cooldown_seconds
+		cooldown_seconds,
+		visibility_query
 	)
+	_trigger_orb_gauge_spin(deps, now_msec)
 	runtime_action_router.trigger_feedback(deps, 0.09, 3.2)
 	return {
 		"handled": true,
@@ -2442,7 +2446,8 @@ func _start_chaos_spear(
 	chaos_release_velocity = Vector2.ZERO
 	chaos_state = "startup"
 	var next_gauge: float = max(0.0, special_gauge - cost)
-	_trigger_configured_cooldown_and_orb_gauge_spin(CHAOS_SPEAR, skill_config, deps, now_msec)
+	_trigger_configured_skill_cooldown(CHAOS_SPEAR, skill_config, deps, now_msec)
+	_trigger_orb_gauge_spin(deps, now_msec)
 	var feedback: Object = deps.get("feedback", null)
 	if feedback != null and feedback.has_method("set_screen_shake"):
 		feedback.set_screen_shake(0.08, 3.5)
@@ -3086,13 +3091,15 @@ func _start_dive_strike(
 	var cost: float = _get_skill_cost_with_fallback(skill_config, DIVE_STRIKE, DIVE_GAUGE_COST)
 	var next_gauge: float = max(0.0, special_gauge - cost)
 	var cooldown_seconds := _get_skill_cooldown_seconds_with_fallback(skill_config, DIVE_STRIKE, 70.0, false)
-	_trigger_runtime_cooldown_and_orb_gauge_spin(
+	runtime_action_router.trigger_viper_runtime_cooldown(
 		DIVE_STRIKE,
 		now_msec,
 		skill_config,
 		deps,
-		_get_four_poisons_additive_cooldown_seconds(DIVE_STRIKE, skill_config, deps, cooldown_seconds)
+		_get_four_poisons_additive_cooldown_seconds(DIVE_STRIKE, skill_config, deps, cooldown_seconds),
+		visibility_query
 	)
+	_trigger_orb_gauge_spin(deps, now_msec)
 	runtime_action_router.interrupt_viper_jetpack_thrust(deps)
 	audio_router.play_dive_prep_sound(deps)
 	runtime_action_router.trigger_feedback(deps, 0.08, 3.2)
@@ -3331,24 +3338,6 @@ func _reset_dive_hold() -> void:
 		fx_host_controller.hide_fx_host(emp_fx_host)
 
 
-func _trigger_runtime_cooldown_and_orb_gauge_spin(
-	skill_name: String,
-	now_msec: int,
-	skill_config: Object,
-	deps: Dictionary,
-	cooldown_seconds: float
-) -> void:
-	runtime_action_router.trigger_viper_runtime_cooldown(
-		skill_name,
-		now_msec,
-		skill_config,
-		deps,
-		cooldown_seconds,
-		visibility_query
-	)
-	_trigger_orb_gauge_spin(deps, now_msec)
-
-
 func _play_dive_prep_sound(deps: Dictionary) -> void:
 	audio_router.play_dive_prep_sound(deps)
 
@@ -3476,13 +3465,15 @@ func _start_nerve_strike(
 	var skill_config: Object = visibility_query.get_viper_skill_config(deps)
 	var cost: float = _get_skill_cost_with_fallback(skill_config, NERVE_STRIKE, 90.0)
 	var next_gauge: float = max(0.0, special_gauge - cost)
-	_trigger_runtime_cooldown_and_orb_gauge_spin(
+	runtime_action_router.trigger_viper_runtime_cooldown(
 		NERVE_STRIKE,
 		now_msec,
 		skill_config,
 		deps,
-		_get_four_poisons_additive_cooldown_seconds(NERVE_STRIKE, skill_config, deps, 40.0)
+		_get_four_poisons_additive_cooldown_seconds(NERVE_STRIKE, skill_config, deps, 40.0),
+		visibility_query
 	)
+	_trigger_orb_gauge_spin(deps, now_msec)
 	runtime_action_router.trigger_feedback(deps, 0.12, 4.2)
 	runtime_action_router.interrupt_viper_jetpack_thrust(deps)
 	audio_router.stop_blade_spin_sound(self, deps)
@@ -3912,16 +3903,6 @@ func _trigger_orb_gauge_spin(deps: Dictionary, now_msec: int) -> void:
 	var orb_hud_state: Object = deps.get("orb_hud_state", null)
 	if orb_hud_state != null and orb_hud_state.has_method("trigger_gauge_spin"):
 		orb_hud_state.trigger_gauge_spin(now_msec)
-
-
-func _trigger_configured_cooldown_and_orb_gauge_spin(
-	skill_name: String,
-	skill_config: Object,
-	deps: Dictionary,
-	now_msec: int
-) -> void:
-	_trigger_configured_skill_cooldown(skill_name, skill_config, deps, now_msec)
-	_trigger_orb_gauge_spin(deps, now_msec)
 
 
 func _trigger_configured_skill_cooldown(skill_name: String, skill_config: Object, deps: Dictionary, now_msec: int) -> void:
@@ -4792,7 +4773,8 @@ func _start_shadow_step(
 	var target_center: Vector2 = target_pos + player_size * 0.5
 	var reverse_dir: int = 1 if target_center.x > origin_center.x else -1
 	var next_gauge: float = max(0.0, special_gauge - visibility_query.get_skill_cost(skill_config, SHADOW_STEP))
-	_trigger_configured_cooldown_and_orb_gauge_spin(SHADOW_STEP, skill_config, deps, now_msec)
+	_trigger_configured_skill_cooldown(SHADOW_STEP, skill_config, deps, now_msec)
+	_trigger_orb_gauge_spin(deps, now_msec)
 	_cancel_dash_until_key_release(deps.get("dash_state", null))
 	audio_router.play_shadow_step_sound(deps)
 	runtime_action_router.trigger_feedback(deps, 0.10, 5.0)
