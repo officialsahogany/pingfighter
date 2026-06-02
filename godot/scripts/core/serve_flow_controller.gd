@@ -25,7 +25,9 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 		return
 
 	if _update_serve_banner(delta, round_state):
-		_update_serve_button_edge()
+		var manual_serve_pressed := _update_serve_button_edge()
+		if round_state.does_player_serve() and manual_serve_pressed:
+			_call(callbacks, "serve_ball")
 		return
 	if _update_round_restart_notice(delta, round_state):
 		_update_serve_button_edge()
