@@ -176,6 +176,9 @@ var _active_item_icon_renderer: Object = ActiveItemHudSlotIconRenderer.new()
 var _character_runtime: Object = PlayerCharacterRuntime.new()
 var _lingpet_art_texture_cache: Dictionary = {}
 var _lingpet_skill_icon_texture_cache: Dictionary = {}
+var _lingpet_stats_cache_hash := 0
+var _lingpet_stats_cache_ready := false
+var _lingpet_stats_cache: Array = []
 var _shared_icon_assets_prewarmed := false
 var _static_text_prewarmed := false
 var _active_item_text_prewarmed := false
@@ -2791,18 +2794,21 @@ func _draw_stat_rows(
 
 func _build_lingpet_stats(owner: Object) -> Array:
 	var snapshot: Dictionary = _get_lingpet_panel_snapshot(owner)
+	var cache_hash: int = _get_lingpet_stats_cache_hash(snapshot)
+	if _lingpet_stats_cache_ready and cache_hash == _lingpet_stats_cache_hash:
+		return _lingpet_stats_cache
 	var state: String = str(snapshot.get("state", "none"))
 	if state == "egg":
 		var hits: int = int(snapshot.get("hatch_hits", 0))
 		var required_hits: int = max(1, int(snapshot.get("required_hits", LINGPET_HATCH_REQUIRED_HITS)))
-		return [
+		return _cache_lingpet_stats_rows(cache_hash, [
 			_make_display_stat_row("상태", "알", ACCENT_GOLD),
 			_make_display_stat_row("부화 진행", _format_int_pair(hits, required_hits), TEXT_SOFT),
-		]
+		])
 	if state != "companion":
-		return [
+		return _cache_lingpet_stats_rows(cache_hash, [
 			_make_display_stat_row("상태", "미획득", OVERLAY_GRID_EMPTY_TEXT),
-		]
+		])
 	var speed_default: float = float(snapshot.get("companion_patrol_speed_default", 120.0))
 	var speed_min: float = float(snapshot.get("companion_patrol_speed_min", 70.0))
 	var speed_max: float = float(snapshot.get("companion_patrol_speed_max", 135.0))
@@ -2824,7 +2830,41 @@ func _build_lingpet_stats(owner: Object) -> Array:
 	]
 	if skill_id != "":
 		rows.insert(3, _make_display_stat_row("액티브 쿨타임", _format_seconds_text(active_cooldown), Color.WHITE, "%s을(를) 다시 사용할 수 있게 되는 시간입니다." % skill_name))
-	return rows
+	return _cache_lingpet_stats_rows(cache_hash, rows)
+
+
+func _cache_lingpet_stats_rows(cache_hash: int, rows: Array) -> Array:
+	_lingpet_stats_cache_hash = cache_hash
+	_lingpet_stats_cache = rows.duplicate(true)
+	_lingpet_stats_cache_ready = true
+	return _lingpet_stats_cache
+
+
+func _get_lingpet_stats_cache_hash(snapshot: Dictionary) -> int:
+	var state: String = str(snapshot.get("state", "none"))
+	if state == "egg":
+		return hash([
+			LanguageSettings.get_language(),
+			state,
+			int(snapshot.get("hatch_hits", 0)),
+			int(snapshot.get("required_hits", LINGPET_HATCH_REQUIRED_HITS)),
+		])
+	if state != "companion":
+		return hash([LanguageSettings.get_language(), state])
+	return hash([
+		LanguageSettings.get_language(),
+		state,
+		float(snapshot.get("companion_patrol_speed_default", 120.0)),
+		float(snapshot.get("companion_patrol_speed_min", 70.0)),
+		float(snapshot.get("companion_patrol_speed_max", 135.0)),
+		float(snapshot.get("companion_catch_width", 100.0)),
+		float(snapshot.get("companion_catch_height", 44.0)),
+		float(snapshot.get("companion_hit_gauge_gain", 40.0)),
+		str(snapshot.get("companion_skill_id", "")).strip_edges(),
+		str(snapshot.get("companion_skill_name", "")).strip_edges(),
+		float(snapshot.get("companion_skill_cooldown_duration", 40.0)),
+		float(snapshot.get("companion_defense_rate", 0.0)),
+	])
 
 
 func _make_display_stat_row(label: String, value_text: String, color: Color, tooltip_body: String = "") -> Dictionary:
