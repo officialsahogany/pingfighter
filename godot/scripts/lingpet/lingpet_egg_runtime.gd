@@ -637,6 +637,8 @@ func _normalize_pet_id(value: String) -> String:
 
 func _prewarm_current_visuals() -> void:
 	_current_profile.prewarm_visuals()
+	if _companion_renderer != null and _companion_renderer.has_method("prewarm_assets"):
+		_companion_renderer.prewarm_assets()
 	if _state == STATE_COMPANION:
 		_current_profile.prewarm_visual_keys(COMPANION_CLICK_REACTION_PREWARM_KEYS)
 
