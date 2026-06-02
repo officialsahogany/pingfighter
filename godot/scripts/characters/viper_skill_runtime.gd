@@ -3574,7 +3574,7 @@ func _start_nerve_strike(
 	nerve_strike_phase_frames = 0.0
 	nerve_strike_start_pos = player_pos
 	nerve_strike_pos = player_pos
-	nerve_strike_dash_target_pos = _get_nerve_strike_target_pos(config)
+	nerve_strike_dash_target_pos = ViperSkillGeometry.nerve_strike_target_pos(config, NERVE_STRIKE_TARGET_Y_OFFSET)
 	nerve_strike_return_start_pos = Vector2.ZERO
 	nerve_strike_return_target_pos = Vector2.ZERO
 	nerve_strike_paddle_size = _get_paddle_size(config)
@@ -3584,7 +3584,7 @@ func _start_nerve_strike(
 	nerve_strike_freeze_active = false
 	nerve_strike_slash_triggered = false
 	nerve_strike_slash_vfx_frames = 0.0
-	nerve_strike_slash_center = _get_nerve_strike_target_center(config)
+	nerve_strike_slash_center = ViperSkillGeometry.nerve_strike_target_center(config, NERVE_STRIKE_TARGET_Y_OFFSET)
 	audio_router.play_nerve_strike_moving_sound(deps)
 	_spawn_dual_glitch_clone_nerve_slashes_for_current_cast(deps, config)
 	return {
@@ -3641,7 +3641,7 @@ func _update_nerve_strike_dash(config: Dictionary, deps: Dictionary) -> Dictiona
 	var motion: Dictionary = ViperSkillGeometry.nerve_strike_dash_motion(
 		nerve_strike_start_pos,
 		nerve_strike_dash_target_pos,
-		_get_nerve_strike_target_pos(config),
+		ViperSkillGeometry.nerve_strike_target_pos(config, NERVE_STRIKE_TARGET_Y_OFFSET),
 		nerve_strike_phase_frames,
 		NERVE_STRIKE_DASH_FRAMES,
 		NERVE_STRIKE_TRACKING_END_RATIO,
@@ -3673,7 +3673,7 @@ func _update_nerve_strike_dash(config: Dictionary, deps: Dictionary) -> Dictiona
 		return _award_skill_gold(deps, NERVE_STRIKE_HIT_GOLD)
 	nerve_strike_miss_text_timer = NERVE_STRIKE_MISS_TEXT_FRAMES
 	nerve_strike_miss_text_pos = ViperSkillGeometry.nerve_strike_miss_text_pos(
-		_get_nerve_strike_target_center(config),
+		ViperSkillGeometry.nerve_strike_target_center(config, NERVE_STRIKE_TARGET_Y_OFFSET),
 		-20.0
 	)
 	_enter_nerve_strike_return_phase(config, deps)
@@ -3790,14 +3790,6 @@ func _apply_nerve_strike_confusion(deps: Dictionary) -> void:
 		{"cleansable": true},
 		"viper_nerve_strike"
 	)
-
-
-func _get_nerve_strike_target_pos(config: Dictionary) -> Vector2:
-	return ViperSkillGeometry.nerve_strike_target_pos(config, NERVE_STRIKE_TARGET_Y_OFFSET)
-
-
-func _get_nerve_strike_target_center(config: Dictionary) -> Vector2:
-	return ViperSkillGeometry.nerve_strike_target_center(config, NERVE_STRIKE_TARGET_Y_OFFSET)
 
 
 func _get_nerve_strike_boss_center(config: Dictionary) -> Vector2:
