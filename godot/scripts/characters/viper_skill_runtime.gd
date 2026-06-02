@@ -1447,20 +1447,6 @@ func _open_core_flip_ready_window(ready_msec: int) -> void:
 	_clear_core_flip_input_buffer()
 
 
-func _prime_shadow_step_hit_runtime(deps: Dictionary) -> void:
-	shadow_hit_consumed = true
-	_clear_shadow_kick_ready()
-	shadow_hologram_kick_hit = true
-	shadow_wave_hit_ball = true
-	phantom_strike_active = false
-	phantom_strike_frames = 0.0
-	shadow_marshal_delay_frames = SHADOW_STEP_MARSHAL_DELAY_FRAMES
-	if not core_flip_consumed and core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
-		_open_core_flip_ready_window(Time.get_ticks_msec())
-	if shadow_was_airborne and _is_dark_blade_equipped(deps):
-		_open_dark_blade_start_window()
-
-
 func _play_shadow_step_hit_feedback(ball_pos: Vector2, next_vel: Vector2, center_t: float, deps: Dictionary) -> void:
 	_trigger_feedback(
 		deps,
@@ -2043,7 +2029,17 @@ func draw(
 		return
 	var clamped_lod_scale: float = max(0.1, effect_lod_scale)
 	var sample_start: int = _perf_begin(perf_logger)
-	var emp_fx_synced: bool = _sync_emp_strike_fx(canvas, shake_offset, node_fx_layout)
+	var emp_fx_synced: bool = fx_host_controller.sync_emp_strike_fx(
+		self,
+		canvas,
+		shake_offset,
+		node_fx_layout,
+		visibility_query,
+		particle_drawer,
+		DIVE_SHOCKWAVE_FRAMES,
+		DIVE_JETPACK_MAX_HEIGHT,
+		DIVE_HIT_TEXT_FRAMES
+	)
 	if not emp_fx_synced:
 		particle_drawer.draw_dive_effects(
 			canvas,
@@ -2194,7 +2190,19 @@ func draw(
 	chaos_spear_effect_renderer.draw_chaos_absorb_pulses(canvas, absorb_center, chaos_absorb_pulses, shake_offset)
 	var chaos_fx_synced := false
 	if chaos_state != "idle":
-		chaos_fx_synced = _sync_chaos_spear_fx(canvas, shake_offset, node_fx_layout)
+		chaos_fx_synced = fx_host_controller.sync_chaos_spear_fx(
+			self,
+			canvas,
+			shake_offset,
+			node_fx_layout,
+			chaos_spear_effect_renderer,
+			CHAOS_STARTUP_FRAMES,
+			CHAOS_TRAVEL_FRAMES,
+			CHAOS_IMPACT_FRAMES,
+			CHAOS_BLACKHOLE_FRAMES,
+			CHAOS_FADE_FRAMES,
+			CHAOS_FX_DISK_HEIGHT
+		)
 	chaos_spear_effect_renderer.draw_chaos_fallback_effects(
 		canvas,
 		shake_offset,
@@ -5134,7 +5142,17 @@ func _apply_shadow_step_hit(
 ) -> Dictionary:
 	if shadow_hit_consumed:
 		return {}
-	_prime_shadow_step_hit_runtime(deps)
+	shadow_hit_consumed = true
+	_clear_shadow_kick_ready()
+	shadow_hologram_kick_hit = true
+	shadow_wave_hit_ball = true
+	phantom_strike_active = false
+	phantom_strike_frames = 0.0
+	shadow_marshal_delay_frames = SHADOW_STEP_MARSHAL_DELAY_FRAMES
+	if not core_flip_consumed and core_flip_last_dash_start_msec > CORE_FLIP_DASH_START_VALID_AFTER_MSEC:
+		_open_core_flip_ready_window(Time.get_ticks_msec())
+	if shadow_was_airborne and _is_dark_blade_equipped(deps):
+		_open_dark_blade_start_window()
 
 	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", context.get("ball_pos", Vector2.ZERO)), Vector2.ZERO)
 	var ball_vel: Vector2 = _get_vector2(scene.get("ball_vel", context.get("ball_vel", Vector2.ZERO)), Vector2.ZERO)
@@ -5345,36 +5363,6 @@ func _get_viper_hologram_attack_source_region(progress: float) -> Rect2:
 
 func _draw_chaos_spear(canvas: CanvasItem, tip: Vector2, angle: float, alpha: float, scale: float) -> void:
 	chaos_spear_effect_renderer.draw_chaos_spear(canvas, tip, angle, alpha, scale, CHAOS_VISUAL_LENGTH)
-
-
-func _sync_emp_strike_fx(canvas: CanvasItem, shake_offset: Vector2, node_fx_layout: Dictionary = {}) -> bool:
-	return fx_host_controller.sync_emp_strike_fx(
-		self,
-		canvas,
-		shake_offset,
-		node_fx_layout,
-		visibility_query,
-		particle_drawer,
-		DIVE_SHOCKWAVE_FRAMES,
-		DIVE_JETPACK_MAX_HEIGHT,
-		DIVE_HIT_TEXT_FRAMES
-	)
-
-
-func _sync_chaos_spear_fx(canvas: CanvasItem, shake_offset: Vector2, node_fx_layout: Dictionary = {}) -> bool:
-	return fx_host_controller.sync_chaos_spear_fx(
-		self,
-		canvas,
-		shake_offset,
-		node_fx_layout,
-		chaos_spear_effect_renderer,
-		CHAOS_STARTUP_FRAMES,
-		CHAOS_TRAVEL_FRAMES,
-		CHAOS_IMPACT_FRAMES,
-		CHAOS_BLACKHOLE_FRAMES,
-		CHAOS_FADE_FRAMES,
-		CHAOS_FX_DISK_HEIGHT
-	)
 
 
 func _hide_fx_host(host: Node) -> void:
