@@ -3,6 +3,7 @@ extends SceneTree
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 
@@ -161,6 +162,7 @@ func _init() -> void:
 	_expect(str((maribo_skill_specs[0] as Dictionary).get("id", "")) == "maribo_hydro_sphere", "Maribo active icon should use the catalog skill id")
 	_expect(str((maribo_skill_specs[0] as Dictionary).get("card_texture_path", "")).find("maribo_hydro_sphere") >= 0, "Maribo active icon should use the catalog skill-card texture")
 	_expect(str((maribo_skill_specs[1] as Dictionary).get("id", "")) == "resonance_boost", "Maribo gauge bonus should remain as the one passive skill icon")
+	_expect(str((maribo_skill_specs[1] as Dictionary).get("icon_texture_id", "")) == LingpetCatalog.get_passive_icon_path("maribo", "gauge_gain_bonus"), "Maribo passive icon should resolve through the lingpet catalog")
 
 	var lunabi_owner := FakeOwner.new({
 		"lingpet_id": "lunabi",

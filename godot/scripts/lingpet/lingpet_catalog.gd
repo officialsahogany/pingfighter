@@ -73,6 +73,9 @@ const PETS := {
 			"windup_seconds": 1.0,
 			"card_texture_path": "res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png",
 		},
+		"passive_icons": {
+			"gauge_gain_bonus": "res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png",
+		},
 		"effect_text": "공을 받아칠 때 게이지 획득량 +10% / 링펫이 공을 직접 튕기면 게이지 +40 / 하이드로 스피어: 40초마다 물창을 던져 상대 진영에 5초 둔화 장판을 만듭니다.",
 	},
 	"lunabi": {
@@ -227,6 +230,13 @@ static func get_visual_path(pet_id: String, visual_key: String) -> String:
 	return ""
 
 
+static func get_passive_icon_path(pet_id: String, passive_id: String) -> String:
+	var passive_icons: Variant = get_entry(pet_id).get("passive_icons", {})
+	if passive_icons is Dictionary:
+		return str((passive_icons as Dictionary).get(passive_id, ""))
+	return ""
+
+
 static func get_effect_text(pet_id: String) -> String:
 	return str(get_entry(pet_id).get("effect_text", ""))
 
@@ -280,6 +290,7 @@ static func validate_entry(pet_id: String, entry: Dictionary, require_existing_f
 	_validate_required_stats(normalized, entry, issues)
 	_validate_required_visuals(normalized, entry, issues, require_existing_files)
 	_validate_active_skill(normalized, entry, issues, require_existing_files)
+	_validate_passive_icons(normalized, entry, issues, require_existing_files)
 	if str(entry.get("effect_text", "")).strip_edges() == "":
 		issues.append("%s: missing effect_text" % normalized)
 	return issues
@@ -337,6 +348,24 @@ static func _validate_active_skill(pet_id: String, entry: Dictionary, issues: Ar
 	var card_path := str(skill_data.get("card_texture_path", "")).strip_edges()
 	if card_path != "" and require_existing_files and not FileAccess.file_exists(card_path):
 		issues.append("%s: missing skill-card file %s" % [pet_id, card_path])
+
+
+static func _validate_passive_icons(pet_id: String, entry: Dictionary, issues: Array[String], require_existing_files: bool) -> void:
+	var passive_icons: Variant = entry.get("passive_icons", {})
+	if passive_icons == null:
+		return
+	if not (passive_icons is Dictionary):
+		issues.append("%s: passive_icons must be a Dictionary" % pet_id)
+		return
+	for raw_key in (passive_icons as Dictionary).keys():
+		var icon_key := str(raw_key).strip_edges()
+		var path := str((passive_icons as Dictionary).get(raw_key, "")).strip_edges()
+		if icon_key == "":
+			issues.append("%s: passive_icons has an empty key" % pet_id)
+		if path == "":
+			issues.append("%s: missing passive icon path for %s" % [pet_id, icon_key])
+		elif require_existing_files and not FileAccess.file_exists(path):
+			issues.append("%s: missing passive icon file %s" % [pet_id, path])
 
 
 static func get_hatch_candidates(context: Dictionary, owned_pet_ids: Array) -> Array[String]:

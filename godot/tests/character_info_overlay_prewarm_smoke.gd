@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 
 
@@ -173,8 +174,9 @@ func _init() -> void:
 	var lingpet_skill_row_h: float = clamp(lingpet_content_rect.size.y * 0.22, 58.0, 78.0)
 	var lingpet_art_rect: Rect2 = layout_overlay._get_lingpet_companion_art_rect(lingpet_content_rect, lingpet_skill_row_h)
 	_expect(lingpet_art_rect.size.y >= 120.0, "720p lingpet panel should reserve enough height for the Maribo full-body art")
-	_expect(FileAccess.file_exists(CharacterInfoOverlay.MARIBO_RESONANCE_BOOST_ICON_PATH), "maribo resonance boost passive icon asset should exist")
-	_expect(layout_overlay._lingpet_skill_icon_texture_cache.has(CharacterInfoOverlay.MARIBO_RESONANCE_BOOST_ICON_PATH), "character info prewarm should cache the resonance boost passive icon")
+	var maribo_passive_icon_path: String = LingpetCatalog.get_passive_icon_path("maribo", "gauge_gain_bonus")
+	_expect(FileAccess.file_exists(maribo_passive_icon_path), "maribo gauge-gain passive icon asset should exist through the catalog")
+	_expect(layout_overlay._lingpet_skill_icon_texture_cache.has(maribo_passive_icon_path), "character info prewarm should cache the catalog passive icon")
 
 	var text_cache_size: int = overlay._text_size_cache.size()
 	var wrap_cache_size: int = overlay._wrap_text_cache.size()

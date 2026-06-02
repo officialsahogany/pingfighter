@@ -10,10 +10,6 @@ const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.g
 const SmasherDashSpiritState := preload("res://scripts/characters/smasher_dash_spirit_state.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
-const MARIBO_CUTIN_ART_TEXTURE := preload("res://assets/sprites/lingpet/maribo_cutin_art.png")
-const MARIBO_HYDRO_SPHERE_CARD_TEXTURE := preload("res://assets/sprites/lingpet/maribo_hydro_sphere_skillcard_imagegen_v2.png")
-const MARIBO_RESONANCE_BOOST_ICON_PATH := "res://assets/sprites/lingpet/maribo_resonance_boost_passive_icon_imagegen_v1.png"
-const LUNABI_HEADBUTT_ICON_PATH := "res://assets/sprites/lingpet/lunabi_headbutt_skill_icon_imagegen_v1.png"
 const LINGPET_SPEED_DISPLAY_PX_PER_POINT := 60.0
 
 const SPECIAL_GAUGE_MAX := 500.0
@@ -2334,9 +2330,9 @@ func _get_lingpet_art_texture(pet_id: String) -> Texture2D:
 	if LingpetCatalog.has_pet(normalized_pet_id):
 		path = LingpetCatalog.get_visual_path(normalized_pet_id, "cutin_art")
 	if path == "":
-		path = LingpetCatalog.get_visual_path("maribo", "cutin_art")
+		path = LingpetCatalog.get_visual_path(LingpetCatalog.get_default_pet_id(), "cutin_art")
 	if path == "" or not FileAccess.file_exists(path):
-		return MARIBO_CUTIN_ART_TEXTURE
+		return null
 	if _lingpet_art_texture_cache.has(path):
 		var cached_texture: Variant = _lingpet_art_texture_cache[path]
 		if cached_texture is Texture2D:
@@ -2350,7 +2346,7 @@ func _get_lingpet_art_texture(pet_id: String) -> Texture2D:
 	if texture != null:
 		_lingpet_art_texture_cache[path] = texture
 		return texture
-	return MARIBO_CUTIN_ART_TEXTURE
+	return null
 
 
 func _draw_lingpet_skill_icon(
@@ -2369,8 +2365,6 @@ func _draw_lingpet_skill_icon(
 	var inner := rect.grow(-4.0)
 	if bool(spec.get("use_card", false)):
 		var card_texture: Texture2D = _get_lingpet_skill_icon_texture(str(spec.get("card_texture_path", "")))
-		if card_texture == null and str(spec.get("id", "")) == "maribo_hydro_sphere":
-			card_texture = MARIBO_HYDRO_SPHERE_CARD_TEXTURE
 		if card_texture != null:
 			_draw_texture_cover(canvas, card_texture, inner, Color(1.0, 1.0, 1.0, 0.94))
 		else:
@@ -2422,17 +2416,16 @@ func _get_lingpet_skill_icon_texture(texture_id: String) -> Texture2D:
 func _get_lingpet_skill_icon_texture_path(texture_id: String) -> String:
 	if texture_id.begins_with("res://"):
 		return texture_id
-	match texture_id:
-		"resonance_boost":
-			return MARIBO_RESONANCE_BOOST_ICON_PATH
-		"lunabi_headbutt":
-			return LUNABI_HEADBUTT_ICON_PATH
 	return ""
 
 
 func _prewarm_lingpet_skill_icon_assets() -> void:
-	_touch_texture(_get_lingpet_skill_icon_texture("resonance_boost"))
-	_touch_texture(_get_lingpet_skill_icon_texture("lunabi_headbutt"))
+	for pet_id in LingpetCatalog.get_pet_ids():
+		var skill: Dictionary = LingpetCatalog.get_active_skill(pet_id)
+		if bool(skill.get("enabled", true)):
+			_touch_texture(_get_lingpet_skill_icon_texture(str(skill.get("icon_texture_path", ""))))
+			_touch_texture(_get_lingpet_skill_icon_texture(str(skill.get("card_texture_path", ""))))
+		_touch_texture(_get_lingpet_skill_icon_texture(LingpetCatalog.get_passive_icon_path(pet_id, "gauge_gain_bonus")))
 
 
 func _touch_texture(texture: Texture2D) -> void:
@@ -2532,6 +2525,7 @@ func _get_lingpet_panel_snapshot(owner: Object) -> Dictionary:
 				"subtitle": "동행 중",
 				"body": str(_safe_owner_get(owner, "lingpet_effect_text", "링펫 효과는 다음 단계에서 연결됩니다.")),
 				"gauge_gain_bonus_pct": float(_safe_owner_get(owner, "lingpet_gauge_gain_bonus_pct", _safe_owner_get(owner, "ringpet_gauge_gain_bonus_pct", LingpetCatalog.get_stat(lingpet_id, "gauge_gain_bonus_pct", 0.0)))),
+				"gauge_gain_bonus_icon_path": str(_safe_owner_get(owner, "lingpet_gauge_gain_bonus_icon_path", LingpetCatalog.get_passive_icon_path(lingpet_id, "gauge_gain_bonus"))),
 				"companion_hit_gauge_gain": float(_safe_owner_get(owner, "lingpet_companion_hit_gauge_gain", _safe_owner_get(owner, "ringpet_companion_hit_gauge_gain", LingpetCatalog.get_stat(lingpet_id, "hit_gauge_gain", 40.0)))),
 				"companion_skill_id": str(_safe_owner_get(owner, "lingpet_skill_id", _safe_owner_get(owner, "ringpet_skill_id", catalog_skill_id))),
 				"companion_skill_name": str(_safe_owner_get(owner, "lingpet_skill_name", _safe_owner_get(owner, "ringpet_skill_name", catalog_skill_name))),
@@ -2603,7 +2597,7 @@ func _get_lingpet_skill_specs(snapshot: Dictionary) -> Array:
 			"body": "플레이어가 공을 받아칠 때 게이지 획득량이 증가합니다.",
 			"color": STAT_BUFF_COLOR,
 			"badge": "P",
-			"icon_texture_id": "resonance_boost",
+			"icon_texture_id": str(snapshot.get("gauge_gain_bonus_icon_path", "")),
 		})
 	return specs
 
