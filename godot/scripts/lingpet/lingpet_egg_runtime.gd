@@ -19,10 +19,7 @@ const LingpetEggFieldRenderer := preload("res://scripts/lingpet/lingpet_egg_fiel
 const LingpetRuntimeSnapshotBuilder := preload("res://scripts/lingpet/lingpet_runtime_snapshot_builder.gd")
 const LingpetSaveRestorePlanner := preload("res://scripts/lingpet/lingpet_save_restore_planner.gd")
 const LingpetSkillRuntimeHost := preload("res://scripts/lingpet/lingpet_skill_runtime_host.gd")
-const LINGPET_EGG_TEXTURE := preload("res://assets/sprites/lingpet/maribo_egg_v002.png")
-const LINGPET_EGG_TEXTURE_CRACK_1 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack1.png")
-const LINGPET_EGG_TEXTURE_CRACK_2 := preload("res://assets/sprites/lingpet/maribo_egg_v002_crack2.png")
-# Companion walk/strike/cast sheets are resolved through LingpetCurrentProfile,
+# Lingpet field/cutin/companion visuals are resolved through LingpetCurrentProfile,
 # which routes every visual key through the catalog-backed visual texture cache.
 
 const PET_ID := LingpetCurrentProfile.DEFAULT_PET_ID
@@ -804,11 +801,11 @@ func _get_egg_texture_for_hits() -> Texture2D:
 	var visual_key: String = _egg_renderer.get_visual_key_for_hits(_egg_state.hatch_hits, _get_current_required_hits())
 	match visual_key:
 		"egg_crack_2":
-			return _get_current_visual_texture("egg_crack_2", LINGPET_EGG_TEXTURE_CRACK_2)
+			return _get_current_visual_texture("egg_crack_2", null)
 		"egg_crack_1":
-			return _get_current_visual_texture("egg_crack_1", LINGPET_EGG_TEXTURE_CRACK_1)
+			return _get_current_visual_texture("egg_crack_1", null)
 		_:
-			return _get_current_visual_texture("egg", LINGPET_EGG_TEXTURE)
+			return _get_current_visual_texture("egg", null)
 
 
 func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
