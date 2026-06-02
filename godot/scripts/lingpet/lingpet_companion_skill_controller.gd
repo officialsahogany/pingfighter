@@ -60,6 +60,8 @@ func _should_arm(skill_id: String, skill_state: Object, skill_runtime_host: Obje
 		return false
 	if bool(skill_state.windup_active) or float(skill_state.cooldown) > 0.0:
 		return false
+	if bool(params.get("switch_transition_active", false)):
+		return false
 	if not bool(params.get("ball_active", false)):
 		return false
 	if skill_runtime_host != null and bool(skill_runtime_host.is_launch_blocked(skill_id)):

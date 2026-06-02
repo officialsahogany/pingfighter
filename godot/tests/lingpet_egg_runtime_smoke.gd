@@ -325,6 +325,7 @@ func _init() -> void:
 	_verify_companion_guards_dalji_whip()
 	_verify_companion_skill_card_hydro_sphere()
 	_verify_lingpet_skill_cooldown_survives_slot_switch()
+	_verify_lingpet_skill_waits_for_switch_transition()
 	_verify_hydro_puddle_vfx()
 	_verify_save_snapshot_roundtrip()
 	_verify_save_store_persists_and_restores_maribo()
@@ -1366,6 +1367,32 @@ func _verify_lingpet_skill_cooldown_survives_slot_switch() -> void:
 	_expect(str(owner.active_lingpet_id) == "maribo", "slot switch should reactivate Maribo")
 	var restored_cooldown: float = float(owner.lingpet_skill_cooldown)
 	_expect(restored_cooldown > 28.0 and restored_cooldown < maribo_cooldown - 9.5, "inactive Maribo cooldown should keep ticking while another lingpet is active")
+
+
+func _verify_lingpet_skill_waits_for_switch_transition() -> void:
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["lunabi", "maribo"]
+	owner.owned_lingpet_ids = owner.lingpet_owned_pet_ids.duplicate()
+	owner.owned_ringpet_ids = owner.lingpet_owned_pet_ids.duplicate()
+	owner.lingpet_slots = ["lunabi", "maribo", ""]
+	owner.ringpet_slots = owner.lingpet_slots.duplicate()
+	owner.lingpet_slot_pet_ids = owner.lingpet_slots.duplicate()
+	owner.ringpet_slot_pet_ids = owner.lingpet_slots.duplicate()
+	owner.lingpet_active_slot_index = 0
+	owner.ringpet_active_slot_index = 0
+	owner.ball_active = true
+	var runtime: Object = LingpetEggRuntime.new()
+	var registry := FakeRegistry.new({
+		"game_audio": FakePaddleAudio.new(),
+		"status_effect_state": FakeStatusEffectState.new(),
+	})
+	runtime.update(0.0, owner, registry)
+	_expect(str(owner.active_lingpet_id) == "lunabi", "switch-transition skill test should start with Lunabi active")
+	_expect(bool(runtime.switch_lingpet_slot(1, owner)), "switch-transition skill test should switch to Maribo")
+	runtime.update(0.1, owner, registry)
+	_expect(not bool(runtime.get_snapshot().get("companion_skill_winding_up", false)), "newly switched lingpet should not auto-arm its skill while the switch transition is still playing")
+	runtime.update(LingpetEggRuntime.COMPANION_SWITCH_TRANSITION_SECONDS + 0.05, owner, registry)
+	_expect(bool(runtime.get_snapshot().get("companion_skill_winding_up", false)), "newly switched lingpet may arm its skill after the switch transition finishes")
 
 
 func _verify_hydro_puddle_vfx() -> void:

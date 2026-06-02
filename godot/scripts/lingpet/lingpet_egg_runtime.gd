@@ -788,6 +788,7 @@ func _update_companion_skill_effects(delta: float, owner: Object, registry: Obje
 		"skill_runtime_host": _skill_runtime_host,
 		"windup_seconds": _get_current_skill_windup_seconds(),
 		"ball_active": bool(_get_owner_value(owner, "ball_active", false)),
+		"switch_transition_active": _switch_transition_state.get_ratio(COMPANION_SWITCH_TRANSITION_SECONDS) > 0.0,
 		"companion_visible": _companion_motion_state.motion_visible,
 		"companion_pos": _companion_pos,
 	})
