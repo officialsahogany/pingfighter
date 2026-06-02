@@ -509,6 +509,7 @@ func _resolve_ball_hit(owner: Object) -> bool:
 		_acquire_cutin_state.start()
 		_prewarm_current_visuals()
 		_mark_current_pet_owned(owner)
+		_select_current_pet_slot(owner)
 	return true
 
 
@@ -590,6 +591,13 @@ func _mark_current_pet_owned(owner: Object) -> void:
 
 func _mark_pet_owned(owner: Object, pet_id: String) -> void:
 	_collection_state.add_pet(owner, pet_id)
+
+
+func _select_current_pet_slot(owner: Object) -> void:
+	var slots: Array[String] = _collection_state.get_battle_slots()
+	var slot_index: int = slots.find(_pet_id)
+	if slot_index >= 0:
+		_collection_state.select_active_slot(slot_index, owner)
 
 
 func _get_effect_text() -> String:
