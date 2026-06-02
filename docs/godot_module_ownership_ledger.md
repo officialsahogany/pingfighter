@@ -221,6 +221,11 @@ This section is intentionally long; use search to find the nearest owner.
   auto-close when the exit action completes. `lingpet_egg_runtime.gd` keeps
   the public modal / input / overlay API and delegates timing here so future
   Ringpet reveal variants do not add more cut-in clocks to the runtime.
+- `scripts/lingpet/lingpet_companion_click_reaction_state.gd`
+  Owns in-battle companion click-reaction behavior: tap-zone math, focused
+  click-reaction sheet prewarm keys, 98-frame popup timing / alpha, and sheet
+  frame drawing. `lingpet_egg_runtime.gd` keeps only the playfield click API
+  and current-pet texture lookup.
 - `scripts/lingpet/lingpet_runtime_snapshot_builder.gd`
   Owns Ringpet runtime data projection: live snapshot assembly, save snapshot
   assembly, and owner compatibility key sync for both `lingpet_*` and
@@ -239,7 +244,8 @@ This section is intentionally long; use search to find the nearest owner.
   wind-up / launch handoff into `lingpet_skill_runtime_host.gd`, and the shared
   boss-skill rail Ringpet card surface. It exposes the acquisition cut-in API
   for modal / input / overlay controllers, but the reveal and dismiss timing
-  state lives in `lingpet_acquire_cutin_state.gd`.
+  state lives in `lingpet_acquire_cutin_state.gd`; companion click-reaction
+  tap-zone / draw / timing state lives in `lingpet_companion_click_reaction_state.gd`.
 - `scripts/lingpet/lingpet_skill_runtime_host.gd`
   Owns Ringpet active-skill module dispatch: skill-kind lookup, skill-specific
   prewarm / update / draw / visible-effect checks, launch blocking, launch

@@ -25,6 +25,13 @@ const COMBO_SINGLE_ROLL := 0.42
 const COMBO_DOUBLE_ROLL := 0.78
 const REPEAT_DELAY_MIN_SECONDS := 1.0
 const REPEAT_DELAY_MAX_SECONDS := 2.0
+const REPEAT_RECOIL_DISTANCE_Y := 92.0
+const REPEAT_RECOIL_DURATION_RATIO := 0.42
+const REPEAT_RECOIL_MIN_SECONDS := 0.30
+const REPEAT_RECOIL_MAX_SECONDS := 0.58
+const REPEAT_LOITER_RADIUS_X := 34.0
+const REPEAT_LOITER_RADIUS_Y := 14.0
+const REPEAT_LOITER_ANGULAR_SPEED := 8.2
 
 var _active := false
 var _planned_miss := false
@@ -37,6 +44,9 @@ var _impact_timer := 0.0
 var _miss_timer := 0.0
 var _repeat_wait_timer := 0.0
 var _repeat_anchor_pos := Vector2.ZERO
+var _repeat_recoil_start_pos := Vector2.ZERO
+var _repeat_wait_duration := 0.0
+var _repeat_loiter_phase := 0.0
 var _combo_total := 0
 var _combo_index := 0
 var _strike_request_count := 0
@@ -61,6 +71,9 @@ func reset() -> void:
 	_miss_timer = 0.0
 	_repeat_wait_timer = 0.0
 	_repeat_anchor_pos = Vector2.ZERO
+	_repeat_recoil_start_pos = Vector2.ZERO
+	_repeat_wait_duration = 0.0
+	_repeat_loiter_phase = 0.0
 	_combo_total = 0
 	_combo_index = 0
 	_strike_request_count = 0
@@ -90,6 +103,9 @@ func launch(origin: Vector2, owner: Object) -> bool:
 	_combo_index = 1
 	_repeat_wait_timer = 0.0
 	_repeat_anchor_pos = origin
+	_repeat_recoil_start_pos = origin
+	_repeat_wait_duration = 0.0
+	_repeat_loiter_phase = 0.0
 	_strike_request_count = 0
 	return _begin_dash(origin, owner)
 
@@ -138,10 +154,12 @@ func update(delta: float, owner: Object, registry: Object = null) -> void:
 	elif _repeat_wait_timer > 0.0:
 		_repeat_wait_timer = maxf(0.0, _repeat_wait_timer - safe_delta)
 		if _repeat_wait_timer <= 0.0 and _combo_index < _combo_total:
+			var repeat_origin := _get_repeat_wait_position()
 			_combo_index += 1
-			if not _begin_dash(_repeat_anchor_pos, owner):
+			if not _begin_dash(repeat_origin, owner):
 				_repeat_wait_timer = 0.0
 		else:
+			_pos = _get_repeat_wait_position()
 			_remember_boss_pos(_get_boss_rect(owner).position)
 	else:
 		_remember_boss_pos(_get_boss_rect(owner).position)
@@ -173,10 +191,10 @@ func has_companion_position_override() -> bool:
 func get_companion_position_override(fallback: Vector2 = Vector2.ZERO) -> Vector2:
 	if _active:
 		return _pos
+	if _repeat_wait_timer > 0.0:
+		return _get_repeat_wait_position()
 	if _impact_timer > 0.0 or _miss_timer > 0.0:
 		return _impact_pos
-	if _repeat_wait_timer > 0.0:
-		return _repeat_anchor_pos
 	return fallback
 
 
@@ -208,8 +226,15 @@ func get_snapshot() -> Dictionary:
 		"headbutt_miss_timer": _miss_timer,
 		"headbutt_repeat_wait_active": _repeat_wait_timer > 0.0,
 		"headbutt_repeat_wait_timer": _repeat_wait_timer,
+		"headbutt_repeat_wait_duration": _repeat_wait_duration,
 		"headbutt_repeat_delay_min": REPEAT_DELAY_MIN_SECONDS,
 		"headbutt_repeat_delay_max": REPEAT_DELAY_MAX_SECONDS,
+		"headbutt_repeat_recoil_start_pos": _repeat_recoil_start_pos,
+		"headbutt_repeat_recoil_anchor_pos": _repeat_anchor_pos,
+		"headbutt_repeat_recoil_distance_y": REPEAT_RECOIL_DISTANCE_Y,
+		"headbutt_repeat_loiter_active": _is_repeat_loiter_active(),
+		"headbutt_repeat_loiter_radius_x": REPEAT_LOITER_RADIUS_X,
+		"headbutt_repeat_loiter_radius_y": REPEAT_LOITER_RADIUS_Y,
 		"headbutt_combo_min": COMBO_MIN_COUNT,
 		"headbutt_combo_max": COMBO_MAX_COUNT,
 		"headbutt_combo_total": _combo_total,
@@ -299,10 +324,61 @@ func _resolve_miss() -> void:
 
 func _schedule_next_dash_or_finish() -> void:
 	if _combo_index < _combo_total:
-		_repeat_anchor_pos = _impact_pos
+		_repeat_recoil_start_pos = _impact_pos
+		_repeat_anchor_pos = _get_repeat_recoil_anchor_pos(_impact_pos)
 		_repeat_wait_timer = _pick_repeat_delay()
+		_repeat_wait_duration = _repeat_wait_timer
+		_repeat_loiter_phase = _deterministic_unit(_impact_pos + Vector2(17.0, -29.0), _target, 8.0 + float(_combo_index)) * TAU
+		_pos = _impact_pos
 	else:
 		_repeat_wait_timer = 0.0
+		_repeat_wait_duration = 0.0
+		_repeat_loiter_phase = 0.0
+
+
+func _get_repeat_wait_position() -> Vector2:
+	if _repeat_wait_duration <= 0.0:
+		return _repeat_anchor_pos
+	var elapsed := clampf(_repeat_wait_duration - _repeat_wait_timer, 0.0, _repeat_wait_duration)
+	var recoil_duration := _get_repeat_recoil_duration()
+	var progress := clampf(elapsed / maxf(0.001, recoil_duration), 0.0, 1.0)
+	var eased := 1.0 - pow(1.0 - progress, 3.0)
+	if progress < 1.0:
+		return _repeat_recoil_start_pos.lerp(_repeat_anchor_pos, eased)
+	return _get_repeat_loiter_position(elapsed - recoil_duration)
+
+
+func _get_repeat_recoil_duration() -> float:
+	return clampf(
+		_repeat_wait_duration * REPEAT_RECOIL_DURATION_RATIO,
+		REPEAT_RECOIL_MIN_SECONDS,
+		REPEAT_RECOIL_MAX_SECONDS
+	)
+
+
+func _get_repeat_loiter_position(loiter_elapsed: float) -> Vector2:
+	var safe_elapsed := maxf(0.0, loiter_elapsed)
+	var phase := _repeat_loiter_phase + safe_elapsed * REPEAT_LOITER_ANGULAR_SPEED
+	var x_offset := sin(phase) * REPEAT_LOITER_RADIUS_X
+	var y_offset := sin(phase * 1.65 + 0.55) * REPEAT_LOITER_RADIUS_Y
+	return Vector2(
+		clampf(_repeat_anchor_pos.x + x_offset, 20.0, FIELD_WIDTH - 20.0),
+		clampf(_repeat_anchor_pos.y + y_offset, 40.0, FIELD_HEIGHT - 48.0)
+	)
+
+
+func _is_repeat_loiter_active() -> bool:
+	if _repeat_wait_timer <= 0.0 or _repeat_wait_duration <= 0.0:
+		return false
+	var elapsed := clampf(_repeat_wait_duration - _repeat_wait_timer, 0.0, _repeat_wait_duration)
+	return elapsed >= _get_repeat_recoil_duration()
+
+
+func _get_repeat_recoil_anchor_pos(from_pos: Vector2) -> Vector2:
+	return Vector2(
+		clampf(from_pos.x, 20.0, FIELD_WIDTH - 20.0),
+		clampf(from_pos.y + REPEAT_RECOIL_DISTANCE_Y, 40.0, FIELD_HEIGHT - 48.0)
+	)
 
 
 func _steer_toward_target(delta: float) -> void:

@@ -65,18 +65,9 @@ const COMPANION_SKILL_WINDUP_SECONDS := 1.0
 const COMPANION_SKILL_BURST_PARTICLES := 8
 const COMPANION_SWITCH_TRANSITION_SECONDS := 0.62
 const COMPANION_SWITCH_TRANSITION_PARTICLES := 12
-# Click-reaction popup: clicking the patrolling SD companion plays the
-# click-reaction Live2D sheet as a large popup above it (battle is NOT paused).
-# VIEW_HEIGHT is the rendered popup height in playfield px (far larger than the
-# SD body); CENTER_OFFSET_Y lifts the popup so it reads as the pet reacting
-# above itself; CLICK_ZONE_* is a generous tap box around the small SD body.
-# The popup sheet is the same 14x7 / 98-frame pingpong family as the
-# stage-clear click reaction.
-const COMPANION_CLICK_REACTION_VIEW_HEIGHT := 300.0
-const COMPANION_CLICK_REACTION_CENTER_OFFSET_Y := -70.0
-const COMPANION_CLICK_ZONE_HALF_WIDTH := 70.0
-const COMPANION_CLICK_ZONE_HALF_HEIGHT := 60.0
-const COMPANION_CLICK_REACTION_PREWARM_KEYS := ["click_reaction_anim"]
+# Click-reaction popup timing, hit zone, draw math, and prewarm keys live in
+# LingpetCompanionClickReactionState. The runtime only exposes the public
+# battle-input API and feeds the current pet texture into the state renderer.
 # Fullscreen acquisition cut-in state lives in LingpetAcquireCutinState. The
 # runtime keeps the public API because modal/input/draw controllers call it.
 # The HUD host owns the artwork and restoration / exit-action rendering.
@@ -155,7 +146,11 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, _draw_contex
 		_skill_runtime_host.draw(canvas, shake_offset)
 		_draw_companion(canvas, _companion_pos + shake_offset)
 		if _companion_click_reaction_state.is_active():
-			_draw_companion_click_reaction(canvas, _companion_pos + shake_offset)
+			_companion_click_reaction_state.draw(
+				canvas,
+				_companion_pos + shake_offset,
+				_get_current_visual_texture("click_reaction_anim", null)
+			)
 		if _hatch_flash_timer > 0.0:
 			_draw_hatch_flash(canvas, _egg_state.pos + shake_offset)
 
@@ -640,7 +635,7 @@ func _prewarm_current_visuals() -> void:
 	if _companion_renderer != null and _companion_renderer.has_method("prewarm_assets"):
 		_companion_renderer.prewarm_assets()
 	if _state == STATE_COMPANION:
-		_current_profile.prewarm_visual_keys(COMPANION_CLICK_REACTION_PREWARM_KEYS)
+		_current_profile.prewarm_visual_keys(LingpetCompanionClickReactionState.PREWARM_VISUAL_KEYS)
 
 
 func _get_current_visual_texture(visual_key: String, fallback: Texture2D) -> Texture2D:
@@ -864,7 +859,7 @@ func try_begin_companion_click_reaction(playfield_pos: Vector2) -> bool:
 		return false
 	if _companion_click_reaction_state.is_active():
 		return true
-	if not _is_point_in_companion_click_zone(playfield_pos):
+	if not _companion_click_reaction_state.can_start_at(playfield_pos, _companion_pos):
 		return false
 	_companion_click_reaction_state.start()
 	return true
@@ -872,39 +867,6 @@ func try_begin_companion_click_reaction(playfield_pos: Vector2) -> bool:
 
 func is_companion_click_reaction_active() -> bool:
 	return _companion_click_reaction_state.is_active()
-
-
-func _is_point_in_companion_click_zone(playfield_pos: Vector2) -> bool:
-	if _companion_pos == Vector2.ZERO:
-		return false
-	return (
-		absf(playfield_pos.x - _companion_pos.x) <= COMPANION_CLICK_ZONE_HALF_WIDTH
-		and absf(playfield_pos.y - _companion_pos.y) <= COMPANION_CLICK_ZONE_HALF_HEIGHT
-	)
-
-
-func _draw_companion_click_reaction(canvas: CanvasItem, center: Vector2) -> void:
-	var tex: Texture2D = _get_current_visual_texture("click_reaction_anim", null)
-	if tex == null or tex.get_width() <= 1 or tex.get_height() <= 1:
-		return
-	var alpha: float = _companion_click_reaction_state.get_alpha()
-	if alpha <= 0.0:
-		return
-	var cols: int = LingpetCompanionClickReactionState.COLS
-	var rows: int = LingpetCompanionClickReactionState.ROWS
-	var cell_w: float = float(tex.get_width()) / float(cols)
-	var cell_h: float = float(tex.get_height()) / float(rows)
-	if cell_w <= 0.0 or cell_h <= 0.0:
-		return
-	var frame: int = _companion_click_reaction_state.get_frame()
-	var col: int = frame % cols
-	var row: int = int(float(frame) / float(cols))
-	var src := Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
-	var disp_h: float = COMPANION_CLICK_REACTION_VIEW_HEIGHT
-	var disp_w: float = disp_h * (cell_w / cell_h)
-	var dest_center := center + Vector2(0.0, COMPANION_CLICK_REACTION_CENTER_OFFSET_Y)
-	var dest := Rect2(dest_center.x - disp_w * 0.5, dest_center.y - disp_h * 0.5, disp_w, disp_h)
-	canvas.draw_texture_rect_region(tex, dest, src, Color(1.0, 1.0, 1.0, alpha))
 
 
 func _maybe_arm_companion_strike(owner: Object) -> void:

@@ -22,6 +22,11 @@ const RETURN_FADE := 0.26
 # One full forward+reverse pingpong play, then a short hold and fade-out.
 const REACTION_DURATION := float(FRAME_COUNT) * FRAME_INTERVAL
 const TOTAL_DURATION := REACTION_DURATION + RETURN_HOLD + RETURN_FADE
+const VIEW_HEIGHT := 300.0
+const CENTER_OFFSET_Y := -70.0
+const CLICK_ZONE_HALF_WIDTH := 70.0
+const CLICK_ZONE_HALF_HEIGHT := 60.0
+const PREWARM_VISUAL_KEYS := ["click_reaction_anim"]
 
 var active := false
 var timer := 0.0
@@ -67,6 +72,36 @@ func get_alpha() -> float:
 		var fade_progress: float = clampf((blend_elapsed - RETURN_HOLD) / maxf(0.001, RETURN_FADE), 0.0, 1.0)
 		return _smooth01(1.0 - fade_progress)
 	return 1.0
+
+
+func can_start_at(playfield_pos: Vector2, companion_pos: Vector2) -> bool:
+	if companion_pos == Vector2.ZERO:
+		return false
+	return (
+		absf(playfield_pos.x - companion_pos.x) <= CLICK_ZONE_HALF_WIDTH
+		and absf(playfield_pos.y - companion_pos.y) <= CLICK_ZONE_HALF_HEIGHT
+	)
+
+
+func draw(canvas: CanvasItem, center: Vector2, texture: Texture2D) -> void:
+	if canvas == null or texture == null or texture.get_width() <= 1 or texture.get_height() <= 1:
+		return
+	var alpha: float = get_alpha()
+	if alpha <= 0.0:
+		return
+	var cell_w: float = float(texture.get_width()) / float(COLS)
+	var cell_h: float = float(texture.get_height()) / float(ROWS)
+	if cell_w <= 0.0 or cell_h <= 0.0:
+		return
+	var frame: int = get_frame()
+	var col: int = frame % COLS
+	var row: int = int(float(frame) / float(COLS))
+	var src := Rect2(float(col) * cell_w, float(row) * cell_h, cell_w, cell_h)
+	var disp_h: float = VIEW_HEIGHT
+	var disp_w: float = disp_h * (cell_w / cell_h)
+	var dest_center := center + Vector2(0.0, CENTER_OFFSET_Y)
+	var dest := Rect2(dest_center.x - disp_w * 0.5, dest_center.y - disp_h * 0.5, disp_w, disp_h)
+	canvas.draw_texture_rect_region(texture, dest, src, Color(1.0, 1.0, 1.0, alpha))
 
 
 static func _smooth01(value: float) -> float:
