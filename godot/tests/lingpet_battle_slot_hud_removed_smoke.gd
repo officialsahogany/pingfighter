@@ -109,6 +109,17 @@ func _verify_lingpet_cycle_key_avoids_item_number_keys() -> void:
 	_expect(runtime.switched_slots.is_empty(), "KEY_L should use runtime cycle logic instead of direct numeric slot switching")
 	_expect(owner.redraws == 1, "successful lingpet cycle key should request redraw")
 
+	input.handle_unhandled_input(
+		_key_event(KEY_L, true),
+		owner,
+		registry,
+		Callable(registry, "get_instance"),
+		{"battle_initialized": true, "stage_landing_intro_started": true}
+	)
+	_expect(runtime.cycled_directions == [1, -1], "Shift+L should cycle to the previous occupied lingpet battle slot")
+	_expect(runtime.switched_slots.is_empty(), "Shift+L should also use cycle logic instead of direct numeric slot switching")
+	_expect(owner.redraws == 2, "successful reverse lingpet cycle key should request redraw")
+
 
 func _verify_lingpet_slot_click_hud_is_removed() -> void:
 	var owner := FakeOwner.new()
@@ -166,11 +177,12 @@ func _make_registry(runtime: Object) -> FakeRegistry:
 	})
 
 
-func _key_event(keycode: Key) -> InputEventKey:
+func _key_event(keycode: Key, shift_pressed: bool = false) -> InputEventKey:
 	var event := InputEventKey.new()
 	event.pressed = true
 	event.keycode = keycode as Key
 	event.physical_keycode = keycode as Key
+	event.shift_pressed = shift_pressed
 	return event
 
 

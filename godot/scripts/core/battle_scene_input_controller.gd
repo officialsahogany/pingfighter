@@ -169,7 +169,7 @@ func _get_lingpet_cycle_direction(event: InputEvent) -> int:
 	if not key_event.pressed or key_event.echo:
 		return 0
 	if key_event.keycode == LINGPET_CYCLE_KEY or key_event.physical_keycode == LINGPET_CYCLE_KEY:
-		return 1
+		return -1 if key_event.shift_pressed else 1
 	return 0
 
 
