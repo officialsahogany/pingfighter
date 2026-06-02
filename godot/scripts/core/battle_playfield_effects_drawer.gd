@@ -3,8 +3,13 @@ extends RefCounted
 const ViperAirborneLod := preload("res://scripts/core/viper_airborne_lod.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 
+const INACTIVE_ACTOR_TRANSIENT_CLEANUP_FRAMES := 2
+
 var _method_argument_count_cache: Dictionary = {}
 var _method_acceptance_cache: Dictionary = {}
+var _last_actor_stage_for_transient_cleanup: int = -1
+var _last_actor_renderer_id_for_transient_cleanup: int = 0
+var _inactive_actor_transient_cleanup_frames_remaining: int = 0
 
 
 func draw_actors(
@@ -19,7 +24,7 @@ func draw_actors(
 	var actor_renderer: Object = _get_stage_instance(registry, current_stage, "actor_renderer", "stage1_actor_renderer")
 	_perf_end(perf_logger, "actors.lookup_renderer", lookup_start)
 	var cleanup_start: int = _perf_begin(perf_logger)
-	_clear_inactive_stage_actor_transients(registry, current_stage, actor_renderer)
+	_clear_inactive_stage_actor_transients_if_needed(registry, current_stage, actor_renderer)
 	_perf_end(perf_logger, "actors.clear_inactive_transients", cleanup_start)
 	if actor_renderer == null:
 		return
@@ -521,6 +526,24 @@ func _clear_inactive_stage_actor_transients(registry: Object, current_stage: int
 		if renderer == null or renderer == current_renderer:
 			continue
 		_clear_transient_canvas_items(renderer)
+
+
+func _clear_inactive_stage_actor_transients_if_needed(registry: Object, current_stage: int, current_renderer: Object) -> void:
+	var current_renderer_id := 0
+	if current_renderer != null:
+		current_renderer_id = current_renderer.get_instance_id()
+	if (
+		current_stage != _last_actor_stage_for_transient_cleanup
+		or current_renderer_id != _last_actor_renderer_id_for_transient_cleanup
+	):
+		_last_actor_stage_for_transient_cleanup = current_stage
+		_last_actor_renderer_id_for_transient_cleanup = current_renderer_id
+		# Keep one grace frame for detached FX hosts created around stage handoff.
+		_inactive_actor_transient_cleanup_frames_remaining = INACTIVE_ACTOR_TRANSIENT_CLEANUP_FRAMES
+	if _inactive_actor_transient_cleanup_frames_remaining <= 0:
+		return
+	_inactive_actor_transient_cleanup_frames_remaining -= 1
+	_clear_inactive_stage_actor_transients(registry, current_stage, current_renderer)
 
 
 func _get_cached_instance(registry: Object, key: String) -> Object:

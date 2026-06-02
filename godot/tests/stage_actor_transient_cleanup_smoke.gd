@@ -69,6 +69,7 @@ class FakeRegistry:
 func _init() -> void:
 	_verify_stage_actor_renderers_expose_transient_cleanup()
 	_verify_inactive_stage_actor_transients_are_cleared()
+	_verify_inactive_stage_actor_cleanup_settles_after_handoff()
 	_verify_inactive_cleanup_uses_cached_renderers_only()
 	_verify_current_actor_transients_clear_when_actor_context_is_empty()
 
@@ -107,6 +108,24 @@ func _verify_inactive_stage_actor_transients_are_cleared() -> void:
 	_expect(stage2.clear_calls == 1, "inactive Stage 2 actor renderer should clear transient canvas items")
 	_expect(stage5.clear_calls == 0, "current Stage 5 actor renderer should not be cleared before drawing")
 	_expect(stage5.draw_calls == 1, "current Stage 5 actor renderer should still draw")
+
+
+func _verify_inactive_stage_actor_cleanup_settles_after_handoff() -> void:
+	var drawer := BattlePlayfieldEffectsDrawer.new()
+	var registry := _build_registry()
+	var stage1: FakeActorRenderer = registry.instances["stage1_actor_renderer"]
+	var stage2: FakeActorRenderer = registry.instances["stage2_actor_renderer"]
+
+	drawer.draw_actors(null, registry, {"current_stage": 2}, {"visible": true})
+	drawer.draw_actors(null, registry, {"current_stage": 2}, {"visible": true})
+	drawer.draw_actors(null, registry, {"current_stage": 2}, {"visible": true})
+
+	_expect(stage1.clear_calls == 2, "inactive cleanup should keep a short handoff grace window")
+	_expect(stage2.clear_calls == 0, "current Stage 2 actor renderer should not be cleared as inactive")
+
+	drawer.draw_actors(null, registry, {"current_stage": 5}, {"visible": true})
+
+	_expect(stage2.clear_calls == 1, "stage changes should restart inactive cleanup for the previous stage")
 
 
 func _verify_inactive_cleanup_uses_cached_renderers_only() -> void:
