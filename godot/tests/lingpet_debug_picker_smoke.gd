@@ -69,6 +69,8 @@ class FakeOwner:
 	var ringpet_companion_hit_gauge_trigger_count := 0
 	var lingpet_skill_id := ""
 	var ringpet_skill_id := ""
+	var lingpet_active_skill_id := ""
+	var ringpet_active_skill_id := ""
 	var lingpet_skill_name := ""
 	var ringpet_skill_name := ""
 	var lingpet_skill_cooldown := 0.0
@@ -83,6 +85,14 @@ class FakeOwner:
 	var ringpet_skill_trigger_count := 0
 	var lingpet_gauge_gain_bonus_pct := 0.0
 	var ringpet_gauge_gain_bonus_pct := 0.0
+	var lingpet_passive_skill_id := ""
+	var ringpet_passive_skill_id := ""
+	var lingpet_passive_skill_name := ""
+	var ringpet_passive_skill_name := ""
+	var lingpet_passive_skill_description := ""
+	var ringpet_passive_skill_description := ""
+	var lingpet_passive_skill_icon_path := ""
+	var ringpet_passive_skill_icon_path := ""
 	var lingpet_effect_text := ""
 	var lingpet_owned_pet_ids: Array = []
 	var owned_lingpet_ids: Array = []
@@ -91,6 +101,10 @@ class FakeOwner:
 	var ringpet_collection: Dictionary = {}
 	var owned_lingpets: Dictionary = {}
 	var owned_ringpets: Dictionary = {}
+	var lingpet_loadouts: Dictionary = {}
+	var ringpet_loadouts: Dictionary = {}
+	var owned_lingpet_loadouts: Dictionary = {}
+	var owned_ringpet_loadouts: Dictionary = {}
 	var lingpet_slots: Array = ["", "", ""]
 	var ringpet_slots: Array = ["", "", ""]
 	var lingpet_slot_pet_ids: Array = ["", "", ""]
