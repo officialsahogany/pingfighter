@@ -69,11 +69,13 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 				return _snapshot_result(scene, {"score_event": stage5_score_event})
 			if not _try_release_viper_chaos_player_paddle_hit(scene, frame_context, frame_deps, callbacks):
 				if not _try_update_poseidon_capture(scene, fps_scale, frame_context, frame_deps):
+					_tick_shield_kiting_during_motion_skip(scene, fps_scale, frame_context, frame_deps)
 					_update_ball_effects(scene, fps_scale, frame_context, frame_deps)
 					return _snapshot_result(scene)
 				frame_context.merge(scene, true)
 		frame_context.merge(scene, true)
 		if bool(scene.get("skip_ball_motion_step", false)):
+			_tick_shield_kiting_during_motion_skip(scene, fps_scale, frame_context, frame_deps)
 			_update_ball_effects(scene, fps_scale, frame_context, frame_deps)
 			return _snapshot_result(scene)
 	frame_motion_controller.apply_stage1_dalji_whip(scene, fps_scale, frame_context, frame_deps)
@@ -84,6 +86,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	frame_motion_controller.apply_weather_motion(scene, fps_scale, frame_deps)
 	_perf_end(perf_logger, "ball.update.motion_apply", motion_apply_start)
 	if bool(scene.get("skip_ball_motion_step", false)):
+		_tick_shield_kiting_during_motion_skip(scene, fps_scale, frame_context, frame_deps)
 		_update_ball_effects(scene, fps_scale, frame_context, frame_deps)
 		return _snapshot_result(scene)
 	_apply_stage_background_ball_motion(scene, frame_context, frame_deps, fps_scale)
@@ -283,6 +286,22 @@ func _try_update_poseidon_capture(
 		return false
 	frame_motion_controller.apply_poseidon_trident(scene, fps_scale, context, deps)
 	return true
+
+
+func _tick_shield_kiting_during_motion_skip(
+	scene: Dictionary,
+	fps_scale: float,
+	context: Dictionary,
+	deps: Dictionary
+) -> void:
+	if str(context.get("selected_character_type", "smasher")) != "smasher":
+		return
+	var shield_kiting_state: Object = deps.get("smasher_shield_kiting_state", null)
+	if shield_kiting_state == null or not shield_kiting_state.has_method("update_and_collide"):
+		return
+	var shield_context: Dictionary = context.duplicate()
+	shield_context.merge(scene, true)
+	frame_motion_controller.apply_shield_kiting_collision(scene, fps_scale, shield_context, deps)
 
 
 func _is_poseidon_capture_active(mythic_item_runtime: Object) -> bool:

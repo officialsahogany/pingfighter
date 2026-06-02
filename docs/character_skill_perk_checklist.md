@@ -1249,6 +1249,13 @@ Current Godot-first rule:
       reset. Add or update a focused smoke that starts with the flag true
       or observes it become true, then verifies it returns false with a
       real resumed velocity.
+- [ ] If a character skill uses the ball-update collision path to advance
+      its own projectile / wind-up / return timer while player movement is
+      locked, verify it still ticks or intentionally cancels when another
+      owner has set `skip_ball_motion_step=true` (Stage 5 Hongryun inferno,
+      Poseidon capture, Stage 4 meditation, etc.). Do not let a shared ball
+      motion skip starve a player-control lock until the boss / item owner
+      releases the ball.
 - [ ] If the skill changes legal player movement bounds, mirrored paddle
       collision, `player_pos.x`, or player paddle size / scale, audit the
       full Godot owner-sync chain. Movement and the skill module are not
