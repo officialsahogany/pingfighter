@@ -121,6 +121,7 @@ var _cutin_anim_sheet: Texture2D = FALLBACK_CUTIN_ANIM_SHEET
 var _cutin_anim_manifest := FALLBACK_CUTIN_ANIM_MANIFEST
 var _cutin_dismiss_sheet: Texture2D = FALLBACK_CUTIN_DISMISS_SHEET
 var _portal_texture: Texture2D = null
+var _portal_prewarm_attempted := false
 
 
 func prewarm_assets() -> void:
@@ -131,6 +132,13 @@ func prewarm_assets() -> void:
 func prewarm_assets_step() -> bool:
 	if _prewarm_finished:
 		return true
+	# Warm the shared resonance portal backplate first so the first (physics-paused)
+	# reveal frame never sync-loads a 1MB+ PNG on the draw hot path. One staged step;
+	# the attempt flag guards against an infinite prewarm loop if the asset is missing.
+	if not _portal_prewarm_attempted:
+		_portal_prewarm_attempted = true
+		_get_portal_texture()
+		return false
 	if _prewarm_pet_ids.is_empty():
 		_prewarm_pet_ids = LingpetCatalog.get_pet_ids()
 		if _prewarm_pet_ids.is_empty():
