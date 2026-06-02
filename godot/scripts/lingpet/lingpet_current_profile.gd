@@ -41,6 +41,10 @@ func get_stat(stat_name: String, fallback: float) -> float:
 	return LingpetCatalog.get_stat(pet_id, stat_name, fallback)
 
 
+func get_visual_layout_value(layout_key: String, fallback: float) -> float:
+	return LingpetCatalog.get_visual_layout_value(pet_id, layout_key, fallback)
+
+
 func get_active_skill() -> Dictionary:
 	return LingpetCatalog.get_active_skill(pet_id, active_skill_id)
 

@@ -684,6 +684,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "egg")).ends_with("maribo_egg_v002.png"), "catalog should own the current shared unidentified egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("lunabi", "egg")).ends_with("maribo_egg_v002.png"), "Lunabi should hatch from the same shared unidentified egg visual path")
 	_expect(str(LingpetCatalog.get_visual_path("maribo", "companion_walk")).ends_with("maribo_companion_walk.png"), "catalog should own Maribo companion visual paths")
+	_expect(is_equal_approx(LingpetCatalog.get_visual_layout_value("maribo", "companion_walk_draw_size", 0.0), 104.0), "catalog should upscale Maribo's refreshed walk sheet to match strike/cast scale")
+	_expect(is_equal_approx(LingpetCatalog.get_visual_layout_value("draft_bat", "companion_walk_draw_size", 82.0), 82.0), "catalog walk-size override should be per-pet, not a global companion scale")
 	_expect(str(LingpetCatalog.get_active_skill_entry("maribo_hydro_sphere").get("runtime_kind", "")) == "hydro_sphere", "catalog should expose Maribo active-skill runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_entry("lunabi_headbutt").get("runtime_kind", "")) == "headbutt", "catalog should expose Lunabi headbutt runtime kind by skill id")
 	_expect(str(LingpetCatalog.get_active_skill_runtime_kind_from_entries(multi_entries, "test_bubble_guard")) == "bubble_guard", "catalog should resolve future lingpet skill runtime kinds from active_skill metadata")
@@ -707,6 +709,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(current_profile_source.find("LingpetVisualTextureCache") >= 0, "current-profile helper should own visual-cache access for the selected pet")
 	var current_profile := LingpetCurrentProfile.new()
 	_expect(str(current_profile.set_pet_id("unknown_pet")) == "maribo", "current-profile helper should fall back to the default pet for unknown ids")
+	_expect(is_equal_approx(current_profile.get_visual_layout_value("companion_walk_draw_size", 0.0), 104.0), "current-profile helper should expose current pet visual-layout overrides")
 	_expect(is_equal_approx(float(current_profile.get_hit_gauge_gain(0.0)), 40.0), "current-profile helper should expose current pet hit gauge gain")
 	_expect(runtime_source.find("_pick_hatch_pet_id") >= 0, "egg runtime should keep a narrow hatch-selection hook for future weighted random lingpets")
 	_expect(runtime_source.find("_update_companion_skill_effects") >= 0, "egg runtime should keep a narrow companion active-skill update hook")
@@ -747,12 +750,15 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_renderer.gd"), "companion renderer module should exist")
 	var companion_renderer_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_renderer.gd")
 	_expect(companion_renderer_source.find("draw_texture_rect_region") >= 0, "companion renderer should blit walk-sheet cells, not draw a procedural body")
+	_expect(draw_context_source.find("companion_walk_draw_size") >= 0, "companion draw context should pass per-pet walk draw-size overrides")
+	_expect(companion_renderer_source.find("draw_size_override") >= 0, "companion renderer should pass draw-size overrides into the sprite animator")
 	_expect(companion_renderer_source.find("_draw_burst") >= 0, "companion renderer should own hit/gauge/skill flash burst drawing")
 	_expect(runtime_source.find("lingpet_companion_sprite_animator.gd") >= 0, "egg runtime should delegate companion frame/source-rect math to the sprite animator")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_sprite_animator.gd"), "companion sprite animator module should exist")
 	var sprite_animator_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_sprite_animator.gd")
 	_expect(sprite_animator_source.find("get_walk_frame") >= 0, "companion sprite animator should resolve walk/idle frames")
 	_expect(sprite_animator_source.find("get_source_rect") >= 0, "companion sprite animator should resolve sheet source rects")
+	_expect(sprite_animator_source.find("_resolve_draw_size") >= 0, "companion sprite animator should honor per-pet draw-size overrides")
 	var sheet: Texture2D = load("res://assets/sprites/lingpet/maribo_companion_walk.png") as Texture2D
 	_expect(sheet != null, "companion walk sheet should load as a Texture2D")
 	if sheet != null:
@@ -764,6 +770,19 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 		_expect(sheet.get_width() % cols == 0, "walk sheet width must divide evenly into the column count")
 		_expect(sheet.get_height() % rows == 0, "walk sheet height must divide evenly into the row count")
 		_expect(frames <= cols * rows, "declared frame count must fit the walk-sheet grid")
+		var animator := LingpetCompanionSpriteAnimator.new()
+		var draw_rects: Dictionary = animator.build_draw_rects(
+			sheet,
+			LingpetCompanionSpriteAnimator.MODE_WALK,
+			Vector2(320.0, 440.0),
+			0.0,
+			0.0,
+			0.0,
+			0.0,
+			Vector2(104.0, 104.0)
+		)
+		var dest_rect: Rect2 = draw_rects.get("dest", Rect2())
+		_expect(is_equal_approx(dest_rect.size.x, 104.0) and is_equal_approx(dest_rect.size.y, 104.0), "Maribo walk draw-size override should render the refreshed walk sheet at strike/cast scale")
 	# Directional facing: the walk sheet is the AutoSprite iso_walk_northeast
 	# 3/4-back view facing the direction of travel (rightward). Leftward travel
 	# is rendered by mirroring the UVs across the same destination rect, no in-_draw

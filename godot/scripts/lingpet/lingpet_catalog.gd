@@ -69,6 +69,9 @@ const PETS := {
 			"cutin_dismiss_anim": "res://assets/sprites/lingpet/maribo_cutin_dismiss_anim.png",
 			"click_reaction_anim": "res://assets/sprites/lingpet/maribo_click_live2d_pingpong_98f.png",
 		},
+		"visual_layout": {
+			"companion_walk_draw_size": 104.0,
+		},
 		"active_skill": {
 			"id": "maribo_hydro_sphere",
 			"runtime_kind": "hydro_sphere",
@@ -233,6 +236,13 @@ static func get_stat(pet_id: String, stat_name: String, fallback: float = 0.0) -
 	var stats: Variant = get_entry(pet_id).get("stats", {})
 	if stats is Dictionary:
 		return float((stats as Dictionary).get(stat_name, fallback))
+	return fallback
+
+
+static func get_visual_layout_value(pet_id: String, layout_key: String, fallback: float = 0.0) -> float:
+	var visual_layout: Variant = get_entry(pet_id).get("visual_layout", {})
+	if visual_layout is Dictionary:
+		return float((visual_layout as Dictionary).get(layout_key, fallback))
 	return fallback
 
 

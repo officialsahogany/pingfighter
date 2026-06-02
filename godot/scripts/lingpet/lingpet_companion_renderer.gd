@@ -125,6 +125,7 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		tex = config.get("strike_texture", null) as Texture2D
 	if tex == null:
 		return
+	var draw_size_override: Vector2 = _get_draw_size_override(config, mode)
 	var rects: Dictionary = animator.build_draw_rects(
 		tex,
 		mode,
@@ -132,7 +133,8 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		float(config.get("patrol_pause", 0.0)),
 		float(config.get("windup_elapsed", 0.0)),
 		float(config.get("windup_seconds", 0.0)),
-		float(config.get("motion_speed_ratio", 0.0))
+		float(config.get("motion_speed_ratio", 0.0)),
+		draw_size_override
 	)
 	if rects.is_empty():
 		return
@@ -148,6 +150,19 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		_draw_flipped_texture_region(canvas, tex, source_rect, dest_rect, modulate)
 	else:
 		canvas.draw_texture_rect_region(tex, dest_rect, source_rect, modulate, false, true)
+
+
+func _get_draw_size_override(config: Dictionary, mode: String) -> Vector2:
+	var key := "walk_draw_size"
+	match mode:
+		LingpetCompanionSpriteAnimator.MODE_CAST:
+			key = "cast_draw_size"
+		LingpetCompanionSpriteAnimator.MODE_STRIKE:
+			key = "strike_draw_size"
+	var draw_size: float = float(config.get(key, 0.0))
+	if draw_size <= 0.0:
+		return Vector2.ZERO
+	return Vector2(draw_size, draw_size)
 
 
 func _draw_flipped_texture_region(
