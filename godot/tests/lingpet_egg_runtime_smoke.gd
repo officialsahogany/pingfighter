@@ -1698,6 +1698,7 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(headbutt_source.find("HOMING_TURN_RATE") >= 0 and headbutt_source.find("_get_homing_target") >= 0, "Lunabi Headbutt should keep steering toward the boss paddle while charging")
 	_expect(headbutt_source.find("start_paddle_hit_knockback") >= 0, "Lunabi Headbutt should use the boss AI knockback path for a natural rebound")
 	_expect(headbutt_source.find("play_boomerang_hit") >= 0, "Lunabi Headbutt hit should reuse the boomerang boss-hit sound")
+	_expect(headbutt_source.find("GUARANTEED_MISS_SPEED := 18.0") >= 0 and headbutt_source.find("MOVING_MISS_MAX_CHANCE") >= 0, "Lunabi Headbutt should avoid guaranteed misses except against extreme paddle movement")
 	_expect(headbutt_source.find("COMBO_MAX_COUNT := 3") >= 0 and headbutt_source.find("REPEAT_DELAY_MIN_SECONDS := 1.0") >= 0, "Lunabi Headbutt should support 1-3 dashes with 1-2 second repeat waits")
 
 	var owner := FakeOwner.new()
@@ -1764,11 +1765,31 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(int(repeat_launch_snap.get("headbutt_combo_index", 0)) == 2, "Lunabi Headbutt should advance the combo index on the repeat dash")
 	_expect(bool(runtime.is_companion_striking_for_tests()), "Lunabi Headbutt repeat dash should restart the companion strike animation")
 
+	var tracking_owner := FakeOwner.new()
+	tracking_owner.lingpet_owned_pet_ids = ["lunabi"]
+	tracking_owner.lingpet_slots = ["lunabi", "", ""]
+	tracking_owner.boss_pos = Vector2(320.0, 25.0)
+	tracking_owner.boss_vel = 3.0
+	tracking_owner.ball_active = true
+	var tracking_runtime: Object = LingpetEggRuntime.new()
+	var tracking_audio := FakePaddleAudio.new()
+	var tracking_registry := FakeRegistry.new({"game_audio": tracking_audio, "boss_ai_state": FakeBossAiState.new()})
+	tracking_runtime.update(0.0, tracking_owner, tracking_registry)
+	tracking_runtime.configure_companion_motion_for_tests(Vector2(250.0, 245.0), 2, 0.0, false)
+	tracking_runtime.update(0.0, tracking_owner, tracking_registry)
+	tracking_runtime.update(0.50, tracking_owner, tracking_registry)
+	for _i in range(20):
+		tracking_runtime.update(0.05, tracking_owner, tracking_registry)
+		if int(tracking_runtime.get_headbutt_hit_count_for_tests()) > 0 or int(tracking_runtime.get_headbutt_miss_count_for_tests()) > 0:
+			break
+	_expect(int(tracking_runtime.get_headbutt_hit_count_for_tests()) == 1, "Lunabi Headbutt should reliably hit a moderately moving boss paddle")
+	_expect(int(tracking_runtime.get_headbutt_miss_count_for_tests()) == 0, "moderate boss movement should not force a Lunabi Headbutt miss")
+
 	var miss_owner := FakeOwner.new()
 	miss_owner.lingpet_owned_pet_ids = ["lunabi"]
 	miss_owner.lingpet_slots = ["lunabi", "", ""]
 	miss_owner.boss_pos = Vector2(320.0, 25.0)
-	miss_owner.boss_vel = 10.0
+	miss_owner.boss_vel = 20.0
 	miss_owner.ball_active = true
 	var miss_runtime: Object = LingpetEggRuntime.new()
 	var miss_audio := FakePaddleAudio.new()
@@ -1783,7 +1804,7 @@ func _verify_lunabi_headbutt_skill() -> void:
 		if int(miss_runtime.get_headbutt_miss_count_for_tests()) > 0:
 			break
 	var miss_snap: Dictionary = miss_runtime.get_snapshot()
-	_expect(int(miss_runtime.get_headbutt_miss_count_for_tests()) == 1, "Lunabi Headbutt should be able to miss a fast-moving boss paddle")
+	_expect(int(miss_runtime.get_headbutt_miss_count_for_tests()) == 1, "Lunabi Headbutt should still be able to miss an extremely fast-moving boss paddle")
 	_expect(str(miss_snap.get("headbutt_last_result", "")) == "miss", "Lunabi Headbutt snapshot should publish the last miss result")
 	_expect(str(miss_snap.get("headbutt_last_miss_reason", "")) == "moving_target", "Lunabi Headbutt miss should report the moving-target reason")
 	_expect(is_equal_approx(miss_owner.boss_pos.x, miss_boss_x_before), "missed Lunabi Headbutt should not knock back the boss paddle")

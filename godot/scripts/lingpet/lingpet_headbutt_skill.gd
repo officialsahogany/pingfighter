@@ -3,9 +3,9 @@ extends RefCounted
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const DASH_SPEED := 1080.0
-const DASH_RADIUS := 25.0
-const HOMING_TURN_RATE := 5.80
-const HOMING_LEAD_SECONDS := 0.18
+const DASH_RADIUS := 31.0
+const HOMING_TURN_RATE := 7.25
+const HOMING_LEAD_SECONDS := 0.12
 const IMPACT_SECONDS := 0.34
 const MISS_FLASH_SECONDS := 0.24
 const KNOCKBACK_DISTANCE := 150.0
@@ -13,9 +13,10 @@ const IMPACT_NUDGE_DISTANCE := 24.0
 const KNOCKBACK_VELOCITY := 13.0
 const KNOCKBACK_FRAMES := 30.0
 const KNOCKBACK_DECAY := 0.91
-const MOVING_MISS_SPEED_THRESHOLD := 0.75
-const GUARANTEED_MISS_SPEED := 9.0
-const MOVING_MISS_CHANCE := 0.42
+const MOVING_MISS_SPEED_THRESHOLD := 2.0
+const GUARANTEED_MISS_SPEED := 18.0
+const MOVING_MISS_CHANCE := 0.14
+const MOVING_MISS_MAX_CHANCE := 0.34
 const MISS_OFFSET_X := 130.0
 const TRAIL_MAX_POINTS := 12
 const COMBO_MIN_COUNT := 1
@@ -223,7 +224,10 @@ func get_snapshot() -> Dictionary:
 		"headbutt_knockback_velocity": _last_knockback_velocity,
 		"headbutt_knockback_frames": KNOCKBACK_FRAMES,
 		"headbutt_knockback_decay": KNOCKBACK_DECAY,
+		"headbutt_moving_miss_speed_threshold": MOVING_MISS_SPEED_THRESHOLD,
+		"headbutt_guaranteed_miss_speed": GUARANTEED_MISS_SPEED,
 		"headbutt_moving_miss_chance": MOVING_MISS_CHANCE,
+		"headbutt_moving_miss_max_chance": MOVING_MISS_MAX_CHANCE,
 	}
 
 
@@ -324,7 +328,13 @@ func _should_miss_moving_target(origin: Vector2, boss_pos: Vector2, moving_speed
 	if moving_speed >= GUARANTEED_MISS_SPEED:
 		return true
 	var roll := _deterministic_unit(origin, boss_pos, moving_speed)
-	return roll < MOVING_MISS_CHANCE
+	var speed_ratio := clampf(
+		(moving_speed - MOVING_MISS_SPEED_THRESHOLD) / (GUARANTEED_MISS_SPEED - MOVING_MISS_SPEED_THRESHOLD),
+		0.0,
+		1.0
+	)
+	var miss_chance := lerpf(MOVING_MISS_CHANCE, MOVING_MISS_MAX_CHANCE, speed_ratio)
+	return roll < miss_chance
 
 
 func _pick_combo_total(origin: Vector2, boss_pos: Vector2) -> int:
