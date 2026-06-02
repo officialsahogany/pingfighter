@@ -119,6 +119,21 @@ const PETS := {
 		},
 		"effect_text": "전장 전체를 자유비행합니다. 가끔 화면 밖으로 사라졌다가 다시 들어오며, 공과 겹치면 날개로 받아칩니다. 박치기: 30초마다 상대 패들에 돌진해 약 150px 넉백을 노립니다.",
 	},
+	"draft_bat": {
+		"id": "draft_bat",
+		"display_name": "Draft Bat",
+		"enabled": false,
+		"hatch_weight": 1.0,
+		"required_hits": 2,
+		"unlock": {
+			"league_mode": "junior",
+			"character_type": "smasher",
+		},
+		"concept_art_path": "res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1.png",
+		"concept_chromakey_path": "res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1_chromakey.png",
+		"concept_magenta_source_path": "res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1_magenta_source.png",
+		"note": "Draft concept only; disabled until runtime sheets and a skill are produced.",
+	},
 }
 
 
