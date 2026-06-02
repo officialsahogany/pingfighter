@@ -1573,6 +1573,7 @@ func _verify_lunabi_free_flight_profile() -> void:
 	var saw_offscreen_target := false
 	var saw_exit_acceleration := false
 	var saw_hidden_period := false
+	var hidden_pause_seconds := 0.0
 	var exit_previous_speed_ratio := -1.0
 	for _i in range(180):
 		runtime.update(0.15, owner)
@@ -1594,20 +1595,23 @@ func _verify_lunabi_free_flight_profile() -> void:
 			exit_previous_speed_ratio = speed_ratio
 		if not bool(snapshot.get("companion_visible", true)) and float(snapshot.get("companion_patrol_pause", 0.0)) > 0.0:
 			saw_hidden_period = true
+			hidden_pause_seconds = float(snapshot.get("companion_patrol_pause", 0.0))
 			break
 	_expect(saw_entry_deceleration, "Lunabi ingress should visibly decelerate before central loitering")
 	_expect(saw_central_loiter, "Lunabi should roam around the central background before leaving")
 	_expect(saw_visible_hold, "Lunabi should briefly hover/stop before the exit burst")
 	_expect(saw_offscreen_target, "Lunabi sortie flight should target outside the screen")
 	_expect(saw_exit_acceleration, "Lunabi exit should accelerate into a fast departure")
-	_expect(saw_hidden_period, "Lunabi sortie flight should disappear offscreen for a short hidden interval")
+	_expect(saw_hidden_period, "Lunabi sortie flight should disappear offscreen before the next entry")
+	_expect(hidden_pause_seconds >= 6.5, "Lunabi should wait several seconds offscreen before reappearing")
 
 	var motion_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_state.gd")
 	_expect(motion_source.find("SORTIE_PHASE_INGRESS") >= 0 and motion_source.find("SORTIE_EXIT_ACCELERATION") >= 0, "Lunabi sortie flight should use phased ingress/loiter/exit acceleration")
 	var animator := LingpetCompanionSpriteAnimator.new()
-	var slow_frame: int = int(animator.get_walk_frame(0.0, 500, 0.0))
-	var fast_frame: int = int(animator.get_walk_frame(0.0, 500, 1.0))
+	var slow_frame: int = int(animator.get_walk_frame(0.0, 1000, 0.20))
+	var fast_frame: int = int(animator.get_walk_frame(0.0, 1000, 1.0))
 	_expect(fast_frame != slow_frame and fast_frame > slow_frame, "Lunabi wing-flap frame cadence should increase with flight speed")
+	_expect(LingpetCompanionSpriteAnimator.FLIGHT_FPS_MAX <= 14.0, "Lunabi wing-flap cadence should stay below vibration-speed playback")
 
 	var forced_companion_pos := Vector2(380.0, 310.0)
 	runtime.configure_companion_motion_for_tests(forced_companion_pos, 2, 0.0, false)
