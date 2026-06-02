@@ -25,6 +25,9 @@ const IMPORT_PREFERRED_TEXTURE_KEYS := {
 	"stage2_boss_defeat_click_reaction_sheet": true,
 	"player_victory_sheet": true,
 	"player_victory_click_reaction_sheet": true,
+	"result_box_sheet_common": true,
+	"result_box_sheet_mythic": true,
+	"result_box_sheet_guaranteed_mythic": true,
 }
 
 const TEXTURE_MESSAGES := {
