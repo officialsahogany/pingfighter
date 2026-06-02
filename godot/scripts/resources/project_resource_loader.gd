@@ -111,7 +111,8 @@ static func prewarm_texture_threaded_step(
 	failed_warning: String = "",
 	max_msec: int = THREADED_TEXTURE_PREWARM_MAX_MSEC,
 	max_polls: int = THREADED_TEXTURE_PREWARM_MAX_POLLS,
-	emit_timeout_warning: bool = false
+	emit_timeout_warning: bool = false,
+	prefer_imported_fallback: bool = false
 ) -> Dictionary:
 	if path == "":
 		return {"done": true, "texture": null}
@@ -123,12 +124,12 @@ static func prewarm_texture_threaded_step(
 		_texture_cache[path] = resource_loader_texture
 		return {"done": true, "texture": resource_loader_texture}
 	if not _is_thread_loadable_texture_path(path):
-		return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+		return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 
 	if _threaded_texture_prewarm_path == "":
 		var request_error := ResourceLoader.load_threaded_request(path, "Texture2D", true)
 		if request_error != OK and request_error != ERR_BUSY:
-			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+			return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 		_threaded_texture_prewarm_path = path
 		_threaded_texture_prewarm_started_msec = Time.get_ticks_msec()
 		_threaded_texture_prewarm_poll_count = 0
@@ -144,7 +145,7 @@ static func prewarm_texture_threaded_step(
 			if emit_timeout_warning:
 				_push_threaded_texture_prewarm_stale_warning()
 			_clear_threaded_texture_prewarm()
-			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+			return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 		if _is_threaded_texture_prewarm_stale():
 			_push_threaded_texture_prewarm_stale_warning()
 		return {"done": false, "texture": null}
@@ -159,10 +160,10 @@ static func prewarm_texture_threaded_step(
 				var texture: Texture2D = resource
 				store_texture(path, texture)
 				return {"done": true, "texture": texture}
-			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+			return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
 			_clear_threaded_texture_prewarm()
-			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+			return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 	_threaded_texture_prewarm_poll_count += 1
 	# Bounded fallback: a load stuck in a non-terminal status forever must not hang the
 	# prewarm loop. Past the hard MAX bound, abandon the threaded attempt and resolve
@@ -171,10 +172,21 @@ static func prewarm_texture_threaded_step(
 		if emit_timeout_warning:
 			_push_threaded_texture_prewarm_stale_warning()
 		_clear_threaded_texture_prewarm()
-		return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+		return {"done": true, "texture": _load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)}
 	if _is_threaded_texture_prewarm_stale():
 		_push_threaded_texture_prewarm_stale_warning()
 	return {"done": false, "texture": null}
+
+
+static func _load_threaded_texture_fallback(
+	path: String,
+	missing_warning: String,
+	failed_warning: String,
+	prefer_imported_fallback: bool
+) -> Texture2D:
+	if prefer_imported_fallback:
+		return load_imported_texture(path, missing_warning, failed_warning)
+	return load_texture(path, missing_warning, failed_warning)
 
 
 static func load_audio_stream(path: String, missing_warning: String = "", failed_warning: String = "") -> AudioStream:

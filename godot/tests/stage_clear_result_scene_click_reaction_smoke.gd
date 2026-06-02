@@ -96,11 +96,11 @@ func _init() -> void:
 	var click_rect: Rect2 = status.get("dalji_click_rect", Rect2())
 	_expect(click_rect.size.x > 0.0 and click_rect.size.y > 0.0, "Dalji click rect should be available")
 	_expect(
-		load("res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png").get_size() == Vector2(16128.0, 8064.0),
+		load("res://assets/sprites/stage1/dalji/dalji_result_defeat_cutscene_live2d_clean_anchor_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png").get_size() == Vector2(12544.0, 6272.0),
 		"Dalji result base Live2D should use the Real-ESRGAN hq1152 sheet"
 	)
 	_expect(
-		load("res://assets/sprites/stage1/dalji/dalji_result_click_cry_dont_talk_live2d_remake_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png").get_size() == Vector2(16128.0, 8064.0),
+		load("res://assets/sprites/stage1/dalji/dalji_result_click_cry_dont_talk_live2d_remake_pingpong_98f_autosprite_v6_realesrgan_animev3_hq1152_safe.png").get_size() == Vector2(12544.0, 6272.0),
 		"Dalji result click Live2D should use the Real-ESRGAN hq1152 sheet"
 	)
 	_expect(str(status.get("dalji_click_voice_path", "")).ends_with("voice/dalzidefeat.mp3"), "Dalji click should expose the supplied defeat voice asset")
@@ -108,11 +108,11 @@ func _init() -> void:
 	_expect(str(status.get("dalji_dialogue", "")) == "건들지마", "Dalji click dialogue should be the requested line")
 
 	_expect(
-		load(StageClearResultScene.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH).get_size() == Vector2(16128.0, 8064.0),
+		load(StageClearResultScene.STAGE2_BOSS_DEFEAT_LIVE2D_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
 		"Stage 2 boss result Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
 	)
 	_expect(
-		load(StageClearResultScene.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH).get_size() == Vector2(16128.0, 8064.0),
+		load(StageClearResultScene.STAGE2_BOSS_DEFEAT_CLICK_REACTION_SHEET_PATH).get_size() == Vector2(12544.0, 6272.0),
 		"Stage 2 boss result click Live2D should use the Real-ESRGAN hq1152 14x7 98-frame sheet"
 	)
 	_expect(not bool(status.get("stage2_boss_defeat_live2d_sheet_loaded", true)), "Stage 1 result should not load the Stage 2 boss result Live2D sheet")
@@ -121,7 +121,7 @@ func _init() -> void:
 	_expect(not bool(status.get("stage2_boss_defeat_click_reaction_active", true)), "Stage 1 result should keep the Stage 2 boss click reaction inactive")
 	_expect(int(status.get("stage2_boss_defeat_live2d_frame_count", 0)) == 98, "Stage 2 boss result Live2D should expose 98 frames")
 	_expect(int(status.get("stage2_boss_defeat_live2d_grid_cols", 0)) == 14, "Stage 2 boss result Live2D should use a 14-column grid")
-	_expect(Vector2(status.get("stage2_boss_defeat_live2d_cell_size", Vector2.ZERO)) == Vector2(1152.0, 1152.0), "Stage 2 boss result Live2D should expose Real-ESRGAN hq1152 source cells")
+	_expect(Vector2(status.get("stage2_boss_defeat_live2d_cell_size", Vector2.ZERO)) == Vector2(896.0, 896.0), "Stage 2 boss result Live2D cells are display-fit downscaled (hq1152 source capped to 896px on import)")
 
 	var stage2_scene: Control = RESULT_SCENE.instantiate() as Control
 	_expect(stage2_scene != null, "stage clear result scene should instantiate for Stage 2 boss Live2D")
@@ -188,18 +188,18 @@ func _init() -> void:
 	stage2_scene.free()
 
 	_expect(
-		load("res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png").get_size() == Vector2(15488.0, 12672.0),
+		load("res://assets/sprites/smasher/smasher_result_victory_base_loop_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png").get_size() == Vector2(9856.0, 8064.0),
 		"Smasher result base Live2D should use the identity-locked Real-ESRGAN hq1408 11x9 98-frame sheet"
 	)
 	_expect(
-		load("res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png").get_size() == Vector2(15488.0, 12672.0),
+		load("res://assets/sprites/smasher/smasher_result_victory_click_reaction_98f_autosprite_v18_magenta_v2_no_pet_realesrgan_animev3_hq1408.png").get_size() == Vector2(9856.0, 8064.0),
 		"Smasher result click Live2D should use the identity-locked Real-ESRGAN hq1408 11x9 98-frame sheet"
 	)
 	_expect(bool(status.get("player_victory_sheet_loaded", false)), "Smasher result base Live2D should load")
 	_expect(bool(status.get("player_victory_click_reaction_sheet_loaded", false)), "Smasher result click Live2D should load")
 	_expect(int(status.get("player_victory_frame_count", 0)) == 98, "Smasher result Live2D should expose 98 frames")
 	_expect(int(status.get("player_victory_grid_cols", 0)) == 11, "Smasher result Live2D should use an 11-column grid")
-	_expect(Vector2(status.get("player_victory_cell_size", Vector2.ZERO)) == Vector2(1408.0, 1408.0), "Smasher result Live2D should expose the Real-ESRGAN hq1408 source cell size")
+	_expect(Vector2(status.get("player_victory_cell_size", Vector2.ZERO)) == Vector2(896.0, 896.0), "Smasher result Live2D cells are display-fit downscaled (hq1408 source capped to 896px on import)")
 	var player_draw_rect: Rect2 = status.get("player_victory_draw_rect", Rect2())
 	_expect(is_equal_approx(player_draw_rect.position.y, 213.0), "Smasher result Live2D should use the Dalji-aligned y offset")
 	_expect(is_equal_approx(player_draw_rect.size.y, 760.0), "Smasher result Live2D should use the density-matched right-side draw size")

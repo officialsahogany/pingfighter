@@ -33,7 +33,11 @@ const RESULT_SCROLL_PANEL_PATH := "res://assets/sprites/result_scroll/stage_clea
 
 const DALJI_FRAME_COUNT := 98
 const DALJI_GRID_COLS := 14
-const DALJI_CELL_SIZE := Vector2(1152.0, 1152.0)
+# Source sheet stores 1152px cells, but the result screen only displays the
+# character at ~760px. The .import caps the imported texture to 896px cells
+# (process/size_limit=12544) so the GPU upload is ~3x cheaper with no visible
+# change at the display size. This cell size MUST match that imported cell size.
+const DALJI_CELL_SIZE := Vector2(896.0, 896.0)
 const DALJI_FRAME_INTERVAL := 0.055
 const DALJI_CLICK_FRAME_INTERVAL := 0.036
 const DALJI_CLICK_REACTION_DURATION := DALJI_FRAME_COUNT * DALJI_CLICK_FRAME_INTERVAL
@@ -50,7 +54,12 @@ const DALJI_CLICK_VOICE_VOLUME_DB := -4.5
 
 const PLAYER_VICTORY_FRAME_COUNT := 98
 const PLAYER_VICTORY_GRID_COLS := 11
-const PLAYER_VICTORY_CELL_SIZE := Vector2(1408.0, 1408.0)
+# Source sheet stores 1408px cells; result screen displays at ~760px. The
+# .import caps the imported texture to 896px cells (process/size_limit=9856)
+# for a ~6x cheaper GPU upload with no visible change. Must match the imported
+# cell size; StageClearResultLayoutHelper keeps the authored 1408px click
+# offsets separately so the click region does not drift after downscale.
+const PLAYER_VICTORY_CELL_SIZE := Vector2(896.0, 896.0)
 const PLAYER_VICTORY_FRAME_INTERVAL := 0.055
 const PLAYER_VICTORY_CLICK_FRAME_INTERVAL := 0.036
 const PLAYER_VICTORY_CLICK_REACTION_DURATION := PLAYER_VICTORY_FRAME_COUNT * PLAYER_VICTORY_CLICK_FRAME_INTERVAL
@@ -62,7 +71,9 @@ const PLAYER_VICTORY_CLICK_TOTAL_DURATION := PLAYER_VICTORY_CLICK_REACTION_DURAT
 
 const STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT := 98
 const STAGE2_BOSS_DEFEAT_LIVE2D_GRID_COLS := 14
-const STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE := Vector2(1152.0, 1152.0)
+# Source sheet stores 1152px cells; capped to 896px cells on import
+# (process/size_limit=12544). Must match the imported cell size.
+const STAGE2_BOSS_DEFEAT_LIVE2D_CELL_SIZE := Vector2(896.0, 896.0)
 const STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_INTERVAL := 0.055
 const STAGE2_BOSS_DEFEAT_CLICK_FRAME_INTERVAL := 0.036
 const STAGE2_BOSS_DEFEAT_CLICK_REACTION_DURATION := STAGE2_BOSS_DEFEAT_LIVE2D_FRAME_COUNT * STAGE2_BOSS_DEFEAT_CLICK_FRAME_INTERVAL

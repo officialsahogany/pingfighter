@@ -105,9 +105,15 @@ static func get_player_victory_actor_rect(view_size: Vector2, layout_ratio: floa
 	)
 
 
-static func get_player_victory_click_rect(view_size: Vector2, layout_ratio: float, cell_size: Vector2) -> Rect2:
+static func get_player_victory_click_rect(view_size: Vector2, layout_ratio: float, _cell_size: Vector2) -> Rect2:
 	var actor_rect: Rect2 = get_player_victory_actor_rect(view_size, layout_ratio)
-	var cell_scale: float = actor_rect.size.x / max(1.0, cell_size.x)
+	# The click region was authored against the original 1408px source cell. We
+	# express it as a fraction of the displayed actor (authored cell px), so the
+	# on-screen rect is identical regardless of the imported cell size — the
+	# result texture is now downscaled to 896px cells (process/size_limit) but
+	# the clickable body region must not move. cell_size is intentionally unused.
+	const AUTHORED_SOURCE_CELL_PX := 1408.0
+	var cell_scale: float = actor_rect.size.x / AUTHORED_SOURCE_CELL_PX
 	var click_rect := Rect2(
 		actor_rect.position + Vector2(240.0, 100.0) * cell_scale,
 		actor_rect.size - Vector2(360.0, 210.0) * cell_scale

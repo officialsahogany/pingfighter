@@ -36,7 +36,7 @@ func _init() -> void:
 	)
 	_expect(
 		threaded_prewarm_body.find("_is_threaded_texture_prewarm_stale") >= 0
-			and threaded_prewarm_body.find("load_texture(path, missing_warning, failed_warning)") >= 0,
+			and threaded_prewarm_body.find("_load_threaded_texture_fallback(path, missing_warning, failed_warning, prefer_imported_fallback)") >= 0,
 		"threaded texture prewarm should fall back to source loading instead of stalling indefinitely"
 	)
 	_verify_threaded_prewarm_short_guard(threaded_prewarm_body)
@@ -60,6 +60,10 @@ func _verify_threaded_prewarm_short_guard(threaded_prewarm_body: String) -> void
 		threaded_prewarm_body.find("max_msec: int = THREADED_TEXTURE_PREWARM_MAX_MSEC") >= 0
 			and threaded_prewarm_body.find("max_polls: int = THREADED_TEXTURE_PREWARM_MAX_POLLS") >= 0,
 		"threaded texture prewarm should let callers set a shorter hard fallback guard"
+	)
+	_expect(
+		threaded_prewarm_body.find("prefer_imported_fallback: bool = false") >= 0,
+		"threaded texture prewarm should let result sheets opt into imported-texture fallback"
 	)
 	_expect(
 		threaded_prewarm_body.find("emit_timeout_warning: bool = false") >= 0

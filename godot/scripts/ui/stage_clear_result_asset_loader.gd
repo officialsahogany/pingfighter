@@ -18,6 +18,15 @@ const TEXTURE_KEYS := [
 	"result_box_sheet_guaranteed_mythic",
 ]
 
+const IMPORT_PREFERRED_TEXTURE_KEYS := {
+	"dalji_defeat_sheet": true,
+	"dalji_click_reaction_sheet": true,
+	"stage2_boss_defeat_live2d_sheet": true,
+	"stage2_boss_defeat_click_reaction_sheet": true,
+	"player_victory_sheet": true,
+	"player_victory_click_reaction_sheet": true,
+}
+
 const TEXTURE_MESSAGES := {
 	"background_texture": ["Missing Stage 1 result background at %s", "Failed to load Stage 1 result background at %s"],
 	"dalji_defeat_sheet": ["Missing Dalji result defeat sheet at %s", "Failed to load Dalji result defeat sheet at %s"],
@@ -44,7 +53,7 @@ static func load_textures(current: Dictionary, paths: Dictionary) -> Dictionary:
 			loaded.erase(key)
 			continue
 		var messages: Array = TEXTURE_MESSAGES.get(key, ["", ""])
-		loaded[key] = ProjectResourceLoader.load_texture(path, str(messages[0]), str(messages[1]))
+		loaded[key] = _load_texture_for_key(key, path, str(messages[0]), str(messages[1]))
 	return loaded
 
 
@@ -71,12 +80,20 @@ static func prewarm_assets_step(
 			status.erase(texture_key)
 			return true
 		if use_threaded_texture_loads:
-			var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(path)
+			var result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(
+				path,
+				"",
+				"",
+				ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC,
+				ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS,
+				false,
+				_prefers_imported_texture(texture_key)
+			)
 			if not bool(result.get("done", true)):
 				return false
 			status[texture_key] = result.get("texture", null) is Texture2D
 		else:
-			status[texture_key] = ProjectResourceLoader.load_texture(path) != null
+			status[texture_key] = _load_texture_for_key(texture_key, path) != null
 		return true
 	if step_index == TEXTURE_KEYS.size():
 		var voice_path: String = str(paths.get("dalji_click_voice", ""))
@@ -89,3 +106,18 @@ static func prewarm_assets_step(
 		ResultBoxOpenFxHost.prewarm_assets()
 		status["result_box_fx"] = true
 	return true
+
+
+static func _load_texture_for_key(
+	key: String,
+	path: String,
+	missing_warning: String = "",
+	failed_warning: String = ""
+) -> Texture2D:
+	if _prefers_imported_texture(key):
+		return ProjectResourceLoader.load_imported_texture(path, missing_warning, failed_warning)
+	return ProjectResourceLoader.load_texture(path, missing_warning, failed_warning)
+
+
+static func _prefers_imported_texture(key: String) -> bool:
+	return bool(IMPORT_PREFERRED_TEXTURE_KEYS.get(key, false))

@@ -2,6 +2,7 @@ extends SceneTree
 
 const StageClearResultAssetLoader := preload("res://scripts/ui/stage_clear_result_asset_loader.gd")
 const StageClearResultScene := preload("res://scripts/ui/stage_clear_result_scene.gd")
+const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
 var _failures: Array[String] = []
 
@@ -11,7 +12,7 @@ func _init() -> void:
 	_verify_texture_bundle_load()
 	_verify_audio_load()
 	_verify_scene_delegates_asset_loading()
-	_verify_threaded_prewarm_keeps_stale_loads_off_main_thread()
+	_verify_threaded_prewarm_uses_short_default_guard()
 	_verify_result_box_polygon_colors()
 
 	if _failures.is_empty():
@@ -40,12 +41,12 @@ func _verify_texture_bundle_load() -> void:
 		_expect(textures.get(str(key), null) is Texture2D, "asset loader should load texture key %s" % str(key))
 	var stage2_sheet := textures.get("stage2_boss_defeat_live2d_sheet") as Texture2D
 	_expect(
-		stage2_sheet != null and stage2_sheet.get_size() == Vector2(16128.0, 8064.0),
+		stage2_sheet != null and stage2_sheet.get_size() == Vector2(12544.0, 6272.0),
 		"asset loader should load the Real-ESRGAN hq1152 Stage 2 boss result Live2D sheet"
 	)
 	var stage2_click_sheet := textures.get("stage2_boss_defeat_click_reaction_sheet") as Texture2D
 	_expect(
-		stage2_click_sheet != null and stage2_click_sheet.get_size() == Vector2(16128.0, 8064.0),
+		stage2_click_sheet != null and stage2_click_sheet.get_size() == Vector2(12544.0, 6272.0),
 		"asset loader should load the Real-ESRGAN hq1152 Stage 2 boss result click Live2D sheet"
 	)
 	var commando_paths: Dictionary = StageClearResultScene._result_asset_paths("soldier")
@@ -60,12 +61,12 @@ func _verify_texture_bundle_load() -> void:
 	var commando_textures: Dictionary = StageClearResultAssetLoader.load_textures({}, commando_paths)
 	var commando_sheet := commando_textures.get("player_victory_sheet") as Texture2D
 	_expect(
-		commando_sheet != null and commando_sheet.get_size() == Vector2(15488.0, 12672.0),
+		commando_sheet != null and commando_sheet.get_size() == Vector2(9856.0, 8064.0),
 		"asset loader should load the Commando result base Live2D hq1408 11x9 sheet"
 	)
 	var commando_click_sheet := commando_textures.get("player_victory_click_reaction_sheet") as Texture2D
 	_expect(
-		commando_click_sheet != null and commando_click_sheet.get_size() == Vector2(15488.0, 12672.0),
+		commando_click_sheet != null and commando_click_sheet.get_size() == Vector2(9856.0, 8064.0),
 		"asset loader should load the Commando result click Live2D hq1408 11x9 sheet"
 	)
 
@@ -91,16 +92,17 @@ func _verify_scene_delegates_asset_loading() -> void:
 	)
 
 
-func _verify_threaded_prewarm_keeps_stale_loads_off_main_thread() -> void:
+func _verify_threaded_prewarm_uses_short_default_guard() -> void:
 	var source: String = FileAccess.get_file_as_string("res://scripts/resources/project_resource_loader.gd").replace("\r\n", "\n")
 	_expect(
-		source.find("_push_threaded_texture_prewarm_stale_warning()") >= 0
-		and source.find("keeping it off the main thread") >= 0,
-		"threaded texture prewarm should keep slow result sheets on the threaded path"
+		ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_MSEC <= 3000
+			and ProjectResourceLoader.THREADED_TEXTURE_PREWARM_MAX_POLLS <= 600,
+		"threaded texture prewarm default guard should stay short for loading-screen result sheets"
 	)
 	_expect(
-		source.find("_is_threaded_texture_prewarm_stale():\n\t\t_clear_threaded_texture_prewarm()") < 0,
-		"slow threaded result texture prewarm should not clear into a synchronous load fallback"
+		source.find("emit_timeout_warning: bool = false") >= 0
+			and source.find("if emit_timeout_warning:") >= 0,
+		"threaded texture prewarm should silently recover by default and keep warnings opt-in"
 	)
 
 
