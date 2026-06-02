@@ -1,166 +1,40 @@
 {
   "asset_id": "maribo_acquisition_cutin_anim",
   "character": "maribo",
-  "generated_at": "2026-05-31",
+  "display_name": "마리보",
+  "generated_at": "2026-06-02",
+  "version": "v3_clean_base",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
   "postprocess": {
-    "operation": "Each AutoSprite 1024 cell was premultiplied-alpha resized to 84 percent and centered back into a 1024 cell, then each cell was upscaled to 2048 with source alpha recombined.",
-    "realesrgan": {
-      "model": "realesr-animevideov3",
-      "preview": ".tmp/maribo_cutin_v2/preview_runtime_contact.png",
-      "recombined_output": ".tmp/maribo_cutin_v2/postprocess_s84_x2/maribo_acquire_cutin_repacked_s84_realesrgan_x2.png",
-      "repacked_source": ".tmp/maribo_cutin_v2/postprocess_s84_x2/maribo_acquire_cutin_repacked_s84_1024.png",
-      "scale": 2.0,
-      "script": ".tmp/maribo_cutin_v2/repack_and_upscale_cutin.py",
-      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe"
-    },
+    "operation": "Each AutoSprite 1024 cell was premultiplied-alpha resized to 84 percent and centered into a 1024 cell, RGB alpha-bled then Real-ESRGAN x2 to 2048, recombined with the source alpha resized x2 (lanczos), and packed into a 4x4 16-frame sheet.",
     "source_scale_repack": 0.84,
-    "tool": "Pillow per-cell deterministic repack plus Real-ESRGAN alpha-preserved upscale"
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2.0,
+      "alpha_handling": "RGB alpha-bled + ESRGAN x2; source alpha lanczos x2; recombined",
+      "script": ".tmp/maribo_cutin_v3/prep_cells.py + recombine.py"
+    },
+    "tool": "Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale"
   },
   "qa": {
-    "raw_sample_margins_ltrb": [
-      [
-        0.0,
-        14.0,
-        22.0,
-        0.0,
-        0.0
-      ],
-      [
-        2.0,
-        16.0,
-        16.0,
-        0.0,
-        0.0
-      ],
-      [
-        4.0,
-        17.0,
-        15.0,
-        0.0,
-        0.0
-      ],
-      [
-        6.0,
-        6.0,
-        22.0,
-        0.0,
-        0.0
-      ],
-      [
-        8.0,
-        0.0,
-        30.0,
-        0.0,
-        0.0
-      ],
-      [
-        10.0,
-        3.0,
-        33.0,
-        0.0,
-        0.0
-      ],
-      [
-        12.0,
-        16.0,
-        32.0,
-        0.0,
-        0.0
-      ],
-      [
-        14.0,
-        15.0,
-        28.0,
-        0.0,
-        0.0
-      ],
-      [
-        15.0,
-        15.0,
-        25.0,
-        0.0,
-        0.0
-      ]
-    ],
-    "transparent_edge_alpha_count_after_repack_samples": 0.0,
-    "upscaled_sample_margins_ltrb": [
-      [
-        0.0,
-        189.0,
-        199.0,
-        159.0,
-        159.0
-      ],
-      [
-        2.0,
-        190.0,
-        190.0,
-        159.0,
-        159.0
-      ],
-      [
-        4.0,
-        192.0,
-        189.0,
-        159.0,
-        159.0
-      ],
-      [
-        6.0,
-        174.0,
-        200.0,
-        159.0,
-        159.0
-      ],
-      [
-        8.0,
-        160.0,
-        214.0,
-        159.0,
-        159.0
-      ],
-      [
-        10.0,
-        168.0,
-        220.0,
-        159.0,
-        159.0
-      ],
-      [
-        12.0,
-        190.0,
-        217.0,
-        159.0,
-        159.0
-      ],
-      [
-        14.0,
-        189.0,
-        212.0,
-        159.0,
-        159.0
-      ],
-      [
-        15.0,
-        189.0,
-        205.0,
-        159.0,
-        159.0
-      ]
-    ]
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": 0,
+    "fringe_check": "Composited over dark background; no magenta/pink fringe (clean despilled base + new character).",
+    "final_strip_preview": ".tmp/maribo_cutin_v3/cutin_v3_final_strip_dark.png"
   },
   "reconstruction_frame0": {
-    "alpha_bbox": [
-      0.1,
-      0.1,
-      0.825,
-      0.825
-    ],
-    "alpha_threshold": 0.1,
     "frame_index": 0,
     "grid_cols": 10,
     "grid_rows": 10,
-    "note": "Per-cell frame-0 alpha occupancy + tight bbox for the digital reconstruction; empty cells skip shard/bevel/flash so only Maribo's silhouette assembles.",
+    "alpha_threshold": 0.1,
+    "alpha_bbox": [
+      0.2686,
+      0.2202,
+      0.7573,
+      0.7778
+    ],
+    "note": "Per-cell frame-0 alpha occupancy + tight bbox for the digital reconstruction; empty cells skip shard/bevel/flash so only Maribo's silhouette assembles. RECALCULATED for the v3 clean-base pose.",
     "occupancy": [
       0,
       0,
@@ -176,35 +50,14 @@
       0,
       0,
       0,
-      1,
-      1,
-      1,
-      1,
-      0,
-      0,
-      0,
-      1,
-      0,
-      0,
-      1,
-      1,
-      1,
       0,
       0,
       0,
       0,
-      1,
-      1,
-      0,
-      1,
-      1,
-      1,
-      1,
-      1,
       0,
       0,
       0,
-      1,
+      0,
       1,
       1,
       1,
@@ -220,28 +73,20 @@
       1,
       1,
       1,
-      1,
       0,
       0,
       0,
       0,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
       0,
       0,
       1,
       1,
       1,
       1,
-      1,
-      1,
-      1,
-      1,
+      0,
+      0,
+      0,
+      0,
       0,
       0,
       1,
@@ -249,18 +94,47 @@
       1,
       1,
       1,
-      1,
-      1,
-      1,
       0,
       0,
-      1,
-      1,
+      0,
       0,
       0,
       1,
       1,
       1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       0
     ]
   },
@@ -270,38 +144,38 @@
       2048.0
     ],
     "cols": 4.0,
+    "rows": 4.0,
     "frame_count": 16.0,
     "frame_interval": "looped at 16 fps",
     "path": "res://assets/sprites/lingpet/maribo_cutin_anim.png",
-    "rows": 4.0,
     "sheet_size": [
       8192.0,
       8192.0
     ],
     "source_scale_repack": 0.84,
-    "upscale_scale": 2.0
+    "upscale_scale": 2.0,
+    "sha256": "cb459bc85a7fe0934ea96ec1852b8754cc6fb7f875e18bdfba115db9811d737c",
+    "bytes": 30746875
   },
-  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
   "source_autosprite": {
-    "character_id": "cmpt73xb500aisbdwg1kfwn4a",
-    "character_name": "Maribo (lingpet)",
-    "columns": 4.0,
-    "first_frame_pose_id": "cmptwj9bs00559q0kn3kgb476",
-    "frame_count": 16.0,
-    "frame_height": 1024.0,
-    "frame_width": 1024.0,
-    "pose_id": "cmptwj9bs00559q0kn3kgb476",
-    "pose_job_id": "cf_783f0d0e-76b1-42b0-b982-350512727721",
+    "character_id": "cmpvvuv3p00hbpf2widl8v49q",
+    "character_name": "Maribo Lingpet Clean (click react)",
+    "base_upload_source": "godot/lingpet/maribo/maribo_autosprite_clean_base_padded_v1.png",
+    "base_provenance": "v003 magenta source despilled to a flat transparent base, tight-reframed (~74%/65% fill), uploaded as a NEW clean character to remove the dirty-magenta fringe of the original maribo character.",
+    "pose_id": "cmpvwk9k5001fg2qefwq4qzdj",
     "pose_name": "Acquire Cutin",
-    "prompt": "16-frame high-quality acquisition cut-in loop. Keep Maribo's pose and trident rigid, fully inside frame. Only subtle breathing, tiny armor/fin sway, spear crystal glint, ocean resonance shimmer. Preserve purple eyes, glossy pink skin, blue shell armor. Transparent background, safe margins, no text or UI.",
+    "spritesheet_id": "cmpvwr3c4001uev0dce0fuo6m",
+    "spritesheet_job_id": "wf_05d6a9bd-2f97-4237-a220-1d520f832452",
+    "video_id": "cmpvwpifa0006ggzy0c0jx9he",
+    "frame_count": 16.0,
+    "frame_width": 1024.0,
+    "frame_height": 1024.0,
+    "columns": 4.0,
     "quality": "legendary",
-    "raw_atlas_local_path": ".tmp/maribo_cutin_v2/maribo_acquire_cutin_raw_1024_16f_atlas.json",
-    "raw_sheet_local_path": ".tmp/maribo_cutin_v2/maribo_acquire_cutin_raw_1024_16f.png",
     "remove_bg": "ultra",
-    "spritesheet_id": "cmptx0o0600b39q0kgp2q8r49",
-    "spritesheet_job_id": "wf_ddbfdd83-bf57-4d5c-9d2d-d949b71d2c70",
-    "video_id": "cmptwmmxv00e3ojrvtcwir5h7",
+    "prompt": "16-frame high-quality acquisition cut-in loop for Maribo the pink dolphin Ringpet. Keep Maribo's pose and the full trident spear rigid and fully inside frame. Only subtle Live2D-style motion: gentle breathing, tiny armor/fin sway, cyan spear crystal glint, soft ocean resonance shimmer. Preserve identity: big purple eyes, glossy pink skin, teal scalloped shell armor with chest clam shell, single cyan trident. Transparent background, generous safe margins, no text, no UI, no extra characters, no crop. Frame 16 must loop cleanly back to frame 1.",
     "with_sound": false
   },
-  "status": "dedicated Maribo acquisition cut-in pose + AutoSprite 16f loop + Real-ESRGAN x2"
+  "root_cause_note": "v3 regenerates the cut-in from a clean despilled base + new character to remove the dirty-magenta fringe and the trident-shimmer instability that made the older v2 cut-in read lower-quality than Lunabi. Grid (4x4 / 16f / 2048 cell / 8192 sheet) is unchanged so the host's CUTIN_ANIM_COLS/ROWS/FRAMES stay valid; only the reconstruction occupancy mask was recalculated for the new pose.",
+  "status": "v3 dedicated Maribo acquisition cut-in (clean-base new character) + AutoSprite 16f loop + Real-ESRGAN x2. Replaces v2. Backup at .tmp/maribo_cutin_v3/maribo_cutin_anim_v2_backup.png."
 }

@@ -59,14 +59,28 @@ runtime cutout use.
 | 1 | The generation prompt required a perfectly flat solid chroma-key background: default `#ff00ff` magenta, or `#00ff00` green when magenta conflicts with the character palette | yes |
 | 2 | The prompt explicitly forbade black / white / dark studio / gradient / scenic / checkerboard / transparent-looking backgrounds for the raw source | yes |
 | 3 | The chosen chroma-key color does not appear in the character, costume, props, glow, VFX, eyes, hair accents, or UI-facing motif | yes |
+| 3b | The chroma-key color is not even hue-ADJACENT to a major character color. A pink / rose / red-violet character must use green (`#00ff00`), NOT magenta — pink is too close to magenta and removeBg leaves a pink/magenta rim. A green / lime character must use magenta. Hue-adjacency causes fringe even when the exact key color is absent | yes |
 | 4 | The background is one uniform color to every canvas edge: no shadow, floor plane, rim-light spill, texture, compression haze, glow wash, or vignette | yes |
 | 5 | Full body, hair tips, weapons, props, hoverboards / mounts, and effects are fully inside the canvas with generous margin; nothing touches the edge | yes |
 | 6 | The accepted handoff keeps both the raw chroma-key source and the cleaned alpha PNG, and records key color plus removal / cleanup method | yes |
 | 7 | The cleaned PNG has an alpha channel, transparent corners, a non-edge-touching alpha bbox, and no visible magenta / green fringe on dark and light preview backgrounds | yes |
+| 8 | If this source becomes an AutoSprite `upload_character` base, the uploaded image is a CLEAN transparent (already-nukki'd) cutout OR a perfectly flat key — never a dirty / non-flat / hue-adjacent magenta. A dirty-key or hue-adjacent base makes EVERY generated motion sheet re-introduce fringe at the removeBg step, sheet after sheet, no matter how good the prompt is | yes |
 
 Fail any row -> do not treat the source art as a production Live2D anchor.
-Regenerate on a proper chroma-key background or redo the nukki pass before
-animating, upscaling, or wiring the asset.
+Regenerate on a proper chroma-key background, redo the nukki pass, or despill
+to a clean transparent base before animating, upscaling, or wiring the asset.
+
+Recovery for an already-built character whose base was a dirty / hue-adjacent
+key: do NOT keep regenerating motion sheets from it and fighting fringe in
+post. Despill the source to a clean transparent cutout, tight-reframe it to
+the established base footprint, and `upload_character` it as a NEW character;
+generate the motion sheets from that clean character instead. Reference case:
+Maribo (pink dolphin) read lower-quality than Lunabi (dark-purple bat) purely
+because maribo's v003 source was a NON-FLAT magenta (corners R218-235 / G10-36
+/ B185-209) and pink is hue-adjacent to magenta, so removeBg left a magenta /
+pink rim on every sheet; Lunabi's flat `#ff00ff` source + dark body had no such
+problem. Fixed by despilling v003 to a clean transparent base and re-uploading
+as a new character before generating the click-reaction sheet.
 
 ---
 
