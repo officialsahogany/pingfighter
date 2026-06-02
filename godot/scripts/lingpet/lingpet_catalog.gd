@@ -125,7 +125,7 @@ const PETS := {
 	"draft_bat": {
 		"id": "draft_bat",
 		"display_name": "드래프트 배트",
-		"enabled": false,
+		"enabled": true,
 		"hatch_weight": 1.0,
 		"required_hits": 1,
 		"unlock": {

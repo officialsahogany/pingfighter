@@ -97,11 +97,13 @@ func _verify_dispatcher_and_catalog_scaffold() -> void:
 	_expect(LingpetRailCard.is_lingpet_skill({"id": "draft_bat_moon_orbit"}), "shared rail-card helper should recognize draft_bat Moon Orbit as a lingpet skill")
 	for visual_key in ["cutin_art", "cutin_anim", "cutin_dismiss_anim", "click_reaction_anim"]:
 		var visual_path: String = LingpetCatalog.get_visual_path("draft_bat", visual_key)
-		_expect(visual_path != "", "draft_bat should expose %s visual metadata even while disabled" % visual_key)
+		_expect(visual_path != "", "draft_bat should expose %s visual metadata as a live hatch candidate" % visual_key)
 		_expect(FileAccess.file_exists(visual_path), "draft_bat visual file should exist for %s" % visual_key)
-	_expect(not LingpetCatalog.get_pet_ids().has("draft_bat"), "draft_bat should stay disabled until its acquisition/click sheets are ready")
+	_expect(LingpetCatalog.get_pet_ids().has("draft_bat"), "draft_bat should enter the enabled lingpet id list once cut-in/click sheets exist")
 	_expect(LingpetCatalog.get_pet_ids(true).has("draft_bat"), "draft_bat should remain discoverable for tooling and future enablement")
-	_expect(LingpetCatalog.validate_catalog(true).is_empty(), "disabled draft_bat metadata should not break strict catalog validation")
+	var candidates: Array[String] = LingpetCatalog.get_hatch_candidates({"league_mode": "junior", "character_type": "smasher"}, [])
+	_expect(candidates.has("draft_bat"), "draft_bat should enter the unidentified Junior Smasher hatch pool")
+	_expect(LingpetCatalog.validate_catalog(true).is_empty(), "live draft_bat metadata should validate cleanly")
 
 	var runtime := FakeLingpetRuntime.new()
 	runtime.snapshot = {
