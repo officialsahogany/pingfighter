@@ -345,6 +345,7 @@ func _init() -> void:
 	_verify_lingpet_battle_slot_model()
 	_verify_companion_visual_and_pillar_card()
 	_verify_companion_patrol_ignores_viper_airborne_y()
+	_verify_companion_initial_facing_uses_patrol_dir()
 	_verify_companion_patrol_edge_pause_and_speed_change()
 	_verify_companion_ball_collision_soft_bounce()
 	_verify_companion_strike_anticipates_contact()
@@ -767,11 +768,13 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	# 3/4-back view facing the direction of travel (rightward). Leftward travel
 	# is rendered by mirroring it (negative-width destination rect, no in-_draw
 	# draw_set_transform). The facing must be latched from ACTUAL horizontal travel
-	# (dx), NOT raw patrol_dir -- patrol_dir toggles during pauses / reverse-and-
-	# pause decisions, which snapped the held spear sides while standing still (the
-	# "teleport on turn" bug). Seal the travel -> face_left -> flip chain so neither
-	# the latch nor the mirror silently regresses.
+	# (dx) during normal movement: patrol_dir toggles during pauses / reverse-and-
+	# pause decisions, which snapped the held spear sides while standing still. First
+	# spawn/restore is the exception because zero-to-spawn placement is not travel;
+	# seed that frame from patrol_dir. Seal the travel -> face_left -> flip chain so
+	# neither the latch nor the mirror silently regresses.
 	_expect(runtime_source.find("_companion_facing_left") >= 0, "egg runtime should latch companion facing to actual horizontal travel, not raw patrol_dir")
+	_expect(runtime_source.find("_set_companion_facing_from_patrol_dir") >= 0, "egg runtime should seed companion facing from patrol_dir on first spawn/restore")
 	_expect(runtime_source.find("\"face_left\"") >= 0, "egg runtime should feed the latched facing into the draw config")
 	_expect(draw_context_source.find("face_left") >= 0, "companion draw context should pass the face_left flag through to the renderer")
 	_expect(companion_renderer_source.find("face_left") >= 0, "companion renderer should flip the walk sheet horizontally when facing left")
@@ -1130,6 +1133,25 @@ func _verify_companion_patrol_ignores_viper_airborne_y() -> void:
 	var airborne_follow_y: float = owner.player_pos.y + owner.player_paddle_height * 0.5
 	_expect(absf(owner.lingpet_companion_pos.y - grounded_y) <= 0.01, "Viper jetpack Y should not pull the Maribo patrol lane into the air")
 	_expect(absf(owner.lingpet_companion_pos.y - airborne_follow_y) > 80.0, "Maribo patrol should use the ground lane, not Viper's airborne player_pos.y")
+
+
+func _verify_companion_initial_facing_uses_patrol_dir() -> void:
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["draft_bat"]
+	owner.owned_lingpet_ids = owner.lingpet_owned_pet_ids.duplicate()
+	owner.owned_ringpet_ids = owner.lingpet_owned_pet_ids.duplicate()
+	var runtime: Object = LingpetEggRuntime.new()
+	runtime.apply_save_snapshot({
+		"pet_id": "draft_bat",
+		"state": "companion",
+		"owned_pet_ids": ["draft_bat"],
+		"companion_pos": Vector2.ZERO,
+		"companion_patrol_dir": -1.0,
+		"companion_patrol_seed": 24680,
+		"companion_patrol_speed": 216.0,
+	}, owner)
+	_expect(owner.lingpet_companion_pos != Vector2.ZERO, "Draft Bat companion should initialize from a zero saved position")
+	_expect(bool(runtime.is_companion_facing_left_for_tests()), "companion first-spawn facing should use restored patrol_dir, not the zero-to-spawn placement dx")
 
 
 func _verify_companion_patrol_edge_pause_and_speed_change() -> void:

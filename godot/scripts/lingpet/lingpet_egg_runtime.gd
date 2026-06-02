@@ -78,10 +78,11 @@ var _pet_id := PET_ID
 var _egg_state: Object = LingpetEggFieldState.new()
 var _egg_renderer: Object = LingpetEggFieldRenderer.new()
 var _companion_pos := Vector2.ZERO
-# Latched horizontal facing for the walk-sheet mirror. Updated ONLY from actual
-# horizontal travel (see _update_companion_motion), never from raw patrol_dir --
+# Latched horizontal facing for the walk-sheet mirror. Normal motion updates it
+# from actual horizontal travel (see _update_companion_motion), not raw patrol_dir:
 # patrol_dir toggles during pauses / reverse-and-pause decisions, which made the
-# held spear snap sides while Maribo stood still (the "teleport on turn" bug).
+# held spear snap sides while Maribo stood still. First spawn/restore is seeded
+# from patrol_dir because the zero-to-spawn placement jump is not real travel.
 var _companion_facing_left := false
 var _companion_motion_state: Object = LingpetCompanionMotionState.new()
 var _hatch_flash_timer := 0.0
@@ -317,6 +318,10 @@ func is_companion_striking_for_tests() -> bool:
 
 func get_companion_strike_frame_for_tests() -> int:
 	return _companion_sprite_animator.get_strike_frame()
+
+
+func is_companion_facing_left_for_tests() -> bool:
+	return _companion_facing_left
 
 
 func get_hydro_puddle_particle_count_for_tests() -> int:
@@ -752,7 +757,7 @@ func _get_vector2_from_variant(value: Variant, fallback: Vector2) -> Vector2:
 
 
 func _update_companion_motion(delta: float, owner: Object) -> void:
-	var prev_x: float = _companion_pos.x
+	var prev_pos: Vector2 = _companion_pos
 	_companion_motion_state.pos = _companion_pos
 	_companion_motion_state.update(
 		delta,
@@ -765,12 +770,7 @@ func _update_companion_motion(delta: float, owner: Object) -> void:
 		_get_current_motion_style()
 	)
 	_companion_pos = _companion_motion_state.pos
-	# Flip the walk-sheet mirror only when Maribo VISIBLY travels left/right. Using
-	# actual dx (not patrol_dir) holds the facing through pauses and reverse-and-
-	# pause decisions, so the held spear no longer snaps sides while standing still.
-	var dx: float = _companion_pos.x - prev_x
-	if absf(dx) > 0.05:
-		_companion_facing_left = dx < 0.0
+	_update_companion_facing_after_motion(prev_pos)
 
 
 func _initialize_companion_patrol(owner: Object, randomize_x: bool) -> void:
@@ -784,6 +784,7 @@ func _initialize_companion_patrol(owner: Object, randomize_x: bool) -> void:
 		_get_current_motion_style()
 	)
 	_companion_pos = _companion_motion_state.pos
+	_set_companion_facing_from_patrol_dir()
 
 
 func _restore_companion_patrol(snapshot: Dictionary) -> void:
@@ -795,6 +796,7 @@ func _restore_companion_patrol(snapshot: Dictionary) -> void:
 		_get_current_motion_style()
 	)
 	_companion_pos = _companion_motion_state.pos
+	_set_companion_facing_from_patrol_dir()
 
 
 func _reset_companion_patrol() -> void:
@@ -805,6 +807,30 @@ func _reset_companion_patrol() -> void:
 
 func _reset_companion_defense() -> void:
 	_companion_motion_state.reset_defense()
+
+
+func _update_companion_facing_after_motion(prev_pos: Vector2) -> void:
+	# Flip the walk-sheet mirror only when Maribo VISIBLY travels left/right. Using
+	# actual dx (not patrol_dir) holds the facing through pauses and reverse-and-
+	# pause decisions, so the held spear no longer snaps sides while standing still.
+	# The one exception is first spawn/restore from Vector2.ZERO: that "movement"
+	# is a placement jump, not horizontal travel, so seed the latch from the real
+	# patrol direction instead of forcing a right-facing frame.
+	if _companion_pos == Vector2.ZERO:
+		return
+	if prev_pos == Vector2.ZERO:
+		_set_companion_facing_from_patrol_dir()
+		return
+	var dx: float = _companion_pos.x - prev_pos.x
+	if absf(dx) > 0.05:
+		_companion_facing_left = dx < 0.0
+
+
+func _set_companion_facing_from_patrol_dir() -> void:
+	var patrol_dir: float = float(_companion_motion_state.patrol_dir)
+	if absf(patrol_dir) <= 0.01:
+		return
+	_companion_facing_left = patrol_dir < 0.0
 
 
 func _resolve_companion_ball_hit(owner: Object, registry: Object = null) -> bool:
