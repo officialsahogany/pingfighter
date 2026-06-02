@@ -324,6 +324,7 @@ func _init() -> void:
 	_verify_companion_paddle_hit_width()
 	_verify_companion_guards_dalji_whip()
 	_verify_companion_skill_card_hydro_sphere()
+	_verify_lingpet_skill_cooldown_survives_slot_switch()
 	_verify_hydro_puddle_vfx()
 	_verify_save_snapshot_roundtrip()
 	_verify_save_store_persists_and_restores_maribo()
@@ -1330,6 +1331,38 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count, "Hydro Sphere should not relaunch until the re-armed wind-up completes")
 	runtime.update(LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS + 0.05, owner, registry)
 	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count + 1, "Hydro Sphere should relaunch after its 40-second cooldown plus the wind-up")
+
+
+func _verify_lingpet_skill_cooldown_survives_slot_switch() -> void:
+	var owner := FakeOwner.new()
+	owner.lingpet_owned_pet_ids = ["maribo", "lunabi"]
+	owner.owned_lingpet_ids = owner.lingpet_owned_pet_ids.duplicate()
+	owner.owned_ringpet_ids = owner.lingpet_owned_pet_ids.duplicate()
+	owner.lingpet_slots = ["maribo", "lunabi", ""]
+	owner.ringpet_slots = owner.lingpet_slots.duplicate()
+	owner.lingpet_slot_pet_ids = owner.lingpet_slots.duplicate()
+	owner.ringpet_slot_pet_ids = owner.lingpet_slots.duplicate()
+	owner.lingpet_active_slot_index = 0
+	owner.ringpet_active_slot_index = 0
+	owner.ball_active = true
+	var runtime: Object = LingpetEggRuntime.new()
+	var audio := FakePaddleAudio.new()
+	var registry := FakeRegistry.new({
+		"game_audio": audio,
+		"status_effect_state": FakeStatusEffectState.new(),
+	})
+	runtime.update(0.0, owner, registry)
+	runtime.update(0.0, owner, registry)
+	runtime.update(LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS + 0.05, owner, registry)
+	var maribo_cooldown: float = float(owner.lingpet_skill_cooldown)
+	_expect(str(owner.active_lingpet_id) == "maribo", "skill cooldown switch test should start with Maribo active")
+	_expect(maribo_cooldown > 39.0, "Maribo skill should have a live cooldown before switching away")
+	_expect(bool(runtime.switch_lingpet_slot(1, owner)), "switching to the occupied Lunabi slot should succeed")
+	_expect(str(owner.active_lingpet_id) == "lunabi", "slot switch should activate Lunabi")
+	_expect(is_equal_approx(float(owner.lingpet_skill_cooldown), 0.0), "freshly switched Lunabi should publish its own ready skill state")
+	_expect(bool(runtime.switch_lingpet_slot(0, owner)), "switching back to Maribo should succeed")
+	_expect(str(owner.active_lingpet_id) == "maribo", "slot switch should reactivate Maribo")
+	_expect(float(owner.lingpet_skill_cooldown) >= maribo_cooldown - 0.01, "switching away and back should not reset Maribo's active-skill cooldown")
 
 
 func _verify_hydro_puddle_vfx() -> void:

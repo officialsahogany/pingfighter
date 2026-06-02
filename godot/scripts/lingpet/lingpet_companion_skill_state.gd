@@ -60,6 +60,24 @@ func complete_launch(launch_origin: Vector2, cooldown_seconds: float, flash_seco
 	origin = launch_origin
 
 
+func get_persistent_snapshot() -> Dictionary:
+	return {
+		"cooldown": cooldown,
+		"trigger_count": trigger_count,
+		"last_gain": last_gain,
+		"origin": origin,
+	}
+
+
+func apply_persistent_snapshot(snapshot: Dictionary) -> void:
+	reset_all()
+	cooldown = maxf(0.0, float(snapshot.get("cooldown", 0.0)))
+	trigger_count = maxi(0, int(snapshot.get("trigger_count", 0)))
+	last_gain = maxf(0.0, float(snapshot.get("last_gain", 0.0)))
+	var origin_value: Variant = snapshot.get("origin", Vector2.ZERO)
+	origin = origin_value if origin_value is Vector2 else Vector2.ZERO
+
+
 func get_flash_ratio(flash_seconds: float) -> float:
 	if flash_seconds <= 0.0:
 		return 0.0

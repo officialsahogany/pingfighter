@@ -94,6 +94,7 @@ var _save_restore_planner: Object = LingpetSaveRestorePlanner.new()
 var _acquire_cutin_state: Object = LingpetAcquireCutinState.new()
 var _switch_transition_state: Object = LingpetCompanionSwitchState.new()
 var _companion_click_reaction_state: Object = LingpetCompanionClickReactionState.new()
+var _companion_skill_state_by_pet_id: Dictionary = {}
 var _has_synced_none := false
 
 
@@ -220,11 +221,13 @@ func debug_grant_and_activate_pet(pet_id: String, owner: Object = null, show_acq
 	var normalized_pet_id := _normalize_pet_id(pet_id)
 	if normalized_pet_id == "":
 		return false
+	_save_current_companion_skill_state()
 	_state = STATE_COMPANION
 	_set_current_pet_id(normalized_pet_id)
 	_egg_state.set_hatched(_get_current_required_hits())
 	_companion_pos = Vector2.ZERO
 	_reset_companion_runtime_state()
+	_restore_current_companion_skill_state()
 	_switch_transition_state.reset()
 	_hatch_flash_timer = 0.0
 	_acquire_cutin_state.reset()
@@ -264,6 +267,7 @@ func _set_current_pet_id(value: String) -> void:
 
 
 func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
+	_save_current_companion_skill_state()
 	var next_pet_id: String = _collection_state.select_active_slot(slot_index, owner)
 	if next_pet_id == "":
 		return false
@@ -278,6 +282,7 @@ func switch_lingpet_slot(slot_index: int, owner: Object = null) -> bool:
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
 	_reset_companion_runtime_state()
+	_restore_current_companion_skill_state()
 	_prewarm_current_visuals()
 	_mark_current_pet_owned(owner)
 	_sync_owner(owner)
@@ -436,6 +441,7 @@ func reset_for_tests() -> void:
 	_collection_state.reset()
 	_hatch_flash_timer = 0.0
 	_reset_companion_runtime_state()
+	_companion_skill_state_by_pet_id.clear()
 	_acquire_cutin_state.reset()
 	_switch_transition_state.reset()
 	_has_synced_none = false
@@ -539,11 +545,26 @@ func _adopt_owned_pet(owner: Object, pet_id: String) -> void:
 	_companion_pos = Vector2.ZERO
 	_initialize_companion_patrol(owner, true)
 	_reset_companion_runtime_state()
+	_restore_current_companion_skill_state()
 	_switch_transition_state.reset()
 	_hatch_flash_timer = 0.0
 	_prewarm_current_visuals()
 	_mark_current_pet_owned(owner)
 	_sync_owner(owner)
+
+
+func _save_current_companion_skill_state() -> void:
+	if _pet_id == "" or _companion_skill_state == null or not _companion_skill_state.has_method("get_persistent_snapshot"):
+		return
+	_companion_skill_state_by_pet_id[_pet_id] = _companion_skill_state.get_persistent_snapshot()
+
+
+func _restore_current_companion_skill_state() -> void:
+	if _pet_id == "" or not _companion_skill_state_by_pet_id.has(_pet_id):
+		return
+	var snapshot: Variant = _companion_skill_state_by_pet_id.get(_pet_id, {})
+	if snapshot is Dictionary and _companion_skill_state != null and _companion_skill_state.has_method("apply_persistent_snapshot"):
+		_companion_skill_state.apply_persistent_snapshot(snapshot as Dictionary)
 
 
 func _mark_current_pet_owned(owner: Object) -> void:
