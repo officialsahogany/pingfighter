@@ -78,6 +78,11 @@ var _pet_id := PET_ID
 var _egg_state: Object = LingpetEggFieldState.new()
 var _egg_renderer: Object = LingpetEggFieldRenderer.new()
 var _companion_pos := Vector2.ZERO
+# Latched horizontal facing for the walk-sheet mirror. Updated ONLY from actual
+# horizontal travel (see _update_companion_motion), never from raw patrol_dir --
+# patrol_dir toggles during pauses / reverse-and-pause decisions, which made the
+# held spear snap sides while Maribo stood still (the "teleport on turn" bug).
+var _companion_facing_left := false
 var _companion_motion_state: Object = LingpetCompanionMotionState.new()
 var _hatch_flash_timer := 0.0
 var _companion_body_hit_state: Object = LingpetCompanionBodyHitState.new()
@@ -747,6 +752,7 @@ func _get_vector2_from_variant(value: Variant, fallback: Vector2) -> Vector2:
 
 
 func _update_companion_motion(delta: float, owner: Object) -> void:
+	var prev_x: float = _companion_pos.x
 	_companion_motion_state.pos = _companion_pos
 	_companion_motion_state.update(
 		delta,
@@ -759,6 +765,12 @@ func _update_companion_motion(delta: float, owner: Object) -> void:
 		_get_current_motion_style()
 	)
 	_companion_pos = _companion_motion_state.pos
+	# Flip the walk-sheet mirror only when Maribo VISIBLY travels left/right. Using
+	# actual dx (not patrol_dir) holds the facing through pauses and reverse-and-
+	# pause decisions, so the held spear no longer snaps sides while standing still.
+	var dx: float = _companion_pos.x - prev_x
+	if absf(dx) > 0.05:
+		_companion_facing_left = dx < 0.0
 
 
 func _initialize_companion_patrol(owner: Object, randomize_x: bool) -> void:
@@ -788,6 +800,7 @@ func _restore_companion_patrol(snapshot: Dictionary) -> void:
 func _reset_companion_patrol() -> void:
 	_companion_motion_state.reset()
 	_companion_pos = Vector2.ZERO
+	_companion_facing_left = false
 
 
 func _reset_companion_defense() -> void:
@@ -931,7 +944,7 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"switch_particles": COMPANION_SWITCH_TRANSITION_PARTICLES,
 		"animator": _companion_sprite_animator,
 		"patrol_pause": _companion_motion_state.patrol_pause,
-		"patrol_dir": _companion_motion_state.patrol_dir,
+		"face_left": _companion_facing_left,
 		"motion_speed_ratio": 1.0 if _skill_runtime_host.has_companion_position_override(_get_current_skill_id()) else (_companion_motion_state.motion_speed_ratio if _get_current_motion_style() == "sortie_flight" else 0.0),
 		"companion_visible": _companion_motion_state.motion_visible or _skill_runtime_host.has_companion_position_override(_get_current_skill_id()),
 		"windup_seconds": _get_current_skill_windup_seconds(),
