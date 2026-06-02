@@ -822,8 +822,11 @@ func try_activate_before_movement(
 			if _can_activate_configured_skill(dual_glitch_skill_config, special_gauge, deps, DUAL_GLITCH, now_msec):
 				return _start_dual_glitch(player_pos, special_gauge, config, deps, now_msec)
 	var blade_combo_result: Dictionary = {}
-	if up_edge:
-		blade_combo_result = _try_start_blade_combo_from_motion(player_pos, special_gauge, config, deps, now_msec)
+	if up_edge and _is_blade_motion_combo_phase_active():
+		if not blade_dark_mode:
+			blade_combo_result = _try_start_blade_combo_from_air_blade_motion(player_pos, special_gauge, config, deps, now_msec)
+		else:
+			blade_combo_result = _try_start_blade_combo_from_dark_blade_motion(player_pos, special_gauge, config, deps, now_msec)
 	if not blade_combo_result.is_empty():
 		return blade_combo_result
 	if chaos_state == "startup":
@@ -3507,20 +3510,6 @@ func _play_dive_strike_sound(deps: Dictionary) -> void:
 	audio_router.play_dive_strike_sound(deps)
 
 
-func _try_start_blade_combo_from_motion(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int
-) -> Dictionary:
-	if not _is_blade_motion_combo_phase_active():
-		return {}
-	if not blade_dark_mode:
-		return _try_start_blade_combo_from_air_blade_motion(player_pos, special_gauge, config, deps, now_msec)
-	return _try_start_blade_combo_from_dark_blade_motion(player_pos, special_gauge, config, deps, now_msec)
-
-
 func _try_start_blade_combo_from_air_blade_motion(
 	player_pos: Vector2,
 	special_gauge: float,
@@ -3533,20 +3522,23 @@ func _try_start_blade_combo_from_air_blade_motion(
 		_is_skill_equipped(combo_skill_config, NERVE_STRIKE)
 		and _is_skill_equipped(combo_skill_config, DARK_BLADE)
 	)
-	var nerve_strike_combo_attempt := _try_start_nerve_strike_combo_from_blade_motion(
-		player_pos,
-		special_gauge,
-		config,
-		deps,
-		now_msec,
-		nerve_and_dark_blade_equipped
+	var nerve_strike_window_end_frame: float = (
+		NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
+		if nerve_and_dark_blade_equipped
+		else NERVE_STRIKE_WINDOW_END_FRAMES
 	)
-	if bool(nerve_strike_combo_attempt.get("handled", false)):
-		var handled_result_value: Variant = nerve_strike_combo_attempt.get("result", {})
-		if handled_result_value is Dictionary:
-			var handled_result: Dictionary = handled_result_value
-			return handled_result
-		return {}
+	var nerve_strike_combo_window_active := (
+		not nerve_strike_combo_used
+		and not nerve_strike_active
+		and blade_motion_total_frames >= NERVE_STRIKE_WINDOW_START_FRAMES
+		and blade_motion_total_frames < nerve_strike_window_end_frame
+	)
+	if nerve_strike_combo_window_active:
+		if _can_start_nerve_strike_combo(special_gauge, config, deps, now_msec):
+			_clear_blade_projectile()
+			return _start_nerve_strike(player_pos, special_gauge, config, deps, now_msec)
+		if nerve_and_dark_blade_equipped and blade_motion_total_frames < NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES:
+			return {}
 	var dark_blade_split_combo_window_active := (
 		nerve_and_dark_blade_equipped
 		and blade_motion_total_frames >= NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
@@ -3585,43 +3577,8 @@ func _try_start_blade_combo_from_dark_blade_motion(
 	return _start_blade_motion(player_pos, special_gauge, config, deps, false, now_msec, false, true)
 
 
-func _try_start_nerve_strike_combo_from_blade_motion(
-	player_pos: Vector2,
-	special_gauge: float,
-	config: Dictionary,
-	deps: Dictionary,
-	now_msec: int,
-	nerve_and_dark_blade_equipped: bool
-) -> Dictionary:
-	if not _is_nerve_strike_combo_window_active(nerve_and_dark_blade_equipped):
-		return {"handled": false, "result": {}}
-	if _can_start_nerve_strike_combo(special_gauge, config, deps, now_msec):
-		_clear_blade_projectile()
-		return {
-			"handled": true,
-			"result": _start_nerve_strike(player_pos, special_gauge, config, deps, now_msec),
-		}
-	if nerve_and_dark_blade_equipped and blade_motion_total_frames < NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES:
-		return {"handled": true, "result": {}}
-	return {"handled": false, "result": {}}
-
-
 func _is_blade_motion_combo_phase_active() -> bool:
 	return _is_blade_motion_active() and blade_motion_phase == 2
-
-
-func _is_nerve_strike_combo_window_active(nerve_and_dark_blade_equipped: bool) -> bool:
-	if nerve_strike_combo_used or nerve_strike_active:
-		return false
-	var nerve_strike_window_end_frame: float = (
-		NERVE_STRIKE_DARK_BLADE_SPLIT_FRAMES
-		if nerve_and_dark_blade_equipped
-		else NERVE_STRIKE_WINDOW_END_FRAMES
-	)
-	return (
-		blade_motion_total_frames >= NERVE_STRIKE_WINDOW_START_FRAMES
-		and blade_motion_total_frames < nerve_strike_window_end_frame
-	)
 
 
 func _can_start_dark_blade_combo_from_blade_motion(
