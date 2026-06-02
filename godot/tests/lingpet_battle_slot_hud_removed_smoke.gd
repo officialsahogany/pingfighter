@@ -74,7 +74,7 @@ func _init() -> void:
 	_verify_lingpet_companion_click_uses_playfield_coordinates()
 	_verify_renderer_and_input_hide_battle_slot_hud()
 	if _failures.is_empty():
-		print("lingpet_battle_slot_hud_smoke: ok")
+		print("lingpet_battle_slot_hud_removed_smoke: ok")
 		quit(0)
 	else:
 		for failure in _failures:
