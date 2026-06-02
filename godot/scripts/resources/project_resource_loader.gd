@@ -6,9 +6,10 @@ static var _font_cache: Dictionary = {}
 static var _threaded_texture_prewarm_path: String = ""
 static var _threaded_texture_prewarm_started_msec: int = 0
 static var _threaded_texture_prewarm_poll_count: int = 0
+static var _threaded_texture_prewarm_stale_warning_sent: bool = false
 
-const THREADED_TEXTURE_PREWARM_MAX_MSEC := 2500
-const THREADED_TEXTURE_PREWARM_MAX_POLLS := 240
+const THREADED_TEXTURE_PREWARM_STALE_WARNING_MSEC := 15000
+const THREADED_TEXTURE_PREWARM_STALE_WARNING_POLLS := 1200
 
 
 static func load_texture(path: String, missing_warning: String = "", failed_warning: String = "") -> Texture2D:
@@ -91,11 +92,11 @@ static func prewarm_texture_threaded_step(
 		_threaded_texture_prewarm_path = path
 		_threaded_texture_prewarm_started_msec = Time.get_ticks_msec()
 		_threaded_texture_prewarm_poll_count = 0
+		_threaded_texture_prewarm_stale_warning_sent = false
 		return {"done": false, "texture": null}
 	if _threaded_texture_prewarm_path != path:
 		if _is_threaded_texture_prewarm_stale():
-			_clear_threaded_texture_prewarm()
-			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+			_push_threaded_texture_prewarm_stale_warning()
 		return {"done": false, "texture": null}
 
 	var progress_values: Array = []
@@ -114,8 +115,7 @@ static func prewarm_texture_threaded_step(
 			return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
 	_threaded_texture_prewarm_poll_count += 1
 	if _is_threaded_texture_prewarm_stale():
-		_clear_threaded_texture_prewarm()
-		return {"done": true, "texture": load_texture(path, missing_warning, failed_warning)}
+		_push_threaded_texture_prewarm_stale_warning()
 	return {"done": false, "texture": null}
 
 
@@ -260,16 +260,25 @@ static func _is_thread_loadable_texture_path(path: String) -> bool:
 static func _is_threaded_texture_prewarm_stale() -> bool:
 	if _threaded_texture_prewarm_path == "":
 		return false
-	if _threaded_texture_prewarm_poll_count >= THREADED_TEXTURE_PREWARM_MAX_POLLS:
+	if _threaded_texture_prewarm_poll_count >= THREADED_TEXTURE_PREWARM_STALE_WARNING_POLLS:
 		return true
 	var elapsed_msec := Time.get_ticks_msec() - _threaded_texture_prewarm_started_msec
-	return elapsed_msec >= THREADED_TEXTURE_PREWARM_MAX_MSEC
+	return elapsed_msec >= THREADED_TEXTURE_PREWARM_STALE_WARNING_MSEC
+
+
+static func _push_threaded_texture_prewarm_stale_warning() -> void:
+	if _threaded_texture_prewarm_stale_warning_sent:
+		return
+	_threaded_texture_prewarm_stale_warning_sent = true
+	var warning_message := "Threaded texture prewarm is still loading %s; keeping it off the main thread." % _threaded_texture_prewarm_path
+	push_warning(warning_message)
 
 
 static func _clear_threaded_texture_prewarm() -> void:
 	_threaded_texture_prewarm_path = ""
 	_threaded_texture_prewarm_started_msec = 0
 	_threaded_texture_prewarm_poll_count = 0
+	_threaded_texture_prewarm_stale_warning_sent = false
 
 
 static func clear_caches() -> void:

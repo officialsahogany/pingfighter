@@ -11,6 +11,7 @@ func _init() -> void:
 	_verify_texture_bundle_load()
 	_verify_audio_load()
 	_verify_scene_delegates_asset_loading()
+	_verify_threaded_prewarm_keeps_stale_loads_off_main_thread()
 	_verify_result_box_polygon_colors()
 
 	if _failures.is_empty():
@@ -87,6 +88,19 @@ func _verify_scene_delegates_asset_loading() -> void:
 		source.find("ProjectResourceLoader.load_texture") < 0
 		and source.find("ProjectResourceLoader.load_audio_stream") < 0,
 		"result scene should not keep direct project resource loader calls"
+	)
+
+
+func _verify_threaded_prewarm_keeps_stale_loads_off_main_thread() -> void:
+	var source: String = FileAccess.get_file_as_string("res://scripts/resources/project_resource_loader.gd").replace("\r\n", "\n")
+	_expect(
+		source.find("_push_threaded_texture_prewarm_stale_warning()") >= 0
+		and source.find("keeping it off the main thread") >= 0,
+		"threaded texture prewarm should keep slow result sheets on the threaded path"
+	)
+	_expect(
+		source.find("_is_threaded_texture_prewarm_stale():\n\t\t_clear_threaded_texture_prewarm()") < 0,
+		"slow threaded result texture prewarm should not clear into a synchronous load fallback"
 	)
 
 
