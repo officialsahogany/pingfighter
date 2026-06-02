@@ -2,15 +2,18 @@ extends RefCounted
 
 const LingpetHydroSphereSkill := preload("res://scripts/lingpet/lingpet_hydro_sphere_skill.gd")
 const LingpetHeadbuttSkill := preload("res://scripts/lingpet/lingpet_headbutt_skill.gd")
+const LingpetMoonOrbitSkill := preload("res://scripts/lingpet/lingpet_moon_orbit_skill.gd")
 const LingpetSkillDispatcher := preload("res://scripts/lingpet/lingpet_skill_dispatcher.gd")
 
 var _hydro_sphere_skill: Object = LingpetHydroSphereSkill.new()
 var _headbutt_skill: Object = LingpetHeadbuttSkill.new()
+var _moon_orbit_skill: Object = LingpetMoonOrbitSkill.new()
 
 
 func reset() -> void:
 	_hydro_sphere_skill.reset()
 	_headbutt_skill.reset()
+	_moon_orbit_skill.reset()
 
 
 func update(delta: float, owner: Object, registry: Object = null, skill_id: String = "") -> void:
@@ -20,6 +23,8 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 			_hydro_sphere_skill.update(safe_delta, owner, registry)
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
 			_headbutt_skill.update(safe_delta, owner, registry)
+		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
+			_moon_orbit_skill.update(safe_delta, owner, registry)
 		_:
 			pass
 
@@ -27,10 +32,11 @@ func update(delta: float, owner: Object, registry: Object = null, skill_id: Stri
 func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 	_hydro_sphere_skill.draw(canvas, shake_offset)
 	_headbutt_skill.draw(canvas, shake_offset)
+	_moon_orbit_skill.draw(canvas, shake_offset)
 
 
 func has_visible_effects() -> bool:
-	return _hydro_sphere_skill.has_visible_effects() or _headbutt_skill.has_visible_effects()
+	return _hydro_sphere_skill.has_visible_effects() or _headbutt_skill.has_visible_effects() or _moon_orbit_skill.has_visible_effects()
 
 
 func prewarm(skill_id: String) -> void:
@@ -39,6 +45,8 @@ func prewarm(skill_id: String) -> void:
 			_hydro_sphere_skill.prewarm()
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
 			_headbutt_skill.prewarm()
+		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
+			_moon_orbit_skill.prewarm()
 		_:
 			pass
 
@@ -49,6 +57,8 @@ func is_launch_blocked(skill_id: String) -> bool:
 			return _hydro_sphere_skill.is_projectile_active()
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
 			return _headbutt_skill.is_active()
+		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
+			return _moon_orbit_skill.is_projectile_active() or _moon_orbit_skill.is_orbit_field_active()
 		_:
 			return false
 
@@ -68,6 +78,9 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null) -> bool:
 			return true
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
 			return _headbutt_skill.launch(origin, owner)
+		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
+			_moon_orbit_skill.launch(origin)
+			return true
 		_:
 			return false
 
@@ -78,6 +91,8 @@ func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radiu
 			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 8.0)
 		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
 			return companion_pos
+		LingpetSkillDispatcher.SKILL_KIND_MOON_ORBIT:
+			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 8.0)
 		_:
 			return companion_pos
 
@@ -123,6 +138,7 @@ func trigger_launch_feedback(skill_id: String, registry: Object) -> void:
 func get_snapshot() -> Dictionary:
 	var snapshot: Dictionary = _hydro_sphere_skill.get_snapshot()
 	snapshot.merge(_headbutt_skill.get_snapshot(), true)
+	snapshot.merge(_moon_orbit_skill.get_snapshot(), true)
 	return snapshot
 
 
@@ -136,6 +152,10 @@ func get_headbutt_hit_count_for_tests() -> int:
 
 func get_headbutt_miss_count_for_tests() -> int:
 	return _headbutt_skill.get_miss_count_for_tests()
+
+
+func get_moon_orbit_particle_count_for_tests() -> int:
+	return _moon_orbit_skill.get_particle_count_for_tests()
 
 
 func _play_hydro_feedback(registry: Object) -> void:
