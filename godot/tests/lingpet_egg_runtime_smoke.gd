@@ -766,8 +766,8 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 		_expect(frames <= cols * rows, "declared frame count must fit the walk-sheet grid")
 	# Directional facing: the walk sheet is the AutoSprite iso_walk_northeast
 	# 3/4-back view facing the direction of travel (rightward). Leftward travel
-	# is rendered by mirroring it (negative-width destination rect, no in-_draw
-	# draw_set_transform). The facing must be latched from ACTUAL horizontal travel
+	# is rendered by mirroring the UVs across the same destination rect, no in-_draw
+	# draw_set_transform. The facing must be latched from ACTUAL horizontal travel
 	# (dx) during normal movement: patrol_dir toggles during pauses / reverse-and-
 	# pause decisions, which snapped the held spear sides while standing still. First
 	# spawn/restore is the exception because zero-to-spawn placement is not travel;
@@ -778,7 +778,8 @@ func _verify_companion_walk_sheet_wiring(runtime_source: String) -> void:
 	_expect(runtime_source.find("\"face_left\"") >= 0, "egg runtime should feed the latched facing into the draw config")
 	_expect(draw_context_source.find("face_left") >= 0, "companion draw context should pass the face_left flag through to the renderer")
 	_expect(companion_renderer_source.find("face_left") >= 0, "companion renderer should flip the walk sheet horizontally when facing left")
-	_expect(companion_renderer_source.find("-dest_rect.size.x") >= 0, "companion renderer should mirror via a negative-width destination rect (no in-_draw draw_set_transform)")
+	_expect(companion_renderer_source.find("_draw_flipped_texture_region") >= 0, "companion renderer should mirror via UV-swapped polygon drawing")
+	_expect(companion_renderer_source.find("-dest_rect.size.x") < 0, "companion renderer should not use negative-width destination rects for left-facing sheets")
 	# Ball-hit strike sheet (same 5x5/25 grid) played on companion ball contact.
 	_expect(FileAccess.file_exists("res://assets/sprites/lingpet/maribo_companion_strike.png"), "Maribo companion should have a back-view ball-hit strike sheet")
 	_expect(runtime_source.find("MARIBO_COMPANION_STRIKE_SHEET") < 0, "companion rendering should no longer hard-preload a Maribo strike fallback")

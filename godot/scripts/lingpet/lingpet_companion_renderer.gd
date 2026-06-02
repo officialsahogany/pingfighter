@@ -138,16 +138,44 @@ func _draw_companion_sprite(canvas: CanvasItem, center: Vector2, config: Diction
 		return
 	var dest_rect: Rect2 = rects.get("dest", Rect2())
 	var source_rect: Rect2 = rects.get("source", Rect2())
+	var modulate := Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0))
 	# The walk sheet faces the direction of travel (iso_walk_northeast = rightward
-	# 3/4 back). When the companion moves left, mirror it with a negative-width
-	# destination rect -- the project's trap-free horizontal flip (no in-_draw
-	# draw_set_transform). See stage1_player_actor_renderer.gd for the same idiom.
+	# 3/4 back). When the companion moves left, mirror it by swapping UVs across the
+	# same positive destination rect. Passing a negative Rect2 width to
+	# draw_texture_rect_region can shift the visible sheet away from the collision
+	# center on some draw paths.
 	if bool(config.get("face_left", false)):
-		dest_rect = Rect2(
-			dest_rect.position + Vector2(dest_rect.size.x, 0.0),
-			Vector2(-dest_rect.size.x, dest_rect.size.y)
-		)
-	canvas.draw_texture_rect_region(tex, dest_rect, source_rect, Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 1.0)))
+		_draw_flipped_texture_region(canvas, tex, source_rect, dest_rect, modulate)
+	else:
+		canvas.draw_texture_rect_region(tex, dest_rect, source_rect, modulate, false, true)
+
+
+func _draw_flipped_texture_region(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	source_rect: Rect2,
+	target_rect: Rect2,
+	modulate: Color
+) -> void:
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return
+	var points := PackedVector2Array([
+		target_rect.position,
+		Vector2(target_rect.end.x, target_rect.position.y),
+		target_rect.end,
+		Vector2(target_rect.position.x, target_rect.end.y),
+	])
+	var uv_min := Vector2(source_rect.position.x / texture_size.x, source_rect.position.y / texture_size.y)
+	var uv_max := Vector2(source_rect.end.x / texture_size.x, source_rect.end.y / texture_size.y)
+	var uvs := PackedVector2Array([
+		Vector2(uv_max.x, uv_min.y),
+		Vector2(uv_min.x, uv_min.y),
+		Vector2(uv_min.x, uv_max.y),
+		Vector2(uv_max.x, uv_max.y),
+	])
+	var colors := PackedColorArray([modulate, modulate, modulate, modulate])
+	canvas.draw_polygon(points, colors, uvs, texture)
 
 
 func _draw_burst(
