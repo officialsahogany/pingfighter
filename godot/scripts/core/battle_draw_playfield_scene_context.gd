@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
+const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 
 const WIDTH := 760.0
 const HEIGHT := 750.0
@@ -19,9 +20,12 @@ const BOSS_PADDLE_WIDTH := 100.0
 const BOSS_PADDLE_HEIGHT := 40.0
 const BOSS_HITBOX_HEIGHT := BOSS_PADDLE_HEIGHT
 
+var character_runtime: Object = PlayerCharacterRuntime.new()
+
 
 func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 	var current_msec: int = Time.get_ticks_msec()
+	var selected_character_type: String = character_runtime.normalize(_get_owner_value(owner, "selected_character_type", "smasher"))
 	var player_paddle_width: float = max(1.0, float(_get_owner_value(owner, "player_paddle_width", PADDLE_WIDTH)))
 	var player_paddle_height: float = max(1.0, float(_get_owner_value(owner, "player_paddle_height", PADDLE_HEIGHT)))
 	var runtime_paddle_base_width: float = max(1.0, float(_get_owner_value(owner, "runtime_paddle_base_width", player_paddle_width)))
@@ -35,20 +39,21 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 	var layout: Dictionary = _build_game_layout(owner, registry, WIDTH, HEIGHT)
 	var dash_snapshot: Dictionary = _get_dash_snapshot(registry)
 	var viper_knockback_overlay_active: bool = bool(_get_owner_value(owner, "viper_knockback_overlay_active", false))
-	var viper_skill_runtime: Object = registry.get_instance("viper_skill_runtime") if registry != null and registry.has_method("get_instance") else null
-	if viper_skill_runtime != null and viper_skill_runtime.has_method("is_kick_skill_knockback_ball_active"):
-		viper_knockback_overlay_active = viper_knockback_overlay_active or bool(viper_skill_runtime.is_kick_skill_knockback_ball_active())
 	var viper_jetpack_active: bool = false
 	var viper_jetpack_airborne: bool = false
 	var viper_air_strike_flash_timer: float = 0.0
-	var viper_jetpack_state: Object = registry.get_instance("viper_jetpack_state") if registry != null and registry.has_method("get_instance") else null
-	if viper_jetpack_state != null:
-		if "active" in viper_jetpack_state:
-			viper_jetpack_active = bool(viper_jetpack_state.active)
-		if viper_jetpack_state.has_method("is_airborne"):
-			viper_jetpack_airborne = bool(viper_jetpack_state.is_airborne(0.1))
-		if "air_strike_flash_timer" in viper_jetpack_state:
-			viper_air_strike_flash_timer = float(viper_jetpack_state.air_strike_flash_timer)
+	if selected_character_type == "viper":
+		var viper_skill_runtime: Object = registry.get_instance("viper_skill_runtime") if registry != null and registry.has_method("get_instance") else null
+		if viper_skill_runtime != null and viper_skill_runtime.has_method("is_kick_skill_knockback_ball_active"):
+			viper_knockback_overlay_active = viper_knockback_overlay_active or bool(viper_skill_runtime.is_kick_skill_knockback_ball_active())
+		var viper_jetpack_state: Object = registry.get_instance("viper_jetpack_state") if registry != null and registry.has_method("get_instance") else null
+		if viper_jetpack_state != null:
+			if "active" in viper_jetpack_state:
+				viper_jetpack_active = bool(viper_jetpack_state.active)
+			if viper_jetpack_state.has_method("is_airborne"):
+				viper_jetpack_airborne = bool(viper_jetpack_state.is_airborne(0.1))
+			if "air_strike_flash_timer" in viper_jetpack_state:
+				viper_air_strike_flash_timer = float(viper_jetpack_state.air_strike_flash_timer)
 	return {
 		"shake_offset": shake_offset,
 		"current_msec": current_msec,
@@ -57,7 +62,7 @@ func build(owner: Object, shake_offset: Vector2, registry) -> Dictionary:
 		"game_offset": _get_layout_vector2(layout, "game_offset", Vector2.ZERO),
 		"game_size": _get_layout_vector2(layout, "game_size", Vector2(WIDTH, HEIGHT)),
 		"render_scale": max(0.001, float(layout.get("render_scale", 1.0))),
-		"selected_character_type": str(_get_owner_value(owner, "selected_character_type", "smasher")),
+		"selected_character_type": selected_character_type,
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"weather_type": str(_get_owner_value(owner, "weather_type", "")),
 		"weather_active": bool(_get_owner_value(owner, "weather_event_active", false)),
@@ -147,9 +152,13 @@ func _get_layout_vector2(source: Dictionary, key: String, fallback: Vector2) -> 
 
 
 func _get_dash_snapshot(registry) -> Dictionary:
-	var dash_state: Object = registry.get_instance("smasher_dash_state")
+	var dash_state: Object = registry.get_instance("smasher_dash_state") if registry != null and registry.has_method("get_instance") else null
 	if dash_state != null:
 		return dash_state.get_snapshot()
+	return _get_empty_dash_snapshot()
+
+
+func _get_empty_dash_snapshot() -> Dictionary:
 	return {
 		"tokens": 0,
 		"max_tokens": 1,

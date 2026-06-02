@@ -18,7 +18,9 @@ func draw_actors(
 	var lookup_start: int = _perf_begin(perf_logger)
 	var actor_renderer: Object = _get_stage_instance(registry, current_stage, "actor_renderer", "stage1_actor_renderer")
 	_perf_end(perf_logger, "actors.lookup_renderer", lookup_start)
+	var cleanup_start: int = _perf_begin(perf_logger)
 	_clear_inactive_stage_actor_transients(registry, current_stage, actor_renderer)
+	_perf_end(perf_logger, "actors.clear_inactive_transients", cleanup_start)
 	if actor_renderer == null:
 		return
 	if actor_context.is_empty():
@@ -501,14 +503,33 @@ func _get_stage_instance(registry: Object, current_stage: int, role: String, fal
 	return _get_instance(registry, fallback_key)
 
 
+func _get_cached_stage_instance(registry: Object, stage: int, role: String) -> Object:
+	var router: Object = _get_cached_instance(registry, "stage_runtime_router")
+	if router == null or not router.has_method("get_module_key"):
+		return null
+	var key: String = str(router.get_module_key(stage, role))
+	if key == "":
+		return null
+	return _get_cached_instance(registry, key)
+
+
 func _clear_inactive_stage_actor_transients(registry: Object, current_stage: int, current_renderer: Object) -> void:
 	for stage in [1, 2, 3, 4, 5]:
 		if stage == current_stage:
 			continue
-		var renderer: Object = _get_stage_instance(registry, stage, "actor_renderer", "stage1_actor_renderer")
+		var renderer: Object = _get_cached_stage_instance(registry, stage, "actor_renderer")
 		if renderer == null or renderer == current_renderer:
 			continue
 		_clear_transient_canvas_items(renderer)
+
+
+func _get_cached_instance(registry: Object, key: String) -> Object:
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return null
+	var value: Variant = registry.get_cached_instance(key)
+	if value is Object and is_instance_valid(value):
+		return value
+	return null
 
 
 func _clear_transient_canvas_items(renderer: Object) -> void:

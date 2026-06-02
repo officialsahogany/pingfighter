@@ -374,7 +374,7 @@ func _run_stage_runtime_prewarm_step(
 func _get_stage_specific_runtime_prewarm_step_count(_owner: Object, current_stage: int) -> int:
 	match current_stage:
 		1:
-			return 5
+			return 6
 		2:
 			return STAGE2_RUNTIME_PREWARM_LABELS.size()
 		3:
@@ -420,6 +420,8 @@ func _get_stage1_runtime_prewarm_step_label(stage_step: int) -> String:
 			return "stage1_skill_hud"
 		4:
 			return "stage1_commando"
+		5:
+			return "stage1_actor_renderer"
 	return "stage1_step%d" % stage_step
 
 
@@ -500,16 +502,21 @@ func _run_stage1_runtime_prewarm_step(owner: Object, module_getter: Callable, st
 			if skill_hud != null and skill_hud.has_method("prewarm_assets"):
 				skill_hud.prewarm_assets()
 		4:
-			if _get_selected_character_type(owner) == "soldier":
-				var firearm_selector: Object = _get_module(module_getter, "commando_firearm_selector_renderer")
-				if firearm_selector != null and firearm_selector.has_method("prewarm_assets_step"):
-					if not bool(firearm_selector.prewarm_assets_step()):
-						return false
-				elif firearm_selector != null and firearm_selector.has_method("prewarm_assets"):
-					firearm_selector.prewarm_assets()
-				var actor_renderer: Object = _get_module(module_getter, "stage1_actor_renderer")
-				if actor_renderer != null and actor_renderer.has_method("prewarm_assets"):
-					actor_renderer.prewarm_assets()
+			if _get_selected_character_type(owner) != "soldier":
+				return true
+			var firearm_selector: Object = _get_module(module_getter, "commando_firearm_selector_renderer")
+			if firearm_selector != null and firearm_selector.has_method("prewarm_assets_step"):
+				if not bool(firearm_selector.prewarm_assets_step()):
+					return false
+			elif firearm_selector != null and firearm_selector.has_method("prewarm_assets"):
+				firearm_selector.prewarm_assets()
+		5:
+			var actor_renderer: Object = _get_module(module_getter, "stage1_actor_renderer")
+			if actor_renderer != null and actor_renderer.has_method("prewarm_assets_step"):
+				if not bool(actor_renderer.prewarm_assets_step()):
+					return false
+			elif actor_renderer != null and actor_renderer.has_method("prewarm_assets"):
+				actor_renderer.prewarm_assets()
 	return true
 
 

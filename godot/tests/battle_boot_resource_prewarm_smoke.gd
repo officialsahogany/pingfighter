@@ -488,6 +488,13 @@ func _verify_stage1_staged_visual_prewarm() -> void:
 	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 skill HUD prewarm should finish its chunk before firearm/PSO")
 	_expect(_registry.stage1_skill_hud.step_calls == 3, "stage 1 skill HUD should finish through the step API")
 	_expect(_registry.stage1_skill_hud.monolithic_calls == 0, "stage 1 skill HUD should not use the monolithic asset path when staged")
+	_expect(_registry.stage1_actor_renderer.prewarm_count == 0, "stage 1 actor renderer should wait until boss skill HUD assets are ready")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "non-Commando Stage 1 prewarm should advance through the empty firearm chunk")
+	_expect(_registry.commando_firearm_selector.step_calls == 0, "Smasher Stage 1 prewarm should not wake Commando firearm selector assets")
+	_expect(_registry.stage1_actor_renderer.prewarm_count == 0, "stage 1 actor renderer should wait for the dedicated actor chunk")
+	_expect(not controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 actor renderer prewarm should run before the PSO chunk")
+	_expect(_registry.stage1_actor_renderer.prewarm_count == 1, "stage 1 actor renderer should warm playfield/player caches before the first visible draw")
+	_expect(controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 prewarm should finish after the PSO prewarmer chunk")
 
 
 func _verify_stage1_soldier_commando_prewarm() -> void:

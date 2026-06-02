@@ -10,12 +10,76 @@ const Stage1PillarCloudRenderer := preload("res://scripts/stages/stage1/stage1_p
 const Stage1PillarPetalRenderer := preload("res://scripts/stages/stage1/stage1_pillar_petal_renderer.gd")
 const Stage1PillarPetalState := preload("res://scripts/stages/stage1/stage1_pillar_petal_state.gd")
 const Stage1PillarTreeDropPetalState := preload("res://scripts/stages/stage1/stage1_pillar_tree_drop_petal_state.gd")
+const BattleDrawPlayfieldSceneContext := preload("res://scripts/core/battle_draw_playfield_scene_context.gd")
 
 var _failures: Array[String] = []
 
 
+class FakeOwner:
+	var selected_character_type := "smasher"
+	var current_stage := 1
+	var battle_textures: Dictionary = {}
+
+	func get_viewport_rect() -> Rect2:
+		return Rect2(Vector2.ZERO, Vector2(1280.0, 750.0))
+
+
+class FakeBattleViewLayout:
+	func build_game_layout(_view_size: Vector2, width: float, height: float) -> Dictionary:
+		return {
+			"game_offset": Vector2(10.0, 20.0),
+			"game_size": Vector2(width, height),
+			"render_scale": 1.0,
+		}
+
+
+class FakeDashState:
+	func get_snapshot() -> Dictionary:
+		return {
+			"tokens": 1,
+			"max_tokens": 1,
+			"active": false,
+			"direction": 0.0,
+		}
+
+
+class FakeViperSkillRuntime:
+	func is_kick_skill_knockback_ball_active() -> bool:
+		return true
+
+
+class FakeViperJetpackState:
+	var active := true
+	var air_strike_flash_timer := 18.0
+
+	func is_airborne(_threshold: float) -> bool:
+		return true
+
+
+class FakeRegistry:
+	var requested_keys: Array[String] = []
+	var view_layout := FakeBattleViewLayout.new()
+	var dash_state := FakeDashState.new()
+	var viper_runtime := FakeViperSkillRuntime.new()
+	var viper_jetpack := FakeViperJetpackState.new()
+
+	func get_instance(key: String) -> Object:
+		requested_keys.append(key)
+		match key:
+			"battle_view_layout":
+				return view_layout
+			"smasher_dash_state":
+				return dash_state
+			"viper_skill_runtime":
+				return viper_runtime
+			"viper_jetpack_state":
+				return viper_jetpack
+		return null
+
+
 func _init() -> void:
 	_verify_actor_perf_forwarding()
+	_verify_playfield_context_scopes_viper_modules()
 	_verify_render_budget_constants()
 
 	if _failures.is_empty():
@@ -63,11 +127,44 @@ func _verify_actor_perf_forwarding() -> void:
 		"Stage 1 actor prewarm should delegate through runtime renderer instances"
 	)
 	_expect(
+		actor_source.find("playfield_renderer.prewarm_runtime_assets()") >= 0
+			and actor_source.find("player_renderer.prewarm_runtime_assets()") >= 0
+			and actor_source.find("commando_firearm_renderer.prewarm_runtime_assets()") >= 0,
+		"Stage 1 actor prewarm should delegate through playfield and runtime renderer instances"
+	)
+	_expect(
+		actor_source.find("playfield_renderer.prewarm_runtime_assets_step()") >= 0
+			and actor_source.find("player_renderer.prewarm_runtime_assets_step()") >= 0,
+		"Stage 1 actor prewarm should stage playfield/player cache construction"
+	)
+	_expect(
 		player_actor_source.find("func prewarm_runtime_assets() -> void:") >= 0
 			and player_sprite_source.find("func prewarm_runtime_assets() -> void:") >= 0
 			and commando_renderer_source.find("func prewarm_runtime_assets() -> void:") >= 0,
 		"Stage 1 runtime renderers should expose instance prewarm hooks"
 	)
+
+
+func _verify_playfield_context_scopes_viper_modules() -> void:
+	var builder := BattleDrawPlayfieldSceneContext.new()
+	var smasher_owner := FakeOwner.new()
+	var smasher_registry := FakeRegistry.new()
+	var smasher_context: Dictionary = builder.build(smasher_owner, Vector2.ZERO, smasher_registry)
+	_expect(not smasher_registry.requested_keys.has("viper_skill_runtime"), "Smasher playfield context should not wake Viper skill runtime")
+	_expect(not smasher_registry.requested_keys.has("viper_jetpack_state"), "Smasher playfield context should not wake Viper jetpack state")
+	_expect(smasher_registry.requested_keys.has("smasher_dash_state"), "playfield context should keep the shared dash snapshot path")
+	_expect(str(smasher_context.get("selected_character_type", "")) == "smasher", "playfield context should expose normalized Smasher id")
+
+	var viper_owner := FakeOwner.new()
+	viper_owner.selected_character_type = "viper"
+	var viper_registry := FakeRegistry.new()
+	var viper_context: Dictionary = builder.build(viper_owner, Vector2.ZERO, viper_registry)
+	_expect(viper_registry.requested_keys.has("viper_skill_runtime"), "Viper playfield context should still read Viper skill runtime")
+	_expect(viper_registry.requested_keys.has("viper_jetpack_state"), "Viper playfield context should still read Viper jetpack state")
+	_expect(bool(viper_context.get("viper_knockback_overlay_active", false)), "Viper context should preserve kick knockback overlay state")
+	_expect(bool(viper_context.get("viper_jetpack_active", false)), "Viper context should preserve jetpack active state")
+	_expect(bool(viper_context.get("viper_jetpack_airborne", false)), "Viper context should preserve airborne state")
+	_expect(is_equal_approx(float(viper_context.get("viper_air_strike_flash_timer", 0.0)), 18.0), "Viper context should preserve air-strike flash timer")
 
 
 func _verify_render_budget_constants() -> void:

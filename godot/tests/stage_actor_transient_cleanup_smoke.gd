@@ -54,17 +54,22 @@ class FakeRegistry:
 	extends RefCounted
 
 	var instances: Dictionary = {}
+	var get_instance_calls: Array[String] = []
+	var get_cached_instance_calls: Array[String] = []
 
 	func get_instance(key: String) -> Object:
+		get_instance_calls.append(key)
 		return instances.get(key, null)
 
 	func get_cached_instance(key: String) -> Object:
+		get_cached_instance_calls.append(key)
 		return instances.get(key, null)
 
 
 func _init() -> void:
 	_verify_stage_actor_renderers_expose_transient_cleanup()
 	_verify_inactive_stage_actor_transients_are_cleared()
+	_verify_inactive_cleanup_uses_cached_renderers_only()
 	_verify_current_actor_transients_clear_when_actor_context_is_empty()
 
 	if _failures.is_empty():
@@ -102,6 +107,29 @@ func _verify_inactive_stage_actor_transients_are_cleared() -> void:
 	_expect(stage2.clear_calls == 1, "inactive Stage 2 actor renderer should clear transient canvas items")
 	_expect(stage5.clear_calls == 0, "current Stage 5 actor renderer should not be cleared before drawing")
 	_expect(stage5.draw_calls == 1, "current Stage 5 actor renderer should still draw")
+
+
+func _verify_inactive_cleanup_uses_cached_renderers_only() -> void:
+	var drawer := BattlePlayfieldEffectsDrawer.new()
+	var registry := _build_registry()
+	registry.instances.erase("stage2_actor_renderer")
+	registry.instances.erase("stage3_actor_renderer")
+	registry.instances.erase("stage4_actor_renderer")
+	registry.instances.erase("stage5_hongryun_actor_renderer")
+	var stage1: FakeActorRenderer = registry.instances["stage1_actor_renderer"]
+
+	drawer.draw_actors(null, registry, {"current_stage": 1}, {"visible": true})
+
+	_expect(stage1.draw_calls == 1, "current Stage 1 actor renderer should still draw")
+	for key in [
+		"stage2_actor_renderer",
+		"stage3_actor_renderer",
+		"stage4_actor_renderer",
+		"stage5_hongryun_actor_renderer",
+	]:
+		_expect(not registry.get_instance_calls.has(key), "inactive cleanup should not instantiate " + key)
+	_expect(registry.get_cached_instance_calls.has("stage2_actor_renderer"), "inactive cleanup should check cached Stage 2 renderer")
+	_expect(registry.get_cached_instance_calls.has("stage5_hongryun_actor_renderer"), "inactive cleanup should check cached Stage 5 renderer")
 
 
 func _verify_current_actor_transients_clear_when_actor_context_is_empty() -> void:

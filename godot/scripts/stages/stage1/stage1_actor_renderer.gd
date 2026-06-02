@@ -23,12 +23,18 @@ func prewarm_assets() -> void:
 func prewarm_assets_step() -> bool:
 	match _prewarm_step_index:
 		0:
+			if playfield_renderer != null and playfield_renderer.has_method("prewarm_runtime_assets_step"):
+				if not bool(playfield_renderer.prewarm_runtime_assets_step()):
+					return false
+			elif playfield_renderer != null and playfield_renderer.has_method("prewarm_runtime_assets"):
+				playfield_renderer.prewarm_runtime_assets()
+		1:
 			if player_renderer != null and player_renderer.has_method("prewarm_runtime_assets_step"):
 				if not bool(player_renderer.prewarm_runtime_assets_step()):
 					return false
 			elif player_renderer != null and player_renderer.has_method("prewarm_runtime_assets"):
 				player_renderer.prewarm_runtime_assets()
-		1:
+		2:
 			if commando_firearm_renderer != null and commando_firearm_renderer.has_method("prewarm_assets_step"):
 				if not bool(commando_firearm_renderer.prewarm_assets_step()):
 					return false

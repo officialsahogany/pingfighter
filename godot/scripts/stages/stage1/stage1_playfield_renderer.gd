@@ -108,6 +108,25 @@ var floor_tiles: Array = []
 var floor_specks: Array = []
 var floor_moss: Array = []
 var floor_cracks: Array = []
+var _prewarm_step_index := 0
+
+
+func prewarm_runtime_assets() -> void:
+	while not prewarm_runtime_assets_step():
+		pass
+
+
+func prewarm_runtime_assets_step() -> bool:
+	match _prewarm_step_index:
+		0:
+			_ensure_floor_layout(760.0, 750.0)
+		1:
+			_ensure_grid_particles(760.0, 750.0)
+		_:
+			_prewarm_step_index = 0
+			return true
+	_prewarm_step_index += 1
+	return false
 
 
 func draw(canvas: CanvasItem, context: Dictionary, _shake_offset: Vector2) -> void:
@@ -935,13 +954,15 @@ func _ensure_grid_particles(width: float, height: float) -> void:
 		return
 	grid_particles.clear()
 	grid_particle_layout_size = layout_size
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1831
 	var half_h: float = max(1.0, height * 0.5)
 	for _i in range(GRID_PARTICLE_COUNT):
 		grid_particles.append(Vector4(
-			randf_range(0.0, width),
-			randf_range(0.0, half_h),
-			randf_range(0.5, 2.0),
-			float(randi_range(1, 3))
+			rng.randf_range(0.0, width),
+			rng.randf_range(0.0, half_h),
+			rng.randf_range(0.5, 2.0),
+			float(rng.randi_range(1, 3))
 		))
 
 
