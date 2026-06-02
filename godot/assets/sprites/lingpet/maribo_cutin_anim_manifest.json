@@ -3,31 +3,41 @@
   "character": "maribo",
   "display_name": "마리보",
   "generated_at": "2026-06-02",
-  "version": "v4_steady_head_size_matched",
+  "version": "v6_clean_trident_no_water",
   "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
   "postprocess": {
-    "operation": "Steady-head re-generated 16f loop (no left-right head sway). Each 1024 cell was premultiplied-alpha scaled 0.90 cell-centered (matches the dismiss swing sheet, which shares the same frame0 pose, so both read at identical body size), RGB alpha-bled, Real-ESRGAN x2 to 2048, recombined with source alpha (lanczos x2), 4x4 16f.",
+    "operation": "Clean-trident steady 16f loop (AutoSprite 'Cutin Clean Trident Loop', spritesheet cmpwgjkmo008n122dcwj67os4). Each 1024 cell premultiplied-alpha scaled 0.90 cell-centered (size-matched to the spear-flourish dismiss sheet, shared frame0), RGB alpha-bled, Real-ESRGAN x2 to 2048, recombined with source alpha (lanczos x2), 4x4 16f.",
+    "repack": {
+      "mode": "cell_centered_uniform",
+      "scale": 0.9,
+      "size_match": "spear-flourish dismiss sheet (shared frame0)"
+    },
     "realesrgan": {
       "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
       "model": "realesr-animevideov3",
       "scale": 2.0,
       "alpha_handling": "RGB alpha-bled + ESRGAN x2; source alpha lanczos x2; recombined",
-      "script": ".tmp/maribo_cutin_v3/prep_cells.py + recombine.py"
+      "script": ".tmp/cutin_v6_clean/prep_cells.py + recombine_finalize.py"
     },
-    "tool": "Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale",
-    "repack": {
-      "mode": "cell_centered_uniform",
-      "scale": 0.9,
-      "size_match": "dismiss swing sheet (shared frame0)"
-    }
+    "alpha_cleanup": {
+      "operation": "Post-ship alpha fringe cleanup: pixels with alpha <= 15 were set to fully transparent to remove low-alpha colored edge specks visible on dark compositing.",
+      "threshold": 15,
+      "preview": ".tmp/maribo_cutin_anim_alpha15_black_preview.png",
+      "a1_15_after": 0
+    },
+    "tool": "Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale"
   },
   "qa": {
     "whole_sheet_edge_alpha": 0,
     "cells_with_edge_touch": 0,
     "fringe_check": "Composited over dark background; no magenta/pink fringe (clean despilled base + new character).",
-    "final_strip_preview": ".tmp/maribo_cutin_v3/cutin_v3_final_strip_dark.png",
-    "cell_fill_vs_dismiss": "cut-in frame0 fill_h% 72.2 vs dismiss 78.1% (matched)",
-    "head_sway": "regenerated with steady-head prompt; head stays centered, only vertical breathing"
+    "trident_visibility": "Trident head SOLID and fully visible across all 16 frames; per-frame alpha-area range only 0.36% (no dissolve/spray frames). Replaces the v5 steady source whose frames 3-5 dissolved the trident tip into a cyan water-spray blob.",
+    "head_sway": "steady-head: head centered, gentle vertical breathing + slight weight shift.",
+    "motion_final_max_diff_vs_f0": 10.53,
+    "motion_final_mean_adjacent": 4.98,
+    "motion_reference": "broken v3/v4=7.5 | this clean-trident ~12.7 | v5 steady=13.2 | v2 old=20.2",
+    "cell_fill_w_pct": 52.4,
+    "cell_fill_h_pct": 59.9
   },
   "reconstruction_frame0": {
     "frame_index": 0,
@@ -36,11 +46,11 @@
     "alpha_threshold": 0.1,
     "alpha_bbox": [
       0.252,
-      0.2007,
+      0.1997,
       0.7759,
       0.7983
     ],
-    "note": "Per-cell frame-0 alpha occupancy + tight bbox. RECALCULATED for v4 steady-head 0.90 repack.",
+    "note": "Per-cell frame-0 alpha occupancy + tight bbox. RECALCULATED for the clean-trident 0.90 repack.",
     "occupancy": [
       0,
       0,
@@ -54,7 +64,7 @@
       0,
       0,
       0,
-      0,
+      1,
       0,
       0,
       0,
@@ -159,30 +169,29 @@
       8192.0
     ],
     "upscale_scale": 2.0,
-    "sha256": "3bdf79dd15f9461fc5a211d639a61dce1e441d345dfc0bdaa259a3d755ad5eab",
-    "bytes": 34394564,
+    "sha256": "eb56c5e812b73b1f5f0cae58ed6027cb3669857eb35ac983bdda69cb08fdef1d",
+    "bytes": 23367465,
     "cell_fill_w_pct": 52.4,
-    "cell_fill_h_pct": 59.8
+    "cell_fill_h_pct": 59.9
   },
   "source_autosprite": {
     "character_id": "cmpvvuv3p00hbpf2widl8v49q",
     "character_name": "Maribo Lingpet Clean (click react)",
-    "base_upload_source": "godot/lingpet/maribo/maribo_autosprite_clean_base_padded_v1.png",
-    "base_provenance": "v003 magenta source despilled to a flat transparent base, tight-reframed (~74%/65% fill), uploaded as a NEW clean character to remove the dirty-magenta fringe of the original maribo character.",
     "pose_id": "cmpvwk9k5001fg2qefwq4qzdj",
     "pose_name": "Acquire Cutin",
-    "spritesheet_id": "cmpvzx13h00bvooxl7zlya4k2",
-    "spritesheet_job_id": "wf_05d6a9bd-2f97-4237-a220-1d520f832452",
-    "video_id": "cmpvwpifa0006ggzy0c0jx9he",
+    "spritesheet_id": "cmpwgjkmo008n122dcwj67os4",
+    "spritesheet_kind": "Cutin Clean Trident Loop",
+    "spritesheet_job_id": "wf_7a1bd83f-2b23-4415-97ea-cfe61a70711f",
+    "video_id": "cmpwgfsq6005k363xm4m588oy",
     "frame_count": 16.0,
     "frame_width": 1024.0,
     "frame_height": 1024.0,
     "columns": 4.0,
     "quality": "legendary",
     "remove_bg": "ultra",
-    "prompt": "16-frame cut-in idle loop, head STEADY/centered/forward (no left-right sway), only soft vertical breathing bob, tiny fin/armor shimmer, gentle cyan spear glint. Transparent bg, safe margins. Frame16 loops to 1.",
+    "prompt": "16f seamless LOOP cut-in idle for Maribo, chibi pink dolphin Ringpet, 3/4 front. Head STEADY/centered (no sway), only soft vertical breathing, gentle fin/armor motion, slight weight shift. The single cyan TRIDENT stays SOLID, RIGID, FULLY VISIBLE every frame; the 3-prong head stays sharp and unobstructed. NO water spray, splash, sparkle, glint, crystal shimmer, glow or mist on the spear/tip; the trident never dissolves, blurs, or fades. Keep the full trident in frame. Match reference identity EXACTLY. Transparent bg, safe margins, no text/UI/crop. Frame16 loops to 1.",
     "with_sound": false
   },
-  "root_cause_note": "v3 regenerates the cut-in from a clean despilled base + new character to remove the dirty-magenta fringe and the trident-shimmer instability that made the older v2 cut-in read lower-quality than Lunabi. Grid (4x4 / 16f / 2048 cell / 8192 sheet) is unchanged so the host's CUTIN_ANIM_COLS/ROWS/FRAMES stay valid; only the reconstruction occupancy mask was recalculated for the new pose.",
-  "status": "v4 steady-head Maribo acquisition cut-in (no head sway) + size-matched to the spear-flourish dismiss (both 0.90 cell-centered from the shared Acquire Cutin frame0, so entrance and click read at the same body scale). AutoSprite 16f + Real-ESRGAN x2."
+  "root_cause_note": "FIX: the v5 steady-loop source (cmpvzx13h) baked a 'cyan spear glint/shimmer' that AutoSprite rendered on frames 3-5 as a water-spray blob covering the trident head (tip vanished). The user reported the spear tip being hidden by a water-splash-like effect. This v6 regenerates the steady cut-in with an explicit NO-water / NO-glint / trident-solid-every-frame prompt; verified the per-frame alpha-area range is ~0.4%% (no dissolve frames) and the trident head reads sharp in all 16 frames. Grid (4x4/16f/2048cell/8192) and the 0.90 dismiss size-match are unchanged.",
+  "status": "v6 clean-trident steady cut-in (no spear water/glint effect, trident solid all frames). Built from AutoSprite 'Cutin Clean Trident Loop' at 0.90 cell-centered + Real-ESRGAN x2, then alpha<=15 edge specks clipped for clean dark-background compositing. Replaces v5 steady (whose frames 3-5 dissolved the trident tip). Backup of replaced sheet: .tmp/cutin_v6_clean/maribo_cutin_anim_v5_steady_backup.png."
 }
