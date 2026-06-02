@@ -676,9 +676,25 @@ func reset_round(deps: Dictionary = {}) -> void:
 		_set_runtime_ignition_aura_bonus(deps, true)
 	else:
 		_set_runtime_ignition_aura_bonus(deps, false)
-		_reset_ignition_aura_runtime(true)
+		_reset_ignition_aura_hold()
+		ignition_active = false
+		ignition_remaining_frames = 0.0
+		ignition_total_frames = IGNITION_DURATION_FRAMES
+		ignition_player_pos = Vector2.ZERO
+		ignition_paddle_size = Vector2(155.0, 50.0)
+		ignition_burst_particles.clear()
+		ignition_charge_particles.clear()
+		ignition_live_embers.clear()
+		ignition_ember_timer = 0.0
+		ignition_start_msec = 0
 	_reset_nerve_strike_runtime(true)
-	_reset_blade_runtime()
+	_reset_blade_motion_only()
+	_clear_blade_projectile()
+	clear_blade_hit_speed_cap()
+	dark_blade_window = false
+	dark_blade_window_frames = 0.0
+	nerve_strike_combo_used = false
+	blade_followup_projectiles.clear()
 	_reset_dive_runtime(true)
 	_reset_marshal_runtime_fields()
 	marshal_particles.clear()
@@ -1110,7 +1126,17 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 			dark_blade_window = false
 			dark_blade_window_frames = 0.0
 			core_flip_dark_blade_handoff_frames = 0.0
-	_update_blade_motion_combo_windows(fps_scale)
+	if _is_blade_motion_combo_phase_active():
+		if blade_dark_mode:
+			blade_dark_fire_frames += fps_scale
+			if blade_dark_fire_frames >= BLADE_COMBO_DELAY_FRAMES:
+				blade_dark_combo_window = true
+		else:
+			blade_air_fire_frames += fps_scale
+			if blade_air_fire_frames >= BLADE_COMBO_DELAY_FRAMES:
+				blade_air_combo_window = true
+	elif not _is_blade_motion_active():
+		_reset_blade_motion_combo_windows()
 	if nerve_strike_miss_text_timer > 0.0:
 		nerve_strike_miss_text_timer = max(0.0, nerve_strike_miss_text_timer - fps_scale)
 	if nerve_strike_slash_vfx_frames > 0.0:
@@ -1123,9 +1149,29 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 	if core_flip_miss_text_timer > 0.0:
 		core_flip_miss_text_timer = max(0.0, core_flip_miss_text_timer - fps_scale)
 	var marshal_timer_skill_config: Object = _get_viper_skill_config(deps)
-	_update_marshal_ready_window(fps_scale, context, marshal_timer_skill_config)
-	_update_pending_phantom_kick_window(fps_scale, context, deps, marshal_timer_skill_config)
-	_update_double_marshal_ready_window(fps_scale, context, marshal_timer_skill_config)
+	if marshal_ready:
+		marshal_ready_frames = max(0.0, marshal_ready_frames - fps_scale)
+		if marshal_ready_frames <= 0.0 or not _context_has_enough_gauge(context, _get_marshal_skill_cost(marshal_timer_skill_config, MARSHAL_KICK)):
+			_clear_marshal_ready_window()
+	if marshal_first_hit_pending:
+		marshal_first_hit_delay_frames = max(0.0, marshal_first_hit_delay_frames - fps_scale)
+		if marshal_first_hit_delay_frames <= 0.0:
+			_clear_marshal_first_hit_pending()
+			if (
+				marshal_phantom_allowed
+				and shadow_was_airborne
+				and _has_phantom_kick_chain_skill(marshal_timer_skill_config, deps)
+				and _context_has_enough_gauge(context, _get_marshal_skill_cost(marshal_timer_skill_config, PHANTOM_KICK))
+				and _is_configured_skill_ready(PHANTOM_KICK, deps)
+			):
+				double_marshal_ready = true
+				double_marshal_ready_frames = MARSHAL_KICK_READY_FRAMES
+			else:
+				_clear_phantom_kick_chain_window()
+	if double_marshal_ready:
+		double_marshal_ready_frames = max(0.0, double_marshal_ready_frames - fps_scale)
+		if double_marshal_ready_frames <= 0.0 or not _context_has_enough_gauge(context, _get_marshal_skill_cost(marshal_timer_skill_config, PHANTOM_KICK)):
+			_clear_phantom_kick_chain_window()
 	if dmk_freeze_active:
 		var dmk_prep_mult: float = skill_scaling.get_marshal_prep_duration_mult(_get_kick_enhance_level(deps))
 		dmk_freeze_frames = max(0.0, dmk_freeze_frames - fps_scale / max(0.1, dmk_prep_mult))
@@ -1689,7 +1735,12 @@ func _update_core_flip(
 	var result := _build_core_flip_motion_result(core_flip_visual_pos, special_gauge, false, config)
 	match core_flip_attack_phase:
 		0:
-			next_pos = _update_core_flip_start_phase(config, deps)
+			_clear_core_flip_web_lines()
+			var t0: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE0_FRAMES)
+			core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(0, t0)
+			next_pos = _center_to_player_pos(core_flip_origin_center, config)
+			if t0 >= 1.0:
+				_enter_core_flip_phase(1, deps)
 		1:
 			next_pos = _update_core_flip_wall_climb_phase(config, deps)
 		2:
@@ -1699,16 +1750,6 @@ func _update_core_flip(
 	core_flip_visual_pos = next_pos
 	result["player_pos"] = next_pos
 	return result
-
-
-func _update_core_flip_start_phase(config: Dictionary, deps: Dictionary) -> Vector2:
-	_clear_core_flip_web_lines()
-	var t0: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, CORE_FLIP_PHASE0_FRAMES)
-	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(0, t0)
-	var next_pos: Vector2 = _center_to_player_pos(core_flip_origin_center, config)
-	if t0 >= 1.0:
-		_enter_core_flip_phase(1, deps)
-	return next_pos
 
 
 func _update_core_flip_wall_climb_phase(config: Dictionary, deps: Dictionary) -> Vector2:
@@ -2176,47 +2217,6 @@ func _perf_begin(perf_logger: Object) -> int:
 func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 	if perf_logger != null and perf_logger.has_method("finish_sample"):
 		perf_logger.finish_sample(label, start_usec)
-
-
-func _update_marshal_ready_window(fps_scale: float, context: Dictionary, skill_config: Object) -> void:
-	if not marshal_ready:
-		return
-	marshal_ready_frames = max(0.0, marshal_ready_frames - fps_scale)
-	if marshal_ready_frames <= 0.0 or not _context_has_enough_gauge(context, _get_marshal_skill_cost(skill_config, MARSHAL_KICK)):
-		_clear_marshal_ready_window()
-
-
-func _update_pending_phantom_kick_window(
-	fps_scale: float,
-	context: Dictionary,
-	deps: Dictionary,
-	skill_config: Object
-) -> void:
-	if not marshal_first_hit_pending:
-		return
-	marshal_first_hit_delay_frames = max(0.0, marshal_first_hit_delay_frames - fps_scale)
-	if marshal_first_hit_delay_frames > 0.0:
-		return
-	_clear_marshal_first_hit_pending()
-	if (
-		marshal_phantom_allowed
-		and shadow_was_airborne
-		and _has_phantom_kick_chain_skill(skill_config, deps)
-		and _context_has_enough_gauge(context, _get_marshal_skill_cost(skill_config, PHANTOM_KICK))
-		and _is_configured_skill_ready(PHANTOM_KICK, deps)
-	):
-		double_marshal_ready = true
-		double_marshal_ready_frames = MARSHAL_KICK_READY_FRAMES
-	else:
-		_clear_phantom_kick_chain_window()
-
-
-func _update_double_marshal_ready_window(fps_scale: float, context: Dictionary, skill_config: Object) -> void:
-	if not double_marshal_ready:
-		return
-	double_marshal_ready_frames = max(0.0, double_marshal_ready_frames - fps_scale)
-	if double_marshal_ready_frames <= 0.0 or not _context_has_enough_gauge(context, _get_marshal_skill_cost(skill_config, PHANTOM_KICK)):
-		_clear_phantom_kick_chain_window()
 
 
 # Public trigger for Venom Edge eye-slash strike. The Venom Edge runtime calls
@@ -3113,21 +3113,6 @@ func _finish_ignition_aura(deps: Dictionary) -> void:
 	ignition_remaining_frames = 0.0
 	ignition_ember_timer = 0.0
 	_set_runtime_ignition_aura_bonus(deps, false)
-
-
-func _reset_ignition_aura_runtime(clear_hold: bool = true) -> void:
-	if clear_hold:
-		_reset_ignition_aura_hold()
-	ignition_active = false
-	ignition_remaining_frames = 0.0
-	ignition_total_frames = IGNITION_DURATION_FRAMES
-	ignition_player_pos = Vector2.ZERO
-	ignition_paddle_size = Vector2(155.0, 50.0)
-	ignition_burst_particles.clear()
-	ignition_charge_particles.clear()
-	ignition_live_embers.clear()
-	ignition_ember_timer = 0.0
-	ignition_start_msec = 0
 
 
 func _sync_ignition_aura_anchor_from_context(context: Dictionary) -> void:
@@ -4362,21 +4347,6 @@ func _reset_primary_blade_projectile_runtime_state() -> void:
 	blade_projectile_fadeout_frames = 0.0
 
 
-func _update_blade_motion_combo_windows(fps_scale: float) -> void:
-	if _is_blade_motion_combo_phase_active():
-		if blade_dark_mode:
-			blade_dark_fire_frames += fps_scale
-			if blade_dark_fire_frames >= BLADE_COMBO_DELAY_FRAMES:
-				blade_dark_combo_window = true
-		else:
-			blade_air_fire_frames += fps_scale
-			if blade_air_fire_frames >= BLADE_COMBO_DELAY_FRAMES:
-				blade_air_combo_window = true
-	else:
-		if not _is_blade_motion_active():
-			_reset_blade_motion_combo_windows()
-
-
 func _advance_blade_projectile(fps_scale: float, scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	var blade_amp_level: int = max(0, _get_blade_amp_level(deps))
@@ -4715,16 +4685,6 @@ func _spawn_fallback_hit_impact(
 
 func _stop_blade_spin_sound(deps: Dictionary = {}) -> void:
 	audio_router.stop_blade_spin_sound(self, deps)
-
-
-func _reset_blade_runtime() -> void:
-	_reset_blade_motion_only()
-	_clear_blade_projectile()
-	clear_blade_hit_speed_cap()
-	dark_blade_window = false
-	dark_blade_window_frames = 0.0
-	nerve_strike_combo_used = false
-	blade_followup_projectiles.clear()
 
 
 func _reset_blade_motion_only(deps: Dictionary = {}) -> void:
