@@ -802,7 +802,8 @@ func try_activate_before_movement(
 				and not _is_round_waiting_for_serve(deps)
 			):
 				var core_flip_skill_config: Object = _get_viper_skill_config(deps)
-				var core_flip_cost: float = _get_core_flip_activation_cost(core_flip_skill_config)
+				var core_flip_cost: float = _get_skill_cost(core_flip_skill_config, CORE_FLIP)
+				core_flip_cost = core_flip_cost if core_flip_cost > 0.0 else 120.0
 				if (
 					_is_skill_equipped(core_flip_skill_config, CORE_FLIP)
 					and special_gauge >= core_flip_cost
@@ -873,7 +874,7 @@ func try_activate_before_movement(
 	if not dive_result.is_empty():
 		return dive_result
 	if pressed_edge:
-		var marshal_skill_name: String = _get_marshal_skill_to_fire()
+		var marshal_skill_name: String = visibility_query.get_marshal_skill_to_fire(self, MARSHAL_KICK, PHANTOM_KICK)
 		if (
 			marshal_skill_name != ""
 			and not _is_control_locked(deps)
@@ -887,7 +888,7 @@ func try_activate_before_movement(
 			):
 				var marshal_now_msec: int = Time.get_ticks_msec()
 				var marshal_start_skill_config: Object = _get_viper_skill_config(deps)
-				var marshal_start_skill_name: String = _get_marshal_skill_to_fire()
+				var marshal_start_skill_name: String = marshal_skill_name
 				var marshal_is_double_start: bool = marshal_start_skill_name == PHANTOM_KICK
 				var marshal_next_gauge: float = max(
 					0.0,
@@ -1106,7 +1107,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 			elif not marshal_active:
 				var shadow_skill_config: Object = _get_viper_skill_config(deps)
 				if _is_skill_equipped(shadow_skill_config, MARSHAL_KICK):
-					if _context_has_enough_gauge(context, _get_marshal_skill_cost(shadow_skill_config, MARSHAL_KICK)):
+					if visibility_query.context_has_enough_gauge(context, _get_marshal_skill_cost(shadow_skill_config, MARSHAL_KICK)):
 						if _is_configured_skill_ready(MARSHAL_KICK, deps):
 							open_marshal_kick_window()
 	if shadow_starburst_active:
@@ -1156,7 +1157,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 	var marshal_timer_skill_config: Object = _get_viper_skill_config(deps)
 	if marshal_ready:
 		marshal_ready_frames = max(0.0, marshal_ready_frames - fps_scale)
-		if marshal_ready_frames <= 0.0 or not _context_has_enough_gauge(context, _get_marshal_skill_cost(marshal_timer_skill_config, MARSHAL_KICK)):
+		if marshal_ready_frames <= 0.0 or not visibility_query.context_has_enough_gauge(context, _get_marshal_skill_cost(marshal_timer_skill_config, MARSHAL_KICK)):
 			_clear_marshal_ready_window()
 	if marshal_first_hit_pending:
 		marshal_first_hit_delay_frames = max(0.0, marshal_first_hit_delay_frames - fps_scale)
@@ -1166,7 +1167,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 				marshal_phantom_allowed
 				and shadow_was_airborne
 				and _has_phantom_kick_chain_skill(marshal_timer_skill_config, deps)
-				and _context_has_enough_gauge(context, _get_marshal_skill_cost(marshal_timer_skill_config, PHANTOM_KICK))
+				and visibility_query.context_has_enough_gauge(context, _get_marshal_skill_cost(marshal_timer_skill_config, PHANTOM_KICK))
 				and _is_configured_skill_ready(PHANTOM_KICK, deps)
 			):
 				double_marshal_ready = true
@@ -1175,7 +1176,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 				_clear_phantom_kick_chain_window()
 	if double_marshal_ready:
 		double_marshal_ready_frames = max(0.0, double_marshal_ready_frames - fps_scale)
-		if double_marshal_ready_frames <= 0.0 or not _context_has_enough_gauge(context, _get_marshal_skill_cost(marshal_timer_skill_config, PHANTOM_KICK)):
+		if double_marshal_ready_frames <= 0.0 or not visibility_query.context_has_enough_gauge(context, _get_marshal_skill_cost(marshal_timer_skill_config, PHANTOM_KICK)):
 			_clear_phantom_kick_chain_window()
 	if dmk_freeze_active:
 		var dmk_prep_mult: float = skill_scaling.get_marshal_prep_duration_mult(_get_kick_enhance_level(deps))
@@ -1605,15 +1606,6 @@ func _has_lateral_skill_input(input_snapshot: Dictionary) -> bool:
 	)
 
 
-func _get_core_flip_activation_cost(skill_config: Object) -> float:
-	var configured_cost: float = _get_skill_cost(skill_config, CORE_FLIP)
-	return configured_cost if configured_cost > 0.0 else 120.0
-
-
-func _get_core_flip_player_collision_cooldown(config: Dictionary) -> float:
-	return max(6.0, float(config.get("player_collision_cooldown", 0.0)))
-
-
 func _build_core_flip_motion_result(player_pos: Vector2, special_gauge: float, activated: bool, config: Dictionary) -> Dictionary:
 	return {
 		"handled": true,
@@ -1622,7 +1614,7 @@ func _build_core_flip_motion_result(player_pos: Vector2, special_gauge: float, a
 		"player_pos": player_pos,
 		"player_speed": 0.0,
 		"special_gauge": special_gauge,
-		"player_collision_cooldown": _get_core_flip_player_collision_cooldown(config),
+		"player_collision_cooldown": max(6.0, float(config.get("player_collision_cooldown", 0.0))),
 	}
 
 
@@ -1634,7 +1626,8 @@ func _start_core_flip(
 	now_msec: int
 ) -> Dictionary:
 	var skill_config: Object = _get_viper_skill_config(deps)
-	var cost: float = _get_core_flip_activation_cost(skill_config)
+	var cost: float = _get_skill_cost(skill_config, CORE_FLIP)
+	cost = cost if cost > 0.0 else 120.0
 	var next_gauge: float = max(0.0, special_gauge - cost)
 	_trigger_configured_cooldown_and_orb_gauge_spin(CORE_FLIP, skill_config, deps, now_msec)
 	_cancel_dash_until_key_release(deps.get("dash_state", null))
@@ -1701,12 +1694,12 @@ func _update_core_flip(
 
 
 func _update_core_flip_wall_climb_phase(config: Dictionary, deps: Dictionary) -> Vector2:
-	var phase1_cap: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE1_FRAMES, deps)
+	var phase1_cap: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_PHASE1_FRAMES, _get_kick_enhance_level(deps))
 	var t1: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, phase1_cap)
 	core_flip_target_center = _get_ball_pos(config)
 	core_flip_spin_angle_degrees = ViperSkillGeometry.core_flip_spin_degrees(1, t1)
-	var leg_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_LEG_FRAMES, deps)
-	var cling_frames: float = _get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_CLING_FRAMES, deps)
+	var leg_frames: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_LEG_FRAMES, _get_kick_enhance_level(deps))
+	var cling_frames: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_ZIGZAG_CLING_FRAMES, _get_kick_enhance_level(deps))
 	var center1: Vector2 = ViperSkillGeometry.core_flip_wall_climb_center(
 		t1,
 		config,
@@ -1800,7 +1793,7 @@ func _try_apply_core_flip_kick_hit(kick_center: Vector2, config: Dictionary, dep
 	var core_flip_hit_result := {
 		"ball_vel": next_vel,
 		"ball_impact_boost": max(1.0, float(config.get("ball_impact_boost", 1.0))),
-		"player_collision_cooldown": _get_core_flip_player_collision_cooldown(config),
+		"player_collision_cooldown": max(6.0, float(config.get("player_collision_cooldown", 0.0))),
 	}
 	core_flip_hit_result.merge(_award_skill_gold(deps, CORE_FLIP_HIT_GOLD), true)
 	result.merge(_mark_result_released_chaos_hit(core_flip_hit_result, released_chaos), true)
@@ -1810,7 +1803,7 @@ func _try_apply_core_flip_kick_hit(kick_center: Vector2, config: Dictionary, dep
 
 func _update_core_flip_kick_phase(config: Dictionary, deps: Dictionary, result: Dictionary) -> Vector2:
 	_clear_core_flip_web_lines()
-	var p2_duration: float = _get_core_flip_duration_frames(CORE_FLIP_PHASE2_FRAMES, deps)
+	var p2_duration: float = skill_scaling.get_core_flip_duration_frames(CORE_FLIP_PHASE2_FRAMES, _get_kick_enhance_level(deps))
 	var t2: float = ViperSkillGeometry.core_flip_phase_progress(core_flip_phase_frames, p2_duration)
 	if not core_flip_ball_hit:
 		core_flip_target_center = _get_ball_pos(config)
@@ -1862,10 +1855,6 @@ func _enter_core_flip_phase(next_phase: int, deps: Dictionary) -> void:
 	core_flip_phase_frames = 0.0
 	if next_phase == 1:
 		audio_router.play_marshal_backstep_sound(deps)
-
-
-func _get_core_flip_duration_frames(base_frames: float, deps: Dictionary) -> float:
-	return skill_scaling.get_core_flip_duration_frames(base_frames, _get_kick_enhance_level(deps))
 
 
 func _center_to_player_pos(center: Vector2, config: Dictionary) -> Vector2:
@@ -2211,16 +2200,8 @@ func end_venom_edge_stationary() -> void:
 	venom_edge_stationary_active = false
 
 
-func _get_marshal_skill_to_fire() -> String:
-	return visibility_query.get_marshal_skill_to_fire(self, MARSHAL_KICK, PHANTOM_KICK)
-
-
 func _get_marshal_skill_cost(skill_config: Object, skill_name: String) -> float:
 	return visibility_query.get_marshal_skill_cost(skill_config, skill_name, PHANTOM_KICK)
-
-
-func _context_has_enough_gauge(context: Dictionary, cost: float) -> bool:
-	return visibility_query.context_has_enough_gauge(context, cost)
 
 
 func _is_configured_skill_ready(skill_name: String, deps: Dictionary, now_msec: int = -1) -> bool:
@@ -4362,7 +4343,7 @@ func _apply_blade_hit(
 		var skill_config: Object = _get_viper_skill_config(deps)
 		if (
 			_is_skill_equipped(skill_config, MARSHAL_KICK)
-			and _context_has_enough_gauge(context, _get_marshal_skill_cost(skill_config, MARSHAL_KICK))
+			and visibility_query.context_has_enough_gauge(context, _get_marshal_skill_cost(skill_config, MARSHAL_KICK))
 			and _is_configured_skill_ready(MARSHAL_KICK, deps)
 		):
 			marshal_ready = true
