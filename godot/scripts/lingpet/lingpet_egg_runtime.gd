@@ -761,6 +761,7 @@ func _update_companion_skill_effects(delta: float, owner: Object, registry: Obje
 			_launch_companion_skill(owner, registry)
 		_:
 			pass
+	_apply_companion_skill_position_override(skill_id)
 
 
 func _arm_companion_skill(owner: Object, skill_id: String) -> bool:
@@ -773,8 +774,8 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 	if _companion_pos == Vector2.ZERO:
 		_initialize_companion_patrol(owner, true)
 	var skill_id := _get_current_skill_id()
-	var origin: Vector2 = _companion_pos + Vector2(0.0, -COMPANION_RADIUS - 8.0)
-	_companion_skill_controller.complete_launch(
+	var origin: Vector2 = _skill_runtime_host.get_launch_origin(skill_id, _companion_pos, COMPANION_RADIUS)
+	var launched: bool = _companion_skill_controller.complete_launch(
 		_companion_skill_state,
 		_skill_runtime_host,
 		skill_id,
@@ -784,6 +785,16 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 		registry,
 		owner
 	)
+	if launched and _skill_runtime_host.has_companion_position_override(skill_id):
+		_companion_sprite_animator.begin_strike(LingpetCompanionSpriteAnimator.STRIKE_START_FRAME)
+		_apply_companion_skill_position_override(skill_id)
+
+
+func _apply_companion_skill_position_override(skill_id: String) -> void:
+	if not _skill_runtime_host.has_companion_position_override(skill_id):
+		return
+	_companion_pos = _skill_runtime_host.get_companion_position_override(skill_id, _companion_pos)
+	_companion_motion_state.pos = _companion_pos
 
 
 func _draw_egg(canvas: CanvasItem, center: Vector2) -> void:
@@ -824,8 +835,8 @@ func _draw_companion(canvas: CanvasItem, center: Vector2) -> void:
 		"switch_particles": COMPANION_SWITCH_TRANSITION_PARTICLES,
 		"animator": _companion_sprite_animator,
 		"patrol_pause": _companion_motion_state.patrol_pause,
-		"motion_speed_ratio": _companion_motion_state.motion_speed_ratio if _get_current_motion_style() == "sortie_flight" else 0.0,
-		"companion_visible": _companion_motion_state.motion_visible,
+		"motion_speed_ratio": 1.0 if _skill_runtime_host.has_companion_position_override(_get_current_skill_id()) else (_companion_motion_state.motion_speed_ratio if _get_current_motion_style() == "sortie_flight" else 0.0),
+		"companion_visible": _companion_motion_state.motion_visible or _skill_runtime_host.has_companion_position_override(_get_current_skill_id()),
 		"windup_seconds": _get_current_skill_windup_seconds(),
 	}))
 

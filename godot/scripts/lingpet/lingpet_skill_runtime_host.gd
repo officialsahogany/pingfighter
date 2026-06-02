@@ -64,6 +64,32 @@ func launch(skill_id: String, origin: Vector2, owner: Object = null) -> bool:
 			return false
 
 
+func get_launch_origin(skill_id: String, companion_pos: Vector2, companion_radius: float) -> Vector2:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HYDRO_SPHERE:
+			return companion_pos + Vector2(0.0, -maxf(0.0, companion_radius) - 8.0)
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return companion_pos
+		_:
+			return companion_pos
+
+
+func has_companion_position_override(skill_id: String) -> bool:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return _headbutt_skill.has_companion_position_override()
+		_:
+			return false
+
+
+func get_companion_position_override(skill_id: String, fallback: Vector2) -> Vector2:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return _headbutt_skill.get_companion_position_override(fallback)
+		_:
+			return fallback
+
+
 func should_show_cast_windup(skill_id: String) -> bool:
 	return LingpetSkillDispatcher.has_supported_runtime(skill_id)
 

@@ -113,6 +113,18 @@ func is_active() -> bool:
 	return _active
 
 
+func has_companion_position_override() -> bool:
+	return _active or _impact_timer > 0.0 or _miss_timer > 0.0
+
+
+func get_companion_position_override(fallback: Vector2 = Vector2.ZERO) -> Vector2:
+	if _active:
+		return _pos
+	if _impact_timer > 0.0 or _miss_timer > 0.0:
+		return _impact_pos
+	return fallback
+
+
 func get_hit_count_for_tests() -> int:
 	return _hit_count
 
@@ -126,6 +138,8 @@ func get_snapshot() -> Dictionary:
 		"headbutt_active": _active,
 		"headbutt_pos": _pos,
 		"headbutt_target": _target,
+		"headbutt_companion_override_active": has_companion_position_override(),
+		"headbutt_companion_pos": get_companion_position_override(Vector2.ZERO),
 		"headbutt_impact_active": _impact_timer > 0.0,
 		"headbutt_impact_timer": _impact_timer,
 		"headbutt_miss_active": _miss_timer > 0.0,
@@ -250,17 +264,8 @@ func _draw_dash(canvas: CanvasItem, shake_offset: Vector2) -> void:
 			var prev_pos := _trail[i - 1] + shake_offset
 			canvas.draw_line(prev_pos, trail_pos, Color(0.55, 0.95, 1.0, 0.26 * ratio), maxf(1.0, 4.0 * ratio), true)
 	var pos := _pos + shake_offset
-	var side := _dash_dir.orthogonal()
-	var body := PackedVector2Array([
-		pos + _dash_dir * 28.0,
-		pos + side * 14.0 - _dash_dir * 4.0,
-		pos - _dash_dir * 20.0,
-		pos - side * 14.0 - _dash_dir * 4.0,
-	])
-	canvas.draw_colored_polygon(body, Color(0.50, 0.86, 1.0, 0.78))
-	canvas.draw_polyline(PackedVector2Array([body[0], body[1], body[2], body[3], body[0]]), Color(1.0, 0.86, 1.0, 0.94), 1.6, true)
-	canvas.draw_circle(pos + _dash_dir * 20.0, 8.0, Color(1.0, 0.72, 0.98, 0.86))
 	canvas.draw_circle(pos, DASH_RADIUS + 9.0, Color(0.72, 0.25, 1.0, 0.12))
+	canvas.draw_arc(pos, DASH_RADIUS + 5.0, 0.0, TAU, 30, Color(0.92, 0.62, 1.0, 0.42), 1.8, true)
 
 
 func _draw_impact(canvas: CanvasItem, pos: Vector2, ratio: float, hit: bool) -> void:

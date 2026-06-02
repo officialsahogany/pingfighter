@@ -641,6 +641,8 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 	_expect(skill_runtime_host_source.find("LingpetSkillDispatcher.get_skill_kind") >= 0, "skill runtime host should dispatch concrete active-skill behavior by skill id")
 	_expect(skill_runtime_host_source.find("lingpet_hydro_sphere_skill.gd") >= 0, "skill runtime host should own the current Hydro Sphere module")
 	_expect(skill_runtime_host_source.find("lingpet_headbutt_skill.gd") >= 0, "skill runtime host should own the Lunabi Headbutt module")
+	_expect(skill_runtime_host_source.find("get_companion_position_override") >= 0, "skill runtime host should let body-driven skills override the real companion position")
+	_expect(runtime_source.find("_apply_companion_skill_position_override") >= 0, "egg runtime should apply body-driven skill positions to the real companion")
 	_expect(dispatcher_source.find("LingpetCatalog.get_active_skill_runtime_kind") >= 0, "skill dispatcher should resolve active-skill runtime kind through the catalog before falling back to legacy ids")
 	_expect(runtime_source.find("lingpet_companion_skill_state.gd") >= 0, "egg runtime should delegate shared active-skill cooldown/wind-up state to the companion skill-state controller")
 	_expect(FileAccess.file_exists("res://scripts/lingpet/lingpet_companion_skill_state.gd"), "companion skill-state controller should exist for future lingpet active skills")
@@ -1688,18 +1690,25 @@ func _verify_lunabi_headbutt_skill() -> void:
 	runtime.update(0.50, owner, registry)
 	var launched_snap: Dictionary = runtime.get_snapshot()
 	_expect(bool(launched_snap.get("headbutt_active", false)), "Lunabi Headbutt should launch after its wind-up")
+	_expect(bool(launched_snap.get("headbutt_companion_override_active", false)), "Lunabi Headbutt should drive the real companion body during the charge")
+	_expect(_vector2_distance(launched_snap.get("companion_pos", Vector2.ZERO), launched_snap.get("headbutt_pos", Vector2.INF)) <= 0.1, "Lunabi Headbutt launch should start from the real companion body position")
 	_expect(int(owner.lingpet_skill_trigger_count) == 1, "Lunabi Headbutt should count one launch")
 	_expect(owner.lingpet_skill_cooldown > 29.0, "Lunabi Headbutt should enter a 30-second cooldown at launch")
 	_expect(not bool(owner.lingpet_skill_ready), "Lunabi Headbutt should not be ready during cooldown")
 
 	var boss_x_before := owner.boss_pos.x
-	for _i in range(18):
+	runtime.update(0.05, owner, registry)
+	var charge_snap: Dictionary = runtime.get_snapshot()
+	_expect(bool(charge_snap.get("headbutt_active", false)), "Lunabi Headbutt should stay active while the body is still charging")
+	_expect(_vector2_distance(charge_snap.get("companion_pos", Vector2.ZERO), charge_snap.get("headbutt_pos", Vector2.INF)) <= 0.1, "Lunabi's actual companion body should be the charging Headbutt position")
+	for _i in range(17):
 		runtime.update(0.05, owner, registry)
 		if int(runtime.get_headbutt_hit_count_for_tests()) > 0:
 			break
 	var hit_snap: Dictionary = runtime.get_snapshot()
 	_expect(int(runtime.get_headbutt_hit_count_for_tests()) == 1, "Lunabi Headbutt should hit a stationary boss paddle")
 	_expect(str(hit_snap.get("headbutt_last_result", "")) == "hit", "Lunabi Headbutt snapshot should publish the last hit result")
+	_expect(_vector2_distance(hit_snap.get("companion_pos", Vector2.ZERO), hit_snap.get("headbutt_companion_pos", Vector2.INF)) <= 0.1, "Lunabi's actual companion body should remain at the Headbutt impact position")
 	_expect(absf((owner.boss_pos.x - boss_x_before) - 150.0) <= 1.0, "Lunabi Headbutt should knock the boss paddle about 150px")
 	_expect(audio.paddle_hits == 1, "Lunabi Headbutt hit should use the paddle-hit impact sound")
 
@@ -1774,6 +1783,12 @@ func _issues_contain(issues: Array[String], needle: String) -> bool:
 		if issue.find(needle) >= 0:
 			return true
 	return false
+
+
+func _vector2_distance(a: Variant, b: Variant) -> float:
+	if not (a is Vector2) or not (b is Vector2):
+		return INF
+	return (a as Vector2).distance_to(b as Vector2)
 
 
 func _expect(condition: bool, message: String) -> void:
