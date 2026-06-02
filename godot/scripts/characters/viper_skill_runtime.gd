@@ -753,7 +753,25 @@ func try_activate_before_movement(
 	var left_edge: bool = left_pressed and not previous_left_pressed
 	var right_edge: bool = right_pressed and not previous_right_pressed
 	var command_skill_config: Object = visibility_query.get_viper_skill_config(deps)
-	_record_dual_glitch_command(left_edge, right_edge, up_edge, now_msec, command_skill_config, deps)
+	if up_edge:
+		dual_glitch_cmd_buffer.clear()
+	var can_record_dual_glitch_command: bool = (
+		dual_glitch_state == "idle"
+		and visibility_query.is_skill_equipped(command_skill_config, DUAL_GLITCH)
+		and visibility_query.is_configured_skill_ready(DUAL_GLITCH, deps, -1)
+		and not _is_core_flip_ready_window_active(now_msec)
+	)
+	if not can_record_dual_glitch_command:
+		dual_glitch_cmd_buffer.clear()
+	else:
+		if not dual_glitch_cmd_buffer.is_empty():
+			var dual_glitch_first_command: Dictionary = dual_glitch_cmd_buffer[0]
+			if now_msec - int(dual_glitch_first_command.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
+				dual_glitch_cmd_buffer.clear()
+		if left_edge:
+			_push_dual_glitch_command("a", now_msec)
+		if right_edge:
+			_push_dual_glitch_command("d", now_msec)
 	if left_edge:
 		core_flip_left_press_frame = input_sequence_frame
 	if right_edge:
@@ -1186,7 +1204,8 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 			if (
 				marshal_phantom_allowed
 				and shadow_was_airborne
-				and _has_phantom_kick_chain_skill(marshal_timer_skill_config, deps)
+				and visibility_query.get_runtime_skill_level(deps, DOUBLE_MARSHAL_KICK) > 0
+				and visibility_query.is_skill_equipped(marshal_timer_skill_config, PHANTOM_KICK)
 				and visibility_query.context_has_enough_gauge(context, visibility_query.get_marshal_skill_cost(marshal_timer_skill_config, PHANTOM_KICK, PHANTOM_KICK))
 				and visibility_query.is_configured_skill_ready(PHANTOM_KICK, deps, -1)
 			):
@@ -2195,52 +2214,17 @@ func end_venom_edge_stationary() -> void:
 	venom_edge_stationary_active = false
 
 
-func _has_phantom_kick_chain_skill(skill_config: Object, deps: Dictionary) -> bool:
-	return (
-		visibility_query.get_runtime_skill_level(deps, DOUBLE_MARSHAL_KICK) > 0
-		and visibility_query.is_skill_equipped(skill_config, PHANTOM_KICK)
-	)
-
-
 func _clear_phantom_kick_chain_window() -> void:
 	marshal_phantom_allowed = false
 	_clear_double_marshal_ready_window()
 	_clear_marshal_first_hit_pending()
 
 
-func _record_dual_glitch_command(
-	left_edge: bool,
-	right_edge: bool,
-	up_edge: bool,
-	now_msec: int,
-	skill_config: Object,
-	deps: Dictionary
-) -> void:
-	if up_edge:
-		_clear_dual_glitch_command_buffer()
-	if (
-		dual_glitch_state != "idle"
-		or not visibility_query.is_skill_equipped(skill_config, DUAL_GLITCH)
-		or not visibility_query.is_configured_skill_ready(DUAL_GLITCH, deps, -1)
-		or _is_core_flip_ready_window_active(now_msec)
-	):
-		_clear_dual_glitch_command_buffer()
-		return
-	if not dual_glitch_cmd_buffer.is_empty():
-		var first: Dictionary = dual_glitch_cmd_buffer[0]
-		if now_msec - int(first.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
-			_clear_dual_glitch_command_buffer()
-	if left_edge:
-		_push_dual_glitch_command("a", now_msec)
-	if right_edge:
-		_push_dual_glitch_command("d", now_msec)
-
-
 func _push_dual_glitch_command(key_char: String, now_msec: int) -> void:
 	if not dual_glitch_cmd_buffer.is_empty():
 		var first: Dictionary = dual_glitch_cmd_buffer[0]
 		if now_msec - int(first.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
-			_clear_dual_glitch_command_buffer()
+			dual_glitch_cmd_buffer.clear()
 	var progress: int = dual_glitch_cmd_buffer.size()
 	var expected_key := "a" if progress == 0 or progress == 2 or progress >= 4 else "d"
 	var entry := {"key": key_char, "time": now_msec}
@@ -2260,7 +2244,7 @@ func _check_dual_glitch_command(now_msec: int) -> bool:
 	if not dual_glitch_cmd_buffer.is_empty():
 		var first: Dictionary = dual_glitch_cmd_buffer[0]
 		if now_msec - int(first.get("time", 0)) > DUAL_GLITCH_CMD_WINDOW_MSEC:
-			_clear_dual_glitch_command_buffer()
+			dual_glitch_cmd_buffer.clear()
 	if dual_glitch_cmd_buffer.size() < 4:
 		return false
 	var first_entry: Dictionary = dual_glitch_cmd_buffer[0]
@@ -2274,12 +2258,8 @@ func _check_dual_glitch_command(now_msec: int) -> bool:
 		or str(fourth_entry.get("key", "")) != "d"
 	):
 		return false
-	_clear_dual_glitch_command_buffer()
-	return true
-
-
-func _clear_dual_glitch_command_buffer() -> void:
 	dual_glitch_cmd_buffer.clear()
+	return true
 
 
 func _push_chaos_command(key_char: String, now_msec: int) -> void:
@@ -2305,12 +2285,8 @@ func _check_chaos_command(now_msec: int) -> bool:
 		return false
 	if now_msec - third_time > CHAOS_CMD_WINDOW_MSEC:
 		return false
-	_clear_chaos_spear_command_buffer()
-	return true
-
-
-func _clear_chaos_spear_command_buffer() -> void:
 	chaos_cmd_buffer.clear()
+	return true
 
 
 func _start_dual_glitch(
@@ -2338,7 +2314,7 @@ func _start_dual_glitch(
 	dual_glitch_paddle_size = ViperSkillGeometry.get_paddle_size(config)
 	dual_glitch_fade_reason = ""
 	dual_glitch_start_msec = now_msec
-	_clear_dual_glitch_command_buffer()
+	dual_glitch_cmd_buffer.clear()
 	dual_glitch_clones.clear()
 	var clone_hp: int = skill_scaling.get_dual_glitch_clone_hp(
 		visibility_query.get_runtime_skill_level(deps, "four_poisons"),
@@ -2548,7 +2524,7 @@ func _reset_dual_glitch_runtime(clear_command: bool = false) -> void:
 	dual_glitch_fade_reason = ""
 	dual_glitch_start_msec = 0
 	if clear_command:
-		_clear_dual_glitch_command_buffer()
+		dual_glitch_cmd_buffer.clear()
 
 
 func _reset_chaos_spear_runtime(clear_command: bool = false, deps: Dictionary = {}) -> void:
@@ -2576,7 +2552,7 @@ func _reset_chaos_spear_runtime(clear_command: bool = false, deps: Dictionary = 
 	chaos_release_pending = false
 	chaos_release_velocity = Vector2.ZERO
 	if clear_command:
-		_clear_chaos_spear_command_buffer()
+		chaos_cmd_buffer.clear()
 	fx_host_controller.hide_fx_host(chaos_fx_host)
 
 
@@ -4624,7 +4600,7 @@ func _update_marshal_charge_phase(config: Dictionary, deps: Dictionary, result: 
 				_clear_phantom_kick_chain_window()
 			else:
 				var skill_config: Object = visibility_query.get_viper_skill_config(deps)
-				if shadow_was_airborne and marshal_phantom_allowed and _has_phantom_kick_chain_skill(skill_config, deps):
+				if shadow_was_airborne and marshal_phantom_allowed and visibility_query.get_runtime_skill_level(deps, DOUBLE_MARSHAL_KICK) > 0 and visibility_query.is_skill_equipped(skill_config, PHANTOM_KICK):
 					marshal_first_hit_pending = true
 					marshal_first_hit_delay_frames = MARSHAL_KICK_PHANTOM_DELAY_FRAMES
 				else:
