@@ -1090,7 +1090,7 @@ func update_effects(fps_scale: float, _current_msec: int, context: Dictionary, d
 			_clear_shadow_kick_ready()
 	if shadow_hologram_active:
 		shadow_hologram_frames += fps_scale
-		var shadow_hologram_progress: float = _get_shadow_hologram_progress()
+		var shadow_hologram_progress: float = ViperSkillGeometry.shadow_step_hologram_progress(shadow_hologram_frames, SHADOW_STEP_HOLOGRAM_FRAMES)
 		if shadow_hologram_progress >= 0.95 and not shadow_hologram_dest_shock_spawned:
 			shadow_hologram_dest_shock_spawned = true
 			particle_drawer.spawn_shadow_activation_feedback(shadow_hologram_target, deps.get("impact_effects", null), 0.75)
@@ -2470,7 +2470,7 @@ func _update_chaos_startup_phase(context: Dictionary, deps: Dictionary) -> void:
 	var player_pos: Vector2 = _get_vector2(context.get("player_pos", Vector2.ZERO), Vector2.ZERO)
 	var player_size: Vector2 = _get_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
 	chaos_current = Vector2(player_pos.x + player_size.x * 0.5, player_pos.y - 6.0)
-	var prep_reduction_pct: float = float(_get_four_poisons_prep_reduction_pct(deps))
+	var prep_reduction_pct: float = float(_get_four_poisons_scaled_pct(deps, FOUR_POISONS_PREP_REDUCTION_PCT_BY_LEVEL, FOUR_POISONS_PREP_REDUCTION_PCT_CAP, FOUR_POISONS_PREP_REDUCTION_PCT_PER_EXTRA_LEVEL))
 	var frame_scale: float = max(0.0, 1.0 - prep_reduction_pct / 100.0)
 	var chaos_startup_frames: float = max(1.0, CHAOS_STARTUP_FRAMES * frame_scale)
 	if chaos_phase_frames >= chaos_startup_frames:
@@ -2598,21 +2598,8 @@ func _reset_chaos_spear_runtime(clear_command: bool = false, deps: Dictionary = 
 	fx_host_controller.hide_fx_host(chaos_fx_host)
 
 
-func _get_four_poisons_prep_reduction_pct(deps: Dictionary) -> int:
-	return skill_scaling.get_four_poisons_prep_reduction_pct(
-		visibility_query.get_runtime_skill_level(deps, "four_poisons"),
-		FOUR_POISONS_PREP_REDUCTION_PCT_BY_LEVEL,
-		FOUR_POISONS_PREP_REDUCTION_PCT_CAP,
-		FOUR_POISONS_PREP_REDUCTION_PCT_PER_EXTRA_LEVEL
-	)
-
-
 func _get_four_poisons_scaled_pct(deps: Dictionary, values: Array, cap: int, per_extra_level: int) -> int:
 	return skill_scaling.get_four_poisons_scaled_pct(visibility_query.get_runtime_skill_level(deps, "four_poisons"), values, cap, per_extra_level)
-
-
-func _is_dual_glitch_clone_replication_active(deps: Dictionary) -> bool:
-	return dual_glitch_state == "active" and visibility_query.get_runtime_skill_level(deps, "four_poisons") >= 5
 
 
 func _update_dual_glitch_runtime(fps_scale: float, context: Dictionary) -> void:
@@ -2725,7 +2712,7 @@ func apply_dual_glitch_clone_ball_hit(context: Dictionary = {}, _deps: Dictionar
 
 
 func _spawn_dual_glitch_clone_dive_entries_for_current_cast(deps: Dictionary) -> void:
-	if not _is_dual_glitch_clone_replication_active(deps):
+	if not (dual_glitch_state == "active" and visibility_query.get_runtime_skill_level(deps, "four_poisons") >= 5):
 		return
 	var origins: Array = visibility_query.get_dual_glitch_replication_origins(_get_dual_glitch_clone_rect_entries(true, false))
 	if origins.is_empty():
@@ -3112,7 +3099,7 @@ func _start_dive_strike(
 	dive_floor_y = ViperSkillGeometry.player_floor_y(config)
 	dive_player_pos = player_pos
 	dive_height_snapshot = max(0.0, runtime_action_router.get_viper_airborne_height(deps, config, player_pos))
-	var prep_reduction_pct: float = float(_get_four_poisons_prep_reduction_pct(deps))
+	var prep_reduction_pct: float = float(_get_four_poisons_scaled_pct(deps, FOUR_POISONS_PREP_REDUCTION_PCT_BY_LEVEL, FOUR_POISONS_PREP_REDUCTION_PCT_CAP, FOUR_POISONS_PREP_REDUCTION_PCT_PER_EXTRA_LEVEL))
 	dive_prep_frames_snapshot = max(1.0, DIVE_PREP_FRAMES * max(0.0, 1.0 - prep_reduction_pct / 100.0))
 	dive_effect_start_msec = now_msec
 	dive_shockwave_spawn_msec = 0
@@ -3722,7 +3709,7 @@ func _spawn_nerve_strike_slash_feedback(center: Vector2, deps: Dictionary) -> vo
 
 
 func _spawn_dual_glitch_clone_nerve_slashes_for_current_cast(deps: Dictionary, config: Dictionary) -> void:
-	if not _is_dual_glitch_clone_replication_active(deps):
+	if not (dual_glitch_state == "active" and visibility_query.get_runtime_skill_level(deps, "four_poisons") >= 5):
 		return
 	var origins: Array = visibility_query.get_dual_glitch_replication_origins(_get_dual_glitch_clone_rect_entries(true, false))
 	if origins.is_empty():
@@ -4323,7 +4310,7 @@ func _spawn_dual_glitch_clone_blades_for_current_cast(
 	size_mult: float,
 	range_mult: float
 ) -> void:
-	if not _is_dual_glitch_clone_replication_active(deps):
+	if not (dual_glitch_state == "active" and visibility_query.get_runtime_skill_level(deps, "four_poisons") >= 5):
 		return
 	var origins: Array = visibility_query.get_dual_glitch_replication_origins(_get_dual_glitch_clone_rect_entries(true, false))
 	if origins.is_empty():
@@ -4865,17 +4852,10 @@ func _reset_shadow_step_runtime() -> void:
 	phantom_strike_curve_dir = 1
 
 
-func _get_shadow_hologram_progress() -> float:
-	return ViperSkillGeometry.shadow_step_hologram_progress(
-		shadow_hologram_frames,
-		SHADOW_STEP_HOLOGRAM_FRAMES
-	)
-
-
 func _try_shadow_hologram_hit(scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	if shadow_hit_consumed or shadow_hologram_kick_hit:
 		return {}
-	if _get_shadow_hologram_progress() <= 0.30:
+	if ViperSkillGeometry.shadow_step_hologram_progress(shadow_hologram_frames, SHADOW_STEP_HOLOGRAM_FRAMES) <= 0.30:
 		return {}
 	var collision_size := Vector2(shadow_paddle_size.x + 60.0, shadow_paddle_size.y + 50.0)
 	var hit_rect: Rect2 = ViperSkillGeometry.shadow_step_hologram_hit_rect(
