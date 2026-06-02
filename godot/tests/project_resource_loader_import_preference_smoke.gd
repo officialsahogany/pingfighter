@@ -39,6 +39,7 @@ func _init() -> void:
 			and threaded_prewarm_body.find("load_texture(path, missing_warning, failed_warning)") >= 0,
 		"threaded texture prewarm should fall back to source loading instead of stalling indefinitely"
 	)
+	_verify_threaded_prewarm_short_guard(threaded_prewarm_body)
 	_expect(
 		audio_body.find("load_from_file") < audio_body.find("_can_load_imported_resource"),
 		"audio loader should prefer raw audio decoding before imported fallback"
@@ -52,6 +53,23 @@ func _init() -> void:
 		return
 	print("project_resource_loader_import_preference_smoke: ok")
 	quit(0)
+
+
+func _verify_threaded_prewarm_short_guard(threaded_prewarm_body: String) -> void:
+	_expect(
+		threaded_prewarm_body.find("max_msec: int = THREADED_TEXTURE_PREWARM_MAX_MSEC") >= 0
+			and threaded_prewarm_body.find("max_polls: int = THREADED_TEXTURE_PREWARM_MAX_POLLS") >= 0,
+		"threaded texture prewarm should let callers set a shorter hard fallback guard"
+	)
+	_expect(
+		threaded_prewarm_body.find("emit_timeout_warning: bool = true") >= 0
+			and threaded_prewarm_body.find("if emit_timeout_warning:") >= 0,
+		"threaded texture prewarm should let expected short-guard callers suppress timeout warnings"
+	)
+	_expect(
+		threaded_prewarm_body.find("_is_threaded_texture_prewarm_expired(max_msec, max_polls)") >= 0,
+		"threaded texture prewarm should use the caller-provided hard fallback guard"
+	)
 
 
 func _function_body(source: String, signature: String) -> String:

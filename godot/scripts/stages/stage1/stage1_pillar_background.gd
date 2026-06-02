@@ -10,6 +10,8 @@ const CLOUD_SPRITE_TEXTURE_PATH := "res://assets/sprites/hud/stage1_layered_clou
 const BUTTERFLY_SHEET_TEXTURE_PATH := "res://assets/sprites/hud/stage1_butterfly_sheet_v1.png"
 const BUTTERFLY_FRAME_COUNT := 4
 const BUTTERFLY_COLOR_COUNT := 4
+const PREWARM_TEXTURE_FALLBACK_MSEC := 1800
+const PREWARM_TEXTURE_FALLBACK_POLLS := 240
 const MOOD_GRADE_COLOR := Color(4.0 / 255.0, 8.0 / 255.0, 22.0 / 255.0, 88.0 / 255.0)
 const MOOD_INK_COLOR := Color(0.0, 1.0 / 255.0, 7.0 / 255.0, 52.0 / 255.0)
 const MOOD_EDGE_STEPS := 6
@@ -64,22 +66,22 @@ func prewarm_assets_step(
 ) -> bool:
 	match _prewarm_assets_step_index:
 		0:
-			var hanji_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(HANJI_TEXTURE_PATH)
+			var hanji_result: Dictionary = _prewarm_texture_step(HANJI_TEXTURE_PATH)
 			if not bool(hanji_result.get("done", true)):
 				return false
 			hanji_texture = hanji_result.get("texture", hanji_texture) as Texture2D
 		1:
-			var tree_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(TREE_SPRITE_TEXTURE_PATH)
+			var tree_result: Dictionary = _prewarm_texture_step(TREE_SPRITE_TEXTURE_PATH)
 			if not bool(tree_result.get("done", true)):
 				return false
 			tree_sprite_texture = tree_result.get("texture", tree_sprite_texture) as Texture2D
 		2:
-			var cloud_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(CLOUD_SPRITE_TEXTURE_PATH)
+			var cloud_result: Dictionary = _prewarm_texture_step(CLOUD_SPRITE_TEXTURE_PATH)
 			if not bool(cloud_result.get("done", true)):
 				return false
 			cloud_sprite_texture = cloud_result.get("texture", cloud_sprite_texture) as Texture2D
 		3:
-			var butterfly_result: Dictionary = ProjectResourceLoader.prewarm_texture_threaded_step(BUTTERFLY_SHEET_TEXTURE_PATH)
+			var butterfly_result: Dictionary = _prewarm_texture_step(BUTTERFLY_SHEET_TEXTURE_PATH)
 			if not bool(butterfly_result.get("done", true)):
 				return false
 			butterfly_sheet_texture = butterfly_result.get("texture", butterfly_sheet_texture) as Texture2D
@@ -526,6 +528,17 @@ func _touch_texture(texture: Texture2D) -> void:
 	texture.get_size()
 	texture.get_width()
 	texture.get_height()
+
+
+func _prewarm_texture_step(path: String) -> Dictionary:
+	return ProjectResourceLoader.prewarm_texture_threaded_step(
+		path,
+		"",
+		"",
+		PREWARM_TEXTURE_FALLBACK_MSEC,
+		PREWARM_TEXTURE_FALLBACK_POLLS,
+		false
+	)
 
 
 func _get_side_rects(view_size: Vector2, game_offset: Vector2, game_size: Vector2) -> Array[Rect2]:
