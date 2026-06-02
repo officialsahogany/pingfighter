@@ -1554,38 +1554,65 @@ func _verify_lunabi_free_flight_profile() -> void:
 	var start_pos: Vector2 = owner.lingpet_companion_pos
 	var player_lane_y: float = owner.player_pos.y + owner.player_paddle_height * 0.5
 	_expect(absf(start_pos.y - player_lane_y) > 20.0, "Lunabi should not start locked to the player-height patrol lane")
-	_expect(start_pos.x < 0.0 or start_pos.x > 760.0 or start_pos.y < 0.0 or start_pos.y > 750.0, "Lunabi should begin a sortie from outside the visible playfield")
+	_expect(start_pos.x < 0.0 or start_pos.x > 760.0, "Lunabi should enter mainly from the left or right edge")
 	var snapshot: Dictionary = runtime.get_snapshot()
 	_expect(str(snapshot.get("companion_motion_style", "")) == "sortie_flight", "Lunabi snapshot should expose sortie-flight motion style")
 	_expect(snapshot.get("companion_free_flight_target", Vector2.ZERO) is Vector2, "Lunabi snapshot should expose a sortie destination")
 	_expect(snapshot.get("companion_motion_velocity", Vector2.ZERO) is Vector2, "Lunabi snapshot should expose sortie velocity for save/restore")
 	_expect(float(snapshot.get("companion_motion_speed_ratio", 0.0)) > 0.0, "Lunabi sortie should expose a speed ratio for wing-flap cadence")
+	_expect(str(snapshot.get("companion_sortie_phase", "")) == "ingress", "Lunabi sortie should start in a fast ingress phase")
+	var first_target: Vector2 = snapshot.get("companion_free_flight_target", Vector2.ZERO)
+	_expect(first_target.x >= 150.0 and first_target.x <= 610.0 and first_target.y >= 150.0 and first_target.y <= 480.0, "Lunabi ingress should initially aim toward the central playfield background")
 	_expect(is_equal_approx(float(snapshot.get("companion_defense_rate", -1.0)), 0.0), "Lunabi should not use Maribo's defensive intercept rate")
 	_expect(str(snapshot.get("companion_skill_id", "")) == "", "disabled Lunabi placeholder skill should not publish a rail-card id")
 
+	var ingress_speed_ratio: float = float(snapshot.get("companion_motion_speed_ratio", 0.0))
+	var saw_entry_deceleration := false
+	var saw_central_loiter := false
+	var saw_visible_hold := false
 	var saw_offscreen_target := false
+	var saw_exit_acceleration := false
 	var saw_hidden_period := false
-	for _i in range(120):
-		runtime.update(0.25, owner)
+	var exit_previous_speed_ratio := -1.0
+	for _i in range(180):
+		runtime.update(0.15, owner)
 		snapshot = runtime.get_snapshot()
 		var target: Vector2 = snapshot.get("companion_free_flight_target", Vector2.ZERO)
+		var phase := str(snapshot.get("companion_sortie_phase", ""))
+		var speed_ratio := float(snapshot.get("companion_motion_speed_ratio", 0.0))
+		if (phase == "ingress" or phase == "loiter") and speed_ratio < ingress_speed_ratio - 0.12:
+			saw_entry_deceleration = true
+		if phase == "loiter" and target.x >= 150.0 and target.x <= 610.0 and target.y >= 150.0 and target.y <= 480.0:
+			saw_central_loiter = true
+		if phase == "hold" and bool(snapshot.get("companion_visible", true)) and speed_ratio <= 0.10:
+			saw_visible_hold = true
 		if target.x < 0.0 or target.x > 760.0 or target.y < 0.0 or target.y > 750.0:
 			saw_offscreen_target = true
+		if phase == "exit":
+			if exit_previous_speed_ratio >= 0.0 and speed_ratio > exit_previous_speed_ratio + 0.08:
+				saw_exit_acceleration = true
+			exit_previous_speed_ratio = speed_ratio
 		if not bool(snapshot.get("companion_visible", true)) and float(snapshot.get("companion_patrol_pause", 0.0)) > 0.0:
 			saw_hidden_period = true
 			break
+	_expect(saw_entry_deceleration, "Lunabi ingress should visibly decelerate before central loitering")
+	_expect(saw_central_loiter, "Lunabi should roam around the central background before leaving")
+	_expect(saw_visible_hold, "Lunabi should briefly hover/stop before the exit burst")
 	_expect(saw_offscreen_target, "Lunabi sortie flight should target outside the screen")
+	_expect(saw_exit_acceleration, "Lunabi exit should accelerate into a fast departure")
 	_expect(saw_hidden_period, "Lunabi sortie flight should disappear offscreen for a short hidden interval")
 
 	var motion_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_companion_motion_state.gd")
-	_expect(motion_source.find("SORTIE_TURN_RATE") >= 0 and motion_source.find("SORTIE_ACCELERATION") >= 0, "Lunabi sortie flight should steer through slow turn-rate and acceleration limits")
+	_expect(motion_source.find("SORTIE_PHASE_INGRESS") >= 0 and motion_source.find("SORTIE_EXIT_ACCELERATION") >= 0, "Lunabi sortie flight should use phased ingress/loiter/exit acceleration")
 	var animator := LingpetCompanionSpriteAnimator.new()
 	var slow_frame: int = int(animator.get_walk_frame(0.0, 500, 0.0))
 	var fast_frame: int = int(animator.get_walk_frame(0.0, 500, 1.0))
 	_expect(fast_frame != slow_frame and fast_frame > slow_frame, "Lunabi wing-flap frame cadence should increase with flight speed")
 
+	var forced_companion_pos := Vector2(380.0, 310.0)
+	runtime.configure_companion_motion_for_tests(forced_companion_pos, 2, 0.0, false)
 	owner.ball_active = true
-	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -6.0)
+	owner.ball_pos = forced_companion_pos + Vector2(0.0, -6.0)
 	owner.ball_vel = Vector2(0.0, 12.0)
 	runtime.update(0.01, owner)
 	_expect(owner.ball_vel.y < 0.0, "Lunabi overlap should bounce the ball")

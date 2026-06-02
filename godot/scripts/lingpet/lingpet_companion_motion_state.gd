@@ -32,16 +32,40 @@ const FREE_FLIGHT_TARGET_INTERVAL_MAX := 1.65
 const FREE_FLIGHT_EXIT_CHANCE := 0.28
 const SORTIE_OFFSCREEN_MARGIN_X := 190.0
 const SORTIE_OFFSCREEN_MARGIN_Y := 150.0
-const SORTIE_EDGE_Y_MIN := 72.0
-const SORTIE_EDGE_Y_MAX := FIELD_HEIGHT - 86.0
-const SORTIE_EDGE_X_MIN := 70.0
-const SORTIE_EDGE_X_MAX := FIELD_WIDTH - 70.0
+const SORTIE_EDGE_Y_MIN := 118.0
+const SORTIE_EDGE_Y_MAX := FIELD_HEIGHT - 250.0
 const SORTIE_HIDDEN_SECONDS_MIN := 0.80
 const SORTIE_HIDDEN_SECONDS_MAX := 2.20
 const SORTIE_TURN_RATE := 1.05
-const SORTIE_ACCELERATION := 210.0
-const SORTIE_START_SPEED_RATIO := 0.52
-const SORTIE_REACH_TOLERANCE := 54.0
+const SORTIE_LOITER_TURN_RATE := 1.42
+const SORTIE_EXIT_TURN_RATE := 0.94
+const SORTIE_ACCELERATION := 240.0
+const SORTIE_INGRESS_DECELERATION := 390.0
+const SORTIE_EXIT_ACCELERATION := 520.0
+const SORTIE_HOLD_DECELERATION := 360.0
+const SORTIE_INGRESS_SPEED_MIN := 430.0
+const SORTIE_INGRESS_SPEED_MAX := 560.0
+const SORTIE_LOITER_SPEED_MIN := 118.0
+const SORTIE_LOITER_SPEED_MAX := 205.0
+const SORTIE_EXIT_SPEED_MAX := 630.0
+const SORTIE_INGRESS_SLOW_DISTANCE := 420.0
+const SORTIE_REACH_TOLERANCE := 34.0
+const SORTIE_LOITER_REACH_TOLERANCE := 26.0
+const SORTIE_LOITER_SECONDS_MIN := 1.70
+const SORTIE_LOITER_SECONDS_MAX := 3.90
+const SORTIE_LOITER_TARGET_INTERVAL_MIN := 0.42
+const SORTIE_LOITER_TARGET_INTERVAL_MAX := 1.05
+const SORTIE_HOLD_SECONDS_MIN := 0.28
+const SORTIE_HOLD_SECONDS_MAX := 0.72
+const SORTIE_CENTER_MIN_X := 150.0
+const SORTIE_CENTER_MAX_X := FIELD_WIDTH - 150.0
+const SORTIE_CENTER_MIN_Y := 150.0
+const SORTIE_CENTER_MAX_Y := FIELD_HEIGHT - 270.0
+const SORTIE_PHASE_HIDDEN := "hidden"
+const SORTIE_PHASE_INGRESS := "ingress"
+const SORTIE_PHASE_LOITER := "loiter"
+const SORTIE_PHASE_HOLD := "hold"
+const SORTIE_PHASE_EXIT := "exit"
 
 var pos := Vector2.ZERO
 var motion_style := MOTION_STYLE_PATROL
@@ -49,6 +73,8 @@ var free_flight_target := Vector2.ZERO
 var motion_velocity := Vector2.ZERO
 var motion_speed_ratio := 0.0
 var motion_visible := true
+var sortie_phase := ""
+var sortie_phase_timer := 0.0
 var patrol_dir := 0.0
 var patrol_pause := 0.0
 var patrol_change_timer := 0.0
@@ -70,6 +96,8 @@ func reset() -> void:
 	motion_velocity = Vector2.ZERO
 	motion_speed_ratio = 0.0
 	motion_visible = true
+	sortie_phase = ""
+	sortie_phase_timer = 0.0
 	patrol_dir = 0.0
 	patrol_pause = 0.0
 	patrol_change_timer = 0.0
@@ -249,6 +277,8 @@ func restore(
 	)
 	motion_speed_ratio = clampf(float(snapshot.get("companion_motion_speed_ratio", motion_speed_ratio)), 0.0, 1.0)
 	motion_visible = bool(snapshot.get("companion_visible", motion_visible))
+	sortie_phase = str(snapshot.get("companion_sortie_phase", sortie_phase)).strip_edges().to_lower()
+	sortie_phase_timer = maxf(0.0, float(snapshot.get("companion_sortie_phase_timer", sortie_phase_timer)))
 	var restored_dir: float = float(snapshot.get("companion_patrol_dir", patrol_dir))
 	if restored_dir > 0.0:
 		patrol_dir = 1.0
@@ -277,6 +307,8 @@ func get_snapshot(speed_default: float, speed_min: float, speed_max: float, defe
 		"companion_motion_velocity": motion_velocity,
 		"companion_motion_speed_ratio": motion_speed_ratio,
 		"companion_visible": motion_visible,
+		"companion_sortie_phase": sortie_phase,
+		"companion_sortie_phase_timer": sortie_phase_timer,
 		"companion_patrol_dir": patrol_dir,
 		"companion_patrol_pause": patrol_pause,
 		"companion_patrol_change_timer": patrol_change_timer,
@@ -304,6 +336,8 @@ func get_save_snapshot() -> Dictionary:
 		"companion_motion_velocity": motion_velocity,
 		"companion_motion_speed_ratio": motion_speed_ratio,
 		"companion_visible": motion_visible,
+		"companion_sortie_phase": sortie_phase,
+		"companion_sortie_phase_timer": sortie_phase_timer,
 		"companion_patrol_dir": patrol_dir,
 		"companion_patrol_pause": patrol_pause,
 		"companion_patrol_change_timer": patrol_change_timer,
@@ -321,6 +355,11 @@ func configure_for_tests(test_pos: Vector2, test_seed: int, test_decision_timer:
 	motion_velocity = Vector2.ZERO
 	motion_speed_ratio = 0.0
 	motion_visible = true
+	sortie_phase = SORTIE_PHASE_LOITER
+	sortie_phase_timer = 1.0
+	free_flight_target = test_pos
+	patrol_change_timer = 1.0
+	patrol_speed = SORTIE_LOITER_SPEED_MIN
 
 
 func _update_free_flight(
@@ -407,7 +446,7 @@ func _update_sortie_flight(
 	speed_min: float,
 	speed_max: float
 ) -> void:
-	if patrol_seed <= 0 or free_flight_target == Vector2.ZERO:
+	if patrol_seed <= 0 or sortie_phase == "":
 		_initialize_sortie_flight(owner, true, trigger_count, speed_min, speed_max)
 	if pos == Vector2.ZERO:
 		_initialize_sortie_flight(owner, true, trigger_count, speed_min, speed_max)
@@ -418,38 +457,23 @@ func _update_sortie_flight(
 	if freeze_motion:
 		motion_speed_ratio = 0.0
 		return
-	if patrol_pause > 0.0:
-		motion_visible = false
-		motion_velocity = Vector2.ZERO
-		motion_speed_ratio = 0.0
-		patrol_pause = maxf(0.0, patrol_pause - safe_delta)
-		if patrol_pause <= 0.0:
-			_start_sortie_route(owner, trigger_count, speed_min, speed_max)
-		return
-
-	motion_visible = true
 	if safe_delta <= 0.0:
 		motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
 		return
-	var offset := free_flight_target - pos
-	var distance := offset.length()
-	if distance <= SORTIE_REACH_TOLERANCE:
-		_begin_sortie_hidden(speed_min, speed_max)
-		return
-	var desired_dir := offset / maxf(0.001, distance)
-	if motion_velocity.length() <= 0.01:
-		motion_velocity = desired_dir * maxf(speed_min, patrol_speed * SORTIE_START_SPEED_RATIO)
-	var current_dir := motion_velocity.normalized()
-	var turn_angle := clampf(current_dir.angle_to(desired_dir), -SORTIE_TURN_RATE * safe_delta, SORTIE_TURN_RATE * safe_delta)
-	var next_dir := current_dir.rotated(turn_angle).normalized()
-	var next_speed := move_toward(motion_velocity.length(), patrol_speed, SORTIE_ACCELERATION * safe_delta)
-	motion_velocity = next_dir * next_speed
-	pos += motion_velocity * safe_delta
-	if absf(motion_velocity.x) > 1.0:
-		patrol_dir = 1.0 if motion_velocity.x > 0.0 else -1.0
-	motion_speed_ratio = _speed_ratio(next_speed, speed_min, speed_max)
-	if pos.distance_to(free_flight_target) <= SORTIE_REACH_TOLERANCE:
-		_begin_sortie_hidden(speed_min, speed_max)
+
+	match sortie_phase:
+		SORTIE_PHASE_HIDDEN:
+			_update_sortie_hidden(safe_delta, owner, trigger_count, speed_min, speed_max)
+		SORTIE_PHASE_INGRESS:
+			_update_sortie_ingress(safe_delta, speed_min, speed_max)
+		SORTIE_PHASE_LOITER:
+			_update_sortie_loiter(safe_delta, speed_min, speed_max)
+		SORTIE_PHASE_HOLD:
+			_update_sortie_hold(safe_delta, speed_min, speed_max)
+		SORTIE_PHASE_EXIT:
+			_update_sortie_exit(safe_delta, speed_min, speed_max)
+		_:
+			_start_sortie_entry(owner, trigger_count, speed_min, speed_max)
 
 
 func _initialize_sortie_flight(
@@ -461,25 +485,118 @@ func _initialize_sortie_flight(
 ) -> void:
 	if patrol_seed <= 0:
 		patrol_seed = _build_seed(owner, trigger_count)
-	_start_sortie_route(owner, trigger_count, speed_min, speed_max)
+	_start_sortie_entry(owner, trigger_count, speed_min, speed_max)
 
 
-func _start_sortie_route(owner: Object, trigger_count: int, speed_min: float, speed_max: float) -> void:
+func _update_sortie_hidden(delta: float, owner: Object, trigger_count: int, speed_min: float, speed_max: float) -> void:
+	motion_visible = false
+	motion_velocity = Vector2.ZERO
+	motion_speed_ratio = 0.0
+	patrol_pause = maxf(0.0, patrol_pause - delta)
+	if patrol_pause <= 0.0:
+		_start_sortie_entry(owner, trigger_count, speed_min, speed_max)
+
+
+func _update_sortie_ingress(delta: float, speed_min: float, speed_max: float) -> void:
+	motion_visible = true
+	var distance := pos.distance_to(free_flight_target)
+	if distance <= SORTIE_REACH_TOLERANCE:
+		_begin_sortie_loiter(speed_min, speed_max)
+		return
+	var slow_ratio := clampf(distance / SORTIE_INGRESS_SLOW_DISTANCE, 0.0, 1.0)
+	var target_speed := lerpf(patrol_speed, SORTIE_INGRESS_SPEED_MIN, slow_ratio)
+	_advance_sortie_steered(delta, target_speed, SORTIE_TURN_RATE, SORTIE_INGRESS_DECELERATION, speed_min, speed_max)
+	if pos.distance_to(free_flight_target) <= SORTIE_REACH_TOLERANCE:
+		_begin_sortie_loiter(speed_min, speed_max)
+
+
+func _update_sortie_loiter(delta: float, speed_min: float, speed_max: float) -> void:
+	motion_visible = true
+	sortie_phase_timer = maxf(0.0, sortie_phase_timer - delta)
+	patrol_change_timer = maxf(0.0, patrol_change_timer - delta)
+	if sortie_phase_timer <= 0.0:
+		_begin_sortie_hold(speed_min, speed_max)
+		return
+	if (
+		free_flight_target == Vector2.ZERO
+		or patrol_change_timer <= 0.0
+		or pos.distance_to(free_flight_target) <= SORTIE_LOITER_REACH_TOLERANCE
+	):
+		_choose_sortie_loiter_target(speed_min, speed_max)
+	_advance_sortie_steered(delta, patrol_speed, SORTIE_LOITER_TURN_RATE, SORTIE_ACCELERATION, speed_min, speed_max)
+
+
+func _update_sortie_hold(delta: float, speed_min: float, speed_max: float) -> void:
+	motion_visible = true
+	patrol_pause = maxf(0.0, patrol_pause - delta)
+	var current_speed := motion_velocity.length()
+	var next_speed := move_toward(current_speed, 0.0, SORTIE_HOLD_DECELERATION * delta)
+	if current_speed > 0.01 and next_speed > 0.01:
+		motion_velocity = motion_velocity.normalized() * next_speed
+		pos += motion_velocity * delta
+	else:
+		motion_velocity = Vector2.ZERO
+	motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
+	if patrol_pause <= 0.0:
+		_start_sortie_exit(speed_min, speed_max)
+
+
+func _update_sortie_exit(delta: float, speed_min: float, speed_max: float) -> void:
+	motion_visible = true
+	_advance_sortie_steered(delta, SORTIE_EXIT_SPEED_MAX, SORTIE_EXIT_TURN_RATE, SORTIE_EXIT_ACCELERATION, speed_min, speed_max)
+	if pos.distance_to(free_flight_target) <= SORTIE_REACH_TOLERANCE or _is_sortie_far_offscreen(pos):
+		_begin_sortie_hidden(speed_min, speed_max)
+
+
+func _start_sortie_entry(owner: Object, trigger_count: int, speed_min: float, speed_max: float) -> void:
 	if patrol_seed <= 0:
 		patrol_seed = _build_seed(owner, trigger_count)
-	patrol_speed = _next_range(maxf(speed_min, 210.0), maxf(speed_max, 360.0))
-	var start_side: int = int(floor(_next_unit() * 4.0)) % 4
-	var end_side: int = (start_side + 2 + (0 if _next_unit() < 0.72 else (1 if _next_unit() < 0.5 else -1))) % 4
-	pos = _get_sortie_edge_point(start_side)
-	free_flight_target = _get_sortie_edge_point(end_side)
+	var from_left := _next_unit() < 0.5
+	pos = Vector2(
+		-SORTIE_OFFSCREEN_MARGIN_X if from_left else FIELD_WIDTH + SORTIE_OFFSCREEN_MARGIN_X,
+		_next_range(SORTIE_EDGE_Y_MIN, SORTIE_EDGE_Y_MAX)
+	)
+	free_flight_target = _get_sortie_center_target()
+	patrol_speed = _next_range(SORTIE_LOITER_SPEED_MIN, SORTIE_LOITER_SPEED_MAX)
 	var route_dir := (free_flight_target - pos).normalized()
-	var entry_bias: float = _next_range(-0.38, 0.38)
-	motion_velocity = route_dir.rotated(entry_bias) * patrol_speed * SORTIE_START_SPEED_RATIO
+	var entry_bias: float = _next_range(-0.18, 0.18)
+	motion_velocity = route_dir.rotated(entry_bias) * _next_range(SORTIE_INGRESS_SPEED_MIN, SORTIE_INGRESS_SPEED_MAX)
 	patrol_dir = 1.0 if motion_velocity.x >= 0.0 else -1.0
 	patrol_pause = 0.0
-	patrol_change_timer = 0.0
+	patrol_change_timer = _next_range(SORTIE_LOITER_TARGET_INTERVAL_MIN, SORTIE_LOITER_TARGET_INTERVAL_MAX)
+	sortie_phase = SORTIE_PHASE_INGRESS
+	sortie_phase_timer = 0.0
 	motion_visible = true
 	motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
+
+
+func _begin_sortie_loiter(speed_min: float, speed_max: float) -> void:
+	sortie_phase = SORTIE_PHASE_LOITER
+	sortie_phase_timer = _next_range(SORTIE_LOITER_SECONDS_MIN, SORTIE_LOITER_SECONDS_MAX)
+	_choose_sortie_loiter_target(speed_min, speed_max)
+
+
+func _begin_sortie_hold(speed_min: float, speed_max: float) -> void:
+	var _unused_speed_min := speed_min
+	var _unused_speed_max := speed_max
+	sortie_phase = SORTIE_PHASE_HOLD
+	patrol_pause = _next_range(SORTIE_HOLD_SECONDS_MIN, SORTIE_HOLD_SECONDS_MAX)
+	patrol_change_timer = 0.0
+	free_flight_target = pos
+	motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
+
+
+func _start_sortie_exit(speed_min: float, speed_max: float) -> void:
+	var _unused_speed_min := speed_min
+	var _unused_speed_max := speed_max
+	sortie_phase = SORTIE_PHASE_EXIT
+	patrol_pause = 0.0
+	patrol_change_timer = 0.0
+	free_flight_target = _get_sortie_exit_target()
+	if motion_velocity.length() <= 0.01:
+		var exit_dir := (free_flight_target - pos).normalized()
+		motion_velocity = exit_dir * SORTIE_LOITER_SPEED_MIN
+	patrol_dir = 1.0 if motion_velocity.x >= 0.0 else -1.0
 
 
 func _begin_sortie_hidden(speed_min: float, speed_max: float) -> void:
@@ -487,20 +604,75 @@ func _begin_sortie_hidden(speed_min: float, speed_max: float) -> void:
 	motion_velocity = Vector2.ZERO
 	motion_speed_ratio = 0.0
 	motion_visible = false
+	sortie_phase = SORTIE_PHASE_HIDDEN
+	sortie_phase_timer = 0.0
 	patrol_pause = _next_range(SORTIE_HIDDEN_SECONDS_MIN, SORTIE_HIDDEN_SECONDS_MAX)
 	patrol_speed = _next_speed(speed_min, speed_max)
 
 
-func _get_sortie_edge_point(side: int) -> Vector2:
-	match side:
-		0:
-			return Vector2(-SORTIE_OFFSCREEN_MARGIN_X, _next_range(SORTIE_EDGE_Y_MIN, SORTIE_EDGE_Y_MAX))
-		1:
-			return Vector2(FIELD_WIDTH + SORTIE_OFFSCREEN_MARGIN_X, _next_range(SORTIE_EDGE_Y_MIN, SORTIE_EDGE_Y_MAX))
-		2:
-			return Vector2(_next_range(SORTIE_EDGE_X_MIN, SORTIE_EDGE_X_MAX), -SORTIE_OFFSCREEN_MARGIN_Y)
-		_:
-			return Vector2(_next_range(SORTIE_EDGE_X_MIN, SORTIE_EDGE_X_MAX), FIELD_HEIGHT + SORTIE_OFFSCREEN_MARGIN_Y)
+func _choose_sortie_loiter_target(speed_min: float, speed_max: float) -> void:
+	var _unused_speed_min := speed_min
+	var _unused_speed_max := speed_max
+	free_flight_target = _get_sortie_center_target()
+	patrol_speed = _next_range(SORTIE_LOITER_SPEED_MIN, SORTIE_LOITER_SPEED_MAX)
+	patrol_change_timer = _next_range(SORTIE_LOITER_TARGET_INTERVAL_MIN, SORTIE_LOITER_TARGET_INTERVAL_MAX)
+
+
+func _get_sortie_center_target() -> Vector2:
+	return Vector2(
+		_next_range(SORTIE_CENTER_MIN_X, SORTIE_CENTER_MAX_X),
+		_next_range(SORTIE_CENTER_MIN_Y, SORTIE_CENTER_MAX_Y)
+	)
+
+
+func _get_sortie_exit_target() -> Vector2:
+	var exit_left := false
+	if absf(motion_velocity.x) > 10.0:
+		exit_left = motion_velocity.x < 0.0
+	else:
+		exit_left = _next_unit() < 0.5
+	if absf(pos.x - FIELD_WIDTH * 0.5) > FIELD_WIDTH * 0.25 and _next_unit() < 0.55:
+		exit_left = pos.x < FIELD_WIDTH * 0.5
+	return Vector2(
+		-SORTIE_OFFSCREEN_MARGIN_X if exit_left else FIELD_WIDTH + SORTIE_OFFSCREEN_MARGIN_X,
+		_next_range(SORTIE_EDGE_Y_MIN, SORTIE_EDGE_Y_MAX)
+	)
+
+
+func _advance_sortie_steered(
+	delta: float,
+	target_speed: float,
+	turn_rate: float,
+	speed_change_rate: float,
+	speed_min: float,
+	speed_max: float
+) -> void:
+	var offset := free_flight_target - pos
+	var distance := offset.length()
+	if distance <= 0.01:
+		motion_speed_ratio = _speed_ratio(motion_velocity.length(), speed_min, speed_max)
+		return
+	var desired_dir := offset / distance
+	if motion_velocity.length() <= 0.01:
+		motion_velocity = desired_dir * maxf(1.0, target_speed)
+	var current_dir := motion_velocity.normalized()
+	var turn_angle := clampf(current_dir.angle_to(desired_dir), -turn_rate * delta, turn_rate * delta)
+	var next_dir := current_dir.rotated(turn_angle).normalized()
+	var next_speed := move_toward(motion_velocity.length(), target_speed, speed_change_rate * delta)
+	motion_velocity = next_dir * next_speed
+	pos += motion_velocity * delta
+	if absf(motion_velocity.x) > 1.0:
+		patrol_dir = 1.0 if motion_velocity.x > 0.0 else -1.0
+	motion_speed_ratio = _speed_ratio(next_speed, speed_min, speed_max)
+
+
+func _is_sortie_far_offscreen(value: Vector2) -> bool:
+	return (
+		value.x <= -SORTIE_OFFSCREEN_MARGIN_X
+		or value.x >= FIELD_WIDTH + SORTIE_OFFSCREEN_MARGIN_X
+		or value.y <= -SORTIE_OFFSCREEN_MARGIN_Y
+		or value.y >= FIELD_HEIGHT + SORTIE_OFFSCREEN_MARGIN_Y
+	)
 
 
 func _sync_free_flight_bounds() -> void:
