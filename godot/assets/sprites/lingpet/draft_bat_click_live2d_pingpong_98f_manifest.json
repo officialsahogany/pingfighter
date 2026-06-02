@@ -1,0 +1,195 @@
+{
+  "asset_id": "draft_bat_click_live2d_pingpong_98f",
+  "character": "draft_bat",
+  "display_name": "???? ??",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_click_live2d_reaction_asset",
+  "output_sheet": "res://assets/sprites/lingpet/draft_bat_click_live2d_pingpong_98f.png",
+  "source_autosprite": {
+    "character_id": "cmpwf2hxe007nj17muexwl28h",
+    "character_name": "Draft Bat Lingpet Base 20260602",
+    "base_source_path": "godot/assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1.png",
+    "spritesheet_id": "cmpwhis0i00h3122dhr88oaw8",
+    "spritesheet_job_id": "wf_921befc6-4d4e-43ba-a6fb-d47a5cb93754",
+    "video_id": "cmpwhdchr000lluxh7dojq7df",
+    "raw_grid": {
+      "cols": 7,
+      "rows": 7,
+      "frame_count": 49,
+      "cell_size": [
+        1024,
+        1024
+      ]
+    },
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "cols": 14,
+    "rows": 7,
+    "frame_count": 98,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      14336,
+      7168
+    ],
+    "frame_interval": "intended 16 fps one-shot pingpong; 49 AutoSprite frames + deterministic reverse 48..0",
+    "source_scale_repack": 0.92,
+    "sha256": "8a0779d3466fd17589b76a4f96af55928948efa16fd2aeb0d29d8fb104938d65",
+    "bytes": 82409486
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell premultiplied-alpha 0.92 repack + deterministic pingpong reassembly",
+    "operation": "Each AutoSprite 1024 cell was resized to 92 percent and centered, then a 98-frame sheet was built as forward 0..48 + reverse 48..0."
+  },
+  "qa": {
+    "whole_sheet_edge_alpha": 0,
+    "cells_with_edge_touch": [],
+    "cell_fill_w_pct": 92.0,
+    "cell_fill_h_pct": 81.6,
+    "sample_bboxes": [
+      {
+        "frame": 0,
+        "bbox": [
+          61,
+          71,
+          980,
+          887
+        ],
+        "margin_ltrb": [
+          61,
+          71,
+          44,
+          137
+        ],
+        "size": [
+          919,
+          816
+        ]
+      },
+      {
+        "frame": 16,
+        "bbox": [
+          86,
+          105,
+          968,
+          909
+        ],
+        "margin_ltrb": [
+          86,
+          105,
+          56,
+          115
+        ],
+        "size": [
+          882,
+          804
+        ]
+      },
+      {
+        "frame": 32,
+        "bbox": [
+          97,
+          78,
+          958,
+          872
+        ],
+        "margin_ltrb": [
+          97,
+          78,
+          66,
+          152
+        ],
+        "size": [
+          861,
+          794
+        ]
+      },
+      {
+        "frame": 48,
+        "bbox": [
+          53,
+          54,
+          983,
+          889
+        ],
+        "margin_ltrb": [
+          53,
+          54,
+          41,
+          135
+        ],
+        "size": [
+          930,
+          835
+        ]
+      },
+      {
+        "frame": 64,
+        "bbox": [
+          87,
+          73,
+          969,
+          872
+        ],
+        "margin_ltrb": [
+          87,
+          73,
+          55,
+          152
+        ],
+        "size": [
+          882,
+          799
+        ]
+      },
+      {
+        "frame": 80,
+        "bbox": [
+          95,
+          110,
+          962,
+          909
+        ],
+        "margin_ltrb": [
+          95,
+          110,
+          62,
+          115
+        ],
+        "size": [
+          867,
+          799
+        ]
+      },
+      {
+        "frame": 96,
+        "bbox": [
+          61,
+          71,
+          980,
+          887
+        ],
+        "margin_ltrb": [
+          61,
+          71,
+          44,
+          137
+        ],
+        "size": [
+          919,
+          816
+        ]
+      }
+    ],
+    "raw_frame_count": 49,
+    "final_frame_count": 98,
+    "pingpong_loop_closure": "frame 0 returns at frame 97; frame 48 is held at frame 49.",
+    "dark_contact_preview": ".tmp/draft_bat_cutin/draft_bat_click_pingpong_contact.png"
+  },
+  "status": "Accepted runtime candidate: AutoSprite 49f click reaction, safe-margin repack, deterministic 98f pingpong return."
+}

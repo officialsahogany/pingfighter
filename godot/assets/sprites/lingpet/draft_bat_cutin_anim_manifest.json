@@ -1,0 +1,474 @@
+{
+  "asset_id": "draft_bat_acquisition_cutin_anim",
+  "character": "draft_bat",
+  "display_name": "???? ??",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_acquisition_fullscreen_cutin",
+  "source_autosprite": {
+    "character_id": "cmpwf2hxe007nj17muexwl28h",
+    "character_name": "Draft Bat Lingpet Base 20260602",
+    "base_source_path": "godot/assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1.png",
+    "acquire_spritesheet_id": "cmpwhe6p400ip363xrlzwhnck",
+    "acquire_job_id": "wf_a6c003ae-688f-46af-ba91-a83bf4dbe36e",
+    "acquire_video_id": "cmpwhbzey00ib363x23k6trwh",
+    "dismiss_spritesheet_id": "cmpwhf20e00fk122d1qvoo7ms",
+    "dismiss_job_id": "wf_4036068c-e320-46df-8bfe-699ab6b6931a",
+    "dismiss_video_id": "cmpwhcung000cluxhreu8hbqh",
+    "quality": "legendary",
+    "remove_bg": "ultra",
+    "with_sound": false
+  },
+  "runtime_sheet": {
+    "path": "res://assets/sprites/lingpet/draft_bat_cutin_anim.png",
+    "cols": 4,
+    "rows": 4,
+    "frame_count": 16,
+    "cell_size": [
+      2048,
+      2048
+    ],
+    "sheet_size": [
+      8192,
+      8192
+    ],
+    "frame_interval": "looped at 16 fps",
+    "source_scale_repack": 0.84,
+    "upscale_scale": 2.0,
+    "sha256": "f042e229a2648313103a94c5c3a131694c7c21cca2b0c9c1bc7b900af7cc6884",
+    "bytes": 39389607
+  },
+  "dismiss_sheet": {
+    "path": "res://assets/sprites/lingpet/draft_bat_cutin_dismiss_anim.png",
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "cell_size": [
+      1024,
+      1024
+    ],
+    "sheet_size": [
+      5120,
+      5120
+    ],
+    "source_scale_repack": 0.84,
+    "sha256": "ff63e24a9e90f9071465e6d9ea933071d12253ed3ebd62fda79608ea81c64ac0",
+    "bytes": 18065081
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic repack + Real-ESRGAN alpha-preserved upscale for main loop",
+    "main_operation": "AutoSprite 1024 cells scaled to 84 percent and centered; RGB was Real-ESRGAN x2 upscaled and recombined with source alpha lanczos x2.",
+    "dismiss_operation": "AutoSprite 1024 dismiss cells scaled to 84 percent and centered for safe margins.",
+    "realesrgan": {
+      "tool": "tools/realesrgan/realesrgan-ncnn-vulkan.exe",
+      "model": "realesr-animevideov3",
+      "scale": 2.0,
+      "rgb_source": ".tmp/draft_bat_cutin/draft_bat_acquire_cutin_repacked_s84_1024_rgb.png",
+      "rgb_upscaled": ".tmp/draft_bat_cutin/draft_bat_acquire_cutin_repacked_s84_2048_rgb.png",
+      "alpha_source": ".tmp/draft_bat_cutin/draft_bat_acquire_cutin_repacked_s84_1024_alpha.png"
+    }
+  },
+  "qa": {
+    "acquire": {
+      "whole_sheet_edge_alpha": 0,
+      "cells_with_edge_touch": [],
+      "cell_fill_w_pct": 84.1,
+      "cell_fill_h_pct": 72.9,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            208,
+            218,
+            1878,
+            1704
+          ],
+          "margin_ltrb": [
+            208,
+            218,
+            170,
+            344
+          ],
+          "size": [
+            1670,
+            1486
+          ]
+        },
+        {
+          "frame": 2,
+          "bbox": [
+            203,
+            238,
+            1885,
+            1710
+          ],
+          "margin_ltrb": [
+            203,
+            238,
+            163,
+            338
+          ],
+          "size": [
+            1682,
+            1472
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            183,
+            235,
+            1889,
+            1690
+          ],
+          "margin_ltrb": [
+            183,
+            235,
+            159,
+            358
+          ],
+          "size": [
+            1706,
+            1455
+          ]
+        },
+        {
+          "frame": 6,
+          "bbox": [
+            163,
+            198,
+            1885,
+            1654
+          ],
+          "margin_ltrb": [
+            163,
+            198,
+            163,
+            394
+          ],
+          "size": [
+            1722,
+            1456
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            163,
+            167,
+            1866,
+            1632
+          ],
+          "margin_ltrb": [
+            163,
+            167,
+            182,
+            416
+          ],
+          "size": [
+            1703,
+            1465
+          ]
+        },
+        {
+          "frame": 10,
+          "bbox": [
+            186,
+            162,
+            1853,
+            1639
+          ],
+          "margin_ltrb": [
+            186,
+            162,
+            195,
+            409
+          ],
+          "size": [
+            1667,
+            1477
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            204,
+            173,
+            1859,
+            1663
+          ],
+          "margin_ltrb": [
+            204,
+            173,
+            189,
+            385
+          ],
+          "size": [
+            1655,
+            1490
+          ]
+        }
+      ]
+    },
+    "dismiss": {
+      "whole_sheet_edge_alpha": 0,
+      "cells_with_edge_touch": [],
+      "cell_fill_w_pct": 84.0,
+      "cell_fill_h_pct": 72.7,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            98,
+            109,
+            937,
+            852
+          ],
+          "margin_ltrb": [
+            98,
+            109,
+            87,
+            172
+          ],
+          "size": [
+            839,
+            743
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            96,
+            108,
+            942,
+            841
+          ],
+          "margin_ltrb": [
+            96,
+            108,
+            82,
+            183
+          ],
+          "size": [
+            846,
+            733
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            190,
+            167,
+            854,
+            854
+          ],
+          "margin_ltrb": [
+            190,
+            167,
+            170,
+            170
+          ],
+          "size": [
+            664,
+            687
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            197,
+            147,
+            854,
+            827
+          ],
+          "margin_ltrb": [
+            197,
+            147,
+            170,
+            197
+          ],
+          "size": [
+            657,
+            680
+          ]
+        },
+        {
+          "frame": 16,
+          "bbox": [
+            82,
+            82,
+            920,
+            757
+          ],
+          "margin_ltrb": [
+            82,
+            82,
+            104,
+            267
+          ],
+          "size": [
+            838,
+            675
+          ]
+        },
+        {
+          "frame": 20,
+          "bbox": [
+            197,
+            131,
+            859,
+            863
+          ],
+          "margin_ltrb": [
+            197,
+            131,
+            165,
+            161
+          ],
+          "size": [
+            662,
+            732
+          ]
+        },
+        {
+          "frame": 24,
+          "bbox": [
+            115,
+            127,
+            937,
+            855
+          ],
+          "margin_ltrb": [
+            115,
+            127,
+            87,
+            169
+          ],
+          "size": [
+            822,
+            728
+          ]
+        }
+      ]
+    },
+    "dark_contact_previews": [
+      ".tmp/draft_bat_cutin/draft_bat_acquire_cutin_upscaled_contact.png",
+      ".tmp/draft_bat_cutin/draft_bat_cutin_dismiss_repacked_contact.png"
+    ]
+  },
+  "reconstruction_frame0": {
+    "frame_index": 0,
+    "grid_cols": 10,
+    "grid_rows": 10,
+    "alpha_threshold": 0.1,
+    "alpha_bbox": [
+      0.1016,
+      0.1064,
+      0.917,
+      0.832
+    ],
+    "note": "Per-cell frame-0 alpha occupancy + tight bbox for reconstruction VFX gating.",
+    "occupancy": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "status": "Accepted runtime candidate: AutoSprite 16f acquisition loop + 25f dismiss action, safe-margin repack, main loop Real-ESRGAN x2, no edge alpha touches."
+}

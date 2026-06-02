@@ -149,6 +149,10 @@ const PETS := {
 			"companion_walk": "res://assets/sprites/lingpet/draft_bat_companion_walk.png",
 			"companion_strike": "res://assets/sprites/lingpet/draft_bat_companion_strike.png",
 			"companion_cast": "res://assets/sprites/lingpet/draft_bat_companion_cast.png",
+			"cutin_art": "res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1.png",
+			"cutin_anim": "res://assets/sprites/lingpet/draft_bat_cutin_anim.png",
+			"cutin_dismiss_anim": "res://assets/sprites/lingpet/draft_bat_cutin_dismiss_anim.png",
+			"click_reaction_anim": "res://assets/sprites/lingpet/draft_bat_click_live2d_pingpong_98f.png",
 		},
 		"active_skill": {
 			"id": "draft_bat_moon_orbit",
@@ -164,7 +168,7 @@ const PETS := {
 		"concept_art_path": "res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1.png",
 		"concept_chromakey_path": "res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1_chromakey.png",
 		"concept_magenta_source_path": "res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1_magenta_source.png",
-		"note": "Draft runtime candidate only; disabled until acquisition cutin, dismiss, and click-reaction sheets are produced.",
+		"note": "Draft runtime candidate; disabled until final hatch-pool QA and balance approval.",
 	},
 }
 
