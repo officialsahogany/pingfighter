@@ -765,6 +765,7 @@ func _update_companion_skill_effects(delta: float, owner: Object, registry: Obje
 			_launch_companion_skill(owner, registry)
 		_:
 			pass
+	_trigger_companion_skill_strike_if_requested(skill_id)
 	_apply_companion_skill_position_override(skill_id)
 
 
@@ -790,8 +791,14 @@ func _launch_companion_skill(owner: Object, registry: Object) -> void:
 		owner
 	)
 	if launched and _skill_runtime_host.has_companion_position_override(skill_id):
-		_companion_sprite_animator.begin_strike(LingpetCompanionSpriteAnimator.STRIKE_START_FRAME)
 		_apply_companion_skill_position_override(skill_id)
+
+
+func _trigger_companion_skill_strike_if_requested(skill_id: String) -> void:
+	if not _skill_runtime_host.has_method("consume_companion_strike_request"):
+		return
+	if bool(_skill_runtime_host.consume_companion_strike_request(skill_id)):
+		_companion_sprite_animator.begin_strike(LingpetCompanionSpriteAnimator.STRIKE_START_FRAME)
 
 
 func _apply_companion_skill_position_override(skill_id: String) -> void:

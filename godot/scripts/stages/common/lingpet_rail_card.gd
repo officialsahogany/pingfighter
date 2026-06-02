@@ -110,6 +110,7 @@ static func build_entry(registry: Object) -> Dictionary:
 		or bool(snapshot.get("headbutt_active", false))
 		or bool(snapshot.get("headbutt_impact_active", false))
 		or bool(snapshot.get("headbutt_miss_active", false))
+		or bool(snapshot.get("headbutt_repeat_wait_active", false))
 		or bool(snapshot.get("companion_skill_winding_up", false))
 	)
 	var status: String = "casting" if casting else ("ready" if ready else "charging")

@@ -18,6 +18,12 @@ const GUARANTEED_MISS_SPEED := 9.0
 const MOVING_MISS_CHANCE := 0.42
 const MISS_OFFSET_X := 130.0
 const TRAIL_MAX_POINTS := 12
+const COMBO_MIN_COUNT := 1
+const COMBO_MAX_COUNT := 3
+const COMBO_SINGLE_ROLL := 0.42
+const COMBO_DOUBLE_ROLL := 0.78
+const REPEAT_DELAY_MIN_SECONDS := 1.0
+const REPEAT_DELAY_MAX_SECONDS := 2.0
 
 var _active := false
 var _planned_miss := false
@@ -28,6 +34,11 @@ var _trail: Array[Vector2] = []
 var _impact_pos := Vector2.ZERO
 var _impact_timer := 0.0
 var _miss_timer := 0.0
+var _repeat_wait_timer := 0.0
+var _repeat_anchor_pos := Vector2.ZERO
+var _combo_total := 0
+var _combo_index := 0
+var _strike_request_count := 0
 var _last_result := ""
 var _last_miss_reason := ""
 var _last_knockback_velocity := 0.0
@@ -47,6 +58,11 @@ func reset() -> void:
 	_impact_pos = Vector2.ZERO
 	_impact_timer = 0.0
 	_miss_timer = 0.0
+	_repeat_wait_timer = 0.0
+	_repeat_anchor_pos = Vector2.ZERO
+	_combo_total = 0
+	_combo_index = 0
+	_strike_request_count = 0
 	_last_result = ""
 	_last_miss_reason = ""
 	_last_knockback_velocity = 0.0
@@ -66,6 +82,18 @@ func can_arm(params: Dictionary) -> bool:
 
 
 func launch(origin: Vector2, owner: Object) -> bool:
+	if owner == null:
+		return false
+	var boss_rect: Rect2 = _get_boss_rect(owner)
+	_combo_total = _pick_combo_total(origin, boss_rect.position)
+	_combo_index = 1
+	_repeat_wait_timer = 0.0
+	_repeat_anchor_pos = origin
+	_strike_request_count = 0
+	return _begin_dash(origin, owner)
+
+
+func _begin_dash(origin: Vector2, owner: Object) -> bool:
 	if owner == null:
 		return false
 	var boss_rect: Rect2 = _get_boss_rect(owner)
@@ -95,6 +123,7 @@ func launch(origin: Vector2, owner: Object) -> bool:
 		_dash_dir = to_target.normalized()
 	_active = true
 	_last_result = "charging"
+	_strike_request_count += 1
 	_remember_boss_pos(boss_rect.position)
 	return true
 
@@ -105,6 +134,14 @@ func update(delta: float, owner: Object, registry: Object = null) -> void:
 	_miss_timer = maxf(0.0, _miss_timer - safe_delta)
 	if _active:
 		_step_dash(safe_delta, owner, registry)
+	elif _repeat_wait_timer > 0.0:
+		_repeat_wait_timer = maxf(0.0, _repeat_wait_timer - safe_delta)
+		if _repeat_wait_timer <= 0.0 and _combo_index < _combo_total:
+			_combo_index += 1
+			if not _begin_dash(_repeat_anchor_pos, owner):
+				_repeat_wait_timer = 0.0
+		else:
+			_remember_boss_pos(_get_boss_rect(owner).position)
 	else:
 		_remember_boss_pos(_get_boss_rect(owner).position)
 
@@ -121,15 +158,15 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO) -> void:
 
 
 func has_visible_effects() -> bool:
-	return _active or _impact_timer > 0.0 or _miss_timer > 0.0
+	return _active or _impact_timer > 0.0 or _miss_timer > 0.0 or _repeat_wait_timer > 0.0
 
 
 func is_active() -> bool:
-	return _active
+	return _active or _repeat_wait_timer > 0.0
 
 
 func has_companion_position_override() -> bool:
-	return _active or _impact_timer > 0.0 or _miss_timer > 0.0
+	return _active or _impact_timer > 0.0 or _miss_timer > 0.0 or _repeat_wait_timer > 0.0
 
 
 func get_companion_position_override(fallback: Vector2 = Vector2.ZERO) -> Vector2:
@@ -137,7 +174,16 @@ func get_companion_position_override(fallback: Vector2 = Vector2.ZERO) -> Vector
 		return _pos
 	if _impact_timer > 0.0 or _miss_timer > 0.0:
 		return _impact_pos
+	if _repeat_wait_timer > 0.0:
+		return _repeat_anchor_pos
 	return fallback
+
+
+func consume_companion_strike_request() -> bool:
+	if _strike_request_count <= 0:
+		return false
+	_strike_request_count -= 1
+	return true
 
 
 func get_hit_count_for_tests() -> int:
@@ -159,6 +205,15 @@ func get_snapshot() -> Dictionary:
 		"headbutt_impact_timer": _impact_timer,
 		"headbutt_miss_active": _miss_timer > 0.0,
 		"headbutt_miss_timer": _miss_timer,
+		"headbutt_repeat_wait_active": _repeat_wait_timer > 0.0,
+		"headbutt_repeat_wait_timer": _repeat_wait_timer,
+		"headbutt_repeat_delay_min": REPEAT_DELAY_MIN_SECONDS,
+		"headbutt_repeat_delay_max": REPEAT_DELAY_MAX_SECONDS,
+		"headbutt_combo_min": COMBO_MIN_COUNT,
+		"headbutt_combo_max": COMBO_MAX_COUNT,
+		"headbutt_combo_total": _combo_total,
+		"headbutt_combo_index": _combo_index,
+		"headbutt_combo_remaining": maxi(0, _combo_total - _combo_index),
 		"headbutt_last_result": _last_result,
 		"headbutt_last_miss_reason": _last_miss_reason,
 		"headbutt_hit_count": _hit_count,
@@ -223,6 +278,7 @@ func _resolve_hit(owner: Object, registry: Object, boss_rect: Rect2) -> void:
 	_play_paddle_hit(registry)
 	_trail.clear()
 	_remember_boss_pos(next_pos)
+	_schedule_next_dash_or_finish()
 
 
 func _resolve_miss() -> void:
@@ -234,6 +290,15 @@ func _resolve_miss() -> void:
 	_last_result = "miss"
 	_miss_count += 1
 	_trail.clear()
+	_schedule_next_dash_or_finish()
+
+
+func _schedule_next_dash_or_finish() -> void:
+	if _combo_index < _combo_total:
+		_repeat_anchor_pos = _impact_pos
+		_repeat_wait_timer = _pick_repeat_delay()
+	else:
+		_repeat_wait_timer = 0.0
 
 
 func _steer_toward_target(delta: float) -> void:
@@ -260,6 +325,24 @@ func _should_miss_moving_target(origin: Vector2, boss_pos: Vector2, moving_speed
 		return true
 	var roll := _deterministic_unit(origin, boss_pos, moving_speed)
 	return roll < MOVING_MISS_CHANCE
+
+
+func _pick_combo_total(origin: Vector2, boss_pos: Vector2) -> int:
+	var roll := _deterministic_unit(origin + Vector2(31.0, -17.0), boss_pos, 5.0)
+	if roll < COMBO_SINGLE_ROLL:
+		return 1
+	if roll < COMBO_DOUBLE_ROLL:
+		return 2
+	return 3
+
+
+func _pick_repeat_delay() -> float:
+	var roll := _deterministic_unit(
+		_repeat_anchor_pos + Vector2(float(_combo_index) * 19.0, 43.0),
+		_target,
+		3.0 + float(_combo_index)
+	)
+	return lerpf(REPEAT_DELAY_MIN_SECONDS, REPEAT_DELAY_MAX_SECONDS, roll)
 
 
 func _get_boss_moving_speed(owner: Object, boss_pos: Vector2) -> float:

@@ -74,6 +74,7 @@ func _make_runtime(active: bool, cooldown: float, ready: bool, projectile: bool,
 		"headbutt_active": false,
 		"headbutt_impact_active": false,
 		"headbutt_miss_active": false,
+		"headbutt_repeat_wait_active": false,
 	}
 	return runtime
 
@@ -129,12 +130,17 @@ func _verify_build_entry_states() -> void:
 		"headbutt_active": true,
 		"headbutt_impact_active": false,
 		"headbutt_miss_active": false,
+		"headbutt_repeat_wait_active": false,
 	}
 	var lunabi_entry := LingpetRailCard.build_entry(_make_registry(lunabi_runtime))
 	_expect(str(lunabi_entry.get("id", "")) == "lunabi_headbutt", "rail entry should support Lunabi Headbutt")
 	_expect(str(lunabi_entry.get("status", "")) == "casting", "an active Lunabi Headbutt dash should read as casting")
 	_expect(absf(float(lunabi_entry.get("cooldown_total", 0.0)) - 30.0) <= 0.01, "Lunabi rail entry should carry its 30s cooldown")
 	_expect(str(lunabi_entry.get("card_texture_path", "")).ends_with("lunabi_headbutt_skillcard_imagegen_v1.png"), "Lunabi rail entry should carry the imagegen skill-card texture path")
+	lunabi_runtime.snapshot["headbutt_active"] = false
+	lunabi_runtime.snapshot["headbutt_repeat_wait_active"] = true
+	var lunabi_repeat_wait_entry := LingpetRailCard.build_entry(_make_registry(lunabi_runtime))
+	_expect(str(lunabi_repeat_wait_entry.get("status", "")) == "casting", "Lunabi Headbutt repeat wait should stay in casting state on the rail card")
 
 
 func _verify_build_entry_inactive_is_empty() -> void:

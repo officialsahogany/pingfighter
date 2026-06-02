@@ -98,6 +98,14 @@ func get_companion_position_override(skill_id: String, fallback: Vector2) -> Vec
 			return fallback
 
 
+func consume_companion_strike_request(skill_id: String) -> bool:
+	match LingpetSkillDispatcher.get_skill_kind(skill_id):
+		LingpetSkillDispatcher.SKILL_KIND_HEADBUTT:
+			return _headbutt_skill.consume_companion_strike_request()
+		_:
+			return false
+
+
 func should_show_cast_windup(skill_id: String) -> bool:
 	return LingpetSkillDispatcher.has_supported_runtime(skill_id)
 

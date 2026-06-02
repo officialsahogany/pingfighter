@@ -1690,6 +1690,7 @@ func _verify_lunabi_headbutt_skill() -> void:
 	var headbutt_source: String = FileAccess.get_file_as_string("res://scripts/lingpet/lingpet_headbutt_skill.gd")
 	_expect(headbutt_source.find("HOMING_TURN_RATE") >= 0 and headbutt_source.find("_get_homing_target") >= 0, "Lunabi Headbutt should keep steering toward the boss paddle while charging")
 	_expect(headbutt_source.find("start_paddle_hit_knockback") >= 0, "Lunabi Headbutt should use the boss AI knockback path for a natural rebound")
+	_expect(headbutt_source.find("COMBO_MAX_COUNT := 3") >= 0 and headbutt_source.find("REPEAT_DELAY_MIN_SECONDS := 1.0") >= 0, "Lunabi Headbutt should support 1-3 dashes with 1-2 second repeat waits")
 
 	var owner := FakeOwner.new()
 	owner.lingpet_owned_pet_ids = ["lunabi"]
@@ -1719,6 +1720,10 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(bool(launched_snap.get("headbutt_active", false)), "Lunabi Headbutt should launch after its wind-up")
 	_expect(bool(launched_snap.get("headbutt_companion_override_active", false)), "Lunabi Headbutt should drive the real companion body during the charge")
 	_expect(_vector2_distance(launched_snap.get("companion_pos", Vector2.ZERO), launched_snap.get("headbutt_pos", Vector2.INF)) <= 0.1, "Lunabi Headbutt launch should start from the real companion body position")
+	var combo_total := int(launched_snap.get("headbutt_combo_total", 0))
+	_expect(combo_total >= 1 and combo_total <= 3, "Lunabi Headbutt should choose a combo count between 1 and 3 per launch")
+	_expect(combo_total >= 2, "the Lunabi Headbutt smoke fixture should exercise a repeat-capable combo")
+	_expect(int(launched_snap.get("headbutt_combo_index", 0)) == 1, "Lunabi Headbutt should publish the first dash as combo index 1")
 	_expect(int(owner.lingpet_skill_trigger_count) == 1, "Lunabi Headbutt should count one launch")
 	_expect(owner.lingpet_skill_cooldown > 29.0, "Lunabi Headbutt should enter a 30-second cooldown at launch")
 	_expect(not bool(owner.lingpet_skill_ready), "Lunabi Headbutt should not be ready during cooldown")
@@ -1736,11 +1741,19 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(int(runtime.get_headbutt_hit_count_for_tests()) == 1, "Lunabi Headbutt should hit a stationary boss paddle")
 	_expect(str(hit_snap.get("headbutt_last_result", "")) == "hit", "Lunabi Headbutt snapshot should publish the last hit result")
 	_expect(_vector2_distance(hit_snap.get("companion_pos", Vector2.ZERO), hit_snap.get("headbutt_companion_pos", Vector2.INF)) <= 0.1, "Lunabi's actual companion body should remain at the Headbutt impact position")
+	_expect(bool(hit_snap.get("headbutt_repeat_wait_active", false)), "Lunabi Headbutt should wait on screen before a repeat dash when the combo rolled 2+ hits")
+	_expect(float(hit_snap.get("headbutt_repeat_wait_timer", 0.0)) >= 0.95 and float(hit_snap.get("headbutt_repeat_wait_timer", 0.0)) <= 2.0, "Lunabi Headbutt repeat wait should be between 1 and 2 seconds")
+	_expect(int(hit_snap.get("headbutt_combo_remaining", 0)) == combo_total - 1, "Lunabi Headbutt should publish remaining repeat dashes after the first impact")
 	_expect(absf((owner.boss_pos.x - boss_x_before) - 24.0) <= 1.0, "Lunabi Headbutt should apply only a small immediate impact nudge before the ongoing recoil")
 	_expect(boss_ai.knockback_calls == 1, "Lunabi Headbutt should hand the continuing knockback to boss_ai_state")
 	_expect(boss_ai.last_velocity > 0.0 and boss_ai.last_frames >= 30.0 and boss_ai.last_decay >= 0.90, "Lunabi Headbutt should use a longer decaying boss knockback so recovery is not instant")
 	_expect(_estimated_knockback_distance(24.0, boss_ai.last_velocity, boss_ai.last_frames, boss_ai.last_decay) >= 140.0, "Lunabi Headbutt nudge plus decaying recoil should travel about 150px")
 	_expect(audio.paddle_hits == 1, "Lunabi Headbutt hit should use the paddle-hit impact sound")
+	runtime.update(float(hit_snap.get("headbutt_repeat_wait_timer", 0.0)) + 0.05, owner, registry)
+	var repeat_launch_snap: Dictionary = runtime.get_snapshot()
+	_expect(bool(repeat_launch_snap.get("headbutt_active", false)), "Lunabi Headbutt should launch another dash after the repeat wait")
+	_expect(int(repeat_launch_snap.get("headbutt_combo_index", 0)) == 2, "Lunabi Headbutt should advance the combo index on the repeat dash")
+	_expect(bool(runtime.is_companion_striking_for_tests()), "Lunabi Headbutt repeat dash should restart the companion strike animation")
 
 	var miss_owner := FakeOwner.new()
 	miss_owner.lingpet_owned_pet_ids = ["lunabi"]
