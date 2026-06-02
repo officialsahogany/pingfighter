@@ -12,9 +12,24 @@
   - `res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1.png`
   - `res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1_chromakey.png`
   - `res://assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1_magenta_source.png`
+  - `res://assets/sprites/lingpet/draft_bat_companion_walk.png` 후보 완료
 - 현재 스모크 기준:
   - 비활성 링펫은 부화 후보에 들어가지 않는다.
   - 비활성 링펫은 최종 스프라이트/스킬 자산이 없어도 카탈로그 검증을 통과한다.
+
+## 2026-06-02 진행
+
+- AutoSprite 기준 캐릭터 등록 완료
+  - character_id: `cmpwf2hxe007nj17muexwl28h`
+  - source: `bat_lingpet_cutin_concept_imagegen_v1.png`
+- `companion_walk` 후보 완료
+  - accepted spritesheet_id: `cmpwf9zgz009sj17mk9mbol3c`
+  - accepted job_id: `wf_87b4e018-98a9-4bc1-892e-96d1545f49c5`
+  - rejected spritesheet_id: `cmpwf5dv200131417tem74ua4`
+  - rejected job_id: `wf_de5482d7-92df-4cae-9ba4-52b617769078`
+  - reject reason: 첫 후보는 정면/측면으로 크게 회전해 전투 동행 시트보다 쇼케이스 회전에 가까웠다.
+  - final sheet: `res://assets/sprites/lingpet/draft_bat_companion_walk.png`
+  - manifest: `res://assets/sprites/lingpet/draft_bat_companion_walk_manifest.json`
 
 ## 승격 전 필수 자산
 

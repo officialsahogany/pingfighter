@@ -1,0 +1,152 @@
+{
+  "asset_id": "draft_bat_companion_walk_v1",
+  "character": "draft_bat",
+  "display_name": "Draft Bat",
+  "generated_at": "2026-06-02",
+  "runtime_usage": "lingpet_companion_walk_candidate",
+  "status": "Accepted candidate: fixed rear-view hover loop from AutoSprite, runtime-sized 128px cells.",
+  "source_autosprite": {
+    "character_id": "cmpwf2hxe007nj17muexwl28h",
+    "character_name": "Draft Bat Lingpet Base 20260602",
+    "base_source_path": "godot/assets/sprites/lingpet/bat_lingpet_cutin_concept_imagegen_v1.png",
+    "spritesheet_id": "cmpwf9zgz009sj17mk9mbol3c",
+    "job_id": "wf_87b4e018-98a9-4bc1-892e-96d1545f49c5",
+    "video_id": "cmpwf87qq002t1417tlrf8136",
+    "rejected_spritesheet_ids": [
+      "cmpwf5dv200131417tem74ua4"
+    ],
+    "rejected_job_ids": [
+      "wf_de5482d7-92df-4cae-9ba4-52b617769078"
+    ],
+    "rejection_note": "First candidate rotated from front to side and read like a showcase spin instead of a stable battle companion hover."
+  },
+  "postprocess": {
+    "tool": "Pillow per-cell deterministic repack",
+    "source_cell_size": [
+      512,
+      512
+    ],
+    "target_cell_size": [
+      128,
+      128
+    ],
+    "cols": 5,
+    "rows": 5,
+    "frame_count": 25,
+    "source_scale_repack": 0.84,
+    "reason": "Match existing lingpet companion 5x5 runtime grid and keep safe transparent margins for wings and crescent orbit."
+  },
+  "outputs": {
+    "walk": {
+      "path": "D:\\main\\bosspong\\godot\\assets\\sprites\\lingpet\\draft_bat_companion_walk.png",
+      "res_path": "res://assets/sprites/lingpet/draft_bat_companion_walk.png",
+      "cols": 5,
+      "rows": 5,
+      "frame_count": 25,
+      "cell_size": [
+        128,
+        128
+      ],
+      "sheet_size": [
+        640,
+        640
+      ],
+      "sha256": "029c43a7f06c0bc82603d82c717d0f7de9b4dd83e245b26238064c0c3f8c858d",
+      "bytes": 349106,
+      "edge_alpha_count": 0,
+      "sample_bboxes": [
+        {
+          "frame": 0,
+          "bbox": [
+            14,
+            16,
+            115,
+            106
+          ],
+          "size": [
+            101,
+            90
+          ]
+        },
+        {
+          "frame": 4,
+          "bbox": [
+            14,
+            18,
+            118,
+            109
+          ],
+          "size": [
+            104,
+            91
+          ]
+        },
+        {
+          "frame": 8,
+          "bbox": [
+            14,
+            20,
+            105,
+            111
+          ],
+          "size": [
+            91,
+            91
+          ]
+        },
+        {
+          "frame": 12,
+          "bbox": [
+            18,
+            18,
+            103,
+            106
+          ],
+          "size": [
+            85,
+            88
+          ]
+        },
+        {
+          "frame": 16,
+          "bbox": [
+            13,
+            14,
+            116,
+            105
+          ],
+          "size": [
+            103,
+            91
+          ]
+        },
+        {
+          "frame": 20,
+          "bbox": [
+            14,
+            15,
+            116,
+            106
+          ],
+          "size": [
+            102,
+            91
+          ]
+        },
+        {
+          "frame": 24,
+          "bbox": [
+            14,
+            16,
+            115,
+            106
+          ],
+          "size": [
+            101,
+            90
+          ]
+        }
+      ]
+    }
+  }
+}
