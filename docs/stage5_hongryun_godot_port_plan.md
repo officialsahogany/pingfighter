@@ -7,7 +7,7 @@
 원본의 네메시스 스테이지는 현재 Godot 진행 순서에서 제외하고, 원본 홍련 스테이지를 user-facing **Stage 5 홍련**으로 포팅한다.
 
 - 현재 Godot 기준: `current_stage == 5`는 홍련이다.
-- `current_stage == 6`은 당분간 비워 둔다. 디버그 피커에서도 6번 슬롯은 노출하지 않는다.
+- `current_stage == 6`은 테트리서다(원본 Python 7 포팅). 별도 기획 `docs/stage6_tetriser_port_plan.md`에서 다루며, 이 홍련 문서는 Stage 6을 구현하지 않는다. (2026-06-03 갱신: 이전 "6 비워 둠" 결정 폐기)
 - Python 원본의 `STAGE_HONGLYEON_FIRE = 5`, `stage5`, `animated_bg_stage5`, `Stage5ChineseMarket`는 홍련 동작 참조다.
 - Python 원본의 `STAGE_NEMESIS_OCEAN = 6`, `stage6`, `animated_bg_stage6`는 네메시스 참조이며 이번 포팅 범위가 아니다.
 
@@ -50,7 +50,7 @@ Python 원본에 `stage6_hongryeon_*`, `stage6_honglyeon_*`, `honglyeon_*`처럼
 
 1. 번호와 진입
    - F5 피커에 `스테이지 5 / 홍련`만 보이게 한다.
-   - Stage 6 슬롯은 비워 둔다.
+   - Stage 6(테트리서)은 별도 기획 `docs/stage6_tetriser_port_plan.md`에서 다룬다. 이 홍련 MVP 단계 작업에는 Stage 6을 포함하지 않는다(비워 두는 게 아니라 별도 트랙).
    - Stage 4 clear 이후 Stage 5로 넘어가는 흐름은 홍련 라우터가 준비된 뒤 연다.
 
 2. 시각 셸
@@ -103,7 +103,7 @@ Python 원본에 `stage6_hongryeon_*`, `stage6_honglyeon_*`, `honglyeon_*`처럼
 ## 6. QA 기준
 
 - 2026-05-18 결정: Godot Stage 5 포팅 버전은 라운드 전환 시 홍련 dragon orb 게이지를 1칸 감소시키지 않는다. `reset_round()`는 전투 투사체 / ball hijack / inferno active 상태만 정리하고 `dragon_orb_count` 및 full gauge의 `inferno_ready`는 보존한다.
-- F5 피커: Stage 5는 홍련, Stage 6은 선택 불가. 숫자키 6이 다른 카드로 밀려 선택되지 않아야 한다.
+- F5 피커: Stage 5는 홍련. (홍련 MVP 시점에는 6번 비노출이었으나, 현재 Stage 6은 테트리서로 채워질 예정 — 피커 7→6 재라벨은 `docs/stage6_tetriser_port_plan.md` §4에서 처리. 이 홍련 문서의 수용 기준은 "Stage 5가 홍련 owner만 호출"까지다.)
 - 라우팅: `stage_runtime_router.gd`가 Stage 5 홍련 owner만 호출하고 네메시스 owner를 호출하지 않아야 한다.
 - 자산: Godot live path에는 `stage5_hongryun_*` 이름을 사용하고, Python `stage6_*` 이름이 runtime path에 남지 않아야 한다.
 - 전환: Stage 4 -> Stage 5 진입, Stage 5 result, debug switch out, 새 게임 Stage 1 시작에서 홍련탄 / 홍련폭염 상태가 남지 않아야 한다.

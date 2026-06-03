@@ -47,7 +47,8 @@ Notable changes since the snapshot:
 | Stage 3 | 멘헤라 (Menhera) | ✅ Basic complete | 9 .gd |
 | Stage 4 | 퐁크 (Ponk) | ✅ Basic complete | 15 .gd |
 | Stage 5 | 홍련 (Hongryun) | 🔧 In progress; no longer in the old unported bucket | 12 .gd (inferno FX, pillar, state, fire machine) |
-| Stage 6+ | — | ⬜ Not started | Stage 6 stays absent per CLAUDE.md routing |
+| Stage 6 | 테트리서 (Tetriser) | 📋 Planning started | Port of Python Stage 7; plan: docs/stage6_tetriser_port_plan.md |
+| Stage 7+ | — | ⬜ Not started | Roadmap backlog (8 아카무 리고 / 9~12) |
 
 ## Character Status
 
