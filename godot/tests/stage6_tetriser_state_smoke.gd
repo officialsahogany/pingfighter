@@ -46,6 +46,7 @@ func _init() -> void:
 	_test_super_scale_and_tetromino()
 	_test_cube_solve_clears_field()
 	_test_cube_rebuild_reactivates()
+	_test_super_laser_melts_cube()
 	_test_wrong_stage_resets()
 
 	if _failures.is_empty():
@@ -329,6 +330,19 @@ func _test_cube_rebuild_reactivates() -> void:
 		state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
 		state.update(0.05, dash_ctx)
 	_expect(state.debug_is_cube_active(), "cube re-activates after 5 tetromino kills during rebuild")
+
+
+func _test_super_laser_melts_cube() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 400.0), "O", false)
+	state.debug_set_gauge(500.0)
+	# 초인 발동 → 광선 충전(0.8s) → 발사 → 큐브 melt.
+	for _i in range(25):   # 1.25s > 0.8s charge
+		state.update(0.05, _active_context())
+	_expect(state.debug_is_cube_rebuild(), "super laser melts cube into rebuild")
+	_expect(state.debug_get_tetromino_count() == 0, "laser melt clears tetrominoes")
+	_expect(state.debug_get_laser_state() == "firing", "laser is firing after charge (state=%s)" % state.debug_get_laser_state())
+	_expect(state.debug_get_emp_count() > 0, "EMP ripple emitted on laser melt")
 
 
 func _test_wrong_stage_resets() -> void:

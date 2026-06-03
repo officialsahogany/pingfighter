@@ -46,6 +46,36 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, _perf_
 		_draw_wall_cell(canvas, wall_cell, cell_vec, shake_offset)
 	for debris in context.get("stage6_tetriser_debris", []):
 		_draw_debris(canvas, debris, shake_offset)
+	_draw_laser(canvas, context, shake_offset)
+	for emp in context.get("stage6_tetriser_emp", []):
+		_draw_emp(canvas, emp, shake_offset)
+
+
+func _draw_laser(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
+	var laser: Dictionary = context.get("stage6_tetriser_laser", {})
+	if laser.is_empty():
+		return
+	var target: Vector2 = _as_vector2(laser.get("target", Vector2.ZERO)) + shake_offset
+	var boss_pos: Vector2 = _as_vector2(context.get("boss_pos", Vector2(330.0, 25.0)))
+	var boss_size: Vector2 = _as_vector2(context.get("boss_paddle_size", Vector2(100.0, 40.0)))
+	var origin: Vector2 = boss_pos + Vector2(boss_size.x * 0.5, boss_size.y) + shake_offset
+	var progress: float = clampf(float(laser.get("progress", 0.0)), 0.0, 1.0)
+	match String(laser.get("state", "")):
+		"charging":
+			canvas.draw_line(origin, target, Color(1.0, 0.4, 0.2, 0.18 + 0.5 * progress), 1.0 + 3.0 * progress, true)
+		"firing":
+			var fade: float = 1.0 - progress
+			canvas.draw_line(origin, target, Color(1.0, 0.5, 0.2, 0.6 * fade), 14.0, true)
+			canvas.draw_line(origin, target, Color(1.0, 0.95, 0.7, 0.9 * fade), 5.0, true)
+
+
+func _draw_emp(canvas: CanvasItem, emp: Dictionary, shake_offset: Vector2) -> void:
+	var progress: float = clampf(float(emp.get("progress", 0.0)), 0.0, 1.0)
+	var alpha: float = (1.0 - progress) * 0.6
+	if alpha <= 0.0:
+		return
+	var center: Vector2 = _as_vector2(emp.get("center", Vector2.ZERO)) + shake_offset
+	canvas.draw_arc(center, 20.0 + progress * 160.0, 0.0, TAU, 48, Color(0.4, 0.7, 1.0, alpha), 3.0, true)
 
 
 func _draw_tetromino(canvas: CanvasItem, tetro: Dictionary, cell_size: float, shake_offset: Vector2) -> void:

@@ -96,6 +96,13 @@ const CUBE_PALETTE := [
 	Color(0.31, 0.90, 0.47), Color(1.0, 0.59, 0.0), Color(0.94, 0.94, 0.94),
 ]
 
+# === 초인 광선 + EMP (원본 STAGE7_TETRO_LASER_* / 큐브 melt by_laser) ===
+# 초인테트리서 발동 중 보스가 중앙 큐브로 광선을 충전(0.8s)→발사(1.2s). 발사 시
+# 큐브를 폭발 없이 melt(테트로/벽 즉시 정리 + 재조립 진입) + EMP 파문. super당 1회.
+const LASER_CHARGE_SEC := 0.8        # STAGE7_TETRO_LASER_CHARGE_MS=800
+const LASER_DURATION_SEC := 1.2      # STAGE7_TETRO_LASER_DURATION_MS=1200
+const EMP_LIFE_SEC := 0.6
+
 # 표준 7종 테트로미노 셀 오프셋 (원본 game_logic/_tetro_wall_shapes 동일).
 const TETRO_SHAPES := {
 	"I": [Vector2(0, 0), Vector2(1, 0), Vector2(2, 0), Vector2(3, 0)],
@@ -132,6 +139,10 @@ var _super_intro_timer: float = 0.0
 var _super_scale: float = 1.0
 var _super_target_scale: float = 1.0
 var _cube: Dictionary = {}
+var _laser_state: String = "idle"     # idle / charging / firing
+var _laser_timer: float = 0.0
+var _laser_fired_this_super: bool = false
+var _emp_ripples: Array[Dictionary] = []
 var _shape_keys: Array = TETRO_SHAPES.keys()
 var _rng := RandomNumberGenerator.new()
 
@@ -176,6 +187,10 @@ func _clear_combat_state() -> void:
 	_super_intro_timer = 0.0
 	_super_scale = 1.0
 	_super_target_scale = 1.0
+	_laser_state = "idle"
+	_laser_timer = 0.0
+	_laser_fired_this_super = false
+	_emp_ripples.clear()
 	_arm_spawn_timer()
 	_arm_guard_timer()
 	_arm_wall_timer()
@@ -213,6 +228,8 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	_update_wall_lifetime(clamped_delta)
 	_apply_player_attack_destruction(context, deps)
 	_update_cube(clamped_delta, context)
+	_update_laser(clamped_delta)
+	_update_emp(clamped_delta)
 	_update_debris(clamped_delta)
 	return _build_result()
 
@@ -233,6 +250,8 @@ func _update_super_state(delta: float) -> void:
 		if boss_gauge <= 0.0:
 			_super_active = false
 			_super_target_scale = 1.0
+			_laser_state = "idle"
+			_laser_fired_this_super = false
 	elif boss_gauge >= SUPER_ACTIVATE_GAUGE:
 		_super_active = true
 		_super_target_scale = SUPER_BODY_SCALE
@@ -802,12 +821,13 @@ func _explode_cube() -> void:
 	_clear_blocks_with_debris(_wall_blocks)
 	# 큐브 폭발 플래시(단일 큰 셀 2*radius). 파편 시스템이 확장/페이드 처리.
 	_emit_debris(CUBE_CENTER - Vector2(CUBE_RADIUS, CUBE_RADIUS), [Vector2.ZERO], Color(1.0, 0.85, 0.4), CUBE_RADIUS * 2.0)
+	_emit_emp(CUBE_CENTER)
 	_cube["active"] = false
 	_cube["rebuild"] = true
 	_cube["rebuild_progress"] = 0
 	_cube["solve_pending"] = false
 	_cube["solve_timer"] = 0.0
-	# TODO(4c/폴리시): grenade-style 폭발 VFX, EMP 파문, 스타포인트 스폰.
+	# TODO(폴리시): grenade-style 폭발 VFX, 스타포인트 스폰.
 
 
 func _clear_blocks_with_debris(blocks: Array) -> void:
@@ -842,6 +862,83 @@ func _build_cube_draw_data() -> Dictionary:
 		"solve_pending": bool(_cube.get("solve_pending", false)),
 		"solve_progress": solve_progress,
 	}
+
+
+# ============================================================================
+# 초인 광선 + EMP
+# ============================================================================
+
+func _update_laser(delta: float) -> void:
+	if not _super_active:
+		return
+	match _laser_state:
+		"idle":
+			if not _laser_fired_this_super and bool(_cube.get("active", false)):
+				_laser_state = "charging"
+				_laser_timer = LASER_CHARGE_SEC
+		"charging":
+			_laser_timer -= delta
+			if _laser_timer <= 0.0:
+				_laser_state = "firing"
+				_laser_timer = LASER_DURATION_SEC
+				_laser_fired_this_super = true
+				_melt_cube_by_laser()
+		"firing":
+			_laser_timer -= delta
+			if _laser_timer <= 0.0:
+				_laser_state = "idle"
+
+
+# 광선 melt(by_laser): 폭발 없이 테트로/벽 즉시 정리 + EMP + 재조립 진입.
+func _melt_cube_by_laser() -> void:
+	if _cube.is_empty() or not bool(_cube.get("active", false)):
+		return
+	_clear_blocks_with_debris(_tetrominoes)
+	_clear_blocks_with_debris(_wall_blocks)
+	_emit_emp(CUBE_CENTER)
+	_cube["active"] = false
+	_cube["rebuild"] = true
+	_cube["rebuild_progress"] = 0
+	_cube["solve_pending"] = false
+	_cube["solve_timer"] = 0.0
+
+
+func _emit_emp(center: Vector2) -> void:
+	_emp_ripples.append({"center": center, "timer": EMP_LIFE_SEC, "max": EMP_LIFE_SEC})
+
+
+func _update_emp(delta: float) -> void:
+	if _emp_ripples.is_empty():
+		return
+	var alive: Array[Dictionary] = []
+	for ripple in _emp_ripples:
+		var timer: float = float(ripple["timer"]) - delta
+		if timer > 0.0:
+			ripple["timer"] = timer
+			alive.append(ripple)
+	_emp_ripples = alive
+
+
+func _build_laser_draw_data() -> Dictionary:
+	if _laser_state == "idle":
+		return {}
+	var total: float = LASER_CHARGE_SEC if _laser_state == "charging" else LASER_DURATION_SEC
+	return {
+		"state": _laser_state,
+		"progress": clampf(1.0 - _laser_timer / maxf(0.001, total), 0.0, 1.0),
+		"target": CUBE_CENTER,
+	}
+
+
+func _build_emp_draw_list() -> Array:
+	var out: Array = []
+	for ripple in _emp_ripples:
+		var max_life: float = maxf(0.001, float(ripple.get("max", EMP_LIFE_SEC)))
+		out.append({
+			"center": ripple.get("center", CUBE_CENTER),
+			"progress": clampf(1.0 - float(ripple.get("timer", 0.0)) / max_life, 0.0, 1.0),
+		})
+	return out
 
 
 # 원본 game_logic/stage7_tetriser._rotate_cells 포트: (x,y) -> (-y,x) 후 비음수 정규화.
@@ -900,6 +997,8 @@ func get_actor_draw_context() -> Dictionary:
 		"stage6_tetriser_super_scale": _super_scale,
 		"stage6_tetriser_super_intro": _super_intro_timer > 0.0,
 		"stage6_tetriser_cube": _build_cube_draw_data(),
+		"stage6_tetriser_laser": _build_laser_draw_data(),
+		"stage6_tetriser_emp": _build_emp_draw_list(),
 	}
 
 
@@ -1074,6 +1173,14 @@ func debug_get_cube_rebuild_progress() -> int:
 
 func debug_is_cube_rebuild() -> bool:
 	return bool(_cube.get("rebuild", false))
+
+
+func debug_get_laser_state() -> String:
+	return _laser_state
+
+
+func debug_get_emp_count() -> int:
+	return _emp_ripples.size()
 
 
 # 결정론적 테스트용: 공 1회 큐브 통과 시뮬레이션.
