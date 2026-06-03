@@ -58,6 +58,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Install Godot
         id: godot
@@ -87,6 +89,30 @@ jobs:
 
           "godot_console=$($consoleExe.FullName)" >> $env:GITHUB_OUTPUT
           & $consoleExe.FullName --version
+
+      - name: Import Godot resources
+        shell: pwsh
+        working-directory: godot
+        run: |
+          $ErrorActionPreference = "Stop"
+          $projectPath = (Get-Location).Path
+          $importLogDir = Join-Path $projectPath ".godot\codex_logs"
+          New-Item -ItemType Directory -Force -Path $importLogDir | Out-Null
+          $importLogPath = Join-Path $importLogDir "resource_import.log"
+
+          $previousErrorActionPreference = $ErrorActionPreference
+          $ErrorActionPreference = "Continue"
+          try {
+            $output = & "${{ steps.godot.outputs.godot_console }}" --headless --path $projectPath --log-file $importLogPath --import 2>&1
+            $exitCode = $LASTEXITCODE
+          } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+          }
+
+          $output | ForEach-Object { Write-Host $_ }
+          if ($exitCode -ne 0) {
+            throw "Godot resource import failed with exit code $exitCode"
+          }
 
       - name: Headless load check
         shell: pwsh
