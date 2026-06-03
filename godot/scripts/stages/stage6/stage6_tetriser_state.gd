@@ -62,6 +62,14 @@ const GUARD_SPAWN_OFFSET_Y := 8.0
 const GUARD_CELLS := [Vector2(0, 0), Vector2(1, 0), Vector2(2, 0), Vector2(3, 0)]  # 4x1 가로 바
 const GUARD_COLOR := Color(0.58, 0.66, 0.78)  # 금속 가드
 
+# === 테트로 벽 (원본 get_tetro_wall_spawn_spec_legacy: 30초, 코스트 50, 측면당 10개) ===
+const WALL_INTERVAL_SEC := 30.0
+const WALL_COST := 50.0
+const WALL_COLS := 4                     # grid_w = 4*20 = 80px (좌 x=0 / 우 x=WIDTH-80)
+const WALL_PIECES_PER_SIDE := 10         # 측면당 10조각 = 40셀 = 10행
+const WALL_ROWS_PER_SIDE := 10           # 40셀 / 4열
+const WALL_LIFETIME_SEC := 6.0           # 원본 installed_duration_ms=6000
+
 # 표준 7종 테트로미노 셀 오프셋 (원본 game_logic/_tetro_wall_shapes 동일).
 const TETRO_SHAPES := {
 	"I": [Vector2(0, 0), Vector2(1, 0), Vector2(2, 0), Vector2(3, 0)],
@@ -87,9 +95,12 @@ var status: String = "charging"
 
 var _tetrominoes: Array[Dictionary] = []
 var _guard_blocks: Array[Dictionary] = []
+var _wall_blocks: Array[Dictionary] = []
 var _debris: Array[Dictionary] = []
 var _spawn_timer_sec: float = 0.0
 var _guard_timer_sec: float = 0.0
+var _wall_timer_sec: float = 0.0
+var _wall_life_sec: float = 0.0
 var _shape_keys: Array = TETRO_SHAPES.keys()
 var _rng := RandomNumberGenerator.new()
 
@@ -98,6 +109,7 @@ func _init() -> void:
 	_rng.randomize()
 	_arm_spawn_timer()
 	_arm_guard_timer()
+	_arm_wall_timer()
 
 
 # ============================================================================
@@ -125,9 +137,12 @@ func reset_for_result() -> void:
 func _clear_combat_state() -> void:
 	_tetrominoes.clear()
 	_guard_blocks.clear()
+	_wall_blocks.clear()
 	_debris.clear()
+	_wall_life_sec = 0.0
 	_arm_spawn_timer()
 	_arm_guard_timer()
+	_arm_wall_timer()
 
 
 # ============================================================================
@@ -153,8 +168,10 @@ func update(delta: float, context: Dictionary, _deps: Dictionary = {}) -> Dictio
 	_charge_gauge(clamped_delta)
 	_update_spawn_scheduler(clamped_delta)
 	_update_guard_scheduler(clamped_delta, context)
+	_update_wall_scheduler(clamped_delta)
 	_update_tetrominoes(clamped_delta)
 	_update_guard_blocks(clamped_delta)
+	_update_wall_lifetime(clamped_delta)
 	_update_debris(clamped_delta)
 	return _build_result()
 
@@ -272,6 +289,57 @@ func _update_guard_blocks(delta: float) -> void:
 			block["origin"] = final_origin
 
 
+func _arm_wall_timer() -> void:
+	_wall_timer_sec = WALL_INTERVAL_SEC
+
+
+# 테트로 벽 스케줄러: 30초마다 게이지 50으로 좌우 벽을 재생성(수명 6초).
+func _update_wall_scheduler(delta: float) -> void:
+	_wall_timer_sec -= delta
+	if _wall_timer_sec > 0.0:
+		return
+	if boss_gauge < WALL_COST:
+		_wall_timer_sec = 1.0   # 게이지 부족 → 짧게 재시도
+		return
+	_spawn_tetro_wall()
+	boss_gauge -= WALL_COST
+	_arm_wall_timer()
+
+
+func _update_wall_lifetime(delta: float) -> void:
+	if _wall_blocks.is_empty():
+		return
+	_wall_life_sec -= delta
+	if _wall_life_sec <= 0.0:
+		_wall_blocks.clear()
+
+
+# 좌(x=0) / 우(x=WIDTH-grid_w) 벽을 각 10행(=10조각) 쌓는다. 벽 셀은 단일-셀
+# 블록이라 공/대시가 셀 단위로 파괴(원본 _mark_wall_cell_evaporated 동등).
+# 단순화: 원본의 테트로 조각 중력 적층 대신 cols*rows 직사각형 채움(셀 수 동일).
+func _spawn_tetro_wall() -> void:
+	_wall_blocks.clear()
+	var grid_w: float = float(WALL_COLS) * TETRO_CELL_SIZE
+	_spawn_wall_side(0.0)
+	_spawn_wall_side(FIELD_WIDTH - grid_w)
+	_wall_life_sec = WALL_LIFETIME_SEC
+
+
+func _spawn_wall_side(origin_x: float) -> void:
+	for r in range(WALL_ROWS_PER_SIDE):
+		var shape_name: String = String(_shape_keys[_rng.randi_range(0, _shape_keys.size() - 1)])
+		var color: Color = TETRO_COLORS.get(shape_name, Color(0.6, 0.7, 1.0))
+		var cell_top: float = FIELD_HEIGHT - float(r + 1) * TETRO_CELL_SIZE
+		for col in range(WALL_COLS):
+			_wall_blocks.append({
+				"kind": "wall",
+				"state": "active",
+				"cells": [Vector2(0, 0)],
+				"origin": Vector2(origin_x + float(col) * TETRO_CELL_SIZE, cell_top),
+				"color": color,
+			})
+
+
 func _spawn_tetromino() -> void:
 	var shape_name: String = String(_shape_keys[_rng.randi_range(0, _shape_keys.size() - 1)])
 	var cells: Array = _rotate_cells(TETRO_SHAPES[shape_name], _rng.randi_range(0, 3))
@@ -377,7 +445,7 @@ func _collect_settled_cell_rects() -> Array:
 # scene["ball_pos"]는 공의 '중심'(commando_supply_drop 선례와 동일 규약).
 # 테트로미노 → 가드 블록 순으로 첫 충돌 셀을 찾아 반사 + 파괴한다.
 func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dictionary = {}) -> bool:
-	if _tetrominoes.is_empty() and _guard_blocks.is_empty():
+	if _tetrominoes.is_empty() and _guard_blocks.is_empty() and _wall_blocks.is_empty():
 		return false
 	var ball_pos: Vector2 = scene.get("ball_pos", Vector2.ZERO)
 	var radius: float = maxf(1.0, float(context.get("ball_size", 28.6)) * 0.5)
@@ -398,6 +466,14 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dicti
 	if not guard_hit.is_empty():
 		_apply_cell_reflection(scene, context, radius, guard_hit["cell_rect"])
 		_destroy_block_group(_guard_blocks, guard_hit["item"], GUARD_COLOR)
+		return true
+
+	# 3) 테트로 벽 (좌우 가장자리). 셀 단위 파괴(단일-셀 블록).
+	var wall_hit: Dictionary = _find_block_cell_hit(_wall_blocks, ball_rect, ["active"])
+	if not wall_hit.is_empty():
+		_apply_cell_reflection(scene, context, radius, wall_hit["cell_rect"])
+		var wall_cell: Dictionary = wall_hit["item"]
+		_destroy_block_group(_wall_blocks, wall_cell, wall_cell.get("color", Color(0.6, 0.7, 1.0)))
 		return true
 
 	return false
@@ -537,9 +613,20 @@ func get_actor_draw_context() -> Dictionary:
 	return {
 		"stage6_tetriser_tetrominoes": _build_tetromino_draw_list(),
 		"stage6_tetriser_guard_blocks": _build_guard_draw_list(),
+		"stage6_tetriser_wall_cells": _build_wall_draw_list(),
 		"stage6_tetriser_debris": _build_debris_draw_list(),
 		"stage6_tetriser_cell_size": TETRO_CELL_SIZE,
 	}
+
+
+func _build_wall_draw_list() -> Array:
+	var out: Array = []
+	for block in _wall_blocks:
+		out.append({
+			"origin": block.get("origin", Vector2.ZERO),
+			"color": block.get("color", Color(0.6, 0.7, 1.0)),
+		})
+	return out
 
 
 func _build_guard_draw_list() -> Array:
@@ -636,6 +723,25 @@ func debug_get_debris_count() -> int:
 
 func debug_get_guard_count() -> int:
 	return _guard_blocks.size()
+
+
+func debug_get_wall_cell_count() -> int:
+	return _wall_blocks.size()
+
+
+func debug_force_spawn_wall() -> void:
+	_spawn_tetro_wall()
+
+
+# 결정론적 테스트용: 지정 위치에 단일 벽 셀 배치.
+func debug_spawn_wall_cell_at(origin: Vector2) -> void:
+	_wall_blocks.append({
+		"kind": "wall",
+		"state": "active",
+		"cells": [Vector2(0, 0)],
+		"origin": origin,
+		"color": Color(0.6, 0.7, 1.0),
+	})
 
 
 # 결정론적 테스트용: 지정 위치에 즉시 'active' 가드 블록 배치.

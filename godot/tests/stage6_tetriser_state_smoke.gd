@@ -22,6 +22,8 @@ func _init() -> void:
 	_test_super_tetromino_immune_to_ball()
 	_test_guard_scheduler_spawns()
 	_test_guard_ball_collision()
+	_test_wall_spawn_and_ball_destroys_cell()
+	_test_wall_lifetime_clears()
 	_test_wrong_stage_resets()
 
 	if _failures.is_empty():
@@ -164,6 +166,37 @@ func _test_guard_ball_collision() -> void:
 	_expect(hit, "ball hits guard block")
 	_expect(scene["ball_vel"].y > 0.0, "ball reflects downward after hitting guard from below (vy=%f)" % scene["ball_vel"].y)
 	_expect(state.debug_get_guard_count() == 0, "guard block destroyed by ball")
+
+
+func _test_wall_spawn_and_ball_destroys_cell() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_spawn_wall()
+	# 좌우 각 10행 x 4열 = 80셀.
+	_expect(state.debug_get_wall_cell_count() == 80, "wall spawns 80 cells (2 sides x 10 rows x 4 cols), got %d" % state.debug_get_wall_cell_count())
+
+	# 단일 셀 충돌 → 셀 단위 파괴.
+	var single: Object = Stage6TetriserState.new()
+	single.debug_spawn_wall_cell_at(Vector2(0.0, 400.0))   # x 0..20, y 400..420
+	_expect(single.debug_get_wall_cell_count() == 1, "precondition: one wall cell")
+	var scene := {
+		"ball_pos": Vector2(15.0, 410.0),
+		"previous_ball_pos": Vector2(35.0, 410.0),   # 오른쪽에서 왼쪽으로 진입
+		"ball_vel": Vector2(-5.0, 0.0),
+	}
+	var ctx := {"current_stage": 6, "ball_size": 20.0}
+	var hit: bool = single.resolve_ball_collision(scene, ctx, {})
+	_expect(hit, "ball hits wall cell")
+	_expect(scene["ball_vel"].x > 0.0, "ball reflects rightward off wall edge (vx=%f)" % scene["ball_vel"].x)
+	_expect(single.debug_get_wall_cell_count() == 0, "wall destroyed per-cell by ball")
+
+
+func _test_wall_lifetime_clears() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_spawn_wall()
+	_expect(state.debug_get_wall_cell_count() > 0, "precondition: wall present")
+	for _i in range(70):   # ~7초 > 수명 6초
+		state.update(0.1, _active_context())
+	_expect(state.debug_get_wall_cell_count() == 0, "wall clears after its lifetime expires")
 
 
 func _test_wrong_stage_resets() -> void:

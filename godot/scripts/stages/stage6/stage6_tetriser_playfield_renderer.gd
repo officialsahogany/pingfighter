@@ -37,6 +37,9 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, _perf_
 		_draw_tetromino(canvas, tetro, cell_size, shake_offset)
 	for guard in context.get("stage6_tetriser_guard_blocks", []):
 		_draw_guard_block(canvas, guard, cell_size, shake_offset)
+	var cell_vec := Vector2(cell_size, cell_size)
+	for wall_cell in context.get("stage6_tetriser_wall_cells", []):
+		_draw_wall_cell(canvas, wall_cell, cell_vec, shake_offset)
 	for debris in context.get("stage6_tetriser_debris", []):
 		_draw_debris(canvas, debris, shake_offset)
 
@@ -76,6 +79,14 @@ func _draw_guard_block(canvas: CanvasItem, block: Dictionary, cell_size: float, 
 		canvas.draw_rect(rect, fill)
 		canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), INNER_HIGHLIGHT)
 		canvas.draw_rect(rect, BORDER_COLOR, false, 2.0)
+
+
+func _draw_wall_cell(canvas: CanvasItem, wall_cell: Dictionary, cell_vec: Vector2, shake_offset: Vector2) -> void:
+	var rect := Rect2(_as_vector2(wall_cell.get("origin", Vector2.ZERO)) + shake_offset, cell_vec)
+	var fill: Color = wall_cell.get("color", Color(0.6, 0.7, 1.0))
+	canvas.draw_rect(rect, fill)
+	canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), INNER_HIGHLIGHT)
+	canvas.draw_rect(rect, BORDER_COLOR, false, 2.0)
 
 
 func _draw_debris(canvas: CanvasItem, debris: Dictionary, shake_offset: Vector2) -> void:
