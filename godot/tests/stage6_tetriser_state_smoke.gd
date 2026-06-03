@@ -24,6 +24,17 @@ class FakeActiveItemRuntime:
 	var throw_controller
 
 
+class FakeAudio:
+	extends RefCounted
+	var calls: Array = []
+	func play_stage6_tetriser_break() -> void:
+		calls.append("break")
+	func play_stage6_tetriser_wall() -> void:
+		calls.append("wall")
+	func play_stage6_tetriser_super() -> void:
+		calls.append("super")
+
+
 func _active_context() -> Dictionary:
 	return {"current_stage": 6, "ball_active": true, "waiting_for_serve": false}
 
@@ -49,6 +60,7 @@ func _init() -> void:
 	_test_cube_rebuild_reactivates()
 	_test_super_laser_melts_cube()
 	_test_boss_skill_hud()
+	_test_sound_events()
 	_test_wrong_stage_resets()
 
 	if _failures.is_empty():
@@ -376,6 +388,34 @@ func _test_boss_skill_hud() -> void:
 		if str(s2.get("id", "")) == "stage6_super" and bool(s2.get("active", false)):
 			found_super_active = true
 	_expect(found_super_active, "super skill card shows active during 초인테트리서")
+
+
+func _test_sound_events() -> void:
+	# 초인 발동 → cry
+	var super_audio := FakeAudio.new()
+	var super_state: Object = Stage6TetriserState.new()
+	super_state.debug_set_gauge(500.0)
+	super_state.update(0.05, _active_context(), {"audio": super_audio})
+	_expect(super_audio.calls.has("super"), "super activation plays roar/cry sound")
+
+	# 테트로 벽 소환 → tetriswall
+	var wall_audio := FakeAudio.new()
+	var wall_state: Object = Stage6TetriserState.new()
+	wall_state.debug_force_spawn_wall()
+	wall_state.update(0.05, _active_context(), {"audio": wall_audio})
+	_expect(wall_audio.calls.has("wall"), "wall spawn plays wall sound")
+
+	# 대시 파괴 → tetrisbreak
+	var break_audio := FakeAudio.new()
+	var break_state: Object = Stage6TetriserState.new()
+	break_state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
+	break_state.update(0.05, {
+		"current_stage": 6, "ball_active": true, "waiting_for_serve": false,
+		"dash_snapshot": {"active": true},
+		"player_pos": Vector2(295.0, 695.0),
+		"player_paddle_size": Vector2(60.0, 30.0),
+	}, {"audio": break_audio})
+	_expect(break_audio.calls.has("break"), "destroying a block plays break sound")
 
 
 func _test_wrong_stage_resets() -> void:

@@ -143,6 +143,10 @@ var _laser_state: String = "idle"     # idle / charging / firing
 var _laser_timer: float = 0.0
 var _laser_fired_this_super: bool = false
 var _emp_ripples: Array[Dictionary] = []
+# 프레임당 1회 사운드 플래그(이벤트 시 set, update 끝에서 deps.audio로 flush).
+var _sfx_break_pending: bool = false
+var _sfx_wall_pending: bool = false
+var _sfx_super_pending: bool = false
 var _shape_keys: Array = TETRO_SHAPES.keys()
 var _rng := RandomNumberGenerator.new()
 
@@ -191,6 +195,9 @@ func _clear_combat_state() -> void:
 	_laser_timer = 0.0
 	_laser_fired_this_super = false
 	_emp_ripples.clear()
+	_sfx_break_pending = false
+	_sfx_wall_pending = false
+	_sfx_super_pending = false
 	_arm_spawn_timer()
 	_arm_guard_timer()
 	_arm_wall_timer()
@@ -231,7 +238,25 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	_update_laser(clamped_delta)
 	_update_emp(clamped_delta)
 	_update_debris(clamped_delta)
+	_flush_sounds(deps)
 	return _build_result()
+
+
+# 프레임당 누적된 사운드 플래그를 deps.audio로 1회씩 재생(과다 호출 방지).
+func _flush_sounds(deps: Dictionary) -> void:
+	if not (_sfx_break_pending or _sfx_wall_pending or _sfx_super_pending):
+		return
+	var audio = deps.get("audio", null)
+	if audio != null:
+		if _sfx_break_pending and audio.has_method("play_stage6_tetriser_break"):
+			audio.play_stage6_tetriser_break()
+		if _sfx_wall_pending and audio.has_method("play_stage6_tetriser_wall"):
+			audio.play_stage6_tetriser_wall()
+		if _sfx_super_pending and audio.has_method("play_stage6_tetriser_super"):
+			audio.play_stage6_tetriser_super()
+	_sfx_break_pending = false
+	_sfx_wall_pending = false
+	_sfx_super_pending = false
 
 
 func _charge_gauge(delta: float) -> void:
@@ -257,6 +282,7 @@ func _update_super_state(delta: float) -> void:
 		_super_target_scale = SUPER_BODY_SCALE
 		_super_intro_timer = SUPER_INTRO_SEC
 		boss_gauge = SUPER_ACTIVATE_GAUGE
+		_sfx_super_pending = true   # cry (초인 발동 포효)
 	_super_scale = move_toward(_super_scale, _super_target_scale, SUPER_SCALE_LERP_PER_SEC * delta)
 
 
@@ -400,6 +426,7 @@ func _spawn_tetro_wall() -> void:
 	_spawn_wall_side(0.0)
 	_spawn_wall_side(FIELD_WIDTH - grid_w)
 	_wall_life_sec = WALL_LIFETIME_SEC
+	_sfx_wall_pending = true   # tetriswall
 
 
 func _spawn_wall_side(origin_x: float) -> void:
@@ -628,9 +655,9 @@ func _destroy_block_group(blocks: Array, block: Dictionary, color: Color) -> voi
 	_emit_debris(block.get("origin", Vector2.ZERO), block.get("cells", []), color, float(block.get("cell_size", TETRO_CELL_SIZE)))
 	var is_tetromino: bool = not block.has("kind")   # 가드/벽은 "kind" 보유, 테트로미노는 없음
 	blocks.erase(block)
+	_sfx_break_pending = true   # tetrisbreak (프레임당 1회 flush)
 	if is_tetromino:
 		_on_tetromino_destroyed()   # 큐브 재조립 진행(rebuild 모드일 때만)
-	# TODO(폴리시): tetrisbreak.wav 사운드.
 
 
 func _emit_debris(origin: Vector2, cells: Array, color: Color, cell_size: float) -> void:
@@ -831,9 +858,12 @@ func _explode_cube() -> void:
 
 
 func _clear_blocks_with_debris(blocks: Array) -> void:
+	if blocks.is_empty():
+		return
 	for block in blocks:
 		_emit_debris(block.get("origin", Vector2.ZERO), block.get("cells", []), _block_color(block), float(block.get("cell_size", TETRO_CELL_SIZE)))
 	blocks.clear()
+	_sfx_break_pending = true
 
 
 func _on_tetromino_destroyed() -> void:

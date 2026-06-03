@@ -157,6 +157,11 @@ const STAGE5_RUNTIME_PREWARM_KEYS := [
 	"stage5_hongryun_state",
 	"stage5_hongryun_fire_machine_event",
 ]
+const STAGE6_RUNTIME_PREWARM_KEYS := [
+	"stage6_tetriser_pillar_background",
+	"stage6_tetriser_state",
+	"stage6_tetriser_boss_skill_hud_renderer",
+]
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
 var battle_update_prewarmed := false
@@ -290,7 +295,9 @@ func _prewarm_player_control_context_step(owner: Object, registry: Object) -> bo
 			update_prewarm_substep_index,
 			key,
 		]
-		_get_instance(registry, key)
+		var instance: Object = _get_instance(registry, key)
+		if not _prewarm_instance_assets_step(key, instance):
+			return false
 		update_prewarm_substep_index += 1
 		return false
 	update_prewarm_detail_label = "player_deps.finalize"
@@ -330,7 +337,9 @@ func _prewarm_effects_context_step(owner: Object, registry: Object) -> bool:
 			update_prewarm_substep_index,
 			key,
 		]
-		_get_instance(registry, key)
+		var instance: Object = _get_instance(registry, key)
+		if not _prewarm_instance_assets_step(key, instance):
+			return false
 		update_prewarm_substep_index += 1
 		return false
 	update_prewarm_detail_label = "effects_deps.finalize"
@@ -354,7 +363,9 @@ func _prewarm_match_flow_context_step(owner: Object, registry: Object) -> bool:
 			update_prewarm_substep_index,
 			key,
 		]
-		_get_instance(registry, key)
+		var instance: Object = _get_instance(registry, key)
+		if not _prewarm_instance_assets_step(key, instance):
+			return false
 		update_prewarm_substep_index += 1
 		return false
 	update_prewarm_detail_label = "match_deps.deferred_finalize"
@@ -370,6 +381,14 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _prewarm_instance_assets_step(key: String, instance: Object) -> bool:
+	if key != "smasher_cleanse_state":
+		return true
+	if instance == null or not instance.has_method("prewarm_assets_step"):
+		return true
+	return bool(instance.prewarm_assets_step())
 
 
 func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
@@ -486,6 +505,7 @@ func _get_stage_runtime_prewarm_keys(current_stage: int, include_all_stages: boo
 		keys.append_array(STAGE3_RUNTIME_PREWARM_KEYS)
 		keys.append_array(STAGE4_RUNTIME_PREWARM_KEYS)
 		keys.append_array(STAGE5_RUNTIME_PREWARM_KEYS)
+		keys.append_array(STAGE6_RUNTIME_PREWARM_KEYS)
 		return keys
 	match current_stage:
 		1:
@@ -498,6 +518,8 @@ func _get_stage_runtime_prewarm_keys(current_stage: int, include_all_stages: boo
 			keys.append_array(STAGE4_RUNTIME_PREWARM_KEYS)
 		5:
 			keys.append_array(STAGE5_RUNTIME_PREWARM_KEYS)
+		6:
+			keys.append_array(STAGE6_RUNTIME_PREWARM_KEYS)
 		_:
 			keys.append_array(STAGE1_RUNTIME_PREWARM_KEYS)
 	return keys
