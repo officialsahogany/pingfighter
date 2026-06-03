@@ -18,6 +18,8 @@ func _init() -> void:
 	_test_pause_when_not_active()
 	_test_tetromino_lifecycle()
 	_test_actor_draw_context()
+	_test_ball_reflects_and_destroys()
+	_test_super_tetromino_immune_to_ball()
 	_test_wrong_stage_resets()
 
 	if _failures.is_empty():
@@ -99,6 +101,40 @@ func _test_actor_draw_context() -> void:
 		_expect(t.get("color") is Color, "tetromino draw entry has color")
 	var ai_ctx: Dictionary = state.get_boss_ai_context()
 	_expect(ai_ctx.has("stage6_tetriser_boss_gauge"), "boss ai context exposes gauge")
+
+
+func _test_ball_reflects_and_destroys() -> void:
+	var state: Object = Stage6TetriserState.new()
+	# O 블록 (300,300): 셀 2x2 → x 300..340, y 300..340.
+	state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", false)
+	# 공이 위에서 아래로 진입(중심 좌표). 직전 프레임은 블록 위.
+	var scene := {
+		"ball_pos": Vector2(310.0, 305.0),
+		"previous_ball_pos": Vector2(310.0, 280.0),
+		"ball_vel": Vector2(1.0, 8.0),
+	}
+	var ctx := {"current_stage": 6, "ball_size": 20.0}
+	var hit: bool = state.resolve_ball_collision(scene, ctx, {})
+	_expect(hit, "ball overlapping a tetromino reports a collision")
+	_expect(scene["ball_vel"].y < 0.0, "ball reflects upward after hitting from above (vy=%f)" % scene["ball_vel"].y)
+	_expect(absf(scene["ball_vel"].y) >= 6.0, "vertical reflection enforces min speed (vy=%f)" % scene["ball_vel"].y)
+	_expect(state.debug_get_tetromino_count() == 0, "normal tetromino destroyed by ball")
+	_expect(state.debug_get_debris_count() == 1, "destroyed tetromino leaves a debris flash")
+
+
+func _test_super_tetromino_immune_to_ball() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 300.0), "O", true)  # super
+	var scene := {
+		"ball_pos": Vector2(310.0, 305.0),
+		"previous_ball_pos": Vector2(310.0, 280.0),
+		"ball_vel": Vector2(1.0, 8.0),
+	}
+	var ctx := {"current_stage": 6, "ball_size": 20.0}
+	var hit: bool = state.resolve_ball_collision(scene, ctx, {})
+	_expect(hit, "ball still bounces off a super tetromino")
+	_expect(scene["ball_vel"].y < 0.0, "ball reflects off super tetromino too")
+	_expect(state.debug_get_tetromino_count() == 1, "super tetromino is NOT destroyed by a normal ball hit (codex review §2.5)")
 
 
 func _test_wrong_stage_resets() -> void:

@@ -44,6 +44,12 @@ const SPAWN_MARGIN_X := 40.0
 # 실제 게임에선 공/대시/연막/큐브가 정리하므로 이 캡에 거의 닿지 않는다.
 const MAX_ACTIVE_TETROMINOS := 14
 
+# === 공 충돌/반사 (원본 ball update loop + game_logic/choose_reflection_axis) ===
+const BALL_MIN_V_SPEED := 6.0            # 원본 min_v_speed
+const BALL_MIN_H_SPEED := 3.0            # 원본 min_h_speed
+const BALL_REFLECT_X_JITTER := 0.35      # 원본 random.uniform(-0.35, 0.35)
+const DEBRIS_LIFE_SEC := 0.35            # 파괴 파편 플래시 수명
+
 # 표준 7종 테트로미노 셀 오프셋 (원본 game_logic/_tetro_wall_shapes 동일).
 const TETRO_SHAPES := {
 	"I": [Vector2(0, 0), Vector2(1, 0), Vector2(2, 0), Vector2(3, 0)],
@@ -68,6 +74,7 @@ var boss_gauge: float = 0.0
 var status: String = "charging"
 
 var _tetrominoes: Array[Dictionary] = []
+var _debris: Array[Dictionary] = []
 var _spawn_timer_sec: float = 0.0
 var _shape_keys: Array = TETRO_SHAPES.keys()
 var _rng := RandomNumberGenerator.new()
@@ -102,6 +109,7 @@ func reset_for_result() -> void:
 
 func _clear_combat_state() -> void:
 	_tetrominoes.clear()
+	_debris.clear()
 	_arm_spawn_timer()
 
 
@@ -128,6 +136,7 @@ func update(delta: float, context: Dictionary, _deps: Dictionary = {}) -> Dictio
 	_charge_gauge(clamped_delta)
 	_update_spawn_scheduler(clamped_delta)
 	_update_tetrominoes(clamped_delta)
+	_update_debris(clamped_delta)
 	return _build_result()
 
 
@@ -252,6 +261,110 @@ func _collect_settled_cell_rects() -> Array:
 	return rects
 
 
+# ============================================================================
+# 공 충돌 / 반사 / 파괴 (ball_update_controller가 motion step 직후 호출)
+# ============================================================================
+
+# scene["ball_pos"]는 공의 '중심'(commando_supply_drop 선례와 동일 규약).
+func resolve_ball_collision(scene: Dictionary, context: Dictionary, _deps: Dictionary = {}) -> bool:
+	if _tetrominoes.is_empty():
+		return false
+	var ball_pos: Vector2 = scene.get("ball_pos", Vector2.ZERO)
+	var prev_pos: Vector2 = scene.get("previous_ball_pos", context.get("ball_pos", ball_pos))
+	var radius: float = maxf(1.0, float(context.get("ball_size", 28.6)) * 0.5)
+	var diameter: Vector2 = Vector2(radius * 2.0, radius * 2.0)
+	var ball_rect: Rect2 = Rect2(ball_pos - Vector2(radius, radius), diameter)
+	var prev_rect: Rect2 = Rect2(prev_pos - Vector2(radius, radius), diameter)
+
+	var hit_tetro: Dictionary = {}
+	var hit_cell_rect: Rect2 = Rect2()
+	for tetro in _tetrominoes:
+		var tetro_state: String = String(tetro.get("state", ""))
+		# 조립 중 셀은 아직 solid 아님. 낙하/정착만 충돌.
+		if tetro_state != "falling" and tetro_state != "settled":
+			continue
+		var origin: Vector2 = tetro["origin"]
+		for cell in tetro["cells"]:
+			var cell_rect: Rect2 = Rect2(origin + cell * TETRO_CELL_SIZE, Vector2(TETRO_CELL_SIZE, TETRO_CELL_SIZE))
+			if ball_rect.intersects(cell_rect):
+				hit_tetro = tetro
+				hit_cell_rect = cell_rect
+				break
+		if not hit_tetro.is_empty():
+			break
+	if hit_tetro.is_empty():
+		return false
+
+	var ball_vel: Vector2 = scene.get("ball_vel", Vector2.ZERO)
+	var axis: String = _choose_reflection_axis(prev_rect, ball_rect, hit_cell_rect)
+	var block_center: Vector2 = hit_cell_rect.get_center()
+	if axis == "v":
+		if prev_pos.y < block_center.y:
+			ball_pos.y = hit_cell_rect.position.y - radius - 1.0
+			ball_vel.y = -maxf(BALL_MIN_V_SPEED, absf(ball_vel.y))
+		else:
+			ball_pos.y = hit_cell_rect.position.y + hit_cell_rect.size.y + radius + 1.0
+			ball_vel.y = maxf(BALL_MIN_V_SPEED, absf(ball_vel.y))
+	else:
+		if prev_pos.x < block_center.x:
+			ball_pos.x = hit_cell_rect.position.x - radius - 1.0
+			ball_vel.x = -maxf(BALL_MIN_H_SPEED, absf(ball_vel.x))
+		else:
+			ball_pos.x = hit_cell_rect.position.x + hit_cell_rect.size.x + radius + 1.0
+			ball_vel.x = maxf(BALL_MIN_H_SPEED, absf(ball_vel.x))
+	ball_vel.x += _rng.randf_range(-BALL_REFLECT_X_JITTER, BALL_REFLECT_X_JITTER)
+
+	scene["ball_pos"] = ball_pos
+	scene["ball_vel"] = ball_vel
+
+	# 파괴 매트릭스(코덱스 리뷰 §2.5): 일반 공 반사는 일반 테트로만 파괴한다.
+	# super 테트로(초인테트리서, step 4)는 공에 맞아도 파괴되지 않고 튕기기만 한다.
+	# super 셰이프는 아직 스폰되지 않으므로 현재는 항상 일반 분기.
+	if not bool(hit_tetro.get("super", false)):
+		_destroy_tetromino_by_ball(hit_tetro)
+	return true
+
+
+# 원본 game_logic/stage7_tetriser.choose_reflection_axis 포트.
+func _choose_reflection_axis(prev_rect: Rect2, cur_rect: Rect2, block: Rect2) -> String:
+	var b_left: float = block.position.x
+	var b_right: float = block.position.x + block.size.x
+	var b_top: float = block.position.y
+	var b_bottom: float = block.position.y + block.size.y
+	var collided_horiz: bool = (prev_rect.position.x + prev_rect.size.x <= b_left) or (prev_rect.position.x >= b_right)
+	var collided_vert: bool = (prev_rect.position.y + prev_rect.size.y <= b_top) or (prev_rect.position.y >= b_bottom)
+	if collided_horiz and not collided_vert:
+		return "h"
+	if collided_vert and not collided_horiz:
+		return "v"
+	var overlap_x: float = minf(cur_rect.position.x + cur_rect.size.x - b_left, b_right - cur_rect.position.x)
+	var overlap_y: float = minf(cur_rect.position.y + cur_rect.size.y - b_top, b_bottom - cur_rect.position.y)
+	return "h" if overlap_x < overlap_y else "v"
+
+
+func _destroy_tetromino_by_ball(tetro: Dictionary) -> void:
+	var origin: Vector2 = tetro.get("origin", Vector2.ZERO)
+	var color: Color = TETRO_COLORS.get(String(tetro.get("shape", "T")), Color(0.6, 0.7, 1.0))
+	var rects: Array = []
+	for cell in tetro.get("cells", []):
+		rects.append(Rect2(origin + cell * TETRO_CELL_SIZE, Vector2(TETRO_CELL_SIZE, TETRO_CELL_SIZE)))
+	_debris.append({"rects": rects, "color": color, "life": DEBRIS_LIFE_SEC, "max_life": DEBRIS_LIFE_SEC})
+	_tetrominoes.erase(tetro)
+	# TODO(step 2b polish): tetrisbreak.wav 사운드 + 큐브 재조립 notify(step 4).
+
+
+func _update_debris(delta: float) -> void:
+	if _debris.is_empty():
+		return
+	var alive: Array[Dictionary] = []
+	for d in _debris:
+		var life: float = float(d["life"]) - delta
+		if life > 0.0:
+			d["life"] = life
+			alive.append(d)
+	_debris = alive
+
+
 # 원본 game_logic/stage7_tetriser._rotate_cells 포트: (x,y) -> (-y,x) 후 비음수 정규화.
 func _rotate_cells(cells: Array, times: int) -> Array:
 	var pts: Array = cells.duplicate()
@@ -300,8 +413,21 @@ func _build_result() -> Dictionary:
 func get_actor_draw_context() -> Dictionary:
 	return {
 		"stage6_tetriser_tetrominoes": _build_tetromino_draw_list(),
+		"stage6_tetriser_debris": _build_debris_draw_list(),
 		"stage6_tetriser_cell_size": TETRO_CELL_SIZE,
 	}
+
+
+func _build_debris_draw_list() -> Array:
+	var out: Array = []
+	for d in _debris:
+		var max_life: float = maxf(0.001, float(d.get("max_life", DEBRIS_LIFE_SEC)))
+		out.append({
+			"rects": (d.get("rects", []) as Array).duplicate(),
+			"color": d.get("color", Color(1.0, 1.0, 1.0)),
+			"progress": clampf(1.0 - float(d.get("life", 0.0)) / max_life, 0.0, 1.0),
+		})
+	return out
 
 
 func _build_tetromino_draw_list() -> Array:
@@ -351,6 +477,25 @@ func get_status() -> String:
 
 func debug_force_spawn_tetromino() -> void:
 	_spawn_tetromino()
+
+
+# 결정론적 충돌 테스트용: 지정 위치에 즉시 'falling' 테트로미노 배치.
+func debug_spawn_tetromino_at(origin: Vector2, shape: String = "O", super_flag: bool = false) -> void:
+	var cells: Array = (TETRO_SHAPES.get(shape, TETRO_SHAPES["O"]) as Array).duplicate()
+	_tetrominoes.append({
+		"shape": shape,
+		"state": "falling",
+		"cells": cells,
+		"origin": origin,
+		"assembly_elapsed": TETRO_ASSEMBLY_TOTAL_SEC,
+		"visible_cells": cells.size(),
+		"event_timer": TETRO_EVENT_CHECK_INTERVAL_SEC,
+		"super": super_flag,
+	})
+
+
+func debug_get_debris_count() -> int:
+	return _debris.size()
 
 
 func debug_get_gauge() -> float:

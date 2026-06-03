@@ -38,6 +38,8 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2, _perf_
 	var cell_size: float = float(context.get("stage6_tetriser_cell_size", 20.0))
 	for tetro in tetrominoes:
 		_draw_tetromino(canvas, tetro, cell_size, shake_offset)
+	for debris in context.get("stage6_tetriser_debris", []):
+		_draw_debris(canvas, debris, shake_offset)
 
 
 func _draw_tetromino(canvas: CanvasItem, tetro: Dictionary, cell_size: float, shake_offset: Vector2) -> void:
@@ -58,6 +60,19 @@ func _draw_tetromino(canvas: CanvasItem, tetro: Dictionary, cell_size: float, sh
 		if not assembling:
 			canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), INNER_HIGHLIGHT)
 		canvas.draw_rect(rect, border, false, 2.0)
+
+
+func _draw_debris(canvas: CanvasItem, debris: Dictionary, shake_offset: Vector2) -> void:
+	var progress: float = clampf(float(debris.get("progress", 0.0)), 0.0, 1.0)
+	var color: Color = debris.get("color", Color(1.0, 1.0, 1.0))
+	color.a = (1.0 - progress) * 0.7
+	if color.a <= 0.0:
+		return
+	var grow: float = progress * 6.0
+	var grow_vec := Vector2(grow, grow)
+	for r in debris.get("rects", []):
+		var rect: Rect2 = r
+		canvas.draw_rect(Rect2(rect.position - grow_vec + shake_offset, rect.size + grow_vec * 2.0), color)
 
 
 func get_imagegen_asset_status() -> Dictionary:

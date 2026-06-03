@@ -114,6 +114,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	_process_stage1_balloon_collision(scene, frame_context, frame_deps)
 	_process_commando_supply_drop_collision(scene, frame_context, frame_deps)
 	_process_commando_firearm_collision(scene, frame_context, frame_deps)
+	_process_stage6_tetromino_collision(scene, frame_context, frame_deps)
 	frame_motion_controller.apply_smasher_wheel_collision(scene, frame_context, frame_deps)
 	frame_motion_controller.apply_shield_kiting_collision(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_dash_spirit_collision(scene, frame_context, frame_deps)
@@ -456,6 +457,15 @@ func _process_stage_background_collision(scene: Dictionary, context: Dictionary,
 	if stage_background == null or not stage_background.has_method("resolve_ball_collision"):
 		return
 	stage_background.resolve_ball_collision(scene, context, deps)
+
+
+func _process_stage6_tetromino_collision(scene: Dictionary, context: Dictionary, deps: Dictionary) -> void:
+	if int(context.get("current_stage", 1)) != 6:
+		return
+	var stage6_tetriser_state: Object = deps.get("stage6_tetriser_state", null)
+	if stage6_tetriser_state == null or not stage6_tetriser_state.has_method("resolve_ball_collision"):
+		return
+	stage6_tetriser_state.resolve_ball_collision(scene, context, deps)
 
 
 func _apply_stage_background_ball_motion(
