@@ -42,6 +42,8 @@ func _init() -> void:
 	_test_dash_destroys_obstacle()
 	_test_dash_destroys_super_tetromino()
 	_test_smoke_and_explosion_destroy_obstacles()
+	_test_super_activation_and_drain()
+	_test_super_scale_and_tetromino()
 	_test_wrong_stage_resets()
 
 	if _failures.is_empty():
@@ -264,6 +266,34 @@ func _test_smoke_and_explosion_destroy_obstacles() -> void:
 	blast_state.debug_spawn_guard_at(Vector2(300.0, 700.0), "left")
 	blast_state.update(0.05, {"current_stage": 6, "ball_active": true, "waiting_for_serve": false}, {"active_item_runtime": blast_air})
 	_expect(blast_state.debug_get_guard_count() == 0, "explosion zone destroys guard block in circle")
+
+
+func _test_super_activation_and_drain() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_set_gauge(500.0)
+	state.update(0.05, _active_context())
+	_expect(state.debug_is_super_active(), "super activates at gauge 500")
+	var g0: float = state.debug_get_gauge()
+	state.update(0.1, _active_context())
+	_expect(state.debug_get_gauge() < g0, "gauge drains (not charges) during super")
+	state.debug_set_gauge(1.0)
+	state.update(0.1, _active_context())
+	_expect(not state.debug_is_super_active(), "super ends when gauge drains to 0")
+
+
+func _test_super_scale_and_tetromino() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_set_gauge(500.0)
+	for _i in range(20):
+		state.update(0.05, _active_context())
+	_expect(state.debug_get_super_scale() > 1.5, "boss scale lerps up during super (got %f)" % state.debug_get_super_scale())
+	state.debug_force_spawn_tetromino()
+	var list: Array = state.get_actor_draw_context().get("stage6_tetriser_tetrominoes", [])
+	var found_big_super := false
+	for t in list:
+		if bool(t.get("super", false)) and float(t.get("cell_size", 20.0)) > 30.0:
+			found_big_super = true
+	_expect(found_big_super, "tetromino spawned during super is super + 1.7x cell (34px)")
 
 
 func _test_wrong_stage_resets() -> void:

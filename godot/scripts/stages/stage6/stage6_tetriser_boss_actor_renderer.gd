@@ -28,9 +28,20 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> voi
 		return
 	var boss_pos: Vector2 = _as_vector2(context.get("boss_pos", Vector2(330.0, 25.0)), Vector2(330.0, 25.0))
 	var boss_size: Vector2 = _as_vector2(context.get("boss_paddle_size", Vector2(100.0, 40.0)), Vector2(100.0, 40.0))
-	var rect := Rect2(boss_pos + shake_offset, boss_size)
-	canvas.draw_rect(rect, PLACEHOLDER_FILL)
-	canvas.draw_rect(rect, PLACEHOLDER_BORDER, false, 2.0)
+	# 초인테트리서 발동 중 본체 스케일 업(중심 기준). super_scale은 state가 보간.
+	var super_scale: float = maxf(1.0, float(context.get("stage6_tetriser_super_scale", 1.0)))
+	var center: Vector2 = boss_pos + boss_size * 0.5 + shake_offset
+	var draw_size: Vector2 = boss_size * super_scale
+	var rect := Rect2(center - draw_size * 0.5, draw_size)
+	var fill: Color = PLACEHOLDER_FILL
+	var border: Color = PLACEHOLDER_BORDER
+	if super_scale > 1.02:
+		# 초인 오라(붉은 강조)로 변신 가시화.
+		canvas.draw_rect(rect.grow(6.0), Color(1.0, 0.42, 0.16, 0.30))
+		fill = fill.lerp(Color(1.0, 0.5, 0.3, 1.0), 0.35)
+		border = Color(1.0, 0.6, 0.3, 1.0)
+	canvas.draw_rect(rect, fill)
+	canvas.draw_rect(rect, border, false, 2.0)
 
 
 func get_asset_status() -> Dictionary:

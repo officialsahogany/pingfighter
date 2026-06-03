@@ -11,6 +11,7 @@ const ASSEMBLING_ALPHA := 0.5
 const BORDER_COLOR := Color(1.0, 1.0, 1.0, 0.22)
 const BORDER_COLOR_ASSEMBLING := Color(1.0, 1.0, 1.0, 0.12)
 const INNER_HIGHLIGHT := Color(1.0, 1.0, 1.0, 0.14)
+const SUPER_BORDER_COLOR := Color(1.0, 0.45, 0.18, 0.95)   # 초인 테트로 강조 테두리
 
 
 func prewarm_assets() -> void:
@@ -48,20 +49,25 @@ func _draw_tetromino(canvas: CanvasItem, tetro: Dictionary, cell_size: float, sh
 	var cells: Array = tetro.get("cells", [])
 	if cells.is_empty():
 		return
+	var cs: float = float(tetro.get("cell_size", cell_size))   # super 테트로는 1.7× (34px)
 	var origin: Vector2 = _as_vector2(tetro.get("origin", Vector2.ZERO)) + shake_offset
 	var visible: int = mini(int(tetro.get("visible_cells", cells.size())), cells.size())
 	var assembling: bool = String(tetro.get("state", "")) == "assembling"
+	var is_super: bool = bool(tetro.get("super", false))
 	var fill: Color = tetro.get("color", Color(0.6, 0.7, 1.0))
 	if assembling:
 		fill.a = ASSEMBLING_ALPHA
 	var border: Color = BORDER_COLOR_ASSEMBLING if assembling else BORDER_COLOR
-	var cell_vec := Vector2(cell_size, cell_size)
+	if is_super and not assembling:
+		border = SUPER_BORDER_COLOR
+	var border_width: float = 3.0 if is_super else 2.0
+	var cell_vec := Vector2(cs, cs)
 	for idx in range(visible):
-		var rect := Rect2(origin + _as_vector2(cells[idx]) * cell_size, cell_vec)
+		var rect := Rect2(origin + _as_vector2(cells[idx]) * cs, cell_vec)
 		canvas.draw_rect(rect, fill)
 		if not assembling:
 			canvas.draw_rect(Rect2(rect.position + Vector2(2.0, 2.0), rect.size - Vector2(4.0, 4.0)), INNER_HIGHLIGHT)
-		canvas.draw_rect(rect, border, false, 2.0)
+		canvas.draw_rect(rect, border, false, border_width)
 
 
 func _draw_guard_block(canvas: CanvasItem, block: Dictionary, cell_size: float, shake_offset: Vector2) -> void:

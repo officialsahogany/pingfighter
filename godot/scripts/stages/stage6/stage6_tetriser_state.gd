@@ -70,6 +70,16 @@ const WALL_PIECES_PER_SIDE := 10         # 측면당 10조각 = 40셀 = 10행
 const WALL_ROWS_PER_SIDE := 10           # 40셀 / 4열
 const WALL_LIFETIME_SEC := 6.0           # 원본 installed_duration_ms=6000
 
+# === 초인테트리서 (원본 update_stage7_super_state) ===
+# 게이지 500 도달 → 발동, 발동 중 25/초 드레인 → 0이면 종료(표기 "15초"는 사문화
+# 상수, 실동작 ≈20초; 기획 §2.6/§10). 발동 중 충전 정지, 본체 2.0× 스케일.
+const SUPER_ACTIVATE_GAUGE := 500.0
+const SUPER_DRAIN_PER_SEC := 25.0
+const SUPER_BODY_SCALE := 2.0            # 원본 normal super target_scale (광폭화 1.4× 후속)
+const SUPER_SCALE_LERP_PER_SEC := 4.0
+const SUPER_INTRO_SEC := 0.6             # 포효 포즈(제자리)
+const SUPER_TETRO_CELL_SCALE := 1.7      # super 테트로 셀 20→34 (STAGE7_TETRO_SUPER_SCALE)
+
 # 표준 7종 테트로미노 셀 오프셋 (원본 game_logic/_tetro_wall_shapes 동일).
 const TETRO_SHAPES := {
 	"I": [Vector2(0, 0), Vector2(1, 0), Vector2(2, 0), Vector2(3, 0)],
@@ -101,6 +111,10 @@ var _spawn_timer_sec: float = 0.0
 var _guard_timer_sec: float = 0.0
 var _wall_timer_sec: float = 0.0
 var _wall_life_sec: float = 0.0
+var _super_active: bool = false
+var _super_intro_timer: float = 0.0
+var _super_scale: float = 1.0
+var _super_target_scale: float = 1.0
 var _shape_keys: Array = TETRO_SHAPES.keys()
 var _rng := RandomNumberGenerator.new()
 
@@ -140,6 +154,10 @@ func _clear_combat_state() -> void:
 	_wall_blocks.clear()
 	_debris.clear()
 	_wall_life_sec = 0.0
+	_super_active = false
+	_super_intro_timer = 0.0
+	_super_scale = 1.0
+	_super_target_scale = 1.0
 	_arm_spawn_timer()
 	_arm_guard_timer()
 	_arm_wall_timer()
@@ -165,7 +183,9 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 		return _build_result()
 
 	status = "charging"
-	_charge_gauge(clamped_delta)
+	_update_super_state(clamped_delta)
+	if not _super_active:
+		_charge_gauge(clamped_delta)   # 초인테트리서 발동 중에는 충전 정지(드레인만)
 	_update_spawn_scheduler(clamped_delta)
 	_update_guard_scheduler(clamped_delta, context)
 	_update_wall_scheduler(clamped_delta)
@@ -182,6 +202,23 @@ func _charge_gauge(delta: float) -> void:
 		boss_gauge = GAUGE_MAX
 		return
 	boss_gauge = minf(GAUGE_MAX, boss_gauge + GAUGE_CHARGE_PER_SEC * delta)
+
+
+# 초인테트리서: 게이지 500 발동 → 25/초 드레인 → 0이면 종료. 발동 중 본체 2.0×.
+func _update_super_state(delta: float) -> void:
+	_super_intro_timer = maxf(0.0, _super_intro_timer - delta)
+	if _super_active:
+		status = "super"
+		boss_gauge = maxf(0.0, boss_gauge - SUPER_DRAIN_PER_SEC * delta)
+		if boss_gauge <= 0.0:
+			_super_active = false
+			_super_target_scale = 1.0
+	elif boss_gauge >= SUPER_ACTIVATE_GAUGE:
+		_super_active = true
+		_super_target_scale = SUPER_BODY_SCALE
+		_super_intro_timer = SUPER_INTRO_SEC
+		boss_gauge = SUPER_ACTIVATE_GAUGE
+	_super_scale = move_toward(_super_scale, _super_target_scale, SUPER_SCALE_LERP_PER_SEC * delta)
 
 
 func _update_spawn_scheduler(delta: float) -> void:
@@ -344,7 +381,9 @@ func _spawn_wall_side(origin_x: float) -> void:
 func _spawn_tetromino() -> void:
 	var shape_name: String = String(_shape_keys[_rng.randi_range(0, _shape_keys.size() - 1)])
 	var cells: Array = _rotate_cells(TETRO_SHAPES[shape_name], _rng.randi_range(0, 3))
-	var width_px: float = _cells_dims(cells).x * TETRO_CELL_SIZE
+	# 초인테트리서 발동 중 스폰되면 super(공 면역) + 1.7× 셀.
+	var cell_size: float = TETRO_CELL_SIZE * (SUPER_TETRO_CELL_SCALE if _super_active else 1.0)
+	var width_px: float = _cells_dims(cells).x * cell_size
 	var min_x: float = SPAWN_MARGIN_X
 	var max_x: float = maxf(min_x, FIELD_WIDTH - width_px - SPAWN_MARGIN_X)
 	_tetrominoes.append({
@@ -355,6 +394,8 @@ func _spawn_tetromino() -> void:
 		"assembly_elapsed": 0.0,
 		"visible_cells": 1,
 		"event_timer": TETRO_EVENT_CHECK_INTERVAL_SEC,
+		"cell_size": cell_size,
+		"super": _super_active,
 	})
 
 
@@ -396,8 +437,9 @@ func _update_falling(tetro: Dictionary, delta: float, settled_rects: Array) -> v
 
 
 func _would_settle(tetro: Dictionary, next_origin: Vector2, settled_rects: Array) -> bool:
+	var cs: float = float(tetro.get("cell_size", TETRO_CELL_SIZE))
 	for cell in tetro["cells"]:
-		var rect: Rect2 = Rect2(next_origin + cell * TETRO_CELL_SIZE, Vector2(TETRO_CELL_SIZE, TETRO_CELL_SIZE))
+		var rect: Rect2 = Rect2(next_origin + cell * cs, Vector2(cs, cs))
 		if rect.position.y + rect.size.y >= FIELD_HEIGHT:
 			return true
 		for settled in settled_rects:
@@ -409,9 +451,10 @@ func _would_settle(tetro: Dictionary, next_origin: Vector2, settled_rects: Array
 func _maybe_drift(tetro: Dictionary) -> void:
 	if _rng.randf() >= TETRO_DRIFT_CHANCE:
 		return
+	var cs: float = float(tetro.get("cell_size", TETRO_CELL_SIZE))
 	var dir: float = -1.0 if _rng.randf() < 0.5 else 1.0
-	var dx: float = dir * float(_rng.randi_range(1, 2)) * TETRO_CELL_SIZE
-	tetro["origin"] = _clamp_origin_x(tetro["origin"] + Vector2(dx, 0.0), tetro["cells"])
+	var dx: float = dir * float(_rng.randi_range(1, 2)) * cs
+	tetro["origin"] = _clamp_origin_x(tetro["origin"] + Vector2(dx, 0.0), tetro["cells"], cs)
 
 
 func _maybe_rotate(tetro: Dictionary) -> void:
@@ -419,11 +462,11 @@ func _maybe_rotate(tetro: Dictionary) -> void:
 		return
 	var rotated: Array = _rotate_cells(tetro["cells"], _rng.randi_range(1, 2))
 	tetro["cells"] = rotated
-	tetro["origin"] = _clamp_origin_x(tetro["origin"], rotated)
+	tetro["origin"] = _clamp_origin_x(tetro["origin"], rotated, float(tetro.get("cell_size", TETRO_CELL_SIZE)))
 
 
-func _clamp_origin_x(origin: Vector2, cells: Array) -> Vector2:
-	var width_px: float = _cells_dims(cells).x * TETRO_CELL_SIZE
+func _clamp_origin_x(origin: Vector2, cells: Array, cell_size: float) -> Vector2:
+	var width_px: float = _cells_dims(cells).x * cell_size
 	var max_x: float = maxf(SPAWN_MARGIN_X, FIELD_WIDTH - width_px - SPAWN_MARGIN_X)
 	return Vector2(clampf(origin.x, SPAWN_MARGIN_X, max_x), origin.y)
 
@@ -434,8 +477,9 @@ func _collect_settled_cell_rects() -> Array:
 		if String(tetro.get("state", "")) != "settled":
 			continue
 		var origin: Vector2 = tetro["origin"]
+		var cs: float = float(tetro.get("cell_size", TETRO_CELL_SIZE))
 		for cell in tetro["cells"]:
-			rects.append(Rect2(origin + cell * TETRO_CELL_SIZE, Vector2(TETRO_CELL_SIZE, TETRO_CELL_SIZE)))
+			rects.append(Rect2(origin + cell * cs, Vector2(cs, cs)))
 	return rects
 
 
@@ -486,8 +530,9 @@ func _find_block_cell_hit(blocks: Array, ball_rect: Rect2, collidable_states: Ar
 		if not collidable_states.has(String(block.get("state", ""))):
 			continue
 		var origin: Vector2 = block["origin"]
+		var cs: float = float(block.get("cell_size", TETRO_CELL_SIZE))
 		for cell in block["cells"]:
-			var cell_rect: Rect2 = Rect2(origin + cell * TETRO_CELL_SIZE, Vector2(TETRO_CELL_SIZE, TETRO_CELL_SIZE))
+			var cell_rect: Rect2 = Rect2(origin + cell * cs, Vector2(cs, cs))
 			if ball_rect.intersects(cell_rect):
 				return {"item": block, "cell_rect": cell_rect}
 	return {}
@@ -541,15 +586,15 @@ func _choose_reflection_axis(prev_rect: Rect2, cur_rect: Rect2, block: Rect2) ->
 
 # 블록 그룹 전체 파괴(테트로/가드) + 파편 플래시.
 func _destroy_block_group(blocks: Array, block: Dictionary, color: Color) -> void:
-	_emit_debris(block.get("origin", Vector2.ZERO), block.get("cells", []), color)
+	_emit_debris(block.get("origin", Vector2.ZERO), block.get("cells", []), color, float(block.get("cell_size", TETRO_CELL_SIZE)))
 	blocks.erase(block)
-	# TODO(폴리시): tetrisbreak.wav 사운드 + 중앙 큐브 재조립 notify(step 4).
+	# TODO(폴리시): tetrisbreak.wav 사운드 + 중앙 큐브 재조립 notify(step 4b).
 
 
-func _emit_debris(origin: Vector2, cells: Array, color: Color) -> void:
+func _emit_debris(origin: Vector2, cells: Array, color: Color, cell_size: float) -> void:
 	var rects: Array = []
 	for cell in cells:
-		rects.append(Rect2(origin + cell * TETRO_CELL_SIZE, Vector2(TETRO_CELL_SIZE, TETRO_CELL_SIZE)))
+		rects.append(Rect2(origin + cell * cell_size, Vector2(cell_size, cell_size)))
 	_debris.append({"rects": rects, "color": color, "life": DEBRIS_LIFE_SEC, "max_life": DEBRIS_LIFE_SEC})
 
 
@@ -613,8 +658,9 @@ func _sweep_destroy(blocks: Array, solid_states: Array, test: Callable) -> int:
 		if not solid_states.has(String(block.get("state", ""))):
 			continue
 		var origin: Vector2 = block["origin"]
+		var cs: float = float(block.get("cell_size", TETRO_CELL_SIZE))
 		for cell in block["cells"]:
-			var cell_rect: Rect2 = Rect2(origin + cell * TETRO_CELL_SIZE, Vector2(TETRO_CELL_SIZE, TETRO_CELL_SIZE))
+			var cell_rect: Rect2 = Rect2(origin + cell * cs, Vector2(cs, cs))
 			if bool(test.call(cell_rect)):
 				doomed.append(block)
 				break
@@ -708,6 +754,9 @@ func get_actor_draw_context() -> Dictionary:
 		"stage6_tetriser_wall_cells": _build_wall_draw_list(),
 		"stage6_tetriser_debris": _build_debris_draw_list(),
 		"stage6_tetriser_cell_size": TETRO_CELL_SIZE,
+		"stage6_tetriser_super_active": _super_active,
+		"stage6_tetriser_super_scale": _super_scale,
+		"stage6_tetriser_super_intro": _super_intro_timer > 0.0,
 	}
 
 
@@ -755,6 +804,8 @@ func _build_tetromino_draw_list() -> Array:
 			"origin": tetro.get("origin", Vector2.ZERO),
 			"cells": (tetro.get("cells", []) as Array).duplicate(),
 			"visible_cells": int(tetro.get("visible_cells", 4)),
+			"cell_size": float(tetro.get("cell_size", TETRO_CELL_SIZE)),
+			"super": bool(tetro.get("super", false)),
 			"color": TETRO_COLORS.get(shape_name, Color(0.6, 0.7, 1.0)),
 		})
 	return out
@@ -764,6 +815,8 @@ func get_boss_ai_context() -> Dictionary:
 	return {
 		"stage6_tetriser_boss_gauge": boss_gauge,
 		"stage6_tetriser_tetromino_count": _tetrominoes.size(),
+		"stage6_tetriser_super_active": _super_active,
+		"stage6_tetriser_super_scale": _super_scale,
 	}
 
 
@@ -775,6 +828,7 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage6_boss_skill_hud_status": status,
 		"stage6_boss_skill_hud_gauge": boss_gauge,
 		"stage6_boss_skill_hud_gauge_max": GAUGE_MAX,
+		"stage6_boss_skill_hud_super_active": _super_active,
 	}
 
 
@@ -805,6 +859,7 @@ func debug_spawn_tetromino_at(origin: Vector2, shape: String = "O", super_flag: 
 		"assembly_elapsed": TETRO_ASSEMBLY_TOTAL_SEC,
 		"visible_cells": cells.size(),
 		"event_timer": TETRO_EVENT_CHECK_INTERVAL_SEC,
+		"cell_size": TETRO_CELL_SIZE * (SUPER_TETRO_CELL_SCALE if super_flag else 1.0),
 		"super": super_flag,
 	})
 
@@ -852,6 +907,18 @@ func debug_spawn_guard_at(origin: Vector2, side: String = "left") -> void:
 
 func debug_get_gauge() -> float:
 	return boss_gauge
+
+
+func debug_set_gauge(value: float) -> void:
+	boss_gauge = clampf(value, 0.0, GAUGE_MAX)
+
+
+func debug_is_super_active() -> bool:
+	return _super_active
+
+
+func debug_get_super_scale() -> float:
+	return _super_scale
 
 
 func debug_get_tetromino_count() -> int:
