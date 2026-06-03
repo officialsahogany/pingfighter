@@ -97,6 +97,11 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 		var stage5_hongryun_fire_machine_event = deps.get("stage5_hongryun_fire_machine_event", null)
 		stage5_hongryun_fire_machine_context = stage5_hongryun_fire_machine_event.get_actor_draw_context() if _should_read_actor_draw_context(stage5_hongryun_fire_machine_event) else {}
 
+	var stage6_tetriser_context: Dictionary = {}
+	if current_stage == 6:
+		var stage6_tetriser_state = deps.get("stage6_tetriser_state", null)
+		stage6_tetriser_context = stage6_tetriser_state.get_actor_draw_context() if stage6_tetriser_state != null and stage6_tetriser_state.has_method("get_actor_draw_context") else {}
+
 	var active_item_runtime = deps.get("active_item_runtime", null)
 	var active_item_context: Dictionary = active_item_runtime.get_actor_draw_context() if _should_read_actor_draw_context(active_item_runtime) else {}
 	var mythic_item_runtime = deps.get("mythic_item_runtime", null)
@@ -664,6 +669,8 @@ func build(context: Dictionary, deps: Dictionary, perf_logger: Object = null) ->
 	if current_stage == 5:
 		actor_context.merge(stage5_hongryun_context, true)
 		actor_context.merge(stage5_hongryun_fire_machine_context, true)
+	if current_stage == 6:
+		actor_context.merge(stage6_tetriser_context, true)
 	actor_context.merge(active_item_context, true)
 	actor_context.merge(mythic_item_context, true)
 	actor_context.merge(status_effect_context, true)
@@ -899,6 +906,7 @@ func _suppress_boss_disable_draw_context(context: Dictionary) -> void:
 		"active_item_boss_stun_active",
 		"active_item_boss_stun_frame",
 		"active_item_boss_stun_stars_suppressed",
+		"boss_electric_stun_active",
 		"active_item_boss_confusion_active",
 		"ragnarok_hammer_boss_stun_active",
 		"ragnarok_hammer_electric_stun_active",

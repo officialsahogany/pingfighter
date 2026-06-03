@@ -1,0 +1,117 @@
+extends SceneTree
+
+# Stage 6 테트리서 state 2a 스모크: 게이지(충전/cap/persist) + 낙하 테트로미노
+# (스폰/조립→낙하→정착) + actor draw context 노출 검증.
+
+const Stage6TetriserState := preload("res://scripts/stages/stage6/stage6_tetriser_state.gd")
+
+var _failures: Array[String] = []
+
+
+func _active_context() -> Dictionary:
+	return {"current_stage": 6, "ball_active": true, "waiting_for_serve": false}
+
+
+func _init() -> void:
+	_test_gauge_charge_and_cap()
+	_test_gauge_persist_across_reset()
+	_test_pause_when_not_active()
+	_test_tetromino_lifecycle()
+	_test_actor_draw_context()
+	_test_wrong_stage_resets()
+
+	if _failures.is_empty():
+		print("stage6_tetriser_state_smoke: ok")
+		quit(0)
+	else:
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+
+
+func _test_gauge_charge_and_cap() -> void:
+	var state: Object = Stage6TetriserState.new()
+	_expect(state.debug_get_gauge() == 0.0, "gauge starts at 0")
+	state.update(0.1, _active_context())
+	# 25/초 * 0.1초 = 2.5 (첫 업데이트는 스폰 타이머 5~10초라 스폰 없음).
+	_expect(is_equal_approx(state.debug_get_gauge(), 2.5), "gauge charges 25/sec (got %f)" % state.debug_get_gauge())
+	# cap 불변식: 장시간 충전해도 500 초과 금지.
+	for _i in range(400):
+		state.update(0.1, _active_context())
+	_expect(state.debug_get_gauge() <= 500.0, "gauge never exceeds 500 (got %f)" % state.debug_get_gauge())
+	_expect(state.debug_get_gauge() > 0.0, "gauge stays positive while charging")
+
+
+func _test_gauge_persist_across_reset() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.update(0.1, _active_context())
+	var charged: float = state.debug_get_gauge()
+	_expect(charged > 0.0, "precondition: gauge charged")
+	state.reset_round()
+	_expect(is_equal_approx(state.debug_get_gauge(), charged), "reset_round preserves gauge (persist across rounds)")
+	state.reset()
+	_expect(state.debug_get_gauge() == 0.0, "reset zeroes gauge (stage-leave)")
+
+
+func _test_pause_when_not_active() -> void:
+	var state: Object = Stage6TetriserState.new()
+	var waiting := {"current_stage": 6, "ball_active": false, "waiting_for_serve": true}
+	state.update(0.1, waiting)
+	_expect(state.debug_get_gauge() == 0.0, "gauge does not charge while waiting for serve")
+	state.debug_force_spawn_tetromino()
+	state.update(0.1, waiting)
+	# 정지 중에는 조립이 진행되지 않아야 한다.
+	_expect(state.debug_get_tetromino_states().has("assembling"), "tetromino stays assembling while paused")
+
+
+func _test_tetromino_lifecycle() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_spawn_tetromino()
+	_expect(state.debug_get_tetromino_count() == 1, "force spawn adds one tetromino")
+	_expect(state.debug_get_tetromino_states() == ["assembling"], "spawned tetromino begins assembling")
+
+	# 조립(1.0초) 통과 → 낙하.
+	for _i in range(12):
+		state.update(0.1, _active_context())
+	_expect(state.debug_get_tetromino_states().has("falling"), "tetromino transitions to falling after assembly")
+
+	# 충분히 낙하 → 바닥 정착.
+	var settled := false
+	for _i in range(200):
+		state.update(0.1, _active_context())
+		if state.debug_get_tetromino_states().has("settled"):
+			settled = true
+			break
+	_expect(settled, "tetromino settles on the floor after falling")
+
+
+func _test_actor_draw_context() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_force_spawn_tetromino()
+	var ctx: Dictionary = state.get_actor_draw_context()
+	_expect(float(ctx.get("stage6_tetriser_cell_size", 0.0)) == 20.0, "draw context exposes cell size 20")
+	var list: Array = ctx.get("stage6_tetriser_tetrominoes", [])
+	_expect(list.size() == 1, "draw context exposes the spawned tetromino")
+	if list.size() == 1:
+		var t: Dictionary = list[0]
+		_expect(t.has("origin") and t["origin"] is Vector2, "tetromino draw entry has origin")
+		_expect((t.get("cells", []) as Array).size() == 4, "tetromino draw entry has 4 cells")
+		_expect(t.get("color") is Color, "tetromino draw entry has color")
+	var ai_ctx: Dictionary = state.get_boss_ai_context()
+	_expect(ai_ctx.has("stage6_tetriser_boss_gauge"), "boss ai context exposes gauge")
+
+
+func _test_wrong_stage_resets() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.update(0.1, _active_context())
+	state.debug_force_spawn_tetromino()
+	_expect(state.debug_get_tetromino_count() == 1, "precondition: tetromino present")
+	# 다른 스테이지 context로 업데이트되면 자기 상태를 비운다.
+	state.update(0.1, {"current_stage": 1, "ball_active": true, "waiting_for_serve": false})
+	_expect(state.debug_get_tetromino_count() == 0, "wrong-stage update clears tetrominoes")
+	_expect(state.debug_get_gauge() == 0.0, "wrong-stage update clears gauge")
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)

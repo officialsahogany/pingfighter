@@ -79,6 +79,16 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 		stage5_hongryun_fire_machine_result = stage5_hongryun_fire_machine_event.update(delta, context, effect_deps)
 		context.merge(stage5_hongryun_fire_machine_result, true)
 
+	var stage6_tetriser_state: Object = deps.get("stage6_tetriser_state", null)
+	var stage6_tetriser_result: Dictionary = {}
+	if (
+		int(context.get("current_stage", 1)) == 6
+		and stage6_tetriser_state != null
+		and stage6_tetriser_state.has_method("update")
+	):
+		stage6_tetriser_result = stage6_tetriser_state.update(delta, context, effect_deps)
+		context.merge(stage6_tetriser_result, true)
+
 	var drive_text_timer_frames: float = max(
 		0.0,
 		float(context.get("drive_text_timer_frames", 0.0)) - fps_scale
@@ -293,6 +303,8 @@ func _merge_score_context(context: Dictionary, score_state: Object) -> void:
 	var score_snapshot: Dictionary = score_state.get_snapshot()
 	context["player_score"] = int(score_snapshot.get("player_score", 0))
 	context["boss_score"] = int(score_snapshot.get("boss_score", 0))
+	if score_state.has_method("is_player_in_danger"):
+		context["player_in_danger"] = bool(score_state.is_player_in_danger())
 
 
 func _is_dash_recovery_audio_active(dash_snapshot: Dictionary) -> bool:
