@@ -8,6 +8,21 @@ const Stage6TetriserState := preload("res://scripts/stages/stage6/stage6_tetrise
 var _failures: Array[String] = []
 
 
+class FakeThrowController:
+	extends RefCounted
+	var gas: Array = []
+	var expl: Array = []
+	func get_tear_gas_zones() -> Array:
+		return gas
+	func get_explosion_zones() -> Array:
+		return expl
+
+
+class FakeActiveItemRuntime:
+	extends RefCounted
+	var throw_controller
+
+
 func _active_context() -> Dictionary:
 	return {"current_stage": 6, "ball_active": true, "waiting_for_serve": false}
 
@@ -24,6 +39,9 @@ func _init() -> void:
 	_test_guard_ball_collision()
 	_test_wall_spawn_and_ball_destroys_cell()
 	_test_wall_lifetime_clears()
+	_test_dash_destroys_obstacle()
+	_test_dash_destroys_super_tetromino()
+	_test_smoke_and_explosion_destroy_obstacles()
 	_test_wrong_stage_resets()
 
 	if _failures.is_empty():
@@ -197,6 +215,55 @@ func _test_wall_lifetime_clears() -> void:
 	for _i in range(70):   # ~7초 > 수명 6초
 		state.update(0.1, _active_context())
 	_expect(state.debug_get_wall_cell_count() == 0, "wall clears after its lifetime expires")
+
+
+func _test_dash_destroys_obstacle() -> void:
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
+	var ctx := {
+		"current_stage": 6, "ball_active": true, "waiting_for_serve": false,
+		"dash_snapshot": {"active": true},
+		"player_pos": Vector2(295.0, 695.0),
+		"player_paddle_size": Vector2(60.0, 30.0),
+	}
+	state.update(0.05, ctx)
+	_expect(state.debug_get_tetromino_count() == 0, "dash sweep destroys overlapping tetromino")
+
+
+func _test_dash_destroys_super_tetromino() -> void:
+	# 대시는 super 테트로도 파괴(공 반사 경로만 super 면역).
+	var state: Object = Stage6TetriserState.new()
+	state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", true)
+	var ctx := {
+		"current_stage": 6, "ball_active": true, "waiting_for_serve": false,
+		"dash_snapshot": {"active": true},
+		"player_pos": Vector2(295.0, 695.0),
+		"player_paddle_size": Vector2(60.0, 30.0),
+	}
+	state.update(0.05, ctx)
+	_expect(state.debug_get_tetromino_count() == 0, "dash destroys even super tetromino")
+
+
+func _test_smoke_and_explosion_destroy_obstacles() -> void:
+	# 연막(타원)이 테트로미노 파괴.
+	var gas_tc := FakeThrowController.new()
+	gas_tc.gas = [{"position": Vector2(310.0, 710.0), "radius": 120.0, "radius_x": 120.0, "opacity": 0.5}]
+	var gas_air := FakeActiveItemRuntime.new()
+	gas_air.throw_controller = gas_tc
+	var gas_state: Object = Stage6TetriserState.new()
+	gas_state.debug_spawn_tetromino_at(Vector2(300.0, 700.0), "O", false)
+	gas_state.update(0.05, {"current_stage": 6, "ball_active": true, "waiting_for_serve": false}, {"active_item_runtime": gas_air})
+	_expect(gas_state.debug_get_tetromino_count() == 0, "tear gas zone destroys obstacle in ellipse")
+
+	# 폭발(원)이 가드 블록 파괴.
+	var blast_tc := FakeThrowController.new()
+	blast_tc.expl = [{"position": Vector2(310.0, 710.0), "radius": 120.0, "active": true}]
+	var blast_air := FakeActiveItemRuntime.new()
+	blast_air.throw_controller = blast_tc
+	var blast_state: Object = Stage6TetriserState.new()
+	blast_state.debug_spawn_guard_at(Vector2(300.0, 700.0), "left")
+	blast_state.update(0.05, {"current_stage": 6, "ball_active": true, "waiting_for_serve": false}, {"active_item_runtime": blast_air})
+	_expect(blast_state.debug_get_guard_count() == 0, "explosion zone destroys guard block in circle")
 
 
 func _test_wrong_stage_resets() -> void:

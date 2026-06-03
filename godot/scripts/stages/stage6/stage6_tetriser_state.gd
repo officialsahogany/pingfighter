@@ -149,7 +149,7 @@ func _clear_combat_state() -> void:
 # Per-frame tick
 # ============================================================================
 
-func update(delta: float, context: Dictionary, _deps: Dictionary = {}) -> Dictionary:
+func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
 	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID:
 		if not _tetrominoes.is_empty() or boss_gauge > 0.0:
 			reset()
@@ -172,6 +172,7 @@ func update(delta: float, context: Dictionary, _deps: Dictionary = {}) -> Dictio
 	_update_tetrominoes(clamped_delta)
 	_update_guard_blocks(clamped_delta)
 	_update_wall_lifetime(clamped_delta)
+	_apply_player_attack_destruction(context, deps)
 	_update_debris(clamped_delta)
 	return _build_result()
 
@@ -550,6 +551,97 @@ func _emit_debris(origin: Vector2, cells: Array, color: Color) -> void:
 	for cell in cells:
 		rects.append(Rect2(origin + cell * TETRO_CELL_SIZE, Vector2(TETRO_CELL_SIZE, TETRO_CELL_SIZE)))
 	_debris.append({"rects": rects, "color": color, "life": DEBRIS_LIFE_SEC, "max_life": DEBRIS_LIFE_SEC})
+
+
+# ============================================================================
+# 플레이어 공격 파괴 (대시 / 연막 / 폭발) — 원본 by_dash / by_smoke.
+# 공과 달리 super 면역 없음(공 반사 경로만 super 보존). 셀이 영역과 겹치면
+# 테트로/가드는 그룹 통째, 벽은 단일-셀 블록이라 셀 단위로 파괴된다.
+# ============================================================================
+
+func _apply_player_attack_destruction(context: Dictionary, deps: Dictionary) -> void:
+	if _tetrominoes.is_empty() and _guard_blocks.is_empty() and _wall_blocks.is_empty():
+		return
+
+	# 대시: 플레이어 패들이 휩쓰는 동안 겹치는 셀 파괴.
+	var dash_snapshot: Dictionary = context.get("dash_snapshot", {})
+	if bool(dash_snapshot.get("active", false)):
+		var player_pos: Vector2 = context.get("player_pos", Vector2.ZERO)
+		var paddle_size: Vector2 = context.get("player_paddle_size", Vector2(155.0, 50.0))
+		var paddle_rect: Rect2 = Rect2(player_pos, paddle_size)
+		_destroy_solid_obstacles(func(cell_rect: Rect2) -> bool: return paddle_rect.intersects(cell_rect))
+
+	# 연막 / 폭발: active_item_runtime의 throw_controller zone 소비(item 코드 비침투).
+	var active_item_runtime = deps.get("active_item_runtime", null)
+	if active_item_runtime == null or not ("throw_controller" in active_item_runtime):
+		return
+	var throw_controller = active_item_runtime.throw_controller
+	if throw_controller == null:
+		return
+
+	if throw_controller.has_method("get_tear_gas_zones"):
+		for zone in throw_controller.get_tear_gas_zones():
+			if float(zone.get("opacity", 1.0)) <= 0.12:
+				continue
+			var gas_center: Vector2 = zone.get("position", Vector2.ZERO)
+			var gas_rx: float = float(zone.get("radius_x", zone.get("radius", 0.0)))
+			var gas_ry: float = float(zone.get("radius", 0.0))
+			if gas_rx > 0.0 and gas_ry > 0.0:
+				_destroy_solid_obstacles(func(cell_rect: Rect2) -> bool: return _rect_in_ellipse(cell_rect, gas_center, gas_rx, gas_ry))
+
+	if throw_controller.has_method("get_explosion_zones"):
+		for zone in throw_controller.get_explosion_zones():
+			if not bool(zone.get("active", true)):
+				continue
+			var blast_center: Vector2 = zone.get("position", Vector2.ZERO)
+			var blast_radius: float = float(zone.get("radius", 0.0))
+			if blast_radius > 0.0:
+				_destroy_solid_obstacles(func(cell_rect: Rect2) -> bool: return _rect_in_circle(cell_rect, blast_center, blast_radius))
+
+
+func _destroy_solid_obstacles(test: Callable) -> int:
+	var destroyed: int = 0
+	destroyed += _sweep_destroy(_tetrominoes, ["falling", "settled"], test)
+	destroyed += _sweep_destroy(_guard_blocks, ["active"], test)
+	destroyed += _sweep_destroy(_wall_blocks, ["active"], test)
+	return destroyed
+
+
+func _sweep_destroy(blocks: Array, solid_states: Array, test: Callable) -> int:
+	var doomed: Array = []
+	for block in blocks:
+		if not solid_states.has(String(block.get("state", ""))):
+			continue
+		var origin: Vector2 = block["origin"]
+		for cell in block["cells"]:
+			var cell_rect: Rect2 = Rect2(origin + cell * TETRO_CELL_SIZE, Vector2(TETRO_CELL_SIZE, TETRO_CELL_SIZE))
+			if bool(test.call(cell_rect)):
+				doomed.append(block)
+				break
+	for block in doomed:
+		_destroy_block_group(blocks, block, _block_color(block))
+	return doomed.size()
+
+
+func _block_color(block: Dictionary) -> Color:
+	if block.has("color"):
+		return block["color"]
+	if block.has("shape"):
+		return TETRO_COLORS.get(String(block["shape"]), Color(0.6, 0.7, 1.0))
+	return GUARD_COLOR
+
+
+func _rect_in_ellipse(cell_rect: Rect2, center: Vector2, rx: float, ry: float) -> bool:
+	if rx <= 0.0 or ry <= 0.0:
+		return false
+	var c: Vector2 = cell_rect.get_center()
+	var dx: float = (c.x - center.x) / rx
+	var dy: float = (c.y - center.y) / ry
+	return dx * dx + dy * dy <= 1.0
+
+
+func _rect_in_circle(cell_rect: Rect2, center: Vector2, radius: float) -> bool:
+	return cell_rect.get_center().distance_to(center) <= radius
 
 
 func _update_debris(delta: float) -> void:
