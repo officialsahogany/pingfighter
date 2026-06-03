@@ -17,6 +17,8 @@ const BOOST_CHARGING_SOUND_PATH := "res://assets/sounds/boostcharging.wav"
 const SOUL_BURST_DASH_SOUND_PATH := "res://assets/sounds/soulbust.wav"
 const DASH_SPIRIT_DELETE_SOUND_PATH := "res://assets/sounds/dashspiritdelete.wav"
 const DRIVE_SOUND_PATH := "res://assets/sounds/drive.wav"
+const MIKA_DRIVE_VOICE_PATH := "res://assets/sounds/mika_drive.mp3"
+const MIKA_DRIVE_VOICE_GAIN_DB := -2.5
 const PLASMA_CHARGE_SOUND_PATH := "res://assets/sounds/plazmacharge.wav"
 const PLASMA_SHOOT_SOUND_PATH := "res://assets/sounds/plazmashoot.wav"
 const PLASMA_SHOCK_SOUND_PATH := "res://assets/sounds/plazmashock.wav"
@@ -84,6 +86,8 @@ const COMMANDO_SUICIDE_DRONE_GAIN_DB := 0.0
 const ITEM_GET_SOUND_PATH := "res://assets/sounds/itemget.wav"
 const DRINK_SOUND_PATH := "res://assets/sounds/drink.wav"
 const ACTIVE_ITEM_SOUND_PATH := "res://assets/sounds/activeitem.wav"
+const BRICK_WALL_DESTROY_SOUND_PATH := "res://assets/sounds/stonebreak2.wav"
+const BRICK_WALL_DESTROY_GAIN_DB := -5.0
 const TREASURE_HUNT_MINING_SOUND_PATH := "res://assets/sounds/mining.wav"
 const ALCHEMY_SOUND_PATH := "res://assets/sounds/alchemy.wav"
 const PANDORA_SOUND_PATH := "res://assets/sounds/pandora.wav"
@@ -92,12 +96,23 @@ const FOUL_WHISTLE_SOUND_PATH := "res://assets/sounds/foul_whistle.wav"
 const MEGINGJORD_SOUND_PATH := "res://assets/sounds/megin.wav"
 const LEGENDARY_OPEN_SOUND_PATH := "res://assets/sounds/legendopen.wav"
 const RESULT_BOX_OPEN_SOUND_PATH := "res://assets/sounds/boxopen.wav"
+const LINGPET_ACQUIRE_CUTIN_SOUND_PATH := "res://assets/sounds/lingpet/lingpet_acquire_ominous_shadow_shimmer_02.wav"
+const LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/volty_click_reaction_voice_v1.mp3"
+const LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH := "res://assets/sounds/lingpet/milkring_click_reaction_voice_v1.mp3"
 const LEGENDARY_AFTER_SOUND_PATH := "res://assets/sounds/legendafter.wav"
 const LEGENDARY_ENDING_SOUND_PATH := "res://assets/sounds/legendending.wav"
+const LINGPET_ACQUIRE_CUTIN_GAIN_DB := 0.0
+const LINGPET_VOLTY_CLICK_VOICE_GAIN_DB := 0.0
+const LINGPET_MILKRING_CLICK_VOICE_GAIN_DB := 0.0
 const RAGNAROK_SHOT_SOUND_PATH := "res://assets/sounds/ragnarokshot.wav"
 const RAGNAROK_BOOM_SOUND_PATH := "res://assets/sounds/ragnarokboom.wav"
 const RAGNAROK_SHOCK_SOUND_PATH := "res://assets/sounds/ragnarokshock.wav"
 const ELECTRIC_SHOCK_SOUND_PATH := "res://assets/sounds/electricshock.wav"
+const ELECTRIC_SHOCK_GAIN_DB := -6.9357
+const THUNDER_ORB_SHOT_SOUND_PATH := "res://assets/sounds/thunderbolt.wav"
+const THUNDER_ORB_BOOM_SOUND_PATH := "res://assets/sounds/thunderboltboom.wav"
+const THUNDER_ORB_SHOT_GAIN_DB := -7.9588
+const THUNDER_ORB_BOOM_GAIN_DB := -6.0206
 const POSEIDON_WAVE_SOUND_PATH := "res://assets/sounds/poseidon.wav"
 const POSEIDON_CHARGE_SOUND_PATH := "res://assets/sounds/poseidoncharge.wav"
 const TIMEWATCH_SOUND_PATH := "res://assets/sounds/timewatch.wav"
@@ -136,8 +151,17 @@ const SOAP_LAND_SOUND_PATH := "res://assets/sounds/shootoil.wav"
 const SOAP_SLIP_SOUND_PATH := "res://assets/sounds/bananastep.wav"
 const SPIDER_MINE_WALK_SOUND_PATH := "res://assets/sounds/spiderminewalk.wav"
 const SPIDER_MINE_SETUP_SOUND_PATH := "res://assets/sounds/spiderminesetup.wav"
+const BOMB_SURPRISE_ATTACH_SOUND_PATH := "res://assets/sounds/boomstart.wav"
+const BOMB_SURPRISE_TICK1_SOUND_PATH := "res://assets/sounds/ticking1.wav"
+const BOMB_SURPRISE_TICK2_SOUND_PATH := "res://assets/sounds/ticking2.wav"
+const BOMB_SURPRISE_URGENT_TICK_SOUND_PATH := "res://assets/sounds/ticking3.wav"
+const BOMB_SURPRISE_ATTACH_GAIN_DB := -9.1186
+const BOMB_SURPRISE_TRANSFER_GAIN_DB := -10.4576
+const BOMB_SURPRISE_URGENT_TICK_GAIN_DB := -6.9357
+const BOMB_SURPRISE_EXPLOSION_GAIN_DB := -1.9382
 const POWER_SMASH_SOUND_PATH := "res://assets/sounds/power_smash.wav"
 const MIKA_POWER_SMASHING_VOICE_PATH := "res://assets/sounds/mika_powersmashing.mp3"
+const MIKA_GHOST_SMASHING_VOICE_PATH := "res://assets/sounds/mika_ghostsmashing.mp3"
 const POWER_SMASH_LAUNCH_SOUND_PATH := "res://assets/sounds/power_smash_launch.wav"
 const ROUND_SET_SOUND_PATH := "res://assets/sounds/roundset.wav"
 const BALL_SPAWN_INTRO_SOUND_PATH := "res://assets/sounds/stagestart_godot_short.wav"
@@ -187,6 +211,7 @@ const STAGE3_BGM_PATH := "res://assets/bgm/stage3bgm.ogg"
 const STAGE4_BGM_PATH := "res://assets/bgm/stage4bgm.ogg"
 const STAGE4_PHASE2_BGM_PATH := "res://assets/bgm/stage4bgm-phase2.mp3"
 const STAGE5_BGM_PATH := "res://assets/bgm/stage5_hongryun_bgm.ogg"
+const STAGE6_BGM_PATH := "res://assets/bgm/stage6_tetriser_bgm.ogg"
 const PADDLE_HIT_SOUND_COOLDOWN := 0.06
 const WALL_HIT_SOUND_COOLDOWN := 0.035
 const SCOREBOARD_SOUND_VOLUME_DB := -8.0
@@ -197,9 +222,12 @@ const STAGE2_BGM_GAIN := 1.0
 const STAGE3_BGM_GAIN := 0.9
 const STAGE4_BGM_GAIN := 0.9
 const STAGE5_BGM_GAIN := 0.9
+const STAGE6_BGM_GAIN := 0.9
 const STAGE2_BGM_NAMES := ["stage2", "stage2_alt"]
 const BGM_BUS_NAME := "BGM"
 const SFX_BUS_NAME := "SFX"
+const AUDIO_SETUP_STEP_COUNT := 7
+const BGM_SETUP_STEP_COUNT := 9
 
 var owner_node: Node
 var player_factory: Object = GameAudioPlayerFactory.new()
@@ -225,6 +253,7 @@ var boost_charging_sfx: AudioStreamPlayer
 var soul_burst_dash_sfx: AudioStreamPlayer
 var dash_spirit_delete_sfx: AudioStreamPlayer
 var drive_sfx: AudioStreamPlayer
+var mika_drive_voice_sfx: AudioStreamPlayer
 var plasma_charge_sfx: AudioStreamPlayer
 var plasma_shoot_sfx: AudioStreamPlayer
 var plasma_shock_sfx: AudioStreamPlayer
@@ -280,6 +309,7 @@ var commando_suicide_drone_sfx: AudioStreamPlayer
 var item_get_sfx: AudioStreamPlayer
 var drink_sfx: AudioStreamPlayer
 var active_item_sfx: AudioStreamPlayer
+var brick_wall_destroy_sfx: AudioStreamPlayer
 var treasure_hunt_mining_sfx: AudioStreamPlayer
 var alchemy_sfx: AudioStreamPlayer
 var pandora_sfx: AudioStreamPlayer
@@ -288,12 +318,17 @@ var foul_whistle_sfx: AudioStreamPlayer
 var megingjord_sfx: AudioStreamPlayer
 var legendary_open_sfx: AudioStreamPlayer
 var result_box_open_sfx: AudioStreamPlayer
+var lingpet_acquire_cutin_sfx: AudioStreamPlayer
+var lingpet_volty_click_voice_sfx: AudioStreamPlayer
+var lingpet_milkring_click_voice_sfx: AudioStreamPlayer
 var legendary_after_sfx: AudioStreamPlayer
 var legendary_ending_sfx: AudioStreamPlayer
 var ragnarok_shot_sfx: AudioStreamPlayer
 var ragnarok_boom_sfx: AudioStreamPlayer
 var ragnarok_shock_sfx: AudioStreamPlayer
 var electric_shock_sfx: AudioStreamPlayer
+var thunder_orb_shot_sfx: AudioStreamPlayer
+var thunder_orb_boom_sfx: AudioStreamPlayer
 var poseidon_wave_sfx: AudioStreamPlayer
 var poseidon_charge_sfx: AudioStreamPlayer
 var timewatch_sfx: AudioStreamPlayer
@@ -323,8 +358,16 @@ var soap_land_sfx: AudioStreamPlayer
 var soap_slip_sfx: AudioStreamPlayer
 var spider_mine_walk_sfx: AudioStreamPlayer
 var spider_mine_setup_sfx: AudioStreamPlayer
+var bomb_surprise_attach_sfx: AudioStreamPlayer
+var bomb_surprise_transfer_sfx: AudioStreamPlayer
+var bomb_surprise_tick1_sfx: AudioStreamPlayer
+var bomb_surprise_tick2_sfx: AudioStreamPlayer
+var bomb_surprise_urgent_tick_sfx: AudioStreamPlayer
+var bomb_surprise_explosion_sfx: AudioStreamPlayer
+var bomb_surprise_self_explosion_sfx: AudioStreamPlayer
 var power_smash_sfx: AudioStreamPlayer
 var mika_power_smashing_voice_sfx: AudioStreamPlayer
+var mika_ghost_smashing_voice_sfx: AudioStreamPlayer
 var power_smash_launch_sfx: AudioStreamPlayer
 var round_set_sfx: AudioStreamPlayer
 var ball_spawn_intro_sfx: AudioStreamPlayer
@@ -370,6 +413,7 @@ var stage3_bgm: AudioStreamPlayer
 var stage4_bgm: AudioStreamPlayer
 var stage4_phase2_bgm: AudioStreamPlayer
 var stage5_bgm: AudioStreamPlayer
+var stage6_bgm: AudioStreamPlayer
 var stage2_bgm_rng := RandomNumberGenerator.new()
 var stage2_bgm_rng_ready := false
 var _audio_setup_step := 0
@@ -381,6 +425,13 @@ var _bgm_setup_step := 0
 func setup(parent: Node) -> void:
 	while not setup_step(parent):
 		pass
+
+
+func get_setup_progress() -> float:
+	if _is_setup_complete():
+		return 1.0
+	var step_progress := _get_audio_setup_step_progress(_audio_setup_step)
+	return clampf((float(_audio_setup_step) + step_progress) / float(AUDIO_SETUP_STEP_COUNT), 0.0, 1.0)
 
 
 func setup_step(parent: Node) -> bool:
@@ -441,6 +492,7 @@ func _setup_core_ball_sfx() -> void:
 
 func _setup_smasher_skill_sfx() -> void:
 	drive_sfx = player_factory.create(owner_node, "DriveSfx", DRIVE_SOUND_PATH, -5.0)
+	mika_drive_voice_sfx = player_factory.create(owner_node, "MikaDriveVoiceSfx", MIKA_DRIVE_VOICE_PATH, MIKA_DRIVE_VOICE_GAIN_DB)
 	plasma_charge_sfx = player_factory.create(owner_node, "PlasmaChargeSfx", PLASMA_CHARGE_SOUND_PATH, PLASMA_CHARGE_GAIN_DB)
 	plasma_shoot_sfx = player_factory.create(owner_node, "PlasmaShootSfx", PLASMA_SHOOT_SOUND_PATH, PLASMA_SHOOT_GAIN_DB)
 	plasma_shock_sfx = player_factory.create(owner_node, "PlasmaShockSfx", PLASMA_SHOCK_SOUND_PATH, PLASMA_SHOCK_GAIN_DB)
@@ -515,6 +567,7 @@ func _setup_item_command_sfx() -> void:
 	item_get_sfx = player_factory.create(owner_node, "ItemGetSfx", ITEM_GET_SOUND_PATH, -5.0)
 	drink_sfx = player_factory.create(owner_node, "DrinkSfx", DRINK_SOUND_PATH, -5.0)
 	active_item_sfx = player_factory.create(owner_node, "ActiveItemSfx", ACTIVE_ITEM_SOUND_PATH, -5.0)
+	brick_wall_destroy_sfx = player_factory.create(owner_node, "BrickWallDestroySfx", BRICK_WALL_DESTROY_SOUND_PATH, BRICK_WALL_DESTROY_GAIN_DB)
 	treasure_hunt_mining_sfx = player_factory.create(owner_node, "TreasureHuntMiningSfx", TREASURE_HUNT_MINING_SOUND_PATH, -6.0)
 	alchemy_sfx = player_factory.create(owner_node, "AlchemySfx", ALCHEMY_SOUND_PATH, -4.5)
 	pandora_sfx = player_factory.create(owner_node, "PandoraSfx", PANDORA_SOUND_PATH, -5.0)
@@ -523,12 +576,17 @@ func _setup_item_command_sfx() -> void:
 	megingjord_sfx = player_factory.create(owner_node, "MegingjordSfx", MEGINGJORD_SOUND_PATH, -5.0)
 	legendary_open_sfx = player_factory.create(owner_node, "LegendaryOpenSfx", LEGENDARY_OPEN_SOUND_PATH, -5.0)
 	result_box_open_sfx = player_factory.create(owner_node, "ResultBoxOpenSfx", RESULT_BOX_OPEN_SOUND_PATH, -4.0)
+	lingpet_acquire_cutin_sfx = player_factory.create(owner_node, "LingpetAcquireCutinSfx", LINGPET_ACQUIRE_CUTIN_SOUND_PATH, LINGPET_ACQUIRE_CUTIN_GAIN_DB)
+	lingpet_volty_click_voice_sfx = player_factory.create(owner_node, "LingpetVoltyClickVoiceSfx", LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH, LINGPET_VOLTY_CLICK_VOICE_GAIN_DB)
+	lingpet_milkring_click_voice_sfx = player_factory.create(owner_node, "LingpetMilkringClickVoiceSfx", LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH, LINGPET_MILKRING_CLICK_VOICE_GAIN_DB)
 	legendary_after_sfx = player_factory.create(owner_node, "LegendaryAfterSfx", LEGENDARY_AFTER_SOUND_PATH, -6.0)
 	legendary_ending_sfx = player_factory.create(owner_node, "LegendaryEndingSfx", LEGENDARY_ENDING_SOUND_PATH, -5.0)
 	ragnarok_shot_sfx = player_factory.create(owner_node, "RagnarokShotSfx", RAGNAROK_SHOT_SOUND_PATH, -4.0)
 	ragnarok_boom_sfx = player_factory.create(owner_node, "RagnarokBoomSfx", RAGNAROK_BOOM_SOUND_PATH, -3.5)
 	ragnarok_shock_sfx = player_factory.create(owner_node, "RagnarokShockSfx", RAGNAROK_SHOCK_SOUND_PATH, -5.5)
-	electric_shock_sfx = player_factory.create(owner_node, "ElectricShockSfx", ELECTRIC_SHOCK_SOUND_PATH, -6.0)
+	electric_shock_sfx = player_factory.create(owner_node, "ElectricShockSfx", ELECTRIC_SHOCK_SOUND_PATH, ELECTRIC_SHOCK_GAIN_DB)
+	thunder_orb_shot_sfx = player_factory.create(owner_node, "ThunderOrbShotSfx", THUNDER_ORB_SHOT_SOUND_PATH, THUNDER_ORB_SHOT_GAIN_DB)
+	thunder_orb_boom_sfx = player_factory.create(owner_node, "ThunderOrbBoomSfx", THUNDER_ORB_BOOM_SOUND_PATH, THUNDER_ORB_BOOM_GAIN_DB)
 	poseidon_wave_sfx = player_factory.create(owner_node, "PoseidonWaveSfx", POSEIDON_WAVE_SOUND_PATH, -5.0)
 	poseidon_charge_sfx = player_factory.create(owner_node, "PoseidonChargeSfx", POSEIDON_CHARGE_SOUND_PATH, -5.0)
 	_enable_loop(ragnarok_shock_sfx)
@@ -564,12 +622,20 @@ func _setup_projectile_item_sfx() -> void:
 	soap_slip_sfx = player_factory.create(owner_node, "SoapSlipSfx", SOAP_SLIP_SOUND_PATH, -4.0)
 	spider_mine_walk_sfx = player_factory.create(owner_node, "SpiderMineWalkSfx", SPIDER_MINE_WALK_SOUND_PATH, -6.5)
 	spider_mine_setup_sfx = player_factory.create(owner_node, "SpiderMineSetupSfx", SPIDER_MINE_SETUP_SOUND_PATH, -5.0)
+	bomb_surprise_attach_sfx = player_factory.create(owner_node, "BombSurpriseAttachSfx", BOMB_SURPRISE_ATTACH_SOUND_PATH, BOMB_SURPRISE_ATTACH_GAIN_DB)
+	bomb_surprise_transfer_sfx = player_factory.create(owner_node, "BombSurpriseTransferSfx", SPIDER_MINE_SETUP_SOUND_PATH, BOMB_SURPRISE_TRANSFER_GAIN_DB)
+	bomb_surprise_tick1_sfx = player_factory.create(owner_node, "BombSurpriseTick1Sfx", BOMB_SURPRISE_TICK1_SOUND_PATH, -16.4782)
+	bomb_surprise_tick2_sfx = player_factory.create(owner_node, "BombSurpriseTick2Sfx", BOMB_SURPRISE_TICK2_SOUND_PATH, -16.4782)
+	bomb_surprise_urgent_tick_sfx = player_factory.create(owner_node, "BombSurpriseUrgentTickSfx", BOMB_SURPRISE_URGENT_TICK_SOUND_PATH, BOMB_SURPRISE_URGENT_TICK_GAIN_DB)
+	bomb_surprise_explosion_sfx = player_factory.create(owner_node, "BombSurpriseExplosionSfx", GRENADE_SOUND_PATH, BOMB_SURPRISE_EXPLOSION_GAIN_DB)
+	bomb_surprise_self_explosion_sfx = player_factory.create(owner_node, "BombSurpriseSelfExplosionSfx", STAGE3_CURSE_EXPLODE_SOUND_PATH, BOMB_SURPRISE_EXPLOSION_GAIN_DB)
 	_enable_loop(spider_mine_walk_sfx)
 
 
 func _setup_stage_feedback_sfx() -> void:
 	power_smash_sfx = player_factory.create(owner_node, "PowerSmashSfx", POWER_SMASH_SOUND_PATH, -4.0)
 	mika_power_smashing_voice_sfx = player_factory.create(owner_node, "MikaPowerSmashingVoiceSfx", MIKA_POWER_SMASHING_VOICE_PATH, -2.5)
+	mika_ghost_smashing_voice_sfx = player_factory.create(owner_node, "MikaGhostSmashingVoiceSfx", MIKA_GHOST_SMASHING_VOICE_PATH, 1.5)
 	power_smash_launch_sfx = player_factory.create(owner_node, "PowerSmashLaunchSfx", POWER_SMASH_LAUNCH_SOUND_PATH, -4.0)
 	round_set_sfx = player_factory.create(owner_node, "RoundSetSfx", ROUND_SET_SOUND_PATH, SCOREBOARD_SOUND_VOLUME_DB)
 	ball_spawn_intro_sfx = player_factory.create(owner_node, "BallSpawnIntroSfx", BALL_SPAWN_INTRO_SOUND_PATH, -4.0)
@@ -621,9 +687,9 @@ func _setup_stage_feedback_sfx() -> void:
 
 
 func _setup_bgm_players() -> void:
-	for bgm_name in ["stage1", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5"]:
+	for bgm_name in ["stage1", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6"]:
 		_ensure_bgm_player(str(bgm_name))
-	_bgm_setup_step = 8
+	_bgm_setup_step = BGM_SETUP_STEP_COUNT
 	_restore_bgm_muted()
 	_apply_audio_buses_and_volumes()
 
@@ -652,11 +718,14 @@ func _setup_bgm_players_step() -> bool:
 			if _should_setup_bgm_player("stage5"):
 				_ensure_bgm_player("stage5")
 		7:
+			if _should_setup_bgm_player("stage6"):
+				_ensure_bgm_player("stage6")
+		8:
 			_restore_bgm_muted()
 		_:
 			return true
 	_bgm_setup_step += 1
-	return _bgm_setup_step > 7
+	return _bgm_setup_step >= BGM_SETUP_STEP_COUNT
 
 
 func _prewarm_audio_setup_streams_step() -> bool:
@@ -676,6 +745,23 @@ func _prewarm_audio_setup_streams_step() -> bool:
 		ProjectResourceLoader.load_audio_stream(path)
 		return _audio_setup_stream_prewarm_index >= paths.size()
 	return true
+
+
+func _get_audio_setup_step_progress(step: int) -> float:
+	if step >= AUDIO_SETUP_STEP_COUNT:
+		return 1.0
+	if step < 0:
+		return 0.0
+	var paths: Array[String] = _get_audio_setup_stream_paths(step)
+	if not paths.is_empty():
+		var stream_progress := 0.0
+		if _audio_setup_stream_prewarm_group == step:
+			stream_progress = clampf(float(_audio_setup_stream_prewarm_index) / float(paths.size()), 0.0, 1.0)
+		if stream_progress < 1.0:
+			return stream_progress * 0.92
+	if step == 6:
+		return 0.92 + 0.08 * clampf(float(_bgm_setup_step) / float(BGM_SETUP_STEP_COUNT), 0.0, 1.0)
+	return 0.96
 
 
 func _get_audio_setup_stream_paths(step: int) -> Array[String]:
@@ -698,6 +784,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 		1:
 			return [
 				DRIVE_SOUND_PATH,
+				MIKA_DRIVE_VOICE_PATH,
 				PLASMA_CHARGE_SOUND_PATH,
 				PLASMA_SHOOT_SOUND_PATH,
 				PLASMA_SHOCK_SOUND_PATH,
@@ -753,6 +840,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				ITEM_GET_SOUND_PATH,
 				DRINK_SOUND_PATH,
 				ACTIVE_ITEM_SOUND_PATH,
+				BRICK_WALL_DESTROY_SOUND_PATH,
 				TREASURE_HUNT_MINING_SOUND_PATH,
 				ALCHEMY_SOUND_PATH,
 				PANDORA_SOUND_PATH,
@@ -761,12 +849,17 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 				MEGINGJORD_SOUND_PATH,
 				LEGENDARY_OPEN_SOUND_PATH,
 				RESULT_BOX_OPEN_SOUND_PATH,
+				LINGPET_ACQUIRE_CUTIN_SOUND_PATH,
+				LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH,
+				LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH,
 				LEGENDARY_AFTER_SOUND_PATH,
 				LEGENDARY_ENDING_SOUND_PATH,
 				RAGNAROK_SHOT_SOUND_PATH,
 				RAGNAROK_BOOM_SOUND_PATH,
 				RAGNAROK_SHOCK_SOUND_PATH,
 				ELECTRIC_SHOCK_SOUND_PATH,
+				THUNDER_ORB_SHOT_SOUND_PATH,
+				THUNDER_ORB_BOOM_SOUND_PATH,
 				POSEIDON_WAVE_SOUND_PATH,
 				POSEIDON_CHARGE_SOUND_PATH,
 				TIMEWATCH_SOUND_PATH,
@@ -804,6 +897,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 			var stage_paths: Array[String] = [
 				POWER_SMASH_SOUND_PATH,
 				MIKA_POWER_SMASHING_VOICE_PATH,
+				MIKA_GHOST_SMASHING_VOICE_PATH,
 				POWER_SMASH_LAUNCH_SOUND_PATH,
 				ROUND_SET_SOUND_PATH,
 				BALL_SPAWN_INTRO_SOUND_PATH,
@@ -852,7 +946,7 @@ func _get_audio_setup_stream_paths(step: int) -> Array[String]:
 
 func _get_required_bgm_stream_paths() -> Array[String]:
 	var paths: Array[String] = []
-	for bgm_name in ["stage1", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5"]:
+	for bgm_name in ["stage1", "stage2", "stage2_alt", "stage3", "stage4", "stage4_phase2", "stage5", "stage6"]:
 		var bgm_key := str(bgm_name)
 		if _should_setup_bgm_player(bgm_key):
 			paths.append(_get_bgm_stream_path(bgm_key))
@@ -874,6 +968,8 @@ func _get_bgm_stream_path(bgm_name: String) -> String:
 		return STAGE4_PHASE2_BGM_PATH
 	if bgm_name == "stage5":
 		return STAGE5_BGM_PATH
+	if bgm_name == "stage6":
+		return STAGE6_BGM_PATH
 	return ""
 
 
@@ -889,9 +985,9 @@ func _should_prewarm_audio_stream(path: String) -> bool:
 
 
 func _is_setup_complete() -> bool:
-	if _bgm_setup_step > 7 and _are_all_bgm_players_ready():
+	if _bgm_setup_step >= BGM_SETUP_STEP_COUNT and _are_all_bgm_players_ready():
 		return true
-	return _audio_setup_step > 6 and _bgm_setup_step > 7 and _is_required_bgm_player_ready()
+	return _audio_setup_step > 6 and _bgm_setup_step >= BGM_SETUP_STEP_COUNT and _is_required_bgm_player_ready()
 
 
 func _should_setup_bgm_player(bgm_name: String) -> bool:
@@ -906,6 +1002,8 @@ func _should_setup_bgm_player(bgm_name: String) -> bool:
 		return bgm_name == "stage4" or bgm_name == "stage4_phase2"
 	if setup_stage == 5:
 		return bgm_name == "stage5"
+	if setup_stage == 6:
+		return bgm_name == "stage6"
 	return true
 
 
@@ -924,6 +1022,8 @@ func _is_required_bgm_player_ready() -> bool:
 		return false
 	if _should_setup_bgm_player("stage5") and not _is_owned_player_ready(stage5_bgm):
 		return false
+	if _should_setup_bgm_player("stage6") and not _is_owned_player_ready(stage6_bgm):
+		return false
 	return true
 
 
@@ -936,6 +1036,7 @@ func _are_all_bgm_players_ready() -> bool:
 		and _is_owned_player_ready(stage4_bgm)
 		and _is_owned_player_ready(stage4_phase2_bgm)
 		and _is_owned_player_ready(stage5_bgm)
+		and _is_owned_player_ready(stage6_bgm)
 	)
 
 
@@ -957,6 +1058,7 @@ func update(delta: float) -> void:
 
 func play_drive() -> void:
 	_play_with_pitch(drive_sfx, randf_range(0.98, 1.02))
+	_play_with_pitch(mika_drive_voice_sfx, 1.0)
 
 
 func play_plasma_charge() -> void:
@@ -1482,6 +1584,11 @@ func play_active_item() -> void:
 	_play_with_pitch(active_item_sfx, randf_range(0.98, 1.02))
 
 
+func play_brick_wall_destroy() -> void:
+	if not _play_with_pitch(brick_wall_destroy_sfx, randf_range(0.94, 1.06)):
+		play_wall_hit(0.0)
+
+
 func play_treasure_hunt_mining() -> void:
 	if not _play_with_pitch(treasure_hunt_mining_sfx, randf_range(0.98, 1.02)):
 		play_stage2_rockhit()
@@ -1527,6 +1634,22 @@ func play_result_box_open() -> void:
 		play_legendary_open()
 
 
+func play_lingpet_acquire_cutin() -> void:
+	if not _play_with_pitch(_ensure_lingpet_acquire_cutin_sfx(), randf_range(0.98, 1.02)):
+		play_item_get()
+
+
+# In-battle companion click-reaction voice. Pet-agnostic at the call site; this
+# method owns the per-pet sound mapping. Pets without a dedicated click voice
+# play nothing (silent), so callers can always pass the current pet id.
+func play_lingpet_click_reaction(pet_id: String) -> void:
+	var normalized_pet_id := pet_id.strip_edges().to_lower()
+	if normalized_pet_id == "volty":
+		_play_with_pitch(_ensure_lingpet_volty_click_voice_sfx(), randf_range(0.98, 1.02))
+	elif normalized_pet_id == "milkring":
+		_play_with_pitch(_ensure_lingpet_milkring_click_voice_sfx(), randf_range(0.98, 1.02))
+
+
 func play_legendary_after() -> void:
 	if not _play_with_pitch(legendary_after_sfx, randf_range(0.98, 1.02)):
 		play_pandora()
@@ -1564,6 +1687,16 @@ func play_ragnarok_shot() -> void:
 
 func play_ragnarok_boom() -> void:
 	if not _play_with_pitch(ragnarok_boom_sfx, randf_range(0.96, 1.03)):
+		play_grenade_explosion()
+
+
+func play_thunder_orb_shot() -> void:
+	if not _play_with_pitch(thunder_orb_shot_sfx, 1.0):
+		play_active_item()
+
+
+func play_thunder_orb_boom() -> void:
+	if not _play_with_pitch(thunder_orb_boom_sfx, 1.0):
 		play_grenade_explosion()
 
 
@@ -1804,12 +1937,56 @@ func play_spider_mine_setup() -> void:
 	_play_with_pitch(spider_mine_setup_sfx, randf_range(0.98, 1.02))
 
 
+func play_bomb_surprise_attach() -> void:
+	_play_with_pitch(bomb_surprise_attach_sfx, 1.0)
+
+
+func play_bomb_surprise_transfer() -> void:
+	_play_with_pitch(bomb_surprise_transfer_sfx, 1.0)
+
+
+func play_bomb_surprise_tick(use_second_tick: bool, fuse_ratio: float) -> void:
+	var player := bomb_surprise_tick2_sfx if use_second_tick else bomb_surprise_tick1_sfx
+	var volume_linear := minf(0.4, 0.1 + 0.2 * clampf(fuse_ratio, 0.0, 1.0))
+	_set_sfx_player_linear_volume(player, volume_linear)
+	_play_with_pitch(player, 1.0)
+
+
+func play_bomb_surprise_urgent_tick() -> void:
+	if bomb_surprise_urgent_tick_sfx == null or bomb_surprise_urgent_tick_sfx.stream == null:
+		return
+	if bomb_surprise_urgent_tick_sfx.playing:
+		return
+	bomb_surprise_urgent_tick_sfx.volume_db = BOMB_SURPRISE_URGENT_TICK_GAIN_DB
+	bomb_surprise_urgent_tick_sfx.pitch_scale = 1.0
+	bomb_surprise_urgent_tick_sfx.play()
+
+
+func stop_bomb_surprise_urgent_tick() -> void:
+	if bomb_surprise_urgent_tick_sfx != null and bomb_surprise_urgent_tick_sfx.playing:
+		bomb_surprise_urgent_tick_sfx.stop()
+
+
+func play_bomb_surprise_explosion(self_explosion: bool) -> void:
+	stop_bomb_surprise_urgent_tick()
+	var player := bomb_surprise_self_explosion_sfx if self_explosion else bomb_surprise_explosion_sfx
+	if not _play_with_pitch(player, 1.0):
+		if self_explosion:
+			_play_with_pitch(stage3_curse_explode_sfx, 1.0)
+		else:
+			_play_with_pitch(grenade_sfx, 1.0)
+
+
 func play_power_smash() -> void:
 	_play_with_pitch(power_smash_sfx, randf_range(0.98, 1.02))
 
 
 func play_power_smashing_cutin_voice() -> void:
 	_play_with_pitch(mika_power_smashing_voice_sfx, 1.0)
+
+
+func play_ghost_smashing_cutin_voice() -> void:
+	_play_with_pitch(mika_ghost_smashing_voice_sfx, 1.0)
 
 
 func play_power_smash_launch() -> void:
@@ -2148,6 +2325,8 @@ func play_stage_bgm(stage: int) -> bool:
 		return play_bgm("stage4")
 	if stage == 5:
 		return play_bgm("stage5")
+	if stage == 6:
+		return play_bgm("stage6")
 	stop_bgm()
 	return false
 
@@ -2165,6 +2344,8 @@ func prime_stage_bgm(stage: int) -> bool:
 		return stage4_ready or phase2_ready
 	if stage == 5:
 		return prime_bgm("stage5")
+	if stage == 6:
+		return prime_bgm("stage6")
 	return false
 
 
@@ -2309,6 +2490,11 @@ func _play_with_pitch(player: AudioStreamPlayer, pitch: float) -> bool:
 	return true
 
 
+func _set_sfx_player_linear_volume(player: AudioStreamPlayer, volume: float) -> void:
+	if player != null:
+		player.volume_db = _volume_to_db(volume)
+
+
 func _play_commando_ak47_fire_layer(pitch: float) -> bool:
 	var players := [commando_ak47_fire_sfx]
 	players.append_array(commando_ak47_fire_sfx_layers)
@@ -2353,6 +2539,39 @@ func _create_optional_sfx_layers(name_prefix: String, path: String, volume_db: f
 	return players
 
 
+func _ensure_lingpet_acquire_cutin_sfx() -> AudioStreamPlayer:
+	if lingpet_acquire_cutin_sfx != null and lingpet_acquire_cutin_sfx.stream != null:
+		return lingpet_acquire_cutin_sfx
+	lingpet_acquire_cutin_sfx = _create_optional_sfx(
+		"LingpetAcquireCutinSfx",
+		LINGPET_ACQUIRE_CUTIN_SOUND_PATH,
+		LINGPET_ACQUIRE_CUTIN_GAIN_DB
+	)
+	return lingpet_acquire_cutin_sfx
+
+
+func _ensure_lingpet_volty_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_volty_click_voice_sfx != null and lingpet_volty_click_voice_sfx.stream != null:
+		return lingpet_volty_click_voice_sfx
+	lingpet_volty_click_voice_sfx = _create_optional_sfx(
+		"LingpetVoltyClickVoiceSfx",
+		LINGPET_VOLTY_CLICK_VOICE_SOUND_PATH,
+		LINGPET_VOLTY_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_volty_click_voice_sfx
+
+
+func _ensure_lingpet_milkring_click_voice_sfx() -> AudioStreamPlayer:
+	if lingpet_milkring_click_voice_sfx != null and lingpet_milkring_click_voice_sfx.stream != null:
+		return lingpet_milkring_click_voice_sfx
+	lingpet_milkring_click_voice_sfx = _create_optional_sfx(
+		"LingpetMilkringClickVoiceSfx",
+		LINGPET_MILKRING_CLICK_VOICE_SOUND_PATH,
+		LINGPET_MILKRING_CLICK_VOICE_GAIN_DB
+	)
+	return lingpet_milkring_click_voice_sfx
+
+
 func _ensure_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 	var player: AudioStreamPlayer = _get_bgm_player(bgm_name)
 	if _is_owned_player_ready(player):
@@ -2379,6 +2598,9 @@ func _ensure_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 		"stage5":
 			stage5_bgm = _create_bgm_player("Stage5Bgm", STAGE5_BGM_PATH, STAGE5_BGM_GAIN)
 			return stage5_bgm
+		"stage6":
+			stage6_bgm = _create_bgm_player("Stage6Bgm", STAGE6_BGM_PATH, STAGE6_BGM_GAIN)
+			return stage6_bgm
 	return null
 
 
@@ -2406,6 +2628,8 @@ func _get_bgm_player(bgm_name: String) -> AudioStreamPlayer:
 		return stage4_phase2_bgm
 	if bgm_name == "stage5":
 		return stage5_bgm
+	if bgm_name == "stage6":
+		return stage6_bgm
 	return null
 
 
@@ -2438,7 +2662,7 @@ func _get_existing_audio_bus_volume(bus_name: String, fallback: float) -> float:
 
 
 func _apply_bgm_bus_to_players() -> void:
-	for player in [stage1_bgm, stage2_bgm, stage2_alt_bgm, stage3_bgm, stage4_bgm, stage4_phase2_bgm, stage5_bgm]:
+	for player in [stage1_bgm, stage2_bgm, stage2_alt_bgm, stage3_bgm, stage4_bgm, stage4_phase2_bgm, stage5_bgm, stage6_bgm]:
 		if player is AudioStreamPlayer:
 			(player as AudioStreamPlayer).bus = BGM_BUS_NAME
 
@@ -2501,6 +2725,7 @@ func _get_sfx_players() -> Array:
 		soul_burst_dash_sfx,
 		dash_spirit_delete_sfx,
 		drive_sfx,
+		mika_drive_voice_sfx,
 		plasma_charge_sfx,
 		plasma_shoot_sfx,
 		plasma_shock_sfx,
@@ -2553,6 +2778,7 @@ func _get_sfx_players() -> Array:
 		item_get_sfx,
 		drink_sfx,
 		active_item_sfx,
+		brick_wall_destroy_sfx,
 		treasure_hunt_mining_sfx,
 		alchemy_sfx,
 		pandora_sfx,
@@ -2561,12 +2787,17 @@ func _get_sfx_players() -> Array:
 		megingjord_sfx,
 		legendary_open_sfx,
 		result_box_open_sfx,
+		lingpet_acquire_cutin_sfx,
+		lingpet_volty_click_voice_sfx,
+		lingpet_milkring_click_voice_sfx,
 		legendary_after_sfx,
 		legendary_ending_sfx,
 		ragnarok_shot_sfx,
 		ragnarok_boom_sfx,
 		ragnarok_shock_sfx,
 		electric_shock_sfx,
+		thunder_orb_shot_sfx,
+		thunder_orb_boom_sfx,
 		poseidon_wave_sfx,
 		poseidon_charge_sfx,
 		timewatch_sfx,
@@ -2596,8 +2827,16 @@ func _get_sfx_players() -> Array:
 		soap_slip_sfx,
 		spider_mine_walk_sfx,
 		spider_mine_setup_sfx,
+		bomb_surprise_attach_sfx,
+		bomb_surprise_transfer_sfx,
+		bomb_surprise_tick1_sfx,
+		bomb_surprise_tick2_sfx,
+		bomb_surprise_urgent_tick_sfx,
+		bomb_surprise_explosion_sfx,
+		bomb_surprise_self_explosion_sfx,
 		power_smash_sfx,
 		mika_power_smashing_voice_sfx,
+		mika_ghost_smashing_voice_sfx,
 		power_smash_launch_sfx,
 		round_set_sfx,
 		ball_spawn_intro_sfx,
