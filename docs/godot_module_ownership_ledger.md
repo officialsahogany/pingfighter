@@ -271,6 +271,14 @@ This section is intentionally long; use search to find the nearest owner.
   Hydro Sphere snapshot keys. `lingpet_skill_runtime_host.gd` calls this module
   instead of letting `lingpet_egg_runtime.gd` grow Maribo-specific projectile /
   puddle code inline.
+- `scripts/lingpet/lingpet_bubble_trap_skill.gd`
+  Owns Maribo Bubble Trap's skill-specific runtime: slow forward bubble
+  projectile travel, boss-paddle collision capture, 2-second bubble movement
+  lock, shared boss-stun refresh, ball-contact / expiry popping, lightweight
+  procedural bubble burst VFX, reused hydro-water feedback, and Bubble Trap
+  snapshot keys. `lingpet_skill_runtime_host.gd` dispatches this module by the
+  `bubble_trap` runtime kind so `lingpet_egg_runtime.gd` stays limited to the
+  common companion wind-up / launch lifecycle.
 - `scripts/lingpet/lingpet_save_store.gd`
   Owns the Ringpet save-file route: loading / saving the runtime snapshot
   from `user://lingpet_save.cfg`, restoring it during battle bootstrap,
@@ -2303,6 +2311,40 @@ This section is intentionally long; use search to find the nearest owner.
   background / pillar art is still pending. It reuses the Stage 1 shared
   pillar HUD chrome and fallback background path, then adds the Stage 5
   Hongryun boss skill-card HUD in the post-playfield HUD pass.
+- `scripts/stages/stage6/` — Stage 6 테트리서 / Tetriser cluster (port of Python
+  Stage 7; Godot slot 6, see `docs/stage6_tetriser_port_plan.md`). Status:
+  **implemented through step 5b / 5c QA pending**. Owners (7 modules):
+  - `stage6_tetriser_state.gd` — single owner of boss gauge (max 500, 25/sec
+    charge, round-persist via reset_round vs full reset), falling tetrominoes
+    (assembly→fall→drift/rotate→settle), guard blocks (slide→active), edge tetro
+    walls (per-cell), 초인테트리서 (gauge-drain transform, 2.0× body, super-flag
+    + 1.7× cell tetrominoes), 2D central cube (3×3 solve→explode→rebuild),
+    super laser melt + EMP, ball collision/reflection (`choose_reflection_axis`
+    port) + dash/smoke/explosion destruction, debris, per-frame sound flags,
+    and the single `_clear_combat_state` cleanup core. Emits boss-AI / actor-draw
+    / `stage6_boss_skill_hud_*` HUD context.
+  - `stage6_tetriser_playfield_renderer.gd` — draws cube / tetrominoes / guard
+    bars / wall cells / debris / laser beam / EMP rings (procedural; no art yet).
+  - `stage6_tetriser_boss_actor_renderer.gd` — placeholder boss paddle that
+    scales with `super_scale` (real AutoSprite sheet pending).
+  - `stage6_tetriser_actor_renderer.gd` — orchestrates playfield + shared Stage1
+    player/commando renderers + boss renderer (main draw entry).
+  - `stage6_tetriser_pillar_background.gd` — solid blue placeholder backdrop.
+  - `stage6_tetriser_pillar_scene_drawer.gd` — drives the boss skill-card HUD in
+    `draw_post_playfield_hud` (merges state `get_hud_context`).
+  - `stage6_tetriser_boss_skill_hud_renderer.gd` — 달지식 boss skill-card HUD
+    (gauge + 낙하/가드/벽/초인 cards) via shared `BossSkillCardHudSpec`
+    (procedural cards; tetriser skillcard textures pending).
+  - Integration touch points: `stage_runtime_router` (role map), `stage_debug_picker`
+    (id 6, reset keys, prewarm), `gameplay_stage_module_catalog` (7 keys),
+    `battle_update_stage_runtime_deps_builder` / `battle_update_boss_ai_context_builder`
+    (`current_stage == 6`), `battle_effects_update_controller` (state.update),
+    `battle_draw_actor_context` (actor draw merge), `ball_update_controller`
+    (`_process_stage6_tetromino_collision`), `battle_playfield_effects_drawer`
+    (inactive-transient stage list incl. 6), `battle_scene_match_event_driver`
+    (`DEMO_STAGE_SEQUENCE_END = 6`), `game_audio` (stage6 BGM ogg + break/wall/
+    roar SFX), `battle_scene_update_prewarm_driver` (`STAGE6_RUNTIME_PREWARM_KEYS`).
+  - Regression guard: `tests/stage6_tetriser_state_smoke.gd`.
 - `scripts/stages/stage4/stage4_bird_event.gd` and
   `scripts/stages/stage4/stage4_brazier_monk_event.gd`
   Own the first Stage 4 event runtime slice. `stage4_bird_event` handles
@@ -2463,6 +2505,100 @@ This section is intentionally long; use search to find the nearest owner.
   to Smasher labels.
   The battle scene shell only
   routes the TAB toggle, modal input, pause gate, and final overlay draw.
+- `scripts/hud/character_info_overlay_static_data.gd`
+  Owns static TAB character-info overlay data tables such as extra
+  active-item prewarm ids and equipment slot definitions. It is data-only;
+  runtime state, input handling, draw caches, and live tooltip assembly stay
+  in `character_info_overlay.gd`.
+- `scripts/hud/character_info_overlay_equipment_geometry.gd`
+  Owns TAB character-info equipment anatomy silhouette geometry updates:
+  body anchor positions, head / neck rects, torso polygons, limb polygons, and
+  the cached geometry fields mutated on the overlay. The overlay keeps cache
+  hit checks, draw colors, connector drawing, equipment slot layout, and
+  smoke-facing draw wrapper names.
+- `scripts/hud/character_info_overlay_equipment_drawer.gd`
+  Owns stateless TAB character-info equipment helper drawing: hover connector
+  line target selection and empty-slot placeholder glyphs for body parts /
+  accessories. The overlay keeps slot draw order, hover gates, draw-budget
+  constants, anatomy silhouette drawing, and smoke-facing wrapper names.
+- `scripts/hud/character_info_overlay_value_utils.gd`
+  Owns pure value-normalization helpers for the TAB character-info overlay,
+  including safe owner-property reads and Variant-to-Array / Dictionary /
+  Color coercion, active-item label cache key comparison, and active-item
+  label state resolution. It also owns active-item catalog text prewarm
+  iteration, skill-config text prewarm iteration, and perk text-entry prewarm
+  iteration while the overlay keeps the actual text measurement caches. It has
+  no overlay state, no cache ownership, and no draw or input side effects.
+- `scripts/hud/character_info_overlay_formatter.gd`
+  Owns pure Korean display formatting for the TAB character-info overlay,
+  including character labels / colors, slot labels, passive-item roll value
+  text, equipment empty-color selection, compact item hash helpers, short
+  labels, level badges, and simple number / time formatting. It has no overlay
+  state, cache ownership, input handling, or draw side effects.
+- `scripts/hud/character_info_overlay_lingpet_presenter.gd`
+  Owns pure Lingpet presentation data for the TAB character-info overlay:
+  catalog-backed display names, owner-to-panel snapshot assembly, skill-card
+  tooltip specs, translated stat-row dictionaries, and Lingpet stat cache
+  hashes. The overlay keeps texture caches, hover rects, drawing, and cache
+  storage.
+- `scripts/hud/character_info_overlay_header_presenter.gd`
+  Owns pure TAB character-info header text assembly: stable subtitle text and
+  localized pending-choice / perk-gold status strings. The overlay keeps the
+  actual header caches, width measurement cache, owner snapshot fallback
+  reads, and drawing.
+- `scripts/hud/character_info_overlay_hover_geometry.gd`
+  Owns stateless TAB character-info hover geometry helpers: rect-map hit
+  checks, cached grid / linear slot hover signatures, and pure slot / grid
+  index math. The overlay keeps the hover state caches, public smoke-test
+  wrapper names, section scan order, and input / redraw decisions.
+- `scripts/hud/character_info_overlay_passive_item_presenter.gd`
+  Owns pure passive-item and equipment presentation helpers for the TAB
+  character-info overlay: passive tooltip body text, passive item body / frame
+  color hashes, passive inventory icon hashes, roll-option value fallback,
+  passive-roll entry append helpers, passive frame color selection, and
+  quality-backed equipment display names / quality colors. The overlay keeps
+  tooltip caches, draw caches, hover state, passive inventory draw-state
+  enrichment, registry lookups, and item equip / unequip input handling.
+- `scripts/hud/character_info_overlay_perk_presenter.gd`
+  Owns pure TAB character-info acquired-perk presentation helpers: equipped
+  unlock-skill lookup construction, equipped unlock duplicate hiding, catalog
+  perk data fallback / duplication, description fallback, draw metadata
+  enrichment, catalog prewarm entry collection, and runtime-perk text prewarm
+  orchestration, acquired perk core typed draw-array refresh, and effective
+  runtime-level override resolution plus acquired-perk sort ordering. The
+  overlay keeps cache hash guards, hover text cache anchors, hover rects, text
+  measurement caches, and public smoke-test wrapper names.
+- `scripts/hud/character_info_overlay_stats_presenter.gd`
+  Owns pure TAB character-info stat math helpers: delta color classification,
+  effective gauge / move-speed / paddle-width / gauge-gain / dash timing
+  calculations, and frame-to-seconds conversion. The overlay keeps stat row
+  cache arrays, source lookup order, row write helpers, and the public
+  `_build_stats()` / focused smoke entry points.
+- `scripts/hud/character_info_overlay_texture_drawer.gd`
+  Owns stateless TAB character-info texture helpers for contained / cover-fit
+  drawing, raw texture touches, visible item-icon collection, and item icon
+  prewarm iteration. The overlay keeps texture path resolution, load caches,
+  Lingpet catalog iteration, hover data, prewarm source resolution / cache
+  guards, and fallback symbol drawing.
+- `scripts/hud/character_info_overlay_lingpet_texture_loader.gd`
+  Owns catalog-backed Lingpet art / skill icon path resolution,
+  `ProjectResourceLoader` texture loads, and Lingpet skill-icon prewarm cache
+  population for the TAB character-info overlay. The overlay keeps the cache
+  dictionaries, wrapper entry points, drawing, hover data, and fallback symbol
+  rendering.
+- `scripts/hud/character_info_overlay_text_width_cache.gd`
+  Owns stateless indexed / single-entry text-width cache hit checks and miss
+  measurement updates for the TAB character-info overlay. The overlay keeps
+  the cache fields, `_text_size()` measurement entry point, wrapper names, and
+  draw decisions.
+- `scripts/hud/character_info_overlay_owner_state.gd`
+  Owns stateless TAB character-info owner / runtime state fallback helpers:
+  selected-character normalization, display-name fallback, equipment slot
+  fallback resolution, accessory slot number / count math, stat-source list
+  assembly, active-item slot count / capacity, Smasher dash snapshot lookup,
+  active-item cooldown chain calculation, registry / prewarm instance lookup,
+  and character skill-config key resolution. The overlay keeps wrapper names,
+  caches, drawing, and the public focused-smoke wrapper names.
 - `scripts/hud/ball_speed_debug_overlay.gd`
   Owns the Godot F9 real-time ball-speed debug overlay: toggle state,
   current base velocity readout, `ball_impact_boost` readout, effective
@@ -2894,14 +3030,21 @@ This section is intentionally long; use search to find the nearest owner.
   locale, and provides the current shared text table for pause/settings,
   main-menu quit confirmation, display / render pacing labels, combat HUD
   labels, skill / perk overlays, item cinematic feedback, weather status copy,
-  boss skill cards, and stage-clear result text. It also owns the catalog data
-  maps for active / mythic item names, mythic descriptions, perk names /
-  summaries, character-select metadata, skill-config copy, exact Korean text,
-  composed-label patterns, and passive quality prefixes. Skill configs and
+  boss skill cards, and stage-clear result text. It aliases the localization
+  data maps from `language_settings_data.gd` so existing callers can continue
+  reading `LanguageSettings.TEXT`, item maps, perk maps, exact text maps, and
+  quality prefixes without owning the bulky static data. Skill configs and
   runtime renderers should call this owner for locale-specific UI text instead
   of duplicating local translation dictionaries. `boot_flow_scene.gd` and
   `main_menu_scene.gd` apply the saved language on startup, while
   `pause_menu_overlay.gd` owns the visible language tab interaction.
+- `scripts/core/language_settings_data.gd`
+  Owns the static localization data maps for active / mythic item names,
+  mythic descriptions, perk names / summaries, character-select metadata,
+  skill-config copy, exact Korean text, composed-label patterns, native
+  language names, and passive quality prefixes. Keep runtime language
+  normalization, persistence, pattern translation, and formatting behavior in
+  `language_settings.gd`; this file should stay data-only.
 - `scripts/effects/battle_effects_update_controller.gd`
   Owns per-frame battle-effect fanout: battle feedback timers, audio tick,
   dash-recovery loop sync, Drive text timer decay, Power Smashing text /
@@ -3782,43 +3925,231 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/viper_input_reader.gd`
   Owns raw Viper gameplay input polling for horizontal movement, up/down
   command keys, dash key state, and action state.
+- `scripts/characters/viper_skill_command_tracker.gd`
+  Owns Viper skill command-edge bookkeeping before movement: down/up/left/right
+  edge snapshots, Dual Glitch A-D-A-D command buffering, Chaos Spear A-W-D
+  command buffering, and Core Flip left/right press-frame markers. It mutates
+  the existing `viper_skill_runtime.gd` state directly and returns only the
+  edge flags needed by activation sequencing; runtime remains authoritative
+  for skill activation, costs, cooldowns, hitboxes, audio, and rewards.
+- `scripts/characters/viper_skill_activation_runtime.gd`
+  Owns Viper's before-movement activation/update routing order: raw input
+  snapshot handoff to the command tracker, active Nerve / Dual Glitch startup /
+  EMP / Core Flip / Blade / Marshal updates, Core Flip / Dual Glitch / Blade /
+  Chaos / Ignition / EMP / Marshal / Air Blade / Shadow Step activation probes,
+  and exact early-return sequencing. It deliberately calls the focused
+  skill-runtime modules and existing `viper_skill_runtime.gd` wrappers so
+  state storage, costs, cooldown side effects, hitboxes, audio, and rewards
+  stay with their current owners.
+- `scripts/characters/viper_skill_reset_runtime.gd`
+  Owns Viper round / full-reset orchestration: input-edge and dash snapshots,
+  Shadow Step / Marshal / Phantom transient state, Venom Edge presentation
+  flags, focused skill reset delegation, the Ignition Aura cross-round
+  preserve exception, and final particle list cleanup. It deliberately mutates
+  the existing `viper_skill_runtime.gd` state and calls its reset helpers so
+  storage ownership, public wrapper names, audio cleanup, and skill-specific
+  reset behavior stay with their current owners.
+- `scripts/characters/viper_skill_contact_runtime.gd`
+  Owns Viper contact-side runtime glue: player-ball contact arming for Core
+  Flip, contact cancellation of startup-only EMP / Dual Glitch / Chaos paths,
+  early Chaos blackhole release, Shadow Step paddle-hit collision conversion,
+  Phantom Kick knockback consumption, and Kick Enhance guard-knockback
+  consumption. It calls the existing `viper_skill_runtime.gd` wrappers for
+  resets, immunity checks, fallback impact feedback, and Shadow Step hit
+  application so public result fields and side effects remain unchanged.
+- `scripts/characters/viper_skill_draw_runtime.gd`
+  Owns the top-level Viper draw fanout and performance sample labels:
+  detached EMP / Chaos FX-host sync and fallback hiding, Ignition Aura and
+  Dual Glitch timer gauges, Blade / Nerve / Core Flip / Marshal / Shadow Step
+  renderer calls, Chaos absorb-pulse / fallback drawing, and effect LOD
+  handoff. `viper_skill_runtime.gd` remains the mutable draw-state store and
+  exposes the thin public `draw()` wrapper.
+- `scripts/characters/viper_skill_core_flip_runtime.gd`
+  Owns Core Flip's ready-window activation and active per-frame motion phases:
+  left/right input buffering inside the armed window, cooldown / gauge /
+  dash-cancel side effects, startup spin, wall-climb zigzag, kick hit side
+  effects, return, miss text, Dark Blade handoff, Venom Mist mythic hit hook,
+  and motion-result construction. `viper_skill_runtime.gd` remains
+  authoritative for dash-contact ready-window arming, public wrapper names,
+  and draw-state storage.
+- `scripts/characters/viper_skill_blade_ball_motion_runtime.gd`
+  Owns Air Blade / Dark Blade per-frame projectile ball-motion checks:
+  primary blade travel / trail / fadeout, follow-up blade travel / trail /
+  fadeout, Stage 2 rock collision probes, and blade-vs-ball hit testing. It
+  calls the existing `viper_skill_runtime.gd` blade hit and clear wrappers so
+  hit speed, gold, combo-window, follow-up spawning, feedback, and reset side
+  effects stay routed through `viper_skill_blade_motion_runtime.gd`.
+- `scripts/characters/viper_skill_blade_motion_runtime.gd`
+  Owns Air Blade / Dark Blade activation and active motion body: cooldown /
+  gauge side effects, phase-2 Air Blade / Dark Blade / Nerve follow-up
+  activation decisions, spin-sound startup, horizontal control during spin,
+  Dark Blade auto-fire transition, projectile launch state, primary and
+  follow-up hit side effects, Dual Glitch replica blade spawning, Stage 2 rock
+  collision routing, Blade reset fields, and `blade_amp` cost / follow-up
+  scaling. `viper_skill_runtime.gd` remains authoritative for public wrapper
+  names, draw-state storage, and shared Blade constants.
+- `scripts/characters/viper_skill_blade_window_runtime.gd`
+  Owns Air Blade / Dark Blade per-frame follow-up window timers: Core Flip
+  Dark Blade handoff countdown, Dark Blade start-window expiry / airborne
+  gate checks, and phase-2 Air Blade / Dark Blade combo-window opening.
+  `viper_skill_runtime.gd` remains authoritative for public wrapper names,
+  draw-state storage, and reset entry points.
+- `scripts/characters/viper_skill_chaos_spear_runtime.gd`
+  Owns Chaos Spear command activation and per-frame phase advancement:
+  startup lock-result reporting, command consumption, activation gates,
+  cooldown / gauge side effects, absorb-pulse and cancel-flash clocks,
+  context-stop / serve-wait cancellation, startup prep scaling, flying
+  interpolation, impact shake / audio transition, blackhole release timing,
+  and fade cleanup. `viper_skill_runtime.gd` remains authoritative for
+  public wrapper names, blackhole ball-motion math, release-hit result marking,
+  and reset entry points.
+- `scripts/characters/viper_skill_chaos_spear_ball_motion_runtime.gd`
+  Owns Chaos Spear blackhole ball-motion after impact: pending release
+  handoff, orbit / ingress position locking, skip-step velocity output,
+  gold tick payout, stage-object absorb polling, and absorb-pulse spawning.
+  `viper_skill_runtime.gd` remains authoritative for command activation,
+  hit-triggered release calls, audio / phase transitions, and reset entry
+  points.
+- `scripts/characters/viper_skill_dual_glitch_clone_runtime.gd`
+  Owns Dual Glitch command activation and clone lifecycle / EMP replication
+  timers: A-D-A-D command consumption, activation gate checks, cooldown /
+  gauge side effects, clone HP / duration scaling, startup / spawn / active /
+  fade clock advancement, context-position sync, clone evaporation timers,
+  living / evaporating clone pruning, delayed clone shockwave entries,
+  telegraph-window flags, one-shot clone dive particle bursts, and clone
+  shockwave entry removal. `viper_skill_runtime.gd` remains authoritative for
+  spawning the EMP entries, primary EMP hit behavior, clone EMP ball-hit
+  refresh, public wrapper names, and draw-state storage.
+- `scripts/characters/viper_skill_emp_strike_ball_motion_runtime.gd`
+  Owns EMP Strike per-frame ball-hit checks after shockwave activation:
+  primary dive shockwave vertical-window testing, Dual Glitch clone shockwave
+  hit testing, ball-boost result construction, clone-hit marking, and direct
+  calls back to the runtime for slip, Chaos release, feedback, hit-pulse, and
+  gold side effects. `viper_skill_runtime.gd` remains the public call surface
+  for ball-motion result fields.
+- `scripts/characters/viper_skill_emp_strike_runtime.gd`
+  Owns EMP Strike's non-ball-hit runtime body: S-hold activation gating,
+  charge-particle ramp, activation result setup, cooldown / gauge spend side
+  effects through the runtime action router, prep / fall / shockwave phase
+  advancement, boss-slip duration setup, boss-slip motion application, Dual
+  Glitch EMP replica entry spawn, and EMP hold / active reset cleanup.
+  `viper_skill_runtime.gd` remains authoritative for public wrapper names,
+  draw-state storage, and shared EMP constants.
+- `scripts/characters/viper_skill_ignition_aura_runtime.gd`
+  Owns Ignition Aura hold activation and per-frame sustain: hold gating,
+  charge-particle ramp, configured cooldown / gauge side effects, activation
+  feedback, burst spawning, live-ember particle aging, selected-character
+  cancellation, live player position / paddle-size sync, runtime-perk bonus
+  refresh, serve-wait / inactive-ball duration pause, ember spawning, and
+  duration expiry cleanup. `viper_skill_runtime.gd` remains authoritative for
+  public wrapper names, round-reset carryover policy, draw-state storage, and
+  public snapshots.
+- `scripts/characters/viper_skill_marshal_window_runtime.gd`
+  Owns per-frame Marshal / Phantom chain-window timers after activation:
+  first Marshal ready-window timeout / gauge checks, first-hit Phantom delay,
+  Double Marshal ready-window timeout / gauge checks, DMK freeze-frame decay,
+  and phantom-show text lifetime. `viper_skill_runtime.gd` remains
+  authoritative for opening those windows, public wrapper names, draw-state
+  storage, and chain reset entry points.
+- `scripts/characters/viper_skill_marshal_kick_runtime.gd`
+  Owns the actual Marshal / Phantom wall-dive runtime body: activation setup,
+  configured cooldown / gauge side effects, wall jump / cling / reclimb,
+  charge / return phases, hit velocity / curve / gold / Dark Blade handoff,
+  Phantom follow-up arming, impact-object cleanup, dash-cancel fallback, and
+  Marshal reset fields. `viper_skill_runtime.gd` remains authoritative for
+  activation gating, public wrapper names, draw-state storage, and shared
+  Marshal constants.
+- `scripts/characters/viper_skill_nerve_clone_runtime.gd`
+  Owns Nerve Strike clone-slash per-frame state advancement for the Four
+  Poisons / Dual Glitch replication path: delayed pending entries, target
+  tracking during travel, one-shot confusion / slash feedback application,
+  slash linger timers, and removal of completed clone entries.
+  The real confusion / feedback helpers remain available through the runtime
+  wrappers and are implemented by `viper_skill_nerve_strike_runtime.gd`.
+- `scripts/characters/viper_skill_nerve_strike_runtime.gd`
+  Owns the real Nerve Strike runtime body: activation setup / cooldown and
+  gauge side effects, dash tracking, hit / miss branching, Venom Mist boss
+  hook, slash trigger, confusion scaling, return motion, clone-slash spawn
+  entries for Dual Glitch replication, and Nerve reset fields.
+  `viper_skill_runtime.gd` remains authoritative for activation gating,
+  public wrapper names, draw-state storage, and shared Nerve constants.
+- `scripts/characters/viper_skill_shadow_step_runtime.gd`
+  Owns Shadow Step dash-origin activation setup and runtime effects:
+  snapback target calculation, cooldown / gauge / dash-cancel side effects,
+  activation feedback, shadow-kick ready-window decay, hologram progress /
+  destination shock feedback, phantom-strike visual timer, delayed Marshal
+  chain-window opening, starburst frame advancement, and Shadow Step hit
+  result side effects including ball launch speed / curve, Chaos release
+  handoff, feedback, knockback arming, and skill-gold payout.
+  `viper_skill_runtime.gd` remains authoritative for public wrapper names,
+  draw-state storage, and public reset / snapshot fields.
+- `scripts/characters/viper_skill_shadow_step_ball_motion_runtime.gd`
+  Owns Shadow Step per-frame ball-motion collision checks after activation:
+  wave travel / trail pruning, wave-vs-ball hit testing, hologram-vs-ball hit
+  testing, and active shadow-curve velocity bending. It calls the existing
+  `viper_skill_runtime.gd` hit wrapper so audio, gold, feedback, Chaos
+  release, and knockback sequencing stay routed through
+  `viper_skill_shadow_step_runtime.gd`.
+- `scripts/characters/viper_skill_transient_effect_runtime.gd`
+  Owns Viper's remaining per-frame transient effect ticks that are not
+  themselves activation state machines: Nerve Strike miss text / slash VFX
+  countdowns, Dive Strike hit text and dive particle aging, Core Flip miss
+  text countdown, Venom Edge short strike lifetime, and Marshal / Phantom
+  hit-particle aging. `viper_skill_runtime.gd` remains authoritative for
+  triggering, spawning, drawing, snapshots, and reset entry points for those
+  transient effects.
 - `scripts/characters/viper_skill_runtime.gd`
   Owns the first Viper active-skill runtimes in Godot: `shadow_step`
-  dash-origin snapback, backstep / shadow-kick audio, hologram and wave
-  hitboxes, gradient ball-hit speed / curve, starburst feedback, skill-gold
-  award, and the delayed `marshal_kick` chain window. It also owns the
-  Python-parity `marshal_kick` / `phantom_kick` wall-dive chain:
-  first-window and second-window timing, wall pull / cling / reclimb /
-  charge / return phases, original backstep / marshal / phantom-show /
-  phantom-hit audio routing, rope / aura / starburst / particle feedback,
-  real hit speed / curve / gold math, nearby stage-object impact cleanup,
-  and the one-shot Phantom Kick boss-paddle knockback flag. It now also
-  owns the Godot `blade_rush` / `dark_blade` projectile slice: airborne
-  W activation, spin angle, spin / launch / jump-rest phase progress,
-  Dark Blade auto-fire state transition, blade and spin audio,
-  projectile hitbox / homing / fadeout / fan VFX, 30-gold hit reward,
-  Air Blade <-> Dark Blade follow-up windows, Dark Blade -> Marshal Kick
-  handoff, and `blade_amp` cost / size / range / projectile-speed /
-  hit-speed / homing / follow-up-blade runtime scaling. Air Blade and
-  Dark Blade currently use the direct canvas fan-polygon projectile VFX;
-  this remains the preferred runtime version after the image-piece
-  experiment was rolled back. Blade projectile ball hits also own
+  public state storage, snapshot surface, and thin reset / before-movement
+  activation / contact / draw wrappers delegated to
+  `viper_skill_reset_runtime.gd`, `viper_skill_activation_runtime.gd`,
+  `viper_skill_contact_runtime.gd`, and `viper_skill_draw_runtime.gd`.
+  Shadow Step activation
+  setup, visual / chain-window timers, and hit side effects are delegated to
+  `viper_skill_shadow_step_runtime.gd`.
+  Shadow Step wave / hologram / curve ball-motion checks are delegated to
+  `viper_skill_shadow_step_ball_motion_runtime.gd`. Simple Nerve / Dive /
+  Core Flip / Venom Edge / Marshal transient-effect ticks are delegated to
+  `viper_skill_transient_effect_runtime.gd`. Core Flip ready-window
+  activation and active motion are delegated to
+  `viper_skill_core_flip_runtime.gd`; real Nerve Strike active motion and
+  hit / return lifecycle are delegated to
+  `viper_skill_nerve_strike_runtime.gd`. Actual `marshal_kick` /
+  `phantom_kick` wall-dive activation, phase motion, hit side effects, and
+  reset fields are delegated to `viper_skill_marshal_kick_runtime.gd`;
+  per-frame Marshal / Phantom chain-window decay is delegated to
+  `viper_skill_marshal_window_runtime.gd`. Air Blade / Dark Blade activation,
+  phase-2 Air Blade / Dark Blade / Nerve follow-up activation decisions, spin /
+  launch / jump-rest phase progress, hit side effects, follow-up spawning,
+  Stage 2 rock collision routing, and Blade reset fields are delegated to
+  `viper_skill_blade_motion_runtime.gd`. Blade projectile
+  ball-motion checks are delegated to `viper_skill_blade_ball_motion_runtime.gd`,
+  while per-frame Blade follow-up window timers are delegated to
+  `viper_skill_blade_window_runtime.gd`. Air Blade and Dark Blade currently
+  use the direct canvas fan-polygon projectile VFX; this remains the preferred
+  runtime version after the image-piece experiment was rolled back. Blade
+  projectile ball hits also own
   difficulty-independent effective-speed caps: Air Blade 40 and Dark Blade
   50 until the boss paddle returns the ball.
-  It also owns the `dive_strike` / EMP Strike runtime: airborne S-hold
-  charge, four-poisons prep / sleep / cooldown / super-armor scaling,
-  prep freeze, vertical dive, landing shockwave, upward ball reflection,
-  20-gold hit reward, boss-paddle slip motion, and the state clock handed
-  to the EMP Strike remastered FX host. It also owns `dual_glitch`
-  clone runtime and `ignition_aura`: command / hold activation, temporary
-  Viper buff clocks, shared right-bottom timer-gauge claims, the
+  EMP Strike activation gating and public wrapper methods remain on the
+  runtime, while S-hold activation setup, prep / fall / shockwave phase
+  advancement, slip setup / motion, and reset cleanup are delegated to
+  `viper_skill_emp_strike_runtime.gd`. EMP Strike ball-hit checks are
+  delegated to `viper_skill_emp_strike_ball_motion_runtime.gd`. Dual Glitch
+  command activation and clone lifecycle are delegated to
+  `viper_skill_dual_glitch_clone_runtime.gd`; the runtime still owns the
+  shared right-bottom timer-gauge claims, the
   sheet-first Ignition Aura field with procedural fallback accents,
-  audio / feedback cues, and runtime-perk bonus handoff. Its Chaos Spear
-  draw bridge now hands the full `startup` / `flying` / `impact` /
-  `blackhole` state clock to the node-backed Chaos Spear FX host, keeping
-  the older direct canvas spear / impact / blackhole draw path as a
-  fallback while the host is not inside the scene tree or its PNG slots are
-  unavailable.
+  audio / feedback cues, clone-slash entry spawning, and runtime-perk bonus
+  handoff. Ignition Aura hold activation and active sustain clocks are delegated to
+  `viper_skill_ignition_aura_runtime.gd`. Its Chaos Spear command activation
+  and per-frame `startup` / `flying` / `impact` / `blackhole` / `fade` phase
+  clock are delegated to `viper_skill_chaos_spear_runtime.gd`; blackhole
+  ball-motion and absorb payout ticks are delegated to
+  `viper_skill_chaos_spear_ball_motion_runtime.gd`, while the draw bridge
+  hands that state to the node-backed Chaos Spear FX host. The host keeps the
+  older direct canvas spear / impact / blackhole draw path as a fallback
+  while it is not inside the scene tree or its PNG slots are unavailable.
 - `scripts/characters/viper_skill_visibility_query.gd`
   Owns Viper skill runtime visibility and read-only derived state queries:
   visible-effect gates, ball-motion/update gates, timer ratios, Venom Edge
@@ -3835,7 +4166,7 @@ This section is intentionally long; use search to find the nearest owner.
   prep-duration / hit-speed scaling, and Core Flip duration / hit-speed scaling.
 - `scripts/characters/viper_skill_geometry.gd`
   Owns shared Viper skill geometry helpers: player / ball / boss center
-  extraction, player-position clamping, blade start-position combo pop, blade prep fall motion, blade projectile launch / hit-velocity motion, speed / homing scalars, blade rest-position arc, blade horizontal control motion, blade / ball hit rects, segment-rect
+  extraction, player-position clamping / locked startup X positioning, blade start-position combo pop, blade prep fall motion, blade projectile launch / hit-velocity motion, speed / homing scalars, blade rest-position arc, blade horizontal control motion, blade / ball hit rects, segment-rect
   intersection, blade projectile trail append/limit, homing gate, target-reach fadeout decision / fadeout timer / ball-hit gate,
   Dark Blade auto-fire window / proximity decision,
   EMP Strike hit velocity, shockwave position / radius /
@@ -3873,9 +4204,9 @@ This section is intentionally long; use search to find the nearest owner.
   shared `WritheEmberMaterial` `chaos_cracks` / `chaos_cracks_enraged`
   presets for UV displacement, `lateral_strength` tangent writhing, heat
   chroma, flicker, outward energy flow, and tweened phase intensity.
-  `viper_skill_runtime.gd` remains authoritative for command input,
-  gameplay timing, hitboxes, audio, ball capture / release, and gold
-  rewards.
+  `viper_skill_command_tracker.gd` owns command input buffering, while
+  `viper_skill_runtime.gd` remains authoritative for gameplay timing,
+  hitboxes, audio, ball capture / release, and gold rewards.
 - `scripts/characters/viper_emp_strike_fx_host.gd`
   Owns the node-backed EMP Strike visual remaster. `viper_skill_runtime.gd`
   remains authoritative for timing, hitboxes, audio, gold, and boss slip,
